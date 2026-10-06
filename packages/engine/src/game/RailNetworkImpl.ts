@@ -18,6 +18,14 @@ import { Railroad } from "./Railroad";
 import { RailSpatialGrid } from "./RailroadSpatialGrid";
 import { Cluster, TrainStation } from "./TrainStation";
 
+/** Structures that can become train stations (the Capital trades like a city). */
+const RAIL_STATION_TYPES: readonly UnitType[] = [
+  UnitType.City,
+  UnitType.Port,
+  UnitType.Factory,
+  UnitType.Capital,
+];
+
 /**
  * The Stations handle their own neighbors so the graph is naturally traversable,
  * but it would be expensive to look through the graph to find a station.
@@ -254,7 +262,7 @@ export class RailNetworkImpl implements RailNetwork {
   }
 
   overlappingRailroads(unitType: UnitType, tile: TileRef): TileRef[] {
-    if (![UnitType.City, UnitType.Port, UnitType.Factory].includes(unitType)) {
+    if (!RAIL_STATION_TYPES.includes(unitType)) {
       return [];
     }
     const tiles = new Set<TileRef>();
@@ -271,7 +279,7 @@ export class RailNetworkImpl implements RailNetwork {
   }
 
   computeGhostRailPaths(unitType: UnitType, tile: TileRef): TileRef[][] {
-    if (![UnitType.City, UnitType.Port, UnitType.Factory].includes(unitType)) {
+    if (!RAIL_STATION_TYPES.includes(unitType)) {
       return [];
     }
 
@@ -283,9 +291,9 @@ export class RailNetworkImpl implements RailNetwork {
     const minRangeSquared = this.game.config().trainStationMinRange() ** 2;
     const maxPathSize = this.game.config().railroadMaxSize();
 
-    // A City or Port only joins the rail network when a Factory is already in
-    // range (see CityExecution/PortExecution). A Factory always becomes a
-    // station and pulls nearby City/Port/Factory into the network itself, so
+    // A City, Port or Capital only joins the rail network when a Factory is
+    // already in range (see CityExecution/PortExecution/CapitalExecution). A
+    // Factory always becomes a station and pulls nearby ones in itself, so
     // it needs no pre-existing factory to connect to.
     const buildingFactory = unitType === UnitType.Factory;
     if (
@@ -295,11 +303,7 @@ export class RailNetworkImpl implements RailNetwork {
       return [];
     }
 
-    const neighbors = this.game.nearbyUnits(tile, maxRange, [
-      UnitType.City,
-      UnitType.Factory,
-      UnitType.Port,
-    ]);
+    const neighbors = this.game.nearbyUnits(tile, maxRange, RAIL_STATION_TYPES);
     neighbors.sort((a, b) => a.distSquared - b.distSquared);
 
     const paths: TileRef[][] = [];
@@ -336,7 +340,9 @@ export class RailNetworkImpl implements RailNetwork {
       // factory promotes it after creating its own station. The city then
       // initiates the real connection back to the factory.
       const path =
-        !neighborStation && neighbor.unit.type() === UnitType.City
+        !neighborStation &&
+        (neighbor.unit.type() === UnitType.City ||
+          neighbor.unit.type() === UnitType.Capital)
           ? this.pathService.findTilePath(targetTile, tile)
           : this.pathService.findTilePath(tile, targetTile);
       if (path.length > 0 && path.length < maxPathSize) {
@@ -354,7 +360,7 @@ export class RailNetworkImpl implements RailNetwork {
     const neighbors = this.game.nearbyUnits(
       station.tile(),
       this.game.config().trainStationMaxRange(),
-      [UnitType.City, UnitType.Factory, UnitType.Port],
+      RAIL_STATION_TYPES,
     );
 
     const editedClusters = new Set<Cluster>();

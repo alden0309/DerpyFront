@@ -71,6 +71,17 @@ function getStructureRatios(
   };
 }
 
+/** Structures a train can stop at, for rail connectivity scoring. */
+const TRADE_STRUCTURE_TYPES: readonly UnitType[] = [
+  UnitType.City,
+  UnitType.Port,
+  UnitType.Factory,
+  UnitType.Capital,
+];
+
+/** Cities a nation builds before it starts saving for its Capital. */
+const CITIES_BEFORE_CAPITAL = 1;
+
 /** Perceived cost increase percentage per city owned */
 const CITY_PERCEIVED_COST_INCREASE_PER_OWNED = 1;
 
@@ -530,6 +541,19 @@ export class NationStructureBehavior {
       }
     }
 
+    // Capital (one per player): once the first city stands, it comes before
+    // everything else, since its gold, troops and defense all pay off
+    // immediately. It goes up as soon as the nation holds its full price,
+    // which nations reach once they start saving after their first cities.
+    if (
+      (citiesDisabled || cityCount >= CITIES_BEFORE_CAPITAL) &&
+      !config.isUnitDisabled(UnitType.Capital) &&
+      this.player.units(UnitType.Capital).length === 0 &&
+      this.maybeSpawnStructure(UnitType.Capital)
+    ) {
+      return true;
+    }
+
     // Build order for non-city structures (priority order)
     const buildOrder: UnitType[] = [
       UnitType.Port,
@@ -968,7 +992,10 @@ export class NationStructureBehavior {
     type: UnitType,
   ): ((tile: TileRef) => number) | null {
     switch (type) {
+      // A Capital wants what a city wants: deep inside the border, spaced
+      // from other structures, and near the rail network.
       case UnitType.City:
+      case UnitType.Capital:
         return this.cityValue();
       case UnitType.MissileSilo:
         return this.missileSiloValue();
@@ -1181,11 +1208,7 @@ export class NationStructureBehavior {
     // Own structures — weighted by "self" trade gold.
     const selfWeight =
       Number(game.config().trainGold("self", 0, player)) / maxTradeGold;
-    for (const unit of player.units(
-      UnitType.City,
-      UnitType.Port,
-      UnitType.Factory,
-    )) {
+    for (const unit of player.units(TRADE_STRUCTURE_TYPES)) {
       if (unitToCluster.has(unit)) {
         result.push({
           tile: unit.tile(),
@@ -1207,11 +1230,7 @@ export class NationStructureBehavior {
           : "other";
       const weight =
         Number(game.config().trainGold(relType, 0, player)) / maxTradeGold;
-      for (const unit of neighbor.units(
-        UnitType.City,
-        UnitType.Port,
-        UnitType.Factory,
-      )) {
+      for (const unit of neighbor.units(TRADE_STRUCTURE_TYPES)) {
         if (unitToCluster.has(unit)) {
           result.push({
             tile: unit.tile(),
@@ -1349,6 +1368,7 @@ export class NationStructureBehavior {
         case UnitType.Factory:
         case UnitType.MissileSilo:
         case UnitType.Port:
+        case UnitType.Capital:
           protectEntries.push({
             tile: unit.tile(),
             weight: weightByLevel ? unit.level() : 1,

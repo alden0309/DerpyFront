@@ -136,6 +136,8 @@ describe("Nation economy at the start", () => {
     const { nation, behavior, cities, built } = setupCoast({
       difficulty: Difficulty.Hard,
       gameMode: ffa,
+      // With 1M in hand a nation builds its Capital first (Capital mod).
+      disabledUnits: [UnitType.Capital],
     });
     cities(2);
     nation.addGold(1_000_000n);

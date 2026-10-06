@@ -165,9 +165,9 @@ export class Config {
   // Capital (one per player): raises the troop cap and grants the same
   // number of troops once when it finishes building. Troops are stored at
   // 10x what the UI shows (renderTroops divides by 10), so this is the
-  // 100K players see on screen.
+  // 70K players see on screen.
   capitalTroopBonus(): number {
-    return 1_000_000;
+    return 700_000;
   }
   // Capital gold payout and how often it arrives (in ticks; 10 ticks = 1s).
   capitalGoldPayout(): bigint {

@@ -5,7 +5,6 @@ import "./CosmeticBackground";
 import "./NavAccountMenu";
 import "./NavUtilityIcons";
 import "./NewsBox";
-import "./SteamWishlist";
 import "./StreamingNow";
 
 @customElement("play-page")
@@ -119,11 +118,13 @@ export class PlayPage extends LitElement {
 
         <game-mode-selector></game-mode-selector>
 
-        <!-- Desktop gets the compact footer button instead. -->
-        <steam-wishlist
-          campaign="home_mobile"
-          class="block px-2 pb-4 lg:hidden"
-        ></steam-wishlist>
+        <!-- Derpy Front: a greeting where OpenFront's Steam store widget was.
+             Desktop gets its own in the footer. -->
+        <p
+          class="hey-buddy m-0 block px-2 pb-4 text-center text-2xl font-bold tracking-wide text-white lg:hidden"
+        >
+          Hey Buddy
+        </p>
       </div>
     `;
   }

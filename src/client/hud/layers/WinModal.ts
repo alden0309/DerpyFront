@@ -31,6 +31,9 @@ import { steamSDK } from "../../SteamSDK";
 import { SendWinnerEvent } from "../../Transport";
 import { GameView } from "../../view";
 
+/** Derpy Front: OpenFront's Steam store widget stays out of the end screen. */
+const DERPY_FRONT_SHOWS_STEAM: boolean = false;
+
 @customElement("win-modal")
 export class WinModal extends LitElement implements Controller {
   public game: GameView;
@@ -111,8 +114,9 @@ export class WinModal extends LitElement implements Controller {
 
   innerHtml() {
     // The Steam desktop build has nothing to wishlist — fall through to the
-    // other promos so the box is never empty.
-    const canWishlist = !steamSDK.isOnSteam();
+    // other promos so the box is never empty. Derpy Front never shows the
+    // Steam store at all.
+    const canWishlist = DERPY_FRONT_SHOWS_STEAM && !steamSDK.isOnSteam();
 
     if (isInIframe()) {
       return canWishlist ? this.steamWishlist() : this.discordDisplay();

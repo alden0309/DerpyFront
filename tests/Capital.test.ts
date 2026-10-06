@@ -6,12 +6,14 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameConfig, GameID } from "@openfront/engine-api/Schemas";
+import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   AttackLogicInput,
   EngineConfig,
 } from "@openfront/engine/configuration/EngineConfig";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { ConstructionExecution } from "@openfront/engine/execution/ConstructionExecution";
+import { NationStructureBehavior } from "@openfront/engine/execution/nation/NationStructureBehavior";
 import { SpawnExecution } from "@openfront/engine/execution/SpawnExecution";
 import { Game, Player } from "@openfront/engine/game/Game";
 import { vi } from "vitest";
@@ -51,9 +53,9 @@ function buildCapital(game: Game, player: Player, tile: TileRef) {
 }
 
 describe("Capital", () => {
-  test("costs 500K and only one can be built", async () => {
+  test("costs 1M and only one can be built", async () => {
     const { game, me } = await newGame(true);
-    expect(game.unitInfo(UnitType.Capital).cost(game, me)).toBe(500_000n);
+    expect(game.unitInfo(UnitType.Capital).cost(game, me)).toBe(1_000_000n);
 
     const tiles = ownTiles(me);
     expect(me.canBuild(UnitType.Capital, tiles[0])).not.toBe(false);
@@ -77,18 +79,18 @@ describe("Capital", () => {
     expect(me.canBuild(UnitType.Capital, tiles[tiles.length - 1])).toBe(false);
   });
 
-  // Troops are stored at 10x the on-screen number, so the 100K a player
-  // sees is 1,000,000 here.
-  test("adds 100K troops and raises the troop cap by 100K", async () => {
+  // Troops are stored at 10x the on-screen number, so the 70K a player
+  // sees is 700,000 here.
+  test("adds 70K troops and raises the troop cap by 70K", async () => {
     const { game, me } = await newGame(true);
     const maxBefore = game.config().maxTroops(me);
     const troopsBefore = me.troops();
     buildCapital(game, me, ownTiles(me)[0]);
-    expect(game.config().maxTroops(me) - maxBefore).toBeCloseTo(1_000_000);
-    expect(me.troops() - troopsBefore).toBeGreaterThanOrEqual(1_000_000);
+    expect(game.config().maxTroops(me) - maxBefore).toBeCloseTo(700_000);
+    expect(me.troops() - troopsBefore).toBeGreaterThanOrEqual(700_000);
     // ...and they stay: a few seconds later they haven't drained away.
     executeTicks(game, 50);
-    expect(me.troops() - troopsBefore).toBeGreaterThanOrEqual(1_000_000);
+    expect(me.troops() - troopsBefore).toBeGreaterThanOrEqual(700_000);
   });
 
   test("pays 10K gold every 5 seconds on top of normal income", async () => {
@@ -123,7 +125,7 @@ describe("Capital", () => {
     expect(spot).toBeDefined();
     buildCapital(game, me, spot!);
     expect(me.units(UnitType.Capital)).toHaveLength(1);
-    expect(game.config().maxTroops(me) - maxNow).toBeCloseTo(1_000_000);
+    expect(game.config().maxTroops(me) - maxNow).toBeCloseTo(700_000);
   });
 
   test("defends like a defense post, at twice the strength", () => {
@@ -182,5 +184,109 @@ describe("Capital", () => {
       .filter((input) => input.defender !== null);
     expect(onMe.length).toBeGreaterThan(0);
     expect(onMe.every((input) => input.defenderHasCapital)).toBe(true);
+  });
+
+  describe("on the rail network", () => {
+    // My land: a wide strip along the top, clear of the enemy at y=40.
+    async function railGame() {
+      const { game, me } = await newGame(true);
+      for (let y = 0; y < 30; y++) {
+        for (let x = 0; x < 80; x++) me.conquer(game.ref(x, y));
+      }
+      const build = (type: UnitType, x: number, y: number) => {
+        game.addExecution(new ConstructionExecution(me, type, game.ref(x, y)));
+        executeTicks(game, 5);
+        return me.units(type)[0];
+      };
+      return { game, me, build };
+    }
+
+    test("a Capital built near a factory becomes a connected station", async () => {
+      const { game, build } = await railGame();
+      const factory = build(UnitType.Factory, 10, 10);
+      const capital = build(UnitType.Capital, 45, 10);
+      executeTicks(game, 5);
+
+      expect(capital.hasTrainStation()).toBe(true);
+      const stations = game.railNetwork().stationManager();
+      const cluster = stations.findStation(capital)?.getCluster();
+      expect(cluster).toBeTruthy();
+      expect(stations.findStation(factory)?.getCluster()).toBe(cluster);
+    });
+
+    test("a factory built later pulls the Capital in", async () => {
+      const { game, build } = await railGame();
+      const capital = build(UnitType.Capital, 45, 10);
+      expect(capital.hasTrainStation()).toBe(false);
+      build(UnitType.Factory, 10, 10);
+      executeTicks(game, 5);
+      expect(capital.hasTrainStation()).toBe(true);
+    });
+
+    test("trains trade at the Capital like a city", async () => {
+      const { game, me, build } = await railGame();
+      build(UnitType.Factory, 10, 10);
+      build(UnitType.Capital, 45, 10);
+      // With no city around, the Capital is the factory's only destination.
+      executeTicks(game, 2_000);
+      expect(me.trainGold()).toBeGreaterThan(0n);
+    });
+  });
+});
+
+describe("Nations and the Capital", () => {
+  async function nationGame(cities: number, gold: bigint) {
+    const game = await setup("plains", { instantBuild: true });
+    const info = new PlayerInfo("Nation", PlayerType.Nation, null, "Nation");
+    game.addPlayer(info);
+    const nation = game.player(info.id);
+    // Most of the map, leaving a border (nations pick spots inside it).
+    for (let y = 0; y < 80; y++) {
+      for (let x = 0; x < 80; x++) nation.conquer(game.ref(x, y));
+    }
+    for (let i = 0; i < cities; i++) {
+      nation.buildUnit(UnitType.City, game.ref(10 + 30 * i, 40), {});
+    }
+    nation.addGold(gold);
+    const behavior = new NationStructureBehavior(
+      new PseudoRandom(7),
+      game,
+      nation,
+    );
+    const spy = vi.spyOn(game, "addExecution");
+    const built = () =>
+      spy.mock.calls
+        .map(([e]) => e)
+        .filter((e) => e instanceof ConstructionExecution)
+        .map(
+          (e) =>
+            (e as unknown as { constructionType: UnitType }).constructionType,
+        );
+    return { game, nation, behavior, built };
+  }
+
+  test("a nation with a city builds its Capital once it can afford it", async () => {
+    const { behavior, built } = await nationGame(1, 1_000_000n);
+    expect(behavior.handleStructures()).toBe(true);
+    expect(built()).toEqual([UnitType.Capital]);
+  });
+
+  test("not before its first city", async () => {
+    const { behavior, built } = await nationGame(0, 5_000_000n);
+    behavior.handleStructures();
+    expect(built()).not.toContain(UnitType.Capital);
+  });
+
+  test("not while it can't afford one", async () => {
+    const { behavior, built } = await nationGame(1, 900_000n);
+    behavior.handleStructures();
+    expect(built()).not.toContain(UnitType.Capital);
+  });
+
+  test("never a second one", async () => {
+    const { game, nation, behavior, built } = await nationGame(1, 5_000_000n);
+    nation.buildUnit(UnitType.Capital, game.ref(60, 60), {});
+    behavior.handleStructures();
+    expect(built()).not.toContain(UnitType.Capital);
   });
 });

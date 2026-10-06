@@ -1,3 +1,4 @@
+import { UnitType } from "@openfront/engine-api/game/GameTypes";
 import { zInt, zRef } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { z } from "zod";
 import { Execution, Game, Unit } from "../game/Game";
@@ -7,17 +8,20 @@ import type {
   SnapshotReader,
   SnapshotWriter,
 } from "../snapshot/SnapshotContext";
+import { TrainStationExecution } from "./TrainStationExecution";
 
 /**
  * Capital: a one-per-player building. Once it finishes building it grants a
  * one-time troop bonus (the troop cap rises by the same amount in Config),
  * then pays its owner a fixed amount of gold on a fixed interval for as long
- * as it stands.
+ * as it stands. Like a city, it joins the rail network as a trade station
+ * when a factory is in range.
  */
 export class CapitalExecution implements Execution {
   private mg: Game;
   private active: boolean = true;
   private troopsGranted = false;
+  private stationCreated = false;
   private ticksUntilPayout = 0;
 
   constructor(private capital: Unit) {}
@@ -35,6 +39,11 @@ export class CapitalExecution implements Execution {
     const owner = this.capital.owner();
     const config = this.mg.config();
 
+    if (!this.stationCreated) {
+      this.createStation();
+      this.stationCreated = true;
+    }
+
     if (!this.troopsGranted) {
       owner.addTroops(config.capitalTroopBonus());
       this.troopsGranted = true;
@@ -46,6 +55,17 @@ export class CapitalExecution implements Execution {
       owner.addGold(gold, this.capital.tile());
       this.mg.stats().goldWork(owner, gold);
       this.ticksUntilPayout = config.capitalPayoutInterval();
+    }
+  }
+
+  private createStation(): void {
+    const nearbyFactory = this.mg.hasUnitNearby(
+      this.capital.tile(),
+      this.mg.config().trainStationMaxRange(),
+      UnitType.Factory,
+    );
+    if (nearbyFactory && !this.capital.hasTrainStation()) {
+      this.mg.addExecution(new TrainStationExecution(this.capital));
     }
   }
 
@@ -62,6 +82,7 @@ export class CapitalExecution implements Execution {
       active: this.active,
       initialized: this.mg !== undefined,
       troopsGranted: this.troopsGranted,
+      stationCreated: this.stationCreated,
       ticksUntilPayout: this.ticksUntilPayout,
       capital: w.unit(this.capital),
     });
@@ -71,6 +92,7 @@ export class CapitalExecution implements Execution {
     this.active = s.active;
     if (s.initialized) this.mg = r.game;
     this.troopsGranted = s.troopsGranted;
+    this.stationCreated = s.stationCreated;
     this.ticksUntilPayout = s.ticksUntilPayout;
     this.capital = r.unit(s.capital);
   }
@@ -80,6 +102,7 @@ const CapitalStateSchema = z.object({
   active: z.boolean(),
   initialized: z.boolean(),
   troopsGranted: z.boolean(),
+  stationCreated: z.boolean(),
   ticksUntilPayout: zInt(),
   capital: zRef(),
 });
