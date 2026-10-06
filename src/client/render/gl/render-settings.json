@@ -151,6 +151,10 @@
       "Missile Silo": {
         "scale": 1.55,
         "iconFill": 0.85
+      },
+      "Capital": {
+        "scale": 1.45,
+        "iconFill": 0.8
       }
     },
     "highlightOutlineWidth": 0.04,
@@ -377,6 +381,10 @@
     "Missile Silo": {
       "radius": 18,
       "intensity": 1.2
+    },
+    "Capital": {
+      "radius": 24,
+      "intensity": 1.5
     },
     "Transport": {
       "radius": 6,

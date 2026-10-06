@@ -162,6 +162,20 @@ export class Config {
   cityTroopIncrease(): number {
     return 250_000;
   }
+  // Capital (one per player): raises the troop cap and grants the same
+  // number of troops once when it finishes building. Troops are stored at
+  // 10x what the UI shows (renderTroops divides by 10), so this is the
+  // 100K players see on screen.
+  capitalTroopBonus(): number {
+    return 1_000_000;
+  }
+  // Capital gold payout and how often it arrives (in ticks; 10 ticks = 1s).
+  capitalGoldPayout(): bigint {
+    return 10_000n;
+  }
+  capitalPayoutInterval(): number {
+    return 5 * 10;
+  }
   msPerTick(): number {
     return 100;
   }
@@ -174,6 +188,11 @@ export class Config {
 
   defensePostRange(): number {
     return 30;
+  }
+
+  // The Capital protects land as far out as a defense post does.
+  capitalDefenseRange(): number {
+    return this.defensePostRange();
   }
 
   isUnitDisabled(unitType: UnitType): boolean {
@@ -245,6 +264,13 @@ export class Config {
         info = {
           constructionDuration: this.instantBuild() ? 0 : 2 * 10,
           upgradable: true,
+        };
+        break;
+      case UnitType.Capital:
+        // Not upgradable: levels would get around the one-per-player limit.
+        info = {
+          constructionDuration: this.instantBuild() ? 0 : 10 * 10,
+          upgradable: false,
         };
         break;
       case UnitType.TransportShip:
@@ -333,7 +359,10 @@ export class Config {
             .filter((u) => !u.isUnderConstruction())
             .map((city) => city.level())
             .reduce((a, b) => a + b, 0) *
-            this.cityTroopIncrease();
+            this.cityTroopIncrease() +
+          player.units(UnitType.Capital).filter((u) => !u.isUnderConstruction())
+            .length *
+            this.capitalTroopBonus();
 
     if (player.type() === PlayerType.Bot) {
       return maxTroops / 3;

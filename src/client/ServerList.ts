@@ -11,6 +11,7 @@ import {
   versionedPathForGame,
   versionMatches,
 } from "@openfront/shared/ServerList";
+import { GameEnv } from "@openfront/shared/configuration/Env";
 import { z } from "zod";
 import { getApiBase } from "./ApiBase";
 import { ClientEnv } from "./ClientEnv";
@@ -258,9 +259,28 @@ export function backendReachable(): boolean | null {
  * bug, and the reason getDesktopUpdateState() exists in the same shape.
  */
 export function backendUnreachableConfirmed(): boolean {
+  if (selfHostedGameServer()) return false;
   return (
     reachable === false && consecutiveFailures >= CONFIRM_OUTAGE_AFTER_FAILURES
   );
+}
+
+/**
+ * Capital mod: a privately hosted dev server (`npm run dev`, shared with a
+ * friend) serves the page AND names itself as the game server, and private
+ * lobbies on it never touch the list API. That API isn't running there, so
+ * its silence is not an outage and must not switch multiplayer off.
+ */
+function selfHostedGameServer(): boolean {
+  try {
+    return (
+      ClientEnv.env() === GameEnv.Dev &&
+      ClientEnv.cluster() !== undefined &&
+      ClientEnv.instanceLetter() !== undefined
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**

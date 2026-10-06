@@ -357,6 +357,14 @@ export class AttackExecution implements Execution {
         UnitType.DefensePost,
         defender.id(),
       );
+    const defenderHasCapital =
+      defender !== null &&
+      this.mg.hasUnitNearby(
+        tile,
+        this.mg.config().capitalDefenseRange(),
+        UnitType.Capital,
+        defender.id(),
+      );
     return {
       terrain: this.map.terrainType(tile),
       attackTroops,
@@ -376,6 +384,7 @@ export class AttackExecution implements Execution {
                 defender.isDisconnected() && this._owner.isOnSameTeam(defender),
             },
       defenderHasDefensePost,
+      defenderHasCapital,
       falloutRatio: this.mg.hasFallout(tile)
         ? this.mg.numTilesWithFallout() / this.mg.numLandTiles()
         : null,

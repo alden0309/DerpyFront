@@ -10,6 +10,7 @@ import type { RendererConfig, UnitState } from "../../types";
 import {
   SMOOTHED_NUKE_TYPES,
   UT_ATOM_BOMB,
+  UT_CAPITAL,
   UT_CITY,
   UT_DEFENSE_POST,
   UT_FACTORY,
@@ -44,6 +45,7 @@ interface LightConfig {
 
 const LIGHT_CONFIGS: Record<string, LightConfig> = {
   [UT_CITY]: { r: 1.0, g: 0.85, b: 0.5, radius: 18, intensity: 1.2 },
+  [UT_CAPITAL]: { r: 1.0, g: 0.8, b: 0.35, radius: 24, intensity: 1.5 },
   [UT_PORT]: { r: 1.0, g: 0.75, b: 0.4, radius: 18, intensity: 1.2 },
   [UT_FACTORY]: { r: 1.0, g: 0.6, b: 0.3, radius: 18, intensity: 1.2 },
   [UT_DEFENSE_POST]: { r: 0.8, g: 0.85, b: 1.0, radius: 18, intensity: 1.2 },

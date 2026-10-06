@@ -75,6 +75,18 @@ describe("structure and missile execution snapshots", () => {
     await expectSnapshotRoundTrip(game, BIG, 80);
   });
 
+  test("capital paying out, with its troop bonus granted", async () => {
+    const { game, a } = await twoPlayers(BIG, { instantBuild: true });
+    conquerRect(game, a, 0, 0, 40, 40);
+    game.addExecution(
+      new ConstructionExecution(a, UnitType.Capital, game.ref(20, 20)),
+    );
+    // Mid-way between payouts, so the countdown has to survive the round trip.
+    executeTicks(game, 30);
+    expect(a.units(UnitType.Capital)).toHaveLength(1);
+    await expectSnapshotRoundTrip(game, BIG, 80);
+  });
+
   test("nukes in flight, waiting and pending", async () => {
     const { game, a, b } = await twoPlayers(BIG, { instantBuild: true });
     conquerRect(game, a, 0, 0, 30, 30);

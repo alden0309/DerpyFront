@@ -467,6 +467,9 @@ export class BuildPreviewController implements Controller {
       case UnitType.DefensePost:
         rangeRadius = this.game.config().defensePostRange();
         break;
+      case UnitType.Capital:
+        rangeRadius = this.game.config().capitalDefenseRange();
+        break;
     }
     let radiusTileX = this.game.x(placementTile);
     let radiusTileY = this.game.y(placementTile);

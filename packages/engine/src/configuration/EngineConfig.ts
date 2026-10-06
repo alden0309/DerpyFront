@@ -36,6 +36,11 @@ export interface AttackLogicInput {
   } | null;
   /** A defense post owned by the defender is in range of the tile. */
   defenderHasDefensePost: boolean;
+  /**
+   * The defender's Capital is in range of the tile. Takes the place of the
+   * defense post bonus (they don't stack).
+   */
+  defenderHasCapital?: boolean;
   /** Fraction of land tiles with fallout, or null if the tile has no fallout. */
   falloutRatio: number | null;
   /** Tiles on the attack front this tick (plus jitter); fixed for the tick. */
@@ -142,6 +147,15 @@ export class EngineConfig extends Config {
 
   defensePostSpeedBonus(): number {
     return 3;
+  }
+
+  // Capital: defends like a defense post, at twice the strength.
+  capitalDefenseBonus(): number {
+    return 2 * this.defensePostDefenseBonus();
+  }
+
+  capitalSpeedBonus(): number {
+    return 2 * this.defensePostSpeedBonus();
   }
 
   playerTeams(): TeamCountConfig {
@@ -358,6 +372,8 @@ export class EngineConfig extends Config {
           UnitType.Factory,
           UnitType.Port,
         );
+      case UnitType.Capital:
+        return this.costWrapper(() => 500_000, UnitType.Capital);
       case UnitType.TransportShip:
       case UnitType.Shell:
       case UnitType.SAMMissile:
@@ -488,7 +504,10 @@ export class EngineConfig extends Config {
     const { attackTroops, attacker, defender } = input;
     let { mag, tileCost } = terrainAttackBase(input.terrain);
 
-    if (defender !== null && input.defenderHasDefensePost) {
+    if (defender !== null && input.defenderHasCapital) {
+      mag *= this.capitalDefenseBonus();
+      tileCost *= this.capitalSpeedBonus();
+    } else if (defender !== null && input.defenderHasDefensePost) {
       mag *= this.defensePostDefenseBonus();
       tileCost *= this.defensePostSpeedBonus();
     }

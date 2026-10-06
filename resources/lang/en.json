@@ -169,6 +169,7 @@
   "build_menu": {
     "desc": {
       "atom_bomb": "Small explosion",
+      "capital": "One per player: +10K gold every 5s, +100K troops, 2x defense post",
       "city": "Increases max population",
       "defense_post": "Increases defenses of nearby borders",
       "factory": "Creates railroads and spawns trains",
@@ -2196,6 +2197,7 @@
   "unit_type": {
     "atom_bomb": "Atom Bomb",
     "boat": "Boat",
+    "capital": "Capital",
     "city": "City",
     "defense_post": "Defense Post",
     "factory": "Factory",
@@ -2256,6 +2258,8 @@
     "break_alliance_desc": "Break alliance with the player whose tile is under your cursor.",
     "build_atom_bomb": "Build Atom Bomb",
     "build_atom_bomb_desc": "Build an Atom Bomb under your cursor.",
+    "build_capital": "Build Capital",
+    "build_capital_desc": "Build your Capital under your cursor.",
     "build_city": "Build City",
     "build_city_desc": "Build a City under your cursor.",
     "build_controls": "Build Controls",

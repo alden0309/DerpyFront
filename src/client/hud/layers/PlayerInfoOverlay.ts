@@ -40,6 +40,7 @@ const soldierIconAquarius = assetUrl("images/SoldierIconAquarius.svg");
 const allianceIcon = assetUrl("images/AllianceIcon.svg");
 const traitorIcon = assetUrl("images/TraitorIcon.svg");
 const warshipIcon = assetUrl("images/BattleshipIconWhite.svg");
+const capitalIcon = assetUrl("images/CapitalIconWhite.svg");
 const cityIcon = assetUrl("images/CityIconWhite.svg");
 const factoryIcon = assetUrl("images/FactoryIconWhite.svg");
 const goldCoinIcon = assetUrl("images/GoldCoinIcon.svg");
@@ -536,6 +537,7 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
             ${allianceHtml ?? ""}
           </div>
           <div class="flex gap-0.5 lg:gap-1 items-center mt-0.5">
+            ${this.displayUnitCount(player, UnitType.Capital, capitalIcon)}
             ${this.displayUnitCount(player, UnitType.City, cityIcon)}
             ${this.displayUnitCount(player, UnitType.Factory, factoryIcon)}
             ${this.displayUnitCount(player, UnitType.Port, portIcon)}

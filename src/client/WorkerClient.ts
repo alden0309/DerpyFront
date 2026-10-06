@@ -98,7 +98,10 @@ export class WorkerClient {
         id: messageId,
         gameStartInfo: this.gameStartInfo,
         clientID: this.clientID,
-        cdnBase: getCdnBase(),
+        // The worker runs from a blob: URL, so it can't resolve the
+        // root-relative asset paths a page without a CDN uses; give it this
+        // page's origin instead (self-hosted servers have no CDN).
+        cdnBase: getCdnBase() || window.location.origin,
         snapshot: this.snapshotToRestore,
       });
 

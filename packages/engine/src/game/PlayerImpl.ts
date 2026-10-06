@@ -1618,6 +1618,12 @@ export class PlayerImpl implements Player {
       case UnitType.City:
       case UnitType.Factory:
         return this.landBasedStructureSpawn(targetTile, validTiles);
+      case UnitType.Capital:
+        // One per player, counting one that is still being built.
+        if (this.units(UnitType.Capital).length > 0) {
+          return false;
+        }
+        return this.landBasedStructureSpawn(targetTile, validTiles);
       default:
         assertNever(unitType);
     }

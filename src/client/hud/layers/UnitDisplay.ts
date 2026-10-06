@@ -17,6 +17,7 @@ import { translateText } from "../../Utils";
 import { GameView } from "../../view";
 import {
   atomBombIcon,
+  capitalIcon,
   cityIcon,
   defensePostIcon,
   factoryIcon,
@@ -40,6 +41,7 @@ export class UnitDisplay extends LitElement implements Controller {
   private _cities = 0;
   private _warships = 0;
   private _factories = 0;
+  private _capitals = 0;
   private _missileSilo = 0;
   private _port = 0;
   private _defensePost = 0;
@@ -106,6 +108,12 @@ export class UnitDisplay extends LitElement implements Controller {
           this.cost(item) <= (player?.gold() ?? 0n) &&
           (player?.units(UnitType.Port).length ?? 0) > 0
         );
+      case UnitType.Capital:
+        // One per player: grey the button out once a Capital exists.
+        return (
+          this.cost(item) <= (player?.gold() ?? 0n) &&
+          (player?.units(UnitType.Capital).length ?? 0) === 0
+        );
       default:
         return this.cost(item) <= (player?.gold() ?? 0n);
     }
@@ -123,6 +131,7 @@ export class UnitDisplay extends LitElement implements Controller {
     this._defensePost = player.totalUnitLevels(UnitType.DefensePost);
     this._samLauncher = player.totalUnitLevels(UnitType.SAMLauncher);
     this._factories = player.totalUnitLevels(UnitType.Factory);
+    this._capitals = player.totalUnitLevels(UnitType.Capital);
     this._warships = player.totalUnitLevels(UnitType.Warship);
     this.requestUpdate();
   }
@@ -185,6 +194,13 @@ export class UnitDisplay extends LitElement implements Controller {
             UnitType.SAMLauncher,
             "sam_launcher",
             this.keybinds["buildSamLauncher"]?.key ?? "6",
+          )}
+          ${this.renderUnitItem(
+            capitalIcon,
+            this._capitals,
+            UnitType.Capital,
+            "capital",
+            this.keybinds["buildCapital"]?.key ?? "V",
           )}
           ${this.renderUnitItem(
             warshipIcon,

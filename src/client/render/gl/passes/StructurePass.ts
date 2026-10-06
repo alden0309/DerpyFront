@@ -16,6 +16,7 @@
 
 import type { GhostPreviewData, RendererConfig, UnitState } from "../../types";
 import {
+  UT_CAPITAL,
   UT_CITY,
   UT_DEFENSE_POST,
   UT_FACTORY,
@@ -53,6 +54,7 @@ const STRUCTURE_ORDER = [
   UT_DEFENSE_POST,
   UT_SAM_LAUNCHER,
   UT_MISSILE_SILO,
+  UT_CAPITAL,
 ] as const;
 
 const ATLAS_COLS = STRUCTURE_ORDER.length;
@@ -115,7 +117,7 @@ export class StructurePass {
 
   private instanceCount = 0;
 
-  /** unitType string → atlas column index (0–5) */
+  /** unitType string → atlas column index (0–6) */
   private typeToAtlasCol = new Map<string, number>();
   private mapW: number;
 

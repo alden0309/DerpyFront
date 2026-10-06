@@ -1285,6 +1285,16 @@ export class UserSettingModal extends BaseModal {
       ></setting-keybind>
 
       <setting-keybind
+        action="buildCapital"
+        label=${translateText("user_setting.build_capital")}
+        description=${translateText("user_setting.build_capital_desc")}
+        defaultKey=${this.defaultKeybinds.buildCapital}
+        .value=${this.getKeyValue("buildCapital")}
+        .display=${this.getKeyChar("buildCapital")}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
+
+      <setting-keybind
         action="buildPort"
         label=${translateText("user_setting.build_port")}
         description=${translateText("user_setting.build_port_desc")}

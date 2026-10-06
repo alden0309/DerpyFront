@@ -427,6 +427,9 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 9000,
       host: process.env.VITE_HOST === "lan",
+      // Let a friend reach this dev server through a Cloudflare quick tunnel
+      // (https://<random>.trycloudflare.com), for hosting a private game.
+      allowedHosts: [".trycloudflare.com"],
       // Automatically open the browser when the server starts
       open: process.env.SKIP_BROWSER_OPEN !== "true",
       proxy: {

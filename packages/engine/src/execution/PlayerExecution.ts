@@ -68,7 +68,9 @@ export class PlayerExecution implements Execution {
       }
 
       const captor = this.mg!.player(owner.id());
-      if (u.type() === UnitType.DefensePost) {
+      // A Capital can't change hands: it is destroyed when its tile is
+      // taken, which also keeps every player at one Capital at most.
+      if (u.type() === UnitType.DefensePost || u.type() === UnitType.Capital) {
         u.delete(true, captor);
       } else {
         captor.captureUnit(u);
