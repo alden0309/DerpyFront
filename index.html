@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <title data-i18n="main.title">OpenFront (ALPHA)</title>
+    <title data-i18n="main.title">Capital Mod (based on OpenFront)</title>
     <link rel="manifest" href="<%- manifestHref %>" />
     <link rel="icon" type="image/svg+xml" href="<%- faviconHref %>" />
 
@@ -134,19 +134,18 @@
       }
     </style>
 
-    <!-- SEO -->
-    <link rel="canonical" href="https://openfront.io/" />
+    <!-- SEO: this unofficial copy points nowhere else and stays out of search -->
+    <meta name="robots" content="noindex" />
     <meta
       name="description"
-      content="Conquer the world in this multiplayer battle royale! Expand your nation, eliminate opponents, and dominate the map in this fast-paced IO game."
+      content="Capital Mod: an unofficial, modded copy of OpenFront with a one-per-player Capital building, for playing with friends."
     />
 
     <!-- Open Graph -->
-    <meta property="og:url" content="https://openfront.io/" />
-    <meta property="og:title" content="OpenFront - Battle Royale" />
+    <meta property="og:title" content="Capital Mod (based on OpenFront)" />
     <meta
       property="og:description"
-      content="Conquer the world in this multiplayer battle royale! Expand your nation, eliminate opponents, and dominate the map in this fast-paced IO game."
+      content="An unofficial, modded copy of OpenFront with a one-per-player Capital building, for playing with friends."
     />
     <meta property="og:image" content="<%- gameplayScreenshotUrl %>" />
     <meta property="og:type" content="game" />
@@ -200,61 +199,12 @@
       );
     </script>
 
-    <!-- CrazyGames SDK -->
-    <script
-      src="https://sdk.crazygames.com/crazygames-sdk-v3.js"
-      async
-    ></script>
-
     <!-- Cloudflare Turnstile -->
     <script
       src="https://challenges.cloudflare.com/turnstile/v0/api.js"
       async
       defer
     ></script>
-
-    <script data-cfasync="false">
-      window.ramp = window.ramp || {};
-      window.ramp.que = window.ramp.que || [];
-      window.ramp.passiveMode = true;
-    </script>
-
-    <script>
-      window.googletag = window.googletag || { cmd: [] };
-      googletag.cmd.push(function () {
-        googletag.pubads().set("page_url", "http://openfront.io ");
-      });
-    </script>
-
-    <!-- Analytics -->
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=AW-16702609763"
-    ></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-
-      gtag("js", new Date());
-      gtag("config", "AW-16702609763");
-    </script>
-    <!-- Google tag (gtag.js) -->
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-WQGQQ8RDN4"
-    ></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-      gtag("js", new Date());
-
-      gtag("config", "G-WQGQQ8RDN4");
-    </script>
   </head>
 
   <body
@@ -415,6 +365,22 @@
 
       <div class="[.in-game_&]:hidden mt-auto flex flex-col shrink-0">
         <page-footer></page-footer>
+        <p
+          id="mod-note"
+          class="bg-zinc-900/90 text-white/50 text-xs text-center px-4 pb-3 m-0"
+        >
+          <span class="text-white/80 font-semibold">Capital Mod</span> is an
+          unofficial build based on OpenFront, not affiliated with or endorsed
+          by OpenFront. Source code:
+          <a
+            class="text-sky-300 underline"
+            href="https://github.com/alden0309/DerpyFront/tree/capital-mod"
+            target="_blank"
+            rel="noopener"
+            >github.com/alden0309/DerpyFront</a
+          >
+          (AGPL-3.0).
+        </p>
       </div>
 
       <!-- Global Modals -->
@@ -590,20 +556,6 @@
         }
       });
     </script>
-
-    <!-- Analytics -->
-    <script
-      defer
-      src="https://static.cloudflareinsights.com/beacon.min.js"
-      data-cf-beacon='{"token": "03d93e6fefb349c28ee69b408fa25a13"}'
-    ></script>
     <script type="module" src="/src/client/Main.ts"></script>
-    <footer>
-      <script
-        data-cfasync="false"
-        async
-        src="//cdn.intergient.com/1025558/75940/ramp.js"
-      ></script>
-    </footer>
   </body>
 </html>

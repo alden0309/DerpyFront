@@ -34,6 +34,7 @@ export default [
             "eslint.config.js",
             "scripts/sync-assets.mjs",
             "scripts/selfhost-proxy.mjs",
+            "scripts/start-site.mjs",
             "tests/matchmaking/*.mjs",
           ],
         },

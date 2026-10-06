@@ -6,13 +6,16 @@
 // Node's built-in modules, so the whole game (page, lobby feed, game
 // sockets) is reachable on a single port that a tunnel can share.
 //
-//   node scripts/selfhost-proxy.mjs [listenPort=9000] [numWorkers=2]
+//   node scripts/selfhost-proxy.mjs [listenPort] [numWorkers]
+//
+// Defaults come from the PORT and NUM_WORKERS environment variables (what a
+// host like Render sets), then 9000 and 2.
 
 import http from "node:http";
 import net from "node:net";
 
-const LISTEN_PORT = Number(process.argv[2] ?? 9000);
-const NUM_WORKERS = Number(process.argv[3] ?? 2);
+const LISTEN_PORT = Number(process.argv[2] ?? process.env.PORT ?? 9000);
+const NUM_WORKERS = Number(process.argv[3] ?? process.env.NUM_WORKERS ?? 2);
 const MASTER_PORT = 3000;
 const FIRST_WORKER_PORT = 3001;
 const WORKER_CREATE_PATHS = new Set([

@@ -1,0 +1,18 @@
+# Render Blueprint for the Capital Mod site.
+# On render.com: New > Blueprint, pick this repository. It builds the game
+# once, then runs the game server (one master, one worker) behind
+# scripts/selfhost-proxy.mjs on the port Render provides.
+services:
+  - type: web
+    name: capital-mod
+    runtime: node
+    plan: free
+    branch: capital-mod
+    buildCommand: npx --yes npm@12.1.0 ci --include=dev --ignore-scripts && npx --yes npm@12.1.0 run build-prod
+    startCommand: node scripts/start-site.mjs
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NUM_WORKERS
+        value: "1"
