@@ -20,7 +20,11 @@ import {
   register,
 } from "./DerpyAuth";
 import { DERPY_PACKS, derpyCosmeticsCatalog, findPack } from "./DerpyCatalog";
-import { conquestLeaderboard, overallLeaderboard } from "./DerpyConquest";
+import {
+  conquestLeaderboard,
+  overallLeaderboard,
+  recentResults,
+} from "./DerpyConquest";
 import {
   derpyDbConfigured,
   DerpyDbUnavailable,
@@ -178,6 +182,14 @@ export function derpyApiRouter(): express.Router {
       } else {
         res.json({ game: "derpyfront", players: await leaderboard() });
       }
+    }),
+  );
+
+  // The latest finished games in either game, for the hub's front page.
+  router.get(
+    "/recent",
+    handle(async (_req, res) => {
+      res.json({ results: await recentResults() });
     }),
   );
 

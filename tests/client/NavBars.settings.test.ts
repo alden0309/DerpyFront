@@ -101,23 +101,18 @@ describe("the nav bars that host the cluster", () => {
     window.currentPageId = "page-play";
   });
 
-  it("puts the cogwheel in the desktop bar, immediately left of the account button", async () => {
+  it("puts the cogwheel in the Derp Land bar's tools, beside the account", async () => {
     const bar = await mount("desktop-nav-bar");
     expect(settingsButton(bar)).not.toBeNull();
 
     const cluster = bar.querySelector("nav-utility-icons")!;
-    expect(cluster.nextElementSibling?.tagName.toLowerCase()).toBe(
-      "derpy-nav-account",
-    );
+    expect(cluster.getAttribute("slot")).toBe("tools");
+    expect(cluster.parentElement?.tagName.toLowerCase()).toBe("derp-bar");
   });
 
-  it("puts the cogwheel in the mobile top bar too", async () => {
+  it("leaves the play page without a top bar of its own", async () => {
     const page = await mount("play-page");
-    const cluster = page.querySelector("nav-utility-icons")!;
-    expect(cluster.getAttribute("size")).toBe("mobile");
-    expect(settingsButton(cluster)).not.toBeNull();
-    expect(cluster.nextElementSibling?.tagName.toLowerCase()).toBe(
-      "derpy-nav-account",
-    );
+    expect(page.querySelector("nav-utility-icons")).toBeNull();
+    expect(page.querySelector("#hamburger-btn")).toBeNull();
   });
 });

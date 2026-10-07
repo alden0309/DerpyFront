@@ -57,14 +57,12 @@ import {
 } from "./Utils";
 import { isReplayShellHost } from "./VersionedReplay";
 
-const PRIMARY_ACTION =
-  "bg-malibu-blue hover:bg-aquarius active:bg-malibu-blue/80 hover:scale-y-105 hover:scale-x-[1.01]";
-const SECONDARY_ACTION =
-  "bg-surface hover:brightness-[1.08] active:brightness-[0.95] hover:scale-105 hover:shadow-[var(--shadow-action-card-hover)]";
+// Derp Land's chunky game-piece buttons (styles.css, .derp-btn).
+const PRIMARY_ACTION = "derp-btn-solo";
+const SECONDARY_ACTION = "derp-btn-card";
 const DISABLED = "opacity-50 cursor-not-allowed pointer-events-none";
-/** Tutorial card: the panel's gold, dark text for contrast. */
-const TUTORIAL_ACTION =
-  "bg-cyber-yellow hover:bg-yellow-300 active:bg-cyber-yellow/80 !text-gray-900 hover:scale-y-105 hover:scale-x-[1.01]";
+/** Tutorial card: Derp Coin gold, dark text for contrast. */
+const TUTORIAL_ACTION = "derp-btn-gold";
 
 /**
  * THE REACHABILITY RULE (OPE-439). Stated once, here; every other call site
@@ -887,7 +885,7 @@ export class GameModeSelector extends LitElement {
         @click=${onClick}
         ?disabled=${!this.inputValid}
         aria-disabled=${blocked}
-        class="relative flex items-center justify-center w-full h-full rounded-lg ${bgClass} transition-all duration-200 text-sm lg:text-base font-medium text-white uppercase tracking-wider text-center ${!this
+        class="derp-btn relative w-full h-full text-center ${bgClass} ${!this
           .inputValid
           ? DISABLED
           : blocked

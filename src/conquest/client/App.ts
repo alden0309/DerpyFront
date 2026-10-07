@@ -7,8 +7,8 @@ import {
   DERPY_ACCOUNT_EVENT,
   derpyUsername,
   me as fetchMe,
-  formatCoins,
 } from "../../derpland/Account";
+import "../../derpland/DerpBar";
 import { formatDate, formatMonth } from "../engine/Calendar";
 import { CONQUEST_COINS } from "../engine/Coins";
 import { applyDelta } from "../engine/Delta";
@@ -626,12 +626,7 @@ export class ConquestApp extends LitElement {
   private renderLobby(): TemplateResult {
     return html`
       <div class="cq-lobby min-h-full">
-        <header
-          class="flex items-center justify-between gap-3 px-4 py-3 sm:px-8"
-        >
-          <a href="/" class="cq-back">← Derp Land</a>
-          <div class="text-right text-sm">${this.renderAccountLine()}</div>
-        </header>
+        <derp-bar page="conquest"></derp-bar>
         <main class="mx-auto max-w-5xl px-4 pb-16 sm:px-8">
           <div class="py-6 text-center sm:py-10">
             <h1 class="cq-title">Derpy Conquest</h1>
@@ -659,20 +654,6 @@ export class ConquestApp extends LitElement {
         </main>
       </div>
     `;
-  }
-
-  private renderAccountLine(): TemplateResult {
-    if (this.account) {
-      return html`<span class="cq-pill"
-        >Signed in as <b>${this.account}</b>${this.coins !== null
-          ? html` ·
-              <span title="Derp Coins">🪙 ${formatCoins(this.coins)}</span>`
-          : nothing}</span
-      >`;
-    }
-    return html`<a class="cq-pill" href="/#account"
-      >Sign in on Derp Land to earn Derp Coins</a
-    >`;
   }
 
   private setName(v: string): void {

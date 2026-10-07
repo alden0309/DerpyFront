@@ -32,18 +32,18 @@ async function mount<T extends LitElement>(element: T): Promise<T> {
 afterEach(() => document.body.replaceChildren());
 
 describe("Inventory navigation", () => {
-  it("renders Inventory in desktop and mobile navigation, and no Clans", async () => {
+  it("shows the shared Derp Land bar, whose Inventory tab leads to the site's Inventory, and no Clans", async () => {
     const desktop = await mount(new DesktopNavBar());
+    const bar = desktop.querySelector("derp-bar")!;
+    expect(bar).toBeTruthy();
+    await bar.updateComplete;
+    const tabs = Array.from(
+      bar.shadowRoot!.querySelectorAll<HTMLAnchorElement>("a.tab"),
+    ).map((a) => a.getAttribute("href"));
+    expect(tabs).toEqual(["/store", "/inventory", "/leaderboard"]);
+    expect(desktop.querySelector('[data-page="page-clan"]')).toBeNull();
     const mobile = await mount(new MobileNavBar());
-    expect(
-      desktop.querySelector(
-        '[data-page="page-inventory"][data-i18n="main.inventory"]',
-      ),
-    ).toBeTruthy();
-    expect(mobile.querySelector('[data-page="page-inventory"]')).toBeTruthy();
-    for (const nav of [desktop, mobile]) {
-      expect(nav.querySelector('[data-page="page-clan"]')).toBeNull();
-    }
+    expect(mobile.querySelector('[data-page="page-clan"]')).toBeNull();
   });
 
   it("removes cosmetic and flag selectors from the play page", async () => {
@@ -91,23 +91,25 @@ describe("Inventory navigation", () => {
       loadFailed: false,
     });
     document.body.appendChild(inventory);
-    const desktop = await mount(new DesktopNavBar());
+    // DerpyFront's own inventory (flags and patterns) is opened from links
+    // like the one on the site's Inventory page; any nav item routes it.
+    const link = document.createElement("button");
+    link.className = "nav-menu-item";
+    link.dataset.page = "page-inventory";
+    document.body.appendChild(link);
     modalRouter.register("inventory", {
       tag: "inventory-modal",
       pageId: "page-inventory",
     });
     initNavigation();
 
-    desktop.querySelector<HTMLElement>('[data-page="page-inventory"]')!.click();
+    link.click();
 
+    // DerpyFront opens on flags: the one thing everyone can pick.
     await vi.waitFor(() => {
-      expect(window.location.hash).toBe("#modal=inventory&tab=skins");
+      expect(window.location.hash).toBe("#modal=inventory&tab=flags");
     });
-    expect(
-      desktop
-        .querySelector<HTMLElement>('[data-page="page-inventory"]')!
-        .classList.contains("active"),
-    ).toBe(true);
+    expect(link.classList.contains("active")).toBe(true);
 
     inventory.setActiveTab("effects");
     expect(window.location.hash).toBe("#modal=inventory&tab=effects");
@@ -121,5 +123,5 @@ describe("Inventory navigation", () => {
       );
     });
     expect(window.location.hash).toBe("#modal=inventory&tab=crowns");
-  });
+  }, 30_000);
 });

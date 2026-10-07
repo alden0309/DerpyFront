@@ -126,16 +126,68 @@ export async function signOut(): Promise<void> {
 export interface Me {
   username: string;
   coins: number;
+  /** Store items: "pack:<name>" and "skin:<name>". */
+  owned: string[];
 }
 
 export async function me(): Promise<Me | null> {
   if (derpyToken() === null) return null;
   try {
-    const r = await api<{ account: Me }>("/me");
-    return r.account;
+    const r = await api<{
+      account: { username: string; coins: number };
+      owned: string[];
+    }>("/me");
+    return { ...r.account, owned: r.owned ?? [] };
   } catch {
     return null;
   }
+}
+
+export interface Skin {
+  name: string;
+  displayName: string;
+  url: string;
+}
+
+export interface Pack {
+  name: string;
+  displayName: string;
+  description: string;
+  price: number;
+  skins: Skin[];
+}
+
+export async function storePacks(): Promise<Pack[]> {
+  return (await api<{ packs: Pack[] }>("/store")).packs;
+}
+
+/** Buy a pack; resolves to your coins and items afterwards. */
+export async function buyPack(
+  pack: string,
+): Promise<{ coins: number; owned: string[] }> {
+  const r = await api<{ coins: number; owned: string[] }>("/store/buy", {
+    method: "POST",
+    body: JSON.stringify({ pack }),
+  });
+  announce();
+  return r;
+}
+
+/**
+ * The skin you wear in DerpyFront. DerpyFront reads the same browser
+ * setting ("skin:<name>" under territoryPattern, see UserSettings).
+ */
+const PATTERN_KEY = "territoryPattern";
+
+export function wornSkin(): string | null {
+  const v = derpyStorage()?.getItem(PATTERN_KEY) ?? null;
+  return v?.startsWith("skin:") ? v.slice(5) : null;
+}
+
+export function wearSkin(name: string | null): void {
+  const st = derpyStorage();
+  if (name !== null) st?.setItem(PATTERN_KEY, `skin:${name}`);
+  else if (wornSkin() !== null) st?.removeItem(PATTERN_KEY);
 }
 
 export function formatCoins(n: number): string {

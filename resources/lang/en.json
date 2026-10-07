@@ -594,6 +594,17 @@
     "title": "Support a Creator",
     "unsupport": "Unsupport"
   },
+  "derp_bar": {
+    "conquest_blurb": "Govern a colony in the 1600s Americas for a crown that wants paying.",
+    "dialog_blurb": "One account for DerpyFront and Derpy Conquest. Your Derp Coins and skins come with you.",
+    "front_blurb": "Paint the map your color in real time, then betray your allies.",
+    "make_account": "Make an account",
+    "make_my_account": "Make my account",
+    "new_account": "New account",
+    "your_coins": "Your Derp Coins",
+    "your_skins": "Your skins",
+    "your_stats": "Your stats and replays"
+  },
   "derpy": {
     "account_title": "Your Account",
     "accounts_unavailable": "Accounts aren't set up on this server yet.",
@@ -1443,7 +1454,6 @@
     "login_discord": "Login with Discord",
     "login_google": "Login with Google",
     "login_steam": "Login with Steam",
-    "menu": "Menu",
     "news": "News",
     "play": "Play",
     "privacy_policy": "Privacy Policy",

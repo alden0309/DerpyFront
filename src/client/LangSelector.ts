@@ -296,6 +296,7 @@ export class LangSelector extends LitElement {
       "derpy-store-page",
       "derpy-profile-view",
       "derpy-nav-account",
+      "desktop-nav-bar",
     ];
 
     document.title = this.translateText("main.title") ?? document.title;

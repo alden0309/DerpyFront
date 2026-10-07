@@ -286,3 +286,65 @@ export async function conquestProfile(
     })),
   };
 }
+
+export interface RecentResult {
+  game: "derpyfront" | "conquest";
+  gameId: string;
+  endedAt: string;
+  username: string;
+  won: boolean;
+  /** DerpyFront: the map. Conquest: the nation played. */
+  where: string;
+  numPlayers: number;
+  coins: number;
+}
+
+/** The latest finished games across both games, one line per player. */
+export async function recentResults(limit = 12): Promise<RecentResult[]> {
+  const pool = await db();
+  const [front, conquest] = await Promise.all([
+    pool.query(
+      `SELECT g.game_id, g.ended_at, g.map, g.num_players, gp.username,
+         gp.won, gp.coins
+       FROM derpy_game_players gp
+       JOIN derpy_games g ON g.game_id = gp.game_id
+       ORDER BY g.ended_at DESC, gp.won DESC
+       LIMIT $1`,
+      [limit],
+    ),
+    pool.query(
+      `SELECT g.game_id, g.ended_at, g.num_players, cp.username, cp.nation,
+         cp.won, cp.coins
+       FROM derpy_conquest_players cp
+       JOIN derpy_conquest_games g ON g.game_id = cp.game_id
+       ORDER BY g.ended_at DESC, cp.won DESC
+       LIMIT $1`,
+      [limit],
+    ),
+  ]);
+  const rows: RecentResult[] = [
+    ...front.rows.map((r) => ({
+      game: "derpyfront" as const,
+      gameId: r.game_id,
+      endedAt: new Date(r.ended_at).toISOString(),
+      username: r.username,
+      won: r.won,
+      where: r.map,
+      numPlayers: r.num_players,
+      coins: r.coins,
+    })),
+    ...conquest.rows.map((r) => ({
+      game: "conquest" as const,
+      gameId: r.game_id,
+      endedAt: new Date(r.ended_at).toISOString(),
+      username: r.username,
+      won: r.won,
+      where: r.nation,
+      numPlayers: r.num_players,
+      coins: r.coins,
+    })),
+  ];
+  return rows
+    .sort((a, b) => b.endedAt.localeCompare(a.endedAt))
+    .slice(0, limit);
+}

@@ -1,5 +1,7 @@
-// Derp Land's front page.
+// Derp Land's hub pages: the front page, Store, Inventory, Leaderboard and
+// player pages.
 
+import "../derpland/fonts";
 import "./Hub";
 import "./hub.css";
 

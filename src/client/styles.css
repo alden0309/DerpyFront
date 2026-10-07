@@ -754,3 +754,73 @@ unit-display .tutorial-highlight::after {
 .remove-player-btn:hover {
   background: #ef4444;
 }
+
+/* Derp Land's game-piece buttons: printed card with an ink edge that the
+   button sinks into when pressed. Shared look with the rest of Derp Land. */
+@layer components {
+  .derp-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #140e1b;
+    border-radius: 14px;
+    box-shadow: 0 5px 0 #140e1b;
+    font-family: "Archivo Variable", system-ui, sans-serif;
+    font-weight: 800;
+    font-size: 17px;
+    line-height: 1.1;
+    cursor: pointer;
+    transition:
+      transform 0.1s ease,
+      box-shadow 0.1s ease,
+      background-color 0.1s ease;
+  }
+  .derp-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 0 #140e1b;
+  }
+  .derp-btn:active {
+    transform: translateY(3px);
+    box-shadow: 0 2px 0 #140e1b;
+  }
+  .derp-btn:focus-visible {
+    outline: 3px solid #ffc531;
+    outline-offset: 3px;
+  }
+  .derp-btn-solo {
+    background: #e8553f;
+    color: #fff;
+  }
+  .derp-btn-solo:hover {
+    background: #f0664f;
+  }
+  .derp-btn-gold {
+    background: #ffc531;
+    color: #231a2e;
+  }
+  .derp-btn-gold:hover {
+    background: #ffd45e;
+  }
+  .derp-btn-card {
+    background: #fbf3e2;
+    color: #231a2e;
+  }
+  .derp-btn-card:hover {
+    background: #fff9ec;
+  }
+  .derp-hey {
+    font-family: "Bagel Fat One", system-ui, sans-serif;
+    font-weight: 400;
+    line-height: 1;
+    text-shadow: 0 4px 0 #140e1b;
+    transform: rotate(-2deg);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .derp-btn,
+    .derp-btn:hover,
+    .derp-btn:active {
+      transition: none;
+      transform: none;
+    }
+  }
+}

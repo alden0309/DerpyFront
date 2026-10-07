@@ -12,10 +12,9 @@ export function initLayout() {
       sidebar.style.display = "flex";
     }
 
-    if (!hb) {
-      console.error("Hamburger button not found");
-      return;
-    }
+    // Derp Land's shared top bar replaced the hamburger menu; nothing to
+    // wire unless a page still has one.
+    if (!hb) return;
 
     // Disable fallback inline handler now that JS is loaded
     hb.onclick = null;
