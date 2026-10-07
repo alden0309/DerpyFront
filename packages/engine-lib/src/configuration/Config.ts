@@ -165,9 +165,9 @@ export class Config {
   // Capital (one per player): raises the troop cap and grants the same
   // number of troops once when it finishes building. Troops are stored at
   // 10x what the UI shows (renderTroops divides by 10), so this is the
-  // 70K players see on screen.
+  // 200K players see on screen.
   capitalTroopBonus(): number {
-    return 700_000;
+    return 2_000_000;
   }
   // Derpy Front: an escorted troop transport and its two warships share one
   // health bar, three times a warship's.
@@ -176,7 +176,7 @@ export class Config {
   }
   // Capital gold payout and how often it arrives (in ticks; 10 ticks = 1s).
   capitalGoldPayout(): bigint {
-    return 10_000n;
+    return 50_000n;
   }
   capitalPayoutInterval(): number {
     return 5 * 10;

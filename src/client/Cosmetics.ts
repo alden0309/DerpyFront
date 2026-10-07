@@ -27,13 +27,13 @@ import {
 } from "@openfront/shared/WireSchemas";
 import {
   changeSubscriptionTier,
-  getApiBase,
   getUserMe,
   invalidateUserMe,
   openSubscriptionPortal,
   purchaseCosmeticPack,
   purchaseWithCurrency,
 } from "./Api";
+import { DERPY_API } from "./derpy/DerpySession";
 import { isDesktopShell } from "./DesktopShell";
 import { showInGameAlert, showInGameConfirm } from "./InGameModal";
 import {
@@ -858,7 +858,9 @@ export async function fetchCosmetics(): Promise<Cosmetics | null> {
   }
   const request = (async () => {
     try {
-      const response = await fetch(`${getApiBase()}/cosmetics.json`, {
+      // Derpy Front: the catalog is the Derp Store's skins, served by the
+      // game server.
+      const response = await fetch(`${DERPY_API}/cosmetics.json`, {
         signal: AbortSignal.timeout(COSMETICS_FETCH_TIMEOUT_MS),
       });
       if (!response.ok) {

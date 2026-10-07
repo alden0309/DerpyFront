@@ -21,6 +21,7 @@ import type {
   SnapshotReader,
   SnapshotWriter,
 } from "../snapshot/SnapshotContext";
+import { loseCapital } from "./CapitalExecution";
 
 const TICKS_PER_CLUSTER_CALC = 20;
 
@@ -71,6 +72,9 @@ export class PlayerExecution implements Execution {
       // A Capital can't change hands: it is destroyed when its tile is
       // taken, which also keeps every player at one Capital at most.
       if (u.type() === UnitType.DefensePost || u.type() === UnitType.Capital) {
+        // Derpy Front: the captor takes half its owner's gold.
+        if (u.type() === UnitType.Capital)
+          loseCapital(this.mg!, u, captor, true);
         u.delete(true, captor);
       } else {
         captor.captureUnit(u);

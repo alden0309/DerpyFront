@@ -45,12 +45,14 @@ describe("TradeShipExecution", () => {
       unitCount: vi.fn(() => 1),
       id: vi.fn(() => 1),
       clientID: vi.fn(() => 1),
+      type: vi.fn(() => PlayerType.Human),
       canTrade: vi.fn(() => true),
     } as any;
 
     dstOwner = {
       id: vi.fn(() => 2),
       addGold: vi.fn(),
+      type: vi.fn(() => PlayerType.Human),
       addTradeGold: vi.fn(),
       addPiracyGold: vi.fn(),
       displayName: vi.fn(() => "Destination"),
@@ -63,6 +65,7 @@ describe("TradeShipExecution", () => {
     pirate = {
       id: vi.fn(() => 3),
       clientID: vi.fn(() => 3),
+      type: vi.fn(() => PlayerType.Human),
       addGold: vi.fn(),
       addTradeGold: vi.fn(),
       addPiracyGold: vi.fn(),

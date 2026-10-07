@@ -1,3 +1,4 @@
+import { GameAwards } from "@openfront/engine-api/game/Awards";
 import {
   GameMode,
   GameType,
@@ -64,6 +65,8 @@ import { Client } from "./Client";
 import { applyGameConfigPatch, hostCheatsEnabled } from "./ConfigPatch";
 import { LiveStatsVote, WinnerVote } from "./Consensus";
 import { fetchCustomTribes } from "./CustomTribes";
+import { derpyDbConfigured } from "./derpy/DerpyDb";
+import { recordDerpyGame } from "./derpy/DerpyGames";
 import { DesyncDetector } from "./DesyncDetector";
 import {
   authorizeIntent,
@@ -148,7 +151,9 @@ export interface GameServerDeps {
   // Hand a finished game's record on for upload. The default stamps the
   // deployment (finalizeGameRecord) first; a test receives the record as the
   // game built it.
-  archive: (record: PartialGameRecord) => Promise<void>;
+  // Derpy Front passes the end-of-game awards along so it can pay award
+  // bonuses in Derp Coins.
+  archive: (record: PartialGameRecord, awards?: GameAwards) => Promise<void>;
   fetchTribes: typeof fetchCustomTribes;
   env: () => GameEnv;
   turnIntervalMs: () => number;
@@ -171,7 +176,16 @@ function mintGroupToken(): string {
 
 export function defaultGameServerDeps(): GameServerDeps {
   return {
-    archive: (record) => archive(finalizeGameRecord(record)),
+    // Derpy Front saves games in its own database (for stats, Derp Coins and
+    // replays) instead of OpenFront's archive, which it can't reach.
+    archive: async (record, awards) => {
+      const finalized = finalizeGameRecord(record);
+      if (derpyDbConfigured()) {
+        await recordDerpyGame(finalized, awards ?? []);
+      } else {
+        await archive(finalized);
+      }
+    },
     fetchTribes: fetchCustomTribes,
     env: () => ServerEnv.env(),
     turnIntervalMs: () => ServerEnv.turnIntervalMs(),
@@ -1970,6 +1984,7 @@ export class GameServer {
         [...this.reports.values()],
         this.publicGameType,
       ),
+      winner?.awards,
     );
   }
 

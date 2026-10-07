@@ -8,6 +8,7 @@ import {
   PlayerStats,
 } from "@openfront/engine-api/StatsSchemas";
 import { Player } from "./Game";
+import type { AwardTally } from "./StatsImpl";
 
 export interface Stats {
   getPlayerStats(player: Player): PlayerStats | null;
@@ -117,6 +118,16 @@ export interface Stats {
 
   // Player earns gold from conquering tiles or trade ships from captured
   goldWar(player: Player, captured: Player, gold: number | bigint): void;
+
+  // Player took half an enemy's treasury by capturing their Capital (Derpy
+  // Front). War gold, but not a conquest.
+  goldCapitalCaptured(player: Player, gold: number | bigint): void;
+
+  // Player conquered (eliminated) another player. Feeds the MVP award.
+  playerConquered(conqueror: Player, conquered: Player): void;
+
+  // Derpy Front award tallies for every human and nation, by PlayerID.
+  awardTallies(): Readonly<Record<string, AwardTally>>;
 
   // Player earns gold from workers
   goldWork(player: Player, gold: number | bigint): void;

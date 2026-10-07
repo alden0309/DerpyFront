@@ -24,7 +24,6 @@ import {
   renderDuration,
   translateText,
 } from "../client/Utils";
-import { getApiBase } from "./Api";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
 import { PublicLobbySocket } from "./LobbySocket";
 import { JoinLobbyEvent } from "./Main";
@@ -40,6 +39,7 @@ import "./components/LobbyConfigItem";
 import "./components/LobbyPlayerView";
 import { inviteFriendsButton } from "./components/ui/InviteFriendsButton";
 import { DEFAULT_TITLE_CLASS, modalHeader } from "./components/ui/ModalHeader";
+import { DERPY_API } from "./derpy/DerpySession";
 import { openReplayViewer } from "./replay/ReplayEntry";
 import { nationsConfigToSlider } from "./utilities/GameConfigHelpers";
 import { notableLobbySettings } from "./utilities/LobbySettingsSummary";
@@ -1172,7 +1172,8 @@ export class JoinLobbyModal extends BaseModal {
   ): Promise<
     "success" | "redirected" | "not_found" | "version_mismatch" | "error"
   > {
-    const archiveResponse = await fetch(`${getApiBase()}/game/${lobbyId}`, {
+    // Derpy Front: finished games are saved by the game server itself.
+    const archiveResponse = await fetch(`${DERPY_API}/game/${lobbyId}`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -1193,7 +1194,12 @@ export class JoinLobbyModal extends BaseModal {
     }
 
     const gitCommit = ClientEnv.gitCommit();
-    if (gitCommit !== "DEV" && parsed.data.gitCommit !== gitCommit) {
+    // Derpy Front saves records as "DEV" so they replay on any build.
+    if (
+      gitCommit !== "DEV" &&
+      parsed.data.gitCommit !== "DEV" &&
+      parsed.data.gitCommit !== gitCommit
+    ) {
       const safeLobbyId = this.sanitizeForLog(lobbyId);
       console.warn(
         `Git commit hash mismatch for game ${safeLobbyId}`,

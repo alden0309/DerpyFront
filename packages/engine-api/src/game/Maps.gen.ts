@@ -99,6 +99,7 @@ export enum GameMapType {
   Oceania = "Oceania", // map-generator/assets/maps/oceania/info.json
   Onion = "Onion", // map-generator/assets/maps/onion/info.json
   Orlando = "Orlando", // map-generator/assets/maps/orlando/info.json
+  OrlandoDetailed = "Orlando - Detailed", // map-generator/assets/maps/orlandodetailed/info.json
   Pangaea = "Pangaea", // map-generator/assets/maps/pangaea/info.json
   Passage = "Passage", // map-generator/assets/maps/passage/info.json
   Pluto = "Pluto", // map-generator/assets/maps/pluto/info.json
@@ -132,6 +133,7 @@ export enum GameMapType {
   Venice = "Venice", // map-generator/assets/maps/venice/info.json
   Vietnam = "Vietnam", // map-generator/assets/maps/vietnam/info.json
   WarshipWarship = "Warship Warship", // map-generator/assets/maps/warshipwarship/info.json
+  WashingtonDCDetailed = "Washington, DC - Detailed", // map-generator/assets/maps/washingtondcdetailed/info.json
   World = "World", // map-generator/assets/maps/world/info.json
   WorldInverted = "World Inverted", // map-generator/assets/maps/worldinverted/info.json
   YangtzeRiver = "Yangtze River", // map-generator/assets/maps/yangtzeriver/info.json
@@ -375,7 +377,7 @@ export const maps: readonly MapInfo[] = [
     id: "BabelMandebStrait",
     type: GameMapType.BabelMandebStrait,
     translationKey: "map.babelmandebstrait",
-    categories: ["new", "africa", "asia"],
+    categories: ["africa", "asia"],
     multiplayerFrequency: 5,
     ffaFrequency: -1,
     teamFrequency: 10,
@@ -562,7 +564,7 @@ export const maps: readonly MapInfo[] = [
     id: "CanaryIslands",
     type: GameMapType.CanaryIslands,
     translationKey: "map.canaryislands",
-    categories: ["new", "africa"],
+    categories: ["africa"],
     multiplayerFrequency: 3,
     ffaFrequency: -1,
     teamFrequency: 10,
@@ -586,7 +588,7 @@ export const maps: readonly MapInfo[] = [
     id: "CapeOfGoodHope",
     type: GameMapType.CapeOfGoodHope,
     translationKey: "map.capeofgoodhope",
-    categories: ["new", "africa"],
+    categories: ["africa"],
     multiplayerFrequency: 4,
     ffaFrequency: -1,
     teamFrequency: -1,
@@ -954,7 +956,7 @@ export const maps: readonly MapInfo[] = [
     id: "FloridaDetailed",
     type: GameMapType.FloridaDetailed,
     translationKey: "map.floridadetailed",
-    categories: ["north_america"],
+    categories: ["new", "north_america"],
     multiplayerFrequency: 0,
     ffaFrequency: -1,
     teamFrequency: -1,
@@ -1533,7 +1535,7 @@ export const maps: readonly MapInfo[] = [
     id: "HornOfAfrica",
     type: GameMapType.HornOfAfrica,
     translationKey: "map.hornofafrica",
-    categories: ["africa", "new"],
+    categories: ["africa"],
     multiplayerFrequency: 5,
     ffaFrequency: -1,
     teamFrequency: -1,
@@ -1856,7 +1858,7 @@ export const maps: readonly MapInfo[] = [
     id: "Madagascar",
     type: GameMapType.Madagascar,
     translationKey: "map.madagascar",
-    categories: ["new", "africa"],
+    categories: ["africa"],
     multiplayerFrequency: 5,
     ffaFrequency: -1,
     teamFrequency: 10,
@@ -1988,7 +1990,7 @@ export const maps: readonly MapInfo[] = [
     id: "NewZealand",
     type: GameMapType.NewZealand,
     translationKey: "map.newzealand",
-    categories: ["new", "oceania"],
+    categories: ["oceania"],
     multiplayerFrequency: 5,
     ffaFrequency: -1,
     teamFrequency: -1,
@@ -2060,13 +2062,24 @@ export const maps: readonly MapInfo[] = [
     id: "Orlando",
     type: GameMapType.Orlando,
     translationKey: "map.orlando",
-    categories: ["north_america"],
+    categories: ["new", "north_america"],
     multiplayerFrequency: 0,
     ffaFrequency: -1,
     teamFrequency: -1,
     specialFrequency: -1,
     defaultNationCount: 40,
     themes: ["north_america"],
+  },
+  {
+    id: "OrlandoDetailed",
+    type: GameMapType.OrlandoDetailed,
+    translationKey: "map.orlandodetailed",
+    categories: ["new", "north_america"],
+    multiplayerFrequency: 0,
+    ffaFrequency: -1,
+    teamFrequency: -1,
+    specialFrequency: -1,
+    defaultNationCount: 85,
   },
   {
     id: "Pangaea",
@@ -2106,7 +2119,7 @@ export const maps: readonly MapInfo[] = [
     id: "PulicatLake",
     type: GameMapType.PulicatLake,
     translationKey: "map.pulicatlake",
-    categories: ["asia", "new"],
+    categories: ["asia"],
     multiplayerFrequency: 3,
     ffaFrequency: -1,
     teamFrequency: -1,
@@ -2131,7 +2144,7 @@ export const maps: readonly MapInfo[] = [
     id: "RioDeJaneiro",
     type: GameMapType.RioDeJaneiro,
     translationKey: "map.riodejaneiro",
-    categories: ["south_america", "new"],
+    categories: ["south_america"],
     multiplayerFrequency: 4,
     ffaFrequency: -1,
     teamFrequency: -1,
@@ -2467,7 +2480,7 @@ export const maps: readonly MapInfo[] = [
     id: "VancouverIsland",
     type: GameMapType.VancouverIsland,
     translationKey: "map.vancouverisland",
-    categories: ["north_america", "new"],
+    categories: ["north_america"],
     multiplayerFrequency: 4,
     ffaFrequency: -1,
     teamFrequency: -1,
@@ -2510,6 +2523,17 @@ export const maps: readonly MapInfo[] = [
     teamFrequency: 6,
     specialFrequency: -1,
     defaultNationCount: 10,
+  },
+  {
+    id: "WashingtonDCDetailed",
+    type: GameMapType.WashingtonDCDetailed,
+    translationKey: "map.washingtondcdetailed",
+    categories: ["new", "north_america"],
+    multiplayerFrequency: 0,
+    ffaFrequency: -1,
+    teamFrequency: -1,
+    specialFrequency: -1,
+    defaultNationCount: 72,
   },
   {
     id: "World",

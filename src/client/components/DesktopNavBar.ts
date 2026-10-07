@@ -107,18 +107,14 @@ export class DesktopNavBar extends LitElement {
           data-page="page-leaderboard"
           data-i18n="main.leaderboard"
         ></button>
-        <button
-          class="no-crazygames nav-menu-item text-white/70 hover:text-blue-500 font-medium tracking-wider uppercase cursor-pointer transition-colors [&.active]:text-blue-500"
-          data-page="page-clan"
-          data-i18n="main.clans"
-        ></button>
+        <!-- Derpy Front: no Clans (they need OpenFront's own servers). -->
         <!-- Utility cluster: bell, help, settings and the profile control are
              account/notification/utility affordances rather than page links,
              so they sit tight together behind a divider instead of in the nav
              item list. -->
         <div class="flex items-center gap-1 pl-5 ml-1 border-l border-white/10">
           <nav-utility-icons size="desktop"></nav-utility-icons>
-          <nav-account-menu variant="desktop"></nav-account-menu>
+          <derpy-nav-account variant="desktop"></derpy-nav-account>
         </div>
       </nav>
     `;

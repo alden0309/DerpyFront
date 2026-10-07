@@ -1,5 +1,6 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
+  Difficulty,
   PlayerInfo,
   PlayerType,
   TerrainType,
@@ -14,6 +15,7 @@ import {
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { ConstructionExecution } from "@openfront/engine/execution/ConstructionExecution";
 import { NationStructureBehavior } from "@openfront/engine/execution/nation/NationStructureBehavior";
+import { NukeExecution } from "@openfront/engine/execution/NukeExecution";
 import { SpawnExecution } from "@openfront/engine/execution/SpawnExecution";
 import { Game, Player } from "@openfront/engine/game/Game";
 import { vi } from "vitest";
@@ -39,7 +41,7 @@ async function newGame(instantBuild: boolean) {
   executeTicks(game, 10);
   const me = game.player(meInfo.id);
   const enemy = game.player(enemyInfo.id);
-  me.addGold(5_000_000n);
+  me.addGold(20_000_000n);
   return { game, me, enemy };
 }
 
@@ -53,9 +55,9 @@ function buildCapital(game: Game, player: Player, tile: TileRef) {
 }
 
 describe("Capital", () => {
-  test("costs 1M and only one can be built", async () => {
+  test("costs 5M and only one can be built", async () => {
     const { game, me } = await newGame(true);
-    expect(game.unitInfo(UnitType.Capital).cost(game, me)).toBe(1_000_000n);
+    expect(game.unitInfo(UnitType.Capital).cost(game, me)).toBe(5_000_000n);
 
     const tiles = ownTiles(me);
     expect(me.canBuild(UnitType.Capital, tiles[0])).not.toBe(false);
@@ -79,21 +81,21 @@ describe("Capital", () => {
     expect(me.canBuild(UnitType.Capital, tiles[tiles.length - 1])).toBe(false);
   });
 
-  // Troops are stored at 10x the on-screen number, so the 70K a player
-  // sees is 700,000 here.
-  test("adds 70K troops and raises the troop cap by 70K", async () => {
+  // Troops are stored at 10x the on-screen number, so the 200K a player
+  // sees is 2,000,000 here.
+  test("adds 200K troops and raises the troop cap by 200K", async () => {
     const { game, me } = await newGame(true);
     const maxBefore = game.config().maxTroops(me);
     const troopsBefore = me.troops();
     buildCapital(game, me, ownTiles(me)[0]);
-    expect(game.config().maxTroops(me) - maxBefore).toBeCloseTo(700_000);
-    expect(me.troops() - troopsBefore).toBeGreaterThanOrEqual(700_000);
+    expect(game.config().maxTroops(me) - maxBefore).toBeCloseTo(2_000_000);
+    expect(me.troops() - troopsBefore).toBeGreaterThanOrEqual(2_000_000);
     // ...and they stay: a few seconds later they haven't drained away.
     executeTicks(game, 50);
-    expect(me.troops() - troopsBefore).toBeGreaterThanOrEqual(700_000);
+    expect(me.troops() - troopsBefore).toBeGreaterThanOrEqual(2_000_000);
   });
 
-  test("pays 10K gold every 5 seconds on top of normal income", async () => {
+  test("pays 50K gold every 5 seconds on top of normal income", async () => {
     const { game, me } = await newGame(true);
     buildCapital(game, me, ownTiles(me)[0]);
     const rate = game.config().goldAdditionRate(me);
@@ -101,7 +103,7 @@ describe("Capital", () => {
     for (let window = 0; window < 3; window++) {
       const before = me.gold();
       executeTicks(game, 50);
-      expect(me.gold() - before).toBe(50n * rate + 10_000n);
+      expect(me.gold() - before).toBe(50n * rate + 50_000n);
     }
   });
 
@@ -118,6 +120,7 @@ describe("Capital", () => {
     expect(enemy.units(UnitType.Capital)).toHaveLength(0);
 
     // Income and troop cap bonus stop; a new Capital can go up elsewhere.
+    me.addGold(10_000_000n);
     const maxNow = game.config().maxTroops(me);
     const spot = ownTiles(me).find(
       (t) => me.canBuild(UnitType.Capital, t) !== false,
@@ -125,7 +128,59 @@ describe("Capital", () => {
     expect(spot).toBeDefined();
     buildCapital(game, me, spot!);
     expect(me.units(UnitType.Capital)).toHaveLength(1);
-    expect(game.config().maxTroops(me) - maxNow).toBeCloseTo(700_000);
+    expect(game.config().maxTroops(me) - maxNow).toBeCloseTo(2_000_000);
+  });
+
+  test("losing it to a capture hands half your gold to the captor", async () => {
+    const { game, me, enemy } = await newGame(true);
+    buildCapital(game, me, ownTiles(me)[0]);
+    const [capital] = me.units(UnitType.Capital);
+    me.addGold(10_000_000n);
+    const mine = me.gold();
+    const theirs = enemy.gold();
+
+    enemy.conquer(capital.tile());
+    executeTicks(game, 2);
+    const taken = enemy.gold() - theirs;
+    // Half of what I held when it fell (plus a tick or two of income).
+    expect(taken).toBeGreaterThanOrEqual(mine / 2n);
+    expect(taken).toBeLessThan((mine * 51n) / 100n);
+    expect(me.gold()).toBeLessThan((mine * 51n) / 100n);
+  });
+
+  test("a nuke (no capture) burns the half instead", async () => {
+    const { game, me, enemy } = await newGame(true);
+    buildCapital(game, me, ownTiles(me)[0]);
+    const [capital] = me.units(UnitType.Capital);
+    const mine = me.gold();
+    const theirs = enemy.gold();
+
+    const silo = enemy.buildUnit(
+      UnitType.MissileSilo,
+      Array.from(enemy.tiles())[0],
+      {},
+    );
+    enemy.addGold(10_000_000n);
+    const theirsAfterFunding = enemy.gold();
+    game.addExecution(
+      new NukeExecution(UnitType.AtomBomb, enemy, capital.tile(), silo.tile()),
+    );
+    for (let i = 0; i < 400 && capital.isActive(); i++) game.executeNextTick();
+    expect(capital.isActive()).toBe(false);
+    expect(me.gold()).toBeLessThan((mine * 51n) / 100n);
+    // The enemy paid for the bomb and got none of my gold.
+    expect(enemy.gold()).toBeLessThan(theirsAfterFunding);
+    expect(theirs).toBeGreaterThanOrEqual(0n);
+  });
+
+  test("deleting your own Capital costs nothing extra", async () => {
+    const { game, me } = await newGame(true);
+    buildCapital(game, me, ownTiles(me)[0]);
+    const [capital] = me.units(UnitType.Capital);
+    const mine = me.gold();
+    capital.delete(false);
+    executeTicks(game, 2);
+    expect(me.gold()).toBeGreaterThanOrEqual(mine);
   });
 
   test("defends like a defense post, at twice the strength", () => {
@@ -235,8 +290,12 @@ describe("Capital", () => {
 });
 
 describe("Nations and the Capital", () => {
-  async function nationGame(cities: number, gold: bigint) {
-    const game = await setup("plains", { instantBuild: true });
+  async function nationGame(
+    cities: number,
+    gold: bigint,
+    difficulty: Difficulty = Difficulty.Medium,
+  ) {
+    const game = await setup("plains", { instantBuild: true, difficulty });
     const info = new PlayerInfo("Nation", PlayerType.Nation, null, "Nation");
     game.addPlayer(info);
     const nation = game.player(info.id);
@@ -254,19 +313,18 @@ describe("Nations and the Capital", () => {
       nation,
     );
     const spy = vi.spyOn(game, "addExecution");
-    const built = () =>
+    type Built = { constructionType: UnitType; tile: TileRef };
+    const placements = () =>
       spy.mock.calls
         .map(([e]) => e)
         .filter((e) => e instanceof ConstructionExecution)
-        .map(
-          (e) =>
-            (e as unknown as { constructionType: UnitType }).constructionType,
-        );
-    return { game, nation, behavior, built };
+        .map((e) => e as unknown as Built);
+    const built = () => placements().map((b) => b.constructionType);
+    return { game, nation, behavior, built, placements };
   }
 
   test("a nation with a city builds its Capital once it can afford it", async () => {
-    const { behavior, built } = await nationGame(1, 1_000_000n);
+    const { behavior, built } = await nationGame(1, 5_000_000n);
     expect(behavior.handleStructures()).toBe(true);
     expect(built()).toEqual([UnitType.Capital]);
   });
@@ -278,7 +336,7 @@ describe("Nations and the Capital", () => {
   });
 
   test("not while it can't afford one", async () => {
-    const { behavior, built } = await nationGame(1, 900_000n);
+    const { behavior, built } = await nationGame(1, 4_500_000n);
     behavior.handleStructures();
     expect(built()).not.toContain(UnitType.Capital);
   });
@@ -288,5 +346,74 @@ describe("Nations and the Capital", () => {
     nation.buildUnit(UnitType.Capital, game.ref(60, 60), {});
     behavior.handleStructures();
     expect(built()).not.toContain(UnitType.Capital);
+  });
+
+  // The nation holds the square (0..79, 0..79); its borders are the x=79
+  // column and the y=79 row.
+  test("Impossible tucks its Capital deep inside its land", async () => {
+    const { behavior, placements } = await nationGame(
+      1,
+      5_000_000n,
+      Difficulty.Impossible,
+    );
+    behavior.handleStructures();
+    const capital = placements().find(
+      (p) => p.constructionType === UnitType.Capital,
+    );
+    expect(capital).toBeDefined();
+    const { game } = await nationGame(0, 0n);
+    const depth = Math.min(
+      79 - game.x(capital!.tile),
+      79 - game.y(capital!.tile),
+    );
+    expect(depth).toBeGreaterThanOrEqual(40);
+  });
+
+  test("Medium guards a finished Capital with a SAM launcher first", async () => {
+    const { game, nation, behavior, placements } = await nationGame(
+      1,
+      20_000_000n,
+    );
+    const capital = nation.buildUnit(UnitType.Capital, game.ref(40, 40), {});
+    behavior.handleStructures();
+    const sams = () =>
+      placements().filter((p) => p.constructionType === UnitType.SAMLauncher);
+    expect(sams()).toHaveLength(1);
+    expect(
+      game.euclideanDistSquared(sams()[0].tile, capital.tile()),
+    ).toBeLessThanOrEqual(36 * 36);
+  });
+
+  test("Hard wants a second SAM over its Capital", async () => {
+    const { game, nation, behavior, placements } = await nationGame(
+      1,
+      20_000_000n,
+      Difficulty.Hard,
+    );
+    nation.buildUnit(UnitType.Capital, game.ref(40, 40), {});
+    behavior.handleStructures();
+    executeTicks(game, 3);
+    behavior.handleStructures();
+    const sams = placements().filter(
+      (p) => p.constructionType === UnitType.SAMLauncher,
+    );
+    expect(sams).toHaveLength(2);
+  });
+
+  test("Easy doesn't bother guarding it", async () => {
+    const { game, nation, behavior, placements } = await nationGame(
+      1,
+      20_000_000n,
+      Difficulty.Easy,
+    );
+    nation.buildUnit(UnitType.Capital, game.ref(40, 40), {});
+    behavior.handleStructures();
+    // Whatever Easy builds, it isn't a SAM placed to cover the Capital.
+    const guard = placements().find(
+      (p) =>
+        p.constructionType === UnitType.SAMLauncher &&
+        game.euclideanDistSquared(p.tile, game.ref(40, 40)) <= 36 * 36,
+    );
+    expect(guard).toBeUndefined();
   });
 });

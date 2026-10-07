@@ -75,6 +75,7 @@ import type {
 } from "../snapshot/SnapshotContext";
 import { AllianceImpl } from "./AllianceImpl";
 import { AllianceRequestImpl } from "./AllianceRequestImpl";
+import { computeAwards } from "./Awards";
 import {
   Alliance,
   AllianceRequest,
@@ -1024,6 +1025,7 @@ export class GameImpl implements Game {
       type: GameUpdateType.Win,
       winner: winner === null ? undefined : this.makeWinner(winner),
       allPlayersStats,
+      awards: computeAwards(this, winner),
     });
   }
 
@@ -1612,6 +1614,7 @@ export class GameImpl implements Game {
 
     // OFM: per-kill log for standings (humans-only filtered in recordKill).
     this.stats().recordKill(conqueror, conquered, this.ticks());
+    this.stats().playerConquered(conqueror, conquered);
     // OFM live standings: attribute the elimination so the live snapshot can
     // credit the kill (null when the conqueror has no client, e.g. a bot/nation),
     // and stamp the finishing place NOW rather than deferring to PlayerExecution:

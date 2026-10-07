@@ -1,0 +1,693 @@
+{
+  "id": "OrlandoDetailed",
+  "name": "Orlando - Detailed",
+  "translation_key": "map.orlandodetailed",
+  "categories": [
+    "new",
+    "north_america"
+  ],
+  "multiplayer_frequency": 0,
+  "min_lake_size": 40,
+  "nations": [
+    {
+      "coordinates": [
+        947,
+        921
+      ],
+      "name": "Downtown Orlando",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        978,
+        929
+      ],
+      "name": "Thornton Park",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        918,
+        849
+      ],
+      "name": "College Park",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        1001,
+        890
+      ],
+      "name": "Colonialtown",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        1017,
+        843
+      ],
+      "name": "Audubon Park",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        1064,
+        862
+      ],
+      "name": "Baldwin Park",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        952,
+        995
+      ],
+      "name": "SoDo",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        916,
+        1013
+      ],
+      "name": "Holden Heights",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        1058,
+        1029
+      ],
+      "name": "Conway",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        742,
+        1013
+      ],
+      "name": "MetroWest",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        830,
+        1062
+      ],
+      "name": "Millenia",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        742,
+        1188
+      ],
+      "name": "International Drive",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        1107,
+        1206
+      ],
+      "name": "MCO Airport",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        1249,
+        1299
+      ],
+      "name": "Lake Nona",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        938,
+        1304
+      ],
+      "name": "Southchase",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [
+        1047,
+        767
+      ],
+      "name": "Winter Park",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        983,
+        700
+      ],
+      "name": "Maitland",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        944,
+        734
+      ],
+      "name": "Eatonville",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        781,
+        879
+      ],
+      "name": "Pine Hills",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        844,
+        1103
+      ],
+      "name": "Oak Ridge",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        972,
+        1101
+      ],
+      "name": "Pine Castle",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        952,
+        1065
+      ],
+      "name": "Edgewood",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        992,
+        1137
+      ],
+      "name": "Belle Isle",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        979,
+        1211
+      ],
+      "name": "Taft",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        980,
+        1401
+      ],
+      "name": "Meadow Woods",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        851,
+        1389
+      ],
+      "name": "Hunters Creek",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        803,
+        1260
+      ],
+      "name": "Williamsburg",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        693,
+        1157
+      ],
+      "name": "Dr. Phillips",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        622,
+        1043
+      ],
+      "name": "Windermere",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        621,
+        957
+      ],
+      "name": "Gotha",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        576,
+        851
+      ],
+      "name": "Ocoee",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        481,
+        861
+      ],
+      "name": "Winter Garden",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        376,
+        887
+      ],
+      "name": "Oakland",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        411,
+        1197
+      ],
+      "name": "Horizon West",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        634,
+        1342
+      ],
+      "name": "Lake Buena Vista",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        518,
+        1299
+      ],
+      "name": "Bay Lake",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        648,
+        575
+      ],
+      "name": "Apopka",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        679,
+        738
+      ],
+      "name": "Clarcona",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        801,
+        723
+      ],
+      "name": "Lockhart",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        549,
+        532
+      ],
+      "name": "Plymouth",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        448,
+        435
+      ],
+      "name": "Zellwood",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        382,
+        359
+      ],
+      "name": "Tangerine",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1123,
+        923
+      ],
+      "name": "Azalea Park",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1154,
+        746
+      ],
+      "name": "Goldenrod",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1250,
+        852
+      ],
+      "name": "Union Park",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1350,
+        765
+      ],
+      "name": "UCF",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1325,
+        864
+      ],
+      "name": "Alafaya",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1385,
+        921
+      ],
+      "name": "Waterford Lakes",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1440,
+        990
+      ],
+      "name": "Avalon Park",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1560,
+        888
+      ],
+      "name": "Bithlo",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1624,
+        1062
+      ],
+      "name": "Wedgefield",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1762,
+        936
+      ],
+      "name": "Christmas",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        978,
+        614
+      ],
+      "name": "Altamonte Springs",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        803,
+        599
+      ],
+      "name": "Forest City",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        862,
+        520
+      ],
+      "name": "Wekiva Springs",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1039,
+        506
+      ],
+      "name": "Longwood",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1062,
+        571
+      ],
+      "name": "Casselberry",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1107,
+        517
+      ],
+      "name": "Winter Springs",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1085,
+        363
+      ],
+      "name": "Lake Mary",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        963,
+        352
+      ],
+      "name": "Heathrow",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1186,
+        256
+      ],
+      "name": "Sanford",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1287,
+        280
+      ],
+      "name": "Midway",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1332,
+        591
+      ],
+      "name": "Oviedo",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1522,
+        664
+      ],
+      "name": "Chuluota",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1541,
+        412
+      ],
+      "name": "Geneva",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        883,
+        1563
+      ],
+      "name": "Kissimmee",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1006,
+        1453
+      ],
+      "name": "Buenaventura Lakes",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1167,
+        1674
+      ],
+      "name": "St. Cloud",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        1282,
+        1620
+      ],
+      "name": "Narcoossee",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        601,
+        1479
+      ],
+      "name": "Celebration",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        781,
+        1650
+      ],
+      "name": "Campbell",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        657,
+        1638
+      ],
+      "name": "Intercession City",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        477,
+        1607
+      ],
+      "name": "Reunion",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        398,
+        1641
+      ],
+      "name": "ChampionsGate",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        72,
+        896
+      ],
+      "name": "Clermont",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        120,
+        836
+      ],
+      "name": "Minneola",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        283,
+        771
+      ],
+      "name": "Montverde",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        157,
+        1134
+      ],
+      "name": "Lake Louisa",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        350,
+        251
+      ],
+      "name": "Mount Dora",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        166,
+        247
+      ],
+      "name": "Tavares",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        258,
+        121
+      ],
+      "name": "Eustis",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        542,
+        257
+      ],
+      "name": "Sorrento",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        605,
+        236
+      ],
+      "name": "Mount Plymouth",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        151,
+        491
+      ],
+      "name": "Astatula",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [
+        58,
+        471
+      ],
+      "name": "Howey-in-the-Hills",
+      "flag": "Florida"
+    }
+  ]
+}

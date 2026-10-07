@@ -2,7 +2,7 @@
   "id": "Orlando",
   "name": "Orlando",
   "translation_key": "map.orlando",
-  "categories": ["north_america"],
+  "categories": ["new", "north_america"],
   "multiplayer_frequency": 0,
   "nations": [
     {

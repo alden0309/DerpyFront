@@ -5,12 +5,8 @@ import { gunzipSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../src/client/Auth", () => ({
-  getAuthHeader: vi.fn(async () => "Bearer test-jwt"),
   getPersistentID: vi.fn(() => "123e4567-e89b-12d3-a456-426614174000"),
-}));
-
-vi.mock("../../src/client/Api", () => ({
-  getApiBase: vi.fn(() => "https://api.test"),
+  setLocalPersistentID: vi.fn(),
 }));
 
 vi.mock("src/client/ClientEnv", () => ({
@@ -80,23 +76,39 @@ const winnerMsg: ClientMessage = {
   type: "winner",
   winner: ["player", CLIENT_ID],
   allPlayersStats: { [CLIENT_ID]: { attacks: [100n] } },
+  awards: [{ kind: "mvp", name: "TestUser", clientID: CLIENT_ID, value: 300 }],
 };
 
-function archivedRecord(call: any) {
-  const body = call[1].body as ArrayBuffer;
+// Derpy Front saves singleplayer games to the signed-in account.
+// Gzipped normally; plain JSON when sent with keepalive as the page unloads.
+function uploaded(call: any) {
+  const body = call[1].body as ArrayBuffer | string;
+  if (typeof body === "string") return JSON.parse(body);
   return JSON.parse(gunzipSync(Buffer.from(body)).toString());
 }
+
+function archivedRecord(call: any) {
+  return uploaded(call).record;
+}
+
+const saved = () =>
+  new Response(JSON.stringify({ coins: 160 }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 
 describe("LocalServer archiving", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
+    fetchMock = vi.fn(async () => saved());
     vi.stubGlobal("fetch", fetchMock);
+    localStorage.setItem("derpy_session_token", "session-token");
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    localStorage.clear();
   });
 
   it("archives at win time, without keepalive, and not again at endGame", async () => {
@@ -107,13 +119,14 @@ describe("LocalServer archiving", () => {
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
 
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe("https://api.test/archive_singleplayer_game");
+    expect(url).toBe("/derpy/api/games/singleplayer");
     expect(init.method).toBe("POST");
     expect(init.keepalive).toBe(false);
-    expect(init.headers.Authorization).toBe("Bearer test-jwt");
+    expect(init.headers.Authorization).toBe("Bearer session-token");
+    expect(init.headers["Content-Encoding"]).toBe("gzip");
 
+    expect(uploaded(fetchMock.mock.calls[0]).awards).toEqual(winnerMsg.awards);
     const record = archivedRecord(fetchMock.mock.calls[0]);
-    expect(record.gitCommit).toBe("DEV");
     expect(record.info.winner).toEqual(["player", CLIENT_ID]);
     expect(record.info.players[0].clientID).toBe(CLIENT_ID);
 
@@ -157,7 +170,7 @@ describe("LocalServer archiving", () => {
 
     // Exit while the win-time upload is still pending.
     server.endGame();
-    resolveFetch(new Response(null, { status: 200 }));
+    resolveFetch(saved());
     await new Promise((r) => setTimeout(r, 10));
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
@@ -172,6 +185,17 @@ describe("LocalServer archiving", () => {
     const [, init] = fetchMock.mock.calls[0];
     expect(init.keepalive).toBe(true);
     expect(archivedRecord(fetchMock.mock.calls[0]).info.winner).toBeUndefined();
+  });
+
+  it("doesn't upload anything when nobody is signed in", async () => {
+    localStorage.clear();
+    const server = makeServer(false);
+    server.start();
+
+    server.onMessage(winnerMsg);
+    server.endGame();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("never archives replays", async () => {

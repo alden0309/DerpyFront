@@ -1,4 +1,5 @@
 import { AllPlayersStats, ClientID, Winner } from "../Schemas";
+import { GameAwards } from "./Awards";
 import { TileRef } from "./GameMap";
 import {
   EmojiMessage,
@@ -357,6 +358,8 @@ export interface WinUpdate {
   type: GameUpdateType.Win;
   allPlayersStats: AllPlayersStats;
   winner: Winner;
+  /** Derpy Front's end-of-game awards (MVP, most betrayals, ...). */
+  awards: GameAwards;
 }
 
 export interface HashUpdate {

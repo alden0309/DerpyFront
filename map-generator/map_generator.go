@@ -78,6 +78,9 @@ type GeneratorArgs struct {
 	Name        string
 	ImageBuffer []byte
 	RemoveSmall bool
+	// MinLakeSize overrides minLakeSize for this map when > 0, so a detailed
+	// city map can keep its small named lakes.
+	MinLakeSize int
 }
 
 // GenerateMap is the main map-generator workflow.
@@ -166,7 +169,11 @@ func GenerateMap(ctx context.Context, args GeneratorArgs) (MapResult, error) {
 	args.ImageBuffer = nil
 
 	removeSmallIslands(ctx, terrain, minIslandSize, args.RemoveSmall)
-	processWater(ctx, terrain, args.RemoveSmall)
+	lakeMin := minLakeSize
+	if args.MinLakeSize > 0 {
+		lakeMin = args.MinLakeSize
+	}
+	processWater(ctx, terrain, args.RemoveSmall, lakeMin)
 	// Water adjacent to impassable terrain should be deep (no depth gradient),
 	// just like water at the map edge.  Override the BFS-calculated magnitude
 	// so these tiles render as the deepest shade.
@@ -174,11 +181,11 @@ func GenerateMap(ctx context.Context, args GeneratorArgs) (MapResult, error) {
 
 	terrain4x := createMiniMap(terrain)
 	removeSmallIslands(ctx, terrain4x, minIslandSize/2, args.RemoveSmall)
-	processWater(ctx, terrain4x, false)
+	processWater(ctx, terrain4x, false, lakeMin)
 	setImpassableNeighborWaterDepth(ctx, terrain4x)
 
 	terrain16x := createMiniMap(terrain4x)
-	processWater(ctx, terrain16x, false)
+	processWater(ctx, terrain16x, false, lakeMin)
 	setImpassableNeighborWaterDepth(ctx, terrain16x)
 
 	thumb := createMapThumbnail(ctx, terrain4x, 0.5)
@@ -456,9 +463,9 @@ func neighborCoords(x, y, width, height int, out *[4]Coord) int {
 
 // processWater identifies and processes bodies of water in the terrain.
 // It finds all connected water bodies and marks the largest one as Ocean.
-// If removeSmall is true, lakes smaller than minLakeSize are converted to Land.
+// If removeSmall is true, lakes smaller than lakeMin tiles are converted to Land.
 // Finally, it triggers shoreline identification and distance-to-land calculations.
-func processWater(ctx context.Context, terrain [][]Terrain, removeSmall bool) {
+func processWater(ctx context.Context, terrain [][]Terrain, removeSmall bool, lakeMin int) {
 	logger := LoggerFromContext(ctx)
 	logger.Info("Processing water bodies")
 	width := len(terrain)
@@ -519,7 +526,7 @@ func processWater(ctx context.Context, terrain [][]Terrain, removeSmall bool) {
 			// Remove small water bodies
 			logger.Info("Searching for small water bodies for removal")
 			for w := 1; w < len(waterBodies); w++ {
-				if waterBodies[w].size < minLakeSize {
+				if waterBodies[w].size < lakeMin {
 					replacement := majorityNeighborType(waterBodies[w].coords, terrain, Water)
 					logger.Debug(fmt.Sprintf("Removing small lake at %d,%d (size %d) -> %v", waterBodies[w].coords[0].X, waterBodies[w].coords[0].Y, waterBodies[w].size, replacement), RemovalLogTag)
 					smallLakes++
@@ -529,7 +536,7 @@ func processWater(ctx context.Context, terrain [][]Terrain, removeSmall bool) {
 					}
 				}
 			}
-			logger.Info(fmt.Sprintf("Identified and removed %d bodies of water smaller than %d tiles", smallLakes, minLakeSize))
+			logger.Info(fmt.Sprintf("Identified and removed %d bodies of water smaller than %d tiles", smallLakes, lakeMin))
 		}
 
 		// Process shorelines and distances

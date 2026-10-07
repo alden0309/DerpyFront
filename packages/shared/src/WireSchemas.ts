@@ -1,3 +1,4 @@
+import { GameAwardsSchema } from "@openfront/engine-api/game/Awards";
 import { GameMapSize, GameMapType } from "@openfront/engine-api/game/GameTypes";
 import {
   ArchivedPlayerStatsSchema,
@@ -587,6 +588,9 @@ export const ClientSendWinnerSchema = z.object({
   type: z.literal("winner"),
   winner: WinnerSchema,
   allPlayersStats: AllPlayersStatsSchema,
+  // Derpy Front end-of-game awards. Last, and optional, so the wire layout
+  // of the fields above doesn't move.
+  awards: GameAwardsSchema.optional(),
 });
 
 // A live snapshot of one human player at a given turn. Only deterministic sim

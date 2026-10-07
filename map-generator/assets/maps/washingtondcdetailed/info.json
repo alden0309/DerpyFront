@@ -1,0 +1,589 @@
+{
+  "id": "WashingtonDCDetailed",
+  "name": "Washington, DC - Detailed",
+  "translation_key": "map.washingtondcdetailed",
+  "categories": [
+    "new",
+    "north_america"
+  ],
+  "multiplayer_frequency": 0,
+  "min_lake_size": 30,
+  "nations": [
+    {
+      "coordinates": [
+        709,
+        1064
+      ],
+      "name": "White House",
+      "flag": "us"
+    },
+    {
+      "coordinates": [
+        934,
+        1147
+      ],
+      "name": "U.S. Capitol",
+      "flag": "us"
+    },
+    {
+      "coordinates": [
+        1022,
+        1213
+      ],
+      "name": "Capitol Hill",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        476,
+        939
+      ],
+      "name": "Georgetown",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        769,
+        1034
+      ],
+      "name": "Downtown",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1022,
+        1312
+      ],
+      "name": "Navy Yard",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        672,
+        912
+      ],
+      "name": "Dupont Circle",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        660,
+        824
+      ],
+      "name": "Adams Morgan",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        757,
+        744
+      ],
+      "name": "Columbia Heights",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        577,
+        1050
+      ],
+      "name": "Foggy Bottom",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        844,
+        1049
+      ],
+      "name": "Chinatown",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        870,
+        1273
+      ],
+      "name": "The Wharf",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1136,
+        1429
+      ],
+      "name": "Historic Anacostia",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1138,
+        708
+      ],
+      "name": "Brookland",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        812,
+        586
+      ],
+      "name": "Petworth",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        349,
+        542
+      ],
+      "name": "Tenleytown",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        745,
+        164
+      ],
+      "name": "Shepherd Park",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        479,
+        659
+      ],
+      "name": "Cleveland Park",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1026,
+        1662
+      ],
+      "name": "Congress Heights",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1563,
+        997
+      ],
+      "name": "Deanwood",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        156,
+        725
+      ],
+      "name": "Palisades",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        462,
+        373
+      ],
+      "name": "Chevy Chase",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        801,
+        936
+      ],
+      "name": "Logan Circle",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        874,
+        1389
+      ],
+      "name": "Fort McNair",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        536,
+        752
+      ],
+      "name": "Woodley Park",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        832,
+        233
+      ],
+      "name": "Takoma",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1516,
+        927
+      ],
+      "name": "Kenilworth",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1431,
+        1126
+      ],
+      "name": "Benning",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1152,
+        951
+      ],
+      "name": "Trinidad",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1006,
+        880
+      ],
+      "name": "Eckington",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        674,
+        705
+      ],
+      "name": "Mount Pleasant",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        212,
+        625
+      ],
+      "name": "Spring Valley",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1408,
+        1426
+      ],
+      "name": "Fairfax Village",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1038,
+        448
+      ],
+      "name": "Queens Chapel",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1233,
+        1601
+      ],
+      "name": "Shipley",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        549,
+        186
+      ],
+      "name": "Hawthorne",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1307,
+        831
+      ],
+      "name": "Gateway",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1594,
+        1205
+      ],
+      "name": "Marshall Heights",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        933,
+        1811
+      ],
+      "name": "Bellevue",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        314,
+        900
+      ],
+      "name": "Foxhall Village",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        970,
+        606
+      ],
+      "name": "Pleasant Hill",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1175,
+        1216
+      ],
+      "name": "Hill East",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1332,
+        1298
+      ],
+      "name": "Twining",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        905,
+        385
+      ],
+      "name": "Manor Park",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1143,
+        544
+      ],
+      "name": "Michigan Park",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1012,
+        1015
+      ],
+      "name": "Near Northeast",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1268,
+        681
+      ],
+      "name": "Woodridge",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        351,
+        678
+      ],
+      "name": "Cathedral Heights",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        945,
+        768
+      ],
+      "name": "Stronghold",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        528,
+        545
+      ],
+      "name": "Forest Hills",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1187,
+        1094
+      ],
+      "name": "Kingman Park",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        671,
+        583
+      ],
+      "name": "Crestwood",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        805,
+        451
+      ],
+      "name": "Brightwood Park",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1314,
+        1497
+      ],
+      "name": "Naylor Gardens",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        673,
+        71
+      ],
+      "name": "North Portal Estates",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1116,
+        840
+      ],
+      "name": "Brentwood",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1045,
+        1777
+      ],
+      "name": "Washington Highlands",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        788,
+        339
+      ],
+      "name": "Brightwood",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        385,
+        813
+      ],
+      "name": "Glover Park",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1663,
+        1117
+      ],
+      "name": "Grant Park",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1032,
+        1470
+      ],
+      "name": "Barry Farm",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        318,
+        439
+      ],
+      "name": "Friendship Heights",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        907,
+        938
+      ],
+      "name": "Truxton Circle",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        245,
+        824
+      ],
+      "name": "Foxhall Crescents",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1411,
+        1028
+      ],
+      "name": "Mayfair",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1218,
+        786
+      ],
+      "name": "Langdon",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1338,
+        1201
+      ],
+      "name": "Greenway",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        733,
+        509
+      ],
+      "name": "16th Street Heights",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        833,
+        675
+      ],
+      "name": "Park View",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1057,
+        1094
+      ],
+      "name": "Stanton Park",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        1224,
+        1499
+      ],
+      "name": "Woodland",
+      "flag": "District_of_Columbia"
+    },
+    {
+      "coordinates": [
+        588,
+        875
+      ],
+      "name": "Kalorama Heights",
+      "flag": "District_of_Columbia"
+    }
+  ]
+}

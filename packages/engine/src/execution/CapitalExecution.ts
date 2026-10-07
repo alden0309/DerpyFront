@@ -1,7 +1,8 @@
-import { UnitType } from "@openfront/engine-api/game/GameTypes";
+import { MessageType, UnitType } from "@openfront/engine-api/game/GameTypes";
+import { renderNumber } from "@openfront/engine-lib/Format";
 import { zInt, zRef } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { z } from "zod";
-import { Execution, Game, Unit } from "../game/Game";
+import { Execution, Game, Player, Unit } from "../game/Game";
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import type {
   ExecRecord,
@@ -16,7 +17,58 @@ import { TrainStationExecution } from "./TrainStationExecution";
  * then pays its owner a fixed amount of gold on a fixed interval for as long
  * as it stands. Like a city, it joins the rail network as a trade station
  * when a factory is in range.
+ *
+ * Losing it to an enemy costs its owner half their gold (see loseCapital).
  */
+/**
+ * Derpy Front: settles the loss of a Capital to an enemy, at the moment it
+ * falls (callers then delete it). Its owner loses half their gold: when the
+ * enemy captured it (took its tile) the enemy gets that gold, and when the
+ * enemy destroyed it some other way (a nuke) the gold is simply gone. Not
+ * called for a voluntary delete or for an owner being eliminated.
+ */
+export function loseCapital(
+  mg: Game,
+  capital: Unit,
+  enemy: Player,
+  captured: boolean,
+): void {
+  const owner = capital.owner();
+  if (capital.type() !== UnitType.Capital || capital.isUnderConstruction()) {
+    return;
+  }
+  if (owner === enemy || !owner.isAlive()) return;
+
+  const lost = owner.removeGold(owner.gold() / 2n);
+  if (captured && lost > 0n) {
+    enemy.addGold(lost, capital.tile());
+    mg.stats().goldCapitalCaptured(enemy, lost);
+  }
+  const gold = renderNumber(lost);
+  mg.displayMessage(
+    captured
+      ? "events_display.capital_captured_by"
+      : "events_display.capital_destroyed_by",
+    MessageType.UNIT_DESTROYED,
+    owner.id(),
+    undefined,
+    { name: enemy.displayName(), gold },
+    undefined,
+    enemy.id(),
+  );
+  if (captured) {
+    mg.displayMessage(
+      "events_display.captured_enemy_capital",
+      MessageType.CAPTURED_ENEMY_UNIT,
+      enemy.id(),
+      lost,
+      { name: owner.displayName(), gold },
+      undefined,
+      owner.id(),
+    );
+  }
+}
+
 export class CapitalExecution implements Execution {
   private mg: Game;
   private active: boolean = true;

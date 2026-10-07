@@ -82,6 +82,29 @@ const TRADE_STRUCTURE_TYPES: readonly UnitType[] = [
 /** Cities a nation builds before it starts saving for its Capital. */
 const CITIES_BEFORE_CAPITAL = 1;
 
+/**
+ * Derpy Front: percent chance a nation places its Capital strategically
+ * (deep inside its land, away from borders and coasts, under its SAMs)
+ * rather than wherever a city would go.
+ */
+const CAPITAL_STRATEGY_PERCENT: Record<Difficulty, number> = {
+  [Difficulty.Easy]: 0,
+  [Difficulty.Medium]: 50,
+  [Difficulty.Hard]: 85,
+  [Difficulty.Impossible]: 100,
+};
+
+/** Derpy Front: SAM launchers a nation keeps covering its Capital. */
+const CAPITAL_GUARD_SAMS: Record<Difficulty, number> = {
+  [Difficulty.Easy]: 0,
+  [Difficulty.Medium]: 1,
+  [Difficulty.Hard]: 2,
+  [Difficulty.Impossible]: 3,
+};
+
+/** Tiles sampled when placing a Capital strategically (25 otherwise). */
+const CAPITAL_STRATEGIC_SAMPLES = 80;
+
 /** Perceived cost increase percentage per city owned */
 const CITY_PERCEIVED_COST_INCREASE_PER_OWNED = 1;
 
@@ -208,6 +231,12 @@ export class NationStructureBehavior {
   }
 
   handleStructures(): boolean {
+    // Derpy Front: guarding the Capital comes first, outside the normal
+    // pacing (like defense posts below).
+    if (this.tryProtectCapital()) {
+      return true;
+    }
+
     // Defense posts are handled outside the normal pacing/counter system:
     // they don't increment placementsCount or lastStructureTick, and they
     // are never built as the very first structure.
@@ -237,6 +266,133 @@ export class NationStructureBehavior {
       this.placementsCount++;
     }
     return built;
+  }
+
+  /**
+   * Derpy Front: protects a finished Capital. Medium and up keep SAM
+   * launchers covering it (1 / 2 / 3 by difficulty) so a nuke can't take it
+   * out; Hard and up also put a defense post on any attack front that gets
+   * close to it, and Impossible stacks that post. Easy leaves it alone.
+   */
+  private tryProtectCapital(): boolean {
+    const capital = this.player
+      .units(UnitType.Capital)
+      .find((u) => !u.isUnderConstruction());
+    if (capital === undefined) return false;
+    const { difficulty } = this.game.config().gameConfig();
+    return (
+      this.tryCoverCapitalWithSams(capital, difficulty) ||
+      this.tryGuardCapitalFront(capital, difficulty)
+    );
+  }
+
+  private tryCoverCapitalWithSams(capital: Unit, difficulty: Difficulty) {
+    const wanted = CAPITAL_GUARD_SAMS[difficulty];
+    const config = this.game.config();
+    const nukesEnabled =
+      !config.isUnitDisabled(UnitType.AtomBomb) ||
+      !config.isUnitDisabled(UnitType.HydrogenBomb) ||
+      !config.isUnitDisabled(UnitType.MIRV);
+    if (
+      wanted === 0 ||
+      !nukesEnabled ||
+      config.isUnitDisabled(UnitType.SAMLauncher)
+    ) {
+      return false;
+    }
+    const game = this.game;
+    // A SAM well inside its range of the Capital counts as covering it.
+    const reach = Math.floor((config.defaultSamRange() * 3) / 4);
+    const covering = this.player
+      .units(UnitType.SAMLauncher)
+      .filter(
+        (sam) =>
+          game.euclideanDistSquared(sam.tile(), capital.tile()) <=
+          reach * reach,
+      ).length;
+    if (covering >= wanted) return false;
+    if (this.player.gold() < this.cost(UnitType.SAMLauncher)) return false;
+
+    // Spread the guards around the Capital, inside half the SAM's range.
+    const radius = Math.floor(config.defaultSamRange() / 2);
+    const cx = game.x(capital.tile());
+    const cy = game.y(capital.tile());
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const x = this.random.nextInt(cx - radius, cx + radius + 1);
+      const y = this.random.nextInt(cy - radius, cy + radius + 1);
+      if (!game.isValidCoord(x, y)) continue;
+      const tile = game.ref(x, y);
+      if (game.owner(tile) !== this.player) continue;
+      if (!this.player.canBuild(UnitType.SAMLauncher, tile)) continue;
+      game.addExecution(
+        new ConstructionExecution(this.player, UnitType.SAMLauncher, tile),
+      );
+      return true;
+    }
+    return false;
+  }
+
+  private tryGuardCapitalFront(capital: Unit, difficulty: Difficulty) {
+    if (
+      difficulty !== Difficulty.Hard &&
+      difficulty !== Difficulty.Impossible
+    ) {
+      return false;
+    }
+    const config = this.game.config();
+    if (config.isUnitDisabled(UnitType.DefensePost)) return false;
+    const landAttacks = this.player
+      .incomingAttacks()
+      .filter((a) => a.sourceTile() === null);
+    if (landAttacks.length === 0) return false;
+
+    const game = this.game;
+    const guard = config.capitalDefenseRange() + 40;
+    const front = this.getAttackFrontTiles(landAttacks).filter(
+      (t) => game.euclideanDistSquared(t, capital.tile()) <= guard * guard,
+    );
+    if (front.length === 0) return false;
+
+    if (this.countDefensePostsNearFront(front, 1) >= 1) {
+      // Impossible stacks the post guarding the Capital's front.
+      if (difficulty !== Difficulty.Impossible) return false;
+      const { borderSpacing } = this.spacingConstants();
+      const near = (borderSpacing * 3) / 2;
+      const post = this.player
+        .units(UnitType.DefensePost)
+        .find(
+          (dp) =>
+            !dp.isUnderConstruction() &&
+            dp.level() <
+              (config.unitInfo(UnitType.DefensePost).maxLevel ?? 1) &&
+            front.some(
+              (t) => game.euclideanDistSquared(dp.tile(), t) <= near * near,
+            ),
+        );
+      if (
+        post === undefined ||
+        this.player.gold() < this.cost(UnitType.DefensePost) ||
+        this.player.canUpgradeUnit(post) === false
+      ) {
+        return false;
+      }
+      game.addExecution(new UpgradeStructureExecution(this.player, post.id()));
+      return true;
+    }
+
+    if (this.player.gold() < this.cost(UnitType.DefensePost)) return false;
+    for (const tile of this.sampleTilesNearFront(
+      front,
+      25,
+      UnitType.DefensePost,
+    )) {
+      if (!this.player.canBuild(UnitType.DefensePost, tile)) continue;
+      game.addExecution(
+        new ConstructionExecution(this.player, UnitType.DefensePost, tile),
+      );
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -927,12 +1083,19 @@ export class NationStructureBehavior {
   }
 
   private structureSpawnTile(type: UnitType): TileRef | null {
+    // Derpy Front: a strategic Capital looks at more spots and scores them
+    // for safety instead of like a city.
+    const strategicCapital =
+      type === UnitType.Capital && this.placesCapitalStrategically();
+    const samples = strategicCapital ? CAPITAL_STRATEGIC_SAMPLES : 25;
     const tiles =
       type === UnitType.Port
-        ? this.randCoastalTileArray(25)
-        : randTerritoryTileArray(this.random, this.game, this.player, 25);
+        ? this.randCoastalTileArray(samples)
+        : randTerritoryTileArray(this.random, this.game, this.player, samples);
     if (tiles.length === 0) return null;
-    const valueFunction = this.structureSpawnTileValue(type);
+    const valueFunction = strategicCapital
+      ? this.strategicCapitalValue()
+      : this.structureSpawnTileValue(type);
     if (valueFunction === null) return null;
     let bestTile: TileRef | null = null;
     let bestValue = 0;
@@ -1008,6 +1171,43 @@ export class NationStructureBehavior {
       default:
         throw new Error(`Value function not implemented for ${type}`);
     }
+  }
+
+  private placesCapitalStrategically(): boolean {
+    const { difficulty } = this.game.config().gameConfig();
+    const percent = CAPITAL_STRATEGY_PERCENT[difficulty];
+    return percent > 0 && this.random.nextInt(0, 100) < percent;
+  }
+
+  /**
+   * Derpy Front: value function for a strategically placed Capital. Above
+   * all it wants to be deep inside the nation's land, far from every border
+   * and coast (where attacks and naval landings come from); on Hard and up it
+   * also prefers a spot its SAM launchers already cover.
+   */
+  private strategicCapitalValue(): (tile: TileRef) => number {
+    const game = this.game;
+    const borderTiles = this.player.borderTiles();
+    const { borderSpacing } = this.spacingConstants();
+    const depthCap = borderSpacing * 4;
+    const { difficulty } = game.config().gameConfig();
+    const samReach = Math.floor((game.config().defaultSamRange() * 3) / 4);
+    const sams =
+      difficulty === Difficulty.Hard || difficulty === Difficulty.Impossible
+        ? this.player.units(UnitType.SAMLauncher).map((u) => u.tile())
+        : [];
+
+    return (tile) => {
+      let w = 3 * nearestTileDistCapped(game, borderTiles, tile, depthCap) + 1;
+      if (
+        sams.some(
+          (s) => game.euclideanDistSquared(s, tile) <= samReach * samReach,
+        )
+      ) {
+        w += borderSpacing;
+      }
+      return w;
+    };
   }
 
   /**

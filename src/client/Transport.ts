@@ -1,3 +1,4 @@
+import { GameAwards } from "@openfront/engine-api/game/Awards";
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
   AllPlayers,
@@ -202,6 +203,9 @@ export class SendWinnerEvent implements GameEvent {
   constructor(
     public readonly winner: Winner,
     public readonly allPlayersStats: AllPlayersStats,
+    // Derpy Front: the end-of-game awards, so the server can pay award
+    // bonuses in Derp Coins.
+    public readonly awards: GameAwards = [],
   ) {}
 }
 export class SendLiveStatsEvent implements GameEvent {
@@ -951,6 +955,7 @@ export class Transport {
         type: "winner",
         winner: event.winner,
         allPlayersStats: event.allPlayersStats,
+        awards: event.awards,
       } satisfies ClientSendWinnerMessage);
     } else {
       console.log(

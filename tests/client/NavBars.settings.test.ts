@@ -101,13 +101,13 @@ describe("the nav bars that host the cluster", () => {
     window.currentPageId = "page-play";
   });
 
-  it("puts the cogwheel in the desktop bar, immediately left of the avatar", async () => {
+  it("puts the cogwheel in the desktop bar, immediately left of the account button", async () => {
     const bar = await mount("desktop-nav-bar");
     expect(settingsButton(bar)).not.toBeNull();
 
     const cluster = bar.querySelector("nav-utility-icons")!;
     expect(cluster.nextElementSibling?.tagName.toLowerCase()).toBe(
-      "nav-account-menu",
+      "derpy-nav-account",
     );
   });
 
@@ -117,7 +117,7 @@ describe("the nav bars that host the cluster", () => {
     expect(cluster.getAttribute("size")).toBe("mobile");
     expect(settingsButton(cluster)).not.toBeNull();
     expect(cluster.nextElementSibling?.tagName.toLowerCase()).toBe(
-      "nav-account-menu",
+      "derpy-nav-account",
     );
   });
 });

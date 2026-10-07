@@ -9,8 +9,8 @@
  */
 
 import { GameRecord, GameRecordSchema } from "@openfront/shared/WireSchemas";
-import { getApiBase } from "../ApiBase";
 import { ClientEnv } from "../ClientEnv";
+import { DERPY_API } from "../derpy/DerpySession";
 
 export type RecordResult =
   | { kind: "record"; record: GameRecord }
@@ -42,7 +42,8 @@ export async function fetchReplayRecord(
     handedOver = null;
     return { kind: "record", record };
   }
-  const apiBase = opts.apiBase ?? getApiBase();
+  // Derpy Front: finished games are saved by the game server itself.
+  const apiBase = opts.apiBase ?? DERPY_API;
   const ownCommit = opts.ownCommit ?? ClientEnv.gitCommit();
   const fetchFn = opts.fetchFn ?? fetch;
   let res: Response;
@@ -69,7 +70,12 @@ export async function fetchReplayRecord(
   if (!parsed.success) return { kind: "other_build" };
   const record = parsed.data;
   // DEV builds replay anything, like the client-side replay.
-  if (ownCommit !== "DEV" && record.gitCommit !== ownCommit) {
+  // Derpy Front saves records as "DEV" so they replay on any build.
+  if (
+    ownCommit !== "DEV" &&
+    record.gitCommit !== "DEV" &&
+    record.gitCommit !== ownCommit
+  ) {
     return { kind: "other_build" };
   }
   return { kind: "record", record };

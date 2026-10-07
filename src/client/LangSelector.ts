@@ -291,6 +291,11 @@ export class LangSelector extends LitElement {
       "steam-wishlist-button",
       "streaming-now",
       "tutorial-panel",
+      "derpy-account-page",
+      "derpy-leaderboard-page",
+      "derpy-store-page",
+      "derpy-profile-view",
+      "derpy-nav-account",
     ];
 
     document.title = this.translateText("main.title") ?? document.title;

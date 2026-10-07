@@ -1,38 +1,43 @@
+import { Award, GameAwards } from "@openfront/engine-api/game/Awards";
 import { RankedType } from "@openfront/engine-api/game/GameTypes";
-import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
-import { Pattern } from "@openfront/shared/CosmeticSchemas";
+import {
+  GameUpdateType,
+  WinUpdate,
+} from "@openfront/engine-api/game/GameUpdates";
+import { renderNumber } from "@openfront/engine-lib/Format";
+import {
+  conquestsFromStats,
+  DerpCoinResult,
+  derpCoinsForGame,
+  goldEarnedFromStats,
+  isWinningClient,
+  peakTilesFromStats,
+} from "@openfront/shared/DerpCoins";
 import { EventBus } from "@openfront/shared/EventBus";
 import { html, LitElement, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import {
-  DESKTOP_TUTORIAL_VIDEO_URL,
-  getGamesPlayed,
-  homeHref,
-  isInIframe,
-  translateText,
-  TUTORIAL_VIDEO_URL,
-} from "../../../client/Utils";
-import { getUserMe } from "../../Api";
-import "../../components/CosmeticCard";
-import { cosmeticSelectionLabel } from "../../components/CosmeticPresentation";
-import "../../components/PurchaseButton";
-import "../../components/SteamWishlist";
+import { homeHref, translateText } from "../../../client/Utils";
 import { Controller } from "../../Controller";
-import {
-  fetchCosmetics,
-  purchaseCosmetic,
-  resolveCosmetics,
-} from "../../Cosmetics";
 import { crazyGamesSDK } from "../../CrazyGamesSDK";
-import { isDesktopShell } from "../../DesktopShell";
-import { Platform } from "../../Platform";
+import { isDerpySignedIn } from "../../derpy/DerpySession";
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
-import { steamSDK } from "../../SteamSDK";
 import { SendWinnerEvent } from "../../Transport";
 import { GameView } from "../../view";
 
-/** Derpy Front: OpenFront's Steam store widget stays out of the end screen. */
-const DERPY_FRONT_SHOWS_STEAM: boolean = false;
+function awardValueText(a: Award): string {
+  switch (a.kind) {
+    case "mvp":
+      return translateText("derpy.award_value_mvp", { score: a.value });
+    case "betrayals":
+      return translateText("derpy.award_value_betrayals", { count: a.value });
+    case "gold":
+      return translateText("derpy.award_value_gold", {
+        gold: renderNumber(a.value),
+      });
+    case "ships":
+      return translateText("derpy.award_value_ships", { count: a.value });
+  }
+}
 
 @customElement("win-modal")
 export class WinModal extends LitElement implements Controller {
@@ -50,12 +55,17 @@ export class WinModal extends LitElement implements Controller {
   @state()
   private isRankedGame = false;
 
+  // Derpy Front: set once the game is decided (a Win update arrived).
   @state()
-  private patternContent: TemplateResult | null = null;
+  private gameOver = false;
+
+  @state()
+  private awards: GameAwards = [];
+
+  @state()
+  private coins: DerpCoinResult | null = null;
 
   private _title: string;
-
-  private rand = Math.random();
 
   // Override to prevent shadow DOM creation
   createRenderRoot() {
@@ -112,156 +122,119 @@ export class WinModal extends LitElement implements Controller {
     `;
   }
 
-  innerHtml() {
-    // The Steam desktop build has nothing to wishlist — fall through to the
-    // other promos so the box is never empty. Derpy Front never shows the
-    // Steam store at all.
-    const canWishlist = DERPY_FRONT_SHOWS_STEAM && !steamSDK.isOnSteam();
-
-    if (isInIframe()) {
-      return canWishlist ? this.steamWishlist() : this.discordDisplay();
+  innerHtml(): TemplateResult {
+    if (!this.gameOver) {
+      return html`<p class="m-0 mb-2 text-center text-white/70">
+        ${translateText("derpy.awards_at_end")}
+      </p>`;
     }
-
-    if (!this.isWin && getGamesPlayed() < 3) {
-      return this.renderYoutubeTutorial();
-    }
-    if (this.rand < 0.25 && canWishlist) {
-      return this.steamWishlist();
-    } else if (this.rand < 0.5) {
-      return this.discordDisplay();
-    } else {
-      return this.renderPatternButton();
-    }
+    return html`${this.awardsPanel()}${this.coinsPanel()}`;
   }
 
-  renderYoutubeTutorial() {
+  /** The end-of-game awards: MVP, most betrayals, most money, most ships. */
+  private awardsPanel(): TemplateResult {
+    const myClientID = this.game?.myPlayer()?.clientID() ?? null;
     return html`
-      <div class="text-center mb-6 bg-black/30 p-2.5 rounded-sm">
-        <h3 class="text-xl font-semibold text-white mb-3">
-          ${translateText("win_modal.youtube_tutorial")}
+      <section class="mb-4">
+        <h3 class="m-0 mb-3 text-center text-lg font-bold text-white">
+          ${translateText("derpy.awards_title")}
         </h3>
-        <!-- 56.25% = 9:16 -->
-        <div class="relative w-full pb-[56.25%]">
-          ${Platform.isElectron
-            ? html`<video
-                class="absolute top-0 left-0 w-full h-full rounded-sm"
-                src="${this.isVisible ? DESKTOP_TUTORIAL_VIDEO_URL : ""}"
-                controls
-                preload="metadata"
-              ></video>`
-            : html`<iframe
-                class="absolute top-0 left-0 w-full h-full rounded-sm"
-                src="${this.isVisible ? TUTORIAL_VIDEO_URL : ""}"
-                title="YouTube video player"
-                frameborder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen
-              ></iframe>`}
-        </div>
-      </div>
+        ${this.awards.length === 0
+          ? html`<p class="m-0 text-center text-white/60">
+              ${translateText("derpy.no_awards")}
+            </p>`
+          : html`<div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              ${this.awards.map((a) => {
+                const mine = myClientID !== null && a.clientID === myClientID;
+                return html`<div
+                  data-award=${a.kind}
+                  class="flex flex-col gap-0.5 rounded-lg border px-4 py-3 ${mine
+                    ? "border-cyber-yellow bg-cyber-yellow/15"
+                    : "border-white/10 bg-black/30"}"
+                >
+                  <span class="text-xs font-bold text-cyber-yellow"
+                    >${translateText(`derpy.award_${a.kind}`)}</span
+                  >
+                  <span class="truncate text-lg font-bold text-white"
+                    >${a.name}${mine
+                      ? html` <span class="text-sm text-white/70"
+                          >${translateText("derpy.award_you")}</span
+                        >`
+                      : ""}</span
+                  >
+                  <span class="text-sm text-white/60"
+                    >${awardValueText(a)}</span
+                  >
+                </div>`;
+              })}
+            </div>`}
+      </section>
     `;
   }
 
-  renderPatternButton() {
+  /** What this game paid (or would have paid) in Derp Coins. */
+  private coinsPanel(): TemplateResult | null {
+    const result = this.coins;
+    if (result === null) return null;
+    const signedIn = isDerpySignedIn();
     return html`
-      <div class="text-center mb-6 bg-black/30 p-2.5 rounded-sm">
-        <h3 class="text-xl font-semibold text-white mb-3">
-          ${translateText("win_modal.support_openfront")}
-        </h3>
-        ${isDesktopShell()
+      <section
+        class="mb-2 flex flex-col items-center gap-2 rounded-lg border border-cyber-yellow/30 bg-black/30 p-4 text-center"
+      >
+        <span class="text-2xl font-black text-cyber-yellow">
+          ${signedIn
+            ? translateText("derpy.coins_earned", { coins: result.total })
+            : translateText("derpy.coins_would_earn", {
+                coins: result.total,
+              })}
+        </span>
+        ${result.lines.length > 0
+          ? html`<div class="flex flex-wrap justify-center gap-1.5">
+              ${result.lines.map(
+                (l) =>
+                  html`<span
+                    class="rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white/80"
+                    >${translateText(`derpy.coin_line_${l.line}`)}
+                    +${l.coins}</span
+                  >`,
+              )}
+            </div>`
+          : html`<span class="text-sm text-white/60"
+              >${translateText("derpy.coins_too_short")}</span
+            >`}
+        ${signedIn
           ? null
-          : html`<p class="text-white mb-3">
-              ${translateText("win_modal.territory_pattern")}
-            </p>`}
-        <div
-          class="mx-auto w-full overflow-x-auto overflow-y-visible rounded-sm"
-        >
-          <div
-            class="flex min-w-max items-start justify-center gap-4 px-1 py-1"
-          >
-            ${this.patternContent}
-          </div>
-        </div>
-      </div>
+          : html`<span class="text-sm text-white/60"
+              >${translateText("derpy.coins_sign_in")}</span
+            >`}
+      </section>
     `;
   }
 
-  async loadPatternContent() {
-    const me = await getUserMe();
-    const cosmetics = await fetchCosmetics();
-
-    const purchasable = resolveCosmetics(cosmetics, me, null).filter(
-      (r) => r.type === "pattern" && r.relationship === "purchasable",
-    );
-
-    if (purchasable.length === 0) {
-      this.patternContent = html``;
-      return;
+  /** Derp Coins for this game, by the same rules the server pays. */
+  private computeCoins(wu: WinUpdate): DerpCoinResult | null {
+    try {
+      const clientID = this.game.myPlayer()?.clientID();
+      if (!clientID) return null;
+      const stats = wu.allPlayersStats[clientID];
+      if (stats === undefined) return null;
+      const land = this.game.numLandTiles();
+      const conquests = conquestsFromStats(stats);
+      return derpCoinsForGame({
+        won: isWinningClient(wu.winner ?? null, clientID),
+        peakTerritoryPercent:
+          land > 0 ? (peakTilesFromStats(stats) * 100) / land : 0,
+        goldEarned: goldEarnedFromStats(stats),
+        humansAndNationsConquered: conquests.humansAndNations,
+        botsConquered: conquests.bots,
+        awards: (wu.awards ?? [])
+          .filter((a) => a.clientID === clientID)
+          .map((a) => a.kind),
+        durationSeconds: Math.floor(this.game.ticks() / 10),
+      });
+    } catch {
+      return null;
     }
-
-    // Shuffle the array and take patterns. Will always be 3 wide to allow scrolling
-    const shuffled = [...purchasable].sort(() => Math.random() - 0.5);
-    const selected = shuffled.slice(0, Math.min(3, shuffled.length));
-
-    this.patternContent = html`
-      <div class="flex gap-4 flex-nowrap justify-start items-start">
-        ${selected.map((resolved) => {
-          // Only patterns were selected above.
-          const pattern = resolved.cosmetic as Pattern | null;
-          return html`
-            <div data-win-cosmetic-promo class="flex w-40 flex-col gap-2">
-              <cosmetic-card
-                .resolved=${resolved}
-                .interactive=${false}
-              ></cosmetic-card>
-              <purchase-button
-                .priceHard=${pattern?.priceHard ?? null}
-                .priceSoft=${pattern?.priceSoft ?? null}
-                .rarity=${pattern?.rarity ?? "common"}
-                .itemName=${cosmeticSelectionLabel(resolved)}
-                .onPurchaseHard=${() => purchaseCosmetic(resolved, "hard")}
-                .onPurchaseSoft=${() => purchaseCosmetic(resolved, "soft")}
-              ></purchase-button>
-            </div>
-          `;
-        })}
-      </div>
-    `;
-  }
-
-  steamWishlist(): TemplateResult {
-    return html`
-      <div class="text-center mb-6 bg-black/30 p-2.5 rounded-sm">
-        <h3 class="text-xl font-semibold text-white mb-3">
-          ${translateText("steam_wishlist.buy_on_steam")}
-        </h3>
-        <steam-wishlist
-          campaign="win_modal"
-          .active=${this.isVisible}
-        ></steam-wishlist>
-      </div>
-    `;
-  }
-
-  discordDisplay(): TemplateResult {
-    return html`
-      <div class="text-center mb-6 bg-black/30 p-2.5 rounded-sm">
-        <h3 class="text-xl font-semibold text-white mb-3">
-          ${translateText("win_modal.join_discord")}
-        </h3>
-        <p class="text-white mb-3">
-          ${translateText("win_modal.discord_description")}
-        </p>
-        <a
-          href="https://discord.com/invite/openfront"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-block px-6 py-3 bg-indigo-600 text-white rounded-sm font-semibold transition-all duration-200 hover:bg-indigo-700 hover:-translate-y-px no-underline"
-        >
-          ${translateText("win_modal.join_server")}
-        </a>
-      </div>
-    `;
   }
 
   async show() {
@@ -269,13 +242,6 @@ export class WinModal extends LitElement implements Controller {
     this.isRankedGame =
       this.game.config().gameConfig().rankedType !== undefined;
     this.isVisible = true;
-    this.requestUpdate();
-    try {
-      await this.loadPatternContent();
-    } catch (error) {
-      console.warn("Failed to load win modal cosmetics", error);
-      return;
-    }
     this.requestUpdate();
   }
 
@@ -325,17 +291,22 @@ export class WinModal extends LitElement implements Controller {
     const updates = this.game.updatesSinceLastTick();
     const winUpdates = updates?.[GameUpdateType.Win] ?? [];
     winUpdates.forEach((wu) => {
+      const awards = wu.awards ?? [];
       if (wu.winner === undefined) {
         // Match cancelled (e.g. a ranked 2v2 that didn't fill or fully
         // spawn): the game ends with no winner. Still vote the result to the
         // server so the record is archived winnerless (never ranked).
-        this.eventBus.emit(new SendWinnerEvent(undefined, wu.allPlayersStats));
+        this.eventBus.emit(
+          new SendWinnerEvent(undefined, wu.allPlayersStats, awards),
+        );
         this._title = translateText("win_modal.match_cancelled");
         this.isWin = false;
         history.replaceState(null, "", `${window.location.pathname}?replay`);
-        this.show();
+        this.showResults(wu);
       } else if (wu.winner[0] === "team") {
-        this.eventBus.emit(new SendWinnerEvent(wu.winner, wu.allPlayersStats));
+        this.eventBus.emit(
+          new SendWinnerEvent(wu.winner, wu.allPlayersStats, awards),
+        );
         if (wu.winner[1] === this.game.myPlayer()?.team()) {
           this._title = translateText("win_modal.your_team");
           this.isWin = true;
@@ -348,22 +319,28 @@ export class WinModal extends LitElement implements Controller {
         }
         this.playEndOfGameSound();
         history.replaceState(null, "", `${window.location.pathname}?replay`);
-        this.show();
+        this.showResults(wu);
       } else if (wu.winner[0] === "nation") {
-        this.eventBus.emit(new SendWinnerEvent(wu.winner, wu.allPlayersStats));
+        this.eventBus.emit(
+          new SendWinnerEvent(wu.winner, wu.allPlayersStats, awards),
+        );
         this._title = translateText("win_modal.nation_won", {
           nation: wu.winner[1],
         });
         this.isWin = false;
         this.playEndOfGameSound();
-        this.show();
+        this.showResults(wu);
       } else {
         const winner = this.game.playerByClientID(wu.winner[1]);
         if (!winner?.isPlayer()) return;
         const winnerClient = winner.clientID();
         if (winnerClient !== null) {
           this.eventBus.emit(
-            new SendWinnerEvent(["player", winnerClient], wu.allPlayersStats),
+            new SendWinnerEvent(
+              ["player", winnerClient],
+              wu.allPlayersStats,
+              awards,
+            ),
           );
         }
         if (
@@ -381,9 +358,17 @@ export class WinModal extends LitElement implements Controller {
         }
         this.playEndOfGameSound();
         history.replaceState(null, "", `${window.location.pathname}?replay`);
-        this.show();
+        this.showResults(wu);
       }
     });
+  }
+
+  /** The game is decided: show the awards and what it paid in Derp Coins. */
+  private showResults(wu: WinUpdate): void {
+    this.gameOver = true;
+    this.awards = wu.awards ?? [];
+    this.coins = this.computeCoins(wu);
+    void this.show();
   }
 
   private playEndOfGameSound(): void {

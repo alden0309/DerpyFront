@@ -34,6 +34,7 @@ import type {
   SnapshotReader,
   SnapshotWriter,
 } from "../snapshot/SnapshotContext";
+import { loseCapital } from "./CapitalExecution";
 
 const SPRITE_RADIUS = 16;
 
@@ -480,6 +481,10 @@ export class NukeExecution implements Execution {
         // treatAFKFriendly matches warship targeting: a disconnected
         // teammate's or ally's units are still not kills.
         const friendly = this.player.isFriendly(unit.owner(), true);
+        // Derpy Front: a nuked Capital burns half its owner's gold.
+        if (!friendly && unit.type() === UnitType.Capital) {
+          loseCapital(mg, unit, this.player, false);
+        }
         unit.delete(true, friendly ? undefined : this.player);
       }
     }

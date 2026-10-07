@@ -161,7 +161,7 @@
       "name": "Deltona"
     }
   ],
-  "categories": ["north_america"],
+  "categories": ["new", "north_america"],
   "id": "Orlando",
   "map": {
     "height": 1300,

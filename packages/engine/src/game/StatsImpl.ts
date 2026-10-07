@@ -1,5 +1,9 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import { PlayerType, TerraNullius } from "@openfront/engine-api/game/GameTypes";
+import {
+  PlayerType,
+  TerraNullius,
+  UnitType,
+} from "@openfront/engine-api/game/GameTypes";
 import { AllPlayersStats, ClientID } from "@openfront/engine-api/Schemas";
 import {
   ALLIANCE_INDEX_BROKEN_BY_OTHER,
@@ -73,14 +77,43 @@ const conquest_by_type: Record<PlayerType, number> = {
 
 export class StatsImpl implements Stats {
   private data: AllPlayersStats = {};
+  // Derpy Front awards: kept for every human and nation (keyed by PlayerID),
+  // not just clients like `data`, so a nation can win an award too.
+  private tallies: Record<string, AwardTally> = {};
 
   snapshot(): StatsState {
-    return { data: this.data };
+    return { data: this.data, tallies: this.tallies };
   }
 
   /** Fills a prototype-only shell; see RestorableExecution.restoreSnapshot. */
   restoreSnapshot(s: StatsState): void {
     this.data = s.data as AllPlayersStats;
+    this.tallies = (s.tallies ?? {}) as Record<string, AwardTally>;
+  }
+
+  awardTallies(): Readonly<Record<string, AwardTally>> {
+    return this.tallies;
+  }
+
+  private _tally(player: Player): AwardTally | undefined {
+    if (player.type() === PlayerType.Bot) return undefined;
+    return (this.tallies[player.id()] ??= {
+      gold: 0n,
+      betrayals: 0,
+      ships: 0,
+      conquests: 0,
+      peakTiles: 0,
+    });
+  }
+
+  private _tallyGold(player: Player, gold: BigIntLike) {
+    const t = this._tally(player);
+    if (t !== undefined) t.gold += _bigint(gold);
+  }
+
+  private _tallyShip(player: Player) {
+    const t = this._tally(player);
+    if (t !== undefined) t.ships++;
   }
 
   getPlayerStats(player: Player): PlayerStats {
@@ -265,6 +298,8 @@ export class StatsImpl implements Stats {
 
   betray(player: Player): void {
     this._addBetrayal(player, 1);
+    const t = this._tally(player);
+    if (t !== undefined) t.betrayals++;
   }
 
   allianceFormed(player: Player): void {
@@ -286,17 +321,21 @@ export class StatsImpl implements Stats {
 
   boatSendTrade(player: Player, target: Player): void {
     this._addBoat(player, "trade", BOAT_INDEX_SENT, 1);
+    this._tallyShip(player);
   }
 
   boatArriveTrade(player: Player, target: Player, gold: BigIntLike): void {
     this._addBoat(player, "trade", BOAT_INDEX_ARRIVE, 1);
     this._addGold(player, GOLD_INDEX_TRADE, gold);
     this._addGold(target, GOLD_INDEX_TRADE, gold);
+    this._tallyGold(player, gold);
+    this._tallyGold(target, gold);
   }
 
   boatCapturedTrade(player: Player, target: Player, gold: BigIntLike): void {
     this._addBoat(player, "trade", BOAT_INDEX_CAPTURE, 1);
     this._addGold(player, GOLD_INDEX_STEAL, gold);
+    this._tallyGold(player, gold);
   }
 
   boatDestroyTrade(player: Player, target: Player): void {
@@ -309,6 +348,7 @@ export class StatsImpl implements Stats {
     troops: BigIntLike,
   ): void {
     this._addBoat(player, "trans", BOAT_INDEX_SENT, 1);
+    this._tallyShip(player);
   }
 
   boatArriveTroops(
@@ -353,6 +393,7 @@ export class StatsImpl implements Stats {
 
   goldWork(player: Player, gold: BigIntLike): void {
     this._addGold(player, GOLD_INDEX_WORK, gold);
+    this._tallyGold(player, gold);
   }
 
   goldDonationReceived(
@@ -373,10 +414,27 @@ export class StatsImpl implements Stats {
     if (conquestType !== undefined) {
       this._addConquest(player, conquestType);
     }
+    this._tallyGold(player, gold);
+  }
+
+  goldCapitalCaptured(player: Player, gold: BigIntLike): void {
+    this._addGold(player, GOLD_INDEX_WAR, gold);
+    this._tallyGold(player, gold);
+  }
+
+  /**
+   * A player was conquered (eliminated). Counted for the MVP award; bots
+   * count a quarter as much as a human or a nation.
+   */
+  playerConquered(conqueror: Player, conquered: Player): void {
+    const t = this._tally(conqueror);
+    if (t === undefined) return;
+    t.conquests += conquered.type() === PlayerType.Bot ? 1 : 4;
   }
 
   unitBuild(player: Player, type: OtherUnitType): void {
     this._addOtherUnit(player, type, OTHER_INDEX_BUILT, 1);
+    if (type === UnitType.Warship) this._tallyShip(player);
   }
 
   unitCapture(player: Player, type: OtherUnitType): void {
@@ -434,6 +492,10 @@ export class StatsImpl implements Stats {
     troops: BigIntLike,
     allianceCount: number,
   ): void {
+    const tally = this._tally(player);
+    if (tally !== undefined && Number(tiles) > tally.peakTiles) {
+      tally.peakTiles = Number(tiles);
+    }
     const p = this._makePlayerStats(player);
     if (p === undefined) return;
 
@@ -486,10 +548,12 @@ export class StatsImpl implements Stats {
 
   trainSelfTrade(player: Player, gold: BigIntLike): void {
     this._addGold(player, GOLD_INDEX_TRAIN_SELF, gold);
+    this._tallyGold(player, gold);
   }
 
   trainExternalTrade(player: Player, gold: BigIntLike): void {
     this._addGold(player, GOLD_INDEX_TRAIN_OTHER, gold);
+    this._tallyGold(player, gold);
   }
 
   lobbyFillTime(fillTimeMs: number): void {}
@@ -502,6 +566,23 @@ export const StatsSnapshot = snapshotType({
     // Stored as the live AllPlayersStats tree (bigints and all). Its shape is
     // versioned by StatsSchemas, which game records already keep readable.
     data: z.record(z.string(), z.unknown()),
+    // Derpy Front award tallies (AwardTally per PlayerID). Optional so a
+    // snapshot from before awards existed still restores.
+    tallies: z.record(z.string(), z.unknown()).optional(),
   }),
 });
+
+/** What the awards are decided from, per human or nation. */
+export interface AwardTally {
+  /** Gold earned: work, conquest, trade, captured trade ships and trains. */
+  gold: bigint;
+  /** Alliances this player broke. */
+  betrayals: number;
+  /** Transport ships and trade ships launched, plus warships built. */
+  ships: number;
+  /** Players conquered, weighted: 4 per human or nation, 1 per bot. */
+  conquests: number;
+  /** Most tiles owned at once. */
+  peakTiles: number;
+}
 export type StatsState = z.infer<typeof StatsSnapshot.schema>;

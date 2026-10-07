@@ -39,6 +39,7 @@ import {
   ResolvedCosmetic,
   resolvedToPlayerPattern,
 } from "./Cosmetics";
+import { DERPY_ACCOUNT_EVENT, derpyMe } from "./derpy/DerpyAccount";
 import {
   CROWN_KEY,
   EFFECTS_KEY,
@@ -122,9 +123,13 @@ export class InventoryModal extends BaseModal {
     this.previewingCosmetic = customEvent.detail;
   };
 
+  // Derpy Front: signing in or out, or buying a pack, changes what you own.
+  private _onDerpyAccount = () => void this.loadInventory();
+
   connectedCallback() {
     super.connectedCallback();
     document.addEventListener("userMeResponse", this._onUserMe);
+    window.addEventListener(DERPY_ACCOUNT_EVENT, this._onDerpyAccount);
     this.addEventListener("open-cosmetic-preview", this.onOpenCosmeticPreview);
     window.addEventListener(
       `${USER_SETTINGS_CHANGED_EVENT}:${PATTERN_KEY}`,
@@ -151,6 +156,7 @@ export class InventoryModal extends BaseModal {
     );
     super.disconnectedCallback();
     document.removeEventListener("userMeResponse", this._onUserMe);
+    window.removeEventListener(DERPY_ACCOUNT_EVENT, this._onDerpyAccount);
     window.removeEventListener(
       `${USER_SETTINGS_CHANGED_EVENT}:${PATTERN_KEY}`,
       this._onCosmeticSelected,
@@ -187,6 +193,18 @@ export class InventoryModal extends BaseModal {
       const auth = await userAuth();
       if (loadId !== this.ownershipLoadId) return;
       if (auth === false) {
+        // Derpy Front: what a signed-in account bought in the Derp Store
+        // counts as owned here, in the same "skin:<name>" form.
+        const derpy = await derpyMe();
+        if (loadId !== this.ownershipLoadId) return;
+        if (derpy !== null) {
+          this.userMeResponse = {
+            user: {},
+            player: { flares: derpy.owned },
+          } as unknown as UserMeResponse;
+          this.ownershipState = "loaded";
+          return;
+        }
         this.userMeResponse = false;
         this.ownershipState = "guest";
         return;

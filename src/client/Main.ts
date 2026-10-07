@@ -124,7 +124,6 @@ import {
 import "./SteamLinkModal";
 import { SteamLinkModal } from "./SteamLinkModal";
 import { steamSDK } from "./SteamSDK";
-import { StoreModal } from "./Store";
 import "./SubscriptionModal";
 import { initTelemetry } from "./Telemetry";
 import { TokenLoginModal } from "./TokenLoginModal";
@@ -159,6 +158,10 @@ import "./components/BannedModal";
 import "./components/DesktopStatusBar";
 import "./components/MarketingConsentToast";
 import "./components/PurchaseNudgeModal";
+import "./derpy/DerpyAccountPage";
+import "./derpy/DerpyLeaderboardPage";
+import "./derpy/DerpyNavAccount";
+import "./derpy/DerpyStorePage";
 import { classicReplayHref } from "./replay/ReplayEntry";
 import { parseReplayViewerHash } from "./replay/ReplayViewerRoute";
 import { initAudioMixer } from "./sound/AudioMixer";
@@ -293,6 +296,12 @@ function setInGameSignal(inGame: boolean): void {
     ?.catch(() => {});
 }
 
+/** What Main needs from the store page (Derpy Front's Derp Store). */
+interface StorePage {
+  refresh(): void | Promise<void>;
+  open(args?: Record<string, unknown>): void;
+}
+
 class Client {
   private lobbyHandle: JoinLobbyResult | null = null;
   /** The game the replay viewer is showing, once it has replaced the menu. */
@@ -307,7 +316,9 @@ class Client {
   private joinModal: JoinLobbyModal;
   private gameModeSelector: GameModeSelector;
   private userSettings: UserSettings = new UserSettings();
-  private storeModal: StoreModal;
+  // Derpy Front: the Derp Store page (DerpyStorePage) sits where OpenFront's
+  // store was, so only what both offer is used here.
+  private storeModal: StorePage;
   private tokenLoginModal: TokenLoginModal;
   private matchmakingModal: MatchmakingModal;
   private rewardsModal: RewardsModal;
@@ -402,7 +413,7 @@ class Client {
     // matchmaking are intentionally omitted — they own their own URL state
     // (path-based) or none at all.
     modalRouter.register("store", {
-      tag: "store-modal",
+      tag: "derpy-store-page",
       pageId: "page-item-store",
     });
     modalRouter.register("settings", {
@@ -410,12 +421,12 @@ class Client {
       pageId: "page-settings",
     });
     modalRouter.register("leaderboard", {
-      tag: "leaderboard-modal",
+      tag: "derpy-leaderboard-page",
       pageId: "page-leaderboard",
     });
     modalRouter.register("clan", { tag: "clan-modal", pageId: "page-clan" });
     modalRouter.register("account", {
-      tag: "account-modal",
+      tag: "derpy-account-page",
       pageId: "page-account",
     });
     // Profile-menu modals: popup style, so no pageId.
@@ -632,8 +643,10 @@ class Client {
       )?.startTutorial();
     });
 
-    this.storeModal = document.getElementById("page-item-store") as StoreModal;
-    if (!this.storeModal || !(this.storeModal instanceof StoreModal)) {
+    this.storeModal = document.getElementById(
+      "page-item-store",
+    ) as unknown as StorePage;
+    if (!this.storeModal || typeof this.storeModal.refresh !== "function") {
       console.warn("Store modal element not found");
     }
 

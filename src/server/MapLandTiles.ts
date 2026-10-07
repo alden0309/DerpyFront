@@ -57,3 +57,28 @@ export async function getMapLandTiles(map: GameMapType): Promise<number> {
     return 1_000_000; // Default fallback
   }
 }
+
+const landTiles4xCache = new Map<GameMapType, number>();
+
+/**
+ * Land tiles of the map as played: compact games load the quarter-size map,
+ * so their tile counts compare against map4x.
+ */
+export async function getMapLandTilesForSize(
+  map: GameMapType,
+  compact: boolean,
+): Promise<number> {
+  if (!compact) return getMapLandTiles(map);
+  const cached = landTiles4xCache.get(map);
+  if (cached !== undefined) return cached;
+  try {
+    const raw = await readManifestFile(map);
+    const tiles = (JSON.parse(raw) as { map4x: { num_land_tiles: number } })
+      .map4x.num_land_tiles;
+    landTiles4xCache.set(map, tiles);
+    return tiles;
+  } catch (error) {
+    log.error(`Failed to load manifest for ${map}: ${error}`, { map });
+    return 250_000;
+  }
+}

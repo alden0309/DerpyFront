@@ -32,7 +32,7 @@ async function mount<T extends LitElement>(element: T): Promise<T> {
 afterEach(() => document.body.replaceChildren());
 
 describe("Inventory navigation", () => {
-  it("renders Inventory in desktop and mobile navigation", async () => {
+  it("renders Inventory in desktop and mobile navigation, and no Clans", async () => {
     const desktop = await mount(new DesktopNavBar());
     const mobile = await mount(new MobileNavBar());
     expect(
@@ -41,11 +41,9 @@ describe("Inventory navigation", () => {
       ),
     ).toBeTruthy();
     expect(mobile.querySelector('[data-page="page-inventory"]')).toBeTruthy();
-    expect(
-      mobile.querySelector(
-        '[data-page="page-inventory"] [data-i18n="main.inventory"], [data-page="page-inventory"][data-i18n="main.inventory"]',
-      ),
-    ).toBeTruthy();
+    for (const nav of [desktop, mobile]) {
+      expect(nav.querySelector('[data-page="page-clan"]')).toBeNull();
+    }
   });
 
   it("removes cosmetic and flag selectors from the play page", async () => {

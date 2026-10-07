@@ -69,7 +69,7 @@ export class PlayPage extends LitElement {
               class="col-start-3 justify-self-end shrink-0 flex items-center gap-0.5"
             >
               <nav-utility-icons size="mobile"></nav-utility-icons>
-              <nav-account-menu variant="mobile"></nav-account-menu>
+              <derpy-nav-account variant="mobile"></derpy-nav-account>
             </div>
           </div>
         </div>

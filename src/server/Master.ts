@@ -14,6 +14,7 @@ import {
   registeredSite,
   sendCheckin,
 } from "./ClusterCheckin";
+import { derpyApiRouter } from "./derpy/DerpyApi";
 import { getDescriptor } from "./DesktopRelease";
 import {
   coordinatorUrl,
@@ -38,6 +39,10 @@ const log = logger.child({ comp: "m" });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Derpy Front's accounts, stats, replays and store. Mounted before the
+// global JSON parser so its routes set their own body limits.
+app.use("/derpy/api", derpyApiRouter());
 
 app.use(express.json());
 

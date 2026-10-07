@@ -30,6 +30,7 @@ import { z } from "zod";
 import { registerAdminBotRoutes } from "./AdminBotRoutes";
 import { censorPlayer } from "./Censor";
 import { Client } from "./Client";
+import { derpySkinForPlayer } from "./derpy/DerpySkins";
 import { gameApiCors } from "./GameApiCors";
 import { GameManager } from "./GameManager";
 import { registerGamePreviewRoute } from "./GamePreviewRoute";
@@ -785,6 +786,16 @@ export async function startWorker() {
           });
           ws.close(CloseCode.Forbidden, CloseReason.CosmeticsForbidden);
           return;
+        }
+
+        // Derpy Front: territory skins come from the Derp Store and are owned
+        // per account, so they're checked against the player's account.
+        if (cosmeticResult.cosmetics.skin === undefined) {
+          const skin = await derpySkinForPlayer(
+            persistentId,
+            clientMsg.cosmetics?.skinName,
+          );
+          if (skin !== null) cosmeticResult.cosmetics.skin = skin;
         }
 
         // Verified intent, not a claim to verify: the check stays only when

@@ -1,11 +1,5 @@
 import { RankedType } from "@openfront/engine-api/game/GameTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  fetchCosmetics,
-  resolveCosmetics,
-  type ResolvedCosmetic,
-} from "../../../../src/client/Cosmetics";
-import type { PurchaseButton } from "../../../../src/client/components/PurchaseButton";
 import "../../../../src/client/hud/layers/WinModal";
 import type { WinModal } from "../../../../src/client/hud/layers/WinModal";
 
@@ -126,7 +120,7 @@ describe("WinModal Requeue", () => {
   });
 });
 
-describe("WinModal pattern promotion", () => {
+describe("WinModal end-of-game awards", () => {
   let modal: WinModal | undefined;
 
   afterEach(() => {
@@ -134,81 +128,69 @@ describe("WinModal pattern promotion", () => {
     modal = undefined;
   });
 
-  it("renders three card-and-purchase promotions from four purchasable patterns", async () => {
-    const purchasablePatterns: ResolvedCosmetic[] = [
-      "aurora",
-      "blaze",
-      "circuit",
-      "dawn",
-    ].map((name) => ({
-      type: "pattern",
-      cosmetic: {
-        name,
-        pattern: "AAAAAA",
-        product: null,
-        priceHard: 120,
-        rarity: "rare",
-      } as never,
-      colorPalette: null,
-      relationship: "purchasable",
-      key: `pattern:${name}`,
-    }));
-    vi.mocked(fetchCosmetics).mockResolvedValue(null);
-    vi.mocked(resolveCosmetics).mockReturnValue(purchasablePatterns);
+  function gameView(myClientID: string) {
+    return {
+      myPlayer: () => ({
+        clientID: () => myClientID,
+        isAlive: () => true,
+        team: () => null,
+      }),
+      numLandTiles: () => 1000,
+      ticks: () => 3000, // five minutes
+      config: () => ({ gameConfig: () => ({ rankedType: undefined }) }),
+    };
+  }
 
+  async function showResults(wu: Record<string, unknown>) {
     modal = document.createElement("win-modal") as WinModal;
-    Object.assign(modal as unknown as { rand: number; isWin: boolean }, {
-      rand: 0.75,
-      isWin: true,
-    });
+    Object.assign(modal, { game: gameView("me") });
     document.body.appendChild(modal);
+    (modal as unknown as { showResults(wu: unknown): void }).showResults(wu);
     await modal.updateComplete;
+    return modal;
+  }
 
-    await modal.loadPatternContent();
-    modal.requestUpdate();
-    await modal.updateComplete;
-
-    const promotions = modal.querySelectorAll("[data-win-cosmetic-promo]");
-    expect(promotions).toHaveLength(3);
-    expect(modal.querySelectorAll("cosmetic-card")).toHaveLength(3);
-    expect(modal.querySelectorAll("purchase-button")).toHaveLength(3);
-    for (const button of modal.querySelectorAll<PurchaseButton>(
-      "purchase-button",
-    )) {
-      expect(button.rarity).toBe("rare");
-    }
-    for (const card of modal.querySelectorAll("cosmetic-card")) {
-      expect(card.querySelector("[data-cosmetic-main]")?.tagName).toBe("DIV");
-      expect(card.querySelectorAll("button")).toHaveLength(0);
-    }
-    const legacyButtonTag = ["cosmetic", "button"].join("-");
-    const legacyContainerTag = ["cosmetic", "container"].join("-");
-    expect(modal.querySelectorAll(legacyButtonTag)).toHaveLength(0);
-    expect(modal.querySelectorAll(legacyContainerTag)).toHaveLength(0);
+  it("lists each award with who won it, highlighting mine", async () => {
+    const m = await showResults({
+      winner: ["player", "me"],
+      allPlayersStats: {},
+      awards: [
+        { kind: "mvp", name: "Alden", clientID: "me", value: 812 },
+        { kind: "betrayals", name: "Florida", clientID: null, value: 3 },
+      ],
+    });
+    const cards = m.querySelectorAll("[data-award]");
+    expect(cards).toHaveLength(2);
+    expect(cards[0].textContent).toContain("Alden");
+    expect(cards[0].textContent).toContain("derpy.award_mvp");
+    expect(cards[0].className).toContain("border-cyber-yellow");
+    expect(cards[1].textContent).toContain("Florida");
+    expect(cards[1].className).not.toContain("border-cyber-yellow");
   });
 
-  it("drops the ad-free pitch in the desktop shell, which has no ads", async () => {
-    const render = async () => {
-      modal = document.createElement("win-modal") as WinModal;
-      Object.assign(modal as unknown as { rand: number; isWin: boolean }, {
-        rand: 0.75,
-        isWin: true,
-      });
-      document.body.appendChild(modal);
-      await modal.updateComplete;
-      return modal.textContent ?? "";
-    };
-
-    expect(await render()).toContain("win_modal.territory_pattern");
-    modal?.remove();
-
-    window.openfrontDesktop = {};
-    try {
-      const text = await render();
-      expect(text).toContain("win_modal.support_openfront");
-      expect(text).not.toContain("win_modal.territory_pattern");
-    } finally {
-      delete window.openfrontDesktop;
+  it("shows the Derp Coins the game pays, line by line", async () => {
+    const m = await showResults({
+      winner: ["player", "me"],
+      allPlayersStats: {
+        me: { tiles: [400n, 0n, 0n], gold: [1_000_000n] },
+      },
+      awards: [{ kind: "mvp", name: "Alden", clientID: "me", value: 812 }],
+    });
+    const text = m.textContent ?? "";
+    // Signed out: it says what the game would have paid.
+    expect(text).toContain("derpy.coins_would_earn");
+    for (const line of ["played", "territory", "gold", "awards", "win"]) {
+      expect(text).toContain(`derpy.coin_line_${line}`);
     }
+    // 10 played + 40 territory + 4 gold + 50 MVP + 100 win.
+    expect(text).toContain("+40");
+    expect(text).toContain("+100");
+  });
+
+  it("says awards come at the end when you die before the game is decided", async () => {
+    modal = document.createElement("win-modal") as WinModal;
+    document.body.appendChild(modal);
+    await modal.updateComplete;
+    expect(modal.textContent).toContain("derpy.awards_at_end");
   });
 });

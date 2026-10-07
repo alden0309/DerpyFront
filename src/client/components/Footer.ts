@@ -30,10 +30,10 @@ export class Footer extends LitElement {
   render() {
     return html`
       <footer
-        class="[.in-game_&]:hidden bg-zinc-900/90 backdrop-blur-md flex flex-col items-center justify-center gap-1 pt-3 pb-3 text-white/50 w-full border-t border-white/10 shrink-0 relative z-50"
+        class="[.in-game_&]:hidden bg-zinc-900/90 backdrop-blur-md flex flex-col items-center justify-center gap-1 pt-4 pb-3 text-white/50 w-full border-t border-white/10 shrink-0 relative z-50"
       >
         <p
-          class="hey-buddy m-0 text-center text-4xl lg:text-5xl font-extrabold tracking-wide text-white"
+          class="hey-buddy m-0 mb-8 lg:mb-12 text-center text-4xl lg:text-5xl font-extrabold tracking-wide text-white"
         >
           Hey Buddy
         </p>

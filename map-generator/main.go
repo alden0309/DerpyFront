@@ -123,11 +123,20 @@ func processMap(ctx context.Context, name string, isTest bool) (string, error) {
 		return "", fmt.Errorf("failed to parse info.json for %s: %w", name, err)
 	}
 
+	// Optional per-map override of the smallest lake kept. It only steers the
+	// generator, so it isn't written to the output manifest.
+	minLake := 0
+	if v, ok := manifest["min_lake_size"].(float64); ok {
+		minLake = int(v)
+	}
+	delete(manifest, "min_lake_size")
+
 	// Generate maps
 	result, err := GenerateMap(ctx, GeneratorArgs{
 		ImageBuffer: imageBuffer,
 		RemoveSmall: !isTest, // Don't remove small islands for test maps
 		Name:        name,
+		MinLakeSize: minLake,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to generate map for %s: %w", name, err)

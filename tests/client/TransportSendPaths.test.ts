@@ -260,6 +260,7 @@ describe("Transport send paths", () => {
         type: "winner",
         winner: ["player", "player01"],
         allPlayersStats: {},
+        awards: [],
       });
     });
 
@@ -290,6 +291,7 @@ describe("Transport send paths", () => {
         type: "winner",
         winner: ["player", "player01"],
         allPlayersStats: {},
+        awards: [],
       });
     });
   });

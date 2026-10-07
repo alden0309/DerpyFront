@@ -16,6 +16,7 @@ import { generateCryptoRandomUUID, translateText } from "./Utils";
 export type UserAuth = { jwt: string; claims: TokenPayload } | false;
 
 const PERSISTENT_ID_KEY = "player_persistent_id";
+const DERPY_PLAY_ID_KEY = "derpy_play_id";
 
 let __jwt: string | null = null;
 let __refreshPromise: Promise<void> | null = null;
@@ -782,6 +783,10 @@ export function getPersistentID(): string {
 
 // WARNING: DO NOT EXPOSE THIS ID
 function getPersistentIDFromLocalStorage(): string {
+  // Derpy Front: signed in, play under the account session's play ID.
+  const derpyPlayId = localStorage.getItem(DERPY_PLAY_ID_KEY);
+  if (derpyPlayId) return derpyPlayId;
+
   // Try to get existing localStorage
   const value = localStorage.getItem(PERSISTENT_ID_KEY);
   if (value) return value;
@@ -791,4 +796,18 @@ function getPersistentIDFromLocalStorage(): string {
   localStorage.setItem(PERSISTENT_ID_KEY, newID);
 
   return newID;
+}
+
+/**
+ * Derpy Front: play under a signed-in account's play ID (or, with null, go
+ * back to the anonymous ID). Finished games are credited to the account whose
+ * session owns the ID they were played with. Kept apart from the anonymous ID
+ * so OpenFront's own session clearing never signs a player out of Derpy Front.
+ */
+export function setLocalPersistentID(id: string | null): void {
+  if (id === null) {
+    localStorage.removeItem(DERPY_PLAY_ID_KEY);
+  } else {
+    localStorage.setItem(DERPY_PLAY_ID_KEY, id);
+  }
 }

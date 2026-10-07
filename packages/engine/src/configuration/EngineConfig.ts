@@ -380,7 +380,7 @@ export class EngineConfig extends Config {
           UnitType.Port,
         );
       case UnitType.Capital:
-        return this.costWrapper(() => 1_000_000, UnitType.Capital);
+        return this.costWrapper(() => 5_000_000, UnitType.Capital);
       case UnitType.TransportShip:
       case UnitType.Shell:
       case UnitType.SAMMissile:

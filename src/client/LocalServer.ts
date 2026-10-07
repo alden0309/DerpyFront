@@ -8,7 +8,6 @@ import { EventBus } from "@openfront/shared/EventBus";
 import {
   createPartialGameRecord,
   decompressGameRecord,
-  replacer,
 } from "@openfront/shared/SharedUtil";
 import {
   ClientMessage,
@@ -21,9 +20,12 @@ import {
 } from "@openfront/shared/WireSchemas";
 import { ClientEnv } from "src/client/ClientEnv";
 import { z } from "zod";
-import { getApiBase } from "./Api";
-import { getAuthHeader, getPersistentID } from "./Auth";
+import { getPersistentID } from "./Auth";
 import { LobbyConfig } from "./ClientGameRunner";
+import {
+  derpySaveSingleplayerGame,
+  isDerpySignedIn,
+} from "./derpy/DerpyAccount";
 import {
   GameSpeedDownIntentEvent,
   GameSpeedUpIntentEvent,
@@ -338,79 +340,23 @@ export class LocalServer {
     record: PartialGameRecord,
     unloading: boolean,
   ): Promise<void> {
+    // Derpy Front: singleplayer games are saved to the signed-in player's
+    // Derpy Front account (for stats, Derp Coins and replays) instead of
+    // OpenFront's archive. Signed out, there's nowhere to save it.
+    if (!isDerpySignedIn()) {
+      this.archived = true;
+      return;
+    }
     this.archiveInFlight = true;
     try {
-      const authHeader = await getAuthHeader();
-      if (authHeader === "") {
-        // The archive API requires a session. Guests have one too, so this
-        // only trips when none could be established (e.g. API unreachable).
-        return;
-      }
-      // Replays refuse to load unless the archived commit matches the client
-      // build, and the API worker can't stamp it (it has a different build).
-      const jsonString = JSON.stringify(
-        { ...record, gitCommit: ClientEnv.gitCommit() },
-        replacer,
+      const coins = await derpySaveSingleplayerGame(
+        record,
+        this.winner?.awards ?? [],
+        unloading,
       );
-      const compressedData = await compress(jsonString);
-      const response = await fetch(
-        `${getApiBase()}/archive_singleplayer_game`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Content-Encoding": "gzip",
-            Authorization: authHeader,
-          },
-          body: compressedData,
-          // keepalive lets the request outlive page teardown but caps the body
-          // at 64 KiB, so only set it when the page is actually unloading.
-          keepalive: unloading,
-        },
-      );
-      if (response.ok) {
-        this.archived = true;
-      } else {
-        console.error(
-          `Failed to archive singleplayer game: ${response.status}`,
-        );
-      }
-    } catch (error) {
-      console.warn("Failed to archive singleplayer game:", error);
+      if (coins !== null) this.archived = true;
     } finally {
       this.archiveInFlight = false;
     }
   }
-}
-
-async function compress(data: string): Promise<ArrayBuffer> {
-  const stream = new CompressionStream("gzip");
-  const writer = stream.writable.getWriter();
-  const reader = stream.readable.getReader();
-
-  // Write the data to the compression stream
-  writer.write(new TextEncoder().encode(data));
-  writer.close();
-
-  // Read the compressed data
-  const chunks: Uint8Array[] = [];
-  let done = false;
-  while (!done) {
-    const { value, done: readerDone } = await reader.read();
-    done = readerDone;
-    if (value) {
-      chunks.push(value);
-    }
-  }
-
-  // Combine all chunks into a single Uint8Array
-  const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
-  const compressedData = new Uint8Array(totalLength);
-  let offset = 0;
-  for (const chunk of chunks) {
-    compressedData.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return compressedData.buffer;
 }

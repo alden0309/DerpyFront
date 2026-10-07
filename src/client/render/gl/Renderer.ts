@@ -957,7 +957,12 @@ export class GPURenderer {
     const posts: { x: number; y: number; ownerID: number }[] = [];
     const w = this.mapW;
     for (const u of units.values()) {
-      if (u.unitType === "Defense Post" && !u.underConstruction) {
+      // Derpy Front: a Capital defends the same radius as a post (at twice
+      // the strength), so its range shows the same way.
+      if (
+        (u.unitType === "Defense Post" || u.unitType === "Capital") &&
+        !u.underConstruction
+      ) {
         posts.push({
           x: u.pos % w,
           y: (u.pos - (u.pos % w)) / w,

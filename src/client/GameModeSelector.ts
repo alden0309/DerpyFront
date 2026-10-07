@@ -686,6 +686,29 @@ export class GameModeSelector extends LitElement {
           )}
         </div>
 
+        <!-- Derpy Front: a little verse under the buttons. The lines tilt
+             back and forth a touch, and the last word lands as the punchline
+             in the Tutorial button's yellow. -->
+        <figure class="derpy-poem m-0 mt-2 flex flex-col items-center gap-0.5">
+          <blockquote
+            class="m-0 flex flex-col items-center font-serif italic text-lg sm:text-xl leading-snug text-white/85 [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]"
+          >
+            <span class="block -rotate-1"
+              >${translateText("main.derpy_poem_line1")}</span
+            >
+            <span class="block rotate-1"
+              >${translateText("main.derpy_poem_line2")}</span
+            >
+            <span class="block -rotate-1"
+              >${translateText("main.derpy_poem_line3")}</span
+            >
+          </blockquote>
+          <span
+            class="block mt-1 -rotate-3 font-serif italic font-black text-4xl sm:text-5xl text-cyber-yellow [text-shadow:0_2px_0_rgba(0,0,0,0.55)]"
+            >${translateText("main.derpy_poem_punchline")}</span
+          >
+        </figure>
+
         ${this.showTrustRequired
           ? trustRequiredDialog(
               this.viewerSignedIn,
