@@ -25,11 +25,14 @@ export function applyDelta(s: GameState, d: GameDelta): void {
   if (d.nations) {
     for (const [i, n] of Object.entries(d.nations)) s.nations[Number(i)] = n;
   }
+  if (d.chars) {
+    for (const [i, c] of Object.entries(d.chars)) s.chars[Number(i)] = c;
+  }
   if (d.wars) s.wars = d.wars;
   if (d.truces) s.truces = d.truces;
-  if (d.deals) s.deals = d.deals;
+  if (d.treaties) s.treaties = d.treaties;
   if (d.offers) s.offers = d.offers;
-  if (d.prices) s.prices = d.prices;
+  if (d.europe) s.europe = d.europe;
   if (d.battles) {
     s.battles.push(...d.battles);
     if (s.battles.length > MAX_BATTLES_KEPT) {

@@ -1,7 +1,7 @@
 // Derpy Conquest: the shapes of the map, the game state, player commands
 // and what the game reports back. The state is plain JSON so the server can
-// send it to players as-is and players' browsers can run the same queries
-// on their copy.
+// save it, send it to players as-is, and players' browsers can run the same
+// queries on their copy.
 
 export type Terrain =
   | "plains"
@@ -13,28 +13,44 @@ export type Terrain =
   | "marsh"
   | "tundra";
 
+/** Everything the colonies make, eat, wear, ship and shoot. */
 export type Good =
-  | "tobacco"
-  | "sugar"
-  | "furs"
-  | "silver"
-  | "cotton"
   | "grain"
   | "fish"
+  | "furs"
+  | "tobacco"
+  | "sugar"
   | "timber"
-  | "cattle";
+  | "silver"
+  | "tools"
+  | "guns"
+  | "cloth";
 
 export const GOODS: readonly Good[] = [
-  "silver",
-  "sugar",
-  "tobacco",
-  "furs",
-  "cotton",
-  "fish",
-  "cattle",
-  "timber",
   "grain",
+  "fish",
+  "furs",
+  "tobacco",
+  "sugar",
+  "timber",
+  "silver",
+  "tools",
+  "guns",
+  "cloth",
 ];
+
+/** Goods that come out of the land (a province's resource is one of these). */
+export type RawGood =
+  | "grain"
+  | "fish"
+  | "furs"
+  | "tobacco"
+  | "sugar"
+  | "timber"
+  | "silver";
+
+/** The old map's goods, as written in americas.json. */
+export type MapGood = RawGood | "cotton" | "cattle";
 
 /** A neighbour: [province, km between them, crosses a river, across a strait]. */
 export type Neighbour = [number, number, number, number];
@@ -48,7 +64,7 @@ export interface ProvinceDef {
   x: number;
   y: number;
   terrain: Terrain;
-  good: Good;
+  good: MapGood;
   areaKm2: number;
   coastal: boolean;
   /** Who holds it at the start: a power or native nation key, or null. */
@@ -86,17 +102,386 @@ export interface MapDef {
   natives: NativeDef[];
 }
 
-// ---------------------------------------------------------------- state
+// ---------------------------------------------------------------- explaining
 
-export type RegType = "inf" | "cav" | "art" | "war" | "horse";
-export type BuildingKind = "farm" | "port" | "fort";
-export type Difficulty = "easy" | "normal" | "hard";
+/** One cause of a number: "+3 Governor's stewardship". */
+export interface Part {
+  label: string;
+  value: number;
+  /** A multiplier (×1.2) rather than an amount added. */
+  mul?: boolean;
+}
+
+/** A number together with everything that made it. */
+export interface Breakdown {
+  total: number;
+  parts: Part[];
+}
+
+// ---------------------------------------------------------------- characters
+
+export type Stat = "dip" | "mar" | "ste" | "int" | "lea";
+export const STATS: readonly Stat[] = ["dip", "mar", "ste", "int", "lea"];
+export type Stats = Record<Stat, number>;
+
+export type TraitId =
+  | "ambitious"
+  | "content"
+  | "honest"
+  | "deceitful"
+  | "brave"
+  | "craven"
+  | "greedy"
+  | "generous"
+  | "diligent"
+  | "lazy"
+  | "zealous"
+  | "tolerant"
+  | "just"
+  | "cruel"
+  | "robust"
+  | "sickly"
+  | "educated"
+  | "charming";
+
+export type Seat = "treasurer" | "marshal" | "envoy" | "spymaster" | "chaplain";
+export const SEATS: readonly Seat[] = [
+  "treasurer",
+  "marshal",
+  "envoy",
+  "spymaster",
+  "chaplain",
+];
+
+export type Ambition = "governorship" | "wealth" | "glory" | "faith" | "peace";
+
+export type SchemeKind = "slander" | "embezzle" | "incite" | "murder";
+
+export interface Scheme {
+  kind: SchemeKind;
+  /** Whose governor it's aimed at. */
+  target: number;
+  started: number;
+  /** 0 to 100; it happens at 100. */
+  progress: number;
+  /** Found out: the governor knows, and can act. */
+  exposed: boolean;
+}
+
+/** Something a character remembers about another, for or against. */
+export interface Memory {
+  /** Who it's about (character id), or -1 for the governor's office. */
+  of: number;
+  why: string;
+  value: number;
+  /** Day it's forgotten; 0 = never. */
+  until: number;
+}
+
+export interface Character {
+  id: number;
+  first: string;
+  family: string;
+  /** Shown instead of a personal name (e.g. "the Mamanatowick"). */
+  title: string | null;
+  female: boolean;
+  /** Day they were born (negative: before 1 January 1607). */
+  born: number;
+  nation: number;
+  culture: string;
+  religion: Religion;
+  stats: Stats;
+  traits: TraitId[];
+  alive: boolean;
+  died: { day: number; cause: string } | null;
+  spouse: number;
+  father: number;
+  mother: number;
+  children: number[];
+  ambition: Ambition | null;
+  scheme: Scheme | null;
+  memories: Memory[];
+  /** Days a marriage or birth last happened, to space them. */
+  lastBirth: number;
+  /** A governor the player made (not generated). */
+  made: boolean;
+}
+
+// ---------------------------------------------------------------- people
+
+export type PopClass =
+  | "laborers"
+  | "artisans"
+  | "merchants"
+  | "gentry"
+  | "clergy"
+  | "tribe";
+
+export const POP_CLASSES: readonly PopClass[] = [
+  "laborers",
+  "artisans",
+  "merchants",
+  "gentry",
+  "clergy",
+  "tribe",
+];
+
+export type Religion =
+  | "anglican"
+  | "puritan"
+  | "catholic"
+  | "reformed"
+  | "lutheran"
+  | "native";
+
+export interface Pop {
+  cls: PopClass;
+  culture: string;
+  religion: Religion;
+  size: number;
+  /** Savings in gold. */
+  wealth: number;
+  /** Share of needs met last month: [food, everyday, luxury], 0 to 1. */
+  met: [number, number, number];
+  /** Income last month, in gold. */
+  income: number;
+}
+
+// ---------------------------------------------------------------- places
+
+export type BuildingKind =
+  | "farm"
+  | "plantation"
+  | "tradingpost"
+  | "mine"
+  | "lumbercamp"
+  | "port"
+  | "fort"
+  | "smithy"
+  | "gunsmith"
+  | "weaver"
+  | "church"
+  | "courthouse";
+
+/** A temporary effect from an event or decision. */
+export interface Modifier {
+  key: string;
+  label: string;
+  until: number;
+  fx: Partial<Record<ModFx, number>>;
+}
+
+export type ModFx =
+  | "unrest"
+  | "production"
+  | "tax"
+  | "favor"
+  | "colonists"
+  | "admin"
+  | "morale"
+  | "growth"
+  | "disease"
+  | "opinion"
+  | "autonomy";
+
+export interface Province {
+  /** Nation index, or -1 for open wilderness. */
+  owner: number;
+  /** A nation at war with the owner holding it, or -1. */
+  occupier: number;
+  pops: Pop[];
+  /** Building levels. */
+  b: Partial<Record<BuildingKind, number>>;
+  build: { kind: BuildingKind; start: number; done: number } | null;
+  /** A colony being founded: by whom, and the days it started and is done. */
+  colony: { by: number; start: number; done: number } | null;
+  recruits: { type: RegType; start: number; done: number }[];
+  /** A siege under way: by whom, and how far along (0 to 100). */
+  siege: { by: number; start: number; progress: number } | null;
+  /** 0 to 100; revolt at 100. Set monthly from its causes. */
+  unrest: number;
+  /** War damage, 0 to 1; production is cut by it, and it heals. */
+  devastation: number;
+  /** Day it's fully part of its owner's realm; 0 if it is. */
+  integrate: number;
+  /** How worn out the fur grounds are, 0 to 1. */
+  depletion: number;
+  /** What it made last month (for the economy view). */
+  made: Partial<Record<Good, number>>;
+  mods: Modifier[];
+}
+
+// ---------------------------------------------------------------- nations
+
+export interface Market {
+  /** Price of each good this month. */
+  price: Record<Good, number>;
+  /** In the warehouses, carried into next month. */
+  stock: Record<Good, number>;
+  /** Last month: made here, shipped in, and traded in from natives. */
+  supply: Record<Good, number>;
+  /** Last month: wanted by people, workshops and soldiers. */
+  demand: Record<Good, number>;
+}
+
+/** Ships crossing the Atlantic for one of the colonies. */
+export interface Convoy {
+  id: number;
+  /** Port it sails from or back to. */
+  port: number;
+  /** Heading for Europe (true) or home to the colony (false). */
+  out: boolean;
+  departed: number;
+  arrive: number;
+  cargo: Partial<Record<Good, number>>;
+  /** What the cargo cost in the colony (out) or in Europe (home). */
+  paid: number;
+  /** Outbound: what to buy in Europe for the trip home. */
+  orders: Partial<Record<Good, number>>;
+}
+
+export interface LedgerLine {
+  label: string;
+  value: number;
+}
+
+export interface Ledger {
+  income: LedgerLine[];
+  spending: LedgerLine[];
+  net: number;
+}
+
+export interface NationStats {
+  coloniesFounded: number;
+  battlesWon: number;
+  battlesLost: number;
+  provincesConquered: number;
+  provincesLost: number;
+  goldEarned: number;
+  remitted: number;
+  peakProvinces: number;
+  peakPeople: number;
+  landBought: number;
+}
+
+export type TaxLevel = 0 | 1 | 2;
+
+/** What the crown wants from a colony right now. */
+export interface CrownDemand {
+  key: "money" | "war" | "mission" | "levy";
+  label: string;
+  /** Gold, or a nation to fight, or a province for a mission. */
+  amount: number;
+  target: number;
+  made: number;
+  due: number;
+}
+
+export interface EventChoice {
+  label: string;
+  /** What it does, in words. */
+  tip: string;
+}
+
+export interface PendingEvent {
+  id: number;
+  key: string;
+  day: number;
+  /** Day the council decides for you (the first choice) if you haven't. */
+  expires: number;
+  title: string;
+  body: string;
+  choices: EventChoice[];
+  ctx: Record<string, number>;
+}
+
+export interface Nation {
+  id: number;
+  key: string;
+  /** A crown only enters play to crush a colony's rebellion. */
+  kind: "power" | "native" | "crown";
+  name: string;
+  adjective: string;
+  color: string;
+  alive: boolean;
+  /** Crowns: the colony they rule (-1 otherwise). */
+  colony: number;
+  /** The seat of the human playing it, or null for the computer. */
+  player: string | null;
+  playerName: string | null;
+  culture: string;
+  religion: Religion;
+  /** Governor (powers) or chief (natives): a character id. */
+  ruler: number;
+  heir: number;
+  council: Record<Seat, number>;
+  /** Notables at court who could serve or scheme. */
+  court: number[];
+  gold: number;
+  capital: number;
+  horse: boolean;
+  strong: boolean;
+
+  // Powers.
+  favor: number;
+  autonomy: number;
+  /** Share of income sent home to the crown, 0 to 0.5. */
+  remit: number;
+  independent: boolean;
+  /** At war with its own crown for independence. */
+  rebelling: boolean;
+  rebellion: {
+    since: number;
+    /** Armies the crown has sent, and how many were beaten. */
+    expeditions: number;
+    beaten: number;
+    /** Day the crown took the capital, or -1. */
+    capitalLost: number;
+  } | null;
+  /** Royal honours: 0 none, 1 knight, 2 baronet, 3 baron, 4 earl. */
+  title: number;
+  tax: TaxLevel;
+  /** Goods the governor won't let leave, or come in. */
+  noExport: Good[];
+  noImport: Good[];
+  market: Market;
+  convoys: Convoy[];
+  /** Day the last convoy sailed for Europe. */
+  lastConvoy: number;
+  colonists: number;
+  nextColonist: number;
+  demand: CrownDemand | null;
+  warExhaustion: number;
+
+  /** How it feels about every other nation (memories, newest last). */
+  relations: Record<number, Memory[]>;
+  mods: Modifier[];
+  events: PendingEvent[];
+  /** Day each event key may fire again. */
+  cooldowns: Record<string, number>;
+  ledger: Ledger;
+  stats: NationStats;
+  /** Victory points, updated monthly. */
+  score: number;
+}
+
+// ---------------------------------------------------------------- armies
+
+export type RegType =
+  | "militia"
+  | "regulars"
+  | "dragoons"
+  | "artillery"
+  | "warriors"
+  | "riders";
 
 export interface Regiment {
   type: RegType;
   men: number;
   /** 0 (broken) to 1 (fresh). */
   morale: number;
+  /** The province the men were drafted from (they go home when disbanded). */
+  home: number;
 }
 
 export interface Army {
@@ -119,74 +504,13 @@ export interface Army {
   arrived: number;
   /** Where it came from (-1 if raised here), for river crossings. */
   from: number;
+  /** Leading it: a character, or -1. */
+  commander: number;
+  /** Food on hand, 0 (starving) to 1 (full wagons). */
+  supply: number;
 }
 
-export interface Province {
-  /** Nation index, or -1 for open wilderness. */
-  owner: number;
-  /** Settlers (in a power's province). */
-  pop: number;
-  /** Native people living there. */
-  natives: number;
-  farm: number;
-  port: number;
-  fort: number;
-  /** Building under way: what, and the days it started and is done. */
-  build: { kind: BuildingKind; start: number; done: number } | null;
-  /** A colony being founded: by whom, and the days it started and is done. */
-  colony: { by: number; start: number; done: number } | null;
-  /** Regiments being raised here. */
-  recruits: { type: RegType; start: number; done: number }[];
-  /** A siege under way: by whom, and the day the province falls. */
-  siege: { by: number; start: number; done: number } | null;
-}
-
-export interface NationStats {
-  coloniesFounded: number;
-  battlesWon: number;
-  battlesLost: number;
-  provincesConquered: number;
-  provincesLost: number;
-  goldEarned: number;
-  peakProvinces: number;
-  landBought: number;
-}
-
-export interface MonthlyLedger {
-  goods: number;
-  tax: number;
-  trade: number;
-  crown: number;
-  upkeep: number;
-  total: number;
-}
-
-export interface Nation {
-  id: number;
-  key: string;
-  kind: "power" | "native";
-  name: string;
-  adjective: string;
-  color: string;
-  alive: boolean;
-  /** The seat of the human playing it, or null for the computer. */
-  player: string | null;
-  playerName: string | null;
-  gold: number;
-  manpower: number;
-  colonists: number;
-  /** Day the next colonist arrives from home (powers). */
-  nextColonist: number;
-  capital: number;
-  /** Natives only: how they feel about each power, by its id (-100 to 100). */
-  opinion: number[];
-  horse: boolean;
-  strong: boolean;
-  stats: NationStats;
-  ledger: MonthlyLedger;
-  /** Victory points, updated monthly. */
-  score: number;
-}
+// ---------------------------------------------------------------- diplomacy
 
 export interface War {
   a: number;
@@ -194,8 +518,13 @@ export interface War {
   /** Who declared it. */
   by: number;
   start: number;
-  /** Provinces each side has taken: [a's, b's]. */
-  gains: [number, number];
+  /** Why, in words ("Land encroachment", "War in Europe"). */
+  why: string;
+  /** Battles won and men lost by each side: [a's, b's]. */
+  won: [number, number];
+  lost: [number, number];
+  /** Declared by the crowns in Europe. */
+  europe: boolean;
 }
 
 export interface Truce {
@@ -204,25 +533,55 @@ export interface Truce {
   until: number;
 }
 
-export interface TradeDeal {
-  power: number;
-  native: number;
+export type TreatyKind = "trade" | "alliance" | "access";
+
+export interface Treaty {
+  kind: TreatyKind;
+  a: number;
+  b: number;
   since: number;
 }
 
+/** What a peace would settle: provinces each side hands over, and gold. */
+export interface PeaceTerms {
+  /** Provinces the receiver gives to the proposer. */
+  take: number[];
+  /** Provinces the proposer gives back to the receiver. */
+  give: number[];
+  /** Gold the receiver pays (negative: the proposer pays). */
+  gold: number;
+}
+
 export interface PeaceOffer {
+  id: number;
   from: number;
   to: number;
   day: number;
+  terms: PeaceTerms;
+}
+
+export interface Marriage {
+  a: number;
+  b: number;
+  day: number;
+}
+
+// ---------------------------------------------------------------- battles
+
+export interface BattleFactor {
+  label: string;
+  /** Multiplier on that side's strength: 1.2 = +20%. */
+  value: number;
 }
 
 export interface BattleSide {
   nations: number[];
-  /** Regiments by type at the start. */
+  commander: string | null;
   regs: Partial<Record<RegType, number>>;
   men: number;
   lost: number;
   moraleEnd: number;
+  factors: BattleFactor[];
 }
 
 export interface BattleReport {
@@ -231,14 +590,16 @@ export interface BattleReport {
   prov: number;
   attacker: BattleSide;
   defender: BattleSide;
-  rounds: { rolls: [number, number]; lost: [number, number] }[];
+  /** Each day's fighting: what each side lost. */
+  rounds: { lost: [number, number]; note: string | null }[];
   /** 0: the attacker won; 1: the defender held. */
   winner: 0 | 1;
-  /** Why the odds weren't even, e.g. "Defenders hold the hills". */
-  notes: string[];
-  /** What happened to the losers. */
+  /** Luck with a name: the weather and commanders' moments. */
+  luck: string[];
   outcome: "retreated" | "destroyed";
 }
+
+// ---------------------------------------------------------------- events
 
 export type GameEvent =
   | { k: "colony"; day: number; n: number; p: number }
@@ -261,14 +622,16 @@ export type GameEvent =
       w: 0 | 1;
     }
   | { k: "siege"; day: number; n: number; p: number; from: number }
-  | { k: "captured"; day: number; n: number; p: number; from: number }
+  | { k: "occupied"; day: number; n: number; p: number; from: number }
+  | { k: "freed"; day: number; n: number; p: number }
+  | { k: "ceded"; day: number; n: number; p: number; from: number }
   | { k: "razed"; day: number; n: number; p: number; from: number }
-  | { k: "war"; day: number; n: number; on: number }
+  | { k: "war"; day: number; n: number; on: number; why: string }
   | { k: "peace"; day: number; n: number; with: number }
   | { k: "offer"; day: number; n: number; to: number }
   | { k: "refused"; day: number; n: number; by: number }
-  | { k: "trade"; day: number; n: number; with: number }
-  | { k: "untrade"; day: number; n: number; with: number }
+  | { k: "treaty"; day: number; n: number; with: number; t: TreatyKind }
+  | { k: "untreaty"; day: number; n: number; with: number; t: TreatyKind }
   | {
       k: "bought";
       day: number;
@@ -279,10 +642,30 @@ export type GameEvent =
     }
   | { k: "gift"; day: number; n: number; to: number; gold: number }
   | { k: "fallen"; day: number; n: number; by: number }
-  | { k: "colonist"; day: number; n: number }
-  | { k: "angry"; day: number; n: number; at: number }
-  | { k: "broke"; day: number; n: number }
+  | { k: "colonists"; day: number; n: number; count: number }
+  | { k: "convoy"; day: number; n: number; out: boolean; gold: number }
+  | { k: "revolt"; day: number; n: number; p: number }
+  | { k: "died"; day: number; n: number; c: number; cause: string }
+  | { k: "born"; day: number; n: number; c: number }
+  | { k: "married"; day: number; n: number; a: number; b: number }
+  | { k: "succession"; day: number; n: number; c: number; how: string }
+  | {
+      k: "scheme";
+      day: number;
+      n: number;
+      c: number;
+      s: SchemeKind;
+      done: boolean;
+    }
+  | { k: "story"; day: number; n: number; title: string; text: string }
+  | { k: "crown"; day: number; n: number; text: string }
+  | { k: "europe"; day: number; a: number; b: number; war: boolean }
+  | { k: "independence"; day: number; n: number; won: boolean | null }
   | { k: "over"; day: number; winner: number };
+
+// ---------------------------------------------------------------- the game
+
+export type Difficulty = "easy" | "normal" | "hard";
 
 export interface GameSettings {
   /** The game ends on 1 January of this year. */
@@ -291,11 +674,33 @@ export interface GameSettings {
   seed: number;
 }
 
-export interface Seat {
+/** The governor a player made before the game began. */
+export interface GovernorPlan {
+  first: string;
+  family: string;
+  female: boolean;
+  age: "young" | "prime" | "seasoned";
+  stats: Stats;
+  traits: TraitId[];
+}
+
+export interface PlayerSeat {
   seat: string;
   name: string;
   /** Power key, e.g. "england". */
   power: string;
+  governor: GovernorPlan | null;
+}
+
+export interface Europe {
+  /** Price of each good on the home markets. */
+  price: Record<Good, number>;
+  /** How much of each good reached Europe lately (prices sag under it). */
+  glut: Record<Good, number>;
+  /** Tension between the crowns, by power index pair "a-b", 0 to 100. */
+  tension: Record<string, number>;
+  /** Crowns at war in Europe: "a-b" pairs and when it started. */
+  wars: Record<string, number>;
 }
 
 export interface GameState {
@@ -308,13 +713,13 @@ export interface GameState {
   nextId: number;
   provinces: Province[];
   nations: Nation[];
+  chars: Record<number, Character>;
   armies: Army[];
   wars: War[];
   truces: Truce[];
-  deals: TradeDeal[];
+  treaties: Treaty[];
   offers: PeaceOffer[];
-  /** Price of each good this month. */
-  prices: Record<Good, number>;
+  europe: Europe;
   /** Most recent battles, newest last. */
   battles: BattleReport[];
   over: boolean;
@@ -332,13 +737,24 @@ export type Command =
   | { k: "split"; a: number }
   | { k: "merge"; a: number; b: number }
   | { k: "disband"; a: number }
+  | { k: "lead"; a: number; c: number }
   | { k: "war"; n: number }
-  | { k: "peace"; n: number }
-  | { k: "answer"; n: number; yes: boolean }
-  | { k: "trade"; n: number }
-  | { k: "untrade"; n: number }
+  | { k: "peace"; n: number; terms: PeaceTerms }
+  | { k: "answer"; offer: number; yes: boolean }
+  | { k: "treaty"; n: number; t: TreatyKind }
+  | { k: "untreaty"; n: number; t: TreatyKind }
   | { k: "gift"; n: number; gold: number }
-  | { k: "buy"; p: number };
+  | { k: "buy"; p: number }
+  | { k: "tax"; level: TaxLevel }
+  | { k: "remit"; share: number }
+  | { k: "ban"; good: Good; export: boolean; on: boolean }
+  | { k: "appoint"; seat: Seat; c: number }
+  | { k: "dismiss"; seat: Seat }
+  | { k: "marry"; a: number; b: number }
+  | { k: "confront"; c: number }
+  | { k: "event"; id: number; choice: number }
+  | { k: "demand"; pay: boolean }
+  | { k: "independence" };
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -347,11 +763,12 @@ export interface GameDelta {
   /** Changed armies; null means it's gone. */
   armies?: Record<number, Army | null>;
   nations?: Record<number, Nation>;
+  chars?: Record<number, Character>;
   wars?: War[];
   truces?: Truce[];
-  deals?: TradeDeal[];
+  treaties?: Treaty[];
   offers?: PeaceOffer[];
-  prices?: Record<Good, number>;
+  europe?: Europe;
   battles?: BattleReport[];
   events?: GameEvent[];
   over?: { winner: number };

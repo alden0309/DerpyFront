@@ -1,453 +1,564 @@
-// Derpy Conquest: the computer players. Colonial powers settle, build,
-// trade, raise armies and pick fights they can win; native nations raise
-// warriors, defend their land and raid colonists they've come to hate.
-// Each runs every five days, issuing the same commands a player would.
+// The computer's nations. They play by the same rules as people: every
+// decision goes through game.command(), with the same costs and checks.
+// How they lean depends on their ruler's traits and the difficulty.
 
+import { seatCandidates } from "./Characters";
 import type { ConquestGame } from "./Game";
+import { routeTree } from "./Paths";
 import {
+  adminCapacity,
+  adminUsed,
+  ageOf,
   armiesOf,
+  armyMen,
   armySpeed,
-  armyStrength,
   atWar,
   bordersProvince,
   buildCheck,
   buyCheck,
   colonizeCheck,
-  dealBetween,
   enemiesOf,
-  giftCheck,
+  expectedRemit,
+  hasTrait,
+  holder,
   nationsBorder,
-  pathTo,
-  portConnected,
+  peaceWillingness,
+  provinceValue,
   provincesOf,
   recruitCheck,
   regimentTypes,
-  routeTree,
-  tradeCheck,
-  truceUntil,
+  relationOf,
+  rulerOf,
+  settlers,
+  treatyBetween,
+  treatyCheck,
+  tribesfolk,
   warBetween,
   warCheck,
+  warMonths,
+  warScore,
 } from "./Queries";
+import { DIFFICULTY, REGIMENTS, WARRIOR_SHARE } from "./Rules";
 import {
-  DIFFICULTY,
-  GOOD_BASE_PRICE,
-  GOOD_YIELD,
-  provinceCapacity,
-  RAID_OPINION,
-  REGIMENTS,
-} from "./Rules";
-import { Army, GameState, RegType } from "./Types";
+  Army,
+  BuildingKind,
+  Character,
+  PeaceTerms,
+  RegType,
+  SEATS,
+} from "./Types";
 
-export function runAi(game: ConquestGame, n: number): void {
-  const nation = game.state.nations[n];
-  if (!nation.alive || game.state.over) return;
-  if (nation.kind === "power") powerAi(game, n);
-  else nativeAi(game, n);
+export function runAi(g: ConquestGame, n: number): void {
+  const nation = g.s.nations[n];
+  if (nation.kind === "power") powerAi(g, n);
+  else if (nation.kind === "native") nativeAi(g, n);
+  else crownAi(g, n);
 }
 
-function strengthOf(s: GameState, n: number): number {
-  let total = 0;
-  for (const a of s.armies) if (a.owner === n) total += armyStrength(a);
-  return total;
+function leans(g: ConquestGame, n: number) {
+  const r = rulerOf(g.s, n);
+  const t = (x: Parameters<typeof hasTrait>[1]) => hasTrait(r, x);
+  const diff = DIFFICULTY[g.s.settings.difficulty];
+  return {
+    aggression:
+      (t("ambitious") ? 1.4 : 1) *
+      (t("cruel") ? 1.3 : 1) *
+      (t("content") ? 0.6 : 1) *
+      (t("craven") ? 0.6 : 1) *
+      diff.aggression,
+    loyal: t("content") || t("honest"),
+    greedy: t("greedy"),
+    generous: t("generous"),
+  };
 }
 
-function regimentCount(s: GameState, n: number): number {
-  let count = 0;
-  for (const a of s.armies) if (a.owner === n) count += a.regs.length;
-  for (const p of s.provinces) if (p.owner === n) count += p.recruits.length;
-  return count;
-}
-
-function provinceValue(game: ConquestGame, p: number): number {
-  const def = game.map.provinces[p];
-  const prov = game.state.provinces[p];
-  return (
-    GOOD_BASE_PRICE[def.good] * GOOD_YIELD[def.good] +
-    provinceCapacity(def.terrain, def.areaKm2) / 2500 +
-    (def.coastal ? 2 : 0) +
-    (prov.pop + prov.natives * 0.2) / 2000
-  );
-}
-
-// ---------------------------------------------------------------- peace
-
-/** Whether the computer playing `ai` would make peace with `other` now. */
-export function aiWantsPeace(
-  game: ConquestGame,
-  ai: number,
-  other: number,
-): boolean {
-  const s = game.state;
-  const war = warBetween(s, ai, other);
-  if (!war) return true;
-  const months = (s.day - war.start) / 30;
-  if (months < 2) return false;
-  const mine = s.armies
-    .filter((a) => a.owner === ai)
-    .reduce((sum, a) => sum + armyStrength(a), 0);
-  const theirs = s.armies
-    .filter((a) => a.owner === other)
-    .reduce((sum, a) => sum + armyStrength(a), 0);
-  const myGains = war.gains[war.a === ai ? 0 : 1];
-  const theirGains = war.gains[war.a === ai ? 1 : 0];
-  if (s.nations[ai].kind === "native") {
-    if (months >= 12) return true;
-    return months >= 4 && (mine < theirs || theirGains > myGains);
-  }
-  if (months >= 24) return true;
-  return months >= 6 && (mine < theirs * 0.8 || theirGains > myGains);
-}
-
-function handlePeace(game: ConquestGame, n: number): void {
-  const s = game.state;
-  for (const other of enemiesOf(s, n)) {
-    if (!aiWantsPeace(game, n, other)) continue;
-    const them = s.nations[other];
-    if (them.player === null) {
-      if (aiWantsPeace(game, other, n)) game.makePeace(n, other);
-    } else if (game.rng.chance(0.15)) {
-      game.command(n, { k: "peace", n: other });
-    }
-  }
+/** Men under arms and fighting value, near enough to matter. */
+function strength(g: ConquestGame, n: number): number {
+  return armiesOf(g.s, n).reduce((m, a) => m + armyMen(a), 0);
 }
 
 // ---------------------------------------------------------------- powers
 
-function powerAi(game: ConquestGame, n: number): void {
-  const s = game.state;
-  const me = s.nations[n];
-  const rng = game.rng;
-  const diff = DIFFICULTY[s.settings.difficulty];
-  const owned = provincesOf(s, n);
-  const atWarNow = enemiesOf(s, n).length > 0;
-
-  handlePeace(game, n);
-
-  // Colonies: the best open land in reach, while colonists last.
-  while (me.colonists >= 1 && me.gold >= 45) {
-    let best = -1;
-    let bestScore = -Infinity;
-    for (let p = 0; p < s.provinces.length; p++) {
-      if (s.provinces[p].owner !== -1 || s.provinces[p].colony) continue;
-      const ok = colonizeCheck(s, game.map, n, p);
-      if (!ok.ok) continue;
-      const def = game.map.provinces[p];
-      let score = provinceValue(game, p) * 2 - ok.seaKm / 150 - ok.days / 40;
-      if (def.nb.some(([q]) => s.provinces[q].owner === n)) score += 4;
-      for (const [q] of def.nb) {
-        const o = s.provinces[q].owner;
-        if (o >= 0 && s.nations[o].kind === "native" && atWar(s, n, o))
-          score -= 8;
-      }
-      score += rng.next() * 3;
-      if (score > bestScore) {
-        bestScore = score;
-        best = p;
-      }
-    }
-    if (best < 0 || game.command(n, { k: "colonize", p: best }) !== null) break;
-  }
-
-  // Buildings: ports first (they double what goods sell for), then farms
-  // and forts once there's money to spare.
-  const byPop = [...owned].sort(
-    (a, b) => s.provinces[b].pop - s.provinces[a].pop || a - b,
+function powerAi(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const nation = s.nations[n];
+  const l = leans(g, n);
+  g.command(n, { k: "tax", level: taxLevel(g, n) });
+  const want = Math.max(
+    0,
+    expectedRemit(nation) +
+      (l.loyal ? 0.05 : 0) -
+      (l.greedy ? 0.03 : 0) +
+      (nation.favor < 30 ? 0.05 : 0),
   );
-  if (me.gold >= 130) {
-    const connected = portConnected(s, game.map, n);
-    const port = byPop.find(
-      (p) =>
-        game.map.provinces[p].coastal &&
-        s.provinces[p].port === 0 &&
-        !connected.has(p) &&
-        s.provinces[p].pop >= 350,
-    );
-    if (port !== undefined && buildCheck(s, game.map, n, port, "port").ok) {
-      game.command(n, { k: "build", p: port, b: "port" });
-    }
+  if (
+    Math.abs(want - nation.remit) > 0.005 &&
+    !nation.independent &&
+    !nation.rebelling
+  )
+    g.command(n, { k: "remit", share: Math.min(0.5, want) });
+  council(g, n);
+  if (nation.demand?.key === "money")
+    g.command(n, {
+      k: "demand",
+      pay: nation.gold >= nation.demand.amount * (l.loyal ? 1.2 : 2),
+    });
+  marriages(g, n);
+  if (nation.gold > 45) colonize(g, n);
+  for (let i = 0; i < (nation.gold > 400 ? 3 : nation.gold > 150 ? 2 : 1); i++)
+    if (g.s.nations[n].gold > 60) build(g, n);
+  military(g, n);
+  natives(g, n);
+  peace(g, n);
+  if (
+    nation.autonomy >= 60 &&
+    hasTrait(rulerOf(s, n), "ambitious") &&
+    strength(g, n) > 1500 &&
+    nation.favor < 40
+  ) {
+    g.command(n, { k: "independence" });
   }
-  for (let i = 0; i < (me.gold > 1500 ? 3 : 1) && me.gold >= 220; i++) {
-    const farm = byPop.find(
-      (p) =>
-        s.provinces[p].farm < 3 &&
-        !s.provinces[p].build &&
-        s.provinces[p].pop >= 500,
-    );
-    if (
-      farm === undefined ||
-      game.command(n, { k: "build", p: farm, b: "farm" }) !== null
-    )
-      break;
-  }
-  if (me.gold >= 320 && (atWarNow || me.gold > 1000 || rng.chance(0.2))) {
-    const exposed = byPop.find(
-      (p) =>
-        s.provinces[p].fort < (p === me.capital ? 2 : 1) &&
-        !s.provinces[p].build &&
-        game.map.provinces[p].nb.some(([q]) => {
-          const o = s.provinces[q].owner;
-          return (
-            o >= 0 &&
-            o !== n &&
-            (atWar(s, n, o) || s.nations[o].kind === "power")
-          );
-        }),
-    );
-    if (exposed !== undefined)
-      game.command(n, { k: "build", p: exposed, b: "fort" });
-  }
-
-  // Armies: enough to hold what it has, more in wartime.
-  // Rich computers spend: more regiments while gold piles up.
-  const richBonus = Math.min(12, Math.floor(Math.max(0, me.gold - 400) / 300));
-  const wanted = Math.round(
-    (2 + owned.length / 4 + (atWarNow ? 3 : 0) + richBonus) *
-      (diff.aggression >= 0.2 ? 1.3 : 1),
-  );
-  if (regimentCount(s, n) < wanted && me.gold >= 100) {
-    const where = [me.capital, ...byPop].find(
-      (p) => s.provinces[p]?.owner === n && s.provinces[p].pop >= 200,
-    );
-    if (where !== undefined) {
-      const roll = rng.next();
-      const prefer: RegType[] =
-        roll < 0.15 ? ["art", "inf"] : roll < 0.4 ? ["cav", "inf"] : ["inf"];
-      for (const t of prefer) {
-        if (recruitCheck(s, game.map, n, where, t).ok) {
-          game.command(n, { k: "recruit", p: where, t });
-          break;
-        }
-      }
-    }
-  }
-
-  // Natives: trade with whoever will, sweeten the angry ones, buy land.
-  let gifted = false;
-  for (const nat of s.nations) {
-    if (nat.kind !== "native" || !nat.alive || atWar(s, n, nat.id)) continue;
-    if (!dealBetween(s, n, nat.id) && tradeCheck(s, game.map, n, nat.id).ok) {
-      game.command(n, { k: "trade", n: nat.id });
-      continue;
-    }
-    if (
-      !gifted &&
-      nat.opinion[n] < -40 &&
-      me.gold > 300 &&
-      !atWarNow &&
-      rng.chance(0.2) &&
-      nationsBorder(s, game.map, n, nat.id)
-    ) {
-      if (giftCheck(s, n, nat.id, 50).ok) {
-        game.command(n, { k: "gift", n: nat.id, gold: 50 });
-        gifted = true;
-      }
-    }
-  }
-  if (me.gold > 380 && rng.chance(0.25)) {
-    let best = -1;
-    let bestScore = -Infinity;
-    for (let p = 0; p < s.provinces.length; p++) {
-      const o = s.provinces[p].owner;
-      if (o < 0 || s.nations[o].kind !== "native") continue;
-      const ok = buyCheck(s, game.map, n, p);
-      if (!ok.ok) continue;
-      const score = provinceValue(game, p) * 30 - ok.gold;
-      if (score > bestScore) {
-        bestScore = score;
-        best = p;
-      }
-    }
-    if (best >= 0) game.command(n, { k: "buy", p: best });
-  }
-
-  // Wars: only ones it expects to win, and not too often.
-  if (!atWarNow && rng.chance(diff.aggression / 6)) {
-    const mine = strengthOf(s, n);
-    let target = -1;
-    let bestScore = -Infinity;
-    for (const o of s.nations) {
-      if (!o.alive || o.id === n || !warCheck(s, n, o.id).ok) continue;
-      if (o.kind === "power" && diff.aggression < 0.2) continue;
-      const theirs = strengthOf(s, o.id);
-      const margin = o.kind === "power" ? 2.5 : 1.8;
-      if (mine < theirs * margin + 1) continue;
-      if (!nationsBorder(s, game.map, n, o.id)) continue;
-      let value = 0;
-      for (const p of provincesOf(s, o.id))
-        if (bordersProvince(s, game.map, n, p)) value += provinceValue(game, p);
-      // Natives you trade with are worth more as friends.
-      if (dealBetween(s, n, o.id)) value *= 0.3;
-      const score = value - theirs * 2;
-      if (score > bestScore) {
-        bestScore = score;
-        target = o.id;
-      }
-    }
-    if (target >= 0) game.command(n, { k: "war", n: target });
-  }
-
-  moveArmies(game, n);
 }
 
-// ---------------------------------------------------------------- natives
+function taxLevel(g: ConquestGame, n: number): 0 | 1 | 2 {
+  const s = g.s;
+  const provs = provincesOf(s, n);
+  const unrest =
+    provs.reduce((m, p) => m + s.provinces[p].unrest, 0) /
+    Math.max(1, provs.length);
+  const nation = s.nations[n];
+  if (unrest > 45) return 0;
+  if (nation.gold < 40 && unrest < 20) return 2;
+  return 1;
+}
 
-function nativeAi(game: ConquestGame, n: number): void {
-  const s = game.state;
-  const me = s.nations[n];
-  const rng = game.rng;
-  const owned = provincesOf(s, n);
-  if (owned.length === 0) return;
-  const atWarNow = enemiesOf(s, n).length > 0;
-
-  handlePeace(game, n);
-
-  const wanted = owned.length * (me.strong ? 2 : 1) + (atWarNow ? 2 : 0) + 1;
-  if (regimentCount(s, n) < wanted) {
-    const types = regimentTypes(me);
-    const t = types[types.length > 1 && rng.chance(0.5) ? 1 : 0];
-    const where = rng.pick(owned)!;
-    if (recruitCheck(s, game.map, n, where, t).ok)
-      game.command(n, { k: "recruit", p: where, t });
+function council(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const nation = s.nations[n];
+  for (const seat of SEATS) {
+    if (nation.council[seat] >= 0 && s.chars[nation.council[seat]]?.alive)
+      continue;
+    const pick = seatCandidates(s, n, seat).find(
+      (c) =>
+        !c.scheme &&
+        !(Object.values(nation.council) as number[]).includes(c.id),
+    );
+    if (pick) g.command(n, { k: "appoint", seat, c: pick.id });
   }
+  for (const id of [
+    ...nation.court,
+    ...(Object.values(nation.council) as number[]),
+  ]) {
+    const c = s.chars[id];
+    if (c?.alive && c.scheme?.exposed) g.command(n, { k: "confront", c: id });
+  }
+}
 
-  // Raids on powers they've come to hate.
-  if (!atWarNow) {
-    for (const pw of s.nations) {
-      if (pw.kind !== "power" || !pw.alive) continue;
-      if (me.opinion[pw.id] > RAID_OPINION || truceUntil(s, n, pw.id) >= 0)
-        continue;
-      if (!nationsBorder(s, game.map, n, pw.id)) continue;
-      if (strengthOf(s, n) < strengthOf(s, pw.id) * 0.8) continue;
-      if (rng.chance(0.02) && warCheck(s, n, pw.id).ok) {
-        game.command(n, { k: "war", n: pw.id });
-        break;
-      }
+function marriages(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const ruler = rulerOf(s, n);
+  if (!ruler) return;
+  const family = [ruler, ...ruler.children.map((id) => s.chars[id])].filter(
+    (c): c is Character =>
+      !!c?.alive && c.spouse < 0 && ageOf(s, c) >= 18 && ageOf(s, c) < 45,
+  );
+  for (const c of family) {
+    const match = s.nations[n].court
+      .map((id) => s.chars[id])
+      .find(
+        (x) =>
+          x?.alive &&
+          x.spouse < 0 &&
+          x.female !== c.female &&
+          ageOf(s, x) >= 16 &&
+          ageOf(s, x) < 45,
+      );
+    if (match) g.command(n, { k: "marry", a: c.id, b: match.id });
+  }
+}
+
+function colonize(g: ConquestGame, n: number): void {
+  const s = g.s;
+  if (s.provinces.some((pr) => pr.colony?.by === n)) return;
+  // Only as fast as the colony can govern it.
+  if (adminUsed(s, g.w, n).total + 1.2 > adminCapacity(s, n).total) return;
+  let best = -1;
+  let bestScore = 0;
+  for (let p = 0; p < s.provinces.length; p++) {
+    if (s.provinces[p].owner !== -1 || s.provinces[p].colony) continue;
+    if (!bordersProvince(s, g.map, n, p) && !g.map.provinces[p].coastal)
+      continue;
+    const check = colonizeCheck(s, g.w, n, p);
+    if (!check.ok) continue;
+    const raw = g.w.raw[p];
+    const value = {
+      tobacco: 3,
+      sugar: 3.2,
+      furs: 2.2,
+      silver: 3.5,
+      grain: 2,
+      fish: 1.8,
+      timber: 1.4,
+    }[raw];
+    // Wary of angering strong natives nearby.
+    let anger = 0;
+    for (const [q] of g.map.provinces[p].nb) {
+      const o = s.provinces[q].owner;
+      if (o >= 0 && s.nations[o].kind === "native")
+        anger += relationOf(s, g.w, o, n).total < -20 ? 2 : 0.3;
+    }
+    const score =
+      (value * g.w.capacity[p]) / 1000 / (1 + check.days! / 120) - anger;
+    if (score > bestScore) {
+      best = p;
+      bestScore = score;
     }
   }
+  if (best >= 0) g.command(n, { k: "colonize", p: best });
+}
 
-  moveArmies(game, n);
+function build(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const nation = s.nations[n];
+  const m = nation.market;
+  const options: { p: number; b: BuildingKind; score: number }[] = [];
+  const foodShort = m.supply.grain + m.supply.fish < m.demand.grain * 1.1;
+  for (const p of provincesOf(s, n)) {
+    const pr = s.provinces[p];
+    if (pr.build || pr.occupier >= 0) continue;
+    const folk = settlers(pr);
+    const raw = g.w.raw[p];
+    const consider = (b: BuildingKind, score: number) => {
+      if (score > 0 && buildCheck(s, g.w, n, p, b).ok)
+        options.push({ p, b, score });
+    };
+    consider("farm", (foodShort ? 3 : 1) * (folk / 1000));
+    if (raw === "tobacco" || raw === "sugar")
+      consider("plantation", (folk / 1000) * 2.5);
+    if (raw === "furs") consider("tradingpost", (folk / 1000) * 1.8 + 0.5);
+    if (raw === "silver") consider("mine", (folk / 1000) * 3);
+    if (raw === "timber") consider("lumbercamp", (folk / 1000) * 1.2);
+    if (p === nation.capital || folk > 2000) consider("port", 1.5);
+    if (m.price.tools > 5 && m.stock.timber > 10)
+      consider("smithy", (folk / 1000) * 1.2);
+    if (m.price.cloth > 4.5) consider("weaver", (folk / 1000) * 1);
+    if (m.price.guns > 10 && (pr.b.smithy ?? 0) > 0)
+      consider("gunsmith", (folk / 1000) * 0.8);
+    if (pr.unrest > 30) consider("church", pr.unrest / 30);
+    if (provincesOf(s, n).length > 5 && p === nation.capital)
+      consider("courthouse", 2);
+    if (p === nation.capital && enemiesOf(s, n).length > 0) consider("fort", 2);
+  }
+  options.sort((a, b) => b.score - a.score);
+  const top = options[0];
+  if (top && nation.gold > 60) g.command(n, { k: "build", p: top.p, b: top.b });
 }
 
 // ---------------------------------------------------------------- armies
 
-/** Sends armies where they're needed: defend, attack, or go home. */
-function moveArmies(game: ConquestGame, n: number): void {
-  const s = game.state;
-  const me = s.nations[n];
+function military(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const nation = s.nations[n];
   const enemies = enemiesOf(s, n);
-  let armies = armiesOf(s, n).filter((a) => !a.retreating);
-  if (armies.length === 0) return;
+  const folk = provincesOf(s, n).reduce(
+    (m, p) => m + settlers(s.provinces[p]),
+    0,
+  );
+  const want = Math.floor(folk / 1800) + 1 + (enemies.length > 0 ? 3 : 0);
+  const have =
+    armiesOf(s, n).reduce((m, a) => m + a.regs.length, 0) +
+    provincesOf(s, n).reduce((m, p) => m + s.provinces[p].recruits.length, 0);
+  const batches = Math.min(want - have, nation.gold > 300 ? 3 : 1);
+  for (let i = 0; i < batches && s.nations[n].gold > 40; i++) {
+    const rich = s.nations[n].gold > 120;
+    const type: RegType =
+      rich &&
+      s.nations[n].market.stock.tools >= 10 &&
+      s.nations[n].market.stock.guns >= 12 &&
+      i === 2
+        ? "artillery"
+        : s.nations[n].market.stock.guns >= 10 && s.nations[n].gold > 80
+          ? "regulars"
+          : "militia";
+    const where = provincesOf(s, n)
+      .filter((p) => recruitCheck(s, n, p, type).ok)
+      .sort((a, b) => settlers(s.provinces[b]) - settlers(s.provinces[a]))[0];
+    if (where !== undefined) g.command(n, { k: "recruit", p: where, t: type });
+  }
+  commanders(g, n);
+  if (enemies.length > 0) campaign(g, n);
+  else gather(g, n);
+}
 
-  // Merge halted armies sharing a province.
-  for (const a of armies) {
-    if (a.path.length > 0 || !s.armies.includes(a)) continue;
-    for (const b of armies) {
-      if (
-        b !== a &&
-        b.prov === a.prov &&
-        b.path.length === 0 &&
-        s.armies.includes(b)
-      ) {
-        game.command(n, { k: "merge", a: a.id, b: b.id });
-      }
+function commanders(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const nation = s.nations[n];
+  const armies = armiesOf(s, n).sort((a, b) => armyMen(b) - armyMen(a));
+  const marshal = s.chars[nation.council.marshal];
+  if (
+    marshal?.alive &&
+    armies[0] &&
+    armies[0].commander < 0 &&
+    !s.armies.some((a) => a.commander === marshal.id)
+  )
+    g.command(n, { k: "lead", a: armies[0].id, c: marshal.id });
+}
+
+/** At peace: armies merge and wait at the capital. */
+function gather(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const home = s.nations[n].capital;
+  if (home < 0) return;
+  for (const a of armiesOf(s, n)) {
+    if (a.depart >= 0 || a.retreating) continue;
+    if (a.prov !== home) g.command(n, { k: "move", a: a.id, to: home });
+  }
+  const here = armiesOf(s, n).filter((a) => a.prov === home && a.depart < 0);
+  for (let i = 1; i < here.length; i++)
+    g.command(n, { k: "merge", a: here[0].id, b: here[i].id });
+}
+
+/** At war: defend what's attacked, then take what's weakly held. */
+function campaign(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const l = leans(g, n);
+  for (const a of armiesOf(s, n)) {
+    if (a.retreating || armyMen(a) <= 0) continue;
+    if (a.depart >= 0) continue;
+    // Busy besieging? keep at it.
+    const pr = s.provinces[a.prov];
+    if (pr.siege?.by === n) continue;
+    const target = pickTarget(g, n, a, l.aggression);
+    if (target >= 0 && target !== a.prov)
+      g.command(n, { k: "move", a: a.id, to: target });
+  }
+}
+
+function pickTarget(
+  g: ConquestGame,
+  n: number,
+  a: Army,
+  aggression: number,
+): number {
+  const s = g.s;
+  const tree = routeTree(s, g.map, n, a.prov, armySpeed(a));
+  const men = armyMen(a);
+  let best = -1;
+  let bestScore = 0;
+  for (let p = 0; p < s.provinces.length; p++) {
+    const days = tree.days[p];
+    if (!Number.isFinite(days) || days > 90) continue;
+    const pr = s.provinces[p];
+    const h = pr.owner >= 0 ? holder(pr) : -1;
+    const enemyMen = s.armies
+      .filter((x) => x.prov === p && atWar(s, x.owner, n))
+      .reduce((m, x) => m + armyMen(x), 0);
+    let score = 0;
+    if (pr.owner === n && pr.occupier >= 0)
+      score = provinceValue(s, p) * 3; // take it back
+    else if (h >= 0 && atWar(s, h, n))
+      score = provinceValue(s, p) * (1 + (pr.b.fort ?? 0) * -0.25);
+    else if (enemyMen > 0) score = 2;
+    if (score <= 0) continue;
+    if (enemyMen > men * (0.6 + 0.4 / aggression)) continue;
+    score = score / (1 + days / 20);
+    if (score > bestScore) {
+      best = p;
+      bestScore = score;
     }
   }
-  armies = armiesOf(s, n).filter((a) => !a.retreating);
+  return best;
+}
 
-  if (enemies.length === 0) {
-    // Peacetime: armies abroad come home.
-    for (const a of armies) {
-      if (a.path.length > 0 || s.provinces[a.prov].owner === n) continue;
-      const home =
-        s.provinces[me.capital]?.owner === n
-          ? me.capital
-          : provincesOf(s, n)[0];
-      if (home !== undefined) game.command(n, { k: "move", a: a.id, to: home });
-    }
-    return;
-  }
+// ---------------------------------------------------------------- diplomacy
 
-  const enemyArmies = s.armies.filter((a) => enemies.includes(a.owner));
-  const strengthAt = (p: number) =>
-    enemyArmies
-      .filter((a) => a.prov === p || a.path[0] === p)
-      .reduce((sum, a) => sum + armyStrength(a), 0);
-
-  // Threats: enemies in or besieging our land.
-  const threatened = new Set<number>();
-  for (const a of enemyArmies) {
-    if (s.provinces[a.prov].owner === n) threatened.add(a.prov);
-    if (a.path.length > 0 && s.provinces[a.path[0]].owner === n)
-      threatened.add(a.path[0]);
-  }
-  const busy = new Set<number>();
-  for (const p of [...threatened].sort((x, y) => x - y)) {
-    const threat = strengthAt(p);
-    let best: Army | null = null;
-    let bestDays = Infinity;
-    for (const a of armies) {
-      if (busy.has(a.id) || armyStrength(a) < threat * 0.8) continue;
-      if (a.prov === p || a.path[a.path.length - 1] === p) {
-        best = a;
+function natives(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const l = leans(g, n);
+  const nation = s.nations[n];
+  for (const other of s.nations) {
+    if (other.kind !== "native" || !other.alive) continue;
+    if (
+      !nationsBorder(s, g.map, n, other.id) &&
+      !nationsBorder(s, g.map, other.id, n)
+    )
+      continue;
+    if (
+      !treatyBetween(s, n, other.id, "trade") &&
+      treatyCheck(s, g.w, n, other.id, "trade").ok
+    )
+      g.command(n, { k: "treaty", n: other.id, t: "trade" });
+    const opinion = relationOf(s, g.w, other.id, n).total;
+    if (opinion < -30 && nation.gold > 120 && !atWar(s, n, other.id))
+      g.command(n, { k: "gift", n: other.id, gold: 25 });
+    // Land: buy what's for sale, or (if aggressive and much stronger) take it.
+    for (const p of provincesOf(s, other.id)) {
+      if (nation.gold > 200 && buyCheck(s, g.w, n, p).ok) {
+        g.command(n, { k: "buy", p });
         break;
       }
-      const tree = routeTree(s, game.map, n, a.prov, armySpeed(a), p);
-      if (tree.days[p] < bestDays && tree.days[p] < 60) {
-        bestDays = tree.days[p];
-        best = a;
-      }
     }
-    if (best) {
-      busy.add(best.id);
-      if (best.prov !== p && best.path[best.path.length - 1] !== p)
-        game.command(n, { k: "move", a: best.id, to: p });
-    }
-  }
-
-  // Attack: idle armies go for the best enemy province within reach.
-  for (const a of armies) {
-    if (busy.has(a.id) || a.path.length > 0) continue;
-    // Already besieging something? Keep at it.
-    const here = s.provinces[a.prov];
-    if (here.owner >= 0 && enemies.includes(here.owner)) continue;
-    const mine = armyStrength(a);
-    const tree = routeTree(s, game.map, n, a.prov, armySpeed(a));
-    let target = -1;
-    let bestScore = -Infinity;
-    for (let p = 0; p < s.provinces.length; p++) {
-      const o = s.provinces[p].owner;
-      if (o < 0 || !enemies.includes(o) || tree.days[p] === Infinity) continue;
-      const defenders = strengthAt(p);
-      if (mine < defenders * 1.25 + 0.5) continue;
-      if (
-        s.provinces[p].fort * 1000 >
-        a.regs.reduce((sum, r) => sum + r.men, 0)
-      )
-        continue;
-      const score =
-        provinceValue(game, p) * 3 -
-        tree.days[p] / 3 -
-        s.provinces[p].fort * 15;
-      if (score > bestScore) {
-        bestScore = score;
-        target = p;
-      }
-    }
-    if (target >= 0) {
-      const path = pathTo(tree, a.prov, target);
-      if (path && path.days < 120)
-        game.command(n, { k: "move", a: a.id, to: target });
-    } else if (s.provinces[a.prov].owner !== n) {
-      const home =
-        s.provinces[me.capital]?.owner === n
-          ? me.capital
-          : provincesOf(s, n)[0];
-      if (home !== undefined) game.command(n, { k: "move", a: a.id, to: home });
+    const mine = strength(g, n);
+    const theirs =
+      strength(g, other.id) +
+      provincesOf(s, other.id).reduce(
+        (m, p) => m + tribesfolk(s.provinces[p]) * WARRIOR_SHARE * 0.3,
+        0,
+      );
+    if (
+      l.aggression > 1 &&
+      mine > theirs * 2 &&
+      opinion < 0 &&
+      warCheck(s, n, other.id).ok &&
+      enemiesOf(s, n).length === 0 &&
+      g.rng.chance(0.04 * l.aggression)
+    ) {
+      g.command(n, { k: "war", n: other.id });
     }
   }
 }
 
-/** Exposed for tests: how much regiments of a type cost. */
-export function regimentGold(t: RegType): number {
-  return REGIMENTS[t].gold;
+function peace(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const nation = s.nations[n];
+  for (const enemy of enemiesOf(s, n)) {
+    const war = warBetween(s, n, enemy)!;
+    if (s.nations[enemy].kind === "crown") continue;
+    if (warMonths(s, war) < 6) continue;
+    const score = warScore(s, war, n).total;
+    const europeWar =
+      war.europe &&
+      s.europe.wars[[n, enemy].sort((a, b) => a - b).join("-")] !== undefined;
+    if (europeWar && score > -40) continue;
+    const held = s.provinces
+      .map((pr, p) => (pr.owner === enemy && pr.occupier === n ? p : -1))
+      .filter((p) => p >= 0);
+    let terms: PeaceTerms = { take: [], give: [], gold: 0 };
+    if (score >= 25 && held.length > 0) {
+      terms = { take: held.slice(0, 2), give: [], gold: 0 };
+      if (peaceWillingness(s, n, enemy, terms).total < 0)
+        terms = { take: held.slice(0, 1), give: [], gold: 0 };
+    }
+    if (
+      score >= 25 ||
+      score <= -15 ||
+      nation.warExhaustion > 20 ||
+      warMonths(s, war) > 36
+    ) {
+      if (
+        peaceWillingness(s, n, enemy, terms).total >= 0 ||
+        s.nations[enemy].player !== null
+      )
+        g.command(n, { k: "peace", n: enemy, terms });
+    }
+  }
+  // Answer players' offers.
+  for (const o of s.offers.filter((x) => x.to === n)) {
+    g.command(n, {
+      k: "answer",
+      offer: o.id,
+      yes: peaceWillingness(s, o.from, n, o.terms).total >= 0,
+    });
+  }
+}
+
+// ---------------------------------------------------------------- natives
+
+function nativeAi(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const nation = s.nations[n];
+  const diff = DIFFICULTY[s.settings.difficulty];
+  const enemies = enemiesOf(s, n);
+  // Call up warriors when there's fighting to do.
+  const types = regimentTypes(nation);
+  const pool = provincesOf(s, n).reduce(
+    (m, p) => m + tribesfolk(s.provinces[p]) * WARRIOR_SHARE,
+    0,
+  );
+  const under = armiesOf(s, n).reduce((m, a) => m + armyMen(a), 0);
+  const want = enemies.length > 0 ? pool * 0.7 : Math.min(pool * 0.06, 600);
+  if (under < want) {
+    for (const p of provincesOf(s, n)) {
+      const t: RegType =
+        types.includes("riders") && g.rng.chance(0.5) ? "riders" : "warriors";
+      if (recruitCheck(s, n, p, t).ok) {
+        g.command(n, { k: "recruit", p, t });
+        break;
+      }
+    }
+  }
+  if (enemies.length > 0) campaign(g, n);
+  else gather(g, n);
+  // War on settlers who've pushed them too far.
+  if (enemies.length === 0) {
+    for (const other of s.nations) {
+      if (other.kind !== "power" || !other.alive) continue;
+      if (
+        !nationsBorder(s, g.map, other.id, n) &&
+        !nationsBorder(s, g.map, n, other.id)
+      )
+        continue;
+      const opinion = relationOf(s, g.w, n, other.id).total;
+      if (opinion > -30 / diff.nativeAnger) continue;
+      const theirs = strength(g, other.id) + 200;
+      if (pool * 0.6 < theirs * 0.6) continue;
+      // The angrier they are, the sooner the council agrees to fight.
+      if (!g.rng.chance(Math.min(0.5, (-opinion - 20) / 60))) continue;
+      if (warCheck(s, n, other.id).ok) {
+        g.command(n, { k: "war", n: other.id });
+        break;
+      }
+    }
+  }
+  // Trade with colonies they like; peace when it's going badly or long.
+  for (const other of s.nations) {
+    if (other.kind !== "power" || !other.alive) continue;
+    if (
+      relationOf(s, g.w, n, other.id).total >= 10 &&
+      treatyCheck(s, g.w, n, other.id, "trade").ok
+    )
+      g.command(n, { k: "treaty", n: other.id, t: "trade" });
+  }
+  for (const enemy of enemies) {
+    const war = warBetween(s, n, enemy)!;
+    if (warMonths(s, war) < 4) continue;
+    const score = warScore(s, war, n).total;
+    const held = s.provinces
+      .map((pr, p) => (pr.owner === enemy && pr.occupier === n ? p : -1))
+      .filter((p) => p >= 0);
+    const terms: PeaceTerms =
+      score >= 30 && held.length > 0
+        ? { take: held.slice(0, 1), give: [], gold: 0 }
+        : { take: [], give: [], gold: 0 };
+    if (score >= 30 || score <= -20 || nation.warExhaustion > 15) {
+      if (
+        peaceWillingness(s, n, enemy, terms).total >= 0 ||
+        s.nations[enemy].player !== null
+      )
+        g.command(n, { k: "peace", n: enemy, terms });
+    }
+  }
+  for (const o of s.offers.filter((x) => x.to === n)) {
+    g.command(n, {
+      k: "answer",
+      offer: o.id,
+      yes: peaceWillingness(s, o.from, n, o.terms).total >= 0,
+    });
+  }
+  void REGIMENTS;
+}
+
+// ---------------------------------------------------------------- crowns
+
+function crownAi(g: ConquestGame, n: number): void {
+  const s = g.s;
+  // Expeditions march on the rebel capital and take it.
+  const colony = s.nations[n].colony;
+  const target = s.nations[colony]?.capital ?? -1;
+  for (const a of armiesOf(s, n)) {
+    if (a.depart >= 0 || a.retreating) continue;
+    if (s.provinces[a.prov].siege?.by === n) continue;
+    if (target >= 0 && a.prov !== target)
+      g.command(n, { k: "move", a: a.id, to: target });
+  }
 }

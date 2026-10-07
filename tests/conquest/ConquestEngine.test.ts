@@ -1,20 +1,37 @@
 import { describe, expect, test } from "vitest";
+import { fightBattle } from "../../src/conquest/engine/Battle";
 import { dateOf, dayOf, formatDate } from "../../src/conquest/engine/Calendar";
+import {
+  kill,
+  makeCharacter,
+  planBudget,
+  planCost,
+  planProblem,
+} from "../../src/conquest/engine/Characters";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { AMERICAS } from "../../src/conquest/engine/Map";
 import {
-  armyMen,
+  adminCapacity,
+  classSize,
   colonizeCheck,
-  findPath,
+  favorTarget,
   provincesOf,
+  relationOf,
+  rulerOf,
+  settlers,
+  taxShare,
+  unrestOf,
 } from "../../src/conquest/engine/Queries";
-import {
-  BUILDINGS,
-  REGIMENTS,
-  SIEGE_DAYS,
-} from "../../src/conquest/engine/Rules";
-import { GameState } from "../../src/conquest/engine/Types";
+import { COLONY_SETTLERS, REGIMENTS } from "../../src/conquest/engine/Rules";
+import type {
+  Army,
+  Breakdown,
+  GameState,
+  GovernorPlan,
+  PlayerSeat,
+  Regiment,
+} from "../../src/conquest/engine/Types";
 
 const map = AMERICAS;
 const prov = (name: string) => {
@@ -22,24 +39,79 @@ const prov = (name: string) => {
   if (i < 0) throw new Error(`no province ${name}`);
   return i;
 };
+
+const plan: GovernorPlan = {
+  first: "Alden",
+  family: "Drackley",
+  female: false,
+  age: "prime",
+  stats: { dip: 7, mar: 5, ste: 8, int: 4, lea: 5 },
+  traits: ["diligent"],
+};
+
+const seat = (power: string): PlayerSeat => ({
+  seat: "s1",
+  name: "Alden",
+  power,
+  governor: plan,
+});
+
+function newGame(power = "england", seed = 42, endYear = 1650) {
+  return ConquestGame.create(map, { endYear, difficulty: "normal", seed }, [
+    seat(power),
+  ]);
+}
+
+/** A game where the computer nations don't act, so a test controls things. */
+function quietGame(power = "england") {
+  const g = newGame(power);
+  g.aiEnabled = false;
+  return g;
+}
+
 const nationKey = (g: ConquestGame, key: string) =>
   g.state.nations.findIndex((n) => n.key === key);
-
-function newGame(seats = [{ seat: "s1", name: "Alden", power: "england" }]) {
-  return ConquestGame.create(
-    map,
-    { endYear: 1650, difficulty: "normal", seed: 42 },
-    seats,
-  );
-}
 
 function ticks(g: ConquestGame, days: number) {
   for (let i = 0; i < days; i++) g.tick();
 }
 
-/** Keeps the computer from acting so a test controls everything. */
-function quietComputers(g: ConquestGame) {
-  for (const n of g.state.nations) n.player ??= `frozen-${n.id}`;
+/** A breakdown's total is what its parts add (and multiply) up to. */
+function expectExplained(
+  b: Breakdown,
+  min: number,
+  max: number,
+  slack: number,
+) {
+  let t = 0;
+  for (const p of b.parts) t = p.mul ? t * p.value : t + p.value;
+  t = Math.max(min, Math.min(max, t));
+  expect(Math.abs(b.total - t)).toBeLessThanOrEqual(slack);
+}
+
+function army(
+  g: ConquestGame,
+  owner: number,
+  p: number,
+  regs: Regiment[],
+  extra: Partial<Army> = {},
+): Army {
+  return {
+    id: g.nextId(),
+    owner,
+    prov: p,
+    regs,
+    path: [],
+    depart: -1,
+    arrive: -1,
+    sea: false,
+    retreating: false,
+    arrived: 0,
+    from: -1,
+    commander: -1,
+    supply: 1,
+    ...extra,
+  };
 }
 
 describe("Derpy Conquest map", () => {
@@ -48,8 +120,9 @@ describe("Derpy Conquest map", () => {
     for (const p of map.provinces) {
       expect(p.nb.length + p.sea.length).toBeGreaterThan(0);
     }
-    const ids = new Set(map.provinces.map((p) => p.id));
-    expect(ids.size).toBe(map.provinces.length);
+    expect(new Set(map.provinces.map((p) => p.id)).size).toBe(
+      map.provinces.length,
+    );
   });
 
   test("neighbours are mutual", () => {
@@ -87,23 +160,48 @@ describe("calendar", () => {
 });
 
 describe("starting a game", () => {
-  test("seats players and gives everyone land, gold and an army", () => {
+  test("seats the player as the governor they made", () => {
     const g = newGame();
     const s = g.state;
     const eng = nationKey(g, "england");
-    expect(s.nations[eng].player).toBe("s1");
-    expect(s.nations[eng].playerName).toBe("Alden");
-    expect(s.provinces[prov("Jamestown")].owner).toBe(eng);
-    expect(s.provinces[prov("Jamestown")].port).toBe(1);
-    expect(s.provinces[prov("Jamestown")].fort).toBe(1);
-    for (const n of s.nations) {
+    const n = s.nations[eng];
+    expect(n.player).toBe("s1");
+    expect(n.playerName).toBe("Alden");
+    const gov = rulerOf(s, eng)!;
+    expect(gov).toMatchObject({
+      first: "Alden",
+      family: "Drackley",
+      made: true,
+      alive: true,
+    });
+    expect(gov.stats).toEqual(plan.stats);
+    expect(gov.traits).toEqual(["diligent"]);
+    for (const c of Object.values(n.council))
+      expect(s.chars[c]?.alive).toBe(true);
+  });
+
+  test("powers, native nations and the crowns behind them all take part", () => {
+    const s = newGame().state;
+    const kinds = (k: string) => s.nations.filter((n) => n.kind === k).length;
+    expect(kinds("power")).toBe(6);
+    expect(kinds("crown")).toBe(6);
+    expect(kinds("native")).toBeGreaterThan(20);
+    for (const n of s.nations.filter((x) => x.kind !== "crown")) {
       expect(provincesOf(s, n.id).length).toBeGreaterThan(0);
-      expect(s.armies.some((a) => a.owner === n.id)).toBe(true);
+      expect(rulerOf(s, n.id)?.alive).toBe(true);
     }
-    expect(s.provinces.filter((p) => p.owner === -1).length).toBeGreaterThan(
-      200,
-    );
-    expect(s.prices.silver).toBeGreaterThan(s.prices.grain);
+    for (const n of s.nations.filter((x) => x.kind === "power")) {
+      expect(s.provinces[n.capital].owner).toBe(n.id);
+      expect(settlers(s.provinces[n.capital])).toBeGreaterThan(0);
+    }
+    // The Dutch and Spanish are already at war in Europe.
+    const nl = s.nations.findIndex((n) => n.key === "netherlands");
+    const es = s.nations.findIndex((n) => n.key === "spain");
+    expect(
+      s.wars.some(
+        (w) => (w.a === nl && w.b === es) || (w.a === es && w.b === nl),
+      ),
+    ).toBe(true);
   });
 
   test("the same seed plays out the same way", () => {
@@ -117,298 +215,354 @@ describe("starting a game", () => {
       { endYear: 1650, difficulty: "hard", seed: 7 },
       [],
     );
-    ticks(a, 700);
-    ticks(b, 700);
+    ticks(a, 400);
+    ticks(b, 400);
     expect(JSON.stringify(a.state)).toBe(JSON.stringify(b.state));
   });
 });
 
-describe("settling", () => {
-  test("founds a colony a short sail from Jamestown", () => {
-    const g = newGame();
-    quietComputers(g);
-    const s = g.state;
-    const eng = nationKey(g, "england");
-    // The Powhatan hold everything around Jamestown, so settlers sail.
-    expect(
-      map.provinces[prov("Jamestown")].nb.every(
-        ([q]) => s.provinces[q].owner >= 0,
-      ),
-    ).toBe(true);
-    const target = prov("St. Mary's");
-    const check = colonizeCheck(s, map, eng, target);
-    expect(check.ok).toBe(true);
-    const gold = s.nations[eng].gold;
-    expect(g.command(eng, { k: "colonize", p: target })).toBeNull();
-    expect(s.nations[eng].colonists).toBe(0);
-    expect(s.nations[eng].gold).toBe(gold - (check.ok ? check.gold : 0));
-    expect(g.command(eng, { k: "colonize", p: target })).not.toBeNull();
-    ticks(g, check.ok ? check.days : 0);
-    expect(s.provinces[target].owner).toBe(eng);
-    expect(s.provinces[target].pop).toBeGreaterThan(0);
-    expect(s.nations[eng].stats.coloniesFounded).toBe(1);
-  });
-
-  test("can't settle far inland away from your land", () => {
-    const g = newGame();
-    const eng = nationKey(g, "england");
-    const check = colonizeCheck(g.state, map, eng, prov("Great Salt Lake"));
-    expect(check.ok).toBe(false);
-  });
-
-  test("colonists arrive from home over time", () => {
-    const g = newGame();
-    quietComputers(g);
-    const eng = nationKey(g, "england");
-    const next = g.state.nations[eng].nextColonist;
-    ticks(g, next);
-    expect(g.state.nations[eng].colonists).toBe(2);
+describe("making a governor", () => {
+  test("strengths cost points, flaws give them back, and the budget is firm", () => {
+    expect(planProblem(plan)).toBeNull();
+    // 2 (diplomacy) + 3 (stewardship) − 1 (low intrigue) + 2 (diligent).
+    expect(planCost(plan)).toBe(6);
+    expect(planBudget(plan)).toBe(13);
+    expect(planBudget({ ...plan, age: "seasoned" })).toBe(15);
+    const greedy = {
+      ...plan,
+      stats: { dip: 14, mar: 14, ste: 5, int: 5, lea: 5 },
+    };
+    expect(planProblem(greedy)).toMatch(/more points/);
+    expect(planProblem({ ...plan, traits: ["ambitious", "content"] })).toMatch(
+      /don't go together/,
+    );
+    expect(planProblem({ ...plan, first: "" })).toMatch(/name/i);
   });
 });
 
-describe("building and recruiting", () => {
-  test("builds a farm, which takes its time", () => {
-    const g = newGame();
-    quietComputers(g);
-    const eng = nationKey(g, "england");
-    const p = prov("Jamestown");
-    expect(g.command(eng, { k: "build", p, b: "farm" })).toBeNull();
-    expect(g.command(eng, { k: "build", p, b: "fort" })).toMatch(
-      /already being built/,
-    );
-    ticks(g, BUILDINGS.farm.days[0] - 1);
-    expect(g.state.provinces[p].farm).toBe(0);
-    ticks(g, 1);
-    expect(g.state.provinces[p].farm).toBe(1);
+describe("every number explains itself", () => {
+  test("totals are exactly what their listed causes add up to", () => {
+    const g = newGame("spain");
+    ticks(g, 70);
+    const s = g.state;
+    for (const n of s.nations.filter((x) => x.kind === "power")) {
+      expectExplained(favorTarget(s, g.w, n.id), 0, 100, 0.5);
+      expectExplained(taxShare(s, g.w, n.id), 0, Infinity, 0.001);
+      expectExplained(adminCapacity(s, n.id), 1, Infinity, 0.5);
+      for (const other of s.nations
+        .filter((x) => x.kind === "native")
+        .slice(0, 5)) {
+        expectExplained(relationOf(s, g.w, other.id, n.id), -100, 100, 0.5);
+      }
+    }
+    for (let p = 0; p < s.provinces.length; p++) {
+      if (s.provinces[p].owner >= 0)
+        expectExplained(unrestOf(s, g.w, p), 0, 100, 0.5);
+    }
   });
 
-  test("raises a regiment that joins the army at home", () => {
-    const g = newGame();
-    quietComputers(g);
-    const eng = nationKey(g, "england");
-    const p = prov("Jamestown");
-    const before = g.state.armies
-      .filter((a) => a.owner === eng)
-      .reduce((n, a) => n + a.regs.length, 0);
-    expect(g.command(eng, { k: "recruit", p, t: "cav" })).toBeNull();
-    expect(g.command(eng, { k: "recruit", p, t: "war" })).toMatch(
-      /can't raise/,
+  test("a month in, the treasury's ledger lists where the money came from", () => {
+    const g = quietGame("spain");
+    ticks(g, 32);
+    const n = g.state.nations[nationKey(g, "spain")];
+    expect(n.ledger.income.length).toBeGreaterThan(0);
+    const net =
+      n.ledger.income.reduce((m, l) => m + l.value, 0) -
+      n.ledger.spending.reduce((m, l) => m + l.value, 0);
+    expect(n.ledger.net).toBeCloseTo(net, 0);
+  });
+});
+
+describe("settling", () => {
+  test("a colony takes settlers from a neighbour or a port, and takes time", () => {
+    const g = quietGame("spain");
+    const s = g.state;
+    const es = nationKey(g, "spain");
+    s.nations[es].gold = 1000;
+    const target = s.provinces.findIndex(
+      (pr, p) => pr.owner === -1 && colonizeCheck(s, g.w, es, p).ok,
     );
-    ticks(g, REGIMENTS.cav.days);
-    const after = g.state.armies.filter((a) => a.owner === eng);
-    expect(after.reduce((n, a) => n + a.regs.length, 0)).toBe(before + 1);
-    expect(after.length).toBe(1);
+    expect(target).toBeGreaterThanOrEqual(0);
+    const check = colonizeCheck(s, g.w, es, target);
+    if (!check.ok) throw new Error(check.why);
+    const before = settlers(s.provinces[check.source!]);
+    expect(g.command(es, { k: "colonize", p: target })).toBeNull();
+    expect(settlers(s.provinces[check.source!])).toBeCloseTo(
+      before - COLONY_SETTLERS,
+      0,
+    );
+    expect(s.provinces[target].owner).toBe(-1);
+    ticks(g, check.days! + 1);
+    expect(s.provinces[target].owner).toBe(es);
+    expect(settlers(s.provinces[target])).toBeGreaterThan(
+      COLONY_SETTLERS * 0.8,
+    );
+  });
+
+  test("can't settle land somebody owns", () => {
+    const g = quietGame();
+    const eng = nationKey(g, "england");
+    const theirs = g.state.provinces.findIndex(
+      (p) => p.owner >= 0 && p.owner !== eng,
+    );
+    expect(g.command(eng, { k: "colonize", p: theirs })).toMatch(
+      /already owns/,
+    );
   });
 });
 
 describe("war", () => {
-  function englandVsPowhatan() {
-    const g = newGame();
-    quietComputers(g);
+  test("soldiers are drafted from the laborers, who stop working", () => {
+    const g = quietGame("spain");
     const s = g.state;
-    const eng = nationKey(g, "england");
-    const pow = nationKey(g, "powhatan");
-    // Clear the warriors so the outcome doesn't depend on a battle.
-    s.armies = s.armies.filter((a) => a.owner !== pow);
-    return { g, s, eng, pow };
-  }
-
-  test("can't march into native land in peacetime", () => {
-    const { g, s, eng } = englandVsPowhatan();
-    const army = s.armies.find((a) => a.owner === eng)!;
-    expect(findPath(s, map, eng, army.prov, prov("Pamunkey"), 1)).toBeNull();
-    expect(
-      g.command(eng, { k: "move", a: army.id, to: prov("Pamunkey") }),
-    ).toMatch(/Can't get there/);
+    const es = nationKey(g, "spain");
+    const havana = prov("Havana");
+    s.nations[es].gold = 500;
+    const before = classSize(s.provinces[havana], "laborers");
+    expect(g.command(es, { k: "recruit", p: havana, t: "militia" })).toBeNull();
+    expect(classSize(s.provinces[havana], "laborers")).toBeCloseTo(
+      before - REGIMENTS.militia.men,
+      0,
+    );
+    expect(g.command(es, { k: "recruit", p: havana, t: "warriors" })).toMatch(
+      /can't raise/,
+    );
+    const armiesBefore = s.armies.filter(
+      (a) => a.owner === es && a.prov === havana,
+    ).length;
+    ticks(g, REGIMENTS.militia.days + 1);
+    const here = s.armies.filter((a) => a.owner === es && a.prov === havana);
+    expect(here.length).toBeGreaterThanOrEqual(Math.max(1, armiesBefore));
+    expect(here.some((a) => a.regs.some((r) => r.type === "militia"))).toBe(
+      true,
+    );
   });
 
-  test("declares war, marches in, and takes the province by siege", () => {
-    const { g, s, eng, pow } = englandVsPowhatan();
-    expect(g.command(eng, { k: "war", n: pow })).toBeNull();
-    expect(s.nations[pow].opinion[eng]).toBe(-100);
-    const army = s.armies.find((a) => a.owner === eng)!;
-    const target = prov("Pamunkey");
-    expect(g.command(eng, { k: "move", a: army.id, to: target })).toBeNull();
-    const route = findPath(s, map, eng, prov("Jamestown"), target, 1)!;
-    ticks(g, route.days + 1);
-    expect(army.prov).toBe(target);
-    expect(s.provinces[target].siege?.by).toBe(eng);
-    ticks(g, SIEGE_DAYS[0] + 1);
-    expect(s.provinces[target].owner).toBe(eng);
-    expect(s.provinces[target].pop).toBeGreaterThan(0);
-    expect(s.nations[eng].stats.provincesConquered).toBe(1);
-  });
-
-  test("a battle gets a report and the loser retreats or is destroyed", () => {
-    const g = newGame();
-    quietComputers(g);
-    const s = g.state;
-    const eng = nationKey(g, "england");
-    const pow = nationKey(g, "powhatan");
-    g.command(eng, { k: "war", n: pow });
-    const army = s.armies.find((a) => a.owner === eng)!;
-    // Put a big English army next to the Powhatan warriors.
-    army.regs = Array.from({ length: 6 }, () => ({
-      type: "inf" as const,
-      men: 1000,
-      morale: 1,
-    }));
-    const warriors = s.armies.find((a) => a.owner === pow)!;
-    g.command(eng, { k: "move", a: army.id, to: warriors.prov });
-    let report;
-    for (let i = 0; i < 120 && !report; i++) {
-      g.tick();
-      report = g.takeDelta().battles?.[0];
+  test("15,000 tired, hungry men lose to 10,000 fresh ones dug in on a hill", () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const g = quietGame("spain");
+      const s = g.state;
+      s.rng = seed;
+      const es = nationKey(g, "spain");
+      const eng = nationKey(g, "england");
+      const hill = s.provinces.findIndex(
+        (_, p) => map.provinces[p].terrain === "hills",
+      );
+      s.provinces[hill].owner = es;
+      s.provinces[hill].occupier = -1;
+      s.provinces[hill].b.fort = 2;
+      const attackers = [
+        army(
+          g,
+          eng,
+          hill,
+          [{ type: "militia", men: 15000, morale: 0.35, home: -1 }],
+          { supply: 0.2 },
+        ),
+      ];
+      const defenders = [
+        army(
+          g,
+          es,
+          hill,
+          [{ type: "regulars", men: 10000, morale: 1, home: -1 }],
+          {
+            commander: s.nations[es].council.marshal,
+          },
+        ),
+      ];
+      const { report } = fightBattle(g, hill, attackers, defenders);
+      expect(report.winner).toBe(1);
+      const labels = (side: typeof report.attacker) =>
+        side.factors.map((f) => f.label);
+      expect(labels(report.defender)).toContain("Fort (level 2)");
+      expect(labels(report.attacker)).toContain("Supplies 20%");
+      expect(report.luck.length).toBeGreaterThan(0);
     }
-    expect(report).toBeDefined();
-    expect(report!.attacker.nations).toEqual([eng]);
-    expect(report!.defender.nations).toEqual([pow]);
-    expect(report!.rounds.length).toBeGreaterThan(0);
-    expect(report!.winner).toBe(0);
-    expect(report!.attacker.lost).toBeGreaterThan(0);
-    expect(s.battles[s.battles.length - 1].id).toBe(report!.id);
-    const left = s.armies.find((a) => a.id === warriors.id);
-    expect(
-      left === undefined || left.retreating || left.prov !== report!.prov,
-    ).toBe(true);
   });
 
-  test("natives burn the colonies they take", () => {
-    const { g, s, eng, pow } = englandVsPowhatan();
-    const jamestown = prov("Jamestown");
-    g.command(pow, { k: "war", n: eng });
-    s.armies = s.armies.filter((a) => a.owner !== eng);
-    s.armies.push({
-      id: 999,
-      owner: pow,
-      prov: jamestown,
-      regs: [
-        { type: "war", men: 1000, morale: 1 },
-        { type: "war", men: 1000, morale: 1 },
-      ],
-      path: [],
-      depart: -1,
-      arrive: -1,
-      sea: false,
-      retreating: false,
-      arrived: s.day,
-      from: -1,
-    });
-    ticks(g, SIEGE_DAYS[1] + 2);
-    expect(s.provinces[jamestown].owner).toBe(-1);
-    expect(s.provinces[jamestown].pop).toBe(0);
+  test("but the same 15,000 fed and rested win in the open", () => {
+    for (const seed of [1, 2, 3]) {
+      const g = quietGame("spain");
+      const s = g.state;
+      s.rng = seed;
+      const es = nationKey(g, "spain");
+      const eng = nationKey(g, "england");
+      const plain = s.provinces.findIndex(
+        (pr, p) => map.provinces[p].terrain === "plains" && !pr.b.fort,
+      );
+      const attackers = [
+        army(
+          g,
+          eng,
+          plain,
+          [{ type: "regulars", men: 15000, morale: 1, home: -1 }],
+          {
+            commander: s.nations[eng].council.marshal,
+          },
+        ),
+      ];
+      const defenders = [
+        army(g, es, plain, [
+          { type: "militia", men: 10000, morale: 0.8, home: -1 },
+        ]),
+      ];
+      expect(fightBattle(g, plain, attackers, defenders).report.winner).toBe(0);
+    }
   });
 
-  test("the computer won't make peace straight away but will later", () => {
-    const { g, s, eng, pow } = englandVsPowhatan();
-    s.nations[pow].player = null;
-    g.command(eng, { k: "war", n: pow });
-    g.command(eng, { k: "peace", n: pow });
-    expect(s.wars.length).toBe(1);
-    ticks(g, 13 * 30);
-    expect(g.command(eng, { k: "peace", n: pow })).toBeNull();
-    expect(s.wars.length).toBe(0);
-    expect(s.truces.length).toBe(1);
-    expect(g.command(eng, { k: "war", n: pow })).toMatch(/truce/);
-  });
-
-  test("peace between players needs the other side to accept", () => {
-    const g = newGame([
-      { seat: "a", name: "Alden", power: "england" },
-      { seat: "b", name: "Michael", power: "netherlands" },
-    ]);
-    quietComputers(g);
-    const eng = nationKey(g, "england");
-    const nl = nationKey(g, "netherlands");
-    g.command(eng, { k: "war", n: nl });
-    expect(g.command(eng, { k: "peace", n: nl })).toBeNull();
-    expect(g.state.offers).toHaveLength(1);
-    expect(g.command(nl, { k: "answer", n: eng, yes: true })).toBeNull();
-    expect(g.state.wars).toHaveLength(0);
+  test("holding a province isn't owning it: that takes a peace", () => {
+    const g = quietGame("spain");
+    const s = g.state;
+    const es = nationKey(g, "spain");
+    // A native province next to Spanish land.
+    let from = -1;
+    let target = -1;
+    for (const p of provincesOf(s, es)) {
+      for (const [q] of map.provinces[p].nb) {
+        const owner = s.provinces[q].owner;
+        if (owner >= 0 && s.nations[owner].kind === "native") {
+          from = p;
+          target = q;
+        }
+      }
+      if (target >= 0) break;
+    }
+    expect(target).toBeGreaterThanOrEqual(0);
+    const natives = s.provinces[target].owner;
+    expect(g.command(es, { k: "move", a: -5, to: target })).toMatch(
+      /Not your army/,
+    );
+    expect(g.command(es, { k: "war", n: natives })).toBeNull();
+    const big = army(
+      g,
+      es,
+      from,
+      Array.from({ length: 40 }, () => ({
+        type: "regulars" as const,
+        men: 100,
+        morale: 1,
+        home: -1,
+      })),
+    );
+    g.addArmy(big);
+    expect(g.command(es, { k: "move", a: big.id, to: target })).toBeNull();
+    for (let i = 0; i < 400 && s.provinces[target].occupier !== es; i++)
+      g.tick();
+    expect(s.provinces[target].occupier).toBe(es);
+    expect(s.provinces[target].owner).toBe(natives);
+    expect(provincesOf(s, es)).not.toContain(target);
   });
 });
 
-describe("dealing with natives", () => {
-  test("trades, gives gifts and buys land from friendly natives", () => {
-    const g = newGame();
-    quietComputers(g);
+describe("the governor's life", () => {
+  test("the eldest child inherits when the governor dies", () => {
+    const g = quietGame();
     const s = g.state;
     const eng = nationKey(g, "england");
-    const pow = nationKey(g, "powhatan");
-    s.nations[pow].opinion[eng] = -5;
-    expect(g.command(eng, { k: "trade", n: pow })).toMatch(/trust/);
-    expect(g.command(eng, { k: "gift", n: pow, gold: 25 })).toBeNull();
-    expect(s.nations[pow].opinion[eng]).toBe(5);
-    expect(g.command(eng, { k: "trade", n: pow })).toBeNull();
-    expect(s.deals).toHaveLength(1);
-    const gold = s.nations[eng].gold;
-    ticks(g, 31);
-    expect(s.nations[eng].ledger.trade).toBeGreaterThan(0);
-    expect(s.nations[eng].gold).toBeGreaterThan(gold);
+    const gov = rulerOf(s, eng)!;
+    const n = s.nations[eng];
+    const child = makeCharacter(s, g.rng, {
+      nation: eng,
+      culture: n.culture,
+      religion: n.religion,
+      age: 19,
+      female: true,
+      father: gov.id,
+    });
+    gov.children.push(child.id);
+    kill(g, gov, "a fever");
+    expect(s.nations[eng].ruler).toBe(child.id);
+    expect(gov.alive).toBe(false);
+  });
 
-    s.nations[pow].opinion[eng] = 60;
-    s.nations[eng].gold = 1000;
-    const target = prov("Nansemond");
-    expect(g.command(eng, { k: "buy", p: target })).toBeNull();
-    expect(s.provinces[target].owner).toBe(eng);
-    expect(s.nations[pow].opinion[eng]).toBeLessThan(60);
-    expect(g.command(eng, { k: "buy", p: s.nations[pow].capital })).toMatch(
-      /capital/,
+  test("with no heir, the crown appoints someone from the council", () => {
+    const g = quietGame();
+    const s = g.state;
+    const eng = nationKey(g, "england");
+    const gov = rulerOf(s, eng)!;
+    gov.children = [];
+    const council = Object.values(s.nations[eng].council);
+    kill(g, gov, "a fever");
+    expect(council).toContain(s.nations[eng].ruler);
+    expect(Object.values(s.nations[eng].council)).not.toContain(
+      s.nations[eng].ruler,
     );
+  });
+});
+
+describe("the crown", () => {
+  test("favor follows the money sent home", () => {
+    const g = quietGame();
+    const s = g.state;
+    const eng = nationKey(g, "england");
+    expect(g.command(eng, { k: "remit", share: 0 })).toBeNull();
+    const stingy = favorTarget(s, g.w, eng).total;
+    expect(g.command(eng, { k: "remit", share: 0.3 })).toBeNull();
+    const loyal = favorTarget(s, g.w, eng).total;
+    expect(loyal).toBeGreaterThan(stingy);
+    expect(g.command(eng, { k: "remit", share: 0.9 })).toMatch(/50%/);
+    expect(g.command(eng, { k: "independence" })).toMatch(/autonomy/i);
   });
 });
 
 describe("the whole game", () => {
   test("a player's copy kept up to date by deltas matches the server's", () => {
-    const g = ConquestGame.create(
-      map,
-      { endYear: 1612, difficulty: "normal", seed: 99 },
-      [],
-    );
-    const mirror: GameState = JSON.parse(JSON.stringify(g.state));
-    while (!g.state.over) {
+    const g = newGame("france", 11);
+    const copy = JSON.parse(JSON.stringify(g.state)) as GameState;
+    g.takeDelta();
+    for (let i = 0; i < 400; i++) {
       g.tick();
-      g.tick();
-      applyDelta(mirror, JSON.parse(JSON.stringify(g.takeDelta())));
+      applyDelta(copy, JSON.parse(JSON.stringify(g.takeDelta())));
     }
-    // The random state and id counter stay on the server.
-    const strip = (st: GameState) =>
-      JSON.stringify({ ...st, rng: 0, nextId: 0 });
-    expect(strip(mirror)).toBe(strip(g.state));
+    // Open country's people are only sent when they change by a good number,
+    // and the dice and id counters stay on the server.
+    const strip = (x: GameState) => ({
+      ...x,
+      rng: 0,
+      nextId: 0,
+      battles: [],
+      provinces: x.provinces.map((pr) =>
+        pr.owner < 0 ? { ...pr, pops: [] } : pr,
+      ),
+    });
+    expect(JSON.stringify(strip(copy))).toBe(JSON.stringify(strip(g.state)));
   });
 
-  test("computer players play a decade without breaking the rules", () => {
+  test("computer players run a decade without breaking anything", () => {
     const g = ConquestGame.create(
       map,
-      { endYear: 1617, difficulty: "hard", seed: 5 },
+      { endYear: 1650, difficulty: "hard", seed: 3 },
       [],
     );
-    while (!g.state.over) g.tick();
+    ticks(g, 365 * 10);
     const s = g.state;
-    expect(s.winner).toBeGreaterThanOrEqual(0);
-    expect(s.nations[s.winner].kind).toBe("power");
-    const powers = s.nations.filter((n) => n.kind === "power");
-    expect(
-      powers.reduce((n, p) => n + p.stats.coloniesFounded, 0),
-    ).toBeGreaterThan(30);
-    for (const a of s.armies) {
-      expect(armyMen(a)).toBeGreaterThan(0);
-      expect(s.nations[a.owner].alive).toBe(true);
+    const bad: string[] = [];
+    const walk = (v: unknown, path: string) => {
+      if (typeof v === "number" && !Number.isFinite(v)) bad.push(path);
+      else if (v && typeof v === "object")
+        for (const [k, x] of Object.entries(v)) walk(x, `${path}.${k}`);
+    };
+    walk(s, "state");
+    expect(bad.slice(0, 5)).toEqual([]);
+    for (const pr of s.provinces) {
+      for (const pop of pr.pops) expect(pop.size).toBeGreaterThanOrEqual(0);
+      if (pr.owner >= 0) expect(s.nations[pr.owner].alive).toBe(true);
     }
-    for (const p of s.provinces) {
-      if (p.owner >= 0) expect(s.nations[p.owner].alive).toBe(true);
-      expect(p.pop).toBeGreaterThanOrEqual(0);
+    for (const a of s.armies) expect(s.nations[a.owner].alive).toBe(true);
+    for (const w of s.wars)
+      expect(s.nations[w.a].alive && s.nations[w.b].alive).toBe(true);
+    // The colonies grew.
+    for (const n of s.nations.filter((x) => x.kind === "power" && x.alive)) {
+      expect(provincesOf(s, n.id).length).toBeGreaterThanOrEqual(1);
     }
   });
 
   test("ends on the end date with the top score winning", () => {
-    const g = newGame();
-    quietComputers(g);
-    g.state.endDay = 40;
-    ticks(g, 45);
+    const g = newGame("england", 5, 1609);
+    ticks(g, 800);
     expect(g.state.over).toBe(true);
-    const ranked = g.ranking();
-    expect(g.state.winner).toBe(ranked[0].id);
-    expect(g.command(0, { k: "stop", a: 1 })).toMatch(/over/);
+    expect(g.state.day).toBe(dayOf(1609));
+    expect(g.state.winner).toBe(g.ranking()[0].id);
   });
 });

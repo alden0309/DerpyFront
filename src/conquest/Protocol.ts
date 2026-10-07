@@ -1,11 +1,17 @@
 // Derpy Conquest's messages between browsers and the game server, sent as
 // JSON over the /conquest/ws WebSocket.
 
-import type { Command, Difficulty, GameDelta, GameState } from "./engine/Types";
+import type {
+  Command,
+  Difficulty,
+  GameDelta,
+  GameState,
+  GovernorPlan,
+} from "./engine/Types";
 
 export const CONQUEST_WS_PATH = "/conquest/ws";
 export const MAX_NAME_LENGTH = 24;
-export const END_YEARS = [1630, 1650, 1675, 1700] as const;
+export const END_YEARS = [1650, 1675, 1700, 1750] as const;
 export const DIFFICULTIES: Difficulty[] = ["easy", "normal", "hard"];
 
 export interface RoomSettings {
@@ -21,6 +27,34 @@ export interface SeatInfo {
   online: boolean;
   /** Signed in to a Derp Land account (earns Derp Coins). */
   account: boolean;
+  /** Has made their governor. */
+  governor: boolean;
+  ready: boolean;
+}
+
+/** A game anyone can join, for the lobby list. */
+export interface OpenRoom {
+  code: string;
+  host: string;
+  /** Players' names and the nations they've picked. */
+  players: { name: string; power: string | null }[];
+  settings: RoomSettings;
+  started: boolean;
+  /** In-game year, once it's started. */
+  year: number | null;
+}
+
+/** A saved game you played in, for picking up later. */
+export interface SavedGame {
+  id: string;
+  title: string;
+  /** Your nation in it. */
+  power: string;
+  year: number;
+  savedAt: string;
+  players: string[];
+  /** Running right now (join it), or waiting to be loaded. */
+  live: string | null;
 }
 
 export interface ResultLine {
@@ -35,21 +69,27 @@ export interface ResultLine {
 
 export type ClientMessage =
   | { t: "hello"; name: string; token?: string }
-  | { t: "create"; solo: boolean; power?: string; settings: RoomSettings }
+  | { t: "list" }
+  | { t: "create"; solo: boolean; open: boolean; settings: RoomSettings }
   | { t: "join"; code: string }
   | { t: "rejoin"; code: string; secret: string }
+  | { t: "resume"; id: string }
   | { t: "pick"; power: string | null }
-  | { t: "settings"; settings: RoomSettings }
+  | { t: "governor"; plan: GovernorPlan }
+  | { t: "ready"; ready: boolean }
+  | { t: "settings"; settings: RoomSettings; open: boolean }
   | { t: "start" }
   | { t: "cmd"; id: number; c: Command }
   | { t: "speed"; s: number }
   | { t: "pause"; p: boolean }
   | { t: "chat"; text: string }
+  | { t: "save" }
   | { t: "end" }
   | { t: "leave" };
 
 export type ServerMessage =
   | { t: "welcome"; name: string; account: string | null }
+  | { t: "rooms"; open: OpenRoom[]; saved: SavedGame[] }
   | {
       t: "lobby";
       code: string;
@@ -57,6 +97,7 @@ export type ServerMessage =
       secret: string;
       host: string;
       solo: boolean;
+      open: boolean;
       settings: RoomSettings;
       seats: SeatInfo[];
     }
@@ -77,5 +118,6 @@ export type ServerMessage =
   | { t: "seats"; seats: SeatInfo[]; host: string }
   | { t: "ack"; id: number; err: string | null }
   | { t: "chat"; from: string; text: string }
+  | { t: "saved"; at: string }
   | { t: "end"; results: ResultLine[] }
   | { t: "err"; msg: string };

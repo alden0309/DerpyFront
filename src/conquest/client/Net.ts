@@ -115,6 +115,17 @@ export class Net {
     this.listeners.push(l);
   }
 
+  off(l: Listener): void {
+    this.listeners = this.listeners.filter((x) => x !== l);
+  }
+
+  /** Leaves the current room for good (no rejoining it after a reconnect). */
+  leave(): void {
+    this.send({ t: "leave" });
+    this.ticket = null;
+    clearRejoin();
+  }
+
   private raw(m: ClientMessage): void {
     this.ws?.send(JSON.stringify(m));
   }

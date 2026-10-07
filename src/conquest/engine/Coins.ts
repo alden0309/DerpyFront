@@ -2,8 +2,7 @@
 // end screen shows it, so it's the whole rulebook.
 
 export const CONQUEST_COINS = {
-  /** A game must last this long (real seconds and game days) to pay. */
-  minSeconds: 120,
+  /** A game must last this long (game days) to pay. */
   minDays: 730,
   played: 10,
   perProvince: 1,
@@ -20,7 +19,6 @@ export const CONQUEST_COINS = {
 } as const;
 
 export interface ConquestCoinGame {
-  seconds: number;
   days: number;
   rank: number;
   provinces: number;
@@ -36,8 +34,7 @@ export interface ConquestCoinResult {
 
 export function conquestCoins(g: ConquestCoinGame): ConquestCoinResult {
   const c = CONQUEST_COINS;
-  if (g.seconds < c.minSeconds || g.days < c.minDays)
-    return { total: 0, lines: [] };
+  if (g.days < c.minDays) return { total: 0, lines: [] };
   const lines = [
     { line: "Played", coins: c.played },
     {

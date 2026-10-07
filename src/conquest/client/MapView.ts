@@ -1,8 +1,14 @@
 // Derpy Conquest's map: provinces, borders, rivers, armies and what's going
 // on, drawn on a canvas you can drag and zoom (mouse, trackpad or fingers).
+// Four ways to look at it: by nation (names stretched across their land,
+// as on old maps), by terrain, by what the land makes, and by people.
 
-import { armyMen } from "../engine/Queries";
-import type { Army, GameState, MapDef, Terrain } from "../engine/Types";
+import type { World } from "../engine/Map";
+import { armyMen, people } from "../engine/Queries";
+import type { Army, GameState, Good, MapDef, Terrain } from "../engine/Types";
+import { GOOD_COLORS } from "./Text";
+
+export type MapMode = "nation" | "terrain" | "economy" | "people";
 
 export interface Geo {
   width: number;
@@ -12,7 +18,7 @@ export interface Geo {
   rivers: number[][];
 }
 
-const TERRAIN_TINT: Record<Terrain, string> = {
+export const TERRAIN_TINT: Record<Terrain, string> = {
   plains: "#ece0b4",
   forest: "#d2d6a8",
   hills: "#e2d1a2",
@@ -102,8 +108,7 @@ export interface Overlay {
   battles: Map<number, number>;
   /** Where the selected army would go (path preview). */
   preview: number[] | null;
-  /** Mode the map shows: owners, or terrain/goods for planning. */
-  mode: "political" | "terrain";
+  mode: MapMode;
   /** Open land the player could settle right now. */
   colonizable: Set<number>;
 }
@@ -121,13 +126,7 @@ export class MapView {
   private nationBorders = new Path2D();
   private rivers = new Path2D();
   private ownersKey = "";
-  private nationLabels: {
-    name: string;
-    x: number;
-    y: number;
-    size: number;
-    color: string;
-  }[] = [];
+  private nationLabels: NationLabel[] = [];
   private armyHits: {
     army: Army;
     x: number;
@@ -149,6 +148,7 @@ export class MapView {
 
   constructor(
     private readonly map: MapDef,
+    private readonly world: World,
     private readonly geo: Geo,
     private readonly cb: MapCallbacks,
   ) {
@@ -232,52 +232,101 @@ export class MapView {
       if (s.provinces[a.left].owner !== s.provinces[a.right].owner)
         this.addArc(this.nationBorders, a);
     }
-    // Nation names sit over the middle of their land, sized to fit it.
-    const acc = new Map<
-      number,
-      {
-        x: number;
-        y: number;
-        w: number;
-        minX: number;
-        maxX: number;
-        minY: number;
-        maxY: number;
-      }
-    >();
+    // Nation names stretched along the lie of their land.
+    const by = new Map<number, number[]>();
     s.provinces.forEach((p, i) => {
-      if (p.owner < 0) return;
-      const def = this.map.provinces[i];
-      const b = this.provBox[i];
-      const w = def.areaKm2;
-      const e = acc.get(p.owner) ?? {
-        x: 0,
-        y: 0,
-        w: 0,
-        minX: Infinity,
-        maxX: -Infinity,
-        minY: Infinity,
-        maxY: -Infinity,
-      };
-      e.x += def.x * w;
-      e.y += def.y * w;
-      e.w += w;
-      e.minX = Math.min(e.minX, b[0]);
-      e.maxX = Math.max(e.maxX, b[2]);
-      e.minY = Math.min(e.minY, b[1]);
-      e.maxY = Math.max(e.maxY, b[3]);
-      acc.set(p.owner, e);
+      if (p.owner < 0 || s.nations[p.owner].kind === "crown") return;
+      let list = by.get(p.owner);
+      if (!list) by.set(p.owner, (list = []));
+      list.push(i);
     });
-    this.nationLabels = [...acc.entries()].map(([n, e]) => ({
-      name: s.nations[n].name.replace(/^the /, "").toUpperCase(),
-      x: e.x / e.w,
-      y: e.y / e.w,
-      // Map units the label may span: most of the land's width, but not
-      // much more than its height allows.
-      size: Math.min((e.maxX - e.minX) * 0.8, (e.maxY - e.minY) * 2.2),
-      color: s.nations[n].color,
-    }));
-    this.nationLabels.sort((a, b) => b.size - a.size);
+    this.nationLabels = [];
+    for (const [n, provs] of by) {
+      const label = this.curveLabel(
+        s.nations[n].name.replace(/^the /, "").toUpperCase(),
+        provs,
+        s.nations[n].color,
+      );
+      if (label) this.nationLabels.push(label);
+    }
+    this.nationLabels.sort((a, b) => b.length - a.length);
+  }
+
+  /**
+   * A label for a nation: a gentle curve through its provinces along their
+   * long axis, as long as the land is.
+   */
+  private curveLabel(
+    name: string,
+    provs: number[],
+    color: string,
+  ): NationLabel | null {
+    let sw = 0;
+    let mx = 0;
+    let my = 0;
+    const pts = provs.map((p) => {
+      const b = this.provBox[p];
+      const r = Math.sqrt(Math.max(1, (b[2] - b[0]) * (b[3] - b[1]))) / 2;
+      const w = r;
+      const d = this.map.provinces[p];
+      sw += w;
+      mx += d.x * w;
+      my += d.y * w;
+      return { x: d.x, y: d.y, w, r };
+    });
+    mx /= sw;
+    my /= sw;
+    let cxx = 0;
+    let cyy = 0;
+    let cxy = 0;
+    for (const q of pts) {
+      cxx += q.w * (q.x - mx) ** 2;
+      cyy += q.w * (q.y - my) ** 2;
+      cxy += q.w * (q.x - mx) * (q.y - my);
+    }
+    const angle = 0.5 * Math.atan2(2 * cxy, cxx - cyy);
+    let ux = Math.cos(angle);
+    let uy = Math.sin(angle);
+    // Always read left to right.
+    if (ux < 0) {
+      ux = -ux;
+      uy = -uy;
+    }
+    const vx = -uy;
+    const vy = ux;
+    let tMin = Infinity;
+    let tMax = -Infinity;
+    let thick = 0;
+    const proj = pts.map((q) => {
+      const t = (q.x - mx) * ux + (q.y - my) * uy;
+      const o = (q.x - mx) * vx + (q.y - my) * vy;
+      tMin = Math.min(tMin, t - q.r * 0.8);
+      tMax = Math.max(tMax, t + q.r * 0.8);
+      thick += q.w * (o * o);
+      return { t, o, w: q.w, r: q.r };
+    });
+    const avgR = sw / pts.length;
+    thick = Math.sqrt(thick / sw) * 2 + avgR * 1.2;
+    const length = (tMax - tMin) * 0.86;
+    if (length <= 0) return null;
+    // The curve: offsets smoothed along the axis.
+    const sigma = Math.max(avgR, (tMax - tMin) / 4);
+    const samples: [number, number][] = [];
+    const K = 16;
+    for (let i = 0; i <= K; i++) {
+      const t = tMin + (tMax - tMin) * (0.07 + (0.86 * i) / K);
+      let num = 0;
+      let den = 0;
+      for (const q of proj) {
+        const g = q.w * Math.exp(-((t - q.t) ** 2) / (2 * sigma * sigma));
+        num += g * q.o;
+        den += g;
+      }
+      const o = den > 0 ? num / den : 0;
+      samples.push([mx + ux * t + vx * o, my + uy * t + vy * o]);
+    }
+    const size = Math.min(thick * 0.55, (length / name.length) * 1.25);
+    return { name, samples, length, size, color };
   }
 
   // ---------------------------------------------------------------- view
@@ -502,16 +551,36 @@ export class MapView {
 
   // ---------------------------------------------------------------- drawing
 
-  private fillFor(s: GameState, p: number, mode: Overlay["mode"]): string {
+  private fillFor(s: GameState, p: number, o: Overlay): string {
     const prov = s.provinces[p];
     const def = this.map.provinces[p];
-    if (mode === "terrain" || prov.owner < 0) {
-      if (prov.colony && mode !== "terrain")
-        return mix(s.nations[prov.colony.by].color, 0.7);
-      return TERRAIN_TINT[def.terrain];
+    switch (o.mode) {
+      case "terrain":
+        return TERRAIN_TINT[def.terrain];
+      case "economy": {
+        const good = this.world.raw[p];
+        let value = 0;
+        for (const v of Object.values(prov.made)) value += v ?? 0;
+        if (prov.owner < 0 || value <= 0) return mix(GOOD_COLORS[good], 0.78);
+        return mix(
+          GOOD_COLORS[good],
+          Math.max(0.05, 0.6 - Math.min(0.55, value / 60)),
+        );
+      }
+      case "people": {
+        const folk = people(prov);
+        const density = folk / Math.max(500, def.areaKm2);
+        return ramp(Math.min(1, Math.sqrt(density / 0.25)));
+      }
+      default: {
+        if (prov.owner < 0) {
+          if (prov.colony) return mix(s.nations[prov.colony.by].color, 0.72);
+          return TERRAIN_TINT[def.terrain];
+        }
+        const n = s.nations[prov.owner];
+        return mix(n.color, n.kind === "native" ? 0.42 : 0.14);
+      }
     }
-    const n = s.nations[prov.owner];
-    return mix(n.color, n.kind === "native" ? 0.35 : 0.12);
   }
 
   /** Where an army is drawn right now, in map units. */
@@ -551,27 +620,50 @@ export class MapView {
     );
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    // Shallow water along the coast.
-    ctx.strokeStyle = "rgba(160, 205, 215, 0.35)";
-    ctx.lineWidth = 7 / v.scale;
+    // Shallow water along the coast, as on old charts.
+    ctx.strokeStyle = "rgba(160, 205, 215, 0.3)";
+    ctx.lineWidth = 9 / v.scale;
     ctx.stroke(this.coast);
-    ctx.strokeStyle = "rgba(190, 225, 230, 0.35)";
-    ctx.lineWidth = 3 / v.scale;
+    ctx.strokeStyle = "rgba(190, 225, 230, 0.3)";
+    ctx.lineWidth = 4 / v.scale;
     ctx.stroke(this.coast);
 
     // Only draw what's on screen.
     const [vx0, vy0] = this.toMap(0, 0);
     const [vx1, vy1] = this.toMap(this.cssWidth, this.cssHeight);
-    for (let p = 0; p < this.provPaths.length; p++) {
+    const visible = (p: number) => {
       const b = this.provBox[p];
-      if (b[2] < vx0 || b[0] > vx1 || b[3] < vy0 || b[1] > vy1) continue;
-      ctx.fillStyle = this.fillFor(s, p, o.mode);
+      return !(b[2] < vx0 || b[0] > vx1 || b[3] < vy0 || b[1] > vy1);
+    };
+    for (let p = 0; p < this.provPaths.length; p++) {
+      if (!visible(p)) continue;
+      ctx.fillStyle = this.fillFor(s, p, o);
       ctx.fill(this.provPaths[p], "evenodd");
-      // Tiny islands get an outline so they can be found.
       if (this.map.provinces[p].areaKm2 < 4000 && v.scale < 3) {
         ctx.strokeStyle = ctx.fillStyle;
         ctx.lineWidth = 2.5 / v.scale;
         ctx.stroke(this.provPaths[p]);
+      }
+    }
+    // Enemy-held land: hatched in the occupier's colour.
+    if (o.mode === "nation") {
+      for (let p = 0; p < this.provPaths.length; p++) {
+        const prov = s.provinces[p];
+        if (prov.occupier < 0 || !visible(p)) continue;
+        ctx.save();
+        ctx.clip(this.provPaths[p], "evenodd");
+        ctx.strokeStyle = s.nations[prov.occupier].color;
+        ctx.globalAlpha = 0.75;
+        ctx.lineWidth = 2.2 / v.scale;
+        const b = this.provBox[p];
+        const step = 9 / v.scale;
+        ctx.beginPath();
+        for (let x = b[0] - (b[3] - b[1]); x < b[2]; x += step) {
+          ctx.moveTo(x, b[3]);
+          ctx.lineTo(x + (b[3] - b[1]), b[1]);
+        }
+        ctx.stroke();
+        ctx.restore();
       }
     }
     if (this.hovered !== null) {
@@ -579,132 +671,102 @@ export class MapView {
       ctx.fill(this.provPaths[this.hovered], "evenodd");
     }
 
-    ctx.strokeStyle = "rgba(70, 55, 35, 0.32)";
+    ctx.strokeStyle = "rgba(70, 55, 35, 0.3)";
     ctx.lineWidth = Math.max(0.5, 0.8 / v.scale);
+    ctx.setLineDash([3 / v.scale, 2.5 / v.scale]);
     ctx.stroke(this.borders);
+    ctx.setLineDash([]);
     ctx.strokeStyle = "rgba(82, 130, 160, 0.75)";
     ctx.lineWidth = Math.min(1.2, 1.1 / v.scale);
     ctx.stroke(this.rivers);
-    ctx.strokeStyle = "rgba(45, 32, 20, 0.85)";
-    ctx.lineWidth = 1.9 / v.scale;
-    ctx.stroke(this.nationBorders);
-    ctx.strokeStyle = "rgba(25, 50, 60, 0.9)";
-    ctx.lineWidth = 1.1 / v.scale;
+    if (o.mode === "nation") {
+      ctx.strokeStyle = "rgba(45, 32, 20, 0.8)";
+      ctx.lineWidth = 1.9 / v.scale;
+      ctx.stroke(this.nationBorders);
+    }
+    ctx.strokeStyle = "rgba(25, 45, 55, 0.9)";
+    ctx.lineWidth = 1.2 / v.scale;
     ctx.stroke(this.coast);
 
     if (o.selectedProv !== null) {
-      ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 3 / v.scale;
+      ctx.strokeStyle = "#fff8e1";
+      ctx.lineWidth = 3.2 / v.scale;
       ctx.stroke(this.provPaths[o.selectedProv]);
-      ctx.strokeStyle = "rgba(20,20,20,0.8)";
+      ctx.strokeStyle = "rgba(20,20,20,0.85)";
       ctx.lineWidth = 1 / v.scale;
       ctx.stroke(this.provPaths[o.selectedProv]);
     }
+
+    // ---- names
+    if (o.mode === "nation") this.drawNationLabels();
 
     // ---- screen-space overlays
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const sx = (x: number) => x * v.scale + v.tx;
     const sy = (y: number) => y * v.scale + v.ty;
+    const onScreen = (x: number, y: number, m = 30) =>
+      x > -m && y > -m && x < this.cssWidth + m && y < this.cssHeight + m;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    // Nation names when zoomed out; province names when zoomed in.
-    if (v.scale < 1.6) {
-      const placed: [number, number, number, number][] = [];
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "rgba(255,248,230,0.75)";
-      ctx.fillStyle = "rgba(40,28,18,0.85)";
-      for (const l of this.nationLabels) {
-        const widthPx = l.size * v.scale;
-        const size = Math.min(26, widthPx / (l.name.length * 0.68));
-        if (size < 9) continue;
-        ctx.font = `600 ${size}px Georgia, "Palatino Linotype", serif`;
-        const w = ctx.measureText(l.name).width;
-        const x = sx(l.x);
-        const y = sy(l.y);
-        const rect: [number, number, number, number] = [
-          x - w / 2,
-          y - size / 2,
-          x + w / 2,
-          y + size / 2,
-        ];
-        if (
-          placed.some(
-            (r) =>
-              r[0] < rect[2] &&
-              rect[0] < r[2] &&
-              r[1] < rect[3] &&
-              rect[1] < r[3],
-          )
-        )
-          continue;
-        placed.push(rect);
-        ctx.strokeText(l.name, x, y);
-        ctx.fillText(l.name, x, y);
-      }
-    }
-    if (v.scale >= 1.1) {
-      ctx.font = `${v.scale > 3 ? 13 : 11}px Georgia, "Palatino Linotype", serif`;
+    if (v.scale >= 1.1 || o.mode !== "nation") {
+      ctx.font = `${v.scale > 3 ? 13 : 11}px "IM Fell English", Georgia, serif`;
       for (let p = 0; p < this.provPaths.length; p++) {
         const def = this.map.provinces[p];
         const b = this.provBox[p];
         const x = sx(def.x);
         const y = sy(def.y);
-        if (
-          x < -80 ||
-          y < -20 ||
-          x > this.cssWidth + 80 ||
-          y > this.cssHeight + 20
-        )
-          continue;
-        if ((b[2] - b[0]) * v.scale < def.name.length * 5.5) continue;
-        ctx.fillStyle = "rgba(45,32,20,0.78)";
+        if (!onScreen(x, y, 80)) continue;
+        if ((b[2] - b[0]) * v.scale < def.name.length * 6) continue;
+        ctx.fillStyle = "rgba(45,32,20,0.82)";
         ctx.fillText(def.name, x, y + 14);
+      }
+    }
+
+    // Resources on the economy view.
+    if (o.mode === "economy" && v.scale >= 0.7) {
+      for (let p = 0; p < this.provPaths.length; p++) {
+        const def = this.map.provinces[p];
+        const x = sx(def.x);
+        const y = sy(def.y);
+        if (!onScreen(x, y)) continue;
+        this.goodDot(x, y - 4, this.world.raw[p]);
       }
     }
 
     // Where you could found a colony right now.
     if (o.colonizable.size) {
-      ctx.setLineDash([3, 3]);
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 1.6;
       for (const p of o.colonizable) {
         const def = this.map.provinces[p];
         const x = sx(def.x);
         const y = sy(def.y);
-        if (
-          x < -20 ||
-          y < -20 ||
-          x > this.cssWidth + 20 ||
-          y > this.cssHeight + 20
-        )
-          continue;
-        ctx.strokeStyle = "rgba(40,120,60,0.9)";
-        ctx.fillStyle = "rgba(220,255,220,0.55)";
+        if (!onScreen(x, y, 20)) continue;
+        ctx.setLineDash([3, 2]);
+        ctx.strokeStyle = "rgba(35,95,50,0.95)";
+        ctx.fillStyle = "rgba(235,250,225,0.8)";
         ctx.beginPath();
         ctx.arc(x, y - 2, 7, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = "rgba(30,100,50,0.95)";
-        ctx.font = "bold 11px system-ui, sans-serif";
-        ctx.fillText("+", x, y - 2);
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(x - 3.5, y - 2);
+        ctx.lineTo(x + 3.5, y - 2);
+        ctx.moveTo(x, y - 5.5);
+        ctx.lineTo(x, y + 1.5);
+        ctx.stroke();
       }
-      ctx.setLineDash([]);
     }
 
-    // Colonies under way and sieges.
+    // Colonies under way, sieges, ports and forts.
     const day = o.dayNow;
     for (let p = 0; p < s.provinces.length; p++) {
       const prov = s.provinces[p];
       const def = this.map.provinces[p];
       const x = sx(def.x);
       const y = sy(def.y);
-      if (
-        x < -30 ||
-        y < -30 ||
-        x > this.cssWidth + 30 ||
-        y > this.cssHeight + 30
-      )
-        continue;
+      if (!onScreen(x, y)) continue;
       if (prov.colony) {
         const c = prov.colony;
         this.ring(
@@ -714,22 +776,27 @@ export class MapView {
           s.nations[c.by].color,
           (day - c.start) / Math.max(1, c.done - c.start),
         );
-        ctx.font = "11px sans-serif";
-        ctx.fillText("⛺", x, y - 2);
+        this.tent(x, y - 2);
       }
       if (prov.siege) {
-        const frac =
-          (day - prov.siege.start) /
-          Math.max(1, prov.siege.done - prov.siege.start);
-        this.ring(x, y - 20, 9, s.nations[prov.siege.by].color, frac);
-        ctx.font = "11px sans-serif";
-        ctx.fillText("🏰", x, y - 20);
+        this.ring(
+          x,
+          y - 22,
+          9,
+          s.nations[prov.siege.by].color,
+          prov.siege.progress / 100,
+        );
+        this.swords(x, y - 22, 5, "#3b2b1a");
       }
-      if (v.scale >= 2.2 && prov.owner >= 0 && (prov.port || prov.fort)) {
-        ctx.font = "10px sans-serif";
-        const icons = `${prov.port ? "⚓" : ""}${prov.fort ? "🛡".repeat(1) : ""}`;
-        ctx.fillText(icons, x, y + 27);
+      if (v.scale >= 2.2 && prov.owner >= 0) {
+        let gx = x - 8;
+        if (prov.b.port) {
+          this.anchor(gx, y + 27);
+          gx += 14;
+        }
+        if (prov.b.fort) this.tower(gx, y + 27, prov.b.fort);
       }
+      if (prov.mods.some((m) => m.key === "revolt")) this.flame(x + 14, y - 10);
     }
     for (const [p, at] of o.battles) {
       const age = now - at;
@@ -739,8 +806,12 @@ export class MapView {
       }
       const def = this.map.provinces[p];
       ctx.globalAlpha = 1 - age / 5000;
-      ctx.font = `${18 + 6 * Math.sin(age / 120)}px sans-serif`;
-      ctx.fillText("⚔️", sx(def.x) + 16, sy(def.y) - 16);
+      this.swords(
+        sx(def.x) + 16,
+        sy(def.y) - 16,
+        8 + 2 * Math.sin(age / 120),
+        "#7a1d14",
+      );
       ctx.globalAlpha = 1;
     }
 
@@ -778,11 +849,11 @@ export class MapView {
       }
     };
     if (sel && sel.path.length)
-      drawPath(this.armySpot(sel, day), sel.path, "rgba(255,255,255,0.95)");
+      drawPath(this.armySpot(sel, day), sel.path, "rgba(255,250,235,0.95)");
     if (sel && o.preview?.length)
-      drawPath(this.armySpot(sel, day), o.preview, "rgba(255,230,120,0.95)");
+      drawPath(this.armySpot(sel, day), o.preview, "rgba(255,215,110,0.95)");
 
-    // Armies: a tag per army with its regiments, in its nation's colour.
+    // Armies: a tag per army with its strength, in its nation's colour.
     this.armyHits = [];
     const stacks = new Map<string, number>();
     const sorted = [...s.armies].sort(
@@ -799,32 +870,28 @@ export class MapView {
             (w.b === o.me && w.a === a.owner),
         );
       const important = mine || hostile || a.id === o.selectedArmy;
-      // Zoomed out, only your armies and your enemies' show.
       if (!important && v.scale < 0.9) continue;
       const [mx, my] = this.armySpot(a, day);
       const x = sx(mx);
       const y = sy(my);
-      if (
-        x < -40 ||
-        y < -40 ||
-        x > this.cssWidth + 40 ||
-        y > this.cssHeight + 40
-      )
-        continue;
+      if (!onScreen(x, y, 40)) continue;
       const key = `${Math.round(x / 8)},${Math.round(y / 8)}`;
       const slot = stacks.get(key) ?? 0;
       stacks.set(key, slot + 1);
       const nation = s.nations[a.owner];
-      const detailed = important && v.scale >= 1.4;
-      const label = detailed
-        ? `${a.regs.length} · ${(armyMen(a) / 1000).toFixed(1)}k`
-        : `${a.regs.length}`;
+      const men = armyMen(a);
+      const label =
+        important && v.scale >= 1.2
+          ? men >= 1000
+            ? `${(men / 1000).toFixed(1)}k`
+            : `${Math.round(men)}`
+          : `${a.regs.length}`;
       ctx.font = important
-        ? "bold 11px system-ui, sans-serif"
-        : "bold 9px system-ui, sans-serif";
+        ? "700 11px 'Alegreya Sans', system-ui, sans-serif"
+        : "700 9px 'Alegreya Sans', system-ui, sans-serif";
       const h = important ? 17 : 13;
       const w = Math.max(
-        important ? 20 : 14,
+        important ? 22 : 14,
         ctx.measureText(label).width + (important ? 12 : 8),
       );
       const bx = x - w / 2 + slot * (w + 3);
@@ -832,18 +899,18 @@ export class MapView {
       const selected = a.id === o.selectedArmy;
       ctx.globalAlpha = important ? 1 : 0.85;
       ctx.fillStyle = "rgba(0,0,0,0.35)";
-      this.roundRect(bx + 1, by + 2, w, h, 5);
+      this.roundRect(bx + 1, by + 2, w, h, 3);
       ctx.fill();
       ctx.fillStyle = nation.color;
-      this.roundRect(bx, by, w, h, important ? 5 : 4);
+      this.roundRect(bx, by, w, h, 3);
       ctx.fill();
-      ctx.lineWidth = selected ? 3 : mine ? 1.8 : hostile ? 1.8 : 1;
+      ctx.lineWidth = selected ? 3 : mine || hostile ? 1.8 : 1;
       ctx.strokeStyle = selected
         ? "#fff6c8"
         : mine
-          ? "#ffffff"
+          ? "#fbf3dc"
           : hostile
-            ? "#ff5a4a"
+            ? "#e04a35"
             : "rgba(20,20,20,0.6)";
       ctx.stroke();
       ctx.fillStyle = "#ffffff";
@@ -851,14 +918,201 @@ export class MapView {
       ctx.lineWidth = 2.5;
       ctx.strokeText(label, bx + w / 2, by + h / 2 + 0.5);
       ctx.fillText(label, bx + w / 2, by + h / 2 + 0.5);
-      ctx.globalAlpha = 1;
-      if (a.retreating) {
-        ctx.font = "10px sans-serif";
-        ctx.fillText("🏳", bx + w + 6, by + h / 2);
+      // Supply and morale bars under your own armies.
+      if (mine && important && v.scale >= 1.2) {
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.fillRect(bx, by + h + 1, w, 3);
+        ctx.fillStyle =
+          a.regs.reduce((m, r) => m + r.morale * r.men, 0) / Math.max(1, men) >
+          0.5
+            ? "#7fc36b"
+            : "#e0a03a";
+        ctx.fillRect(
+          bx,
+          by + h + 1,
+          (w * a.regs.reduce((m, r) => m + r.morale * r.men, 0)) /
+            Math.max(1, men),
+          3,
+        );
       }
+      ctx.globalAlpha = 1;
+      if (a.retreating) this.whiteFlag(bx + w + 6, by + 2);
       this.armyHits.push({ army: a, x: bx, y: by, w, h });
     }
     this.needsDraw = false;
+  }
+
+  /** Nation names along their curves, letter-spaced to span the land. */
+  private drawNationLabels(): void {
+    const ctx = this.ctx;
+    const v = this.view;
+    const dpr = this.dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const placed: [number, number, number, number][] = [];
+    for (const l of this.nationLabels) {
+      const sizePx = Math.min(64, l.size * v.scale);
+      if (sizePx < 10) continue;
+      const pts = l.samples.map(
+        ([x, y]) =>
+          [x * v.scale + v.tx, y * v.scale + v.ty] as [number, number],
+      );
+      // Bounding box for collisions.
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (const [x, y] of pts) {
+        x0 = Math.min(x0, x - sizePx / 2);
+        y0 = Math.min(y0, y - sizePx / 2);
+        x1 = Math.max(x1, x + sizePx / 2);
+        y1 = Math.max(y1, y + sizePx / 2);
+      }
+      if (x1 < 0 || y1 < 0 || x0 > this.cssWidth || y0 > this.cssHeight)
+        continue;
+      if (placed.some((r) => r[0] < x1 && x0 < r[2] && r[1] < y1 && y0 < r[3]))
+        continue;
+      placed.push([x0, y0, x1, y1]);
+      // Arc length along the curve.
+      const seg: number[] = [0];
+      for (let i = 1; i < pts.length; i++)
+        seg.push(
+          seg[i - 1] +
+            Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]),
+        );
+      const total = seg[seg.length - 1];
+      ctx.font = `${sizePx}px "IM Fell English SC", "IM Fell English", Georgia, serif`;
+      const widths = [...l.name].map((ch) => ctx.measureText(ch).width);
+      const textW = widths.reduce((m, x) => m + x, 0);
+      const gap =
+        l.name.length > 1
+          ? Math.max(0, (total - textW) / (l.name.length - 1))
+          : 0;
+      const spacing = Math.min(gap, sizePx * 1.4);
+      const used = textW + spacing * (l.name.length - 1);
+      let at = (total - used) / 2;
+      const pointAt = (d: number): [number, number, number] => {
+        let i = 1;
+        while (i < seg.length - 1 && seg[i] < d) i++;
+        const t = (d - seg[i - 1]) / Math.max(0.001, seg[i] - seg[i - 1]);
+        const [ax, ay] = pts[i - 1];
+        const [bx, by] = pts[i];
+        return [
+          ax + (bx - ax) * t,
+          ay + (by - ay) * t,
+          Math.atan2(by - ay, bx - ax),
+        ];
+      };
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = Math.max(2, sizePx / 7);
+      ctx.strokeStyle = "rgba(250,242,220,0.55)";
+      ctx.fillStyle = darken(l.color, 0.55, 0.78);
+      [...l.name].forEach((ch, i) => {
+        const [x, y, ang] = pointAt(at + widths[i] / 2);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(ang);
+        ctx.strokeText(ch, 0, 0);
+        ctx.fillText(ch, 0, 0);
+        ctx.restore();
+        at += widths[i] + spacing;
+      });
+    }
+  }
+
+  private goodDot(x: number, y: number, good: Good): void {
+    const ctx = this.ctx;
+    ctx.fillStyle = GOOD_COLORS[good];
+    ctx.strokeStyle = "rgba(40,28,18,0.8)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  private tent(x: number, y: number): void {
+    const ctx = this.ctx;
+    ctx.fillStyle = "#3b2b1a";
+    ctx.beginPath();
+    ctx.moveTo(x - 4.5, y + 3.5);
+    ctx.lineTo(x, y - 4);
+    ctx.lineTo(x + 4.5, y + 3.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  private swords(x: number, y: number, r: number, color: string): void {
+    const ctx = this.ctx;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.6, r / 3.5);
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x - r, y - r);
+    ctx.lineTo(x + r, y + r);
+    ctx.moveTo(x + r, y - r);
+    ctx.lineTo(x - r, y + r);
+    ctx.moveTo(x - r * 0.9, y + r * 0.35);
+    ctx.lineTo(x - r * 0.35, y + r * 0.9);
+    ctx.moveTo(x + r * 0.9, y + r * 0.35);
+    ctx.lineTo(x + r * 0.35, y + r * 0.9);
+    ctx.stroke();
+  }
+
+  private anchor(x: number, y: number): void {
+    const ctx = this.ctx;
+    ctx.strokeStyle = "#1f3f4c";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(x, y - 4.5, 1.6, 0, Math.PI * 2);
+    ctx.moveTo(x, y - 3);
+    ctx.lineTo(x, y + 4);
+    ctx.moveTo(x - 3, y - 1.5);
+    ctx.lineTo(x + 3, y - 1.5);
+    ctx.moveTo(x - 4.5, y + 1);
+    ctx.quadraticCurveTo(x - 3.5, y + 4.5, x, y + 4);
+    ctx.quadraticCurveTo(x + 3.5, y + 4.5, x + 4.5, y + 1);
+    ctx.stroke();
+  }
+
+  private tower(x: number, y: number, level: number): void {
+    const ctx = this.ctx;
+    ctx.fillStyle = "#4a3a2a";
+    ctx.fillRect(x - 4, y - 3, 8, 7);
+    for (let i = 0; i < 3; i++) ctx.fillRect(x - 4 + i * 3, y - 5.5, 2, 2.5);
+    ctx.fillStyle = "#f4e9cd";
+    ctx.font = "700 7px system-ui, sans-serif";
+    ctx.fillText(String(level), x, y + 1);
+  }
+
+  private flame(x: number, y: number): void {
+    const ctx = this.ctx;
+    ctx.fillStyle = "#c2411f";
+    ctx.beginPath();
+    ctx.moveTo(x, y - 6);
+    ctx.quadraticCurveTo(x + 5, y, x + 2.5, y + 4);
+    ctx.quadraticCurveTo(x, y + 6, x - 2.5, y + 4);
+    ctx.quadraticCurveTo(x - 5, y, x, y - 6);
+    ctx.fill();
+  }
+
+  private whiteFlag(x: number, y: number): void {
+    const ctx = this.ctx;
+    ctx.strokeStyle = "#3b2b1a";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x, y + 12);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    ctx.fillStyle = "#fbf6e8";
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 8, y + 2.5);
+    ctx.lineTo(x, y + 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
 
   private ring(
@@ -869,7 +1123,7 @@ export class MapView {
     frac: number,
   ): void {
     const ctx = this.ctx;
-    ctx.fillStyle = "rgba(255,250,235,0.85)";
+    ctx.fillStyle = "rgba(255,250,235,0.88)";
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
@@ -887,7 +1141,6 @@ export class MapView {
       -Math.PI / 2 + Math.PI * 2 * Math.max(0, Math.min(1, frac)),
     );
     ctx.stroke();
-    ctx.fillStyle = "#222";
   }
 
   private roundRect(
@@ -906,4 +1159,30 @@ export class MapView {
     ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
   }
+}
+
+interface NationLabel {
+  name: string;
+  /** Points along the curve, in map units. */
+  samples: [number, number][];
+  length: number;
+  /** Letter height in map units. */
+  size: number;
+  color: string;
+}
+
+/** Density colours for the people view: parchment to deep red-brown. */
+export function ramp(t: number): string {
+  const a = [240, 228, 196];
+  const b = [214, 150, 86];
+  const c = [122, 38, 26];
+  const mixc = (x: number[], y: number[], k: number) =>
+    x.map((v, i) => Math.round(v + (y[i] - v) * k));
+  const rgb = t < 0.5 ? mixc(a, b, t * 2) : mixc(b, c, (t - 0.5) * 2);
+  return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+}
+
+function darken(hex: string, amount: number, alpha: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${Math.round(r * (1 - amount))},${Math.round(g * (1 - amount))},${Math.round(b * (1 - amount))},${alpha})`;
 }

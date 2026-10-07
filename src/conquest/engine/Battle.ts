@@ -1,238 +1,363 @@
-// Derpy Conquest battles: resolved in one go when enemy armies meet, round
-// by round with a die for each side, and written up as a report.
+// A battle, fought day by day until one side breaks or the attacker gives
+// up. No single number decides it: numbers, morale, discipline, ground,
+// rivers, forts, supplies, commanders and weather all count, and the report
+// lists each. The only luck is named luck: the weather on the day, and the
+// moments a commander gets right or wrong, with the roll shown.
 
-import { Rng } from "./Rng";
+import type { ConquestGame } from "./Game";
+import { isWinter } from "./Map";
 import {
-  BATTLE_BREAK_MORALE,
-  BATTLE_CASUALTIES,
-  BATTLE_MAX_ROUNDS,
-  CAVALRY_OPEN_BONUS,
-  FORT_DEFENSE_PER_LEVEL,
-  NATIVE_AMBUSH_BONUS,
+  armyMen,
+  charName,
+  countRegs,
+  hasTrait,
+  monthOf,
+  stat,
+} from "./Queries";
+import {
+  BATTLE_MAX_DAYS,
+  BREAK_MORALE,
+  DAILY_LOSS,
+  MORALE_SHOCK,
+  POWER_RULES,
   REGIMENTS,
-  RIVER_PENALTY,
   TERRAIN,
-  powerRules,
 } from "./Rules";
 import {
   Army,
+  BattleFactor,
   BattleReport,
   BattleSide,
-  GameState,
-  MapDef,
-  Nation,
+  Character,
   RegType,
-  Regiment,
   Terrain,
 } from "./Types";
 
 const OPEN: Terrain[] = ["plains", "desert"];
-const ROUGH: Terrain[] = ["forest", "jungle", "marsh", "mountains"];
-const AMBUSH: Terrain[] = ["forest", "jungle", "hills", "mountains", "marsh"];
+const COVER: Terrain[] = ["forest", "jungle", "hills", "marsh", "mountains"];
 
-function typeBonus(type: RegType, terrain: Terrain): number {
-  let m = 1;
-  if (type === "cav" || type === "horse") {
-    if (OPEN.includes(terrain)) m *= 1 + CAVALRY_OPEN_BONUS;
-    else if (ROUGH.includes(terrain)) m *= 1 - CAVALRY_OPEN_BONUS;
+interface Side {
+  armies: Army[];
+  nations: number[];
+  commander: Character | undefined;
+  factors: BattleFactor[];
+  mult: number;
+  startMen: number;
+}
+
+export type Weather = { key: string; text: string };
+
+/** The weather on a battle's first day, from the season and the place. */
+export function battleWeather(g: ConquestGame, p: number): Weather {
+  const def = g.map.provinces[p];
+  const month = monthOf(g.s);
+  const winter = isWinter(def.lat, month);
+  const tropical = g.w.tropical[p];
+  const summer =
+    def.lat >= 0 ? month >= 5 && month <= 8 : month >= 11 || month <= 2;
+  const options: [Weather, number][] = [
+    [{ key: "clear", text: "Clear skies" }, 5],
+    [
+      { key: "rain", text: "Heavy rain: damp powder, muskets misfire" },
+      tropical ? 3 : 2,
+    ],
+    [
+      { key: "fog", text: "Morning fog: the attackers stumble in blind" },
+      def.terrain === "marsh" || def.coastal ? 2 : 1,
+    ],
+  ];
+  if (winter) options.push([{ key: "snow", text: "Snow on the ground" }, 4]);
+  if (summer && tropical)
+    options.push([
+      { key: "heat", text: "Crushing heat: heavy troops wilt" },
+      3,
+    ]);
+  const total = options.reduce((m, [, w]) => m + w, 0);
+  let roll = g.rng.next() * total;
+  for (const [weather, w] of options) {
+    roll -= w;
+    if (roll <= 0) return weather;
   }
-  if ((type === "war" || type === "horse") && AMBUSH.includes(terrain)) {
-    m *= 1 + NATIVE_AMBUSH_BONUS;
+  return options[0][0];
+}
+
+function sideMen(side: Side): number {
+  return side.armies.reduce((m, a) => m + armyMen(a), 0);
+}
+
+function sideMorale(side: Side): number {
+  const men = sideMen(side);
+  if (men <= 0) return 0;
+  let m = 0;
+  for (const a of side.armies) for (const r of a.regs) m += r.morale * r.men;
+  return m / men;
+}
+
+function typeShare(side: Side, types: RegType[]): number {
+  const men = sideMen(side);
+  if (men <= 0) return 0;
+  let n = 0;
+  for (const a of side.armies)
+    for (const r of a.regs) if (types.includes(r.type)) n += r.men;
+  return n / men;
+}
+
+/** Fighting power before the day's luck. */
+function power(side: Side): number {
+  let p = 0;
+  for (const a of side.armies) {
+    for (const r of a.regs)
+      p += r.men * REGIMENTS[r.type].fight * (0.5 + 0.5 * r.morale);
   }
-  return m;
+  return p * side.mult;
 }
 
-function nationDiscipline(n: Nation): number {
-  if (n.kind === "power") return powerRules(n).discipline;
-  return n.strong ? 1.15 : 1;
+function addFactor(side: Side, label: string, value: number): void {
+  if (Math.abs(value - 1) < 0.005) return;
+  side.factors.push({ label, value: Math.round(value * 100) / 100 });
+  side.mult *= value;
 }
 
-interface Fighter {
-  reg: Regiment;
-  power: number;
-}
-
-function sideOf(
-  armies: Army[],
-  s: GameState,
-  terrain: Terrain,
-  useDefense: boolean,
-): Fighter[] {
-  const out: Fighter[] = [];
+function bestCommander(g: ConquestGame, armies: Army[]): Character | undefined {
+  let best: Character | undefined;
   for (const a of armies) {
-    const disc = nationDiscipline(s.nations[a.owner]);
-    for (const reg of a.regs) {
-      const rules = REGIMENTS[reg.type];
-      out.push({
-        reg,
-        power:
-          (useDefense ? rules.defense : rules.attack) *
-          typeBonus(reg.type, terrain) *
-          disc,
-      });
-    }
+    const c = g.s.chars[a.commander];
+    if (c?.alive && (!best || stat(g.s, c, "mar") > stat(g.s, best, "mar")))
+      best = c;
   }
-  return out;
+  return best;
 }
 
-const men = (f: Fighter[]) => f.reduce((sum, x) => sum + x.reg.men, 0);
-const morale = (f: Fighter[]) => {
-  const m = men(f);
-  return m > 0
-    ? f.reduce((sum, x) => sum + x.reg.morale * x.reg.men, 0) / m
-    : 0;
-};
-const firepower = (f: Fighter[]) =>
-  f.reduce(
-    (sum, x) => sum + (x.reg.men / 1000) * x.power * (0.5 + 0.5 * x.reg.morale),
-    0,
-  );
-
-function takeLosses(f: Fighter[], losses: number): number {
-  const total = men(f);
-  if (total <= 0) return 0;
-  let taken = 0;
-  for (const x of f) {
-    const l = Math.min(x.reg.men, Math.round((losses * x.reg.men) / total));
-    x.reg.men -= l;
-    taken += l;
-  }
-  const hit = Math.min(0.6, (taken / total) * 2.5 + 0.03);
-  for (const x of f) x.reg.morale = Math.max(0, x.reg.morale - hit);
-  return taken;
+export interface BattleResult {
+  report: BattleReport;
+  /** Commanders killed in the fighting. */
+  fallen: number[];
 }
 
-function regCounts(armies: Army[]): Partial<Record<RegType, number>> {
-  const out: Partial<Record<RegType, number>> = {};
-  for (const a of armies)
-    for (const r of a.regs) out[r.type] = (out[r.type] ?? 0) + 1;
-  return out;
-}
-
-const TERRAIN_WORDS: Record<Terrain, string> = {
-  plains: "plains",
-  forest: "forest",
-  hills: "hills",
-  mountains: "mountains",
-  jungle: "jungle",
-  desert: "desert",
-  marsh: "marshes",
-  tundra: "tundra",
-};
-
-/**
- * Fights it out in province `p`. Changes the regiments' men and morale;
- * the caller moves or removes the losers. `crossedRiver` is whether the
- * attackers came over a river to get here.
- */
 export function fightBattle(
-  s: GameState,
-  map: MapDef,
-  rng: Rng,
-  id: number,
+  g: ConquestGame,
   p: number,
   attackers: Army[],
   defenders: Army[],
-  crossedRiver: boolean,
-): BattleReport {
-  const def = map.provinces[p];
+): BattleResult {
+  const s = g.s;
+  const def = g.map.provinces[p];
+  const pr = s.provinces[p];
   const terrain = def.terrain;
-  const prov = s.provinces[p];
-  const notes: string[] = [];
+  const mk = (armies: Army[]): Side => ({
+    armies,
+    nations: [...new Set(armies.map((a) => a.owner))],
+    commander: bestCommander(g, armies),
+    factors: [],
+    mult: 1,
+    startMen: armies.reduce((m, a) => m + armyMen(a), 0),
+  });
+  const A = mk(attackers);
+  const D = mk(defenders);
 
-  const att = sideOf(attackers, s, terrain, false);
-  const dfn = sideOf(defenders, s, terrain, true);
+  // Ground and works.
+  addFactor(D, `Defending the ${terrain}`, 1 + TERRAIN[terrain].defense);
+  const fort = pr.b.fort ?? 0;
+  if (fort > 0 && D.nations.includes(pr.owner) && pr.occupier < 0)
+    addFactor(D, `Fort (level ${fort})`, 1 + fort * 0.15);
+  const river = attackers.some(
+    (a) =>
+      a.from >= 0 &&
+      g.map.provinces[a.from].nb.some(([q, , r]) => q === p && r === 1),
+  );
+  if (river) addFactor(A, "Attacking across a river", 0.75);
 
-  let defBonus = TERRAIN[terrain].defense;
-  if (defBonus > 0) {
-    notes.push(
-      `Defenders hold the ${TERRAIN_WORDS[terrain]} (+${Math.round(defBonus * 100)}%)`,
-    );
-  }
-  const defenderOwnsIt = defenders.some((a) => a.owner === prov.owner);
-  if (defenderOwnsIt && prov.fort > 0) {
-    const fortBonus = FORT_DEFENSE_PER_LEVEL * prov.fort;
-    defBonus += fortBonus;
-    notes.push(
-      `A level ${prov.fort} fort shelters the defenders (+${Math.round(fortBonus * 100)}%)`,
-    );
-    // Cannon earn their keep against walls.
-    for (const x of att) if (x.reg.type === "art") x.power *= 1.3;
-    if (att.some((x) => x.reg.type === "art"))
-      notes.push("Attacking artillery pounds the fort");
-  }
-  let attMult = 1;
-  if (crossedRiver) {
-    attMult -= RIVER_PENALTY;
-    notes.push(
-      `Attackers crossed a river under fire (-${Math.round(RIVER_PENALTY * 100)}%)`,
-    );
-  }
-  const anyCav = (f: Fighter[]) =>
-    f.some((x) => x.reg.type === "cav" || x.reg.type === "horse");
-  if (OPEN.includes(terrain) && (anyCav(att) || anyCav(dfn))) {
-    notes.push("Cavalry charge across open ground (+25%)");
-  } else if (ROUGH.includes(terrain) && (anyCav(att) || anyCav(dfn))) {
-    notes.push(`Cavalry struggle in the ${TERRAIN_WORDS[terrain]} (-25%)`);
-  }
-  const anyNative = (f: Fighter[]) =>
-    f.some((x) => x.reg.type === "war" || x.reg.type === "horse");
-  if (AMBUSH.includes(terrain) && (anyNative(att) || anyNative(dfn))) {
-    notes.push(
-      `Warriors who know the ${TERRAIN_WORDS[terrain]} fight from ambush (+25%)`,
-    );
+  for (const side of [A, D]) {
+    const cmd = side.commander;
+    if (cmd) {
+      const mar = stat(s, cmd, "mar");
+      addFactor(
+        side,
+        `${charName(cmd)} commands (martial ${mar})`,
+        1 + (mar - 5) * 0.03,
+      );
+      if (hasTrait(cmd, "brave"))
+        addFactor(side, "Brave commander leads from the front", 1.05);
+      if (hasTrait(cmd, "craven"))
+        addFactor(side, "Craven commander hangs back", 0.92);
+    } else addFactor(side, "No commander", 0.92);
+    const nation = s.nations[side.nations[0]];
+    const disc = POWER_RULES[nation.key]?.discipline ?? 1;
+    const regulars = typeShare(side, ["regulars"]);
+    if (disc !== 1 && regulars > 0)
+      addFactor(side, `${nation.adjective} drill`, 1 + (disc - 1) * regulars);
+    const supply =
+      side.armies.reduce((m, a) => m + a.supply * armyMen(a), 0) /
+      Math.max(1, sideMen(side));
+    if (supply < 0.95)
+      addFactor(
+        side,
+        `Supplies ${Math.round(supply * 100)}%`,
+        0.7 + 0.3 * supply,
+      );
+    const horse = typeShare(side, ["dragoons", "riders"]);
+    if (horse > 0 && OPEN.includes(terrain))
+      addFactor(side, "Horsemen on open ground", 1 + 0.25 * horse);
+    if (
+      horse > 0 &&
+      (terrain === "forest" || terrain === "jungle" || terrain === "marsh")
+    )
+      addFactor(side, "Horses tangled in the woods", 1 - 0.25 * horse);
+    const warriors = typeShare(side, ["warriors", "riders"]);
+    if (warriors > 0 && COVER.includes(terrain))
+      addFactor(side, "Warriors who know this country", 1 + 0.18 * warriors);
+    if (warriors > 0 && nation.kind === "native") {
+      const guns = nation.market.stock.guns;
+      const armed = Math.min(1, (guns * 10) / Math.max(1, sideMen(side)));
+      if (armed > 0.05)
+        addFactor(
+          side,
+          `Traded muskets (${Math.round(armed * 100)}% armed)`,
+          1 + 0.25 * armed,
+        );
+    }
+    const guns = typeShare(side, ["artillery"]);
+    if (guns > 0)
+      addFactor(
+        side,
+        OPEN.includes(terrain)
+          ? "Cannon on open ground"
+          : "Cannon in rough country",
+        OPEN.includes(terrain) ? 1 + guns * 2 : 1 + guns * 0.6,
+      );
   }
 
-  const startMen: [number, number] = [men(att), men(dfn)];
-  const rounds: BattleReport["rounds"] = [];
-  let winner: 0 | 1 = 1;
-  for (let r = 0; r < BATTLE_MAX_ROUNDS; r++) {
-    const rollA = rng.int(1, 6);
-    const rollD = rng.int(1, 6);
-    const hitD =
-      firepower(att) * attMult * (0.55 + 0.15 * rollA) * BATTLE_CASUALTIES;
-    const hitA =
-      firepower(dfn) *
-      (1 + defBonus) *
-      (0.55 + 0.15 * rollD) *
-      BATTLE_CASUALTIES;
-    const lostD = takeLosses(dfn, hitD);
-    const lostA = takeLosses(att, hitA);
-    rounds.push({ rolls: [rollA, rollD], lost: [lostA, lostD] });
-    const breakA =
-      morale(att) < BATTLE_BREAK_MORALE || men(att) < startMen[0] * 0.25;
-    const breakD =
-      morale(dfn) < BATTLE_BREAK_MORALE || men(dfn) < startMen[1] * 0.25;
-    if (breakA || breakD) {
-      if (breakA && breakD) winner = morale(att) > morale(dfn) ? 0 : 1;
-      else winner = breakD ? 0 : 1;
-      break;
+  // The weather, the same for both.
+  const weather = battleWeather(g, p);
+  const luck: string[] = [weather.text];
+  if (weather.key === "rain") {
+    for (const side of [A, D]) {
+      const gunmen = typeShare(side, ["regulars", "dragoons", "artillery"]);
+      if (gunmen > 0)
+        addFactor(side, "Rain soaks the powder", 1 - 0.2 * gunmen);
+    }
+  } else if (weather.key === "fog") addFactor(A, "Fog: lost their way in", 0.9);
+  else if (weather.key === "snow") {
+    for (const side of [A, D]) {
+      const n = s.nations[side.nations[0]];
+      if (n.kind === "native" || n.key === "sweden")
+        addFactor(side, "At home in the snow", 1.1);
+      else addFactor(side, "Floundering in snow", 0.93);
+    }
+  } else if (weather.key === "heat") {
+    for (const side of [A, D]) {
+      const heavy = typeShare(side, ["regulars", "artillery"]);
+      if (heavy > 0) addFactor(side, "Wool coats in the heat", 1 - 0.1 * heavy);
     }
   }
 
-  const side = (armies: Army[], f: Fighter[], start: number): BattleSide => ({
-    nations: [...new Set(armies.map((a) => a.owner))],
-    regs: regCounts(armies),
-    men: start,
-    lost: start - men(f),
-    moraleEnd: Math.round(morale(f) * 100) / 100,
-  });
-  const attackerSide = side(attackers, att, startMen[0]);
-  const defenderSide = side(defenders, dfn, startMen[1]);
-  // Restore the counts from before the battle for the report.
-  attackerSide.regs = regCounts(attackers);
-  defenderSide.regs = regCounts(defenders);
-  const losers = winner === 0 ? defenderSide : attackerSide;
-  const destroyed = losers.men - losers.lost < losers.men * 0.25;
-  return {
-    id,
+  const rounds: BattleReport["rounds"] = [];
+  let winner: 0 | 1 = 1;
+  for (let day = 1; day <= BATTLE_MAX_DAYS; day++) {
+    // Commanders' moments: a d20 roll plus martial, against 15.
+    const dayMult = [1, 1];
+    let note: string | null = null;
+    [A, D].forEach((side, i) => {
+      const cmd = side.commander;
+      if (!cmd) return;
+      const roll = g.rng.int(1, 20);
+      const mar = stat(s, cmd, "mar");
+      if (roll + mar >= 24) {
+        dayMult[i] = 1.2;
+        const text = `Day ${day}: ${charName(cmd)}'s flank march (rolled ${roll} + ${mar} martial)`;
+        luck.push(text);
+        note = text;
+      } else if (roll <= 2) {
+        dayMult[i] = 0.85;
+        const text = `Day ${day}: ${charName(cmd)} misjudged the ground (rolled ${roll})`;
+        luck.push(text);
+        note = text;
+      }
+    });
+    const pa = power(A) * dayMult[0];
+    const pd = power(D) * dayMult[1];
+    const shockA = sideMorale(D) < 0.5 ? 1 + shock(A) : 1;
+    const shockD = sideMorale(A) < 0.5 ? 1 + shock(D) : 1;
+    const lossD = Math.min(sideMen(D), pa * DAILY_LOSS * shockA);
+    const lossA = Math.min(sideMen(A), pd * DAILY_LOSS * shockD);
+    const shareA = sideMen(A) > 0 ? lossA / sideMen(A) : 1;
+    const shareD = sideMen(D) > 0 ? lossD / sideMen(D) : 1;
+    takeLosses(A, lossA, shareA * MORALE_SHOCK);
+    takeLosses(D, lossD, shareD * MORALE_SHOCK);
+    rounds.push({ lost: [Math.round(lossA), Math.round(lossD)], note });
+    const mA = sideMorale(A);
+    const mD = sideMorale(D);
+    if (mD < BREAK_MORALE || sideMen(D) < 1) {
+      winner = 0;
+      break;
+    }
+    if (mA < BREAK_MORALE || sideMen(A) < 1) {
+      winner = 1;
+      break;
+    }
+    if (day === BATTLE_MAX_DAYS) winner = mA > mD + 0.25 ? 0 : 1;
+  }
+
+  // A brave commander who leads from the front may fall.
+  const fallen: number[] = [];
+  for (const side of [A, D]) {
+    const cmd = side.commander;
+    if (cmd && hasTrait(cmd, "brave") && g.rng.chance(0.04)) {
+      luck.push(
+        `${charName(cmd)} fell leading a charge (brave commanders risk it: 4%)`,
+      );
+      side.armies.forEach((a) => {
+        if (a.commander === cmd.id) g.touch(a).commander = -1;
+      });
+      side.commander = undefined;
+      fallen.push(cmd.id);
+    }
+  }
+
+  const report: BattleReport = {
+    id: g.nextId(),
     day: s.day,
     prov: p,
-    attacker: attackerSide,
-    defender: defenderSide,
+    attacker: summary(A),
+    defender: summary(D),
     rounds,
     winner,
-    notes,
-    outcome: destroyed ? "destroyed" : "retreated",
+    luck,
+    outcome: "retreated",
+  };
+  return { report, fallen };
+}
+
+function shock(side: Side): number {
+  const men = sideMen(side);
+  if (men <= 0) return 0;
+  let n = 0;
+  for (const a of side.armies)
+    for (const r of a.regs) n += r.men * (REGIMENTS[r.type].shock - 0.5);
+  return Math.max(0, n / men);
+}
+
+function takeLosses(side: Side, losses: number, moraleHit: number): void {
+  const men = sideMen(side);
+  if (men <= 0) return;
+  for (const a of side.armies) {
+    for (const r of a.regs) {
+      const lost = (losses * r.men) / men;
+      r.men = Math.max(0, Math.round((r.men - lost) * 10) / 10);
+      r.morale = Math.max(0, Math.round((r.morale - moraleHit) * 100) / 100);
+    }
+  }
+}
+
+function summary(side: Side): BattleSide {
+  const men = sideMen(side);
+  return {
+    nations: side.nations,
+    commander: side.commander ? charName(side.commander) : null,
+    regs: countRegs(side.armies),
+    men: Math.round(side.startMen),
+    lost: Math.round(side.startMen - men),
+    moraleEnd: Math.round(sideMorale(side) * 100) / 100,
+    factors: side.factors,
   };
 }

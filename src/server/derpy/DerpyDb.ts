@@ -1,5 +1,6 @@
 // Derp Land's database: accounts, sessions, saved DerpyFront games (for
-// stats and replays), Derpy Conquest results, and store purchases, in the
+// stats and replays), Derpy Conquest results and saved campaigns, and store
+// purchases, in the
 // Postgres that DATABASE_URL points at
 // (a free Neon database on the hosted site). Without DATABASE_URL the game
 // still runs; accounts and the store just say they aren't set up.
@@ -154,6 +155,20 @@ CREATE TABLE IF NOT EXISTS derpy_conquest_players (
 );
 CREATE INDEX IF NOT EXISTS derpy_conquest_players_account
   ON derpy_conquest_players (account_id);
+
+CREATE TABLE IF NOT EXISTS derpy_conquest_saves (
+  game_id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  seats JSONB NOT NULL,
+  accounts BIGINT[] NOT NULL DEFAULT '{}',
+  state BYTEA NOT NULL,
+  over BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS derpy_conquest_saves_accounts
+  ON derpy_conquest_saves USING GIN (accounts);
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two
