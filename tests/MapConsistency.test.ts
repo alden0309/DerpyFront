@@ -38,6 +38,7 @@ const FREQUENCY_EXEMPTIONS: Set<GameMapName> = new Set([
   "Luna",
   // Derpy Front: private lobbies only, never in a public rotation.
   "FloridaDetailed",
+  "Orlando",
 ]);
 
 // Keys in the en.json "map" section that are UI strings, not map names.

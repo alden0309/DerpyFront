@@ -35,12 +35,9 @@ import { ShellExecution } from "./ShellExecution";
 
 const malusForRetreat = 25;
 
-/** How far from the transport its escort warships keep station. */
-const ESCORT_RADIUS = 2;
-
 /**
- * Derpy Front: what an escorted troop transport costs -- the price of the
- * player's next two warships, which is what its escorts are.
+ * Derpy Front: what an escorted (armored) troop transport costs -- the price
+ * of the player's next two warships.
  */
 export function escortedTransportCost(mg: Game, player: Player): bigint {
   const info = mg.unitInfo(UnitType.Warship);
@@ -67,10 +64,8 @@ export class TransportShipExecution implements Execution {
 
   private originalOwner: Player;
 
-  // Derpy Front: the two warships escorting this transport (when escorted),
-  // and the tick each last fired.
-  private escorts: Unit[] = [];
-  private escortLastShot: number[] = [];
+  // Derpy Front: when the escorted (armored) transport last fired.
+  private lastShot = -1_000_000;
 
   constructor(
     private attacker: Player,
@@ -165,12 +160,14 @@ export class TransportShipExecution implements Execution {
       return;
     }
 
+    if (this.escorted) {
+      this.attacker.removeGold(escortedTransportCost(this.mg, this.attacker));
+    }
     this.boat = this.attacker.buildUnit(UnitType.TransportShip, this.src, {
       troops: this.troops,
       targetTile: this.dst,
       ...(this.escorted ? { escorted: true } : {}),
     });
-    if (this.escorted) this.spawnEscorts(ticks);
 
     const fullPath = this.pathFinder.findPath(this.src, this.dst) ?? [this.src];
     if (fullPath.length === 0 || fullPath[0] !== this.src) {
@@ -207,7 +204,7 @@ export class TransportShipExecution implements Execution {
 
   tick(ticks: number) {
     this.tickTransport(ticks);
-    if (this.escorted) this.tickEscorts(ticks);
+    if (this.escorted) this.tickEscorted(ticks);
   }
 
   private tickTransport(ticks: number) {
@@ -366,7 +363,10 @@ export class TransportShipExecution implements Execution {
     return this.attacker;
   }
 
-  /** Escorts are bought as two warships; refuse (and say why) if we can't. */
+  /**
+   * The escorted transport is priced like two warships; refuse (and say why)
+   * when the player can't pay.
+   */
   private canAffordEscort(): boolean {
     const mg = this.mg;
     if (mg.config().isUnitDisabled(UnitType.Warship)) {
@@ -391,122 +391,29 @@ export class TransportShipExecution implements Execution {
     return true;
   }
 
-  private spawnEscorts(ticks: number): void {
-    const taken = new Set<TileRef>([this.boat.tile()]);
-    for (let i = 0; i < 2; i++) {
-      const tile =
-        this.escortStation(this.boat.tile(), this.boat.tile(), taken) ??
-        this.boat.tile();
-      taken.add(tile);
-      // buildUnit charges the warship's price: the escort is what it costs.
-      const escort = this.attacker.buildUnit(UnitType.Warship, tile, {
-        patrolTile: tile,
-      });
-      this.escorts.push(escort);
-      // Ready to fire straight away.
-      this.escortLastShot.push(
-        ticks - this.mg.config().warshipShellAttackRate() - 1,
-      );
-    }
-  }
-
-  /** The water tile near `center` closest to `near`, not already taken. */
-  private escortStation(
-    center: TileRef,
-    near: TileRef,
-    taken: Set<TileRef>,
-  ): TileRef | null {
-    const mg = this.mg;
-    const cx = mg.x(center);
-    const cy = mg.y(center);
-    let best: TileRef | null = null;
-    let bestDist = Infinity;
-    for (let dy = -ESCORT_RADIUS; dy <= ESCORT_RADIUS; dy++) {
-      for (let dx = -ESCORT_RADIUS; dx <= ESCORT_RADIUS; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        const x = cx + dx;
-        const y = cy + dy;
-        if (!mg.isValidCoord(x, y)) continue;
-        const t = mg.ref(x, y);
-        if (!mg.isWater(t) || taken.has(t)) continue;
-        const d = mg.euclideanDistSquared(t, near);
-        if (d < bestDist) {
-          best = t;
-          bestDist = d;
-        }
-      }
-    }
-    return best;
-  }
-
   /**
-   * The convoy acts as one unit: escorts keep station beside the transport,
-   * every hit on an escort comes off the transport's (shared) health, the
-   * escorts fire at enemy ships, and they leave with the transport -- when it
-   * lands, turns back home, or is sunk.
+   * The escorted transport is one armored ship: it carries the troops, has
+   * three warships' worth of health, and fires back at enemy ships with the
+   * firepower of two warships (a shell every half warship reload).
    */
-  private tickEscorts(ticks: number): void {
+  private tickEscorted(ticks: number): void {
     if (!this.active || this.boat === undefined || !this.boat.isActive()) {
-      for (const escort of this.escorts) {
-        if (escort.isActive()) escort.delete(false);
-      }
-      this.escorts = [];
-      this.escortLastShot = [];
       return;
     }
-
-    // Shared health: damage taken by an escort moves onto the transport.
-    for (let i = this.escorts.length - 1; i >= 0; i--) {
-      const escort = this.escorts[i];
-      if (!escort.isActive() || escort.owner() !== this.attacker) {
-        if (escort.isActive()) escort.delete(false);
-        this.escorts.splice(i, 1);
-        this.escortLastShot.splice(i, 1);
-        continue;
-      }
-      const damage = escort.maxHealth() - escort.health();
-      if (damage > 0) {
-        escort.modifyHealth(damage);
-        this.boat.modifyHealth(-damage);
-        if (!this.boat.isActive()) {
-          this.tickEscorts(ticks);
-          return;
-        }
-      }
-    }
-
-    // Keep station beside the transport.
-    const taken = new Set<TileRef>([this.boat.tile()]);
-    for (const escort of this.escorts) {
-      const station = this.escortStation(
-        this.boat.tile(),
-        escort.tile(),
-        taken,
-      );
-      const tile = station ?? this.boat.tile();
-      taken.add(tile);
-      if (tile !== escort.tile()) escort.move(tile);
-    }
-
-    // Fire at enemy ships in range.
-    const rate = this.mg.config().warshipShellAttackRate();
-    for (let i = 0; i < this.escorts.length; i++) {
-      if (ticks - this.escortLastShot[i] <= rate) continue;
-      const target = this.escortTarget(this.escorts[i]);
-      if (target === undefined) continue;
-      this.mg.addExecution(
-        new ShellExecution(
-          this.escorts[i].tile(),
-          this.attacker,
-          this.escorts[i],
-          target,
-        ),
-      );
-      this.escortLastShot[i] = ticks;
-    }
+    const reload = Math.max(
+      1,
+      Math.floor(this.mg.config().warshipShellAttackRate() / 2),
+    );
+    if (ticks - this.lastShot <= reload) return;
+    const target = this.escortTarget(this.boat);
+    if (target === undefined) return;
+    this.mg.addExecution(
+      new ShellExecution(this.boat.tile(), this.attacker, this.boat, target),
+    );
+    this.lastShot = ticks;
   }
 
-  /** Nearest enemy transport (first) or warship the escort can shoot. */
+  /** Nearest enemy transport (first) or warship the ship can shoot. */
   private escortTarget(escort: Unit): Unit | undefined {
     const owner = this.attacker;
     let best: Unit | undefined;
@@ -575,13 +482,7 @@ export class TransportShipExecution implements Execution {
       attacker: w.player(this.attacker),
       ref: this.ref,
       troops: this.troops,
-      ...(this.escorted
-        ? {
-            escorted: true,
-            escorts: this.escorts.map((e) => w.unit(e)),
-            escortLastShot: [...this.escortLastShot],
-          }
-        : {}),
+      ...(this.escorted ? { escorted: true, lastShot: this.lastShot } : {}),
     });
   }
 
@@ -605,8 +506,7 @@ export class TransportShipExecution implements Execution {
     this.ref = s.ref;
     this.troops = s.troops;
     this.escorted = s.escorted === true;
-    this.escorts = (s.escorts ?? []).map((e) => r.unit(e));
-    this.escortLastShot = [...(s.escortLastShot ?? [])];
+    this.lastShot = s.lastShot ?? -1_000_000;
   }
 }
 
@@ -630,8 +530,7 @@ const TransportShipExecutionStateSchema = z.object({
   ref: zInt(),
   troops: zNum(),
   escorted: z.boolean().optional(),
-  escorts: z.array(zRef()).optional(),
-  escortLastShot: z.array(zInt()).optional(),
+  lastShot: zInt().optional(),
 });
 type TransportShipExecutionState = z.infer<
   typeof TransportShipExecutionStateSchema

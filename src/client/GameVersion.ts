@@ -75,7 +75,7 @@ export function taggedGameVersion(rawVersion: string): string {
 }
 
 /** Derpy Front: what the nav bar shows under the logo instead of a version. */
-export const NAV_TAGLINE = "Ooh I'm Michael'ing it.";
+export const NAV_TAGLINE = "Ooh I'm Michael'ing it";
 
 /** The nav bar's version elements, in both the mobile and desktop nav bars. */
 const NAV_VERSION_SELECTOR = "#game-version, .game-version-display";

@@ -321,17 +321,17 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
       // space grows dynamically with width
       capacity = 28.1 + (Math.max(360, width) - 360) * 0.119;
     } else if (width < 768) {
-      // 640px - 767px: sm:w-[500px], troop col w-28
-      // space = 376px / 8.4px = 44.8 chars.
-      capacity = 44.8;
+      // 640px - 767px: sm:w-[600px], troop col w-28
+      // space = 476px / 8.4px = 56.7 chars.
+      capacity = 56.7;
     } else if (width < 1024) {
-      // 768px - 1023px: sm:w-[500px],  troop col md:w-36
-      // space = 344px / 8.4px = 41.0 chars.
-      capacity = 41.0;
+      // 768px - 1023px: sm:w-[600px],  troop col md:w-36
+      // space = 444px / 8.4px = 52.9 chars.
+      capacity = 52.9;
     } else {
-      // >= 1024px: sm:w-[500px], font-size text-lg (18px, 10.8px/char).
-      // space = 336px / 10.8px = 31.1 chars.
-      capacity = 31.1;
+      // >= 1024px: sm:w-[600px], font-size text-lg (18px, 10.8px/char).
+      // space = 436px / 10.8px = 40.4 chars.
+      capacity = 40.4;
     }
 
     let isAllianceWrapped = false;
@@ -536,7 +536,7 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
             ${this.renderPlayerNameIcons(playerIcons)} ${betrayalHtml ?? ""}
             ${allianceHtml ?? ""}
           </div>
-          <div class="flex gap-0.5 lg:gap-1 items-center mt-0.5">
+          <div class="flex flex-wrap gap-0.5 lg:gap-1 items-center mt-0.5">
             ${this.displayUnitCount(player, UnitType.Capital, capitalIcon)}
             ${this.displayUnitCount(player, UnitType.City, cityIcon)}
             ${this.displayUnitCount(player, UnitType.Factory, factoryIcon)}
@@ -623,7 +623,11 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
           ${unit.owner().displayName()}
         </div>
         <div class="mt-1">
-          <div class="text-sm opacity-80">${unit.type()}</div>
+          <div class="text-sm opacity-80">
+            ${unit.type() === UnitType.TransportShip && unit.hasHealth()
+              ? translateText("radial_menu.boat_escorted_title")
+              : unit.type()}
+          </div>
           ${unit.hasHealth()
             ? html` <div class="text-sm">Health: ${unit.health()}</div> `
             : ""}
@@ -656,7 +660,7 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
         @contextmenu=${(e: MouseEvent) => e.preventDefault()}
       >
         <div
-          class="bg-gray-800/92 backdrop-blur-sm shadow-xs min-[1200px]:rounded-lg sm:rounded-b-lg shadow-lg text-white text-lg lg:text-base w-full sm:w-[500px] overflow-hidden ${containerClasses}"
+          class="bg-gray-800/92 backdrop-blur-sm shadow-xs min-[1200px]:rounded-lg sm:rounded-b-lg shadow-lg text-white text-lg lg:text-base w-full sm:w-[600px] overflow-hidden ${containerClasses}"
         >
           ${this.player ? this.renderPlayerInfo(this.player) : ""}
           ${this.unit ? this.renderUnitInfo(this.unit) : ""}

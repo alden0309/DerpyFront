@@ -1460,6 +1460,7 @@
     "northwestpassage": "Northwest Passage",
     "oceania": "Oceania",
     "onion": "Onion",
+    "orlando": "Orlando",
     "pangaea": "Pangaea",
     "passage": "Passage",
     "pluto": "Pluto",
@@ -1852,7 +1853,7 @@
     "visit_store": "Visit store"
   },
   "radial_menu": {
-    "boat_escorted_description": "Two warships guard it and fire back until it lands. The convoy shares one health bar, 3x a warship's. Costs as much as two warships.",
+    "boat_escorted_description": "One armored troop ship with 3x a warship's health that fires back at enemy ships until it lands. Costs as much as two warships.",
     "boat_escorted_title": "Escorted Transport",
     "boat_normal_description": "Send troops by boat",
     "boat_normal_title": "Transport",

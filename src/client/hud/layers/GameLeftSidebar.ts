@@ -22,6 +22,9 @@ const playerStatsSolidIcon = assetUrl("images/LeaderboardIconSolidWhite.svg");
 const teamStatsRegularIcon = assetUrl("images/TeamIconRegularWhite.svg");
 const teamStatsSolidIcon = assetUrl("images/TeamIconSolidWhite.svg");
 
+/** Derpy Front: the header over the in-game leaderboard. */
+export const SAY_THANKS = "Say thank you, Alden";
+
 @customElement("game-left-sidebar")
 export class GameLeftSidebar extends LitElement implements Controller {
   @state()
@@ -198,6 +201,13 @@ export class GameLeftSidebar extends LitElement implements Controller {
                 </span>
               </div>
             `
+          : null}
+        ${this.isPlayerStatsShown || this.isTeamStatsShown
+          ? html`<div
+              class="say-thanks mt-2 mb-1 text-center text-sm font-bold tracking-wide text-yellow-300"
+            >
+              ${SAY_THANKS}
+            </div>`
           : null}
         <div class="flex flex-col gap-2 min-w-0 w-full">
           <player-stats

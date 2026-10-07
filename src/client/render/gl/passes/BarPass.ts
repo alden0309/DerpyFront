@@ -146,11 +146,16 @@ export class BarPass {
       if (unit.health === null || unit.health <= 0) continue;
       // Veteran warships have a higher effective max health, so a full veteran
       // ship reads as full. Shared with the engine's UnitImpl.maxHealth().
-      const maxHealth = maxHealthWithVeterancy(
-        this.warshipMaxHealth,
-        unit.veterancy,
-        this.veterancyHealthBonus,
-      );
+      // Derpy Front: the escorted (armored) transport has three warships'
+      // worth of health -- the only transport that has health at all.
+      const maxHealth =
+        unit.unitType === UnitType.TransportShip
+          ? 3 * this.warshipMaxHealth
+          : maxHealthWithVeterancy(
+              this.warshipMaxHealth,
+              unit.veterancy,
+              this.veterancyHealthBonus,
+            );
       if (unit.health < maxHealth) {
         this.pushHealth(unit, unit.health / maxHealth);
       }

@@ -310,7 +310,7 @@ describe("Stacked defense posts", () => {
 describe("Escorted troop transport", () => {
   const dst = (game: Game) => game.ref(3, 12);
 
-  test("costs two warships and launches with two escorts and 3x health", async () => {
+  test("is one ship with 3x a warship's health, priced like two warships", async () => {
     const { game, north } = await seaGame(false);
     north.addGold(10_000_000n);
     const before = north.gold();
@@ -322,31 +322,19 @@ describe("Escorted troop transport", () => {
     expect(boat).toBeDefined();
     expect(boat.hasHealth()).toBe(true);
     expect(boat.health()).toBe(3 * 1000);
-    expect(north.units(UnitType.Warship)).toHaveLength(2);
+    expect(boat.troops()).toBe(100);
+    expect(north.units(UnitType.Warship)).toHaveLength(0);
     expect(before - north.gold()).toBe(cost);
   });
 
-  test("refuses when it can't afford the escorts", async () => {
+  test("refuses when it can't be paid for", async () => {
     const { game, north } = await seaGame(false);
     game.addExecution(new TransportShipExecution(north, dst(game), 100, true));
     game.executeNextTick();
     expect(north.units(UnitType.TransportShip)).toHaveLength(0);
-    expect(north.units(UnitType.Warship)).toHaveLength(0);
   });
 
-  test("hits on an escort come off the shared health bar", async () => {
-    const { game, north } = await seaGame();
-    game.addExecution(new TransportShipExecution(north, dst(game), 100, true));
-    game.executeNextTick();
-    const [boat] = north.units(UnitType.TransportShip);
-    const [escort] = north.units(UnitType.Warship);
-    escort.modifyHealth(-400);
-    game.executeNextTick();
-    expect(escort.health()).toBe(escort.maxHealth());
-    expect(boat.health()).toBe(3000 - 400);
-  });
-
-  test("escorts fire at enemy ships near the convoy", async () => {
+  test("fires back at enemy ships in range", async () => {
     const { game, north, south } = await seaGame();
     game.addExecution(new TransportShipExecution(north, dst(game), 100, true));
     game.executeNextTick();
@@ -357,38 +345,47 @@ describe("Escorted troop transport", () => {
     expect(enemy.health()).toBeLessThan(enemy.maxHealth());
   });
 
-  test("escorts leave when the transport is sunk", async () => {
+  test("an enemy warship reloads between shots at it", async () => {
+    const { game, north, south } = await seaGame();
+    game.addExecution(new TransportShipExecution(north, dst(game), 100, true));
+    game.executeNextTick();
+    const shooter = south.buildUnit(UnitType.Warship, game.ref(coastX + 4, 9), {
+      patrolTile: game.ref(coastX + 4, 9),
+    });
+    game.addExecution(new WarshipExecution(shooter));
+    const spy = vi.spyOn(game, "addExecution");
+    const ticks = 30;
+    executeTicks(game, ticks);
+    const shellsFromShooter = spy.mock.calls.filter(
+      ([e]) =>
+        e.constructor.name === "ShellExecution" &&
+        (e as unknown as { ownerUnit: unknown }).ownerUnit === shooter,
+    ).length;
+    const reload = game.config().warshipShellAttackRate();
+    expect(shellsFromShooter).toBeGreaterThan(0);
+    expect(shellsFromShooter).toBeLessThanOrEqual(
+      Math.ceil(ticks / reload) + 1,
+    );
+  });
+
+  test("sinks when its health runs out", async () => {
     const { game, north } = await seaGame();
     game.addExecution(new TransportShipExecution(north, dst(game), 100, true));
     game.executeNextTick();
     const [boat] = north.units(UnitType.TransportShip);
-    const escorts = north.units(UnitType.Warship);
     boat.modifyHealth(-boat.health());
     game.executeNextTick();
     expect(boat.isActive()).toBe(false);
-    expect(escorts.every((e) => !e.isActive())).toBe(true);
   });
 
-  test("escorts keep station and leave when the troops land", async () => {
+  test("lands its troops like a normal transport", async () => {
     const { game, north, south } = await seaGame();
     const southTilesBefore = south.numTilesOwned();
     game.addExecution(new TransportShipExecution(north, dst(game), 100, true));
     game.executeNextTick();
     const [boat] = north.units(UnitType.TransportShip);
-    const escorts = north.units(UnitType.Warship);
-    for (let i = 0; i < 200 && boat.isActive(); i++) {
-      game.executeNextTick();
-      if (boat.isActive()) {
-        for (const e of escorts) {
-          expect(
-            game.euclideanDistSquared(e.tile(), boat.tile()),
-          ).toBeLessThanOrEqual(8);
-        }
-      }
-    }
+    for (let i = 0; i < 200 && boat.isActive(); i++) game.executeNextTick();
     expect(boat.isActive()).toBe(false);
-    expect(escorts.every((e) => !e.isActive())).toBe(true);
-    expect(north.units(UnitType.Warship)).toHaveLength(0);
     executeTicks(game, 5);
     expect(south.numTilesOwned()).toBeLessThan(southTilesBefore);
   });

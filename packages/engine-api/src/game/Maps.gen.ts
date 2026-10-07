@@ -98,6 +98,7 @@ export enum GameMapType {
   NorthwestPassage = "Northwest Passage", // map-generator/assets/maps/northwestpassage/info.json
   Oceania = "Oceania", // map-generator/assets/maps/oceania/info.json
   Onion = "Onion", // map-generator/assets/maps/onion/info.json
+  Orlando = "Orlando", // map-generator/assets/maps/orlando/info.json
   Pangaea = "Pangaea", // map-generator/assets/maps/pangaea/info.json
   Passage = "Passage", // map-generator/assets/maps/passage/info.json
   Pluto = "Pluto", // map-generator/assets/maps/pluto/info.json
@@ -2054,6 +2055,18 @@ export const maps: readonly MapInfo[] = [
     teamFrequency: -1,
     specialFrequency: -1,
     defaultNationCount: 3,
+  },
+  {
+    id: "Orlando",
+    type: GameMapType.Orlando,
+    translationKey: "map.orlando",
+    categories: ["north_america"],
+    multiplayerFrequency: 0,
+    ffaFrequency: -1,
+    teamFrequency: -1,
+    specialFrequency: -1,
+    defaultNationCount: 40,
+    themes: ["north_america"],
   },
   {
     id: "Pangaea",

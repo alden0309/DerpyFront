@@ -28,6 +28,18 @@ describe("page-footer (Derpy Front)", () => {
     );
   });
 
+  it("credits Alden, Michael and Gary", async () => {
+    await mount();
+    const lines = [
+      ...footer.querySelectorAll(".footer-credits span:not([aria-hidden])"),
+    ].map((s) => s.textContent?.trim());
+    expect(lines).toEqual([
+      "Made by: Alden",
+      "Taped by Michael",
+      "Robert'd by Gary",
+    ]);
+  });
+
   it("keeps the legal links, the source link and the language button", async () => {
     await mount();
     const hrefs = [...footer.querySelectorAll("a")].map((a) =>

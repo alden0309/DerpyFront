@@ -9,9 +9,17 @@ import { customElement } from "lit/decorators.js";
 export const SOURCE_CODE_URL =
   "https://github.com/alden0309/DerpyFront/tree/capital-mod";
 
+/** The credits under "Hey Buddy". */
+export const CREDITS = [
+  "Made by: Alden",
+  "Taped by Michael",
+  "Robert'd by Gary",
+] as const;
+
 /**
- * Derpy Front's footer: a big "Hey Buddy" in the middle, the Terms of Service
- * and Privacy Policy links under it, and the language button on the right.
+ * Derpy Front's footer: a big "Hey Buddy" in the middle, the credits and the
+ * Terms of Service and Privacy Policy links under it, and the language button
+ * on the right.
  */
 @customElement("page-footer")
 export class Footer extends LitElement {
@@ -28,6 +36,18 @@ export class Footer extends LitElement {
           class="hey-buddy m-0 text-center text-4xl lg:text-5xl font-extrabold tracking-wide text-white"
         >
           Hey Buddy
+        </p>
+        <p
+          class="footer-credits m-0 flex flex-wrap items-center justify-center gap-x-3 gap-y-0.5 px-4 text-sm font-semibold text-white/80"
+        >
+          ${CREDITS.map(
+            (line, i) =>
+              html`${i > 0
+                  ? html`<span class="text-white/30" aria-hidden="true"
+                      >•</span
+                    >`
+                  : ""}<span>${line}</span>`,
+          )}
         </p>
         <div class="text-xs mt-1 flex items-center justify-center gap-4 px-4">
           <a

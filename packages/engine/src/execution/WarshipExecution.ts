@@ -657,8 +657,11 @@ export class WarshipExecution implements Execution {
     this.warship.updateWarshipState({ isInCombat: true });
     const shellAttackRate = this.mg.config().warshipShellAttackRate();
     if (this.mg.ticks() - this.lastShellAttack > shellAttackRate) {
-      if (this.warship.targetUnit()?.type() !== UnitType.TransportShip) {
-        // Warships don't need to reload when attacking transport ships.
+      const target = this.warship.targetUnit();
+      if (target?.type() !== UnitType.TransportShip || target.hasHealth()) {
+        // Warships don't need to reload when attacking transport ships, which
+        // sink in one hit. Derpy Front's escorted transport has real health,
+        // so it's fought like a warship: one shell per reload.
         this.lastShellAttack = this.mg.ticks();
       }
       this.mg.addExecution(
