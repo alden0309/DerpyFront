@@ -23,6 +23,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import { ClientEnv } from "src/client/ClientEnv";
 import {
   calculateServerTimeOffset,
+  DERPYFRONT_HOME,
   getSecondsUntilServerTimestamp,
   renderDuration,
   showToast,
@@ -798,7 +799,7 @@ export class HostLobbyModal extends BaseModal {
               @cancel=${() => (this.showSubscriptionRequired = false)}
               @confirm=${() => {
                 this.showSubscriptionRequired = false;
-                window.location.href = "/#modal=store&tab=subscriptions";
+                window.location.href = `${DERPYFRONT_HOME}#modal=store&tab=subscriptions`;
               }}
             ></confirm-dialog>`
           : ""}
@@ -947,7 +948,7 @@ export class HostLobbyModal extends BaseModal {
     this.stopLobbyUpdates();
     if (this.leaveLobbyOnClose) {
       this.leaveLobby();
-      this.updateHistory("/"); // Reset URL to base
+      this.updateHistory(DERPYFRONT_HOME); // Reset URL to base
     }
     crazyGamesSDK.hideInviteButton();
 

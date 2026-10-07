@@ -8,7 +8,7 @@ import { crazyGamesSDK } from "../CrazyGamesSDK";
 import { isDesktopShell } from "../DesktopShell";
 import { showInGameAlert } from "../InGameModal";
 import { steamSDK } from "../SteamSDK";
-import { translateText } from "../Utils";
+import { DERPYFRONT_HOME, translateText } from "../Utils";
 import "./baseComponents/Button";
 import "./DeleteAccountDialog";
 import "./IdentityTokenCard";
@@ -244,14 +244,14 @@ export class AccountSettingsPanel extends LitElement {
       // Navigate to the homepage rather than reloading in place: reloading
       // keeps the #modal=account-settings hash, which reopens a login-gated
       // modal for a now-logged-out player.
-      window.location.replace("/");
+      window.location.replace(DERPYFRONT_HOME);
       return;
     }
     if (result.code === "logged_out") {
       // 401: the session was already gone and the cookie is cleared. Nothing
       // was queued; drop local state so the player can sign in and retry.
       clearLocalSession();
-      window.location.replace("/");
+      window.location.replace(DERPYFRONT_HOME);
       return;
     }
     if (result.code === "forbidden" && result.message !== undefined) {

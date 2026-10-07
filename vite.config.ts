@@ -413,6 +413,13 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       assetsDir: "assets", // Sub-directory for assets
       rollupOptions: {
+        // Derp Land's pages: the hub, DerpyFront (index.html) and Derpy
+        // Conquest.
+        input: {
+          main: path.resolve(__dirname, "index.html"),
+          derpland: path.resolve(__dirname, "derpland.html"),
+          conquest: path.resolve(__dirname, "conquest.html"),
+        },
         output: {
           manualChunks: (id) => {
             const vendorModules = ["howler", "zod"];
@@ -434,6 +441,11 @@ export default defineConfig(({ mode }) => {
       open: process.env.SKIP_BROWSER_OPEN !== "true",
       proxy: {
         "/lobbies": {
+          target: "ws://localhost:3000",
+          ws: true,
+          changeOrigin: true,
+        },
+        "/conquest/ws": {
           target: "ws://localhost:3000",
           ws: true,
           changeOrigin: true,

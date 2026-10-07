@@ -1,5 +1,6 @@
-// Derpy Front's own API, served by the master at /derpy/api: accounts, the
-// leaderboard and profiles, saved-game replays, and the Derp Store.
+// Derp Land's own API, served by the master at /derpy/api: accounts (shared
+// by every game), the leaderboards and profiles, DerpyFront's saved-game
+// replays, and the Derp Store.
 
 import { GameAwardsSchema } from "@openfront/engine-api/game/Awards";
 import { PartialGameRecordSchema } from "@openfront/shared/WireSchemas";
@@ -19,6 +20,7 @@ import {
   register,
 } from "./DerpyAuth";
 import { DERPY_PACKS, derpyCosmeticsCatalog, findPack } from "./DerpyCatalog";
+import { conquestLeaderboard, overallLeaderboard } from "./DerpyConquest";
 import {
   derpyDbConfigured,
   DerpyDbUnavailable,
@@ -164,10 +166,18 @@ export function derpyApiRouter(): express.Router {
     }),
   );
 
+  // ?game=derpyfront (the default), conquest, or overall (both games).
   router.get(
     "/leaderboard",
-    handle(async (_req, res) => {
-      res.json({ players: await leaderboard() });
+    handle(async (req, res) => {
+      const game = String(req.query.game ?? "derpyfront");
+      if (game === "conquest") {
+        res.json({ game, players: await conquestLeaderboard() });
+      } else if (game === "overall") {
+        res.json({ game, players: await overallLeaderboard() });
+      } else {
+        res.json({ game: "derpyfront", players: await leaderboard() });
+      }
     }),
   );
 

@@ -147,6 +147,7 @@ import { UsernameInput } from "./UsernameInput";
 import {
   apexPathFor,
   currentPagePath,
+  DERPYFRONT_HOME,
   flushReloadToast,
   homeHref,
   incrementGamesPlayed,
@@ -1869,7 +1870,7 @@ class Client {
     this.currentUrl = null;
 
     try {
-      history.replaceState(null, "", "/");
+      history.replaceState(null, "", DERPYFRONT_HOME);
     } catch (e) {
       console.warn("Failed to restore URL on leave:", e);
     }

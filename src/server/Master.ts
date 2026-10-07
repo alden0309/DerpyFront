@@ -14,6 +14,7 @@ import {
   registeredSite,
   sendCheckin,
 } from "./ClusterCheckin";
+import { attachConquest } from "./conquest/ConquestRooms";
 import { derpyApiRouter } from "./derpy/DerpyApi";
 import { getDescriptor } from "./DesktopRelease";
 import {
@@ -46,20 +47,25 @@ app.use("/derpy/api", derpyApiRouter());
 
 app.use(express.json());
 
-// Serve the shared app shell for the root document.
+// Derp Land's pages: the hub at the root, Derpy Conquest at /conquest.
+// DerpyFront is the app shell every other path falls back to (below), so
+// /derpyfront and its game links (/game/<id>) keep working.
+const PAGES: Record<string, string> = {
+  "/": "derpland.html",
+  "/conquest": "conquest.html",
+  "/conquest/": "conquest.html",
+};
 app.use(async (req, res, next) => {
-  if (req.path === "/") {
-    try {
-      await renderAppShell(
-        res,
-        path.join(__dirname, "../../static/index.html"),
-      );
-    } catch (error) {
-      log.error("Error rendering index.html:", error);
-      res.status(500).send("Internal Server Error");
-    }
-  } else {
+  const page = PAGES[req.path];
+  if (page === undefined) {
     next();
+    return;
+  }
+  try {
+    await renderAppShell(res, path.join(__dirname, "../../static", page));
+  } catch (error) {
+    log.error(`Error rendering ${page}:`, error);
+    res.status(500).send("Internal Server Error");
   }
 });
 
@@ -245,6 +251,9 @@ export async function startMaster() {
       `Restarted worker ${workerId} (New PID: ${newWorker.process.pid})`,
     );
   });
+
+  // Derpy Conquest games run here in the master.
+  attachConquest(server);
 
   const PORT = 3000;
   server.listen(PORT, () => {

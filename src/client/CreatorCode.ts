@@ -136,7 +136,7 @@ export function consumeCreatorCodePath(): void {
   history.replaceState(
     null,
     "",
-    "/" + window.location.search + window.location.hash,
+    "/derpyfront" + window.location.search + window.location.hash,
   );
 }
 

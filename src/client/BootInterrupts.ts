@@ -93,7 +93,9 @@ export function isCleanHomepage(
   desktopShell: boolean,
 ): boolean {
   if (location.hash !== "") return false;
-  if (location.pathname === "/") return true;
+  if (location.pathname === "/" || location.pathname === "/derpyfront") {
+    return true;
+  }
   return desktopShell && location.pathname === "/index.html";
 }
 

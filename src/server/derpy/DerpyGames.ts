@@ -23,6 +23,11 @@ import { gunzipSync, gzipSync } from "zlib";
 import { logger } from "../Logger";
 import { getMapLandTilesForSize } from "../MapLandTiles";
 import { accountsForPlayIds } from "./DerpyAuth";
+import {
+  ConquestGameSummary,
+  conquestProfile,
+  ConquestStats,
+} from "./DerpyConquest";
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
 
 const log = logger.child({ component: "DerpyGames" });
@@ -327,6 +332,7 @@ export interface Profile {
   createdAt: string;
   stats: StatsSummary;
   games: GameSummary[];
+  conquest: { stats: ConquestStats; games: ConquestGameSummary[] };
 }
 
 /** A player's stats and their saved games (newest first), or null. */
@@ -354,10 +360,12 @@ export async function profile(username: string): Promise<Profile | null> {
      LIMIT 200`,
     [row.id],
   );
+  const conquest = await conquestProfile(Number(row.id));
   return {
     username: row.username,
     coins: Number(row.coins),
     createdAt: new Date(row.created_at).toISOString(),
+    conquest,
     stats: rowToStats(row),
     games: games.rows.map((g) => ({
       gameId: g.game_id,

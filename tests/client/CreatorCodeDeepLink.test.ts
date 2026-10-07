@@ -47,7 +47,7 @@ describe("consumeCreatorCodePath", () => {
     expect(localStorage.getItem(PENDING_CREATOR_CODE_KEY)).not.toBeNull();
     const stashed = JSON.parse(localStorage.getItem(PENDING_CREATOR_CODE_KEY)!);
     expect(stashed.code).toBe("LEWIS");
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/derpyfront");
   });
 
   it("strips the path but stashes nothing for an invalid code", () => {
@@ -56,7 +56,7 @@ describe("consumeCreatorCodePath", () => {
     consumeCreatorCodePath();
 
     expect(localStorage.getItem(PENDING_CREATOR_CODE_KEY)).toBeNull();
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/derpyfront");
   });
 
   it("does not crash on a malformed escape, and stashes nothing", () => {
@@ -65,7 +65,7 @@ describe("consumeCreatorCodePath", () => {
     expect(() => consumeCreatorCodePath()).not.toThrow();
 
     expect(localStorage.getItem(PENDING_CREATOR_CODE_KEY)).toBeNull();
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/derpyfront");
   });
 
   it("leaves a non-/c/ path untouched", () => {
@@ -83,7 +83,7 @@ describe("consumeCreatorCodePath", () => {
 
     consumeCreatorCodePath();
 
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/derpyfront");
     expect(window.location.search).toBe("?ref=banner");
   });
 
@@ -92,7 +92,7 @@ describe("consumeCreatorCodePath", () => {
 
     consumeCreatorCodePath();
 
-    expect(window.location.pathname).toBe("/");
+    expect(window.location.pathname).toBe("/derpyfront");
     expect(window.location.hash).toBe("#modal=account");
   });
 });

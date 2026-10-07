@@ -4,7 +4,7 @@ import { BaseModal } from "./components/BaseModal";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { launchSteamJoin, type SteamHandoffMode } from "./SteamHandoff";
 import { UserSettings } from "./UserSettings";
-import { translateText } from "./Utils";
+import { DERPYFRONT_HOME, translateText } from "./Utils";
 
 const BUTTON_BASE =
   "flex-1 px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl " +
@@ -66,7 +66,7 @@ export class SteamHandoffModal extends BaseModal {
       this.lobbyId !== null &&
       window.location.pathname.includes(`/game/${this.lobbyId}`)
     ) {
-      history.replaceState(null, "", "/");
+      history.replaceState(null, "", DERPYFRONT_HOME);
     }
     this.lobbyId = null;
     this.onPlayInBrowser = null;

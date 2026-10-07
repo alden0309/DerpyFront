@@ -1,7 +1,7 @@
 import { html, LitElement, nothing } from "lit";
 import { customElement, property } from "lit/decorators.js";
 import type { InsufficientCurrency } from "../Cosmetics";
-import { translateText } from "../Utils";
+import { DERPYFRONT_HOME, translateText } from "../Utils";
 import "./ConfirmDialog";
 
 /**
@@ -43,7 +43,7 @@ export class InsufficientCurrencyDialog extends LitElement {
       @confirm=${() => {
         this.close();
         // Home path (not just hash) so it also works from in-game (win modal).
-        window.location.href = "/#modal=store&tab=packs";
+        window.location.href = `${DERPYFRONT_HOME}#modal=store&tab=packs`;
       }}
     ></confirm-dialog>`;
   }

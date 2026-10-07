@@ -942,10 +942,16 @@ export function currentPagePath(path: string): string {
  * the same reason: "/" is version-free, so a player leaving to the menu
  * lands on `latest` rather than back on the build they were leaving.
  */
+/**
+ * DerpyFront's home page. Derp Land's hub owns "/", so DerpyFront lives at
+ * /derpyfront (its game links, /game/<id>, are unchanged).
+ */
+export const DERPYFRONT_HOME = "/derpyfront";
+
 export function homeHref(): string {
   const siteHost = ClientEnv.siteHost();
   if (siteHost !== undefined && window.location.host !== siteHost) {
-    return `https://${siteHost}/`;
+    return `https://${siteHost}${DERPYFRONT_HOME}`;
   }
-  return "/";
+  return DERPYFRONT_HOME;
 }

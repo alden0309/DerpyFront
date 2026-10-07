@@ -35,6 +35,7 @@ export default [
             "scripts/sync-assets.mjs",
             "scripts/selfhost-proxy.mjs",
             "scripts/start-site.mjs",
+            "scripts/conquest/*.mjs",
             "tests/matchmaking/*.mjs",
           ],
         },

@@ -1,5 +1,6 @@
-// Derpy Front's database: accounts, sessions, saved games (for stats and
-// replays) and store purchases, in the Postgres that DATABASE_URL points at
+// Derp Land's database: accounts, sessions, saved DerpyFront games (for
+// stats and replays), Derpy Conquest results, and store purchases, in the
+// Postgres that DATABASE_URL points at
 // (a free Neon database on the hosted site). Without DATABASE_URL the game
 // still runs; accounts and the store just say they aren't set up.
 
@@ -120,6 +121,39 @@ CREATE TABLE IF NOT EXISTS derpy_owned (
   acquired_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (account_id, item)
 );
+
+CREATE TABLE IF NOT EXISTS derpy_conquest_games (
+  game_id TEXT PRIMARY KEY,
+  started_at TIMESTAMPTZ NOT NULL,
+  ended_at TIMESTAMPTZ NOT NULL,
+  duration_s INTEGER NOT NULL,
+  end_year INTEGER NOT NULL,
+  final_year INTEGER NOT NULL,
+  difficulty TEXT NOT NULL,
+  num_players INTEGER NOT NULL,
+  winner TEXT,
+  summary JSONB NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE IF NOT EXISTS derpy_conquest_players (
+  game_id TEXT NOT NULL REFERENCES derpy_conquest_games(game_id) ON DELETE CASCADE,
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  username TEXT NOT NULL,
+  nation TEXT NOT NULL,
+  won BOOLEAN NOT NULL,
+  rank INTEGER NOT NULL,
+  score INTEGER NOT NULL,
+  provinces INTEGER NOT NULL,
+  peak_provinces INTEGER NOT NULL,
+  colonies INTEGER NOT NULL,
+  battles_won INTEGER NOT NULL,
+  conquests INTEGER NOT NULL,
+  gold_earned BIGINT NOT NULL,
+  coins INTEGER NOT NULL,
+  PRIMARY KEY (game_id, account_id)
+);
+CREATE INDEX IF NOT EXISTS derpy_conquest_players_account
+  ON derpy_conquest_players (account_id);
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two
@@ -137,7 +171,7 @@ async function migrate(p: pg.Pool): Promise<void> {
       .catch(() => {});
     client.release();
   }
-  log.info("Derpy Front database ready");
+  log.info("Derp Land database ready");
 }
 
 /** For tests: drop the pool so the next db() call reconnects. */

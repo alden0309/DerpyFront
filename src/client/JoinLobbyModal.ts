@@ -30,7 +30,7 @@ import { JoinLobbyEvent } from "./Main";
 import { ensureServerList, redirectToGameVersion } from "./ServerList";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import { SendSpectateEvent } from "./Transport";
-import { normaliseMapKey } from "./Utils";
+import { DERPYFRONT_HOME, normaliseMapKey } from "./Utils";
 import { findVersionedShell } from "./VersionedReplay";
 import { BaseModal } from "./components/BaseModal";
 import "./components/CopyButton";
@@ -640,7 +640,7 @@ export class JoinLobbyModal extends BaseModal {
 
     if (this.leaveLobbyOnClose) {
       this.leaveLobby();
-      this.updateHistory("/");
+      this.updateHistory(DERPYFRONT_HOME);
     }
 
     if (this.lobbyIdInput) this.lobbyIdInput.value = "";
@@ -666,7 +666,7 @@ export class JoinLobbyModal extends BaseModal {
   public closeAndLeave() {
     this.leaveLobby();
     try {
-      this.updateHistory("/");
+      this.updateHistory(DERPYFRONT_HOME);
     } catch (error) {
       console.warn("Failed to restore URL on leave:", error);
     }

@@ -60,14 +60,15 @@ describe("apex-aware navigation", () => {
 
   it("homeHref leaves a deployment host for the apex", () => {
     stubPage("green.openfront.io", "/", "openfront.io");
-    expect(homeHref()).toBe("https://openfront.io/");
+    // DerpyFront's menu is /derpyfront; Derp Land's hub owns "/".
+    expect(homeHref()).toBe("https://openfront.io/derpyfront");
   });
 
   it("homeHref stays local on the apex and on standalone deployments", () => {
     stubPage("openfront.io", "/", "openfront.io");
-    expect(homeHref()).toBe("/");
+    expect(homeHref()).toBe("/derpyfront");
     stubPage("beta.openfront.io", "/");
-    expect(homeHref()).toBe("/");
+    expect(homeHref()).toBe("/derpyfront");
   });
 
   it("reloadForUpdate re-enters through the apex, keeping the game path", () => {
@@ -145,7 +146,7 @@ describe("apex-aware navigation", () => {
     // "Leave to the menu" should land the player on `latest`, not back on
     // the build they were told to leave.
     stubPage("openfront.io", "/v/5ccc50a7/game/dAbCd12345", "openfront.io");
-    expect(homeHref()).toBe("/");
+    expect(homeHref()).toBe("/derpyfront");
   });
 
   // History entries are this tab's own URL, not a share link: pressing F5 on

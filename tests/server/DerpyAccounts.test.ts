@@ -182,7 +182,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     const c = new pg.default.Client({ connectionString: TEST_DB });
     await c.connect();
     await c.query(
-      "DROP TABLE IF EXISTS derpy_owned, derpy_game_players, derpy_games, derpy_sessions, derpy_accounts CASCADE",
+      "DROP TABLE IF EXISTS derpy_conquest_players, derpy_conquest_games, derpy_owned, derpy_game_players, derpy_games, derpy_sessions, derpy_accounts CASCADE",
     );
     await c.end();
     const { derpyApiRouter } = await import("../../src/server/derpy/DerpyApi");

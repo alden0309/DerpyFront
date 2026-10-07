@@ -6,6 +6,7 @@ vi.mock("../../src/client/SteamHandoff", () => ({
   launchSteamJoin: launchSteamJoinMock,
 }));
 vi.mock("../../src/client/Utils", () => ({
+  DERPYFRONT_HOME: "/derpyfront",
   translateText: vi.fn((key: string) => key),
 }));
 
@@ -103,7 +104,8 @@ describe("SteamHandoffModal", () => {
       await modal.updateComplete;
       modal.close();
       expect(resume).not.toHaveBeenCalled();
-      expect(replaceState).toHaveBeenCalledWith(null, "", "/");
+      // Back to DerpyFront's menu (Derp Land's hub owns "/").
+      expect(replaceState).toHaveBeenCalledWith(null, "", "/derpyfront");
     },
   );
 });

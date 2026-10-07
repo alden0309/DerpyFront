@@ -96,6 +96,11 @@ export class MobileNavBar extends LitElement {
             ></div>
           </div>
         </div>
+        <a
+          href="/"
+          class="derp-land-link ${MOBILE_ITEM} text-cyber-yellow"
+          data-i18n="main.derp_land"
+        ></a>
         <!-- Mobile Navigation Menu Items (same order as the desktop bar) -->
         <button
           class="${MOBILE_ITEM} ${currentPage === "page-play" ? "active" : ""}"

@@ -54,6 +54,11 @@ export class DesktopNavBar extends LitElement {
       <nav
         class="hidden lg:flex w-full bg-zinc-900/90 backdrop-blur-md items-center justify-center gap-8 py-4 shrink-0 z-50 relative"
       >
+        <a
+          href="/"
+          class="derp-land-link absolute left-6 text-white/70 hover:text-cyber-yellow font-medium tracking-wider uppercase transition-colors"
+          data-i18n="main.derp_land"
+        ></a>
         <div class="flex flex-col items-center justify-center">
           <div class="h-8">
             <img
