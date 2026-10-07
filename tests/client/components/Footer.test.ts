@@ -53,6 +53,15 @@ describe("page-footer (Derpy Front)", () => {
     expect(footer.querySelector("lang-selector")).not.toBeNull();
   });
 
+  it("shows OpenFront's copyright, which its license requires", async () => {
+    await mount();
+    // Tests run without a loaded language, so the key stands in for
+    // "© OpenFront™ and Contributors".
+    expect(footer.querySelector(".footer-copyright")?.textContent).toMatch(
+      /OpenFront|main\.copyright/,
+    );
+  });
+
   it("has no social links or version line", async () => {
     await mount();
     expect(footer.querySelector("img, svg")).toBeNull();

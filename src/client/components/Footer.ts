@@ -1,5 +1,6 @@
 import { LitElement, html } from "lit";
 import { customElement } from "lit/decorators.js";
+import { translateText } from "../Utils";
 
 /**
  * Where this copy's source code lives. OpenFront is AGPL-3.0, which requires
@@ -18,8 +19,8 @@ export const CREDITS = [
 
 /**
  * Derpy Front's footer: a big "Hey Buddy" in the middle, the credits and the
- * Terms of Service and Privacy Policy links under it, and the language button
- * on the right.
+ * Terms of Service, Privacy Policy, source link and OpenFront copyright under
+ * it, and the language button on the right.
  */
 @customElement("page-footer")
 export class Footer extends LitElement {
@@ -69,6 +70,11 @@ export class Footer extends LitElement {
             class="footer-source text-white/30 hover:text-white transition-colors"
             title="Derpy Front is a modified copy of OpenFront (AGPL-3.0)"
             >Source</a
+          >
+          <!-- OpenFront's license (AGPL-3.0 section 7 terms) requires this
+               notice somewhere reasonably visible, such as the main menu. -->
+          <span class="footer-copyright text-white/30"
+            >${translateText("main.copyright")}</span
           >
         </div>
 

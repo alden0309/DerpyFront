@@ -1016,8 +1016,6 @@
     "water_nukes": "Water nukes"
   },
   "game_starting_modal": {
-    "code_license": "Code licensed under AGPL-3.0 (no warranty)",
-    "credits": "Credits",
     "let_alden_win": "Let Alden win",
     "title": "Game is Starting..."
   },

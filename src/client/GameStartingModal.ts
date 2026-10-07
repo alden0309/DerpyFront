@@ -34,19 +34,6 @@ export class GameStartingModal extends LitElement {
         >
           ${translateText("game_starting_modal.title")}
         </p>
-        <!-- OpenFront's license (AGPL-3.0 section 7 terms) requires this
-             notice to stay visible on the loading screen. -->
-        <p class="m-0 mt-4 text-xs leading-relaxed text-white/35">
-          ${translateText("main.copyright")}<br />
-          <a
-            href="https://github.com/openfrontio/OpenFrontIO/blob/main/CREDITS.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-white/45 underline hover:text-white"
-            >${translateText("game_starting_modal.credits")}</a
-          >
-          · ${translateText("game_starting_modal.code_license")}
-        </p>
       </div>
     `;
   }
