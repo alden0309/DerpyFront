@@ -233,13 +233,22 @@ export class InventoryModal extends BaseModal {
       ]);
       if (loadId !== this.inventoryLoadId) return;
       this.cosmetics = cosmetics;
-      this.loadFailed = cosmetics === null;
     } catch {
       if (loadId !== this.inventoryLoadId) return;
       this.cosmetics = null;
-      this.loadFailed = true;
-      if (this.ownershipState === "loading") this.ownershipState = "error";
     } finally {
+      // Derpy Front has no OpenFront account or store service, so a missing
+      // catalog is the normal case, not an error: the free country flags
+      // still work, as a guest.
+      if (loadId === this.inventoryLoadId) {
+        this.loadFailed = false;
+        if (
+          this.ownershipState === "loading" ||
+          this.ownershipState === "error"
+        ) {
+          this.ownershipState = "guest";
+        }
+      }
       if (loadId === this.inventoryLoadId) {
         this.isLoading = false;
         this.updateFromSettings();
@@ -736,7 +745,7 @@ export class InventoryModal extends BaseModal {
     }
     const category = tab as InventoryCategory;
     return html`
-      ${this.ownershipState === "guest"
+      ${this.ownershipState === "guest" && this.cosmetics !== null
         ? html`<div data-inventory-sign-in>
             ${signedOutNotice(
               () => window.showPage?.("page-account"),
@@ -761,7 +770,8 @@ export class InventoryModal extends BaseModal {
       typeof args?.tab === "string" && tabs.some((tab) => tab.key === args.tab)
         ? args.tab
         : null;
-    const tab = requestedTab ?? (this.activeTab || tabs[0]?.key);
+    // Derpy Front: flags are the one thing everyone can pick, so start there.
+    const tab = requestedTab ?? (this.activeTab || "flags");
     super.open({ ...args, ...(tab ? { tab } : {}) });
   }
 

@@ -158,6 +158,11 @@ export class PlayerImpl implements Player {
 
   private embargoes = new Map<PlayerID, Embargo>();
 
+  // Derpy Front: Trade Agreement partners, and requests received (by
+  // requestor, with the tick each arrived).
+  private tradeAgreements = new Set<Player>();
+  private incomingTradeRequests = new Map<Player, Tick>();
+
   public _borderTiles = new TileSet();
 
   public _units: Unit[] = [];
@@ -1232,6 +1237,50 @@ export class PlayerImpl implements Player {
     return !embargo && other.id() !== this.id();
   }
 
+  hasTradeAgreementWith(other: Player): boolean {
+    return this.tradeAgreements.has(other);
+  }
+
+  tradeAgreementPartners(): Player[] {
+    return [...this.tradeAgreements];
+  }
+
+  addTradeAgreement(other: Player): void {
+    if (other === this) return;
+    this.tradeAgreements.add(other);
+    this.incomingTradeRequests.delete(other);
+  }
+
+  removeTradeAgreement(other: Player): void {
+    this.tradeAgreements.delete(other);
+  }
+
+  receiveTradeAgreementRequest(from: Player): void {
+    this.incomingTradeRequests.set(from, this.mg.ticks());
+  }
+
+  hasPendingTradeAgreementRequestFrom(from: Player): boolean {
+    const sentAt = this.incomingTradeRequests.get(from);
+    if (sentAt === undefined) return false;
+    return (
+      this.mg.ticks() - sentAt <= this.mg.config().allianceRequestDuration()
+    );
+  }
+
+  clearTradeAgreementRequest(from: Player): void {
+    this.incomingTradeRequests.delete(from);
+  }
+
+  canRequestTradeAgreement(other: Player): boolean {
+    return (
+      other !== this &&
+      this.isAlive() &&
+      other.isAlive() &&
+      !this.hasTradeAgreementWith(other) &&
+      !other.hasPendingTradeAgreementRequestFrom(this)
+    );
+  }
+
   getEmbargoes(): Embargo[] {
     return [...this.embargoes.values()];
   }
@@ -1470,6 +1519,10 @@ export class PlayerImpl implements Player {
 
   private isUnitValidToUpgrade(unit: Unit): boolean {
     if (unit.isUnderConstruction()) {
+      return false;
+    }
+    const maxLevel = this.mg.config().unitInfo(unit.type()).maxLevel;
+    if (maxLevel !== undefined && unit.level() >= maxLevel) {
       return false;
     }
     if (unit.isMarkedForDeletion()) {
@@ -1993,6 +2046,10 @@ export class PlayerImpl implements Player {
         createdAt: e.createdAt,
         isTemporary: e.isTemporary,
       })),
+      tradeAgreements: [...this.tradeAgreements].map((p) => w.player(p)),
+      incomingTradeRequests: [...this.incomingTradeRequests].map(
+        ([p, tick]) => [w.player(p), tick],
+      ),
       tiles: w.tiles(this._tiles),
       borderTiles: w.tiles(this._borderTiles),
       units: this._units.map((u) => w.unit(u)),
@@ -2068,6 +2125,14 @@ export class PlayerImpl implements Player {
         isTemporary: e.isTemporary,
       });
     }
+    this.tradeAgreements = new Set(
+      (s.tradeAgreements ?? []).map((p) => r.player(p)),
+    );
+    this.incomingTradeRequests = new Map(
+      (s.incomingTradeRequests ?? []).map(
+        ([p, tick]) => [r.player(p), tick] as const,
+      ),
+    );
     this._tiles = new TileSet(s.tiles);
     this._borderTiles = new TileSet(s.borderTiles);
     this._units = s.units.map((u) => r.unit(u));
@@ -2142,6 +2207,8 @@ export const PlayerSnapshot = snapshotType({
         isTemporary: z.boolean(),
       }),
     ),
+    tradeAgreements: z.array(zPlayerRef()).optional(),
+    incomingTradeRequests: z.array(z.tuple([zPlayerRef(), zInt()])).optional(),
     tiles: zTiles(),
     borderTiles: zTiles(),
     units: z.array(zRef()),

@@ -4,8 +4,6 @@ import { customElement } from "lit/decorators.js";
 import "./CosmeticBackground";
 import "./NavAccountMenu";
 import "./NavUtilityIcons";
-import "./NewsBox";
-import "./StreamingNow";
 
 @customElement("play-page")
 export class PlayPage extends LitElement {
@@ -76,55 +74,35 @@ export class PlayPage extends LitElement {
           </div>
         </div>
 
-        <!-- Top strip: news + identity on the left, Streaming Now on the right. The 2fr/1fr
-             split only exists while the panel is live (.streaming-live via has-[]) —
-             otherwise the left column takes the full row. -->
+        <!-- Derpy Front: the name (with its clan tag) and the play buttons,
+             nothing else. -->
         <div
-          class="w-full pb-4 lg:pb-0 flex flex-col gap-4 sm:-mx-4 sm:w-[calc(100%+2rem)] lg:mx-0 lg:w-full lg:grid lg:grid-cols-1 lg:has-[.streaming-live]:grid-cols-[2fr_1fr] lg:gap-4 lg:items-stretch"
+          class="w-full pb-4 lg:pb-0 flex flex-col gap-4 sm:-mx-4 sm:w-[calc(100%+2rem)] lg:mx-0 lg:w-full"
         >
           <!-- Mobile: spacer for fixed top bar -->
           <div
             class="lg:hidden h-[calc(env(safe-area-inset-top)+56px)] -mb-4"
           ></div>
 
-          <!-- Left column: news banner + identity row, stacked tight. -->
-          <div class="flex flex-col gap-2 min-w-0">
-            <news-box></news-box>
-
-            <!-- Identity row: username over the currently selected cosmetic background. -->
+          <!-- Identity row: username over the currently selected cosmetic background. -->
+          <div
+            class="relative bg-surface border-y border-white/10 overflow-visible flex items-center sm:min-h-[60px] sm:z-20 sm:border-y-0 sm:rounded-xl"
+          >
+            <!-- Selected skin/pattern fills the bubble like the player's territory in game. -->
+            <cosmetic-background
+              class="absolute inset-0 z-0 overflow-hidden sm:rounded-xl pointer-events-none"
+            ></cosmetic-background>
             <div
-              class="relative bg-surface border-y border-white/10 overflow-visible flex items-center sm:min-h-[60px] sm:flex-1 sm:z-20 sm:border-y-0 sm:rounded-xl"
+              class="relative z-10 flex h-full w-full min-w-0 items-center bg-surface/80 p-1 sm:rounded-xl"
             >
-              <!-- Selected skin/pattern fills the bubble like the player's territory in game. -->
-              <cosmetic-background
-                class="absolute inset-0 z-0 overflow-hidden sm:rounded-xl pointer-events-none"
-              ></cosmetic-background>
-              <div
-                class="relative z-10 flex h-full w-full min-w-0 items-center bg-surface/80 p-1 sm:rounded-xl"
-              >
-                <username-input
-                  class="flex-1 min-w-0 h-10 sm:h-[50px]"
-                ></username-input>
-              </div>
+              <username-input
+                class="flex-1 min-w-0 h-10 sm:h-[50px]"
+              ></username-input>
             </div>
           </div>
-
-          <!-- Right column: Streaming Now (desktop only), stretched to the left column's
-               full height so the top strip has no dead space. -->
-          <streaming-now
-            class="hidden lg:flex lg:h-full lg:flex-col w-full min-w-0"
-          ></streaming-now>
         </div>
 
         <game-mode-selector></game-mode-selector>
-
-        <!-- Derpy Front: a greeting where OpenFront's Steam store widget was.
-             Desktop gets its own in the footer. -->
-        <p
-          class="hey-buddy m-0 block px-2 pb-4 text-center text-2xl font-bold tracking-wide text-white lg:hidden"
-        >
-          Hey Buddy
-        </p>
       </div>
     `;
   }

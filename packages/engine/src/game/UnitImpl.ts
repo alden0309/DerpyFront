@@ -94,6 +94,10 @@ export class UnitImpl implements Unit {
         : 0;
     if (this._type === UnitType.TransportShip) {
       this._transportShipState = { isRetreating: false, troops: 0 };
+      if ("escorted" in params && params.escorted === true) {
+        this._transportShipState.escorted = true;
+        this._health = toInt(this.mg.config().escortedTransportHealth());
+      }
     }
     if (this._type === UnitType.SAMLauncher) {
       this._samLauncherState = {
@@ -231,7 +235,10 @@ export class UnitImpl implements Unit {
     return Number(this._health);
   }
   hasHealth(): boolean {
-    return this.info().maxHealth !== undefined;
+    return (
+      this.info().maxHealth !== undefined ||
+      this._transportShipState?.escorted === true
+    );
   }
   tile(): TileRef {
     return this._tile;
@@ -279,6 +286,9 @@ export class UnitImpl implements Unit {
   }
 
   maxHealth(): number {
+    if (this._transportShipState?.escorted === true) {
+      return this.mg.config().escortedTransportHealth();
+    }
     const base = this.info().maxHealth ?? 1;
     // veterancy() is 0 for non-warships, so this returns base for them.
     return maxHealthWithVeterancy(
@@ -810,6 +820,9 @@ export class UnitImpl implements Unit {
         ? {
             isRetreating: this._transportShipState.isRetreating,
             troops: this._transportShipState.troops,
+            ...(this._transportShipState.escorted === true
+              ? { escorted: true }
+              : {}),
           }
         : null,
       warshipState: this._warshipState
@@ -924,7 +937,11 @@ export const UnitSnapshot = snapshotType({
     targetUnit: zRef().nullable(),
     health: z.bigint(),
     transportShipState: z
-      .object({ isRetreating: z.boolean(), troops: zNum() })
+      .object({
+        isRetreating: z.boolean(),
+        troops: zNum(),
+        escorted: z.boolean().optional(),
+      })
       .nullable(),
     warshipState: z
       .object({

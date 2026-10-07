@@ -91,6 +91,22 @@ export class SendAllianceExtensionIntentEvent implements GameEvent {
   constructor(public readonly recipient: PlayerView) {}
 }
 
+// Derpy Front: Trade Agreements (ships leave each other alone).
+export class SendTradeAgreementRequestIntentEvent implements GameEvent {
+  constructor(public readonly recipient: PlayerView) {}
+}
+
+export class SendTradeAgreementReplyIntentEvent implements GameEvent {
+  constructor(
+    public readonly requestor: PlayerView,
+    public readonly accept: boolean,
+  ) {}
+}
+
+export class SendTradeAgreementCancelIntentEvent implements GameEvent {
+  constructor(public readonly recipient: PlayerView) {}
+}
+
 export class SendSpawnIntentEvent implements GameEvent {
   constructor(public readonly tile: TileRef) {}
 }
@@ -103,6 +119,14 @@ export class SendAttackIntentEvent implements GameEvent {
 }
 
 export class SendBoatAttackIntentEvent implements GameEvent {
+  constructor(
+    public readonly dst: TileRef,
+    public readonly troops: number,
+  ) {}
+}
+
+// Derpy Front: a troop transport escorted by two warships.
+export class SendEscortedBoatAttackIntentEvent implements GameEvent {
   constructor(
     public readonly dst: TileRef,
     public readonly troops: number,
@@ -313,6 +337,28 @@ export class Transport {
     );
     this.subscribe(SendBoatAttackIntentEvent, (e) =>
       this.onSendBoatAttackIntent(e),
+    );
+    this.subscribe(SendEscortedBoatAttackIntentEvent, (e) =>
+      this.sendIntent({ type: "escorted_boat", troops: e.troops, dst: e.dst }),
+    );
+    this.subscribe(SendTradeAgreementRequestIntentEvent, (e) =>
+      this.sendIntent({
+        type: "tradeAgreementRequest",
+        recipient: e.recipient.id(),
+      }),
+    );
+    this.subscribe(SendTradeAgreementReplyIntentEvent, (e) =>
+      this.sendIntent({
+        type: "tradeAgreementReply",
+        requestor: e.requestor.id(),
+        accept: e.accept,
+      }),
+    );
+    this.subscribe(SendTradeAgreementCancelIntentEvent, (e) =>
+      this.sendIntent({
+        type: "tradeAgreementCancel",
+        recipient: e.recipient.id(),
+      }),
     );
     this.subscribe(SendTargetPlayerIntentEvent, (e) =>
       this.onSendTargetPlayerIntent(e),

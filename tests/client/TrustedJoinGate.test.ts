@@ -92,8 +92,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// Derpy Front: the home page has no public lobby cards, lobby feed or
+// "upcoming" list (friends play through Create / Join Lobby), so the tests
+// below that exercise those are skipped.
 describe("joining a trusted-only lobby from the homepage", () => {
-  it("shows the trust popup instead of joining when the viewer is untrusted", async () => {
+  it.skip("shows the trust popup instead of joining when the viewer is untrusted", async () => {
     await pushLobby(lobby(true));
     await setViewerTrust("untrusted");
     await clickCard();
@@ -101,7 +104,7 @@ describe("joining a trusted-only lobby from the homepage", () => {
     expect(dialog()).not.toBeNull();
   });
 
-  it("closes the popup on dismiss", async () => {
+  it.skip("closes the popup on dismiss", async () => {
     await pushLobby(lobby(true));
     await clickCard();
     expect(dialog()).not.toBeNull();
@@ -110,7 +113,7 @@ describe("joining a trusted-only lobby from the homepage", () => {
     expect(dialog()).toBeNull();
   });
 
-  it("joins when the viewer is trusted", async () => {
+  it.skip("joins when the viewer is trusted", async () => {
     await pushLobby(lobby(true));
     await setViewerTrust("trusted");
     await clickCard();
@@ -118,7 +121,7 @@ describe("joining a trusted-only lobby from the homepage", () => {
     expect(dialog()).toBeNull();
   });
 
-  it("joins an open lobby regardless of trust", async () => {
+  it.skip("joins an open lobby regardless of trust", async () => {
     await pushLobby(lobby(false));
     await clickCard();
     expect(joinLobby).toHaveBeenCalledTimes(1);

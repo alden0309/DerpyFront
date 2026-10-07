@@ -74,26 +74,24 @@ export function taggedGameVersion(rawVersion: string): string {
   return trimmed.startsWith("v") ? trimmed : `v${trimmed}`;
 }
 
+/** Derpy Front: what the nav bar shows under the logo instead of a version. */
+export const NAV_TAGLINE = "Ooh I'm Michael'ing it.";
+
 /** The nav bar's version elements, in both the mobile and desktop nav bars. */
 const NAV_VERSION_SELECTOR = "#game-version, .game-version-display";
 
 /**
- * Stamps the version onto the nav bar, and reports how many elements it found
- * so the caller can warn when the markup has moved out from under it.
+ * Stamps the tagline onto the nav bar (where OpenFront shows its version), and
+ * reports how many elements it found so the caller can warn when the markup
+ * has moved out from under it.
  *
  * Lives here rather than inline in Main.ts so it can be tested without
  * importing Main.ts, which is a module of side effects.
- *
- * Uses taggedGameVersion, not currentGameVersion: the nav bar and the footer
- * answer different questions on an untagged build, by decision rather than by
- * drift (OPE-387).
  */
 export function renderNavVersion(root: ParentNode = document): number {
   const elements = root.querySelectorAll(NAV_VERSION_SELECTOR);
-  const label = taggedGameVersion(version);
   elements.forEach((el) => {
-    (el as HTMLElement).style.fontFamily = '"OpenFront", Inter, sans-serif';
-    el.textContent = label;
+    el.textContent = NAV_TAGLINE;
   });
   return elements.length;
 }

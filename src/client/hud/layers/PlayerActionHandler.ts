@@ -11,8 +11,11 @@ import {
   SendDonateTroopsIntentEvent,
   SendEmbargoIntentEvent,
   SendEmojiIntentEvent,
+  SendEscortedBoatAttackIntentEvent,
   SendSpawnIntentEvent,
   SendTargetPlayerIntentEvent,
+  SendTradeAgreementCancelIntentEvent,
+  SendTradeAgreementRequestIntentEvent,
 } from "../../Transport";
 import { UIState } from "../../UIState";
 import { PlayerView } from "../../view";
@@ -39,6 +42,24 @@ export class PlayerActionHandler {
         this.uiState.attackRatio * player.troops(),
       ),
     );
+  }
+
+  // Derpy Front: the same invasion, escorted by two warships.
+  handleEscortedBoatAttack(player: PlayerView, targetTile: TileRef) {
+    this.eventBus.emit(
+      new SendEscortedBoatAttackIntentEvent(
+        targetTile,
+        this.uiState.attackRatio * player.troops(),
+      ),
+    );
+  }
+
+  handleTradeAgreementRequest(recipient: PlayerView) {
+    this.eventBus.emit(new SendTradeAgreementRequestIntentEvent(recipient));
+  }
+
+  handleTradeAgreementCancel(recipient: PlayerView) {
+    this.eventBus.emit(new SendTradeAgreementCancelIntentEvent(recipient));
   }
 
   async findBestTransportShipSpawn(

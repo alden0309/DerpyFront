@@ -43,6 +43,8 @@ const swordIcon = assetUrl("images/SwordIconWhite.svg");
 const targetIcon = assetUrl("images/TargetIconWhite.svg");
 const traitorIcon = assetUrl("images/TraitorIconWhite.svg");
 const xIcon = assetUrl("images/XIcon.svg");
+const tradeShipIcon = assetUrl("images/TradeShipIconWhite.svg");
+const battleshipIcon = assetUrl("images/BattleshipIconWhite.svg");
 
 export interface MenuElementParams {
   myPlayer: PlayerView;
@@ -709,20 +711,131 @@ export const buildMenuElement: MenuElement = {
   },
 };
 
+function canSendBoat(params: MenuElementParams): boolean {
+  return params.playerActions.buildableUnits.some(
+    (unit) => unit.type === UnitType.TransportShip && unit.canBuild,
+  );
+}
+
+// Derpy Front: the boat button opens a choice between a normal transport and
+// an escorted troop transport.
+const normalBoatElement: MenuElement = {
+  id: "boat_normal",
+  name: "boat",
+  disabled: (params: MenuElementParams) => !canSendBoat(params),
+  icon: boatIcon,
+  color: COLORS.boat,
+  tooltipKeys: [
+    { key: "radial_menu.boat_normal_title", className: "title" },
+    { key: "radial_menu.boat_normal_description", className: "description" },
+  ],
+  action: (params: MenuElementParams) => {
+    params.playerActionHandler.handleBoatAttack(params.myPlayer, params.tile);
+    params.closeMenu();
+  },
+};
+
+const escortedBoatElement: MenuElement = {
+  id: "boat_escorted",
+  name: "escorted boat",
+  // Gold is checked when it launches (it costs as much as two warships).
+  disabled: (params: MenuElementParams) => !canSendBoat(params),
+  icon: battleshipIcon,
+  color: COLORS.boat,
+  tooltipKeys: [
+    { key: "radial_menu.boat_escorted_title", className: "title" },
+    {
+      key: "radial_menu.boat_escorted_description",
+      className: "description",
+    },
+  ],
+  action: (params: MenuElementParams) => {
+    params.playerActionHandler.handleEscortedBoatAttack(
+      params.myPlayer,
+      params.tile,
+    );
+    params.closeMenu();
+  },
+};
+
 export const boatMenuElement: MenuElement = {
   id: Slot.Boat,
   name: "boat",
-  disabled: (params: MenuElementParams) =>
-    !params.playerActions.buildableUnits.some(
-      (unit) => unit.type === UnitType.TransportShip && unit.canBuild,
-    ),
+  disabled: (params: MenuElementParams) => !canSendBoat(params),
   icon: boatIcon,
   color: COLORS.boat,
+  subMenu: () => [normalBoatElement, escortedBoatElement],
+};
 
-  action: async (params: MenuElementParams) => {
-    params.playerActionHandler.handleBoatAttack(params.myPlayer, params.tile);
-
+// Derpy Front: Trade Agreements -- the two players' ships stop attacking each
+// other (warships, trade ships and transports).
+const tradeAgreementRequestElement: MenuElement = {
+  id: "trade_agreement_request",
+  name: "trade agreement",
+  displayed: (params: MenuElementParams) =>
+    !params.playerActions?.interaction?.hasTradeAgreement,
+  disabled: (params: MenuElementParams) =>
+    !params.playerActions?.interaction?.canRequestTradeAgreement,
+  color: COLORS.trade,
+  icon: tradeShipIcon,
+  tooltipKeys: [
+    { key: "radial_menu.trade_agreement_title", className: "title" },
+    {
+      key: "radial_menu.trade_agreement_description",
+      className: "description",
+    },
+  ],
+  action: (params: MenuElementParams) => {
+    params.playerActionHandler.handleTradeAgreementRequest(params.selected!);
     params.closeMenu();
+  },
+};
+
+const tradeAgreementEndElement: MenuElement = {
+  id: "trade_agreement_end",
+  name: "end trade agreement",
+  displayed: (params: MenuElementParams) =>
+    !!params.playerActions?.interaction?.hasTradeAgreement,
+  disabled: (params: MenuElementParams) =>
+    !params.playerActions?.interaction?.hasTradeAgreement,
+  color: COLORS.embargo,
+  icon: tradeShipIcon,
+  tooltipKeys: [
+    { key: "radial_menu.trade_agreement_end_title", className: "title" },
+    {
+      key: "radial_menu.trade_agreement_end_description",
+      className: "description",
+    },
+  ],
+  action: (params: MenuElementParams) => {
+    params.playerActionHandler.handleTradeAgreementCancel(params.selected!);
+    params.closeMenu();
+  },
+};
+
+/** Derpy Front: the handshake button opens alliance + trade agreement. */
+const diplomacyMenuElement: MenuElement = {
+  id: Slot.Ally,
+  name: "diplomacy",
+  disabled: (params: MenuElementParams) =>
+    params.selected === null ||
+    params.selected.id() === params.myPlayer.id() ||
+    params.game.inSpawnPhase(),
+  color: COLORS.ally,
+  icon: allianceIcon,
+  subMenu: (params: MenuElementParams) => {
+    const inExtensionWindow =
+      params.playerActions.interaction?.allianceInfo?.inExtensionWindow;
+    // The radial menu shows every element it is given, so pick the one
+    // Trade Agreement action that applies.
+    const hasTradeAgreement =
+      !!params.playerActions?.interaction?.hasTradeAgreement;
+    return [
+      inExtensionWindow ? allyExtendElement : allyRequestElement,
+      hasTradeAgreement
+        ? tradeAgreementEndElement
+        : tradeAgreementRequestElement,
+    ];
   },
 };
 
@@ -789,9 +902,6 @@ export const rootMenuElement: MenuElement = {
       tileOwner.isPlayer() &&
       (tileOwner as PlayerView).id() === params.myPlayer.id();
 
-    const inExtensionWindow =
-      params.playerActions.interaction?.allianceInfo?.inExtensionWindow;
-
     // After game-over, nukes can target teammates in multiplayer (nukeSpawn allows it,
     // but not in singleplayer). Show the attack submenu so mobile users can access
     // nukes in the aftergame.
@@ -809,7 +919,7 @@ export const rootMenuElement: MenuElement = {
         ? [deleteUnitElement, allyRequestElement, buildMenuElement]
         : [
             isAllied && !isDisconnected ? allyBreakElement : boatMenuElement,
-            inExtensionWindow ? allyExtendElement : allyRequestElement,
+            diplomacyMenuElement,
             showDonateInsteadOfAttack
               ? donateGoldRadialElement
               : attackMenuElement,

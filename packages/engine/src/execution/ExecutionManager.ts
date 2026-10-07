@@ -29,6 +29,11 @@ import { QuickChatExecution } from "./QuickChatExecution";
 import { RetreatExecution } from "./RetreatExecution";
 import { SpawnExecution } from "./SpawnExecution";
 import { TargetPlayerExecution } from "./TargetPlayerExecution";
+import {
+  TradeAgreementCancelExecution,
+  TradeAgreementReplyExecution,
+  TradeAgreementRequestExecution,
+} from "./TradeAgreementExecution";
 import { TransportShipExecution } from "./TransportShipExecution";
 import { TribeSpawner } from "./TribeSpawner";
 import { UpgradeStructureExecution } from "./UpgradeStructureExecution";
@@ -91,6 +96,23 @@ export class Executor {
         );
       case "boat":
         return new TransportShipExecution(player, intent.dst, intent.troops);
+      case "escorted_boat":
+        return new TransportShipExecution(
+          player,
+          intent.dst,
+          intent.troops,
+          true,
+        );
+      case "tradeAgreementRequest":
+        return new TradeAgreementRequestExecution(player, intent.recipient);
+      case "tradeAgreementReply":
+        return new TradeAgreementReplyExecution(
+          player,
+          intent.requestor,
+          intent.accept,
+        );
+      case "tradeAgreementCancel":
+        return new TradeAgreementCancelExecution(player, intent.recipient);
       case "allianceRequest":
         return new AllianceRequestExecution(player, intent.recipient);
       case "allianceReject":

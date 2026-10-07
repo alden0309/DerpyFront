@@ -4,6 +4,7 @@ import { ClientEnv } from "../../src/client/ClientEnv";
 import {
   composeGameVersion,
   currentGameVersion,
+  NAV_TAGLINE,
   renderNavVersion,
   taggedGameVersion,
 } from "../../src/client/GameVersion";
@@ -140,10 +141,8 @@ describe("renderNavVersion", () => {
     };
   };
 
-  // The regression this pins: with a real commit sitting in BOOTSTRAP_CONFIG
-  // and version.txt still the placeholder, the nav bar shows the version
-  // anyway. Swapping the helper back to currentGameVersion turns this red.
-  it("stamps the version, not the commit, onto both nav bars", () => {
+  // Derpy Front shows a tagline under the logo instead of a version.
+  it("stamps the Derpy Front tagline onto both nav bars", () => {
     setBootstrap();
     document.body.innerHTML = `
       <span id="game-version"></span>
@@ -154,10 +153,7 @@ describe("renderNavVersion", () => {
     for (const el of document.querySelectorAll(
       "#game-version, .game-version-display",
     )) {
-      expect(el.textContent).toBe(taggedGameVersion(version));
-      // Always a version, whatever version.txt holds when this runs: the
-      // commit form has no leading v and this one always does.
-      expect(el.textContent).toMatch(/^v/);
+      expect(el.textContent).toBe(NAV_TAGLINE);
     }
   });
 

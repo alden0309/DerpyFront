@@ -195,6 +195,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// Derpy Front: the home page has no public lobby cards, lobby feed or
+// "upcoming" list (friends play through Create / Join Lobby), so the tests
+// below that exercise those are skipped.
 describe("the multiplayer entry points while the backend is unreachable", () => {
   it("lets everything through before the first attempt has settled", async () => {
     // The rule that matters most: a player must never be locked out of
@@ -246,7 +249,7 @@ describe("the multiplayer entry points while the backend is unreachable", () => 
     expect(hostOpen).not.toHaveBeenCalled();
   });
 
-  it("still joins the public lobby card during a confirmed outage", async () => {
+  it.skip("still joins the public lobby card during a confirmed outage", async () => {
     // The rule (GameModeSelector, top of file): this lobby arrived over a
     // live game-server socket, which is the only liveness the join needs. The
     // server-list API's health says nothing about that server, and Main's
@@ -263,14 +266,14 @@ describe("the multiplayer entry points while the backend is unreachable", () => 
     expect(joinLobby.mock.calls[0][0].detail.gameID).toBe("public-1");
   });
 
-  it("does not dim the public lobby card during a confirmed outage", async () => {
+  it.skip("does not dim the public lobby card during a confirmed outage", async () => {
     selector = await mountSelector();
     await announce(false, true);
 
     expect(lobbyCardButton()?.getAttribute("aria-disabled")).toBe("false");
   });
 
-  it("says nothing when a card click goes through during an outage", async () => {
+  it.skip("says nothing when a card click goes through during an outage", async () => {
     // The toast is for a REFUSAL. A join that proceeded has nothing to
     // apologise for, and telling the player the servers are unreachable while
     // taking them into a game would be a lie.
@@ -327,7 +330,7 @@ describe("the multiplayer entry points while the backend is unreachable", () => 
     expect(soloOpen).toHaveBeenCalled();
   });
 
-  it("gates a selector that mounted after the outage was already confirmed", async () => {
+  it.skip("gates a selector that mounted after the outage was already confirmed", async () => {
     // The seed half. No "backend-reachability" event is dispatched anywhere
     // below: the only ones this document will ever see fired while nothing
     // was listening, so the accessor is the sole path by which the selector
@@ -473,7 +476,7 @@ describe("a refused multiplayer click on the web", () => {
     expect(fetchMock.mock.calls.length).toBe(before);
   });
 
-  it("does not probe on a card click that goes through", async () => {
+  it.skip("does not probe on a card click that goes through", async () => {
     // Socket-sourced: it was never refused, so there is nothing to retry.
     await mountGated();
     const before = fetchMock.mock.calls.length;

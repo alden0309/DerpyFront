@@ -31,6 +31,8 @@ export type WarshipState = {
 export type TransportShipState = {
   isRetreating: boolean;
   troops: number;
+  /** Derpy Front: an escorted troop transport (two warships, shared health). */
+  escorted?: boolean;
 };
 
 export type NukeState = {
@@ -171,6 +173,8 @@ export interface UnitInfo {
   damage?: number;
   constructionDuration?: number;
   upgradable?: boolean;
+  /** Highest level an upgradable structure can reach (no limit if unset). */
+  maxLevel?: number;
 }
 
 function unitTypeGroup<T extends readonly UnitType[]>(types: T) {
@@ -413,6 +417,10 @@ export interface PlayerInteraction {
   canDonateTroops: boolean;
   canEmbargo: boolean;
   allianceInfo?: AllianceInfo;
+  /** Derpy Front: the two players have a Trade Agreement. */
+  hasTradeAgreement?: boolean;
+  /** Derpy Front: a Trade Agreement request can be sent right now. */
+  canRequestTradeAgreement?: boolean;
 }
 
 export interface EmojiMessage {
@@ -445,6 +453,11 @@ export enum MessageType {
   DONATION_RECEIVED,
   CHAT,
   RENEW_ALLIANCE,
+  // Derpy Front: Trade Agreements.
+  TRADE_AGREEMENT_REQUEST,
+  TRADE_AGREEMENT_ACCEPTED,
+  TRADE_AGREEMENT_REJECTED,
+  TRADE_AGREEMENT_ENDED,
 }
 
 // Message categories used for filtering events in the EventsDisplay
@@ -480,6 +493,10 @@ export const MESSAGE_TYPE_CATEGORIES: Record<MessageType, MessageCategory> = {
   [MessageType.DONATION_SENT]: MessageCategory.TRADE,
   [MessageType.DONATION_RECEIVED]: MessageCategory.TRADE,
   [MessageType.CHAT]: MessageCategory.CHAT,
+  [MessageType.TRADE_AGREEMENT_REQUEST]: MessageCategory.ALLIANCE,
+  [MessageType.TRADE_AGREEMENT_ACCEPTED]: MessageCategory.ALLIANCE,
+  [MessageType.TRADE_AGREEMENT_REJECTED]: MessageCategory.ALLIANCE,
+  [MessageType.TRADE_AGREEMENT_ENDED]: MessageCategory.ALLIANCE,
 } as const;
 
 /**

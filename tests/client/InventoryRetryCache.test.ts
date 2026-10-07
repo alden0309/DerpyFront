@@ -23,7 +23,9 @@ describe("Inventory catalog retry", () => {
     vi.unstubAllGlobals();
   });
 
-  it("re-requests the real cosmetics cache after the first catalog response fails", async () => {
+  // Derpy Front has no OpenFront store service: a missing catalog is the
+  // normal case and shows the free flags as a guest, with no Retry button.
+  it.skip("re-requests the real cosmetics cache after the first catalog response fails", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(null, { status: 503 }))

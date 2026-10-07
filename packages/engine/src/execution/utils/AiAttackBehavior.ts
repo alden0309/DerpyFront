@@ -1585,7 +1585,8 @@ export class AiAttackBehavior {
           w.owner() !== this.player &&
           !w.isUnderConstruction() &&
           w.warshipState().state !== "docked" &&
-          w.owner().canAttackPlayer(this.player, true),
+          w.owner().canAttackPlayer(this.player, true) &&
+          !w.owner().hasTradeAgreementWith(this.player),
       );
   }
 

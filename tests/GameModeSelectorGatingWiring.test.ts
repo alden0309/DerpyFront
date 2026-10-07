@@ -153,6 +153,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// Derpy Front: the home page has no public lobby cards, lobby feed or
+// "upcoming" list (friends play through Create / Join Lobby), so the tests
+// below that exercise those are skipped.
 describe("the multiplayer gate at its real call sites", () => {
   it("mounts and, ungated, the multiplayer entry points do proceed", async () => {
     await setUpdateState({ status: "current", bytes: 0, total: 0 });
@@ -280,12 +283,12 @@ describe("the public lobby card (validateAndJoin)", () => {
     await pushLobbies({ ffa: [publicLobby("game-1")] });
   });
 
-  it("renders a real lobby card once the socket reports one", () => {
+  it.skip("renders a real lobby card once the socket reports one", () => {
     const card = lobbyCardButton();
     expect(card).not.toBeNull();
   });
 
-  it("emits join-lobby when ungated", async () => {
+  it.skip("emits join-lobby when ungated", async () => {
     await setUpdateState({ status: "current", bytes: 0, total: 0 });
 
     const card = lobbyCardButton();
@@ -298,7 +301,7 @@ describe("the public lobby card (validateAndJoin)", () => {
     expect(detail.source).toBe("public");
   });
 
-  it("refuses to emit join-lobby while an update is downloading", async () => {
+  it.skip("refuses to emit join-lobby while an update is downloading", async () => {
     await setUpdateState({ status: "downloading", bytes: 1, total: 100 });
 
     const card = lobbyCardButton();
@@ -309,7 +312,7 @@ describe("the public lobby card (validateAndJoin)", () => {
     expect(wiggle).toHaveBeenCalled();
   });
 
-  it("refuses to emit join-lobby while an update is staged", async () => {
+  it.skip("refuses to emit join-lobby while an update is staged", async () => {
     await setUpdateState({ status: "staged", bytes: 100, total: 100 });
 
     const card = lobbyCardButton();
@@ -332,7 +335,7 @@ describe("the upcoming heading (the route to the lobby browser)", () => {
     await pushLobbies({ ffa: [publicLobby("game-1")] });
   });
 
-  it("is there before any snapshot, so a dead feed can't strand the player", async () => {
+  it.skip("is there before any snapshot, so a dead feed can't strand the player", async () => {
     // No pushLobbies() here on purpose: `lobbies` is still null, which used to
     // replace this whole block with a spinner. The browser opens its own
     // socket, so it is worth reaching even when the homepage's never connects.
@@ -351,7 +354,7 @@ describe("the upcoming heading (the route to the lobby browser)", () => {
     expect(window.showPage).toHaveBeenCalledWith("page-detailed-view");
   });
 
-  it("opens the browser while the username is valid", async () => {
+  it.skip("opens the browser while the username is valid", async () => {
     await setUsernameValid(true);
 
     const heading = upcomingHeadingButton();
@@ -362,7 +365,7 @@ describe("the upcoming heading (the route to the lobby browser)", () => {
     expect(window.showPage).toHaveBeenCalledWith("page-detailed-view");
   });
 
-  it("dims and stops responding once the username is invalid", async () => {
+  it.skip("dims and stops responding once the username is invalid", async () => {
     await setUsernameValid(false);
 
     const heading = upcomingHeadingButton();
@@ -386,19 +389,19 @@ describe("grid placement", () => {
   const heroSlot = () =>
     selector.querySelector(":scope > div > div.sm\\:col-start-1");
 
-  it("keeps the upcoming column beside the spinner while loading", () => {
+  it.skip("keeps the upcoming column beside the spinner while loading", () => {
     expect(heroSlot()).not.toBeNull();
     expect(section().className).toContain("sm:col-start-2");
     expect(section().className).not.toContain("sm:col-span-2");
   });
 
-  it("drops the hero slot and spans the row when there is no FFA lobby", async () => {
+  it.skip("drops the hero slot and spans the row when there is no FFA lobby", async () => {
     await pushLobbies({ team: [publicLobby("team-1")] });
     expect(heroSlot()).toBeNull();
     expect(section().className).toContain("sm:col-start-1 sm:col-span-2");
   });
 
-  it("lets a lone card take both card rows", async () => {
+  it.skip("lets a lone card take both card rows", async () => {
     await pushLobbies({
       ffa: [publicLobby("ffa-1")],
       team: [publicLobby("t")],
@@ -407,7 +410,7 @@ describe("grid placement", () => {
     expect(card.className).toContain("sm:row-start-2 sm:row-span-2");
   });
 
-  it("stacks two cards on their own rows", async () => {
+  it.skip("stacks two cards on their own rows", async () => {
     await pushLobbies({
       ffa: [publicLobby("ffa-1")],
       team: [publicLobby("t")],

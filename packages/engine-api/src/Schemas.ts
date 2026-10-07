@@ -46,7 +46,11 @@ export type Intent =
   | KickPlayerIntent
   | TogglePauseIntent
   | UpdateGameConfigIntent
-  | ToggleGameStartTimer;
+  | ToggleGameStartTimer
+  | TradeAgreementRequestIntent
+  | TradeAgreementReplyIntent
+  | TradeAgreementCancelIntent
+  | EscortedBoatAttackIntent;
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -82,6 +86,18 @@ export type UpdateGameConfigIntent = z.infer<
 >;
 export type ToggleGameStartTimer = z.infer<
   typeof ToggleGameStartTimerIntentSchema
+>;
+export type TradeAgreementRequestIntent = z.infer<
+  typeof TradeAgreementRequestIntentSchema
+>;
+export type TradeAgreementReplyIntent = z.infer<
+  typeof TradeAgreementReplyIntentSchema
+>;
+export type TradeAgreementCancelIntent = z.infer<
+  typeof TradeAgreementCancelIntentSchema
+>;
+export type EscortedBoatAttackIntent = z.infer<
+  typeof EscortedBoatAttackIntentSchema
 >;
 
 export type Turn = z.infer<typeof TurnSchema>;
@@ -541,6 +557,31 @@ export const ToggleGameStartTimerIntentSchema = z.object({
   type: z.literal("toggle_game_start_timer"),
 });
 
+// Derpy Front: a Trade Agreement keeps two players' ships from attacking
+// each other (warships, trade ships and transports).
+export const TradeAgreementRequestIntentSchema = z.object({
+  type: z.literal("tradeAgreementRequest"),
+  recipient: MappedID,
+});
+
+export const TradeAgreementReplyIntentSchema = z.object({
+  type: z.literal("tradeAgreementReply"),
+  requestor: MappedID,
+  accept: z.boolean(),
+});
+
+export const TradeAgreementCancelIntentSchema = z.object({
+  type: z.literal("tradeAgreementCancel"),
+  recipient: MappedID,
+});
+
+// Derpy Front: a troop transport escorted by two warships.
+export const EscortedBoatAttackIntentSchema = z.object({
+  type: z.literal("escorted_boat"),
+  troops: zb.float({ min: 0 }),
+  dst: zb.uint(),
+});
+
 export const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -567,6 +608,10 @@ export const IntentSchema = z.discriminatedUnion("type", [
   TogglePauseIntentSchema,
   UpdateGameConfigIntentSchema,
   ToggleGameStartTimerIntentSchema,
+  TradeAgreementRequestIntentSchema,
+  TradeAgreementReplyIntentSchema,
+  TradeAgreementCancelIntentSchema,
+  EscortedBoatAttackIntentSchema,
 ]);
 
 // StampedIntent = Intent with server-stamped clientID (used in turns and execution)

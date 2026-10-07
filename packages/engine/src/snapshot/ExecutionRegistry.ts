@@ -36,6 +36,11 @@ import { ShellExecutionSnapshot } from "../execution/ShellExecution";
 import { SpawnExecutionSnapshot } from "../execution/SpawnExecution";
 import { SpawnTimerExecutionSnapshot } from "../execution/SpawnTimerExecution";
 import { TargetPlayerExecutionSnapshot } from "../execution/TargetPlayerExecution";
+import {
+  TradeAgreementCancelExecutionSnapshot,
+  TradeAgreementReplyExecutionSnapshot,
+  TradeAgreementRequestExecutionSnapshot,
+} from "../execution/TradeAgreementExecution";
 import { TradeShipExecutionSnapshot } from "../execution/TradeShipExecution";
 import { TrainExecutionSnapshot } from "../execution/TrainExecution";
 import { TrainStationExecutionSnapshot } from "../execution/TrainStationExecution";
@@ -91,6 +96,9 @@ export const EXECUTION_SNAPSHOT_TYPES = [
   SpawnExecutionSnapshot,
   SpawnTimerExecutionSnapshot,
   TargetPlayerExecutionSnapshot,
+  TradeAgreementCancelExecutionSnapshot,
+  TradeAgreementReplyExecutionSnapshot,
+  TradeAgreementRequestExecutionSnapshot,
   TradeShipExecutionSnapshot,
   TrainExecutionSnapshot,
   TrainStationExecutionSnapshot,

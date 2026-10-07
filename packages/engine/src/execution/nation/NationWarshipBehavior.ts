@@ -373,8 +373,11 @@ export class NationWarshipBehavior {
         this.game.config().warshipTargettingRange(),
         UnitType.Warship,
       )
-      .filter(({ unit }) => unit.owner().canAttackPlayer(this.player, true))
-      .length;
+      .filter(
+        ({ unit }) =>
+          unit.owner().canAttackPlayer(this.player, true) &&
+          !unit.owner().hasTradeAgreementWith(this.player),
+      ).length;
   }
 
   // Our warships on the same water whose patrol area includes `tile`

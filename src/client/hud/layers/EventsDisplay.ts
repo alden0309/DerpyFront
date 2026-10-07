@@ -281,6 +281,12 @@ export class EventsDisplay extends LitElement implements Controller {
       return;
     }
 
+    // Derpy Front: an incoming Trade Agreement request is shown with Accept /
+    // Decline buttons by actionable-events instead.
+    if (event.message === "events_display.trade_agreement_request") {
+      return;
+    }
+
     // Captured trade-ship gold is surfaced as a transient +gold pip in
     // control-panel rather than as a scroll-list entry.
     if (event.message === "events_display.received_gold_from_captured_ship") {

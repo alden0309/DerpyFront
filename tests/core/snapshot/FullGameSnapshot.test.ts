@@ -168,7 +168,15 @@ describe.each(VARIANTS)("full game snapshots: %s", (_, overrides) => {
       // alive at a tick boundary. BasicExecutions.test.ts covers it directly.
       // Capital: AI nations never build one, so it can't show up in this
       // game. StructureExecutions.test.ts covers it directly.
-      const neverStored = new Set(["Pause", "Capital"]);
+      // Trade Agreement executions finish in init(), so no snapshot of a
+      // running game ever holds one.
+      const neverStored = new Set([
+        "Pause",
+        "Capital",
+        "TradeAgreementRequest",
+        "TradeAgreementReply",
+        "TradeAgreementCancel",
+      ]);
       const missing = EXECUTION_SNAPSHOT_TYPES.map((t) => t.name).filter(
         (name) => !reference.execTypes.has(name) && !neverStored.has(name),
       );

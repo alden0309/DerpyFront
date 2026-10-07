@@ -4,6 +4,7 @@ import {
   AllianceRequestReplyUpdate,
   AllianceRequestUpdate,
   BrokeAllianceUpdate,
+  DisplayMessageUpdate,
   GameUpdateType,
 } from "@openfront/engine-api/game/GameUpdates";
 import { EventBus } from "@openfront/shared/EventBus";
@@ -16,10 +17,15 @@ import {
   SendAllianceExtensionIntentEvent,
   SendAllianceRejectIntentEvent,
   SendAllianceRequestIntentEvent,
+  SendTradeAgreementReplyIntentEvent,
 } from "../../Transport";
 import { UIState } from "../../UIState";
 import { getMessageTypeClasses, translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";
+
+/** The incoming request (the "request sent" note to the asker differs). */
+export const TRADE_AGREEMENT_REQUEST_MESSAGE =
+  "events_display.trade_agreement_request";
 
 interface ActionableEvent {
   description: string;
@@ -61,6 +67,7 @@ export class ActionableEvents extends LitElement implements Controller {
       GameUpdateType.AllianceExtension,
       this.onAllianceExtensionEvent.bind(this),
     ],
+    [GameUpdateType.DisplayEvent, this.onDisplayEvent.bind(this)],
   ] as const;
 
   createRenderRoot() {
@@ -258,6 +265,57 @@ export class ActionableEvents extends LitElement implements Controller {
       duration: this.game.config().allianceRequestDuration(),
       focusID: update.requestorID,
       requestorID: update.requestorID,
+    });
+  }
+
+  /**
+   * Derpy Front: an incoming Trade Agreement request arrives as a display
+   * message; give it Accept / Decline buttons like an alliance request.
+   */
+  private onDisplayEvent(update: DisplayMessageUpdate) {
+    if (update.message !== TRADE_AGREEMENT_REQUEST_MESSAGE) return;
+    const myPlayer = this.game.myPlayer();
+    if (!myPlayer || update.playerID !== myPlayer.smallID()) return;
+    if (update.focusPlayerID === undefined) return;
+    const requestor = this.game.playerBySmallID(
+      update.focusPlayerID,
+    ) as PlayerView;
+
+    this.eventBus.emit(new PlaySoundEffectEvent("alliance-suggested"));
+    this.addEvent({
+      description: translateText(TRADE_AGREEMENT_REQUEST_MESSAGE, {
+        name: requestor.displayName(),
+      }),
+      buttons: [
+        {
+          text: translateText("events_display.focus"),
+          className: "btn-gray",
+          action: () => this.eventBus.emit(new GoToPlayerEvent(requestor)),
+          preventClose: true,
+        },
+        {
+          text: translateText("events_display.accept_trade_agreement"),
+          className: "btn",
+          action: () =>
+            this.eventBus.emit(
+              new SendTradeAgreementReplyIntentEvent(requestor, true),
+            ),
+        },
+        {
+          text: translateText("events_display.decline_trade_agreement"),
+          className: "btn-info",
+          action: () =>
+            this.eventBus.emit(
+              new SendTradeAgreementReplyIntentEvent(requestor, false),
+            ),
+        },
+      ],
+      type: MessageType.TRADE_AGREEMENT_REQUEST,
+      createdAt: this.game.ticks(),
+      priority: 0,
+      duration: this.game.config().allianceRequestDuration(),
+      focusID: update.focusPlayerID,
+      requestorID: update.focusPlayerID,
     });
   }
 

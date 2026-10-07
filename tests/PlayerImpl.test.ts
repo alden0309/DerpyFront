@@ -36,13 +36,17 @@ describe("PlayerImpl", () => {
     expect(buCity!.canUpgrade).toBe(city.id());
   });
 
-  test("DefensePost cannot be upgraded", () => {
-    player.buildUnit(UnitType.DefensePost, game.ref(0, 0), {});
-    const buDefensePost = player
-      .buildableUnits(game.ref(0, 0))
-      .find((bu) => bu.type === UnitType.DefensePost);
-    expect(buDefensePost).toBeDefined();
-    expect(buDefensePost!.canUpgrade).toBeFalsy();
+  // Derpy Front: a defense post stacks once, to level 2.
+  test("DefensePost can be stacked once", () => {
+    const post = player.buildUnit(UnitType.DefensePost, game.ref(0, 0), {});
+    const canUpgrade = () =>
+      player
+        .buildableUnits(game.ref(0, 0))
+        .find((bu) => bu.type === UnitType.DefensePost)!.canUpgrade;
+    expect(canUpgrade()).toBe(post.id());
+    post.increaseLevel();
+    expect(post.level()).toBe(2);
+    expect(canUpgrade()).toBeFalsy();
   });
 
   test("City can be upgraded from another city", () => {

@@ -36,6 +36,8 @@ export interface AttackLogicInput {
   } | null;
   /** A defense post owned by the defender is in range of the tile. */
   defenderHasDefensePost: boolean;
+  /** One of those posts is stacked (level 2): its bonus is 50% stronger. */
+  defenderHasStackedDefensePost?: boolean;
   /**
    * The defender's Capital is in range of the tile. Takes the place of the
    * defense post bonus (they don't stack).
@@ -147,6 +149,11 @@ export class EngineConfig extends Config {
 
   defensePostSpeedBonus(): number {
     return 3;
+  }
+
+  // A stacked (level 2) defense post is 50% stronger than a single one.
+  stackedDefensePostMultiplier(): number {
+    return 1.5;
   }
 
   // Capital: defends like a defense post, at twice the strength.
@@ -508,8 +515,11 @@ export class EngineConfig extends Config {
       mag *= this.capitalDefenseBonus();
       tileCost *= this.capitalSpeedBonus();
     } else if (defender !== null && input.defenderHasDefensePost) {
-      mag *= this.defensePostDefenseBonus();
-      tileCost *= this.defensePostSpeedBonus();
+      const stack = input.defenderHasStackedDefensePost
+        ? this.stackedDefensePostMultiplier()
+        : 1;
+      mag *= this.defensePostDefenseBonus() * stack;
+      tileCost *= this.defensePostSpeedBonus() * stack;
     }
     if (input.falloutRatio !== null) {
       const fallout = this.falloutDefenseModifier(input.falloutRatio);

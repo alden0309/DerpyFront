@@ -57,6 +57,8 @@ export interface UnitParamsMap {
   [UnitType.TransportShip]: {
     troops?: number;
     targetTile?: TileRef;
+    /** Derpy Front: escorted by two warships, with the convoy's health. */
+    escorted?: boolean;
   };
 
   [UnitType.Warship]: {
@@ -474,6 +476,18 @@ export interface Player extends PlayerLike {
   stopEmbargo(other: Player): void;
   endTemporaryEmbargo(other: Player): void;
   canTrade(other: Player): boolean;
+
+  // Derpy Front: Trade Agreements (the two players' ships leave each other
+  // alone). Stored on both players.
+  hasTradeAgreementWith(other: Player): boolean;
+  tradeAgreementPartners(): Player[];
+  addTradeAgreement(other: Player): void;
+  removeTradeAgreement(other: Player): void;
+  /** Records a request from `from`; it stays answerable for a while. */
+  receiveTradeAgreementRequest(from: Player): void;
+  hasPendingTradeAgreementRequestFrom(from: Player): boolean;
+  clearTradeAgreementRequest(from: Player): void;
+  canRequestTradeAgreement(other: Player): boolean;
 
   // Attacking.
   canAttack(tile: TileRef): boolean;

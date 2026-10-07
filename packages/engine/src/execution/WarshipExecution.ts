@@ -297,6 +297,8 @@ export class WarshipExecution implements Execution {
         unit === this.warship ||
         unit.owner() === owner ||
         !owner.canAttackPlayer(unit.owner(), true) ||
+        // Derpy Front: ships under a Trade Agreement leave each other alone.
+        owner.hasTradeAgreementWith(unit.owner()) ||
         this.alreadySentShell.has(unit) ||
         (unit.type() === UnitType.Warship &&
           unit.warshipState().state === "docked")

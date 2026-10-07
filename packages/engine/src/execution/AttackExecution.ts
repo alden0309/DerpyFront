@@ -357,6 +357,15 @@ export class AttackExecution implements Execution {
         UnitType.DefensePost,
         defender.id(),
       );
+    const defenderHasStackedDefensePost =
+      defenderHasDefensePost &&
+      this.mg.anyUnitNearby(
+        tile,
+        this.mg.config().defensePostRange(),
+        [UnitType.DefensePost],
+        (post) => post.level() >= 2,
+        defender.id(),
+      );
     const defenderHasCapital =
       defender !== null &&
       this.mg.hasUnitNearby(
@@ -384,6 +393,7 @@ export class AttackExecution implements Execution {
                 defender.isDisconnected() && this._owner.isOnSameTeam(defender),
             },
       defenderHasDefensePost,
+      defenderHasStackedDefensePost,
       defenderHasCapital,
       falloutRatio: this.mg.hasFallout(tile)
         ? this.mg.numTilesWithFallout() / this.mg.numLandTiles()

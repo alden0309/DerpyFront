@@ -334,6 +334,8 @@ export class GameRunner {
         canDonateTroops: player.canDonateTroops(other),
         canEmbargo: !player.hasEmbargoAgainst(other),
         allianceInfo: player.allianceInfo(other) ?? undefined,
+        hasTradeAgreement: player.hasTradeAgreementWith(other),
+        canRequestTradeAgreement: player.canRequestTradeAgreement(other),
       };
     }
 

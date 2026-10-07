@@ -49,7 +49,6 @@ import { SinglePlayerModal } from "./SinglePlayerModal";
 import { UsernameInput } from "./UsernameInput";
 import {
   calculateServerTimeOffset,
-  getGamesPlayed,
   getSecondsUntilServerTimestamp,
   reloadForUpdate,
   renderDuration,
@@ -66,9 +65,6 @@ const DISABLED = "opacity-50 cursor-not-allowed pointer-events-none";
 /** Tutorial card: the panel's gold, dark text for contrast. */
 const TUTORIAL_ACTION =
   "bg-cyber-yellow hover:bg-yellow-300 active:bg-cyber-yellow/80 !text-gray-900 hover:scale-y-105 hover:scale-x-[1.01]";
-
-/** The Tutorial card shows beside Solo until the player has played this many games. */
-const TUTORIAL_CARD_MAX_GAMES = 5;
 
 /**
  * THE REACHABILITY RULE (OPE-439). Stated once, here; every other call site
@@ -645,33 +641,19 @@ export class GameModeSelector extends LitElement {
     }
   }
 
+  /**
+   * Derpy Front: just the buttons a group of friends needs -- Solo, Tutorial,
+   * Create Lobby and Join Lobby. No public lobby cards, no Ranked (those need
+   * OpenFront's own servers and players).
+   */
   render() {
-    const ffa = this.lobbies?.games?.["ffa"]?.[0];
-    const teams = this.lobbies?.games?.["team"]?.[0];
-    const special = this.lobbies?.games?.["special"]?.[0];
-    // The hero slot holds the spinner, then the FFA card; loaded without one
-    // it goes and the upcoming column takes the whole row.
-    const heroSlot = this.lobbies === null || ffa !== undefined;
-    // A lone secondary card takes both of the column's card rows.
-    const cardRows =
-      teams && special
-        ? { special: "sm:row-start-2", teams: "sm:row-start-3" }
-        : {
-            special: "sm:row-start-2 sm:row-span-2",
-            teams: "sm:row-start-2 sm:row-span-2",
-          };
-
-    // DOM is in phone order; sm+ places the same elements onto a grid and
-    // reading-flow keeps focus order following the rows (Chromium only).
     return html`
-      <div
-        class="flex flex-col gap-4 w-full px-4 pb-4 mx-auto sm:px-0 sm:pb-0 sm:grid sm:grid-cols-[2fr_1fr] sm:grid-rows-[auto_min(24rem,40vh)_auto_auto] desktop:sm:grid-rows-[auto_40vh_auto_auto] sm:[reading-flow:grid-rows]"
-      >
+      <div class="flex flex-col gap-4 w-full px-4 pb-4 mx-auto sm:px-0 sm:pb-0">
         <ios-add-to-home-screen-banner
-          class="no-crazygames [&:empty]:hidden sm:col-span-2 sm:row-start-1"
+          class="no-crazygames [&:empty]:hidden"
         ></ios-add-to-home-screen-banner>
 
-        <div class="flex gap-4 h-14 sm:col-span-2 sm:row-start-3">
+        <div class="flex gap-4 h-14">
           <div class="flex-[2]">
             ${this.renderSmallActionCard(
               translateText("main.solo"),
@@ -679,27 +661,18 @@ export class GameModeSelector extends LitElement {
               PRIMARY_ACTION,
             )}
           </div>
-          ${getGamesPlayed() < TUTORIAL_CARD_MAX_GAMES
-            ? html`<div class="flex-1">
-                ${this.renderSmallActionCard(
-                  translateText("main.tutorial"),
-                  this.startTutorial,
-                  TUTORIAL_ACTION,
-                )}
-              </div>`
-            : nothing}
+          <div class="flex-1">
+            ${this.renderSmallActionCard(
+              translateText("main.tutorial"),
+              this.startTutorial,
+              TUTORIAL_ACTION,
+            )}
+          </div>
         </div>
-        <div class="grid grid-cols-3 gap-4 h-14 sm:col-span-2 sm:row-start-4">
+        <div class="grid grid-cols-2 gap-4 h-14">
           ${this.renderSmallActionCard(
             translateText("main.create"),
             this.openHostLobby,
-            SECONDARY_ACTION,
-            undefined,
-            true,
-          )}
-          ${this.renderSmallActionCard(
-            translateText("mode_selector.ranked_title"),
-            this.openRankedMenu,
             SECONDARY_ACTION,
             undefined,
             true,
@@ -712,41 +685,6 @@ export class GameModeSelector extends LitElement {
             true,
           )}
         </div>
-
-        ${heroSlot
-          ? html`<div class="min-w-0 sm:col-start-1 sm:row-start-2">
-              ${ffa
-                ? this.renderLobbyCard(ffa, this.getLobbyTitle(ffa))
-                : this.offlineForLobbies()
-                  ? this.renderLobbiesUnavailable()
-                  : html`<div
-                      class="flex items-center justify-center h-44 sm:h-full"
-                    >
-                      <span
-                        class="size-24 rounded-full border-[6px] border-blue-500/30 border-t-blue-500 animate-spin"
-                      ></span>
-                    </div>`}
-            </div>`
-          : nothing}
-
-        <!-- Always rendered: the heading is the only way into the lobby browser. -->
-        <section
-          class="flex flex-col gap-4 min-w-0 sm:grid sm:grid-rows-[auto_1fr_1fr] sm:row-start-2 sm:min-h-0 sm:[reading-flow:grid-rows] ${heroSlot
-            ? "sm:col-start-2"
-            : "sm:col-start-1 sm:col-span-2"}"
-        >
-          ${teams
-            ? html`<div class="min-w-0 sm:min-h-0 ${cardRows.teams}">
-                ${this.renderLobbyCard(teams, this.getLobbyTitle(teams))}
-              </div>`
-            : nothing}
-          ${special
-            ? html`<div class="min-w-0 sm:min-h-0 ${cardRows.special}">
-                ${this.renderLobbyCard(special, this.getLobbyTitle(special))}
-              </div>`
-            : nothing}
-          ${this.renderUpcomingHeading()}
-        </section>
 
         ${this.showTrustRequired
           ? trustRequiredDialog(

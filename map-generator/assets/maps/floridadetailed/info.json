@@ -1,0 +1,642 @@
+{
+  "id": "FloridaDetailed",
+  "name": "Florida - Detailed",
+  "translation_key": "map.floridadetailed",
+  "categories": ["north_america"],
+  "multiplayer_frequency": 0,
+  "nations": [
+    {
+      "coordinates": [160, 269],
+      "name": "Pensacola",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [286, 277],
+      "name": "Navarre",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [390, 131],
+      "name": "Crestview",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [417, 281],
+      "name": "Destin",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [553, 148],
+      "name": "DeFuniak Springs",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [716, 375],
+      "name": "Panama City",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [870, 126],
+      "name": "Marianna",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [957, 550],
+      "name": "Apalachicola",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1208, 262],
+      "name": "Tallahassee",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1518, 250],
+      "name": "Madison",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1458, 392],
+      "name": "Perry",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1671, 320],
+      "name": "Live Oak",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1795, 363],
+      "name": "Lake City",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1653, 786],
+      "name": "Cedar Key",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2146, 305],
+      "name": "Jacksonville",
+      "flag": "Jacksonville"
+    },
+    {
+      "coordinates": [2215, 169],
+      "name": "Fernandina Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2268, 479],
+      "name": "St. Augustine",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2306, 607],
+      "name": "Palm Coast",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2152, 581],
+      "name": "Palatka",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1907, 580],
+      "name": "Gainesville",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1973, 766],
+      "name": "Ocala",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2037, 867],
+      "name": "The Villages",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2372, 757],
+      "name": "Daytona Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2272, 830],
+      "name": "DeLand",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2282, 920],
+      "name": "Sanford",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2197, 970],
+      "name": "Apopka",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2244, 1025],
+      "name": "Orlando",
+      "flag": "Orlando"
+    },
+    {
+      "coordinates": [2234, 1123],
+      "name": "Kissimmee",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2104, 1021],
+      "name": "Clermont",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2066, 916],
+      "name": "Leesburg",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2444, 996],
+      "name": "Titusville",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2465, 1084],
+      "name": "Cocoa",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2520, 1205],
+      "name": "Melbourne",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2595, 1381],
+      "name": "Vero Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2222, 1438],
+      "name": "Sebring",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2041, 1223],
+      "name": "Lakeland",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2118, 1230],
+      "name": "Winter Haven",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2440, 1536],
+      "name": "Okeechobee",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2610, 1525],
+      "name": "Port St. Lucie",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2647, 1555],
+      "name": "Stuart",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1884, 1018],
+      "name": "Brooksville",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1811, 880],
+      "name": "Crystal River",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1766, 1142],
+      "name": "New Port Richey",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1859, 1258],
+      "name": "Tampa",
+      "flag": "Tampa"
+    },
+    {
+      "coordinates": [1983, 1231],
+      "name": "Plant City",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1740, 1252],
+      "name": "Clearwater",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1794, 1330],
+      "name": "St. Petersburg",
+      "flag": "St Petersburg (US)"
+    },
+    {
+      "coordinates": [1817, 1436],
+      "name": "Bradenton",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1833, 1500],
+      "name": "Sarasota",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1861, 1593],
+      "name": "Venice",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1990, 1642],
+      "name": "Port Charlotte",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2039, 1801],
+      "name": "Cape Coral",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2070, 1771],
+      "name": "Fort Myers",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2223, 1725],
+      "name": "LaBelle",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2402, 1729],
+      "name": "Clewiston",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2096, 1967],
+      "name": "Naples",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2231, 1859],
+      "name": "Immokalee",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2702, 1657],
+      "name": "Jupiter",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2718, 1744],
+      "name": "West Palm Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2498, 1756],
+      "name": "Belle Glade",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2691, 1879],
+      "name": "Boca Raton",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2688, 1975],
+      "name": "Fort Lauderdale",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2684, 2018],
+      "name": "Hollywood",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2594, 1984],
+      "name": "Weston",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2638, 2078],
+      "name": "Hialeah",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2663, 2115],
+      "name": "Miami",
+      "flag": "Miami"
+    },
+    {
+      "coordinates": [2567, 2228],
+      "name": "Homestead",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2577, 2376],
+      "name": "Key Largo",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2348, 2522],
+      "name": "Marathon",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2098, 2585],
+      "name": "Key West",
+      "flag": "Key West"
+    },
+    {
+      "coordinates": [2073, 1547],
+      "name": "Arcadia",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2079, 1279],
+      "name": "Bartow",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1905, 906],
+      "name": "Inverness",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1953, 1094],
+      "name": "Dade City",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1983, 462],
+      "name": "Starke",
+      "flag": "Florida"
+    }
+  ],
+  "additionalNations": [
+    {
+      "coordinates": [223, 184],
+      "name": "Milton",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [373, 276],
+      "name": "Fort Walton Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [513, 279],
+      "name": "Santa Rosa Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [671, 360],
+      "name": "Panama City Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [759, 123],
+      "name": "Chipley",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [709, 119],
+      "name": "Bonifay",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [850, 506],
+      "name": "Port St. Joe",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [934, 260],
+      "name": "Blountstown",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1100, 202],
+      "name": "Quincy",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1175, 368],
+      "name": "Crawfordville",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1355, 219],
+      "name": "Monticello",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1684, 230],
+      "name": "Jasper",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1603, 418],
+      "name": "Mayo",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1621, 586],
+      "name": "Cross City",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1716, 651],
+      "name": "Chiefland",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2237, 321],
+      "name": "Jacksonville Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1979, 326],
+      "name": "Macclenny",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2128, 373],
+      "name": "Orange Park",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2138, 443],
+      "name": "Green Cove Springs",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2288, 654],
+      "name": "Bunnell",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2360, 726],
+      "name": "Ormond Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2286, 881],
+      "name": "Deltona",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2406, 830],
+      "name": "New Smyrna Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2259, 1000],
+      "name": "Winter Park",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2279, 1140],
+      "name": "St. Cloud",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2121, 919],
+      "name": "Tavares",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2527, 1225],
+      "name": "Palm Bay",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2090, 1417],
+      "name": "Wauchula",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2620, 1457],
+      "name": "Fort Pierce",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1828, 1049],
+      "name": "Spring Hill",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1958, 1146],
+      "name": "Zephyrhills",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1921, 1263],
+      "name": "Brandon",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1742, 1274],
+      "name": "Largo",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1938, 1615],
+      "name": "North Port",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2007, 1660],
+      "name": "Punta Gorda",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2157, 1779],
+      "name": "Lehigh Acres",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2347, 1698],
+      "name": "Moore Haven",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2102, 1891],
+      "name": "Bonita Springs",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2123, 2045],
+      "name": "Marco Island",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2242, 2078],
+      "name": "Everglades City",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2708, 1843],
+      "name": "Delray Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2692, 1930],
+      "name": "Pompano Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2640, 1917],
+      "name": "Coral Springs",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2657, 2021],
+      "name": "Pembroke Pines",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2687, 2104],
+      "name": "Miami Beach",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2624, 2147],
+      "name": "Kendall",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2513, 2439],
+      "name": "Islamorada",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1793, 662],
+      "name": "Bronson",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1731, 595],
+      "name": "Trenton",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [1902, 430],
+      "name": "Lake Butler",
+      "flag": "Florida"
+    },
+    {
+      "coordinates": [2163, 184],
+      "name": "Yulee",
+      "flag": "Florida"
+    }
+  ],
+  "themes": ["north_america"]
+}

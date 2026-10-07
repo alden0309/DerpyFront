@@ -18,6 +18,13 @@ import {
 
 const countryCodes = countries.filter((c) => !c.restricted).map((c) => c.code);
 
+/** The image for a free "country:<code>" flag, or null for anything else. */
+export function countryFlagUrl(flagRef: string | undefined): string | null {
+  if (!flagRef?.startsWith("country:")) return null;
+  const code = flagRef.slice("country:".length);
+  return countryCodes.includes(code) ? `/flags/${code}.svg` : null;
+}
+
 export type ClanTagResolution = {
   tag: string | null;
   dropped: boolean;
@@ -261,10 +268,13 @@ export class FailOpenPrivilegeChecker implements PrivilegeChecker {
     // Catalog cosmetics can't be resolved without the cosmetics data, but the
     // verified intent isn't a catalog item — pass it through; the Worker's
     // resolveVerifiedJoin decides it against the account at join.
-    return {
-      type: "allowed",
-      cosmetics: refs.verified === true ? { verified: true } : {},
-    };
+    const cosmetics: PlayerCosmetics =
+      refs.verified === true ? { verified: true } : {};
+    // Country flags are free and need no catalog (Derpy Front runs without
+    // OpenFront's cosmetics service), so they still come through.
+    const flag = countryFlagUrl(refs.flag);
+    if (flag !== null) cosmetics.flag = flag;
+    return { type: "allowed", cosmetics };
   }
 
   // No reserved-tag list while cosmetics infra is unavailable (e.g. during

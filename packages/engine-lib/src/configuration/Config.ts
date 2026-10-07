@@ -169,6 +169,11 @@ export class Config {
   capitalTroopBonus(): number {
     return 700_000;
   }
+  // Derpy Front: an escorted troop transport and its two warships share one
+  // health bar, three times a warship's.
+  escortedTransportHealth(): number {
+    return 3 * (this.unitInfo(UnitType.Warship).maxHealth ?? 1000);
+  }
   // Capital gold payout and how often it arrives (in ticks; 10 ticks = 1s).
   capitalGoldPayout(): bigint {
     return 10_000n;
@@ -249,7 +254,12 @@ export class Config {
         };
         break;
       case UnitType.DefensePost:
-        info = { constructionDuration: this.instantBuild() ? 0 : 5 * 10 };
+        // Derpy Front: a second post built on top stacks it to level 2.
+        info = {
+          constructionDuration: this.instantBuild() ? 0 : 5 * 10,
+          upgradable: true,
+          maxLevel: 2,
+        };
         break;
       case UnitType.SAMLauncher:
         info = {

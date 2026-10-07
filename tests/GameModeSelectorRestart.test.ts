@@ -58,6 +58,9 @@ import { GameModeSelector } from "../src/client/GameModeSelector";
 import { showInGameAlert } from "../src/client/InGameModal";
 import * as ServerList from "../src/client/ServerList";
 
+// Derpy Front: the home page has no public lobby cards, lobby feed or
+// "upcoming" list (friends play through Create / Join Lobby), so the tests
+// below that exercise those are skipped.
 describe("GameModeSelector lobby-socket lifecycle", () => {
   beforeEach(() => {
     socketCalls.started = 0;
@@ -269,7 +272,7 @@ describe("GameModeSelector lobby feed while the desktop session is gated", () =>
     expect(socketCalls.started).toBe(2);
   });
 
-  it("drops a snapshot kept across a game when start() finds the session gated", async () => {
+  it.skip("drops a snapshot kept across a game when start() finds the session gated", async () => {
     lobbiesCallbackRef.current?.({
       serverTime: Date.now(),
       games: {
@@ -299,7 +302,7 @@ describe("GameModeSelector lobby feed while the desktop session is gated", () =>
     expect(selector.textContent).toContain("mode_selector.offline_lobbies");
   });
 
-  it("swaps the spinner and any cards for the offline message once the socket gives up", async () => {
+  it.skip("swaps the spinner and any cards for the offline message once the socket gives up", async () => {
     const snapshot = {
       serverTime: Date.now(),
       games: {
@@ -335,7 +338,7 @@ describe("GameModeSelector lobby feed while the desktop session is gated", () =>
     expect(selector.querySelector("button.group")).not.toBeNull();
   });
 
-  it("spins again on a start() after giving up", async () => {
+  it.skip("spins again on a start() after giving up", async () => {
     gaveUpRef.current?.();
     await selector.updateComplete;
     expect(selector.querySelector(".animate-spin")).toBeNull();
@@ -353,7 +356,7 @@ describe("GameModeSelector lobby feed while the desktop session is gated", () =>
 
   // The API answers here, so no outage shows anywhere: without the Retry the
   // only way to reopen a feed that gave up is a reload.
-  it("offers a Retry that reopens the feed once the socket gives up", async () => {
+  it.skip("offers a Retry that reopens the feed once the socket gives up", async () => {
     gaveUpRef.current?.();
     await selector.updateComplete;
     const started = socketCalls.started;
@@ -371,7 +374,7 @@ describe("GameModeSelector lobby feed while the desktop session is gated", () =>
     probe.mockRestore();
   });
 
-  it("does not reopen from Retry a feed Main stopped for a game", async () => {
+  it.skip("does not reopen from Retry a feed Main stopped for a game", async () => {
     gaveUpRef.current?.();
     await selector.updateComplete;
     selector.stop();
@@ -386,7 +389,7 @@ describe("GameModeSelector lobby feed while the desktop session is gated", () =>
     probe.mockRestore();
   });
 
-  it("only probes the list on an outage whose feed has not given up, and holds the button for the cooldown", async () => {
+  it.skip("only probes the list on an outage whose feed has not given up, and holds the button for the cooldown", async () => {
     vi.useFakeTimers();
     const probe = vi
       .spyOn(ServerList, "refreshServerList")
@@ -418,7 +421,7 @@ describe("GameModeSelector lobby feed while the desktop session is gated", () =>
     }
   });
 
-  it("says the servers cannot be reached on a confirmed outage, never that the player is offline", async () => {
+  it.skip("says the servers cannot be reached on a confirmed outage, never that the player is offline", async () => {
     document.dispatchEvent(
       new CustomEvent("backend-reachability", {
         detail: { reachable: false, confirmed: true },
@@ -431,7 +434,7 @@ describe("GameModeSelector lobby feed while the desktop session is gated", () =>
     expect(selector.textContent).toContain("mode_selector.retry_lobbies");
   });
 
-  it("offers no Retry while the session is gated, where the status bar owns the remedy", async () => {
+  it.skip("offers no Retry while the session is gated, where the status bar owns the remedy", async () => {
     setSession({ status: "signed-out", reason: "steam-unavailable" });
     await selector.updateComplete;
 
@@ -439,7 +442,7 @@ describe("GameModeSelector lobby feed while the desktop session is gated", () =>
     expect(selector.textContent).not.toContain("mode_selector.retry_lobbies");
   });
 
-  it("shows an offline message in place of the spinner while gated", async () => {
+  it.skip("shows an offline message in place of the spinner while gated", async () => {
     await selector.updateComplete;
     expect(selector.querySelector(".animate-spin")).not.toBeNull();
 

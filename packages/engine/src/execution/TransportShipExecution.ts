@@ -5,7 +5,7 @@ import {
   TerraNullius,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
-import { renderTroops } from "@openfront/engine-lib/Format";
+import { renderNumber, renderTroops } from "@openfront/engine-lib/Format";
 import { MotionPlanRecord } from "@openfront/engine-lib/game/MotionPlans";
 import {
   zInt,
@@ -31,8 +31,21 @@ import type {
   SnapshotWriter,
 } from "../snapshot/SnapshotContext";
 import { AttackExecution } from "./AttackExecution";
+import { ShellExecution } from "./ShellExecution";
 
 const malusForRetreat = 25;
+
+/** How far from the transport its escort warships keep station. */
+const ESCORT_RADIUS = 2;
+
+/**
+ * Derpy Front: what an escorted troop transport costs -- the price of the
+ * player's next two warships, which is what its escorts are.
+ */
+export function escortedTransportCost(mg: Game, player: Player): bigint {
+  const info = mg.unitInfo(UnitType.Warship);
+  return info.cost(mg, player) + info.cost(mg, player, 1);
+}
 
 export class TransportShipExecution implements Execution {
   private active = true;
@@ -54,10 +67,16 @@ export class TransportShipExecution implements Execution {
 
   private originalOwner: Player;
 
+  // Derpy Front: the two warships escorting this transport (when escorted),
+  // and the tick each last fired.
+  private escorts: Unit[] = [];
+  private escortLastShot: number[] = [];
+
   constructor(
     private attacker: Player,
     private ref: TileRef,
     private troops: number,
+    private escorted = false,
   ) {
     this.originalOwner = this.attacker;
   }
@@ -141,10 +160,17 @@ export class TransportShipExecution implements Execution {
 
     this.src = src;
 
+    if (this.escorted && !this.canAffordEscort()) {
+      this.active = false;
+      return;
+    }
+
     this.boat = this.attacker.buildUnit(UnitType.TransportShip, this.src, {
       troops: this.troops,
       targetTile: this.dst,
+      ...(this.escorted ? { escorted: true } : {}),
     });
+    if (this.escorted) this.spawnEscorts(ticks);
 
     const fullPath = this.pathFinder.findPath(this.src, this.dst) ?? [this.src];
     if (fullPath.length === 0 || fullPath[0] !== this.src) {
@@ -180,6 +206,11 @@ export class TransportShipExecution implements Execution {
   }
 
   tick(ticks: number) {
+    this.tickTransport(ticks);
+    if (this.escorted) this.tickEscorts(ticks);
+  }
+
+  private tickTransport(ticks: number) {
     if (this.dst === null) {
       this.active = false;
       return;
@@ -335,6 +366,180 @@ export class TransportShipExecution implements Execution {
     return this.attacker;
   }
 
+  /** Escorts are bought as two warships; refuse (and say why) if we can't. */
+  private canAffordEscort(): boolean {
+    const mg = this.mg;
+    if (mg.config().isUnitDisabled(UnitType.Warship)) {
+      mg.displayMessage(
+        "events_display.escort_unavailable",
+        MessageType.ATTACK_FAILED,
+        this.attacker.id(),
+      );
+      return false;
+    }
+    const cost = escortedTransportCost(mg, this.attacker);
+    if (this.attacker.gold() < cost) {
+      mg.displayMessage(
+        "events_display.escort_too_expensive",
+        MessageType.ATTACK_FAILED,
+        this.attacker.id(),
+        undefined,
+        { gold: renderNumber(cost) },
+      );
+      return false;
+    }
+    return true;
+  }
+
+  private spawnEscorts(ticks: number): void {
+    const taken = new Set<TileRef>([this.boat.tile()]);
+    for (let i = 0; i < 2; i++) {
+      const tile =
+        this.escortStation(this.boat.tile(), this.boat.tile(), taken) ??
+        this.boat.tile();
+      taken.add(tile);
+      // buildUnit charges the warship's price: the escort is what it costs.
+      const escort = this.attacker.buildUnit(UnitType.Warship, tile, {
+        patrolTile: tile,
+      });
+      this.escorts.push(escort);
+      // Ready to fire straight away.
+      this.escortLastShot.push(
+        ticks - this.mg.config().warshipShellAttackRate() - 1,
+      );
+    }
+  }
+
+  /** The water tile near `center` closest to `near`, not already taken. */
+  private escortStation(
+    center: TileRef,
+    near: TileRef,
+    taken: Set<TileRef>,
+  ): TileRef | null {
+    const mg = this.mg;
+    const cx = mg.x(center);
+    const cy = mg.y(center);
+    let best: TileRef | null = null;
+    let bestDist = Infinity;
+    for (let dy = -ESCORT_RADIUS; dy <= ESCORT_RADIUS; dy++) {
+      for (let dx = -ESCORT_RADIUS; dx <= ESCORT_RADIUS; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const x = cx + dx;
+        const y = cy + dy;
+        if (!mg.isValidCoord(x, y)) continue;
+        const t = mg.ref(x, y);
+        if (!mg.isWater(t) || taken.has(t)) continue;
+        const d = mg.euclideanDistSquared(t, near);
+        if (d < bestDist) {
+          best = t;
+          bestDist = d;
+        }
+      }
+    }
+    return best;
+  }
+
+  /**
+   * The convoy acts as one unit: escorts keep station beside the transport,
+   * every hit on an escort comes off the transport's (shared) health, the
+   * escorts fire at enemy ships, and they leave with the transport -- when it
+   * lands, turns back home, or is sunk.
+   */
+  private tickEscorts(ticks: number): void {
+    if (!this.active || this.boat === undefined || !this.boat.isActive()) {
+      for (const escort of this.escorts) {
+        if (escort.isActive()) escort.delete(false);
+      }
+      this.escorts = [];
+      this.escortLastShot = [];
+      return;
+    }
+
+    // Shared health: damage taken by an escort moves onto the transport.
+    for (let i = this.escorts.length - 1; i >= 0; i--) {
+      const escort = this.escorts[i];
+      if (!escort.isActive() || escort.owner() !== this.attacker) {
+        if (escort.isActive()) escort.delete(false);
+        this.escorts.splice(i, 1);
+        this.escortLastShot.splice(i, 1);
+        continue;
+      }
+      const damage = escort.maxHealth() - escort.health();
+      if (damage > 0) {
+        escort.modifyHealth(damage);
+        this.boat.modifyHealth(-damage);
+        if (!this.boat.isActive()) {
+          this.tickEscorts(ticks);
+          return;
+        }
+      }
+    }
+
+    // Keep station beside the transport.
+    const taken = new Set<TileRef>([this.boat.tile()]);
+    for (const escort of this.escorts) {
+      const station = this.escortStation(
+        this.boat.tile(),
+        escort.tile(),
+        taken,
+      );
+      const tile = station ?? this.boat.tile();
+      taken.add(tile);
+      if (tile !== escort.tile()) escort.move(tile);
+    }
+
+    // Fire at enemy ships in range.
+    const rate = this.mg.config().warshipShellAttackRate();
+    for (let i = 0; i < this.escorts.length; i++) {
+      if (ticks - this.escortLastShot[i] <= rate) continue;
+      const target = this.escortTarget(this.escorts[i]);
+      if (target === undefined) continue;
+      this.mg.addExecution(
+        new ShellExecution(
+          this.escorts[i].tile(),
+          this.attacker,
+          this.escorts[i],
+          target,
+        ),
+      );
+      this.escortLastShot[i] = ticks;
+    }
+  }
+
+  /** Nearest enemy transport (first) or warship the escort can shoot. */
+  private escortTarget(escort: Unit): Unit | undefined {
+    const owner = this.attacker;
+    let best: Unit | undefined;
+    let bestPriority = Infinity;
+    let bestDist = Infinity;
+    for (const { unit, distSquared } of this.mg.nearbyUnits(
+      escort.tile(),
+      this.mg.config().warshipTargettingRange(),
+      [UnitType.TransportShip, UnitType.Warship],
+    )) {
+      const other = unit.owner();
+      if (
+        other === owner ||
+        !owner.canAttackPlayer(other, true) ||
+        owner.hasTradeAgreementWith(other) ||
+        (unit.type() === UnitType.Warship &&
+          unit.warshipState().state === "docked")
+      ) {
+        continue;
+      }
+      const priority = unit.type() === UnitType.TransportShip ? 0 : 1;
+      if (
+        priority < bestPriority ||
+        (priority === bestPriority && distSquared < bestDist)
+      ) {
+        best = unit;
+        bestPriority = priority;
+        bestDist = distSquared;
+      }
+    }
+    return best;
+  }
+
   isActive(): boolean {
     return this.active;
   }
@@ -370,6 +575,13 @@ export class TransportShipExecution implements Execution {
       attacker: w.player(this.attacker),
       ref: this.ref,
       troops: this.troops,
+      ...(this.escorted
+        ? {
+            escorted: true,
+            escorts: this.escorts.map((e) => w.unit(e)),
+            escortLastShot: [...this.escortLastShot],
+          }
+        : {}),
     });
   }
 
@@ -392,6 +604,9 @@ export class TransportShipExecution implements Execution {
     this.attacker = r.player(s.attacker);
     this.ref = s.ref;
     this.troops = s.troops;
+    this.escorted = s.escorted === true;
+    this.escorts = (s.escorts ?? []).map((e) => r.unit(e));
+    this.escortLastShot = [...(s.escortLastShot ?? [])];
   }
 }
 
@@ -414,6 +629,9 @@ const TransportShipExecutionStateSchema = z.object({
   // Unvalidated until init() checks it.
   ref: zInt(),
   troops: zNum(),
+  escorted: z.boolean().optional(),
+  escorts: z.array(zRef()).optional(),
+  escortLastShot: z.array(zInt()).optional(),
 });
 type TransportShipExecutionState = z.infer<
   typeof TransportShipExecutionStateSchema

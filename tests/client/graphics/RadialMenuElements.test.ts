@@ -5,6 +5,7 @@ import {
   attackMenuElement,
   buildMenuElement,
   COLORS,
+  MenuElement,
   MenuElementParams,
   rootMenuElement,
   Slot,
@@ -81,6 +82,20 @@ vi.mock("dompurify", () => ({
     sanitize: vi.fn((str: string) => str),
   },
 }));
+
+/** Finds a menu item at the top level or one submenu down. */
+function findInMenus(
+  items: MenuElement[],
+  id: string,
+  params: MenuElementParams,
+): MenuElement | undefined {
+  for (const item of items) {
+    if (item.id === id) return item;
+    const nested = item.subMenu?.(params)?.find((sub) => sub.id === id);
+    if (nested) return nested;
+  }
+  return undefined;
+}
 
 describe("RadialMenuElements", () => {
   let mockParams: MenuElementParams;
@@ -400,8 +415,12 @@ describe("RadialMenuElements", () => {
         },
       };
 
-      const subMenu = rootMenuElement.subMenu!(mockParams);
-      const extendMenu = subMenu.find((item) => item.id === "ally_extend");
+      // Derpy Front: alliance actions live in the diplomacy submenu.
+      const extendMenu = findInMenus(
+        rootMenuElement.subMenu!(mockParams),
+        "ally_extend",
+        mockParams,
+      );
 
       expect(extendMenu).toBeDefined();
     });
@@ -426,8 +445,12 @@ describe("RadialMenuElements", () => {
         },
       };
 
-      const subMenu = rootMenuElement.subMenu!(mockParams);
-      const extendMenu = subMenu.find((item) => item.id === "ally_extend");
+      // Derpy Front: alliance actions live in the diplomacy submenu.
+      const extendMenu = findInMenus(
+        rootMenuElement.subMenu!(mockParams),
+        "ally_extend",
+        mockParams,
+      );
 
       expect(extendMenu).toBeUndefined();
     });
@@ -452,8 +475,12 @@ describe("RadialMenuElements", () => {
         },
       };
 
-      const subMenu = rootMenuElement.subMenu!(mockParams);
-      const extendMenu = subMenu.find((item) => item.id === "ally_extend");
+      // Derpy Front: alliance actions live in the diplomacy submenu.
+      const extendMenu = findInMenus(
+        rootMenuElement.subMenu!(mockParams),
+        "ally_extend",
+        mockParams,
+      );
 
       expect(extendMenu).toBeDefined();
       expect(extendMenu!.disabled(mockParams)).toBe(true);
@@ -479,11 +506,54 @@ describe("RadialMenuElements", () => {
         },
       };
 
-      const subMenu = rootMenuElement.subMenu!(mockParams);
-      const extendMenu = subMenu.find((item) => item.id === "ally_extend");
+      // Derpy Front: alliance actions live in the diplomacy submenu.
+      const extendMenu = findInMenus(
+        rootMenuElement.subMenu!(mockParams),
+        "ally_extend",
+        mockParams,
+      );
 
       expect(extendMenu).toBeDefined();
       expect(extendMenu!.disabled(mockParams)).toBe(false);
+    });
+
+    it("diplomacy offers a Trade Agreement, or ending the one in place", () => {
+      const other = {
+        id: () => 2,
+        isAlliedWith: vi.fn(() => false),
+        isPlayer: vi.fn(() => true),
+      } as unknown as PlayerView;
+      mockParams.selected = other;
+      mockGame.owner = vi.fn(() => other);
+      mockPlayerActions.interaction = {
+        ...mockPlayerActions.interaction,
+        canRequestTradeAgreement: true,
+        hasTradeAgreement: false,
+      };
+      const before = rootMenuElement.subMenu!(mockParams);
+      const request = findInMenus(
+        before,
+        "trade_agreement_request",
+        mockParams,
+      );
+      expect(request).toBeDefined();
+      expect(request!.disabled(mockParams)).toBe(false);
+      expect(
+        findInMenus(before, "trade_agreement_end", mockParams),
+      ).toBeUndefined();
+
+      mockPlayerActions.interaction = {
+        ...mockPlayerActions.interaction,
+        canRequestTradeAgreement: false,
+        hasTradeAgreement: true,
+      };
+      const after = rootMenuElement.subMenu!(mockParams);
+      expect(
+        findInMenus(after, "trade_agreement_end", mockParams),
+      ).toBeDefined();
+      expect(
+        findInMenus(after, "trade_agreement_request", mockParams),
+      ).toBeUndefined();
     });
   });
 

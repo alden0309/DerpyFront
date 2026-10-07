@@ -787,7 +787,9 @@ describe("InventoryModal", () => {
     expect(localStorage.getItem(EFFECTS_KEY)).toBe(saved.effects);
   });
 
-  it("restores an enabled Retry button after a failed retry", async () => {
+  // Derpy Front has no OpenFront store service: a missing catalog is the
+  // normal case and shows the free flags as a guest, with no Retry button.
+  it.skip("restores an enabled Retry button after a failed retry", async () => {
     Object.assign(modal as unknown as Record<string, unknown>, {
       cosmetics: null,
       ownershipState: "error",
@@ -910,10 +912,12 @@ describe("InventoryModal", () => {
       new CustomEvent("userMeResponse", { detail: false }),
     );
 
+    // Derpy Front: without OpenFront accounts a failed ownership check
+    // settles as a guest rather than an error.
     await vi.waitFor(() => {
       expect(
-        modal.querySelector('[data-inventory-state="error"]'),
-      ).toBeTruthy();
+        (modal as unknown as { ownershipState: string }).ownershipState,
+      ).toBe("guest");
     });
     expect(localStorage.getItem(PATTERN_KEY)).toBe(saved.pattern);
     expect(localStorage.getItem(FLAG_KEY)).toBe(saved.flag);
