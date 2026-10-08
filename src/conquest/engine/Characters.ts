@@ -201,6 +201,11 @@ export function planProblem(plan: unknown): string | null {
   )
     return "Names are 1 to 20 letters.";
   if (!(p.age in AGE_CHOICES)) return "Pick an age.";
+  if (
+    p.face !== undefined &&
+    (!Number.isInteger(p.face) || p.face < 0 || p.face > 999)
+  )
+    return "Pick a likeness.";
   if (!p.stats || typeof p.stats !== "object") return "Set your stats.";
   for (const st of STATS) {
     const v = p.stats[st];
@@ -230,7 +235,7 @@ export function governorFromPlan(
   plan: GovernorPlan,
 ): Character {
   const n = s.nations[nation];
-  return makeCharacter(s, rng, {
+  const c = makeCharacter(s, rng, {
     nation,
     culture: n.culture,
     religion: n.religion,
@@ -242,6 +247,8 @@ export function governorFromPlan(
     traits: [...plan.traits],
     made: true,
   });
+  if (Number.isInteger(plan.face) && plan.face! >= 0) c.face = plan.face;
+  return c;
 }
 
 /** A computer governor: decent at something, flawed at something else. */

@@ -4,18 +4,19 @@
 export const CONQUEST_COINS = {
   /** A game must last this long (game days) to pay. */
   minDays: 730,
-  played: 10,
-  perProvince: 1,
-  maxProvinces: 60,
-  perColony: 1,
-  maxColonies: 40,
-  perBattleWon: 2,
-  maxBattles: 40,
-  perConquest: 3,
-  maxConquests: 45,
-  win: 100,
-  second: 40,
-  third: 20,
+  played: 5,
+  /** Coins per province held at the end (a half: two provinces a coin). */
+  perProvince: 0.5,
+  maxProvinces: 30,
+  perColony: 0.5,
+  maxColonies: 20,
+  perBattleWon: 1,
+  maxBattles: 20,
+  perConquest: 2,
+  maxConquests: 30,
+  win: 60,
+  second: 25,
+  third: 10,
 } as const;
 
 export interface ConquestCoinGame {
@@ -39,19 +40,19 @@ export function conquestCoins(g: ConquestCoinGame): ConquestCoinResult {
     { line: "Played", coins: c.played },
     {
       line: "Provinces held",
-      coins: Math.min(c.maxProvinces, g.provinces * c.perProvince),
+      coins: Math.min(c.maxProvinces, Math.floor(g.provinces * c.perProvince)),
     },
     {
       line: "Colonies founded",
-      coins: Math.min(c.maxColonies, g.colonies * c.perColony),
+      coins: Math.min(c.maxColonies, Math.floor(g.colonies * c.perColony)),
     },
     {
       line: "Battles won",
-      coins: Math.min(c.maxBattles, g.battlesWon * c.perBattleWon),
+      coins: Math.min(c.maxBattles, Math.floor(g.battlesWon * c.perBattleWon)),
     },
     {
       line: "Provinces conquered",
-      coins: Math.min(c.maxConquests, g.conquests * c.perConquest),
+      coins: Math.min(c.maxConquests, Math.floor(g.conquests * c.perConquest)),
     },
     {
       line:

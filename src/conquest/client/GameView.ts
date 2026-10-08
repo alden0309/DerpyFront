@@ -611,6 +611,7 @@ export class GameView extends LitElement {
       state: this.s,
       me: this.me,
       dayNow: this.dayNow(),
+      running: !this.paused && !this.s.over,
       selectedProv: this.selectedProv,
       selectedArmy: this.selectedArmy,
       battles: this.flashes,

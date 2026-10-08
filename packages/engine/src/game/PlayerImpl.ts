@@ -1443,6 +1443,7 @@ export class PlayerImpl implements Player {
     type: T,
     spawnTile: TileRef,
     params: UnitParams<T>,
+    free = false,
   ): Unit {
     if (this.mg.config().isUnitDisabled(type)) {
       throw new Error(
@@ -1450,7 +1451,7 @@ export class PlayerImpl implements Player {
       );
     }
 
-    const cost = this.mg.unitInfo(type).cost(this.mg, this);
+    const cost = free ? 0n : this.mg.unitInfo(type).cost(this.mg, this);
     const b = new UnitImpl(
       type,
       this.mg,

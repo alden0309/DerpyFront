@@ -8,7 +8,6 @@ import { api } from "../derpland/Account";
 import "../derpland/DerpBar";
 import { BarPage, openSignIn } from "../derpland/DerpBar";
 import {
-  bananaMark,
   coinIcon,
   crownIcon,
   hourglassIcon,
@@ -147,33 +146,23 @@ export class DerpHome extends HubPage {
   render(): TemplateResult {
     return html`
       <section class="dl-intro">
-        <span class="dl-mascot" aria-hidden="true"
-          >${bananaMark("dl-banana big", true)}</span
-        >
-        <div class="dl-intro-text">
-          <h1 class="dl-bubble">
-            ${this.username
-              ? html`Hey ${this.username}, pick a game.`
-              : "Hey buddy, pick a game."}
-          </h1>
-          <p class="dl-lede">
-            ${this.account
-              ? html`You have
-                  <span class="dl-inline-coins"
-                    >${coinIcon("dl-coin")} ${nf(this.account.coins)}</span
-                  >
-                  Derp Coins. Every game you finish adds more, and the
-                  <a href="/store">Store</a> turns them into skins.`
-              : html`Two strategy games on one account. Every game you finish
-                  signed in pays Derp Coins you can spend on skins.
-                  <button
-                    class="dl-textbtn"
-                    @click=${() => openSignIn("create")}
-                  >
-                    Make an account
-                  </button>`}
-          </p>
-        </div>
+        <h1 class="dl-hello">
+          ${this.username ? `Pick a game, ${this.username}.` : "Pick a game."}
+        </h1>
+        <p class="dl-lede">
+          ${this.account
+            ? html`You have
+                <span class="dl-inline-coins"
+                  >${coinIcon("dl-coin")} ${nf(this.account.coins)}</span
+                >
+                Derp Coins. Every game you finish adds more, and the
+                <a href="/store">Store</a> turns them into skins.`
+            : html`Two strategy games on one account. Every game you finish
+                signed in pays Derp Coins you can spend on skins.
+                <button class="dl-textbtn" @click=${() => openSignIn("create")}>
+                  Make an account
+                </button>`}
+        </p>
       </section>
 
       <section class="dl-shelf" aria-label="Games">

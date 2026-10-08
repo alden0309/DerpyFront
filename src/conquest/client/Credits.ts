@@ -1,5 +1,5 @@
-// Who made the art, sounds and music in Derpy Conquest, and under what
-// licence. Shown in the game's menu and on the lobby page. CC-BY works need
+// Who made the portraits, art, sounds and music in Derpy Conquest, and
+// under what licence. Shown in the game's menu and on the lobby page. CC-BY works need
 // their author named; the rest are public domain or CC0 but credited anyway.
 
 import { html, TemplateResult } from "lit";
@@ -312,9 +312,709 @@ export const CREDITS: Credit[] = [
     source:
       "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1600025",
   },
+  {
+    what: "Portrait",
+    title: "Portrait of a girl at the Age of 10 (first half of 17th century)",
+    author: "Cornelis de Vos",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Cornelis_de_Vos_-_Portrait_of_a_Girl_at_the_Age_of_10_-_WGA25309.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Anne Erskine (b.1740), Daughter of John Erskine, 14th of Dun and Wife of John Wauchope of Edmonstone (1747)",
+    author: "Allan Ramsay",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Anne_Erskine_(b.1740),_Daughter_of_John_Erskine,_14th_of_Dun_and_Wife_of_John_Wauchope_of_Edmonstone.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Little Girl (between circa 1638 and circa 1642)",
+    author: "Diego Velázquez",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Diego_Vel%C3%A1zquez_-_Portrait_of_a_Little_Girl_-_A108_-_Hispanic_Society_of_America.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Louise-Marie de Bourbon (1674-1681) (between 1681 and 1682)",
+    author: "Pierre Mignard",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Mademoiselle_de_Tours_(Louise_Marie_Anne_de_Bourbon)_by_Pierre_Mignard_(Versaiilles).jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Jan Vekemans (1624)",
+    author: "Cornelis de Vos",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Cornelis_De_Vos_-_Portret_van_Jan_Vekemans_-_Portrait_de_Jan_Vekemans_-_Erfgoedfonds_Koning_Boudewijnstichting_-_Fonds_du_Patrimoine_Fondation_Roi_Baudouin.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Frederick Sluysken (1644-1710) (1652)",
+    author: "Ferdinand Bol",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Portrait_of_a_Boy,_said_to_be_the_artist%27s_son,_aged_8_by_Ferdinand_Bol,_1652.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "William Charles Colyear, Viscount Milsington, later 3rd Earl of Portmore (1747–1823), when a boy (1759)",
+    author: "Joshua Reynolds",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:William_Charles_Colyear,_Viscount_Milsington,_later_3rd_Earl_of_Portmore_(1747-1823)_by_Joshua_Reynolds.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Don Alonso Verdugo de Albornoz (1635)",
+    author: "Francisco de Zurbarán",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Francisco_de_Zurbar%C3%A1n_(1598_-_1664)_-_Don_Alonso_Verdugo_de_Albornoz_(1623-1695)_-_404C_-_Gem%C3%A4ldegalerie.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a woman aged 36 (1637)",
+    author: "Frans Hals",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Frans_Hals_-_Portrait_of_a_woman_with_glove_in_right_hand_(V2).jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of an Unknown Lady, Aged 26 (1632)",
+    author: "Paulus Moreelse",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Paulus_Moreelse_(1571-1638)_-_Portrait_of_an_Unknown_Lady,_Aged_26_-_773346_-_Osterley_House.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a young woman (1635)",
+    author: "Hendrik Gerritsz Pot",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Hendrik_Gerritsz_Pot_Protrait_of_a_young_woman_1635.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a woman in a black dress (before 1677)",
+    author: "Wallerant Vaillant",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Wallerant_Vaillant_-_Portrait_de_femme_%C3%A0_la_robe_noire,_H1118-L196626257.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Petronella Wilhelmina van Hoorn (1698-1764) (1722)",
+    author: "Arnold Boonen",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Arnold_Boonen_-_Portret_van_Petronella_Wilhelmina_van_Hoorn_-_03573_-_Geldersch_Landschap.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Margaretha de Geer, Wife of Jacob Trip (1660)",
+    author: "Nicolaes Maes",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Nicolaes_Maes_-_Portrait_of_Margaretha_de_Geer,_Wife_of_Jacob_Trip_-_Museum_of_Fine_Arts_Budapest.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Portrait Brechje Hooft (1640-1721). Widow of Harmen van de Poll (between 1700 and 1729)",
+    author: "Arnold Boonen",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Brechje_Hooft_(1640-1721)._Weduwe_van_Harmen_van_de_Poll._Rijksmuseum_SK-A-1263.jpeg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a young man (c. 1638-1640)",
+    author: "Frans Hals",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Frans_Hals_-_Portret_van_een_jongeman.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of an unknown man (1630)",
+    author: "Thomas de Keyser",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Thomas_de_Keyser_-_Portret_van_een_onbekende_man_-_GK_222_-_Museumslandschaft_Hessen_Kassel.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Gentleman in Black (between 1639 and 1640)",
+    author: "Gerard ter Borch",
+    license: "Public domain",
+    source: "https://commons.wikimedia.org/wiki/File:Legion_of_Honor_26.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Gentleman (1689)",
+    author: "Michiel van Musscher",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Portrait_of_a_Gentleman_-_Vanderbilt_Fine_Arts_Gallery_-_1970.007.tif",
+  },
+  {
+    what: "Portrait",
+    title: "Cornelis Tromp (1629-91). Lieutenant-admiral general (1668)",
+    author: "Johannes Mytens",
+    license: "Public domain",
+    source: "https://commons.wikimedia.org/wiki/File:Johannes_Mijtens_001.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Cornelis Pietersz Hooft (1547-1626) (1622)",
+    author: "Cornelis van der Voort",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Portret_van_Cornelis_Pietersz_Hooft_(1546-1626)_Rijksmuseum_SK-A-1416.jpeg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Johannes Uyttenbogaert (1557-1644). Remonstrant minister in The Hague (1638)",
+    author: "Jacob Adriaensz Backer",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Johannes_Wtenbogaert_(1557-1644)._Remonstrants_predikant_te_%27s-Gravenhage_Rijksmuseum_SK-C-1474.jpeg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Lady Anne Rushout (1631)",
+    author: "Marcus Gheeraerts the Younger",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Marcus_Gheeraerts_(II)_-_Portrait_of_Lady_Anne_Ruhout_-_WGA08659.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Catherine Vernon, Mrs George Vernon (1663-1710) (1681)",
+    author: "John Riley",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:John_Riley_(1646-1691)_-_Catherine_Vernon_(1662-1663%E2%80%931710),_Mrs_George_Vernon_of_Sudbury_-_653156_-_National_Trust.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Woman (between 1735 and 1745)",
+    author: "George Knapton",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:George_Knapton_-_Portrait_of_a_Woman_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Mary Bernard (d.1793), of Brampton Park, Huntingdonshire (1757)",
+    author: "Allan Ramsay",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Allan_Ramsay_(1713-1784)_-_Mary_Bernard_(d.1793),_of_Brampton_Park,_Huntingdonshire_-_PETMG-1949.PMC.7_-_Peterborough_Museum_and_Art_Gallery.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Martha Baker (1739)",
+    author: "Allan Ramsay",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Allan_Ramsay_(1713-1784)_-_Portrait_of_Martha_Baker_-_T06535_-_Tate.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Mrs John Kirby (1748)",
+    author: "Thomas Gainsborough",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Thomas_Gainsborough_(1727-1788)_-_Mrs_John_Kirby_-_645_-_Fitzwilliam_Museum.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Thomas Hopkinson (1746)",
+    author: "Robert Feke",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Robert_Feke_-_Thomas_Hopkinson_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Charles Fanshawe (1643–1710), 4th Viscount Fanshawe of Dromore (c. 1680)",
+    author: "John Riley",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Charles_Fanshawe,_4th_Viscount_Fanshawe_of_Dromore.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Reverend Ellis Gray (c. 1758)",
+    author: "Joseph Badger",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:EllisGray_ca1758_byJosephBadger_MFABoston.png",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Possibly Sir Thomas Hesketh, 1st Baronet Hesketh of Rufford (1727-1778) (c. 1759)",
+    author: "Henry Pickering",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Henry_Pickering_(c.1720-1770-1771)_-_Possibly_Sir_Thomas_Hesketh_(1727%E2%80%931778),_1st_Bt,_of_Rufford_-_784678_-_National_Trust.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "A Sea Officer, circa 1675 (c. 1675)",
+    author: "John Greenhill",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:A_Sea_Officer,_circa_1675_RMG_BHC3135.tiff",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Nicholas Rainton (1569–1646), President of St Bartholomew's Hospital (1643)",
+    author: "William Dobson",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:William_Dobson_(1611-1646)_(circle_of)_-_Nicholas_Rainton_(1569%E2%80%931646),_President_of_St_Bartholomew%27s_Hospital_-_SBHX7-3_-_Barts_Health_Archives.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "James Bowdoin (1746-47)",
+    author: "Joseph Badger",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:James_Bowdoin_by_Joseph_Badger.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "The Marquise de Castellane with her Embroidery (1743)",
+    author: "Joseph Aved",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Jacques-Andr%C3%A9-Joseph_Aved_(1702-1766)_-_The_Marquise_de_Castellane_with_Her_Embroidery_(La_Marquise_de_Castellane_avec_sa_tapisserie)_-_1904.1_-_Manchester_Art_Gallery.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Woman (1740)",
+    author: "Pierre Subleyras",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Pierre_Subleyras_(25.11.1699_-_28.5.1749)_-_Portrait_of_a_Woman_-_1877_-_Gem%C3%A4ldegalerie.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Mademoiselle de Roquelaure (c. 1650)",
+    author: "Pierre Mignard",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:%22Retrato_de_Mademoiselle_de_Roquelaure_por_Pierre_Mignard%22.png",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a lady (Marguerite de Valois?) (17th century)",
+    author: "Claude Deruet (attributed)",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Attributed_to_Claude_Deruet_-_Portrait_of_a_lady_(Marguerite_de_Valois%3F).jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait de l'artiste Geneviève Blanchot (1704)",
+    author: "Jean-Baptiste Santerre",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Poitiers_-_Mus%C3%A9e_Sainte-Croix_-_12.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Presumed portrait of Madame Geoffrin (c. 1760)",
+    author: "Marianne Loir",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Presumed_Portrait_of_Madame_Geoffrin.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Mrs Dupuy (1698)",
+    author: "Jean Ranc",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Mus%C3%A9e_Fabre_expo._Jean_Ranc16_Jean_Ranc_Mme_Dupuis2.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait de Vincent Voiture (c. 1643)",
+    author: "Philippe de Champaigne",
+    license: "Public domain",
+    source: "https://commons.wikimedia.org/wiki/File:Vincent_Voiture.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Gentleman (c. 1640)",
+    author: "Mathieu Le Nain (attributed)",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Attributed_to_Mathieu_Le_Nain_-_Portrait_of_a_Gentleman,_ca._1640.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Marc-Conrad Buisson (c. 1710)",
+    author: "Nicolas de Largillière",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Portrait_of_Marc-Conrad_Buisson_by_Nicolas_de_Largilli%C3%A8re,_Columbus_Museum_of_Art.JPG",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Portrait of the abbot Dieudonné Chaumont de la Galaisière  (1708–1768) (1738)",
+    author: "Joseph Aved",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Portrait_of_the_abbot_Dieudonn%C3%A9_Chaumont_de_la_Galaisi%C3%A8re_(1708-1768)_(by_Jacques-Andr%C3%A9-Joseph_Aved).jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Man in Armour (1750)",
+    author: "Jean-Marc Nattier",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Jean-Marc_Nattier_(1685-1766)_-_Portrait_of_a_Man_in_Armour_-_NG5587_-_National_Gallery.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait de René Pucelle (1721)",
+    author: "Hyacinthe Rigaud",
+    license: "Public domain",
+    source: "https://commons.wikimedia.org/wiki/File:Abb%C3%A9_Pucelle.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait de Louis de Silvestre (1754)",
+    author: "Jean-Baptiste Greuze",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Jean-Baptiste_Greuze_-_Louis_de_Silvestre_d._J._-_FV_7_-_Bavarian_State_Painting_Collections.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Pocahontas (after 1616)",
+    author: "Unidentified artist, after Simon van de Passe",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Unidentified_Artist_-_Pocahontas_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Arnaq and Nutaaq, Inuit from Frobisher Bay; woman in sealskin parka with baby in hood (c. 1577-1590)",
+    author: "John White",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:John_White_-_Arnaq_and_Nutaaq,_Inuit_from_Frobisher_Bay;_woman_in_sealskin_parka_with_baby_in_hood,_1906,0509.1.30.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Hayne Hudjihini (Eagle of Delight), Oto (c. 1822 (19th century))",
+    author: "Charles Bird King",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Charles_Bird_King_-_Hayne_Hudjihini_(Eagle_of_Delight),_Oto_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Kay-a-gís-gis, a Young Woman (1832 (19th century))",
+    author: "George Catlin",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:George_Catlin_-_Kay-a-g%C3%ADs-gis,_a_Young_Woman_-_1985.66.183_-_Smithsonian_American_Art_Museum.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Four Indian Kings of the New World (1 Mohican 3 Mohawk) [detail: Etow Oh Koam, Mahican] (1710)",
+    author: "John Verelst",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Four_Indian_Kings_of_the_New_World_(1_Mohican_3_Mohawk)_by_John_Verelst_1710.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Four Indian Kings of the New World (1 Mohican 3 Mohawk) [detail: Sa Ga Yeath Qua Pieth Tow, Mohawk] (1710)",
+    author: "John Verelst",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Four_Indian_Kings_of_the_New_World_(1_Mohican_3_Mohawk)_by_John_Verelst_1710.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Ho Nee Yeath Taw No Row (Mohawk) (1710)",
+    author: "John Verelst",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Ho_Nee_Yeath_Taw_No_Row.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Four Indian Kings of the New World (1 Mohican 3 Mohawk) [detail: Tee Yee Ho Ga Row (Hendrick), Mohawk] (1710)",
+    author: "John Verelst",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Four_Indian_Kings_of_the_New_World_(1_Mohican_3_Mohawk)_by_John_Verelst_1710.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Tish-co-han, a Delaware chief (1836-1844)",
+    author: "McKenney & Hall lithograph after Gustavus Hesselius (1735)",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Tish-co-han,_a_Delaware_chief.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of an Indian Chief (possibly Wingina) (c. 1585-1593)",
+    author: "John White",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:John_White_-_Portrait_of_an_Indian_Chief_(possibly_Wingina),_1906,0509.1.21.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Kalicho, an Inuk from Frobisher bay; wearing sealskin suit, holding a bow (c. 1577-1590)",
+    author: "John White",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:John_White_-_Kalicho,_an_Inuk_from_Frobisher_bay;_wearing_sealskin_suit,_holding_a_bow,_1906,0509.1.29.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Lapowinsa (1735)",
+    author: "Gustavus Hesselius",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Gustavus_Hesselius-Lapowinsa_(larger).jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Tomochachi and his nephew Tooanahowi (1735)",
+    author: "John Faber, after William Verelst",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:William_Verelst_-_Tomochachi_and_his_nephew_Tooanahowi.png",
+  },
+  {
+    what: "Portrait",
+    title: "Red Jacket (Sagoyewatha), Seneca (1833 (19th century))",
+    author: "Charles Bird King",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Charles_Bird_King_Red_Jacket.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Doña María de la Luz Padilla y (Gómez de) Cervantes (c. 1760)",
+    author: "Miguel Cabrera",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Miguel_Cabrera_-_Do%C3%B1a_Mar%C3%ADa_de_la_Luz_Padilla_y_(G%C3%B3mez_de)_Cervantes_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Woman (between circa 1650 and circa 1670)",
+    author: "Juan Carreño de Miranda",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Juan_Carreno_De_Miranda_003.jpeg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Lady (1621)",
+    author: "Bartolomé González y Serrano",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Bartolom%C3%A9_Gonz%C3%A1lez_-_Retrato_de_dama,_1621.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Woman (1646)",
+    author: "Juan Bautista Martínez del Mazo (or Diego Velázquez)",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Retrato_de_mujer_joven_2,_by_Diego_Vel%C3%A1zquez.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "The Nun Jerónima de la Fuente (1620)",
+    author: "Diego Velázquez",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Madre_Jer%C3%B3nima_de_la_Fuente_2,_by_Diego_Vel%C3%A1zquez.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "An Old Woman Spinning (17th century)",
+    author: "After Bartolomé Esteban Murillo (copy)",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Vieja_hilando,_copia_de_un_original_de_Murillo_(Museo_del_Prado).jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Gentleman (c. 1607)",
+    author: "Bartolomé González y Serrano",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Bartolom%C3%A9_Gonz%C3%A1lez_y_Serrano_-_Portrait_of_a_Gentleman_-_WGA9752.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Gentleman (c. 1613)",
+    author: "Juan Bautista Maíno",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Maino-retrato_de_caballero.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Lorenzo van der Hamen (c. 1620)",
+    author: "Juan van der Hamen",
+    license: "Public domain",
+    source: "https://commons.wikimedia.org/wiki/File:Lorenzo-van-der-Hamen.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Íñigo Fernández de Velasco (1658)",
+    author: "Bartolomé Esteban Murillo",
+    license: "Public domain",
+    source: "https://commons.wikimedia.org/wiki/File:InigoMelchorVelasco.JPG",
+  },
+  {
+    what: "Portrait",
+    title: "Don Manuel Jose Rubio y Salinas, Archbishop of Mexico (1754)",
+    author: "Miguel Cabrera",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Retrato_del_Arzobispo_Don_Jos%C3%A9_Rubio_y_Salinas.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of an elderly Man (c. 1620)",
+    author: "Luis Tristán",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Retrato_de_un_anciano,_de_Luis_Trist%C3%A1n_de_Escamilla_(Museo_del_Prado).jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of a Knight of the Order of Santiago (1601)",
+    author: "Juan Pantoja de la Cruz",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Juan_Pantoja_de_la_Cruz_022.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Doctor Juan Martínez Serrano (between 1631 and 1640)",
+    author: "Francisco de Zurbarán",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Retrato_de_Juan_Mart%C3%ADnez_Serrano.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Okänd kvinna, tidigare kallad Sofia Gyllenhielm (c. 1650)",
+    author: "Jacob Heinrich Elbfas",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Ok%C3%A4nd_kvinna,_tidigare_kallad_Sofia_Gyllenhielm_(Jacob_Heinrich_Elbfas)_-_Nationalmuseum_-_35870.tif",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait with a lady with lapdog (c. 1720-1750)",
+    author: "Johan Henrik Scheffel",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Johan_Henrik_Scheffel_-_Portrait_with_a_lady_with_lapdog_-_S-2010-204_-_Finnish_National_Gallery.jpg",
+  },
+  {
+    what: "Portrait",
+    title: "Countess Lovisa Ulrika Tessin, née Sparre (c. 1750)",
+    author: "Gustaf Lundberg",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Countess_Lovisa_Ulrika_Tessin,_n%C3%A9e_Sparre_(Gustaf_Lundberg)_-_Nationalmuseum_-_24068.tif",
+  },
+  {
+    what: "Portrait",
+    title: "Portrait of Maria Karolina Gräfin Fuchs (1681-1754) (1740s)",
+    author: "Martin van Meytens",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Martin_van_Meytens_-_Maria_Karolina_Gr%C3%A4fin_Fuchs_(1681-1754)_an_einem_Tisch_sitzend.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Henry Fleming (1584-1650) baron, Admiral, governor, married to 1. Ebba Eriksdotter Bååt, 2. Sigrid Kurtzel (1631)",
+    author: "Jacob Heinrich Elbfas",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Jacob_Heinrich_Elbfas_-_Henry_Fleming_(1584-1650)_baron,_Admiral,_governor,_married_to_1._Ebba_Eriksdotter_B%C3%A5%C3%A5t,_2._Sigrid_Kurtzel_-_NMGrh_1601_-_Nationalmuseum.jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Magnus Gabriel de la Gardie (1622-1686), count, councillor, chancellor, lord chancellor, university chancellor, president of the court of appeal, governor-general of Livland, married to palatine count (c. 1650)",
+    author: "Hendrik Munnichhoven",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Magnus_Gabriel_de_la_Gardie,_1622-1686_(Henrik_M%C3%BCnnichhofen)_-_Nationalmuseum_-_39848.tif",
+  },
+  {
+    what: "Portrait",
+    title: "Henrik Magnus Buddenbrock, 1685-1743 (before 1724)",
+    author: "Johan Starbus",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Henrik_Magnus_Buddenbrock_(1685%E2%80%931743).jpg",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Carl Hårleman (1700–1753), Architect and Director of Public Works (c. 1748)",
+    author: "Olof Arenius",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Carl_H%C3%A5rleman,_1700-1753_(Olof_Arenius)_-_Nationalmuseum_-_14985.tif",
+  },
+  {
+    what: "Portrait",
+    title:
+      "Claes Bielke of Åkerö (1544-1623), baron, councillor, married to 1. Elin Fleming, 2. Elsa Bielke",
+    author: "Jacob Heinrich Elbfas",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Klas_Bielke_af_%C3%85ker%C3%B6,_1544-1623_(Jacob_Heinrich_Elbfas)_-_Nationalmuseum_-_39845.tif",
+  },
 ];
 
 const GROUPS: [Credit["what"], string][] = [
+  ["Portrait", "Portraits"],
   ["Music", "Music"],
   ["Sound", "Sounds"],
   ["Picture", "Pictures"],

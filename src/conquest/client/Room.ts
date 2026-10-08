@@ -31,6 +31,7 @@ import { powerExists, ServerMessage } from "../Protocol";
 import { flag } from "./Flags";
 import { settingsFields } from "./Lobby";
 import { Net } from "./Net";
+import { framed, likenesses } from "./Portrait";
 import { nationVars } from "./Theme";
 
 export type LobbyState = Extract<ServerMessage, { t: "lobby" }>;
@@ -73,6 +74,7 @@ function freshPlan(power: string, female = false): GovernorPlan {
       lea: STAT_START,
     },
     traits: [],
+    face: Math.floor(Math.random() * 12),
   };
 }
 
@@ -100,6 +102,7 @@ function randomPlan(base: GovernorPlan): GovernorPlan {
     ...base,
     stats: { dip: 5, mar: 5, ste: 5, int: 5, lea: 5 },
     traits: [],
+    face: Math.floor(Math.random() * 12),
   };
   const wanted = 1 + Math.floor(Math.random() * 3);
   for (let tries = 0; plan.traits.length < wanted && tries < 30; tries++) {
@@ -356,6 +359,18 @@ export class Room extends LitElement {
     const effective = (st: Stat) =>
       plan.stats[st] +
       plan.traits.reduce((m, t) => m + (TRAITS[t].stats[st] ?? 0), 0);
+    const faces = likenesses(
+      POWER_RULES[power]?.culture ?? "english",
+      plan.female,
+      AGE_CHOICES[plan.age].years,
+      false,
+    );
+    const face = faces.length ? (plan.face ?? 0) % faces.length : 0;
+    const turn = (by: number) =>
+      set({ face: (face + by + faces.length) % Math.max(1, faces.length) });
+    const crown = AMERICAS.powers
+      .find((x) => x.id === power)
+      ?.name.replace(/^the /, "the ");
     return html`<section class="cq-governor">
       <h2 class="cq-h2 step">
         <span class="cq-step">II</span> Make your governor
@@ -366,6 +381,34 @@ export class Room extends LitElement {
         a flaw gives trait points back.
       </p>
       <div class="cq-gov-grid">
+        <p class="cq-commission-title">
+          A commission from the crown of ${crown ?? power} to govern its
+          colonies in the Americas
+        </p>
+        <figure class="cq-likeness">
+          ${framed(
+            faces[face] ?? null,
+            `Likeness of ${plan.first} ${plan.family}`,
+            "huge",
+          )}
+          <figcaption>
+            <button
+              class="cq-step-btn"
+              aria-label="Previous likeness"
+              @click=${() => turn(-1)}
+            >
+              ‹
+            </button>
+            <span>Likeness ${face + 1} of ${faces.length}</span>
+            <button
+              class="cq-step-btn"
+              aria-label="Next likeness"
+              @click=${() => turn(1)}
+            >
+              ›
+            </button>
+          </figcaption>
+        </figure>
         <div class="cq-gov-id">
           <div class="cq-name-row">
             <label class="cq-field">
@@ -573,6 +616,10 @@ export class Room extends LitElement {
         >
           Roll a random governor
         </button>
+        <span class="cq-signature" aria-hidden="true"
+          ><span class="cq-sig-label">Signed,</span
+          ><span class="cq-sig-name">${plan.first} ${plan.family}</span></span
+        >
         ${problem ? html`<span class="cq-why">${problem}</span>` : nothing}
         ${sworn
           ? html`<span class="cq-sworn">Sworn in as governor</span>`

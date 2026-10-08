@@ -4,11 +4,7 @@
     <path d="M45.5 13.5 47.6 5.2Q48 3.8 49.4 4.2l3.2 1q1.3.5.8 1.8l-3 8.6z" fill="#6b4a1f" stroke="#2e2010" stroke-width="1.6" stroke-linejoin="round"/>
     <path d="M46.4 12.6c8.2 5.8 10 21 2.2 32.6-7.2 10.6-22.2 15-35.8 11.2-3.2-.9-4.2-3.8-2.2-5.2 14-.4 25.2-7.2 30.4-17.6 3.2-6.4 3.4-13.4 2-18.4-.4-2 1.6-3.6 3.4-2.6z" fill="#f5cc3c" stroke="#2e2010" stroke-width="2" stroke-linejoin="round"/>
     <path d="M50.6 21.4c2.6 10.4 0 20.2-7 27.6-6.6 6.6-17.2 9.8-27.8 8.4 11.6-1 22.8-6 29-14.8 4.6-6.6 6.4-14 5.8-21.2z" fill="#e2a81c"/>
+    <path d="M44.8 17c1.6 6.6.8 13.4-2.2 19.4" fill="none" stroke="#fff1b0" stroke-width="2.2" stroke-linecap="round"/>
     <path d="M10.6 51.2c-1.6 1-1.6 3.4.4 4.4l2.4.9c-1.4-1.7-1.8-3.7-.8-5.3z" fill="#4a3216"/>
-    <ellipse cx="35.4" cy="42.2" rx="3.8" ry="4.3" fill="#fff" stroke="#2e2010" stroke-width="1.4"/>
-    <ellipse cx="44.2" cy="36.6" rx="2.9" ry="3.3" fill="#fff" stroke="#2e2010" stroke-width="1.4"/>
-    <circle cx="36.3" cy="43.2" r="1.9" fill="#2e2010"/>
-    <circle cx="43.6" cy="35.8" r="1.4" fill="#2e2010"/>
-    <path d="M37.6 49c3.2 0 6.8-2.2 8.6-5.8" fill="none" stroke="#2e2010" stroke-width="2" stroke-linecap="round"/>
   </g>
 </svg>

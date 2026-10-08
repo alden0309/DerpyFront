@@ -85,7 +85,7 @@ export class PreviewTerritoryPass {
       type: gl.UNSIGNED_BYTE,
       data: this.skinLayer,
     });
-    // Anchor the skin stamp like a spawn tile in-game.
+    // Anchor the skin's tiling like a spawn tile in-game.
     const anchors = new Uint16Array(palW * 2);
     anchors[PREVIEW_OWNER_ID * 2] = skinAnchor.x;
     anchors[PREVIEW_OWNER_ID * 2 + 1] = skinAnchor.y;

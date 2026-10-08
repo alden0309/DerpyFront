@@ -262,11 +262,8 @@ export function tokenColor(name: string): string {
   return TOKEN_COLORS[h % TOKEN_COLORS.length];
 }
 
-/**
- * Derp Land's banana: the site's logo and mascot. `blink` gives its eyes a
- * class so a page can make it blink once (see hub.css).
- */
-export function bananaMark(cls = "dl-banana", blink = false): TemplateResult {
+/** Derp Land's logo: a banana. */
+export function bananaMark(cls = "dl-banana"): TemplateResult {
   return html`<svg class=${cls} viewBox="0 0 64 64" aria-hidden="true">
     <path
       d="M45.5 13.5 47.6 5.2Q48 3.8 49.4 4.2l3.2 1q1.3.5.8 1.8l-3 8.6z"
@@ -297,50 +294,6 @@ export function bananaMark(cls = "dl-banana", blink = false): TemplateResult {
     <path
       d="M10.6 51.2c-1.6 1-1.6 3.4.4 4.4l2.4.9c-1.4-1.7-1.8-3.7-.8-5.3z"
       fill="#4a3216"
-    />
-    <g class=${blink ? "dl-banana-eyes" : ""}>
-      <ellipse
-        cx="35.4"
-        cy="42.2"
-        rx="3.6"
-        ry="4.1"
-        fill="#fff"
-        stroke="#2e2010"
-        stroke-width="1.3"
-      />
-      <ellipse
-        cx="44.2"
-        cy="36.6"
-        rx="2.7"
-        ry="3.1"
-        fill="#fff"
-        stroke="#2e2010"
-        stroke-width="1.3"
-      />
-      <circle cx="36.3" cy="43.2" r="1.7" fill="#2e2010" />
-      <circle cx="43.6" cy="35.8" r="1.25" fill="#2e2010" />
-    </g>
-    <ellipse
-      cx="32.6"
-      cy="48.8"
-      rx="2.2"
-      ry="1.3"
-      fill="#f08a52"
-      opacity=".7"
-    />
-    <path
-      d="M37.6 49c3.2 0 6.8-2.2 8.6-5.8"
-      fill="none"
-      stroke="#2e2010"
-      stroke-width="1.7"
-      stroke-linecap="round"
-    />
-    <path
-      d="M41.8 47.9c.6 2.1 2.8 1.9 3-.9"
-      fill="#d9573f"
-      stroke="#2e2010"
-      stroke-width="1.1"
-      stroke-linejoin="round"
     />
   </svg>`;
 }

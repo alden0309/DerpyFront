@@ -18,17 +18,17 @@ import {
 export const DERP_COINS_MIN_GAME_SECONDS = 120;
 
 export const DERP_COINS = {
-  played: 10,
-  perTerritoryPercent: 1,
-  maxTerritory: 100,
-  perConquest: 5,
+  played: 5,
+  perTerritoryPercent: 0.5,
+  maxTerritory: 50,
+  perConquest: 3,
   perBotConquest: 1,
-  maxConquests: 50,
-  goldPerCoin: 250_000n,
-  maxGold: 40,
-  mvp: 50,
-  otherAward: 20,
-  win: 100,
+  maxConquests: 30,
+  goldPerCoin: 500_000n,
+  maxGold: 20,
+  mvp: 25,
+  otherAward: 10,
+  win: 50,
 } as const;
 
 export type DerpCoinLine =

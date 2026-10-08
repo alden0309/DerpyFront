@@ -40,6 +40,7 @@ import {
 } from "./MapArt";
 import {
   drawSprite,
+  drawSpriteTilted,
   loadSprites,
   sprite,
   SpriteName,
@@ -202,6 +203,8 @@ export interface Overlay {
   me: number;
   /** Fractional current day, for moving armies smoothly. */
   dayNow: number;
+  /** The clock is running (armies on the move march; paused, they halt). */
+  running: boolean;
   selectedProv: number | null;
   selectedArmy: number | null;
   /** Province -> real time (ms) of a recent battle there. */
@@ -248,6 +251,8 @@ export class MapView {
   view: View = { scale: 0.4, tx: 0, ty: 0 };
   private arcs: DecodedArc[] = [];
   private provPaths: Path2D[] = [];
+  /** Where each army was drawn last frame, to ease it along. */
+  private armyDrawn = new Map<number, { x: number; y: number; t: number }>();
   private provBox: [number, number, number, number][] = [];
   private coast = new Path2D();
   private borders = new Path2D();
@@ -1747,7 +1752,7 @@ export class MapView {
     };
     if (sel && sel.path.length)
       drawPath(
-        this.armySpot(sel, day),
+        this.smoothSpot(sel, day),
         sel.depart >= 0 ? sel.path[0] : sel.prov,
         sel.depart >= 0 ? sel.path.slice(1) : sel.path,
         "rgba(255,250,235,0.95)",
@@ -1756,10 +1761,34 @@ export class MapView {
       const [first, ...rest] = o.preview;
       const moving = sel.depart >= 0 && sel.path.length > 0;
       drawPath(
-        this.armySpot(sel, day),
+        this.smoothSpot(sel, day),
         moving ? first : sel.prov,
         moving ? rest : o.preview,
         "rgba(255,215,110,0.95)",
+      );
+    }
+
+    // Where your armies (and enemies you can see) are marching: a line of
+    // dashes that flows toward the destination while the clock runs.
+    for (const a of s.armies) {
+      if (a.depart < 0 || a.path.length === 0) continue;
+      if (a.id === o.selectedArmy) continue;
+      const mine = a.owner === o.me;
+      const hostile =
+        o.me >= 0 &&
+        s.wars.some(
+          (w) =>
+            (w.a === o.me && w.b === a.owner) ||
+            (w.b === o.me && w.a === a.owner),
+        );
+      if (!mine && !hostile) continue;
+      this.drawMarchLine(
+        a,
+        day,
+        mine ? "rgba(255,248,226,0.85)" : "rgba(214,64,44,0.85)",
+        o.running ? now : 0,
+        sx,
+        sy,
       );
     }
 
@@ -1781,7 +1810,7 @@ export class MapView {
         );
       const important = mine || hostile || a.id === o.selectedArmy;
       if (!important && v.scale < 0.9) continue;
-      const [mx, my, heading] = this.armySpot(a, day);
+      const [mx, my, heading] = this.smoothSpot(a, day);
       let x = sx(mx);
       const y = sy(my);
       if (!onScreen(x, y, 40)) continue;
@@ -1791,8 +1820,9 @@ export class MapView {
       x += slot * (figure * 0.9);
       const nation = s.nations[a.owner];
       const moving = a.depart >= 0 && a.path.length > 0;
+      const marching = moving && o.running;
       const dir = moving && Math.cos(heading) < 0 ? -1 : 1;
-      const stepPhase = moving ? Math.sin(now / 110 + a.id) : 0;
+      const stepPhase = marching ? Math.sin(now / 110 + a.id) : 0;
       const h = important ? figure : figure * 0.75;
       const selected = a.id === o.selectedArmy;
       if (selected) {
@@ -1806,15 +1836,19 @@ export class MapView {
         if (!this.drawShip(ctx, x, y, h * 1.3, heading, nation.color, now))
           ship(ctx, x, y, h * 0.8, dir > 0 ? 0 : Math.PI, nation.color, now);
       } else if (
-        !this.drawTroop(
-          ctx,
-          x,
-          y + (moving ? Math.abs(stepPhase) * -1.5 : 0),
-          h,
-          figureOf(a),
-          nation.color,
-          dir < 0,
-        )
+        !(moving
+          ? this.drawColumn(
+              ctx,
+              x,
+              y,
+              h,
+              figureOf(a),
+              nation.color,
+              heading,
+              marching ? now : null,
+              a.id,
+            )
+          : this.drawTroop(ctx, x, y, h, figureOf(a), nation.color, dir < 0))
       )
         soldier(
           ctx,
@@ -1837,7 +1871,8 @@ export class MapView {
       if (label) {
         ctx.font = "700 10px 'Alegreya Sans', system-ui, sans-serif";
         tagW = ctx.measureText(label).width + 8;
-        const tx = x + h * 0.42;
+        // Ahead of a marching column, so it doesn't sit on the men behind.
+        const tx = moving && dir < 0 ? x - h * 0.42 - tagW : x + h * 0.42;
         const ty = y - h * 0.95;
         ctx.fillStyle = nation.color;
         ctx.strokeStyle = mine
@@ -1880,6 +1915,201 @@ export class MapView {
     // Keep drawing until the chart has caught up with the view.
     const after = this.baseFits();
     this.needsDraw = this.baseDirty || !after.covered;
+  }
+
+  /**
+   * Where an army is drawn this frame: its place on the route, eased from
+   * where it was drawn last so it glides rather than hops when a new day's
+   * news arrives. A big jump (a new route, a retreat) snaps straight there.
+   */
+  private smoothSpot(a: Army, day: number): [number, number, number] {
+    const want = this.armySpot(a, day);
+    const was = this.armyDrawn.get(a.id);
+    const t = performance.now();
+    if (!was) {
+      this.armyDrawn.set(a.id, { x: want[0], y: want[1], t });
+      return want;
+    }
+    const gap = Math.hypot(want[0] - was.x, want[1] - was.y);
+    const dt = Math.min(0.25, (t - was.t) / 1000);
+    const k = gap > 40 ? 1 : 1 - Math.exp(-dt * 10);
+    const x = was.x + (want[0] - was.x) * k;
+    const y = was.y + (want[1] - was.y) * k;
+    this.armyDrawn.set(a.id, { x, y, t });
+    return [x, y, want[2]];
+  }
+
+  /** The rest of a moving army's route, its dashes flowing toward the end. */
+  private drawMarchLine(
+    a: Army,
+    day: number,
+    color: string,
+    now: number,
+    sx: (x: number) => number,
+    sy: (y: number) => number,
+  ): void {
+    const ctx = this.ctx;
+    const [x0, y0] = this.smoothSpot(a, day);
+    const pts: [number, number][] = [[x0, y0]];
+    let at = a.prov;
+    a.path.forEach((q, i) => {
+      const walk = this.map.provinces[at].nb.some(([x]) => x === q);
+      const way = this.hopPath(at, q, i === 0 ? a.sea : !walk);
+      // The first hop: only the part still ahead.
+      const from =
+        i === 0
+          ? Math.max(
+              1,
+              Math.ceil(
+                way.length *
+                  Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      (day - a.depart) / Math.max(1, a.arrive - a.depart),
+                    ),
+                  ),
+              ),
+            )
+          : 1;
+      for (const p of way.slice(from)) pts.push(p);
+      at = q;
+    });
+    if (pts.length < 2) return;
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    // A dark under-stroke so the dashes read on any colour.
+    ctx.strokeStyle = "rgba(30,20,10,0.35)";
+    ctx.lineWidth = 3.4;
+    ctx.setLineDash([7, 7]);
+    ctx.lineDashOffset = -(now / 45) % 14;
+    ctx.beginPath();
+    ctx.moveTo(sx(pts[0][0]), sy(pts[0][1]));
+    for (const [px, py] of pts.slice(1)) ctx.lineTo(sx(px), sy(py));
+    ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // An arrowhead at the destination.
+    const [ex, ey] = pts[pts.length - 1];
+    const [px, py] = pts[Math.max(0, pts.length - 3)];
+    const ang = Math.atan2(sy(ey) - sy(py), sx(ex) - sx(px));
+    const hx = sx(ex);
+    const hy = sy(ey);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "rgba(30,20,10,0.5)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(hx + Math.cos(ang) * 6, hy + Math.sin(ang) * 6);
+    ctx.lineTo(hx + Math.cos(ang + 2.5) * 6, hy + Math.sin(ang + 2.5) * 6);
+    ctx.lineTo(hx + Math.cos(ang - 2.5) * 6, hy + Math.sin(ang - 2.5) * 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
+   * An army on the march: a short column of its soldiers in step, swaying as
+   * they walk, kicking up dust behind them. `now` is null while the clock is
+   * stopped, and the column halts mid-stride.
+   */
+  private drawColumn(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    h: number,
+    kind: RegType,
+    color: string,
+    heading: number,
+    now: number | null,
+    seed: number,
+  ): boolean {
+    const name: SpriteName =
+      kind === "riders" ? "dragoons" : (kind as SpriteName);
+    if (!sprite(name)) return false;
+    const tall: Record<string, number> = {
+      militia: 1.45,
+      regulars: 1.35,
+      dragoons: 1.45,
+      artillery: 0.95,
+      warriors: 1.6,
+    };
+    const size = h * (tall[name] ?? 1.4) * 0.86;
+    const flip = Math.cos(heading) < 0;
+    // Screen direction of travel (the map's y runs down, like the screen's).
+    const ux = Math.cos(heading);
+    const uy = Math.sin(heading);
+    const count = name === "artillery" ? 2 : 3;
+    const gap = h * (name === "dragoons" ? 0.8 : 0.62);
+    const t = now ?? 0;
+    const pace = name === "dragoons" ? 85 : 120;
+    // Dust behind the last man.
+    if (now !== null) {
+      const bx = x - ux * gap * (count - 0.4);
+      const by = y - uy * gap * (count - 0.4);
+      for (let k = 0; k < 3; k++) {
+        const age = (t / 700 + k / 3 + seed * 0.37) % 1;
+        const r = h * (0.1 + age * 0.22);
+        ctx.fillStyle = `rgba(196,170,120,${(0.38 * (1 - age)).toFixed(3)})`;
+        ctx.beginPath();
+        ctx.ellipse(
+          bx - ux * age * h * 0.5 + (k - 1) * h * 0.08,
+          by - uy * age * h * 0.5 - age * h * 0.18,
+          r * 1.3,
+          r * 0.7,
+          0,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+    }
+    // Their colours on the ground, stretched under the whole file.
+    const cx = x - ux * gap * ((count - 1) / 2);
+    const cy = y - uy * gap * ((count - 1) / 2);
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "rgba(25,15,8,0.75)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(
+      cx,
+      cy,
+      h * 0.5 + Math.abs(ux) * gap * (count - 1) * 0.5,
+      h * 0.17 + Math.abs(uy) * gap * (count - 1) * 0.35,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.stroke();
+    // Back to front, so nearer men overlap those behind.
+    const men = Array.from({ length: count }, (_, i) => {
+      const step = Math.sin(t / pace + i * 2.1 + seed);
+      return {
+        x: x - ux * gap * i,
+        y: y - uy * gap * i,
+        bob: now === null ? 0 : -Math.abs(step) * h * 0.11,
+        tilt: now === null ? 0 : step * 0.09,
+      };
+    }).sort((a, b) => a.y - b.y);
+    ctx.save();
+    ctx.shadowColor = "rgba(252,244,222,0.95)";
+    ctx.shadowBlur = 2.5;
+    for (const m of men)
+      drawSpriteTilted(
+        ctx,
+        name,
+        m.x,
+        m.y + h * 0.05 + m.bob,
+        size,
+        flip,
+        m.tilt,
+      );
+    ctx.restore();
+    return true;
   }
 
   /** A soldier of an army's main kind standing on its colours. */

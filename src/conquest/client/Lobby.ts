@@ -16,6 +16,7 @@ import {
   RoomSettings,
   SavedGame,
 } from "../Protocol";
+import deskMap from "./art/desk_map.webp?url";
 import { creditsList } from "./Credits";
 import { flag } from "./Flags";
 import { Net } from "./Net";
@@ -101,11 +102,14 @@ export class Lobby extends LitElement {
         <section class="cq-hero">
           <figure class="cq-hero-art">
             <img
-              src="/derpland/conquest-box.webp"
-              alt="An old map of the Atlantic coast with sailing ships and colonial forts"
-              width="900"
-              height="600"
+              src=${deskMap}
+              alt="Willem Blaeu's map of the Americas, with galleons on the Atlantic and Pacific"
+              width="1600"
+              height="1244"
             />
+            <figcaption>
+              <i>Americae nova Tabula</i>, Willem Blaeu, Amsterdam, 1617
+            </figcaption>
           </figure>
           <div class="cq-hero-text">
             <h1 class="cq-title">Derpy Conquest</h1>
@@ -126,6 +130,7 @@ export class Lobby extends LitElement {
 
         <div class="cq-lobby-grid">
           <section class="cq-sheet cq-new">
+            <span class="cq-seal cq-sheet-seal" aria-hidden="true"></span>
             <h2 class="cq-h2">Start a game</h2>
             ${this.account
               ? html`<p class="cq-muted">

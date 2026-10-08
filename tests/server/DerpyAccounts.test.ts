@@ -77,7 +77,7 @@ describe("Derp Coins", () => {
   };
 
   test("everyone who finishes a game gets something", () => {
-    expect(derpCoinsForGame(base).total).toBe(10);
+    expect(derpCoinsForGame(base).total).toBe(5);
   });
 
   test("winning, land, conquests, gold and awards all pay", () => {
@@ -90,8 +90,8 @@ describe("Derp Coins", () => {
       botsConquered: 4,
       awards: ["mvp", "ships"],
     });
-    // 10 + 63 + (15 + 4) + 40 (capped) + 70 + 100
-    expect(r.total).toBe(302);
+    // 5 + 31 + (9 + 4) + 20 (capped) + 35 + 50
+    expect(r.total).toBe(154);
     expect(r.lines.map((l) => l.line)).toEqual([
       "played",
       "territory",
@@ -153,8 +153,8 @@ describe("playerLine", () => {
       nukes: 3, // warheads aren't launches
       awards: ["mvp"],
     });
-    // 10 + 25 + (15 + 3) + 6 + 50 + 100
-    expect(line.coins).toBe(209);
+    // 5 + 12 + (9 + 3) + 3 + 25 + 50
+    expect(line.coins).toBe(107);
   });
 
   test("team wins count for every listed member", () => {
@@ -290,13 +290,13 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     ];
     const lines = await recordGame(r, awards);
     // 10 + 40 + 10 + 8 + 50 + 100
-    expect([...lines.values()].map((l) => l.coins)).toEqual([218]);
+    expect([...lines.values()].map((l) => l.coins)).toEqual([110]);
 
     // Saving it again (a second vote, say) changes nothing.
     expect((await recordGame(r, awards)).size).toBe(0);
 
     const me = await call("/me", { token: alden.token });
-    expect(me.json.account.coins).toBe(218);
+    expect(me.json.account.coins).toBe(110);
 
     const board = await call("/leaderboard");
     expect(board.json.players[0]).toMatchObject({
@@ -306,7 +306,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
       bestTerritoryPct: 40,
       goldEarned: "2000000",
       mvps: 1,
-      coins: 218,
+      coins: 110,
     });
 
     const profile = await call("/players/alden");
@@ -316,7 +316,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
       map: "Orlando - Detailed",
       won: true,
       awards: ["mvp"],
-      coins: 218,
+      coins: 110,
     });
 
     // The front page's latest games name the account, not the in-game name.
@@ -349,14 +349,14 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     const r = record([quit], undefined, 300, "GAME0003");
     const lines = await recordGame(r, [], () => 1);
     expect([...lines.values()]).toEqual([
-      expect.objectContaining({ won: false, peakTerritoryPct: 0, coins: 10 }),
+      expect.objectContaining({ won: false, peakTerritoryPct: 0, coins: 5 }),
     ]);
     expect((await call("/game/GAME0003")).status).toBe(200);
     // Put Alden's balance back where the later tests expect it.
     const pg = await import("pg");
     const c = new pg.default.Client({ connectionString: TEST_DB });
     await c.connect();
-    await c.query("UPDATE derpy_accounts SET coins = coins - 10 WHERE id = 1");
+    await c.query("UPDATE derpy_accounts SET coins = coins - 5 WHERE id = 1");
     await c.end();
   });
 
@@ -365,9 +365,9 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     const classics = store.json.packs.find(
       (p: { name: string }) => p.name === "classics",
     );
-    expect(classics.price).toBe(400);
+    expect(classics.price).toBe(1500);
 
-    // 218 coins isn't enough yet.
+    // 110 coins isn't enough yet.
     const poor = await call("/store/buy", {
       body: { pack: "classics" },
       token: alden.token,
@@ -377,7 +377,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     const pg = await import("pg");
     const c = new pg.default.Client({ connectionString: TEST_DB });
     await c.connect();
-    await c.query("UPDATE derpy_accounts SET coins = 1000");
+    await c.query("UPDATE derpy_accounts SET coins = 2000");
     await c.end();
 
     const bought = await call("/store/buy", {
@@ -385,7 +385,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
       token: alden.token,
     });
     expect(bought.status).toBe(200);
-    expect(bought.json.coins).toBe(600);
+    expect(bought.json.coins).toBe(500);
     expect(bought.json.owned).toContain("skin:classic_camo");
     expect(bought.json.owned).toContain("pack:classics");
 

@@ -205,6 +205,8 @@ export interface Character {
   lastBirth: number;
   /** A governor the player made (not generated). */
   made: boolean;
+  /** The likeness the player chose for them (index into the portraits). */
+  face?: number;
 }
 
 // ---------------------------------------------------------------- people
@@ -802,6 +804,8 @@ export interface GovernorPlan {
   age: "young" | "prime" | "seasoned";
   stats: Stats;
   traits: TraitId[];
+  /** Which of the portraits for their nation, sex and age to wear. */
+  face?: number;
 }
 
 export interface PlayerSeat {

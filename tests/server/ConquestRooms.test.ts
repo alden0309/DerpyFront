@@ -458,7 +458,7 @@ describe.skipIf(!TEST_DB)(
       const results = (await end).results;
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({ name: "Alden", power: "spain" });
-      expect(results[0].coins).toBeGreaterThanOrEqual(10);
+      expect(results[0].coins).toBeGreaterThanOrEqual(5);
 
       const board = await conquestLeaderboard();
       const row = board.find((r) => r.username === "Alden")!;

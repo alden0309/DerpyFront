@@ -2373,31 +2373,76 @@ ol {
 }
 
 /* Portraits: oval miniatures in a gilt frame. */
+/* A painted likeness in an oval gilt frame. */
 .cq-portrait {
+  position: relative;
   display: inline-block;
   width: 1.9rem;
-  height: 2.3rem;
+  height: 2.35rem;
   flex: none;
   vertical-align: middle;
-  filter: drop-shadow(0 1px 1.5px rgba(43, 29, 18, 0.35));
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background:
+    linear-gradient(#3a2a1a, #2b1d12) padding-box,
+    linear-gradient(
+        140deg,
+        #f6e3a0 0%,
+        #b88a34 30%,
+        #f0d27a 52%,
+        #8a6420 75%,
+        #d9b45a 100%
+      )
+      border-box;
+  box-shadow:
+    0 0 0 1px rgba(60, 40, 15, 0.75),
+    0 1px 3px rgba(43, 29, 18, 0.45);
+}
+.cq-portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 32%;
+  border-radius: 50%;
+}
+/* The faint varnish of an old canvas. */
+.cq-portrait::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 40% 30%,
+    rgba(255, 236, 190, 0.12),
+    transparent 55%,
+    rgba(30, 18, 6, 0.28) 100%
+  );
+  pointer-events: none;
+}
+.cq-portrait-blank {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .cq-portrait.empty {
   border: 1px dashed var(--sepia);
-  border-radius: 50%;
-  filter: none;
+  background: none;
+  box-shadow: none;
 }
-.cq-portrait.dead {
+.cq-portrait.dead img {
   filter: grayscale(1) sepia(0.35);
-  opacity: 0.7;
+  opacity: 0.75;
 }
 .cq-portrait.xl {
-  width: 4.7rem;
-  height: 5.6rem;
+  width: 5.2rem;
+  height: 6.4rem;
+  border-width: 3px;
 }
 .cq-portrait.banner-token {
   width: 36px;
-  height: 43px;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+  height: 44px;
 }
 
 /* A province's first figures, set in a row. */
@@ -3573,4 +3618,430 @@ cq-colony-map {
 }
 .cq-foot-credits .cq-muted {
   color: #a8987a;
+}
+
+/* ================================================================ the desk
+   The lobby and the room are a colonial secretary's desk: green morocco
+   leather with gilt tooling, Blaeu's 1617 map of the Americas spread across
+   it, and the papers of the game laid on top (letters patent to start one,
+   the harbour book of open games, a red-taped bundle of your saved ones, the
+   crowns' charters and your commission as governor). Names are written in a
+   copperplate hand. */
+
+@font-face {
+  font-family: "Pinyon Script";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/pinyon-script-latin.woff2") format("woff2");
+}
+
+.cq-lobby {
+  --leather: #1f2e26;
+  --leather-2: #16211b;
+  --gilt: #c9a24a;
+  --script: "Pinyon Script", "Snell Roundhand", "Apple Chancery", cursive;
+  background:
+    radial-gradient(
+      ellipse 110% 75% at 50% 35%,
+      transparent 45%,
+      rgba(0, 0, 0, 0.5) 100%
+    ),
+    var(--paper),
+    radial-gradient(ellipse 80% 60% at 30% 20%, #2a3d32, transparent 70%),
+    linear-gradient(180deg, var(--leather), var(--leather-2));
+}
+.cq-lobby-page {
+  position: relative;
+}
+/* Gilt tooling round the writing surface. */
+.cq-lobby-page::before {
+  content: "";
+  position: absolute;
+  inset: 0.6rem 0 0.4rem;
+  border: 1px solid rgba(201, 162, 74, 0.45);
+  box-shadow:
+    inset 0 0 0 4px rgba(22, 33, 27, 0.6),
+    inset 0 0 0 5px rgba(201, 162, 74, 0.3);
+  pointer-events: none;
+}
+.cq-lobby-page > * {
+  position: relative;
+}
+
+/* ---- the map and the title label ---- */
+.cq-hero {
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 0;
+  margin: 1.2rem 0.6rem 2.6rem;
+}
+.cq-hero-art {
+  transform: rotate(-1.4deg);
+}
+.cq-hero-art img {
+  border: 0;
+  box-shadow:
+    0 1px 0 rgba(255, 245, 220, 0.5) inset,
+    0 2px 3px rgba(0, 0, 0, 0.35),
+    0 26px 50px rgba(0, 0, 0, 0.55);
+}
+.cq-hero-art figcaption {
+  margin-top: 0.55rem;
+  font-family: var(--fell);
+  font-size: 0.85rem;
+  color: #b9c2a8;
+  text-align: right;
+}
+.cq-hero-text {
+  margin-left: -3.2rem;
+  padding: 1.6rem 1.8rem 1.5rem;
+  color: var(--ink);
+  background: var(--vellum) var(--paper);
+  border: 1px solid #b89c64;
+  box-shadow:
+    inset 0 0 0 5px var(--vellum),
+    inset 0 0 0 6px rgba(138, 106, 62, 0.55),
+    inset 0 0 0 9px var(--vellum),
+    inset 0 0 0 10px rgba(138, 106, 62, 0.3),
+    0 18px 36px rgba(0, 0, 0, 0.5);
+  transform: rotate(1.1deg);
+}
+.cq-hero-text .cq-title {
+  color: var(--ink);
+  font-size: clamp(2.3rem, 4.4vw, 3.6rem);
+}
+.cq-hero-text .cq-tagline {
+  color: var(--nation-deep);
+}
+.cq-hero-text > p:not(.cq-tagline) {
+  color: var(--ink);
+  font-size: 1.02rem;
+}
+
+/* ---- papers on the desk ---- */
+.cq-lobby-grid {
+  margin: 0 0.6rem;
+  gap: 1.6rem 1.8rem;
+}
+.cq-lobby .cq-sheet {
+  position: relative;
+  border-color: #b89c64;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 14px 30px rgba(0, 0, 0, 0.45);
+}
+.cq-lobby .cq-sheet .cq-h2 {
+  font-size: 1.55rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(138, 106, 62, 0.45);
+  box-shadow: 0 3px 0 -2px rgba(138, 106, 62, 0.3);
+}
+.cq-new {
+  transform: rotate(-0.6deg);
+}
+.cq-open {
+  transform: rotate(0.8deg);
+}
+/* The harbour book: ruled like a ledger. */
+.cq-open {
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 27px,
+      rgba(122, 150, 170, 0.18) 27px 28px
+    ),
+    var(--vellum) var(--paper);
+}
+/* Saved games: a bundle of dispatches tied with red tape. */
+.cq-saved {
+  transform: rotate(-0.4deg);
+  box-shadow:
+    5px 5px 0 -1px #e4d2a6,
+    5px 5px 0 0 rgba(90, 64, 30, 0.45),
+    10px 10px 0 -1px #dcc796,
+    10px 10px 0 0 rgba(90, 64, 30, 0.4),
+    0 18px 34px rgba(0, 0, 0, 0.45) !important;
+}
+.cq-saved::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  bottom: -14px;
+  left: 1.05rem;
+  width: 14px;
+  background: linear-gradient(90deg, #8e1f16, #b8352a 45%, #8e1f16);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  opacity: 0.92;
+  pointer-events: none;
+}
+.cq-saved > * {
+  position: relative;
+}
+.cq-saved .cq-h2,
+.cq-saved .cq-rooms,
+.cq-saved .cq-empty {
+  padding-left: 1.6rem;
+}
+/* The seal on the letters patent. */
+.cq-sheet-seal {
+  top: auto;
+  right: 1.4rem;
+  bottom: -1.4rem;
+  width: 62px;
+  height: 62px;
+  transform: rotate(-14deg);
+}
+.cq-new .cq-btn.big {
+  margin-right: 4.5rem;
+}
+.cq-lobby .cq-foot {
+  color: #b9c2a8;
+}
+
+/* ---- the room: the crowns' charters ---- */
+.cq-room-head {
+  margin: 1.2rem 0.6rem 1.6rem;
+}
+.cq-room-grid {
+  margin: 0 0.6rem;
+}
+.cq-powers {
+  gap: 1.4rem 1.1rem;
+}
+.cq-power {
+  border: 1px solid #b89c64;
+  border-top: 0;
+  padding-top: 1.3rem;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 12px 26px rgba(0, 0, 0, 0.42);
+  transition: transform 0.2s ease;
+}
+/* The crown's colours as a ribbon across the head of the charter. */
+.cq-power::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: -6px;
+  right: -6px;
+  height: 12px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--nation) 80%, white),
+    var(--nation) 45%,
+    var(--nation-deep)
+  );
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    calc(100% - 6px) 50%,
+    100% 100%,
+    0 100%,
+    6px 50%
+  );
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.3);
+}
+.cq-power:nth-child(odd) {
+  transform: rotate(-0.7deg);
+}
+.cq-power:nth-child(even) {
+  transform: rotate(0.6deg);
+}
+.cq-power:not(.gone):hover {
+  transform: rotate(0deg) translateY(-3px);
+}
+/* Chosen: sealed in wax of the crown's colour. */
+.cq-power.mine {
+  outline: 0;
+  box-shadow:
+    0 0 0 2px var(--nation),
+    0 14px 30px rgba(0, 0, 0, 0.5);
+}
+.cq-power.mine::after {
+  content: "";
+  position: absolute;
+  right: -12px;
+  bottom: 2.6rem;
+  width: 52px;
+  height: 52px;
+  border-radius: 46% 54% 50% 50% / 52% 46% 54% 48%;
+  background:
+    radial-gradient(
+      circle at 38% 34%,
+      rgba(255, 255, 255, 0.35),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle,
+      transparent 50%,
+      rgba(0, 0, 0, 0.3) 53%,
+      transparent 60%
+    ),
+    var(--nation);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.4),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.3);
+  transform: rotate(12deg);
+}
+.cq-power.gone::before {
+  filter: grayscale(1);
+}
+
+/* ---- your commission as governor ---- */
+.cq-gov-grid {
+  position: relative;
+  grid-template-columns: auto minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 1.2rem 1.6rem;
+  padding: 1.4rem 1.6rem 1.4rem;
+  border: 1px solid #b89c64;
+  border-left: 1px solid #b89c64;
+  box-shadow:
+    inset 0 0 0 6px var(--vellum),
+    inset 0 0 0 7px rgba(138, 106, 62, 0.45),
+    0 14px 30px rgba(0, 0, 0, 0.45);
+}
+.cq-commission-title {
+  grid-column: 1 / -1;
+  margin: 0.2rem 0 0.2rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 1.15rem;
+  text-align: center;
+  color: var(--nation-deep);
+}
+.cq-likeness {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.cq-portrait.huge {
+  width: 9.5rem;
+  height: 11.8rem;
+  border-width: 5px;
+  box-shadow:
+    0 0 0 1px rgba(60, 40, 15, 0.8),
+    0 6px 14px rgba(43, 29, 18, 0.45);
+}
+.cq-likeness figcaption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+/* Names written in, not typed. */
+.cq-name-row input {
+  font-family: var(--script);
+  font-size: 1.75rem;
+  line-height: 1.2;
+  padding: 0.1rem 0.2rem 0;
+  color: #1d2a4a;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(43, 29, 18, 0.55);
+  border-radius: 0;
+  box-shadow: none;
+}
+.cq-name-row input:focus-visible {
+  outline: 0;
+  border-bottom: 2px solid var(--nation);
+  background: rgba(255, 250, 235, 0.5);
+}
+/* The ledger of skills. */
+.cq-statlist li {
+  border-bottom: 1px solid rgba(122, 150, 170, 0.35);
+}
+.cq-gov-foot {
+  border-color: #b89c64;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+}
+.cq-signature {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-width: 14rem;
+  padding: 0 0.6rem 0.1rem;
+  border-bottom: 1px solid rgba(43, 29, 18, 0.55);
+}
+.cq-sig-label {
+  font-family: var(--fell);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.cq-sig-name {
+  font-family: var(--script);
+  font-size: 1.7rem;
+  line-height: 1.1;
+  color: #1d2a4a;
+}
+.cq-room-side .cq-sheet {
+  transform: rotate(0.5deg);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 14px 30px rgba(0, 0, 0, 0.45);
+}
+/* A brass pin holding the note to the desk. */
+.cq-room-side .cq-sheet::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f6e3a0, #b88a34 55%, #6a4a14);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.5);
+}
+.cq-room-side .cq-sheet {
+  position: relative;
+}
+
+@media (max-width: 1080px) {
+  .cq-gov-grid {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .cq-gov-stats {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 820px) {
+  .cq-hero-text {
+    margin: -2rem 0.6rem 0;
+    transform: rotate(0.6deg);
+  }
+  .cq-hero {
+    grid-template-columns: 1fr;
+    margin: 0.8rem 0 2rem;
+  }
+  .cq-lobby-page::before {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .cq-gov-grid {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1.1rem 1rem;
+  }
+  .cq-portrait.huge {
+    width: 7.5rem;
+    height: 9.3rem;
+  }
+  .cq-new,
+  .cq-open,
+  .cq-saved,
+  .cq-power:nth-child(odd),
+  .cq-power:nth-child(even),
+  .cq-hero-art,
+  .cq-hero-text {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cq-power {
+    transition: none;
+  }
 }

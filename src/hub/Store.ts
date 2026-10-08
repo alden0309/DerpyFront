@@ -234,8 +234,9 @@ export class DerpInventory extends HubPage {
         ${bananaMark("dl-banana mid")}
         <div>
           <p>
-            Nothing in here yet. Packs start at 400 Derp Coins, and every game
-            you finish signed in earns some.
+            Nothing in here yet. Packs start at
+            ${nf(Math.min(...this.packs.map((p) => p.price)))} Derp Coins, and
+            every game you finish signed in earns some.
           </p>
           <a class="dl-btn" href="/store">Go to the Store</a>
         </div>

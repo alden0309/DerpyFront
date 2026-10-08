@@ -1,8 +1,7 @@
 /* Derp Land: the site around the games. A quiet graphite room, the same dark
    zinc as DerpyFront's own menus, where the two games' box art supplies the
-   colour. The house mascot is a banana: its yellow, its brown outline and its
-   speech bubble are the one loud thing here, and the price tags borrow the
-   look of a fruit sticker. Type is Archivo throughout, run wide for headings;
+   colour. Derp Land's banana lends its yellow and brown outline to the
+   buttons and price tags, which borrow the look of a fruit sticker. Type is Archivo throughout, run wide for headings;
    each game keeps its own wordmark. */
 
 @layer base, components;
@@ -253,94 +252,13 @@
     display: block;
     flex: none;
   }
-  .dl-banana.big {
-    width: 150px;
-    height: 150px;
-  }
   .dl-banana.mid {
     width: 84px;
     height: 84px;
   }
-  .dl-banana-eyes {
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: dl-blink 0.32s ease-in-out 1.3s 2 alternate;
-  }
-  @keyframes dl-blink {
-    from {
-      transform: scaleY(1);
-    }
-    to {
-      transform: scaleY(0.08);
-    }
-  }
-  .dl-mascot {
-    display: block;
-    transform: rotate(-8deg);
-    transform-origin: 60% 80%;
-    transition: transform 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
-  }
-  .dl-mascot:hover {
-    transform: rotate(4deg);
-  }
-  .dl-mascot:hover .dl-banana-eyes {
-    animation: dl-blink 0.16s ease-in-out 0s 2 alternate;
-  }
-
   /* ---- front page ---- */
   .dl-intro {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px 26px;
-    margin: -6px 0 34px;
-  }
-  .dl-intro .dl-mascot {
-    margin-top: -22px;
-  }
-  .dl-intro-text {
-    min-width: 0;
-  }
-  .dl-bubble {
-    position: relative;
-    display: inline-block;
-    max-width: 100%;
-    padding: 16px 26px 18px;
-    border: 2.5px solid var(--peel-ink);
-    border-radius: 26px;
-    background: var(--cream);
-    color: var(--peel-ink);
-    font-weight: 820;
-    font-stretch: 118%;
-    font-size: clamp(1.7rem, 3.6vw, 2.6rem);
-    line-height: 1.05;
-    letter-spacing: -0.025em;
-    overflow-wrap: anywhere;
-    box-shadow: 5px 6px 0 rgba(245, 204, 60, 0.9);
-  }
-  /* The tail, pointing back at the banana. */
-  .dl-bubble::before,
-  .dl-bubble::after {
-    content: "";
-    position: absolute;
-    top: 70%;
-    width: 0;
-    height: 0;
-    border-style: solid;
-  }
-  .dl-bubble::before {
-    left: -22px;
-    margin-top: -12px;
-    border-width: 12px 22px 12px 0;
-    border-color: transparent var(--peel-ink) transparent transparent;
-  }
-  .dl-bubble::after {
-    left: -17px;
-    margin-top: -9px;
-    border-width: 9px 18px 9px 0;
-    border-color: transparent var(--cream) transparent transparent;
-  }
-  .dl-intro .dl-lede {
-    margin-top: 14px;
+    margin-bottom: 32px;
   }
   .dl-shelf {
     display: grid;
@@ -1298,37 +1216,6 @@
     .dl-main {
       padding-top: 28px;
     }
-    .dl-intro {
-      flex-direction: column;
-      align-items: flex-start;
-      margin-top: 0;
-    }
-    .dl-banana.big {
-      width: 92px;
-      height: 92px;
-    }
-    .dl-intro .dl-mascot {
-      margin: 0 0 4px 6px;
-    }
-    .dl-bubble {
-      padding: 12px 18px 14px;
-      border-radius: 20px;
-    }
-    /* The tail points up at the banana instead. */
-    .dl-bubble::before {
-      top: -20px;
-      left: 34px;
-      margin-top: 0;
-      border-width: 0 12px 20px 12px;
-      border-color: transparent transparent var(--peel-ink) transparent;
-    }
-    .dl-bubble::after {
-      top: -15px;
-      left: 37px;
-      margin-top: 0;
-      border-width: 0 9px 16px 9px;
-      border-color: transparent transparent var(--cream) transparent;
-    }
     .dl-empty.with-mascot {
       flex-direction: column;
       align-items: flex-start;
@@ -1376,15 +1263,6 @@
     .dl-skin:hover {
       transition: none;
       transform: none;
-    }
-    .dl-mascot,
-    .dl-mascot:hover {
-      transition: none;
-      transform: rotate(-8deg);
-    }
-    .dl-banana-eyes,
-    .dl-mascot:hover .dl-banana-eyes {
-      animation: none;
     }
   }
 }

@@ -12,6 +12,7 @@ import {
   EngineConfig,
 } from "@openfront/engine/configuration/EngineConfig";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
+import { BoatRetreatExecution } from "@openfront/engine/execution/BoatRetreatExecution";
 import { ConstructionExecution } from "@openfront/engine/execution/ConstructionExecution";
 import { SpawnExecution } from "@openfront/engine/execution/SpawnExecution";
 import {
@@ -388,6 +389,105 @@ describe("Escorted troop transport", () => {
     expect(boat.isActive()).toBe(false);
     executeTicks(game, 5);
     expect(south.numTilesOwned()).toBeLessThan(southTilesBefore);
+  });
+
+  /** Launches a transport from North and sails it until its trip ends. */
+  function sail(game: Game, north: Player, escorted: boolean) {
+    game.addExecution(
+      new TransportShipExecution(north, dst(game), 100, escorted),
+    );
+    game.executeNextTick();
+    const [boat] = north.units(UnitType.TransportShip);
+    expect(boat).toBeDefined();
+    return boat;
+  }
+
+  function sailUntilDone(game: Game, boat: ReturnType<typeof sail>) {
+    for (let i = 0; i < 200 && boat.isActive(); i++) game.executeNextTick();
+    expect(boat.isActive()).toBe(false);
+  }
+
+  test("lands as two warships on the water by the landing spot, already paid for", async () => {
+    const { game, north } = await seaGame(false);
+    north.addGold(10_000_000n);
+    const boat = sail(game, north, true);
+    // Walk up to the tick the boat lands so that tick's gold can be checked:
+    // only income can change it, so a charge for the warships would show.
+    for (let i = 0; i < 200 && boat.isActive(); i++) {
+      const before = north.gold();
+      game.executeNextTick();
+      if (!boat.isActive()) expect(north.gold()).toBeGreaterThanOrEqual(before);
+    }
+    expect(boat.isActive()).toBe(false);
+
+    const warships = north.units(UnitType.Warship);
+    expect(warships).toHaveLength(2);
+    for (const warship of warships) {
+      expect(game.isWater(warship.tile())).toBe(true);
+      expect(
+        game.map().manhattanDist(warship.tile(), boat.tile()),
+      ).toBeLessThanOrEqual(4);
+      expect(warship.health()).toBe(warship.maxHealth());
+    }
+
+    // They go on as ordinary warships, patrolling the waters there.
+    executeTicks(game, 20);
+    expect(north.units(UnitType.Warship)).toHaveLength(2);
+    for (const warship of north.units(UnitType.Warship)) {
+      expect(game.isWater(warship.tile())).toBe(true);
+    }
+  });
+
+  test("its warships carry the convoy's damage", async () => {
+    const { game, north } = await seaGame();
+    const boat = sail(game, north, true);
+    boat.modifyHealth(-boat.maxHealth() / 2);
+    sailUntilDone(game, boat);
+    const warships = north.units(UnitType.Warship);
+    expect(warships).toHaveLength(2);
+    for (const warship of warships) {
+      expect(warship.health()).toBe(warship.maxHealth() / 2);
+    }
+  });
+
+  test("a nearly sunk convoy still leaves warships with some health", async () => {
+    const { game, north } = await seaGame();
+    const boat = sail(game, north, true);
+    boat.modifyHealth(1 - boat.health());
+    sailUntilDone(game, boat);
+    const warships = north.units(UnitType.Warship);
+    expect(warships).toHaveLength(2);
+    for (const warship of warships) expect(warship.health()).toBe(1);
+  });
+
+  test("retreating home also leaves its warships", async () => {
+    const { game, north } = await seaGame();
+    const boat = sail(game, north, true);
+    executeTicks(game, 2);
+    game.addExecution(new BoatRetreatExecution(north, boat.id()));
+    sailUntilDone(game, boat);
+    expect(game.owner(boat.tile())).toBe(north);
+    const warships = north.units(UnitType.Warship);
+    expect(warships).toHaveLength(2);
+    for (const warship of warships) {
+      expect(game.isWater(warship.tile())).toBe(true);
+    }
+  });
+
+  test("a sunk convoy leaves no warships", async () => {
+    const { game, north } = await seaGame();
+    const boat = sail(game, north, true);
+    boat.modifyHealth(-boat.health());
+    executeTicks(game, 5);
+    expect(boat.isActive()).toBe(false);
+    expect(north.units(UnitType.Warship)).toHaveLength(0);
+  });
+
+  test("a plain transport still lands without warships", async () => {
+    const { game, north } = await seaGame();
+    const boat = sail(game, north, false);
+    sailUntilDone(game, boat);
+    expect(north.units(UnitType.Warship)).toHaveLength(0);
   });
 });
 

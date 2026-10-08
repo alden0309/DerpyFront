@@ -32,12 +32,18 @@ import type {
 } from "../snapshot/SnapshotContext";
 import { AttackExecution } from "./AttackExecution";
 import { ShellExecution } from "./ShellExecution";
+import { WarshipExecution } from "./WarshipExecution";
 
 const malusForRetreat = 25;
 
+/** Derpy Front: warships an escorted transport turns into when it lands. */
+const ESCORT_WARSHIPS = 2;
+/** How far (in tile steps) from the landing spot the escort may come out. */
+const ESCORT_SEARCH_RADIUS = 4;
+
 /**
  * Derpy Front: what an escorted (armored) troop transport costs -- the price
- * of the player's next two warships.
+ * of the player's next two warships, who sail on as warships once it lands.
  */
 export function escortedTransportCost(mg: Game, player: Player): bigint {
   const info = mg.unitInfo(UnitType.Warship);
@@ -262,8 +268,7 @@ export class TransportShipExecution implements Execution {
           `TransportShipExecution: retreating but no retreat destination found`,
         );
         this.attacker.addTroops(this.boat.troops());
-        this.boat.delete(false);
-        this.active = false;
+        this.finishTrip();
         return;
       } else {
         this.dst = this.retreatDst;
@@ -281,8 +286,7 @@ export class TransportShipExecution implements Execution {
           const deaths = this.boat.troops() * (malusForRetreat / 100);
           const survivors = this.boat.troops() - deaths;
           this.attacker.addTroops(survivors);
-          this.boat.delete(false);
-          this.active = false;
+          this.finishTrip();
 
           // Record stats
           this.mg
@@ -313,8 +317,7 @@ export class TransportShipExecution implements Execution {
             ),
           );
         }
-        this.boat.delete(false);
-        this.active = false;
+        this.finishTrip();
 
         // Record stats
         this.mg
@@ -332,8 +335,7 @@ export class TransportShipExecution implements Execution {
           `TransportShip path not found: boat@(${map.x(boatTile)},${map.y(boatTile)}) -> dst@(${map.x(this.dst)},${map.y(this.dst)}), attacker=${this.attacker.id()}, target=${this.target.id()}`,
         );
         this.attacker.addTroops(this.boat.troops());
-        this.boat.delete(false);
-        this.active = false;
+        this.finishTrip();
         return;
       }
     }
@@ -361,6 +363,90 @@ export class TransportShipExecution implements Execution {
 
   owner(): Player {
     return this.attacker;
+  }
+
+  /**
+   * The boat ends its trip without being sunk (landed, home after a retreat,
+   * or out of route): retire it, and let an escorted transport's escort sail
+   * on as warships.
+   */
+  private finishTrip(): void {
+    const tile = this.boat.tile();
+    const health = this.boat.health();
+    const maxHealth = this.boat.maxHealth();
+    this.boat.delete(false);
+    this.active = false;
+    if (this.escorted) this.releaseEscort(tile, health, maxHealth);
+  }
+
+  /**
+   * Derpy Front: the escort the player paid for when launching becomes
+   * ESCORT_WARSHIPS ordinary warships next to where the transport stopped.
+   * They are not charged again, and carry the convoy's damage: each has the
+   * share of its max health that the transport had left.
+   */
+  private releaseEscort(from: TileRef, health: number, maxHealth: number) {
+    const mg = this.mg;
+    if (
+      mg.config().isUnitDisabled(UnitType.Warship) ||
+      !this.attacker.isAlive()
+    ) {
+      return;
+    }
+    const tile = this.escortWaterTile(from);
+    if (tile === null) return;
+    for (let i = 0; i < ESCORT_WARSHIPS; i++) {
+      const warship = this.attacker.buildUnit(
+        UnitType.Warship,
+        tile,
+        { patrolTile: tile },
+        true,
+      );
+      const share = Math.max(
+        1,
+        Math.round((warship.maxHealth() * health) / maxHealth),
+      );
+      warship.modifyHealth(share - warship.health());
+      mg.addExecution(new WarshipExecution(warship));
+    }
+  }
+
+  /**
+   * Where the escort comes out: the boat's tile if it is water, otherwise
+   * the nearest water tile within ESCORT_SEARCH_RADIUS steps (BFS in
+   * neighbor order), preferring the water body the boat sailed in on, then
+   * the ocean. Null when there is no water that close.
+   */
+  private escortWaterTile(from: TileRef): TileRef | null {
+    const map = this.mg.map();
+    if (map.isWater(from)) return from;
+    const last = this.boat.lastTile();
+    const body = this.mg.getWaterComponent(map.isWater(last) ? last : from);
+    let best: TileRef | null = null;
+    let bestRank = Infinity;
+    const seen = new Set<TileRef>([from]);
+    let frontier = [from];
+    for (let step = 0; step < ESCORT_SEARCH_RADIUS; step++) {
+      const next: TileRef[] = [];
+      for (const tile of frontier) {
+        for (const n of map.neighbors(tile)) {
+          if (seen.has(n)) continue;
+          seen.add(n);
+          next.push(n);
+          if (!map.isWater(n)) continue;
+          const otherBody =
+            body !== null && !this.mg.hasWaterComponent(n, body);
+          const rank = (otherBody ? 2 : 0) + (map.isOcean(n) ? 0 : 1);
+          if (rank < bestRank) {
+            best = n;
+            bestRank = rank;
+          }
+        }
+      }
+      if (bestRank === 0) break;
+      frontier = next;
+    }
+    return best;
   }
 
   /**

@@ -26,23 +26,10 @@ function skin(name: string, displayName: string): DerpySkin {
 
 export const DERPY_PACKS: readonly DerpyPack[] = [
   {
-    name: "florida",
-    displayName: "Florida Pack",
-    description: "Oranges, gators, flamingos and a rocket off the Space Coast.",
-    price: 600,
-    skins: [
-      skin("florida_oranges", "Orange Grove"),
-      skin("florida_gator", "Gator Country"),
-      skin("florida_flamingo", "Flamingo Flock"),
-      skin("florida_sunset", "Sunshine State"),
-      skin("florida_rocket", "Space Coast"),
-    ],
-  },
-  {
     name: "classics",
     displayName: "The Classics",
     description: "Checkers, camo, tie-dye, plaid and polka dots.",
-    price: 400,
+    price: 1500,
     skins: [
       skin("classic_checkers", "Checkerboard"),
       skin("classic_camo", "Camo"),
@@ -52,16 +39,85 @@ export const DERPY_PACKS: readonly DerpyPack[] = [
     ],
   },
   {
+    name: "derpland",
+    displayName: "Derp Land Pack",
+    description:
+      "Bananas, slippery peels, jungle leaves, a fruit stand and a pile of gold.",
+    price: 2000,
+    skins: [
+      skin("derpland_bananas", "Going Bananas"),
+      skin("derpland_peels", "Slippery Peels"),
+      skin("derpland_jungle", "Banana Jungle"),
+      skin("derpland_awning", "Fruit Stand"),
+      skin("derpland_coins", "Golden Coins"),
+    ],
+  },
+  {
+    name: "florida",
+    displayName: "Florida Pack",
+    description: "Oranges, gators, flamingos and a rocket off the Space Coast.",
+    price: 2500,
+    skins: [
+      skin("florida_oranges", "Orange Grove"),
+      skin("florida_gator", "Gator Country"),
+      skin("florida_flamingo", "Flamingo Flock"),
+      skin("florida_sunset", "Sunshine State"),
+      skin("florida_rocket", "Space Coast"),
+    ],
+  },
+  {
+    name: "ocean",
+    displayName: "Deep Blue",
+    description:
+      "Curling waves, a school of fish, anchors, tentacles and a lighthouse in the night.",
+    price: 2500,
+    skins: [
+      skin("ocean_waves", "Curling Waves"),
+      skin("ocean_fish", "Fish School"),
+      skin("ocean_anchors", "Anchors Aweigh"),
+      skin("ocean_octopus", "Tentacles"),
+      skin("ocean_lighthouse", "Lighthouse Night"),
+    ],
+  },
+  {
+    name: "arcade",
+    displayName: "Arcade",
+    description:
+      "Pixel hearts, pixel monsters, a neon grid, lucky dice and card suits.",
+    price: 3000,
+    skins: [
+      skin("arcade_hearts", "Pixel Hearts"),
+      skin("arcade_blobs", "Pixel Blobs"),
+      skin("arcade_neongrid", "Neon Grid"),
+      skin("arcade_dice", "Lucky Dice"),
+      skin("arcade_suits", "Card Suits"),
+    ],
+  },
+  {
     name: "politics",
     displayName: "American Politics",
     description: "Stars and stripes, both party animals, and your civic duty.",
-    price: 750,
+    price: 3000,
     skins: [
       skin("politics_flag", "Stars and Stripes"),
       skin("politics_donkey", "The Donkey"),
       skin("politics_elephant", "The Elephant"),
       skin("politics_ivoted", "I Voted"),
       skin("politics_capitol", "Capitol Dome"),
+    ],
+  },
+  {
+    name: "space",
+    displayName: "Outer Space",
+    description:
+      "Ringed planets, spiral galaxies, flying saucers, floating astronauts and the cratered moon.",
+    price: 3500,
+    skins: [
+      skin("space_planets", "Ringed Planets"),
+      skin("space_galaxy", "Galaxy Swirl"),
+      skin("space_ufos", "Flying Saucers"),
+      skin("space_astronauts", "Little Astronauts"),
+      skin("space_moon", "Moon Craters"),
     ],
   },
 ];

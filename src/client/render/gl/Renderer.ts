@@ -831,8 +831,9 @@ export class GPURenderer {
   }
 
   /**
-   * Anchor a player's skin sampling at world coords (x, y). The center of the
-   * skin image lines up with this tile. Default (0,0) anchors at world origin.
+   * Anchor a player's skin sampling at world coords (x, y). The skin repeats
+   * across their whole territory, and the center of one copy of the image
+   * lines up with this tile. Default (0,0) anchors at world origin.
    */
   setPlayerSpawn(smallID: number, x: number, y: number): void {
     const off = smallID * 2;

@@ -105,3 +105,28 @@ export function spriteWidth(name: SpriteName, h: number): number {
   const img = sprite(name);
   return img ? (img.naturalWidth / img.naturalHeight) * h : h;
 }
+
+/**
+ * Draw a picture standing on (x, y), tilted by `angle` radians about its
+ * feet (a marching soldier's sway). Returns false if it hasn't loaded yet.
+ */
+export function drawSpriteTilted(
+  ctx: CanvasRenderingContext2D,
+  name: SpriteName,
+  x: number,
+  y: number,
+  h: number,
+  flip: boolean,
+  angle: number,
+): boolean {
+  const img = sprite(name);
+  if (!img) return false;
+  const w = (img.naturalWidth / img.naturalHeight) * h;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(img, -w / 2, -h, w, h);
+  ctx.restore();
+  return true;
+}

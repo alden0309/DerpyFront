@@ -90,6 +90,7 @@ const Plan = z.object({
     lea: z.number(),
   }),
   traits: z.array(z.string().max(20)).max(6),
+  face: z.number().int().min(0).max(999).optional(),
 });
 
 const Message = z.discriminatedUnion("t", [

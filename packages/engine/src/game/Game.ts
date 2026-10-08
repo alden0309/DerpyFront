@@ -405,10 +405,15 @@ export interface Player extends PlayerLike {
     targetTile: TileRef,
     validTiles?: TileRef[] | null,
   ): TileRef | false;
+  /**
+   * Creates the unit and charges its cost, unless `free` (for a unit that was
+   * already paid for some other way, e.g. a Derpy Front escort's warships).
+   */
   buildUnit<T extends UnitType>(
     type: T,
     spawnTile: TileRef,
     params: UnitParams<T>,
+    free?: boolean,
   ): Unit;
 
   // Returns the existing unit that can be upgraded,

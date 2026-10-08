@@ -11,11 +11,17 @@
  * `uSkinAtlas` sampler still has something to read from (the shader's
  * skinLayer table will be all zeros, so it never actually samples).
  *
- * Sampler wrap is CLAMP_TO_EDGE — the shader treats UVs outside [0,1] as
- * transparent so the image appears as a single stamp centered at the anchor.
+ * Sampler wrap is REPEAT on both axes: the territory shader passes UVs that
+ * run past [0,1] and the hardware tiles the image across the whole territory
+ * (one copy every SKIN_DIM tiles, a copy centered on the anchor), so skins
+ * cover the entire map however big it is. Each image fills its whole layer
+ * (see uploadImage) so the copies meet without gaps.
  */
 
-/** Per-side dimension for every atlas layer. Larger images are downscaled. */
+/**
+ * Per-side dimension for every atlas layer, in texels — and so in map tiles,
+ * since the shader maps one texel to one tile. Every image is scaled to it.
+ */
 export const SKIN_DIM = 1024;
 
 export class SkinAtlasArray {
@@ -74,25 +80,26 @@ export class SkinAtlasArray {
   }
 
   /**
-   * Draw image centered in a SKIN_DIM×SKIN_DIM canvas, downscale if larger,
-   * keep native size if smaller. The shader samples cell-center as the spawn
-   * anchor (UV 0.5), so centering keeps the image aligned with the spawn tile.
+   * Scale the image to cover the whole SKIN_DIM×SKIN_DIM cell (up or down),
+   * cropping a non-square image to its centered square first. The layer
+   * repeats edge to edge, so any padding would show as gaps between copies.
+   * The shader puts the cell center (UV 0.5) on the spawn anchor, and the
+   * crop is centered, so the image's center still lines up with the spawn.
    */
   private uploadImage(img: HTMLImageElement, layer: number): void {
     const canvas = document.createElement("canvas");
     canvas.width = SKIN_DIM;
     canvas.height = SKIN_DIM;
     const ctx = canvas.getContext("2d", { willReadFrequently: false })!;
-    const scale = Math.min(
-      1,
-      SKIN_DIM / img.naturalWidth,
-      SKIN_DIM / img.naturalHeight,
-    );
-    const drawW = (img.naturalWidth * scale) | 0;
-    const drawH = (img.naturalHeight * scale) | 0;
-    const offX = ((SKIN_DIM - drawW) / 2) | 0;
-    const offY = ((SKIN_DIM - drawH) / 2) | 0;
-    ctx.drawImage(img, offX, offY, drawW, drawH);
+    ctx.imageSmoothingQuality = "high";
+    // Cropping the source (rather than overdrawing a scaled image) lands the
+    // destination exactly on the cell, with no rounding gap at the edges.
+    const side = Math.min(img.naturalWidth, img.naturalHeight);
+    if (side > 0) {
+      const srcX = (img.naturalWidth - side) / 2;
+      const srcY = (img.naturalHeight - side) / 2;
+      ctx.drawImage(img, srcX, srcY, side, side, 0, 0, SKIN_DIM, SKIN_DIM);
+    }
 
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.tex);
@@ -130,8 +137,9 @@ export class SkinAtlasArray {
       gl.LINEAR_MIPMAP_LINEAR,
     );
     gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    // REPEAT tiles the skin across territory beyond one SKIN_DIM cell.
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
     return tex;
   }
 
