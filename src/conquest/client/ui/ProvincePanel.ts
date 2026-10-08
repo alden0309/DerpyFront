@@ -1,8 +1,10 @@
-// A province: who lives there and how they're doing, what the land makes,
-// what's built, and what you can do with it.
+// A province: the few things that matter at a glance (who lives here, how
+// restless they are, what the land makes), what's built, and what you can do
+// with it. The detail is a click away.
 
 import { html, nothing, TemplateResult } from "lit";
 import { formatDate } from "../../engine/Calendar";
+import { isExplored } from "../../engine/Missions";
 import {
   armiesIn,
   armyMen,
@@ -18,6 +20,7 @@ import {
   recruitCheck,
   regimentTypes,
   resourceOutput,
+  RICH_WORD,
   settlers,
   siegeSpeed,
   tribesfolk,
@@ -28,11 +31,14 @@ import {
   CLASS_NAMES,
   COLONY_GOLD,
   COLONY_SETTLERS,
+  EXPEDITION,
+  OUTPOST,
   REG_NAMES,
   REGIMENTS,
   RELIGION_NAMES,
 } from "../../engine/Rules";
 import type { BuildingKind, Good, Province } from "../../engine/Types";
+import { BUILDING_MAKES, buildingIcon } from "../BuildingIcons";
 import {
   BUILDING_HELP,
   BUILDING_LABELS,
@@ -49,6 +55,7 @@ import {
   breakdownTip,
   GameUi,
   mine,
+  more,
   nationLink,
   section,
 } from "./Context";
@@ -75,24 +82,13 @@ export function provincePanel(ui: GameUi, p: number): TemplateResult {
   const raw = ui.w.raw[p];
   const me = mine(ui);
   const ours = pr.owner === ui.me && ui.me >= 0;
+  const known = ui.me < 0 || isExplored(s, ui.me, p);
   return html`
     <header class="cq-panel-head">
       <h2 class="cq-h2">${def.name}</h2>
-      <div class="cq-chips">
-        <span class="cq-chip">${TERRAIN_NAMES[def.terrain]}</span>
-        <span class="cq-chip"
-          ><i class="cq-good" style="--g:${GOOD_COLORS[raw]}"></i>${GOOD_NAMES[
-            raw
-          ]}</span
-        >
-        ${def.coastal ? html`<span class="cq-chip">Coast</span>` : nothing}
-        <span class="cq-chip"
-          >${Math.round(def.areaKm2 / 1000).toLocaleString("en-US")}k km²</span
-        >
-      </div>
       <p class="cq-owner">
         ${pr.owner >= 0
-          ? html`${nationLink(ui, pr.owner)}`
+          ? nationLink(ui, pr.owner)
           : html`<span class="cq-muted">Open country</span>`}
         ${pr.occupier >= 0
           ? html`<span class="cq-held"
@@ -103,110 +99,160 @@ export function provincePanel(ui: GameUi, p: number): TemplateResult {
           ? html`<span class="cq-chip gold">Capital</span>`
           : nothing}
       </p>
+      <p class="cq-place-facts">
+        ${TERRAIN_NAMES[def.terrain]}${def.coastal ? ", on the coast" : ""}.
+        ${known
+          ? html`<span class="cq-good-tag"
+                ><i class="cq-good" style="--g:${GOOD_COLORS[raw]}"></i
+                >${GOOD_NAMES[raw]}</span
+              >${pr.rich
+                ? html` <span class="cq-chip gold"
+                    >Rich ${RICH_WORD[raw]}</span
+                  >`
+                : nothing}`
+          : html`<span class="cq-muted"
+              >Unsurveyed: nobody knows what it yields.</span
+            >`}
+        ${pr.outpost
+          ? html`<span class="cq-chip"
+              >Outpost (${nationName(s.nations[pr.outpost.by].name)})</span
+            >`
+          : nothing}
+      </p>
     </header>
-    ${pr.colony
-      ? html`<div class="cq-progress-line">
-          Colony being founded by ${nationLink(ui, pr.colony.by)}, ready
-          ${formatDate(pr.colony.done)}
-          ${bar(
-            (s.day - pr.colony.start) /
-              Math.max(1, pr.colony.done - pr.colony.start),
-          )}
-        </div>`
-      : nothing}
-    ${pr.siege
-      ? html`<div class="cq-progress-line warn">
-          ${nationLink(ui, pr.siege.by)}
-          ${pr.b.fort ? "besieges" : "is taking control of"} it:
-          ${num(`${Math.round(pr.siege.progress)}%`, () =>
-            breakdownTip(
-              "Siege progress a day",
-              siegeSpeed(s, ui.w, p, pr.siege!.by),
-              (v) => `${plain(v)}`,
-              ["The province falls at 100%."],
-            ),
-          )}
-          ${bar(pr.siege.progress / 100)}
-        </div>`
-      : nothing}
-    ${peopleSection(ui, p, pr)} ${landSection(ui, p, pr)}
+    ${progress(ui, p, pr)} ${figures(ui, p, pr, known)}
     ${ours || pr.owner >= 0 ? buildingsSection(ui, p, pr, ours) : nothing}
-    ${ours ? recruitSection(ui, p, pr) : nothing} ${armiesSection(ui, p)}
-    ${actionsSection(ui, p, pr, me !== null)} ${modsSection(ui, pr)}
+    ${actionsSection(ui, p, pr, me !== null, known)} ${armiesSection(ui, p)}
+    ${ours ? recruitSection(ui, p, pr) : nothing} ${peopleDetail(ui, p, pr)}
+    ${modsSection(ui, pr)}
   `;
 }
 
-function peopleSection(ui: GameUi, p: number, pr: Province): TemplateResult {
+function progress(ui: GameUi, p: number, pr: Province): TemplateResult {
+  const s = ui.s;
+  return html`${pr.colony
+    ? html`<div class="cq-progress-line">
+        Colony being founded by ${nationLink(ui, pr.colony.by)}, ready
+        ${formatDate(pr.colony.done)}
+        ${bar(
+          (s.day - pr.colony.start) /
+            Math.max(1, pr.colony.done - pr.colony.start),
+        )}
+      </div>`
+    : nothing}
+  ${pr.siege
+    ? html`<div class="cq-progress-line warn">
+        ${nationLink(ui, pr.siege.by)}
+        ${pr.b.fort ? "besieges" : "is taking control of"} it:
+        ${num(`${Math.round(pr.siege.progress)}%`, () =>
+          breakdownTip(
+            "Siege progress a day",
+            siegeSpeed(s, ui.w, p, pr.siege!.by),
+            (v) => `${plain(v)}`,
+            ["The province falls at 100%."],
+          ),
+        )}
+        ${bar(pr.siege.progress / 100)}
+      </div>`
+    : nothing}
+  ${pr.build
+    ? html`<div class="cq-progress-line">
+        ${buildingIcon(pr.build.kind)} Building
+        ${BUILDING_LABELS[pr.build.kind].toLowerCase()}, done
+        ${formatDate(pr.build.done)}
+        ${bar(
+          (s.day - pr.build.start) /
+            Math.max(1, pr.build.done - pr.build.start),
+        )}
+      </div>`
+    : nothing}`;
+}
+
+/** The three or four numbers worth seeing first. */
+function figures(
+  ui: GameUi,
+  p: number,
+  pr: Province,
+  known: boolean,
+): TemplateResult {
   const s = ui.s;
   const total = people(pr);
-  if (total <= 0)
-    return section("People", html`<p class="cq-muted">Nobody lives here.</p>`);
   const settled = settlers(pr);
   const native = tribesfolk(pr);
+  const raw = ui.w.raw[p];
   const cap = capacityOf(s, ui.w, p);
+  const food = foodOutput(s, ui.w, p);
+  const res = resourceOutput(s, ui.w, p);
+  const owned = pr.owner >= 0;
+  return html`<div class="cq-figures">
+    <div>
+      <span>People</span>
+      ${total <= 0
+        ? html`<b>none</b>`
+        : num(
+            peopleText(total),
+            () =>
+              breakdownTip(
+                "Room for settlers",
+                cap,
+                (v) => Math.round(v).toLocaleString("en-US"),
+                [
+                  `${Math.round(settled).toLocaleString("en-US")} settlers and ${Math.round(native).toLocaleString("en-US")} natives live here.`,
+                ],
+              ),
+            "cq-figure",
+          )}
+    </div>
+    ${owned
+      ? html`<div>
+          <span>Unrest</span>
+          ${num(
+            String(Math.round(pr.unrest)),
+            () =>
+              breakdownTip(
+                "Unrest (revolt at 100)",
+                unrestOf(s, ui.w, p),
+                (v) => String(Math.round(v)),
+              ),
+            `cq-figure ${pr.unrest >= 60 ? "bad" : ""}`,
+          )}
+        </div>`
+      : nothing}
+    ${owned && total > 0
+      ? html`<div>
+          <span>Food / month</span>
+          ${num(
+            plain(food.total),
+            () => breakdownTip("Grain and fish a month", food),
+            "cq-figure",
+          )}
+        </div>`
+      : nothing}
+    ${owned && total > 0 && known
+      ? html`<div>
+          <span>${GOOD_NAMES[raw]} / month</span>
+          ${num(
+            plain(res.total),
+            () => breakdownTip(`${GOOD_NAMES[raw]} a month`, res),
+            "cq-figure",
+          )}
+        </div>`
+      : nothing}
+  </div>`;
+}
+
+/** Who lives here and how they're getting on: one click away. */
+function peopleDetail(ui: GameUi, p: number, pr: Province): TemplateResult {
+  const s = ui.s;
+  if (people(pr) <= 0) return html``;
   const rows = [...pr.pops].sort((a, b) => b.size - a.size);
-  return section(
-    "People",
-    html`
-      <div class="cq-stats">
-        ${settled > 0
-          ? html`<div class="cq-stat">
-              <span class="cq-stat-label">Settlers</span>
-              ${num(
-                peopleText(settled),
-                () =>
-                  breakdownTip(
-                    "Room for settlers",
-                    cap,
-                    (v) => Math.round(v).toLocaleString("en-US"),
-                    [
-                      `${Math.round(settled).toLocaleString("en-US")} live here now.`,
-                    ],
-                  ),
-                "cq-stat-value",
-              )}
-              <span class="cq-stat-note"
-                >room for ${peopleText(cap.total)}</span
-              >
-            </div>`
-          : nothing}
-        ${native > 0
-          ? html`<div class="cq-stat">
-              <span class="cq-stat-label">Natives</span
-              ><span class="cq-stat-value">${peopleText(native)}</span>
-            </div>`
-          : nothing}
-        ${pr.owner >= 0
-          ? html`<div class="cq-stat">
-              <span class="cq-stat-label">Unrest</span>
-              ${num(
-                String(Math.round(pr.unrest)),
-                () =>
-                  breakdownTip(
-                    "Unrest (revolt at 100)",
-                    unrestOf(s, ui.w, p),
-                    (v) => String(Math.round(v)),
-                  ),
-                `cq-stat-value ${pr.unrest >= 60 ? "bad" : ""}`,
-              )}
-            </div>`
-          : nothing}
-        ${pr.owner >= 0 && s.nations[pr.owner].kind !== "crown"
-          ? html`<div class="cq-stat">
-              <span class="cq-stat-label">Admin cost</span>
-              ${num(
-                plain(provinceAdminCost(s, ui.w, pr.owner, p).total),
-                () =>
-                  breakdownTip(
-                    "Administration it takes",
-                    provinceAdminCost(s, ui.w, pr.owner, p),
-                  ),
-                "cq-stat-value",
-              )}
-            </div>`
-          : nothing}
-      </div>
-      <table class="cq-table compact">
+  const admin =
+    pr.owner >= 0 && s.nations[pr.owner].kind !== "crown"
+      ? provinceAdminCost(s, ui.w, pr.owner, p)
+      : null;
+  return more(
+    "Who lives here",
+    html`<table class="cq-table compact">
         <thead>
           <tr>
             <th>Who</th>
@@ -256,53 +302,13 @@ function peopleSection(ui: GameUi, p: number, pr: Province): TemplateResult {
           )}
         </tbody>
       </table>
-    `,
-  );
-}
-
-function landSection(ui: GameUi, p: number, pr: Province): TemplateResult {
-  const s = ui.s;
-  const raw = ui.w.raw[p];
-  if (pr.owner < 0 && people(pr) <= 0) return html``;
-  const food = foodOutput(s, ui.w, p);
-  const res = resourceOutput(s, ui.w, p);
-  const made = Object.entries(pr.made).filter(([, v]) => (v ?? 0) > 0) as [
-    Good,
-    number,
-  ][];
-  return section(
-    "The land",
-    html`<div class="cq-stats">
-        <div class="cq-stat">
-          <span class="cq-stat-label">Food a month</span>
-          ${num(
-            plain(food.total),
-            () => breakdownTip("Grain and fish a month", food),
-            "cq-stat-value",
-          )}
-        </div>
-        <div class="cq-stat">
-          <span class="cq-stat-label">${GOOD_NAMES[raw]} a month</span>
-          ${num(
-            plain(res.total),
-            () => breakdownTip(`${GOOD_NAMES[raw]} a month`, res),
-            "cq-stat-value",
-          )}
-        </div>
-        ${raw === "furs" && pr.depletion > 0
-          ? html`<div class="cq-stat">
-              <span class="cq-stat-label">Trapped out</span
-              ><span class="cq-stat-value">${pct(pr.depletion)}</span>
-            </div>`
-          : nothing}
-      </div>
-      ${made.length > 0
+      ${admin
         ? html`<p class="cq-muted small">
-            Last month:
-            ${made.map(
-              ([g, v], i) =>
-                html`${i ? ", " : ""}${plain(v)} ${GOOD_NAMES[g].toLowerCase()}`,
+            Takes
+            ${num(plain(admin.total), () =>
+              breakdownTip("Administration it takes", admin),
             )}
+            of your officials' attention.
           </p>`
         : nothing}`,
   );
@@ -315,71 +321,75 @@ function buildingsSection(
   ours: boolean,
 ): TemplateResult {
   const s = ui.s;
-  const kinds = BUILD_ORDER.filter(
-    (k) =>
-      (pr.b[k] ?? 0) > 0 ||
-      (ours && buildCheck(s, ui.w, ui.me, p, k).ok) ||
-      (ours && relevant(ui, p, k)),
-  );
-  if (kinds.length === 0 && !pr.build) return html``;
+  const built = BUILD_ORDER.filter((k) => (pr.b[k] ?? 0) > 0);
+  const options = ours
+    ? BUILD_ORDER.filter((k) => (pr.b[k] ?? 0) === 0 && relevant(ui, p, k))
+    : [];
+  if (built.length === 0 && options.length === 0) return html``;
+  const row = (k: BuildingKind) => {
+    const lvl = pr.b[k] ?? 0;
+    const max = BUILDINGS[k].max;
+    const cost = buildCost(k, lvl);
+    const check = buildCheck(s, ui.w, ui.me, p, k);
+    const goods = Object.entries(cost.goods)
+      .map(([g, v]) => `${v} ${GOOD_NAMES[g as Good].toLowerCase()}`)
+      .join(", ");
+    const makes = BUILDING_MAKES[k];
+    const good = k === "plantation" ? ui.w.raw[p] : makes.good;
+    return html`<li>
+      <span
+        class="cq-bicon-wrap"
+        style=${good ? `--g:${GOOD_COLORS[good]}` : ""}
+        >${buildingIcon(k)}</span
+      >
+      <div class="cq-build-text">
+        ${num(
+          html`${BUILDING_LABELS[k]}`,
+          () => ({
+            title: BUILDING_LABELS[k],
+            notes: [
+              BUILDING_HELP[k],
+              `Upkeep ${BUILDINGS[k].upkeep} gold a month per level.`,
+            ],
+          }),
+          "cq-tipped",
+        )}
+        <span class="cq-muted small"
+          >${good ? GOOD_NAMES[good].toLowerCase() : makes.text}${lvl > 0
+            ? html`, level ${lvl} of ${max}`
+            : nothing}</span
+        >
+      </div>
+      ${ours && lvl < max
+        ? action(
+            html`${lvl === 0 ? "Build" : "Improve"}
+              <span class="cq-cost"
+                >${cost.gold}g${goods ? `, ${goods}` : ""},
+                ${Math.round(cost.days / 30)} mo</span
+              >`,
+            check,
+            () => void ui.cmd({ k: "build", p, b: k }),
+            "small",
+          )
+        : nothing}
+    </li>`;
+  };
   return section(
     "Buildings",
-    html`
-      ${pr.build
-        ? html`<div class="cq-progress-line">
-            Building ${BUILDING_LABELS[pr.build.kind].toLowerCase()}, done
-            ${formatDate(pr.build.done)}
-            ${bar(
-              (s.day - pr.build.start) /
-                Math.max(1, pr.build.done - pr.build.start),
-            )}
-          </div>`
-        : nothing}
-      <ul class="cq-builds">
-        ${kinds.map((k) => {
-          const lvl = pr.b[k] ?? 0;
-          const max = BUILDINGS[k].max;
-          const cost = buildCost(k, lvl);
-          const check = buildCheck(s, ui.w, ui.me, p, k);
-          const goods = Object.entries(cost.goods)
-            .map(([g, v]) => `${v} ${GOOD_NAMES[g as Good].toLowerCase()}`)
-            .join(", ");
-          return html`<li>
-            <div class="cq-build-name">
-              ${num(
-                BUILDING_LABELS[k],
-                () => ({
-                  title: BUILDING_LABELS[k],
-                  notes: [
-                    BUILDING_HELP[k],
-                    `Upkeep ${BUILDINGS[k].upkeep} gold a month per level.`,
-                  ],
-                }),
-                "cq-tipped",
-              )}
-              <span class="cq-pips"
-                >${Array.from(
-                  { length: max },
-                  (_, i) => html`<i class=${i < lvl ? "on" : ""}></i>`,
-                )}</span
-              >
-            </div>
-            ${ours && lvl < max
-              ? action(
-                  html`${lvl === 0 ? "Build" : "Improve"}
-                    <span class="cq-cost"
-                      >${cost.gold}g${goods ? `, ${goods}` : ""},
-                      ${Math.round(cost.days / 30)} mo</span
-                    >`,
-                  check,
-                  () => void ui.cmd({ k: "build", p, b: k }),
-                  "small",
-                )
-              : nothing}
-          </li>`;
-        })}
-      </ul>
-    `,
+    html`${built.length
+      ? html`<ul class="cq-builds">
+          ${built.map(row)}
+        </ul>`
+      : html`<p class="cq-muted">Nothing built yet.</p>`}
+    ${options.length
+      ? more(
+          `Build something new (${options.length})`,
+          html`<ul class="cq-builds">
+            ${options.map(row)}
+          </ul>`,
+          built.length === 0,
+        )
+      : nothing}`,
   );
 }
 
@@ -397,8 +407,10 @@ function relevant(ui: GameUi, p: number, k: BuildingKind): boolean {
 function recruitSection(ui: GameUi, p: number, pr: Province): TemplateResult {
   const s = ui.s;
   const nation = s.nations[ui.me];
-  return section(
-    "Raise troops",
+  return more(
+    pr.recruits.length
+      ? `Raise troops (${pr.recruits.length} training)`
+      : "Raise troops",
     html`
       ${pr.recruits.map(
         (r) =>
@@ -435,6 +447,7 @@ function recruitSection(ui: GameUi, p: number, pr: Province): TemplateResult {
         while they serve.
       </p>
     `,
+    pr.recruits.length > 0,
   );
 }
 
@@ -451,9 +464,8 @@ function armiesSection(ui: GameUi, p: number): TemplateResult {
               class="cq-link"
               @click=${() => ui.open({ k: "army", id: a.id })}
             >
-              ${ui.s.nations[a.owner].name}: ${a.regs.length}
-              regiment${a.regs.length === 1 ? "" : "s"},
-              ${Math.round(armyMen(a))} men
+              ${nationName(ui.s.nations[a.owner].name)}:
+              ${Math.round(armyMen(a)).toLocaleString("en-US")} men
             </button>
           </li>`,
       )}
@@ -466,11 +478,13 @@ function actionsSection(
   p: number,
   pr: Province,
   player: boolean,
+  known: boolean,
 ): TemplateResult {
   if (!player) return html``;
   const s = ui.s;
+  const me = s.nations[ui.me];
   const out: TemplateResult[] = [];
-  if (pr.owner === -1 && !pr.colony && s.nations[ui.me].kind === "power") {
+  if (pr.owner === -1 && !pr.colony && me.kind === "power") {
     const check = colonizeCheck(s, ui.w, ui.me, p);
     out.push(
       html`<div class="cq-act">
@@ -486,7 +500,10 @@ function actionsSection(
         )}
         ${check.ok
           ? html`<p class="cq-muted small">
-              The settlers leave ${ui.map.provinces[check.source!].name}.
+              The settlers leave
+              ${ui.map.provinces[check.source!].name}.${known
+                ? ""
+                : " Nobody has surveyed this land yet."}
             </p>`
           : nothing}
       </div>`,
@@ -495,7 +512,7 @@ function actionsSection(
   if (
     pr.owner >= 0 &&
     s.nations[pr.owner].kind === "native" &&
-    s.nations[ui.me].kind === "power"
+    me.kind === "power"
   ) {
     const check = buyCheck(s, ui.w, ui.me, p);
     out.push(
@@ -509,6 +526,41 @@ function actionsSection(
       </div>`,
     );
   }
+  if (me.kind === "power" && pr.owner !== ui.me) {
+    out.push(
+      html`<div class="cq-act">
+        ${!known
+          ? html`<button
+              class="cq-btn"
+              @click=${() => ui.modal({ k: "mission", p, kind: "explore" })}
+            >
+              Send an expedition
+              <span class="cq-cost">${EXPEDITION.gold}g</span>
+            </button>`
+          : nothing}
+        ${!pr.outpost && (pr.owner < 0 || s.nations[pr.owner].kind === "native")
+          ? html`<button
+              class="cq-btn"
+              @click=${() => ui.modal({ k: "mission", p, kind: "outpost" })}
+            >
+              Build an outpost
+              <span class="cq-cost">${OUTPOST.gold}g, timber, tools</span>
+            </button>`
+          : nothing}
+      </div>`,
+    );
+  } else if (me.kind === "power" && pr.owner === ui.me && !pr.outpost) {
+    out.push(
+      html`<div class="cq-act">
+        <button
+          class="cq-btn"
+          @click=${() => ui.modal({ k: "mission", p, kind: "outpost" })}
+        >
+          Build an outpost here <span class="cq-cost">${OUTPOST.gold}g</span>
+        </button>
+      </div>`,
+    );
+  }
   if (holder(pr) === ui.me && pr.owner !== ui.me && pr.owner >= 0) {
     out.push(
       html`<p class="cq-muted small">
@@ -517,7 +569,7 @@ function actionsSection(
       </p>`,
     );
   }
-  return out.length > 0 ? section("Actions", html`${out}`) : html``;
+  return out.length > 0 ? section("What you can do", html`${out}`) : html``;
 }
 
 function modsSection(ui: GameUi, pr: Province): TemplateResult {

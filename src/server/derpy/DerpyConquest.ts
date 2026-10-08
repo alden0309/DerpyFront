@@ -291,7 +291,10 @@ export interface RecentResult {
   game: "derpyfront" | "conquest";
   gameId: string;
   endedAt: string;
+  /** The account that played, whatever name they used in the game. */
   username: string;
+  /** The name they played under, when it wasn't their account name. */
+  playedAs?: string;
   won: boolean;
   /** DerpyFront: the map. Conquest: the nation played. */
   where: string;
@@ -299,24 +302,38 @@ export interface RecentResult {
   coins: number;
 }
 
+/** The in-game name, when it differs from the account's. */
+function alias(
+  account: string,
+  playedAs: string | null,
+): { playedAs?: string } {
+  return playedAs && playedAs.toLowerCase() !== account.toLowerCase()
+    ? { playedAs }
+    : {};
+}
+
 /** The latest finished games across both games, one line per player. */
 export async function recentResults(limit = 12): Promise<RecentResult[]> {
   const pool = await db();
   const [front, conquest] = await Promise.all([
     pool.query(
-      `SELECT g.game_id, g.ended_at, g.map, g.num_players, gp.username,
-         gp.won, gp.coins
+      `SELECT g.game_id, g.ended_at, g.map, g.num_players,
+         COALESCE(a.username, gp.username) AS username,
+         gp.username AS played_as, gp.won, gp.coins
        FROM derpy_game_players gp
        JOIN derpy_games g ON g.game_id = gp.game_id
+       LEFT JOIN derpy_accounts a ON a.id = gp.account_id
        ORDER BY g.ended_at DESC, gp.won DESC
        LIMIT $1`,
       [limit],
     ),
     pool.query(
-      `SELECT g.game_id, g.ended_at, g.num_players, cp.username, cp.nation,
-         cp.won, cp.coins
+      `SELECT g.game_id, g.ended_at, g.num_players,
+         COALESCE(a.username, cp.username) AS username,
+         cp.username AS played_as, cp.nation, cp.won, cp.coins
        FROM derpy_conquest_players cp
        JOIN derpy_conquest_games g ON g.game_id = cp.game_id
+       LEFT JOIN derpy_accounts a ON a.id = cp.account_id
        ORDER BY g.ended_at DESC, cp.won DESC
        LIMIT $1`,
       [limit],
@@ -328,6 +345,7 @@ export async function recentResults(limit = 12): Promise<RecentResult[]> {
       gameId: r.game_id,
       endedAt: new Date(r.ended_at).toISOString(),
       username: r.username,
+      ...alias(r.username, r.played_as),
       won: r.won,
       where: r.map,
       numPlayers: r.num_players,
@@ -338,6 +356,7 @@ export async function recentResults(limit = 12): Promise<RecentResult[]> {
       gameId: r.game_id,
       endedAt: new Date(r.ended_at).toISOString(),
       username: r.username,
+      ...alias(r.username, r.played_as),
       won: r.won,
       where: r.nation,
       numPlayers: r.num_players,

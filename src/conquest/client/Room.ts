@@ -4,7 +4,12 @@
 import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import "../../derpland/DerpBar";
-import { planBudget, planCost, planProblem } from "../engine/Characters";
+import {
+  planBudget,
+  planCost,
+  planProblem,
+  planTraitCost,
+} from "../engine/Characters";
 import { AMERICAS } from "../engine/Map";
 import { NAMES } from "../engine/Names";
 import {
@@ -16,6 +21,7 @@ import {
   STAT_NAMES,
   STAT_START,
   statStepCost,
+  TRAIT_POINTS,
   TRAITS,
 } from "../engine/Rules";
 import type { GovernorPlan, Stat, TraitId } from "../engine/Types";
@@ -75,8 +81,10 @@ function loadDraft(power: string): GovernorPlan {
   return freshPlan(power);
 }
 
-/** Points left to spend on a plan. */
+/** Stat points left to spend on a plan. */
 const pointsLeft = (p: GovernorPlan) => planBudget(p) - planCost(p);
+/** Trait points left: traits have their own purse, so a strength can't be swapped for stat points. */
+const traitsLeft = (p: GovernorPlan) => TRAIT_POINTS - planTraitCost(p);
 
 /** A random governor that fits the budget: a couple of traits, the rest in stats. */
 function randomPlan(base: GovernorPlan): GovernorPlan {
@@ -91,7 +99,7 @@ function randomPlan(base: GovernorPlan): GovernorPlan {
     const opp = TRAITS[t].opposite;
     if (plan.traits.includes(t) || (opp && plan.traits.includes(opp))) continue;
     const next = { ...plan, traits: [...plan.traits, t] };
-    if (pointsLeft(next) >= 0) plan.traits = next.traits;
+    if (traitsLeft(next) >= 0) plan.traits = next.traits;
   }
   // A weakness or two buys a strength.
   if (Math.random() < 0.6) plan.stats[pick([...STATS])] = 3;
@@ -194,7 +202,7 @@ export class Room extends LitElement {
             <p class="cq-muted">
               ${L.solo
                 ? "Choose the crown you'll serve, then the governor you'll be."
-                : html`Up to six players, one nation each. Nations nobody picks
+                : html`Up to five players, one nation each. Nations nobody picks
                   are played by the computer.
                   ${L.open
                     ? "Listed under open games."
@@ -290,6 +298,7 @@ export class Room extends LitElement {
   private governorForm(power: string): TemplateResult {
     const plan = this.plan!;
     const left = pointsLeft(plan);
+    const tleft = traitsLeft(plan);
     const budget = planBudget(plan);
     const problem = planProblem(plan);
     const dirty = JSON.stringify(plan) !== this.sent;
@@ -307,8 +316,8 @@ export class Room extends LitElement {
       </h2>
       <p class="cq-muted">
         You'll be this person for the whole game, until they die and their heir
-        takes over. ${budget} points to spend: every strength is paid for, and a
-        flaw gives points back.
+        takes over. ${budget} points for skills, and ${TRAIT_POINTS} for traits:
+        a flaw gives trait points back.
       </p>
       <div class="cq-gov-grid">
         <div class="cq-gov-id">
@@ -391,7 +400,7 @@ export class Room extends LitElement {
         <div class="cq-gov-stats">
           <div class="cq-points ${left < 0 ? "over" : ""}" aria-live="polite">
             <span class="cq-points-n">${left}</span>
-            <span>point${left === 1 ? "" : "s"} left of ${budget}</span>
+            <span>skill point${left === 1 ? "" : "s"} left of ${budget}</span>
           </div>
           <ul class="cq-statlist">
             ${STATS.map((st) => {
@@ -442,22 +451,38 @@ export class Room extends LitElement {
         </div>
       </div>
 
-      <h3 class="cq-h3">
-        Traits <span class="cq-muted small">(up to ${MAX_TRAITS})</span>
-      </h3>
+      <div class="cq-trait-headrow">
+        <h3 class="cq-h3">
+          Traits <span class="cq-muted small">(up to ${MAX_TRAITS})</span>
+        </h3>
+        <div
+          class="cq-points small ${tleft < 0 ? "over" : ""}"
+          aria-live="polite"
+        >
+          <span class="cq-points-n">${tleft}</span>
+          <span
+            >trait point${tleft === 1 ? "" : "s"} left of ${TRAIT_POINTS}</span
+          >
+        </div>
+      </div>
+      <p class="cq-muted small">
+        Traits shape what your governor does, not just their numbers: how the
+        crown and natives see them, how they fight, and how they lead a party
+        into the wilds.
+      </p>
       <ul class="cq-trait-grid">
         ${ALL_TRAITS.map((t) => {
           const r = TRAITS[t];
           const on = plan.traits.includes(t);
           const clash = r.opposite && plan.traits.includes(r.opposite);
           const full = !on && plan.traits.length >= MAX_TRAITS;
-          const dear = !on && r.cost > left;
+          const dear = !on && r.cost > tleft;
           const why = clash
             ? `Can't be ${r.name.toLowerCase()} and ${TRAITS[r.opposite!].name.toLowerCase()}`
             : full
               ? `Up to ${MAX_TRAITS} traits`
               : dear
-                ? "Not enough points"
+                ? "Not enough trait points: take a flaw to afford it"
                 : "";
           return html`<li>
             <button
@@ -485,6 +510,11 @@ export class Room extends LitElement {
                 ></span
               >
               <span class="cq-trait-text">${r.text}</span>
+              ${r.trail
+                ? html`<span class="cq-trait-trail"
+                    ><i>In the wilds:</i> ${r.trail}</span
+                  >`
+                : nothing}
             </button>
           </li>`;
         })}

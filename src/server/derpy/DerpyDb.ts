@@ -169,6 +169,10 @@ CREATE TABLE IF NOT EXISTS derpy_conquest_saves (
 );
 CREATE INDEX IF NOT EXISTS derpy_conquest_saves_accounts
   ON derpy_conquest_saves USING GIN (accounts);
+-- The game state's version: saves from another version can't be loaded, so
+-- they aren't offered. Saves from before this column existed were version 2.
+ALTER TABLE derpy_conquest_saves
+  ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 2;
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two

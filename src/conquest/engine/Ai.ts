@@ -4,6 +4,13 @@
 
 import { seatCandidates } from "./Characters";
 import type { ConquestGame } from "./Game";
+import { kmBetween } from "./Map";
+import {
+  isExplored,
+  leaderFlags,
+  missionCheck,
+  missionLeaders,
+} from "./Missions";
 import { routeTree } from "./Paths";
 import {
   adminCapacity,
@@ -105,6 +112,7 @@ function powerAi(g: ConquestGame, n: number): void {
     });
   marriages(g, n);
   if (nation.gold > 45) colonize(g, n);
+  if (nation.gold > 120) explore(g, n);
   for (let i = 0; i < (nation.gold > 400 ? 3 : nation.gold > 150 ? 2 : 1); i++)
     if (g.s.nations[n].gold > 60) build(g, n);
   military(g, n);
@@ -190,16 +198,20 @@ function colonize(g: ConquestGame, n: number): void {
       continue;
     const check = colonizeCheck(s, g.w, n, p);
     if (!check.ok) continue;
+    // Same knowledge as a player: unsurveyed land is a guess.
+    const known = isExplored(s, n, p);
     const raw = g.w.raw[p];
-    const value = {
-      tobacco: 3,
-      sugar: 3.2,
-      furs: 2.2,
-      silver: 3.5,
-      grain: 2,
-      fish: 1.8,
-      timber: 1.4,
-    }[raw];
+    const value = !known
+      ? 1.6
+      : {
+          tobacco: 3,
+          sugar: 3.2,
+          furs: 2.2,
+          silver: 3.5,
+          grain: 2,
+          fish: 1.8,
+          timber: 1.4,
+        }[raw] * (s.provinces[p].rich ? 1.5 : 1);
     // Wary of angering strong natives nearby.
     let anger = 0;
     for (const [q] of g.map.provinces[p].nb) {
@@ -561,4 +573,31 @@ function crownAi(g: ConquestGame, n: number): void {
     if (target >= 0 && a.prov !== target)
       g.command(n, { k: "move", a: a.id, to: target });
   }
+}
+
+/** Now and then, send the best-suited courtier to survey nearby land. */
+function explore(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const nation = s.nations[n];
+  if (nation.missions.length > 0 || s.day % 90 > 30) return;
+  const leaders = missionLeaders(s, n)
+    .map((c) => ({
+      c,
+      score: leaderFlags(s, c).reduce((m, f) => m + (f.good ? 1 : -1), 0),
+    }))
+    .sort((a, b) => b.score - a.score);
+  const leader = leaders[0]?.c;
+  if (!leader) return;
+  const capital = nation.capital;
+  let best = -1;
+  let bestKm = Infinity;
+  for (let p = 0; p < s.provinces.length; p++) {
+    if (isExplored(s, n, p) || s.provinces[p].owner >= 0) continue;
+    const km = kmBetween(g.map, capital, p);
+    if (km < bestKm && missionCheck(s, g.w, n, leader.id, p, "explore").ok) {
+      bestKm = km;
+      best = p;
+    }
+  }
+  if (best >= 0) g.command(n, { k: "expedition", c: leader.id, p: best });
 }

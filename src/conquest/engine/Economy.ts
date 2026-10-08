@@ -35,6 +35,7 @@ import {
   iceBound,
   INCOME_SHARE,
   NEEDS,
+  OUTPOST,
   POWER_RULES,
   PRICE_SPEED,
   REGIMENTS,
@@ -372,6 +373,12 @@ function powerEconomy(g: ConquestGame, n: number): void {
   }
   if (buildingUpkeep > 0)
     spending.push({ label: "Keeping up buildings", value: buildingUpkeep });
+  const posts = s.provinces.filter((pr) => pr.outpost?.by === n).length;
+  if (posts > 0)
+    spending.push({
+      label: `Outposts (${posts})`,
+      value: posts * OUTPOST.upkeep,
+    });
   const seats = Object.values(nation.council).filter((c) => c >= 0).length;
   if (seats > 0)
     spending.push({ label: `Council salaries (${seats})`, value: seats * 0.8 });

@@ -319,6 +319,16 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
       coins: 218,
     });
 
+    // The front page's latest games name the account, not the in-game name.
+    const recent = await call("/recent");
+    expect(recent.json.results[0]).toMatchObject({
+      game: "derpyfront",
+      gameId: "GAME0001",
+      username: "Alden",
+      playedAs: "name_AAAAAAAA",
+      won: true,
+    });
+
     const replay = await call("/game/GAME0001");
     expect(replay.status).toBe(200);
     expect(replay.json.gitCommit).toBe("DEV");

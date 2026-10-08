@@ -576,7 +576,7 @@ export const ANCHORS = [
   ["Bahia Sertão", -10.5, -43.5, "cattle", "desert"],
 ];
 
-// The six colonial powers, in the order the lobby lists them.
+// The five colonial powers, in the order the lobby lists them.
 export const POWERS = [
   {
     id: "england",
@@ -598,13 +598,6 @@ export const POWERS = [
     adjective: "Spanish",
     color: "#e5b316",
     provinces: ["St. Augustine", "Havana", "Santo Domingo"],
-  },
-  {
-    id: "portugal",
-    name: "Portugal",
-    adjective: "Portuguese",
-    color: "#16894a",
-    provinces: ["Salvador", "Olinda"],
   },
   {
     id: "netherlands",

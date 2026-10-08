@@ -56,13 +56,6 @@ export const HISTORY: {
     name: "The Eighty Years' War",
   },
   {
-    a: "netherlands",
-    b: "portugal",
-    from: [1621, 3],
-    to: [1640, 11],
-    name: "The Dutch-Portuguese War",
-  },
-  {
     a: "england",
     b: "spain",
     from: [1625, 8],
@@ -82,20 +75,6 @@ export const HISTORY: {
     from: [1635, 4],
     to: [1659, 10],
     name: "The Franco-Spanish War",
-  },
-  {
-    a: "portugal",
-    b: "spain",
-    from: [1640, 11],
-    to: [1668, 1],
-    name: "The Portuguese Restoration War",
-  },
-  {
-    a: "netherlands",
-    b: "portugal",
-    from: [1645, 5],
-    to: [1661, 7],
-    name: "The Dutch-Portuguese War",
   },
   {
     a: "england",

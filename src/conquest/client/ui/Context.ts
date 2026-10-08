@@ -14,6 +14,7 @@ import type {
   PeaceTerms,
 } from "../../engine/Types";
 import { flagFor } from "../Flags";
+import { portrait } from "../Portrait";
 import { nationName } from "../Text";
 import { num, plain, TipContent } from "../Tip";
 
@@ -38,7 +39,8 @@ export type Modal =
   | { k: "peace"; n: number; terms?: PeaceTerms }
   | { k: "menu" }
   | { k: "help" }
-  | { k: "end" };
+  | { k: "end" }
+  | { k: "mission"; p: number; kind: "explore" | "outpost"; leader?: number };
 
 export interface GameUi {
   s: GameState;
@@ -63,22 +65,34 @@ export function mine(ui: GameUi): Nation | null {
   return ui.me >= 0 ? ui.s.nations[ui.me] : null;
 }
 
-/** A round token with someone's initial, in their nation's colour. */
+/** Someone's portrait, framed, sized by `cls` (xl, banner-token, or small). */
 export function token(
   ui: GameUi,
   c: Character | undefined,
   cls = "",
 ): TemplateResult {
-  if (!c) return html`<span class="cq-token empty ${cls}">?</span>`;
-  const n = ui.s.nations[c.nation];
-  const letter = (c.title ? c.title.replace(/^the /i, "") : c.first)
-    .slice(0, 1)
-    .toUpperCase();
-  return html`<span
-    class="cq-token ${cls} ${c.alive ? "" : "dead"}"
-    style="--tok:${n?.color ?? "#888"}"
-    >${letter}</span
-  >`;
+  const n = c ? ui.s.nations[c.nation] : undefined;
+  return portrait(
+    c,
+    {
+      age: c ? ageOf(ui.s, c) : 30,
+      color: n?.color ?? "#6b4f33",
+      native: n?.kind === "native",
+    },
+    cls,
+  );
+}
+
+/** A heading that opens to show more: the details most people don't need. */
+export function more(
+  summary: string | TemplateResult,
+  body: TemplateResult,
+  open = false,
+): TemplateResult {
+  return html`<details class="cq-more" ?open=${open}>
+    <summary>${summary}</summary>
+    <div class="cq-more-body">${body}</div>
+  </details>`;
 }
 
 export function charLink(

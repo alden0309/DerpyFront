@@ -4,19 +4,35 @@
 import { html, nothing, TemplateResult } from "lit";
 import { formatDate } from "../../engine/Calendar";
 import {
+  leaderFlags,
+  missionCheck,
+  missionDays,
+  missionLeaders,
+} from "../../engine/Missions";
+import {
   peaceCheck,
   peaceWillingness,
   provinceValue,
   warBetween,
   warScore,
 } from "../../engine/Queries";
-import { REG_NAMES } from "../../engine/Rules";
+import {
+  EXPEDITION,
+  OUTPOST,
+  REG_NAMES,
+  SEAT_NAMES,
+  STAT_NAMES,
+} from "../../engine/Rules";
 import type { BattleSide, PeaceTerms, RegType } from "../../engine/Types";
+import { SEATS } from "../../engine/Types";
 import type { ResultLine } from "../../Protocol";
 import { flagFor } from "../Flags";
+import "../Range";
+import { isMuted, play, setMuted } from "../Sound";
 import { money, nationName } from "../Text";
 import { num } from "../Tip";
-import { action, breakdownTip, GameUi, Modal } from "./Context";
+import { battleVerdict, reasonList, strengthBars } from "./Battle";
+import { action, breakdownTip, GameUi, Modal, token } from "./Context";
 
 /** What the menu and the results need from the game screen. */
 export interface ModalHooks {
@@ -28,6 +44,9 @@ export interface ModalHooks {
   savedAt: string | null;
   code: string;
   results: ResultLine[] | null;
+  /** Seconds of play a letter has before the council decides, if known. */
+  letterLeft(id: number): number | null;
+  paused: boolean;
 }
 
 export function renderModal(
@@ -39,7 +58,7 @@ export function renderModal(
   let cls = "";
   switch (m.k) {
     case "event":
-      body = eventLetter(ui, m.id);
+      body = eventLetter(ui, m.id, hooks);
       cls = "letter";
       break;
     case "battle":
@@ -59,8 +78,12 @@ export function renderModal(
     case "end":
       body = endPage(ui, hooks);
       break;
+    case "mission":
+      body = missionPicker(ui, m.p, m.kind, m.leader);
+      cls = "wide";
+      break;
   }
-  const closable = m.k !== "event" && !(m.k === "end" && ui.s.over);
+  const closable = !(m.k === "end" && ui.s.over);
   return html`<div
     class="cq-scrim"
     @click=${(e: Event) =>
@@ -83,7 +106,25 @@ export function renderModal(
 
 // ---------------------------------------------------------------- letters
 
-function eventLetter(ui: GameUi, id: number): TemplateResult {
+/** "The council decides in 1:12 of play" (or "paused"). */
+export function letterClock(hooks: ModalHooks, id: number): TemplateResult {
+  const left = hooks.letterLeft(id);
+  if (left === null)
+    return html`If you don't answer, your council takes the first course.`;
+  const m = Math.floor(left / 60);
+  const sec = String(Math.floor(left % 60)).padStart(2, "0");
+  return html`Your council takes the first course in
+    <b class="cq-countdown ${left < 20 ? "bad" : ""}">${m}:${sec}</b> of
+    play${hooks.paused
+      ? html` <span class="cq-chip">clock paused</span>`
+      : nothing}.`;
+}
+
+function eventLetter(
+  ui: GameUi,
+  id: number,
+  hooks: ModalHooks,
+): TemplateResult {
   const n = ui.s.nations[ui.me];
   const ev = n?.events.find((e) => e.id === id);
   if (!ev) {
@@ -108,6 +149,7 @@ function eventLetter(ui: GameUi, id: number): TemplateResult {
               class="cq-choice"
               @click=${async () => {
                 if (await ui.cmd({ k: "event", id, choice: i })) {
+                  play("seal");
                   const next = ui.s.nations[ui.me].events.find(
                     (e) => e.id !== id,
                   );
@@ -122,8 +164,7 @@ function eventLetter(ui: GameUi, id: number): TemplateResult {
       )}
     </ol>
     <p class="cq-muted small cq-letter-foot">
-      If you don't answer by ${formatDate(ev.expires)}, your council takes the
-      first course.
+      ${letterClock(hooks, id)}
       ${others > 0
         ? html`${others} more letter${others === 1 ? "" : "s"} waiting.`
         : nothing}
@@ -137,6 +178,23 @@ function eventLetter(ui: GameUi, id: number): TemplateResult {
 }
 
 // ---------------------------------------------------------------- battles
+
+function whyItWent(ui: GameUi, id: number): TemplateResult {
+  const r = ui.s.battles.find((b) => b.id === id);
+  if (!r) return html``;
+  const v = battleVerdict(ui.s, r, ui.me);
+  const labels: [string, string] =
+    v.ours >= 0
+      ? ["You", "Them"]
+      : [
+          nationName(ui.s.nations[r.attacker.nations[0]].name),
+          nationName(ui.s.nations[r.defender.nations[0]].name),
+        ];
+  return html`<section class="cq-why-box">
+    <h3 class="cq-h3">Why it went this way</h3>
+    ${strengthBars(v, labels)} ${reasonList(v)}
+  </section>`;
+}
 
 function battleReport(ui: GameUi, id: number): TemplateResult {
   const r = ui.s.battles.find((b) => b.id === id);
@@ -162,6 +220,7 @@ function battleReport(ui: GameUi, id: number): TemplateResult {
         ? "The losing army was destroyed."
         : "The losers fell back."}
     </p>
+    ${whyItWent(ui, r.id)}
     <div class="cq-battle-sides">
       ${side(ui, r.attacker, "Attacking", r.winner === 0)}
       ${side(ui, r.defender, "Defending", r.winner === 1)}
@@ -343,25 +402,20 @@ function peaceTable(ui: GameUi, n: number, terms: PeaceTerms): TemplateResult {
         </p>
       </fieldset>
     </div>
-    <label class="cq-slider wide">
-      <span>Gold</span>
-      <input
-        type="range"
-        min=${-maxGive}
-        max=${maxTake}
-        step="5"
-        .value=${String(terms.gold)}
-        @input=${(e: Event) =>
-          set({ gold: Number((e.target as HTMLInputElement).value) })}
-      />
-      <span class="cq-gold-label"
-        >${terms.gold > 0
-          ? `They pay ${money(terms.gold)}`
-          : terms.gold < 0
-            ? `You pay ${money(-terms.gold)}`
-            : "None"}</span
-      >
-    </label>
+    <cq-range
+      label="Gold"
+      .min=${-maxGive}
+      .max=${maxTake}
+      .step=${5}
+      .value=${terms.gold}
+      .format=${(g: number) =>
+        g > 0
+          ? `They pay ${money(g)}`
+          : g < 0
+            ? `You pay ${money(-g)}`
+            : "No gold"}
+      @cq-input=${(e: CustomEvent<number>) => set({ gold: e.detail })}
+    ></cq-range>
     <div class="cq-verdict ${willing.total >= 0 ? "good" : "bad"}">
       ${human
         ? html`${nationName(them.name)} is played by ${them.playerName}; they'll
@@ -427,6 +481,18 @@ function menu(ui: GameUi, hooks: ModalHooks): TemplateResult {
       <button class="cq-btn" @click=${() => ui.modal({ k: "help" })}>
         How to play
       </button>
+      <label class="cq-check">
+        <input
+          type="checkbox"
+          .checked=${!isMuted()}
+          @change=${(e: Event) => {
+            setMuted(!(e.target as HTMLInputElement).checked);
+            if (!isMuted()) play("bell");
+            ui.redraw();
+          }}
+        />
+        Sounds (quill, bells, drums and cannon)
+      </label>
       ${hooks.isHost && !ui.s.over
         ? html`<button
             class="cq-btn danger"
@@ -594,6 +660,133 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
       <button class="cq-btn primary" @click=${() => hooks.leave()}>
         Back to the lobby
       </button>
+    </div>
+  `;
+}
+
+// ---------------------------------------------------------------- expeditions and outposts
+
+function missionPicker(
+  ui: GameUi,
+  p: number,
+  kind: "explore" | "outpost",
+  chosen?: number,
+): TemplateResult {
+  const s = ui.s;
+  const place = ui.map.provinces[p].name;
+  const leaders = missionLeaders(s, ui.me);
+  const pick = chosen ?? leaders[0]?.id;
+  const leader = pick !== undefined ? s.chars[pick] : undefined;
+  const days = missionDays(s, ui.w, ui.me, leader, p, kind);
+  const check =
+    pick !== undefined
+      ? missionCheck(s, ui.w, ui.me, pick, p, kind)
+      : { ok: false as const, why: "Nobody at court is free to go." };
+  const n = s.nations[ui.me];
+  const seatOf = (id: number) => SEATS.find((seat) => n.council[seat] === id);
+  return html`
+    <h2 class="cq-h1">
+      ${kind === "explore"
+        ? `An expedition to ${place}`
+        : `An outpost at ${place}`}
+    </h2>
+    <p class="cq-lede small">
+      ${kind === "explore"
+        ? `A small party surveys ${place} and the country around it: what the land yields, and whether any of it is rich. ${EXPEDITION.gold} gold.`
+        : `A party raises a palisade at ${place}: defenders there fight ${Math.round(OUTPOST.defense * 100)}% harder, the land feeds ${OUTPOST.supply * 1000} more of your men, and a colony there is founded faster. ${OUTPOST.gold} gold, timber and tools, then ${OUTPOST.upkeep} gold a month.`}
+      The journey is dangerous, and who leads it matters.
+    </p>
+    <h3 class="cq-h3">Who leads it</h3>
+    ${leaders.length === 0
+      ? html`<p class="cq-empty">
+          Nobody at court is free: everyone is governing, leading an army or
+          already away.
+        </p>`
+      : html`<ul class="cq-leaders">
+          ${leaders.map((c) => {
+            const flags = leaderFlags(s, c);
+            const seat = seatOf(c.id);
+            return html`<li>
+              <button
+                class="cq-leader ${c.id === pick ? "on" : ""}"
+                aria-pressed=${c.id === pick}
+                title=${flags
+                  .map((f) => `${f.good ? "+" : "−"} ${f.text}`)
+                  .join("\n") || "Nothing special for the trail"}
+                @click=${() =>
+                  ui.modal({ k: "mission", p, kind, leader: c.id })}
+              >
+                ${token(ui, c)}
+                <span class="cq-leader-text">
+                  <b>${c.title ?? `${c.first} ${c.family}`}</b>
+                  <span class="cq-muted small"
+                    >${seat ? SEAT_NAMES[seat] : "At court"}, ${STAT_NAMES.mar}
+                    ${c.stats.mar}, ${STAT_NAMES.lea} ${c.stats.lea},
+                    ${STAT_NAMES.dip} ${c.stats.dip}</span
+                  >
+                  <span class="cq-flags-list">
+                    ${flags.length === 0
+                      ? html`<span class="cq-muted small"
+                          >Nothing that helps or hurts on the trail.</span
+                        >`
+                      : flags.map(
+                          (f) =>
+                            html`<span
+                              class="cq-flag-chip ${f.good ? "good" : "bad"}"
+                              >${f.good ? "+" : "−"}
+                              ${f.text.split(":")[0]}</span
+                            >`,
+                        )}
+                  </span>
+                </span>
+              </button>
+            </li>`;
+          })}
+        </ul>`}
+    ${leader
+      ? html`<div class="cq-mission-sum">
+          <p>
+            ${leader.first} would reach ${place} in
+            ${num(`${days.total} days`, () =>
+              breakdownTip("Days to get there (the same again back)", days),
+            )}
+            and be home about ${days.total * 2} days from now. Halfway out, the
+            country decides what goes wrong: rapids where rivers cross, fever in
+            hot lowlands, warriors where natives live, getting lost in forest
+            and mountains, snow in winter.
+          </p>
+          <ul class="cq-trail-notes">
+            ${leaderFlags(s, leader).map(
+              (f) => html`<li class=${f.good ? "good" : "bad"}>${f.text}</li>`,
+            )}
+          </ul>
+        </div>`
+      : nothing}
+    <div class="cq-btnrow end">
+      <button class="cq-btn quiet" @click=${() => ui.modal(null)}>
+        Not now
+      </button>
+      ${action(
+        kind === "explore" ? "Send them" : "Send the party",
+        check,
+        async () => {
+          if (pick === undefined) return;
+          if (
+            await ui.cmd({
+              k: kind === "explore" ? "expedition" : "outpost",
+              c: pick,
+              p,
+            })
+          ) {
+            ui.modal(null);
+            ui.toast(
+              `${leader?.first ?? "The party"} sets out for ${place}.`,
+              "good",
+            );
+          }
+        },
+        "primary",
+      )}
     </div>
   `;
 }

@@ -306,6 +306,10 @@ export interface Province {
   integrate: number;
   /** How worn out the fur grounds are, 0 to 1. */
   depletion: number;
+  /** A palisade outpost someone built here (it may not own the land). */
+  outpost: { by: number; since: number } | null;
+  /** A rich seam, run or soil: +50% of its good. Found by exploring. */
+  rich: boolean;
   /** What it made last month (for the economy view). */
   made: Partial<Record<Good, number>>;
   mods: Modifier[];
@@ -395,6 +399,27 @@ export interface PendingEvent {
   ctx: Record<string, number>;
 }
 
+/** A party sent into the wilds: to survey land, or to build an outpost. */
+export interface Mission {
+  id: number;
+  kind: "explore" | "outpost";
+  /** The character leading it. */
+  leader: number;
+  /** Where they set out from, and where they're going. */
+  from: number;
+  target: number;
+  start: number;
+  /** Day they reach the target, and the day they're home again. */
+  arrive: number;
+  home: number;
+  /** Heading out, or on the way back. */
+  stage: "out" | "back";
+  /** Men in the party; hardship thins it, and at 0 it's lost. */
+  men: number;
+  /** Set when something on the way has already happened. */
+  incident: boolean;
+}
+
 export interface Nation {
   id: number;
   key: string;
@@ -457,6 +482,10 @@ export interface Nation {
   relations: Record<number, Memory[]>;
   mods: Modifier[];
   events: PendingEvent[];
+  /** Provinces this colony has surveyed (it knows what they yield). */
+  explored: number[];
+  /** Expeditions and outpost parties out in the wilds. */
+  missions: Mission[];
   /** Day each event key may fire again. */
   cooldowns: Record<string, number>;
   ledger: Ledger;
@@ -582,6 +611,8 @@ export interface BattleSide {
   lost: number;
   moraleEnd: number;
   factors: BattleFactor[];
+  /** Fighting strength at the start: men × training × morale × factors. */
+  power: number;
 }
 
 export interface BattleReport {
@@ -661,7 +692,18 @@ export type GameEvent =
   | { k: "crown"; day: number; n: number; text: string }
   | { k: "europe"; day: number; a: number; b: number; war: boolean }
   | { k: "independence"; day: number; n: number; won: boolean | null }
-  | { k: "over"; day: number; winner: number };
+  | { k: "over"; day: number; winner: number }
+  | {
+      k: "mission";
+      day: number;
+      n: number;
+      p: number;
+      kind: "explore" | "outpost";
+      /** "back" (home safe), "done" (arrived), "lost" (never came back). */
+      result: "done" | "back" | "lost";
+      c: number;
+      text: string;
+    };
 
 // ---------------------------------------------------------------- the game
 
@@ -754,7 +796,9 @@ export type Command =
   | { k: "confront"; c: number }
   | { k: "event"; id: number; choice: number }
   | { k: "demand"; pay: boolean }
-  | { k: "independence" };
+  | { k: "independence" }
+  | { k: "expedition"; c: number; p: number }
+  | { k: "outpost"; c: number; p: number };
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {

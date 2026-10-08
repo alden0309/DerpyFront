@@ -5,7 +5,6 @@ import { html, nothing, TemplateResult } from "lit";
 import {
   adminCapacity,
   adminUsed,
-  corruption,
   emigration,
   nationSettlers,
   overextension,
@@ -19,7 +18,15 @@ import type { PopClass, Religion } from "../../engine/Types";
 import { POP_CLASSES } from "../../engine/Types";
 import { nationName, people as peopleText } from "../Text";
 import { num, pct, plain } from "../Tip";
-import { bar, breakdownTip, GameUi, provLink, section, stat } from "./Context";
+import {
+  bar,
+  breakdownTip,
+  GameUi,
+  more,
+  provLink,
+  section,
+  stat,
+} from "./Context";
 
 interface ClassRow {
   size: number;
@@ -66,7 +73,6 @@ export function peopleTab(ui: GameUi): TemplateResult {
   const cap = adminCapacity(s, ui.me);
   const used = adminUsed(s, ui.w, ui.me);
   const over = overextension(s, ui.w, ui.me);
-  const corr = corruption(s, ui.w, ui.me);
   const restless = mineProvs
     .map((p) => ({
       p,
@@ -87,13 +93,7 @@ export function peopleTab(ui: GameUi): TemplateResult {
         ],
       }))}
       ${isPower
-        ? html`${stat("Settlers", peopleText(nationSettlers(s, ui.me)), () => ({
-            title: "Settlers",
-            notes: [
-              "Everyone who isn't a native tribe: laborers, artisans, merchants, gentry and clergy.",
-            ],
-          }))}
-          ${stat(
+        ? html`${stat(
             "Arriving a month",
             emigration(s, ui.me).total,
             () =>
@@ -101,7 +101,7 @@ export function peopleTab(ui: GameUi): TemplateResult {
                 "Settlers sailing from home each month",
                 emigration(s, ui.me),
               ),
-            `${Math.round(n.colonists).toLocaleString("en-US")} so far`,
+            `${peopleText(nationSettlers(s, ui.me))} settlers in all`,
           )}`
         : nothing}
       <div class="cq-stat">
@@ -120,16 +120,6 @@ export function peopleTab(ui: GameUi): TemplateResult {
           )}</span
         >
       </div>
-      ${isPower
-        ? html`<div class="cq-stat">
-            <span class="cq-stat-label">Corruption</span>
-            ${num(
-              pct(corr.total),
-              () => breakdownTip("Taxes that go astray", corr, pct),
-              `cq-stat-value ${corr.total > 0.15 ? "bad" : ""}`,
-            )}
-          </div>`
-        : nothing}
     </div>
     ${over > 0
       ? html`<div class="cq-callout bad">
@@ -199,8 +189,12 @@ export function peopleTab(ui: GameUi): TemplateResult {
           poor go without first.
         </p>`,
     )}
-    ${section(
-      "Faith and tongue",
+    ${more(
+      html`Faith and tongue
+        <span class="cq-more-hint"
+          >${faiths.size} faith${faiths.size === 1 ? "" : "s"}, ${cultures.size}
+          people${cultures.size === 1 ? "" : "s"}</span
+        >`,
       html`<div class="cq-split">
         <ul class="cq-list tight">
           ${[...faiths.entries()]
@@ -231,51 +225,63 @@ export function peopleTab(ui: GameUi): TemplateResult {
         </ul>
       </div>`,
     )}
-    ${section(
-      "Provinces",
-      html`<table class="cq-table compact">
-        <thead>
-          <tr>
-            <th>Province</th>
-            <th class="r">People</th>
-            <th class="r">Unrest</th>
-            <th class="r">Admin</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${restless.map(
-            ({ p, unrest, folk }) =>
-              html`<tr>
-                <td>
-                  ${provLink(ui, p)}${s.provinces[p].occupier >= 0
-                    ? html` <span class="cq-chip bad">Occupied</span>`
-                    : nothing}
-                </td>
-                <td class="r">${peopleText(folk)}</td>
-                <td class="r">
-                  ${num(
-                    String(Math.round(unrest)),
-                    () =>
-                      breakdownTip(
-                        "Unrest (revolt at 100)",
-                        unrestOf(s, ui.w, p),
-                        (v) => String(Math.round(v)),
-                      ),
-                    unrest >= 60 ? "bad" : "",
-                  )}
-                </td>
-                <td class="r">
-                  ${num(plain(provinceAdminCost(s, ui.w, ui.me, p).total), () =>
-                    breakdownTip(
-                      "Administration it takes",
-                      provinceAdminCost(s, ui.w, ui.me, p),
-                    ),
-                  )}
-                </td>
-              </tr>`,
-          )}
-        </tbody>
-      </table>`,
-    )}
+    ${section("Most restless", provinceTable(ui, restless.slice(0, 5)))}
+    ${restless.length > 5
+      ? more(
+          `All ${restless.length} provinces`,
+          provinceTable(ui, restless.slice(5)),
+        )
+      : nothing}
   `;
+}
+
+function provinceTable(
+  ui: GameUi,
+  list: { p: number; unrest: number; folk: number }[],
+): TemplateResult {
+  const s = ui.s;
+  const restless = list;
+  return html`<table class="cq-table compact">
+    <thead>
+      <tr>
+        <th>Province</th>
+        <th class="r">People</th>
+        <th class="r">Unrest</th>
+        <th class="r">Admin</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${restless.map(
+        ({ p, unrest, folk }) =>
+          html`<tr>
+            <td>
+              ${provLink(ui, p)}${s.provinces[p].occupier >= 0
+                ? html` <span class="cq-chip bad">Occupied</span>`
+                : nothing}
+            </td>
+            <td class="r">${peopleText(folk)}</td>
+            <td class="r">
+              ${num(
+                String(Math.round(unrest)),
+                () =>
+                  breakdownTip(
+                    "Unrest (revolt at 100)",
+                    unrestOf(s, ui.w, p),
+                    (v) => String(Math.round(v)),
+                  ),
+                unrest >= 60 ? "bad" : "",
+              )}
+            </td>
+            <td class="r">
+              ${num(plain(provinceAdminCost(s, ui.w, ui.me, p).total), () =>
+                breakdownTip(
+                  "Administration it takes",
+                  provinceAdminCost(s, ui.w, ui.me, p),
+                ),
+              )}
+            </td>
+          </tr>`,
+      )}
+    </tbody>
+  </table>`;
 }

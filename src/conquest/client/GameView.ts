@@ -42,6 +42,7 @@ import {
 } from "./Icons";
 import { Geo, MapMode, MapView, ramp, TERRAIN_TINT } from "./MapView";
 import { Net } from "./Net";
+import { play } from "./Sound";
 import {
   describeEvent,
   GOOD_COLORS,
@@ -54,6 +55,7 @@ import {
 import { nationVars } from "./Theme";
 import { hideTip, num, plain } from "./Tip";
 import { armyPanel } from "./ui/ArmyPanel";
+import { battleDispatch } from "./ui/Battle";
 import {
   breakdownTip,
   DrawerView,
@@ -108,6 +110,12 @@ const TABS: { id: Tab; label: string; icon: () => TemplateResult }[] = [
   { id: "diplomacy", label: "Diplomacy", icon: ScrollIcon },
 ];
 
+/** "1:05" */
+function clockText(sec: number): string {
+  const s = Math.ceil(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 const MODES: { id: MapMode; label: string }[] = [
   { id: "nation", label: "Nations" },
   { id: "terrain", label: "Terrain" },
@@ -132,6 +140,8 @@ export class GameView extends LitElement {
   @state() private chatText = "";
   @state() private results: ResultLine[] | null = null;
   @state() private savedAt: string | null = null;
+  /** Battles of yours that just ended, shown as dispatches. */
+  @state() private dispatches: number[] = [];
 
   private s!: GameState;
   private me = -1;
@@ -158,6 +168,11 @@ export class GameView extends LitElement {
   private renderTimer = 0;
   private resizeObs: ResizeObserver | null = null;
   private colonizable: { key: string; set: Set<number> } | null = null;
+  private explored: { n: number; set: Set<number> } | null = null;
+  /** Seconds left on each letter, as the server last said, and when. */
+  private letterLeft = new Map<number, number>();
+  private letterAt = 0;
+  private letterTimer = 0;
 
   createRenderRoot() {
     return this;
@@ -169,6 +184,10 @@ export class GameView extends LitElement {
     super.connectedCallback();
     this.net.on(this.onNet);
     window.addEventListener("keydown", this.onKey);
+    // Letter countdowns tick once a second while the clock runs.
+    this.letterTimer = window.setInterval(() => {
+      if (this.letterLeft.size && !this.paused) this.tick++;
+    }, 1000);
     const loop = (t: number) => {
       this.frame = requestAnimationFrame(loop);
       this.drawMap(t);
@@ -183,6 +202,7 @@ export class GameView extends LitElement {
     cancelAnimationFrame(this.frame);
     this.resizeObs?.disconnect();
     clearTimeout(this.renderTimer);
+    clearInterval(this.letterTimer);
     hideTip();
   }
 
@@ -214,10 +234,11 @@ export class GameView extends LitElement {
       this.selectedArmy = null;
       this.selectedProv = null;
       void this.updateComplete.then(() => this.attachMap(true));
-      // A letter already waiting when you sit down.
+      // A letter already waiting when you sit down (solo; in company it waits
+      // in the tray so the game isn't blocked).
       const first =
         this.me >= 0 ? this.s.nations[this.me].events[0] : undefined;
-      if (first) this.modalView = { k: "event", id: first.id };
+      if (first && this.solo) this.modalView = { k: "event", id: first.id };
     }
     if (this.s.over) this.modalView = { k: "end" };
   }
@@ -258,7 +279,16 @@ export class GameView extends LitElement {
         for (const e of m.d.events ?? []) this.onEvent(e);
         this.checkLetters();
         if (m.d.over) this.modalView = { k: "end" };
-        this.colonizable = null;
+        if (m.d.prov || m.d.nations) this.view?.markDirty();
+        this.requestRender();
+        return;
+      }
+      case "letters": {
+        this.letterLeft = new Map(
+          Object.entries(m.left).map(([id, v]) => [Number(id), v]),
+        );
+        this.letterAt = performance.now();
+        this.paused = m.paused;
         this.requestRender();
         return;
       }
@@ -300,6 +330,7 @@ export class GameView extends LitElement {
 
   private onEvent(e: GameEvent): void {
     if (e.k === "battle") this.flashes.set(e.p, performance.now());
+    this.soundFor(e);
     const text = describeEvent(this.s, map, this.me, e);
     if (!text) return;
     const me = this.me;
@@ -358,7 +389,54 @@ export class GameView extends LitElement {
         break;
     }
     this.addLog(text, tone, e.k === "battle" ? e.id : undefined, e.day);
+    // Your battles get a dispatch explaining the outcome instead of a note.
+    if (e.k === "battle" && (e.a.includes(me) || e.d.includes(me))) {
+      this.dispatches = [
+        ...this.dispatches.filter((id) => id !== e.id),
+        e.id,
+      ].slice(-2);
+      const id = e.id;
+      setTimeout(
+        () => (this.dispatches = this.dispatches.filter((x) => x !== id)),
+        15000,
+      );
+      return;
+    }
     if (alert) this.toast(text, tone);
+  }
+
+  private soundFor(e: GameEvent): void {
+    const me = this.me;
+    if (me < 0) return;
+    switch (e.k) {
+      case "battle":
+        if (e.a.includes(me) || e.d.includes(me)) {
+          play("cannon");
+          const won = (e.w === 0) === e.a.includes(me);
+          setTimeout(() => play(won ? "victory" : "defeat"), 900);
+        }
+        return;
+      case "war":
+        if (e.n === me || e.on === me) play("drums");
+        return;
+      case "colony":
+        if (e.n === me) play("colony");
+        return;
+      case "convoy":
+        if (e.n === me && !e.out) play("bell");
+        return;
+      case "mission":
+        if (e.n === me && e.result !== "lost") play("bell");
+        return;
+    }
+  }
+
+  /** Seconds a letter has left now (counting down while the clock runs). */
+  private secondsLeft(id: number): number | null {
+    const left = this.letterLeft.get(id);
+    if (left === undefined) return null;
+    const ran = this.paused ? 0 : (performance.now() - this.letterAt) / 1000;
+    return Math.max(0, left - ran);
   }
 
   private addLog(
@@ -381,9 +459,12 @@ export class GameView extends LitElement {
     );
     if (fresh.length === 0) return;
     for (const e of fresh) this.seenLetters.add(e.id);
-    this.modalView ??= { k: "event", id: fresh[0].id };
-    if (this.solo && !this.paused) this.net.send({ t: "pause", p: true });
-    if (!this.solo) this.toast(`A letter: ${fresh[0].title}.`);
+    play("letter");
+    if (this.solo) {
+      // Alone, the clock stops and the letter opens.
+      this.modalView ??= { k: "event", id: fresh[0].id };
+      if (!this.paused) this.net.send({ t: "pause", p: true });
+    }
   }
 
   private toast(text: string, tone: Toast["tone"] = ""): void {
@@ -481,6 +562,7 @@ export class GameView extends LitElement {
       preview: this.preview,
       mode: this.mode,
       colonizable: this.colonizableSet(),
+      explored: this.exploredSet(),
     };
     const animating = !this.paused || this.flashes.size > 0;
     if (this.view.needsDraw || (animating && t - this.lastDraw > 32)) {
@@ -488,6 +570,17 @@ export class GameView extends LitElement {
       this.view.needsDraw = false;
       this.view.draw(t);
     }
+  }
+
+  /** What you've surveyed (null when watching: you see everything). */
+  private exploredSet(): Set<number> | null {
+    const me = this.me >= 0 ? this.s.nations[this.me] : null;
+    if (!me || me.kind !== "power") return null;
+    if (this.explored?.n !== me.explored.length) {
+      this.explored = { n: me.explored.length, set: new Set(me.explored) };
+      this.view?.markDirty();
+    }
+    return this.explored.set;
   }
 
   /** Open land you could settle now; worked out again when the day or treasury changes. */
@@ -508,6 +601,7 @@ export class GameView extends LitElement {
         set.add(p);
     }
     this.colonizable = { key, set };
+    this.view?.markDirty();
     return set;
   }
 
@@ -639,6 +733,8 @@ export class GameView extends LitElement {
       savedAt: this.savedAt,
       code: this.code,
       results: this.results,
+      letterLeft: (id) => this.secondsLeft(id),
+      paused: this.paused,
     };
   }
 
@@ -662,7 +758,7 @@ export class GameView extends LitElement {
       class="cq-game ${this.picking !== null ? "picking" : ""}"
       style=${style}
     >
-      ${this.banner()}
+      ${this.banner()} ${this.letterTray()}
       <div class="cq-body">
         ${n ? this.tabs(cur) : nothing}
         ${cur
@@ -715,6 +811,14 @@ export class GameView extends LitElement {
         </main>
       </div>
       <div class="cq-toasts" aria-live="polite">
+        ${this.dispatches.map((id) => {
+          const r = this.s.battles.find((b) => b.id === id);
+          return r
+            ? battleDispatch(ui, r, () => {
+                this.dispatches = this.dispatches.filter((x) => x !== id);
+              })
+            : nothing;
+        })}
         ${this.toasts.map(
           (t) => html`<div class="cq-toast ${t.tone}">${t.text}</div>`,
         )}
@@ -844,6 +948,34 @@ export class GameView extends LitElement {
     </header>`;
   }
 
+  /** Letters waiting for an answer, each with the time it has left. */
+  private letterTray(): TemplateResult | typeof nothing {
+    const n = this.me >= 0 ? this.s.nations[this.me] : null;
+    if (!n || n.events.length === 0) return nothing;
+    if (this.modalView?.k === "event") return nothing;
+    return html`<div
+      class="cq-letter-tray"
+      role="list"
+      aria-label="Letters waiting"
+    >
+      ${n.events.map((e) => {
+        const left = this.secondsLeft(e.id);
+        return html`<button
+          role="listitem"
+          class="cq-tray-letter ${left !== null && left < 20 ? "urgent" : ""}"
+          @click=${() => (this.modalView = { k: "event", id: e.id })}
+        >
+          ${LetterIcon()}<span class="cq-tray-title">${e.title}</span>
+          ${left !== null
+            ? html`<span class="cq-countdown"
+                >${clockText(left)}${this.paused ? " (paused)" : ""}</span
+              >`
+            : nothing}
+        </button>`;
+      })}
+    </div>`;
+  }
+
   private chips(): TemplateResult {
     const s = this.s;
     const me = this.me;
@@ -966,7 +1098,7 @@ export class GameView extends LitElement {
               class=${this.mode === m.id ? "on" : ""}
               @click=${() => {
                 this.mode = m.id;
-                if (this.view) this.view.needsDraw = true;
+                this.view?.markDirty();
               }}
             >
               ${m.label}
@@ -1013,6 +1145,10 @@ export class GameView extends LitElement {
           </ul>
           <p>
             What each province's land yields. Deeper colour: making more of it.
+            ${this.me >= 0 && this.s.nations[this.me].kind === "power"
+              ? html`A <b>?</b> marks land nobody has surveyed: send an
+                  expedition to learn what it holds.`
+              : nothing}
           </p>`;
       case "people":
         return html`<div

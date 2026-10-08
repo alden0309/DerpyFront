@@ -34,7 +34,9 @@ import {
   breakdownTip,
   charLink,
   GameUi,
+  more,
   nationLink,
+  provLink,
   section,
   token,
 } from "./Context";
@@ -81,9 +83,15 @@ export function courtTab(ui: GameUi): TemplateResult {
         <div class="cq-traits">${ruler.traits.map((t) => traitChip(t))}</div>
       </div>
     </div>
-    ${statGrid(ui, ruler)}
-    ${section(
-      "Family",
+    ${statGrid(ui, ruler)} ${missions(ui)}
+    ${more(
+      html`Family
+        <span class="cq-more-hint"
+          >${spouse?.alive ? "married" : "unmarried"}, ${kids.length}
+          child${kids.length === 1 ? "" : "ren"}${heir
+            ? `, heir ${charName(heir)}`
+            : ", no heir"}</span
+        >`,
       html`<ul class="cq-list">
           <li>
             Spouse:
@@ -147,8 +155,16 @@ export function courtTab(ui: GameUi): TemplateResult {
         </tbody>
       </table>`,
     )}
-    ${section(
-      "At court",
+    ${more(
+      html`At court
+        <span class="cq-more-hint"
+          >${court.length}
+          notable${court.length === 1 ? "" : "s"}${court.some(
+            (c) => c.scheme?.exposed,
+          )
+            ? ", a plot uncovered"
+            : ""}</span
+        >`,
       court.length === 0
         ? html`<p class="cq-muted">
             Nobody else at court right now. New arrivals come from Europe.
@@ -181,8 +197,41 @@ export function courtTab(ui: GameUi): TemplateResult {
               )}
             </tbody>
           </table>`,
+      court.some((c) => c.scheme?.exposed),
     )}
   `;
+}
+
+/** Parties out in the wilds: who leads them, where, and when they're due. */
+function missions(ui: GameUi): TemplateResult | typeof nothing {
+  const s = ui.s;
+  const n = s.nations[ui.me];
+  if (n.kind !== "power" || n.missions.length === 0) return nothing;
+  return section(
+    "Out in the wilds",
+    html`<ul class="cq-missions">
+      ${n.missions.map((m) => {
+        const leader = s.chars[m.leader];
+        const due = m.stage === "out" ? m.arrive : m.home;
+        const days = Math.max(0, Math.ceil(due - s.day));
+        return html`<li class="cq-mission">
+          ${token(ui, leader)}
+          <div>
+            <b
+              >${m.kind === "explore" ? "Survey of" : "Outpost at"}
+              ${provLink(ui, m.target)}</b
+            >
+            <span class="cq-muted small"
+              >${charLink(ui, leader, false)} with ${m.men} men.
+              ${m.stage === "out"
+                ? `Arriving in about ${days} days.`
+                : `On the way home, about ${days} days out.`}</span
+            >
+          </div>
+        </li>`;
+      })}
+    </ul>`,
+  );
 }
 
 function councilRow(ui: GameUi, seat: Seat): TemplateResult {

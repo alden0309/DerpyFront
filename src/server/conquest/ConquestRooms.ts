@@ -15,11 +15,13 @@ import { z } from "zod";
 import { dateOf } from "../../conquest/engine/Calendar";
 import { planProblem } from "../../conquest/engine/Characters";
 import { conquestCoins } from "../../conquest/engine/Coins";
+import { autoAnswer } from "../../conquest/engine/Events";
 import { ConquestGame, STATE_VERSION } from "../../conquest/engine/Game";
 import { AMERICAS } from "../../conquest/engine/Map";
 import { provincesOf } from "../../conquest/engine/Queries";
 import {
   DEFAULT_SPEED,
+  LETTER_SECONDS,
   SPEED_DAYS_PER_SECOND,
 } from "../../conquest/engine/Rules";
 import type { GovernorPlan } from "../../conquest/engine/Types";
@@ -27,7 +29,8 @@ import {
   ClientMessage,
   CONQUEST_WS_PATH,
   DIFFICULTIES,
-  END_YEARS,
+  END_YEAR_MAX,
+  END_YEAR_MIN,
   MAX_NAME_LENGTH,
   OpenRoom,
   ResultLine,
@@ -61,9 +64,7 @@ const POWER_IDS = AMERICAS.powers.map((p) => p.id);
 // ---------------------------------------------------------------- messages
 
 const Settings = z.object({
-  endYear: z
-    .number()
-    .refine((y) => (END_YEARS as readonly number[]).includes(y)),
+  endYear: z.number().int().min(END_YEAR_MIN).max(END_YEAR_MAX),
   difficulty: z.enum(DIFFICULTIES as [string, ...string[]]),
 });
 
@@ -181,6 +182,8 @@ interface Room {
   emptySince: number | null;
   overAt: number | null;
   results: ResultLine[] | null;
+  /** Players' unanswered letters: milliseconds of unpaused play left. */
+  letters: Map<number, number>;
 }
 
 function randomToken(bytes: number): string {
@@ -374,6 +377,7 @@ export class ConquestRooms {
           paused: room.paused,
           by: seat.name,
         });
+        for (const x of room.seats) this.sendLetters(room, x);
         if (room.paused) void this.save(room);
         return;
       case "chat":
@@ -429,7 +433,7 @@ export class ConquestRooms {
     let saved: SavedGame[] = [];
     if (conn.accountId !== null && derpyDbConfigured()) {
       try {
-        const rows = await savesFor(conn.accountId);
+        const rows = await savesFor(conn.accountId, STATE_VERSION);
         saved = rows.map((r) => {
           const mine = r.seats.find((s) => s.accountId === conn.accountId);
           const live = [...this.rooms.values()].find((x) => x.saveId === r.id);
@@ -501,6 +505,7 @@ export class ConquestRooms {
       emptySince: null,
       overAt: null,
       results: null,
+      letters: new Map(),
     };
     if (conn) {
       const seat = this.seatFor(conn);
@@ -709,6 +714,7 @@ export class ConquestRooms {
       paused: room.paused,
       seats: seatInfo(room),
     });
+    this.sendLetters(room, seat);
   }
 
   private startGame(room: Room): void {
@@ -847,6 +853,7 @@ export class ConquestRooms {
     if (!game || game.state.over) return;
     if (t - room.lastSaved > SAVE_EVERY_MS && !room.paused)
       void this.save(room);
+    this.letterClock(room, room.paused ? 0 : dt);
     if (room.paused) return;
     room.owed += (dt / 1000) * SPEED_DAYS_PER_SECOND[room.speed];
     let ticks = 0;
@@ -862,6 +869,54 @@ export class ConquestRooms {
       return;
     }
     if (ticks > 0 && t - room.lastSent >= SEND_EVERY_MS) this.flush(room);
+  }
+
+  /**
+   * Letters wait LETTER_SECONDS of unpaused play for an answer, then the
+   * council decides. Each player hears how long their letters have left
+   * whenever a letter arrives or goes, and whenever the clock starts or stops.
+   */
+  private letterClock(room: Room, dt: number): void {
+    const game = room.game!;
+    const pending = new Set<number>();
+    let answered = false;
+    for (const seat of room.seats) {
+      if (!seat.power) continue;
+      const n = game.nationOfSeat(seat.id);
+      if (n < 0) continue;
+      let changed = false;
+      for (const ev of [...game.state.nations[n].events]) {
+        pending.add(ev.id);
+        let left = room.letters.get(ev.id);
+        if (left === undefined) {
+          left = LETTER_SECONDS * 1000;
+          changed = true;
+        }
+        left -= dt;
+        if (left <= 0) {
+          autoAnswer(game, n, ev.id);
+          room.letters.delete(ev.id);
+          pending.delete(ev.id);
+          answered = changed = true;
+        } else room.letters.set(ev.id, left);
+      }
+      if (changed) this.sendLetters(room, seat);
+    }
+    for (const id of [...room.letters.keys()])
+      if (!pending.has(id)) room.letters.delete(id);
+    if (answered) this.flush(room);
+  }
+
+  private sendLetters(room: Room, seat: Seat): void {
+    if (!seat.conn || !room.game) return;
+    const n = room.game.nationOfSeat(seat.id);
+    if (n < 0) return;
+    const left: Record<number, number> = {};
+    for (const ev of room.game.state.nations[n].events)
+      left[ev.id] = Math.ceil(
+        (room.letters.get(ev.id) ?? LETTER_SECONDS * 1000) / 1000,
+      );
+    this.send(seat.conn, { t: "letters", left, paused: room.paused });
   }
 
   /** Works out results and coins, saves them, and tells everyone. */

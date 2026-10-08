@@ -652,9 +652,8 @@ ol {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   margin: 0.7rem 0;
-  border: 1px solid var(--sepia);
-  border-radius: 2px;
-  background: rgba(255, 250, 235, 0.35);
+  border-radius: 4px;
+  background: rgba(255, 250, 235, 0.4);
 }
 .cq-statbox {
   display: flex;
@@ -807,10 +806,9 @@ ol {
 }
 .cq-traits .cq-trait {
   font-size: 0.82rem;
-  padding: 0.02em 0.55em 0.08em;
-  border: 1px solid var(--sepia);
-  border-radius: 2px;
-  background: rgba(255, 250, 235, 0.5);
+  padding: 0.05em 0.6em 0.1em;
+  border-radius: 3px;
+  background: rgba(138, 106, 62, 0.14);
 }
 
 .cq-ruler-card {
@@ -1577,6 +1575,9 @@ ol {
   width: min(600px, 100%);
   padding: 2rem 2.2rem 1.5rem;
 }
+.cq-modal.letter .cq-seal {
+  right: 3rem;
+}
 .cq-seal {
   position: absolute;
   top: 1.1rem;
@@ -2271,6 +2272,583 @@ ol {
 
 /* ---------------------------------------------------------------- narrow screens */
 
+/* ---------------------------------------------------------------- a cleaner page
+
+   The open page reads as one sheet of paper: sections divided by space and a
+   short ink stroke rather than boxes, numbers set in the running text, the
+   detail folded away under a disclosure. */
+
+.cq-drawer {
+  box-shadow:
+    1px 0 0 rgba(138, 106, 62, 0.45),
+    10px 0 24px rgba(0, 0, 0, 0.22);
+}
+.cq-drawer-page {
+  padding: 0 1.35rem 2.4rem;
+}
+.cq-panel-head {
+  padding-bottom: 0.55rem;
+  margin-bottom: 0.3rem;
+  border-bottom: 0;
+  background: linear-gradient(90deg, var(--sepia), transparent 70%) bottom
+    left / 100% 1px no-repeat;
+}
+.cq-section {
+  margin-top: 1.35rem;
+}
+.cq-section > .cq-h3::after {
+  content: "";
+  display: block;
+  width: 2.2rem;
+  height: 1px;
+  margin-top: 0.2rem;
+  background: var(--sepia);
+}
+.cq-stats {
+  gap: 0.5rem 1.2rem;
+}
+.cq-stat {
+  border-bottom: 0;
+  padding: 0.2rem 0;
+}
+.cq-tab.on {
+  box-shadow: none;
+}
+.cq-tab.on::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--brass);
+}
+
+/* Folded-away detail. */
+.cq-more {
+  margin-top: 0.9rem;
+}
+.cq-more > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.6rem;
+  padding: 0.35rem 0;
+  cursor: pointer;
+  list-style: none;
+  font-family: var(--fell-sc);
+  font-size: 1.05rem;
+  color: var(--nation-deep);
+}
+.cq-more > summary::-webkit-details-marker {
+  display: none;
+}
+.cq-more > summary::before {
+  content: "";
+  flex: none;
+  width: 0.45em;
+  height: 0.45em;
+  margin-right: 0.1rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-0.12em) rotate(-45deg);
+  transition: transform 0.15s;
+}
+.cq-more[open] > summary::before {
+  transform: translateY(-0.2em) rotate(45deg);
+}
+.cq-more > summary:hover {
+  color: var(--ink);
+}
+.cq-more-hint {
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+.cq-more-body {
+  padding: 0.2rem 0 0.4rem 1.05rem;
+  border-left: 1px solid var(--rule);
+  margin-left: 0.2rem;
+}
+
+/* Portraits: oval miniatures in a gilt frame. */
+.cq-portrait {
+  display: inline-block;
+  width: 1.9rem;
+  height: 2.3rem;
+  flex: none;
+  vertical-align: middle;
+  filter: drop-shadow(0 1px 1.5px rgba(43, 29, 18, 0.35));
+}
+.cq-portrait.empty {
+  border: 1px dashed var(--sepia);
+  border-radius: 50%;
+  filter: none;
+}
+.cq-portrait.dead {
+  filter: grayscale(1) sepia(0.35);
+  opacity: 0.7;
+}
+.cq-portrait.xl {
+  width: 4.7rem;
+  height: 5.6rem;
+}
+.cq-portrait.banner-token {
+  width: 36px;
+  height: 43px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+/* A province's first figures, set in a row. */
+.cq-place-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.5rem;
+  margin-top: 0.3rem;
+  color: var(--ink-soft);
+}
+.cq-good-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--ink);
+}
+.cq-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.6rem;
+  margin: 0.9rem 0 0.2rem;
+}
+.cq-figures > div {
+  display: flex;
+  flex-direction: column;
+}
+.cq-figures > div > span:first-child {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.cq-figures .cq-figure,
+.cq-figures b {
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.15;
+  align-self: flex-start;
+}
+
+/* Buildings with their sign. */
+.cq-builds li {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  border-bottom-color: rgba(138, 106, 62, 0.16);
+}
+.cq-builds li > .cq-btn,
+.cq-builds li > .cq-why {
+  margin-left: auto;
+}
+.cq-builds li:has(.cq-why) {
+  flex-wrap: wrap;
+}
+.cq-bicon-wrap {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 50%;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--g, var(--vellum-3)) 30%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--g, var(--sepia)) 70%, transparent);
+}
+.cq-bicon {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.cq-progress-line .cq-bicon {
+  width: 18px;
+  height: 18px;
+}
+.cq-build-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+/* Sliders that say where they are. */
+cq-range {
+  display: block;
+}
+.cq-range {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: end;
+  gap: 0.2rem 0.8rem;
+  margin: 0.5rem 0 0.3rem;
+}
+.cq-range-label {
+  grid-column: 1 / -1;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.cq-range-track {
+  position: relative;
+  grid-column: 1 / -1;
+  padding-top: 1.7rem;
+}
+.cq-range-track input[type="range"] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--nation);
+  cursor: pointer;
+}
+.cq-range-bubble {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  padding: 0.05rem 0.45rem;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--nation-ink);
+  background: var(--nation);
+  border-radius: 3px;
+  pointer-events: none;
+  transition: transform 0.1s;
+}
+.cq-range-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  margin-left: -4px;
+  border: 4px solid transparent;
+  border-bottom: 0;
+  border-top-color: var(--nation);
+}
+.cq-range.dragging .cq-range-bubble {
+  transform: translateX(-50%) scale(1.08);
+}
+.cq-range-note {
+  grid-column: 1 / -1;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+.cq-settings cq-range .cq-range-label {
+  font-size: 0.9rem;
+  color: inherit;
+}
+
+/* Dispatches from the field. */
+.cq-toasts .cq-dispatch {
+  pointer-events: auto;
+}
+.cq-dispatch {
+  position: relative;
+  width: min(400px, 100%);
+  padding: 0.85rem 1.1rem 0.9rem;
+  background: var(--vellum) var(--paper);
+  border: 1px solid var(--sepia);
+  border-top: 4px solid var(--verdigris);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+  animation: cq-in 0.25s ease-out;
+}
+.cq-dispatch.lost {
+  border-top-color: var(--seal);
+}
+.cq-dispatch-x {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.4rem;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.cq-dispatch-x:hover {
+  background: rgba(138, 106, 62, 0.15);
+}
+.cq-dispatch-kicker {
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.cq-dispatch-title {
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.25rem;
+  margin: 0.05rem 0 0.5rem;
+  padding-right: 1.5rem;
+}
+.cq-dispatch.won .cq-dispatch-title {
+  color: var(--verdigris);
+}
+.cq-dispatch.lost .cq-dispatch-title {
+  color: var(--seal);
+}
+.cq-dispatch-why {
+  margin-top: 0.5rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.cq-dispatch .cq-btn {
+  margin-top: 0.6rem;
+}
+.cq-strength {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--vellum-3);
+  box-shadow: inset 0 0 0 1px rgba(43, 29, 18, 0.25);
+}
+.cq-strength-a {
+  background: var(--nation);
+}
+.cq-strength-b {
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.18) 0 3px,
+      transparent 3px 6px
+    ),
+    #6e5538;
+}
+.cq-strength-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.cq-reasons {
+  margin-top: 0.3rem;
+  font-size: 0.9rem;
+}
+.cq-reasons li {
+  position: relative;
+  padding: 0.12rem 0 0.12rem 1.1rem;
+}
+.cq-reasons li::before {
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+}
+.cq-reasons li.good::before {
+  content: "+";
+  color: var(--verdigris);
+}
+.cq-reasons li.bad::before {
+  content: "−";
+  color: var(--seal);
+}
+.cq-reasons li.good,
+.cq-reasons li.bad {
+  color: var(--ink);
+}
+.cq-why-box {
+  margin: 0.4rem 0 1.1rem;
+  padding: 0.75rem 1rem 0.8rem;
+  background: rgba(255, 250, 235, 0.45);
+  border-left: 3px solid var(--brass);
+}
+
+/* Letters waiting, with the time they have left. */
+.cq-letter-tray {
+  position: fixed;
+  top: 70px;
+  right: 4rem;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  max-width: min(340px, calc(100% - 1.5rem));
+}
+.cq-tray-letter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0.4rem 0.75rem 0.4rem 0.55rem;
+  border: 1px solid var(--sepia);
+  border-left: 4px solid var(--seal);
+  background: var(--vellum) var(--paper);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  text-align: left;
+  animation: cq-in 0.25s ease-out;
+}
+.cq-tray-letter:hover {
+  background-color: #f7edd2;
+}
+.cq-tray-letter .cq-icon,
+.cq-tray-letter svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  color: var(--seal);
+}
+.cq-tray-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--fell);
+  font-size: 1rem;
+}
+.cq-countdown {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.cq-tray-letter.urgent .cq-countdown,
+.cq-countdown.bad {
+  color: var(--seal);
+  font-weight: 700;
+}
+/* While a letter is open the banner stays usable: pause, speed, menu. */
+.cq-game .cq-scrim {
+  top: 61px;
+}
+.cq-game .cq-modal {
+  max-height: 100%;
+}
+
+/* Choosing who leads a party into the wilds. */
+.cq-leaders {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 46vh;
+  overflow-y: auto;
+  margin-bottom: 0.8rem;
+}
+.cq-leader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.cq-leader:hover {
+  background: rgba(138, 106, 62, 0.08);
+}
+.cq-leader.on {
+  border-color: var(--nation);
+  background: rgba(255, 250, 235, 0.6);
+  box-shadow: inset 3px 0 0 var(--nation);
+}
+.cq-leader-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 0.1rem;
+}
+.cq-flags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.15rem;
+}
+.cq-flag-chip {
+  font-size: 0.76rem;
+  padding: 0 0.45em;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+}
+.cq-flag-chip.good {
+  color: var(--verdigris);
+  background: rgba(44, 106, 76, 0.08);
+}
+.cq-flag-chip.bad {
+  color: var(--seal);
+  background: rgba(158, 42, 30, 0.06);
+}
+.cq-mission-sum {
+  padding: 0.6rem 0.9rem;
+  border-left: 3px solid var(--brass);
+  background: rgba(201, 155, 58, 0.1);
+  font-size: 0.93rem;
+}
+.cq-trail-notes {
+  margin-top: 0.4rem;
+}
+.cq-trail-notes li {
+  padding-left: 1.1rem;
+  position: relative;
+}
+.cq-trail-notes li.good::before,
+.cq-trail-notes li.bad::before {
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+}
+.cq-trail-notes li.good::before {
+  content: "+";
+}
+.cq-trail-notes li.bad::before {
+  content: "−";
+}
+
+/* Parties out in the wilds. */
+.cq-missions li,
+.cq-mission {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+}
+.cq-mission > div {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The governor maker: traits have their own purse. */
+.cq-trait-headrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.cq-points.small {
+  margin-bottom: 0;
+}
+.cq-trait-headrow .cq-points {
+  color: #e9d6a8;
+}
+.cq-points.small .cq-points-n {
+  width: 2.3rem;
+  height: 2.3rem;
+  font-size: 1.1rem;
+}
+.cq-trait-trail {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.cq-trait-trail i {
+  font-family: var(--fell);
+  color: var(--verdigris);
+}
+
 @media (max-width: 1080px) {
   .cq-powers {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2433,5 +3011,21 @@ ol {
   .cq-toast,
   .cq-modal {
     animation: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .cq-letter-tray {
+    top: 112px;
+    left: 0.5rem;
+    right: 3.4rem;
+    align-items: stretch;
+    max-width: none;
+  }
+  .cq-game .cq-scrim {
+    bottom: 58px;
+  }
+  .cq-more-body {
+    padding-left: 0.7rem;
   }
 }

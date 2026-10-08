@@ -29,9 +29,9 @@ import { ADULT_AGE, DAYS_PER_YEAR, EUROPE_PRICE, EVENT_DAYS } from "./Rules";
 import { settlerPops } from "./Setup";
 import { Modifier, PendingEvent, TreatyKind } from "./Types";
 
-type Ctx = Record<string, number>;
+export type Ctx = Record<string, number>;
 
-interface Choice {
+export interface Choice {
   label: (g: ConquestGame, n: number, ctx: Ctx) => string;
   tip: (g: ConquestGame, n: number, ctx: Ctx) => string;
   apply: (g: ConquestGame, n: number, ctx: Ctx) => void;
@@ -41,9 +41,10 @@ interface Choice {
   blocked?: (g: ConquestGame, n: number, ctx: Ctx) => string | null;
 }
 
-interface EventDef {
+export interface EventDef {
   key: string;
-  who: "power" | "native";
+  /** Who it can happen to; "mission" events are raised by expeditions. */
+  who: "power" | "native" | "mission";
   cooldown: number;
   when: (g: ConquestGame, n: number) => Ctx | null;
   title: (g: ConquestGame, n: number, ctx: Ctx) => string;
@@ -1189,6 +1190,25 @@ export function eventsMonthly(g: ConquestGame): void {
   }
 }
 
+/** Events added by other modules (expeditions), looked up like the rest. */
+export function registerEvents(defs: EventDef[]): void {
+  for (const d of defs)
+    if (!EVENTS.some((e) => e.key === d.key)) EVENTS.push(d);
+}
+
+/**
+ * Puts an event to a nation: a player gets a letter; the computer picks the
+ * way its governor leans.
+ */
+export function raiseEvent(
+  g: ConquestGame,
+  n: number,
+  def: EventDef,
+  ctx: Ctx,
+): void {
+  fire(g, n, def, ctx);
+}
+
 function fire(g: ConquestGame, n: number, def: EventDef, ctx: Ctx): void {
   const s = g.s;
   const nation = g.nation(n);
@@ -1216,6 +1236,8 @@ function fire(g: ConquestGame, n: number, def: EventDef, ctx: Ctx): void {
     id: g.nextId(),
     key: def.key,
     day: s.day,
+    // Players' letters are timed by the server in real time; this is only a
+    // backstop for games run without one.
     expires: s.day + EVENT_DAYS,
     title: def.title(g, n, ctx),
     body: def.body(g, n, ctx),
@@ -1240,6 +1262,12 @@ export function eventsDaily(g: ConquestGame): void {
       answer(g, nation.id, ev, firstAllowed(g, nation.id, ev));
     }
   }
+}
+
+/** The council answers for a player who didn't: the first course it can take. */
+export function autoAnswer(g: ConquestGame, n: number, id: number): void {
+  const ev = g.s.nations[n]?.events.find((e) => e.id === id);
+  if (ev) answer(g, n, ev, firstAllowed(g, n, ev));
 }
 
 function firstAllowed(g: ConquestGame, n: number, ev: PendingEvent): number {

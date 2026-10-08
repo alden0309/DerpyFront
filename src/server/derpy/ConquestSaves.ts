@@ -38,23 +38,38 @@ export async function saveConquest(
   await (
     await db()
   ).query(
-    `INSERT INTO derpy_conquest_saves (game_id, title, year, seats, accounts, state, over)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO derpy_conquest_saves (game_id, title, year, seats, accounts, state, over, version)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      ON CONFLICT (game_id) DO UPDATE SET title = $2, year = $3, seats = $4,
-       accounts = $5, state = $6, over = $7, updated_at = now()`,
-    [id, title, year, JSON.stringify(seats), accounts, blob, over],
+       accounts = $5, state = $6, over = $7, version = $8, updated_at = now()`,
+    [
+      id,
+      title,
+      year,
+      JSON.stringify(seats),
+      accounts,
+      blob,
+      over,
+      state.version,
+    ],
   );
 }
 
-/** Unfinished campaigns an account played in, most recent first. */
-export async function savesFor(accountId: number): Promise<SaveRow[]> {
+/**
+ * Unfinished campaigns an account played in that this version can load, most
+ * recent first.
+ */
+export async function savesFor(
+  accountId: number,
+  version: number,
+): Promise<SaveRow[]> {
   const res = await (
     await db()
   ).query(
     `SELECT game_id, title, year, seats, updated_at FROM derpy_conquest_saves
-     WHERE $1 = ANY(accounts) AND NOT over
+     WHERE $1 = ANY(accounts) AND NOT over AND version = $2
      ORDER BY updated_at DESC LIMIT 20`,
-    [accountId],
+    [accountId, version],
   );
   return res.rows.map((r) => ({
     id: r.game_id,
@@ -65,9 +80,7 @@ export async function savesFor(accountId: number): Promise<SaveRow[]> {
   }));
 }
 
-export async function loadConquest(
-  id: string,
-): Promise<{
+export async function loadConquest(id: string): Promise<{
   title: string;
   seats: SavedSeat[];
   state: GameState;

@@ -7,6 +7,7 @@ import {
   planBudget,
   planCost,
   planProblem,
+  planTraitCost,
 } from "../../src/conquest/engine/Characters";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
@@ -117,6 +118,8 @@ function army(
 describe("Derpy Conquest map", () => {
   test("has a few hundred named provinces that all connect somewhere", () => {
     expect(map.provinces.length).toBeGreaterThan(300);
+    // North and Central America and the islands: nothing south of Panama.
+    for (const p of map.provinces) expect(p.lat).toBeGreaterThan(7);
     for (const p of map.provinces) {
       expect(p.nb.length + p.sea.length).toBeGreaterThan(0);
     }
@@ -133,12 +136,11 @@ describe("Derpy Conquest map", () => {
     });
   });
 
-  test("six powers start with their historical footholds", () => {
+  test("five powers start with their historical footholds", () => {
     expect(map.powers.map((p) => p.id)).toEqual([
       "england",
       "france",
       "spain",
-      "portugal",
       "netherlands",
       "sweden",
     ]);
@@ -183,8 +185,8 @@ describe("starting a game", () => {
   test("powers, native nations and the crowns behind them all take part", () => {
     const s = newGame().state;
     const kinds = (k: string) => s.nations.filter((n) => n.kind === k).length;
-    expect(kinds("power")).toBe(6);
-    expect(kinds("crown")).toBe(6);
+    expect(kinds("power")).toBe(5);
+    expect(kinds("crown")).toBe(5);
     expect(kinds("native")).toBeGreaterThan(20);
     for (const n of s.nations.filter((x) => x.kind !== "crown")) {
       expect(provincesOf(s, n.id).length).toBeGreaterThan(0);
@@ -224,8 +226,17 @@ describe("starting a game", () => {
 describe("making a governor", () => {
   test("strengths cost points, flaws give them back, and the budget is firm", () => {
     expect(planProblem(plan)).toBeNull();
-    // 2 (diplomacy) + 3 (stewardship) − 1 (low intrigue) + 2 (diligent).
-    expect(planCost(plan)).toBe(6);
+    // Skills: 2 (diplomacy) + 3 (stewardship) − 1 (low intrigue). Traits
+    // come out of their own purse: diligent costs 2 of the 2 trait points.
+    expect(planCost(plan)).toBe(4);
+    expect(planTraitCost(plan)).toBe(2);
+    expect(planProblem({ ...plan, traits: ["diligent", "brave"] })).toMatch(
+      /trait points/,
+    );
+    // A flaw pays for a strength.
+    expect(
+      planProblem({ ...plan, traits: ["diligent", "brave", "content"] }),
+    ).toBeNull();
     expect(planBudget(plan)).toBe(13);
     expect(planBudget({ ...plan, age: "seasoned" })).toBe(15);
     const greedy = {

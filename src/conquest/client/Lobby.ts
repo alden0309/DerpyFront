@@ -6,16 +6,19 @@ import { customElement, property, state } from "lit/decorators.js";
 import "../../derpland/DerpBar";
 import { openSignIn } from "../../derpland/DerpBar";
 import { AMERICAS } from "../engine/Map";
+import { START_YEAR } from "../engine/Rules";
 import type { Difficulty } from "../engine/Types";
 import {
   DIFFICULTIES,
-  END_YEARS,
+  END_YEAR_MAX,
+  END_YEAR_MIN,
   OpenRoom,
   RoomSettings,
   SavedGame,
 } from "../Protocol";
 import { flag } from "./Flags";
 import { Net } from "./Net";
+import "./Range";
 
 const POWER_NAME = Object.fromEntries(
   AMERICAS.powers.map((p) => [p.id, p.name.replace(/^the /, "")]),
@@ -109,7 +112,7 @@ export class Lobby extends LitElement {
             <p>
               Your crown has granted you a charter and a few hundred settlers.
               Feed them, trade with the native nations or fight them, keep the
-              crown paid or break with it. Real time with pause, for one to six
+              crown paid or break with it. Real time with pause, for one to five
               players.
             </p>
             ${this.online
@@ -165,7 +168,7 @@ export class Lobby extends LitElement {
                 aria-checked=${this.together}
                 @click=${() => (this.together = true)}
               >
-                <b>With friends</b><span>Up to six, one nation each</span>
+                <b>With friends</b><span>Up to five, one nation each</span>
               </button>
             </div>
             ${this.together
@@ -326,21 +329,19 @@ export function settingsFields(
   editable: boolean,
 ): TemplateResult {
   return html`<div class="cq-settings">
-    <label class="cq-field">
-      <span>Play until</span>
-      <select
+    <div class="cq-field">
+      <cq-range
+        label="Play until"
+        .min=${END_YEAR_MIN}
+        .max=${END_YEAR_MAX}
+        .step=${5}
+        .value=${s.endYear}
         ?disabled=${!editable}
-        @change=${(e: Event) =>
-          set({ ...s, endYear: Number((e.target as HTMLSelectElement).value) })}
-      >
-        ${END_YEARS.map(
-          (y) =>
-            html`<option value=${y} ?selected=${s.endYear === y}>
-              ${y} (${y - 1607} years)
-            </option>`,
-        )}
-      </select>
-    </label>
+        .note=${(y: number) => `${y - START_YEAR} years of play`}
+        @cq-change=${(e: CustomEvent<number>) =>
+          set({ ...s, endYear: e.detail })}
+      ></cq-range>
+    </div>
     <label class="cq-field">
       <span>Difficulty</span>
       <select

@@ -1,4 +1,4 @@
-// A new Derpy Conquest game: 1 January 1607. Six colonial powers with their
+// A new Derpy Conquest game: 1 January 1607. Five colonial powers with their
 // first settlements and governors, dozens of native nations, the open
 // country between them, and the crowns back in Europe.
 
@@ -13,7 +13,13 @@ import {
 } from "./Characters";
 import { worldOf } from "./Map";
 import { nativeTitle } from "./Names";
-import { anchorPrice, emptyGoods, nationDemand, pairKey } from "./Queries";
+import {
+  anchorPrice,
+  emptyGoods,
+  nationDemand,
+  pairKey,
+  provincesOf,
+} from "./Queries";
 import { Rng } from "./Rng";
 import {
   DIFFICULTY,
@@ -22,7 +28,9 @@ import {
   NATIVE_DENSITY_WILD,
   NATIVE_STRONG_FACTOR,
   POWER_RULES,
+  RICH_SHARE,
   RIVALRY,
+  SEEN_BY_SEA_KM,
   SETTLER_MIX,
 } from "./Rules";
 import {
@@ -38,7 +46,8 @@ import {
   SEATS,
 } from "./Types";
 
-const STATE_VERSION = 2;
+/** Saves from another version can't be loaded: bump it when the state's shape changes. */
+export const STATE_VERSION = 3;
 
 export function newGameState(
   map: MapDef,
@@ -174,6 +183,8 @@ export function newGameState(
       devastation: 0,
       integrate: 0,
       depletion: 0,
+      outpost: null,
+      rich: rng.chance(RICH_SHARE),
       made: {},
       mods: [],
     };
@@ -243,6 +254,7 @@ export function newGameState(
     n.market.stock.guns = 20;
     n.market.stock.timber = 40;
     n.nextColonist = 30;
+    n.explored = surveyedAround(map, provincesOf(state, n.id));
   }
 
   // Europe: old rivalries, and the Dutch already fighting Spain.
@@ -342,6 +354,8 @@ function blankNation(
     relations: {},
     mods: [],
     events: [],
+    explored: [],
+    missions: [],
     cooldowns: {},
     ledger: { income: [], spending: [], net: 0 },
     stats: {
@@ -430,4 +444,27 @@ function darken(hex: string): string {
   const g = Math.round(((v >> 8) & 255) * 0.6);
   const b = Math.round((v & 255) * 0.6);
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+/**
+ * What a colony knows at the start: its own land, the country two marches
+ * around it, and the coasts its ships have seen.
+ */
+export function surveyedAround(map: MapDef, from: number[]): number[] {
+  const known = new Set(from);
+  let ring = [...from];
+  for (let hop = 0; hop < 2; hop++) {
+    const next: number[] = [];
+    for (const p of ring)
+      for (const [q] of map.provinces[p].nb)
+        if (!known.has(q)) {
+          known.add(q);
+          next.push(q);
+        }
+    ring = next;
+  }
+  for (const p of from)
+    for (const [q, km] of map.provinces[p].sea)
+      if (km <= SEEN_BY_SEA_KM) known.add(q);
+  return [...known].sort((a, b) => a - b);
 }

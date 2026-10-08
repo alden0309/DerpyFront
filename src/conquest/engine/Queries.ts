@@ -27,11 +27,13 @@ import {
   INDEPENDENCE_AUTONOMY,
   MARCH_KM_PER_DAY,
   NEEDS,
+  OUTPOST,
   POWER_RULES,
   REGIMENTS,
   RESOURCE_BUILDING,
   RESOURCE_BUILDING_BONUS,
   RESOURCE_YIELD,
+  RICH_BONUS,
   SAIL_KM_PER_DAY,
   SEAT_STAT,
   SHIPPING_PER_UNIT,
@@ -55,6 +57,7 @@ import {
   PeaceTerms,
   PopClass,
   Province,
+  RawGood,
   RegType,
   Seat,
   Stat,
@@ -632,9 +635,7 @@ export function resourceOutput(s: GameState, w: World, p: number): Breakdown {
     );
   if (raw === "furs" && pr.depletion > 0)
     e.mul(`Trapped out ${Math.round(pr.depletion * 100)}%`, 1 - pr.depletion);
-  const owner = pr.owner >= 0 ? s.nations[pr.owner] : undefined;
-  if (raw === "sugar" && owner?.key === "portugal")
-    e.mul("Portuguese sugar mills", 1.2);
+  if (pr.rich) e.mul(`Rich ${RICH_WORD[raw]}`, 1 + RICH_BONUS);
   for (const part of workFactor(s, w, p).parts) e.mul(part.label, part.value);
   return e.done(2, 0);
 }
@@ -1073,6 +1074,7 @@ export function supplyLimit(
   if (folk > 0) e.add(`${Math.round(folk)} people`, (folk / 1000) * 1.2);
   if (farmLevel(pr) > 0) e.add("Farms", farmLevel(pr) * 0.5);
   if (pr.owner === n) e.add("Our own land", 1);
+  if (pr.outpost?.by === n) e.add("Our outpost's stores", OUTPOST.supply);
   if (isWinter(def.lat, monthOf(s))) e.mul("Winter", 0.5);
   if (
     pr.owner !== n &&
@@ -1339,7 +1341,13 @@ export function colonizeCheck(
     )
   )
     return no("Hostile warriors are there.");
-  return { ok: true, source, days: colonyDays(w, p, source) };
+  const days = colonyDays(w, p, source);
+  return {
+    ok: true,
+    source,
+    // Your outpost's men have the ground cleared already.
+    days: pr.outpost?.by === n ? Math.round(days * 0.6) : days,
+  };
 }
 
 /** The province settlers would come from for a new colony at `p`. */
@@ -1682,3 +1690,14 @@ export function travelDays(km: number, speed: number, sea: boolean): number {
 }
 
 export const CUSTOMS_RATE = CUSTOMS;
+
+/** What makes each kind of land rich. */
+export const RICH_WORD: Record<RawGood, string> = {
+  grain: "soil",
+  fish: "fishing banks",
+  furs: "beaver country",
+  tobacco: "tobacco soil",
+  sugar: "cane soil",
+  timber: "stands of timber",
+  silver: "silver seam",
+};

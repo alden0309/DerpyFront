@@ -21,7 +21,7 @@ import type { Good, TaxLevel } from "../../engine/Types";
 import { GOODS } from "../../engine/Types";
 import { GOOD_COLORS, GOOD_NAMES, money } from "../Text";
 import { num, pct, plain } from "../Tip";
-import { breakdownTip, GameUi, section } from "./Context";
+import { breakdownTip, GameUi, more, section } from "./Context";
 
 export function economyTab(ui: GameUi): TemplateResult {
   const s = ui.s;
@@ -51,45 +51,52 @@ export function economyTab(ui: GameUi): TemplateResult {
           `cq-stat-value ${L.net < 0 ? "bad" : "good"}`,
         )}
       </div>
-      <div class="cq-stat">
-        <span class="cq-stat-label">Taxes take</span>
-        ${num(
-          pct(tax.total),
-          () =>
-            breakdownTip("Share of incomes the treasury collects", tax, pct),
-          "cq-stat-value",
-        )}
-      </div>
-      <div class="cq-stat">
-        <span class="cq-stat-label">Lost to corruption</span>
-        ${num(
-          pct(corr.total),
-          () => breakdownTip("Taxes that go astray", corr, pct),
-          `cq-stat-value ${corr.total > 0.15 ? "bad" : ""}`,
-        )}
-      </div>
     </div>
     ${section(
       "Taxes",
       html`<div class="cq-seg">
-        ${([0, 1, 2] as TaxLevel[]).map(
-          (lvl) =>
-            html`<button
-              aria-pressed=${n.tax === lvl}
-              @click=${() => void ui.cmd({ k: "tax", level: lvl })}
-            >
-              ${TAX_NAMES[lvl]}
-              <span class="cq-muted small"
-                >${Math.round(TAX_RATE[lvl] * 100)}%, +${TAX_UNREST[lvl]}
-                unrest</span
+          ${([0, 1, 2] as TaxLevel[]).map(
+            (lvl) =>
+              html`<button
+                aria-pressed=${n.tax === lvl}
+                @click=${() => void ui.cmd({ k: "tax", level: lvl })}
               >
-            </button>`,
-        )}
-      </div>`,
+                ${TAX_NAMES[lvl]}
+                <span class="cq-muted small"
+                  >${Math.round(TAX_RATE[lvl] * 100)}%, +${TAX_UNREST[lvl]}
+                  unrest</span
+                >
+              </button>`,
+          )}
+        </div>
+        <p class="cq-muted small">
+          Taxes take
+          ${num(pct(tax.total), () =>
+            breakdownTip("Share of incomes the treasury collects", tax, pct),
+          )}
+          of incomes;
+          ${num(
+            pct(corr.total),
+            () => breakdownTip("Taxes that go astray", corr, pct),
+            corr.total > 0.15 ? "bad" : "",
+          )}
+          of that goes astray.
+        </p>`,
     )}
-    ${section("The ledger", ledger(ui))}
-    ${section(
-      "Market",
+    ${more(
+      html`The ledger
+        <span class="cq-more-hint"
+          >${L.income.length + L.spending.length} lines last month</span
+        >`,
+      ledger(ui),
+    )}
+    ${more(
+      html`Market and trade bans
+        <span class="cq-more-hint"
+          >${n.noExport.length + n.noImport.length
+            ? `${n.noExport.length + n.noImport.length} ban${n.noExport.length + n.noImport.length === 1 ? "" : "s"} in force`
+            : "prices here and in Europe"}</span
+        >`,
       html`<table class="cq-table compact market">
           <thead>
             <tr>
@@ -180,8 +187,9 @@ export function economyTab(ui: GameUi): TemplateResult {
           Strike out Sell or Buy to keep a good at home, or keep it out.
         </p>`,
     )}
-    ${section(
-      "Convoys at sea",
+    ${more(
+      html`Convoys at sea
+        <span class="cq-more-hint">${n.convoys.length} sailing</span>`,
       n.convoys.length === 0
         ? html`<p class="cq-muted">
             ${n.rebelling

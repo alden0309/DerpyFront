@@ -19,6 +19,7 @@ import {
   BREAK_MORALE,
   DAILY_LOSS,
   MORALE_SHOCK,
+  OUTPOST,
   POWER_RULES,
   REGIMENTS,
   TERRAIN,
@@ -43,6 +44,7 @@ interface Side {
   factors: BattleFactor[];
   mult: number;
   startMen: number;
+  startPower: number;
 }
 
 export type Weather = { key: string; text: string };
@@ -151,6 +153,7 @@ export function fightBattle(
     factors: [],
     mult: 1,
     startMen: armies.reduce((m, a) => m + armyMen(a), 0),
+    startPower: 0,
   });
   const A = mk(attackers);
   const D = mk(defenders);
@@ -158,6 +161,8 @@ export function fightBattle(
   // Ground and works.
   addFactor(D, `Defending the ${terrain}`, 1 + TERRAIN[terrain].defense);
   const fort = pr.b.fort ?? 0;
+  if (pr.outpost && D.nations.includes(pr.outpost.by))
+    addFactor(D, "Behind the outpost's palisade", 1 + OUTPOST.defense);
   if (fort > 0 && D.nations.includes(pr.owner) && pr.occupier < 0)
     addFactor(D, `Fort (level ${fort})`, 1 + fort * 0.15);
   const river = attackers.some(
@@ -227,6 +232,21 @@ export function fightBattle(
       );
   }
 
+  // Warriors who had never faced a cavalry charge or a cannonade.
+  for (const [side, other] of [
+    [A, D],
+    [D, A],
+  ] as const) {
+    if (s.nations[side.nations[0]].kind !== "native") continue;
+    const shockTroops = typeShare(other, ["dragoons", "artillery"]);
+    if (shockTroops > 0)
+      addFactor(
+        side,
+        "Facing horse and cannon",
+        1 - 0.5 * Math.min(1, shockTroops * 1.5),
+      );
+  }
+
   // The weather, the same for both.
   const weather = battleWeather(g, p);
   const luck: string[] = [weather.text];
@@ -251,6 +271,8 @@ export function fightBattle(
     }
   }
 
+  A.startPower = power(A);
+  D.startPower = power(D);
   const rounds: BattleReport["rounds"] = [];
   let winner: 0 | 1 = 1;
   for (let day = 1; day <= BATTLE_MAX_DAYS; day++) {
@@ -358,6 +380,7 @@ function summary(side: Side): BattleSide {
     men: Math.round(side.startMen),
     lost: Math.round(side.startMen - men),
     moraleEnd: Math.round(sideMorale(side) * 100) / 100,
+    power: Math.round(side.startPower),
     factors: side.factors,
   };
 }

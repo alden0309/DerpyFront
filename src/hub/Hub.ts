@@ -109,6 +109,7 @@ interface Recent {
   gameId: string;
   endedAt: string;
   username: string;
+  playedAs?: string;
   won: boolean;
   where: string;
   numPlayers: number;
@@ -192,7 +193,7 @@ export class DerpHome extends HubPage {
             [hourglassIcon(), "Pause any time"],
           ],
           cta: "Play Derpy Conquest",
-          sticker: "New!",
+          sticker: "New",
         })}
       </section>
 
@@ -227,6 +228,9 @@ export class DerpHome extends HubPage {
           html`<li class="${r.game} ${r.won ? "won" : ""}">
             <span class="dl-feed-text">
               <a href="/player/${r.username}">${r.username}</a>
+              ${r.playedAs
+                ? html`<span class="dl-feed-alias">(as ${r.playedAs})</span>`
+                : nothing}
               ${r.won ? "won" : "played"}
               ${r.game === "derpyfront"
                 ? html`DerpyFront on <b>${r.where}</b>`

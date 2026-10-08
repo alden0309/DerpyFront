@@ -20,7 +20,24 @@
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
-import { ANCHORS, NATIVES, POWERS } from "./anchors.mjs";
+import {
+  ANCHORS as ALL_ANCHORS,
+  NATIVES as ALL_NATIVES,
+  POWERS,
+} from "./anchors.mjs";
+
+// The game covers North and Central America, the Caribbean and the
+// Bahamas. South America is drawn as unplayable land along the bottom edge
+// (the "Tierra Firme" coast), with no provinces.
+const SOUTH_AMERICAN_ISLANDS = new Set(["Tobago", "Trinidad", "Margarita"]);
+const inSouthAmerica = ([name, lat, lon]) =>
+  lat < 7 || (lat < 12 && lon > -77.85 && !SOUTH_AMERICAN_ISLANDS.has(name));
+const ANCHORS = ALL_ANCHORS.filter((a) => !inSouthAmerica(a));
+const kept = new Set(ANCHORS.map(([name]) => name));
+const NATIVES = ALL_NATIVES.map((n) => ({
+  ...n,
+  provinces: n.provinces.filter((p) => kept.has(p)),
+})).filter((n) => n.provinces.length > 0);
 
 const args = process.argv.slice(2);
 const NE_DIR = args[0];
@@ -39,10 +56,11 @@ const OUT_DIR = path.join(ROOT, "src/conquest/data");
 // ---------------------------------------------------------------- projection
 
 const LON0 = -168;
-const LON1 = -32;
-const LAT0 = -56.5;
+const LON1 = -46;
+const LAT0 = 4.5;
 const LAT1 = 66;
-const W = Number(process.env.MAP_W ?? 2600);
+// Same cell size as the old whole-Americas map (136° across 2600 cells).
+const W = Number(process.env.MAP_W ?? Math.round(((LON1 - LON0) / 136) * 2600));
 const DEG = Math.PI / 180;
 const EARTH_KM = 6371;
 const millerY = (lat) =>
@@ -162,6 +180,86 @@ rasterize(polygonsOf(readGeo("ne_50m_lakes.geojson")), (i) => {
   LAKE[i] = 1;
   LAND[i] = 0;
 });
+
+// ---- South America off the board: cut at the Darién (the Panama-Colombia
+// border, Cabo Tiburón to the Pacific) and clear everything joined to the
+// mainland south and east of it.
+/** Longitude of the cut line at a latitude. */
+const darienLon = (lat) => -77.36 + (lat - 8.68) * (0.53 / 1.47);
+{
+  for (let y = 0; y < H; y++) {
+    const lat = ROW_LAT[y];
+    if (lat >= 9.2) continue;
+    for (let x = 0; x < W; x++) {
+      if (cellLon(x) > darienLon(lat)) LAND[y * W + x] = 0;
+    }
+  }
+  const cellOf = (lat, lon) => {
+    const [fx, fy] = proj(lon, lat);
+    return Math.floor(fy) * W + Math.floor(fx);
+  };
+  const seed = cellOf(10.1, -68.0);
+  if (!LAND[seed]) throw new Error("no land under the South American seed");
+  const stack = [seed];
+  const seen = new Uint8Array(N);
+  seen[seed] = 1;
+  let cleared = 0;
+  while (stack.length) {
+    const c = stack.pop();
+    LAND[c] = 0;
+    cleared++;
+    const x = c % W;
+    for (const n of [
+      x > 0 ? c - 1 : -1,
+      x < W - 1 ? c + 1 : -1,
+      c - W,
+      c + W,
+    ]) {
+      if (n >= 0 && n < N && LAND[n] && !seen[n]) {
+        seen[n] = 1;
+        stack.push(n);
+      }
+    }
+  }
+  const panama = cellOf(8.98, -79.52);
+  if (seen[panama])
+    throw new Error("the Darién cut left Panama joined to South America");
+  // Scraps of coast the fill couldn't reach (narrower than a cell): any
+  // land east of the cut and south of the islands that holds no province.
+  const anchorCells = new Set(ANCHORS.map(([, lat, lon]) => cellOf(lat, lon)));
+  const inRegion = (c) => {
+    const x = c % W;
+    const lat = ROW_LAT[(c - x) / W];
+    return lat < 12.8 && cellLon(x) > darienLon(lat);
+  };
+  for (let i = 0; i < N; i++) {
+    if (!LAND[i] || seen[i] || !inRegion(i)) continue;
+    const comp = [i];
+    seen[i] = 1;
+    let anchored = false;
+    for (let k = 0; k < comp.length; k++) {
+      const c = comp[k];
+      if (anchorCells.has(c)) anchored = true;
+      const x = c % W;
+      for (const n of [
+        x > 0 ? c - 1 : -1,
+        x < W - 1 ? c + 1 : -1,
+        c - W,
+        c + W,
+      ]) {
+        if (n >= 0 && n < N && LAND[n] && !seen[n] && inRegion(n)) {
+          seen[n] = 1;
+          comp.push(n);
+        }
+      }
+    }
+    if (!anchored) {
+      for (const c of comp) LAND[c] = 0;
+      cleared += comp.length;
+    }
+  }
+  console.log(`cleared ${cleared} South American cells`);
+}
 
 // ---- terrain from Natural Earth geography regions
 const T = {
@@ -1088,7 +1186,7 @@ for (const p of provinces) p.sea = p.sea.filter(([q]) => provinces[q].coastal);
 
 const data = {
   // Bump when the map changes in a way saved games can't follow.
-  version: 1,
+  version: 2,
   width: W,
   height: H,
   seaLaneKm: SEA_LANE_KM,
@@ -1127,10 +1225,93 @@ const encode = (pts, scale = 1) => {
   }
   return out;
 };
+// South America as drawn backdrop: the continent's outline south and east of
+// the Darién cut, at half-cell precision. Islands off it are provinces or
+// too small to matter.
+function backdropRings() {
+  // The clip region (lon, lat), counter-clockwise and convex.
+  const region = [
+    [darienLon(LAT0 - 0.5), LAT0 - 0.5],
+    [LON1 + 2, LAT0 - 0.5],
+    [LON1 + 2, 13.2],
+    [darienLon(13.2), 13.2],
+  ];
+  const inside = (p, a, b) =>
+    (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]) >= 0;
+  const cross = (p, q, a, b) => {
+    const [x1, y1] = p;
+    const [x2, y2] = q;
+    const [x3, y3] = a;
+    const [x4, y4] = b;
+    const d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / d;
+    return [x1 + t * (x2 - x1), y1 + t * (y2 - y1)];
+  };
+  const clip = (ring) => {
+    let out = ring;
+    for (let i = 0; i < region.length; i++) {
+      const a = region[i];
+      const b = region[(i + 1) % region.length];
+      const input = out;
+      out = [];
+      for (let j = 0; j < input.length; j++) {
+        const cur = input[j];
+        const prev = input[(j + input.length - 1) % input.length];
+        if (inside(cur, a, b)) {
+          if (!inside(prev, a, b)) out.push(cross(prev, cur, a, b));
+          out.push(cur);
+        } else if (inside(prev, a, b)) out.push(cross(prev, cur, a, b));
+      }
+      if (out.length === 0) break;
+    }
+    return out;
+  };
+  const areaOf = (ring) => {
+    let a = 0;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++)
+      a += (ring[j][0] - ring[i][0]) * (ring[j][1] + ring[i][1]);
+    return Math.abs(a / 2);
+  };
+  const out = [];
+  for (const f of readGeo("ne_50m_land.geojson").features) {
+    const g = f.geometry;
+    const polys =
+      g.type === "Polygon"
+        ? [g.coordinates]
+        : g.type === "MultiPolygon"
+          ? g.coordinates
+          : [];
+    for (const poly of polys) {
+      const clipped = clip(poly[0]);
+      if (clipped.length < 3 || areaOf(clipped) < 4) continue;
+      const pts = clipped.map(([lon, lat]) => proj(lon, lat));
+      pts.push(pts[0]);
+      out.push(encode(simplify(pts, 0.6), 2));
+    }
+  }
+  return out;
+}
+
+/** Names written on the sea and the land beyond the board, as on old charts. */
+const CHART_LABELS = [
+  ["Tierra Firme", 8.2, -66.5, "land", 0],
+  ["Mar del Norte", 31, -62, "sea", 0],
+  ["Golfo de México", 24.5, -92, "sea", 0],
+  ["Mar del Sur", 14, -103, "sea", 0],
+  ["Mar del Sur", 34, -128, "sea", -8],
+  ["Mar Caribe", 14.8, -75, "sea", 0],
+  ["Hudson's Bay", 59.5, -86, "sea", 0],
+].map(([text, lat, lon, kind, angle]) => {
+  const [x, y] = proj(lon, lat);
+  return { text, x: Math.round(x), y: Math.round(y), kind, angle };
+});
+
 const geo = {
-  version: 1,
+  version: 2,
   width: W,
   height: H,
+  backdrop: backdropRings(),
+  labels: CHART_LABELS,
   // Each arc: [left province, right province, ...delta-encoded points].
   arcs: usedArcs.map((a) => [a.left, a.right, ...encode(a.pts)]),
   rings: provRings.map((rings) => rings.map((ring) => ring.map(remap))),

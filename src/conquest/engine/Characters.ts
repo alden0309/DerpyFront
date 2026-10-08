@@ -33,6 +33,7 @@ import {
   STAT_MIN,
   STAT_START,
   statStepCost,
+  TRAIT_POINTS,
   TRAITS,
 } from "./Rules";
 import {
@@ -164,7 +165,7 @@ function nativeSeatTitle(seat: Seat): string {
   }[seat];
 }
 
-/** Points a governor plan costs; ≤ GOVERNOR_POINTS (plus age points) to be valid. */
+/** Stat points a governor plan costs; ≤ planBudget to be valid. */
 export function planCost(plan: GovernorPlan): number {
   let cost = 0;
   for (const st of STATS) {
@@ -173,12 +174,17 @@ export function planCost(plan: GovernorPlan): number {
       for (let l = STAT_START; l < v; l++) cost += statStepCost(l);
     else cost -= STAT_START - v;
   }
-  for (const t of plan.traits) cost += TRAITS[t].cost;
   return cost;
 }
 
+/** Stat points to spend: the base purse plus what age brings. */
 export function planBudget(plan: GovernorPlan): number {
   return GOVERNOR_POINTS + AGE_CHOICES[plan.age].points;
+}
+
+/** Trait points a plan's traits cost (flaws give some back); ≤ TRAIT_POINTS. */
+export function planTraitCost(plan: GovernorPlan): number {
+  return plan.traits.reduce((m, t) => m + (TRAITS[t]?.cost ?? 0), 0);
 }
 
 /** Why a governor plan isn't allowed, or null. */
@@ -211,7 +217,9 @@ export function planProblem(plan: unknown): string | null {
   }
   if (new Set(p.traits).size !== p.traits.length) return "A trait twice?";
   if (planCost(p) > planBudget(p))
-    return "That costs more points than you have.";
+    return "Those stats cost more points than you have.";
+  if (planTraitCost(p) > TRAIT_POINTS)
+    return `Those traits cost more than your ${TRAIT_POINTS} trait points: take a flaw to afford them.`;
   return null;
 }
 

@@ -14,6 +14,7 @@ import {
   scoreOf,
 } from "../../engine/Queries";
 import { INDEPENDENCE_AUTONOMY, TITLE_NAMES } from "../../engine/Rules";
+import "../Range";
 import { nationName } from "../Text";
 import { num } from "../Tip";
 import {
@@ -21,6 +22,7 @@ import {
   bar,
   breakdownTip,
   GameUi,
+  more,
   nationLink,
   section,
 } from "./Context";
@@ -77,46 +79,51 @@ export function crownTab(ui: GameUi): TemplateResult {
         )}
         <span class="cq-stat-note">heading for ${at.total}</span>
       </div>
-      <div class="cq-stat">
-        <span class="cq-stat-label">Settlers a month</span>
-        ${num(
-          String(em.total),
-          () => breakdownTip("Settlers sailing from home each month", em),
-          "cq-stat-value",
-        )}
-      </div>
-      <div class="cq-stat">
-        <span class="cq-stat-label">Honours</span
-        ><span class="cq-stat-value small"
-          >${n.title > 0 ? TITLE_NAMES[n.title] : "None yet"}</span
-        >
-        ${n.title < 4 && !n.independent
-          ? html`<span class="cq-stat-note"
-              >${TITLE_NAMES[n.title + 1]} needs favor 75 and
-              ${TITLE_REMITTED[n.title + 1]} gold sent home
-              (${Math.round(n.stats.remitted)} so far)</span
-            >`
-          : nothing}
-      </div>
     </div>
+    ${more(
+      html`Honours and settlers
+        <span class="cq-more-hint"
+          >${n.title > 0 ? TITLE_NAMES[n.title] : "no honours yet"}, ${em.total}
+          settlers a month</span
+        >`,
+      html`<div class="cq-stats">
+        <div class="cq-stat">
+          <span class="cq-stat-label">Settlers a month</span>
+          ${num(
+            String(em.total),
+            () => breakdownTip("Settlers sailing from home each month", em),
+            "cq-stat-value",
+          )}
+        </div>
+        <div class="cq-stat">
+          <span class="cq-stat-label">Honours</span
+          ><span class="cq-stat-value small"
+            >${n.title > 0 ? TITLE_NAMES[n.title] : "None yet"}</span
+          >
+          ${n.title < 4 && !n.independent
+            ? html`<span class="cq-stat-note"
+                >${TITLE_NAMES[n.title + 1]} needs favor 75 and
+                ${TITLE_REMITTED[n.title + 1]} gold sent home
+                (${Math.round(n.stats.remitted)} so far)</span
+              >`
+            : nothing}
+        </div>
+      </div>`,
+    )}
     ${!n.independent && !n.rebelling
       ? section(
           "Money sent home",
-          html`<label class="cq-slider">
-              <input
-                type="range"
-                min="0"
-                max="50"
-                step="1"
-                .value=${String(Math.round(n.remit * 100))}
-                @change=${(e: Event) =>
-                  void ui.cmd({
-                    k: "remit",
-                    share: Number((e.target as HTMLInputElement).value) / 100,
-                  })}
-              />
-              <span>${Math.round(n.remit * 100)}% of income</span>
-            </label>
+          html`<cq-range
+              label="Share of income"
+              .min=${0}
+              .max=${50}
+              .step=${1}
+              .value=${Math.round(n.remit * 100)}
+              .format=${(v: number) => `${v}%`}
+              .note=${(v: number) => remitNote(v, expected)}
+              @cq-change=${(e: CustomEvent<number>) =>
+                void ui.cmd({ k: "remit", share: e.detail / 100 })}
+            ></cq-range>
             <p class="cq-muted small">
               The crown expects ${Math.round(expected * 100)}%. More earns
               favor; less keeps money at home and pushes autonomy up.
@@ -156,7 +163,8 @@ export function crownTab(ui: GameUi): TemplateResult {
                   </button>`}`,
         )
       : nothing}
-    ${section("Three roads", roads(ui))} ${europe(ui)}
+    ${section("Three roads", roads(ui))}
+    ${more("Europe and the other crowns", europe(ui))}
     ${n.mods.length > 0
       ? section(
           "Lately",
@@ -176,6 +184,15 @@ export function crownTab(ui: GameUi): TemplateResult {
         )
       : nothing}
   `;
+}
+
+/** What a remit share means next to what the crown expects. */
+function remitNote(v: number, expected: number): string {
+  const e = Math.round(expected * 100);
+  if (v === e) return "just what the crown expects";
+  return v > e
+    ? `${v - e} points over what's expected: favor rises`
+    : `${e - v} points under what's expected: favor falls, autonomy rises`;
 }
 
 function roads(ui: GameUi): TemplateResult {
@@ -241,51 +258,48 @@ function europe(ui: GameUi): TemplateResult {
       (h.a === mine || h.b === mine) && dayOf(h.from[0], h.from[1]) > s.day
     );
   }).slice(0, 1);
-  return section(
-    "Europe",
-    html`<table class="cq-table compact">
-        <thead>
-          <tr>
-            <th>Crown</th>
-            <th>Tension</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${powers.map((p) => {
-            const k = pairKey(me, p.id);
-            const t = s.europe.tension[k] ?? 0;
-            const war = s.europe.wars[k];
-            return html`<tr>
-              <td>${nationLink(ui, p.id)}</td>
-              <td>
-                ${num(bar(t / 100, "tension"), () => ({
-                  title: `Tension with ${nationName(p.name)}`,
-                  notes: [
-                    `${Math.round(t)} of 100. Old rivalries push it up each month, fighting in the colonies more; at 100 the crowns go to war.`,
-                  ],
-                }))}
-              </td>
-              <td>
-                ${war !== undefined
-                  ? html`<span class="cq-chip bad"
-                      >At war since ${formatDate(war)}</span
-                    >`
-                  : nothing}
-              </td>
-            </tr>`;
-          })}
-        </tbody>
-      </table>
-      ${upcoming.length
-        ? html`<p class="cq-muted small">
-            Rumours from home: ${upcoming[0].name.replace(/^The /, "the ")} is
-            brewing.
-          </p>`
-        : nothing}
-      <p class="cq-muted small">
-        When the crowns make peace in Europe, each side keeps the colonial
-        provinces it holds.
-      </p>`,
-  );
+  return html`<table class="cq-table compact">
+      <thead>
+        <tr>
+          <th>Crown</th>
+          <th>Tension</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${powers.map((p) => {
+          const k = pairKey(me, p.id);
+          const t = s.europe.tension[k] ?? 0;
+          const war = s.europe.wars[k];
+          return html`<tr>
+            <td>${nationLink(ui, p.id)}</td>
+            <td>
+              ${num(bar(t / 100, "tension"), () => ({
+                title: `Tension with ${nationName(p.name)}`,
+                notes: [
+                  `${Math.round(t)} of 100. Old rivalries push it up each month, fighting in the colonies more; at 100 the crowns go to war.`,
+                ],
+              }))}
+            </td>
+            <td>
+              ${war !== undefined
+                ? html`<span class="cq-chip bad"
+                    >At war since ${formatDate(war)}</span
+                  >`
+                : nothing}
+            </td>
+          </tr>`;
+        })}
+      </tbody>
+    </table>
+    ${upcoming.length
+      ? html`<p class="cq-muted small">
+          Rumours from home: ${upcoming[0].name.replace(/^The /, "the ")} is
+          brewing.
+        </p>`
+      : nothing}
+    <p class="cq-muted small">
+      When the crowns make peace in Europe, each side keeps the colonial
+      provinces it holds.
+    </p>`;
 }

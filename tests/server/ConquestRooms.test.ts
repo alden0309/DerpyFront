@@ -10,6 +10,9 @@ import {
   vi,
 } from "vitest";
 import { WebSocket } from "ws";
+import { EVENTS, raiseEvent } from "../../src/conquest/engine/Events";
+import { STATE_VERSION } from "../../src/conquest/engine/Game";
+import { LETTER_SECONDS } from "../../src/conquest/engine/Rules";
 import type { ServerMessage } from "../../src/conquest/Protocol";
 
 vi.mock("../../src/server/Logger", () => ({
@@ -281,6 +284,64 @@ describe("Derpy Conquest server", () => {
     expect((await err).msg).toMatch(/ended or closed/);
   });
 
+  test("any end year in range can be chosen; outside it is refused", async () => {
+    const a = await client("Alden");
+    const lobby = a.next("lobby");
+    a.send({
+      t: "create",
+      solo: true,
+      open: false,
+      settings: { endYear: 1715, difficulty: "normal" },
+    });
+    expect((await lobby).settings.endYear).toBe(1715);
+    const err = a.next("err");
+    a.send({
+      t: "create",
+      solo: true,
+      open: false,
+      settings: { endYear: 1900, difficulty: "normal" },
+    });
+    expect((await err).msg).toMatch(/didn't make sense/);
+  });
+
+  test("a letter waits while paused, counts down in play, then the council answers", async () => {
+    const a = await client("Alden");
+    const g = await soloGame(a, "england");
+    const room = env.rooms.rooms.get(g.code)!;
+    const game = room.game!;
+    const me = g.state.nations.findIndex((n) => n.player === g.you);
+    const starving = EVENTS.find((e) => e.key === "starving")!;
+    raiseEvent(game, me, starving, { met: 50 });
+    const letter = game.state.nations[me].events[0];
+    expect(letter.key).toBe("starving");
+
+    // The player hears how long it has.
+    const told = a.next("letters", (m) => letter.id in m.left);
+    runFor(env.rooms, 1);
+    const first = await told;
+    expect(first.left[letter.id]).toBe(LETTER_SECONDS);
+    expect(first.paused).toBe(true);
+
+    // Paused, it waits as long as you like.
+    runFor(env.rooms, LETTER_SECONDS * 2);
+    expect(game.state.nations[me].events.some((e) => e.id === letter.id)).toBe(
+      true,
+    );
+
+    // In play it runs out, and the council takes the first course it can.
+    a.send({ t: "pause", p: false });
+    await a.next("clock", (m) => !m.paused);
+    runFor(env.rooms, LETTER_SECONDS - 10);
+    expect(game.state.nations[me].events.some((e) => e.id === letter.id)).toBe(
+      true,
+    );
+    expect(room.letters.get(letter.id)).toBeLessThanOrEqual(10_000);
+    runFor(env.rooms, 11);
+    expect(game.state.nations[me].events.some((e) => e.id === letter.id)).toBe(
+      false,
+    );
+  });
+
   test("pauses on its own when every player leaves", async () => {
     const a = await client("Alden");
     const g = await soloGame(a, "sweden");
@@ -340,7 +401,7 @@ describe.skipIf(!TEST_DB)(
         name: "Alden",
         account: "Alden",
       });
-      const g = await soloGame(a, "portugal", {
+      const g = await soloGame(a, "spain", {
         endYear: 1650,
         difficulty: "easy",
       });
@@ -357,8 +418,19 @@ describe.skipIf(!TEST_DB)(
       a.send({ t: "list" });
       const mine = (await rooms).saved;
       expect(mine).toHaveLength(1);
-      expect(mine[0]).toMatchObject({ power: "portugal" });
+      expect(mine[0]).toMatchObject({ power: "spain" });
       expect(mine[0].year).toBeGreaterThanOrEqual(1607);
+
+      // A save from an older version of the game isn't offered.
+      const { db } = await import("../../src/server/derpy/DerpyDb");
+      const pool = await db();
+      await pool.query("UPDATE derpy_conquest_saves SET version = 2");
+      const none = a.next("rooms");
+      a.send({ t: "list" });
+      expect((await none).saved).toHaveLength(0);
+      await pool.query("UPDATE derpy_conquest_saves SET version = $1", [
+        STATE_VERSION,
+      ]);
 
       // The server restarts; load it back from the database: the same nation,
       // paused, on the day it was saved.
@@ -370,7 +442,7 @@ describe.skipIf(!TEST_DB)(
       expect(b.code).not.toBe(g.code);
       expect(b.paused).toBe(true);
       expect(b.state.nations.find((n) => n.player === b.you)?.key).toBe(
-        "portugal",
+        "spain",
       );
       expect(b.state.day).toBe(savedDay);
 
@@ -385,7 +457,7 @@ describe.skipIf(!TEST_DB)(
       a.send({ t: "end" });
       const results = (await end).results;
       expect(results).toHaveLength(1);
-      expect(results[0]).toMatchObject({ name: "Alden", power: "portugal" });
+      expect(results[0]).toMatchObject({ name: "Alden", power: "spain" });
       expect(results[0].coins).toBeGreaterThanOrEqual(10);
 
       const board = await conquestLeaderboard();

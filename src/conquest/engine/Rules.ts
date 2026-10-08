@@ -24,8 +24,14 @@ export const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 export const SPEED_DAYS_PER_SECOND = [0, 0.5, 1, 2, 4, 8];
 export const DEFAULT_SPEED = 2;
 
-/** A decision waits this long before the council picks for you. */
-export const EVENT_DAYS = 45;
+/**
+ * Game days before an unanswered letter is decided by the council. Players'
+ * letters are timed in real seconds by the server (LETTER_SECONDS); this is a
+ * backstop for games run without one.
+ */
+export const EVENT_DAYS = 1095;
+/** Seconds of unpaused play a player has to answer a letter. */
+export const LETTER_SECONDS = 90;
 
 // ---------------------------------------------------------------- goods
 
@@ -417,8 +423,8 @@ export const REGIMENTS: Record<RegType, RegimentRules> = {
     men: 100,
     days: 20,
     upkeep: 0.3,
-    fight: 1,
-    shock: 0.9,
+    fight: 0.8,
+    shock: 0.8,
     speed: 1.2,
     natives: true,
   },
@@ -428,8 +434,8 @@ export const REGIMENTS: Record<RegType, RegimentRules> = {
     men: 100,
     days: 25,
     upkeep: 0.5,
-    fight: 1.05,
-    shock: 1.4,
+    fight: 0.9,
+    shock: 1.2,
     speed: 1.8,
     natives: true,
   },
@@ -451,7 +457,7 @@ export const MARCH_KM_PER_DAY = 22;
 /** Kilometres a day by sea. */
 export const SAIL_KM_PER_DAY = 110;
 /** Most men a tribe can send to war: this share of its people. */
-export const WARRIOR_SHARE = 0.18;
+export const WARRIOR_SHARE = 0.12;
 /** Days of hard fighting before an attacker gives up. */
 export const BATTLE_MAX_DAYS = 5;
 /** Morale lost each day of battle per share of men lost (×). */
@@ -514,6 +520,11 @@ export const STAT_START = 5;
 export const STAT_MIN = 1;
 export const STAT_MAX = 18;
 export const MAX_TRAITS = 4;
+/**
+ * Traits come from their own small purse, apart from stat points: virtues
+ * cost from it, flaws put back into it.
+ */
+export const TRAIT_POINTS = 2;
 
 /** Points it costs to raise a stat from `level` to `level + 1`. */
 export function statStepCost(level: number): number {
@@ -537,6 +548,8 @@ export interface TraitRules {
   /** Plain words: what it does. */
   text: string;
   stats: Partial<Record<Stat, number>>;
+  /** What it does when they lead an expedition or outpost party. */
+  trail?: string;
 }
 
 export const TRAITS: Record<TraitId, TraitRules> = {
@@ -546,6 +559,8 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "content",
     text: "+1 Martial and Stewardship. Courtiers who want your job resent you, and the crown watches you (−5 crown favor).",
     stats: { mar: 1, ste: 1 },
+    trail:
+      "Pushes the party hard: journeys 15% quicker, but more men lost to hardship.",
   },
   content: {
     name: "Content",
@@ -553,6 +568,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "ambitious",
     text: "−1 Martial. The crown trusts you (+5 crown favor) and rivals scheme less.",
     stats: { mar: -1 },
+    trail: "Turns back rather than gamble: safer when things go wrong.",
   },
   honest: {
     name: "Honest",
@@ -560,6 +576,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "deceitful",
     text: "−2 Intrigue. Natives and the crown believe you (+10 native opinion, +5 crown favor).",
     stats: { int: -2 },
+    trail: "Natives met on the trail trust the party (+15% to win them over).",
   },
   deceitful: {
     name: "Deceitful",
@@ -567,6 +584,8 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "honest",
     text: "+3 Intrigue. Natives don't trust your word (−10 native opinion).",
     stats: { int: 3 },
+    trail:
+      "Talks the party out of trouble with natives (+10%), but they remember being lied to.",
   },
   brave: {
     name: "Brave",
@@ -574,6 +593,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "craven",
     text: "+2 Martial. Leading troops: +10% morale, but you may fall in battle.",
     stats: { mar: 2 },
+    trail: "Forces a way through rapids, passes and ambushes (+15%).",
   },
   craven: {
     name: "Craven",
@@ -581,6 +601,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "brave",
     text: "−2 Martial. Leading troops: −10% morale. You never fall in battle.",
     stats: { mar: -2 },
+    trail: "Avoids every risk: slower, but the party rarely meets disaster.",
   },
   greedy: {
     name: "Greedy",
@@ -588,6 +609,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "generous",
     text: "+10% taxes. People resent it (+5 unrest everywhere).",
     stats: { ste: 1 },
+    trail: "Pockets a share of what's found.",
   },
   generous: {
     name: "Generous",
@@ -595,6 +617,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "greedy",
     text: "−5% taxes. Your council and natives like you (+10 opinion).",
     stats: { dip: 1 },
+    trail: "Gifts to natives on the trail go further (+10%).",
   },
   diligent: {
     name: "Diligent",
@@ -602,6 +625,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "lazy",
     text: "+2 Stewardship. +15% administration.",
     stats: { ste: 2 },
+    trail: "Careful planning: journeys 20% quicker.",
   },
   lazy: {
     name: "Lazy",
@@ -609,6 +633,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "diligent",
     text: "−1 Stewardship. −15% administration.",
     stats: { ste: -1 },
+    trail: "Dawdles: journeys 25% slower.",
   },
   zealous: {
     name: "Zealous",
@@ -616,6 +641,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "tolerant",
     text: "+2 Learning. Missions convert faster; other faiths grow restless (+10 unrest) and natives wary (−10 opinion).",
     stats: { lea: 2 },
+    trail: "Preaches to every village: natives on the trail grow wary (−10%).",
   },
   tolerant: {
     name: "Tolerant",
@@ -623,6 +649,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "zealous",
     text: "No unrest from other faiths. Natives warm to you (+10 opinion). The church at home frowns (−3 crown favor).",
     stats: {},
+    trail: "Natives on the trail warm to the party (+10%).",
   },
   just: {
     name: "Just",
@@ -630,6 +657,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "cruel",
     text: "+1 Stewardship. Less corruption (−50% tax lost to overreach), −5 unrest everywhere.",
     stats: { ste: 1 },
+    trail: "Keeps the party together: fewer desertions.",
   },
   cruel: {
     name: "Cruel",
@@ -637,6 +665,8 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "just",
     text: "+2 Intrigue. Revolts are put down hard (−10 unrest in occupied land); everyone likes you less (−10 opinion).",
     stats: { int: 2 },
+    trail:
+      "Forces guides at gunpoint: finds the way (+10%) but angers the natives.",
   },
   robust: {
     name: "Robust",
@@ -644,6 +674,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "sickly",
     text: "Half the risk of dying of illness or age.",
     stats: {},
+    trail: "Shrugs off fevers and hunger (half the danger to the leader).",
   },
   sickly: {
     name: "Sickly",
@@ -651,6 +682,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: "robust",
     text: "Twice the risk of dying of illness or age. −1 to every stat.",
     stats: { dip: -1, mar: -1, ste: -1, int: -1, lea: -1 },
+    trail: "Fevers and hunger are twice as dangerous to the leader.",
   },
   educated: {
     name: "Educated",
@@ -658,6 +690,8 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: null,
     text: "+2 Learning, +1 Stewardship. Fewer settlers die of fever (−25%).",
     stats: { lea: 2, ste: 1 },
+    trail:
+      "Maps as they go: surveys a wider stretch of land, and treats fevers (+10%).",
   },
   charming: {
     name: "Charming",
@@ -665,6 +699,7 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     opposite: null,
     text: "+2 Diplomacy. Everyone likes you a little more (+5 opinion).",
     stats: { dip: 2 },
+    trail: "Wins over natives on the trail (+15%).",
   },
 };
 
@@ -810,30 +845,6 @@ export const POWER_RULES: Record<string, PowerRules> = {
     nativeOpinion: -10,
     shipping: 0,
   },
-  portugal: {
-    startPop: [4000, 3200],
-    emigration: 28,
-    expectedRemit: 0.18,
-    charterGold: 0,
-    charterUntil: 0,
-    startGold: 240,
-    admin: 9,
-    religion: "catholic",
-    culture: "portuguese",
-    pros: [
-      "Brazil's sugar coast is the most valuable land in the Americas",
-      "Plantations make 20% more sugar",
-    ],
-    cons: [
-      "Spain's king is Portugal's king until 1640, then war with Spain",
-      "The Dutch covet the sugar coast",
-    ],
-    history:
-      "Under the Iberian Union, Portugal's sugar mills at Salvador and Olinda feed Europe's sweet tooth, and draw the eye of Dutch privateers.",
-    discipline: 1,
-    nativeOpinion: -5,
-    shipping: 0,
-  },
   netherlands: {
     startPop: [260, 200],
     emigration: 15,
@@ -925,17 +936,12 @@ export const RIVALRY: Record<string, number> = {
   "france-spain": 0.4,
   "england-france": 0.3,
   "netherlands-spain": 0.6,
-  "netherlands-portugal": 0.45,
   "england-netherlands": 0.25,
   "netherlands-sweden": 0.1,
   "england-sweden": 0.05,
   "france-sweden": 0.05,
   "spain-sweden": 0.1,
-  "portugal-sweden": 0.05,
   "france-netherlands": 0.15,
-  "england-portugal": 0.05,
-  "france-portugal": 0.15,
-  "portugal-spain": 0,
 };
 
 /** A crown war in Europe drags on at least this long. */
@@ -956,4 +962,35 @@ export const DIFFICULTY: Record<Difficulty, DifficultyRules> = {
   easy: { aiGold: 0.8, nativeAnger: 0.7, aggression: 0.6 },
   normal: { aiGold: 1, nativeAnger: 1, aggression: 1 },
   hard: { aiGold: 1.3, nativeAnger: 1.2, aggression: 1.4 },
+};
+
+// ---------------------------------------------------------------- exploring
+
+/** Share of provinces with a rich seam, run or soil, waiting to be found. */
+export const RICH_SHARE = 0.14;
+/** A rich province makes this much more of its good. */
+export const RICH_BONUS = 0.5;
+/** At the start a colony knows the coasts this far from its ports. */
+export const SEEN_BY_SEA_KM = 700;
+
+export const EXPEDITION = {
+  gold: 40,
+  /** Woodsmen, porters and guides. */
+  men: 20,
+  kmPerDay: 15,
+  minDays: 20,
+};
+
+export const OUTPOST = {
+  gold: 80,
+  goods: { timber: 15, tools: 5 } as Partial<Record<Good, number>>,
+  men: 30,
+  kmPerDay: 12,
+  minDays: 30,
+  /** Gold a month to keep it manned. */
+  upkeep: 1,
+  /** Defenders behind its palisade fight this much harder. */
+  defense: 0.15,
+  /** Extra thousands of men the land around it can feed. */
+  supply: 1,
 };

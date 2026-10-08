@@ -15,6 +15,7 @@ import {
 } from "./Economy";
 import { answerEvent, eventsDaily, eventsMonthly } from "./Events";
 import { World, worldOf } from "./Map";
+import { missionCommand, missionsDaily, outpostsDaily } from "./Missions";
 import { popsMonthly } from "./Pops";
 import { scoreOf } from "./Queries";
 import { Rng } from "./Rng";
@@ -35,7 +36,7 @@ import {
 } from "./Types";
 import { militaryCommand, warDaily, warMonthly } from "./War";
 
-export const STATE_VERSION = 2;
+export { STATE_VERSION } from "./Setup";
 
 export class ConquestGame {
   readonly w: World;
@@ -195,6 +196,8 @@ export class ConquestGame {
     s.day++;
     worksDaily(this);
     warDaily(this);
+    outpostsDaily(this);
+    missionsDaily(this);
     convoysDaily(this);
     eventsDaily(this);
     if (isMonthStart(s.day)) this.month();
@@ -292,6 +295,9 @@ export class ConquestGame {
       case "demand":
       case "independence":
         return crownCommand(this, n, c);
+      case "expedition":
+      case "outpost":
+        return missionCommand(this, n, c);
       default:
         return "Unknown command.";
     }

@@ -1,14 +1,54 @@
-// Derpy Conquest's map: provinces, borders, rivers, armies and what's going
-// on, drawn on a canvas you can drag and zoom (mouse, trackpad or fingers).
-// Four ways to look at it: by nation (names stretched across their land,
-// as on old maps), by terrain, by what the land makes, and by people.
+// Derpy Conquest's map: provinces, borders, rivers, armies, ships and what's
+// going on, drawn on a canvas you can drag and zoom (mouse, trackpad or
+// fingers). Four ways to look at it: by nation (names stretched across
+// their land, as on old maps), by terrain, by what the land makes, and by
+// people.
+//
+// It's drawn in two layers. The chart itself (land, borders, names, ports)
+// is drawn once into an offscreen canvas and only redrawn when something
+// on it changes or the view settles somewhere new; while you drag or zoom,
+// that picture is just moved. Things that move (armies, ships, parties,
+// sieges) are drawn on top every frame.
 
 import type { World } from "../engine/Map";
-import { armyMen, people } from "../engine/Queries";
-import type { Army, GameState, Good, MapDef, Terrain } from "../engine/Types";
+import { armyMen, countRegs, people } from "../engine/Queries";
+import type {
+  Army,
+  GameState,
+  MapDef,
+  Mission,
+  RegType,
+  Terrain,
+} from "../engine/Types";
+import {
+  anchor,
+  coffeeRing,
+  compassRose,
+  explorer,
+  flame,
+  goodDot,
+  marginNote,
+  palisade,
+  ring,
+  ship,
+  soldier,
+  swords,
+  tent,
+  tower,
+  unknownMark,
+  whiteFlag,
+} from "./MapArt";
 import { GOOD_COLORS } from "./Text";
 
 export type MapMode = "nation" | "terrain" | "economy" | "people";
+
+export interface ChartLabel {
+  text: string;
+  x: number;
+  y: number;
+  kind: "sea" | "land";
+  angle: number;
+}
 
 export interface Geo {
   width: number;
@@ -16,6 +56,9 @@ export interface Geo {
   arcs: number[][];
   rings: number[][][];
   rivers: number[][];
+  /** Land beyond the board (South America), half-cell, delta-encoded. */
+  backdrop?: number[][];
+  labels?: ChartLabel[];
 }
 
 export const TERRAIN_TINT: Record<Terrain, string> = {
@@ -32,6 +75,7 @@ export const TERRAIN_TINT: Record<Terrain, string> = {
 const OCEAN_TOP = "#2f6577";
 const OCEAN_BOTTOM = "#204a5a";
 const PARCHMENT = [236, 224, 184];
+const UNKNOWN_FILL = "#d6cfba";
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
@@ -85,6 +129,19 @@ function decodeArc(raw: number[]): DecodedArc {
   return { left: raw[0], right: raw[1], pts: new Float32Array(smooth(pts)) };
 }
 
+/** Delta-encoded half-cell points to map units. */
+function decodeHalf(raw: number[]): [number, number][] {
+  const out: [number, number][] = [];
+  let x = 0;
+  let y = 0;
+  for (let i = 0; i < raw.length; i += 2) {
+    x += raw[i];
+    y += raw[i + 1];
+    out.push([x / 2, y / 2]);
+  }
+  return out;
+}
+
 export interface View {
   scale: number;
   tx: number;
@@ -111,7 +168,35 @@ export interface Overlay {
   mode: MapMode;
   /** Open land the player could settle right now. */
   colonizable: Set<number>;
+  /** Land the player has surveyed (null: they know everything). */
+  explored: Set<number> | null;
 }
+
+/** Which figure stands for an army: its most numerous kind of regiment. */
+export function figureOf(a: Army): RegType {
+  const counts = countRegs(a);
+  const order: RegType[] = [
+    "militia",
+    "regulars",
+    "dragoons",
+    "artillery",
+    "warriors",
+    "riders",
+  ];
+  let best: RegType = a.regs[0]?.type ?? "militia";
+  let bestN = -1;
+  for (const t of order) {
+    const n = counts[t] ?? 0;
+    if (n > bestN) {
+      best = t;
+      bestN = n;
+    }
+  }
+  return best;
+}
+
+/** Coarse water grid for sailing routes (one cell per GRID map units). */
+const GRID = 6;
 
 export class MapView {
   readonly canvas: HTMLCanvasElement;
@@ -125,6 +210,7 @@ export class MapView {
   private borders = new Path2D();
   private nationBorders = new Path2D();
   private rivers = new Path2D();
+  private backdrop = new Path2D();
   private ownersKey = "";
   private nationLabels: NationLabel[] = [];
   private armyHits: {
@@ -143,8 +229,25 @@ export class MapView {
     cx: number;
     cy: number;
   } | null = null;
+  private longPress = 0;
   overlay: Overlay | null = null;
   needsDraw = true;
+
+  // The cached chart.
+  private base = document.createElement("canvas");
+  private bctx = this.base.getContext("2d")!;
+  private baseView: View | null = null;
+  private baseDpr = 1;
+  private baseMargin = 0;
+  private baseDirty = true;
+  private lastBaseAt = -1e9;
+  private viewChangedAt = 0;
+
+  // Sailing routes, by port.
+  private water: Uint8Array | null = null;
+  private gw = 0;
+  private gh = 0;
+  private routes = new Map<number, [number, number][]>();
 
   constructor(
     private readonly map: MapDef,
@@ -157,6 +260,14 @@ export class MapView {
     this.ctx = this.canvas.getContext("2d")!;
     this.buildPaths();
     this.attachInput();
+    // Names are drawn in the period types; redraw once they've loaded.
+    void document.fonts?.ready.then(() => this.markDirty());
+  }
+
+  /** Something on the chart changed (owners, buildings, the view mode). */
+  markDirty(): void {
+    this.baseDirty = true;
+    this.needsDraw = true;
   }
 
   // ---------------------------------------------------------------- shapes
@@ -204,14 +315,17 @@ export class MapView {
       this.addArc(target, a);
     }
     for (const r of this.geo.rivers) {
-      let x = 0;
-      let y = 0;
-      for (let i = 0; i < r.length; i += 2) {
-        x += r[i];
-        y += r[i + 1];
-        if (i === 0) this.rivers.moveTo(x / 2, y / 2);
-        else this.rivers.lineTo(x / 2, y / 2);
-      }
+      const pts = decodeHalf(r);
+      pts.forEach(([x, y], i) =>
+        i === 0 ? this.rivers.moveTo(x, y) : this.rivers.lineTo(x, y),
+      );
+    }
+    for (const r of this.geo.backdrop ?? []) {
+      const pts = decodeHalf(r);
+      pts.forEach(([x, y], i) =>
+        i === 0 ? this.backdrop.moveTo(x, y) : this.backdrop.lineTo(x, y),
+      );
+      this.backdrop.closePath();
     }
   }
 
@@ -267,12 +381,11 @@ export class MapView {
     const pts = provs.map((p) => {
       const b = this.provBox[p];
       const r = Math.sqrt(Math.max(1, (b[2] - b[0]) * (b[3] - b[1]))) / 2;
-      const w = r;
       const d = this.map.provinces[p];
-      sw += w;
-      mx += d.x * w;
-      my += d.y * w;
-      return { x: d.x, y: d.y, w, r };
+      sw += r;
+      mx += d.x * r;
+      my += d.y * r;
+      return { x: d.x, y: d.y, w: r, r };
     });
     mx /= sw;
     my /= sw;
@@ -287,7 +400,6 @@ export class MapView {
     const angle = 0.5 * Math.atan2(2 * cxy, cxx - cyy);
     let ux = Math.cos(angle);
     let uy = Math.sin(angle);
-    // Always read left to right.
     if (ux < 0) {
       ux = -ux;
       uy = -uy;
@@ -309,7 +421,6 @@ export class MapView {
     thick = Math.sqrt(thick / sw) * 2 + avgR * 1.2;
     const length = (tMax - tMin) * 0.86;
     if (length <= 0) return null;
-    // The curve: offsets smoothed along the axis.
     const sigma = Math.max(avgR, (tMax - tMin) / 4);
     const samples: [number, number][] = [];
     const K = 16;
@@ -329,6 +440,128 @@ export class MapView {
     return { name, samples, length, size, color };
   }
 
+  // ---------------------------------------------------------------- sea routes
+
+  /** Which coarse cells are water, from the drawn land itself. */
+  private buildWater(): void {
+    const gw = Math.ceil(this.geo.width / GRID);
+    const gh = Math.ceil(this.geo.height / GRID);
+    const c = document.createElement("canvas");
+    c.width = gw;
+    c.height = gh;
+    const x = c.getContext("2d", { willReadFrequently: true })!;
+    x.setTransform(1 / GRID, 0, 0, 1 / GRID, 0, 0);
+    x.fillStyle = "#000";
+    for (const p of this.provPaths) x.fill(p, "evenodd");
+    x.fill(this.backdrop);
+    const data = x.getImageData(0, 0, gw, gh).data;
+    const water = new Uint8Array(gw * gh);
+    for (let i = 0; i < gw * gh; i++) water[i] = data[i * 4 + 3] < 40 ? 1 : 0;
+    this.water = water;
+    this.gw = gw;
+    this.gh = gh;
+  }
+
+  /** A port's route out to Europe (east, or round the Horn), in map units. */
+  private routeFrom(port: number): [number, number][] {
+    const cached = this.routes.get(port);
+    if (cached) return cached;
+    if (!this.water) this.buildWater();
+    const water = this.water!;
+    const gw = this.gw;
+    const gh = this.gh;
+    const def = this.map.provinces[port];
+    const px = Math.floor(def.x / GRID);
+    const py = Math.floor(def.y / GRID);
+    // Nearest water to the port.
+    let start = -1;
+    for (let r = 0; r < 40 && start < 0; r++) {
+      for (let dy = -r; dy <= r && start < 0; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = px + dx;
+          const y = py + dy;
+          if (x < 0 || y < 0 || x >= gw || y >= gh) continue;
+          if (water[y * gw + x]) {
+            start = y * gw + x;
+            break;
+          }
+        }
+    }
+    const route: [number, number][] = [[def.x, def.y]];
+    if (start < 0) {
+      this.routes.set(port, route);
+      return route;
+    }
+    const prev = new Int32Array(gw * gh).fill(-2);
+    prev[start] = -1;
+    const queue = [start];
+    let end = -1;
+    for (let q = 0; q < queue.length; q++) {
+      const c = queue[q];
+      const x = c % gw;
+      const y = (c - x) / gw;
+      if (x === gw - 1 || y === gh - 1) {
+        end = c;
+        break;
+      }
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+          const n = ny * gw + nx;
+          if (!water[n] || prev[n] !== -2) continue;
+          prev[n] = c;
+          queue.push(n);
+        }
+    }
+    if (end < 0) {
+      this.routes.set(port, route);
+      return route;
+    }
+    const cells: number[] = [];
+    for (let c = end; c >= 0; c = prev[c]) cells.push(c);
+    cells.reverse();
+    // Pull the string tight: skip ahead while the straight line stays at sea.
+    const clear = (a: number, b: number) => {
+      const ax = a % gw;
+      const ay = (a - ax) / gw;
+      const bx = b % gw;
+      const by = (b - bx) / gw;
+      const steps = Math.max(Math.abs(bx - ax), Math.abs(by - ay)) * 2;
+      for (let i = 1; i < steps; i++) {
+        const x = Math.round(ax + ((bx - ax) * i) / steps);
+        const y = Math.round(ay + ((by - ay) * i) / steps);
+        if (!water[y * gw + x]) return false;
+      }
+      return true;
+    };
+    let i = 0;
+    const kept = [cells[0]];
+    while (i < cells.length - 1) {
+      let j = cells.length - 1;
+      while (j > i + 1 && !clear(cells[i], cells[j])) j--;
+      kept.push(cells[j]);
+      i = j;
+    }
+    for (const c of kept) {
+      const x = c % gw;
+      const y = (c - x) / gw;
+      route.push([(x + 0.5) * GRID, (y + 0.5) * GRID]);
+    }
+    // Sail on past the edge.
+    const last = route[route.length - 1];
+    route.push(
+      last[0] >= (gw - 1) * GRID
+        ? [last[0] + 200, last[1]]
+        : [last[0], last[1] + 200],
+    );
+    this.routes.set(port, route);
+    return route;
+  }
+
   // ---------------------------------------------------------------- view
 
   resize(width: number, height: number): void {
@@ -337,6 +570,12 @@ export class MapView {
     this.canvas.height = Math.round(height * this.dpr);
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
+    this.baseView = null;
+    this.viewMoved();
+  }
+
+  private viewMoved(): void {
+    this.viewChangedAt = performance.now();
     this.needsDraw = true;
   }
 
@@ -367,7 +606,7 @@ export class MapView {
     v.ty = Math.min(margin, Math.max(this.cssHeight - h - margin, v.ty));
     if (w < this.cssWidth) v.tx = (this.cssWidth - w) / 2;
     if (h < this.cssHeight) v.ty = (this.cssHeight - h) / 2;
-    this.needsDraw = true;
+    this.viewMoved();
   }
 
   /** Centres the map on a province. */
@@ -469,12 +708,21 @@ export class MapView {
     c.addEventListener("pointerdown", (e) => {
       c.setPointerCapture(e.pointerId);
       const r = c.getBoundingClientRect();
-      this.pointers.set(e.pointerId, {
-        x: e.clientX - r.left,
-        y: e.clientY - r.top,
-      });
+      const x = e.clientX - r.left;
+      const y = e.clientY - r.top;
+      this.pointers.set(e.pointerId, { x, y });
       if (this.pointers.size === 1) {
         this.dragStart = { x: e.clientX, y: e.clientY, moved: false };
+        // Hold a finger down: the same as a right-click (march there).
+        if (e.pointerType !== "mouse") {
+          clearTimeout(this.longPress);
+          this.longPress = window.setTimeout(() => {
+            if (this.dragStart && !this.dragStart.moved) {
+              this.dragStart.moved = true;
+              this.cb.rightClick(this.provinceAt(x, y));
+            }
+          }, 550);
+        }
       } else if (this.pointers.size === 2) {
         const [a, b] = [...this.pointers.values()];
         this.pinch = {
@@ -484,6 +732,7 @@ export class MapView {
           cy: (a.y + b.y) / 2,
         };
         if (this.dragStart) this.dragStart.moved = true;
+        clearTimeout(this.longPress);
       }
     });
     c.addEventListener("pointermove", (e) => {
@@ -516,8 +765,10 @@ export class MapView {
             e.clientX - this.dragStart.x,
             e.clientY - this.dragStart.y,
           ) > 6
-        )
+        ) {
           this.dragStart.moved = true;
+          clearTimeout(this.longPress);
+        }
         if (this.dragStart.moved) {
           this.view.tx += x - prev.x;
           this.view.ty += y - prev.y;
@@ -530,6 +781,7 @@ export class MapView {
       const wasClick =
         this.pointers.size === 1 && this.dragStart && !this.dragStart.moved;
       this.pointers.delete(e.pointerId);
+      clearTimeout(this.longPress);
       if (this.pointers.size < 2) this.pinch = null;
       if (e.type === "pointerup" && wasClick && e.button === 0) {
         const x = e.clientX - r.left;
@@ -549,7 +801,7 @@ export class MapView {
     });
   }
 
-  // ---------------------------------------------------------------- drawing
+  // ---------------------------------------------------------------- the chart (cached)
 
   private fillFor(s: GameState, p: number, o: Overlay): string {
     const prov = s.provinces[p];
@@ -558,10 +810,12 @@ export class MapView {
       case "terrain":
         return TERRAIN_TINT[def.terrain];
       case "economy": {
+        if (o.explored && !o.explored.has(p)) return UNKNOWN_FILL;
         const good = this.world.raw[p];
         let value = 0;
         for (const v of Object.values(prov.made)) value += v ?? 0;
-        if (prov.owner < 0 || value <= 0) return mix(GOOD_COLORS[good], 0.78);
+        if (prov.owner < 0 || value <= 0)
+          return mix(GOOD_COLORS[good], prov.rich ? 0.55 : 0.78);
         return mix(
           GOOD_COLORS[good],
           Math.max(0.05, 0.6 - Math.min(0.55, value / 60)),
@@ -583,6 +837,330 @@ export class MapView {
     }
   }
 
+  /** Is the cached chart good for the current view as it is? */
+  private baseFits(): { sameScale: boolean; covered: boolean } {
+    const b = this.baseView;
+    const v = this.view;
+    if (!b) return { sameScale: false, covered: false };
+    const sameScale = Math.abs(b.scale - v.scale) < 1e-9;
+    const m = this.baseMargin;
+    const covered =
+      sameScale && Math.abs(v.tx - b.tx) <= m && Math.abs(v.ty - b.ty) <= m;
+    return { sameScale, covered };
+  }
+
+  private renderBase(o: Overlay, now: number): void {
+    const s = o.state;
+    const v = { ...this.view };
+    this.refreshOwners(s);
+    const m = Math.round(Math.max(this.cssWidth, this.cssHeight) * 0.3);
+    const bd = Math.min(this.dpr, 1.5);
+    const bw = Math.ceil((this.cssWidth + 2 * m) * bd);
+    const bh = Math.ceil((this.cssHeight + 2 * m) * bd);
+    if (this.base.width !== bw || this.base.height !== bh) {
+      this.base.width = bw;
+      this.base.height = bh;
+    }
+    this.baseView = v;
+    this.baseMargin = m;
+    this.baseDpr = bd;
+    this.baseDirty = false;
+    this.lastBaseAt = now;
+    const c = this.bctx;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, bw, bh);
+    const mapT = () =>
+      c.setTransform(
+        bd * v.scale,
+        0,
+        0,
+        bd * v.scale,
+        bd * (v.tx + m),
+        bd * (v.ty + m),
+      );
+    const screenT = () => c.setTransform(bd, 0, 0, bd, bd * m, bd * m);
+    // What's in the cached area, in map units.
+    const x0 = (-m - v.tx) / v.scale;
+    const y0 = (-m - v.ty) / v.scale;
+    const x1 = (this.cssWidth + m - v.tx) / v.scale;
+    const y1 = (this.cssHeight + m - v.ty) / v.scale;
+    const visible = (p: number) => {
+      const b = this.provBox[p];
+      return !(b[2] < x0 || b[0] > x1 || b[3] < y0 || b[1] > y1);
+    };
+    const sx = (x: number) => x * v.scale + v.tx;
+    const sy = (y: number) => y * v.scale + v.ty;
+    const onScreen = (x: number, y: number, pad = 30) =>
+      x > -m - pad &&
+      y > -m - pad &&
+      x < this.cssWidth + m + pad &&
+      y < this.cssHeight + m + pad;
+
+    mapT();
+    c.lineJoin = "round";
+    c.lineCap = "round";
+    // The world beyond the board: South America, hatched, unplayable.
+    c.fillStyle = "#cfc3a2";
+    c.fill(this.backdrop);
+    c.save();
+    c.clip(this.backdrop);
+    c.strokeStyle = "rgba(90,70,45,0.18)";
+    c.lineWidth = 1.2 / v.scale;
+    c.beginPath();
+    const step = 7 / v.scale;
+    for (let x = x0 - (y1 - y0); x < x1; x += step) {
+      c.moveTo(x, y1);
+      c.lineTo(x + (y1 - y0), y0);
+    }
+    c.stroke();
+    c.restore();
+    // Shallow water along the coast, as on old charts.
+    c.strokeStyle = "rgba(160, 205, 215, 0.3)";
+    c.lineWidth = 9 / v.scale;
+    c.stroke(this.coast);
+    c.stroke(this.backdrop);
+    c.strokeStyle = "rgba(190, 225, 230, 0.3)";
+    c.lineWidth = 4 / v.scale;
+    c.stroke(this.coast);
+
+    for (let p = 0; p < this.provPaths.length; p++) {
+      if (!visible(p)) continue;
+      c.fillStyle = this.fillFor(s, p, o);
+      c.fill(this.provPaths[p], "evenodd");
+      if (this.map.provinces[p].areaKm2 < 4000 && v.scale < 3) {
+        c.strokeStyle = c.fillStyle;
+        c.lineWidth = 2.5 / v.scale;
+        c.stroke(this.provPaths[p]);
+      }
+    }
+    // Enemy-held land: hatched in the occupier's colour.
+    if (o.mode === "nation") {
+      for (let p = 0; p < this.provPaths.length; p++) {
+        const prov = s.provinces[p];
+        if (prov.occupier < 0 || !visible(p)) continue;
+        c.save();
+        c.clip(this.provPaths[p], "evenodd");
+        c.strokeStyle = s.nations[prov.occupier].color;
+        c.globalAlpha = 0.75;
+        c.lineWidth = 2.2 / v.scale;
+        const b = this.provBox[p];
+        const hs = 9 / v.scale;
+        c.beginPath();
+        for (let x = b[0] - (b[3] - b[1]); x < b[2]; x += hs) {
+          c.moveTo(x, b[3]);
+          c.lineTo(x + (b[3] - b[1]), b[1]);
+        }
+        c.stroke();
+        c.restore();
+      }
+    }
+    c.strokeStyle = "rgba(70, 55, 35, 0.22)";
+    c.lineWidth = Math.max(0.5, 0.8 / v.scale);
+    c.stroke(this.borders);
+    c.strokeStyle = "rgba(82, 130, 160, 0.75)";
+    c.lineWidth = Math.min(1.2, 1.1 / v.scale);
+    c.stroke(this.rivers);
+    if (o.mode === "nation") {
+      c.strokeStyle = "rgba(45, 32, 20, 0.8)";
+      c.lineWidth = 1.9 / v.scale;
+      c.stroke(this.nationBorders);
+    }
+    c.strokeStyle = "rgba(25, 45, 55, 0.9)";
+    c.lineWidth = 1.2 / v.scale;
+    c.stroke(this.coast);
+    c.stroke(this.backdrop);
+
+    // ---- the chart-maker's marks, in map units
+    const W = this.geo.width;
+    const H = this.geo.height;
+    compassRose(c, W * 0.88, H * 0.68, 40);
+    coffeeRing(c, W * 0.13, H * 0.8, 70);
+    for (const l of this.geo.labels ?? []) {
+      c.save();
+      c.translate(l.x, l.y);
+      c.rotate((l.angle * Math.PI) / 180);
+      const size = l.kind === "land" ? 20 : 16;
+      c.font = `italic ${size}px "IM Fell English", Georgia, serif`;
+      c.fillStyle =
+        l.kind === "land" ? "rgba(90,70,45,0.55)" : "rgba(225,238,240,0.42)";
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      const letters = [...l.text];
+      const spread = size * 0.35;
+      const widths = letters.map((ch) => c.measureText(ch).width);
+      let at =
+        -(widths.reduce((a, b) => a + b, 0) + spread * (letters.length - 1)) /
+        2;
+      letters.forEach((ch, i) => {
+        c.fillText(ch, at + widths[i] / 2, 0);
+        at += widths[i] + spread;
+      });
+      c.restore();
+    }
+
+    // ---- names and marks, in screen pixels
+    screenT();
+    if (o.mode === "nation") this.drawNationLabels(c, v, m);
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    if (v.scale >= 1.1 || o.mode !== "nation") {
+      c.font = `${v.scale > 3 ? 13 : 11}px "IM Fell English", Georgia, serif`;
+      for (let p = 0; p < this.provPaths.length; p++) {
+        const def = this.map.provinces[p];
+        const b = this.provBox[p];
+        const x = sx(def.x);
+        const y = sy(def.y);
+        if (!onScreen(x, y, 80)) continue;
+        if ((b[2] - b[0]) * v.scale < def.name.length * 6) continue;
+        c.fillStyle = "rgba(45,32,20,0.82)";
+        c.fillText(def.name, x, y + 14);
+      }
+    }
+    if (o.mode === "economy" && v.scale >= 0.7) {
+      for (let p = 0; p < this.provPaths.length; p++) {
+        const def = this.map.provinces[p];
+        const x = sx(def.x);
+        const y = sy(def.y);
+        if (!onScreen(x, y)) continue;
+        if (o.explored && !o.explored.has(p)) unknownMark(c, x, y - 4);
+        else goodDot(c, x, y - 4, GOOD_COLORS[this.world.raw[p]]);
+      }
+    }
+    if (o.colonizable.size) {
+      c.lineWidth = 1.6;
+      for (const p of o.colonizable) {
+        const def = this.map.provinces[p];
+        const x = sx(def.x);
+        const y = sy(def.y);
+        if (!onScreen(x, y, 20)) continue;
+        c.strokeStyle = "rgba(35,95,50,0.95)";
+        c.fillStyle = "rgba(235,250,225,0.8)";
+        c.beginPath();
+        c.arc(x, y - 2, 7, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+        c.beginPath();
+        c.moveTo(x - 3.5, y - 2);
+        c.lineTo(x + 3.5, y - 2);
+        c.moveTo(x, y - 5.5);
+        c.lineTo(x, y + 1.5);
+        c.stroke();
+      }
+    }
+    for (let p = 0; p < s.provinces.length; p++) {
+      const prov = s.provinces[p];
+      const def = this.map.provinces[p];
+      const x = sx(def.x);
+      const y = sy(def.y);
+      if (!onScreen(x, y)) continue;
+      if (v.scale >= 2.2 && prov.owner >= 0) {
+        let gx = x - 8;
+        if (prov.b.port) {
+          anchor(c, gx, y + 27);
+          gx += 14;
+        }
+        if (prov.b.fort) tower(c, gx, y + 27, prov.b.fort);
+      }
+      if (prov.outpost)
+        palisade(
+          c,
+          x + 12,
+          y + 6,
+          Math.max(10, Math.min(18, 6 * v.scale)),
+          s.nations[prov.outpost.by].color,
+        );
+      if (prov.mods.some((md) => md.key === "revolt")) {
+        flame(c, x + 14, y - 10);
+        if (v.scale >= 0.8)
+          marginNote(c, x + 34, y - 30, "in open revolt!", x + 14, y - 12);
+      }
+    }
+  }
+
+  /** Nation names along their curves, letter-spaced to span the land. */
+  private drawNationLabels(
+    c: CanvasRenderingContext2D,
+    v: View,
+    m: number,
+  ): void {
+    const placed: [number, number, number, number][] = [];
+    for (const l of this.nationLabels) {
+      const sizePx = Math.min(64, l.size * v.scale);
+      if (sizePx < 10) continue;
+      const pts = l.samples.map(
+        ([x, y]) =>
+          [x * v.scale + v.tx, y * v.scale + v.ty] as [number, number],
+      );
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (const [x, y] of pts) {
+        x0 = Math.min(x0, x - sizePx / 2);
+        y0 = Math.min(y0, y - sizePx / 2);
+        x1 = Math.max(x1, x + sizePx / 2);
+        y1 = Math.max(y1, y + sizePx / 2);
+      }
+      if (
+        x1 < -m ||
+        y1 < -m ||
+        x0 > this.cssWidth + m ||
+        y0 > this.cssHeight + m
+      )
+        continue;
+      if (placed.some((r) => r[0] < x1 && x0 < r[2] && r[1] < y1 && y0 < r[3]))
+        continue;
+      placed.push([x0, y0, x1, y1]);
+      const seg: number[] = [0];
+      for (let i = 1; i < pts.length; i++)
+        seg.push(
+          seg[i - 1] +
+            Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]),
+        );
+      const total = seg[seg.length - 1];
+      c.font = `${sizePx}px "IM Fell English SC", "IM Fell English", Georgia, serif`;
+      const widths = [...l.name].map((ch) => c.measureText(ch).width);
+      const textW = widths.reduce((acc, x) => acc + x, 0);
+      const gap =
+        l.name.length > 1
+          ? Math.max(0, (total - textW) / (l.name.length - 1))
+          : 0;
+      const spacing = Math.min(gap, sizePx * 1.4);
+      const used = textW + spacing * (l.name.length - 1);
+      let at = (total - used) / 2;
+      const pointAt = (d: number): [number, number, number] => {
+        let i = 1;
+        while (i < seg.length - 1 && seg[i] < d) i++;
+        const t = (d - seg[i - 1]) / Math.max(0.001, seg[i] - seg[i - 1]);
+        const [ax, ay] = pts[i - 1];
+        const [bx, by] = pts[i];
+        return [
+          ax + (bx - ax) * t,
+          ay + (by - ay) * t,
+          Math.atan2(by - ay, bx - ax),
+        ];
+      };
+      c.textAlign = "center";
+      c.textBaseline = "middle";
+      c.lineJoin = "round";
+      c.lineWidth = Math.max(2, sizePx / 7);
+      c.strokeStyle = "rgba(250,242,220,0.55)";
+      c.fillStyle = darken(l.color, 0.55, 0.78);
+      [...l.name].forEach((ch, i) => {
+        const [x, y, ang] = pointAt(at + widths[i] / 2);
+        c.save();
+        c.translate(x, y);
+        c.rotate(ang);
+        c.strokeText(ch, 0, 0);
+        c.fillText(ch, 0, 0);
+        c.restore();
+        at += widths[i] + spacing;
+      });
+    }
+  }
+
+  // ---------------------------------------------------------------- every frame
+
   /** Where an army is drawn right now, in map units. */
   private armySpot(a: Army, dayNow: number): [number, number] {
     const from = this.map.provinces[a.prov];
@@ -593,6 +1171,34 @@ export class MapView {
       Math.min(1, (dayNow - a.depart) / Math.max(1, a.arrive - a.depart)),
     );
     return [from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t];
+  }
+
+  /** A point along a route at fraction t, and the heading there. */
+  private along(
+    route: [number, number][],
+    t: number,
+  ): [number, number, number] {
+    const lens: number[] = [0];
+    for (let i = 1; i < route.length; i++)
+      lens.push(
+        lens[i - 1] +
+          Math.hypot(
+            route[i][0] - route[i - 1][0],
+            route[i][1] - route[i - 1][1],
+          ),
+      );
+    const total = lens[lens.length - 1] || 1;
+    const d = Math.max(0, Math.min(1, t)) * total;
+    let i = 1;
+    while (i < lens.length - 1 && lens[i] < d) i++;
+    const k = (d - lens[i - 1]) / Math.max(0.001, lens[i] - lens[i - 1]);
+    const [ax, ay] = route[i - 1];
+    const [bx, by] = route[i];
+    return [
+      ax + (bx - ax) * k,
+      ay + (by - ay) * k,
+      Math.atan2(by - ay, bx - ax),
+    ];
   }
 
   draw(now: number): void {
@@ -608,8 +1214,37 @@ export class MapView {
     ctx.fillRect(0, 0, this.cssWidth, this.cssHeight);
     if (!o) return;
     const s = o.state;
-    this.refreshOwners(s);
 
+    // The chart: redraw it if it's out of date and the moment is right,
+    // otherwise move the picture we have.
+    const fit = this.baseFits();
+    const settled = now - this.viewChangedAt > 140;
+    const stale = this.baseDirty || !fit.covered;
+    if (stale) {
+      const urgent =
+        !this.baseView ||
+        (!fit.covered && fit.sameScale && now - this.lastBaseAt > 200);
+      const due = settled
+        ? now - this.lastBaseAt > (this.baseDirty && fit.covered ? 300 : 0)
+        : false;
+      if (urgent || due) {
+        this.renderBase(o, now);
+      }
+    }
+    const b = this.baseView!;
+    const k = v.scale / b.scale;
+    const m = this.baseMargin;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(
+      this.base,
+      k * (-m - b.tx) + v.tx,
+      k * (-m - b.ty) + v.ty,
+      (k * this.base.width) / this.baseDpr,
+      (k * this.base.height) / this.baseDpr,
+    );
+
+    // Hover and selection, in map units.
     ctx.setTransform(
       dpr * v.scale,
       0,
@@ -618,77 +1253,12 @@ export class MapView {
       dpr * v.tx,
       dpr * v.ty,
     );
-    ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    // Shallow water along the coast, as on old charts.
-    ctx.strokeStyle = "rgba(160, 205, 215, 0.3)";
-    ctx.lineWidth = 9 / v.scale;
-    ctx.stroke(this.coast);
-    ctx.strokeStyle = "rgba(190, 225, 230, 0.3)";
-    ctx.lineWidth = 4 / v.scale;
-    ctx.stroke(this.coast);
-
-    // Only draw what's on screen.
-    const [vx0, vy0] = this.toMap(0, 0);
-    const [vx1, vy1] = this.toMap(this.cssWidth, this.cssHeight);
-    const visible = (p: number) => {
-      const b = this.provBox[p];
-      return !(b[2] < vx0 || b[0] > vx1 || b[3] < vy0 || b[1] > vy1);
-    };
-    for (let p = 0; p < this.provPaths.length; p++) {
-      if (!visible(p)) continue;
-      ctx.fillStyle = this.fillFor(s, p, o);
-      ctx.fill(this.provPaths[p], "evenodd");
-      if (this.map.provinces[p].areaKm2 < 4000 && v.scale < 3) {
-        ctx.strokeStyle = ctx.fillStyle;
-        ctx.lineWidth = 2.5 / v.scale;
-        ctx.stroke(this.provPaths[p]);
-      }
-    }
-    // Enemy-held land: hatched in the occupier's colour.
-    if (o.mode === "nation") {
-      for (let p = 0; p < this.provPaths.length; p++) {
-        const prov = s.provinces[p];
-        if (prov.occupier < 0 || !visible(p)) continue;
-        ctx.save();
-        ctx.clip(this.provPaths[p], "evenodd");
-        ctx.strokeStyle = s.nations[prov.occupier].color;
-        ctx.globalAlpha = 0.75;
-        ctx.lineWidth = 2.2 / v.scale;
-        const b = this.provBox[p];
-        const step = 9 / v.scale;
-        ctx.beginPath();
-        for (let x = b[0] - (b[3] - b[1]); x < b[2]; x += step) {
-          ctx.moveTo(x, b[3]);
-          ctx.lineTo(x + (b[3] - b[1]), b[1]);
-        }
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
     if (this.hovered !== null) {
       ctx.fillStyle = "rgba(255,255,255,0.18)";
       ctx.fill(this.provPaths[this.hovered], "evenodd");
     }
-
-    ctx.strokeStyle = "rgba(70, 55, 35, 0.3)";
-    ctx.lineWidth = Math.max(0.5, 0.8 / v.scale);
-    ctx.setLineDash([3 / v.scale, 2.5 / v.scale]);
-    ctx.stroke(this.borders);
-    ctx.setLineDash([]);
-    ctx.strokeStyle = "rgba(82, 130, 160, 0.75)";
-    ctx.lineWidth = Math.min(1.2, 1.1 / v.scale);
-    ctx.stroke(this.rivers);
-    if (o.mode === "nation") {
-      ctx.strokeStyle = "rgba(45, 32, 20, 0.8)";
-      ctx.lineWidth = 1.9 / v.scale;
-      ctx.stroke(this.nationBorders);
-    }
-    ctx.strokeStyle = "rgba(25, 45, 55, 0.9)";
-    ctx.lineWidth = 1.2 / v.scale;
-    ctx.stroke(this.coast);
-
     if (o.selectedProv !== null) {
+      ctx.lineJoin = "round";
       ctx.strokeStyle = "#fff8e1";
       ctx.lineWidth = 3.2 / v.scale;
       ctx.stroke(this.provPaths[o.selectedProv]);
@@ -697,106 +1267,48 @@ export class MapView {
       ctx.stroke(this.provPaths[o.selectedProv]);
     }
 
-    // ---- names
-    if (o.mode === "nation") this.drawNationLabels();
-
-    // ---- screen-space overlays
+    // Screen-space overlays.
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const sx = (x: number) => x * v.scale + v.tx;
     const sy = (y: number) => y * v.scale + v.ty;
-    const onScreen = (x: number, y: number, m = 30) =>
-      x > -m && y > -m && x < this.cssWidth + m && y < this.cssHeight + m;
+    const onScreen = (x: number, y: number, pad = 30) =>
+      x > -pad &&
+      y > -pad &&
+      x < this.cssWidth + pad &&
+      y < this.cssHeight + pad;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-
-    if (v.scale >= 1.1 || o.mode !== "nation") {
-      ctx.font = `${v.scale > 3 ? 13 : 11}px "IM Fell English", Georgia, serif`;
-      for (let p = 0; p < this.provPaths.length; p++) {
-        const def = this.map.provinces[p];
-        const b = this.provBox[p];
-        const x = sx(def.x);
-        const y = sy(def.y);
-        if (!onScreen(x, y, 80)) continue;
-        if ((b[2] - b[0]) * v.scale < def.name.length * 6) continue;
-        ctx.fillStyle = "rgba(45,32,20,0.82)";
-        ctx.fillText(def.name, x, y + 14);
-      }
-    }
-
-    // Resources on the economy view.
-    if (o.mode === "economy" && v.scale >= 0.7) {
-      for (let p = 0; p < this.provPaths.length; p++) {
-        const def = this.map.provinces[p];
-        const x = sx(def.x);
-        const y = sy(def.y);
-        if (!onScreen(x, y)) continue;
-        this.goodDot(x, y - 4, this.world.raw[p]);
-      }
-    }
-
-    // Where you could found a colony right now.
-    if (o.colonizable.size) {
-      ctx.lineWidth = 1.6;
-      for (const p of o.colonizable) {
-        const def = this.map.provinces[p];
-        const x = sx(def.x);
-        const y = sy(def.y);
-        if (!onScreen(x, y, 20)) continue;
-        ctx.setLineDash([3, 2]);
-        ctx.strokeStyle = "rgba(35,95,50,0.95)";
-        ctx.fillStyle = "rgba(235,250,225,0.8)";
-        ctx.beginPath();
-        ctx.arc(x, y - 2, 7, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(x - 3.5, y - 2);
-        ctx.lineTo(x + 3.5, y - 2);
-        ctx.moveTo(x, y - 5.5);
-        ctx.lineTo(x, y + 1.5);
-        ctx.stroke();
-      }
-    }
-
-    // Colonies under way, sieges, ports and forts.
     const day = o.dayNow;
     for (let p = 0; p < s.provinces.length; p++) {
       const prov = s.provinces[p];
+      if (!prov.colony && !prov.siege) continue;
       const def = this.map.provinces[p];
       const x = sx(def.x);
       const y = sy(def.y);
       if (!onScreen(x, y)) continue;
       if (prov.colony) {
-        const c = prov.colony;
-        this.ring(
+        const cl = prov.colony;
+        ring(
+          ctx,
           x,
           y - 2,
           9,
-          s.nations[c.by].color,
-          (day - c.start) / Math.max(1, c.done - c.start),
+          s.nations[cl.by].color,
+          (day - cl.start) / Math.max(1, cl.done - cl.start),
         );
-        this.tent(x, y - 2);
+        tent(ctx, x, y - 2);
       }
       if (prov.siege) {
-        this.ring(
+        ring(
+          ctx,
           x,
-          y - 22,
+          y - 30,
           9,
           s.nations[prov.siege.by].color,
           prov.siege.progress / 100,
         );
-        this.swords(x, y - 22, 5, "#3b2b1a");
+        swords(ctx, x, y - 30, 5, "#3b2b1a");
       }
-      if (v.scale >= 2.2 && prov.owner >= 0) {
-        let gx = x - 8;
-        if (prov.b.port) {
-          this.anchor(gx, y + 27);
-          gx += 14;
-        }
-        if (prov.b.fort) this.tower(gx, y + 27, prov.b.fort);
-      }
-      if (prov.mods.some((m) => m.key === "revolt")) this.flame(x + 14, y - 10);
     }
     for (const [p, at] of o.battles) {
       const age = now - at;
@@ -806,13 +1318,48 @@ export class MapView {
       }
       const def = this.map.provinces[p];
       ctx.globalAlpha = 1 - age / 5000;
-      this.swords(
+      swords(
+        ctx,
         sx(def.x) + 16,
         sy(def.y) - 16,
         8 + 2 * Math.sin(age / 120),
         "#7a1d14",
       );
       ctx.globalAlpha = 1;
+    }
+
+    // Ships on their way to Europe and back.
+    const figure = Math.max(13, Math.min(30, 9 + v.scale * 5));
+    for (const n of s.nations) {
+      if (n.kind !== "power" || !n.alive) continue;
+      for (const cv of n.convoys) {
+        const span = Math.max(1, cv.arrive - cv.departed);
+        const t = (day - cv.departed) / span;
+        // A quarter of the voyage is on the map: sailing out, or coming in.
+        const onMap = cv.out ? t / 0.25 : (t - 0.75) / 0.25;
+        if (onMap < 0 || onMap > 1) continue;
+        const route = this.routeFrom(cv.port);
+        if (route.length < 2) continue;
+        const [mx, my, ang] = this.along(route, cv.out ? onMap : 1 - onMap);
+        const x = sx(mx);
+        const y = sy(my);
+        if (!onScreen(x, y, 40)) continue;
+        ship(
+          ctx,
+          x,
+          y,
+          figure * 0.8,
+          cv.out ? ang : ang + Math.PI,
+          n.color,
+          now,
+        );
+      }
+    }
+
+    // Parties out in the wilds (yours).
+    if (o.me >= 0) {
+      for (const ms of s.nations[o.me]?.missions ?? [])
+        this.drawMission(ms, day, figure, now, s.nations[o.me].color, sx, sy);
     }
 
     // Path of the selected army, and the preview of a move.
@@ -853,12 +1400,12 @@ export class MapView {
     if (sel && o.preview?.length)
       drawPath(this.armySpot(sel, day), o.preview, "rgba(255,215,110,0.95)");
 
-    // Armies: a tag per army with its strength, in its nation's colour.
+    // Armies: a soldier of their main kind, with a tag for how many men.
     this.armyHits = [];
     const stacks = new Map<string, number>();
     const sorted = [...s.armies].sort(
-      (a, b) =>
-        Number(a.owner === o.me) - Number(b.owner === o.me) || a.id - b.id,
+      (a, c) =>
+        Number(a.owner === o.me) - Number(c.owner === o.me) || a.id - c.id,
     );
     for (const a of sorted) {
       const mine = a.owner === o.me;
@@ -872,292 +1419,128 @@ export class MapView {
       const important = mine || hostile || a.id === o.selectedArmy;
       if (!important && v.scale < 0.9) continue;
       const [mx, my] = this.armySpot(a, day);
-      const x = sx(mx);
+      let x = sx(mx);
       const y = sy(my);
       if (!onScreen(x, y, 40)) continue;
-      const key = `${Math.round(x / 8)},${Math.round(y / 8)}`;
+      const key = `${Math.round(x / 10)},${Math.round(y / 10)}`;
       const slot = stacks.get(key) ?? 0;
       stacks.set(key, slot + 1);
+      x += slot * (figure * 0.9);
       const nation = s.nations[a.owner];
-      const men = armyMen(a);
-      const label =
-        important && v.scale >= 1.2
-          ? men >= 1000
-            ? `${(men / 1000).toFixed(1)}k`
-            : `${Math.round(men)}`
-          : `${a.regs.length}`;
-      ctx.font = important
-        ? "700 11px 'Alegreya Sans', system-ui, sans-serif"
-        : "700 9px 'Alegreya Sans', system-ui, sans-serif";
-      const h = important ? 17 : 13;
-      const w = Math.max(
-        important ? 22 : 14,
-        ctx.measureText(label).width + (important ? 12 : 8),
-      );
-      const bx = x - w / 2 + slot * (w + 3);
-      const by = y - h / 2 - 2;
+      const moving = a.depart >= 0 && a.path.length > 0;
+      let dir = 1;
+      if (moving) {
+        const to = this.map.provinces[a.path[0]];
+        dir = to.x >= this.map.provinces[a.prov].x ? 1 : -1;
+      }
+      const stepPhase = moving ? Math.sin(now / 110 + a.id) : 0;
+      const h = important ? figure : figure * 0.75;
       const selected = a.id === o.selectedArmy;
-      ctx.globalAlpha = important ? 1 : 0.85;
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
-      this.roundRect(bx + 1, by + 2, w, h, 3);
-      ctx.fill();
-      ctx.fillStyle = nation.color;
-      this.roundRect(bx, by, w, h, 3);
-      ctx.fill();
-      ctx.lineWidth = selected ? 3 : mine || hostile ? 1.8 : 1;
-      ctx.strokeStyle = selected
-        ? "#fff6c8"
-        : mine
+      if (selected) {
+        ctx.strokeStyle = "#fff6c8";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.ellipse(x, y + 1, h * 0.55, h * 0.2, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (a.sea)
+        ship(ctx, x, y, h * 0.8, dir > 0 ? 0 : Math.PI, nation.color, now);
+      else
+        soldier(
+          ctx,
+          x,
+          y + (moving ? Math.abs(stepPhase) * -1 : 0),
+          h,
+          figureOf(a),
+          nation.color,
+          dir,
+          stepPhase,
+        );
+      // How many men, on a tag beside them.
+      const men = armyMen(a);
+      const label = important
+        ? men >= 1000
+          ? `${(men / 1000).toFixed(1)}k`
+          : `${Math.round(men)}`
+        : "";
+      let tagW = 0;
+      if (label) {
+        ctx.font = "700 10px 'Alegreya Sans', system-ui, sans-serif";
+        tagW = ctx.measureText(label).width + 8;
+        const tx = x + h * 0.42;
+        const ty = y - h * 0.95;
+        ctx.fillStyle = nation.color;
+        ctx.strokeStyle = mine
           ? "#fbf3dc"
           : hostile
             ? "#e04a35"
             : "rgba(20,20,20,0.6)";
-      ctx.stroke();
-      ctx.fillStyle = "#ffffff";
-      ctx.strokeStyle = "rgba(0,0,0,0.55)";
-      ctx.lineWidth = 2.5;
-      ctx.strokeText(label, bx + w / 2, by + h / 2 + 0.5);
-      ctx.fillText(label, bx + w / 2, by + h / 2 + 0.5);
-      // Supply and morale bars under your own armies.
-      if (mine && important && v.scale >= 1.2) {
-        ctx.fillStyle = "rgba(0,0,0,0.45)";
-        ctx.fillRect(bx, by + h + 1, w, 3);
-        ctx.fillStyle =
-          a.regs.reduce((m, r) => m + r.morale * r.men, 0) / Math.max(1, men) >
-          0.5
-            ? "#7fc36b"
-            : "#e0a03a";
-        ctx.fillRect(
-          bx,
-          by + h + 1,
-          (w * a.regs.reduce((m, r) => m + r.morale * r.men, 0)) /
-            Math.max(1, men),
-          3,
-        );
+        ctx.lineWidth = mine || hostile ? 1.5 : 1;
+        ctx.beginPath();
+        ctx.roundRect(tx, ty, tagW, 13, 3);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#fff";
+        ctx.strokeStyle = "rgba(0,0,0,0.55)";
+        ctx.lineWidth = 2.2;
+        ctx.textAlign = "center";
+        ctx.strokeText(label, tx + tagW / 2, ty + 7);
+        ctx.fillText(label, tx + tagW / 2, ty + 7);
+        // Morale under your own.
+        if (mine && v.scale >= 1.2) {
+          const morale =
+            a.regs.reduce((acc, r) => acc + r.morale * r.men, 0) /
+            Math.max(1, men);
+          ctx.fillStyle = "rgba(0,0,0,0.45)";
+          ctx.fillRect(tx, ty + 14, tagW, 3);
+          ctx.fillStyle = morale > 0.5 ? "#7fc36b" : "#e0a03a";
+          ctx.fillRect(tx, ty + 14, tagW * morale, 3);
+        }
       }
-      ctx.globalAlpha = 1;
-      if (a.retreating) this.whiteFlag(bx + w + 6, by + 2);
-      this.armyHits.push({ army: a, x: bx, y: by, w, h });
-    }
-    this.needsDraw = false;
-  }
-
-  /** Nation names along their curves, letter-spaced to span the land. */
-  private drawNationLabels(): void {
-    const ctx = this.ctx;
-    const v = this.view;
-    const dpr = this.dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const placed: [number, number, number, number][] = [];
-    for (const l of this.nationLabels) {
-      const sizePx = Math.min(64, l.size * v.scale);
-      if (sizePx < 10) continue;
-      const pts = l.samples.map(
-        ([x, y]) =>
-          [x * v.scale + v.tx, y * v.scale + v.ty] as [number, number],
-      );
-      // Bounding box for collisions.
-      let x0 = Infinity;
-      let y0 = Infinity;
-      let x1 = -Infinity;
-      let y1 = -Infinity;
-      for (const [x, y] of pts) {
-        x0 = Math.min(x0, x - sizePx / 2);
-        y0 = Math.min(y0, y - sizePx / 2);
-        x1 = Math.max(x1, x + sizePx / 2);
-        y1 = Math.max(y1, y + sizePx / 2);
-      }
-      if (x1 < 0 || y1 < 0 || x0 > this.cssWidth || y0 > this.cssHeight)
-        continue;
-      if (placed.some((r) => r[0] < x1 && x0 < r[2] && r[1] < y1 && y0 < r[3]))
-        continue;
-      placed.push([x0, y0, x1, y1]);
-      // Arc length along the curve.
-      const seg: number[] = [0];
-      for (let i = 1; i < pts.length; i++)
-        seg.push(
-          seg[i - 1] +
-            Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]),
-        );
-      const total = seg[seg.length - 1];
-      ctx.font = `${sizePx}px "IM Fell English SC", "IM Fell English", Georgia, serif`;
-      const widths = [...l.name].map((ch) => ctx.measureText(ch).width);
-      const textW = widths.reduce((m, x) => m + x, 0);
-      const gap =
-        l.name.length > 1
-          ? Math.max(0, (total - textW) / (l.name.length - 1))
-          : 0;
-      const spacing = Math.min(gap, sizePx * 1.4);
-      const used = textW + spacing * (l.name.length - 1);
-      let at = (total - used) / 2;
-      const pointAt = (d: number): [number, number, number] => {
-        let i = 1;
-        while (i < seg.length - 1 && seg[i] < d) i++;
-        const t = (d - seg[i - 1]) / Math.max(0.001, seg[i] - seg[i - 1]);
-        const [ax, ay] = pts[i - 1];
-        const [bx, by] = pts[i];
-        return [
-          ax + (bx - ax) * t,
-          ay + (by - ay) * t,
-          Math.atan2(by - ay, bx - ax),
-        ];
-      };
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.lineJoin = "round";
-      ctx.lineWidth = Math.max(2, sizePx / 7);
-      ctx.strokeStyle = "rgba(250,242,220,0.55)";
-      ctx.fillStyle = darken(l.color, 0.55, 0.78);
-      [...l.name].forEach((ch, i) => {
-        const [x, y, ang] = pointAt(at + widths[i] / 2);
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(ang);
-        ctx.strokeText(ch, 0, 0);
-        ctx.fillText(ch, 0, 0);
-        ctx.restore();
-        at += widths[i] + spacing;
+      if (a.retreating) whiteFlag(ctx, x - h * 0.5, y - h * 1.1);
+      this.armyHits.push({
+        army: a,
+        x: x - h * 0.45,
+        y: y - h * 1.15,
+        w: h * 0.9 + tagW,
+        h: h * 1.2,
       });
     }
+
+    // Keep drawing until the chart has caught up with the view.
+    const after = this.baseFits();
+    this.needsDraw = this.baseDirty || !after.covered;
   }
 
-  private goodDot(x: number, y: number, good: Good): void {
-    const ctx = this.ctx;
-    ctx.fillStyle = GOOD_COLORS[good];
-    ctx.strokeStyle = "rgba(40,28,18,0.8)";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(x, y, 4.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  private tent(x: number, y: number): void {
-    const ctx = this.ctx;
-    ctx.fillStyle = "#3b2b1a";
-    ctx.beginPath();
-    ctx.moveTo(x - 4.5, y + 3.5);
-    ctx.lineTo(x, y - 4);
-    ctx.lineTo(x + 4.5, y + 3.5);
-    ctx.closePath();
-    ctx.fill();
-  }
-
-  private swords(x: number, y: number, r: number, color: string): void {
-    const ctx = this.ctx;
-    ctx.strokeStyle = color;
-    ctx.lineWidth = Math.max(1.6, r / 3.5);
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(x - r, y - r);
-    ctx.lineTo(x + r, y + r);
-    ctx.moveTo(x + r, y - r);
-    ctx.lineTo(x - r, y + r);
-    ctx.moveTo(x - r * 0.9, y + r * 0.35);
-    ctx.lineTo(x - r * 0.35, y + r * 0.9);
-    ctx.moveTo(x + r * 0.9, y + r * 0.35);
-    ctx.lineTo(x + r * 0.35, y + r * 0.9);
-    ctx.stroke();
-  }
-
-  private anchor(x: number, y: number): void {
-    const ctx = this.ctx;
-    ctx.strokeStyle = "#1f3f4c";
-    ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.arc(x, y - 4.5, 1.6, 0, Math.PI * 2);
-    ctx.moveTo(x, y - 3);
-    ctx.lineTo(x, y + 4);
-    ctx.moveTo(x - 3, y - 1.5);
-    ctx.lineTo(x + 3, y - 1.5);
-    ctx.moveTo(x - 4.5, y + 1);
-    ctx.quadraticCurveTo(x - 3.5, y + 4.5, x, y + 4);
-    ctx.quadraticCurveTo(x + 3.5, y + 4.5, x + 4.5, y + 1);
-    ctx.stroke();
-  }
-
-  private tower(x: number, y: number, level: number): void {
-    const ctx = this.ctx;
-    ctx.fillStyle = "#4a3a2a";
-    ctx.fillRect(x - 4, y - 3, 8, 7);
-    for (let i = 0; i < 3; i++) ctx.fillRect(x - 4 + i * 3, y - 5.5, 2, 2.5);
-    ctx.fillStyle = "#f4e9cd";
-    ctx.font = "700 7px system-ui, sans-serif";
-    ctx.fillText(String(level), x, y + 1);
-  }
-
-  private flame(x: number, y: number): void {
-    const ctx = this.ctx;
-    ctx.fillStyle = "#c2411f";
-    ctx.beginPath();
-    ctx.moveTo(x, y - 6);
-    ctx.quadraticCurveTo(x + 5, y, x + 2.5, y + 4);
-    ctx.quadraticCurveTo(x, y + 6, x - 2.5, y + 4);
-    ctx.quadraticCurveTo(x - 5, y, x, y - 6);
-    ctx.fill();
-  }
-
-  private whiteFlag(x: number, y: number): void {
-    const ctx = this.ctx;
-    ctx.strokeStyle = "#3b2b1a";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.moveTo(x, y + 12);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    ctx.fillStyle = "#fbf6e8";
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + 8, y + 2.5);
-    ctx.lineTo(x, y + 5);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  private ring(
-    x: number,
-    y: number,
-    r: number,
+  private drawMission(
+    ms: Mission,
+    day: number,
+    size: number,
+    now: number,
     color: string,
-    frac: number,
+    sx: (x: number) => number,
+    sy: (y: number) => number,
   ): void {
     const ctx = this.ctx;
-    ctx.fillStyle = "rgba(255,250,235,0.88)";
+    const a = this.map.provinces[ms.from];
+    const b = this.map.provinces[ms.target];
+    let t: number;
+    if (ms.stage === "out")
+      t = (day - ms.start) / Math.max(1, ms.arrive - ms.start);
+    else t = 1 - (day - ms.arrive) / Math.max(1, ms.home - ms.arrive);
+    t = Math.max(0, Math.min(1, t));
+    const x = sx(a.x + (b.x - a.x) * t);
+    const y = sy(a.y + (b.y - a.y) * t);
+    ctx.setLineDash([2, 5]);
+    ctx.strokeStyle = "rgba(43,29,18,0.6)";
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,0.25)";
-    ctx.lineWidth = 3;
+    ctx.moveTo(sx(a.x), sy(a.y));
+    ctx.lineTo(sx(b.x), sy(b.y));
     ctx.stroke();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(
-      x,
-      y,
-      r,
-      -Math.PI / 2,
-      -Math.PI / 2 + Math.PI * 2 * Math.max(0, Math.min(1, frac)),
-    );
-    ctx.stroke();
-  }
-
-  private roundRect(
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    r: number,
-  ): void {
-    const ctx = this.ctx;
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
+    ctx.setLineDash([]);
+    const dir = b.x >= a.x === (ms.stage === "out") ? 1 : -1;
+    explorer(ctx, x, y, size * 0.85, color, dir, Math.sin(now / 140 + ms.id));
   }
 }
 

@@ -11,7 +11,9 @@ import type {
 
 export const CONQUEST_WS_PATH = "/conquest/ws";
 export const MAX_NAME_LENGTH = 24;
-export const END_YEARS = [1650, 1675, 1700, 1750] as const;
+/** The game ends on 1 January of a year the host picks in this range. */
+export const END_YEAR_MIN = 1625;
+export const END_YEAR_MAX = 1775;
 export const DIFFICULTIES: Difficulty[] = ["easy", "normal", "hard"];
 
 export interface RoomSettings {
@@ -119,5 +121,7 @@ export type ServerMessage =
   | { t: "ack"; id: number; err: string | null }
   | { t: "chat"; from: string; text: string }
   | { t: "saved"; at: string }
+  /** Your unanswered letters: seconds of unpaused play each has left. */
+  | { t: "letters"; left: Record<number, number>; paused: boolean }
   | { t: "end"; results: ResultLine[] }
   | { t: "err"; msg: string };

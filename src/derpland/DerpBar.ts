@@ -118,29 +118,14 @@ export const GAMES = [
   },
 ] as const;
 
-/** The Derp Land mark: a grinning hill with a flag planted on top. */
+/** The Derp Land mark: a hill with a flag planted on top. */
 function mark(): TemplateResult {
   return html`<svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
-    <path d="M2 34c4-8 10-12 18-12s14 4 18 12z" fill="#ffc531" />
+    <path d="M3 34c4-8 9.5-12 17-12s13 4 17 12z" fill="#e7b84a" />
+    <rect x="19" y="5" width="2.2" height="18" rx="1.1" fill="#e4e4e7" />
     <path
-      d="M2 34c4-8 10-12 18-12s14 4 18 12"
-      fill="none"
-      stroke="#b97c00"
-      stroke-width="2"
-    />
-    <rect x="19" y="4" width="2.6" height="19" rx="1.3" fill="#fbf3e2" />
-    <path
-      d="M21.6 5c4 1.6 7 .2 11 1.6l-2.4 4.4 2.4 4.2c-4-1.3-7 .1-11-1.5z"
-      fill="#ef5a3c"
-    />
-    <circle cx="14" cy="29" r="1.7" fill="#231a2e" />
-    <circle cx="25" cy="28.4" r="1.7" fill="#231a2e" />
-    <path
-      d="M16.5 31.5q3.5 2.6 7 0"
-      fill="none"
-      stroke="#231a2e"
-      stroke-width="1.8"
-      stroke-linecap="round"
+      d="M21.2 6c4 1.6 7 .2 10.6 1.6l-2.2 4.2 2.2 4c-3.8-1.3-6.8.1-10.6-1.5z"
+      fill="#d9573f"
     />
   </svg>`;
 }
@@ -264,9 +249,13 @@ export class DerpBar extends LitElement {
     return html`
       <header class="bar">
         <div class="inner">
-          <a class="brand" href="/" aria-label="Derp Land home"
+          <a
+            class="brand ${p === "derpyfront" ? "compact" : ""}"
+            href="/"
+            aria-label="Derp Land home"
             >${mark()}<span>Derp Land</span></a
           >
+          <slot name="brand"></slot>
           <nav class="tabs" aria-label="Derp Land">
             <div class="play" data-menu="play">
               <button
@@ -444,17 +433,20 @@ export class DerpBar extends LitElement {
 
   static styles = css`
     :host {
-      --ink: #231a2e;
-      --ink-deep: #140e1b;
-      --card: #fbf3e2;
-      --card-2: #f0e1bf;
-      --gold: #ffc531;
-      --gold-deep: #b97c00;
+      --bar: #18181b;
+      --panel: #202024;
+      --panel-2: #2a2a30;
+      --line: rgba(255, 255, 255, 0.09);
+      --text: #f4f4f5;
+      --text-2: #a1a1aa;
+      --blue: #0084d1;
+      --blue-2: #1a9be6;
+      --gold: #e7b84a;
       display: block;
       position: relative;
       z-index: 60;
       font-family: "Archivo Variable", "Archivo", system-ui, sans-serif;
-      color: var(--card);
+      color: var(--text);
       -webkit-font-smoothing: antialiased;
     }
     * {
@@ -464,14 +456,15 @@ export class DerpBar extends LitElement {
       color: inherit;
     }
     .bar {
-      background: var(--ink);
-      border-bottom: 3px solid var(--ink-deep);
+      background: rgba(24, 24, 27, 0.94);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
     }
     .inner {
       max-width: 1200px;
       margin: 0 auto;
       padding: 0 16px;
-      height: 64px;
+      height: 60px;
       display: flex;
       align-items: center;
       gap: 18px;
@@ -481,18 +474,27 @@ export class DerpBar extends LitElement {
       align-items: center;
       gap: 8px;
       text-decoration: none;
-      font-family: "Bagel Fat One", system-ui, sans-serif;
-      font-size: 25px;
+      font-weight: 760;
+      font-stretch: 108%;
+      font-size: 18px;
+      letter-spacing: -0.01em;
       line-height: 1;
-      color: var(--gold);
-      text-shadow: 0 2px 0 var(--gold-deep);
+      color: var(--text);
       white-space: nowrap;
-      margin-right: 6px;
+      margin-right: 4px;
+    }
+    .brand.compact span {
+      display: none;
+    }
+    ::slotted([slot="brand"]) {
+      padding-left: 14px;
+      margin-left: -6px;
+      border-left: 1px solid var(--line);
     }
     .mark {
-      width: 36px;
-      height: 36px;
-      margin-top: -4px;
+      width: 30px;
+      height: 30px;
+      margin-top: -3px;
     }
     .brand:focus-visible,
     .tab:focus-visible,
@@ -501,9 +503,9 @@ export class DerpBar extends LitElement {
     .signin:focus-visible,
     .game:focus-visible,
     .item:focus-visible {
-      outline: 3px solid var(--gold);
+      outline: 2px solid var(--blue-2);
       outline-offset: 2px;
-      border-radius: 10px;
+      border-radius: 6px;
     }
     .tabs {
       display: flex;
@@ -521,43 +523,43 @@ export class DerpBar extends LitElement {
       align-items: center;
       gap: 7px;
       padding: 0 12px;
-      color: rgba(251, 243, 226, 0.78);
+      color: rgba(244, 244, 245, 0.7);
       font: inherit;
-      font-weight: 720;
-      font-stretch: 94%;
-      font-size: 15.5px;
+      font-weight: 600;
+      font-size: 15px;
       text-decoration: none;
       background: none;
       border: 0;
       cursor: pointer;
       white-space: nowrap;
+      transition: color 0.15s;
     }
     .tab:hover {
-      color: var(--card);
+      color: var(--text);
     }
     .tab.on {
-      color: var(--gold);
+      color: var(--text);
     }
     .tab.on::after {
       content: "";
       position: absolute;
-      left: 10px;
-      right: 10px;
-      bottom: -3px;
-      height: 5px;
-      border-radius: 5px 5px 0 0;
-      background: var(--gold);
+      left: 12px;
+      right: 12px;
+      bottom: -1px;
+      height: 2px;
+      background: var(--blue-2);
     }
     .dl-i {
-      width: 20px;
-      height: 20px;
+      width: 18px;
+      height: 18px;
       flex: none;
+      opacity: 0.85;
     }
     .dl-i-sm {
-      width: 14px;
-      height: 14px;
+      width: 13px;
+      height: 13px;
       margin-left: -2px;
-      opacity: 0.8;
+      opacity: 0.7;
     }
     .tab[aria-expanded="true"] .dl-i-sm {
       transform: rotate(180deg);
@@ -572,25 +574,25 @@ export class DerpBar extends LitElement {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 12px 4px 5px;
-      border-radius: 999px;
-      background: rgba(251, 243, 226, 0.08);
-      font-weight: 800;
-      font-size: 15px;
+      padding: 5px 11px 5px 7px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      font-weight: 650;
+      font-size: 14.5px;
       font-variant-numeric: tabular-nums;
       text-decoration: none;
     }
     .coins:hover {
-      background: rgba(251, 243, 226, 0.14);
+      background: rgba(255, 255, 255, 0.1);
     }
     .dl-coin {
-      width: 24px;
-      height: 24px;
+      width: 20px;
+      height: 20px;
       flex: none;
     }
     .dl-coin.sm {
-      width: 17px;
-      height: 17px;
+      width: 16px;
+      height: 16px;
     }
     .acct {
       position: relative;
@@ -604,63 +606,53 @@ export class DerpBar extends LitElement {
       display: block;
     }
     .token {
-      width: 38px;
-      height: 38px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
       display: grid;
       place-items: center;
-      font-family: "Bagel Fat One", system-ui, sans-serif;
-      font-size: 19px;
+      font-weight: 700;
+      font-size: 15px;
       line-height: 1;
-      padding-top: 2px;
       color: #fff;
       background: var(--token);
-      border: 2.5px solid var(--card);
-      box-shadow:
-        inset 0 -4px 0 rgba(0, 0, 0, 0.22),
-        0 3px 0 var(--ink-deep);
-      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.14);
     }
     .token-btn.on .token,
     .token-btn[aria-expanded="true"] .token {
-      border-color: var(--gold);
+      box-shadow: 0 0 0 2px var(--blue-2);
     }
     .token.big {
-      width: 46px;
-      height: 46px;
-      font-size: 23px;
-      border-color: var(--ink);
-      box-shadow:
-        inset 0 -4px 0 rgba(0, 0, 0, 0.22),
-        0 3px 0 var(--ink);
+      width: 42px;
+      height: 42px;
+      font-size: 18px;
     }
     .signin,
     .primary {
       font: inherit;
-      font-weight: 800;
-      font-size: 15px;
-      background: var(--gold);
-      color: var(--ink);
-      border: 2px solid var(--ink-deep);
-      border-radius: 10px;
-      padding: 7px 14px;
-      box-shadow: 0 3px 0 var(--ink-deep);
+      font-weight: 650;
+      font-size: 14.5px;
+      background: var(--blue);
+      color: #fff;
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 14px;
       cursor: pointer;
+      transition: background-color 0.15s;
     }
-    .signin:active,
-    .primary:active {
-      transform: translateY(2px);
-      box-shadow: 0 1px 0 var(--ink-deep);
+    .signin:hover,
+    .primary:hover {
+      background: var(--blue-2);
     }
     .panel {
       position: absolute;
       top: calc(100% + 10px);
-      background: var(--card);
-      color: var(--ink);
-      border: 2px solid var(--ink-deep);
-      border-radius: 14px;
-      box-shadow: 6px 6px 0 rgba(10, 6, 14, 0.5);
-      padding: 8px;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+      padding: 6px;
     }
     .play-panel {
       left: -8px;
@@ -668,25 +660,24 @@ export class DerpBar extends LitElement {
     }
     .game {
       display: grid;
-      grid-template-columns: 120px 1fr;
+      grid-template-columns: 112px 1fr;
       gap: 12px;
       align-items: center;
       padding: 8px;
-      border-radius: 10px;
+      border-radius: 8px;
       text-decoration: none;
     }
     .game:hover,
     .game.here {
-      background: var(--card-2);
+      background: var(--panel-2);
     }
     .game img {
-      width: 120px;
-      height: 75px;
+      width: 112px;
+      height: 70px;
       object-fit: cover;
       border-radius: 6px;
-      border: 2px solid var(--ink);
       display: block;
-      background: var(--card-2);
+      background: var(--panel-2);
     }
     .game-text {
       display: flex;
@@ -694,22 +685,23 @@ export class DerpBar extends LitElement {
       gap: 3px;
     }
     .game-name {
-      line-height: 1.05;
+      line-height: 1.1;
     }
     .game-name.derpyfront {
-      font-family: "Bagel Fat One", system-ui, sans-serif;
-      font-size: 21px;
-      color: #d4432a;
+      font-weight: 780;
+      font-stretch: 108%;
+      font-size: 17px;
+      color: var(--text);
     }
     .game-name.conquest {
       font-family: "IM Fell English SC", Georgia, serif;
-      font-size: 24px;
-      color: #7e231c;
+      font-size: 20px;
+      color: #ead8ae;
     }
     .game-blurb {
-      font-size: 13.5px;
-      line-height: 1.35;
-      color: #554a5e;
+      font-size: 13px;
+      line-height: 1.4;
+      color: var(--text-2);
     }
     .acct-panel {
       right: -4px;
@@ -720,7 +712,7 @@ export class DerpBar extends LitElement {
       align-items: center;
       gap: 10px;
       padding: 8px 8px 12px;
-      border-bottom: 2px dashed rgba(35, 26, 46, 0.2);
+      border-bottom: 1px solid var(--line);
       margin-bottom: 6px;
     }
     .who-text {
@@ -730,7 +722,8 @@ export class DerpBar extends LitElement {
       min-width: 0;
     }
     .who-text b {
-      font-size: 17px;
+      font-size: 16px;
+      font-weight: 700;
       overflow: hidden;
       text-overflow: ellipsis;
     }
@@ -738,8 +731,8 @@ export class DerpBar extends LitElement {
       display: flex;
       align-items: center;
       gap: 5px;
-      font-size: 13.5px;
-      color: #554a5e;
+      font-size: 13px;
+      color: var(--text-2);
       font-variant-numeric: tabular-nums;
     }
     .item {
@@ -748,32 +741,33 @@ export class DerpBar extends LitElement {
       gap: 10px;
       width: 100%;
       padding: 9px 10px;
-      border-radius: 9px;
+      border-radius: 7px;
       border: 0;
       background: none;
       font: inherit;
-      font-weight: 650;
-      font-size: 15px;
-      color: var(--ink);
+      font-weight: 550;
+      font-size: 14.5px;
+      color: var(--text);
       text-decoration: none;
       cursor: pointer;
       text-align: left;
     }
     .item:hover {
-      background: var(--card-2);
+      background: var(--panel-2);
     }
 
     dialog {
-      border: 2px solid var(--ink-deep);
-      border-radius: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
       padding: 0;
-      background: var(--card);
-      color: var(--ink);
+      background: var(--panel);
+      color: var(--text);
       width: min(420px, calc(100vw - 32px));
-      box-shadow: 8px 8px 0 rgba(10, 6, 14, 0.55);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
     }
     dialog::backdrop {
-      background: rgba(20, 14, 27, 0.62);
+      background: rgba(9, 9, 11, 0.7);
+      backdrop-filter: blur(2px);
     }
     .dlg-head {
       display: flex;
@@ -783,52 +777,52 @@ export class DerpBar extends LitElement {
     }
     h2 {
       margin: 0;
-      font-family: "Bagel Fat One", system-ui, sans-serif;
-      font-weight: 400;
-      font-size: 30px;
-      line-height: 1.05;
+      font-weight: 750;
+      font-size: 22px;
+      line-height: 1.2;
     }
     .x {
       border: 0;
       background: none;
-      color: var(--ink);
+      color: var(--text-2);
       cursor: pointer;
       padding: 4px;
       margin: -4px -6px 0 0;
-      border-radius: 8px;
+      border-radius: 6px;
     }
     .x:hover {
-      background: var(--card-2);
+      background: var(--panel-2);
+      color: var(--text);
     }
     .dlg-sub {
-      margin: 8px 20px 0;
-      font-size: 15px;
-      line-height: 1.45;
-      color: #4a3f52;
+      margin: 6px 20px 0;
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--text-2);
     }
     .seg {
       display: flex;
       gap: 4px;
       margin: 16px 20px 0;
-      padding: 4px;
-      border-radius: 12px;
-      background: var(--card-2);
+      padding: 3px;
+      border-radius: 9px;
+      background: rgba(255, 255, 255, 0.05);
     }
     .seg button {
       flex: 1;
       font: inherit;
-      font-weight: 750;
-      font-size: 14.5px;
-      padding: 8px;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 7px;
       border: 0;
-      border-radius: 9px;
+      border-radius: 7px;
       background: none;
-      color: var(--ink);
+      color: var(--text-2);
       cursor: pointer;
     }
     .seg button[aria-pressed="true"] {
-      background: var(--ink);
-      color: var(--card);
+      background: var(--panel-2);
+      color: var(--text);
     }
     form {
       display: grid;
@@ -837,41 +831,41 @@ export class DerpBar extends LitElement {
     }
     label span {
       display: block;
-      font-weight: 750;
-      font-size: 14px;
+      font-weight: 600;
+      font-size: 13.5px;
       margin-bottom: 5px;
+      color: var(--text-2);
     }
     input {
       width: 100%;
       font: inherit;
       font-size: 16px;
-      padding: 10px 12px;
-      border: 2px solid var(--ink);
-      border-radius: 10px;
-      background: #fffdf7;
-      color: var(--ink);
+      padding: 9px 11px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      background: #17171a;
+      color: var(--text);
     }
     input:focus-visible {
-      outline: 3px solid var(--gold);
-      outline-offset: 1px;
+      outline: 2px solid var(--blue-2);
+      outline-offset: 0;
+      border-color: transparent;
     }
     .hint {
       margin: 0;
-      font-size: 13.5px;
-      line-height: 1.4;
-      color: #5d5266;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--text-2);
     }
     .err {
       margin: 0;
-      font-weight: 700;
-      font-size: 14.5px;
-      color: #b3261e;
+      font-weight: 600;
+      font-size: 14px;
+      color: #f87171;
     }
     .primary {
-      font-size: 16px;
+      font-size: 15px;
       padding: 11px;
-      border-radius: 12px;
-      box-shadow: 0 4px 0 var(--ink-deep);
       margin-top: 4px;
     }
     .primary:disabled {
@@ -887,13 +881,20 @@ export class DerpBar extends LitElement {
         padding: 0 10px;
       }
       .tab .dl-i {
-        width: 22px;
-        height: 22px;
+        width: 20px;
+        height: 20px;
       }
     }
     @media (max-width: 480px) {
-      :host([has-tools]) .brand span {
+      :host([has-tools]) .brand span,
+      :host([has-tools]) .coins {
         display: none;
+      }
+      :host([has-tools]) .right {
+        gap: 4px;
+      }
+      :host([has-tools]) .inner {
+        gap: 0 8px;
       }
     }
     @media (max-width: 560px) {
@@ -905,18 +906,21 @@ export class DerpBar extends LitElement {
         gap: 0 10px;
       }
       .brand {
-        height: 56px;
-        font-size: 22px;
+        height: 54px;
+        font-size: 17px;
+      }
+      ::slotted([slot="brand"]) {
+        height: 54px;
       }
       .right {
-        height: 56px;
+        height: 54px;
       }
       .tabs {
         order: 3;
         width: 100%;
-        height: 48px;
+        height: 46px;
         justify-content: space-between;
-        border-top: 1px solid rgba(251, 243, 226, 0.1);
+        border-top: 1px solid var(--line);
       }
       .tab span {
         display: inline;
@@ -927,8 +931,8 @@ export class DerpBar extends LitElement {
         padding: 0 6px;
       }
       .tab .dl-i {
-        width: 18px;
-        height: 18px;
+        width: 17px;
+        height: 17px;
       }
       .play {
         position: static;

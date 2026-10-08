@@ -253,6 +253,8 @@ export function describeEvent(
         : `${N(e.n)}'s rebellion was crushed.`;
     case "over":
       return `The game is over. ${N(e.winner)} wins.`;
+    case "mission":
+      return us(e.n) ? e.text : null;
   }
 }
 

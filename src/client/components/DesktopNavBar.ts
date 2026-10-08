@@ -1,7 +1,9 @@
+import { assetUrl } from "@openfront/shared/AssetUrls";
 import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import "../../derpland/DerpBar";
 import { BarLabels } from "../../derpland/DerpBar";
+import { NAV_TAGLINE } from "../GameVersion";
 import { translateText } from "../Utils";
 import "./NavUtilityIcons";
 
@@ -44,7 +46,8 @@ function barLabels(): Partial<BarLabels> {
 /**
  * DerpyFront's top bar: the same Derp Land bar every page on the site has
  * (Play, Store, Inventory, Leaderboard and your account), with DerpyFront's
- * news, help and settings buttons beside the account.
+ * logo and tagline beside the Derp Land mark, and its news, help and
+ * settings buttons beside the account.
  */
 @customElement("desktop-nav-bar")
 export class DesktopNavBar extends LitElement {
@@ -55,6 +58,22 @@ export class DesktopNavBar extends LitElement {
   render() {
     return html`
       <derp-bar page="derpyfront" has-tools .labels=${barLabels()}>
+        <div
+          slot="brand"
+          class="derpyfront-brand flex flex-col items-start justify-center gap-0.5"
+        >
+          <img
+            class="block h-5 lg:h-6 w-auto aspect-[314/48]"
+            src=${assetUrl("images/OpenFrontLogo.svg")}
+            alt="DerpyFront"
+          />
+          <div
+            id="game-version"
+            class="l-header__highlightText text-xs lg:text-sm leading-tight whitespace-nowrap"
+          >
+            ${NAV_TAGLINE}
+          </div>
+        </div>
         <nav-utility-icons slot="tools" size="desktop"></nav-utility-icons>
       </derp-bar>
     `;

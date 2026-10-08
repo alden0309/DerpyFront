@@ -20,6 +20,7 @@ import {
   bar,
   breakdownTip,
   GameUi,
+  more,
   nationLink,
   provLink,
   section,
@@ -171,8 +172,12 @@ export function militaryTab(ui: GameUi): TemplateResult {
           </table>`,
     )}
     ${training.length > 0
-      ? section(
-          "Training",
+      ? more(
+          html`Training
+            <span class="cq-more-hint"
+              >${training.length} regiment${training.length === 1 ? "" : "s"}
+              being raised</span
+            >`,
           html`<ul class="cq-list tight">
             ${training.map(
               (t) =>
@@ -186,8 +191,13 @@ export function militaryTab(ui: GameUi): TemplateResult {
           </ul>`,
         )
       : nothing}
-    ${section(
-      "Recent battles",
+    ${more(
+      html`Recent battles
+        <span class="cq-more-hint"
+          >${battles.length === 0
+            ? "none yet"
+            : `${battles.filter((b) => b.winner === (b.attacker.nations.includes(me) ? 0 : 1)).length} won of the last ${battles.length}`}</span
+        >`,
       battles.length === 0
         ? html`<p class="cq-muted">None yet.</p>`
         : html`<ul class="cq-list">

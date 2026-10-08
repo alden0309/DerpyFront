@@ -38,6 +38,8 @@ export default [
             "scripts/conquest/*.mjs",
             "tests/matchmaking/*.mjs",
           ],
+          // The scripts above add up to more than the default 8.
+          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 16,
         },
         tsconfigRootDir: import.meta.dirname,
       },
