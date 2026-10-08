@@ -109,6 +109,19 @@ Licensed under ODbL
 © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright)  
 Licensed under ODbL
 
+### Thirteen Colonies Maps
+
+Coastline, lakes and rivers from [Natural Earth](https://www.naturalearthdata.com/) and the U.S. Census Bureau [cartographic boundary files](https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.html)  
+Public Domain  
+Elevation from [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (SRTM, GMTED2010, NED and ETOPO1; see the [attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md))
+
+### Apopka - Detailed Map
+
+Lakes, rivers and places from U.S. Census Bureau [TIGER/Line](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) files  
+Public Domain  
+Marshall Lake outline and landmark positions © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licensed under ODbL  
+Elevation from [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (USGS NED; see the [attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md))
+
 ## Icons
 
 ### [The Noun Project](https://thenounproject.com/)
@@ -122,3 +135,5 @@ Guild icon by Trimanggolo Mulyo – https://thenounproject.com/icon/guild-826614
 
 [Wikimedia Commons](https://commons.wikimedia.org/wiki/Flag)
 Licensed under [CC BY-SA 3.0 DE](https://creativecommons.org/licenses/by-sa/3.0/de/deed.en)
+
+The flags of the native nations on the Thirteen Colonies maps, the Moultrie (South Carolina, 1775) and Georgia (state arms) flags, and the Apopka flag are original drawings made for Derpy Front. They use no tribal seals or other copyrighted artwork.
