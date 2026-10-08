@@ -326,6 +326,18 @@ export interface Market {
   supply: Record<Good, number>;
   /** Last month: wanted by people, workshops and soldiers. */
   demand: Record<Good, number>;
+  /** Last month, good by good: where it came from and where it went. */
+  flow: GoodsFlow;
+}
+
+/** A month of goods: made here, used up (eaten, worn out, spoiled, built with), came in, went out. */
+export interface GoodsFlow {
+  made: Record<Good, number>;
+  used: Record<Good, number>;
+  /** Shipped in from Europe, traded in from natives or other nations. */
+  came: Record<Good, number>;
+  /** Shipped to Europe, traded away. */
+  went: Record<Good, number>;
 }
 
 /** Ships crossing the Atlantic for one of the colonies. */
@@ -342,6 +354,8 @@ export interface Convoy {
   paid: number;
   /** Outbound: what to buy in Europe for the trip home. */
   orders: Partial<Record<Good, number>>;
+  /** Goods the governor bought in Europe (already paid for). */
+  ordered?: boolean;
 }
 
 export interface LedgerLine {
@@ -366,6 +380,8 @@ export interface NationStats {
   peakProvinces: number;
   peakPeople: number;
   landBought: number;
+  /** Provinces held when the game began. */
+  startProvinces: number;
 }
 
 export type TaxLevel = 0 | 1 | 2;
@@ -418,7 +434,42 @@ export interface Mission {
   men: number;
   /** Set when something on the way has already happened. */
   incident: boolean;
+  /** The way there, province by province (from first, target last). */
+  route: number[];
+  /** For each hop of the route: by boat (true) or on foot. */
+  sea: boolean[];
+  /** Days each hop takes. */
+  legs: number[];
 }
+
+/** One year's mark in a nation's history, for the end-of-game chart. */
+export interface YearMark {
+  year: number;
+  provinces: number;
+  settlers: number;
+  gold: number;
+  score: number;
+}
+
+/** Goods and gold changing hands between two nations. */
+export interface TradeTerms {
+  /** What the proposer hands over. */
+  give: Partial<Record<Good, number>>;
+  /** What the proposer gets. */
+  get: Partial<Record<Good, number>>;
+  /** Gold the proposer pays (negative: the other side pays). */
+  gold: number;
+}
+
+export interface TradeOffer {
+  id: number;
+  from: number;
+  to: number;
+  day: number;
+  terms: TradeTerms;
+}
+
+export type StartYear = 1607 | 1650 | 1700;
 
 export interface Nation {
   id: number;
@@ -486,6 +537,12 @@ export interface Nation {
   explored: number[];
   /** Expeditions and outpost parties out in the wilds. */
   missions: Mission[];
+  /** Natives: the colony they pay tribute to, or -1. */
+  overlord: number;
+  /** The big moments of its history, for the end of the game. */
+  milestones: GameEvent[];
+  /** How it stood on each 1 January. */
+  yearly: YearMark[];
   /** Day each event key may fire again. */
   cooldowns: Record<string, number>;
   ledger: Ledger;
@@ -579,6 +636,8 @@ export interface PeaceTerms {
   give: number[];
   /** Gold the receiver pays (negative: the proposer pays). */
   gold: number;
+  /** A native receiver becomes the proposer's tributary. */
+  subjugate?: boolean;
 }
 
 export interface PeaceOffer {
@@ -703,6 +762,23 @@ export type GameEvent =
       result: "done" | "back" | "lost";
       c: number;
       text: string;
+    }
+  | {
+      k: "deal";
+      day: number;
+      n: number;
+      with: number;
+      status: "done" | "refused" | "offered";
+      terms: TradeTerms;
+    }
+  | { k: "tributary"; day: number; n: number; by: number; free: boolean }
+  | { k: "abandoned"; day: number; n: number; p: number }
+  | {
+      k: "ordered";
+      day: number;
+      n: number;
+      goods: Partial<Record<Good, number>>;
+      gold: number;
     };
 
 // ---------------------------------------------------------------- the game
@@ -714,6 +790,8 @@ export interface GameSettings {
   endYear: number;
   difficulty: Difficulty;
   seed: number;
+  /** The year it begins (1 January); 1607 if not given. */
+  start?: StartYear;
 }
 
 /** The governor a player made before the game began. */
@@ -750,6 +828,8 @@ export interface GameState {
   settings: GameSettings;
   /** Days since 1 January 1607. */
   day: number;
+  /** The day the game began. */
+  startDay: number;
   endDay: number;
   rng: number;
   nextId: number;
@@ -761,6 +841,8 @@ export interface GameState {
   truces: Truce[];
   treaties: Treaty[];
   offers: PeaceOffer[];
+  /** Trade proposals waiting on another player. */
+  deals: TradeOffer[];
   europe: Europe;
   /** Most recent battles, newest last. */
   battles: BattleReport[];
@@ -798,7 +880,13 @@ export type Command =
   | { k: "demand"; pay: boolean }
   | { k: "independence" }
   | { k: "expedition"; c: number; p: number }
-  | { k: "outpost"; c: number; p: number };
+  | { k: "outpost"; c: number; p: number }
+  | { k: "deal"; n: number; terms: TradeTerms }
+  | { k: "dealAnswer"; deal: number; yes: boolean }
+  | { k: "order"; goods: Partial<Record<Good, number>> }
+  | { k: "abandon"; p: number }
+  | { k: "tribute"; n: number }
+  | { k: "release"; n: number };
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -812,6 +900,7 @@ export interface GameDelta {
   truces?: Truce[];
   treaties?: Treaty[];
   offers?: PeaceOffer[];
+  deals?: TradeOffer[];
   europe?: Europe;
   battles?: BattleReport[];
   events?: GameEvent[];

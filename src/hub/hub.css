@@ -1,7 +1,9 @@
 /* Derp Land: the site around the games. A quiet graphite room, the same dark
    zinc as DerpyFront's own menus, where the two games' box art supplies the
-   colour. Panels are flat, edged with a hairline; type is Archivo throughout,
-   with each game keeping its own wordmark. */
+   colour. The house mascot is a banana: its yellow, its brown outline and its
+   speech bubble are the one loud thing here, and the price tags borrow the
+   look of a fruit sticker. Type is Archivo throughout, run wide for headings;
+   each game keeps its own wordmark. */
 
 @layer base, components;
 
@@ -19,6 +21,11 @@
     --blue: #0084d1;
     --blue-2: #1a9be6;
     --gold: #e7b84a;
+    --peel: #f5cc3c;
+    --peel-2: #ffda5c;
+    --peel-ink: #2e2010;
+    --cream: #fff4d2;
+    --leaf: #47b072;
     --front: #d9573f;
     --conquest: #a3392c;
     --vellum: #ead8ae;
@@ -108,17 +115,18 @@
     height: 16px;
   }
   :focus-visible {
-    outline: 2px solid var(--blue-2);
+    outline: 2px solid var(--peel);
     outline-offset: 3px;
   }
 
   /* ---- type ---- */
   .dl-hello,
   .dl-h1 {
-    font-weight: 720;
+    font-weight: 800;
+    font-stretch: 118%;
     font-size: clamp(2rem, 4.2vw, 2.75rem);
-    line-height: 1.1;
-    letter-spacing: -0.02em;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
     color: var(--text);
   }
   .dl-h2 {
@@ -140,7 +148,7 @@
     color: var(--text);
     font-weight: 600;
     text-decoration: underline;
-    text-decoration-color: var(--blue-2);
+    text-decoration-color: var(--peel);
     text-underline-offset: 3px;
   }
   .dl-textbtn {
@@ -171,18 +179,19 @@
     padding: 9px 16px;
     border: 0;
     border-radius: 8px;
-    background: var(--blue);
-    color: #fff;
-    font-weight: 620;
+    background: var(--peel);
+    color: var(--peel-ink);
+    font-weight: 700;
     font-size: 15px;
     line-height: 1.2;
     text-decoration: none;
     white-space: nowrap;
     cursor: pointer;
+    box-shadow: inset 0 -2px 0 rgba(46, 32, 16, 0.22);
     transition: background-color 0.15s;
   }
   .dl-btn:hover {
-    background: var(--blue-2);
+    background: var(--peel-2);
   }
   .dl-btn.ghost {
     background: var(--surface-2);
@@ -204,6 +213,7 @@
   .dl-btn:disabled {
     background: var(--surface-2);
     color: var(--text-3);
+    box-shadow: none;
     cursor: not-allowed;
   }
   .dl-row {
@@ -238,9 +248,99 @@
     font-size: 1.9rem;
   }
 
+  /* ---- the banana ---- */
+  .dl-banana {
+    display: block;
+    flex: none;
+  }
+  .dl-banana.big {
+    width: 150px;
+    height: 150px;
+  }
+  .dl-banana.mid {
+    width: 84px;
+    height: 84px;
+  }
+  .dl-banana-eyes {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: dl-blink 0.32s ease-in-out 1.3s 2 alternate;
+  }
+  @keyframes dl-blink {
+    from {
+      transform: scaleY(1);
+    }
+    to {
+      transform: scaleY(0.08);
+    }
+  }
+  .dl-mascot {
+    display: block;
+    transform: rotate(-8deg);
+    transform-origin: 60% 80%;
+    transition: transform 0.35s cubic-bezier(0.3, 1.6, 0.5, 1);
+  }
+  .dl-mascot:hover {
+    transform: rotate(4deg);
+  }
+  .dl-mascot:hover .dl-banana-eyes {
+    animation: dl-blink 0.16s ease-in-out 0s 2 alternate;
+  }
+
   /* ---- front page ---- */
   .dl-intro {
-    margin-bottom: 32px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px 26px;
+    margin: -6px 0 34px;
+  }
+  .dl-intro .dl-mascot {
+    margin-top: -22px;
+  }
+  .dl-intro-text {
+    min-width: 0;
+  }
+  .dl-bubble {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    padding: 16px 26px 18px;
+    border: 2.5px solid var(--peel-ink);
+    border-radius: 26px;
+    background: var(--cream);
+    color: var(--peel-ink);
+    font-weight: 820;
+    font-stretch: 118%;
+    font-size: clamp(1.7rem, 3.6vw, 2.6rem);
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    overflow-wrap: anywhere;
+    box-shadow: 5px 6px 0 rgba(245, 204, 60, 0.9);
+  }
+  /* The tail, pointing back at the banana. */
+  .dl-bubble::before,
+  .dl-bubble::after {
+    content: "";
+    position: absolute;
+    top: 70%;
+    width: 0;
+    height: 0;
+    border-style: solid;
+  }
+  .dl-bubble::before {
+    left: -22px;
+    margin-top: -12px;
+    border-width: 12px 22px 12px 0;
+    border-color: transparent var(--peel-ink) transparent transparent;
+  }
+  .dl-bubble::after {
+    left: -17px;
+    margin-top: -9px;
+    border-width: 9px 18px 9px 0;
+    border-color: transparent var(--cream) transparent transparent;
+  }
+  .dl-intro .dl-lede {
+    margin-top: 14px;
   }
   .dl-shelf {
     display: grid;
@@ -272,7 +372,7 @@
     transform: translateY(-2px);
   }
   .dl-box:focus-visible {
-    outline: 2px solid var(--blue-2);
+    outline: 2px solid var(--peel);
     outline-offset: 4px;
   }
   .dl-lid {
@@ -326,19 +426,26 @@
     color: var(--vellum);
     text-shadow: 0 2px 16px rgba(0, 0, 0, 0.6);
   }
+  /* A fruit sticker, slapped on the box. */
   .dl-sticker {
     position: absolute;
     top: 14px;
     left: 14px;
     z-index: 2;
-    padding: 3px 10px 4px;
-    border-radius: 6px;
-    background: var(--gold);
-    color: #1c1405;
-    font-weight: 700;
-    font-size: 13px;
-    line-height: 1.2;
-    letter-spacing: 0.01em;
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid var(--peel-ink);
+    background: var(--peel);
+    color: var(--peel-ink);
+    font-weight: 820;
+    font-stretch: 112%;
+    font-size: 14px;
+    line-height: 1;
+    transform: rotate(-10deg);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
   }
   .dl-side {
     flex: 1;
@@ -505,7 +612,7 @@
     font-weight: 600;
     font-size: 14.5px;
     text-decoration: underline;
-    text-decoration-color: var(--blue-2);
+    text-decoration-color: var(--peel);
     text-underline-offset: 4px;
   }
 
@@ -593,17 +700,64 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px;
-    border-radius: 8px;
-    background: rgba(231, 184, 74, 0.12);
-    color: var(--gold);
-    font-weight: 700;
-    font-size: 17px;
+    padding: 8px 16px 9px 12px;
+    border: 2px solid var(--peel-ink);
+    border-radius: 999px;
+    background: var(--peel);
+    color: var(--peel-ink);
+    font-weight: 820;
+    font-stretch: 110%;
+    font-size: 18px;
+    line-height: 1;
     font-variant-numeric: tabular-nums;
+    transform: rotate(-4deg);
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
   }
   .dl-tag .dl-coin {
     width: 18px;
     height: 18px;
+  }
+  .dl-saving {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    max-width: 420px;
+  }
+  .dl-saving-bar {
+    flex: 1;
+    height: 8px;
+    border-radius: 99px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .dl-saving-bar i {
+    display: block;
+    height: 100%;
+    min-width: 4px;
+    border-radius: inherit;
+    background: var(--peel);
+  }
+  .dl-saving-text {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text-2);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .dl-empty.with-mascot {
+    flex-direction: row;
+    align-items: center;
+    gap: 18px;
+  }
+  .dl-empty.with-mascot > div {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .dl-empty.with-mascot .dl-banana {
+    transform: rotate(-10deg);
   }
   .is-owned .dl-tag {
     opacity: 0.45;
@@ -723,12 +877,12 @@
     font-size: 13px;
   }
   .dl-skin.on {
-    border-color: var(--blue-2);
-    box-shadow: 0 0 0 1px var(--blue-2);
+    border-color: var(--peel);
+    box-shadow: 0 0 0 1px var(--peel);
   }
   .dl-skin.on .dl-skin-state {
-    background: rgba(26, 155, 230, 0.16);
-    color: #7cc6f2;
+    background: var(--peel);
+    color: var(--peel-ink);
   }
 
   /* ---- leaderboard ---- */
@@ -826,10 +980,31 @@
     height: 140px;
     background: linear-gradient(
       180deg,
-      rgba(231, 184, 74, 0.22),
-      rgba(231, 184, 74, 0.06)
+      rgba(245, 204, 60, 0.26),
+      rgba(245, 204, 60, 0.05)
     );
-    color: var(--gold);
+    color: var(--peel);
+  }
+  .dl-block {
+    position: relative;
+  }
+  .dl-topbanana {
+    position: absolute;
+    top: -18px;
+    right: -14px;
+    transform: rotate(14deg);
+  }
+  .dl-topbanana .dl-banana {
+    width: 46px;
+    height: 46px;
+  }
+  .dl-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
   .p2 .dl-block {
     height: 104px;
@@ -900,14 +1075,14 @@
     text-decoration: underline;
   }
   .dl-table tr.mine td {
-    background: rgba(26, 155, 230, 0.08);
+    background: rgba(245, 204, 60, 0.07);
   }
   .dl-you {
     margin-left: 6px;
     padding: 1px 7px;
     border-radius: 5px;
-    background: rgba(26, 155, 230, 0.18);
-    color: #7cc6f2;
+    background: var(--peel);
+    color: var(--peel-ink);
     font-size: 12px;
     font-weight: 650;
     vertical-align: 1px;
@@ -1123,6 +1298,41 @@
     .dl-main {
       padding-top: 28px;
     }
+    .dl-intro {
+      flex-direction: column;
+      align-items: flex-start;
+      margin-top: 0;
+    }
+    .dl-banana.big {
+      width: 92px;
+      height: 92px;
+    }
+    .dl-intro .dl-mascot {
+      margin: 0 0 4px 6px;
+    }
+    .dl-bubble {
+      padding: 12px 18px 14px;
+      border-radius: 20px;
+    }
+    /* The tail points up at the banana instead. */
+    .dl-bubble::before {
+      top: -20px;
+      left: 34px;
+      margin-top: 0;
+      border-width: 0 12px 20px 12px;
+      border-color: transparent transparent var(--peel-ink) transparent;
+    }
+    .dl-bubble::after {
+      top: -15px;
+      left: 37px;
+      margin-top: 0;
+      border-width: 0 9px 16px 9px;
+      border-color: transparent transparent var(--cream) transparent;
+    }
+    .dl-empty.with-mascot {
+      flex-direction: column;
+      align-items: flex-start;
+    }
     .dl-shelf {
       gap: 20px;
     }
@@ -1166,6 +1376,15 @@
     .dl-skin:hover {
       transition: none;
       transform: none;
+    }
+    .dl-mascot,
+    .dl-mascot:hover {
+      transition: none;
+      transform: rotate(-8deg);
+    }
+    .dl-banana-eyes,
+    .dl-mascot:hover .dl-banana-eyes {
+      animation: none;
     }
   }
 }

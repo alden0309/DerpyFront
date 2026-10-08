@@ -11,7 +11,7 @@
 // sieges) are drawn on top every frame.
 
 import type { World } from "../engine/Map";
-import { armyMen, countRegs, people } from "../engine/Queries";
+import { armyMen, countRegs, people, settlers } from "../engine/Queries";
 import type {
   Army,
   GameState,
@@ -38,6 +38,13 @@ import {
   unknownMark,
   whiteFlag,
 } from "./MapArt";
+import {
+  drawSprite,
+  loadSprites,
+  sprite,
+  SpriteName,
+  spriteWidth,
+} from "./Sprites";
 import { GOOD_COLORS } from "./Text";
 
 export type MapMode = "nation" | "terrain" | "economy" | "people";
@@ -129,6 +136,41 @@ function decodeArc(raw: number[]): DecodedArc {
   return { left: raw[0], right: raw[1], pts: new Float32Array(smooth(pts)) };
 }
 
+/** The map's shapes, fetched once and shared by everything that draws it. */
+let geoPromise: Promise<Geo> | null = null;
+export function loadGeo(): Promise<Geo> {
+  geoPromise ??= import("../data/americas-geo.json?url").then(async (m) => {
+    const res = await fetch(m.default);
+    return (await res.json()) as Geo;
+  });
+  return geoPromise;
+}
+
+/** Each province's outline as a path, for drawing small maps. */
+export function provincePaths(geo: Geo): Path2D[] {
+  const arcs = geo.arcs.map(decodeArc);
+  return geo.rings.map((rings) => {
+    const path = new Path2D();
+    for (const ring of rings) {
+      let first = true;
+      for (const ref of ring) {
+        const a = arcs[ref >= 0 ? ref : ~ref];
+        const reversed = ref < 0;
+        const n = a.pts.length / 2;
+        for (let k = 0; k < n; k++) {
+          const i = reversed ? n - 1 - k : k;
+          if (first) {
+            path.moveTo(a.pts[i * 2], a.pts[i * 2 + 1]);
+            first = false;
+          } else if (k > 0) path.lineTo(a.pts[i * 2], a.pts[i * 2 + 1]);
+        }
+      }
+      path.closePath();
+    }
+    return path;
+  });
+}
+
 /** Delta-encoded half-cell points to map units. */
 function decodeHalf(raw: number[]): [number, number][] {
   const out: [number, number][] = [];
@@ -150,7 +192,8 @@ export interface View {
 
 export interface MapCallbacks {
   click(p: number | null, army: Army | null, e: PointerEvent): void;
-  rightClick(p: number | null): void;
+  /** `at`: where on the page, for a popup there. */
+  rightClick(p: number | null, at: { x: number; y: number }): void;
   hover(p: number | null): void;
 }
 
@@ -211,6 +254,14 @@ export class MapView {
   private nationBorders = new Path2D();
   private rivers = new Path2D();
   private backdrop = new Path2D();
+  /** All the board's land, and its land by kind of country. */
+  private land = new Path2D();
+  private terrainPaths: Partial<Record<Terrain, Path2D>> = {};
+  /** Where two neighbours' shared border is, for marching between them. */
+  private borderMid = new Map<string, [number, number]>();
+  /** Routes for single hops (by land through the border, by sea round it). */
+  private hops = new Map<string, [number, number][]>();
+  private patterns = new Map<string, CanvasPattern>();
   private ownersKey = "";
   private nationLabels: NationLabel[] = [];
   private armyHits: {
@@ -260,6 +311,7 @@ export class MapView {
     this.ctx = this.canvas.getContext("2d")!;
     this.buildPaths();
     this.attachInput();
+    loadSprites(() => this.markDirty());
     // Names are drawn in the period types; redraw once they've loaded.
     void document.fonts?.ready.then(() => this.markDirty());
   }
@@ -310,10 +362,30 @@ export class MapView {
       this.provBox[p] = [minX, minY, maxX, maxY];
       return path;
     });
+    const borderLen = new Map<string, number>();
     for (const a of this.arcs) {
       const target = a.left < 0 || a.right < 0 ? this.coast : this.borders;
       this.addArc(target, a);
+      // The middle of the longest stretch of border two provinces share.
+      if (a.left >= 0 && a.right >= 0) {
+        const key = pairOf(a.left, a.right);
+        const n = a.pts.length / 2;
+        if (n > (borderLen.get(key) ?? 0)) {
+          borderLen.set(key, n);
+          const i = Math.floor(n / 2) * 2;
+          this.borderMid.set(key, [a.pts[i], a.pts[i + 1]]);
+        }
+      }
     }
+    this.provPaths.forEach((path, p) => {
+      this.land.addPath(path);
+      const t = this.map.provinces[p].terrain;
+      const kind: Terrain | null =
+        t === "jungle" ? "forest" : t === "tundra" ? null : t;
+      if (kind && kind !== "plains" && kind !== "desert") {
+        (this.terrainPaths[kind] ??= new Path2D()).addPath(path);
+      }
+    });
     for (const r of this.geo.rivers) {
       const pts = decodeHalf(r);
       pts.forEach(([x, y], i) =>
@@ -356,14 +428,56 @@ export class MapView {
     });
     this.nationLabels = [];
     for (const [n, provs] of by) {
-      const label = this.curveLabel(
-        s.nations[n].name.replace(/^the /, "").toUpperCase(),
-        provs,
-        s.nations[n].color,
-      );
-      if (label) this.nationLabels.push(label);
+      // One name per stretch of joined-up land, as big as that land allows:
+      // a pair of trading posts doesn't get a name across half the sea.
+      const name = s.nations[n].name.replace(/^the /, "").toUpperCase();
+      const clusters = this.clusters(provs);
+      clusters.sort((a, b) => this.areaOf(b) - this.areaOf(a));
+      clusters.forEach((cl, i) => {
+        const area = this.areaOf(cl);
+        if (i > 0 && cl.length < 3) return;
+        const label = this.curveLabel(name, cl, s.nations[n].color);
+        if (!label) return;
+        // Letters no taller than the land is wide.
+        label.size = Math.min(label.size, Math.sqrt(area) * 0.32);
+        this.nationLabels.push(label);
+      });
     }
     this.nationLabels.sort((a, b) => b.length - a.length);
+  }
+
+  /** Provinces split into groups joined over land. */
+  private clusters(provs: number[]): number[][] {
+    const set = new Set(provs);
+    const seen = new Set<number>();
+    const out: number[][] = [];
+    for (const p of provs) {
+      if (seen.has(p)) continue;
+      const group: number[] = [];
+      const queue = [p];
+      seen.add(p);
+      while (queue.length) {
+        const u = queue.pop()!;
+        group.push(u);
+        for (const [q] of this.map.provinces[u].nb)
+          if (set.has(q) && !seen.has(q)) {
+            seen.add(q);
+            queue.push(q);
+          }
+      }
+      out.push(group);
+    }
+    return out;
+  }
+
+  /** Rough area of some provinces, in square map units. */
+  private areaOf(provs: number[]): number {
+    let a = 0;
+    for (const p of provs) {
+      const b = this.provBox[p];
+      a += (b[2] - b[0]) * (b[3] - b[1]) * 0.6;
+    }
+    return a;
   }
 
   /**
@@ -460,6 +574,126 @@ export class MapView {
     this.water = water;
     this.gw = gw;
     this.gh = gh;
+  }
+
+  /** The nearest water cell to a point, or -1. */
+  private nearestWater(x: number, y: number): number {
+    if (!this.water) this.buildWater();
+    const water = this.water!;
+    const gw = this.gw;
+    const gh = this.gh;
+    const px = Math.floor(x / GRID);
+    const py = Math.floor(y / GRID);
+    for (let r = 0; r < 40; r++) {
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const cx = px + dx;
+          const cy = py + dy;
+          if (cx < 0 || cy < 0 || cx >= gw || cy >= gh) continue;
+          if (water[cy * gw + cx]) return cy * gw + cx;
+        }
+    }
+    return -1;
+  }
+
+  /** Pull a chain of water cells tight: keep only the turns. */
+  private tighten(cells: number[]): [number, number][] {
+    const water = this.water!;
+    const gw = this.gw;
+    const clear = (a: number, b: number) => {
+      const ax = a % gw;
+      const ay = (a - ax) / gw;
+      const bx = b % gw;
+      const by = (b - bx) / gw;
+      const steps = Math.max(Math.abs(bx - ax), Math.abs(by - ay)) * 2;
+      for (let i = 1; i < steps; i++) {
+        const x = Math.round(ax + ((bx - ax) * i) / steps);
+        const y = Math.round(ay + ((by - ay) * i) / steps);
+        if (!water[y * gw + x]) return false;
+      }
+      return true;
+    };
+    const kept = [cells[0]];
+    let i = 0;
+    while (i < cells.length - 1) {
+      let j = cells.length - 1;
+      while (j > i + 1 && !clear(cells[i], cells[j])) j--;
+      kept.push(cells[j]);
+      i = j;
+    }
+    return kept.map((c) => {
+      const x = c % gw;
+      return [(x + 0.5) * GRID, ((c - x) / gw + 0.5) * GRID];
+    });
+  }
+
+  /** A route over water between two places, never crossing land. */
+  private waterRoute(
+    ax: number,
+    ay: number,
+    bx: number,
+    by: number,
+  ): [number, number][] | null {
+    const start = this.nearestWater(ax, ay);
+    const goal = this.nearestWater(bx, by);
+    if (start < 0 || goal < 0) return null;
+    const water = this.water!;
+    const gw = this.gw;
+    const gh = this.gh;
+    const prev = new Int32Array(gw * gh).fill(-2);
+    prev[start] = -1;
+    const queue = [start];
+    for (let q = 0; q < queue.length; q++) {
+      const c = queue[q];
+      if (c === goal) break;
+      const x = c % gw;
+      const y = (c - x) / gw;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+          const n = ny * gw + nx;
+          if (!water[n] || prev[n] !== -2) continue;
+          prev[n] = c;
+          queue.push(n);
+        }
+    }
+    if (prev[goal] === -2) return null;
+    const cells: number[] = [];
+    for (let c = goal; c >= 0; c = prev[c]) cells.push(c);
+    cells.reverse();
+    return [[ax, ay], ...this.tighten(cells), [bx, by]];
+  }
+
+  /**
+   * The way between two provinces for one hop: overland through the middle
+   * of their shared border, or by sea round the coast.
+   */
+  private hopPath(from: number, to: number, sea: boolean): [number, number][] {
+    const key = `${from}>${to}${sea ? "s" : ""}`;
+    const cached = this.hops.get(key);
+    if (cached) return cached;
+    const a = this.map.provinces[from];
+    const b = this.map.provinces[to];
+    let path: [number, number][] = [
+      [a.x, a.y],
+      [b.x, b.y],
+    ];
+    if (sea) path = this.waterRoute(a.x, a.y, b.x, b.y) ?? path;
+    else {
+      const mid = this.borderMid.get(pairOf(from, to));
+      if (mid)
+        path = [
+          [a.x, a.y],
+          [mid[0], mid[1]],
+          [b.x, b.y],
+        ];
+    }
+    this.hops.set(key, path);
+    return path;
   }
 
   /** A port's route out to Europe (east, or round the Horn), in map units. */
@@ -689,6 +923,7 @@ export class MapView {
       const r = c.getBoundingClientRect();
       this.cb.rightClick(
         this.provinceAt(e.clientX - r.left, e.clientY - r.top),
+        { x: e.clientX, y: e.clientY },
       );
     });
     c.addEventListener(
@@ -719,7 +954,10 @@ export class MapView {
           this.longPress = window.setTimeout(() => {
             if (this.dragStart && !this.dragStart.moved) {
               this.dragStart.moved = true;
-              this.cb.rightClick(this.provinceAt(x, y));
+              this.cb.rightClick(this.provinceAt(x, y), {
+                x: e.clientX,
+                y: e.clientY,
+              });
             }
           }, 550);
         }
@@ -849,6 +1087,48 @@ export class MapView {
     return { sameScale, covered };
   }
 
+  /** A repeating texture, made once per canvas. */
+  private pattern(
+    name: SpriteName,
+    c: CanvasRenderingContext2D,
+  ): CanvasPattern | null {
+    const img = sprite(name);
+    if (!img) return null;
+    const key = `${name}${c === this.ctx ? "@screen" : "@chart"}`;
+    let pat = this.patterns.get(key);
+    if (!pat) {
+      pat = c.createPattern(img, "repeat") ?? undefined;
+      if (!pat) return null;
+      this.patterns.set(key, pat);
+    }
+    return pat;
+  }
+
+  /**
+   * Lay a texture over some provinces (in map units), keeping it the same
+   * size on screen however far in you are.
+   */
+  private texture(
+    c: CanvasRenderingContext2D,
+    name: SpriteName,
+    scale: number,
+    size: number,
+    alpha: number,
+    visible: (p: number) => boolean,
+    which: (p: number) => boolean,
+  ): void {
+    const pat = this.pattern(name, c);
+    if (!pat) return;
+    pat.setTransform(new DOMMatrix().scaleSelf(size / scale, size / scale));
+    c.save();
+    c.globalCompositeOperation = "multiply";
+    c.globalAlpha = alpha;
+    c.fillStyle = pat;
+    for (let p = 0; p < this.provPaths.length; p++)
+      if (visible(p) && which(p)) c.fill(this.provPaths[p], "evenodd");
+    c.restore();
+  }
+
   private renderBase(o: Overlay, now: number): void {
     const s = o.state;
     const v = { ...this.view };
@@ -954,6 +1234,18 @@ export class MapView {
         c.restore();
       }
     }
+    // Paper grain over the land, and the lie of the country drawn on it.
+    this.texture(c, "paper", v.scale, 0.5, 0.55, visible, () => true);
+    const terrainAlpha =
+      o.mode === "terrain" ? 0.6 : o.mode === "nation" ? 0.24 : 0;
+    if (terrainAlpha > 0) {
+      for (const kind of ["forest", "hills", "mountains", "marsh"] as const) {
+        this.texture(c, kind, v.scale, 0.42, terrainAlpha, visible, (p) => {
+          const t = this.map.provinces[p].terrain;
+          return t === kind || (kind === "forest" && t === "jungle");
+        });
+      }
+    }
     c.strokeStyle = "rgba(70, 55, 35, 0.22)";
     c.lineWidth = Math.max(0.5, 0.8 / v.scale);
     c.stroke(this.borders);
@@ -1047,19 +1339,55 @@ export class MapView {
         c.stroke();
       }
     }
+    // Towns, villages and forts, drawn as the old chart-makers did.
+    const townH = Math.max(15, Math.min(46, 8 + v.scale * 10));
+    const showTowns = o.mode === "nation" || o.mode === "terrain";
     for (let p = 0; p < s.provinces.length; p++) {
       const prov = s.provinces[p];
       const def = this.map.provinces[p];
       const x = sx(def.x);
       const y = sy(def.y);
       if (!onScreen(x, y)) continue;
-      if (v.scale >= 2.2 && prov.owner >= 0) {
-        let gx = x - 8;
-        if (prov.b.port) {
-          anchor(c, gx, y + 27);
-          gx += 14;
+      if (showTowns && prov.owner >= 0) {
+        const nation = s.nations[prov.owner];
+        const capital = nation.capital === p;
+        if (v.scale >= 1.05 || (capital && v.scale >= 0.5)) {
+          const native = nation.kind === "native";
+          const big = capital || settlers(prov) >= 2500;
+          const name: SpriteName = native
+            ? "nativeVillage"
+            : big
+              ? "townBig"
+              : "townSmall";
+          const h = native ? townH * 0.75 : big ? townH : townH * 0.85;
+          const tx = x - townH * 0.4;
+          // A patch of cleared ground under it, so it stands off the colour.
+          if (sprite(name)) {
+            const w = spriteWidth(name, h);
+            c.fillStyle = "rgba(246,236,206,0.6)";
+            c.beginPath();
+            c.ellipse(tx, y + 1, w * 0.58, h * 0.2, 0, 0, Math.PI * 2);
+            c.fill();
+          }
+          if (!drawSprite(c, name, tx, y + 2, h) && v.scale >= 2.2) {
+            if (prov.b.fort) tower(c, x - 8, y + 27, prov.b.fort);
+          }
+          if (prov.b.fort && sprite("fort") && v.scale >= 1.4)
+            drawSprite(c, "fort", tx - townH * 0.55, y + 6, townH * 0.55);
+          if (prov.b.tradingpost && v.scale >= 2)
+            drawSprite(c, "tradingPost", x + townH * 0.5, y + 8, townH * 0.5);
+          if (prov.b.port && v.scale >= 2.2) anchor(c, x + 4, y + 27);
+          // A ribbon in the owner's colours under a capital.
+          if (capital && !native) {
+            c.fillStyle = nation.color;
+            c.strokeStyle = "rgba(30,20,10,0.6)";
+            c.lineWidth = 1;
+            c.beginPath();
+            c.roundRect(tx - 6, y + 3, 12, 3, 1.5);
+            c.fill();
+            c.stroke();
+          }
         }
-        if (prov.b.fort) tower(c, gx, y + 27, prov.b.fort);
       }
       if (prov.outpost)
         palisade(
@@ -1085,8 +1413,13 @@ export class MapView {
   ): void {
     const placed: [number, number, number, number][] = [];
     for (const l of this.nationLabels) {
-      const sizePx = Math.min(64, l.size * v.scale);
+      const raw = l.size * v.scale;
+      const sizePx = Math.min(64, raw);
       if (sizePx < 10) continue;
+      // Zoomed right in, a name is a few scattered letters: let it fade so the
+      // towns and provinces read instead.
+      const alpha = Math.min(1, Math.max(0, 1 - (raw - 70) / 50));
+      if (alpha < 0.05) continue;
       const pts = l.samples.map(
         ([x, y]) =>
           [x * v.scale + v.tx, y * v.scale + v.ty] as [number, number],
@@ -1146,6 +1479,7 @@ export class MapView {
       c.lineWidth = Math.max(2, sizePx / 7);
       c.strokeStyle = "rgba(250,242,220,0.55)";
       c.fillStyle = darken(l.color, 0.55, 0.78);
+      c.globalAlpha = alpha;
       [...l.name].forEach((ch, i) => {
         const [x, y, ang] = pointAt(at + widths[i] / 2);
         c.save();
@@ -1156,21 +1490,21 @@ export class MapView {
         c.restore();
         at += widths[i] + spacing;
       });
+      c.globalAlpha = 1;
     }
   }
 
   // ---------------------------------------------------------------- every frame
 
-  /** Where an army is drawn right now, in map units. */
-  private armySpot(a: Army, dayNow: number): [number, number] {
+  /** Where an army is drawn right now, in map units, and which way it faces. */
+  private armySpot(a: Army, dayNow: number): [number, number, number] {
     const from = this.map.provinces[a.prov];
-    if (a.depart < 0 || a.path.length === 0) return [from.x, from.y];
-    const to = this.map.provinces[a.path[0]];
+    if (a.depart < 0 || a.path.length === 0) return [from.x, from.y, 0];
     const t = Math.max(
       0,
       Math.min(1, (dayNow - a.depart) / Math.max(1, a.arrive - a.depart)),
     );
-    return [from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t];
+    return this.along(this.hopPath(a.prov, a.path[0], a.sea), t);
   }
 
   /** A point along a route at fraction t, and the heading there. */
@@ -1212,6 +1546,21 @@ export class MapView {
     grad.addColorStop(1, OCEAN_BOTTOM);
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, this.cssWidth, this.cssHeight);
+    // Engraved swell on the sea, drifting slowly while time runs.
+    const sea = this.pattern("sea", ctx);
+    if (sea) {
+      const k = 0.45;
+      const drift = Math.sin(now / 4200) * 6;
+      sea.setTransform(
+        new DOMMatrix()
+          .translateSelf(v.tx + drift, v.ty + Math.cos(now / 5300) * 3)
+          .scaleSelf(k, k),
+      );
+      ctx.globalAlpha = 0.16;
+      ctx.fillStyle = sea;
+      ctx.fillRect(0, 0, this.cssWidth, this.cssHeight);
+      ctx.globalAlpha = 1;
+    }
     if (!o) return;
     const s = o.state;
 
@@ -1344,15 +1693,9 @@ export class MapView {
         const x = sx(mx);
         const y = sy(my);
         if (!onScreen(x, y, 40)) continue;
-        ship(
-          ctx,
-          x,
-          y,
-          figure * 0.8,
-          cv.out ? ang : ang + Math.PI,
-          n.color,
-          now,
-        );
+        const heading = cv.out ? ang : ang + Math.PI;
+        if (!this.drawShip(ctx, x, y, figure * 1.25, heading, n.color, now))
+          ship(ctx, x, y, figure * 0.8, heading, n.color, now);
       }
     }
 
@@ -1368,7 +1711,8 @@ export class MapView {
         ? s.armies.find((a) => a.id === o.selectedArmy)
         : undefined;
     const drawPath = (
-      from: [number, number],
+      from: [number, number, number],
+      start: number,
       path: number[],
       color: string,
     ) => {
@@ -1377,8 +1721,14 @@ export class MapView {
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.moveTo(sx(from[0]), sy(from[1]));
-      for (const q of path)
-        ctx.lineTo(sx(this.map.provinces[q].x), sy(this.map.provinces[q].y));
+      let at = start;
+      for (const q of path) {
+        // By sea where the step can't be walked.
+        const walk = this.map.provinces[at].nb.some(([x]) => x === q);
+        const way = this.hopPath(at, q, !walk);
+        for (const [px, py] of way.slice(1)) ctx.lineTo(sx(px), sy(py));
+        at = q;
+      }
       ctx.stroke();
       ctx.setLineDash([]);
       const last = path[path.length - 1];
@@ -1396,9 +1746,22 @@ export class MapView {
       }
     };
     if (sel && sel.path.length)
-      drawPath(this.armySpot(sel, day), sel.path, "rgba(255,250,235,0.95)");
-    if (sel && o.preview?.length)
-      drawPath(this.armySpot(sel, day), o.preview, "rgba(255,215,110,0.95)");
+      drawPath(
+        this.armySpot(sel, day),
+        sel.depart >= 0 ? sel.path[0] : sel.prov,
+        sel.depart >= 0 ? sel.path.slice(1) : sel.path,
+        "rgba(255,250,235,0.95)",
+      );
+    if (sel && o.preview?.length) {
+      const [first, ...rest] = o.preview;
+      const moving = sel.depart >= 0 && sel.path.length > 0;
+      drawPath(
+        this.armySpot(sel, day),
+        moving ? first : sel.prov,
+        moving ? rest : o.preview,
+        "rgba(255,215,110,0.95)",
+      );
+    }
 
     // Armies: a soldier of their main kind, with a tag for how many men.
     this.armyHits = [];
@@ -1418,7 +1781,7 @@ export class MapView {
         );
       const important = mine || hostile || a.id === o.selectedArmy;
       if (!important && v.scale < 0.9) continue;
-      const [mx, my] = this.armySpot(a, day);
+      const [mx, my, heading] = this.armySpot(a, day);
       let x = sx(mx);
       const y = sy(my);
       if (!onScreen(x, y, 40)) continue;
@@ -1428,11 +1791,7 @@ export class MapView {
       x += slot * (figure * 0.9);
       const nation = s.nations[a.owner];
       const moving = a.depart >= 0 && a.path.length > 0;
-      let dir = 1;
-      if (moving) {
-        const to = this.map.provinces[a.path[0]];
-        dir = to.x >= this.map.provinces[a.prov].x ? 1 : -1;
-      }
+      const dir = moving && Math.cos(heading) < 0 ? -1 : 1;
       const stepPhase = moving ? Math.sin(now / 110 + a.id) : 0;
       const h = important ? figure : figure * 0.75;
       const selected = a.id === o.selectedArmy;
@@ -1443,9 +1802,20 @@ export class MapView {
         ctx.ellipse(x, y + 1, h * 0.55, h * 0.2, 0, 0, Math.PI * 2);
         ctx.stroke();
       }
-      if (a.sea)
-        ship(ctx, x, y, h * 0.8, dir > 0 ? 0 : Math.PI, nation.color, now);
-      else
+      if (a.sea) {
+        if (!this.drawShip(ctx, x, y, h * 1.3, heading, nation.color, now))
+          ship(ctx, x, y, h * 0.8, dir > 0 ? 0 : Math.PI, nation.color, now);
+      } else if (
+        !this.drawTroop(
+          ctx,
+          x,
+          y + (moving ? Math.abs(stepPhase) * -1.5 : 0),
+          h,
+          figureOf(a),
+          nation.color,
+          dir < 0,
+        )
+      )
         soldier(
           ctx,
           x,
@@ -1512,6 +1882,90 @@ export class MapView {
     this.needsDraw = this.baseDirty || !after.covered;
   }
 
+  /** A soldier of an army's main kind standing on its colours. */
+  private drawTroop(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    h: number,
+    kind: RegType,
+    color: string,
+    flip: boolean,
+  ): boolean {
+    const name: SpriteName =
+      kind === "riders" ? "dragoons" : (kind as SpriteName);
+    if (!sprite(name)) return false;
+    const tall: Record<string, number> = {
+      militia: 1.45,
+      regulars: 1.35,
+      dragoons: 1.45,
+      artillery: 0.95,
+      warriors: 1.6,
+    };
+    const size = h * (tall[name] ?? 1.4);
+    // Their colours on the ground.
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "rgba(25,15,8,0.75)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.ellipse(x, y, h * 0.5, h * 0.17, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.save();
+    ctx.shadowColor = "rgba(252,244,222,0.95)";
+    ctx.shadowBlur = 2.5;
+    drawSprite(ctx, name, x, y + h * 0.05, size, flip);
+    ctx.restore();
+    return true;
+  }
+
+  /** A ship under sail, its pennant in the owner's colour. */
+  private drawShip(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    h: number,
+    heading: number,
+    color: string,
+    now: number,
+  ): boolean {
+    const small = h < 26;
+    const name: SpriteName = small ? "shipSmall" : "ship";
+    if (!sprite(name)) return false;
+    const flip = Math.cos(heading) < 0;
+    const roll = Math.sin(now / 700 + x * 0.05) * 0.04;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(roll);
+    // Wake.
+    ctx.strokeStyle = "rgba(235,245,245,0.55)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    const back = flip ? 1 : -1;
+    ctx.moveTo(back * h * 0.15, h * 0.02);
+    ctx.quadraticCurveTo(back * h * 0.5, h * 0.06, back * h * 0.8, h * 0.02);
+    ctx.stroke();
+    ctx.shadowColor = "rgba(252,244,222,0.9)";
+    ctx.shadowBlur = 3;
+    drawSprite(ctx, name, 0, h * 0.12, h, flip);
+    ctx.shadowBlur = 0;
+    // A pennant at the masthead.
+    const mx = flip ? h * 0.05 : -h * 0.05;
+    const my = -h * 0.82;
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "rgba(25,15,8,0.7)";
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(mx, my);
+    ctx.lineTo(mx + (flip ? -1 : 1) * h * 0.32, my + h * 0.06);
+    ctx.lineTo(mx, my + h * 0.13);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    return true;
+  }
+
   private drawMission(
     ms: Mission,
     day: number,
@@ -1522,25 +1976,84 @@ export class MapView {
     sy: (y: number) => number,
   ): void {
     const ctx = this.ctx;
-    const a = this.map.provinces[ms.from];
-    const b = this.map.provinces[ms.target];
     let t: number;
     if (ms.stage === "out")
       t = (day - ms.start) / Math.max(1, ms.arrive - ms.start);
     else t = 1 - (day - ms.arrive) / Math.max(1, ms.home - ms.arrive);
     t = Math.max(0, Math.min(1, t));
-    const x = sx(a.x + (b.x - a.x) * t);
-    const y = sy(a.y + (b.y - a.y) * t);
+    const route = ms.route?.length ? ms.route : [ms.from, ms.target];
+    const sea = ms.sea ?? [];
+    const legs = ms.legs?.length ? ms.legs : [1];
+    const total = legs.reduce((a, b) => a + b, 0) || 1;
+    // The way, dotted, hop by hop.
     ctx.setLineDash([2, 5]);
-    ctx.strokeStyle = "rgba(43,29,18,0.6)";
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "rgba(43,29,18,0.65)";
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.moveTo(sx(a.x), sy(a.y));
-    ctx.lineTo(sx(b.x), sy(b.y));
+    for (let i = 0; i < route.length - 1; i++) {
+      const way = this.hopPath(route[i], route[i + 1], sea[i] ?? false);
+      way.forEach(([px, py], k) =>
+        k === 0 && i === 0
+          ? ctx.moveTo(sx(px), sy(py))
+          : ctx.lineTo(sx(px), sy(py)),
+      );
+    }
     ctx.stroke();
     ctx.setLineDash([]);
-    const dir = b.x >= a.x === (ms.stage === "out") ? 1 : -1;
-    explorer(ctx, x, y, size * 0.85, color, dir, Math.sin(now / 140 + ms.id));
+    // Which hop they're on, and how far along it.
+    let at = t * total;
+    let hop = 0;
+    while (hop < legs.length - 1 && at > legs[hop]) {
+      at -= legs[hop];
+      hop++;
+    }
+    const frac = Math.max(0, Math.min(1, at / Math.max(0.001, legs[hop])));
+    const bySea = sea[hop] ?? false;
+    const way =
+      route.length > 1
+        ? this.hopPath(route[hop], route[hop + 1], bySea)
+        : [
+            [this.map.provinces[ms.from].x, this.map.provinces[ms.from].y] as [
+              number,
+              number,
+            ],
+          ];
+    const [mx, my, ang] =
+      way.length > 1 ? this.along(way, frac) : [way[0][0], way[0][1], 0];
+    const x = sx(mx);
+    const y = sy(my);
+    const back = ms.stage === "back";
+    const flip = Math.cos(ang) < 0 !== back;
+    ctx.save();
+    ctx.shadowColor = "rgba(252,244,222,0.95)";
+    ctx.shadowBlur = 2.5;
+    const drawn = bySea
+      ? drawSprite(ctx, "canoe", x, y + size * 0.15, size * 0.75, flip)
+      : drawSprite(ctx, "explorer", x, y, size * 1.4, flip);
+    ctx.restore();
+    if (!drawn)
+      explorer(
+        ctx,
+        x,
+        y,
+        size * 0.85,
+        color,
+        flip ? -1 : 1,
+        Math.sin(now / 140 + ms.id),
+      );
+    // Their colours on a little flag.
+    ctx.fillStyle = color;
+    ctx.strokeStyle = "rgba(25,15,8,0.7)";
+    ctx.lineWidth = 1;
+    const fx = x + (flip ? -1 : 1) * size * 0.35;
+    const fy = y - size * (bySea ? 0.7 : 1.45);
+    ctx.beginPath();
+    ctx.moveTo(fx, fy + size * 0.5);
+    ctx.lineTo(fx, fy);
+    ctx.lineTo(fx + size * 0.32, fy + size * 0.08);
+    ctx.lineTo(fx, fy + size * 0.18);
+    ctx.stroke();
+    ctx.fill();
   }
 }
 
@@ -1563,6 +2076,10 @@ export function ramp(t: number): string {
     x.map((v, i) => Math.round(v + (y[i] - v) * k));
   const rgb = t < 0.5 ? mixc(a, b, t * 2) : mixc(b, c, (t - 0.5) * 2);
   return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+}
+
+function pairOf(a: number, b: number): string {
+  return a < b ? `${a}-${b}` : `${b}-${a}`;
 }
 
 function darken(hex: string, amount: number, alpha: number): string {

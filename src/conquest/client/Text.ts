@@ -11,6 +11,7 @@ import type {
   Good,
   MapDef,
   Terrain,
+  TradeTerms,
   TreatyKind,
 } from "../engine/Types";
 
@@ -255,7 +256,62 @@ export function describeEvent(
       return `The game is over. ${N(e.winner)} wins.`;
     case "mission":
       return us(e.n) ? e.text : null;
+    case "deal": {
+      const what = dealText(e.terms);
+      if (e.status === "offered")
+        return us(e.with) ? `${N(e.n)} offers a trade: ${what}.` : null;
+      if (e.status === "refused")
+        return us(e.n)
+          ? `${N(e.with)} turned down our trade.`
+          : us(e.with)
+            ? `We turned down ${N(e.n)}'s trade.`
+            : null;
+      return us(e.n)
+        ? `Trade done with ${N(e.with)}: ${what}.`
+        : us(e.with)
+          ? `Trade done with ${N(e.n)}.`
+          : null;
+    }
+    case "tributary":
+      if (e.free)
+        return us(e.n)
+          ? `We are free of ${N(e.by)}.`
+          : us(e.by)
+            ? `The ${N(e.n)} no longer pay us tribute.`
+            : null;
+      return us(e.by)
+        ? `The ${N(e.n)} now pay us tribute.`
+        : us(e.n)
+          ? `We now pay tribute to ${N(e.by)}.`
+          : `The ${N(e.n)} now pay tribute to ${N(e.by)}.`;
+    case "abandoned":
+      return us(e.n)
+        ? `We abandoned ${P(e.p)}; the settlers have moved on.`
+        : `${N(e.n)} abandoned ${P(e.p)}.`;
+    case "ordered":
+      return us(e.n)
+        ? `Ordered from Europe: ${goodsText(e.goods)}, for ${e.gold} gold.`
+        : null;
   }
+}
+
+/** "12 timber, 5 tools" */
+export function goodsText(g: Partial<Record<Good, number>>): string {
+  return (Object.entries(g) as [Good, number][])
+    .filter(([, q]) => q > 0)
+    .map(([k, q]) => `${q} ${GOOD_NAMES[k].toLowerCase()}`)
+    .join(", ");
+}
+
+/** A trade in words, from the proposer's side. */
+export function dealText(t: TradeTerms): string {
+  const give = [goodsText(t.give), t.gold > 0 ? `${t.gold} gold` : ""].filter(
+    Boolean,
+  );
+  const get = [goodsText(t.get), t.gold < 0 ? `${-t.gold} gold` : ""].filter(
+    Boolean,
+  );
+  return `${give.join(" and ") || "nothing"} for ${get.join(" and ") || "nothing"}`;
 }
 
 export function dateText(day: number): string {

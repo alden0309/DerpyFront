@@ -26,6 +26,7 @@ import type {
   Command,
   GameState,
   Good,
+  MapDef,
   Mission,
   TraitId,
 } from "./Types";
@@ -145,6 +146,109 @@ export function missionStart(
   return best;
 }
 
+export interface MissionRoute {
+  /** Provinces from the start to the target, both included. */
+  route: number[];
+  /** For each hop: by boat. */
+  sea: boolean[];
+  /** Days for each hop (before the leader's pace). */
+  legs: number[];
+  landKm: number;
+  seaKm: number;
+}
+
+/** Canoes and longboats along the coast. */
+const BOAT_KM_PER_DAY = 70;
+const BOAT_LAUNCH_DAYS = 2;
+
+/**
+ * The way a party goes: on foot over land wherever it can, and by boat only
+ * across water it can't walk round (to an island, or over a sound when the
+ * way round is more than three times as long).
+ */
+export function missionRoute(
+  map: MapDef,
+  from: number,
+  to: number,
+  kind: Mission["kind"],
+): MissionRoute {
+  const mixed = quickestWay(map, from, to, kind, true);
+  const land = quickestWay(map, from, to, kind, false);
+  const days = (r: MissionRoute) => r.legs.reduce((a, b) => a + b, 0);
+  if (land.route.length > 1 && days(land) <= days(mixed) * 3) return land;
+  return mixed;
+}
+
+function quickestWay(
+  map: MapDef,
+  from: number,
+  to: number,
+  kind: Mission["kind"],
+  boats: boolean,
+): MissionRoute {
+  const rules = kind === "explore" ? EXPEDITION : OUTPOST;
+  const count = map.provinces.length;
+  const days = new Float64Array(count).fill(Infinity);
+  const prev = new Int32Array(count).fill(-1);
+  const bySea = new Uint8Array(count);
+  const kmTo = new Float64Array(count);
+  const done = new Uint8Array(count);
+  days[from] = 0;
+  for (;;) {
+    let u = -1;
+    let best = Infinity;
+    for (let i = 0; i < count; i++)
+      if (!done[i] && days[i] < best) {
+        best = days[i];
+        u = i;
+      }
+    if (u < 0 || u === to) break;
+    done[u] = 1;
+    for (const [q, km, river] of map.provinces[u].nb) {
+      const speed = TERRAIN[map.provinces[q].terrain].speed;
+      const d =
+        days[u] + (km * 1.25) / (rules.kmPerDay * speed) + (river ? 1 : 0);
+      if (d < days[q]) {
+        days[q] = d;
+        prev[q] = u;
+        bySea[q] = 0;
+        kmTo[q] = km;
+      }
+    }
+    if (boats && map.provinces[u].coastal) {
+      for (const [q, km] of map.provinces[u].sea) {
+        if (km > map.seaLaneKm) break;
+        const d = days[u] + BOAT_LAUNCH_DAYS + km / BOAT_KM_PER_DAY;
+        if (d < days[q]) {
+          days[q] = d;
+          prev[q] = u;
+          bySea[q] = 1;
+          kmTo[q] = km;
+        }
+      }
+    }
+  }
+  if (from === to || days[to] === Infinity)
+    return { route: [from], sea: [], legs: [], landKm: 0, seaKm: 0 };
+  const route: number[] = [];
+  const sea: boolean[] = [];
+  const legs: number[] = [];
+  let landKm = 0;
+  let seaKm = 0;
+  for (let c = to; c !== from; c = prev[c]) {
+    route.push(c);
+    sea.push(bySea[c] === 1);
+    legs.push(days[c] - days[prev[c]]);
+    if (bySea[c]) seaKm += kmTo[c];
+    else landKm += kmTo[c] * 1.25;
+  }
+  route.push(from);
+  route.reverse();
+  sea.reverse();
+  legs.reverse();
+  return { route, sea, legs, landKm, seaKm };
+}
+
 /** How many days out (the same again back), and why. */
 export function missionDays(
   s: GameState,
@@ -157,15 +261,22 @@ export function missionDays(
   const from = missionStart(s, w, n, p);
   const e = new Explain();
   const rules = kind === "explore" ? EXPEDITION : OUTPOST;
-  const km = from < 0 || from === p ? 0 : kmBetween(w.map, from, p) * 1.25;
-  e.add(
-    `${Math.round(km)} km on foot and by canoe`,
-    Math.max(rules.minDays, km / rules.kmPerDay),
-    true,
-  );
-  const terrain = w.map.provinces[p].terrain;
-  const speed = TERRAIN[terrain].speed;
-  if (speed < 1) e.mul(`Through ${terrain}`, 1 / speed);
+  const way = from < 0 ? null : missionRoute(w.map, from, p, kind);
+  let land = 0;
+  let water = 0;
+  way?.legs.forEach((d, i) => (way.sea[i] ? (water += d) : (land += d)));
+  if (land > 0)
+    e.add(
+      `${Math.round(way!.landKm)} km over land`,
+      Math.round(land * 10) / 10,
+    );
+  if (water > 0)
+    e.add(`${Math.round(way!.seaKm)} km by boat`, Math.round(water * 10) / 10);
+  if (land + water < rules.minDays)
+    e.add(
+      "Making ready and the work at the far end",
+      rules.minDays - land - water,
+    );
   if (hasTrait(c, "diligent")) e.mul("Diligent leader", 0.8);
   if (hasTrait(c, "ambitious")) e.mul("Ambitious leader", 0.85);
   if (hasTrait(c, "lazy")) e.mul("Lazy leader", 1.25);
@@ -228,6 +339,12 @@ export function missionCommand(
   const nation = g.nation(n);
   const leader = s.chars[c.c];
   const days = missionDays(s, g.w, n, leader, c.p, kind).total;
+  const from = missionStart(s, g.w, n, c.p);
+  const way = missionRoute(g.map, from, c.p, kind);
+  const sum = way.legs.reduce((a, b) => a + b, 0);
+  const legs = way.legs.map((d) =>
+    sum > 0 ? Math.round(((d * days) / sum) * 10) / 10 : days,
+  );
   if (kind === "explore") nation.gold -= EXPEDITION.gold;
   else {
     nation.gold -= OUTPOST.gold;
@@ -238,7 +355,7 @@ export function missionCommand(
     id: g.nextId(),
     kind,
     leader: c.c,
-    from: missionStart(s, g.w, n, c.p),
+    from,
     target: c.p,
     start: s.day,
     arrive: s.day + days,
@@ -246,6 +363,9 @@ export function missionCommand(
     stage: "out",
     men: kind === "explore" ? EXPEDITION.men : OUTPOST.men,
     incident: false,
+    route: way.route,
+    sea: way.sea,
+    legs,
   });
   return null;
 }

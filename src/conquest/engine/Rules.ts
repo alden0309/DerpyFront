@@ -457,6 +457,18 @@ export const MARCH_KM_PER_DAY = 22;
 /** Kilometres a day by sea. */
 export const SAIL_KM_PER_DAY = 110;
 /** Most men a tribe can send to war: this share of its people. */
+/** Timber a month per 1,000 laborers from clearing land, by terrain. */
+export const WOODLOT_TIMBER: Record<Terrain, number> = {
+  forest: 1.4,
+  jungle: 0.9,
+  hills: 0.9,
+  mountains: 0.6,
+  marsh: 0.5,
+  plains: 0.35,
+  tundra: 0.35,
+  desert: 0,
+};
+
 export const WARRIOR_SHARE = 0.12;
 /** Days of hard fighting before an attacker gives up. */
 export const BATTLE_MAX_DAYS = 5;

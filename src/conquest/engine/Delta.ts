@@ -32,6 +32,7 @@ export function applyDelta(s: GameState, d: GameDelta): void {
   if (d.truces) s.truces = d.truces;
   if (d.treaties) s.treaties = d.treaties;
   if (d.offers) s.offers = d.offers;
+  if (d.deals) s.deals = d.deals;
   if (d.europe) s.europe = d.europe;
   if (d.battles) {
     s.battles.push(...d.battles);

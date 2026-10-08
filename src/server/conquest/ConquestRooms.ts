@@ -32,7 +32,9 @@ import {
   END_YEAR_MAX,
   END_YEAR_MIN,
   MAX_NAME_LENGTH,
+  minEndYear,
   OpenRoom,
+  powerExists,
   ResultLine,
   RoomSettings,
   SavedGame,
@@ -63,10 +65,17 @@ const POWER_IDS = AMERICAS.powers.map((p) => p.id);
 
 // ---------------------------------------------------------------- messages
 
-const Settings = z.object({
-  endYear: z.number().int().min(END_YEAR_MIN).max(END_YEAR_MAX),
-  difficulty: z.enum(DIFFICULTIES as [string, ...string[]]),
-});
+const Settings = z
+  .object({
+    endYear: z.number().int().min(END_YEAR_MIN).max(END_YEAR_MAX),
+    difficulty: z.enum(DIFFICULTIES as [string, ...string[]]),
+    start: z
+      .union([z.literal(1607), z.literal(1650), z.literal(1700)])
+      .optional(),
+  })
+  .refine((x) => x.endYear >= minEndYear(x.start ?? 1607), {
+    message: "The game must last at least 15 years.",
+  });
 
 const Plan = z.object({
   first: z.string().max(20),
@@ -358,6 +367,12 @@ export class ConquestRooms {
         if (room.game || room.host !== seat.id) return;
         room.settings = m.settings;
         room.open = m.open && !room.solo;
+        // A crown with no colony in the new start year can't be played.
+        for (const x of room.seats)
+          if (x.power && !powerExists(x.power, m.settings.start ?? 1607)) {
+            x.power = null;
+            x.ready = false;
+          }
         return this.sendLobby(room);
       case "start":
         if (room.game || room.host !== seat.id) return;
@@ -648,6 +663,7 @@ export class ConquestRooms {
     const room = this.newRoom(null, saved.seats.length <= 1, false, {
       endYear: saved.state.settings.endYear,
       difficulty: saved.state.settings.difficulty,
+      start: saved.state.settings.start,
     });
     room.saveId = id;
     room.paused = true;
@@ -673,6 +689,7 @@ export class ConquestRooms {
     if (room.game) return;
     if (power !== null) {
       if (!POWER_IDS.includes(power)) return;
+      if (!powerExists(power, room.settings.start ?? 1607)) return;
       if (room.seats.some((s) => s !== seat && s.power === power)) return;
     }
     if (seat.power !== power) seat.ready = false;
@@ -737,6 +754,7 @@ export class ConquestRooms {
         endYear: room.settings.endYear,
         difficulty: room.settings.difficulty,
         seed: randomBytes(4).readInt32LE(0),
+        start: room.settings.start ?? 1607,
       },
       players.map((s) => ({
         seat: s.id,
@@ -933,9 +951,13 @@ export class ConquestRooms {
         const rank = ranking.findIndex((r) => r.id === n) + 1;
         const provinces = provincesOf(game.state, n).length;
         const coins = conquestCoins({
-          days: game.state.day,
+          days: game.state.day - (game.state.startDay ?? 0),
           rank,
-          provinces,
+          // Land you began with doesn't pay; land you added does.
+          provinces: Math.max(
+            0,
+            provinces - Math.max(0, nation.stats.startProvinces - 2),
+          ),
           colonies: nation.stats.coloniesFounded,
           battlesWon: nation.stats.battlesWon,
           conquests: nation.stats.provincesConquered,
@@ -992,9 +1014,10 @@ function titleOf(room: Room): string {
     .map(
       (s) => AMERICAS.powers.find((p) => p.id === s.power)?.name ?? s.power!,
     );
+  const from = room.settings.start ?? 1607;
   if (powers.length === 1)
-    return `${powers[0]}, 1607 to ${room.settings.endYear}`;
-  return `${powers.slice(0, -1).join(", ")} and ${powers[powers.length - 1]}, 1607 to ${room.settings.endYear}`;
+    return `${powers[0]}, ${from} to ${room.settings.endYear}`;
+  return `${powers.slice(0, -1).join(", ")} and ${powers[powers.length - 1]}, ${from} to ${room.settings.endYear}`;
 }
 
 function seatInfo(room: Room): SeatInfo[] {

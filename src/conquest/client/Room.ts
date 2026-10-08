@@ -24,9 +24,10 @@ import {
   TRAIT_POINTS,
   TRAITS,
 } from "../engine/Rules";
-import type { GovernorPlan, Stat, TraitId } from "../engine/Types";
+import { STARTS } from "../engine/Starts";
+import type { GovernorPlan, StartYear, Stat, TraitId } from "../engine/Types";
 import { STATS } from "../engine/Types";
-import type { ServerMessage } from "../Protocol";
+import { powerExists, ServerMessage } from "../Protocol";
 import { flag } from "./Flags";
 import { settingsFields } from "./Lobby";
 import { Net } from "./Net";
@@ -43,6 +44,13 @@ const STAT_HELP: Record<Stat, string> = {
 };
 
 const ALL_TRAITS = Object.keys(TRAITS) as TraitId[];
+
+/** Strengths and weaknesses that only hold for the 1607 start. */
+const ONLY_IN_1607 = new Set([
+  "Starts with only a hundred-odd settlers and little food",
+  "The Powhatan Confederacy surrounds Jamestown",
+  "At war with Spain in Europe (a truce comes in 1609)",
+]);
 const draftKey = (power: string) => `derpy_conquest_governor_${power}`;
 
 function pick<T>(list: T[]): T {
@@ -257,9 +265,36 @@ export class Room extends LitElement {
   ): TemplateResult {
     const L = this.lobby;
     const rules = POWER_RULES[id];
+    const start: StartYear = L.settings.start ?? 1607;
+    const era = STARTS[start];
+    const exists = powerExists(id, start);
     const taken = L.seats.find((s) => s.power === id && s.id !== L.you);
     const mine = this.me?.power === id;
-    const where = provinces.map((p) => AMERICAS.provinces[p].name);
+    let where = provinces.map((p) => AMERICAS.provinces[p].name);
+    if (era) {
+      const held = Object.entries(era.owners)
+        .filter(([, k]) => k === id)
+        .map(([prov]) => prov);
+      const cap = era.capitals[id];
+      where = cap ? [cap, ...held.filter((x) => x !== cap)] : held;
+    }
+    const whereText =
+      where.slice(0, 3).join(", ") +
+      (where.length > 3 ? ` and ${where.length - 3} more` : "");
+    if (!exists)
+      return html`<li class="cq-power gone" style=${nationVars(color)}>
+        <div class="cq-power-top">
+          ${flag(id, "cq-flag xl")}
+          <div>
+            <h3 class="cq-power-name">${name.replace(/^the /, "")}</h3>
+            <p class="cq-power-where">No colony in ${start}</p>
+          </div>
+        </div>
+        <p class="cq-power-history">
+          ${name.replace(/^the /, "")} holds no land in the Americas by
+          ${start}. Start earlier to play it.
+        </p>
+      </li>`;
     return html`<li
       class="cq-power ${mine ? "mine" : ""} ${taken ? "taken" : ""}"
       style=${nationVars(color)}
@@ -268,13 +303,24 @@ export class Room extends LitElement {
         ${flag(id, "cq-flag xl")}
         <div>
           <h3 class="cq-power-name">${name.replace(/^the /, "")}</h3>
-          <p class="cq-power-where">${where.slice(0, 3).join(", ")}</p>
+          <p class="cq-power-where">
+            ${whereText}${era
+              ? html` <span class="cq-muted"
+                  >(${where.length}
+                  province${where.length === 1 ? "" : "s"})</span
+                >`
+              : nothing}
+          </p>
         </div>
       </div>
-      <p class="cq-power-history">${rules.history}</p>
+      <p class="cq-power-history">${era?.powerNotes[id] ?? rules.history}</p>
       <ul class="cq-procon">
-        ${rules.pros.map((t) => html`<li class="pro">${t}</li>`)}
-        ${rules.cons.map((t) => html`<li class="con">${t}</li>`)}
+        ${rules.pros
+          .filter((t) => start === 1607 || !ONLY_IN_1607.has(t))
+          .map((t) => html`<li class="pro">${t}</li>`)}
+        ${rules.cons
+          .filter((t) => start === 1607 || !ONLY_IN_1607.has(t))
+          .map((t) => html`<li class="con">${t}</li>`)}
       </ul>
       ${taken
         ? html`<p class="cq-power-taken">${taken.name} governs here</p>`

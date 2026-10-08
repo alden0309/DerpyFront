@@ -1,24 +1,42 @@
 // Derpy Conquest's messages between browsers and the game server, sent as
 // JSON over the /conquest/ws WebSocket.
 
+import { STARTS } from "./engine/Starts";
 import type {
   Command,
   Difficulty,
   GameDelta,
   GameState,
   GovernorPlan,
+  StartYear,
 } from "./engine/Types";
 
 export const CONQUEST_WS_PATH = "/conquest/ws";
 export const MAX_NAME_LENGTH = 24;
 /** The game ends on 1 January of a year the host picks in this range. */
 export const END_YEAR_MIN = 1625;
-export const END_YEAR_MAX = 1775;
+export const END_YEAR_MAX = 1800;
+/** A game lasts at least this many years. */
+export const MIN_GAME_YEARS = 15;
 export const DIFFICULTIES: Difficulty[] = ["easy", "normal", "hard"];
 
 export interface RoomSettings {
   endYear: number;
   difficulty: Difficulty;
+  /** The year the game begins; 1607 if not given. */
+  start?: StartYear;
+}
+
+/** Whether a power has a colony to play in a start year. */
+export function powerExists(power: string, start: StartYear = 1607): boolean {
+  const era = STARTS[start];
+  if (!era) return true;
+  return Object.values(era.owners).includes(power);
+}
+
+/** The earliest end year a start year allows. */
+export function minEndYear(start: StartYear = 1607): number {
+  return Math.max(END_YEAR_MIN, start + MIN_GAME_YEARS);
 }
 
 export interface SeatInfo {

@@ -17,6 +17,8 @@ import {
   treatyBetween,
   treatyCheck,
   treatyWillingness,
+  tributeCheck,
+  tributeWillingness,
   truceUntil,
   warBetween,
   warCheck,
@@ -34,6 +36,7 @@ import {
   nationLink,
   section,
 } from "./Context";
+import { dealOffers } from "./Goods";
 
 const TREATIES: TreatyKind[] = ["trade", "alliance", "access"];
 
@@ -64,6 +67,14 @@ export function nationPanel(ui: GameUi, n: number): TemplateResult {
             : nothing}
           ${!nation.alive
             ? html`<span class="cq-chip bad">Fallen</span>`
+            : nothing}
+          ${nation.overlord >= 0
+            ? nation.overlord === me
+              ? html`<span class="cq-chip good">Pays you tribute</span>`
+              : html`<span class="cq-chip"
+                  >Tributary of
+                  ${nationName(s.nations[nation.overlord].name)}</span
+                >`
             : nothing}
         </p>
       </div>
@@ -173,6 +184,16 @@ function diplomacy(ui: GameUi, n: number): TemplateResult {
         })}
       </ul>
       <div class="cq-btnrow">
+        ${action(
+          "Trade goods…",
+          tradeOpen(ui, n),
+          () => ui.modal({ k: "trade", n }),
+          "small",
+          "Swap goods and gold with them",
+        )}
+      </div>
+      ${tribute(ui, n)}
+      <div class="cq-btnrow">
         ${[25, 50, 100].map((gold) =>
           action(
             `Send ${gold} gold`,
@@ -204,6 +225,71 @@ function diplomacy(ui: GameUi, n: number): TemplateResult {
   );
 }
 
+function tradeOpen(
+  ui: GameUi,
+  n: number,
+): { ok: true } | { ok: false; why: string } {
+  const s = ui.s;
+  const me = ui.me;
+  if (atWar(s, me, n)) return { ok: false, why: "Not while you're at war." };
+  const native =
+    s.nations[n].kind === "native" || s.nations[me].kind === "native";
+  if (
+    native &&
+    !nationsBorder(s, ui.map, me, n) &&
+    !nationsBorder(s, ui.map, n, me)
+  )
+    return { ok: false, why: "You need to share a border to trade with them." };
+  return { ok: true };
+}
+
+/** Demanding tribute from a native nation, or setting a tributary free. */
+function tribute(ui: GameUi, n: number): TemplateResult | typeof nothing {
+  const s = ui.s;
+  const me = ui.me;
+  const them = s.nations[n];
+  if (them.kind !== "native" || s.nations[me].kind !== "power") return nothing;
+  if (them.overlord === me)
+    return html`<div class="cq-btnrow">
+      <span class="cq-muted small"
+        >They pay you a fifth of their gold and a third of their furs each
+        month.</span
+      >
+      <button
+        class="cq-btn small"
+        @click=${() => {
+          if (confirm(`Release ${nationName(them.name)} from paying tribute?`))
+            void ui.cmd({ k: "release", n });
+        }}
+      >
+        Set them free
+      </button>
+    </div>`;
+  if (them.overlord >= 0) return nothing;
+  const check = tributeCheck(s, ui.w, me, n);
+  const willing = tributeWillingness(s, ui.w, me, n);
+  return html`<div class="cq-btnrow">
+    ${action(
+      "Demand tribute",
+      check.ok || check.willing ? { ok: true } : check,
+      () => void ui.cmd({ k: "tribute", n }),
+      "small",
+      "They keep their land but pay you each month, fight beside you, and can't attack you",
+    )}
+    ${num(
+      willing.total >= 0 ? "They'd submit" : "They'd refuse",
+      () =>
+        breakdownTip(
+          "Would they pay tribute? (yes at 0 or more)",
+          willing,
+          undefined,
+          ["Asking and being refused sours them on you for years."],
+        ),
+      willing.total >= 0 ? "good" : "bad",
+    )}
+  </div>`;
+}
+
 /** Everyone you deal with: neighbours first, then the other powers. */
 export function diplomacyTab(ui: GameUi): TemplateResult {
   const s = ui.s;
@@ -229,6 +315,9 @@ export function diplomacyTab(ui: GameUi): TemplateResult {
     );
   return html`
     <header class="cq-panel-head"><h2 class="cq-h2">Diplomacy</h2></header>
+    ${s.deals.some((d) => d.to === me)
+      ? section("Trades offered to you", dealOffers(ui))
+      : nothing}
     <p class="cq-muted small">
       The colonial powers, and native nations on your borders or in your
       treaties. Lowest opinion first: those are the ones to watch.
@@ -248,6 +337,8 @@ export function diplomacyTab(ui: GameUi): TemplateResult {
               <td>
                 ${nationLink(ui, n.id)}${atWar(s, me, n.id)
                   ? html` <span class="cq-chip bad">War</span>`
+                  : nothing}${n.overlord === me
+                  ? html` <span class="cq-chip good">Tributary</span>`
                   : nothing}
               </td>
               <td class="r">

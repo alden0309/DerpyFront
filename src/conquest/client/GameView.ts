@@ -4,6 +4,7 @@
 
 import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { bananaMark } from "../../derpland/Icons";
 import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
 import { AMERICAS, worldOf } from "../engine/Map";
@@ -40,9 +41,10 @@ import {
   QuillIcon,
   ScrollIcon,
 } from "./Icons";
-import { Geo, MapMode, MapView, ramp, TERRAIN_TINT } from "./MapView";
+import { loadGeo, MapMode, MapView, ramp, TERRAIN_TINT } from "./MapView";
 import { Net } from "./Net";
-import { play } from "./Sound";
+import { confirmMarch, setConfirmMarch } from "./Prefs";
+import { music, play, unlockOnFirstGesture } from "./Sound";
 import {
   describeEvent,
   GOOD_COLORS,
@@ -78,14 +80,7 @@ export type GameStart = Extract<ServerMessage, { t: "game" }>;
 const map = AMERICAS;
 const world = worldOf(map);
 
-let geoPromise: Promise<Geo> | null = null;
-export function loadGeo(): Promise<Geo> {
-  geoPromise ??= import("../data/americas-geo.json?url").then(async (m) => {
-    const res = await fetch(m.default);
-    return (await res.json()) as Geo;
-  });
-  return geoPromise;
-}
+export { loadGeo };
 
 interface LogLine {
   id: number;
@@ -142,6 +137,16 @@ export class GameView extends LitElement {
   @state() private savedAt: string | null = null;
   /** Battles of yours that just ended, shown as dispatches. */
   @state() private dispatches: number[] = [];
+  /** "March there?" after a right-click, where it was clicked. */
+  @state() private marchAsk: {
+    army: number;
+    to: number;
+    days: number;
+    x: number;
+    y: number;
+  } | null = null;
+  /** The log follows the newest line unless the player has scrolled up. */
+  private logStuck = true;
 
   private s!: GameState;
   private me = -1;
@@ -184,6 +189,8 @@ export class GameView extends LitElement {
     super.connectedCallback();
     this.net.on(this.onNet);
     window.addEventListener("keydown", this.onKey);
+    unlockOnFirstGesture();
+    music.start();
     // Letter countdowns tick once a second while the clock runs.
     this.letterTimer = window.setInterval(() => {
       if (this.letterLeft.size && !this.paused) this.tick++;
@@ -203,11 +210,22 @@ export class GameView extends LitElement {
     this.resizeObs?.disconnect();
     clearTimeout(this.renderTimer);
     clearInterval(this.letterTimer);
+    music.stop();
     hideTip();
   }
 
   protected willUpdate(changed: PropertyValues<this>): void {
     if (changed.has("start") && this.start) this.load(this.start);
+  }
+
+  protected updated(): void {
+    const ol = this.querySelector<HTMLElement>(".cq-log");
+    if (ol && this.logStuck) ol.scrollTop = ol.scrollHeight;
+  }
+
+  private onLogScroll(e: Event): void {
+    const ol = e.target as HTMLElement;
+    this.logStuck = ol.scrollHeight - ol.scrollTop - ol.clientHeight < 24;
   }
 
   private load(m: GameStart): void {
@@ -222,6 +240,7 @@ export class GameView extends LitElement {
     this.paused = m.paused;
     this.seats = m.seats;
     this.dayAt = performance.now();
+    this.setMood();
     if (fresh) {
       this.log = [];
       this.results = null;
@@ -249,7 +268,7 @@ export class GameView extends LitElement {
     if (!host) return;
     this.view ??= new MapView(map, world, geo, {
       click: (p, army, e) => this.onMapClick(p, army, e),
-      rightClick: (p) => this.onMapRightClick(p),
+      rightClick: (p, at) => this.onMapRightClick(p, at),
       hover: (p) => this.onHover(p),
     });
     if (!host.contains(this.view.canvas)) host.appendChild(this.view.canvas);
@@ -280,6 +299,7 @@ export class GameView extends LitElement {
         this.checkLetters();
         if (m.d.over) this.modalView = { k: "end" };
         if (m.d.prov || m.d.nations) this.view?.markDirty();
+        if (m.d.wars) this.setMood();
         this.requestRender();
         return;
       }
@@ -323,6 +343,14 @@ export class GameView extends LitElement {
         return;
     }
   };
+
+  /** Fife and drum while we're at war, lute and harpsichord in peace. */
+  private setMood(): void {
+    const me = this.me;
+    const fighting =
+      me >= 0 && this.s.wars.some((w) => w.a === me || w.b === me);
+    music.setMood(fighting ? "war" : "peace");
+  }
 
   private myName(): string {
     return this.seats.find((x) => x.id === this.you)?.name ?? "";
@@ -387,6 +415,20 @@ export class GameView extends LitElement {
       case "europe":
         alert = true;
         break;
+      case "deal":
+        tone =
+          e.status === "refused" ? "bad" : e.status === "done" ? "good" : "";
+        alert = e.n === me || e.with === me;
+        break;
+      case "tributary":
+        tone =
+          e.by === me ? (e.free ? "bad" : "good") : e.n === me ? "bad" : "";
+        alert = e.by === me || e.n === me;
+        break;
+      case "abandoned":
+      case "ordered":
+        alert = e.n === me;
+        break;
     }
     this.addLog(text, tone, e.k === "battle" ? e.id : undefined, e.day);
     // Your battles get a dispatch explaining the outcome instead of a note.
@@ -427,6 +469,19 @@ export class GameView extends LitElement {
         return;
       case "mission":
         if (e.n === me && e.result !== "lost") play("bell");
+        return;
+      case "deal":
+        if ((e.n === me || e.with === me) && e.status === "done") play("coins");
+        if (e.with === me && e.status === "offered") play("paper");
+        return;
+      case "ordered":
+        if (e.n === me) play("coins");
+        return;
+      case "tributary":
+        if (e.by === me && !e.free) play("honour");
+        return;
+      case "crown":
+        if (e.n === me) play("honour");
         return;
     }
   }
@@ -626,9 +681,10 @@ export class GameView extends LitElement {
       return;
     }
     if (e.shiftKey && p !== null && this.ownSelectedArmy()) {
-      this.onMapRightClick(p);
+      this.onMapRightClick(p, { x: e.clientX, y: e.clientY });
       return;
     }
+    this.marchAsk = null;
     this.selectedArmy = null;
     this.preview = null;
     this.selectedProv = p;
@@ -642,7 +698,10 @@ export class GameView extends LitElement {
     );
   }
 
-  private onMapRightClick(p: number | null): void {
+  private onMapRightClick(
+    p: number | null,
+    at?: { x: number; y: number },
+  ): void {
     if (p === null) return;
     const a = this.ownSelectedArmy();
     if (!a) {
@@ -650,9 +709,74 @@ export class GameView extends LitElement {
       this.open({ k: "prov", p });
       return;
     }
-    void this.cmd({ k: "move", a: a.id, to: p }).then((ok) => {
-      if (ok) this.preview = null;
+    if (confirmMarch() && at) {
+      const from = a.depart >= 0 && a.path.length ? a.path[0] : a.prov;
+      const route = findPath(this.s, map, this.me, from, p, armySpeed(a));
+      if (!route) {
+        this.toast("They can't get there.", "bad");
+        return;
+      }
+      this.marchAsk = {
+        army: a.id,
+        to: p,
+        days: Math.ceil(route.days),
+        x: at.x,
+        y: at.y,
+      };
+      return;
+    }
+    this.march(a.id, p);
+  }
+
+  private march(army: number, to: number): void {
+    this.marchAsk = null;
+    void this.cmd({ k: "move", a: army, to }).then((ok) => {
+      if (ok) {
+        this.preview = null;
+        play("drums");
+      }
     });
+  }
+
+  private marchPopup(): TemplateResult | typeof nothing {
+    const m = this.marchAsk;
+    if (!m) return nothing;
+    const place = map.provinces[m.to].name;
+    const left = Math.max(8, Math.min(m.x + 8, window.innerWidth - 268));
+    const top = Math.max(70, Math.min(m.y + 8, window.innerHeight - 160));
+    return html`<div
+      class="cq-march-ask"
+      role="dialog"
+      aria-label="March"
+      style="left:${left}px;top:${top}px"
+    >
+      <p>
+        March to <b>${place}</b>?
+        <span class="cq-muted small">About ${m.days} days.</span>
+      </p>
+      <div class="cq-btnrow">
+        <button
+          class="cq-btn small primary"
+          @click=${() => this.march(m.army, m.to)}
+        >
+          March
+        </button>
+        <button
+          class="cq-btn small quiet"
+          @click=${() => (this.marchAsk = null)}
+        >
+          Cancel
+        </button>
+      </div>
+      <label class="cq-check small">
+        <input
+          type="checkbox"
+          @change=${(e: Event) =>
+            setConfirmMarch(!(e.target as HTMLInputElement).checked)}
+        />
+        Don't ask again (turn it back on in the menu)
+      </label>
+    </div>`;
   }
 
   private onHover(p: number | null): void {
@@ -823,6 +947,7 @@ export class GameView extends LitElement {
           (t) => html`<div class="cq-toast ${t.tone}">${t.text}</div>`,
         )}
       </div>
+      ${this.marchPopup()}
       ${this.modalView ? renderModal(ui, this.modalView, this.hooks) : nothing}
     </div>`;
   }
@@ -863,14 +988,7 @@ export class GameView extends LitElement {
     const letters = n?.events.length ?? 0;
     return html`<header class="cq-banner">
       <a class="cq-home" href="/" title="Derp Land" aria-label="Derp Land">
-        <svg viewBox="0 0 40 40" aria-hidden="true">
-          <path d="M2 34c4-8 10-12 18-12s14 4 18 12z" fill="#ffc531" />
-          <rect x="19" y="4" width="2.6" height="19" rx="1.3" fill="#fbf3e2" />
-          <path
-            d="M21.6 5c4 1.6 7 .2 11 1.6l-2.4 4.4 2.4 4.2c-4-1.3-7 .1-11-1.5z"
-            fill="#ef5a3c"
-          />
-        </svg>
+        ${bananaMark("cq-home-mark")}
       </a>
       ${n
         ? html`<button
@@ -1169,7 +1287,7 @@ export class GameView extends LitElement {
         aria-expanded=${this.logOpen}
         @click=${() => (this.logOpen = !this.logOpen)}
       >
-        <span>Chronicle</span>
+        <span>Game Log</span>
         ${others.length
           ? html`<span class="cq-players"
               >${others.map(
@@ -1183,29 +1301,32 @@ export class GameView extends LitElement {
           : nothing}
       </button>
       ${this.logOpen
-        ? html`<ol class="cq-log">
+        ? html`<ol class="cq-log" @scroll=${(e: Event) => this.onLogScroll(e)}>
               ${this.log.length === 0
                 ? html`<li class="cq-muted">
                     Nothing yet. News will gather here.
                   </li>`
                 : nothing}
-              ${this.log.slice(0, 40).map(
-                (l) =>
-                  html`<li class=${l.tone}>
-                    <span class="cq-log-date"
-                      >${formatDate(l.day).replace(/ \d{4}$/, "")}</span
-                    >
-                    ${l.battle !== undefined
-                      ? html`<button
-                          class="cq-link"
-                          @click=${() =>
-                            (this.modalView = { k: "battle", id: l.battle! })}
-                        >
-                          ${l.text}
-                        </button>`
-                      : l.text}
-                  </li>`,
-              )}
+              ${this.log
+                .slice(0, 60)
+                .reverse()
+                .map(
+                  (l) =>
+                    html`<li class=${l.tone}>
+                      <span class="cq-log-date"
+                        >${formatDate(l.day).replace(/ \d{4}$/, "")}</span
+                      >
+                      ${l.battle !== undefined
+                        ? html`<button
+                            class="cq-link"
+                            @click=${() =>
+                              (this.modalView = { k: "battle", id: l.battle! })}
+                          >
+                            ${l.text}
+                          </button>`
+                        : l.text}
+                    </li>`,
+                )}
             </ol>
             ${!this.solo
               ? html`<form

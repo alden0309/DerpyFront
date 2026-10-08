@@ -6,6 +6,7 @@
 import { fightBattle } from "./Battle";
 import { kill } from "./Characters";
 import { cede } from "./Crown";
+import { makeTributary } from "./Diplomacy";
 import { merge, takeSettlers } from "./Economy";
 import type { ConquestGame } from "./Game";
 import { findPath, hopDays } from "./Paths";
@@ -29,6 +30,7 @@ import {
   siegeSpeed,
   supplyLimit,
   treatyBetween,
+  tributariesOf,
   warBetween,
   warCheck,
 } from "./Queries";
@@ -72,6 +74,11 @@ export function startWar(
     if (ally === a || atWar(s, ally, a)) continue;
     if (s.nations[ally].kind === "crown") continue;
     startWar(g, ally, a, `Defending ${s.nations[b].name}`, false);
+  }
+  // Tributaries follow their overlord to war.
+  for (const t of tributariesOf(s, a)) {
+    if (t === b || atWar(s, t, b) || alliesOf(s, b).includes(t)) continue;
+    startWar(g, t, b, `Called to war by ${s.nations[a].name}`, false);
   }
 }
 
@@ -160,6 +167,7 @@ function applyPeace(
     g.nation(from).gold += terms.gold;
   }
   endWar(g, from, to);
+  if (terms.subjugate) makeTributary(g, to, from);
   if (s.nations[from].kind === "power" && s.nations[to].kind === "power") {
     const k = pairKey(from, to);
     s.europe.tension[k] = Math.max(0, (s.europe.tension[k] ?? 0) - 15);
@@ -738,6 +746,7 @@ export function militaryCommand(
         take: [...new Set(c.terms.take)],
         give: [...new Set(c.terms.give)],
         gold: Math.round(c.terms.gold),
+        ...(c.terms.subjugate === true ? { subjugate: true } : {}),
       };
       const check = peaceCheck(s, n, c.n, terms);
       if (!check.ok) return check.why;

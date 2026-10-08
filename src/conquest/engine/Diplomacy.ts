@@ -1,6 +1,7 @@
 // Treaties, gifts and land deals between nations, and how nations remember
 // what was done to them.
 
+import { goodsMoved, tally } from "./Economy";
 import { proposeTreaty } from "./Events";
 import type { ConquestGame } from "./Game";
 import {
@@ -9,9 +10,11 @@ import {
   relationOf,
   treatyBetween,
   treatyCheck,
+  tributeCheck,
 } from "./Queries";
 import { DAYS_PER_YEAR, INTEGRATE_DAYS } from "./Rules";
 import { Command, TreatyKind } from "./Types";
+import { startWar } from "./War";
 
 const TREATY_NAMES: Record<TreatyKind, string> = {
   trade: "trade treaty",
@@ -19,8 +22,82 @@ const TREATY_NAMES: Record<TreatyKind, string> = {
   access: "right of passage",
 };
 
+/** Native nation `n` pays `by` tribute from now on. */
+export function makeTributary(g: ConquestGame, n: number, by: number): void {
+  const s = g.s;
+  const t = g.nation(n);
+  t.overlord = by;
+  (t.relations[by] ??= []).push({
+    of: -1,
+    why: "Made us pay tribute",
+    value: -15,
+    until: s.day + 15 * DAYS_PER_YEAR,
+  });
+  g.event({ k: "tributary", day: s.day, n, by, free: false });
+}
+
+function setFree(
+  g: ConquestGame,
+  n: number,
+  reason: "released" | "rose",
+): void {
+  const s = g.s;
+  const t = g.nation(n);
+  const by = t.overlord;
+  t.overlord = -1;
+  if (by >= 0 && reason === "released")
+    (t.relations[by] ??= []).push({
+      of: -1,
+      why: "Released us from tribute",
+      value: 20,
+      until: s.day + 15 * DAYS_PER_YEAR,
+    });
+  g.event({ k: "tributary", day: s.day, n, by, free: true });
+}
+
+/** A month of tribute: a fifth of their gold and a third of their furs. */
+function tributeMonthly(g: ConquestGame): void {
+  const s = g.s;
+  for (const t of s.nations) {
+    if (!t.alive || t.overlord < 0) continue;
+    const lord = s.nations[t.overlord];
+    if (!lord?.alive || lord.kind !== "power") {
+      setFree(g, t.id, "rose");
+      continue;
+    }
+    const x = g.nation(t.id);
+    const L = g.nation(lord.id);
+    const gold = Math.max(0, Math.round(x.gold * 0.2 * 10) / 10);
+    if (gold > 0) {
+      x.gold -= gold;
+      L.gold += gold;
+      tally(g, lord.id, `Tribute from the ${t.name}`, gold);
+    }
+    const furs = Math.floor(x.market.stock.furs / 3);
+    if (furs > 0) {
+      x.market.stock.furs -= furs;
+      L.market.stock.furs += furs;
+      goodsMoved(g, lord.id, "furs", furs, "came");
+    }
+    // Resentment boils over when the overlord seems far away or weak.
+    const opinion = relationOf(s, g.w, t.id, lord.id).total;
+    if (opinion < -50 && g.rng.chance(0.04)) {
+      setFree(g, t.id, "rose");
+      if (
+        !s.wars.some(
+          (w) =>
+            (w.a === t.id && w.b === lord.id) ||
+            (w.b === t.id && w.a === lord.id),
+        )
+      )
+        startWar(g, t.id, lord.id, "Throwing off the yoke", false);
+    }
+  }
+}
+
 export function diplomacyMonthly(g: ConquestGame): void {
   const s = g.s;
+  tributeMonthly(g);
   for (const n of s.nations) {
     if (!n.alive) continue;
     let changed = false;
@@ -139,6 +216,30 @@ export function diplomacyCommand(
         from: seller,
         gold: price,
       });
+      return null;
+    }
+    case "tribute": {
+      const check = tributeCheck(s, g.w, n, c.n);
+      if (check.ok) {
+        makeTributary(g, c.n, n);
+        return null;
+      }
+      if (!check.willing) return check.why;
+      // They refuse, and remember being asked.
+      const other = g.nation(c.n);
+      (other.relations[n] ??= []).push({
+        of: -1,
+        why: "Demanded tribute",
+        value: -10,
+        until: s.day + 5 * DAYS_PER_YEAR,
+      });
+      g.event({ k: "refused", day: s.day, n, by: c.n });
+      return null;
+    }
+    case "release": {
+      const t = s.nations[c.n];
+      if (!t || t.overlord !== n) return "They don't pay you tribute.";
+      setFree(g, c.n, "released");
       return null;
     }
     default:

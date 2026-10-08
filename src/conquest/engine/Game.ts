@@ -3,7 +3,7 @@
 // goes through command() and the same rules.
 
 import { runAi } from "./Ai";
-import { isMonthStart } from "./Calendar";
+import { dateOf, isMonthStart } from "./Calendar";
 import { characterCommand, charactersMonthly } from "./Characters";
 import { crownCommand, crownMonthly, europeMonthly } from "./Crown";
 import { diplomacyCommand, diplomacyMonthly } from "./Diplomacy";
@@ -14,12 +14,14 @@ import {
   worksDaily,
 } from "./Economy";
 import { answerEvent, eventsDaily, eventsMonthly } from "./Events";
+import { recordMilestone, yearlyMarks } from "./History";
 import { World, worldOf } from "./Map";
 import { missionCommand, missionsDaily, outpostsDaily } from "./Missions";
 import { popsMonthly } from "./Pops";
 import { scoreOf } from "./Queries";
 import { Rng } from "./Rng";
 import { newGameState } from "./Setup";
+import { dealsMonthly, tradeCommand } from "./Trade";
 import {
   Army,
   BattleReport,
@@ -49,6 +51,7 @@ export class ConquestGame {
   private truces = false;
   private treaties = false;
   private offers = false;
+  private deals = false;
   private europe = false;
   private battles: BattleReport[] = [];
   private events: GameEvent[] = [];
@@ -129,6 +132,9 @@ export class ConquestGame {
   offersChanged(): void {
     this.offers = true;
   }
+  dealsChanged(): void {
+    this.deals = true;
+  }
   europeChanged(): void {
     this.europe = true;
   }
@@ -142,6 +148,7 @@ export class ConquestGame {
 
   event(e: GameEvent): void {
     this.events.push(e);
+    recordMilestone(this, e);
   }
 
   nextId(): number {
@@ -174,6 +181,7 @@ export class ConquestGame {
     if (this.truces) d.truces = s.truces;
     if (this.treaties) d.treaties = s.treaties;
     if (this.offers) d.offers = s.offers;
+    if (this.deals) d.deals = s.deals;
     if (this.europe) d.europe = s.europe;
     if (this.battles.length > 0) d.battles = this.battles;
     if (this.events.length > 0) d.events = this.events;
@@ -182,7 +190,13 @@ export class ConquestGame {
     this.nations = new Set();
     this.charsTouched = new Set();
     this.armies = new Map();
-    this.wars = this.truces = this.treaties = this.offers = this.europe = false;
+    this.wars =
+      this.truces =
+      this.treaties =
+      this.offers =
+      this.deals =
+      this.europe =
+        false;
     this.battles = [];
     this.events = [];
     return d;
@@ -205,6 +219,7 @@ export class ConquestGame {
   }
 
   private month(): void {
+    if (dateOf(this.state.day).month === 0) yearlyMarks(this);
     economyMonthly(this);
     popsMonthly(this);
     charactersMonthly(this);
@@ -212,6 +227,7 @@ export class ConquestGame {
     crownMonthly(this);
     diplomacyMonthly(this);
     warMonthly(this);
+    dealsMonthly(this);
     eventsMonthly(this);
     if (this.aiEnabled) {
       for (const n of this.state.nations) {
@@ -298,6 +314,15 @@ export class ConquestGame {
       case "expedition":
       case "outpost":
         return missionCommand(this, n, c);
+      case "deal":
+      case "dealAnswer":
+      case "order":
+        return tradeCommand(this, n, c);
+      case "abandon":
+        return economyCommand(this, n, c);
+      case "tribute":
+      case "release":
+        return diplomacyCommand(this, n, c);
       default:
         return "Unknown command.";
     }

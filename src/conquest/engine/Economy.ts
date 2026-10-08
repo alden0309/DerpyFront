@@ -8,21 +8,25 @@
 import { dateOf } from "./Calendar";
 import type { ConquestGame } from "./Game";
 import {
+  abandonCheck,
   anchorPrice,
   armyMen,
   buildCheck,
   buildCost,
   classSize,
   colonizeCheck,
+  convoyRoom,
   crossing,
   emptyGoods,
   europePrice,
   foodOutput,
+  mainPortOf,
   priceFactor,
   provincesOf,
   resourceOutput,
   settlers,
   taxShare,
+  woodlots,
   yearOf,
 } from "./Queries";
 import {
@@ -71,6 +75,46 @@ export function tally(
   let lines = byNation.get(n);
   if (!lines) byNation.set(n, (lines = new Map()));
   lines.set(label, (lines.get(label) ?? 0) + gold);
+}
+
+/** Goods that moved during the month, for the goods ledger. */
+type GoodsWay = "came" | "went" | "used";
+const goodsTallies = new WeakMap<
+  ConquestGame,
+  Map<number, Record<GoodsWay, Record<Good, number>>>
+>();
+
+export function goodsMoved(
+  g: ConquestGame,
+  n: number,
+  good: Good,
+  qty: number,
+  way: GoodsWay,
+): void {
+  if (qty <= 0) return;
+  let byNation = goodsTallies.get(g);
+  if (!byNation) goodsTallies.set(g, (byNation = new Map()));
+  let t = byNation.get(n);
+  if (!t)
+    byNation.set(
+      n,
+      (t = { came: emptyGoods(), went: emptyGoods(), used: emptyGoods() }),
+    );
+  t[way][good] += qty;
+}
+
+function takeGoodsTallies(
+  g: ConquestGame,
+  n: number,
+): Record<GoodsWay, Record<Good, number>> {
+  const byNation = goodsTallies.get(g);
+  const t = byNation?.get(n) ?? {
+    came: emptyGoods(),
+    went: emptyGoods(),
+    used: emptyGoods(),
+  };
+  byNation?.delete(n);
+  return t;
 }
 
 function takeTallies(g: ConquestGame, n: number): Map<string, number> {
@@ -138,6 +182,8 @@ function powerEconomy(g: ConquestGame, n: number): void {
     add("grain", marketFood - fish);
     add("fish", fish);
     add(w.raw[p], res);
+    // Clearing land and woodlots: every settlement cuts some timber.
+    add("timber", woodlots(s, w, p));
     // Workshops.
     const artisans = classSize(pr, "artisans");
     let free = artisans;
@@ -311,9 +357,22 @@ function powerEconomy(g: ConquestGame, n: number): void {
     if (parity < 0.4 || supply[good] <= demand[good]) continue;
     exportFloor[good] = parity * 0.85;
   }
+  const moved = takeGoodsTallies(g, n);
+  const flow = nation.market.flow;
   for (const good of GOODS) {
     let left = supply[good] - consumed[good] - workshopIn[good];
-    if (good === "grain" || good === "fish") left *= 1 - SPOILAGE;
+    let spoiled = 0;
+    if (good === "grain" || good === "fish") {
+      spoiled = Math.max(0, left) * SPOILAGE;
+      left -= spoiled;
+    }
+    const r = (v: number) => Math.round(v * 10) / 10;
+    flow.made[good] = r(made[good]);
+    flow.used[good] = r(
+      consumed[good] + workshopIn[good] + spoiled + moved.used[good],
+    );
+    flow.came[good] = r(moved.came[good]);
+    flow.went[good] = r(moved.went[good]);
     m.stock[good] = Math.max(0, Math.round(left * 10) / 10);
     m.supply[good] = Math.round(supply[good] * 10) / 10;
     m.demand[good] = Math.round(demand[good] * 10) / 10;
@@ -487,6 +546,7 @@ function tradeWithNatives(
     if (qty < 0.5) continue;
     const value = qty * P.market.price[good];
     P.market.stock[good] = Math.round((P.market.stock[good] + qty) * 10) / 10;
+    goodsMoved(g, power, good, qty, "came");
     N.market.stock[good] = 0;
     N.gold = Math.round((N.gold + value * 0.6) * 10) / 10;
     sold += value;
@@ -511,6 +571,7 @@ function tradeWithNatives(
     if (qty < 0.5) continue;
     P.market.stock[good] = Math.round((P.market.stock[good] - qty) * 10) / 10;
     N.market.stock[good] = Math.round((N.market.stock[good] + qty) * 10) / 10;
+    goodsMoved(g, power, good, qty, "went");
     N.gold = Math.round((N.gold - qty * price) * 10) / 10;
     bought += qty * price;
   }
@@ -556,41 +617,12 @@ function classWealth(g: ConquestGame, n: number, cls: PopClass): number {
 
 /** The colony's main harbour: the capital if it has a port, else the best one. */
 export function mainPort(g: ConquestGame, n: number): number {
-  const s = g.s;
-  const nation = s.nations[n];
-  const ok = (p: number) => {
-    const pr = s.provinces[p];
-    return (
-      pr.owner === n &&
-      pr.occupier < 0 &&
-      (pr.b.port ?? 0) > 0 &&
-      g.map.provinces[p].coastal
-    );
-  };
-  if (nation.capital >= 0 && ok(nation.capital)) return nation.capital;
-  let best = -1;
-  let bestLvl = 0;
-  for (const p of provincesOf(s, n)) {
-    if (!ok(p)) continue;
-    const lvl = (s.provinces[p].b.port ?? 0) * 10000 + settlers(s.provinces[p]);
-    if (lvl > bestLvl) {
-      best = p;
-      bestLvl = lvl;
-    }
-  }
-  return best;
+  return mainPortOf(g.s, g.map, n);
 }
 
 /** Units a convoy can carry each way. */
 export function convoyCapacity(g: ConquestGame, n: number): number {
-  const s = g.s;
-  let ports = 0;
-  let merchants = 0;
-  for (const p of provincesOf(s, n)) {
-    ports += s.provinces[p].b.port ?? 0;
-    merchants += classSize(s.provinces[p], "merchants");
-  }
-  return Math.round(60 + ports * 50 + merchants / 25);
+  return convoyRoom(g.s, n);
 }
 
 export function convoysDaily(g: ConquestGame): void {
@@ -645,6 +677,7 @@ function sailForEurope(g: ConquestGame, n: number): void {
     if (qty <= 0) continue;
     cargo[o.good] = qty;
     m.stock[o.good] = Math.round((m.stock[o.good] - qty) * 10) / 10;
+    goodsMoved(g, n, o.good, qty, "went");
     paid += qty * m.price[o.good];
     room -= qty;
   }
@@ -759,6 +792,12 @@ function landCargo(g: ConquestGame, n: number, c: Convoy): void {
     nation.market.stock[good] =
       Math.round((nation.market.stock[good] + qty) * 10) / 10;
     value += qty * nation.market.price[good];
+    goodsMoved(g, n, good, qty, "came");
+  }
+  // Goods the governor bought outright are already paid for.
+  if (c.ordered) {
+    g.event({ k: "convoy", day: s.day, n, out: false, gold: 0 });
+    return;
   }
   payClass(g, n, "merchants", value);
   tally(g, n, "Customs on imports", value * CUSTOMS);
@@ -877,6 +916,71 @@ export function takeSettlers(g: ConquestGame, p: number, count: number): void {
   pr.pops = pr.pops.filter((x) => x.size > 0);
 }
 
+/**
+ * Give up a settlement: the settlers pack up for the nearest of your other
+ * provinces (some stay behind or are lost on the road), what was built is
+ * left to rot, and the land goes back to open country.
+ */
+export function abandon(g: ConquestGame, n: number, p: number): void {
+  const s = g.s;
+  const pr = g.prov(p);
+  // Nearest other province of ours, over land first.
+  let refuge = -1;
+  const seen = new Set([p]);
+  const queue = [p];
+  for (let i = 0; i < queue.length && refuge < 0; i++) {
+    for (const [q] of g.map.provinces[queue[i]].nb) {
+      if (seen.has(q)) continue;
+      seen.add(q);
+      if (s.provinces[q].owner === n && s.provinces[q].occupier < 0) {
+        refuge = q;
+        break;
+      }
+      queue.push(q);
+    }
+  }
+  if (refuge < 0) refuge = s.nations[n].capital;
+  const leaving = pr.pops.filter((x) => x.cls !== "tribe");
+  pr.pops = pr.pops.filter((x) => x.cls === "tribe");
+  if (refuge >= 0 && refuge !== p) {
+    const dest = g.prov(refuge);
+    for (const pop of leaving)
+      dest.pops.push({ ...pop, size: Math.round(pop.size * 0.85) });
+    merge(dest.pops);
+  }
+  pr.owner = -1;
+  pr.occupier = -1;
+  pr.b = {};
+  pr.build = null;
+  pr.recruits = [];
+  pr.siege = null;
+  pr.integrate = 0;
+  pr.unrest = 0;
+  if (pr.outpost?.by === n) pr.outpost = null;
+  const nation = g.nation(n);
+  nation.mods.push({
+    key: "abandoned",
+    label: `Abandoned ${g.map.provinces[p].name}`,
+    until: s.day + 365 * 2,
+    fx: { favor: -5 },
+  });
+  // Native neighbours are glad to see the back of them.
+  const told = new Set<number>();
+  for (const [q] of g.map.provinces[p].nb) {
+    const owner = s.provinces[q].owner;
+    if (owner < 0 || told.has(owner) || s.nations[owner].kind !== "native")
+      continue;
+    told.add(owner);
+    (g.nation(owner).relations[n] ??= []).push({
+      of: -1,
+      why: `Left ${g.map.provinces[p].name}`,
+      value: 8,
+      until: s.day + 365 * 10,
+    });
+  }
+  g.event({ k: "abandoned", day: s.day, n, p });
+}
+
 export function economyCommand(
   g: ConquestGame,
   n: number,
@@ -900,9 +1004,17 @@ export function economyCommand(
       const cost = buildCost(c.b, pr.b[c.b] ?? 0);
       const nation = g.nation(n);
       nation.gold -= cost.gold;
-      for (const [good, v] of Object.entries(cost.goods) as [Good, number][])
+      for (const [good, v] of Object.entries(cost.goods) as [Good, number][]) {
         nation.market.stock[good] -= v;
+        goodsMoved(g, n, good, v, "used");
+      }
       pr.build = { kind: c.b, start: s.day, done: s.day + cost.days };
+      return null;
+    }
+    case "abandon": {
+      const check = abandonCheck(s, g.map, n, c.p);
+      if (!check.ok) return check.why;
+      abandon(g, n, c.p);
       return null;
     }
     case "tax": {

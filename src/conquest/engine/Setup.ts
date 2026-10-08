@@ -1,6 +1,6 @@
-// A new Derpy Conquest game: 1 January 1607. Five colonial powers with their
-// first settlements and governors, dozens of native nations, the open
-// country between them, and the crowns back in Europe.
+// A new Derpy Conquest game: 1 January 1607, 1650 or 1700. The colonial
+// powers with their settlements and governors, dozens of native nations, the
+// open country between them, and the crowns back in Europe.
 
 import { dayOf } from "./Calendar";
 import {
@@ -19,6 +19,7 @@ import {
   nationDemand,
   pairKey,
   provincesOf,
+  regimentTypes,
 } from "./Queries";
 import { Rng } from "./Rng";
 import {
@@ -28,11 +29,13 @@ import {
   NATIVE_DENSITY_WILD,
   NATIVE_STRONG_FACTOR,
   POWER_RULES,
+  REGIMENTS,
   RICH_SHARE,
   RIVALRY,
   SEEN_BY_SEA_KM,
   SETTLER_MIX,
 } from "./Rules";
+import { DEVELOPMENT_SETTLERS, START_GOLD_FACTOR, STARTS } from "./Starts";
 import {
   GameSettings,
   GameState,
@@ -43,11 +46,12 @@ import {
   Pop,
   PopClass,
   Province,
+  RegType,
   SEATS,
 } from "./Types";
 
 /** Saves from another version can't be loaded: bump it when the state's shape changes. */
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 
 export function newGameState(
   map: MapDef,
@@ -55,10 +59,14 @@ export function newGameState(
   seats: PlayerSeat[],
 ): GameState {
   const w = worldOf(map);
+  const start = settings.start ?? 1607;
+  const era = STARTS[start];
+  const startDay = start === 1607 ? 0 : dayOf(start);
   const state: GameState = {
     version: STATE_VERSION,
     settings,
-    day: 0,
+    day: startDay,
+    startDay,
     endDay: dayOf(settings.endYear),
     rng: settings.seed | 0,
     nextId: 1,
@@ -70,6 +78,7 @@ export function newGameState(
     truces: [],
     treaties: [],
     offers: [],
+    deals: [],
     europe: {
       price: { ...EUROPE_PRICE },
       glut: emptyGoods(),
@@ -82,42 +91,65 @@ export function newGameState(
   };
   const rng = new Rng(state);
   const keyIndex = new Map<string, number>();
+  const byName = new Map(map.provinces.map((p, i) => [p.name, i]));
+  /** Who holds each province at this start: a nation key, or null. */
+  const ownerKey = map.provinces.map((def) =>
+    era ? (era.owners[def.name] ?? null) : def.owner,
+  );
+  const startProvinces = (key: string) =>
+    ownerKey.flatMap((k, i) => (k === key ? [i] : []));
+  const development = (p: number) =>
+    era?.development[map.provinces[p].name] ?? 0;
 
   for (const def of map.powers) {
     const rules = POWER_RULES[def.id];
     const seat = seats.find((x) => x.power === def.id);
     const id = state.nations.length;
     keyIndex.set(def.id, id);
-    state.nations.push(
-      blankNation(id, def.id, "power", def.name, def.adjective, def.color, {
+    const own = startProvinces(def.id);
+    const capital = era
+      ? (byName.get(era.capitals[def.id] ?? "") ?? own[0] ?? -1)
+      : (def.provinces[rules.startPop.indexOf(Math.max(...rules.startPop))] ??
+        def.provinces[0]);
+    const n = blankNation(
+      id,
+      def.id,
+      "power",
+      def.name,
+      def.adjective,
+      def.color,
+      {
         culture: rules.culture,
         religion: rules.religion,
-        capital:
-          def.provinces[rules.startPop.indexOf(Math.max(...rules.startPop))] ??
-          def.provinces[0],
+        capital,
         gold: Math.round(
-          rules.startGold * (seat ? 1 : DIFFICULTY[settings.difficulty].aiGold),
+          rules.startGold *
+            START_GOLD_FACTOR[start] *
+            (seat ? 1 : DIFFICULTY[settings.difficulty].aiGold),
         ),
         player: seat?.seat ?? null,
         playerName: seat?.name ?? null,
-      }),
+      },
     );
+    if (own.length === 0) n.alive = false;
+    state.nations.push(n);
   }
   for (const def of map.natives) {
     const id = state.nations.length;
     keyIndex.set(def.id, id);
-    state.nations.push(
-      blankNation(id, def.id, "native", def.name, def.name, def.color, {
-        culture: def.id,
-        religion: "native",
-        capital: def.provinces[0],
-        gold: def.strong ? 60 : 15,
-        player: null,
-        playerName: null,
-        horse: def.horse,
-        strong: def.strong,
-      }),
-    );
+    const own = startProvinces(def.id);
+    const n = blankNation(id, def.id, "native", def.name, def.name, def.color, {
+      culture: def.id,
+      religion: "native",
+      capital: def.provinces.find((p) => own.includes(p)) ?? own[0] ?? -1,
+      gold: def.strong ? 60 : 15,
+      player: null,
+      playerName: null,
+      horse: def.horse,
+      strong: def.strong,
+    });
+    if (own.length === 0) n.alive = false;
+    state.nations.push(n);
   }
   for (const def of map.powers) {
     const id = state.nations.length;
@@ -146,7 +178,8 @@ export function newGameState(
 
   for (let p = 0; p < map.provinces.length; p++) {
     const def = map.provinces[p];
-    const owner = def.owner === null ? -1 : (keyIndex.get(def.owner) ?? -1);
+    const key = ownerKey[p];
+    const owner = key === null ? -1 : (keyIndex.get(key) ?? -1);
     const n = owner >= 0 ? state.nations[owner] : null;
     const cap = w.capacity[p];
     const pops: Pop[] = [];
@@ -162,7 +195,9 @@ export function newGameState(
     } else if (n?.kind === "power") {
       const rules = POWER_RULES[n.key];
       const at = map.powers.find((x) => x.id === n.key)!.provinces.indexOf(p);
-      const settlersHere = rules.startPop[at] ?? 100;
+      const settlersHere = era
+        ? Math.round(DEVELOPMENT_SETTLERS[development(p) || 1] * wobble)
+        : (rules.startPop[at] ?? 100);
       pops.push(...settlerPops(n.culture, n.religion, settlersHere));
       const locals = Math.round(cap * NATIVE_DENSITY_WILD * 0.3 * wobble);
       if (locals > 50) pops.push(tribe(nearest[p] ?? "local", locals));
@@ -191,15 +226,26 @@ export function newGameState(
     if (n?.kind === "power") {
       if (def.coastal) pr.b.port = 1;
       if (n.capital === p) pr.b.fort = 1;
-      const big =
-        (POWER_RULES[n.key].startPop[
-          map.powers.find((x) => x.id === n.key)!.provinces.indexOf(p)
-        ] ?? 0) >= 2000;
-      if (big) {
-        pr.b.farm = 1;
+      const level = era
+        ? development(p)
+        : (POWER_RULES[n.key].startPop[
+              map.powers.find((x) => x.id === n.key)!.provinces.indexOf(p)
+            ] ?? 0) >= 2000
+          ? 3
+          : 1;
+      if (level >= 2) pr.b.farm = 1;
+      if (level >= 3) {
         pr.b.church = 1;
         if (w.raw[p] === "sugar" || w.raw[p] === "tobacco") pr.b.plantation = 1;
+        if (w.raw[p] === "furs") pr.b.tradingpost = 1;
+        if (w.raw[p] === "timber") pr.b.lumbercamp = 1;
         pr.b.fort = Math.max(pr.b.fort ?? 0, 1);
+      }
+      if (level >= 4) {
+        pr.b.farm = 2;
+        pr.b.courthouse = 1;
+        pr.b.smithy = 1;
+        if (def.coastal) pr.b.port = 2;
       }
     }
     state.provinces.push(pr);
@@ -248,13 +294,72 @@ export function newGameState(
       n.market.price[g] = Math.round(anchorPrice(state, n.id, g) * 100) / 100;
       n.market.demand[g] = want[g];
     }
-    n.market.stock.grain = Math.round(want.grain * 4);
-    n.market.stock.tools = 25;
-    n.market.stock.cloth = 15;
-    n.market.stock.guns = 20;
-    n.market.stock.timber = 40;
     n.nextColonist = 30;
-    n.explored = surveyedAround(map, provincesOf(state, n.id));
+    const own = provincesOf(state, n.id);
+    // An older colony has stores to match.
+    const scale = Math.max(1, own.length / 2);
+    n.market.stock.grain = Math.round(want.grain * 4);
+    n.market.stock.tools = Math.round(25 * scale);
+    n.market.stock.cloth = Math.round(15 * scale);
+    n.market.stock.guns = Math.round(20 * scale);
+    n.market.stock.timber = Math.round(40 * scale);
+    n.explored = surveyedAround(
+      map,
+      own,
+      start === 1607 ? 2 : start === 1650 ? 3 : 4,
+    );
+  }
+  // A later start finds the colonies with their militia already mustered,
+  // and the bigger ones with a regiment of regulars.
+  if (era)
+    for (const n of state.nations) {
+      if (n.kind !== "power" || !n.alive || n.capital < 0) continue;
+      const own = provincesOf(state, n.id).length;
+      const types: RegType[] = [];
+      const militia = Math.max(1, Math.min(4, Math.round(own / 6)));
+      for (let i = 0; i < militia; i++) types.push("militia");
+      if (own >= 12 && regimentTypes(n).includes("regulars"))
+        types.push("regulars");
+      const cap = state.provinces[n.capital];
+      const laborers = cap.pops.find((x) => x.cls === "laborers");
+      const regs = types.map((type) => ({
+        type,
+        men: REGIMENTS[type].men,
+        morale: 0.8,
+        home: n.capital,
+      }));
+      if (laborers)
+        laborers.size = Math.max(
+          100,
+          laborers.size - regs.reduce((m, r) => m + r.men, 0),
+        );
+      state.armies.push({
+        id: state.nextId++,
+        owner: n.id,
+        prov: n.capital,
+        regs,
+        path: [],
+        depart: -1,
+        arrive: -1,
+        sea: false,
+        retreating: false,
+        arrived: startDay,
+        from: -1,
+        commander: -1,
+        supply: 1,
+      });
+    }
+
+  for (const n of state.nations) {
+    n.stats.startProvinces = provincesOf(state, n.id).length;
+    // A small colony in a later year still has its company paying the bills.
+    if (era && n.kind === "power" && n.alive && n.stats.startProvinces <= 6)
+      n.mods.push({
+        key: "crown-grant",
+        label: "The company's subsidy",
+        until: startDay + 15 * 365,
+        fx: {},
+      });
   }
 
   // Europe: old rivalries, and the Dutch already fighting Spain.
@@ -270,7 +375,7 @@ export function newGameState(
   }
   const nl = keyIndex.get("netherlands");
   const es = keyIndex.get("spain");
-  if (nl !== undefined && es !== undefined) {
+  if (start === 1607 && nl !== undefined && es !== undefined) {
     state.europe.wars[pairKey(nl, es)] = 0;
     state.europe.tension[pairKey(nl, es)] = 90;
     state.wars.push({
@@ -344,6 +449,12 @@ function blankNation(
       stock: emptyGoods(),
       supply: emptyGoods(),
       demand: emptyGoods(),
+      flow: {
+        made: emptyGoods(),
+        used: emptyGoods(),
+        came: emptyGoods(),
+        went: emptyGoods(),
+      },
     },
     convoys: [],
     lastConvoy: -999,
@@ -356,6 +467,9 @@ function blankNation(
     events: [],
     explored: [],
     missions: [],
+    overlord: -1,
+    milestones: [],
+    yearly: [],
     cooldowns: {},
     ledger: { income: [], spending: [], net: 0 },
     stats: {
@@ -369,6 +483,7 @@ function blankNation(
       peakProvinces: 0,
       peakPeople: 0,
       landBought: 0,
+      startProvinces: 0,
     },
     score: 0,
   };
@@ -450,10 +565,14 @@ function darken(hex: string): string {
  * What a colony knows at the start: its own land, the country two marches
  * around it, and the coasts its ships have seen.
  */
-export function surveyedAround(map: MapDef, from: number[]): number[] {
+export function surveyedAround(
+  map: MapDef,
+  from: number[],
+  hops = 2,
+): number[] {
   const known = new Set(from);
   let ring = [...from];
-  for (let hop = 0; hop < 2; hop++) {
+  for (let hop = 0; hop < hops; hop++) {
     const next: number[] = [];
     for (const p of ring)
       for (const [q] of map.provinces[p].nb)

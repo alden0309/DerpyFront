@@ -12,7 +12,7 @@ import {
   wornSkin,
 } from "../derpland/Account";
 import { openSignIn } from "../derpland/DerpBar";
-import { chestIcon, coinIcon, stallIcon } from "../derpland/Icons";
+import { bananaMark, chestIcon, coinIcon, stallIcon } from "../derpland/Icons";
 import { nf } from "./format";
 import { HubPage } from "./HubPage";
 
@@ -140,6 +140,20 @@ export class DerpStore extends HubPage {
           >${coinIcon("dl-coin")}${nf(p.price)}</span
         >
       </div>
+      ${!owned && this.account && short > 0
+        ? html`<div
+            class="dl-saving"
+            role="img"
+            aria-label="${nf(coins)} of ${nf(p.price)} Derp Coins saved"
+          >
+            <span class="dl-saving-bar"
+              ><i style="width:${Math.min(100, (coins / p.price) * 100)}%"></i
+            ></span>
+            <span class="dl-saving-text"
+              >${nf(coins)} of ${nf(p.price)} saved</span
+            >
+          </div>`
+        : nothing}
       <ul class="dl-skins">
         ${p.skins.map(
           (s) =>
@@ -216,9 +230,15 @@ export class DerpInventory extends HubPage {
         .map((s) => ({ ...s, pack: p.displayName })),
     );
     if (owned.length === 0) {
-      return html`<div class="dl-panel dl-empty">
-        <p>No skins yet. Packs start at 400 Derp Coins.</p>
-        <a class="dl-btn" href="/store">Go to the Store</a>
+      return html`<div class="dl-panel dl-empty with-mascot">
+        ${bananaMark("dl-banana mid")}
+        <div>
+          <p>
+            Nothing in here yet. Packs start at 400 Derp Coins, and every game
+            you finish signed in earns some.
+          </p>
+          <a class="dl-btn" href="/store">Go to the Store</a>
+        </div>
       </div>`;
     }
     const tile = (

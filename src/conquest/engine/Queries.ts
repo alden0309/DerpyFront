@@ -44,6 +44,7 @@ import {
   TRAITS,
   UNMET_UNREST,
   WARRIOR_SHARE,
+  WOODLOT_TIMBER,
 } from "./Rules";
 import {
   Army,
@@ -123,6 +124,7 @@ export function enemiesOf(s: GameState, n: number): number[] {
   return out;
 }
 
+/** Allies by treaty, and the bond between a tributary and its overlord. */
 export function alliesOf(s: GameState, n: number): number[] {
   const out: number[] = [];
   for (const t of s.treaties) {
@@ -130,7 +132,21 @@ export function alliesOf(s: GameState, n: number): number[] {
     if (t.a === n) out.push(t.b);
     else if (t.b === n) out.push(t.a);
   }
-  return out;
+  const me = s.nations[n];
+  if (me && me.overlord >= 0 && s.nations[me.overlord]?.alive)
+    out.push(me.overlord);
+  for (const t of tributariesOf(s, n)) out.push(t);
+  return [...new Set(out)];
+}
+
+/** Native nations paying `n` tribute. */
+export function tributariesOf(s: GameState, n: number): number[] {
+  return s.nations.flatMap((x) => (x.alive && x.overlord === n ? [x.id] : []));
+}
+
+/** Whether one of the two pays the other tribute. */
+export function tributeBond(s: GameState, a: number, b: number): boolean {
+  return s.nations[a]?.overlord === b || s.nations[b]?.overlord === a;
 }
 
 export function provincesOf(s: GameState, n: number): number[] {
@@ -191,7 +207,8 @@ export function canEnter(s: GameState, n: number, p: number): boolean {
   if (atWar(s, n, owner)) return true;
   return (
     treatyBetween(s, n, owner, "access") !== undefined ||
-    treatyBetween(s, n, owner, "alliance") !== undefined
+    treatyBetween(s, n, owner, "alliance") !== undefined ||
+    tributeBond(s, n, owner)
   );
 }
 
@@ -485,6 +502,12 @@ export function adminCapacity(s: GameState, n: number): Breakdown {
     const folk = nationSettlers(s, n);
     if (folk >= 5000)
       e.add("Local officials (1 per 5,000 settlers)", Math.floor(folk / 5000));
+    // A colony founded decades before the game began runs its own counties.
+    if (s.startDay > 0 && nation.stats.startProvinces > 2)
+      e.add(
+        `Counties and parishes (${nation.stats.startProvinces} settled provinces)`,
+        Math.round(nation.stats.startProvinces * 1.1),
+      );
   } else {
     e.add("Council of elders", nation.strong ? 6 : 4, true);
   }
@@ -638,6 +661,45 @@ export function resourceOutput(s: GameState, w: World, p: number): Breakdown {
   if (pr.rich) e.mul(`Rich ${RICH_WORD[raw]}`, 1 + RICH_BONUS);
   for (const part of workFactor(s, w, p).parts) e.mul(part.label, part.value);
   return e.done(2, 0);
+}
+
+/** Timber every settlement cuts clearing land and from its woodlots. */
+export function woodlotOutput(s: GameState, w: World, p: number): Breakdown {
+  const pr = s.provinces[p];
+  const def = w.map.provinces[p];
+  const lab = classSize(pr, "laborers");
+  const e = new Explain().add(
+    `${Math.round(lab)} laborers clearing ${def.terrain}`,
+    (lab / 1000) * WOODLOT_TIMBER[def.terrain],
+    true,
+  );
+  if (w.raw[p] === "timber")
+    e.mul("Timber country (counted with the lumber camp)", 0);
+  for (const part of workFactor(s, w, p).parts) e.mul(part.label, part.value);
+  return e.done(2, 0);
+}
+
+export function woodlots(s: GameState, w: World, p: number): number {
+  return woodlotOutput(s, w, p).total;
+}
+
+/** Whether a colony may give up a settlement. */
+export function abandonCheck(
+  s: GameState,
+  map: MapDef,
+  n: number,
+  p: number,
+): Check {
+  const pr = s.provinces[p];
+  const nation = s.nations[n];
+  if (!pr || pr.owner !== n) return no("It isn't yours.");
+  if (nation.kind !== "power") return no("Only colonies abandon settlements.");
+  if (nation.capital === p) return no("You can't abandon your capital.");
+  if (provincesOf(s, n).length <= 1) return no("It's all the land you have.");
+  if (pr.occupier >= 0) return no("The enemy holds it.");
+  if (pr.siege) return no("Not while it's under siege.");
+  void map;
+  return yes;
 }
 
 export const BUILDING_NAMES: Record<BuildingKind, string> = {
@@ -1263,6 +1325,7 @@ export function peaceWillingness(
     );
   if (terms.gold < 0)
     e.add(`Getting ${-terms.gold} gold`, Math.min(30, (-terms.gold / 50) * 5));
+  if (terms.subjugate) e.add("Paying you tribute from now on", -35);
   if (
     war.europe &&
     nation.kind === "power" &&
@@ -1293,6 +1356,12 @@ export function peaceCheck(
   }
   if (terms.gold < 0 && s.nations[from].gold < -terms.gold)
     return no("You don't have that much gold.");
+  if (terms.subjugate) {
+    if (s.nations[from].kind !== "power" || s.nations[to].kind !== "native")
+      return no("Only a colony can make a native nation its tributary.");
+    if (s.nations[to].overlord >= 0)
+      return no("They already pay someone tribute.");
+  }
   if (terms.gold > 0 && s.nations[to].gold < terms.gold)
     return no(`They only have ${Math.floor(s.nations[to].gold)} gold.`);
   return yes;
@@ -1308,7 +1377,73 @@ export function warCheck(s: GameState, n: number, target: number): Check {
   if (truceUntil(s, n, target) > s.day) return no("A truce holds.");
   if (treatyBetween(s, n, target, "alliance"))
     return no("You're allies; break the alliance first.");
+  if (t.overlord === n) return no("They pay you tribute; release them first.");
+  if (s.nations[n].overlord === target) return no("You pay them tribute.");
   return yes;
+}
+
+/** Fighting men a nation has under arms. */
+export function strengthOf(s: GameState, n: number): number {
+  let men = 0;
+  for (const a of s.armies) if (a.owner === n) men += armyMen(a);
+  return men;
+}
+
+/** Warriors a native nation could put in the field. */
+export function warriorsOf(s: GameState, n: number): number {
+  return Math.round(nationPeople(s, n) * WARRIOR_SHARE);
+}
+
+/** Whether `n` can demand that native nation `target` pay it tribute. */
+export function tributeCheck(
+  s: GameState,
+  w: World,
+  n: number,
+  target: number,
+): Check & { willing?: Breakdown } {
+  const me = s.nations[n];
+  const t = s.nations[target];
+  if (me.kind !== "power") return no("Only colonies demand tribute.");
+  if (!t?.alive || t.kind !== "native")
+    return no("Only native nations can be made tributaries.");
+  if (t.overlord === n) return no("They already pay you tribute.");
+  if (t.overlord >= 0)
+    return no(`They pay tribute to ${s.nations[t.overlord].name} already.`);
+  if (atWar(s, n, target))
+    return no("At war, make it part of the peace terms.");
+  if (
+    !nationsBorder(s, w.map, n, target) &&
+    !nationsBorder(s, w.map, target, n)
+  )
+    return no("They must border your land.");
+  const willing = tributeWillingness(s, w, n, target);
+  if (willing.total < 0)
+    return { ok: false, why: "They won't bow to you yet.", willing };
+  return { ok: true, willing };
+}
+
+/** Why a native nation would (≥ 0) agree to pay tribute without a fight. */
+export function tributeWillingness(
+  s: GameState,
+  w: World,
+  n: number,
+  target: number,
+): Breakdown {
+  const ours = strengthOf(s, n);
+  const theirs = Math.max(50, strengthOf(s, target), warriorsOf(s, target));
+  const ratio = ours / theirs;
+  const e = new Explain();
+  e.add(
+    `Your soldiers against their warriors (${Math.round(ours)} to ${Math.round(theirs)})`,
+    Math.round(Math.min(60, (ratio - 3) * 15)),
+    true,
+  );
+  const opinion = relationOf(s, w, target, n).total;
+  e.add(`What they think of you (${opinion})`, Math.round(opinion / 2));
+  const foes = enemiesOf(s, target).length;
+  if (foes > 0) e.add("They have enemies enough already", 15 * foes);
+  e.add("No people gives up its freedom lightly", -20);
+  return e.done(0);
 }
 
 // ---------------------------------------------------------------- actions
@@ -1587,10 +1722,11 @@ export function buyCheck(
     return no("It's all the land they have left.");
   if (!bordersProvince(s, w.map, n, p))
     return no("It has to border your land.");
+  const overlord = s.nations[pr.owner].overlord === n;
   const opinion = relationOf(s, w, pr.owner, n).total;
-  if (opinion < 25)
+  if (opinion < 25 && !overlord)
     return no(`They'd need to like you more (opinion ${opinion}, needs 25).`);
-  const price = buyPrice(s, p);
+  const price = Math.round(buyPrice(s, p) * (overlord ? 0.6 : 1));
   if (nation.gold < price) return no(`Costs ${price} gold.`);
   return { ok: true, price };
 }
@@ -1670,6 +1806,8 @@ export function scoreOf(s: GameState, w: World, n: number): Breakdown {
     if (nation.title > 0) e.add("Royal honours", nation.title * 25);
     if (nation.independent) e.add("Independence", 150);
     e.add("Battles won", nation.stats.battlesWon * 2);
+    const tribs = tributariesOf(s, n).length;
+    if (tribs > 0) e.add(`${tribs} tributary nations`, tribs * 10);
   } else {
     e.add(
       `${Math.round(nationPeople(s, n)).toLocaleString("en-US")} people`,
@@ -1677,6 +1815,43 @@ export function scoreOf(s: GameState, w: World, n: number): Breakdown {
     );
   }
   return e.done(0, 0);
+}
+
+/** The colony's main harbour: the capital if it has a port, else the best one. */
+export function mainPortOf(s: GameState, map: MapDef, n: number): number {
+  const nation = s.nations[n];
+  const ok = (p: number) => {
+    const pr = s.provinces[p];
+    return (
+      pr.owner === n &&
+      pr.occupier < 0 &&
+      (pr.b.port ?? 0) > 0 &&
+      map.provinces[p].coastal
+    );
+  };
+  if (nation.capital >= 0 && ok(nation.capital)) return nation.capital;
+  let best = -1;
+  let bestLvl = 0;
+  for (const p of provincesOf(s, n)) {
+    if (!ok(p)) continue;
+    const lvl = (s.provinces[p].b.port ?? 0) * 10000 + settlers(s.provinces[p]);
+    if (lvl > bestLvl) {
+      best = p;
+      bestLvl = lvl;
+    }
+  }
+  return best;
+}
+
+/** Units a convoy can carry each way. */
+export function convoyRoom(s: GameState, n: number): number {
+  let ports = 0;
+  let merchants = 0;
+  for (const p of provincesOf(s, n)) {
+    ports += s.provinces[p].b.port ?? 0;
+    merchants += classSize(s.provinces[p], "merchants");
+  }
+  return Math.round(60 + ports * 50 + merchants / 25);
 }
 
 export function dayLabel(days: number): string {

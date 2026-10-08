@@ -6,6 +6,7 @@ import { html, nothing, TemplateResult } from "lit";
 import { formatDate } from "../../engine/Calendar";
 import { isExplored } from "../../engine/Missions";
 import {
+  abandonCheck,
   armiesIn,
   armyMen,
   buildCheck,
@@ -558,6 +559,29 @@ function actionsSection(
         >
           Build an outpost here <span class="cq-cost">${OUTPOST.gold}g</span>
         </button>
+      </div>`,
+    );
+  }
+  if (me.kind === "power" && pr.owner === ui.me) {
+    const check = abandonCheck(s, ui.map, ui.me, p);
+    const name = ui.map.provinces[p].name;
+    const folk = Math.round(settlers(pr));
+    out.push(
+      html`<div class="cq-act cq-abandon">
+        ${action(
+          "Abandon this settlement",
+          check,
+          () => {
+            if (
+              confirm(
+                `Abandon ${name}? Most of its ${folk} settlers move to your nearest settlement, its buildings are left to rot, and the land goes back to the wild. The crown won't like it; the natives around it will.`,
+              )
+            )
+              void ui.cmd({ k: "abandon", p });
+          },
+          "quiet danger small",
+          "Give it up and bring its people home",
+        )}
       </div>`,
     );
   }

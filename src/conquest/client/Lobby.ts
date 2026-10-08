@@ -6,16 +6,17 @@ import { customElement, property, state } from "lit/decorators.js";
 import "../../derpland/DerpBar";
 import { openSignIn } from "../../derpland/DerpBar";
 import { AMERICAS } from "../engine/Map";
-import { START_YEAR } from "../engine/Rules";
-import type { Difficulty } from "../engine/Types";
+import { START_SUMMARY_1607, START_YEARS, STARTS } from "../engine/Starts";
+import type { Difficulty, StartYear } from "../engine/Types";
 import {
   DIFFICULTIES,
   END_YEAR_MAX,
-  END_YEAR_MIN,
+  minEndYear,
   OpenRoom,
   RoomSettings,
   SavedGame,
 } from "../Protocol";
+import { creditsList } from "./Credits";
 import { flag } from "./Flags";
 import { Net } from "./Net";
 import "./Range";
@@ -108,12 +109,14 @@ export class Lobby extends LitElement {
           </figure>
           <div class="cq-hero-text">
             <h1 class="cq-title">Derpy Conquest</h1>
-            <p class="cq-tagline">The Americas, 1607. You are the governor.</p>
+            <p class="cq-tagline">
+              The Americas, 1607 to 1800. You are the governor.
+            </p>
             <p>
-              Your crown has granted you a charter and a few hundred settlers.
-              Feed them, trade with the native nations or fight them, keep the
-              crown paid or break with it. Real time with pause, for one to five
-              players.
+              Your crown has granted you a charter: a few hundred settlers in
+              1607, or a colony already taking root in 1650 or 1700. Feed them,
+              trade with the native nations or fight them, keep the crown paid
+              or break with it. Real time with pause, for one to five players.
             </p>
             ${this.online
               ? nothing
@@ -268,6 +271,10 @@ export class Lobby extends LitElement {
             rel="noopener"
             >Source code</a
           >
+          <details class="cq-foot-credits">
+            <summary>Credits for the art, sounds and music</summary>
+            ${creditsList()}
+          </details>
         </footer>
       </div>
     </div>`;
@@ -284,8 +291,9 @@ export class Lobby extends LitElement {
       <div class="cq-room-info">
         <b>${r.host}'s game</b>
         <span class="cq-muted small">
-          ${r.players.length} player${r.players.length === 1 ? "" : "s"}, until
-          ${r.settings.endYear}, ${r.settings.difficulty}
+          ${r.players.length} player${r.players.length === 1 ? "" : "s"},
+          ${r.settings.start ?? 1607} to ${r.settings.endYear},
+          ${r.settings.difficulty}
           ${r.started
             ? html`<span class="cq-chip">Playing, ${r.year}</span>`
             : html`<span class="cq-chip good">Choosing nations</span>`}
@@ -322,22 +330,58 @@ export class Lobby extends LitElement {
   }
 }
 
-/** The end year and difficulty pickers, shared by the lobby and the room. */
+const START_TITLE: Record<StartYear, string> = {
+  1607: "The first colonies",
+  1650: "Colonies taking root",
+  1700: "Empires at the brink",
+};
+
+export function startSummary(start: StartYear): string {
+  return start === 1607 ? START_SUMMARY_1607 : (STARTS[start]?.summary ?? "");
+}
+
+/** The start date, end year and difficulty, shared by the lobby and the room. */
 export function settingsFields(
   s: RoomSettings,
   set: (s: RoomSettings) => void,
   editable: boolean,
 ): TemplateResult {
+  const start = s.start ?? 1607;
+  const pickStart = (y: StartYear) => {
+    if (y === start) return;
+    const end = Math.max(
+      minEndYear(y),
+      Math.min(END_YEAR_MAX, s.endYear + (y - start)),
+    );
+    set({ ...s, start: y, endYear: end });
+  };
   return html`<div class="cq-settings">
+    <div class="cq-field">
+      <span class="cq-field-label" id="cq-start-label">Begin in</span>
+      <div class="cq-starts" role="radiogroup" aria-labelledby="cq-start-label">
+        ${START_YEARS.map(
+          (y) =>
+            html`<button
+              role="radio"
+              aria-checked=${y === start}
+              ?disabled=${!editable && y !== start}
+              @click=${() => editable && pickStart(y)}
+            >
+              <b>${y}</b><span>${START_TITLE[y]}</span>
+            </button>`,
+        )}
+      </div>
+      <p class="cq-muted small cq-start-summary">${startSummary(start)}</p>
+    </div>
     <div class="cq-field">
       <cq-range
         label="Play until"
-        .min=${END_YEAR_MIN}
+        .min=${minEndYear(start)}
         .max=${END_YEAR_MAX}
         .step=${5}
         .value=${s.endYear}
         ?disabled=${!editable}
-        .note=${(y: number) => `${y - START_YEAR} years of play`}
+        .note=${(y: number) => `${y - start} years of play`}
         @cq-change=${(e: CustomEvent<number>) =>
           set({ ...s, endYear: e.detail })}
       ></cq-range>

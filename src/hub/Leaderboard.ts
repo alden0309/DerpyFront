@@ -4,7 +4,7 @@
 import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { api, ApiError } from "../derpland/Account";
-import { podiumIcon, tokenColor } from "../derpland/Icons";
+import { bananaMark, podiumIcon, tokenColor } from "../derpland/Icons";
 import { gold, nf } from "./format";
 import { HubPage } from "./HubPage";
 
@@ -183,7 +183,15 @@ export class DerpLeaderboard extends HubPage {
                 >${r.wins} ${r.wins === 1 ? "win" : "wins"}</span
               >
             </a>
-            <span class="dl-block"><span>${place}</span></span>
+            <span class="dl-block"
+              >${place === 1
+                ? html`<span class="dl-topbanana" title="Top banana"
+                    >${bananaMark("dl-banana")}<span class="dl-sr"
+                      >Top banana</span
+                    ></span
+                  >`
+                : nothing}<span>${place}</span></span
+            >
           </li>`;
         })}
       </ol>

@@ -26,13 +26,17 @@ import {
 import type { BattleSide, PeaceTerms, RegType } from "../../engine/Types";
 import { SEATS } from "../../engine/Types";
 import type { ResultLine } from "../../Protocol";
+import { creditsList } from "../Credits";
 import { flagFor } from "../Flags";
+import { confirmMarch, setConfirmMarch } from "../Prefs";
 import "../Range";
-import { isMuted, play, setMuted } from "../Sound";
+import { music, play, setSoundSettings, soundSettings } from "../Sound";
 import { money, nationName } from "../Text";
 import { num } from "../Tip";
 import { battleVerdict, reasonList, strengthBars } from "./Battle";
 import { action, breakdownTip, GameUi, Modal, token } from "./Context";
+import "./Goods";
+import "./Story";
 
 /** What the menu and the results need from the game screen. */
 export interface ModalHooks {
@@ -77,9 +81,18 @@ export function renderModal(
       break;
     case "end":
       body = endPage(ui, hooks);
+      cls = "wide end";
       break;
     case "mission":
       body = missionPicker(ui, m.p, m.kind, m.leader);
+      cls = "wide";
+      break;
+    case "trade":
+      body = html`<cq-deal .ui=${ui} .other=${m.n}></cq-deal>`;
+      cls = "wide";
+      break;
+    case "credits":
+      body = creditsPage(ui);
       cls = "wide";
       break;
   }
@@ -402,6 +415,22 @@ function peaceTable(ui: GameUi, n: number, terms: PeaceTerms): TemplateResult {
         </p>
       </fieldset>
     </div>
+    ${them.kind === "native" && s.nations[me].kind === "power"
+      ? html`<label class="cq-check cq-subjugate">
+          <input
+            type="checkbox"
+            .checked=${!!terms.subjugate}
+            @change=${(e: Event) =>
+              set({ subjugate: (e.target as HTMLInputElement).checked })}
+          />
+          <span
+            ><b>Make them a tributary.</b> They keep their land and chiefs but
+            pay you a fifth of their gold and a share of their furs each month,
+            fight beside you, and can't make war on you. They'll resent
+            it.</span
+          >
+        </label>`
+      : nothing}
     <cq-range
       label="Gold"
       .min=${-maxGive}
@@ -432,7 +461,7 @@ function peaceTable(ui: GameUi, n: number, terms: PeaceTerms): TemplateResult {
     <div class="cq-btnrow end">
       <button
         class="cq-btn quiet"
-        @click=${() => set({ take: [], give: [], gold: 0 })}
+        @click=${() => set({ take: [], give: [], gold: 0, subjugate: false })}
       >
         White peace
       </button>
@@ -481,18 +510,7 @@ function menu(ui: GameUi, hooks: ModalHooks): TemplateResult {
       <button class="cq-btn" @click=${() => ui.modal({ k: "help" })}>
         How to play
       </button>
-      <label class="cq-check">
-        <input
-          type="checkbox"
-          .checked=${!isMuted()}
-          @change=${(e: Event) => {
-            setMuted(!(e.target as HTMLInputElement).checked);
-            if (!isMuted()) play("bell");
-            ui.redraw();
-          }}
-        />
-        Sounds (quill, bells, drums and cannon)
-      </label>
+      ${settingsBlock(ui)}
       ${hooks.isHost && !ui.s.over
         ? html`<button
             class="cq-btn danger"
@@ -518,6 +536,99 @@ function menu(ui: GameUi, hooks: ModalHooks): TemplateResult {
   `;
 }
 
+function settingsBlock(ui: GameUi): TemplateResult {
+  const snd = soundSettings();
+  const change = (next: Parameters<typeof setSoundSettings>[0]) => {
+    setSoundSettings(next);
+    ui.redraw();
+  };
+  return html`<fieldset class="cq-prefs">
+    <legend>Settings</legend>
+    <label class="cq-check">
+      <input
+        type="checkbox"
+        .checked=${snd.music}
+        @change=${(e: Event) =>
+          change({ music: (e.target as HTMLInputElement).checked })}
+      />
+      Music
+      ${snd.music && music.title
+        ? html`<span class="cq-muted small">playing ${music.title}</span>`
+        : nothing}
+    </label>
+    <cq-range
+      label="Music volume"
+      .min=${0}
+      .max=${100}
+      .step=${5}
+      .value=${Math.round(snd.musicVolume * 100)}
+      .disabled=${!snd.music}
+      .format=${(v: number) => `${v}%`}
+      @cq-input=${(e: CustomEvent<number>) =>
+        setSoundSettings({ musicVolume: e.detail / 100 })}
+    ></cq-range>
+    <label class="cq-check">
+      <input
+        type="checkbox"
+        .checked=${snd.sfx}
+        @change=${(e: Event) => {
+          change({ sfx: (e.target as HTMLInputElement).checked });
+          play("bell");
+        }}
+      />
+      Sounds (quill, bells, drums and cannon)
+    </label>
+    <cq-range
+      label="Sound volume"
+      .min=${0}
+      .max=${100}
+      .step=${5}
+      .value=${Math.round(snd.sfxVolume * 100)}
+      .disabled=${!snd.sfx}
+      .format=${(v: number) => `${v}%`}
+      @cq-input=${(e: CustomEvent<number>) =>
+        setSoundSettings({ sfxVolume: e.detail / 100 })}
+      @cq-change=${() => play("seal")}
+    ></cq-range>
+    <label class="cq-check">
+      <input
+        type="checkbox"
+        .checked=${confirmMarch()}
+        @change=${(e: Event) => {
+          setConfirmMarch((e.target as HTMLInputElement).checked);
+          ui.redraw();
+        }}
+      />
+      Ask before marching when I right-click a province
+    </label>
+    <button class="cq-link small" @click=${() => ui.modal({ k: "credits" })}>
+      Credits for the art, sounds and music
+    </button>
+  </fieldset>`;
+}
+
+function creditsPage(ui: GameUi): TemplateResult {
+  return html`
+    <h2 class="cq-h1">Credits</h2>
+    <p class="cq-lede small">
+      Derpy Conquest's pictures, sounds and music were shared freely by the
+      people who made them. With thanks to:
+    </p>
+    ${creditsList()}
+    <p class="cq-muted small">
+      Derpy Conquest is part of Derp Land, built on OpenFront.
+      <a href="https://github.com/alden0309/DerpyFront" target="_blank"
+        >Source</a
+      >.
+    </p>
+    <div class="cq-btnrow end">
+      <button class="cq-btn" @click=${() => ui.modal({ k: "menu" })}>
+        Back to the menu
+      </button>
+    </div>
+  `;
+}
+
 const HELP: [string, string][] = [
   [
     "Who you are",
@@ -536,8 +647,12 @@ const HELP: [string, string][] = [
     "Each province holds groups of people: laborers, artisans, merchants, gentry, clergy and native tribes, each with a faith and a culture. They need food, then cloth and tools, then luxuries. Unmet needs, high taxes, other faiths and too much land breed unrest; at 100 a province revolts.",
   ],
   [
+    "Timber, tools and laborers",
+    "Almost everything you build needs timber and tools, and every new regiment needs laborers. Timber: every settlement cuts some clearing land (more in forest), and a lumber camp in timber country adds more. Tools: a smithy turns timber into tools; until you have one, buy them in Europe from the Treasury tab or trade for them. Laborers: they arrive with settlers from home every month and grow when there's food, so keep grain in store. The Treasury tab's goods table shows what you make and use of each, and clicking a good tells you where to get more.",
+  ],
+  [
     "Trade",
-    "Goods have a price in your colony set by supply and demand, and a price in Europe. A convoy sails from your main port every two months, carrying whatever sells for more at home, and returns weeks later with what's dear here. Ice and storms slow it.",
+    "Goods have a price in your colony set by supply and demand, and a price in Europe. A convoy sails from your main port every two months, carrying whatever sells for more at home, and returns weeks later with what's dear here. Ice and storms slow it. To get a particular good quickly, buy it outright in Europe from the Treasury tab: you pay now and a ship brings it. To swap goods with another colony or a native nation you border, open their page and choose Trade goods.",
   ],
   [
     "Administration",
@@ -553,7 +668,15 @@ const HELP: [string, string][] = [
   ],
   [
     "Native nations",
-    "The Powhatan, Haudenosaunee, Wendat, Muscogee and many more are full nations with their own chiefs, councils, trade and wars. They remember gifts, broken treaties and land taken. Buy land from friends; take it from enemies at your peril.",
+    "The Powhatan, Haudenosaunee, Wendat, Muscogee and many more are full nations with their own chiefs, councils, trade and wars. They remember gifts, broken treaties and land taken. Buy land from friends; take it from enemies at your peril. A native nation much weaker than you can be made a tributary, by demanding it or as a term of peace: it keeps its land but pays you tribute, fights beside you and can't attack you. Release it whenever you like.",
+  ],
+  [
+    "Giving up a settlement",
+    "A colony that costs more than it's worth can be abandoned from its province page. Most of its people move to your nearest settlement, the land goes back to the wild, the natives around it are glad, and the crown is not.",
+  ],
+  [
+    "Start dates",
+    "Start in 1607 with a handful of ships, in 1650 when New England, New Netherland and New France are taking root, or in 1700 on the eve of the War of the Spanish Succession, with the colonies as they were then.",
   ],
   [
     "Winning",
@@ -587,6 +710,8 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
     .map((n) => ({ n, score: n.score }))
     .sort((a, b) => b.score - a.score);
   const winner = s.winner >= 0 ? s.nations[s.winner] : ranked[0]?.n;
+  const yours =
+    ui.me >= 0 && s.nations[ui.me].kind === "power" ? ui.me : winner?.id;
   return html`
     <h2 class="cq-h1">${s.over ? "The game is over" : "The standings"}</h2>
     ${winner
@@ -595,6 +720,10 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
           ${s.over ? "wins" : "leads"}.
         </p>`
       : nothing}
+    ${yours !== undefined
+      ? html`<cq-colony-story .ui=${ui} .nation=${yours}></cq-colony-story>`
+      : nothing}
+    <h3 class="cq-h3">Standings</h3>
     ${results
       ? html`<table class="cq-table">
           <thead>

@@ -20,6 +20,7 @@ import {
   signOut,
 } from "./Account";
 import {
+  bananaMark,
   caretIcon,
   chestIcon,
   closeIcon,
@@ -118,8 +119,11 @@ export const GAMES = [
   },
 ] as const;
 
-/** The Derp Land mark: a hill with a flag planted on top. */
-function mark(): TemplateResult {
+/**
+ * DerpyFront's mark: a hill with a flag planted on top. The rest of Derp Land
+ * wears the banana.
+ */
+function hillMark(): TemplateResult {
   return html`<svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
     <path d="M3 34c4-8 9.5-12 17-12s13 4 17 12z" fill="#e7b84a" />
     <rect x="19" y="5" width="2.2" height="18" rx="1.1" fill="#e4e4e7" />
@@ -253,7 +257,9 @@ export class DerpBar extends LitElement {
             class="brand ${p === "derpyfront" ? "compact" : ""}"
             href="/"
             aria-label="Derp Land home"
-            >${mark()}<span>Derp Land</span></a
+            >${p === "derpyfront" ? hillMark() : bananaMark("mark banana")}<span
+              >Derp Land</span
+            ></a
           >
           <slot name="brand"></slot>
           <nav class="tabs" aria-label="Derp Land">
@@ -442,12 +448,21 @@ export class DerpBar extends LitElement {
       --blue: #0084d1;
       --blue-2: #1a9be6;
       --gold: #e7b84a;
+      --accent: var(--blue);
+      --accent-2: var(--blue-2);
+      --accent-ink: #fff;
       display: block;
       position: relative;
       z-index: 60;
       font-family: "Archivo Variable", "Archivo", system-ui, sans-serif;
       color: var(--text);
       -webkit-font-smoothing: antialiased;
+    }
+    /* DerpyFront keeps its blue; the rest of Derp Land wears banana. */
+    :host(:not([page="derpyfront"])) {
+      --accent: #f5cc3c;
+      --accent-2: #ffd447;
+      --accent-ink: #2e2010;
     }
     * {
       box-sizing: border-box;
@@ -496,6 +511,20 @@ export class DerpBar extends LitElement {
       height: 30px;
       margin-top: -3px;
     }
+    .mark.banana {
+      width: 34px;
+      height: 34px;
+      margin: -4px -2px 0 -4px;
+      transition: transform 0.25s ease;
+    }
+    .brand:hover .mark.banana {
+      transform: rotate(-12deg);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .mark.banana {
+        transition: none;
+      }
+    }
     .brand:focus-visible,
     .tab:focus-visible,
     .coins:focus-visible,
@@ -503,7 +532,7 @@ export class DerpBar extends LitElement {
     .signin:focus-visible,
     .game:focus-visible,
     .item:focus-visible {
-      outline: 2px solid var(--blue-2);
+      outline: 2px solid var(--accent-2);
       outline-offset: 2px;
       border-radius: 6px;
     }
@@ -547,7 +576,7 @@ export class DerpBar extends LitElement {
       right: 12px;
       bottom: -1px;
       height: 2px;
-      background: var(--blue-2);
+      background: var(--accent-2);
     }
     .dl-i {
       width: 18px;
@@ -620,7 +649,7 @@ export class DerpBar extends LitElement {
     }
     .token-btn.on .token,
     .token-btn[aria-expanded="true"] .token {
-      box-shadow: 0 0 0 2px var(--blue-2);
+      box-shadow: 0 0 0 2px var(--accent-2);
     }
     .token.big {
       width: 42px;
@@ -632,8 +661,8 @@ export class DerpBar extends LitElement {
       font: inherit;
       font-weight: 650;
       font-size: 14.5px;
-      background: var(--blue);
-      color: #fff;
+      background: var(--accent);
+      color: var(--accent-ink);
       border: 0;
       border-radius: 8px;
       padding: 8px 14px;
@@ -642,7 +671,7 @@ export class DerpBar extends LitElement {
     }
     .signin:hover,
     .primary:hover {
-      background: var(--blue-2);
+      background: var(--accent-2);
     }
     .panel {
       position: absolute;
@@ -847,7 +876,7 @@ export class DerpBar extends LitElement {
       color: var(--text);
     }
     input:focus-visible {
-      outline: 2px solid var(--blue-2);
+      outline: 2px solid var(--accent-2);
       outline-offset: 0;
       border-color: transparent;
     }

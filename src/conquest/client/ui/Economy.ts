@@ -22,6 +22,11 @@ import { GOODS } from "../../engine/Types";
 import { GOOD_COLORS, GOOD_NAMES, money } from "../Text";
 import { num, pct, plain } from "../Tip";
 import { breakdownTip, GameUi, more, section } from "./Context";
+import "./Goods";
+import { goodsBalance, moneyBalance } from "./Goods";
+
+/** Which good's "how to get more" is open in the goods table. */
+let openGood: Good | null = null;
 
 export function economyTab(ui: GameUi): TemplateResult {
   const s = ui.s;
@@ -44,7 +49,7 @@ export function economyTab(ui: GameUi): TemplateResult {
         >
       </div>
       <div class="cq-stat">
-        <span class="cq-stat-label">Last month</span>
+        <span class="cq-stat-label">Each month</span>
         ${num(
           `${L.net >= 0 ? "+" : ""}${plain(L.net)}`,
           () => ledgerTip(ui),
@@ -52,6 +57,23 @@ export function economyTab(ui: GameUi): TemplateResult {
         )}
       </div>
     </div>
+    ${moneyBalance(ui)}
+    ${section(
+      "Goods last month",
+      goodsBalance(ui, openGood, (g) => {
+        openGood = openGood === g ? null : g;
+        ui.redraw();
+      }),
+    )}
+    ${more(
+      html`Buy goods in Europe
+        <span class="cq-more-hint"
+          >${n.convoys.some((c) => c.ordered)
+            ? `${n.convoys.filter((c) => c.ordered).length} order${n.convoys.filter((c) => c.ordered).length === 1 ? "" : "s"} at sea`
+            : "pay gold, a ship brings it"}</span
+        >`,
+      html`<cq-europe-order .ui=${ui}></cq-europe-order>`,
+    )}
     ${section(
       "Taxes",
       html`<div class="cq-seg">

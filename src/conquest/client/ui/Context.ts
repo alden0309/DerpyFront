@@ -40,7 +40,9 @@ export type Modal =
   | { k: "menu" }
   | { k: "help" }
   | { k: "end" }
-  | { k: "mission"; p: number; kind: "explore" | "outpost"; leader?: number };
+  | { k: "mission"; p: number; kind: "explore" | "outpost"; leader?: number }
+  | { k: "trade"; n: number }
+  | { k: "credits" };
 
 export interface GameUi {
   s: GameState;

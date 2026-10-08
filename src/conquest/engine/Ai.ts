@@ -3,6 +3,7 @@
 // How they lean depends on their ruler's traits and the difficulty.
 
 import { seatCandidates } from "./Characters";
+import { mainPort } from "./Economy";
 import type { ConquestGame } from "./Game";
 import { kmBetween } from "./Map";
 import {
@@ -40,16 +41,19 @@ import {
   treatyBetween,
   treatyCheck,
   tribesfolk,
+  tributeCheck,
   warBetween,
   warCheck,
   warMonths,
   warScore,
 } from "./Queries";
 import { DIFFICULTY, REGIMENTS, WARRIOR_SHARE } from "./Rules";
+import { orderQuote } from "./Trade";
 import {
   Army,
   BuildingKind,
   Character,
+  Good,
   PeaceTerms,
   RegType,
   SEATS,
@@ -113,6 +117,8 @@ function powerAi(g: ConquestGame, n: number): void {
   marriages(g, n);
   if (nation.gold > 45) colonize(g, n);
   if (nation.gold > 120) explore(g, n);
+  supplies(g, n);
+  if (nation.gold > 150 && s.day % 180 < 31) tribute(g, n);
   for (let i = 0; i < (nation.gold > 400 ? 3 : nation.gold > 150 ? 2 : 1); i++)
     if (g.s.nations[n].gold > 60) build(g, n);
   military(g, n);
@@ -264,6 +270,36 @@ function build(g: ConquestGame, n: number): void {
   options.sort((a, b) => b.score - a.score);
   const top = options[0];
   if (top && nation.gold > 60) g.command(n, { k: "build", p: top.p, b: top.b });
+}
+
+/** Short of timber or tools to build with: buy some from Europe. */
+function supplies(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const nation = s.nations[n];
+  const m = nation.market;
+  if (nation.gold < 150 || nation.rebelling) return;
+  if (nation.convoys.some((c) => c.ordered)) return;
+  const goods: Partial<Record<Good, number>> = {};
+  if (m.stock.timber < 20) goods.timber = 30;
+  if (m.stock.tools < 10) goods.tools = 15;
+  if (Object.keys(goods).length === 0) return;
+  const port = mainPort(g, n);
+  if (port < 0) return;
+  const q = orderQuote(g, n, goods, port);
+  if (q.gold < nation.gold * 0.4) g.command(n, { k: "order", goods });
+}
+
+/** Lean on a weak native neighbour to pay tribute. */
+function tribute(g: ConquestGame, n: number): void {
+  const s = g.s;
+  for (const t of s.nations) {
+    if (t.kind !== "native" || !t.alive || t.overlord >= 0) continue;
+    const check = tributeCheck(s, g.w, n, t.id);
+    if (check.ok) {
+      g.command(n, { k: "tribute", n: t.id });
+      return;
+    }
+  }
 }
 
 // ---------------------------------------------------------------- armies
@@ -450,6 +486,17 @@ function peace(g: ConquestGame, n: number): void {
       terms = { take: held.slice(0, 2), give: [], gold: 0 };
       if (peaceWillingness(s, n, enemy, terms).total < 0)
         terms = { take: held.slice(0, 1), give: [], gold: 0 };
+    }
+    // A beaten native nation is made to pay tribute.
+    const foe = s.nations[enemy];
+    if (
+      score >= 45 &&
+      nation.kind === "power" &&
+      foe.kind === "native" &&
+      foe.overlord < 0
+    ) {
+      const harsh = { ...terms, subjugate: true };
+      if (peaceWillingness(s, n, enemy, harsh).total >= 0) terms = harsh;
     }
     if (
       score >= 25 ||
