@@ -1,75 +1,62 @@
-// Derp Coins for a game of Derpy Conquest. The server pays this and the
-// end screen shows it, so it's the whole rulebook.
+// Derp Coins for a line of lives in Derpy Conquest. The server pays this and
+// the end screen shows it, so it's the whole rulebook. Totals land where the
+// old governor's game did (it was deliberately tuned down): a short life
+// pays a handful, a dynasty that rose high pays a few dozen.
 
-export const CONQUEST_COINS = {
-  /** A game must last this long (game days) to pay. */
-  minDays: 730,
-  played: 5,
-  /** Coins per province held at the end (a half: two provinces a coin). */
-  perProvince: 0.5,
-  maxProvinces: 30,
-  perColony: 0.5,
-  maxColonies: 20,
-  perBattleWon: 1,
-  maxBattles: 20,
-  perConquest: 2,
-  maxConquests: 30,
-  win: 60,
-  second: 25,
-  third: 10,
-} as const;
+import { LIFE_COINS } from "./LifeRules";
+import type { Life } from "./Types";
 
-export interface ConquestCoinGame {
-  days: number;
-  rank: number;
-  provinces: number;
-  colonies: number;
-  battlesWon: number;
-  conquests: number;
-}
-
-export interface ConquestCoinResult {
+export interface CoinResult {
   total: number;
   lines: { line: string; coins: number }[];
 }
 
-export function conquestCoins(g: ConquestCoinGame): ConquestCoinResult {
-  const c = CONQUEST_COINS;
-  if (g.days < c.minDays) return { total: 0, lines: [] };
+/** What a seat's line earned. `reached1776`: a character still living at the end. */
+export function lifeCoins(life: Life, reached1776: boolean): CoinResult {
+  const c = LIFE_COINS;
+  const t = life.tally;
+  if (t.days < c.minDays) return { total: 0, lines: [] };
   const lines = [
-    { line: "Played", coins: c.played },
+    { line: "Lived a life", coins: c.played },
     {
-      line: "Provinces held",
-      coins: Math.min(c.maxProvinces, Math.floor(g.provinces * c.perProvince)),
+      line: `${Math.floor(t.days / 365)} years lived`,
+      coins: Math.min(c.maxYears, Math.floor((t.days / 3650) * c.perTenYears)),
     },
     {
-      line: "Colonies founded",
-      coins: Math.min(c.maxColonies, Math.floor(g.colonies * c.perColony)),
-    },
-    {
-      line: "Battles won",
-      coins: Math.min(c.maxBattles, Math.floor(g.battlesWon * c.perBattleWon)),
-    },
-    {
-      line: "Provinces conquered",
-      coins: Math.min(c.maxConquests, Math.floor(g.conquests * c.perConquest)),
+      line: "Rose in a trade",
+      coins: Math.min(c.maxRank, t.topRank * c.perRank),
     },
     {
       line:
-        g.rank === 1
-          ? "Victory"
-          : g.rank === 2
-            ? "Second place"
-            : "Third place",
-      coins:
-        g.rank === 1
-          ? c.win
-          : g.rank === 2
-            ? c.second
-            : g.rank === 3
-              ? c.third
-              : 0,
+        t.topOffice >= 3
+          ? "Governed"
+          : t.topOffice === 2
+            ? "Sat on a council"
+            : "Sat in an assembly",
+      coins: c.office[Math.min(3, t.topOffice)] ?? 0,
     },
+    {
+      line: "Renown",
+      coins: Math.min(
+        c.maxRenown,
+        Math.floor((t.peakRenown / 10) * c.perTenRenown),
+      ),
+    },
+    {
+      line: `${t.generations} generation${t.generations === 1 ? "" : "s"}`,
+      coins: Math.min(c.maxGenerations, (t.generations - 1) * c.perGeneration),
+    },
+    {
+      line: `${t.children} children`,
+      coins: Math.min(c.maxChildren, Math.floor(t.children * c.perChild)),
+    },
+    {
+      line: "Battles won",
+      coins: Math.min(c.maxBattles, t.battlesWon * c.perBattleWon),
+    },
+    { line: "A rising that won", coins: t.risingsWon > 0 ? c.risingWon : 0 },
+    { line: "Went to Europe", coins: t.europe ? c.europe : 0 },
+    { line: "Lived to see 1776", coins: reached1776 ? c.reached1776 : 0 },
   ].filter((l) => l.coins > 0);
   return { total: lines.reduce((n, l) => n + l.coins, 0), lines };
 }

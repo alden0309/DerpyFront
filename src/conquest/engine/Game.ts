@@ -14,12 +14,23 @@ import {
   worksDaily,
 } from "./Economy";
 import { answerEvent, eventsDaily, eventsMonthly } from "./Events";
+import { folkMonthly } from "./Folk";
 import { recordMilestone, yearlyMarks } from "./History";
+import {
+  beginLife,
+  lifeCommand,
+  livesAtEnd,
+  livesDaily,
+  livesMonthly,
+} from "./Life";
 import { World, worldOf } from "./Map";
 import { missionCommand, missionsDaily, outpostsDaily } from "./Missions";
+import { movementsMonthly } from "./Movements";
+import { makePolities, politicsMonthly } from "./Politics";
 import { popsMonthly } from "./Pops";
 import { scoreOf } from "./Queries";
 import { Rng } from "./Rng";
+import { END_YEAR } from "./Rules";
 import { newGameState } from "./Setup";
 import { dealsMonthly, tradeCommand } from "./Trade";
 import {
@@ -31,6 +42,8 @@ import {
   GameEvent,
   GameSettings,
   GameState,
+  LifeCommand,
+  LifePlan,
   MapDef,
   Nation,
   PlayerSeat,
@@ -55,6 +68,10 @@ export class ConquestGame {
   private europe = false;
   private battles: BattleReport[] = [];
   private events: GameEvent[] = [];
+  private livesTouched = new Set<string>();
+  private localsTouched = new Set<number>();
+  private movements = false;
+  private politiesTouched = new Set<number>();
   /** Turned off in tests that want a quiet world. */
   aiEnabled = true;
 
@@ -70,12 +87,24 @@ export class ConquestGame {
     this.seenId = state.nextId;
   }
 
+  /**
+   * A new world, with a life for each player who made a character. Returns
+   * the game; a plan that doesn't fit the world is skipped (its player can
+   * make another and drop in).
+   */
   static create(
     map: MapDef,
     settings: GameSettings,
     seats: PlayerSeat[],
   ): ConquestGame {
-    return new ConquestGame(map, newGameState(map, settings, seats));
+    const g = new ConquestGame(
+      map,
+      newGameState(map, { ...settings, endYear: END_YEAR }),
+    );
+    makePolities(g);
+    for (const seat of seats) beginLife(g, seat.seat, seat.name, seat.plan);
+    g.takeDelta();
+    return g;
   }
 
   get s(): GameState {
@@ -138,6 +167,18 @@ export class ConquestGame {
   europeChanged(): void {
     this.europe = true;
   }
+  lifeChanged(seat: string): void {
+    this.livesTouched.add(seat);
+  }
+  localsChanged(p: number): void {
+    this.localsTouched.add(p);
+  }
+  movementsChanged(): void {
+    this.movements = true;
+  }
+  politiesChanged(n: number): void {
+    this.politiesTouched.add(n);
+  }
 
   battle(r: BattleReport): void {
     this.state.battles.push(r);
@@ -185,7 +226,28 @@ export class ConquestGame {
     if (this.europe) d.europe = s.europe;
     if (this.battles.length > 0) d.battles = this.battles;
     if (this.events.length > 0) d.events = this.events;
+    if (this.livesTouched.size > 0) {
+      d.lives = {};
+      for (const seat of this.livesTouched) {
+        const life = s.lives.find((l) => l.seat === seat);
+        if (life) d.lives[seat] = life;
+      }
+    }
+    if (this.localsTouched.size > 0) {
+      d.locals = {};
+      for (const p of this.localsTouched) d.locals[p] = s.locals[p] ?? [];
+    }
+    if (this.movements) d.movements = s.movements;
+    if (this.politiesTouched.size > 0) {
+      d.polities = {};
+      for (const n of this.politiesTouched)
+        if (s.polities[n]) d.polities[n] = s.polities[n];
+    }
     if (s.over) d.over = { winner: s.winner };
+    this.livesTouched = new Set();
+    this.localsTouched = new Set();
+    this.movements = false;
+    this.politiesTouched = new Set();
     this.provs = new Set();
     this.nations = new Set();
     this.charsTouched = new Set();
@@ -214,6 +276,7 @@ export class ConquestGame {
     missionsDaily(this);
     convoysDaily(this);
     eventsDaily(this);
+    livesDaily(this);
     if (isMonthStart(s.day)) this.month();
     if (s.day >= s.endDay) this.finish();
   }
@@ -229,6 +292,10 @@ export class ConquestGame {
     warMonthly(this);
     dealsMonthly(this);
     eventsMonthly(this);
+    folkMonthly(this);
+    politicsMonthly(this);
+    movementsMonthly(this);
+    livesMonthly(this);
     if (this.aiEnabled) {
       for (const n of this.state.nations) {
         if (n.alive && n.player === null) runAi(this, n.id);
@@ -239,7 +306,7 @@ export class ConquestGame {
 
   updateScores(): void {
     for (const n of this.state.nations) {
-      if (!n.alive || n.kind === "crown") continue;
+      if (!n.alive || (n.kind !== "power" && n.kind !== "native")) continue;
       const score = scoreOf(this.state, this.w, n.id).total;
       if (score !== n.score) this.nation(n.id).score = score;
     }
@@ -249,6 +316,7 @@ export class ConquestGame {
     const s = this.state;
     if (s.over) return;
     this.updateScores();
+    livesAtEnd(this);
     s.over = true;
     const best = this.ranking()[0];
     s.winner = best ? best.id : -1;
@@ -264,6 +332,16 @@ export class ConquestGame {
 
   nationOfSeat(seat: string): number {
     return this.state.nations.findIndex((n) => n.player === seat);
+  }
+
+  /** A player's character steps into the world (at the start, or dropping in). */
+  beginLife(seat: string, name: string, plan: LifePlan): string | null {
+    return beginLife(this, seat, name, plan);
+  }
+
+  /** Carry out a player's command for their character; why it can't, or null. */
+  lifeCommand(seat: string, c: LifeCommand): string | null {
+    return lifeCommand(this, seat, c);
   }
 
   // ---------------------------------------------------------------- commands

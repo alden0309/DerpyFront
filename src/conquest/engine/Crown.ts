@@ -463,7 +463,7 @@ function crownOf(g: ConquestGame, n: number): number {
   return g.s.nations.findIndex((x) => x.kind === "crown" && x.colony === n);
 }
 
-function declareIndependence(g: ConquestGame, n: number): void {
+export function declareIndependence(g: ConquestGame, n: number): void {
   const s = g.s;
   const nation = g.nation(n);
   const crown = crownOf(g, n);

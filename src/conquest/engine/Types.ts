@@ -142,7 +142,15 @@ export type TraitId =
   | "robust"
   | "sickly"
   | "educated"
-  | "charming";
+  | "charming"
+  // Picked up in a life rather than chosen at birth.
+  | "strong"
+  | "shrewd"
+  | "drunkard"
+  | "scarred"
+  | "famous"
+  | "wounded"
+  | "gouty";
 
 export type Seat = "treasurer" | "marshal" | "envoy" | "spymaster" | "chaplain";
 export const SEATS: readonly Seat[] = [
@@ -207,6 +215,461 @@ export interface Character {
   made: boolean;
   /** The likeness the player chose for them (index into the portraits). */
   face?: number;
+  /** Where they live, if not at their nation's capital (locals, families). */
+  home?: number;
+  /** What a local does for a living (the tavern keeper, the sergeant). */
+  role?: RoleId;
+  /** Gone to Europe for good: out of the Americas. */
+  abroad?: boolean;
+}
+
+// ---------------------------------------------------------------- lives
+
+/** What a played character is good at, 0 to 20, learned by doing. */
+export type Skill =
+  | "fighting"
+  | "leadership"
+  | "persuasion"
+  | "trade"
+  | "craft"
+  | "farming"
+  | "seamanship"
+  | "woodcraft"
+  | "letters"
+  | "faith"
+  | "medicine"
+  | "stealth";
+
+export const SKILLS: readonly Skill[] = [
+  "fighting",
+  "leadership",
+  "persuasion",
+  "trade",
+  "craft",
+  "farming",
+  "seamanship",
+  "woodcraft",
+  "letters",
+  "faith",
+  "medicine",
+  "stealth",
+];
+
+export type Skills = Record<Skill, number>;
+
+/** Where in a province something can be done. */
+export type PlaceKind =
+  | "tavern"
+  | "market"
+  | "church"
+  | "councilfire"
+  | "docks"
+  | "fort"
+  | "workshop"
+  | "press"
+  | "fields"
+  | "governor"
+  | "village"
+  | "woods"
+  | "apothecary";
+
+/** A trade with a ladder to climb. */
+export type JobKind =
+  | "farmer"
+  | "millhand"
+  | "newsman"
+  | "soldier"
+  | "sailor"
+  | "clerk"
+  | "official"
+  | "law"
+  | "craftsman"
+  | "trapper"
+  | "servant"
+  | "preacher"
+  | "physician"
+  | "innkeeper"
+  | "hunter"
+  | "warrior"
+  | "grower"
+  | "healer"
+  | "trader"
+  | "speaker"
+  | "maker";
+
+/** What the people of a place do, and so what they can offer you. */
+export type RoleId =
+  | "innkeeper"
+  | "preacher"
+  | "merchant"
+  | "captain"
+  | "sergeant"
+  | "master"
+  | "printer"
+  | "planter"
+  | "physician"
+  | "official"
+  | "lawyer"
+  | "sachem"
+  | "healer"
+  | "hunter"
+  | "elder"
+  | "trader"
+  | "maker"
+  | "warleader";
+
+export type BackgroundId =
+  | "farmer"
+  | "millhand"
+  | "newsman"
+  | "soldier"
+  | "sailor"
+  | "clerk"
+  | "craftsman"
+  | "trapper"
+  | "servant"
+  | "preacher"
+  | "physician"
+  | "lawyer"
+  | "gentry"
+  | "hunter"
+  | "warrior"
+  | "grower"
+  | "healer"
+  | "trader"
+  | "speaker"
+  | "maker";
+
+export type Lifestyle = "frugal" | "modest" | "comfortable";
+
+export interface Job {
+  kind: JobKind;
+  /** Rung on the ladder, 0 first. */
+  rank: number;
+  /** Where the post is. */
+  prov: number;
+  place: PlaceKind;
+  /** Who took you on (a character), or -1. */
+  employer: number;
+  /** The nation served (soldiers, officials), or -1. */
+  nation: number;
+  /** The army a soldier marches with, or -1 (in garrison). */
+  army: number;
+  since: number;
+  /** Months worked in this rank (promotion needs some). */
+  months: number;
+  /** Months away from the post in a row (two and you're let go). */
+  away: number;
+  /** Indentured servants: the day the indenture is served. */
+  until?: number;
+}
+
+/** On the road (or at sea): the hops still to go, like an army's march. */
+export interface Travel {
+  dest: number;
+  /** Provinces still ahead, next first. */
+  path: number[];
+  /** For each hop in `path`: by sea. */
+  sea: boolean[];
+  /** Day you left `prov` for path[0], and the day you reach it. */
+  depart: number;
+  arrive: number;
+  /** The whole journey's cost, already paid. */
+  cost: number;
+}
+
+export interface JournalEntry {
+  day: number;
+  text: string;
+  tone?: "good" | "bad";
+  /** The character it happened to (lives span generations). */
+  c: number;
+}
+
+export type MilestoneKind =
+  | "born"
+  | "begin"
+  | "job"
+  | "promoted"
+  | "married"
+  | "child"
+  | "moved"
+  | "voyage"
+  | "battle"
+  | "wounded"
+  | "renown"
+  | "office"
+  | "movement"
+  | "rising"
+  | "europe"
+  | "died"
+  | "heir"
+  | "takeover"
+  | "watching"
+  | "end";
+
+export interface LifeMilestone {
+  day: number;
+  kind: MilestoneKind;
+  c: number;
+  text: string;
+  /** Where it happened. */
+  p?: number;
+}
+
+/** Someone you owe, and by when. */
+export interface Debt {
+  to: number;
+  amount: number;
+  due: number;
+}
+
+/** An event in a life waiting for a choice. */
+export interface LifeEventPending {
+  id: number;
+  key: string;
+  day: number;
+  title: string;
+  body: string;
+  choices: EventChoice[];
+  ctx: Record<string, number>;
+  /** Day it's decided for you (the first choice it can take). */
+  expires: number;
+}
+
+/** Totals over a whole line of characters, for the story and the coins. */
+export interface LifeTally {
+  /** Days lived as a played character, all generations together. */
+  days: number;
+  jobs: number;
+  promotions: number;
+  /** Highest rung reached on any ladder (0, 1, 2…). */
+  topRank: number;
+  /** Highest office: 0 none, 1 assembly or council fire, 2 council, 3 governor or sachem. */
+  topOffice: number;
+  peakRenown: number;
+  peakPurse: number;
+  earned: number;
+  children: number;
+  marriages: number;
+  battles: number;
+  battlesWon: number;
+  wounds: number;
+  events: number;
+  generations: number;
+  takeovers: number;
+  provinces: number;
+  risings: number;
+  risingsWon: number;
+  elections: number;
+  /** Went to Europe, and why. */
+  europe: EuropeWhy | null;
+}
+
+export type Tincture =
+  | "or"
+  | "argent"
+  | "gules"
+  | "azure"
+  | "vert"
+  | "sable"
+  | "purpure"
+  | "tenne";
+
+export type Division =
+  | "plain"
+  | "pale"
+  | "fess"
+  | "bend"
+  | "chevron"
+  | "quarterly"
+  | "saltire"
+  | "cross"
+  | "chief";
+
+export type Charge =
+  | "none"
+  | "star"
+  | "lion"
+  | "fleur"
+  | "anchor"
+  | "tree"
+  | "ship"
+  | "key"
+  | "crescent"
+  | "heart"
+  | "bird"
+  | "wheat"
+  | "tower"
+  | "sword"
+  | "beaver"
+  | "turtle"
+  | "wolf"
+  | "bear"
+  | "deer"
+  | "feather";
+
+/** A family's arms (or a native clan's sign). */
+export interface Sigil {
+  field: Tincture;
+  division: Division;
+  tincture: Tincture;
+  charge: Charge;
+  chargeTincture: Tincture;
+}
+
+export type Tie = "friend" | "rival" | "lover";
+
+export type EuropeWhy =
+  | "fortune"
+  | "parliament"
+  | "army"
+  | "recalled"
+  | "exile";
+
+/**
+ * A player's life in the world: the character they play now, and everything
+ * a character sheet holds. Kept per seat across heirs and takeovers, so the
+ * line's journal and story run on.
+ */
+export interface Life {
+  seat: string;
+  /** The player's name. */
+  name: string;
+  /** The character played now, or -1 while watching. */
+  c: number;
+  /** Characters this seat has played, in order. */
+  line: number[];
+  /** Power or native nation key they began as. */
+  origin: string;
+  background: BackgroundId;
+  /** The province they're in (or leaving, while travelling). */
+  prov: number;
+  /** Where they (and their family) live. */
+  home: number;
+  travel: Travel | null;
+  job: Job | null;
+  purse: number;
+  health: number;
+  stress: number;
+  renown: number;
+  /** Standing with the crown (or the elders): letters, service, gifts. */
+  favor: number;
+  skills: Skills;
+  xp: Skills;
+  lifestyle: Lifestyle;
+  /** Goods carried to sell elsewhere. */
+  goods: Partial<Record<Good, number>>;
+  /** The child named heir, or -1 for the eldest. */
+  heir: number;
+  /** Leave a third of the purse to a surviving spouse. */
+  shareWithSpouse: boolean;
+  sigil: Sigil;
+  /** The colour of the portrait's frame ribbon and dress. */
+  frame: string;
+  motto: string;
+  /** A patron who speaks for you (a character), or -1. */
+  patron: number;
+  journal: JournalEntry[];
+  milestones: LifeMilestone[];
+  /** Pending events with choices. */
+  events: LifeEventPending[];
+  /** Day each event, action or person-action may happen again. */
+  cooldowns: Record<string, number>;
+  /** People met, most recent last. */
+  met: number[];
+  /** Friends, rivals and lovers of the character played now. */
+  ties: Record<number, Tie>;
+  debts: Debt[];
+  /** Provinces visited, in the order first seen. */
+  visited: number[];
+  /** Where they were: a point at every arrival (for the story map). */
+  trail: { day: number; p: number; c: number }[];
+  /** Standing for the assembly: whose, and the points won campaigning. */
+  campaign: { nation: number; points: number } | null;
+  /** An invitation to Europe waiting for an answer. */
+  invite: { why: EuropeWhy; until: number } | null;
+  /** Watching the world: the line has ended, until a takeover or a new life. */
+  watching: boolean;
+  /** Why the last character's story ended, while watching. */
+  ended: { day: number; why: string } | null;
+  /** The game day this seat first played. */
+  joined: number;
+  tally: LifeTally;
+}
+
+/** A character a player designs before they begin (or drop into a world). */
+export interface LifePlan {
+  /** Power or native nation key. */
+  origin: string;
+  /** Province index to begin in, held by that nation. */
+  home: number;
+  first: string;
+  family: string;
+  female: boolean;
+  /** 16 to 40. */
+  age: number;
+  religion: Religion;
+  face: number;
+  sigil: Sigil;
+  frame: string;
+  motto: string;
+  background: BackgroundId;
+  /** Attributes: 5 each to start, points moved between them. */
+  stats: Stats;
+  /** Points bought on top of the background. */
+  skills: Partial<Record<Skill, number>>;
+  traits: TraitId[];
+}
+
+// ---------------------------------------------------------------- movements and politics
+
+export type MovementGoal = "reform" | "overthrow" | "independence" | "expel";
+
+export interface Movement {
+  id: number;
+  /** "bacon", "liberty"... or "own" for one a character founded. */
+  key: string;
+  name: string;
+  goal: MovementGoal;
+  /** The nation it means to change, or to drive out. */
+  against: number;
+  /** A native movement: the people it fights for (a nation index), or -1. */
+  people: number;
+  /** Where it has its followers. */
+  region: number[];
+  founded: number;
+  /** Who leads it (a character), or -1. */
+  leader: number;
+  members: number[];
+  /** How many ordinary people back it, 0 to 100. */
+  support: number;
+  /** Muskets and powder put by. */
+  arms: number;
+  status: "brewing" | "risen" | "won" | "crushed" | "faded";
+  /** The rebel host while risen (a nation index), or -1. */
+  rebels: number;
+  rose: number;
+  ended: number;
+  /** A historical movement rises by itself around this day, or -1. */
+  due: number;
+  /** It fades if it hasn't risen by this day. */
+  fades: number;
+  text: string;
+}
+
+/** A colony's (or native nation's) government that players can join. */
+export interface Polity {
+  nation: number;
+  /** "House of Burgesses", "the council fire". */
+  name: string;
+  /** Members of the assembly (character ids). */
+  assembly: number[];
+  seats: number;
+  /** Day of the next election. */
+  election: number;
+  /** Standing at the next election: characters and their campaign points. */
+  candidates: { c: number; points: number }[];
 }
 
 // ---------------------------------------------------------------- people
@@ -473,17 +936,24 @@ export interface TradeOffer {
 
 export type StartYear = 1607 | 1650 | 1700;
 
+export type NationKind = "power" | "native" | "crown" | "rebels";
+
 export interface Nation {
   id: number;
   key: string;
-  /** A crown only enters play to crush a colony's rebellion. */
-  kind: "power" | "native" | "crown";
+  /**
+   * A crown only enters play to crush a colony's rebellion; rebels are a
+   * movement's host under arms. Both have armies and no land of their own.
+   */
+  kind: NationKind;
   name: string;
   adjective: string;
   color: string;
   alive: boolean;
-  /** Crowns: the colony they rule (-1 otherwise). */
+  /** Crowns: the colony they rule; rebels: the nation they rose against (-1 otherwise). */
   colony: number;
+  /** Rebels: their movement's id. */
+  movement?: number;
   /** The seat of the human playing it, or null for the computer. */
   player: string | null;
   playerName: string | null;
@@ -775,6 +1245,7 @@ export type GameEvent =
     }
   | { k: "tributary"; day: number; n: number; by: number; free: boolean }
   | { k: "abandoned"; day: number; n: number; p: number }
+  | { k: "news"; day: number; n: number; text: string; p?: number }
   | {
       k: "ordered";
       day: number;
@@ -788,7 +1259,7 @@ export type GameEvent =
 export type Difficulty = "easy" | "normal" | "hard";
 
 export interface GameSettings {
-  /** The game ends on 1 January of this year. */
+  /** The game ends on 1 January of this year (1776). */
   endYear: number;
   difficulty: Difficulty;
   seed: number;
@@ -796,24 +1267,11 @@ export interface GameSettings {
   start?: StartYear;
 }
 
-/** The governor a player made before the game began. */
-export interface GovernorPlan {
-  first: string;
-  family: string;
-  female: boolean;
-  age: "young" | "prime" | "seasoned";
-  stats: Stats;
-  traits: TraitId[];
-  /** Which of the portraits for their nation, sex and age to wear. */
-  face?: number;
-}
-
+/** A player at the start: the character they made. */
 export interface PlayerSeat {
   seat: string;
   name: string;
-  /** Power key, e.g. "england". */
-  power: string;
-  governor: GovernorPlan | null;
+  plan: LifePlan;
 }
 
 export interface Europe {
@@ -852,6 +1310,13 @@ export interface GameState {
   battles: BattleReport[];
   over: boolean;
   winner: number;
+  /** The players' lives, one per seat that has played. */
+  lives: Life[];
+  /** Townsfolk met in each province (character ids), seeded on a first visit. */
+  locals: Record<number, number[]>;
+  movements: Movement[];
+  /** Assemblies and councils, by nation index. */
+  polities: Record<number, Polity>;
 }
 
 // ---------------------------------------------------------------- commands
@@ -892,6 +1357,91 @@ export type Command =
   | { k: "tribute"; n: number }
   | { k: "release"; n: number };
 
+/** Things done to or with another person. */
+export type PersonAct =
+  | "talk"
+  | "flatter"
+  | "insult"
+  | "work"
+  | "borrow"
+  | "gift"
+  | "befriend"
+  | "court"
+  | "propose"
+  | "rumour"
+  | "duel"
+  | "recruit"
+  | "patron"
+  | "join";
+
+export const PERSON_ACTS: readonly PersonAct[] = [
+  "talk",
+  "flatter",
+  "gift",
+  "befriend",
+  "court",
+  "propose",
+  "work",
+  "borrow",
+  "patron",
+  "recruit",
+  "join",
+  "rumour",
+  "insult",
+  "duel",
+];
+
+/** The few things a governor (or sachem) decides for their nation. */
+export type GovLever =
+  | { l: "tax"; level: TaxLevel }
+  | { l: "raise"; p: number }
+  | { l: "build"; p: number; b: BuildingKind }
+  | { l: "war"; n: number }
+  | { l: "peace"; n: number }
+  | { l: "remit"; share: number };
+
+export type MovementAct = "join" | "leave" | "found" | "rise" | "lead";
+
+/** What a player's character can do; the server runs these for their seat. */
+export type LifeCommand =
+  /** Set out for a province (by sea from a port where it's quicker). */
+  | { k: "travel"; to: number; bySea?: boolean }
+  /** Stop at the next place on the road. */
+  | { k: "halt" }
+  /** Something to do at a place here (pray, gamble, write a pamphlet). */
+  | { k: "act"; place: PlaceKind; act: string; arg?: number }
+  /** Take a job a place here offers. */
+  | { k: "job"; place: PlaceKind; job: JobKind }
+  | { k: "quit" }
+  | { k: "person"; c: number; act: PersonAct; arg?: number }
+  | { k: "lifestyle"; v: Lifestyle }
+  | { k: "heir"; c: number }
+  | { k: "will"; share: boolean }
+  | { k: "event"; id: number; choice: number }
+  /** Buy (qty > 0) or sell (qty < 0) goods at the market here. */
+  | { k: "trade"; good: Good; qty: number }
+  | { k: "repay"; to: number }
+  /** Watching: become someone in the world. */
+  | { k: "takeover"; c: number }
+  /** Take command of an army (or -1 to give it up). */
+  | { k: "command"; army: number }
+  /** March the army you command. */
+  | { k: "march"; to: number }
+  | {
+      k: "movement";
+      act: MovementAct;
+      id?: number;
+      goal?: MovementGoal;
+      name?: string;
+    }
+  /** Stand for the assembly at the next election. */
+  | { k: "stand" }
+  | { k: "gov"; lever: GovLever }
+  /** Sail for Europe (taking the heir, or leaving them to carry on). */
+  | { k: "europe"; takeHeir: boolean }
+  /** Turn down an invitation to Europe. */
+  | { k: "decline" };
+
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
   day: number;
@@ -909,4 +1459,10 @@ export interface GameDelta {
   battles?: BattleReport[];
   events?: GameEvent[];
   over?: { winner: number };
+  /** Lives that changed, by seat. */
+  lives?: Record<string, Life>;
+  /** Provinces whose townsfolk changed. */
+  locals?: Record<number, number[]>;
+  movements?: Movement[];
+  polities?: Record<number, Polity>;
 }

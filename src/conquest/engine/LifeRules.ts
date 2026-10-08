@@ -1,0 +1,1521 @@
+// The rulebook for a life in Derpy Conquest: the skills a character learns,
+// the backgrounds they can come from, the trades and their ladders, the
+// people of a place, what a way of living costs, arms and names. Plain data,
+// read by the engine, the server and the browser alike.
+
+import type {
+  BackgroundId,
+  Charge,
+  Division,
+  JobKind,
+  Lifestyle,
+  PlaceKind,
+  Religion,
+  RoleId,
+  Skill,
+  Skills,
+  Stat,
+  Tincture,
+  TraitId,
+} from "./Types";
+
+// ---------------------------------------------------------------- skills
+
+export const SKILL_MAX = 20;
+
+export const SKILL_NAMES: Record<Skill, string> = {
+  fighting: "Fighting",
+  leadership: "Leadership",
+  persuasion: "Persuasion",
+  trade: "Trade",
+  craft: "Craft",
+  farming: "Farming",
+  seamanship: "Seamanship",
+  woodcraft: "Woodcraft",
+  letters: "Letters",
+  faith: "Faith",
+  medicine: "Medicine",
+  stealth: "Stealth",
+};
+
+export const SKILL_HELP: Record<Skill, string> = {
+  fighting:
+    "Musket, blade, bow and fists. Soldiers, warriors, and anyone on a dark road.",
+  leadership: "Getting others to follow: a squad, a crew, a hunting party.",
+  persuasion: "Talking, charming, bargaining and courting.",
+  trade: "Buying low, selling high, and knowing a bad bargain.",
+  craft: "Hands that make things: smithing, joinery, canoes, pots.",
+  farming: "Fields, seasons and livestock; the three sisters or tobacco.",
+  seamanship: "Ships and boats: sails, knots, weather and the stars.",
+  woodcraft: "Hunting, tracking, trapping and finding your way.",
+  letters:
+    "Reading, writing and printing; and for speakers, the records of treaties.",
+  faith: "Prayer, ceremony, and comfort to others.",
+  medicine: "Herbs, physic, setting bones and fevers.",
+  stealth: "Not being seen, not being caught, and not saying too much.",
+};
+
+/** The attribute that helps each skill along (a point per 3 over 5). */
+export const SKILL_STAT: Record<Skill, Stat> = {
+  fighting: "mar",
+  leadership: "mar",
+  persuasion: "dip",
+  trade: "ste",
+  craft: "ste",
+  farming: "ste",
+  seamanship: "mar",
+  woodcraft: "int",
+  letters: "lea",
+  faith: "lea",
+  medicine: "lea",
+  stealth: "int",
+};
+
+export const ATTRIBUTE_NAMES: Record<Stat, string> = {
+  dip: "Diplomacy",
+  mar: "Martial",
+  ste: "Stewardship",
+  int: "Intrigue",
+  lea: "Learning",
+};
+
+export const ATTRIBUTE_HELP: Record<Stat, string> = {
+  dip: "Charm and tact. Helps persuasion, and how strangers take to you.",
+  mar: "Nerve and strength. Helps fighting, leadership and seamanship; commanders need it.",
+  ste: "Good sense with money and work. Helps trade, craft and farming.",
+  int: "A quick, sly mind. Helps woodcraft and stealth, and rumours and plots.",
+  lea: "Book learning and judgement. Helps letters, faith and medicine.",
+};
+
+/** XP to go from `level` to `level + 1`. */
+export function xpToNext(level: number): number {
+  return 40 + 12 * level;
+}
+
+/** Skill bonuses from traits, on top of their attribute changes. */
+export const TRAIT_SKILLS: Partial<Record<TraitId, Partial<Skills>>> = {
+  brave: { fighting: 2 },
+  craven: { fighting: -2, stealth: 1 },
+  charming: { persuasion: 2 },
+  deceitful: { stealth: 2, persuasion: 1 },
+  honest: { stealth: -2 },
+  diligent: { craft: 1, farming: 1 },
+  educated: { letters: 2, medicine: 1 },
+  zealous: { faith: 2 },
+  greedy: { trade: 1 },
+  generous: { persuasion: 1 },
+  just: { leadership: 1 },
+  cruel: { leadership: 1, persuasion: -1 },
+  ambitious: { leadership: 1 },
+  strong: { fighting: 2, craft: 1 },
+  shrewd: { trade: 2, persuasion: 1 },
+  drunkard: { persuasion: 1, stealth: -1 },
+  scarred: { fighting: 1 },
+  famous: { persuasion: 1, leadership: 1 },
+  wounded: { fighting: -2 },
+};
+
+/** What each trait means for a life (the governor's version is in TRAITS). */
+export const LIFE_TRAIT_TEXT: Record<TraitId, string> = {
+  ambitious: "+1 Leadership. Promotions come sooner, but stress builds.",
+  content: "Less stress every month. Promotions come a little slower.",
+  honest: "−2 Stealth. People believe you (+5 opinion of you).",
+  deceitful: "+2 Stealth, +1 Persuasion. Found out, people remember.",
+  brave: "+2 Fighting. Stands firm when it counts; more glory in battle.",
+  craven: "−2 Fighting, +1 Stealth. Lives to run another day.",
+  greedy: "+1 Trade. Others like you a little less (−5).",
+  generous: "+1 Persuasion. Gifts go further (+50% opinion).",
+  diligent: "+1 Craft and Farming. Learns 20% faster at work.",
+  lazy: "Learns 20% slower at work, but less stress.",
+  zealous: "+2 Faith. Other faiths like you less (−10).",
+  tolerant: "Strangers of other peoples and faiths like you better.",
+  just: "+1 Leadership. People trust your word (+5).",
+  cruel: "+1 Leadership, −1 Persuasion. Feared more than liked (−10).",
+  robust: "Rarely ill: half the risk of dying, and health recovers faster.",
+  sickly: "Often ill: twice the risk of dying, and health slips.",
+  educated: "+2 Letters, +1 Medicine. Learns letters 20% faster.",
+  charming: "+2 Persuasion. Everyone likes you a little more (+10).",
+  strong: "+2 Fighting, +1 Craft. Hard work wears you less.",
+  shrewd: "+2 Trade, +1 Persuasion. Better prices at the market.",
+  drunkard: "+1 Persuasion in company; health slips and stress returns.",
+  scarred: "+1 Fighting. A veteran's face: some respect, some stares.",
+  famous: "+1 Persuasion and Leadership. Everyone has heard of you (+10).",
+  wounded: "−2 Fighting. An old wound that aches when it rains.",
+  gouty: "Too much of the good life: health slips, tempers fray.",
+};
+
+/** Traits a new character can be given at the start (the rest are earned). */
+export const CREATION_TRAITS: TraitId[] = [
+  "brave",
+  "craven",
+  "charming",
+  "honest",
+  "deceitful",
+  "diligent",
+  "lazy",
+  "ambitious",
+  "content",
+  "generous",
+  "greedy",
+  "just",
+  "cruel",
+  "zealous",
+  "tolerant",
+  "educated",
+  "robust",
+  "sickly",
+  "strong",
+  "shrewd",
+  "drunkard",
+];
+
+export const LIFE_MAX_TRAITS = 3;
+/** Trait points at the start; a flaw gives some back. */
+export const LIFE_TRAIT_POINTS = 2;
+
+// ---------------------------------------------------------------- making a character
+
+export const LIFE_MIN_AGE = 16;
+export const LIFE_MAX_AGE = 40;
+/** Highest a skill can be at the start. */
+export const START_SKILL_MAX = 12;
+/** Where every skill starts before the background. */
+export const BASE_SKILL = 1;
+/** Attributes start at 5 each; this many points to raise them (more with age). */
+export const LIFE_STAT_POINTS = 3;
+export const LIFE_STAT_MIN = 2;
+export const LIFE_STAT_MAX = 12;
+
+export function statPointsFor(age: number): number {
+  return LIFE_STAT_POINTS + (age >= 25 ? 1 : 0) + (age >= 33 ? 1 : 0);
+}
+
+/** Skill points to spend at the start: more for an older character. */
+export function skillPointsFor(age: number): number {
+  if (age < 20) return 8;
+  if (age < 25) return 10;
+  if (age < 30) return 12;
+  if (age < 35) return 14;
+  return 16;
+}
+
+/** Points to raise a skill from `level` to `level + 1` at the start. */
+export function skillStepCost(level: number): number {
+  return level < 8 ? 1 : 2;
+}
+
+export interface BackgroundDef {
+  name: string;
+  native: boolean;
+  /** One line under the name. */
+  blurb: string;
+  /** What it means: where you'll work, what you'll earn. */
+  text: string;
+  skills: Partial<Skills>;
+  purse: number;
+  /** The job they start in, if their home has the place for it. */
+  job: JobKind | null;
+  renown: number;
+  lifestyle: Lifestyle;
+  /** Spare skill points this background brings (hard lives teach). */
+  bonusPoints?: number;
+}
+
+export const BACKGROUNDS: Record<BackgroundId, BackgroundDef> = {
+  farmer: {
+    name: "Farmer",
+    native: false,
+    blurb: "A rented plot, a mule, and the weather.",
+    text: "Starts as a tenant farmer in the fields of home. Buy your own land as a yeoman, then more.",
+    skills: { farming: 5, woodcraft: 2, craft: 1, fighting: 1 },
+    purse: 12,
+    job: "farmer",
+    renown: 0,
+    lifestyle: "modest",
+  },
+  millhand: {
+    name: "Mill hand",
+    native: false,
+    blurb: "The sawmill, the ironworks, the ropewalk or the shipyard.",
+    text: "Starts as a hand at the province's mill or yard. Journeyman, foreman, and one day a mill of your own.",
+    skills: { craft: 4, fighting: 1, trade: 1, seamanship: 1 },
+    purse: 10,
+    job: "millhand",
+    renown: 0,
+    lifestyle: "modest",
+  },
+  newsman: {
+    name: "Printer's devil",
+    native: false,
+    blurb: "Inky fingers, a sharp ear, and the news before anyone.",
+    text: "Starts setting type and crying the news. Journeyman, editor, and a newspaper of your own, which sways movements.",
+    skills: { letters: 4, persuasion: 2, stealth: 1 },
+    purse: 8,
+    job: "newsman",
+    renown: 1,
+    lifestyle: "modest",
+  },
+  soldier: {
+    name: "Soldier",
+    native: false,
+    blurb: "A musket, a coat, and a sergeant who shouts.",
+    text: "Starts as a private in the garrison, marching with a real army. Corporal, sergeant, then a commission; colonels lead armies.",
+    skills: { fighting: 5, leadership: 1, woodcraft: 1 },
+    purse: 8,
+    job: "soldier",
+    renown: 1,
+    lifestyle: "modest",
+  },
+  sailor: {
+    name: "Sailor",
+    native: false,
+    blurb: "Salt pork, tar, and the far side of the sea.",
+    text: "Starts as a deckhand at the docks. Passage by sea is free while you sail. Mate, captain, privateer.",
+    skills: { seamanship: 5, fighting: 2, trade: 1 },
+    purse: 10,
+    job: "sailor",
+    renown: 0,
+    lifestyle: "modest",
+  },
+  clerk: {
+    name: "Merchant's clerk",
+    native: false,
+    blurb: "Ledgers, bills of lading, and a sharp quill.",
+    text: "Starts as a clerk at the market. Factor, then merchant in your own right.",
+    skills: { trade: 4, letters: 3, persuasion: 1 },
+    purse: 15,
+    job: "clerk",
+    renown: 1,
+    lifestyle: "modest",
+  },
+  craftsman: {
+    name: "Craftsman",
+    native: false,
+    blurb: "Smith, carpenter or cooper.",
+    text: "Starts as an apprentice in a workshop. Journeyman, then master of your own shop.",
+    skills: { craft: 5, trade: 1, fighting: 1 },
+    purse: 12,
+    job: "craftsman",
+    renown: 0,
+    lifestyle: "modest",
+  },
+  trapper: {
+    name: "Fur trapper",
+    native: false,
+    blurb: "Beaver, the backcountry, and nobody's orders.",
+    text: "Starts trapping out of the woods. Sell furs where they fetch most.",
+    skills: { woodcraft: 5, fighting: 2, trade: 1, stealth: 1 },
+    purse: 8,
+    job: "trapper",
+    renown: 0,
+    lifestyle: "frugal",
+  },
+  servant: {
+    name: "Indentured servant",
+    native: false,
+    blurb: "Four years' work for the passage over.",
+    text: "Bound to a master for four years: board and bed, no wage. Then freedom dues and a fresh start. Hard lives teach: 3 more skill points.",
+    skills: { farming: 2, craft: 2, stealth: 1 },
+    purse: 0,
+    job: "servant",
+    renown: 0,
+    lifestyle: "frugal",
+    bonusPoints: 3,
+  },
+  preacher: {
+    name: "Preacher's assistant",
+    native: false,
+    blurb: "Sweeping the church, and the souls in it.",
+    text: "Starts serving the church. Reader, curate, and a pulpit of your own.",
+    skills: { faith: 5, letters: 3, persuasion: 1 },
+    purse: 6,
+    job: "preacher",
+    renown: 2,
+    lifestyle: "frugal",
+  },
+  physician: {
+    name: "Physician's apprentice",
+    native: false,
+    blurb: "Leeches, lancets and Latin.",
+    text: "Starts apprenticed at the apothecary or the fort. Barber-surgeon, then physician.",
+    skills: { medicine: 4, letters: 3, faith: 1 },
+    purse: 10,
+    job: "physician",
+    renown: 1,
+    lifestyle: "modest",
+  },
+  lawyer: {
+    name: "Law clerk",
+    native: false,
+    blurb: "Writs, deeds, and other people's quarrels.",
+    text: "Starts copying deeds at the courthouse. Attorney, barrister, and the colony's own attorney. Lawyers do well at elections.",
+    skills: { letters: 4, persuasion: 3, trade: 1 },
+    purse: 12,
+    job: "law",
+    renown: 2,
+    lifestyle: "modest",
+  },
+  gentry: {
+    name: "Gentleman's child",
+    native: false,
+    blurb: "Money, manners, and no trade at all.",
+    text: "A full purse, an allowance for five years, and some renown. No job: find one, buy a commission, or don't.",
+    skills: { letters: 3, persuasion: 3, leadership: 2, fighting: 1 },
+    purse: 80,
+    job: null,
+    renown: 10,
+    lifestyle: "comfortable",
+  },
+  hunter: {
+    name: "Hunter",
+    native: true,
+    blurb: "Deer, turkey and beaver, and the paths between.",
+    text: "Starts hunting for your people. Lead the hunt in time.",
+    skills: { woodcraft: 5, fighting: 2, stealth: 2 },
+    purse: 4,
+    job: "hunter",
+    renown: 1,
+    lifestyle: "modest",
+  },
+  warrior: {
+    name: "Warrior",
+    native: true,
+    blurb: "Defender of the village, and its raids.",
+    text: "Starts among the young warriors, marching with your nation's war parties. War leader, then war chief.",
+    skills: { fighting: 5, woodcraft: 2, leadership: 1 },
+    purse: 3,
+    job: "warrior",
+    renown: 2,
+    lifestyle: "modest",
+  },
+  grower: {
+    name: "Grower",
+    native: true,
+    blurb: "Corn, beans and squash: the three sisters.",
+    text: "Starts tending the fields. Keep the seed and, in time, the fields.",
+    skills: { farming: 5, craft: 1, medicine: 1 },
+    purse: 4,
+    job: "grower",
+    renown: 1,
+    lifestyle: "modest",
+  },
+  healer: {
+    name: "Healer",
+    native: true,
+    blurb: "Plants, songs and steady hands.",
+    text: "Starts learning from a healer. Your people will come to you.",
+    skills: { medicine: 5, faith: 3 },
+    purse: 3,
+    job: "healer",
+    renown: 2,
+    lifestyle: "modest",
+  },
+  trader: {
+    name: "Trader",
+    native: true,
+    blurb: "Furs for kettles, corn for cloth.",
+    text: "Starts trading at the village and the posts. Go-between, then trade leader.",
+    skills: { trade: 5, persuasion: 2, seamanship: 1 },
+    purse: 10,
+    job: "trader",
+    renown: 1,
+    lifestyle: "modest",
+  },
+  speaker: {
+    name: "Speaker",
+    native: true,
+    blurb: "A runner with a good memory and a better voice.",
+    text: "Starts as a runner carrying messages. Speak for your people at councils, and maybe lead them.",
+    skills: { persuasion: 5, leadership: 2, letters: 1 },
+    purse: 4,
+    job: "speaker",
+    renown: 2,
+    lifestyle: "modest",
+  },
+  maker: {
+    name: "Maker",
+    native: true,
+    blurb: "Canoes, pots, baskets and beadwork.",
+    text: "Starts making for the village. Your work will be traded far away.",
+    skills: { craft: 5, trade: 1, woodcraft: 1 },
+    purse: 5,
+    job: "maker",
+    renown: 1,
+    lifestyle: "modest",
+  },
+};
+
+export const COLONIST_BACKGROUNDS = (
+  Object.keys(BACKGROUNDS) as BackgroundId[]
+).filter((b) => !BACKGROUNDS[b].native);
+export const NATIVE_BACKGROUNDS = (
+  Object.keys(BACKGROUNDS) as BackgroundId[]
+).filter((b) => BACKGROUNDS[b].native);
+
+/** Faiths a character of each people could hold. */
+export const FAITHS: Record<string, Religion[]> = {
+  england: ["anglican", "puritan", "catholic"],
+  france: ["catholic", "reformed"],
+  spain: ["catholic"],
+  portugal: ["catholic"],
+  netherlands: ["reformed", "lutheran"],
+  sweden: ["lutheran"],
+  native: ["native", "catholic"],
+};
+
+export function faithsFor(origin: string, native: boolean): Religion[] {
+  return native ? FAITHS.native : (FAITHS[origin] ?? ["anglican"]);
+}
+
+/** Years the first press runs in a colony of each culture (none before). */
+export const PRESS_YEAR: Record<string, number> = {
+  english: 1640,
+  dutch: 1690,
+  spanish: 1720,
+  portuguese: 1750,
+  french: 1764,
+  swedish: 9999,
+};
+
+// ---------------------------------------------------------------- jobs
+
+export interface RankDef {
+  title: string;
+  /** Coins a month. */
+  wage: number;
+  /** Months in the rank below before this one can come. */
+  months: number;
+  /** The job's main skill this rank needs. */
+  skill: number;
+  /** The job's second skill this rank needs. */
+  second?: number;
+  renown: number;
+  /** Opinion the employer (or your patron) must have of you. */
+  opinion?: number;
+  /** Bought rather than earned: land, a shop, a press, a commission. */
+  buy?: { cost: number; what: string };
+  /** An officer's commission: given by the colony's marshal or governor. */
+  commission?: boolean;
+}
+
+export interface JobDef {
+  name: string;
+  /** Native jobs, colonists' jobs, or (null) either. */
+  native: boolean | null;
+  /** Places that offer it. */
+  places: PlaceKind[];
+  main: Skill;
+  second: Skill;
+  ranks: RankDef[];
+  /** Yearly chance the work kills you (soldiers and warriors: more at war). */
+  danger: number;
+  /** Stress the work adds each month. */
+  stress: number;
+  /** Skills needed to be taken on at all. */
+  need?: Partial<Skills>;
+  /** Only serves the province's owner (soldiers, officials). */
+  ownNation?: boolean;
+  /** Only in a church of your own faith. */
+  ownFaith?: boolean;
+  /** Who takes people on. */
+  employer?: RoleId;
+  /** Renown a month at the top rungs (publishers, ministers, officers). */
+  fame?: number;
+  text: string;
+}
+
+const rk = (
+  title: string,
+  wage: number,
+  months: number,
+  skill: number,
+  renown: number,
+  extra: Partial<RankDef> = {},
+): RankDef => ({ title, wage, months, skill, renown, ...extra });
+
+export const JOBS: Record<JobKind, JobDef> = {
+  farmer: {
+    name: "Farming",
+    native: false,
+    places: ["fields"],
+    main: "farming",
+    second: "trade",
+    ranks: [
+      rk("Tenant farmer", 2, 0, 0, 0),
+      rk("Yeoman", 4, 12, 6, 0, {
+        buy: { cost: 25, what: "a freehold of your own" },
+      }),
+      rk("Freeholder", 6, 24, 9, 6),
+      rk("Planter", 10, 36, 11, 15, {
+        buy: { cost: 80, what: "a plantation" },
+      }),
+    ],
+    danger: 0,
+    stress: 1,
+    employer: "planter",
+    text: "Sowing, reaping and praying for rain. Land of your own makes you a voter and, in time, a burgess.",
+  },
+  millhand: {
+    name: "The mill",
+    native: false,
+    places: ["workshop"],
+    main: "craft",
+    second: "leadership",
+    ranks: [
+      rk("Mill hand", 2.5, 0, 0, 0),
+      rk("Journeyman", 4, 12, 6, 0),
+      rk("Foreman", 6, 24, 9, 4, { second: 4 }),
+      rk("Mill owner", 10, 36, 11, 12, {
+        buy: { cost: 70, what: "a mill of your own" },
+      }),
+    ],
+    danger: 0.004,
+    stress: 3,
+    employer: "master",
+    text: "Sawing, hammering, twisting rope or caulking hulls. Hard, steady pay.",
+  },
+  newsman: {
+    name: "News and print",
+    native: false,
+    places: ["press", "market"],
+    main: "letters",
+    second: "persuasion",
+    ranks: [
+      rk("Printer's devil", 2, 0, 0, 0),
+      rk("Journeyman printer", 3.5, 12, 6, 0),
+      rk("Editor", 6, 24, 10, 10),
+      rk("Publisher", 9, 30, 12, 20, {
+        buy: { cost: 60, what: "a press and a newspaper of your own" },
+      }),
+    ],
+    danger: 0,
+    stress: 2,
+    need: { letters: 2 },
+    employer: "printer",
+    fame: 0.6,
+    text: "News is carried, cried and printed. A newspaper of your own brings renown and sways movements.",
+  },
+  soldier: {
+    name: "The army",
+    native: false,
+    places: ["fort"],
+    main: "fighting",
+    second: "leadership",
+    ranks: [
+      rk("Private", 2.5, 0, 0, 0),
+      rk("Corporal", 3.5, 8, 6, 0),
+      rk("Sergeant", 5, 16, 8, 3, { second: 4 }),
+      rk("Lieutenant", 7, 18, 9, 10, {
+        second: 6,
+        commission: true,
+        buy: { cost: 40, what: "a lieutenant's commission" },
+      }),
+      rk("Captain", 10, 24, 10, 18, { second: 8, commission: true }),
+      rk("Major", 14, 30, 11, 30, { second: 10, commission: true }),
+      rk("Colonel", 18, 30, 12, 45, { second: 12, commission: true }),
+      rk("General", 25, 36, 13, 65, { second: 14, commission: true }),
+    ],
+    danger: 0.01,
+    stress: 2,
+    ownNation: true,
+    employer: "sergeant",
+    fame: 0.25,
+    text: "Drill, guard duty and, when war comes, the line of battle. You march with a real army; colonels and generals lead one.",
+  },
+  sailor: {
+    name: "The sea",
+    native: null,
+    places: ["docks"],
+    main: "seamanship",
+    second: "fighting",
+    ranks: [
+      rk("Deckhand", 3, 0, 0, 0),
+      rk("Able seaman", 4.5, 10, 6, 0),
+      rk("Mate", 7, 20, 9, 5),
+      rk("Ship's captain", 11, 30, 12, 15, {
+        buy: { cost: 90, what: "a ship of your own" },
+      }),
+      rk("Privateer", 15, 24, 13, 25, { second: 9 }),
+    ],
+    danger: 0.012,
+    stress: 3,
+    employer: "captain",
+    fame: 0.2,
+    text: "Coasting trips and ocean crossings. Sea passage is free while you sail. A privateer's letter of marque pays in wartime.",
+  },
+  clerk: {
+    name: "Commerce",
+    native: false,
+    places: ["market"],
+    main: "trade",
+    second: "letters",
+    ranks: [
+      rk("Clerk", 3, 0, 0, 0),
+      rk("Factor", 5, 12, 7, 0),
+      rk("Merchant", 9, 24, 10, 12, {
+        buy: { cost: 50, what: "a counting house of your own" },
+      }),
+      rk("Merchant prince", 16, 48, 14, 30),
+    ],
+    danger: 0,
+    stress: 2,
+    need: { letters: 2 },
+    employer: "merchant",
+    fame: 0.2,
+    text: "Bills, cargoes and credit. Merchants are the colony's quiet power.",
+  },
+  official: {
+    name: "Government",
+    native: false,
+    places: ["governor"],
+    main: "letters",
+    second: "persuasion",
+    ranks: [
+      rk("Copying clerk", 2.5, 0, 0, 0),
+      rk("Deputy secretary", 4.5, 12, 7, 5),
+      rk("Collector of customs", 8, 24, 10, 15, { opinion: 20 }),
+      rk("Secretary of the colony", 12, 36, 12, 25, { opinion: 35 }),
+    ],
+    danger: 0,
+    stress: 2,
+    need: { letters: 3 },
+    ownNation: true,
+    employer: "official",
+    fame: 0.3,
+    text: "Copying letters, collecting customs and keeping the governor's secrets. The road to the council runs through here.",
+  },
+  law: {
+    name: "The law",
+    native: false,
+    places: ["governor"],
+    main: "letters",
+    second: "persuasion",
+    ranks: [
+      rk("Law clerk", 2, 0, 0, 0),
+      rk("Attorney", 5, 18, 8, 3, { second: 5 }),
+      rk("Barrister", 9, 30, 11, 15, { second: 8 }),
+      rk("Attorney-general", 13, 36, 13, 25, { opinion: 30 }),
+    ],
+    danger: 0,
+    stress: 2,
+    need: { letters: 3 },
+    employer: "lawyer",
+    fame: 0.3,
+    text: "Deeds, debts and disputes. Lawyers win elections and lose friends.",
+  },
+  craftsman: {
+    name: "A craft",
+    native: false,
+    places: ["workshop"],
+    main: "craft",
+    second: "trade",
+    ranks: [
+      rk("Apprentice", 1.5, 0, 0, 0),
+      rk("Journeyman", 3.5, 18, 6, 0),
+      rk("Master", 6, 30, 10, 5, {
+        buy: { cost: 30, what: "a shop of your own" },
+      }),
+      rk("Guild master", 9, 48, 13, 15),
+    ],
+    danger: 0,
+    stress: 1,
+    employer: "master",
+    text: "A smith's forge, a carpenter's bench or a cooper's barrels.",
+  },
+  trapper: {
+    name: "The fur trade",
+    native: null,
+    places: ["woods"],
+    main: "woodcraft",
+    second: "trade",
+    ranks: [
+      rk("Trapper", 3, 0, 0, 0),
+      rk("Woodsman", 4.5, 12, 7, 0),
+      rk("Fur trader", 7, 24, 9, 8, { second: 6 }),
+      rk("Company partner", 12, 36, 11, 20, {
+        buy: { cost: 60, what: "a partner's share in the company" },
+      }),
+    ],
+    danger: 0.008,
+    stress: 1,
+    employer: "trader",
+    text: "Beaver pelts from the backcountry. Better where the furs are thick.",
+  },
+  servant: {
+    name: "Indenture",
+    native: false,
+    places: ["fields"],
+    main: "farming",
+    second: "craft",
+    ranks: [rk("Indentured servant", 0.5, 0, 0, 0)],
+    danger: 0.004,
+    stress: 4,
+    employer: "planter",
+    text: "Bed and board but no wage until the term is served. Running away is a crime.",
+  },
+  preacher: {
+    name: "The church",
+    native: false,
+    places: ["church"],
+    main: "faith",
+    second: "letters",
+    ranks: [
+      rk("Sexton", 1.5, 0, 0, 0),
+      rk("Reader", 3, 12, 6, 0),
+      rk("Curate", 5, 24, 9, 8),
+      rk("Minister", 8, 36, 12, 18),
+    ],
+    danger: 0,
+    stress: 1,
+    need: { faith: 3 },
+    ownFaith: true,
+    employer: "preacher",
+    fame: 0.4,
+    text: "Bells, burials and sermons. The church is the town's ear, and its conscience.",
+  },
+  physician: {
+    name: "Physic",
+    native: false,
+    places: ["apothecary", "fort"],
+    main: "medicine",
+    second: "letters",
+    ranks: [
+      rk("Apprentice", 1.5, 0, 0, 0),
+      rk("Barber-surgeon", 4, 18, 6, 0),
+      rk("Physician", 8, 30, 10, 10),
+      rk("Physician-general", 12, 36, 13, 25),
+    ],
+    danger: 0.006,
+    stress: 2,
+    need: { letters: 2 },
+    employer: "physician",
+    fame: 0.3,
+    text: "Bleeding, bonesetting and fever. Fevers are catching.",
+  },
+  innkeeper: {
+    name: "The tavern",
+    native: null,
+    places: ["tavern"],
+    main: "trade",
+    second: "persuasion",
+    ranks: [
+      rk("Tapster", 2, 0, 0, 0),
+      rk("Innkeeper", 4.5, 12, 6, 0, {
+        buy: { cost: 35, what: "the lease of an inn" },
+      }),
+      rk("Proprietor", 8, 30, 9, 10),
+    ],
+    danger: 0.002,
+    stress: 2,
+    employer: "innkeeper",
+    text: "Ale, beds and gossip. Everyone comes through the tavern eventually, assemblymen included.",
+  },
+  hunter: {
+    name: "The hunt",
+    native: true,
+    places: ["woods"],
+    main: "woodcraft",
+    second: "fighting",
+    ranks: [
+      rk("Hunter", 2, 0, 0, 0),
+      rk("Skilled hunter", 3.5, 12, 7, 0),
+      rk("Hunt leader", 5, 24, 10, 8, { second: 5 }),
+    ],
+    danger: 0.008,
+    stress: 1,
+    employer: "hunter",
+    text: "Meat and hides for your people, furs for trade.",
+  },
+  warrior: {
+    name: "War",
+    native: true,
+    places: ["councilfire"],
+    main: "fighting",
+    second: "leadership",
+    ranks: [
+      rk("Young warrior", 1.5, 0, 0, 0),
+      rk("Warrior", 3, 10, 6, 0),
+      rk("War leader", 4.5, 24, 9, 15, { second: 6 }),
+      rk("War chief", 7, 36, 11, 35, { second: 10, commission: true }),
+    ],
+    danger: 0.01,
+    stress: 2,
+    ownNation: true,
+    employer: "warleader",
+    fame: 0.3,
+    text: "Defending the village, raids, and when war comes, battle with your nation's war parties. War chiefs lead them.",
+  },
+  grower: {
+    name: "The fields",
+    native: true,
+    places: ["fields"],
+    main: "farming",
+    second: "leadership",
+    ranks: [
+      rk("Grower", 1.5, 0, 0, 0),
+      rk("Seed keeper", 3, 12, 7, 0),
+      rk("Field elder", 4, 30, 10, 10),
+    ],
+    danger: 0,
+    stress: 1,
+    employer: "elder",
+    text: "Corn, beans and squash, and the seed for next year.",
+  },
+  healer: {
+    name: "Healing",
+    native: true,
+    places: ["village"],
+    main: "medicine",
+    second: "faith",
+    ranks: [
+      rk("Healer's helper", 1.5, 0, 0, 0),
+      rk("Healer", 3, 18, 7, 0),
+      rk("Elder healer", 5, 36, 11, 12),
+    ],
+    danger: 0.004,
+    stress: 2,
+    employer: "healer",
+    fame: 0.2,
+    text: "Plants, songs and care. Strangers' sicknesses are the hardest.",
+  },
+  trader: {
+    name: "Trade",
+    native: true,
+    places: ["village", "market"],
+    main: "trade",
+    second: "persuasion",
+    ranks: [
+      rk("Trader", 2.5, 0, 0, 0),
+      rk("Go-between", 4, 12, 7, 0),
+      rk("Trade leader", 7, 30, 10, 12),
+    ],
+    danger: 0.004,
+    stress: 2,
+    employer: "trader",
+    text: "Furs, corn and wampum for kettles, cloth and tools.",
+  },
+  speaker: {
+    name: "Council",
+    native: true,
+    places: ["councilfire"],
+    main: "persuasion",
+    second: "leadership",
+    ranks: [
+      rk("Runner", 1.5, 0, 0, 0),
+      rk("Speaker", 3, 18, 7, 5),
+      rk("Elder speaker", 5, 36, 11, 18),
+    ],
+    danger: 0.002,
+    stress: 2,
+    employer: "sachem",
+    fame: 0.3,
+    text: "Messages carried, words remembered, councils addressed. Elder speakers may sit at the council fire, and lead.",
+  },
+  maker: {
+    name: "Making",
+    native: true,
+    places: ["village"],
+    main: "craft",
+    second: "trade",
+    ranks: [
+      rk("Maker", 1.5, 0, 0, 0),
+      rk("Skilled maker", 3, 12, 7, 0),
+      rk("Master maker", 5, 30, 10, 8),
+    ],
+    danger: 0,
+    stress: 1,
+    employer: "maker",
+    text: "Canoes, pots, baskets and beadwork, for use and for trade.",
+  },
+};
+
+export const JOB_KINDS = Object.keys(JOBS) as JobKind[];
+
+/** Indentures run this long. */
+export const INDENTURE_YEARS = 4;
+/** What a freed servant is given when the term is served. */
+export const FREEDOM_DUES = 15;
+/** Allowance a gentleman's child gets each month, and for how long. */
+export const ALLOWANCE = 3;
+export const ALLOWANCE_YEARS = 5;
+/** Months away from the post in a row before you're let go. */
+export const AWAY_MONTHS = 2;
+/** Chance a month of being promoted, once you qualify. */
+export const PROMOTION_CHANCE = 0.35;
+/** Rank at which a soldier may take command of an army (Colonel), or a warrior (War chief). */
+export const COMMAND_RANK: Partial<Record<JobKind, number>> = {
+  soldier: 6,
+  warrior: 3,
+};
+/** Casual work at a place, for someone without a job: coins a shift. */
+export const DAY_LABOUR = 0.6;
+
+// ---------------------------------------------------------------- townsfolk
+
+export interface RoleDef {
+  /** Their title. */
+  title: string;
+  native: boolean;
+  place: PlaceKind;
+  /** The job they take people on for. */
+  job: JobKind | null;
+  /** The skill they're known for. */
+  skill: Skill;
+  /** How they're placed in the world: weighs marriages, loans and elections. */
+  status: number;
+  /** Coins they could lend you. */
+  wealth: number;
+  /** What a player taking them over would do, and at which rank. */
+  becomes: [JobKind, number] | null;
+}
+
+export const ROLES: Record<RoleId, RoleDef> = {
+  innkeeper: {
+    title: "Innkeeper",
+    native: false,
+    place: "tavern",
+    job: "innkeeper",
+    skill: "trade",
+    status: 2,
+    wealth: 25,
+    becomes: ["innkeeper", 2],
+  },
+  preacher: {
+    title: "Minister",
+    native: false,
+    place: "church",
+    job: "preacher",
+    skill: "faith",
+    status: 3,
+    wealth: 15,
+    becomes: ["preacher", 3],
+  },
+  merchant: {
+    title: "Merchant",
+    native: false,
+    place: "market",
+    job: "clerk",
+    skill: "trade",
+    status: 4,
+    wealth: 60,
+    becomes: ["clerk", 2],
+  },
+  captain: {
+    title: "Ship's captain",
+    native: false,
+    place: "docks",
+    job: "sailor",
+    skill: "seamanship",
+    status: 3,
+    wealth: 40,
+    becomes: ["sailor", 3],
+  },
+  sergeant: {
+    title: "Sergeant",
+    native: false,
+    place: "fort",
+    job: "soldier",
+    skill: "fighting",
+    status: 2,
+    wealth: 10,
+    becomes: ["soldier", 2],
+  },
+  master: {
+    title: "Master craftsman",
+    native: false,
+    place: "workshop",
+    job: "craftsman",
+    skill: "craft",
+    status: 2,
+    wealth: 25,
+    becomes: ["craftsman", 2],
+  },
+  printer: {
+    title: "Printer",
+    native: false,
+    place: "press",
+    job: "newsman",
+    skill: "letters",
+    status: 3,
+    wealth: 20,
+    becomes: ["newsman", 3],
+  },
+  planter: {
+    title: "Planter",
+    native: false,
+    place: "fields",
+    job: "farmer",
+    skill: "farming",
+    status: 4,
+    wealth: 50,
+    becomes: ["farmer", 3],
+  },
+  physician: {
+    title: "Physician",
+    native: false,
+    place: "apothecary",
+    job: "physician",
+    skill: "medicine",
+    status: 3,
+    wealth: 30,
+    becomes: ["physician", 2],
+  },
+  official: {
+    title: "Secretary",
+    native: false,
+    place: "governor",
+    job: "official",
+    skill: "letters",
+    status: 5,
+    wealth: 40,
+    becomes: ["official", 2],
+  },
+  lawyer: {
+    title: "Attorney",
+    native: false,
+    place: "governor",
+    job: "law",
+    skill: "persuasion",
+    status: 4,
+    wealth: 35,
+    becomes: ["law", 2],
+  },
+  sachem: {
+    title: "Sachem",
+    native: true,
+    place: "councilfire",
+    job: "speaker",
+    skill: "persuasion",
+    status: 5,
+    wealth: 20,
+    becomes: ["speaker", 2],
+  },
+  warleader: {
+    title: "War leader",
+    native: true,
+    place: "councilfire",
+    job: "warrior",
+    skill: "fighting",
+    status: 4,
+    wealth: 10,
+    becomes: ["warrior", 2],
+  },
+  healer: {
+    title: "Healer",
+    native: true,
+    place: "village",
+    job: "healer",
+    skill: "medicine",
+    status: 3,
+    wealth: 8,
+    becomes: ["healer", 2],
+  },
+  hunter: {
+    title: "Hunt leader",
+    native: true,
+    place: "woods",
+    job: "hunter",
+    skill: "woodcraft",
+    status: 2,
+    wealth: 8,
+    becomes: ["hunter", 2],
+  },
+  elder: {
+    title: "Clan mother",
+    native: true,
+    place: "fields",
+    job: "grower",
+    skill: "farming",
+    status: 4,
+    wealth: 10,
+    becomes: ["grower", 2],
+  },
+  trader: {
+    title: "Trader",
+    native: true,
+    place: "village",
+    job: "trader",
+    skill: "trade",
+    status: 3,
+    wealth: 30,
+    becomes: ["trader", 1],
+  },
+  maker: {
+    title: "Master maker",
+    native: true,
+    place: "village",
+    job: "maker",
+    skill: "craft",
+    status: 2,
+    wealth: 10,
+    becomes: ["maker", 2],
+  },
+};
+
+/** Townsfolk kept per province, at most. */
+export const LOCALS_CAP = 8;
+
+// ---------------------------------------------------------------- places
+
+export interface PlaceDef {
+  name: string;
+  /** What it's called in a native village, if different. */
+  nativeName?: string;
+  text: string;
+}
+
+export const PLACES: Record<PlaceKind, PlaceDef> = {
+  tavern: {
+    name: "The tavern",
+    text: "Ale, gossip, cards and candidates. Every rumour in the province passes through.",
+  },
+  market: {
+    name: "The market",
+    nativeName: "The trading ground",
+    text: "Goods bought and sold, debts made and paid, and a merchant or two to work for.",
+  },
+  church: {
+    name: "The church",
+    text: "Sunday sermons, Monday gossip, and the town's poor fed at the door.",
+  },
+  councilfire: {
+    name: "The council fire",
+    text: "Where the elders sit, speakers speak, and war and peace are decided.",
+  },
+  docks: {
+    name: "The docks",
+    text: "Ships in from Europe and the islands, passage to anywhere, and work hauling cargo.",
+  },
+  fort: {
+    name: "The fort",
+    text: "The garrison, the drill yard and the recruiting sergeant.",
+  },
+  workshop: {
+    name: "The workshops",
+    text: "Smithies, sawmills, ropewalks and cooperages. Hard work, steady pay.",
+  },
+  press: {
+    name: "The printing house",
+    text: "Gazettes, almanacs, sermons and seditious pamphlets.",
+  },
+  fields: {
+    name: "The fields",
+    text: "Corn, tobacco, wheat or cane: planting and harvest, and land for sale.",
+  },
+  governor: {
+    name: "The governor's house",
+    text: "Petitions, appointments, levees and the courthouse. Power lives here.",
+  },
+  village: {
+    name: "The village",
+    text: "Longhouses or wigwams, cookfires, makers at work and children at play.",
+  },
+  woods: {
+    name: "The woods",
+    text: "Deer, beaver, herbs, and paths only some can follow.",
+  },
+  apothecary: {
+    name: "The apothecary",
+    text: "Physic, bark for fevers, and a physician who may need an apprentice.",
+  },
+};
+
+// ---------------------------------------------------------------- living
+
+export const LIFESTYLES: Lifestyle[] = ["frugal", "modest", "comfortable"];
+
+export interface LifestyleDef {
+  name: string;
+  /** Coins a month, for colonists and for native peoples (who share more). */
+  cost: number;
+  nativeCost: number;
+  health: number;
+  stress: number;
+  renown: number;
+  text: string;
+}
+
+export const LIFESTYLE: Record<Lifestyle, LifestyleDef> = {
+  frugal: {
+    name: "Frugal",
+    cost: 1,
+    nativeCost: 0.5,
+    health: -1,
+    stress: 2,
+    renown: 0,
+    text: "Bread, beer and a straw bed. Saves money; wears you down.",
+  },
+  modest: {
+    name: "Modest",
+    cost: 2,
+    nativeCost: 1,
+    health: 0,
+    stress: 0,
+    renown: 0,
+    text: "Enough of everything, and a Sunday coat.",
+  },
+  comfortable: {
+    name: "Comfortable",
+    cost: 6,
+    nativeCost: 3,
+    health: 1,
+    stress: -3,
+    renown: 0.5,
+    text: "Good food, a warm house and a servant. People notice.",
+  },
+};
+
+/** A wife and children cost something too: per head, a month. */
+export const FAMILY_COST = 0.4;
+
+/** Health and stress run 0 to 100. */
+export const START_HEALTH = 85;
+export const START_STRESS = 15;
+/** Stress at which things start to go wrong. */
+export const STRESS_HIGH = 70;
+/** Renown at which a character is noticed by people of rank. */
+export const RENOWN_NOTICED = 20;
+
+// ---------------------------------------------------------------- travel
+
+/** People on foot cover more ground than an army. */
+export const WALK_SPEED = 1.25;
+/** Food and lodging on the road, a day. */
+export const ROAD_COST_PER_DAY = 0.12;
+/** A passage by sea: a base fare and so much per 100 km. */
+export const SEA_FARE_BASE = 2;
+export const SEA_FARE_PER_100KM = 0.8;
+/** The longest single passage by sea along the coast. */
+export const SEA_PASSAGE_KM = 1600;
+/** Days and coins to sail to Europe and set yourself up there. */
+export const EUROPE_PASSAGE = 25;
+export const EUROPE_FORTUNE = 150;
+
+/** Chance a day of something happening on the road. */
+export const ROAD_RISK = {
+  base: 0.006,
+  wild: 0.012,
+  hostile: 0.02,
+  sea: 0.008,
+};
+
+// ---------------------------------------------------------------- checks and people
+
+/**
+ * The chance a skill check succeeds: even at equal skill and difficulty,
+ * 8% a point either way, never certain.
+ */
+export function checkChance(skill: number, difficulty: number): number {
+  return Math.max(0.05, Math.min(0.95, 0.5 + (skill - difficulty) * 0.08));
+}
+
+/** Days before the same thing can be done again with the same person. */
+export const PERSON_COOLDOWN = 30;
+/** Opinion at which someone counts as a friend, or a rival. */
+export const FRIEND = 40;
+export const RIVAL = -40;
+/** Opinion needed before someone will marry you. */
+export const MARRY_OPINION = 45;
+/** What a wedding costs. */
+export const WEDDING_COST = 8;
+/** Opinion a patron needs of you. */
+export const PATRON_OPINION = 40;
+
+// ---------------------------------------------------------------- arms
+
+export const TINCTURES: Record<Tincture, { name: string; color: string }> = {
+  or: { name: "Or (gold)", color: "#d9a72e" },
+  argent: { name: "Argent (silver)", color: "#efe9dc" },
+  gules: { name: "Gules (red)", color: "#b3242a" },
+  azure: { name: "Azure (blue)", color: "#2a5aa8" },
+  vert: { name: "Vert (green)", color: "#2f7a3d" },
+  sable: { name: "Sable (black)", color: "#262019" },
+  purpure: { name: "Purpure (purple)", color: "#6e3a7f" },
+  tenne: { name: "Tenné (orange)", color: "#c8682a" },
+};
+
+export const DIVISIONS: Record<Division, string> = {
+  plain: "Plain",
+  pale: "Per pale",
+  fess: "Per fess",
+  bend: "Per bend",
+  chevron: "A chevron",
+  quarterly: "Quarterly",
+  saltire: "A saltire",
+  cross: "A cross",
+  chief: "A chief",
+};
+
+export const CHARGES: Record<Charge, string> = {
+  none: "None",
+  star: "A mullet (star)",
+  lion: "A lion",
+  fleur: "A fleur-de-lis",
+  anchor: "An anchor",
+  tree: "A tree",
+  ship: "A ship",
+  key: "A key",
+  crescent: "A crescent",
+  heart: "A heart",
+  bird: "A martlet",
+  wheat: "A garb (sheaf)",
+  tower: "A tower",
+  sword: "A sword",
+  beaver: "A beaver",
+  turtle: "A turtle",
+  wolf: "A wolf",
+  bear: "A bear",
+  deer: "A deer",
+  feather: "A feather",
+};
+
+/** Clan signs native characters choose from. */
+export const CLAN_CHARGES: Charge[] = [
+  "turtle",
+  "wolf",
+  "bear",
+  "deer",
+  "bird",
+  "beaver",
+  "feather",
+  "crescent",
+  "star",
+];
+
+/** Frame ribbon and dress colours to choose from. */
+export const FRAME_COLORS: string[] = [
+  "#7a1f1c",
+  "#1f3f73",
+  "#2f5a33",
+  "#5a2d6b",
+  "#2b2420",
+  "#a0702a",
+  "#8c4a24",
+  "#3e6d78",
+];
+
+export const MOTTO_MAX = 60;
+
+// ---------------------------------------------------------------- native names
+
+/** Personal names for native characters (from period records, many nations). */
+export const NATIVE_NAMES = {
+  male: [
+    "Wahunsenacawh",
+    "Opechancanough",
+    "Massasoit",
+    "Metacom",
+    "Canonicus",
+    "Miantonomo",
+    "Uncas",
+    "Tisquantum",
+    "Samoset",
+    "Wingina",
+    "Manteo",
+    "Wanchese",
+    "Kiotseaeton",
+    "Garakontié",
+    "Teganissorens",
+    "Theyanoguin",
+    "Thayendanegea",
+    "Obwandiyag",
+    "Attakullakulla",
+    "Oconostota",
+    "Ostenaco",
+    "Tomochichi",
+    "Chekilli",
+    "Kondiaronk",
+    "Po'pay",
+    "Ayenwatha",
+    "Annawon",
+    "Ninigret",
+    "Tamanend",
+    "Shingas",
+    "Tanaghrisson",
+    "Scarouady",
+    "Pemisapan",
+    "Nemattanew",
+    "Sassacus",
+    "Mishikinakwa",
+    "Askuwheteau",
+    "Paspahegh",
+    "Totopotomoy",
+    "Necotowance",
+    "Hobomok",
+    "Wequash",
+    "Sagamore",
+    "Teedyuscung",
+  ],
+  female: [
+    "Matoaka",
+    "Weetamoo",
+    "Awashonks",
+    "Quaiapen",
+    "Nanyehi",
+    "Tekakwitha",
+    "Cockacoeske",
+    "Coosaponakeesa",
+    "Kanenstenhawi",
+    "Oninoa",
+    "Nonhelema",
+    "Aliquippa",
+    "Wanetta",
+    "Wahbanosay",
+    "Tahmeroo",
+    "Mattachanna",
+    "Wonnesha",
+    "Ahyoka",
+    "Tsiyahi",
+    "Onita",
+    "Wenonah",
+    "Chepi",
+  ],
+};
+
+/** Clans, which pass from mother to child in many nations. */
+export const NATIVE_CLANS = [
+  "Turtle",
+  "Wolf",
+  "Bear",
+  "Deer",
+  "Heron",
+  "Beaver",
+  "Hawk",
+  "Snipe",
+  "Eel",
+  "Bird",
+  "Paint",
+  "Long Hair",
+  "Potato",
+  "Wind",
+];
+
+/** A native family name: "of the Turtle clan". */
+export function clanName(clan: string): string {
+  return `of the ${clan} clan`;
+}
+
+// ---------------------------------------------------------------- coins
+
+/** Derp Coins for a seat's line. Tuned to land where the old game did. */
+export const LIFE_COINS = {
+  /** Game days a seat must have played for coins at all. */
+  minDays: 730,
+  played: 5,
+  perTenYears: 2,
+  maxYears: 12,
+  perRank: 2,
+  maxRank: 14,
+  office: [0, 4, 8, 15] as readonly number[],
+  perTenRenown: 1,
+  maxRenown: 12,
+  perGeneration: 3,
+  maxGenerations: 12,
+  perChild: 0.5,
+  maxChildren: 5,
+  perBattleWon: 1,
+  maxBattles: 10,
+  risingWon: 8,
+  europe: 6,
+  reached1776: 5,
+} as const;

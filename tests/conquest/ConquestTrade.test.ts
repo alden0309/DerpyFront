@@ -14,12 +14,8 @@ import {
   woodlotOutput,
 } from "../../src/conquest/engine/Queries";
 import { dealWillingness, orderQuote } from "../../src/conquest/engine/Trade";
-import type {
-  Army,
-  GameEvent,
-  GovernorPlan,
-  PlayerSeat,
-} from "../../src/conquest/engine/Types";
+import type { Army, GameEvent } from "../../src/conquest/engine/Types";
+import { nationGame, NationSeat, seat } from "./NationUtil";
 
 const map = AMERICAS;
 const prov = (name: string) => {
@@ -28,25 +24,8 @@ const prov = (name: string) => {
   return i;
 };
 
-const plan: GovernorPlan = {
-  first: "Alden",
-  family: "Drackley",
-  female: false,
-  age: "prime",
-  stats: { dip: 7, mar: 5, ste: 8, int: 4, lea: 5 },
-  traits: ["diligent"],
-};
-
-const seat = (power: string, id = "s1"): PlayerSeat => ({
-  seat: id,
-  name: id,
-  power,
-  governor: plan,
-});
-
-function quietGame(seats: PlayerSeat[] = [seat("england")]) {
-  const g = ConquestGame.create(
-    map,
+function quietGame(seats: NationSeat[] = [seat("england")]) {
+  const g = nationGame(
     { endYear: 1680, difficulty: "normal", seed: 11 },
     seats,
   );

@@ -4,7 +4,6 @@
 
 import { dayOf } from "./Calendar";
 import {
-  governorFromPlan,
   makeCharacter,
   makeFamily,
   makeNotable,
@@ -42,7 +41,6 @@ import {
   GOODS,
   MapDef,
   Nation,
-  PlayerSeat,
   Pop,
   PopClass,
   Province,
@@ -51,13 +49,10 @@ import {
 } from "./Types";
 
 /** Saves from another version can't be loaded: bump it when the state's shape changes. */
-export const STATE_VERSION = 4;
+export const STATE_VERSION = 5;
 
-export function newGameState(
-  map: MapDef,
-  settings: GameSettings,
-  seats: PlayerSeat[],
-): GameState {
+/** The world at the start date, every nation run by the computer. Players' lives are added by the game. */
+export function newGameState(map: MapDef, settings: GameSettings): GameState {
   const w = worldOf(map);
   const start = settings.start ?? 1607;
   const era = STARTS[start];
@@ -88,6 +83,10 @@ export function newGameState(
     battles: [],
     over: false,
     winner: -1,
+    lives: [],
+    locals: {},
+    movements: [],
+    polities: {},
   };
   const rng = new Rng(state);
   const keyIndex = new Map<string, number>();
@@ -103,7 +102,6 @@ export function newGameState(
 
   for (const def of map.powers) {
     const rules = POWER_RULES[def.id];
-    const seat = seats.find((x) => x.power === def.id);
     const id = state.nations.length;
     keyIndex.set(def.id, id);
     const own = startProvinces(def.id);
@@ -125,10 +123,10 @@ export function newGameState(
         gold: Math.round(
           rules.startGold *
             START_GOLD_FACTOR[start] *
-            (seat ? 1 : DIFFICULTY[settings.difficulty].aiGold),
+            DIFFICULTY[settings.difficulty].aiGold,
         ),
-        player: seat?.seat ?? null,
-        playerName: seat?.name ?? null,
+        player: null,
+        playerName: null,
       },
     );
     if (own.length === 0) n.alive = false;
@@ -255,10 +253,7 @@ export function newGameState(
   for (const n of state.nations) {
     if (n.kind === "crown") continue;
     if (n.kind === "power") {
-      const seat = seats.find((x) => x.power === n.key);
-      const gov = seat?.governor
-        ? governorFromPlan(state, rng, n.id, seat.governor)
-        : randomGovernor(state, rng, n.id);
+      const gov = randomGovernor(state, rng, n.id);
       n.ruler = gov.id;
       makeFamily(state, rng, gov);
       for (const s of SEATS) n.council[s] = makeNotable(state, rng, n.id, s).id;
@@ -392,7 +387,7 @@ export function newGameState(
   return state;
 }
 
-function blankNation(
+export function blankNation(
   id: number,
   key: string,
   kind: Nation["kind"],

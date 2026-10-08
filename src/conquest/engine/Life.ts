@@ -1,0 +1,1713 @@
+// A player's life in the world: making the character, the days on the road,
+// the months of work and wages and growing older, the choices that come, and
+// what happens at the end of it: an heir carries on, or the story ends and
+// the player watches (or takes over someone else, or begins anew).
+
+import { dateOf, formatDate } from "./Calendar";
+import { kill, makeCharacter, succession } from "./Characters";
+import { seedLocals } from "./Folk";
+import type { ConquestGame } from "./Game";
+import { hooks } from "./Hooks";
+import { doAct, doPerson } from "./LifeActs";
+import {
+  addRenown,
+  addStress,
+  earn,
+  gainTrait,
+  gainXp,
+  heal,
+  hurt,
+  journal,
+  milestone,
+  spend,
+  touchLife,
+} from "./LifeCore";
+import { answerLifeEvent, lifeEventsDaily } from "./LifeEvents";
+import {
+  allowanceDue,
+  atPost,
+  commissionFriend,
+  heirOf,
+  hopDaysFor,
+  isChildLife,
+  isNativeChar,
+  isPlayed,
+  jobCheck,
+  lifeIsNative,
+  lifeOfChar,
+  lifeOfSeat,
+  meOf,
+  monthlyBudget,
+  nationByKey,
+  npcSkill,
+  officesOf,
+  placesIn,
+  promotionView,
+  startRank,
+  travelRoute,
+} from "./LifeQueries";
+import {
+  AWAY_MONTHS,
+  BACKGROUNDS,
+  BASE_SKILL,
+  CHARGES,
+  COMMAND_RANK,
+  CREATION_TRAITS,
+  DIVISIONS,
+  EUROPE_FORTUNE,
+  faithsFor,
+  FRAME_COLORS,
+  FREEDOM_DUES,
+  INDENTURE_YEARS,
+  JOBS,
+  LIFE_MAX_AGE,
+  LIFE_MAX_TRAITS,
+  LIFE_MIN_AGE,
+  LIFE_STAT_MAX,
+  LIFE_STAT_MIN,
+  LIFE_TRAIT_POINTS,
+  LIFESTYLE,
+  LIFESTYLES,
+  MOTTO_MAX,
+  PROMOTION_CHANCE,
+  ROAD_RISK,
+  ROLES,
+  SKILL_STAT,
+  skillPointsFor,
+  skillStepCost,
+  START_HEALTH,
+  START_SKILL_MAX,
+  START_STRESS,
+  statPointsFor,
+  STRESS_HIGH,
+  TINCTURES,
+} from "./LifeRules";
+import { isWinter } from "./Map";
+import { ageOf, atWar, charName, hasTrait, settlers, stat } from "./Queries";
+import {
+  DAYS_PER_YEAR,
+  deathRiskByAge,
+  EUROPE_PRICE,
+  STAT_START,
+  TRAITS,
+} from "./Rules";
+import {
+  Army,
+  BattleReport,
+  Character,
+  Good,
+  GOODS,
+  Job,
+  JobKind,
+  Life,
+  LifeCommand,
+  LifePlan,
+  PlaceKind,
+  Skill,
+  Skills,
+  SKILLS,
+  STATS,
+} from "./Types";
+import { militaryCommand } from "./War";
+
+// ---------------------------------------------------------------- making a character
+
+export interface PlanBudget {
+  statsUsed: number;
+  statsBudget: number;
+  skillsUsed: number;
+  skillsBudget: number;
+  traitsUsed: number;
+  traitsBudget: number;
+}
+
+const zeroSkills = (): Skills =>
+  Object.fromEntries(SKILLS.map((k) => [k, 0])) as Skills;
+
+/** Skills a plan begins with: everyone's base, the background, and points bought. */
+export function planSkills(plan: LifePlan): Skills {
+  const out = zeroSkills();
+  const bg = BACKGROUNDS[plan.background];
+  for (const k of SKILLS)
+    out[k] =
+      BASE_SKILL + (bg?.skills[k] ?? 0) + Math.max(0, plan.skills?.[k] ?? 0);
+  return out;
+}
+
+export function planBudget(plan: LifePlan): PlanBudget {
+  let statsUsed = 0;
+  for (const st of STATS) {
+    const v = plan.stats?.[st] ?? STAT_START;
+    statsUsed += v - STAT_START;
+  }
+  let skillsUsed = 0;
+  const bg = BACKGROUNDS[plan.background];
+  for (const k of SKILLS) {
+    const from = BASE_SKILL + (bg?.skills[k] ?? 0);
+    const bought = Math.max(0, plan.skills?.[k] ?? 0);
+    for (let l = from; l < from + bought; l++) skillsUsed += skillStepCost(l);
+  }
+  const traitsUsed = (plan.traits ?? []).reduce(
+    (m, t) => m + (TRAITS[t]?.cost ?? 0),
+    0,
+  );
+  return {
+    statsUsed,
+    statsBudget: statPointsFor(plan.age),
+    skillsUsed,
+    skillsBudget: skillPointsFor(plan.age) + (bg?.bonusPoints ?? 0),
+    traitsUsed,
+    traitsBudget: LIFE_TRAIT_POINTS,
+  };
+}
+
+/** Where someone of a people could begin: their nation's own land, today. */
+export function homeChoices(
+  s: ConquestGame["state"],
+  origin: string,
+): number[] {
+  const n = nationByKey(s, origin);
+  const nation = s.nations[n];
+  if (!nation?.alive || (nation.kind !== "power" && nation.kind !== "native"))
+    return [];
+  const out: number[] = [];
+  s.provinces.forEach((pr, p) => {
+    if (pr.owner !== n || pr.occupier >= 0) return;
+    if (nation.kind === "power" && settlers(pr) < 50) return;
+    out.push(p);
+  });
+  return out;
+}
+
+const NAME_RE = /^[\p{L}\p{M}' .-]+$/u;
+
+/** Why a plan can't be played (in this world, today), or null. */
+export function planProblem(
+  s: ConquestGame["state"],
+  raw: unknown,
+): string | null {
+  const plan = raw as LifePlan;
+  if (!plan || typeof plan !== "object") return "No character.";
+  const n = nationByKey(s, plan.origin);
+  const nation = s.nations[n];
+  if (!nation || (nation.kind !== "power" && nation.kind !== "native"))
+    return "Choose a people to be born among.";
+  if (!nation.alive) return `The ${nation.name} are gone from this world.`;
+  if (!homeChoices(s, plan.origin).includes(plan.home))
+    return "Choose a home among your own people's towns and villages.";
+  for (const [label, v, max] of [
+    ["First name", plan.first, 20],
+    ["Family name", plan.family, 28],
+  ] as const) {
+    if (typeof v !== "string" || v.trim().length < 1 || v.length > max)
+      return `${label}: 1 to ${max} letters.`;
+    if (!NAME_RE.test(v)) return `${label}: letters only.`;
+  }
+  if (typeof plan.female !== "boolean") return "Choose man or woman.";
+  if (
+    !Number.isInteger(plan.age) ||
+    plan.age < LIFE_MIN_AGE ||
+    plan.age > LIFE_MAX_AGE
+  )
+    return `Age: ${LIFE_MIN_AGE} to ${LIFE_MAX_AGE}.`;
+  const native = nation.kind === "native";
+  if (!faithsFor(plan.origin, native).includes(plan.religion))
+    return "That faith isn't open to your people here.";
+  if (!Number.isInteger(plan.face) || plan.face < 0 || plan.face > 999)
+    return "Choose a likeness.";
+  const sg = plan.sigil;
+  if (
+    !sg ||
+    !(sg.field in TINCTURES) ||
+    !(sg.tincture in TINCTURES) ||
+    !(sg.chargeTincture in TINCTURES) ||
+    !(sg.division in DIVISIONS) ||
+    !(sg.charge in CHARGES)
+  )
+    return "Your arms aren't right.";
+  if (typeof plan.frame !== "string" || !FRAME_COLORS.includes(plan.frame))
+    return "Choose a frame colour.";
+  if (typeof plan.motto !== "string" || plan.motto.length > MOTTO_MAX)
+    return `A motto of up to ${MOTTO_MAX} letters.`;
+  const bg = BACKGROUNDS[plan.background];
+  if (!bg) return "Choose a background.";
+  if (bg.native !== native)
+    return native
+      ? "That's a colonist's background."
+      : "That's a background of the native peoples.";
+  if (!plan.stats || typeof plan.stats !== "object")
+    return "Set your attributes.";
+  for (const st of STATS) {
+    const v = plan.stats[st];
+    if (!Number.isInteger(v) || v < LIFE_STAT_MIN || v > LIFE_STAT_MAX)
+      return `Attributes run from ${LIFE_STAT_MIN} to ${LIFE_STAT_MAX}.`;
+  }
+  if (!plan.skills || typeof plan.skills !== "object")
+    return "Set your skills.";
+  for (const [k, v] of Object.entries(plan.skills)) {
+    if (!SKILLS.includes(k as Skill)) return "Unknown skill.";
+    if (!Number.isInteger(v) || (v as number) < 0)
+      return "Skills can't go down.";
+  }
+  const start = planSkills(plan);
+  if (SKILLS.some((k) => start[k] > START_SKILL_MAX))
+    return `No skill above ${START_SKILL_MAX} at the start.`;
+  if (!Array.isArray(plan.traits) || plan.traits.length > LIFE_MAX_TRAITS)
+    return `Up to ${LIFE_MAX_TRAITS} traits.`;
+  for (const t of plan.traits) {
+    if (!CREATION_TRAITS.includes(t)) return "That trait can't be chosen.";
+    const opp = TRAITS[t].opposite;
+    if (opp && plan.traits.includes(opp))
+      return `${TRAITS[t].name} and ${TRAITS[opp].name} don't go together.`;
+  }
+  if (new Set(plan.traits).size !== plan.traits.length) return "A trait twice?";
+  const b = planBudget(plan);
+  if (b.statsUsed > b.statsBudget)
+    return "Those attributes cost more points than you have.";
+  if (b.skillsUsed > b.skillsBudget)
+    return "Those skills cost more points than you have.";
+  if (b.traitsUsed > b.traitsBudget)
+    return `Those traits cost more than your ${LIFE_TRAIT_POINTS} points: take a flaw to afford them.`;
+  return null;
+}
+
+function blankTally(): Life["tally"] {
+  return {
+    days: 0,
+    jobs: 0,
+    promotions: 0,
+    topRank: 0,
+    topOffice: 0,
+    peakRenown: 0,
+    peakPurse: 0,
+    earned: 0,
+    children: 0,
+    marriages: 0,
+    battles: 0,
+    battlesWon: 0,
+    wounds: 0,
+    events: 0,
+    generations: 1,
+    takeovers: 0,
+    provinces: 0,
+    risings: 0,
+    risingsWon: 0,
+    elections: 0,
+    europe: null,
+  };
+}
+
+/**
+ * A new character steps into the world: at the start, or dropping into a
+ * running one. A seat whose line has ended begins a new family.
+ */
+export function beginLife(
+  g: ConquestGame,
+  seat: string,
+  name: string,
+  plan: LifePlan,
+): string | null {
+  const s = g.s;
+  if (s.over) return "The world has reached 1776.";
+  const problem = planProblem(s, plan);
+  if (problem) return problem;
+  const existing = lifeOfSeat(s, seat);
+  if (existing && !existing.watching) return "You're already living a life.";
+  const n = nationByKey(s, plan.origin);
+  const nation = s.nations[n];
+  const c = makeCharacter(s, g.rng, {
+    nation: n,
+    culture: nation.culture,
+    religion: plan.religion,
+    female: plan.female,
+    age: plan.age,
+    first: plan.first.trim(),
+    family: plan.family.trim(),
+    stats: { ...plan.stats },
+    traits: [...plan.traits],
+    made: true,
+  });
+  c.face = plan.face;
+  c.home = plan.home;
+  g.touchChar(c);
+  const bg = BACKGROUNDS[plan.background];
+  const life: Life = existing ?? {
+    seat,
+    name,
+    c: -1,
+    line: [],
+    origin: plan.origin,
+    background: plan.background,
+    prov: plan.home,
+    home: plan.home,
+    travel: null,
+    job: null,
+    purse: 0,
+    health: START_HEALTH,
+    stress: START_STRESS,
+    renown: 0,
+    favor: 0,
+    skills: zeroSkills(),
+    xp: zeroSkills(),
+    lifestyle: bg.lifestyle,
+    goods: {},
+    heir: -1,
+    shareWithSpouse: true,
+    sigil: { ...plan.sigil },
+    frame: plan.frame,
+    motto: plan.motto,
+    patron: -1,
+    journal: [],
+    milestones: [],
+    events: [],
+    cooldowns: {},
+    met: [],
+    ties: {},
+    debts: [],
+    visited: [],
+    trail: [],
+    campaign: null,
+    invite: null,
+    watching: false,
+    ended: null,
+    joined: s.day,
+    tally: blankTally(),
+  };
+  if (!existing) s.lives.push(life);
+  Object.assign(life, {
+    name,
+    c: c.id,
+    origin: plan.origin,
+    background: plan.background,
+    prov: plan.home,
+    home: plan.home,
+    travel: null,
+    job: null,
+    purse: bg.purse + Math.max(0, plan.age - 18) * 0.5,
+    health: hasTrait(c, "sickly")
+      ? 70
+      : hasTrait(c, "robust")
+        ? 95
+        : START_HEALTH,
+    stress: START_STRESS,
+    renown: bg.renown,
+    favor: 0,
+    skills: planSkills(plan),
+    xp: zeroSkills(),
+    lifestyle: bg.lifestyle,
+    goods: {},
+    heir: -1,
+    sigil: { ...plan.sigil },
+    frame: plan.frame,
+    motto: plan.motto.trim(),
+    patron: -1,
+    events: [],
+    cooldowns: {},
+    ties: {},
+    debts: [],
+    campaign: null,
+    invite: null,
+    watching: false,
+    ended: null,
+  });
+  if (existing) existing.tally.generations++;
+  life.line.push(c.id);
+  touchLife(g, life);
+  visit(g, life, plan.home);
+  const place = formatPlace(g, plan.home);
+  milestone(
+    g,
+    life,
+    existing ? "begin" : "born",
+    `${charName(c)}, ${bg.name.toLowerCase()}, ${plan.age}, at ${place}`,
+  );
+  journal(
+    g,
+    life,
+    `${formatDate(s.day)}. ${charName(c)} begins: ${plan.age} years old, ${bg.name.toLowerCase()}, at ${place}.${plan.motto.trim() ? ` "${plan.motto.trim()}"` : ""}`,
+  );
+  // The background's own work, if home has the place for it.
+  if (bg.job) {
+    const def = JOBS[bg.job];
+    const place = def.places.find(
+      (pl) => jobCheck(s, g.w, life, pl, bg.job!).ok,
+    );
+    if (place) {
+      startJob(g, life, bg.job, place, startRank(s, life, bg.job));
+      if (bg.job === "servant")
+        life.job!.until = s.day + INDENTURE_YEARS * DAYS_PER_YEAR;
+    } else {
+      journal(
+        g,
+        life,
+        `There's no ${def.name.toLowerCase()} to be had at ${place}: you'll have to find work.`,
+      );
+    }
+  }
+  return null;
+}
+
+function formatPlace(g: ConquestGame, p: number): string {
+  return g.map.provinces[p]?.name ?? "somewhere";
+}
+
+/** Arriving somewhere: it goes on the trail, and its people come to be. */
+function visit(g: ConquestGame, life: Life, p: number): void {
+  touchLife(g, life);
+  life.trail.push({ day: g.s.day, p, c: life.c });
+  if (life.trail.length > 400) life.trail.splice(0, life.trail.length - 400);
+  if (!life.visited.includes(p)) {
+    life.visited.push(p);
+    life.tally.provinces = life.visited.length;
+  }
+  seedLocals(g, p);
+}
+
+// ---------------------------------------------------------------- jobs
+
+export function startJob(
+  g: ConquestGame,
+  life: Life,
+  kind: JobKind,
+  place: PlaceKind,
+  rank = 0,
+): Job {
+  const s = g.s;
+  const def = JOBS[kind];
+  const pr = s.provinces[life.prov];
+  const holder = pr.occupier >= 0 ? pr.occupier : pr.owner;
+  const employer =
+    (s.locals[life.prov] ?? [])
+      .map((id) => s.chars[id])
+      .find((c) => c?.alive && c.role === def.employer)?.id ?? -1;
+  const me = meOf(s, life)!;
+  const job: Job = {
+    kind,
+    rank,
+    prov: life.prov,
+    place,
+    employer,
+    nation: def.ownNation ? holder : me.nation,
+    army: -1,
+    since: s.day,
+    months: 0,
+    away: 0,
+  };
+  touchLife(g, life).job = job;
+  life.tally.jobs++;
+  life.tally.topRank = Math.max(life.tally.topRank, rank);
+  milestone(
+    g,
+    life,
+    "job",
+    `Took up work as ${def.ranks[rank].title.toLowerCase()} at ${formatPlace(g, life.prov)}`,
+  );
+  journal(
+    g,
+    life,
+    `You're taken on as ${def.ranks[rank].title.toLowerCase()} at ${formatPlace(g, life.prov)}: ${def.ranks[rank].wage} coins a month.`,
+    "good",
+  );
+  return job;
+}
+
+export function takeJob(
+  g: ConquestGame,
+  life: Life,
+  place: PlaceKind,
+  kind: JobKind,
+): string | null {
+  const check = jobCheck(g.s, g.w, life, place, kind);
+  if (!check.ok) return check.why;
+  if (life.job) leaveJob(g, life, "for other work");
+  startJob(g, life, kind, place, startRank(g.s, life, kind));
+  return null;
+}
+
+/** Leaving a post; soldiers at war who walk off are deserters. */
+export function leaveJob(g: ConquestGame, life: Life, why: string): void {
+  const job = life.job;
+  if (!job) return;
+  const s = g.s;
+  const def = JOBS[job.kind];
+  if (
+    (job.kind === "soldier" || job.kind === "warrior") &&
+    s.wars.some((w) => w.a === job.nation || w.b === job.nation) &&
+    why !== "discharged"
+  ) {
+    addRenown(g, life, -5);
+    journal(
+      g,
+      life,
+      "You left the colours in wartime. Men call it desertion.",
+      "bad",
+    );
+  }
+  const army = s.armies.find((a) => a.commander === life.c);
+  if (army && (job.kind === "soldier" || job.kind === "warrior"))
+    g.touch(army).commander = -1;
+  journal(
+    g,
+    life,
+    `You left your work as ${def.ranks[job.rank].title.toLowerCase()} ${why}.`,
+  );
+  touchLife(g, life).job = null;
+}
+
+function promote(g: ConquestGame, life: Life): void {
+  const job = life.job!;
+  const def = JOBS[job.kind];
+  job.rank++;
+  job.months = 0;
+  touchLife(g, life);
+  life.tally.promotions++;
+  life.tally.topRank = Math.max(life.tally.topRank, job.rank);
+  addRenown(g, life, 2 + job.rank);
+  const title = def.ranks[job.rank].title;
+  journal(
+    g,
+    life,
+    `You're made ${title.toLowerCase()}: ${def.ranks[job.rank].wage} coins a month.`,
+    "good",
+  );
+  milestone(g, life, "promoted", `Rose to ${title.toLowerCase()}`);
+}
+
+/** Buy the next rung: land, a shop, a press, a commission. */
+export function buyRank(g: ConquestGame, life: Life): string | null {
+  const job = life.job;
+  if (!job) return "You have no trade to buy into.";
+  const next = JOBS[job.kind].ranks[job.rank + 1];
+  if (!next?.buy) return "That rung can't be bought.";
+  if (life.prov !== job.prov && job.army < 0)
+    return "That's done where you work.";
+  const view = promotionView(g.s, life);
+  const unmet = view.needs.filter(
+    (x) =>
+      !x.met &&
+      !x.label.includes("coins for") &&
+      !x.label.includes("a word from"),
+  );
+  if (unmet.length) return `Needs ${unmet[0].label}.`;
+  if (life.purse < next.buy.cost)
+    return `You need ${next.buy.cost} coins (you have ${Math.floor(life.purse)}).`;
+  spend(g, life, next.buy.cost);
+  journal(g, life, `You paid ${next.buy.cost} coins for ${next.buy.what}.`);
+  promote(g, life);
+  return null;
+}
+
+// ---------------------------------------------------------------- travel
+
+export function travelTo(
+  g: ConquestGame,
+  life: Life,
+  to: number,
+  bySea: boolean,
+): string | null {
+  const s = g.s;
+  const me = meOf(s, life);
+  if (!me) return "You're watching.";
+  if (!Number.isInteger(to) || !g.map.provinces[to]) return "No such place.";
+  if (life.job?.army !== undefined && life.job.army >= 0)
+    return "You march with your army. Quit, or take leave, to travel alone.";
+  if (s.armies.some((a) => a.commander === me.id))
+    return "You command an army: march it, or give up the command.";
+  if (life.job?.kind === "servant" && (life.job.until ?? 0) > s.day)
+    return "Servants don't come and go as they please. (Running away is an act at the fields.)";
+  if (to === life.prov && !life.travel) return "You're already here.";
+  const from = life.travel ? life.travel.path[0] : life.prov;
+  if (from === to) {
+    // Turning round mid-hop: carry on to the next stop and stop there.
+    touchLife(g, life).travel!.path = [to];
+    life.travel!.sea = [life.travel!.sea[0]];
+    life.travel!.dest = to;
+    return null;
+  }
+  const native = lifeIsNative(s, life);
+  const sailor = life.job?.kind === "sailor";
+  const route = travelRoute(s, g.map, from, to, bySea, native, sailor);
+  if (!route) return "There's no way there from here.";
+  if (life.purse < route.cost)
+    return `The journey costs ${route.cost} coins; you have ${Math.floor(life.purse)}.`;
+  spend(g, life, route.cost);
+  if (life.travel) {
+    life.travel.path = [life.travel.path[0], ...route.path];
+    life.travel.sea = [life.travel.sea[0], ...route.sea];
+    life.travel.dest = to;
+    life.travel.cost += route.cost;
+  } else {
+    touchLife(g, life).travel = {
+      dest: to,
+      path: route.path,
+      sea: route.sea,
+      depart: s.day,
+      arrive: s.day + route.legs[0],
+      cost: route.cost,
+    };
+  }
+  journal(
+    g,
+    life,
+    `You set out for ${formatPlace(g, to)}${route.sea.some(Boolean) ? " by sea" : ""}: about ${Math.ceil(route.days)} days${route.cost ? `, ${route.cost} coins` : ""}.`,
+  );
+  return null;
+}
+
+function hop(g: ConquestGame, life: Life): void {
+  const t = life.travel!;
+  const s = g.s;
+  const wasSea = t.sea[0];
+  const next = t.path.shift()!;
+  t.sea.shift();
+  touchLife(g, life).prov = next;
+  if (wasSea) gainXp(g, life, "seamanship", 4);
+  else gainXp(g, life, "woodcraft", 2);
+  visit(g, life, next);
+  if (t.path.length === 0) {
+    life.travel = null;
+    journal(g, life, `You arrive at ${formatPlace(g, next)}.`);
+    if (next !== life.home && g.rng.chance(0.15)) addRenown(g, life, 0.5);
+    return;
+  }
+  const days = Math.max(1, hopDaysFor(g.map, next, t.path[0], t.sea[0]));
+  t.depart = s.day;
+  t.arrive = s.day + days;
+}
+
+/** The road's dangers: a few a year, worse in the wilds, at war or at sea. */
+function roadRisk(g: ConquestGame, life: Life): void {
+  const s = g.s;
+  const t = life.travel!;
+  const p = t.path[0];
+  const pr = s.provinces[p];
+  const me = meOf(s, life)!;
+  let risk = ROAD_RISK.base;
+  if (t.sea[0]) risk = ROAD_RISK.sea;
+  else if (pr.owner < 0) risk = ROAD_RISK.wild;
+  else if (atWar(s, pr.owner, me.nation)) risk = ROAD_RISK.hostile;
+  if (g.rng.chance(risk)) lifeEventsDaily(g, life, t.sea[0] ? "sea" : "road");
+}
+
+// ---------------------------------------------------------------- the days
+
+export function livesDaily(g: ConquestGame): void {
+  for (const life of g.s.lives) {
+    if (life.watching || life.c < 0) continue;
+    const me = g.s.chars[life.c];
+    if (!me?.alive) continue;
+    life.tally.days++;
+    followArmy(g, life);
+    if (life.travel) {
+      if (g.s.day >= life.travel.arrive) hop(g, life);
+      else roadRisk(g, life);
+    }
+    if (!life.watching && life.c >= 0) lifeEventsDaily(g, life);
+  }
+}
+
+/** Soldiers go where their army goes; commanders too. */
+function followArmy(g: ConquestGame, life: Life): void {
+  const s = g.s;
+  const job = life.job;
+  let army: Army | undefined;
+  if (job && job.army >= 0) {
+    army = s.armies.find((a) => a.id === job.army);
+    if (!army) {
+      touchLife(g, life);
+      job.army = -1;
+      job.prov = life.prov;
+      journal(
+        g,
+        life,
+        "Your company is broken up; you're back in garrison.",
+        "bad",
+      );
+    }
+  }
+  const led = s.armies.find((a) => a.commander === life.c);
+  const a = led ?? army;
+  if (a && !life.travel && life.prov !== a.prov) {
+    touchLife(g, life).prov = a.prov;
+    visit(g, life, a.prov);
+  }
+}
+
+/** A soldier in garrison joins an army of theirs that's here. */
+function joinArmyHere(g: ConquestGame, life: Life): void {
+  const s = g.s;
+  const job = life.job;
+  if (!job || (job.kind !== "soldier" && job.kind !== "warrior")) return;
+  if (job.army >= 0 || life.travel) return;
+  const here = s.armies
+    .filter(
+      (a) =>
+        a.owner === job.nation &&
+        a.prov === life.prov &&
+        a.depart < 0 &&
+        a.regs.length > 0,
+    )
+    .sort((a, b) => b.regs.length - a.regs.length)[0];
+  if (!here) return;
+  touchLife(g, life);
+  job.army = here.id;
+  journal(
+    g,
+    life,
+    `You fall in with the ${s.nations[here.owner].adjective} army at ${formatPlace(g, here.prov)}: ${here.regs.length} regiment${here.regs.length === 1 ? "" : "s"}.`,
+  );
+}
+
+// ---------------------------------------------------------------- the months
+
+export function livesMonthly(g: ConquestGame): void {
+  for (const life of [...g.s.lives]) {
+    if (life.watching || life.c < 0) continue;
+    const me = g.s.chars[life.c];
+    if (!me?.alive) continue;
+    lifeMonth(g, life, me);
+  }
+}
+
+function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
+  const s = g.s;
+  const w = g.w;
+  touchLife(g, life);
+  const age = ageOf(s, me);
+  // Money: wages and stipends in, living out.
+  const budget = monthlyBudget(s, w, life);
+  for (const part of budget.parts) {
+    if (part.value > 0) earn(g, life, part.value);
+    else spend(g, life, -part.value);
+  }
+  if (life.purse < -10) {
+    addStress(g, life, 4);
+    if (life.lifestyle !== "frugal") {
+      life.lifestyle = "frugal";
+      journal(
+        g,
+        life,
+        "Your creditors are at the door: you cut back to the bare bones.",
+        "bad",
+      );
+    }
+  }
+  // Work.
+  const job = life.job;
+  if (job) {
+    if (atPost(s, w, life)) {
+      job.months++;
+      job.away = 0;
+      const def = JOBS[job.kind];
+      gainXp(g, life, def.main, 7, true);
+      gainXp(g, life, def.second, 3, true);
+      const fame = (def.fame ?? 0) * Math.max(0, job.rank - 1);
+      if (fame > 0) addRenown(g, life, fame);
+      tryPromotion(g, life);
+    } else {
+      job.away++;
+    }
+    if (life.job && job.away > AWAY_MONTHS && job.kind !== "servant") {
+      journal(
+        g,
+        life,
+        `You were away from your post too long and lost it.`,
+        "bad",
+      );
+      if (job.employer >= 0 && s.chars[job.employer]?.alive) {
+        const boss = g.char(job.employer);
+        boss.memories.push({
+          of: me.id,
+          why: "Walked off the job",
+          value: -10,
+          until: s.day + 2 * DAYS_PER_YEAR,
+        });
+      }
+      leaveJob(g, life, "for being absent");
+    }
+    if (life.job?.kind === "servant" && (life.job.until ?? 0) <= s.day) {
+      life.job = null;
+      earn(g, life, FREEDOM_DUES);
+      journal(
+        g,
+        life,
+        `Your indenture is served. You're free, with ${FREEDOM_DUES} coins of freedom dues and a suit of clothes.`,
+        "good",
+      );
+      milestone(g, life, "job", "Served out an indenture");
+    }
+    joinArmyHere(g, life);
+  } else if (allowanceDue(s, life) && age >= 16) {
+    gainXp(g, life, "persuasion", 2);
+  }
+  // Body and mind.
+  const ls = LIFESTYLE[life.lifestyle];
+  let dh = ls.health;
+  if (hasTrait(me, "robust")) dh += 1;
+  if (hasTrait(me, "sickly")) dh -= 1;
+  if (hasTrait(me, "drunkard")) dh -= 1;
+  if (hasTrait(me, "gouty")) dh -= 1;
+  if (age >= 65) dh -= 2;
+  else if (age >= 55) dh -= 1;
+  else if (age >= 45) dh -= 0.5;
+  if (life.stress >= STRESS_HIGH) dh -= 1;
+  // The body mends: a little always, more when it's low.
+  if (life.health < 80) dh += 1;
+  if (life.health < 55) dh += 2;
+  if (life.health < 30) dh += 2;
+  if (
+    w.tropical[life.prov] &&
+    dateOf(s.day).month >= 5 &&
+    dateOf(s.day).month <= 9
+  )
+    dh -= 1;
+  if (
+    isWinter(g.map.provinces[life.prov].lat, dateOf(s.day).month) &&
+    life.lifestyle === "frugal"
+  )
+    dh -= 1;
+  heal(g, life, Math.round(dh));
+  let ds = ls.stress - 6;
+  if (age < 16) ds = -8;
+  else {
+    if (job) ds += JOBS[job.kind].stress;
+    if (hasTrait(me, "content")) ds -= 2;
+    if (hasTrait(me, "lazy")) ds -= 1;
+    if (hasTrait(me, "ambitious")) ds += 1;
+    if (hasTrait(me, "drunkard")) ds += 1;
+    if (life.purse < 0) ds += 3;
+    if (me.spouse >= 0) ds -= 1;
+  }
+  addStress(g, life, ds);
+  if (
+    life.lifestyle === "comfortable" &&
+    age >= 45 &&
+    !hasTrait(me, "gouty") &&
+    g.rng.chance(0.004)
+  )
+    gainTrait(g, life, "gouty");
+  // Fame fades unless it's fed; the crown forgets.
+  if (life.renown > 15)
+    life.renown =
+      Math.round((life.renown - (life.renown - 15) * 0.02) * 10) / 10;
+  if (life.favor > 0) life.favor = Math.round(life.favor * 0.98 * 10) / 10;
+  // Debts come due.
+  for (const d of life.debts) {
+    if (d.due > s.day) continue;
+    const lender = s.chars[d.to];
+    if (life.purse >= d.amount) {
+      spend(g, life, d.amount);
+      journal(
+        g,
+        life,
+        `You paid ${charName(lender)} the ${d.amount} coins you owed.`,
+      );
+      d.amount = 0;
+    } else {
+      if (lender?.alive)
+        g.char(lender.id).memories.push({
+          of: me.id,
+          why: "Owes me money",
+          value: -15,
+          until: s.day + 3 * DAYS_PER_YEAR,
+        });
+      addRenown(g, life, -1);
+      addStress(g, life, 3);
+      d.due = s.day + 90;
+      journal(
+        g,
+        life,
+        `You couldn't pay ${charName(lender)}; they'll be back in three months.`,
+        "bad",
+      );
+    }
+  }
+  life.debts = life.debts.filter((d) => d.amount > 0 && s.chars[d.to]?.alive);
+  // An estate held in trust passes to a child heir at sixteen.
+  const estate = life.cooldowns.estateKind;
+  if (estate !== undefined && age >= 16 && !life.job) {
+    const kind = Object.keys(JOBS)[estate] as JobKind;
+    const rank = life.cooldowns.estateRank ?? 1;
+    const place = JOBS[kind].places[0];
+    life.job = {
+      kind,
+      rank,
+      prov: life.home,
+      place,
+      employer: -1,
+      nation: me.nation,
+      army: -1,
+      since: s.day,
+      months: 0,
+      away: 0,
+    };
+    delete life.cooldowns.estateKind;
+    delete life.cooldowns.estateRank;
+    journal(
+      g,
+      life,
+      `At sixteen you come into the family's ${JOBS[kind].name.toLowerCase()}: ${JOBS[kind].ranks[rank].title.toLowerCase()}.`,
+      "good",
+    );
+  }
+  // Offices held.
+  const level = Math.max(0, ...officesOf(s, me.id).map((o) => o.level));
+  life.tally.topOffice = Math.max(life.tally.topOffice, level);
+  // Death: age, health, the dangers of the work.
+  let risk = deathRiskByAge(age);
+  if (hasTrait(me, "robust")) risk *= 0.5;
+  if (hasTrait(me, "sickly")) risk *= 2;
+  if (life.health < 25) risk *= 3;
+  else if (life.health < 45) risk *= 1.5;
+  else if (life.health >= 75) risk *= 0.7;
+  if (job && atPost(s, w, life)) {
+    const atWarNow = s.wars.some(
+      (x) => x.a === job.nation || x.b === job.nation,
+    );
+    risk += JOBS[job.kind].danger * (atWarNow && job.army >= 0 ? 2 : 1);
+  }
+  if (life.health <= 0 || g.rng.chance(risk / 12)) {
+    const cause =
+      life.health <= 0
+        ? `a long decline at ${age}`
+        : age >= 62
+          ? `old age at ${age}`
+          : w.tropical[life.prov] && g.rng.chance(0.5)
+            ? `a fever at ${age}`
+            : job && JOBS[job.kind].danger > 0.005 && g.rng.chance(0.4)
+              ? `an accident at work, at ${age}`
+              : `a sudden illness at ${age}`;
+    kill(g, me, cause);
+    return;
+  }
+  if (life.stress >= 95 && age >= 16 && g.rng.chance(0.3))
+    hurt(g, life, 3, `strain and worry at ${age}`);
+}
+
+function tryPromotion(g: ConquestGame, life: Life): void {
+  const s = g.s;
+  const job = life.job!;
+  const view = promotionView(s, life);
+  if (!view.check.ok || !view.next) return;
+  // Bought rungs wait for the purchase (commissions can come by merit).
+  if (view.next.buy && !view.next.commission) return;
+  if (view.next.commission) {
+    const friend = commissionFriend(s, life);
+    if (friend < 10 + 5 * Math.max(0, job.rank - 1)) return;
+  }
+  const me = meOf(s, life)!;
+  let chance = PROMOTION_CHANCE;
+  if (hasTrait(me, "ambitious")) chance *= 1.3;
+  if (hasTrait(me, "content")) chance *= 0.8;
+  if (g.rng.chance(chance)) promote(g, life);
+}
+
+// ---------------------------------------------------------------- war
+
+/** A battle a player's army fought: wounds, death, glory and promotion. */
+function lifeBattle(
+  g: ConquestGame,
+  r: BattleReport,
+  attackers: Army[],
+  defenders: Army[],
+): void {
+  const s = g.s;
+  for (const life of s.lives) {
+    const me = meOf(s, life);
+    if (!me?.alive || life.watching) continue;
+    const mine = (a: Army) =>
+      a.commander === me.id || (life.job !== null && life.job.army === a.id);
+    const att = attackers.find(mine);
+    const def = defenders.find(mine);
+    const a = att ?? def;
+    if (!a) continue;
+    const side = att ? 0 : 1;
+    const won = r.winner === side;
+    const rep = side === 0 ? r.attacker : r.defender;
+    const share = rep.lost / Math.max(1, rep.men);
+    const place = formatPlace(g, r.prov);
+    const commanding = a.commander === me.id;
+    const rank = life.job?.rank ?? 0;
+    touchLife(g, life);
+    life.tally.battles++;
+    if (won) life.tally.battlesWon++;
+    gainXp(g, life, "fighting", 25);
+    gainXp(g, life, "leadership", commanding ? 35 : 12);
+    if (life.job) life.job.months += won ? 6 : 3;
+    let glory = (won ? 3 : 1) + (commanding ? 6 : rank);
+    if (hasTrait(me, "brave")) glory += 2;
+    addRenown(g, life, won ? glory : glory / 2);
+    let wound = 0.12 + share * 0.9;
+    let death = 0.015 + share * 0.1;
+    if (hasTrait(me, "brave")) {
+      wound *= 1.2;
+      death *= 1.2;
+    }
+    if (hasTrait(me, "craven")) death *= 0.4;
+    if (commanding || rank >= 3) death *= 0.6;
+    const fight = Math.max(0, (life.skills.fighting - 6) * 0.01);
+    wound = Math.max(0.03, wound - fight);
+    const headline = `The battle of ${place}: ${won ? "we carried the day" : "we were beaten"}${commanding ? " under your command" : ""}.`;
+    journal(g, life, headline, won ? "good" : "bad");
+    milestone(
+      g,
+      life,
+      "battle",
+      `${won ? "Won" : "Lost"} the battle of ${place}`,
+      r.prov,
+    );
+    if (g.rng.chance(death)) {
+      kill(g, me, `battle at ${place}`);
+      continue;
+    }
+    if (g.rng.chance(wound)) {
+      const dmg = g.rng.int(12, 45);
+      life.tally.wounds++;
+      journal(
+        g,
+        life,
+        dmg >= 35
+          ? "A ball took you in the body. The surgeons say you'll live, mostly."
+          : "You were cut and bruised, nothing that won't heal.",
+        "bad",
+      );
+      if (dmg >= 30) {
+        milestone(g, life, "wounded", `Wounded at ${place}`, r.prov);
+        if (g.rng.chance(0.5)) gainTrait(g, life, "scarred");
+        if (dmg >= 40 && g.rng.chance(0.5)) gainTrait(g, life, "wounded");
+      }
+      hurt(g, life, dmg, `wounds taken at ${place}`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------- the end of a life
+
+/** A character died: if a player played them, the line goes on or ends. */
+function lifeDied(g: ConquestGame, c: Character, cause: string): void {
+  const s = g.s;
+  for (const life of s.lives) {
+    const me = meOf(s, life);
+    if (!me || me.id === c.id) continue;
+    if (me.spouse === c.id || c.spouse === me.id) {
+      journal(
+        g,
+        life,
+        `Your ${c.female ? "wife" : "husband"} ${charName(c)} died: ${cause}.`,
+        "bad",
+      );
+      addStress(g, life, 25);
+    } else if (me.children.includes(c.id)) {
+      journal(
+        g,
+        life,
+        `Your ${c.female ? "daughter" : "son"} ${charName(c)} died: ${cause}.`,
+        "bad",
+      );
+      addStress(g, life, 20);
+    } else if (life.patron === c.id) {
+      life.patron = -1;
+      journal(g, life, `Your patron ${charName(c)} has died.`, "bad");
+    }
+  }
+  const life = lifeOfChar(s, c.id);
+  if (!life) return;
+  journal(g, life, `${charName(c)} died: ${cause}.`, "bad");
+  milestone(g, life, "died", `${charName(c)} died, ${cause}`);
+  const heir = heirOf(s, life);
+  if (heir >= 0) succeedTo(g, life, heir);
+  else endLine(g, life, `${charName(c)} died (${cause}) leaving no heir`);
+}
+
+const PROPERTY: Partial<Record<JobKind, number>> = {
+  farmer: 1,
+  millhand: 3,
+  newsman: 3,
+  clerk: 2,
+  craftsman: 2,
+  innkeeper: 1,
+  sailor: 3,
+  trapper: 3,
+};
+
+/** What a child knows by the time they take over: their nature and their age. */
+function heirSkills(
+  s: ConquestGame["state"],
+  c: Character,
+  focus?: Skill,
+): Skills {
+  const out = zeroSkills();
+  const age = ageOf(s, c);
+  for (const k of SKILLS) {
+    out[k] = Math.min(
+      10,
+      BASE_SKILL +
+        Math.max(0, Math.floor((stat(s, c, SKILL_STAT[k]) - 5) / 2)) +
+        Math.floor(Math.min(age, 30) / 10),
+    );
+  }
+  if (focus && age >= 10)
+    out[focus] = Math.min(12, out[focus] + 3 + Math.floor(age / 8));
+  if (c.role)
+    out[ROLES[c.role].skill] = Math.min(14, out[ROLES[c.role].skill] + 6);
+  return out;
+}
+
+/** The heir takes up the line: the purse, a little of the name, the family business. */
+export function succeedTo(
+  g: ConquestGame,
+  life: Life,
+  heirId: number,
+  how: "death" | "europe" = "death",
+): void {
+  const s = g.s;
+  const old = meOf(s, life)!;
+  const heir = g.char(heirId);
+  touchLife(g, life);
+  let purse = life.purse;
+  const spouse = s.chars[old.spouse];
+  if (
+    how === "death" &&
+    life.shareWithSpouse &&
+    spouse?.alive &&
+    spouse.id !== heirId &&
+    purse > 3
+  ) {
+    const share = Math.round((purse / 3) * 10) / 10;
+    purse -= share;
+    journal(
+      g,
+      life,
+      `A third of the estate, ${share} coins, went to ${charName(spouse)}.`,
+    );
+  }
+  life.purse = Math.round(purse * 100) / 100;
+  life.renown = Math.round(life.renown * 0.35 * 10) / 10;
+  const job = life.job;
+  const property =
+    job && PROPERTY[job.kind] !== undefined && job.rank >= PROPERTY[job.kind]!
+      ? job
+      : null;
+  const heirAge = ageOf(s, heir);
+  life.job = null;
+  delete life.cooldowns.estateKind;
+  life.skills = heirSkills(
+    s,
+    heir,
+    property ? JOBS[property.kind].main : undefined,
+  );
+  life.xp = zeroSkills();
+  life.c = heirId;
+  life.line.push(heirId);
+  life.heir = -1;
+  life.ties = {};
+  life.patron = -1;
+  life.events = [];
+  life.cooldowns = {};
+  life.campaign = null;
+  life.invite = null;
+  life.travel = null;
+  life.favor = Math.round(life.favor * 0.3);
+  life.health = hasTrait(heir, "sickly") ? 70 : 82;
+  life.stress = 20;
+  heir.home ??= life.home;
+  life.home = heir.home;
+  life.prov = heir.home;
+  life.tally.generations++;
+  if (property) {
+    if (heirAge >= 16) {
+      life.job = {
+        ...property,
+        months: 0,
+        away: 0,
+        since: s.day,
+        prov: life.home,
+        army: -1,
+        employer: -1,
+      };
+      journal(
+        g,
+        life,
+        `${charName(heir)} takes over the family's ${JOBS[property.kind].name.toLowerCase()}.`,
+      );
+    } else {
+      life.cooldowns.estateKind = Object.keys(JOBS).indexOf(property.kind);
+      life.cooldowns.estateRank = property.rank;
+      journal(
+        g,
+        life,
+        `The family's ${JOBS[property.kind].name.toLowerCase()} is held in trust until ${charName(heir)} is sixteen.`,
+      );
+    }
+  }
+  const text =
+    how === "europe"
+      ? `${charName(heir)} stayed in America to carry on the family`
+      : `${charName(heir)}, ${heirAge}, became head of the family`;
+  milestone(g, life, "heir", text);
+  journal(
+    g,
+    life,
+    heirAge < 16
+      ? `You are now ${charName(heir)}, a child of ${heirAge}. Until sixteen you can't work, marry or hold office, but you can learn.`
+      : `You are now ${charName(heir)}, ${heirAge}.`,
+  );
+  visit(g, life, life.prov);
+}
+
+/** No one to carry on: the player watches the world until they take over someone, or begin again. */
+export function endLine(g: ConquestGame, life: Life, why: string): void {
+  touchLife(g, life);
+  milestone(g, life, "watching", why);
+  journal(g, life, `${why}. Your story ends here; the world goes on.`, "bad");
+  life.c = -1;
+  life.watching = true;
+  life.ended = { day: g.s.day, why };
+  life.job = null;
+  life.travel = null;
+  life.events = [];
+  life.campaign = null;
+  life.invite = null;
+  life.ties = {};
+}
+
+/** A watching player becomes someone already in the world. */
+export function takeOver(
+  g: ConquestGame,
+  life: Life,
+  cId: number,
+): string | null {
+  const s = g.s;
+  if (!life.watching) return "You're living a life already.";
+  if (s.over) return "The world has reached 1776.";
+  const c = s.chars[cId];
+  if (!c?.alive || c.abroad) return "They're not among the living here.";
+  if (ageOf(s, c) < 16) return "Too young to take over.";
+  if (isPlayed(s, cId)) return "Another player is them.";
+  const nation = s.nations[c.nation];
+  if (!nation || nation.kind === "crown") return "Not them.";
+  touchLife(g, life);
+  const home = c.home ?? (nation.capital >= 0 ? nation.capital : life.home);
+  g.touchChar(c).home = home;
+  const role = c.role ? ROLES[c.role] : undefined;
+  life.c = cId;
+  life.line.push(cId);
+  life.watching = false;
+  life.ended = null;
+  life.origin = nation.key;
+  life.background = isNativeChar(s, c) ? "speaker" : "gentry";
+  life.home = home;
+  life.prov = home;
+  life.travel = null;
+  life.job = null;
+  life.skills = zeroSkills();
+  for (const k of SKILLS) life.skills[k] = npcSkill(s, c, k);
+  life.xp = zeroSkills();
+  life.purse = Math.round(
+    (role?.wealth ?? 20) * 0.5 + (nation.ruler === cId ? 60 : 0),
+  );
+  life.health = 80;
+  life.stress = 20;
+  life.renown =
+    (role?.status ?? 2) * 4 +
+    (nation.ruler === cId ? 30 : 0) +
+    (officesOf(s, cId).length ? 10 : 0);
+  life.favor = nation.ruler === cId ? 20 : 0;
+  life.lifestyle =
+    (role?.status ?? 2) >= 4 || nation.ruler === cId ? "comfortable" : "modest";
+  life.heir = -1;
+  life.patron = -1;
+  life.events = [];
+  life.cooldowns = {};
+  life.ties = {};
+  life.debts = [];
+  life.campaign = null;
+  life.invite = null;
+  life.tally.takeovers++;
+  life.tally.generations++;
+  if (role?.becomes) {
+    const [kind, rank] = role.becomes;
+    const def = JOBS[kind];
+    life.job = {
+      kind,
+      rank: Math.min(rank, def.ranks.length - 1),
+      prov: home,
+      place: role.place,
+      employer: -1,
+      nation: c.nation,
+      army: -1,
+      since: s.day,
+      months: 0,
+      away: 0,
+    };
+  }
+  milestone(
+    g,
+    life,
+    "takeover",
+    `Took up the life of ${charName(c)}, ${ageOf(s, c)}`,
+    home,
+  );
+  journal(g, life, `You are now ${charName(c)}.`);
+  visit(g, life, home);
+  return null;
+}
+
+// ---------------------------------------------------------------- Europe
+
+/**
+ * Sailing for Europe: a fortune spent in London or Paris, a seat in
+ * Parliament, a posting, or a recall. With an heir left behind the family
+ * carries on in America; otherwise the story ends.
+ */
+export function leaveForEurope(
+  g: ConquestGame,
+  life: Life,
+  takeHeir: boolean,
+): string | null {
+  const s = g.s;
+  const me = meOf(s, life);
+  if (!me) return "You're watching.";
+  if (isChildLife(s, life)) return "Not as a child.";
+  const why = life.invite?.why ?? "fortune";
+  if (!life.invite) {
+    if (lifeIsNative(s, life))
+      return "Few of your people cross the ocean, and only when asked: wait for an invitation.";
+    if (life.purse < EUROPE_FORTUNE)
+      return `To live in Europe you need ${EUROPE_FORTUNE} coins (you have ${Math.floor(life.purse)}).`;
+    if (!((s.provinces[life.prov].b.port ?? 0) > 0))
+      return "Ships for Europe sail from a port.";
+  }
+  if (life.travel) return "Finish your journey first.";
+  touchLife(g, life);
+  const reason: Record<string, string> = {
+    fortune: "to live on a fortune in Europe",
+    parliament: "to take a seat in Parliament",
+    army: "for a posting with the army in Flanders",
+    recalled: "recalled by the crown to answer for the colony",
+    exile: "into exile",
+  };
+  const text = `${charName(me)} sailed for Europe, ${reason[why]}`;
+  life.tally.europe = why;
+  milestone(g, life, "europe", text);
+  journal(
+    g,
+    life,
+    `${text}.`,
+    why === "recalled" || why === "exile" ? "bad" : "good",
+  );
+  const heir = takeHeir ? -1 : heirOf(s, life);
+  // Away go the traveller and spouse (and the children, if they all go).
+  const going = [me.id];
+  if (me.spouse >= 0 && s.chars[me.spouse]?.alive) going.push(me.spouse);
+  if (takeHeir)
+    for (const k of me.children)
+      if (s.chars[k]?.alive && ageOf(s, s.chars[k]) < 21) going.push(k);
+  const keep = why === "fortune" ? life.purse * (heir >= 0 ? 0.5 : 1) : 0;
+  life.purse -= keep;
+  life.invite = null;
+  for (const id of going) vanish(g, id, "sailed for Europe");
+  if (heir >= 0) {
+    // The departing character's life goes on over there; the heir's here.
+    life.c = me.id;
+    succeedTo(g, life, heir, "europe");
+  } else {
+    endLine(
+      g,
+      life,
+      takeHeir
+        ? `${charName(me)} took the family to Europe`
+        : `${charName(me)} sailed for Europe with no heir left behind`,
+    );
+  }
+  return null;
+}
+
+/** Someone leaves the Americas for good: posts fall empty, a governor is replaced. */
+export function vanish(g: ConquestGame, id: number, why: string): void {
+  const s = g.s;
+  const c = g.char(id);
+  c.abroad = true;
+  for (const n of s.nations) {
+    if (!n.alive) continue;
+    for (const seat of Object.keys(n.council) as (keyof typeof n.council)[])
+      if (n.council[seat] === id) g.nation(n.id).council[seat] = -1;
+    if (n.court.includes(id))
+      g.nation(n.id).court = n.court.filter((x) => x !== id);
+    const pol = s.polities[n.id];
+    if (pol?.assembly.includes(id)) {
+      pol.assembly = pol.assembly.filter((x) => x !== id);
+      g.politiesChanged(n.id);
+    }
+    if (n.ruler === id) succession(g, n.id, why);
+  }
+  for (const a of s.armies) if (a.commander === id) g.touch(a).commander = -1;
+}
+
+// ---------------------------------------------------------------- the market
+
+/** What a good fetches here: the colony's market, or a village's trade. */
+export function marketPrice(
+  s: ConquestGame["state"],
+  p: number,
+  good: Good,
+): number {
+  const pr = s.provinces[p];
+  const owner = pr.owner >= 0 ? s.nations[pr.owner] : undefined;
+  if (owner?.kind === "power") return owner.market.price[good];
+  const native: Partial<Record<Good, number>> = {
+    furs: 0.5,
+    grain: 0.8,
+    fish: 0.8,
+    guns: 1.8,
+    tools: 1.6,
+    cloth: 1.5,
+  };
+  return Math.round(EUROPE_PRICE[good] * (native[good] ?? 1) * 100) / 100;
+}
+
+const CARRY = 20;
+
+function tradeGoods(
+  g: ConquestGame,
+  life: Life,
+  good: Good,
+  qty: number,
+): string | null {
+  const s = g.s;
+  if (!GOODS.includes(good) || !Number.isInteger(qty) || qty === 0)
+    return "Bad trade.";
+  if (life.travel) return "Not on the road.";
+  const here = placesIn(s, g.w, life.prov);
+  if (!here.some((x) => x === "market" || x === "village" || x === "docks"))
+    return "There's no market here.";
+  const me = meOf(s, life)!;
+  const shrewd = hasTrait(me, "shrewd") ? 0.05 : 0;
+  const skill = Math.min(0.1, life.skills.trade * 0.006);
+  const price = marketPrice(s, life.prov, good);
+  const carried = Object.values(life.goods).reduce((m, v) => m + (v ?? 0), 0);
+  touchLife(g, life);
+  if (qty > 0) {
+    if (carried + qty > CARRY) return `You can carry ${CARRY} loads at most.`;
+    const cost = Math.round(price * qty * (1.12 - shrewd - skill) * 100) / 100;
+    if (life.purse < cost) return `That costs ${cost} coins.`;
+    spend(g, life, cost);
+    life.goods[good] = (life.goods[good] ?? 0) + qty;
+    gainXp(g, life, "trade", 3 * qty);
+    return null;
+  }
+  const have = life.goods[good] ?? 0;
+  if (have < -qty) return "You don't have that much.";
+  const got = Math.round(price * -qty * (0.88 + shrewd + skill) * 100) / 100;
+  earn(g, life, got);
+  life.goods[good] = have + qty;
+  if (!life.goods[good]) delete life.goods[good];
+  gainXp(g, life, "trade", 4 * -qty);
+  return null;
+}
+
+// ---------------------------------------------------------------- commands
+
+function commandArmy(
+  g: ConquestGame,
+  life: Life,
+  armyId: number,
+): string | null {
+  const s = g.s;
+  const me = meOf(s, life)!;
+  const current = s.armies.find((a) => a.commander === me.id);
+  if (armyId === -1) {
+    if (!current) return "You command no army.";
+    g.touch(current).commander = -1;
+    journal(g, life, "You hand over your command.");
+    return null;
+  }
+  const a = s.armies.find((x) => x.id === armyId);
+  if (!a) return "No such army.";
+  if (current && current !== a) return "You already command an army.";
+  if (
+    a.commander >= 0 &&
+    a.commander !== me.id &&
+    s.chars[a.commander]?.alive &&
+    isPlayed(s, a.commander)
+  )
+    return "Another player commands it.";
+  if (a.prov !== life.prov || life.travel) return "Go to where the army is.";
+  const n = s.nations[a.owner];
+  const job = life.job;
+  const rankOk =
+    job &&
+    (job.kind === "soldier" || job.kind === "warrior") &&
+    job.nation === a.owner &&
+    job.rank >= (COMMAND_RANK[job.kind] ?? 99);
+  const seatOk = n.council.marshal === me.id || n.ruler === me.id;
+  if (!rankOk && !seatOk)
+    return "Only a colonel or general (or a war chief, the marshal or the governor) may take command.";
+  g.touch(a).commander = me.id;
+  if (job && job.army !== a.id) job.army = a.id;
+  journal(
+    g,
+    life,
+    `You take command of the ${n.adjective} army at ${formatPlace(g, a.prov)}.`,
+    "good",
+  );
+  milestone(
+    g,
+    life,
+    "office",
+    `Took command of an army of ${n.name.replace(/^the /, "")}`,
+  );
+  return null;
+}
+
+function marchArmy(g: ConquestGame, life: Life, to: number): string | null {
+  const s = g.s;
+  const a = s.armies.find((x) => x.commander === life.c);
+  if (!a) return "You command no army.";
+  return militaryCommand(g, a.owner, { k: "move", a: a.id, to });
+}
+
+/** The life commands, run for a seat. Returns why it can't be done, or null. */
+export function lifeCommand(
+  g: ConquestGame,
+  seat: string,
+  c: LifeCommand,
+): string | null {
+  const s = g.s;
+  if (s.over) return "The world has reached 1776.";
+  if (!c || typeof c !== "object" || typeof c.k !== "string")
+    return "Bad command.";
+  const life = lifeOfSeat(s, seat);
+  if (!life) return "You haven't made a character yet.";
+  if (c.k === "takeover") return takeOver(g, life, c.c);
+  const me = meOf(s, life);
+  if (!me || life.watching) return "You're watching the world now.";
+  const child = isChildLife(s, life);
+  switch (c.k) {
+    case "travel":
+      return travelTo(g, life, c.to, !!c.bySea);
+    case "halt": {
+      if (!life.travel) return "You're not on the road.";
+      touchLife(g, life);
+      life.travel.path = [life.travel.path[0]];
+      life.travel.sea = [life.travel.sea[0]];
+      life.travel.dest = life.travel.path[0];
+      return null;
+    }
+    case "act":
+      return doAct(g, life, c.place, c.act, c.arg);
+    case "job":
+      if (child) return "Not until you're sixteen.";
+      return takeJob(g, life, c.place, c.job);
+    case "quit":
+      if (!life.job) return "You have no work to leave.";
+      if (life.job.kind === "servant" && (life.job.until ?? 0) > s.day)
+        return "You're bound until your indenture is served. (You could run away.)";
+      leaveJob(g, life, "of your own accord");
+      return null;
+    case "person":
+      return doPerson(g, life, c.c, c.act, c.arg);
+    case "lifestyle":
+      if (!LIFESTYLES.includes(c.v)) return "No such way of living.";
+      touchLife(g, life).lifestyle = c.v;
+      return null;
+    case "heir": {
+      const kid = s.chars[c.c];
+      if (!kid?.alive || !me.children.includes(c.c))
+        return "Only a living child of yours.";
+      touchLife(g, life).heir = c.c;
+      journal(g, life, `You name ${charName(kid)} your heir.`);
+      return null;
+    }
+    case "will":
+      touchLife(g, life).shareWithSpouse = !!c.share;
+      return null;
+    case "event":
+      return answerLifeEvent(g, life, c.id, c.choice);
+    case "trade":
+      return tradeGoods(g, life, c.good, c.qty);
+    case "repay": {
+      const d = life.debts.find((x) => x.to === c.to);
+      if (!d) return "You owe them nothing.";
+      if (life.purse < d.amount) return `You need ${d.amount} coins.`;
+      spend(g, life, d.amount);
+      life.debts = life.debts.filter((x) => x !== d);
+      const lender = s.chars[c.to];
+      if (lender?.alive)
+        g.char(lender.id).memories.push({
+          of: me.id,
+          why: "Paid me back",
+          value: 10,
+          until: s.day + 2 * DAYS_PER_YEAR,
+        });
+      journal(g, life, `You paid back ${charName(lender)}.`);
+      return null;
+    }
+    case "command":
+      if (child) return "Not as a child.";
+      return commandArmy(g, life, c.army);
+    case "march":
+      return marchArmy(g, life, c.to);
+    case "movement":
+    case "stand":
+    case "gov":
+      if (child) return "Not as a child.";
+      for (const h of hooks.command) {
+        const r = h(g, life, c);
+        if (r !== undefined) return r;
+      }
+      return "Not yet.";
+    case "europe":
+      return leaveForEurope(g, life, !!c.takeHeir);
+    case "decline":
+      if (!life.invite) return "Nobody has asked.";
+      touchLife(g, life).invite = null;
+      journal(
+        g,
+        life,
+        "You decline the invitation to Europe. America will do.",
+      );
+      return null;
+    default:
+      return "Unknown command.";
+  }
+}
+
+/** The end of the world: everyone still living sees 1776. */
+export function livesAtEnd(g: ConquestGame): void {
+  for (const life of g.s.lives) {
+    const me = meOf(g.s, life);
+    if (!me) continue;
+    milestone(g, life, "end", `${charName(me)} lived to see 1776`);
+    journal(
+      g,
+      life,
+      "It is 1776. Whatever comes next, your story ends here.",
+      "good",
+    );
+  }
+}
+
+hooks.death.push(lifeDied);
+hooks.battle.push(lifeBattle);
+hooks.skip.push((g, c) => isPlayed(g.s, c));
+hooks.birth.push((g, kid, mother, father) => {
+  for (const life of g.s.lives) {
+    if (life.c !== mother.id && life.c !== father.id) continue;
+    touchLife(g, life);
+    life.tally.children++;
+    if (life.c === mother.id || life.c === father.id) kid.home ??= life.home;
+    journal(
+      g,
+      life,
+      `A ${kid.female ? "daughter" : "son"} is born: ${kid.first}.`,
+      "good",
+    );
+    milestone(
+      g,
+      life,
+      "child",
+      `${kid.female ? "A daughter" : "A son"}, ${kid.first}, was born`,
+    );
+  }
+});
