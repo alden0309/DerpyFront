@@ -9,6 +9,7 @@ export enum GameMapType {
   Alps = "Alps", // map-generator/assets/maps/alps/info.json
   AmazonRiver = "Amazon River", // map-generator/assets/maps/amazonriver/info.json
   Antarctica = "Antarctica", // map-generator/assets/maps/antarctica/info.json
+  ApopkaDetailed = "Apopka - Detailed", // map-generator/assets/maps/apopkadetailed/info.json
   ArchipelagoSea = "ArchipelagoSea", // map-generator/assets/maps/archipelagosea/info.json
   Arctic = "Arctic", // map-generator/assets/maps/arctic/info.json
   Asia = "Asia", // map-generator/assets/maps/asia/info.json
@@ -120,6 +121,8 @@ export enum GameMapType {
   Svalmel = "Svalmel", // map-generator/assets/maps/svalmel/info.json
   TaiwanStrait = "Taiwan Strait", // map-generator/assets/maps/taiwanstrait/info.json
   TheBox = "The Box", // map-generator/assets/maps/thebox/info.json
+  ThirteenColonies = "Thirteen Colonies", // map-generator/assets/maps/thirteencolonies/info.json
+  ThirteenColoniesDetailed = "Thirteen Colonies - Detailed", // map-generator/assets/maps/thirteencoloniesdetailed/info.json
   TierraDelFuego = "Tierra Del Fuego", // map-generator/assets/maps/tierradelfuego/info.json
   Titan = "Titan", // map-generator/assets/maps/titan/info.json
   Tourney1 = "Tourney 2 Teams", // map-generator/assets/maps/tourney1/info.json
@@ -322,6 +325,17 @@ export const maps: readonly MapInfo[] = [
     teamFrequency: -1,
     specialFrequency: -1,
     defaultNationCount: 30,
+  },
+  {
+    id: "ApopkaDetailed",
+    type: GameMapType.ApopkaDetailed,
+    translationKey: "map.apopkadetailed",
+    categories: ["new", "north_america"],
+    multiplayerFrequency: 0,
+    ffaFrequency: -1,
+    teamFrequency: -1,
+    specialFrequency: -1,
+    defaultNationCount: 48,
   },
   {
     id: "ArchipelagoSea",
@@ -2372,6 +2386,28 @@ export const maps: readonly MapInfo[] = [
     specialFrequency: -1,
     defaultNationCount: 13,
     forcedModifiers: ["isWaterNukes:75"],
+  },
+  {
+    id: "ThirteenColonies",
+    type: GameMapType.ThirteenColonies,
+    translationKey: "map.thirteencolonies",
+    categories: ["new", "north_america"],
+    multiplayerFrequency: 0,
+    ffaFrequency: -1,
+    teamFrequency: -1,
+    specialFrequency: -1,
+    defaultNationCount: 29,
+  },
+  {
+    id: "ThirteenColoniesDetailed",
+    type: GameMapType.ThirteenColoniesDetailed,
+    translationKey: "map.thirteencoloniesdetailed",
+    categories: ["new", "north_america"],
+    multiplayerFrequency: 0,
+    ffaFrequency: -1,
+    teamFrequency: -1,
+    specialFrequency: -1,
+    defaultNationCount: 54,
   },
   {
     id: "TierraDelFuego",

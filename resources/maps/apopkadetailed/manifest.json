@@ -1,0 +1,264 @@
+{
+  "categories": ["new", "north_america"],
+  "id": "ApopkaDetailed",
+  "map": {
+    "height": 1676,
+    "num_land_tiles": 2389521,
+    "width": 1700
+  },
+  "map16x": {
+    "height": 419,
+    "num_land_tiles": 144689,
+    "width": 425
+  },
+  "map4x": {
+    "height": 838,
+    "num_land_tiles": 591174,
+    "width": 850
+  },
+  "multiplayer_frequency": 0,
+  "name": "Apopka - Detailed",
+  "nations": [
+    {
+      "coordinates": [947, 1035],
+      "flag": "Apopka",
+      "name": "Downtown Apopka"
+    },
+    {
+      "coordinates": [853, 913],
+      "flag": "Apopka",
+      "name": "Errol Estates"
+    },
+    {
+      "coordinates": [994, 639],
+      "flag": "Apopka",
+      "name": "Rock Springs"
+    },
+    {
+      "coordinates": [899, 717],
+      "flag": "Apopka",
+      "name": "Rock Springs Ridge"
+    },
+    {
+      "coordinates": [983, 1095],
+      "flag": "Apopka",
+      "name": "South Apopka"
+    },
+    {
+      "coordinates": [882, 1138],
+      "flag": "Apopka",
+      "name": "Emerson Park"
+    },
+    {
+      "coordinates": [1137, 1064],
+      "flag": "Apopka",
+      "name": "Piedmont Lakes"
+    },
+    {
+      "coordinates": [822, 939],
+      "flag": "Apopka",
+      "name": "Plymouth"
+    },
+    {
+      "coordinates": [835, 1241],
+      "flag": "Apopka",
+      "name": "Paradise Heights"
+    },
+    {
+      "coordinates": [925, 924],
+      "flag": "Apopka",
+      "name": "Apopka High School"
+    },
+    {
+      "coordinates": [1107, 1183],
+      "flag": "Apopka",
+      "name": "Wekiva High School"
+    },
+    {
+      "coordinates": [972, 1005],
+      "flag": "Apopka",
+      "name": "Kit Land Nelson Park"
+    },
+    {
+      "coordinates": [809, 731],
+      "flag": "Apopka",
+      "name": "Northwest Recreation Complex"
+    },
+    {
+      "coordinates": [833, 747],
+      "flag": "Apopka",
+      "name": "Apopka Amphitheater"
+    },
+    {
+      "coordinates": [877, 870],
+      "flag": "Apopka",
+      "name": "Errol Golf Club"
+    },
+    {
+      "coordinates": [453, 969],
+      "flag": "Apopka",
+      "name": "Lake Apopka North Shore"
+    },
+    {
+      "coordinates": [688, 877],
+      "flag": "Apopka",
+      "name": "Orlando Apopka Airport"
+    },
+    {
+      "coordinates": [1050, 717],
+      "flag": "Florida",
+      "name": "Wekiwa Springs State Park"
+    },
+    {
+      "coordinates": [1195, 461],
+      "flag": "Florida",
+      "name": "Rock Springs Run Reserve"
+    },
+    {
+      "coordinates": [942, 71],
+      "flag": "Florida",
+      "name": "Seminole State Forest"
+    },
+    {
+      "coordinates": [1446, 1045],
+      "flag": "Florida",
+      "name": "Cranes Roost Park"
+    },
+    {
+      "coordinates": [657, 781],
+      "flag": "Florida",
+      "name": "Zellwood"
+    },
+    {
+      "coordinates": [471, 638],
+      "flag": "Florida",
+      "name": "Tangerine"
+    },
+    {
+      "coordinates": [996, 1209],
+      "flag": "Florida",
+      "name": "Clarcona"
+    },
+    {
+      "coordinates": [1295, 907],
+      "flag": "Florida",
+      "name": "Wekiwa Springs"
+    },
+    {
+      "coordinates": [1367, 809],
+      "flag": "Florida",
+      "name": "Sabal Point"
+    },
+    {
+      "coordinates": [1217, 1075],
+      "flag": "Florida",
+      "name": "Forest City"
+    },
+    {
+      "coordinates": [1258, 1225],
+      "flag": "Orlando",
+      "name": "Lockhart"
+    },
+    {
+      "coordinates": [1122, 1426],
+      "flag": "Orlando",
+      "name": "Pine Hills"
+    },
+    {
+      "coordinates": [1148, 1592],
+      "flag": "Orlando",
+      "name": "Orlovista"
+    },
+    {
+      "coordinates": [1399, 1343],
+      "flag": "Orlando",
+      "name": "Fairview Shores"
+    },
+    {
+      "coordinates": [836, 1481],
+      "flag": "Florida",
+      "name": "Ocoee"
+    },
+    {
+      "coordinates": [668, 1502],
+      "flag": "Florida",
+      "name": "Winter Garden"
+    },
+    {
+      "coordinates": [593, 1604],
+      "flag": "Florida",
+      "name": "Tildenville"
+    },
+    {
+      "coordinates": [940, 1641],
+      "flag": "Florida",
+      "name": "Gotha"
+    },
+    {
+      "coordinates": [476, 1557],
+      "flag": "Florida",
+      "name": "Oakland"
+    },
+    {
+      "coordinates": [332, 1335],
+      "flag": "Florida",
+      "name": "Montverde"
+    },
+    {
+      "coordinates": [259, 1260],
+      "flag": "Florida",
+      "name": "Ferndale"
+    },
+    {
+      "coordinates": [100, 873],
+      "flag": "Florida",
+      "name": "Astatula"
+    },
+    {
+      "coordinates": [446, 453],
+      "flag": "Florida",
+      "name": "Mount Dora"
+    },
+    {
+      "coordinates": [759, 424],
+      "flag": "Florida",
+      "name": "Sorrento"
+    },
+    {
+      "coordinates": [871, 446],
+      "flag": "Florida",
+      "name": "Mount Plymouth"
+    },
+    {
+      "coordinates": [1391, 1103],
+      "flag": "Florida",
+      "name": "Altamonte Springs"
+    },
+    {
+      "coordinates": [1590, 899],
+      "flag": "Florida",
+      "name": "Longwood"
+    },
+    {
+      "coordinates": [1496, 1215],
+      "flag": "Florida",
+      "name": "Maitland"
+    },
+    {
+      "coordinates": [1417, 1282],
+      "flag": "Florida",
+      "name": "Eatonville"
+    },
+    {
+      "coordinates": [1503, 558],
+      "flag": "Florida",
+      "name": "Heathrow"
+    },
+    {
+      "coordinates": [1623, 644],
+      "flag": "Florida",
+      "name": "Lake Mary"
+    }
+  ],
+  "translation_key": "map.apopkadetailed"
+}

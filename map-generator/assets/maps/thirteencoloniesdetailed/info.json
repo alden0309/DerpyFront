@@ -1,0 +1,280 @@
+{
+  "id": "ThirteenColoniesDetailed",
+  "name": "Thirteen Colonies - Detailed",
+  "translation_key": "map.thirteencoloniesdetailed",
+  "categories": ["new", "north_america"],
+  "multiplayer_frequency": 0,
+  "min_lake_size": 20,
+  "nations": [
+    {
+      "coordinates": [1714, 622],
+      "name": "New Hampshire",
+      "flag": "New_Hampshire"
+    },
+    {
+      "coordinates": [1704, 712],
+      "name": "Massachusetts Bay",
+      "flag": "Massachusetts (Naval)"
+    },
+    {
+      "coordinates": [1678, 784],
+      "name": "Rhode Island",
+      "flag": "Rhode_Island"
+    },
+    {
+      "coordinates": [1559, 795],
+      "name": "Connecticut",
+      "flag": "Connecticut"
+    },
+    {
+      "coordinates": [1432, 765],
+      "name": "New York",
+      "flag": "New_York"
+    },
+    {
+      "coordinates": [1387, 965],
+      "name": "New Jersey",
+      "flag": "New_Jersey"
+    },
+    {
+      "coordinates": [1284, 1010],
+      "name": "Pennsylvania",
+      "flag": "Pennsylvania"
+    },
+    {
+      "coordinates": [1291, 1119],
+      "name": "Delaware",
+      "flag": "Delaware"
+    },
+    {
+      "coordinates": [1188, 1135],
+      "name": "Maryland",
+      "flag": "Maryland"
+    },
+    {
+      "coordinates": [1092, 1306],
+      "name": "Virginia",
+      "flag": "Virginia"
+    },
+    {
+      "coordinates": [1132, 1598],
+      "name": "North Carolina",
+      "flag": "North_Carolina"
+    },
+    {
+      "coordinates": [852, 1858],
+      "name": "South Carolina",
+      "flag": "Moultrie Flag"
+    },
+    {
+      "coordinates": [752, 1958],
+      "name": "Georgia",
+      "flag": "Georgia (1775)"
+    },
+    {
+      "coordinates": [1368, 644],
+      "name": "Kanien'kehá:ka (Mohawk)",
+      "flag": "Kanienkehaka"
+    },
+    {
+      "coordinates": [1282, 619],
+      "name": "Onyota'a:ka (Oneida)",
+      "flag": "Onyotaaka"
+    },
+    {
+      "coordinates": [1234, 635],
+      "name": "Onöñda'gega' (Onondaga)",
+      "flag": "Haudenosaunee"
+    },
+    {
+      "coordinates": [1188, 651],
+      "name": "Gayogohó:no' (Cayuga)",
+      "flag": "Gayogohono"
+    },
+    {
+      "coordinates": [1077, 661],
+      "name": "Onödowá'ga: (Seneca)",
+      "flag": "Onodowaga"
+    },
+    {
+      "coordinates": [1290, 746],
+      "name": "Skarù:re' (Tuscarora)",
+      "flag": "Skarure"
+    },
+    {
+      "coordinates": [1941, 359],
+      "name": "Penawahpskewi (Penobscot)",
+      "flag": "Penawahpskewi"
+    },
+    {
+      "coordinates": [2088, 355],
+      "name": "Peskotomuhkati (Passamaquoddy)",
+      "flag": "Peskotomuhkati"
+    },
+    {
+      "coordinates": [2126, 220],
+      "name": "Wolastoqiyik (Maliseet)",
+      "flag": "Wolastoqiyik"
+    },
+    {
+      "coordinates": [1531, 372],
+      "name": "Alnôbak (Abenaki)",
+      "flag": "Alnobak"
+    },
+    {
+      "coordinates": [2261, 413],
+      "name": "Mi'kmaq",
+      "flag": "Mi'kmaq"
+    },
+    {
+      "coordinates": [1507, 728],
+      "name": "Muhheconneok (Mohican)",
+      "flag": "Muhheconneok"
+    },
+    {
+      "coordinates": [1663, 834],
+      "name": "Narragansett",
+      "flag": "Narragansett"
+    },
+    {
+      "coordinates": [1621, 825],
+      "name": "Mohegan",
+      "flag": "Mohegan"
+    },
+    {
+      "coordinates": [1778, 804],
+      "name": "Wôpanâak (Wampanoag)",
+      "flag": "Wopanaak"
+    },
+    {
+      "coordinates": [1661, 731],
+      "name": "Nipmuc",
+      "flag": "Nipmuc"
+    },
+    {
+      "coordinates": [1589, 901],
+      "name": "Shinnecock",
+      "flag": "Shinnecock"
+    },
+    {
+      "coordinates": [1315, 1187],
+      "name": "Nanticoke",
+      "flag": "Nanticoke"
+    },
+    {
+      "coordinates": [1150, 1303],
+      "name": "Pamunkey",
+      "flag": "Pamunkey"
+    },
+    {
+      "coordinates": [1138, 1417],
+      "name": "Cheroenhaka (Nottoway)",
+      "flag": "Cheroenhaka"
+    },
+    {
+      "coordinates": [677, 974],
+      "name": "Lenape",
+      "flag": "Lenape"
+    },
+    {
+      "coordinates": [562, 1082],
+      "name": "Shaawanwaki (Shawnee)",
+      "flag": "Shawnee"
+    },
+    {
+      "coordinates": [569, 975],
+      "name": "Mingo",
+      "flag": "Mingo"
+    },
+    {
+      "coordinates": [555, 855],
+      "name": "Wendat (Wyandot)",
+      "flag": "Wendat"
+    },
+    {
+      "coordinates": [365, 874],
+      "name": "Myaamia (Miami)",
+      "flag": "Myaamia"
+    },
+    {
+      "coordinates": [202, 968],
+      "name": "Waayaahtanwa (Wea)",
+      "flag": "Waayaahtanwa"
+    },
+    {
+      "coordinates": [154, 1168],
+      "name": "Piankashaw",
+      "flag": "Piankashaw"
+    },
+    {
+      "coordinates": [394, 300],
+      "name": "Odawa (Ottawa)",
+      "flag": "Odawa"
+    },
+    {
+      "coordinates": [269, 791],
+      "name": "Bodéwadmi (Potawatomi)",
+      "flag": "Bodewadmi"
+    },
+    {
+      "coordinates": [466, 569],
+      "name": "Ojibwe (Chippewa)",
+      "flag": "Anishinaabe"
+    },
+    {
+      "coordinates": [971, 480],
+      "name": "Mississauga",
+      "flag": "Mississauga"
+    },
+    {
+      "coordinates": [82, 413],
+      "name": "Menominee (Mamaceqtaw)",
+      "flag": "Mamaceqtaw"
+    },
+    {
+      "coordinates": [468, 1554],
+      "name": "Tsalagi (Cherokee)",
+      "flag": "Cherokee Nation"
+    },
+    {
+      "coordinates": [787, 1628],
+      "name": "Iswa (Catawba)",
+      "flag": "Iswa"
+    },
+    {
+      "coordinates": [304, 1896],
+      "name": "Mvskoke (Upper Creek)",
+      "flag": "Mvskoke"
+    },
+    {
+      "coordinates": [378, 1926],
+      "name": "Mvskoke (Lower Creek)",
+      "flag": "Mvskoke (Lower)"
+    },
+    {
+      "coordinates": [254, 1904],
+      "name": "Albaamaha (Alabama)",
+      "flag": "Albaamaha"
+    },
+    {
+      "coordinates": [29, 1703],
+      "name": "Chikashsha (Chickasaw)",
+      "flag": "Chickasaw"
+    },
+    {
+      "coordinates": [43, 1882],
+      "name": "Chahta (Choctaw)",
+      "flag": "Choctaw"
+    },
+    {
+      "coordinates": [645, 2237],
+      "name": "Yat'siminoli (Seminole)",
+      "flag": "Seminole"
+    },
+    {
+      "coordinates": [482, 2127],
+      "name": "Mikasuki (Miccosukee)",
+      "flag": "Miccosukee"
+    }
+  ]
+}
