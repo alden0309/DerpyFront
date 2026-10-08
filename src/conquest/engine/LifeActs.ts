@@ -1401,13 +1401,13 @@ export function personOdds(
   const status = c.role ? ROLES[c.role].status : 2;
   switch (act) {
     case "flatter":
-      return checkChance(skillLevel(s, life, "persuasion"), 5 + status);
+      return checkChance(skillLevel(s, life, "persuasion"), 3 + status);
     case "befriend":
-      return checkChance(skillLevel(s, life, "persuasion"), 6);
+      return checkChance(skillLevel(s, life, "persuasion"), 5);
     case "court":
       return checkChance(
         skillLevel(s, life, "persuasion"),
-        5 + Math.max(0, status - 2),
+        4 + Math.max(0, status - 2),
       );
     case "patron":
       return checkChance(skillLevel(s, life, "persuasion"), 4 + status);
