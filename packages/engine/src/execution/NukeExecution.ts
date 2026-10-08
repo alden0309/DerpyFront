@@ -9,6 +9,7 @@ import {
 import { NukeType } from "@openfront/engine-api/StatsSchemas";
 import { atan2 } from "@openfront/engine-lib/DetMath";
 import { listNukeBreakAlliance } from "@openfront/engine-lib/execution/NukeAlliance";
+import { NUKED_RELATION } from "@openfront/engine-lib/execution/RelationRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   zInt,
@@ -201,7 +202,7 @@ export class NukeExecution implements Execution {
         this.player.breakAlliance(alliance);
       }
       if (attackedPlayer !== this.player) {
-        attackedPlayer.updateRelation(this.player, -100);
+        attackedPlayer.updateRelation(this.player, NUKED_RELATION, "nuked");
       }
     }
   }

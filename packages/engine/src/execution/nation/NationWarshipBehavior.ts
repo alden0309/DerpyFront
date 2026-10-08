@@ -6,6 +6,10 @@ import {
   PlayerType,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
+import {
+  BOATS_RELATION,
+  CAPTURED_TRADE_RELATION,
+} from "@openfront/engine-lib/execution/RelationRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   readVersioned,
@@ -297,7 +301,15 @@ export class NationWarshipBehavior {
         new ConstructionExecution(this.player, UnitType.Warship, tile),
       );
       this.emojiBehavior.maybeSendEmoji(enemy, EMOJI_WARSHIP_RETALIATION);
-      this.player.updateRelation(enemy, reason === "trade" ? -7.5 : -15);
+      if (reason === "trade") {
+        this.player.updateRelation(
+          enemy,
+          CAPTURED_TRADE_RELATION,
+          "captured_trade",
+        );
+      } else {
+        this.player.updateRelation(enemy, BOATS_RELATION, "boats");
+      }
     }
   }
 

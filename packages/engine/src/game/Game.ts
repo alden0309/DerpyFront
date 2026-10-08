@@ -33,6 +33,10 @@ import {
   PlayerUpdate,
   UnitUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
+import type {
+  OpinionReason,
+  RelationReason,
+} from "@openfront/engine-api/game/Opinion";
 import {
   GameLike,
   PlayerLike,
@@ -432,8 +436,21 @@ export interface Player extends PlayerLike {
   sharesBorderWith(other: Player | TerraNullius): boolean;
   relation(other: Player): Relation;
   allRelationsSorted(): { player: Player; relation: Relation }[];
-  updateRelation(other: Player, delta: number): void;
+  /**
+   * Moves this player's opinion of `other` by `delta`, clamped to -100..100.
+   * `reason` is kept for the player panel only (relationReasons); nothing in
+   * the simulation reads it.
+   */
+  updateRelation(other: Player, delta: number, reason: RelationReason): void;
   decayRelations(): void;
+  /** This player's opinion of `other`, -100..100. */
+  relationValue(other: Player): number;
+  /**
+   * Display only: what this player's opinion of `other` is made of, in
+   * whole points adding up to it. Kept only for a nation's or tribe's
+   * opinion of a human; anything else reads as "other".
+   */
+  relationReasons(other: Player): OpinionReason[];
   isOnSameTeam(other: Player): boolean;
   // Either allied or on same team.
   isFriendly(other: Player, treatAFKFriendly?: boolean): boolean;
@@ -447,6 +464,11 @@ export interface Player extends PlayerLike {
   allianceWith(other: Player): MutableAlliance | null;
   allianceInfo(other: Player): AllianceInfo | null;
   canSendAllianceRequest(other: Player): boolean;
+  /**
+   * Ticks until this player may ask `other` for an alliance again after an
+   * earlier request (0 when that isn't what stops them).
+   */
+  allianceRequestCooldownTicks(other: Player): number;
   breakAlliance(alliance: Alliance): void;
   removeAllAlliances(): void;
   createAllianceRequest(recipient: Player): AllianceRequest | null;

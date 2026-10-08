@@ -1,15 +1,14 @@
+import { PlayerID, PlayerType } from "@openfront/engine-api/game/GameTypes";
 import {
-  Difficulty,
-  PlayerID,
-  PlayerType,
-} from "@openfront/engine-api/game/GameTypes";
+  TROOP_GIFT_RELATION,
+  troopGiftRelationRange,
+} from "@openfront/engine-lib/execution/RelationRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   zNum,
   zPlayerRef,
   zRandom,
 } from "@openfront/engine-lib/snapshot/SnapshotType";
-import { assertNever } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Execution, Game, Player } from "../game/Game";
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
@@ -72,7 +71,11 @@ export class DonateTroopsExecution implements Execution {
     ) {
       // Prevent players from just buying a good relation by sending 1% troops. Instead, a minimum is needed, and it's random.
       if (this.troops >= minTroops) {
-        this.recipient.updateRelation(this.sender, 50);
+        this.recipient.updateRelation(
+          this.sender,
+          TROOP_GIFT_RELATION,
+          "gift_troops",
+        );
       }
 
       // Only AI nations auto-respond with emojis, human players should not
@@ -101,35 +104,8 @@ export class DonateTroopsExecution implements Execution {
   private getMinTroopsForRelationUpdate(): number {
     const { difficulty } = this.mg.config().gameConfig();
     const recipientMaxTroops = this.mg.config().maxTroops(this.recipient);
-
-    switch (difficulty) {
-      // ~7.7k - ~9.1k troops (for 100k troops)
-      case Difficulty.Easy:
-        return this.random.nextInt(
-          recipientMaxTroops / 13,
-          recipientMaxTroops / 11,
-        );
-      // ~9.1k - ~11.1k troops (for 100k troops)
-      case Difficulty.Medium:
-        return this.random.nextInt(
-          recipientMaxTroops / 11,
-          recipientMaxTroops / 9,
-        );
-      // ~11.1k - ~14.3k troops (for 100k troops)
-      case Difficulty.Hard:
-        return this.random.nextInt(
-          recipientMaxTroops / 9,
-          recipientMaxTroops / 7,
-        );
-      // ~14.3k - ~20k troops (for 100k troops)
-      case Difficulty.Impossible:
-        return this.random.nextInt(
-          recipientMaxTroops / 7,
-          recipientMaxTroops / 5,
-        );
-      default:
-        assertNever(difficulty);
-    }
+    const [min, max] = troopGiftRelationRange(difficulty, recipientMaxTroops);
+    return this.random.nextInt(min, max);
   }
 
   isActive(): boolean {

@@ -35,7 +35,7 @@ async function builtGame(): Promise<Game> {
   a.addGold(12345n);
   b.addTroops(777);
   a.addEmbargo(b, false);
-  a.updateRelation(b, -50);
+  a.updateRelation(b, -50, "attacked");
   const g = game as GameImpl;
   g.createAllianceRequest(a, b)?.accept();
   g.createAllianceRequest(b, game.player("bot"));

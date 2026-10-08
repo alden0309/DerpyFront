@@ -12,6 +12,7 @@ import {
   TerraNullius,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
+import { FAVOR_RELATION } from "@openfront/engine-lib/execution/RelationRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   readVersioned,
@@ -825,7 +826,7 @@ export class AiAttackBehavior {
           continue;
         }
         if (!this.sendAttack(target)) continue;
-        this.player.updateRelation(ally, -20);
+        this.player.updateRelation(ally, FAVOR_RELATION, "favor");
         this.emojiBehavior.sendEmoji(ally, EMOJI_ASSIST_ACCEPT);
         return true;
       }

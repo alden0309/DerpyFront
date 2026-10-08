@@ -1,6 +1,5 @@
 import { GameMap, TileRef } from "@openfront/engine-api/game/GameMap";
 import {
-  Difficulty,
   MessageType,
   PlayerID,
   PlayerType,
@@ -8,6 +7,7 @@ import {
   TerraNullius,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
+import { attackRelationPenalty } from "@openfront/engine-lib/execution/RelationRules";
 import { renderTroops } from "@openfront/engine-lib/Format";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
@@ -19,7 +19,6 @@ import {
   zTile,
   zTiles,
 } from "@openfront/engine-lib/snapshot/SnapshotType";
-import { assertNever } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { AttackLogicInput } from "../configuration/EngineConfig";
 import { Attack, Execution, Game, Player } from "../game/Game";
@@ -186,24 +185,11 @@ export class AttackExecution implements Execution {
 
     if (this.target.isPlayer()) {
       const difficulty = this.mg.config().gameConfig().difficulty;
-      let relationChange: number;
-      switch (difficulty) {
-        case Difficulty.Easy:
-          relationChange = -60;
-          break;
-        case Difficulty.Medium:
-          relationChange = -70;
-          break;
-        case Difficulty.Hard:
-          relationChange = -80;
-          break;
-        case Difficulty.Impossible:
-          relationChange = -100;
-          break;
-        default:
-          assertNever(difficulty);
-      }
-      this.target.updateRelation(this._owner, relationChange);
+      this.target.updateRelation(
+        this._owner,
+        attackRelationPenalty(difficulty),
+        "attacked",
+      );
     }
   }
 

@@ -263,7 +263,10 @@ ctx.addEventListener("message", async (e: MessageEvent<MainThreadMessage>) => {
       }
 
       try {
-        const profile = (await gameRunner).playerProfile(message.playerID);
+        const profile = (await gameRunner).playerProfile(
+          message.playerID,
+          message.viewerID,
+        );
         sendMessage({
           type: "player_profile_result",
           id: message.id,
