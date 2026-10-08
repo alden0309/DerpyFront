@@ -7,6 +7,12 @@ import {
   Tick,
 } from "@openfront/engine-api/game/GameTypes";
 import { flattenedEmojiTable } from "@openfront/engine-api/Schemas";
+import {
+  CLOWN_EMOJI_RELATION,
+  INSULT_EMOJI_RELATION,
+  KIND_EMOJI_RELATION,
+  KIND_EMOJIS,
+} from "@openfront/engine-lib/execution/RelationRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   readVersioned,
@@ -326,7 +332,7 @@ export function respondToEmoji(
   if (!recipient.canSendEmoji(sender)) return;
 
   if (emojiString === "🖕") {
-    recipient.updateRelation(sender, -100);
+    recipient.updateRelation(sender, INSULT_EMOJI_RELATION, "rude_emoji");
     game.addExecution(
       new EmojiExecution(
         recipient,
@@ -337,7 +343,7 @@ export function respondToEmoji(
   }
 
   if (emojiString === "🤡") {
-    recipient.updateRelation(sender, -10);
+    recipient.updateRelation(sender, CLOWN_EMOJI_RELATION, "rude_emoji");
     game.addExecution(
       new EmojiExecution(
         recipient,
@@ -347,9 +353,9 @@ export function respondToEmoji(
     );
   }
 
-  if (["🕊️", "🏳️", "❤️", "🥰", "👏"].includes(emojiString)) {
+  if (KIND_EMOJIS.includes(emojiString)) {
     if (game.config().gameConfig().difficulty === Difficulty.Easy) {
-      recipient.updateRelation(sender, 15);
+      recipient.updateRelation(sender, KIND_EMOJI_RELATION, "kind_emoji");
     }
     game.addExecution(
       new EmojiExecution(

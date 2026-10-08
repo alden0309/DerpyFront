@@ -2,6 +2,7 @@ import { ClientID } from "../Schemas";
 
 import { TileRef } from "./GameMap";
 import { GameUpdate, GameUpdateType } from "./GameUpdates";
+import type { Opinion } from "./Opinion";
 
 function isEnumValue<T extends Record<string, string | number>>(
   enumObj: T,
@@ -396,6 +397,11 @@ export const STRUCTURE_BULK_STEPS: readonly number[] = [5, 10];
 export interface PlayerProfile {
   relations: Record<number, Relation>;
   alliances: number[];
+  /**
+   * A nation's or tribe's opinion of the player who asked, when a player
+   * asked (see GameRunner.playerProfile).
+   */
+  opinionOfViewer?: Opinion;
 }
 
 export interface PlayerBorderTiles {

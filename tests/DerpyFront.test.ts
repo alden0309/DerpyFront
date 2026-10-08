@@ -151,7 +151,7 @@ describe("Trade Agreements", () => {
     me.conquer(game.ref(5, 5));
     calm.conquer(game.ref(50, 50));
     angry.conquer(game.ref(90, 90));
-    angry.updateRelation(me, -1000);
+    angry.updateRelation(me, -1000, "attacked");
     expect(angry.relation(me)).toBeLessThan(Relation.Neutral);
 
     game.addExecution(

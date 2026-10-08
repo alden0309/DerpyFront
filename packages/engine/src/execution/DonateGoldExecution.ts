@@ -1,15 +1,15 @@
 import {
-  Difficulty,
   Gold,
   PlayerID,
   PlayerType,
 } from "@openfront/engine-api/game/GameTypes";
+import { goldGiftRelation } from "@openfront/engine-lib/execution/RelationRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   zPlayerRef,
   zRandom,
 } from "@openfront/engine-lib/snapshot/SnapshotType";
-import { assertNever, toInt } from "@openfront/engine-lib/Util";
+import { toInt } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Execution, Game, Player } from "../game/Game";
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
@@ -67,7 +67,7 @@ export class DonateGoldExecution implements Execution {
       // Give relation points based on how much gold was donated
       const relationUpdate = this.calculateRelationUpdate(this.gold, ticks);
       if (relationUpdate > 0) {
-        this.recipient.updateRelation(this.sender, relationUpdate);
+        this.recipient.updateRelation(this.sender, relationUpdate, "gift_gold");
       }
 
       // Only AI nations auto-respond with emojis, human players should not
@@ -99,37 +99,13 @@ export class DonateGoldExecution implements Execution {
     this.active = false;
   }
 
-  private getGoldChunkSize(): number {
-    const { difficulty } = this.mg.config().gameConfig();
-    switch (difficulty) {
-      case Difficulty.Easy:
-        return 2_500;
-      case Difficulty.Medium:
-        return 5_000;
-      case Difficulty.Hard:
-        return 12_500;
-      case Difficulty.Impossible:
-        return 25_000;
-      default:
-        assertNever(difficulty);
-    }
-  }
-
   private calculateRelationUpdate(goldSent: Gold, ticks: number): number {
-    const chunkSize = this.getGoldChunkSize();
-    // For every 5 minutes that pass, multiply the chunk size to scale with game progression
-    const chunkSizeMultiplier =
-      ticks / (3000 + this.mg.config().numSpawnPhaseTurns());
-    const adjustedChunkSize = BigInt(
-      Math.round(chunkSize + chunkSize * chunkSizeMultiplier),
+    return goldGiftRelation(
+      goldSent,
+      this.mg.config().gameConfig().difficulty,
+      ticks,
+      this.mg.config().numSpawnPhaseTurns(),
     );
-    // Calculate how many complete chunks were donated
-    const chunks = Number(goldSent / adjustedChunkSize);
-    // Each chunk gives 5 relation points
-    const relationUpdate = chunks * 5;
-    // Cap at 100 relation points
-    if (relationUpdate > 100) return 100;
-    return relationUpdate;
   }
 
   isActive(): boolean {

@@ -4,6 +4,7 @@ import {
   TerraNullius,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
+import { NUKED_RELATION } from "@openfront/engine-lib/execution/RelationRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   zInt,
@@ -112,8 +113,16 @@ export class MirvExecution implements Execution {
           this.player.breakAlliance(alliance);
         }
         if (this.targetPlayer !== this.player) {
-          this.targetPlayer.updateRelation(this.player, -100);
-          this.player.updateRelation(this.targetPlayer, -100);
+          this.targetPlayer.updateRelation(
+            this.player,
+            NUKED_RELATION,
+            "nuked",
+          );
+          this.player.updateRelation(
+            this.targetPlayer,
+            NUKED_RELATION,
+            "mirv_at_you",
+          );
         }
       }
       const x = Math.floor((this.baseX + this.mg.x(this.nuke.tile())) / 2);

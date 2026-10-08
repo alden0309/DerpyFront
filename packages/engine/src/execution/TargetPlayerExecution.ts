@@ -1,4 +1,5 @@
 import { PlayerID } from "@openfront/engine-api/game/GameTypes";
+import { TARGETED_RELATION } from "@openfront/engine-lib/execution/RelationRules";
 import { zPlayerRef } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { z } from "zod";
 import { Execution, Game, Player } from "../game/Game";
@@ -32,7 +33,7 @@ export class TargetPlayerExecution implements Execution {
   tick(ticks: number): void {
     if (this.requestor.canTarget(this.target)) {
       this.requestor.target(this.target);
-      this.target.updateRelation(this.requestor, -40);
+      this.target.updateRelation(this.requestor, TARGETED_RELATION, "targeted");
     }
     this.active = false;
   }

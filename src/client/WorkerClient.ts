@@ -160,7 +160,7 @@ export class WorkerClient {
     });
   }
 
-  playerProfile(playerID: number): Promise<PlayerProfile> {
+  playerProfile(playerID: number, viewerID?: number): Promise<PlayerProfile> {
     return new Promise((resolve, reject) => {
       if (!this.isInitialized) {
         reject(new Error("Worker not initialized"));
@@ -182,6 +182,7 @@ export class WorkerClient {
         type: "player_profile",
         id: messageId,
         playerID: playerID,
+        viewerID,
       });
     });
   }

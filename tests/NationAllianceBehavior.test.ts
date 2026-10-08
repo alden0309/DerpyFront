@@ -65,8 +65,8 @@ describe("AllianceBehavior.handleAllianceRequests", () => {
   } = {}) {
     if (isTraitor) requestor.markTraitor();
 
-    player.updateRelation(requestor, relationDelta);
-    requestor.updateRelation(player, relationDelta);
+    player.updateRelation(requestor, relationDelta, "other");
+    requestor.updateRelation(player, relationDelta, "other");
 
     game.map().forEachTile((tile) => {
       if (game.map().isLand(tile)) {

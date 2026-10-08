@@ -4,6 +4,7 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { wouldNukeBreakAlliance } from "@openfront/engine-lib/execution/NukeAlliance";
+import { ALLIANCE_RELATION } from "@openfront/engine-lib/execution/RelationRules";
 import { zPlayerRef, zRef } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { z } from "zod";
 import { AllianceRequest, Execution, Game, Player } from "../../game/Game";
@@ -49,8 +50,8 @@ export class AllianceRequestExecution implements Execution {
         incoming.accept();
 
         // Update player relations
-        this.requestor.updateRelation(recipient, 100);
-        recipient.updateRelation(this.requestor, 100);
+        this.requestor.updateRelation(recipient, ALLIANCE_RELATION, "alliance");
+        recipient.updateRelation(this.requestor, ALLIANCE_RELATION, "alliance");
 
         // Automatically remove embargoes only if they were automatically created
         if (this.requestor.hasEmbargoAgainst(recipient))

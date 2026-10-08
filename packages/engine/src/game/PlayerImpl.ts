@@ -31,8 +31,14 @@ import {
   GameUpdateType,
   PlayerUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
+import {
+  OpinionReason,
+  RELATION_REASONS,
+  RelationReason,
+} from "@openfront/engine-api/game/Opinion";
 import { ReadonlyTileSet } from "@openfront/engine-api/game/ReadViews";
 import { ClientID } from "@openfront/engine-api/Schemas";
+import { RELATION_DECAY_PER_TICK } from "@openfront/engine-lib/execution/RelationRules";
 import { andFN, manhattanDistFN } from "@openfront/engine-lib/game/GameMapImpl";
 import { TileSet } from "@openfront/engine-lib/game/TileSet";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
@@ -79,6 +85,11 @@ import {
 } from "./Game";
 import { GameImpl } from "./GameImpl";
 import { diffPlayerUpdate, packAttackTroopDeltas } from "./GameUpdateUtils";
+import {
+  opinionReasons,
+  recordRelationChange,
+  RelationParts,
+} from "./RelationReasons";
 import {
   bumpTraversalGeneration,
   tileTraversalScratch,
@@ -191,6 +202,9 @@ export class PlayerImpl implements Player {
   private sentDonations: Donation[] = [];
 
   private relations = new Map<Player, number>();
+  // Display only, never read by the simulation: what each relation value is
+  // made of (see RelationReasons and keepsRelationParts).
+  private relationParts = new Map<Player, RelationParts>();
 
   private lastDeleteUnitTick: Tick = -1;
   private lastEmbargoAllTick: Tick = -1;
@@ -864,6 +878,16 @@ export class PlayerImpl implements Player {
     return delta >= this.mg.config().allianceRequestCooldown();
   }
 
+  allianceRequestCooldownTicks(other: Player): number {
+    let last = -Infinity;
+    for (const ar of this.pastOutgoingAllianceRequests) {
+      if (ar.recipient() === other) last = Math.max(last, ar.createdAt());
+    }
+    const left =
+      last + this.mg.config().allianceRequestCooldown() - this.mg.ticks();
+    return left > 0 ? left : 0;
+  }
+
   breakAlliance(alliance: MutableAlliance): void {
     this.mg.breakAlliance(this, alliance);
   }
@@ -972,25 +996,57 @@ export class PlayerImpl implements Player {
       }));
   }
 
-  updateRelation(other: Player, delta: number): void {
+  updateRelation(other: Player, delta: number, reason: RelationReason): void {
     if (other === this) {
       throw new Error(`cannot update relation with self: ${this}`);
     }
     const relation = this.relations.get(other) ?? 0;
     const newRelation = within(relation + delta, -100, 100);
     this.relations.set(other, newRelation);
+    if (this.keepsRelationParts(other)) {
+      let parts = this.relationParts.get(other);
+      if (parts === undefined) {
+        parts = new Map();
+        this.relationParts.set(other, parts);
+      }
+      recordRelationChange(parts, reason, relation, delta, newRelation);
+    }
   }
 
   decayRelations() {
     this.relations.forEach((r: number, p: Player) => {
       const sign = -1 * Math.sign(r);
-      const delta = 0.05;
+      const delta = RELATION_DECAY_PER_TICK;
       r += sign * delta;
       if (Math.abs(r) < delta * 2) {
         r = 0;
       }
       this.relations.set(p, r);
     });
+  }
+
+  /**
+   * Whether this player keeps the reasons behind its opinion of `other`:
+   * only a nation's or tribe's opinion of a human, the one thing the player
+   * panel shows. Both types are fixed for the game, so a pair keeps them
+   * from its first change on.
+   */
+  private keepsRelationParts(other: Player): boolean {
+    return (
+      this.playerInfo.playerType !== PlayerType.Human &&
+      other.type() === PlayerType.Human
+    );
+  }
+
+  relationValue(other: Player): number {
+    return this.relations.get(other) ?? 0;
+  }
+
+  relationReasons(other: Player): OpinionReason[] {
+    return opinionReasons(
+      this.relationParts.get(other),
+      this.relationValue(other),
+    );
   }
 
   canTarget(other: Player): boolean {
@@ -1931,7 +1987,7 @@ export class PlayerImpl implements Player {
   }
 
   public playerProfile(): PlayerProfile {
-    const rel = {
+    const rel: PlayerProfile = {
       relations: Object.fromEntries(
         this.allRelationsSorted().map(({ player, relation }) => [
           player.smallID(),
@@ -2078,6 +2134,10 @@ export class PlayerImpl implements Player {
         tick: d.tick,
       })),
       relations: [...this.relations].map(([p, r]) => [w.player(p), r]),
+      relationParts: [...this.relationParts].map(([p, parts]) => [
+        w.player(p),
+        [...parts],
+      ]),
       lastDeleteUnitTick: this.lastDeleteUnitTick,
       lastEmbargoAllTick: this.lastEmbargoAllTick,
       incomingAttacks: this._incomingAttacks.map((a) => w.attack(a)),
@@ -2163,6 +2223,20 @@ export class PlayerImpl implements Player {
     this.relations = new Map(
       s.relations.map(([p, rel]) => [r.player(p), rel] as const),
     );
+    // Absent in snapshots from before reasons were kept: whatever the
+    // relations hold then reads as "other" (see RelationReasons).
+    const known = new Set<string>(RELATION_REASONS);
+    this.relationParts = new Map(
+      (s.relationParts ?? []).map(([p, parts]) => {
+        const restored: RelationParts = new Map();
+        for (const [reason, v] of parts) {
+          // A reason this build doesn't know (from a later one) is "other".
+          const key = known.has(reason) ? (reason as RelationReason) : "other";
+          restored.set(key, (restored.get(key) ?? 0) + v);
+        }
+        return [r.player(p), restored] as const;
+      }),
+    );
     this.lastDeleteUnitTick = s.lastDeleteUnitTick;
     this.lastEmbargoAllTick = s.lastEmbargoAllTick;
     this._incomingAttacks = s.incomingAttacks.map((i) => r.attack(i));
@@ -2234,6 +2308,10 @@ export const PlayerSnapshot = snapshotType({
     outgoingQuickChats: z.array(z.tuple([zInt(), zInt()])),
     sentDonations: z.array(z.object({ recipient: zPlayerRef(), tick: zInt() })),
     relations: z.array(z.tuple([zPlayerRef(), zNum()])),
+    // Display-only breakdown of relations (absent before it existed).
+    relationParts: z
+      .array(z.tuple([zPlayerRef(), z.array(z.tuple([z.string(), zNum()]))]))
+      .optional(),
     lastDeleteUnitTick: zInt(),
     lastEmbargoAllTick: zInt(),
     incomingAttacks: z.array(zRef()),

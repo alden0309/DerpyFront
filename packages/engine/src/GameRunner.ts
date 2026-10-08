@@ -26,6 +26,7 @@ import { simpleHash } from "@openfront/engine-lib/Util";
 import { EngineConfig } from "./configuration/EngineConfig";
 import { DoomsdayClockExecution } from "./execution/DoomsdayClockExecution";
 import { Executor } from "./execution/ExecutionManager";
+import { opinionOfViewer } from "./execution/nation/NationOpinion";
 import { RecomputeRailClusterExecution } from "./execution/RecomputeRailClusterExecution";
 import { SpawnTimerExecution } from "./execution/SpawnTimerExecution";
 import { WinCheckExecution } from "./execution/WinCheckExecution";
@@ -342,12 +343,23 @@ export class GameRunner {
     return actions;
   }
 
-  public playerProfile(playerID: number): PlayerProfile {
+  /**
+   * With a viewer, a nation's or tribe's profile also carries its opinion of
+   * them (NationOpinion). Only reads the game.
+   */
+  public playerProfile(playerID: number, viewerID?: number): PlayerProfile {
     const player = this.game.playerBySmallID(playerID);
     if (!player.isPlayer()) {
       throw new Error(`player with id ${playerID} not found`);
     }
-    return player.playerProfile();
+    const profile = player.playerProfile();
+    const viewer =
+      viewerID === undefined ? null : this.game.playerBySmallID(viewerID);
+    if (viewer !== null && viewer.isPlayer()) {
+      const opinion = opinionOfViewer(this.game, player, viewer);
+      if (opinion !== undefined) profile.opinionOfViewer = opinion;
+    }
+    return profile;
   }
   public playerBorderTiles(playerID: PlayerID): PlayerBorderTiles {
     const player = this.game.player(playerID);

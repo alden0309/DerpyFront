@@ -108,6 +108,8 @@ export interface PlayerBuildablesResultMessage extends BaseWorkerMessage {
 export interface PlayerProfileMessage extends BaseWorkerMessage {
   type: "player_profile";
   playerID: number;
+  /** Small id of the player looking, to include the opinion of them. */
+  viewerID?: number;
 }
 
 export interface PlayerProfileResultMessage extends BaseWorkerMessage {

@@ -10,6 +10,7 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameID } from "@openfront/engine-api/Schemas";
+import { EMBARGO_RELATION } from "@openfront/engine-lib/execution/RelationRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   VersionedSchema,
@@ -317,18 +318,18 @@ export class NationExecution implements Execution {
     const others = this.mg.players().filter((p) => p.id() !== player.id());
 
     others.forEach((other: Player) => {
-      const embargoMalus = -20;
+      const embargoMalus = EMBARGO_RELATION;
       if (
         other.hasEmbargoAgainst(player) &&
         !this.embargoMalusApplied.has(other.id())
       ) {
-        player.updateRelation(other, embargoMalus);
+        player.updateRelation(other, embargoMalus, "embargo");
         this.embargoMalusApplied.add(other.id());
       } else if (
         !other.hasEmbargoAgainst(player) &&
         this.embargoMalusApplied.has(other.id())
       ) {
-        player.updateRelation(other, -embargoMalus);
+        player.updateRelation(other, -embargoMalus, "embargo_lifted");
         this.embargoMalusApplied.delete(other.id());
       }
     });

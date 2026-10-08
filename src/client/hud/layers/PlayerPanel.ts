@@ -37,6 +37,8 @@ import { renderDuration, showToast, translateText } from "../../Utils";
 import { GameView, PlayerView } from "../../view";
 import { ChatModal } from "./ChatModal";
 import { EmojiTable } from "./EmojiTable";
+import { renderOpinionSection } from "./OpinionSection";
+import { opinionView } from "./OpinionView";
 import "./PlayerModerationModal";
 import "./PlayerReportModal";
 import "./SendResourceModal";
@@ -53,6 +55,10 @@ const startTradingIcon = assetUrl("images/TradingIconWhite.svg");
 const traitorIcon = assetUrl("images/TraitorIconLightRed.svg");
 const breakAllianceIcon = assetUrl("images/TraitorIconWhite.svg");
 
+// How often (in game ticks) an open panel refreshes the profile, so the
+// opinion of you keeps up as it fades.
+const PROFILE_REFRESH_TICKS = 5;
+
 @customElement("player-panel")
 export class PlayerPanel extends LitElement implements Controller {
   public g: GameView;
@@ -62,7 +68,10 @@ export class PlayerPanel extends LitElement implements Controller {
 
   private actions: PlayerActions | null = null;
   private tile: TileRef | null = null;
+  // Small id of the player otherProfile describes, and when it was fetched.
   private _profileForPlayerId: number | null = null;
+  private _profileFetchedAt = -Infinity;
+  private profileInFlight = false;
   private kickedPlayerIDs = new Set<string>();
 
   @state() private sendTarget: PlayerView | null = null;
@@ -140,11 +149,24 @@ export class PlayerPanel extends LitElement implements Controller {
       const owner = this.g.owner(this.tile);
       if (owner && owner.isPlayer()) {
         const pv = owner as PlayerView;
-        const id = pv.id();
-        // fetch only if we don't have it or the player changed
-        if (this._profileForPlayerId !== Number(id)) {
-          this.otherProfile = await pv.profile();
-          this._profileForPlayerId = Number(id);
+        const id = pv.smallID();
+        // Fetch when the player changed, and every few ticks while open: a
+        // nation's opinion of you (asked for as the viewer) keeps moving.
+        const stale =
+          this._profileForPlayerId !== id ||
+          this.g.ticks() - this._profileFetchedAt >= PROFILE_REFRESH_TICKS;
+        if (stale && !this.profileInFlight) {
+          this.profileInFlight = true;
+          try {
+            const viewer = this.g.myPlayer();
+            this.otherProfile = await pv.profile(viewer ?? undefined);
+            this._profileForPlayerId = id;
+            this._profileFetchedAt = this.g.ticks();
+          } catch (error) {
+            console.warn("Failed to refresh player profile:", error);
+          } finally {
+            this.profileInFlight = false;
+          }
         }
       }
 
@@ -182,6 +204,7 @@ export class PlayerPanel extends LitElement implements Controller {
   public show(actions: PlayerActions, tile: TileRef) {
     this.actions = actions;
     this.tile = tile;
+    this._profileFetchedAt = -Infinity;
     this.moderationTarget = null;
     this.reportTarget = null;
     this.isVisible = true;
@@ -548,14 +571,21 @@ export class PlayerPanel extends LitElement implements Controller {
     `;
   }
 
+  /** The profile fetched for `other`, if it's the one on screen. */
+  private profileOf(other: PlayerView): PlayerProfile | null {
+    return this._profileForPlayerId === other.smallID()
+      ? this.otherProfile
+      : null;
+  }
+
   private renderRelationPillIfNation(other: PlayerView, my: PlayerView) {
     if (other.type() !== PlayerType.Nation) return html``;
     if (other.isTraitor()) return html``;
     if (my?.isAlliedWith && my.isAlliedWith(other)) return html``;
-    if (!this.otherProfile || !my) return html``;
+    if (!this.profileOf(other) || !my) return html``;
 
     const relation =
-      this.otherProfile.relations?.[my.smallID()] ?? Relation.Neutral;
+      this.profileOf(other)?.relations?.[my.smallID()] ?? Relation.Neutral;
     const cls = this.getRelationClass(relation);
     const name = this.getRelationName(relation);
 
@@ -709,6 +739,28 @@ export class PlayerPanel extends LitElement implements Controller {
               >`}
         </div>
       </div>
+    `;
+  }
+
+  /**
+   * A nation's or tribe's opinion of you: its reasons, how to improve it,
+   * and whether they'd ally with you (OpinionView / OpinionSection).
+   */
+  private renderOpinion(other: PlayerView, my: PlayerView) {
+    if (other === my || other.type() === PlayerType.Human) return "";
+    const opinion = this.profileOf(other)?.opinionOfViewer;
+    if (opinion === undefined) return "";
+    const view = opinionView(opinion, {
+      difficulty: this.g.config().gameConfig().difficulty,
+      tribe: other.type() === PlayerType.Bot,
+      allied: my.isAlliedWith(other),
+      embargoing: my.hasEmbargoAgainst(other),
+      traitorSeconds: this.getTraitorRemainingSeconds(my),
+      yourAlliances: my.alliances().length,
+    });
+    return html`
+      <ui-divider></ui-divider>
+      ${renderOpinionSection(view)}
     `;
   }
 
@@ -1116,6 +1168,9 @@ export class PlayerPanel extends LitElement implements Controller {
 
                     <!-- Stats: betrayals / trading -->
                     ${this.renderStats(other, viewer)}
+
+                    <!-- A nation's or tribe's opinion of you -->
+                    ${my && !isSpectator ? this.renderOpinion(other, my) : ""}
 
                     <ui-divider></ui-divider>
 

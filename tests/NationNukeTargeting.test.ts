@@ -166,7 +166,7 @@ describe("Nation nuke targeting", () => {
     const other = game.player("other_id");
     conquerRect(game, other, 0, 185, 15, 200);
     // Hostile, so the nation picks the human as its target among three players
-    nation.updateRelation(human, -100);
+    nation.updateRelation(human, -100, "attacked");
     other.buildUnit(UnitType.HydrogenBomb, game.ref(5, 190), {
       targetTile: game.ref(150, 150),
       trajectory: [],
@@ -189,7 +189,7 @@ describe("Nation nuke targeting", () => {
           if (game.owner(tile) !== human) other.conquer(tile);
         }
       }
-      nation.updateRelation(human, -100);
+      nation.updateRelation(human, -100, "attacked");
       if (allied) nation.createAllianceRequest(other)?.accept();
 
       const nukes = launchNukes(game, nation);
@@ -206,7 +206,7 @@ describe("Nation nuke targeting", () => {
       const { game, nation, human } = await setupDuel(true);
       const other = game.player("other_id");
       conquerRect(game, other, 0, 185, 15, 200);
-      nation.updateRelation(human, -100);
+      nation.updateRelation(human, -100, "attacked");
       if (enclave === "allied") nation.createAllianceRequest(other)?.accept();
       const enclaveOwner = enclave === "own" ? nation : other;
       conquerRect(game, enclaveOwner, 149, 149, 151, 151);
@@ -218,7 +218,7 @@ describe("Nation nuke targeting", () => {
   it("nukes the same spot when no other nuke is landing there", async () => {
     const { game, nation, human } = await setupDuel(true);
     conquerRect(game, game.player("other_id"), 0, 185, 15, 200);
-    nation.updateRelation(human, -100);
+    nation.updateRelation(human, -100, "attacked");
 
     const nukes = launchNukes(game, nation);
     expect(nukes).toHaveLength(1);

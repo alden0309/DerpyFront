@@ -1,16 +1,17 @@
+import { Difficulty, PlayerType } from "@openfront/engine-api/game/GameTypes";
 import {
-  Difficulty,
-  GameMode,
-  PlayerType,
-  Relation,
-} from "@openfront/engine-api/game/GameTypes";
+  allianceDice,
+  AllianceEmoji,
+  AllianceFacts,
+  AllianceStrength,
+  decideAlliance,
+} from "@openfront/engine-lib/execution/AllianceRules";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   readVersioned,
   snapshotType,
   Versioned,
 } from "@openfront/engine-lib/snapshot/SnapshotType";
-import { assertNever } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Game, Player } from "../../game/Game";
 import type {
@@ -27,6 +28,66 @@ import {
   NationEmojiBehavior,
 } from "./NationEmojiBehavior";
 import { findJuiciestTarget, findRunawayLeader } from "./NationUtils";
+
+const ALLIANCE_EMOJIS: Record<AllianceEmoji, number[]> = {
+  confused: EMOJI_CONFUSED,
+  scared: EMOJI_SCARED_OF_THREAT,
+  love: EMOJI_LOVE,
+  handshake: EMOJI_HANDSHAKE,
+};
+
+/**
+ * What `nation` weighs about `other` when deciding on an alliance (see
+ * AllianceRules). Each fact is read when the decision first needs it.
+ */
+export function nationAllianceFacts(
+  game: Game,
+  nation: Player,
+  other: Player,
+  isResponse: boolean,
+): AllianceFacts {
+  const { difficulty, gameMode } = game.config().gameConfig();
+  let strength: AllianceStrength | null = null;
+  const attackTroops = (p: Player) =>
+    p.outgoingAttacks().reduce((sum, attack) => sum + attack.troops(), 0);
+  return {
+    difficulty,
+    gameMode,
+    isResponse,
+    ticks: game.ticks(),
+    numSpawnPhaseTurns: game.config().numSpawnPhaseTurns(),
+    isTraitor: () => other.isTraitor(),
+    theirAlliances: () => other.alliances().length,
+    nonTribePlayers: () =>
+      game.players().filter((p) => p.type() !== PlayerType.Bot).length,
+    isRunawayLeader: () => findRunawayLeader(game) === other,
+    relation: () => nation.relation(other),
+    ourAlliances: () => nation.alliances().length,
+    neighbours: () => {
+      const bordering = nation
+        .nearby()
+        .filter(
+          (n): n is Player => n.isPlayer() && n.type() !== PlayerType.Bot,
+        );
+      return {
+        count: bordering.length,
+        friendly: bordering.filter((o) => nation.isFriendly(o) === true).length,
+        includesThem: bordering.includes(other),
+      };
+    },
+    strength: () =>
+      (strength ??= {
+        ourTroops: nation.troops(),
+        theirTroops: other.troops(),
+        ourMaxTroops: game.config().maxTroops(nation),
+        theirMaxTroops: game.config().maxTroops(other),
+        ourTiles: nation.numTilesOwned(),
+        theirTiles: other.numTilesOwned(),
+        ourAttackTroops: attackTroops(nation),
+        theirAttackTroops: attackTroops(other),
+      }),
+  };
+}
 
 export class NationAllianceBehavior {
   constructor(
@@ -119,291 +180,11 @@ export class NationAllianceBehavior {
     otherPlayer: Player,
     isResponse: boolean,
   ): boolean {
-    // Easy (dumb) nations sometimes get confused and accept/reject randomly (Just like dumb humans do)
-    if (this.isConfused()) {
-      return this.random.chance(2);
-    }
-    // Nearly always reject traitors
-    if (otherPlayer.isTraitor() && this.random.nextInt(0, 100) >= 10) {
-      if (isResponse && this.random.chance(3)) {
-        this.emojiBehavior.sendEmoji(otherPlayer, EMOJI_CONFUSED);
-      }
-      return false;
-    }
-    // Reject if otherPlayer has allied with a lot of players (Hard and Impossible only)
-    // To make sure there are enough non-friendly players in the game to stop the crown with nukes
-    if (this.hasTooManyAlliances(otherPlayer)) {
-      return false;
-    }
-    // Don't help a runaway leader grow even further (Medium and up)
-    if (this.isRunawayLeader(otherPlayer)) {
-      return false;
-    }
-    // Before caring about the relation, first check if the otherPlayer is a threat
-    // Easy (dumb) nations are blinded by hatred, they don't care about threats, they care about the relation
-    // Impossible (smart) nations on the other hand are analyzing the facts
-    if (this.isAlliancePartnerThreat(otherPlayer)) {
-      if (!isResponse && this.random.chance(6)) {
-        this.emojiBehavior.sendEmoji(otherPlayer, EMOJI_SCARED_OF_THREAT);
-      }
-      if (isResponse && this.random.chance(6)) {
-        this.emojiBehavior.sendEmoji(otherPlayer, EMOJI_LOVE);
-      }
-      return true;
-    }
-    // Maybe reject if we are in a team game (allying makes less sense there)
-    if (this.shouldRejectInTeamGame()) {
-      return false;
-    }
-    // Reject if relation is bad
-    if (this.player.relation(otherPlayer) < Relation.Neutral) {
-      if (isResponse && this.random.chance(3)) {
-        this.emojiBehavior.sendEmoji(otherPlayer, EMOJI_CONFUSED);
-      }
-      return false;
-    }
-    // Maybe accept if relation is friendly
-    if (this.isAlliancePartnerFriendly(otherPlayer)) {
-      if (this.random.chance(3)) {
-        this.emojiBehavior.sendEmoji(otherPlayer, EMOJI_HANDSHAKE);
-      }
-      return true;
-    }
-    // Reject if we already have some alliances, we don't want to ally with the entire map
-    if (this.checkAlreadyEnoughAlliances(otherPlayer)) {
-      return false;
-    }
-    // Maybe accept if we are in the earlygame
-    if (this.isEarlygame()) {
-      return true;
-    }
-    // Accept if we are similarly strong
-    return this.isAlliancePartnerSimilarlyStrong(otherPlayer);
-  }
-
-  private hasTooManyAlliances(otherPlayer: Player): boolean {
-    const { difficulty } = this.game.config().gameConfig();
-    if (
-      difficulty !== Difficulty.Hard &&
-      difficulty !== Difficulty.Impossible
-    ) {
-      return false;
-    }
-
-    const totalPlayers = this.game
-      .players()
-      .filter((p) => p.type() !== PlayerType.Bot).length;
-    const otherPlayerAlliances = otherPlayer.alliances().length;
-
-    if (difficulty === Difficulty.Hard) {
-      return otherPlayerAlliances >= totalPlayers * 0.5;
-    } else {
-      return otherPlayerAlliances >= totalPlayers * 0.25;
-    }
-  }
-
-  private isRunawayLeader(otherPlayer: Player): boolean {
-    return findRunawayLeader(this.game) === otherPlayer;
-  }
-
-  private isConfused(): boolean {
-    const { difficulty } = this.game.config().gameConfig();
-    switch (difficulty) {
-      case Difficulty.Easy:
-        return this.random.chance(10); // 10% chance to be confused on easy
-      case Difficulty.Medium:
-        return this.random.chance(20); // 5% chance to be confused on medium
-      case Difficulty.Hard:
-        return this.random.chance(40); // 2.5% chance to be confused on hard
-      case Difficulty.Impossible:
-        return false; // No confusion on impossible
-      default:
-        assertNever(difficulty);
-    }
-  }
-
-  private isEarlygame(): boolean {
-    const spawnTicks = this.game.config().numSpawnPhaseTurns();
-    const { difficulty } = this.game.config().gameConfig();
-    switch (difficulty) {
-      case Difficulty.Easy:
-        // On easy, accept 90% in the first 5 minutes
-        return (
-          this.game.ticks() < 3000 + spawnTicks &&
-          this.random.nextInt(0, 100) >= 10
-        );
-      case Difficulty.Medium:
-        // On medium, accept 70% in the first 3 minutes
-        return (
-          this.game.ticks() < 1800 + spawnTicks &&
-          this.random.nextInt(0, 100) >= 30
-        );
-      case Difficulty.Hard:
-        // On hard, accept 50% in the first 3 minutes
-        return (
-          this.game.ticks() < 1800 + spawnTicks &&
-          this.random.nextInt(0, 100) >= 50
-        );
-      case Difficulty.Impossible:
-        // On impossible, accept 30% in the first minute
-        return (
-          this.game.ticks() < 600 + spawnTicks &&
-          this.random.nextInt(0, 100) >= 70
-        );
-      default:
-        assertNever(difficulty);
-    }
-  }
-
-  private isAlliancePartnerThreat(otherPlayer: Player): boolean {
-    const { difficulty } = this.game.config().gameConfig();
-    switch (difficulty) {
-      case Difficulty.Easy:
-        // On easy we are very dumb, we don't see anybody as a threat
-        return false;
-      case Difficulty.Medium:
-        // On medium we just see players with much more troops as a threat
-        return otherPlayer.troops() > this.player.troops() * 2.5;
-      case Difficulty.Hard:
-        // On hard we are smarter, we check for maxTroops to see the actual strength
-        return (
-          otherPlayer.troops() > this.player.troops() &&
-          this.game.config().maxTroops(otherPlayer) >
-            this.game.config().maxTroops(this.player) * 2
-        );
-      case Difficulty.Impossible: {
-        // On impossible we check for multiple factors and try to not mess with stronger players (we want to steamroll over weaklings)
-        const otherHasMoreTroops =
-          otherPlayer.troops() > this.player.troops() * 1.5;
-        const otherHasMoreMaxTroops =
-          otherPlayer.troops() > this.player.troops() &&
-          this.game.config().maxTroops(otherPlayer) >
-            this.game.config().maxTroops(this.player) * 1.5;
-        const otherHasMoreTiles =
-          otherPlayer.troops() > this.player.troops() &&
-          otherPlayer.numTilesOwned() > this.player.numTilesOwned() * 1.5;
-        return otherHasMoreTroops || otherHasMoreMaxTroops || otherHasMoreTiles;
-      }
-      default:
-        assertNever(difficulty);
-    }
-  }
-
-  private shouldRejectInTeamGame(): boolean {
-    if (this.game.config().gameConfig().gameMode !== GameMode.Team) {
-      return false;
-    }
-
-    const { difficulty } = this.game.config().gameConfig();
-    switch (difficulty) {
-      case Difficulty.Easy:
-        return this.random.nextInt(0, 100) < 25; // 25% chance to reject on easy
-      case Difficulty.Medium:
-        return this.random.nextInt(0, 100) < 50; // 50% chance to reject on medium
-      case Difficulty.Hard:
-        return this.random.nextInt(0, 100) < 75; // 75% chance to reject on hard
-      case Difficulty.Impossible:
-        return true; // 100% chance to reject on impossible
-      default:
-        assertNever(difficulty);
-    }
-  }
-
-  private checkAlreadyEnoughAlliances(otherPlayer: Player): boolean {
-    const { difficulty } = this.game.config().gameConfig();
-    switch (difficulty) {
-      case Difficulty.Easy:
-        return false; // On easy we never think we have enough alliances
-      case Difficulty.Medium:
-        return this.player.alliances().length >= this.random.nextInt(4, 6);
-      case Difficulty.Hard:
-      case Difficulty.Impossible: {
-        // On hard and impossible we try to not ally with all our neighbors (If we have 2+ neighbors)
-        const borderingPlayers = this.player
-          .nearby()
-          .filter(
-            (n): n is Player => n.isPlayer() && n.type() !== PlayerType.Bot,
-          );
-        const borderingFriends = borderingPlayers.filter(
-          (o) => this.player?.isFriendly(o) === true,
-        );
-        if (
-          borderingPlayers.length >= 2 &&
-          borderingPlayers.includes(otherPlayer)
-        ) {
-          return borderingPlayers.length <= borderingFriends.length + 1;
-        }
-        if (difficulty === Difficulty.Hard) {
-          return this.player.alliances().length >= this.random.nextInt(3, 5);
-        }
-        return this.player.alliances().length >= this.random.nextInt(2, 4);
-      }
-      default:
-        assertNever(difficulty);
-    }
-  }
-
-  private isAlliancePartnerFriendly(otherPlayer: Player): boolean {
-    const { difficulty } = this.game.config().gameConfig();
-    switch (difficulty) {
-      case Difficulty.Easy:
-      case Difficulty.Medium:
-        return this.player.relation(otherPlayer) === Relation.Friendly;
-      case Difficulty.Hard:
-        return (
-          this.player.relation(otherPlayer) === Relation.Friendly &&
-          this.random.nextInt(0, 100) >= 17
-        );
-      case Difficulty.Impossible:
-        return (
-          this.player.relation(otherPlayer) === Relation.Friendly &&
-          this.random.nextInt(0, 100) >= 33
-        );
-      default:
-        assertNever(difficulty);
-    }
-  }
-
-  // It would make a lot of sense to use nextFloat here, but "there's a chance floats can cause desyncs"
-  private isAlliancePartnerSimilarlyStrong(otherPlayer: Player): boolean {
-    const { difficulty } = this.game.config().gameConfig();
-    const troopPercentRangeByDifficulty = {
-      [Difficulty.Easy]: [60, 70],
-      [Difficulty.Medium]: [70, 80],
-      [Difficulty.Hard]: [75, 85],
-      [Difficulty.Impossible]: [80, 90],
-    } as const;
-    const tilePercentRangeByDifficulty = {
-      [Difficulty.Easy]: [70, 80],
-      [Difficulty.Medium]: [80, 90],
-      [Difficulty.Hard]: [85, 95],
-      [Difficulty.Impossible]: [90, 100],
-    } as const;
-
-    const troopRange = troopPercentRangeByDifficulty[difficulty];
-    const tileRange = tilePercentRangeByDifficulty[difficulty];
-
-    const playerOutgoingTroops = this.player
-      .outgoingAttacks()
-      .reduce((sum, attack) => sum + attack.troops(), 0);
-    const otherOutgoingTroops = otherPlayer
-      .outgoingAttacks()
-      .reduce((sum, attack) => sum + attack.troops(), 0);
-    const playerTotalTroops = this.player.troops() + playerOutgoingTroops;
-    const otherTotalTroops = otherPlayer.troops() + otherOutgoingTroops;
-
-    const troopThreshold =
-      playerTotalTroops *
-      (this.random.nextInt(troopRange[0], troopRange[1]) / 100);
-    const tileThreshold =
-      this.player.numTilesOwned() *
-      (this.random.nextInt(tileRange[0], tileRange[1]) / 100);
-
-    const hasComparableTroops = otherTotalTroops > troopThreshold;
-    const hasComparableTiles =
-      otherPlayer.numTilesOwned() > tileThreshold &&
-      otherTotalTroops > playerTotalTroops * 0.5;
-    return hasComparableTroops || hasComparableTiles;
+    return decideAlliance(
+      nationAllianceFacts(this.game, this.player, otherPlayer, isResponse),
+      allianceDice(this.random),
+      (e) => this.emojiBehavior.sendEmoji(otherPlayer, ALLIANCE_EMOJIS[e]),
+    ).accept;
   }
 
   // juiciestAlly comes from findJuiciestAlly(borderingFriends) - callers looping

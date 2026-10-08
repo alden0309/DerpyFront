@@ -1,4 +1,8 @@
 import { PlayerID } from "@openfront/engine-api/game/GameTypes";
+import {
+  BROKE_ALLIANCE_RELATION,
+  SAW_BETRAYAL_RELATION,
+} from "@openfront/engine-lib/execution/RelationRules";
 import { zPlayerRef } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { z } from "zod";
 import { Execution, Game, Player } from "../../game/Game";
@@ -44,7 +48,11 @@ export class BreakAllianceExecution implements Execution {
       console.warn("cant break alliance, not allied");
     } else {
       this.requestor.breakAlliance(alliance);
-      this.recipient.updateRelation(this.requestor, -100);
+      this.recipient.updateRelation(
+        this.requestor,
+        BROKE_ALLIANCE_RELATION,
+        "broke_alliance",
+      );
 
       const neighbors = this.requestor
         .nearby()
@@ -53,7 +61,11 @@ export class BreakAllianceExecution implements Execution {
         );
 
       for (const neighbor of neighbors) {
-        neighbor.updateRelation(this.requestor, -40);
+        neighbor.updateRelation(
+          this.requestor,
+          SAW_BETRAYAL_RELATION,
+          "saw_betrayal",
+        );
       }
     }
     this.active = false;

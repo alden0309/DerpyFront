@@ -521,8 +521,9 @@ export class PlayerView implements PlayerLike {
     return this.hasEmbargoAgainst(other) || other.hasEmbargoAgainst(this);
   }
 
-  profile(): Promise<PlayerProfile> {
-    return this.game.worker.playerProfile(this.smallID());
+  /** With a viewer, a nation's profile includes its opinion of them. */
+  profile(viewer?: PlayerView): Promise<PlayerProfile> {
+    return this.game.worker.playerProfile(this.smallID(), viewer?.smallID());
   }
 
   bestTransportShipSpawn(targetTile: TileRef): Promise<TileRef | false> {
