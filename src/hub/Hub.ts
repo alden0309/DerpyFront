@@ -25,8 +25,15 @@ export const SOURCE_CODE_URL =
   "https://github.com/alden0309/DerpyFront/tree/capital-mod";
 export const CREDITS = [
   "Made by: Alden",
-  "Taped by Michael",
-  "Robert'd by Gary",
+  "Taped by: Michael",
+  "Robert'd by: Gary",
+] as const;
+
+/** What the link at the top of the front page says after each click. */
+export const DONT_CLICK = [
+  "DON'T CLICK HERE!",
+  "Please...",
+  "Holy Michael Nazario",
 ] as const;
 
 type Route =
@@ -127,6 +134,7 @@ export class DerpHome extends HubPage {
   @state() private recent: Recent[] | null = null;
   @state() private top: TopRow[] | null = null;
   @state() private offline = false;
+  @state() private dontClick = 0;
 
   protected async load(): Promise<void> {
     try {
@@ -146,6 +154,16 @@ export class DerpHome extends HubPage {
   render(): TemplateResult {
     return html`
       <section class="dl-intro">
+        <button
+          class="dl-textbtn dl-dontclick"
+          @click=${() =>
+            (this.dontClick = Math.min(
+              this.dontClick + 1,
+              DONT_CLICK.length - 1,
+            ))}
+        >
+          ${DONT_CLICK[this.dontClick]}
+        </button>
         <h1 class="dl-hello">Time to Deep Dorp</h1>
         <p class="dl-lede">
           ${this.account

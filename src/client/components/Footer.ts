@@ -12,8 +12,8 @@ export const SOURCE_CODE_URL =
 /** The credits under "Hey Buddy". */
 export const CREDITS = [
   "Made by: Alden",
-  "Taped by Michael",
-  "Robert'd by Gary",
+  "Taped by: Michael",
+  "Robert'd by: Gary",
 ] as const;
 
 /**

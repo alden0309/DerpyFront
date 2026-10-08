@@ -35,8 +35,8 @@ describe("page-footer (Derpy Front)", () => {
     ].map((s) => s.textContent?.trim());
     expect(lines).toEqual([
       "Made by: Alden",
-      "Taped by Michael",
-      "Robert'd by Gary",
+      "Taped by: Michael",
+      "Robert'd by: Gary",
     ]);
   });
 

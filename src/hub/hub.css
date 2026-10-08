@@ -260,6 +260,13 @@
   .dl-intro {
     margin-bottom: 32px;
   }
+  .dl-dontclick {
+    display: inline-block;
+    margin-bottom: 14px;
+    font-size: 15px;
+    font-weight: 750;
+    letter-spacing: 0.01em;
+  }
   .dl-shelf {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
