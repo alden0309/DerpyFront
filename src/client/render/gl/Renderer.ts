@@ -5,8 +5,9 @@
  *   DATA SYNC: tile flush → heat update → border compute
  *   BASE PASS (darkened by night): terrain → territory fill + stale-nuke ground
  *   NIGHT COMPOSITE (optional): lightmap → scene × (ambient + lightmap)
- *   FULL BRIGHTNESS (always): borders → railroads → ground units → structures →
- *     structure levels → bars → bloom → trails → missiles → fx → conquest → names
+ *   FULL BRIGHTNESS (always): borders → dome shields → railroads → ground
+ *     units → structures → structure levels → bars → bloom → trails →
+ *     missiles → fx → conquest → names
  */
 
 import type { MapLayer } from "@openfront/engine-api/game/GameMapLoader";
@@ -37,6 +38,7 @@ import { BorderStampPass } from "./passes/BorderStampPass";
 import { CoordinateGridPass } from "./passes/CoordinateGridPass";
 import { CrosshairPass } from "./passes/CrosshairPass";
 import { DefenseCoveragePass } from "./passes/DefenseCoveragePass";
+import { DomeShieldPass } from "./passes/DomeShieldPass";
 import { FalloutBloomPass } from "./passes/FalloutBloomPass";
 import { FalloutLightPass } from "./passes/FalloutLightPass";
 import { FxPass } from "./passes/fx-pass";
@@ -102,6 +104,9 @@ const SAM_RADIUS_HIGHLIGHT_TYPES = new Set([
   "Hydrogen Bomb",
 ]);
 
+/** Ghost types that make enemy Dome of Alden shields stand out (nuke aiming). */
+const DOME_NUKE_GHOST_TYPES = new Set(["Atom Bomb", "Hydrogen Bomb", "MIRV"]);
+
 const GRID_VIEW_KEY = "renderer:grid_view_enabled";
 
 export class GPURenderer {
@@ -136,6 +141,7 @@ export class GPURenderer {
   private fxPass: FxPass;
   private rangeCirclePass: RangeCirclePass;
   private samRadiusPass: SAMRadiusPass;
+  private domeShieldPass: DomeShieldPass;
   private crosshairPass: CrosshairPass;
   private railroadPass: RailroadPass;
   private barPass: BarPass;
@@ -559,6 +565,15 @@ export class GPURenderer {
     this.samRadiusPass = new SAMRadiusPass(gl, mapW, this.settings);
     this.samRadiusPass.setPaletteData(paletteData);
 
+    // --- Dome of Alden shields (always on) ---
+    this.domeShieldPass = new DomeShieldPass(
+      gl,
+      mapW,
+      this.settings,
+      config.domeRange(),
+    );
+    this.domeShieldPass.setPaletteData(paletteData);
+
     // --- Crosshair (warship placement) ---
     this.crosshairPass = new CrosshairPass(gl);
 
@@ -739,6 +754,7 @@ export class GPURenderer {
     );
     // SAM radius pass stores its own copy
     this.samRadiusPass.setPaletteData(this.paletteData);
+    this.domeShieldPass.setPaletteData(this.paletteData);
     // Name pass caches per-player colors and bakes them into slot rows
     this.namePass.refreshPlayerColors(this.paletteData);
   }
@@ -935,6 +951,7 @@ export class GPURenderer {
         }
       }
       this.samRadiusPass.setAllies(friendly);
+      this.domeShieldPass.setAllies(friendly);
       this.unitPass.setAllies(friendly);
     }
   }
@@ -954,6 +971,7 @@ export class GPURenderer {
     this.structurePass.updateStructures(units);
     this.structureLevelPass.updateStructures(units);
     this.samRadiusPass.updateStructures(units);
+    this.domeShieldPass.updateStructures(units);
     this.unitPass.setStructures(units);
     const posts: { x: number; y: number; ownerID: number }[] = [];
     const w = this.mapW;
@@ -1092,6 +1110,9 @@ export class GPURenderer {
           }
         : null,
     );
+    this.domeShieldPass.setNukeAiming(
+      data !== null && DOME_NUKE_GHOST_TYPES.has(data.ghostType),
+    );
     this.samGhostVisible =
       data !== null && SAM_RADIUS_GHOST_TYPES.has(data.ghostType);
     this.samRadiusPass.setVisible(
@@ -1145,6 +1166,7 @@ export class GPURenderer {
     if (id === this.localPlayerID) return;
     this.localPlayerID = id;
     this.samRadiusPass.setLocalPlayer(id);
+    this.domeShieldPass.setLocalPlayer(id);
     this.structurePass.setLocalPlayer(id);
     this.affiliationPalette.setLocalPlayer(id);
     this.unitPass.setLocalPlayer(id);
@@ -1368,6 +1390,8 @@ export class GPURenderer {
 
     this.spawnOverlayPass.draw(cam);
     if (pe.borderStamp) this.borderStampPass.draw(cam);
+    // Dome shields tint the ground under rails, units and structures.
+    this.domeShieldPass.draw(cam, zoom);
     if (pe.railroad) this.railroadPass.draw(cam, zoom);
     if (pe.unit) this.unitPass.drawGround(cam);
     if (pe.falloutBloom) this.bloomPass.draw(cam, this.frameTick);
@@ -1511,6 +1535,7 @@ export class GPURenderer {
     this.railroadPass.dispose();
     this.rangeCirclePass.dispose();
     this.samRadiusPass.dispose();
+    this.domeShieldPass.dispose();
     this.crosshairPass.dispose();
     this.structurePass.dispose();
     this.structureLevelPass.dispose();

@@ -53,6 +53,7 @@ const AMBIENCE_BY_TYPE = new Map<UnitType, AmbienceTrack>([
   [UnitType.Factory, "factory"],
   [UnitType.MissileSilo, "missile-silo"],
   [UnitType.SAMLauncher, "sam-silo"],
+  [UnitType.Dome, "sam-silo"],
 ]);
 
 const AMBIENT_STRUCTURE_TYPES: readonly UnitType[] = [

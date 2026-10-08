@@ -208,6 +208,8 @@ describe("TrainStation", () => {
   });
 });
 
+// The penalty maths at the base pay (rules 2, before trains paid double at
+// your own stations; see FactoryRework.test.ts for rules 3).
 describe("EngineConfig.trainGold trade stop penalty", () => {
   let config: EngineConfig;
   let mockPlayer: Player;
@@ -228,6 +230,7 @@ describe("EngineConfig.trainGold trade stop penalty", () => {
       instantBuild: false,
       disableNavMesh: false,
       randomSpawn: false,
+      derpyRules: 2,
     };
     config = new EngineConfig(gameConfig, false);
     mockPlayer = { isLobbyCreator: () => false } as unknown as Player;

@@ -1678,6 +1678,12 @@ export class PlayerImpl implements Player {
           return false;
         }
         return this.landBasedStructureSpawn(targetTile, validTiles);
+      case UnitType.Dome:
+        // Derpy Front: a few per player, counting captured and unfinished ones.
+        if (this.units(UnitType.Dome).length >= this.mg.config().domeLimit()) {
+          return false;
+        }
+        return this.landBasedStructureSpawn(targetTile, validTiles);
       default:
         assertNever(unitType);
     }

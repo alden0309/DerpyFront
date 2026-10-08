@@ -26,6 +26,7 @@ import type {
   SnapshotReader,
   SnapshotWriter,
 } from "../../snapshot/SnapshotContext";
+import { shielded } from "../DomeShield";
 import { NukeExecution } from "../NukeExecution";
 import { UpgradeStructureExecution } from "../UpgradeStructureExecution";
 import { closestTwoTiles } from "../Util";
@@ -220,8 +221,18 @@ export class NationNukeBehavior {
     const difficulty = this.game.config().gameConfig().difficulty;
     const range = this.game.config().nukeMagnitudes(nukeType).outer;
     const scored: { tile: TileRef; score: number }[] = [];
+    // Derpy Front: a Dome of Alden stops our nuke over it and keeps whatever
+    // is under it safe, so don't aim there or count what it covers.
+    const domes = this.game
+      .units(UnitType.Dome)
+      .filter((d) => d.owner() !== this.player && !d.isUnderConstruction());
+    const exposed =
+      domes.length === 0
+        ? structures
+        : structures.filter((u) => !shielded(this.game, domes, u.tile()));
 
     outer: for (const tile of candidates) {
+      if (shielded(this.game, domes, tile)) continue;
       // Cheap pre-filter, blastHitsFriendlyLand() checks the whole blast of the winner
       const boundingBox = boundingBoxTiles(this.game, tile, range)
         // Add radius / 2 in case there is a piece of unwanted territory inside the outer radius that we miss.
@@ -251,7 +262,7 @@ export class NationNukeBehavior {
         continue;
       }
 
-      const value = this.nukeTileScore(tile, silos, structures, nukeType);
+      const value = this.nukeTileScore(tile, silos, exposed, nukeType);
       // Impossible only nukes spots with structure value
       if (difficulty === Difficulty.Impossible ? value <= 0 : value < 0) {
         continue;

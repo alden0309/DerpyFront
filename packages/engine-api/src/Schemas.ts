@@ -266,8 +266,11 @@ export type PoolConfig = z.infer<typeof PoolConfigSchema>;
  *
  * 1: before escorts sailed on as warships (games saved before 8 Oct 2026).
  * 2: an escorted transport turns into two warships when it lands.
+ * 3: trains pay double at your own cities and a quarter more at allies';
+ *    ports and factories are priced apart; factories cut building and
+ *    warship prices; AI nations build Domes of Alden and send escorts.
  */
-export const DERPY_RULES = 2;
+export const DERPY_RULES = 3;
 
 export const GameConfigSchema = z.object({
   gameMap: z.enum(GameMapType),

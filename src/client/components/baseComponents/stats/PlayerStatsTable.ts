@@ -22,6 +22,7 @@ const BUILDING_ORDER = {
   silo: 5,
   saml: 6,
   capi: 7,
+  dome: 8,
 } as const satisfies Record<
   Exclude<(typeof otherUnits)[number], "wshp">,
   number
@@ -41,6 +42,7 @@ const UNIT_LABEL_KEYS = {
   defp: "unit_type.defense_post",
   fact: "unit_type.factory",
   capi: "unit_type.capital",
+  dome: "unit_type.dome",
   port: "unit_type.port",
   saml: "unit_type.sam_launcher",
   silo: "unit_type.missile_silo",

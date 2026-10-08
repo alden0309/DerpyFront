@@ -168,6 +168,9 @@ export class ConstructionExecution implements Execution {
       case UnitType.Capital:
         this.mg.addExecution(new CapitalExecution(this.structure!));
         break;
+      case UnitType.Dome:
+        // Nothing to run: NukeExecution asks for nearby Domes when it lands.
+        break;
       default:
         console.warn(
           `unit type ${this.constructionType} cannot be constructed`,
@@ -185,6 +188,7 @@ export class ConstructionExecution implements Execution {
       case UnitType.City:
       case UnitType.Factory:
       case UnitType.Capital:
+      case UnitType.Dome:
         return true;
       default:
         return false;

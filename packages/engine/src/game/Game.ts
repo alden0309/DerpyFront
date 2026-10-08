@@ -115,6 +115,8 @@ export interface UnitParamsMap {
   [UnitType.City]: Record<string, never>;
 
   [UnitType.Capital]: Record<string, never>;
+
+  [UnitType.Dome]: Record<string, never>;
 }
 
 // Type helper to get params type for a specific unit type

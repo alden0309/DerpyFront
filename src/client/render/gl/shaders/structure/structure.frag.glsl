@@ -113,9 +113,21 @@ float sdPolygon(vec2 p, float R, float n, float rot) {
   return length(p) * cos(a) - R * cos(an);
 }
 
+// Dome on a base: a disc capping a box of the same width. Local +y points
+// down the screen, so the round side is on top.
+float sdArch(vec2 p, float R) {
+  float a = 0.88 * R;  // half width = disc radius
+  float yc = -0.05 * R; // disc center
+  float yb = 0.9 * R;   // flat base
+  float disc = length(p - vec2(0.0, yc)) - a;
+  vec2 d = abs(p - vec2(0.0, 0.5 * (yc + yb))) - vec2(a, 0.5 * (yb - yc));
+  float box = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+  return min(disc, box);
+}
+
 // Per-structure-type shape SDF.
 // Atlas indices: 0=City, 1=Port, 2=Factory, 3=DefensePost, 4=SAM, 5=Silo,
-// 6=Capital
+// 6=Capital, 7=Dome of Alden
 float shapeSDF(vec2 p, float R) {
   if (vAtlasIdx < 0.5)
     return length(p) - R;                     // City → circle
@@ -129,7 +141,9 @@ float shapeSDF(vec2 p, float R) {
     return sdPolygon(p, R, 4.0, 0.0);         // SAM Launcher → square (flat sides)
   if (vAtlasIdx < 5.5)
     return sdPolygon(p, R, 3.0, PI * 0.5);    // Missile Silo → triangle (vertex up)
-  return sdPolygon(p, R, 4.0, PI * 0.25);     // Capital → diamond (vertex up)
+  if (vAtlasIdx < 6.5)
+    return sdPolygon(p, R, 4.0, PI * 0.25);   // Capital → diamond (vertex up)
+  return sdArch(p, R);                        // Dome of Alden → arch
 }
 
 void main() {

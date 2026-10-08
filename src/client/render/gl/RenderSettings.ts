@@ -368,6 +368,25 @@ export interface RenderSettings {
     duration: number; // ms — total animation lifetime
     converge: number; // 0–1 — fraction of radius consumed during animation
   };
+  /** Derpy Front: the always-on shield of each Dome of Alden. */
+  domeShield: {
+    fillAlpha: number; // fill opacity in the middle of a shield (0–1)
+    rimAlpha: number; // extra fill opacity at the rim (0–1)
+    rimWidth: number; // world units over which the rim glow fades inward
+    ringWidth: number; // outline width in world units
+    ringMinPx: number; // outline never thinner than this many screen pixels
+    ringAlpha: number; // outline opacity (0–1)
+    buildingRingAlpha: number; // dashed outline opacity of an unfinished Dome
+    dashLen: number; // unfinished Dome's dash length, world units
+    gapLen: number; // unfinished Dome's gap length, world units
+    blockedFill: number; // fill multiplier for shields that stop your nuke
+    blockedRing: number; // outline multiplier for them
+    blockedPulse: number; // their pulse amplitude (0 = steady)
+    selfColor: number[]; // rgb 0–1
+    allyColor: number[];
+    enemyColor: number[];
+    blockedColor: number[]; // shields that stop the nuke you are aiming
+  };
   samRadius: {
     strokeWidth: number; // ring half-width in world units
     dashLen: number; // dash length in world units

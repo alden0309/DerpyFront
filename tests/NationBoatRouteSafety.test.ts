@@ -17,8 +17,8 @@ import { setup } from "./util/Setup";
 
 // ocean_and_land: land at x <= 7, open water, and a small island at x >= 14.
 describe("Nation boats and hostile warships", () => {
-  async function setupBoats(difficulty: Difficulty) {
-    const game = await setup("ocean_and_land", { difficulty }, [
+  async function setupBoats(difficulty: Difficulty, derpyRules?: number) {
+    const game = await setup("ocean_and_land", { difficulty, derpyRules }, [
       new PlayerInfo("nation", PlayerType.Nation, null, "nation_id"),
       new PlayerInfo("island", PlayerType.Nation, null, "island_id"),
       new PlayerInfo("navy", PlayerType.Human, null, "navy_id"),
@@ -132,6 +132,7 @@ describe("Nation boats and hostile warships", () => {
   });
 
   // Hard & Impossible send a beachhead boat through the blocked lane anyway
+  // (rules 2: before nations could pay for escorts)
   it.each([
     [Difficulty.Impossible, 2, 1],
     [Difficulty.Hard, 1, 1],
@@ -140,7 +141,7 @@ describe("Nation boats and hostile warships", () => {
   ])(
     "%s: blocked boat orders %i warships against the blocker at once (%i boats)",
     async (difficulty, expected, boats) => {
-      const { game, nation, navy, behavior } = await setupBoats(difficulty);
+      const { game, nation, navy, behavior } = await setupBoats(difficulty, 2);
       nation.buildUnit(UnitType.Port, game.ref(7, 8), {});
       nation.addGold(10_000_000n);
       const water = game.ref(11, 12);
@@ -401,5 +402,137 @@ describe("Nation boat routes on open water", () => {
     expect(behavior.sendAttack(enemy)).toBe(true);
     const [landing] = landings();
     expect(game.x(landing)).toBeLessThanOrEqual(20);
+  });
+});
+
+// Derpy Front (rules 3): with every way in guarded by a warship or two, a
+// nation that can spare the gold sends its boat escorted.
+describe("Nation escorts", () => {
+  async function setupEscorts(
+    difficulty: Difficulty,
+    gold: bigint,
+    derpyRules?: number,
+  ) {
+    const game = await setup("ocean_and_land", { difficulty, derpyRules }, [
+      new PlayerInfo("nation", PlayerType.Nation, null, "nation_id"),
+      new PlayerInfo("island", PlayerType.Nation, null, "island_id"),
+      new PlayerInfo("navy", PlayerType.Human, null, "navy_id"),
+    ]);
+    const nation = game.player("nation_id");
+    const island = game.player("island_id");
+    const navy = game.player("navy_id");
+    game.map().forEachTile((tile) => {
+      if (!game.map().isLand(tile)) return;
+      (game.x(tile) <= 7 ? nation : island).conquer(tile);
+    });
+    nation.setTroops(100_000);
+    island.setTroops(10_000);
+    nation.addGold(gold);
+    const random = new PseudoRandom(42);
+    const emoji = new NationEmojiBehavior(random, game, nation);
+    const alliance = new NationAllianceBehavior(random, game, nation, emoji);
+    const warships = new NationWarshipBehavior(random, game, nation, emoji);
+    const behavior = new AiAttackBehavior(
+      random,
+      game,
+      nation,
+      0,
+      0,
+      0,
+      alliance,
+      emoji,
+      warships,
+    );
+    const guard = (n: number) => {
+      for (let i = 0; i < n; i++) {
+        const water = game.ref(11 + (i % 2), 12 + Math.floor(i / 2));
+        navy.buildUnit(UnitType.Warship, water, { patrolTile: water });
+      }
+    };
+    return { game, island, behavior, guard };
+  }
+
+  function boats(game: Game) {
+    const spy = vi.spyOn(game, "addExecution");
+    return () =>
+      spy.mock.calls
+        .map((c) => c[0])
+        .filter((e) => e instanceof TransportShipExecution);
+  }
+
+  it.each([Difficulty.Medium, Difficulty.Hard, Difficulty.Impossible])(
+    "%s: sends an escorted boat past a lone warship when it has the gold",
+    async (difficulty) => {
+      const { game, island, behavior, guard } = await setupEscorts(
+        difficulty,
+        10_000_000n,
+      );
+      guard(1);
+      const sent = boats(game);
+      expect(behavior.sendAttack(island)).toBe(true);
+      expect(sent().map((e) => e["escorted"])).toEqual([true]);
+    },
+  );
+
+  it("doesn't pay for one when the route is clear", async () => {
+    const { game, island, behavior } = await setupEscorts(
+      Difficulty.Medium,
+      10_000_000n,
+    );
+    const sent = boats(game);
+    expect(behavior.sendAttack(island)).toBe(true);
+    expect(sent().map((e) => e["escorted"])).toEqual([false]);
+  });
+
+  it("not when the escort would take more than a third of its gold", async () => {
+    const { game, island, behavior, guard } = await setupEscorts(
+      Difficulty.Medium,
+      1_000_000n,
+    );
+    guard(1);
+    const sent = boats(game);
+    expect(behavior.sendAttack(island)).toBe(false);
+    expect(sent()).toHaveLength(0);
+  });
+
+  it("not into three warships", async () => {
+    const { game, island, behavior, guard } = await setupEscorts(
+      Difficulty.Medium,
+      10_000_000n,
+    );
+    guard(3);
+    const sent = boats(game);
+    expect(behavior.sendAttack(island)).toBe(false);
+    expect(sent()).toHaveLength(0);
+  });
+
+  it("not under rules 2", async () => {
+    const { game, island, behavior, guard } = await setupEscorts(
+      Difficulty.Medium,
+      10_000_000n,
+      2,
+    );
+    guard(1);
+    const sent = boats(game);
+    expect(behavior.sendAttack(island)).toBe(false);
+    expect(sent()).toHaveLength(0);
+  });
+
+  it("the escorted boat is paid for and sets sail", async () => {
+    const { game, island, behavior, guard } = await setupEscorts(
+      Difficulty.Medium,
+      10_000_000n,
+    );
+    guard(1);
+    const nation = game.player("nation_id");
+    const gold = nation.gold();
+    expect(behavior.sendAttack(island)).toBe(true);
+    game.executeNextTick();
+    game.executeNextTick();
+    expect(nation.gold()).toBeLessThan(gold);
+    const [boat] = nation.units(UnitType.TransportShip);
+    // An escorted transport is the armored one, with the convoy's health.
+    expect(boat.hasHealth()).toBe(true);
+    expect(boat.health()).toBe(game.config().escortedTransportHealth());
   });
 });

@@ -26,6 +26,7 @@ import {
   MouseMoveEvent,
   MouseUpEvent,
 } from "../InputHandler";
+import { domeStopsNukeAt } from "../render/frame/derive/DomeShields";
 import { buildNukeTrajectory, MapRenderer } from "../render/gl";
 import type { SAMInfo } from "../render/gl/utils/NukeTrajectory";
 import type { GhostPreviewData } from "../render/types";
@@ -70,6 +71,13 @@ export function samThreatensNukePreview(
   );
 }
 
+/** A finished Dome of Alden, in tile coordinates. */
+interface DomeInfo {
+  x: number;
+  y: number;
+  ownerID: number;
+}
+
 export class BuildPreviewController implements Controller {
   /** Current ghost (null when no build type is active). */
   private ghostUnit: { buildableUnit: BuildableUnit } | null = null;
@@ -94,6 +102,8 @@ export class BuildPreviewController implements Controller {
     srcY: number;
     directionUp: boolean;
     sams: SAMInfo[];
+    /** Finished Domes of Alden that would stop this player's nuke. */
+    domes: DomeInfo[];
   } | null = null;
 
   constructor(
@@ -163,9 +173,12 @@ export class BuildPreviewController implements Controller {
           // blocked X. Checked per frame so the X tracks the live cursor.
           const tx = Math.floor(w.x);
           const ty = Math.floor(w.y);
+          // Derpy Front: a nuke aimed inside another player's Dome of Alden
+          // bursts harmlessly, so it gets the same X.
           if (
             this.game.isValidCoord(tx, ty) &&
-            this.game.isImpassable(this.game.ref(tx, ty))
+            (this.game.isImpassable(this.game.ref(tx, ty)) ||
+              this.domeStopsNuke(traj.domes, tx, ty))
           ) {
             data.tSamIntercept = Math.min(data.tSamIntercept, T_BLOCKED_DST);
           }
@@ -253,6 +266,18 @@ export class BuildPreviewController implements Controller {
           allySmallIds: this.connectedAllySmallIds,
           threshold: this.game.config().nukeAllianceBreakThreshold(),
         });
+      }
+      // Derpy Front: aimed inside another player's Dome of Alden, the nuke
+      // will be stopped, so the blast circle turns red the same way.
+      if (
+        !targetingAlly &&
+        this.domeStopsNuke(
+          this.shieldingDomes(),
+          this.game.x(tileRef),
+          this.game.y(tileRef),
+        )
+      ) {
+        targetingAlly = true;
       }
     }
 
@@ -419,7 +444,45 @@ export class BuildPreviewController implements Controller {
       srcY,
       directionUp,
       sams,
+      domes: this.shieldingDomes(),
     };
+  }
+
+  /**
+   * Derpy Front: the finished Domes of Alden that would stop the local
+   * player's nukes (every one they don't own, allies' included).
+   */
+  private shieldingDomes(): DomeInfo[] {
+    const me = this.game.myPlayer();
+    if (!me) return [];
+    const domes: DomeInfo[] = [];
+    for (const d of this.game.units(UnitType.Dome)) {
+      if (!d.isActive() || d.isUnderConstruction()) continue;
+      const owner = d.owner();
+      if (owner === me) continue;
+      domes.push({
+        x: this.game.x(d.tile()),
+        y: this.game.y(d.tile()),
+        ownerID: owner.smallID(),
+      });
+    }
+    return domes;
+  }
+
+  private domeStopsNuke(
+    domes: readonly DomeInfo[],
+    x: number,
+    y: number,
+  ): boolean {
+    const me = this.game.myPlayer();
+    if (!me || domes.length === 0) return false;
+    return domeStopsNukeAt(
+      domes,
+      me.smallID(),
+      x,
+      y,
+      this.game.config().domeRange(),
+    );
   }
 
   private clearNukeTrajectory(): void {
@@ -469,6 +532,9 @@ export class BuildPreviewController implements Controller {
         break;
       case UnitType.Capital:
         rangeRadius = this.game.config().capitalDefenseRange();
+        break;
+      case UnitType.Dome:
+        rangeRadius = this.game.config().domeRange();
         break;
     }
     let radiusTileX = this.game.x(placementTile);

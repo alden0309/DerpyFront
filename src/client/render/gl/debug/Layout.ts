@@ -674,6 +674,27 @@ export function buildTree(s: RenderSettings, d: RenderSettings): DebugNode[] {
       ),
     ]),
 
+    folder("Dome Shield", [
+      slider(s.domeShield, "fillAlpha", d.domeShield, 0, 0.5, 0.01, "Fill"),
+      slider(s.domeShield, "rimAlpha", d.domeShield, 0, 0.5, 0.01, "Rim"),
+      slider(s.domeShield, "rimWidth", d.domeShield, 1, 60, 1, "Rim Width"),
+      slider(s.domeShield, "ringWidth", d.domeShield, 0.2, 6, 0.1, "Ring"),
+      slider(s.domeShield, "ringMinPx", d.domeShield, 0.5, 4, 0.1, "Ring Px"),
+      slider(s.domeShield, "ringAlpha", d.domeShield, 0, 1, 0.05, "Ring α"),
+      slider(
+        s.domeShield,
+        "buildingRingAlpha",
+        d.domeShield,
+        0,
+        1,
+        0.05,
+        "Building Ring α",
+      ),
+      slider(s.domeShield, "blockedFill", d.domeShield, 1, 5, 0.1, "Aim Fill"),
+      slider(s.domeShield, "blockedRing", d.domeShield, 1, 3, 0.1, "Aim Ring"),
+      slider(s.domeShield, "blockedPulse", d.domeShield, 0, 1, 0.05, "Pulse"),
+    ]),
+
     folder("SAM Radius", [
       slider(
         s.samRadius,

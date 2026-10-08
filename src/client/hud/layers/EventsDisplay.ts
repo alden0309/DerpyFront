@@ -255,7 +255,9 @@ export class EventsDisplay extends LitElement implements Controller {
     let params = event.params ?? {};
     if (
       (event.message === "events_display.missile_intercepted" ||
-        event.message === "events_display.unit_destroyed") &&
+        event.message === "events_display.unit_destroyed" ||
+        event.message === "events_display.dome_stopped_your_nuke" ||
+        event.message === "events_display.dome_stopped_nuke") &&
       typeof params.unit === "string" &&
       params.unit.startsWith("unit_type.")
     ) {

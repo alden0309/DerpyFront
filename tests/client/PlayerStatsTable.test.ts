@@ -168,9 +168,10 @@ describe("PlayerStatsTable", () => {
         text(candidate.querySelector("th")) === "player_stats_table.building",
     );
     expect(buildings, "buildings table should exist").toBeDefined();
-    // The seven structures (Capital included), with the warship row moved
-    // to its own section.
-    expect(buildings?.querySelectorAll("tbody tr")).toHaveLength(7);
+    // The eight structures (Capital and Dome of Alden included), with the
+    // warship row moved to its own section.
+    expect(buildings?.querySelectorAll("tbody tr")).toHaveLength(8);
+    expect(buildings?.textContent).toContain("unit_type.dome");
     expect(buildings?.textContent).not.toContain("unit_type.warship");
 
     expect(columnsOf(table, "player_stats_table.warship_stats")).toEqual({

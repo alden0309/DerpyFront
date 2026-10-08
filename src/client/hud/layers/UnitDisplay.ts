@@ -20,6 +20,7 @@ import {
   capitalIcon,
   cityIcon,
   defensePostIcon,
+  domeIcon,
   factoryIcon,
   goldCoinIcon,
   hydrogenBombIcon,
@@ -30,6 +31,17 @@ import {
   warshipIcon,
 } from "../HotbarIcons";
 import { TutorialHighlight, TutorialHighlightEvent } from "../Tutorial";
+
+/**
+ * Derpy Front: whether a player already owns as many Domes of Alden as the
+ * rules allow. Unfinished and captured Domes count, as they do in the engine.
+ */
+export function atDomeLimit(
+  player: { units(type: UnitType): readonly unknown[] } | null | undefined,
+  config: { domeLimit(): number },
+): boolean {
+  return (player?.units(UnitType.Dome).length ?? 0) >= config.domeLimit();
+}
 
 @customElement("unit-display")
 export class UnitDisplay extends LitElement implements Controller {
@@ -42,6 +54,7 @@ export class UnitDisplay extends LitElement implements Controller {
   private _warships = 0;
   private _factories = 0;
   private _capitals = 0;
+  private _domes = 0;
   private _missileSilo = 0;
   private _port = 0;
   private _defensePost = 0;
@@ -114,6 +127,12 @@ export class UnitDisplay extends LitElement implements Controller {
           this.cost(item) <= (player?.gold() ?? 0n) &&
           (player?.units(UnitType.Capital).length ?? 0) === 0
         );
+      case UnitType.Dome:
+        // A few per player: grey the button out at the limit.
+        return (
+          this.cost(item) <= (player?.gold() ?? 0n) &&
+          !atDomeLimit(player, this.game.config())
+        );
       default:
         return this.cost(item) <= (player?.gold() ?? 0n);
     }
@@ -132,6 +151,7 @@ export class UnitDisplay extends LitElement implements Controller {
     this._samLauncher = player.totalUnitLevels(UnitType.SAMLauncher);
     this._factories = player.totalUnitLevels(UnitType.Factory);
     this._capitals = player.totalUnitLevels(UnitType.Capital);
+    this._domes = player.totalUnitLevels(UnitType.Dome);
     this._warships = player.totalUnitLevels(UnitType.Warship);
     this.requestUpdate();
   }
@@ -201,6 +221,13 @@ export class UnitDisplay extends LitElement implements Controller {
             UnitType.Capital,
             "capital",
             this.keybinds["buildCapital"]?.key ?? "V",
+          )}
+          ${this.renderUnitItem(
+            domeIcon,
+            this._domes,
+            UnitType.Dome,
+            "dome",
+            this.keybinds["buildDome"]?.key ?? "N",
           )}
           ${this.renderUnitItem(
             warshipIcon,
@@ -316,6 +343,7 @@ export class UnitDisplay extends LitElement implements Controller {
                   new ToggleStructureEvent([
                     UnitType.MissileSilo,
                     UnitType.SAMLauncher,
+                    UnitType.Dome,
                   ]),
                 );
                 break;

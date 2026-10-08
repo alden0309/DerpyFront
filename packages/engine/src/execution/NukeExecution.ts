@@ -35,8 +35,15 @@ import type {
   SnapshotWriter,
 } from "../snapshot/SnapshotContext";
 import { loseCapital } from "./CapitalExecution";
+import { shielded, shieldingDomes } from "./DomeShield";
 
 const SPRITE_RADIUS = 16;
+
+const NUKE_NAME_KEYS: Partial<Record<UnitType, string>> = {
+  [UnitType.AtomBomb]: "unit_type.atom_bomb",
+  [UnitType.HydrogenBomb]: "unit_type.hydrogen_bomb",
+  [UnitType.MIRVWarhead]: "unit_type.mirv",
+};
 
 export class NukeExecution implements Execution {
   private active = true;
@@ -396,11 +403,22 @@ export class NukeExecution implements Execution {
     const config = mg.config();
 
     const magnitude = config.nukeMagnitudes(this.nuke.type());
+
+    // Derpy Front: a Dome of Alden stops every nuke but its owner's. Aimed
+    // inside one, the nuke never goes off; landing outside, the blast stops
+    // at the edge of its range.
+    const domes = shieldingDomes(mg, this.player, this.dst, magnitude.outer);
+    if (shielded(mg, domes, this.dst)) {
+      this.stoppedByDome(domes);
+      return;
+    }
+
     const toDestroy = this.tilesToDestroy();
 
     // Retrieve all impacted players and the number of tiles
     const tilesPerPlayers = new Map<Player, number>();
     for (const tile of toDestroy) {
+      if (shielded(mg, domes, tile)) continue;
       const owner = mg.owner(tile);
       if (owner.isPlayer()) {
         owner.relinquish(tile);
@@ -477,7 +495,10 @@ export class NukeExecution implements Execution {
       ) {
         continue;
       }
-      if (mg.euclideanDistSquared(dst, unit.tile()) < outer2) {
+      if (
+        mg.euclideanDistSquared(dst, unit.tile()) < outer2 &&
+        !shielded(mg, domes, unit.tile())
+      ) {
         // treatAFKFriendly matches warship targeting: a disconnected
         // teammate's or ally's units are still not kills.
         const friendly = this.player.isFriendly(unit.owner(), true);
@@ -519,6 +540,49 @@ export class NukeExecution implements Execution {
     this.mg
       .stats()
       .bombLand(this.player, this.target(), this.nuke.type() as NukeType);
+  }
+
+  /**
+   * Derpy Front: the nuke was aimed inside a Dome of Alden. It bursts
+   * harmlessly over its target (shown like a SAM interception) and both
+   * sides are told; a MIRV's warheads stay quiet so they don't flood the log.
+   */
+  private stoppedByDome(domes: readonly Unit[]) {
+    const nuke = this.nuke!;
+    const type = nuke.type();
+    this.active = false;
+    nuke.delete(false);
+    // Whose Domes cover the target, each once, nearest Dome first.
+    const keepers: Player[] = [];
+    for (const dome of domes) {
+      const owner = dome.owner();
+      if (keepers.includes(owner)) continue;
+      if (shielded(this.mg, [dome], this.dst)) keepers.push(owner);
+    }
+    if (keepers.length > 0) {
+      this.mg.stats().bombIntercept(keepers[0], type as NukeType, 1);
+    }
+    if (type === UnitType.MIRVWarhead) return;
+
+    const unit = NUKE_NAME_KEYS[type] ?? type;
+    this.mg.displayMessage(
+      "events_display.dome_stopped_your_nuke",
+      MessageType.SAM_MISS,
+      this.player.id(),
+      undefined,
+      { unit },
+    );
+    for (const owner of keepers) {
+      this.mg.displayMessage(
+        "events_display.dome_stopped_nuke",
+        MessageType.SAM_HIT,
+        owner.id(),
+        undefined,
+        { name: this.player.displayName(), unit },
+        undefined,
+        this.player.id(),
+      );
+    }
   }
 
   private redrawBuildings(range: number) {

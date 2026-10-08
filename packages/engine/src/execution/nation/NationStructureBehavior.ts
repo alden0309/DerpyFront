@@ -189,6 +189,8 @@ export class NationStructureBehavior {
   private builtCrowdedMapFirstStructure = false;
   private _hasHighStartingGold: boolean | null = null;
   private _postSaveUpStartTick: number | null = null;
+  /** Derpy Front: when we last saw an enemy nuke heading for our land. */
+  private nukedTick: number | null = null;
 
   constructor(
     private random: PseudoRandom,
@@ -207,6 +209,7 @@ export class NationStructureBehavior {
       builtCrowdedMapFirstStructure: this.builtCrowdedMapFirstStructure,
       hasHighStartingGold: this._hasHighStartingGold,
       postSaveUpStartTick: this._postSaveUpStartTick,
+      nukedTick: this.nukedTick,
     });
   }
 
@@ -228,12 +231,17 @@ export class NationStructureBehavior {
     this.builtCrowdedMapFirstStructure = s.builtCrowdedMapFirstStructure;
     this._hasHighStartingGold = s.hasHighStartingGold;
     this._postSaveUpStartTick = s.postSaveUpStartTick;
+    this.nukedTick = s.nukedTick ?? null;
   }
 
   handleStructures(): boolean {
     // Derpy Front: guarding the Capital comes first, outside the normal
     // pacing (like defense posts below).
     if (this.tryProtectCapital()) {
+      return true;
+    }
+    // Derpy Front: once nuked, a rich nation shields what it has with a Dome.
+    if (this.tryBuildDome()) {
       return true;
     }
 
@@ -284,6 +292,108 @@ export class NationStructureBehavior {
       this.tryCoverCapitalWithSams(capital, difficulty) ||
       this.tryGuardCapitalFront(capital, difficulty)
     );
+  }
+
+  /**
+   * Derpy Front (rules 3+): a nation that has had a nuke sent at it, and
+   * holds the price of a Dome of Alden, builds one over what it would most
+   * hate to lose that no Dome of its own covers yet. One at a time, up to
+   * the limit.
+   */
+  private tryBuildDome(): boolean {
+    const config = this.game.config();
+    if (!config.factoryRework() || config.isUnitDisabled(UnitType.Dome)) {
+      return false;
+    }
+    this.noteIncomingNukes();
+    if (this.nukedTick === null) return false;
+    const domes = this.player.units(UnitType.Dome);
+    if (domes.length >= config.domeLimit()) return false;
+    if (domes.some((d) => d.isUnderConstruction())) return false;
+    if (this.player.gold() < this.cost(UnitType.Dome)) return false;
+    for (const tile of this.domeSpots(domes)) {
+      if (this.player.canBuild(UnitType.Dome, tile) === false) continue;
+      this.game.addExecution(
+        new ConstructionExecution(this.player, UnitType.Dome, tile),
+      );
+      return true;
+    }
+    return false;
+  }
+
+  /** Remembers it if another player's nuke is flying at our land. */
+  private noteIncomingNukes(): void {
+    const nukes = this.game.units([
+      UnitType.AtomBomb,
+      UnitType.HydrogenBomb,
+      UnitType.MIRV,
+      UnitType.MIRVWarhead,
+    ]);
+    for (const nuke of nukes) {
+      if (nuke.owner() === this.player) continue;
+      const target = nuke.targetTile();
+      if (target !== undefined && this.game.owner(target) === this.player) {
+        this.nukedTick = this.game.ticks();
+        return;
+      }
+    }
+  }
+
+  /**
+   * Where a new Dome would shield the most: our land just beside one of our
+   * buildings (a building's own spot is too crowded to build on), scored by
+   * the buildings in range that no Dome of ours covers yet (the Capital
+   * counts most, then cities by level). Best first, at most five.
+   */
+  private domeSpots(domes: readonly Unit[]): TileRef[] {
+    const game = this.game;
+    const range2 = game.config().domeRange() ** 2;
+    const covered = (t: TileRef) =>
+      domes.some((d) => game.euclideanDistSquared(d.tile(), t) <= range2);
+    const assets = this.player
+      .units(Structures.types)
+      .filter((u) => u.type() !== UnitType.Dome && !covered(u.tile()));
+    if (assets.length === 0) return [];
+    const worth = (u: Unit): number => {
+      switch (u.type()) {
+        case UnitType.Capital:
+          return 8;
+        case UnitType.City:
+          return 2 * u.level();
+        default:
+          return u.level();
+      }
+    };
+    // Beside up to 40 buildings, spread over the list
+    const step = Math.max(1, Math.floor(assets.length / 40));
+    const gap = game.config().structureMinDist() + 5;
+    const candidates: TileRef[] = [];
+    for (let i = 0; i < assets.length; i += step) {
+      const x = game.x(assets[i].tile());
+      const y = game.y(assets[i].tile());
+      for (const [dx, dy] of [
+        [gap, 0],
+        [-gap, 0],
+        [0, gap],
+        [0, -gap],
+      ]) {
+        if (!game.isValidCoord(x + dx, y + dy)) continue;
+        const t = game.ref(x + dx, y + dy);
+        if (game.owner(t) === this.player) candidates.push(t);
+      }
+    }
+    const scored = candidates.map((tile) => {
+      let score = 0;
+      for (const a of assets) {
+        if (game.euclideanDistSquared(tile, a.tile()) <= range2) {
+          score += worth(a);
+        }
+      }
+      return { tile, score };
+    });
+    // Stable sort: on ties the earlier candidate wins
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, 5).map((s) => s.tile);
   }
 
   private tryCoverCapitalWithSams(capital: Unit, difficulty: Difficulty) {
@@ -1664,5 +1774,6 @@ export const NationStructureBehaviorSnapshot = snapshotType({
     builtCrowdedMapFirstStructure: z.boolean(),
     hasHighStartingGold: z.boolean().nullable(),
     postSaveUpStartTick: zInt().nullable(),
+    nukedTick: zInt().nullable().optional(),
   }),
 });

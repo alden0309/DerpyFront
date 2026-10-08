@@ -48,7 +48,10 @@ import {
 } from "../nation/NationEmojiBehavior";
 import { findJuiciestTarget, findRunawayLeader } from "../nation/NationUtils";
 import type { NationWarshipBehavior } from "../nation/NationWarshipBehavior";
-import { TransportShipExecution } from "../TransportShipExecution";
+import {
+  escortedTransportCost,
+  TransportShipExecution,
+} from "../TransportShipExecution";
 import { closestTwoTiles } from "../Util";
 
 // Reusable neighbor buffer for hot loops; the simulation is single-threaded.
@@ -1399,15 +1402,20 @@ export class AiAttackBehavior {
   private sendBoatAttack(target: Player): boolean {
     const route = this.boatRoute(target);
     if (route === null) return false;
+    // Derpy Front: with every way in guarded, pay for an escort if it's worth it
+    const escorted = this.shouldEscort(route);
     // A beachhead boat is cheap enough to risk past a warship, one at a time
     const beachhead = this.landsBeachheads();
     if (
       route.blocker !== null &&
+      !escorted &&
       (!beachhead || this.player.unitCount(UnitType.TransportShip) > 0)
     ) {
       return false;
     }
-    if (beachhead) return this.sendBeachhead(target, route.landing);
+    if (beachhead) {
+      return this.sendBeachhead(target, route.landing, escorted);
+    }
 
     const troops = this.calculateAttackTroops(
       target,
@@ -1418,9 +1426,37 @@ export class AiAttackBehavior {
     }
 
     this.game.addExecution(
-      new TransportShipExecution(this.player, route.landing, troops),
+      new TransportShipExecution(this.player, route.landing, troops, escorted),
     );
     return true;
+  }
+
+  /**
+   * Derpy Front (rules 3+): whether a nation sends this boat escorted. Only
+   * when a hostile warship guards the only ways in (planBoatRoute already
+   * looked for a clear landing), no more than two warships are waiting
+   * there (the escort has three warships' health and fires back), the
+   * crossing isn't too long, and the escort costs no more than a third of
+   * the nation's gold.
+   */
+  private shouldEscort(route: BoatRoute): boolean {
+    const blocker = route.blocker;
+    if (blocker === null) return false;
+    const config = this.game.config();
+    if (!config.factoryRework()) return false;
+    if (this.player.type() !== PlayerType.Nation) return false;
+    if (config.isUnitDisabled(UnitType.Warship)) return false;
+    if (route.length > this.maxBoatRoute()) return false;
+    if (escortedTransportCost(this.game, this.player) * 3n > this.player.gold())
+      return false;
+    const reach = (2 * this.dangerRange()) ** 2;
+    let guards = 0;
+    for (const w of this.hostileWarships()) {
+      if (this.game.euclideanDistSquared(w.tile(), blocker.tile()) <= reach) {
+        guards++;
+      }
+    }
+    return guards <= 2;
   }
 
   // Hard & Impossible boat a tiny force and attack by land as soon as it lands
@@ -1436,6 +1472,7 @@ export class AiAttackBehavior {
   private sendBeachhead(
     target: Player | TerraNullius,
     landing: TileRef,
+    escorted = false,
   ): boolean {
     const troops = this.calculateAttackTroops(
       target,
@@ -1449,7 +1486,7 @@ export class AiAttackBehavior {
       this.botAttackTroopsSent += boatTroops - troops;
     }
     this.game.addExecution(
-      new TransportShipExecution(this.player, landing, boatTroops),
+      new TransportShipExecution(this.player, landing, boatTroops, escorted),
     );
     return true;
   }
@@ -1460,13 +1497,14 @@ export class AiAttackBehavior {
     );
   }
 
-  // By land, or by a boat that passes no hostile warship and isn't sailing too far
+  // By land, or by a boat that passes no hostile warship (or can afford an
+  // escort past it) and isn't sailing too far
   private canReach(target: Player): boolean {
     if (this.bordersByLand(target)) return true;
     const route = this.boatRoute(target);
     return (
       route !== null &&
-      route.blocker === null &&
+      (route.blocker === null || this.shouldEscort(route)) &&
       route.length <= this.maxBoatRoute()
     );
   }

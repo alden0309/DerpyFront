@@ -169,8 +169,6 @@ export class Config {
   capitalTroopBonus(): number {
     return 2_000_000;
   }
-  // Derpy Front: an escorted troop transport and its two warships share one
-  // health bar, three times a warship's.
   /** Derpy Front: the rules edition this game is played under. */
   derpyRules(): number {
     return this._gameConfig.derpyRules ?? DERPY_RULES;
@@ -179,6 +177,31 @@ export class Config {
   escortSailsOn(): boolean {
     return this.derpyRules() >= 2;
   }
+  /**
+   * Derpy Front (rules 3+): trains pay more, ports and factories are priced
+   * apart, factories make building cheaper, and AI nations build Domes of
+   * Alden and send escorts.
+   */
+  factoryRework(): boolean {
+    return this.derpyRules() >= 3;
+  }
+  /** Derpy Front: how far a Dome of Alden's shield reaches, in tiles. */
+  domeRange(): number {
+    return 100;
+  }
+  /** Derpy Front: the most Domes of Alden one player can own at once. */
+  domeLimit(): number {
+    return 5;
+  }
+  /** Derpy Front: each finished factory level takes this % off (rules 3+). */
+  factoryDiscountPerLevel(): number {
+    return 2;
+  }
+  factoryDiscountMax(): number {
+    return 20;
+  }
+  // Derpy Front: an escorted troop transport and its two warships share one
+  // health bar, three times a warship's.
   escortedTransportHealth(): number {
     return 3 * (this.unitInfo(UnitType.Warship).maxHealth ?? 1000);
   }
@@ -288,6 +311,13 @@ export class Config {
         // Not upgradable: levels would get around the one-per-player limit.
         info = {
           constructionDuration: this.instantBuild() ? 0 : 10 * 10,
+          upgradable: false,
+        };
+        break;
+      case UnitType.Dome:
+        // Shields only once it is finished; one level, so the limit holds.
+        info = {
+          constructionDuration: this.instantBuild() ? 0 : 30 * 10,
           upgradable: false,
         };
         break;

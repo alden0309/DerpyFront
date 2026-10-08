@@ -126,6 +126,27 @@ describe("Nation nuke targeting", () => {
     expect(game.owner(nukes[0].targetTile()!)).toBe(human);
   });
 
+  it("never aims inside an enemy Dome of Alden", async () => {
+    const { game, nation, human } = await setupDuel();
+    human.buildUnit(UnitType.Dome, game.ref(150, 150), {});
+
+    expect(launchNukes(game, nation)).toHaveLength(0);
+  });
+
+  it("aims at the part of the target a Dome doesn't cover", async () => {
+    const { game, nation, human } = await setupDuel();
+    // A Dome far north reaches only the island's top rows
+    conquerRect(game, human, 148, 40, 153, 45);
+    const dome = human.buildUnit(UnitType.Dome, game.ref(150, 42), {});
+    const range2 = game.config().domeRange() ** 2;
+
+    const nukes = launchNukes(game, nation);
+    expect(nukes).toHaveLength(1);
+    expect(
+      game.euclideanDistSquared(dome.tile(), nukes[0].targetTile()!),
+    ).toBeGreaterThan(range2);
+  });
+
   it("does not nuke land that is mostly fallout already", async () => {
     const { game, nation, human } = await setupDuel();
     // Leave the human a 4-tile rim around a fallout crater

@@ -19,6 +19,7 @@ import {
   UT_CAPITAL,
   UT_CITY,
   UT_DEFENSE_POST,
+  UT_DOME,
   UT_FACTORY,
   UT_MISSILE_SILO,
   UT_PORT,
@@ -55,6 +56,7 @@ const STRUCTURE_ORDER = [
   UT_SAM_LAUNCHER,
   UT_MISSILE_SILO,
   UT_CAPITAL,
+  UT_DOME,
 ] as const;
 
 const ATLAS_COLS = STRUCTURE_ORDER.length;
@@ -117,7 +119,7 @@ export class StructurePass {
 
   private instanceCount = 0;
 
-  /** unitType string → atlas column index (0–6) */
+  /** unitType string → atlas column index (0–7) */
   private typeToAtlasCol = new Map<string, number>();
   private mapW: number;
 

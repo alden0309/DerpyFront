@@ -171,6 +171,7 @@ export class SoundEffectController implements Controller {
         if (unit.owner() === myPlayer) this.emit("build-defense-post");
         break;
       case UnitType.SAMLauncher:
+      case UnitType.Dome:
         if (unit.owner() === myPlayer) this.emit("sam-built");
         break;
       case UnitType.MissileSilo:

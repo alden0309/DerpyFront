@@ -29,6 +29,7 @@ import { GameView } from "../../view";
 const warshipIcon = assetUrl("images/BattleshipIconWhite.svg");
 const capitalIcon = assetUrl("images/CapitalIconWhite.svg");
 const cityIcon = assetUrl("images/CityIconWhite.svg");
+const domeIcon = assetUrl("images/DomeIconWhite.svg");
 const factoryIcon = assetUrl("images/FactoryIconWhite.svg");
 const goldCoinIcon = assetUrl("images/GoldCoinIcon.svg");
 const mirvIcon = assetUrl("images/MIRVIcon.svg");
@@ -124,6 +125,13 @@ export const buildTable: BuildItemDisplay[][] = [
       icon: capitalIcon,
       description: "build_menu.desc.capital",
       key: "unit_type.capital",
+      countable: true,
+    },
+    {
+      unitType: UnitType.Dome,
+      icon: domeIcon,
+      description: "build_menu.desc.dome",
+      key: "unit_type.dome",
       countable: true,
     },
   ],

@@ -204,6 +204,8 @@ export enum UnitType {
   Train = "Train",
   Factory = "Factory",
   Capital = "Capital",
+  /** Derpy Front: stops every nuke but its owner's within its range. */
+  Dome = "Dome of Alden",
 }
 
 export enum TrainType {
@@ -234,6 +236,7 @@ export const Structures = unitTypeGroup([
   UnitType.Port,
   UnitType.Factory,
   UnitType.Capital,
+  UnitType.Dome,
 ] as const);
 
 export const BuildMenus = unitTypeGroup([

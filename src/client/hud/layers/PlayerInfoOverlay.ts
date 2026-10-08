@@ -42,6 +42,7 @@ const traitorIcon = assetUrl("images/TraitorIcon.svg");
 const warshipIcon = assetUrl("images/BattleshipIconWhite.svg");
 const capitalIcon = assetUrl("images/CapitalIconWhite.svg");
 const cityIcon = assetUrl("images/CityIconWhite.svg");
+const domeIcon = assetUrl("images/DomeIconWhite.svg");
 const factoryIcon = assetUrl("images/FactoryIconWhite.svg");
 const goldCoinIcon = assetUrl("images/GoldCoinIcon.svg");
 const missileSiloIcon = assetUrl("images/MissileSiloIconWhite.svg");
@@ -551,6 +552,7 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
               UnitType.SAMLauncher,
               samLauncherIcon,
             )}
+            ${this.displayUnitCount(player, UnitType.Dome, domeIcon)}
             ${this.displayUnitCount(player, UnitType.Warship, warshipIcon)}
           </div>
         </div>

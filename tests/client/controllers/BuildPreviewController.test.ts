@@ -151,3 +151,73 @@ describe("BuildPreviewController confirm with the pointer off the map", () => {
     expect(intent?.tile).toBe(43);
   });
 });
+
+describe("BuildPreviewController and the Dome of Alden", () => {
+  const width = 300;
+  const range = 100;
+
+  function makeController(type: UnitType) {
+    const me = { gold: () => 10n ** 9n, smallID: () => 1 };
+    const enemy = { smallID: () => 2 };
+    const dome = (
+      x: number,
+      y: number,
+      owner: object,
+      opts: { building?: boolean; active?: boolean } = {},
+    ) => ({
+      tile: () => y * width + x,
+      owner: () => owner,
+      isActive: () => opts.active ?? true,
+      isUnderConstruction: () => opts.building ?? false,
+    });
+    const domes = [
+      dome(50, 50, enemy),
+      dome(250, 50, me),
+      dome(150, 250, enemy, { building: true }),
+      dome(250, 250, enemy, { active: false }),
+    ];
+    const game = {
+      isValidCoord: () => true,
+      ref: (x: number, y: number) => y * width + x,
+      myPlayer: () => me,
+      x: (t: number) => t % width,
+      y: (t: number) => Math.floor(t / width),
+      units: (t: UnitType) => (t === UnitType.Dome ? domes : []),
+      config: () => ({ domeRange: () => range }),
+    };
+    const controller = new BuildPreviewController(
+      game as any,
+      new EventBus(),
+      { ghostStructure: type } as any,
+      { screenToWorldCoordinates: () => ({ x: 0, y: 0 }) } as any,
+      { updateGhostPreview: () => {}, updateNukeTrajectory: () => {} } as any,
+      { cursorCostLabel: () => false } as any,
+    );
+    (controller as any).ghostUnit = {
+      buildableUnit: { type, canBuild: 0, canUpgrade: false, cost: 1n },
+    };
+    return controller as any;
+  }
+
+  test("a Dome ghost shows its shield's range", () => {
+    const controller = makeController(UnitType.Dome);
+    const data = controller.buildGhostPreviewData(10 * width + 10, false);
+    expect(data.rangeRadius).toBe(range);
+  });
+
+  test("only finished Domes of other players stop the local player's nukes", () => {
+    const controller = makeController(UnitType.AtomBomb);
+    expect(controller.shieldingDomes()).toEqual([{ x: 50, y: 50, ownerID: 2 }]);
+  });
+
+  test("a target inside another player's Dome is flagged", () => {
+    const controller = makeController(UnitType.AtomBomb);
+    const domes = controller.shieldingDomes();
+    expect(controller.domeStopsNuke(domes, 50, 50)).toBe(true);
+    expect(controller.domeStopsNuke(domes, 50, 150)).toBe(true);
+    expect(controller.domeStopsNuke(domes, 50, 151)).toBe(false);
+    // Inside the local player's own Dome and an unfinished one: no warning.
+    expect(controller.domeStopsNuke(domes, 250, 50)).toBe(false);
+    expect(controller.domeStopsNuke(domes, 150, 250)).toBe(false);
+  });
+});

@@ -254,7 +254,13 @@ export class EngineConfig extends Config {
         break;
     }
     const distPenalty = citiesVisited * 5_000;
-    const gold = Math.max(5000, baseGold - distPenalty);
+    let gold = Math.max(5000, baseGold - distPenalty);
+    // Derpy Front (rules 3+): double at your own stations, a quarter more at
+    // an ally's (both of you get it).
+    if (this.factoryRework()) {
+      if (rel === "self") gold *= 2;
+      else if (rel === "ally") gold = (gold * 5) / 4;
+    }
     return toInt(gold * this.goldMultiplierFor(player));
   }
 
@@ -332,15 +338,20 @@ export class EngineConfig extends Config {
   private unitCost(type: UnitType): EngineUnitInfo["cost"] {
     switch (type) {
       case UnitType.Warship:
-        return this.costWrapper(
-          (numUnits: number) => Math.min(1_000_000, (numUnits + 1) * 250_000),
-          UnitType.Warship,
+        return this.factoryDiscounted(
+          this.costWrapper(
+            (numUnits: number) => Math.min(1_000_000, (numUnits + 1) * 250_000),
+            UnitType.Warship,
+          ),
         );
       case UnitType.Port:
-        return this.costWrapper(
-          (numUnits: number) => Math.min(1_000_000, pow2(numUnits) * 125_000),
-          UnitType.Port,
-          UnitType.Factory,
+        // Derpy Front (rules 3+): ports and factories no longer share a count.
+        return this.factoryDiscounted(
+          this.costWrapper(
+            (numUnits: number) => Math.min(1_000_000, pow2(numUnits) * 125_000),
+            UnitType.Port,
+            ...(this.factoryRework() ? [] : [UnitType.Factory]),
+          ),
         );
       case UnitType.AtomBomb:
         return this.costWrapper(() => 750_000, UnitType.AtomBomb);
@@ -357,30 +368,54 @@ export class EngineConfig extends Config {
           return 25_000_000n + BigInt(game.mirvsLaunched()) * 15_000_000n;
         };
       case UnitType.MissileSilo:
-        return this.costWrapper(() => 1_000_000, UnitType.MissileSilo);
+        return this.factoryDiscounted(
+          this.costWrapper(() => 1_000_000, UnitType.MissileSilo),
+        );
       case UnitType.DefensePost:
-        return this.costWrapper(
-          (numUnits: number) => Math.min(250_000, (numUnits + 1) * 50_000),
-          UnitType.DefensePost,
+        return this.factoryDiscounted(
+          this.costWrapper(
+            (numUnits: number) => Math.min(250_000, (numUnits + 1) * 50_000),
+            UnitType.DefensePost,
+          ),
         );
       case UnitType.SAMLauncher:
-        return this.costWrapper(
-          (numUnits: number) => Math.min(3_000_000, (numUnits + 1) * 1_500_000),
-          UnitType.SAMLauncher,
+        return this.factoryDiscounted(
+          this.costWrapper(
+            (numUnits: number) =>
+              Math.min(3_000_000, (numUnits + 1) * 1_500_000),
+            UnitType.SAMLauncher,
+          ),
         );
       case UnitType.City:
-        return this.costWrapper(
-          (numUnits: number) => Math.min(1_000_000, pow2(numUnits) * 125_000),
-          UnitType.City,
+        return this.factoryDiscounted(
+          this.costWrapper(
+            (numUnits: number) => Math.min(1_000_000, pow2(numUnits) * 125_000),
+            UnitType.City,
+          ),
         );
       case UnitType.Factory:
-        return this.costWrapper(
-          (numUnits: number) => Math.min(1_000_000, pow2(numUnits) * 125_000),
-          UnitType.Factory,
-          UnitType.Port,
+        return this.factoryDiscounted(
+          this.costWrapper(
+            (numUnits: number) => Math.min(1_000_000, pow2(numUnits) * 125_000),
+            UnitType.Factory,
+            ...(this.factoryRework() ? [] : [UnitType.Port]),
+          ),
         );
       case UnitType.Capital:
         return this.costWrapper(() => 5_000_000, UnitType.Capital);
+      case UnitType.Dome:
+        // Derpy Front: $50M for your first, $60M for each after. Priced by
+        // how many you have built, so losing one doesn't make the next cheaper.
+        return (game: Game, player: Player, extraUnits: number = 0) => {
+          if (
+            player.type() === PlayerType.Human &&
+            this.hasInfiniteGoldFor(player)
+          ) {
+            return 0n;
+          }
+          const built = player.unitsConstructed(UnitType.Dome) + extraUnits;
+          return built === 0 ? 50_000_000n : 60_000_000n;
+        };
       case UnitType.TransportShip:
       case UnitType.Shell:
       case UnitType.SAMMissile:
@@ -428,6 +463,32 @@ export class EngineConfig extends Config {
       return base + BigInt(hc.startingGold);
     }
     return base;
+  }
+
+  /**
+   * Derpy Front: what % a player's factories take off building and warship
+   * prices (rules 3+): 2% per finished factory level, up to 20%.
+   */
+  factoryDiscount(player: Player): number {
+    if (!this.factoryRework()) return 0;
+    let levels = 0;
+    for (const f of player.units(UnitType.Factory)) {
+      if (!f.isUnderConstruction()) levels += f.level();
+    }
+    return Math.min(
+      this.factoryDiscountMax(),
+      levels * this.factoryDiscountPerLevel(),
+    );
+  }
+
+  private factoryDiscounted(
+    cost: (g: Game, p: Player, extraUnits?: number) => bigint,
+  ): (g: Game, p: Player, extraUnits?: number) => bigint {
+    return (game: Game, player: Player, extraUnits: number = 0) => {
+      const full = cost(game, player, extraUnits);
+      const off = this.factoryDiscount(player);
+      return off === 0 ? full : (full * BigInt(100 - off)) / 100n;
+    };
   }
 
   private costWrapper(
