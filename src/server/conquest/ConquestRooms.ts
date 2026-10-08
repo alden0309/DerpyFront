@@ -1,11 +1,13 @@
-// Derpy Conquest's game server: rooms of players (or one player and the
-// computer), each running a ConquestGame here on the server and sending
-// players what changed. Lives in the master process on /conquest/ws.
+// Derpy Conquest's game server: rooms of players, each running a world here
+// on the server (every nation played by the computer) with a life in it for
+// each player, and sending players what changed. Lives in the master process
+// on /conquest/ws.
 //
 // Every game, solo ones too, runs here, so pausing, speed and results work
-// the same way for everyone and nobody can doctor their own score. Games
-// with signed-in players are saved to the database as they go, so a
-// campaign can be picked up again another day.
+// the same way for everyone and nobody can doctor their own score. Players
+// can drop into a running world with a new character. Games with signed-in
+// players are saved to the database as they go, so a world can be picked up
+// again another day.
 
 import { randomBytes } from "crypto";
 import type http from "http";
@@ -13,28 +15,31 @@ import type { Duplex } from "stream";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 import { dateOf } from "../../conquest/engine/Calendar";
-import { planProblem } from "../../conquest/engine/Characters";
-import { conquestCoins } from "../../conquest/engine/Coins";
-import { autoAnswer } from "../../conquest/engine/Events";
+import { lifeCoins } from "../../conquest/engine/Coins";
 import { ConquestGame, STATE_VERSION } from "../../conquest/engine/Game";
+import { planProblem } from "../../conquest/engine/Life";
+import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
+import { lifeOfSeat, lifeScore } from "../../conquest/engine/LifeQueries";
 import { AMERICAS } from "../../conquest/engine/Map";
-import { provincesOf } from "../../conquest/engine/Queries";
 import {
   DEFAULT_SPEED,
   LETTER_SECONDS,
+  MAX_SPEED,
   SPEED_DAYS_PER_SECOND,
 } from "../../conquest/engine/Rules";
-import type { GovernorPlan } from "../../conquest/engine/Types";
+import { newGameState } from "../../conquest/engine/Setup";
+import type {
+  GameState,
+  LifePlan,
+  StartYear,
+} from "../../conquest/engine/Types";
 import {
   ClientMessage,
   CONQUEST_WS_PATH,
   DIFFICULTIES,
-  END_YEAR_MAX,
-  END_YEAR_MIN,
+  END_YEAR,
   MAX_NAME_LENGTH,
-  minEndYear,
   OpenRoom,
-  powerExists,
   ResultLine,
   RoomSettings,
   SavedGame,
@@ -46,6 +51,15 @@ import { accountForToken } from "../derpy/DerpyAuth";
 import { recordConquestGame } from "../derpy/DerpyConquest";
 import { derpyDbConfigured } from "../derpy/DerpyDb";
 import { logger } from "../Logger";
+
+/**
+ * For browser tests only: the clock runs this many times faster
+ * (CONQUEST_TEST_FAST, at most 50). Never set on a real server.
+ */
+const TEST_FAST = Math.max(
+  1,
+  Math.min(50, Math.floor(Number(process.env.CONQUEST_TEST_FAST) || 1)),
+);
 
 const log = logger.child({ component: "Conquest" });
 
@@ -61,27 +75,52 @@ const OVER_CLOSE_MS = 10 * 60_000;
 const SAVE_EVERY_MS = 3 * 60_000;
 const MAX_MESSAGES_PER_SECOND = 25;
 const CODE_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-const POWER_IDS = AMERICAS.powers.map((p) => p.id);
+
+/** The world as it stands on each start date, to check characters against before a game begins. */
+const previews = new Map<StartYear, GameState>();
+function previewWorld(start: StartYear): GameState {
+  let s = previews.get(start);
+  if (!s) {
+    s = newGameState(AMERICAS, {
+      endYear: END_YEAR,
+      difficulty: "normal",
+      seed: 1,
+      start,
+    });
+    previews.set(start, s);
+  }
+  return s;
+}
 
 // ---------------------------------------------------------------- messages
 
-const Settings = z
-  .object({
-    endYear: z.number().int().min(END_YEAR_MIN).max(END_YEAR_MAX),
-    difficulty: z.enum(DIFFICULTIES as [string, ...string[]]),
-    start: z
-      .union([z.literal(1607), z.literal(1650), z.literal(1700)])
-      .optional(),
-  })
-  .refine((x) => x.endYear >= minEndYear(x.start ?? 1607), {
-    message: "The game must last at least 15 years.",
-  });
+const Settings = z.object({
+  difficulty: z.enum(DIFFICULTIES as [string, ...string[]]),
+  start: z
+    .union([z.literal(1607), z.literal(1650), z.literal(1700)])
+    .optional(),
+});
 
+const Tincture = z.string().max(12);
 const Plan = z.object({
+  origin: z.string().max(40),
+  home: z.number().int().min(0).max(10_000),
   first: z.string().max(20),
-  family: z.string().max(24),
+  family: z.string().max(28),
   female: z.boolean(),
-  age: z.enum(["young", "prime", "seasoned"]),
+  age: z.number().int(),
+  religion: z.string().max(20),
+  face: z.number().int().min(0).max(999),
+  sigil: z.object({
+    field: Tincture,
+    division: z.string().max(12),
+    tincture: Tincture,
+    charge: z.string().max(12),
+    chargeTincture: Tincture,
+  }),
+  frame: z.string().max(12),
+  motto: z.string().max(80),
+  background: z.string().max(20),
   stats: z.object({
     dip: z.number(),
     mar: z.number(),
@@ -89,8 +128,8 @@ const Plan = z.object({
     int: z.number(),
     lea: z.number(),
   }),
+  skills: z.record(z.string().max(20), z.number()),
   traits: z.array(z.string().max(20)).max(6),
-  face: z.number().int().min(0).max(999).optional(),
 });
 
 const Message = z.discriminatedUnion("t", [
@@ -113,8 +152,8 @@ const Message = z.discriminatedUnion("t", [
     secret: z.string().max(100),
   }),
   z.object({ t: z.literal("resume"), id: z.string().max(60) }),
-  z.object({ t: z.literal("pick"), power: z.string().max(40).nullable() }),
-  z.object({ t: z.literal("governor"), plan: Plan }),
+  z.object({ t: z.literal("plan"), plan: Plan }),
+  z.object({ t: z.literal("life"), plan: Plan }),
   z.object({ t: z.literal("ready"), ready: z.boolean() }),
   z.object({ t: z.literal("settings"), settings: Settings, open: z.boolean() }),
   z.object({ t: z.literal("start") }),
@@ -123,7 +162,10 @@ const Message = z.discriminatedUnion("t", [
     id: z.number(),
     c: z.object({ k: z.string().max(20) }).passthrough(),
   }),
-  z.object({ t: z.literal("speed"), s: z.number().int().min(1).max(5) }),
+  z.object({
+    t: z.literal("speed"),
+    s: z.number().int().min(1).max(MAX_SPEED),
+  }),
   z.object({ t: z.literal("pause"), p: z.boolean() }),
   z.object({ t: z.literal("chat"), text: z.string().min(1).max(300) }),
   z.object({ t: z.literal("save") }),
@@ -165,8 +207,8 @@ interface Seat {
   secret: string;
   name: string;
   accountId: number | null;
-  power: string | null;
-  governor: GovernorPlan | null;
+  /** The character made in the room, before the game starts. */
+  plan: LifePlan | null;
   ready: boolean;
   conn: Conn | null;
 }
@@ -192,7 +234,7 @@ interface Room {
   emptySince: number | null;
   overAt: number | null;
   results: ResultLine[] | null;
-  /** Players' unanswered letters: milliseconds of unpaused play left. */
+  /** Players' unanswered events: milliseconds of unpaused play left. */
   letters: Map<number, number>;
 }
 
@@ -301,7 +343,7 @@ export class ConquestRooms {
 
   /** Called when someone comes or goes during a game. */
   private onSeatsChanged(room: Room): void {
-    const playing = room.seats.some((s) => s.conn && s.power);
+    const playing = room.seats.some((s) => s.conn);
     if (!playing && room.game && !room.game.state.over && !room.paused) {
       room.paused = true;
       this.broadcast(room, {
@@ -313,9 +355,7 @@ export class ConquestRooms {
     }
     room.emptySince = room.seats.some((s) => s.conn) ? null : this.now();
     if (room.host && !room.seats.some((s) => s.id === room.host && s.conn)) {
-      const next =
-        room.seats.find((s) => s.conn && s.power) ??
-        room.seats.find((s) => s.conn);
+      const next = room.seats.find((s) => s.conn);
       if (next) room.host = next.id;
     }
     this.broadcast(room, {
@@ -351,27 +391,42 @@ export class ConquestRooms {
     if (!room || !seat)
       return this.send(conn, { t: "err", msg: "You're not in a game." });
     switch (m.t) {
-      case "pick":
-        return this.pick(room, seat, m.power);
-      case "governor": {
+      case "plan": {
         if (room.game) return;
-        const problem = planProblem(m.plan);
+        const plan = m.plan as LifePlan;
+        const problem = planProblem(
+          previewWorld(room.settings.start ?? 1607),
+          plan,
+        );
         if (problem) return this.send(conn, { t: "err", msg: problem });
-        seat.governor = m.plan;
+        seat.plan = plan;
         return this.sendLobby(room);
+      }
+      case "life": {
+        const game = room.game;
+        if (!game) return;
+        const err = game.beginLife(seat.id, seat.name, m.plan as LifePlan);
+        if (err) return this.send(conn, { t: "err", msg: err });
+        this.flush(room);
+        this.onSeatsChanged(room);
+        void this.save(room);
+        return;
       }
       case "ready":
         if (room.game) return;
-        seat.ready = m.ready && seat.power !== null && seat.governor !== null;
+        seat.ready = m.ready && seat.plan !== null;
         return this.sendLobby(room);
       case "settings":
         if (room.game || room.host !== seat.id) return;
-        room.settings = m.settings;
+        room.settings = m.settings as RoomSettings;
         room.open = m.open && !room.solo;
-        // A crown with no colony in the new start year can't be played.
+        // A character whose home doesn't exist in the new start year must be remade.
         for (const x of room.seats)
-          if (x.power && !powerExists(x.power, m.settings.start ?? 1607)) {
-            x.power = null;
+          if (
+            x.plan &&
+            planProblem(previewWorld(room.settings.start ?? 1607), x.plan)
+          ) {
+            x.plan = null;
             x.ready = false;
           }
         return this.sendLobby(room);
@@ -382,11 +437,16 @@ export class ConquestRooms {
         return this.command(room, seat, m.id, m.c);
       case "speed":
       case "pause":
-        if (!room.game || room.game.state.over || !seat.power) return;
+        if (!room.game || room.game.state.over) return;
+        // The host sets the pace in company (anyone may pause).
         if (m.t === "speed") {
+          if (!room.solo && room.host !== seat.id) return;
           room.speed = m.s;
           room.paused = false;
-        } else room.paused = m.p;
+        } else {
+          if (!m.p && !room.solo && room.host !== seat.id) return;
+          room.paused = m.p;
+        }
         this.broadcast(room, {
           t: "clock",
           speed: room.speed,
@@ -440,7 +500,10 @@ export class ConquestRooms {
       open.push({
         code: r.code,
         host: r.seats.find((s) => s.id === r.host)?.name ?? "?",
-        players: r.seats.map((s) => ({ name: s.name, power: s.power })),
+        players: r.seats.map((s) => ({
+          name: s.name,
+          origin: seatOrigin(r, s),
+        })),
         settings: r.settings,
         started: r.game !== null,
         year: r.game ? dateOf(r.game.state.day).year : null,
@@ -485,8 +548,7 @@ export class ConquestRooms {
       secret: randomToken(18),
       name: conn.name,
       accountId: conn.accountId,
-      power: null,
-      governor: null,
+      plan: null,
       ready: false,
       conn,
     };
@@ -662,7 +724,6 @@ export class ConquestRooms {
     if (running()) return rejoinRunning(running()!);
     this.leaveCurrent(conn);
     const room = this.newRoom(null, saved.seats.length <= 1, false, {
-      endYear: saved.state.settings.endYear,
       difficulty: saved.state.settings.difficulty,
       start: saved.state.settings.start,
     });
@@ -675,8 +736,7 @@ export class ConquestRooms {
       secret: randomToken(18),
       name: s.name,
       accountId: s.accountId,
-      power: s.power,
-      governor: null,
+      plan: null,
       ready: true,
       conn: null,
     }));
@@ -684,18 +744,6 @@ export class ConquestRooms {
     room.host = mine.id;
     log.info("campaign loaded", { code: room.code, id });
     this.takeSeat(room, mine, conn);
-  }
-
-  private pick(room: Room, seat: Seat, power: string | null): void {
-    if (room.game) return;
-    if (power !== null) {
-      if (!POWER_IDS.includes(power)) return;
-      if (!powerExists(power, room.settings.start ?? 1607)) return;
-      if (room.seats.some((s) => s !== seat && s.power === power)) return;
-    }
-    if (seat.power !== power) seat.ready = false;
-    seat.power = power;
-    this.sendLobby(room);
   }
 
   private sendLobby(room: Room): void {
@@ -737,32 +785,31 @@ export class ConquestRooms {
 
   private startGame(room: Room): void {
     const host = room.seats.find((s) => s.id === room.host);
-    const players = room.seats.filter((s) => s.power);
+    const players = room.seats.filter((s) => s.plan);
     const tell = (msg: string) => {
       if (host?.conn) this.send(host.conn, { t: "err", msg });
     };
-    if (players.length === 0)
-      return tell("Somebody has to pick a nation first.");
-    const missing = players.find((s) => !s.governor);
-    if (missing) return tell(`${missing.name} hasn't made their governor yet.`);
+    if (!host?.plan) return tell("Make your character first.");
     if (!room.solo) {
-      const waiting = players.find((s) => !s.ready && s.id !== room.host);
-      if (waiting) return tell(`Waiting for ${waiting.name} to be ready.`);
+      const waiting = room.seats.find(
+        (s) => s.id !== room.host && (!s.plan || !s.ready),
+      );
+      if (waiting)
+        return tell(
+          waiting.plan
+            ? `Waiting for ${waiting.name} to be ready.`
+            : `${waiting.name} hasn't made their character yet.`,
+        );
     }
     room.game = ConquestGame.create(
       AMERICAS,
       {
-        endYear: room.settings.endYear,
+        endYear: END_YEAR,
         difficulty: room.settings.difficulty,
         seed: randomBytes(4).readInt32LE(0),
         start: room.settings.start ?? 1607,
       },
-      players.map((s) => ({
-        seat: s.id,
-        name: s.name,
-        power: s.power!,
-        governor: s.governor,
-      })),
+      players.map((s) => ({ seat: s.id, name: s.name, plan: s.plan! })),
     );
     room.startedAt = this.now();
     room.saveId = `${room.code}-${room.startedAt}`;
@@ -777,14 +824,12 @@ export class ConquestRooms {
   private command(room: Room, seat: Seat, id: number, c: unknown): void {
     const game = room.game;
     if (!game || !seat.conn) return;
-    const nation = game.nationOfSeat(seat.id);
-    if (nation < 0) {
-      this.send(seat.conn, { t: "ack", id, err: "You're watching this game." });
-      return;
-    }
     let err: string | null;
     try {
-      err = game.command(nation, c as Parameters<ConquestGame["command"]>[1]);
+      err = game.lifeCommand(
+        seat.id,
+        c as Parameters<ConquestGame["lifeCommand"]>[1],
+      );
     } catch (e) {
       log.warn(`command failed: ${e}`);
       err = "That didn't work.";
@@ -805,18 +850,16 @@ export class ConquestRooms {
   private save(room: Room): Promise<void> {
     if (!room.game || !room.saveId || !derpyDbConfigured())
       return Promise.resolve();
-    if (!room.seats.some((s) => s.power && s.accountId !== null))
-      return Promise.resolve();
-    if (room.saving) return room.saving;
     const game = room.game;
-    const seats = room.seats
-      .filter((s) => s.power)
-      .map((s) => ({
-        seat: s.id,
-        name: s.name,
-        power: s.power!,
-        accountId: s.accountId,
-      }));
+    const lives = room.seats.filter((s) => lifeOfSeat(game.state, s.id));
+    if (!lives.some((s) => s.accountId !== null)) return Promise.resolve();
+    if (room.saving) return room.saving;
+    const seats = lives.map((s) => ({
+      seat: s.id,
+      name: s.name,
+      power: lifeOfSeat(game.state, s.id)!.origin,
+      accountId: s.accountId,
+    }));
     room.lastSaved = this.now();
     const saving = saveConquest(
       room.saveId,
@@ -874,14 +917,14 @@ export class ConquestRooms {
       void this.save(room);
     this.letterClock(room, room.paused ? 0 : dt);
     if (room.paused) return;
-    room.owed += (dt / 1000) * SPEED_DAYS_PER_SECOND[room.speed];
+    room.owed += (dt / 1000) * SPEED_DAYS_PER_SECOND[room.speed] * TEST_FAST;
     let ticks = 0;
-    while (room.owed >= 1 && ticks < 10 && !game.state.over) {
+    while (room.owed >= 1 && ticks < 10 * TEST_FAST && !game.state.over) {
       game.tick();
       room.owed -= 1;
       ticks++;
     }
-    if (room.owed > 10) room.owed = 0;
+    if (room.owed > 10 * TEST_FAST) room.owed = 0;
     if (game.state.over) {
       this.flush(room);
       void this.finishRoom(room);
@@ -900,11 +943,10 @@ export class ConquestRooms {
     const pending = new Set<number>();
     let answered = false;
     for (const seat of room.seats) {
-      if (!seat.power) continue;
-      const n = game.nationOfSeat(seat.id);
-      if (n < 0) continue;
+      const life = lifeOfSeat(game.state, seat.id);
+      if (!life) continue;
       let changed = false;
-      for (const ev of [...game.state.nations[n].events]) {
+      for (const ev of [...life.events]) {
         pending.add(ev.id);
         let left = room.letters.get(ev.id);
         if (left === undefined) {
@@ -913,7 +955,7 @@ export class ConquestRooms {
         }
         left -= dt;
         if (left <= 0) {
-          autoAnswer(game, n, ev.id);
+          autoAnswerLife(game, seat.id, ev.id);
           room.letters.delete(ev.id);
           pending.delete(ev.id);
           answered = changed = true;
@@ -928,10 +970,10 @@ export class ConquestRooms {
 
   private sendLetters(room: Room, seat: Seat): void {
     if (!seat.conn || !room.game) return;
-    const n = room.game.nationOfSeat(seat.id);
-    if (n < 0) return;
+    const life = lifeOfSeat(room.game.state, seat.id);
+    if (!life) return;
     const left: Record<number, number> = {};
-    for (const ev of room.game.state.nations[n].events)
+    for (const ev of life.events)
       left[ev.id] = Math.ceil(
         (room.letters.get(ev.id) ?? LETTER_SECONDS * 1000) / 1000,
       );
@@ -943,94 +985,115 @@ export class ConquestRooms {
     const game = room.game!;
     if (room.results) return room.results;
     room.overAt = this.now();
-    const ranking = game.ranking();
+    const s = game.state;
+    const reachedEnd = s.day >= s.endDay;
     const lines = room.seats
-      .filter((s) => s.power)
-      .map((seat) => {
-        const n = game.nationOfSeat(seat.id);
-        const nation = game.state.nations[n];
-        const rank = ranking.findIndex((r) => r.id === n) + 1;
-        const provinces = provincesOf(game.state, n).length;
-        const coins = conquestCoins({
-          days: game.state.day - (game.state.startDay ?? 0),
-          rank,
-          // Land you began with doesn't pay; land you added does.
-          provinces: Math.max(
-            0,
-            provinces - Math.max(0, nation.stats.startProvinces - 2),
-          ),
-          colonies: nation.stats.coloniesFounded,
-          battlesWon: nation.stats.battlesWon,
-          conquests: nation.stats.provincesConquered,
-        }).total;
-        return { seat, nation, rank, provinces, coins };
-      });
-    room.results = lines
-      .map(({ seat, nation, rank, coins }) => ({
-        name: seat.name,
-        power: nation.key,
-        rank,
-        score: nation.score,
-        won: rank === 1,
-        coins: seat.accountId !== null ? coins : null,
-      }))
-      .sort((a, b) => a.rank - b.rank);
-    const winner = ranking[0];
+      .map((seat) => ({ seat, life: lifeOfSeat(s, seat.id) }))
+      .filter(
+        (x): x is { seat: Seat; life: NonNullable<typeof x.life> } => !!x.life,
+      )
+      .map(({ seat, life }) => {
+        const coins = lifeCoins(life, reachedEnd && life.c >= 0);
+        const last = s.chars[life.line[life.line.length - 1]];
+        return {
+          seat,
+          life,
+          score: lifeScore(s, life),
+          coins,
+          lineName: last ? `${last.first} ${last.family}` : seat.name,
+        };
+      })
+      .sort((a, b) => b.score - a.score);
+    const many = lines.length >= 2;
+    room.results = lines.map((x, i) => ({
+      name: x.seat.name,
+      line: x.lineName,
+      power: x.life.origin,
+      rank: i + 1,
+      score: x.score,
+      won: many
+        ? i === 0
+        : x.life.tally.topOffice >= 3 || x.life.tally.risingsWon > 0,
+      coins: x.seat.accountId !== null ? x.coins.total : null,
+      coinLines: x.coins.lines,
+    }));
+    const winner = lines[0];
     await this.save(room);
     await recordConquestGame({
       gameId: room.saveId ?? `${room.code}-${room.startedAt}`,
       startedAt: room.startedAt,
       endedAt: this.now(),
-      endYear: room.settings.endYear,
-      finalYear: dateOf(game.state.day).year,
+      endYear: END_YEAR,
+      finalYear: dateOf(s.day).year,
       difficulty: room.settings.difficulty,
-      winner: winner.playerName
-        ? `${winner.name} (${winner.playerName})`
-        : winner.name,
-      players: lines.map(({ seat, nation, rank, provinces, coins }) => ({
-        accountId: seat.accountId,
-        name: seat.name,
-        nation: nation.key,
-        rank,
-        score: nation.score,
-        won: rank === 1,
-        provinces,
-        peakProvinces: nation.stats.peakProvinces,
-        colonies: nation.stats.coloniesFounded,
-        battlesWon: nation.stats.battlesWon,
-        conquests: nation.stats.provincesConquered,
-        goldEarned: nation.stats.goldEarned,
-        coins,
+      winner: winner ? `${winner.lineName} (${winner.seat.name})` : null,
+      players: lines.map((x, i) => ({
+        accountId: x.seat.accountId,
+        name: x.seat.name,
+        nation: x.life.origin,
+        rank: i + 1,
+        score: x.score,
+        won: room.results![i].won,
+        provinces: x.life.tally.provinces,
+        peakProvinces: x.life.tally.provinces,
+        colonies: x.life.tally.children,
+        battlesWon: x.life.tally.battlesWon,
+        conquests: x.life.tally.generations,
+        goldEarned: x.life.tally.earned,
+        coins: x.coins.total,
       })),
     });
     this.broadcast(room, { t: "end", results: room.results });
-    log.info("game over", { code: room.code, winner: winner.key });
+    log.info("game over", { code: room.code, lines: lines.length });
     return room.results;
   }
 }
 
 function titleOf(room: Room): string {
-  const powers = room.seats
-    .filter((s) => s.power)
-    .map(
-      (s) => AMERICAS.powers.find((p) => p.id === s.power)?.name ?? s.power!,
-    );
+  const s = room.game?.state;
   const from = room.settings.start ?? 1607;
-  if (powers.length === 1)
-    return `${powers[0]}, ${from} to ${room.settings.endYear}`;
-  return `${powers.slice(0, -1).join(", ")} and ${powers[powers.length - 1]}, ${from} to ${room.settings.endYear}`;
+  const families = room.seats
+    .map((seat) => (s ? lifeOfSeat(s, seat.id) : undefined))
+    .filter((l) => l !== undefined)
+    .map((l) => s!.chars[l.line[0]]?.family)
+    .filter((f): f is string => !!f);
+  const names = [...new Set(families)].map((f) =>
+    /^of the /.test(f) ? `a family ${f}` : `the ${f}s`,
+  );
+  if (names.length === 0) return `The Americas from ${from}`;
+  const who =
+    names.length === 1
+      ? names[0]
+      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${who[0].toUpperCase()}${who.slice(1)}, from ${from}`;
+}
+
+function seatOrigin(room: Room, seat: Seat): string | null {
+  if (room.game) return lifeOfSeat(room.game.state, seat.id)?.origin ?? null;
+  return seat.plan?.origin ?? null;
 }
 
 function seatInfo(room: Room): SeatInfo[] {
-  return room.seats.map((s) => ({
-    id: s.id,
-    name: s.name,
-    power: s.power,
-    online: s.conn !== null,
-    account: s.accountId !== null,
-    governor: s.governor !== null || room.game !== null,
-    ready: s.ready,
-  }));
+  return room.seats.map((seat) => {
+    const life = room.game ? lifeOfSeat(room.game.state, seat.id) : undefined;
+    const me = life && life.c >= 0 ? room.game!.state.chars[life.c] : undefined;
+    const plan = seat.plan;
+    return {
+      id: seat.id,
+      name: seat.name,
+      online: seat.conn !== null,
+      account: seat.accountId !== null,
+      made: room.game ? !!life : plan !== null,
+      origin: seatOrigin(room, seat),
+      character: me
+        ? `${me.first} ${me.family}`
+        : plan
+          ? `${plan.first} ${plan.family}`
+          : null,
+      watching: !!life?.watching,
+      ready: seat.ready,
+    };
+  });
 }
 
 /**

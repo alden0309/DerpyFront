@@ -95,7 +95,7 @@ export function leaderFlags(s: GameState, c: Character): LeaderFlag[] {
   for (const t of c.traits) {
     const r = TRAITS[t];
     if (!r.trail) continue;
-    out.push({ text: `${r.name}: ${r.trail}`, good: TRAIL_GOOD[t] });
+    out.push({ text: `${r.name}: ${r.trail}`, good: TRAIL_GOOD[t] ?? true });
   }
   const age = ageOf(s, c);
   if (age >= 55)
@@ -103,7 +103,7 @@ export function leaderFlags(s: GameState, c: Character): LeaderFlag[] {
   return out;
 }
 
-const TRAIL_GOOD: Record<TraitId, boolean> = {
+const TRAIL_GOOD: Partial<Record<TraitId, boolean>> = {
   ambitious: true,
   content: true,
   honest: true,

@@ -40,6 +40,21 @@ export function applyDelta(s: GameState, d: GameDelta): void {
       s.battles.splice(0, s.battles.length - MAX_BATTLES_KEPT);
     }
   }
+  if (d.lives) {
+    for (const [seat, life] of Object.entries(d.lives)) {
+      const at = s.lives.findIndex((l) => l.seat === seat);
+      if (at >= 0) s.lives[at] = life;
+      else s.lives.push(life);
+    }
+  }
+  if (d.locals) {
+    for (const [p, ids] of Object.entries(d.locals)) s.locals[Number(p)] = ids;
+  }
+  if (d.movements) s.movements = d.movements;
+  if (d.polities) {
+    for (const [n, pol] of Object.entries(d.polities))
+      s.polities[Number(n)] = pol;
+  }
   if (d.over) {
     s.over = true;
     s.winner = d.over.winner;

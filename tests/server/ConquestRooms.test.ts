@@ -10,8 +10,11 @@ import {
   vi,
 } from "vitest";
 import { WebSocket } from "ws";
-import { EVENTS, raiseEvent } from "../../src/conquest/engine/Events";
 import { STATE_VERSION } from "../../src/conquest/engine/Game";
+import { raiseLifeEvent } from "../../src/conquest/engine/LifeEvents";
+import { lifeOfSeat } from "../../src/conquest/engine/LifeQueries";
+import { FRAME_COLORS } from "../../src/conquest/engine/LifeRules";
+import { AMERICAS } from "../../src/conquest/engine/Map";
 import { LETTER_SECONDS } from "../../src/conquest/engine/Rules";
 import type { ServerMessage } from "../../src/conquest/Protocol";
 
@@ -77,14 +80,29 @@ class Client {
 }
 
 let clock = 1_800_000_000_000;
-const settings = { endYear: 1650, difficulty: "normal" };
+const settings = { difficulty: "normal" };
 const plan = {
+  origin: "england",
+  home: AMERICAS.provinces.findIndex((p) => p.name === "Jamestown"),
   first: "Alden",
   family: "Drackley",
   female: false,
-  age: "prime",
-  stats: { dip: 7, mar: 5, ste: 8, int: 4, lea: 5 },
-  traits: ["diligent"],
+  age: 24,
+  religion: "anglican",
+  face: 1,
+  sigil: {
+    field: "gules",
+    division: "fess",
+    tincture: "or",
+    charge: "lion",
+    chargeTincture: "or",
+  },
+  frame: FRAME_COLORS[1],
+  motto: "Onward",
+  background: "soldier",
+  stats: { dip: 6, mar: 7, ste: 5, int: 5, lea: 5 },
+  skills: { leadership: 2 },
+  traits: ["brave", "lazy"],
 };
 
 function startServer() {
@@ -114,14 +132,12 @@ function runFor(rooms: InstanceType<typeof ConquestRooms>, seconds: number) {
   }
 }
 
-/** Picks a nation, swears in a governor, and starts a solo game. */
-async function soloGame(c: Client, power: string, s: unknown = settings) {
+/** Makes a character and starts a solo game. */
+async function soloGame(c: Client, p: unknown = plan, s: unknown = settings) {
   c.send({ t: "create", solo: true, open: false, settings: s });
   await c.next("lobby");
-  c.send({ t: "pick", power });
-  await c.next("lobby", (m) => m.seats.some((x) => x.power === power));
-  c.send({ t: "governor", plan });
-  await c.next("lobby", (m) => m.seats.some((x) => x.governor));
+  c.send({ t: "plan", plan: p });
+  await c.next("lobby", (m) => m.seats.some((x) => x.made));
   const game = c.next("game");
   c.send({ t: "start" });
   return game;
@@ -155,89 +171,97 @@ describe("Derpy Conquest server", () => {
     expect(cleanName("x".repeat(50))).toHaveLength(24);
   });
 
-  test("a solo game: pick a crown, make a governor, and play", async () => {
+  test("a solo game: make a character, and live", async () => {
     const a = await client("Alden");
-    const g = await soloGame(a, "france");
-    const me = g.state.nations.findIndex((n) => n.player === g.you);
-    expect(g.state.nations[me].key).toBe("france");
+    const g = await soloGame(a);
     expect(g.solo).toBe(true);
     // Solo games start paused so you can look around.
     expect(g.paused).toBe(true);
-    const gov = g.state.chars[g.state.nations[me].ruler];
-    expect(gov).toMatchObject({
+    // Every nation is the computer's; you're one person in the world.
+    expect(g.state.nations.every((n) => n.player === null)).toBe(true);
+    const life = lifeOfSeat(g.state, g.you)!;
+    const me = g.state.chars[life.c];
+    expect(me).toMatchObject({
       first: "Alden",
       family: "Drackley",
       made: true,
     });
+    expect(life.job?.kind).toBe("soldier");
 
-    const quebec = g.state.nations[me].capital;
     const ack = a.next("ack");
-    a.send({ t: "cmd", id: 7, c: { k: "tax", level: 2 } });
+    a.send({ t: "cmd", id: 7, c: { k: "act", place: "tavern", act: "drink" } });
     expect(await ack).toEqual({ t: "ack", id: 7, err: null });
-
     const bad = a.next("ack");
-    a.send({ t: "cmd", id: 8, c: { k: "recruit", p: quebec, t: "warriors" } });
-    expect((await bad).err).toMatch(/can't raise/);
+    a.send({
+      t: "cmd",
+      id: 8,
+      c: { k: "act", place: "press", act: "pamphlet" },
+    });
+    expect((await bad).err).toMatch(/Not here|no such place/i);
 
-    // Unpaused, the clock moves the game on and sends the new days.
+    // Unpaused, the clock moves the world on and sends the new days.
     a.send({ t: "pause", p: false });
     await a.next("clock", (m) => !m.paused);
-    const day = a.next("d", (m) => m.d.day > 0);
+    const day = a.next("d", (m) => m.d.day > g.state.day);
     runFor(env.rooms, 2);
-    expect((await day).d.day).toBeGreaterThan(0);
+    expect((await day).d.day).toBeGreaterThan(g.state.day);
   });
 
-  test("a governor that costs too much is refused", async () => {
+  test("a character that costs too much is refused", async () => {
     const a = await client("Alden");
     a.send({ t: "create", solo: true, open: false, settings });
     await a.next("lobby");
-    a.send({ t: "pick", power: "sweden" });
-    await a.next("lobby", (m) => m.seats.some((x) => x.power === "sweden"));
     const err = a.next("err");
     a.send({
-      t: "governor",
-      plan: { ...plan, stats: { dip: 18, mar: 18, ste: 18, int: 18, lea: 18 } },
+      t: "plan",
+      plan: { ...plan, stats: { dip: 12, mar: 12, ste: 12, int: 12, lea: 12 } },
     });
     expect((await err).msg).toMatch(/more points/);
+    const where = a.next("err");
+    a.send({ t: "plan", plan: { ...plan, home: 0 } });
+    expect((await where).msg).toMatch(/home/);
     const nope = a.next("err");
     a.send({ t: "start" });
-    expect((await nope).msg).toMatch(/hasn't made their governor/);
+    expect((await nope).msg).toMatch(/Make your character/);
   });
 
-  test("friends find a public game, pick nations and play together", async () => {
+  test("friends make characters and live in the same world; the host keeps time", async () => {
     const host = await client("Alden");
     const lobby = host.next("lobby");
-    host.send({ t: "create", solo: false, open: true, settings });
+    host.send({
+      t: "create",
+      solo: false,
+      open: true,
+      settings: { difficulty: "normal", start: 1650 },
+    });
     const l = await lobby;
     expect(l.code).toMatch(/^[A-Z]{4}$/);
-    expect(l.open).toBe(true);
 
-    // Anyone can see it in the list of open games.
     const friend = await client("Michael");
     const rooms = friend.next("rooms");
     friend.send({ t: "list" });
-    const listed = (await rooms).open.find((r) => r.code === l.code);
-    expect(listed).toMatchObject({ host: "Alden", started: false });
-
+    expect((await rooms).open.find((r) => r.code === l.code)).toMatchObject({
+      host: "Alden",
+      started: false,
+    });
     const joined = host.next("lobby", (m) => m.seats.length === 2);
     friend.send({ t: "join", code: l.code.toLowerCase() });
     await joined;
 
-    host.send({ t: "pick", power: "england" });
-    await host.next("lobby", (m) => m.seats.some((s) => s.power === "england"));
-    // Two players can't pick the same nation.
-    friend.send({ t: "pick", power: "england" });
-    friend.send({ t: "pick", power: "netherlands" });
-    const picked = await host.next("lobby", (m) =>
-      m.seats.some((s) => s.power === "netherlands"),
-    );
-    expect(picked.seats.filter((s) => s.power === "england")).toHaveLength(1);
-
-    host.send({ t: "governor", plan });
-    friend.send({ t: "governor", plan: { ...plan, first: "Michael" } });
-    await host.next("lobby", (m) => m.seats.every((s) => s.governor));
-
-    // Only the host starts it, and only once everyone's ready.
+    host.send({ t: "plan", plan });
+    friend.send({
+      t: "plan",
+      plan: {
+        ...plan,
+        origin: "france",
+        home: AMERICAS.provinces.findIndex((p) => p.name === "Quebec"),
+        religion: "catholic",
+        first: "Michel",
+        family: "Leclerc",
+        background: "trapper",
+      },
+    });
+    await host.next("lobby", (m) => m.seats.every((s) => s.made));
     friend.send({ t: "start" });
     const waiting = host.next("err");
     host.send({ t: "start" });
@@ -247,28 +271,39 @@ describe("Derpy Conquest server", () => {
     const games = [host.next("game"), friend.next("game")];
     host.send({ t: "start" });
     const [hg, fg] = await Promise.all(games);
-    expect(
-      hg.state.nations
-        .filter((n) => n.player !== null)
-        .map((n) => n.key)
-        .sort(),
-    ).toEqual(["england", "netherlands"]);
-    expect(fg.state.nations.find((n) => n.player === fg.you)?.key).toBe(
-      "netherlands",
-    );
+    expect(hg.state.lives).toHaveLength(2);
+    expect(lifeOfSeat(fg.state, fg.you)?.origin).toBe("france");
     expect(hg.paused).toBe(false);
 
-    // Anyone can pause; everyone hears about it.
+    // Only the host sets the speed; anyone may pause.
+    friend.send({ t: "speed", s: 4 });
     const clock1 = host.next("clock");
     friend.send({ t: "pause", p: true });
     expect(await clock1).toMatchObject({ paused: true, by: "Michael" });
-    const clock2 = friend.next("clock", (m) => m.speed === 5);
-    host.send({ t: "speed", s: 5 });
+    const clock2 = friend.next("clock", (m) => m.speed === 4);
+    host.send({ t: "speed", s: 4 });
     expect(await clock2).toMatchObject({
-      speed: 5,
+      speed: 4,
       paused: false,
       by: "Alden",
     });
+
+    // Someone new drops into the running world with a character of their own.
+    const late = await client("Gary");
+    const lg = late.next("game");
+    late.send({ t: "join", code: l.code });
+    const g3 = await lg;
+    expect(lifeOfSeat(g3.state, g3.you)).toBeUndefined();
+    const seen = host.next(
+      "d",
+      (m) => !!m.d.lives && Object.keys(m.d.lives).includes(g3.you),
+    );
+    late.send({
+      t: "life",
+      plan: { ...plan, first: "Gary", home: hg.state.nations[0].capital },
+    });
+    await seen;
+    expect(env.rooms.rooms.get(l.code)!.game!.state.lives).toHaveLength(3);
 
     // Leaving and coming back with the seat's secret picks up the game.
     friend.close();
@@ -284,67 +319,52 @@ describe("Derpy Conquest server", () => {
     expect((await err).msg).toMatch(/ended or closed/);
   });
 
-  test("any end year in range can be chosen; outside it is refused", async () => {
+  test("bad settings are refused", async () => {
     const a = await client("Alden");
-    const lobby = a.next("lobby");
-    a.send({
-      t: "create",
-      solo: true,
-      open: false,
-      settings: { endYear: 1715, difficulty: "normal" },
-    });
-    expect((await lobby).settings.endYear).toBe(1715);
     const err = a.next("err");
     a.send({
       t: "create",
       solo: true,
       open: false,
-      settings: { endYear: 1900, difficulty: "normal" },
+      settings: { difficulty: "impossible" },
     });
     expect((await err).msg).toMatch(/didn't make sense/);
   });
 
-  test("a letter waits while paused, counts down in play, then the council answers", async () => {
+  test("an event waits while paused, counts down in play, then decides itself", async () => {
     const a = await client("Alden");
-    const g = await soloGame(a, "england");
+    const g = await soloGame(a);
     const room = env.rooms.rooms.get(g.code)!;
     const game = room.game!;
-    const me = g.state.nations.findIndex((n) => n.player === g.you);
-    const starving = EVENTS.find((e) => e.key === "starving")!;
-    raiseEvent(game, me, starving, { met: 50 });
-    const letter = game.state.nations[me].events[0];
-    expect(letter.key).toBe("starving");
+    const life = lifeOfSeat(game.state, g.you)!;
+    raiseLifeEvent(game, life, "seditious-libel", { m: -1 });
+    const ev = life.events[0];
+    expect(ev.key).toBe("seditious-libel");
 
-    // The player hears how long it has.
-    const told = a.next("letters", (m) => letter.id in m.left);
+    const told = a.next("letters", (m) => ev.id in m.left);
     runFor(env.rooms, 1);
     const first = await told;
-    expect(first.left[letter.id]).toBe(LETTER_SECONDS);
+    expect(first.left[ev.id]).toBe(LETTER_SECONDS);
     expect(first.paused).toBe(true);
 
-    // Paused, it waits as long as you like.
     runFor(env.rooms, LETTER_SECONDS * 2);
-    expect(game.state.nations[me].events.some((e) => e.id === letter.id)).toBe(
-      true,
-    );
+    expect(life.events.some((e) => e.id === ev.id)).toBe(true);
 
-    // In play it runs out, and the council takes the first course it can.
     a.send({ t: "pause", p: false });
     await a.next("clock", (m) => !m.paused);
     runFor(env.rooms, LETTER_SECONDS - 10);
-    expect(game.state.nations[me].events.some((e) => e.id === letter.id)).toBe(
-      true,
-    );
-    expect(room.letters.get(letter.id)).toBeLessThanOrEqual(10_000);
+    expect(
+      lifeOfSeat(game.state, g.you)!.events.some((e) => e.id === ev.id),
+    ).toBe(true);
     runFor(env.rooms, 11);
-    expect(game.state.nations[me].events.some((e) => e.id === letter.id)).toBe(
-      false,
-    );
+    expect(
+      lifeOfSeat(game.state, g.you)!.events.some((e) => e.id === ev.id),
+    ).toBe(false);
   });
 
   test("pauses on its own when every player leaves", async () => {
     const a = await client("Alden");
-    const g = await soloGame(a, "sweden");
+    const g = await soloGame(a);
     a.send({ t: "pause", p: false });
     await a.next("clock", (m) => !m.paused);
     a.close();
@@ -401,11 +421,20 @@ describe.skipIf(!TEST_DB)(
         name: "Alden",
         account: "Alden",
       });
-      const g = await soloGame(a, "spain", {
-        endYear: 1650,
-        difficulty: "easy",
-      });
-      a.send({ t: "speed", s: 5 });
+      const g = await soloGame(
+        a,
+        {
+          ...plan,
+          origin: "spain",
+          home: AMERICAS.provinces.findIndex((p) => p.name === "Havana"),
+          religion: "catholic",
+          first: "Diego",
+          family: "Vargas",
+          traits: ["robust"],
+        },
+        { difficulty: "easy" },
+      );
+      a.send({ t: "speed", s: 4 });
       await a.next("clock");
       runFor(env.rooms, 20);
 
@@ -441,23 +470,23 @@ describe.skipIf(!TEST_DB)(
       const b = await back;
       expect(b.code).not.toBe(g.code);
       expect(b.paused).toBe(true);
-      expect(b.state.nations.find((n) => n.player === b.you)?.key).toBe(
-        "spain",
-      );
+      expect(lifeOfSeat(b.state, b.you)?.origin).toBe("spain");
       expect(b.state.day).toBe(savedDay);
 
       // Games pay once they've lasted two game years.
-      a.send({ t: "speed", s: 5 });
+      a.send({ t: "speed", s: 4 });
       await a.next("clock", (m) => !m.paused);
       const room = env.rooms.rooms.get(b.code)!;
       runFor(env.rooms, 100);
       expect(room.game!.state.day).toBeGreaterThan(730);
+      lifeOfSeat(room.game!.state, b.you)!.tally.days = 1000;
 
       const end = a.next("end");
       a.send({ t: "end" });
       const results = (await end).results;
       expect(results).toHaveLength(1);
       expect(results[0]).toMatchObject({ name: "Alden", power: "spain" });
+      expect(results[0].coinLines.length).toBeGreaterThan(0);
       expect(results[0].coins).toBeGreaterThanOrEqual(5);
 
       const board = await conquestLeaderboard();

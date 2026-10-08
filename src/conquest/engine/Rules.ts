@@ -20,9 +20,13 @@ export const START_YEAR = 1607;
 export const DAYS_PER_YEAR = 365;
 export const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-/** Game days per real second at each speed (1 to 5). */
-export const SPEED_DAYS_PER_SECOND = [0, 0.5, 1, 2, 4, 8];
-export const DEFAULT_SPEED = 2;
+/** Game days per real second at each speed: 1x, 2x, 4x and 8x. */
+export const SPEED_DAYS_PER_SECOND = [0, 2, 4, 8, 16];
+export const SPEED_LABELS = ["", "1×", "2×", "4×", "8×"];
+export const MAX_SPEED = 4;
+export const DEFAULT_SPEED = 1;
+/** Every game ends on 1 January of this year. */
+export const END_YEAR = 1776;
 
 /**
  * Game days before an unanswered letter is decided by the council. Players'
@@ -30,8 +34,8 @@ export const DEFAULT_SPEED = 2;
  * backstop for games run without one.
  */
 export const EVENT_DAYS = 1095;
-/** Seconds of unpaused play a player has to answer a letter. */
-export const LETTER_SECONDS = 90;
+/** Seconds of unpaused play a player has to answer a letter (or a life's event). */
+export const LETTER_SECONDS = 60;
 
 // ---------------------------------------------------------------- goods
 
@@ -562,6 +566,8 @@ export interface TraitRules {
   stats: Partial<Record<Stat, number>>;
   /** What it does when they lead an expedition or outpost party. */
   trail?: string;
+  /** Only picked up in a life (a scar, a habit), never born with. */
+  acquired?: boolean;
 }
 
 export const TRAITS: Record<TraitId, TraitRules> = {
@@ -712,6 +718,59 @@ export const TRAITS: Record<TraitId, TraitRules> = {
     text: "+2 Diplomacy. Everyone likes you a little more (+5 opinion).",
     stats: { dip: 2 },
     trail: "Wins over natives on the trail (+15%).",
+  },
+  strong: {
+    name: "Strong",
+    cost: 2,
+    opposite: null,
+    text: "+1 Martial. Broad in the shoulder and hard to knock down.",
+    stats: { mar: 1 },
+  },
+  shrewd: {
+    name: "Shrewd",
+    cost: 2,
+    opposite: null,
+    text: "+1 Stewardship. Knows the price of everything, and usually the value.",
+    stats: { ste: 1 },
+  },
+  drunkard: {
+    name: "Drunkard",
+    cost: -2,
+    opposite: null,
+    text: "−1 Stewardship and Learning. Good company until the bottle runs dry.",
+    stats: { ste: -1, lea: -1 },
+  },
+  scarred: {
+    name: "Scarred",
+    cost: 0,
+    opposite: null,
+    text: "+1 Martial. Has been in a fight and has the face to prove it.",
+    stats: { mar: 1 },
+    acquired: true,
+  },
+  famous: {
+    name: "Famous",
+    cost: 0,
+    opposite: null,
+    text: "+1 Diplomacy. Known in every tavern from Boston to Charles Town.",
+    stats: { dip: 1 },
+    acquired: true,
+  },
+  wounded: {
+    name: "Wounded",
+    cost: 0,
+    opposite: null,
+    text: "−1 Martial. An old wound that never quite healed.",
+    stats: { mar: -1 },
+    acquired: true,
+  },
+  gouty: {
+    name: "Gouty",
+    cost: 0,
+    opposite: null,
+    text: "−1 Diplomacy. Too much port and venison, and a foot to show for it.",
+    stats: { dip: -1 },
+    acquired: true,
   },
 };
 

@@ -1,5 +1,5 @@
-// Derpy Conquest's front page: start a game (alone or with friends), join
-// one of the public games running now, or pick up a saved one.
+// Derpy Conquest's front page: begin a life (alone or with friends), join
+// one of the worlds running now, or pick up a saved one.
 
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
@@ -10,26 +10,35 @@ import { START_SUMMARY_1607, START_YEARS, STARTS } from "../engine/Starts";
 import type { Difficulty, StartYear } from "../engine/Types";
 import {
   DIFFICULTIES,
-  END_YEAR_MAX,
-  minEndYear,
+  END_YEAR,
   OpenRoom,
   RoomSettings,
   SavedGame,
 } from "../Protocol";
 import deskMap from "./art/desk_map.webp?url";
 import { creditsList } from "./Credits";
-import { flag } from "./Flags";
+import { emblem, flag } from "./Flags";
 import { Net } from "./Net";
 import "./Range";
 
-const POWER_NAME = Object.fromEntries(
-  AMERICAS.powers.map((p) => [p.id, p.name.replace(/^the /, "")]),
+const PEOPLE_NAME: Record<string, string> = Object.fromEntries([
+  ...AMERICAS.powers.map((p) => [p.id, p.name.replace(/^the /, "")]),
+  ...AMERICAS.natives.map((n) => [n.id, n.name]),
+]);
+const NATIVE_COLOR = Object.fromEntries(
+  AMERICAS.natives.map((n) => [n.id, n.color]),
 );
 
+function originFlag(key: string): TemplateResult {
+  return NATIVE_COLOR[key]
+    ? emblem(NATIVE_COLOR[key], "cq-flag sm")
+    : flag(key, "cq-flag sm");
+}
+
 const DIFFICULTY_TEXT: Record<Difficulty, string> = {
-  easy: "Computer powers start poorer and pick fewer fights; native nations are slower to go to war.",
+  easy: "The colonies are poorer and pick fewer fights; native nations are slower to go to war. A gentler world to live in.",
   normal: "Everyone starts as history had it.",
-  hard: "Computer powers start richer and fight more readily; native nations anger sooner.",
+  hard: "The colonies are richer and fight more readily; native nations anger sooner. Wars come often.",
 };
 
 function ago(iso: string): string {
@@ -57,8 +66,8 @@ export class Lobby extends LitElement {
   @state() private together = false;
   @state() private isPublic = true;
   @state() private settings: RoomSettings = {
-    endYear: 1675,
     difficulty: "normal",
+    start: 1650,
   };
   @state() private code = "";
 
@@ -114,13 +123,15 @@ export class Lobby extends LitElement {
           <div class="cq-hero-text">
             <h1 class="cq-title">Derpy Conquest</h1>
             <p class="cq-tagline">
-              The Americas, 1607 to 1800. You are the governor.
+              The Americas, 1607 to 1776. You are one life in them.
             </p>
             <p>
-              Your crown has granted you a charter: a few hundred settlers in
-              1607, or a colony already taking root in 1650 or 1700. Feed them,
-              trade with the native nations or fight them, keep the crown paid
-              or break with it. Real time with pause, for one to five players.
+              A farmer in Virginia, a printer's devil in Boston, a fur trapper
+              out of Quebec, a Powhatan hunter or a Spanish soldier in Havana.
+              Work, marry, raise heirs, make friends and enemies; join a
+              rebellion or start one, sit in the assembly, rise to colonel or
+              governor, or sail home rich. The colonies and nations go on around
+              you. Real time with pause, alone or with friends.
             </p>
             ${this.online
               ? nothing
@@ -169,14 +180,14 @@ export class Lobby extends LitElement {
                 aria-checked=${!this.together}
                 @click=${() => (this.together = false)}
               >
-                <b>Alone</b><span>You and the computer's nations</span>
+                <b>Alone</b><span>One life in a living world</span>
               </button>
               <button
                 role="radio"
                 aria-checked=${this.together}
                 @click=${() => (this.together = true)}
               >
-                <b>With friends</b><span>Up to five, one nation each</span>
+                <b>With friends</b><span>Several lives, the same world</span>
               </button>
             </div>
             ${this.together
@@ -196,7 +207,7 @@ export class Lobby extends LitElement {
               ?disabled=${!this.online}
               @click=${() => this.create()}
             >
-              ${this.together ? "Open a game room" : "Choose your nation"}
+              ${this.together ? "Open a game room" : "Make your character"}
             </button>
           </section>
 
@@ -286,29 +297,28 @@ export class Lobby extends LitElement {
   }
 
   private roomRow(r: OpenRoom): TemplateResult {
-    const nations = r.players.filter((p) => p.power);
+    const made = r.players.filter((p) => p.origin);
     return html`<li class="cq-room-row">
       <div class="cq-room-flags">
-        ${nations.length
-          ? nations.map((p) => flag(p.power!, "cq-flag sm"))
-          : html`<span class="cq-muted small">no nations picked</span>`}
+        ${made.length
+          ? made.map((p) => originFlag(p.origin!))
+          : html`<span class="cq-muted small">nobody made yet</span>`}
       </div>
       <div class="cq-room-info">
         <b>${r.host}'s game</b>
         <span class="cq-muted small">
-          ${r.players.length} player${r.players.length === 1 ? "" : "s"},
-          ${r.settings.start ?? 1607} to ${r.settings.endYear},
-          ${r.settings.difficulty}
+          ${r.players.length} player${r.players.length === 1 ? "" : "s"}, from
+          ${r.settings.start ?? 1607}, ${r.settings.difficulty}
           ${r.started
-            ? html`<span class="cq-chip">Playing, ${r.year}</span>`
-            : html`<span class="cq-chip good">Choosing nations</span>`}
+            ? html`<span class="cq-chip">Living, ${r.year}</span>`
+            : html`<span class="cq-chip good">Making characters</span>`}
         </span>
       </div>
       <button
         class="cq-btn small"
         @click=${() => this.net.send({ t: "join", code: r.code })}
       >
-        ${r.started ? "Watch" : "Join"}
+        ${r.started ? "Drop in" : "Join"}
       </button>
     </li>`;
   }
@@ -316,10 +326,13 @@ export class Lobby extends LitElement {
   private savedRow(g: SavedGame): TemplateResult {
     return html`<li class="cq-room-row">
       <div class="cq-room-flags">
-        ${g.power ? flag(g.power, "cq-flag sm") : nothing}
+        ${g.power ? originFlag(g.power) : nothing}
       </div>
       <div class="cq-room-info">
-        <b>${POWER_NAME[g.power] ?? "A game"}, ${g.year}</b>
+        <b>${g.title}</b>
+        <span class="cq-muted small"
+          >${PEOPLE_NAME[g.power] ?? ""}, now ${g.year}.</span
+        >
         <span class="cq-muted small"
           >${g.players.length > 1 ? `With ${g.players.join(", ")}. ` : ""}Saved
           ${ago(g.savedAt)}.</span
@@ -345,21 +358,13 @@ export function startSummary(start: StartYear): string {
   return start === 1607 ? START_SUMMARY_1607 : (STARTS[start]?.summary ?? "");
 }
 
-/** The start date, end year and difficulty, shared by the lobby and the room. */
+/** The start date and difficulty, shared by the lobby and the room. */
 export function settingsFields(
   s: RoomSettings,
   set: (s: RoomSettings) => void,
   editable: boolean,
 ): TemplateResult {
   const start = s.start ?? 1607;
-  const pickStart = (y: StartYear) => {
-    if (y === start) return;
-    const end = Math.max(
-      minEndYear(y),
-      Math.min(END_YEAR_MAX, s.endYear + (y - start)),
-    );
-    set({ ...s, start: y, endYear: end });
-  };
   return html`<div class="cq-settings">
     <div class="cq-field">
       <span class="cq-field-label" id="cq-start-label">Begin in</span>
@@ -370,26 +375,17 @@ export function settingsFields(
               role="radio"
               aria-checked=${y === start}
               ?disabled=${!editable && y !== start}
-              @click=${() => editable && pickStart(y)}
+              @click=${() => editable && y !== start && set({ ...s, start: y })}
             >
               <b>${y}</b><span>${START_TITLE[y]}</span>
             </button>`,
         )}
       </div>
       <p class="cq-muted small cq-start-summary">${startSummary(start)}</p>
-    </div>
-    <div class="cq-field">
-      <cq-range
-        label="Play until"
-        .min=${minEndYear(start)}
-        .max=${END_YEAR_MAX}
-        .step=${5}
-        .value=${s.endYear}
-        ?disabled=${!editable}
-        .note=${(y: number) => `${y - start} years of play`}
-        @cq-change=${(e: CustomEvent<number>) =>
-          set({ ...s, endYear: e.detail })}
-      ></cq-range>
+      <p class="cq-muted small">
+        The world runs until 1 January ${END_YEAR}: ${END_YEAR - start} years,
+        several lifetimes.
+      </p>
     </div>
     <label class="cq-field">
       <span>Difficulty</span>

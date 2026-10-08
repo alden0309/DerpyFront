@@ -9,6 +9,7 @@ import { cede } from "./Crown";
 import { makeTributary } from "./Diplomacy";
 import { merge, takeSettlers } from "./Economy";
 import type { ConquestGame } from "./Game";
+import { hooks } from "./Hooks";
 import { findPath, hopDays } from "./Paths";
 import {
   ageOf,
@@ -407,6 +408,7 @@ function battle(
     if (c?.alive) kill(g, c, `battle at ${g.map.provinces[p].name}`);
   }
   g.prov(p).devastation = Math.min(1, s.provinces[p].devastation + 0.1);
+  for (const h of hooks.battle) h(g, report, attackers, defenders);
 }
 
 /** Fall back one province to friendly ground. False if there's nowhere. */

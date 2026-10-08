@@ -1,54 +1,43 @@
 // Derpy Conquest's messages between browsers and the game server, sent as
-// JSON over the /conquest/ws WebSocket.
+// JSON over the /conquest/ws WebSocket. Each player is one character living
+// in a world the server runs; they send what their character does.
 
-import { STARTS } from "./engine/Starts";
 import type {
-  Command,
   Difficulty,
   GameDelta,
   GameState,
-  GovernorPlan,
+  LifeCommand,
+  LifePlan,
   StartYear,
 } from "./engine/Types";
 
 export const CONQUEST_WS_PATH = "/conquest/ws";
 export const MAX_NAME_LENGTH = 24;
-/** The game ends on 1 January of a year the host picks in this range. */
-export const END_YEAR_MIN = 1625;
-export const END_YEAR_MAX = 1800;
-/** A game lasts at least this many years. */
-export const MIN_GAME_YEARS = 15;
+/** Every game ends on 1 January 1776. */
+export const END_YEAR = 1776;
 export const DIFFICULTIES: Difficulty[] = ["easy", "normal", "hard"];
+export const START_CHOICES: StartYear[] = [1607, 1650, 1700];
 
 export interface RoomSettings {
-  endYear: number;
   difficulty: Difficulty;
   /** The year the game begins; 1607 if not given. */
   start?: StartYear;
 }
 
-/** Whether a power has a colony to play in a start year. */
-export function powerExists(power: string, start: StartYear = 1607): boolean {
-  const era = STARTS[start];
-  if (!era) return true;
-  return Object.values(era.owners).includes(power);
-}
-
-/** The earliest end year a start year allows. */
-export function minEndYear(start: StartYear = 1607): number {
-  return Math.max(END_YEAR_MIN, start + MIN_GAME_YEARS);
-}
-
 export interface SeatInfo {
   id: string;
   name: string;
-  /** Power key they picked, or null (watching). */
-  power: string | null;
   online: boolean;
   /** Signed in to a Derp Land account (earns Derp Coins). */
   account: boolean;
-  /** Has made their governor. */
-  governor: boolean;
+  /** Has made a character (in the room) or is living one (in the game). */
+  made: boolean;
+  /** The people their character comes from, once made. */
+  origin: string | null;
+  /** Their character's name, once made. */
+  character: string | null;
+  /** Their line has ended: watching the world. */
+  watching: boolean;
   ready: boolean;
 }
 
@@ -56,8 +45,7 @@ export interface SeatInfo {
 export interface OpenRoom {
   code: string;
   host: string;
-  /** Players' names and the nations they've picked. */
-  players: { name: string; power: string | null }[];
+  players: { name: string; origin: string | null }[];
   settings: RoomSettings;
   started: boolean;
   /** In-game year, once it's started. */
@@ -68,7 +56,7 @@ export interface OpenRoom {
 export interface SavedGame {
   id: string;
   title: string;
-  /** Your nation in it. */
+  /** The people your line comes from. */
   power: string;
   year: number;
   savedAt: string;
@@ -79,12 +67,17 @@ export interface SavedGame {
 
 export interface ResultLine {
   name: string;
+  /** The family (or the last character's name). */
+  line: string;
+  /** Power or native nation key the line began among. */
   power: string;
   rank: number;
   score: number;
   won: boolean;
   /** Derp Coins paid, or null if they weren't signed in. */
   coins: number | null;
+  /** The coins, line by line. */
+  coinLines: { line: string; coins: number }[];
 }
 
 export type ClientMessage =
@@ -94,12 +87,14 @@ export type ClientMessage =
   | { t: "join"; code: string }
   | { t: "rejoin"; code: string; secret: string }
   | { t: "resume"; id: string }
-  | { t: "pick"; power: string | null }
-  | { t: "governor"; plan: GovernorPlan }
+  /** The character you'll be, made before the game starts. */
+  | { t: "plan"; plan: LifePlan }
+  /** A new character in a running world (dropping in, or after a line ends). */
+  | { t: "life"; plan: LifePlan }
   | { t: "ready"; ready: boolean }
   | { t: "settings"; settings: RoomSettings; open: boolean }
   | { t: "start" }
-  | { t: "cmd"; id: number; c: Command }
+  | { t: "cmd"; id: number; c: LifeCommand }
   | { t: "speed"; s: number }
   | { t: "pause"; p: boolean }
   | { t: "chat"; text: string }
@@ -139,7 +134,7 @@ export type ServerMessage =
   | { t: "ack"; id: number; err: string | null }
   | { t: "chat"; from: string; text: string }
   | { t: "saved"; at: string }
-  /** Your unanswered letters: seconds of unpaused play each has left. */
+  /** Your waiting events: seconds of unpaused play each has left. */
   | { t: "letters"; left: Record<number, number>; paused: boolean }
   | { t: "end"; results: ResultLine[] }
   | { t: "err"; msg: string };

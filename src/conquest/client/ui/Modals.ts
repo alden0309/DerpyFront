@@ -1,41 +1,37 @@
-// Things that stop the game to be read: letters asking for a decision,
-// battle reports, peace negotiations, the menu, the rules and the results.
+// Things that stop the game to be read: what happens to you and needs an
+// answer, battle reports, the market, making a new character or taking over
+// someone, the menu, the rules and the end of the story.
 
 import { html, nothing, TemplateResult } from "lit";
 import { formatDate } from "../../engine/Calendar";
 import {
-  leaderFlags,
-  missionCheck,
-  missionDays,
-  missionLeaders,
-} from "../../engine/Missions";
-import {
-  peaceCheck,
-  peaceWillingness,
-  provinceValue,
-  warBetween,
-  warScore,
-} from "../../engine/Queries";
-import {
-  EXPEDITION,
-  OUTPOST,
-  REG_NAMES,
-  SEAT_NAMES,
-  STAT_NAMES,
-} from "../../engine/Rules";
-import type { BattleSide, PeaceTerms, RegType } from "../../engine/Types";
-import { SEATS } from "../../engine/Types";
+  carried,
+  CARRY,
+  lifeTitle,
+  marketPrice,
+  takeoverCandidates,
+  tradeRates,
+} from "../../engine/LifeQueries";
+import { ageOf, charName } from "../../engine/Queries";
+import { REG_NAMES } from "../../engine/Rules";
+import type { BattleSide, Good, LifePlan, RegType } from "../../engine/Types";
+import { GOODS } from "../../engine/Types";
 import type { ResultLine } from "../../Protocol";
 import { creditsList } from "../Credits";
 import { flagFor } from "../Flags";
+import "../Maker";
 import { confirmMarch, setConfirmMarch } from "../Prefs";
 import "../Range";
 import { music, play, setSoundSettings, soundSettings } from "../Sound";
-import { money, nationName } from "../Text";
-import { num } from "../Tip";
-import { battleVerdict, reasonList, strengthBars } from "./Battle";
-import { action, breakdownTip, GameUi, Modal, token } from "./Context";
-import "./Goods";
+import { GOOD_NAMES, nationName } from "../Text";
+import {
+  battleVerdict,
+  myBattleNation,
+  reasonList,
+  strengthBars,
+} from "./Battle";
+import { GameUi, Modal, token } from "./Context";
+import { roleOf } from "./Here";
 import "./Story";
 
 /** What the menu and the results need from the game screen. */
@@ -43,12 +39,14 @@ export interface ModalHooks {
   save(): void;
   leave(): void;
   endGame(): void;
+  /** Sends a new character into the running world. */
+  newLife(plan: LifePlan): void;
   isHost: boolean;
   signedIn: boolean;
   savedAt: string | null;
   code: string;
   results: ResultLine[] | null;
-  /** Seconds of play a letter has before the council decides, if known. */
+  /** Seconds of play an event has before it decides itself, if known. */
   letterLeft(id: number): number | null;
   paused: boolean;
 }
@@ -69,9 +67,6 @@ export function renderModal(
       body = battleReport(ui, m.id);
       cls = "wide";
       break;
-    case "peace":
-      body = peaceTable(ui, m.n, m.terms ?? { take: [], give: [], gold: 0 });
-      break;
     case "menu":
       body = menu(ui, hooks);
       break;
@@ -83,17 +78,20 @@ export function renderModal(
       body = endPage(ui, hooks);
       cls = "wide end";
       break;
-    case "mission":
-      body = missionPicker(ui, m.p, m.kind, m.leader);
-      cls = "wide";
-      break;
-    case "trade":
-      body = html`<cq-deal .ui=${ui} .other=${m.n}></cq-deal>`;
-      cls = "wide";
-      break;
     case "credits":
       body = creditsPage(ui);
       cls = "wide";
+      break;
+    case "maker":
+      body = makerPage(ui, hooks);
+      cls = "wide maker";
+      break;
+    case "takeover":
+      body = takeoverPage(ui);
+      cls = "wide";
+      break;
+    case "trade":
+      body = tradePage(ui);
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);
@@ -117,16 +115,16 @@ export function renderModal(
   </div>`;
 }
 
-// ---------------------------------------------------------------- letters
+// ---------------------------------------------------------------- events
 
-/** "The council decides in 1:12 of play" (or "paused"). */
+/** "Decides itself in 1:12 of play" (or "paused"). */
 export function letterClock(hooks: ModalHooks, id: number): TemplateResult {
   const left = hooks.letterLeft(id);
   if (left === null)
-    return html`If you don't answer, your council takes the first course.`;
+    return html`If you don't answer, the first course is taken for you.`;
   const m = Math.floor(left / 60);
   const sec = String(Math.floor(left % 60)).padStart(2, "0");
-  return html`Your council takes the first course in
+  return html`If you don't answer, the first course is taken in
     <b class="cq-countdown ${left < 20 ? "bad" : ""}">${m}:${sec}</b> of
     play${hooks.paused
       ? html` <span class="cq-chip">clock paused</span>`
@@ -138,15 +136,15 @@ function eventLetter(
   id: number,
   hooks: ModalHooks,
 ): TemplateResult {
-  const n = ui.s.nations[ui.me];
-  const ev = n?.events.find((e) => e.id === id);
-  if (!ev) {
-    return html`<p class="cq-muted">That matter has been settled.</p>
+  const life = ui.life;
+  const ev = life?.events.find((e) => e.id === id);
+  if (!life || !ev) {
+    return html`<p class="cq-muted">That's been settled.</p>
       <div class="cq-btnrow">
         <button class="cq-btn" @click=${() => ui.modal(null)}>Close</button>
       </div>`;
   }
-  const others = n.events.filter((e) => e.id !== id).length;
+  const others = life.events.filter((e) => e.id !== id).length;
   return html`
     <div class="cq-seal" aria-hidden="true"></div>
     <p class="cq-letter-date">${formatDate(ev.day)}</p>
@@ -163,9 +161,7 @@ function eventLetter(
               @click=${async () => {
                 if (await ui.cmd({ k: "event", id, choice: i })) {
                   play("seal");
-                  const next = ui.s.nations[ui.me].events.find(
-                    (e) => e.id !== id,
-                  );
+                  const next = ui.life?.events.find((e) => e.id !== id);
                   ui.modal(next ? { k: "event", id: next.id } : null);
                 }
               }}
@@ -178,9 +174,7 @@ function eventLetter(
     </ol>
     <p class="cq-muted small cq-letter-foot">
       ${letterClock(hooks, id)}
-      ${others > 0
-        ? html`${others} more letter${others === 1 ? "" : "s"} waiting.`
-        : nothing}
+      ${others > 0 ? html`${others} more waiting.` : nothing}
     </p>
     <div class="cq-btnrow end">
       <button class="cq-btn quiet" @click=${() => ui.modal(null)}>
@@ -192,38 +186,26 @@ function eventLetter(
 
 // ---------------------------------------------------------------- battles
 
-function whyItWent(ui: GameUi, id: number): TemplateResult {
-  const r = ui.s.battles.find((b) => b.id === id);
-  if (!r) return html``;
-  const v = battleVerdict(ui.s, r, ui.me);
-  const labels: [string, string] =
-    v.ours >= 0
-      ? ["You", "Them"]
-      : [
-          nationName(ui.s.nations[r.attacker.nations[0]].name),
-          nationName(ui.s.nations[r.defender.nations[0]].name),
-        ];
-  return html`<section class="cq-why-box">
-    <h3 class="cq-h3">Why it went this way</h3>
-    ${strengthBars(v, labels)} ${reasonList(v)}
-  </section>`;
-}
-
 function battleReport(ui: GameUi, id: number): TemplateResult {
   const r = ui.s.battles.find((b) => b.id === id);
   if (!r) return html`<p class="cq-muted">That report has been filed away.</p>`;
   const place = ui.map.provinces[r.prov].name;
-  const ours = r.attacker.nations.includes(ui.me)
-    ? 0
-    : r.defender.nations.includes(ui.me)
-      ? 1
-      : -1;
+  const mine = myBattleNation(ui, r);
+  const v = battleVerdict(ui.s, r, mine);
+  const ours = v.ours;
   const headline =
     ours < 0
       ? `${r.winner === 0 ? "The attackers" : "The defenders"} carried the day.`
       : r.winner === ours
         ? "A victory."
         : "A defeat.";
+  const labels: [string, string] =
+    ours >= 0
+      ? ["Your side", "Theirs"]
+      : [
+          nationName(ui.s.nations[r.attacker.nations[0]].name),
+          nationName(ui.s.nations[r.defender.nations[0]].name),
+        ];
   return html`
     <p class="cq-letter-date">${formatDate(r.day)}</p>
     <h2 class="cq-h1">The battle of ${place}</h2>
@@ -233,7 +215,10 @@ function battleReport(ui: GameUi, id: number): TemplateResult {
         ? "The losing army was destroyed."
         : "The losers fell back."}
     </p>
-    ${whyItWent(ui, r.id)}
+    <section class="cq-why-box">
+      <h3 class="cq-h3">Why it went this way</h3>
+      ${strengthBars(v, labels)} ${reasonList(v)}
+    </section>
     <div class="cq-battle-sides">
       ${side(ui, r.attacker, "Attacking", r.winner === 0)}
       ${side(ui, r.defender, "Defending", r.winner === 1)}
@@ -264,11 +249,6 @@ function battleReport(ui: GameUi, id: number): TemplateResult {
     <ul class="cq-list">
       ${r.luck.map((l) => html`<li>${l}</li>`)}
     </ul>
-    <p class="cq-muted small">
-      Nothing here is a dice roll without a name: strength is men × training ×
-      morale × each factor above, and the only luck is the weather and the
-      commanders' moments listed under Fortune.
-    </p>
   `;
 }
 
@@ -332,152 +312,161 @@ function side(
   </div>`;
 }
 
-// ---------------------------------------------------------------- peace
+// ---------------------------------------------------------------- the market
 
-function peaceTable(ui: GameUi, n: number, terms: PeaceTerms): TemplateResult {
+function tradePage(ui: GameUi): TemplateResult {
   const s = ui.s;
-  const me = ui.me;
-  const war = warBetween(s, me, n);
-  const them = s.nations[n];
-  if (!war) {
-    return html`<h2 class="cq-h1">Peace with ${nationName(them.name)}</h2>
-      <p class="cq-muted">You're not at war with them.</p>`;
-  }
-  const theirsHeld: number[] = [];
-  const oursHeld: number[] = [];
-  s.provinces.forEach((pr, p) => {
-    if (pr.owner === n && pr.occupier === me) theirsHeld.push(p);
-    if (pr.owner === me && pr.occupier === n) oursHeld.push(p);
-  });
-  const set = (t: Partial<PeaceTerms>) =>
-    ui.modal({ k: "peace", n, terms: { ...terms, ...t } });
-  const toggle = (list: number[], p: number) =>
-    list.includes(p) ? list.filter((x) => x !== p) : [...list, p];
-  const willing = peaceWillingness(s, me, n, terms);
-  const check = peaceCheck(s, me, n, terms);
-  const human = them.player !== null;
-  const score = warScore(s, war, me);
-  const maxTake = Math.floor(them.gold);
-  const maxGive = Math.floor(s.nations[me].gold);
+  const life = ui.life;
+  if (!life || !ui.me) return html`<p class="cq-muted">You're watching.</p>`;
+  const load = carried(life);
+  const place = ui.map.provinces[life.prov].name;
+  const trade = (good: Good, qty: number) => ui.cmd({ k: "trade", good, qty });
   return html`
-    <h2 class="cq-h1 with-flag">
-      ${flagFor(them, "cq-flag lg")} Terms for ${nationName(them.name)}
-    </h2>
-    <p>
-      The war so far:
-      ${num(
-        `${score.total > 0 ? "+" : ""}${score.total}`,
-        () => breakdownTip("How the war is going for you", score),
-        score.total >= 0 ? "good" : "bad",
-      )}.
-      ${war.why}, since ${formatDate(war.start)}.
+    <h2 class="cq-h1">The market at ${place}</h2>
+    <p class="cq-lede small">
+      Buy cheap, carry it (up to ${CARRY} loads), sell dear somewhere else. Furs
+      are cheap in the villages and dear on the coast; guns, cloth and tools the
+      other way round. You carry ${load} of ${CARRY}; purse
+      ${Math.floor(life.purse)}.
     </p>
-    <div class="cq-peace-cols">
-      <fieldset class="cq-fieldset">
-        <legend>They give you</legend>
-        ${theirsHeld.length === 0
-          ? html`<p class="cq-muted small">
-              You hold none of their land. Occupy provinces to demand them.
-            </p>`
-          : theirsHeld.map(
-              (p) =>
-                html`<label class="cq-check">
-                  <input
-                    type="checkbox"
-                    .checked=${terms.take.includes(p)}
-                    @change=${() => set({ take: toggle(terms.take, p) })}
-                  />
-                  ${ui.map.provinces[p].name}
-                  <span class="cq-muted small"
-                    >worth ${provinceValue(s, p)}</span
-                  >
-                </label>`,
-            )}
-      </fieldset>
-      <fieldset class="cq-fieldset">
-        <legend>You give back</legend>
-        ${oursHeld.length === 0
-          ? html`<p class="cq-muted small">They hold none of your land.</p>`
-          : oursHeld.map(
-              (p) =>
-                html`<label class="cq-check">
-                  <input
-                    type="checkbox"
-                    .checked=${terms.give.includes(p)}
-                    @change=${() => set({ give: toggle(terms.give, p) })}
-                  />
-                  ${ui.map.provinces[p].name}
-                  <span class="cq-muted small">they keep it</span>
-                </label>`,
-            )}
-        <p class="cq-muted small">
-          Land you don't give up returns to you when the peace is signed.
-        </p>
-      </fieldset>
-    </div>
-    ${them.kind === "native" && s.nations[me].kind === "power"
-      ? html`<label class="cq-check cq-subjugate">
-          <input
-            type="checkbox"
-            .checked=${!!terms.subjugate}
-            @change=${(e: Event) =>
-              set({ subjugate: (e.target as HTMLInputElement).checked })}
-          />
-          <span
-            ><b>Make them a tributary.</b> They keep their land and chiefs but
-            pay you a fifth of their gold and a share of their furs each month,
-            fight beside you, and can't make war on you. They'll resent
-            it.</span
-          >
-        </label>`
-      : nothing}
-    <cq-range
-      label="Gold"
-      .min=${-maxGive}
-      .max=${maxTake}
-      .step=${5}
-      .value=${terms.gold}
-      .format=${(g: number) =>
-        g > 0
-          ? `They pay ${money(g)}`
-          : g < 0
-            ? `You pay ${money(-g)}`
-            : "No gold"}
-      @cq-input=${(e: CustomEvent<number>) => set({ gold: e.detail })}
-    ></cq-range>
-    <div class="cq-verdict ${willing.total >= 0 ? "good" : "bad"}">
-      ${human
-        ? html`${nationName(them.name)} is played by ${them.playerName}; they'll
-          decide. Their council's view:
-          ${num(String(willing.total), () =>
-            breakdownTip("Would they accept? (yes at 0 or more)", willing),
-          )}`
-        : html`${num(
-            willing.total >= 0 ? "They'd accept" : "They'd refuse",
-            () =>
-              breakdownTip("Would they accept? (yes at 0 or more)", willing),
-          )}`}
-    </div>
-    <div class="cq-btnrow end">
-      <button
-        class="cq-btn quiet"
-        @click=${() => set({ take: [], give: [], gold: 0, subjugate: false })}
-      >
-        White peace
-      </button>
-      ${action(
-        human ? "Send the offer" : "Offer peace",
-        check,
-        async () => {
-          if (await ui.cmd({ k: "peace", n, terms })) {
-            ui.modal(null);
-            if (human) ui.toast(`Offer sent to ${them.playerName}.`);
-          }
-        },
-        "primary",
-      )}
-    </div>
+    <table class="cq-table cq-market">
+      <thead>
+        <tr>
+          <th>Good</th>
+          <th class="r">Buy</th>
+          <th class="r">Sell</th>
+          <th class="r">Yours</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${GOODS.filter((g) => marketPrice(s, life.prov, g) > 0).map((g) => {
+          const r = tradeRates(s, life, g);
+          const have = life.goods[g] ?? 0;
+          return html`<tr>
+            <td>${GOOD_NAMES[g]}</td>
+            <td class="r">${r.buy.toFixed(1)}</td>
+            <td class="r">${r.sell.toFixed(1)}</td>
+            <td class="r">${have || ""}</td>
+            <td class="cq-trade-btns">
+              <button
+                class="cq-btn small"
+                ?disabled=${load >= CARRY || life.purse < r.buy}
+                @click=${() => trade(g, 1)}
+              >
+                Buy 1
+              </button>
+              <button
+                class="cq-btn small"
+                ?disabled=${load + 5 > CARRY || life.purse < r.buy * 5}
+                @click=${() => trade(g, 5)}
+              >
+                5
+              </button>
+              <button
+                class="cq-btn small"
+                ?disabled=${have < 1}
+                @click=${() => trade(g, -have)}
+              >
+                Sell all
+              </button>
+            </td>
+          </tr>`;
+        })}
+      </tbody>
+    </table>
   `;
+}
+
+// ---------------------------------------------------------------- a new life, someone else's
+
+function makerPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
+  return html`<h2 class="cq-h1">A new life</h2>
+    <cq-maker
+      .world=${ui.s}
+      .signLabel=${"Begin this life"}
+      .intro=${html`The world goes on: it's ${formatDate(ui.s.day)}. Make
+      someone to drop into it, anywhere your people live now.`}
+      @cq-plan=${(e: CustomEvent<LifePlan>) => {
+        hooks.newLife(e.detail);
+      }}
+    ></cq-maker>`;
+}
+
+let takeoverQuery = "";
+
+function takeoverPage(ui: GameUi): TemplateResult {
+  const s = ui.s;
+  const q = takeoverQuery.trim().toLowerCase();
+  const all = takeoverCandidates(s);
+  // People of note first: rulers and councillors, then those with a trade.
+  const score = (id: number) => {
+    const c = s.chars[id];
+    const n = s.nations[c.nation];
+    if (n?.ruler === id) return 3;
+    if (n && Object.values(n.council).includes(id)) return 2;
+    return c.role ? 1 : 0;
+  };
+  const list = all
+    .filter(
+      (c) =>
+        !q ||
+        `${c.first} ${c.family} ${ui.map.provinces[c.home ?? -1]?.name ?? ""} ${nationName(s.nations[c.nation]?.name ?? "")}`
+          .toLowerCase()
+          .includes(q),
+    )
+    .sort((a, b) => score(b.id) - score(a.id) || a.id - b.id)
+    .slice(0, 60);
+  return html`<h2 class="cq-h1">Take over someone</h2>
+    <p class="cq-lede small">
+      Anyone grown and living in the Americas can carry your story on: their
+      family, their trade, their friends and enemies become yours.
+    </p>
+    <input
+      class="cq-input"
+      type="search"
+      placeholder="Search by name, place or people"
+      .value=${takeoverQuery}
+      @input=${(e: Event) => {
+        takeoverQuery = (e.target as HTMLInputElement).value;
+        ui.redraw();
+      }}
+    />
+    <ul class="cq-folk cq-takeover">
+      ${list.map(
+        (c) =>
+          html`<li>
+            <div class="cq-folk-row">
+              ${token(ui, c, "small")}
+              <span class="cq-folk-text">
+                <b>${charName(c)}</b>
+                <span class="cq-muted small"
+                  >${roleOf(ui, c)}, ${ageOf(s, c)};
+                  ${nationName(s.nations[c.nation]?.name ?? "")}${c.home !==
+                  undefined
+                    ? `, ${ui.map.provinces[c.home]?.name ?? ""}`
+                    : ""}</span
+                >
+              </span>
+              <button
+                class="cq-btn small primary"
+                @click=${async () => {
+                  if (await ui.cmd({ k: "takeover", c: c.id })) {
+                    ui.modal(null);
+                    ui.open({ k: "tab", tab: "here" });
+                    ui.toast(`You are ${charName(c)} now.`, "good");
+                  }
+                }}
+              >
+                Become
+              </button>
+            </div>
+          </li>`,
+      )}
+    </ul>
+    ${list.length === 0
+      ? html`<p class="cq-empty">Nobody by that name.</p>`
+      : nothing}`;
 }
 
 // ---------------------------------------------------------------- menu, help, end
@@ -488,8 +477,8 @@ function menu(ui: GameUi, hooks: ModalHooks): TemplateResult {
     ${!ui.solo
       ? html`<p>
           Friends can join with the code
-          <b class="cq-code">${hooks.code}</b> (they'll watch until the next
-          game).
+          <b class="cq-code">${hooks.code}</b>: they make a character and drop
+          into the world as it is.
         </p>`
       : nothing}
     <div class="cq-menu">
@@ -510,18 +499,25 @@ function menu(ui: GameUi, hooks: ModalHooks): TemplateResult {
       <button class="cq-btn" @click=${() => ui.modal({ k: "help" })}>
         How to play
       </button>
+      ${ui.life && !ui.life.watching
+        ? html`<button class="cq-btn" @click=${() => ui.modal({ k: "end" })}>
+            Your story so far
+          </button>`
+        : nothing}
       ${settingsBlock(ui)}
       ${hooks.isHost && !ui.s.over
         ? html`<button
             class="cq-btn danger"
             @click=${() => {
               if (
-                confirm("End the game now? Scores are counted as they stand.")
+                confirm(
+                  "End the game now? Stories and coins are counted as they stand.",
+                )
               )
                 hooks.endGame();
             }}
           >
-            End the game and count scores
+            End the game here
           </button>`
         : nothing}
       <button class="cq-btn" @click=${() => hooks.leave()}>
@@ -530,7 +526,7 @@ function menu(ui: GameUi, hooks: ModalHooks): TemplateResult {
       <p class="cq-muted small">
         ${ui.solo
           ? "Leaving saves your game; pick it up later from the lobby."
-          : "Leaving keeps your nation; the game goes on without you, and you can come back."}
+          : "Leaving keeps your character; the world goes on without you, and you can come back."}
       </p>
     </div>
   `;
@@ -599,7 +595,7 @@ function settingsBlock(ui: GameUi): TemplateResult {
           ui.redraw();
         }}
       />
-      Ask before marching when I right-click a province
+      Ask before travelling (or marching) when I click a province
     </label>
     <button class="cq-link small" @click=${() => ui.modal({ k: "credits" })}>
       Credits for the art, sounds and music
@@ -633,55 +629,51 @@ function creditsPage(ui: GameUi): TemplateResult {
 const HELP: [string, string][] = [
   [
     "Who you are",
-    "You are a colonial governor, not a nation. Your crown granted the charter; it wants revenue, obedience and results. You have a council, a family and rivals, and you will grow old. When you die your heir governs; with no heir, the crown appoints someone from your council.",
+    "One person in the Americas between your start year and 1776: a settler, a soldier, a printer, a planter, a minister, a trader, a warrior or a speaker of one of the native nations. The nations, wars and colonies go on around you, run by the computer. What you make of your life is up to you.",
   ],
   [
     "Time",
-    "The game runs day by day. Pause with the space bar, set the speed with 1 to 5. In a solo game, letters that need an answer pause it for you.",
+    "The world runs day by day. Pause with the space bar; 1 to 4 set the speed (1×, 2×, 4×, 8×). In company the host sets the speed. Alone, the game pauses when something needs your answer.",
   ],
   [
-    "Every number explains itself",
-    "Point at (or tap) any number and a slip lists what made it. Nothing happens by chance without a named cause.",
+    "Going places",
+    "Click any province on the map to see it and the road there: overland or, from a port, by sea. Travel costs days and coins, and the road has its dangers. Your token on the map shows where you are.",
   ],
   [
-    "People and their needs",
-    "Each province holds groups of people: laborers, artisans, merchants, gentry, clergy and native tribes, each with a faith and a culture. They need food, then cloth and tools, then luxuries. Unmet needs, high taxes, other faiths and too much land breed unrest; at 100 a province revolts.",
+    "Places and work",
+    "Each province has places: the tavern, the church, the market, the fort, the docks, the governor's house, the council fire. Each offers things to do, and work. Every trade is a ladder: serve your months, grow your skills, keep your master happy (or buy the next rung), and you climb.",
   ],
   [
-    "Timber, tools and laborers",
-    "Almost everything you build needs timber and tools, and every new regiment needs laborers. Timber: every settlement cuts some clearing land (more in forest), and a lumber camp in timber country adds more. Tools: a smithy turns timber into tools; until you have one, buy them in Europe from the Treasury tab or trade for them. Laborers: they arrive with settlers from home every month and grow when there's food, so keep grain in store. The Treasury tab's goods table shows what you make and use of each, and clicking a good tells you where to get more.",
+    "People",
+    "Everyone you meet has an opinion of you, and it explains itself (point at the number). Talk, flatter, give gifts, borrow, court, marry, make friends and enemies, find a patron, fight duels.",
   ],
   [
-    "Trade",
-    "Goods have a price in your colony set by supply and demand, and a price in Europe. A convoy sails from your main port every two months, carrying whatever sells for more at home, and returns weeks later with what's dear here. Ice and storms slow it. To get a particular good quickly, buy it outright in Europe from the Treasury tab: you pay now and a ship brings it. To swap goods with another colony or a native nation you border, open their page and choose Trade goods.",
+    "Health, stress, renown, money",
+    "Health falls with age, fever and wounds; at nothing you die. Stress rises with hard work, debt and grief, and wrecks health; drink, prayer and rest bring it down. Renown is who knows your name: it opens offices and causes. Your purse pays for how you live.",
   ],
   [
-    "Administration",
-    "Every province costs administration, more when it's far from your capital or full of foreigners. Your charter, your stewardship, your treasurer and courthouses decide how much you can govern. Go over and unrest, corruption and breakaways follow.",
+    "Family and heirs",
+    "Marry and have children. When you die your heir carries on as you (a child heir can learn but not work until sixteen). Name your heir on your sheet. With no heir, your story ends and you watch: take over anyone living, or begin a new life.",
   ],
   [
-    "The crown",
-    "Favor rises with money sent home and obedience, and falls when you ignore demands or start wars on your own. High favor brings honours and settlers; low favor brings inspectors and recall. Autonomy grows as you keep money at home and grow rich. At 60 you may declare independence.",
+    "The army",
+    "Enlist at a fort (or as a warrior at the council fire). You march with your army and share its battles: wounds, renown, promotion. Colonels, generals and war chiefs can take command of an army where it stands and march it themselves.",
   ],
   [
-    "War",
-    "Regiments are drafted from your people, who stop working. Armies eat; away from home they live off the land, and winter and fever thin them. Battles weigh men, training, morale, supplies, terrain, rivers, forts, commanders and the weather. Taking a province is occupying it; it's yours only when a peace says so.",
+    "Causes and risings",
+    "History brings its risings (Bacon's, Leisler's, Pueblo, Pontiac, the Regulators, the Sons of Liberty) and you can found your own. Join at a tavern or council fire; grow it with meetings, pamphlets and arms; then rise. A rising is a real war, and the map changes if it wins.",
   ],
   [
-    "Native nations",
-    "The Powhatan, Haudenosaunee, Wendat, Muscogee and many more are full nations with their own chiefs, councils, trade and wars. They remember gifts, broken treaties and land taken. Buy land from friends; take it from enemies at your peril. A native nation much weaker than you can be made a tributary, by demanding it or as a term of peace: it keeps its land but pays you tribute, fights beside you and can't attack you. Release it whenever you like.",
+    "Office",
+    "Stand for the assembly at the governor's house; seek a place at court; win a council seat. When a governor dies or is recalled, the crown appoints someone of renown and favour, and that could be you. A governor sets taxes, builds, raises militia and makes war and peace.",
   ],
   [
-    "Giving up a settlement",
-    "A colony that costs more than it's worth can be abandoned from its province page. Most of its people move to your nearest settlement, the land goes back to the wild, the natives around it are glad, and the crown is not.",
+    "Europe",
+    "Rich enough (or invited: Parliament, the army in Flanders, a recall) you may sail for Europe from a port. Leave an heir behind and you carry on as them; take everyone and your story ends.",
   ],
   [
-    "Start dates",
-    "Start in 1607 with a handful of ships, in 1650 when New England, New Netherland and New France are taking root, or in 1700 on the eve of the War of the Spanish Succession, with the colonies as they were then.",
-  ],
-  [
-    "Winning",
-    "The game ends in the year you chose. Score comes from land, people, wealth, honours and independence. Loyal servant, merchant prince or rebel: all three roads can win.",
+    "The end",
+    "The world ends on 1 January 1776. Your story is told (the roads you travelled, the moments that mattered) and paid in Derp Coins.",
   ],
 ];
 
@@ -696,9 +688,8 @@ function helpPage(): TemplateResult {
       )}
     </dl>
     <p class="cq-muted small">
-      Keys: space pauses, 1–5 set the speed, + and − zoom, Esc closes things. To
-      march, select an army and right-click a province, or press March to… on
-      the army's page and tap where to go.
+      Keys: space pauses, 1–4 set the speed, + and − zoom, Esc closes things.
+      Point at any number to see what made it.
     </p>
   `;
 }
@@ -706,81 +697,65 @@ function helpPage(): TemplateResult {
 function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
   const s = ui.s;
   const results = hooks.results;
-  const ranked = s.nations
-    .filter((n) => n.kind === "power")
-    .map((n) => ({ n, score: n.score }))
-    .sort((a, b) => b.score - a.score);
-  const winner = s.winner >= 0 ? s.nations[s.winner] : ranked[0]?.n;
-  const yours =
-    ui.me >= 0 && s.nations[ui.me].kind === "power" ? ui.me : winner?.id;
+  const life = ui.life;
   return html`
-    <h2 class="cq-h1">${s.over ? "The game is over" : "The standings"}</h2>
-    ${winner
-      ? html`<p class="cq-lede">
-          ${flagFor(winner, "cq-flag lg")} ${nationName(winner.name)}
-          ${s.over ? "wins" : "leads"}.
-        </p>`
+    <h2 class="cq-h1">
+      ${s.over
+        ? "1776: the story is told"
+        : life?.watching
+          ? "The story so far"
+          : "Your story so far"}
+    </h2>
+    ${life
+      ? html`<cq-life-story .ui=${ui} .life=${life}></cq-life-story>`
       : nothing}
-    ${yours !== undefined
-      ? html`<cq-colony-story .ui=${ui} .nation=${yours}></cq-colony-story>`
-      : nothing}
-    <h3 class="cq-h3">Standings</h3>
     ${results
-      ? html`<table class="cq-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Player</th>
-              <th>Nation</th>
-              <th class="r">Score</th>
-              <th class="r">Derp Coins</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${results.map(
-              (r) =>
-                html`<tr class=${r.won ? "won" : ""}>
-                  <td>${r.rank}</td>
-                  <td>${r.name}</td>
-                  <td>
-                    ${nationName(
-                      s.nations.find((n) => n.key === r.power)?.name ?? r.power,
-                    )}
-                  </td>
-                  <td class="r">${r.score}</td>
-                  <td class="r">
-                    ${r.coins === null
-                      ? html`<span class="cq-muted small"
-                          >sign in to earn</span
-                        >`
-                      : `+${r.coins}`}
-                  </td>
-                </tr>`,
-            )}
-          </tbody>
-        </table>`
-      : html`<table class="cq-table">
-          <thead>
-            <tr>
-              <th>Nation</th>
-              <th>Played by</th>
-              <th class="r">Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${ranked.map(
-              ({ n, score }) =>
-                html`<tr>
-                  <td>${flagFor(n, "cq-flag sm")} ${nationName(n.name)}</td>
-                  <td>
-                    ${n.playerName ??
-                    html`<span class="cq-muted">computer</span>`}
-                  </td>
-                  <td class="r">${score}</td>
-                </tr>`,
-            )}
-          </tbody>
-        </table>`}
+      ? html`<h3 class="cq-h3">Everyone's stories</h3>
+          <table class="cq-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Player</th>
+                <th>Line</th>
+                <th class="r">Score</th>
+                <th class="r">Derp Coins</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${results.map(
+                (r) =>
+                  html`<tr class=${r.won ? "won" : ""}>
+                    <td>${r.rank}</td>
+                    <td>${r.name}</td>
+                    <td>${r.line}</td>
+                    <td class="r">${r.score}</td>
+                    <td class="r">
+                      ${r.coins === null
+                        ? html`<span class="cq-muted small"
+                            >sign in to earn</span
+                          >`
+                        : html`<span
+                            title=${r.coinLines
+                              .map((l) => `${l.line}: ${l.coins}`)
+                              .join("\n")}
+                            >+${r.coins}</span
+                          >`}
+                    </td>
+                  </tr>`,
+              )}
+            </tbody>
+          </table>
+          ${coinBreakdown(results, ui)}`
+      : s.lives.length > 1
+        ? html`<h3 class="cq-h3">The others</h3>
+            <ul class="cq-list">
+              ${s.lives
+                .filter((l) => l !== life)
+                .map(
+                  (l) => html`<li><b>${l.name}</b>: ${lifeTitle(s, l)}</li>`,
+                )}
+            </ul>`
+        : nothing}
     <div class="cq-btnrow end">
       ${s.over
         ? nothing
@@ -794,129 +769,21 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
   `;
 }
 
-// ---------------------------------------------------------------- expeditions and outposts
-
-function missionPicker(
-  ui: GameUi,
-  p: number,
-  kind: "explore" | "outpost",
-  chosen?: number,
-): TemplateResult {
-  const s = ui.s;
-  const place = ui.map.provinces[p].name;
-  const leaders = missionLeaders(s, ui.me);
-  const pick = chosen ?? leaders[0]?.id;
-  const leader = pick !== undefined ? s.chars[pick] : undefined;
-  const days = missionDays(s, ui.w, ui.me, leader, p, kind);
-  const check =
-    pick !== undefined
-      ? missionCheck(s, ui.w, ui.me, pick, p, kind)
-      : { ok: false as const, why: "Nobody at court is free to go." };
-  const n = s.nations[ui.me];
-  const seatOf = (id: number) => SEATS.find((seat) => n.council[seat] === id);
-  return html`
-    <h2 class="cq-h1">
-      ${kind === "explore"
-        ? `An expedition to ${place}`
-        : `An outpost at ${place}`}
-    </h2>
-    <p class="cq-lede small">
-      ${kind === "explore"
-        ? `A small party surveys ${place} and the country around it: what the land yields, and whether any of it is rich. ${EXPEDITION.gold} gold.`
-        : `A party raises a palisade at ${place}: defenders there fight ${Math.round(OUTPOST.defense * 100)}% harder, the land feeds ${OUTPOST.supply * 1000} more of your men, and a colony there is founded faster. ${OUTPOST.gold} gold, timber and tools, then ${OUTPOST.upkeep} gold a month.`}
-      The journey is dangerous, and who leads it matters.
-    </p>
-    <h3 class="cq-h3">Who leads it</h3>
-    ${leaders.length === 0
-      ? html`<p class="cq-empty">
-          Nobody at court is free: everyone is governing, leading an army or
-          already away.
-        </p>`
-      : html`<ul class="cq-leaders">
-          ${leaders.map((c) => {
-            const flags = leaderFlags(s, c);
-            const seat = seatOf(c.id);
-            return html`<li>
-              <button
-                class="cq-leader ${c.id === pick ? "on" : ""}"
-                aria-pressed=${c.id === pick}
-                title=${flags
-                  .map((f) => `${f.good ? "+" : "−"} ${f.text}`)
-                  .join("\n") || "Nothing special for the trail"}
-                @click=${() =>
-                  ui.modal({ k: "mission", p, kind, leader: c.id })}
-              >
-                ${token(ui, c)}
-                <span class="cq-leader-text">
-                  <b>${c.title ?? `${c.first} ${c.family}`}</b>
-                  <span class="cq-muted small"
-                    >${seat ? SEAT_NAMES[seat] : "At court"}, ${STAT_NAMES.mar}
-                    ${c.stats.mar}, ${STAT_NAMES.lea} ${c.stats.lea},
-                    ${STAT_NAMES.dip} ${c.stats.dip}</span
-                  >
-                  <span class="cq-flags-list">
-                    ${flags.length === 0
-                      ? html`<span class="cq-muted small"
-                          >Nothing that helps or hurts on the trail.</span
-                        >`
-                      : flags.map(
-                          (f) =>
-                            html`<span
-                              class="cq-flag-chip ${f.good ? "good" : "bad"}"
-                              >${f.good ? "+" : "−"}
-                              ${f.text.split(":")[0]}</span
-                            >`,
-                        )}
-                  </span>
-                </span>
-              </button>
-            </li>`;
-          })}
-        </ul>`}
-    ${leader
-      ? html`<div class="cq-mission-sum">
-          <p>
-            ${leader.first} would reach ${place} in
-            ${num(`${days.total} days`, () =>
-              breakdownTip("Days to get there (the same again back)", days),
-            )}
-            and be home about ${days.total * 2} days from now. Halfway out, the
-            country decides what goes wrong: rapids where rivers cross, fever in
-            hot lowlands, warriors where natives live, getting lost in forest
-            and mountains, snow in winter.
-          </p>
-          <ul class="cq-trail-notes">
-            ${leaderFlags(s, leader).map(
-              (f) => html`<li class=${f.good ? "good" : "bad"}>${f.text}</li>`,
-            )}
-          </ul>
-        </div>`
-      : nothing}
-    <div class="cq-btnrow end">
-      <button class="cq-btn quiet" @click=${() => ui.modal(null)}>
-        Not now
-      </button>
-      ${action(
-        kind === "explore" ? "Send them" : "Send the party",
-        check,
-        async () => {
-          if (pick === undefined) return;
-          if (
-            await ui.cmd({
-              k: kind === "explore" ? "expedition" : "outpost",
-              c: pick,
-              p,
-            })
-          ) {
-            ui.modal(null);
-            ui.toast(
-              `${leader?.first ?? "The party"} sets out for ${place}.`,
-              "good",
-            );
-          }
-        },
-        "primary",
-      )}
-    </div>
-  `;
+function coinBreakdown(results: ResultLine[], ui: GameUi): TemplateResult {
+  const mine = results.find((r) => r.name === ui.life?.name);
+  if (!mine?.coinLines.length) return html``;
+  return html`<details class="cq-more">
+    <summary>Your coins, line by line</summary>
+    <table class="cq-table compact">
+      <tbody>
+        ${mine.coinLines.map(
+          (l) =>
+            html`<tr>
+              <td>${l.line}</td>
+              <td class="r">${l.coins}</td>
+            </tr>`,
+        )}
+      </tbody>
+    </table>
+  </details>`;
 }

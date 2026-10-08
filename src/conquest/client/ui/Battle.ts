@@ -140,13 +140,25 @@ export function reasonList(v: Verdict): TemplateResult {
   </ul>`;
 }
 
+/** The side you fought on, as a nation (−1 if you weren't in it). */
+export function myBattleNation(ui: GameUi, r: BattleReport): number {
+  const sides = [...r.attacker.nations, ...r.defender.nations];
+  const job = ui.life?.job;
+  if (job && job.nation >= 0 && sides.includes(job.nation)) return job.nation;
+  const led = ui.me
+    ? ui.s.armies.find((a) => a.commander === ui.me!.id)
+    : undefined;
+  if (led && sides.includes(led.owner)) return led.owner;
+  return ui.me && sides.includes(ui.me.nation) ? ui.me.nation : -1;
+}
+
 /** The dispatch that appears when one of your battles ends. */
 export function battleDispatch(
   ui: GameUi,
   r: BattleReport,
   close: () => void,
 ): TemplateResult {
-  const v = battleVerdict(ui.s, r, ui.me);
+  const v = battleVerdict(ui.s, r, myBattleNation(ui, r));
   const place = ui.map.provinces[r.prov].name;
   return html`<aside
     class="cq-dispatch ${v.won ? "won" : "lost"}"

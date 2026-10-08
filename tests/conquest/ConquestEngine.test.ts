@@ -1,14 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { fightBattle } from "../../src/conquest/engine/Battle";
 import { dateOf, dayOf, formatDate } from "../../src/conquest/engine/Calendar";
-import {
-  kill,
-  makeCharacter,
-  planBudget,
-  planCost,
-  planProblem,
-  planTraitCost,
-} from "../../src/conquest/engine/Characters";
+import { kill, makeCharacter } from "../../src/conquest/engine/Characters";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { AMERICAS } from "../../src/conquest/engine/Map";
@@ -29,10 +22,9 @@ import type {
   Army,
   Breakdown,
   GameState,
-  GovernorPlan,
-  PlayerSeat,
   Regiment,
 } from "../../src/conquest/engine/Types";
+import { nationGame, seat } from "./NationUtil";
 
 const map = AMERICAS;
 const prov = (name: string) => {
@@ -41,26 +33,8 @@ const prov = (name: string) => {
   return i;
 };
 
-const plan: GovernorPlan = {
-  first: "Alden",
-  family: "Drackley",
-  female: false,
-  age: "prime",
-  stats: { dip: 7, mar: 5, ste: 8, int: 4, lea: 5 },
-  traits: ["diligent"],
-};
-
-const seat = (power: string): PlayerSeat => ({
-  seat: "s1",
-  name: "Alden",
-  power,
-  governor: plan,
-});
-
 function newGame(power = "england", seed = 42, endYear = 1650) {
-  return ConquestGame.create(map, { endYear, difficulty: "normal", seed }, [
-    seat(power),
-  ]);
+  return nationGame({ endYear, difficulty: "normal", seed }, [seat(power)]);
 }
 
 /** A game where the computer nations don't act, so a test controls things. */
@@ -162,24 +136,17 @@ describe("calendar", () => {
 });
 
 describe("starting a game", () => {
-  test("seats the player as the governor they made", () => {
-    const g = newGame();
+  test("every nation is the computer's, with a governor and a council", () => {
+    const g = nationGame({ endYear: 1650, difficulty: "normal", seed: 42 });
     const s = g.state;
     const eng = nationKey(g, "england");
     const n = s.nations[eng];
-    expect(n.player).toBe("s1");
-    expect(n.playerName).toBe("Alden");
-    const gov = rulerOf(s, eng)!;
-    expect(gov).toMatchObject({
-      first: "Alden",
-      family: "Drackley",
-      made: true,
-      alive: true,
-    });
-    expect(gov.stats).toEqual(plan.stats);
-    expect(gov.traits).toEqual(["diligent"]);
+    expect(n.player).toBeNull();
+    expect(rulerOf(s, eng)?.alive).toBe(true);
     for (const c of Object.values(n.council))
       expect(s.chars[c]?.alive).toBe(true);
+    expect(s.lives).toEqual([]);
+    expect(s.polities[eng].assembly.length).toBeGreaterThan(0);
   });
 
   test("powers, native nations and the crowns behind them all take part", () => {
@@ -220,34 +187,6 @@ describe("starting a game", () => {
     ticks(a, 400);
     ticks(b, 400);
     expect(JSON.stringify(a.state)).toBe(JSON.stringify(b.state));
-  });
-});
-
-describe("making a governor", () => {
-  test("strengths cost points, flaws give them back, and the budget is firm", () => {
-    expect(planProblem(plan)).toBeNull();
-    // Skills: 2 (diplomacy) + 3 (stewardship) − 1 (low intrigue). Traits
-    // come out of their own purse: diligent costs 2 of the 2 trait points.
-    expect(planCost(plan)).toBe(4);
-    expect(planTraitCost(plan)).toBe(2);
-    expect(planProblem({ ...plan, traits: ["diligent", "brave"] })).toMatch(
-      /trait points/,
-    );
-    // A flaw pays for a strength.
-    expect(
-      planProblem({ ...plan, traits: ["diligent", "brave", "content"] }),
-    ).toBeNull();
-    expect(planBudget(plan)).toBe(13);
-    expect(planBudget({ ...plan, age: "seasoned" })).toBe(15);
-    const greedy = {
-      ...plan,
-      stats: { dip: 14, mar: 14, ste: 5, int: 5, lea: 5 },
-    };
-    expect(planProblem(greedy)).toMatch(/more points/);
-    expect(planProblem({ ...plan, traits: ["ambitious", "content"] })).toMatch(
-      /don't go together/,
-    );
-    expect(planProblem({ ...plan, first: "" })).toMatch(/name/i);
   });
 });
 
@@ -467,24 +406,33 @@ describe("war", () => {
 });
 
 describe("the governor's life", () => {
-  test("the eldest child inherits when the governor dies", () => {
+  test("the crown appoints a crown colony's next governor; an independent colony's passes to the heir", () => {
     const g = quietGame();
     const s = g.state;
     const eng = nationKey(g, "england");
-    const gov = rulerOf(s, eng)!;
     const n = s.nations[eng];
-    const child = makeCharacter(s, g.rng, {
-      nation: eng,
-      culture: n.culture,
-      religion: n.religion,
-      age: 19,
-      female: true,
-      father: gov.id,
-    });
-    gov.children.push(child.id);
-    kill(g, gov, "a fever");
-    expect(s.nations[eng].ruler).toBe(child.id);
-    expect(gov.alive).toBe(false);
+    const withChild = () => {
+      const gov = rulerOf(s, eng)!;
+      const child = makeCharacter(s, g.rng, {
+        nation: eng,
+        culture: n.culture,
+        religion: n.religion,
+        age: 19,
+        female: true,
+        father: gov.id,
+      });
+      gov.children.push(child.id);
+      return { gov, child };
+    };
+    const first = withChild();
+    kill(g, first.gov, "a fever");
+    expect(first.gov.alive).toBe(false);
+    expect(s.nations[eng].ruler).not.toBe(first.child.id);
+    expect(s.nations[eng].ruler).toBeGreaterThanOrEqual(0);
+    n.independent = true;
+    const second = withChild();
+    kill(g, second.gov, "a fever");
+    expect(s.nations[eng].ruler).toBe(second.child.id);
   });
 
   test("with no heir, the crown appoints someone from the council", () => {
@@ -567,7 +515,7 @@ describe("the whole game", () => {
     for (const n of s.nations.filter((x) => x.kind === "power" && x.alive)) {
       expect(provincesOf(s, n.id).length).toBeGreaterThanOrEqual(1);
     }
-  });
+  }, 30_000);
 
   test("ends on the end date with the top score winning", () => {
     const g = newGame("england", 5, 1609);

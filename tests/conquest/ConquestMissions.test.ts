@@ -13,35 +13,16 @@ import { EXPEDITION, OUTPOST } from "../../src/conquest/engine/Rules";
 import type {
   Army,
   GameEvent,
-  GovernorPlan,
-  PlayerSeat,
   Regiment,
 } from "../../src/conquest/engine/Types";
+import { nationGame, seat } from "./NationUtil";
 
 const map = AMERICAS;
 
-const plan: GovernorPlan = {
-  first: "Alden",
-  family: "Drackley",
-  female: false,
-  age: "prime",
-  stats: { dip: 7, mar: 5, ste: 8, int: 4, lea: 5 },
-  traits: ["diligent"],
-};
-
-const seat = (power: string): PlayerSeat => ({
-  seat: "s1",
-  name: "Alden",
-  power,
-  governor: plan,
-});
-
 function quietGame(power = "england", seed = 42) {
-  const g = ConquestGame.create(
-    map,
-    { endYear: 1650, difficulty: "normal", seed },
-    [seat(power)],
-  );
+  const g = nationGame({ endYear: 1650, difficulty: "normal", seed }, [
+    seat(power),
+  ]);
   g.aiEnabled = false;
   return g;
 }

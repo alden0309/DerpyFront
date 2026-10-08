@@ -19,6 +19,7 @@ import type {
   Mission,
   RegType,
   Terrain,
+  Travel,
 } from "../engine/Types";
 import {
   anchor,
@@ -192,7 +193,13 @@ export interface View {
 }
 
 export interface MapCallbacks {
-  click(p: number | null, army: Army | null, e: PointerEvent): void;
+  /** `person`: a played character's token, if one was clicked. */
+  click(
+    p: number | null,
+    army: Army | null,
+    e: PointerEvent,
+    person: number | null,
+  ): void;
   /** `at`: where on the page, for a popup there. */
   rightClick(p: number | null, at: { x: number; y: number }): void;
   hover(p: number | null): void;
@@ -216,6 +223,25 @@ export interface Overlay {
   colonizable: Set<number>;
   /** Land the player has surveyed (null: they know everything). */
   explored: Set<number> | null;
+  /** Played characters: you and the other players. */
+  lives?: LifeMark[];
+  /** The road you'd take to the province you're looking at. */
+  road?: { from: number; path: number[]; sea: boolean[] } | null;
+}
+
+/** A played character on the map: a portrait medallion, walking or sailing. */
+export interface LifeMark {
+  c: number;
+  p: number;
+  travel: Travel | null;
+  /** Marching with (or leading) this army: drawn with it. */
+  army: number;
+  /** The frame colour they chose. */
+  frame: string;
+  /** Their likeness. */
+  face: string | null;
+  label: string;
+  you: boolean;
 }
 
 /** Which figure stands for an army: its most numerous kind of regiment. */
@@ -276,6 +302,8 @@ export class MapView {
     w: number;
     h: number;
   }[] = [];
+  private personHits: { c: number; x: number; y: number; r: number }[] = [];
+  private faces = new Map<string, HTMLImageElement>();
   private hovered: number | null = null;
   private pointers = new Map<number, { x: number; y: number }>();
   private dragStart: { x: number; y: number; moved: boolean } | null = null;
@@ -905,6 +933,14 @@ export class MapView {
     return best;
   }
 
+  private personAt(cx: number, cy: number): number | null {
+    for (let i = this.personHits.length - 1; i >= 0; i--) {
+      const h = this.personHits[i];
+      if (Math.hypot(cx - h.x, cy - h.y) <= h.r + 3) return h.c;
+    }
+    return null;
+  }
+
   private armyAt(cx: number, cy: number): Army | null {
     for (let i = this.armyHits.length - 1; i >= 0; i--) {
       const h = this.armyHits[i];
@@ -1029,7 +1065,12 @@ export class MapView {
       if (e.type === "pointerup" && wasClick && e.button === 0) {
         const x = e.clientX - r.left;
         const y = e.clientY - r.top;
-        this.cb.click(this.provinceAt(x, y), this.armyAt(x, y), e);
+        this.cb.click(
+          this.provinceAt(x, y),
+          this.armyAt(x, y),
+          e,
+          this.personAt(x, y),
+        );
       }
       if (this.pointers.size === 0) this.dragStart = null;
     };
@@ -1912,9 +1953,193 @@ export class MapView {
       });
     }
 
+    this.drawLives(o, day, figure, now, sx, sy, onScreen);
+
     // Keep drawing until the chart has caught up with the view.
     const after = this.baseFits();
     this.needsDraw = this.baseDirty || !after.covered;
+  }
+
+  /** A likeness, loaded once; null until it's ready. */
+  private face(url: string): HTMLImageElement | null {
+    let img = this.faces.get(url);
+    if (!img) {
+      img = new Image();
+      img.decoding = "async";
+      img.onload = () => (this.needsDraw = true);
+      img.src = url;
+      this.faces.set(url, img);
+    }
+    return img.complete && img.naturalWidth > 0 ? img : null;
+  }
+
+  /** You and the other players: medallions, walkers and ships, and roads. */
+  private drawLives(
+    o: Overlay,
+    day: number,
+    figure: number,
+    now: number,
+    sx: (x: number) => number,
+    sy: (y: number) => number,
+    onScreen: (x: number, y: number, pad?: number) => boolean,
+  ): void {
+    const ctx = this.ctx;
+    const s = o.state;
+    this.personHits = [];
+    // The road you'd take, in gold.
+    const road = o.road;
+    if (road && road.path.length) {
+      ctx.setLineDash([3, 6]);
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "rgba(255,214,102,0.95)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      const start = this.map.provinces[road.from];
+      ctx.moveTo(sx(start.x), sy(start.y));
+      let at = road.from;
+      road.path.forEach((q, i) => {
+        for (const [px, py] of this.hopPath(at, q, road.sea[i] ?? false).slice(
+          1,
+        ))
+          ctx.lineTo(sx(px), sy(py));
+        at = q;
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    for (const m of o.lives ?? []) {
+      let mx: number;
+      let my: number;
+      let walker: "walk" | "sail" | null = null;
+      let heading = 0;
+      const army =
+        m.army >= 0 ? s.armies.find((a) => a.id === m.army) : undefined;
+      if (army) {
+        [mx, my] = this.smoothSpot(army, day);
+        my -= 18 / Math.max(0.5, this.view.scale);
+      } else if (m.travel && m.travel.path.length) {
+        const t = m.travel;
+        const frac = Math.max(
+          0,
+          Math.min(1, (day - t.depart) / Math.max(0.5, t.arrive - t.depart)),
+        );
+        const way = this.hopPath(m.p, t.path[0], t.sea[0] ?? false);
+        [mx, my, heading] = this.along(way, frac);
+        walker = t.sea[0] ? "sail" : "walk";
+        if (m.you) {
+          // The rest of the road, flowing on ahead.
+          ctx.setLineDash([5, 5]);
+          ctx.lineDashOffset = o.running ? -((now / 60) % 10) : 0;
+          ctx.strokeStyle = "rgba(255,240,200,0.9)";
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          ctx.moveTo(sx(mx), sy(my));
+          const rest = this.hopPath(m.p, t.path[0], t.sea[0] ?? false);
+          const after = rest.filter(
+            (_, i) => i / Math.max(1, rest.length - 1) > frac,
+          );
+          for (const [px, py] of after) ctx.lineTo(sx(px), sy(py));
+          let at = t.path[0];
+          for (let i = 1; i < t.path.length; i++) {
+            for (const [px, py] of this.hopPath(
+              at,
+              t.path[i],
+              t.sea[i] ?? false,
+            ).slice(1))
+              ctx.lineTo(sx(px), sy(py));
+            at = t.path[i];
+          }
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.lineDashOffset = 0;
+        }
+      } else {
+        const def = this.map.provinces[m.p];
+        if (!def) continue;
+        mx = def.x;
+        my = def.y;
+      }
+      const x = sx(mx);
+      let y = sy(my);
+      if (!onScreen(x, y, 50)) continue;
+      const flip = Math.cos(heading) < 0;
+      if (walker === "walk") {
+        const bob = o.running ? Math.abs(Math.sin(now / 130 + m.c)) * 1.5 : 0;
+        ctx.save();
+        ctx.shadowColor = "rgba(252,244,222,0.95)";
+        ctx.shadowBlur = 2.5;
+        if (!drawSprite(ctx, "explorer", x, y - bob, figure * 1.3, flip))
+          explorer(
+            ctx,
+            x,
+            y,
+            figure * 0.8,
+            m.frame,
+            flip ? -1 : 1,
+            Math.sin(now / 140),
+          );
+        ctx.restore();
+        y -= figure * 1.25;
+      } else if (walker === "sail") {
+        if (!this.drawShip(ctx, x, y, figure * 1.1, heading, m.frame, now))
+          ship(ctx, x, y, figure * 0.7, heading, m.frame, now);
+        y -= figure * 1.05;
+      } else if (!army) {
+        y -= 6;
+      }
+      // The medallion: their likeness in their frame colour.
+      const r = m.you ? 14 : 11;
+      const cy = y - r;
+      ctx.save();
+      ctx.shadowColor = "rgba(20,12,4,0.55)";
+      ctx.shadowBlur = 5;
+      ctx.shadowOffsetY = 1.5;
+      ctx.fillStyle = m.frame;
+      ctx.beginPath();
+      ctx.arc(x, cy, r + 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      // A point beneath, pinning it to the spot.
+      if (!walker && !army) {
+        ctx.fillStyle = m.frame;
+        ctx.beginPath();
+        ctx.moveTo(x - 5, cy + r);
+        ctx.lineTo(x, y + 6);
+        ctx.lineTo(x + 5, cy + r);
+        ctx.fill();
+      }
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, cy, r, 0, Math.PI * 2);
+      ctx.clip();
+      const img = m.face ? this.face(m.face) : null;
+      if (img) {
+        // The face sits in the upper middle of a portrait.
+        const w = r * 2.3;
+        const h = (w * img.naturalHeight) / img.naturalWidth;
+        ctx.drawImage(img, x - w / 2, cy - r * 1.05, w, h);
+      } else {
+        ctx.fillStyle = "#e9dcb8";
+        ctx.fillRect(x - r, cy - r, r * 2, r * 2);
+      }
+      ctx.restore();
+      ctx.strokeStyle = m.you ? "#fff4cf" : "rgba(40,26,12,0.85)";
+      ctx.lineWidth = m.you ? 2 : 1.2;
+      ctx.beginPath();
+      ctx.arc(x, cy, r + (m.you ? 1 : 0.5), 0, Math.PI * 2);
+      ctx.stroke();
+      if (m.label) {
+        ctx.font = "700 10px 'Alegreya Sans', system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "rgba(251,243,220,0.95)";
+        ctx.fillStyle = "#2b1d12";
+        ctx.strokeText(m.label, x, cy - r - 9);
+        ctx.fillText(m.label, x, cy - r - 9);
+      }
+      this.personHits.push({ c: m.c, x, y: cy, r: r + 3 });
+    }
   }
 
   /**

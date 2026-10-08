@@ -5,6 +5,7 @@
 import { seatCandidates } from "./Characters";
 import { mainPort } from "./Economy";
 import type { ConquestGame } from "./Game";
+import { skipped } from "./Hooks";
 import { kmBetween } from "./Map";
 import {
   isExplored,
@@ -12,6 +13,7 @@ import {
   missionCheck,
   missionLeaders,
 } from "./Missions";
+import { rebelTarget } from "./Movements";
 import { routeTree } from "./Paths";
 import {
   adminCapacity,
@@ -63,7 +65,18 @@ export function runAi(g: ConquestGame, n: number): void {
   const nation = g.s.nations[n];
   if (nation.kind === "power") powerAi(g, n);
   else if (nation.kind === "native") nativeAi(g, n);
+  else if (nation.kind === "rebels") rebelsAi(g, n);
   else crownAi(g, n);
+}
+
+/** A player governs (or leads) this nation: they keep its few levers. */
+function governed(g: ConquestGame, n: number): boolean {
+  return skipped(g, g.s.nations[n].ruler);
+}
+
+/** An army a player commands: the computer leaves it alone. */
+function playerArmy(g: ConquestGame, a: Army): boolean {
+  return a.commander >= 0 && skipped(g, a.commander);
 }
 
 function leans(g: ConquestGame, n: number) {
@@ -94,7 +107,8 @@ function powerAi(g: ConquestGame, n: number): void {
   const s = g.s;
   const nation = s.nations[n];
   const l = leans(g, n);
-  g.command(n, { k: "tax", level: taxLevel(g, n) });
+  const ruled = governed(g, n);
+  if (!ruled) g.command(n, { k: "tax", level: taxLevel(g, n) });
   const want = Math.max(
     0,
     expectedRemit(nation) +
@@ -103,6 +117,7 @@ function powerAi(g: ConquestGame, n: number): void {
       (nation.favor < 30 ? 0.05 : 0),
   );
   if (
+    !ruled &&
     Math.abs(want - nation.remit) > 0.005 &&
     !nation.independent &&
     !nation.rebelling
@@ -125,6 +140,7 @@ function powerAi(g: ConquestGame, n: number): void {
   natives(g, n);
   peace(g, n);
   if (
+    !ruled &&
     nation.autonomy >= 60 &&
     hasTrait(rulerOf(s, n), "ambitious") &&
     strength(g, n) > 1500 &&
@@ -358,10 +374,12 @@ function gather(g: ConquestGame, n: number): void {
   const home = s.nations[n].capital;
   if (home < 0) return;
   for (const a of armiesOf(s, n)) {
-    if (a.depart >= 0 || a.retreating) continue;
+    if (a.depart >= 0 || a.retreating || playerArmy(g, a)) continue;
     if (a.prov !== home) g.command(n, { k: "move", a: a.id, to: home });
   }
-  const here = armiesOf(s, n).filter((a) => a.prov === home && a.depart < 0);
+  const here = armiesOf(s, n).filter(
+    (a) => a.prov === home && a.depart < 0 && !playerArmy(g, a),
+  );
   for (let i = 1; i < here.length; i++)
     g.command(n, { k: "merge", a: here[0].id, b: here[i].id });
 }
@@ -371,7 +389,7 @@ function campaign(g: ConquestGame, n: number): void {
   const s = g.s;
   const l = leans(g, n);
   for (const a of armiesOf(s, n)) {
-    if (a.retreating || armyMen(a) <= 0) continue;
+    if (a.retreating || armyMen(a) <= 0 || playerArmy(g, a)) continue;
     if (a.depart >= 0) continue;
     // Busy besieging? keep at it.
     const pr = s.provinces[a.prov];
@@ -454,6 +472,7 @@ function natives(g: ConquestGame, n: number): void {
         0,
       );
     if (
+      !governed(g, n) &&
       l.aggression > 1 &&
       mine > theirs * 2 &&
       opinion < 0 &&
@@ -471,7 +490,8 @@ function peace(g: ConquestGame, n: number): void {
   const nation = s.nations[n];
   for (const enemy of enemiesOf(s, n)) {
     const war = warBetween(s, n, enemy)!;
-    if (s.nations[enemy].kind === "crown") continue;
+    if (s.nations[enemy].kind === "crown" || s.nations[enemy].kind === "rebels")
+      continue;
     if (warMonths(s, war) < 6) continue;
     const score = warScore(s, war, n).total;
     const europeWar =
@@ -549,7 +569,7 @@ function nativeAi(g: ConquestGame, n: number): void {
   if (enemies.length > 0) campaign(g, n);
   else gather(g, n);
   // War on settlers who've pushed them too far.
-  if (enemies.length === 0) {
+  if (enemies.length === 0 && !governed(g, n)) {
     for (const other of s.nations) {
       if (other.kind !== "power" || !other.alive) continue;
       if (
@@ -580,6 +600,7 @@ function nativeAi(g: ConquestGame, n: number): void {
   }
   for (const enemy of enemies) {
     const war = warBetween(s, n, enemy)!;
+    if (s.nations[enemy].kind === "rebels") continue;
     if (warMonths(s, war) < 4) continue;
     const score = warScore(s, war, n).total;
     const held = s.provinces
@@ -605,6 +626,20 @@ function nativeAi(g: ConquestGame, n: number): void {
     });
   }
   void REGIMENTS;
+}
+
+// ---------------------------------------------------------------- rebels
+
+/** A rising's host marches on its target (unless a player leads it). */
+function rebelsAi(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const target = rebelTarget(g, n);
+  for (const a of armiesOf(s, n)) {
+    if (a.depart >= 0 || a.retreating || playerArmy(g, a)) continue;
+    if (s.provinces[a.prov].siege?.by === n) continue;
+    if (target >= 0 && a.prov !== target)
+      g.command(n, { k: "move", a: a.id, to: target });
+  }
 }
 
 // ---------------------------------------------------------------- crowns

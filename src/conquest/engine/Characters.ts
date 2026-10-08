@@ -4,6 +4,8 @@
 // remember how they were treated.
 
 import type { ConquestGame } from "./Game";
+import { hooks, skipped } from "./Hooks";
+import { clanName, NATIVE_CLANS, NATIVE_NAMES } from "./LifeRules";
 import { NAMES, nativeTitle } from "./Names";
 import {
   ageOf,
@@ -23,17 +25,11 @@ import {
 import { Rng } from "./Rng";
 import {
   ADULT_AGE,
-  AGE_CHOICES,
   DAYS_PER_YEAR,
-  GOVERNOR_POINTS,
-  MAX_TRAITS,
   SEAT_NAMES,
   SEAT_STAT,
   STAT_MAX,
   STAT_MIN,
-  STAT_START,
-  statStepCost,
-  TRAIT_POINTS,
   TRAITS,
 } from "./Rules";
 import {
@@ -41,7 +37,6 @@ import {
   Character,
   Command,
   GameState,
-  GovernorPlan,
   Memory,
   Religion,
   SchemeKind,
@@ -77,8 +72,15 @@ export function makeCharacter(
   rng: Rng,
   o: CharOptions,
 ): Character {
-  const names = NAMES[o.culture] ?? NAMES.english;
+  const native = o.religion === "native" || !NAMES[o.culture];
   const female = o.female ?? rng.chance(0.5);
+  const names = native
+    ? {
+        male: NATIVE_NAMES.male,
+        female: NATIVE_NAMES.female,
+        family: NATIVE_CLANS.map(clanName),
+      }
+    : NAMES[o.culture];
   const c: Character = {
     id: s.nextId++,
     first: o.first ?? rng.pick(female ? names.female : names.male)!,
@@ -115,7 +117,9 @@ export function randomStats(rng: Rng, focus?: Stat): Stats {
 }
 
 export function randomTraits(rng: Rng, count: number): TraitId[] {
-  const all = Object.keys(TRAITS) as TraitId[];
+  const all = (Object.keys(TRAITS) as TraitId[]).filter(
+    (t) => !TRAITS[t].acquired,
+  );
   const out: TraitId[] = [];
   for (let tries = 0; out.length < count && tries < 40; tries++) {
     const t = rng.pick(all)!;
@@ -165,92 +169,6 @@ function nativeSeatTitle(seat: Seat): string {
   }[seat];
 }
 
-/** Stat points a governor plan costs; ≤ planBudget to be valid. */
-export function planCost(plan: GovernorPlan): number {
-  let cost = 0;
-  for (const st of STATS) {
-    const v = plan.stats[st];
-    if (v >= STAT_START)
-      for (let l = STAT_START; l < v; l++) cost += statStepCost(l);
-    else cost -= STAT_START - v;
-  }
-  return cost;
-}
-
-/** Stat points to spend: the base purse plus what age brings. */
-export function planBudget(plan: GovernorPlan): number {
-  return GOVERNOR_POINTS + AGE_CHOICES[plan.age].points;
-}
-
-/** Trait points a plan's traits cost (flaws give some back); ≤ TRAIT_POINTS. */
-export function planTraitCost(plan: GovernorPlan): number {
-  return plan.traits.reduce((m, t) => m + (TRAITS[t]?.cost ?? 0), 0);
-}
-
-/** Why a governor plan isn't allowed, or null. */
-export function planProblem(plan: unknown): string | null {
-  const p = plan as GovernorPlan;
-  if (!p || typeof p !== "object") return "No governor.";
-  if (typeof p.first !== "string" || typeof p.family !== "string")
-    return "Your governor needs a name.";
-  if (
-    p.first.trim().length < 1 ||
-    p.first.length > 20 ||
-    p.family.trim().length < 1 ||
-    p.family.length > 24
-  )
-    return "Names are 1 to 20 letters.";
-  if (!(p.age in AGE_CHOICES)) return "Pick an age.";
-  if (
-    p.face !== undefined &&
-    (!Number.isInteger(p.face) || p.face < 0 || p.face > 999)
-  )
-    return "Pick a likeness.";
-  if (!p.stats || typeof p.stats !== "object") return "Set your stats.";
-  for (const st of STATS) {
-    const v = p.stats[st];
-    if (!Number.isInteger(v) || v < STAT_MIN || v > STAT_MAX)
-      return "Stats run from 1 to 18.";
-  }
-  if (!Array.isArray(p.traits) || p.traits.length > MAX_TRAITS)
-    return `Up to ${MAX_TRAITS} traits.`;
-  for (const t of p.traits) {
-    if (!(t in TRAITS)) return "Unknown trait.";
-    const opp = TRAITS[t].opposite;
-    if (opp && p.traits.includes(opp))
-      return `${TRAITS[t].name} and ${TRAITS[opp].name} don't go together.`;
-  }
-  if (new Set(p.traits).size !== p.traits.length) return "A trait twice?";
-  if (planCost(p) > planBudget(p))
-    return "Those stats cost more points than you have.";
-  if (planTraitCost(p) > TRAIT_POINTS)
-    return `Those traits cost more than your ${TRAIT_POINTS} trait points: take a flaw to afford them.`;
-  return null;
-}
-
-export function governorFromPlan(
-  s: GameState,
-  rng: Rng,
-  nation: number,
-  plan: GovernorPlan,
-): Character {
-  const n = s.nations[nation];
-  const c = makeCharacter(s, rng, {
-    nation,
-    culture: n.culture,
-    religion: n.religion,
-    female: plan.female,
-    age: AGE_CHOICES[plan.age].years,
-    first: plan.first.trim(),
-    family: plan.family.trim(),
-    stats: { ...plan.stats },
-    traits: [...plan.traits],
-    made: true,
-  });
-  if (Number.isInteger(plan.face) && plan.face! >= 0) c.face = plan.face;
-  return c;
-}
-
 /** A computer governor: decent at something, flawed at something else. */
 export function randomGovernor(
   s: GameState,
@@ -292,15 +210,17 @@ export function makeFamily(s: GameState, rng: Rng, gov: Character): void {
   }
 }
 
-function marry(_s: GameState, a: Character, b: Character): void {
+export function marry(_s: GameState, a: Character, b: Character): void {
   a.spouse = b.id;
   b.spouse = a.id;
-  // The wife takes her husband's family name, as was usual.
+  // The wife takes her husband's family name, as was usual (natives keep
+  // their clans).
+  if (a.religion === "native" || b.religion === "native") return;
   if (b.female) b.family = a.family;
   else a.family = b.family;
 }
 
-function birth(
+export function birth(
   s: GameState,
   rng: Rng,
   father: Character,
@@ -318,17 +238,35 @@ function birth(
       ),
     );
   }
+  const native = n?.kind === "native" || mother.religion === "native";
   const kid = makeCharacter(s, rng, {
-    nation: father.nation,
-    culture: n.culture,
-    religion: father.religion,
+    nation: native ? mother.nation : father.nation,
+    culture: native ? mother.culture : n.culture,
+    religion: native ? mother.religion : father.religion,
     age: ageYears,
-    family: father.family,
+    // Clans pass from the mother.
+    family: native ? mother.family : father.family,
     stats,
     traits: randomTraits(rng, rng.int(0, 2)),
     father: father.id,
     mother: mother.id,
   });
+  // Siblings don't share a name (unless the first has died).
+  const taken = new Set(
+    mother.children
+      .map((id) => s.chars[id])
+      .filter((x) => x?.alive && x.female === kid.female)
+      .map((x) => x.first),
+  );
+  const pool = native
+    ? kid.female
+      ? NATIVE_NAMES.female
+      : NATIVE_NAMES.male
+    : (NAMES[kid.culture] ?? NAMES.english)[kid.female ? "female" : "male"];
+  for (let i = 0; i < 6 && taken.has(kid.first); i++)
+    kid.first = rng.pick(pool)!;
+  if (mother.home !== undefined) kid.home = mother.home;
+  else if (father.home !== undefined) kid.home = father.home;
   father.children.push(kid.id);
   mother.children.push(kid.id);
   return kid;
@@ -339,11 +277,13 @@ function birth(
 export function charactersMonthly(g: ConquestGame): void {
   const s = g.s;
   for (const nation of s.nations) {
-    if (!nation.alive || nation.kind === "crown") continue;
+    if (!nation.alive || nation.kind === "crown" || nation.kind === "rebels")
+      continue;
     const people = nationCharacters(s, nation.id);
     for (const c of people) {
-      if (!c.alive) continue;
+      if (!c.alive || c.abroad) continue;
       forget(g, c);
+      if (skipped(g, c.id)) continue;
       if (rollDeath(g, c)) continue;
       rollBirth(g, c);
       scheme(g, c);
@@ -419,7 +359,10 @@ export function kill(g: ConquestGame, c: Character, cause: string): void {
   ch.scheme = null;
   if (ch.spouse >= 0 && s.chars[ch.spouse]) g.char(ch.spouse).spouse = -1;
   const n = s.nations[ch.nation];
-  if (!n) return;
+  if (!n) {
+    for (const h of hooks.death) h(g, ch, cause);
+    return;
+  }
   const important =
     n.ruler === ch.id ||
     (Object.values(n.council) as number[]).includes(ch.id) ||
@@ -430,6 +373,7 @@ export function kill(g: ConquestGame, c: Character, cause: string): void {
   if (n.court.includes(ch.id))
     g.nation(n.id).court = n.court.filter((x) => x !== ch.id);
   if (n.ruler === ch.id) succession(g, n.id);
+  for (const h of hooks.death) h(g, ch, cause);
 }
 
 function isFamily(s: GameState, ruler: number, c: number): boolean {
@@ -447,6 +391,7 @@ function rollBirth(g: ConquestGame, c: Character): void {
   const kid = birth(s, g.rng, father, g.touchChar(c), 0);
   g.touchChar(kid);
   c.lastBirth = s.day;
+  for (const h of hooks.birth) h(g, kid, c, father);
   const n = s.nations[father.nation];
   if (n && (n.ruler === father.id || n.ruler === c.id))
     g.event({ k: "born", day: s.day, n: n.id, c: kid.id });
@@ -573,8 +518,18 @@ export function succession(g: ConquestGame, n: number, how?: string): void {
   let next: Character | undefined;
   let why = how ?? "";
   if (nation.kind === "native") {
+    let chosen = -1;
+    for (const h of hooks.successor) {
+      chosen = h(g, n);
+      if (chosen >= 0) break;
+    }
     const elder = s.chars[nation.council.marshal];
-    if (elder?.alive && g.rng.chance(0.5)) {
+    if (chosen >= 0 && s.chars[chosen]?.alive) {
+      next = s.chars[chosen];
+      for (const seat of SEATS)
+        if (nation.council[seat] === next.id) nation.council[seat] = -1;
+      why = "chosen by the council fire";
+    } else if (elder?.alive && g.rng.chance(0.5)) {
       next = elder;
       nation.council.marshal = -1;
       why = "chosen by the elders from the war chiefs";
@@ -592,7 +547,10 @@ export function succession(g: ConquestGame, n: number, how?: string): void {
     }
     next.title = `${nativeTitle(nation.key)} of the ${nation.name}`;
   } else {
-    const heir = old ? s.chars[findHeir(s, old)] : undefined;
+    // A crown colony's governor is the crown's to appoint; only a colony
+    // that has made itself independent lets a governor's line inherit.
+    const heir =
+      old && nation.independent ? s.chars[findHeir(s, old)] : undefined;
     if (heir?.alive && !how) {
       next = heir;
       why =
@@ -606,9 +564,18 @@ export function succession(g: ConquestGame, n: number, how?: string): void {
         fx: { favor: -5 },
       });
     } else {
+      let picked = -1;
+      for (const h of hooks.successor) {
+        picked = h(g, n);
+        if (picked >= 0) break;
+      }
       const candidates = SEATS.map(
         (seat) => s.chars[nation.council[seat]],
       ).filter((c): c is Character => !!c?.alive);
+      if (picked >= 0 && s.chars[picked]?.alive) {
+        candidates.splice(0, candidates.length, s.chars[picked]);
+        why = why || "appointed by the crown";
+      }
       candidates.sort(
         (a, b) =>
           stat(s, b, "ste") +

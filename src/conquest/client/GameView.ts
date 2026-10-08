@@ -1,63 +1,69 @@
-// The game screen: a banner in your nation's colours along the top (who you
-// are, the date, the treasury, the crown), ledger tabs down the left, the
-// map filling the rest, and letters that arrive and wait for an answer.
+// The game screen: a banner along the top (your portrait, who you are, your
+// purse, health, stress and renown, the date and the clock), ledger tabs down
+// the left, the map filling the rest with you on it, and what happens to you
+// arriving as letters that wait for an answer.
 
 import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { bananaMark } from "../../derpland/Icons";
 import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
+import {
+  ageOfLife,
+  lifeIsNative,
+  lifeOfSeat,
+  lifeTitle,
+  meOf,
+  monthlyBudget,
+  promotionView,
+  travelRoute,
+} from "../engine/LifeQueries";
 import { AMERICAS, worldOf } from "../engine/Map";
 import { findPath } from "../engine/Paths";
+import { armySpeed, charName } from "../engine/Queries";
 import {
-  adminCapacity,
-  adminUsed,
-  armySpeed,
-  autonomyTarget,
-  colonizeCheck,
-  emigration,
-  favorTarget,
-  nationSettlers,
-  overextension,
-  rulerOf,
-} from "../engine/Queries";
-import { INDEPENDENCE_AUTONOMY, SPEED_DAYS_PER_SECOND } from "../engine/Rules";
+  MAX_SPEED,
+  SPEED_DAYS_PER_SECOND,
+  SPEED_LABELS,
+} from "../engine/Rules";
 import type {
   Army,
-  Command,
   GameEvent,
   GameState,
+  Life,
+  LifeCommand,
+  LifePlan,
   RawGood,
   Terrain,
 } from "../engine/Types";
 import type { ResultLine, SeatInfo, ServerMessage } from "../Protocol";
-import { flagFor } from "./Flags";
 import {
-  ArmyIcon,
-  CrownIcon,
-  LedgerIcon,
+  AffairsIcon,
+  HereIcon,
+  JournalIcon,
   LetterIcon,
   PeopleIcon,
-  QuillIcon,
-  ScrollIcon,
+  SelfIcon,
+  WorldIcon,
 } from "./Icons";
-import { loadGeo, MapMode, MapView, ramp, TERRAIN_TINT } from "./MapView";
+import {
+  LifeMark,
+  loadGeo,
+  MapMode,
+  MapView,
+  ramp,
+  TERRAIN_TINT,
+} from "./MapView";
 import { Net } from "./Net";
+import { likenessOf } from "./Portrait";
 import { confirmMarch, setConfirmMarch } from "./Prefs";
 import { music, play, unlockOnFirstGesture } from "./Sound";
-import {
-  describeEvent,
-  GOOD_COLORS,
-  GOOD_NAMES,
-  money,
-  nationName,
-  people,
-  TERRAIN_NAMES,
-} from "./Text";
+import { describeEvent, GOOD_COLORS, GOOD_NAMES, TERRAIN_NAMES } from "./Text";
 import { nationVars } from "./Theme";
 import { hideTip, num, plain } from "./Tip";
+import { affairsTab } from "./ui/Affairs";
 import { armyPanel } from "./ui/ArmyPanel";
-import { battleDispatch } from "./ui/Battle";
+import { battleDispatch, myBattleNation } from "./ui/Battle";
 import {
   breakdownTip,
   DrawerView,
@@ -66,14 +72,11 @@ import {
   Tab,
   token,
 } from "./ui/Context";
-import { characterSheet, courtTab } from "./ui/Court";
-import { crownTab } from "./ui/Crown";
-import { economyTab } from "./ui/Economy";
-import { militaryTab } from "./ui/Military";
+import { herePanel, provincePage } from "./ui/Here";
+import { journalTab } from "./ui/Journal";
 import { ModalHooks, renderModal } from "./ui/Modals";
-import { diplomacyTab, nationPanel } from "./ui/NationPanel";
-import { peopleTab } from "./ui/People";
-import { provincePanel } from "./ui/ProvincePanel";
+import { personPage, youTab } from "./ui/Sheet";
+import { nationPage, peopleTab, worldTab } from "./ui/World";
 
 export type GameStart = Extract<ServerMessage, { t: "game" }>;
 
@@ -97,12 +100,12 @@ interface Toast {
 }
 
 const TABS: { id: Tab; label: string; icon: () => TemplateResult }[] = [
-  { id: "court", label: "Court", icon: QuillIcon },
-  { id: "crown", label: "Crown", icon: CrownIcon },
-  { id: "economy", label: "Treasury", icon: LedgerIcon },
+  { id: "here", label: "Here", icon: HereIcon },
+  { id: "you", label: "You", icon: SelfIcon },
   { id: "people", label: "People", icon: PeopleIcon },
-  { id: "military", label: "War", icon: ArmyIcon },
-  { id: "diplomacy", label: "Diplomacy", icon: ScrollIcon },
+  { id: "affairs", label: "Affairs", icon: AffairsIcon },
+  { id: "journal", label: "Journal", icon: JournalIcon },
+  { id: "world", label: "World", icon: WorldIcon },
 ];
 
 /** "1:05" */
@@ -118,6 +121,8 @@ const MODES: { id: MapMode; label: string }[] = [
   { id: "people", label: "People" },
 ];
 
+const NO_SET = new Set<number>();
+
 @customElement("cq-game")
 export class GameView extends LitElement {
   @property({ attribute: false }) net!: Net;
@@ -129,32 +134,30 @@ export class GameView extends LitElement {
   @state() private modalView: Modal | null = null;
   @state() private mode: MapMode = "nation";
   @state() private log: LogLine[] = [];
-  @state() private logOpen = window.innerWidth > 820;
+  @state() private logOpen = false;
   @state() private toasts: Toast[] = [];
-  @state() private picking: number | null = null;
+  /** Choosing on the map where your army marches. */
+  @state() private picking = false;
   @state() private chatText = "";
   @state() private results: ResultLine[] | null = null;
   @state() private savedAt: string | null = null;
-  /** Battles of yours that just ended, shown as dispatches. */
+  /** Battles you were in that just ended, shown as dispatches. */
   @state() private dispatches: number[] = [];
-  /** "March there?" after a right-click, where it was clicked. */
-  @state() private marchAsk: {
-    army: number;
+  /** "Go there?" after a right-click, where it was clicked. */
+  @state() private ask: {
     to: number;
-    days: number;
     x: number;
     y: number;
+    march: boolean;
   } | null = null;
-  /** The log follows the newest line unless the player has scrolled up. */
   private logStuck = true;
 
   private s!: GameState;
-  private me = -1;
   private you = "";
   private host = "";
   private solo = false;
   private code = "";
-  private speed = 2;
+  private speed = 1;
   private paused = false;
   private seats: SeatInfo[] = [];
   private dayAt = 0;
@@ -165,25 +168,30 @@ export class GameView extends LitElement {
   private preview: number[] | null = null;
   private hoverProv: number | null = null;
   private flashes = new Map<number, number>();
-  private seenLetters = new Set<number>();
+  private seenEvents = new Set<number>();
+  /** The clock was stopped for a letter (alone), not by the player. */
+  private autoPaused = false;
+  /** The last journal entry we've shown, to toast the new ones. */
+  private journalMark = "";
   private nextId = 1;
   private frame = 0;
   private lastDraw = 0;
   private lastRender = 0;
   private renderTimer = 0;
   private resizeObs: ResizeObserver | null = null;
-  private colonizable: { key: string; set: Set<number> } | null = null;
-  private explored: { n: number; set: Set<number> } | null = null;
-  /** Seconds left on each letter, as the server last said, and when. */
   private letterLeft = new Map<number, number>();
   private letterAt = 0;
   private letterTimer = 0;
+  private roadCache: {
+    key: string;
+    road: { from: number; path: number[]; sea: boolean[] } | null;
+  } | null = null;
 
   createRenderRoot() {
     return this;
   }
 
-  // ---------------------------------------------------------------- life
+  // ---------------------------------------------------------------- lifecycle
 
   connectedCallback(): void {
     super.connectedCallback();
@@ -191,7 +199,6 @@ export class GameView extends LitElement {
     window.addEventListener("keydown", this.onKey);
     unlockOnFirstGesture();
     music.start();
-    // Letter countdowns tick once a second while the clock runs.
     this.letterTimer = window.setInterval(() => {
       if (this.letterLeft.size && !this.paused) this.tick++;
     }, 1000);
@@ -216,6 +223,26 @@ export class GameView extends LitElement {
 
   protected willUpdate(changed: PropertyValues<this>): void {
     if (changed.has("start") && this.start) this.load(this.start);
+    if (!this.s) return;
+    // An open letter that's been settled (answered, or decided for you)
+    // gives way to the next one waiting, or closes.
+    const m = this.modalView;
+    if (m?.k === "event") {
+      const waiting = this.life?.events ?? [];
+      if (!waiting.some((e) => e.id === m.id))
+        this.modalView = waiting[0] ? { k: "event", id: waiting[0].id } : null;
+    }
+    // Alone, the clock stopped for a letter starts again once they're all
+    // answered.
+    if (
+      this.autoPaused &&
+      this.paused &&
+      this.modalView === null &&
+      (this.life?.events.length ?? 0) === 0
+    ) {
+      this.autoPaused = false;
+      this.net.send({ t: "pause", p: false });
+    }
   }
 
   protected updated(): void {
@@ -228,11 +255,14 @@ export class GameView extends LitElement {
     this.logStuck = ol.scrollHeight - ol.scrollTop - ol.clientHeight < 24;
   }
 
+  private get life(): Life | null {
+    return this.s ? (lifeOfSeat(this.s, this.you) ?? null) : null;
+  }
+
   private load(m: GameStart): void {
     const fresh = this.code !== m.code;
     this.s = m.state;
     this.you = m.you;
-    this.me = m.state.nations.findIndex((n) => n.player === m.you);
     this.host = m.host;
     this.solo = m.solo;
     this.code = m.code;
@@ -241,23 +271,25 @@ export class GameView extends LitElement {
     this.seats = m.seats;
     this.dayAt = performance.now();
     this.setMood();
+    const life = this.life;
     if (fresh) {
       this.log = [];
       this.results = null;
+      this.logOpen = window.innerWidth > 820;
       this.stack =
-        this.me >= 0 && this.s.day < 30 ? [{ k: "tab", tab: "court" }] : [];
+        life && !life.watching && window.innerWidth > 820
+          ? [{ k: "tab", tab: "here" }]
+          : [];
       this.modalView = null;
-      this.seenLetters = new Set(
-        this.me >= 0 ? this.s.nations[this.me].events.map((e) => e.id) : [],
-      );
+      this.seenEvents = new Set(life?.events.map((e) => e.id) ?? []);
+      this.journalMark = this.markOf(life);
       this.selectedArmy = null;
       this.selectedProv = null;
       void this.updateComplete.then(() => this.attachMap(true));
-      // A letter already waiting when you sit down (solo; in company it waits
-      // in the tray so the game isn't blocked).
-      const first =
-        this.me >= 0 ? this.s.nations[this.me].events[0] : undefined;
+      const first = life?.events[0];
       if (first && this.solo) this.modalView = { k: "event", id: first.id };
+      // Joined a running world without a character: make one.
+      if (!life && !m.state.over) this.modalView = { k: "maker" };
     }
     if (this.s.over) this.modalView = { k: "end" };
   }
@@ -267,7 +299,7 @@ export class GameView extends LitElement {
     const host = this.querySelector<HTMLElement>(".cq-map-host");
     if (!host) return;
     this.view ??= new MapView(map, world, geo, {
-      click: (p, army, e) => this.onMapClick(p, army, e),
+      click: (p, army, e, person) => this.onMapClick(p, army, e, person),
       rightClick: (p, at) => this.onMapRightClick(p, at),
       hover: (p) => this.onHover(p),
     });
@@ -279,11 +311,13 @@ export class GameView extends LitElement {
     );
     this.resizeObs.observe(host);
     if (focus) {
-      const capital =
-        this.me >= 0
-          ? this.s.nations[this.me].capital
-          : map.powers[0].provinces[0];
-      this.view.focus(capital, 2.6);
+      const life = this.life;
+      const at =
+        life && life.c >= 0
+          ? life.prov
+          : (this.s.nations.find((n) => n.kind === "power" && n.alive)
+              ?.capital ?? 0);
+      this.view.focus(at, 3.2);
     }
   }
 
@@ -293,10 +327,18 @@ export class GameView extends LitElement {
     if (!this.s) return;
     switch (m.t) {
       case "d": {
+        const before = this.life;
+        const where = before?.prov ?? -1;
+        const inArmy =
+          !!before &&
+          before.c >= 0 &&
+          ((before.job?.army ?? -1) >= 0 ||
+            this.s.armies.some((a) => a.commander === before.c));
+        const wasWatching = before?.watching ?? true;
         applyDelta(this.s, m.d);
         this.dayAt = performance.now();
-        for (const e of m.d.events ?? []) this.onEvent(e);
-        this.checkLetters();
+        for (const e of m.d.events ?? []) this.onEvent(e, where, inArmy);
+        this.afterLife(wasWatching);
         if (m.d.over) this.modalView = { k: "end" };
         if (m.d.prov || m.d.nations) this.view?.markDirty();
         if (m.d.wars) this.setMood();
@@ -318,7 +360,7 @@ export class GameView extends LitElement {
         this.dayAt = performance.now();
         if (m.by && m.by !== this.myName() && !this.solo)
           this.toast(
-            `${m.by} ${m.paused ? "paused the game" : `set the speed to ${m.speed}`}.`,
+            `${m.by} ${m.paused ? "paused the game" : `set the speed to ${SPEED_LABELS[m.speed]}`}.`,
           );
         this.requestRender();
         return;
@@ -344,95 +386,93 @@ export class GameView extends LitElement {
     }
   };
 
-  /** Fife and drum while we're at war, lute and harpsichord in peace. */
+  /** After a delta: new letters, new journal lines, a new life begun. */
+  private afterLife(wasWatching: boolean): void {
+    const life = this.life;
+    if (!life) return;
+    if (wasWatching && !life.watching) {
+      // A takeover or a new character: off we go.
+      if (this.modalView?.k === "maker" || this.modalView?.k === "takeover")
+        this.modalView = null;
+      this.view?.focus(life.prov, 3.2);
+      this.stack = [{ k: "tab", tab: "here" }];
+      this.journalMark = this.markOf(life);
+    }
+    // What's new in the journal pops up for a moment.
+    const fresh = this.newEntries(life);
+    for (const e of fresh.slice(-2)) this.toast(e.text, e.tone ?? "");
+    if (fresh.some((e) => e.tone === "good")) play("bell");
+    // Events that need an answer.
+    const waiting = life.events.filter((e) => !this.seenEvents.has(e.id));
+    if (waiting.length) {
+      for (const e of waiting) this.seenEvents.add(e.id);
+      play("letter");
+      if (this.solo) {
+        this.modalView ??= { k: "event", id: waiting[0].id };
+        if (!this.paused) {
+          this.net.send({ t: "pause", p: true });
+          this.autoPaused = true;
+        }
+      }
+    }
+    if (life.watching && !wasWatching) {
+      this.stack = [{ k: "tab", tab: "here" }];
+      play("defeat");
+    }
+  }
+
+  private markOf(life: Life | null): string {
+    const last = life?.journal[life.journal.length - 1];
+    return last ? `${last.day}|${last.c}|${last.text}` : "";
+  }
+
+  private newEntries(life: Life): Life["journal"] {
+    const j = life.journal;
+    if (!this.journalMark) {
+      this.journalMark = this.markOf(life);
+      return j.slice(-1);
+    }
+    let i = j.length - 1;
+    while (i >= 0 && `${j[i].day}|${j[i].c}|${j[i].text}` !== this.journalMark)
+      i--;
+    this.journalMark = this.markOf(life);
+    return i < 0 ? j.slice(-2) : j.slice(i + 1);
+  }
+
+  /** Fife and drum while your people are at war, lute and harpsichord in peace. */
   private setMood(): void {
-    const me = this.me;
-    const fighting =
-      me >= 0 && this.s.wars.some((w) => w.a === me || w.b === me);
+    const n = this.nationNow();
+    const fighting = n >= 0 && this.s.wars.some((w) => w.a === n || w.b === n);
     music.setMood(fighting ? "war" : "peace");
+  }
+
+  /** The nation you feel the news through: the one you serve, or your own. */
+  private nationNow(): number {
+    const life = this.life;
+    const me = life ? meOf(this.s, life) : undefined;
+    if (!life || !me || life.watching) return -1;
+    if (life.job && life.job.nation >= 0) return life.job.nation;
+    return me.nation;
   }
 
   private myName(): string {
     return this.seats.find((x) => x.id === this.you)?.name ?? "";
   }
 
-  private onEvent(e: GameEvent): void {
+  private onEvent(e: GameEvent, where: number, inArmy: boolean): void {
     if (e.k === "battle") this.flashes.set(e.p, performance.now());
-    this.soundFor(e);
-    const text = describeEvent(this.s, map, this.me, e);
-    if (!text) return;
-    const me = this.me;
-    let tone: LogLine["tone"] = "";
-    let alert = false;
-    switch (e.k) {
-      case "battle": {
-        const weAttacked = e.a.includes(me);
-        tone = (e.w === 0) === weAttacked ? "good" : "bad";
-        alert = true;
-        break;
+    const n = this.nationNow();
+    const text = describeEvent(this.s, map, n, e);
+    // Your battle: a dispatch explaining how it went.
+    if (e.k === "battle" && inArmy && e.p === where) {
+      play("cannon");
+      const r = this.s.battles.find((b) => b.id === e.id);
+      if (r) {
+        const side = myBattleNation(this.ui, r);
+        const won =
+          side >= 0 && (r.winner === 0) === r.attacker.nations.includes(side);
+        setTimeout(() => play(won ? "victory" : "defeat"), 900);
       }
-      case "war":
-        tone = e.on === me ? "bad" : "";
-        alert = e.on === me || e.n === me;
-        break;
-      case "occupied":
-      case "razed":
-        tone = e.from === me ? "bad" : "good";
-        alert = true;
-        break;
-      case "siege":
-        alert = e.from === me;
-        tone = e.from === me ? "bad" : "";
-        break;
-      case "revolt":
-        tone = "bad";
-        alert = true;
-        break;
-      case "peace":
-      case "treaty":
-      case "colony":
-      case "bought":
-      case "ceded":
-        tone = e.k === "ceded" && e.from === me ? "bad" : "good";
-        alert = e.k !== "colony" || e.n === me;
-        break;
-      case "offer":
-        alert = true;
-        break;
-      case "refused":
-        tone = "bad";
-        alert = true;
-        break;
-      case "died":
-      case "succession":
-      case "scheme":
-        alert = e.n === me;
-        tone = e.k === "scheme" && e.done ? "bad" : "";
-        break;
-      case "independence":
-      case "over":
-      case "fallen":
-      case "europe":
-        alert = true;
-        break;
-      case "deal":
-        tone =
-          e.status === "refused" ? "bad" : e.status === "done" ? "good" : "";
-        alert = e.n === me || e.with === me;
-        break;
-      case "tributary":
-        tone =
-          e.by === me ? (e.free ? "bad" : "good") : e.n === me ? "bad" : "";
-        alert = e.by === me || e.n === me;
-        break;
-      case "abandoned":
-      case "ordered":
-        alert = e.n === me;
-        break;
-    }
-    this.addLog(text, tone, e.k === "battle" ? e.id : undefined, e.day);
-    // Your battles get a dispatch explaining the outcome instead of a note.
-    if (e.k === "battle" && (e.a.includes(me) || e.d.includes(me))) {
       this.dispatches = [
         ...this.dispatches.filter((id) => id !== e.id),
         e.id,
@@ -442,51 +482,32 @@ export class GameView extends LitElement {
         () => (this.dispatches = this.dispatches.filter((x) => x !== id)),
         15000,
       );
-      return;
     }
-    if (alert) this.toast(text, tone);
-  }
-
-  private soundFor(e: GameEvent): void {
-    const me = this.me;
-    if (me < 0) return;
+    if (!text) return;
+    let tone: LogLine["tone"] = "";
     switch (e.k) {
       case "battle":
-        if (e.a.includes(me) || e.d.includes(me)) {
-          play("cannon");
-          const won = (e.w === 0) === e.a.includes(me);
-          setTimeout(() => play(won ? "victory" : "defeat"), 900);
-        }
-        return;
+        tone = (e.w === 0) === e.a.includes(n) ? "good" : "bad";
+        break;
       case "war":
-        if (e.n === me || e.on === me) play("drums");
-        return;
-      case "colony":
-        if (e.n === me) play("colony");
-        return;
-      case "convoy":
-        if (e.n === me && !e.out) play("bell");
-        return;
-      case "mission":
-        if (e.n === me && e.result !== "lost") play("bell");
-        return;
-      case "deal":
-        if ((e.n === me || e.with === me) && e.status === "done") play("coins");
-        if (e.with === me && e.status === "offered") play("paper");
-        return;
-      case "ordered":
-        if (e.n === me) play("coins");
-        return;
-      case "tributary":
-        if (e.by === me && !e.free) play("honour");
-        return;
-      case "crown":
-        if (e.n === me) play("honour");
-        return;
+        tone = e.on === n ? "bad" : "";
+        if (e.n === n || e.on === n) play("drums");
+        break;
+      case "occupied":
+      case "razed":
+        tone = e.from === n ? "bad" : "good";
+        break;
+      case "revolt":
+        tone = "bad";
+        break;
+      case "peace":
+        tone = "good";
+        break;
     }
+    this.addLog(text, tone, e.k === "battle" ? e.id : undefined, e.day);
   }
 
-  /** Seconds a letter has left now (counting down while the clock runs). */
+  /** Seconds an event has left now (counting down while the clock runs). */
   private secondsLeft(id: number): number | null {
     const left = this.letterLeft.get(id);
     if (left === undefined) return null;
@@ -506,28 +527,12 @@ export class GameView extends LitElement {
     ].slice(0, 120);
   }
 
-  /** New letters: in a solo game the clock stops and the letter opens. */
-  private checkLetters(): void {
-    if (this.me < 0) return;
-    const fresh = this.s.nations[this.me].events.filter(
-      (e) => !this.seenLetters.has(e.id),
-    );
-    if (fresh.length === 0) return;
-    for (const e of fresh) this.seenLetters.add(e.id);
-    play("letter");
-    if (this.solo) {
-      // Alone, the clock stops and the letter opens.
-      this.modalView ??= { k: "event", id: fresh[0].id };
-      if (!this.paused) this.net.send({ t: "pause", p: true });
-    }
-  }
-
   private toast(text: string, tone: Toast["tone"] = ""): void {
     const id = this.nextId++;
     this.toasts = [...this.toasts.slice(-2), { id, text, tone }];
     setTimeout(() => {
       this.toasts = this.toasts.filter((t) => t.id !== id);
-    }, 5500);
+    }, 6000);
   }
 
   /** Panels re-render a few times a second at most. */
@@ -546,7 +551,7 @@ export class GameView extends LitElement {
     }, 260);
   }
 
-  private async cmd(c: Command): Promise<boolean> {
+  private async cmd(c: LifeCommand): Promise<boolean> {
     const err = await this.net.command(c);
     if (err) this.toast(err, "bad");
     this.requestRender();
@@ -566,11 +571,16 @@ export class GameView extends LitElement {
     if (e.key === " ") {
       e.preventDefault();
       this.setPaused(!this.paused);
-    } else if (/^[1-5]$/.test(e.key)) {
+    } else if (/^[1-4]$/.test(e.key)) {
       this.setSpeed(Number(e.key));
     } else if (e.key === "Escape") {
-      if (this.picking !== null) this.picking = null;
-      else if (this.modalView && this.modalView.k !== "event")
+      if (this.picking) this.picking = false;
+      else if (this.ask) this.ask = null;
+      else if (
+        this.modalView &&
+        this.modalView.k !== "event" &&
+        this.modalView.k !== "end"
+      )
         this.modalView = null;
       else if (this.stack.length) this.stack = [];
       this.selectedArmy = null;
@@ -583,13 +593,26 @@ export class GameView extends LitElement {
     }
   };
 
+  private get canSetSpeed(): boolean {
+    return this.solo || this.host === this.you;
+  }
+
   private setPaused(p: boolean): void {
-    if (this.me < 0 || this.s.over) return;
+    if (this.s.over) return;
+    this.autoPaused = false;
+    if (!p && !this.canSetSpeed) {
+      this.toast("The host sets the clock going again.");
+      return;
+    }
     this.net.send({ t: "pause", p });
   }
 
   private setSpeed(sp: number): void {
-    if (this.me < 0 || this.s.over) return;
+    if (this.s.over || sp < 1 || sp > MAX_SPEED) return;
+    if (!this.canSetSpeed) {
+      this.toast("The host sets the speed.");
+      return;
+    }
     this.net.send({ t: "speed", s: sp });
   }
 
@@ -603,13 +626,68 @@ export class GameView extends LitElement {
     );
   }
 
+  private marks(): LifeMark[] {
+    const s = this.s;
+    const out: LifeMark[] = [];
+    for (const l of s.lives) {
+      const c = meOf(s, l);
+      if (!c || l.watching) continue;
+      const n = s.nations[c.nation];
+      const led = s.armies.find((a) => a.commander === c.id);
+      out.push({
+        c: c.id,
+        p: l.prov,
+        travel: l.travel,
+        army: led?.id ?? l.job?.army ?? -1,
+        frame: l.frame,
+        face: likenessOf(c, {
+          age: ageOfLife(s, l),
+          color: n?.color ?? "#6b4f33",
+          native: lifeIsNative(s, l),
+        }),
+        label: l.seat === this.you ? "" : l.name,
+        you: l.seat === this.you,
+      });
+    }
+    // Yours on top.
+    return out.sort((a, b) => Number(a.you) - Number(b.you));
+  }
+
+  /** The road to the province you're looking at, if you could go. */
+  private road(): { from: number; path: number[]; sea: boolean[] } | null {
+    const life = this.life;
+    const cur = this.stack[this.stack.length - 1];
+    const p =
+      cur?.k === "prov"
+        ? cur.p
+        : this.ask && !this.ask.march
+          ? this.ask.to
+          : null;
+    if (!life || life.watching || life.c < 0 || p === null) return null;
+    const from = life.travel ? life.travel.path[0] : life.prov;
+    if (p === from) return null;
+    const key = `${from}:${p}:${Math.floor(this.s.day / 10)}`;
+    if (this.roadCache?.key === key) return this.roadCache.road;
+    const native = lifeIsNative(this.s, life);
+    const sailor = life.job?.kind === "sailor";
+    const land = travelRoute(this.s, map, from, p, false, native, sailor);
+    const sea = travelRoute(this.s, map, from, p, true, native, sailor);
+    const best =
+      sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1)
+        ? sea
+        : land;
+    const road = best ? { from, path: best.path, sea: best.sea } : null;
+    this.roadCache = { key, road };
+    return road;
+  }
+
   private drawMap(t: number): void {
     if (!this.view || !this.s) return;
     for (const [p, at] of this.flashes)
       if (performance.now() - at > 4000) this.flashes.delete(p);
     this.view.overlay = {
       state: this.s,
-      me: this.me,
+      me: this.nationNow(),
       dayNow: this.dayNow(),
       running: !this.paused && !this.s.over,
       selectedProv: this.selectedProv,
@@ -617,10 +695,13 @@ export class GameView extends LitElement {
       battles: this.flashes,
       preview: this.preview,
       mode: this.mode,
-      colonizable: this.colonizableSet(),
-      explored: this.exploredSet(),
+      colonizable: NO_SET,
+      explored: null,
+      lives: this.marks(),
+      road: this.road(),
     };
-    const animating = !this.paused || this.flashes.size > 0;
+    const moving = this.s.lives.some((l) => l.travel);
+    const animating = !this.paused || this.flashes.size > 0 || moving;
     if (this.view.needsDraw || (animating && t - this.lastDraw > 32)) {
       this.lastDraw = t;
       this.view.needsDraw = false;
@@ -628,50 +709,34 @@ export class GameView extends LitElement {
     }
   }
 
-  /** What you've surveyed (null when watching: you see everything). */
-  private exploredSet(): Set<number> | null {
-    const me = this.me >= 0 ? this.s.nations[this.me] : null;
-    if (!me || me.kind !== "power") return null;
-    if (this.explored?.n !== me.explored.length) {
-      this.explored = { n: me.explored.length, set: new Set(me.explored) };
-      this.view?.markDirty();
-    }
-    return this.explored.set;
-  }
-
-  /** Open land you could settle now; worked out again when the day or treasury changes. */
-  private colonizableSet(): Set<number> {
-    const me = this.me >= 0 ? this.s.nations[this.me] : null;
-    if (!me || me.kind !== "power" || this.s.over || this.mode !== "nation")
-      return new Set();
-    const key = `${this.s.day}:${Math.floor(me.gold)}`;
-    if (this.colonizable?.key === key) return this.colonizable.set;
-    const set = new Set<number>();
-    for (let p = 0; p < this.s.provinces.length; p++) {
-      const pr = this.s.provinces[p];
-      if (
-        pr.owner === -1 &&
-        !pr.colony &&
-        colonizeCheck(this.s, world, this.me, p).ok
-      )
-        set.add(p);
-    }
-    this.colonizable = { key, set };
-    this.view?.markDirty();
-    return set;
+  private commanded(): Army | undefined {
+    const life = this.life;
+    return life && life.c >= 0
+      ? this.s.armies.find((a) => a.commander === life.c)
+      : undefined;
   }
 
   private onMapClick(
     p: number | null,
     army: Army | null,
     e: PointerEvent,
+    person: number | null,
   ): void {
     hideTip();
-    if (this.picking !== null) {
-      const id = this.picking;
-      this.picking = null;
-      if (p !== null) void this.cmd({ k: "move", a: id, to: p });
+    this.ask = null;
+    if (this.picking) {
+      this.picking = false;
       this.preview = null;
+      if (p !== null) this.march(p);
+      return;
+    }
+    if (person !== null) {
+      const life = this.life;
+      this.open(
+        life?.c === person
+          ? { k: "tab", tab: "you" }
+          : { k: "char", c: person },
+      );
       return;
     }
     if (army) {
@@ -681,57 +746,58 @@ export class GameView extends LitElement {
       this.open({ k: "army", id: army.id });
       return;
     }
-    if (e.shiftKey && p !== null && this.ownSelectedArmy()) {
+    if (e.shiftKey && p !== null) {
       this.onMapRightClick(p, { x: e.clientX, y: e.clientY });
       return;
     }
-    this.marchAsk = null;
     this.selectedArmy = null;
     this.preview = null;
     this.selectedProv = p;
-    if (p !== null) this.open({ k: "prov", p });
+    const life = this.life;
+    if (p !== null)
+      this.open(
+        life && !life.watching && p === life.prov && !life.travel
+          ? { k: "tab", tab: "here" }
+          : { k: "prov", p },
+      );
     if (this.view) this.view.needsDraw = true;
   }
 
-  private ownSelectedArmy(): Army | undefined {
-    return this.s.armies.find(
-      (a) => a.id === this.selectedArmy && a.owner === this.me,
-    );
-  }
-
+  /** Right-click (or long-press): go there, or march your army there. */
   private onMapRightClick(
     p: number | null,
     at?: { x: number; y: number },
   ): void {
     if (p === null) return;
-    const a = this.ownSelectedArmy();
-    if (!a) {
+    const life = this.life;
+    if (!life || life.watching || life.c < 0) {
       this.selectedProv = p;
       this.open({ k: "prov", p });
       return;
     }
-    if (confirmMarch() && at) {
-      const from = a.depart >= 0 && a.path.length ? a.path[0] : a.prov;
-      const route = findPath(this.s, map, this.me, from, p, armySpeed(a));
-      if (!route) {
-        this.toast("They can't get there.", "bad");
-        return;
-      }
-      this.marchAsk = {
-        army: a.id,
-        to: p,
-        days: Math.ceil(route.days),
-        x: at.x,
-        y: at.y,
-      };
+    const a = this.commanded();
+    if (a) {
+      if (confirmMarch() && at)
+        this.ask = { to: p, x: at.x, y: at.y, march: true };
+      else this.march(p);
       return;
     }
-    this.march(a.id, p);
+    if (p === life.prov && !life.travel) {
+      this.open({ k: "tab", tab: "here" });
+      return;
+    }
+    this.selectedProv = p;
+    this.ask = {
+      to: p,
+      x: at?.x ?? innerWidth / 2,
+      y: at?.y ?? innerHeight / 2,
+      march: false,
+    };
   }
 
-  private march(army: number, to: number): void {
-    this.marchAsk = null;
-    void this.cmd({ k: "move", a: army, to }).then((ok) => {
+  private march(to: number): void {
+    this.ask = null;
+    void this.cmd({ k: "march", to }).then((ok) => {
       if (ok) {
         this.preview = null;
         play("drums");
@@ -739,52 +805,117 @@ export class GameView extends LitElement {
     });
   }
 
-  private marchPopup(): TemplateResult | typeof nothing {
-    const m = this.marchAsk;
-    if (!m) return nothing;
+  private travel(to: number, bySea: boolean): void {
+    this.ask = null;
+    void this.cmd({ k: "travel", to, bySea }).then((ok) => {
+      if (ok) {
+        play("paper");
+        this.stack = [{ k: "tab", tab: "here" }];
+      }
+    });
+  }
+
+  private askPopup(): TemplateResult | typeof nothing {
+    const m = this.ask;
+    const life = this.life;
+    if (!m || !life) return nothing;
     const place = map.provinces[m.to].name;
-    const left = Math.max(8, Math.min(m.x + 8, window.innerWidth - 268));
-    const top = Math.max(70, Math.min(m.y + 8, window.innerHeight - 160));
+    const left = Math.max(8, Math.min(m.x + 8, window.innerWidth - 288));
+    const top = Math.max(70, Math.min(m.y + 8, window.innerHeight - 190));
+    let body: TemplateResult;
+    if (m.march) {
+      const a = this.commanded();
+      const from =
+        a && a.depart >= 0 && a.path.length
+          ? a.path[0]
+          : (a?.prov ?? life.prov);
+      const route = a
+        ? findPath(this.s, map, a.owner, from, m.to, armySpeed(a))
+        : null;
+      body = html`<p>
+          March the army to <b>${place}</b>?
+          <span class="cq-muted small"
+            >${route
+              ? `About ${Math.ceil(route.days)} days.`
+              : "They can't get there."}</span
+          >
+        </p>
+        <div class="cq-btnrow">
+          <button
+            class="cq-btn small primary"
+            ?disabled=${!route}
+            @click=${() => this.march(m.to)}
+          >
+            March
+          </button>
+          <button class="cq-btn small quiet" @click=${() => (this.ask = null)}>
+            Cancel
+          </button>
+        </div>`;
+    } else {
+      const from = life.travel ? life.travel.path[0] : life.prov;
+      const native = lifeIsNative(this.s, life);
+      const sailor = life.job?.kind === "sailor";
+      const land = travelRoute(this.s, map, from, m.to, false, native, sailor);
+      const sea = travelRoute(this.s, map, from, m.to, true, native, sailor);
+      const seaBetter =
+        sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1);
+      body = html`<p>Go to <b>${place}</b>?</p>
+        ${!land && !seaBetter
+          ? html`<p class="cq-muted small">There's no way there from here.</p>`
+          : nothing}
+        <div class="cq-btnrow">
+          ${land
+            ? html`<button
+                class="cq-btn small primary"
+                @click=${() => this.travel(m.to, false)}
+              >
+                Overland, ${Math.ceil(land.days)} days, ${land.cost}c
+              </button>`
+            : nothing}
+          ${seaBetter
+            ? html`<button
+                class="cq-btn small"
+                @click=${() => this.travel(m.to, true)}
+              >
+                By sea, ${Math.ceil(sea!.days)} days, ${sea!.cost}c
+              </button>`
+            : nothing}
+          <button
+            class="cq-btn small quiet"
+            @click=${() => {
+              this.ask = null;
+              this.open({ k: "prov", p: m.to });
+            }}
+          >
+            Look first
+          </button>
+        </div>`;
+    }
     return html`<div
       class="cq-march-ask"
       role="dialog"
-      aria-label="March"
+      aria-label=${m.march ? "March" : "Travel"}
       style="left:${left}px;top:${top}px"
     >
-      <p>
-        March to <b>${place}</b>?
-        <span class="cq-muted small">About ${m.days} days.</span>
-      </p>
-      <div class="cq-btnrow">
-        <button
-          class="cq-btn small primary"
-          @click=${() => this.march(m.army, m.to)}
-        >
-          March
-        </button>
-        <button
-          class="cq-btn small quiet"
-          @click=${() => (this.marchAsk = null)}
-        >
-          Cancel
-        </button>
-      </div>
-      <label class="cq-check small">
-        <input
-          type="checkbox"
-          @change=${(e: Event) =>
-            setConfirmMarch(!(e.target as HTMLInputElement).checked)}
-        />
-        Don't ask again (turn it back on in the menu)
-      </label>
+      ${body}
+      ${m.march
+        ? html`<label class="cq-check small">
+            <input
+              type="checkbox"
+              @change=${(e: Event) =>
+                setConfirmMarch(!(e.target as HTMLInputElement).checked)}
+            />
+            Don't ask again
+          </label>`
+        : nothing}
     </div>`;
   }
 
   private onHover(p: number | null): void {
     if (p === this.hoverProv) return;
     this.hoverProv = p;
-    const id = this.picking ?? this.selectedArmy;
-    const a = this.s.armies.find((x) => x.id === id && x.owner === this.me);
+    const a = this.picking ? this.commanded() : undefined;
     if (!a || p === null || p === a.prov) {
       if (this.preview) {
         this.preview = null;
@@ -793,7 +924,7 @@ export class GameView extends LitElement {
       return;
     }
     const from = a.depart >= 0 && a.path.length ? a.path[0] : a.prov;
-    const route = findPath(this.s, map, this.me, from, p, armySpeed(a));
+    const route = findPath(this.s, map, a.owner, from, p, armySpeed(a));
     this.preview = route
       ? a.depart >= 0 && a.path.length
         ? [a.path[0], ...route.path]
@@ -808,19 +939,25 @@ export class GameView extends LitElement {
     hideTip();
     const cur = this.stack[this.stack.length - 1];
     if (cur && JSON.stringify(cur) === JSON.stringify(v)) return;
-    // Tabs start a fresh trail; everything else stacks for the back button.
     this.stack = v.k === "tab" ? [v] : [...this.stack.slice(-8), v];
     if (v.k === "army") this.selectedArmy = v.id;
+    if (v.k === "prov") this.selectedProv = v.p;
     if (this.view) this.view.needsDraw = true;
   }
 
   private get ui(): GameUi {
+    const life = this.life;
+    const me = life ? (meOf(this.s, life) ?? null) : null;
     return {
       s: this.s,
       w: world,
       map,
-      me: this.me,
+      seat: this.you,
+      life,
+      me: life?.watching ? null : me,
+      nation: this.nationNow(),
       solo: this.solo,
+      isHost: this.host === this.you,
       cmd: (c) => this.cmd(c),
       open: (v) => this.open(v),
       back: () => {
@@ -833,11 +970,18 @@ export class GameView extends LitElement {
       focusProv: (p) => {
         this.selectedProv = p;
         this.view?.focus(p);
-        this.open({ k: "prov", p });
+        const l = this.life;
+        this.open(
+          l && !l.watching && p === l.prov && !l.travel
+            ? { k: "tab", tab: "here" }
+            : { k: "prov", p },
+        );
       },
-      pickTarget: (id) => {
-        this.picking = id;
-        this.selectedArmy = id;
+      pickMarch: () => {
+        if (window.innerWidth <= 820) this.stack = [];
+        this.picking = true;
+        const a = this.commanded();
+        if (a) this.selectedArmy = a.id;
         this.toast("Choose where to march: click a province on the map.");
       },
       toast: (text, tone) => this.toast(text, tone ?? ""),
@@ -853,6 +997,10 @@ export class GameView extends LitElement {
       },
       leave: () => this.leave(),
       endGame: () => this.net.send({ t: "end" }),
+      newLife: (plan: LifePlan) => {
+        this.net.send({ t: "life", plan });
+        this.toast("Setting out…");
+      },
       isHost: this.host === this.you,
       signedIn: this.signedIn,
       savedAt: this.savedAt,
@@ -875,17 +1023,17 @@ export class GameView extends LitElement {
   render(): TemplateResult {
     if (!this.s) return html``;
     void this.tick;
-    const n = this.me >= 0 ? this.s.nations[this.me] : null;
-    const style = nationVars(n?.color ?? "#6b4f33");
-    const cur = this.stack[this.stack.length - 1];
     const ui = this.ui;
+    const n = ui.me ? this.s.nations[ui.me.nation] : null;
+    const style = nationVars(ui.life?.frame ?? n?.color ?? "#6b4f33");
+    const cur = this.stack[this.stack.length - 1];
     return html`<div
-      class="cq-game ${this.picking !== null ? "picking" : ""}"
+      class="cq-game ${this.picking ? "picking" : ""}"
       style=${style}
     >
-      ${this.banner()} ${this.letterTray()}
+      ${this.banner(ui)} ${this.eventTray(ui)}
       <div class="cq-body">
-        ${n ? this.tabs(cur) : nothing}
+        ${this.tabs(cur, ui)}
         ${cur
           ? html`<aside class="cq-drawer" aria-label="Details">
               <div class="cq-drawer-bar">
@@ -910,12 +1058,12 @@ export class GameView extends LitElement {
           : nothing}
         <main class="cq-map-wrap">
           <div class="cq-map-host"></div>
-          ${this.picking !== null
+          ${this.picking
             ? html`<div class="cq-picking">
                 Where should the army march? Click a province.
                 <button
                   class="cq-btn small"
-                  @click=${() => (this.picking = null)}
+                  @click=${() => (this.picking = false)}
                 >
                   Cancel
                 </button>
@@ -923,6 +1071,15 @@ export class GameView extends LitElement {
             : nothing}
           ${this.modes()} ${this.chronicle()}
           <div class="cq-zoom">
+            ${ui.life && ui.life.c >= 0 && !ui.life.watching
+              ? html`<button
+                  aria-label="Find yourself"
+                  title="Find yourself"
+                  @click=${() => this.view?.focus(ui.life!.prov, 3.2)}
+                >
+                  ◎
+                </button>`
+              : nothing}
             <button aria-label="Zoom in" @click=${() => this.view?.zoomBy(1.3)}>
               +
             </button>
@@ -948,7 +1105,7 @@ export class GameView extends LitElement {
           (t) => html`<div class="cq-toast ${t.tone}">${t.text}</div>`,
         )}
       </div>
-      ${this.marchPopup()}
+      ${this.askPopup()}
       ${this.modalView ? renderModal(ui, this.modalView, this.hooks) : nothing}
     </div>`;
   }
@@ -957,63 +1114,63 @@ export class GameView extends LitElement {
     const ui = this.ui;
     switch (v.k) {
       case "prov":
-        return provincePanel(ui, v.p);
+        return provincePage(ui, v.p);
       case "army":
         return armyPanel(ui, v.id);
       case "nation":
-        return nationPanel(ui, v.n);
+        return nationPage(ui, v.n);
       case "char":
-        return characterSheet(ui, v.c);
+        return personPage(ui, v.c);
       case "tab":
         switch (v.tab) {
-          case "court":
-            return courtTab(ui);
-          case "crown":
-            return crownTab(ui);
-          case "economy":
-            return economyTab(ui);
+          case "here":
+            return herePanel(ui);
+          case "you":
+            return youTab(ui);
           case "people":
             return peopleTab(ui);
-          case "military":
-            return militaryTab(ui);
-          case "diplomacy":
-            return diplomacyTab(ui);
+          case "affairs":
+            return affairsTab(ui);
+          case "journal":
+            return journalTab(ui);
+          case "world":
+            return worldTab(ui);
         }
     }
   }
 
-  private banner(): TemplateResult {
+  private banner(ui: GameUi): TemplateResult {
     const s = this.s;
-    const n = this.me >= 0 ? s.nations[this.me] : null;
-    const ruler = n ? rulerOf(s, this.me) : undefined;
-    const letters = n?.events.length ?? 0;
+    const life = ui.life;
+    const me = ui.me;
+    const events = life?.events.length ?? 0;
+    const budget = life && me ? monthlyBudget(s, world, life) : null;
     return html`<header class="cq-banner">
-      <a class="cq-home" href="/" title="Derp Land" aria-label="Derp Land">
-        ${bananaMark("cq-home-mark")}
-      </a>
-      ${n
+      <a class="cq-home" href="/" title="Derp Land" aria-label="Derp Land"
+        >${bananaMark("cq-home-mark")}</a
+      >
+      ${life && me
         ? html`<button
             class="cq-who"
-            @click=${() => this.open({ k: "tab", tab: "court" })}
+            @click=${() => this.open({ k: "tab", tab: "you" })}
           >
-            ${flagFor(n, "cq-flag banner")}
+            ${token(ui, me, "banner-token")}
             <span class="cq-who-text">
-              <span class="cq-who-nation">${nationName(n.name)}</span>
+              <span class="cq-who-nation">${charName(me)}</span>
               <span class="cq-who-gov"
-                >${n.title > 0 ? "" : "Gov. "}${ruler
-                  ? (ruler.title ?? `${ruler.first} ${ruler.family}`)
-                  : "—"}</span
+                >${lifeTitle(s, life)}, ${ageOfLife(s, life)}</span
               >
             </span>
-            ${token(this.ui, ruler, "banner-token")}
           </button>`
-        : html`<span class="cq-who watching">Watching</span>`}
+        : html`<span class="cq-who watching">
+            ${life?.ended ? "Watching the world" : "Not yet born"}
+          </span>`}
       <div class="cq-clock">
         <span class="cq-date">${formatDate(s.day)}</span>
         <div class="cq-speed" role="group" aria-label="Game speed">
           <button
             class="cq-pause ${this.paused ? "on" : ""}"
-            ?disabled=${!n || s.over}
+            ?disabled=${s.over}
             aria-pressed=${this.paused}
             title="Pause (space)"
             @click=${() => this.setPaused(!this.paused)}
@@ -1024,35 +1181,75 @@ export class GameView extends LitElement {
                   <path d="M3 2h2v8H3zM7 2h2v8H7z" />
                 </svg>`}
           </button>
-          ${[1, 2, 3, 4, 5].map(
+          ${[1, 2, 3, 4].map(
             (sp) =>
               html`<button
-                class="cq-pip ${!this.paused && this.speed >= sp ? "on" : ""}"
-                ?disabled=${!n || s.over}
-                title="Speed ${sp} (key ${sp})"
-                aria-label="Speed ${sp}"
+                class="cq-speed-btn ${!this.paused && this.speed === sp
+                  ? "on"
+                  : ""}"
+                ?disabled=${s.over || !this.canSetSpeed}
+                title=${this.canSetSpeed
+                  ? `Speed ${SPEED_LABELS[sp]} (key ${sp})`
+                  : "The host sets the speed"}
+                aria-label="Speed ${SPEED_LABELS[sp]}"
+                aria-pressed=${!this.paused && this.speed === sp}
                 @click=${() => this.setSpeed(sp)}
-              ></button>`,
+              >
+                ${SPEED_LABELS[sp]}
+              </button>`,
           )}
         </div>
       </div>
-      ${n && n.kind === "power"
-        ? this.chips()
+      ${life && me && budget
+        ? html`<div class="cq-chips-bar">
+            <span class="cq-chip-stat">
+              <span class="lbl">Purse</span>
+              ${num(
+                html`${plain(life.purse)}
+                  <small class=${budget.total >= 0 ? "up" : "down"}
+                    >${budget.total >= 0 ? "+" : "−"}${plain(
+                      Math.abs(budget.total),
+                    )}</small
+                  >`,
+                () => breakdownTip("A month's money", budget),
+                `val ${life.purse < 0 ? "bad" : ""}`,
+              )}
+            </span>
+            ${this.meterChip(
+              "Health",
+              life.health,
+              "0 is death. Rest, physic and good living mend it; age, fever and wounds wear it.",
+              false,
+            )}
+            ${this.meterChip(
+              "Stress",
+              life.stress,
+              "At 70 your health and judgement suffer. Drink, prayer, rest and company bring it down.",
+              true,
+            )}
+            <span
+              class="cq-chip-stat"
+              title="Who knows your name. Opens offices, causes and doors."
+            >
+              <span class="lbl">Renown</span>
+              <span class="val">${Math.round(life.renown)}</span>
+            </span>
+          </div>`
         : html`<div class="cq-chips-bar"></div>`}
       <div class="cq-banner-end">
-        ${n
+        ${life && !life.watching
           ? html`<button
-              class="cq-letters ${letters ? "has" : ""}"
-              ?disabled=${!letters}
-              title=${letters
-                ? `${letters} letter${letters === 1 ? "" : "s"} waiting`
-                : "No letters"}
+              class="cq-letters ${events ? "has" : ""}"
+              ?disabled=${!events}
+              title=${events
+                ? `${events} waiting for an answer`
+                : "Nothing waiting"}
               @click=${() =>
-                n.events[0] &&
-                (this.modalView = { k: "event", id: n.events[0].id })}
+                life.events[0] &&
+                (this.modalView = { k: "event", id: life.events[0].id })}
             >
-              ${LetterIcon()}${letters
-                ? html`<span class="cq-count">${letters}</span>`
+              ${LetterIcon()}${events
+                ? html`<span class="cq-count">${events}</span>`
                 : nothing}
             </button>`
           : nothing}
@@ -1067,17 +1264,34 @@ export class GameView extends LitElement {
     </header>`;
   }
 
-  /** Letters waiting for an answer, each with the time it has left. */
-  private letterTray(): TemplateResult | typeof nothing {
-    const n = this.me >= 0 ? this.s.nations[this.me] : null;
-    if (!n || n.events.length === 0) return nothing;
+  private meterChip(
+    label: string,
+    v: number,
+    tip: string,
+    invert: boolean,
+  ): TemplateResult {
+    const f = Math.max(0, Math.min(1, v / 100));
+    const bad = invert ? f >= 0.7 : f < 0.35;
+    return html`<span class="cq-chip-stat meter" title=${tip}>
+      <span class="lbl">${label}</span>
+      <span class="val ${bad ? "bad" : ""}">${Math.round(v)}</span>
+      <span class="cq-minibar ${invert ? "invert" : ""} ${bad ? "bad" : ""}"
+        ><span style="width:${Math.round(f * 100)}%"></span
+      ></span>
+    </span>`;
+  }
+
+  /** Events waiting for an answer, each with the time it has left. */
+  private eventTray(ui: GameUi): TemplateResult | typeof nothing {
+    const life = ui.life;
+    if (!life || life.watching || life.events.length === 0) return nothing;
     if (this.modalView?.k === "event") return nothing;
     return html`<div
       class="cq-letter-tray"
       role="list"
-      aria-label="Letters waiting"
+      aria-label="Waiting for an answer"
     >
-      ${n.events.map((e) => {
+      ${life.events.map((e) => {
         const left = this.secondsLeft(e.id);
         return html`<button
           role="listitem"
@@ -1095,98 +1309,16 @@ export class GameView extends LitElement {
     </div>`;
   }
 
-  private chips(): TemplateResult {
-    const s = this.s;
-    const me = this.me;
-    const n = s.nations[me];
-    const L = n.ledger;
-    const used = adminUsed(s, world, me);
-    const cap = adminCapacity(s, me);
-    const over = overextension(s, world, me);
-    const ft = favorTarget(s, world, me);
-    const at = autonomyTarget(s, world, me);
-    return html`<div class="cq-chips-bar">
-      <span class="cq-chip-stat">
-        <span class="lbl">Gold</span>
-        ${num(
-          html`${money(n.gold)}
-            <small class=${L.net >= 0 ? "up" : "down"}
-              >${L.net >= 0 ? "+" : "−"}${plain(Math.abs(L.net))}</small
-            >`,
-          () => ({
-            title: "Treasury: last month",
-            b: {
-              total: L.net,
-              parts: [
-                ...L.income.map((l) => ({ label: l.label, value: l.value })),
-                ...L.spending.map((l) => ({ label: l.label, value: -l.value })),
-              ],
-            },
-          }),
-          `val ${n.gold < 0 ? "bad" : ""}`,
-        )}
-      </span>
-      ${!n.independent
-        ? html`<span class="cq-chip-stat">
-            <span class="lbl">Favor</span>
-            ${num(
-              String(Math.round(n.favor)),
-              () =>
-                breakdownTip("Crown favor is heading for", ft, undefined, [
-                  `Now ${Math.round(n.favor)}; it moves a tenth of the way each month.`,
-                ]),
-              `val ${n.favor < 30 ? "bad" : ""}`,
-            )}
-          </span>`
-        : nothing}
-      <span class="cq-chip-stat">
-        <span class="lbl">Autonomy</span>
-        ${num(
-          String(Math.round(n.autonomy)),
-          () =>
-            breakdownTip("Autonomy is heading for", at, undefined, [
-              `Now ${Math.round(n.autonomy)}. At ${INDEPENDENCE_AUTONOMY} you may declare independence.`,
-            ]),
-          "val",
-        )}
-      </span>
-      <span class="cq-chip-stat">
-        <span class="lbl">Admin</span>
-        ${num(
-          `${plain(used.total)}/${plain(cap.total)}`,
-          () =>
-            breakdownTip("Administration your land takes", used, undefined, [
-              `You can govern ${plain(cap.total)}.${over > 0 ? ` You're ${Math.round(over * 100)}% over: unrest and corruption follow.` : ""}`,
-            ]),
-          `val ${over > 0 ? "bad" : ""}`,
-        )}
-      </span>
-      <span class="cq-chip-stat">
-        <span class="lbl">Settlers</span>
-        ${num(
-          people(nationSettlers(s, me)),
-          () =>
-            breakdownTip(
-              "Settlers sailing from home each month",
-              emigration(s, me),
-            ),
-          "val",
-        )}
-      </span>
-    </div>`;
-  }
-
-  private tabs(cur: DrawerView | undefined): TemplateResult {
-    const n = this.s.nations[this.me];
-    const offers = this.s.offers.some((o) => o.to === this.me);
-    const plots = n.court.some((c) => this.s.chars[c]?.scheme?.exposed);
-    const demand = !!n.demand;
-    const badge: Partial<Record<Tab, boolean>> = {
-      military: offers,
-      court: plots,
-      crown: demand,
-    };
-    return html`<nav class="cq-tabs" aria-label="Your realm">
+  private tabs(cur: DrawerView | undefined, ui: GameUi): TemplateResult {
+    const life = ui.life;
+    const badge: Partial<Record<Tab, boolean>> = {};
+    if (life && !life.watching && life.c >= 0) {
+      badge.affairs =
+        !!life.invite || (!!life.job && promotionView(this.s, life).check.ok);
+      badge.journal = life.events.length > 0;
+    }
+    if (life?.watching) badge.here = true;
+    return html`<nav class="cq-tabs" aria-label="Your life">
       ${TABS.map(
         (t) =>
           html`<button
@@ -1231,8 +1363,8 @@ export class GameView extends LitElement {
     switch (this.mode) {
       case "nation":
         return html`<p>
-          Each realm's name runs across its land. Hatching: held by an enemy.
-          Faint tint: a colony being founded.
+          Each realm's name runs across its land. Click a province to see it and
+          the road there; right-click (or hold) to set out.
         </p>`;
       case "terrain":
         return html`<ul class="cq-swatches">
@@ -1262,13 +1394,7 @@ export class GameView extends LitElement {
                 </li>`,
             )}
           </ul>
-          <p>
-            What each province's land yields. Deeper colour: making more of it.
-            ${this.me >= 0 && this.s.nations[this.me].kind === "power"
-              ? html`A <b>?</b> marks land nobody has surveyed: send an
-                  expedition to learn what it holds.`
-              : nothing}
-          </p>`;
+          <p>What each province's land yields.</p>`;
       case "people":
         return html`<div
             class="cq-ramp"
@@ -1281,14 +1407,14 @@ export class GameView extends LitElement {
   }
 
   private chronicle(): TemplateResult {
-    const others = this.seats.filter((x) => x.power && x.id !== this.you);
+    const others = this.seats.filter((x) => x.made && x.id !== this.you);
     return html`<section class="cq-chronicle ${this.logOpen ? "open" : ""}">
       <button
         class="cq-chronicle-head"
         aria-expanded=${this.logOpen}
         @click=${() => (this.logOpen = !this.logOpen)}
       >
-        <span>Game Log</span>
+        <span>News</span>
         ${others.length
           ? html`<span class="cq-players"
               >${others.map(
@@ -1304,9 +1430,7 @@ export class GameView extends LitElement {
       ${this.logOpen
         ? html`<ol class="cq-log" @scroll=${(e: Event) => this.onLogScroll(e)}>
               ${this.log.length === 0
-                ? html`<li class="cq-muted">
-                    Nothing yet. News will gather here.
-                  </li>`
+                ? html`<li class="cq-muted">News will gather here.</li>`
                 : nothing}
               ${this.log
                 .slice(0, 60)
