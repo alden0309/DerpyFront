@@ -4,6 +4,7 @@
 
 import { AwardKind, GameAwards } from "@openfront/engine-api/game/Awards";
 import { GameMapSize, GameMapType } from "@openfront/engine-api/game/GameTypes";
+import { DERPY_RULES } from "@openfront/engine-api/Schemas";
 import {
   BOAT_INDEX_SENT,
   BOMB_INDEX_LAUNCH,
@@ -117,6 +118,11 @@ function storableRecord(record: GameRecord): GameRecord {
     gitCommit: "DEV",
     info: {
       ...record.info,
+      // The rules it was played under, so its replay plays the same game.
+      config: {
+        ...record.info.config,
+        derpyRules: record.info.config.derpyRules ?? DERPY_RULES,
+      },
       players: record.info.players.map((p) => ({ ...p, persistentID: null })),
       reports: undefined,
     },
@@ -237,7 +243,20 @@ export async function savedGameRecord(gameId: string): Promise<unknown> {
   ).query("SELECT record FROM derpy_games WHERE game_id = $1", [gameId]);
   const row = res.rows[0];
   if (!row) return null;
-  return JSON.parse(gunzipSync(row.record as Buffer).toString("utf8"));
+  return withRulesEdition(
+    JSON.parse(gunzipSync(row.record as Buffer).toString("utf8")),
+  );
+}
+
+/**
+ * Games saved before records carried their rules edition were all played
+ * under the first one; say so, so their replays don't take today's rules.
+ */
+export function withRulesEdition(record: unknown): unknown {
+  const config = (record as { info?: { config?: Record<string, unknown> } })
+    ?.info?.config;
+  if (config && config.derpyRules === undefined) config.derpyRules = 1;
+  return record;
 }
 
 export interface StatsSummary {

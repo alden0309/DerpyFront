@@ -862,6 +862,7 @@
     "login_token_expired": "This login link has expired. Please request a new login link.",
     "login_token_invalid": "This login link is invalid or has expired. Please request a new login link.",
     "paste_discord": "Please paste the following in your bug report in Discord:",
+    "replay_desync": "This replay has drifted from the game as it was played, so what you see from here on may not match what happened.",
     "spawn_failed": {
       "description": "Automatic spawn selection failed. You can't play this game.",
       "title": "Spawn failed"

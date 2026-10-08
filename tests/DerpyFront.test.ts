@@ -6,7 +6,7 @@ import {
   TerrainType,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
-import { GameConfig } from "@openfront/engine-api/Schemas";
+import { DERPY_RULES, GameConfig } from "@openfront/engine-api/Schemas";
 import {
   AttackLogicInput,
   EngineConfig,
@@ -40,10 +40,14 @@ import { executeTicks } from "./util/utils";
 // half_land_half_ocean: 16x16, land in columns 0-7, ocean in 8-15.
 const coastX = 7;
 
-async function seaGame(infiniteGold = true) {
+async function seaGame(infiniteGold = true, derpyRules?: number) {
   const game = await setup(
     "half_land_half_ocean",
-    { infiniteGold, instantBuild: true },
+    {
+      infiniteGold,
+      instantBuild: true,
+      ...(derpyRules !== undefined ? { derpyRules } : {}),
+    },
     [
       new PlayerInfo("North", PlayerType.Human, null, "north"),
       new PlayerInfo("South", PlayerType.Human, null, "south"),
@@ -481,6 +485,22 @@ describe("Escorted troop transport", () => {
     executeTicks(game, 5);
     expect(boat.isActive()).toBe(false);
     expect(north.units(UnitType.Warship)).toHaveLength(0);
+  });
+
+  test("a game saved under the first rules replays without them", async () => {
+    // Replays of games played before escorts sailed on must keep the old
+    // ending, or they drift from what happened.
+    const { game, north } = await seaGame(true, 1);
+    expect(game.config().escortSailsOn()).toBe(false);
+    const boat = sail(game, north, true);
+    sailUntilDone(game, boat);
+    expect(north.units(UnitType.Warship)).toHaveLength(0);
+  });
+
+  test("a game with no rules edition plays the current rules", async () => {
+    const { game } = await seaGame();
+    expect(game.config().derpyRules()).toBe(DERPY_RULES);
+    expect(game.config().escortSailsOn()).toBe(true);
   });
 
   test("a plain transport still lands without warships", async () => {

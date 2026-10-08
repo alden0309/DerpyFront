@@ -918,6 +918,8 @@ export class ClientGameRunner {
   private isActive = false;
 
   private turnsSeen = 0;
+  // Derpy Front: the desync notice is shown once a game; closing it stays closed.
+  private desyncNoticed = false;
   // True from a (re)join request until the server's start message answers it.
   // Live turns that land in that window arrive ahead of turnsSeen and are
   // dropped; the start message replays them, so dropping them is expected.
@@ -1100,10 +1102,11 @@ export class ClientGameRunner {
           this.turnsSeen++;
         }
       }
-      if (message.type === "desync") {
+      if (message.type === "desync" && !this.desyncNoticed) {
         if (this.lobby.gameStartInfo === undefined) {
           throw new Error("missing gameStartInfo");
         }
+        this.desyncNoticed = true;
         showErrorModal(
           `desync from server: ${JSON.stringify(message)}`,
           "",
@@ -1111,7 +1114,9 @@ export class ClientGameRunner {
           this.clientID,
           true,
           false,
-          "error_modal.desync_notice",
+          this.lobby.gameRecord !== undefined
+            ? "error_modal.replay_desync"
+            : "error_modal.desync_notice",
         );
       }
       if (message.type === "error") {

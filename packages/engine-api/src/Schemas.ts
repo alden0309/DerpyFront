@@ -259,6 +259,16 @@ export const PoolConfigSchema = z
   });
 export type PoolConfig = z.infer<typeof PoolConfigSchema>;
 
+/**
+ * Derpy Front's rules edition. Bump it whenever a change to the simulation
+ * would make an older game replay differently, and keep the old behaviour
+ * for games whose config says an earlier edition.
+ *
+ * 1: before escorts sailed on as warships (games saved before 8 Oct 2026).
+ * 2: an escorted transport turns into two warships when it lands.
+ */
+export const DERPY_RULES = 2;
+
 export const GameConfigSchema = z.object({
   gameMap: z.enum(GameMapType),
   difficulty: z.enum(Difficulty),
@@ -304,6 +314,10 @@ export const GameConfigSchema = z.object({
   // no UI — the admin bot sets it when creating tournament games, since it adds
   // per-client traffic. See LiveStatsController / GameServer.handleLiveStats.
   liveStatsEnabled: z.boolean().optional(),
+  // Derpy Front: which edition of Derpy Front's own rules a game was played
+  // under (see DERPY_RULES). Saved games carry it so a replay simulates the
+  // rules its game had; absent means the current rules.
+  derpyRules: zb.uint({ max: 1000 }).optional(),
   anonymizeNames: z.boolean().optional(),
   // While anonymizeNames is on, clientIDs the host has granted real-name
   // visibility to (e.g. casters / observers). Everyone else stays anonymized.

@@ -7,7 +7,7 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { PlayerLike } from "@openfront/engine-api/game/ReadViews";
-import { GameConfig } from "@openfront/engine-api/Schemas";
+import { DERPY_RULES, GameConfig } from "@openfront/engine-api/Schemas";
 import { pow } from "../DetMath";
 import { DoomsdayClockSpeed } from "../game/DoomsdayClock";
 import { assertNever } from "../Util";
@@ -171,6 +171,14 @@ export class Config {
   }
   // Derpy Front: an escorted troop transport and its two warships share one
   // health bar, three times a warship's.
+  /** Derpy Front: the rules edition this game is played under. */
+  derpyRules(): number {
+    return this._gameConfig.derpyRules ?? DERPY_RULES;
+  }
+  /** Derpy Front: an escorted transport sails on as two warships (rules 2+). */
+  escortSailsOn(): boolean {
+    return this.derpyRules() >= 2;
+  }
   escortedTransportHealth(): number {
     return 3 * (this.unitInfo(UnitType.Warship).maxHealth ?? 1000);
   }

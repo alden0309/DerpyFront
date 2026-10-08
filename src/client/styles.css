@@ -500,6 +500,7 @@ label.option-card:hover {
   position: fixed;
   padding: 20px;
   background: white;
+  color: #18181b;
   border: 1px solid black;
   top: 50%;
   left: 50%;

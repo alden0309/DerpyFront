@@ -376,7 +376,8 @@ export class TransportShipExecution implements Execution {
     const maxHealth = this.boat.maxHealth();
     this.boat.delete(false);
     this.active = false;
-    if (this.escorted) this.releaseEscort(tile, health, maxHealth);
+    if (this.escorted && this.mg.config().escortSailsOn())
+      this.releaseEscort(tile, health, maxHealth);
   }
 
   /**

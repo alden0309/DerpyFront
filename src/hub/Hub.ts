@@ -146,9 +146,7 @@ export class DerpHome extends HubPage {
   render(): TemplateResult {
     return html`
       <section class="dl-intro">
-        <h1 class="dl-hello">
-          ${this.username ? `Pick a game, ${this.username}.` : "Pick a game."}
-        </h1>
+        <h1 class="dl-hello">Time to Deep Dorp</h1>
         <p class="dl-lede">
           ${this.account
             ? html`You have

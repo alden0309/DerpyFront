@@ -1,4 +1,5 @@
 import { GameAwards } from "@openfront/engine-api/game/Awards";
+import { DERPY_RULES } from "@openfront/engine-api/Schemas";
 import {
   DERP_COINS_MIN_GAME_SECONDS,
   derpCoinsForGame,
@@ -332,6 +333,8 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     const replay = await call("/game/GAME0001");
     expect(replay.status).toBe(200);
     expect(replay.json.gitCommit).toBe("DEV");
+    // Saved with the rules it was played under, so it replays the same.
+    expect(replay.json.info.config.derpyRules).toBe(DERPY_RULES);
     expect(
       replay.json.info.players.map((p: PlayerRecord) => p.persistentID),
     ).toEqual([null, null]);
