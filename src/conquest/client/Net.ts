@@ -2,7 +2,7 @@
 // by itself when the network blips, rejoining the game you were in.
 
 import { derpyToken } from "../../derpland/Account";
-import type { Command } from "../engine/Types";
+import type { LifeCommand } from "../engine/Types";
 import { ClientMessage, CONQUEST_WS_PATH, ServerMessage } from "../Protocol";
 
 const REJOIN_KEY = "derpy_conquest_rejoin";
@@ -56,7 +56,7 @@ export class Net {
   private retry = 0;
   private closed = false;
   /** Sent first on every (re)connect. */
-  name = "Explorer";
+  name = "Traveller";
   /** The room to rejoin after a reconnect. */
   ticket: { code: string; secret: string } | null = null;
   onStatus: (online: boolean) => void = () => {};
@@ -136,7 +136,7 @@ export class Net {
   }
 
   /** Sends a game command; resolves with why it failed, or null. */
-  command(c: Command): Promise<string | null> {
+  command(c: LifeCommand): Promise<string | null> {
     const id = this.nextId++;
     return new Promise((resolve) => {
       this.pending.set(id, resolve);

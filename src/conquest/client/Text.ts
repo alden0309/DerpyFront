@@ -253,7 +253,9 @@ export function describeEvent(
         ? `${N(e.n)} has won its independence!`
         : `${N(e.n)}'s rebellion was crushed.`;
     case "over":
-      return `The game is over. ${N(e.winner)} wins.`;
+      return "It is 1776. The story ends here.";
+    case "news":
+      return e.text;
     case "mission":
       return us(e.n) ? e.text : null;
     case "deal": {

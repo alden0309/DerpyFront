@@ -36,6 +36,7 @@ import {
 } from "./Queries";
 import {
   DAYS_PER_YEAR,
+  EUROPE_PRICE,
   NATIVE_SEAT_NAMES,
   SEAT_NAMES,
   TITLE_NAMES,
@@ -44,6 +45,7 @@ import {
   Breakdown,
   Character,
   GameState,
+  Good,
   Life,
   MapDef,
   PlaceKind,
@@ -848,4 +850,46 @@ export function takeoverCandidates(s: GameState): Character[] {
       !isPlayed(s, c.id) &&
       s.nations[c.nation]?.kind !== "crown",
   );
+}
+
+// ---------------------------------------------------------------- the market
+
+/** Loads a traveller can carry. */
+export const CARRY = 20;
+
+/** What a good fetches here: the colony's market, or a village's trade. */
+export function marketPrice(s: GameState, p: number, good: Good): number {
+  const pr = s.provinces[p];
+  const owner = pr.owner >= 0 ? s.nations[pr.owner] : undefined;
+  if (owner?.kind === "power") return owner.market.price[good];
+  const native: Partial<Record<Good, number>> = {
+    furs: 0.5,
+    grain: 0.8,
+    fish: 0.8,
+    guns: 1.8,
+    tools: 1.6,
+    cloth: 1.5,
+  };
+  return Math.round(EUROPE_PRICE[good] * (native[good] ?? 1) * 100) / 100;
+}
+
+/** What one load costs you to buy, and fetches when you sell, here. */
+export function tradeRates(
+  s: GameState,
+  life: Life,
+  good: Good,
+): { buy: number; sell: number } {
+  const me = meOf(s, life);
+  const shrewd = me && hasTrait(me, "shrewd") ? 0.05 : 0;
+  const skill = Math.min(0.1, life.skills.trade * 0.006);
+  const price = marketPrice(s, life.prov, good);
+  return {
+    buy: Math.round(price * (1.12 - shrewd - skill) * 100) / 100,
+    sell: Math.round(price * (0.88 + shrewd + skill) * 100) / 100,
+  };
+}
+
+/** Loads carried now. */
+export function carried(life: Life): number {
+  return Object.values(life.goods).reduce((m, v) => m + (v ?? 0), 0);
 }

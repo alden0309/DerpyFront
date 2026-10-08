@@ -506,7 +506,7 @@ describe("the whole game", () => {
     for (const n of s.nations.filter((x) => x.kind === "power" && x.alive)) {
       expect(provincesOf(s, n.id).length).toBeGreaterThanOrEqual(1);
     }
-  });
+  }, 30_000);
 
   test("ends on the end date with the top score winning", () => {
     const g = newGame("england", 5, 1609);

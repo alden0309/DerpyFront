@@ -125,10 +125,30 @@ export function emblem(color: string, cls = "cq-flag"): TemplateResult {
   </svg>`;
 }
 
+/** A rising's colours: their field with a pine (the Liberty Tree) in a white canton. */
+export function rebelFlag(color: string, cls = "cq-flag"): TemplateResult {
+  return html`<svg class=${cls} viewBox="0 0 60 40" aria-hidden="true">
+    <rect width="60" height="40" fill=${color} />
+    <rect width="26" height="20" fill="#f6f1e3" />
+    <path d="M13 3l6 8h-3l5 6H5l5-6H7z" fill="#2f5a2a" />
+    <rect x="12" y="16" width="2" height="3" fill="#5a3a1a" />
+    <path
+      d="M0 26h60M0 33h60"
+      stroke="#f6f1e3"
+      stroke-width="2.5"
+      opacity=".7"
+    />
+  </svg>`;
+}
+
 export function flagFor(
-  n: { key: string; kind: string; color: string },
+  n: { key: string; kind: string; color: string; religion?: string },
   cls = "cq-flag",
 ): TemplateResult {
   if (n.kind === "native") return emblem(n.color, cls);
+  if (n.kind === "rebels")
+    return n.religion === "native"
+      ? emblem(n.color, cls)
+      : rebelFlag(n.color, cls);
   return flag(n.key.replace(/^crown-/, ""), cls);
 }

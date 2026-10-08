@@ -26,6 +26,8 @@ import { answerLifeEvent, lifeEventsDaily } from "./LifeEvents";
 import {
   allowanceDue,
   atPost,
+  carried,
+  CARRY,
   commissionFriend,
   heirOf,
   hopDaysFor,
@@ -44,6 +46,7 @@ import {
   placesIn,
   promotionView,
   startRank,
+  tradeRates,
   travelRoute,
 } from "./LifeQueries";
 import {
@@ -84,13 +87,7 @@ import {
 } from "./LifeRules";
 import { isWinter } from "./Map";
 import { ageOf, atWar, charName, hasTrait, settlers, stat } from "./Queries";
-import {
-  DAYS_PER_YEAR,
-  deathRiskByAge,
-  EUROPE_PRICE,
-  STAT_START,
-  TRAITS,
-} from "./Rules";
+import { DAYS_PER_YEAR, deathRiskByAge, STAT_START, TRAITS } from "./Rules";
 import {
   Army,
   BattleReport,
@@ -1446,28 +1443,6 @@ export function vanish(g: ConquestGame, id: number, why: string): void {
 
 // ---------------------------------------------------------------- the market
 
-/** What a good fetches here: the colony's market, or a village's trade. */
-export function marketPrice(
-  s: ConquestGame["state"],
-  p: number,
-  good: Good,
-): number {
-  const pr = s.provinces[p];
-  const owner = pr.owner >= 0 ? s.nations[pr.owner] : undefined;
-  if (owner?.kind === "power") return owner.market.price[good];
-  const native: Partial<Record<Good, number>> = {
-    furs: 0.5,
-    grain: 0.8,
-    fish: 0.8,
-    guns: 1.8,
-    tools: 1.6,
-    cloth: 1.5,
-  };
-  return Math.round(EUROPE_PRICE[good] * (native[good] ?? 1) * 100) / 100;
-}
-
-const CARRY = 20;
-
 function tradeGoods(
   g: ConquestGame,
   life: Life,
@@ -1481,15 +1456,12 @@ function tradeGoods(
   const here = placesIn(s, g.w, life.prov);
   if (!here.some((x) => x === "market" || x === "village" || x === "docks"))
     return "There's no market here.";
-  const me = meOf(s, life)!;
-  const shrewd = hasTrait(me, "shrewd") ? 0.05 : 0;
-  const skill = Math.min(0.1, life.skills.trade * 0.006);
-  const price = marketPrice(s, life.prov, good);
-  const carried = Object.values(life.goods).reduce((m, v) => m + (v ?? 0), 0);
+  const rate = tradeRates(s, life, good);
   touchLife(g, life);
   if (qty > 0) {
-    if (carried + qty > CARRY) return `You can carry ${CARRY} loads at most.`;
-    const cost = Math.round(price * qty * (1.12 - shrewd - skill) * 100) / 100;
+    if (carried(life) + qty > CARRY)
+      return `You can carry ${CARRY} loads at most.`;
+    const cost = Math.round(rate.buy * qty * 100) / 100;
     if (life.purse < cost) return `That costs ${cost} coins.`;
     spend(g, life, cost);
     life.goods[good] = (life.goods[good] ?? 0) + qty;
@@ -1498,7 +1470,7 @@ function tradeGoods(
   }
   const have = life.goods[good] ?? 0;
   if (have < -qty) return "You don't have that much.";
-  const got = Math.round(price * -qty * (0.88 + shrewd + skill) * 100) / 100;
+  const got = Math.round(rate.sell * -qty * 100) / 100;
   earn(g, life, got);
   life.goods[good] = have + qty;
   if (!life.goods[good]) delete life.goods[good];

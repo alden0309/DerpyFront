@@ -54,6 +54,8 @@ import {
 } from "./LifeRules";
 import type { World } from "./Map";
 import {
+  buyArms,
+  holdMeeting,
   joinMovement,
   movementOf,
   movementPamphlet,
@@ -501,6 +503,52 @@ export const ACTS: ActDef[] = [
     child: true,
   },
   {
+    key: "meeting",
+    places: ["tavern", "councilfire"],
+    label: "Hold a meeting of the cause",
+    text: "A back room, a bowl of punch and speeches. Support for your movement grows; informers listen.",
+    cooldown: 30,
+    skill: "leadership",
+    when: (s, w, life) => {
+      const m = movementOf(s, life.c);
+      if (!m) return no("You belong to no movement.");
+      if (!m.region.includes(life.prov))
+        return no("Hold meetings among your followers.");
+      return yes;
+    },
+  },
+  {
+    key: "arms",
+    places: ["market", "docks", "village"],
+    label: "Put arms by for the cause (10)",
+    text: "Muskets and powder, bought quietly. A rising starts with more men when the arms are ready.",
+    cooldown: 30,
+    cost: 10,
+    when: (s, w, life) =>
+      movementOf(s, life.c) ? yes : no("You belong to no movement."),
+  },
+  {
+    key: "canvass",
+    places: ["tavern", "market", "councilfire"],
+    label: "Canvass the voters",
+    text: "Shake hands, hear complaints, promise a road. Wins campaign points.",
+    cooldown: 14,
+    skill: "persuasion",
+    dc: 7,
+    when: (s, w, life) =>
+      life.campaign ? yes : no("You're not standing for anything."),
+  },
+  {
+    key: "broadside",
+    places: ["press"],
+    label: "Print a broadside (2)",
+    text: "Your name and your promises on every tavern door.",
+    cooldown: 30,
+    cost: 2,
+    when: (s, w, life) =>
+      life.campaign ? yes : no("You're not standing for anything."),
+  },
+  {
     key: "buy",
     places: [
       "fields",
@@ -611,7 +659,13 @@ export function doAct(
   const me = meOf(s, life)!;
   touchLife(g, life);
   if (def.cooldown) setCooldown(g, life, `act:${key}`, def.cooldown);
-  if (def.cost && key !== "buy" && key !== "commission" && key !== "freehold")
+  if (
+    def.cost &&
+    key !== "buy" &&
+    key !== "commission" &&
+    key !== "freehold" &&
+    key !== "arms"
+  )
     spend(g, life, def.cost);
   const odds = actOdds(s, life, key);
   const pass = odds !== null ? rollCheck(g, odds) : true;
@@ -1084,6 +1138,18 @@ export function doAct(
       return null;
     case "buy":
       return buyRank(g, life);
+    case "meeting":
+      return holdMeeting(g, life);
+    case "arms":
+      return buyArms(g, life);
+    case "canvass":
+      gainXp(g, life, "persuasion", 6);
+      campaignBoost(g, life, pass ? 4 : 1, "canvassing");
+      return null;
+    case "broadside":
+      gainXp(g, life, "letters", 4);
+      campaignBoost(g, life, 6, "a broadside");
+      return null;
     default:
       return "Unknown act.";
   }

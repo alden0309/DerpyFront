@@ -13,5 +13,6 @@ import "@fontsource/im-fell-english/400.css";
 import "../../derpland/fonts";
 import "./App";
 import "./conquest.css";
+import "./life.css";
 
 document.body.appendChild(document.createElement("conquest-app"));

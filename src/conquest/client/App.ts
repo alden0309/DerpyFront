@@ -50,7 +50,7 @@ export class ConquestApp extends LitElement {
       // ignore
     }
     this.name = this.account ?? saved;
-    this.net.name = this.name || "Governor";
+    this.net.name = this.name || "Traveller";
     this.net.on(this.onMessage);
     this.net.onStatus = (online) => {
       this.online = online;
@@ -81,7 +81,7 @@ export class ConquestApp extends LitElement {
   private onAccount = (): void => {
     this.account = derpyUsername();
     if (this.account) this.name = this.account;
-    this.net.name = this.name || "Governor";
+    this.net.name = this.name || "Traveller";
     this.net.hello();
     this.net.send({ t: "list" });
   };
@@ -138,7 +138,7 @@ export class ConquestApp extends LitElement {
   private setName(v: string): void {
     const name = v.trim().slice(0, 24);
     this.name = name;
-    this.net.name = name || "Governor";
+    this.net.name = name || "Traveller";
     try {
       localStorage.setItem(NAME_KEY, name);
     } catch {

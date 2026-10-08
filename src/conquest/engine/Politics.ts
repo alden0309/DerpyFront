@@ -449,7 +449,7 @@ function chooseSuccessor(g: ConquestGame, n: number): number {
   const rivals = SEATS.map((st) => s.chars[nation.council[st]])
     .filter((c) => c?.alive && c.id !== best!.c && !isPlayed(s, c.id))
     .map((c) => (stat(s, c!, "ste") + stat(s, c!, "dip")) * 3 + 10);
-  const bar = Math.max(native ? 45 : 60, ...rivals);
+  const bar = Math.max(native ? 70 : 100, ...rivals);
   if (bestScore < bar) return -1;
   const me = meOf(s, best)!;
   touchLife(g, best).tally.topOffice = 3;

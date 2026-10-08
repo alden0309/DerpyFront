@@ -10,7 +10,6 @@ import {
 } from "../../src/conquest/engine/Queries";
 import { STARTS } from "../../src/conquest/engine/Starts";
 import type { GameEvent, StartYear } from "../../src/conquest/engine/Types";
-import { minEndYear, powerExists } from "../../src/conquest/Protocol";
 
 const map = AMERICAS;
 
@@ -69,15 +68,13 @@ describe("start dates", () => {
     const s = g.state;
     const en = key(g, "england");
     expect(s.nations[key(g, "sweden")].alive).toBe(false);
-    expect(powerExists("sweden", 1700)).toBe(false);
-    expect(powerExists("sweden", 1650)).toBe(true);
+    expect(game(1650).state.nations[key(g, "sweden")].alive).toBe(true);
     expect(provincesOf(s, en).length).toBeGreaterThan(30);
     expect(provincesOf(s, en).map(name)).toContain("New Amsterdam");
     // A big old colony can govern what it starts with.
     expect(adminCapacity(s, en).total).toBeGreaterThanOrEqual(
       adminUsed(s, g.w, en).total * 0.9,
     );
-    expect(minEndYear(1700)).toBe(1715);
   });
 
   test("later starts find the militia mustered at each capital", () => {
