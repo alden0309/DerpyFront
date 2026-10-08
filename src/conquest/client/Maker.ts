@@ -471,6 +471,7 @@ export class Maker extends LitElement {
             html`<li>
               <button
                 class="cq-people ${n.key === p.origin ? "on" : ""}"
+                title=${n.name.replace(/^the /, "")}
                 style=${nationVars(n.color)}
                 aria-pressed=${n.key === p.origin}
                 @click=${() => this.chooseOrigin(n.key)}
