@@ -23,6 +23,7 @@ import {
   promotionView,
   travelRoute,
 } from "../../src/conquest/engine/LifeQueries";
+import { EUROPE_FORTUNE } from "../../src/conquest/engine/LifeRules";
 import { movementOf } from "../../src/conquest/engine/Movements";
 import { ageOf } from "../../src/conquest/engine/Queries";
 import type { GameState } from "../../src/conquest/engine/Types";
@@ -417,7 +418,7 @@ describe("Europe", () => {
     });
     marry(g.s, me, wife);
     const kid = birth(g.s, g.rng, me, wife, 17);
-    life.purse = 200;
+    life.purse = EUROPE_FORTUNE + 50;
     expect(g.lifeCommand("s1", { k: "europe", takeHeir: false })).toBeNull();
     expect(me.abroad).toBe(true);
     expect(life.c).toBe(kid.id);
@@ -427,7 +428,7 @@ describe("Europe", () => {
   test("taking the family ends the story", () => {
     const g = world();
     const life = lifeOf(g);
-    life.purse = 200;
+    life.purse = EUROPE_FORTUNE + 50;
     expect(g.lifeCommand("s1", { k: "europe", takeHeir: true })).toBeNull();
     expect(life.watching).toBe(true);
     expect(life.ended?.why).toMatch(/Europe/);

@@ -169,6 +169,8 @@ export class GameView extends LitElement {
   private hoverProv: number | null = null;
   private flashes = new Map<number, number>();
   private seenEvents = new Set<number>();
+  /** The clock was stopped for a letter (alone), not by the player. */
+  private autoPaused = false;
   /** The last journal entry we've shown, to toast the new ones. */
   private journalMark = "";
   private nextId = 1;
@@ -221,6 +223,26 @@ export class GameView extends LitElement {
 
   protected willUpdate(changed: PropertyValues<this>): void {
     if (changed.has("start") && this.start) this.load(this.start);
+    if (!this.s) return;
+    // An open letter that's been settled (answered, or decided for you)
+    // gives way to the next one waiting, or closes.
+    const m = this.modalView;
+    if (m?.k === "event") {
+      const waiting = this.life?.events ?? [];
+      if (!waiting.some((e) => e.id === m.id))
+        this.modalView = waiting[0] ? { k: "event", id: waiting[0].id } : null;
+    }
+    // Alone, the clock stopped for a letter starts again once they're all
+    // answered.
+    if (
+      this.autoPaused &&
+      this.paused &&
+      this.modalView === null &&
+      (this.life?.events.length ?? 0) === 0
+    ) {
+      this.autoPaused = false;
+      this.net.send({ t: "pause", p: false });
+    }
   }
 
   protected updated(): void {
@@ -387,7 +409,10 @@ export class GameView extends LitElement {
       play("letter");
       if (this.solo) {
         this.modalView ??= { k: "event", id: waiting[0].id };
-        if (!this.paused) this.net.send({ t: "pause", p: true });
+        if (!this.paused) {
+          this.net.send({ t: "pause", p: true });
+          this.autoPaused = true;
+        }
       }
     }
     if (life.watching && !wasWatching) {
@@ -574,6 +599,7 @@ export class GameView extends LitElement {
 
   private setPaused(p: boolean): void {
     if (this.s.over) return;
+    this.autoPaused = false;
     if (!p && !this.canSetSpeed) {
       this.toast("The host sets the clock going again.");
       return;

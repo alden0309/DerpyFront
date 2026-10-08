@@ -272,8 +272,10 @@ export class LifeStory extends LitElement {
     const family = first?.family ?? life.name;
     const facts: string[] = [];
     if (t.generations > 1) facts.push(`${t.generations} generations`);
-    facts.push(`${Math.round(t.days / 365)} years lived`);
-    if (t.provinces) facts.push(`${t.provinces} places seen`);
+    const years = Math.round(t.days / 365);
+    if (years > 0) facts.push(`${years} year${years === 1 ? "" : "s"} lived`);
+    if (t.provinces)
+      facts.push(`${t.provinces} place${t.provinces === 1 ? "" : "s"} seen`);
     if (t.jobs)
       facts.push(
         `${t.jobs} trade${t.jobs === 1 ? "" : "s"}, ${t.promotions} promotion${t.promotions === 1 ? "" : "s"}`,

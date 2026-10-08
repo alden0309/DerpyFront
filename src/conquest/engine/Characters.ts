@@ -547,7 +547,10 @@ export function succession(g: ConquestGame, n: number, how?: string): void {
     }
     next.title = `${nativeTitle(nation.key)} of the ${nation.name}`;
   } else {
-    const heir = old ? s.chars[findHeir(s, old)] : undefined;
+    // A crown colony's governor is the crown's to appoint; only a colony
+    // that has made itself independent lets a governor's line inherit.
+    const heir =
+      old && nation.independent ? s.chars[findHeir(s, old)] : undefined;
     if (heir?.alive && !how) {
       next = heir;
       why =

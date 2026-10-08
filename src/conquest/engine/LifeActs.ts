@@ -568,6 +568,18 @@ export const ACTS: ActDef[] = [
       if (!job) return no("You have no trade.");
       const next = JOBS[job.kind].ranks[job.rank + 1];
       if (!next?.buy) return no("The next rung isn't for sale.");
+      if (life.prov !== job.prov && job.army < 0)
+        return no("That's done where you work.");
+      // Money buys the rung, not the years or the skill.
+      const unmet = promotionView(s, life).needs.find(
+        (x) =>
+          !x.met &&
+          !x.label.includes("coins for") &&
+          !x.label.includes("a word from"),
+      );
+      if (unmet) return no(`Needs ${unmet.label}.`);
+      if (life.purse < next.buy.cost)
+        return no(`Needs ${next.buy.cost} coins.`);
       return yes;
     },
   },

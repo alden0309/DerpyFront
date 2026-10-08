@@ -257,6 +257,7 @@ function holdElection(g: ConquestGame, pol: Polity): void {
   g.politiesChanged(pol.nation);
   g.event({
     k: "news",
+    local: true,
     day: s.day,
     n: pol.nation,
     text: `${native ? "The council fire has chosen its speakers" : `Elections to ${pol.name}`}: ${winners

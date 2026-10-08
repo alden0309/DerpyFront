@@ -37,7 +37,7 @@ import {
 } from "./LifeQueries";
 import { checkChance, SKILL_NAMES } from "./LifeRules";
 import { isHurricaneSeason, isWinter } from "./Map";
-import { ageOf, charName, hasTrait } from "./Queries";
+import { ageOf, charName, hasTrait, settlers } from "./Queries";
 import type {
   Character,
   EventChoice,
@@ -76,7 +76,7 @@ export interface LifeEventDef {
 }
 
 /** Chance a day that something happens to a settled life. */
-export const EVENT_CHANCE = 1 / 40;
+export const EVENT_CHANCE = 1 / 55;
 /** At most this many waiting at once. */
 export const MAX_PENDING = 2;
 /** Game days before an unanswered event decides itself (the server's real-time clock is quicker). */
@@ -2514,6 +2514,538 @@ export const LIFE_EVENTS: LifeEventDef[] = [
         check: { skill: "persuasion", dc: 6 },
         apply: (g, life, _c, pass) =>
           fx(g, life, { xp: { persuasion: 10 }, stress: pass ? -4 : 4 }),
+      },
+    ],
+  },
+  // ------------------------------------------------ the century's news
+  {
+    key: "almanac",
+    pool: "any",
+    cooldown: 1500,
+    when: (g, life) =>
+      colonist(g, life) && year(g) >= 1733 && year(g) <= 1758 && adult(g, life)
+        ? {}
+        : null,
+    title: "Poor Richard's Almanack",
+    body: () =>
+      "A peddler has this year's almanac from Philadelphia: tides, eclipses, the weather to come (guessed), and a proverb on every page. 'Fish and visitors stink in three days.' Everyone is quoting it.",
+    choices: [
+      {
+        label: "Buy one (1 coin)",
+        tip: "+letters, a little wisdom, −stress.",
+        blocked: (_g, life) => poor(life, 1),
+        apply: (g, life) => {
+          spend(g, life, 1);
+          fx(g, life, { xp: { letters: 10, trade: 4 }, stress: -3 });
+          say(
+            g,
+            life,
+            "Early to bed and early to rise. You try it for a week.",
+          );
+        },
+      },
+      {
+        label: "Write a better one",
+        tip: "Letters: an almanac of your own sells, or doesn't.",
+        check: { skill: "letters", dc: 8 },
+        apply: (g, life, _c, pass) => {
+          fx(g, life, { xp: { letters: 15 } });
+          if (pass) {
+            fx(g, life, { coins: 6, renown: 3 });
+            say(
+              g,
+              life,
+              "Your almanac sells out. Your weather is no worse than his.",
+              "good",
+            );
+          } else
+            say(
+              g,
+              life,
+              "Your almanac predicted a mild winter. It was not.",
+              "bad",
+            );
+        },
+      },
+      {
+        label: "Use it to light the fire",
+        tip: "Nothing.",
+        apply: () => undefined,
+      },
+    ],
+  },
+  {
+    key: "zenger",
+    pool: "any",
+    cooldown: 99999,
+    when: (g, life) =>
+      colonist(g, life) && year(g) >= 1734 && year(g) <= 1735 && adult(g, life)
+        ? {}
+        : null,
+    title: "The printer Zenger in gaol",
+    body: () =>
+      "In New York a German printer named Zenger sits in gaol for printing that the governor is a crook. The governor's friends call it seditious libel. Everyone else calls it true. A lawyer from Philadelphia is coming to argue that truth is a defence.",
+    choices: [
+      {
+        label: "Give to his defence (2 coins)",
+        tip: "Renown among the people; the governor's men take note.",
+        blocked: (_g, life) => poor(life, 2),
+        apply: (g, life) => {
+          spend(g, life, 2);
+          fx(g, life, { renown: 2, favor: -2, xp: { persuasion: 6 } });
+          say(
+            g,
+            life,
+            "The jury acquits him. You cheer with the rest.",
+            "good",
+          );
+        },
+      },
+      {
+        label: "A printer should mind his betters",
+        tip: "Favour with the governor's party.",
+        apply: (g, life) => fx(g, life, { favor: 3 }),
+      },
+    ],
+  },
+  {
+    key: "blackbeard",
+    pool: "any",
+    cooldown: 99999,
+    when: (g, life) =>
+      colonist(g, life) &&
+      year(g) >= 1716 &&
+      year(g) <= 1718 &&
+      g.map.provinces[life.prov].coastal &&
+      g.map.provinces[life.prov].lat < 37
+        ? {}
+        : null,
+    title: "Blackbeard off the bar",
+    body: () =>
+      "A pirate with lit fuses in his beard has four ships across the harbour mouth and is holding the town's leading men to ransom. His price: a chest of medicine. The council is thinking about it.",
+    choices: [
+      {
+        label: "Lie low",
+        tip: "Nothing ventured.",
+        apply: (g, life) => fx(g, life, { stress: 4 }),
+      },
+      {
+        label: "Row out with the militia",
+        tip: "Fighting: glory, or a cutlass.",
+        check: { skill: "fighting", dc: 8 },
+        apply: (g, life, _c, pass) =>
+          fx(
+            g,
+            life,
+            pass
+              ? { renown: 6, xp: { fighting: 12 } }
+              : { health: -22, stress: 6 },
+            "a pirate's cutlass",
+          ),
+      },
+      {
+        label: "Sell him the medicine yourself",
+        tip: "Trade: coins, if nobody finds out who sold it.",
+        check: { skill: "trade", dc: 7 },
+        apply: (g, life, _c, pass) => {
+          fx(g, life, { coins: 8, xp: { trade: 8 } });
+          if (!pass) {
+            fx(g, life, { renown: -3, favor: -5 });
+            say(
+              g,
+              life,
+              "Everyone knows who sold the pirate his physic.",
+              "bad",
+            );
+          }
+        },
+      },
+    ],
+  },
+  {
+    key: "great-snow",
+    pool: "any",
+    cooldown: 99999,
+    when: (g, life) =>
+      year(g) === 1717 &&
+      [1, 2].includes(month(g)) &&
+      g.map.provinces[life.prov].lat >= 40
+        ? {}
+        : null,
+    title: "The Great Snow",
+    body: () =>
+      "Four storms in ten days. The drifts are over the eaves; people go in and out by the upper windows. Cattle are buried standing. The post rider is somewhere under it.",
+    choices: [
+      {
+        label: "Dig out the neighbours",
+        tip: "Renown and goodwill; it's cold work.",
+        apply: (g, life) => {
+          fx(g, life, { renown: 2, health: -5 }, "the cold");
+          const c = someone(g, life);
+          if (c)
+            remembers(
+              g,
+              life,
+              g.char(c.id),
+              "Dug us out in the Great Snow",
+              15,
+              0,
+            );
+        },
+      },
+      {
+        label: "Stay in by the fire",
+        tip: "−stress; the woodpile shrinks.",
+        apply: (g, life) => fx(g, life, { stress: -6, coins: -1 }),
+      },
+    ],
+  },
+  {
+    key: "lottery",
+    pool: "any",
+    cooldown: 900,
+    when: (g, life) =>
+      colonist(g, life) && year(g) >= 1700 && adult(g, life) && life.purse >= 2
+        ? {}
+        : null,
+    title: "A lottery",
+    body: (g, life) =>
+      `Tickets are on sale at ${here(g, life)} for a lottery to build a ${g.rng.chance(0.5) ? "steeple" : "college"}. First prize, thirty pounds. The managers assure everyone it is entirely honest, and that they have bought no tickets themselves.`,
+    choices: [
+      {
+        label: "Buy a ticket (1 coin)",
+        tip: "A long shot.",
+        apply: (g, life) => {
+          spend(g, life, 1);
+          if (g.rng.chance(0.06)) {
+            fx(g, life, { coins: 30, renown: 2 });
+            say(g, life, "Your number comes up. Thirty pounds!", "good");
+          } else say(g, life, "Not your number. The steeple goes up anyway.");
+        },
+      },
+      {
+        label: "A sinful waste",
+        tip: "+faith.",
+        apply: (g, life) => fx(g, life, { xp: { faith: 6 } }),
+      },
+    ],
+  },
+  {
+    key: "dancing-master",
+    pool: "any",
+    cooldown: 1500,
+    when: (g, life) =>
+      colonist(g, life) &&
+      adult(g, life) &&
+      (life.lifestyle === "comfortable" || life.background === "gentry") &&
+      year(g) >= 1680
+        ? {}
+        : null,
+    title: "The dancing master",
+    body: () =>
+      "A Frenchman of uncertain history has set up as a dancing master: the minuet, the country dances, how to bow, how to enter a room. Several matrons swear by him. Several ministers swear at him.",
+    choices: [
+      {
+        label: "Take lessons (3 coins)",
+        tip: "Persuasion: the assembly rooms open up.",
+        blocked: (_g, life) => poor(life, 3),
+        apply: (g, life) => {
+          spend(g, life, 3);
+          fx(g, life, { xp: { persuasion: 18 }, stress: -2 });
+        },
+      },
+      {
+        label: "Two left feet, and proud of it",
+        tip: "Nothing.",
+        apply: () => undefined,
+      },
+    ],
+  },
+  {
+    key: "braddock-wagons",
+    pool: "any",
+    cooldown: 99999,
+    when: (g, life) =>
+      colonist(g, life) &&
+      year(g) === 1755 &&
+      adult(g, life) &&
+      job(life, "farmer", "craftsman", "innkeeper", "clerk")
+        ? {}
+        : null,
+    title: "The general wants wagons",
+    body: () =>
+      "A general fresh from England is marching on the French fort at the Forks of the Ohio and cannot find a wagon in the colony. The postmaster has put up handbills: fifteen shillings a day for a wagon and team, and the king's word you'll be paid.",
+    choices: [
+      {
+        label: "Hire out your wagon",
+        tip: "Coins now; the team may not come back.",
+        apply: (g, life) => {
+          fx(g, life, { coins: 5 });
+          if (g.rng.chance(0.5)) {
+            fx(g, life, { coins: -3, stress: 5 });
+            say(
+              g,
+              life,
+              "The general was routed on the Monongahela. Your horses were not seen again.",
+              "bad",
+            );
+          } else
+            say(g, life, "The wagon came back, muddy and paid for.", "good");
+        },
+      },
+      {
+        label: "Generals don't pay their bills",
+        tip: "Nothing ventured.",
+        apply: () => undefined,
+      },
+    ],
+  },
+  {
+    key: "acadians",
+    pool: "any",
+    cooldown: 99999,
+    when: (g, life) =>
+      colonist(g, life) &&
+      year(g) >= 1755 &&
+      year(g) <= 1757 &&
+      g.map.provinces[life.prov].coastal
+        ? {}
+        : null,
+    title: "The Acadians",
+    body: () =>
+      "A ship has put in with families from Acadia, turned out of their farms by the army and scattered down the coast: French, Catholic, and nothing to their names but what they carried. The town doesn't know what to do with them.",
+    choices: [
+      {
+        label: "Take a family in (3 coins)",
+        tip: "Renown and gratitude; your neighbours mutter about papists.",
+        blocked: (_g, life) => poor(life, 3),
+        apply: (g, life) => {
+          spend(g, life, 3);
+          fx(g, life, { renown: 3, xp: { faith: 8 }, stress: 2 });
+        },
+      },
+      {
+        label: "Give something at church",
+        tip: "1 coin, +faith.",
+        blocked: (_g, life) => poor(life, 1),
+        apply: (g, life) => {
+          spend(g, life, 1);
+          fx(g, life, { xp: { faith: 6 } });
+        },
+      },
+      {
+        label: "Not our trouble",
+        tip: "Nothing.",
+        apply: () => undefined,
+      },
+    ],
+  },
+  {
+    key: "wolf-bounty",
+    pool: "any",
+    cooldown: 900,
+    when: (g, life) =>
+      colonist(g, life) &&
+      adult(g, life) &&
+      job(life, "farmer", "trapper", "hunter", "servant")
+        ? {}
+        : null,
+    title: "A bounty on wolves",
+    body: () =>
+      "The selectmen will pay for every wolf's head nailed to the meeting-house door. Somebody has already tried to pass off a large dog.",
+    choices: [
+      {
+        label: "Go hunting",
+        tip: "Woodcraft: coins per head.",
+        check: { skill: "woodcraft", dc: 7 },
+        apply: (g, life, _c, pass) => {
+          fx(g, life, { xp: { woodcraft: 10, fighting: 4 } });
+          if (pass) fx(g, life, { coins: 4, renown: 1 });
+          else say(g, life, "The wolves were smarter than you this time.");
+        },
+      },
+      {
+        label: "Leave it to the trappers",
+        tip: "Nothing.",
+        apply: () => undefined,
+      },
+    ],
+  },
+  {
+    key: "tithingman",
+    pool: "any",
+    cooldown: 2000,
+    when: (g, life) =>
+      me(g, life).religion === "puritan" &&
+      adult(g, life) &&
+      !me(g, life).female
+        ? {}
+        : null,
+    title: "Chosen tithingman",
+    body: () =>
+      "The town meeting has made you a tithingman: you'll keep order in the meeting house with a long rod, a feather at one end for the ladies who nod off and a knob at the other for the men, and report Sabbath-breakers.",
+    choices: [
+      {
+        label: "Serve, rod in hand",
+        tip: "+faith, a little renown, a few enemies among the sleepy.",
+        apply: (g, life) =>
+          fx(g, life, { xp: { faith: 10 }, renown: 1, stress: 2 }),
+      },
+      {
+        label: "Pay the fine to be excused (2 coins)",
+        tip: "Peace on the Sabbath.",
+        blocked: (_g, life) => poor(life, 2),
+        apply: (g, life) => spend(g, life, 2),
+      },
+    ],
+  },
+  {
+    key: "missionary",
+    pool: "any",
+    cooldown: 1500,
+    when: (g, life) => (native(g, life) && adult(g, life) ? {} : null),
+    title: "The black robe",
+    body: (g) =>
+      `A missionary has come to the village in a long ${g.rng.chance(0.5) ? "black robe" : "plain coat"}, speaking your language badly and his own God very well. He has needles, kettles and opinions, and he wants to stay the winter.`,
+    choices: [
+      {
+        label: "Listen to him",
+        tip: "Faith; some of the elders won't like it.",
+        apply: (g, life) =>
+          fx(g, life, { xp: { faith: 12, letters: 4 }, favor: -2 }),
+      },
+      {
+        label: "Trade with him",
+        tip: "Trade: kettles and knives for corn.",
+        check: { skill: "trade", dc: 6 },
+        apply: (g, life, _c, pass) =>
+          fx(
+            g,
+            life,
+            pass ? { coins: 4, xp: { trade: 8 } } : { xp: { trade: 4 } },
+          ),
+      },
+      {
+        label: "Send him on his way",
+        tip: "The elders approve.",
+        apply: (g, life) => fx(g, life, { favor: 3, renown: 1 }),
+      },
+    ],
+  },
+  {
+    key: "ball-game",
+    pool: "any",
+    cooldown: 700,
+    when: (g, life) =>
+      native(g, life) && ageOfLife(g.s, life) >= 14 && !me(g, life).female
+        ? {}
+        : null,
+    title: "The ball game",
+    body: () =>
+      "The next town has challenged yours to the ball game: a hundred players a side, a field a mile long, sticks, no rules worth the name, and bets on everything from blankets to wives. The old men call it the little brother of war.",
+    choices: [
+      {
+        label: "Play",
+        tip: "Fighting: renown if you win; bruises either way.",
+        check: { skill: "fighting", dc: 7 },
+        apply: (g, life, _c, pass) =>
+          fx(
+            g,
+            life,
+            pass
+              ? { renown: 4, xp: { fighting: 10 }, health: -3 }
+              : { health: -10, xp: { fighting: 6 } },
+            "a ball game",
+          ),
+      },
+      {
+        label: "Bet on it instead",
+        tip: "Coins on a coin toss, near enough.",
+        apply: (g, life) => {
+          const won = g.rng.chance(0.5);
+          fx(g, life, {
+            coins: won ? 3 : -Math.min(3, Math.max(0, life.purse)),
+          });
+          say(
+            g,
+            life,
+            won ? "Your town won. So did you." : "Your town lost. So did you.",
+            won ? "good" : "bad",
+          );
+        },
+      },
+    ],
+  },
+  {
+    key: "electric-show",
+    pool: "any",
+    cooldown: 1500,
+    when: (g, life) =>
+      colonist(g, life) && year(g) >= 1745 && year(g) <= 1775 && life.purse >= 1
+        ? {}
+        : null,
+    title: "Electrical fire",
+    body: () =>
+      "A travelling lecturer has hired the court house to show 'the newly discovered Electrical Fire': he makes sparks leap from a boy hung from the ceiling on silk cords, rings bells with no hand on them, and kills a turkey, rather slowly. A shilling to watch, two to be shocked.",
+    choices: [
+      {
+        label: "Pay to be shocked",
+        tip: "+learning; your hair will never be the same.",
+        apply: (g, life) => {
+          spend(g, life, Math.min(1, life.purse));
+          fx(g, life, {
+            xp: { letters: 10, medicine: 4 },
+            stress: -3,
+            renown: 1,
+          });
+        },
+      },
+      {
+        label: "It's witchcraft with a lecture",
+        tip: "+faith.",
+        apply: (g, life) => fx(g, life, { xp: { faith: 6 } }),
+      },
+    ],
+  },
+  {
+    key: "coffee-house",
+    pool: "any",
+    cooldown: 1200,
+    when: (g, life) =>
+      colonist(g, life) &&
+      adult(g, life) &&
+      year(g) >= 1690 &&
+      settlers(g.s.provinces[life.prov]) >= 3000
+        ? {}
+        : null,
+    title: "The coffee house",
+    body: () =>
+      "A coffee house has opened by the wharf: newspapers from London, ships' news chalked on a board, insurance written at the corner table, and arguments about everything at every other.",
+    choices: [
+      {
+        label: "Make it your second home",
+        tip: "Trade and letters; a few useful acquaintances.",
+        apply: (g, life) => {
+          fx(g, life, {
+            xp: { trade: 8, letters: 6, persuasion: 4 },
+            coins: -1,
+          });
+          const c = someone(g, life, (x) => !!x.role);
+          if (c)
+            remembers(
+              g,
+              life,
+              g.char(c.id),
+              "We argue at the coffee house",
+              8,
+              0,
+            );
+        },
+      },
+      {
+        label: "Tavern men don't drink coffee",
+        tip: "Nothing.",
+        apply: () => undefined,
       },
     ],
   },

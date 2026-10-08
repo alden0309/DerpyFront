@@ -535,7 +535,7 @@ function actsSection(ui: GameUi, c: Character): TemplateResult {
     .filter(
       ({ a, check }) =>
         check.ok ||
-        !/^(They don't hire|They've nothing|You belong to no|They belong to no|They're a player|Not in this century|That's you|They haven't the standing|Too close kin|Not your own family)/.test(
+        !/^(They don't hire|They've nothing|You belong to no|They belong to no|They're a player|Not in this century|That's you|They haven't the standing|Too close kin|Not your own family|They're married|You're married|They're a child)/.test(
           check.ok ? "" : check.why,
         ) ||
         a === "talk",

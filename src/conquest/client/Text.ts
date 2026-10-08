@@ -255,7 +255,7 @@ export function describeEvent(
     case "over":
       return "It is 1776. The story ends here.";
     case "news":
-      return e.text;
+      return e.local && !us(e.n) ? null : e.text;
     case "mission":
       return us(e.n) ? e.text : null;
     case "deal": {

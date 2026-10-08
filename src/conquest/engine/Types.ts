@@ -1245,7 +1245,15 @@ export type GameEvent =
     }
   | { k: "tributary"; day: number; n: number; by: number; free: boolean }
   | { k: "abandoned"; day: number; n: number; p: number }
-  | { k: "news"; day: number; n: number; text: string; p?: number }
+  | {
+      k: "news";
+      day: number;
+      n: number;
+      text: string;
+      p?: number;
+      /** Only news to the nation's own people (an election). */
+      local?: boolean;
+    }
   | {
       k: "ordered";
       day: number;

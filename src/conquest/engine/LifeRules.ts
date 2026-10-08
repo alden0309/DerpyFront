@@ -1289,7 +1289,7 @@ export const SEA_FARE_PER_100KM = 0.8;
 export const SEA_PASSAGE_KM = 1600;
 /** Days and coins to sail to Europe and set yourself up there. */
 export const EUROPE_PASSAGE = 25;
-export const EUROPE_FORTUNE = 150;
+export const EUROPE_FORTUNE = 300;
 
 /** Chance a day of something happening on the road. */
 export const ROAD_RISK = {
@@ -1302,11 +1302,11 @@ export const ROAD_RISK = {
 // ---------------------------------------------------------------- checks and people
 
 /**
- * The chance a skill check succeeds: even at equal skill and difficulty,
- * 8% a point either way, never certain.
+ * The chance a skill check succeeds: 60% at equal skill and difficulty,
+ * 7% a point either way, never certain and never hopeless.
  */
 export function checkChance(skill: number, difficulty: number): number {
-  return Math.max(0.05, Math.min(0.95, 0.5 + (skill - difficulty) * 0.08));
+  return Math.max(0.08, Math.min(0.95, 0.6 + (skill - difficulty) * 0.07));
 }
 
 /** Days before the same thing can be done again with the same person. */

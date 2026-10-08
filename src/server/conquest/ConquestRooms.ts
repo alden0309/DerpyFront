@@ -52,6 +52,15 @@ import { recordConquestGame } from "../derpy/DerpyConquest";
 import { derpyDbConfigured } from "../derpy/DerpyDb";
 import { logger } from "../Logger";
 
+/**
+ * For browser tests only: the clock runs this many times faster
+ * (CONQUEST_TEST_FAST, at most 50). Never set on a real server.
+ */
+const TEST_FAST = Math.max(
+  1,
+  Math.min(50, Math.floor(Number(process.env.CONQUEST_TEST_FAST) || 1)),
+);
+
 const log = logger.child({ component: "Conquest" });
 
 const TICK_MS = 100;
@@ -908,14 +917,14 @@ export class ConquestRooms {
       void this.save(room);
     this.letterClock(room, room.paused ? 0 : dt);
     if (room.paused) return;
-    room.owed += (dt / 1000) * SPEED_DAYS_PER_SECOND[room.speed];
+    room.owed += (dt / 1000) * SPEED_DAYS_PER_SECOND[room.speed] * TEST_FAST;
     let ticks = 0;
-    while (room.owed >= 1 && ticks < 10 && !game.state.over) {
+    while (room.owed >= 1 && ticks < 10 * TEST_FAST && !game.state.over) {
       game.tick();
       room.owed -= 1;
       ticks++;
     }
-    if (room.owed > 10) room.owed = 0;
+    if (room.owed > 10 * TEST_FAST) room.owed = 0;
     if (game.state.over) {
       this.flush(room);
       void this.finishRoom(room);

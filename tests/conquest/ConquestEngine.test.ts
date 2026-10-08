@@ -406,24 +406,33 @@ describe("war", () => {
 });
 
 describe("the governor's life", () => {
-  test("the eldest child inherits when the governor dies", () => {
+  test("the crown appoints a crown colony's next governor; an independent colony's passes to the heir", () => {
     const g = quietGame();
     const s = g.state;
     const eng = nationKey(g, "england");
-    const gov = rulerOf(s, eng)!;
     const n = s.nations[eng];
-    const child = makeCharacter(s, g.rng, {
-      nation: eng,
-      culture: n.culture,
-      religion: n.religion,
-      age: 19,
-      female: true,
-      father: gov.id,
-    });
-    gov.children.push(child.id);
-    kill(g, gov, "a fever");
-    expect(s.nations[eng].ruler).toBe(child.id);
-    expect(gov.alive).toBe(false);
+    const withChild = () => {
+      const gov = rulerOf(s, eng)!;
+      const child = makeCharacter(s, g.rng, {
+        nation: eng,
+        culture: n.culture,
+        religion: n.religion,
+        age: 19,
+        female: true,
+        father: gov.id,
+      });
+      gov.children.push(child.id);
+      return { gov, child };
+    };
+    const first = withChild();
+    kill(g, first.gov, "a fever");
+    expect(first.gov.alive).toBe(false);
+    expect(s.nations[eng].ruler).not.toBe(first.child.id);
+    expect(s.nations[eng].ruler).toBeGreaterThanOrEqual(0);
+    n.independent = true;
+    const second = withChild();
+    kill(g, second.gov, "a fever");
+    expect(s.nations[eng].ruler).toBe(second.child.id);
   });
 
   test("with no heir, the crown appoints someone from the council", () => {

@@ -264,15 +264,21 @@ function placeCard(ui: GameUi, p: number, place: PlaceKind): TemplateResult {
     s.nations[s.provinces[p].owner].kind === "native";
   const acts = actsAt(place)
     .map((a) => ({ a, check: actCheck(s, ui.w, life, place, a.key) }))
-    // Hide what can never apply here (others' faith, other peoples' work).
-    .filter(
-      ({ a, check }) =>
+    .filter(({ a, check }) => {
+      // Buying the next rung is done where you work.
+      if (a.key === "buy")
+        return life.job?.place === place && life.job.prov === p
+          ? check.ok || !/^The next rung/.test(check.why)
+          : false;
+      // Hide what can't apply to you here: others' faith, other peoples'
+      // work, a cause or campaign you haven't got.
+      return (
         check.ok ||
-        !/^(Only|Not open|Land isn't|Your people|Not your way)/.test(
-          check.ok ? "" : check.why,
-        ) ||
-        a.key === "buy",
-    );
+        !/^(Only|Not open|Land isn't|Your people|Not your way|You belong to no|You're not standing)/.test(
+          check.why,
+        )
+      );
+    });
   const jobs = (Object.keys(JOBS) as JobKind[]).filter(
     (k) =>
       JOBS[k].places.includes(place) &&
