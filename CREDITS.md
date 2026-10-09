@@ -115,6 +115,13 @@ Coastline, lakes and rivers from [Natural Earth](https://www.naturalearthdata.co
 Public Domain  
 Elevation from [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (SRTM, GMTED2010, NED and ETOPO1; see the [attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md))
 
+### 500 W Keene Road, Apopka, FL 32703 - Detailed Map
+
+Parcel outline, lakes, ponds, wetlands, subdivision plats and landmarks from [Orange County, Florida GIS](https://ocgis4.ocfl.net/arcgis/rest/services) public records  
+Elevation from the USGS [3D Elevation Program](https://www.usgs.gov/3d-elevation-program) 1-meter lidar (2018); wetlands from the U.S. Fish and Wildlife Service [National Wetlands Inventory](https://www.fws.gov/program/national-wetlands-inventory); land cover from the USGS [National Land Cover Database](https://www.mrlc.gov/) 2021; lakes from U.S. Census Bureau [TIGER/Line](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) files and the Census geocoder  
+Public Domain  
+Lake outlines, roads and place names © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licensed under ODbL
+
 ### Apopka - Detailed Map
 
 Lakes, rivers and places from U.S. Census Bureau [TIGER/Line](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) files  
