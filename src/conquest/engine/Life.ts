@@ -3,6 +3,7 @@
 // what happens at the end of it: an heir carries on, or the story ends and
 // the player watches (or takes over someone else, or begins anew).
 
+import { copyLook, validateLook } from "./Appearance";
 import { dateOf, formatDate } from "./Calendar";
 import { kill, makeCharacter, succession } from "./Characters";
 import { seedLocals } from "./Folk";
@@ -212,6 +213,8 @@ export function planProblem(
     return "That faith isn't open to your people here.";
   if (!Number.isInteger(plan.face) || plan.face < 0 || plan.face > 999)
     return "Choose a likeness.";
+  if (plan.look !== undefined && validateLook(plan.look))
+    return validateLook(plan.look);
   const sg = plan.sigil;
   if (
     !sg ||
@@ -325,6 +328,7 @@ export function beginLife(
     made: true,
   });
   c.face = plan.face;
+  if (plan.look) c.look = copyLook(plan.look);
   c.home = plan.home;
   g.touchChar(c);
   const bg = BACKGROUNDS[plan.background];

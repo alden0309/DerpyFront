@@ -7,6 +7,12 @@
 import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
+  fitLook,
+  generateLook,
+  type LookSeed,
+  stationOfBackground,
+} from "../engine/Appearance";
+import {
   homeChoices,
   planBudget,
   planProblem,
@@ -44,7 +50,7 @@ import {
 } from "../engine/LifeRules";
 import { AMERICAS, worldOf } from "../engine/Map";
 import { NAMES } from "../engine/Names";
-import { settlers, tribesfolk } from "../engine/Queries";
+import { settlers, tribesfolk, yearOf } from "../engine/Queries";
 import { POWER_RULES, RELIGION_NAMES, TRAITS } from "../engine/Rules";
 import type {
   BackgroundId,
@@ -59,8 +65,8 @@ import type {
 } from "../engine/Types";
 import { SKILLS, STATS } from "../engine/Types";
 import { arms } from "./Arms";
+import "./avatar/Editor";
 import { flagFor } from "./Flags";
-import { framed, likenesses } from "./Portrait";
 import "./Range";
 import { TERRAIN_NAMES } from "./Text";
 import { nationVars } from "./Theme";
@@ -186,7 +192,7 @@ export function freshPlan(s: GameState, origin?: string): LifePlan {
     female,
     age: 22,
     religion: faithsFor(o, native)[0],
-    face: Math.floor(Math.random() * 12),
+    face: 0,
     sigil: rollSigil(native),
     frame: pick(FRAME_COLORS),
     motto: "",
@@ -195,7 +201,21 @@ export function freshPlan(s: GameState, origin?: string): LifePlan {
     skills: {},
     traits: [],
   };
+  plan.look = generateLook(lookSeed(s, plan, Math.floor(Math.random() * 1e9)));
   return plan;
+}
+
+/** Who a plan's likeness is drawn for: their people, sex, age, trade, year. */
+export function lookSeed(s: GameState, p: LifePlan, id: number): LookSeed {
+  return {
+    id,
+    culture: cultureOf(s, p.origin),
+    female: p.female,
+    age: p.age,
+    station: stationOfBackground(p.background),
+    year: yearOf(s),
+    religion: p.religion,
+  };
 }
 
 /** Spend whatever points are left, leaning toward the background's trade. */
@@ -277,6 +297,9 @@ function loadDraft(s: GameState): LifePlan | null {
     if (!peoples(s).some((n) => n.key === plan.origin)) return null;
     if (!homeChoices(s, plan.origin).includes(plan.home))
       plan.home = homeOrder(s, plan.origin)[0];
+    plan.look = plan.look
+      ? fitLook(plan.look, lookSeed(s, plan, Math.floor(Math.random() * 1e9)))
+      : generateLook(lookSeed(s, plan, Math.floor(Math.random() * 1e9)));
     return planProblem(s, plan) === null ? plan : null;
   } catch {
     return null;
@@ -314,7 +337,24 @@ export class Maker extends LitElement {
 
   private set(patch: Partial<LifePlan>): void {
     if (!this.plan) return;
+    const before = this.plan;
     this.plan = { ...this.plan, ...patch };
+    // The likeness keeps up: another people, sex or trade dresses afresh.
+    const p = this.plan;
+    if (p.look && !patch.look && this.world) {
+      const seed = lookSeed(this.world, p, Math.floor(Math.random() * 1e9));
+      const nativeNow = isNativeOrigin(this.world, p.origin);
+      if (nativeNow !== isNativeOrigin(this.world, before.origin))
+        p.look = generateLook(seed);
+      else if (
+        p.background !== before.background ||
+        p.female !== before.female ||
+        p.origin !== before.origin
+      )
+        p.look = fitLook(p.look, seed, p.background !== before.background);
+      else if (p.age !== before.age || p.religion !== before.religion)
+        p.look = fitLook(p.look, seed);
+    }
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(this.plan));
     } catch {
@@ -361,6 +401,7 @@ export class Maker extends LitElement {
     p.background = pick(native ? NATIVE_BACKGROUNDS : COLONIST_BACKGROUNDS);
     p.motto = Math.random() < 0.7 ? pick(native ? NATIVE_MOTTOS : MOTTOS) : "";
     p = spendPoints(rollTraits(p));
+    p.look = generateLook(lookSeed(s, p, Math.floor(Math.random() * 1e9)));
     this.plan = p;
     this.set({});
   }
@@ -525,15 +566,10 @@ export class Maker extends LitElement {
     const p = this.plan!;
     const native = isNativeOrigin(s, p.origin);
     const names = namesFor(s, p.origin);
-    const faces = likenesses(cultureOf(s, p.origin), p.female, p.age, native);
-    const face = faces.length ? p.face % faces.length : 0;
-    const turn = (by: number) =>
-      this.set({
-        face: (face + by + faces.length) % Math.max(1, faces.length),
-      });
     const faiths = faithsFor(p.origin, native);
-    return html`<div class="cq-maker-part cq-gov-grid cq-maker-who">
-      <div class="cq-maker-head wide">
+    const nation = s.nations.find((n) => n.key === p.origin);
+    return html`<div class="cq-maker-part cq-maker-who">
+      <div class="cq-maker-head">
         <h2 class="cq-h2 step"><span class="cq-step">II</span> Who you are</h2>
         <button
           class="cq-btn quiet small"
@@ -545,40 +581,19 @@ export class Maker extends LitElement {
               family: pick(names.family),
               age: LIFE_MIN_AGE + Math.floor(Math.random() * 16),
               religion: pick(faiths),
-              face: Math.floor(Math.random() * 12),
+            });
+            const now = this.plan!;
+            this.set({
+              look: generateLook(
+                lookSeed(s, now, Math.floor(Math.random() * 1e9)),
+              ),
             });
           }}
         >
           Roll
         </button>
       </div>
-      <figure class="cq-likeness">
-        <span class="cq-sitter" style="--frame:${p.frame}">
-          ${framed(
-            faces[face] ?? null,
-            `Likeness of ${p.first} ${p.family}`,
-            "huge",
-          )}
-        </span>
-        <figcaption>
-          <button
-            class="cq-step-btn"
-            aria-label="Previous likeness"
-            @click=${() => turn(-1)}
-          >
-            ‹
-          </button>
-          <span>Likeness ${face + 1} of ${faces.length}</span>
-          <button
-            class="cq-step-btn"
-            aria-label="Next likeness"
-            @click=${() => turn(1)}
-          >
-            ›
-          </button>
-        </figcaption>
-      </figure>
-      <div class="cq-gov-id">
+      <div class="cq-gov-id cq-who-fields">
         <div class="cq-name-row">
           <label class="cq-field">
             <span>First name</span>
@@ -664,6 +679,24 @@ export class Maker extends LitElement {
               Faith: ${RELIGION_NAMES[p.religion]}
             </p>`}
       </div>
+      <h3 class="cq-h3 cq-look-head">Your likeness</h3>
+      ${p.look
+        ? html`<cq-look-editor
+            .look=${p.look}
+            .female=${p.female}
+            .age=${p.age}
+            .year=${yearOf(s)}
+            .culture=${cultureOf(s, p.origin)}
+            .native=${native}
+            .station=${stationOfBackground(p.background)}
+            .religion=${p.religion}
+            .frame=${p.frame}
+            .color=${nation?.color ?? "#7b3322"}
+            .name=${`${p.first} ${p.family}`}
+            @cq-look=${(e: CustomEvent<LifePlan["look"]>) =>
+              this.set({ look: e.detail })}
+          ></cq-look-editor>`
+        : nothing}
     </div>`;
   }
 

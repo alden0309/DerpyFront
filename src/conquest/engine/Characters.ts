@@ -3,6 +3,7 @@
 // leaders of native nations. They age, marry, have children, die, and
 // remember how they were treated.
 
+import { inheritLook, lookOf, yearAtAge } from "./Appearance";
 import type { ConquestGame } from "./Game";
 import { hooks, skipped } from "./Hooks";
 import { clanName, NATIVE_CLANS, NATIVE_NAMES } from "./LifeRules";
@@ -265,6 +266,21 @@ export function birth(
     : (NAMES[kid.culture] ?? NAMES.english)[kid.female ? "female" : "male"];
   for (let i = 0; i < 6 && taken.has(kid.first); i++)
     kid.first = rng.pick(pool)!;
+  // A player's family looks like them (everyone else's, from their ids).
+  if (mother.look || father.look) {
+    const year = yearAtAge(mother, ageOf(s, mother));
+    kid.look = inheritLook(
+      lookOf(mother, ageOf(s, mother)),
+      lookOf(father, ageOf(s, father)),
+      kid.id,
+      {
+        female: kid.female,
+        culture: kid.culture,
+        year,
+        religion: kid.religion,
+      },
+    );
+  }
   if (mother.home !== undefined) kid.home = mother.home;
   else if (father.home !== undefined) kid.home = father.home;
   father.children.push(kid.id);

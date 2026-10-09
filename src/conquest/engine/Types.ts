@@ -220,7 +220,8 @@ export interface Character {
   /** What a local does for a living (the tavern keeper, the sergeant). */
   role?: RoleId;
   /** Gone to Europe for good: out of the Americas. */
-  abroad?: boolean;
+  abroad?: boolean; /** How they look, if a player drew it or it came down their family (else generated). */
+  look?: import("./Appearance").Appearance;
 }
 
 // ---------------------------------------------------------------- lives
@@ -611,6 +612,8 @@ export interface LifePlan {
   age: number;
   religion: Religion;
   face: number;
+  /** How they look (Appearance.ts); generated if absent. */
+  look?: import("./Appearance").Appearance;
   sigil: Sigil;
   frame: string;
   motto: string;
