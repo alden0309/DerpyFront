@@ -1055,8 +1055,9 @@ export function generateLook(o: LookSeed): Appearance {
   if (child && !native)
     look.hair = o.female
       ? s.pick(["parted", "loose", "braided"])
-      : s.pick(["collar", "natural", "cropped"]);
-  if (child && native && look.hair === "n_roach") look.hair = "n_long";
+      : s.pick(["collar", o.year >= 1690 ? "natural" : "roundhead", "cropped"]);
+  if (child && native && (look.hair === "n_roach" || look.hair === "n_half"))
+    look.hair = o.female ? "n_parted" : "n_long";
   look.hat = pickItem(HEADWEAR, seed, native, region, s, "none");
   // Children go bareheaded, or in a plain cap.
   if (child)
