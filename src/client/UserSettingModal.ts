@@ -389,6 +389,10 @@ export class UserSettingModal extends BaseModal {
     console.log("🤡 Emojis:", this.userSettings.emojis() ? "ON" : "OFF");
   }
 
+  private toggleAiChatter() {
+    this.userSettings.toggleAiChatter();
+  }
+
   private toggleAlertFrame() {
     this.userSettings.toggleAlertFrame();
 
@@ -1562,6 +1566,16 @@ export class UserSettingModal extends BaseModal {
         @change=${this.handleKeybindChange}
       ></setting-keybind>
 
+      <setting-keybind
+        action="openChat"
+        label=${translateText("user_setting.open_chat")}
+        description=${translateText("user_setting.open_chat_desc")}
+        defaultKey=${this.defaultKeybinds.openChat}
+        .value=${this.getKeyValue("openChat")}
+        .display=${this.getKeyChar("openChat")}
+        @change=${this.handleKeybindChange}
+      ></setting-keybind>
+
       <h2
         class="text-blue-200 text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"
       >
@@ -1707,6 +1721,15 @@ export class UserSettingModal extends BaseModal {
 
   private renderGameplaySettings() {
     return html`
+      <!-- 🤖 AI nation chatter -->
+      <setting-toggle
+        label="${translateText("user_setting.ai_chatter_label")}"
+        description="${translateText("user_setting.ai_chatter_desc")}"
+        id="ai-chatter-toggle"
+        .checked=${this.userSettings.aiChatter()}
+        @change=${this.toggleAiChatter}
+      ></setting-toggle>
+
       <!-- 🚨 Alert frame -->
       <setting-toggle
         label="${translateText("user_setting.alert_frame_label")}"

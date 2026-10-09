@@ -3,6 +3,7 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { EventBus, GameEvent } from "@openfront/shared/EventBus";
+import { OpenChatEvent } from "./chat/ChatEvents";
 import { Platform } from "./Platform";
 import { UIState } from "./UIState";
 import {
@@ -262,6 +263,8 @@ export class InputHandler {
   private listenerAbort: AbortController | null = null;
   private activeKeys = new Set<string>();
   private keybinds: Record<string, string> = {};
+  // When Enter last confirmed a building placement (see the openChat bind).
+  private lastGhostConfirmAt = -Infinity;
   private keybindAndEvent: Array<[string, KeybindEntry]> = [];
   private coordinateGridEnabled = false;
 
@@ -373,6 +376,17 @@ export class InputHandler {
     this.addKeybindAndEvent(this.keybinds.breakAlliance, () => {
       this.eventBus.emit(new DoBreakAllianceEvent());
     });
+    // Derpy Front chat. Not when the same Enter just placed a building or
+    // pressed a focused button.
+    this.addKeybindAndEvent(
+      this.keybinds.openChat ?? "Enter",
+      () => {
+        this.eventBus.emit(new OpenChatEvent());
+      },
+      (e: KeyboardEvent) =>
+        !this.isControlTarget(e.target) &&
+        performance.now() - this.lastGhostConfirmAt > 500,
+    );
     this.addKeybindAndEvent(
       this.keybinds.pauseGame,
       () => {
@@ -722,6 +736,7 @@ export class InputHandler {
           this.uiState.ghostStructure !== null
         ) {
           e.preventDefault();
+          this.lastGhostConfirmAt = performance.now();
           this.eventBus.emit(new ConfirmGhostStructureEvent());
         }
 
@@ -740,7 +755,12 @@ export class InputHandler {
           Object.values(this.keybinds).includes(e.code) ||
           this.keybindAndEvent.some(([k]) => this.keybindMatchesEvent(e, k));
 
-        if (isConfiguredKeybind && !isBrowserZoomCombo) {
+        // The chat key (Enter) still presses a focused button.
+        const isChatKeyOnControl =
+          this.keybindMatchesEvent(e, this.keybinds.openChat ?? "Enter") &&
+          this.isControlTarget(e.target);
+
+        if (isConfiguredKeybind && !isBrowserZoomCombo && !isChatKeyOnControl) {
           e.preventDefault();
         }
 
@@ -1378,6 +1398,16 @@ export class InputHandler {
       x: (pointerEvents[0].clientX + pointerEvents[1].clientX) / 2,
       y: (pointerEvents[0].clientY + pointerEvents[1].clientY) / 2,
     };
+  }
+
+  /** A button, link or other control that Enter would press. */
+  private isControlTarget(target: EventTarget | null): boolean {
+    const element = target as HTMLElement | null;
+    return (
+      typeof element?.closest === "function" &&
+      element.closest("button, a[href], select, summary, [role=button]") !==
+        null
+    );
   }
 
   private isTextInputTarget(target: EventTarget | null): boolean {
