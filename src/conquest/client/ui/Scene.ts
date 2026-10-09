@@ -14,7 +14,7 @@ import {
   interactionView,
 } from "../../engine/Interactions";
 import { carried, lifeOfChar, opinionOf } from "../../engine/LifeQueries";
-import { PLACES, ROLES } from "../../engine/LifeRules";
+import { PLACES } from "../../engine/LifeRules";
 import { ageOf, charName } from "../../engine/Queries";
 import type {
   Breakdown,
@@ -30,6 +30,7 @@ import { indoors, sceneArt, sceneSound } from "../SceneArt";
 import { play } from "../Sound";
 import { GOOD_NAMES } from "../Text";
 import type { GameUi } from "./Context";
+import { roleOf } from "./Here";
 import { letterClock, ModalHooks } from "./Modals";
 
 type Expr = NonNullable<PortraitOpts["expression"]>;
@@ -69,18 +70,7 @@ function figure(
   if (!c) return html`<div class="cq-scene-figure ${side} empty"></div>`;
   const n = ui.s.nations[c.nation];
   const played = lifeOfChar(ui.s, c.id);
-  const role =
-    side === "you"
-      ? "You"
-      : played
-        ? `Played by ${played.name}`
-        : c.role
-          ? ROLES[c.role].title
-          : n?.ruler === c.id
-            ? n.kind === "native"
-              ? "Leader"
-              : "Governor"
-            : "";
+  const role = side === "you" ? "You" : roleOf(ui, c);
   return html`<div
     class="cq-scene-figure ${side} expr-${expr}"
     style=${played ? `--frame:${played.frame}` : ""}
@@ -250,7 +240,17 @@ export function eventScene(
       </ol>
       <div class="cq-scene-foot">
         <p class="cq-muted small">
-          ${letterClock(hooks, id)}
+          ${letterClock(
+            hooks,
+            id,
+            ev.choices.length === 1
+              ? "it's read and put away"
+              : ev.key.startsWith("p2p-") && ev.key !== "p2p-reply"
+                ? "it's taken as a no"
+                : ev.key === "europe-invite" || ev.key === "movement-hour"
+                  ? "you'll wait and see"
+                  : "the first course is taken",
+          )}
           ${others > 0 ? html`${others} more waiting.` : nothing}
         </p>
         <button class="cq-btn quiet small" @click=${() => ui.modal(null)}>
@@ -506,10 +506,25 @@ export function outcomeScene(ui: GameUi): TemplateResult {
         <h2>${o.title || "What happened"}</h2>
       </div>
       <div class="cq-scene-text outcome">
-        ${o.lines.length
-          ? o.lines.map((l) => html`<p>${curly(l)}</p>`)
-          : html`<p class="cq-muted">Nothing much came of it.</p>`}
+        ${o.choice
+          ? html`<p class="cq-outcome-choice">You chose: ${curly(o.choice)}</p>`
+          : nothing}
+        ${o.lines
+          .filter((l) => !/: it (went|didn't go|didn’t go) your way\.$/.test(l))
+          .map((l) => html`<p>${curly(l)}</p>`)}
+        ${!o.lines.length && !o.fx?.length && !o.choice
+          ? html`<p class="cq-muted">Nothing much came of it.</p>`
+          : nothing}
       </div>
+      ${o.fx?.length
+        ? html`<ul class="cq-fx" aria-label="What changed">
+            ${o.fx.map((f) => {
+              const up = f.startsWith("+");
+              const good = /stress/.test(f) ? !up : up;
+              return html`<li class=${good ? "good" : "bad"}>${f}</li>`;
+            })}
+          </ul>`
+        : nothing}
       <div class="cq-scene-actions">
         ${next
           ? html`<button

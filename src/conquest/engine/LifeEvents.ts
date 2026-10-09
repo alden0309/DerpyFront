@@ -879,6 +879,8 @@ const BASE_EVENTS: LifeEventDef[] = [
           const c = g.char(ctx.c);
           meet(g, life, c.id);
           remembers(g, life, c, "Walked out with me", 20, 3);
+          if (me(g, life).spouse < 0 && c.spouse < 0)
+            setTie(g, life, c.id, "lover");
           say(
             g,
             life,
@@ -3719,9 +3721,18 @@ const SCENES: Record<string, string> = {
   "rebel-hunted": "woods",
 };
 
+/** Days before anything that simply happens can happen again: variety. */
+const MIN_REPEAT = 1460;
+/** Ones that may press sooner (a sweetheart waiting for an answer). */
+const PRESSING = new Set(["sweetheart-asks"]);
+
 function fire(g: ConquestGame, life: Life, def: LifeEventDef, ctx: LCtx): void {
   touchLife(g, life);
-  life.cooldowns[`ev:${def.key}`] = g.s.day + def.cooldown;
+  const gap =
+    def.pool === "any" && !PRESSING.has(def.key)
+      ? Math.max(def.cooldown, MIN_REPEAT)
+      : def.cooldown;
+  life.cooldowns[`ev:${def.key}`] = g.s.day + gap;
   life.events.push(render(g, life, def, ctx));
   life.tally.events++;
 }
@@ -3813,6 +3824,7 @@ function answer(
     scene: ev.scene ?? "home",
     c: ev.c ?? -1,
     ok: odds === null ? null : pass,
+    choice: ev.choices[choice]?.label,
   });
   if (c.check) gainXp(g, life, c.check.skill, 5);
   c.apply(g, life, ev.ctx, pass);

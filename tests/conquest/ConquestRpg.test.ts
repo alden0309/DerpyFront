@@ -477,6 +477,17 @@ describe("interactions and scenes", () => {
 });
 
 describe("property", () => {
+  test("nobody buys a house while marching with the army", () => {
+    const g = world();
+    const life = lifeOf(g);
+    life.purse = 100;
+    life.job!.army = 0;
+    expect(g.lifeCommand("s1", { k: "property", act: "house" })).toMatch(
+      /army/,
+    );
+    expect(g.lifeCommand("s1", { k: "property", act: "land" })).toMatch(/army/);
+  });
+
   test("a house of your own moves the household, and costs upkeep", () => {
     const g = world();
     const life = lifeOf(g);
@@ -540,6 +551,68 @@ describe("property", () => {
       )
         seen++;
     expect(seen).toBeGreaterThan(4);
+  });
+});
+
+describe("courting and outcomes", () => {
+  test("an admirer becomes a sweetheart, who asks; a wedding follows", () => {
+    const g = world();
+    const life = lifeOf(g);
+    const me = meOf(g.s, life)!;
+    const her = makeCharacter(g.s, g.rng, {
+      nation: me.nation,
+      culture: "english",
+      religion: "anglican",
+      female: true,
+      age: 21,
+    });
+    her.home = life.prov;
+    g.s.locals[life.prov].push(her.id);
+    life.events = [];
+    raiseLifeEvent(g, life, "admirer", { c: her.id });
+    const ev = life.events.find((e) => e.key === "admirer")!;
+    expect(
+      g.lifeCommand("s1", { k: "event", id: ev.id, choice: 0 }),
+    ).toBeNull();
+    expect(life.ties[her.id]).toBe("lover");
+    // She asks, by the churchyard wall.
+    const asks = TALES.find((t) => t.key === "sweetheart-asks")!;
+    const ctx = asks.when!(g, life)!;
+    expect(ctx.c).toBe(her.id);
+    life.purse = 20;
+    raiseLifeEvent(g, life, "sweetheart-asks", ctx);
+    const q = life.events.find((e) => e.key === "sweetheart-asks")!;
+    expect(q.scene).toBe("church");
+    expect(g.lifeCommand("s1", { k: "event", id: q.id, choice: 0 })).toBeNull();
+    expect(me.spouse).toBe(her.id);
+    expect(life.ties[her.id]).toBeUndefined();
+    // The scene says what was chosen and what it cost.
+    expect(life.outcome?.choice).toMatch(/Marry/);
+    expect(life.outcome?.fx?.some((f) => /coins/.test(f))).toBe(true);
+  });
+
+  test("an outcome lists what changed", () => {
+    const g = world();
+    const life = lifeOf(g);
+    life.stress = 50;
+    life.events = [];
+    raiseLifeEvent(g, life, "rising-victory", { m: -1 });
+    const ev = life.events[0];
+    expect(
+      g.lifeCommand("s1", { k: "event", id: ev.id, choice: 0 }),
+    ).toBeNull();
+    expect(life.outcome?.choice).toBe("Drink to it");
+    expect(life.outcome?.fx).toContain("\u221220 stress");
+  });
+
+  test("what simply happens doesn't happen again for years", () => {
+    const g = world();
+    const life = lifeOf(g);
+    life.events = [];
+    raiseLifeEvent(g, life, "fortune-teller");
+    expect(
+      life.cooldowns["ev:fortune-teller"] - g.s.day,
+    ).toBeGreaterThanOrEqual(1000);
   });
 });
 
@@ -737,5 +810,47 @@ describe("governing", () => {
     ).toBeNull();
     expect(nation.council.treasurer).toBe(c.id);
     if (old >= 0) expect(nation.court).toContain(old);
+  });
+});
+
+describe("army command", () => {
+  test("a commander raises volunteers, splits the army and merges it again", () => {
+    const g = world({ start: 1700 });
+    const life = lifeOf(g);
+    const me = meOf(g.s, life)!;
+    const a = g.s.armies.find((x) => x.owner === me.nation)!;
+    expect(a).toBeDefined();
+    a.commander = me.id;
+    a.depart = -1;
+    a.path = [];
+    life.prov = a.prov;
+    g.s.provinces[a.prov].occupier = -1;
+    expect(g.lifeCommand("s1", { k: "army", act: "assault" })).toMatch(
+      /besieging/,
+    );
+    life.purse = 5;
+    expect(g.lifeCommand("s1", { k: "army", act: "recruit" })).toMatch(/coins/);
+    life.purse = 100;
+    const regs = a.regs.length;
+    if (g.s.provinces[a.prov].owner === a.owner) {
+      expect(g.lifeCommand("s1", { k: "army", act: "recruit" })).toBeNull();
+      expect(a.regs.length).toBe(regs + 1);
+      expect(g.lifeCommand("s1", { k: "army", act: "recruit" })).toMatch(
+        /drained/,
+      );
+    }
+    while (a.regs.length < 2)
+      a.regs.push({ type: "militia", men: 500, morale: 0.7, home: a.prov });
+    const before = g.s.armies.filter((x) => x.owner === a.owner).length;
+    expect(g.lifeCommand("s1", { k: "army", act: "split" })).toBeNull();
+    const after = g.s.armies.filter((x) => x.owner === a.owner);
+    expect(after.length).toBe(before + 1);
+    const other = after.find(
+      (x) => x.id !== a.id && x.prov === a.prov && x.commander !== me.id,
+    )!;
+    expect(
+      g.lifeCommand("s1", { k: "army", act: "merge", b: other.id }),
+    ).toBeNull();
+    expect(g.s.armies.filter((x) => x.owner === a.owner).length).toBe(before);
   });
 });

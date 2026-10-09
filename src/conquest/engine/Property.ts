@@ -110,6 +110,14 @@ export function handOf(
 
 // ---------------------------------------------------------------- houses
 
+/** Why nobody settles down here just now: on campaign, or in taken country. */
+function unsettled(s: GameState, life: Life): string | null {
+  if ((life.job?.army ?? -1) >= 0) return "Not while you march with the army.";
+  if ((s.provinces[life.prov]?.occupier ?? -1) >= 0)
+    return "Not while the enemy holds the place.";
+  return null;
+}
+
 /** Whether a house (or a better one) can be had here, and its price. */
 export function houseCheck(
   s: GameState,
@@ -121,6 +129,8 @@ export function houseCheck(
     return { check: no("Not until you're sixteen."), next: null, level: 0 };
   if (life.travel)
     return { check: no("You're on the road."), next: null, level: 0 };
+  const away = unsettled(s, life);
+  if (away) return { check: no(away), next: null, level: 0 };
   const defs = houseDefs(lifeIsNative(s, life));
   const have = houseOf(life, life.prov);
   const level = have?.level ?? 0;
@@ -212,6 +222,8 @@ export function landCheck(s: GameState, life: Life): Check {
     return no("Land isn't bought and sold among your people.");
   if (life.job?.kind === "servant" && (life.job.until ?? 0) > s.day)
     return no("Servants can't own land.");
+  const away = unsettled(s, life);
+  if (away) return no(away);
   const lots = landOf(life, life.prov)?.level ?? 0;
   if (lots >= LAND_LOT.max) return no("There's no more to be had here.");
   if (life.purse < LAND_LOT.cost)

@@ -127,13 +127,16 @@ export function renderModal(
 // ---------------------------------------------------------------- events
 
 /** "Decides itself in 1:12 of play" (or "paused"). */
-export function letterClock(hooks: ModalHooks, id: number): TemplateResult {
+export function letterClock(
+  hooks: ModalHooks,
+  id: number,
+  fallback = "the first course is taken",
+): TemplateResult {
   const left = hooks.letterLeft(id);
-  if (left === null)
-    return html`If you don't answer, the first course is taken for you.`;
+  if (left === null) return html`If you don't answer, ${fallback} for you.`;
   const m = Math.floor(left / 60);
   const sec = String(Math.floor(left % 60)).padStart(2, "0");
-  return html`If you don't answer, the first course is taken in
+  return html`If you don't answer, ${fallback} in
     <b class="cq-countdown ${left < 20 ? "bad" : ""}">${m}:${sec}</b> of
     play${hooks.paused
       ? html` <span class="cq-chip">clock paused</span>`

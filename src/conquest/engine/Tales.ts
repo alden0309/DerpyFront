@@ -6,6 +6,7 @@
 import { dateOf } from "./Calendar";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
+import { wed } from "./Interactions";
 import {
   addRenown,
   addStress,
@@ -28,6 +29,7 @@ import {
   meOf,
   opinionOf,
 } from "./LifeQueries";
+import { WEDDING_COST } from "./LifeRules";
 import { joinMovement, movementOf } from "./Movements";
 import { businessOf, houseOf, landOf } from "./Property";
 import { ageOf, charName } from "./Queries";
@@ -1350,6 +1352,75 @@ export const TALES: LifeEventDef[] = [
             if (sp?.alive)
               remembers(g, life, g.char(sp.id), "Faithless", -30, 5);
           }
+        },
+      },
+    ],
+  },
+  {
+    key: "sweetheart-asks",
+    pool: "any",
+    weight: 2,
+    cooldown: 200,
+    when: (g, life) => {
+      const m = me(g, life);
+      if (m.spouse >= 0 || !adult(g, life) || life.purse < 0) return null;
+      const id = Object.entries(life.ties).find(([k, t]) => {
+        const c = g.s.chars[Number(k)];
+        return (
+          t === "lover" &&
+          !!c?.alive &&
+          !c.abroad &&
+          c.spouse < 0 &&
+          c.female !== m.female &&
+          ageOf(g.s, c) >= 16 &&
+          !g.s.lives.some((l) => l.c === c.id)
+        );
+      })?.[0];
+      return id !== undefined ? { c: Number(id) } : null;
+    },
+    scene: "church",
+    title: "A question by the churchyard wall",
+    body: (g, life, ctx) => {
+      const c = who(g, ctx);
+      return `${cap(nameOf(g, ctx))} has walked out with you long enough for the whole parish to hold an opinion, and the parish has held several. Today, by the churchyard wall, ${he(c)} asks you straight: is it to be a wedding, or isn't it?`;
+    },
+    choices: [
+      {
+        label: `Marry them (${WEDDING_COST} coins for the parson)`,
+        tip: "A wedding: a spouse and a household, perhaps a dowry. Much less stress.",
+        blocked: (g, life) => poor(life, WEDDING_COST),
+        apply: (g, life, ctx) => {
+          const err = wed(g, life, g.char(ctx.c));
+          if (err) say(g, life, err);
+        },
+      },
+      {
+        label: "Not yet",
+        tip: "They'll wait, a while (−10 opinion).",
+        apply: (g, life, ctx) => {
+          const c = g.char(ctx.c);
+          remembers(g, life, c, "Kept me waiting", -10, 1);
+          say(
+            g,
+            life,
+            `${cap(he(c))} says ${he(c)} will wait. ${cap(he(c))} doesn't say how long.`,
+          );
+        },
+      },
+      {
+        label: "Break it off",
+        tip: "Sweethearts no more, and not friends either (−30).",
+        apply: (g, life, ctx) => {
+          const c = g.char(ctx.c);
+          setTie(g, life, c.id, null);
+          remembers(g, life, c, "Broke my heart", -30, 4);
+          addStress(g, life, 4);
+          say(
+            g,
+            life,
+            `You and ${charName(c)} are done. The parish has a new opinion.`,
+            "bad",
+          );
         },
       },
     ],

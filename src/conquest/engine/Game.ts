@@ -79,6 +79,8 @@ export class ConquestGame {
     seat: string;
     lines: string[];
     meta: Partial<Omit<import("./Types").Outcome, "n" | "lines" | "day">>;
+    /** Purse, renown, stress, health and favour when it began. */
+    before: number[];
   } | null = null;
   /** Turned off in tests that want a quiet world. */
   aiEnabled = true;

@@ -245,7 +245,25 @@ export function rollCheck(g: ConquestGame, chance: number): boolean {
 
 /** Start noting what an act or a choice writes, for its scene. */
 export function beginOutcome(g: ConquestGame, life: Life): void {
-  g.capture = { seat: life.seat, lines: [], meta: {} };
+  g.capture = { seat: life.seat, lines: [], meta: {}, before: gauges(life) };
+}
+
+const GAUGES = ["coins", "renown", "stress", "health", "favour"];
+
+function gauges(life: Life): number[] {
+  return [life.purse, life.renown, life.stress, life.health, life.favor];
+}
+
+/** What changed between two readings, in words: "+3 renown", "−5 coins". */
+function changes(before: number[], after: number[]): string[] {
+  const out: string[] = [];
+  after.forEach((v, i) => {
+    const d = Math.round((v - before[i]) * 10) / 10;
+    if (Math.abs(d) < 0.5) return;
+    const n = Math.abs(d) >= 10 ? Math.round(Math.abs(d)) : Math.abs(d);
+    out.push(`${d > 0 ? "+" : "\u2212"}${n} ${GAUGES[i]}`);
+  });
+  return out;
 }
 
 /** Say what the scene should show (the other person, the backdrop, how it went). */
@@ -278,6 +296,8 @@ export function endOutcome(
     c: m.c ?? -1,
     ok: m.ok === undefined ? null : m.ok,
     lines: cap.lines.slice(-6),
+    fx: life.c >= 0 ? changes(cap.before, gauges(life)) : [],
+    ...(m.choice ? { choice: m.choice } : {}),
     day: g.s.day,
   };
 }

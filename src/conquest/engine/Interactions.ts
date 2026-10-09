@@ -1026,7 +1026,8 @@ function smallTalk(
     : cool[Math.floor(r * cool.length)];
 }
 
-function wed(g: ConquestGame, life: Life, c: Character): string | null {
+/** A wedding: the spouse leaves any post and moves in; a dowry, perhaps. */
+export function wed(g: ConquestGame, life: Life, c: Character): string | null {
   const s = g.s;
   const me = meOf(s, life)!;
   spend(g, life, WEDDING_COST);

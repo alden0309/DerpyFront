@@ -554,6 +554,10 @@ export interface Outcome {
   ok: boolean | null;
   /** What it came to, as written in the journal. */
   lines: string[];
+  /** What changed: "+3 renown", "−5 coins"... */
+  fx?: string[];
+  /** The choice made, when an event was answered. */
+  choice?: string;
   day: number;
 }
 
