@@ -11,11 +11,13 @@ import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
 import {
   ageOfLife,
+  hasKit,
   lifeIsNative,
   lifeOfSeat,
   lifeTitle,
   meOf,
   monthlyBudget,
+  paceOf,
   promotionView,
   travelRoute,
 } from "../engine/LifeQueries";
@@ -780,6 +782,7 @@ export class GameView extends LitElement {
         colors: figureColorsOf(c, native, l.frame),
         female: c.female,
         native,
+        mounted: hasKit(s, l, "horse") || hasKit(s, l, "carriage"),
       });
     }
     // Yours on top.
@@ -803,8 +806,9 @@ export class GameView extends LitElement {
     if (this.roadCache?.key === key) return this.roadCache.road;
     const native = lifeIsNative(this.s, life);
     const sailor = life.job?.kind === "sailor";
-    const land = travelRoute(this.s, map, from, p, false, native, sailor);
-    const sea = travelRoute(this.s, map, from, p, true, native, sailor);
+    const pace = paceOf(this.s, life);
+    const land = travelRoute(this.s, map, from, p, false, native, sailor, pace);
+    const sea = travelRoute(this.s, map, from, p, true, native, sailor, pace);
     const best =
       sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1)
         ? sea
@@ -994,8 +998,27 @@ export class GameView extends LitElement {
       const from = life.travel ? life.travel.path[0] : life.prov;
       const native = lifeIsNative(this.s, life);
       const sailor = life.job?.kind === "sailor";
-      const land = travelRoute(this.s, map, from, m.to, false, native, sailor);
-      const sea = travelRoute(this.s, map, from, m.to, true, native, sailor);
+      const pace = paceOf(this.s, life);
+      const land = travelRoute(
+        this.s,
+        map,
+        from,
+        m.to,
+        false,
+        native,
+        sailor,
+        pace,
+      );
+      const sea = travelRoute(
+        this.s,
+        map,
+        from,
+        m.to,
+        true,
+        native,
+        sailor,
+        pace,
+      );
       const seaBetter =
         sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1);
       body = html`<p>Go to <b>${place}</b>?</p>

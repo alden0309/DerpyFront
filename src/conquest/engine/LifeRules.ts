@@ -1469,6 +1469,9 @@ export const LIFESTYLES: Lifestyle[] = [
 
 export interface LifestyleDef {
   name: string;
+  /** Among native peoples standing is measured by what you give. */
+  nativeName: string;
+  nativeText: string;
   /** Coins a month, for colonists and for native peoples (who share more). */
   cost: number;
   nativeCost: number;
@@ -1481,6 +1484,8 @@ export interface LifestyleDef {
 export const LIFESTYLE: Record<Lifestyle, LifestyleDef> = {
   frugal: {
     name: "Frugal",
+    nativeName: "Sparing",
+    nativeText: "Little but what the day brings in. Saves; wears you down.",
     cost: 1,
     nativeCost: 0.5,
     health: -1,
@@ -1490,6 +1495,8 @@ export const LIFESTYLE: Record<Lifestyle, LifestyleDef> = {
   },
   modest: {
     name: "Modest",
+    nativeName: "Modest",
+    nativeText: "Enough for your own fire and your family.",
     cost: 2,
     nativeCost: 1,
     health: 0,
@@ -1499,6 +1506,8 @@ export const LIFESTYLE: Record<Lifestyle, LifestyleDef> = {
   },
   comfortable: {
     name: "Comfortable",
+    nativeName: "Comfortable",
+    nativeText: "A full kettle, warm furs, and a fire anyone may sit at.",
     cost: 5.5,
     nativeCost: 2.5,
     health: 1,
@@ -1508,6 +1517,9 @@ export const LIFESTYLE: Record<Lifestyle, LifestyleDef> = {
   },
   genteel: {
     name: "Genteel",
+    nativeName: "Generous",
+    nativeText:
+      "Your kettle feeds half the village and gifts go out with every visitor. Expected of those who lead.",
     cost: 10,
     nativeCost: 4.5,
     health: 1,
@@ -1517,6 +1529,9 @@ export const LIFESTYLE: Record<Lifestyle, LifestyleDef> = {
   },
   grand: {
     name: "Grand",
+    nativeName: "Open-handed",
+    nativeText:
+      "Feasts, and wampum, cloth and kettles for every guest: nobody leaves your fire with empty hands. Expected of the great.",
     cost: 19,
     nativeCost: 8,
     health: 1,
@@ -1525,6 +1540,17 @@ export const LIFESTYLE: Record<Lifestyle, LifestyleDef> = {
     text: "Silver plate, a coach and four, a great table every night and half the colony at it. Expected of the great.",
   },
 };
+
+/** A way of living as it's known among your people: its name, words and cost. */
+export function livingOf(
+  native: boolean,
+  l: Lifestyle,
+): { name: string; text: string; cost: number } {
+  const d = LIFESTYLE[l];
+  return native
+    ? { name: d.nativeName, text: d.nativeText, cost: d.nativeCost }
+    : { name: d.name, text: d.text, cost: d.cost };
+}
 
 /** A wife and children cost something too: per head, a month (times the way you live). */
 export const FAMILY_COST = 0.3;
@@ -1548,6 +1574,14 @@ export const STATION_NAMES = [
   "the middling sort",
   "gentlefolk",
   "the better sort",
+  "the great",
+];
+/** The same, among native peoples. */
+export const NATIVE_STATION_NAMES = [
+  "the ordinary folk",
+  "the respected",
+  "those of standing",
+  "those of high standing",
   "the great",
 ];
 /** A rung paying this much a month or more puts you a station up. */

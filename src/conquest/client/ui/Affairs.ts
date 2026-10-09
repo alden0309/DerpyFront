@@ -38,8 +38,8 @@ import {
   JOBS,
   KIT,
   LAND_LOT,
-  LIFESTYLE,
   LIVING_HOW,
+  livingOf,
   LODGES,
   PLACES,
   RECRUIT_COST,
@@ -896,7 +896,8 @@ function purseSection(ui: GameUi): TemplateResult | typeof nothing {
   const outs = budget.parts.filter((p) => !p.mul && p.value < 0);
   const kit = KIT_KEYS.filter((k) => hasKit(s, life, k));
   const ventures = life.ventures ?? [];
-  const could = life.purse >= 2 * LIFESTYLE[st.expected].cost;
+  const native = lifeIsNative(s, life);
+  const could = life.purse >= 2 * livingOf(native, st.expected).cost;
   const line = (p: { label: string; value: number }) =>
     html`<li>
       <span>${p.label}</span
@@ -911,10 +912,12 @@ function purseSection(ui: GameUi): TemplateResult | typeof nothing {
           You're counted among <b>${st.name}</b>
           <span class="cq-muted small">(${st.why.toLowerCase()})</span>. They
           expect you to live
-          ${LIVING_HOW[st.expected]}${STATION_HOUSE[st.level]
+          ${native
+            ? livingOf(true, st.expected).name.toLowerCase()
+            : LIVING_HOW[st.expected]}${STATION_HOUSE[st.level]
             ? STATION_HOUSE[st.level] === 1
               ? ", under a roof of your own"
-              : `, in a ${(lifeIsNative(s, life) ? LODGES : HOUSES)[
+              : `, in a ${(native ? LODGES : HOUSES)[
                   STATION_HOUSE[st.level] - 1
                 ].name.toLowerCase()}`
             : ""}.

@@ -15,6 +15,7 @@ import {
   lifeIsNative,
   lifeOfChar,
   opinionOf,
+  paceOf,
   peopleHere,
   placesIn,
   promotionView,
@@ -117,8 +118,9 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
   if (p === life.prov && !life.travel) return html``;
   const native = lifeIsNative(ui.s, life);
   const sailor = life.job?.kind === "sailor";
-  const land = travelRoute(ui.s, ui.map, from, p, false, native, sailor);
-  const sea = travelRoute(ui.s, ui.map, from, p, true, native, sailor);
+  const pace = paceOf(ui.s, life);
+  const land = travelRoute(ui.s, ui.map, from, p, false, native, sailor, pace);
+  const sea = travelRoute(ui.s, ui.map, from, p, true, native, sailor, pace);
   const seaBetter =
     sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1);
   const marching = life.job && life.job.army >= 0;
@@ -878,7 +880,7 @@ export async function runAct(
 
 /** Reasons an act isn't for you at all here (so it isn't shown). */
 const NOT_FOR_YOU =
-  /^(Only|Not open|Land isn't|Your people|Not your way|Not your people's way|You belong to no|You're not standing|Trappers'|Physicians'|You have work already|You're in the army|That's done where|You have no trade to equip|Grants are made at|Your home must be|Your coach has horses)/;
+  /^(Only|Not open|Land isn't|Your people|Not your way|Not your people's way|You belong to no|You're not standing|Trappers'|Physicians'|You have work already|You're in the army|That's done where|You have no trade to equip|Grants are made at|Your home must be|Your coach has horses|You're not marching)/;
 
 /**
  * What you can do at a place. The buttons shown stay for as long as you're

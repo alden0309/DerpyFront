@@ -42,8 +42,8 @@ import {
   LAND_GRANT,
   LAND_LOT,
   LESSONS,
-  LIFESTYLE,
   LIVING_HOW,
+  livingOf,
   MAX_VENTURES,
   SHARE_CRASH,
   SHARE_DIVIDEND,
@@ -633,7 +633,8 @@ export function moneyMonthly(g: ConquestGame, life: Life): void {
   // (Fallen on hard times, they pity you instead.)
   const b = isChildLife(s, life) ? null : beneathStation(s, life);
   const st = stationOf(s, life);
-  const could = life.purse >= 2 * LIFESTYLE[st.expected].cost;
+  const native = lifeIsNative(s, life);
+  const could = life.purse >= 2 * livingOf(native, st.expected).cost;
   const gap = could ? (b?.steps ?? 0) : 0;
   if (b && gap > 0) {
     addStress(g, life, BENEATH_STRESS * gap);
@@ -644,7 +645,9 @@ export function moneyMonthly(g: ConquestGame, life: Life): void {
         g,
         life,
         b.living
-          ? `People talk: ${st.who}, living like ${LIKE[life.lifestyle]}. ${st.name[0].toUpperCase()}${st.name.slice(1)} are expected to live ${LIVING_HOW[st.expected]}.`
+          ? native
+            ? `People talk: ${st.who}, and so little given away? Standing is measured by what you give.`
+            : `People talk: ${st.who}, living like ${LIKE[life.lifestyle]}. ${st.name[0].toUpperCase()}${st.name.slice(1)} are expected to live ${LIVING_HOW[st.expected]}.`
           : `People talk: ${st.who}, and no ${b.house?.toLowerCase() ?? "house"} to show for it?`,
         "bad",
       );

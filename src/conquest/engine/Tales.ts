@@ -1056,10 +1056,11 @@ export const TALES: LifeEventDef[] = [
     choices: [
       {
         label: "Pay for a better pew (6 coins)",
-        tip: "+3 renown, and the satisfaction of a view of the pulpit.",
+        tip: "+3 renown, a view of the pulpit, and a pew of your own (half a coin a month to keep).",
         blocked: (g, life) => poor(life, 6),
         apply: (g, life) => {
           spend(g, life, 6);
+          touchLife(g, life).kit = { ...(life.kit ?? {}), pew: g.s.day };
           fx(g, life, { renown: 3 });
         },
       },

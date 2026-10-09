@@ -38,7 +38,7 @@ import {
   skillLevel,
   stationOf,
 } from "./LifeQueries";
-import { checkChance, SKILL_NAMES } from "./LifeRules";
+import { checkChance, HOUSES, LODGES, SKILL_NAMES } from "./LifeRules";
 import { isHurricaneSeason, isWinter } from "./Map";
 import { ageOf, charName, hasTrait, settlers } from "./Queries";
 import type {
@@ -52,6 +52,47 @@ import type {
 } from "./Types";
 
 export type LCtx = Record<string, number>;
+
+/** A fire takes the roof: your own house needs rebuilding (or is the less for it). */
+export function houseFire(g: ConquestGame, life: Life): void {
+  const house = (life.property ?? []).find(
+    (p) => p.kind === "house" && p.prov === life.home,
+  );
+  if (!house) {
+    say(
+      g,
+      life,
+      "The lodgings you rented burned. You got out with the family Bible and one boot.",
+      "bad",
+    );
+    return;
+  }
+  const defs = native(g, life) ? LODGES : HOUSES;
+  const repair = Math.round((defs[house.level - 1]?.cost ?? 20) * 0.3);
+  if (life.purse >= repair) {
+    spend(g, life, repair);
+    say(
+      g,
+      life,
+      `Your ${house.name.toLowerCase()} burned half to the ground. Rebuilding it costs ${repair} coins.`,
+      "bad",
+    );
+    return;
+  }
+  touchLife(g, life);
+  if (house.level <= 1)
+    life.property = (life.property ?? []).filter((p) => p !== house);
+  else {
+    house.level--;
+    house.name = defs[house.level - 1].name;
+  }
+  say(
+    g,
+    life,
+    `Your house burned, and there's no money to rebuild it as it was. You got out with the family Bible and one boot.`,
+    "bad",
+  );
+}
 
 /** A child of yours marries the match their family brought. */
 function wedChild(g: ConquestGame, life: Life, ctx: LCtx): Character {
@@ -1226,12 +1267,7 @@ const BASE_EVENTS: LifeEventDef[] = [
               { coins: -Math.min(8, Math.max(0, life.purse)), health: -8 },
               "burns from a house fire",
             );
-            say(
-              g,
-              life,
-              "Your house burned. You got out with the family Bible and one boot.",
-              "bad",
-            );
+            houseFire(g, life);
           }
         },
       },

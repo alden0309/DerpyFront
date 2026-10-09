@@ -32,8 +32,8 @@ import {
 import {
   ATTRIBUTE_NAMES,
   LIFE_TRAIT_TEXT,
-  LIFESTYLE,
   LIFESTYLES,
+  livingOf,
   SKILL_HELP,
   SKILL_NAMES,
   WORK_DAYS,
@@ -210,15 +210,15 @@ export function youTab(ui: GameUi): TemplateResult {
                 role="radio"
                 aria-checked=${life.lifestyle === l}
                 class=${!child && station.expected === l ? "expected" : ""}
-                title=${LIFESTYLE[l].text}
+                title=${livingOf(native, l).text}
                 @click=${() => ui.cmd({ k: "lifestyle", v: l })}
               >
-                ${LIFESTYLE[l].name}
+                ${livingOf(native, l).name}
               </button>`,
           )}
         </div>
         <p class="cq-muted small">
-          ${LIFESTYLE[life.lifestyle].text}
+          ${livingOf(native, life.lifestyle).text}
           ${num(`${plain(cost.total)} a month`, () =>
             breakdownTip("Living costs", cost),
           )}
@@ -233,7 +233,7 @@ export function youTab(ui: GameUi): TemplateResult {
                     LIFESTYLES.indexOf(station.expected)
                   ? html`<span class="bad"
                       >expected to live
-                      ${LIFESTYLE[station.expected].name.toLowerCase()}
+                      ${livingOf(native, station.expected).name.toLowerCase()}
                       (marked)</span
                     >`
                   : "living above your station"}.

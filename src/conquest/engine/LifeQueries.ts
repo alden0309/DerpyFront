@@ -18,6 +18,7 @@ import {
   LIFESTYLE,
   LIFESTYLES,
   LODGES,
+  NATIVE_STATION_NAMES,
   PORTIONS,
   PRESS_YEAR,
   RankDef,
@@ -551,7 +552,7 @@ export function stationOf(s: GameState, life: Life): StationView {
   }
   return {
     level,
-    name: STATION_NAMES[level],
+    name: (lifeIsNative(s, life) ? NATIVE_STATION_NAMES : STATION_NAMES)[level],
     why,
     who,
     expected: STATION_LIFESTYLE[level],

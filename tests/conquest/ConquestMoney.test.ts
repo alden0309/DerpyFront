@@ -10,7 +10,7 @@ import { describe, expect, test } from "vitest";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { bribeCost } from "../../src/conquest/engine/Interactions";
 import { actCheck, personCheck } from "../../src/conquest/engine/LifeActs";
-import { LIFE_EVENTS } from "../../src/conquest/engine/LifeEvents";
+import { houseFire, LIFE_EVENTS } from "../../src/conquest/engine/LifeEvents";
 import {
   beneathStation,
   jobCheck,
@@ -298,6 +298,29 @@ describe("things money buys", () => {
     moneyMonthly(g, life);
     expect(life.property!.some((p) => p.kind === "house")).toBe(false);
     expect(life.journal[life.journal.length - 1]?.text).toMatch(/bailiffs/);
+  });
+});
+
+describe("property at risk", () => {
+  test("a fire costs a house its rebuilding, or a step down when there's no money", () => {
+    const g = world();
+    const life = lifeOf(g);
+    life.purse = 200;
+    expect(g.lifeCommand("s1", { k: "property", act: "house" })).toBeNull();
+    expect(g.lifeCommand("s1", { k: "property", act: "house" })).toBeNull();
+    const house = life.property!.find((p) => p.kind === "house")!;
+    expect(house.level).toBe(2);
+    const before = life.purse;
+    houseFire(g, life);
+    expect(life.purse).toBeLessThan(before);
+    expect(house.level).toBe(2);
+    life.purse = 0;
+    houseFire(g, life);
+    expect(house.level).toBe(1);
+    // Renting: the lodgings burn, and that's that.
+    life.property = [];
+    houseFire(g, life);
+    expect(life.journal[life.journal.length - 1].text).toMatch(/lodgings/);
   });
 });
 
