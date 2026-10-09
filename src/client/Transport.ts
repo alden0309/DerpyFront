@@ -27,6 +27,7 @@ import {
   GameEvent,
 } from "@openfront/shared/EventBus";
 import {
+  ClientChatMessage,
   ClientHashMessage,
   ClientIntentMessage,
   ClientJoinMessage,
@@ -49,6 +50,7 @@ import {
 import { ZbContext } from "@openfront/zbin";
 import { ClientEnv, NoServerError } from "src/client/ClientEnv";
 import { getPlayToken } from "./Auth";
+import { SendChatEvent } from "./chat/ChatEvents";
 import { LobbyConfig } from "./ClientGameRunner";
 import { clientPlatform } from "./ClientPlatform";
 import { isDesktopShell } from "./DesktopShell";
@@ -375,6 +377,7 @@ export class Transport {
       this.onSendDonateTroopIntent(e),
     );
     this.subscribe(SendQuickChatEvent, (e) => this.onSendQuickChatIntent(e));
+    this.subscribe(SendChatEvent, (e) => this.onSendChat(e));
     this.subscribe(SendEmbargoIntentEvent, (e) => this.onSendEmbargoIntent(e));
     this.subscribe(SendEmbargoAllIntentEvent, (e) =>
       this.onSendEmbargoAllIntent(e),
@@ -991,6 +994,17 @@ export class Transport {
       reason: event.reason,
     } satisfies ClientReportMessage);
     this.eventBus.emit(new PlayerReportedEvent(event.reported));
+  }
+
+  // Derpy Front chat: a message of its own, never an intent (see
+  // ClientChatMessageSchema), so it stays out of the turn and the replay.
+  private onSendChat(event: SendChatEvent) {
+    this.sendMsg({
+      type: "chat",
+      channel: event.channel,
+      text: event.text,
+      to: event.channel === "all" ? undefined : event.to,
+    } satisfies ClientChatMessage);
   }
 
   private onSendHashEvent(event: SendHashEvent) {

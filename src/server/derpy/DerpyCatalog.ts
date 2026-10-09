@@ -120,6 +120,22 @@ export const DERPY_PACKS: readonly DerpyPack[] = [
       skin("space_moon", "Moon Craters"),
     ],
   },
+  {
+    // The store's grandest pack: an original space opera. Drawn by
+    // scripts/derpy-skins/astral-armada.html.
+    name: "armada",
+    displayName: "Astral Armada",
+    description:
+      "Manta-winged starfighters, ring-spun battle cruisers, a drifting nebula, the Armada's own insignia and its robot crew.",
+    price: 5000,
+    skins: [
+      skin("armada_fighters", "Starfighter Squadron"),
+      skin("armada_cruisers", "Battle Cruisers"),
+      skin("armada_nebula", "Nebula Drift"),
+      skin("armada_insignia", "Armada Insignia"),
+      skin("armada_robots", "Bot Brigade"),
+    ],
+  },
 ];
 
 export function findPack(name: string): DerpyPack | undefined {

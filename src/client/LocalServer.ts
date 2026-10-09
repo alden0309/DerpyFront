@@ -4,12 +4,14 @@ import {
   StampedIntent,
   Turn,
 } from "@openfront/engine-api/Schemas";
+import { normalizeChatText } from "@openfront/shared/Chat";
 import { EventBus } from "@openfront/shared/EventBus";
 import {
   createPartialGameRecord,
   decompressGameRecord,
 } from "@openfront/shared/SharedUtil";
 import {
+  ClientChatMessage,
   ClientMessage,
   ClientSendWinnerMessage,
   PartialGameRecord,
@@ -67,6 +69,9 @@ export class LocalServer {
   // skipped win-time uploads during teardown.
   private archived = false;
   private archiveInFlight = false;
+
+  // Derpy Front chat lines this game has echoed (see relayChat).
+  private chatSeq = 0;
 
   private turnsExecuted = 0;
   private turnStartTime = 0;
@@ -244,6 +249,9 @@ export class LocalServer {
         );
       }
     }
+    if (clientMsg.type === "chat" && !this.isReplay) {
+      void this.relayChat(clientMsg);
+    }
     if (clientMsg.type === "winner") {
       this.winner = clientMsg;
       this.allPlayersStats = clientMsg.allPlayersStats;
@@ -254,6 +262,29 @@ export class LocalServer {
         this.archiveGameRecord(false);
       }
     }
+  }
+
+  // Singleplayer chat: the only other ears are the nations', so the line comes
+  // straight back, cleaned and filtered just as the game server would. The
+  // filter is loaded on first use to keep its word lists out of the bundle.
+  private async relayChat(msg: ClientChatMessage) {
+    let text = normalizeChatText(msg.text);
+    try {
+      const { censorChatText } = await import("@openfront/shared/Profanity");
+      text = censorChatText(text);
+    } catch (e) {
+      // Offline, the filter can't load; the line is only for this player's
+      // own eyes, so it still goes through rather than vanish.
+      console.warn("chat filter unavailable", e);
+    }
+    if (text.length === 0 || this.clientID === undefined) return;
+    this.clientMessage({
+      type: "chat",
+      from: this.clientID,
+      channel: msg.channel,
+      text,
+      seq: this.chatSeq++,
+    });
   }
 
   // This is so the client can tell us when it finished processing the turn.

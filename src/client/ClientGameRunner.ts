@@ -74,6 +74,7 @@ import {
 import { createCanvas } from "./Utils";
 import { WebGLFrameBuilder } from "./WebGLFrameBuilder";
 import { WorkerClient } from "./WorkerClient";
+import { ChatReceivedEvent } from "./chat/ChatEvents";
 import { MapLayerController } from "./controllers/MapLayerController";
 import { createRenderer, GameRenderer } from "./hud/GameRenderer";
 import { goldRateTracker } from "./hud/layers/lib/GoldRateTracker";
@@ -1134,6 +1135,9 @@ export class ClientGameRunner {
         this.metrics?.recordRoundTrip(
           Math.floor(performance.now()) - message.sentAt,
         );
+      }
+      if (message.type === "chat") {
+        this.eventBus.emit(new ChatReceivedEvent(message));
       }
       if (message.type === "new_lobby") {
         // The host reused this private lobby: surface the successor id so the

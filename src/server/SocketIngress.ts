@@ -17,7 +17,8 @@ export const KICK_REASON_INVALID_MESSAGE = "kick_reason.invalid_message";
 
 // Messages that speak for a player in the simulation, so a spectator may not
 // send them — including hash, which feeds desync agreement, and report, which
-// is one player's word against another's. Ping and rejoin remain connection
+// is one player's word against another's. Chat too: a spectator has no
+// player for the others to see a name on. Ping and rejoin remain connection
 // housekeeping.
 const SPECTATOR_BLOCKED_MESSAGES = new Set([
   "intent",
@@ -25,6 +26,7 @@ const SPECTATOR_BLOCKED_MESSAGES = new Set([
   "live_stats",
   "hash",
   "report",
+  "chat",
 ]);
 
 // What the ingress needs from the game it feeds.

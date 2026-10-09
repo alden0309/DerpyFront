@@ -23,10 +23,13 @@ import {
   resolveTeamsList,
 } from "@openfront/engine-lib/game/TeamAssignment";
 import { isAdminRole } from "@openfront/shared/ApiSchemas";
+import { normalizeChatText } from "@openfront/shared/Chat";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
 import { GameEnv } from "@openfront/shared/configuration/Env";
+import { censorChatText } from "@openfront/shared/Profanity";
 import { createPartialGameRecord } from "@openfront/shared/SharedUtil";
 import {
+  ClientChatMessage,
   ClientMessage,
   ClientReportMessage,
   ClientSendLiveStatsMessage,
@@ -38,6 +41,7 @@ import {
   PlayerRecord,
   PlayerReport,
   PublicGameType,
+  ServerChatMessage,
   ServerDesyncSchema,
   ServerErrorMessage,
   ServerLobbyInfoMessage,
@@ -235,6 +239,9 @@ export class GameServer {
   private endTurnIntervalID: ReturnType<typeof setInterval> | undefined;
 
   private lastPingUpdate = 0;
+
+  // Derpy Front chat: how many lines this game has relayed (see handleChat).
+  private chatSeq = 0;
 
   // Note: This can be undefined if accessed before the game starts.
   private gameStartInfo!: WireGameStartInfo;
@@ -827,6 +834,10 @@ export class GameServer {
       }
       case "report": {
         this.handleReport(client, clientMsg);
+        break;
+      }
+      case "chat": {
+        this.handleChat(client, clientMsg);
         break;
       }
       default: {
@@ -2019,6 +2030,45 @@ export class GameServer {
       reason,
       gameID: this.id,
     });
+  }
+
+  // Derpy Front chat. By here SocketIngress has validated the frame, applied
+  // the chat rate limit and turned spectators away. The line is cleaned and
+  // run through the profanity filter, then sent — never added to the turn —
+  // to everyone for "all", or to the sender and the listed players of this
+  // game for "team" and "allies" (the receivers check the channel against
+  // their own view of the game). The sender gets it back too: that is their
+  // confirmation, showing what the others saw.
+  private handleChat(client: Client, msg: ClientChatMessage) {
+    if (this.stage !== "started" || this.ended) return;
+    const text = censorChatText(normalizeChatText(msg.text));
+    if (text.length === 0) return;
+    const players = this.gameStartInfo.players;
+    if (!players.some((p) => p.clientID === client.clientID)) return;
+
+    let recipients: readonly Client[];
+    if (msg.channel === "all") {
+      recipients = this.clients.active();
+    } else {
+      const listed = new Set(msg.to ?? []);
+      listed.add(client.clientID);
+      recipients = this.clients
+        .active()
+        .filter((c) => !c.spectator && listed.has(c.clientID));
+    }
+    const frame = encodeServerMessage(
+      {
+        type: "chat",
+        from: client.clientID,
+        channel: msg.channel,
+        text,
+        seq: this.chatSeq++,
+      } satisfies ServerChatMessage,
+      this.zbinCtx,
+    );
+    for (const c of recipients) {
+      if (c.ws.readyState === c.ws.OPEN) c.ws.send(frame);
+    }
   }
 
   private handleSynchronization() {

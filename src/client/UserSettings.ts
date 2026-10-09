@@ -39,6 +39,7 @@ export function getDefaultKeybinds(isMac: boolean): Record<string, string> {
     retaliateAttack: "Shift+KeyR",
     requestAlliance: "KeyK",
     breakAlliance: "KeyL",
+    openChat: "Enter",
     swapDirection: "KeyU",
     zoomOut: "KeyQ",
     zoomIn: "KeyE",
@@ -467,6 +468,19 @@ export class UserSettings {
 
   toggleEmojis() {
     this.setBool("settings.emojis", !this.emojis());
+  }
+
+  /** Derpy Front: whether the AI nations talk in the chat. */
+  aiChatter() {
+    return this.getBool("settings.aiChatter", true);
+  }
+
+  setAiChatter(value: boolean) {
+    this.setBool("settings.aiChatter", value);
+  }
+
+  toggleAiChatter() {
+    this.setAiChatter(!this.aiChatter());
   }
 
   // Performance overlay specifically needs a direct setter for Shift-D
