@@ -549,31 +549,54 @@ export function paintHat(h: Head, s: Sitting): string {
       );
     }
     case "mitre": {
-      const cx = z.bx;
-      const cy = z.by + 2;
-      const front = smooth(
+      // A grenadier's mitre: a tall embroidered front, the cap behind it,
+      // and a small red flap at the foot.
+      const cx = z.bx + 2;
+      const cy = z.by + 4;
+      const facing = CLOTH_COLORS[s.look.colors[1]]?.hex ?? "#273b5f";
+      const coat = CLOTH_COLORS[s.look.colors[0]]?.hex ?? "#b6312a";
+      const back = smooth(
         [
-          [cx - z.rx * 0.7, cy + 2],
-          [cx - z.rx * 0.35, cy - 70],
-          [cx + z.rx * 0.05, cy - 76],
-          [cx + z.rx * 0.95, cy + 2],
+          [cx - z.rx * 0.98, cy],
+          [cx - z.rx * 0.85, cy - 34],
+          [cx - z.rx * 0.2, cy - 56],
+          [cx + z.rx * 0.3, cy - 40],
+          [cx + z.rx * 0.5, cy],
         ],
         true,
-        0.15,
+        0.3,
       );
-      return `<g filter="url(#brush)">${fillShape(
-        smooth(
-          [
-            [cx - z.rx * 0.95, cy],
-            [cx - z.rx * 0.6, cy - 60],
-            [cx + z.rx * 0.1, cy - 70],
-            [cx + z.rx * 0.6, cy],
-          ],
-          true,
-          0.2,
-        ),
-        CLOTH_COLORS[s.look.colors[0]]?.hex ?? "#b6312a",
-      )}${fillShape(front, CLOTH_COLORS[s.look.colors[1]]?.hex ?? "#273b5f")}${path(`M${n(cx - z.rx * 0.4)} ${n(cy - 30)}l${n(z.rx * 0.6)} 0`, `stroke="#d8c58a" stroke-width="2"`)}${ell(cx + z.rx * 0.1, cy - 44, 6, 7, `fill="none" stroke="#d8c58a" stroke-width="1.6"`)}</g>`;
+      const front = smooth(
+        [
+          [cx - z.rx * 0.62, cy + 2],
+          [cx - z.rx * 0.52, cy - 40],
+          [cx - z.rx * 0.05, cy - 66],
+          [cx + z.rx * 0.45, cy - 42],
+          [cx + z.rx * 0.82, cy + 3],
+        ],
+        true,
+        0.3,
+      );
+      const flap = smooth(
+        [
+          [cx - z.rx * 0.6, cy - 4],
+          [cx + z.rx * 0.8, cy - 3],
+          [cx + z.rx * 0.82, cy + 4],
+          [cx - z.rx * 0.62, cy + 3],
+        ],
+        true,
+        0.1,
+      );
+      let deco = "";
+      for (let i = 0; i < 4; i++) {
+        const y = cy - 12 - i * 11;
+        const w = z.rx * (0.55 - i * 0.12);
+        deco += path(
+          `M${n(cx + z.rx * 0.1 - w)} ${n(y)}q${n(w)} ${n(-6)} ${n(w * 2)} 0`,
+          `fill="none" stroke="#d8c58a" stroke-width="1.3" opacity="0.85"`,
+        );
+      }
+      return `<g filter="url(#brush)">${fillShape(back, coat)}${fillShape(front, facing)}${deco}${path(`M${n(cx + z.rx * 0.08)} ${n(cy - 50)}l-3 6h6z`, `fill="#d8c58a"`)}${fillShape(flap, "#a8302a")}</g>`;
     }
     case "skullcap":
       return `<g filter="url(#brush)">${fillShape(
