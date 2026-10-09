@@ -1,8 +1,8 @@
 // The painted backdrops of scenes: where something happens (a tavern by
-// Ostade, a church by de Witte, a harbour by Backhuysen, a road by Hobbema,
-// the council fire by Benjamin West...), and small versions of each for the
-// tiles of a province's places. The paintings and who painted them are
-// listed in Credits.ts.
+// Teniers, a church by de Witte, the quays of Marseille by Vernet, a road by
+// Hobbema, the council fire by Benjamin West, a lakeside village by Paul
+// Kane...), and small versions of each for the tiles of a province's
+// places. The paintings and who painted them are listed in Credits.ts.
 
 import type { SoundKind } from "./Sound";
 

@@ -52,7 +52,7 @@ export function skinPalette(s: Sitting): SkinPalette {
   const lw = lum(swatch);
   const base = mix(
     swatch,
-    "#c4803e",
+    "#c08a5a",
     lw > 0.78 ? 0.32 : lw > 0.7 ? 0.26 : 0.12,
   );
   const L = lum(base);
@@ -297,9 +297,9 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
     ell(
       bx,
       by - cheekLift,
-      h.a * 0.34,
-      h.b * 0.2,
-      fillOp(sk.blush, Math.min(0.8, 0.5 * ruddy * (s.female ? 1.2 : 1))),
+      h.a * 0.42,
+      h.b * 0.26,
+      fillOp(sk.blush, Math.min(0.8, 0.34 * ruddy * (s.female ? 1.2 : 1))),
     ),
   );
   const [fx, fy] = P(0.62, 0.16);
@@ -309,7 +309,7 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
       fy - cheekLift,
       h.a * 0.18,
       h.b * 0.17,
-      fillOp(sk.blush, 0.4 * ruddy),
+      fillOp(sk.blush, 0.28 * ruddy),
     ),
   );
   zones.push(
@@ -1631,7 +1631,7 @@ function paintMarks(h: Head, s: Sitting, sk: SkinPalette): string {
           [h.cx + h.a * 1.2, y + h.eyeH * 1.7],
           [h.cx - h.a * 1.2, y + h.eyeH * 1.9],
         ]),
-        `fill="#a3271c" opacity="0.55" style="mix-blend-mode:multiply"`,
+        `fill="#a3271c" opacity="0.42" style="mix-blend-mode:multiply"`,
       )}</g>`,
     );
   }
