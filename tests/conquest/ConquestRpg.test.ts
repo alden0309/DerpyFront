@@ -239,6 +239,35 @@ describe("areas and who is in them", () => {
     expect(days.size).toBeGreaterThan(1);
   });
 
+  test("people keep to a routine for days at a time: a place changes a few at a time", () => {
+    const g = world({ start: 1650 });
+    const life = lifeOf(g);
+    const where = (day: number) => {
+      const m = new Map<number, string>();
+      for (const [k, v] of presence(g.s, g.w, life.prov, day, life))
+        for (const x of v) m.set(x.c, k);
+      return m;
+    };
+    let moved = 0;
+    let stayed = 0;
+    for (let d = 0; d < 42; d++) {
+      const day = g.s.day + d;
+      // Sundays (and the Monday after) send everyone to church and back.
+      if (day % 7 === 0 || day % 7 === 1) continue;
+      const a = where(day - 1);
+      const b = where(day);
+      for (const [c, area] of b)
+        if (a.has(c)) {
+          if (a.get(c) === area) stayed++;
+          else moved++;
+        }
+    }
+    expect(stayed + moved).toBeGreaterThan(100);
+    // Most people are where they were yesterday; some have moved on.
+    expect(moved / (stayed + moved)).toBeLessThan(0.3);
+    expect(moved).toBeGreaterThan(0);
+  });
+
   test("going in somewhere, and other players see you there", () => {
     const g = world({
       start: 1650,

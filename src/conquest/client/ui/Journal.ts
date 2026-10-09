@@ -2,6 +2,7 @@
 // and the handful of moments that make up the story so far.
 
 import { html, nothing, TemplateResult } from "lit";
+import { repeat } from "lit/directives/repeat.js";
 import { formatDate } from "../../engine/Calendar";
 import { charName } from "../../engine/Queries";
 import type { JournalEntry } from "../../engine/Types";
@@ -23,6 +24,7 @@ export function journalTab(ui: GameUi): TemplateResult {
     .slice()
     .reverse();
   const milestones = life.milestones;
+  const keys = keysOf(entries);
   const set = (f: typeof filter) => {
     filter = f;
     shown = 60;
@@ -36,27 +38,6 @@ export function journalTab(ui: GameUi): TemplateResult {
           : "Your days, as they went."}
       </p>
     </header>
-    ${life.events.length
-      ? section(
-          "Waiting on you",
-          html`<ul class="cq-list">
-            ${life.events.map(
-              (e) =>
-                html`<li>
-                  <button
-                    class="cq-link"
-                    @click=${() => ui.modal({ k: "event", id: e.id })}
-                  >
-                    ${LetterIcon()} ${e.title}
-                  </button>
-                  <span class="cq-muted small"
-                    >decides itself ${formatDate(e.expires)}</span
-                  >
-                </li>`,
-            )}
-          </ul>`,
-        )
-      : nothing}
     ${milestones.length
       ? more(
           `The story so far (${milestones.length})`,
@@ -92,11 +73,36 @@ export function journalTab(ui: GameUi): TemplateResult {
           </button>`,
       )}
     </div>
+    ${life.events.length
+      ? section(
+          "Waiting on you",
+          html`<ul class="cq-list">
+            ${life.events.map(
+              (e) =>
+                html`<li>
+                  <button
+                    class="cq-link"
+                    @click=${() => ui.modal({ k: "event", id: e.id })}
+                  >
+                    ${LetterIcon()} ${e.title}
+                  </button>
+                  <span class="cq-muted small"
+                    >decides itself ${formatDate(e.expires)}</span
+                  >
+                </li>`,
+            )}
+          </ul>`,
+        )
+      : nothing}
     <ol class="cq-journal">
       ${entries.length === 0
         ? html`<li class="cq-muted">Nothing yet.</li>`
         : nothing}
-      ${entries.slice(0, shown).map((e, i) => entry(ui, e, entries[i - 1]))}
+      ${repeat(
+        entries.slice(0, shown).map((e, i) => ({ e, i })),
+        ({ e }) => keys.get(e)!,
+        ({ e, i }) => entry(ui, e, entries[i - 1]),
+      )}
     </ol>
     ${entries.length > shown
       ? html`<button
@@ -109,6 +115,23 @@ export function journalTab(ui: GameUi): TemplateResult {
           Older entries
         </button>`
       : nothing}`;
+}
+
+/**
+ * Keys for entries that stay the same as new ones come in above them (the
+ * same words on the same day are told apart by counting from the oldest).
+ */
+function keysOf(entries: JournalEntry[]): Map<JournalEntry, string> {
+  const count = new Map<string, number>();
+  const out = new Map<JournalEntry, string>();
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const e = entries[i];
+    const base = `${e.day}|${e.c}|${e.text}`;
+    const n = count.get(base) ?? 0;
+    count.set(base, n + 1);
+    out.set(e, `${base}|${n}`);
+  }
+  return out;
 }
 
 function entry(

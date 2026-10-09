@@ -71,6 +71,19 @@ export function dice(c: number, day: number, salt: number): number {
   return (x >>> 0) / 4294967296;
 }
 
+/**
+ * Which stretch of their routine someone is in. People keep to where they
+ * go for some days at a time (three to seven, each their own, starting on
+ * their own day), rather than everyone rolling afresh every morning: the
+ * regulars stay regulars for a while, and a place's company changes a few
+ * at a time.
+ */
+export function stintOf(c: number, day: number): number {
+  const len = 3 + Math.floor(dice(c, 0, 91) * 5);
+  const phase = Math.floor(dice(c, 0, 92) * len);
+  return Math.floor((day + phase) / len);
+}
+
 function pick<T>(list: readonly T[], r: number): T {
   return list[Math.min(list.length - 1, Math.floor(r * list.length))];
 }
@@ -165,7 +178,8 @@ function localRoutine(
   day: number,
   native: boolean,
 ): Spot | null {
-  const r = dice(c.id, day, 1);
+  // Where they go keeps for a stretch; what they're doing there is the day's.
+  const r = dice(c.id, stintOf(c.id, day), 1);
   const r2 = dice(c.id, day, 2);
   const sunday = ((day % 7) + 7) % 7 === 0;
   const age = ageOf(s, c);
@@ -413,7 +427,7 @@ function spotFor(
 ): Spot | null {
   const c = r.c;
   const native = isNativeChar(s, c);
-  const d1 = dice(c.id, day, 3);
+  const d1 = dice(c.id, stintOf(c.id, day), 3);
   const d2 = dice(c.id, day, 4);
   const sunday = ((day % 7) + 7) % 7 === 0;
   switch (r.base) {

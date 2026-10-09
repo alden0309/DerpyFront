@@ -15,5 +15,6 @@ import "./App";
 import "./conquest.css";
 import "./life.css";
 import "./scene.css";
+import "./steady.css";
 
 document.body.appendChild(document.createElement("conquest-app"));

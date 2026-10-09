@@ -1,0 +1,357 @@
+/* ===== r10 (UI): panels that hold still =====
+   Buttons never move under the pointer because the world ticked: lists keep
+   their order in boxes of their own, buttons keep their size whatever they
+   say, and panels scroll to make up for anything that grows above (Anchor.ts;
+   the browser's own scroll anchoring is turned off where that's done). */
+
+[data-steady] {
+  overflow-anchor: none;
+}
+
+/* ---------------------------------------------------------------- the banner */
+
+/* The name and the date take the same room whatever they say, so the clock's
+   buttons beside them never shift. */
+@media (min-width: 821px) {
+  .cq-who {
+    flex: none;
+    width: 15.5rem;
+    min-width: 0;
+  }
+  .cq-who-text {
+    min-width: 0;
+  }
+  .cq-who-nation,
+  .cq-who-gov {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .cq-date {
+    min-width: 10.5em;
+  }
+}
+.cq-date {
+  font-variant-numeric: tabular-nums;
+}
+.cq-chips-bar .cq-chip-stat:first-child {
+  min-width: 4.6rem;
+}
+@media (max-width: 820px) {
+  .cq-clock {
+    flex: none;
+  }
+  .cq-date {
+    min-width: 9.6em;
+  }
+}
+
+/* ---------------------------------------------------------------- a province */
+
+.cq-prov-line {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.4em;
+  height: 2.8em;
+}
+
+/* The places: smaller tiles, so the place you're in shows sooner. */
+.cq-areas {
+  gap: 0.4rem;
+  margin: 0.5rem 0 0.75rem;
+}
+.cq-area-tile {
+  height: 74px;
+  padding: 0.3rem 0.45rem;
+}
+.cq-area-name {
+  font-size: 0.9rem;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.cq-area-count {
+  font-size: 0.72rem;
+}
+.cq-area-faces {
+  top: 0.3rem;
+  right: 0.3rem;
+}
+.cq-area-faces .cq-portrait {
+  width: 1.05rem;
+  height: 1.3rem;
+}
+.cq-area-faces i {
+  font-size: 0.66rem;
+}
+.cq-area-work {
+  top: 0.3rem;
+  left: 0.3rem;
+  font-size: 0.6rem;
+}
+.cq-area-banner {
+  min-height: 96px;
+  padding: 1.9rem 0.9rem 0.55rem;
+}
+
+/* ---------------------------------------------------------------- things to do */
+
+.cq-acts {
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+}
+/* Every button the same size: the label (two lines at most), the odds, and a
+   line underneath for why it can't be done. */
+.cq-act-btn {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 0.35rem;
+  row-gap: 0.1rem;
+  height: 3.15rem;
+  padding: 0.25rem 0.55rem;
+  overflow: hidden;
+}
+.cq-act-label {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.17;
+}
+.cq-act-btn.has-why .cq-act-label {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+.cq-act-btn:disabled > .cq-act-label {
+  opacity: 0.55;
+}
+.cq-act-btn > .cq-odds,
+.cq-act-btn > .cq-verdict-chip {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  margin: 0;
+}
+.cq-act-btn > .cq-act-why {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cq-act-btn.cq-campaign:disabled {
+  cursor: default;
+  border-color: var(--verdigris);
+}
+.cq-ask {
+  flex: none;
+  min-width: 7.2rem;
+}
+
+/* Your work: one line of news about it, always there. */
+.cq-work-note {
+  margin: 0.1rem 0 0;
+  min-height: 1.35em;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------- who's here */
+
+/* A box of its own that scrolls: people coming and going never move anything
+   outside it. You stay at the top. */
+.cq-present {
+  max-height: calc(3.45rem * 6.5);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vellum-3) transparent;
+  border: 1px solid var(--rule);
+  background: rgba(255, 250, 235, 0.22);
+  padding: 2px;
+}
+.cq-present li.you {
+  position: sticky;
+  top: -2px;
+  z-index: 1;
+  background: var(--vellum) var(--paper);
+}
+.cq-present-row {
+  height: 3.2rem;
+  padding: 0.2rem 0.45rem;
+}
+.cq-present .cq-folk-text {
+  justify-content: center;
+}
+.cq-present-name,
+.cq-present-sub {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+.cq-present-sub {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.cq-present-sub .cq-doing {
+  font-size: 0.86rem;
+}
+.cq-present-empty {
+  padding: 0.6rem 0.5rem;
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.cq-present-item.new {
+  animation: cq-present-in 0.5s ease-out both;
+}
+.cq-present-item.leaving .cq-present-row {
+  opacity: 0.42;
+  transition: opacity 0.45s;
+}
+.cq-present-item.folding {
+  overflow: hidden;
+  animation: cq-present-fold 0.32s ease-in forwards;
+}
+/* The pointer's in the list: anyone folding away waits, half-folded. */
+.cq-present.held .cq-present-item.folding {
+  animation-play-state: paused;
+}
+@keyframes cq-present-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes cq-present-fold {
+  from {
+    max-height: 3.4rem;
+    opacity: 0.42;
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+    margin-top: -0.2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cq-present-item.new,
+  .cq-present-item.folding {
+    animation-duration: 0.01s;
+  }
+}
+
+/* ---------------------------------------------------------------- someone's card */
+
+/* Where they are and what they're doing changes with the days: one line. */
+.cq-where {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.cq-int {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 0.35rem;
+  row-gap: 0.05rem;
+  height: 2.95rem;
+  overflow: hidden;
+}
+.cq-int-label {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  line-height: 1.15;
+}
+.cq-int.has-why .cq-int-label {
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+.cq-int > .cq-verdict-chip,
+.cq-int > .cq-odds {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  margin: 0;
+}
+.cq-int > .cq-act-why {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------------------------------------------------------------- scenes */
+
+/* A scene that opens under a click (a letter arriving, the answer to what
+   you just did) can't be clicked through by accident: its choices wait a
+   moment before they take a click, as they fade in. */
+.cq-scene-choices,
+.cq-scene-actions {
+  animation-name: cq-fade-up, cq-guard;
+  animation-duration: 0.6s, 1s;
+  animation-delay: 0.6s, 0s;
+  animation-fill-mode: both, none;
+  animation-timing-function: ease, linear;
+}
+@keyframes cq-guard {
+  from,
+  to {
+    pointer-events: none;
+  }
+}
+/* Ask / Ask anyway, Back: the same places whatever they say. */
+.cq-scene-actions .cq-btn {
+  min-width: 7.5rem;
+}
+.cq-why-list li.blank {
+  visibility: hidden;
+}
+/* Each reason on one line, so the list's height holds. */
+.cq-accept .cq-why-list li {
+  min-width: 0;
+}
+.cq-accept .cq-why-list li > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Letters waiting: on a phone, two and a note of the rest. */
+.cq-tray-more {
+  align-self: flex-end;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid var(--sepia);
+  background: var(--vellum) var(--paper);
+  font-family: var(--fell);
+  font-size: 0.85rem;
+  cursor: pointer;
+}

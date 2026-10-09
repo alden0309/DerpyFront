@@ -221,12 +221,16 @@ function workSection(ui: GameUi): TemplateResult {
             days this month</span
           >
         </div>
-        ${!here && job.army < 0
-          ? html`<p class="cq-warn small">
-              You're away from your post (${job.awayDays ?? 0} of ${AWAY_DAYS}
-              days before you're let go).
-            </p>`
-          : nothing}
+        <p class="cq-work-note small">
+          ${!here && job.army < 0
+            ? html`<span class="cq-warn"
+                >Away from your post: ${job.awayDays ?? 0} of ${AWAY_DAYS} days
+                before you're let go.</span
+              >`
+            : job.army >= 0
+              ? "With the army: your post goes where it goes."
+              : "At your post."}
+        </p>
         ${servant
           ? html`<p class="cq-muted small">
               Bound by indenture until ${formatDate(job.until!)}: no wages but
