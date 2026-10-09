@@ -104,20 +104,25 @@ export function paintPortrait(look: Appearance, o: PaintOpts): string {
   const h = buildHead(s);
   const sk = skinPalette(s);
   const body = paintDress(h, s, sk);
+  // Every sitter holds their head a little differently.
+  const pose = new Brush(seed * 31 + 7);
+  const tilt = pose.range(-3.5, 3.5);
+  const k = pose.range(0.96, 1.04);
+  const dx = pose.range(-3, 3);
+  const px = h.cx;
+  const py = h.cy + h.b;
+  const head = `transform="translate(${n(dx)} 0) rotate(${n(tilt)} ${n(px)} ${n(py)}) translate(${n(px)} ${n(py)}) scale(${Math.round(k * 1000) / 1000}) translate(${n(-px)} ${n(-py)})"`;
   const layers = [
     defs(detail, seed),
     ground(bg),
-    paintHairBack(h, s, sk),
+    `<g ${head}>${paintHairBack(h, s, sk)}</g>`,
     body.under,
     paintNeck(h, s, sk),
     body.over,
-    paintEar(h, s, sk),
-    paintFace(h, s, sk),
-    paintBeard(h, s, sk),
-    paintHairFront(h, s, sk),
+    paintExtras(h, s, sk, "body"),
+    `<g ${head}>${paintEar(h, s, sk)}${paintFace(h, s, sk)}${paintBeard(h, s, sk)}${paintHairFront(h, s, sk)}</g>`,
     body.top,
-    paintHat(h, s),
-    paintExtras(h, s, sk),
+    `<g ${head}>${paintHat(h, s)}${paintExtras(h, s, sk, "head")}</g>`,
     varnish(),
   ];
   const flip = o.facing === "left" ? ` transform="matrix(-1 0 0 1 240 0)"` : "";
@@ -130,7 +135,7 @@ export function paintPortrait(look: Appearance, o: PaintOpts): string {
 // ---------------------------------------------------------------- the cache
 
 const cache = new Map<string, string>();
-const CACHE_MAX = 600;
+const CACHE_MAX = 400;
 
 /** A portrait as a URL an <img> or a canvas can draw, painted once. */
 export function portraitUrl(look: Appearance, o: PaintOpts): string {

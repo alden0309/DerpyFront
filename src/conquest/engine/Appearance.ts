@@ -333,7 +333,6 @@ export interface Item {
 
 const ANY = { from: 1500, to: 1800 } as const;
 const GOOD: Station[] = ["gentry", "merchant", "learned", "officer"];
-const PLAIN: Station[] = ["labourer", "tradesman", "frontier", "sailor"];
 
 // prettier-ignore
 export const HAIR: Item[] = [

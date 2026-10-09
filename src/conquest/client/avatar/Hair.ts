@@ -160,7 +160,7 @@ function mass(pts: Pt[], color: string, s: Sitting, o: MassOpts = {}): string {
   parts.push(path(d, `fill="url(#${id}g)"`));
   const inner: string[] = [];
   // Strands, side by side from one line to another (or out from a point).
-  const count = Math.round((o.strands ?? 36) * (full ? 1.6 : 0.5));
+  const count = Math.round((o.strands ?? 36) * (full ? 1.25 : 0.4));
   if (count > 0) {
     const from = o.from ?? [[sx, y0 + 2]];
     const f0 = from[0];
@@ -249,15 +249,15 @@ function curly(
   const r0 = o.r ?? 6;
   const lit = light(color, lum(color) > 0.6 ? 0.3 : 0.38);
   const dark = shade(color, lum(color) > 0.6 ? 0.45 : 0.6);
+  // Curls hang in locks: columns of round curls, a little out of line.
   const blobs: Pt[] = [];
-  const want =
-    Math.round(((x1 - x0) * (y1 - y0)) / (r0 * r0 * 2.4)) *
-    (s.detail === "full" ? 1 : 0.5);
-  for (let i = 0, tries = 0; i < want && tries < want * 5; tries++) {
-    const p: Pt = [br.range(x0, x1), br.range(y0, y1)];
-    if (!inside(p, pts)) continue;
-    blobs.push(p);
-    i++;
+  const col = r0 * 1.55;
+  for (let x = x0 + col * 0.5; x < x1; x += col) {
+    const shift = br.range(0, r0 * 1.2);
+    for (let y = y0 + shift; y < y1; y += r0 * 1.25) {
+      const p: Pt = [x + br.range(-r0 * 0.3, r0 * 0.3), y + br.range(-1, 1)];
+      if (inside(p, pts)) blobs.push(p);
+    }
   }
   blobs.sort((a, b) => a[1] - b[1]);
   const parts: string[] = [
@@ -629,8 +629,8 @@ function style(h: Head, s: Sitting, sk: SkinPalette): Hair {
           front += roll(rx, y, h.earH * 0.5, h.earH * 0.2, c);
         }
       } else front += hairline(h, c, s);
-      const nx = h.neckN - 2;
-      const ny = h.cy + B * 0.5;
+      const nx = h.skull.cx - h.skull.rx * 0.92;
+      const ny = h.cy + B * 0.42;
       const back =
         stroke(
           [
@@ -865,8 +865,8 @@ function style(h: Head, s: Sitting, sk: SkinPalette): Hair {
         w: 0.9,
       });
       const len = s.female ? B * 1.95 : B * 1.8;
-      const a1: Pt = [h.cx - A * 1.1, h.cy + B * 0.42];
-      const b1: Pt = [h.cx - A * 1.14, h.cy + len];
+      const a1: Pt = [h.cx - A * 1.18, h.cy + B * 0.45];
+      const b1: Pt = [h.cx - A * 1.22, h.cy + len];
       const a2: Pt = [h.cx + A * 0.98, h.cy + B * 0.3];
       const b2: Pt = [h.cx + A * 1.04, h.cy + len - 6];
       const wrap = s.region === "plains" ? "#5a4636" : "#8f2b22";

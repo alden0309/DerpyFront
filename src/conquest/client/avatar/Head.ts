@@ -117,9 +117,9 @@ export function buildHead(s: Sitting): Head {
       break;
   }
   if (s.female) {
-    a *= 0.95;
+    a *= 0.94;
     b *= 0.95;
-  }
+  } else a *= 1.03;
   a *= 1 - child * 0.06;
   b *= 1 - child * 0.2;
   const cx = 118;
@@ -133,7 +133,7 @@ export function buildHead(s: Sitting): Head {
 
   // Jaw and chin.
   const jawWide =
-    [0, 0.04, 0.1, -0.07, 0.12][L.jaw] * (1 - child) +
+    [0, 0.05, 0.15, -0.1, 0.17][L.jaw] * (1 - child) +
     child * 0.1 +
     (L.face === 3 ? 0.06 : 0) +
     (L.face === 1 ? 0.04 : 0) -
@@ -186,10 +186,10 @@ export function buildHead(s: Sitting): Head {
     cy + b * (eyeYn - (s.female ? 0.17 : 0.15) - (L.brows === 1 ? 0.02 : 0));
   // The nose.
   const noseLen =
-    b * ([0.5, 0.53, 0.42, 0.48, 0.58, 0.42, 0.56][L.nose] * (1 - child * 0.3));
+    b * ([0.5, 0.56, 0.4, 0.48, 0.62, 0.4, 0.58][L.nose] * (1 - child * 0.3));
   const noseW =
     a *
-    ([0.36, 0.36, 0.38, 0.48, 0.34, 0.32, 0.36][L.nose] * (1 - child * 0.15));
+    ([0.38, 0.38, 0.4, 0.53, 0.35, 0.32, 0.39][L.nose] * (1 - child * 0.15));
   const noseRoot = P(0, eyeYn);
   const noseBaseY = cy + b * eyeYn + noseLen;
   const tipDepth =
@@ -240,7 +240,7 @@ export function buildHead(s: Sitting): Head {
     top,
     jawN: outline[4],
     jawF: outline[9],
-    neckBase: cy + b * (1.3 + (s.female ? 0.08 : 0) - child * 0.12),
+    neckBase: cy + b * (1.3 + (s.female ? 0.04 : 0) - child * 0.12),
     neckN: cx - a * (0.98 - child * 0.12) + (s.female ? 6 : 0),
     neckF: cx + a * (0.55 - child * 0.06) - (s.female ? 3 : 0),
     child,

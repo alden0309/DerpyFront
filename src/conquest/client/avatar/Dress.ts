@@ -91,6 +91,23 @@ function torso(b: Body, neckline: Pt[]): Pt[] {
   ];
 }
 
+/** A gown cut low: the neckline runs from shoulder to shoulder, dipping to `low`. */
+function lowTorso(b: Body, low: number, wide: number): Pt[] {
+  const { sc, y0, T } = b;
+  return [
+    [b.nN[0] - 14 * sc * wide, y0 + 4 + wide * 3],
+    [b.Sn[0] + 4, y0 + 20],
+    [b.Sn[0] - 22 * sc, y0 + 44],
+    [b.Sn[0] - 40 * sc, 310],
+    [b.Sf[0] + 50 * sc, 310],
+    [b.Sf[0] + 34 * sc, y0 + 52],
+    [b.Sf[0] - 2, y0 + 20],
+    [b.nF[0] + 12 * sc * wide, y0 + 4 + wide * 3],
+    [T[0] + 10, y0 + low - 2],
+    [T[0] - 10, y0 + low],
+  ];
+}
+
 /** A painted piece of cloth: gradient, folds and a sheen. */
 function cloth(
   pts: Pt[],
@@ -202,42 +219,55 @@ function buttons(a: Pt, b: Pt, count: number, c: string, r = 1.8): string {
 // ---------------------------------------------------------------- neckwear
 
 function ruff(b: Body, h: Head, s: Sitting, big: number): string {
-  // A millstone ruff: a ring of figure-of-eight pleats round the neck.
+  // A millstone ruff: a thick ring of starched linen set in figure-of-eight
+  // pleats, its edge a row of rounded folds.
   const cx = b.T[0] - 8;
   const cy = b.y0 - 8;
   const rx = h.a * (1.05 + big * 0.25);
-  const ry = h.a * (0.36 + big * 0.08);
+  const ry = h.a * (0.34 + big * 0.07);
+  const th = 6 + big * 4;
   const id = `rf${gid++}`;
-  const br = new Brush(s.seed + 77);
-  const pleats: string[] = [];
-  const count = 30;
+  const edge = "#8b93a2";
+  const count = Math.round(34 + big * 10);
+  const folds: { t: number; x: number; y: number }[] = [];
   for (let i = 0; i < count; i++) {
     const t = (i / count) * Math.PI * 2;
-    const x = cx + Math.cos(t) * rx * 0.97;
-    const y = cy + Math.sin(t) * ry * 0.95;
-    const ix = cx + Math.cos(t) * rx * 0.42;
-    const iy = cy + Math.sin(t) * ry * 0.42;
-    pleats.push(
-      path(
-        `M${n(ix)} ${n(iy)}Q${n((x + ix) / 2 + br.range(-2, 2))} ${n((y + iy) / 2 + 2)} ${n(x)} ${n(y)}`,
-        `fill="none" stroke="#7d8696" stroke-width="1.3" opacity="0.6"`,
-      ),
+    folds.push({ t, x: cx + Math.cos(t) * rx, y: cy + Math.sin(t) * ry });
+  }
+  // The back folds first, the front ones over them.
+  folds.sort((p, q) => Math.sin(p.t) - Math.sin(q.t));
+  const fr = ((Math.PI * rx) / count) * 1.25;
+  let rim = "";
+  for (const f of folds) {
+    const front = Math.sin(f.t) > 0;
+    // Each fold seen edge-on: a rounded tube of linen.
+    rim += ell(
+      f.x,
+      f.y + (front ? th * 0.45 : 0),
+      fr,
+      front ? th * 0.7 : fr * 0.8,
+      `fill="${front ? "#eeebe4" : "#d9dce2"}" stroke="${edge}" stroke-width="0.6"`,
+      (f.t * 180) / Math.PI + 90,
     );
-    pleats.push(
-      ell(
-        x,
-        y,
-        3.2,
-        2.2,
-        `fill="none" stroke="#8e97a6" stroke-width="0.9" opacity="0.7"`,
-        (t * 180) / Math.PI,
-      ),
+    if (front)
+      rim += path(
+        `M${n(f.x)} ${n(f.y + th * 0.05)}v${n(th * 0.8)}`,
+        `stroke="${edge}" stroke-width="0.6" opacity="0.6"`,
+      );
+  }
+  let pleats = "";
+  for (let i = 0; i < count; i++) {
+    const t = (i / count) * Math.PI * 2;
+    pleats += path(
+      `M${n(cx + Math.cos(t) * rx * 0.45)} ${n(cy + Math.sin(t) * ry * 0.45)}L${n(cx + Math.cos(t) * rx * 0.94)} ${n(cy + Math.sin(t) * ry * 0.94)}`,
+      `stroke="${edge}" stroke-width="0.8" opacity="0.45"`,
     );
   }
-  return `<g filter="url(#brush)"><defs><radialGradient id="${id}" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#fbf8f0"/><stop offset="0.7" stop-color="#e6e2da"/><stop offset="1" stop-color="#a7aebb"/></radialGradient></defs>
-${ell(cx, cy, rx, ry, `fill="url(#${id})"`)}${pleats.join("")}
-${ell(cx + 2, cy - ry * 0.2, rx * 0.4, ry * 0.42, `fill="#5b5f68" opacity="0.5" filter="url(#soft2)"`)}
-${ell(cx, cy, rx, ry, `fill="none" stroke="#7a8190" stroke-width="1" opacity="0.6"`)}</g>`;
+  return `<g filter="url(#brush)"><defs><radialGradient id="${id}" cx="0.42" cy="0.4" r="0.7"><stop offset="0" stop-color="#fbf9f4"/><stop offset="0.75" stop-color="#e7e5e0"/><stop offset="1" stop-color="#b9bfca"/></radialGradient></defs>
+${ell(cx, cy + th, rx, ry, `fill="#9ea6b4"`)}
+${ell(cx, cy, rx, ry, `fill="url(#${id})"`)}${pleats}
+${ell(cx + 2, cy - ry * 0.22, rx * 0.42, ry * 0.45, `fill="#4a4e58" opacity="0.55" filter="url(#soft2)"`)}
+${rim}</g>`;
 }
 
 function fallingBand(
@@ -1044,19 +1074,10 @@ function garment(h: Head, s: Sitting, sk: SkinPalette): Dressed {
     case "short_gown":
     case "plain_gown": {
       const depth = s.look.clothes === "plain_gown" ? 22 : 30;
-      out.over = cloth(
-        torso(b, [
-          [b.nF[0] + 22 * sc, y0 + 6],
-          [T[0] + 6, y0 + depth],
-          [T[0] - 8, y0 + depth],
-          [b.nN[0] - 22 * sc, y0 + 6],
-        ]),
-        c0,
-        s,
-        f,
-      );
+      out.over =
+        skinChest(b, s, sk, depth - 20) +
+        cloth(lowTorso(b, depth, 0.8), c0, s, f);
       if (s.look.clothes === "bodice") out.over += lacing(b, c1, depth);
-      out.over += skinChest(b, s, sk, depth - 30);
       out.top = kerchief(b, h, s, depth + 14);
       break;
     }
@@ -1093,21 +1114,18 @@ function garment(h: Head, s: Sitting, sk: SkinPalette): Dressed {
     case "robe": {
       const low = s.look.clothes === "satin" ? 38 : 30;
       const wide = s.look.clothes === "satin" ? 1.5 : 1.1;
-      const neckline: Pt[] = [
-        [b.nF[0] + 26 * sc * wide, y0 + 8],
-        [T[0] + 8, y0 + low],
-        [T[0] - 10, y0 + low + 1],
-        [b.nN[0] - 30 * sc * wide, y0 + 10],
-      ];
-      out.over = cloth(torso(b, neckline), c0, s, {
-        ...f,
-        shine: s.look.clothes === "satin" ? 0.55 : 0.35,
-      });
+      const body = lowTorso(b, low, wide);
+      const neckline: Pt[] = [body[0], body[9], body[8], body[7]];
+      out.over =
+        skinChest(b, s, sk, low - 12, wide) +
+        cloth(body, c0, s, {
+          ...f,
+          shine: s.look.clothes === "satin" ? 0.55 : 0.35,
+        });
       if (s.look.clothes !== "satin")
         out.over += stomacher(b, c1, c2, s, y0 + low - 2);
-      out.over += skinChest(b, s, sk, low - 22, wide);
       // A frill of lace at the edge of the neckline.
-      out.top = laceEdge(neckline.slice().reverse(), s);
+      out.top = laceEdge(neckline, s);
       if (s.look.clothes === "robe") out.top += bows(b, c2, y0 + low + 8);
       break;
     }
@@ -1284,39 +1302,46 @@ function garment(h: Head, s: Sitting, sk: SkinPalette): Dressed {
         s,
         c0,
       );
-      // A matchcoat over one shoulder.
-      out.top +=
-        cloth(
-          [
-            [b.Sf[0] - 30 * sc, y0 + 6],
-            [b.Sf[0] + 6, y0 + 10],
-            [b.Sf[0] + 50 * sc, y0 + 52],
-            [b.Sf[0] + 50 * sc, 310],
-            [T[0] + 30, 310],
-            [T[0] + 16, y0 + 70],
-          ],
-          c1,
-          s,
-          {
+      // A matchcoat (a trade blanket) over the near shoulder and round the back.
+      {
+        const mc: Pt[] = [
+          [b.nN[0] - 4, y0 - 6],
+          [b.nN[0] - 22 * sc, y0 + 2],
+          b.Sn,
+          [b.Sn[0] - 22 * sc, y0 + 44],
+          [b.Sn[0] - 40 * sc, 310],
+          [b.cf(300) + 6, 310],
+          [b.cf(y0 + 70) + 2, y0 + 70],
+          [T[0] - 10, y0 + 26],
+          [b.nN[0] + 6, y0 + 2],
+        ];
+        out.top +=
+          cloth(mc, c1, s, {
             folds: [
               [
-                [b.Sf[0] - 10, y0 + 30],
-                [b.Sf[0] + 6, 300],
+                [b.Sn[0] + 8, y0 + 26],
+                [b.cf(200) - 16, 300],
+              ],
+              [
+                [b.nN[0] - 10, y0 + 10],
+                [b.Sn[0] - 14, 300],
               ],
             ],
-          },
-        ) +
-        path(
-          smooth(
-            [
-              [b.Sf[0] - 30 * sc, y0 + 8],
-              [T[0] + 16, y0 + 70],
-              [T[0] + 30, 310],
-            ],
-            false,
-          ),
-          `fill="none" stroke="${c2}" stroke-width="3.5" opacity="0.9" filter="url(#brush)"`,
-        );
+            sheen: [f.sheen[0]],
+          }) +
+          path(
+            smooth(
+              [
+                [b.nN[0] + 4, y0 + 1],
+                [T[0] - 10, y0 + 26],
+                [b.cf(y0 + 70) + 2, y0 + 70],
+                [b.cf(300) + 6, 310],
+              ],
+              false,
+            ),
+            `fill="none" stroke="${c2}" stroke-width="4" opacity="0.9" filter="url(#brush)"`,
+          );
+      }
       break;
     }
     case "n_coat":
@@ -1502,7 +1527,7 @@ function garment(h: Head, s: Sitting, sk: SkinPalette): Dressed {
         c1,
         s,
       );
-      out.over += skinChest(b, s, sk, -18, 0.6);
+      out.over = skinChest(b, s, sk, -18, 0.6) + out.over;
       break;
     }
     case "n_manta": {
@@ -1550,11 +1575,11 @@ function sash(b: Body, c: string, s: Sitting): string {
   const { y0, sc } = b;
   return cloth(
     [
-      [b.Sn[0] + 10 * sc, y0 + 14],
-      [b.Sn[0] + 30 * sc, y0 + 10],
-      [b.Sf[0] + 50 * sc, 260],
-      [b.Sf[0] + 40 * sc, 300],
-      [b.Sf[0] + 16 * sc, 300],
+      [b.Sn[0] + 12 * sc, y0 + 14],
+      [b.Sn[0] + 26 * sc, y0 + 11],
+      [b.Sf[0] + 46 * sc, 266],
+      [b.Sf[0] + 36 * sc, 300],
+      [b.Sf[0] + 22 * sc, 300],
     ],
     c,
     s,
@@ -1630,26 +1655,50 @@ function lacing(b: Body, c: string, top: number): string {
   return out;
 }
 
-function laceEdge(edge: Pt[], s: Sitting, tone = "#efe9dd"): string {
-  let sc = "";
+/** A band of lace along an edge, scalloped, lying toward `up` (above it, by default). */
+function laceEdge(edge: Pt[], s: Sitting, tone = "#efe9dd", w = 6): string {
+  // Sample the edge every few pixels.
+  const pts: Pt[] = [];
   for (let i = 0; i < edge.length - 1; i++) {
     const [x1, y1] = edge[i];
     const [x2, y2] = edge[i + 1];
-    const k = Math.max(2, Math.round(Math.hypot(x2 - x1, y2 - y1) / 4.5));
-    for (let j = 0; j < k; j++) {
-      const x = x1 + ((x2 - x1) * (j + 0.5)) / k;
-      const y = y1 + ((y2 - y1) * (j + 0.5)) / k;
-      sc += ell(
-        x,
-        y + 1.5,
-        3,
-        3.4,
-        `fill="${mix(tone, "#ffffff", 0.3)}" stroke="${mix(tone, "#5a6272", 0.45)}" stroke-width="0.5" opacity="0.92"`,
-      );
-    }
+    const k = Math.max(2, Math.round(Math.hypot(x2 - x1, y2 - y1) / 3.2));
+    for (let j = 0; j < k; j++)
+      pts.push([x1 + ((x2 - x1) * j) / k, y1 + ((y2 - y1) * j) / k]);
   }
+  pts.push(edge[edge.length - 1]);
+  const outer: Pt[] = [];
+  const holes: string[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[Math.max(0, i - 1)];
+    const b = pts[Math.min(pts.length - 1, i + 1)];
+    let nx = b[1] - a[1];
+    let ny = -(b[0] - a[0]);
+    const l = Math.hypot(nx, ny) || 1;
+    nx /= l;
+    ny /= l;
+    // The lace lies upward, over the cloth's edge.
+    if (ny > 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    const bump = i % 2 ? w + 1.6 : w - 0.6;
+    outer.push([pts[i][0] + nx * bump, pts[i][1] + ny * bump]);
+    if (i % 2 === 0)
+      holes.push(
+        ell(
+          pts[i][0] + nx * w * 0.5,
+          pts[i][1] + ny * w * 0.5,
+          0.9,
+          0.9,
+          `fill="#7c8492" opacity="0.5"`,
+        ),
+      );
+  }
+  const d = smooth([...pts, ...outer.reverse()], true, 0.3);
+  const light = mix(tone, "#ffffff", 0.35);
   void s;
-  return `<g filter="url(#brush)">${sc}</g>`;
+  return `<g filter="url(#brush)">${path(d, `fill="${light}" opacity="0.88"`)}${holes.join("")}${path(smooth(outer.slice().reverse(), false, 0.3), `fill="none" stroke="${mix(tone, "#5a6272", 0.45)}" stroke-width="0.5" opacity="0.7"`)}</g>`;
 }
 
 function fringe(edge: Pt[], c: string, len: number): string {

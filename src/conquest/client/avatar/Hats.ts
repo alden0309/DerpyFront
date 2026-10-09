@@ -22,7 +22,7 @@ import {
 let hid = 0;
 
 const FELT = "#1f1b18";
-const LINEN = "#ece6da";
+const LINEN = "#e2dbcd";
 const STEEL = "#8e959c";
 
 function grad(
@@ -360,7 +360,6 @@ export function paintHat(h: Head, s: Sitting): string {
   hid = 0;
   const key = s.look.hat;
   const c2 = CLOTH_COLORS[s.look.colors[2]]?.hex ?? "#8f2b22";
-  const c0 = CLOTH_COLORS[s.look.colors[0]]?.hex ?? "#3a3020";
   const z = seat(h, s);
   const sk = h.skull;
   switch (key) {
@@ -638,37 +637,62 @@ export function paintHat(h: Head, s: Sitting): string {
     case "steeple":
     case "fontange": {
       const mob = key === "mob_cap";
+      const front = mob ? 0.08 : 0.2;
       const pts = capShape(h, s, {
-        front: mob ? 0.08 : 0.2,
+        front,
         puff: mob ? 10 : 2,
         low: 0.25,
         ears: !mob,
       });
-      let out = `<g filter="url(#brush)">${fillShape(smooth(pts, true, 0.4), LINEN, "linen")}`;
-      // Folds.
-      out += path(
+      const edge: Pt[] = [
+        h.P(-0.97, -0.5),
+        h.P(-0.55, -0.92 + front),
+        h.P(0.1, -1.0 + front),
+        h.P(0.75, -0.85 + front),
+        [h.cx + h.a * 1.04, h.cy - h.b * 0.55],
+      ];
+      const nape: Pt = [h.neckN - 2, h.cy + h.b * 0.25];
+      let out = `<g clip-path="url(#headClip)" filter="url(#soft2)">${path(
+        smooth(
+          edge.map(([x, y]): Pt => [x, y + 3]),
+          false,
+        ),
+        `fill="none" stroke="#3a2214" stroke-width="5" opacity="0.28"`,
+      )}</g>`;
+      out += `<g filter="url(#brush)">${fillShape(smooth(pts, true, 0.4), LINEN, "linen")}`;
+      // The seam over the crown, the gathers at the nape, the turned-back edge.
+      const id = `cf${hid++}`;
+      let folds = path(
         smooth(
           [
-            [sk.cx - sk.rx * 0.6, sk.cy - sk.ry * 0.7],
-            [sk.cx - sk.rx * 0.95, sk.cy + sk.ry * 0.1],
-            [h.neckN, h.cy + h.b * 0.15],
+            [edge[2][0] - 4, edge[2][1] - 3],
+            [sk.cx, sk.cy - sk.ry - 2],
+            [sk.cx - sk.rx * 0.8, sk.cy - sk.ry * 0.4],
+            nape,
           ],
           false,
         ),
-        `fill="none" stroke="#8a93a2" stroke-width="2" opacity="0.4" filter="url(#soft1)"`,
+        `fill="none" stroke="#8a93a2" stroke-width="1.2" opacity="0.55"`,
       );
-      const edge = [
-        h.P(-0.95, -0.55),
-        h.P(-0.55, -0.92 + (mob ? 0.06 : 0.14)),
-        h.P(0.1, -1.0 + (mob ? 0.06 : 0.14)),
-        h.P(0.75, -0.85 + (mob ? 0.06 : 0.14)),
-        [h.cx + h.a * 1.04, h.cy - h.b * 0.55] as Pt,
-      ];
+      for (let i = 0; i < 6; i++) {
+        const f = -Math.PI * 0.55 - i * 0.18;
+        folds += path(
+          `M${n(nape[0])} ${n(nape[1])}L${n(sk.cx + sk.rx * 0.8 * Math.cos(f))} ${n(sk.cy + sk.ry * 0.8 * Math.sin(f))}`,
+          `stroke="#7f8898" stroke-width="1.6" opacity="0.3"`,
+        );
+      }
+      out += `<defs><clipPath id="${id}">${path(smooth(pts, true, 0.4), "")}</clipPath></defs><g clip-path="url(#${id})" filter="url(#soft1)">${folds}${ell(sk.cx - sk.rx * 0.9, sk.cy + sk.ry * 0.3, sk.rx * 0.5, sk.ry * 0.6, `fill="#5a6474" opacity="0.3"`)}</g>`;
+      out += stroke(
+        edge,
+        mob ? 4 : 5.5,
+        `fill="${mix(LINEN, "#ffffff", 0.35)}" opacity="0.9"`,
+        [0.5, 0.5],
+      );
       if (key === "lace_cap" || mob)
         out += frill(
           edge.map(([x, y]): Pt => [x, y - 1]),
           LINEN,
-          mob ? 3.8 : 2.8,
+          mob ? 3.8 : 2.6,
         );
       if (mob)
         out += stroke(
@@ -697,26 +721,45 @@ export function paintHat(h: Head, s: Sitting): string {
         for (let i = 3; i >= 0; i--)
           tiers += path(
             `M${n(cx - 16 + i * 2)} ${n(cy)}Q${n(cx - 12)} ${n(cy - 30 - i * 6)} ${n(cx + 2)} ${n(cy - 34 - i * 7)}Q${n(cx + 14)} ${n(cy - 28 - i * 6)} ${n(cx + 16 - i * 2)} ${n(cy)}Z`,
-            `fill="${i % 2 ? LINEN : "#f6f2ea"}" stroke="#9aa1ad" stroke-width="0.6" opacity="0.95"`,
+            `fill="${i % 2 ? LINEN : "#f2eee6"}" stroke="#9aa1ad" stroke-width="0.6" opacity="0.95"`,
           );
         out += `<g filter="url(#brush)">${tiers}</g>`;
       }
       return out;
     }
     case "hood": {
-      const pts = capShape(h, s, {
-        front: 0.04,
+      // A black hood over a linen cap, falling to the shoulders.
+      const capPts = capShape(h, s, {
+        front: 0.1,
         puff: 7,
-        low: 0.9,
+        low: 0.4,
         ears: true,
       });
-      pts.splice(
-        pts.length - 5,
-        0,
-        [h.neckN - 16, h.cy + h.b * 1.5],
-        [h.neckN + 10, h.cy + h.b * 1.55],
-      );
-      return `<g filter="url(#brush)">${fillShape(smooth(pts, true, 0.4), "#1b1816", "felt")}${frill([h.P(-0.95, -0.5), h.P(-0.5, -0.86), h.P(0.15, -0.94), h.P(0.8, -0.8)], LINEN, 2.4)}</g>`;
+      const y0 = h.neckBase;
+      const near: Pt[] = [
+        [h.cx - h.a * 1.04, h.cy - h.b * 0.45],
+        [h.cx - h.a * 1.08, h.cy + h.b * 0.4],
+        [h.neckN + 8, y0 + 8],
+        [h.neckN - 6, y0 + 34],
+        [h.neckN - 34, y0 + 30],
+        [sk.cx - sk.rx - 10, h.cy + h.b * 0.2],
+        [sk.cx - sk.rx - 8, h.cy - h.b * 0.6],
+      ];
+      const far: Pt[] = [
+        [h.cx + h.a * 1.0, h.cy - h.b * 0.7],
+        [h.cx + h.a * 1.24, h.cy - h.b * 0.3],
+        [h.cx + h.a * 1.3, y0 + 18],
+        [h.cx + h.a * 0.75, y0 + 16],
+        [h.cx + h.a * 1.02, h.cy + h.b * 0.2],
+      ];
+      const edge: Pt[] = [
+        h.P(-0.97, -0.45),
+        h.P(-0.55, -0.82),
+        h.P(0.1, -0.9),
+        h.P(0.75, -0.76),
+        [h.cx + h.a * 1.02, h.cy - h.b * 0.5],
+      ];
+      return `<g filter="url(#brush)">${fillShape(smooth(far, true, 0.4), "#141210", "felt")}${fillShape(smooth(near, true, 0.4), "#1b1816", "felt")}${fillShape(smooth(capPts, true, 0.4), "#1e1a17", "felt")}${stroke(edge, 5, `fill="${LINEN}"`, [0.5, 0.5])}${frill(edge, LINEN, 2.2)}</g>`;
     }
     case "straw": {
       const out = brimmed(h, s, {
@@ -765,10 +808,10 @@ export function paintHat(h: Head, s: Sitting): string {
       const veil = capShape(h, s, {
         front: -0.1,
         puff: 10,
-        low: 2.2,
+        low: 1.4,
         ears: true,
       });
-      veil.splice(veil.length - 5, 0, [h.neckN - 30, 300], [h.neckN + 20, 300]);
+      veil.splice(veil.length - 5, 0, [h.neckN - 36, 300], [h.neckN + 6, 300]);
       const band = stroke(
         [
           h.P(-0.98, -0.6),
@@ -789,10 +832,11 @@ export function paintHat(h: Head, s: Sitting): string {
           [h.chin[0], h.chin[1] + 3],
           [h.cx + h.a * 0.85, h.cy + h.b * 0.7],
           [h.cx + h.a * 1.08, h.cy - h.b * 0.3],
-          [h.cx + h.a * 1.3, h.cy + h.b * 0.6],
-          [h.cx + h.a * 1.5, h.cy + h.b * 2.2],
-          [h.cx - h.a * 1.5, h.cy + h.b * 2.2],
-          [h.cx - h.a * 1.3, h.cy + h.b * 0.4],
+          [h.cx + h.a * 1.18, h.cy + h.b * 0.6],
+          [h.cx + h.a * 1.2, h.cy + h.b * 1.45],
+          [h.cx + h.a * 0.2, h.cy + h.b * 1.78],
+          [h.cx - h.a * 1.1, h.cy + h.b * 1.5],
+          [h.cx - h.a * 1.2, h.cy + h.b * 0.4],
         ],
         true,
         0.35,
