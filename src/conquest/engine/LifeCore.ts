@@ -8,10 +8,12 @@ import { meOf } from "./LifeQueries";
 import { SKILL_MAX, SKILL_NAMES, xpToNext } from "./LifeRules";
 import { charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR, TRAITS } from "./Rules";
+import { rumour } from "./Rumours";
 import type {
   Character,
   Life,
   MilestoneKind,
+  Outcome,
   Skill,
   Tie,
   TraitId,
@@ -32,6 +34,7 @@ export function journal(
   tone?: "good" | "bad",
 ): void {
   touchLife(g, life);
+  if (g.capture?.seat === life.seat) g.capture.lines.push(text);
   life.journal.push({
     day: g.s.day,
     text,
@@ -53,7 +56,27 @@ export function milestone(
   life.milestones.push({ day: g.s.day, kind, c: life.c, text, p });
   if (life.milestones.length > MAX_MILESTONES)
     life.milestones.splice(0, life.milestones.length - MAX_MILESTONES);
+  // People talk about it.
+  if (TALKED_ABOUT.includes(kind) && life.c >= 0) {
+    const name = charName(meOf(g.s, life));
+    const said = text.startsWith(name)
+      ? text
+      : `${name} ${text[0].toLowerCase()}${text.slice(1)}`;
+    rumour(g, p, `${said}.`, life.c, kind === "wounded" ? "bad" : "good");
+  }
 }
+
+const TALKED_ABOUT: MilestoneKind[] = [
+  "married",
+  "promoted",
+  "battle",
+  "wounded",
+  "renown",
+  "office",
+  "movement",
+  "rising",
+  "europe",
+];
 
 /** Learn by doing; levels come as the experience adds up. */
 export function gainXp(
@@ -216,4 +239,65 @@ export function setCooldown(
 /** A skill check, rolled on the game's own dice. */
 export function rollCheck(g: ConquestGame, chance: number): boolean {
   return g.rng.next() < chance;
+}
+
+// ---------------------------------------------------------------- what just happened
+
+/** Start noting what an act or a choice writes, for its scene. */
+export function beginOutcome(g: ConquestGame, life: Life): void {
+  g.capture = { seat: life.seat, lines: [], meta: {}, before: gauges(life) };
+}
+
+const GAUGES = ["coins", "renown", "stress", "health", "favour"];
+
+function gauges(life: Life): number[] {
+  return [life.purse, life.renown, life.stress, life.health, life.favor];
+}
+
+/** What changed between two readings, in words: "+3 renown", "−5 coins". */
+function changes(before: number[], after: number[]): string[] {
+  const out: string[] = [];
+  after.forEach((v, i) => {
+    const d = Math.round((v - before[i]) * 10) / 10;
+    if (Math.abs(d) < 0.5) return;
+    const n = Math.abs(d) >= 10 ? Math.round(Math.abs(d)) : Math.abs(d);
+    out.push(`${d > 0 ? "+" : "\u2212"}${n} ${GAUGES[i]}`);
+  });
+  return out;
+}
+
+/** Say what the scene should show (the other person, the backdrop, how it went). */
+export function outcomeMeta(
+  g: ConquestGame,
+  life: Life,
+  meta: Partial<Omit<Outcome, "n" | "lines" | "day">>,
+): void {
+  if (g.capture?.seat !== life.seat) return;
+  Object.assign(g.capture.meta, meta);
+}
+
+/** Done: keep it on the life for the browser. Dropped if it failed. */
+export function endOutcome(
+  g: ConquestGame,
+  life: Life,
+  kind: Outcome["kind"],
+  failed: boolean,
+): void {
+  const cap = g.capture?.seat === life.seat ? g.capture : null;
+  g.capture = null;
+  if (!cap || failed) return;
+  const m = cap.meta;
+  touchLife(g, life).outcome = {
+    n: (life.outcome?.n ?? 0) + 1,
+    kind: m.kind ?? kind,
+    key: m.key ?? "",
+    title: m.title ?? "",
+    scene: m.scene ?? life.area ?? "tavern",
+    c: m.c ?? -1,
+    ok: m.ok === undefined ? null : m.ok,
+    lines: cap.lines.slice(-6),
+    fx: life.c >= 0 ? changes(cap.before, gauges(life)) : [],
+    ...(m.choice ? { choice: m.choice } : {}),
+    day: g.s.day,
+  };
 }

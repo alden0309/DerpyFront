@@ -77,6 +77,7 @@ import { journalTab } from "./ui/Journal";
 import { ModalHooks, renderModal } from "./ui/Modals";
 import { personPage, youTab } from "./ui/Sheet";
 import { nationPage, peopleTab, worldTab } from "./ui/World";
+import { figureColorsOf } from "./Walkers";
 
 export type GameStart = Extract<ServerMessage, { t: "game" }>;
 
@@ -122,6 +123,9 @@ const MODES: { id: MapMode; label: string }[] = [
 ];
 
 const NO_SET = new Set<number>();
+/** News big enough to be proclaimed: a rising, its victory, a revolution. */
+const PROCLAIMED =
+  /has risen in arms|has carried|declares itself free|has driven the|gives way to/;
 
 @customElement("cq-game")
 export class GameView extends LitElement {
@@ -143,6 +147,13 @@ export class GameView extends LitElement {
   @state() private savedAt: string | null = null;
   /** Battles you were in that just ended, shown as dispatches. */
   @state() private dispatches: number[] = [];
+  /** A rising or a revolution, nailed up across the top of the screen. */
+  @state() private proclamation: {
+    id: number;
+    head: string;
+    text: string;
+    p: number;
+  } | null = null;
   /** "Go there?" after a right-click, where it was clicked. */
   @state() private ask: {
     to: number;
@@ -168,11 +179,18 @@ export class GameView extends LitElement {
   private preview: number[] | null = null;
   private hoverProv: number | null = null;
   private flashes = new Map<number, number>();
+  /** Where each page below the top of the drawer was scrolled to. */
+  private scrolls: number[] = [];
+  private drawerScroll: number | null = null;
   private seenEvents = new Set<number>();
   /** The clock was stopped for a letter (alone), not by the player. */
   private autoPaused = false;
   /** The last journal entry we've shown, to toast the new ones. */
   private journalMark = "";
+  /** The last outcome shown in a scene. */
+  private outcomeSeen = -1;
+  /** The last outcome whose lines were kept out of the toasts. */
+  private lastOutcomeN = -1;
   private nextId = 1;
   private frame = 0;
   private lastDraw = 0;
@@ -229,9 +247,18 @@ export class GameView extends LitElement {
     const m = this.modalView;
     if (m?.k === "event") {
       const waiting = this.life?.events ?? [];
+      const o = this.life?.outcome;
       if (!waiting.some((e) => e.id === m.id))
-        this.modalView = waiting[0] ? { k: "event", id: waiting[0].id } : null;
+        // Answered (or decided for you): what came of it, then the next.
+        this.modalView =
+          o && o.kind === "event" && o.n !== this.outcomeSeen
+            ? { k: "outcome" }
+            : waiting[0]
+              ? { k: "event", id: waiting[0].id }
+              : null;
     }
+    if (this.modalView?.k === "outcome")
+      this.outcomeSeen = this.life?.outcome?.n ?? -1;
     // Alone, the clock stopped for a letter starts again once they're all
     // answered.
     if (
@@ -248,6 +275,11 @@ export class GameView extends LitElement {
   protected updated(): void {
     const ol = this.querySelector<HTMLElement>(".cq-log");
     if (ol && this.logStuck) ol.scrollTop = ol.scrollHeight;
+    if (this.drawerScroll !== null) {
+      const page = this.querySelector<HTMLElement>(".cq-drawer-page");
+      if (page) page.scrollTop = this.drawerScroll;
+      this.drawerScroll = null;
+    }
   }
 
   private onLogScroll(e: Event): void {
@@ -398,9 +430,20 @@ export class GameView extends LitElement {
       this.stack = [{ k: "tab", tab: "here" }];
       this.journalMark = this.markOf(life);
     }
-    // What's new in the journal pops up for a moment.
+    // What's new in the journal pops up for a moment (unless a scene shows it).
     const fresh = this.newEntries(life);
-    for (const e of fresh.slice(-2)) this.toast(e.text, e.tone ?? "");
+    const staged =
+      this.modalView?.k === "event" ||
+      this.modalView?.k === "interact" ||
+      this.modalView?.k === "outcome";
+    // Lines a scene is about to show aren't toasted as well.
+    const o = life.outcome;
+    const inScene =
+      o && o.n !== this.lastOutcomeN ? new Set(o.lines) : new Set<string>();
+    if (o) this.lastOutcomeN = o.n;
+    if (!staged)
+      for (const e of fresh.slice(-2))
+        if (!inScene.has(e.text)) this.toast(e.text, e.tone ?? "");
     if (fresh.some((e) => e.tone === "good")) play("bell");
     // Events that need an answer.
     const waiting = life.events.filter((e) => !this.seenEvents.has(e.id));
@@ -483,6 +526,7 @@ export class GameView extends LitElement {
         15000,
       );
     }
+    if (e.k === "news" && PROCLAIMED.test(e.text)) this.proclaim(e);
     if (!text) return;
     let tone: LogLine["tone"] = "";
     switch (e.k) {
@@ -505,6 +549,45 @@ export class GameView extends LitElement {
         break;
     }
     this.addLog(text, tone, e.k === "battle" ? e.id : undefined, e.day);
+  }
+
+  /** Drums, and a broadside across the top of the screen. */
+  private proclaim(e: Extract<GameEvent, { k: "news" }>): void {
+    const id = this.nextId++;
+    const risen = /risen/.test(e.text);
+    this.proclamation = {
+      id,
+      head: risen
+        ? "To arms!"
+        : /free of the crown/.test(e.text)
+          ? "Independence!"
+          : "The day is carried",
+      text: e.text,
+      p: e.p ?? -1,
+    };
+    play("drums");
+    setTimeout(() => {
+      if (this.proclamation?.id === id) this.proclamation = null;
+    }, 9000);
+  }
+
+  private proclamationView(): TemplateResult | typeof nothing {
+    const pr = this.proclamation;
+    if (!pr) return nothing;
+    return html`<button
+      class="cq-proclaim"
+      title=${pr.p >= 0 ? "Show me where" : "Dismiss"}
+      @click=${() => {
+        if (pr.p >= 0) this.view?.focus(pr.p, 2.4);
+        this.proclamation = null;
+      }}
+    >
+      <span class="cq-proclaim-rod top"></span>
+      <span class="cq-proclaim-head">${pr.head}</span>
+      <span class="cq-proclaim-text">${pr.text}</span>
+      <span class="cq-proclaim-seal" aria-hidden="true"></span>
+      <span class="cq-proclaim-rod"></span>
+    </button>`;
   }
 
   /** Seconds an event has left now (counting down while the clock runs). */
@@ -634,6 +717,7 @@ export class GameView extends LitElement {
       if (!c || l.watching) continue;
       const n = s.nations[c.nation];
       const led = s.armies.find((a) => a.commander === c.id);
+      const native = lifeIsNative(s, l);
       out.push({
         c: c.id,
         p: l.prov,
@@ -647,6 +731,10 @@ export class GameView extends LitElement {
         }),
         label: l.seat === this.you ? "" : l.name,
         you: l.seat === this.you,
+        // Their own colours: their frame for a coat until the painted looks come.
+        colors: figureColorsOf(c, native, l.frame),
+        female: c.female,
+        native,
       });
     }
     // Yours on top.
@@ -699,10 +787,15 @@ export class GameView extends LitElement {
       explored: null,
       lives: this.marks(),
       road: this.road(),
+      speed: this.speed,
     };
     const moving = this.s.lives.some((l) => l.travel);
-    const animating = !this.paused || this.flashes.size > 0 || moving;
-    if (this.view.needsDraw || (animating && t - this.lastDraw > 32)) {
+    // The world is alive at close range (smoke, fires, the sea): keep drawing,
+    // a little slower when paused.
+    const alive = this.view.view.scale >= 0.8;
+    const animating = !this.paused || this.flashes.size > 0 || moving || alive;
+    const gap = this.paused ? 66 : 32;
+    if (this.view.needsDraw || (animating && t - this.lastDraw > gap)) {
       this.lastDraw = t;
       this.view.needsDraw = false;
       this.view.draw(t);
@@ -939,6 +1032,16 @@ export class GameView extends LitElement {
     hideTip();
     const cur = this.stack[this.stack.length - 1];
     if (cur && JSON.stringify(cur) === JSON.stringify(v)) return;
+    // A new page opens at its top; going back returns to where you were.
+    const page = this.querySelector<HTMLElement>(".cq-drawer-page");
+    this.scrolls =
+      v.k === "tab"
+        ? []
+        : [
+            ...this.scrolls.slice(0, this.stack.length - 1),
+            page?.scrollTop ?? 0,
+          ].slice(-8);
+    this.drawerScroll = 0;
     this.stack = v.k === "tab" ? [v] : [...this.stack.slice(-8), v];
     if (v.k === "army") this.selectedArmy = v.id;
     if (v.k === "prov") this.selectedProv = v.p;
@@ -962,6 +1065,7 @@ export class GameView extends LitElement {
       open: (v) => this.open(v),
       back: () => {
         this.stack = this.stack.slice(0, -1);
+        this.drawerScroll = this.scrolls.pop() ?? 0;
       },
       modal: (m) => {
         hideTip();
@@ -1105,7 +1209,7 @@ export class GameView extends LitElement {
           (t) => html`<div class="cq-toast ${t.tone}">${t.text}</div>`,
         )}
       </div>
-      ${this.askPopup()}
+      ${this.proclamationView()} ${this.askPopup()}
       ${this.modalView ? renderModal(ui, this.modalView, this.hooks) : nothing}
     </div>`;
   }

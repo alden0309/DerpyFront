@@ -22,9 +22,11 @@ import {
   SKILL_STAT,
   TRAIT_SKILLS,
   WALK_SPEED,
+  WORK_DAYS,
 } from "./LifeRules";
 import type { World } from "./Map";
 import { landHopDays, seaHopDays } from "./Paths";
+import { propertyBudget } from "./Property";
 import {
   ageOf,
   atWar,
@@ -361,7 +363,7 @@ export function promotionView(s: GameState, life: Life): PromotionView {
       label: `renown ${next.renown} (${Math.floor(life.renown)})`,
       met: life.renown >= next.renown,
     });
-  if (next.opinion !== undefined) {
+  if (next.opinion !== undefined && !job.own) {
     const boss = s.chars[job.employer];
     const op = boss?.alive ? opinionOf(s, boss, life).total : -100;
     needs.push({
@@ -391,10 +393,21 @@ export function promotionView(s: GameState, life: Life): PromotionView {
   };
 }
 
-export function wageOf(s: GameState, w: World, life: Life): number {
+/**
+ * A month's wage: what the rung pays if you work the month (`actual`
+ * false), or what this month's days at the post have earned (`actual`).
+ */
+export function wageOf(
+  s: GameState,
+  w: World,
+  life: Life,
+  actual = false,
+): number {
   const r = rankOf(life);
-  if (!r || !atPost(s, w, life)) return 0;
-  return r.wage;
+  if (!r || !life.job) return 0;
+  if (!actual) return atPost(s, w, life) ? r.wage : 0;
+  const share = Math.min(1, (life.job.worked ?? 0) / WORK_DAYS);
+  return Math.round(r.wage * share * 100) / 100;
 }
 
 // ---------------------------------------------------------------- money
@@ -424,16 +437,34 @@ export function lifestyleCost(s: GameState, life: Life): Breakdown {
   return e.done(1);
 }
 
-/** A month's money: what comes in, what goes out. */
-export function monthlyBudget(s: GameState, w: World, life: Life): Breakdown {
+/**
+ * A month's money: what comes in, what goes out. As a forecast (wages for a
+ * full month's work, property too), or `actual`: what's paid at the month's
+ * end (wages by the days worked; property is settled on its own).
+ */
+export function monthlyBudget(
+  s: GameState,
+  w: World,
+  life: Life,
+  actual = false,
+): Breakdown {
   const e = new Explain();
-  const wage = wageOf(s, w, life);
-  if (wage) e.add(`Wage: ${jobTitle(life).toLowerCase()}`, wage);
+  const wage = wageOf(s, w, life, actual);
+  if (wage)
+    e.add(
+      actual && life.job
+        ? `Wage: ${jobTitle(life).toLowerCase()} (${Math.min(WORK_DAYS, life.job.worked ?? 0)} of ${WORK_DAYS} days)`
+        : `Wage: ${jobTitle(life).toLowerCase()}`,
+      wage,
+    );
   if (allowanceDue(s, life)) e.add("Your family's allowance", ALLOWANCE);
   for (const o of officesOf(s, life.c))
     if (o.stipend) e.add(o.label, o.stipend);
   const cost = lifestyleCost(s, life).total;
   if (cost) e.add("Living", -cost);
+  if (!actual)
+    for (const part of propertyBudget(s, life).parts)
+      e.add(part.label, part.value);
   return e.done(1);
 }
 
@@ -653,11 +684,20 @@ export function opinionOf(s: GameState, c: Character, life: Life): Breakdown {
 /** Everyone you could meet in a province right now. */
 export function peopleHere(s: GameState, p: number, life?: Life): Character[] {
   const out = new Map<number, Character>();
-  const add = (c: Character | undefined) => {
+  const away = new Map<number, number>();
+  for (const t of s.travellers ?? []) away.set(t.c, t.depart < 0 ? t.prov : -1);
+  const add = (c: Character | undefined, travelling = false) => {
     if (!c?.alive || c.abroad || out.has(c.id)) return;
     if (life && c.id === life.c) return;
+    const at = away.get(c.id);
+    if (!travelling && at !== undefined && at !== p) return;
     out.set(c.id, c);
   };
+  for (const t of s.travellers ?? [])
+    if (t.depart < 0 && t.prov === p) add(s.chars[t.c], true);
+  for (const l of s.lives)
+    for (const pr of l.property ?? [])
+      if (pr.prov === p) for (const id of pr.hands) add(s.chars[id]);
   for (const n of s.nations) {
     if (!n.alive || n.capital !== p || n.kind === "crown") continue;
     const ruler = s.chars[n.ruler];

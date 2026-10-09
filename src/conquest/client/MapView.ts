@@ -10,7 +10,8 @@
 // that picture is just moved. Things that move (armies, ships, parties,
 // sieges) are drawn on top every frame.
 
-import type { World } from "../engine/Map";
+import { dateOf } from "../engine/Calendar";
+import { isWinter, type World } from "../engine/Map";
 import { armyMen, countRegs, people, settlers } from "../engine/Queries";
 import type {
   Army,
@@ -41,13 +42,23 @@ import {
 } from "./MapArt";
 import {
   drawSprite,
-  drawSpriteTilted,
   loadSprites,
   sprite,
   SpriteName,
   spriteWidth,
 } from "./Sprites";
 import { GOOD_COLORS } from "./Text";
+import {
+  drawCanoe,
+  drawCattle,
+  drawPackTrain,
+  drawRider,
+  drawSloop,
+  drawWagon,
+  drawWalker,
+  FigureColors,
+  figureColorsOf,
+} from "./Walkers";
 
 export type MapMode = "nation" | "terrain" | "economy" | "people";
 
@@ -227,6 +238,8 @@ export interface Overlay {
   lives?: LifeMark[];
   /** The road you'd take to the province you're looking at. */
   road?: { from: number; path: number[]; sea: boolean[] } | null;
+  /** The clock's speed (1 to 4), for how quickly feet move. */
+  speed?: number;
 }
 
 /** A played character on the map: a portrait medallion, walking or sailing. */
@@ -242,6 +255,10 @@ export interface LifeMark {
   face: string | null;
   label: string;
   you: boolean;
+  /** What they wear, for their walking figure. */
+  colors: FigureColors;
+  female: boolean;
+  native: boolean;
 }
 
 /** Which figure stands for an army: its most numerous kind of regiment. */
@@ -303,6 +320,14 @@ export class MapView {
     h: number;
   }[] = [];
   private personHits: { c: number; x: number; y: number; r: number }[] = [];
+  /** Where each walker is in their stride, and when it was last moved on. */
+  private strides = new Map<string, { phase: number; t: number }>();
+  /** The month the chart's season was drawn for. */
+  private seasonMonth = -1;
+  /** Points along the coasts where the sea breaks, in map units. */
+  private wavePts: [number, number, number][] | null = null;
+  /** Open water off each coastal town, for its boats: [province, x, y]. */
+  private harbourPts: [number, number, number][] | null = null;
   private faces = new Map<string, HTMLImageElement>();
   private hovered: number | null = null;
   private pointers = new Map<number, { x: number; y: number }>();
@@ -1292,6 +1317,26 @@ export class MapView {
         });
       }
     }
+    // The season: snow lies over winter country; the woods turn in autumn.
+    const month = dateOf(Math.floor(o.dayNow)).month;
+    this.seasonMonth = month;
+    if (o.mode === "nation" || o.mode === "terrain") {
+      for (let p = 0; p < this.provPaths.length; p++) {
+        if (!visible(p)) continue;
+        const def = this.map.provinces[p];
+        if (isWinter(def.lat, month)) {
+          c.fillStyle = "rgba(246,249,252,0.42)";
+          c.fill(this.provPaths[p], "evenodd");
+        } else if (
+          (month === 8 || month === 9) &&
+          def.lat > 34 &&
+          (def.terrain === "forest" || def.terrain === "hills")
+        ) {
+          c.fillStyle = "rgba(196,104,40,0.13)";
+          c.fill(this.provPaths[p], "evenodd");
+        }
+      }
+    }
     c.strokeStyle = "rgba(70, 55, 35, 0.22)";
     c.lineWidth = Math.max(0.5, 0.8 / v.scale);
     c.stroke(this.borders);
@@ -1609,6 +1654,8 @@ export class MapView {
     }
     if (!o) return;
     const s = o.state;
+    if (dateOf(Math.floor(o.dayNow)).month !== this.seasonMonth)
+      this.baseDirty = true;
 
     // The chart: redraw it if it's out of date and the moment is right,
     // otherwise move the picture we have.
@@ -1725,6 +1772,7 @@ export class MapView {
 
     // Ships on their way to Europe and back.
     const figure = Math.max(13, Math.min(30, 9 + v.scale * 5));
+    this.drawAmbience(o, now, sx, sy, onScreen);
     for (const n of s.nations) {
       if (n.kind !== "power" || !n.alive) continue;
       for (const cv of n.convoys) {
@@ -1876,20 +1924,20 @@ export class MapView {
       if (a.sea) {
         if (!this.drawShip(ctx, x, y, h * 1.3, heading, nation.color, now))
           ship(ctx, x, y, h * 0.8, dir > 0 ? 0 : Math.PI, nation.color, now);
+      } else if (moving) {
+        this.drawMarch(
+          ctx,
+          x,
+          y,
+          h,
+          figureOf(a),
+          nation.color,
+          heading,
+          this.stride(`a${a.id}`, true, o.running, now, o.speed ?? 1),
+          nation.kind === "native",
+        );
       } else if (
-        !(moving
-          ? this.drawColumn(
-              ctx,
-              x,
-              y,
-              h,
-              figureOf(a),
-              nation.color,
-              heading,
-              marching ? now : null,
-              a.id,
-            )
-          : this.drawTroop(ctx, x, y, h, figureOf(a), nation.color, dir < 0))
+        !this.drawTroop(ctx, x, y, h, figureOf(a), nation.color, dir < 0)
       )
         soldier(
           ctx,
@@ -1953,11 +2001,619 @@ export class MapView {
       });
     }
 
+    this.drawTravellers(o, day, figure, now, sx, sy, onScreen);
     this.drawLives(o, day, figure, now, sx, sy, onScreen);
+    this.drawBirds(o, now);
 
     // Keep drawing until the chart has caught up with the view.
     const after = this.baseFits();
     this.needsDraw = this.baseDirty || !after.covered;
+  }
+
+  // ---------------------------------------------------------------- the living
+
+  /**
+   * Where a walker is in their stride. It moves on only while they're on
+   * the move and the clock runs (faster at higher speeds); standing, the
+   * legs come together; paused, they stop mid-step.
+   */
+  private stride(
+    key: string,
+    moving: boolean,
+    running: boolean,
+    now: number,
+    speed: number,
+  ): number {
+    let st = this.strides.get(key);
+    if (!st) {
+      let h = 0;
+      for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
+      st = { phase: ((h >>> 0) % 628) / 100, t: now };
+      if (this.strides.size > 600) this.strides.clear();
+      this.strides.set(key, st);
+    }
+    const dt = Math.min(0.1, Math.max(0, (now - st.t) / 1000));
+    st.t = now;
+    if (moving && running) {
+      const cadence = Math.PI * 2 * (0.95 + 0.25 * (speed - 1));
+      st.phase += dt * cadence;
+    } else if (!moving) {
+      const rest = Math.round(st.phase / Math.PI) * Math.PI;
+      st.phase += (rest - st.phase) * Math.min(1, dt * 5);
+    }
+    return st.phase;
+  }
+
+  /**
+   * An army on the march: a column of its men walking in step, the colours
+   * and a drummer at the head (warriors in single file, horsemen at the
+   * trot, guns on their carriages), on a patch of their colour.
+   */
+  private drawMarch(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    h: number,
+    kind: RegType,
+    color: string,
+    heading: number,
+    phase: number,
+    native: boolean,
+  ): void {
+    const dir = Math.cos(heading) < 0 ? -1 : 1;
+    const ux = Math.cos(heading);
+    const uy = Math.sin(heading);
+    const mounted = kind === "dragoons" || kind === "riders";
+    const count = kind === "artillery" ? 2 : mounted ? 3 : 5;
+    const gap = h * (mounted ? 0.75 : 0.42);
+    const cx = x - ux * gap * ((count - 1) / 2);
+    const cy = y - uy * gap * ((count - 1) / 2);
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.ellipse(
+      cx,
+      cy + 1,
+      h * 0.45 + Math.abs(ux) * gap * (count - 1) * 0.55,
+      h * 0.14 + Math.abs(uy) * gap * (count - 1) * 0.4,
+      0,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    const coat: FigureColors = native
+      ? {
+          coat: color,
+          breeches: "#8a6a48",
+          hat: null,
+          skin: "#b97c55",
+          hair: "#1c140c",
+        }
+      : kind === "militia"
+        ? {
+            coat: mixHex(color, "#5a4632", 0.45),
+            breeches: "#5a4632",
+            hat: "#262019",
+            skin: "#e2bb98",
+            hair: "#4a3020",
+          }
+        : {
+            coat: color,
+            breeches: "#efe6cf",
+            hat: "#1c140c",
+            skin: "#e2bb98",
+            hair: "#efe9dc",
+          };
+    const men = Array.from({ length: count }, (_, i) => ({
+      i,
+      x: x - ux * gap * i,
+      y: y - uy * gap * i,
+    })).sort((a, b) => a.y - b.y);
+    ctx.save();
+    ctx.shadowColor = "rgba(252,244,222,0.9)";
+    ctx.shadowBlur = 1.5;
+    for (const m of men) {
+      const p = phase + m.i * 0.18;
+      if (mounted)
+        drawRider(
+          ctx,
+          m.x,
+          m.y,
+          h * 1.25,
+          p,
+          dir,
+          coat,
+          m.i % 2 ? "#5a3e28" : "#6b4a2a",
+        );
+      else if (kind === "artillery") {
+        if (m.i === 0)
+          drawRider(ctx, m.x, m.y, h * 1.1, p, dir, coat, "#6b4a2a", false);
+        else {
+          drawWagon(ctx, m.x + dir * h * 0.3, m.y, h * 0.75, p, dir, coat);
+        }
+      } else
+        drawWalker(ctx, m.x, m.y, h * 1.15, p, dir, coat, {
+          native,
+          soldier: !native && kind !== "militia",
+          carry:
+            m.i === 0
+              ? native
+                ? "bow"
+                : "flag"
+              : m.i === 1 && !native
+                ? "drum"
+                : "musket",
+          flag: color,
+        });
+    }
+    ctx.restore();
+  }
+
+  /** Merchants, traders, preachers, messengers: the world on the road. */
+  private drawTravellers(
+    o: Overlay,
+    day: number,
+    figure: number,
+    now: number,
+    sx: (x: number) => number,
+    sy: (y: number) => number,
+    onScreen: (x: number, y: number, pad?: number) => boolean,
+  ): void {
+    const ctx = this.ctx;
+    const s = o.state;
+    if (this.view.scale < 0.75) return;
+    for (const t of s.travellers ?? []) {
+      if (t.depart < 0 || !t.path.length) continue;
+      const frac = Math.max(
+        0,
+        Math.min(1, (day - t.depart) / Math.max(0.5, t.arrive - t.depart)),
+      );
+      const way = this.hopPath(t.prov, t.path[0], t.sea[0] ?? false);
+      const [mx, my, heading] = this.along(way, frac);
+      const x = sx(mx);
+      const y = sy(my);
+      if (!onScreen(x, y, 40)) continue;
+      const c = s.chars[t.c];
+      const n = c ? s.nations[c.nation] : undefined;
+      const native = n?.kind === "native" || c?.religion === "native";
+      const dir = Math.cos(heading) < 0 ? -1 : 1;
+      const phase = this.stride(`t${t.id}`, true, o.running, now, o.speed ?? 1);
+      const col = figureColorsOf(c, native);
+      const h = figure * 1.15;
+      ctx.save();
+      ctx.shadowColor = "rgba(252,244,222,0.85)";
+      ctx.shadowBlur = 1.5;
+      switch (t.mode) {
+        case "ship":
+          drawSloop(
+            ctx,
+            x,
+            y,
+            h * 1.05,
+            now,
+            dir,
+            n?.color ?? "#efe9dc",
+            o.running,
+          );
+          break;
+        case "canoe":
+          drawCanoe(ctx, x, y, h, phase, dir, col);
+          break;
+        case "wagon":
+          drawWagon(ctx, x, y, h, phase, dir, col);
+          break;
+        case "pack":
+          drawPackTrain(ctx, x, y, h, phase, dir, col, native);
+          break;
+        case "horse":
+          drawRider(ctx, x, y, h * 1.1, phase, dir, col);
+          break;
+        default:
+          if (t.kind === "drover")
+            drawCattle(ctx, x - dir * h * 0.2, y, h, phase, dir);
+          drawWalker(ctx, x, y, h, phase, dir, col, {
+            female: c?.female,
+            native,
+            carry:
+              t.kind === "pedlar" || t.kind === "family"
+                ? "pack"
+                : t.kind === "messenger"
+                  ? null
+                  : "staff",
+          });
+      }
+      ctx.restore();
+      if (t.letter && this.view.scale >= 1.2) {
+        // A messenger's letter, sealed.
+        ctx.fillStyle = "#f2e6c6";
+        ctx.strokeStyle = "rgba(40,26,12,0.85)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.rect(x + dir * 6 - 5, y - h * 1.25, 10, 7);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#9e2a1e";
+        ctx.beginPath();
+        ctx.arc(x + dir * 6, y - h * 1.25 + 3.5, 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (c) this.personHits.push({ c: c.id, x, y: y - h * 0.5, r: h * 0.5 });
+    }
+  }
+
+  /** Chimney smoke over the towns, cookfires in the villages, the sea breaking on the coast. */
+  private drawAmbience(
+    o: Overlay,
+    now: number,
+    sx: (x: number) => number,
+    sy: (y: number) => number,
+    onScreen: (x: number, y: number, pad?: number) => boolean,
+  ): void {
+    const ctx = this.ctx;
+    const v = this.view;
+    const s = o.state;
+    if (o.mode !== "nation" && o.mode !== "terrain") return;
+    const t = now / 1000;
+    // Waves along the shore.
+    if (v.scale >= 0.8) {
+      const pts = this.waves();
+      ctx.strokeStyle = "rgba(240,248,250,0.55)";
+      ctx.lineWidth = 1;
+      for (const [wx, wy, seed] of pts) {
+        const x = sx(wx);
+        const y = sy(wy);
+        if (!onScreen(x, y, 10)) continue;
+        const k = (t / 3.2 + seed) % 1;
+        if (k > 0.55) continue;
+        const a = Math.sin((k / 0.55) * Math.PI);
+        const w = 3 + v.scale * 1.6;
+        ctx.globalAlpha = a * 0.7;
+        ctx.beginPath();
+        ctx.moveTo(x - w, y);
+        ctx.quadraticCurveTo(x - w / 2, y - 2.2, x, y);
+        ctx.quadraticCurveTo(x + w / 2, y + 2.2, x + w, y);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    const wind = Math.sin(t / 23) * 0.6 + 0.4;
+    // Towns taken by a rising or an enemy, or under siege, burn.
+    if (v.scale >= 0.5) {
+      const h = Math.max(17, Math.min(44, 8 + v.scale * 10));
+      for (let p = 0; p < s.provinces.length; p++) {
+        const prov = s.provinces[p];
+        const taken = prov.occupier >= 0;
+        if (!taken && !prov.siege) continue;
+        const def = this.map.provinces[p];
+        const x = sx(def.x);
+        const y = sy(def.y);
+        if (!onScreen(x, y, 50)) continue;
+        const rebels = taken && s.nations[prov.occupier]?.kind === "rebels";
+        this.burning(
+          x - h * 0.3,
+          y - h * 0.15,
+          h * (rebels ? 1.15 : 0.9),
+          t,
+          p,
+          wind,
+        );
+        if (rebels || prov.siege)
+          this.burning(x + h * 0.35, y - h * 0.05, h * 0.7, t, p + 3, wind);
+      }
+    }
+    // Boats off the coastal towns: fishing smacks and sloops, canoes off the villages.
+    if (v.scale >= 1.2) {
+      const h = Math.max(11, Math.min(26, 6 + v.scale * 3.4));
+      for (const [p, hx, hy] of this.harbours()) {
+        const prov = s.provinces[p];
+        if (prov.owner < 0) continue;
+        const nation = s.nations[prov.owner];
+        const native = nation.kind === "native";
+        if (!native && settlers(prov) < 300) continue;
+        const boats = native ? 1 : settlers(prov) >= 2500 ? 2 : 1;
+        for (let k = 0; k < boats; k++) {
+          const a = t / (native ? 7 : 11) + p * 1.7 + k * Math.PI;
+          const r = GRID * (0.5 + k * 0.4);
+          const bx = sx(hx + Math.cos(a) * r);
+          const by = sy(hy + Math.sin(a) * r * 0.55);
+          if (!onScreen(bx, by, 30)) continue;
+          const dir = -Math.sin(a) >= 0 ? 1 : -1;
+          if (native)
+            drawCanoe(ctx, bx, by, h, t * 6 + p, dir, {
+              coat: "#8a5a35",
+              breeches: "#6b4a2e",
+              hat: null,
+              skin: "#a8714a",
+              hair: "#1d140e",
+            });
+          else
+            drawSloop(
+              ctx,
+              bx,
+              by,
+              h * (k ? 0.85 : 1),
+              now,
+              dir,
+              nation.color,
+              true,
+            );
+        }
+      }
+    }
+    if (v.scale < 1.05) return;
+    const townH = Math.max(15, Math.min(46, 8 + v.scale * 10));
+    for (let p = 0; p < s.provinces.length; p++) {
+      const prov = s.provinces[p];
+      if (prov.owner < 0) continue;
+      const nation = s.nations[prov.owner];
+      const def = this.map.provinces[p];
+      const x = sx(def.x);
+      const y = sy(def.y);
+      if (!onScreen(x, y, 40)) continue;
+      const native = nation.kind === "native";
+      const tx = x - townH * 0.4;
+      if (native) {
+        // A cookfire before the lodges.
+        const fx = x + townH * 0.12;
+        const fy = y + 3;
+        const flick =
+          0.75 + 0.25 * Math.sin(t * 11 + p) * Math.sin(t * 7.3 + p * 2);
+        const g = ctx.createRadialGradient(
+          fx,
+          fy - 2,
+          0,
+          fx,
+          fy - 2,
+          townH * 0.4,
+        );
+        g.addColorStop(0, `rgba(255,170,70,${(0.45 * flick).toFixed(3)})`);
+        g.addColorStop(1, "rgba(255,170,70,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(fx, fy - 2, townH * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#e8742a";
+        ctx.beginPath();
+        ctx.moveTo(fx - 2.5, fy);
+        ctx.quadraticCurveTo(fx - 1, fy - 5 * flick, fx, fy - 7 * flick);
+        ctx.quadraticCurveTo(fx + 1, fy - 5 * flick, fx + 2.5, fy);
+        ctx.fill();
+        ctx.fillStyle = "#ffd36b";
+        ctx.beginPath();
+        ctx.moveTo(fx - 1.2, fy);
+        ctx.quadraticCurveTo(fx, fy - 4 * flick, fx + 1.2, fy);
+        ctx.fill();
+        for (let k = 0; k < 3; k++) {
+          const age = (t / 1.6 + k / 3 + p * 0.37) % 1;
+          ctx.fillStyle = `rgba(255,${180 - age * 80},80,${(0.9 * (1 - age)).toFixed(2)})`;
+          ctx.fillRect(
+            fx + Math.sin(age * 9 + k) * 3,
+            fy - 6 - age * townH * 0.6,
+            1.2,
+            1.2,
+          );
+        }
+        this.smoke(fx, fy - 6, townH * 0.8, t, p, wind, 0.22);
+      } else if (settlers(prov) >= 300) {
+        const big = nation.capital === p || settlers(prov) >= 2500;
+        const h = big ? townH : townH * 0.85;
+        this.smoke(tx + h * 0.12, y + 2 - h * 0.82, h, t, p, wind, 0.3);
+        if (big)
+          this.smoke(
+            tx - h * 0.22,
+            y + 2 - h * 0.7,
+            h * 0.8,
+            t,
+            p + 7,
+            wind,
+            0.25,
+          );
+      }
+    }
+  }
+
+  /** A house on fire: flickering flames, sparks and a column of black smoke. */
+  private burning(
+    x: number,
+    y: number,
+    h: number,
+    t: number,
+    seed: number,
+    wind: number,
+  ): void {
+    const ctx = this.ctx;
+    // Smoke first, behind the flames: thick, dark and leaning with the wind.
+    for (let k = 0; k < 6; k++) {
+      const age = (t / 3.4 + k / 6 + seed * 0.21) % 1;
+      const px =
+        x + wind * age * h * 0.9 + Math.sin(age * 4 + seed + k) * h * 0.08;
+      const py = y - h * 0.3 - age * h * 1.5;
+      const r = h * (0.1 + age * 0.26);
+      ctx.fillStyle = `rgba(44,36,32,${(0.55 * (1 - age)).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const glow = ctx.createRadialGradient(
+      x,
+      y - h * 0.15,
+      0,
+      x,
+      y - h * 0.15,
+      h * 0.7,
+    );
+    glow.addColorStop(0, "rgba(255,140,50,0.45)");
+    glow.addColorStop(1, "rgba(255,120,40,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y - h * 0.15, h * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+    for (let k = 0; k < 3; k++) {
+      const fx = x + (k - 1) * h * 0.14;
+      const flick =
+        0.7 +
+        0.3 *
+          Math.sin(t * (9 + k * 2.3) + seed + k) *
+          Math.sin(t * 6.1 + seed * 2 + k);
+      const fh = h * (k === 1 ? 0.55 : 0.38) * flick;
+      const fw = h * 0.1;
+      ctx.fillStyle = "#d9481c";
+      ctx.beginPath();
+      ctx.moveTo(fx - fw, y);
+      ctx.quadraticCurveTo(
+        fx - fw * 0.6,
+        y - fh * 0.6,
+        fx + Math.sin(t * 5 + k) * fw * 0.4,
+        y - fh,
+      );
+      ctx.quadraticCurveTo(fx + fw * 0.6, y - fh * 0.6, fx + fw, y);
+      ctx.fill();
+      ctx.fillStyle = "#ffc94a";
+      ctx.beginPath();
+      ctx.moveTo(fx - fw * 0.5, y);
+      ctx.quadraticCurveTo(fx, y - fh * 0.6, fx + fw * 0.5, y);
+      ctx.fill();
+    }
+    for (let k = 0; k < 4; k++) {
+      const age = (t / 1.3 + k / 4 + seed * 0.3) % 1;
+      ctx.fillStyle = `rgba(255,${200 - age * 100},90,${(1 - age).toFixed(2)})`;
+      ctx.fillRect(
+        x + Math.sin(age * 7 + k * 2) * h * 0.2 + wind * age * h * 0.3,
+        y - h * 0.4 - age * h * 0.8,
+        1.5,
+        1.5,
+      );
+    }
+  }
+
+  /** A wisp of smoke rising and drifting with the wind. */
+  private smoke(
+    x: number,
+    y: number,
+    h: number,
+    t: number,
+    seed: number,
+    wind: number,
+    alpha: number,
+  ): void {
+    const ctx = this.ctx;
+    for (let k = 0; k < 4; k++) {
+      const age = (t / 4.2 + k / 4 + seed * 0.13) % 1;
+      const px = x + wind * age * h * 0.5 + Math.sin(age * 5 + seed) * h * 0.05;
+      const py = y - age * h * 0.9;
+      const r = h * (0.05 + age * 0.13);
+      ctx.fillStyle = `rgba(232,228,218,${(alpha * (1 - age)).toFixed(3)})`;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /** Open water off each coastal province's town, found once. */
+  private harbours(): [number, number, number][] {
+    if (this.harbourPts) return this.harbourPts;
+    if (!this.water) this.buildWater();
+    const water = this.water!;
+    const gw = this.gw;
+    const gh = this.gh;
+    const open = (cx: number, cy: number) => {
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const x = cx + dx;
+          const y = cy + dy;
+          if (x < 0 || y < 0 || x >= gw || y >= gh || !water[y * gw + x])
+            return false;
+        }
+      return true;
+    };
+    const out: [number, number, number][] = [];
+    this.map.provinces.forEach((def, p) => {
+      if (!def.coastal) return;
+      const near = this.nearestWater(def.x, def.y);
+      if (near < 0) return;
+      const nx = near % gw;
+      const ny = (near - nx) / gw;
+      // The nearest spot of open water within a few cells of the shore.
+      for (let r = 0; r <= 6; r++)
+        for (let dy = -r; dy <= r; dy++)
+          for (let dx = -r; dx <= r; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+            if (!open(nx + dx, ny + dy)) continue;
+            const d = Math.hypot(
+              (nx + dx) * GRID - def.x,
+              (ny + dy) * GRID - def.y,
+            );
+            if (d > GRID * 7) continue;
+            out.push([
+              p,
+              (nx + dx) * GRID + GRID / 2,
+              (ny + dy) * GRID + GRID / 2,
+            ]);
+            return;
+          }
+    });
+    this.harbourPts = out;
+    return out;
+  }
+
+  /** Where the sea breaks: water cells on the coast, a sprinkling of them. */
+  private waves(): [number, number, number][] {
+    if (this.wavePts) return this.wavePts;
+    if (!this.water) this.buildWater();
+    const water = this.water!;
+    const gw = this.gw;
+    const gh = this.gh;
+    const out: [number, number, number][] = [];
+    for (let y = 1; y < gh - 1; y++)
+      for (let x = 1; x < gw - 1; x++) {
+        const i = y * gw + x;
+        if (!water[i]) continue;
+        if (water[i - 1] && water[i + 1] && water[i - gw] && water[i + gw])
+          continue;
+        const hsh = (Math.imul(i, 2654435761) >>> 0) / 4294967296;
+        if (hsh > 0.14) continue;
+        out.push([x * GRID + GRID / 2, y * GRID + GRID / 2, hsh * 7.1]);
+      }
+    this.wavePts = out;
+    return out;
+  }
+
+  /** Birds: geese going south in autumn and north in spring, gulls the rest of the year. */
+  private drawBirds(o: Overlay, now: number): void {
+    if (o.mode !== "nation" && o.mode !== "terrain") return;
+    const ctx = this.ctx;
+    const month = dateOf(Math.floor(o.dayNow)).month;
+    const south = month >= 8 && month <= 10;
+    const north = month >= 2 && month <= 4;
+    const W = this.cssWidth;
+    const H = this.cssHeight;
+    const flocks = south || north ? 2 : 1;
+    ctx.strokeStyle = "rgba(40,30,22,0.55)";
+    ctx.lineWidth = 1.2;
+    for (let f = 0; f < flocks; f++) {
+      const period = 55000 + f * 17000;
+      const k = ((now + f * 23000) % period) / period;
+      const dx = south ? -1 : 1;
+      const x = dx > 0 ? -80 + k * (W + 160) : W + 80 - k * (W + 160);
+      const y =
+        H * (0.18 + f * 0.27) +
+        (south ? k : north ? -k : 0) * H * 0.18 +
+        Math.sin(now / 3000 + f) * 12;
+      const n = south || north ? 7 : 3;
+      for (let b = 0; b < n; b++) {
+        const row = Math.ceil(b / 2);
+        const side = b % 2 ? 1 : -1;
+        const bx = x - dx * row * 11;
+        const by = y + side * row * 7;
+        const flap = Math.sin(now / 140 + b * 0.9 + f) * 2.6;
+        ctx.beginPath();
+        ctx.moveTo(bx - 5, by - flap);
+        ctx.quadraticCurveTo(bx - 2, by - 1.5, bx, by);
+        ctx.quadraticCurveTo(bx + 2, by - 1.5, bx + 5, by - flap);
+        ctx.stroke();
+      }
+    }
   }
 
   /** A likeness, loaded once; null until it's ready. */
@@ -2063,27 +2719,40 @@ export class MapView {
       let y = sy(my);
       if (!onScreen(x, y, 50)) continue;
       const flip = Math.cos(heading) < 0;
+      const phase = this.stride(
+        `p${m.c}`,
+        walker === "walk",
+        o.running,
+        now,
+        o.speed ?? 1,
+      );
       if (walker === "walk") {
-        const bob = o.running ? Math.abs(Math.sin(now / 130 + m.c)) * 1.5 : 0;
         ctx.save();
-        ctx.shadowColor = "rgba(252,244,222,0.95)";
-        ctx.shadowBlur = 2.5;
-        if (!drawSprite(ctx, "explorer", x, y - bob, figure * 1.3, flip))
-          explorer(
+        ctx.shadowColor = "rgba(252,244,222,0.9)";
+        ctx.shadowBlur = 2;
+        drawWalker(ctx, x, y, figure * 1.5, phase, flip ? -1 : 1, m.colors, {
+          female: m.female,
+          native: m.native,
+          carry: m.native ? "bow" : "staff",
+        });
+        ctx.restore();
+        // The likeness floats clear above the hat.
+        y -= figure * 1.5 + 8;
+      } else if (walker === "sail") {
+        if (m.native)
+          drawCanoe(ctx, x, y, figure * 1.2, phase, flip ? -1 : 1, m.colors);
+        else
+          drawSloop(
             ctx,
             x,
             y,
-            figure * 0.8,
-            m.frame,
+            figure * 1.25,
+            now,
             flip ? -1 : 1,
-            Math.sin(now / 140),
+            m.frame,
+            o.running,
           );
-        ctx.restore();
-        y -= figure * 1.25;
-      } else if (walker === "sail") {
-        if (!this.drawShip(ctx, x, y, figure * 1.1, heading, m.frame, now))
-          ship(ctx, x, y, figure * 0.7, heading, m.frame, now);
-        y -= figure * 1.05;
+        y -= figure * 1.3 + 6;
       } else if (!army) {
         y -= 6;
       }
@@ -2234,107 +2903,6 @@ export class MapView {
     ctx.fill();
     ctx.stroke();
     ctx.restore();
-  }
-
-  /**
-   * An army on the march: a short column of its soldiers in step, swaying as
-   * they walk, kicking up dust behind them. `now` is null while the clock is
-   * stopped, and the column halts mid-stride.
-   */
-  private drawColumn(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    h: number,
-    kind: RegType,
-    color: string,
-    heading: number,
-    now: number | null,
-    seed: number,
-  ): boolean {
-    const name: SpriteName =
-      kind === "riders" ? "dragoons" : (kind as SpriteName);
-    if (!sprite(name)) return false;
-    const tall: Record<string, number> = {
-      militia: 1.45,
-      regulars: 1.35,
-      dragoons: 1.45,
-      artillery: 0.95,
-      warriors: 1.6,
-    };
-    const size = h * (tall[name] ?? 1.4) * 0.86;
-    const flip = Math.cos(heading) < 0;
-    // Screen direction of travel (the map's y runs down, like the screen's).
-    const ux = Math.cos(heading);
-    const uy = Math.sin(heading);
-    const count = name === "artillery" ? 2 : 3;
-    const gap = h * (name === "dragoons" ? 0.8 : 0.62);
-    const t = now ?? 0;
-    const pace = name === "dragoons" ? 85 : 120;
-    // Dust behind the last man.
-    if (now !== null) {
-      const bx = x - ux * gap * (count - 0.4);
-      const by = y - uy * gap * (count - 0.4);
-      for (let k = 0; k < 3; k++) {
-        const age = (t / 700 + k / 3 + seed * 0.37) % 1;
-        const r = h * (0.1 + age * 0.22);
-        ctx.fillStyle = `rgba(196,170,120,${(0.38 * (1 - age)).toFixed(3)})`;
-        ctx.beginPath();
-        ctx.ellipse(
-          bx - ux * age * h * 0.5 + (k - 1) * h * 0.08,
-          by - uy * age * h * 0.5 - age * h * 0.18,
-          r * 1.3,
-          r * 0.7,
-          0,
-          0,
-          Math.PI * 2,
-        );
-        ctx.fill();
-      }
-    }
-    // Their colours on the ground, stretched under the whole file.
-    const cx = x - ux * gap * ((count - 1) / 2);
-    const cy = y - uy * gap * ((count - 1) / 2);
-    ctx.fillStyle = color;
-    ctx.strokeStyle = "rgba(25,15,8,0.75)";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.ellipse(
-      cx,
-      cy,
-      h * 0.5 + Math.abs(ux) * gap * (count - 1) * 0.5,
-      h * 0.17 + Math.abs(uy) * gap * (count - 1) * 0.35,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
-    ctx.stroke();
-    // Back to front, so nearer men overlap those behind.
-    const men = Array.from({ length: count }, (_, i) => {
-      const step = Math.sin(t / pace + i * 2.1 + seed);
-      return {
-        x: x - ux * gap * i,
-        y: y - uy * gap * i,
-        bob: now === null ? 0 : -Math.abs(step) * h * 0.11,
-        tilt: now === null ? 0 : step * 0.09,
-      };
-    }).sort((a, b) => a.y - b.y);
-    ctx.save();
-    ctx.shadowColor = "rgba(252,244,222,0.95)";
-    ctx.shadowBlur = 2.5;
-    for (const m of men)
-      drawSpriteTilted(
-        ctx,
-        name,
-        m.x,
-        m.y + h * 0.05 + m.bob,
-        size,
-        flip,
-        m.tilt,
-      );
-    ctx.restore();
-    return true;
   }
 
   /** A soldier of an army's main kind standing on its colours. */
@@ -2540,4 +3108,16 @@ function pairOf(a: number, b: number): string {
 function darken(hex: string, amount: number, alpha: number): string {
   const [r, g, b] = hexToRgb(hex);
   return `rgba(${Math.round(r * (1 - amount))},${Math.round(g * (1 - amount))},${Math.round(b * (1 - amount))},${alpha})`;
+}
+
+/** Two colours mixed: `k` of the second. */
+function mixHex(a: string, b: string, k: number): string {
+  const pa = /^#?([0-9a-f]{6})$/i.exec(a);
+  const pb = /^#?([0-9a-f]{6})$/i.exec(b);
+  if (!pa || !pb) return a;
+  const na = parseInt(pa[1], 16);
+  const nb = parseInt(pb[1], 16);
+  const ch = (sh: number) =>
+    Math.round(((na >> sh) & 255) * (1 - k) + ((nb >> sh) & 255) * k);
+  return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
 }

@@ -3,39 +3,44 @@
 // what happens at the end of it: an heir carries on, or the story ends and
 // the player watches (or takes over someone else, or begins anew).
 
+import { ambitionsMonthly, setAmbition } from "./Ambitions";
 import { copyLook, validateLook } from "./Appearance";
+import { areasOf } from "./Areas";
 import { dateOf, formatDate } from "./Calendar";
 import { kill, makeCharacter, succession } from "./Characters";
 import { seedLocals } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
-import { doAct, doPerson } from "./LifeActs";
+import { doInteraction, workOffered } from "./Interactions";
+import { doAct } from "./LifeActs";
 import {
   addRenown,
   addStress,
+  beginOutcome,
   earn,
+  endOutcome,
   gainTrait,
   gainXp,
   heal,
   hurt,
   journal,
   milestone,
+  rollCheck,
   spend,
   touchLife,
 } from "./LifeCore";
-import { answerLifeEvent, lifeEventsDaily } from "./LifeEvents";
+import { answerLifeEvent, lifeEventsDaily, raiseLifeEvent } from "./LifeEvents";
 import {
   allowanceDue,
   atPost,
   carried,
   CARRY,
-  commissionFriend,
+  hasPlace,
   heirOf,
   hopDaysFor,
   isChildLife,
   isNativeChar,
   isPlayed,
-  jobCheck,
   lifeIsNative,
   lifeOfChar,
   lifeOfSeat,
@@ -44,24 +49,24 @@ import {
   nationByKey,
   npcSkill,
   officesOf,
+  opinionOf,
   placesIn,
-  promotionView,
-  startRank,
+  skillLevel,
   tradeRates,
   travelRoute,
+  wageOf,
 } from "./LifeQueries";
 import {
-  AWAY_MONTHS,
   BACKGROUNDS,
   BASE_SKILL,
   CHARGES,
+  checkChance,
   COMMAND_RANK,
   CREATION_TRAITS,
   DIVISIONS,
   EUROPE_FORTUNE,
   faithsFor,
   FRAME_COLORS,
-  FREEDOM_DUES,
   INDENTURE_YEARS,
   JOBS,
   LIFE_MAX_AGE,
@@ -73,7 +78,7 @@ import {
   LIFESTYLE,
   LIFESTYLES,
   MOTTO_MAX,
-  PROMOTION_CHANCE,
+  RECRUIT_COST,
   ROAD_RISK,
   ROLES,
   SKILL_STAT,
@@ -87,26 +92,36 @@ import {
   TINCTURES,
 } from "./LifeRules";
 import { isWinter } from "./Map";
+import { LETTER_KEYS, letterWriter } from "./MoreEvents";
+import {
+  buyHouse,
+  buyLand,
+  dismissHand,
+  endow,
+  expandBusiness,
+  propertyMonthly,
+  sellProperty,
+} from "./Property";
 import { ageOf, atWar, charName, hasTrait, settlers, stat } from "./Queries";
 import { DAYS_PER_YEAR, deathRiskByAge, STAT_START, TRAITS } from "./Rules";
+import { sendLetter, travellersDaily, travellersMonthly } from "./Travellers";
 import {
   Army,
   BattleReport,
   Character,
   Good,
   GOODS,
-  Job,
   JobKind,
   Life,
   LifeCommand,
   LifePlan,
-  PlaceKind,
   Skill,
   Skills,
   SKILLS,
   STATS,
 } from "./Types";
 import { militaryCommand } from "./War";
+import { employerFor, leaveJob, takeJob, workDaily, workMonthly } from "./Work";
 
 // ---------------------------------------------------------------- making a character
 
@@ -410,6 +425,10 @@ export function beginLife(
     invite: null,
     watching: false,
     ended: null,
+    property: [],
+    ambition: null,
+    outcome: null,
+    area: undefined,
   });
   if (existing) existing.tally.generations++;
   life.line.push(c.id);
@@ -427,21 +446,20 @@ export function beginLife(
     life,
     `${formatDate(s.day)}. ${charName(c)} begins: ${plan.age} years old, ${bg.name.toLowerCase()}, at ${place}.${plan.motto.trim() ? ` "${plan.motto.trim()}"` : ""}`,
   );
-  // The background's own work, if home has the place for it.
+  // The background's own work, with whoever takes people on for it at home.
+  life.area = undefined;
   if (bg.job) {
     const def = JOBS[bg.job];
-    const place = def.places.find(
-      (pl) => jobCheck(s, g.w, life, pl, bg.job!).ok,
-    );
-    if (place) {
-      startJob(g, life, bg.job, place, startRank(s, life, bg.job));
+    const at = def.places.find((pl) => hasPlace(s, g.w, life.prov, pl));
+    const err = at ? takeJob(g, life, at, bg.job) : "nowhere";
+    if (!err) {
       if (bg.job === "servant")
         life.job!.until = s.day + INDENTURE_YEARS * DAYS_PER_YEAR;
     } else {
       journal(
         g,
         life,
-        `There's no ${def.name.toLowerCase()} to be had at ${place}: you'll have to find work.`,
+        `There's no ${def.name.toLowerCase()} to be had at ${place}: you'll have to find work. Ask whoever hires; they'll say yes or no, and why.`,
       );
     }
   }
@@ -456,6 +474,15 @@ function formatPlace(g: ConquestGame, p: number): string {
 function visit(g: ConquestGame, life: Life, p: number): void {
   touchLife(g, life);
   life.trail.push({ day: g.s.day, p, c: life.c });
+  // In at the door: your work if it's here, else the tavern (or the village).
+  life.area =
+    life.job && life.job.prov === p && hasPlace(g.s, g.w, p, life.job.place)
+      ? life.job.place
+      : hasPlace(g.s, g.w, p, "tavern")
+        ? "tavern"
+        : hasPlace(g.s, g.w, p, "village")
+          ? "village"
+          : undefined;
   if (life.trail.length > 400) life.trail.splice(0, life.trail.length - 400);
   if (!life.visited.includes(p)) {
     life.visited.push(p);
@@ -466,137 +493,7 @@ function visit(g: ConquestGame, life: Life, p: number): void {
 
 // ---------------------------------------------------------------- jobs
 
-export function startJob(
-  g: ConquestGame,
-  life: Life,
-  kind: JobKind,
-  place: PlaceKind,
-  rank = 0,
-): Job {
-  const s = g.s;
-  const def = JOBS[kind];
-  const pr = s.provinces[life.prov];
-  const holder = pr.occupier >= 0 ? pr.occupier : pr.owner;
-  const employer =
-    (s.locals[life.prov] ?? [])
-      .map((id) => s.chars[id])
-      .find((c) => c?.alive && c.role === def.employer)?.id ?? -1;
-  const me = meOf(s, life)!;
-  const job: Job = {
-    kind,
-    rank,
-    prov: life.prov,
-    place,
-    employer,
-    nation: def.ownNation ? holder : me.nation,
-    army: -1,
-    since: s.day,
-    months: 0,
-    away: 0,
-  };
-  touchLife(g, life).job = job;
-  life.tally.jobs++;
-  life.tally.topRank = Math.max(life.tally.topRank, rank);
-  milestone(
-    g,
-    life,
-    "job",
-    `Took up work as ${def.ranks[rank].title.toLowerCase()} at ${formatPlace(g, life.prov)}`,
-  );
-  journal(
-    g,
-    life,
-    `You're taken on as ${def.ranks[rank].title.toLowerCase()} at ${formatPlace(g, life.prov)}: ${def.ranks[rank].wage} coins a month.`,
-    "good",
-  );
-  return job;
-}
-
-export function takeJob(
-  g: ConquestGame,
-  life: Life,
-  place: PlaceKind,
-  kind: JobKind,
-): string | null {
-  const check = jobCheck(g.s, g.w, life, place, kind);
-  if (!check.ok) return check.why;
-  if (life.job) leaveJob(g, life, "for other work");
-  startJob(g, life, kind, place, startRank(g.s, life, kind));
-  return null;
-}
-
-/** Leaving a post; soldiers at war who walk off are deserters. */
-export function leaveJob(g: ConquestGame, life: Life, why: string): void {
-  const job = life.job;
-  if (!job) return;
-  const s = g.s;
-  const def = JOBS[job.kind];
-  if (
-    (job.kind === "soldier" || job.kind === "warrior") &&
-    s.wars.some((w) => w.a === job.nation || w.b === job.nation) &&
-    why !== "discharged"
-  ) {
-    addRenown(g, life, -5);
-    journal(
-      g,
-      life,
-      "You left the colours in wartime. Men call it desertion.",
-      "bad",
-    );
-  }
-  const army = s.armies.find((a) => a.commander === life.c);
-  if (army && (job.kind === "soldier" || job.kind === "warrior"))
-    g.touch(army).commander = -1;
-  journal(
-    g,
-    life,
-    `You left your work as ${def.ranks[job.rank].title.toLowerCase()} ${why}.`,
-  );
-  touchLife(g, life).job = null;
-}
-
-function promote(g: ConquestGame, life: Life): void {
-  const job = life.job!;
-  const def = JOBS[job.kind];
-  job.rank++;
-  job.months = 0;
-  touchLife(g, life);
-  life.tally.promotions++;
-  life.tally.topRank = Math.max(life.tally.topRank, job.rank);
-  addRenown(g, life, 2 + job.rank);
-  const title = def.ranks[job.rank].title;
-  journal(
-    g,
-    life,
-    `You're made ${title.toLowerCase()}: ${def.ranks[job.rank].wage} coins a month.`,
-    "good",
-  );
-  milestone(g, life, "promoted", `Rose to ${title.toLowerCase()}`);
-}
-
-/** Buy the next rung: land, a shop, a press, a commission. */
-export function buyRank(g: ConquestGame, life: Life): string | null {
-  const job = life.job;
-  if (!job) return "You have no trade to buy into.";
-  const next = JOBS[job.kind].ranks[job.rank + 1];
-  if (!next?.buy) return "That rung can't be bought.";
-  if (life.prov !== job.prov && job.army < 0)
-    return "That's done where you work.";
-  const view = promotionView(g.s, life);
-  const unmet = view.needs.filter(
-    (x) =>
-      !x.met &&
-      !x.label.includes("coins for") &&
-      !x.label.includes("a word from"),
-  );
-  if (unmet.length) return `Needs ${unmet[0].label}.`;
-  if (life.purse < next.buy.cost)
-    return `You need ${next.buy.cost} coins (you have ${Math.floor(life.purse)}).`;
-  spend(g, life, next.buy.cost);
-  journal(g, life, `You paid ${next.buy.cost} coins for ${next.buy.what}.`);
-  promote(g, life);
-  return null;
-}
+export { buyRank, leaveJob, startJob, takeJob } from "./Work";
 
 // ---------------------------------------------------------------- travel
 
@@ -692,7 +589,21 @@ function roadRisk(g: ConquestGame, life: Life): void {
 
 // ---------------------------------------------------------------- the days
 
+/** Raise an event, or send it by messenger if it's a letter from afar. */
+function raiseOrSend(
+  g: ConquestGame,
+  life: Life,
+  key: string,
+  ctx: Record<string, number>,
+): void {
+  const from = g.s.chars[ctx.c];
+  if (LETTER_KEYS.includes(key) && from?.alive)
+    sendLetter(g, life, key, from, () => raiseLifeEvent(g, life, key, ctx));
+  else raiseLifeEvent(g, life, key, ctx);
+}
+
 export function livesDaily(g: ConquestGame): void {
+  travellersDaily(g, (life, key, ctx) => raiseLifeEvent(g, life, key, ctx));
   for (const life of g.s.lives) {
     if (life.watching || life.c < 0) continue;
     const me = g.s.chars[life.c];
@@ -703,6 +614,7 @@ export function livesDaily(g: ConquestGame): void {
       if (g.s.day >= life.travel.arrive) hop(g, life);
       else roadRisk(g, life);
     }
+    workDaily(g, life, (key, ctx) => raiseOrSend(g, life, key, ctx));
     if (!life.watching && life.c >= 0) lifeEventsDaily(g, life);
   }
 }
@@ -767,7 +679,12 @@ export function livesMonthly(g: ConquestGame): void {
     const me = g.s.chars[life.c];
     if (!me?.alive) continue;
     lifeMonth(g, life, me);
+    if (life.watching || life.c < 0) continue;
+    // Letters from friends and family far off.
+    const letter = letterWriter(g, life);
+    if (letter) raiseOrSend(g, life, letter.key, { c: letter.from.id });
   }
+  travellersMonthly(g);
 }
 
 function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
@@ -775,8 +692,9 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
   const w = g.w;
   touchLife(g, life);
   const age = ageOf(s, me);
-  // Money: wages and stipends in, living out.
-  const budget = monthlyBudget(s, w, life);
+  // Money: wages (by the days worked) and stipends in, living out.
+  const budget = monthlyBudget(s, w, life, true);
+  payPlayerBoss(g, life);
   for (const part of budget.parts) {
     if (part.value > 0) earn(g, life, part.value);
     else spend(g, life, -part.value);
@@ -793,54 +711,17 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
       );
     }
   }
-  // Work.
+  // Work: skill by the days worked, the master's word, the next rung.
   const job = life.job;
   if (job) {
-    if (atPost(s, w, life)) {
-      job.months++;
-      job.away = 0;
-      const def = JOBS[job.kind];
-      gainXp(g, life, def.main, 7, true);
-      gainXp(g, life, def.second, 3, true);
-      const fame = (def.fame ?? 0) * Math.max(0, job.rank - 1);
-      if (fame > 0) addRenown(g, life, fame);
-      tryPromotion(g, life);
-    } else {
-      job.away++;
-    }
-    if (life.job && job.away > AWAY_MONTHS && job.kind !== "servant") {
-      journal(
-        g,
-        life,
-        `You were away from your post too long and lost it.`,
-        "bad",
-      );
-      if (job.employer >= 0 && s.chars[job.employer]?.alive) {
-        const boss = g.char(job.employer);
-        boss.memories.push({
-          of: me.id,
-          why: "Walked off the job",
-          value: -10,
-          until: s.day + 2 * DAYS_PER_YEAR,
-        });
-      }
-      leaveJob(g, life, "for being absent");
-    }
-    if (life.job?.kind === "servant" && (life.job.until ?? 0) <= s.day) {
-      life.job = null;
-      earn(g, life, FREEDOM_DUES);
-      journal(
-        g,
-        life,
-        `Your indenture is served. You're free, with ${FREEDOM_DUES} coins of freedom dues and a suit of clothes.`,
-        "good",
-      );
-      milestone(g, life, "job", "Served out an indenture");
-    }
+    workMonthly(g, life, (key, ctx) => raiseOrSend(g, life, key, ctx));
     joinArmyHere(g, life);
   } else if (allowanceDue(s, life) && age >= 16) {
     gainXp(g, life, "persuasion", 2);
   }
+  propertyMonthly(g, life);
+  tiesMonthly(g, life, me);
+  ambitionsMonthly(g, life);
   // Body and mind.
   const ls = LIFESTYLE[life.lifestyle];
   let dh = ls.health;
@@ -941,6 +822,9 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
       since: s.day,
       months: 0,
       away: 0,
+      worked: 0,
+      awayDays: 0,
+      own: true,
     };
     delete life.cooldowns.estateKind;
     delete life.cooldowns.estateRank;
@@ -985,22 +869,59 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
     hurt(g, life, 3, `strain and worry at ${age}`);
 }
 
-function tryPromotion(g: ConquestGame, life: Life): void {
-  const s = g.s;
-  const job = life.job!;
-  const view = promotionView(s, life);
-  if (!view.check.ok || !view.next) return;
-  // Bought rungs wait for the purchase (commissions can come by merit).
-  if (view.next.buy && !view.next.commission) return;
-  if (view.next.commission) {
-    const friend = commissionFriend(s, life);
-    if (friend < 10 + 5 * Math.max(0, job.rank - 1)) return;
+/** A player who works for another player is paid out of their master's purse. */
+function payPlayerBoss(g: ConquestGame, life: Life): void {
+  const job = life.job;
+  if (!job || job.own) return;
+  const boss = g.s.lives.find((l) => l.c === job.employer && l !== life);
+  if (!boss) return;
+  const due = wageOf(g.s, g.w, life, true);
+  if (due <= 0) return;
+  const paid = Math.max(0, Math.min(due, boss.purse));
+  spend(g, boss, paid);
+  if (paid < due) {
+    journal(
+      g,
+      life,
+      `${charName(meOf(g.s, boss))} couldn't pay your full wage.`,
+      "bad",
+    );
+    // What they couldn't pay isn't paid.
+    spend(g, life, due - paid);
   }
-  const me = meOf(s, life)!;
-  let chance = PROMOTION_CHANCE;
-  if (hasTrait(me, "ambitious")) chance *= 1.3;
-  if (hasTrait(me, "content")) chance *= 0.8;
-  if (g.rng.chance(chance)) promote(g, life);
+}
+
+/** Friends ease your cares, rivals add to them, a mentor teaches, a nemesis plots. */
+function tiesMonthly(g: ConquestGame, life: Life, me: Character): void {
+  const s = g.s;
+  let friends = 0;
+  let foes = 0;
+  for (const [key, tie] of Object.entries(life.ties)) {
+    const id = Number(key);
+    const c = s.chars[id];
+    if (!c?.alive || c.abroad) {
+      delete life.ties[id];
+      continue;
+    }
+    if (tie === "friend" || tie === "lover") friends++;
+    if (tie === "rival") foes++;
+    if (tie === "nemesis") foes += 2;
+    if (tie === "mentor") {
+      const sk = c.role ? ROLES[c.role].skill : "persuasion";
+      const near = c.home === life.prov || c.home === undefined;
+      gainXp(g, life, sk, near ? 6 : 2);
+    }
+  }
+  if (friends) addStress(g, life, -Math.min(4, friends * 1.5));
+  if (foes) addStress(g, life, Math.min(5, foes));
+  // A rival's hatred can harden.
+  for (const [key, tie] of Object.entries(life.ties)) {
+    if (tie !== "rival") continue;
+    const c = s.chars[Number(key)];
+    if (c && opinionOf(s, c, life).total <= -70 && g.rng.chance(0.15))
+      raiseLifeEvent(g, life, "nemesis-sworn", { c: c.id });
+  }
+  void me;
 }
 
 // ---------------------------------------------------------------- war
@@ -1186,7 +1107,9 @@ export function succeedTo(
   life.renown = Math.round(life.renown * 0.35 * 10) / 10;
   const job = life.job;
   const property =
-    job && PROPERTY[job.kind] !== undefined && job.rank >= PROPERTY[job.kind]!
+    job &&
+    (job.own ||
+      (PROPERTY[job.kind] !== undefined && job.rank >= PROPERTY[job.kind]!))
       ? job
       : null;
   const heirAge = ageOf(s, heir);
@@ -1208,6 +1131,9 @@ export function succeedTo(
   life.campaign = null;
   life.invite = null;
   life.travel = null;
+  life.ambition = null;
+  life.outcome = null;
+  life.area = undefined;
   life.favor = Math.round(life.favor * 0.3);
   life.health = hasTrait(heir, "sickly") ? 70 : 82;
   life.stress = 20;
@@ -1270,6 +1196,9 @@ export function endLine(g: ConquestGame, life: Life, why: string): void {
   life.campaign = null;
   life.invite = null;
   life.ties = {};
+  life.property = [];
+  life.ambition = null;
+  life.area = undefined;
 }
 
 /** A watching player becomes someone already in the world. */
@@ -1324,6 +1253,10 @@ export function takeOver(
   life.debts = [];
   life.campaign = null;
   life.invite = null;
+  life.property = [];
+  life.ambition = null;
+  life.outcome = null;
+  life.area = undefined;
   life.tally.takeovers++;
   life.tally.generations++;
   if (role?.becomes) {
@@ -1340,6 +1273,10 @@ export function takeOver(
       since: s.day,
       months: 0,
       away: 0,
+      worked: 0,
+      awayDays: 0,
+      // The innkeeper, the planter, the master: their own business.
+      ...(role.status >= 2 && role.job ? { own: true } : {}),
     };
   }
   milestone(
@@ -1543,6 +1480,156 @@ function marchArmy(g: ConquestGame, life: Life, to: number): string | null {
   return militaryCommand(g, a.owner, { k: "move", a: a.id, to });
 }
 
+/** Run an act or a choice, noting what it came to for the scene. */
+function withOutcome(
+  g: ConquestGame,
+  life: Life,
+  kind: "act" | "person" | "event",
+  run: () => string | null,
+): string | null {
+  beginOutcome(g, life);
+  let err: string | null = null;
+  try {
+    err = run();
+  } finally {
+    endOutcome(g, life, kind, err !== null);
+  }
+  return err;
+}
+
+function propertyCommand(
+  g: ConquestGame,
+  life: Life,
+  c: Extract<LifeCommand, { k: "property" }>,
+): string | null {
+  if (life.travel) return "Not from the road.";
+  switch (c.act) {
+    case "house":
+      return buyHouse(g, life);
+    case "land":
+      return buyLand(g, life);
+    case "expand":
+      return expandBusiness(g, life, c.id ?? -1);
+    case "sell":
+      return sellProperty(g, life, c.id ?? -1);
+    case "dismiss":
+      return dismissHand(g, life, c.c ?? -1);
+    case "endow":
+      return endow(g, life, c.what ?? "");
+    default:
+      return "Unknown.";
+  }
+}
+
+/** The army you command: split it, take another in, raise men, storm the walls. */
+function armyCommand(
+  g: ConquestGame,
+  life: Life,
+  act: "split" | "merge" | "recruit" | "assault",
+  b?: number,
+): string | null {
+  const s = g.s;
+  const a = s.armies.find((x) => x.commander === life.c);
+  if (!a) return "You command no army.";
+  const n = s.nations[a.owner];
+  const here = g.map.provinces[a.prov].name;
+  switch (act) {
+    case "split": {
+      const err = militaryCommand(g, a.owner, { k: "split", a: a.id });
+      if (!err)
+        journal(
+          g,
+          life,
+          `You split the army at ${here}: half stays under your command, half goes its own way.`,
+        );
+      return err;
+    }
+    case "merge": {
+      const other = s.armies.find((x) => x.id === b);
+      if (!other || other.owner !== a.owner)
+        return "Not one of your nation's armies.";
+      if (
+        other.commander >= 0 &&
+        isPlayed(s, other.commander) &&
+        other.commander !== life.c
+      )
+        return "Another player commands it.";
+      const err = militaryCommand(g, a.owner, {
+        k: "merge",
+        a: a.id,
+        b: other.id,
+      });
+      if (!err) {
+        g.touch(a).commander = life.c;
+        journal(
+          g,
+          life,
+          `The army at ${here} falls in under your command.`,
+          "good",
+        );
+      }
+      return err;
+    }
+    case "recruit": {
+      if (a.depart >= 0) return "Not on the march.";
+      const pr = s.provinces[a.prov];
+      if (pr.owner !== a.owner || pr.occupier >= 0)
+        return "Raise men in your own nation's country.";
+      const cost = RECRUIT_COST;
+      if (life.purse < cost)
+        return `Bounties and muskets for the men: ${cost} coins.`;
+      if ((life.cooldowns["army:recruit"] ?? 0) > s.day)
+        return "The country's been drained of willing men lately.";
+      spend(g, life, cost);
+      touchLife(g, life).cooldowns["army:recruit"] = s.day + 60;
+      const t = n.kind === "native" ? "warriors" : "militia";
+      g.touch(a).regs.push({ type: t, men: 500, morale: 0.7, home: a.prov });
+      addRenown(g, life, 1);
+      journal(
+        g,
+        life,
+        `You beat the drum at ${here} and ${t === "militia" ? "five hundred volunteers" : "five hundred warriors"} come in.`,
+        "good",
+      );
+      return null;
+    }
+    case "assault": {
+      const pr = s.provinces[a.prov];
+      if (!pr.siege || pr.siege.by !== a.owner)
+        return "You're not besieging anything here.";
+      if ((life.cooldowns["army:assault"] ?? 0) > s.day)
+        return "The men need time before another assault.";
+      touchLife(g, life).cooldowns["army:assault"] = s.day + 20;
+      const odds = checkChance(skillLevel(s, life, "leadership"), 9);
+      const won = rollCheck(g, odds);
+      const x = g.touch(a);
+      for (const r of x.regs) {
+        r.men = Math.max(50, Math.round(r.men * (won ? 0.9 : 0.82)));
+        r.morale = Math.max(0.1, r.morale - (won ? 0.05 : 0.2));
+      }
+      gainXp(g, life, "leadership", 12);
+      if (won) {
+        g.prov(a.prov).siege!.progress = Math.min(100, pr.siege.progress + 40);
+        addRenown(g, life, 3);
+        journal(
+          g,
+          life,
+          `You led the assault at ${here} and the walls gave. The siege is nearly done.`,
+          "good",
+        );
+      } else {
+        journal(
+          g,
+          life,
+          `The assault at ${here} broke against the walls. The ditch is full of good men.`,
+          "bad",
+        );
+      }
+      return null;
+    }
+  }
+}
+
 /** The life commands, run for a seat. Returns why it can't be done, or null. */
 export function lifeCommand(
   g: ConquestGame,
@@ -1571,10 +1658,25 @@ export function lifeCommand(
       return null;
     }
     case "act":
-      return doAct(g, life, c.place, c.act, c.arg);
-    case "job":
+      return withOutcome(g, life, "act", () =>
+        doAct(g, life, c.place, c.act, c.arg),
+      );
+    case "job": {
+      // Asking whoever hires for that trade there (they may say no).
       if (child) return "Not until you're sixteen.";
-      return takeJob(g, life, c.place, c.job);
+      const boss = employerFor(s, g.w, life.prov, c.job, c.place);
+      if (!boss) return "There's nobody here to take you on.";
+      const jobs = workOffered(boss);
+      return withOutcome(g, life, "person", () =>
+        doInteraction(
+          g,
+          life,
+          boss.id,
+          "work",
+          Math.max(0, jobs.indexOf(c.job)),
+        ),
+      );
+    }
     case "quit":
       if (!life.job) return "You have no work to leave.";
       if (life.job.kind === "servant" && (life.job.until ?? 0) > s.day)
@@ -1582,7 +1684,24 @@ export function lifeCommand(
       leaveJob(g, life, "of your own accord");
       return null;
     case "person":
-      return doPerson(g, life, c.c, c.act, c.arg);
+      return withOutcome(g, life, "person", () =>
+        doInteraction(g, life, c.c, c.act, c.arg, { good: c.good, qty: c.qty }),
+      );
+    case "enter": {
+      if (life.travel) return "You're on the road.";
+      if (!areasOf(s, g.w, life.prov, life).includes(c.area))
+        return "There's no such place here.";
+      if (life.area !== c.area) touchLife(g, life).area = c.area;
+      return null;
+    }
+    case "ambition":
+      return setAmbition(g, life, c.key, c.arg);
+    case "property":
+      if (child) return "Not as a child.";
+      return propertyCommand(g, life, c);
+    case "army":
+      if (child) return "Not as a child.";
+      return armyCommand(g, life, c.act, c.b);
     case "lifestyle":
       if (!LIFESTYLES.includes(c.v)) return "No such way of living.";
       touchLife(g, life).lifestyle = c.v;
@@ -1599,7 +1718,9 @@ export function lifeCommand(
       touchLife(g, life).shareWithSpouse = !!c.share;
       return null;
     case "event":
-      return answerLifeEvent(g, life, c.id, c.choice);
+      return withOutcome(g, life, "event", () =>
+        answerLifeEvent(g, life, c.id, c.choice),
+      );
     case "trade":
       return tradeGoods(g, life, c.good, c.qty);
     case "repay": {

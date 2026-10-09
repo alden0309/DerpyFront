@@ -51,6 +51,8 @@ export function applyDelta(s: GameState, d: GameDelta): void {
     for (const [p, ids] of Object.entries(d.locals)) s.locals[Number(p)] = ids;
   }
   if (d.movements) s.movements = d.movements;
+  if (d.travellers) s.travellers = d.travellers;
+  if (d.rumours) s.rumours = d.rumours;
   if (d.polities) {
     for (const [n, pol] of Object.entries(d.polities))
       s.polities[Number(n)] = pol;

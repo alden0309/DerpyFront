@@ -72,6 +72,16 @@ export class ConquestGame {
   private localsTouched = new Set<number>();
   private movements = false;
   private politiesTouched = new Set<number>();
+  private travellers = false;
+  private rumours = false;
+  /** While an act or a choice is being carried out: whose, and what it wrote. */
+  capture: {
+    seat: string;
+    lines: string[];
+    meta: Partial<Omit<import("./Types").Outcome, "n" | "lines" | "day">>;
+    /** Purse, renown, stress, health and favour when it began. */
+    before: number[];
+  } | null = null;
   /** Turned off in tests that want a quiet world. */
   aiEnabled = true;
 
@@ -179,6 +189,12 @@ export class ConquestGame {
   politiesChanged(n: number): void {
     this.politiesTouched.add(n);
   }
+  travellersChanged(): void {
+    this.travellers = true;
+  }
+  rumoursChanged(): void {
+    this.rumours = true;
+  }
 
   battle(r: BattleReport): void {
     this.state.battles.push(r);
@@ -238,6 +254,8 @@ export class ConquestGame {
       for (const p of this.localsTouched) d.locals[p] = s.locals[p] ?? [];
     }
     if (this.movements) d.movements = s.movements;
+    if (this.travellers) d.travellers = s.travellers ?? [];
+    if (this.rumours) d.rumours = s.rumours ?? [];
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)
@@ -247,6 +265,8 @@ export class ConquestGame {
     this.livesTouched = new Set();
     this.localsTouched = new Set();
     this.movements = false;
+    this.travellers = false;
+    this.rumours = false;
     this.politiesTouched = new Set();
     this.provs = new Set();
     this.nations = new Set();

@@ -12,6 +12,7 @@ import type {
   Life,
   LifeCommand,
   MapDef,
+  PersonAct,
 } from "../../engine/Types";
 import { flagFor } from "../Flags";
 import { portrait } from "../Portrait";
@@ -29,6 +30,10 @@ export type DrawerView =
 
 export type Modal =
   | { k: "event"; id: number }
+  /** An interaction with someone, before you do it: will they, and why. */
+  | { k: "interact"; c: number; act: PersonAct; arg?: number }
+  /** What just happened (the last act, interaction or choice). */
+  | { k: "outcome" }
   | { k: "battle"; id: number }
   | { k: "menu" }
   | { k: "help" }

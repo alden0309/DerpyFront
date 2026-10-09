@@ -521,6 +521,10 @@ export interface JobDef {
   employer?: RoleId;
   /** Renown a month at the top rungs (publishers, ministers, officers). */
   fame?: number;
+  /** You can set up on your own (traplines), without anyone taking you on. */
+  selfStart?: boolean;
+  /** What your own business is called once you've bought into it. */
+  business?: string;
   text: string;
 }
 
@@ -553,6 +557,7 @@ export const JOBS: Record<JobKind, JobDef> = {
     danger: 0,
     stress: 1,
     employer: "planter",
+    business: "farm",
     text: "Sowing, reaping and praying for rain. Land of your own makes you a voter and, in time, a burgess.",
   },
   millhand: {
@@ -572,12 +577,13 @@ export const JOBS: Record<JobKind, JobDef> = {
     danger: 0.004,
     stress: 3,
     employer: "master",
+    business: "mill",
     text: "Sawing, hammering, twisting rope or caulking hulls. Hard, steady pay.",
   },
   newsman: {
     name: "News and print",
     native: false,
-    places: ["press", "market"],
+    places: ["press"],
     main: "letters",
     second: "persuasion",
     ranks: [
@@ -592,6 +598,7 @@ export const JOBS: Record<JobKind, JobDef> = {
     stress: 2,
     need: { letters: 2 },
     employer: "printer",
+    business: "printing house",
     fame: 0.6,
     text: "News is carried, cried and printed. A newspaper of your own brings renown and sways movements.",
   },
@@ -640,6 +647,7 @@ export const JOBS: Record<JobKind, JobDef> = {
     danger: 0.012,
     stress: 3,
     employer: "captain",
+    business: "ship",
     fame: 0.2,
     text: "Coasting trips and ocean crossings. Sea passage is free while you sail. A privateer's letter of marque pays in wartime.",
   },
@@ -661,6 +669,7 @@ export const JOBS: Record<JobKind, JobDef> = {
     stress: 2,
     need: { letters: 2 },
     employer: "merchant",
+    business: "counting house",
     fame: 0.2,
     text: "Bills, cargoes and credit. Merchants are the colony's quiet power.",
   },
@@ -720,6 +729,7 @@ export const JOBS: Record<JobKind, JobDef> = {
     danger: 0,
     stress: 1,
     employer: "master",
+    business: "shop",
     text: "A smith's forge, a carpenter's bench or a cooper's barrels.",
   },
   trapper: {
@@ -739,7 +749,9 @@ export const JOBS: Record<JobKind, JobDef> = {
     danger: 0.008,
     stress: 1,
     employer: "trader",
-    text: "Beaver pelts from the backcountry. Better where the furs are thick.",
+    selfStart: true,
+    business: "trading company",
+    text: "Beaver pelts from the backcountry. Better where the furs are thick. Anyone may set their own traplines.",
   },
   servant: {
     name: "Indenture",
@@ -776,7 +788,7 @@ export const JOBS: Record<JobKind, JobDef> = {
   physician: {
     name: "Physic",
     native: false,
-    places: ["apothecary", "fort"],
+    places: ["apothecary"],
     main: "medicine",
     second: "letters",
     ranks: [
@@ -808,6 +820,7 @@ export const JOBS: Record<JobKind, JobDef> = {
     danger: 0.002,
     stress: 2,
     employer: "innkeeper",
+    business: "inn",
     text: "Ale, beds and gossip. Everyone comes through the tavern eventually, assemblymen included.",
   },
   hunter: {
@@ -938,17 +951,22 @@ export const FREEDOM_DUES = 15;
 /** Allowance a gentleman's child gets each month, and for how long. */
 export const ALLOWANCE = 3;
 export const ALLOWANCE_YEARS = 5;
-/** Months away from the post in a row before you're let go. */
-export const AWAY_MONTHS = 2;
-/** Chance a month of being promoted, once you qualify. */
+/** Days at the post that earn a full month's wage (Sundays are off). */
+export const WORK_DAYS = 24;
+/** Days away in a row before your master writes, and before you're let go. */
+export const AWAY_WARN_DAYS = 21;
+export const AWAY_DAYS = 42;
+/** Chance a month your own business grows a rung, once you qualify. */
 export const PROMOTION_CHANCE = 0.35;
+/** Chance a month a master calls you in to offer the next rung, once you qualify. */
+export const OFFER_CHANCE = 0.3;
+/** Bounties and muskets for five hundred volunteers raised by a commander. */
+export const RECRUIT_COST = 30;
 /** Rank at which a soldier may take command of an army (Colonel), or a warrior (War chief). */
 export const COMMAND_RANK: Partial<Record<JobKind, number>> = {
   soldier: 6,
   warrior: 3,
 };
-/** Casual work at a place, for someone without a job: coins a shift. */
-export const DAY_LABOUR = 0.6;
 
 // ---------------------------------------------------------------- townsfolk
 
@@ -959,6 +977,10 @@ export interface RoleDef {
   place: PlaceKind;
   /** The job they take people on for. */
   job: JobKind | null;
+  /** Every trade they take people on for (the first is `job`). */
+  jobs?: JobKind[];
+  /** What they're doing at their place, a few ways. */
+  doing?: string[];
   /** The skill they're known for. */
   skill: Skill;
   /** How they're placed in the world: weighs marriages, loans and elections. */
@@ -971,6 +993,8 @@ export interface RoleDef {
 
 export const ROLES: Record<RoleId, RoleDef> = {
   innkeeper: {
+    jobs: ["innkeeper"],
+    doing: ["keeping the bar", "drawing ale", "counting the take"],
     title: "Innkeeper",
     native: false,
     place: "tavern",
@@ -981,6 +1005,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["innkeeper", 2],
   },
   preacher: {
+    jobs: ["preacher"],
+    doing: ["at the pulpit", "writing a sermon", "tending the churchyard"],
     title: "Minister",
     native: false,
     place: "church",
@@ -991,6 +1017,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["preacher", 3],
   },
   merchant: {
+    jobs: ["clerk"],
+    doing: ["at the counting table", "weighing goods", "haggling"],
     title: "Merchant",
     native: false,
     place: "market",
@@ -1001,6 +1029,12 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["clerk", 2],
   },
   captain: {
+    jobs: ["sailor"],
+    doing: [
+      "seeing to the cargo",
+      "reading the weather",
+      "swearing at the crew",
+    ],
     title: "Ship's captain",
     native: false,
     place: "docks",
@@ -1011,6 +1045,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["sailor", 3],
   },
   sergeant: {
+    jobs: ["soldier"],
+    doing: ["drilling the men", "on the ramparts", "inspecting muskets"],
     title: "Sergeant",
     native: false,
     place: "fort",
@@ -1021,6 +1057,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["soldier", 2],
   },
   master: {
+    jobs: ["craftsman", "millhand"],
+    doing: ["at the forge", "at the bench", "setting the saw"],
     title: "Master craftsman",
     native: false,
     place: "workshop",
@@ -1031,6 +1069,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["craftsman", 2],
   },
   printer: {
+    jobs: ["newsman"],
+    doing: ["setting type", "at the press", "reading proofs"],
     title: "Printer",
     native: false,
     place: "press",
@@ -1041,6 +1081,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["newsman", 3],
   },
   planter: {
+    jobs: ["farmer"],
+    doing: ["overseeing the fields", "counting hogsheads", "walking the rows"],
     title: "Planter",
     native: false,
     place: "fields",
@@ -1051,6 +1093,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["farmer", 3],
   },
   physician: {
+    jobs: ["physician"],
+    doing: ["mixing physic", "bleeding a patient", "reading Galen"],
     title: "Physician",
     native: false,
     place: "apothecary",
@@ -1061,6 +1105,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["physician", 2],
   },
   official: {
+    jobs: ["official"],
+    doing: ["at the secretary's desk", "sealing letters", "keeping the rolls"],
     title: "Secretary",
     native: false,
     place: "governor",
@@ -1071,6 +1117,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["official", 2],
   },
   lawyer: {
+    jobs: ["law"],
+    doing: ["drawing up a deed", "pleading a case", "reading the statutes"],
     title: "Attorney",
     native: false,
     place: "governor",
@@ -1081,6 +1129,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["law", 2],
   },
   sachem: {
+    jobs: ["speaker"],
+    doing: ["presiding at the fire", "hearing a dispute", "receiving visitors"],
     title: "Sachem",
     native: true,
     place: "councilfire",
@@ -1091,6 +1141,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["speaker", 2],
   },
   warleader: {
+    jobs: ["warrior"],
+    doing: ["with the young men", "making arrows", "telling of old raids"],
     title: "War leader",
     native: true,
     place: "councilfire",
@@ -1101,6 +1153,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["warrior", 2],
   },
   healer: {
+    jobs: ["healer"],
+    doing: ["tending the sick", "drying herbs", "singing over a patient"],
     title: "Healer",
     native: true,
     place: "village",
@@ -1111,6 +1165,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["healer", 2],
   },
   hunter: {
+    jobs: ["hunter"],
+    doing: ["dressing hides", "reading tracks", "mending snares"],
     title: "Hunt leader",
     native: true,
     place: "woods",
@@ -1121,6 +1177,12 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["hunter", 2],
   },
   elder: {
+    jobs: ["grower"],
+    doing: [
+      "among the corn hills",
+      "sorting seed",
+      "directing the women's work",
+    ],
     title: "Clan mother",
     native: true,
     place: "fields",
@@ -1131,6 +1193,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["grower", 2],
   },
   trader: {
+    jobs: ["trader", "trapper"],
+    doing: ["laying out trade goods", "counting furs", "bargaining"],
     title: "Trader",
     native: true,
     place: "village",
@@ -1141,6 +1205,8 @@ export const ROLES: Record<RoleId, RoleDef> = {
     becomes: ["trader", 1],
   },
   maker: {
+    jobs: ["maker"],
+    doing: ["shaping a canoe", "firing pots", "weaving a basket"],
     title: "Master maker",
     native: true,
     place: "village",
@@ -1150,10 +1216,71 @@ export const ROLES: Record<RoleId, RoleDef> = {
     wealth: 10,
     becomes: ["maker", 2],
   },
+  soldier: {
+    title: "Private soldier",
+    native: false,
+    place: "fort",
+    job: null,
+    doing: [
+      "on guard",
+      "cleaning his musket",
+      "at drill",
+      "dicing in the guardroom",
+    ],
+    skill: "fighting",
+    status: 1,
+    wealth: 3,
+    becomes: ["soldier", 0],
+  },
+  sailor: {
+    title: "Seaman",
+    native: false,
+    place: "docks",
+    job: null,
+    doing: [
+      "mending sail",
+      "hauling cargo",
+      "splicing rope",
+      "spinning a yarn",
+    ],
+    skill: "seamanship",
+    status: 1,
+    wealth: 4,
+    becomes: ["sailor", 1],
+  },
+  labourer: {
+    title: "Labourer",
+    native: false,
+    place: "fields",
+    job: null,
+    doing: ["hoeing", "hauling", "mending a fence", "carting dung"],
+    skill: "farming",
+    status: 1,
+    wealth: 2,
+    becomes: ["farmer", 0],
+  },
+  youngwarrior: {
+    title: "Young warrior",
+    native: true,
+    place: "councilfire",
+    job: null,
+    doing: ["practising with the bow", "racing the others", "boasting"],
+    skill: "fighting",
+    status: 1,
+    wealth: 2,
+    becomes: ["warrior", 1],
+  },
 };
 
+/** The trades a role takes people on for. */
+export function roleJobs(role: RoleId | undefined): JobKind[] {
+  if (!role) return [];
+  const r = ROLES[role];
+  return r.jobs ?? (r.job ? [r.job] : []);
+}
+
 /** Townsfolk kept per province, at most. */
-export const LOCALS_CAP = 8;
+export const LOCALS_CAP = 12;
 
 // ---------------------------------------------------------------- places
 
@@ -1217,6 +1344,107 @@ export const PLACES: Record<PlaceKind, PlaceDef> = {
   apothecary: {
     name: "The apothecary",
     text: "Physic, bark for fevers, and a physician who may need an apprentice.",
+  },
+  home: {
+    name: "Home",
+    nativeName: "Your lodge",
+    text: "Your own fire, your own people, and nobody's business but yours.",
+  },
+};
+
+// ---------------------------------------------------------------- property
+
+export interface HouseDef {
+  name: string;
+  cost: number;
+  /** Coins a month to keep it up. */
+  upkeep: number;
+  /** Renown a month, from being seen to live there. */
+  renown: number;
+  /** Stress a month (a good roof eases the mind). */
+  stress: number;
+  health: number;
+}
+
+/** Houses, from a cottage to a mansion (level 1 to 4). */
+export const HOUSES: HouseDef[] = [
+  { name: "Cottage", cost: 20, upkeep: 0.2, renown: 0, stress: -1, health: 0 },
+  { name: "House", cost: 60, upkeep: 0.6, renown: 0.1, stress: -2, health: 0 },
+  {
+    name: "Fine house",
+    cost: 160,
+    upkeep: 1.6,
+    renown: 0.3,
+    stress: -3,
+    health: 1,
+  },
+  { name: "Mansion", cost: 400, upkeep: 4, renown: 0.6, stress: -4, health: 1 },
+];
+
+/** Native families build their own: a bark lodge, a longhouse of your own. */
+export const LODGES: HouseDef[] = [
+  { name: "Wigwam", cost: 4, upkeep: 0.1, renown: 0, stress: -1, health: 0 },
+  { name: "Lodge", cost: 12, upkeep: 0.2, renown: 0.1, stress: -2, health: 0 },
+  {
+    name: "Longhouse",
+    cost: 30,
+    upkeep: 0.4,
+    renown: 0.3,
+    stress: -3,
+    health: 1,
+  },
+  {
+    name: "Great longhouse",
+    cost: 70,
+    upkeep: 0.8,
+    renown: 0.5,
+    stress: -4,
+    health: 1,
+  },
+];
+
+/** Land in lots of ten acres: what a lot costs, and rents from tenants a month. */
+export const LAND_LOT = { cost: 15, rent: 0.35, upkeep: 0.05, max: 20 };
+
+/** A hired hand: their wage a month, and the takings they bring in. */
+export const HAND_WAGE = 2;
+export const HAND_TAKINGS = 3.2;
+/** Hands a business can use at each size; and what growing it costs. */
+export const BUSINESS_HANDS = [0, 2, 4, 7];
+export const EXPAND_COST = [0, 45, 120];
+
+/** Gifts to the town: what they cost, and what they bring. */
+export const ENDOWMENTS: Record<
+  string,
+  { label: string; cost: number; renown: number; favor: number; text: string }
+> = {
+  church: {
+    label: "Endow the church",
+    cost: 25,
+    renown: 4,
+    favor: 1,
+    text: "A new bell, a silver cup, or a roof that doesn't leak. Your name on a brass plate.",
+  },
+  school: {
+    label: "Found a free school",
+    cost: 60,
+    renown: 8,
+    favor: 3,
+    text: "A schoolmaster and a room for the children of the poor. They'll learn to read your name first.",
+  },
+  road: {
+    label: "Pay for the road to be mended",
+    cost: 35,
+    renown: 5,
+    favor: 2,
+    text: "Gravel, ditches and a bridge that won't drown anyone. Every carter blesses you.",
+  },
+  feast: {
+    label: "Give a feast for the village",
+    cost: 15,
+    renown: 4,
+    favor: 1,
+    text: "Venison, corn and maple sugar for everyone. Generosity is how standing is measured here.",
   },
 };
 

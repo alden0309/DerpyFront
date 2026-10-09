@@ -87,6 +87,165 @@ export const CREDITS: Credit[] = [
     source:
       "https://commons.wikimedia.org/wiki/File:John_White_-_The_town_of_Pomeiooc,_1906,0509.1.8.jpg",
   },
+  // ===== r9 gameplay (Agent G): the paintings behind scenes, cropped and toned =====
+  {
+    what: "Picture",
+    title: "Customers Conversing in a Tavern (1671): the tavern",
+    author: "Adriaen van Ostade (photograph by Hiart)",
+    license: "Public domain (photograph CC0)",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Customers_Conversing_in_a_Tavern_by_Adriaen_van_Ostade,_1671,_oil_on_panel.jpg",
+  },
+  {
+    what: "Picture",
+    title: "Interior of a Church (1668): the church",
+    author: "Emanuel de Witte",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Emanuel_de_Witte_-_Interior_of_a_Church_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The Herb Market of Amsterdam (c.1660): the market",
+    author: "Gabriel Metsu",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Le_March%C3%A9_aux_herbes_d%27Amsterdam_-_Gabriel_Metsu_-_Mus%C3%A9e_du_Louvre_Peintures_INV_1460.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The Harbour of Amsterdam (1697): the docks",
+    author: "Ludolf Backhuysen",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Ludolf_Backhuysen_-_Der_Seehafen_von_Amsterdam_-_1041_-_Bavarian_State_Painting_Collections.jpg",
+  },
+  {
+    what: "Picture",
+    title: "Ships in Distress off a Rocky Coast (1667): at sea",
+    author: "Ludolf Backhuysen",
+    license: "CC0",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Ludolf_Backhuysen,_Ships_in_Distress_off_a_Rocky_Coast,_1667,_NGA_65898.jpg",
+  },
+  {
+    what: "Picture",
+    title: "Guardroom (1642): the fort",
+    author: "David Teniers the Younger",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:David_Teniers_(II)_-_Guardroom_-_WGA22087.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The Wanstead Assembly (1728-31): the governor's house",
+    author: "William Hogarth",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Wanstead_Assembly_at_Wanstead_House_by_Hogarth.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The House of Commons in Session (c.1709): the assembly",
+    author: "Peter Tillemans",
+    license: "Public domain",
+    source: "https://commons.wikimedia.org/wiki/File:Commons_In_Session.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The Treaty of Penn with the Indians (1771-72): the council fire",
+    author: "Benjamin West",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Benjamin_West_-_The_Treaty_of_Penn_with_the_Indians_-_WGA25555.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The town of Secoton (c.1585): the village",
+    author: "John White (watercolour)",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:John_White_-_The_town_of_Secoton,_1906,0509.1.7.jpg",
+  },
+  {
+    what: "Picture",
+    title: "Wheat Fields (c.1670): the fields",
+    author: "Jacob van Ruisdael",
+    license: "CC0",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Wheat_Fields_MET_DP145911.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The Great Forest (1655-60): the woods",
+    author: "Jacob van Ruisdael",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Jacob_van_Ruisdael_-_The_Great_Forest_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The Avenue at Middelharnis (1689): the road",
+    author: "Meindert Hobbema",
+    license: "Public domain",
+    source: "https://commons.wikimedia.org/wiki/File:Meindert_Hobbema_001.jpg",
+  },
+  {
+    what: "Picture",
+    title: "A Mother's Duty (c.1660): home",
+    author: "Pieter de Hooch",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Pieter_de_Hooch_-_Binnenkamer_met_een_moeder_die_het_haar_van_haar_kind_reinigt,_bekend_als_%27Moedertaak%27_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Picture",
+    title: "An Iron Forge (1772): the workshops",
+    author: "Joseph Wright of Derby",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Joseph_Wright_-_An_Iron_Forge_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Picture",
+    title: "Imprimerie en lettres, from the Encyclopédie: the printing house",
+    author: "Louis-Jacques Goussier",
+    license: "CC0",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Planche_de_l%E2%80%99Encyclop%C3%A9die_de_Diderot_et_d%E2%80%99Alembert._Pl._1._Imprimerie_en_Lettres,_L%E2%80%99Op%C3%A9ration_de_la_casse,_G.33153.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The Apothecary (c.1752): the apothecary",
+    author: "Pietro Longhi",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Pietro_Longhi_-_The_Apothecary_-_WGA13411.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The Death of General Wolfe (1770): battle",
+    author: "Benjamin West",
+    license: "Public domain",
+    source: "https://commons.wikimedia.org/wiki/File:Benjamin_West_005.jpg",
+  },
+  {
+    what: "Picture",
+    title: "The Bloody Massacre (1770): a rising",
+    author: "Paul Revere",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Paul_Revere,_Jr._-_The_Bloody_Massacre_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Picture",
+    title: "Man Writing a Letter (1665): letters",
+    author: "Gabriel Metsu",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Man_Writing_a_Letter_by_Gabri%C3%ABl_Metsu.jpg",
+  },
+  // ===== end r9 gameplay (Agent G) =====
   {
     what: "Picture",
     title: "RPG map symbols: fort 2 (sepia map style)",

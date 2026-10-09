@@ -3,18 +3,22 @@
 // and what you could do with them).
 
 import { html, nothing, TemplateResult } from "lit";
+import { ambitionProgress, AMBITIONS } from "../../engine/Ambitions";
+import { areaName, whereabouts } from "../../engine/Areas";
 import { dateOf, formatDate } from "../../engine/Calendar";
 import {
-  PERSON_ACT_DEFS,
-  personCheck,
-  personOdds,
-} from "../../engine/LifeActs";
+  GROUP_NAMES,
+  interactionMenu,
+  INTERACTIONS,
+} from "../../engine/Interactions";
 import {
   ageOfLife,
   familyAtHome,
   heirOf,
   isChildLife,
   isNativeChar,
+  jobTitle,
+  lifeIsNative,
   lifeOfChar,
   lifestyleCost,
   lifeTitle,
@@ -31,13 +35,15 @@ import {
   LIFESTYLES,
   SKILL_HELP,
   SKILL_NAMES,
+  WORK_DAYS,
   xpToNext,
 } from "../../engine/LifeRules";
 import { movementOf } from "../../engine/Movements";
+import { houseDefs, propertyOf } from "../../engine/Property";
 import { ageOf, charName, statOf } from "../../engine/Queries";
 import { RELIGION_NAMES, TRAITS } from "../../engine/Rules";
-import type { Character, Good, PersonAct } from "../../engine/Types";
-import { PERSON_ACTS, SKILLS, STATS } from "../../engine/Types";
+import type { Character, Good } from "../../engine/Types";
+import { SKILLS, STATS } from "../../engine/Types";
 import { arms } from "../Arms";
 import { GOOD_NAMES } from "../Text";
 import { num, plain } from "../Tip";
@@ -48,12 +54,11 @@ import {
   charLink,
   GameUi,
   nationLink,
-  odds,
   provLink,
   section,
   token,
 } from "./Context";
-import { roleOf } from "./Here";
+import { roleOf, verdictChip } from "./Here";
 
 function traitChips(c: Character, life = false): TemplateResult {
   if (c.traits.length === 0)
@@ -86,6 +91,52 @@ function meter(
 }
 
 /** The You tab. */
+/** Your work, what you're after and what you own, at a glance. */
+function glance(ui: GameUi): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const a = life.ambition;
+  const def = a ? AMBITIONS[a.key] : undefined;
+  const prog = ambitionProgress(s, life);
+  const props = propertyOf(life);
+  const native = lifeIsNative(s, life);
+  const owned = props.map((pr) =>
+    pr.kind === "house"
+      ? (houseDefs(native)[pr.level - 1]?.name ?? "House").toLowerCase()
+      : pr.kind === "land"
+        ? `${pr.level * 10} acres`
+        : pr.name.toLowerCase(),
+  );
+  const toAffairs = () => ui.open({ k: "tab", tab: "affairs" });
+  return html`<div class="cq-glance">
+    <button class="cq-glance-item" @click=${toAffairs}>
+      <span class="cq-meter-label">Work</span>
+      <span>${life.job ? jobTitle(life) : "None"}</span>
+      ${life.job
+        ? html`<span class="cq-muted small"
+            >${Math.min(WORK_DAYS, life.job.worked ?? 0)} of ${WORK_DAYS} days
+            this month</span
+          >`
+        : html`<span class="cq-muted small">ask someone who hires</span>`}
+    </button>
+    <button class="cq-glance-item" @click=${toAffairs}>
+      <span class="cq-meter-label">Ambition</span>
+      <span>${def?.name ?? "None set"}</span>
+      ${prog
+        ? bar(prog[1] > 0 ? prog[0] / prog[1] : 0, "xp")
+        : html`<span class="cq-muted small">choose one</span>`}
+    </button>
+    <button class="cq-glance-item" @click=${toAffairs}>
+      <span class="cq-meter-label">Property</span>
+      <span
+        >${owned.length
+          ? owned.join(", ").replace(/^./, (m) => m.toUpperCase())
+          : "Nothing yet"}</span
+      >
+    </button>
+  </div>`;
+}
+
 export function youTab(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life;
@@ -142,6 +193,7 @@ export function youTab(ui: GameUi): TemplateResult {
         )}
       </div>
     </div>
+    ${child ? nothing : glance(ui)}
     ${section(
       "How you live",
       html`<div class="cq-seg" role="radiogroup" aria-label="Way of living">
@@ -412,7 +464,21 @@ function goodsSection(ui: GameUi): TemplateResult {
 
 // ---------------------------------------------------------------- someone else
 
-const GIFTS = [2, 5, 10, 25];
+/** Where someone is now, and what they're doing. */
+function where(ui: GameUi, c: Character): TemplateResult {
+  if (!c.alive || c.abroad) return html``;
+  const w = whereabouts(ui.s, ui.w, c.id, ui.life);
+  if (!w) return html``;
+  const area = w.area
+    ? areaName(ui.s, w.p, w.area).replace(/^The /, "the ")
+    : null;
+  return html`<p class="cq-where small">
+    ${area
+      ? html`In ${area} at ${provLink(ui, w.p)}`
+      : html`At ${provLink(ui, w.p)}`},
+    <i>${w.doing}</i>.
+  </p>`;
+}
 
 /** Anyone's page: who they are, what they think of you, and what you could do. */
 export function personPage(ui: GameUi, cId: number): TemplateResult {
@@ -450,7 +516,7 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
         ${played
           ? html`<p class="cq-chip">Played by ${played.name}</p>`
           : nothing}
-        ${traitChips(c)}
+        ${where(ui, c)} ${traitChips(c)}
       </div>
     </header>
     ${op
@@ -527,60 +593,49 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
 function actsSection(ui: GameUi, c: Character): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
-  const acts = PERSON_ACTS.map((a) => ({
-    a,
-    check: personCheck(s, life, c.id, a),
-  }))
-    // Things that will never apply to this person are left out.
-    .filter(
-      ({ a, check }) =>
-        check.ok ||
-        !/^(They don't hire|They've nothing|You belong to no|They belong to no|They're a player|Not in this century|That's you|They haven't the standing|Too close kin|Not your own family|They're married|You're married|They're a child)/.test(
-          check.ok ? "" : check.why,
-        ) ||
-        a === "talk",
-    );
-  const run = (a: PersonAct, arg?: number) =>
-    ui.cmd({ k: "person", c: c.id, act: a, arg });
-  return section(
-    "With them",
-    html`<div class="cq-person-acts">
-      ${acts.map(({ a, check }) => {
-        const def = PERSON_ACT_DEFS[a];
-        if (a === "gift")
-          return html`<div class="cq-gift-row" title=${def.text}>
-            <span>${def.label}:</span>
-            ${GIFTS.map(
-              (n) =>
-                html`<button
-                  class="cq-btn small"
-                  ?disabled=${!check.ok || life.purse < n}
-                  @click=${() => run("gift", n)}
-                >
-                  ${n}
-                </button>`,
-            )}
-            ${!check.ok
-              ? html`<span class="cq-act-why">${check.why}</span>`
-              : nothing}
-          </div>`;
-        return html`<button
-          class="cq-act-btn ${a === "propose" ? "lit" : ""} ${a === "duel" ||
-          a === "insult" ||
-          a === "rumour"
-            ? "rough"
-            : ""}"
-          ?disabled=${!check.ok}
-          title=${check.ok ? def.text : `${check.why} ${def.text}`}
-          @click=${() => run(a)}
-        >
-          <span>${def.label}</span>${odds(
-            personOdds(s, life, c.id, a),
-          )}${!check.ok
-            ? html`<span class="cq-act-why">${check.why}</span>`
-            : nothing}
-        </button>`;
-      })}
-    </div>`,
+  const menu = interactionMenu(s, ui.w, life, c.id).filter(
+    ({ act, view }) =>
+      view.check.ok ||
+      act === "talk" ||
+      !/^(They don't take|They've nothing|You belong to no|They belong to no|They're a player|Not in this century|That's you|They haven't the standing|Too close kin|Not your own family|They're married|You're married|They're a child|You don't work for|They're not your master|You'd need a business|You have no work|You're your own master|Only with another|A commission comes|They've nothing to teach|A duel needs|A child)/.test(
+        view.check.ok ? "" : view.check.why,
+      ),
   );
+  const groups = [...new Set(menu.map((m) => m.group))];
+  const other = lifeOfChar(s, c.id);
+  return html`<section class="cq-section cq-interactions">
+    <h3 class="cq-h3">Interactions</h3>
+    ${other
+      ? html`<p class="cq-muted small">
+          ${c.first} is another player: friendship, courting, marriage, duels,
+          your cause, work and trade go to them to answer.
+        </p>`
+      : nothing}
+    ${groups.map(
+      (gr) =>
+        html`<h4 class="cq-int-group">${GROUP_NAMES[gr]}</h4>
+          <div class="cq-int-list">
+            ${menu
+              .filter((m) => m.group === gr)
+              .map(({ act, arg, view }) => {
+                const def = INTERACTIONS[act];
+                const hostile = gr === "hostile";
+                return html`<button
+                  class="cq-int ${hostile ? "rough" : ""} ${view.will
+                    ? "lit"
+                    : ""}"
+                  ?disabled=${!view.check.ok}
+                  title=${view.check.ok ? def.text : `${view.check.why}`}
+                  @click=${() => ui.modal({ k: "interact", c: c.id, act, arg })}
+                >
+                  <span class="cq-int-label">${view.label ?? def.label}</span>
+                  ${verdictChip(view)}
+                  ${!view.check.ok
+                    ? html`<span class="cq-act-why">${view.check.why}</span>`
+                    : nothing}
+                </button>`;
+              })}
+          </div>`,
+    )}
+  </section>`;
 }

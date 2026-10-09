@@ -272,7 +272,9 @@ export type PlaceKind =
   | "governor"
   | "village"
   | "woods"
-  | "apothecary";
+  | "apothecary"
+  /** Your own house, where your family is (only in your home province). */
+  | "home";
 
 /** A trade with a ladder to climb. */
 export type JobKind =
@@ -317,7 +319,12 @@ export type RoleId =
   | "elder"
   | "trader"
   | "maker"
-  | "warleader";
+  | "warleader"
+  // Common folk, so the fort, the docks and the fields aren't empty.
+  | "soldier"
+  | "sailor"
+  | "labourer"
+  | "youngwarrior";
 
 export type BackgroundId =
   | "farmer"
@@ -363,6 +370,12 @@ export interface Job {
   away: number;
   /** Indentured servants: the day the indenture is served. */
   until?: number;
+  /** Your own farm, shop, press, ship or trapline: nobody's hand but yours. */
+  own?: boolean;
+  /** Days worked at the post this month (wages are paid by them). */
+  worked?: number;
+  /** Days in a row away from the post (too many and you're let go). */
+  awayDays?: number;
 }
 
 /** On the road (or at sea): the hops still to go, like an army's march. */
@@ -436,6 +449,10 @@ export interface LifeEventPending {
   ctx: Record<string, number>;
   /** Day it's decided for you (the first choice it can take). */
   expires: number;
+  /** The backdrop for its scene (a place, "road", "deck", "battle"...). */
+  scene?: string;
+  /** The other character in it, or -1. */
+  c?: number;
 }
 
 /** Totals over a whole line of characters, for the story and the coins. */
@@ -463,6 +480,8 @@ export interface LifeTally {
   risings: number;
   risingsWon: number;
   elections: number;
+  /** Ambitions fulfilled. */
+  ambitions?: number;
   /** Went to Europe, and why. */
   europe: EuropeWhy | null;
 }
@@ -519,7 +538,57 @@ export interface Sigil {
   chargeTincture: Tincture;
 }
 
-export type Tie = "friend" | "rival" | "lover";
+export type Tie = "friend" | "rival" | "lover" | "mentor" | "nemesis";
+
+/** What just happened, for the scene the browser shows: an act, an interaction, an event answered. */
+export interface Outcome {
+  /** Counts up, so a browser knows a new one has come. */
+  n: number;
+  kind: "act" | "person" | "event" | "proposal";
+  key: string;
+  title: string;
+  /** The backdrop: a place kind or "road", "deck", "battle"... */
+  scene: string;
+  /** The other character in the scene, or -1. */
+  c: number;
+  /** It went your way (true), didn't (false), or there was no question (null). */
+  ok: boolean | null;
+  /** What it came to, as written in the journal. */
+  lines: string[];
+  /** What changed: "+3 renown", "−5 coins"... */
+  fx?: string[];
+  /** The choice made, when an event was answered. */
+  choice?: string;
+  day: number;
+}
+
+export type PropertyKind = "house" | "land" | "business";
+
+/** Something a character owns: a house, land, or a business with hands. */
+export interface Property {
+  id: number;
+  kind: PropertyKind;
+  prov: number;
+  /** Houses 1 (cottage) to 4 (mansion); land in lots of ten acres; businesses 1 to 3. */
+  level: number;
+  /** A business: the trade it's in, and where it's worked. */
+  job?: JobKind;
+  place?: PlaceKind;
+  /** Hired hands (character ids). */
+  hands: number[];
+  since: number;
+  name: string;
+}
+
+/** A goal a character has set themselves. */
+export interface AmbitionState {
+  key: string;
+  since: number;
+  /** What it's measured against (the rank, renown or purse when it was set). */
+  base: number;
+  /** A skill or other choice it's about, if any. */
+  arg?: string;
+}
 
 export type EuropeWhy =
   | "fortune"
@@ -597,6 +666,14 @@ export interface Life {
   /** The game day this seat first played. */
   joined: number;
   tally: LifeTally;
+  /** Where in the province they are (the tavern, the church, at home). */
+  area?: PlaceKind;
+  /** The last thing that happened, for the scene. */
+  outcome?: Outcome | null;
+  property?: Property[];
+  ambition?: AmbitionState | null;
+  /** Ambitions fulfilled, by key, in order. */
+  ambitionsDone?: string[];
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1014,6 +1091,8 @@ export interface Nation {
   missions: Mission[];
   /** Natives: the colony they pay tribute to, or -1. */
   overlord: number;
+  /** Laws a governor has passed (keys). */
+  laws?: string[];
   /** The big moments of its history, for the end of the game. */
   milestones: GameEvent[];
   /** How it stood on each 1 January. */
@@ -1328,6 +1407,57 @@ export interface GameState {
   movements: Movement[];
   /** Assemblies and councils, by nation index. */
   polities: Record<number, Polity>;
+  /** People on the road between towns (merchants, preachers, messengers). */
+  travellers?: Traveller[];
+  /** What people are saying, spreading out from where it happened. */
+  rumours?: Rumour[];
+}
+
+export type TravellerKind =
+  | "merchant"
+  | "trader"
+  | "preacher"
+  | "pedlar"
+  | "official"
+  | "messenger"
+  | "family"
+  | "drover"
+  | "envoy";
+
+export type TravelMode = "foot" | "wagon" | "pack" | "horse" | "ship" | "canoe";
+
+/** Someone of the world on a journey, stopping a while, then going home. */
+export interface Traveller {
+  id: number;
+  c: number;
+  kind: TravellerKind;
+  mode: TravelMode;
+  home: number;
+  /** Where they are (or are leaving, while on the road). */
+  prov: number;
+  path: number[];
+  sea: boolean[];
+  /** On the road: the day they left `prov` and the day they reach path[0]; -1 when stopped. */
+  depart: number;
+  arrive: number;
+  /** Stopped: the day they move on. */
+  until: number;
+  dest: number;
+  /** On the way home. */
+  back: boolean;
+  /** A letter for a player: their seat, and the event it brings. */
+  letter?: { seat: string; key: string; from: number };
+}
+
+/** Talk that spreads from where something happened, at a rider's pace. */
+export interface Rumour {
+  id: number;
+  day: number;
+  p: number;
+  text: string;
+  /** Who it's about, or -1. */
+  about: number;
+  tone?: "good" | "bad";
 }
 
 // ---------------------------------------------------------------- commands
@@ -1383,16 +1513,26 @@ export type PersonAct =
   | "duel"
   | "recruit"
   | "patron"
-  | "join";
+  | "join"
+  | "mentor"
+  | "promote"
+  | "quit"
+  | "hire"
+  | "trade";
 
 export const PERSON_ACTS: readonly PersonAct[] = [
   "talk",
   "flatter",
   "gift",
   "befriend",
+  "mentor",
   "court",
   "propose",
   "work",
+  "promote",
+  "quit",
+  "hire",
+  "trade",
   "borrow",
   "patron",
   "recruit",
@@ -1409,7 +1549,13 @@ export type GovLever =
   | { l: "build"; p: number; b: BuildingKind }
   | { l: "war"; n: number }
   | { l: "peace"; n: number }
-  | { l: "remit"; share: number };
+  | { l: "remit"; share: number }
+  /** Pass or repeal a law. */
+  | { l: "law"; law: string; on: boolean }
+  /** Put someone on the council. */
+  | { l: "appoint"; seat: Seat; c: number }
+  /** Pay for a public work. */
+  | { l: "project"; key: string; p: number };
 
 export type MovementAct = "join" | "leave" | "found" | "rise" | "lead";
 
@@ -1424,7 +1570,15 @@ export type LifeCommand =
   /** Take a job a place here offers. */
   | { k: "job"; place: PlaceKind; job: JobKind }
   | { k: "quit" }
-  | { k: "person"; c: number; act: PersonAct; arg?: number }
+  | {
+      k: "person";
+      c: number;
+      act: PersonAct;
+      arg?: number;
+      /** Trading with another player: goods for coins. */
+      good?: Good;
+      qty?: number;
+    }
   | { k: "lifestyle"; v: Lifestyle }
   | { k: "heir"; c: number }
   | { k: "will"; share: boolean }
@@ -1434,6 +1588,24 @@ export type LifeCommand =
   | { k: "repay"; to: number }
   /** Watching: become someone in the world. */
   | { k: "takeover"; c: number }
+  /** Go into a place here (the tavern, the church, home). */
+  | { k: "enter"; area: PlaceKind }
+  /** Set yourself a goal (or give it up with null). */
+  | { k: "ambition"; key: string | null; arg?: string }
+  /** Buy, improve or sell property; let a hand go. */
+  | {
+      k: "property";
+      act: "house" | "land" | "expand" | "sell" | "dismiss" | "endow";
+      id?: number;
+      c?: number;
+      what?: string;
+    }
+  /** The army you command: split it, merge another into it, raise volunteers, storm a siege. */
+  | {
+      k: "army";
+      act: "split" | "merge" | "recruit" | "assault";
+      b?: number;
+    }
   /** Take command of an army (or -1 to give it up). */
   | { k: "command"; army: number }
   /** March the army you command. */
@@ -1476,4 +1648,6 @@ export interface GameDelta {
   locals?: Record<number, number[]>;
   movements?: Movement[];
   polities?: Record<number, Polity>;
+  travellers?: Traveller[];
+  rumours?: Rumour[];
 }

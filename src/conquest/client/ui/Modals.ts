@@ -32,6 +32,7 @@ import {
 } from "./Battle";
 import { GameUi, Modal, token } from "./Context";
 import { roleOf } from "./Here";
+import { eventScene, interactScene, outcomeScene } from "./Scene";
 import "./Story";
 
 /** What the menu and the results need from the game screen. */
@@ -60,8 +61,16 @@ export function renderModal(
   let cls = "";
   switch (m.k) {
     case "event":
-      body = eventLetter(ui, m.id, hooks);
-      cls = "letter";
+      body = eventScene(ui, m.id, hooks);
+      cls = "scene";
+      break;
+    case "interact":
+      body = interactScene(ui, m);
+      cls = "scene";
+      break;
+    case "outcome":
+      body = outcomeScene(ui);
+      cls = "scene";
       break;
     case "battle":
       body = battleReport(ui, m.id);
@@ -118,70 +127,20 @@ export function renderModal(
 // ---------------------------------------------------------------- events
 
 /** "Decides itself in 1:12 of play" (or "paused"). */
-export function letterClock(hooks: ModalHooks, id: number): TemplateResult {
+export function letterClock(
+  hooks: ModalHooks,
+  id: number,
+  fallback = "the first course is taken",
+): TemplateResult {
   const left = hooks.letterLeft(id);
-  if (left === null)
-    return html`If you don't answer, the first course is taken for you.`;
+  if (left === null) return html`If you don't answer, ${fallback} for you.`;
   const m = Math.floor(left / 60);
   const sec = String(Math.floor(left % 60)).padStart(2, "0");
-  return html`If you don't answer, the first course is taken in
+  return html`If you don't answer, ${fallback} in
     <b class="cq-countdown ${left < 20 ? "bad" : ""}">${m}:${sec}</b> of
     play${hooks.paused
       ? html` <span class="cq-chip">clock paused</span>`
       : nothing}.`;
-}
-
-function eventLetter(
-  ui: GameUi,
-  id: number,
-  hooks: ModalHooks,
-): TemplateResult {
-  const life = ui.life;
-  const ev = life?.events.find((e) => e.id === id);
-  if (!life || !ev) {
-    return html`<p class="cq-muted">That's been settled.</p>
-      <div class="cq-btnrow">
-        <button class="cq-btn" @click=${() => ui.modal(null)}>Close</button>
-      </div>`;
-  }
-  const others = life.events.filter((e) => e.id !== id).length;
-  return html`
-    <div class="cq-seal" aria-hidden="true"></div>
-    <p class="cq-letter-date">${formatDate(ev.day)}</p>
-    <h2 class="cq-letter-title">${ev.title}</h2>
-    <div class="cq-letter-body">
-      ${ev.body.split("\n").map((para) => html`<p>${para}</p>`)}
-    </div>
-    <ol class="cq-choices">
-      ${ev.choices.map(
-        (c, i) =>
-          html`<li>
-            <button
-              class="cq-choice"
-              @click=${async () => {
-                if (await ui.cmd({ k: "event", id, choice: i })) {
-                  play("seal");
-                  const next = ui.life?.events.find((e) => e.id !== id);
-                  ui.modal(next ? { k: "event", id: next.id } : null);
-                }
-              }}
-            >
-              <span class="cq-choice-label">${c.label}</span>
-              <span class="cq-choice-tip">${c.tip}</span>
-            </button>
-          </li>`,
-      )}
-    </ol>
-    <p class="cq-muted small cq-letter-foot">
-      ${letterClock(hooks, id)}
-      ${others > 0 ? html`${others} more waiting.` : nothing}
-    </p>
-    <div class="cq-btnrow end">
-      <button class="cq-btn quiet" @click=${() => ui.modal(null)}>
-        Decide later
-      </button>
-    </div>
-  `;
 }
 
 // ---------------------------------------------------------------- battles
@@ -607,9 +566,10 @@ function creditsPage(ui: GameUi): TemplateResult {
   return html`
     <h2 class="cq-h1">Credits</h2>
     <p class="cq-lede small">
-      The portraits are paintings and prints of the 1600s and 1700s, now in the
-      public domain. The other pictures, sounds and music were shared freely by
-      the people who made them. With thanks to:
+      The people are painted for Derpy Conquest, and the scenes behind them are
+      paintings and prints of the 1600s and 1700s, now in the public domain. The
+      other pictures, sounds and music were shared freely by the people who made
+      them. With thanks to:
     </p>
     ${creditsList()}
     <p class="cq-muted small">
