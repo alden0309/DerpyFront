@@ -23,7 +23,7 @@ import type {
 
 /** At most this many on the roads at once, and near any one player. */
 const MAX_TRAVELLERS = 32;
-const NEAR_PLAYER = 3;
+const NEAR_PLAYER = 4;
 
 /** Who goes travelling, and as what. */
 const TRAVELLING: Partial<Record<RoleId, TravellerKind>> = {
@@ -386,8 +386,15 @@ export function travellersMonthly(g: ConquestGame): void {
         t.prov === life.prov ||
         t.path.includes(life.prov),
     ).length;
-    if (near < NEAR_PLAYER && g.rng.chance(0.8)) spawnToward(g, life.prov);
-    if (near < NEAR_PLAYER + 1 && g.rng.chance(0.35)) spawnToward(g, life.prov);
+    // Two or three set out most months, so the roads are seldom empty.
+    let coming = near;
+    for (const odds of [0.9, 0.7, 0.45])
+      if (
+        coming < NEAR_PLAYER &&
+        g.rng.chance(odds) &&
+        spawnToward(g, life.prov)
+      )
+        coming++;
     if (g.rng.chance(0.12)) spawnOfficial(g, life);
   }
   void ROLES;

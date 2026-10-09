@@ -449,10 +449,17 @@ function areasView(ui: GameUi, p: number): TemplateResult {
   const list = areasOf(s, ui.w, p, life);
   const crowd = presence(s, ui.w, p, s.day, life);
   const cur = currentArea(ui, list);
-  const enter = (a: PlaceKind) => {
-    if (a === life.area) return;
-    play("paper");
-    void ui.cmd({ k: "enter", area: a });
+  // Step in, and bring the place and who's in it into view.
+  const enter = async (a: PlaceKind) => {
+    if (a !== life.area) {
+      play("paper");
+      await ui.cmd({ k: "enter", area: a });
+    }
+    requestAnimationFrame(() =>
+      document
+        .querySelector(".cq-area-banner")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
   };
   return html`<nav class="cq-areas" aria-label="Places here">
       ${list.map((a) => {
@@ -463,14 +470,14 @@ function areasView(ui: GameUi, p: number): TemplateResult {
           class="cq-area-tile ${a === cur ? "on" : ""}"
           aria-pressed=${a === cur}
           style=${thumb ? `--thumb:url(${thumb})` : ""}
-          @click=${() => enter(a)}
+          @click=${() => void enter(a)}
         >
           <span class="cq-area-name">${areaName(s, p, a)}</span>
           <span class="cq-area-faces">
             ${folk
-              .slice(0, 3)
-              .map((x) => token(ui, s.chars[x.c], "xs"))}${folk.length > 3
-              ? html`<i>+${folk.length - 3}</i>`
+              .slice(0, 2)
+              .map((x) => token(ui, s.chars[x.c], "xs"))}${folk.length > 2
+              ? html`<i>+${folk.length - 2}</i>`
               : nothing}
           </span>
           <span class="cq-area-count"

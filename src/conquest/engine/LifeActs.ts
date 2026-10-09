@@ -884,12 +884,19 @@ export function doAct(
       addStress(g, life, hasTrait(me, "drunkard") ? -9 : -6);
       gainXp(g, life, "persuasion", 5);
       if (g.rng.chance(0.4)) journal(g, life, g.rng.pick(GOSSIP)!);
-      const folk = peopleHere(s, life.prov, life).filter(
-        (c) => !life.met.includes(c.id),
-      );
+      // Someone at the bar now, if there's anyone you don't know.
+      const atBar = presentAt(s, g.w, life.prov, place, s.day, life)
+        .filter((p) => p.kind !== "player" && !life.met.includes(p.c))
+        .map((p) => s.chars[p.c]);
+      const folk = atBar.length
+        ? atBar
+        : peopleHere(s, life.prov, life).filter(
+            (c) => !life.met.includes(c.id),
+          );
       const who = g.rng.pick(folk);
       if (who) {
         meet(g, life, who.id);
+        outcomeMeta(g, life, { c: who.id });
         journal(g, life, `You fall to talking with ${charName(who)}.`);
       }
       if (life.stress > 60 && !hasTrait(me, "drunkard") && g.rng.chance(0.04)) {
@@ -1015,6 +1022,7 @@ export function doAct(
       }
       const picks = singles.slice(0, 3);
       for (const c of picks) meet(g, life, c.id);
+      outcomeMeta(g, life, { c: picks[0].id });
       journal(
         g,
         life,
@@ -1233,8 +1241,10 @@ export function doAct(
         }
       }
       const gov = s.chars[nation.ruler];
-      if (gov?.alive && gov.id !== me.id)
+      if (gov?.alive && gov.id !== me.id) {
         remembers(g, life, g.char(gov.id), "Came to pay respects", 4, 1);
+        outcomeMeta(g, life, { c: gov.id });
+      }
       gainXp(g, life, "persuasion", 4);
       journal(
         g,

@@ -601,11 +601,72 @@ export function workMonthly(
 }
 
 /** A hard day at your post: more skill, a good word from your master, a tired back. */
+/** What a long day's work is like, wherever it's done. */
+const HARD_DAYS: Partial<Record<PlaceKind, string[]>> = {
+  fields: [
+    "In the rows from first light until you can't tell a weed from a seedling.",
+    "You walk the furrows behind the plough until the ox looks sorrier for you than for itself.",
+    "Hoeing, carting, a fence that wouldn't stand and then did. Your back will tell you about it tomorrow.",
+  ],
+  workshop: [
+    "Sawdust in your hair, a blister on every finger, and one piece of work you're proud of.",
+    "The forge never cools: you keep it fed and keep your eyebrows, mostly.",
+    "You finish the order a day early and start the next before supper.",
+  ],
+  fort: [
+    "Drill, sentry, drill again, and a sergeant who has opinions about your buttons.",
+    "You dig a ditch, fill a ditch, and dig it again somewhere the captain prefers.",
+    "Twelve hours on the wall, watching trees that never once attack.",
+  ],
+  docks: [
+    "Hogsheads up the gangway, salt cod down it, and the tide waiting for nobody.",
+    "You splice rope until your hands forget any other shape.",
+    "A ship in, a ship out, and a manifest that adds up for once.",
+  ],
+  market: [
+    "Ledgers, scales and haggling from opening to the last candle.",
+    "You count the takings twice. They come out the same both times, which is a first.",
+    "Every farmer in the county wants credit today. You give it to the honest-looking ones.",
+  ],
+  press: [
+    "Inked to the elbows: four pages set, proofed, pulled and hung to dry.",
+    "You set the type for a sermon, a sale of land and a reward for a runaway mare.",
+  ],
+  church: [
+    "Two sermons written, one funeral, three visits to the sick and a vestry meeting that would try a saint.",
+    "You catechise the children until they can say it backwards. Some of them do.",
+  ],
+  governor: [
+    "Copying, filing, sealing. The colony is governed on paper, and you are the paper.",
+    "Petitions all day: land, fences, cows and a widow's pension. You read them all.",
+  ],
+  apothecary: [
+    "Three fevers, a broken arm and a child who swallowed a button. All alive tonight.",
+    "You grind simples and roll pills until the shop smells of you.",
+  ],
+  woods: [
+    "Twenty miles of trapline, walked and reset, and three pelts to show for it.",
+    "Out before dawn, back after dark, cold to the bone and rich in beaver.",
+  ],
+  village: [
+    "From the cornfields to the drying racks and back: there is always more to do before winter.",
+    "You work the hides with the others, talking and laughing until the light goes.",
+  ],
+  councilfire: [
+    "You sit at the fire from morning until the stars, listening more than you speak.",
+  ],
+  tavern: [
+    "Pots to scour, barrels to broach, drunks to steer gently into the street.",
+  ],
+};
+
 export function hardDay(g: ConquestGame, life: Life): string | null {
   const job = life.job;
   if (!job) return "You have no work.";
   const def = JOBS[job.kind];
   touchLife(g, life);
+  const flavour = HARD_DAYS[job.place];
+  if (flavour) journal(g, life, g.rng.pick(flavour)!);
   gainXp(g, life, def.main, 4, true);
   gainXp(g, life, def.second, 1.5, true);
   job.worked = (job.worked ?? 0) + 1;
@@ -622,9 +683,8 @@ export function hardDay(g: ConquestGame, life: Life): string | null {
       value: 8,
       until: g.s.day + 180,
     });
-    journal(g, life, `A long, hard day. ${charName(boss)} noticed.`, "good");
-  } else
-    journal(g, life, "A long, hard day at your own work. It shows.", "good");
+    journal(g, life, `${charName(boss)} noticed.`, "good");
+  } else journal(g, life, "Your own work, and it shows.", "good");
   return null;
 }
 

@@ -179,6 +179,9 @@ export class GameView extends LitElement {
   private preview: number[] | null = null;
   private hoverProv: number | null = null;
   private flashes = new Map<number, number>();
+  /** Where each page below the top of the drawer was scrolled to. */
+  private scrolls: number[] = [];
+  private drawerScroll: number | null = null;
   private seenEvents = new Set<number>();
   /** The clock was stopped for a letter (alone), not by the player. */
   private autoPaused = false;
@@ -272,6 +275,11 @@ export class GameView extends LitElement {
   protected updated(): void {
     const ol = this.querySelector<HTMLElement>(".cq-log");
     if (ol && this.logStuck) ol.scrollTop = ol.scrollHeight;
+    if (this.drawerScroll !== null) {
+      const page = this.querySelector<HTMLElement>(".cq-drawer-page");
+      if (page) page.scrollTop = this.drawerScroll;
+      this.drawerScroll = null;
+    }
   }
 
   private onLogScroll(e: Event): void {
@@ -1024,6 +1032,16 @@ export class GameView extends LitElement {
     hideTip();
     const cur = this.stack[this.stack.length - 1];
     if (cur && JSON.stringify(cur) === JSON.stringify(v)) return;
+    // A new page opens at its top; going back returns to where you were.
+    const page = this.querySelector<HTMLElement>(".cq-drawer-page");
+    this.scrolls =
+      v.k === "tab"
+        ? []
+        : [
+            ...this.scrolls.slice(0, this.stack.length - 1),
+            page?.scrollTop ?? 0,
+          ].slice(-8);
+    this.drawerScroll = 0;
     this.stack = v.k === "tab" ? [v] : [...this.stack.slice(-8), v];
     if (v.k === "army") this.selectedArmy = v.id;
     if (v.k === "prov") this.selectedProv = v.p;
@@ -1047,6 +1065,7 @@ export class GameView extends LitElement {
       open: (v) => this.open(v),
       back: () => {
         this.stack = this.stack.slice(0, -1);
+        this.drawerScroll = this.scrolls.pop() ?? 0;
       },
       modal: (m) => {
         hideTip();

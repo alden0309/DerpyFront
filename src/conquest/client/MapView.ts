@@ -326,6 +326,8 @@ export class MapView {
   private seasonMonth = -1;
   /** Points along the coasts where the sea breaks, in map units. */
   private wavePts: [number, number, number][] | null = null;
+  /** Open water off each coastal town, for its boats: [province, x, y]. */
+  private harbourPts: [number, number, number][] | null = null;
   private faces = new Map<string, HTMLImageElement>();
   private hovered: number | null = null;
   private pointers = new Map<number, { x: number; y: number }>();
@@ -2278,7 +2280,7 @@ export class MapView {
     const wind = Math.sin(t / 23) * 0.6 + 0.4;
     // Towns taken by a rising or an enemy, or under siege, burn.
     if (v.scale >= 0.5) {
-      const h = Math.max(12, Math.min(40, 6 + v.scale * 9));
+      const h = Math.max(17, Math.min(44, 8 + v.scale * 10));
       for (let p = 0; p < s.provinces.length; p++) {
         const prov = s.provinces[p];
         const taken = prov.occupier >= 0;
@@ -2298,6 +2300,45 @@ export class MapView {
         );
         if (rebels || prov.siege)
           this.burning(x + h * 0.35, y - h * 0.05, h * 0.7, t, p + 3, wind);
+      }
+    }
+    // Boats off the coastal towns: fishing smacks and sloops, canoes off the villages.
+    if (v.scale >= 1.2) {
+      const h = Math.max(11, Math.min(26, 6 + v.scale * 3.4));
+      for (const [p, hx, hy] of this.harbours()) {
+        const prov = s.provinces[p];
+        if (prov.owner < 0) continue;
+        const nation = s.nations[prov.owner];
+        const native = nation.kind === "native";
+        if (!native && settlers(prov) < 300) continue;
+        const boats = native ? 1 : settlers(prov) >= 2500 ? 2 : 1;
+        for (let k = 0; k < boats; k++) {
+          const a = t / (native ? 7 : 11) + p * 1.7 + k * Math.PI;
+          const r = GRID * (0.5 + k * 0.4);
+          const bx = sx(hx + Math.cos(a) * r);
+          const by = sy(hy + Math.sin(a) * r * 0.55);
+          if (!onScreen(bx, by, 30)) continue;
+          const dir = -Math.sin(a) >= 0 ? 1 : -1;
+          if (native)
+            drawCanoe(ctx, bx, by, h, t * 6 + p, dir, {
+              coat: "#8a5a35",
+              breeches: "#6b4a2e",
+              hat: null,
+              skin: "#a8714a",
+              hair: "#1d140e",
+            });
+          else
+            drawSloop(
+              ctx,
+              bx,
+              by,
+              h * (k ? 0.85 : 1),
+              now,
+              dir,
+              nation.color,
+              true,
+            );
+        }
       }
     }
     if (v.scale < 1.05) return;
@@ -2389,7 +2430,7 @@ export class MapView {
         x + wind * age * h * 0.9 + Math.sin(age * 4 + seed + k) * h * 0.08;
       const py = y - h * 0.3 - age * h * 1.5;
       const r = h * (0.1 + age * 0.26);
-      ctx.fillStyle = `rgba(48,40,36,${(0.42 * (1 - age)).toFixed(3)})`;
+      ctx.fillStyle = `rgba(44,36,32,${(0.55 * (1 - age)).toFixed(3)})`;
       ctx.beginPath();
       ctx.arc(px, py, r, 0, Math.PI * 2);
       ctx.fill();
@@ -2467,6 +2508,53 @@ export class MapView {
       ctx.arc(px, py, r, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  /** Open water off each coastal province's town, found once. */
+  private harbours(): [number, number, number][] {
+    if (this.harbourPts) return this.harbourPts;
+    if (!this.water) this.buildWater();
+    const water = this.water!;
+    const gw = this.gw;
+    const gh = this.gh;
+    const open = (cx: number, cy: number) => {
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const x = cx + dx;
+          const y = cy + dy;
+          if (x < 0 || y < 0 || x >= gw || y >= gh || !water[y * gw + x])
+            return false;
+        }
+      return true;
+    };
+    const out: [number, number, number][] = [];
+    this.map.provinces.forEach((def, p) => {
+      if (!def.coastal) return;
+      const near = this.nearestWater(def.x, def.y);
+      if (near < 0) return;
+      const nx = near % gw;
+      const ny = (near - nx) / gw;
+      // The nearest spot of open water within a few cells of the shore.
+      for (let r = 0; r <= 6; r++)
+        for (let dy = -r; dy <= r; dy++)
+          for (let dx = -r; dx <= r; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+            if (!open(nx + dx, ny + dy)) continue;
+            const d = Math.hypot(
+              (nx + dx) * GRID - def.x,
+              (ny + dy) * GRID - def.y,
+            );
+            if (d > GRID * 7) continue;
+            out.push([
+              p,
+              (nx + dx) * GRID + GRID / 2,
+              (ny + dy) * GRID + GRID / 2,
+            ]);
+            return;
+          }
+    });
+    this.harbourPts = out;
+    return out;
   }
 
   /** Where the sea breaks: water cells on the coast, a sprinkling of them. */
@@ -2642,13 +2730,14 @@ export class MapView {
         ctx.save();
         ctx.shadowColor = "rgba(252,244,222,0.9)";
         ctx.shadowBlur = 2;
-        drawWalker(ctx, x, y, figure * 1.35, phase, flip ? -1 : 1, m.colors, {
+        drawWalker(ctx, x, y, figure * 1.5, phase, flip ? -1 : 1, m.colors, {
           female: m.female,
           native: m.native,
           carry: m.native ? "bow" : "staff",
         });
         ctx.restore();
-        y -= figure * 1.35;
+        // The likeness floats clear above the hat.
+        y -= figure * 1.5 + 8;
       } else if (walker === "sail") {
         if (m.native)
           drawCanoe(ctx, x, y, figure * 1.2, phase, flip ? -1 : 1, m.colors);
@@ -2663,7 +2752,7 @@ export class MapView {
             m.frame,
             o.running,
           );
-        y -= figure * 1.3;
+        y -= figure * 1.3 + 6;
       } else if (!army) {
         y -= 6;
       }
