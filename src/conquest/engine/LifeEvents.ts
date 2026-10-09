@@ -20,6 +20,7 @@ import {
   loseTrait,
   meet,
   milestone,
+  outcomeMeta,
   remembers,
   rollCheck,
   setTie,
@@ -73,6 +74,8 @@ export interface LifeEventDef {
   title: string | ((g: ConquestGame, life: Life, ctx: LCtx) => string);
   body: (g: ConquestGame, life: Life, ctx: LCtx) => string;
   choices: LifeChoice[];
+  /** The backdrop of its scene (a place, "road", "deck", "letter"...). */
+  scene?: string | ((g: ConquestGame, life: Life, ctx: LCtx) => string);
 }
 
 /** Chance a day that something happens to a settled life. */
@@ -168,7 +171,7 @@ function kidsOf(g: ConquestGame, life: Life): Character[] {
 
 // ---------------------------------------------------------------- the events
 
-export const LIFE_EVENTS: LifeEventDef[] = [
+const BASE_EVENTS: LifeEventDef[] = [
   // ------------------------------------------------ the road
   {
     key: "road-bandits",
@@ -3519,9 +3522,12 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   },
 ];
 
+export const LIFE_EVENTS: LifeEventDef[] = [...BASE_EVENTS, ...MORE_EVENTS];
+
 // ---------------------------------------------------------------- a few calls out
 
 import { leaveForEurope, takeJob } from "./Life";
+import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";
 
 function joinM(g: ConquestGame, life: Life, id: number): string | null {
@@ -3599,8 +3605,114 @@ function render(
     choices,
     ctx,
     expires: s.day + LIFE_EVENT_DAYS,
+    scene: sceneOf(g, life, def, ctx),
+    c: figureOf(g, life, def, ctx),
   };
 }
+
+/** Where an event happens, for its scene. */
+function sceneOf(
+  g: ConquestGame,
+  life: Life,
+  def: LifeEventDef,
+  ctx: LCtx,
+): string {
+  if (def.scene)
+    return typeof def.scene === "string" ? def.scene : def.scene(g, life, ctx);
+  if (def.pool === "road") return "road";
+  if (def.pool === "sea") return "deck";
+  const known = SCENES[def.key];
+  if (known) return known;
+  const prefix = def.key.split("-")[0];
+  return SCENES[`${prefix}-`] ?? life.area ?? "home";
+}
+
+/** Who stands opposite you: the one it's about, or your master for work. */
+function figureOf(
+  g: ConquestGame,
+  life: Life,
+  def: LifeEventDef,
+  ctx: LCtx,
+): number {
+  const c = g.s.chars[ctx.c];
+  if (c && c.id !== life.c) return c.id;
+  const job = life.job;
+  const scene = SCENES[def.key] ?? SCENES[`${def.key.split("-")[0]}-`];
+  if (job && !job.own && scene === job.place && g.s.chars[job.employer]?.alive)
+    return job.employer;
+  return -1;
+}
+
+const SCENES: Record<string, string> = {
+  fever: "home",
+  smallpox: "home",
+  breakdown: "home",
+  "old-age": "home",
+  admirer: "market",
+  "spouse-quarrel": "home",
+  "child-sick": "home",
+  "child-trade": "home",
+  "child-match": "church",
+  portrait: "home",
+  legacy: "home",
+  fire: "home",
+  "lost-purse": "market",
+  "fortune-teller": "market",
+  "rival-insult": "tavern",
+  "friend-loan": "tavern",
+  "farm-": "fields",
+  "mill-": "workshop",
+  "master-": "workshop",
+  "press-": "press",
+  "soldier-": "fort",
+  "camp-": "fort",
+  "sailor-": "docks",
+  "merchant-": "market",
+  "preacher-": "church",
+  revival: "church",
+  "physician-": "apothecary",
+  "official-": "governor",
+  "trapper-": "woods",
+  "warrior-": "councilfire",
+  vision: "woods",
+  "green-corn": "village",
+  "trade-rum": "village",
+  "treaty-council": "councilfire",
+  "servant-": "fields",
+  "tavern-": "tavern",
+  comet: "road",
+  hurricane: "docks",
+  earthquake: "home",
+  "stamp-act": "tavern",
+  "tea-party": "docks",
+  "war-news": "tavern",
+  "patriot-or-loyal": "tavern",
+  almanac: "press",
+  zenger: "press",
+  blackbeard: "docks",
+  "great-snow": "home",
+  lottery: "tavern",
+  "dancing-master": "governor",
+  "braddock-wagons": "road",
+  acadians: "docks",
+  "wolf-bounty": "woods",
+  tithingman: "church",
+  missionary: "village",
+  "ball-game": "village",
+  "electric-show": "tavern",
+  "coffee-house": "tavern",
+  "patron-notice": "governor",
+  "gambling-debt": "tavern",
+  gout: "home",
+  "drunk-reform": "church",
+  "europe-invite": "court",
+  "movement-recruiter": "tavern",
+  "movement-hour": "rising",
+  "seditious-libel": "press",
+  "informed-upon": "governor",
+  "rebel-caught": "fort",
+  "rebel-hunted": "woods",
+};
 
 function fire(g: ConquestGame, life: Life, def: LifeEventDef, ctx: LCtx): void {
   touchLife(g, life);
@@ -3618,7 +3730,10 @@ export function raiseLifeEvent(
 ): void {
   const def = BY_KEY.get(key);
   if (!def || life.watching || life.c < 0) return;
-  if (life.events.some((e) => e.key === key)) return;
+  // The same letter twice is one letter (proposals: one per asker).
+  if (key.startsWith("p2p-")) {
+    if (life.events.some((e) => e.key === key && e.ctx.c === ctx.c)) return;
+  } else if (life.events.some((e) => e.key === key)) return;
   fire(g, life, def, ctx);
 }
 
@@ -3667,6 +3782,8 @@ function firstAllowed(
   if (def.pool === "raised") {
     const last = def.choices.length - 1;
     if (ev.key === "europe-invite" || ev.key === "movement-hour") return last;
+    // Another player's proposal, unanswered, is refused.
+    if (ev.key.startsWith("p2p-") && ev.key !== "p2p-reply") return last;
   }
   const i = def.choices.findIndex((c) => !c.blocked?.(g, life, ev.ctx));
   return i >= 0 ? i : 0;
@@ -3685,6 +3802,13 @@ function answer(
   if (!def || !c || life.c < 0) return;
   const odds = choiceOdds(g, life, c, ev.ctx);
   const pass = odds === null ? true : rollCheck(g, odds);
+  outcomeMeta(g, life, {
+    key: ev.key,
+    title: ev.title,
+    scene: ev.scene ?? "home",
+    c: ev.c ?? -1,
+    ok: odds === null ? null : pass,
+  });
   if (c.check) gainXp(g, life, c.check.skill, 5);
   c.apply(g, life, ev.ctx, pass);
   if (odds !== null && life.c >= 0)

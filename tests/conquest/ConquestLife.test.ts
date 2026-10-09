@@ -159,29 +159,33 @@ describe("work", () => {
     expect(life.tally.promotions).toBeGreaterThanOrEqual(2);
   });
 
-  test("switching jobs at a place that offers them", () => {
+  test("one job: hand in your notice, then ask to be taken on", () => {
     const g = world();
     const life = lifeOf(g);
     expect(placesIn(g.s, g.w, life.prov)).toContain("fort");
+    expect(life.job?.kind).toBe("farmer");
+    expect(
+      g.lifeCommand("s1", { k: "job", place: "fort", job: "soldier" }),
+    ).toMatch(/hand in your notice/);
+    expect(g.lifeCommand("s1", { k: "quit" })).toBeNull();
     expect(
       g.lifeCommand("s1", { k: "job", place: "fort", job: "soldier" }),
     ).toBeNull();
     expect(life.job?.kind).toBe("soldier");
+    expect(g.s.chars[life.job!.employer]?.role).toBe("sergeant");
     expect(
       g.lifeCommand("s1", { k: "job", place: "press", job: "newsman" }),
-    ).toMatch(/no such place/i);
+    ).toMatch(/nobody here|no such place|notice/i);
   });
 
-  test("acts have cooldowns and costs", () => {
+  test("acts have cooldowns and costs; no casual work anywhere", () => {
     const g = world();
     const life = lifeOf(g);
-    expect(
-      g.lifeCommand("s1", { k: "act", place: "fields", act: "labour" }),
-    ).toBeNull();
     expect(actCheck(g.s, g.w, life, "fields", "labour").ok).toBe(false);
     expect(
       g.lifeCommand("s1", { k: "act", place: "tavern", act: "drink" }),
     ).toBeNull();
+    expect(actCheck(g.s, g.w, life, "tavern", "drink").ok).toBe(false);
   });
 });
 

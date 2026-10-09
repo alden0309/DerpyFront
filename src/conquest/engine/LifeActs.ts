@@ -4,11 +4,10 @@
 // has a cooldown, sometimes a cost, often a skill check with its odds shown,
 // and effects that last: opinions, renown, money, health and skills.
 
-import { dateOf, formatDate } from "./Calendar";
-import { kill, marry } from "./Characters";
+import { presentAt } from "./Areas";
+import { formatDate } from "./Calendar";
 import { eligibleHere } from "./Folk";
 import type { ConquestGame } from "./Game";
-import { buyRank, startJob, takeJob } from "./Life";
 import {
   addRenown,
   addStress,
@@ -20,15 +19,14 @@ import {
   journal,
   meet,
   milestone,
+  outcomeMeta,
   remembers,
   rollCheck,
   setCooldown,
-  setTie,
   spend,
   touchLife,
 } from "./LifeCore";
 import {
-  charSkill,
   Check,
   hasPlace,
   isChildLife,
@@ -37,42 +35,36 @@ import {
   lifeOfChar,
   meOf,
   no,
-  opinionOf,
   peopleHere,
   promotionView,
   skillLevel,
+  startRank,
   yes,
 } from "./LifeQueries";
-import {
-  checkChance,
-  DAY_LABOUR,
-  JOBS,
-  MARRY_OPINION,
-  PATRON_OPINION,
-  ROLES,
-  WEDDING_COST,
-} from "./LifeRules";
+import { checkChance, ENDOWMENTS, JOBS, LAND_LOT } from "./LifeRules";
 import type { World } from "./Map";
 import {
   buyArms,
   holdMeeting,
-  joinMovement,
   movementOf,
   movementPamphlet,
-  recruitInto,
 } from "./Movements";
 import { campaignBoost, seekCourt, writeToCrown } from "./Politics";
+import {
+  buyHouse,
+  buyLand,
+  endow,
+  endowCheck,
+  houseCheck,
+  landCheck,
+  openBusiness,
+} from "./Property";
 import { ageOf, charName, hasTrait } from "./Queries";
-import { DAYS_PER_YEAR, SEAT_NAMES } from "./Rules";
-import type {
-  Character,
-  GameState,
-  Life,
-  PersonAct,
-  PlaceKind,
-  Skill,
-} from "./Types";
+import { DAYS_PER_YEAR } from "./Rules";
+import { heardHere } from "./Rumours";
+import type { Character, GameState, Life, PlaceKind, Skill } from "./Types";
 import { SEATS } from "./Types";
+import { buyRank, hardDay, selfStartCheck, startJob } from "./Work";
 
 // ---------------------------------------------------------------- place acts
 
@@ -97,32 +89,80 @@ export interface ActDef {
 const adult = (s: GameState, _w: World, life: Life): Check =>
   isChildLife(s, life) ? no("Not until you're sixteen.") : yes;
 
-const LABOUR_PLACES: PlaceKind[] = [
-  "tavern",
-  "docks",
-  "fields",
-  "workshop",
-  "market",
-  "village",
-];
-
-const LABOUR_SKILL: Partial<Record<PlaceKind, Skill>> = {
-  tavern: "persuasion",
-  docks: "seamanship",
-  fields: "farming",
-  workshop: "craft",
-  market: "trade",
-  village: "craft",
-};
-
 export const ACTS: ActDef[] = [
   {
-    key: "labour",
-    places: LABOUR_PLACES,
-    label: "A day's work",
-    text: "Casual work for a few pence: waiting tables, hauling cargo, hoeing, carrying. Better than an empty purse.",
-    cooldown: 3,
-    when: adult,
+    key: "work",
+    places: [
+      "tavern",
+      "market",
+      "church",
+      "councilfire",
+      "docks",
+      "fort",
+      "workshop",
+      "press",
+      "fields",
+      "governor",
+      "village",
+      "woods",
+      "apothecary",
+    ],
+    label: "Put in a hard day",
+    text: "A long day at your post: more skill, a good word from your master, a tired back.",
+    cooldown: 7,
+    when: (s, w, life) => {
+      if (!life.job) return no("You have no work.");
+      if (life.job.prov !== life.prov) return no("That's done where you work.");
+      return yes;
+    },
+  },
+  {
+    key: "traplines",
+    places: ["woods"],
+    label: "Set your own traplines",
+    text: "Nobody's hand but your own: beaver and otter, sold where they fetch most. You'll be a trapper, and your own master.",
+    cooldown: 0,
+    when: (s, w, life) => selfStartCheck(s, w, life, "trapper"),
+  },
+  {
+    key: "gossip",
+    places: ["tavern", "market", "village", "docks"],
+    label: "Listen to the talk",
+    text: "What people are saying: deaths, weddings, wars, scandals, and who's been seen with whom.",
+    cooldown: 5,
+    child: true,
+  },
+  {
+    key: "house",
+    places: ["market", "village", "home"],
+    label: "A house of your own",
+    text: "A roof of your own (or a better one): your household moves in, and the neighbours notice.",
+    cooldown: 0,
+    when: (s, w, life) => houseCheck(s, life).check,
+  },
+  {
+    key: "land",
+    places: ["fields"],
+    label: `Buy ten acres (${LAND_LOT.cost})`,
+    text: "Land let to tenants: rents every month, and a vote at election time.",
+    cooldown: 0,
+    when: (s, w, life) => landCheck(s, life),
+  },
+  {
+    key: "family",
+    places: ["home"],
+    label: "An evening with your family",
+    text: "Supper, a story, the children put to bed. Cares fall away; your spouse remembers it.",
+    cooldown: 7,
+    child: true,
+  },
+  {
+    key: "rest",
+    places: ["home"],
+    label: "Rest at home",
+    text: "A few quiet days by your own fire. Health and calm return.",
+    cooldown: 21,
+    child: true,
   },
   {
     key: "drink",
@@ -307,6 +347,7 @@ export const ACTS: ActDef[] = [
       if (isChildLife(s, life)) return no("Not until you're sixteen.");
       if (life.job?.kind === "soldier")
         return no("You're in the army already.");
+      if (life.job) return no("You have work already: give it up first.");
       if (lifeIsNative(s, life)) return no("Not open to you.");
       if (life.skills.fighting < 3) return no("Needs fighting 3.");
       const me = meOf(s, life)!;
@@ -371,6 +412,7 @@ export const ACTS: ActDef[] = [
         return no("You farm already: see your trade's next rung.");
       if (life.job?.kind === "servant" && (life.job.until ?? 0) > s.day)
         return no("Servants can't own land.");
+      if (life.job) return no("You have work already: give it up first.");
       return yes;
     },
   },
@@ -427,18 +469,36 @@ export const ACTS: ActDef[] = [
           : yes,
   },
   {
-    key: "deeds",
+    key: "endow-church",
+    places: ["church"],
+    label: `Endow the church (${ENDOWMENTS.church.cost})`,
+    text: ENDOWMENTS.church.text,
+    cooldown: 0,
+    when: (s, w, life) => endowCheck(s, life, "church"),
+  },
+  {
+    key: "endow-school",
     places: ["governor"],
-    label: "Copy deeds for a fee",
-    text: "A clerk's day of copying. Letters, and a little money.",
-    cooldown: 4,
-    skill: "letters",
-    when: (s, w, life) =>
-      isChildLife(s, life)
-        ? no("Not until you're sixteen.")
-        : life.skills.letters < 3
-          ? no("Needs letters 3.")
-          : yes,
+    label: `Found a free school (${ENDOWMENTS.school.cost})`,
+    text: ENDOWMENTS.school.text,
+    cooldown: 0,
+    when: (s, w, life) => endowCheck(s, life, "school"),
+  },
+  {
+    key: "endow-road",
+    places: ["governor"],
+    label: `Mend the road (${ENDOWMENTS.road.cost})`,
+    text: ENDOWMENTS.road.text,
+    cooldown: 0,
+    when: (s, w, life) => endowCheck(s, life, "road"),
+  },
+  {
+    key: "endow-feast",
+    places: ["councilfire", "village"],
+    label: `Give a feast (${ENDOWMENTS.feast.cost})`,
+    text: ENDOWMENTS.feast.text,
+    cooldown: 0,
+    when: (s, w, life) => endowCheck(s, life, "feast"),
   },
   {
     key: "physic",
@@ -467,10 +527,10 @@ export const ACTS: ActDef[] = [
     skill: "medicine",
     dc: 7,
     when: (s, w, life) =>
-      isChildLife(s, life)
-        ? no("Not until you're sixteen.")
-        : life.skills.medicine < 4
-          ? no("Needs medicine 4.")
+      life.job?.kind !== "physician" && life.job?.kind !== "healer"
+        ? no("Physicians' and healers' work.")
+        : life.job.prov !== life.prov
+          ? no("That's done where you work.")
           : yes,
   },
   {
@@ -486,12 +546,15 @@ export const ACTS: ActDef[] = [
   {
     key: "trap",
     places: ["woods"],
-    label: "Set traplines",
+    label: "Walk the traplines",
     text: "Beaver and otter: furs to carry and sell where they fetch most.",
     cooldown: 14,
     skill: "woodcraft",
     dc: 6,
-    when: adult,
+    when: (s, w, life) =>
+      life.job?.kind === "trapper" || life.job?.kind === "hunter"
+        ? yes
+        : no("Trappers' and hunters' work."),
   },
   {
     key: "forage",
@@ -648,12 +711,91 @@ const GOSSIP = [
   "Two gentlemen nearly fought a duel over a horse. The horse has since died, which settled it.",
 ];
 
-function labourPay(s: GameState, life: Life, place: PlaceKind): number {
-  const sk = LABOUR_SKILL[place] ?? "craft";
-  let pay = DAY_LABOUR + skillLevel(s, life, sk) * 0.05;
-  if (place === "fields" && [7, 8, 9].includes(dateOf(s.day).month)) pay *= 1.6;
-  if (life.job) pay *= 0.5;
-  return Math.round(pay * 100) / 100;
+/** What an act's button says for this character. */
+export function actLabel(s: GameState, life: Life, def: ActDef): string {
+  if (def.key === "house") {
+    const v = houseCheck(s, life);
+    return v.next
+      ? `${v.level ? "Move up to" : "Buy"} a ${v.next.name.toLowerCase()}`
+      : "Your house";
+  }
+  if (def.key === "buy") {
+    const v = promotionView(s, life);
+    return v.next?.buy
+      ? `Buy ${v.next.buy.what} (${v.next.buy.cost})`
+      : "Buy your way up";
+  }
+  return def.label;
+}
+
+/** Who stands opposite you in the scene for an act at a place. */
+function sceneFigure(
+  g: ConquestGame,
+  life: Life,
+  place: PlaceKind,
+  key: string,
+): number {
+  const s = g.s;
+  if (key === "family")
+    return s.chars[meOf(s, life)?.spouse ?? -1]?.alive
+      ? meOf(s, life)!.spouse
+      : -1;
+  const folk = presentAt(s, g.w, life.prov, place, s.day, life).filter(
+    (p) => p.kind !== "player",
+  );
+  if (!folk.length) return -1;
+  // The master of the place for business; anyone for company.
+  const work = folk.find((p) => p.kind === "work" || p.kind === "court");
+  const company = folk.find(
+    (p) => p.kind === "leisure" || p.kind === "traveller",
+  );
+  const sober = [
+    "pray",
+    "study",
+    "alms",
+    "work",
+    "buy",
+    "physic",
+    "studyphysic",
+    "bench",
+    "respects",
+    "court",
+    "crown",
+    "drill",
+    "endow-church",
+    "endow-school",
+    "endow-road",
+    "pamphlet",
+    "gazette",
+    "council",
+    "speak",
+    "tobacco",
+    "stories",
+    "healer",
+    "treat",
+  ];
+  const pick = sober.includes(key) ? (work ?? company) : (company ?? work);
+  return (pick ?? folk[g.rng.int(0, folk.length - 1)]).c;
+}
+
+const HOME_EVENINGS = [
+  "Supper, a story by the fire, and the children asleep at last. A good evening.",
+  "You mend a chair while the household argues pleasantly about nothing.",
+  "The little ones want the story about the bear again. You tell it better every time.",
+  "A quiet evening at home. Nobody wants anything from you, which is the best of it.",
+];
+
+/** What they're saying here: news that has reached this place. */
+function gossip(g: ConquestGame, life: Life): string | null {
+  const s = g.s;
+  gainXp(g, life, "persuasion", 3);
+  const heard = heardHere(s, g.map, life.prov).slice(0, 3);
+  if (!heard.length) {
+    journal(g, life, g.rng.pick(GOSSIP)!);
+    return null;
+  }
+  for (const r of heard) journal(g, life, `They say: ${r.text}`);
+  return null;
 }
 
 /** Do something at a place here. */
@@ -670,6 +812,7 @@ export function doAct(
   const def = ACT_BY_KEY.get(key)!;
   const me = meOf(s, life)!;
   touchLife(g, life);
+  life.area = place;
   if (def.cooldown) setCooldown(g, life, `act:${key}`, def.cooldown);
   if (
     def.cost &&
@@ -683,15 +826,60 @@ export function doAct(
   const pass = odds !== null ? rollCheck(g, odds) : true;
   const here = g.map.provinces[life.prov].name;
   void arg;
+  outcomeMeta(g, life, {
+    key,
+    title: actLabel(s, life, def),
+    scene: place,
+    c: sceneFigure(g, life, place, key),
+    ok: odds !== null ? pass : null,
+  });
   switch (key) {
-    case "labour": {
-      const pay = labourPay(s, life, place);
-      earn(g, life, pay);
-      gainXp(g, life, LABOUR_SKILL[place] ?? "craft", 5, true);
-      addStress(g, life, 1);
-      journal(g, life, `A day's work at the ${place}: ${pay} coins.`);
+    case "work":
+      addStress(g, life, 2);
+      return hardDay(g, life);
+    case "traplines": {
+      startJob(
+        g,
+        life,
+        "trapper",
+        "woods",
+        startRank(s, life, "trapper"),
+        -1,
+        true,
+      );
       return null;
     }
+    case "gossip":
+      return gossip(g, life);
+    case "house":
+      return buyHouse(g, life);
+    case "land":
+      return buyLand(g, life);
+    case "family": {
+      addStress(g, life, -8);
+      const sp = s.chars[me.spouse];
+      if (sp?.alive) {
+        remembers(g, life, g.char(sp.id), "Time together", 6, 1);
+        outcomeMeta(g, life, { c: sp.id });
+      }
+      for (const k of me.children) {
+        const kid = s.chars[k];
+        if (kid?.alive && ageOf(s, kid) < 16)
+          remembers(g, life, g.char(k), "Played with me", 5, 1);
+      }
+      journal(g, life, g.rng.pick(HOME_EVENINGS)!, "good");
+      return null;
+    }
+    case "rest":
+      addStress(g, life, -10);
+      heal(g, life, 5);
+      journal(g, life, "A few quiet days at home. The world can wait.");
+      return null;
+    case "endow-church":
+    case "endow-school":
+    case "endow-road":
+    case "endow-feast":
+      return endow(g, life, key.slice(6));
     case "drink": {
       addStress(g, life, hasTrait(me, "drunkard") ? -9 : -6);
       gainXp(g, life, "persuasion", 5);
@@ -1002,7 +1190,8 @@ export function doAct(
         );
         life.job = null;
       }
-      startJob(g, life, "farmer", "fields", 1);
+      const job = startJob(g, life, "farmer", "fields", 1, -1, true);
+      openBusiness(g, life, job);
       milestone(g, life, "job", `Bought a freehold at ${here}`);
       return null;
     }
@@ -1058,13 +1247,6 @@ export function doAct(
       return seekCourt(g, life);
     case "crown":
       return writeToCrown(g, life, pass);
-    case "deeds": {
-      const pay =
-        Math.round((0.8 + skillLevel(s, life, "letters") * 0.06) * 100) / 100;
-      earn(g, life, pay);
-      gainXp(g, life, "letters", 5, true);
-      return null;
-    }
     case "physic":
       heal(g, life, life.health < 60 ? 15 : 6);
       journal(
@@ -1182,546 +1364,9 @@ function gazetteLine(g: ConquestGame): string {
 
 // ---------------------------------------------------------------- people
 
-export interface PersonActDef {
-  label: string;
-  text: string;
-  cooldown: number;
-  skill?: Skill;
-}
-
-export const PERSON_ACT_DEFS: Record<PersonAct, PersonActDef> = {
-  talk: {
-    label: "Talk",
-    text: "Pass the time of day. Small kindnesses add up.",
-    cooldown: 7,
-    skill: "persuasion",
-  },
-  flatter: {
-    label: "Flatter",
-    text: "Praise them. Done well, they warm to you; laid on too thick, they don't.",
-    cooldown: 60,
-    skill: "persuasion",
-  },
-  gift: {
-    label: "Give a gift",
-    text: "Coins, wine, a good hat. More for the poor, less for the rich.",
-    cooldown: 30,
-  },
-  befriend: {
-    label: "Befriend",
-    text: "Ask them to be a friend. They must already like you.",
-    cooldown: 90,
-    skill: "persuasion",
-  },
-  court: {
-    label: "Court",
-    text: "Walk out together. If it goes well, it may come to marriage.",
-    cooldown: 30,
-    skill: "persuasion",
-  },
-  propose: {
-    label: "Propose marriage",
-    text: `If they love you well enough (opinion ${MARRY_OPINION}). A wedding costs ${WEDDING_COST} coins; they move into your home.`,
-    cooldown: 60,
-  },
-  work: {
-    label: "Ask for work",
-    text: "Take up the trade they hire for, at their place.",
-    cooldown: 14,
-  },
-  borrow: {
-    label: "Borrow money",
-    text: "A loan, repaid with a fifth again within the year.",
-    cooldown: 180,
-  },
-  patron: {
-    label: "Ask for patronage",
-    text: `A patron of standing speaks for you: promotions, commissions, appointments (opinion ${PATRON_OPINION}).`,
-    cooldown: 180,
-    skill: "persuasion",
-  },
-  recruit: {
-    label: "Recruit to your movement",
-    text: "Bring them into the cause. Grievances help; officials may inform on you.",
-    cooldown: 90,
-    skill: "persuasion",
-  },
-  join: {
-    label: "Join their movement",
-    text: "Join the cause they belong to.",
-    cooldown: 30,
-  },
-  rumour: {
-    label: "Spread a rumour",
-    text: "Whisper against them. Hurts candidates and councillors; get caught and you've an enemy.",
-    cooldown: 90,
-    skill: "stealth",
-  },
-  insult: {
-    label: "Insult",
-    text: "Say what you think of them, loudly.",
-    cooldown: 30,
-  },
-  duel: {
-    label: "Challenge to a duel",
-    text: "Pistols at dawn, or swords. Honour satisfied; someone may die.",
-    cooldown: 365,
-    skill: "fighting",
-  },
-};
-
-function relation(s: GameState, a: Character, b: Character): boolean {
-  if (
-    a.father === b.id ||
-    a.mother === b.id ||
-    b.father === a.id ||
-    b.mother === a.id
-  )
-    return true;
-  if (a.father >= 0 && a.father === b.father) return true;
-  if (a.mother >= 0 && a.mother === b.mother) return true;
-  return false;
-}
-
-/** Whether a person-act can be done with someone, and why not. */
-export function personCheck(
-  s: GameState,
-  life: Life,
-  cId: number,
-  act: PersonAct,
-): Check {
-  const me = meOf(s, life);
-  const c = s.chars[cId];
-  if (!me) return no("You're watching.");
-  if (!c?.alive || c.abroad) return no("They're gone.");
-  if (c.id === me.id) return no("That's you.");
-  if (!PERSON_ACT_DEFS[act]) return no("Unknown.");
-  if (life.travel) return no("You're on the road.");
-  const here = peopleHere(s, life.prov, life).some((x) => x.id === cId);
-  if (!here) return no("They're not here.");
-  const left = Math.max(0, (life.cooldowns[`p:${act}:${cId}`] ?? 0) - s.day);
-  if (left > 0) return no(`Again in ${left} day${left === 1 ? "" : "s"}.`);
-  const child = isChildLife(s, life);
-  if (child && act !== "talk" && act !== "gift")
-    return no("Not until you're sixteen.");
-  const op = opinionOf(s, c, life).total;
-  const player = lifeOfChar(s, cId);
-  if (player && !["talk", "gift", "insult", "duel"].includes(act))
-    return no("They're a player: settle it with them.");
-  const age = ageOf(s, c);
-  switch (act) {
-    case "gift":
-      return life.purse >= 1 ? yes : no("You've nothing to give.");
-    case "befriend":
-      if (life.ties[cId] === "friend") return no("You're friends already.");
-      return op >= 25
-        ? yes
-        : no(`They'd need to like you more (opinion ${op} of 25).`);
-    case "court":
-    case "propose": {
-      if (age < 16) return no("They're a child.");
-      if (c.female === me.female) return no("Not in this century.");
-      if (me.spouse >= 0) return no("You're married.");
-      if (c.spouse >= 0) return no("They're married.");
-      if (relation(s, me, c)) return no("Too close kin.");
-      if (act === "propose") {
-        if (op < MARRY_OPINION)
-          return no(
-            `They don't love you enough yet (opinion ${op} of ${MARRY_OPINION}).`,
-          );
-        if (life.purse < WEDDING_COST)
-          return no(`A wedding costs ${WEDDING_COST} coins.`);
-      }
-      return yes;
-    }
-    case "work": {
-      const role = c.role ? ROLES[c.role] : undefined;
-      if (!role?.job) return no("They don't hire.");
-      if (op < -10) return no("They won't have you.");
-      return yes;
-    }
-    case "borrow": {
-      const role = c.role ? ROLES[c.role] : undefined;
-      if (!role || role.wealth < 10) return no("They've nothing to lend.");
-      if (life.debts.some((d) => d.to === cId))
-        return no("You owe them already.");
-      return op >= 20
-        ? yes
-        : no(`They don't trust you that far (opinion ${op} of 20).`);
-    }
-    case "patron": {
-      const status = c.role ? ROLES[c.role].status : 0;
-      const rank =
-        s.nations[c.nation]?.ruler === cId ||
-        SEATS.some((st) => s.nations[c.nation]?.council[st] === cId);
-      if (status < 3 && !rank)
-        return no("They haven't the standing to be a patron.");
-      if (life.patron === cId) return no("They're your patron already.");
-      return op >= PATRON_OPINION
-        ? yes
-        : no(
-            `They'd need to think better of you (opinion ${op} of ${PATRON_OPINION}).`,
-          );
-    }
-    case "recruit": {
-      const m = movementOf(s, me.id);
-      if (!m) return no("You belong to no movement.");
-      if (m.members.includes(cId) || m.leader === cId)
-        return no("They're in it already.");
-      if (movementOf(s, cId)) return no("They follow another cause.");
-      return age >= 16 ? yes : no("A child.");
-    }
-    case "join": {
-      const m = movementOf(s, cId);
-      if (!m) return no("They belong to no movement.");
-      if (movementOf(s, me.id)) return no("You belong to a movement already.");
-      return yes;
-    }
-    case "duel":
-      if (age < 16) return no("A child.");
-      if (relation(s, me, c) || me.spouse === cId)
-        return no("Not your own family.");
-      if (life.ties[cId] !== "rival" && op > -20)
-        return no("A duel needs a quarrel: a rival, or someone who hates you.");
-      return yes;
-    default:
-      return yes;
-  }
-}
-
-/** The odds of a person-act's check, if it has one. */
-export function personOdds(
-  s: GameState,
-  life: Life,
-  cId: number,
-  act: PersonAct,
-): number | null {
-  const c = s.chars[cId];
-  if (!c) return null;
-  const status = c.role ? ROLES[c.role].status : 2;
-  switch (act) {
-    case "flatter":
-      return checkChance(skillLevel(s, life, "persuasion"), 3 + status);
-    case "befriend":
-      return checkChance(skillLevel(s, life, "persuasion"), 5);
-    case "court":
-      return checkChance(
-        skillLevel(s, life, "persuasion"),
-        4 + Math.max(0, status - 2),
-      );
-    case "patron":
-      return checkChance(skillLevel(s, life, "persuasion"), 4 + status);
-    case "rumour":
-      return checkChance(skillLevel(s, life, "stealth"), 8);
-    case "duel":
-      return checkChance(
-        skillLevel(s, life, "fighting"),
-        charSkill(s, c, "fighting"),
-      );
-    case "recruit": {
-      const pr = s.provinces[c.home ?? 0];
-      const grievance = Math.floor((pr?.unrest ?? 0) / 15);
-      return checkChance(skillLevel(s, life, "persuasion"), 9 - grievance);
-    }
-    default:
-      return null;
-  }
-}
-
-/** Do something with or to someone here. */
-export function doPerson(
-  g: ConquestGame,
-  life: Life,
-  cId: number,
-  act: PersonAct,
-  arg?: number,
-): string | null {
-  const s = g.s;
-  const check = personCheck(s, life, cId, act);
-  if (!check.ok) return check.why;
-  const me = meOf(s, life)!;
-  const c = g.char(cId);
-  const def = PERSON_ACT_DEFS[act];
-  touchLife(g, life);
-  setCooldown(g, life, `p:${act}:${cId}`, def.cooldown);
-  meet(g, life, cId);
-  const odds = personOdds(s, life, cId, act);
-  const pass = odds !== null ? rollCheck(g, odds) : true;
-  const name = charName(c);
-  switch (act) {
-    case "talk": {
-      gainXp(g, life, "persuasion", 3);
-      const first = !c.memories.some(
-        (m) => m.of === me.id && m.why === "Good company",
-      );
-      remembers(g, life, c, "Good company", 3, 1);
-      const role = c.role ? ROLES[c.role].title.toLowerCase() : null;
-      if (first)
-        journal(
-          g,
-          life,
-          `You get to know ${name}${role ? `, the ${role}` : ""}.`,
-        );
-      return null;
-    }
-    case "flatter":
-      gainXp(g, life, "persuasion", 5);
-      if (pass) {
-        remembers(g, life, c, "Flattered me", 10, 2);
-        journal(g, life, `${name} blushes at your praise.`, "good");
-      } else {
-        remembers(g, life, c, "Laid it on thick", -6, 1);
-        journal(g, life, `${name} saw through the flattery.`, "bad");
-      }
-      return null;
-    case "gift": {
-      const amount = Math.max(
-        1,
-        Math.min(Math.floor(life.purse), Math.round(arg ?? 5)),
-      );
-      spend(g, life, amount);
-      const status = c.role ? ROLES[c.role].status : 2;
-      const mult = hasTrait(me, "generous") ? 1.5 : 1;
-      const v = Math.min(
-        30,
-        Math.round(((amount * 3) / (status + 1)) * mult) + 2,
-      );
-      remembers(g, life, c, "A generous gift", v, 3);
-      const player = lifeOfChar(s, cId);
-      if (player) {
-        earn(g, player, amount);
-        journal(g, player, `${charName(me)} gave you ${amount} coins.`, "good");
-      }
-      journal(g, life, `You gave ${name} ${amount} coins.`);
-      return null;
-    }
-    case "befriend":
-      gainXp(g, life, "persuasion", 5);
-      if (pass) {
-        setTie(g, life, cId, "friend");
-        remembers(g, life, c, "A true friend", 10, 0);
-        journal(g, life, `${name} is your friend now.`, "good");
-      } else {
-        remembers(g, life, c, "Pushy", -5, 1);
-        journal(g, life, `${name} isn't ready for that.`);
-      }
-      return null;
-    case "court":
-      gainXp(g, life, "persuasion", 5);
-      if (pass) {
-        remembers(g, life, c, "Courted me", 12, 2);
-        if (opinionOf(s, c, life).total >= 60) {
-          setTie(g, life, cId, "lover");
-          journal(g, life, `You and ${name} are sweethearts now.`, "good");
-        } else
-          journal(
-            g,
-            life,
-            `A walk with ${name}, and a promise of another.`,
-            "good",
-          );
-      } else {
-        remembers(g, life, c, "Clumsy courting", -6, 1);
-        journal(g, life, `${name} was cool to you today.`);
-      }
-      return null;
-    case "propose":
-      return wed(g, life, c);
-    case "work": {
-      const role = ROLES[c.role!];
-      const job = role.job!;
-      if (c.home !== life.prov) return "They hire where they live.";
-      const r = takeJob(g, life, role.place, job);
-      if (r) return r;
-      if (life.job) life.job.employer = cId;
-      return null;
-    }
-    case "borrow": {
-      const role = ROLES[c.role!];
-      const op = opinionOf(s, c, life).total;
-      const amount = Math.max(
-        3,
-        Math.round(role.wealth * Math.min(0.8, 0.2 + op / 100)),
-      );
-      earn(g, life, amount);
-      life.debts.push({
-        to: cId,
-        amount: Math.round(amount * 1.2),
-        due: s.day + DAYS_PER_YEAR,
-      });
-      journal(
-        g,
-        life,
-        `${name} lends you ${amount} coins, to be repaid with ${Math.round(amount * 0.2)} more within the year.`,
-      );
-      return null;
-    }
-    case "patron":
-      gainXp(g, life, "persuasion", 6);
-      if (pass) {
-        life.patron = cId;
-        remembers(g, life, c, "My protégé", 10, 0);
-        journal(
-          g,
-          life,
-          `${name} agrees to be your patron. Doors will open.`,
-          "good",
-        );
-        milestone(g, life, "renown", `Found a patron in ${name}`);
-      } else
-        journal(g, life, `${name} will think about it. That usually means no.`);
-      return null;
-    case "recruit":
-      return recruitInto(g, life, c, pass);
-    case "join": {
-      const m = movementOf(s, cId)!;
-      return joinMovement(g, life, m.id);
-    }
-    case "rumour":
-      gainXp(g, life, "stealth", 6);
-      if (pass) {
-        c.memories.push({
-          of: -2,
-          why: "Talked about in the town",
-          value: -15,
-          until: s.day + 2 * DAYS_PER_YEAR,
-        });
-        let effect = "The whispers spread.";
-        for (const n of s.nations) {
-          const seat = SEATS.find((st) => n.council[st] === cId);
-          if (seat && g.rng.chance(0.3)) {
-            g.nation(n.id).council[seat] = -1;
-            if (!n.court.includes(cId)) n.court.push(cId);
-            effect = `Within the month ${name} was dismissed as ${SEAT_NAMES[seat].toLowerCase()}.`;
-          }
-          const pol = s.polities[n.id];
-          const cand = pol?.candidates.find((x) => x.c === cId);
-          if (cand) {
-            cand.points -= 10;
-            g.politiesChanged(n.id);
-            effect = `${name}'s campaign is in trouble.`;
-          }
-        }
-        journal(
-          g,
-          life,
-          `You put it about that ${name} isn't what they seem. ${effect}`,
-          "good",
-        );
-      } else {
-        remembers(g, life, c, "Spread lies about me", -30, 5);
-        setTie(g, life, cId, "rival");
-        addRenown(g, life, -2);
-        journal(
-          g,
-          life,
-          `${name} found out who was spreading tales. You've made an enemy.`,
-          "bad",
-        );
-      }
-      return null;
-    case "insult": {
-      remembers(g, life, c, "Insulted me", -20, 3);
-      if (opinionOf(s, c, life).total <= -40) setTie(g, life, cId, "rival");
-      journal(g, life, `You told ${name} exactly what you think of them.`);
-      if (
-        (hasTrait(c, "brave") || hasTrait(c, "cruel")) &&
-        !lifeOfChar(s, cId) &&
-        g.rng.chance(0.3)
-      )
-        return duel(g, life, c, true);
-      return null;
-    }
-    case "duel":
-      return duel(g, life, c, false, pass);
-  }
-}
-
-function wed(g: ConquestGame, life: Life, c: Character): string | null {
-  const s = g.s;
-  const me = meOf(s, life)!;
-  spend(g, life, WEDDING_COST);
-  // A spouse who kept a post gives it up to move in.
-  for (const [k, list] of Object.entries(s.locals)) {
-    if (list.includes(c.id)) {
-      s.locals[Number(k)] = list.filter((x) => x !== c.id);
-      g.localsChanged(Number(k));
-    }
-  }
-  const status = c.role
-    ? ROLES[c.role].status
-    : (() => {
-        const parent = s.chars[c.father] ?? s.chars[c.mother];
-        return parent?.role ? ROLES[parent.role].status : 1;
-      })();
-  c.role = undefined;
-  const maiden = charName(c);
-  marry(s, g.touchChar(me), c);
-  c.home = life.home;
-  setTie(g, life, c.id, null);
-  remembers(g, life, c, "Our wedding day", 20, 0);
-  const dowry = Math.max(0, status - 1) * 4;
-  if (dowry) earn(g, life, dowry);
-  life.tally.marriages++;
-  addStress(g, life, -10);
-  addRenown(g, life, 1);
-  journal(
-    g,
-    life,
-    `You married ${maiden}.${dowry ? ` Their family gave a dowry of ${dowry} coins.` : ""}`,
-    "good",
-  );
-  milestone(g, life, "married", `Married ${maiden}`);
-  return null;
-}
-
-function duel(
-  g: ConquestGame,
-  life: Life,
-  c: Character,
-  challenged: boolean,
-  pass?: boolean,
-): string | null {
-  const s = g.s;
-  const me = meOf(s, life)!;
-  const name = charName(c);
-  const win =
-    pass ??
-    rollCheck(
-      g,
-      checkChance(skillLevel(s, life, "fighting"), charSkill(s, c, "fighting")),
-    );
-  gainXp(g, life, "fighting", 15);
-  life.ties[c.id] = "rival";
-  const opener = challenged
-    ? `${name} took it badly and called you out.`
-    : `You called ${name} out.`;
-  const other = lifeOfChar(s, c.id);
-  if (win) {
-    addRenown(g, life, 6);
-    remembers(g, life, c, "Beat me in a duel", -30, 10);
-    if (other) {
-      journal(g, other, `${charName(me)} beat you in a duel.`, "bad");
-      hurt(g, other, g.rng.int(10, 35), `a duel with ${charName(me)}`);
-      journal(g, life, `${opener} You won.`, "good");
-    } else if (g.rng.chance(0.25)) {
-      kill(g, c, `a duel with ${charName(me)}`);
-      journal(g, life, `${opener} At dawn, you killed ${name}.`, "bad");
-      addStress(g, life, 15);
-    } else {
-      journal(
-        g,
-        life,
-        `${opener} You wounded ${name}; honour is satisfied.`,
-        "good",
-      );
-    }
-    milestone(g, life, "renown", `Won a duel against ${name}`);
-  } else {
-    addRenown(g, life, 1);
-    journal(g, life, `${opener} You lost.`, "bad");
-    if (other) addRenown(g, other, 4);
-    hurt(g, life, g.rng.int(15, 55), `a duel with ${name}`);
-  }
-  return null;
-}
+export {
+  doInteraction as doPerson,
+  PERSON_ACT_DEFS,
+  personCheck,
+  personOdds,
+} from "./Interactions";

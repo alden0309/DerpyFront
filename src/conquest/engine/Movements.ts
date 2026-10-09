@@ -812,7 +812,16 @@ function won(g: ConquestGame, m: Movement): void {
     const old = s.chars[target.ruler];
     if (leader?.alive) {
       if (old?.alive && old.id !== leader.id) {
-        old.abroad = true;
+        // A governor played by someone is turned out, not shipped off.
+        const deposed = lifeOfChar(s, old.id);
+        if (deposed)
+          journal(
+            g,
+            deposed,
+            `${m.name} has turned you out of the governor's house. You're a private person again, with enemies.`,
+            "bad",
+          );
+        else old.abroad = true;
         g.touchChar(old);
       }
       target.ruler = leader.id;

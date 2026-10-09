@@ -16,7 +16,7 @@ import {
   wageOf,
 } from "../../engine/LifeQueries";
 import {
-  AWAY_MONTHS,
+  AWAY_DAYS,
   COMMAND_RANK,
   EUROPE_FORTUNE,
   JOBS,
@@ -141,8 +141,8 @@ function workSection(ui: GameUi): TemplateResult {
         </p>
         ${!here && job.army < 0
           ? html`<p class="cq-warn small">
-              You're away from your post (${job.away} of ${AWAY_MONTHS} months
-              before you're let go).
+              You're away from your post (${job.awayDays ?? 0} of ${AWAY_DAYS}
+              days before you're let go).
             </p>`
           : nothing}
         ${servant

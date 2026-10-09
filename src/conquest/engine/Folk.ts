@@ -15,7 +15,7 @@ import type { ConquestGame } from "./Game";
 import { hooks, skipped } from "./Hooks";
 import { placesIn } from "./LifeQueries";
 import { LOCALS_CAP, ROLES } from "./LifeRules";
-import { ageOf, birthChance, deathRisk, hasTrait } from "./Queries";
+import { ageOf, birthChance, deathRisk, hasTrait, settlers } from "./Queries";
 import type { Character, GameState, RoleId, Stat } from "./Types";
 
 /** The roles a province has room for, in the order they're filled. */
@@ -37,9 +37,15 @@ export function rolesFor(g: ConquestGame, p: number): RoleId[] {
     if (has("governor")) out.push("official", "lawyer");
     if (has("press")) out.push("printer");
     if (has("apothecary")) out.push("physician");
+    // Common folk, so the fort, the docks and the fields have people in them.
+    if (has("fort")) out.push("soldier");
+    if (has("docks")) out.push("sailor");
+    out.push("labourer");
+    if (has("fort") && settlers(pr) >= 1500) out.push("soldier");
   } else if (owner?.kind === "native") {
     out.push("sachem", "warleader", "elder", "healer", "trader", "maker");
     if (has("woods")) out.push("hunter");
+    out.push("youngwarrior");
   } else {
     // Open country: whoever lives off the land there.
     if (has("village")) out.push("elder", "hunter", "trader");
@@ -91,6 +97,10 @@ const ROLE_STAT: Record<RoleId, Stat> = {
   elder: "ste",
   trader: "dip",
   maker: "ste",
+  soldier: "mar",
+  sailor: "mar",
+  labourer: "ste",
+  youngwarrior: "mar",
 };
 
 /** Someone to fill a role in a province, with a family around them. */
@@ -118,6 +128,9 @@ export function makeLocal(
     role === "elder"
       ? true
       : role === "sergeant" ||
+          role === "soldier" ||
+          role === "sailor" ||
+          role === "youngwarrior" ||
           role === "captain" ||
           role === "warleader" ||
           role === "official" ||
@@ -131,7 +144,7 @@ export function makeLocal(
     culture: nation.culture,
     religion: native ? "native" : nation.religion,
     female,
-    age: rng.int(26, 58),
+    age: ROLES[role].status <= 1 ? rng.int(17, 40) : rng.int(26, 58),
     stats,
   });
   c.home = p;
