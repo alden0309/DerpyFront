@@ -71,9 +71,10 @@ function defs(detail: "full" | "lite", seed: number): string {
 }
 
 /** One light, high and to the left of the face: the figure is multiplied by it. */
-function lightOn(h: Head): string {
+function lightOn(h: Head, mirrored = false): string {
+  const lx = mirrored ? 240 - (h.cx - 30) : h.cx - 30;
   return `<defs><filter id="lightF" filterUnits="userSpaceOnUse" x="0" y="0" width="240" height="300" color-interpolation-filters="sRGB">
-<feDiffuseLighting in="SourceAlpha" surfaceScale="0" diffuseConstant="1" lighting-color="#fff6ea" result="L"><fePointLight x="${n(h.cx - 30)}" y="${n(h.cy - 40)}" z="150"/></feDiffuseLighting>
+<feDiffuseLighting in="SourceAlpha" surfaceScale="0" diffuseConstant="1" lighting-color="#fff6ea" result="L"><fePointLight x="${n(lx)}" y="${n(h.cy - 40)}" z="150"/></feDiffuseLighting>
 <feComposite in="SourceGraphic" in2="L" operator="arithmetic" k1="0.82" k2="0.18" k3="0" k4="0"/></filter></defs>`;
 }
 
@@ -137,22 +138,26 @@ export function paintPortrait(look: Appearance, o: PaintOpts): string {
     body.top,
     `<g ${head}>${paintHat(h, s)}${paintExtras(h, s, sk, "head")}</g>`,
   ];
+  // Turned to face left, the picture is painted mirrored: the light comes
+  // from the right. (The light is placed in the unmirrored picture, as a
+  // lighting filter under a mirroring transform misplaces it.)
+  const left = o.facing === "left";
+  const flip = left ? ` transform="matrix(-1 0 0 1 240 0)"` : "";
   const layers = [
     defs(detail, seed),
-    lightOn(h),
-    o.bare ? "" : ground(bg),
+    lightOn(h, left),
+    o.bare ? "" : `<g${flip}>${ground(bg)}</g>`,
     // The light falls on the face and fades down the body into the dark.
-    `<g filter="url(#lightF)">${figure.join("\n")}</g>`,
-    o.bare ? "" : varnish(),
+    `<g filter="url(#lightF)"><g${flip}>${figure.join("\n")}</g></g>`,
+    o.bare ? "" : `<g${flip}>${varnish()}</g>`,
   ];
-  const flip = o.facing === "left" ? ` transform="matrix(-1 0 0 1 240 0)"` : "";
   const dead = o.dead
     ? `<filter id="dead"><feColorMatrix type="saturate" values="0.05"/></filter>`
     : "";
   // Seen close, as the old painters framed a head and shoulders; closer
   // still in a small portrait, so the face can be read.
-  const view = detail === "lite" ? "40 24 160 200" : "4 0 232 290";
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${view}" width="240" height="300">${dead}<g${flip}${o.dead ? ` filter="url(#dead)"` : ""}>${layers.join("\n")}</g></svg>`;
+  const view = detail === "lite" ? "50 38 140 175" : "4 0 232 290";
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${view}" width="240" height="300">${dead}<g${o.dead ? ` filter="url(#dead)"` : ""}>${layers.join("\n")}</g></svg>`;
 }
 
 // ---------------------------------------------------------------- the cache

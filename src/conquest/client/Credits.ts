@@ -160,10 +160,12 @@ export const CREDITS: Credit[] = [
   },
   {
     what: "Picture",
-    title: "Indian Encampment on Lake Huron (c.1845): the village",
-    author: "Paul Kane",
+    title:
+      "Encampment among the Islands of Lake Huron (c.1845-50), an Ojibwa camp on Georgian Bay: the village",
+    author: "Paul Kane (photograph of the painting, Royal Ontario Museum)",
     license: "Public domain",
-    source: "https://commons.wikimedia.org/wiki/File:Kane_Lake_Huron_Oil.jpg",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Paul_Kane-RiverScene-ROM.jpg",
   },
   {
     what: "Picture",

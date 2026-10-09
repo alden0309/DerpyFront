@@ -1468,7 +1468,7 @@ function paintLines(h: Head, s: Sitting, sk: SkinPalette): string {
     out.push(
       path(
         smooth([h.P(-0.62, 0.02), h.P(-0.72, 0.3), h.P(-0.74, 0.62)], false),
-        `${line(sk.shadow, 1.6, ok(0.45))} filter="url(#soft1)"`,
+        `${line(sk.shadow, 2.4, ok(0.28))} filter="url(#soft2)"`,
       ),
     );
     out.push(

@@ -249,8 +249,13 @@ export function buildHead(s: Sitting): Head {
   } else a *= 1.03;
   a *= 1 - child * 0.06;
   b *= 1 - child * 0.2;
+  // A head in proportion to the shoulders under it (a grown head is a
+  // third of their breadth), with room above it, as painters set a sitter.
+  const small = 0.86 + child * 0.08;
+  a *= small;
+  b *= small;
   const cx = 118;
-  const cy = 124 + child * 12;
+  const cy = 131 + child * 8;
   // Some sit square to the painter, some turn further away.
   const th = 0.36 + nudge(L.face, L.nose, 13) * 0.07;
   const sin = Math.sin(th);
@@ -323,7 +328,7 @@ export function buildHead(s: Sitting): Head {
   const set = 0.4 + (L.eyeSet - 1) * 0.05 + nudge(L.eyeSet, L.face, 4) * 0.012;
   const eyeW =
     a *
-    (0.5 + child * 0.05) *
+    (0.43 + child * 0.07) *
     (L.eyes === 3 ? 0.95 : L.eyes === 6 ? 1.05 : 1) *
     (s.female ? 1.05 : 1) *
     (1 - old * 0.04) *
@@ -365,6 +370,7 @@ export function buildHead(s: Sitting): Head {
     (1 + nudge(L.nose, L.face, 7) * 0.05);
   const noseW =
     a *
+    1.12 *
     ([0.42, 0.42, 0.44, 0.58, 0.39, 0.36, 0.43, 0.54][noseKind] ?? 0.42) *
     (1 - child * 0.15 + fat * 0.05) *
     (1 + nudge(L.nose, L.mouth, 8) * 0.05);
@@ -380,7 +386,7 @@ export function buildHead(s: Sitting): Head {
   const mouthYn = (noseBaseY - cy) / b + (1 - (noseBaseY - cy) / b) * mouthAt;
   const mouthW =
     a *
-    ([0.68, 0.72, 0.84, 0.6, 0.66][L.mouth] ?? 0.68) *
+    ([0.74, 0.8, 0.9, 0.66, 0.72][L.mouth] ?? 0.74) *
     (1 - child * 0.15) *
     (1 + nudge(L.mouth, L.face, 10) * 0.05) *
     (1 + expr.mouth * 0.025 - expr.tight * 0.04);
@@ -402,7 +408,7 @@ export function buildHead(s: Sitting): Head {
     cx: cx - a * 0.1,
     cy: cy - b * (0.5 + child * 0.12),
     rx: a * (1.13 + child * 0.1),
-    ry: b * (0.98 + child * 0.32),
+    ry: b * (0.92 + child * 0.32),
   };
   return {
     cx,

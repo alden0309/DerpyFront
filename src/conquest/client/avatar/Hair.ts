@@ -826,14 +826,16 @@ function style(h: Head, s: Sitting, sk: SkinPalette): Hair {
         [h.cx + A * 1.08, h.cy - B * 0.02],
         [h.cx + A * 0.98, h.cy + B * 0.08],
       ];
+      // Thin hair: the scalp shows through it, and its edges are soft.
+      const thin = mix(c, sk.shadow, 0.25);
       return {
-        back: mass(farTuft, shade(c, 0.15), s, { strands: 6 }),
+        back: `<g filter="url(#soft2)" opacity="0.7">${mass(farTuft, shade(thin, 0.15), s, { strands: 6 })}</g>`,
         front:
-          mass(pts, c, s, {
+          `<g filter="url(#soft1)">${mass(pts, thin, s, {
             strands: 26,
             w: 0.8,
             from: [[m.Bk[0] + 10, h.skull.cy]],
-          }) +
+          })}</g>` +
           `<g filter="url(#soft4)">${ell(h.skull.cx + 4, top + h.b * 0.25, h.a * 0.45, h.b * 0.2, `fill="${sk.lit}" opacity="0.45"`)}</g>`,
       };
     }
