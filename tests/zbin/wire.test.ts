@@ -181,6 +181,8 @@ const SERVER_MESSAGES: ServerMessage[] = [
   },
   { type: "new_lobby", gameID: "nEwL0bby" },
   { type: "pong", sentAt: 12345 },
+  { type: "chat", from: P2, channel: "all", text: "Guten Tag! 😀", seq: 7 },
+  { type: "chat", from: P1, channel: "allies", text: "go north", seq: 8 },
 ];
 
 const TOKEN = "3f1b8c8e-4a2f-4a0e-9d5e-6f2a1b3c4d5e";
@@ -256,6 +258,8 @@ const CLIENT_MESSAGES: ClientMessage[] = [
       ],
     },
   },
+  { type: "chat", channel: "all", text: "hello Germany" },
+  { type: "chat", channel: "team", text: "rush east", to: [P2, P3] },
 ];
 
 const LOBBY_MESSAGES: PublicLobbyMessage[] = [
@@ -528,6 +532,66 @@ describe("zbin wire: client messages", () => {
       cctx,
     );
     expect(() => decodeClientMessage(bytes, sctx)).toThrow();
+  });
+});
+
+// Derpy Front chat was appended to both message unions, which must leave
+// every frame that existed before it byte-for-byte the same: the bytes below
+// were recorded on the commit before chat (3242ce6c).
+describe("zbin wire: chat moved nothing", () => {
+  const roster = [{ clientID: "AAAAAAAA" }, { clientID: "BBBBBBBB" }];
+  const hex = (b: Uint8Array) => Buffer.from(b).toString("hex");
+
+  it("encodes a turn exactly as before chat existed", () => {
+    const msg: ServerMessage = {
+      type: "turn",
+      turn: {
+        turnNumber: 4321,
+        intents: [
+          {
+            type: "attack",
+            clientID: "AAAAAAAA",
+            targetID: "BBBBBBBB",
+            troops: 512.5,
+          },
+          {
+            type: "quick_chat",
+            clientID: "BBBBBBBB",
+            recipient: "AAAAAAAA",
+            quickChatKey: "greet.hello",
+          },
+          {
+            type: "emoji",
+            clientID: "AAAAAAAA",
+            recipient: "AllPlayers",
+            emoji: 3,
+          },
+        ],
+      },
+    };
+    expect(hex(encodeServerMessage(msg, createGameWireContext(roster)))).toBe(
+      "0000e1210300010002000000000004804012020001170a010103",
+    );
+  });
+
+  it("encodes client frames exactly as before chat existed", () => {
+    const ctx = createGameWireContext(roster);
+    expect(
+      hex(
+        encodeClientMessage(
+          { type: "hash", hash: 12345.5, turnNumber: 99 },
+          ctx,
+        ),
+      ),
+    ).toBe("0700000000c01cc84063");
+    expect(
+      hex(
+        encodeClientMessage(
+          { type: "intent", intent: { type: "spawn", tile: 777 } },
+          ctx,
+        ),
+      ),
+    ).toBe("03028906");
   });
 });
 

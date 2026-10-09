@@ -7,6 +7,7 @@ import {
 import { LOBBY_LABEL_MAX } from "@openfront/engine-lib/Util";
 import { zb } from "@openfront/zbin";
 import { z } from "zod";
+import { CHAT_CHANNELS, CHAT_MAX_LENGTH, CHAT_MAX_RECIPIENTS } from "./Chat";
 import {
   ColorPaletteSchema,
   CosmeticNameSchema,
@@ -40,7 +41,8 @@ export type ClientMessage =
   | ClientLogMessage
   | ClientHashMessage
   | ClientSpectateMessage
-  | ClientReportMessage;
+  | ClientReportMessage
+  | ClientChatMessage;
 
 export type ServerMessage =
   | ServerTurnMessage
@@ -52,7 +54,8 @@ export type ServerMessage =
   | ServerLobbyInfoMessage
   | ServerNewLobbyMessage
   | ServerPongMessage
-  | ServerRedirectMessage;
+  | ServerRedirectMessage
+  | ServerChatMessage;
 
 export type ServerTurnMessage = z.infer<typeof ServerTurnMessageSchema>;
 
@@ -77,6 +80,10 @@ export type ServerLobbyInfoMessage = z.infer<
 export type ServerNewLobbyMessage = z.infer<typeof ServerNewLobbyMessageSchema>;
 
 export type ServerRedirectMessage = z.infer<typeof ServerRedirectMessageSchema>;
+
+export type ServerChatMessage = z.infer<typeof ServerChatMessageSchema>;
+
+export type ClientChatMessage = z.infer<typeof ClientChatMessageSchema>;
 
 export type ClientSendWinnerMessage = z.infer<typeof ClientSendWinnerSchema>;
 
@@ -566,6 +573,22 @@ export const ServerRedirectMessageSchema = z.object({
   gameID: ID,
 });
 
+// Derpy Front: a chat line, relayed by the server to the players it is for.
+// `from` is stamped by the server from the connection, never sent by the
+// client. No name rides along: each client shows the sender under the name
+// it already knows them by, so anonymized games stay anonymous. `seq` counts
+// this game's chat lines, so every client can tell lines apart (and seed
+// the nations' replies to one) the same way.
+export const ChatChannelSchema = z.enum(CHAT_CHANNELS);
+
+export const ServerChatMessageSchema = z.object({
+  type: z.literal("chat"),
+  from: MappedID,
+  channel: ChatChannelSchema,
+  text: z.string().min(1).max(CHAT_MAX_LENGTH),
+  seq: zb.uint(),
+});
+
 export const ServerMessageSchema = zb.discriminatedUnion("type", [
   ServerTurnMessageSchema,
   ServerPrestartMessageSchema,
@@ -578,6 +601,7 @@ export const ServerMessageSchema = zb.discriminatedUnion("type", [
   ServerPongMessageSchema,
   // Appended, never inserted: variant order is the wire tag (zbin/README.md).
   ServerRedirectMessageSchema,
+  ServerChatMessageSchema,
 ]);
 
 //
@@ -723,6 +747,23 @@ export const ClientSpectateMessageSchema = z.object({
   spectator: z.boolean(),
 });
 
+// Derpy Front: a chat line from a player. Its own message rather than an
+// intent, on purpose: it never enters the turn, so it cannot reach the
+// simulation, the game hash, the archived record or a replay, and a team's
+// or an alliance's plans only go to the players they are meant for.
+//
+// `to` names the recipients of a team or allies line. The server cannot see
+// the simulation, so it cannot work out teams or alliances itself; the
+// sender's client lists them, the server delivers only to listed players of
+// this game, and each receiving client checks the sender really is on its
+// team or allied before it shows the line. Unused (and ignored) for "all".
+export const ClientChatMessageSchema = z.object({
+  type: z.literal("chat"),
+  channel: ChatChannelSchema,
+  text: z.string().min(1).max(CHAT_MAX_LENGTH),
+  to: MappedID.array().max(CHAT_MAX_RECIPIENTS).optional(),
+});
+
 export const ClientMessageSchema = zb.discriminatedUnion("type", [
   ClientSendWinnerSchema,
   ClientSendLiveStatsSchema,
@@ -734,6 +775,8 @@ export const ClientMessageSchema = zb.discriminatedUnion("type", [
   ClientHashSchema,
   ClientSpectateMessageSchema,
   ClientReportMessageSchema,
+  // Appended, never inserted: variant order is the wire tag.
+  ClientChatMessageSchema,
 ]);
 
 //
