@@ -91,7 +91,7 @@ function ground(bg: string): string {
 function varnish(): string {
   return `<defs><radialGradient id="vig" cx="0.45" cy="0.42" r="0.72">
 <stop offset="0.55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#140a03" stop-opacity="0.55"/></radialGradient></defs>
-<rect width="240" height="300" fill="#e8c27a" opacity="0.1" style="mix-blend-mode:multiply"/>
+<rect width="240" height="300" fill="#e2b468" opacity="0.17" style="mix-blend-mode:multiply"/>
 <rect width="240" height="300" fill="url(#vig)"/>
 <rect width="240" height="300" filter="url(#canvas)" opacity="0.34"/>`;
 }

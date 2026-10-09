@@ -172,7 +172,7 @@ function cloth(
   if (full && big) {
     // Tapered: a fold starts as a crease and opens as it falls.
     const br = new Brush(s.seed + gid * 5);
-    const k = o.folds?.length ? 2 : 4;
+    const k = o.folds?.length ? 2 : 3;
     for (let i = 0; i < k; i++) {
       const x =
         x0 + (x1 - x0) * (0.14 + (i * 0.72) / (k - 1) + br.range(-0.06, 0.06));
@@ -190,7 +190,7 @@ function cloth(
         stroke(
           line,
           w,
-          `fill="${cshade(c, 0.7)}" opacity="${silk ? 0.75 : 0.6}"`,
+          `fill="${cshade(c, 0.7)}" opacity="${silk ? 0.6 : 0.45}"`,
           [0.1, 0.7],
         ),
       );
@@ -198,7 +198,7 @@ function cloth(
         stroke(
           line.map(([px, py]): Pt => [px - w * 0.75, py]),
           w * 0.7,
-          `fill="${clight(c, silk ? 0.5 : 0.28)}" opacity="${silk ? 0.65 : 0.45}"`,
+          `fill="${clight(c, silk ? 0.45 : 0.24)}" opacity="${silk ? 0.5 : 0.32}"`,
           [0.1, 0.6],
         ),
       );
@@ -212,7 +212,7 @@ function cloth(
         y0 + (y1 - y0) * 0.25,
         (x1 - x0) * 0.2,
         (y1 - y0) * 0.24,
-        `fill="${clight(c, silk ? 0.35 : 0.25)}" opacity="${silk ? 0.65 : 0.5}"`,
+        `fill="${clight(c, silk ? 0.3 : 0.2)}" opacity="${silk ? 0.42 : 0.3}"`,
         -30,
       ),
     );
@@ -260,7 +260,7 @@ function cloth(
   }
   if (soft.length || sharp.length)
     parts.push(
-      `<g clip-path="url(#${id}c)"><g filter="url(#soft${silk ? 15 : 2})">${soft.join("")}</g>${sharp.length ? `<g filter="url(#soft06)">${sharp.join("")}</g>` : ""}</g>`,
+      `<g clip-path="url(#${id}c)"><g filter="url(#soft${silk ? 2 : 3})">${soft.join("")}</g>${sharp.length ? `<g filter="url(#soft06)">${sharp.join("")}</g>` : ""}</g>`,
     );
   return `<g filter="url(#brush)">${parts.join("")}</g>`;
 }

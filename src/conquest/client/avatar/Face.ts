@@ -50,14 +50,24 @@ export function skinPalette(s: Sitting): SkinPalette {
   const swatch = SKIN_TONES[s.look.skin]?.hex ?? SKIN_TONES[2].hex;
   // Under the varnish even the palest skin is warm.
   const lw = lum(swatch);
-  const base = mix(swatch, "#c8906a", lw > 0.78 ? 0.26 : lw > 0.7 ? 0.2 : 0.1);
+  // Olive, copper and brown skins glow a deeper, warmer colour in oil than
+  // their swatches: the painters laid them in with ochres and siennas.
+  const base =
+    lw > 0.7
+      ? mix(swatch, "#c8906a", lw > 0.78 ? 0.26 : 0.2)
+      : mix(swatch, lw > 0.45 ? "#b0582a" : "#86401e", 0.3);
   const L = lum(base);
   const dark = L < 0.5;
   const shadow = mix(base, dark ? "#24100a" : "#4a1e12", dark ? 0.55 : 0.64);
   return {
     base,
-    half: mix(base, dark ? "#3a2c28" : "#7a5c50", dark ? 0.3 : 0.4),
-    lit: dark ? mix(base, "#e6c3a0", 0.28) : mix(base, "#ffe8cc", 0.55),
+    // Fair skin lights to a cream; olive, copper and brown to a warm gold.
+    half: dark
+      ? mix(base, "#3a2c28", 0.3)
+      : mix(base, L > 0.7 ? "#7a5c50" : "#5e4030", 0.4),
+    lit: dark
+      ? mix(base, "#e6c3a0", 0.28)
+      : mix(base, L > 0.7 ? "#ffe8cc" : "#f2c89c", L > 0.7 ? 0.55 : 0.36),
     shadow,
     deep: mix(base, "#1c0c05", dark ? 0.66 : 0.72),
     blush: mix(base, dark ? "#9a3a30" : "#d84e56", dark ? 0.32 : 0.5),
@@ -660,12 +670,16 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
     ),
   );
   out.push(
-    `<g clip-path="url(#headClip)"><g filter="url(#soft${full ? 3 : 2})">${lt.join("")}</g>${
-      full
-        ? `<rect x="${n(h.cx - h.a * 1.4)}" y="${n(h.top)}" width="${n(h.a * 2.8)}" height="${n(h.b * 2.8)}" filter="url(#skinNoise)" opacity="0.16" style="mix-blend-mode:multiply"/><rect x="${n(h.cx - h.a * 1.4)}" y="${n(h.top)}" width="${n(h.a * 2.8)}" height="${n(h.b * 2.8)}" filter="url(#skinMottle)" opacity="0.4" style="mix-blend-mode:soft-light"/>`
-        : ""
-    }</g>`,
+    `<g clip-path="url(#headClip)"><g filter="url(#soft${full ? 3 : 2})">${lt.join("")}</g></g>`,
   );
+  // The grain and mottle of skin, blended into it. (Each clipped on its
+  // own: a clipped group would blend them with nothing, and grey the face.)
+  if (full) {
+    const box = `x="${n(h.cx - h.a * 1.4)}" y="${n(h.top)}" width="${n(h.a * 2.8)}" height="${n(h.b * 2.8)}" clip-path="url(#headClip)"`;
+    out.push(
+      `<rect ${box} filter="url(#skinNoise)" opacity="0.14" style="mix-blend-mode:multiply"/><rect ${box} filter="url(#skinMottle)" opacity="0.35" style="mix-blend-mode:soft-light"/>`,
+    );
+  }
   out.push(paintLines(h, s, sk));
   out.push(paintEyes(h, s, sk));
   out.push(paintBrows(h, s, sk));

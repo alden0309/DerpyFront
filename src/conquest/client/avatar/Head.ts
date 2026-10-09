@@ -291,6 +291,8 @@ export function buildHead(s: Sitting): Head {
     gaunt * 0.1 -
     fat * 0.06;
   const jowl = old * 0.05 + fat * 0.08;
+  // The jaw may be broad, but never bulges out past the cheek above it.
+  const jawOut = Math.min(jawWide + jowl, 0.1 + fat * 0.08);
   const outline: Pt[] = [
     [cx + a * -0.78, cy + b * -1.02],
     [cx + a * -temple, cy + b * -0.62],
@@ -300,9 +302,9 @@ export function buildHead(s: Sitting): Head {
         a * (-0.95 - (L.cheeks === 1 ? 0.03 : 0) - fat * 0.05 + hollow * 0.5),
       cy + b * 0.16,
     ],
-    [cx + a * (-0.86 - jawWide - jowl), cy + b * (0.5 + jowl)],
+    [cx + a * (-0.86 - jawOut), cy + b * (0.5 + jowl)],
     [
-      cx + a * (-0.52 - jawWide * 0.6 - fat * 0.05),
+      cx + a * (-0.52 - Math.min(jawWide * 0.6, 0.16) - fat * 0.05),
       cy + b * (0.82 + jowl * 0.5),
     ],
     [cx + a * (0.2 - chinW * 0.95 - chinBack), cy + b * (0.97 * chinDrop)],

@@ -127,7 +127,9 @@ function brimmed(
         0.2,
       );
   const brimBack = `M${n(cx - rx)} ${n(cy)}A${n(rx)} ${n(ry)} 0 0 1 ${n(cx + rx)} ${n(cy)}Z`;
-  const brimFront = `M${n(cx - rx)} ${n(cy)}A${n(rx)} ${n(ry * 1.25)} 0 0 0 ${n(cx + rx)} ${n(cy)}A${n(rx * 0.96)} ${n(ry * 0.7)} 0 0 1 ${n(cx - rx)} ${n(cy)}Z`;
+  // Seen at the sitter's eye level: the front of the brim is a solid band
+  // whose underside hides the brow, not a hoop seen from above.
+  const brimFront = `M${n(cx - rx)} ${n(cy)}A${n(rx)} ${n(ry * 1.15)} 0 0 0 ${n(cx + rx)} ${n(cy)}A${n(rx * 0.97)} ${n(ry * 0.32)} 0 0 1 ${n(cx - rx)} ${n(cy)}Z`;
   const g = `transform="rotate(${tilt} ${n(cx)} ${n(cy)})"`;
   let out = `<g ${g} filter="url(#brush)">`;
   out += fillShape(brimBack, shade(o.color, 0.15), "felt");
