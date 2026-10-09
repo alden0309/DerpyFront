@@ -50,6 +50,7 @@ import {
   npcSkill,
   officesOf,
   opinionOf,
+  paceOf,
   placesIn,
   skillLevel,
   tradeRates,
@@ -69,6 +70,7 @@ import {
   FRAME_COLORS,
   INDENTURE_YEARS,
   JOBS,
+  KIT,
   LIFE_MAX_AGE,
   LIFE_MAX_TRAITS,
   LIFE_MIN_AGE,
@@ -92,6 +94,7 @@ import {
   TINCTURES,
 } from "./LifeRules";
 import { isWinter } from "./Map";
+import { cashVenture, moneyMonthly, sellKit } from "./Money";
 import { LETTER_KEYS, letterWriter } from "./MoreEvents";
 import {
   buyHouse,
@@ -524,7 +527,16 @@ export function travelTo(
   }
   const native = lifeIsNative(s, life);
   const sailor = life.job?.kind === "sailor";
-  const route = travelRoute(s, g.map, from, to, bySea, native, sailor);
+  const route = travelRoute(
+    s,
+    g.map,
+    from,
+    to,
+    bySea,
+    native,
+    sailor,
+    paceOf(s, life),
+  );
   if (!route) return "There's no way there from here.";
   if (life.purse < route.cost)
     return `The journey costs ${route.cost} coins; you have ${Math.floor(life.purse)}.`;
@@ -568,7 +580,10 @@ function hop(g: ConquestGame, life: Life): void {
     if (next !== life.home && g.rng.chance(0.15)) addRenown(g, life, 0.5);
     return;
   }
-  const days = Math.max(1, hopDaysFor(g.map, next, t.path[0], t.sea[0]));
+  const days = Math.max(
+    1,
+    hopDaysFor(g.map, next, t.path[0], t.sea[0], paceOf(s, life)),
+  );
   t.depart = s.day;
   t.arrive = s.day + days;
 }
@@ -720,6 +735,7 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
     gainXp(g, life, "persuasion", 2);
   }
   propertyMonthly(g, life);
+  moneyMonthly(g, life);
   tiesMonthly(g, life, me);
   ambitionsMonthly(g, life);
   // Body and mind.
@@ -1516,6 +1532,10 @@ function propertyCommand(
       return dismissHand(g, life, c.c ?? -1);
     case "endow":
       return endow(g, life, c.what ?? "");
+    case "cash":
+      return cashVenture(g, life, c.id ?? -1);
+    case "unkit":
+      return c.kit && c.kit in KIT ? sellKit(g, life, c.kit) : "Unknown.";
     default:
       return "Unknown.";
   }

@@ -29,15 +29,19 @@ import {
 } from "./LifeQueries";
 import {
   BUSINESS_HANDS,
+  BUSINESS_UPKEEP,
   ENDOWMENTS,
+  EXCISE,
   EXPAND_COST,
   HAND_TAKINGS,
   HAND_WAGE,
-  HOUSES,
+  HOUSE_RATES,
   HouseDef,
+  HOUSES,
   JOBS,
   LAND_LOT,
   LODGES,
+  SHIP_UPKEEP_MULT,
   WORK_DAYS,
 } from "./LifeRules";
 import { ageOf, charName } from "./Queries";
@@ -444,7 +448,20 @@ export function endow(
 
 // ---------------------------------------------------------------- the months
 
-/** A month of property: upkeep, rents, wages and takings, a good roof. */
+/** Rates on a house a month (colonists' towns levy them; villages don't). */
+export function houseRates(s: GameState, life: Life, pr: Property): number {
+  return lifeIsNative(s, life) ? 0 : (HOUSE_RATES[pr.level - 1] ?? 0);
+}
+
+/** A business's upkeep a month: repairs, rent of the yard, a ship's caulking. */
+export function businessUpkeep(pr: Property): number {
+  return (
+    (BUSINESS_UPKEEP[pr.level] ?? 0) *
+    (pr.job === "sailor" ? SHIP_UPKEEP_MULT : 1)
+  );
+}
+
+/** A month of property: upkeep, rates, rents, wages, takings and duties. */
 export function propertyBudget(s: GameState, life: Life): Breakdown {
   const e = new Explain();
   const native = lifeIsNative(s, life);
@@ -452,18 +469,23 @@ export function propertyBudget(s: GameState, life: Life): Breakdown {
     if (pr.kind === "house") {
       const def = houseDefs(native)[pr.level - 1];
       if (def) e.add(`Upkeep: ${def.name.toLowerCase()}`, -def.upkeep);
+      const rates = houseRates(s, life, pr);
+      if (rates) e.add(`Rates: ${pr.name.toLowerCase()}`, -rates);
     } else if (pr.kind === "land") {
-      e.add(
-        `Rents: ${pr.level * 10} acres`,
-        pr.level * (LAND_LOT.rent - LAND_LOT.upkeep),
-      );
-    } else if (pr.hands.length) {
+      e.add(`Rents: ${pr.level * 10} acres`, pr.level * LAND_LOT.rent);
+      e.add("Quitrents", -pr.level * LAND_LOT.upkeep);
+    } else {
+      const up = businessUpkeep(pr);
+      if (up) e.add(`Upkeep: ${pr.name}`, -up);
+      if (!pr.hands.length) continue;
       const paid = pr.hands.filter(
         (h) => !s.lives.some((l) => l.c === h),
       ).length;
       if (paid)
         e.add(`Wages: ${paid} hand${paid === 1 ? "" : "s"}`, -paid * HAND_WAGE);
-      e.add(`Takings: ${pr.name}`, takings(s, life, pr));
+      const take = takings(s, life, pr);
+      e.add(`Takings: ${pr.name}`, take);
+      if (!native && take > 0) e.add("Excise and duties", -take * EXCISE);
     }
   }
   return e.done(1);
@@ -512,23 +534,30 @@ export function propertyMonthly(g: ConquestGame, life: Life): void {
       spend(g, life, HAND_WAGE);
     }
     const take = takings(s, life, pr);
-    if (take > 0) earn(g, life, take);
+    if (take > 0) {
+      earn(g, life, take);
+      if (!native) spend(g, life, Math.round(take * EXCISE * 100) / 100);
+    }
+    spend(g, life, businessUpkeep(pr));
   }
   for (const pr of list) {
     if (pr.kind === "house") {
       const def = houseDefs(native)[pr.level - 1];
       if (!def) continue;
-      spend(g, life, def.upkeep);
+      spend(g, life, def.upkeep + houseRates(s, life, pr));
       if (pr.prov === life.home) {
         if (def.renown) addRenown(g, life, def.renown);
         if (def.stress) addStress(g, life, def.stress);
         if (def.health) heal(g, life, def.health);
       }
     } else if (pr.kind === "land") {
+      // Good harvests and bad: the tenants pay what they can.
+      const year = 0.6 + g.rng.next() * 0.8;
       earn(
         g,
         life,
-        Math.round(pr.level * (LAND_LOT.rent - LAND_LOT.upkeep) * 100) / 100,
+        Math.round(pr.level * (LAND_LOT.rent * year - LAND_LOT.upkeep) * 100) /
+          100,
       );
     }
   }

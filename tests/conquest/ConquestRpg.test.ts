@@ -766,9 +766,10 @@ describe("risings", () => {
     expect(
       heardHere(g.s, g.map, a.prov).some((r) => /risen in arms/.test(r.text)),
     ).toBe(true);
-    // She takes up a musket.
+    // Unanswered, she'd keep her head down; she takes up a musket.
+    expect(call.choices[0].label).toMatch(/keep your head down/);
     expect(
-      g.lifeCommand("s2", { k: "event", id: call.id, choice: 0 }),
+      g.lifeCommand("s2", { k: "event", id: call.id, choice: 1 }),
     ).toBeNull();
     expect(m.members).toContain(b.c);
   });

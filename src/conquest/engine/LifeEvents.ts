@@ -34,7 +34,9 @@ import {
   lifeIsNative,
   meOf,
   opinionOf,
+  portionOf,
   skillLevel,
+  stationOf,
 } from "./LifeQueries";
 import { checkChance, SKILL_NAMES } from "./LifeRules";
 import { isHurricaneSeason, isWinter } from "./Map";
@@ -50,6 +52,20 @@ import type {
 } from "./Types";
 
 export type LCtx = Record<string, number>;
+
+/** A child of yours marries the match their family brought. */
+function wedChild(g: ConquestGame, life: Life, ctx: LCtx): Character {
+  const c = g.char(ctx.c);
+  const m = g.char(ctx.m);
+  c.spouse = m.id;
+  m.spouse = c.id;
+  if (!c.female && c.religion !== "native") m.family = c.family;
+  else if (c.religion !== "native") c.family = m.family;
+  m.home = c.home = c.home ?? life.home;
+  say(g, life, `${c.first} married ${charName(m)}. You danced, badly.`, "good");
+  milestone(g, life, "married", `${c.first} married ${charName(m)}`);
+  return c;
+}
 
 export interface LifeChoice {
   label: string | ((g: ConquestGame, life: Life, ctx: LCtx) => string);
@@ -1065,6 +1081,7 @@ const BASE_EVENTS: LifeEventDef[] = [
   },
   {
     key: "child-match",
+    // (the wedding itself: wedChild, below)
     pool: "any",
     cooldown: 900,
     when: (g, life) => {
@@ -1092,25 +1109,41 @@ const BASE_EVENTS: LifeEventDef[] = [
     },
     choices: [
       {
-        label: "Give your blessing",
-        tip: "A wedding (2 coins); grandchildren in time.",
-        blocked: (g, life) => poor(life, 2),
+        label: (g, life) =>
+          `Give your blessing, and a portion of ${portionOf(g.s, life)}`,
+        tip: "A wedding, and a marriage portion fit for your station: your child (and their new family) will think the better of you, and so will the town.",
+        blocked: (g, life) => poor(life, portionOf(g.s, life)),
         apply: (g, life, ctx) => {
-          spend(g, life, 2);
-          const c = g.char(ctx.c);
-          const m = g.char(ctx.m);
-          c.spouse = m.id;
-          m.spouse = c.id;
-          if (!c.female && c.religion !== "native") m.family = c.family;
-          else if (c.religion !== "native") c.family = m.family;
-          m.home = c.home = c.home ?? life.home;
+          const portion = portionOf(g.s, life);
+          spend(g, life, portion);
+          const c = wedChild(g, life, ctx);
+          remembers(g, life, c, "A generous portion", 15, 5);
+          addRenown(g, life, 1 + stationOf(g.s, life).level);
           say(
             g,
             life,
-            `${c.first} married ${charName(m)}. You danced, badly.`,
+            `${c.first} goes to the altar with ${portion} coins of portion, and everyone remarks on it.`,
             "good",
           );
-          milestone(g, life, "married", `${c.first} married ${charName(m)}`);
+        },
+      },
+      {
+        label: "Give your blessing, but no portion",
+        tip: "A wedding (2 coins). People of standing are expected to do better by their children.",
+        blocked: (g, life) => poor(life, 2),
+        apply: (g, life, ctx) => {
+          spend(g, life, 2);
+          const c = wedChild(g, life, ctx);
+          if (stationOf(g.s, life).level >= 2) {
+            addRenown(g, life, -3);
+            remembers(g, life, c, "Sent off with nothing", -10, 3);
+            say(
+              g,
+              life,
+              `${c.first} comes to the altar with nothing, people say, and they say it often.`,
+              "bad",
+            );
+          }
         },
       },
       {
@@ -2466,6 +2499,12 @@ const BASE_EVENTS: LifeEventDef[] = [
     },
     choices: [
       {
+        // Unanswered, nothing changes.
+        label: "Keep your head down",
+        tip: "Nothing changes.",
+        apply: () => {},
+      },
+      {
         label: "Take the shilling",
         tip: "Enlist as a soldier (or warrior) if there's a fort here.",
         apply: (g, life) => {
@@ -2480,11 +2519,6 @@ const BASE_EVENTS: LifeEventDef[] = [
         tip: "+favor and renown.",
         blocked: (g, life) => poor(life, 3),
         apply: (g, life) => fx(g, life, { coins: -3, favor: 3, renown: 1 }),
-      },
-      {
-        label: "Keep your head down",
-        tip: "Nothing changes.",
-        apply: () => {},
       },
     ],
   },
