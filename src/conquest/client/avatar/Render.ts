@@ -34,6 +34,8 @@ export interface PaintOpts {
   seed?: number;
   /** A colour to warm the ground toward (the nation's), lightly. */
   tint?: string;
+  /** No painted ground or varnish: the sitter alone, to stand in a scene. */
+  bare?: boolean;
 }
 
 const GROUNDS = [
@@ -114,7 +116,7 @@ export function paintPortrait(look: Appearance, o: PaintOpts): string {
   const head = `transform="translate(${n(dx)} 0) rotate(${n(tilt)} ${n(px)} ${n(py)}) translate(${n(px)} ${n(py)}) scale(${Math.round(k * 1000) / 1000}) translate(${n(-px)} ${n(-py)})"`;
   const layers = [
     defs(detail, seed),
-    ground(bg),
+    o.bare ? "" : ground(bg),
     `<g ${head}>${paintHairBack(h, s, sk)}</g>`,
     body.under,
     paintNeck(h, s, sk),
@@ -123,7 +125,7 @@ export function paintPortrait(look: Appearance, o: PaintOpts): string {
     `<g ${head}>${paintEar(h, s, sk)}${paintFace(h, s, sk)}${paintBeard(h, s, sk)}${paintHairFront(h, s, sk)}</g>`,
     body.top,
     `<g ${head}>${paintHat(h, s)}${paintExtras(h, s, sk, "head")}</g>`,
-    varnish(),
+    o.bare ? "" : varnish(),
   ];
   const flip = o.facing === "left" ? ` transform="matrix(-1 0 0 1 240 0)"` : "";
   const dead = o.dead
@@ -139,7 +141,7 @@ const CACHE_MAX = 400;
 
 /** A portrait as a URL an <img> or a canvas can draw, painted once. */
 export function portraitUrl(look: Appearance, o: PaintOpts): string {
-  const key = `${JSON.stringify(look)}|${o.female ? 1 : 0}|${Math.floor(o.age)}|${o.year}|${o.culture}|${o.native ? 1 : 0}|${o.expression ?? ""}|${o.facing ?? ""}|${o.dead ? 1 : 0}|${o.detail ?? ""}|${o.seed ?? 1}|${o.tint ?? ""}`;
+  const key = `${JSON.stringify(look)}|${o.female ? 1 : 0}|${Math.floor(o.age)}|${o.year}|${o.culture}|${o.native ? 1 : 0}|${o.expression ?? ""}|${o.facing ?? ""}|${o.dead ? 1 : 0}|${o.detail ?? ""}|${o.seed ?? 1}|${o.tint ?? ""}|${o.bare ? 1 : 0}`;
   const hit = cache.get(key);
   if (hit) {
     // Most recently used last.

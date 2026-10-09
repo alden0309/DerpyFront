@@ -814,7 +814,7 @@ function paintMouth(h: Head, s: Sitting, sk: SkinPalette): string {
     (1 - h.old * 0.25) *
     (1 - h.expr.tight * 0.3);
   const bow = L.mouth === 4 ? 1.4 : L.mouth === 0 ? 0.5 : 0.9;
-  const curl = -h.expr.mouth * 2.4;
+  const curl = -h.expr.mouth * 3.2;
   const nX = mx - W * 0.56;
   const fX = mx + W * 0.4;
   const cY = my + curl * 0.5;

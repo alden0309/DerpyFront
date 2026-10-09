@@ -22,6 +22,8 @@ export interface PortraitOpts {
   facing?: "left" | "right";
   expression?: Expression;
   size?: PortraitSize;
+  /** The sitter alone, without the painted ground (for standing in a scene). */
+  bare?: boolean;
 }
 
 /** Small portraits leave out the finer brushwork. */
@@ -48,6 +50,7 @@ export function likenessOf(
     detail: detailFor(o, cls),
     seed: c.id,
     tint: o.color,
+    bare: o.bare,
   });
 }
 
