@@ -90,11 +90,11 @@ export const CREDITS: Credit[] = [
   // ===== r9 gameplay (Agent G): the paintings behind scenes, cropped and toned =====
   {
     what: "Picture",
-    title: "Customers Conversing in a Tavern (1671): the tavern",
-    author: "Adriaen van Ostade (photograph by Hiart)",
-    license: "Public domain (photograph CC0)",
+    title: "Tavern Scene with a Smoker Holding a Crock (c.1650): the tavern",
+    author: "David Teniers the Younger",
+    license: "Public domain",
     source:
-      "https://commons.wikimedia.org/wiki/File:Customers_Conversing_in_a_Tavern_by_Adriaen_van_Ostade,_1671,_oil_on_panel.jpg",
+      "https://commons.wikimedia.org/wiki/File:David_Teniers_the_Younger_-_Tavern_scene_with_a_smoker_holding_a_crock.jpg",
   },
   {
     what: "Picture",
@@ -114,11 +114,10 @@ export const CREDITS: Credit[] = [
   },
   {
     what: "Picture",
-    title: "The Harbour of Amsterdam (1697): the docks",
-    author: "Ludolf Backhuysen",
+    title: "The Port of Marseille (1754): the docks",
+    author: "Claude-Joseph Vernet",
     license: "Public domain",
-    source:
-      "https://commons.wikimedia.org/wiki/File:Ludolf_Backhuysen_-_Der_Seehafen_von_Amsterdam_-_1041_-_Bavarian_State_Painting_Collections.jpg",
+    source: "https://commons.wikimedia.org/wiki/File:Vernet-marseille-1754.jpg",
   },
   {
     what: "Picture",
@@ -146,26 +145,27 @@ export const CREDITS: Credit[] = [
   },
   {
     what: "Picture",
-    title: "The House of Commons in Session (c.1709): the assembly",
-    author: "Peter Tillemans",
+    title: "The House of Commons, 1793-94: the assembly",
+    author: "Karl Anton Hickel",
     license: "Public domain",
-    source: "https://commons.wikimedia.org/wiki/File:Commons_In_Session.jpg",
+    source:
+      "https://commons.wikimedia.org/wiki/File:The_House_of_Commons_1793-94_by_Karl_Anton_Hickel.jpg",
   },
   {
     what: "Picture",
-    title: "The Treaty of Penn with the Indians (1771-72): the council fire",
+    title: "Penn's Treaty with the Indians (1771-72): the council fire",
     author: "Benjamin West",
     license: "Public domain",
-    source:
-      "https://commons.wikimedia.org/wiki/File:Benjamin_West_-_The_Treaty_of_Penn_with_the_Indians_-_WGA25555.jpg",
+    source: "https://commons.wikimedia.org/wiki/File:Benjamin_West_003.jpg",
   },
   {
     what: "Picture",
-    title: "The town of Secoton (c.1585): the village",
-    author: "John White (watercolour)",
+    title:
+      "Encampment among the Islands of Lake Huron (c.1845-50), an Ojibwa camp on Georgian Bay: the village",
+    author: "Paul Kane (photograph of the painting, Royal Ontario Museum)",
     license: "Public domain",
     source:
-      "https://commons.wikimedia.org/wiki/File:John_White_-_The_town_of_Secoton,_1906,0509.1.7.jpg",
+      "https://commons.wikimedia.org/wiki/File:Paul_Kane-RiverScene-ROM.jpg",
   },
   {
     what: "Picture",
@@ -219,8 +219,7 @@ export const CREDITS: Credit[] = [
     title: "The Apothecary (c.1752): the apothecary",
     author: "Pietro Longhi",
     license: "Public domain",
-    source:
-      "https://commons.wikimedia.org/wiki/File:Pietro_Longhi_-_The_Apothecary_-_WGA13411.jpg",
+    source: "https://commons.wikimedia.org/wiki/File:Pietro_Longhi_012.jpg",
   },
   {
     what: "Picture",

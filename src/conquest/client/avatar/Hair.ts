@@ -142,25 +142,46 @@ function edgePoints(pts: Pt[], count: number, br: Brush): Pt[] {
   return out;
 }
 
-/** A painted mass of hair. */
+/** The tones of a head of hair: its shadow, body, light and shine. */
+function tones(color: string) {
+  const L = lum(color);
+  const pale = L > 0.6;
+  // Dark hair shines a warm brown, not grey: its lights stay near its own
+  // colour; fair hair and powder go nearly white.
+  return {
+    deep: shade(color, pale ? 0.62 : 0.72),
+    dark: shade(color, pale ? 0.4 : 0.45),
+    mid: color,
+    lit: mix(color, "#e8c89a", 0.12 + L * 0.35),
+    shine: mix(color, "#f6e6c8", 0.22 + L * 0.45),
+  };
+}
+
+/**
+ * A painted mass of hair: laid in dark, the locks brushed over it in the
+ * hair's own colour, then the light along the strands where it falls on
+ * the head (upper left), and a few dark partings between the locks.
+ */
 function mass(pts: Pt[], color: string, s: Sitting, o: MassOpts = {}): string {
   const id = `hm${uid++}`;
   const br = new Brush(s.seed * 13 + uid * 7);
   const d = smooth(pts, true, 0.45);
   const [x0, y0, x1, y1] = bbox(pts);
-  const lit = light(color, lum(color) > 0.6 ? 0.25 : 0.32);
-  const dark = shade(color, lum(color) > 0.6 ? 0.42 : 0.55);
+  const T = tones(color);
   const sx = o.sheen?.[0] ?? x0 + (x1 - x0) * 0.35;
   const sy = o.sheen?.[1] ?? y0 + (y1 - y0) * 0.25;
+  const R = Math.max(x1 - x0, y1 - y0);
   const full = s.detail === "full";
   const parts: string[] = [];
   parts.push(`<defs><clipPath id="${id}c">${path(d, "")}</clipPath>
-<radialGradient id="${id}g" gradientUnits="userSpaceOnUse" cx="${n(sx)}" cy="${n(sy)}" r="${n(Math.max(x1 - x0, y1 - y0) * 0.85)}">
-<stop offset="0" stop-color="${mix(color, lit, 0.5)}"/><stop offset="0.4" stop-color="${color}"/><stop offset="1" stop-color="${dark}"/></radialGradient></defs>`);
-  parts.push(path(d, `fill="url(#${id}g)"`));
+<radialGradient id="${id}g" gradientUnits="userSpaceOnUse" cx="${n(sx)}" cy="${n(sy)}" r="${n(R * 0.8)}">
+<stop offset="0" stop-color="${mix(T.mid, T.lit, 0.45)}"/><stop offset="0.25" stop-color="${T.mid}"/><stop offset="0.6" stop-color="${T.dark}"/><stop offset="1" stop-color="${T.deep}"/></radialGradient></defs>`);
+  // Laid in with a soft edge, so it doesn't sit on the head like a cap.
+  parts.push(`<g filter="url(#soft06)">${path(d, `fill="url(#${id}g)"`)}</g>`);
+  const locks: string[] = [];
   const inner: string[] = [];
   // Strands, side by side from one line to another (or out from a point).
-  const count = Math.round((o.strands ?? 36) * (full ? 1.25 : 0.4));
+  const count = Math.round((o.strands ?? 36) * (full ? 1.3 : 0.45));
   if (count > 0) {
     const from = o.from ?? [[sx, y0 + 2]];
     const f0 = from[0];
@@ -197,12 +218,37 @@ function mass(pts: Pt[], color: string, s: Sitting, o: MassOpts = {}): string {
         mx + ((b[1] - a[1]) / len) * bend,
         my - ((b[0] - a[0]) / len) * bend,
       ];
-      const tone = br.next() < 0.5 ? lit : dark;
-      const alpha = br.range(0.12, 0.32);
+      const dq = `M${n(a[0])} ${n(a[1])}Q${n(c[0])} ${n(c[1])} ${n(b[0])} ${n(b[1])}`;
+      // How near the light this strand passes.
+      const near = Math.max(
+        0,
+        1 - Math.hypot(c[0] - sx, c[1] - sy) / (R * 0.55),
+      );
+      const w = o.w ?? 1;
+      if (i % 2 === 0) {
+        // A lock: a broad band of the hair's body catching the light, or a
+        // dark parting between locks.
+        const litLock = br.next() < 0.5 + near * 0.3;
+        locks.push(
+          path(
+            dq,
+            `fill="none" stroke="${litLock ? mix(T.mid, T.lit, 0.2 + near * 0.6) : T.deep}" stroke-width="${n(w * br.range(2.5, 5))}" stroke-linecap="round" opacity="${op(litLock ? 0.35 + near * 0.35 : 0.45)}"`,
+          ),
+        );
+      }
+      const r = br.next();
+      // Fine strands are lost in a small portrait.
+      if (!full) continue;
+      const tone =
+        r < 0.28 ? T.deep : near > 0.25 ? (r < 0.6 ? T.shine : T.lit) : T.lit;
+      const alpha =
+        tone === T.deep
+          ? br.range(0.25, 0.45)
+          : br.range(0.12, 0.25) + near * 0.5;
       inner.push(
         path(
-          `M${n(a[0])} ${n(a[1])}Q${n(c[0])} ${n(c[1])} ${n(b[0])} ${n(b[1])}`,
-          `fill="none" stroke="${tone}" stroke-width="${n((o.w ?? 1) * br.range(0.5, 1.1))}" opacity="${op(alpha)}"`,
+          dq,
+          `fill="none" stroke="${tone}" stroke-width="${n(w * br.range(0.5, 1.1))}" stroke-linecap="round" opacity="${op(alpha)}"`,
         ),
       );
     }
@@ -217,25 +263,32 @@ function mass(pts: Pt[], color: string, s: Sitting, o: MassOpts = {}): string {
     inner.push(
       path(
         `M${n(p[0] - r)} ${n(p[1])}a${n(r)} ${n(r * 0.9)} 0 1 1 ${n(r * 2)} 0`,
-        `fill="none" stroke="${lit}" stroke-width="${n(br.range(0.9, 1.6))}" opacity="${op(br.range(0.35, 0.65))}"`,
+        `fill="none" stroke="${T.lit}" stroke-width="${n(br.range(0.9, 1.6))}" opacity="${op(br.range(0.35, 0.65))}"`,
       ),
     );
     inner.push(
       path(
         `M${n(p[0] - r * 0.9)} ${n(p[1] + 0.8)}a${n(r * 0.9)} ${n(r * 0.8)} 0 0 0 ${n(r * 1.8)} 0`,
-        `fill="none" stroke="${dark}" stroke-width="${n(br.range(0.9, 1.5))}" opacity="${op(br.range(0.35, 0.6))}"`,
+        `fill="none" stroke="${T.deep}" stroke-width="${n(br.range(0.9, 1.5))}" opacity="${op(br.range(0.35, 0.6))}"`,
       ),
     );
   }
-  // The sheen.
+  // The shine where the light falls.
+  const sr = o.sheenR ?? (x1 - x0) * 0.22;
   inner.push(
-    `<g filter="url(#soft4)">${ell(sx, sy, o.sheenR ?? (x1 - x0) * 0.22, (o.sheenR ?? (x1 - x0) * 0.22) * 0.7, `fill="${lit}" opacity="0.45"`)}</g>`,
+    `<g filter="url(#soft4)">${ell(sx, sy, sr, sr * 0.6, `fill="${T.lit}" opacity="0.4"`, -20)}</g>`,
   );
-  parts.push(`<g clip-path="url(#${id}c)">${inner.join("")}</g>`);
+  parts.push(
+    `<g clip-path="url(#${id}c)"><g filter="url(#soft1)">${locks.join("")}</g>${inner.join("")}</g>`,
+  );
   return `<g filter="url(#brushHair)">${parts.join("")}</g>`;
 }
 
-/** A mass of curls: soft round locks, each lit from above. */
+/**
+ * A mass of curls, as a wig was painted: ringlets hanging side by side,
+ * dark in the gaps between them, each turn of a ringlet lit on its upper
+ * side, brighter toward the light.
+ */
 function curly(
   pts: Pt[],
   color: string,
@@ -247,51 +300,94 @@ function curly(
   const d = smooth(pts, true, 0.45);
   const [x0, y0, x1, y1] = bbox(pts);
   const r0 = o.r ?? 6;
-  const lit = light(color, lum(color) > 0.6 ? 0.3 : 0.38);
-  const dark = shade(color, lum(color) > 0.6 ? 0.45 : 0.6);
-  // Curls hang in locks: columns of round curls, a little out of line.
-  const blobs: Pt[] = [];
-  const col = r0 * 1.55;
-  for (let x = x0 + col * 0.5; x < x1; x += col) {
-    const shift = br.range(0, r0 * 1.2);
-    for (let y = y0 + shift; y < y1; y += r0 * 1.25) {
-      const p: Pt = [x + br.range(-r0 * 0.3, r0 * 0.3), y + br.range(-1, 1)];
-      if (inside(p, pts)) blobs.push(p);
-    }
-  }
-  blobs.sort((a, b) => a[1] - b[1]);
-  const parts: string[] = [
-    `<defs><clipPath id="${id}c">${path(d, "")}</clipPath>
-<radialGradient id="${id}g" cx="0.36" cy="0.3" r="0.75"><stop offset="0" stop-color="${lit}"/><stop offset="0.5" stop-color="${color}"/><stop offset="1" stop-color="${dark}"/></radialGradient></defs>`,
-    path(d, `fill="${shade(color, 0.3)}"`),
-  ];
-  const inner: string[] = [];
-  for (const [x, y] of blobs) {
-    const r = r0 * br.range(0.75, 1.2);
-    inner.push(
-      ell(
-        x,
-        y,
-        r,
-        r * br.range(0.8, 1.05),
-        `fill="url(#${id}g)"`,
-        br.range(-30, 30),
-      ),
-    );
-    if (br.next() < 0.5)
-      inner.push(
-        path(
-          `M${n(x - r * 0.6)} ${n(y + r * 0.1)}a${n(r * 0.6)} ${n(r * 0.5)} 0 0 0 ${n(r * 1.2)} 0`,
-          `fill="none" stroke="${dark}" stroke-width="0.9" opacity="0.6"`,
-        ),
-      );
-  }
+  const T = tones(color);
   const sx = o.sheen?.[0] ?? x0 + (x1 - x0) * 0.35;
   const sy = o.sheen?.[1] ?? y0 + (y1 - y0) * 0.2;
-  inner.push(
-    `<g filter="url(#soft4)">${ell(sx, sy, (x1 - x0) * 0.25, (y1 - y0) * 0.12, `fill="${lit}" opacity="0.3"`)}</g>`,
+  const R = Math.max(x1 - x0, y1 - y0);
+  const full = s.detail === "full";
+  const grad = (k: string, hi: string, mid: string, lo: string) =>
+    `<radialGradient id="${id}${k}" cx="0.4" cy="0.3" r="0.75"><stop offset="0" stop-color="${hi}"/><stop offset="0.55" stop-color="${mid}"/><stop offset="1" stop-color="${lo}"/></radialGradient>`;
+  const parts: string[] = [
+    `<defs><clipPath id="${id}c">${path(d, "")}</clipPath>
+${grad("a", T.shine, T.lit, T.dark)}${grad("b", T.lit, T.mid, T.deep)}${grad("c", T.mid, T.dark, T.deep)}</defs>`,
+    `<g filter="url(#soft1)">${path(d, `fill="${T.dark}"`)}</g>`,
+  ];
+  const locks: string[] = [];
+  const lines: string[] = [];
+  // Ringlets: ropes of hair hanging side by side, each wound in a spiral
+  // whose turns catch the light; dark in the gaps between them.
+  const col = r0 * 1.05;
+  let ci = 0;
+  for (
+    let x = x0 + col * 0.3;
+    x < x1 + col * 0.3;
+    x += col * br.range(0.85, 1.15), ci++
+  ) {
+    const sway = br.range(-0.25, 0.25);
+    const phase = br.range(0, 6);
+    // A column may be cut in two by the face: each run inside is a rope.
+    const ropes: Pt[][] = [[]];
+    for (let y = y0 - r0; y < y1 + r0; y += r0 * 0.5) {
+      const k = (y - y0) / r0;
+      const p: Pt = [
+        x + Math.sin(k * 0.9 + phase) * r0 * 0.2 + sway * k * 2,
+        y,
+      ];
+      if (inside(p, pts)) ropes[ropes.length - 1].push(p);
+      else if (ropes[ropes.length - 1].length) ropes.push([]);
+    }
+    for (const rope of ropes) {
+      if (rope.length < 2) continue;
+      const w = r0 * br.range(1.0, 1.3);
+      // In short lengths, each lit by how near it hangs to the light.
+      for (let a = 0; a < rope.length - 1; a += 3) {
+        const seg = rope.slice(a, a + 5);
+        if (seg.length < 2) break;
+        const mid = seg[Math.floor(seg.length / 2)];
+        const near = Math.max(
+          0,
+          1 - Math.hypot(mid[0] - sx, mid[1] - sy) / (R * 0.75),
+        );
+        const g = near > 0.45 ? "a" : near > 0.15 ? "b" : "c";
+        locks.push(stroke(seg, w, `fill="url(#${id}${g})"`, [0.7, 0.7]));
+      }
+      // The turns of the spiral, down the rope, catching the light here and
+      // there.
+      const turnH = r0 * br.range(0.85, 1.15);
+      for (let t = 0; t < rope.length - 1; t++) {
+        const [ax, ay] = rope[t];
+        for (
+          let yy = ay;
+          yy < rope[t + 1][1];
+          yy += turnH * br.range(0.8, 1.2)
+        ) {
+          const nearT = Math.max(
+            0,
+            1 - Math.hypot(ax - sx, yy - sy) / (R * 0.75),
+          );
+          if ((!full && nearT < 0.25) || br.next() < 0.25) continue;
+          lines.push(
+            path(
+              `M${n(ax - w * 0.42)} ${n(yy + turnH * 0.25)}Q${n(ax - w * 0.05)} ${n(yy - turnH * 0.45)} ${n(ax + w * 0.42)} ${n(yy - turnH * 0.05)}`,
+              `fill="none" stroke="${nearT > 0.4 ? T.shine : T.lit}" stroke-width="${n(r0 * 0.15)}" stroke-linecap="round" opacity="${op(0.25 + nearT * 0.55)}"`,
+            ),
+          );
+          if (full)
+            lines.push(
+              path(
+                `M${n(ax - w * 0.45)} ${n(yy + turnH * 0.55)}Q${n(ax + w * 0.05)} ${n(yy + turnH * 0.2)} ${n(ax + w * 0.45)} ${n(yy + turnH * 0.45)}`,
+                `fill="none" stroke="${T.deep}" stroke-width="${n(r0 * 0.12)}" stroke-linecap="round" opacity="0.45"`,
+              ),
+            );
+        }
+      }
+    }
+  }
+  const turns = locks;
+  const shine = `<g filter="url(#soft4)">${ell(sx, sy, (x1 - x0) * 0.24, (y1 - y0) * 0.1, `fill="${T.lit}" opacity="0.28"`)}</g>`;
+  parts.push(
+    `<g clip-path="url(#${id}c)"><g filter="url(#soft06)">${turns.join("")}</g>${lines.join("")}${shine}</g>`,
   );
-  parts.push(`<g clip-path="url(#${id}c)">${inner.join("")}</g>`);
   return `<g filter="url(#brushHair)">${parts.join("")}</g>`;
 }
 
@@ -357,11 +453,11 @@ function marks(h: Head) {
     A,
     B,
     top,
-    Tn: [h.cx - A * 0.97, h.cy - B * 0.42] as Pt,
-    Hn: h.P(-0.62, -0.9),
-    Hc: h.P(0, -0.99),
-    Hf: h.P(0.6, -0.92),
-    Tf: h.P(0.97, -0.52),
+    Tn: [h.cx - A * 0.96, h.cy + B * (h.hairline + 0.5)] as Pt,
+    Hn: h.P(-0.62, h.hairline + 0.08),
+    Hc: h.P(0, h.hairline),
+    Hf: h.P(0.6, h.hairline + 0.06),
+    Tf: h.P(0.97, h.hairline + 0.42),
     Ae: [h.ear[0] + 4, h.ear[1] - h.earH * 0.52] as Pt,
     Be: [h.ear[0] - h.earH * 0.42, h.ear[1] + h.earH * 0.2] as Pt,
     Np: [h.neckN + 3, h.cy + B * 0.38] as Pt,
@@ -381,9 +477,11 @@ function arc(
 ): Pt[] {
   const out: Pt[] = [];
   const { cx, cy, rx, ry } = h.skull;
+  // Hair stands off the skull: a little more body than the bare thickness.
+  const body = t > 0 ? 2 + t * 0.3 : 0;
   for (let i = 0; i <= steps; i++) {
     const f = from + ((to - from) * i) / steps;
-    const e = t + extra(f);
+    const e = t + body + extra(f);
     out.push([cx + (rx + e) * Math.cos(f), cy + (ry + e) * Math.sin(f)]);
   }
   return out;
@@ -436,7 +534,7 @@ function hairline(h: Head, color: string, s: Sitting, count = 10): string {
     out.push(
       path(
         `M${n(x)} ${n(y - 3)}l${n(br.range(-1.5, 1.5))} ${n(br.range(2, 4))}`,
-        `stroke="${color}" stroke-width="0.8" opacity="0.5"`,
+        `stroke="${color}" stroke-width="0.7" opacity="0.28"`,
       ),
     );
   }
@@ -589,14 +687,16 @@ function style(h: Head, s: Sitting, sk: SkinPalette): Hair {
             [m.Tf[0] + 2, h.cy - B * 0.3],
           ]
         : [m.Tn, m.Hn, m.Hc, m.Hf, m.Tf];
+      const fall = key === "cavalier" ? 1 : 0.6;
       pts.push(
-        ...arc(h, 7, -0.25, -PI - 0.85),
-        [h.neckN - 12, low - 8],
-        [h.neckN + 2, low + 2],
-        [h.neckN + 16, low - 8],
-        [h.cx - A * 0.98, h.cy + B * 0.95],
-        [h.cx - A * 1.06, h.cy + B * 0.3],
-        [h.cx - A * 1.04, h.cy - B * 0.15],
+        ...arc(h, 7 + fall * 6, -0.25, -PI - 0.85),
+        [h.cx - A * (1.2 + fall * 0.15), h.cy + B * 0.5],
+        [h.cx - A * (1.2 + fall * 0.18), low - 12],
+        [h.neckN - 10, low + 2],
+        [h.neckN + 14 + fall * 8, low - 6],
+        [h.cx - A * 0.9, h.cy + B * 1.0],
+        [h.cx - A * 1.0, h.cy + B * 0.3],
+        [h.cx - A * 1.0, h.cy - B * 0.15],
       );
       return {
         back: farFall(low, 8, shade(c, 0.25), { wave }),
@@ -678,9 +778,9 @@ function style(h: Head, s: Sitting, sk: SkinPalette): Hair {
         [h.cx + A * 0.88, h.cy - B * 0.1],
       ];
       return {
-        back: curly(far, shade(c, 0.28), s, { r: 7 }),
+        back: curly(far, shade(c, 0.28), s, { r: 11 }),
         front: curly(pts, c, s, {
-          r: 7,
+          r: 11,
           sheen: [h.cx - A * 0.5, top + B * 0.2],
         }),
       };
@@ -726,14 +826,16 @@ function style(h: Head, s: Sitting, sk: SkinPalette): Hair {
         [h.cx + A * 1.08, h.cy - B * 0.02],
         [h.cx + A * 0.98, h.cy + B * 0.08],
       ];
+      // Thin hair: the scalp shows through it, and its edges are soft.
+      const thin = mix(c, sk.shadow, 0.25);
       return {
-        back: mass(farTuft, shade(c, 0.15), s, { strands: 6 }),
+        back: `<g filter="url(#soft2)" opacity="0.7">${mass(farTuft, shade(thin, 0.15), s, { strands: 6 })}</g>`,
         front:
-          mass(pts, c, s, {
+          `<g filter="url(#soft1)">${mass(pts, thin, s, {
             strands: 26,
             w: 0.8,
             from: [[m.Bk[0] + 10, h.skull.cy]],
-          }) +
+          })}</g>` +
           `<g filter="url(#soft4)">${ell(h.skull.cx + 4, top + h.b * 0.25, h.a * 0.45, h.b * 0.2, `fill="${sk.lit}" opacity="0.45"`)}</g>`,
       };
     }

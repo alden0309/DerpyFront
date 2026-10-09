@@ -9,11 +9,13 @@ import type { SkinPalette } from "./Face";
 import type { Head, Sitting } from "./Head";
 import {
   Brush,
+  curve,
   ell,
   light,
   lum,
   mix,
   n,
+  op,
   path,
   poly,
   type Pt,
@@ -108,7 +110,32 @@ function lowTorso(b: Body, low: number, wide: number): Pt[] {
   ];
 }
 
-/** A painted piece of cloth: gradient, folds and a sheen. */
+/** Silks and satins catch the light in sharp streaks; wool and hide don't. */
+const SILKS = new Set([
+  "satin",
+  "mantua",
+  "robe",
+  "justaucorps",
+  "doublet_lace",
+  "coat_stock",
+]);
+
+function silky(s: Sitting): boolean {
+  return (
+    SILKS.has(s.look.clothes) &&
+    (s.look.clothes === "satin" ||
+      s.look.clothes === "mantua" ||
+      s.look.clothes === "robe" ||
+      // Gentlemen's coats were silk or fine cloth by their station.
+      (s.seed + s.look.colors[0]) % 3 !== 0)
+  );
+}
+
+/**
+ * A painted piece of cloth: lit from the upper left and falling into shade,
+ * with folds (a dark trough beside a lit ridge) and, on silk, the hard
+ * bright streaks of a shining stuff.
+ */
 function cloth(
   pts: Pt[],
   c: string,
@@ -128,30 +155,112 @@ function cloth(
   const x1 = Math.max(...xs);
   const y0 = Math.min(...ys);
   const y1 = Math.max(...ys);
+  const silk = silky(s) || (o.shine ?? 0) >= 0.5;
+  const full = s.detail === "full";
+  const soft: string[] = [];
+  const sharp: string[] = [];
   const parts = [
-    `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${n(x0)}" y1="${n(y0)}" x2="${n(x1)}" y2="${n(y1 * 0.6 + y0 * 0.4)}">
-<stop offset="0" stop-color="${clight(c, 0.16)}"/><stop offset="0.4" stop-color="${c}"/><stop offset="1" stop-color="${cshade(c, 0.5)}"/></linearGradient>
+    `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${n(x0)}" y1="${n(y0)}" x2="${n(x1)}" y2="${n(y1 * 0.7 + y0 * 0.3)}">
+<stop offset="0" stop-color="${clight(c, silk ? 0.22 : 0.14)}"/><stop offset="0.35" stop-color="${c}"/><stop offset="0.75" stop-color="${cshade(c, 0.35)}"/><stop offset="1" stop-color="${cshade(c, 0.6)}"/></linearGradient>
 <clipPath id="${id}c">${path(d, "")}</clipPath></defs>`,
     path(d, `fill="url(#${id})"`),
   ];
-  const inner: string[] = [];
-  for (const f of o.folds ?? [])
-    inner.push(
-      path(
-        smooth(f, false),
-        `fill="none" stroke="${cshade(c, 0.55)}" stroke-width="5" opacity="0.5"`,
+  const folds = [...(o.folds ?? [])];
+  const big = y1 - y0 > 70 && x1 - x0 > 40;
+  // Big pieces hang in folds of their own, from the shoulder down, and the
+  // arm and shoulder nearest the light come forward out of the dark.
+  if (full && big) {
+    // Tapered: a fold starts as a crease and opens as it falls.
+    const br = new Brush(s.seed + gid * 5);
+    const k = o.folds?.length ? 2 : 3;
+    for (let i = 0; i < k; i++) {
+      const x =
+        x0 + (x1 - x0) * (0.14 + (i * 0.72) / (k - 1) + br.range(-0.06, 0.06));
+      const lean = br.range(-14, 6);
+      const ya = y0 + (y1 - y0) * br.range(0.15, 0.45);
+      const yb = Math.min(y1, ya + (y1 - y0) * br.range(0.35, 0.7));
+      const line = curve(
+        [x, ya],
+        [x + lean * 0.2 + br.range(-4, 4), (ya + yb) / 2],
+        [x + lean, yb],
+        6,
+      );
+      const w = br.range(5, 9);
+      soft.push(
+        stroke(
+          line,
+          w,
+          `fill="${cshade(c, 0.7)}" opacity="${silk ? 0.6 : 0.45}"`,
+          [0.1, 0.7],
+        ),
+      );
+      soft.push(
+        stroke(
+          line.map(([px, py]): Pt => [px - w * 0.75, py]),
+          w * 0.7,
+          `fill="${clight(c, silk ? 0.45 : 0.24)}" opacity="${silk ? 0.5 : 0.32}"`,
+          [0.1, 0.6],
+        ),
+      );
+    }
+  }
+  if (big) {
+    // The lit shoulder and upper arm: a broad soft light...
+    soft.push(
+      ell(
+        x0 + (x1 - x0) * 0.2,
+        y0 + (y1 - y0) * 0.25,
+        (x1 - x0) * 0.2,
+        (y1 - y0) * 0.24,
+        `fill="${clight(c, silk ? 0.3 : 0.2)}" opacity="${silk ? 0.42 : 0.3}"`,
+        -30,
       ),
     );
-  for (const f of o.sheen ?? [])
-    inner.push(
-      path(
-        smooth(f, false),
-        `fill="none" stroke="${clight(c, o.shine ?? 0.35)}" stroke-width="4" opacity="0.55"`,
+    // ...and the far side falling into shadow.
+    soft.push(
+      ell(
+        x1 - (x1 - x0) * 0.08,
+        y0 + (y1 - y0) * 0.65,
+        (x1 - x0) * 0.25,
+        (y1 - y0) * 0.6,
+        `fill="${cshade(c, 0.65)}" opacity="0.5"`,
       ),
     );
-  if (inner.length)
+  }
+  for (const f of folds) {
+    soft.push(
+      path(
+        smooth(f, false),
+        `fill="none" stroke="${cshade(c, 0.7)}" stroke-width="${silk ? 4.5 : 6.5}" opacity="${silk ? 0.8 : 0.7}"`,
+      ),
+    );
+    // The ridge beside the trough catches the light.
+    const ridge = f.map(([x, y]): Pt => [x - (silk ? 3.5 : 5), y]);
+    soft.push(
+      path(
+        smooth(ridge, false),
+        `fill="none" stroke="${clight(c, silk ? 0.5 : 0.3)}" stroke-width="${silk ? 3.5 : 4.5}" opacity="${silk ? 0.7 : 0.5}"`,
+      ),
+    );
+  }
+  for (const f of o.sheen ?? []) {
+    soft.push(
+      path(
+        smooth(f, false),
+        `fill="none" stroke="${clight(c, o.shine ?? (silk ? 0.5 : 0.3))}" stroke-width="${silk ? 5 : 4}" opacity="${silk ? 0.7 : 0.5}"`,
+      ),
+    );
+    if (silk)
+      sharp.push(
+        path(
+          smooth(f, false),
+          `fill="none" stroke="${clight(c, 0.65)}" stroke-width="1.4" opacity="0.5"`,
+        ),
+      );
+  }
+  if (soft.length || sharp.length)
     parts.push(
-      `<g clip-path="url(#${id}c)"><g filter="url(#soft3)">${inner.join("")}</g></g>`,
+      `<g clip-path="url(#${id}c)"><g filter="url(#soft${silk ? 2 : 3})">${soft.join("")}</g>${sharp.length ? `<g filter="url(#soft06)">${sharp.join("")}</g>` : ""}</g>`,
     );
   return `<g filter="url(#brush)">${parts.join("")}</g>`;
 }
@@ -162,39 +271,43 @@ function linen(
   s: Sitting,
   o: { lace?: boolean; tone?: string; sm?: number } = {},
 ): string {
-  const c = o.tone ?? "#eee8dc";
+  const c = o.tone ?? "#ece5d6";
   const id = `ln${gid++}`;
   const d = smooth(pts, true, o.sm ?? 0.25);
   const xs = pts.map((p) => p[0]);
   const ys = pts.map((p) => p[1]);
-  let lace = "";
-  if (o.lace) {
-    // Lace: a scalloped edge and the holes of the pattern.
-    const br = new Brush(s.seed + gid);
-    const holes: string[] = [];
-    for (let i = 0; i < 40; i++) {
-      const x =
-        Math.min(...xs) + br.next() * (Math.max(...xs) - Math.min(...xs));
-      const y =
-        Math.min(...ys) + br.next() * (Math.max(...ys) - Math.min(...ys));
-      holes.push(
-        ell(
-          x,
-          y,
-          br.range(0.6, 1.4),
-          br.range(0.6, 1.2),
-          `fill="#8a8f98" opacity="0.45"`,
+  const x0 = Math.min(...xs);
+  const x1 = Math.max(...xs);
+  const y0 = Math.min(...ys);
+  const y1 = Math.max(...ys);
+  const cool = mix(c, "#5d6878", 0.5);
+  const inner: string[] = [];
+  // Soft folds falling from the top edge.
+  if (s.detail === "full" && x1 - x0 > 14) {
+    const br = new Brush(s.seed + gid * 3);
+    const k = Math.max(2, Math.round((x1 - x0) / 9));
+    for (let i = 0; i < k; i++) {
+      const x = x0 + ((x1 - x0) * (i + 0.5)) / k + br.range(-2, 2);
+      inner.push(
+        path(
+          `M${n(x)} ${n(y0)}Q${n(x + br.range(-3, 3))} ${n((y0 + y1) / 2)} ${n(x + br.range(-5, 5))} ${n(y1 + 2)}`,
+          `fill="none" stroke="${cool}" stroke-width="${n(br.range(1.5, 3))}" opacity="${op(br.range(0.25, 0.45))}"`,
         ),
       );
     }
-    lace = `<g clip-path="url(#${id}c)">${holes.join("")}</g>`;
   }
-  return `<g filter="url(#brush)"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">
-<stop offset="0" stop-color="${mix(c, "#ffffff", 0.4)}"/><stop offset="0.5" stop-color="${c}"/><stop offset="1" stop-color="${mix(c, "#6a7484", 0.45)}"/></linearGradient>
+  let lace = "";
+  if (o.lace)
+    lace = `<rect x="${n(x0)}" y="${n(y0 + (y1 - y0) * 0.35)}" width="${n(x1 - x0)}" height="${n((y1 - y0) * 0.7)}" fill="url(#lacePat)" opacity="0.55"/>`;
+  return `<g filter="url(#brush)"><defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${n(x0)}" y1="${n(y0)}" x2="${n(x1)}" y2="${n(y1 + (x1 - x0) * 0.3)}">
+<stop offset="0" stop-color="${mix(c, "#fffdf6", 0.55)}"/><stop offset="0.45" stop-color="${c}"/><stop offset="1" stop-color="${cool}"/></linearGradient>
 <clipPath id="${id}c">${path(d, "")}</clipPath></defs>
-${path(d, `fill="url(#${id})"`)}${lace}
-${path(d, `fill="none" stroke="${mix(c, "#4a5262", 0.45)}" stroke-width="0.8" opacity="0.6"`)}</g>`;
+${path(d, `fill="url(#${id})"`)}<g clip-path="url(#${id}c)">${inner.length ? `<g filter="url(#soft1)">${inner.join("")}</g>` : ""}${lace}</g>
+${path(d, `fill="none" stroke="${mix(c, "#4a5262", 0.5)}" stroke-width="0.7" opacity="0.5"`)}</g>`;
 }
+
+/** The pattern of lace, worked in a little net of flowers. */
+export const LACE_PATTERN = `<pattern id="lacePat" width="7" height="7" patternUnits="userSpaceOnUse"><circle cx="3.5" cy="3.5" r="1.7" fill="none" stroke="#7c8390" stroke-width="0.55"/><circle cx="0" cy="0" r="0.8" fill="#8a909c"/><circle cx="7" cy="7" r="0.8" fill="#8a909c"/><path d="M0 3.5h1.6M5.4 3.5h1.6M3.5 0v1.6M3.5 5.4v1.6" stroke="#9aa0aa" stroke-width="0.4"/></pattern>`;
 
 /** Buttons down a line. */
 function buttons(a: Pt, b: Pt, count: number, c: string, r = 1.8): string {
@@ -465,7 +578,11 @@ function kerchief(
 
 function colors(s: Sitting): [string, string, string] {
   const c = s.look.colors;
-  const hex = (i: number) => CLOTH_COLORS[i]?.hex ?? CLOTH_COLORS[0].hex;
+  // Dyed stuffs sit deep under the varnish; linen and hide stay as they are.
+  const hex = (i: number) => {
+    const v = CLOTH_COLORS[i]?.hex ?? CLOTH_COLORS[0].hex;
+    return lum(v) > 0.72 ? v : shade(v, 0.14);
+  };
   return [hex(c[0]), hex(c[1]), hex(c[2])];
 }
 

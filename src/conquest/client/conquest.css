@@ -4128,6 +4128,12 @@ cq-colony-map {
   width: 11rem;
   height: 13.75rem;
 }
+/* The register's likeness is seen a little closer, so the face can be
+   judged part by part (r10). */
+.cq-look-picture.cq-portrait img {
+  transform: scale(1.16);
+  transform-origin: 50% 34%;
+}
 .cq-look-ages > button[disabled] {
   opacity: 0.4;
   cursor: default;
