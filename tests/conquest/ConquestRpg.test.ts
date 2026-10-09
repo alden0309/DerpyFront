@@ -13,7 +13,12 @@ import {
   interactionView,
 } from "../../src/conquest/engine/Interactions";
 import { actCheck, ACTS } from "../../src/conquest/engine/LifeActs";
-import { LIFE_EVENTS } from "../../src/conquest/engine/LifeEvents";
+import { setTie } from "../../src/conquest/engine/LifeCore";
+import {
+  answerLifeEvent,
+  LIFE_EVENTS,
+  raiseLifeEvent,
+} from "../../src/conquest/engine/LifeEvents";
 import {
   meOf,
   monthlyBudget,
@@ -27,8 +32,11 @@ import {
   LAND_LOT,
   WORK_DAYS,
 } from "../../src/conquest/engine/LifeRules";
+import { movementOf } from "../../src/conquest/engine/Movements";
 import { houseOf, landOf } from "../../src/conquest/engine/Property";
+import { ageOf } from "../../src/conquest/engine/Queries";
 import { heardHere, rumour } from "../../src/conquest/engine/Rumours";
+import { TALES } from "../../src/conquest/engine/Tales";
 import { spawnToward } from "../../src/conquest/engine/Travellers";
 import type { Character, Life } from "../../src/conquest/engine/Types";
 import { employersIn } from "../../src/conquest/engine/Work";
@@ -307,7 +315,7 @@ describe("interactions and scenes", () => {
   });
 
   test("events carry their scene and who's in it", () => {
-    expect(LIFE_EVENTS.length).toBeGreaterThanOrEqual(100);
+    expect(LIFE_EVENTS.length).toBeGreaterThanOrEqual(150);
     const g = world();
     const life = lifeOf(g);
     for (let i = 0; i < 400 && life.events.length === 0; i++) ticks(g, 1);
@@ -318,6 +326,77 @@ describe("interactions and scenes", () => {
       g.lifeCommand("s1", { k: "event", id: ev.id, choice: 0 }),
     ).toBeNull();
     expect(life.outcome?.kind).toBe("event");
+  });
+
+  test("every event is well-formed, and the new ones can be told and answered", () => {
+    expect(new Set(LIFE_EVENTS.map((e) => e.key)).size).toBe(
+      LIFE_EVENTS.length,
+    );
+    for (const def of LIFE_EVENTS)
+      expect(def.choices.length, def.key).toBeGreaterThan(0);
+    const told = new Set<string>();
+    const lives: NonNullable<Parameters<typeof plan>[0]>[] = [
+      {},
+      { background: "soldier", home: prov("Massachusetts Bay") },
+      { background: "trapper", female: true, first: "Hannah" },
+      { background: "sailor", home: prov("Massachusetts Bay") },
+      { background: "preacher", home: prov("Massachusetts Bay") },
+      { background: "physician", traits: ["educated"] },
+      { background: "gentry", age: 40 },
+      { background: "craftsman", home: prov("Massachusetts Bay") },
+      {
+        origin: "powhatan",
+        home: prov("Pamunkey"),
+        religion: "native",
+        background: "warrior",
+        first: "Opechan",
+        family: "of the Wolf clan",
+      },
+    ];
+    for (const p of lives) {
+      const g = world({
+        start: p.origin === "powhatan" ? undefined : 1650,
+        plans: [{ seat: "s1", name: "A", plan: plan(p) }],
+      });
+      const life = lifeOf(g);
+      // Give the life some of everything the tales hang on: a house, land,
+      // money, and a friend, a rival, a lover and a mentor in town.
+      life.purse = 200;
+      g.lifeCommand("s1", { k: "property", act: "house" });
+      g.lifeCommand("s1", { k: "property", act: "land" });
+      const town = peopleHere(g.s, life.prov, life).filter(
+        (c) => c.id !== life.c && !life.ties[c.id],
+      );
+      (["friend", "rival", "lover", "mentor"] as const).forEach((t, i) => {
+        if (town[i]) setTie(g, life, town[i].id, t);
+      });
+      const areas = areasOf(g.s, g.w, life.prov, life);
+      for (let m = 0; m < 14 && life.c >= 0; m++) {
+        ticks(g, 30);
+        life.purse = Math.max(life.purse, 40);
+        life.area = areas[m % areas.length];
+        for (const def of TALES) {
+          if (def.pool === "raised" || life.c < 0) continue;
+          const ctx = def.when ? def.when(g, life) : {};
+          if (!ctx) continue;
+          life.events = [];
+          raiseLifeEvent(g, life, def.key, ctx);
+          const ev = life.events[0];
+          expect(ev?.key, def.key).toBe(def.key);
+          expect(ev.body.length, def.key).toBeGreaterThan(30);
+          expect(ev.body, def.key).not.toMatch(/undefined|NaN|\$\{/);
+          for (const c of ev.choices)
+            expect(c.tip, def.key).not.toMatch(/undefined|NaN|\$\{/);
+          const pick = def.choices.findIndex(
+            (c) => !c.blocked?.(g, life, ev.ctx),
+          );
+          expect(answerLifeEvent(g, life, ev.id, Math.max(0, pick))).toBeNull();
+          told.add(def.key);
+        }
+      }
+    }
+    // Most of the new tales come to one of these lives within a year.
+    expect(told.size).toBeGreaterThan(TALES.length / 2);
   });
 
   test("players ask each other: a scene to accept or refuse, and an answer back", () => {
@@ -548,5 +627,115 @@ describe("rumours", () => {
       heardHere(g.s, g.map, life.prov).some((r) => /married/.test(r.text)),
     ).toBe(true);
     void actCheck;
+  });
+});
+
+describe("risings", () => {
+  test("when a cause rises, its sworn take up the standard and the rest must choose", () => {
+    const g = world({
+      start: 1700,
+      plans: [
+        { seat: "s1", name: "A", plan: plan() },
+        { seat: "s2", name: "B", plan: plan({ first: "Bea", female: true }) },
+      ],
+    });
+    const a = lifeOf(g, "s1");
+    const b = lifeOf(g, "s2");
+    a.renown = 30;
+    expect(
+      g.lifeCommand("s1", {
+        k: "movement",
+        act: "found",
+        goal: "overthrow",
+        name: "The Jamestown Association",
+      }),
+    ).toBeNull();
+    const m = movementOf(g.s, a.c)!;
+    m.support = 80;
+    for (const c of peopleHere(g.s, a.prov, a).slice(0, 3))
+      m.members.push(c.id);
+    a.events = [];
+    b.events = [];
+    expect(g.lifeCommand("s1", { k: "movement", act: "rise" })).toBeNull();
+    expect(a.events.some((e) => e.key === "rising-standard")).toBe(true);
+    const call = b.events.find((e) => e.key === "rising-call")!;
+    expect(call).toBeDefined();
+    expect(call.scene).toBe("rising");
+    expect(
+      heardHere(g.s, g.map, a.prov).some((r) => /risen in arms/.test(r.text)),
+    ).toBe(true);
+    // She takes up a musket.
+    expect(
+      g.lifeCommand("s2", { k: "event", id: call.id, choice: 0 }),
+    ).toBeNull();
+    expect(m.members).toContain(b.c);
+  });
+});
+
+describe("governing", () => {
+  test("a governor passes laws, builds public works and appoints the council", () => {
+    const g = world({ start: 1700 });
+    const life = lifeOf(g);
+    const me = meOf(g.s, life)!;
+    const n = me.nation;
+    const nation = g.s.nations[n];
+    nation.ruler = me.id;
+    const gov = (lever: Parameters<typeof g.lifeCommand>[1] & { k: "gov" }) =>
+      g.lifeCommand("s1", lever);
+    // A law: in force as a lasting modifier, and the assembly needs a rest.
+    expect(
+      gov({ k: "gov", lever: { l: "law", law: "toleration", on: true } }),
+    ).toBeNull();
+    expect(nation.laws).toContain("toleration");
+    expect(nation.mods.some((m) => m.key === "law:toleration")).toBe(true);
+    expect(
+      gov({ k: "gov", lever: { l: "law", law: "sabbath", on: true } }),
+    ).toMatch(/won't sit/);
+    // Native customs aren't for a colony; laws that clash can't stand together.
+    life.cooldowns["gov:law"] = 0;
+    expect(
+      gov({ k: "gov", lever: { l: "law", law: "mothers", on: true } }),
+    ).toMatch(/isn't for your people/);
+    expect(
+      gov({ k: "gov", lever: { l: "law", law: "licensing", on: true } }),
+    ).toBeNull();
+    life.cooldowns["gov:law"] = 0;
+    expect(
+      gov({ k: "gov", lever: { l: "law", law: "freepress", on: true } }),
+    ).toMatch(/can't stand/);
+    expect(
+      gov({ k: "gov", lever: { l: "law", law: "toleration", on: false } }),
+    ).toBeNull();
+    expect(nation.mods.some((m) => m.key === "law:toleration")).toBe(false);
+    // A public work, paid from the treasury.
+    nation.gold = 100;
+    expect(
+      gov({
+        k: "gov",
+        lever: { l: "project", key: "granary", p: nation.capital },
+      }),
+    ).toBeNull();
+    expect(nation.gold).toBe(40);
+    expect(nation.mods.some((m) => m.key === "project:granary")).toBe(true);
+    expect(
+      gov({
+        k: "gov",
+        lever: { l: "project", key: "college", p: nation.capital },
+      }),
+    ).toMatch(/150/);
+    // An appointment from among the court: the old treasurer steps down.
+    const c = peopleHere(g.s, life.prov, life).find(
+      (x) =>
+        x.nation === n &&
+        ageOf(g.s, x) >= 18 &&
+        !Object.values(nation.council).includes(x.id),
+    )!;
+    nation.court.push(c.id);
+    const old = nation.council.treasurer;
+    expect(
+      gov({ k: "gov", lever: { l: "appoint", seat: "treasurer", c: c.id } }),
+    ).toBeNull();
+    expect(nation.council.treasurer).toBe(c.id);
+    if (old >= 0) expect(nation.court).toContain(old);
   });
 });

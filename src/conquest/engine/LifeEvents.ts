@@ -3522,13 +3522,18 @@ const BASE_EVENTS: LifeEventDef[] = [
   },
 ];
 
-export const LIFE_EVENTS: LifeEventDef[] = [...BASE_EVENTS, ...MORE_EVENTS];
+export const LIFE_EVENTS: LifeEventDef[] = [
+  ...BASE_EVENTS,
+  ...MORE_EVENTS,
+  ...TALES,
+];
 
 // ---------------------------------------------------------------- a few calls out
 
 import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";
+import { TALES } from "./Tales";
 
 function joinM(g: ConquestGame, life: Life, id: number): string | null {
   return joinMovement(g, life, id);

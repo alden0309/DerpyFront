@@ -5,7 +5,7 @@
 // the council fire. A governor (or a native leader) gets a few levers on the
 // nation the computer otherwise runs.
 
-import { makeCharacter } from "./Characters";
+import { characterCommand, makeCharacter } from "./Characters";
 import { crownCommand } from "./Crown";
 import { economyCommand } from "./Economy";
 import type { ConquestGame } from "./Game";
@@ -40,6 +40,7 @@ import type {
   GovLever,
   Life,
   LifeCommand,
+  ModFx,
   Polity,
 } from "./Types";
 import { SEATS } from "./Types";
@@ -470,6 +471,181 @@ function chooseSuccessor(g: ConquestGame, n: number): number {
   return me.id;
 }
 
+// ---------------------------------------------------------------- laws and works
+
+export interface LawDef {
+  name: string;
+  /** Colonies' laws, or the council fire's. */
+  native: boolean;
+  text: string;
+  fx: Partial<Record<ModFx, number>>;
+  /** Laws that can't stand together. */
+  against?: string;
+}
+
+export const LAWS: Record<string, LawDef> = {
+  toleration: {
+    name: "Act of Toleration",
+    native: false,
+    text: "Dissenters may worship as they please. Quieter streets; a frown from the bishops at home.",
+    fx: { unrest: -5, favor: -3 },
+  },
+  navigation: {
+    name: "Enforce the Navigation Acts",
+    native: false,
+    text: "Customs men at every wharf and no Dutch hulls in the harbour. The crown is delighted; the merchants aren't.",
+    fx: { tax: 0.1, favor: 5, unrest: 4 },
+  },
+  headrights: {
+    name: "Headright grants",
+    native: false,
+    text: "Fifty acres for every settler brought over. Ships fill; the frontier creeps into other people's country.",
+    fx: { colonists: 0.25, unrest: 2 },
+  },
+  militia: {
+    name: "Militia Act",
+    native: false,
+    text: "Every man between sixteen and sixty drills on muster days. The colony looks after itself, and knows it.",
+    fx: { autonomy: 5, production: -0.03 },
+  },
+  licensing: {
+    name: "Licensing of the press",
+    native: false,
+    text: "Nothing printed without the secretary's leave. Fewer pamphlets, fewer riots, more favour.",
+    fx: { unrest: -3, favor: 2, autonomy: -3 },
+    against: "freepress",
+  },
+  freepress: {
+    name: "A free press",
+    native: false,
+    text: "Print what you like and answer for it after. Lively, clever, and very hard to govern.",
+    fx: { unrest: 2, autonomy: 5, admin: 1 },
+    against: "licensing",
+  },
+  sabbath: {
+    name: "Sabbath laws",
+    native: false,
+    text: "No work, no drink and no fun on Sundays, by order. Godly; dull; the crown approves.",
+    fx: { unrest: 1, favor: 2, production: -0.02 },
+  },
+  tradepaths: {
+    name: "Open the trading paths",
+    native: true,
+    text: "Traders of every nation welcome at the fire. Kettles and cloth come in; so do fevers.",
+    fx: { production: 0.05, disease: 0.1 },
+  },
+  mothers: {
+    name: "The clan mothers' voice",
+    native: true,
+    text: "No war without the clan mothers' consent, and they choose who sits at the fire.",
+    fx: { unrest: -3, admin: 1 },
+  },
+  nolandsale: {
+    name: "No land to be sold",
+    native: true,
+    text: "The land is not ours to sell. The colonists won't like it; the young men will.",
+    fx: { unrest: -2, autonomy: 5 },
+  },
+};
+
+export const MAX_LAWS = 4;
+
+export interface ProjectDef {
+  name: string;
+  native: boolean;
+  cost: number;
+  years: number;
+  text: string;
+  fx: Partial<Record<ModFx, number>>;
+}
+
+export const PROJECTS: Record<string, ProjectDef> = {
+  road: {
+    name: "A king's highway",
+    native: false,
+    cost: 80,
+    years: 15,
+    text: "A proper road between the towns, with bridges. Carts move, and so does trade.",
+    fx: { production: 0.04 },
+  },
+  college: {
+    name: "A college",
+    native: false,
+    cost: 150,
+    years: 30,
+    text: "Latin, divinity and the sons of planters. In time, clerks who can spell.",
+    fx: { admin: 2 },
+  },
+  lighthouse: {
+    name: "A lighthouse",
+    native: false,
+    cost: 70,
+    years: 20,
+    text: "A light on the point: fewer wrecks, more ships willing to call.",
+    fx: { tax: 0.04 },
+  },
+  granary: {
+    name: "A public granary",
+    native: false,
+    cost: 60,
+    years: 15,
+    text: "Corn put by against the hungry years. Fewer fevers in a bad winter, fewer riots in a bad harvest.",
+    fx: { disease: -0.15, unrest: -2 },
+  },
+  palisade: {
+    name: "A new palisade",
+    native: true,
+    cost: 25,
+    years: 15,
+    text: "A stout double wall of logs around the town. The young men sleep easier.",
+    fx: { unrest: -2, autonomy: 3 },
+  },
+  feast: {
+    name: "The great feast of the dead",
+    native: true,
+    cost: 30,
+    years: 10,
+    text: "The bones of the dead gathered and honoured together, and every village bound closer.",
+    fx: { unrest: -4, admin: 1 },
+  },
+};
+
+export function lawCheck(
+  s: GameState,
+  n: number,
+  law: string,
+  on: boolean,
+  life: Life,
+): Check {
+  const def = LAWS[law];
+  const nation = s.nations[n];
+  if (!def || !nation) return no("No such law.");
+  if (def.native !== (nation.kind === "native"))
+    return no("That isn't for your people.");
+  const laws = nation.laws ?? [];
+  if (on && laws.includes(law)) return no("It's law already.");
+  if (!on && !laws.includes(law)) return no("It isn't law.");
+  if (on && laws.length >= MAX_LAWS)
+    return no(`No more than ${MAX_LAWS} great laws at once: repeal one first.`);
+  if (on && def.against && laws.includes(def.against))
+    return no(`It can't stand with ${LAWS[def.against].name}.`);
+  if ((life.cooldowns["gov:law"] ?? 0) > s.day)
+    return no("The assembly won't sit again so soon.");
+  return yes;
+}
+
+export function projectCheck(s: GameState, n: number, key: string): Check {
+  const def = PROJECTS[key];
+  const nation = s.nations[n];
+  if (!def || !nation) return no("No such work.");
+  if (def.native !== (nation.kind === "native"))
+    return no("That isn't for your people.");
+  if (nation.mods.some((m) => m.key === `project:${key}`))
+    return no("It's built already.");
+  if (nation.gold < def.cost) return no(`It costs ${def.cost} gold from the treasury.`);
+  return yes;
+}
+
 // ---------------------------------------------------------------- the levers
 
 export function rulerLife(s: GameState, n: number): Life | undefined {
@@ -552,6 +728,63 @@ function govLever(g: ConquestGame, life: Life, lever: GovLever): string | null {
           `You offer ${s.nations[lever.n].name} peace as things stand.`,
         );
       return err;
+    }
+    case "law": {
+      const check = lawCheck(s, n, lever.law, !!lever.on, life);
+      if (!check.ok) return check.why;
+      const def = LAWS[lever.law];
+      const x = g.nation(n);
+      touchLife(g, life).cooldowns["gov:law"] = s.day + 90;
+      if (lever.on) {
+        x.laws = [...(x.laws ?? []), lever.law];
+        x.mods.push({
+          key: `law:${lever.law}`,
+          label: def.name,
+          until: s.endDay + 1,
+          fx: { ...def.fx },
+        });
+        journal(g, life, `${def.name}: it's the law now. ${def.text}`, "good");
+        milestone(g, life, "office", `Passed ${def.name}`);
+      } else {
+        x.laws = (x.laws ?? []).filter((k) => k !== lever.law);
+        x.mods = x.mods.filter((m) => m.key !== `law:${lever.law}`);
+        journal(g, life, `You repeal ${def.name}.`);
+      }
+      return null;
+    }
+    case "appoint": {
+      const err = characterCommand(g, n, {
+        k: "appoint",
+        seat: lever.seat,
+        c: lever.c,
+      });
+      if (!err) {
+        const c = s.chars[lever.c];
+        if (c) remembers(g, life, g.char(c.id), "Raised me to the council", 15, 5);
+        journal(
+          g,
+          life,
+          `You appoint ${charName(c)} ${SEAT_NAMES[lever.seat].toLowerCase()}.`,
+        );
+      }
+      return err;
+    }
+    case "project": {
+      const check = projectCheck(s, n, lever.key);
+      if (!check.ok) return check.why;
+      const def = PROJECTS[lever.key];
+      const x = g.nation(n);
+      x.gold -= def.cost;
+      x.mods.push({
+        key: `project:${lever.key}`,
+        label: def.name,
+        until: s.day + def.years * DAYS_PER_YEAR,
+        fx: { ...def.fx },
+      });
+      addRenown(g, life, 4);
+      journal(g, life, `${def.name}, paid from the treasury: ${def.text}`, "good");
+      milestone(g, life, "office", `Built ${def.name.toLowerCase().replace(/^an? /, "a ")}`);
+      return null;
     }
     default:
       return "Unknown order.";

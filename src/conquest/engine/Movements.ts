@@ -43,6 +43,7 @@ import {
   tribesfolk,
 } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
+import { rumour } from "./Rumours";
 import { blankNation } from "./Setup";
 import type {
   Army,
@@ -679,6 +680,15 @@ export function rise(g: ConquestGame, m: Movement): void {
         : `${m.name} has risen at ${g.map.provinces[p].name}. Go there to take up arms with them.`,
       "good",
     );
+    raiseLifeEvent(g, life, "rising-standard", { m: m.id });
+  }
+  rumour(g, p, `${m.name} has risen in arms at ${g.map.provinces[p].name}.`);
+  // Everyone else in its country hears the drums and must choose.
+  const sworn = new Set([m.leader, ...m.members]);
+  for (const life of s.lives) {
+    if (life.c < 0 || life.watching || sworn.has(life.c)) continue;
+    if (!m.region.includes(life.prov) || isChildLife(s, life)) continue;
+    raiseLifeEvent(g, life, "rising-call", { m: m.id });
   }
 }
 
@@ -862,7 +872,9 @@ function won(g: ConquestGame, m: Movement): void {
     addRenown(g, life, c === m.leader ? 30 : 10);
     journal(g, life, text, "good");
     milestone(g, life, "rising", `${m.name} won`);
+    raiseLifeEvent(g, life, "rising-victory", { m: m.id });
   }
+  rumour(g, s.nations[m.against]?.capital ?? m.region[0] ?? -1, text);
 }
 
 function crushed(g: ConquestGame, m: Movement): void {
