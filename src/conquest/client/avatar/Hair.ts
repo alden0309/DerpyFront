@@ -895,11 +895,25 @@ function style(h: Head, s: Sitting, sk: SkinPalette): Hair {
       // Shaved, but for a crest and a long lock at the crown.
       const shaved = mix(sk.shadow, "#2a2a30", 0.35);
       const crest: Pt[] = [
-        [m.Hc[0] - 4, m.Hc[1] - 3],
-        [m.Hc[0] + 5, m.Hc[1] - 5],
-        ...arc(h, 3, -PI / 2 + 0.35, -PI - 0.2, 6, (f) => 2 * Math.sin(-f * 6)),
-        ...arc(h, -7, -PI - 0.1, -PI / 2 + 0.3, 6),
+        [m.Hc[0] - 6, m.Hc[1] - 2],
+        [m.Hc[0] + 6, m.Hc[1] - 4],
+        ...arc(h, 4, -PI / 2 + 0.4, -PI - 0.25, 8),
+        ...arc(h, -9, -PI - 0.15, -PI / 2 + 0.35, 8),
       ];
+      // The hair of the crest stands up, short and thick.
+      const br = new Brush(s.seed + 61);
+      let bristle = "";
+      const sk2 = h.skull;
+      for (let i = 0; i < 46; i++) {
+        const f = -PI / 2 + 0.42 - (i / 46) * (PI / 2 + 0.6);
+        const x = sk2.cx + (sk2.rx - 2) * Math.cos(f);
+        const y = sk2.cy + (sk2.ry - 2) * Math.sin(f);
+        const len = br.range(5, 9);
+        bristle += path(
+          `M${n(x)} ${n(y)}l${n(Math.cos(f) * len + br.range(-1, 1))} ${n(Math.sin(f) * len)}`,
+          `stroke="${br.next() < 0.6 ? c : light(c, 0.3)}" stroke-width="${n(br.range(1.2, 2))}" stroke-linecap="round" opacity="0.9"`,
+        );
+      }
       const lock = stroke(
         [
           [m.crown[0] - 6, top + 8],
@@ -918,7 +932,8 @@ function style(h: Head, s: Sitting, sk: SkinPalette): Hair {
             strands: 30,
             w: 0.8,
             from: [[h.cx - A * 0.1, top]],
-          }),
+          }) +
+          `<g filter="url(#brushHair)">${bristle}</g>`,
       };
     }
     case "n_half": {

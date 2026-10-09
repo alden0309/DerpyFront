@@ -218,7 +218,13 @@ function buttons(a: Pt, b: Pt, count: number, c: string, r = 1.8): string {
 
 // ---------------------------------------------------------------- neckwear
 
-function ruff(b: Body, h: Head, s: Sitting, big: number): string {
+function ruff(
+  b: Body,
+  h: Head,
+  s: Sitting,
+  big: number,
+  sk: SkinPalette,
+): string {
   // A millstone ruff: a thick ring of starched linen set in figure-of-eight
   // pleats, its edge a row of rounded folds.
   const cx = b.T[0] - 8;
@@ -266,7 +272,7 @@ function ruff(b: Body, h: Head, s: Sitting, big: number): string {
   return `<g filter="url(#brush)"><defs><radialGradient id="${id}" cx="0.42" cy="0.4" r="0.7"><stop offset="0" stop-color="#fbf9f4"/><stop offset="0.75" stop-color="#e7e5e0"/><stop offset="1" stop-color="#b9bfca"/></radialGradient></defs>
 ${ell(cx, cy + th, rx, ry, `fill="#9ea6b4"`)}
 ${ell(cx, cy, rx, ry, `fill="url(#${id})"`)}${pleats}
-${ell(cx + 2, cy - ry * 0.22, rx * 0.42, ry * 0.45, `fill="#4a4e58" opacity="0.55" filter="url(#soft2)"`)}
+${ell(cx + 4, cy - ry * 0.15, rx * 0.4, ry * 0.42, `fill="${mix(sk.shadow, sk.deep, 0.4)}" filter="url(#soft2)"`)}
 ${rim}</g>`;
 }
 
@@ -739,15 +745,13 @@ function garment(h: Head, s: Sitting, sk: SkinPalette): Dressed {
         out.top =
           fallingBand(b, h, s, { lace: true, wide: 1.25 }) + sash(b, c2, s);
       } else if (s.look.clothes === "doublet_ruff")
-        out.top = ruff(b, h, s, s.female ? 0 : 0.6);
-      else if (black)
-        out.top =
-          year < 1640
-            ? ruff(b, h, s, 0.1)
-            : year < 1680
-              ? fallingBand(b, h, s, { wide: 0.75 })
-              : bands(b, s);
-      else out.top = fallingBand(b, h, s, { wide: 0.95, tassels: true });
+        out.over += ruff(b, h, s, s.female ? 0 : 0.6, sk);
+      else if (black) {
+        if (year < 1640) out.over += ruff(b, h, s, 0.1, sk);
+        else
+          out.top =
+            year < 1680 ? fallingBand(b, h, s, { wide: 0.75 }) : bands(b, s);
+      } else out.top = fallingBand(b, h, s, { wide: 0.95, tassels: true });
       break;
     }
     case "golilla": {
@@ -803,12 +807,10 @@ function garment(h: Head, s: Sitting, sk: SkinPalette): Dressed {
         ],
         sheen: f.sheen,
       });
-      out.top =
-        year < 1640
-          ? ruff(b, h, s, 0)
-          : year < 1690
-            ? fallingBand(b, h, s, { wide: 0.8 })
-            : bands(b, s);
+      if (year < 1640) out.over += ruff(b, h, s, 0, sk);
+      else
+        out.top =
+          year < 1690 ? fallingBand(b, h, s, { wide: 0.8 }) : bands(b, s);
       break;
     }
     case "cassock": {
@@ -1084,8 +1086,7 @@ function garment(h: Head, s: Sitting, sk: SkinPalette): Dressed {
     case "bodice_ruff": {
       out.over =
         cloth(closed(b, h), c0, s, f) + stomacher(b, c1, c2, s, y0 + 6);
-      out.top =
-        ruff(b, h, s, 0.3) + (s.look.extras.includes("pearls") ? "" : "");
+      out.over += ruff(b, h, s, 0.3, sk);
       break;
     }
     case "gown_collar": {
