@@ -414,7 +414,9 @@ export function paintHat(h: Head, s: Sitting): string {
           ? "#a8302a"
           : key === "fur_cap"
             ? "#5b4130"
-            : mix(c2, "#5a4a3a", 0.35);
+            : ["#7a3a2a", "#4a5a6a", "#5a4a32", "#3a4a3a", "#8a2a22"][
+                s.seed % 5
+              ];
       const pts = capShape(h, s, {
         front: 0.12,
         puff: key === "tuque" ? 6 : 3,

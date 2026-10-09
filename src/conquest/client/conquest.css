@@ -4084,10 +4084,16 @@ cq-colony-map {
   align-items: start;
   max-width: 46rem;
 }
+.cq-maker-who .cq-who-fields > * {
+  justify-self: start;
+}
 .cq-maker-who .cq-who-fields > .cq-name-row,
 .cq-maker-who .cq-who-fields > .cq-link {
   grid-column: 1 / -1;
-  justify-self: start;
+}
+.cq-maker-who .cq-who-fields > .cq-name-row,
+.cq-maker-who .cq-who-fields > cq-range {
+  justify-self: stretch;
 }
 .cq-maker .cq-look-head {
   margin: 1.1rem 0 0.2rem;

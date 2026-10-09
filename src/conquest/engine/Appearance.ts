@@ -532,7 +532,7 @@ export function itemOf(
 
 /**
  * The choices that suit someone, for the register: their sex and people,
- * and nothing not yet worn in their year. "none" first where it's allowed.
+ * nothing not yet worn in their year and nothing long out of fashion.
  */
 export function choicesFor(
   kind: ItemKind | "extras" | "marks",
@@ -540,7 +540,10 @@ export function choicesFor(
 ): Item[] {
   const list =
     kind === "extras" ? ACCESSORIES : kind === "marks" ? MARKS : KINDS[kind];
-  return list.filter((i) => fits(i, o.female, o.native, o.year));
+  // Nothing long out of fashion either (a ruff in 1750).
+  return list.filter(
+    (i) => fits(i, o.female, o.native, o.year) && i.to + 35 >= o.year,
+  );
 }
 
 function fits(

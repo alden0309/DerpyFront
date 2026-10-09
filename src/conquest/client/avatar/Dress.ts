@@ -228,7 +228,7 @@ function ruff(
   // A millstone ruff: a thick ring of starched linen set in figure-of-eight
   // pleats, its edge a row of rounded folds.
   const cx = b.T[0] - 8;
-  const cy = b.y0 - 8;
+  const cy = b.y0 - 11;
   const rx = h.a * (1.05 + big * 0.25);
   const ry = h.a * (0.34 + big * 0.07);
   const th = 6 + big * 4;
@@ -272,7 +272,7 @@ function ruff(
   return `<g filter="url(#brush)"><defs><radialGradient id="${id}" cx="0.42" cy="0.4" r="0.7"><stop offset="0" stop-color="#fbf9f4"/><stop offset="0.75" stop-color="#e7e5e0"/><stop offset="1" stop-color="#b9bfca"/></radialGradient></defs>
 ${ell(cx, cy + th, rx, ry, `fill="#9ea6b4"`)}
 ${ell(cx, cy, rx, ry, `fill="url(#${id})"`)}${pleats}
-${ell(cx + 4, cy - ry * 0.15, rx * 0.4, ry * 0.42, `fill="${mix(sk.shadow, sk.deep, 0.4)}" filter="url(#soft2)"`)}
+${ell(cx + 4, cy - ry * 0.15, rx * 0.4, ry * 0.42, `fill="${mix(sk.base, sk.shadow, 0.6)}" filter="url(#soft2)"`)}
 ${rim}</g>`;
 }
 
