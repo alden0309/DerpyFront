@@ -538,6 +538,7 @@ const FLAG_VOICES = new Map<string, string>([
     "Mi'kmaq",
     "Wabanaki",
     "Muhheconneok",
+    "Schaghticoke",
     "Narragansett",
     "Mohegan",
     "Wopanaak",
