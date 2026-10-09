@@ -26,7 +26,6 @@ import { isAdminRole } from "@openfront/shared/ApiSchemas";
 import { normalizeChatText } from "@openfront/shared/Chat";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
 import { GameEnv } from "@openfront/shared/configuration/Env";
-import { censorChatText } from "@openfront/shared/Profanity";
 import { createPartialGameRecord } from "@openfront/shared/SharedUtil";
 import {
   ClientChatMessage,
@@ -2033,15 +2032,15 @@ export class GameServer {
   }
 
   // Derpy Front chat. By here SocketIngress has validated the frame, applied
-  // the chat rate limit and turned spectators away. The line is cleaned and
-  // run through the profanity filter, then sent — never added to the turn —
+  // the chat rate limit and turned spectators away. The line is cleaned (no
+  // word filter: the owner wants chat unfiltered), then sent — never added to the turn —
   // to everyone for "all", or to the sender and the listed players of this
   // game for "team" and "allies" (the receivers check the channel against
   // their own view of the game). The sender gets it back too: that is their
   // confirmation, showing what the others saw.
   private handleChat(client: Client, msg: ClientChatMessage) {
     if (this.stage !== "started" || this.ended) return;
-    const text = censorChatText(normalizeChatText(msg.text));
+    const text = normalizeChatText(msg.text);
     if (text.length === 0) return;
     const players = this.gameStartInfo.players;
     if (!players.some((p) => p.clientID === client.clientID)) return;

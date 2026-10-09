@@ -144,7 +144,7 @@ describe("GameServer chat relay", () => {
   const chats = (msgs: ServerMessage[]): ServerChatMessage[] =>
     msgs.filter((m): m is ServerChatMessage => m.type === "chat");
 
-  it("sends an all-players line to everyone, spectators included, filtered", async () => {
+  it("sends an all-players line to everyone, spectators included, unfiltered", async () => {
     const { game, alice, bob, carol, watcher, ctx, A } = setup();
     startGame(game);
     await mockWsOf(alice).emit({
@@ -154,7 +154,7 @@ describe("GameServer chat relay", () => {
     });
     for (const c of [alice, bob, carol, watcher]) {
       expect(chats(mockWsOf(c).sent(ctx))).toEqual([
-        { type: "chat", from: A, channel: "all", text: "hello ****", seq: 0 },
+        { type: "chat", from: A, channel: "all", text: "hello shit", seq: 0 },
       ]);
     }
   });

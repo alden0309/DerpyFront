@@ -250,7 +250,7 @@ export class LocalServer {
       }
     }
     if (clientMsg.type === "chat" && !this.isReplay) {
-      void this.relayChat(clientMsg);
+      this.relayChat(clientMsg);
     }
     if (clientMsg.type === "winner") {
       this.winner = clientMsg;
@@ -265,18 +265,9 @@ export class LocalServer {
   }
 
   // Singleplayer chat: the only other ears are the nations', so the line comes
-  // straight back, cleaned and filtered just as the game server would. The
-  // filter is loaded on first use to keep its word lists out of the bundle.
-  private async relayChat(msg: ClientChatMessage) {
-    let text = normalizeChatText(msg.text);
-    try {
-      const { censorChatText } = await import("@openfront/shared/Profanity");
-      text = censorChatText(text);
-    } catch (e) {
-      // Offline, the filter can't load; the line is only for this player's
-      // own eyes, so it still goes through rather than vanish.
-      console.warn("chat filter unavailable", e);
-    }
+  // straight back, cleaned just as the game server would.
+  private relayChat(msg: ClientChatMessage) {
+    const text = normalizeChatText(msg.text);
     if (text.length === 0 || this.clientID === undefined) return;
     this.clientMessage({
       type: "chat",

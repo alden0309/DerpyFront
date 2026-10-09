@@ -1000,7 +1000,7 @@
     "unmute": "Unmute {name}",
     "unmuted": "You unmuted {name}.",
     "unread": "{count} unread messages",
-    "welcome": "Chat is filtered for bad language. Be nice! Click a name to mute someone."
+    "welcome": "Click a name to mute someone."
   },
   "game_info_modal": {
     "all_gold": "All gold",
