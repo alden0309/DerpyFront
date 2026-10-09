@@ -27,6 +27,7 @@ import {
   opinionOf,
   siblingsOf,
   skillOf,
+  stationOf,
 } from "../../engine/LifeQueries";
 import {
   ATTRIBUTE_NAMES,
@@ -150,6 +151,7 @@ export function youTab(ui: GameUi): TemplateResult {
   const budget = monthlyBudget(s, ui.w, life);
   const cost = lifestyleCost(s, life);
   const child = isChildLife(s, life);
+  const station = stationOf(s, life);
   return html`<header class="cq-sheet-top">
       ${token(ui, me, "xl")}
       <div class="cq-sheet-who">
@@ -197,12 +199,17 @@ export function youTab(ui: GameUi): TemplateResult {
     ${child ? nothing : glance(ui)}
     ${section(
       "How you live",
-      html`<div class="cq-seg" role="radiogroup" aria-label="Way of living">
+      html`<div
+          class="cq-seg cq-living"
+          role="radiogroup"
+          aria-label="Way of living"
+        >
           ${LIFESTYLES.map(
             (l) =>
               html`<button
                 role="radio"
                 aria-checked=${life.lifestyle === l}
+                class=${!child && station.expected === l ? "expected" : ""}
                 title=${LIFESTYLE[l].text}
                 @click=${() => ui.cmd({ k: "lifestyle", v: l })}
               >
@@ -215,7 +222,28 @@ export function youTab(ui: GameUi): TemplateResult {
           ${num(`${plain(cost.total)} a month`, () =>
             breakdownTip("Living costs", cost),
           )}
-        </p>`,
+        </p>
+        ${child
+          ? nothing
+          : html`<p class="small cq-station-line">
+              Among <b>${station.name}</b>,
+              ${station.expected === life.lifestyle
+                ? "living as expected"
+                : LIFESTYLES.indexOf(life.lifestyle) <
+                    LIFESTYLES.indexOf(station.expected)
+                  ? html`<span class="bad"
+                      >expected to live
+                      ${LIFESTYLE[station.expected].name.toLowerCase()}
+                      (marked)</span
+                    >`
+                  : "living above your station"}.
+              <button
+                class="cq-link small"
+                @click=${() => ui.open({ k: "tab", tab: "affairs" })}
+              >
+                Your purse
+              </button>
+            </p>`}`,
     )}
     ${section(
       "Attributes",

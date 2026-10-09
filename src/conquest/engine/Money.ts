@@ -43,6 +43,7 @@ import {
   LAND_LOT,
   LESSONS,
   LIFESTYLE,
+  LIVING_HOW,
   MAX_VENTURES,
   SHARE_CRASH,
   SHARE_DIVIDEND,
@@ -554,14 +555,6 @@ const LIKE: Record<Lifestyle, string> = {
   grand: "a lord",
 };
 
-const HOW: Record<Lifestyle, string> = {
-  frugal: "frugally",
-  modest: "modestly",
-  comfortable: "comfortably",
-  genteel: "genteelly",
-  grand: "grandly",
-};
-
 /** Deep in debt, the bailiffs come: they sell what costs most to keep. */
 export const BAILIFFS_AT = -40;
 
@@ -651,7 +644,7 @@ export function moneyMonthly(g: ConquestGame, life: Life): void {
         g,
         life,
         b.living
-          ? `People talk: ${st.who}, living like ${LIKE[life.lifestyle]}. ${st.name[0].toUpperCase()}${st.name.slice(1)} are expected to live ${HOW[st.expected]}.`
+          ? `People talk: ${st.who}, living like ${LIKE[life.lifestyle]}. ${st.name[0].toUpperCase()}${st.name.slice(1)} are expected to live ${LIVING_HOW[st.expected]}.`
           : `People talk: ${st.who}, and no ${b.house?.toLowerCase() ?? "house"} to show for it?`,
         "bad",
       );

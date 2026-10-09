@@ -878,7 +878,7 @@ export async function runAct(
 
 /** Reasons an act isn't for you at all here (so it isn't shown). */
 const NOT_FOR_YOU =
-  /^(Only|Not open|Land isn't|Your people|Not your way|You belong to no|You're not standing|Trappers'|Physicians'|You have work already|You're in the army|That's done where)/;
+  /^(Only|Not open|Land isn't|Your people|Not your way|Not your people's way|You belong to no|You're not standing|Trappers'|Physicians'|You have work already|You're in the army|That's done where|You have no trade to equip|Grants are made at|Your home must be|Your coach has horses)/;
 
 /**
  * What you can do at a place. The buttons shown stay for as long as you're

@@ -1560,8 +1560,16 @@ export const STATION_LIFESTYLE: Lifestyle[] = [
   "genteel",
   "grand",
 ];
-/** The house expected at each station (none, a house, a fine house, a mansion). */
-export const STATION_HOUSE = [0, 0, 2, 3, 4];
+/** The house expected at each station: a roof of your own, a fine house, a mansion. */
+export const STATION_HOUSE = [0, 0, 1, 3, 4];
+/** How you're expected to live, said that way: "comfortably". */
+export const LIVING_HOW: Record<Lifestyle, string> = {
+  frugal: "frugally",
+  modest: "modestly",
+  comfortable: "comfortably",
+  genteel: "genteelly",
+  grand: "grandly",
+};
 /** A month beneath your station, for each step beneath. */
 export const BENEATH_STRESS = 3;
 export const BENEATH_RENOWN = 0.4;

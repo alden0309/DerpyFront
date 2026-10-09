@@ -355,3 +355,133 @@
   font-size: 0.85rem;
   cursor: pointer;
 }
+
+/* ===== r10 (money): purse and standing ===== */
+
+/* Five ways of living: the one your station expects is marked. */
+.cq-seg.cq-living {
+  display: flex;
+  width: 100%;
+}
+.cq-seg.cq-living > button {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.38em 0.35em;
+  text-align: center;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+@media (max-width: 420px) {
+  .cq-seg.cq-living > button {
+    font-size: 0.78rem;
+    padding: 0.4em 0.2em;
+  }
+}
+/* "Will accept" on a dark button. */
+.cq-btn.primary .cq-verdict-chip.will {
+  background: rgba(255, 255, 255, 0.85);
+}
+.cq-seg.cq-living > button.expected {
+  box-shadow: inset 0 -3px 0 var(--brass);
+}
+.cq-station {
+  margin-bottom: 0.4rem;
+}
+.cq-station p {
+  margin: 0.15rem 0;
+}
+.cq-station .bad,
+.cq-station-line .bad {
+  color: var(--seal);
+}
+.cq-station .good {
+  color: var(--verdigris);
+}
+/* The month's money as a ledger: in on the left, out on the right. */
+.cq-ledger {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.2rem 0.9rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--rule);
+  background: rgba(255, 250, 235, 0.45);
+  font-size: 0.86rem;
+}
+.cq-ledger ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cq-ledger li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.1rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-ledger li span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cq-ledger li b {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.cq-ledger .good {
+  color: var(--verdigris);
+}
+.cq-ledger .bad {
+  color: var(--seal);
+}
+.cq-ledger-total {
+  grid-column: 1 / -1;
+  margin: 0.2rem 0 0;
+  text-align: right;
+}
+.cq-kit {
+  list-style: none;
+  margin: 0 0 0.4rem;
+  padding: 0;
+}
+.cq-kit li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.6rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-kit li > span {
+  flex: 1;
+  min-width: 8rem;
+}
+.cq-kit .good {
+  color: var(--verdigris);
+}
+.cq-kit .bad {
+  color: var(--seal);
+}
+.cq-where-spend {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.8rem;
+  margin: 0;
+  font-size: 0.88rem;
+}
+.cq-where-spend dt {
+  font-family: var(--fell-sc);
+}
+.cq-where-spend dd {
+  margin: 0;
+  color: var(--ink-soft);
+}
+@media (max-width: 560px) {
+  .cq-ledger {
+    grid-template-columns: 1fr;
+  }
+}
+.cq-gift-row .cq-btn {
+  min-width: 0;
+}

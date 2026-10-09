@@ -703,6 +703,8 @@ export function interactionView(
         ? `Ask to join them as ${JOBS[kind].ranks[0].title.toLowerCase()}`
         : `Ask for work as ${JOBS[kind].ranks[0].title.toLowerCase()}`;
   }
+  if (act === "bribe" && c)
+    view.label = `Grease their palm (${bribeCost(s, c)})`;
   if (!c || !meOf(s, life) || view.player) return view;
   if (def.mode === "accept") {
     view.accept = acceptance(s, w, life, c, act, arg);

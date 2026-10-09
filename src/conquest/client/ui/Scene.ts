@@ -291,7 +291,7 @@ export function eventScene(
 
 // ---------------------------------------------------------------- interactions
 
-const GIFTS = [2, 5, 10, 25];
+const GIFTS = [2, 5, 10, 25, 50, 100];
 let tradeDraft: { good: Good | ""; price: number } = { good: "", price: 0 };
 
 export function interactScene(

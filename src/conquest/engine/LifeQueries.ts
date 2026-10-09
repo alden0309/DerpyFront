@@ -580,7 +580,12 @@ export function beneathStation(s: GameState, life: Life): Beneath {
       (p) => p.kind === "house" && p.prov === life.home,
     )?.level ?? 0;
   const defs = lifeIsNative(s, life) ? LODGES : HOUSES;
-  const house = want > roof ? (defs[want - 1]?.name ?? null) : null;
+  const house =
+    want > roof
+      ? want === 1
+        ? "House"
+        : (defs[want - 1]?.name ?? null)
+      : null;
   return { steps: living + (house ? 1 : 0), living, house };
 }
 

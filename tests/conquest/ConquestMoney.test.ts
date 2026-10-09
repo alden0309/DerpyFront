@@ -541,8 +541,7 @@ describe("money over a lifetime", () => {
             .join("\n"),
       )
       .join("\n");
-    if (process.env.MONEY_DUMP)
-      writeFileSync(process.env.MONEY_DUMP, table);
+    if (process.env.MONEY_DUMP) writeFileSync(process.env.MONEY_DUMP, table);
     expect(rows.passive.length).toBe(years);
     const peak = (p: Profile) => Math.max(...rows[p].map((r) => r.purse));
     // Thrift keeps you out of want, but a tenant who never spends isn't rich.

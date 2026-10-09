@@ -85,6 +85,7 @@ import {
   endow,
   endowCheck,
   houseCheck,
+  housePrice,
   landCheck,
   openBusiness,
 } from "./Property";
@@ -837,7 +838,7 @@ export function actLabel(s: GameState, life: Life, def: ActDef): string {
   if (def.key === "house") {
     const v = houseCheck(s, life);
     return v.next
-      ? `${v.level ? "Move up to" : "Buy"} a ${v.next.name.toLowerCase()}`
+      ? `${v.level ? "Move up to" : "Buy"} a ${v.next.name.toLowerCase()} (${housePrice(s, life)})`
       : "Your house";
   }
   if (def.key === "buy") {
