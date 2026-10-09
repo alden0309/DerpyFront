@@ -36,6 +36,12 @@ export const DONT_CLICK = [
   "Holy Michael Nazario",
 ] as const;
 
+/**
+ * The last click shows him instead of saying his name: hotlinked from
+ * YouTube, never copied here. If it can't load, the name comes back.
+ */
+export const NAZARIO_IMAGE = "https://i.ytimg.com/vi/VGVhzZqAziY/hqdefault.jpg";
+
 type Route =
   | { page: "home" | "store" | "inventory" | "leaderboard" | "account" }
   | { page: "player"; name: string };
@@ -135,6 +141,7 @@ export class DerpHome extends HubPage {
   @state() private top: TopRow[] | null = null;
   @state() private offline = false;
   @state() private dontClick = 0;
+  @state() private nazarioFailed = false;
 
   protected async load(): Promise<void> {
     try {
@@ -154,16 +161,7 @@ export class DerpHome extends HubPage {
   render(): TemplateResult {
     return html`
       <section class="dl-intro">
-        <button
-          class="dl-textbtn dl-dontclick"
-          @click=${() =>
-            (this.dontClick = Math.min(
-              this.dontClick + 1,
-              DONT_CLICK.length - 1,
-            ))}
-        >
-          ${DONT_CLICK[this.dontClick]}
-        </button>
+        ${this.renderDontClick()}
         <h1 class="dl-hello">Time to Deep Dorp</h1>
         <p class="dl-lede">
           ${this.account
@@ -225,6 +223,30 @@ export class DerpHome extends HubPage {
         </div>
       </section>
     `;
+  }
+
+  private renderDontClick(): TemplateResult {
+    const last = this.dontClick === DONT_CLICK.length - 1;
+    if (last && !this.nazarioFailed) {
+      return html`<span class="dl-dontclick dl-nazario-btn">
+        <img
+          class="dl-nazario"
+          src=${NAZARIO_IMAGE}
+          alt=${DONT_CLICK[this.dontClick]}
+          width="480"
+          height="270"
+          referrerpolicy="no-referrer"
+          @error=${() => (this.nazarioFailed = true)}
+        />
+      </span>`;
+    }
+    return html`<button
+      class="dl-textbtn dl-dontclick"
+      @click=${() =>
+        (this.dontClick = Math.min(this.dontClick + 1, DONT_CLICK.length - 1))}
+    >
+      ${DONT_CLICK[this.dontClick]}
+    </button>`;
   }
 
   private renderRecent(): TemplateResult {
