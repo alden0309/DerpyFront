@@ -37,11 +37,11 @@ export function skinPalette(s: Sitting): SkinPalette {
   const dark = lum(base) < 0.5;
   return {
     base,
-    half: mix(base, dark ? "#3a2a20" : "#7d6650", dark ? 0.35 : 0.42),
-    lit: light(mix(base, "#f3cfa8", 0.3), dark ? 0.14 : 0.16),
-    shadow: mix(base, dark ? "#2a150c" : "#5c3423", dark ? 0.45 : 0.52),
-    deep: mix(base, "#22110a", dark ? 0.62 : 0.72),
-    blush: mix(base, dark ? "#8c3a30" : "#c25548", dark ? 0.3 : 0.34),
+    half: mix(base, dark ? "#3a2a20" : "#6f5a44", dark ? 0.4 : 0.5),
+    lit: light(mix(base, "#f4d2a6", 0.35), dark ? 0.14 : 0.18),
+    shadow: mix(base, dark ? "#2a150c" : "#553020", dark ? 0.48 : 0.56),
+    deep: mix(base, "#1f0f08", dark ? 0.64 : 0.74),
+    blush: mix(base, dark ? "#8c3a30" : "#c24c42", dark ? 0.3 : 0.4),
     lip: dark
       ? mix(mix(base, "#5a2a26", 0.35), "#8a4a48", 0.2)
       : mix(base, "#a8382f", s.female ? 0.58 : 0.46),
@@ -206,7 +206,7 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
         [h.cx + h.a * 1.3, h.cy + h.b * 1.1],
         [h.cx + h.a * 1.3, h.cy - h.b * 1.1],
       ]),
-      `fill="${sk.half}" opacity="0.7"`,
+      `fill="${sk.half}" opacity="0.82"`,
     ),
   );
   m.push(
@@ -215,7 +215,7 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
       h.cy + h.b * 0.05,
       h.a * 0.34,
       h.b * 1.15,
-      `fill="${sk.deep}" opacity="0.6"`,
+      `fill="${sk.deep}" opacity="0.75"`,
     ),
   );
   m.push(
@@ -238,6 +238,49 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
       h.a * 0.35,
       h.b * 0.18,
       `fill="${sk.half}" opacity="0.35"`,
+    ),
+  );
+  // The lit side is modelled too: the hollow under the cheekbone, the jaw's
+  // turn, and the round of the mouth and chin.
+  m.push(
+    path(
+      smooth(
+        [
+          [h.ear[0] + h.a * 0.08, h.ear[1] + h.b * 0.05],
+          P(-0.62, 0.32),
+          [h.mouth[0] - h.mouthW * 0.75, h.mouth[1] - 2],
+        ],
+        false,
+      ),
+      `fill="none" stroke="${sk.half}" stroke-width="${n(h.b * 0.16)}" opacity="${L.cheeks === 3 ? 0.55 : 0.32}"`,
+    ),
+  );
+  m.push(
+    path(
+      smooth(
+        [h.jawN, P(-0.55, 0.82), [h.chin[0] - h.a * 0.25, h.chin[1] - 2]],
+        false,
+      ),
+      `fill="none" stroke="${sk.half}" stroke-width="${n(h.b * 0.14)}" opacity="0.42"`,
+    ),
+  );
+  m.push(
+    ell(
+      h.mouth[0] - h.mouthW * 0.68,
+      h.mouth[1] + 2,
+      h.a * 0.1,
+      h.b * 0.14,
+      `fill="${sk.half}" opacity="0.35"`,
+    ),
+  );
+  // Light thrown back up onto the far jaw.
+  m.push(
+    ell(
+      h.jawF[0] - 3,
+      h.jawF[1] + 4,
+      h.a * 0.08,
+      h.b * 0.14,
+      `fill="${sk.base}" opacity="0.35"`,
     ),
   );
   // Under the jaw.
@@ -512,10 +555,10 @@ function paintEye(
   const iris = EYE_COLORS[L.eyeColor]?.hex ?? EYE_COLORS[1].hex;
   // The eyes look a little toward us.
   const gaze = -w * 0.05;
-  const r = w * 0.29 * (farSide ? 0.95 : 1);
+  const r = w * 0.31 * (farSide ? 0.95 : 1);
   const ix = e[0] + gaze + (farSide ? w * 0.05 : 0);
   const iy = e[1] + hgt * 0.14;
-  const white = mix("#d2c3ad", sk.base, 0.42);
+  const white = mix("#cdbea8", sk.base, 0.48);
   const lidC = mix(sk.deep, "#1a0d07", 0.55);
   // The lid: skin between the crease and the lashes, catching the light.
   const hooded = L.eyes === 2;
@@ -759,13 +802,13 @@ function paintMouth(h: Head, s: Sitting, sk: SkinPalette): string {
   const W = h.mouthW;
   const k = h.b / 46;
   const up =
-    [3.0, 4.2, 3.4, 3.2, 4.0][L.mouth] *
+    [3.6, 4.8, 3.9, 3.7, 4.6][L.mouth] *
     k *
     (1 - h.child * 0.2) *
     (1 - h.old * 0.3) *
     (1 - h.expr.tight * 0.3);
   const lo =
-    [4.2, 6.2, 4.8, 4.5, 5.6][L.mouth] *
+    [5.0, 7.0, 5.6, 5.2, 6.4][L.mouth] *
     k *
     (1 - h.child * 0.15) *
     (1 - h.old * 0.25) *

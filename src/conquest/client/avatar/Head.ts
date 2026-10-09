@@ -171,7 +171,7 @@ export function buildHead(s: Sitting): Head {
   // Features, laid out on the face seen straight on, then turned.
   const eyeYn = -0.16 + child * 0.14;
   const set = 0.4 + (L.eyeSet - 1) * 0.045;
-  const eyeW = a * (0.44 + child * 0.05) * (L.eyes === 3 ? 0.95 : 1);
+  const eyeW = a * (0.49 + child * 0.04) * (L.eyes === 3 ? 0.95 : 1);
   const eyeH =
     eyeW *
     ([0.36, 0.44, 0.34, 0.28, 0.36, 0.34][L.eyes] + child * 0.08) *
@@ -189,7 +189,7 @@ export function buildHead(s: Sitting): Head {
     b * ([0.5, 0.56, 0.4, 0.48, 0.62, 0.4, 0.58][L.nose] * (1 - child * 0.3));
   const noseW =
     a *
-    ([0.38, 0.38, 0.4, 0.53, 0.35, 0.32, 0.39][L.nose] * (1 - child * 0.15));
+    ([0.42, 0.42, 0.44, 0.58, 0.39, 0.36, 0.43][L.nose] * (1 - child * 0.15));
   const noseRoot = P(0, eyeYn);
   const noseBaseY = cy + b * eyeYn + noseLen;
   const tipDepth =
