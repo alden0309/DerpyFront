@@ -159,8 +159,18 @@ export const FACE_SHAPES = [
   "Square",
   "Heart",
   "Broad",
+  "Gaunt",
+  "Fleshy",
 ];
-export const JAWS = ["Soft", "Firm", "Square", "Pointed", "Heavy"];
+export const JAWS = [
+  "Soft",
+  "Firm",
+  "Square",
+  "Pointed",
+  "Heavy",
+  "Receding",
+  "Cleft",
+];
 export const CHEEKS = ["Flat", "Full", "High", "Hollow"];
 export const EYE_SHAPES = [
   "Almond",
@@ -169,6 +179,8 @@ export const EYE_SHAPES = [
   "Narrow",
   "Downturned",
   "Deep-set",
+  "Prominent",
+  "Upturned",
 ];
 export const EYE_SETS = ["Close", "Even", "Wide"];
 export const BROWS = ["Fine", "Arched", "Straight", "Heavy", "Bushy"];
@@ -180,6 +192,7 @@ export const NOSES = [
   "Long",
   "Button",
   "Hooked",
+  "Bulbous",
 ];
 export const MOUTHS = ["Thin", "Full", "Wide", "Small", "Bow"];
 export const EARS = ["Small", "Middling", "Large", "Jug"];
@@ -979,20 +992,37 @@ export function generateLook(o: LookSeed): Appearance {
   const { skin, eyeColor, hairColor } = colouring(o.culture, native, region, g);
   const look: Appearance = {
     skin,
-    face: feature(g, [4, 2, 2, 2, 1.5, native ? 2.5 : 1]),
-    jaw: feature(g, o.female ? [4, 2, 0.5, 2, 0.3] : [2, 3, 2, 1, 1.5]),
+    face: feature(g, [
+      4,
+      2,
+      2,
+      2,
+      1.5,
+      native ? 2.5 : 1,
+      // Lean or stout (the same all their life: the years add flesh as
+      // they're painted, not here).
+      1.1,
+      1,
+    ]),
+    jaw: feature(
+      g,
+      o.female ? [4, 2, 0.5, 2, 0.3, 0.8, 0.3] : [2, 3, 2, 1, 1.5, 1, 1],
+    ),
     cheeks: feature(g, native ? [1, 2, 4, 1] : [2, 2.5, 2, 1]),
-    eyes: feature(g, native ? [3, 1, 2, 3, 1, 1] : [3, 2, 2, 1, 1.5, 1.5]),
+    eyes: feature(
+      g,
+      native ? [3, 1, 2, 3, 1, 1, 0.4, 1.6] : [3, 2, 2, 1, 1.5, 1.5, 1, 0.8],
+    ),
     eyeColor,
     eyeSet: feature(g, [1, 4, 1.5]),
     brows: feature(g, o.female ? [3, 3, 2, 0.5, 0.2] : [1, 1.5, 2.5, 2.5, 1.5]),
     nose: feature(
       g,
       native
-        ? [3, 3, 0.5, 2, 1.5, 0.5, 1.5]
+        ? [3, 3, 0.5, 2, 1.5, 0.5, 1.5, 0.4]
         : o.female
-          ? [4, 1.5, 2, 0.8, 1.5, 2, 0.4]
-          : [3, 2.5, 1.2, 1.2, 2, 0.8, 1.2],
+          ? [4, 1.5, 2, 0.8, 1.5, 2, 0.4, 0.3]
+          : [3, 2.5, 1.2, 1.2, 2, 0.8, 1.2, 0.9],
     ),
     mouth: feature(g, o.female ? [1, 3, 1, 2, 3] : [3, 2, 2, 1.5, 1]),
     ears: feature(g, [2, 4, 2, 0.6]),
