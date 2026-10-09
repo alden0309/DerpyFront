@@ -548,7 +548,7 @@ export const JOBS: Record<JobKind, JobDef> = {
     ranks: [
       rk("Tenant farmer", 2.5, 0, 0, 0),
       rk("Yeoman", 4.5, 12, 6, 0, {
-        buy: { cost: 25, what: "a freehold of your own" },
+        buy: { cost: 20, what: "a freehold of your own" },
       }),
       rk("Freeholder", 6.5, 24, 9, 6),
       rk("Planter", 11, 36, 11, 15, {

@@ -399,7 +399,11 @@ function playWeek(
       }
     }
     // The spender and the soldier buy the next rung when it's sensible.
-    if (who !== "passive" && v.next?.buy && life.purse > v.next.buy.cost + 25)
+    if (
+      who !== "passive" &&
+      v.next?.buy &&
+      life.purse > v.next.buy.cost + (who === "spender" ? 5 : 25)
+    )
       cmd({ k: "act", place: life.job.place, act: "buy" });
   }
   // Everyone marries if they can: an heir to leave it all to.

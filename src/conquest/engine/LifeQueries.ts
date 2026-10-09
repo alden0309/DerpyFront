@@ -448,6 +448,7 @@ export function lifestyleCost(s: GameState, life: Life): Breakdown {
       fam * FAMILY_COST * FAMILY_MULT[life.lifestyle] * (native ? 0.5 : 1),
     );
   if (life.job?.kind === "servant") e.mul("Your master feeds you", 0);
+  else if (isChildLife(s, life)) e.mul("Your family keeps you", 0);
   return e.done(1);
 }
 
