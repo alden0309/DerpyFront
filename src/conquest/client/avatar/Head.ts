@@ -68,6 +68,8 @@ export interface Head {
   earH: number;
   /** Where the hair meets the forehead, at the middle. */
   hairY: number;
+  /** The same, on the face seen straight on (-1 the top of the face). */
+  hairline: number;
   /** Top of the skull. */
   top: number;
   /** Jaw corners, near and far. */
@@ -138,36 +140,36 @@ function expressionOf(ex: Expression, loud: number): Head["expr"] {
       };
     case "frown":
       return {
-        mouth: -1.45 * k,
-        browIn: 1.0 * k,
-        browUp: 0,
-        squint: 0.25 * k,
+        mouth: -1.8 * k,
+        browIn: 0.8 * k,
+        browUp: 0.35 * k,
+        squint: 0.15 * k,
         cheek: 0,
-        tight: 0.35 * k,
+        tight: 0.3 * k,
         open: 0,
         wide: 0,
       };
     case "worried":
       return {
-        mouth: -0.7 * k,
-        browIn: 0.15 * k,
-        browUp: 1.6 * k,
+        mouth: -0.85 * k,
+        browIn: 0.25 * k,
+        browUp: 2.0 * k,
         squint: 0,
         cheek: 0,
-        tight: 0.3 * k,
-        open: 0.22 * k,
-        wide: 0.45 * k,
+        tight: 0.2 * k,
+        open: 0.32 * k,
+        wide: 0.5 * k,
       };
     case "angry":
       return {
-        mouth: -0.75 * k,
-        browIn: 1.75 * k,
+        mouth: -0.5 * k,
+        browIn: 2.2 * k,
         browUp: 0,
-        squint: 0.55 * k,
-        cheek: 0.15 * k,
-        tight: 1 * k,
-        open: k > 1.2 ? 0.3 : 0,
-        wide: 0.1 * k,
+        squint: 0.35 * k,
+        cheek: 0.25 * k,
+        tight: 1.1 * k,
+        open: 0.34 * k,
+        wide: 0.15 * k,
       };
     default:
       return {
@@ -273,7 +275,9 @@ export function buildHead(s: Sitting): Head {
     child * 0.38;
   // A receding chin falls back toward the throat; a heavy one juts.
   const chinDrop =
-    ([1, 1.01, 1.0, 1.04, 1.03, 0.97, 1.02][jawI] ?? 1) + fat * 0.02;
+    ([1, 1.01, 1.0, 1.04, 1.03, 0.97, 1.02][jawI] ?? 1) +
+    fat * 0.02 -
+    (s.female ? 0.03 : 0);
   const chinBack = jawI === 5 ? 0.12 * grown : jawI === 4 ? -0.04 : 0;
   const temple = shape[4] + fat * 0.02 - (gaunt - shape[7]) * 0.04;
   const cheekbone = shape[5] + (L.cheeks === 2 ? 0.03 : 0);
@@ -285,10 +289,10 @@ export function buildHead(s: Sitting): Head {
   const outline: Pt[] = [
     [cx + a * -0.78, cy + b * -1.02],
     [cx + a * -temple, cy + b * -0.62],
-    [cx + a * (-1.02 - cheekbone), cy + b * -0.2],
+    [cx + a * (-1.0 - cheekbone * 0.6), cy + b * -0.2],
     [
       cx +
-        a * (-0.98 - (L.cheeks === 1 ? 0.03 : 0) - fat * 0.05 + hollow * 0.6),
+        a * (-0.95 - (L.cheeks === 1 ? 0.03 : 0) - fat * 0.05 + hollow * 0.5),
       cy + b * 0.16,
     ],
     [cx + a * (-0.86 - jawWide - jowl), cy + b * (0.5 + jowl)],
@@ -321,6 +325,7 @@ export function buildHead(s: Sitting): Head {
     a *
     (0.5 + child * 0.05) *
     (L.eyes === 3 ? 0.95 : L.eyes === 6 ? 1.05 : 1) *
+    (s.female ? 1.05 : 1) *
     (1 - old * 0.04) *
     (1 + nudge(L.eyes, L.brows, 5) * 0.04);
   const ex = s.expression;
@@ -353,9 +358,10 @@ export function buildHead(s: Sitting): Head {
   const noseKind = L.nose;
   const noseLen =
     b *
-    ([0.54, 0.6, 0.45, 0.52, 0.66, 0.43, 0.62, 0.56][noseKind] ?? 0.54) *
+    ([0.49, 0.54, 0.41, 0.47, 0.59, 0.39, 0.56, 0.5][noseKind] ?? 0.49) *
     (1 - child * 0.3 + old * 0.05) *
-    (L.face === 2 || L.face === 6 ? 1.08 : L.face === 1 ? 0.94 : 1) *
+    (L.face === 1 ? 0.95 : 1) *
+    (s.female ? 0.9 : 1) *
     (1 + nudge(L.nose, L.face, 7) * 0.05);
   const noseW =
     a *
@@ -369,7 +375,8 @@ export function buildHead(s: Sitting): Head {
     (1 - child * 0.35);
   const noseTip: Pt = [P(0, 0, tipDepth)[0], noseBaseY - b * 0.03];
   // The mouth, a third of the way from the nose to the chin (or so).
-  const mouthAt = 0.36 + nudge(L.mouth, L.jaw, 9) * 0.04 - fat * 0.02;
+  const mouthAt =
+    (s.female ? 0.32 : 0.36) + nudge(L.mouth, L.jaw, 9) * 0.04 - fat * 0.02;
   const mouthYn = (noseBaseY - cy) / b + (1 - (noseBaseY - cy) / b) * mouthAt;
   const mouthW =
     a *
@@ -384,6 +391,13 @@ export function buildHead(s: Sitting): Head {
     b * (([0.5, 0.56, 0.62, 0.6][L.ears] ?? 0.56) + child * 0.05 + old * 0.05);
   const ear: Pt = [cx - a * 1.02, cy + b * (eyeYn + 0.2 + old * 0.02)];
   const top = cy - b * (1.56 - child * 0.1);
+  // Where the hair meets the brow: lower than a mask's, a little higher or
+  // lower by the face, and rising on an old man's temples.
+  const hairline =
+    -0.86 +
+    child * 0.06 +
+    nudge(L.face, L.brows, 11) * 0.05 -
+    (s.female ? 0 : old * 0.06);
   const skull = {
     cx: cx - a * 0.1,
     cy: cy - b * (0.5 + child * 0.12),
@@ -416,7 +430,8 @@ export function buildHead(s: Sitting): Head {
     chin,
     ear,
     earH,
-    hairY: cy - b * (0.98 - child * 0.08 + nudge(L.face, L.brows, 11) * 0.04),
+    hairY: cy + b * hairline,
+    hairline,
     top,
     jawN: outline[4],
     jawF: outline[9],

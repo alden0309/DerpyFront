@@ -662,10 +662,11 @@ export function paintHat(h: Head, s: Sitting): string {
     case "steeple":
     case "fontange": {
       const mob = key === "mob_cap";
-      const front = mob ? 0.08 : 0.2;
+      // Set back on the head, so the hair shows at the brow.
+      const front = mob ? -0.14 : key === "coif" ? -0.3 : -0.24;
       const pts = capShape(h, s, {
         front,
-        puff: mob ? 10 : 2,
+        puff: mob ? 11 : 5,
         low: 0.25,
         ears: !mob,
       });
@@ -699,14 +700,15 @@ export function paintHat(h: Head, s: Sitting): string {
         ),
         `fill="none" stroke="#8a93a2" stroke-width="1.2" opacity="0.55"`,
       );
-      for (let i = 0; i < 6; i++) {
-        const f = -Math.PI * 0.55 - i * 0.18;
+      for (let i = 0; i < 9; i++) {
+        const f = -Math.PI * 0.5 - i * 0.14;
         folds += path(
-          `M${n(nape[0])} ${n(nape[1])}L${n(sk.cx + sk.rx * 0.8 * Math.cos(f))} ${n(sk.cy + sk.ry * 0.8 * Math.sin(f))}`,
-          `stroke="#7f8898" stroke-width="1.6" opacity="0.3"`,
+          `M${n(nape[0])} ${n(nape[1])}Q${n(sk.cx + sk.rx * 0.5 * Math.cos(f) - 4)} ${n(sk.cy + sk.ry * 0.5 * Math.sin(f))} ${n(sk.cx + sk.rx * 0.95 * Math.cos(f))} ${n(sk.cy + sk.ry * 0.95 * Math.sin(f))}`,
+          `fill="none" stroke="${i % 2 ? "#6f7888" : "#ffffff"}" stroke-width="${i % 2 ? 2.2 : 1.4}" opacity="${i % 2 ? 0.38 : 0.35}"`,
         );
       }
-      out += `<defs><clipPath id="${id}">${path(smooth(pts, true, 0.4), "")}</clipPath></defs><g clip-path="url(#${id})" filter="url(#soft1)">${folds}${ell(sk.cx - sk.rx * 0.9, sk.cy + sk.ry * 0.3, sk.rx * 0.5, sk.ry * 0.6, `fill="#5a6474" opacity="0.3"`)}</g>`;
+      // The linen turns away from the light at the back and the far side.
+      out += `<defs><clipPath id="${id}">${path(smooth(pts, true, 0.4), "")}</clipPath></defs><g clip-path="url(#${id})" filter="url(#soft1)">${folds}${ell(sk.cx - sk.rx * 0.9, sk.cy + sk.ry * 0.3, sk.rx * 0.55, sk.ry * 0.7, `fill="#4f5a6a" opacity="0.42"`)}${ell(sk.cx + sk.rx * 0.9, sk.cy - sk.ry * 0.2, sk.rx * 0.3, sk.ry * 0.7, `fill="#5a6474" opacity="0.3"`)}</g>`;
       out += stroke(
         edge,
         mob ? 4 : 5.5,
@@ -825,8 +827,33 @@ export function paintHat(h: Head, s: Sitting): string {
       return `<defs><clipPath id="${id}">${path(smooth(pts, true, 0.4), "")}</clipPath></defs><g filter="url(#brush)">${path(smooth(pts, true, 0.4), `fill="#141210" opacity="0.72"`)}<g clip-path="url(#${id})">${lace}</g>${frill([h.P(-0.95, -0.5), h.P(-0.5, -0.92), h.P(0.15, -1.02), h.P(0.8, -0.86)], "#2a2622", 2.4)}</g>`;
     }
     case "headscarf": {
-      const pts = capShape(h, s, { front: 0.1, puff: 4, low: 0.2, ears: true });
-      return `<g filter="url(#brush)">${fillShape(smooth(pts, true, 0.4), mix(c2, LINEN, 0.35))}${ell(h.neckN - 6, h.cy + h.b * 0.3, 8, 6, `fill="${shade(mix(c2, LINEN, 0.35), 0.2)}"`)}</g>`;
+      const pts = capShape(h, s, {
+        front: -0.12,
+        puff: 6,
+        low: 0.2,
+        ears: true,
+      });
+      const tone = mix(c2, LINEN, 0.35);
+      const nape: Pt = [h.neckN - 6, h.cy + h.b * 0.3];
+      const id = `hs${hid++}`;
+      let folds = "";
+      for (let i = 0; i < 7; i++) {
+        const f = -Math.PI * 0.45 - i * 0.17;
+        folds += path(
+          `M${n(nape[0])} ${n(nape[1])}Q${n(sk.cx + sk.rx * 0.5 * Math.cos(f))} ${n(sk.cy + sk.ry * 0.5 * Math.sin(f))} ${n(sk.cx + sk.rx * 1.05 * Math.cos(f))} ${n(sk.cy + sk.ry * 1.05 * Math.sin(f))}`,
+          `fill="none" stroke="${i % 2 ? shade(tone, 0.45) : light(tone, 0.4)}" stroke-width="${i % 2 ? 2.4 : 1.5}" opacity="0.4"`,
+        );
+      }
+      // The knot at the nape, its ends hanging.
+      const knot =
+        ell(nape[0], nape[1], 7, 5.5, `fill="${shade(tone, 0.15)}"`) +
+        stroke(
+          [nape, [nape[0] - 5, nape[1] + 10], [nape[0] - 3, nape[1] + 18]],
+          6,
+          `fill="${shade(tone, 0.25)}"`,
+          [0.9, 0.4],
+        );
+      return `<g filter="url(#brush)">${knot}${fillShape(smooth(pts, true, 0.4), tone, lum(tone) > 0.7 ? "linen" : "cloth")}<defs><clipPath id="${id}">${path(smooth(pts, true, 0.4), "")}</clipPath></defs><g clip-path="url(#${id})" filter="url(#soft1)">${folds}${ell(sk.cx - sk.rx * 0.9, sk.cy + sk.ry * 0.3, sk.rx * 0.55, sk.ry * 0.7, `fill="#3a3a44" opacity="0.35"`)}</g></g>`;
     }
     case "veil": {
       // The black veil, the white band over the brow and the wimple under the chin.

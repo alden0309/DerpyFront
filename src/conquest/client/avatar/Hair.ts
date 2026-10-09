@@ -234,6 +234,8 @@ function mass(pts: Pt[], color: string, s: Sitting, o: MassOpts = {}): string {
         );
       }
       const r = br.next();
+      // Fine strands are lost in a small portrait.
+      if (!full) continue;
       const tone =
         r < 0.28 ? T.deep : near > 0.25 ? (r < 0.6 ? T.shine : T.lit) : T.lit;
       const alpha =
@@ -421,11 +423,11 @@ function marks(h: Head) {
     A,
     B,
     top,
-    Tn: [h.cx - A * 0.97, h.cy - B * 0.42] as Pt,
-    Hn: h.P(-0.62, -0.9),
-    Hc: h.P(0, -0.99),
-    Hf: h.P(0.6, -0.92),
-    Tf: h.P(0.97, -0.52),
+    Tn: [h.cx - A * 0.96, h.cy + B * (h.hairline + 0.5)] as Pt,
+    Hn: h.P(-0.62, h.hairline + 0.08),
+    Hc: h.P(0, h.hairline),
+    Hf: h.P(0.6, h.hairline + 0.06),
+    Tf: h.P(0.97, h.hairline + 0.42),
     Ae: [h.ear[0] + 4, h.ear[1] - h.earH * 0.52] as Pt,
     Be: [h.ear[0] - h.earH * 0.42, h.ear[1] + h.earH * 0.2] as Pt,
     Np: [h.neckN + 3, h.cy + B * 0.38] as Pt,
@@ -502,7 +504,7 @@ function hairline(h: Head, color: string, s: Sitting, count = 10): string {
     out.push(
       path(
         `M${n(x)} ${n(y - 3)}l${n(br.range(-1.5, 1.5))} ${n(br.range(2, 4))}`,
-        `stroke="${color}" stroke-width="0.8" opacity="0.5"`,
+        `stroke="${color}" stroke-width="0.7" opacity="0.28"`,
       ),
     );
   }

@@ -273,7 +273,7 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
   const out: string[] = [];
   out.push(`<defs>
 <radialGradient id="skinG" gradientUnits="userSpaceOnUse" cx="${n(lx)}" cy="${n(ly)}" r="${n(h.a * 1.75)}" fx="${n(lx - 4)}" fy="${n(ly - 6)}">
-<stop offset="0" stop-color="${mix(sk.base, sk.lit, 0.45)}"/><stop offset="0.26" stop-color="${sk.base}"/>
+<stop offset="0" stop-color="${mix(sk.base, sk.lit, 0.35)}"/><stop offset="0.28" stop-color="${sk.base}"/>
 <stop offset="0.55" stop-color="${mix(sk.base, sk.half, 0.6)}"/><stop offset="0.8" stop-color="${mix(sk.half, sk.shadow, 0.6)}"/><stop offset="1" stop-color="${sk.shadow}"/></radialGradient>
 <clipPath id="faceClip">${path(faceD, "")}</clipPath>
 <clipPath id="headClip">${path(faceD, "")}${path(skullD, "")}</clipPath></defs>`);
@@ -469,11 +469,12 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
   // The deepest corner, between the brow and the bridge of the nose.
   m.push(
     ell(
-      h.eyeN[0] + h.eyeW * 0.58,
-      h.eyeN[1] - h.eyeH * 0.4,
+      h.eyeN[0] + h.eyeW * 0.5,
+      h.eyeN[1] - h.eyeH * 0.75,
       h.eyeW * 0.3,
-      h.eyeH * 1.1,
-      fillOp(sk.shadow, socket * 0.9),
+      h.eyeH * 0.8,
+      fillOp(sk.shadow, socket * 0.55),
+      -30,
     ),
   );
   m.push(
@@ -485,21 +486,8 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
       fillOp(sk.shadow, socket * 1.2),
     ),
   );
-  // The plane of the nose beyond the bridge, and its shadow on the lip.
+  // The nose's shadow on the lip (its far plane is painted with the nose).
   const tip = h.noseTip;
-  m.push(
-    path(
-      smooth([
-        [h.noseRoot[0] + 2, h.noseRoot[1] + h.noseLen * 0.15],
-        [tip[0] + h.noseW * 0.08, tip[1] - h.noseLen * 0.45],
-        [tip[0] + h.noseW * 0.42, tip[1] - h.noseW * 0.05],
-        [tip[0] + h.noseW * 0.3, tip[1] + h.noseW * 0.2],
-        [tip[0] + h.noseW * 0.58, tip[1] - h.noseLen * 0.3],
-        [h.noseRoot[0] + h.a * 0.14, h.noseRoot[1] + h.noseLen * 0.1],
-      ]),
-      fillOp(sk.shadow, 0.55),
-    ),
-  );
   m.push(
     ell(
       tip[0] + h.noseW * 0.28,
@@ -589,7 +577,7 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
   // ---- The lights, laid on with a firmer edge.
   const lt: string[] = [];
   const [ox, oy] = P(-0.3, -0.62);
-  lt.push(ell(ox, oy, h.a * 0.4, h.b * 0.2, fillOp(sk.lit, 0.32), -6));
+  lt.push(ell(ox, oy, h.a * 0.36, h.b * 0.17, fillOp(sk.lit, 0.22), -6));
   // The brow ridge over the near eye.
   lt.push(
     ell(
@@ -629,7 +617,7 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
         ],
         false,
       ),
-      line(sk.lit, h.noseW * 0.16, 0.6),
+      line(sk.lit, h.noseW * 0.2, s.detail === "full" ? 0.35 : 0.2),
     ),
   );
   // The near ridge of the upper lip, and the chin.
@@ -667,7 +655,7 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
   out.push(
     `<g clip-path="url(#headClip)"><g filter="url(#soft${full ? 3 : 2})">${lt.join("")}</g>${
       full
-        ? `<rect x="${n(h.cx - h.a * 1.4)}" y="${n(h.top)}" width="${n(h.a * 2.8)}" height="${n(h.b * 2.8)}" filter="url(#skinNoise)" opacity="0.16" style="mix-blend-mode:multiply"/><rect x="${n(h.cx - h.a * 2)}" y="${n(h.top - h.b * 0.5)}" width="${n(h.a * 4)}" height="${n(h.b * 3.6)}" filter="url(#strokes)" opacity="0.08" style="mix-blend-mode:soft-light" transform="rotate(-38 ${n(h.cx)} ${n(h.cy)})"/>`
+        ? `<rect x="${n(h.cx - h.a * 1.4)}" y="${n(h.top)}" width="${n(h.a * 2.8)}" height="${n(h.b * 2.8)}" filter="url(#skinNoise)" opacity="0.16" style="mix-blend-mode:multiply"/>`
         : ""
     }</g>`,
   );
@@ -766,15 +754,15 @@ function paintEye(
   const yBot = Math.max(...lower.map((p) => p[1]));
   const open = yBot - yTop;
   const r =
-    Math.min(w * 0.31, open * (0.64 - h.expr.wide * 0.12)) *
+    Math.min(w * 0.32, open * (0.66 - h.expr.wide * 0.12)) *
     (1 + h.child * 0.06) *
     (farSide ? 0.98 : 1);
   const ix = e[0] - w * 0.1 + (farSide ? w * 0.04 : 0);
   const iy = (yTop + yBot) / 2 + open * (0.16 - h.expr.wide * 0.18);
   const white = mix(
-    mix("#c8b89e", sk.base, 0.55),
+    mix("#c4b49a", sk.base, 0.55),
     farSide ? sk.shadow : sk.half,
-    0.25,
+    0.38,
   );
   const lash = mix(sk.deep, "#0e0603", 0.75);
   const out: string[] = [];
@@ -832,7 +820,7 @@ function paintEye(
   out.push(ell(ix, iy, r * 0.42, r * 0.42, `fill="#0c0603"`));
   // The upper lid's shadow on the eyeball, and the corners in shade.
   out.push(
-    `<g filter="url(#soft1)">${path(smooth(upper, false), line(sk.deep, hgt * 0.95, 0.6))}${ell(e[0] - (inner * w) / 2, e[1], w * 0.2, hgt, fillOp(sk.shadow, 0.45))}</g>`,
+    `<g filter="url(#soft1)">${path(smooth(upper, false), line(sk.deep, hgt * 1.15, 0.68))}${ell(e[0] - (inner * w) / 2, e[1], w * 0.24, hgt, fillOp(sk.shadow, 0.55))}</g>`,
   );
   out.push(`</g>`);
   // The wet light in the eye.
@@ -850,7 +838,7 @@ function paintEye(
   const lw = Math.max(1.4, hgt * (lite ? 0.5 : 0.44)) * (s.female ? 1.1 : 1);
   const ext: Pt = [upper[0][0] - inner * w * 0.08, upper[0][1] + hgt * 0.05];
   out.push(
-    `<g filter="url(#soft06)">${stroke([ext, ...upper.slice(0, 5)], lw, `fill="${lash}" opacity="0.92"`, inner === 1 ? [0.35, 0.25] : [0.35, 0.25])}</g>`,
+    `<g filter="url(#${lite ? "soft06" : "soft1"})">${stroke([ext, ...upper.slice(0, 5)], lw, `fill="${lash}" opacity="0.88"`, [0.35, 0.25])}</g>`,
   );
   // The lower lid: a lit rim and a shadow under it.
   if (!lite) {
@@ -926,7 +914,7 @@ function paintBrows(h: Head, s: Sitting, sk: SkinPalette): string {
       [inX, inY],
       [x(0.45), y0 - arch * 0.7 - E.browUp * 2.2 + E.browIn * 1.2],
       [x(-0.25), y0 - arch - E.browUp * 0.6 + E.browIn * 0.2],
-      [x(-1.1), y0 + 2 + E.browUp * 0.6],
+      [x(-1.1), y0 + 2 + E.browUp * 1.4 - E.browIn * 0.7],
     ];
     const main = stroke(
       pts,
@@ -970,21 +958,66 @@ function paintNose(h: Head, s: Sitting, sk: SkinPalette): string {
     (h.noseRoot[0] + t[0]) / 2 + bump,
     (h.noseRoot[1] + t[1]) / 2,
   ];
-  // The far side of the nose, against the far cheek: firm at the tip,
-  // lost toward the brow.
+  // The near side of the nose turns down to the cheek in a half-tone; the
+  // ridge catches the light.
   out.push(
     path(
       smooth(
         [
-          [mid[0] + w * 0.18, mid[1]],
-          [t[0] + w * 0.28 * bulb, t[1] - w * 0.3],
-          [t[0] + w * 0.38 * bulb, t[1] - w * 0.05],
+          [h.noseRoot[0] - w * 0.3, h.noseRoot[1] + h.noseLen * 0.18],
+          [mid[0] - w * 0.36, mid[1] + h.noseLen * 0.05],
+          [t[0] - w * 0.46, t[1] - w * 0.3],
         ],
         false,
       ),
-      `${line(sk.shadow, 1.8, 0.4)} filter="url(#soft15)"`,
+      `${line(sk.half, w * 0.28, 0.32)} filter="url(#soft15)"`,
     ),
   );
+  out.push(
+    path(
+      smooth(
+        [
+          [h.noseRoot[0] - 0.6, h.noseRoot[1] + h.noseLen * 0.2],
+          [mid[0] - w * 0.06, mid[1]],
+          [t[0] - w * 0.1, t[1] - w * 0.36],
+        ],
+        false,
+      ),
+      `${line(sk.lit, w * 0.12, 0.55)} filter="url(#soft06)"`,
+    ),
+  );
+  // The far plane of the nose, turned from the light.
+  out.push(
+    path(
+      smooth([
+        [h.noseRoot[0] + w * 0.06, h.noseRoot[1] + h.noseLen * 0.12],
+        [mid[0] + w * 0.08, mid[1]],
+        [t[0] + w * 0.1, t[1] - w * 0.34],
+        [t[0] + w * 0.42 * bulb, t[1] - w * 0.04],
+        [t[0] + w * 0.3, t[1] + w * 0.16],
+        [t[0] + w * 0.52, t[1] - w * 0.24],
+        [mid[0] + w * 0.38, mid[1]],
+        [h.noseRoot[0] + w * 0.32, h.noseRoot[1]],
+      ]),
+      `fill="${sk.shadow}" opacity="0.62" filter="url(#soft15)"`,
+    ),
+  );
+  // The far side of the nose, against the far cheek: firm at the tip,
+  // lost toward the brow. (Too fine for a small portrait.)
+  if (s.detail === "full")
+    out.push(
+      path(
+        smooth(
+          [
+            [mid[0] + w * 0.18, mid[1]],
+            [t[0] + w * 0.28 * bulb, t[1] - w * 0.3],
+            [t[0] + w * 0.38 * bulb, t[1] - w * 0.05],
+          ],
+          false,
+        ),
+        `${line(sk.shadow, 1.8, 0.4)} filter="url(#soft15)"`,
+      ),
+    );
   // The underside of the nose, in shadow.
   out.push(
     path(
@@ -1103,7 +1136,7 @@ function paintMouth(h: Head, s: Sitting, sk: SkinPalette): string {
   const fX = mx + W * (0.4 + Math.max(0, E.mouth) * 0.03);
   const cYn = my + curl;
   const cYf = my + curl * 0.8;
-  const gap = E.open * 3.4 * k;
+  const gap = E.open * 4.6 * k;
   const midDrop = E.mouth > 0 ? 0.6 : E.mouth < 0 ? -0.5 * -E.mouth * 0.4 : 0;
   // The parting of the lips (the top edge of the opening, when open).
   const top: Pt[] = [
@@ -1136,7 +1169,7 @@ function paintMouth(h: Head, s: Sitting, sk: SkinPalette): string {
   ];
   const lipUp = mix(sk.lip, sk.shadow, 0.42);
   const lipLo = sk.lip;
-  const lineC = mix(sk.lip, "#1a0804", 0.78);
+  const lineC = mix(sk.lip, "#1a0804", lite ? 0.88 : 0.78);
   const out: string[] = [];
   // The shadow the lower lip throws.
   out.push(
@@ -1153,7 +1186,10 @@ function paintMouth(h: Head, s: Sitting, sk: SkinPalette): string {
     // The mouth open: dark within, and teeth in a smile.
     const hole = smooth([...top, ...bot.slice(1, -1).reverse()], true, 0.4);
     out.push(path(hole, `fill="#2a0f0a"`));
-    if (E.mouth > 0.4)
+    // Teeth: the upper row in a smile; clenched, both rows, in anger.
+    const clench = E.mouth <= 0.4;
+    const tk = clench ? 1 : 0.55;
+    if (E.mouth > 0.4 || E.tight > 0.8)
       out.push(
         `<clipPath id="mouthIn">${path(hole, "")}</clipPath><g clip-path="url(#mouthIn)">${path(
           smooth(
@@ -1161,15 +1197,29 @@ function paintMouth(h: Head, s: Sitting, sk: SkinPalette): string {
               [nX + W * 0.12, top[0][1] - 1],
               [mx - W * 0.02, top[2][1] - 1],
               [fX - W * 0.08, top[4][1] - 1],
-              [fX - W * 0.1, top[4][1] + gap * 0.55],
-              [mx - W * 0.02, top[2][1] + gap * 0.62],
-              [nX + W * 0.14, top[0][1] + gap * 0.5],
+              [fX - W * 0.1, top[4][1] + gap * tk],
+              [mx - W * 0.02, top[2][1] + gap * (tk + 0.07)],
+              [nX + W * 0.14, top[0][1] + gap * tk],
             ],
             true,
             0.4,
           ),
           `fill="${mix("#e8dcc4", sk.base, 0.2)}" opacity="0.92"`,
-        )}</g>`,
+        )}${
+          clench
+            ? path(
+                smooth(
+                  [
+                    [nX, top[0][1] + gap * 0.45],
+                    [mx, top[2][1] + gap * 0.5],
+                    [fX, top[4][1] + gap * 0.45],
+                  ],
+                  false,
+                ),
+                line("#6a5040", 0.8, 0.7),
+              )
+            : ""
+        }</g>`,
       );
   }
   out.push(
