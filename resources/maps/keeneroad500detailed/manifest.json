@@ -1,0 +1,144 @@
+{
+  "categories": ["new", "north_america"],
+  "id": "KeeneRoad500Detailed",
+  "map": {
+    "height": 1808,
+    "num_land_tiles": 2861445,
+    "width": 1800
+  },
+  "map16x": {
+    "height": 452,
+    "num_land_tiles": 177287,
+    "width": 450
+  },
+  "map4x": {
+    "height": 904,
+    "num_land_tiles": 713322,
+    "width": 900
+  },
+  "multiplayer_frequency": 0,
+  "name": "500 W Keene Road, Apopka, FL 32703 - Detailed",
+  "nations": [
+    {
+      "coordinates": [900, 875],
+      "flag": "Apopka",
+      "name": "500 W Keene Road"
+    },
+    {
+      "coordinates": [1005, 1065],
+      "flag": "Apopka",
+      "name": "Lake Mitchell"
+    },
+    {
+      "coordinates": [226, 1105],
+      "flag": "Apopka",
+      "name": "Lake Marden"
+    },
+    {
+      "coordinates": [650, 465],
+      "flag": "Apopka",
+      "name": "Lake Maynard"
+    },
+    {
+      "coordinates": [1262, 282],
+      "flag": "Apopka",
+      "name": "Lake Gentile"
+    },
+    {
+      "coordinates": [95, 470],
+      "flag": "Apopka",
+      "name": "Lake Rutherford"
+    },
+    {
+      "coordinates": [1530, 1690],
+      "flag": "Apopka",
+      "name": "Lake Cora Lee"
+    },
+    {
+      "coordinates": [420, 280],
+      "flag": "Apopka",
+      "name": "Emerson Park"
+    },
+    {
+      "coordinates": [780, 100],
+      "flag": "Apopka",
+      "name": "Hilltop Reserve"
+    },
+    {
+      "coordinates": [108, 620],
+      "flag": "Apopka",
+      "name": "Hilltop Stable"
+    },
+    {
+      "coordinates": [142, 1660],
+      "flag": "Apopka",
+      "name": "Oak Pointe"
+    },
+    {
+      "coordinates": [300, 1745],
+      "flag": "Apopka",
+      "name": "Apopka Woods"
+    },
+    {
+      "coordinates": [1715, 1089],
+      "flag": "Apopka",
+      "name": "Oak Hills"
+    },
+    {
+      "coordinates": [1560, 650],
+      "flag": "Apopka",
+      "name": "West Keene Road"
+    },
+    {
+      "coordinates": [1052, 1350],
+      "flag": "Apopka",
+      "name": "McQueen Road"
+    },
+    {
+      "coordinates": [545, 800],
+      "flag": "Apopka",
+      "name": "Marden Road"
+    },
+    {
+      "coordinates": [1772, 1450],
+      "flag": "Apopka",
+      "name": "Damon Road"
+    },
+    {
+      "coordinates": [1520, 360],
+      "flag": "Florida",
+      "name": "John Land Apopka Expressway"
+    },
+    {
+      "coordinates": [304, 66],
+      "flag": "Apopka",
+      "name": "Home Pros Roofing"
+    },
+    {
+      "coordinates": [1370, 790],
+      "flag": "Florida",
+      "name": "Vista Landfill"
+    },
+    {
+      "coordinates": [1020, 560],
+      "flag": "Florida",
+      "name": "Keene Road Landfill"
+    },
+    {
+      "coordinates": [1756, 188],
+      "flag": "Apopka",
+      "name": "St. Matthew Holiness Church"
+    },
+    {
+      "coordinates": [576, 1428],
+      "flag": "Florida",
+      "name": "Northwest Water Plant"
+    },
+    {
+      "coordinates": [256, 1498],
+      "flag": "Florida",
+      "name": "Lake Apopka Connector Trail"
+    }
+  ],
+  "translation_key": "map.keeneroad500detailed"
+}

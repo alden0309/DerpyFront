@@ -2,167 +2,147 @@
   "categories": ["new", "north_america"],
   "id": "ThirteenColonies",
   "map": {
-    "height": 1800,
-    "num_land_tiles": 1790204,
-    "width": 1900
+    "height": 2012,
+    "num_land_tiles": 857945,
+    "width": 1180
   },
   "map16x": {
-    "height": 450,
-    "num_land_tiles": 105162,
-    "width": 475
+    "height": 503,
+    "num_land_tiles": 49086,
+    "width": 295
   },
   "map4x": {
-    "height": 900,
-    "num_land_tiles": 437922,
-    "width": 950
+    "height": 1006,
+    "num_land_tiles": 208048,
+    "width": 590
   },
   "multiplayer_frequency": 0,
   "name": "Thirteen Colonies",
   "nations": [
     {
-      "coordinates": [1357, 492],
+      "coordinates": [906, 470],
       "flag": "New_Hampshire",
       "name": "New Hampshire"
     },
     {
-      "coordinates": [1349, 563],
+      "coordinates": [911, 536],
       "flag": "Massachusetts (Naval)",
       "name": "Massachusetts Bay"
     },
     {
-      "coordinates": [1328, 620],
+      "coordinates": [902, 592],
       "flag": "Rhode_Island",
       "name": "Rhode Island"
     },
     {
-      "coordinates": [1234, 628],
+      "coordinates": [816, 615],
       "flag": "Connecticut",
       "name": "Connecticut"
     },
     {
-      "coordinates": [1134, 605],
+      "coordinates": [720, 609],
       "flag": "New_York",
       "name": "New York"
     },
     {
-      "coordinates": [1098, 763],
+      "coordinates": [709, 762],
       "flag": "New_Jersey",
       "name": "New Jersey"
     },
     {
-      "coordinates": [1017, 799],
+      "coordinates": [636, 807],
       "flag": "Pennsylvania",
       "name": "Pennsylvania"
     },
     {
-      "coordinates": [1022, 885],
+      "coordinates": [653, 888],
       "flag": "Delaware",
       "name": "Delaware"
     },
     {
-      "coordinates": [941, 897],
+      "coordinates": [576, 911],
       "flag": "Maryland",
       "name": "Maryland"
     },
     {
-      "coordinates": [865, 1032],
+      "coordinates": [518, 1052],
       "flag": "Virginia",
       "name": "Virginia"
     },
     {
-      "coordinates": [896, 1264],
+      "coordinates": [576, 1281],
       "flag": "North_Carolina",
       "name": "North Carolina"
     },
     {
-      "coordinates": [675, 1469],
+      "coordinates": [368, 1519],
       "flag": "Moultrie Flag",
       "name": "South Carolina"
     },
     {
-      "coordinates": [595, 1549],
+      "coordinates": [290, 1610],
       "flag": "Georgia (1775)",
       "name": "Georgia"
     },
     {
-      "coordinates": [977, 502],
+      "coordinates": [562, 535],
       "flag": "Haudenosaunee",
       "name": "Haudenosaunee (Six Nations)"
     },
     {
-      "coordinates": [1537, 284],
+      "coordinates": [1029, 253],
       "flag": "Wabanaki",
       "name": "Wabanaki"
     },
     {
-      "coordinates": [1192, 571],
+      "coordinates": [772, 574],
       "flag": "Muhheconneok",
       "name": "Muhheconneok (Mohican)"
     },
     {
-      "coordinates": [536, 770],
+      "coordinates": [174, 826],
       "flag": "Lenape",
       "name": "Lenape"
     },
     {
-      "coordinates": [445, 855],
+      "coordinates": [91, 913],
       "flag": "Shawnee",
       "name": "Shaawanwaki (Shawnee)"
     },
     {
-      "coordinates": [451, 771],
+      "coordinates": [93, 832],
       "flag": "Mingo",
       "name": "Mingo"
     },
     {
-      "coordinates": [441, 676],
+      "coordinates": [79, 742],
       "flag": "Wendat",
       "name": "Wendat (Wyandot)"
     },
     {
-      "coordinates": [288, 691],
-      "flag": "Myaamia",
-      "name": "Myaamia (Miami)"
+      "coordinates": [51, 506],
+      "flag": "Anishinaabe",
+      "name": "Ojibwe (Chippewa)"
     },
     {
-      "coordinates": [370, 1229],
+      "coordinates": [35, 1289],
       "flag": "Cherokee Nation",
       "name": "Tsalagi (Cherokee)"
     },
     {
-      "coordinates": [274, 1508],
-      "flag": "Mvskoke",
-      "name": "Mvskoke (Creek)"
-    },
-    {
-      "coordinates": [623, 1287],
+      "coordinates": [299, 1333],
       "flag": "Iswa",
       "name": "Iswa (Catawba)"
     },
     {
-      "coordinates": [23, 1347],
-      "flag": "Chickasaw",
-      "name": "Chikashsha (Chickasaw)"
+      "coordinates": [62, 1580],
+      "flag": "Mvskoke",
+      "name": "Mvskoke (Creek)"
     },
     {
-      "coordinates": [511, 1770],
+      "coordinates": [215, 1856],
       "flag": "Seminole",
       "name": "Yat'siminoli (Seminole)"
-    },
-    {
-      "coordinates": [312, 236],
-      "flag": "Odawa",
-      "name": "Odawa (Ottawa)"
-    },
-    {
-      "coordinates": [213, 625],
-      "flag": "Bodewadmi",
-      "name": "Bodéwadmi (Potawatomi)"
-    },
-    {
-      "coordinates": [369, 450],
-      "flag": "Anishinaabe",
-      "name": "Ojibwe (Chippewa)"
     }
   ],
   "translation_key": "map.thirteencolonies"

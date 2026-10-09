@@ -74,6 +74,7 @@ export enum GameMapType {
   Italia = "Italia", // map-generator/assets/maps/italia/info.json
   Japan = "Japan", // map-generator/assets/maps/japan/info.json
   JuanDeFucaStrait = "Juan De Fuca Strait", // map-generator/assets/maps/juandefucastrait/info.json
+  KeeneRoad500Detailed = "500 W Keene Road, Apopka, FL 32703 - Detailed", // map-generator/assets/maps/keeneroad500detailed/info.json
   Korea = "Korea", // map-generator/assets/maps/korea/info.json
   Labyrinth = "Labyrinth", // map-generator/assets/maps/labyrinth/info.json
   LasVegasStrip = "Las Vegas Strip", // map-generator/assets/maps/lasvegasstrip/info.json
@@ -1632,6 +1633,17 @@ export const maps: readonly MapInfo[] = [
     themes: ["north_america"],
   },
   {
+    id: "KeeneRoad500Detailed",
+    type: GameMapType.KeeneRoad500Detailed,
+    translationKey: "map.keeneroad500detailed",
+    categories: ["new", "north_america"],
+    multiplayerFrequency: 0,
+    ffaFrequency: -1,
+    teamFrequency: -1,
+    specialFrequency: -1,
+    defaultNationCount: 24,
+  },
+  {
     id: "Korea",
     type: GameMapType.Korea,
     translationKey: "map.korea",
@@ -2396,7 +2408,7 @@ export const maps: readonly MapInfo[] = [
     ffaFrequency: -1,
     teamFrequency: -1,
     specialFrequency: -1,
-    defaultNationCount: 29,
+    defaultNationCount: 25,
   },
   {
     id: "ThirteenColoniesDetailed",
@@ -2407,7 +2419,7 @@ export const maps: readonly MapInfo[] = [
     ffaFrequency: -1,
     teamFrequency: -1,
     specialFrequency: -1,
-    defaultNationCount: 54,
+    defaultNationCount: 44,
   },
   {
     id: "TierraDelFuego",
