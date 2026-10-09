@@ -9,6 +9,7 @@ import type { SkinPalette } from "./Face";
 import type { Head, Sitting } from "./Head";
 import {
   Brush,
+  curve,
   ell,
   light,
   lum,
@@ -156,32 +157,81 @@ function cloth(
   const y1 = Math.max(...ys);
   const silk = silky(s) || (o.shine ?? 0) >= 0.5;
   const full = s.detail === "full";
+  const soft: string[] = [];
+  const sharp: string[] = [];
   const parts = [
     `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${n(x0)}" y1="${n(y0)}" x2="${n(x1)}" y2="${n(y1 * 0.7 + y0 * 0.3)}">
 <stop offset="0" stop-color="${clight(c, silk ? 0.22 : 0.14)}"/><stop offset="0.35" stop-color="${c}"/><stop offset="0.75" stop-color="${cshade(c, 0.35)}"/><stop offset="1" stop-color="${cshade(c, 0.6)}"/></linearGradient>
 <clipPath id="${id}c">${path(d, "")}</clipPath></defs>`,
     path(d, `fill="url(#${id})"`),
   ];
-  const soft: string[] = [];
-  const sharp: string[] = [];
   const folds = [...(o.folds ?? [])];
-  // Big pieces hang in folds of their own, from the shoulder down.
-  if (full && y1 - y0 > 70 && x1 - x0 > 40 && !o.folds?.length) {
+  const big = y1 - y0 > 70 && x1 - x0 > 40;
+  // Big pieces hang in folds of their own, from the shoulder down, and the
+  // arm and shoulder nearest the light come forward out of the dark.
+  if (full && big) {
+    // Tapered: a fold starts as a crease and opens as it falls.
     const br = new Brush(s.seed + gid * 5);
-    for (let i = 0; i < 3; i++) {
-      const x = x0 + (x1 - x0) * (0.2 + i * 0.28 + br.range(-0.05, 0.05));
-      folds.push([
-        [x + br.range(-4, 4), y0 + (y1 - y0) * 0.25],
-        [x + br.range(-6, 2), y0 + (y1 - y0) * 0.6],
-        [x + br.range(-10, -2), y1],
-      ]);
+    const k = o.folds?.length ? 2 : 4;
+    for (let i = 0; i < k; i++) {
+      const x =
+        x0 + (x1 - x0) * (0.14 + (i * 0.72) / (k - 1) + br.range(-0.06, 0.06));
+      const lean = br.range(-14, 6);
+      const ya = y0 + (y1 - y0) * br.range(0.15, 0.45);
+      const yb = Math.min(y1, ya + (y1 - y0) * br.range(0.35, 0.7));
+      const line = curve(
+        [x, ya],
+        [x + lean * 0.2 + br.range(-4, 4), (ya + yb) / 2],
+        [x + lean, yb],
+        6,
+      );
+      const w = br.range(5, 9);
+      soft.push(
+        stroke(
+          line,
+          w,
+          `fill="${cshade(c, 0.7)}" opacity="${silk ? 0.75 : 0.6}"`,
+          [0.1, 0.7],
+        ),
+      );
+      soft.push(
+        stroke(
+          line.map(([px, py]): Pt => [px - w * 0.75, py]),
+          w * 0.7,
+          `fill="${clight(c, silk ? 0.5 : 0.28)}" opacity="${silk ? 0.65 : 0.45}"`,
+          [0.1, 0.6],
+        ),
+      );
     }
+  }
+  if (big) {
+    // The lit shoulder and upper arm: a broad soft light...
+    soft.push(
+      ell(
+        x0 + (x1 - x0) * 0.2,
+        y0 + (y1 - y0) * 0.25,
+        (x1 - x0) * 0.2,
+        (y1 - y0) * 0.24,
+        `fill="${clight(c, silk ? 0.35 : 0.25)}" opacity="${silk ? 0.65 : 0.5}"`,
+        -30,
+      ),
+    );
+    // ...and the far side falling into shadow.
+    soft.push(
+      ell(
+        x1 - (x1 - x0) * 0.08,
+        y0 + (y1 - y0) * 0.65,
+        (x1 - x0) * 0.25,
+        (y1 - y0) * 0.6,
+        `fill="${cshade(c, 0.65)}" opacity="0.5"`,
+      ),
+    );
   }
   for (const f of folds) {
     soft.push(
       path(
         smooth(f, false),
-        `fill="none" stroke="${cshade(c, 0.6)}" stroke-width="${silk ? 4 : 6}" opacity="${silk ? 0.6 : 0.45}"`,
+        `fill="none" stroke="${cshade(c, 0.7)}" stroke-width="${silk ? 4.5 : 6.5}" opacity="${silk ? 0.8 : 0.7}"`,
       ),
     );
     // The ridge beside the trough catches the light.
@@ -189,7 +239,7 @@ function cloth(
     soft.push(
       path(
         smooth(ridge, false),
-        `fill="none" stroke="${clight(c, silk ? 0.4 : 0.2)}" stroke-width="${silk ? 3 : 4}" opacity="${silk ? 0.5 : 0.35}"`,
+        `fill="none" stroke="${clight(c, silk ? 0.5 : 0.3)}" stroke-width="${silk ? 3.5 : 4.5}" opacity="${silk ? 0.7 : 0.5}"`,
       ),
     );
   }
@@ -210,7 +260,7 @@ function cloth(
   }
   if (soft.length || sharp.length)
     parts.push(
-      `<g clip-path="url(#${id}c)"><g filter="url(#soft${silk ? 2 : 3})">${soft.join("")}</g>${sharp.length ? `<g filter="url(#soft06)">${sharp.join("")}</g>` : ""}</g>`,
+      `<g clip-path="url(#${id}c)"><g filter="url(#soft${silk ? 15 : 2})">${soft.join("")}</g>${sharp.length ? `<g filter="url(#soft06)">${sharp.join("")}</g>` : ""}</g>`,
     );
   return `<g filter="url(#brush)">${parts.join("")}</g>`;
 }

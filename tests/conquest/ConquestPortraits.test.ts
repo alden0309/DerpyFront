@@ -4,10 +4,12 @@
 import { describe, expect, test } from "vitest";
 import "../../src/conquest/client/avatar/Editor";
 import type { LookEditor } from "../../src/conquest/client/avatar/Editor";
+import { buildHead } from "../../src/conquest/client/avatar/Head";
 import { paintPortrait } from "../../src/conquest/client/avatar/Render";
 import {
   type Appearance,
   generateLook,
+  validateLook,
 } from "../../src/conquest/engine/Appearance";
 
 const look = generateLook({
@@ -37,6 +39,89 @@ describe("Derpy Conquest painted portraits", () => {
     );
     expect(paintPortrait(look, { ...opts, expression: "smile" })).not.toBe(a);
     expect(paintPortrait(look, { ...opts, age: 70 })).not.toBe(a);
+  });
+
+  test("a sitter facing left is lit from the right, not left in the dark", () => {
+    const right = paintPortrait(look, opts);
+    const left = paintPortrait(look, { ...opts, facing: "left" });
+    const lightX = (svg: string) =>
+      Number(/<fePointLight x="([-\d.]+)"/.exec(svg)![1]);
+    // The light is mirrored with the picture...
+    expect(lightX(left)).toBeCloseTo(240 - lightX(right), 0);
+    // ...and the lit figure is mirrored inside the lighting filter, never
+    // the filter inside the mirror (which misplaces the light).
+    expect(left).toContain(
+      '<g filter="url(#lightF)"><g transform="matrix(-1 0 0 1 240 0)">',
+    );
+    expect(left).not.toMatch(
+      /transform="matrix\(-1 0 0 1 240 0\)"><g filter="url\(#lightF\)"/,
+    );
+  });
+
+  test("small portraits draw expressions larger, and each reads differently", () => {
+    const sit = (expression: "smile" | "frown" | "worried" | "angry") => ({
+      look,
+      female: false,
+      age: 30,
+      year: 1700,
+      native: false,
+      region: "woodlands" as const,
+      culture: "english",
+      expression,
+      seed: 21,
+      bg: "#333333",
+    });
+    const big = buildHead({ ...sit("smile"), detail: "full" }).expr;
+    const small = buildHead({ ...sit("smile"), detail: "lite" }).expr;
+    expect(small.mouth).toBeGreaterThan(big.mouth);
+    expect(big.mouth).toBeGreaterThan(0);
+    expect(
+      buildHead({ ...sit("frown"), detail: "full" }).expr.mouth,
+    ).toBeLessThan(0);
+    const worried = buildHead({ ...sit("worried"), detail: "full" }).expr;
+    const angry = buildHead({ ...sit("angry"), detail: "full" }).expr;
+    expect(worried.browUp).toBeGreaterThan(angry.browUp);
+    expect(angry.browIn).toBeGreaterThan(worried.browIn);
+  });
+
+  test("looks saved before the newer features still load and paint", () => {
+    // A look from an older save: every index within the shorter lists of
+    // the time.
+    const old: Appearance = {
+      skin: 2,
+      face: 5,
+      jaw: 4,
+      cheeks: 3,
+      eyes: 5,
+      eyeColor: 6,
+      eyeSet: 2,
+      brows: 4,
+      nose: 6,
+      mouth: 4,
+      ears: 3,
+      hair: "full_wig",
+      hairColor: 8,
+      beard: "none",
+      hat: "tricorne",
+      clothes: "justaucorps",
+      colors: [7, 15, 13],
+      extras: ["gorget"],
+      marks: ["scar"],
+      lines: 3,
+      greying: 3,
+    };
+    expect(validateLook(old)).toBeNull();
+    const svg = paintPortrait(old, opts);
+    expect(svg).not.toMatch(/NaN|undefined/);
+    // And the new choices are as valid, and no further.
+    expect(
+      validateLook({ ...old, face: 7, jaw: 6, eyes: 7, nose: 7 }),
+    ).toBeNull();
+    expect(validateLook({ ...old, face: 8 })).not.toBeNull();
+    for (const f of [6, 7])
+      expect(
+        paintPortrait({ ...old, face: f, jaw: 6, eyes: 7, nose: 7 }, opts),
+      ).not.toMatch(/NaN|undefined/);
   });
 
   test("every part of the wardrobe paints", () => {

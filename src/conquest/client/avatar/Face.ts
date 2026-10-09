@@ -50,21 +50,17 @@ export function skinPalette(s: Sitting): SkinPalette {
   const swatch = SKIN_TONES[s.look.skin]?.hex ?? SKIN_TONES[2].hex;
   // Under the varnish even the palest skin is warm.
   const lw = lum(swatch);
-  const base = mix(
-    swatch,
-    "#c08a5a",
-    lw > 0.78 ? 0.32 : lw > 0.7 ? 0.26 : 0.12,
-  );
+  const base = mix(swatch, "#c8906a", lw > 0.78 ? 0.26 : lw > 0.7 ? 0.2 : 0.1);
   const L = lum(base);
   const dark = L < 0.5;
   const shadow = mix(base, dark ? "#24100a" : "#4a1e12", dark ? 0.55 : 0.64);
   return {
     base,
-    half: mix(base, dark ? "#2e2a26" : "#58544a", dark ? 0.3 : 0.42),
-    lit: dark ? mix(base, "#e6c3a0", 0.26) : mix(base, "#f4d6a4", 0.5),
+    half: mix(base, dark ? "#3a2c28" : "#7a5c50", dark ? 0.3 : 0.4),
+    lit: dark ? mix(base, "#e6c3a0", 0.28) : mix(base, "#ffe8cc", 0.55),
     shadow,
     deep: mix(base, "#1c0c05", dark ? 0.66 : 0.72),
-    blush: mix(base, dark ? "#983a2a" : "#d2544a", dark ? 0.32 : 0.46),
+    blush: mix(base, dark ? "#9a3a30" : "#d84e56", dark ? 0.32 : 0.5),
     lip: dark
       ? mix(mix(base, "#5a2420", 0.35), "#8e4642", 0.25)
       : mix(base, "#a02a24", s.female ? 0.62 : 0.5),
@@ -273,7 +269,7 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
   const out: string[] = [];
   out.push(`<defs>
 <radialGradient id="skinG" gradientUnits="userSpaceOnUse" cx="${n(lx)}" cy="${n(ly)}" r="${n(h.a * 1.75)}" fx="${n(lx - 4)}" fy="${n(ly - 6)}">
-<stop offset="0" stop-color="${mix(sk.base, sk.lit, 0.35)}"/><stop offset="0.28" stop-color="${sk.base}"/>
+<stop offset="0" stop-color="${mix(sk.base, sk.lit, 0.55)}"/><stop offset="0.32" stop-color="${mix(sk.base, sk.lit, 0.12)}"/>
 <stop offset="0.55" stop-color="${mix(sk.base, sk.half, 0.6)}"/><stop offset="0.8" stop-color="${mix(sk.half, sk.shadow, 0.6)}"/><stop offset="1" stop-color="${sk.shadow}"/></radialGradient>
 <clipPath id="faceClip">${path(faceD, "")}</clipPath>
 <clipPath id="headClip">${path(faceD, "")}${path(skullD, "")}</clipPath></defs>`);
@@ -299,7 +295,7 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
       by - cheekLift,
       h.a * 0.42,
       h.b * 0.26,
-      fillOp(sk.blush, Math.min(0.8, 0.34 * ruddy * (s.female ? 1.2 : 1))),
+      fillOp(sk.blush, Math.min(0.8, 0.44 * ruddy * (s.female ? 1.15 : 1))),
     ),
   );
   const [fx, fy] = P(0.62, 0.16);
@@ -578,6 +574,17 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
   const lt: string[] = [];
   const [ox, oy] = P(-0.3, -0.62);
   lt.push(ell(ox, oy, h.a * 0.36, h.b * 0.17, fillOp(sk.lit, 0.22), -6));
+  // The shine of the skin where the light strikes square: brow and cheekbone.
+  lt.push(
+    ell(
+      ox - h.a * 0.04,
+      oy + h.b * 0.02,
+      h.a * 0.14,
+      h.b * 0.07,
+      fillOp(sk.sheen, 0.3),
+      -10,
+    ),
+  );
   // The brow ridge over the near eye.
   lt.push(
     ell(
@@ -655,7 +662,7 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
   out.push(
     `<g clip-path="url(#headClip)"><g filter="url(#soft${full ? 3 : 2})">${lt.join("")}</g>${
       full
-        ? `<rect x="${n(h.cx - h.a * 1.4)}" y="${n(h.top)}" width="${n(h.a * 2.8)}" height="${n(h.b * 2.8)}" filter="url(#skinNoise)" opacity="0.16" style="mix-blend-mode:multiply"/>`
+        ? `<rect x="${n(h.cx - h.a * 1.4)}" y="${n(h.top)}" width="${n(h.a * 2.8)}" height="${n(h.b * 2.8)}" filter="url(#skinNoise)" opacity="0.16" style="mix-blend-mode:multiply"/><rect x="${n(h.cx - h.a * 1.4)}" y="${n(h.top)}" width="${n(h.a * 2.8)}" height="${n(h.b * 2.8)}" filter="url(#skinMottle)" opacity="0.4" style="mix-blend-mode:soft-light"/>`
         : ""
     }</g>`,
   );
@@ -665,6 +672,14 @@ export function paintFace(h: Head, s: Sitting, sk: SkinPalette): string {
   out.push(paintNose(h, s, sk));
   out.push(paintMouth(h, s, sk));
   out.push(paintMarks(h, s, sk));
+  // The near cheek turns away from the light at its edge too: no face is
+  // cut out of paper.
+  out.push(
+    `<g clip-path="url(#faceClip)">${path(
+      smooth(h.outline.slice(1, 7), false),
+      `fill="none" stroke="${mix(sk.half, sk.shadow, 0.3)}" stroke-width="5" opacity="0.4" filter="url(#soft2)"`,
+    )}</g>`,
+  );
   // The far cheek's edge melts into the dark.
   out.push(
     path(

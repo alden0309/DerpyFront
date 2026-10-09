@@ -267,7 +267,7 @@ export function buildHead(s: Sitting): Head {
   // Jaw and chin.
   const jawI = L.jaw;
   const jawWide =
-    (([0.06, 0.1, 0.2, -0.04, 0.22, 0.02, 0.13][jawI] ?? 0) + shape[2]) *
+    (([0.11, 0.15, 0.24, 0.0, 0.26, 0.06, 0.17][jawI] ?? 0) + shape[2]) *
       grown +
     child * 0.06 +
     fat * 0.08 -
