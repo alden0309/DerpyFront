@@ -57,6 +57,10 @@ export interface GameUi {
   nation: number;
   solo: boolean;
   isHost: boolean;
+  /** Counts page visits: a list keeps its order for the length of one. */
+  visit: number;
+  /** Counts scenes opened: a scene keeps its backdrop while it's open. */
+  modalSeq: number;
   cmd(c: LifeCommand): Promise<boolean>;
   open(view: DrawerView): void;
   back(): void;

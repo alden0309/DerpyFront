@@ -348,7 +348,31 @@ export type BackgroundId =
   | "speaker"
   | "maker";
 
-export type Lifestyle = "frugal" | "modest" | "comfortable";
+export type Lifestyle =
+  | "frugal"
+  | "modest"
+  | "comfortable"
+  | "genteel"
+  | "grand";
+
+/** Things a character keeps that aren't property: a horse, good tools, a pew. */
+export type KitKey = "tools" | "horse" | "carriage" | "pew";
+
+/** Money put out to work: a cargo ventured on a ship, shares in a company. */
+export interface Venture {
+  id: number;
+  kind: "cargo" | "shares";
+  /** What was put in. */
+  stake: number;
+  /** What it's worth now (shares go up and down; a cargo is at sea). */
+  value: number;
+  /** Bought or sent. */
+  day: number;
+  /** A cargo comes home (or doesn't) on this day; shares: -1. */
+  due: number;
+  /** "Tobacco for London", "the South Sea Company". */
+  name: string;
+}
 
 export interface Job {
   kind: JobKind;
@@ -671,6 +695,12 @@ export interface Life {
   /** The last thing that happened, for the scene. */
   outcome?: Outcome | null;
   property?: Property[];
+  /** Kept things, and the day each was got (tools wear out). */
+  kit?: Partial<Record<KitKey, number>>;
+  /** Money put out to work. */
+  ventures?: Venture[];
+  /** Months in a row lived beneath your station (people talk). */
+  beneath?: number;
   ambition?: AmbitionState | null;
   /** Ambitions fulfilled, by key, in order. */
   ambitionsDone?: string[];
@@ -1513,6 +1543,7 @@ export type PersonAct =
   | "duel"
   | "recruit"
   | "patron"
+  | "bribe"
   | "join"
   | "mentor"
   | "promote"
@@ -1535,6 +1566,7 @@ export const PERSON_ACTS: readonly PersonAct[] = [
   "trade",
   "borrow",
   "patron",
+  "bribe",
   "recruit",
   "join",
   "rumour",
@@ -1595,7 +1627,18 @@ export type LifeCommand =
   /** Buy, improve or sell property; let a hand go. */
   | {
       k: "property";
-      act: "house" | "land" | "expand" | "sell" | "dismiss" | "endow";
+      act:
+        | "house"
+        | "land"
+        | "expand"
+        | "sell"
+        | "dismiss"
+        | "endow"
+        /** Sell shares (a venture), or sell off a kept thing. */
+        | "cash"
+        | "unkit";
+      /** The kept thing to sell off. */
+      kit?: KitKey;
       id?: number;
       c?: number;
       what?: string;

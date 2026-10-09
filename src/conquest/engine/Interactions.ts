@@ -43,6 +43,7 @@ import {
   rankOf,
   skillLevel,
   startRank,
+  weddingCost,
   yes,
 } from "./LifeQueries";
 import {
@@ -53,13 +54,13 @@ import {
   roleJobs,
   ROLES,
   SKILL_NAMES,
-  WEDDING_COST,
 } from "./LifeRules";
 import { AMERICAS, World, worldOf } from "./Map";
 import { joinMovement, movementOf, recruitInto } from "./Movements";
 import { handOf, hireCheck, hireHand } from "./Property";
 import { ageOf, charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR, SEAT_NAMES } from "./Rules";
+import { rumour } from "./Rumours";
 import type {
   Breakdown,
   Character,
@@ -167,7 +168,7 @@ export const INTERACTIONS: Record<PersonAct, InteractionDef> = {
   propose: {
     label: "Propose marriage",
     group: "romance",
-    text: `A wedding costs ${WEDDING_COST} coins; they come to live in your home.`,
+    text: "A wedding (the higher you stand, the more it costs); they come to live in your home.",
     cooldown: 60,
     mode: "accept",
     player: "ask",
@@ -245,6 +246,15 @@ export const INTERACTIONS: Record<PersonAct, InteractionDef> = {
     mode: "do",
     player: "direct",
   },
+  bribe: {
+    label: "Grease their palm",
+    group: "favours",
+    text: "A purse, quietly given, to someone with a say: in your work, your rank, your suit. Most take it; the honest take offence, and talk.",
+    cooldown: 180,
+    mode: "chance",
+    skill: "stealth",
+    player: "no",
+  },
   rumour: {
     label: "Spread a rumour",
     group: "hostile",
@@ -312,6 +322,11 @@ const statusOf = (s: GameState, c: Character): number => {
   return parent?.role ? ROLES[parent.role].status : 2;
 };
 
+/** What it takes to buy someone's good word: more for the great. */
+export function bribeCost(s: GameState, c: Character): number {
+  return 5 * statusOf(s, c);
+}
+
 /** The trades this person would take you on for. */
 export function workOffered(c: Character): JobKind[] {
   return roleJobs(c.role).filter((k) => k !== "servant");
@@ -359,6 +374,11 @@ function gates(
   switch (act) {
     case "gift":
       return life.purse >= 1 ? yes : no("You've nothing to give.");
+    case "bribe": {
+      if (statusOf(s, c) < 3) return no("They've nothing worth buying.");
+      const cost = bribeCost(s, c);
+      return life.purse >= cost ? yes : no(`It would take ${cost} coins.`);
+    }
     case "befriend":
       if (life.ties[c.id] === "friend") return no("You're friends already.");
       if (life.ties[c.id] === "rival" || life.ties[c.id] === "nemesis")
@@ -380,8 +400,8 @@ function gates(
       if (me.spouse >= 0) return no("You're married.");
       if (c.spouse >= 0) return no("They're married.");
       if (relation(me, c)) return no("Too close kin.");
-      if (act === "propose" && life.purse < WEDDING_COST)
-        return no(`A wedding costs ${WEDDING_COST} coins.`);
+      if (act === "propose" && life.purse < weddingCost(s, life))
+        return no(`A wedding costs ${weddingCost(s, life)} coins.`);
       return yes;
     }
     case "work": {
@@ -607,6 +627,36 @@ function chanceOf(
       );
     case "rumour":
       return roll("stealth", 8, "Who'd believe it");
+    case "bribe": {
+      const e = new Explain()
+        .add(
+          `Your ${SKILL_NAMES.stealth.toLowerCase()}`,
+          skillLevel(s, life, "stealth"),
+          true,
+        )
+        .add("Their standing", -(3 + status), true);
+      let dc = 3 + status;
+      if (hasTrait(c, "honest")) {
+        e.add("Honest", -4, true);
+        dc += 4;
+      }
+      if (hasTrait(c, "just")) {
+        e.add("Just", -2, true);
+        dc += 2;
+      }
+      if (hasTrait(c, "greedy")) {
+        e.add("Greedy", 4, true);
+        dc -= 4;
+      }
+      if (hasTrait(c, "deceitful")) {
+        e.add("Not above it", 2, true);
+        dc -= 2;
+      }
+      return {
+        p: checkChance(skillLevel(s, life, "stealth"), dc),
+        why: e.done(0),
+      };
+    }
     case "duel":
       return roll("fighting", charSkill(s, c, "fighting"), "Their fighting");
     case "recruit": {
@@ -653,6 +703,8 @@ export function interactionView(
         ? `Ask to join them as ${JOBS[kind].ranks[0].title.toLowerCase()}`
         : `Ask for work as ${JOBS[kind].ranks[0].title.toLowerCase()}`;
   }
+  if (act === "bribe" && c)
+    view.label = `Grease their palm (${bribeCost(s, c)})`;
   if (!c || !meOf(s, life) || view.player) return view;
   if (def.mode === "accept") {
     view.accept = acceptance(s, w, life, c, act, arg);
@@ -908,6 +960,38 @@ export function doInteraction(
       const m = movementOf(s, cId)!;
       return joinMovement(g, life, m.id);
     }
+    case "bribe": {
+      const cost = bribeCost(s, c);
+      gainXp(g, life, "stealth", 4);
+      if (pass) {
+        spend(g, life, cost);
+        remembers(g, life, c, "Well paid", 25, 2);
+        journal(
+          g,
+          life,
+          `${cost} coins change hands, and ${name} remembers you kindly. Nobody need know.`,
+          "good",
+        );
+      } else {
+        remembers(g, life, c, "Tried to buy me", -25, 4);
+        addRenown(g, life, -4);
+        addStress(g, life, 4);
+        rumour(
+          g,
+          life.prov,
+          `${charName(me)} tried to bribe ${name}, and was shown the door.`,
+          me.id,
+          "bad",
+        );
+        journal(
+          g,
+          life,
+          `${name} pushes the purse back across the table, loudly. By evening the whole town knows you tried.`,
+          "bad",
+        );
+      }
+      return null;
+    }
     case "rumour":
       gainXp(g, life, "stealth", 6);
       if (pass) {
@@ -1030,7 +1114,7 @@ function smallTalk(
 export function wed(g: ConquestGame, life: Life, c: Character): string | null {
   const s = g.s;
   const me = meOf(s, life)!;
-  spend(g, life, WEDDING_COST);
+  spend(g, life, weddingCost(s, life));
   // A spouse who kept a post gives it up to move in.
   for (const [k, list] of Object.entries(s.locals)) {
     if (list.includes(c.id)) {
@@ -1231,11 +1315,11 @@ export function answerProposal(
     }
     case "propose": {
       if (me.spouse >= 0 || them.spouse >= 0) break;
-      if (asker.purse < WEDDING_COST) {
+      if (asker.purse < weddingCost(s, asker)) {
         journal(g, life, `${name} can't pay for the wedding just now.`);
         break;
       }
-      spend(g, asker, WEDDING_COST);
+      spend(g, asker, weddingCost(s, asker));
       marry(s, g.touchChar(them), g.touchChar(me));
       setTie(g, life, them.id, null);
       setTie(g, asker, me.id, null);

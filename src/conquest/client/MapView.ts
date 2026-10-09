@@ -259,6 +259,8 @@ export interface LifeMark {
   colors: FigureColors;
   female: boolean;
   native: boolean;
+  /** Riding (a horse of their own, or their coach). */
+  mounted?: boolean;
 }
 
 /** Which figure stands for an army: its most numerous kind of regiment. */
@@ -2726,7 +2728,22 @@ export class MapView {
         now,
         o.speed ?? 1,
       );
-      if (walker === "walk") {
+      if (walker === "walk" && m.mounted) {
+        ctx.save();
+        ctx.shadowColor = "rgba(252,244,222,0.9)";
+        ctx.shadowBlur = 2;
+        drawRider(
+          ctx,
+          x,
+          y,
+          figure * 1.7,
+          phase * 1.4,
+          flip ? -1 : 1,
+          m.colors,
+        );
+        ctx.restore();
+        y -= figure * 1.7 + 8;
+      } else if (walker === "walk") {
         ctx.save();
         ctx.shadowColor = "rgba(252,244,222,0.9)";
         ctx.shadowBlur = 2;

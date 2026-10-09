@@ -109,7 +109,7 @@ export function renderModal(
     @click=${(e: Event) =>
       e.target === e.currentTarget && closable && ui.modal(null)}
   >
-    <div class="cq-modal ${cls}" role="dialog" aria-modal="true">
+    <div class="cq-modal ${cls}" role="dialog" aria-modal="true" data-steady>
       ${closable
         ? html`<button
             class="cq-modal-x"

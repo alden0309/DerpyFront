@@ -41,8 +41,37 @@ import {
   startRank,
   yes,
 } from "./LifeQueries";
-import { checkChance, ENDOWMENTS, JOBS, LAND_LOT } from "./LifeRules";
+import {
+  checkChance,
+  ENDOWMENTS,
+  JOBS,
+  KIT,
+  LAND_GRANT,
+  LAND_LOT,
+  LESSONS,
+  SKILL_NAMES,
+  WORKS,
+} from "./LifeRules";
 import type { World } from "./Map";
+import {
+  buildWork,
+  buyKit,
+  companyName,
+  dinnerCost,
+  dinnerName,
+  giveDinner,
+  grantCheck,
+  kitCheck,
+  kitPrice,
+  landGrant,
+  lessons,
+  lessonSkill,
+  shareStake,
+  startVenture,
+  ventureCheck,
+  ventureStake,
+  workCheck,
+} from "./Money";
 import {
   buyArms,
   holdMeeting,
@@ -56,6 +85,7 @@ import {
   endow,
   endowCheck,
   houseCheck,
+  housePrice,
   landCheck,
   openBusiness,
 } from "./Property";
@@ -648,6 +678,98 @@ export const ACTS: ActDef[] = [
   },
 ];
 
+// What money can buy, place by place.
+ACTS.push(
+  {
+    key: "tools",
+    places: ["workshop", "market", "village"],
+    label: "Buy good tools",
+    text: KIT.tools.text,
+    cooldown: 0,
+    when: (s, w, life) => kitCheck(s, life, "tools"),
+  },
+  {
+    key: "lessons",
+    places: ["home", "church"],
+    label: `Hire a tutor (${LESSONS.cost})`,
+    text: "A master of the art, paid to take you in hand: a month of evenings on what your next rung needs most.",
+    cooldown: LESSONS.cooldown,
+    cost: LESSONS.cost,
+    when: adult,
+  },
+  {
+    key: "horse",
+    places: ["market", "fields", "village"],
+    label: "Buy a horse",
+    text: KIT.horse.text,
+    cooldown: 0,
+    when: (s, w, life) => kitCheck(s, life, "horse"),
+  },
+  {
+    key: "carriage",
+    places: ["market"],
+    label: `Set up a carriage (${KIT.carriage.cost})`,
+    text: KIT.carriage.text,
+    cooldown: 0,
+    when: (s, w, life) => kitCheck(s, life, "carriage"),
+  },
+  {
+    key: "pew",
+    places: ["church"],
+    label: "Take a pew of your own",
+    text: KIT.pew.text,
+    cooldown: 0,
+    when: (s, w, life) => kitCheck(s, life, "pew"),
+  },
+  {
+    key: "venture",
+    places: ["docks"],
+    label: "Venture a cargo",
+    text: "Put money into a cargo on the next ship out. Months later it comes home with a profit, or a loss, or not at all.",
+    cooldown: 30,
+    when: (s, w, life) => ventureCheck(s, life, "cargo"),
+  },
+  {
+    key: "shares",
+    places: ["market"],
+    label: "Buy shares in a company",
+    text: "A stake in one of the great trading companies: a dividend every month, a price that rises and falls, and now and then a bubble that bursts. Sell whenever you like (Affairs).",
+    cooldown: 30,
+    when: (s, w, life) => ventureCheck(s, life, "shares"),
+  },
+  {
+    key: "dinner",
+    places: ["home"],
+    label: "Give a dinner",
+    text: "Your table, your wine, the people who matter here: they'll think the better of you, and so will the town. More is expected the higher you stand.",
+    cooldown: 120,
+    when: (s, w, life) =>
+      isChildLife(s, life)
+        ? no("Not until you're sixteen.")
+        : life.purse < dinnerCost(s, life)
+          ? no(`A dinner fit for your station: ${dinnerCost(s, life)} coins.`)
+          : yes,
+  },
+  {
+    key: "grant",
+    places: ["governor"],
+    label: `Petition for a land grant (${LAND_GRANT.fee})`,
+    text: `A headright of ${LAND_GRANT.lots * 10} acres at home, for the patent fees, if the governor thinks well of you.`,
+    cooldown: 0,
+    when: (s, w, life) => grantCheck(s, life),
+  },
+  ...Object.entries(WORKS).map(
+    ([k, wk]): ActDef => ({
+      key: `work-${k}`,
+      places: k === "college" ? ["governor"] : ["church"],
+      label: `${wk.label} (${wk.cost})`,
+      text: wk.text,
+      cooldown: 0,
+      when: (s, w, life) => workCheck(s, life, k),
+    }),
+  ),
+);
+
 export const ACT_BY_KEY = new Map(ACTS.map((a) => [a.key, a]));
 
 /** Whether an act can be done here now, and the odds if there's a check. */
@@ -716,7 +838,7 @@ export function actLabel(s: GameState, life: Life, def: ActDef): string {
   if (def.key === "house") {
     const v = houseCheck(s, life);
     return v.next
-      ? `${v.level ? "Move up to" : "Buy"} a ${v.next.name.toLowerCase()}`
+      ? `${v.level ? "Move up to" : "Buy"} a ${v.next.name.toLowerCase()} (${housePrice(s, life)})`
       : "Your house";
   }
   if (def.key === "buy") {
@@ -725,6 +847,20 @@ export function actLabel(s: GameState, life: Life, def: ActDef): string {
       ? `Buy ${v.next.buy.what} (${v.next.buy.cost})`
       : "Buy your way up";
   }
+  if (def.key === "tools" || def.key === "horse" || def.key === "pew")
+    return `${def.label} (${kitPrice(s, life, def.key)})`;
+  if (def.key === "venture")
+    return `Venture a cargo (${ventureStake(s, life)})`;
+  if (def.key === "shares") {
+    const stake = shareStake(s, life);
+    return stake
+      ? `Shares in ${companyName(s, life).replace(/^the /, "the ")} (${stake})`
+      : def.label;
+  }
+  if (def.key === "dinner")
+    return `Give ${dinnerName(s, life)} (${dinnerCost(s, life)})`;
+  if (def.key === "lessons")
+    return `A tutor in ${SKILL_NAMES[lessonSkill(s, life)].toLowerCase()} (${LESSONS.cost})`;
   return def.label;
 }
 
@@ -1354,6 +1490,25 @@ export function doAct(
       gainXp(g, life, "letters", 4);
       campaignBoost(g, life, 6, "a broadside");
       return null;
+    case "tools":
+    case "horse":
+    case "carriage":
+    case "pew":
+      return buyKit(g, life, key);
+    case "lessons":
+      return lessons(g, life);
+    case "venture":
+      return startVenture(g, life, "cargo");
+    case "shares":
+      return startVenture(g, life, "shares");
+    case "dinner":
+      return giveDinner(g, life);
+    case "grant":
+      return landGrant(g, life);
+    case "work-almshouse":
+    case "work-church":
+    case "work-college":
+      return buildWork(g, life, key.slice(5));
     default:
       return "Unknown act.";
   }

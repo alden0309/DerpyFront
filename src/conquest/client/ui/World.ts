@@ -27,6 +27,7 @@ import {
   token,
 } from "./Context";
 import { personRow } from "./Here";
+import { steady } from "./Steady";
 
 // ---------------------------------------------------------------- people you know
 
@@ -66,6 +67,11 @@ export function peopleTab(ui: GameUi): TemplateResult {
     )
     .map((c) => ({ c, op: opinionOf(s, c, life).total }))
     .sort((a, b) => b.op - a.op || a.c.id - b.c.id);
+  // Best liked first when you open the page; then kept in that order while
+  // you look, however opinions drift (newcomers at the end).
+  const metSteady = steady("people", `${ui.visit}`, met, (x) => x.c.id)
+    .filter((r) => r.state !== "folding")
+    .map((r) => r.item);
   return html`<header class="cq-panel-head">
       <h2 class="cq-h1">People</h2>
       <p class="cq-muted small">
@@ -101,7 +107,7 @@ export function peopleTab(ui: GameUi): TemplateResult {
       `People you've met (${met.length})`,
       met.length
         ? html`<ul class="cq-folk">
-              ${met.slice(0, metShown).map(({ c }) => personRow(ui, c))}
+              ${metSteady.slice(0, metShown).map(({ c }) => personRow(ui, c))}
             </ul>
             ${met.length > metShown
               ? html`<button

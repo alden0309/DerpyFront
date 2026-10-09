@@ -5,16 +5,19 @@
 
 import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { repeat } from "lit/directives/repeat.js";
 import { bananaMark } from "../../derpland/Icons";
 import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
 import {
   ageOfLife,
+  hasKit,
   lifeIsNative,
   lifeOfSeat,
   lifeTitle,
   meOf,
   monthlyBudget,
+  paceOf,
   promotionView,
   travelRoute,
 } from "../engine/LifeQueries";
@@ -62,6 +65,12 @@ import { describeEvent, GOOD_COLORS, GOOD_NAMES, TERRAIN_NAMES } from "./Text";
 import { nationVars } from "./Theme";
 import { hideTip, num, plain } from "./Tip";
 import { affairsTab } from "./ui/Affairs";
+import {
+  captureAnchors,
+  pointerOver,
+  restoreAnchors,
+  trackPointer,
+} from "./ui/Anchor";
 import { armyPanel } from "./ui/ArmyPanel";
 import { battleDispatch, myBattleNation } from "./ui/Battle";
 import {
@@ -76,6 +85,7 @@ import { herePanel, provincePage } from "./ui/Here";
 import { journalTab } from "./ui/Journal";
 import { ModalHooks, renderModal } from "./ui/Modals";
 import { personPage, youTab } from "./ui/Sheet";
+import { forgetSteady, setSteadyRedraw, touched } from "./ui/Steady";
 import { nationPage, peopleTab, worldTab } from "./ui/World";
 import { figureColorsOf } from "./Walkers";
 
@@ -200,6 +210,14 @@ export class GameView extends LitElement {
   private letterLeft = new Map<number, number>();
   private letterAt = 0;
   private letterTimer = 0;
+  /** Where things were under the pointer, to keep them there when redrawn. */
+  private anchors: ReturnType<typeof captureAnchors> = [];
+  /** The page and scene shown at the last drawing. */
+  private shownKey = "";
+  /** Counts visits to pages, so a list's order is kept for one visit. */
+  private visit = 0;
+  /** Counts scenes opened, so a scene keeps its look while it's open. */
+  private modalSeq = 0;
   private roadCache: {
     key: string;
     road: { from: number; path: number[]; sea: boolean[] } | null;
@@ -215,6 +233,11 @@ export class GameView extends LitElement {
     super.connectedCallback();
     this.net.on(this.onNet);
     window.addEventListener("keydown", this.onKey);
+    window.addEventListener("pointermove", trackPointer, { passive: true });
+    window.addEventListener("pointerdown", trackPointer, { passive: true });
+    window.addEventListener("touchstart", touched, { passive: true });
+    window.addEventListener("touchmove", touched, { passive: true });
+    setSteadyRedraw(() => this.requestRender());
     unlockOnFirstGesture();
     music.start();
     this.letterTimer = window.setInterval(() => {
@@ -231,6 +254,11 @@ export class GameView extends LitElement {
     super.disconnectedCallback();
     this.net.off(this.onNet);
     window.removeEventListener("keydown", this.onKey);
+    window.removeEventListener("pointermove", trackPointer);
+    window.removeEventListener("pointerdown", trackPointer);
+    window.removeEventListener("touchstart", touched);
+    window.removeEventListener("touchmove", touched);
+    setSteadyRedraw(null);
     cancelAnimationFrame(this.frame);
     this.resizeObs?.disconnect();
     clearTimeout(this.renderTimer);
@@ -242,6 +270,14 @@ export class GameView extends LitElement {
   protected willUpdate(changed: PropertyValues<this>): void {
     if (changed.has("start") && this.start) this.load(this.start);
     if (!this.s) return;
+    if ((changed as Map<string, unknown>).has("modalView")) this.modalSeq++;
+    // The same page and scene as last time (the world ticked): note what's
+    // under the pointer so it stays put. A new page starts where it starts.
+    const shown = this.pageKey();
+    this.anchors =
+      shown === this.shownKey && this.drawerScroll === null
+        ? captureAnchors(this)
+        : [];
     // An open letter that's been settled (answered, or decided for you)
     // gives way to the next one waiting, or closes.
     const m = this.modalView;
@@ -273,13 +309,23 @@ export class GameView extends LitElement {
   }
 
   protected updated(): void {
+    this.shownKey = this.pageKey();
+    restoreAnchors(this.anchors);
+    this.anchors = [];
+    // The news keeps to its latest line, unless you're pointing into it.
     const ol = this.querySelector<HTMLElement>(".cq-log");
-    if (ol && this.logStuck) ol.scrollTop = ol.scrollHeight;
+    if (ol && this.logStuck && !pointerOver(ol)) ol.scrollTop = ol.scrollHeight;
     if (this.drawerScroll !== null) {
       const page = this.querySelector<HTMLElement>(".cq-drawer-page");
       if (page) page.scrollTop = this.drawerScroll;
       this.drawerScroll = null;
     }
+  }
+
+  /** Which page and scene are showing. */
+  private pageKey(): string {
+    const top = this.stack[this.stack.length - 1];
+    return `${this.visit}|${top ? JSON.stringify(top) : ""}|${this.modalView ? JSON.stringify(this.modalView) : ""}`;
   }
 
   private onLogScroll(e: Event): void {
@@ -305,6 +351,7 @@ export class GameView extends LitElement {
     this.setMood();
     const life = this.life;
     if (fresh) {
+      forgetSteady();
       this.log = [];
       this.results = null;
       this.logOpen = window.innerWidth > 820;
@@ -735,6 +782,7 @@ export class GameView extends LitElement {
         colors: figureColorsOf(c, native, l.frame),
         female: c.female,
         native,
+        mounted: hasKit(s, l, "horse") || hasKit(s, l, "carriage"),
       });
     }
     // Yours on top.
@@ -758,8 +806,9 @@ export class GameView extends LitElement {
     if (this.roadCache?.key === key) return this.roadCache.road;
     const native = lifeIsNative(this.s, life);
     const sailor = life.job?.kind === "sailor";
-    const land = travelRoute(this.s, map, from, p, false, native, sailor);
-    const sea = travelRoute(this.s, map, from, p, true, native, sailor);
+    const pace = paceOf(this.s, life);
+    const land = travelRoute(this.s, map, from, p, false, native, sailor, pace);
+    const sea = travelRoute(this.s, map, from, p, true, native, sailor, pace);
     const best =
       sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1)
         ? sea
@@ -949,8 +998,27 @@ export class GameView extends LitElement {
       const from = life.travel ? life.travel.path[0] : life.prov;
       const native = lifeIsNative(this.s, life);
       const sailor = life.job?.kind === "sailor";
-      const land = travelRoute(this.s, map, from, m.to, false, native, sailor);
-      const sea = travelRoute(this.s, map, from, m.to, true, native, sailor);
+      const pace = paceOf(this.s, life);
+      const land = travelRoute(
+        this.s,
+        map,
+        from,
+        m.to,
+        false,
+        native,
+        sailor,
+        pace,
+      );
+      const sea = travelRoute(
+        this.s,
+        map,
+        from,
+        m.to,
+        true,
+        native,
+        sailor,
+        pace,
+      );
       const seaBetter =
         sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1);
       body = html`<p>Go to <b>${place}</b>?</p>
@@ -1042,6 +1110,7 @@ export class GameView extends LitElement {
             page?.scrollTop ?? 0,
           ].slice(-8);
     this.drawerScroll = 0;
+    this.visit++;
     this.stack = v.k === "tab" ? [v] : [...this.stack.slice(-8), v];
     if (v.k === "army") this.selectedArmy = v.id;
     if (v.k === "prov") this.selectedProv = v.p;
@@ -1063,7 +1132,10 @@ export class GameView extends LitElement {
       isHost: this.host === this.you,
       cmd: (c) => this.cmd(c),
       open: (v) => this.open(v),
+      visit: this.visit,
+      modalSeq: this.modalSeq,
       back: () => {
+        this.visit++;
         this.stack = this.stack.slice(0, -1);
         this.drawerScroll = this.scrolls.pop() ?? 0;
       },
@@ -1157,7 +1229,9 @@ export class GameView extends LitElement {
                   ×
                 </button>
               </div>
-              <div class="cq-drawer-page">${this.drawerBody(cur)}</div>
+              <div class="cq-drawer-page" data-steady>
+                ${this.drawerBody(cur)}
+              </div>
             </aside>`
           : nothing}
         <main class="cq-map-wrap">
@@ -1395,21 +1469,34 @@ export class GameView extends LitElement {
       role="list"
       aria-label="Waiting for an answer"
     >
-      ${life.events.map((e) => {
-        const left = this.secondsLeft(e.id);
-        return html`<button
-          role="listitem"
-          class="cq-tray-letter ${left !== null && left < 20 ? "urgent" : ""}"
-          @click=${() => (this.modalView = { k: "event", id: e.id })}
-        >
-          ${LetterIcon()}<span class="cq-tray-title">${e.title}</span>
-          ${left !== null
-            ? html`<span class="cq-countdown"
-                >${clockText(left)}${this.paused ? " (paused)" : ""}</span
-              >`
-            : nothing}
-        </button>`;
-      })}
+      ${repeat(
+        // On a phone, two at most: more would come down over the page.
+        life.events.slice(0, window.innerWidth <= 820 ? 2 : 4),
+        (e) => e.id,
+        (e) => {
+          const left = this.secondsLeft(e.id);
+          return html`<button
+            role="listitem"
+            class="cq-tray-letter ${left !== null && left < 20 ? "urgent" : ""}"
+            @click=${() => (this.modalView = { k: "event", id: e.id })}
+          >
+            ${LetterIcon()}<span class="cq-tray-title">${e.title}</span>
+            ${left !== null
+              ? html`<span class="cq-countdown"
+                  >${clockText(left)}${this.paused ? " (paused)" : ""}</span
+                >`
+              : nothing}
+          </button>`;
+        },
+      )}
+      ${window.innerWidth <= 820 && life.events.length > 2
+        ? html`<button
+            class="cq-tray-more"
+            @click=${() => this.open({ k: "tab", tab: "journal" })}
+          >
+            and ${life.events.length - 2} more
+          </button>`
+        : nothing}
     </div>`;
   }
 
@@ -1532,30 +1619,33 @@ export class GameView extends LitElement {
           : nothing}
       </button>
       ${this.logOpen
-        ? html`<ol class="cq-log" @scroll=${(e: Event) => this.onLogScroll(e)}>
+        ? html`<ol
+              class="cq-log"
+              data-steady
+              @scroll=${(e: Event) => this.onLogScroll(e)}
+            >
               ${this.log.length === 0
                 ? html`<li class="cq-muted">News will gather here.</li>`
                 : nothing}
-              ${this.log
-                .slice(0, 60)
-                .reverse()
-                .map(
-                  (l) =>
-                    html`<li class=${l.tone}>
-                      <span class="cq-log-date"
-                        >${formatDate(l.day).replace(/ \d{4}$/, "")}</span
-                      >
-                      ${l.battle !== undefined
-                        ? html`<button
-                            class="cq-link"
-                            @click=${() =>
-                              (this.modalView = { k: "battle", id: l.battle! })}
-                          >
-                            ${l.text}
-                          </button>`
-                        : l.text}
-                    </li>`,
-                )}
+              ${repeat(
+                this.log.slice(0, 60).reverse(),
+                (l) => l.id,
+                (l) =>
+                  html`<li class=${l.tone}>
+                    <span class="cq-log-date"
+                      >${formatDate(l.day).replace(/ \d{4}$/, "")}</span
+                    >
+                    ${l.battle !== undefined
+                      ? html`<button
+                          class="cq-link"
+                          @click=${() =>
+                            (this.modalView = { k: "battle", id: l.battle! })}
+                        >
+                          ${l.text}
+                        </button>`
+                      : l.text}
+                  </li>`,
+              )}
             </ol>
             ${!this.solo
               ? html`<form

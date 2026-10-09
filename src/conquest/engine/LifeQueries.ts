@@ -8,9 +8,18 @@ import {
   ALLOWANCE,
   ALLOWANCE_YEARS,
   BACKGROUNDS,
+  CARRIAGE_PACE,
   FAMILY_COST,
+  FAMILY_MULT,
+  HORSE_PACE,
+  HOUSES,
   JOBS,
+  KIT,
   LIFESTYLE,
+  LIFESTYLES,
+  LODGES,
+  NATIVE_STATION_NAMES,
+  PORTIONS,
   PRESS_YEAR,
   RankDef,
   ROAD_COST_PER_DAY,
@@ -20,8 +29,15 @@ import {
   SEA_PASSAGE_KM,
   SKILL_MAX,
   SKILL_STAT,
+  STATION_HOUSE,
+  STATION_LIFESTYLE,
+  STATION_NAMES,
+  STATION_WAGE,
+  TAX_RATES,
+  TITHE,
   TRAIT_SKILLS,
   WALK_SPEED,
+  WEDDINGS,
   WORK_DAYS,
 } from "./LifeRules";
 import type { World } from "./Map";
@@ -48,7 +64,9 @@ import {
   Character,
   GameState,
   Good,
+  KitKey,
   Life,
+  Lifestyle,
   MapDef,
   PlaceKind,
   Seat,
@@ -130,6 +148,8 @@ export function skillOf(s: GameState, life: Life, sk: Skill): Breakdown {
     e.add("In poor health", -2);
   if (life.stress >= 70 && (sk === "persuasion" || sk === "leadership"))
     e.add("Under strain", -1);
+  if (life.job && JOBS[life.job.kind].main === sk && hasKit(s, life, "tools"))
+    e.add("Good tools", 1);
   return e.done(0, 0, SKILL_MAX + 6);
 }
 
@@ -375,12 +395,13 @@ export function promotionView(s: GameState, life: Life): PromotionView {
     const want = commissionOpinion(job.rank + 1);
     const have = commissionFriend(s, life);
     needs.push({
-      label: `a word from the marshal, the governor or a patron, opinion ${want} (best ${have > -100 ? have : "none"})`,
+      label: `a word from the marshal, the governor or a patron, opinion ${want} (best ${have > -100 ? have : "none"})${next.buy ? `, or ${next.buy.cost} coins to buy it` : ""}`,
       met:
         have >= want || (next.buy !== undefined && life.purse >= next.buy.cost),
     });
   }
-  if (next.buy)
+  // A commission that can also be bought needs the word or the coins.
+  if (next.buy && !next.commission)
     needs.push({
       label: `${next.buy.cost} coins for ${next.buy.what} (bought at the ${job.place === "governor" ? "governor's house" : job.place})`,
       met: life.purse >= next.buy.cost,
@@ -424,16 +445,10 @@ export function lifestyleCost(s: GameState, life: Life): Breakdown {
   if (fam > 0)
     e.add(
       `${fam} at home`,
-      fam *
-        FAMILY_COST *
-        (life.lifestyle === "comfortable"
-          ? 2
-          : life.lifestyle === "frugal"
-            ? 0.6
-            : 1) *
-        (native ? 0.5 : 1),
+      fam * FAMILY_COST * FAMILY_MULT[life.lifestyle] * (native ? 0.5 : 1),
     );
   if (life.job?.kind === "servant") e.mul("Your master feeds you", 0);
+  else if (isChildLife(s, life)) e.mul("Your family keeps you", 0);
   return e.done(1);
 }
 
@@ -458,14 +473,181 @@ export function monthlyBudget(
       wage,
     );
   if (allowanceDue(s, life)) e.add("Your family's allowance", ALLOWANCE);
-  for (const o of officesOf(s, life.c))
-    if (o.stipend) e.add(o.label, o.stipend);
+  let earned = wage;
+  for (const o of officesOf(s, life.c)) {
+    // A governor who holds a commission (or any post) draws the larger pay.
+    const pay =
+      o.kind === "governor" || o.kind === "sachem"
+        ? Math.max(0, o.stipend - wage)
+        : o.stipend;
+    if (pay) {
+      e.add(pay < o.stipend ? `${o.label} (above your pay)` : o.label, pay);
+      earned += pay;
+    }
+  }
+  for (const d of duesOn(s, life, earned)) e.add(d.label, d.value);
   const cost = lifestyleCost(s, life).total;
   if (cost) e.add("Living", -cost);
-  if (!actual)
+  if (!actual) {
     for (const part of propertyBudget(s, life).parts)
       e.add(part.label, part.value);
+    for (const k of Object.keys(life.kit ?? {}) as KitKey[])
+      if (KIT[k].upkeep && hasKit(s, life, k))
+        e.add(`Keep: ${KIT[k].name.toLowerCase()}`, -KIT[k].upkeep);
+  }
   return e.done(1);
+}
+
+// ---------------------------------------------------------------- station and dues
+
+export interface StationView {
+  /** 0 labouring folk to 4 the great. */
+  level: number;
+  name: string;
+  /** What puts you there: "Expected of a captain". */
+  why: string;
+  /** Who you are, said that way: "a captain". */
+  who: string;
+  /** The way of living expected of you. */
+  expected: Lifestyle;
+}
+
+/** Where you stand, and so how people expect you to live. */
+export function stationOf(s: GameState, life: Life): StationView {
+  const me = meOf(s, life);
+  let level = 0;
+  let why = "Plain working folk";
+  let who = "working folk";
+  const up = (l: number, w: string, wh: string) => {
+    if (l > level) {
+      level = l;
+      why = w;
+      who = wh;
+    }
+  };
+  const a = (t: string) => `${/^[aeiou]/i.test(t) ? "an" : "a"} ${t}`;
+  if (me && ageOf(s, me) >= 16) {
+    const r = rankOf(life);
+    if (r) {
+      const l = STATION_WAGE.filter((x) => r.wage >= x).length;
+      const t = r.title.toLowerCase();
+      up(l, `Expected of ${a(t)}`, a(t));
+    }
+    // The assembly makes you middling, the council a gentleman, the
+    // governor's chair one of the great.
+    for (const o of officesOf(s, me.id)) {
+      const t = o.label.replace(/^(\w)/, (m) => m.toLowerCase());
+      up(o.level === 3 ? 4 : o.level, `Expected of ${a(t)}`, a(t));
+    }
+    if (life.background === "gentry" && life.line.length === 1)
+      up(2, "Born to the gentry", "one of the gentry");
+    if (life.renown >= 150)
+      up(3, "Your name is known everywhere", "someone so famous");
+    else if (life.renown >= 60)
+      up(2, "Your name is known", "someone so well known");
+    for (const pr of life.property ?? [])
+      if (pr.kind === "house" && pr.level >= 3) {
+        const t = pr.name.toLowerCase();
+        up(pr.level - 1, `Expected in ${a(t)}`, `the owner of ${a(t)}`);
+      }
+  }
+  return {
+    level,
+    name: (lifeIsNative(s, life) ? NATIVE_STATION_NAMES : STATION_NAMES)[level],
+    why,
+    who,
+    expected: STATION_LIFESTYLE[level],
+  };
+}
+
+export interface Beneath {
+  /** Steps beneath your station in all. */
+  steps: number;
+  /** Steps your way of living falls short (a carriage makes up one). */
+  living: number;
+  /** No house fit for your station: what's expected. */
+  house: string | null;
+}
+
+/** How far beneath your station you live: your table, and your roof. */
+export function beneathStation(s: GameState, life: Life): Beneath {
+  const st = stationOf(s, life);
+  const have =
+    LIFESTYLES.indexOf(life.lifestyle) + (hasKit(s, life, "carriage") ? 1 : 0);
+  const living = Math.max(0, LIFESTYLES.indexOf(st.expected) - have);
+  // On campaign a tent is house enough.
+  const want = (life.job?.army ?? -1) >= 0 ? 0 : STATION_HOUSE[st.level];
+  const roof =
+    (life.property ?? []).find(
+      (p) => p.kind === "house" && p.prov === life.home,
+    )?.level ?? 0;
+  const defs = lifeIsNative(s, life) ? LODGES : HOUSES;
+  const house =
+    want > roof
+      ? want === 1
+        ? "House"
+        : (defs[want - 1]?.name ?? null)
+      : null;
+  return { steps: living + (house ? 1 : 0), living, house };
+}
+
+/** Whether you have a kept thing (tools wear out after a while). */
+export function hasKit(s: GameState, life: Life, k: KitKey): boolean {
+  const got = life.kit?.[k];
+  if (got === undefined) return false;
+  const lasts = KIT[k].lasts;
+  return !lasts || s.day - got < lasts;
+}
+
+/** The church takes a tenth (or near it) of what Christian colonists earn. */
+export function tithed(s: GameState, life: Life): boolean {
+  const me = meOf(s, life);
+  return !!me && !lifeIsNative(s, life) && me.religion !== "native";
+}
+
+/** Tithes and taxes on a month's earnings. */
+export function duesOn(
+  s: GameState,
+  life: Life,
+  earned: number,
+): { label: string; value: number }[] {
+  if (earned <= 0 || lifeIsNative(s, life)) return [];
+  const out: { label: string; value: number }[] = [];
+  const me = meOf(s, life);
+  if (tithed(s, life))
+    out.push({
+      label: "Tithes and church rates",
+      value: -Math.round(earned * TITHE * 100) / 100,
+    });
+  const n =
+    s.nations[
+      life.job && life.job.nation >= 0 ? life.job.nation : (me?.nation ?? -1)
+    ];
+  if (n?.kind === "power") {
+    const rate = TAX_RATES[n.tax] ?? TAX_RATES[1];
+    out.push({
+      label: `Taxes (${["low", "normal", "high"][n.tax] ?? "normal"})`,
+      value: -Math.round(earned * rate * 100) / 100,
+    });
+  }
+  return out;
+}
+
+/** What a child of yours takes into a marriage, at your station. */
+export function portionOf(s: GameState, life: Life): number {
+  return PORTIONS[stationOf(s, life).level];
+}
+
+/** What your own wedding costs at your station. */
+export function weddingCost(s: GameState, life: Life): number {
+  return WEDDINGS[stationOf(s, life).level];
+}
+
+/** How much faster than walking you go overland: on horseback, by coach. */
+export function paceOf(s: GameState, life: Life): number {
+  if (hasKit(s, life, "carriage")) return CARRIAGE_PACE;
+  if (hasKit(s, life, "horse")) return HORSE_PACE;
+  return 1;
 }
 
 /** A gentleman's child is kept by their family for the first few years. */
@@ -501,7 +683,7 @@ export function officesOf(s: GameState, c: number): OfficeView[] {
           kind: "governor",
           nation: n.id,
           label: `${n.title > 0 ? `${TITLE_NAMES[n.title]} and g` : "G"}overnor of ${n.name.replace(/^the /, "")}`,
-          stipend: 20,
+          stipend: 24,
           level: 3,
         });
       else if (n.kind === "native")
@@ -532,7 +714,7 @@ export function officesOf(s: GameState, c: number): OfficeView[] {
               n.kind === "native"
                 ? `${NATIVE_SEAT_NAMES[seat]} of the ${n.name}`
                 : `${SEAT_NAMES[seat]} of ${n.name.replace(/^the /, "")}`,
-            stipend: n.kind === "native" ? 3 : 6,
+            stipend: n.kind === "native" ? 3 : 5,
             level: 2,
           });
     const pol = s.polities[n.id];
@@ -756,13 +938,14 @@ export function hopDaysFor(
   from: number,
   to: number,
   sea: boolean,
+  pace = 1,
 ): number {
   if (sea) {
     const lane = map.provinces[from].sea.find(([q]) => q === to);
     return lane ? seaHopDays(lane[1]) : -1;
   }
   const nb = map.provinces[from].nb.find(([q]) => q === to);
-  return nb ? landHopDays(map, to, nb[1], nb[2], nb[3], WALK_SPEED) : -1;
+  return nb ? landHopDays(map, to, nb[1], nb[2], nb[3], WALK_SPEED * pace) : -1;
 }
 
 /** Where a traveller can take ship: a port (or, for natives, any coast by canoe). */
@@ -789,6 +972,8 @@ export function travelRoute(
   sea: boolean,
   native = false,
   sailor = false,
+  /** Faster than walking: a horse, a coach. */
+  pace = 1,
 ): Route | null {
   if (from === to) return null;
   const count = map.provinces.length;
@@ -809,7 +994,8 @@ export function travelRoute(
     done[u] = 1;
     for (const [q, km, river, strait] of map.provinces[u].nb) {
       if (done[q]) continue;
-      const d = best + landHopDays(map, q, km, river, strait, WALK_SPEED);
+      const d =
+        best + landHopDays(map, q, km, river, strait, WALK_SPEED * pace);
       if (d < days[q]) {
         days[q] = d;
         prev[q] = u;
@@ -843,7 +1029,7 @@ export function travelRoute(
   let cost = 0;
   let at = from;
   path.forEach((q, i) => {
-    const d = hopDaysFor(map, at, q, seaHops[i]);
+    const d = hopDaysFor(map, at, q, seaHops[i], pace);
     legs.push(d);
     if (seaHops[i]) {
       if (!sailor && !native) {

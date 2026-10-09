@@ -28,8 +28,8 @@ import {
   lifeIsNative,
   meOf,
   opinionOf,
+  weddingCost,
 } from "./LifeQueries";
-import { WEDDING_COST } from "./LifeRules";
 import { joinMovement, movementOf } from "./Movements";
 import { businessOf, houseOf, landOf } from "./Property";
 import { ageOf, charName } from "./Queries";
@@ -958,6 +958,17 @@ export const TALES: LifeEventDef[] = [
       "A sergeant with a ribboned hat is buying the whole tavern drinks and telling stories of glory, prize money and the girls of Flanders. At the bottom of your third pot there's a shilling. You know what that means.",
     choices: [
       {
+        // Unanswered, you leave the shilling in the pot.
+        label: "Push the pot away",
+        tip: "No shilling, no soldiering. The sergeant finds a drunker man.",
+        apply: (g, life) =>
+          say(
+            g,
+            life,
+            "You push the pot away, shilling and all. The sergeant shrugs and moves down the bench.",
+          ),
+      },
+      {
         label: "Take it: enlist",
         tip: "You're a soldier now (if there's a fort to serve at).",
         apply: (g, life) => {
@@ -1045,10 +1056,11 @@ export const TALES: LifeEventDef[] = [
     choices: [
       {
         label: "Pay for a better pew (6 coins)",
-        tip: "+3 renown, and the satisfaction of a view of the pulpit.",
+        tip: "+3 renown, a view of the pulpit, and a pew of your own (half a coin a month to keep).",
         blocked: (g, life) => poor(life, 6),
         apply: (g, life) => {
           spend(g, life, 6);
+          touchLife(g, life).kit = { ...(life.kit ?? {}), pew: g.s.day };
           fx(g, life, { renown: 3 });
         },
       },
@@ -1386,9 +1398,10 @@ export const TALES: LifeEventDef[] = [
     },
     choices: [
       {
-        label: `Marry them (${WEDDING_COST} coins for the parson)`,
+        label: (g, life) =>
+          `Marry them (${weddingCost(g.s, life)} coins for the parson)`,
         tip: "A wedding: a spouse and a household, perhaps a dowry. Much less stress.",
-        blocked: (g, life) => poor(life, WEDDING_COST),
+        blocked: (g, life) => poor(life, weddingCost(g.s, life)),
         apply: (g, life, ctx) => {
           const err = wed(g, life, g.char(ctx.c));
           if (err) say(g, life, err);
@@ -1971,6 +1984,12 @@ export const TALES: LifeEventDef[] = [
     },
     choices: [
       {
+        // Unanswered, you keep out of it.
+        label: "Bar the door and keep your head down",
+        tip: "Safe, mostly. −0 renown, +stress.",
+        apply: (g, life) => fx(g, life, { stress: 8 }),
+      },
+      {
         label: "Take up a musket with them",
         tip: "Join the rising: its fate is yours now.",
         blocked: (g, life, ctx) =>
@@ -1989,11 +2008,6 @@ export const TALES: LifeEventDef[] = [
         label: "Stand with the governor",
         tip: "The crown remembers its friends (+favour, +renown with the loyal). The rebels remember too.",
         apply: (g, life) => fx(g, life, { favor: 6, renown: 2, stress: 5 }),
-      },
-      {
-        label: "Bar the door and keep your head down",
-        tip: "Safe, mostly. −0 renown, +stress.",
-        apply: (g, life) => fx(g, life, { stress: 8 }),
       },
     ],
   },

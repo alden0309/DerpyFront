@@ -27,12 +27,13 @@ import {
   opinionOf,
   siblingsOf,
   skillOf,
+  stationOf,
 } from "../../engine/LifeQueries";
 import {
   ATTRIBUTE_NAMES,
   LIFE_TRAIT_TEXT,
-  LIFESTYLE,
   LIFESTYLES,
+  livingOf,
   SKILL_HELP,
   SKILL_NAMES,
   WORK_DAYS,
@@ -59,6 +60,7 @@ import {
   token,
 } from "./Context";
 import { roleOf, verdictChip } from "./Here";
+import { steadySet } from "./Steady";
 
 function traitChips(c: Character, life = false): TemplateResult {
   if (c.traits.length === 0)
@@ -149,6 +151,7 @@ export function youTab(ui: GameUi): TemplateResult {
   const budget = monthlyBudget(s, ui.w, life);
   const cost = lifestyleCost(s, life);
   const child = isChildLife(s, life);
+  const station = stationOf(s, life);
   return html`<header class="cq-sheet-top">
       ${token(ui, me, "xl")}
       <div class="cq-sheet-who">
@@ -196,25 +199,51 @@ export function youTab(ui: GameUi): TemplateResult {
     ${child ? nothing : glance(ui)}
     ${section(
       "How you live",
-      html`<div class="cq-seg" role="radiogroup" aria-label="Way of living">
+      html`<div
+          class="cq-seg cq-living"
+          role="radiogroup"
+          aria-label="Way of living"
+        >
           ${LIFESTYLES.map(
             (l) =>
               html`<button
                 role="radio"
                 aria-checked=${life.lifestyle === l}
-                title=${LIFESTYLE[l].text}
+                class=${!child && station.expected === l ? "expected" : ""}
+                title=${livingOf(native, l).text}
                 @click=${() => ui.cmd({ k: "lifestyle", v: l })}
               >
-                ${LIFESTYLE[l].name}
+                ${livingOf(native, l).name}
               </button>`,
           )}
         </div>
         <p class="cq-muted small">
-          ${LIFESTYLE[life.lifestyle].text}
+          ${livingOf(native, life.lifestyle).text}
           ${num(`${plain(cost.total)} a month`, () =>
             breakdownTip("Living costs", cost),
           )}
-        </p>`,
+        </p>
+        ${child
+          ? nothing
+          : html`<p class="small cq-station-line">
+              Among <b>${station.name}</b>,
+              ${station.expected === life.lifestyle
+                ? "living as expected"
+                : LIFESTYLES.indexOf(life.lifestyle) <
+                    LIFESTYLES.indexOf(station.expected)
+                  ? html`<span class="bad"
+                      >expected to live
+                      ${livingOf(native, station.expected).name.toLowerCase()}
+                      (marked)</span
+                    >`
+                  : "living above your station"}.
+              <button
+                class="cq-link small"
+                @click=${() => ui.open({ k: "tab", tab: "affairs" })}
+              >
+                Your purse
+              </button>
+            </p>`}`,
     )}
     ${section(
       "Attributes",
@@ -590,18 +619,31 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
       : nothing}`;
 }
 
+/** Reasons an interaction isn't for the two of you at all (not shown). */
+const NOT_BETWEEN_YOU =
+  /^(They don't take|They've nothing|You belong to no|They belong to no|They're a player|Not in this century|That's you|They haven't the standing|Too close kin|Not your own family|They're married|You're married|They're a child|You don't work for|They're not your master|You'd need a business|You have no work|You're your own master|Only with another|A commission comes|They've nothing to teach|A duel needs|A child)/;
+
+/**
+ * What you could do with someone, grouped. Once a button is shown it stays
+ * while you look at them (greyed, with why, if it can't be done just now),
+ * and every button is the same size, so nothing moves as the days pass.
+ */
 function actsSection(ui: GameUi, c: Character): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
-  const menu = interactionMenu(s, ui.w, life, c.id).filter(
-    ({ act, view }) =>
-      view.check.ok ||
-      act === "talk" ||
-      !/^(They don't take|They've nothing|You belong to no|They belong to no|They're a player|Not in this century|That's you|They haven't the standing|Too close kin|Not your own family|They're married|You're married|They're a child|You don't work for|They're not your master|You'd need a business|You have no work|You're your own master|Only with another|A commission comes|They've nothing to teach|A duel needs|A child)/.test(
-        view.check.ok ? "" : view.check.why,
-      ),
-  );
-  const groups = [...new Set(menu.map((m) => m.group))];
+  const menu = interactionMenu(s, ui.w, life, c.id);
+  const keyOf = (m: { act: string; arg?: number }) => `${m.act}:${m.arg ?? ""}`;
+  const now = menu
+    .filter(
+      ({ act, view }) =>
+        view.check.ok ||
+        act === "talk" ||
+        !NOT_BETWEEN_YOU.test(view.check.why),
+    )
+    .map(keyOf);
+  const keys = new Set(steadySet("card", `${ui.visit}:${c.id}`, now));
+  const shown = menu.filter((m) => keys.has(keyOf(m)));
+  const groups = [...new Set(shown.map((m) => m.group))];
   const other = lifeOfChar(s, c.id);
   return html`<section class="cq-section cq-interactions">
     <h3 class="cq-h3">Interactions</h3>
@@ -615,7 +657,7 @@ function actsSection(ui: GameUi, c: Character): TemplateResult {
       (gr) =>
         html`<h4 class="cq-int-group">${GROUP_NAMES[gr]}</h4>
           <div class="cq-int-list">
-            ${menu
+            ${shown
               .filter((m) => m.group === gr)
               .map(({ act, arg, view }) => {
                 const def = INTERACTIONS[act];
@@ -623,16 +665,16 @@ function actsSection(ui: GameUi, c: Character): TemplateResult {
                 return html`<button
                   class="cq-int ${hostile ? "rough" : ""} ${view.will
                     ? "lit"
-                    : ""}"
+                    : ""} ${view.check.ok ? "" : "has-why"}"
                   ?disabled=${!view.check.ok}
                   title=${view.check.ok ? def.text : `${view.check.why}`}
                   @click=${() => ui.modal({ k: "interact", c: c.id, act, arg })}
                 >
                   <span class="cq-int-label">${view.label ?? def.label}</span>
                   ${verdictChip(view)}
-                  ${!view.check.ok
-                    ? html`<span class="cq-act-why">${view.check.why}</span>`
-                    : nothing}
+                  <span class="cq-act-why"
+                    >${view.check.ok ? "" : view.check.why}</span
+                  >
                 </button>`;
               })}
           </div>`,

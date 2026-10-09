@@ -12,27 +12,39 @@ import {
 import { formatDate } from "../../engine/Calendar";
 import {
   atPost,
+  beneathStation,
+  hasKit,
   heirOf,
   isChildLife,
   jobTitle,
   lifeIsNative,
+  monthlyBudget,
   officesOf,
   opinionOf,
   promotionView,
   skillLevel,
+  stationOf,
   wageOf,
 } from "../../engine/LifeQueries";
 import {
   AWAY_DAYS,
+  BENEATH_RENOWN,
+  BENEATH_STRESS,
   COMMAND_RANK,
   ENDOWMENTS,
   EUROPE_FORTUNE,
   EXPAND_COST,
+  HOUSES,
   JOBS,
+  KIT,
   LAND_LOT,
+  LIVING_HOW,
+  livingOf,
+  LODGES,
   PLACES,
   RECRUIT_COST,
   SKILL_NAMES,
+  STATION_HOUSE,
   WORK_DAYS,
 } from "../../engine/LifeRules";
 import {
@@ -81,6 +93,7 @@ import type {
   Army,
   BuildingKind,
   GovLever,
+  KitKey,
   Movement,
   MovementGoal,
   Seat,
@@ -119,9 +132,9 @@ export function affairsTab(ui: GameUi): TemplateResult {
         voyage home.
       </p>
     </header>
-    ${workSection(ui)} ${ambitionSection(ui)} ${propertySection(ui)}
-    ${armySection(ui)} ${standingSection(ui)} ${governingSection(ui)}
-    ${causeSection(ui)} ${europeSection(ui)}`;
+    ${workSection(ui)} ${ambitionSection(ui)} ${purseSection(ui)}
+    ${propertySection(ui)} ${armySection(ui)} ${standingSection(ui)}
+    ${governingSection(ui)} ${causeSection(ui)} ${europeSection(ui)}`;
 }
 
 // ---------------------------------------------------------------- work
@@ -221,12 +234,16 @@ function workSection(ui: GameUi): TemplateResult {
             days this month</span
           >
         </div>
-        ${!here && job.army < 0
-          ? html`<p class="cq-warn small">
-              You're away from your post (${job.awayDays ?? 0} of ${AWAY_DAYS}
-              days before you're let go).
-            </p>`
-          : nothing}
+        <p class="cq-work-note small">
+          ${!here && job.army < 0
+            ? html`<span class="cq-warn"
+                >Away from your post: ${job.awayDays ?? 0} of ${AWAY_DAYS} days
+                before you're let go.</span
+              >`
+            : job.army >= 0
+              ? "With the army: your post goes where it goes."
+              : "At your post."}
+        </p>
         ${servant
           ? html`<p class="cq-muted small">
               Bound by indenture until ${formatDate(job.until!)}: no wages but
@@ -852,6 +869,181 @@ function bestOpenSkill(ui: GameUi): string {
   const lv = (k: Skill) => skillLevel(ui.s, ui.life!, k);
   const sk = SKILLS.filter((k) => lv(k) < 14).sort((a, b) => lv(b) - lv(a));
   return sk[0] ?? SKILLS[0];
+}
+
+// ---------------------------------------------------------------- the purse
+
+const KIT_KEYS: KitKey[] = ["tools", "horse", "carriage", "pew"];
+
+/** Where money can be spent, and on what. */
+const WHERE_TO_SPEND: [string, string][] = [
+  ["The market", "good tools, a horse, a coach, shares in a company"],
+  ["The docks", "a cargo ventured on the next ship out"],
+  ["The church", "a pew, an almshouse, a new church"],
+  ["Home", "a tutor, a dinner or a ball"],
+  ["The governor's house", "a grant of land, a college, a school"],
+];
+
+/** Your standing, the month's money, what you keep and what's out working. */
+function purseSection(ui: GameUi): TemplateResult | typeof nothing {
+  const s = ui.s;
+  const life = ui.life!;
+  if (isChildLife(s, life)) return nothing;
+  const st = stationOf(s, life);
+  const b = beneathStation(s, life);
+  const budget = monthlyBudget(s, ui.w, life);
+  const ins = budget.parts.filter((p) => !p.mul && p.value > 0);
+  const outs = budget.parts.filter((p) => !p.mul && p.value < 0);
+  const kit = KIT_KEYS.filter((k) => hasKit(s, life, k));
+  const ventures = life.ventures ?? [];
+  const native = lifeIsNative(s, life);
+  const could = life.purse >= 2 * livingOf(native, st.expected).cost;
+  const line = (p: { label: string; value: number }) =>
+    html`<li>
+      <span>${p.label}</span
+      ><b class=${p.value >= 0 ? "good" : "bad"}
+        >${p.value >= 0 ? "+" : "−"}${Math.abs(p.value).toFixed(1)}</b
+      >
+    </li>`;
+  return section(
+    "Purse and standing",
+    html`<div class="cq-station">
+        <p>
+          You're counted among <b>${st.name}</b>
+          <span class="cq-muted small">(${st.why.toLowerCase()})</span>. They
+          expect you to live
+          ${native
+            ? livingOf(true, st.expected).name.toLowerCase()
+            : LIVING_HOW[st.expected]}${STATION_HOUSE[st.level]
+            ? STATION_HOUSE[st.level] === 1
+              ? ", under a roof of your own"
+              : `, in a ${(native ? LODGES : HOUSES)[
+                  STATION_HOUSE[st.level] - 1
+                ].name.toLowerCase()}`
+            : ""}.
+        </p>
+        <p class="small ${b.steps ? (could ? "bad" : "") : "good"}">
+          ${!b.steps
+            ? "You live as you should."
+            : could
+              ? html`Beneath your station
+                (${[
+                  b.living
+                    ? `${b.living} step${b.living > 1 ? "s" : ""} in how you live`
+                    : "",
+                  b.house ? `no ${b.house.toLowerCase()}` : "",
+                ]
+                  .filter(Boolean)
+                  .join(", ")}):
+                +${BENEATH_STRESS * b.steps} stress and
+                −${(BENEATH_RENOWN * b.steps).toFixed(1)} renown a month while
+                you could afford better.`
+              : "Beneath your station, but money's short: people pity you rather than talk."}
+        </p>
+      </div>
+      <div class="cq-ledger">
+        <ul aria-label="Coming in">
+          ${ins.length
+            ? ins.map(line)
+            : html`<li class="cq-muted"><span>Nothing coming in</span></li>`}
+        </ul>
+        <ul aria-label="Going out">
+          ${outs.map(line)}
+        </ul>
+        <p class="cq-ledger-total">
+          A month, all told:
+          <b class=${budget.total >= 0 ? "good" : "bad"}
+            >${budget.total >= 0 ? "+" : "−"}${Math.abs(budget.total).toFixed(
+              1,
+            )}</b
+          >
+        </p>
+      </div>
+      ${kit.length
+        ? html`<h4 class="cq-int-group">What you keep</h4>
+            <ul class="cq-kit">
+              ${kit.map(
+                (k) =>
+                  html`<li>
+                    <b>${KIT[k].name}</b>
+                    <span class="cq-muted small"
+                      >${k === "tools"
+                        ? `good until ${formatDate((life.kit?.tools ?? 0) + KIT.tools.lasts)}`
+                        : `${KIT[k].upkeep} a month to keep`}</span
+                    >
+                    ${k !== "tools"
+                      ? html`<button
+                          class="cq-btn small quiet"
+                          @click=${() =>
+                            confirm(
+                              k === "pew"
+                                ? "Give up your pew?"
+                                : `Sell ${KIT[k].name.toLowerCase()}?`,
+                            ) &&
+                            void ui.cmd({
+                              k: "property",
+                              act: "unkit",
+                              kit: k,
+                            })}
+                        >
+                          ${k === "pew" ? "Give up" : "Sell"}
+                        </button>`
+                      : nothing}
+                  </li>`,
+              )}
+            </ul>`
+        : nothing}
+      ${ventures.length
+        ? html`<h4 class="cq-int-group">Money at work</h4>
+            <ul class="cq-kit">
+              ${ventures.map((v) => {
+                const gain = v.value - v.stake;
+                return html`<li>
+                  <b
+                    >${v.kind === "cargo"
+                      ? `A cargo of ${v.name}`
+                      : `Shares in ${v.name}`}</b
+                  >
+                  <span class="cq-muted small"
+                    >${v.kind === "cargo"
+                      ? `${v.stake} ventured; home about ${formatDate(v.due)}`
+                      : html`${v.stake} paid, worth
+                          <b class=${gain >= 0 ? "good" : "bad"}
+                            >${Math.round(v.value)}</b
+                          >`}</span
+                  >
+                  ${v.kind === "shares"
+                    ? html`<button
+                        class="cq-btn small"
+                        @click=${async () => {
+                          if (
+                            await ui.cmd({
+                              k: "property",
+                              act: "cash",
+                              id: v.id,
+                            })
+                          )
+                            play("coins");
+                        }}
+                      >
+                        Sell
+                      </button>`
+                    : nothing}
+                </li>`;
+              })}
+            </ul>`
+        : nothing}
+      ${more(
+        "What money can buy, and where",
+        html`<dl class="cq-where-spend">
+          ${WHERE_TO_SPEND.map(
+            ([w, what]) =>
+              html`<dt>${w}</dt>
+                <dd>${what}</dd>`,
+          )}
+        </dl>`,
+      )}`,
+  );
 }
 
 // ---------------------------------------------------------------- property

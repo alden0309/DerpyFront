@@ -8,6 +8,7 @@ import type {
   Charge,
   Division,
   JobKind,
+  KitKey,
   Lifestyle,
   PlaceKind,
   Religion,
@@ -545,13 +546,13 @@ export const JOBS: Record<JobKind, JobDef> = {
     main: "farming",
     second: "trade",
     ranks: [
-      rk("Tenant farmer", 2, 0, 0, 0),
-      rk("Yeoman", 4, 12, 6, 0, {
-        buy: { cost: 25, what: "a freehold of your own" },
+      rk("Tenant farmer", 2.5, 0, 0, 0),
+      rk("Yeoman", 4.5, 12, 6, 0, {
+        buy: { cost: 20, what: "a freehold of your own" },
       }),
-      rk("Freeholder", 6, 24, 9, 6),
-      rk("Planter", 10, 36, 11, 15, {
-        buy: { cost: 80, what: "a plantation" },
+      rk("Freeholder", 6.5, 24, 9, 6),
+      rk("Planter", 11, 36, 11, 15, {
+        buy: { cost: 90, what: "a plantation" },
       }),
     ],
     danger: 0,
@@ -612,15 +613,23 @@ export const JOBS: Record<JobKind, JobDef> = {
       rk("Private", 2.5, 0, 0, 0),
       rk("Corporal", 3.5, 8, 6, 0),
       rk("Sergeant", 5, 16, 8, 3, { second: 4 }),
-      rk("Lieutenant", 7, 18, 9, 10, {
+      rk("Lieutenant", 8, 18, 9, 10, {
         second: 6,
         commission: true,
         buy: { cost: 40, what: "a lieutenant's commission" },
       }),
-      rk("Captain", 10, 24, 10, 18, { second: 8, commission: true }),
-      rk("Major", 14, 30, 11, 30, { second: 10, commission: true }),
-      rk("Colonel", 18, 30, 12, 45, { second: 12, commission: true }),
-      rk("General", 25, 36, 13, 65, { second: 14, commission: true }),
+      rk("Captain", 11, 24, 10, 18, {
+        second: 8,
+        commission: true,
+        buy: { cost: 110, what: "a captain's commission" },
+      }),
+      rk("Major", 15, 30, 11, 30, {
+        second: 10,
+        commission: true,
+        buy: { cost: 240, what: "a major's commission" },
+      }),
+      rk("Colonel", 19, 30, 12, 45, { second: 12, commission: true }),
+      rk("General", 30, 36, 13, 65, { second: 14, commission: true }),
     ],
     danger: 0.01,
     stress: 2,
@@ -636,9 +645,9 @@ export const JOBS: Record<JobKind, JobDef> = {
     main: "seamanship",
     second: "fighting",
     ranks: [
-      rk("Deckhand", 3, 0, 0, 0),
+      rk("Deckhand", 2.8, 0, 0, 0),
       rk("Able seaman", 4.5, 10, 6, 0),
-      rk("Mate", 7, 20, 9, 5),
+      rk("Mate", 8, 20, 9, 5),
       rk("Ship's captain", 11, 30, 12, 15, {
         buy: { cost: 90, what: "a ship of your own" },
       }),
@@ -683,7 +692,7 @@ export const JOBS: Record<JobKind, JobDef> = {
       rk("Copying clerk", 2.5, 0, 0, 0),
       rk("Deputy secretary", 4.5, 12, 7, 5),
       rk("Collector of customs", 8, 24, 10, 15, { opinion: 20 }),
-      rk("Secretary of the colony", 12, 36, 12, 25, { opinion: 35 }),
+      rk("Secretary of the colony", 14, 36, 12, 25, { opinion: 35 }),
     ],
     danger: 0,
     stress: 2,
@@ -703,7 +712,7 @@ export const JOBS: Record<JobKind, JobDef> = {
       rk("Law clerk", 2, 0, 0, 0),
       rk("Attorney", 5, 18, 8, 3, { second: 5 }),
       rk("Barrister", 9, 30, 11, 15, { second: 8 }),
-      rk("Attorney-general", 13, 36, 13, 25, { opinion: 30 }),
+      rk("Attorney-general", 15, 36, 13, 25, { opinion: 30 }),
     ],
     danger: 0,
     stress: 2,
@@ -742,7 +751,7 @@ export const JOBS: Record<JobKind, JobDef> = {
       rk("Trapper", 3, 0, 0, 0),
       rk("Woodsman", 4.5, 12, 7, 0),
       rk("Fur trader", 7, 24, 9, 8, { second: 6 }),
-      rk("Company partner", 12, 36, 11, 20, {
+      rk("Company partner", 13, 36, 11, 20, {
         buy: { cost: 60, what: "a partner's share in the company" },
       }),
     ],
@@ -795,7 +804,7 @@ export const JOBS: Record<JobKind, JobDef> = {
       rk("Apprentice", 1.5, 0, 0, 0),
       rk("Barber-surgeon", 4, 18, 6, 0),
       rk("Physician", 8, 30, 10, 10),
-      rk("Physician-general", 12, 36, 13, 25),
+      rk("Physician-general", 13, 36, 13, 25),
     ],
     danger: 0.006,
     stress: 2,
@@ -1404,7 +1413,7 @@ export const LODGES: HouseDef[] = [
 ];
 
 /** Land in lots of ten acres: what a lot costs, and rents from tenants a month. */
-export const LAND_LOT = { cost: 15, rent: 0.35, upkeep: 0.05, max: 20 };
+export const LAND_LOT = { cost: 22, rent: 0.3, upkeep: 0.05, max: 20 };
 
 /** A hired hand: their wage a month, and the takings they bring in. */
 export const HAND_WAGE = 2;
@@ -1450,10 +1459,19 @@ export const ENDOWMENTS: Record<
 
 // ---------------------------------------------------------------- living
 
-export const LIFESTYLES: Lifestyle[] = ["frugal", "modest", "comfortable"];
+export const LIFESTYLES: Lifestyle[] = [
+  "frugal",
+  "modest",
+  "comfortable",
+  "genteel",
+  "grand",
+];
 
 export interface LifestyleDef {
   name: string;
+  /** Among native peoples standing is measured by what you give. */
+  nativeName: string;
+  nativeText: string;
   /** Coins a month, for colonists and for native peoples (who share more). */
   cost: number;
   nativeCost: number;
@@ -1466,6 +1484,8 @@ export interface LifestyleDef {
 export const LIFESTYLE: Record<Lifestyle, LifestyleDef> = {
   frugal: {
     name: "Frugal",
+    nativeName: "Sparing",
+    nativeText: "Little but what the day brings in. Saves; wears you down.",
     cost: 1,
     nativeCost: 0.5,
     health: -1,
@@ -1475,6 +1495,8 @@ export const LIFESTYLE: Record<Lifestyle, LifestyleDef> = {
   },
   modest: {
     name: "Modest",
+    nativeName: "Modest",
+    nativeText: "Enough for your own fire and your family.",
     cost: 2,
     nativeCost: 1,
     health: 0,
@@ -1484,17 +1506,246 @@ export const LIFESTYLE: Record<Lifestyle, LifestyleDef> = {
   },
   comfortable: {
     name: "Comfortable",
-    cost: 6,
-    nativeCost: 3,
+    nativeName: "Comfortable",
+    nativeText: "A full kettle, warm furs, and a fire anyone may sit at.",
+    cost: 5.5,
+    nativeCost: 2.5,
     health: 1,
     stress: -3,
     renown: 0.5,
     text: "Good food, a warm house and a servant. People notice.",
   },
+  genteel: {
+    name: "Genteel",
+    nativeName: "Generous",
+    nativeText:
+      "Your kettle feeds half the village and gifts go out with every visitor. Expected of those who lead.",
+    cost: 10,
+    nativeCost: 4.5,
+    health: 1,
+    stress: -4,
+    renown: 0.9,
+    text: "A wig from London, wine at dinner, servants in livery, a seat at the assembly balls. Expected of the better sort.",
+  },
+  grand: {
+    name: "Grand",
+    nativeName: "Open-handed",
+    nativeText:
+      "Feasts, and wampum, cloth and kettles for every guest: nobody leaves your fire with empty hands. Expected of the great.",
+    cost: 19,
+    nativeCost: 8,
+    health: 1,
+    stress: -5,
+    renown: 1.4,
+    text: "Silver plate, a coach and four, a great table every night and half the colony at it. Expected of the great.",
+  },
 };
 
-/** A wife and children cost something too: per head, a month. */
-export const FAMILY_COST = 0.4;
+/** A way of living as it's known among your people: its name, words and cost. */
+export function livingOf(
+  native: boolean,
+  l: Lifestyle,
+): { name: string; text: string; cost: number } {
+  const d = LIFESTYLE[l];
+  return native
+    ? { name: d.nativeName, text: d.nativeText, cost: d.nativeCost }
+    : { name: d.name, text: d.text, cost: d.cost };
+}
+
+/** A wife and children cost something too: per head, a month (times the way you live). */
+export const FAMILY_COST = 0.3;
+export const FAMILY_MULT: Record<Lifestyle, number> = {
+  frugal: 0.6,
+  modest: 1,
+  comfortable: 1.25,
+  genteel: 1.5,
+  grand: 2,
+};
+
+// ---------------------------------------------------------------- station
+
+/**
+ * Where you stand: labouring folk, the middling sort, gentlefolk, the better
+ * sort, the great. Your work, offices, renown and house set it, and it sets
+ * how people expect you to live. Living beneath it costs stress and renown.
+ */
+export const STATION_NAMES = [
+  "labouring folk",
+  "the middling sort",
+  "gentlefolk",
+  "the better sort",
+  "the great",
+];
+/** The same, among native peoples. */
+export const NATIVE_STATION_NAMES = [
+  "the ordinary folk",
+  "the respected",
+  "those of standing",
+  "those of high standing",
+  "the great",
+];
+/** A rung paying this much a month or more puts you a station up. */
+export const STATION_WAGE = [3, 7, 13, 21];
+/** The way of living expected at each station. */
+export const STATION_LIFESTYLE: Lifestyle[] = [
+  "frugal",
+  "modest",
+  "comfortable",
+  "genteel",
+  "grand",
+];
+/** The house expected at each station: a roof of your own, a fine house, a mansion. */
+export const STATION_HOUSE = [0, 0, 1, 3, 4];
+/** How you're expected to live, said that way: "comfortably". */
+export const LIVING_HOW: Record<Lifestyle, string> = {
+  frugal: "frugally",
+  modest: "modestly",
+  comfortable: "comfortably",
+  genteel: "genteelly",
+  grand: "grandly",
+};
+/** A month beneath your station, for each step beneath. */
+export const BENEATH_STRESS = 3;
+export const BENEATH_RENOWN = 0.4;
+
+// ---------------------------------------------------------------- dues
+
+/** Tithes and church rates: a share of what you earn (Christian colonists). */
+export const TITHE = 0.06;
+/** The colony's taxes on what you earn, by its tax level (low, normal, high). */
+export const TAX_RATES = [0.02, 0.04, 0.07];
+/** Rates on a house, a month, by its size. */
+export const HOUSE_RATES = [0.1, 0.25, 0.6, 1.2];
+/** Excise and duties on a business's takings. */
+export const EXCISE = 0.08;
+/** A business's upkeep a month by its size (a ship costs more to keep). */
+export const BUSINESS_UPKEEP = [0, 0.8, 2, 4];
+export const SHIP_UPKEEP_MULT = 1.8;
+
+// ---------------------------------------------------------------- things to buy
+
+export interface KitDef {
+  name: string;
+  /** Coins to buy (natives pay less: trade goods). */
+  cost: number;
+  /** Coins a month to keep. */
+  upkeep: number;
+  /** Days it lasts (tools wear out), or 0 for as long as you keep it. */
+  lasts: number;
+  /** Colonists only. */
+  colonist?: boolean;
+  text: string;
+}
+
+export const KIT: Record<KitKey, KitDef> = {
+  tools: {
+    name: "Good tools",
+    cost: 8,
+    upkeep: 0,
+    lasts: 5 * 365,
+    text: "The best tools of your trade: a point of skill in it for five years.",
+  },
+  horse: {
+    name: "A horse",
+    cost: 25,
+    upkeep: 0.6,
+    lasts: 0,
+    text: "Ride rather than walk: overland journeys take two thirds the time. Fodder and the farrier cost something every month.",
+  },
+  carriage: {
+    name: "A carriage",
+    cost: 140,
+    upkeep: 2.5,
+    lasts: 0,
+    colonist: true,
+    text: "A coach and pair, a coachman, and the road to yourself: journeys take half the time, people notice you pass, and it does half the work of living genteelly.",
+  },
+  pew: {
+    name: "A pew of your own",
+    cost: 4,
+    upkeep: 0.5,
+    lasts: 0,
+    colonist: true,
+    text: "Your own box pew near the pulpit, with your name on the door. Seen every Sunday, at peace with the parish.",
+  },
+};
+
+/** Journeys overland go this much faster mounted. */
+export const HORSE_PACE = 1.5;
+export const CARRIAGE_PACE = 2;
+
+/** A tutor or a master paid to teach you: coins, experience, and how often. */
+export const LESSONS = { cost: 10, xp: 30, cooldown: 60 };
+
+/** A cargo ventured: the stake by station, and what can come of it. */
+export const VENTURE_STAKES = [10, 20, 40, 80, 160];
+export const VENTURE_DAYS = [120, 300];
+/** Lost, a poor market, a fair one, a rich one: chance and what it returns. */
+export const VENTURE_LUCK: { p: number; x: number; text: string }[] = [
+  { p: 0.14, x: 0, text: "lost at sea" },
+  { p: 0.24, x: 0.6, text: "sold into a glutted market" },
+  { p: 0.42, x: 1.35, text: "sold at a fair price" },
+  { p: 0.2, x: 2.1, text: "sold for a fortune" },
+];
+/** In wartime privateers take more ships. */
+export const VENTURE_WAR_LOSS = 0.26;
+/** Shares in a company: the stake by station (none for labouring folk). */
+export const SHARE_STAKES = [0, 25, 50, 100, 200];
+/** A month: dividends, how far the price swings, and the chance of a crash. */
+export const SHARE_DIVIDEND = 0.005;
+export const SHARE_SWING = [-0.045, 0.055];
+export const SHARE_CRASH = 0.004;
+export const MAX_VENTURES = 4;
+
+/** A dinner (or a ball) for the town, by station. */
+export const DINNER_COST = [5, 10, 20, 40, 80];
+
+/** A headright: fifty acres for the patent fees, if the governor will. */
+export const LAND_GRANT = { fee: 20, lots: 5, opinion: 15, every: 3 * 365 };
+
+/** Great works for the town: cost, renown, the crown's favour, and who may. */
+export const WORKS: Record<
+  string,
+  {
+    label: string;
+    cost: number;
+    renown: number;
+    favor: number;
+    /** Renown needed to be taken seriously. */
+    need: number;
+    text: string;
+  }
+> = {
+  almshouse: {
+    label: "Build an almshouse",
+    cost: 150,
+    renown: 12,
+    favor: 2,
+    need: 0,
+    text: "Twelve rooms for the old and the poor, and a plaque with your name over the door.",
+  },
+  church: {
+    label: "Build a church",
+    cost: 260,
+    renown: 20,
+    favor: 4,
+    need: 20,
+    text: "Brick, a steeple, a bell from England. They'll call it after you, or after a saint, which comes to the same thing.",
+  },
+  college: {
+    label: "Found a college",
+    cost: 600,
+    renown: 40,
+    favor: 10,
+    need: 50,
+    text: "A charter, a hall, a library and a president in a gown. Your name on the gate for as long as there are students to walk under it.",
+  },
+};
+
+/** What a child takes into a marriage from a family of each station. */
+export const PORTIONS = [3, 10, 30, 80, 200];
+/** What your own wedding costs, by station. */
+export const WEDDINGS = [4, 8, 20, 50, 120];
 
 /** Health and stress run 0 to 100. */
 export const START_HEALTH = 85;

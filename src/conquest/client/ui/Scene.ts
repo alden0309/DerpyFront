@@ -157,17 +157,29 @@ export function curly(t: string): string {
     .replace(/'/g, "\u2019");
 }
 
-/** A breakdown as a short list: "+10 Hands are wanted". */
-export function reasons(b: Breakdown | null, max = 8): TemplateResult {
-  if (!b || !b.parts.length) return html``;
-  const parts = [...b.parts]
+/**
+ * A breakdown as a short list: "+10 Hands are wanted". With `rows`, exactly
+ * that many lines (the biggest reasons; blank lines to fill), so the list
+ * keeps its height while opinions drift.
+ */
+export function reasons(
+  b: Breakdown | null,
+  max = 8,
+  rows?: number,
+): TemplateResult {
+  if ((!b || !b.parts.length) && !rows) return html``;
+  const parts = [...(b?.parts ?? [])]
     .filter((p) => !p.mul)
     .sort((a, x) => Math.abs(x.value) - Math.abs(a.value))
-    .slice(0, max);
+    .slice(0, rows ?? max);
+  const pad = rows ? Math.max(0, rows - parts.length) : 0;
   return html`<ul class="cq-why-list">
     ${parts.map(
       (p) =>
-        html`<li class=${p.value > 0 ? "good" : p.value < 0 ? "bad" : ""}>
+        html`<li
+          class=${p.value > 0 ? "good" : p.value < 0 ? "bad" : ""}
+          title=${p.label}
+        >
           <span class="n"
             >${p.value > 0 ? "+" : p.value < 0 ? "−" : ""}${Math.abs(
               Math.round(p.value),
@@ -176,8 +188,23 @@ export function reasons(b: Breakdown | null, max = 8): TemplateResult {
           <span>${p.label}</span>
         </li>`,
     )}
+    ${Array.from(
+      { length: pad },
+      () => html`<li class="blank" aria-hidden="true">&nbsp;</li>`,
+    )}
   </ul>`;
 }
+
+/** Reasons in a scene that keeps its size while it's open. */
+function reasonCount(b: Breakdown | null): number {
+  return Math.min(8, (b?.parts ?? []).filter((p) => !p.mul).length);
+}
+
+/**
+ * What a scene looked like when it opened (its backdrop, how many reasons it
+ * lists), kept while it stays open so it doesn't change under you.
+ */
+let frozen: { key: string; scene: string; rows: number } | null = null;
 
 // ---------------------------------------------------------------- events
 
@@ -264,7 +291,7 @@ export function eventScene(
 
 // ---------------------------------------------------------------- interactions
 
-const GIFTS = [2, 5, 10, 25];
+const GIFTS = [2, 5, 10, 25, 50, 100];
 let tradeDraft: { good: Good | ""; price: number } = { good: "", price: 0 };
 
 export function interactScene(
@@ -279,7 +306,15 @@ export function interactScene(
     return html`<p class="cq-muted">They're gone.</p>`;
   const v = interactionView(s, ui.w, life, c.id, m.act, m.arg);
   const at = findIn(s, ui.w, life.prov, c.id, s.day, life);
-  const scene = at?.area ?? life.area ?? "tavern";
+  const fkey = `${ui.modalSeq}|${m.c}|${m.act}|${m.arg ?? ""}`;
+  if (frozen?.key !== fkey)
+    frozen = {
+      key: fkey,
+      scene: at?.area ?? life.area ?? "tavern",
+      rows: reasonCount(v.mode === "chance" ? v.odds : v.accept),
+    };
+  const scene = frozen.scene;
+  const rows = frozen.rows;
   cue(scene, `in:${c.id}:${m.act}`);
   const op = opinionOf(s, c, life).total;
   const them: Expr = v.player
@@ -324,13 +359,13 @@ export function interactScene(
           <span class="cq-accept-score"
             >${v.accept.total > 0 ? "+" : ""}${v.accept.total}</span
           >
-          ${reasons(v.accept)}
+          ${reasons(v.accept, 8, rows)}
         </div>`
       : v.mode === "chance" && v.chance !== null
         ? html`<div class="cq-accept chance">
             <span class="cq-accept-verdict">A roll of the dice</span>
             <span class="cq-accept-score">${Math.round(v.chance * 100)}%</span>
-            ${reasons(v.odds)}
+            ${reasons(v.odds, 8, rows)}
           </div>`
         : nothing;
   let action: TemplateResult;
@@ -526,20 +561,17 @@ export function outcomeScene(ui: GameUi): TemplateResult {
           </ul>`
         : nothing}
       <div class="cq-scene-actions">
+        <button class="cq-btn primary" @click=${() => ui.modal(null)}>
+          Continue
+        </button>
         ${next
           ? html`<button
-              class="cq-btn primary"
+              class="cq-btn"
               @click=${() => ui.modal({ k: "event", id: next.id })}
             >
               Next: ${next.title}
             </button>`
           : nothing}
-        <button
-          class="cq-btn ${next ? "quiet" : "primary"}"
-          @click=${() => ui.modal(null)}
-        >
-          ${next ? "Later" : "Continue"}
-        </button>
       </div>`,
     o.scene,
     `out:${o.n}`,
