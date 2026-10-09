@@ -268,8 +268,15 @@ export class LocalServer {
   // straight back, cleaned and filtered just as the game server would. The
   // filter is loaded on first use to keep its word lists out of the bundle.
   private async relayChat(msg: ClientChatMessage) {
-    const { censorChatText } = await import("@openfront/shared/Profanity");
-    const text = censorChatText(normalizeChatText(msg.text));
+    let text = normalizeChatText(msg.text);
+    try {
+      const { censorChatText } = await import("@openfront/shared/Profanity");
+      text = censorChatText(text);
+    } catch (e) {
+      // Offline, the filter can't load; the line is only for this player's
+      // own eyes, so it still goes through rather than vanish.
+      console.warn("chat filter unavailable", e);
+    }
     if (text.length === 0 || this.clientID === undefined) return;
     this.clientMessage({
       type: "chat",

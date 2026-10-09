@@ -56,8 +56,12 @@ interface ChatEntry {
 /** The chatter's view of the game, answered by this client's GameView. */
 export function gameViewWorld(game: GameView): ChatterWorld {
   const view = (id: number): PlayerView | null => {
-    const p = game.playerBySmallID(id);
-    return p.isPlayer() ? (p as PlayerView) : null;
+    try {
+      const p = game.playerBySmallID(id);
+      return p.isPlayer() ? (p as PlayerView) : null;
+    } catch {
+      return null; // not (yet) a player this client knows
+    }
   };
   const info = (p: PlayerView): ChatterPlayer => {
     // A nation's flag rides its cosmetics as "/flags/<code>.svg".
@@ -125,7 +129,7 @@ export class ChatDisplay extends LitElement implements Controller {
   private sentAt: number[] = [];
   private burst = CHAT_BURST;
   private burstAt = 0;
-  private hudObserver: ResizeObserver | null = null;
+  private teardown: (() => void)[] = [];
   private previewTimer: number | null = null;
   private stickToBottom = true;
   private ignoreOpenUntil = 0;
@@ -149,12 +153,27 @@ export class ChatDisplay extends LitElement implements Controller {
   }
 
   init() {
+    // The element and the event bus outlive a game; start each one clean.
+    for (const undo of this.teardown) undo();
+    this.teardown = [];
+    this.entries = [];
+    this.unread = 0;
+    this.open = false;
+    this.muted = new Set();
+    this.chatter = null;
     this.aiOn = this.userSettings.aiChatter();
-    this.eventBus.on(ChatReceivedEvent, (e) => this.onReceive(e.message));
-    this.eventBus.on(OpenChatEvent, () => this.openAndFocus());
-    globalThis.addEventListener?.(
-      `${USER_SETTINGS_CHANGED_EVENT}:settings.aiChatter`,
-      () => (this.aiOn = this.userSettings.aiChatter()),
+
+    const onReceive = (e: ChatReceivedEvent) => this.onReceive(e.message);
+    const onOpen = () => this.openAndFocus();
+    const onSetting = () => (this.aiOn = this.userSettings.aiChatter());
+    const settingEvent = `${USER_SETTINGS_CHANGED_EVENT}:settings.aiChatter`;
+    this.eventBus.on(ChatReceivedEvent, onReceive);
+    this.eventBus.on(OpenChatEvent, onOpen);
+    globalThis.addEventListener?.(settingEvent, onSetting);
+    this.teardown.push(
+      () => this.eventBus.off(ChatReceivedEvent, onReceive),
+      () => this.eventBus.off(OpenChatEvent, onOpen),
+      () => globalThis.removeEventListener?.(settingEvent, onSetting),
     );
     this.watchHud();
     this.system(translateText("game_chat.welcome"));
@@ -383,10 +402,12 @@ export class ChatDisplay extends LitElement implements Controller {
     };
     place();
     if (hud !== null && typeof ResizeObserver !== "undefined") {
-      this.hudObserver = new ResizeObserver(place);
-      this.hudObserver.observe(hud);
+      const observer = new ResizeObserver(place);
+      observer.observe(hud);
+      this.teardown.push(() => observer.disconnect());
     }
     window.addEventListener("resize", place);
+    this.teardown.push(() => window.removeEventListener("resize", place));
   }
 
   updated(changed: Map<string, unknown>) {
@@ -406,8 +427,12 @@ export class ChatDisplay extends LitElement implements Controller {
 
   private player(smallID: number | null | undefined): PlayerView | null {
     if (smallID === null || smallID === undefined) return null;
-    const p = this.game.playerBySmallID(smallID);
-    return p.isPlayer() ? (p as PlayerView) : null;
+    try {
+      const p = this.game.playerBySmallID(smallID);
+      return p.isPlayer() ? (p as PlayerView) : null;
+    } catch {
+      return null;
+    }
   }
 
   private nameOf(smallID: number | null | undefined): string {

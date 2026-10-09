@@ -29,8 +29,9 @@ export type ChatChannel = (typeof CHAT_CHANNELS)[number];
 // C0/C1 controls, the bidi overrides and isolates (which can flip the rest of
 // the line), zero-width joiners used to smuggle words past the filter, and
 // the BOM.
-// eslint-disable-next-line no-control-regex
-const INVISIBLE = /[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁠-⁩﻿]/g;
+const INVISIBLE =
+  // eslint-disable-next-line no-control-regex
+  /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2060-\u2069\ufeff]/g;
 
 /**
  * What a typed message is sent as: invisible and control characters removed,
