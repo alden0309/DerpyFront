@@ -3,17 +3,17 @@
   "id": "ThirteenColonies",
   "map": {
     "height": 2012,
-    "num_land_tiles": 857945,
+    "num_land_tiles": 858789,
     "width": 1180
   },
   "map16x": {
     "height": 503,
-    "num_land_tiles": 49086,
+    "num_land_tiles": 49098,
     "width": 295
   },
   "map4x": {
     "height": 1006,
-    "num_land_tiles": 208048,
+    "num_land_tiles": 208176,
     "width": 590
   },
   "multiplayer_frequency": 0,
