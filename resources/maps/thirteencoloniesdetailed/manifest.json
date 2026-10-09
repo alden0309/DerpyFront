@@ -3,17 +3,17 @@
   "id": "ThirteenColoniesDetailed",
   "map": {
     "height": 2524,
-    "num_land_tiles": 1332917,
+    "num_land_tiles": 1333739,
     "width": 1480
   },
   "map16x": {
     "height": 631,
-    "num_land_tiles": 76465,
+    "num_land_tiles": 76495,
     "width": 370
   },
   "map4x": {
     "height": 1262,
-    "num_land_tiles": 323520,
+    "num_land_tiles": 323667,
     "width": 740
   },
   "multiplayer_frequency": 0,
@@ -120,7 +120,7 @@
       "name": "Penawahpskewi (Penobscot)"
     },
     {
-      "coordinates": [1416, 286],
+      "coordinates": [1418, 287],
       "flag": "Peskotomuhkati",
       "name": "Peskotomuhkati"
     },
