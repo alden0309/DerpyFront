@@ -1456,6 +1456,41 @@ export function validateLook(look: unknown): string | null {
   return null;
 }
 
+/** Colours for a garment, chosen as for anyone (the register's dice). */
+export function colorsFor(
+  clothes: string,
+  o: LookSeed,
+): [number, number, number] {
+  return clothColors(clothes, o, new Stream(o.id, 0xc01));
+}
+
+/**
+ * A look made to fit someone: whatever they couldn't wear (the other sex's,
+ * another people's, or not yet worn in their year) is chosen afresh, and
+ * with `restyle` their hair, hat and clothes are chosen afresh anyway. Their
+ * features stay.
+ */
+export function fitLook(
+  look: Appearance,
+  o: LookSeed,
+  restyle = false,
+): Appearance {
+  const native = isNativeCulture(o.culture);
+  const fresh = generateLook(o);
+  const ok = (kind: ItemKind | "extras" | "marks", key: string) => {
+    const i = itemOf(kind, key);
+    return i !== undefined && fits(i, o.female, native, o.year);
+  };
+  const out = copyLook(look);
+  for (const k of ["hair", "beard", "hat", "clothes"] as const)
+    if (restyle || !ok(k, out[k])) out[k] = fresh[k];
+  if (restyle || out.clothes !== look.clothes) out.colors = fresh.colors;
+  out.extras = out.extras.filter((x) => ok("extras", x));
+  out.marks = out.marks.filter((x) => ok("marks", x));
+  if (o.female || o.age < 14) out.beard = "none";
+  return out;
+}
+
 /** A copy of a look, so edits don't touch the original. */
 export function copyLook(look: Appearance): Appearance {
   return {

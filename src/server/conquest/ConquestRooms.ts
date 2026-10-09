@@ -14,6 +14,7 @@ import type http from "http";
 import type { Duplex } from "stream";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
+import { validateLook } from "../../conquest/engine/Appearance";
 import { dateOf } from "../../conquest/engine/Calendar";
 import { lifeCoins } from "../../conquest/engine/Coins";
 import { ConquestGame, STATE_VERSION } from "../../conquest/engine/Game";
@@ -102,6 +103,35 @@ const Settings = z.object({
 });
 
 const Tincture = z.string().max(12);
+const Feature = z.number().int().min(0).max(40);
+const Part = z.string().max(24);
+/** A likeness: checked to the last part (Appearance.ts) once it's the right shape. */
+const Look = z
+  .object({
+    skin: Feature,
+    face: Feature,
+    jaw: Feature,
+    cheeks: Feature,
+    eyes: Feature,
+    eyeColor: Feature,
+    eyeSet: Feature,
+    brows: Feature,
+    nose: Feature,
+    mouth: Feature,
+    ears: Feature,
+    hair: Part,
+    hairColor: Feature,
+    beard: Part,
+    hat: Part,
+    clothes: Part,
+    colors: z.tuple([Feature, Feature, Feature]),
+    extras: z.array(Part).max(12),
+    marks: z.array(Part).max(12),
+    lines: Feature,
+    greying: Feature,
+  })
+  .strict()
+  .refine((l) => validateLook(l) === null, { message: "Not a likeness." });
 const Plan = z.object({
   origin: z.string().max(40),
   home: z.number().int().min(0).max(10_000),
@@ -111,6 +141,7 @@ const Plan = z.object({
   age: z.number().int(),
   religion: z.string().max(20),
   face: z.number().int().min(0).max(999),
+  look: Look.optional(),
   sigil: z.object({
     field: Tincture,
     division: z.string().max(12),
