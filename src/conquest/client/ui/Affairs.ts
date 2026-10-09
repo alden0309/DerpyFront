@@ -3,6 +3,12 @@
 // govern (if it comes to that), the cause you've sworn to, and Europe.
 
 import { html, nothing, TemplateResult } from "lit";
+import {
+  AMBITION_KEYS,
+  ambitionCheck,
+  ambitionProgress,
+  AMBITIONS,
+} from "../../engine/Ambitions";
 import { formatDate } from "../../engine/Calendar";
 import {
   atPost,
@@ -13,14 +19,21 @@ import {
   officesOf,
   opinionOf,
   promotionView,
+  skillLevel,
   wageOf,
 } from "../../engine/LifeQueries";
 import {
   AWAY_DAYS,
   COMMAND_RANK,
+  ENDOWMENTS,
   EUROPE_FORTUNE,
+  EXPAND_COST,
   JOBS,
+  LAND_LOT,
   PLACES,
+  RECRUIT_COST,
+  SKILL_NAMES,
+  WORK_DAYS,
 } from "../../engine/LifeRules";
 import {
   activeMovements,
@@ -33,7 +46,25 @@ import {
   RISE_SUPPORT,
   riseCheck,
 } from "../../engine/Movements";
-import { ELECTION_YEARS, governorScore } from "../../engine/Politics";
+import {
+  ELECTION_YEARS,
+  governorScore,
+  lawCheck,
+  LAWS,
+  MAX_LAWS,
+  projectCheck,
+  PROJECTS,
+} from "../../engine/Politics";
+import {
+  expandCheck,
+  handRoom,
+  houseCheck,
+  houseDefs,
+  housePrice,
+  landCheck,
+  propertyBudget,
+  propertyOf,
+} from "../../engine/Property";
 import {
   armyMen,
   buildCheck,
@@ -47,14 +78,19 @@ import {
 } from "../../engine/Queries";
 import { SEAT_NAMES, TAX_NAMES } from "../../engine/Rules";
 import type {
+  Army,
   BuildingKind,
   GovLever,
   Movement,
   MovementGoal,
+  Seat,
+  Skill,
   TaxLevel,
 } from "../../engine/Types";
-import { SEATS } from "../../engine/Types";
+import { SEATS, SKILLS } from "../../engine/Types";
+import { employersIn } from "../../engine/Work";
 import "../Range";
+import { play } from "../Sound";
 import { BUILDING_LABELS, nationName } from "../Text";
 import { num } from "../Tip";
 import {
@@ -79,11 +115,13 @@ export function affairsTab(ui: GameUi): TemplateResult {
   return html`<header class="cq-panel-head">
       <h2 class="cq-h1">Your affairs</h2>
       <p class="cq-muted small">
-        Work, the army, office, causes, and the voyage home.
+        Work, what you own, what you want, the army, office, causes, and the
+        voyage home.
       </p>
     </header>
-    ${workSection(ui)} ${armySection(ui)} ${standingSection(ui)}
-    ${governingSection(ui)} ${causeSection(ui)} ${europeSection(ui)}`;
+    ${workSection(ui)} ${ambitionSection(ui)} ${propertySection(ui)}
+    ${armySection(ui)} ${standingSection(ui)} ${governingSection(ui)}
+    ${causeSection(ui)} ${europeSection(ui)}`;
 }
 
 // ---------------------------------------------------------------- work
@@ -100,16 +138,53 @@ function workSection(ui: GameUi): TemplateResult {
         you; until then, learn what you can.
       </p>`,
     );
-  if (!job)
+  if (!job) {
+    const hirers = employersIn(s, ui.w, life.prov).slice(0, 6);
     return section(
       "Work",
       html`<p>You have no work.</p>
         <p class="cq-muted small">
-          Places offer work: farms, mills, forts, docks, counting houses,
-          churches and the council fire. Look under Here for what's on offer
-          where you are, or travel to find better.
-        </p>`,
+          Work is given, not found: go to a place and ask whoever hires there (a
+          planter, a sergeant, a master, a merchant). They'll take you or tell
+          you why not. Some trades you can set up on your own: a farm, a
+          trapline, a shop.
+        </p>
+        ${hirers.length
+          ? html`<ul class="cq-hirers">
+              ${hirers.map(
+                (h) =>
+                  html`<li>
+                    ${charLink(ui, h.c)}
+                    <span class="cq-muted small"
+                      >hires
+                      ${h.jobs
+                        .map((k) => JOBS[k].name.toLowerCase())
+                        .join(", ")}
+                      at the
+                      ${PLACES[h.place].name
+                        .replace(/^The /, "")
+                        .toLowerCase()}</span
+                    >
+                    <button
+                      class="cq-btn small"
+                      @click=${() =>
+                        ui.modal({
+                          k: "interact",
+                          c: h.c.id,
+                          act: "work",
+                          arg: 0,
+                        })}
+                    >
+                      Ask for work
+                    </button>
+                  </li>`,
+              )}
+            </ul>`
+          : html`<p class="cq-muted small">
+              Nobody hires here. Travel to a town.
+            </p>`}`,
     );
+  }
   const def = JOBS[job.kind];
   const v = promotionView(s, life);
   const wage = wageOf(s, ui.w, life);
@@ -139,6 +214,13 @@ function workSection(ui: GameUi): TemplateResult {
             : nothing}
           Since ${formatDate(job.since)}.
         </p>
+        <div class="cq-days" title="Wages are paid by the days you work">
+          ${bar(Math.min(WORK_DAYS, job.worked ?? 0) / WORK_DAYS, "xp")}
+          <span class="small"
+            >${Math.min(WORK_DAYS, job.worked ?? 0)} of ${WORK_DAYS} working
+            days this month</span
+          >
+        </div>
         ${!here && job.army < 0
           ? html`<p class="cq-warn small">
               You're away from your post (${job.awayDays ?? 0} of ${AWAY_DAYS}
@@ -196,8 +278,25 @@ function workSection(ui: GameUi): TemplateResult {
             </div>`
           : html`<p class="cq-muted small">The top of this ladder.</p>`}
         <div class="cq-btnrow">
+          ${job.prov === life.prov
+            ? html`<button
+                class="cq-btn small primary"
+                @click=${async () => {
+                  if (life.area !== job.place)
+                    await ui.cmd({ k: "enter", area: job.place });
+                  ui.open({ k: "tab", tab: "here" });
+                }}
+              >
+                Go to work
+              </button>`
+            : html`<button
+                class="cq-btn small primary"
+                @click=${() => ui.open({ k: "prov", p: job.prov })}
+              >
+                The road back
+              </button>`}
           ${action(
-            "Leave this work",
+            job.own ? "Give up the trade" : "Hand in your notice",
             servant
               ? {
                   ok: false,
@@ -205,7 +304,9 @@ function workSection(ui: GameUi): TemplateResult {
                 }
               : { ok: true },
             () => {
-              if (
+              if (boss?.alive && !job.own)
+                ui.modal({ k: "interact", c: boss.id, act: "quit" });
+              else if (
                 confirm(`Leave your place as ${jobTitle(life).toLowerCase()}?`)
               )
                 void ui.cmd({ k: "quit" });
@@ -266,6 +367,7 @@ function armySection(ui: GameUi): TemplateResult | typeof nothing {
               Give up the command
             </button>
           </div>
+          ${commandBlock(ui, leads)}
         </div>`
       : marching
         ? html`<p>
@@ -602,6 +704,7 @@ function governingSection(ui: GameUi): TemplateResult | typeof nothing {
           Declare war
         </button>
       </div>
+      ${lawsBlock(ui, n)} ${projectsBlock(ui, n)} ${appointBlock(ui, n)}
       ${enemies.length
         ? html`<ul class="cq-list">
             ${enemies.map((o) => {
@@ -629,6 +732,503 @@ function governingSection(ui: GameUi): TemplateResult | typeof nothing {
             })}
           </ul>`
         : nothing}`,
+  );
+}
+
+// ---------------------------------------------------------------- ambition
+
+function ambitionSection(ui: GameUi): TemplateResult | typeof nothing {
+  const s = ui.s;
+  const life = ui.life!;
+  if (isChildLife(s, life)) return nothing;
+  const a = life.ambition;
+  const def = a ? AMBITIONS[a.key] : undefined;
+  const prog = ambitionProgress(s, life);
+  const done = life.ambitionsDone ?? [];
+  const choices = AMBITION_KEYS.filter((k) => k !== a?.key);
+  return section(
+    "Ambition",
+    html`${def && prog
+      ? html`<div class="cq-ambition">
+          <p>
+            <b>${def.name}</b>${a!.arg
+              ? html` <span class="cq-muted"
+                  >(${SKILL_NAMES[a!.arg as Skill]?.toLowerCase() ??
+                  a!.arg})</span
+                >`
+              : nothing}
+            <span class="cq-muted small">since ${formatDate(a!.since)}</span>
+          </p>
+          <p class="small">${def.text}</p>
+          <div class="cq-days">
+            ${bar(prog[1] > 0 ? prog[0] / prog[1] : 0, "xp")}
+            <span class="small"
+              >${Math.round(prog[0] * 10) / 10} of ${prog[1]}</span
+            >
+          </div>
+          <p class="cq-muted small">
+            When you get there: ${def.reward.text} (+${def.reward.renown}
+            renown).
+          </p>
+          <button
+            class="cq-btn small quiet"
+            @click=${() =>
+              confirm("Give it up? It'll sting.") &&
+              void ui.cmd({ k: "ambition", key: null })}
+          >
+            Give it up
+          </button>
+        </div>`
+      : html`<p class="cq-muted">
+          Nothing you've set your heart on. A goal gives a life its shape, and
+          reaching one is worth renown and peace of mind.
+        </p>`}
+    ${more(
+      a ? "Set your heart on something else" : "Set your heart on something",
+      html`<ul class="cq-ambitions">
+        ${choices.map((k) => {
+          const d = AMBITIONS[k];
+          const skillPick = d.skill;
+          const check = skillPick
+            ? ambitionCheck(s, life, k, bestOpenSkill(ui))
+            : ambitionCheck(s, life, k);
+          return html`<li class=${check.ok ? "" : "off"}>
+            <div>
+              <b>${d.name}</b>
+              <span class="small">${d.text}</span>
+              ${!check.ok
+                ? html`<span class="cq-why">${check.why}</span>`
+                : nothing}
+            </div>
+            ${skillPick
+              ? html`<select
+                    class="cq-select amb-skill-${k}"
+                    aria-label="Which skill"
+                  >
+                    ${SKILLS.map(
+                      (sk) =>
+                        html`<option
+                          value=${sk}
+                          ?selected=${sk === bestOpenSkill(ui)}
+                        >
+                          ${SKILL_NAMES[sk]}
+                        </option>`,
+                    )}
+                  </select>
+                  <button
+                    class="cq-btn small"
+                    @click=${() => {
+                      const sk =
+                        document.querySelector<HTMLSelectElement>(
+                          `.amb-skill-${k}`,
+                        )?.value ?? "";
+                      void ui.cmd({ k: "ambition", key: k, arg: sk });
+                    }}
+                  >
+                    Choose
+                  </button>`
+              : html`<button
+                  class="cq-btn small"
+                  ?disabled=${!check.ok}
+                  @click=${() => void ui.cmd({ k: "ambition", key: k })}
+                >
+                  Choose
+                </button>`}
+          </li>`;
+        })}
+      </ul>`,
+      !a,
+    )}
+    ${done.length
+      ? html`<p class="cq-muted small">
+          Achieved: ${done.map((k) => AMBITIONS[k]?.name ?? k).join("; ")}.
+        </p>`
+      : nothing}`,
+  );
+}
+
+/** The skill most worth mastering: your best that isn't mastered yet. */
+function bestOpenSkill(ui: GameUi): string {
+  const lv = (k: Skill) => skillLevel(ui.s, ui.life!, k);
+  const sk = SKILLS.filter((k) => lv(k) < 14).sort((a, b) => lv(b) - lv(a));
+  return sk[0] ?? SKILLS[0];
+}
+
+// ---------------------------------------------------------------- property
+
+function propertySection(ui: GameUi): TemplateResult | typeof nothing {
+  const s = ui.s;
+  const life = ui.life!;
+  if (isChildLife(s, life)) return nothing;
+  const native = lifeIsNative(s, life);
+  const props = propertyOf(life);
+  const house = houseCheck(s, life);
+  const land = landCheck(s, life);
+  const budget = propertyBudget(s, life);
+  const prop = (act: "house" | "land") => async () => {
+    if (await ui.cmd({ k: "property", act })) play("coins");
+  };
+  return section(
+    "Property",
+    html`${props.length
+        ? html`<ul class="cq-props">
+            ${props.map((pr) => {
+              const where = ui.map.provinces[pr.prov].name;
+              const kind =
+                pr.kind === "house"
+                  ? (houseDefs(native)[pr.level - 1]?.name ?? "House")
+                  : pr.kind === "land"
+                    ? `${pr.level * 10} acres`
+                    : pr.name;
+              const ex = pr.kind === "business" ? expandCheck(life, pr) : null;
+              return html`<li class="cq-prop">
+                <span class="cq-prop-kind ${pr.kind}" aria-hidden="true"></span>
+                <div class="cq-prop-body">
+                  <b>${kind}</b>
+                  <span class="cq-muted small"
+                    >at ${where}, since ${formatDate(pr.since)}</span
+                  >
+                  ${pr.kind === "business"
+                    ? html`<span class="small"
+                        >Hands:
+                        ${pr.hands.length
+                          ? pr.hands.map(
+                              (h) =>
+                                html`${charLink(ui, s.chars[h], false)}
+                                  <button
+                                    class="cq-link small"
+                                    title="Let them go"
+                                    @click=${() =>
+                                      void ui.cmd({
+                                        k: "property",
+                                        act: "dismiss",
+                                        id: pr.id,
+                                        c: h,
+                                      })}
+                                  >
+                                    (dismiss)
+                                  </button> `,
+                            )
+                          : html`<span class="cq-muted">none</span>`}
+                        <span class="cq-muted"
+                          >room for ${handRoom(pr)} more: offer work to anyone
+                          from their card</span
+                        ></span
+                      >`
+                    : nothing}
+                </div>
+                <div class="cq-prop-acts">
+                  ${ex
+                    ? action(
+                        `Grow it${EXPAND_COST[pr.level] !== undefined ? ` (${EXPAND_COST[pr.level]})` : ""}`,
+                        ex,
+                        async () => {
+                          if (
+                            await ui.cmd({
+                              k: "property",
+                              act: "expand",
+                              id: pr.id,
+                            })
+                          )
+                            play("coins");
+                        },
+                        "small",
+                        undefined,
+                        false,
+                      )
+                    : nothing}
+                  <button
+                    class="cq-btn small quiet"
+                    @click=${() =>
+                      confirm(`Sell the ${kind.toLowerCase()} at ${where}?`) &&
+                      void ui.cmd({ k: "property", act: "sell", id: pr.id })}
+                  >
+                    Sell
+                  </button>
+                </div>
+              </li>`;
+            })}
+          </ul>`
+        : html`<p class="cq-muted">
+            You own nothing but what you stand up in. A house of your own eases
+            the mind; land pays rent; a business pays its takings.
+          </p>`}
+      ${budget.parts.length
+        ? html`<p class="small">
+            ${num(
+              `${budget.total >= 0 ? "+" : ""}${budget.total.toFixed(1)} a month`,
+              () => breakdownTip("What your property brings in", budget),
+              budget.total >= 0 ? "good" : "bad",
+            )}
+            from what you own, all told.
+          </p>`
+        : nothing}
+      <div class="cq-btnrow">
+        ${house.next
+          ? action(
+              `${house.level ? "A better house" : native ? "A lodge of your own" : "A house of your own"}: ${house.next.name.toLowerCase()} (${housePrice(s, life)})`,
+              house.check,
+              prop("house"),
+              "small",
+              "Your household moves in with you",
+              false,
+            )
+          : nothing}
+        ${action(
+          `Ten acres (${LAND_LOT.cost})`,
+          land,
+          prop("land"),
+          "small",
+          "Let to tenants: rent every month",
+          false,
+        )}
+      </div>
+      ${!house.check.ok || !land.ok
+        ? html`<p class="cq-muted small">
+            ${[
+              house.next && !house.check.ok ? house.check.why : "",
+              land.ok ? "" : land.why,
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          </p>`
+        : nothing}
+      ${more(
+        "Gifts to the town",
+        html`<ul class="cq-list">
+          ${Object.entries(ENDOWMENTS).map(([k, e]) => {
+            const busy = (life.cooldowns[`endow:${k}`] ?? 0) > s.day;
+            const ok = !busy && life.purse >= e.cost;
+            return html`<li>
+              <b>${e.label.replace(/^(\w)/, (m) => m.toUpperCase())}</b>
+              <span class="small">(${e.cost} coins, +${e.renown} renown)</span>
+              ${action(
+                "Give",
+                ok
+                  ? { ok: true }
+                  : {
+                      ok: false,
+                      why: busy ? "You gave lately" : `Costs ${e.cost} coins`,
+                    },
+                async () => {
+                  if (await ui.cmd({ k: "property", act: "endow", what: k }))
+                    play("bell");
+                },
+                "small",
+              )}
+            </li>`;
+          })}
+        </ul>`,
+      )}`,
+  );
+}
+
+// ---------------------------------------------------------------- command
+
+function commandBlock(ui: GameUi, a: Army): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const pr = s.provinces[a.prov];
+  const others = s.armies.filter(
+    (x) => x.owner === a.owner && x.id !== a.id && x.prov === a.prov,
+  );
+  const besieging = !!pr.siege && pr.siege.by === a.owner;
+  const recruitWait = (life.cooldowns["army:recruit"] ?? 0) > s.day;
+  const assaultWait = (life.cooldowns["army:assault"] ?? 0) > s.day;
+  const own = pr.owner === a.owner && pr.occupier < 0;
+  const army =
+    (act: "split" | "merge" | "recruit" | "assault", b?: number) =>
+    async () => {
+      if (await ui.cmd({ k: "army", act, b }))
+        play(act === "assault" ? "cannon" : "drums");
+    };
+  return html`<div class="cq-command">
+    ${action(
+      "Split the army",
+      armyMen(a) >= 400 && a.regs.length >= 2
+        ? { ok: true }
+        : { ok: false, why: "Too few regiments to split" },
+      army("split"),
+      "small",
+      "Half stays with you; half goes its own way",
+      false,
+    )}
+    ${others.map((o) =>
+      action(
+        `Take in the ${Math.round(armyMen(o))} men here`,
+        { ok: true },
+        army("merge", o.id),
+        "small",
+      ),
+    )}
+    ${action(
+      `Beat the drum for volunteers (${RECRUIT_COST})`,
+      a.depart >= 0
+        ? { ok: false, why: "Not on the march" }
+        : !own
+          ? { ok: false, why: "Only in your own country" }
+          : recruitWait
+            ? { ok: false, why: "The country's drained of willing men" }
+            : life.purse < RECRUIT_COST
+              ? { ok: false, why: `Bounties cost ${RECRUIT_COST} coins` }
+              : { ok: true },
+      army("recruit"),
+      "small",
+      "Five hundred men, paid from your own purse",
+      false,
+    )}
+    ${besieging
+      ? action(
+          "Storm the walls",
+          assaultWait ? { ok: false, why: "The men need time" } : { ok: true },
+          () => {
+            if (confirm("Order an assault? Men will die either way."))
+              void army("assault")();
+          },
+          "small danger",
+          "Leadership: carry the town, or lose men",
+          false,
+        )
+      : nothing}
+  </div>`;
+}
+
+// ---------------------------------------------------------------- laws, works, appointments
+
+function lawsBlock(ui: GameUi, n: number): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const nation = s.nations[n];
+  const native = nation.kind === "native";
+  const laws = nation.laws ?? [];
+  const keys = Object.keys(LAWS).filter((k) => LAWS[k].native === native);
+  return more(
+    html`${native ? "Customs of the council fire" : "Laws"}
+      <span class="cq-muted small">(${laws.length} of ${MAX_LAWS})</span>`,
+    html`<ul class="cq-laws">
+      ${keys.map((k) => {
+        const d = LAWS[k];
+        const on = laws.includes(k);
+        const check = lawCheck(s, n, k, !on, life);
+        return html`<li class=${on ? "on" : ""}>
+          <div>
+            <b>${d.name}</b>${on
+              ? html` <span class="cq-chip good">in force</span>`
+              : nothing}
+            <span class="small">${d.text}</span>
+          </div>
+          ${action(
+            on ? "Repeal" : native ? "Agree it" : "Pass it",
+            check,
+            () =>
+              void ui.cmd({ k: "gov", lever: { l: "law", law: k, on: !on } }),
+            on ? "small quiet" : "small",
+          )}
+        </li>`;
+      })}
+    </ul>`,
+  );
+}
+
+function projectsBlock(ui: GameUi, n: number): TemplateResult {
+  const s = ui.s;
+  const nation = s.nations[n];
+  const native = nation.kind === "native";
+  const keys = Object.keys(PROJECTS).filter(
+    (k) => PROJECTS[k].native === native,
+  );
+  return more(
+    native ? "Great works" : "Public works",
+    html`<ul class="cq-laws">
+      ${keys.map((k) => {
+        const d = PROJECTS[k];
+        const built = nation.mods.find((m) => m.key === `project:${k}`);
+        const check = projectCheck(s, n, k);
+        return html`<li class=${built ? "on" : ""}>
+          <div>
+            <b>${d.name}</b>
+            <span class="cq-muted small"
+              >${d.cost} from the treasury; lasts ${d.years} years</span
+            >
+            <span class="small">${d.text}</span>
+            ${built
+              ? html`<span class="cq-chip good"
+                  >standing until ${formatDate(built.until)}</span
+                >`
+              : nothing}
+          </div>
+          ${built
+            ? nothing
+            : action(
+                "Build it",
+                check,
+                async () => {
+                  if (
+                    await ui.cmd({
+                      k: "gov",
+                      lever: { l: "project", key: k, p: nation.capital },
+                    })
+                  )
+                    play("bell");
+                },
+                "small",
+              )}
+        </li>`;
+      })}
+    </ul>`,
+  );
+}
+
+function appointBlock(ui: GameUi, n: number): TemplateResult {
+  const s = ui.s;
+  const nation = s.nations[n];
+  const seated = new Set<number>(Object.values(nation.council));
+  const pool = nation.court
+    .map((id) => s.chars[id])
+    .filter(
+      (c) =>
+        c?.alive &&
+        c.nation === n &&
+        c.id !== nation.ruler &&
+        !seated.has(c.id),
+    );
+  return more(
+    nation.kind === "native" ? "Who sits at the fire" : "Your council",
+    html`<p class="cq-muted small">
+        Raise someone from your court to a seat; whoever held it steps down (and
+        remembers).
+      </p>
+      <dl class="cq-family">
+        ${SEATS.map((seat: Seat) => {
+          const c = s.chars[nation.council[seat]];
+          return html`<dt>${SEAT_NAMES[seat]}</dt>
+            <dd>
+              ${c?.alive
+                ? charLink(ui, c)
+                : html`<span class="cq-muted">empty</span>`}
+              <select class="cq-select gov-seat-${seat}" aria-label="Appoint">
+                ${pool.map(
+                  (x) => html`<option value=${x.id}>${charName(x)}</option>`,
+                )}
+              </select>
+              <button
+                class="cq-btn small"
+                ?disabled=${pool.length === 0}
+                @click=${() => {
+                  const c = Number(
+                    document.querySelector<HTMLSelectElement>(
+                      `.gov-seat-${seat}`,
+                    )?.value ?? -1,
+                  );
+                  if (c >= 0 && c !== nation.council[seat])
+                    void ui.cmd({ k: "gov", lever: { l: "appoint", seat, c } });
+                }}
+              >
+                Appoint
+              </button>
+            </dd>`;
+        })}
+      </dl>`,
   );
 }
 

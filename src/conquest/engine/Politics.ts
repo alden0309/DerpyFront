@@ -642,7 +642,8 @@ export function projectCheck(s: GameState, n: number, key: string): Check {
     return no("That isn't for your people.");
   if (nation.mods.some((m) => m.key === `project:${key}`))
     return no("It's built already.");
-  if (nation.gold < def.cost) return no(`It costs ${def.cost} gold from the treasury.`);
+  if (nation.gold < def.cost)
+    return no(`It costs ${def.cost} gold from the treasury.`);
   return yes;
 }
 
@@ -760,7 +761,8 @@ function govLever(g: ConquestGame, life: Life, lever: GovLever): string | null {
       });
       if (!err) {
         const c = s.chars[lever.c];
-        if (c) remembers(g, life, g.char(c.id), "Raised me to the council", 15, 5);
+        if (c)
+          remembers(g, life, g.char(c.id), "Raised me to the council", 15, 5);
         journal(
           g,
           life,
@@ -782,8 +784,18 @@ function govLever(g: ConquestGame, life: Life, lever: GovLever): string | null {
         fx: { ...def.fx },
       });
       addRenown(g, life, 4);
-      journal(g, life, `${def.name}, paid from the treasury: ${def.text}`, "good");
-      milestone(g, life, "office", `Built ${def.name.toLowerCase().replace(/^an? /, "a ")}`);
+      journal(
+        g,
+        life,
+        `${def.name}, paid from the treasury: ${def.text}`,
+        "good",
+      );
+      milestone(
+        g,
+        life,
+        "office",
+        `Built ${def.name.toLowerCase().replace(/^an? /, "a ")}`,
+      );
       return null;
     }
     default:

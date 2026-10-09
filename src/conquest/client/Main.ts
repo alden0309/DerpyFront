@@ -14,5 +14,6 @@ import "../../derpland/fonts";
 import "./App";
 import "./conquest.css";
 import "./life.css";
+import "./scene.css";
 
 document.body.appendChild(document.createElement("conquest-app"));

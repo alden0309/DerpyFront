@@ -3,30 +3,36 @@
 // page too: who holds it, what's there, and the road to it.
 
 import { html, nothing, TemplateResult } from "lit";
+import { areaName, areasOf, presence, Present } from "../../engine/Areas";
 import { formatDate } from "../../engine/Calendar";
-import { actCheck, actOdds, actsAt } from "../../engine/LifeActs";
+import { interactionView, InteractionView } from "../../engine/Interactions";
+import { actCheck, actLabel, actOdds, actsAt } from "../../engine/LifeActs";
 import {
   isChildLife,
   isNativeChar,
-  isPlayed,
-  jobCheck,
+  jobTitle,
   lifeIsNative,
   lifeOfChar,
   opinionOf,
   peopleHere,
   placesIn,
   promotionView,
+  startRank,
   travelRoute,
 } from "../../engine/LifeQueries";
 import {
+  AWAY_DAYS,
   COMMAND_RANK,
   EUROPE_FORTUNE,
+  EXPAND_COST,
   JOBS,
   PLACES,
   ROLES,
+  WORK_DAYS,
 } from "../../engine/LifeRules";
 import { joinCheck, movementOf, movementsHere } from "../../engine/Movements";
 import { standCheck } from "../../engine/Politics";
+import { businessOf, expandCheck, handRoom } from "../../engine/Property";
 import {
   ageOf,
   armyMen,
@@ -35,9 +41,13 @@ import {
   settlers,
   tribesfolk,
 } from "../../engine/Queries";
-import type { Character, JobKind, PlaceKind } from "../../engine/Types";
+import { heardHere } from "../../engine/Rumours";
+import type { Character, PlaceKind } from "../../engine/Types";
+import { employersIn } from "../../engine/Work";
 import { flagFor } from "../Flags";
 import { placeIcon } from "../Icons";
+import { placeThumb, sceneArt } from "../SceneArt";
+import { play } from "../Sound";
 import {
   GOOD_NAMES,
   nationName,
@@ -47,7 +57,9 @@ import {
 import { num } from "../Tip";
 import {
   action,
+  bar,
   breakdownTip,
+  charLink,
   GameUi,
   nationLink,
   odds,
@@ -160,7 +172,7 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
   );
 }
 
-/** The province you're in, and everything you can do there. */
+/** The province you're in: its places, who's in each, and what you can do. */
 export function herePanel(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life;
@@ -212,8 +224,7 @@ export function herePanel(ui: GameUi): TemplateResult {
     ? html`<p class="cq-muted small cq-pad">
         Places and people open up when you arrive.
       </p>`
-    : places(ui, p)}
-  ${t ? nothing : peopleSection(ui, p)}`;
+    : areasView(ui, p)}`;
 }
 
 function watchingHere(ui: GameUi): TemplateResult {
@@ -243,194 +254,6 @@ function watchingHere(ui: GameUi): TemplateResult {
       Click any province to see who lives there; click a person to see them, and
       take them over from their page.
     </p>`;
-}
-
-function places(ui: GameUi, p: number): TemplateResult {
-  const s = ui.s;
-  const list = placesIn(s, ui.w, p);
-  return html`<div class="cq-places">
-    ${list.map((pl) => placeCard(ui, p, pl))}
-  </div>`;
-}
-
-function placeCard(ui: GameUi, p: number, place: PlaceKind): TemplateResult {
-  const s = ui.s;
-  const life = ui.life!;
-  const me = ui.me!;
-  const def = PLACES[place];
-  const native = lifeIsNative(s, life);
-  const ownerNative =
-    s.provinces[p].owner >= 0 &&
-    s.nations[s.provinces[p].owner].kind === "native";
-  const acts = actsAt(place)
-    .map((a) => ({ a, check: actCheck(s, ui.w, life, place, a.key) }))
-    .filter(({ a, check }) => {
-      // Buying the next rung is done where you work.
-      if (a.key === "buy")
-        return life.job?.place === place && life.job.prov === p
-          ? check.ok || !/^The next rung/.test(check.why)
-          : false;
-      // Hide what can't apply to you here: others' faith, other peoples'
-      // work, a cause or campaign you haven't got.
-      return (
-        check.ok ||
-        !/^(Only|Not open|Land isn't|Your people|Not your way|You belong to no|You're not standing)/.test(
-          check.why,
-        )
-      );
-    });
-  const jobs = (Object.keys(JOBS) as JobKind[]).filter(
-    (k) =>
-      JOBS[k].places.includes(place) &&
-      (JOBS[k].native === null || JOBS[k].native === native) &&
-      k !== "servant",
-  );
-  const here = life.job && life.job.place === place && life.job.prov === p;
-  const movements =
-    place === "tavern" || place === "councilfire" ? movementsHere(s, p) : [];
-  const armies =
-    place === "fort" || place === "councilfire"
-      ? s.armies.filter(
-          (a) =>
-            a.prov === p &&
-            a.depart < 0 &&
-            (a.owner === me.nation || a.owner === life.job?.nation),
-        )
-      : [];
-  return html`<article class="cq-place ${here ? "mine" : ""}">
-    <h3 class="cq-place-name">
-      <span class="cq-place-icon" aria-hidden="true">${placeIcon(place)}</span>
-      ${ownerNative && def.nativeName ? def.nativeName : def.name}
-      ${here ? html`<span class="cq-chip good">you work here</span>` : nothing}
-    </h3>
-    <p class="cq-place-text">${def.text}</p>
-    ${jobs.length && !isChildLife(s, life)
-      ? html`<ul class="cq-jobs">
-          ${jobs.map((k) => {
-            const j = JOBS[k];
-            const check = jobCheck(s, ui.w, life, place, k);
-            const mine = life.job?.kind === k && life.job.prov === p;
-            return html`<li>
-              <span class="cq-job-name"
-                ><b>${j.ranks[0].title}</b>
-                <span class="cq-muted small"
-                  >${j.name.toLowerCase()}, ${j.ranks[0].wage} a month; up to
-                  ${j.ranks[j.ranks.length - 1].title.toLowerCase()}</span
-                ></span
-              >
-              ${mine
-                ? nothing
-                : action(
-                    "Take it",
-                    check,
-                    () => ui.cmd({ k: "job", place, job: k }),
-                    "small",
-                    j.text,
-                    false,
-                  )}
-            </li>`;
-          })}
-        </ul>`
-      : nothing}
-    <div class="cq-acts">
-      ${acts.map(({ a, check }) => {
-        const o = actOdds(s, life, a.key);
-        const label = a.key === "buy" ? buyLabel(ui) : a.label;
-        return html`<button
-          class="cq-act-btn"
-          ?disabled=${!check.ok}
-          title=${check.ok ? a.text : `${check.why} ${a.text}`}
-          @click=${() => ui.cmd({ k: "act", place, act: a.key })}
-        >
-          <span>${label}</span>${odds(o)}${!check.ok
-            ? html`<span class="cq-act-why">${check.why}</span>`
-            : nothing}
-        </button>`;
-      })}
-      ${place === "market" ||
-      (place === "village" && ownerNative) ||
-      place === "docks"
-        ? html`<button
-            class="cq-act-btn"
-            @click=${() => ui.modal({ k: "trade" })}
-          >
-            <span>Buy and sell goods</span>
-          </button>`
-        : nothing}
-      ${place === "governor" || (place === "councilfire" && ownerNative)
-        ? standButton(ui)
-        : nothing}
-      ${place === "docks" ? europeButton(ui) : nothing}
-    </div>
-    ${movements.length
-      ? html`<ul class="cq-movements-here">
-          ${movements.map((m) => {
-            const check = joinCheck(s, life, m);
-            const mine = movementOf(s, me.id)?.id === m.id;
-            return html`<li>
-              <b>${m.name}</b>
-              <span class="cq-muted small">${m.text}</span>
-              ${mine
-                ? html`<span class="cq-chip good">sworn</span>`
-                : action(
-                    "Join",
-                    check,
-                    () => ui.cmd({ k: "movement", act: "join", id: m.id }),
-                    "small",
-                    undefined,
-                    false,
-                  )}
-            </li>`;
-          })}
-        </ul>`
-      : nothing}
-    ${armies.length
-      ? html`<ul class="cq-movements-here">
-          ${armies.map((a) => {
-            const job = life.job;
-            const can =
-              (!!job &&
-                (job.kind === "soldier" || job.kind === "warrior") &&
-                job.nation === a.owner &&
-                job.rank >= (COMMAND_RANK[job.kind] ?? 99)) ||
-              s.nations[a.owner].council.marshal === me.id ||
-              s.nations[a.owner].ruler === me.id;
-            return html`<li>
-              <span
-                >The ${s.nations[a.owner].adjective} army:
-                ${Math.round(armyMen(a))}
-                men${a.commander >= 0
-                  ? `, led by ${charName(s.chars[a.commander])}`
-                  : ""}.</span
-              >
-              ${a.commander === me.id
-                ? html`<span class="cq-chip good">yours</span>`
-                : action(
-                    "Take command",
-                    can
-                      ? { ok: true }
-                      : {
-                          ok: false,
-                          why: "Colonels, generals, war chiefs, the marshal or the governor",
-                        },
-                    () => ui.cmd({ k: "command", army: a.id }),
-                    "small",
-                    undefined,
-                    false,
-                  )}
-            </li>`;
-          })}
-        </ul>`
-      : nothing}
-  </article>`;
-}
-
-function buyLabel(ui: GameUi): string {
-  const life = ui.life!;
-  const v = promotionView(ui.s, life);
-  return v.next?.buy
-    ? `Buy ${v.next.buy.what} (${v.next.buy.cost})`
-    : "Buy your way up";
 }
 
 function standButton(ui: GameUi): TemplateResult {
@@ -475,28 +298,6 @@ function europeButton(ui: GameUi): TemplateResult {
       ? html`<span class="cq-act-why">${why}</span>`
       : nothing}
   </button>`;
-}
-
-/** Everyone you could meet here, with what they think of you. */
-function peopleSection(ui: GameUi, p: number): TemplateResult {
-  const s = ui.s;
-  const life = ui.life;
-  const list = peopleHere(s, p, life ?? undefined);
-  if (list.length === 0)
-    return section("People here", html`<p class="cq-empty">Nobody about.</p>`);
-  const rank = (c: Character) => {
-    const n = s.nations[c.nation];
-    if (n?.ruler === c.id) return 10;
-    if (isPlayed(s, c.id)) return 9;
-    return c.role ? ROLES[c.role].status : 0;
-  };
-  list.sort((a, b) => rank(b) - rank(a) || a.id - b.id);
-  return section(
-    "People here",
-    html`<ul class="cq-folk">
-      ${list.map((c) => personRow(ui, c))}
-    </ul>`,
-  );
 }
 
 export function roleOf(ui: GameUi, c: Character): string {
@@ -623,5 +424,532 @@ export function provincePage(ui: GameUi, p: number): TemplateResult {
           ${met.map((c) => personRow(ui, c))}
         </ul>`,
       )
+    : nothing}`;
+}
+
+// ---------------------------------------------------------------- the places of a province
+
+/** Which area you're looking at: where you are (or a place just entered). */
+function currentArea(ui: GameUi, list: PlaceKind[]): PlaceKind {
+  const life = ui.life!;
+  if (life.area && list.includes(life.area)) return life.area;
+  if (life.job && life.job.prov === life.prov && list.includes(life.job.place))
+    return life.job.place;
+  return (
+    (["tavern", "village", "market", "councilfire"] as PlaceKind[]).find((k) =>
+      list.includes(k),
+    ) ?? list[0]
+  );
+}
+
+/** The tiles of the province's places, and the one you're in. */
+function areasView(ui: GameUi, p: number): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const list = areasOf(s, ui.w, p, life);
+  const crowd = presence(s, ui.w, p, s.day, life);
+  const cur = currentArea(ui, list);
+  const enter = (a: PlaceKind) => {
+    if (a === life.area) return;
+    play("paper");
+    void ui.cmd({ k: "enter", area: a });
+  };
+  return html`<nav class="cq-areas" aria-label="Places here">
+      ${list.map((a) => {
+        const folk = crowd.get(a) ?? [];
+        const thumb = placeThumb(a);
+        const work = life.job && life.job.prov === p && life.job.place === a;
+        return html`<button
+          class="cq-area-tile ${a === cur ? "on" : ""}"
+          aria-pressed=${a === cur}
+          style=${thumb ? `--thumb:url(${thumb})` : ""}
+          @click=${() => enter(a)}
+        >
+          <span class="cq-area-name">${areaName(s, p, a)}</span>
+          <span class="cq-area-faces">
+            ${folk
+              .slice(0, 3)
+              .map((x) => token(ui, s.chars[x.c], "xs"))}${folk.length > 3
+              ? html`<i>+${folk.length - 3}</i>`
+              : nothing}
+          </span>
+          <span class="cq-area-count"
+            >${folk.length
+              ? `${folk.length} here`
+              : a === "home"
+                ? "home"
+                : "nobody"}</span
+          >
+          ${work ? html`<span class="cq-area-work">your work</span>` : nothing}
+        </button>`;
+      })}
+    </nav>
+    ${areaView(ui, p, cur, crowd.get(cur) ?? [])}`;
+}
+
+function areaView(
+  ui: GameUi,
+  p: number,
+  area: PlaceKind,
+  folk: Present[],
+): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const art = sceneArt(area);
+  const def = PLACES[area];
+  return html`<section class="cq-area" aria-label=${areaName(s, p, area)}>
+    <header class="cq-area-banner" style=${art ? `--art:url(${art})` : ""}>
+      <h3>${areaName(s, p, area)}</h3>
+      <p>${def.text}</p>
+    </header>
+    ${workBlock(ui, p, area)} ${hiringBlock(ui, p, area)}
+    <h4 class="cq-area-h">
+      Here now
+      <span class="cq-muted small">${folk.length + 1}</span>
+    </h4>
+    <ul class="cq-present">
+      <li class="you">
+        <span class="cq-present-row">
+          ${token(ui, ui.me!, "small")}
+          <span class="cq-folk-text">
+            <b>You</b>
+            <span class="cq-muted small"
+              >${life.job && life.job.prov === p && life.job.place === area
+                ? `at work, ${jobTitle(life).toLowerCase()}`
+                : "looking about"}</span
+            >
+          </span>
+        </span>
+      </li>
+      ${folk.map((x) => presentRow(ui, x))}
+    </ul>
+    ${folk.length === 0
+      ? html`<p class="cq-empty small">
+          Nobody else is here just now. People come and go with the days.
+        </p>`
+      : nothing}
+    ${actsBlock(ui, p, area)} ${talkBlock(ui, p, area)}
+    ${extrasBlock(ui, p, area)}
+  </section>`;
+}
+
+const KIND_TAG: Partial<Record<Present["kind"], string>> = {
+  traveller: "traveller",
+  player: "player",
+  court: "court",
+  hand: "your hand",
+};
+
+function presentRow(ui: GameUi, x: Present): TemplateResult {
+  const s = ui.s;
+  const life = ui.life;
+  const c = s.chars[x.c];
+  if (!c) return html``;
+  const op = life && life.c >= 0 ? opinionOf(s, c, life) : null;
+  const tie = life?.ties[c.id];
+  const tag = KIND_TAG[x.kind];
+  return html`<li>
+    <button
+      class="cq-present-row"
+      @click=${() => ui.open({ k: "char", c: c.id })}
+    >
+      ${token(ui, c, "small")}
+      <span class="cq-folk-text">
+        <b>${charName(c)}</b>
+        <span class="cq-muted small"
+          >${roleOf(ui, c)},
+          ${ageOf(s, c)}${tie
+            ? html` · <span class="cq-tie ${tie}">${tie}</span>`
+            : nothing}</span
+        >
+        <span class="cq-doing">${x.doing}</span>
+      </span>
+      ${tag ? html`<span class="cq-chip ${x.kind}">${tag}</span>` : nothing}
+      ${op
+        ? num(
+            `${op.total > 0 ? "+" : ""}${op.total}`,
+            () => breakdownTip(`What ${c.first} thinks of you`, op),
+            `cq-opinion ${op.total >= 20 ? "good" : op.total <= -20 ? "bad" : ""}`,
+          )
+        : nothing}
+    </button>
+  </li>`;
+}
+
+/** Your own work, if this is where you do it. */
+function workBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const job = life.job;
+  if (!job || job.prov !== p || job.place !== area) return html``;
+  const def = JOBS[job.kind];
+  const boss = s.chars[job.employer];
+  const v = promotionView(s, life);
+  const biz = businessOf(life, p, area);
+  const worked = Math.min(WORK_DAYS, job.worked ?? 0);
+  const hard = actCheck(s, ui.w, life, area, "work");
+  const askUp = boss?.alive
+    ? interactionView(s, ui.w, life, boss.id, "promote")
+    : null;
+  const next = def.ranks[job.rank + 1];
+  return html`<div class="cq-workblock">
+    <p class="cq-work-title">
+      <b>${jobTitle(life)}</b>
+      <span class="cq-muted small"
+        >${job.own
+          ? `your own ${biz?.name ?? def.business ?? "work"}`
+          : boss?.alive
+            ? html`for ${charLink(ui, boss, false)}`
+            : "between masters"}</span
+      >
+    </p>
+    <div class="cq-days" title="Wages are paid by the days you work">
+      ${bar(worked / WORK_DAYS, "xp")}
+      <span class="small"
+        >${worked} of ${WORK_DAYS} days this month:
+        ${((def.ranks[job.rank].wage * worked) / WORK_DAYS).toFixed(1)} of
+        ${def.ranks[job.rank].wage} coins earned</span
+      >
+    </div>
+    ${(job.awayDays ?? 0) > 0
+      ? html`<p class="cq-warn small">
+          ${job.awayDays} days away
+          ${job.own ? "" : `(${AWAY_DAYS} and the place is gone)`}.
+        </p>`
+      : nothing}
+    <div class="cq-acts">
+      <button
+        class="cq-act-btn"
+        ?disabled=${!hard.ok}
+        title="A long day: skill, and a good word from your master"
+        @click=${() => runAct(ui, area, "work")}
+      >
+        <span>Put in a hard day</span>${!hard.ok
+          ? html`<span class="cq-act-why">${hard.why}</span>`
+          : nothing}
+      </button>
+      ${askUp && next && !next.buy
+        ? html`<button
+            class="cq-act-btn ${askUp.will ? "lit" : ""}"
+            ?disabled=${!askUp.check.ok}
+            @click=${() =>
+              ui.modal({ k: "interact", c: boss!.id, act: "promote" })}
+          >
+            <span>Ask to be made ${next.title.toLowerCase()}</span>
+            ${verdictChip(askUp)}
+          </button>`
+        : nothing}
+      ${next?.buy
+        ? (() => {
+            const b = actCheck(s, ui.w, life, area, "buy");
+            return html`<button
+              class="cq-act-btn ${b.ok ? "lit" : ""}"
+              ?disabled=${!b.ok}
+              @click=${() => runAct(ui, area, "buy")}
+            >
+              <span>Buy ${next.buy!.what} (${next.buy!.cost})</span>${!b.ok
+                ? html`<span class="cq-act-why">${b.why}</span>`
+                : nothing}
+            </button>`;
+          })()
+        : nothing}
+      ${v.next && !v.check.ok && !next?.buy
+        ? html`<span class="cq-muted small cq-next-needs"
+            >Next: ${v.next.title}. ${v.check.why}</span
+          >`
+        : nothing}
+      ${biz
+        ? (() => {
+            const ex = expandCheck(life, biz);
+            return html`<button
+              class="cq-act-btn"
+              ?disabled=${!ex.ok}
+              @click=${async () => {
+                if (await ui.cmd({ k: "property", act: "expand", id: biz.id }))
+                  play("coins");
+              }}
+            >
+              <span
+                >Grow the
+                ${biz.name}${EXPAND_COST[biz.level] !== undefined
+                  ? ` (${EXPAND_COST[biz.level]})`
+                  : ""}</span
+              >${!ex.ok
+                ? html`<span class="cq-act-why">${ex.why}</span>`
+                : nothing}
+            </button>`;
+          })()
+        : nothing}
+      <button
+        class="cq-act-btn rough"
+        @click=${() =>
+          boss?.alive && !job.own
+            ? ui.modal({ k: "interact", c: boss.id, act: "quit" })
+            : confirm(
+                `Give up your work as ${jobTitle(life).toLowerCase()}?`,
+              ) && void ui.cmd({ k: "quit" })}
+      >
+        <span>${job.own ? "Give up the trade" : "Hand in your notice"}</span>
+      </button>
+    </div>
+    ${biz
+      ? html`<p class="small cq-hands">
+          Hands:
+          ${biz.hands.length
+            ? biz.hands.map((h) => html`${charLink(ui, s.chars[h], false)} `)
+            : html`<span class="cq-muted">none yet</span>`}
+          <span class="cq-muted"
+            >(room for ${handRoom(biz)} more: offer anyone here work from their
+            card)</span
+          >
+        </p>`
+      : nothing}
+  </div>`;
+}
+
+/** Who takes people on here, and whether they'd take you. */
+function hiringBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  if (isChildLife(s, life)) return html``;
+  const bosses = employersIn(s, ui.w, p).filter((e) => e.place === area);
+  const self =
+    area === "woods" && !life.job
+      ? actCheck(s, ui.w, life, "woods", "traplines")
+      : null;
+  if (!bosses.length && !self) return html``;
+  return html`<div class="cq-hiring">
+    <h4 class="cq-area-h">Work to be had</h4>
+    <ul>
+      ${bosses.flatMap(({ c, jobs }) =>
+        jobs.map((k, i) => {
+          const v = interactionView(s, ui.w, life, c.id, "work", i);
+          const r = JOBS[k].ranks[0];
+          return html`<li>
+            ${token(ui, c, "small")}
+            <span class="cq-folk-text">
+              <b>${JOBS[k].ranks[startRank(s, life, k)].title}</b>
+              <span class="cq-muted small"
+                >${charName(c)} takes people on; ${r.wage} a month, up to
+                ${JOBS[k].ranks[
+                  JOBS[k].ranks.length - 1
+                ].title.toLowerCase()}</span
+              >
+            </span>
+            ${life.job?.kind === k && life.job.employer === c.id
+              ? html`<span class="cq-chip good">yours</span>`
+              : html`<button
+                  class="cq-btn small ${v.will ? "primary" : ""}"
+                  ?disabled=${!v.check.ok}
+                  title=${v.check.ok ? JOBS[k].text : v.check.why}
+                  @click=${() =>
+                    ui.modal({ k: "interact", c: c.id, act: "work", arg: i })}
+                >
+                  Ask ${verdictChip(v)}
+                </button>`}
+          </li>`;
+        }),
+      )}
+      ${self
+        ? html`<li>
+            <span class="cq-folk-text">
+              <b>Trapper, on your own account</b>
+              <span class="cq-muted small"
+                >Nobody's hand but yours: set your own traplines.</span
+              >
+            </span>
+            <button
+              class="cq-btn small"
+              ?disabled=${!self.ok}
+              title=${self.ok ? "" : self.why}
+              @click=${() => runAct(ui, "woods", "traplines")}
+            >
+              Set out
+            </button>
+          </li>`
+        : nothing}
+    </ul>
+    ${life.job && bosses.length
+      ? html`<p class="cq-muted small">
+          You hold one job at a time: to work here, hand in your notice first.
+        </p>`
+      : nothing}
+  </div>`;
+}
+
+/** "Will accept" / "Will refuse" / "62%" beside an interaction. */
+export function verdictChip(v: InteractionView): TemplateResult {
+  if (!v.check.ok) return html``;
+  if (v.player)
+    return html`<span class="cq-verdict-chip player">they decide</span>`;
+  if (v.mode === "accept" && v.will !== null)
+    return html`<span class="cq-verdict-chip ${v.will ? "will" : "wont"}"
+      >${v.will ? "will accept" : "will refuse"}</span
+    >`;
+  if (v.mode === "chance" && v.chance !== null) return html`${odds(v.chance)}`;
+  return html``;
+}
+
+/** Run an act at a place, then show what came of it. */
+export async function runAct(
+  ui: GameUi,
+  place: PlaceKind,
+  act: string,
+): Promise<void> {
+  if (await ui.cmd({ k: "act", place, act })) ui.modal({ k: "outcome" });
+}
+
+/** What you can do at a place. */
+function actsBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const shown = new Set(["work", "buy", "traplines"]);
+  const acts = actsAt(area)
+    .filter((a) => !shown.has(a.key))
+    .map((a) => ({ a, check: actCheck(s, ui.w, life, area, a.key) }))
+    .filter(
+      ({ check }) =>
+        check.ok ||
+        !/^(Only|Not open|Land isn't|Your people|Not your way|You belong to no|You're not standing|Trappers'|Physicians'|You have work already|You're in the army|That's done where)/.test(
+          check.why,
+        ),
+    );
+  const market =
+    area === "market" ||
+    area === "docks" ||
+    (area === "village" &&
+      s.provinces[p].owner >= 0 &&
+      s.nations[s.provinces[p].owner].kind === "native");
+  if (!acts.length && !market) return html``;
+  return html`<h4 class="cq-area-h">Things to do</h4>
+    <div class="cq-acts">
+      ${acts.map(({ a, check }) => {
+        const o = actOdds(s, life, a.key);
+        return html`<button
+          class="cq-act-btn"
+          ?disabled=${!check.ok}
+          title=${check.ok ? a.text : `${check.why} ${a.text}`}
+          @click=${() => runAct(ui, area, a.key)}
+        >
+          <span>${actLabel(s, life, a)}</span>${odds(o)}${!check.ok
+            ? html`<span class="cq-act-why">${check.why}</span>`
+            : nothing}
+        </button>`;
+      })}
+      ${market
+        ? html`<button
+            class="cq-act-btn"
+            @click=${() => ui.modal({ k: "trade" })}
+          >
+            <span>Buy and sell goods</span>
+          </button>`
+        : nothing}
+      ${area === "governor" ||
+      (area === "councilfire" &&
+        s.provinces[p].owner >= 0 &&
+        s.nations[s.provinces[p].owner].kind === "native")
+        ? standButton(ui)
+        : nothing}
+      ${area === "docks" ? europeButton(ui) : nothing}
+    </div>`;
+}
+
+/** The talk of the place: news and rumours that have reached it. */
+function talkBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
+  if (!["tavern", "village", "market", "docks", "councilfire"].includes(area))
+    return html``;
+  const heard = heardHere(ui.s, ui.map, p).slice(0, 4);
+  if (!heard.length) return html``;
+  return html`<h4 class="cq-area-h">The talk here</h4>
+    <ul class="cq-talk">
+      ${heard.map(
+        (r) =>
+          html`<li class=${r.tone ?? ""}>
+            <span class="cq-log-date"
+              >${formatDate(r.day).replace(/ \d{4}$/, "")}</span
+            >
+            ${r.text}
+          </li>`,
+      )}
+    </ul>`;
+}
+
+/** Causes, armies, the road to Europe: whatever else a place has. */
+function extrasBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const me = ui.me!;
+  const movements =
+    area === "tavern" || area === "councilfire" ? movementsHere(s, p) : [];
+  const armies =
+    area === "fort" || area === "councilfire"
+      ? s.armies.filter(
+          (a) =>
+            a.prov === p &&
+            a.depart < 0 &&
+            (a.owner === me.nation || a.owner === life.job?.nation),
+        )
+      : [];
+  return html`${movements.length
+    ? html`<h4 class="cq-area-h">Causes</h4>
+        <ul class="cq-movements-here">
+          ${movements.map((m) => {
+            const check = joinCheck(s, life, m);
+            const mine = movementOf(s, me.id)?.id === m.id;
+            return html`<li>
+              <b>${m.name}</b>
+              <span class="cq-muted small">${m.text}</span>
+              ${mine
+                ? html`<span class="cq-chip good">sworn</span>`
+                : action(
+                    "Join",
+                    check,
+                    () => ui.cmd({ k: "movement", act: "join", id: m.id }),
+                    "small",
+                    undefined,
+                    false,
+                  )}
+            </li>`;
+          })}
+        </ul>`
+    : nothing}
+  ${armies.length
+    ? html`<h4 class="cq-area-h">Under arms here</h4>
+        <ul class="cq-movements-here">
+          ${armies.map((a) => {
+            const job = life.job;
+            const can =
+              (!!job &&
+                (job.kind === "soldier" || job.kind === "warrior") &&
+                job.nation === a.owner &&
+                job.rank >= (COMMAND_RANK[job.kind] ?? 99)) ||
+              s.nations[a.owner].council.marshal === me.id ||
+              s.nations[a.owner].ruler === me.id;
+            return html`<li>
+              <span
+                >The ${s.nations[a.owner].adjective} army:
+                ${Math.round(armyMen(a))}
+                men${a.commander >= 0
+                  ? `, led by ${charName(s.chars[a.commander])}`
+                  : ""}.</span
+              >
+              ${a.commander === me.id
+                ? html`<span class="cq-chip good">yours</span>`
+                : action(
+                    "Take command",
+                    can
+                      ? { ok: true }
+                      : {
+                          ok: false,
+                          why: "Colonels, generals, war chiefs, the marshal or the governor",
+                        },
+                    () => ui.cmd({ k: "command", army: a.id }),
+                    "small",
+                    undefined,
+                    false,
+                  )}
+            </li>`;
+          })}
+        </ul>`
     : nothing}`;
 }

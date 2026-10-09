@@ -66,6 +66,10 @@ export interface PortraitOpts {
   /** The nation's colour, behind the sitter where the picture shows it. */
   color: string;
   native: boolean;
+  /** Which way they look (scenes put you on the left, facing right). */
+  facing?: "left" | "right";
+  expression?: "neutral" | "smile" | "frown" | "worried" | "angry";
+  size?: "xs" | "s" | "m" | "l" | "xl";
 }
 
 /** The picture for a character: their chosen likeness, or one by their id. */
@@ -83,10 +87,13 @@ export function portrait(
   cls = "",
 ): TemplateResult {
   if (!c) return html`<span class="cq-portrait empty ${cls}"></span>`;
+  // Until the layered portraits come, facing left is the picture mirrored.
+  const turn = o.facing === "left" ? "facing-left" : "";
+  const mood = o.expression ? `expr-${o.expression}` : "";
   return framed(
     likenessOf(c, o),
     `Portrait of ${c.title ?? c.first}`,
-    `${c.alive ? "" : "dead"} ${cls}`,
+    `${c.alive ? "" : "dead"} ${turn} ${mood} ${cls}`,
   );
 }
 

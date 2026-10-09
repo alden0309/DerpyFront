@@ -1,0 +1,1134 @@
+/* ===== r9 gameplay (Agent G): scenes, places and the people in them ===== */
+/* Scenes are staged like a painting: a backdrop of where it happens, you on
+   the left and them on the right, a ribbon for the title, then the letter.
+   Places are tiles of their painting; people are lists of who's there. */
+
+/* ---------------------------------------------------------------- the scene window */
+
+.cq-modal.scene {
+  width: min(900px, 100%);
+  padding: 0 0 1.1rem;
+  overflow-x: hidden;
+}
+.cq-modal.scene .cq-modal-x {
+  z-index: 5;
+  color: #fbf1dc;
+  background: rgba(20, 12, 6, 0.55);
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+}
+.cq-scene {
+  --mx: 0;
+  --my: 0;
+}
+.cq-scene-stage {
+  position: relative;
+  height: clamp(250px, 44vh, 430px);
+  overflow: hidden;
+  background: #1c120a;
+  border-bottom: 3px solid #b88a34;
+  box-shadow: 0 2px 0 #5a3f18;
+  isolation: isolate;
+}
+.cq-scene-bg {
+  position: absolute;
+  inset: -5%;
+  background-size: cover;
+  background-position: center 40%;
+  filter: sepia(0.18) saturate(0.88) contrast(1.04) brightness(0.86);
+  scale: 1.06;
+  translate: calc(var(--mx) * -14px) calc(var(--my) * -9px);
+  transition: translate 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  animation: cq-scene-zoom 1.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.scene-road .cq-scene-bg,
+.scene-woods .cq-scene-bg,
+.scene-fields .cq-scene-bg {
+  background-position: center 55%;
+}
+@keyframes cq-scene-zoom {
+  from {
+    scale: 1.2;
+    opacity: 0;
+    filter: sepia(0.4) brightness(0.4) blur(3px);
+  }
+  to {
+    scale: 1.06;
+    opacity: 1;
+  }
+}
+.cq-scene-light {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 75% 85% at 50% 38%,
+      transparent 35%,
+      rgba(18, 10, 4, 0.62) 100%
+    ),
+    linear-gradient(to top, rgba(18, 11, 5, 0.9) 0%, transparent 42%);
+}
+.cq-scene-light::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.indoors .cq-scene-light::after {
+  background: radial-gradient(
+    circle at 50% 28%,
+    rgba(255, 184, 96, 0.24),
+    transparent 58%
+  );
+  animation: cq-candle 3.4s ease-in-out infinite alternate;
+}
+.outdoors .cq-scene-light::after {
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgba(255, 240, 205, 0.12) 46%,
+    transparent 62%
+  );
+  background-size: 320% 100%;
+  animation: cq-sun 16s linear infinite;
+}
+@keyframes cq-candle {
+  0% {
+    opacity: 0.62;
+  }
+  23% {
+    opacity: 0.9;
+  }
+  41% {
+    opacity: 0.74;
+  }
+  68% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.82;
+  }
+}
+@keyframes cq-sun {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+
+/* The two of you: painted figures standing in the scene. */
+.cq-scene-figure {
+  position: absolute;
+  bottom: 0;
+  height: 86%;
+  width: min(34%, 300px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  z-index: 2;
+  translate: calc(var(--mx) * 6px) calc(var(--my) * 3px);
+  transition: translate 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.cq-scene-figure.you {
+  left: 4%;
+  animation: cq-fig-left 0.8s 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.cq-scene-figure.them {
+  right: 4%;
+  animation: cq-fig-right 0.8s 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.cq-scene-figure.empty {
+  display: none;
+}
+@keyframes cq-fig-left {
+  from {
+    transform: translateX(-70px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes cq-fig-right {
+  from {
+    transform: translateX(70px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.cq-scene-figure > .cq-portrait {
+  width: auto;
+  height: calc(100% - 2.6rem);
+  aspect-ratio: 4 / 5;
+  border: none;
+  border-radius: 42% 42% 8% 8% / 34% 34% 6% 6%;
+  background: none;
+  box-shadow: none;
+  overflow: visible;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.65));
+  -webkit-mask-image: radial-gradient(
+    ellipse 56% 74% at 50% 42%,
+    #000 55%,
+    transparent 97%
+  );
+  mask-image: radial-gradient(
+    ellipse 56% 74% at 50% 42%,
+    #000 55%,
+    transparent 97%
+  );
+}
+.cq-scene-figure > .cq-portrait::after {
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse at 45% 30%,
+    rgba(255, 220, 160, 0.16),
+    transparent 60%
+  );
+}
+.cq-scene-figure > .cq-portrait img,
+.cq-scene-figure > .cq-portrait svg {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  object-position: 50% 24%;
+}
+.cq-scene-figure.expr-smile > .cq-portrait {
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.65)) brightness(1.07)
+    saturate(1.08);
+}
+.cq-scene-figure.expr-worried > .cq-portrait {
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.65)) brightness(0.9)
+    saturate(0.85);
+}
+.cq-scene-figure.expr-frown > .cq-portrait,
+.cq-scene-figure.expr-angry > .cq-portrait {
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.65)) saturate(0.8)
+    contrast(1.08);
+}
+.cq-scene-figure.expr-angry > .cq-portrait::after {
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    rgba(160, 30, 10, 0.18),
+    transparent 70%
+  );
+}
+/* Until the layered portraits arrive, the painting is mirrored to face the other way. */
+.cq-portrait.facing-left img {
+  transform: scaleX(-1);
+}
+.cq-nameplate {
+  position: relative;
+  margin-top: -0.4rem;
+  padding: 0.25rem 0.85rem 0.3rem;
+  text-align: center;
+  color: #fbf1dc;
+  background: linear-gradient(#3b2410, #24150a);
+  border: 1px solid #b88a34;
+  box-shadow:
+    0 0 0 2px rgba(20, 12, 6, 0.6),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+  line-height: 1.1;
+  max-width: 100%;
+}
+.cq-scene-figure[style*="--frame"] .cq-nameplate {
+  border-color: var(--frame);
+}
+.cq-nameplate b {
+  display: block;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.02rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cq-nameplate small {
+  display: block;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.78rem;
+  color: #d9c08b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cq-reaction {
+  position: absolute;
+  top: 6%;
+  padding: 0.15rem 0.6rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: #2b1d12;
+  background: var(--vellum);
+  border: 1px solid var(--sepia);
+  border-radius: 1rem;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: cq-pop 0.5s 1s both;
+}
+.cq-reaction.smile {
+  border-color: var(--verdigris);
+}
+.cq-reaction.worried,
+.cq-reaction.frown,
+.cq-reaction.angry {
+  border-color: var(--seal);
+}
+@keyframes cq-pop {
+  from {
+    transform: translateY(8px) scale(0.9);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.cq-scene-where {
+  position: absolute;
+  left: 50%;
+  top: 0.7rem;
+  translate: -50% 0;
+  z-index: 3;
+  margin: 0;
+  padding: 0.15rem 0.8rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.9rem;
+  color: #f2e6c6;
+  background: rgba(20, 12, 6, 0.5);
+  border-radius: 1rem;
+  white-space: nowrap;
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cq-scene-where span {
+  color: #d9c08b;
+}
+
+/* The title on a ribbon, across the foot of the picture. */
+.cq-scene-ribbon {
+  position: relative;
+  z-index: 3;
+  margin: -1.45rem auto 0;
+  width: fit-content;
+  max-width: calc(100% - 2rem);
+  padding: 0.3rem 2.4rem 0.35rem;
+  text-align: center;
+  color: #fbf1dc;
+  background: linear-gradient(#8e2a1d, #6a1d13);
+  box-shadow:
+    0 3px 0 #3d0f09,
+    0 8px 16px rgba(0, 0, 0, 0.4);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    calc(100% - 1.1rem) 50%,
+    100% 100%,
+    0 100%,
+    1.1rem 50%
+  );
+  animation: cq-unfurl 0.7s 0.15s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.cq-scene-ribbon.good {
+  background: linear-gradient(#2f6a46, #1f4a30);
+}
+.cq-scene-ribbon.bad {
+  background: linear-gradient(#5a3424, #3e2216);
+}
+.cq-scene-ribbon h2 {
+  margin: 0;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.55rem;
+  line-height: 1.15;
+}
+.cq-scene-group {
+  display: block;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.82rem;
+  color: #f0d9a8;
+}
+@keyframes cq-unfurl {
+  from {
+    clip-path: polygon(45% 0, 55% 0, 55% 50%, 55% 100%, 45% 100%, 45% 50%);
+  }
+}
+.cq-scene-text {
+  margin: 1rem 2rem 0;
+  font-family: var(--fell);
+  font-size: 1.13rem;
+  line-height: 1.5;
+  animation: cq-fade-up 0.6s 0.45s both;
+}
+.cq-scene-text p + p {
+  margin-top: 0.55rem;
+}
+.cq-scene-text p:first-child::first-letter {
+  font-size: 2.2em;
+  float: left;
+  line-height: 0.9;
+  padding: 0.05em 0.08em 0 0;
+  color: var(--nation-deep);
+}
+.cq-scene-text.outcome p:first-child::first-letter {
+  font-size: 1em;
+  float: none;
+  padding: 0;
+}
+.cq-scene-text.outcome p {
+  padding-left: 0.8rem;
+  border-left: 2px solid var(--rule);
+}
+@keyframes cq-fade-up {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+.cq-scene-choices {
+  margin: 1rem 2rem 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  animation: cq-fade-up 0.6s 0.6s both;
+}
+.cq-scene-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.8rem 2rem 0;
+}
+.cq-scene-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 2rem 0;
+  animation: cq-fade-up 0.6s 0.6s both;
+}
+.cq-scene-actions .cq-btn.primary.risky {
+  background: #6a4630;
+}
+.cq-scene-actions .cq-why {
+  flex-basis: 100%;
+}
+
+/* Will they? The answer, and every reason for and against. */
+.cq-accept {
+  margin: 1rem 2rem 0;
+  padding: 0.6rem 0.9rem 0.7rem;
+  border: 1px solid var(--sepia);
+  border-left: 5px solid var(--sepia);
+  background: rgba(255, 250, 235, 0.55);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0.2rem 1rem;
+  animation: cq-fade-up 0.6s 0.55s both;
+}
+.cq-accept.will {
+  border-left-color: var(--verdigris);
+}
+.cq-accept.wont {
+  border-left-color: var(--seal);
+}
+.cq-accept.chance {
+  border-left-color: var(--brass);
+}
+.cq-accept.player {
+  border-left-color: #2a5aa8;
+  grid-template-columns: 1fr;
+}
+.cq-accept-verdict {
+  font-family: var(--fell-sc);
+  font-size: 1.25rem;
+}
+.cq-accept.will .cq-accept-verdict {
+  color: var(--verdigris);
+}
+.cq-accept.wont .cq-accept-verdict {
+  color: var(--seal);
+}
+.cq-accept-score {
+  font-family: var(--fell);
+  font-size: 1.3rem;
+  font-variant-numeric: tabular-nums;
+}
+.cq-why-list {
+  grid-column: 1 / -1;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.1rem 1.2rem;
+  font-size: 0.9rem;
+}
+.cq-why-list li {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+}
+.cq-why-list .n {
+  min-width: 2.2rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+.cq-why-list li.good .n {
+  color: var(--verdigris);
+}
+.cq-why-list li.bad .n {
+  color: var(--seal);
+}
+.cq-trade-offer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  flex-basis: 100%;
+}
+.cq-trade-offer select,
+.cq-trade-offer input {
+  font: inherit;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--sepia);
+  background: var(--vellum);
+}
+.cq-trade-offer input {
+  width: 5rem;
+}
+.cq-modal.scene .cq-gift-row {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------------- places */
+
+.cq-areas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 0.45rem;
+  margin: 0.6rem 0 0.9rem;
+}
+.cq-area-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.15rem;
+  height: 92px;
+  padding: 0.4rem 0.5rem;
+  text-align: left;
+  color: #fbf1dc;
+  border: 1px solid #6e5538;
+  background:
+    linear-gradient(to top, rgba(18, 11, 5, 0.92) 0%, rgba(18, 11, 5, 0.2) 70%),
+    var(--thumb, none) center 40% / cover,
+    #3a2a1a;
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 200, 0.12);
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
+}
+.cq-area-tile:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 240, 200, 0.25),
+    0 4px 10px rgba(0, 0, 0, 0.35);
+}
+.cq-area-tile.on {
+  border-color: #e9c46a;
+  box-shadow:
+    inset 0 0 0 2px #e9c46a,
+    0 0 12px rgba(233, 196, 106, 0.55);
+}
+.cq-area-name {
+  font-family: var(--fell-sc);
+  font-size: 1rem;
+  line-height: 1.05;
+  text-shadow: 0 1px 2px #000;
+}
+.cq-area-count {
+  font-size: 0.75rem;
+  color: #e3d3ad;
+}
+.cq-area-faces {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  display: flex;
+  align-items: center;
+}
+.cq-area-faces .cq-portrait {
+  width: 1.3rem;
+  height: 1.6rem;
+  margin-left: -0.35rem;
+  border-width: 1px;
+}
+.cq-area-faces i {
+  margin-left: 0.15rem;
+  font-style: normal;
+  font-size: 0.7rem;
+  padding: 0 0.25rem;
+  background: rgba(20, 12, 6, 0.7);
+  border-radius: 0.5rem;
+}
+.cq-area-work {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.05rem 0.35rem;
+  background: var(--verdigris);
+  border-radius: 0.5rem;
+}
+.cq-area {
+  margin-bottom: 1rem;
+}
+.cq-area-banner {
+  position: relative;
+  min-height: 116px;
+  padding: 2.6rem 0.9rem 0.6rem;
+  color: #fbf1dc;
+  background:
+    linear-gradient(to top, rgba(18, 11, 5, 0.95), rgba(18, 11, 5, 0.25) 75%),
+    var(--art, none) center 40% / cover,
+    #3a2a1a;
+  border: 1px solid #6e5538;
+  animation: cq-fade-up 0.45s both;
+}
+.cq-area-banner h3 {
+  margin: 0;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.5rem;
+  text-shadow: 0 1px 3px #000;
+}
+.cq-area-banner p {
+  margin: 0.15rem 0 0;
+  font-family: var(--fell);
+  font-style: italic;
+  color: #e9dcb8;
+  text-shadow: 0 1px 2px #000;
+}
+.cq-area-h {
+  margin: 0.9rem 0 0.35rem;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.1rem;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.cq-present {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.cq-present-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.4rem;
+  text-align: left;
+  background: rgba(255, 250, 235, 0.35);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+button.cq-present-row:hover {
+  border-color: var(--sepia);
+  background: rgba(255, 250, 235, 0.75);
+}
+.cq-present li.you .cq-present-row {
+  cursor: default;
+  background: rgba(201, 155, 58, 0.15);
+}
+.cq-present .cq-folk-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cq-doing {
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+.cq-chip.traveller {
+  background: #e2d3a8;
+}
+.cq-chip.player {
+  background: #c8d8ef;
+}
+.cq-chip.court {
+  background: #e7cdb8;
+}
+.cq-workblock {
+  margin-top: 0.7rem;
+  padding: 0.6rem 0.75rem 0.7rem;
+  border: 1px solid var(--sepia);
+  border-left: 4px solid var(--verdigris);
+  background: rgba(255, 250, 235, 0.55);
+}
+.cq-days {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0.35rem 0;
+}
+.cq-next-needs {
+  flex-basis: 100%;
+}
+.cq-hands {
+  margin-top: 0.4rem;
+}
+.cq-hiring ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.cq-hiring li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.cq-hiring .cq-folk-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cq-verdict-chip {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0 0.4rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 0.6rem;
+  vertical-align: middle;
+}
+.cq-verdict-chip.will {
+  background: rgba(44, 106, 76, 0.18);
+  color: var(--verdigris);
+}
+.cq-verdict-chip.wont {
+  background: rgba(158, 42, 30, 0.14);
+  color: var(--seal);
+}
+.cq-verdict-chip.player {
+  background: rgba(42, 90, 168, 0.14);
+  color: #2a5aa8;
+}
+.cq-talk {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-family: var(--fell);
+  font-size: 0.98rem;
+}
+.cq-talk li {
+  padding: 0.2rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-talk li::before {
+  content: "“";
+  color: var(--sepia);
+  margin-right: 0.15rem;
+}
+
+/* ---------------------------------------------------------------- someone's card */
+
+.cq-where {
+  margin: 0.2rem 0;
+  color: var(--ink-soft);
+}
+.cq-int-group {
+  margin: 0.6rem 0 0.25rem;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 0.98rem;
+  color: var(--ink-soft);
+}
+.cq-int-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0.3rem;
+}
+.cq-int {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  border: 1px solid var(--sepia);
+  background: rgba(255, 250, 235, 0.55);
+  cursor: pointer;
+  font-family: var(--fell);
+  font-size: 1rem;
+}
+.cq-int:hover:not(:disabled) {
+  background: var(--vellum-2);
+}
+.cq-int.lit {
+  border-left: 4px solid var(--verdigris);
+}
+.cq-int.rough {
+  border-left: 4px solid var(--seal);
+}
+.cq-int:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.cq-int .cq-act-why {
+  flex-basis: 100%;
+}
+.cq-int-label {
+  flex: 1;
+}
+
+/* ---------------------------------------------------------------- small screens */
+
+@media (max-width: 820px) {
+  .cq-modal.scene {
+    padding-bottom: 0.8rem;
+  }
+  .cq-scene-stage {
+    height: clamp(210px, 34vh, 300px);
+  }
+  .cq-scene-figure {
+    width: 44%;
+    height: 88%;
+  }
+  .cq-scene-figure.you {
+    left: 1%;
+  }
+  .cq-scene-figure.them {
+    right: 1%;
+  }
+  .cq-nameplate {
+    padding: 0.2rem 0.5rem;
+  }
+  .cq-nameplate b {
+    font-size: 0.9rem;
+  }
+  .cq-scene-ribbon {
+    padding: 0.25rem 1.6rem;
+  }
+  .cq-scene-ribbon h2 {
+    font-size: 1.25rem;
+  }
+  .cq-scene-text,
+  .cq-scene-choices,
+  .cq-scene-actions,
+  .cq-scene-foot,
+  .cq-accept {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+  .cq-scene-text {
+    font-size: 1.04rem;
+  }
+  .cq-scene-where {
+    font-size: 0.78rem;
+  }
+  .cq-areas {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .cq-area-tile {
+    height: 78px;
+  }
+  .cq-area-name {
+    font-size: 0.88rem;
+  }
+}
+
+/* Affairs: who hires, ambitions, property, command, laws and works. */
+.cq-hirers,
+.cq-ambitions,
+.cq-props,
+.cq-laws {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.cq-hirers li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.cq-hirers li .cq-btn {
+  margin-left: auto;
+}
+.cq-ambitions li,
+.cq-laws li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: rgba(255, 250, 238, 0.5);
+}
+.cq-ambitions li > div,
+.cq-laws li > div {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.cq-ambitions li.off {
+  opacity: 0.62;
+}
+.cq-laws li.on {
+  border-color: var(--verdigris);
+  background: rgba(214, 233, 220, 0.45);
+}
+.cq-ambition {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--seal);
+  border-radius: 6px;
+  background: rgba(255, 250, 238, 0.6);
+}
+.cq-ambition .cq-btn {
+  justify-self: start;
+}
+.cq-prop {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: rgba(255, 250, 238, 0.55);
+}
+.cq-prop-kind {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--sepia) center / 18px no-repeat;
+  opacity: 0.85;
+}
+.cq-prop-kind.house {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23fff'%3E%3Cpath d='M10 2 1 10h3v8h5v-5h2v5h5v-8h3z'/%3E%3C/svg%3E");
+}
+.cq-prop-kind.land {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23fff' stroke-width='1.6'%3E%3Cpath d='M2 15c4-3 12-3 16 0M3 11c4-2.5 10-2.5 14 0M10 3v6M7 5l3 2 3-2'/%3E%3C/svg%3E");
+}
+.cq-prop-kind.business {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23fff'%3E%3Cpath d='M2 8h16l-1.5-5h-13zM3 9h14v9H3zm3 2v5h3v-5zm5 0v3h4v-3z'/%3E%3C/svg%3E");
+}
+.cq-prop-body {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.cq-prop-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.cq-command {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+@media (max-width: 640px) {
+  .cq-prop,
+  .cq-ambitions li,
+  .cq-laws li {
+    flex-wrap: wrap;
+  }
+}
+
+.cq-glance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+.cq-glance-item {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: rgba(255, 250, 238, 0.55);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.cq-glance-item:hover {
+  border-color: var(--sepia);
+}
+.cq-glance-item > span:nth-child(2) {
+  font-family: var(--fell);
+  font-size: 1rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+/* A rising proclaimed: a broadside unrolled across the top of the map. */
+.cq-proclaim {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 60;
+  width: min(560px, calc(100vw - 32px));
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 14px 26px 18px;
+  border: 0;
+  border-radius: 2px;
+  background:
+    radial-gradient(
+      ellipse at 50% 40%,
+      rgba(255, 250, 235, 0.55),
+      transparent 70%
+    ),
+    linear-gradient(#efe0bd, #e3cd9e);
+  box-shadow:
+    0 14px 34px rgba(20, 10, 0, 0.45),
+    inset 0 0 26px rgba(120, 80, 30, 0.35);
+  color: #2b1a0c;
+  text-align: center;
+  cursor: pointer;
+  transform-origin: 50% 0;
+  animation:
+    cq-proclaim-in 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) both,
+    cq-proclaim-out 0.8s ease-in 8.2s both;
+}
+.cq-proclaim-rod {
+  position: absolute;
+  left: -8px;
+  right: -8px;
+  bottom: -6px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(#8a5a2b, #4c2e12);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+.cq-proclaim-rod.top {
+  top: -6px;
+  bottom: auto;
+}
+.cq-proclaim-head {
+  font-family: var(--fell-sc);
+  font-size: 1.9rem;
+  letter-spacing: 0.06em;
+  color: #7a1d12;
+  line-height: 1.1;
+}
+.cq-proclaim-text {
+  font-family: var(--fell);
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+.cq-proclaim-seal {
+  position: absolute;
+  right: 18px;
+  bottom: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #c2453a, #7c1a14 70%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  rotate: -12deg;
+}
+@keyframes cq-proclaim-in {
+  from {
+    transform: scaleY(0.05);
+    opacity: 0;
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes cq-proclaim-out {
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+@media (max-width: 640px) {
+  .cq-proclaim {
+    top: 56px;
+    padding: 10px 16px 14px;
+  }
+  .cq-proclaim-head {
+    font-size: 1.45rem;
+  }
+  .cq-proclaim-text {
+    font-size: 0.92rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cq-proclaim,
+  .cq-scene-bg,
+  .cq-scene-figure,
+  .cq-scene-ribbon,
+  .cq-scene-text,
+  .cq-scene-choices,
+  .cq-scene-actions,
+  .cq-accept,
+  .cq-reaction,
+  .cq-area-banner,
+  .cq-scene-light::after {
+    animation: none;
+    transition: none;
+  }
+}
+/* ===== end r9 gameplay (Agent G) ===== */
