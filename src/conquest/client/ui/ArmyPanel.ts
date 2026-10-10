@@ -25,6 +25,7 @@ import {
   provLink,
   section,
 } from "./Context";
+import { sightOf } from "./WorldUi";
 
 export function armyPanel(ui: GameUi, id: number): TemplateResult {
   const s = ui.s;
@@ -32,6 +33,19 @@ export function armyPanel(ui: GameUi, id: number): TemplateResult {
   if (!a) return html`<p class="cq-muted">That army is gone.</p>`;
   const me = ui.me;
   const life = ui.life;
+  // WORLD r11: an army out of sight is only a rumour.
+  const sight = sightOf(ui, a.prov);
+  if (
+    (sight === "known" || sight === "unknown") &&
+    !(me && (a.commander === me.id || life?.job?.army === a.id))
+  )
+    return html`<header class="cq-panel-head">
+        <h2 class="cq-h2">The ${s.nations[a.owner].adjective} army</h2>
+      </header>
+      <p class="cq-muted cq-fog-note">
+        Out of sight. Whatever you know of its numbers and its marching is
+        hearsay; get closer to see for yourself.
+      </p>`;
   const yours = !!me && a.commander === me.id;
   const marching = !!life?.job && life.job.army === a.id;
   const men = armyMen(a);

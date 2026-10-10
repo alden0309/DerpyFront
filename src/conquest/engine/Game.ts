@@ -105,6 +105,11 @@ export class ConquestGame {
     fitStateToMap(state, map);
     this.rng = new Rng(state);
     this.seenId = state.nextId;
+    // Players start from the whole state as it is now: later changes to
+    // anything in it go out as just the fields that changed.
+    state.provinces.forEach((pr, p) => this.diff(`p${p}`, pr));
+    state.nations.forEach((n, i) => this.diff(`n${i}`, n));
+    for (const life of state.lives) this.diff(`l${life.seat}`, life);
   }
 
   /**

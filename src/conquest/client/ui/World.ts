@@ -28,6 +28,7 @@ import {
 } from "./Context";
 import { personRow } from "./Here";
 import { steady } from "./Steady";
+import { cultureChips } from "./WorldUi";
 
 // ---------------------------------------------------------------- people you know
 
@@ -272,6 +273,9 @@ export function nationPage(ui: GameUi, id: number): TemplateResult {
           ${mine ? html`<b>Your people.</b>` : nothing}
           ${!n.alive ? html`<b class="bad">No more.</b>` : nothing}
         </p>
+        ${n.kind === "power" || n.kind === "native"
+          ? cultureChips(ui, id)
+          : nothing}
       </div>
     </header>
     ${section(

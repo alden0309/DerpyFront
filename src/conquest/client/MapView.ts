@@ -101,7 +101,7 @@ const OCEAN_BOTTOM = "#204a5a";
 const PARCHMENT = [236, 224, 184];
 const UNKNOWN_FILL = "#d6cfba";
 /** WORLD r11: country you've never seen, and land off the board. */
-const FOG_FILL = "#5b4a36";
+const FOG_FILL = "#604e39";
 const CLOSED_FILL = "#3e352b";
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -253,6 +253,8 @@ export interface Overlay {
    * what's in sight shows what moves there.
    */
   fog?: MapFog | null;
+  /** WORLD r11: the places your leads point to. */
+  leads?: { p: number; found: boolean; working: boolean }[];
 }
 
 /** WORLD r11: a life's knowledge of the map, for drawing. */
@@ -1755,6 +1757,9 @@ export class MapView {
     }
     if (!this.closedAt) return;
     if (!this.map.provinces.some((d, p) => d.closed && visible(p))) return;
+    // Over its rivers and borders too: there's nothing there for you.
+    c.fillStyle = CLOSED_FILL;
+    c.fill(this.closedPath, "evenodd");
     c.save();
     c.clip(this.closedPath, "evenodd");
     const b = this.closedBox();
@@ -1767,10 +1772,6 @@ export class MapView {
       c.lineTo(x + (b[3] - b[1]), b[1]);
     }
     c.stroke();
-    // A dark edge inside the coast, as if the paper were scorched there.
-    c.strokeStyle = "rgba(20,14,8,0.45)";
-    c.lineWidth = 14 / v.scale;
-    c.stroke(this.closedPath);
     c.restore();
     const [lx, ly] = this.closedAt;
     this.inkLabel(
@@ -1835,10 +1836,11 @@ export class MapView {
 
   /**
    * WORLD r11: the fog over country you've never seen or heard of: dark
-   * parchment, mottled like an old chart's blank spaces, feathered at its
-   * edges into the known land, with "Terra Incognita" written across the
-   * big stretches. Known country you can't see right now takes a faint
-   * sepia veil, so what's near you stands out.
+   * parchment, washed and mottled like an old chart's blank spaces, its
+   * edge against the known land softened as if the ink had run, with "Terra
+   * Incognita" written across the big stretches. The coasts stay crisp.
+   * Known country you can't see right now takes a faint sepia veil, so
+   * what's near you stands out.
    */
   private paintFog(
     c: CanvasRenderingContext2D,
@@ -1848,40 +1850,37 @@ export class MapView {
     now: number,
   ): void {
     void now;
+    const closed = (p: number) => !!this.map.provinces[p].closed;
+    const unknownAt = (p: number) => !closed(p) && !fog.known.has(p);
     const unknown: number[] = [];
     const veiled: number[] = [];
     for (let p = 0; p < this.provPaths.length; p++) {
-      if (!visible(p) || this.map.provinces[p].closed) continue;
+      if (!visible(p) || closed(p)) continue;
       if (!fog.known.has(p)) unknown.push(p);
       else if (!fog.seen.has(p)) veiled.push(p);
     }
     if (veiled.length) {
       const veil = new Path2D();
       for (const p of veiled) veil.addPath(this.provPaths[p]);
-      c.fillStyle = "rgba(70,52,30,0.11)";
+      c.fillStyle = "rgba(70,52,30,0.1)";
       c.fill(veil, "evenodd");
     }
     if (!unknown.length) return;
     const path = new Path2D();
     for (const p of unknown) path.addPath(this.provPaths[p]);
-    // A soft shadow cast outwards onto the known land: the fog's edge.
-    c.save();
-    c.shadowColor = "rgba(46,34,22,0.6)";
-    c.shadowBlur = Math.max(6, 16 * this.baseDpr);
     c.fillStyle = FOG_FILL;
     c.fill(path, "evenodd");
-    c.restore();
     c.save();
     c.clip(path, "evenodd");
-    // Mottling: pale cloud and darker stain, the same every time.
+    // A wash of cloud and stain, the same every time, over many provinces at once.
     for (const p of unknown) {
       const def = this.map.provinces[p];
       const b = this.provBox[p];
-      const r = Math.max(b[2] - b[0], b[3] - b[1]) * 0.6;
+      const r = Math.max(30, Math.hypot(b[2] - b[0], b[3] - b[1]) * 0.9);
       const h = Math.imul(p + 17, 2654435761) >>> 0;
-      const ox = ((h & 255) / 255 - 0.5) * r * 0.6;
-      const oy = (((h >>> 8) & 255) / 255 - 0.5) * r * 0.6;
-      const light = (h >>> 16) & 1;
+      const ox = ((h & 255) / 255 - 0.5) * r * 0.8;
+      const oy = (((h >>> 8) & 255) / 255 - 0.5) * r * 0.8;
+      const light = (h >>> 16) % 3;
       const g = c.createRadialGradient(
         def.x + ox,
         def.y + oy,
@@ -1892,68 +1891,94 @@ export class MapView {
       );
       g.addColorStop(
         0,
-        light ? "rgba(160,136,100,0.22)" : "rgba(38,28,18,0.22)",
+        light === 0
+          ? "rgba(46,34,22,0.26)"
+          : light === 1
+            ? "rgba(150,124,88,0.2)"
+            : "rgba(118,96,66,0.14)",
       );
       g.addColorStop(1, "rgba(91,74,54,0)");
       c.fillStyle = g;
       c.fillRect(def.x + ox - r, def.y + oy - r, r * 2, r * 2);
     }
-    // Engraved hatching, as on old charts' blank spaces.
-    const ub = this.boxOf(unknown);
-    c.strokeStyle = "rgba(28,20,12,0.16)";
-    c.lineWidth = 1 / v.scale;
-    c.beginPath();
-    const step = 5 / v.scale;
-    for (let y = ub[1]; y < ub[3]; y += step) {
-      c.moveTo(ub[0], y);
-      c.lineTo(ub[2], y + (ub[2] - ub[0]) * 0.08);
-    }
-    c.stroke();
-    // Paper grain.
+    // Paper grain, and a fine engraver's hatch.
     const pat = this.pattern("paper", c);
     if (pat) {
       pat.setTransform(new DOMMatrix().scaleSelf(0.5 / v.scale, 0.5 / v.scale));
       c.globalCompositeOperation = "multiply";
-      c.globalAlpha = 0.5;
+      c.globalAlpha = 0.55;
       c.fillStyle = pat;
       c.fill(path, "evenodd");
       c.globalAlpha = 1;
       c.globalCompositeOperation = "source-over";
     }
-    // The fog's own edge, feathered inwards.
-    c.strokeStyle = "rgba(120,98,70,0.35)";
-    c.lineWidth = 12 / v.scale;
-    c.stroke(path);
-    c.strokeStyle = "rgba(120,98,70,0.25)";
-    c.lineWidth = 26 / v.scale;
-    c.stroke(path);
+    const ub = this.boxOf(unknown);
+    c.strokeStyle = "rgba(30,22,14,0.09)";
+    c.lineWidth = 0.8 / v.scale;
+    c.beginPath();
+    const step = 4 / v.scale;
+    const rise = (ub[3] - ub[1]) * 0.5;
+    for (let x = ub[0] - rise; x < ub[2]; x += step) {
+      c.moveTo(x, ub[3]);
+      c.lineTo(x + rise, ub[1]);
+    }
+    c.stroke();
     c.restore();
-    // "Terra Incognita" across the biggest stretches.
+    // The edge where your knowledge runs out: the fog bleeds softly into
+    // the known land (land only, so the sea stays clear).
+    const edge = new Path2D();
+    let edges = 0;
+    for (const a of this.arcs) {
+      if (a.left < 0 || a.right < 0) continue;
+      if (closed(a.left) || closed(a.right)) continue;
+      if (unknownAt(a.left) === unknownAt(a.right)) continue;
+      if (!visible(a.left) && !visible(a.right)) continue;
+      this.addArc(edge, a);
+      edges++;
+    }
+    if (edges) {
+      c.save();
+      c.clip(this.land);
+      c.lineCap = "round";
+      c.lineJoin = "round";
+      for (const [w, alpha] of [
+        [44, 0.1],
+        [30, 0.14],
+        [18, 0.2],
+        [8, 0.3],
+      ] as const) {
+        c.strokeStyle = `rgba(91,74,54,${alpha})`;
+        c.lineWidth = w / v.scale;
+        c.stroke(edge);
+      }
+      c.restore();
+    }
+    // "Terra Incognita" across the biggest stretches, at a readable size.
     const groups = this.clusters(unknown)
       .map((g) => ({ g, area: this.areaOf(g) }))
-      .filter((x) => x.area * v.scale * v.scale > 60000)
+      .filter((x) => x.area * v.scale * v.scale > 90000)
       .sort((a, b) => b.area - a.area)
-      .slice(0, 3);
+      .slice(0, 2);
     for (const { g, area } of groups) {
       let x = 0;
       let y = 0;
       let wsum = 0;
       for (const p of g) {
         const def = this.map.provinces[p];
-        const w = this.map.provinces[p].areaKm2;
+        const w = Math.sqrt(def.areaKm2);
         x += def.x * w;
         y += def.y * w;
         wsum += w;
       }
-      const size = Math.max(10, Math.min(30, Math.sqrt(area) * 0.09));
+      const px = Math.max(15, Math.min(34, Math.sqrt(area) * 0.06 * v.scale));
       this.inkLabel(
         c,
         "Terra Incognita",
         x / wsum,
         y / wsum,
-        size,
+        px / v.scale,
         -6,
-        "rgba(226,210,176,0.5)",
+        "rgba(232,216,180,0.42)",
       );
     }
   }
@@ -2470,6 +2495,7 @@ export class MapView {
       });
     }
 
+    this.drawLeadPins(o, now, sx, sy, onScreen);
     this.drawTravellers(o, day, figure, now, sx, sy, onScreen);
     this.drawLives(o, day, figure, now, sx, sy, onScreen);
     this.drawBirds(o, now);
@@ -2482,6 +2508,51 @@ export class MapView {
     this.frameCost = this.frameCost * 0.85 + cost * 0.15;
     if (this.frameCost > 14) this.lowPower = true;
     else if (this.frameCost < 6) this.lowPower = false;
+  }
+
+  /**
+   * WORLD r11: a pin on each place a lead of yours points to: a wax seal
+   * with a cross, gold once something's been found there; it pulses while
+   * you're working it.
+   */
+  private drawLeadPins(
+    o: Overlay,
+    now: number,
+    sx: (x: number) => number,
+    sy: (y: number) => number,
+    onScreen: (x: number, y: number, pad?: number) => boolean,
+  ): void {
+    const ctx = this.ctx;
+    for (const l of o.leads ?? []) {
+      const def = this.map.provinces[l.p];
+      if (!def) continue;
+      const x = sx(def.x) + 10;
+      const y = sy(def.y) - 18;
+      if (!onScreen(x, y, 20)) continue;
+      const r = 6.5 + (l.working ? Math.sin(now / 260) * 1.2 : 0);
+      ctx.fillStyle = "rgba(30,20,10,0.35)";
+      ctx.beginPath();
+      ctx.moveTo(x - 3, y + r - 1);
+      ctx.lineTo(x, y + r + 7);
+      ctx.lineTo(x + 3, y + r - 1);
+      ctx.fill();
+      ctx.fillStyle = l.found ? "#d9a62e" : "#9e2a1e";
+      ctx.strokeStyle = "rgba(40,20,10,0.85)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "#fbf1dc";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(x - 2.6, y - 2.6);
+      ctx.lineTo(x + 2.6, y + 2.6);
+      ctx.moveTo(x + 2.6, y - 2.6);
+      ctx.lineTo(x - 2.6, y + 2.6);
+      ctx.stroke();
+      if (l.working) this.movers++;
+    }
   }
 
   /** WORLD r11: show the cached chart on the bottom canvas, if the view or the chart changed. */

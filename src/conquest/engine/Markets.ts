@@ -45,11 +45,13 @@ import {
 import { worldRng } from "./WorldRng";
 
 /** How hard each load moves the price (per market depth). */
-export const MARKET_ALPHA = 0.35;
+export const MARKET_ALPHA = 0.5;
 /** Days for a glut or a shortage to ease back by about two thirds. */
-export const MARKET_EASE_DAYS = 60;
+export const MARKET_EASE_DAYS = 90;
 /** The merchant's cut on each side of a trade, before skill. */
 export const MERCHANT_CUT = 0.12;
+/** However shrewd you are, the merchants keep this much. */
+export const MIN_CUT = 0.03;
 /** Prices never fall below or rise above these multiples of normal. */
 const FLOOR = 0.25;
 const CEILING = 4;
@@ -74,14 +76,14 @@ const GOOD_DEPTH: Record<Good, number> = {
 const NATIVE_PRICE: Record<Good, number> = {
   grain: 0.8,
   fish: 0.8,
-  furs: 0.5,
+  furs: 0.6,
   tobacco: 0.8,
   sugar: 1.1,
   timber: 0.6,
   silver: 0.7,
-  tools: 1.6,
-  guns: 1.8,
-  cloth: 1.5,
+  tools: 1.45,
+  guns: 1.6,
+  cloth: 1.4,
 };
 
 /** Goods merchants at a port buy for Europe (so the port takes plenty). */
@@ -193,7 +195,7 @@ export function depthOf(
   const size = 5 + Math.sqrt(people(pr)) / 12;
   let d = size * (isWare(item) ? WARES[item].depth : GOOD_DEPTH[item]);
   if (makes(s, w, p, item)) d *= 2.2;
-  if (EXPORTS.has(item) && (pr.b.port ?? 0) > 0) d *= 2.5;
+  if (EXPORTS.has(item) && (pr.b.port ?? 0) > 0) d *= 1.6;
   return Math.max(2, d);
 }
 
@@ -209,7 +211,7 @@ export function basePrice(
   const made = makes(s, w, p, item);
   if (isWare(item)) {
     const ware = WARES[item];
-    if (made) return ware.base * (side.native ? 0.6 : 0.75);
+    if (made) return ware.base * (side.native ? 0.7 : 0.82);
     const want = side.native
       ? ware.want.natives
       : (ware.want.powers?.[side.key] ?? ware.want.colonists);
@@ -406,7 +408,7 @@ export function cutFor(s: GameState, life: Life): number {
   const me = meOf(s, life);
   const shrewd = me && hasTrait(me, "shrewd") ? 0.05 : 0;
   const skill = Math.min(0.1, life.skills.trade * 0.006);
-  return MERCHANT_CUT - shrewd - skill;
+  return Math.max(MIN_CUT, MERCHANT_CUT - shrewd - skill);
 }
 
 export interface Quote {
@@ -549,7 +551,7 @@ export function marketTrade(
   addHolding(life, item, qty);
   const m = marketAt(g, life.prov);
   m.net[item] = round2((m.net[item] ?? 0) - qty);
-  gainXp(g, life, "trade", (qty > 0 ? 3 : 4) * Math.abs(qty));
+  gainXp(g, life, "trade", 2 + Math.abs(qty));
   return null;
 }
 

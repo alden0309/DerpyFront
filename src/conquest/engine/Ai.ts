@@ -638,9 +638,10 @@ function nativeAi(g: ConquestGame, n: number): void {
     if (s.nations[enemy].kind === "rebels") continue;
     if (warMonths(s, war) < 4) continue;
     const score = warScore(s, war, n).total;
+    // WORLD r11: a native nation takes back its own country, not new land.
     const held = s.provinces
       .map((pr, p) => (pr.owner === enemy && pr.occupier === n ? p : -1))
-      .filter((p) => p >= 0);
+      .filter((p) => p >= 0 && g.w.startOwner[p] === nation.key);
     const terms: PeaceTerms =
       score >= 30 && held.length > 0
         ? { take: held.slice(0, 1), give: [], gold: 0 }

@@ -776,6 +776,24 @@ export class GameView extends LitElement {
     );
   }
 
+  /** WORLD r11: your open leads, pinned on the map. */
+  private leadPins(): { p: number; found: boolean; working: boolean }[] {
+    const life = this.life;
+    if (!life || life.watching) return [];
+    const out: { p: number; found: boolean; working: boolean }[] = [];
+    for (const ll of life.leads ?? []) {
+      if (ll.status !== "open" && ll.status !== "found" && !ll.work) continue;
+      const lead = this.s.leads?.find((x) => x.id === ll.id);
+      if (lead)
+        out.push({
+          p: lead.p,
+          found: ll.status === "found",
+          working: !!ll.work,
+        });
+    }
+    return out;
+  }
+
   /** WORLD r11: the map's fog for you (none while watching). */
   private fog(): MapFog | null {
     if (this.fogCache) return this.fogCache.fog;
@@ -889,6 +907,7 @@ export class GameView extends LitElement {
       road: this.road(),
       speed: this.speed,
       fog: this.fog(),
+      leads: this.leadPins(),
     };
     const moving = this.s.lives.some((l) => l.travel);
     // The world is alive at close range (smoke, fires, the sea): keep drawing,

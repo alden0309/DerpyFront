@@ -8,6 +8,7 @@ import { charName } from "../../engine/Queries";
 import type { JournalEntry } from "../../engine/Types";
 import { LetterIcon } from "../Icons";
 import { GameUi, more, section } from "./Context";
+import { leadsSection } from "./WorldUi";
 
 let filter: "all" | "good" | "bad" = "all";
 let shown = 60;
@@ -38,6 +39,7 @@ export function journalTab(ui: GameUi): TemplateResult {
           : "Your days, as they went."}
       </p>
     </header>
+    ${leadsSection(ui)}
     ${milestones.length
       ? more(
           `The story so far (${milestones.length})`,

@@ -69,6 +69,13 @@ import {
   token,
 } from "./Context";
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
+import {
+  cultureChips,
+  lastSeenNote,
+  leadsHereBlock,
+  sightOf,
+  unknownPlace,
+} from "./WorldUi";
 
 function provHeader(ui: GameUi, p: number): TemplateResult {
   const s = ui.s;
@@ -106,6 +113,7 @@ function provHeader(ui: GameUi, p: number): TemplateResult {
           ? html`<b class="bad">Restless (${Math.round(pr.unrest)}).</b>`
           : nothing}
       </p>
+      ${owner && owner.kind !== "crown" ? cultureChips(ui, owner.id) : nothing}
     </div>
   </header>`;
 }
@@ -224,6 +232,7 @@ export function herePanel(ui: GameUi): TemplateResult {
         </button>
       </div>`
     : nothing}
+  ${leadsHereBlock(ui)}
   ${t
     ? html`<p class="cq-muted small cq-pad">
         Places and people open up when you arrive.
@@ -367,14 +376,20 @@ export function provincePage(ui: GameUi, p: number): TemplateResult {
   const life = ui.life;
   if (life && !life.watching && p === life.prov && !life.travel)
     return herePanel(ui);
+  // WORLD r11: country you don't know shows nothing; country out of sight,
+  // nothing that moves.
+  const sight = sightOf(ui, p);
+  if (sight === "unknown")
+    return html`${unknownPlace(ui, p)} ${travelBlock(ui, p)}`;
   const list = placesIn(s, ui.w, p);
   const def = ui.map.provinces[p];
   const met = peopleHere(s, p, life ?? undefined).filter(
     (c) => !life || life.met.includes(c.id) || life.watching || !life.c,
   );
-  const armies = s.armies.filter((a) => a.prov === p);
+  const armies = sight === "known" ? [] : s.armies.filter((a) => a.prov === p);
   const h = holder(s.provinces[p]);
-  return html`${provHeader(ui, p)} ${travelBlock(ui, p)}
+  return html`${provHeader(ui, p)}
+  ${sight === "known" ? lastSeenNote(ui, p) : nothing} ${travelBlock(ui, p)}
   ${section(
     "What's there",
     html`<p class="cq-place-list">
@@ -921,6 +936,15 @@ function actsBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
     buttons.set("~market", () =>
       actButton({
         label: "Buy and sell goods",
+        ok: true,
+        run: () => ui.modal({ k: "trade" }),
+      }),
+    );
+  // WORLD r11: gifts of goods at a native council fire.
+  if (area === "councilfire" && native)
+    buttons.set("~gifts", () =>
+      actButton({
+        label: "Lay gifts before the council",
         ok: true,
         run: () => ui.modal({ k: "trade" }),
       }),
