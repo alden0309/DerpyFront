@@ -57,6 +57,26 @@ export function applyDelta(s: GameState, d: GameDelta): void {
     for (const [n, pol] of Object.entries(d.polities))
       s.polities[Number(n)] = pol;
   }
+  // WORLD r11: changed fields only, markets and leads.
+  if (d.provPatch)
+    for (const [i, p] of Object.entries(d.provPatch))
+      Object.assign(s.provinces[Number(i)], p);
+  if (d.nationPatch)
+    for (const [i, n] of Object.entries(d.nationPatch))
+      Object.assign(s.nations[Number(i)], n);
+  if (d.lifePatch)
+    for (const [seat, l] of Object.entries(d.lifePatch)) {
+      const life = s.lives.find((x) => x.seat === seat);
+      if (life) Object.assign(life, l);
+    }
+  if (d.markets) {
+    s.markets ??= {};
+    for (const [p, m] of Object.entries(d.markets)) {
+      if (m) s.markets[Number(p)] = m;
+      else delete s.markets[Number(p)];
+    }
+  }
+  if (d.leads) s.leads = d.leads;
   if (d.over) {
     s.over = true;
     s.winner = d.over.winner;

@@ -3598,10 +3598,12 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   ...BASE_EVENTS,
   ...MORE_EVENTS,
   ...TALES,
+  ...LEAD_EVENTS, // WORLD r11
 ];
 
 // ---------------------------------------------------------------- a few calls out
 
+import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";

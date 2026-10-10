@@ -4,17 +4,21 @@
 // their land, as on old maps), by terrain, by what the land makes, and by
 // people.
 //
-// It's drawn in two layers. The chart itself (land, borders, names, ports)
-// is drawn once into an offscreen canvas and only redrawn when something
-// on it changes or the view settles somewhere new; while you drag or zoom,
-// that picture is just moved. Things that move (armies, ships, parties,
-// sieges) are drawn on top every frame.
+// It's drawn in two layers, on two canvases stacked one over the other.
+// The chart itself (sea, land, borders, names, ports, and the fog over
+// country you don't know) is drawn once into an offscreen canvas and only
+// redrawn when something on it changes or the view settles somewhere new;
+// the bottom canvas just shows that picture, moved while you drag or zoom.
+// Things that move (armies, ships, parties, smoke) are drawn on the top
+// canvas, as often as the device can comfortably manage, and only where
+// you can see them.
 
 import { dateOf } from "../engine/Calendar";
 import { isWinter, type World } from "../engine/Map";
 import { armyMen, countRegs, people, settlers } from "../engine/Queries";
 import type {
   Army,
+  Character,
   GameState,
   MapDef,
   Mission,
@@ -96,6 +100,9 @@ const OCEAN_TOP = "#2f6577";
 const OCEAN_BOTTOM = "#204a5a";
 const PARCHMENT = [236, 224, 184];
 const UNKNOWN_FILL = "#d6cfba";
+/** WORLD r11: country you've never seen, and land off the board. */
+const FOG_FILL = "#5b4a36";
+const CLOSED_FILL = "#3e352b";
 
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
@@ -240,6 +247,22 @@ export interface Overlay {
   road?: { from: number; path: number[]; sea: boolean[] } | null;
   /** The clock's speed (1 to 4), for how quickly feet move. */
   speed?: number;
+  /**
+   * WORLD r11: what you know and see (null: everything, as when watching).
+   * Unknown country lies under fog; known country shows as last seen; only
+   * what's in sight shows what moves there.
+   */
+  fog?: MapFog | null;
+}
+
+/** WORLD r11: a life's knowledge of the map, for drawing. */
+export interface MapFog {
+  known: Set<number>;
+  seen: Set<number>;
+  /** Who held a province as far as you know (-1 open), or null if unknown. */
+  owner: (p: number) => number | null;
+  /** Changes when what's known or seen does (to redraw the chart). */
+  key: string;
 }
 
 /** A played character on the map: a portrait medallion, walking or sailing. */
@@ -343,6 +366,23 @@ export class MapView {
   private longPress = 0;
   overlay: Overlay | null = null;
   needsDraw = true;
+  /** WORLD r11: the bottom canvas showing the chart, and what it last showed. */
+  private chartCanvas: HTMLCanvasElement;
+  private cctx: CanvasRenderingContext2D;
+  private chartShown: { view: View; stamp: number } | null = null;
+  private baseStamp = 0;
+  /** How long the moving things took to draw lately, in ms (a running average). */
+  frameCost = 0;
+  /** Draw more simply: the device is struggling (no soft halos). */
+  lowPower = false;
+  /** Things on the move drawn last frame (they want a quicker frame rate). */
+  movers = 0;
+  /** Pictures drawn at the size they're shown, with their halo, to stamp quickly. */
+  private stamps = new Map<string, HTMLCanvasElement | null>();
+  /** Clothes of the people on the roads, worked out once each. */
+  private dress = new Map<number, FigureColors>();
+  /** The last chart key: owners, towns, fog. */
+  private chartKey = "";
 
   // The cached chart.
   private base = document.createElement("canvas");
@@ -369,6 +409,10 @@ export class MapView {
     this.canvas = document.createElement("canvas");
     this.canvas.className = "cq-map";
     this.ctx = this.canvas.getContext("2d")!;
+    this.chartCanvas = document.createElement("canvas");
+    this.chartCanvas.className = "cq-map-chart";
+    this.chartCanvas.setAttribute("aria-hidden", "true");
+    this.cctx = this.chartCanvas.getContext("2d", { alpha: false })!;
     this.buildPaths();
     this.attachInput();
     loadSprites(() => this.markDirty());
@@ -380,6 +424,126 @@ export class MapView {
   markDirty(): void {
     this.baseDirty = true;
     this.needsDraw = true;
+  }
+
+  /** WORLD r11: put both canvases (the chart under, the moving things over) into `host`. */
+  mount(host: HTMLElement): void {
+    if (this.chartCanvas.parentElement !== host)
+      host.appendChild(this.chartCanvas);
+    if (this.canvas.parentElement !== host) host.appendChild(this.canvas);
+  }
+
+  /**
+   * WORLD r11: whether the chart needs redrawing for this state: owners,
+   * towns, forts and posts, revolts, colonies-to-be, and what you know.
+   * Cheap enough to ask on every update; the chart is redrawn only when it
+   * changed, not whenever any number in a nation does.
+   */
+  chartChanged(
+    s: GameState,
+    mode: MapMode,
+    fog: MapFog | null | undefined,
+  ): boolean {
+    const parts: (string | number)[] = [mode, fog?.key ?? "-"];
+    for (let p = 0; p < s.provinces.length; p++) {
+      const pr = s.provinces[p];
+      const folk = pr.owner >= 0 ? settlers(pr) : 0;
+      parts.push(
+        pr.owner,
+        pr.occupier,
+        pr.colony ? 1 : 0,
+        pr.outpost ? pr.outpost.by + 1 : 0,
+        pr.b.fort ?? 0,
+        pr.b.tradingpost ?? 0,
+        pr.b.port ?? 0,
+        folk >= 2500 ? 2 : folk >= 300 ? 1 : 0,
+        pr.mods.some((m) => m.key === "revolt") ? 1 : 0,
+      );
+      if (mode === "economy")
+        parts.push(
+          pr.rich ? 1 : 0,
+          Math.round(
+            Object.values(pr.made).reduce((a, b) => a + (b ?? 0), 0) / 4,
+          ),
+        );
+      if (mode === "people") parts.push(Math.round(Math.sqrt(people(pr))));
+    }
+    for (const n of s.nations) parts.push(n.color, n.name, n.capital);
+    const key = parts.join(",");
+    if (key === this.chartKey) return false;
+    this.chartKey = key;
+    return true;
+  }
+
+  /** WORLD r11: a person's clothes for their walking figure, worked out once. */
+  colorsOf(c: Character | undefined, native: boolean): FigureColors {
+    if (!c) return figureColorsOf(c, native);
+    let col = this.dress.get(c.id);
+    if (!col) {
+      if (this.dress.size > 800) this.dress.clear();
+      col = figureColorsOf(c, native);
+      this.dress.set(c.id, col);
+    }
+    return col;
+  }
+
+  /**
+   * WORLD r11: a sprite drawn standing on (x, y), `h` tall, from a small
+   * picture made once at that size (with its pale halo). Scaling the big
+   * painted sprite down and blurring a halo on every frame was the map's
+   * single dearest job.
+   */
+  private stamp(
+    ctx: CanvasRenderingContext2D,
+    name: SpriteName,
+    x: number,
+    y: number,
+    h: number,
+    flip: boolean,
+    halo: number,
+  ): boolean {
+    const img = sprite(name);
+    if (!img) return false;
+    const k = this.dpr;
+    const hh = Math.max(4, Math.round(h * 2) / 2);
+    const key = `${name}|${hh}|${flip ? 1 : 0}|${halo}|${k}`;
+    let c = this.stamps.get(key);
+    if (c === undefined) {
+      if (this.stamps.size > 300) this.stamps.clear();
+      const w = (img.naturalWidth / img.naturalHeight) * hh;
+      const pad = Math.ceil(halo * 2 + 2);
+      c = document.createElement("canvas");
+      c.width = Math.ceil((w + pad * 2) * k);
+      c.height = Math.ceil((hh + pad * 2) * k);
+      const x2 = c.getContext("2d");
+      if (!x2) c = null;
+      else {
+        x2.setTransform(k, 0, 0, k, 0, 0);
+        if (halo > 0) {
+          x2.shadowColor = "rgba(252,244,222,0.95)";
+          x2.shadowBlur = halo * k;
+        }
+        if (flip) {
+          x2.translate(pad + w, pad);
+          x2.scale(-1, 1);
+          x2.drawImage(img, 0, 0, w, hh);
+        } else x2.drawImage(img, pad, pad, w, hh);
+      }
+      this.stamps.set(key, c);
+    }
+    if (!c) return drawSprite(ctx, name, x, y, h, flip);
+    const cw = c.width / k;
+    const ch = c.height / k;
+    const pad = (ch - hh) / 2;
+    const scale = h / hh;
+    ctx.drawImage(
+      c,
+      x - (cw * scale) / 2,
+      y - (hh + pad) * scale,
+      cw * scale,
+      ch * scale,
+    );
+    return true;
   }
 
   // ---------------------------------------------------------------- shapes
@@ -468,22 +632,31 @@ export class MapView {
   }
 
   /** Rebuilds the thick borders between different owners, when owners change. */
-  private refreshOwners(s: GameState): void {
-    const key = s.provinces.map((p) => p.owner).join(",");
+  private refreshOwners(s: GameState, fog?: MapFog | null): void {
+    // Owners as far as you know: unknown country has none to draw.
+    const ownerOf = (p: number) =>
+      this.map.provinces[p]?.closed
+        ? -2
+        : fog
+          ? (fog.owner(p) ?? -2)
+          : s.provinces[p].owner;
+    const owners = s.provinces.map((_, p) => ownerOf(p));
+    const key = owners.join(",");
     if (key === this.ownersKey) return;
     this.ownersKey = key;
     this.nationBorders = new Path2D();
     for (const a of this.arcs) {
       if (a.left < 0 || a.right < 0) continue;
-      if (s.provinces[a.left].owner !== s.provinces[a.right].owner)
+      if (owners[a.left] === -2 || owners[a.right] === -2) continue;
+      if (owners[a.left] !== owners[a.right])
         this.addArc(this.nationBorders, a);
     }
     // Nation names stretched along the lie of their land.
     const by = new Map<number, number[]>();
-    s.provinces.forEach((p, i) => {
-      if (p.owner < 0 || s.nations[p.owner].kind === "crown") return;
-      let list = by.get(p.owner);
-      if (!list) by.set(p.owner, (list = []));
+    owners.forEach((owner, i) => {
+      if (owner < 0 || s.nations[owner].kind === "crown") return;
+      let list = by.get(owner);
+      if (!list) by.set(owner, (list = []));
       list.push(i);
     });
     this.nationLabels = [];
@@ -859,13 +1032,30 @@ export class MapView {
   // ---------------------------------------------------------------- view
 
   resize(width: number, height: number): void {
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    // Phones draw the moving things a little softer: their screens are dense
+    // and their processors small.
+    const small = Math.min(width, height) <= 520;
+    this.dpr = Math.min(small ? 1.5 : 2, window.devicePixelRatio || 1);
     this.canvas.width = Math.round(width * this.dpr);
     this.canvas.height = Math.round(height * this.dpr);
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
+    // The chart below at the cached picture's own resolution, so showing it
+    // is a straight copy.
+    const bd = this.chartDpr();
+    this.chartCanvas.width = Math.round(width * bd);
+    this.chartCanvas.height = Math.round(height * bd);
+    this.chartCanvas.style.width = `${width}px`;
+    this.chartCanvas.style.height = `${height}px`;
     this.baseView = null;
+    this.chartShown = null;
+    this.stamps.clear();
     this.viewMoved();
+  }
+
+  /** The chart's resolution: up to 1.5 pixels a point. */
+  private chartDpr(): number {
+    return Math.min(this.dpr, 1.5);
   }
 
   private viewMoved(): void {
@@ -941,7 +1131,7 @@ export class MapView {
       const b = this.provBox[p];
       if (mx < b[0] || mx > b[2] || my < b[1] || my > b[3]) continue;
       if (this.ctx.isPointInPath(this.provPaths[p], mx, my, "evenodd"))
-        return p;
+        return this.map.provinces[p].closed ? null : p;
     }
     // Specks of islands: the nearest small one within a few pixels.
     let best: number | null = null;
@@ -1117,6 +1307,8 @@ export class MapView {
   private fillFor(s: GameState, p: number, o: Overlay): string {
     const prov = s.provinces[p];
     const def = this.map.provinces[p];
+    if (def.closed) return CLOSED_FILL;
+    if (o.fog && !o.fog.known.has(p)) return FOG_FILL;
     switch (o.mode) {
       case "terrain":
         return TERRAIN_TINT[def.terrain];
@@ -1138,11 +1330,14 @@ export class MapView {
         return ramp(Math.min(1, Math.sqrt(density / 0.25)));
       }
       default: {
-        if (prov.owner < 0) {
-          if (prov.colony) return mix(s.nations[prov.colony.by].color, 0.72);
+        const owner = o.fog ? (o.fog.owner(p) ?? -1) : prov.owner;
+        const seen = !o.fog || o.fog.seen.has(p);
+        if (owner < 0) {
+          if (prov.colony && seen)
+            return mix(s.nations[prov.colony.by].color, 0.72);
           return TERRAIN_TINT[def.terrain];
         }
-        const n = s.nations[prov.owner];
+        const n = s.nations[owner];
         return mix(n.color, n.kind === "native" ? 0.42 : 0.14);
       }
     }
@@ -1205,9 +1400,10 @@ export class MapView {
   private renderBase(o: Overlay, now: number): void {
     const s = o.state;
     const v = { ...this.view };
-    this.refreshOwners(s);
+    this.refreshOwners(s, o.fog);
+    this.baseStamp++;
     const m = Math.round(Math.max(this.cssWidth, this.cssHeight) * 0.3);
-    const bd = Math.min(this.dpr, 1.5);
+    const bd = this.chartDpr();
     const bw = Math.ceil((this.cssWidth + 2 * m) * bd);
     const bh = Math.ceil((this.cssHeight + 2 * m) * bd);
     if (this.base.width !== bw || this.base.height !== bh) {
@@ -1249,6 +1445,29 @@ export class MapView {
       x < this.cssWidth + m + pad &&
       y < this.cssHeight + m + pad;
 
+    // WORLD r11: the sea is painted into the chart (it used to be painted
+    // over the whole screen every frame).
+    screenT();
+    const grad = c.createLinearGradient(0, -m, 0, this.cssHeight + m);
+    grad.addColorStop(0, OCEAN_TOP);
+    grad.addColorStop(1, OCEAN_BOTTOM);
+    c.fillStyle = grad;
+    c.fillRect(-m, -m, this.cssWidth + 2 * m, this.cssHeight + 2 * m);
+    const swell = this.pattern("sea", c);
+    if (swell) {
+      swell.setTransform(
+        new DOMMatrix().translateSelf(v.tx, v.ty).scaleSelf(0.45, 0.45),
+      );
+      c.globalAlpha = 0.16;
+      c.fillStyle = swell;
+      c.fillRect(-m, -m, this.cssWidth + 2 * m, this.cssHeight + 2 * m);
+      c.globalAlpha = 1;
+    }
+    const fog = o.fog ?? null;
+    const closed = (p: number) => !!this.map.provinces[p].closed;
+    /** Land you know (and that's on the board). */
+    const knownLand = (p: number) =>
+      visible(p) && !closed(p) && (!fog || fog.known.has(p));
     mapT();
     c.lineJoin = "round";
     c.lineCap = "round";
@@ -1291,6 +1510,7 @@ export class MapView {
       for (let p = 0; p < this.provPaths.length; p++) {
         const prov = s.provinces[p];
         if (prov.occupier < 0 || !visible(p)) continue;
+        if (fog && !fog.seen.has(p)) continue;
         c.save();
         c.clip(this.provPaths[p], "evenodd");
         c.strokeStyle = s.nations[prov.occupier].color;
@@ -1308,12 +1528,12 @@ export class MapView {
       }
     }
     // Paper grain over the land, and the lie of the country drawn on it.
-    this.texture(c, "paper", v.scale, 0.5, 0.55, visible, () => true);
+    this.texture(c, "paper", v.scale, 0.5, 0.55, knownLand, () => true);
     const terrainAlpha =
       o.mode === "terrain" ? 0.6 : o.mode === "nation" ? 0.24 : 0;
     if (terrainAlpha > 0) {
       for (const kind of ["forest", "hills", "mountains", "marsh"] as const) {
-        this.texture(c, kind, v.scale, 0.42, terrainAlpha, visible, (p) => {
+        this.texture(c, kind, v.scale, 0.42, terrainAlpha, knownLand, (p) => {
           const t = this.map.provinces[p].terrain;
           return t === kind || (kind === "forest" && t === "jungle");
         });
@@ -1324,7 +1544,7 @@ export class MapView {
     this.seasonMonth = month;
     if (o.mode === "nation" || o.mode === "terrain") {
       for (let p = 0; p < this.provPaths.length; p++) {
-        if (!visible(p)) continue;
+        if (!knownLand(p)) continue;
         const def = this.map.provinces[p];
         if (isWinter(def.lat, month)) {
           c.fillStyle = "rgba(246,249,252,0.42)";
@@ -1350,6 +1570,9 @@ export class MapView {
       c.lineWidth = 1.9 / v.scale;
       c.stroke(this.nationBorders);
     }
+    // WORLD r11: land off the board, darkened; country nobody's told you of, fogged.
+    this.paintClosed(c, v, visible);
+    if (fog) this.paintFog(c, v, fog, visible, now);
     c.strokeStyle = "rgba(25, 45, 55, 0.9)";
     c.lineWidth = 1.2 / v.scale;
     c.stroke(this.coast);
@@ -1396,6 +1619,7 @@ export class MapView {
         const x = sx(def.x);
         const y = sy(def.y);
         if (!onScreen(x, y, 80)) continue;
+        if (def.closed || (fog && !fog.known.has(p))) continue;
         if ((b[2] - b[0]) * v.scale < def.name.length * 6) continue;
         c.fillStyle = "rgba(45,32,20,0.82)";
         c.fillText(def.name, x, y + 14);
@@ -1407,6 +1631,7 @@ export class MapView {
         const x = sx(def.x);
         const y = sy(def.y);
         if (!onScreen(x, y)) continue;
+        if (def.closed || (fog && !fog.known.has(p))) continue;
         if (o.explored && !o.explored.has(p)) unknownMark(c, x, y - 4);
         else goodDot(c, x, y - 4, GOOD_COLORS[this.world.raw[p]]);
       }
@@ -1414,6 +1639,7 @@ export class MapView {
     if (o.colonizable.size) {
       c.lineWidth = 1.6;
       for (const p of o.colonizable) {
+        if (fog && !fog.known.has(p)) continue;
         const def = this.map.provinces[p];
         const x = sx(def.x);
         const y = sy(def.y);
@@ -1441,8 +1667,11 @@ export class MapView {
       const x = sx(def.x);
       const y = sy(def.y);
       if (!onScreen(x, y)) continue;
-      if (showTowns && prov.owner >= 0) {
-        const nation = s.nations[prov.owner];
+      if (def.closed || (fog && !fog.known.has(p))) continue;
+      // Towns as you last saw them.
+      const townOwner = fog ? (fog.owner(p) ?? -1) : prov.owner;
+      if (showTowns && townOwner >= 0) {
+        const nation = s.nations[townOwner];
         const capital = nation.capital === p;
         if (v.scale >= 1.05 || (capital && v.scale >= 0.5)) {
           const native = nation.kind === "native";
@@ -1490,12 +1719,262 @@ export class MapView {
           Math.max(10, Math.min(18, 6 * v.scale)),
           s.nations[prov.outpost.by].color,
         );
-      if (prov.mods.some((md) => md.key === "revolt")) {
+      if (
+        prov.mods.some((md) => md.key === "revolt") &&
+        (!fog || fog.seen.has(p))
+      ) {
         flame(c, x + 14, y - 10);
         if (v.scale >= 0.8)
           marginNote(c, x + 34, y - 30, "in open revolt!", x + 14, y - 12);
       }
     }
+  }
+
+  /** WORLD r11: land off the board (Alaska): dark, hatched, named as unknown. */
+  private closedPath: Path2D | null = null;
+  private closedAt: [number, number] | null = null;
+
+  private paintClosed(
+    c: CanvasRenderingContext2D,
+    v: View,
+    visible: (p: number) => boolean,
+  ): void {
+    if (!this.closedPath) {
+      this.closedPath = new Path2D();
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      this.map.provinces.forEach((def, p) => {
+        if (!def.closed) return;
+        this.closedPath!.addPath(this.provPaths[p]);
+        sx += def.x;
+        sy += def.y;
+        n++;
+      });
+      this.closedAt = n ? [sx / n, sy / n] : null;
+    }
+    if (!this.closedAt) return;
+    if (!this.map.provinces.some((d, p) => d.closed && visible(p))) return;
+    c.save();
+    c.clip(this.closedPath, "evenodd");
+    const b = this.closedBox();
+    c.strokeStyle = "rgba(15,10,6,0.35)";
+    c.lineWidth = 1.2 / v.scale;
+    c.beginPath();
+    const step = 6 / v.scale;
+    for (let x = b[0] - (b[3] - b[1]); x < b[2]; x += step) {
+      c.moveTo(x, b[3]);
+      c.lineTo(x + (b[3] - b[1]), b[1]);
+    }
+    c.stroke();
+    // A dark edge inside the coast, as if the paper were scorched there.
+    c.strokeStyle = "rgba(20,14,8,0.45)";
+    c.lineWidth = 14 / v.scale;
+    c.stroke(this.closedPath);
+    c.restore();
+    const [lx, ly] = this.closedAt;
+    this.inkLabel(
+      c,
+      "Terra Incognita",
+      lx,
+      ly,
+      22,
+      -8,
+      "rgba(222,206,170,0.62)",
+    );
+  }
+
+  private closedBox(): [number, number, number, number] {
+    let b: [number, number, number, number] = [
+      Infinity,
+      Infinity,
+      -Infinity,
+      -Infinity,
+    ];
+    this.map.provinces.forEach((def, p) => {
+      if (!def.closed) return;
+      const q = this.provBox[p];
+      b = [
+        Math.min(b[0], q[0]),
+        Math.min(b[1], q[1]),
+        Math.max(b[2], q[2]),
+        Math.max(b[3], q[3]),
+      ];
+    });
+    return b;
+  }
+
+  /** Spaced italic letters, in map units, as the chart-makers wrote across the land. */
+  private inkLabel(
+    c: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    size: number,
+    angle: number,
+    color: string,
+  ): void {
+    c.save();
+    c.translate(x, y);
+    c.rotate((angle * Math.PI) / 180);
+    c.font = `italic ${size}px "IM Fell English", Georgia, serif`;
+    c.fillStyle = color;
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    const letters = [...text];
+    const spread = size * 0.32;
+    const widths = letters.map((ch) => c.measureText(ch).width);
+    let at =
+      -(widths.reduce((a, w) => a + w, 0) + spread * (letters.length - 1)) / 2;
+    letters.forEach((ch, i) => {
+      c.fillText(ch, at + widths[i] / 2, 0);
+      at += widths[i] + spread;
+    });
+    c.restore();
+  }
+
+  /**
+   * WORLD r11: the fog over country you've never seen or heard of: dark
+   * parchment, mottled like an old chart's blank spaces, feathered at its
+   * edges into the known land, with "Terra Incognita" written across the
+   * big stretches. Known country you can't see right now takes a faint
+   * sepia veil, so what's near you stands out.
+   */
+  private paintFog(
+    c: CanvasRenderingContext2D,
+    v: View,
+    fog: MapFog,
+    visible: (p: number) => boolean,
+    now: number,
+  ): void {
+    void now;
+    const unknown: number[] = [];
+    const veiled: number[] = [];
+    for (let p = 0; p < this.provPaths.length; p++) {
+      if (!visible(p) || this.map.provinces[p].closed) continue;
+      if (!fog.known.has(p)) unknown.push(p);
+      else if (!fog.seen.has(p)) veiled.push(p);
+    }
+    if (veiled.length) {
+      const veil = new Path2D();
+      for (const p of veiled) veil.addPath(this.provPaths[p]);
+      c.fillStyle = "rgba(70,52,30,0.11)";
+      c.fill(veil, "evenodd");
+    }
+    if (!unknown.length) return;
+    const path = new Path2D();
+    for (const p of unknown) path.addPath(this.provPaths[p]);
+    // A soft shadow cast outwards onto the known land: the fog's edge.
+    c.save();
+    c.shadowColor = "rgba(46,34,22,0.6)";
+    c.shadowBlur = Math.max(6, 16 * this.baseDpr);
+    c.fillStyle = FOG_FILL;
+    c.fill(path, "evenodd");
+    c.restore();
+    c.save();
+    c.clip(path, "evenodd");
+    // Mottling: pale cloud and darker stain, the same every time.
+    for (const p of unknown) {
+      const def = this.map.provinces[p];
+      const b = this.provBox[p];
+      const r = Math.max(b[2] - b[0], b[3] - b[1]) * 0.6;
+      const h = Math.imul(p + 17, 2654435761) >>> 0;
+      const ox = ((h & 255) / 255 - 0.5) * r * 0.6;
+      const oy = (((h >>> 8) & 255) / 255 - 0.5) * r * 0.6;
+      const light = (h >>> 16) & 1;
+      const g = c.createRadialGradient(
+        def.x + ox,
+        def.y + oy,
+        0,
+        def.x + ox,
+        def.y + oy,
+        r,
+      );
+      g.addColorStop(
+        0,
+        light ? "rgba(160,136,100,0.22)" : "rgba(38,28,18,0.22)",
+      );
+      g.addColorStop(1, "rgba(91,74,54,0)");
+      c.fillStyle = g;
+      c.fillRect(def.x + ox - r, def.y + oy - r, r * 2, r * 2);
+    }
+    // Engraved hatching, as on old charts' blank spaces.
+    const ub = this.boxOf(unknown);
+    c.strokeStyle = "rgba(28,20,12,0.16)";
+    c.lineWidth = 1 / v.scale;
+    c.beginPath();
+    const step = 5 / v.scale;
+    for (let y = ub[1]; y < ub[3]; y += step) {
+      c.moveTo(ub[0], y);
+      c.lineTo(ub[2], y + (ub[2] - ub[0]) * 0.08);
+    }
+    c.stroke();
+    // Paper grain.
+    const pat = this.pattern("paper", c);
+    if (pat) {
+      pat.setTransform(new DOMMatrix().scaleSelf(0.5 / v.scale, 0.5 / v.scale));
+      c.globalCompositeOperation = "multiply";
+      c.globalAlpha = 0.5;
+      c.fillStyle = pat;
+      c.fill(path, "evenodd");
+      c.globalAlpha = 1;
+      c.globalCompositeOperation = "source-over";
+    }
+    // The fog's own edge, feathered inwards.
+    c.strokeStyle = "rgba(120,98,70,0.35)";
+    c.lineWidth = 12 / v.scale;
+    c.stroke(path);
+    c.strokeStyle = "rgba(120,98,70,0.25)";
+    c.lineWidth = 26 / v.scale;
+    c.stroke(path);
+    c.restore();
+    // "Terra Incognita" across the biggest stretches.
+    const groups = this.clusters(unknown)
+      .map((g) => ({ g, area: this.areaOf(g) }))
+      .filter((x) => x.area * v.scale * v.scale > 60000)
+      .sort((a, b) => b.area - a.area)
+      .slice(0, 3);
+    for (const { g, area } of groups) {
+      let x = 0;
+      let y = 0;
+      let wsum = 0;
+      for (const p of g) {
+        const def = this.map.provinces[p];
+        const w = this.map.provinces[p].areaKm2;
+        x += def.x * w;
+        y += def.y * w;
+        wsum += w;
+      }
+      const size = Math.max(10, Math.min(30, Math.sqrt(area) * 0.09));
+      this.inkLabel(
+        c,
+        "Terra Incognita",
+        x / wsum,
+        y / wsum,
+        size,
+        -6,
+        "rgba(226,210,176,0.5)",
+      );
+    }
+  }
+
+  private boxOf(provs: number[]): [number, number, number, number] {
+    let b: [number, number, number, number] = [
+      Infinity,
+      Infinity,
+      -Infinity,
+      -Infinity,
+    ];
+    for (const p of provs) {
+      const q = this.provBox[p];
+      b = [
+        Math.min(b[0], q[0]),
+        Math.min(b[1], q[1]),
+        Math.max(b[2], q[2]),
+        Math.max(b[3], q[3]),
+      ];
+    }
+    return b;
   }
 
   /** Nation names along their curves, letter-spaced to span the land. */
@@ -1629,33 +2108,21 @@ export class MapView {
   }
 
   draw(now: number): void {
+    const t0 = performance.now();
     const o = this.overlay;
     const ctx = this.ctx;
     const v = this.view;
     const dpr = this.dpr;
+    // The moving things' canvas starts clear; the chart shows through.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const grad = ctx.createLinearGradient(0, 0, 0, this.cssHeight);
-    grad.addColorStop(0, OCEAN_TOP);
-    grad.addColorStop(1, OCEAN_BOTTOM);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, this.cssWidth, this.cssHeight);
-    // Engraved swell on the sea, drifting slowly while time runs.
-    const sea = this.pattern("sea", ctx);
-    if (sea) {
-      const k = 0.45;
-      const drift = Math.sin(now / 4200) * 6;
-      sea.setTransform(
-        new DOMMatrix()
-          .translateSelf(v.tx + drift, v.ty + Math.cos(now / 5300) * 3)
-          .scaleSelf(k, k),
-      );
-      ctx.globalAlpha = 0.16;
-      ctx.fillStyle = sea;
-      ctx.fillRect(0, 0, this.cssWidth, this.cssHeight);
-      ctx.globalAlpha = 1;
-    }
+    this.movers = 0;
     if (!o) return;
     const s = o.state;
+    const fog = o.fog ?? null;
+    /** In sight (or no fog at all). */
+    const inSight = (p: number) => !fog || fog.seen.has(p);
     if (dateOf(Math.floor(o.dayNow)).month !== this.seasonMonth)
       this.baseDirty = true;
 
@@ -1675,18 +2142,8 @@ export class MapView {
         this.renderBase(o, now);
       }
     }
-    const b = this.baseView!;
-    const k = v.scale / b.scale;
-    const m = this.baseMargin;
+    this.showChart();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(
-      this.base,
-      k * (-m - b.tx) + v.tx,
-      k * (-m - b.ty) + v.ty,
-      (k * this.base.width) / this.baseDpr,
-      (k * this.base.height) / this.baseDpr,
-    );
 
     // Hover and selection, in map units.
     ctx.setTransform(
@@ -1726,6 +2183,7 @@ export class MapView {
     for (let p = 0; p < s.provinces.length; p++) {
       const prov = s.provinces[p];
       if (!prov.colony && !prov.siege) continue;
+      if (!inSight(p)) continue;
       const def = this.map.provinces[p];
       const x = sx(def.x);
       const y = sy(def.y);
@@ -1760,6 +2218,7 @@ export class MapView {
         o.battles.delete(p);
         continue;
       }
+      if (!inSight(p)) continue;
       const def = this.map.provinces[p];
       ctx.globalAlpha = 1 - age / 5000;
       swords(
@@ -1778,6 +2237,8 @@ export class MapView {
     for (const n of s.nations) {
       if (n.kind !== "power" || !n.alive) continue;
       for (const cv of n.convoys) {
+        // Your own nation's sailings, and any from a port you can see.
+        if (fog && n.id !== o.me && !fog.seen.has(cv.port)) continue;
         const span = Math.max(1, cv.arrive - cv.departed);
         const t = (day - cv.departed) / span;
         // A quarter of the voyage is on the map: sailing out, or coming in.
@@ -1790,6 +2251,7 @@ export class MapView {
         const y = sy(my);
         if (!onScreen(x, y, 40)) continue;
         const heading = cv.out ? ang : ang + Math.PI;
+        this.movers++;
         if (!this.drawShip(ctx, x, y, figure * 1.25, heading, n.color, now))
           ship(ctx, x, y, figure * 0.8, heading, n.color, now);
       }
@@ -1861,9 +2323,12 @@ export class MapView {
 
     // Where your armies (and enemies you can see) are marching: a line of
     // dashes that flows toward the destination while the clock runs.
+    const armySeen = (a: Army) =>
+      inSight(a.prov) || (a.path.length > 0 && inSight(a.path[0]));
     for (const a of s.armies) {
       if (a.depart < 0 || a.path.length === 0) continue;
       if (a.id === o.selectedArmy) continue;
+      if (!armySeen(a)) continue;
       const mine = a.owner === o.me;
       const hostile =
         o.me >= 0 &&
@@ -1891,6 +2356,7 @@ export class MapView {
         Number(a.owner === o.me) - Number(c.owner === o.me) || a.id - c.id,
     );
     for (const a of sorted) {
+      if (!armySeen(a)) continue;
       const mine = a.owner === o.me;
       const hostile =
         o.me >= 0 &&
@@ -1912,6 +2378,7 @@ export class MapView {
       const nation = s.nations[a.owner];
       const moving = a.depart >= 0 && a.path.length > 0;
       const marching = moving && o.running;
+      if (marching) this.movers++;
       const dir = moving && Math.cos(heading) < 0 ? -1 : 1;
       const stepPhase = marching ? Math.sin(now / 110 + a.id) : 0;
       const h = important ? figure : figure * 0.75;
@@ -2010,6 +2477,50 @@ export class MapView {
     // Keep drawing until the chart has caught up with the view.
     const after = this.baseFits();
     this.needsDraw = this.baseDirty || !after.covered;
+    // How dear that was, to pace the next frames (and draw more simply).
+    const cost = performance.now() - t0;
+    this.frameCost = this.frameCost * 0.85 + cost * 0.15;
+    if (this.frameCost > 14) this.lowPower = true;
+    else if (this.frameCost < 6) this.lowPower = false;
+  }
+
+  /** WORLD r11: show the cached chart on the bottom canvas, if the view or the chart changed. */
+  private showChart(): void {
+    const b = this.baseView;
+    if (!b) return;
+    const v = this.view;
+    const shown = this.chartShown;
+    if (
+      shown &&
+      shown.stamp === this.baseStamp &&
+      shown.view.scale === v.scale &&
+      shown.view.tx === v.tx &&
+      shown.view.ty === v.ty
+    )
+      return;
+    const c = this.cctx;
+    const bd = this.chartDpr();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.fillStyle = OCEAN_BOTTOM;
+    c.fillRect(0, 0, this.chartCanvas.width, this.chartCanvas.height);
+    const k = v.scale / b.scale;
+    const m = this.baseMargin;
+    // Same scale: a straight copy, on whole pixels.
+    let x = (k * (-m - b.tx) + v.tx) * bd;
+    let y = (k * (-m - b.ty) + v.ty) * bd;
+    if (Math.abs(k - 1) < 1e-9) {
+      x = Math.round(x);
+      y = Math.round(y);
+    }
+    c.imageSmoothingEnabled = true;
+    c.drawImage(
+      this.base,
+      x,
+      y,
+      (k * this.base.width * bd) / this.baseDpr,
+      (k * this.base.height * bd) / this.baseDpr,
+    );
+    this.chartShown = { view: { ...v }, stamp: this.baseStamp };
   }
 
   // ---------------------------------------------------------------- the living
@@ -2113,8 +2624,10 @@ export class MapView {
       y: y - uy * gap * i,
     })).sort((a, b) => a.y - b.y);
     ctx.save();
-    ctx.shadowColor = "rgba(252,244,222,0.9)";
-    ctx.shadowBlur = 1.5;
+    if (!this.lowPower) {
+      ctx.shadowColor = "rgba(252,244,222,0.9)";
+      ctx.shadowBlur = 1.5;
+    }
     for (const m of men) {
       const p = phase + m.i * 0.18;
       if (mounted)
@@ -2165,8 +2678,10 @@ export class MapView {
     const ctx = this.ctx;
     const s = o.state;
     if (this.view.scale < 0.75) return;
+    const fog = o.fog;
     for (const t of s.travellers ?? []) {
       if (t.depart < 0 || !t.path.length) continue;
+      if (fog && !fog.seen.has(t.prov) && !fog.seen.has(t.path[0])) continue;
       const frac = Math.max(
         0,
         Math.min(1, (day - t.depart) / Math.max(0.5, t.arrive - t.depart)),
@@ -2181,11 +2696,14 @@ export class MapView {
       const native = n?.kind === "native" || c?.religion === "native";
       const dir = Math.cos(heading) < 0 ? -1 : 1;
       const phase = this.stride(`t${t.id}`, true, o.running, now, o.speed ?? 1);
-      const col = figureColorsOf(c, native);
+      const col = this.colorsOf(c, native);
       const h = figure * 1.15;
+      this.movers++;
       ctx.save();
-      ctx.shadowColor = "rgba(252,244,222,0.85)";
-      ctx.shadowBlur = 1.5;
+      if (!this.lowPower) {
+        ctx.shadowColor = "rgba(252,244,222,0.85)";
+        ctx.shadowBlur = 1.5;
+      }
       switch (t.mode) {
         case "ship":
           drawSloop(
@@ -2257,15 +2775,21 @@ export class MapView {
     const s = o.state;
     if (o.mode !== "nation" && o.mode !== "terrain") return;
     const t = now / 1000;
-    // Waves along the shore.
+    const fog = o.fog;
+    const known = (p: number) =>
+      !this.map.provinces[p].closed && (!fog || fog.known.has(p));
+    // Waves along the shore (not off land you don't know).
     if (v.scale >= 0.8) {
       const pts = this.waves();
+      const near = this.waveShore();
       ctx.strokeStyle = "rgba(240,248,250,0.55)";
       ctx.lineWidth = 1;
-      for (const [wx, wy, seed] of pts) {
+      for (let i = 0; i < pts.length; i++) {
+        const [wx, wy, seed] = pts[i];
         const x = sx(wx);
         const y = sy(wy);
         if (!onScreen(x, y, 10)) continue;
+        if (near[i] >= 0 && !known(near[i])) continue;
         const k = (t / 3.2 + seed) % 1;
         if (k > 0.55) continue;
         const a = Math.sin((k / 0.55) * Math.PI);
@@ -2287,6 +2811,7 @@ export class MapView {
         const prov = s.provinces[p];
         const taken = prov.occupier >= 0;
         if (!taken && !prov.siege) continue;
+        if (fog && !fog.seen.has(p)) continue;
         const def = this.map.provinces[p];
         const x = sx(def.x);
         const y = sy(def.y);
@@ -2310,6 +2835,7 @@ export class MapView {
       for (const [p, hx, hy] of this.harbours()) {
         const prov = s.provinces[p];
         if (prov.owner < 0) continue;
+        if (fog && !fog.seen.has(p)) continue;
         const nation = s.nations[prov.owner];
         const native = nation.kind === "native";
         if (!native && settlers(prov) < 300) continue;
@@ -2348,6 +2874,7 @@ export class MapView {
     for (let p = 0; p < s.provinces.length; p++) {
       const prov = s.provinces[p];
       if (prov.owner < 0) continue;
+      if (!known(p)) continue;
       const nation = s.nations[prov.owner];
       const def = this.map.provinces[p];
       const x = sx(def.x);
@@ -2559,6 +3086,31 @@ export class MapView {
     return out;
   }
 
+  /** WORLD r11: the coastal province nearest each breaking wave (-1: none near). */
+  private waveNear: Int16Array | null = null;
+  private waveShore(): Int16Array {
+    if (this.waveNear) return this.waveNear;
+    const pts = this.waves();
+    const coast = this.map.provinces
+      .map((d, p) => ({ d, p }))
+      .filter(({ d }) => d.coastal || d.closed);
+    const out = new Int16Array(pts.length).fill(-1);
+    pts.forEach(([x, y], i) => {
+      let best = -1;
+      let bestD = Infinity;
+      for (const { d, p } of coast) {
+        const dd = (d.x - x) ** 2 + (d.y - y) ** 2;
+        if (dd < bestD) {
+          bestD = dd;
+          best = p;
+        }
+      }
+      out[i] = best;
+    });
+    this.waveNear = out;
+    return out;
+  }
+
   /** Where the sea breaks: water cells on the coast, a sprinkling of them. */
   private waves(): [number, number, number][] {
     if (this.wavePts) return this.wavePts;
@@ -2666,6 +3218,13 @@ export class MapView {
       ctx.setLineDash([]);
     }
     for (const m of o.lives ?? []) {
+      if (
+        !m.you &&
+        o.fog &&
+        !o.fog.seen.has(m.p) &&
+        !(m.travel?.path.length && o.fog.seen.has(m.travel.path[0]))
+      )
+        continue;
       let mx: number;
       let my: number;
       let walker: "walk" | "sail" | null = null;
@@ -2684,6 +3243,7 @@ export class MapView {
         const way = this.hopPath(m.p, t.path[0], t.sea[0] ?? false);
         [mx, my, heading] = this.along(way, frac);
         walker = t.sea[0] ? "sail" : "walk";
+        this.movers++;
         if (m.you) {
           // The rest of the road, flowing on ahead.
           ctx.setLineDash([5, 5]);
@@ -2951,11 +3511,7 @@ export class MapView {
     ctx.ellipse(x, y, h * 0.5, h * 0.17, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
-    ctx.save();
-    ctx.shadowColor = "rgba(252,244,222,0.95)";
-    ctx.shadowBlur = 2.5;
-    drawSprite(ctx, name, x, y + h * 0.05, size, flip);
-    ctx.restore();
+    this.stamp(ctx, name, x, y + h * 0.05, size, flip, 2.5);
     return true;
   }
 
@@ -2985,10 +3541,7 @@ export class MapView {
     ctx.moveTo(back * h * 0.15, h * 0.02);
     ctx.quadraticCurveTo(back * h * 0.5, h * 0.06, back * h * 0.8, h * 0.02);
     ctx.stroke();
-    ctx.shadowColor = "rgba(252,244,222,0.9)";
-    ctx.shadowBlur = 3;
-    drawSprite(ctx, name, 0, h * 0.12, h, flip);
-    ctx.shadowBlur = 0;
+    this.stamp(ctx, name, 0, h * 0.12, h, flip, 3);
     // A pennant at the masthead.
     const mx = flip ? h * 0.05 : -h * 0.05;
     const my = -h * 0.82;
@@ -3064,13 +3617,9 @@ export class MapView {
     const y = sy(my);
     const back = ms.stage === "back";
     const flip = Math.cos(ang) < 0 !== back;
-    ctx.save();
-    ctx.shadowColor = "rgba(252,244,222,0.95)";
-    ctx.shadowBlur = 2.5;
     const drawn = bySea
-      ? drawSprite(ctx, "canoe", x, y + size * 0.15, size * 0.75, flip)
-      : drawSprite(ctx, "explorer", x, y, size * 1.4, flip);
-    ctx.restore();
+      ? this.stamp(ctx, "canoe", x, y + size * 0.15, size * 0.75, flip, 2.5)
+      : this.stamp(ctx, "explorer", x, y, size * 1.4, flip, 2.5);
     if (!drawn)
       explorer(
         ctx,

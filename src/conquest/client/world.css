@@ -1,0 +1,14 @@
+/* ---- WORLD (r11): the map's two layers, the fog, markets, culture goods and leads. */
+
+/* The chart under, the moving things over it. */
+.cq-map-host {
+  overflow: hidden;
+}
+.cq-map-host > canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.cq-map-chart {
+  pointer-events: none;
+}

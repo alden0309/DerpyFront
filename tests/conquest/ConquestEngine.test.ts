@@ -95,6 +95,8 @@ describe("Derpy Conquest map", () => {
     // North and Central America and the islands: nothing south of Panama.
     for (const p of map.provinces) expect(p.lat).toBeGreaterThan(7);
     for (const p of map.provinces) {
+      // Land off the board (Alaska) connects nowhere, on purpose.
+      if (p.closed) continue;
       expect(p.nb.length + p.sea.length).toBeGreaterThan(0);
     }
     expect(new Set(map.provinces.map((p) => p.id)).size).toBe(

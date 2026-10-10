@@ -72,6 +72,8 @@ export interface ProvinceDef {
   nb: Neighbour[];
   /** Coastal provinces reachable by sea: [province, km], nearest first. */
   sea: [number, number][];
+  /** Off the board: drawn dark, never travelled to or held (WORLD r11: Alaska). */
+  closed?: boolean;
 }
 
 export interface PowerDef {
@@ -704,6 +706,14 @@ export interface Life {
   ambition?: AmbitionState | null;
   /** Ambitions fulfilled, by key, in order. */
   ambitionsDone?: string[];
+  /** WORLD r11: provinces this line knows (explored), sorted; visited ones count too. */
+  known?: number[];
+  /** WORLD r11: who held each known province when it was last seen (-1 open country). */
+  seenOwner?: Record<number, number>;
+  /** WORLD r11: leads heard of in the papers and the taverns. */
+  leads?: LifeLead[];
+  /** WORLD r11: culture goods carried to sell (they count against the loads you can carry). */
+  wares?: Partial<Record<WareId, number>>;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1441,6 +1451,10 @@ export interface GameState {
   travellers?: Traveller[];
   /** What people are saying, spreading out from where it happened. */
   rumours?: Rumour[];
+  /** WORLD r11: each province's own market, where anyone has traded or something has shaken it. */
+  markets?: Record<number, ProvMarket>;
+  /** WORLD r11: stories going round (gold, wrecks, treasure), true or not. */
+  leads?: WorldLead[];
 }
 
 export type TravellerKind =
@@ -1666,7 +1680,14 @@ export type LifeCommand =
   /** Sail for Europe (taking the heir, or leaving them to carry on). */
   | { k: "europe"; takeHeir: boolean }
   /** Turn down an invitation to Europe. */
-  | { k: "decline" };
+  | { k: "decline" }
+  // WORLD (r11): the province market, leads, gifts of goods.
+  /** Buy (qty > 0) or sell (qty < 0) a good or a ware at the market here. */
+  | { k: "market"; item: TradeItem; qty: number }
+  /** Work a lead here (prospect, pan, dive...), or forget it. */
+  | { k: "lead"; id: number; act: LeadAct | "drop" }
+  /** Present a load of goods to the council or the elders here (native gift-giving). */
+  | { k: "present"; item: TradeItem };
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1693,4 +1714,126 @@ export interface GameDelta {
   polities?: Record<number, Polity>;
   travellers?: Traveller[];
   rumours?: Rumour[];
+  /** WORLD r11: markets that changed; null means it's back to normal. */
+  markets?: Record<number, ProvMarket | null>;
+  /** WORLD r11: the leads going round, when any changed. */
+  leads?: WorldLead[];
+  /** WORLD r11: only the changed fields of provinces, nations and lives already sent. */
+  provPatch?: Record<number, Partial<Province>>;
+  nationPatch?: Record<number, Partial<Nation>>;
+  lifePatch?: Record<string, Partial<Life>>;
+}
+
+// ---- WORLD (r11)
+
+/** Culture-specific goods, on top of the colonies' ten goods (Wares.ts). */
+export type WareId =
+  | "woollens"
+  | "brandy"
+  | "wine"
+  | "cochineal"
+  | "chocolate"
+  | "finecloth"
+  | "spices"
+  | "gin"
+  | "brazilwood"
+  | "iron"
+  | "wampum"
+  | "maize"
+  | "deerskins"
+  | "canoes"
+  | "pottery"
+  | "robes";
+
+/** Anything bought and sold at a market: one of the ten goods, or a ware. */
+export type TradeItem = Good | WareId;
+
+/** A sudden turn in a market: a poor harvest, a glut, a scare, a strike nearby. */
+export interface MarketShock {
+  /** What it touches: an item, "food", or "all". */
+  item: TradeItem | "food" | "all";
+  /** Price multiplier while it lasts. */
+  mul: number;
+  until: number;
+  why: string;
+}
+
+/** A province's own market: what's been bought and sold there lately. */
+export interface ProvMarket {
+  /**
+   * Loads sold in (positive, a glut) or bought out (negative) by players and
+   * traders, as of day `d`; it eases back to nothing as the town eats, makes
+   * and ships things.
+   */
+  net: Partial<Record<TradeItem, number>>;
+  d: number;
+  /** Prices at the start of each recent month, oldest first (up to 6). */
+  hist?: Partial<Record<TradeItem, number[]>>;
+  shocks?: MarketShock[];
+}
+
+export type LeadKind =
+  | "gold"
+  | "silver"
+  | "wreck"
+  | "mine"
+  | "treasure"
+  | "land"
+  | "crew"
+  | "outlaw"
+  | "furs"
+  | "pearls"
+  | "inheritance"
+  | "spring";
+
+/** Ways of working a lead once you're there. */
+export type LeadAct =
+  | "prospect"
+  | "pan"
+  | "mine"
+  | "dive"
+  | "dig"
+  | "search"
+  | "survey";
+
+/** A story going round: gold in the hills, a wreck on the reef. Some are true. */
+export interface WorldLead {
+  id: number;
+  kind: LeadKind;
+  p: number;
+  day: number;
+  /** Talk of it dies away after this day. */
+  until: number;
+  text: string;
+  /** The chance it's true, as first told (0 to 1). */
+  odds: number;
+  /** Decided the first time anyone works it properly (null until then). */
+  real: boolean | null;
+  /** What there is to be had, in coins, if it's real. */
+  worth: number;
+  /** Taken so far, by everyone. */
+  taken: number;
+  /** Others who've heard and come (they take their share). */
+  rush: number;
+  /** The day a strike set off a rush, if it did. */
+  boom?: number;
+  /** Someone in it (an outlaw, an heir), or -1. */
+  c: number;
+}
+
+/** A lead a life has heard of, and how it's going. */
+export interface LifeLead {
+  /** The world lead's id. */
+  id: number;
+  heard: number;
+  /** Where you heard it: "the gazette", "talk at the tavern"... */
+  from: string;
+  /** How far you believe it, 0 to 100 (wiser readers judge closer to the truth). */
+  trust: number;
+  status: "open" | "working" | "found" | "dry" | "done" | "faded";
+  /** Working it now: how, and the day it's done. */
+  work?: { act: LeadAct; until: number };
+  tries: number;
+  /** What came of it last time. */
+  note?: string;
 }

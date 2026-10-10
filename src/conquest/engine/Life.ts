@@ -12,6 +12,7 @@ import { seedLocals } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
 import { doInteraction, workOffered } from "./Interactions";
+import { leadCommand } from "./Leads"; // WORLD r11
 import { doAct } from "./LifeActs";
 import {
   addRenown,
@@ -33,8 +34,6 @@ import { answerLifeEvent, lifeEventsDaily, raiseLifeEvent } from "./LifeEvents";
 import {
   allowanceDue,
   atPost,
-  carried,
-  CARRY,
   hasPlace,
   heirOf,
   hopDaysFor,
@@ -51,9 +50,7 @@ import {
   officesOf,
   opinionOf,
   paceOf,
-  placesIn,
   skillLevel,
-  tradeRates,
   travelRoute,
   wageOf,
 } from "./LifeQueries";
@@ -94,6 +91,7 @@ import {
   TINCTURES,
 } from "./LifeRules";
 import { isWinter } from "./Map";
+import { marketTrade, present } from "./Markets"; // WORLD r11
 import { cashVenture, moneyMonthly, sellKit } from "./Money";
 import { LETTER_KEYS, letterWriter } from "./MoreEvents";
 import {
@@ -112,8 +110,6 @@ import {
   Army,
   BattleReport,
   Character,
-  Good,
-  GOODS,
   JobKind,
   Life,
   LifeCommand,
@@ -1398,43 +1394,6 @@ export function vanish(g: ConquestGame, id: number, why: string): void {
   for (const a of s.armies) if (a.commander === id) g.touch(a).commander = -1;
 }
 
-// ---------------------------------------------------------------- the market
-
-function tradeGoods(
-  g: ConquestGame,
-  life: Life,
-  good: Good,
-  qty: number,
-): string | null {
-  const s = g.s;
-  if (!GOODS.includes(good) || !Number.isInteger(qty) || qty === 0)
-    return "Bad trade.";
-  if (life.travel) return "Not on the road.";
-  const here = placesIn(s, g.w, life.prov);
-  if (!here.some((x) => x === "market" || x === "village" || x === "docks"))
-    return "There's no market here.";
-  const rate = tradeRates(s, life, good);
-  touchLife(g, life);
-  if (qty > 0) {
-    if (carried(life) + qty > CARRY)
-      return `You can carry ${CARRY} loads at most.`;
-    const cost = Math.round(rate.buy * qty * 100) / 100;
-    if (life.purse < cost) return `That costs ${cost} coins.`;
-    spend(g, life, cost);
-    life.goods[good] = (life.goods[good] ?? 0) + qty;
-    gainXp(g, life, "trade", 3 * qty);
-    return null;
-  }
-  const have = life.goods[good] ?? 0;
-  if (have < -qty) return "You don't have that much.";
-  const got = Math.round(rate.sell * -qty * 100) / 100;
-  earn(g, life, got);
-  life.goods[good] = have + qty;
-  if (!life.goods[good]) delete life.goods[good];
-  gainXp(g, life, "trade", 4 * -qty);
-  return null;
-}
-
 // ---------------------------------------------------------------- commands
 
 function commandArmy(
@@ -1742,7 +1701,16 @@ export function lifeCommand(
         answerLifeEvent(g, life, c.id, c.choice),
       );
     case "trade":
-      return tradeGoods(g, life, c.good, c.qty);
+      return marketTrade(g, life, c.good, c.qty);
+    // WORLD r11: the province's market, leads, and gifts at a council fire.
+    case "market":
+      return marketTrade(g, life, c.item, c.qty);
+    case "lead":
+      if (child && c.act !== "drop") return "Not until you're sixteen.";
+      return leadCommand(g, life, c.id, c.act);
+    case "present":
+      if (child) return "Not until you're sixteen.";
+      return withOutcome(g, life, "act", () => present(g, life, c.item));
     case "repay": {
       const d = life.debts.find((x) => x.to === c.to);
       if (!d) return "You owe them nothing.";
