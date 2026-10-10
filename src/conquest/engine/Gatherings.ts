@@ -423,6 +423,8 @@ export function rsvpBreakdown(
   gat: Gathering,
   c: Character,
   hostLife?: Life,
+  /** Decided when the invitation arrives: only the journey is left. */
+  atArrival = false,
 ): Breakdown {
   const def = GATHERINGS[gat.kind];
   const host = s.chars[gat.host];
@@ -468,7 +470,7 @@ export function rsvpBreakdown(
   if (at >= 0 && at !== gat.prov) {
     const r = postRoute(s, w.map, at, gat.prov);
     const travel = r ? r.days : 60;
-    const letter = r ? r.days : 30;
+    const letter = atArrival ? 0 : r ? r.days : 30;
     if (s.day + letter + travel > gat.day && !lifeOfChar(s, c.id))
       e.add("Can't get there in time", -100);
     else e.add(`A journey of ${travel} days`, -Math.min(30, Math.round(travel / 3)));

@@ -335,7 +335,16 @@ function inUse(s: GameState, t: TongueId): boolean {
 
 // ---------------------------------------------------------------- who knows what
 
-const npcCache = new Map<string, Record<TongueId, TongueLevel>>();
+/** Caches, per game (a server runs many, and ids repeat between them). */
+const npcCaches = new WeakMap<GameState, Map<string, Record<TongueId, TongueLevel>>>();
+const talkCaches = new WeakMap<GameState, Map<string, TalkView>>();
+
+function cacheOf<T>(m: WeakMap<GameState, Map<string, T>>, s: GameState): Map<string, T> {
+  let c = m.get(s);
+  if (!c) m.set(s, (c = new Map()));
+  if (c.size > 6000) c.clear();
+  return c;
+}
 
 /** The peoples next door to a province (their own, and its neighbours'). */
 function neighbourCultures(s: GameState, map: MapDef, p: number): string[] {
@@ -377,6 +386,7 @@ export function npcTongues(
   const p = homeOf(s, c);
   const near = p >= 0 ? neighbourCultures(s, map, p) : [];
   const key = `${c.id}|${c.culture}|${c.role ?? ""}|${p}|${near.join(",")}|${yearOf(s) >= 1650 ? 1 : 0}${yearOf(s) >= 1700 ? 1 : 0}`;
+  const npcCache = cacheOf(npcCaches, s);
   const hit = npcCache.get(key);
   if (hit) return hit;
   const out: Record<TongueId, TongueLevel> = {};
@@ -415,7 +425,6 @@ export function npcTongues(
       mine === "english" ? "french" : mine === "french" ? "english" : "french",
       r(99) < 0.5 ? 1 : 0,
     );
-  if (npcCache.size > 6000) npcCache.clear();
   npcCache.set(key, out);
   return out;
 }
@@ -589,8 +598,6 @@ export function sharedLevel(
   return { level: best, tongue };
 }
 
-const talkCache = new Map<string, TalkView>();
-
 /** Whether you and someone can talk, and in what (an interpreter if one's about). */
 export function talkWith(
   s: GameState,
@@ -603,7 +610,8 @@ export function talkWith(
   const theirs = motherTongue(c.culture);
   if (!me) return { level: 3, tongue: theirs, via: -1, theirs };
   const pts = life.tongues?.c === life.c ? life.tongues.pts : null;
-  const key = `${life.c}|${c.id}|${life.prov}|${s.day}|${pts ? Object.values(pts).join(",") : ""}`;
+  const key = `${life.c}|${c.id}|${life.prov}|${s.day}|${around ? 1 : 0}|${pts ? Object.values(pts).join(",") : ""}`;
+  const talkCache = cacheOf(talkCaches, s);
   const hit = talkCache.get(key);
   if (hit) return hit;
   const mine = tonguesOf(s, map, me);
@@ -628,7 +636,6 @@ export function talkWith(
       }
     }
   }
-  if (talkCache.size > 4000) talkCache.clear();
   talkCache.set(key, view);
   return view;
 }

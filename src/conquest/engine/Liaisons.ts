@@ -281,7 +281,7 @@ export function affairsMonthly(g: ConquestGame): void {
 }
 
 /** A child of an affair: whose name it bears is another matter. */
-function affairChild(
+export function affairChild(
   g: ConquestGame,
   life: Life,
   a: Affair,
@@ -320,7 +320,7 @@ export function acknowledge(g: ConquestGame, life: Life, kidId: number): void {
   touchLife(g, life).tally.children++;
 }
 
-function startBlackmail(g: ConquestGame, life: Life, a: Affair): void {
+export function startBlackmail(g: ConquestGame, life: Life, a: Affair): void {
   const s = g.s;
   const r = dice(g);
   // A rival, a servant, a neighbour with sharp eyes.

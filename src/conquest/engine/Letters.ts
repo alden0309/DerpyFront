@@ -825,7 +825,11 @@ function arriveAt(g: ConquestGame, life: Life, l: Letter): void {
 /** Someone not played reads a player's letter and answers it. */
 function decide(g: ConquestGame, life: Life, l: Letter, c: Character): void {
   const s = g.s;
-  const b = letterAcceptance(s, g.w, life, c, l.kind, l.arg ?? 0, l.about ?? -1) ?? { total: 1, parts: [] };
+  const gatAsked = l.kind === "invite" ? gatheringById(s, l.arg ?? -1) : undefined;
+  const b =
+    (gatAsked
+      ? rsvpBreakdown(s, g.w, gatAsked, c, life, true)
+      : letterAcceptance(s, g.w, life, c, l.kind, l.arg ?? 0, l.about ?? -1)) ?? { total: 1, parts: [] };
   const yesA = b.total > 0;
   const me = meOf(s, life)!;
   let text = "";

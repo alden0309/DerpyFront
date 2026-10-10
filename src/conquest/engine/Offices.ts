@@ -885,7 +885,8 @@ export function giveOffice(
   const prev = s.chars[o.holder];
   o.holder = c;
   o.since = s.day;
-  o.duty = s.day;
+  // A new officer may set to work at once.
+  o.duty = s.day - 30;
   o.candidates = o.candidates.filter((x) => x.c !== c);
   g.societyChanged(`o${o.prov}`);
   const name = officeTitle(s, g.w, o);
@@ -926,7 +927,12 @@ function fillVacancy(g: ConquestGame, o: LocalOffice): void {
   if (byLife && s.day - o.since < 60) return;
   const pool = householdsOf(s, o.prov).filter((c) => npcEligible(s, c, o));
   if (!pool.length) return;
-  pool.sort((a, b) => npcFit(s, b, o) - npcFit(s, a, o) || a.id - b.id);
+  // One office to a person, where the county has the people.
+  const busy = (c: Character) => (localOfficesOf(s, c.id).length ? 1 : 0);
+  pool.sort(
+    (a, b) =>
+      busy(a) - busy(b) || npcFit(s, b, o) - npcFit(s, a, o) || a.id - b.id,
+  );
   const pick = pool[0];
   giveOffice(g, o, pick.id, "by appointment");
 }
@@ -1024,7 +1030,12 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
     field.push({ c: sitting!.id, score: pollStanding(s, sittingLife, o).total });
   // Challengers from among the county's people.
   const pool = householdsOf(s, o.prov)
-    .filter((c) => npcEligible(s, c, o) && !field.some((f) => f.c === c.id))
+    .filter(
+      (c) =>
+        npcEligible(s, c, o) &&
+        !field.some((f) => f.c === c.id) &&
+        !localOfficesOf(s, c.id).length,
+    )
     .sort((a, b) => npcPoll(s, b, o, false) - npcPoll(s, a, o, false) || a.id - b.id)
     .slice(0, 2);
   for (const c of pool) field.push({ c: c.id, score: npcPoll(s, c, o, false) });
