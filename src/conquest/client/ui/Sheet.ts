@@ -43,8 +43,9 @@ import { movementOf } from "../../engine/Movements";
 import { houseDefs, propertyOf } from "../../engine/Property";
 import { ageOf, charName, statOf } from "../../engine/Queries";
 import { RELIGION_NAMES, TRAITS } from "../../engine/Rules";
-import type { Character, Good } from "../../engine/Types";
+import type { Character, Good, WareId } from "../../engine/Types";
 import { SKILLS, STATS } from "../../engine/Types";
+import { WARES } from "../../engine/Wares";
 import { arms } from "../Arms";
 import { GOOD_NAMES } from "../Text";
 import { num, plain } from "../Tip";
@@ -449,16 +450,22 @@ function goodsSection(ui: GameUi): TemplateResult {
     Good,
     number,
   ][];
+  // WORLD r11: culture goods carried too.
+  const wares = Object.entries(life.wares ?? {}).filter(
+    ([, v]) => (v ?? 0) > 0,
+  ) as [WareId, number][];
   const debts = life.debts.filter((d) => d.amount > 0);
-  if (goods.length === 0 && debts.length === 0) return html``;
+  if (goods.length === 0 && wares.length === 0 && debts.length === 0)
+    return html``;
   return section(
     "Goods and debts",
-    html`${goods.length
+    html`${goods.length || wares.length
       ? html`<p>
           Carrying:
-          ${goods
-            .map(([g, v]) => `${v} ${GOOD_NAMES[g].toLowerCase()}`)
-            .join(", ")}.
+          ${[
+            ...goods.map(([g, v]) => `${v} ${GOOD_NAMES[g].toLowerCase()}`),
+            ...wares.map(([g, v]) => `${v} ${WARES[g].name.toLowerCase()}`),
+          ].join(", ")}.
           <button
             class="cq-link small"
             @click=${() => ui.modal({ k: "trade" })}

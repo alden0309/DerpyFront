@@ -891,24 +891,6 @@ export class GameView extends LitElement {
     if (!this.view || !this.s) return;
     for (const [p, at] of this.flashes)
       if (performance.now() - at > 4000) this.flashes.delete(p);
-    this.view.overlay = {
-      state: this.s,
-      me: this.nationNow(),
-      dayNow: this.dayNow(),
-      running: !this.paused && !this.s.over,
-      selectedProv: this.selectedProv,
-      selectedArmy: this.selectedArmy,
-      battles: this.flashes,
-      preview: this.preview,
-      mode: this.mode,
-      colonizable: NO_SET,
-      explored: null,
-      lives: this.marks(),
-      road: this.road(),
-      speed: this.speed,
-      fog: this.fog(),
-      leads: this.leadPins(),
-    };
     const moving = this.s.lives.some((l) => l.travel);
     // The world is alive at close range (smoke, fires, the sea): keep drawing,
     // a little slower when paused.
@@ -924,6 +906,25 @@ export class GameView extends LitElement {
     if (this.view.needsDraw || (animating && t - this.lastDraw > gap)) {
       this.lastDraw = t;
       this.view.needsDraw = false;
+      // What to draw, gathered only when drawing (not on every frame).
+      this.view.overlay = {
+        state: this.s,
+        me: this.nationNow(),
+        dayNow: this.dayNow(),
+        running: !this.paused && !this.s.over,
+        selectedProv: this.selectedProv,
+        selectedArmy: this.selectedArmy,
+        battles: this.flashes,
+        preview: this.preview,
+        mode: this.mode,
+        colonizable: NO_SET,
+        explored: null,
+        lives: this.marks(),
+        road: this.road(),
+        speed: this.speed,
+        fog: this.fog(),
+        leads: this.leadPins(),
+      };
       this.view.draw(t);
     }
   }

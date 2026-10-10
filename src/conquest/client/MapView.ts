@@ -1872,8 +1872,18 @@ export class MapView {
     c.fill(path, "evenodd");
     c.save();
     c.clip(path, "evenodd");
-    // A wash of cloud and stain, the same every time, over many provinces at once.
-    for (const p of unknown) {
+    // A wash of cloud and stain, the same every time, over many provinces at
+    // once (the biggest few dozen are enough to mottle it; fewer on a
+    // struggling device).
+    const blots = unknown
+      .map((p) => {
+        const b = this.provBox[p];
+        return { p, size: (b[2] - b[0]) * (b[3] - b[1]) };
+      })
+      .sort((a, b) => b.size - a.size || a.p - b.p)
+      .slice(0, this.lowPower ? 18 : 48)
+      .map((x) => x.p);
+    for (const p of blots) {
       const def = this.map.provinces[p];
       const b = this.provBox[p];
       const r = Math.max(30, Math.hypot(b[2] - b[0], b[3] - b[1]) * 0.9);
