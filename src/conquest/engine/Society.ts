@@ -3,29 +3,26 @@
 // come out, people write and give parties, and you pick up the tongue of
 // wherever you're living. And the commands that run it all.
 
-import type { ConquestGame } from "./Game";
-import {
-  cancelGathering,
-  hostGathering,
-  inviteMore,
-  rsvp,
-  gatheringsDaily,
-  gatheringsMonthly,
-} from "./Gatherings";
 import {
   abandonSettlement,
   askCharter,
   completeSettlement,
   constitute,
+  FOUND,
   layInSupplies,
   planSettlement,
   setOut,
   TERMS,
-  FOUND,
 } from "./Founding";
-import { travelTo } from "./Life";
-import { journal, spend, touchLife } from "./LifeCore";
-import { isChildLife, meOf, peopleHere, placesIn } from "./LifeQueries";
+import type { ConquestGame } from "./Game";
+import {
+  cancelGathering,
+  gatheringsDaily,
+  gatheringsMonthly,
+  hostGathering,
+  inviteMore,
+  rsvp,
+} from "./Gatherings";
 import {
   answerLetter,
   npcWrite,
@@ -34,17 +31,18 @@ import {
   readLetters,
   writeLetter,
 } from "./Letters";
-import { affairWith, affairsMonthly, endAffair } from "./Liaisons";
+import { affairsMonthly, affairWith, endAffair } from "./Liaisons";
+import { travelTo } from "./Life";
+import { journal, spend, touchLife } from "./LifeCore";
+import { isChildLife, meOf, peopleHere, placesIn } from "./LifeQueries";
 import {
-  appointLocal,
   appointerOf,
+  appointLocal,
   doDuty,
   eligible,
   ensureOffices,
-  giveOffice,
-  officeById,
-  officesMonthly,
   OFFICES,
+  officesMonthly,
   officeTitle,
   pullLever,
   resignLocal,
@@ -58,12 +56,12 @@ import {
   BOOK_COOLDOWN,
   BOOK_POINTS,
   booksHere,
-  LEVEL_NAMES,
-  levelOf,
   learnGain,
   learnRate,
-  LIVING_POINTS,
+  LEVEL_NAMES,
+  levelOf,
   lifeTonguePoints,
+  LIVING_POINTS,
   provinceTongue,
   tongueName,
   TONGUES,
@@ -71,7 +69,6 @@ import {
 import type {
   GatheringKind,
   GovForm,
-  Letter,
   LetterKind,
   Life,
   NationFlag,
@@ -120,22 +117,33 @@ export function learnTongue(
 }
 
 /** Study a grammar bought here. */
-export function studyBook(g: ConquestGame, life: Life, t: TongueId): string | null {
+export function studyBook(
+  g: ConquestGame,
+  life: Life,
+  t: TongueId,
+): string | null {
   const s = g.s;
   if (life.travel) return "Not on the road.";
   const book = booksHere(s, life.prov).find((b) => b.tongue === t);
   if (!book) return "No such book is sold here.";
   const places = placesIn(s, g.w, life.prov);
-  if (!places.includes("market") && !places.includes("press")) return "There's no bookseller here.";
+  if (!places.includes("market") && !places.includes("press"))
+    return "There's no bookseller here.";
   const left = (life.cooldowns[`book:${t}`] ?? 0) - s.day;
-  if (left > 0) return `You're still working through it (again in ${left} days).`;
+  if (left > 0)
+    return `You're still working through it (again in ${left} days).`;
   const pts = lifeTonguePoints(s, g.map, life)[t] ?? 0;
-  if (pts >= BOOK_CAP) return "Books will take you no further: you need people to talk to.";
+  if (pts >= BOOK_CAP)
+    return "Books will take you no further: you need people to talk to.";
   if (life.purse < book.cost) return `${book.cost} coins.`;
   spend(g, life, book.cost);
   touchLife(g, life).cooldowns[`book:${t}`] = s.day + BOOK_COOLDOWN;
   const got = learnTongue(g, life, t, BOOK_POINTS, BOOK_CAP);
-  journal(g, life, `You buy ${book.title} and work through it by candlelight: ${LEVEL_NAMES[levelOf(pts + got)]} in ${tongueName(t)} (${Math.round(pts + got)} of 300).`);
+  journal(
+    g,
+    life,
+    `You buy ${book.title} and work through it by candlelight: ${LEVEL_NAMES[levelOf(pts + got)]} in ${tongueName(t)} (${Math.round(pts + got)} of 300).`,
+  );
   return null;
 }
 
@@ -160,11 +168,17 @@ function officeOffers(g: ConquestGame): void {
     if (!me?.alive || life.watching || isChildLife(s, life)) continue;
     if ((life.cooldowns["office-offer"] ?? 0) > s.day) continue;
     for (const o of s.society?.offices[life.home] ?? []) {
-      if (o.holder >= 0 || OFFICES[o.key].how === "elected" || o.key === "founder") continue;
+      if (
+        o.holder >= 0 ||
+        OFFICES[o.key].how === "elected" ||
+        o.key === "founder"
+      )
+        continue;
       if (!eligible(s, life, o).ok) continue;
       const by = s.chars[appointerOf(s, o)];
       if (!by?.alive || s.lives.some((l) => l.c === by.id)) continue;
-      if (seekAcceptance(s, life, o, by).total < 10 || !r.chance(0.35)) continue;
+      if (seekAcceptance(s, life, o, by).total < 10 || !r.chance(0.35))
+        continue;
       touchLife(g, life).cooldowns["office-offer"] = s.day + 180;
       npcWrite(
         g,
@@ -209,7 +223,8 @@ export function societyMonthly(g: ConquestGame): void {
     const f = life.founding;
     if (f?.stage === "planning" && s.day - f.since > FOUND.lapse)
       abandonSettlement(g, life, "two years of talk, and nobody went");
-    if (life.constitute && life.constitute.until <= s.day) touchLife(g, life).constitute = null;
+    if (life.constitute && life.constitute.until <= s.day)
+      touchLife(g, life).constitute = null;
   }
 }
 
@@ -220,17 +235,33 @@ export function societyCommand(
   life: Life,
   c: SocietyCommand,
 ): string | null {
-  if (!meOf(g.s, life) || life.watching) return "You're watching the world now.";
+  if (!meOf(g.s, life) || life.watching)
+    return "You're watching the world now.";
   const id = c.id ?? -1;
   switch (c.act) {
     case "write":
-      return writeLetter(g, life, c.c ?? -1, (c.kind ?? "") as LetterKind, c.arg ?? 0, c.about ?? -1);
+      return writeLetter(
+        g,
+        life,
+        c.c ?? -1,
+        (c.kind ?? "") as LetterKind,
+        c.arg ?? 0,
+        c.about ?? -1,
+      );
     case "answer":
       return answerLetter(g, life, id, !!c.yes);
     case "read":
       return readLetters(g, life, c.id);
     case "host":
-      return hostGathering(g, life, c.kind as GatheringKind, c.venue as PlaceKind, c.days ?? 14, c.arg ?? 1, c.list ?? []);
+      return hostGathering(
+        g,
+        life,
+        c.kind as GatheringKind,
+        c.venue as PlaceKind,
+        c.days ?? 14,
+        c.arg ?? 1,
+        c.list ?? [],
+      );
     case "invite":
       return inviteMore(g, life, id, c.list ?? []);
     case "cancel":
@@ -253,8 +284,10 @@ export function societyCommand(
       return planSettlement(g, life, c.p ?? -1, !!c.free, c.arg ?? 1);
     case "terms": {
       const f = life.founding;
-      if (!f || f.stage !== "planning") return "You're not getting up a settlement.";
-      if (!Number.isInteger(c.arg) || c.arg! < 0 || c.arg! >= TERMS.length) return "What terms?";
+      if (!f || f.stage !== "planning")
+        return "You're not getting up a settlement.";
+      if (!Number.isInteger(c.arg) || c.arg! < 0 || c.arg! >= TERMS.length)
+        return "What terms?";
       touchLife(g, life).founding!.terms = c.arg!;
       return null;
     }

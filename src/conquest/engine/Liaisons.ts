@@ -9,9 +9,9 @@
 import { birth } from "./Characters";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
+import { npcWrite } from "./Letters";
 import {
   addRenown,
-  addStress,
   journal,
   milestone,
   remembers,
@@ -21,7 +21,6 @@ import {
 import { raiseLifeEvent } from "./LifeEvents";
 import { lifeOfChar, meOf, skillLevel } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
-import { npcWrite } from "./Letters";
 import { ageOf, charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
@@ -40,11 +39,7 @@ export function affairWith(life: Life, c: number): Affair | undefined {
 }
 
 /** Courting or loving them would be an affair: one of you is married to someone else. */
-export function wouldBeAffair(
-  s: GameState,
-  life: Life,
-  c: Character,
-): boolean {
+export function wouldBeAffair(s: GameState, life: Life, c: Character): boolean {
   const me = meOf(s, life);
   if (!me) return false;
   if (me.spouse === c.id) return false;
@@ -127,7 +122,10 @@ export function discover(
   if (!me || !lover) return;
   touchLife(g, life);
   const mySpouse = s.chars[me.spouse];
-  const theirSpouse = lover.spouse >= 0 && lover.spouse !== me.id ? s.chars[lover.spouse] : undefined;
+  const theirSpouse =
+    lover.spouse >= 0 && lover.spouse !== me.id
+      ? s.chars[lover.spouse]
+      : undefined;
   const by =
     who ??
     (mySpouse?.alive && !a.known.includes("spouse")
@@ -145,11 +143,20 @@ export function discover(
     if (sp) {
       raiseLifeEvent(g, sp, "spouse-unfaithful", { c: me.id, l: lover.id });
       journal(g, life, `${mySpouse.first} knows about ${lover.first}.`, "bad");
-    } else raiseLifeEvent(g, life, "affair-found-spouse", { c: mySpouse.id, l: lover.id });
+    } else
+      raiseLifeEvent(g, life, "affair-found-spouse", {
+        c: mySpouse.id,
+        l: lover.id,
+      });
   } else if (by === "theirs" && theirSpouse?.alive) {
     const tl = lifeOfChar(s, theirSpouse.id);
-    if (tl) raiseLifeEvent(g, tl, "spouse-unfaithful", { c: lover.id, l: me.id });
-    else raiseLifeEvent(g, life, "affair-found-theirs", { c: theirSpouse.id, l: lover.id });
+    if (tl)
+      raiseLifeEvent(g, tl, "spouse-unfaithful", { c: lover.id, l: me.id });
+    else
+      raiseLifeEvent(g, life, "affair-found-theirs", {
+        c: theirSpouse.id,
+        l: lover.id,
+      });
   } else {
     scandalize(g, life, `Carrying on with ${charName(lover)}`);
     raiseLifeEvent(g, life, "affair-scandal", { c: lover.id, l: lover.id });
@@ -165,8 +172,7 @@ export function discover(
 export function canDivorce(s: GameState, life: Life): boolean {
   const me = meOf(s, life);
   return (
-    !!me &&
-    ["puritan", "reformed", "lutheran", "native"].includes(me.religion)
+    !!me && ["puritan", "reformed", "lutheran", "native"].includes(me.religion)
   );
 }
 
@@ -200,7 +206,8 @@ export function partWays(g: ConquestGame, life: Life): void {
     // Bed and board: still married, living apart.
     if (!spl) {
       const parent = s.chars[sp.father] ?? s.chars[sp.mother];
-      g.char(sp.id).home = parent?.home ?? s.nations[sp.nation]?.capital ?? sp.home;
+      g.char(sp.id).home =
+        parent?.home ?? s.nations[sp.nation]?.capital ?? sp.home;
     }
     remembers(g, life, g.char(sp.id), "We live apart", -40, 0);
     addRenown(g, life, -1);
@@ -223,7 +230,8 @@ export function affairsMonthly(g: ConquestGame): void {
   for (const life of s.lives) {
     const me = meOf(s, life);
     if (!me?.alive || life.watching) continue;
-    if (life.scandal && life.scandal.until <= s.day) touchLife(g, life).scandal = null;
+    if (life.scandal && life.scandal.until <= s.day)
+      touchLife(g, life).scandal = null;
     for (const a of affairsOf(life)) {
       const lover = s.chars[a.c];
       if (!lover?.alive || lover.abroad) {
@@ -314,7 +322,8 @@ export function acknowledge(g: ConquestGame, life: Life, kidId: number): void {
   if (!me || !kid) return;
   if (me.female) return;
   const old = s.chars[kid.father];
-  if (old && old.id !== me.id) g.touchChar(old).children = old.children.filter((x) => x !== kid.id);
+  if (old && old.id !== me.id)
+    g.touchChar(old).children = old.children.filter((x) => x !== kid.id);
   g.touchChar(kid).father = me.id;
   if (!me.children.includes(kid.id)) g.touchChar(me).children.push(kid.id);
   touchLife(g, life).tally.children++;
@@ -329,7 +338,11 @@ export function startBlackmail(g: ConquestGame, life: Life, a: Affair): void {
     .map(([k]) => s.chars[Number(k)])
     .filter((c) => c?.alive && !lifeOfChar(s, c.id));
   const folk = householdsOf(s, life.prov).filter(
-    (c) => c.id !== life.c && c.id !== a.c && !lifeOfChar(s, c.id) && ageOf(s, c) >= 16,
+    (c) =>
+      c.id !== life.c &&
+      c.id !== a.c &&
+      !lifeOfChar(s, c.id) &&
+      ageOf(s, c) >= 16,
   );
   const pool = rivals.length && r.chance(0.6) ? rivals : folk;
   const who = pool.length ? pool[r.int(0, pool.length - 1)] : undefined;
@@ -411,14 +424,24 @@ export function secretOn(life: Life, c: number): Secret | undefined {
 }
 
 /** Learn someone's secret. */
-export function learnSecret(g: ConquestGame, life: Life, c: Character): string | null {
+export function learnSecret(
+  g: ConquestGame,
+  life: Life,
+  c: Character,
+): string | null {
   const sec = npcSecret(g.s, c);
   if (!sec) return null;
   touchLife(g, life);
   life.secrets ??= [];
   if (!life.secrets.some((x) => x.of === c.id))
-    life.secrets.push({ of: c.id, with: sec.with, kind: sec.kind, learned: g.s.day });
-  if (life.secrets.length > 30) life.secrets.splice(0, life.secrets.length - 30);
+    life.secrets.push({
+      of: c.id,
+      with: sec.with,
+      kind: sec.kind,
+      learned: g.s.day,
+    });
+  if (life.secrets.length > 30)
+    life.secrets.splice(0, life.secrets.length - 30);
   return sec.text;
 }
 

@@ -336,10 +336,16 @@ function inUse(s: GameState, t: TongueId): boolean {
 // ---------------------------------------------------------------- who knows what
 
 /** Caches, per game (a server runs many, and ids repeat between them). */
-const npcCaches = new WeakMap<GameState, Map<string, Record<TongueId, TongueLevel>>>();
+const npcCaches = new WeakMap<
+  GameState,
+  Map<string, Record<TongueId, TongueLevel>>
+>();
 const talkCaches = new WeakMap<GameState, Map<string, TalkView>>();
 
-function cacheOf<T>(m: WeakMap<GameState, Map<string, T>>, s: GameState): Map<string, T> {
+function cacheOf<T>(
+  m: WeakMap<GameState, Map<string, T>>,
+  s: GameState,
+): Map<string, T> {
   let c = m.get(s);
   if (!c) m.set(s, (c = new Map()));
   if (c.size > 6000) c.clear();
@@ -470,10 +476,7 @@ export function baseTongues(
     out[first] = Math.max(out[first] ?? 0, LEVEL_POINTS);
   // The educated have a little of the other great tongue of Europe.
   const lingua = LINGUA[mine];
-  if (
-    lingua &&
-    (EDUCATED.includes(bg) || me.traits.includes("educated"))
-  )
+  if (lingua && (EDUCATED.includes(bg) || me.traits.includes("educated")))
     out[lingua] = Math.max(out[lingua] ?? 0, LEVEL_POINTS + 20);
   for (const [j, peoples] of Object.entries(JARGON)) {
     if (!inUse(s, j)) continue;

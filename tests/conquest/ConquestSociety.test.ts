@@ -5,10 +5,10 @@
 import { describe, expect, test } from "vitest";
 import { makeCharacter } from "../../src/conquest/engine/Characters";
 import { seedLocals } from "../../src/conquest/engine/Folk";
+import { risingWon, settlementSites } from "../../src/conquest/engine/Founding";
 import type { ConquestGame } from "../../src/conquest/engine/Game";
 import {
   attendees,
-  gatheringById,
   GATHERINGS,
   hostCheck,
   invitables,
@@ -21,6 +21,13 @@ import {
   postOf,
   postRoute,
 } from "../../src/conquest/engine/Letters";
+import {
+  affairChild,
+  affairWith,
+  exposeBy,
+  npcSecret,
+  startBlackmail,
+} from "../../src/conquest/engine/Liaisons";
 import { setTie } from "../../src/conquest/engine/LifeCore";
 import {
   meOf,
@@ -30,25 +37,17 @@ import {
   peopleHere,
 } from "../../src/conquest/engine/LifeQueries";
 import {
-  affairChild,
-  affairWith,
-  exposeBy,
-  npcSecret,
-  startBlackmail,
-} from "../../src/conquest/engine/Liaisons";
-import {
   ensureOffices,
   leverTargets,
   OFFICES,
   officesMonthly,
 } from "../../src/conquest/engine/Offices";
 import { charName } from "../../src/conquest/engine/Queries";
-import { risingWon, settlementSites } from "../../src/conquest/engine/Founding";
 import { FLAG_COLORS } from "../../src/conquest/engine/SocietyRules";
 import {
   learnRate,
-  lifeTonguePoints,
   levelOf,
+  lifeTonguePoints,
   talkWith,
   tonguesOf,
 } from "../../src/conquest/engine/Tongues";
@@ -122,14 +121,34 @@ describe("tongues", () => {
     expect(talk.check.ok).toBe(true);
     expect(talk.label).toBe("Talk with signs");
     const before = lifeTonguePoints(s, g.map, life).french ?? 0;
-    expect(g.lifeCommand("s1", { k: "person", c: frenchman.id, act: "talk" })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "person", c: frenchman.id, act: "talk" }),
+    ).toBeNull();
     const after = lifeTonguePoints(s, g.map, life).french ?? 0;
     expect(after).toBeGreaterThan(before);
   });
 
   test("Learning makes it come faster; living among speakers teaches too", () => {
-    const slow = world({ start: 1650, plans: [{ seat: "s1", name: "A", plan: plan({ stats: { dip: 8, mar: 5, ste: 5, int: 5, lea: 2 } }) }] });
-    const quick = world({ start: 1650, plans: [{ seat: "s1", name: "A", plan: plan({ stats: { dip: 5, mar: 5, ste: 5, int: 5, lea: 8 } }) }] });
+    const slow = world({
+      start: 1650,
+      plans: [
+        {
+          seat: "s1",
+          name: "A",
+          plan: plan({ stats: { dip: 8, mar: 5, ste: 5, int: 5, lea: 2 } }),
+        },
+      ],
+    });
+    const quick = world({
+      start: 1650,
+      plans: [
+        {
+          seat: "s1",
+          name: "A",
+          plan: plan({ stats: { dip: 5, mar: 5, ste: 5, int: 5, lea: 8 } }),
+        },
+      ],
+    });
     expect(learnRate(quick.s, lifeOf(quick))).toBeGreaterThan(
       learnRate(slow.s, lifeOf(slow)) * 1.5,
     );
@@ -155,8 +174,12 @@ describe("tongues", () => {
     moveTo(g, a, "Quebec");
     b.prov = a.prov;
     b.tongues = { c: b.c, pts: { french: 300 } };
-    const frenchman = locals(g, a).find((c) => c.culture === "french" && c.role === undefined)!;
-    const t = talkWith(g.s, g.map, a, frenchman, () => peopleHere(g.s, a.prov, a));
+    const frenchman = locals(g, a).find(
+      (c) => c.culture === "french" && c.role === undefined,
+    )!;
+    const t = talkWith(g.s, g.map, a, frenchman, () =>
+      peopleHere(g.s, a.prov, a),
+    );
     expect(t.via).toBeGreaterThanOrEqual(0);
     expect(t.level).toBe(2);
     const via = tonguesOf(g.s, g.map, g.s.chars[t.via]);
@@ -172,17 +195,23 @@ describe("tongues", () => {
     const life = lifeOf(g);
     life.purse = 100;
     const before = lifeTonguePoints(g.s, g.map, life).french ?? 0;
-    expect(g.lifeCommand("s1", { k: "society", act: "study", kind: "french" })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "society", act: "study", kind: "french" }),
+    ).toBeNull();
     const mid = lifeTonguePoints(g.s, g.map, life).french ?? 0;
     expect(mid).toBeGreaterThan(before);
-    expect(g.lifeCommand("s1", { k: "society", act: "study", kind: "french" })).toMatch(/again in/);
+    expect(
+      g.lifeCommand("s1", { k: "society", act: "study", kind: "french" }),
+    ).toMatch(/again in/);
     // Lessons, from someone whose tongue it is.
     moveTo(g, life, "Quebec");
     const tutor = locals(g, life).find((c) => c.culture === "french")!;
     like(g, life, tutor);
     const v = interactionView(g.s, g.w, life, tutor.id, "tongue");
     expect(v.check.ok).toBe(true);
-    expect(g.lifeCommand("s1", { k: "person", c: tutor.id, act: "tongue" })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "person", c: tutor.id, act: "tongue" }),
+    ).toBeNull();
     expect(lifeTonguePoints(g.s, g.map, life).french ?? 0).toBeGreaterThan(mid);
     expect(levelOf(300)).toBe(3);
   });
@@ -194,10 +223,19 @@ describe("local offices", () => {
     const life = lifeOf(g);
     const list = ensureOffices(g, life.prov);
     const keys = list.map((o) => o.key);
-    for (const k of ["justice", "sheriff", "lieutenant", "burgess", "constable", "collector"] as const)
+    for (const k of [
+      "justice",
+      "sheriff",
+      "lieutenant",
+      "burgess",
+      "constable",
+      "collector",
+    ] as const)
       expect(keys).toContain(k);
     toNextMonth(g);
-    const filled = list.filter((o) => o.holder >= 0 && OFFICES[o.key].how !== "elected");
+    const filled = list.filter(
+      (o) => o.holder >= 0 && OFFICES[o.key].how !== "elected",
+    );
     expect(filled.length).toBeGreaterThanOrEqual(3);
     // Spread among the county's people.
     expect(new Set(filled.map((o) => o.holder)).size).toBeGreaterThan(1);
@@ -219,11 +257,22 @@ describe("local offices", () => {
       ],
     });
     const town = ensureOffices(n, lifeOf(n).prov).map((o) => o.key);
-    expect(town).toEqual(expect.arrayContaining(["council", "warcaptain", "speaker", "sachem", "clanmother"]));
+    expect(town).toEqual(
+      expect.arrayContaining([
+        "council",
+        "warcaptain",
+        "speaker",
+        "sachem",
+        "clanmother",
+      ]),
+    );
   });
 
   test("seek an appointment: the appointer decides, the office pays and has its duty", () => {
-    const g = world({ start: 1650, plans: [{ seat: "s1", name: "A", plan: plan({ age: 30 }) }] });
+    const g = world({
+      start: 1650,
+      plans: [{ seat: "s1", name: "A", plan: plan({ age: 30 }) }],
+    });
     const life = lifeOf(g);
     life.renown = 30;
     const list = ensureOffices(g, life.prov);
@@ -232,20 +281,44 @@ describe("local offices", () => {
     like(g, life, gov, 80);
     const v = interactionView(g.s, g.w, life, gov.id, "seek", justice.id);
     expect(v.check.ok).toBe(true);
-    expect(v.accept!.parts.some((p) => /empty|holds it/.test(p.label))).toBe(true);
+    expect(v.accept!.parts.some((p) => /empty|holds it/.test(p.label))).toBe(
+      true,
+    );
     expect(v.will).toBe(true);
-    expect(g.lifeCommand("s1", { k: "person", c: gov.id, act: "seek", arg: justice.id })).toBeNull();
+    expect(
+      g.lifeCommand("s1", {
+        k: "person",
+        c: gov.id,
+        act: "seek",
+        arg: justice.id,
+      }),
+    ).toBeNull();
     expect(justice.holder).toBe(life.c);
     const mine = officesOf(g.s, life.c).find((o) => o.kind === "local");
     expect(mine?.label).toMatch(/Justice of the peace/);
-    expect(monthlyBudget(g.s, g.w, life).parts.some((p) => /Justice/.test(p.label))).toBe(true);
+    expect(
+      monthlyBudget(g.s, g.w, life).parts.some((p) => /Justice/.test(p.label)),
+    ).toBe(true);
     // The duty, once a month.
-    expect(g.lifeCommand("s1", { k: "society", act: "duty", id: justice.id })).toBeNull();
-    expect(g.lifeCommand("s1", { k: "society", act: "duty", id: justice.id })).toMatch(/Done this month/);
+    expect(
+      g.lifeCommand("s1", { k: "society", act: "duty", id: justice.id }),
+    ).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "society", act: "duty", id: justice.id }),
+    ).toMatch(/Done this month/);
     // A lever: find for one neighbour against another.
     const party = leverTargets(g.s, life, justice)[0];
-    expect(g.lifeCommand("s1", { k: "society", act: "lever", id: justice.id, arg: party.id })).toBeNull();
-    expect(party.memories.some((m) => m.of === life.c && /Found for me/.test(m.why))).toBe(true);
+    expect(
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "lever",
+        id: justice.id,
+        arg: party.id,
+      }),
+    ).toBeNull();
+    expect(
+      party.memories.some((m) => m.of === life.c && /Found for me/.test(m.why)),
+    ).toBe(true);
     // Neglect it long enough and you're out.
     justice.duty = g.s.day - 300;
     officesMonthly(g);
@@ -261,9 +334,13 @@ describe("local offices", () => {
     const list = ensureOffices(g, life.prov);
     const burgess = list.find((o) => o.key === "burgess")!;
     burgess.election = g.s.day + 40;
-    expect(g.lifeCommand("s1", { k: "society", act: "stand", id: burgess.id })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "society", act: "stand", id: burgess.id }),
+    ).toBeNull();
     expect(burgess.candidates.some((x) => x.c === life.c)).toBe(true);
-    expect(g.lifeCommand("s1", { k: "society", act: "stand", id: burgess.id })).toMatch(/standing/);
+    expect(
+      g.lifeCommand("s1", { k: "society", act: "stand", id: burgess.id }),
+    ).toMatch(/standing/);
     ticks(g, 75);
     expect(burgess.holder).toBe(life.c);
     const pol = g.s.polities[meOf(g.s, life)!.nation];
@@ -284,7 +361,14 @@ describe("letters", () => {
     expect(route.days).toBeGreaterThan(5);
     expect(route.sea).toBeGreaterThan(0);
     expect(route.risk).toBeGreaterThan(0);
-    expect(g.lifeCommand("s1", { k: "society", act: "write", c: gov.id, kind: "introduce" })).toBeNull();
+    expect(
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "write",
+        c: gov.id,
+        kind: "introduce",
+      }),
+    ).toBeNull();
     const letter = postOf(life).find((l) => l.to === gov.id)!;
     expect(letter.status).toBe("transit");
     expect(letter.arrive).toBeGreaterThan(s.day);
@@ -303,7 +387,12 @@ describe("letters", () => {
     life.purse = 2000;
     const s = g.s;
     const far = correspondents(s, life).filter((id) => {
-      const r = postRoute(s, g.map, life.prov, s.chars[id].home ?? s.nations[s.chars[id].nation].capital);
+      const r = postRoute(
+        s,
+        g.map,
+        life.prov,
+        s.chars[id].home ?? s.nations[s.chars[id].nation].capital,
+      );
       return !!r && r.sea > 0;
     });
     expect(far.length).toBeGreaterThan(5);
@@ -313,10 +402,20 @@ describe("letters", () => {
     for (let round = 0; round < 30 && !(lost && delivered); round++) {
       for (const id of far.slice(0, 12)) {
         life.cooldowns = {};
-        if (!g.lifeCommand("s1", { k: "society", act: "write", c: id, kind: "friendly" })) sent++;
+        if (
+          !g.lifeCommand("s1", {
+            k: "society",
+            act: "write",
+            c: id,
+            kind: "friendly",
+          })
+        )
+          sent++;
       }
       ticks(g, 60);
-      const mine = postOf(life).filter((l) => l.from === life.c && l.kind === "friendly");
+      const mine = postOf(life).filter(
+        (l) => l.from === life.c && l.kind === "friendly",
+      );
       lost += mine.filter((l) => l.status === "lost").length;
       delivered += mine.filter((l) => l.status === "delivered").length;
     }
@@ -330,17 +429,28 @@ describe("letters", () => {
     const life = lifeOf(g);
     life.purse = 30;
     moveTo(g, life, "Pamunkey");
-    const friend = locals(g, life).find((c) => c.role === "merchant") ?? locals(g, life)[0];
+    const friend =
+      locals(g, life).find((c) => c.role === "merchant") ?? locals(g, life)[0];
     setTie(g, life, friend.id, "friend");
     like(g, life, friend, 80);
     life.met.push(friend.id);
     life.prov = prov("Jamestown");
     const b = letterAcceptance(g.s, g.w, life, friend, "favour", 10);
     expect(b!.total).toBeGreaterThan(0);
-    expect(g.lifeCommand("s1", { k: "society", act: "write", c: friend.id, kind: "favour", arg: 10 })).toBeNull();
+    expect(
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "write",
+        c: friend.id,
+        kind: "favour",
+        arg: 10,
+      }),
+    ).toBeNull();
     const purse = life.purse;
     ticks(g, 120);
-    const l = postOf(life).find((x) => x.kind === "favour" && x.to === friend.id)!;
+    const l = postOf(life).find(
+      (x) => x.kind === "favour" && x.to === friend.id,
+    )!;
     expect(l.bySea).toBe(false);
     expect(l.answer?.yes).toBe(true);
     expect(life.purse).toBeGreaterThan(purse + 5);
@@ -352,20 +462,43 @@ describe("letters", () => {
       start: 1650,
       plans: [
         { seat: "s1", name: "A", plan: plan() },
-        { seat: "s2", name: "B", plan: plan({ first: "Bea", female: true, home: prov("Massachusetts Bay") }) },
+        {
+          seat: "s2",
+          name: "B",
+          plan: plan({
+            first: "Bea",
+            female: true,
+            home: prov("Massachusetts Bay"),
+          }),
+        },
       ],
     });
     const a = lifeOf(g, "s1");
     const b = lifeOf(g, "s2");
     a.purse = 20;
     b.purse = 50;
-    expect(g.lifeCommand("s1", { k: "society", act: "write", c: b.c, kind: "favour", arg: 20 })).toBeNull();
+    expect(
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "write",
+        c: b.c,
+        kind: "favour",
+        arg: 20,
+      }),
+    ).toBeNull();
     ticks(g, 60);
     const got = postOf(b).find((l) => l.from === a.c && l.kind === "favour")!;
     expect(got?.status).toBe("delivered");
     expect(got.ask).toBe(true);
     const bPurse = b.purse;
-    expect(g.lifeCommand("s2", { k: "society", act: "answer", id: got.id, yes: true })).toBeNull();
+    expect(
+      g.lifeCommand("s2", {
+        k: "society",
+        act: "answer",
+        id: got.id,
+        yes: true,
+      }),
+    ).toBeNull();
     expect(b.purse).toBe(bPurse - 20);
     ticks(g, 60);
     expect(a.purse).toBeGreaterThanOrEqual(39);
@@ -377,9 +510,23 @@ describe("letters", () => {
     const threat = postOf(a).find((l) => l.kind === "threat")!;
     expect(threat.status).toBe("delivered");
     const before = a.purse;
-    expect(g.lifeCommand("s1", { k: "society", act: "answer", id: threat.id, yes: true })).toBeNull();
+    expect(
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "answer",
+        id: threat.id,
+        yes: true,
+      }),
+    ).toBeNull();
     expect(a.purse).toBe(before - 5);
-    expect(g.lifeCommand("s1", { k: "society", act: "answer", id: threat.id, yes: true })).toMatch(/answered/);
+    expect(
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "answer",
+        id: threat.id,
+        yes: true,
+      }),
+    ).toMatch(/answered/);
   });
 });
 
@@ -390,11 +537,24 @@ describe("gatherings", () => {
     life.purse = 100;
     const s = g.s;
     expect(hostCheck(s, g.w, life, "dinner", "church", 7, 1).ok).toBe(false);
-    expect(hostCheck(s, g.w, life, "social", "church", 7, 1).ok).toBe(s.provinces[life.prov] && hostCheck(s, g.w, life, "social", "church", 7, 1).ok);
-    const guests = invitables(s, g.w, life).filter((x) => x.near).slice(0, 5);
+    expect(hostCheck(s, g.w, life, "social", "church", 7, 1).ok).toBe(
+      s.provinces[life.prov] &&
+        hostCheck(s, g.w, life, "social", "church", 7, 1).ok,
+    );
+    const guests = invitables(s, g.w, life)
+      .filter((x) => x.near)
+      .slice(0, 5);
     for (const x of guests) like(g, life, x.c, 30);
     expect(
-      g.lifeCommand("s1", { k: "society", act: "host", kind: "dinner", venue: "home", days: 7, arg: 1, list: guests.map((x) => x.c.id) }),
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "host",
+        kind: "dinner",
+        venue: "home",
+        days: 7,
+        arg: 1,
+        list: guests.map((x) => x.c.id),
+      }),
     ).toBeNull();
     const gat = s.society!.gatherings.find((x) => x.host === life.c)!;
     expect(gat.cost).toBe(GATHERINGS.dinner.base);
@@ -411,15 +571,29 @@ describe("gatherings", () => {
     expect(life.renown).not.toBe(renown);
     const came = attendees(s, gat);
     expect(came.length).toBeGreaterThan(0);
-    expect(came.some((c) => c.memories.some((m) => m.of === life.c && /dinner/.test(m.why)))).toBe(true);
+    expect(
+      came.some((c) =>
+        c.memories.some((m) => m.of === life.c && /dinner/.test(m.why)),
+      ),
+    ).toBe(true);
   });
 
   test("a host who isn't there: it's called off", () => {
     const g = world({ start: 1650 });
     const life = lifeOf(g);
     life.purse = 100;
-    const guests = invitables(g.s, g.w, life).filter((x) => x.near).slice(0, 3);
-    g.lifeCommand("s1", { k: "society", act: "host", kind: "cards", venue: "tavern", days: 5, arg: 1, list: guests.map((x) => x.c.id) });
+    const guests = invitables(g.s, g.w, life)
+      .filter((x) => x.near)
+      .slice(0, 3);
+    g.lifeCommand("s1", {
+      k: "society",
+      act: "host",
+      kind: "cards",
+      venue: "tavern",
+      days: 5,
+      arg: 1,
+      list: guests.map((x) => x.c.id),
+    });
     const gat = g.s.society!.gatherings[0];
     life.prov = prov("Massachusetts Bay");
     ticks(g, 6);
@@ -435,10 +609,20 @@ describe("gatherings", () => {
     life.met.push(far.id);
     life.prov = life.home;
     expect(
-      g.lifeCommand("s1", { k: "society", act: "host", kind: "feast", venue: "home", days: 30, arg: 1, list: [far.id] }),
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "host",
+        kind: "feast",
+        venue: "home",
+        days: 30,
+        arg: 1,
+        list: [far.id],
+      }),
     ).toBeNull();
     const gat = g.s.society!.gatherings.find((x) => x.host === life.c)!;
-    expect(postOf(life).some((l) => l.kind === "invite" && l.to === far.id)).toBe(true);
+    expect(
+      postOf(life).some((l) => l.kind === "invite" && l.to === far.id),
+    ).toBe(true);
     expect(gat.rsvp[far.id]).toBeUndefined();
     ticks(g, 10);
     expect(gat.rsvp[far.id]).toBeDefined();
@@ -446,7 +630,9 @@ describe("gatherings", () => {
     let asked = false;
     for (let m = 0; m < 30 && !asked; m++) {
       toNextMonth(g);
-      asked = g.s.society!.gatherings.some((x) => x.host !== life.c && x.invited.includes(life.c));
+      asked = g.s.society!.gatherings.some(
+        (x) => x.host !== life.c && x.invited.includes(life.c),
+      );
     }
     expect(asked).toBe(true);
   });
@@ -460,12 +646,21 @@ describe("gatherings", () => {
     like(g, life, her, 90);
     life.met.push(her.id);
     life.prov = life.home;
-    expect(g.lifeCommand("s1", { k: "society", act: "write", c: her.id, kind: "marriage" })).toBeNull();
+    expect(
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "write",
+        c: her.id,
+        kind: "marriage",
+      }),
+    ).toBeNull();
     ticks(g, 60);
     const l = postOf(life).find((x) => x.kind === "marriage")!;
     expect(l.bySea).toBe(false);
     expect(l.answer?.yes).toBe(true);
-    const wedding = g.s.society!.gatherings.find((x) => x.kind === "wedding" && x.about.includes(her.id))!;
+    const wedding = g.s.society!.gatherings.find(
+      (x) => x.kind === "wedding" && x.about.includes(her.id),
+    )!;
     expect(wedding).toBeDefined();
     ticks(g, wedding.day - g.s.day + 1);
     expect(meOf(g.s, life)!.spouse).toBe(her.id);
@@ -485,7 +680,9 @@ describe("lovers when married", () => {
           plan: plan({
             religion,
             origin: "england",
-            home: prov(religion === "puritan" ? "Massachusetts Bay" : "Jamestown"),
+            home: prov(
+              religion === "puritan" ? "Massachusetts Bay" : "Jamestown",
+            ),
           }),
         },
       ],
@@ -496,7 +693,9 @@ describe("lovers when married", () => {
     const me = meOf(s, life)!;
     const wife = single(g, life);
     like(g, life, wife, 90);
-    expect(g.lifeCommand("s1", { k: "person", c: wife.id, act: "propose" })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "person", c: wife.id, act: "propose" }),
+    ).toBeNull();
     expect(me.spouse).toBe(wife.id);
     const other = single(g, life);
     return { g, life, me, wife, other };
@@ -507,7 +706,9 @@ describe("lovers when married", () => {
     const v = interactionView(g.s, g.w, life, other.id, "court");
     expect(v.check.ok).toBe(true);
     expect(v.label).toBe("Court in secret");
-    expect(interactionView(g.s, g.w, life, other.id, "propose").check.ok).toBe(false);
+    expect(interactionView(g.s, g.w, life, other.id, "propose").check.ok).toBe(
+      false,
+    );
     like(g, life, other, 90);
     life.skills.persuasion = 20;
     for (let i = 0; i < 12 && life.ties[other.id] !== "lover"; i++) {
@@ -520,31 +721,69 @@ describe("lovers when married", () => {
     // Meeting in secret raises what's suspected.
     const ex = a.exposure;
     life.cooldowns = {};
-    expect(g.lifeCommand("s1", { k: "person", c: other.id, act: "tryst" })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "person", c: other.id, act: "tryst" }),
+    ).toBeNull();
     expect(a.exposure).toBeGreaterThan(ex - 1);
   });
 
   test("found out: a spouse's anger, a separation (or a divorce where the church allows), a scandal", () => {
     const { g, life, me, wife, other } = married();
     setTie(g, life, other.id, "lover");
-    const a = (life.affairs = [{ c: other.id, since: g.s.day, exposure: 10, known: [], kids: [], met: g.s.day, blackmailer: -1 }])[0];
+    const a = (life.affairs = [
+      {
+        c: other.id,
+        since: g.s.day,
+        exposure: 10,
+        known: [],
+        kids: [],
+        met: g.s.day,
+        blackmailer: -1,
+      },
+    ])[0];
     exposeBy(g, life, a, 100);
     const ev = life.events.find((e) => e.key === "affair-found-spouse")!;
     expect(ev).toBeDefined();
-    expect(ev.choices.at(-1)!.label).toBe("Live apart");
-    expect(g.lifeCommand("s1", { k: "event", id: ev.id, choice: ev.choices.length - 1 })).toBeNull();
+    expect(ev.choices[ev.choices.length - 1].label).toBe("Live apart");
+    expect(
+      g.lifeCommand("s1", {
+        k: "event",
+        id: ev.id,
+        choice: ev.choices.length - 1,
+      }),
+    ).toBeNull();
     // Anglicans separate: still married.
     expect(me.spouse).toBe(wife.id);
     expect(life.scandal).toBeTruthy();
-    expect(opinionOf(g.s, wife, life).parts.some((p) => /apart|scandal/i.test(p.label))).toBe(true);
+    expect(
+      opinionOf(g.s, wife, life).parts.some((p) =>
+        /apart|scandal/i.test(p.label),
+      ),
+    ).toBe(true);
     // Puritans may divorce.
     const p = married(11, "puritan");
     setTie(p.g, p.life, p.other.id, "lover");
-    const pa = (p.life.affairs = [{ c: p.other.id, since: p.g.s.day, exposure: 10, known: [], kids: [], met: p.g.s.day, blackmailer: -1 }])[0];
+    const pa = (p.life.affairs = [
+      {
+        c: p.other.id,
+        since: p.g.s.day,
+        exposure: 10,
+        known: [],
+        kids: [],
+        met: p.g.s.day,
+        blackmailer: -1,
+      },
+    ])[0];
     exposeBy(p.g, p.life, pa, 100, "spouse");
     const pev = p.life.events.find((e) => e.key === "affair-found-spouse")!;
-    expect(pev.choices.at(-1)!.label).toBe("Ask for a divorce");
-    expect(p.g.lifeCommand("s1", { k: "event", id: pev.id, choice: pev.choices.length - 1 })).toBeNull();
+    expect(pev.choices[ev.choices.length - 1].label).toBe("Ask for a divorce");
+    expect(
+      p.g.lifeCommand("s1", {
+        k: "event",
+        id: pev.id,
+        choice: pev.choices.length - 1,
+      }),
+    ).toBeNull();
     expect(p.me.spouse).toBe(-1);
     expect(p.wife.spouse).toBe(-1);
   });
@@ -552,14 +791,26 @@ describe("lovers when married", () => {
   test("a child no one expected, and a blackmailer's letter", () => {
     const { g, life, me, other } = married();
     setTie(g, life, other.id, "lover");
-    const a = (life.affairs = [{ c: other.id, since: g.s.day, exposure: 50, known: [], kids: [], met: g.s.day, blackmailer: -1 }])[0];
+    const a = (life.affairs = [
+      {
+        c: other.id,
+        since: g.s.day,
+        exposure: 50,
+        known: [],
+        kids: [],
+        met: g.s.day,
+        blackmailer: -1,
+      },
+    ])[0];
     affairChild(g, life, a, other, me);
     expect(a.kids.length).toBe(1);
     const kid = g.s.chars[a.kids[0]];
     expect(kid.mother).toBe(other.id);
     expect(me.children).not.toContain(kid.id);
     const ev = life.events.find((e) => e.key === "affair-child")!;
-    expect(g.lifeCommand("s1", { k: "event", id: ev.id, choice: 0 })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "event", id: ev.id, choice: 0 }),
+    ).toBeNull();
     expect(kid.father).toBe(me.id);
     expect(me.children).toContain(kid.id);
     // Someone knows, and wants paying.
@@ -568,7 +819,14 @@ describe("lovers when married", () => {
     ticks(g, 40);
     const bm = postOf(life).find((l) => l.kind === "blackmail")!;
     expect(bm?.status).toBe("delivered");
-    expect(g.lifeCommand("s1", { k: "society", act: "answer", id: bm.id, yes: false })).toBeNull();
+    expect(
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "answer",
+        id: bm.id,
+        yes: false,
+      }),
+    ).toBeNull();
     expect(a.known).toContain("town");
     expect(life.scandal).toBeTruthy();
     expect(charName(kid).length).toBeGreaterThan(2);
@@ -580,7 +838,9 @@ describe("lovers when married", () => {
     life.skills.stealth = 20;
     const mark = locals(g, life).find((c) => !!npcSecret(g.s, c))!;
     expect(mark).toBeDefined();
-    expect(interactionView(g.s, g.w, life, mark.id, "blackmail").check.ok).toBe(false);
+    expect(interactionView(g.s, g.w, life, mark.id, "blackmail").check.ok).toBe(
+      false,
+    );
     for (let i = 0; i < 10 && !(life.secrets ?? []).length; i++) {
       life.cooldowns = {};
       g.lifeCommand("s1", { k: "person", c: mark.id, act: "pry" });
@@ -609,18 +869,26 @@ describe("lovers when married", () => {
     const b = lifeOf(g, "s2");
     const s = g.s;
     // A is married to someone of the world.
-    const wife = locals(g, a).find((c) => c.female && c.spouse < 0 && s.day - c.born > 18 * 365)!;
+    const wife = locals(g, a).find(
+      (c) => c.female && c.spouse < 0 && s.day - c.born > 18 * 365,
+    )!;
     like(g, a, wife, 90);
     a.purse = 100;
-    expect(g.lifeCommand("s1", { k: "person", c: wife.id, act: "propose" })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "person", c: wife.id, act: "propose" }),
+    ).toBeNull();
     const meA = meOf(s, a)!;
     const meB = meOf(s, b)!;
     meB.memories.push({ of: a.c, why: "Test", value: 60, until: 0 });
     meA.memories.push({ of: b.c, why: "Test", value: 60, until: 0 });
     expect(interactionView(s, g.w, a, b.c, "court").player).toBe(true);
-    expect(g.lifeCommand("s1", { k: "person", c: b.c, act: "court" })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "person", c: b.c, act: "court" }),
+    ).toBeNull();
     const ask = b.events.find((e) => e.key === "p2p-court")!;
-    expect(g.lifeCommand("s2", { k: "event", id: ask.id, choice: 0 })).toBeNull();
+    expect(
+      g.lifeCommand("s2", { k: "event", id: ask.id, choice: 0 }),
+    ).toBeNull();
     expect(a.ties[b.c]).toBe("lover");
     expect(affairWith(a, b.c)).toBeDefined();
     expect(affairWith(b, a.c)).toBeDefined();
@@ -636,11 +904,16 @@ describe("settlements and new nations", () => {
     life.renown = 30;
     const site = settlementSites(s, g.w, life)[0];
     expect(site).toBeDefined();
-    expect(g.lifeCommand("s1", { k: "society", act: "found", p: site.p, arg: 2 })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "society", act: "found", p: site.p, arg: 2 }),
+    ).toBeNull();
     expect(life.founding?.target).toBe(site.p);
     // Families who'd come.
     const folk = locals(g, life).filter(
-      (c) => c.home === life.prov && s.day - c.born > 20 * 365 && !s.nations.some((n) => n.ruler === c.id),
+      (c) =>
+        c.home === life.prov &&
+        s.day - c.born > 20 * 365 &&
+        !s.nations.some((n) => n.ruler === c.id),
     );
     let got = 0;
     for (const c of folk) {
@@ -649,11 +922,19 @@ describe("settlements and new nations", () => {
       const v = interactionView(s, g.w, life, c.id, "settle");
       if (!v.check.ok) continue;
       expect(v.accept!.parts.length).toBeGreaterThan(1);
-      if (v.will && !g.lifeCommand("s1", { k: "person", c: c.id, act: "settle" })) got++;
+      if (
+        v.will &&
+        !g.lifeCommand("s1", { k: "person", c: c.id, act: "settle" })
+      )
+        got++;
     }
     expect(life.founding!.settlers.length).toBe(3);
-    expect(g.lifeCommand("s1", { k: "society", act: "setout" })).toMatch(/Supplies/);
-    expect(g.lifeCommand("s1", { k: "society", act: "supply", arg: 100 })).toBeNull();
+    expect(g.lifeCommand("s1", { k: "society", act: "setout" })).toMatch(
+      /Supplies/,
+    );
+    expect(
+      g.lifeCommand("s1", { k: "society", act: "supply", arg: 100 }),
+    ).toBeNull();
     // The governor's leave.
     const gov = s.chars[s.nations[meOf(s, life)!.nation].ruler];
     like(g, life, gov, 80);
@@ -665,7 +946,9 @@ describe("settlements and new nations", () => {
     expect(pr.owner).toBe(meOf(s, life)!.nation);
     expect(life.home).toBe(site.p);
     expect(life.founding).toBeNull();
-    const founder = s.society!.offices[site.p].find((o) => o.key === "founder")!;
+    const founder = s.society!.offices[site.p].find(
+      (o) => o.key === "founder",
+    )!;
     expect(founder.holder).toBe(life.c);
     expect(s.locals[site.p].length).toBeGreaterThanOrEqual(3);
   });
@@ -676,8 +959,21 @@ describe("settlements and new nations", () => {
     const s = g.s;
     life.purse = 300;
     const site = settlementSites(s, g.w, life)[0];
-    expect(g.lifeCommand("s1", { k: "society", act: "found", p: site.p, free: true, arg: 1 })).toBeNull();
-    for (const c of locals(g, life).filter((c) => c.home === life.prov && s.day - c.born > 20 * 365 && !s.nations.some((n) => n.ruler === c.id))) {
+    expect(
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "found",
+        p: site.p,
+        free: true,
+        arg: 1,
+      }),
+    ).toBeNull();
+    for (const c of locals(g, life).filter(
+      (c) =>
+        c.home === life.prov &&
+        s.day - c.born > 20 * 365 &&
+        !s.nations.some((n) => n.ruler === c.id),
+    )) {
       if (life.founding!.settlers.length >= 3) break;
       like(g, life, c, 90);
       g.lifeCommand("s1", { k: "person", c: c.id, act: "settle" });
@@ -694,14 +990,34 @@ describe("settlements and new nations", () => {
     expect(s.provinces[site.p].owner).toBe(n.id);
     expect(life.constitute?.n).toBe(n.id);
     expect(life.events.some((e) => e.key === "found-government")).toBe(true);
-    const flag = { field: FLAG_COLORS[8], division: "canton" as const, second: FLAG_COLORS[0], charge: "star" as const, chargeColor: FLAG_COLORS[5] };
+    const flag = {
+      field: FLAG_COLORS[8],
+      division: "canton" as const,
+      second: FLAG_COLORS[0],
+      charge: "star" as const,
+      chargeColor: FLAG_COLORS[5],
+    };
     expect(
-      g.lifeCommand("s1", { k: "society", act: "constitute", name: "the Republic of New Albion", adjective: "Albionese", color: FLAG_COLORS[8], flag, gov: "republic", p: site.p, offices: {} }),
+      g.lifeCommand("s1", {
+        k: "society",
+        act: "constitute",
+        name: "the Republic of New Albion",
+        adjective: "Albionese",
+        color: FLAG_COLORS[8],
+        flag,
+        gov: "republic",
+        p: site.p,
+        offices: {},
+      }),
     ).toBeNull();
     expect(n.name).toBe("the Republic of New Albion");
     expect(n.flag).toEqual(flag);
     expect(n.gov).toBe("republic");
-    expect(officesOf(s, life.c).some((o) => /President of Republic of New Albion/.test(o.label))).toBe(true);
+    expect(
+      officesOf(s, life.c).some((o) =>
+        /President of Republic of New Albion/.test(o.label),
+      ),
+    ).toBe(true);
     // The world runs it on: a year of AI, nothing breaks.
     ticks(g, 365);
     expect(Number.isFinite(n.gold)).toBe(true);
@@ -716,8 +1032,16 @@ describe("settlements and new nations", () => {
     n.ruler = me.id;
     risingWon(g, n.id, me.id, true);
     expect(life.constitute?.n).toBe(n.id);
-    const officer = s.chars[n.council.treasurer] ?? locals(g, life).find((c) => !c.female && s.day - c.born > 30 * 365)!;
-    const flag = { field: FLAG_COLORS[2], division: "stripes" as const, second: FLAG_COLORS[0], charge: "tree" as const, chargeColor: FLAG_COLORS[6] };
+    const officer =
+      s.chars[n.council.treasurer] ??
+      locals(g, life).find((c) => !c.female && s.day - c.born > 30 * 365)!;
+    const flag = {
+      field: FLAG_COLORS[2],
+      division: "stripes" as const,
+      second: FLAG_COLORS[0],
+      charge: "tree" as const,
+      chargeColor: FLAG_COLORS[6],
+    };
     const err = g.lifeCommand("s1", {
       k: "society",
       act: "constitute",

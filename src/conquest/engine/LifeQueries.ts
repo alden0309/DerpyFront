@@ -44,10 +44,8 @@ import type { World } from "./Map";
 import { landHopDays, seaHopDays } from "./Paths";
 import { propertyBudget } from "./Property";
 // SOCIETY (r11)
-import { rulerTitle } from "./SocietyRules";
 import { AMERICAS, worldOf } from "./Map";
 import { localOfficesOf, OFFICES, officeTitle } from "./Offices";
-import { societyOpinion } from "./SocietyOpinion";
 import {
   ageOf,
   atWar,
@@ -64,6 +62,8 @@ import {
   SEAT_NAMES,
   TITLE_NAMES,
 } from "./Rules";
+import { societyOpinion } from "./SocietyOpinion";
+import { rulerTitle } from "./SocietyRules";
 import {
   Breakdown,
   Character,

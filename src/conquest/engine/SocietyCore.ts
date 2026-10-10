@@ -28,7 +28,10 @@ export function dice(g: ConquestGame): Rng {
   if (!d || d.day !== s.day) {
     d = {
       day: s.day,
-      rng: (Math.imul(s.settings.seed | 0, 2654435761) ^ Math.imul(s.day + 7919, 0x5eed50c)) | 0,
+      rng:
+        (Math.imul(s.settings.seed | 0, 2654435761) ^
+          Math.imul(s.day + 7919, 0x5eed50c)) |
+        0,
     };
     DICE.set(g, d);
   }

@@ -14,6 +14,7 @@ import { Explain } from "./Explain";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { wed } from "./Interactions";
+import { addressOf, npcWrite, postRoute, sendInvitation } from "./Letters";
 import {
   addRenown,
   addStress,
@@ -36,11 +37,9 @@ import {
   no,
   opinionOf,
   peopleHere,
-  weddingCost,
   yes,
 } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
-import { addressOf, npcWrite, postRoute, sendInvitation } from "./Letters";
 import type { World } from "./Map";
 import { ageOf, charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
@@ -90,7 +89,18 @@ export const GATHERINGS: Record<GatheringKind, GatheringDef> = {
     venues: ["home", "tavern"],
     base: 5,
     appeal: { greedy: 5, charming: 5, content: 5 },
-    pool: ["toast", "quarrel", "drunk", "insult", "romance", "business", "dish", "surprise", "ghost", "accident"],
+    pool: [
+      "toast",
+      "quarrel",
+      "drunk",
+      "insult",
+      "romance",
+      "business",
+      "dish",
+      "surprise",
+      "ghost",
+      "accident",
+    ],
     renown: 1.5,
   },
   feast: {
@@ -101,7 +111,18 @@ export const GATHERINGS: Record<GatheringKind, GatheringDef> = {
     venues: ["home", "tavern", "village", "fields"],
     base: 10,
     appeal: { greedy: 8, drunkard: 10, generous: 5 },
-    pool: ["toast", "quarrel", "drunk", "fight", "romance", "business", "dish", "surprise", "ghost", "accident"],
+    pool: [
+      "toast",
+      "quarrel",
+      "drunk",
+      "fight",
+      "romance",
+      "business",
+      "dish",
+      "surprise",
+      "ghost",
+      "accident",
+    ],
     renown: 2,
   },
   ball: {
@@ -112,7 +133,16 @@ export const GATHERINGS: Record<GatheringKind, GatheringDef> = {
     venues: ["home", "tavern", "governor"],
     base: 22,
     appeal: { charming: 10, ambitious: 6, zealous: -25, content: -3 },
-    pool: ["dance", "toast", "romance", "insult", "quarrel", "surprise", "drunk", "business"],
+    pool: [
+      "dance",
+      "toast",
+      "romance",
+      "insult",
+      "quarrel",
+      "surprise",
+      "drunk",
+      "business",
+    ],
     renown: 3,
   },
   cards: {
@@ -181,7 +211,15 @@ export const GATHERINGS: Record<GatheringKind, GatheringDef> = {
     base: 10,
     need: "wed",
     appeal: { generous: 4, charming: 4 },
-    pool: ["wedding", "dance", "toast", "drunk", "romance", "surprise", "quarrel"],
+    pool: [
+      "wedding",
+      "dance",
+      "toast",
+      "drunk",
+      "romance",
+      "surprise",
+      "quarrel",
+    ],
     renown: 2,
   },
   christening: {
@@ -216,7 +254,15 @@ export const GATHERINGS: Record<GatheringKind, GatheringDef> = {
     venues: ["village", "councilfire"],
     base: 4,
     appeal: { generous: 8, greedy: 4 },
-    pool: ["speech", "dance", "ghost", "quarrel", "romance", "surprise", "dish"],
+    pool: [
+      "speech",
+      "dance",
+      "ghost",
+      "quarrel",
+      "romance",
+      "surprise",
+      "dish",
+    ],
     renown: 2,
   },
   dance: {
@@ -249,7 +295,17 @@ export const GATHERINGS: Record<GatheringKind, GatheringDef> = {
     venues: ["village"],
     base: 6,
     months: [6, 7],
-    peoples: ["muscogee", "cherokee", "choctaw", "chickasaw", "natchez", "haudenosaunee", "wendat", "timucua", "calusa"],
+    peoples: [
+      "muscogee",
+      "cherokee",
+      "choctaw",
+      "chickasaw",
+      "natchez",
+      "haudenosaunee",
+      "wendat",
+      "timucua",
+      "calusa",
+    ],
     appeal: { zealous: 8, tolerant: 4 },
     pool: ["greencorn", "dance", "ghost", "romance"],
     renown: 2.5,
@@ -360,15 +416,24 @@ export function hostCheck(
   if (isChildLife(s, life)) return no("Not until you're grown.");
   if (life.travel) return no("Not from the road.");
   const native = lifeIsNative(s, life);
-  if (def.who === "colonist" && native) return no("Not a custom of your people.");
-  if (def.who === "native" && !native) return no("Not yours to give: it's for the native towns.");
+  if (def.who === "colonist" && native)
+    return no("Not a custom of your people.");
+  if (def.who === "native" && !native)
+    return no("Not yours to give: it's for the native towns.");
   if (def.peoples && !def.peoples.includes(me.culture))
     return no("Not a ceremony your people keep.");
   if (def.months && !def.months.includes(dateOf(s.day + days).month))
-    return no(`Only in its season (${def.months.map((m) => ["January","February","March","April","May","June","July","August","September","October","November","December"][m]).join(", ")}).`);
+    return no(
+      `Only in its season (${def.months.map((m) => ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][m]).join(", ")}).`,
+    );
   if (!venuesFor(s, w, life, kind).includes(venue))
-    return no(venue === "home" ? "Only at your own home." : "There's no such place here.");
-  if (!Number.isInteger(scale) || scale < 1 || scale > 3) return no("How grand?");
+    return no(
+      venue === "home"
+        ? "Only at your own home."
+        : "There's no such place here.",
+    );
+  if (!Number.isInteger(scale) || scale < 1 || scale > 3)
+    return no("How grand?");
   if (!Number.isInteger(days) || days < 3 || days > 120)
     return no("Between three days and four months from now.");
   if (gatheringAbout(s, life, kind) === null)
@@ -431,9 +496,18 @@ export function rsvpBreakdown(
   const e = new Explain().add("An invitation is a compliment", 8);
   const op = hostLife
     ? opinionOf(s, c, hostLife).total
-    : (c.memories.filter((m) => m.of === gat.host).reduce((a, m) => a + m.value, 0));
-  e.add(`What they think of ${host?.first ?? "the host"} (${op})`, Math.round(op / 2));
-  if (gat.scale > 1) e.add(gat.scale === 3 ? "A grand affair" : "A handsome affair", (gat.scale - 1) * 4);
+    : c.memories
+        .filter((m) => m.of === gat.host)
+        .reduce((a, m) => a + m.value, 0);
+  e.add(
+    `What they think of ${host?.first ?? "the host"} (${op})`,
+    Math.round(op / 2),
+  );
+  if (gat.scale > 1)
+    e.add(
+      gat.scale === 3 ? "A grand affair" : "A handsome affair",
+      (gat.scale - 1) * 4,
+    );
   if (hostLife) {
     const fame = Math.min(10, Math.floor(hostLife.renown / 5));
     if (fame) e.add("Your name", fame);
@@ -444,24 +518,42 @@ export function rsvpBreakdown(
   }
   for (const [t, v] of Object.entries(def.appeal))
     if (hasTrait(c, t as TraitId) && v)
-      e.add(t === "zealous" && v < 0 ? (gat.kind === "ball" ? "Dancing is sinful" : "Cards are sinful") : `${t[0].toUpperCase()}${t.slice(1)}`, v);
+      e.add(
+        t === "zealous" && v < 0
+          ? gat.kind === "ball"
+            ? "Dancing is sinful"
+            : "Cards are sinful"
+          : `${t[0].toUpperCase()}${t.slice(1)}`,
+        v,
+      );
   const status = c.role ? ROLES[c.role].status : 2;
   if (gat.kind === "ball") {
     if (status >= 4) e.add("A gentleman's pleasure", 6);
     if (status <= 1) e.add("Out of their station", -10);
   }
   const nativeGuest = isNativeChar(s, c);
-  if (def.who === "native" && !nativeGuest) e.add("A stranger at another people's fire", -8);
+  if (def.who === "native" && !nativeGuest)
+    e.add("A stranger at another people's fire", -8);
   if (def.who === "colonist" && nativeGuest) e.add("A stranger's table", -10);
   if (host) {
-    const shared = sharedLevel(tonguesOf(s, w.map, c), tonguesOf(s, w.map, host)).level;
+    const shared = sharedLevel(
+      tonguesOf(s, w.map, c),
+      tonguesOf(s, w.map, host),
+    ).level;
     if (shared < 1) e.add("No tongue in common", -10);
   }
   if (gat.kind === "wedding") e.add("Everyone loves a wedding", 10);
   if (gat.kind === "funeral") {
     const kin = gat.about.some((d) => {
       const x = s.chars[d];
-      return x && (x.father === c.id || x.mother === c.id || c.father === x.id || c.mother === x.id || x.spouse === c.id);
+      return (
+        x &&
+        (x.father === c.id ||
+          x.mother === c.id ||
+          c.father === x.id ||
+          c.mother === x.id ||
+          x.spouse === c.id)
+      );
     });
     e.add(kin ? "Their own family" : "One pays one's respects", kin ? 25 : 6);
   }
@@ -473,7 +565,11 @@ export function rsvpBreakdown(
     const letter = atArrival ? 0 : r ? r.days : 30;
     if (s.day + letter + travel > gat.day && !lifeOfChar(s, c.id))
       e.add("Can't get there in time", -100);
-    else e.add(`A journey of ${travel} days`, -Math.min(30, Math.round(travel / 3)));
+    else
+      e.add(
+        `A journey of ${travel} days`,
+        -Math.min(30, Math.round(travel / 3)),
+      );
   }
   if (lifeOfChar(s, c.id)) e.add("Another player decides", 0, true);
   return e.done(0);
@@ -483,7 +579,9 @@ function pushGathering(g: ConquestGame, gat: Gathering): void {
   const soc = society(g);
   soc.gatherings.push(gat);
   // Keep the last few held, for the record.
-  const done = soc.gatherings.filter((x) => x.status === "held" || x.status === "cancelled");
+  const done = soc.gatherings.filter(
+    (x) => x.status === "held" || x.status === "cancelled",
+  );
   if (done.length > 16) {
     const drop = new Set(done.slice(0, done.length - 16).map((x) => x.id));
     soc.gatherings = soc.gatherings.filter((x) => !drop.has(x.id));
@@ -492,7 +590,12 @@ function pushGathering(g: ConquestGame, gat: Gathering): void {
 }
 
 /** Invite someone: at once if they're here, by letter if not. */
-function invite(g: ConquestGame, life: Life | undefined, gat: Gathering, c: Character): void {
+function invite(
+  g: ConquestGame,
+  life: Life | undefined,
+  gat: Gathering,
+  c: Character,
+): void {
   const s = g.s;
   if (gat.invited.includes(c.id)) return;
   gat.invited.push(c.id);
@@ -502,7 +605,11 @@ function invite(g: ConquestGame, life: Life | undefined, gat: Gathering, c: Char
   if (other) {
     // Another player: a card (or a letter) to answer.
     const host = s.chars[gat.host];
-    if (host) npcWrite(g, other, host, "invite", inviteText(g, gat), { ask: true, arg: gat.id });
+    if (host)
+      npcWrite(g, other, host, "invite", inviteText(g, gat), {
+        ask: true,
+        arg: gat.id,
+      });
     return;
   }
   if (here || !life) {
@@ -516,7 +623,20 @@ export function inviteText(g: ConquestGame, gat: Gathering): string {
   const host = s.chars[gat.host];
   const def = GATHERINGS[gat.kind];
   const when = dateOf(gat.day);
-  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
   const where = g.map.provinces[gat.prov]?.name ?? "";
   if (gat.kind === "wedding" && gat.about.length === 2)
     return `${charName(s.chars[gat.about[0]])} and ${charName(s.chars[gat.about[1]])} request the pleasure of your company at their wedding, at ${where}, on the ${when.day}th of ${months[when.month]}. ${charName(host)}.`;
@@ -528,7 +648,10 @@ function topReason(b: Breakdown): string {
   const parts = b.parts
     .filter((p) => !p.mul && (yesA ? p.value > 0 : p.value < 0))
     .sort((a, x) => (yesA ? x.value - a.value : a.value - x.value));
-  return parts[0]?.label.replace(/ \(.*\)$/, "") ?? (yesA ? "glad to" : "would rather not");
+  return (
+    parts[0]?.label.replace(/ \(.*\)$/, "") ??
+    (yesA ? "glad to" : "would rather not")
+  );
 }
 
 /** A guest's answer. */
@@ -545,7 +668,11 @@ export function answerInvite(
   const hostLife = lifeOfChar(g.s, gat.host);
   const ch = g.s.chars[c];
   if (hostLife && ch && !lifeOfChar(g.s, c) && addressOf(g.s, ch) === gat.prov)
-    journal(g, hostLife, `${charName(ch)} ${yesA ? "will come" : "won't come"} to your ${GATHERINGS[gat.kind].name.toLowerCase()}: ${why.toLowerCase()}.`);
+    journal(
+      g,
+      hostLife,
+      `${charName(ch)} ${yesA ? "will come" : "won't come"} to your ${GATHERINGS[gat.kind].name.toLowerCase()}: ${why.toLowerCase()}.`,
+    );
 }
 
 /** A player gives a gathering. */
@@ -599,38 +726,61 @@ export function hostGathering(
 }
 
 /** Ask more people to a gathering you're giving. */
-export function inviteMore(g: ConquestGame, life: Life, id: number, guests: number[]): string | null {
+export function inviteMore(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+  guests: number[],
+): string | null {
   const s = g.s;
   const gat = gatheringById(s, id);
-  if (!gat || gat.host !== life.c || gat.status !== "planned") return "Not a gathering of yours.";
+  if (!gat || gat.host !== life.c || gat.status !== "planned")
+    return "Not a gathering of yours.";
   const max = SCALE[gat.scale - 1].guests;
   const can = new Map(invitables(s, g.w, life).map((x) => [x.c.id, x.c]));
   const add = guests.filter((x) => can.has(x) && !gat.invited.includes(x));
   if (!add.length) return "Nobody new to ask.";
-  if (gat.invited.length + add.length > max) return `No more than ${max} guests.`;
+  if (gat.invited.length + add.length > max)
+    return `No more than ${max} guests.`;
   for (const x of add) invite(g, life, gat, can.get(x)!);
   touchLife(g, life);
   return null;
 }
 
-export function cancelGathering(g: ConquestGame, life: Life, id: number): string | null {
+export function cancelGathering(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+): string | null {
   const s = g.s;
   const gat = gatheringById(s, id);
-  if (!gat || gat.host !== life.c || gat.status !== "planned") return "Not a gathering of yours.";
-  if (gat.kind === "wedding") return "Call off a wedding? Not by cancelling the feast.";
+  if (!gat || gat.host !== life.c || gat.status !== "planned")
+    return "Not a gathering of yours.";
+  if (gat.kind === "wedding")
+    return "Call off a wedding? Not by cancelling the feast.";
   gat.status = "cancelled";
   g.societyChanged("g");
   for (const [c, r] of Object.entries(gat.rsvp))
     if (r.yes && s.chars[Number(c)]?.alive)
       remembers(g, life, g.char(Number(c)), "Called off their party", -4, 1);
-  journal(g, life, `You call off your ${GATHERINGS[gat.kind].name.toLowerCase()}. The money's spent.`);
+  journal(
+    g,
+    life,
+    `You call off your ${GATHERINGS[gat.kind].name.toLowerCase()}. The money's spent.`,
+  );
   return null;
 }
 
 /** A player answers an invitation they're holding (here, or by letter). */
-export function rsvp(g: ConquestGame, life: Life, id: number, yesA: boolean): string | null {
+export function rsvp(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+  yesA: boolean,
+): string | null {
   const gat = gatheringById(g.s, id);
-  if (!gat || !gat.invited.includes(life.c) || gat.status !== "planned") return "No such invitation.";
+  if (!gat || !gat.invited.includes(life.c) || gat.status !== "planned")
+    return "No such invitation.";
   answerInvite(g, gat, life.c, yesA, yesA ? "glad to come" : "sends regrets");
   // The letter that brought it is answered too.
   for (const l of life.post ?? [])
@@ -645,12 +795,17 @@ export function rsvp(g: ConquestGame, life: Life, id: number, yesA: boolean): st
 // ---------------------------------------------------------------- weddings
 
 /** A promise made by letter: the other comes to you, and the wedding's at your home. */
-export function scheduleWedding(g: ConquestGame, life: Life, fiance: Character): string | null {
+export function scheduleWedding(
+  g: ConquestGame,
+  life: Life,
+  fiance: Character,
+): string | null {
   const s = g.s;
   const me = meOf(s, life);
   if (!me) return "You're watching.";
   const from = addressOf(s, fiance);
-  const travel = from >= 0 ? (postRoute(s, g.map, from, life.home)?.days ?? 30) : 30;
+  const travel =
+    from >= 0 ? (postRoute(s, g.map, from, life.home)?.days ?? 30) : 30;
   const venue: PlaceKind = hasPlace(s, g.w, life.home, "church")
     ? "church"
     : hasPlace(s, g.w, life.home, "village")
@@ -707,7 +862,10 @@ function marryAtWedding(g: ConquestGame, gat: Gathering): boolean {
     marry(s, g.touchChar(a), g.touchChar(b));
     touchLife(g, lb).home = la.home;
     g.touchChar(b).home = la.home;
-    for (const [x, y] of [[la, b], [lb, a]] as const) {
+    for (const [x, y] of [
+      [la, b],
+      [lb, a],
+    ] as const) {
       touchLife(g, x).tally.marriages++;
       addStress(g, x, -10);
       journal(g, x, `You married ${charName(y)}.`, "good");
@@ -747,12 +905,26 @@ function nextTurn(
   if (!me) return null;
   const host = s.chars[gat.host];
   const here = attendees(s, gat).filter((c) => c.id !== me.id);
-  if (host && host.id !== me.id && host.alive && !here.includes(host)) here.unshift(host);
-  if (!here.length) return gat.played.includes("empty") ? null : { key: "empty", c: -1 };
+  if (host && host.id !== me.id && host.alive && !here.includes(host))
+    here.unshift(host);
+  if (!here.length)
+    return gat.played.includes("empty") ? null : { key: "empty", c: -1 };
   const r = dice(g);
   const pool = GATHERINGS[gat.kind].pool.filter((k) => !gat.played.includes(k));
   // The ceremony's own turn first.
-  const own = ["wedding", "christening", "eulogy", "greencorn", "council", "hunt", "raising", "frolic", "cards", "dance", "speech"];
+  const own = [
+    "wedding",
+    "christening",
+    "eulogy",
+    "greencorn",
+    "council",
+    "hunt",
+    "raising",
+    "frolic",
+    "cards",
+    "dance",
+    "speech",
+  ];
   const started = gat.played.some((k) => GATHERINGS[gat.kind].pool.includes(k));
   const first = started ? undefined : pool.find((k) => own.includes(k));
   const rest = pool.filter((k) => k !== first);
@@ -778,32 +950,60 @@ function guestFor(
   here: Character[],
   roll: number,
 ): number | null {
-  const any = (list: Character[]) => (list.length ? list[Math.floor(roll * list.length)].id : null);
+  const any = (list: Character[]) =>
+    list.length ? list[Math.floor(roll * list.length)].id : null;
   const adult = here.filter((c) => ageOf(s, c) >= 16);
   switch (key) {
     case "insult":
-      return any(adult.filter((c) => opinionOf(s, c, life).total < 0 || ["rival", "nemesis"].includes(life.ties[c.id] ?? "")));
+      return any(
+        adult.filter(
+          (c) =>
+            opinionOf(s, c, life).total < 0 ||
+            ["rival", "nemesis"].includes(life.ties[c.id] ?? ""),
+        ),
+      );
     case "romance":
-      return any(adult.filter((c) => c.female !== me.female && c.id !== me.spouse && ageOf(s, c) <= ageOf(s, me) + 20));
+      return any(
+        adult.filter(
+          (c) =>
+            c.female !== me.female &&
+            c.id !== me.spouse &&
+            ageOf(s, c) <= ageOf(s, me) + 20,
+        ),
+      );
     case "drunk":
       return any(adult.filter((c) => hasTrait(c, "drunkard"))) ?? any(adult);
     case "fight":
-      return adult.length >= 2 ? any(adult.filter((c) => !c.female)) ?? any(adult) : null;
+      return adult.length >= 2
+        ? (any(adult.filter((c) => !c.female)) ?? any(adult))
+        : null;
     case "business":
-      return any(adult.filter((c) => c.role && ROLES[c.role].status >= 3)) ?? null;
+      return (
+        any(adult.filter((c) => c.role && ROLES[c.role].status >= 3)) ?? null
+      );
     case "surprise": {
-      const others = peopleHere(s, gat.prov, life).filter((c) => !gat.invited.includes(c.id) && c.id !== gat.host && ageOf(s, c) >= 16);
-      const notable = others.filter((c) => (c.role ? ROLES[c.role].status : 2) >= 3);
+      const others = peopleHere(s, gat.prov, life).filter(
+        (c) =>
+          !gat.invited.includes(c.id) && c.id !== gat.host && ageOf(s, c) >= 16,
+      );
+      const notable = others.filter(
+        (c) => (c.role ? ROLES[c.role].status : 2) >= 3,
+      );
       return any(notable.length ? notable : others);
     }
     case "wedding":
     case "christening":
     case "eulogy":
-      return gat.about.length ? (gat.about.find((x) => x !== me.id) ?? gat.about[0]) : null;
+      return gat.about.length
+        ? (gat.about.find((x) => x !== me.id) ?? gat.about[0])
+        : null;
     case "speech":
     case "council":
     case "greencorn":
-      return any(adult.filter((c) => c.role === "sachem" || c.role === "elder")) ?? any(adult);
+      return (
+        any(adult.filter((c) => c.role === "sachem" || c.role === "elder")) ??
+        any(adult)
+      );
     default:
       return any(adult) ?? any(here);
   }
@@ -834,7 +1034,12 @@ export function gatherTurn(g: ConquestGame, life: Life, id: number): void {
 }
 
 /** What a turn did to the gathering. */
-export function gatherMood(g: ConquestGame, id: number, n: number, line?: string): void {
+export function gatherMood(
+  g: ConquestGame,
+  id: number,
+  n: number,
+  line?: string,
+): void {
   const gat = gatheringById(g.s, id);
   if (!gat) return;
   gat.mood += n;
@@ -848,21 +1053,42 @@ function begin(g: ConquestGame, gat: Gathering): void {
   const def = GATHERINGS[gat.kind];
   const hostLife = lifeOfChar(s, gat.host);
   const host = s.chars[gat.host];
-  if (!host?.alive || (hostLife && (hostLife.prov !== gat.prov || hostLife.travel))) {
+  if (
+    !host?.alive ||
+    (hostLife && (hostLife.prov !== gat.prov || hostLife.travel))
+  ) {
     // The host isn't there.
     if (gat.kind === "wedding" && hostLife && gat.played.length < 3) {
       // Put off once or twice.
       gat.day = s.day + 30;
       gat.played.push("put-off");
       g.societyChanged("g");
-      journal(g, hostLife, `You weren't at ${g.map.provinces[gat.prov]?.name} for your own wedding: it's put off a month.`, "bad");
+      journal(
+        g,
+        hostLife,
+        `You weren't at ${g.map.provinces[gat.prov]?.name} for your own wedding: it's put off a month.`,
+        "bad",
+      );
       return;
     }
     gat.status = "cancelled";
     g.societyChanged("g");
     if (hostLife) {
-      journal(g, hostLife, `You weren't there for your own ${def.name.toLowerCase()}. Your guests went home, and talked.`, "bad");
-      for (const c of attendees(s, gat)) remembers(g, hostLife, g.char(c.id), "Asked us and wasn't there", -6, 2);
+      journal(
+        g,
+        hostLife,
+        `You weren't there for your own ${def.name.toLowerCase()}. Your guests went home, and talked.`,
+        "bad",
+      );
+      for (const c of attendees(s, gat))
+        remembers(
+          g,
+          hostLife,
+          g.char(c.id),
+          "Asked us and wasn't there",
+          -6,
+          2,
+        );
     }
     return;
   }
@@ -900,11 +1126,24 @@ function conclude(g: ConquestGame, gat: Gathering): void {
   const share = came.length / asked;
   const mood = gat.mood + (came.length >= 3 ? 1 : came.length === 0 ? -3 : 0);
   const verdict =
-    mood >= 4 ? "a triumph" : mood >= 2 ? "a great success" : mood >= 0 ? "a pleasant evening" : mood >= -2 ? "a middling affair" : "a disaster";
+    mood >= 4
+      ? "a triumph"
+      : mood >= 2
+        ? "a great success"
+        : mood >= 0
+          ? "a pleasant evening"
+          : mood >= -2
+            ? "a middling affair"
+            : "a disaster";
   const hostLife = lifeOfChar(s, gat.host);
   const where = g.map.provinces[gat.prov]?.name ?? "";
   if (hostLife) {
-    const fame = Math.max(0, Math.round((def.renown * gat.scale * (0.5 + share) + Math.max(0, mood) * 0.6) * 10) / 10);
+    const fame = Math.max(
+      0,
+      Math.round(
+        (def.renown * gat.scale * (0.5 + share) + Math.max(0, mood) * 0.6) * 10,
+      ) / 10,
+    );
     addRenown(g, hostLife, mood <= -3 ? -1 : fame);
     addStress(g, hostLife, mood >= 0 ? -(4 + gat.scale * 2) : 3);
     for (const c of came) {
@@ -914,7 +1153,11 @@ function conclude(g: ConquestGame, gat: Gathering): void {
         g,
         hostLife,
         g.char(c.id),
-        mood >= 2 ? `A splendid ${def.name.toLowerCase()}` : mood >= 0 ? `A pleasant ${def.name.toLowerCase()}` : `A wretched ${def.name.toLowerCase()}`,
+        mood >= 2
+          ? `A splendid ${def.name.toLowerCase()}`
+          : mood >= 0
+            ? `A pleasant ${def.name.toLowerCase()}`
+            : `A wretched ${def.name.toLowerCase()}`,
         v,
         3,
       );
@@ -926,8 +1169,21 @@ function conclude(g: ConquestGame, gat: Gathering): void {
       mood >= 0 ? "good" : "bad",
     );
     if (gat.scale >= 2 && mood >= 2)
-      milestone(g, hostLife, "renown", `Gave ${def.a} at ${where}, ${verdict}`, gat.prov);
-    if (gat.scale >= 2) rumour(g, gat.prov, `${charName(s.chars[gat.host])}'s ${def.name.toLowerCase()} at ${where} was ${verdict}.`, gat.host, mood >= 0 ? "good" : "bad");
+      milestone(
+        g,
+        hostLife,
+        "renown",
+        `Gave ${def.a} at ${where}, ${verdict}`,
+        gat.prov,
+      );
+    if (gat.scale >= 2)
+      rumour(
+        g,
+        gat.prov,
+        `${charName(s.chars[gat.host])}'s ${def.name.toLowerCase()} at ${where} was ${verdict}.`,
+        gat.host,
+        mood >= 0 ? "good" : "bad",
+      );
   }
   // Players who came as guests.
   for (const c of came) {
@@ -936,16 +1192,41 @@ function conclude(g: ConquestGame, gat: Gathering): void {
     addStress(g, l, -3);
     addRenown(g, l, 0.5);
     const host = s.chars[gat.host];
-    if (host && !lifeOfChar(s, host.id)) remembers(g, l, g.char(host.id), `Came to my ${def.name.toLowerCase()}`, 8, 3);
-    journal(g, l, `${gatheringName(s, g.w, gat)}: ${verdict}.`, mood >= 0 ? "good" : undefined);
+    if (host && !lifeOfChar(s, host.id))
+      remembers(
+        g,
+        l,
+        g.char(host.id),
+        `Came to my ${def.name.toLowerCase()}`,
+        8,
+        3,
+      );
+    journal(
+      g,
+      l,
+      `${gatheringName(s, g.w, gat)}: ${verdict}.`,
+      mood >= 0 ? "good" : undefined,
+    );
   }
   // Invited players who said yes and didn't come.
   for (const id of gat.invited) {
     const l = lifeOfChar(s, id);
-    if (!l || l === hostLife || !gat.rsvp[id]?.yes || came.some((c) => c.id === id)) continue;
+    if (
+      !l ||
+      l === hostLife ||
+      !gat.rsvp[id]?.yes ||
+      came.some((c) => c.id === id)
+    )
+      continue;
     const host = s.chars[gat.host];
-    if (host && !lifeOfChar(s, host.id)) remembers(g, l, g.char(host.id), "Said they'd come, and didn't", -8, 2);
-    journal(g, l, `You missed ${gatheringName(s, g.w, gat).replace(/^The /, "the ")}.`, "bad");
+    if (host && !lifeOfChar(s, host.id))
+      remembers(g, l, g.char(host.id), "Said they'd come, and didn't", -8, 2);
+    journal(
+      g,
+      l,
+      `You missed ${gatheringName(s, g.w, gat).replace(/^The /, "the ")}.`,
+      "bad",
+    );
   }
   gat.lines.push(`It was ${verdict}.`);
 }
@@ -972,14 +1253,18 @@ export function gatheringsMonthly(g: ConquestGame): void {
   const r = dice(g);
   for (const life of s.lives) {
     const me = meOf(s, life);
-    if (!me?.alive || life.watching || life.travel || isChildLife(s, life)) continue;
+    if (!me?.alive || life.watching || life.travel || isChildLife(s, life))
+      continue;
     if (!r.chance(0.14)) continue;
     const already = (s.society?.gatherings ?? []).some(
-      (x) => x.status === "planned" && x.invited.includes(me.id) && x.host !== me.id,
+      (x) =>
+        x.status === "planned" && x.invited.includes(me.id) && x.host !== me.id,
     );
     if (already) continue;
     const p = life.prov;
-    const folk = householdsOf(s, p).filter((c) => !lifeOfChar(s, c.id) && ageOf(s, c) >= 21);
+    const folk = householdsOf(s, p).filter(
+      (c) => !lifeOfChar(s, c.id) && ageOf(s, c) >= 21,
+    );
     // A wedding among the neighbours, now and then.
     const singles = folk.filter((c) => c.spouse < 0 && ageOf(s, c) <= 40);
     const groom = singles.find((c) => !c.female);
@@ -988,12 +1273,19 @@ export function gatheringsMonthly(g: ConquestGame): void {
       npcGathering(g, life, groom, "wedding", [groom.id, bride.id], folk);
       continue;
     }
-    const hosts = folk.filter((c) => (c.role ? ROLES[c.role].status : 1) >= 2 && opinionOf(s, c, life).total >= 0);
+    const hosts = folk.filter(
+      (c) =>
+        (c.role ? ROLES[c.role].status : 1) >= 2 &&
+        opinionOf(s, c, life).total >= 0,
+    );
     // A friend far off may ask too.
     const friends = Object.entries(life.ties)
       .filter(([, t]) => t === "friend")
       .map(([k]) => s.chars[Number(k)])
-      .filter((c) => c?.alive && !c.abroad && !lifeOfChar(s, c.id) && c.home !== undefined);
+      .filter(
+        (c) =>
+          c?.alive && !c.abroad && !lifeOfChar(s, c.id) && c.home !== undefined,
+      );
     const host = hosts.length ? hosts[r.int(0, hosts.length - 1)] : friends[0];
     if (!host) continue;
     const native = isNativeChar(s, host);
@@ -1005,11 +1297,21 @@ export function gatheringsMonthly(g: ConquestGame): void {
       if (def.who === "colonist" && native) return false;
       if (def.months && !def.months.includes(month)) return false;
       if (def.peoples && !def.peoples.includes(host.culture)) return false;
-      if (k === "ball" && (host.role ? ROLES[host.role].status : 1) < 4) return false;
+      if (k === "ball" && (host.role ? ROLES[host.role].status : 1) < 4)
+        return false;
       return true;
     });
     const kind = kinds.length ? kinds[r.int(0, kinds.length - 1)] : "feast";
-    npcGathering(g, life, host, kind, [], householdsOf(s, host.home ?? p).filter((c) => c.id !== host.id && !lifeOfChar(s, c.id) && ageOf(s, c) >= 16));
+    npcGathering(
+      g,
+      life,
+      host,
+      kind,
+      [],
+      householdsOf(s, host.home ?? p).filter(
+        (c) => c.id !== host.id && !lifeOfChar(s, c.id) && ageOf(s, c) >= 16,
+      ),
+    );
   }
 }
 
@@ -1025,7 +1327,9 @@ function npcGathering(
   const r = dice(g);
   const p = host.home ?? life.prov;
   const venue =
-    GATHERINGS[kind].venues.find((v) => v !== "home" && hasPlace(s, g.w, p, v)) ?? GATHERINGS[kind].venues[0];
+    GATHERINGS[kind].venues.find(
+      (v) => v !== "home" && hasPlace(s, g.w, p, v),
+    ) ?? GATHERINGS[kind].venues[0];
   const far = p !== life.prov;
   const travel = far ? (postRoute(s, g.map, p, life.prov)?.days ?? 30) * 2 : 0;
   const gat: Gathering = {
@@ -1051,13 +1355,17 @@ function npcGathering(
     gat.invited.push(c.id);
     gat.rsvp[c.id] = { yes: true, why: "a neighbour" };
   }
-  for (const id of about) if (!gat.invited.includes(id)) {
-    gat.invited.push(id);
-    gat.rsvp[id] = { yes: true, why: "the bride or groom" };
-  }
+  for (const id of about)
+    if (!gat.invited.includes(id)) {
+      gat.invited.push(id);
+      gat.rsvp[id] = { yes: true, why: "the bride or groom" };
+    }
   gat.invited.push(life.c);
   meet(g, life, host.id);
-  npcWrite(g, life, host, "invite", inviteText(g, gat), { ask: true, arg: gat.id });
+  npcWrite(g, life, host, "invite", inviteText(g, gat), {
+    ask: true,
+    arg: gat.id,
+  });
 }
 
 /** Gatherings a player gives or is asked to. */

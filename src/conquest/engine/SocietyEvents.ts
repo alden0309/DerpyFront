@@ -5,8 +5,16 @@
 // like every other event.
 
 import type { ConquestGame } from "./Game";
-import { gatheringById, gatherMood, gatherTurn, GATHERINGS } from "./Gatherings";
+import { gatheringById, gatherMood, gatherTurn } from "./Gatherings";
 import { duel } from "./Interactions";
+import {
+  acknowledge,
+  affairWith,
+  canDivorce,
+  endAffair,
+  partWays,
+  scandalize,
+} from "./Liaisons";
 import {
   addRenown,
   addStress,
@@ -22,15 +30,7 @@ import {
 } from "./LifeCore";
 import type { LCtx, LifeEventDef } from "./LifeEvents";
 import { lifeOfChar, meOf } from "./LifeQueries";
-import {
-  acknowledge,
-  affairWith,
-  canDivorce,
-  endAffair,
-  partWays,
-  scandalize,
-} from "./Liaisons";
-import { charName, hasTrait } from "./Queries";
+import { charName } from "./Queries";
 import { dice } from "./SocietyCore";
 import type { Character, Life, Skill } from "./Types";
 
@@ -48,11 +48,6 @@ const poor = (life: Life, n: number) =>
 
 function gat(g: ConquestGame, ctx: LCtx) {
   return gatheringById(g.s, ctx.g);
-}
-
-function what(g: ConquestGame, ctx: LCtx): string {
-  const x = gat(g, ctx);
-  return x ? GATHERINGS[x.kind].name.toLowerCase() : "evening";
 }
 
 function venue(g: ConquestGame, _life: Life, ctx: LCtx): string {
@@ -123,9 +118,18 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Persuasion: the room laughs and warms to you; fail, and it falls flat.",
         check: { skill: "persuasion", dc: 6 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 2, renown: 1, line: "The toast brought the house down." }
-            : { mood: -1, stress: 3, line: "The toast fell flat." }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 2,
+                  renown: 1,
+                  line: "The toast brought the house down.",
+                }
+              : { mood: -1, stress: 3, line: "The toast fell flat." },
+          ),
       },
       {
         label: (g, life, ctx) => `To ${first(g, ctx)}`,
@@ -134,7 +138,7 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
           turn(g, life, ctx, { mood: 1, op: 10, why: "Toasted me by name" }),
       },
       {
-        label: "\"To absent friends\"",
+        label: '"To absent friends"',
         tip: "Short, safe, a little moving.",
         apply: (g, life, ctx) => turn(g, life, ctx, { mood: 1, stress: -1 }),
       },
@@ -151,15 +155,31 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Persuasion: turn it into a joke everyone enjoys; fail and they think you've no answer.",
         check: { skill: "persuasion", dc: 7 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 1, op: 3, why: "Took it in good part", line: "A quarrel turned into a joke." }
-            : { op: -5, why: "Couldn't answer me", stress: 3 }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 1,
+                  op: 3,
+                  why: "Took it in good part",
+                  line: "A quarrel turned into a joke.",
+                }
+              : { op: -5, why: "Couldn't answer me", stress: 3 },
+          ),
       },
       {
         label: "Give as good as you get",
         tip: "A spirited answer: the table enjoys it, they don't.",
         apply: (g, life, ctx) =>
-          turn(g, life, ctx, { mood: 0, op: -15, why: "Bested me at table", renown: 1, line: "Hot words at table." }),
+          turn(g, life, ctx, {
+            mood: 0,
+            op: -15,
+            why: "Bested me at table",
+            renown: 1,
+            line: "Hot words at table.",
+          }),
       },
       {
         label: "Change the subject",
@@ -178,22 +198,42 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         label: (g, life, ctx) => `See ${him(who(g, ctx))} home yourself`,
         tip: "Kind, and they'll be grateful in the morning (once they remember).",
         apply: (g, life, ctx) =>
-          turn(g, life, ctx, { op: 10, why: "Saw me home when I was in my cups", stress: 1 }),
+          turn(g, life, ctx, {
+            op: 10,
+            why: "Saw me home when I was in my cups",
+            stress: 1,
+          }),
       },
       {
         label: "Have them put out",
         tip: "Order restored; their pride won't be.",
         apply: (g, life, ctx) =>
-          turn(g, life, ctx, { mood: 1, op: -10, why: "Had me put out", line: "A drunk guest was put out." }),
+          turn(g, life, ctx, {
+            mood: 1,
+            op: -10,
+            why: "Had me put out",
+            line: "A drunk guest was put out.",
+          }),
       },
       {
         label: "Join in the chorus",
         tip: "The evening gets louder and better. Probably.",
         apply: (g, life, ctx) => {
           const ok = dice(g).chance(0.6);
-          turn(g, life, ctx, ok
-            ? { mood: 2, op: 5, why: "Sang with me", renown: 0.5, line: "Half the room ended up singing." }
-            : { mood: -1, stress: 2, line: "The singing ended badly." });
+          turn(
+            g,
+            life,
+            ctx,
+            ok
+              ? {
+                  mood: 2,
+                  op: 5,
+                  why: "Sang with me",
+                  renown: 0.5,
+                  line: "Half the room ended up singing.",
+                }
+              : { mood: -1, stress: 2, line: "The singing ended badly." },
+          );
         },
       },
     ],
@@ -207,16 +247,28 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
       {
         label: "Rise above it",
         tip: "Dignity: the room thinks the better of you, and less of them.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: 1, renown: 1, stress: 4 }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { mood: 1, renown: 1, stress: 4 }),
       },
       {
         label: "A cutting answer",
         tip: "Persuasion: the laugh is on them; fail, and it's on you.",
         check: { skill: "persuasion", dc: 8 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 2, renown: 2, op: -10, why: "Made me a laughing-stock", line: "A barb was answered, brilliantly." }
-            : { mood: -1, renown: -1, stress: 4 }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 2,
+                  renown: 2,
+                  op: -10,
+                  why: "Made me a laughing-stock",
+                  line: "A barb was answered, brilliantly.",
+                }
+              : { mood: -1, renown: -1, stress: 4 },
+          ),
       },
       {
         label: "Demand satisfaction",
@@ -224,7 +276,8 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         apply: (g, life, ctx) => {
           const c = who(g, ctx);
           gatherMood(g, ctx.g, -2, "A challenge was given.");
-          if (c?.alive && !lifeOfChar(g.s, c.id)) duel(g, life, g.char(c.id), false);
+          if (c?.alive && !lifeOfChar(g.s, c.id))
+            duel(g, life, g.char(c.id), false);
           gatherTurn(g, life, ctx.g);
         },
       },
@@ -241,7 +294,8 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
     },
     [
       {
-        label: (g, life, ctx) => `Walk out with ${him(who(g, ctx))} for some air`,
+        label: (g, life, ctx) =>
+          `Walk out with ${him(who(g, ctx))} for some air`,
         tip: "Something may come of it. If either of you is married, it's the start of an affair, and people notice who leaves together.",
         apply: (g, life, ctx) => {
           const c = who(g, ctx);
@@ -250,19 +304,39 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
             remembers(g, life, g.char(c.id), "A walk in the moonlight", 12, 2);
             if (me.spouse >= 0 || c.spouse >= 0) {
               const sp = g.s.chars[me.spouse];
-              if (sp?.alive) remembers(g, life, g.char(sp.id), "Saw them leave together", -6, 1);
+              if (sp?.alive)
+                remembers(
+                  g,
+                  life,
+                  g.char(sp.id),
+                  "Saw them leave together",
+                  -6,
+                  1,
+                );
             }
           }
-          turn(g, life, ctx, { stress: -3, line: "Two guests were seen walking in the garden." });
+          turn(g, life, ctx, {
+            stress: -3,
+            line: "Two guests were seen walking in the garden.",
+          });
         },
       },
       {
         label: "Dance with your own husband or wife",
         tip: "A good marriage, on display.",
-        blocked: (g, life) => (meOf(g.s, life)!.spouse >= 0 ? null : "You're not married"),
+        blocked: (g, life) =>
+          meOf(g.s, life)!.spouse >= 0 ? null : "You're not married",
         apply: (g, life, ctx) => {
           const sp = g.s.chars[meOf(g.s, life)!.spouse];
-          if (sp?.alive) remembers(g, life, g.char(sp.id), "Danced with me all evening", 8, 1);
+          if (sp?.alive)
+            remembers(
+              g,
+              life,
+              g.char(sp.id),
+              "Danced with me all evening",
+              8,
+              1,
+            );
           turn(g, life, ctx, { mood: 1, stress: -2 });
         },
       },
@@ -288,17 +362,29 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
           const roll = dice(g).next();
           const back = roll < 0.25 ? 0 : roll < 0.55 ? 9 : roll < 0.9 ? 16 : 25;
           if (back) earn(g, life, back);
-          journal(g, life, back ? `The cargo came home: ${back} coins for your ten.` : "The ship was taken by a privateer off Antigua. Ten coins gone.", back >= 10 ? "good" : "bad");
-          turn(g, life, ctx, { op: 6, why: "Went into business with me", xp: { trade: 5 } });
+          journal(
+            g,
+            life,
+            back
+              ? `The cargo came home: ${back} coins for your ten.`
+              : "The ship was taken by a privateer off Antigua. Ten coins gone.",
+            back >= 10 ? "good" : "bad",
+          );
+          turn(g, life, ctx, {
+            op: 6,
+            why: "Went into business with me",
+            xp: { trade: 5 },
+          });
         },
       },
       {
         label: "Ask them to put your name about",
         tip: "Connections: they think well of you, and so may others.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { op: 4, renown: 1, xp: { persuasion: 3 } }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { op: 4, renown: 1, xp: { persuasion: 3 } }),
       },
       {
-        label: "\"Not tonight\"",
+        label: '"Not tonight"',
         tip: "Business can wait.",
         apply: (g, life, ctx) => turn(g, life, ctx, {}),
       },
@@ -315,21 +401,48 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Fighting: brave and quick, and the evening's saved; you may be burned.",
         check: { skill: "fighting", dc: 5 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 2, renown: 2, op: 8, why: "Put out the fire", line: "A fire was put out by a hero with a tablecloth." }
-            : { mood: 0, health: -8, renown: 1, line: "A fire, and a burned hand." }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 2,
+                  renown: 2,
+                  op: 8,
+                  why: "Put out the fire",
+                  line: "A fire was put out by a hero with a tablecloth.",
+                }
+              : {
+                  mood: 0,
+                  health: -8,
+                  renown: 1,
+                  line: "A fire, and a burned hand.",
+                },
+          ),
       },
       {
         label: "Carry on as if nothing happened",
         tip: "Persuasion: sang-froid, if you can carry it off.",
         check: { skill: "persuasion", dc: 7 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass ? { mood: 1, renown: 1 } : { mood: -2, stress: 4, line: "A fire spoiled the evening." }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? { mood: 1, renown: 1 }
+              : { mood: -2, stress: 4, line: "A fire spoiled the evening." },
+          ),
       },
       {
         label: "Everybody out!",
         tip: "Safe, and the end of the fun.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: -2, line: "Everyone stood in the yard in the cold." }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, {
+            mood: -2,
+            line: "Everyone stood in the yard in the cold.",
+          }),
       },
     ],
   ),
@@ -344,22 +457,42 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Fighting: you separate them and look a hero; fail and you take a fist.",
         check: { skill: "fighting", dc: 7 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 1, renown: 1, op: 4, why: "Stopped a fight", line: "A fight was stopped." }
-            : { health: -6, mood: -1, line: "A fight, and the peacemaker got the worst of it." }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 1,
+                  renown: 1,
+                  op: 4,
+                  why: "Stopped a fight",
+                  line: "A fight was stopped.",
+                }
+              : {
+                  health: -6,
+                  mood: -1,
+                  line: "A fight, and the peacemaker got the worst of it.",
+                },
+          ),
       },
       {
         label: "Take bets",
         tip: "A shilling on the bigger man. Rowdy, and it might pay.",
         apply: (g, life, ctx) => {
           const won = dice(g).chance(0.5);
-          turn(g, life, ctx, { mood: 1, coins: won ? 3 : -2, line: "A fight became a prize-fight." });
+          turn(g, life, ctx, {
+            mood: 1,
+            coins: won ? 3 : -2,
+            line: "A fight became a prize-fight.",
+          });
         },
       },
       {
         label: "Throw them both out",
         tip: "Order, and two people who won't come again.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: 0, op: -10, why: "Threw me out" }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { mood: 0, op: -10, why: "Threw me out" }),
       },
     ],
   ),
@@ -375,13 +508,20 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         blocked: (g, life) => poor(life, 3),
         apply: (g, life, ctx) => {
           spend(g, life, 3);
-          turn(g, life, ctx, { mood: 1, line: "A raw pudding, and pies from the tavern instead." });
+          turn(g, life, ctx, {
+            mood: 1,
+            line: "A raw pudding, and pies from the tavern instead.",
+          });
         },
       },
       {
         label: "Serve it anyway",
         tip: "Waste not. Someone will be ill.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: -2, line: "Several guests were unwell the next day." }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, {
+            mood: -2,
+            line: "Several guests were unwell the next day.",
+          }),
       },
       {
         label: "Blame the cook, loudly",
@@ -400,12 +540,18 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         label: "Welcome them in",
         tip: "Generous: a new acquaintance, and they'll remember it.",
         apply: (g, life, ctx) =>
-          turn(g, life, ctx, { mood: 1, op: 10, why: "Made me welcome", line: `${name(g, ctx)} came, uninvited, and was welcome.` }),
+          turn(g, life, ctx, {
+            mood: 1,
+            op: 10,
+            why: "Made me welcome",
+            line: `${name(g, ctx)} came, uninvited, and was welcome.`,
+          }),
       },
       {
         label: "Turn them away, politely",
         tip: "Your table, your rules. They won't forget either.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { op: -8, why: "Turned me away at the door" }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { op: -8, why: "Turned me away at the door" }),
       },
     ],
   ),
@@ -420,9 +566,18 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Letters: the room hangs on every word.",
         check: { skill: "letters", dc: 6 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 2, renown: 1, line: "The ghost stories went on till three." }
-            : { mood: 0, stress: 1 }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 2,
+                  renown: 1,
+                  line: "The ghost stories went on till three.",
+                }
+              : { mood: 0, stress: 1 },
+          ),
       },
       {
         label: "Admit you've seen one yourself",
@@ -432,7 +587,8 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
       {
         label: "Scoff",
         tip: "Reason wins; the evening loses.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: -1, op: -4, why: "Mocked my story" }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { mood: -1, op: -4, why: "Mocked my story" }),
       },
     ],
   ),
@@ -446,16 +602,30 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
       {
         label: (g, life, ctx) => `Lead out ${first(g, ctx)}`,
         tip: "An honour for them, and the evening begins well.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: 1, op: 10, why: "Led me out for the first dance" }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, {
+            mood: 1,
+            op: 10,
+            why: "Led me out for the first dance",
+          }),
       },
       {
         label: "Show them how it's done",
         tip: "Persuasion (and nerve): the floor is yours; fail and you trip over the curate.",
         check: { skill: "persuasion", dc: 6 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 2, renown: 1.5, line: "Everyone talked of the dancing." }
-            : { mood: 0, stress: 3, line: "Somebody fell over the curate." }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 2,
+                  renown: 1.5,
+                  line: "Everyone talked of the dancing.",
+                }
+              : { mood: 0, stress: 3, line: "Somebody fell over the curate." },
+          ),
       },
       {
         label: "Sit it out with the old folk",
@@ -476,23 +646,45 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         check: { skill: "trade", dc: 7 },
         blocked: (g, life) => poor(life, 5),
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { coins: 10, mood: 1, line: "A great hand of loo." }
-            : { coins: -5, stress: 2 }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? { coins: 10, mood: 1, line: "A great hand of loo." }
+              : { coins: -5, stress: 2 },
+          ),
       },
       {
         label: "Fold gracefully",
         tip: "Good manners and a full purse.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: 1, op: 3, why: "A gracious loser" }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { mood: 1, op: 3, why: "A gracious loser" }),
       },
       {
-        label: "\"You're cheating!\"",
+        label: '"You\'re cheating!"',
         tip: "Stealth (spotting it): if you're right, they're shamed; if not, you are.",
         check: { skill: "stealth", dc: 8 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { renown: 2, op: -20, why: "Caught me cheating", line: "A cardsharp was unmasked." }
-            : { renown: -2, op: -15, why: "Called me a cheat", mood: -2, line: "A false accusation at the card table." }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  renown: 2,
+                  op: -20,
+                  why: "Caught me cheating",
+                  line: "A cardsharp was unmasked.",
+                }
+              : {
+                  renown: -2,
+                  op: -15,
+                  why: "Called me a cheat",
+                  mood: -2,
+                  line: "A false accusation at the card table.",
+                },
+          ),
       },
     ],
   ),
@@ -507,14 +699,29 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Woodcraft: the kill and the glory; fail and you're thrown.",
         check: { skill: "woodcraft", dc: 7 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 2, renown: 2, xp: { woodcraft: 5 }, line: "A great stag was brought down." }
-            : { health: -10, mood: 0, line: "Someone was thrown at a fence." }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 2,
+                  renown: 2,
+                  xp: { woodcraft: 5 },
+                  line: "A great stag was brought down.",
+                }
+              : {
+                  health: -10,
+                  mood: 0,
+                  line: "Someone was thrown at a fence.",
+                },
+          ),
       },
       {
         label: (g, life, ctx) => `Let ${first(g, ctx)} take the shot`,
         tip: "Generous: the honour is theirs, and they'll remember who gave it.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: 1, op: 12, why: "Gave me the shot" }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { mood: 1, op: 12, why: "Gave me the shot" }),
       },
       {
         label: "Hang back with the breakfast",
@@ -534,9 +741,24 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Craft: the frame goes up true; fail and a beam catches you.",
         check: { skill: "craft", dc: 6 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 2, op: 6, why: "Worked beside me", xp: { craft: 5 }, line: "The frame went up by noon." }
-            : { health: -8, mood: 0, line: "A beam fell, and someone under it." }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 2,
+                  op: 6,
+                  why: "Worked beside me",
+                  xp: { craft: 5 },
+                  line: "The frame went up by noon.",
+                }
+              : {
+                  health: -8,
+                  mood: 0,
+                  line: "A beam fell, and someone under it.",
+                },
+          ),
       },
       {
         label: "Take charge of the lifting",
@@ -565,14 +787,26 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
       {
         label: "Cheer them on",
         tip: "The custom's the thing: the frolic roars.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: 2, op: 4, why: "A merry frolic" }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { mood: 2, op: 4, why: "A merry frolic" }),
       },
       {
         label: "Find a red ear of your own",
         tip: "Stealth (and a pocket): nobody need know you brought it.",
         check: { skill: "stealth", dc: 6 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass ? { mood: 2, stress: -4 } : { mood: 0, renown: -1, line: "Somebody was caught with a red ear up their sleeve." }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? { mood: 2, stress: -4 }
+              : {
+                  mood: 0,
+                  renown: -1,
+                  line: "Somebody was caught with a red ear up their sleeve.",
+                },
+          ),
       },
       {
         label: "Keep husking",
@@ -598,9 +832,19 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Persuasion: a toast they'll tell their grandchildren about.",
         check: { skill: "persuasion", dc: 5 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 2, op: 10, why: "A wedding toast to remember", line: "A wedding toast to remember." }
-            : { mood: 0, stress: 2 }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 2,
+                  op: 10,
+                  why: "A wedding toast to remember",
+                  line: "A wedding toast to remember.",
+                }
+              : { mood: 0, stress: 2 },
+          ),
       },
       {
         label: "Dance the night away",
@@ -613,7 +857,11 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         blocked: (g, life) => poor(life, 5),
         apply: (g, life, ctx) => {
           spend(g, life, 5);
-          turn(g, life, ctx, { op: 12, why: "A handsome wedding gift", mood: 1 });
+          turn(g, life, ctx, {
+            op: 12,
+            why: "A handsome wedding gift",
+            mood: 1,
+          });
         },
       },
     ],
@@ -651,9 +899,19 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Persuasion: there won't be a dry eye.",
         check: { skill: "persuasion", dc: 6 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 2, stress: -6, renown: 1, line: "The eulogy left no dry eye." }
-            : { mood: 0, stress: 2 }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? {
+                  mood: 2,
+                  stress: -6,
+                  renown: 1,
+                  line: "The eulogy left no dry eye.",
+                }
+              : { mood: 0, stress: 2 },
+          ),
       },
       {
         label: "Keep it short",
@@ -665,7 +923,14 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "The wake becomes a celebration. Some will be shocked.",
         apply: (g, life, ctx) => {
           const ok = dice(g).chance(0.65);
-          turn(g, life, ctx, ok ? { mood: 2, stress: -5, line: "The wake turned to laughter." } : { mood: -2, line: "Some found the stories shocking." });
+          turn(
+            g,
+            life,
+            ctx,
+            ok
+              ? { mood: 2, stress: -5, line: "The wake turned to laughter." }
+              : { mood: -2, line: "Some found the stories shocking." },
+          );
         },
       },
     ],
@@ -681,9 +946,14 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Persuasion: good words, well given, are remembered.",
         check: { skill: "persuasion", dc: 6 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass
-            ? { mood: 2, op: 8, why: "Spoke well at the feast", renown: 1 }
-            : { mood: 0, stress: 2 }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass
+              ? { mood: 2, op: 8, why: "Spoke well at the feast", renown: 1 }
+              : { mood: 0, stress: 2 },
+          ),
       },
       {
         label: "Give gifts to every guest (3)",
@@ -691,13 +961,18 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         blocked: (g, life) => poor(life, 3),
         apply: (g, life, ctx) => {
           spend(g, life, 3);
-          turn(g, life, ctx, { mood: 2, renown: 1.5, line: "Every guest went home with a gift." });
+          turn(g, life, ctx, {
+            mood: 2,
+            renown: 1.5,
+            line: "Every guest went home with a gift.",
+          });
         },
       },
       {
         label: "Let the elders speak",
         tip: "Respect for the old ones.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: 1, op: 5, why: "Respectful" }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { mood: 1, op: 5, why: "Respectful" }),
       },
     ],
   ),
@@ -712,17 +987,34 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Persuasion: the council comes to one mind.",
         check: { skill: "persuasion", dc: 7 },
         apply: (g, life, ctx, pass) =>
-          turn(g, life, ctx, pass ? { mood: 2, renown: 2, xp: { persuasion: 4 } } : { mood: 0 }),
+          turn(
+            g,
+            life,
+            ctx,
+            pass ? { mood: 2, renown: 2, xp: { persuasion: 4 } } : { mood: 0 },
+          ),
       },
       {
         label: "Speak for war",
         tip: "The young men cheer; the clan mothers don't.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: 1, renown: 1, op: -4, why: "Spoke for war" }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, {
+            mood: 1,
+            renown: 1,
+            op: -4,
+            why: "Spoke for war",
+          }),
       },
       {
         label: "Listen, and say little",
         tip: "Wisdom is often silent.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: 1, op: 4, why: "Listened well", stress: -2 }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, {
+            mood: 1,
+            op: 4,
+            why: "Listened well",
+            stress: -2,
+          }),
       },
     ],
   ),
@@ -735,7 +1027,8 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
       {
         label: "Keep the fast and the customs",
         tip: "Faith: the town is renewed, and you with it.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: 2, stress: -8, xp: { faith: 5 } }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { mood: 2, stress: -8, xp: { faith: 5 } }),
       },
       {
         label: "Forgive an old wrong",
@@ -745,7 +1038,15 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
             if (t === "rival") {
               setTie(g, life, Number(k), null);
               const c = g.s.chars[Number(k)];
-              if (c?.alive) remembers(g, life, g.char(c.id), "Forgave me at the green corn", 20, 3);
+              if (c?.alive)
+                remembers(
+                  g,
+                  life,
+                  g.char(c.id),
+                  "Forgave me at the green corn",
+                  20,
+                  3,
+                );
               break;
             }
           turn(g, life, ctx, { mood: 1, stress: -5, renown: 1 });
@@ -762,7 +1063,8 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
       {
         label: "Eat it all yourself",
         tip: "Somebody has to.",
-        apply: (g, life, ctx) => turn(g, life, ctx, { mood: -3, stress: 6, health: 1 }),
+        apply: (g, life, ctx) =>
+          turn(g, life, ctx, { mood: -3, stress: 6, health: 1 }),
       },
       {
         label: "Give it to the poor",
@@ -790,7 +1092,15 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         check: { skill: "persuasion", dc: 8 },
         apply: (g, life, ctx, pass) => {
           const c = who(g, ctx);
-          if (c) remembers(g, life, g.char(c.id), pass ? "Unfaithful, and sorry for it" : "Unfaithful", pass ? -15 : -45, 6);
+          if (c)
+            remembers(
+              g,
+              life,
+              g.char(c.id),
+              pass ? "Unfaithful, and sorry for it" : "Unfaithful",
+              pass ? -15 : -45,
+              6,
+            );
           const a = affairWith(life, ctx.l);
           if (a) endAffair(g, life, a, "you promised");
           addStress(g, life, 8);
@@ -803,7 +1113,8 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
           const c = who(g, ctx);
           if (c) remembers(g, life, g.char(c.id), "Unfaithful", -30, 6);
           const l = g.s.chars[ctx.l];
-          if (l?.alive && !lifeOfChar(g.s, l.id)) remembers(g, life, g.char(l.id), "Threw me over", -20, 3);
+          if (l?.alive && !lifeOfChar(g.s, l.id))
+            remembers(g, life, g.char(l.id), "Threw me over", -20, 3);
           const a = affairWith(life, ctx.l);
           if (a) endAffair(g, life, a, "you ended it");
         },
@@ -813,7 +1124,15 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "You carry on. Your marriage won't recover, and people will hear.",
         apply: (g, life, ctx) => {
           const c = who(g, ctx);
-          if (c) remembers(g, life, g.char(c.id), "Unfaithful, and unrepentant", -60, 0);
+          if (c)
+            remembers(
+              g,
+              life,
+              g.char(c.id),
+              "Unfaithful, and unrepentant",
+              -60,
+              0,
+            );
           addStress(g, life, 10);
           const a = affairWith(life, ctx.l);
           if (a) a.exposure = Math.max(a.exposure, 80);
@@ -821,14 +1140,21 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         },
       },
       {
-        label: (g, life) => (canDivorce(g.s, life) ? "Ask for a divorce" : "Live apart"),
+        label: (g, life) =>
+          canDivorce(g.s, life) ? "Ask for a divorce" : "Live apart",
         tip: (g, life) =>
           canDivorce(g.s, life)
             ? "Your church allows it, for adultery: the marriage is ended. Scandal follows."
             : "Your church won't end a marriage: you'll separate, still married in law.",
         apply: (g, life) => {
           partWays(g, life);
-          scandalize(g, life, canDivorce(g.s, life) ? "A divorce, over an affair" : "Separated, over an affair");
+          scandalize(
+            g,
+            life,
+            canDivorce(g.s, life)
+              ? "A divorce, over an affair"
+              : "Separated, over an affair",
+          );
         },
       },
     ],
@@ -860,7 +1186,8 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         apply: (g, life, ctx) => {
           spend(g, life, 15);
           const c = who(g, ctx);
-          if (c) remembers(g, life, g.char(c.id), "Paid me for my honour", -25, 5);
+          if (c)
+            remembers(g, life, g.char(c.id), "Paid me for my honour", -25, 5);
           const a = affairWith(life, ctx.l);
           if (a) endAffair(g, life, a, "bought off");
         },
@@ -877,7 +1204,8 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
             if (a) a.exposure = 30;
             touchLife(g, life);
           } else {
-            if (c) remembers(g, life, g.char(c.id), "Ruined my marriage", -40, 0);
+            if (c)
+              remembers(g, life, g.char(c.id), "Ruined my marriage", -40, 0);
             scandalize(g, life, "Caught in an affair and lying about it");
           }
         },
@@ -926,7 +1254,13 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         apply: (g, life, ctx, pass) => {
           gainXp(g, life, "faith", 5);
           if (pass && life.scandal) touchLife(g, life).scandal = null;
-          if (pass) journal(g, life, "You stood in the white sheet before the congregation. It was dreadful, and it worked.", "good");
+          if (pass)
+            journal(
+              g,
+              life,
+              "You stood in the white sheet before the congregation. It was dreadful, and it worked.",
+              "good",
+            );
         },
       },
     ],
@@ -950,11 +1284,17 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
       {
         label: "Acknowledge the child as yours",
         tip: "Honest, and a scandal: the child takes your name and may inherit.",
-        blocked: (g, life) => (meOf(g.s, life)!.female ? "The child is yours already" : null),
+        blocked: (g, life) =>
+          meOf(g.s, life)!.female ? "The child is yours already" : null,
         apply: (g, life, ctx) => {
           acknowledge(g, life, ctx.k);
           scandalize(g, life, "Acknowledged a natural child");
-          journal(g, life, "You acknowledge the child as yours, before the parish and everyone.", "good");
+          journal(
+            g,
+            life,
+            "You acknowledge the child as yours, before the parish and everyone.",
+            "good",
+          );
         },
       },
       {
@@ -975,7 +1315,8 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         apply: (g, life, ctx) => {
           spend(g, life, 10);
           const c = who(g, ctx);
-          if (c?.alive && !lifeOfChar(g.s, c.id)) remembers(g, life, g.char(c.id), "Provided for our child", 15, 0);
+          if (c?.alive && !lifeOfChar(g.s, c.id))
+            remembers(g, life, g.char(c.id), "Provided for our child", 15, 0);
         },
       },
     ],
@@ -999,10 +1340,12 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
       {
         label: "Call the other one out",
         tip: "A duel with the lover, if they'll meet you.",
-        blocked: (g, life, ctx) => (g.s.chars[ctx.l]?.alive ? null : "They're gone"),
+        blocked: (g, life, ctx) =>
+          g.s.chars[ctx.l]?.alive ? null : "They're gone",
         apply: (g, life, ctx) => {
           const l = g.s.chars[ctx.l];
-          if (l?.alive && !lifeOfChar(g.s, l.id)) duel(g, life, g.char(l.id), false);
+          if (l?.alive && !lifeOfChar(g.s, l.id))
+            duel(g, life, g.char(l.id), false);
           else if (l) setTie(g, life, l.id, "rival");
         },
       },
@@ -1059,12 +1402,14 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
         tip: "Open Affairs, then set up the new government: name, flag, colour, form, capital and first officers.",
         apply: (g, life) => {
           addRenown(g, life, 2);
-          journal(g, life, "The new government waits on you: Affairs, then \"Set up the government\".", "good");
+          journal(
+            g,
+            life,
+            'The new government waits on you: Affairs, then "Set up the government".',
+            "good",
+          );
         },
       },
     ],
   },
 ];
-
-void hasTrait;
-void heal;

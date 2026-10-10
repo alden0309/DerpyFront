@@ -33,6 +33,9 @@ import {
 import { GameUi, Modal, token } from "./Context";
 import { roleOf } from "./Here";
 import { eventScene, interactScene, outcomeScene } from "./Scene";
+// SOCIETY (r11)
+import { constituteModal } from "./Civic";
+import { hostModal, writeModal } from "./Society";
 import "./Story";
 
 /** What the menu and the results need from the game screen. */
@@ -101,6 +104,19 @@ export function renderModal(
       break;
     case "trade":
       body = tradePage(ui);
+      break;
+    // SOCIETY (r11)
+    case "write":
+      body = writeModal(ui, m);
+      cls = "wide society";
+      break;
+    case "host":
+      body = hostModal(ui);
+      cls = "wide society";
+      break;
+    case "constitute":
+      body = constituteModal(ui);
+      cls = "wide society";
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);

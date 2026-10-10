@@ -6,7 +6,12 @@ import type { GovForm, Nation, NationFlag } from "./Types";
 
 export const GOV_FORMS: Record<
   GovForm,
-  { name: string; text: string; ruler: [string, string]; fx: Nation["mods"][number]["fx"] }
+  {
+    name: string;
+    text: string;
+    ruler: [string, string];
+    fx: Nation["mods"][number]["fx"];
+  }
 > = {
   republic: {
     name: "Republic",

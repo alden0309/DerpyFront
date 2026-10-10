@@ -78,8 +78,8 @@ import {
   movementOf,
   movementPamphlet,
 } from "./Movements";
-import { campaignBoost, seekCourt, writeToCrown } from "./Politics";
 import { standingLocally } from "./Offices"; // SOCIETY (r11)
+import { campaignBoost, seekCourt, writeToCrown } from "./Politics";
 import {
   buyHouse,
   buyLand,

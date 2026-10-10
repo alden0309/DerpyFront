@@ -32,6 +32,7 @@ import {
   yes,
 } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
+import { localCampaign, localOfficesOf, localScore } from "./Offices"; // SOCIETY (r11)
 import { ageOf, charName, provincesOf, stat } from "./Queries";
 import { DAYS_PER_YEAR, SEAT_NAMES, SEAT_STAT } from "./Rules";
 import type {
@@ -45,7 +46,6 @@ import type {
 } from "./Types";
 import { SEATS } from "./Types";
 import { militaryCommand } from "./War";
-import { localCampaign, localOfficesOf, localScore } from "./Offices"; // SOCIETY (r11)
 
 const ASSEMBLY_NAMES: Record<string, string> = {
   english: "the House of Burgesses",
@@ -192,7 +192,8 @@ export function campaignBoost(
   // SOCIETY (r11): a local poll gains too.
   const local = localCampaign(g, life, points);
   if (!life.campaign) {
-    if (local) journal(g, life, `Your campaign gains from ${why} (+${points}).`);
+    if (local)
+      journal(g, life, `Your campaign gains from ${why} (+${points}).`);
     return;
   }
   touchLife(g, life).campaign!.points += points;

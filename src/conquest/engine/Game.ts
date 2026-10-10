@@ -264,7 +264,8 @@ export class ConquestGame {
     if (this.movements) d.movements = s.movements;
     if (this.travellers) d.travellers = s.travellers ?? [];
     if (this.rumours) d.rumours = s.rumours ?? [];
-    if (this.societyKeys.size > 0) d.society = societyDelta(s, this.societyKeys); // SOCIETY (r11)
+    if (this.societyKeys.size > 0)
+      d.society = societyDelta(s, this.societyKeys); // SOCIETY (r11)
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)

@@ -65,7 +65,6 @@ import {
   exposeBy,
   hushMoney,
   learnSecret,
-  npcSecret,
   scandalize,
   secretOn,
   startAffair,
@@ -75,17 +74,18 @@ import {
   appointerOf,
   eligible,
   giveOffice,
-  localOfficesOf,
-  OFFICES,
   officeById,
   officeName,
+  OFFICES,
   seekAcceptance,
 } from "./Offices";
+import { ageOf, charName, hasTrait } from "./Queries";
+import { DAYS_PER_YEAR, SEAT_NAMES } from "./Rules";
+import { rumour } from "./Rumours";
 import { learnTongue } from "./Society";
 import {
   LESSON_FEE,
   LESSON_POINTS,
-  LEVEL_NAMES,
   motherTongue,
   TALK_POINTS,
   talkWith,
@@ -93,9 +93,6 @@ import {
   tonguesOf,
   type TalkView,
 } from "./Tongues";
-import { ageOf, charName, hasTrait } from "./Queries";
-import { DAYS_PER_YEAR, SEAT_NAMES } from "./Rules";
-import { rumour } from "./Rumours";
 import type {
   Breakdown,
   Character,
@@ -401,7 +398,10 @@ const WORDS: Record<PersonAct, number> = {
 };
 
 /** How the barrier weighs on what they decide, and on the odds. */
-function tonguePart(t: TalkView, s: GameState): { label: string; value: number; dc: number } | null {
+function tonguePart(
+  t: TalkView,
+  s: GameState,
+): { label: string; value: number; dc: number } | null {
   if (t.via >= 0)
     return {
       label: `Through an interpreter, ${charName(s.chars[t.via])}`,
@@ -412,8 +412,16 @@ function tonguePart(t: TalkView, s: GameState): { label: string; value: number; 
   const tongue = tongueName(t.tongue);
   if (t.level === 2) return { label: `Halting ${tongue}`, value: -5, dc: 1 };
   if (t.level === 1)
-    return { label: `Only a few words of ${tongue} between you`, value: -20, dc: 4 };
-  return { label: "No tongue in common: signs and gestures", value: -35, dc: 6 };
+    return {
+      label: `Only a few words of ${tongue} between you`,
+      value: -20,
+      dc: 4,
+    };
+  return {
+    label: "No tongue in common: signs and gestures",
+    value: -35,
+    dc: 6,
+  };
 }
 
 /** Whether you and they can talk (an interpreter counts). */
@@ -431,7 +439,12 @@ export function seekable(s: GameState, life: Life, c: Character): number[] {
   const out: number[] = [];
   for (const list of Object.values(s.society?.offices ?? {}))
     for (const o of list)
-      if (appointerOf(s, o) === c.id && OFFICES[o.key].how !== "elected" && o.key !== "founder" && o.holder !== life.c)
+      if (
+        appointerOf(s, o) === c.id &&
+        OFFICES[o.key].how !== "elected" &&
+        o.key !== "founder" &&
+        o.holder !== life.c
+      )
         out.push(o.id);
   return out;
 }
@@ -647,11 +660,14 @@ function gates(
       const t = motherTongue(c.culture);
       if ((theirs[t] ?? 0) < 3 || (mine[t] ?? 0) >= 3)
         return no("Nothing they could teach you.");
-      return life.purse >= LESSON_FEE ? yes : no(`A lesson costs ${LESSON_FEE} coins.`);
+      return life.purse >= LESSON_FEE
+        ? yes
+        : no(`A lesson costs ${LESSON_FEE} coins.`);
     }
     case "seek": {
       const o = officeById(s, arg ?? -1);
-      if (!o || appointerOf(s, o) !== c.id) return no("Nothing to seek from them.");
+      if (!o || appointerOf(s, o) !== c.id)
+        return no("Nothing to seek from them.");
       return eligible(s, life, o);
     }
     case "settle":
@@ -911,7 +927,11 @@ function chanceOf(
       let dc = 5 + status;
       if (hasTrait(c, "brave")) dc += 3;
       if (hasTrait(c, "craven")) dc -= 3;
-      return roll("stealth", dc, hasTrait(c, "brave") ? "Their nerve (brave)" : "Their nerve");
+      return roll(
+        "stealth",
+        dc,
+        hasTrait(c, "brave") ? "Their nerve (brave)" : "Their nerve",
+      );
     }
     case "recruit": {
       const pr = s.provinces[c.home ?? 0];
@@ -1042,11 +1062,21 @@ export function doInteraction(
   if (def.cooldown) setCooldown(g, life, `p:${act}:${cId}`, def.cooldown);
   meet(g, life, cId);
   // SOCIETY (r11): every conversation teaches a little of their tongue.
-  if (!lifeOfChar(s, cId) && act !== "tongue" && act !== "pry" && act !== "rumour") {
+  if (
+    !lifeOfChar(s, cId) &&
+    act !== "tongue" &&
+    act !== "pry" &&
+    act !== "rumour"
+  ) {
     const theirs = motherTongue(c.culture);
     const t = view.tongue;
     if (t && (tonguesOf(s, g.map, me)[theirs] ?? 0) < 3)
-      learnTongue(g, life, theirs, t.level === 0 ? TALK_POINTS * 0.7 : TALK_POINTS);
+      learnTongue(
+        g,
+        life,
+        theirs,
+        t.level === 0 ? TALK_POINTS * 0.7 : TALK_POINTS,
+      );
   }
   // You go to them where they are.
   const at = findIn(s, g.w, life.prov, cId, s.day, life);
@@ -1081,6 +1111,12 @@ export function doInteraction(
       const first = !c.memories.some(
         (m) => m.of === me.id && m.why === "Good company",
       );
+      // SOCIETY (r11): no tongue in common, so it goes by signs.
+      if (view.tongue && view.tongue.level === 0) {
+        remembers(g, life, c, "Good company", 1, 1);
+        journal(g, life, signTalk(g, c));
+        return null;
+      }
       remembers(g, life, c, "Good company", 3, 1);
       journal(g, life, smallTalk(g, life, c, first));
       return null;
@@ -1169,9 +1205,14 @@ export function doInteraction(
           setTie(g, life, cId, "lover");
           if (wouldBeAffair(s, life, c)) {
             startAffair(g, life, cId);
-            journal(g, life, `You and ${name} are lovers now. Nobody must know.`, "good");
+            journal(
+              g,
+              life,
+              `You and ${name} are lovers now. Nobody must know.`,
+              "good",
+            );
           } else
-          journal(g, life, `You and ${name} are sweethearts now.`, "good");
+            journal(g, life, `You and ${name} are sweethearts now.`, "good");
         } else
           journal(
             g,
@@ -1365,14 +1406,24 @@ export function doInteraction(
           a.met = s.day;
           exposeBy(g, life, a, 2);
         }
-        journal(g, life, `An hour with ${name} in the old mill, where nobody goes. Nobody saw. Probably.`, "good");
+        journal(
+          g,
+          life,
+          `An hour with ${name} in the old mill, where nobody goes. Nobody saw. Probably.`,
+          "good",
+        );
       } else {
         addStress(g, life, 4);
         if (a) {
           a.met = s.day;
           exposeBy(g, life, a, 22);
         }
-        journal(g, life, `You and ${name} were nearly caught: a lantern, a dog, a neighbour who looked twice.`, "bad");
+        journal(
+          g,
+          life,
+          `You and ${name} were nearly caught: a lantern, a dog, a neighbour who looked twice.`,
+          "bad",
+        );
       }
       return null;
     }
@@ -1381,14 +1432,19 @@ export function doInteraction(
       const t = motherTongue(c.culture);
       const got = learnTongue(g, life, t, LESSON_POINTS);
       remembers(g, life, c, "A keen pupil", 3, 1);
-      journal(g, life, `A lesson in ${tongueName(t)} with ${name}: verbs, the names of things, and a great deal of laughing at your accent (+${Math.round(got)}).`);
+      journal(
+        g,
+        life,
+        `A lesson in ${tongueName(t)} with ${name}: verbs, the names of things, and a great deal of laughing at your accent (+${Math.round(got)}).`,
+      );
       return null;
     }
     case "seek": {
       const o = officeById(s, arg ?? -1)!;
       if (o.holder >= 0 && o.holder !== life.c) {
         const old = s.chars[o.holder];
-        if (old?.alive) remembers(g, life, g.char(old.id), "Took my office", -20, 4);
+        if (old?.alive)
+          remembers(g, life, g.char(old.id), "Took my office", -20, 4);
       }
       giveOffice(g, o, life.c, `by ${name}'s appointment`);
       remembers(g, life, c, "I gave them office", 3, 2);
@@ -1411,7 +1467,12 @@ export function doInteraction(
         );
       } else {
         remembers(g, life, c, "Pried into my affairs", -15, 3);
-        journal(g, life, `${name} caught you going through ${c.female ? "her" : "his"} papers.`, "bad");
+        journal(
+          g,
+          life,
+          `${name} caught you going through ${c.female ? "her" : "his"} papers.`,
+          "bad",
+        );
       }
       return null;
     case "blackmail": {
@@ -1422,16 +1483,40 @@ export function doInteraction(
         earn(g, life, pay);
         sec.paid = s.day;
         remembers(g, life, c, "Blackmails me", -30, 6);
-        journal(g, life, `${name} pays ${pay} coins without a word, and looks at you as if memorising your face.`, "good");
+        journal(
+          g,
+          life,
+          `${name} pays ${pay} coins without a word, and looks at you as if memorising your face.`,
+          "good",
+        );
       } else {
         remembers(g, life, c, "Tried to blackmail me", -40, 6);
         setTie(g, life, cId, "rival");
-        if (g.rng.chance(0.4)) scandalize(g, life, `Tried to blackmail ${name}`);
-        journal(g, life, `${name} laughs in your face: "Tell them, then." It's your word against theirs, and they have friends.`, "bad");
+        if (g.rng.chance(0.4))
+          scandalize(g, life, `Tried to blackmail ${name}`);
+        journal(
+          g,
+          life,
+          `${name} laughs in your face: "Tell them, then." It's your word against theirs, and they have friends.`,
+          "bad",
+        );
       }
       return null;
     }
   }
+}
+
+/** SOCIETY (r11): a conversation without a word in common. */
+function signTalk(g: ConquestGame, c: Character): string {
+  const name = charName(c);
+  const theirs = tongueName(motherTongue(c.culture));
+  const lines = [
+    `You point, mime and draw in the dirt with a stick. ${name} nods, laughs, and answers at length in ${theirs}. Something has been agreed; you're not sure what.`,
+    `"Weather," you say, pointing at the sky. ${name} says a word in ${theirs} that might mean "weather", or "sky", or "you fool". You both smile.`,
+    `A long exchange of gestures about horses, or possibly marriage. You come away with three words of ${theirs} and a dried fish.`,
+    `${name} speaks slowly and loudly in ${theirs}, as everyone does to foreigners. You catch a word here and there. It's a start.`,
+  ];
+  return lines[g.rng.int(0, lines.length - 1)];
 }
 
 /** A word with someone, flavoured by who they are and how they feel. */
@@ -1843,7 +1928,12 @@ export function interactionMenu(
     if (act === "seek") {
       if (c)
         for (const id of seekable(s, life, c))
-          out.push({ group: def.group, act, arg: id, view: interactionView(s, w, life, cId, act, id) });
+          out.push({
+            group: def.group,
+            act,
+            arg: id,
+            view: interactionView(s, w, life, cId, act, id),
+          });
       continue;
     }
     if (act === "settle" && !life.founding) continue;

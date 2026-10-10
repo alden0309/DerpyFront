@@ -9,6 +9,7 @@ import { dayOf } from "./Calendar";
 import { kill, makeCharacter, succession } from "./Characters";
 import { cede, declareIndependence } from "./Crown";
 import { merge } from "./Economy";
+import { risingWon } from "./Founding"; // SOCIETY (r11)
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
 import {
@@ -45,7 +46,6 @@ import {
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
 import { blankNation } from "./Setup";
-import { risingWon } from "./Founding"; // SOCIETY (r11)
 import type {
   Army,
   Character,

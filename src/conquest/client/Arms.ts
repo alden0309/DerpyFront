@@ -11,8 +11,8 @@ const col = (t: Tincture) => TINCTURES[t]?.color ?? "#999";
 const SHIELD = "M4 4h52v24c0 15-11 24-26 30C15 52 4 43 4 28z";
 const ROUND = "M30 4a26 26 0 1 0 0.01 0z";
 
-/** A charge, drawn in a 24-unit box centred at 0,0. */
-function chargePath(c: Charge): SVGTemplateResult {
+/** A charge, drawn in a 24-unit box centred at 0,0 (flags use it too). */
+export function chargePath(c: Charge): SVGTemplateResult {
   switch (c) {
     case "star":
       return svg`<path d="M0-11 3.2-3.5 11.4-3.4 4.9 1.6 7.1 9.6 0 4.9-7.1 9.6-4.9 1.6-11.4-3.4-3.2-3.5z"/>`;

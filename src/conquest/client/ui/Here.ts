@@ -68,6 +68,7 @@ import {
   section,
   token,
 } from "./Context";
+import { hereStrip } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 
 function provHeader(ui: GameUi, p: number): TemplateResult {
@@ -189,7 +190,7 @@ export function herePanel(ui: GameUi): TemplateResult {
       ? s.armies.find((a) => a.id === life.job!.army)
       : undefined;
   const leading = s.armies.find((a) => a.commander === me.id);
-  return html`${provHeader(ui, p)}
+  return html`${provHeader(ui, p)} ${hereStrip(ui)}
   ${t
     ? html`<div class="cq-callout road">
         <p>
@@ -396,6 +397,7 @@ export function provincePage(ui: GameUi, p: number): TemplateResult {
             You've never been to ${def.name}.
           </p>`}`,
   )}
+  ${officesLink(ui, p)}
   ${armies.length
     ? section(
         "Armies",
@@ -426,6 +428,16 @@ export function provincePage(ui: GameUi, p: number): TemplateResult {
         </ul>`,
       )
     : nothing}`;
+}
+
+/** SOCIETY (r11): the way to a county's offices. */
+function officesLink(ui: GameUi, p: number): TemplateResult | typeof nothing {
+  if (!(ui.s.society?.offices[p] ?? []).length) return nothing;
+  return html`<div class="cq-btnrow">
+    <button class="cq-btn small" @click=${() => ui.open({ k: "offices", p })}>
+      Its offices
+    </button>
+  </div>`;
 }
 
 // ---------------------------------------------------------------- the places of a province

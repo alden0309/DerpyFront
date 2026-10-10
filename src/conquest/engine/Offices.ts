@@ -740,11 +740,7 @@ function freeholder(s: GameState, life: Life): boolean {
 }
 
 /** Can a played character hold (or stand for) an office at all. */
-export function eligible(
-  s: GameState,
-  life: Life,
-  o: LocalOffice,
-): Check {
+export function eligible(s: GameState, life: Life, o: LocalOffice): Check {
   const me = meOf(s, life);
   if (!me) return no("You're watching.");
   if (isChildLife(s, life)) return no("Not until you're grown.");
@@ -753,10 +749,11 @@ export function eligible(
   if (me.nation !== o.nation) return no("Only among your own people.");
   if (def.native !== isNativeChar(s, me))
     return no(
-      def.native ? "That's an office of the native towns." : "A colony's office.",
+      def.native
+        ? "That's an office of the native towns."
+        : "A colony's office.",
     );
-  if (def.sex === "men" && me.female)
-    return no("Men only, in this century.");
+  if (def.sex === "men" && me.female) return no("Men only, in this century.");
   if (def.sex === "women" && !me.female) return no("A woman's office.");
   if (def.church && me.religion === "native") return no("A church office.");
   if (ageOf(s, me) < def.minAge) return no(`Not before ${def.minAge}.`);
@@ -869,8 +866,7 @@ export function seekAcceptance(
   if (life.patron === by.id) e.add("Your patron", 10);
   const held = localOfficesOf(s, life.c).length;
   if (held) e.add("You hold office already", -5 * held);
-  if (life.scandal && life.scandal.until > s.day)
-    e.add("The scandal", -15);
+  if (life.scandal && life.scandal.until > s.day) e.add("The scandal", -15);
   if (byLetter) e.add("Asked by letter, not in person", -5);
   return e.done(0);
 }
@@ -903,7 +899,12 @@ export function giveOffice(
   if (prev?.alive && prev.id !== c) {
     const pl = lifeOfChar(s, prev.id);
     if (pl)
-      journal(g, pl, `You are no longer ${name}: ${charName(s.chars[c])} has it now.`, "bad");
+      journal(
+        g,
+        pl,
+        `You are no longer ${name}: ${charName(s.chars[c])} has it now.`,
+        "bad",
+      );
   }
 }
 
@@ -915,7 +916,13 @@ export function vacate(g: ConquestGame, o: LocalOffice, why: string): void {
   o.since = s.day;
   g.societyChanged(`o${o.prov}`);
   const life = c ? lifeOfChar(s, c.id) : undefined;
-  if (life) journal(g, life, `You are no longer ${officeTitle(s, g.w, o)}: ${why}.`, "bad");
+  if (life)
+    journal(
+      g,
+      life,
+      `You are no longer ${officeTitle(s, g.w, o)}: ${why}.`,
+      "bad",
+    );
 }
 
 /** Fill an empty appointed office from the county's people (or leave it for a player appointer). */
@@ -980,7 +987,10 @@ export function pollStanding(
   if (folk.length) {
     const avg =
       folk.reduce((m, c) => m + opinionOf(s, c, life).total, 0) / folk.length;
-    e.add("The county's regard for you", Math.max(-12, Math.min(12, Math.round(avg / 4))));
+    e.add(
+      "The county's regard for you",
+      Math.max(-12, Math.min(12, Math.round(avg / 4))),
+    );
   }
   if (freeholder(s, life)) e.add("A freeholder", 4);
   if (o.holder === me.id) e.add("Sitting already", 6);
@@ -989,9 +999,19 @@ export function pollStanding(
   return e.done(0);
 }
 
-function npcPoll(s: GameState, c: Character, o: LocalOffice, sitting: boolean): number {
+function npcPoll(
+  s: GameState,
+  c: Character,
+  o: LocalOffice,
+  sitting: boolean,
+): number {
   const status = c.role ? ROLES[c.role].status : 1;
-  return status * 3 + stat(s, c, "dip") + hash01(c.id, o.id, o.election) * 8 + (sitting ? 6 : 0);
+  return (
+    status * 3 +
+    stat(s, c, "dip") +
+    hash01(c.id, o.id, o.election) * 8 +
+    (sitting ? 6 : 0)
+  );
 }
 
 /** The strongest rival you'd face (an estimate, for the card). */
@@ -1005,7 +1025,8 @@ export function pollRival(
   if (sitting?.alive && sitting.id !== except && !lifeOfChar(s, sitting.id))
     best = { c: sitting.id, score: npcPoll(s, sitting, o, true) };
   for (const c of householdsOf(s, o.prov)) {
-    if (c.id === except || c.id === sitting?.id || !npcEligible(s, c, o)) continue;
+    if (c.id === except || c.id === sitting?.id || !npcEligible(s, c, o))
+      continue;
     const sc = npcPoll(s, c, o, false);
     if (!best || sc > best.score) best = { c: c.id, score: sc };
   }
@@ -1027,7 +1048,10 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
   // A sitting player stands again.
   const sittingLife = sitting ? lifeOfChar(s, sitting.id) : undefined;
   if (sittingLife && !field.some((f) => f.c === sitting!.id))
-    field.push({ c: sitting!.id, score: pollStanding(s, sittingLife, o).total });
+    field.push({
+      c: sitting!.id,
+      score: pollStanding(s, sittingLife, o).total,
+    });
   // Challengers from among the county's people.
   const pool = householdsOf(s, o.prov)
     .filter(
@@ -1036,7 +1060,10 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
         !field.some((f) => f.c === c.id) &&
         !localOfficesOf(s, c.id).length,
     )
-    .sort((a, b) => npcPoll(s, b, o, false) - npcPoll(s, a, o, false) || a.id - b.id)
+    .sort(
+      (a, b) =>
+        npcPoll(s, b, o, false) - npcPoll(s, a, o, false) || a.id - b.id,
+    )
     .slice(0, 2);
   for (const c of pool) field.push({ c: c.id, score: npcPoll(s, c, o, false) });
   const r = dice(g);
@@ -1058,7 +1085,12 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
     if (c === win.c) continue;
     const life = lifeOfChar(s, c);
     if (life) {
-      journal(g, life, `You lost the poll for ${name} to ${charName(s.chars[win.c])}.`, "bad");
+      journal(
+        g,
+        life,
+        `You lost the poll for ${name} to ${charName(s.chars[win.c])}.`,
+        "bad",
+      );
       addStress(g, life, 4);
     }
   }
@@ -1099,7 +1131,8 @@ export function officesMonthly(g: ConquestGame): void {
     seen.add(life.prov);
     seen.add(life.home);
   }
-  for (const key of Object.keys(s.society?.offices ?? {})) seen.add(Number(key));
+  for (const key of Object.keys(s.society?.offices ?? {}))
+    seen.add(Number(key));
   for (const p of seen) {
     if (!s.locals[p]) continue;
     const list = ensureOffices(g, p);
@@ -1126,14 +1159,24 @@ export function officesMonthly(g: ConquestGame): void {
       if (idle >= 240) {
         if (def.how === "elected") {
           addRenown(g, life, -3);
-          journal(g, life, `The county grumbles that its ${officeName(s, o).toLowerCase()} is never seen.`, "bad");
+          journal(
+            g,
+            life,
+            `The county grumbles that its ${officeName(s, o).toLowerCase()} is never seen.`,
+            "bad",
+          );
           o.duty = s.day - 120;
         } else if (o.key !== "founder") {
           vacate(g, o, "dismissed for neglecting the duty");
           addRenown(g, life, -2);
         }
       } else if (idle >= 150 && idle < 181)
-        journal(g, life, `Your duties as ${officeTitle(s, g.w, o)} are being neglected. (${OFFICES[o.key].duty.label}, in the county.)`, "bad");
+        journal(
+          g,
+          life,
+          `Your duties as ${officeTitle(s, g.w, o)} are being neglected. (${OFFICES[o.key].duty.label}, in the county.)`,
+          "bad",
+        );
       addRenown(g, life, def.renown);
     }
   }
@@ -1160,9 +1203,11 @@ export function doDuty(g: ConquestGame, life: Life, id: number): string | null {
   const def = OFFICES[o.key];
   o.duty = s.day;
   g.societyChanged(`o${o.prov}`);
-  for (const [k, v] of Object.entries(def.duty.xp)) gainXp(g, life, k as Skill, v ?? 0);
+  for (const [k, v] of Object.entries(def.duty.xp))
+    gainXp(g, life, k as Skill, v ?? 0);
   if (def.duty.fee) earn(g, life, def.duty.fee);
-  if (def.duty.calm) calmCounty(g, o.prov, def.duty.calm, `${officeName(s, o)} at work`);
+  if (def.duty.calm)
+    calmCounty(g, o.prov, def.duty.calm, `${officeName(s, o)} at work`);
   addRenown(g, life, 0.4);
   journal(
     g,
@@ -1172,7 +1217,12 @@ export function doDuty(g: ConquestGame, life: Life, id: number): string | null {
   return null;
 }
 
-function calmCounty(g: ConquestGame, p: number, n: number, label: string): void {
+function calmCounty(
+  g: ConquestGame,
+  p: number,
+  n: number,
+  label: string,
+): void {
   const s = g.s;
   const pr = g.prov(p);
   const key = `office-calm`;
@@ -1181,11 +1231,7 @@ function calmCounty(g: ConquestGame, p: number, n: number, label: string): void 
 }
 
 /** Can you pull an office's lever now. */
-export function leverCheck(
-  s: GameState,
-  life: Life,
-  o: LocalOffice,
-): Check {
+export function leverCheck(s: GameState, life: Life, o: LocalOffice): Check {
   const def = OFFICES[o.key];
   if (!def.lever) return no("Nothing to pull.");
   if (o.holder !== life.c) return no("It isn't yours.");
@@ -1213,7 +1259,11 @@ export function leverCheck(
 }
 
 /** People of the county you might pick for a lever (to arrest, find for, seize). */
-export function leverTargets(s: GameState, life: Life, o: LocalOffice): Character[] {
+export function leverTargets(
+  s: GameState,
+  life: Life,
+  o: LocalOffice,
+): Character[] {
   return householdsOf(s, o.prov)
     .filter((c) => c.id !== life.c && ageOf(s, c) >= 18 && !lifeOfChar(s, c.id))
     .slice(0, 16);
@@ -1235,9 +1285,14 @@ export function pullLever(
   const me = meOf(s, life)!;
   const r = dice(g);
   const target = lever.who ? s.chars[arg ?? -1] : undefined;
-  if (lever.who && (!target?.alive || !leverTargets(s, life, o).some((c) => c.id === target.id)))
+  if (
+    lever.who &&
+    (!target?.alive ||
+      !leverTargets(s, life, o).some((c) => c.id === target.id))
+  )
     return "Choose someone of the county.";
-  touchLife(g, life).cooldowns[`lever:${o.key}:${o.prov}`] = s.day + lever.cooldown;
+  touchLife(g, life).cooldowns[`lever:${o.key}:${o.prov}`] =
+    s.day + lever.cooldown;
   const here = g.map.provinces[o.prov].name;
   switch (lever.key) {
     case "blind": {
@@ -1245,8 +1300,19 @@ export function pullLever(
       gainXp(g, life, "stealth", 4);
       if (r.chance(0.25)) {
         addRenown(g, life, -2);
-        rumour(g, o.prov, `The captain of the watch at ${here} can be bought, they say.`, me.id, "bad");
-        journal(g, life, "Four coins to see nothing, and somebody saw you seeing nothing.", "bad");
+        rumour(
+          g,
+          o.prov,
+          `The captain of the watch at ${here} can be bought, they say.`,
+          me.id,
+          "bad",
+        );
+        journal(
+          g,
+          life,
+          "Four coins to see nothing, and somebody saw you seeing nothing.",
+          "bad",
+        );
       } else journal(g, life, "Four coins, and the cart rolls by in the dark.");
       return null;
     }
@@ -1254,43 +1320,89 @@ export function pullLever(
       remembers(g, life, g.char(target!.id), "Had me arrested", -25, 4);
       addRenown(g, life, 2);
       calmCounty(g, o.prov, 3, "A troublemaker in the stocks");
-      journal(g, life, `You take up ${charName(target)} and put them in the stocks. The town is quieter; ${target!.first} is not.`);
+      journal(
+        g,
+        life,
+        `You take up ${charName(target)} and put them in the stocks. The town is quieter; ${target!.first} is not.`,
+      );
       return null;
     }
     case "works": {
       spend(g, life, 15);
       const pr = g.prov(o.prov);
-      pr.mods.push({ key: `town-works-${s.day}`, label: "A town work", until: s.day + 5 * DAYS_PER_YEAR, fx: { production: 0.03, unrest: -1 } });
+      pr.mods.push({
+        key: `town-works-${s.day}`,
+        label: "A town work",
+        until: s.day + 5 * DAYS_PER_YEAR,
+        fx: { production: 0.03, unrest: -1 },
+      });
       addRenown(g, life, 3);
       for (const c of householdsOf(s, o.prov).slice(0, 8))
         remembers(g, life, c, "Built the town a bridge", 4, 3);
-      journal(g, life, `A new bridge at ${here}, with your name on the board at the end of it.`, "good");
+      journal(
+        g,
+        life,
+        `A new bridge at ${here}, with your name on the board at the end of it.`,
+        "good",
+      );
       return null;
     }
     case "market": {
       const pr = g.prov(o.prov);
-      pr.mods.push({ key: `market-day`, label: "A chartered market day", until: s.day + 2 * DAYS_PER_YEAR, fx: { production: 0.05 } });
+      pr.mods.push({
+        key: `market-day`,
+        label: "A chartered market day",
+        until: s.day + 2 * DAYS_PER_YEAR,
+        fx: { production: 0.05 },
+      });
       addRenown(g, life, 3);
-      journal(g, life, `Market day at ${here} every Thursday, by your proclamation. The carts come in from all over.`, "good");
+      journal(
+        g,
+        life,
+        `Market day at ${here} every Thursday, by your proclamation. The carts come in from all over.`,
+        "good",
+      );
       return null;
     }
     case "dispute": {
-      const others = leverTargets(s, life, o).filter((c) => c.id !== target!.id);
-      const loser = others.length ? others[r.int(0, others.length - 1)] : undefined;
+      const others = leverTargets(s, life, o).filter(
+        (c) => c.id !== target!.id,
+      );
+      const loser = others.length
+        ? others[r.int(0, others.length - 1)]
+        : undefined;
       remembers(g, life, g.char(target!.id), "Found for me at court", 15, 4);
-      if (loser) remembers(g, life, g.char(loser.id), "Found against me at court", -10, 3);
+      if (loser)
+        remembers(
+          g,
+          life,
+          g.char(loser.id),
+          "Found against me at court",
+          -10,
+          3,
+        );
       addRenown(g, life, 1);
       gainXp(g, life, "letters", 4);
-      journal(g, life, `The bench finds for ${charName(target)}${loser ? ` against ${charName(loser)}` : ""}, over a boundary stone and a pig.`);
+      journal(
+        g,
+        life,
+        `The bench finds for ${charName(target)}${loser ? ` against ${charName(loser)}` : ""}, over a boundary stone and a pig.`,
+      );
       return null;
     }
     case "seize": {
       earn(g, life, 6);
       remembers(g, life, g.char(target!.id), "Seized my goods", -30, 5);
       for (const k of [target!.spouse, ...target!.children])
-        if (s.chars[k]?.alive) remembers(g, life, g.char(k), "Seized our goods", -12, 3);
+        if (s.chars[k]?.alive)
+          remembers(g, life, g.char(k), "Seized our goods", -12, 3);
       addRenown(g, life, -1);
-      journal(g, life, `You seize ${charName(target)}'s goods for debt and take your fee from the sale: +6 coins, and a family that hates you.`, "bad");
+      journal(
+        g,
+        life,
+        `You seize ${charName(target)}'s goods for debt and take your fee from the sale: +6 coins, and a family that hates you.`,
+        "bad",
+      );
       return null;
     }
     case "callout": {
@@ -1299,8 +1411,15 @@ export function pullLever(
       const nation = g.nation(o.nation);
       if (nation.gold < 12) return "The colony's treasury can't arm them.";
       nation.gold -= 12;
-      const army = s.armies.find((a) => a.owner === o.nation && a.prov === o.prov && a.depart < 0);
-      const reg = { type: "militia" as const, men: 400, morale: 0.7, home: o.prov };
+      const army = s.armies.find(
+        (a) => a.owner === o.nation && a.prov === o.prov && a.depart < 0,
+      );
+      const reg = {
+        type: "militia" as const,
+        men: 400,
+        morale: 0.7,
+        home: o.prov,
+      };
       if (army) g.touch(army).regs.push(reg);
       else
         g.addArmy({
@@ -1320,7 +1439,12 @@ export function pullLever(
         });
       addRenown(g, life, 3);
       gainXp(g, life, "leadership", 10);
-      journal(g, life, `The drums beat across ${here}: four hundred militia muster under the county's colours.`, "good");
+      journal(
+        g,
+        life,
+        `The drums beat across ${here}: four hundred militia muster under the county's colours.`,
+        "good",
+      );
       return null;
     }
     case "bill": {
@@ -1329,29 +1453,66 @@ export function pullLever(
       if (pass) {
         addRenown(g, life, 4);
         touchLife(g, life).favor = Math.min(100, life.favor + 3);
-        journal(g, life, "Your bill for the county passes the house: a ferry, a road, and a bounty on wolves.", "good");
-      } else journal(g, life, "Your bill dies in committee, smothered in amendments.");
+        journal(
+          g,
+          life,
+          "Your bill for the county passes the house: a ferry, a road, and a bounty on wolves.",
+          "good",
+        );
+      } else
+        journal(
+          g,
+          life,
+          "Your bill dies in committee, smothered in amendments.",
+        );
       return null;
     }
     case "skim": {
       earn(g, life, 8);
       gainXp(g, life, "stealth", 5);
-      const caught = r.chance(Math.max(0.1, 0.4 - skillLevel(s, life, "stealth") * 0.02));
+      const caught = r.chance(
+        Math.max(0.1, 0.4 - skillLevel(s, life, "stealth") * 0.02),
+      );
       if (caught) {
         vacate(g, o, "caught with a hand in the rates");
         addRenown(g, life, -5);
-        touchLife(g, life).scandal = { until: s.day + DAYS_PER_YEAR, text: "Caught skimming the rates" };
-        rumour(g, o.prov, `${charName(me)} was caught skimming the county rates.`, me.id, "bad");
-        journal(g, life, "Eight coins off the top, and the governor's auditor found every one.", "bad");
-      } else journal(g, life, "Eight coins off the top. The ledger balances, more or less.");
+        touchLife(g, life).scandal = {
+          until: s.day + DAYS_PER_YEAR,
+          text: "Caught skimming the rates",
+        };
+        rumour(
+          g,
+          o.prov,
+          `${charName(me)} was caught skimming the county rates.`,
+          me.id,
+          "bad",
+        );
+        journal(
+          g,
+          life,
+          "Eight coins off the top, and the governor's auditor found every one.",
+          "bad",
+        );
+      } else
+        journal(
+          g,
+          life,
+          "Eight coins off the top. The ledger balances, more or less.",
+        );
       return null;
     }
     case "relief": {
       spend(g, life, 6);
       addRenown(g, life, 2);
       calmCounty(g, o.prov, 3, "The poor relieved");
-      for (const c of householdsOf(s, o.prov).slice(0, 8)) remembers(g, life, c, "Fed the poor", 4, 2);
-      journal(g, life, "Bread and firewood for the poor of the parish, at your own charge.", "good");
+      for (const c of householdsOf(s, o.prov).slice(0, 8))
+        remembers(g, life, c, "Fed the poor", 4, 2);
+      journal(
+        g,
+        life,
+        "Bread and firewood for the poor of the parish, at your own charge.",
+        "good",
+      );
       return null;
     }
     case "raid": {
@@ -1360,26 +1521,47 @@ export function pullLever(
       if (won) {
         addRenown(g, life, 5);
         earn(g, life, 3);
-        journal(g, life, "You bring the young men home with horses, honours and no one lost.", "good");
+        journal(
+          g,
+          life,
+          "You bring the young men home with horses, honours and no one lost.",
+          "good",
+        );
       } else {
         addRenown(g, life, -1);
         addStress(g, life, 5);
-        journal(g, life, "The raid finds the enemy awake. You bring the young men home, most of them.", "bad");
+        journal(
+          g,
+          life,
+          "The raid finds the enemy awake. You bring the young men home, most of them.",
+          "bad",
+        );
       }
       return null;
     }
     case "belt": {
       touchLife(g, life).favor = Math.min(100, life.favor + 5);
       gainXp(g, life, "persuasion", 5);
-      journal(g, life, "The elders turn your belt over in their hands and nod. Your words will be remembered.", "good");
+      journal(
+        g,
+        life,
+        "The elders turn your belt over in their hands and nod. Your words will be remembered.",
+        "good",
+      );
       return null;
     }
     case "raise": {
       const sa = officesIn(s, o.prov).find((x) => x.key === "sachem")!;
-      if (!npcEligible(s, target!, sa)) return `${target!.first} can't be raised up.`;
+      if (!npcEligible(s, target!, sa))
+        return `${target!.first} can't be raised up.`;
       giveOffice(g, sa, target!.id, "raised up by the clan mothers");
       remembers(g, life, g.char(target!.id), "Raised me up", 20, 0);
-      journal(g, life, `You put the horns of office on ${charName(target)}.`, "good");
+      journal(
+        g,
+        life,
+        `You put the horns of office on ${charName(target)}.`,
+        "good",
+      );
       return null;
     }
   }
@@ -1414,7 +1596,11 @@ export function appointLocal(
 }
 
 /** Stand at the next poll. */
-export function standLocal(g: ConquestGame, life: Life, id: number): string | null {
+export function standLocal(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+): string | null {
   const s = g.s;
   const o = officeById(s, id);
   if (!o) return "No such office.";
@@ -1422,12 +1608,20 @@ export function standLocal(g: ConquestGame, life: Life, id: number): string | nu
   if (!check.ok) return check.why;
   o.candidates.push({ c: life.c, points: 0 });
   g.societyChanged(`o${o.prov}`);
-  journal(g, life, `You put your name up for ${officeTitle(s, g.w, o)}. The poll is in ${Math.max(1, Math.round((o.election - s.day) / 30))} months: canvass, treat the voters, print a broadside.`);
+  journal(
+    g,
+    life,
+    `You put your name up for ${officeTitle(s, g.w, o)}. The poll is in ${Math.max(1, Math.round((o.election - s.day) / 30))} months: canvass, treat the voters, print a broadside.`,
+  );
   return null;
 }
 
 /** Give up an office. */
-export function resignLocal(g: ConquestGame, life: Life, id: number): string | null {
+export function resignLocal(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+): string | null {
   const o = officeById(g.s, id);
   if (!o || o.holder !== life.c) return "It isn't yours.";
   vacate(g, o, "you resigned");
@@ -1435,7 +1629,11 @@ export function resignLocal(g: ConquestGame, life: Life, id: number): string | n
 }
 
 /** Campaign points for whatever local poll you're standing in. */
-export function localCampaign(g: ConquestGame, life: Life, points: number): boolean {
+export function localCampaign(
+  g: ConquestGame,
+  life: Life,
+  points: number,
+): boolean {
   for (const list of Object.values(g.s.society?.offices ?? {}))
     for (const o of list) {
       const x = o.candidates.find((y) => y.c === life.c);
@@ -1448,9 +1646,13 @@ export function localCampaign(g: ConquestGame, life: Life, points: number): bool
   return false;
 }
 
-export function standingLocally(s: GameState, life: Life): LocalOffice | undefined {
+export function standingLocally(
+  s: GameState,
+  life: Life,
+): LocalOffice | undefined {
   for (const list of Object.values(s.society?.offices ?? {}))
-    for (const o of list) if (o.candidates.some((y) => y.c === life.c)) return o;
+    for (const o of list)
+      if (o.candidates.some((y) => y.c === life.c)) return o;
   return undefined;
 }
 

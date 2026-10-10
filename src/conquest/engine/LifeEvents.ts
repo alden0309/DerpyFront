@@ -3605,8 +3605,8 @@ export const LIFE_EVENTS: LifeEventDef[] = [
 
 import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
-import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { joinMovement, riseFor } from "./Movements";
+import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
 
 function joinM(g: ConquestGame, life: Life, id: number): string | null {
