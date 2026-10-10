@@ -43,6 +43,11 @@ import {
 import type { World } from "./Map";
 import { landHopDays, seaHopDays } from "./Paths";
 import { propertyBudget } from "./Property";
+// SOCIETY (r11)
+import { rulerTitle } from "./SocietyRules";
+import { AMERICAS, worldOf } from "./Map";
+import { localOfficesOf, OFFICES, officeTitle } from "./Offices";
+import { societyOpinion } from "./SocietyOpinion";
 import {
   ageOf,
   atWar,
@@ -662,7 +667,7 @@ export function allowanceDue(s: GameState, life: Life): boolean {
 // ---------------------------------------------------------------- offices
 
 export interface OfficeView {
-  kind: "governor" | "council" | "assembly" | "sachem" | "leader";
+  kind: "governor" | "council" | "assembly" | "sachem" | "leader" | "local"; // SOCIETY (r11): local
   nation: number;
   label: string;
   seat?: Seat;
@@ -682,7 +687,9 @@ export function officesOf(s: GameState, c: number): OfficeView[] {
         out.push({
           kind: "governor",
           nation: n.id,
-          label: `${n.title > 0 ? `${TITLE_NAMES[n.title]} and g` : "G"}overnor of ${n.name.replace(/^the /, "")}`,
+          label: n.gov // SOCIETY (r11): a nation its founders set up
+            ? `${rulerTitle(n, !!s.chars[c]?.female)} of ${n.name.replace(/^the /, "")}`
+            : `${n.title > 0 ? `${TITLE_NAMES[n.title]} and g` : "G"}overnor of ${n.name.replace(/^the /, "")}`,
           stipend: 24,
           level: 3,
         });
@@ -727,6 +734,15 @@ export function officesOf(s: GameState, c: number): OfficeView[] {
         level: 1,
       });
   }
+  // SOCIETY (r11): town and county offices.
+  for (const o of localOfficesOf(s, c))
+    out.push({
+      kind: "local",
+      nation: o.nation,
+      label: officeTitle(s, worldOf(AMERICAS), o),
+      stipend: OFFICES[o.key].pay,
+      level: OFFICES[o.key].level,
+    });
   return out;
 }
 
@@ -860,6 +876,7 @@ export function opinionOf(s: GameState, c: Character, life: Life): Breakdown {
     if (m.until !== 0 && m.until <= s.day) continue;
     e.add(m.why, m.value);
   }
+  societyOpinion(s, c, life, e); // SOCIETY (r11)
   return e.done(0, -100, 100);
 }
 

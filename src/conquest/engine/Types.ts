@@ -704,6 +704,20 @@ export interface Life {
   ambition?: AmbitionState | null;
   /** Ambitions fulfilled, by key, in order. */
   ambitionsDone?: string[];
+  /** SOCIETY (r11): tongues learned by the character played now (points, 100 a level). */
+  tongues?: { c: number; pts: Record<TongueId, number> };
+  /** SOCIETY (r11): letters written and received. */
+  post?: Letter[];
+  /** SOCIETY (r11): lovers outside a marriage. */
+  affairs?: Affair[];
+  /** SOCIETY (r11): other people's secrets you know. */
+  secrets?: Secret[];
+  /** SOCIETY (r11): a scandal people are talking about. */
+  scandal?: { until: number; text: string } | null;
+  /** SOCIETY (r11): a settlement being got up. */
+  founding?: Founding | null;
+  /** SOCIETY (r11): a nation waiting for you to set up its government. */
+  constitute?: { n: number; until: number; free: boolean } | null;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1123,6 +1137,12 @@ export interface Nation {
   overlord: number;
   /** Laws a governor has passed (keys). */
   laws?: string[];
+  /** SOCIETY (r11): a flag its founders made (else the crown's or the people's). */
+  flag?: NationFlag;
+  /** SOCIETY (r11): the form of government its founders chose. */
+  gov?: GovForm;
+  /** SOCIETY (r11): founded by a player's settlement or set up after a rising. */
+  founded?: number;
   /** The big moments of its history, for the end of the game. */
   milestones: GameEvent[];
   /** How it stood on each 1 January. */
@@ -1441,6 +1461,8 @@ export interface GameState {
   travellers?: Traveller[];
   /** What people are saying, spreading out from where it happened. */
   rumours?: Rumour[];
+  /** SOCIETY (r11): local offices and gatherings. */
+  society?: SocietyState;
 }
 
 export type TravellerKind =
@@ -1549,7 +1571,14 @@ export type PersonAct =
   | "promote"
   | "quit"
   | "hire"
-  | "trade";
+  | "trade"
+  // SOCIETY (r11)
+  | "tryst"
+  | "pry"
+  | "blackmail"
+  | "seek"
+  | "tongue"
+  | "settle";
 
 export const PERSON_ACTS: readonly PersonAct[] = [
   "talk",
@@ -1572,6 +1601,13 @@ export const PERSON_ACTS: readonly PersonAct[] = [
   "rumour",
   "insult",
   "duel",
+  // SOCIETY (r11)
+  "tryst",
+  "tongue",
+  "seek",
+  "settle",
+  "pry",
+  "blackmail",
 ];
 
 /** The few things a governor (or sachem) decides for their nation. */
@@ -1666,7 +1702,9 @@ export type LifeCommand =
   /** Sail for Europe (taking the heir, or leaving them to carry on). */
   | { k: "europe"; takeHeir: boolean }
   /** Turn down an invitation to Europe. */
-  | { k: "decline" };
+  | { k: "decline" }
+  // SOCIETY (r11): letters, gatherings, local office, tongues, settlements.
+  | SocietyCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1693,4 +1731,250 @@ export interface GameDelta {
   polities?: Record<number, Polity>;
   travellers?: Traveller[];
   rumours?: Rumour[];
+  /** SOCIETY (r11): offices and gatherings that changed. */
+  society?: SocietyDelta;
+}
+
+// ---- SOCIETY (r11)
+// Lovers outside a marriage, letters to anyone, local offices, tongues,
+// gatherings, and new settlements and nations.
+
+/** A tongue people speak (see Tongues.ts for the list). */
+export type TongueId = string;
+
+/** How well a tongue is known: none, a few words, conversational, fluent. */
+export type TongueLevel = 0 | 1 | 2 | 3;
+
+export type LetterKind =
+  | "friendly"
+  | "favour"
+  | "business"
+  | "love"
+  | "marriage"
+  | "threat"
+  | "recommend"
+  | "petition"
+  | "invite"
+  | "introduce"
+  | "reply"
+  | "blackmail"
+  | "news";
+
+/** A letter written, carried and (perhaps) answered. */
+export interface Letter {
+  id: number;
+  kind: LetterKind;
+  /** Writer and reader (character ids). */
+  from: number;
+  to: number;
+  /** Where it set out from, and where it's bound. */
+  origin: number;
+  dest: number;
+  sent: number;
+  /** The day it's read (or was to be). */
+  arrive: number;
+  /** Some of the way by ship (and so it may be lost). */
+  bySea: boolean;
+  status: "transit" | "delivered" | "lost";
+  /** What it says. */
+  text: string;
+  /** Coins asked or offered, an office or gathering id, a petition's kind. */
+  arg?: number;
+  /** Who it's about (a recommendation, an introduction). */
+  about?: number;
+  /** A letter answering this one. */
+  re?: number;
+  /** It wants a yes or no from its reader. */
+  ask?: boolean;
+  /** The answer, once given: yes or no, the reasons, and the words. */
+  answer?: { yes: boolean; why: Breakdown; text: string; day: number };
+  /** Read by its reader (a player). */
+  read?: boolean;
+  /** Its reader (a player) has answered, or let it lapse. */
+  done?: boolean;
+}
+
+/** A love outside a marriage, and what's known of it. */
+export interface Affair {
+  /** The lover. */
+  c: number;
+  since: number;
+  /** 0 to 100: how much people suspect; found out at 100 (or by bad luck). */
+  exposure: number;
+  /** Found out: by your spouse, theirs, or the whole town. */
+  known: ("spouse" | "theirs" | "town")[];
+  /** Children of it. */
+  kids: number[];
+  /** Last secret meeting. */
+  met: number;
+  /** Someone who knows and wants paying for silence, or -1. */
+  blackmailer: number;
+  /** It's over (kept a while for the record). */
+  ended?: number;
+}
+
+/** Something someone would rather nobody knew, and you do. */
+export interface Secret {
+  of: number;
+  /** A lover, or -1. */
+  with: number;
+  kind: "affair" | "child" | "debt" | "crime";
+  learned: number;
+  /** The last day they paid you to keep quiet. */
+  paid?: number;
+}
+
+export type OfficeKey =
+  | "watch"
+  | "constable"
+  | "selectman"
+  | "mayor"
+  | "justice"
+  | "sheriff"
+  | "lieutenant"
+  | "burgess"
+  | "collector"
+  | "warden"
+  | "council"
+  | "warcaptain"
+  | "speaker"
+  | "sachem"
+  | "clanmother"
+  | "founder";
+
+/** An office in a town or county (or a native town). */
+export interface LocalOffice {
+  id: number;
+  key: OfficeKey;
+  prov: number;
+  /** The nation it serves (offices fall vacant when the land changes hands). */
+  nation: number;
+  /** Who holds it, or -1. */
+  holder: number;
+  since: number;
+  /** Elected: the day of the next election; appointed: -1. */
+  election: number;
+  /** Standing at the next election (players), with their points. */
+  candidates: { c: number; points: number }[];
+  /** The last day its holder did its duty. */
+  duty: number;
+}
+
+export type GatheringKind =
+  | "dinner"
+  | "feast"
+  | "ball"
+  | "cards"
+  | "hunt"
+  | "social"
+  | "frolic"
+  | "raising"
+  | "wedding"
+  | "christening"
+  | "funeral"
+  | "nfeast"
+  | "dance"
+  | "council"
+  | "greencorn";
+
+/** A dinner, a ball, a wedding: a host, a place, a day and the guests. */
+export interface Gathering {
+  id: number;
+  kind: GatheringKind;
+  host: number;
+  prov: number;
+  venue: PlaceKind;
+  day: number;
+  /** 1 modest, 2 handsome, 3 grand. */
+  scale: number;
+  /** What it cost the host. */
+  cost: number;
+  invited: number[];
+  /** Answers: who comes, and the main reason either way. */
+  rsvp: Record<number, { yes: boolean; why: string }>;
+  /** A wedding's couple, a christening's child, a funeral's dead. */
+  about: number[];
+  status: "planned" | "on" | "held" | "cancelled";
+  /** How it's going: 0 middling, up is good. */
+  mood: number;
+  /** Turns played (sub-event keys), so none comes twice. */
+  played: string[];
+  /** Players taking part (seats) and the turns each has still to play. */
+  turns: Record<string, number>;
+  /** What happened, for the record. */
+  lines: string[];
+}
+
+/** A settlement being got up: where, under whose leave, who's coming. */
+export interface Founding {
+  target: number;
+  /** The governor's leave, or none (squatters). */
+  charter: "granted" | "none";
+  /** Your own colony, answering to nobody. */
+  independent: boolean;
+  /** Heads of household who've agreed to come. */
+  settlers: number[];
+  /** Acres offered each family: 0 none, 1 fifty, 2 a hundred, 3 two hundred and their passage. */
+  terms: number;
+  /** Coins laid out on supplies. */
+  supplies: number;
+  stage: "planning" | "underway";
+  since: number;
+}
+
+export type GovForm = "republic" | "commonwealth" | "confederacy" | "kingdom";
+
+/** A new nation's flag: a field, a division in a second colour, a charge. */
+export interface NationFlag {
+  field: string;
+  division:
+    | "plain"
+    | "pale"
+    | "fess"
+    | "bend"
+    | "cross"
+    | "saltire"
+    | "canton"
+    | "triband"
+    | "stripes";
+  second: string;
+  charge: Charge;
+  chargeColor: string;
+}
+
+/** Everything of society kept outside the lives. */
+export interface SocietyState {
+  /** Town and county offices, by province. */
+  offices: Record<number, LocalOffice[]>;
+  gatherings: Gathering[];
+}
+
+/** What changed in society since the last delta. */
+export interface SocietyDelta {
+  offices?: Record<number, LocalOffice[]>;
+  gatherings?: Gathering[];
+}
+
+/** A command for letters, gatherings, offices, tongues and settlements. */
+export interface SocietyCommand {
+  k: "society";
+  act: string;
+  id?: number;
+  c?: number;
+  kind?: string;
+  arg?: number;
+  about?: number;
+  p?: number;
+  venue?: PlaceKind;
+  /** Days from now. */
+  days?: number;
+  yes?: boolean;
+  list?: number[];
+  name?: string;
+  adjective?: string;
+  color?: string;
+  flag?: NationFlag;
+  gov?: GovForm;
+  offices?: Partial<Record<Seat, number>>;
+  free?: boolean;
 }

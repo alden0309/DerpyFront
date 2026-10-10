@@ -79,6 +79,7 @@ import {
   movementPamphlet,
 } from "./Movements";
 import { campaignBoost, seekCourt, writeToCrown } from "./Politics";
+import { standingLocally } from "./Offices"; // SOCIETY (r11)
 import {
   buyHouse,
   buyLand,
@@ -629,7 +630,9 @@ export const ACTS: ActDef[] = [
     skill: "persuasion",
     dc: 7,
     when: (s, w, life) =>
-      life.campaign ? yes : no("You're not standing for anything."),
+      life.campaign || standingLocally(s, life) // SOCIETY (r11): local polls too
+        ? yes
+        : no("You're not standing for anything."),
   },
   {
     key: "broadside",
@@ -639,7 +642,9 @@ export const ACTS: ActDef[] = [
     cooldown: 30,
     cost: 2,
     when: (s, w, life) =>
-      life.campaign ? yes : no("You're not standing for anything."),
+      life.campaign || standingLocally(s, life) // SOCIETY (r11): local polls too
+        ? yes
+        : no("You're not standing for anything."),
   },
   {
     key: "buy",

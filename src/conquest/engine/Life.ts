@@ -107,6 +107,7 @@ import {
 } from "./Property";
 import { ageOf, atWar, charName, hasTrait, settlers, stat } from "./Queries";
 import { DAYS_PER_YEAR, deathRiskByAge, STAT_START, TRAITS } from "./Rules";
+import { societyCommand } from "./Society"; // SOCIETY (r11)
 import { sendLetter, travellersDaily, travellersMonthly } from "./Travellers";
 import {
   Army,
@@ -1776,6 +1777,8 @@ export function lifeCommand(
       return "Not yet.";
     case "europe":
       return leaveForEurope(g, life, !!c.takeHeir);
+    case "society": // SOCIETY (r11)
+      return societyCommand(g, life, c);
     case "decline":
       if (!life.invite) return "Nobody has asked.";
       touchLife(g, life).invite = null;
