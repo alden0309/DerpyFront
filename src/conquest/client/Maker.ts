@@ -65,8 +65,8 @@ import type {
 } from "../engine/Types";
 import { SKILLS, STATS } from "../engine/Types";
 import { arms } from "./Arms";
-import "./avatar/Editor";
 import { flagFor } from "./Flags";
+import "./Likeness";
 import "./Range";
 import { TERRAIN_NAMES } from "./Text";
 import { nationVars } from "./Theme";
@@ -318,6 +318,8 @@ export class Maker extends LitElement {
 
   @state() private plan: LifePlan | null = null;
   @state() private natives = false;
+  /** A face chosen from the gallery (not left to follow the character). */
+  private lookPicked = false;
 
   createRenderRoot() {
     return this;
@@ -339,21 +341,18 @@ export class Maker extends LitElement {
     if (!this.plan) return;
     const before = this.plan;
     this.plan = { ...this.plan, ...patch };
-    // The likeness keeps up: another people, sex or trade dresses afresh.
+    // The likeness keeps up: until a face is chosen from the gallery it
+    // follows the character's people, sex, years and trade; once chosen it
+    // stays unless it no longer fits (another sex, or another people's dress).
     const p = this.plan;
     if (p.look && !patch.look && this.world) {
       const seed = lookSeed(this.world, p, Math.floor(Math.random() * 1e9));
-      const nativeNow = isNativeOrigin(this.world, p.origin);
-      if (nativeNow !== isNativeOrigin(this.world, before.origin))
-        p.look = generateLook(seed);
-      else if (
+      const changed =
         p.background !== before.background ||
         p.female !== before.female ||
-        p.origin !== before.origin
-      )
-        p.look = fitLook(p.look, seed, p.background !== before.background);
-      else if (p.age !== before.age || p.religion !== before.religion)
-        p.look = fitLook(p.look, seed);
+        p.origin !== before.origin ||
+        p.age !== before.age;
+      if (changed) p.look = fitLook(p.look, seed, !this.lookPicked);
     }
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(this.plan));
@@ -402,6 +401,7 @@ export class Maker extends LitElement {
     p.motto = Math.random() < 0.7 ? pick(native ? NATIVE_MOTTOS : MOTTOS) : "";
     p = spendPoints(rollTraits(p));
     p.look = generateLook(lookSeed(s, p, Math.floor(Math.random() * 1e9)));
+    this.lookPicked = false;
     this.plan = p;
     this.set({});
   }
@@ -567,7 +567,6 @@ export class Maker extends LitElement {
     const native = isNativeOrigin(s, p.origin);
     const names = namesFor(s, p.origin);
     const faiths = faithsFor(p.origin, native);
-    const nation = s.nations.find((n) => n.key === p.origin);
     return html`<div class="cq-maker-part cq-maker-who">
       <div class="cq-maker-head">
         <h2 class="cq-h2 step"><span class="cq-step">II</span> Who you are</h2>
@@ -583,6 +582,7 @@ export class Maker extends LitElement {
               religion: pick(faiths),
             });
             const now = this.plan!;
+            this.lookPicked = false;
             this.set({
               look: generateLook(
                 lookSeed(s, now, Math.floor(Math.random() * 1e9)),
@@ -680,22 +680,26 @@ export class Maker extends LitElement {
             </p>`}
       </div>
       <h3 class="cq-h3 cq-look-head">Your likeness</h3>
+      <p class="cq-muted small cq-look-note">
+        Choose the face nearest your own from the gallery of portraits, then
+        tune the hair and clothes.
+      </p>
       ${p.look
-        ? html`<cq-look-editor
+        ? html`<cq-likeness
             .look=${p.look}
             .female=${p.female}
             .age=${p.age}
-            .year=${yearOf(s)}
             .culture=${cultureOf(s, p.origin)}
             .native=${native}
             .station=${stationOfBackground(p.background)}
-            .religion=${p.religion}
+            .year=${yearOf(s)}
             .frame=${p.frame}
-            .color=${nation?.color ?? "#7b3322"}
             .name=${`${p.first} ${p.family}`}
-            @cq-look=${(e: CustomEvent<LifePlan["look"]>) =>
-              this.set({ look: e.detail })}
-          ></cq-look-editor>`
+            @cq-look=${(e: CustomEvent<LifePlan["look"]>) => {
+              this.lookPicked = true;
+              this.set({ look: e.detail });
+            }}
+          ></cq-likeness>`
         : nothing}
     </div>`;
   }

@@ -2,7 +2,10 @@ import http from "http";
 import { AddressInfo } from "net";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { WebSocket } from "ws";
-import { generateLook } from "../../src/conquest/engine/Appearance";
+import {
+  generateLook,
+  validateLook,
+} from "../../src/conquest/engine/Appearance";
 import { lifeOfSeat } from "../../src/conquest/engine/LifeQueries";
 import { FRAME_COLORS } from "../../src/conquest/engine/LifeRules";
 import { AMERICAS } from "../../src/conquest/engine/Map";
@@ -69,9 +72,35 @@ const look = {
     station: "soldier",
     year: 1607,
   }),
+  hair: 2,
+  hairL: 1,
+  cloth: 9,
+  flip: true,
+};
+
+/** A drawn likeness from before the gallery, as an older client sends it. */
+const drawn = {
+  skin: 2,
+  face: 0,
+  jaw: 1,
+  cheeks: 2,
+  eyes: 0,
+  eyeColor: 5,
+  eyeSet: 1,
+  brows: 2,
+  nose: 1,
+  mouth: 0,
+  ears: 1,
+  hair: "collar",
+  hairColor: 3,
+  beard: "spade",
   hat: "morion",
   clothes: "breastplate",
-  beard: "spade",
+  colors: [5, 3, 7],
+  extras: [],
+  marks: [],
+  lines: 1,
+  greying: 1,
 };
 
 const plan = {
@@ -149,12 +178,28 @@ describe("Derpy Conquest server: likenesses", () => {
     c.ws.close();
   });
 
+  test("an older client's drawn look is brought over to a portrait", async () => {
+    const c = await hello();
+    c.send({ t: "plan", plan: { ...plan, look: drawn } });
+    await c.next("lobby", (m) => m.seats.some((x) => x.made));
+    const game = c.next("game");
+    c.send({ t: "start" });
+    const g = await game;
+    const life = lifeOfSeat(g.state, g.you)!;
+    const got = g.state.chars[life.c].look!;
+    expect(validateLook(got, { female: false, grown: true })).toBeNull();
+    expect(got.cloth).toBe(5);
+    c.ws.close();
+  });
+
   test("a made-up look is refused", async () => {
     for (const bad of [
-      { ...look, hair: "golden crown" },
-      { ...look, skin: 400 },
-      { ...look, colors: [1, 2] },
+      { ...look, p: "golden-crown" },
+      { ...look, hair: 400 },
+      { ...look, hairL: 9 },
+      { ...look, flip: "yes" },
       { ...look, wings: true },
+      { ...drawn, colors: [1, 2] },
     ]) {
       const c = await hello();
       const err = c.next("err");

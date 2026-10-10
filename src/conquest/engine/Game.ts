@@ -3,6 +3,7 @@
 // goes through command() and the same rules.
 
 import { runAi } from "./Ai";
+import { migrateLooks } from "./Appearance";
 import { dateOf, isMonthStart } from "./Calendar";
 import { characterCommand, charactersMonthly } from "./Characters";
 import { crownCommand, crownMonthly, europeMonthly } from "./Crown";
@@ -94,6 +95,8 @@ export class ConquestGame {
   ) {
     this.w = worldOf(map);
     this.rng = new Rng(state);
+    // ART (r11): a game saved before the portrait gallery keeps its faces.
+    migrateLooks(state);
     this.seenId = state.nextId;
   }
 

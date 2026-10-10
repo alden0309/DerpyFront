@@ -60,6 +60,7 @@ import {
   token,
 } from "./Context";
 import { roleOf, verdictChip } from "./Here";
+import { sittingPrompt } from "./Sitting";
 import { steadySet } from "./Steady";
 
 function traitChips(c: Character, life = false): TemplateResult {
@@ -162,6 +163,7 @@ export function youTab(ui: GameUi): TemplateResult {
           ${RELIGION_NAMES[me.religion]}. ${nationLink(ui, me.nation)}
         </p>
         ${life.motto ? html`<p class="cq-motto">“${life.motto}”</p>` : nothing}
+        ${sittingPrompt(ui)}
       </div>
       <span class="cq-sheet-arms"
         >${arms(life.sigil, "cq-arms", native, "Your arms")}</span

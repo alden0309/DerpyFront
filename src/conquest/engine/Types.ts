@@ -213,7 +213,7 @@ export interface Character {
   lastBirth: number;
   /** A governor the player made (not generated). */
   made: boolean;
-  /** The likeness the player chose for them (index into the portraits). */
+  /** The likeness the player chose for them (index into the first portraits; unused since). */
   face?: number;
   /** Where they live, if not at their nation's capital (locals, families). */
   home?: number;
@@ -1666,7 +1666,10 @@ export type LifeCommand =
   /** Sail for Europe (taking the heir, or leaving them to carry on). */
   | { k: "europe"; takeHeir: boolean }
   /** Turn down an invitation to Europe. */
-  | { k: "decline" };
+  | { k: "decline" }
+  // ---- ART (r11)
+  /** Sit for a new likeness: a portrait from the gallery, tuned (Appearance.ts). */
+  | { k: "likeness"; look: import("./Appearance").Appearance };
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1694,3 +1697,8 @@ export interface GameDelta {
   travellers?: Traveller[];
   rumours?: Rumour[];
 }
+
+// ---- ART (r11)
+// The portrait gallery's kinds of sitter and a character's look live in
+// Sitters.ts and Appearance.ts; `Character.look` and `LifePlan.look` hold a
+// look (a gallery portrait and its tuning).

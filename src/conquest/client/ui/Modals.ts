@@ -33,6 +33,7 @@ import {
 import { GameUi, Modal, token } from "./Context";
 import { roleOf } from "./Here";
 import { eventScene, interactScene, outcomeScene } from "./Scene";
+import { sittingPage } from "./Sitting";
 import "./Story";
 
 /** What the menu and the results need from the game screen. */
@@ -93,6 +94,11 @@ export function renderModal(
       break;
     case "maker":
       body = makerPage(ui, hooks);
+      cls = "wide maker";
+      break;
+    // ART (r11): the gallery, to sit for a new likeness.
+    case "likeness":
+      body = sittingPage(ui);
       cls = "wide maker";
       break;
     case "takeover":
