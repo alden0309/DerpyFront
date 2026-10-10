@@ -539,7 +539,7 @@
 }
 .cq-site {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.4rem;
   align-items: center;
   padding: 0.35rem 0.5rem;
@@ -549,6 +549,8 @@
 .cq-site-name {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
   min-width: 0;
 }
 .cq-site-name b {
@@ -709,11 +711,7 @@
     height: 112px;
   }
   .cq-site {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .cq-site .cq-chip {
-    grid-column: 1 / -1;
-    justify-self: start;
+    grid-template-columns: minmax(0, 1fr) auto auto;
   }
   .cq-tongues li {
     grid-template-columns: minmax(0, 1fr) 6.6rem minmax(2.5rem, 4rem);
@@ -729,5 +727,21 @@
 @media (prefers-reduced-motion: reduce) {
   .cq-flag.huge {
     animation: none;
+  }
+}
+
+/* The banner's buttons, on a phone: room for the letter case beside the
+   letters waiting and the menu. */
+@media (max-width: 560px) {
+  .cq-banner-end {
+    gap: 0.2rem;
+  }
+  .cq-banner-end .cq-letters,
+  .cq-banner-end .cq-menu-btn {
+    width: 34px;
+    height: 34px;
+  }
+  .cq-banner-end .cq-letters:disabled {
+    display: none;
   }
 }

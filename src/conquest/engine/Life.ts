@@ -96,6 +96,7 @@ import {
 import { isWinter } from "./Map";
 import { cashVenture, moneyMonthly, sellKit } from "./Money";
 import { LETTER_KEYS, letterWriter } from "./MoreEvents";
+import { ensureOffices } from "./Offices"; // SOCIETY (r11)
 import {
   buyHouse,
   buyLand,
@@ -493,6 +494,7 @@ function visit(g: ConquestGame, life: Life, p: number): void {
     life.tally.provinces = life.visited.length;
   }
   seedLocals(g, p);
+  ensureOffices(g, p); // SOCIETY (r11): the county's officers
 }
 
 // ---------------------------------------------------------------- jobs

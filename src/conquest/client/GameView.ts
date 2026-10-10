@@ -1427,7 +1427,6 @@ export class GameView extends LitElement {
           </div>`
         : html`<div class="cq-chips-bar"></div>`}
       <div class="cq-banner-end">
-        ${postButton(ui)}
         ${life && !life.watching
           ? html`<button
               class="cq-letters ${events ? "has" : ""}"
@@ -1444,6 +1443,7 @@ export class GameView extends LitElement {
                 : nothing}
             </button>`
           : nothing}
+        ${postButton(ui)}
         <button
           class="cq-menu-btn"
           aria-label="Menu"

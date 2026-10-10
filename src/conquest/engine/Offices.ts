@@ -688,10 +688,11 @@ export function ensureOffices(g: ConquestGame, p: number): LocalOffice[] {
   list ??= soc.offices[p] = [];
   const have = new Set(list.map((o) => o.key));
   const r = dice(g);
+  const made: LocalOffice[] = [];
   for (const key of keys) {
     if (have.has(key)) continue;
     const def = OFFICES[key];
-    list.push({
+    const o: LocalOffice = {
       id: g.nextId(),
       key,
       prov: p,
@@ -704,10 +705,28 @@ export function ensureOffices(g: ConquestGame, p: number): LocalOffice[] {
           : -1,
       candidates: [],
       duty: s.day,
-    });
+    };
+    list.push(o);
+    made.push(o);
     g.societyChanged(`o${p}`);
   }
+  // A county has its officers already when you first come: its best people.
+  for (const o of made) seatFirst(g, o);
   return list;
+}
+
+/** Whoever holds a new county office to begin with (someone of the county). */
+function seatFirst(g: ConquestGame, o: LocalOffice): void {
+  const s = g.s;
+  if (o.key === "founder") return;
+  const pool = householdsOf(s, o.prov).filter(
+    (c) => npcEligible(s, c, o) && !localOfficesOf(s, c.id).length,
+  );
+  if (!pool.length) return;
+  pool.sort((a, b) => npcFit(s, b, o) - npcFit(s, a, o) || a.id - b.id);
+  o.holder = pool[0].id;
+  o.since = s.day - 200;
+  o.duty = s.day;
 }
 
 export function officeById(s: GameState, id: number): LocalOffice | undefined {

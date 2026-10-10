@@ -383,10 +383,10 @@ export function foundingPage(ui: GameUi): TemplateResult {
                       ${GOOD_NAMES[ui.w.raw[x.p]] ?? ""} · ${x.days}
                       days${x.sea ? " by sea" : ""}</span
                     >
+                    ${x.natives
+                      ? html`<span class="cq-chip bad">natives live here</span>`
+                      : nothing}
                   </span>
-                  ${x.natives
-                    ? html`<span class="cq-chip bad">natives live here</span>`
-                    : nothing}
                   <button
                     class="cq-btn quiet small"
                     @click=${() => ui.focusProv(x.p)}
@@ -765,7 +765,10 @@ export function constituteModal(ui: GameUi): TemplateResult {
                 title=${CHARGES[c]}
                 @click=${() => setFlag({ charge: c })}
               >
-                ${customFlag({ ...d.flag, charge: c }, "cq-flag sm")}
+                ${customFlag(
+                  { ...d.flag, division: "plain", charge: c },
+                  "cq-flag sm",
+                )}
               </button>`,
           )}
         </div>

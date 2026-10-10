@@ -277,6 +277,9 @@ describe("local offices", () => {
     life.renown = 30;
     const list = ensureOffices(g, life.prov);
     const justice = list.find((o) => o.key === "justice")!;
+    // The county has its officers from the start; this place falls empty.
+    expect(justice.holder).toBeGreaterThanOrEqual(0);
+    justice.holder = -1;
     const gov = g.s.chars[g.s.nations[meOf(g.s, life)!.nation].ruler];
     like(g, life, gov, 80);
     const v = interactionView(g.s, g.w, life, gov.id, "seek", justice.id);

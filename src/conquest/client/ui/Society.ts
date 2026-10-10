@@ -183,8 +183,8 @@ function letterCard(ui: GameUi, l: Letter): TemplateResult {
           >${mine ? "To" : "From"} ${charLink(ui, other, false)}, ${where} ·
           ${formatDate(mine ? l.sent : l.arrive)}</span
         >
+        ${status === nothing ? nothing : html`<span>${status}</span>`}
       </span>
-      ${status}
     </header>
     ${showBody
       ? html`<p class="cq-post-text">${curly(l.text)}</p>`
@@ -280,9 +280,7 @@ export function lettersPage(ui: GameUi): TemplateResult {
   const replies = post.filter(
     (l) => l.to === life.c && l.kind === "reply" && l.status !== "transit",
   );
-  const sent = post.filter(
-    (l) => l.from === life.c && l.to !== life.c && l.status !== "transit",
-  );
+  const sent = post.filter((l) => l.from === life.c && l.to !== life.c);
   const road = post.filter((l) => l.status === "transit");
   const waiting = incoming.filter((l) => l.ask && !l.done);
   const shown =
@@ -1207,7 +1205,9 @@ export function tonguesSection(ui: GameUi): TemplateResult {
     .filter(([t, v]) => v > 0 && TONGUES[t])
     .sort((a, b) => b[1] - a[1]);
   const local = provinceTongue(s, ui.map, life.prov);
-  const books = booksHere(s, life.prov);
+  const books = booksHere(s, life.prov).filter(
+    (b) => (pts[b.tongue] ?? 0) < BOOK_CAP,
+  );
   return section(
     "Tongues",
     html`<ul class="cq-tongues">

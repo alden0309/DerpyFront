@@ -665,14 +665,24 @@ export function answerInvite(
   if (gat.status !== "planned") return;
   gat.rsvp[c] = { yes: yesA, why };
   g.societyChanged("g");
-  const hostLife = lifeOfChar(g.s, gat.host);
-  const ch = g.s.chars[c];
-  if (hostLife && ch && !lifeOfChar(g.s, c) && addressOf(g.s, ch) === gat.prov)
-    journal(
-      g,
-      hostLife,
-      `${charName(ch)} ${yesA ? "will come" : "won't come"} to your ${GATHERINGS[gat.kind].name.toLowerCase()}: ${why.toLowerCase()}.`,
-    );
+}
+
+/** What the host hears of the answers so far, in a line. */
+function answersLine(g: ConquestGame, gat: Gathering, ids: number[]): string {
+  const s = g.s;
+  const said = ids.filter((id) => gat.rsvp[id]);
+  if (!said.length) return "";
+  const yesN = said.filter((id) => gat.rsvp[id].yes);
+  const noN = said.filter((id) => !gat.rsvp[id].yes);
+  const who = (list: number[]) =>
+    list
+      .slice(0, 3)
+      .map((id) => s.chars[id]?.first ?? "someone")
+      .join(", ") + (list.length > 3 ? ` and ${list.length - 3} more` : "");
+  const parts: string[] = [];
+  if (yesN.length) parts.push(`${who(yesN)} will come`);
+  if (noN.length) parts.push(`${who(noN)} won't`);
+  return ` ${parts.join("; ")}.`;
 }
 
 /** A player gives a gathering. */
@@ -717,10 +727,11 @@ export function hostGathering(
   if (kind === "wedding") life.cooldowns["wed-feast"] = s.day + 400;
   pushGathering(g, gat);
   for (const id of list) invite(g, life, gat, can.get(id)!);
+  const far = list.filter((id) => !gat.rsvp[id]).length;
   journal(
     g,
     life,
-    `You'll give ${GATHERINGS[kind].a} at ${g.map.provinces[life.prov].name} in ${days} days (${cost} coins). The invitations are out.`,
+    `You'll give ${GATHERINGS[kind].a} at ${g.map.provinces[life.prov].name} in ${days} days (${cost} coins).${answersLine(g, gat, list)}${far ? ` ${far} invitation${far === 1 ? " goes" : "s go"} by letter.` : ""}`,
   );
   return null;
 }
@@ -743,6 +754,8 @@ export function inviteMore(
   if (gat.invited.length + add.length > max)
     return `No more than ${max} guests.`;
   for (const x of add) invite(g, life, gat, can.get(x)!);
+  const line = answersLine(g, gat, add);
+  if (line) journal(g, life, line.trim());
   touchLife(g, life);
   return null;
 }

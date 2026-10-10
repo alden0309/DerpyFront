@@ -38,6 +38,7 @@ import {
   meOf,
   no,
   opinionOf,
+  peopleHere,
   skillLevel,
   travelRoute,
   weddingCost,
@@ -209,6 +210,8 @@ export function correspondents(s: GameState, life: Life): number[] {
   for (const pid of [me.father, me.mother])
     for (const k of s.chars[pid]?.children ?? []) add(k);
   for (const id of [...life.met].reverse()) add(id);
+  // The people of the town you're in: you know of them.
+  for (const c of peopleHere(s, life.prov, life)) add(c.id);
   for (const l of s.lives) if (l.c >= 0 && !l.watching) add(l.c);
   for (const n of s.nations) {
     if (!n.alive || (n.kind !== "power" && n.kind !== "native")) continue;
@@ -426,7 +429,8 @@ export function letterAcceptance(
       if (tie === "friend") e.add("A friend in need", 12);
       if (
         [me.father, me.mother, me.spouse].includes(c.id) ||
-        c.father === me.father
+        (me.father >= 0 && c.father === me.father) ||
+        (me.mother >= 0 && c.mother === me.mother)
       )
         e.add("Family", 20);
       if ((life.property ?? []).length) e.add("You own property", 6);
