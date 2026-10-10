@@ -8,6 +8,7 @@ import { dateOf } from "./Calendar";
 import { kill } from "./Characters";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
+import { hooks } from "./Hooks";
 import {
   addRenown,
   addStress,
@@ -113,7 +114,8 @@ export interface LifeChoice {
   tip: string | ((g: ConquestGame, life: Life, ctx: LCtx) => string);
   /** A skill check, with the odds shown on the button. */
   check?: {
-    skill: Skill;
+    /** LIFE (r11): or worked out (a matter at work tests your own trade's skill). */
+    skill: Skill | ((g: ConquestGame, life: Life, ctx: LCtx) => Skill);
     dc: number | ((g: ConquestGame, life: Life, ctx: LCtx) => number);
   };
   blocked?: (g: ConquestGame, life: Life, ctx: LCtx) => string | null;
@@ -3598,6 +3600,8 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   ...BASE_EVENTS,
   ...MORE_EVENTS,
   ...TALES,
+  // LIFE (r11): matters at work, crime and the law, your people, boats, the road.
+  ...R11_EVENTS,
 ];
 
 // ---------------------------------------------------------------- a few calls out
@@ -3605,6 +3609,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
 import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";
+import { R11_EVENTS } from "./R11Events";
 import { TALES } from "./Tales";
 
 function joinM(g: ConquestGame, life: Life, id: number): string | null {
@@ -3650,7 +3655,18 @@ export function choiceOdds(
   if (!c.check) return null;
   const dc =
     typeof c.check.dc === "number" ? c.check.dc : c.check.dc(g, life, ctx);
-  return checkChance(skillLevel(g.s, life, c.check.skill), dc);
+  return checkChance(skillLevel(g.s, life, checkSkill(g, life, c, ctx)), dc);
+}
+
+/** The skill a choice's check tests. */
+export function checkSkill(
+  g: ConquestGame,
+  life: Life,
+  c: LifeChoice,
+  ctx: LCtx,
+): Skill {
+  const sk = c.check!.skill;
+  return typeof sk === "function" ? sk(g, life, ctx) : sk;
 }
 
 function render(
@@ -3668,7 +3684,7 @@ function render(
     return {
       label:
         odds !== null
-          ? `${label} (${SKILL_NAMES[c.check!.skill]} ${Math.round(odds * 100)}%)`
+          ? `${label} (${SKILL_NAMES[checkSkill(g, life, c, ctx)]} ${Math.round(odds * 100)}%)`
           : label,
       tip: why ? `${tip} (${why}.)` : tip,
     };
@@ -3823,6 +3839,9 @@ export function raiseLifeEvent(
   fire(g, life, def, ctx);
 }
 
+// LIFE (r11): other modules raise events through the hook, not an import.
+hooks.raise.push(raiseLifeEvent);
+
 /** Each day: maybe something happens (on the road, at sea, or at home). */
 export function lifeEventsDaily(
   g: ConquestGame,
@@ -3896,7 +3915,7 @@ function answer(
     ok: odds === null ? null : pass,
     choice: ev.choices[choice]?.label,
   });
-  if (c.check) gainXp(g, life, c.check.skill, 5);
+  if (c.check) gainXp(g, life, checkSkill(g, life, c, ev.ctx), 5);
   c.apply(g, life, ev.ctx, pass);
   if (odds !== null && life.c >= 0)
     journal(

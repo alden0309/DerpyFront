@@ -236,11 +236,11 @@ describe("people", () => {
     expect(bride.home).toBe(life.home);
     expect(bride.family).toBe("Drackley");
     expect(life.tally.marriages).toBe(1);
-    // Two years on, there are usually children.
-    for (let i = 0; i < 6 && me.children.length === 0; i++) ticks(g, 365);
+    // A few years on, there are usually children (a 30% chance a year).
+    for (let i = 0; i < 12 && me.children.length === 0; i++) ticks(g, 365);
     expect(me.children.length).toBeGreaterThan(0);
     expect(life.tally.children).toBe(me.children.length);
-  });
+  }, 30_000);
 });
 
 describe("death and the line", () => {

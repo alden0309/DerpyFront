@@ -97,6 +97,8 @@ export type ClientMessage =
   | { t: "cmd"; id: number; c: LifeCommand }
   | { t: "speed"; s: number }
   | { t: "pause"; p: boolean }
+  /** LIFE (r11): skip ahead until something needs someone (in company, all must agree). */
+  | { t: "skip"; on: boolean }
   | { t: "chat"; text: string }
   | { t: "save" }
   | { t: "end" }
@@ -130,6 +132,17 @@ export type ServerMessage =
     }
   | { t: "d"; d: GameDelta }
   | { t: "clock"; speed: number; paused: boolean; by: string | null }
+  /**
+   * LIFE (r11): skipping ahead (on), or who has asked to (seat ids); when a
+   * skip stops, why (what needed someone).
+   */
+  | {
+      t: "skip";
+      on: boolean;
+      asked: string[];
+      by: string | null;
+      why: string | null;
+    }
   | { t: "seats"; seats: SeatInfo[]; host: string }
   | { t: "ack"; id: number; err: string | null }
   | { t: "chat"; from: string; text: string }

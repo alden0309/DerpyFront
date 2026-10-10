@@ -20,8 +20,11 @@ export const START_YEAR = 1607;
 export const DAYS_PER_YEAR = 365;
 export const MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-/** Game days per real second at each speed: 1x, 2x, 4x and 8x. */
-export const SPEED_DAYS_PER_SECOND = [0, 2, 4, 8, 16];
+/**
+ * Game days per real second at each speed: 1x is a day every three seconds,
+ * then 2x, 4x and 8x. Quiet stretches can be skipped (Pace.ts).
+ */
+export const SPEED_DAYS_PER_SECOND = [0, 1 / 3, 2 / 3, 4 / 3, 8 / 3];
 export const SPEED_LABELS = ["", "1×", "2×", "4×", "8×"];
 export const MAX_SPEED = 4;
 export const DEFAULT_SPEED = 1;

@@ -16,5 +16,7 @@ import "./conquest.css";
 import "./life.css";
 import "./scene.css";
 import "./steady.css";
+// LIFE (r11): work, the law, your people, your boats, the road.
+import "./livelihood.css";
 
 document.body.appendChild(document.createElement("conquest-app"));

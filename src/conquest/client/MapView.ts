@@ -2037,7 +2037,10 @@ export class MapView {
     const dt = Math.min(0.1, Math.max(0, (now - st.t) / 1000));
     st.t = now;
     if (moving && running) {
-      const cadence = Math.PI * 2 * (0.95 + 0.25 * (speed - 1));
+      // A day takes three seconds at 1×: an easy stroll, quickening with
+      // the clock, and a hurry while skipping ahead (5).
+      const cadence =
+        Math.PI * 2 * ([0.6, 0.6, 0.85, 1.15, 1.45, 1.9][speed] ?? 1);
       st.phase += dt * cadence;
     } else if (!moving) {
       const rest = Math.round(st.phase / Math.PI) * Math.PI;

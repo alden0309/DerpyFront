@@ -35,7 +35,35 @@ export const hooks = {
   ) => string | null | undefined)[],
   /** Characters the nations' own monthly round should leave alone (players). */
   skip: [] as ((g: ConquestGame, c: number) => boolean)[],
+  // LIFE (r11)
+  /** Each day of each living life, after the life's own round. */
+  lifeDaily: [] as ((g: ConquestGame, life: Life) => void)[],
+  /** Each month of each living life, after the life's own round. */
+  lifeMonthly: [] as ((g: ConquestGame, life: Life) => void)[],
+  /** Before any life command: why it can't be done now (in a cell...), or null. */
+  gate: [] as ((
+    g: ConquestGame,
+    life: Life,
+    c: LifeCommand,
+  ) => string | null)[],
+  /** Puts an event to a life (LifeEvents.ts registers it), without importing it. */
+  raise: [] as ((
+    g: ConquestGame,
+    life: Life,
+    key: string,
+    ctx: Record<string, number>,
+  ) => void)[],
 };
+
+/** LIFE (r11): put an event to a life through the registered raiser. */
+export function raiseEvent(
+  g: ConquestGame,
+  life: Life,
+  key: string,
+  ctx: Record<string, number> = {},
+): void {
+  for (const r of hooks.raise) r(g, life, key, ctx);
+}
 
 export function skipped(g: ConquestGame, c: number): boolean {
   return hooks.skip.some((f) => f(g, c));
