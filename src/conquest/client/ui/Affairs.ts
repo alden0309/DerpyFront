@@ -117,6 +117,7 @@ import {
   provLink,
   section,
 } from "./Context";
+import { affairsSections, tradesLink, workNotes } from "./Livelihood";
 
 export function affairsTab(ui: GameUi): TemplateResult {
   const life = ui.life;
@@ -132,9 +133,10 @@ export function affairsTab(ui: GameUi): TemplateResult {
         voyage home.
       </p>
     </header>
-    ${workSection(ui)} ${ambitionSection(ui)} ${purseSection(ui)}
-    ${propertySection(ui)} ${armySection(ui)} ${standingSection(ui)}
-    ${governingSection(ui)} ${causeSection(ui)} ${europeSection(ui)}`;
+    ${workSection(ui)} ${affairsSections(ui)} ${ambitionSection(ui)}
+    ${purseSection(ui)} ${propertySection(ui)} ${armySection(ui)}
+    ${standingSection(ui)} ${governingSection(ui)} ${causeSection(ui)}
+    ${europeSection(ui)}`;
 }
 
 // ---------------------------------------------------------------- work
@@ -195,7 +197,8 @@ function workSection(ui: GameUi): TemplateResult {
             </ul>`
           : html`<p class="cq-muted small">
               Nobody hires here. Travel to a town.
-            </p>`}`,
+            </p>`}
+        ${tradesLink(ui)}`,
     );
   }
   const def = JOBS[job.kind];
@@ -230,10 +233,11 @@ function workSection(ui: GameUi): TemplateResult {
         <div class="cq-days" title="Wages are paid by the days you work">
           ${bar(Math.min(WORK_DAYS, job.worked ?? 0) / WORK_DAYS, "xp")}
           <span class="small"
-            >${Math.min(WORK_DAYS, job.worked ?? 0)} of ${WORK_DAYS} working
-            days this month</span
+            >${Math.round(job.worked ?? 0)} of ${WORK_DAYS} working days this
+            month</span
           >
         </div>
+        ${workNotes(ui)}
         <p class="cq-work-note small">
           ${!here && job.army < 0
             ? html`<span class="cq-warn"
@@ -332,7 +336,8 @@ function workSection(ui: GameUi): TemplateResult {
           )}
         </div>
       </div>
-      <p class="cq-muted small">${def.text}</p>`,
+      <p class="cq-muted small">${def.text}</p>
+      ${tradesLink(ui)}`,
   );
 }
 

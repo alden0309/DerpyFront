@@ -392,7 +392,7 @@ export const CRIME_EVENTS: LifeEventDef[] = [
           const rank =
             life.job && JOBS[life.job.kind].crime ? life.job.rank : 0;
           if (pass) {
-            const got = 6 + 5 * (rank + 1) + g.rng.int(0, 10);
+            const got = 4 + 3 * (rank + 1) + g.rng.int(0, 6);
             earn(g, life, got);
             addNotoriety(g, life, 3);
             addHeat(g, life, ctx.n ?? -1, 10);
@@ -427,7 +427,7 @@ export const CRIME_EVENTS: LifeEventDef[] = [
           const rank =
             life.job && JOBS[life.job.kind].crime ? life.job.rank : 0;
           if (pass) {
-            const got = 3 + 2 * (rank + 1) + g.rng.int(0, 4);
+            const got = 2 + (rank + 1) + g.rng.int(0, 3);
             earn(g, life, got);
             addNotoriety(g, life, 1);
             addHeat(g, life, ctx.n ?? -1, 4);

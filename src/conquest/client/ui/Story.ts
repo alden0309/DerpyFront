@@ -17,7 +17,8 @@ import { token } from "./Context";
 type Tone = "good" | "bad" | "";
 
 function toneOf(m: LifeMilestone): Tone {
-  if (m.kind === "died" || m.kind === "wounded") return "bad";
+  if (m.kind === "died" || m.kind === "wounded" || m.kind === "convicted")
+    return "bad";
   if (m.kind === "battle") return m.text.startsWith("Lost") ? "bad" : "good";
   if (m.kind === "rising")
     return /crushed|hanged|failed/i.test(m.text) ? "bad" : "good";

@@ -806,7 +806,7 @@ const BASE_EVENTS: LifeEventDef[] = [
         apply: (g, life) => {
           if (g.rng.chance(0.3)) {
             fx(g, life, { health: -45 }, "smallpox");
-            if (me(g, life).alive)
+            if (meOf(g.s, life)?.alive)
               say(
                 g,
                 life,

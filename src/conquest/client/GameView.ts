@@ -7,6 +7,7 @@ import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { bananaMark } from "../../derpland/Icons";
+import { boatRoute, sailCheck } from "../engine/Boats";
 import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
 import {
@@ -84,6 +85,7 @@ import {
 } from "./ui/Context";
 import { herePanel, provincePage } from "./ui/Here";
 import { journalTab } from "./ui/Journal";
+import { needsAttention, tradesPage } from "./ui/Livelihood";
 import { ModalHooks, renderModal } from "./ui/Modals";
 import { personPage, youTab } from "./ui/Sheet";
 import { forgetSteady, setSteadyRedraw, touched } from "./ui/Steady";
@@ -817,6 +819,9 @@ export class GameView extends LitElement {
         female: c.female,
         native,
         mounted: hasKit(s, l, "horse") || hasKit(s, l, "carriage"),
+        boats: (l.boats ?? [])
+          .filter((b) => l.travel?.boat !== b.id)
+          .map((b) => ({ p: b.prov, kind: b.kind, name: b.name })),
       });
     }
     // Yours on top.
@@ -1077,6 +1082,7 @@ export class GameView extends LitElement {
                 By sea, ${Math.ceil(sea!.days)} days, ${sea!.cost}c
               </button>`
             : nothing}
+          ${this.ownBoats(m.to)}
           <button
             class="cq-btn small quiet"
             @click=${() => {
@@ -1106,6 +1112,36 @@ export class GameView extends LitElement {
           </label>`
         : nothing}
     </div>`;
+  }
+
+  /** LIFE (r11): sail there in your own boat, if she lies here. */
+  private ownBoats(to: number): TemplateResult | typeof nothing {
+    const life = this.life;
+    if (!life || life.travel) return nothing;
+    const boats = (life.boats ?? []).filter((b) => b.prov === life.prov);
+    if (!boats.length || !map.provinces[to]?.coastal) return nothing;
+    return html`${boats.map((b) => {
+      const route = boatRoute(map, life.prov, to, b.kind);
+      const check = sailCheck(this.s, map, life, b, to);
+      return html`<button
+        class="cq-btn small"
+        ?disabled=${!check.ok}
+        title=${check.ok
+          ? "No fare: her crew's wages and keep only"
+          : check.why}
+        @click=${() => {
+          this.ask = null;
+          void this.cmd({ k: "sail", to, boat: b.id }).then((ok) => {
+            if (ok) {
+              play("paper");
+              this.stack = [{ k: "tab", tab: "here" }];
+            }
+          });
+        }}
+      >
+        In the ${b.name}${route ? `, ${Math.ceil(route.days)} days` : ""}
+      </button>`;
+    })}`;
   }
 
   private onHover(p: number | null): void {
@@ -1334,6 +1370,8 @@ export class GameView extends LitElement {
         return nationPage(ui, v.n);
       case "char":
         return personPage(ui, v.c);
+      case "life":
+        return tradesPage(ui);
       case "tab":
         switch (v.tab) {
           case "here":
@@ -1574,7 +1612,9 @@ export class GameView extends LitElement {
     const badge: Partial<Record<Tab, boolean>> = {};
     if (life && !life.watching && life.c >= 0) {
       badge.affairs =
-        !!life.invite || (!!life.job && promotionView(this.s, life).check.ok);
+        !!life.invite ||
+        (!!life.job && promotionView(this.s, life).check.ok) ||
+        needsAttention(life);
       badge.journal = life.events.length > 0;
     }
     if (life?.watching) badge.here = true;

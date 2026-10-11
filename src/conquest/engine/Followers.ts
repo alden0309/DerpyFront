@@ -37,7 +37,7 @@ import { clanName, NATIVE_CLANS, NATIVE_NAMES } from "./LifeRules";
 import type { World } from "./Map";
 import { NAMES } from "./Names";
 import { wake } from "./Pace";
-import { ageOf, charName, hasTrait } from "./Queries";
+import { ageOf, charName, enemiesOf, hasTrait } from "./Queries";
 import { Rng } from "./Rng";
 import type {
   Character,
@@ -1046,7 +1046,34 @@ function companyMonthly(g: ConquestGame, life: Life): void {
     co.men = Math.round(a.regs.reduce((m, r) => m + r.men, 0));
   }
   const pay = Math.round(co.men * COMPANY_PAY[co.kind] * 10) / 10;
-  if (life.purse >= pay) {
+  // In the field in wartime, the colony takes the company into its pay,
+  // with an allowance for its captain.
+  const field = co.army >= 0 ? s.armies.find((x) => x.id === co.army) : null;
+  const crown = field ? s.nations[field.owner] : null;
+  const inPay =
+    !!field &&
+    !!crown &&
+    enemiesOf(s, field.owner).length > 0 &&
+    crown.gold >= pay + 3 + co.men * 0.05;
+  if (inPay !== !!co.inPay) {
+    journal(
+      g,
+      life,
+      inPay
+        ? `${crown!.name} takes ${co.name} into its pay while the war lasts, with a captain's allowance for you.`
+        : `${co.name} is off the colony's pay: the wages are yours again.`,
+      inPay ? "good" : undefined,
+    );
+    if (inPay) co.inPay = true;
+    else delete co.inPay;
+  }
+  if (inPay) {
+    const allowance = Math.round((3 + co.men * 0.05) * 10) / 10;
+    g.nation(field!.owner).gold -= Math.round((pay + allowance) * 10) / 10;
+    earn(g, life, allowance);
+    co.owed = 0;
+    co.morale = Math.min(1, co.morale + 0.05);
+  } else if (life.purse >= pay) {
     spend(g, life, pay);
     co.owed = 0;
     co.morale = Math.min(1, co.morale + 0.05);
@@ -1175,9 +1202,9 @@ function jobHome(g: ConquestGame, life: Life, f: Follower): void {
   for (const x of band) x.task = null;
   const skill = band.reduce((m, x) => m + followerSkill(s, x), 0);
   const nation = lawAt(s, t.p);
-  const base = t.what === "protection" ? 4 : t.what === "smuggling" ? 7 : 6;
+  const base = t.what === "protection" ? 1.5 : t.what === "smuggling" ? 2.5 : 2;
   const take = Math.round(
-    (base * band.length + skill * 0.8) * (0.6 + g.rng.next()),
+    (base * band.length + skill * 0.25) * (0.5 + g.rng.next()),
   );
   const shares = band.reduce((m, x) => m + x.share, 0);
   const mine = Math.round(take * Math.max(0.3, 1 - shares) * 10) / 10;

@@ -12,6 +12,7 @@ import {
   type LookSeed,
   stationOfBackground,
 } from "../engine/Appearance";
+import { backgroundGroup, JOB_GROUPS, type JobGroup } from "../engine/JobsData";
 import {
   homeChoices,
   planBudget,
@@ -318,6 +319,8 @@ export class Maker extends LitElement {
 
   @state() private plan: LifePlan | null = null;
   @state() private natives = false;
+  /** LIFE (r11): which kind of upbringing the register shows (null: the chosen one's). */
+  @state() private bgGroup: JobGroup | "all" | null = null;
 
   createRenderRoot() {
     return this;
@@ -852,16 +855,57 @@ export class Maker extends LitElement {
     const p = this.plan!;
     const native = isNativeOrigin(s, p.origin);
     const list = native ? NATIVE_BACKGROUNDS : COLONIST_BACKGROUNDS;
+    // LIFE (r11): many upbringings now, sorted by the kind of work.
+    const groupOf = (b: BackgroundId) =>
+      backgroundGroup(b, BACKGROUNDS[b], JOBS);
+    const groups = JOB_GROUPS.filter((g) =>
+      list.some((b) => groupOf(b) === g.id),
+    );
+    const mine = groupOf(p.background);
+    const shown = groups.length <= 1 ? "all" : (this.bgGroup ?? mine);
+    const cards =
+      shown === "all" ? list : list.filter((b) => groupOf(b) === shown);
     return html`<div class="cq-maker-part">
       ${this.head("IV", "How you were brought up", () =>
         this.set({ background: pick(list), skills: {} }),
       )}
       <p class="cq-muted small">
         Your background sets the work you start in (if your home has the place
-        for it), your purse, your first skills and how well known you are.
+        for it), your purse, your first skills and how well known you are. Any
+        trade can be taken up later in life, too.
       </p>
+      ${groups.length > 1
+        ? html`<nav
+            class="cq-lv-chips cq-bg-groups"
+            aria-label="Kinds of upbringing"
+          >
+            ${groups.map(
+              (g) =>
+                html`<button
+                  class="${shown === g.id ? "on" : ""} ${mine === g.id
+                    ? "mine"
+                    : ""}"
+                  aria-pressed=${shown === g.id}
+                  title=${g.text}
+                  @click=${() => (this.bgGroup = g.id)}
+                >
+                  ${g.name}
+                  <small
+                    >${list.filter((b) => groupOf(b) === g.id).length}</small
+                  >
+                </button>`,
+            )}
+            <button
+              class=${shown === "all" ? "on" : ""}
+              aria-pressed=${shown === "all"}
+              @click=${() => (this.bgGroup = "all")}
+            >
+              All <small>${list.length}</small>
+            </button>
+          </nav>`
+        : nothing}
       <ul class="cq-backgrounds">
-        ${list.map((b) => this.backgroundCard(b, p.background === b))}
+        ${cards.map((b) => this.backgroundCard(b, p.background === b))}
       </ul>
     </div>`;
   }
@@ -888,6 +932,9 @@ export class Maker extends LitElement {
             : html`<span>No trade</span>`}
           <span>${def.purse} coins</span>
           ${def.renown ? html`<span>renown ${def.renown}</span>` : nothing}
+          ${def.notoriety
+            ? html`<span class="cq-bg-rogue">notoriety ${def.notoriety}</span>`
+            : nothing}
         </span>
         <span class="cq-background-skills">${skills}</span>
       </button>

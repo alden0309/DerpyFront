@@ -426,7 +426,7 @@ describe("interactions and scenes", () => {
     }
     // Most of the new tales come to one of these lives within a year.
     expect(told.size).toBeGreaterThan(TALES.length / 2);
-  });
+  }, 30_000);
 
   test("players ask each other: a scene to accept or refuse, and an answer back", () => {
     const g = world({

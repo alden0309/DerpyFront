@@ -80,7 +80,7 @@ export function addHeat(
   if (nation < 0 || n === 0) return;
   const c = crimeState(g, life);
   const v = Math.max(0, Math.min(100, (c.heat[nation] ?? 0) + n));
-  if (v < 0.5) delete c.heat[nation];
+  if (v < 0.05) delete c.heat[nation];
   else c.heat[nation] = Math.round(v * 10) / 10;
 }
 
@@ -242,7 +242,11 @@ export function sentenceFor(
   priors: number,
   lighter = false,
 ): Sentence {
-  const g = Math.max(1, grade + Math.min(2, priors) - (lighter ? 1 : 0));
+  // A record makes it worse, but petty theft alone never hangs.
+  const g = Math.max(
+    1,
+    grade + Math.min(grade >= 2 ? 2 : 1, priors) - (lighter ? 1 : 0),
+  );
   if (g <= 1)
     return priors === 0
       ? { key: "fine", text: "a fine of 10 coins", n: 10 }
@@ -299,7 +303,7 @@ export function punish(
   });
   if (c.record.length > 12) c.record.splice(0, c.record.length - 12);
   c.jail = null;
-  milestone(g, life, "rising", `Convicted of ${charge}: ${sentence.text}`);
+  milestone(g, life, "convicted", `Convicted of ${charge}: ${sentence.text}`);
   switch (sentence.key) {
     case "fine":
       spend(g, life, sentence.n);
@@ -384,6 +388,10 @@ export function punish(
         break;
       }
       if (life.job) leaveJob(g, life, "in irons");
+      // A felon's goods and money are forfeit to the Crown.
+      const forfeit = Math.max(0, Math.round(life.purse * 0.9 * 10) / 10);
+      if (forfeit > 0) spend(g, life, forfeit);
+      life.goods = {};
       life.travel = null;
       life.prov = to;
       life.area = undefined;
@@ -394,7 +402,7 @@ export function punish(
       journal(
         g,
         life,
-        `Transported in chains to ${g.map.provinces[to].name}, bound to labour for ${sentence.n} years. Your name stays behind on the court roll.`,
+        `Transported in chains to ${g.map.provinces[to].name}, bound to labour for ${sentence.n} years.${forfeit > 0 ? ` Your money (${forfeit} coins) and goods are forfeit to the Crown.` : ""} Your name stays behind on the court roll.`,
         "bad",
       );
       addStress(g, life, 20);
@@ -413,7 +421,7 @@ export function punish(
   wake(g, life, `Sentenced: ${sentence.text}.`);
   // Paid for, in the eyes of the law.
   c.heat[nation] = Math.min(c.heat[nation] ?? 0, 10);
-  if (c.heat[nation] < 0.5) delete c.heat[nation];
+  if (c.heat[nation] < 0.05) delete c.heat[nation];
   return true;
 }
 
@@ -445,7 +453,7 @@ export function crimeDaily(g: ConquestGame, life: Life): void {
   const working = !!life.job && !!JOBS[life.job.kind].crime;
   for (const k of Object.keys(c.heat)) {
     const v = c.heat[Number(k)] * (working ? HEAT_COOL : HEAT_COOL - 0.005);
-    if (v < 0.5) delete c.heat[Number(k)];
+    if (v < 0.05) delete c.heat[Number(k)];
     else c.heat[Number(k)] = Math.round(v * 100) / 100;
   }
   if (c.transported && c.transported <= s.day) {

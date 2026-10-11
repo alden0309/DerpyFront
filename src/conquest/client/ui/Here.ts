@@ -6,6 +6,7 @@ import { html, nothing, TemplateResult } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { areaName, areasOf, presence, Present } from "../../engine/Areas";
 import { formatDate } from "../../engine/Calendar";
+import { knowsDen } from "../../engine/CrimeQueries";
 import { interactionView, InteractionView } from "../../engine/Interactions";
 import { actCheck, actLabel, actOdds, actsAt } from "../../engine/LifeActs";
 import {
@@ -68,6 +69,14 @@ import {
   section,
   token,
 } from "./Context";
+import {
+  jailCallout,
+  ownBoatWays,
+  placeBlocks,
+  takeUpRows,
+  tradesLink,
+  workNotes,
+} from "./Livelihood";
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 
 function provHeader(ui: GameUi, p: number): TemplateResult {
@@ -172,6 +181,7 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
             )}
           </div>`
         : nothing}
+      ${ownBoatWays(ui, p)}
     </div>`,
   );
 }
@@ -189,7 +199,7 @@ export function herePanel(ui: GameUi): TemplateResult {
       ? s.armies.find((a) => a.id === life.job!.army)
       : undefined;
   const leading = s.armies.find((a) => a.commander === me.id);
-  return html`${provHeader(ui, p)}
+  return html`${provHeader(ui, p)} ${jailCallout(ui)}
   ${t
     ? html`<div class="cq-callout road">
         <p>
@@ -367,7 +377,10 @@ export function provincePage(ui: GameUi, p: number): TemplateResult {
   const life = ui.life;
   if (life && !life.watching && p === life.prov && !life.travel)
     return herePanel(ui);
-  const list = placesIn(s, ui.w, p);
+  // LIFE (r11): the den is found, not seen.
+  const list = placesIn(s, ui.w, p).filter(
+    (pl) => pl !== "den" || (!!life && knowsDen(life, p)),
+  );
   const def = ui.map.provinces[p];
   const met = peopleHere(s, p, life ?? undefined).filter(
     (c) => !life || life.met.includes(c.id) || life.watching || !life.c,
@@ -519,7 +532,8 @@ function areaView(
     </header>
     ${workBlock(ui, p, area)} ${actsBlock(ui, p, area)}
     ${extrasBlock(ui, p, area)} ${hiringBlock(ui, p, area)}
-    ${presentBlock(ui, p, area, folk)} ${talkBlock(ui, p, area)}
+    ${placeBlocks(ui, p, area)} ${presentBlock(ui, p, area, folk)}
+    ${talkBlock(ui, p, area)}
   </section>`;
 }
 
@@ -668,8 +682,7 @@ function workBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
   const boss = s.chars[job.employer];
   const v = promotionView(s, life);
   const biz = businessOf(life, p, area);
-  const worked = Math.min(WORK_DAYS, job.worked ?? 0);
-  const hard = actCheck(s, ui.w, life, area, "work");
+  const worked = Math.min(WORK_DAYS * 1.4, job.worked ?? 0);
   const askUp = boss?.alive
     ? interactionView(s, ui.w, life, boss.id, "promote")
     : null;
@@ -704,11 +717,12 @@ function workBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
     <div class="cq-days" title="Wages are paid by the days you work">
       ${bar(worked / WORK_DAYS, "xp")}
       <span class="small"
-        >${worked} of ${WORK_DAYS} days this month:
+        >${Math.round(worked)} of ${WORK_DAYS} days this month:
         ${((def.ranks[job.rank].wage * worked) / WORK_DAYS).toFixed(1)} of
         ${def.ranks[job.rank].wage} coins earned</span
       >
     </div>
+    ${workNotes(ui)}
     <p
       class="cq-work-note small"
       title=${v.next && !v.check.ok ? v.check.why : ""}
@@ -716,13 +730,6 @@ function workBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
       ${note}
     </p>
     <div class="cq-acts">
-      ${actButton({
-        label: "Put in a hard day",
-        ok: hard.ok,
-        why: hard.ok ? null : hard.why,
-        title: "A long day: skill, and a good word from your master",
-        run: () => runAct(ui, area, "work"),
-      })}
       ${next && !next.buy
         ? actButton({
             label: `Ask to be made ${next.title.toLowerCase()}`,
@@ -796,7 +803,9 @@ function hiringBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
     area === "woods" && !life.job
       ? actCheck(s, ui.w, life, "woods", "traplines")
       : null;
-  if (!bosses.length && !self) return html``;
+  // LIFE (r11): trades you can set up in here on your own.
+  const own = takeUpRows(ui, p, area);
+  if (!bosses.length && !self && !own.length) return html``;
   return html`<div class="cq-hiring">
     <h4 class="cq-area-h">Work to be had</h4>
     <ul>
@@ -847,12 +856,14 @@ function hiringBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
             </button>
           </li>`
         : nothing}
+      ${own}
     </ul>
     ${life.job && bosses.length
       ? html`<p class="cq-muted small">
           You hold one job at a time: to work here, hand in your notice first.
         </p>`
       : nothing}
+    ${tradesLink(ui)}
   </div>`;
 }
 

@@ -16,7 +16,14 @@ import {
 } from "./Followers";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
-import { beginOutcome, endOutcome, outcomeMeta, touchLife } from "./LifeCore";
+import {
+  beginOutcome,
+  earn,
+  endOutcome,
+  journal,
+  outcomeMeta,
+  touchLife,
+} from "./LifeCore";
 import { CARRY, lifeOfChar } from "./LifeQueries";
 import { JOBS } from "./LifeRules";
 import { wake } from "./Pace";
@@ -121,6 +128,19 @@ hooks.battle.push((g, r, attackers, defenders) => {
         life.company?.army === a.id,
     );
     if (mine) wake(g, life, `A battle at ${g.map.provinces[r.prov].name}.`);
+    // A company that carries the field shares out the spoils.
+    const co = life.company;
+    const won = r.winner === 0 ? attackers : defenders;
+    if (co && co.army >= 0 && won.some((a) => a.id === co.army)) {
+      const spoils = Math.min(60, Math.round(4 + co.men * 0.12));
+      earn(g, life, spoils);
+      journal(
+        g,
+        life,
+        `${co.name} carried the field at ${g.map.provinces[r.prov].name}: ${spoils} coins of spoils for the captain.`,
+        "good",
+      );
+    }
   }
 });
 

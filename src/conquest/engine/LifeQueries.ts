@@ -277,6 +277,8 @@ export function atPost(s: GameState, w: World, life: Life): boolean {
   }
   // LIFE (r11): in a cell nobody works; some work goes to sea, the road, or anywhere.
   if (life.crime?.jail) return false;
+  // A militia officer leading their own company in the field is on service.
+  if (job.kind === "militia" && (life.company?.army ?? -1) >= 0) return true;
   switch (JOBS[job.kind].post) {
     case "sea":
       return (

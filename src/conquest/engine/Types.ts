@@ -456,7 +456,9 @@ export type MilestoneKind =
   | "heir"
   | "takeover"
   | "watching"
-  | "end";
+  | "end"
+  // LIFE (r11): a conviction at the quarter sessions.
+  | "convicted";
 
 export interface LifeMilestone {
   day: number;
@@ -1926,6 +1928,8 @@ export interface Company {
   army: number;
   /** Months unpaid. */
   owed?: number;
+  /** In the field in wartime, paid by the colony rather than you. */
+  inPay?: boolean;
 }
 
 export type ContractKind =

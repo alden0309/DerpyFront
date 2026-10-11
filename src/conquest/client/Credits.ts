@@ -245,6 +245,49 @@ export const CREDITS: Credit[] = [
       "https://commons.wikimedia.org/wiki/File:Man_Writing_a_Letter_by_Gabri%C3%ABl_Metsu.jpg",
   },
   // ===== end r9 gameplay (Agent G) =====
+  // ===== LIFE (r11): the den, the gaol, and the road's weather =====
+  {
+    what: "Picture",
+    title:
+      "Industry and Idleness, plate 9: The Idle 'Prentice taken in a Night Cellar (1747): the den",
+    author: "William Hogarth",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:William_Hogarth,_The_Idle_%27Prentice_betray%27d_by_his_Whore,_%26_taken_in_a_Night_Cellar_with_his_Accomplice,_1747,_NGA_30398.jpg",
+  },
+  {
+    what: "Picture",
+    title: "A Rake's Progress, plate 7: The Prison Scene (1735): the gaol",
+    author: "William Hogarth",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:William_Hogarth_-_A_Rake%27s_Progress,_Plate_7,_The_Prison_Scene_-_Google_Art_Project.jpg",
+  },
+  {
+    what: "Picture",
+    title: "A Shipwreck in Stormy Seas (c.1773): storms at sea",
+    author: "Claude-Joseph Vernet",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Claude-Joseph_Vernet_-_A_Shipwreck_in_Stormy_Seas_(Temp%C3%AAte)_-_c_1773_-_National_Gallery_UK.jpg",
+  },
+  {
+    what: "Picture",
+    title: "A Forest Marsh with Travelers on a Bank (c.1660): swamps",
+    author: "Jacob van Ruisdael",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Jacob_van_Ruisdael,_A_Forest_Marsh_with_Travelers_on_a_Bank_(The_Travelers),_NGA_10401.jpg",
+  },
+  {
+    what: "Picture",
+    title: "River Landscape with Ferry (1649): fords and ferries",
+    author: "Salomon van Ruysdael",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Salomon_van_Ruysdael_-_River_Landscape_with_Ferry_-_Google_Art_Project.jpg",
+  },
+  // ===== end LIFE (r11) =====
   {
     what: "Picture",
     title: "RPG map symbols: fort 2 (sepia map style)",

@@ -261,6 +261,8 @@ export interface LifeMark {
   native: boolean;
   /** Riding (a horse of their own, or their coach). */
   mounted?: boolean;
+  /** LIFE (r11): their boats, each where it lies (not the one they're sailing in). */
+  boats?: { p: number; kind: string; name: string }[];
 }
 
 /** Which figure stands for an army: its most numerous kind of regiment. */
@@ -2668,6 +2670,41 @@ export class MapView {
       ctx.stroke();
       ctx.setLineDash([]);
     }
+    // LIFE (r11): boats lying in port, each a little ship at its moorings.
+    const moored = new Map<number, number>();
+    for (const m of o.lives ?? [])
+      for (const b of m.boats ?? []) {
+        const def = this.map.provinces[b.p];
+        if (!def) continue;
+        const k = moored.get(b.p) ?? 0;
+        moored.set(b.p, k + 1);
+        const bx = sx(def.x) + 16 + k * 13;
+        const by = sy(def.y) + 10 + k * 3;
+        if (!onScreen(bx, by, 30)) continue;
+        ctx.save();
+        ctx.shadowColor = "rgba(252,244,222,0.9)";
+        ctx.shadowBlur = 2;
+        if (b.kind === "canoe")
+          drawCanoe(ctx, bx, by, figure * 0.9, 0, -1, m.colors);
+        else
+          drawSloop(
+            ctx,
+            bx,
+            by,
+            figure * (b.kind === "ship" || b.kind === "brig" ? 1.1 : 0.85),
+            now,
+            -1,
+            m.frame,
+            false,
+          );
+        ctx.restore();
+        if (m.you && this.view.scale >= 1.6) {
+          ctx.font = "italic 11px 'IM Fell English', Georgia, serif";
+          ctx.fillStyle = "rgba(38,24,12,0.85)";
+          ctx.textAlign = "center";
+          ctx.fillText(b.name, bx, by + 12);
+        }
+      }
     for (const m of o.lives ?? []) {
       let mx: number;
       let my: number;

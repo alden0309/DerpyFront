@@ -76,6 +76,8 @@ const TALKED_ABOUT: MilestoneKind[] = [
   "movement",
   "rising",
   "europe",
+  // LIFE (r11): the whole town hears about a conviction.
+  "convicted",
 ];
 
 /** Learn by doing; levels come as the experience adds up. */
