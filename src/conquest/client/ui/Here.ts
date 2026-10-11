@@ -9,6 +9,7 @@ import { formatDate } from "../../engine/Calendar";
 import { seatTitleOf } from "../../engine/CouncilTitles"; // POWER (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
 import { interactionView, InteractionView } from "../../engine/Interactions";
+import { kinWord } from "../../engine/Kin"; // HOME (r12)
 import { actCheck, actLabel, actOdds, actsAt } from "../../engine/LifeActs";
 import {
   isChildLife,
@@ -71,6 +72,7 @@ import {
   section,
   token,
 } from "./Context";
+import { homeBanner, homePlace, homeTileName, homeTileSub } from "./Home"; // HOME (r12)
 import {
   boatsHere,
   boatyardPart,
@@ -85,6 +87,7 @@ import {
   workNotes,
 } from "./Livelihood";
 import { powerParts } from "./PowerParts"; // POWER (r12)
+import { playersHere, playerTag } from "./Players"; // HOME (r12)
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 import { TERMS } from "./Terms";
@@ -290,7 +293,8 @@ export function herePanel(ui: GameUi): TemplateResult {
       ? s.armies.find((a) => a.id === life.job!.army)
       : undefined;
   const leading = s.armies.find((a) => a.commander === me.id);
-  return html`${provHeader(ui, p)} ${jailCallout(ui)} ${welcome(ui)}
+  return html`${provHeader(ui, p)} ${playersHere(ui)} ${jailCallout(ui)}
+  ${welcome(ui)}
   ${t
     ? html`<div class="cq-callout road">
         <p>
@@ -432,6 +436,9 @@ export function roleOf(ui: GameUi, c: Character): string {
   const post = postTitle(s, c.id);
   if (post && !life) return post;
   if (life) return `Played by ${life.name}`;
+  // HOME (r12): your own people are your wife, your son, your mother first.
+  const kin = kinWord(ui.s, ui.life, c);
+  if (kin) return c.role ? `${kin}, ${ROLES[c.role].title.toLowerCase()}` : kin;
   if (c.role) return ROLES[c.role].title;
   const parent = s.chars[c.father] ?? s.chars[c.mother];
   if (parent?.role)
@@ -463,6 +470,7 @@ export function personRow(ui: GameUi, c: Character): TemplateResult {
             : nothing}</span
         >
       </span>
+      ${playerTag(ui, c)}
       ${op
         ? num(
             `${op.total > 0 ? "+" : ""}${op.total}`,
@@ -607,7 +615,9 @@ function areasView(ui: GameUi, p: number): TemplateResult {
           @click=${() => void enter(a)}
         >
           <span class="cq-area-name"
-            >${areaName(s, p, a).replace(/^The /, "")}</span
+            >${a === "home"
+              ? homeTileName(ui, p)
+              : areaName(s, p, a).replace(/^The /, "")}</span
           >
           <span class="cq-area-faces">
             ${folk
@@ -617,10 +627,10 @@ function areasView(ui: GameUi, p: number): TemplateResult {
               : nothing}
           </span>
           <span class="cq-area-count"
-            >${folk.length
-              ? `${folk.length} here`
-              : a === "home"
-                ? "home"
+            >${a === "home"
+              ? homeTileSub(ui, p)
+              : folk.length
+                ? `${folk.length} here`
                 : "nobody"}</span
           >
           ${work ? html`<span class="cq-area-work">your work</span>` : nothing}
@@ -645,12 +655,17 @@ function areaView(
   const s = ui.s;
   const art = sceneArt(area);
   const def = PLACES[area];
-  return html`<section class="cq-area" aria-label=${areaName(s, p, area)}>
+  // HOME (r12): home is your house (or your lodgings), and does things.
+  const home = area === "home";
+  const title = home ? homeTileName(ui, p) : areaName(s, p, area);
+  return html`<section class="cq-area" aria-label=${title}>
     <header class="cq-area-banner" style=${art ? `--art:url(${art})` : ""}>
-      <h3>${areaName(s, p, area)}</h3>
-      <p>${def.text}</p>
+      <h3>${title}</h3>
+      <p>${home ? homeBanner(ui, p) : def.text}</p>
     </header>
-    ${workBlock(ui, p, area)} ${actsBlock(ui, p, area)}
+    ${home
+      ? homePlace(ui, p)
+      : html`${workBlock(ui, p, area)} ${actsBlock(ui, p, area)}`}
     ${ui.life!.travel ? nothing : boatsHere(ui, p, area)}
     ${presentBlock(ui, p, area, folk)} ${foldsBlock(ui, p, area)}
     ${talkBlock(ui, p, area)}
@@ -818,7 +833,11 @@ function presentRow(
           <i class="cq-doing">${gone ? "has gone out" : x.doing}</i></span
         >
       </span>
-      ${tag ? html`<span class="cq-chip ${x.kind}">${tag}</span>` : nothing}
+      ${x.kind === "player"
+        ? playerTag(ui, c)
+        : tag
+          ? html`<span class="cq-chip ${x.kind}">${tag}</span>`
+          : nothing}
       ${op
         ? num(
             `${op.total > 0 ? "+" : ""}${op.total}`,

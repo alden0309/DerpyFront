@@ -13,6 +13,7 @@ import { marry } from "./Characters";
 import { Explain } from "./Explain";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
+import { homeWelcome } from "./HouseRules"; // HOME (r12)
 import { wed } from "./Interactions";
 import { addressOf, npcWrite, postRoute, sendInvitation } from "./Letters";
 import {
@@ -719,7 +720,15 @@ export function hostGathering(
     rsvp: {},
     about: gatheringAbout(s, life, kind) ?? [],
     status: "planned",
-    mood: 0,
+    // HOME (r12): a parlour, good furniture and a cook give a gathering at home a start.
+    mood:
+      venue === "home"
+        ? homeWelcome(
+            (life.property ?? []).find(
+              (x) => x.kind === "house" && x.prov === life.prov,
+            ),
+          )
+        : 0,
     played: [],
     turns: {},
     lines: [],

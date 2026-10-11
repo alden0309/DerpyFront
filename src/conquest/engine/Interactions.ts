@@ -7,6 +7,7 @@
 
 import { findIn } from "./Areas";
 import { kill, marry } from "./Characters";
+import { duelOn, duelReport, startDuel } from "./Duels"; // HOME (r12)
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
 import {
@@ -694,6 +695,8 @@ function gates(
       if (age < 16) return no("A child.");
       if (relation(me, c) || me.spouse === c.id)
         return no("Not your own family.");
+      // HOME (r12): one affair of honour at a time.
+      if (duelOn(life)) return no("You've a duel to fight already.");
       if (
         !other &&
         life.ties[c.id] !== "rival" &&
@@ -1619,6 +1622,13 @@ export function duel(
 ): string | null {
   const s = g.s;
   const me = meOf(s, life)!;
+  // HOME (r12): a duel is played out as scenes (Duels.ts): the seconds, the
+  // weapons, the field at dawn, the exchanges. Only a second challenge while
+  // one is being fought is settled at once, as before.
+  if (me && !life.watching && !duelOn(life)) {
+    startDuel(g, life, c, challenged);
+    return null;
+  }
   const name = charName(c);
   const win =
     pass ??
@@ -1811,7 +1821,10 @@ export function answerProposal(
       setTie(g, asker, me.id, "rival");
       journal(g, winner, `At dawn you met, and you won.`, "good");
       journal(g, loser, `At dawn you met ${wName}, and lost.`, "bad");
-      hurt(g, loser, g.rng.int(10, 40), `a duel with ${wName}`);
+      const wound = g.rng.int(10, 40);
+      hurt(g, loser, wound, `a duel with ${wName}`);
+      // HOME (r12): each of you sees it played out, and the law hears of it.
+      if (winner.c >= 0 && loser.c >= 0) duelReport(g, winner, loser, wound);
       break;
     }
     case "recruit": {

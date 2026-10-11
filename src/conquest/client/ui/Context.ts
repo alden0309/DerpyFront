@@ -71,7 +71,9 @@ export type Modal =
   | { k: "constitute" }
   // The UI overhaul (r11 wave 2): the guide, and "I want to…".
   | { k: "guide"; ch?: string }
-  | { k: "finder" };
+  | { k: "finder" }
+  // HOME (r12): the family tree, large.
+  | { k: "tree" };
 
 export interface GameUi {
   s: GameState;

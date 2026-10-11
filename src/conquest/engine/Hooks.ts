@@ -53,6 +53,17 @@ export const hooks = {
     key: string,
     ctx: Record<string, number>,
   ) => void)[],
+  // HOME (r12)
+  /**
+   * A duel was fought (Duels.ts): the law may take an interest (a trial, a
+   * warrant). Called once per duel, after its outcome, with the life that
+   * fought it. Duels.ts already adds the law's heat for a death.
+   */
+  duelAftermath: [] as ((
+    g: ConquestGame,
+    life: Life,
+    d: import("./Types").DuelAftermath,
+  ) => void)[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

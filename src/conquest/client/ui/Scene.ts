@@ -30,6 +30,7 @@ import { indoors, sceneArt, sceneSound } from "../SceneArt";
 import { play } from "../Sound";
 import { GOOD_NAMES } from "../Text";
 import type { GameUi } from "./Context";
+import { duelScene } from "./DuelScene"; // HOME (r12)
 import { roleOf } from "./Here";
 import { letterClock, ModalHooks } from "./Modals";
 import { talkLine } from "./Society"; // SOCIETY (r11)
@@ -112,7 +113,7 @@ function parallax(e: PointerEvent): void {
 }
 
 /** The stage: backdrop, light, the two of you, where and when. */
-function stage(
+export function stage(
   ui: GameUi,
   o: {
     scene: string;
@@ -142,7 +143,7 @@ function stage(
   </div>`;
 }
 
-function shell(
+export function shell(
   body: TemplateResult,
   scene: string,
   key: string,
@@ -228,6 +229,8 @@ export function eventScene(
   const life = ui.life;
   const ev = life?.events.find((e) => e.id === id);
   if (!life || !ev) return outcomeScene(ui);
+  // HOME (r12): a duel's scenes have their own staging.
+  if (ev.key.startsWith("duel-")) return duelScene(ui, ev, hooks);
   const scene = ev.scene ?? "home";
   const other = ev.c !== undefined && ev.c >= 0 ? ui.s.chars[ev.c] : undefined;
   cue(scene, `ev:${ev.id}`);

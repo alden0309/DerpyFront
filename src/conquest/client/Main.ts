@@ -25,5 +25,7 @@ import "./livelihood.css";
 import "./guide.css";
 import "./nav.css";
 import "./power.css"; // POWER (r12): offices, the council, the court, the press
+// HOME (r12): the household, the family tree, duels.
+import "./home.css";
 
 document.body.appendChild(document.createElement("conquest-app"));

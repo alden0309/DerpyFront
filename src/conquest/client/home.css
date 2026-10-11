@@ -1,0 +1,828 @@
+/* HOME (r12): the household. The house you live in on a card like a plate
+   from a builder's pattern book: the engraving, its rank in Roman numerals,
+   what it gives you in small ruled chips. Lists of rooms, servants and
+   offers are ledger rows; nothing moves when a button greys. */
+
+.cq-hearth {
+  margin-top: 0.6rem;
+}
+
+/* ---------------------------------------------------------------- the house card */
+
+.cq-house-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: start;
+  margin: 0.5rem 0 0.7rem;
+  padding: 0.7rem 0.8rem 0.65rem;
+  background:
+    linear-gradient(180deg, rgba(255, 250, 232, 0.7), rgba(242, 230, 198, 0.4)),
+    var(--vellum) var(--paper);
+  border: 1px solid #b89c64;
+  outline: 1px solid rgba(138, 106, 62, 0.35);
+  outline-offset: -5px;
+  box-shadow: 0 2px 6px rgba(43, 29, 18, 0.18);
+}
+.cq-house-card.home::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: 14px;
+  width: 16px;
+  height: 26px;
+  background: var(--seal);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 74%, 0 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.cq-house-card.lodging {
+  background: rgba(242, 230, 198, 0.55) var(--paper);
+  border-style: dashed;
+}
+.cq-house-card.compact {
+  grid-template-columns: 96px minmax(0, 1fr);
+  padding: 0.55rem 0.7rem;
+}
+.cq-house-pic {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+.cq-house-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: rgba(255, 250, 235, 0.55);
+  border: 1px solid rgba(138, 106, 62, 0.4);
+  padding: 2px 3px 0;
+}
+.cq-house-pips {
+  display: flex;
+  gap: 2px;
+}
+.cq-house-pips i {
+  min-width: 1.35rem;
+  padding: 0 0.15rem;
+  font-family: var(--fell);
+  font-style: normal;
+  font-size: 0.72rem;
+  line-height: 1.15rem;
+  text-align: center;
+  color: rgba(110, 85, 56, 0.45);
+  border: 1px solid rgba(138, 106, 62, 0.28);
+}
+.cq-house-pips i.on {
+  color: var(--nation-ink, #fbf1dc);
+  background: var(--sepia);
+  border-color: var(--sepia);
+}
+.cq-house-body {
+  min-width: 0;
+}
+.cq-house-kicker {
+  margin: 0;
+  font-family: var(--fell-sc);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+.cq-house-name {
+  margin: 0.05rem 0 0.15rem;
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1.28rem;
+  line-height: 1.15;
+  color: var(--ink);
+}
+.cq-house-card.lodging .cq-house-name {
+  font-size: 1.05rem;
+  font-style: italic;
+}
+.cq-house-line {
+  margin: 0 0 0.35rem;
+  color: var(--ink);
+}
+.cq-house-gives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.3rem;
+  align-items: center;
+  margin: 0;
+}
+.cq-give {
+  padding: 0.05rem 0.4rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  border-radius: 2px;
+  border: 1px solid rgba(138, 106, 62, 0.35);
+  background: rgba(255, 250, 235, 0.6);
+  white-space: nowrap;
+}
+.cq-give.good {
+  color: var(--verdigris);
+  border-color: rgba(44, 106, 76, 0.4);
+}
+.cq-give.bad {
+  color: var(--seal);
+  border-color: rgba(158, 42, 30, 0.35);
+}
+.cq-give.quiet {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.cq-house-coins {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.cq-house-coins.good {
+  color: var(--verdigris);
+}
+.cq-house-coins.bad {
+  color: var(--seal);
+}
+
+/* ---------------------------------------------------------------- teaching and study */
+
+.cq-teach {
+  list-style: none;
+  margin: 0.55rem 0 0;
+  padding: 0;
+  border-top: 1px dotted var(--rule);
+}
+.cq-teach > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-teach .cq-folk-text {
+  flex: 1 1 8rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.cq-teach-do {
+  display: flex;
+  gap: 0.3rem;
+  align-items: center;
+}
+.cq-teach select,
+.cq-study select {
+  max-width: 11rem;
+  padding: 0.2rem 0.3rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: rgba(255, 250, 235, 0.85);
+  border: 1px solid var(--sepia);
+  border-radius: 3px;
+}
+.cq-teach > li > .cq-act-why {
+  flex-basis: 100%;
+  text-align: right;
+}
+.cq-teach-note {
+  display: block !important;
+  font-style: italic;
+}
+.cq-study {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.45rem;
+}
+.cq-study label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.cq-study > .cq-muted {
+  flex: 1 1 100%;
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------------- rows: rooms, servants, stores */
+
+.cq-home-folds {
+  margin-top: 0.9rem;
+}
+.cq-home-list {
+  list-style: none;
+  margin: 0.2rem 0 0.4rem;
+  padding: 0;
+}
+.cq-home-list > li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-home-list > li:last-child {
+  border-bottom: none;
+}
+.cq-home-list .cq-folk-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.cq-home-list .cq-act-btn,
+.cq-home-list .cq-btn {
+  flex: 0 0 auto;
+}
+.cq-home-list .cq-act-btn {
+  width: 7.2rem;
+  min-height: 2.3rem;
+}
+.cq-home-list .cq-act-btn .cq-act-why {
+  display: none;
+}
+.cq-home-mark {
+  flex: 0 0 1rem;
+  font-weight: 700;
+  color: var(--sepia);
+  text-align: center;
+}
+.cq-home-list li.built .cq-home-mark {
+  color: var(--verdigris);
+}
+.cq-home-ladder {
+  margin: 0.2rem 0 0.5rem;
+  padding-left: 1.3rem;
+}
+.cq-home-ladder li {
+  padding: 0.15rem 0;
+  color: var(--ink-soft);
+}
+.cq-home-ladder li b {
+  margin-right: 0.3rem;
+  font-weight: 700;
+}
+.cq-home-ladder li.done b {
+  color: var(--verdigris);
+}
+.cq-home-ladder li.beyond {
+  opacity: 0.55;
+}
+
+/* Houses to buy or rent: the engraving, the name, the prices. */
+.cq-house-offers {
+  list-style: none;
+  margin: 0.35rem 0 0.4rem;
+  padding: 0;
+}
+.cq-house-offers > li {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-house-offer-pic .cq-house-art {
+  padding: 1px;
+}
+.cq-house-offers .cq-folk-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.cq-house-offer-do {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+  min-width: 6.8rem;
+}
+
+@media (max-width: 520px) {
+  .cq-house-card {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 0.55rem;
+    padding: 0.55rem 0.6rem;
+  }
+  .cq-house-name {
+    font-size: 1.12rem;
+  }
+  .cq-house-pips i {
+    min-width: 1.1rem;
+    font-size: 0.66rem;
+  }
+  .cq-house-offers > li {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  .cq-house-offer-do {
+    grid-column: 2;
+    flex-direction: row;
+  }
+  .cq-home-list .cq-act-btn {
+    width: 6.2rem;
+  }
+}
+
+/* ---------------------------------------------------------------- the family tree */
+
+.cq-kin-view {
+  position: relative;
+  height: 430px;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+  background:
+    radial-gradient(
+      ellipse at 50% 40%,
+      rgba(255, 249, 228, 0.9),
+      rgba(236, 220, 180, 0.95) 70%,
+      rgba(214, 190, 140, 1)
+    ),
+    var(--vellum);
+  border: 1px solid #a88a54;
+  outline: 3px double rgba(138, 106, 62, 0.55);
+  outline-offset: -8px;
+  box-shadow: inset 0 0 40px rgba(120, 85, 40, 0.28);
+}
+.cq-kin-view:active {
+  cursor: grabbing;
+}
+.cq-kin-view.modal {
+  height: min(74vh, 760px);
+}
+.cq-kin-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+.cq-kin-lines {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.cq-kin-line,
+.cq-kin-wed {
+  fill: none;
+  stroke: #4a3220;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.cq-kin-line.hidden {
+  stroke-dasharray: 5 4;
+  stroke: #7a5a3a;
+}
+.cq-kin-wed {
+  stroke: #8a6420;
+  stroke-width: 1.4;
+}
+.cq-kin-wed.far {
+  stroke-width: 1.2;
+}
+.cq-kin-wed.lovers {
+  stroke: #9e2a1e;
+}
+
+/* The cartouche: arms, the family's name, the year it was set down. */
+.cq-kin-title {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.35rem 1.4rem 0.4rem 0.9rem;
+  white-space: nowrap;
+  background: rgba(251, 243, 220, 0.85);
+  border: 1px solid #a88a54;
+  border-radius: 40px / 50%;
+  box-shadow:
+    0 0 0 4px rgba(251, 243, 220, 0.7),
+    0 0 0 5px rgba(138, 106, 62, 0.5);
+}
+.cq-kin-arms {
+  width: 40px;
+  height: 42px;
+}
+.cq-kin-head {
+  margin: 0;
+  font-family: var(--fell);
+  font-size: 1.55rem;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.cq-kin-sub {
+  margin: 0;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+/* The generations, numbered down the margin. */
+.cq-kin-gen {
+  position: absolute;
+  left: 6px;
+  width: 52px;
+  margin: 0;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.72rem;
+  line-height: 1.1;
+  text-align: center;
+  color: rgba(74, 50, 32, 0.6);
+}
+.cq-kin-gen span {
+  display: block;
+  font-style: normal;
+  font-size: 1.3rem;
+  color: rgba(74, 50, 32, 0.45);
+}
+
+/* A person: an oval portrait over their name, years and kinship. */
+.cq-kin-card {
+  position: absolute;
+  width: 116px;
+  height: 150px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font: inherit;
+  text-align: center;
+  color: var(--ink);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.cq-kin-card:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+.cq-kin-card .cq-kin-face {
+  width: 62px;
+  height: 76px;
+  border-width: 3px;
+  transition: transform 0.15s;
+}
+.cq-kin-card:hover .cq-kin-face {
+  transform: scale(1.05);
+}
+.cq-kin-card.kind-you .cq-kin-face {
+  width: 70px;
+  height: 86px;
+  box-shadow:
+    0 0 0 2px #fbf3dc,
+    0 0 0 4px var(--seal),
+    0 2px 6px rgba(43, 29, 18, 0.45);
+}
+.cq-kin-card.kind-you {
+  top: auto;
+}
+.cq-kin-name {
+  margin-top: 3px;
+  max-width: 116px;
+  font-family: var(--fell);
+  font-size: 0.92rem;
+  line-height: 1.05;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.cq-kin-name i {
+  font-style: normal;
+  font-variant: small-caps;
+}
+.cq-kin-cross {
+  color: var(--seal);
+}
+.cq-kin-dates {
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+.cq-kin-rel {
+  font-family: var(--fell-sc);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  color: #6b4a10;
+  line-height: 1.1;
+}
+.cq-kin-card.dead .cq-kin-name,
+.cq-kin-card.dead .cq-kin-rel {
+  opacity: 0.7;
+}
+.cq-kin-card.kind-inlaw .cq-kin-face,
+.cq-kin-card.kind-former .cq-kin-face {
+  width: 54px;
+  height: 66px;
+  margin-top: 6px;
+}
+.cq-kin-player {
+  padding: 0 0.25rem;
+  font-family: var(--sans);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  color: #fff;
+  background: #2e4a6a;
+  border-radius: 2px;
+}
+/* The heir's ribbon, across the top of the portrait. */
+.cq-kin-ribbon {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 0 0.55rem;
+  font-family: var(--fell-sc);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: #fbf1dc;
+  background: linear-gradient(#b88a34, #8a6420);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  clip-path: polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%);
+}
+.cq-kin-card.heir .cq-kin-face {
+  box-shadow:
+    0 0 0 2px #fbf3dc,
+    0 0 0 4px #b88a34,
+    0 2px 6px rgba(43, 29, 18, 0.45);
+}
+
+/* + − All You, in the corner. */
+.cq-kin-tools {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 4px;
+}
+.cq-kin-tool {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  font-family: var(--fell);
+  font-size: 1.05rem;
+  color: var(--ink);
+  background: rgba(251, 243, 220, 0.92);
+  border: 1px solid var(--sepia);
+  border-radius: 3px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(43, 29, 18, 0.25);
+}
+.cq-kin-tool.wide {
+  font-size: 0.85rem;
+  font-family: var(--sans);
+}
+.cq-kin-tool:hover {
+  background: var(--vellum-3);
+}
+.cq-kin-hint {
+  align-self: center;
+  font-style: italic;
+}
+.cq-kin-section .cq-btnrow {
+  margin-top: 0.45rem;
+}
+.cq-modal.kin {
+  width: min(1180px, 96vw);
+}
+.cq-kin-modal .cq-h1 {
+  margin: 0 0 0.6rem;
+}
+
+@media (max-width: 520px) {
+  .cq-kin-view {
+    height: min(58vh, 460px);
+  }
+  .cq-kin-view.modal {
+    height: 72vh;
+  }
+  .cq-kin-tool {
+    min-width: 2.4rem;
+    height: 2.4rem;
+  }
+}
+
+/* ---------------------------------------------------------------- duels */
+
+/* The steps of an affair of honour, along the top of the picture. */
+.cq-duel-steps {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin: 0.55rem 1rem 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: duel;
+}
+.cq-duel-steps li {
+  counter-increment: duel;
+  position: relative;
+  padding: 0 0.45rem 0 0.2rem;
+  font-family: var(--fell-sc);
+  font-size: 0.8rem;
+  color: rgba(110, 85, 56, 0.6);
+  white-space: nowrap;
+}
+.cq-duel-steps li::before {
+  content: counter(duel, upper-roman) ". ";
+  font-family: var(--fell);
+}
+.cq-duel-steps li:not(:last-child)::after {
+  content: "›";
+  margin-left: 0.45rem;
+  font-family: var(--fell);
+  color: rgba(138, 106, 62, 0.7);
+}
+.cq-duel-steps li.done {
+  color: var(--ink-soft);
+}
+.cq-duel-steps li.now {
+  color: var(--seal);
+  font-weight: 700;
+}
+.cq-duel-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem 1.1rem;
+  margin: 0.7rem 2rem 0;
+  padding: 0.35rem 0.6rem;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.cq-duel-weapon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--fell);
+  font-size: 1rem;
+}
+.cq-duel-icon {
+  width: 1.6rem;
+  height: 1.3rem;
+}
+.cq-duel-wound {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.cq-duel-wound b {
+  font-family: var(--fell);
+  font-weight: 400;
+}
+.cq-duel-blood {
+  position: relative;
+  display: inline-block;
+  width: 4.2rem;
+  height: 0.45rem;
+  background: rgba(138, 106, 62, 0.18);
+  border: 1px solid rgba(138, 106, 62, 0.45);
+}
+.cq-duel-blood i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(#b0382a, #7a1d13);
+}
+.cq-duel-wound.hurt .small {
+  color: #8a4a20;
+}
+.cq-duel-wound.bad .small {
+  color: var(--seal);
+  font-weight: 700;
+}
+.cq-duel-second {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+/* What the last choice came to, as a note in the margin. */
+.cq-duel-last {
+  margin: 0.7rem 2rem 0;
+  padding: 0.35rem 0.75rem;
+  border-left: 3px solid var(--seal);
+  background: rgba(158, 42, 30, 0.06);
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 1rem;
+}
+.cq-duel-last p {
+  margin: 0;
+}
+.cq-duel-choices .cq-choice {
+  position: relative;
+  padding-right: 3.6rem;
+}
+.cq-duel-choices .cq-choice > .cq-odds {
+  position: absolute;
+  right: 0.7rem;
+  top: 0.65rem;
+  font-size: 0.85rem;
+}
+.cq-duel-choices .cq-choice.blocked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .cq-duel-steps {
+    margin: 0.45rem 0.6rem 0;
+  }
+  .cq-duel-steps li {
+    font-size: 0.78rem;
+    padding-right: 0.55rem;
+  }
+  /* Numerals only, but the step you're at. */
+  .cq-duel-steps li:not(.now) span {
+    display: none;
+  }
+  .cq-duel-state,
+  .cq-duel-last {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+}
+
+/* ---------------------------------------------------------------- other players */
+
+.cq-chip.player {
+  color: #fbf1dc;
+  background: #2e4a6a;
+  border-color: #1e3550;
+  font-size: 0.72rem;
+}
+.cq-chip.player.rival {
+  background: #7a2a1e;
+  border-color: #5a1a12;
+}
+.cq-players-here {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.4rem;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.35rem 0.5rem;
+  background: rgba(46, 74, 106, 0.08);
+  border: 1px solid rgba(46, 74, 106, 0.3);
+  border-left: 3px solid #2e4a6a;
+}
+.cq-players-head {
+  font-family: var(--fell-sc);
+  font-size: 0.85rem;
+  color: #2e4a6a;
+  margin-right: 0.2rem;
+}
+.cq-player-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.55rem 0.15rem 0.2rem;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: rgba(251, 243, 220, 0.85);
+  border: 1px solid var(--frame, #2e4a6a);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.cq-player-pill:hover {
+  background: var(--vellum-2);
+}
+.cq-player-pill span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.cq-player-pill b {
+  font-size: 0.85rem;
+}
+.cq-player-pill small {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+.cq-players .cq-opinion {
+  margin-left: 0.3rem;
+}

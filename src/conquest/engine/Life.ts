@@ -1123,6 +1123,9 @@ function heirSkills(
     out[focus] = Math.min(12, out[focus] + 3 + Math.floor(age / 8));
   if (c.role)
     out[ROLES[c.role].skill] = Math.min(14, out[ROLES[c.role].skill] + 6);
+  // HOME (r12): what a parent taught them at home.
+  for (const [k, v] of Object.entries(c.taught ?? {}))
+    out[k as Skill] = Math.min(14, out[k as Skill] + (v ?? 0));
   return out;
 }
 
