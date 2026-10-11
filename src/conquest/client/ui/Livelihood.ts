@@ -89,6 +89,7 @@ import {
   provLink,
   section,
 } from "./Context";
+import { term } from "./Terms";
 
 /** Run a command that tells a story, then show the scene of it. */
 async function scene(
@@ -153,9 +154,11 @@ export function workNotes(ui: GameUi): TemplateResult {
     </p>
     ${def.crime
       ? html`<p class="small cq-lv-crimeline">
-          <span>Notoriety <b>${Math.floor(notorietyOf(life))}</b></span>
           <span
-            >The law here:
+            >${term("notoriety")} <b>${Math.floor(notorietyOf(life))}</b></span
+          >
+          <span
+            >${term("heat", "The law here")}:
             ${heatBadge(heatOf(life, nation))}${watchLine(ui, life.prov)}</span
           >
         </p>`
@@ -429,9 +432,12 @@ export function crimePart(
     open: area === "den" || area === "gaol",
     body: html`${area === "den" || area === "gaol"
         ? html`<p class="small cq-lv-crimeline">
-            <span>Your notoriety <b>${Math.floor(notorietyOf(life))}</b></span>
             <span
-              >The law here:
+              >Your ${term("notoriety", "notoriety")}
+              <b>${Math.floor(notorietyOf(life))}</b></span
+            >
+            <span
+              >${term("heat", "The law here")}:
               ${heatBadge(heatOf(life, lawAt(s, p)))}${watchLine(ui, p)}</span
             >
           </p>`
@@ -964,7 +970,7 @@ export function peopleSection(ui: GameUi): TemplateResult {
                   class="cq-lv-loyal ${lowLoyal ? "bad" : ""}"
                   title="Loyalty ${Math.round(
                     f.loyalty,
-                  )}: below 20 they may leave (or worse)"
+                  )}: below 15 they may leave in any month (and two months unpaid, for certain); a clerk below 25 may run off with your stake"
                   >${bar(f.loyalty / 100)}</span
                 >
               </div>
@@ -1093,8 +1099,8 @@ export function companySection(ui: GameUi): TemplateResult {
         ${co.inPay ? "in the colony's pay" : `${pay} a month`}</span
       >`,
     html`<div class="cq-lv-gauges small">
-        <span>Drill ${bar(co.drill)}</span>
-        <span>Spirits ${bar(co.morale)}</span>
+        <span>${term("drill", "Drill")} ${bar(co.drill)}</span>
+        <span>${term("drill", "Spirits")} ${bar(co.morale)}</span>
         <span
           >${army
             ? html`In the field at ${provLink(ui, army.prov)}`
@@ -1243,8 +1249,7 @@ export function lawSection(ui: GameUi): TemplateResult {
     lawman ? "The law" : "The law and the underworld",
     html`<div class="cq-lv-gauges small">
         <span
-          title="How well the underworld knows you: it opens the den, better rungs on the crooked ladders, and the band's respect; honest folk think less of you"
-          >Notoriety ${bar((c?.notoriety ?? 0) / 100)}
+          >${term("notoriety")} ${bar((c?.notoriety ?? 0) / 100)}
           ${Math.floor(c?.notoriety ?? 0)}</span
         >
         ${c?.branded ? html`<b class="bad">Branded on the thumb</b>` : nothing}

@@ -415,6 +415,41 @@ cq-guide {
   .cq-guide-turn {
     grid-template-columns: 1fr;
   }
+  /* Tables become a stack of cards, each value under its heading. */
+  .cq-guide-table,
+  .cq-guide-table tbody,
+  .cq-guide-table tr,
+  .cq-guide-table td {
+    display: block;
+  }
+  .cq-guide-table thead {
+    display: none;
+  }
+  .cq-guide-table tr {
+    margin-bottom: 0.6rem;
+    border: 1px solid var(--rule);
+    border-left: 3px solid var(--sepia);
+    background: rgba(255, 250, 235, 0.45);
+  }
+  .cq-guide-table tr:nth-child(even) td {
+    background: none;
+  }
+  .cq-guide-table td {
+    padding: 0.2rem 0.6rem;
+    border: 0;
+  }
+  .cq-guide-table td:first-child {
+    padding-top: 0.45rem;
+    font-size: 1.02rem;
+  }
+  .cq-guide-table td:last-child {
+    padding-bottom: 0.45rem;
+  }
+  .cq-guide-table td:not(:first-child)::before {
+    content: attr(data-label) ": ";
+    font-family: var(--fell-sc);
+    color: var(--ink-soft);
+  }
   .cq-guide-turn button.next {
     order: -1;
   }

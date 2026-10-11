@@ -6,6 +6,7 @@
 import { BOATS, CREW_WAGE } from "../../engine/Boats";
 import { CONTRACT_PLACES, MAX_CONTRACTS } from "../../engine/Contracts";
 import { COMPANY_BOUNTY, COMPANY_PAY, SIGNING } from "../../engine/Followers";
+import { FOUND, TERMS as SETTLE_TERMS } from "../../engine/Founding";
 import { GATHERINGS, SCALE } from "../../engine/Gatherings";
 import { JOB_GROUPS, jobGroupOf } from "../../engine/JobsData";
 import { CARRY } from "../../engine/LifeQueries";
@@ -14,12 +15,14 @@ import {
   BENEATH_RENOWN,
   BENEATH_STRESS,
   ENDOWMENTS,
+  EUROPE_FORTUNE,
   HOUSES,
   JOBS,
   KIT,
   LAND_GRANT,
   LAND_LOT,
   LESSONS,
+  LIFE_COINS,
   LIFE_MAX_AGE,
   LIFE_MAX_TRAITS,
   LIFE_MIN_AGE,
@@ -37,6 +40,7 @@ import {
   WORKS,
 } from "../../engine/LifeRules";
 import { MERCHANT_CUT, MIN_CUT } from "../../engine/Markets";
+import { RISE_MEMBERS, RISE_SUPPORT } from "../../engine/Movements";
 import { OFFICES } from "../../engine/Offices";
 import { SKIP_DAYS_PER_SECOND, SKIP_MAX_DAYS } from "../../engine/Pace";
 import { END_YEAR, LETTER_SECONDS } from "../../engine/Rules";
@@ -78,6 +82,8 @@ export const PARTS: { id: string; title: string }[] = [
 // ---------------------------------------------------------------- tables made from the rules
 
 const n = (v: number) => String(Math.round(v * 100) / 100);
+/** "+1", "−1", "0". */
+const sg = (v: number) => (v > 0 ? `+${n(v)}` : v < 0 ? `−${n(-v)}` : "0");
 const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 const placeName = (p: string) =>
   ({ gaol: "the watch-house", den: "the den" })[p] ??
@@ -114,8 +120,9 @@ function wayIn(k: JobKind): string {
   if (r?.contacts === "natives") out.push("friends among the nations");
   if (r?.contacts === "sea") out.push("friends at sea");
   if (r?.pirates) out.push("pirate waters");
-  if (d.ownNation) out.push("your own nation's");
-  if (d.native === true) out.push("the native peoples");
+  if (d.ownNation) out.push("in your own nation's land");
+  if (d.native === true) out.push("for the native peoples");
+  if (d.native === false) out.push("for colonists");
   return out.join("; ");
 }
 
@@ -192,7 +199,7 @@ function livingTable(): string {
   )
     .map(
       (l) =>
-        `| **${l.name}** (${l.nativeName.toLowerCase()}) | ${n(l.cost)} / ${n(l.nativeCost)} | ${l.health > 0 ? "+" : ""}${l.health} | ${l.stress > 0 ? "+" : ""}${l.stress} | ${l.renown ? `+${l.renown}` : "0"} |`,
+        `| **${l.name}** (${l.nativeName.toLowerCase()}) | ${n(l.cost)} / ${n(l.nativeCost)} | ${sg(l.health)} | ${sg(l.stress)} | ${sg(l.renown)} |`,
     )
     .join("\n")}`;
 }
@@ -271,7 +278,7 @@ Your upbringing sets the work you start in (if your home has the place for it), 
 
 ## V. What you're good at
 - **Attributes**: diplomacy, martial, stewardship, intrigue and learning. Each starts at 5; you have 3 points to raise them (4 from age 25, 5 from 33). They add to the skills they govern.
-- **Skills**: twelve, from fighting to stealth. You have 8 to 16 points by your age (more for some upbringings); skills above 7 cost 2 points each. They grow by doing.
+- **Skills**: twelve, from fighting to stealth. You have 8 to 16 points by your age (more for some upbringings); the highest levels cost 2 points each. They grow by doing.
 
 ## VI. What you're like
 Up to ${LIFE_MAX_TRAITS} traits, paid for with 2 trait points. A flaw gives points back. Others (scarred, famous, a drunkard...) are earned along the way.
@@ -289,12 +296,12 @@ Up to ${LIFE_MAX_TRAITS} traits, paid for with 2 trait points. A flaw gives poin
 1. You start a **tenant farmer** (2.5 a month) for a planter. Work hard for the first year: you learn faster and promotion comes sooner.
 2. After 12 months and farming 6, buy **a freehold of your own** for 20 coins at the fields: you're a **yeoman** (4.5), your own master, and a freeholder can vote and stand for the assembly.
 3. Buy a cottage, then ten acres at a time (${LAND_LOT.cost} each) to let to tenants. Marry, and name your eldest your heir.
-4. Stand as **selectman** or **churchwarden** at the county's poll (Society › Office); do the duty every month. Then stand for the assembly at the governor's house.
-5. At 36 months as a freeholder, farming 11 and renown 15, buy a **plantation** (90): a **planter**, 11 a month, and the station of gentlefolk: they live comfortably, under a roof of their own. Live up to it, and your children start well.
+4. After 24 months as a yeoman, with farming 9 and renown 6, you're a **freeholder** (6.5). Stand as **selectman** or **churchwarden** at the county's poll (Society › Office), and do the duty every month. Then stand for the assembly at the governor's house.
+5. After 36 months as a freeholder, with farming 11 and renown 15, buy a **plantation** (90): a **planter**, 11 a month, and the station of gentlefolk: they live comfortably, under a roof of their own. Live up to it, and your children start well.
 
 ## A soldier (French, Quebec, 1700)
 1. Enlist with the sergeant at the fort: **private**, 2.5 a month. You march with the army wherever it goes, and share its battles: wounds, renown, promotion.
-2. Drill at the fort to raise fighting and leadership. Corporal at 8 months, sergeant at 16.
+2. Drill at the fort to raise fighting and leadership. Corporal after 8 months as a private, sergeant after 16 more as a corporal, each with the skills it asks.
 3. A commission (lieutenant and up) comes from the marshal, the governor or a patron who thinks well of you, or can be bought: a lieutenancy is 40 coins.
 4. As a **captain** you can raise a company of your own; as a **colonel** you can take command of an army where it stands and march it yourself.
 5. Wartime is when soldiers rise. In peace, garrison life is slow: take contracts, or stay behind in garrison to travel.
@@ -390,7 +397,7 @@ ${(
 - A church where there's one built (or 400 people); docks where there's a port; a fort where there's one built, and at the capital.
 - The governor's house at the capital (and courthouse towns); the printing house at the capital or a town of 2,500, once printing has come.
 - An apothecary at the capital or a town of 1,500; workshops at 600 or with a smithy, mill or the like.
-- A watch-house at 500 (and at capitals and court towns); a den at 900, at capitals, and in ports of 400.
+- A watch-house at 500 (and at capitals and court towns); a den at 900, at capitals, and in coastal towns of 400.
 - Native towns have the village, the council fire, the fields and the woods, and a trading ground on the coast or at the capital.
 
 ## What a place shows
@@ -449,7 +456,7 @@ About once a month (more if you work hard) a matter comes to you as a letter: a 
 Work › Your work shows the ladder and what the next rung needs: months at your rung, your skills, sometimes renown, your master's good opinion, or coins. When everything's ticked, promotion comes with a good month's work, or ask for it (your master's card, or the button at your workplace).
 - **Bought rungs**: a freehold, a shop, a press, a ship. Buy it at your workplace (Buy …) when the rest is ticked.
 - **Commissions** (officers): given by the marshal, the governor or a patron who thinks well enough of you; some can also be bought.
-- **Your own business**: at the top rungs of many trades you're your own master, with hands to hire (offer anyone work from their card) and takings that pay better than wages.
+- **Your own business**: at the top rungs of many trades you're your own master, with hands to hire (offer anyone work from their card): the business's takings come to you, less its upkeep and the hands' wages.
 
 ## Leaving
 Hand in your notice (your master's card, or Work › Your work). Leaving soon after starting doesn't go down well. An indentured servant is bound until the indenture is served (or runs away from the fields).
@@ -525,7 +532,7 @@ ${housesTable()}
 A house eases the mind every month (more for a better one); from a house up it adds a little renown, and a fine house or a mansion your health too. From gentlefolk up your station expects a house **at your home** (the town you live in). Colonists' towns levy rates on houses.
 
 ## Land
-- **Ten acres** for ${LAND_LOT.cost} coins (Estate › House & land, or the fields), up to ${LAND_LOT.max * 10} acres in a town. Let to tenants: ${LAND_LOT.rent} a month in rent for each ten acres. Land makes you a freeholder, with a vote.
+- **Ten acres** for ${LAND_LOT.cost} coins (Estate › House & land, or the fields), up to ${LAND_LOT.max * 10} acres in a town. Let to tenants: ${LAND_LOT.rent} a month in rent for each ten acres. Any land or house of your own makes you a freeholder, fit for the offices the freeholders elect.
 - **A land grant** (${LAND_GRANT.lots * 10} acres for ${LAND_GRANT.fee} in patent fees): petition at the governor's house, if the governor thinks well of you (opinion ${LAND_GRANT.opinion}); once in three years.
 - Land isn't bought and sold among the native peoples.
 
@@ -981,4 +988,462 @@ Others give gatherings too, and invite you (by letter if you're away): your neig
 
 > Tip: Invite people who like each other. A quarrel at your table costs you more than it costs them.`,
   },
+  // ================================================================ standing and power
+  {
+    id: "standing",
+    part: "power",
+    title: "Renown",
+    line: "Who knows your name, and the doors it opens.",
+    where: "The banner; Society › Standing.",
+    body: `Renown is how many people know your name, and think it worth knowing. It's the key to most doors in public life.
+
+## What it opens
+| Renown | What it opens |
+|---|---|
+| 5 | the governor's levee (Pay your respects), for those without a rung or birth to get them in |
+| 15 | founding a cause; standing at a native council fire |
+| 20 | a place at court; standing for the assembly without property |
+| 40 | a company of your own, without an officer's rank |
+| 50 | (with favour 15) an invitation to Parliament may come |
+| 60 / 150 | your station rises: gentlefolk, then the better sort |
+
+It also weighs in nearly every answer: offices, petitions, recommendations, a governor's reprieve at the gallows, and being made governor.
+
+## Winning it
+Promotions and higher rungs (some trades bring renown every month at the top); office and its duties; gatherings that go well; gifts to the town and the great works; standing a round; contracts, battles won and leads that pay; speaking at the council; reaching an ambition; a newspaper of your own.
+
+## Losing it
+Above 15, renown slips back a little each month (a fiftieth of what's above 15) unless it's fed. Scandal, failed contracts, living beneath your station, debts unpaid and defeats cost it. Your heir starts with about a third of yours.`,
+  },
+  {
+    id: "favour",
+    part: "power",
+    title: "Favour",
+    line: "The crown's ear (or the elders' regard): what it does for you, and how to win it.",
+    where:
+      "The banner (Favour) and Society › Standing; write to the crown at the governor's house or the docks.",
+    body: `Favour is whether your name is known and liked at home: in London, Paris, Madrid, Amsterdam or Stockholm. Among the native peoples it's the **elders' regard**. It runs from 0 to 100.
+
+## What favour does for you
+- **Being made governor.** When a governor dies or is recalled, the crown weighs everyone of standing: renown, plus favour counted **half again**, plus seats in the council (25) and the assembly (10), county offices, diplomacy and stewardship. It looks for about 100, and more than the council's best.
+- **An invitation to Parliament**: with renown 50 and favour 15 (and 28 years or more), one may come in any month.
+- **Petitions**: for a pardon or redress, favour adds up to 15 to the answer; for a charter for your settlement, up to 12; for an office in the governor's gift, up to 10.
+
+## Winning it
+- **Write to the crown** at the governor's house or the docks: 2 coins, once every 60 days, a test of your Letters. A well-judged letter wins 6 favour; a poor one, 1.
+- **Gifts to the town** (Estate › House & land), and the great works.
+- In office: a burgess's bill that passes (+3), carrying a wampum belt as a town's speaker (+5).
+- Among the native peoples: tobacco and gifts at the council fire.
+- Some choices in letters and events (siding with the crown wins favour and often costs you with your neighbours).
+
+## Keeping it
+Favour fades by 2% a month. Your heir keeps less than a third of it.
+
+> Tip: Write to the crown every two months from the moment you can afford it. It's the cheapest road to a governor's chair.`,
+  },
+  {
+    id: "office",
+    part: "power",
+    title: "Office",
+    line: "County and town offices, the assembly, the council and the governor's chair.",
+    where:
+      "Society › Office (this county's offices); Society › Standing (the assembly, the council and the road to governor); the governor's house.",
+    body: `## County and town offices
+Every town has its offices, filled by real people of the town. Society › Office shows each one, who holds it, its pay, how it's filled, and whether you could have it.
+
+${officesTable(false)}
+
+Native towns have their own:
+
+${officesTable(true)}
+
+French, Spanish, Dutch and Swedish towns use their own titles (capitaine de milice, alcalde, schout and so on), and native titles follow the people (werowance, mico...).
+
+- **Elected** offices: **Stand at the poll** on the offices page, then canvass (the tavern, the market, the council fire), print a broadside (the press, 2) and stand a round. The poll decides, every year or two (four for a native town council); an empty seat gets a special poll.
+- **Appointed** offices are given by the justices, the county court, the sachem or the governor: **Seek an appointment** on their card, or petition them by letter.
+- Each office has a **duty**, done once a month in the county (neglect it five months and you're warned; eight and an appointed officer is dismissed, an elected one loses renown), and a **lever** to pull now and then.
+- An office in your gift is yours to fill when it falls empty.
+
+Local office leads up: it counts toward standing for the assembly and being made governor, and a burgess sits in the colony's assembly.
+
+## The assembly
+Each colony has an assembly (the House of Burgesses, the General Court...), with elections every 3 years. To stand: a freeholder (land, a trade of your own), a man of property (40 coins), a county officer, or someone well known (renown 20). The assembly, alas, admits only men in this century. Among the native peoples, the council fire hears speakers and people of renown (15). **Stand** at the governor's house (the council fire), then campaign until the count.
+
+## The court and the council
+**Seek a place at court** at the governor's house in the capital: renown 20 (or a seat in the assembly) and the governor's good opinion (15). When a council seat falls empty, the governor may offer it to someone at court he likes.
+
+## The governor's chair
+When the governor dies or is recalled, the crown appoints a successor from among those of standing ([[favour|Favour]]). Among the native peoples, when the leader dies, the elders choose someone of great renown and regard (about 70, and more than the council's best).
+
+## Governing
+A governor's few decisions are on Society › Office: taxes, how much of the revenue goes home to the crown (more pleases it; less keeps the colony rich), building (forts, churches, farms, ports, courthouses), calling out the militia, war and peace, laws (up to 4 at a time) and public works, and appointing the council. The council and the clerks run the rest.`,
+  },
+  {
+    id: "military",
+    part: "power",
+    title: "The army and war",
+    line: "Enlisting, marching, battles, commissions, command, and war between nations.",
+    where:
+      "The fort (enlist, drill, take command); Work › Your work (under arms); an army's page (click it on the map).",
+    body: `## Enlisting
+Ask the officer who takes recruits at the fort (your own nation's): you're a **private**, 2.5 a month. With fighting 3 and no other work you can **buy a commission** (40) at your own nation's fort instead, and start a lieutenant. The **militia** is part-time: enrol at the tavern or the fort. Among the native peoples, young warriors join at the council fire.
+
+## Marching with the army
+When an army of yours musters where you serve, you fall in with it: where it goes, you go; when it fights, you fight. Your post goes where it goes, so being away doesn't count against you. Battles bring wounds, renown and promotion; a battle you're in comes as a dispatch explaining how it went. To come and go on your own, **stay behind in garrison** at a fort.
+
+## Rising
+Corporal, sergeant, then the commissions (lieutenant to general): a commission comes from the marshal, the governor or a patron who thinks well enough of you, or (up to major) can be bought. Officers keep themselves out of their pay. War is when soldiers rise.
+
+## Command
+A colonel or general (a war chief among the native peoples), the marshal or the governor can **take command** of an army where it stands (at its fort or council fire). Then **March to…** and pick a province on the map, or right-click one. You choose where it goes; it fights and besieges on its own. Split, merge and recruit from the army's page.
+
+## Your own company
+Captains can raise twenty men of their own and take the field with them ([[followers|Your people, your company]]).
+
+## War between nations
+The colonies and the native nations make war and peace on their own: over land, trade, old grudges and the wars in Europe. A war shows on World with its battles won. In wartime prices of guns, tools and food rise, and colonies at war are blockaded. A governor can declare war and offer peace (if the enemy would take it).`,
+  },
+  {
+    id: "movements",
+    part: "power",
+    title: "Causes and risings",
+    line: "Movements for reform, against the crown, or to drive the colonists out; and the risings they become.",
+    where:
+      "Society › Causes; the tavern or council fire (join, hold meetings); World (every cause abroad).",
+    body: `History brings its risings (Bacon's, Leisler's, the Pueblo revolt, Pontiac's war, the Regulators, the Sons of Liberty), and you can found your own.
+
+## Kinds of cause
+- **Reform**: change how the colony is run.
+- **Overthrow**: put the governor out, and someone else (you) in.
+- **Independence**: break with the crown.
+- **Drive them out**: among the native peoples, push the colony back.
+
+## Joining or founding one
+Join at a tavern or council fire where its people are (the place lists the causes there). To found your own (Society › Causes): renown 15, in a colony among its people (or, for the native peoples, where a colony presses on yours). Name it, or leave the name to the printers.
+
+## Growing it
+- **Hold a meeting** (a tavern or council fire, among its followers, every 30 days): support grows; informers listen.
+- **Write a pamphlet** (the press, 1 coin): spreads the cause, and may bring the constable.
+- **Put arms by** (the market, the docks or a village, 10 coins): a rising starts with more men.
+- **Recruit** people from their card.
+
+## The rising
+At **${RISE_SUPPORT} support** and **${RISE_MEMBERS} sworn** (the leader among them), the leader may call the rising, where the enemy holds the land. There's no going back: a rising is a real war, with its own army in the field. Command it and march on the enemy's capital: hold out and win, or hang. If it wins, the map changes: an overthrow puts its leader in the governor's chair; independence frees the colony from the crown, with its leader at its head. Either way the leader frames the new government ([[founding|A colony of your own]]), and everyone sworn to it wins renown (the leader most).`,
+  },
+  {
+    id: "founding",
+    part: "power",
+    title: "A colony of your own",
+    line: "Planting a settlement, bringing families with you, and framing the government of a new nation.",
+    where:
+      "Society › Colony; on anyone's card, Ask them to come to your settlement.",
+    body: `## Planting a settlement
+1. **Choose a place**: no one's land, within three months' journey. Society › Colony lists the empty sites, with their land, their goods and the days to get there (and whether native people live there).
+2. **Choose the terms** for the families: ${SETTLE_TERMS.map((t) => lower(t.name)).join("; ")}.
+3. **Charter or not**: as a chartered colony, ask your governor at the capital (or petition by letter): they decide with reasons, weighing what they think of you, your renown, your favour and the families ready to go. Without one you go as squatters, or as **your own colony, answering to no crown** (the old colony won't like it).
+4. **Begin** (${FOUND.start} coins).
+5. **Gather families**: ask people (their card: Ask them to come to your settlement). They decide by how they like you, the terms and their own lot. You need at least ${FOUND.minHouses} households, at most ${FOUND.maxHouses}.
+6. **Lay in supplies** (${FOUND.supplyBase} coins and ${FOUND.supplyPer} a household) and pay their passage (${FOUND.passagePer} a household).
+7. **Set out** and lead them there. Get it together within two years, or it falls apart.
+
+On arrival the site becomes a real province: you're its founder and governor under your crown, or an independent new nation if you went without a charter or broke with it.
+
+## A new nation
+After a rising you led wins (an overthrow or independence), or when an independent colony is planted, you frame the government: its **name** and adjective, its **flag** (colours, a division, a charge), its colour on the map, its **form** (republic, commonwealth, confederacy, kingdom), its capital, and its first officers. The new nation appears on the map, and the computer runs it alongside you.`,
+  },
+  {
+    id: "europe",
+    part: "power",
+    title: "Europe",
+    line: "Going home rich, or because you were asked (or ordered).",
+    where: "Society › Standing (at the bottom); sail from a port's docks.",
+    body: `## Going home rich
+With **${EUROPE_FORTUNE} coins** you may sail for Europe from a port and live there as a person of means. Leave your heir behind and you carry on as them, with half the purse; take the whole family and your story in the Americas ends.
+
+## Invitations
+- **A seat in Parliament** (or its like): with renown 50 and favour 15, aged 28 or more.
+- **A regiment in Flanders**: for a major or higher, while there's war in Europe.
+- **A recall**: a governor whose colony has lost the crown's favour is called home to explain it. A recall isn't a request: ignore it and a new governor is sent anyway.
+- **Exile**.
+
+An invitation waits for an answer until its date; accept it from Society › Standing, or decline (except a recall). Among the native peoples, only an invitation takes anyone across the ocean.
+
+Going to Europe is worth Derp Coins at the end ([[coins|Derp Coins]]).`,
+  },
+  // ================================================================ the world
+  {
+    id: "map",
+    part: "world",
+    title: "The map and the fog",
+    line: "Reading the map, getting about on it, and the fog over what you haven't seen.",
+    where:
+      "The map: click a province to see it, right-click (or hold) to set out; the buttons at its top right; the map views at its foot.",
+    body: `## On the map
+- **You** are the medallion with your face, walking the roads when you travel. Other players have their own, with their names.
+- **Your boats** lie at their ports, with their names when you zoom in.
+- **Leads** are pinned with a red seal (gold once something's found there).
+- Towns, forts, ports and armies show on the land; sieges and battles flare where they happen.
+- **◎** finds you; **+** and **−** zoom (or the + and − keys, or the wheel).
+- **Map views** at the foot: Nations (who holds what), Terrain, Economy (what each province's land yields) and People (how crowded).
+
+Click any province for its page: who holds it, its places, the people you know there, and **The road there**. Right-click (or hold) a province to set out at once.
+
+## The fog of war
+Each line of characters has its own map. You start knowing your own colony (or your people's land), the country two marches around home, and, if you're a sailor or a trader by upbringing or work, the sea lanes from home's ports. Everywhere you go, and everything you can see from there, is added for good. Heirs keep the line's map.
+
+Country comes in three kinds:
+- **Unknown**: dark parchment marked *Terra Incognita*. Nothing is shown there: no owners, towns, names, armies or travellers.
+- **Known, but out of sight**: land, borders, towns and owners as you last saw them, under a faint veil. No armies, travellers, ships or sieges.
+- **In sight**: everything, as it is now.
+
+**How far you see**: your province and its neighbours within sight: about 210 km on plains, 160 in woods, 130 in jungle, 260 from hills and 280 from mountains; more along the coast, and from a fort's walls. On the road you see around both ends of the stage.
+
+**Seeing further**: a governor (or a sachem) sees all of the colony or nation; an officer sees the country around the army; the marshal sees around all the nation's armies. Reading the gazette, listening in the tavern or the market, and hearing news at the docks put the places in the news on your map, and every lead marks its place.
+
+Alaska is off the board, drawn dark and hatched.
+
+> Tip: The gazette is the quickest way to fill in your map.`,
+  },
+  {
+    id: "world",
+    part: "world",
+    title: "Nations, wars and news",
+    line: "The colonies and the native nations, the crown, wars and risings, and how you hear of them.",
+    where:
+      "World; any nation's page (click its name); the News panel on the map.",
+    body: `## The nations
+The colonial powers (England, France, Spain, the Netherlands, Sweden, in their years) and some forty native nations, each with a leader, a council, provinces, armies and a treasury, run by the computer. A nation's page shows its leader and council, its provinces, its people, what it's known for, and its armies (those in sight).
+
+The colonies grow: each founds a new settlement every few years (a small colony every four or five, a big rich one every year or two). Native nations take back their own former land in peace terms.
+
+## The crown
+Each colony answers to a crown at home, which wants revenue and obedience: its favour with the colony rises and falls with what's sent home, the laws passed, and the governor's conduct. A colony that has lost the crown's favour may see its governor recalled; one that has had enough of the crown may rise.
+
+## War
+Nations make war over land, trade, old grudges and the wars in Europe. World lists the wars: who against whom, why, since when, and the battles won. In wartime, armies march, towns are besieged and occupied, prices shift, and the sea is dangerous.
+
+## Risings
+Causes brew among the people, and some rise ([[movements|Causes and risings]]). A rising or an independence is proclaimed across the top of the screen.
+
+## The news
+The **News** panel on the map has the colonies' news as it reaches you: wars, battles, treaties, risings, successions. Click a battle for its report. In company, the other players' chat is there too. The talk in the taverns (Here) is the news that has reached that town; the gazette brings it faster, and with prices.`,
+  },
+  {
+    id: "journal",
+    part: "world",
+    title: "The journal",
+    line: "Your diary, the letters that wait on you, your leads, and the story so far.",
+    where: "Journal.",
+    body: `- **Diary**: everything that happened to you, newest first, across the generations. Show everything, or only the good or the bad. At the top, anything **waiting on you**: letters and events with choices, and when each decides itself.
+- **Leads**: stories worth chasing ([[leads|Leads]]).
+- **The story**: the moments that made your line (births, marriages, promotions, offices, battles, deaths), and **Your story, told**, as it will be told in ${END_YEAR}.`,
+  },
+  {
+    id: "multiplayer",
+    part: "world",
+    title: "Playing with friends",
+    line: "Several lives in the same world.",
+    where:
+      "The lobby: Start a game › With friends; or join an open game, or with a code or link.",
+    body: `## Starting and joining
+Choose **With friends** in the lobby and open a game room. List it under open games for anyone to join, or keep it private and share the code (or the invite link). Everyone makes a character in the room; when all are ready, the host sets out. Friends can also join a world already running: they make a character and drop into the world as it is.
+
+## The clock
+The host sets the speed. Anyone may pause; only the host starts the clock again. Skipping ahead needs everyone living a life to agree (click ⏩ to ask; the others click it to agree), and it stops for anyone's letters or news. A letter waits ${LETTER_SECONDS} seconds of running time for an answer before it decides itself.
+
+## Other players
+- Their medallions are on the map, with their names; World lists them.
+- Asking another player anything (courting, marriage, a favour, meeting in secret) goes to them, and they accept or refuse.
+- You can sell them goods, write to them (they answer from their own letter case), invite them to your gatherings, hire them or work for them (wages come out of the master's purse), and, as a lawman, arrest them if they're wanted.
+- Chat goes in the News panel.
+
+## Leaving and saving
+Leaving keeps your character; the world goes on without you, and you can come back. Signed-in players' games save every few minutes and whenever the game is paused (and with Save now, in the menu).`,
+  },
+  {
+    id: "death",
+    part: "world",
+    title: "Death, watching and taking over",
+    line: "When a life ends, the line carries on, or you watch, take over someone, or begin again.",
+    where: "Here (while watching); the menu.",
+    body: `## Dying
+Death comes from old age, illness and fever, accidents at dangerous work, battles, duels, the gallows, and at health 0. Good health and a robust nature make it less likely; age, low health and a sickly nature more.
+
+When you die, **you carry on as your heir** ([[family|Family and heirs]]). The story goes on.
+
+## Watching
+With no heir, your story ends and you **watch the world**: the whole map, without fog. From Here you can:
+- **Take over someone**: anyone living, sixteen or over, not already played, in a colony or a native nation. Click a person on any province's page to see them; take them over from their page or from the list.
+- **Begin a new life**: make a new character in the register, and set out into the world as it is now.
+
+## Your story
+The menu's **Your story so far** tells the tale of your line: the roads you travelled and the moments that mattered.`,
+  },
+  {
+    id: "end",
+    part: "world",
+    title: "1776 and the end",
+    line: "Where the story stops, and how it's told.",
+    body: `The world runs until **1 January ${END_YEAR}**. Then your story is told (the roads you travelled, the moments that mattered, the generations of your line) and paid in Derp Coins. In company, the lines are ranked by what they made of their lives.
+
+The host can end a game sooner from the menu (End the game here): stories and coins are counted as they stand.
+
+Reaching ${END_YEAR} with a character still living is worth coins of its own.`,
+  },
+  {
+    id: "coins",
+    part: "world",
+    title: "Derp Coins",
+    line: "What a line of lives earns at the end.",
+    body: `When the game ends (in ${END_YEAR}, or when the host ends it), each player's line is paid in Derp Coins, if they're signed in to Derp Land and their line played at least two years. The end screen shows every line of the sum.
+
+| For | Coins |
+|---|---|
+| Living a life | ${LIFE_COINS.played} |
+| Years lived | ${LIFE_COINS.perTenYears} for every ten years (up to ${LIFE_COINS.maxYears}) |
+| Rising in a trade | ${LIFE_COINS.perRank} for each rung of the highest reached (up to ${LIFE_COINS.maxRank}) |
+| Office | ${LIFE_COINS.office[1]} for an assembly seat, ${LIFE_COINS.office[2]} for a council seat, ${LIFE_COINS.office[3]} for governing |
+| Renown | ${LIFE_COINS.perTenRenown} for every ten of your highest renown (up to ${LIFE_COINS.maxRenown}) |
+| Generations | ${LIFE_COINS.perGeneration} for each after the first (up to ${LIFE_COINS.maxGenerations}) |
+| Children | ${LIFE_COINS.perChild} each (up to ${LIFE_COINS.maxChildren}) |
+| Battles won | ${LIFE_COINS.perBattleWon} each (up to ${LIFE_COINS.maxBattles}) |
+| A rising that won | ${LIFE_COINS.risingWon} |
+| Going to Europe | ${LIFE_COINS.europe} |
+| Living to see ${END_YEAR} | ${LIFE_COINS.reached1776} |
+
+> Tip: A dynasty that rose high pays a few dozen; a short life, a handful.`,
+  },
+  // ================================================================ reference
+  {
+    id: "keys",
+    part: "reference",
+    title: "Keys and shortcuts",
+    line: "For quick hands.",
+    body: `| Key | Does |
+|---|---|
+| Space | Pause, or start the clock |
+| 1, 2, 3, 4 | Speed 1×, 2×, 4×, 8× |
+| 5 | Skip ahead (again to stop) |
+| + and − | Zoom the map |
+| ? | This guide, at the page you're on |
+| / | I want to… |
+| Esc | Close what's open |
+
+On the map: click a province to see it; right-click (or, on a phone, hold) to set out for it; click a person or an army to see them. Shift-click works as right-click.
+
+Point at (or tap) any underlined number or word for what it means.`,
+  },
+];
+
+/** Period words, for the glossary (with the chapter that explains each). */
+export const WORDS: [string, string, string?][] = [
+  [
+    "Benefit of clergy",
+    "Under English law, a first offender who could read was branded on the thumb instead of hanged. Once only.",
+    "crime",
+  ],
+  [
+    "Burgess",
+    "A member of a colony's assembly; also the county office that sends one.",
+    "office",
+  ],
+  [
+    "Charter",
+    "The crown's leave to plant a colony, asked of your governor.",
+    "founding",
+  ],
+  [
+    "Coin",
+    "The game's money: the coins in your purse (not Derp Coins, which are paid at the end).",
+    "money",
+  ],
+  [
+    "Commission",
+    "An officer's rank, given by the marshal, the governor or a patron, or bought.",
+    "military",
+  ],
+  [
+    "Coureur des bois",
+    "A French woodsman trading furs in the north without a licence.",
+    "travel",
+  ],
+  [
+    "Council fire",
+    "Where a native town's elders sit and decide: the place for speaking, gifts and war.",
+    "places",
+  ],
+  [
+    "Den",
+    "The underworld's meeting place in a big town or port: hidden until you find it.",
+    "crime",
+  ],
+  ["Factor", "A merchant's agent, buying and selling on his behalf.", "trades"],
+  [
+    "Freeholder",
+    "Someone who owns land outright: a voter, and fit to stand for the assembly.",
+    "property",
+  ],
+  [
+    "Gazette",
+    "The colony's newspaper: news, prices at the ports, and leads.",
+    "leads",
+  ],
+  [
+    "Headright",
+    "A grant of land (fifty acres here) for the patent fees.",
+    "property",
+  ],
+  [
+    "Indenture",
+    "Years of unpaid service for your passage and keep, with freedom dues at the end.",
+    "trades",
+  ],
+  [
+    "Letter of marque",
+    "A government's leave to take enemy ships in wartime: a privateer's licence.",
+    "boats",
+  ],
+  [
+    "Levee",
+    "The governor's reception, where the gentry and the council are met.",
+    "office",
+  ],
+  [
+    "Load",
+    "A unit of goods: you carry 20, a boat's hold many more.",
+    "markets",
+  ],
+  ["Marshal", "The council member in charge of a nation's armies.", "military"],
+  [
+    "Pillory",
+    "A wooden frame in the market square for the head and hands: an hour of the neighbours' aim.",
+    "crime",
+  ],
+  [
+    "Privateer",
+    "A private ship (or its captain) taking enemy merchantmen under a letter of marque.",
+    "boats",
+  ],
+  [
+    "Quarter sessions",
+    "The county court that sits four times a year: where the gaol's prisoners are tried.",
+    "crime",
+  ],
+  ["Sachem", "A native town's or nation's leader.", "office"],
+  ["Selectman", "An elected officer of a New England town.", "office"],
+  [
+    "Transportation",
+    "Being sent in chains to a far colony to serve as an indentured servant for seven years.",
+    "crime",
+  ],
+  [
+    "Wampum",
+    "Shell beads: belts of them carry treaties and messages, and the Dutch take them as money.",
+    "wares",
+  ],
+  [
+    "Ware",
+    "One of a people's own goods (woollens, brandy, wampum...), besides the ten common goods.",
+    "wares",
+  ],
 ];

@@ -11,7 +11,7 @@
 import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { TERMS } from "../ui/Terms";
-import { CHAPTERS, PARTS, type Chapter } from "./Chapters";
+import { CHAPTERS, PARTS, WORDS, type Chapter } from "./Chapters";
 
 const BY_ID = new Map(CHAPTERS.map((c) => [c.id, c]));
 
@@ -22,20 +22,23 @@ const GLOSSARY: Chapter = {
   title: "Glossary",
   line: "Every word the game counts by: what it is, what it's for, and how to raise it.",
   body: [
-    ...Object.values(TERMS)
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map(
-        (t) =>
-          `## ${t.name}\n${t.what}\n- **What it's for:** ${t.good}\n- **How:** ${t.raise}\n- More: [[${t.ch}|${BY_ID.get(t.ch)?.title ?? t.ch}]]`,
-      ),
+    ...Object.values(TERMS).map((t) => ({
+      name: t.name,
+      text: `## ${t.name}\n${t.what}\n- **What it's for:** ${t.good}\n- **How:** ${t.raise}\n- More: [[${t.ch}|${BY_ID.get(t.ch)?.title ?? t.ch}]]`,
+    })),
     ...EXTRA_GLOSSARY(),
-  ].join("\n\n"),
+  ]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((x) => x.text)
+    .join("\n\n"),
 };
 
-function EXTRA_GLOSSARY(): string[] {
-  return CHAPTERS.flatMap((c) => c.glossary ?? []).map(
-    ([name, text, ch]) =>
-      `## ${name}\n${text}${ch ? `\n- More: [[${ch}|${BY_ID.get(ch)?.title ?? ch}]]` : ""}`,
+function EXTRA_GLOSSARY(): { name: string; text: string }[] {
+  return [...CHAPTERS.flatMap((c) => c.glossary ?? []), ...WORDS].map(
+    ([name, text, ch]) => ({
+      name,
+      text: `## ${name}\n${text}${ch ? `\n- More: [[${ch}|${BY_ID.get(ch)?.title ?? ch}]]` : ""}`,
+    }),
   );
 }
 
@@ -68,6 +71,11 @@ function inline(
   }
   if (last < t.length) out.push(t.slice(last));
   return out;
+}
+
+/** A header cell's words, without the markup (a phone's stacked table labels). */
+function strip(t: string): string {
+  return t.replace(/\*\*|\*|\[\[[^|\]]+\||\]\]/g, "");
 }
 
 /** A chapter's text, as blocks. */
@@ -129,7 +137,12 @@ export function renderBody(
                 ${rest.map(
                   (r) =>
                     html`<tr>
-                      ${r.map((c) => html`<td>${inline(c, go)}</td>`)}
+                      ${r.map(
+                        (c, i) =>
+                          html`<td data-label=${strip(head[i] ?? "")}>
+                            ${inline(c, go)}
+                          </td>`,
+                      )}
                     </tr>`,
                 )}
               </tbody>
@@ -167,6 +180,7 @@ function plainText(c: Chapter): string {
   let t = plainOf.get(c.id);
   if (t === undefined) {
     t = `${c.title}\n${c.line}\n${c.body}`
+      .replace(/^\s*(- |\d+\. |##\s*)/gm, "")
       .replace(/\[\[[^|\]]+\|([^\]]+)\]\]/g, "$1")
       .replace(/\[\[([^\]]+)\]\]/g, "$1")
       .replace(/[*#>|!]/g, " ")
