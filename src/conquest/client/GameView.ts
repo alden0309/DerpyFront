@@ -65,6 +65,7 @@ import { Net } from "./Net";
 import { likenessOf } from "./Portrait";
 import { confirmMarch, setConfirmMarch } from "./Prefs";
 import { music, play, unlockOnFirstGesture } from "./Sound";
+import { talkLine, talkReaching } from "./Talk"; // wave 2 (r11)
 import { describeEvent, GOOD_COLORS, GOOD_NAMES, TERRAIN_NAMES } from "./Text";
 import { nationVars } from "./Theme";
 import { hideTip, num, plain } from "./Tip";
@@ -432,9 +433,24 @@ export class GameView extends LitElement {
           ((before.job?.army ?? -1) >= 0 ||
             this.s.armies.some((a) => a.commander === before.c));
         const wasWatching = before?.watching ?? true;
+        const talkFrom = this.s.day;
         applyDelta(this.s, m.d);
         this.dayAt = performance.now();
         for (const e of m.d.events ?? []) this.onEvent(e, where, inArmy);
+        // Wave 2 (r11): the talk that reached you today.
+        for (const r of talkReaching(
+          this.s,
+          map,
+          this.life,
+          talkFrom,
+          this.s.day,
+        ))
+          this.addLog(
+            talkLine(map, this.life!, r),
+            r.tone ?? "",
+            undefined,
+            r.day,
+          );
         this.afterLife(wasWatching);
         if (m.d.over) this.modalView = { k: "end" };
         // WORLD r11: the chart is redrawn only when something on it changed.

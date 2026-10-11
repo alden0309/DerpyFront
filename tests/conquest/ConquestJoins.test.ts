@@ -5,6 +5,7 @@
 // gatherings, offices and settlements, through saves, heirs and takeovers.
 
 import { describe, expect, test } from "vitest";
+import { talkLine, talkReaching } from "../../src/conquest/client/Talk";
 import { buyBoat, setCrew } from "../../src/conquest/engine/Boats";
 import {
   awayEyes,
@@ -31,10 +32,11 @@ import { touchLife } from "../../src/conquest/engine/LifeCore";
 import { answerLifeEvent } from "../../src/conquest/engine/LifeEvents";
 import { peopleHere } from "../../src/conquest/engine/LifeQueries";
 import { missionsDaily } from "../../src/conquest/engine/Missions";
+import { rumour } from "../../src/conquest/engine/Rumours";
 import { lifeTonguePoints, tonguesOf } from "../../src/conquest/engine/Tongues";
 import { jobGate } from "../../src/conquest/engine/Trades";
 import type { Follower, Life } from "../../src/conquest/engine/Types";
-import { lifeOf, plan, prov, toNextMonth, world } from "./LifeUtil";
+import { lifeOf, plan, prov, ticks, toNextMonth, world } from "./LifeUtil";
 
 /** Clear the letters waiting (so a test isn't stopped by a stray event). */
 function clearEvents(g: ReturnType<typeof world>, life: Life): void {
@@ -300,5 +302,53 @@ describe("expeditions and the fog", () => {
     expect(known.has(target)).toBe(true);
     for (const [q] of g.map.provinces[target].nb)
       if (!g.map.provinces[q].closed) expect(known.has(q)).toBe(true);
+  });
+});
+
+describe("news at the new pace", () => {
+  test("talk joins the news the day it reaches you: the country round you, and people you know; not leads", () => {
+    const g = world({ start: 1650 });
+    const life = lifeOf(g);
+    clearEvents(g, life);
+    g.s.rumours = [];
+    const day = g.s.day;
+    const friend = Object.values(g.s.chars).find(
+      (c) => c.alive && c.id !== life.c,
+    )!;
+    life.ties[friend.id] = "friend";
+    rumour(g, life.prov, "A bumper harvest here.");
+    rumour(g, prov("Nansemond"), "A fire at the mill.", -1, "bad");
+    rumour(g, prov("Havana"), "A stranger's wedding.");
+    rumour(g, prov("Havana"), "Your friend has wed.", friend.id, "good");
+    rumour(g, life.prov, "Gold in the hills!", -1, undefined, true);
+    expect(g.s.rumours.find((r) => r.text === "Gold in the hills!")?.lead).toBe(
+      true,
+    );
+    const today = talkReaching(g.s, g.map, life, day - 1, day);
+    expect(today.map((r) => r.text)).toEqual(["A bumper harvest here."]);
+    expect(talkLine(g.map, life, today[0])).toBe(
+      "Talk in town: A bumper harvest here.",
+    );
+    // Nothing twice.
+    expect(talkReaching(g.s, g.map, life, day, day)).toEqual([]);
+    const later = talkReaching(g.s, g.map, life, day, day + 400).map(
+      (r) => r.text,
+    );
+    expect(later).toEqual(["A fire at the mill.", "Your friend has wed."]);
+    const fire = g.s.rumours.find((r) => r.text === "A fire at the mill.")!;
+    expect(talkLine(g.map, life, fire)).toMatch(/^Word from Nansemond: /);
+    // Watching the world, the news is the world's own.
+    life.watching = true;
+    expect(talkReaching(g.s, g.map, life, day - 1, day + 400)).toEqual([]);
+  });
+
+  test("the stories behind leads are marked as leads", () => {
+    const g = world({ start: 1650 });
+    ticks(g, 120);
+    const leadTalk = (g.s.rumours ?? []).filter((r) =>
+      (g.s.leads ?? []).some((l) => l.text === r.text),
+    );
+    expect(leadTalk.length).toBeGreaterThan(0);
+    for (const r of leadTalk) expect(r.lead).toBe(true);
   });
 });

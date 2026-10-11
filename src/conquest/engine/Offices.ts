@@ -1095,6 +1095,7 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
   const win = field[0];
   if (!win) return;
   const name = officeTitle(s, g.w, o);
+  const returned = win.c === o.holder; // wave 2 (r11)
   if (win.c !== o.holder) giveOffice(g, o, win.c, "elected by the freeholders");
   else {
     const life = lifeOfChar(s, win.c);
@@ -1114,7 +1115,12 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
     }
   }
   if (o.key === "burgess") seatBurgess(g, o);
-  rumour(g, o.prov, `${charName(s.chars[win.c])} is chosen ${name}.`, win.c);
+  rumour(
+    g,
+    o.prov,
+    `${charName(s.chars[win.c])} is ${returned ? "returned as" : "chosen"} ${name}.`,
+    win.c,
+  );
 }
 
 /** A burgess sits in the colony's assembly (the weakest member gives way). */

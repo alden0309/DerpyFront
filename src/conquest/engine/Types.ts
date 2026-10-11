@@ -1556,6 +1556,8 @@ export interface Rumour {
   /** Who it's about, or -1. */
   about: number;
   tone?: "good" | "bad";
+  /** Wave 2 (r11): a story behind a lead (heard by listening, not in the news). */
+  lead?: boolean;
 }
 
 // ---------------------------------------------------------------- commands
