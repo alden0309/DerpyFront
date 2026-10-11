@@ -24,5 +24,7 @@ import "./livelihood.css";
 // r11 wave 2: finding your way, and How to Play.
 import "./guide.css";
 import "./nav.css";
+// HOME (r12): the household, the family tree, duels.
+import "./home.css";
 
 document.body.appendChild(document.createElement("conquest-app"));

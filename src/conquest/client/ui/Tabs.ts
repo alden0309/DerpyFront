@@ -40,6 +40,7 @@ import {
 import { foundingPage, officesPage } from "./Civic";
 import { GameUi, section, token, type Tab } from "./Context";
 import { verdictChip } from "./Here";
+import { housesSection } from "./Home"; // HOME (r12)
 import { journalTab } from "./Journal";
 import {
   atPlace,
@@ -509,16 +510,18 @@ function estatePage(ui: GameUi, sub: string): TemplateResult {
       )}
       ${child
         ? html`<p class="cq-empty">Not until you're sixteen.</p>`
-        : html`${propertySection(ui)}
+        : html`${housesSection(ui)} ${propertySection(ui)}
           ${section(
             "Where to buy",
             html`<ul class="cq-where-list small">
               <li>
-                <b>${native ? "A lodge" : "A house"}</b>: right here (the button
-                above), wherever you're settled; or at the market, a village or
-                your home. It stands in the ${native ? "village" : "town"}
-                you're in; a better one replaces it for half the old one's
-                worth.
+                <b>${native ? "A lodge" : "A house"}</b>: at Home (Here › your
+                lodgings or your house), where you can buy any size
+                outright${native ? "" : " or rent one by the month"}; or with
+                the button above, or at the market or a village. It stands in
+                the ${native ? "village" : "town"} you're in; a better one
+                replaces it for half the old one's worth. Rooms, furniture,
+                servants and lodgers are added at Home.
               </li>
               ${native
                 ? html`<li>

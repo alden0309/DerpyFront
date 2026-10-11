@@ -69,6 +69,7 @@ import {
   section,
   token,
 } from "./Context";
+import { homeBanner, homePlace, homeTileName, homeTileSub } from "./Home"; // HOME (r12)
 import {
   boatsHere,
   boatyardPart,
@@ -596,7 +597,9 @@ function areasView(ui: GameUi, p: number): TemplateResult {
           @click=${() => void enter(a)}
         >
           <span class="cq-area-name"
-            >${areaName(s, p, a).replace(/^The /, "")}</span
+            >${a === "home"
+              ? homeTileName(ui, p)
+              : areaName(s, p, a).replace(/^The /, "")}</span
           >
           <span class="cq-area-faces">
             ${folk
@@ -606,10 +609,10 @@ function areasView(ui: GameUi, p: number): TemplateResult {
               : nothing}
           </span>
           <span class="cq-area-count"
-            >${folk.length
-              ? `${folk.length} here`
-              : a === "home"
-                ? "home"
+            >${a === "home"
+              ? homeTileSub(ui, p)
+              : folk.length
+                ? `${folk.length} here`
                 : "nobody"}</span
           >
           ${work ? html`<span class="cq-area-work">your work</span>` : nothing}
@@ -634,12 +637,17 @@ function areaView(
   const s = ui.s;
   const art = sceneArt(area);
   const def = PLACES[area];
-  return html`<section class="cq-area" aria-label=${areaName(s, p, area)}>
+  // HOME (r12): home is your house (or your lodgings), and does things.
+  const home = area === "home";
+  const title = home ? homeTileName(ui, p) : areaName(s, p, area);
+  return html`<section class="cq-area" aria-label=${title}>
     <header class="cq-area-banner" style=${art ? `--art:url(${art})` : ""}>
-      <h3>${areaName(s, p, area)}</h3>
-      <p>${def.text}</p>
+      <h3>${title}</h3>
+      <p>${home ? homeBanner(ui, p) : def.text}</p>
     </header>
-    ${workBlock(ui, p, area)} ${actsBlock(ui, p, area)}
+    ${home
+      ? homePlace(ui, p)
+      : html`${workBlock(ui, p, area)} ${actsBlock(ui, p, area)}`}
     ${ui.life!.travel ? nothing : boatsHere(ui, p, area)}
     ${presentBlock(ui, p, area, folk)} ${foldsBlock(ui, p, area)}
     ${talkBlock(ui, p, area)}
