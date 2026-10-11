@@ -24,5 +24,6 @@ import "./livelihood.css";
 // r11 wave 2: finding your way, and How to Play.
 import "./guide.css";
 import "./nav.css";
+import "./power.css"; // POWER (r12): offices, the council, the court, the press
 
 document.body.appendChild(document.createElement("conquest-app"));

@@ -52,6 +52,7 @@ function placeLine(ui: GameUi, scene: string): string {
   const life = ui.life;
   const prov = life ? ui.map.provinces[life.prov]?.name : "";
   if (SPECIAL[scene]) return SPECIAL[scene];
+  if (scene === "courtroom") return `The court-house, ${prov}`; // POWER (r12)
   const def = PLACES[scene as PlaceKind];
   if (!def) return prov ?? "";
   const owner = life ? ui.s.provinces[life.prov]?.owner : -1;

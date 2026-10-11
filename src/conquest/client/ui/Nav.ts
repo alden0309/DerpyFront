@@ -107,11 +107,14 @@ export const TAB_DEFS: TabDef[] = [
   {
     id: "society",
     label: "Society",
-    blurb: "Standing and favour, office, letters, gatherings, causes, a colony",
+    blurb:
+      "Standing and favour, office, the council, the press, letters, gatherings, causes, a colony",
     icon: SocietyIcon,
     subs: [
       { id: "standing", label: "Standing", guide: "favour" },
       { id: "office", label: "Office", guide: "office" },
+      { id: "council", label: "Council", guide: "council" }, // POWER (r12)
+      { id: "press", label: "Press", guide: "press" }, // POWER (r12)
       { id: "letters", label: "Letters", guide: "letters" },
       { id: "gatherings", label: "Gatherings", guide: "gatherings" },
       { id: "causes", label: "Causes", guide: "movements" },
@@ -252,6 +255,16 @@ export function badges(ui: GameUi): Map<string, number> {
   if (life.invite) add("society", "standing", 1);
   if (life.constitute && life.constitute.until > s.day)
     add("society", "colony", 1);
+  // POWER (r12): bills waiting on a governor's assent.
+  const govN = s.nations.findIndex((n) => n.alive && n.ruler === life.c);
+  if (govN >= 0)
+    add(
+      "society",
+      "council",
+      (s.power?.cabinets[govN]?.bills ?? []).filter(
+        (b) => b.stage === "governor",
+      ).length,
+    );
   add("journal", "diary", life.events.length);
   return out;
 }

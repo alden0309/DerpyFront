@@ -42,7 +42,27 @@ import {
 import { MERCHANT_CUT, MIN_CUT } from "../../engine/Markets";
 import { RISE_MEMBERS, RISE_SUPPORT } from "../../engine/Movements";
 import { OFFICES } from "../../engine/Offices";
+// POWER (r12): office powers, the council, bills, trials, the press.
+import { BILLS } from "../../engine/Assembly";
+import { POWERS } from "../../engine/Authority";
+import {
+  CLAIM_BAR,
+  PROCLAMATIONS,
+  SEAT_ACTIONS,
+  UNSEAT_BAR,
+} from "../../engine/Council";
+import {
+  COUNCIL_ORDER,
+  SEAT_PORTFOLIO,
+  seatTitleOf,
+} from "../../engine/CouncilTitles";
 import { SKIP_DAYS_PER_SECOND, SKIP_MAX_DAYS } from "../../engine/Pace";
+import {
+  FOUND_COST,
+  MAX_WRITERS,
+  PAPER_YEAR,
+  WRITER_WAGE,
+} from "../../engine/Press";
 import { END_YEAR, LETTER_SECONDS } from "../../engine/Rules";
 import {
   BOOK_COOLDOWN,
@@ -55,7 +75,8 @@ import {
   TALK_POINTS,
 } from "../../engine/Tongues";
 import { EFFORT_ORDER, EFFORTS } from "../../engine/Trades";
-import type { JobKind } from "../../engine/Types";
+import { STAGE_DAYS } from "../../engine/Trials";
+import type { JobKind, Nation } from "../../engine/Types";
 
 export interface Chapter {
   id: string;
@@ -159,6 +180,54 @@ function officesTable(native: boolean): string {
     .map(
       (o) =>
         `| **${o.name}** | ${HOW_FILLED[o.how] ?? o.how}${o.years ? `, every ${o.years === 1 ? "year" : `${o.years} years`}` : ""} | ${n(o.pay)} | ${n(o.renown)} | renown ${o.needRenown}${o.orSkill ? ` (or ${lower(SKILL_NAMES[o.orSkill[0]])} ${o.orSkill[1]})` : ""}${o.freehold ? ", a freehold" : ""}${o.church ? ", a Christian" : ""}${o.sex === "women" ? ", a woman" : ""} | ${o.lever ? o.lever.label : "none"} |`,
+    )
+    .join("\n")}`;
+}
+
+// ---- POWER (r12): tables made from the track's rules
+
+function powersTable(native: boolean): string {
+  const every = (d: number) =>
+    d >= 365 ? `${n(d / 365)} year${d >= 730 ? "s" : ""}` : `${d} days`;
+  const rows: string[] = [];
+  for (const o of Object.values(OFFICES)) {
+    if (!!o.native !== native) continue;
+    for (const p of POWERS[o.key] ?? [])
+      rows.push(
+        `| ${o.name} | **${p.label}** | ${p.text} | ${every(p.cooldown)} |`,
+      );
+  }
+  return `| Office | Power | What it does | Once in |\n|---|---|---|---|\n${rows.join("\n")}`;
+}
+
+const asNation = (culture: string, religion = "anglican") =>
+  ({ kind: "power", culture, religion }) as unknown as Nation;
+
+function seatsTable(): string {
+  return `| Seat | English | French | Spanish | Dutch | Its portfolio | What it can do |\n|---|---|---|---|---|---|---|\n${COUNCIL_ORDER.map(
+    (seat) =>
+      `| ${seat === "spymaster" ? "Secretary" : seatTitleOf(asNation("english"), seat).replace(/ of the .*$/, "")} | ${seatTitleOf(asNation("english"), seat)} | ${seatTitleOf(asNation("french", "catholic"), seat)} | ${seatTitleOf(asNation("spanish", "catholic"), seat)} | ${seatTitleOf(asNation("dutch", "reformed"), seat)} | ${SEAT_PORTFOLIO[seat]} | ${
+        SEAT_ACTIONS.filter((a) => a.seat === seat)
+          .map((a) => `${a.label}${a.measure ? " (a measure)" : ""}`)
+          .join("; ") || "steer the house's bills; carry its address"
+      } |`,
+  ).join("\n")}`;
+}
+
+function proclamationsTable(): string {
+  return `| Proclamation | What it does | How often |\n|---|---|---|\n${PROCLAMATIONS.map(
+    (p) =>
+      `| **${p.label}** | ${p.text} | every ${n(p.cooldown / 365)} year${p.cooldown > 365 ? "s" : ""} |`,
+  ).join("\n")}`;
+}
+
+function billsTable(): string {
+  return `| Bill | What it does as law | |\n|---|---|---|\n${Object.values(
+    BILLS,
+  )
+    .map(
+      (b) =>
+        `| **${b.title.replace("{county}", "your county")}** | ${b.does} | ${b.money ? "a money vote: no assent wanted" : b.gov < 0 ? "governors dislike it" : b.gov > 0 ? "governors like it" : ""} |`,
     )
     .join("\n")}`;
 }
@@ -763,7 +832,7 @@ Found, not seen: **Listen for the underworld** at the tavern (crooked upbringing
 At the tavern or the market you can pick a pocket; at the watch-house, **make amends** (pay back and a fee) to cool the heat.
 
 ## The gaol and the court
-Taken up, you wait in the gaol for the quarter sessions. You can bribe the gaoler or break out (a fugitive, with more heat); there's gaol fever. At the trial: **plead guilty** (lighter), **plead not guilty** (persuasion, renown, a patron), **benefit of clergy** (if you can read, under English law, once: a brand on the thumb instead of the rope), or **buy the court**.
+Taken up, you wait in the gaol for the quarter sessions. You can bribe the gaoler or break out (a fugitive, with more heat); there's gaol fever. The sessions are played out as scenes ([[trials|Trials]]): the charge (counsel, or your own wits), the witnesses, your plea (**guilty** is lighter; **not guilty** goes to the jury; **benefit of clergy**, if you can read, under English law, once: a brand on the thumb instead of the rope), the jury (speak, let counsel speak, or **buy the court**), and the verdict.
 
 ## Sentences
 By the crime and your record: a fine of 10, an hour in the pillory, a whipping and three months' gaol, branding, **transportation for seven years** (in chains to your nation's farthest colony as an indentured servant, your money and goods forfeit to the Crown), or **hanging** (your heir carries on; a governor's reprieve sometimes comes at the gallows foot).
@@ -1048,7 +1117,12 @@ Favour fades by 2% a month. Your heir keeps less than a third of it.
     line: "County and town offices, the assembly, the council and the governor's chair.",
     where:
       "Society › Office (this county's offices); Society › Standing (the assembly, the council and the road to governor); the governor's house.",
-    body: `## County and town offices
+    body: `## One office at a time
+You hold one political office at a time. **Winning a poll, being appointed, or accepting a seat resigns the office you held**, at once, and your journal says so. Before you stand, seek or accept, the page (and the letter offering it) warns you which office you'd give up.
+
+What counts: the county and town offices below; a seat in the assembly (a burgess's seat in the house, and the speaker's chair, are part of the one office); a seat on the governor's council; and the governor's (or a native leader's) chair. What doesn't: your work and its ladder (a watchman by trade, a sheriff's rank in the watch, an officer's commission), a militia rank, a company of your own, a place at court, being a settlement's proprietor, or leading a rising. A governor holds no other office. If you ever find yourself holding several (an old game, a character taken over), you keep the best and resign the rest on the next day.
+
+## County and town offices
 Every town has its offices, filled by real people of the town. Society › Office shows each one, who holds it, its pay, how it's filled, and whether you could have it.
 
 ${officesTable(false)}
@@ -1066,17 +1140,133 @@ French, Spanish, Dutch and Swedish towns use their own titles (capitaine de mili
 
 Local office leads up: it counts toward standing for the assembly and being made governor, and a burgess sits in the colony's assembly.
 
+## Real authority
+Besides its duty and its lever, each office has powers of its own (on the county's page, under yours). Each has its cost, its risk and something to show for it: a patrol makes the watch sharper (rogues likelier caught) and the town quieter; a levy fills the colony's treasury and angers the county; a resolution moves a cause's support; a seizure, a curfew or a warning-out makes enemies.
+
+${powersTable(false)}
+
+Native towns:
+
+${powersTable(true)}
+
+French, Spanish and Dutch officers do the same under their own names (the alcalde feasts the cabildo, the schout collects the fines and the burgher fees, the capitaine de milice leads the habitants and their allies on a war party).
+
+## Officers under you
+Some offices name others: the justices name the constable and the watch, the sheriff names the collector of the rates, a city's mayor names its watch, the sachem the war captain and the speaker, the clan mothers the sachem, and the governor the justices, the sheriff and the county lieutenant. Offices in your gift are listed on Society › Office: fill a vacancy (you have two months before the county fills it), or **dismiss** whoever holds one (they'll remember it).
+
 ## The assembly
 Each colony has an assembly (the House of Burgesses, the General Court...), with elections every 3 years. To stand: a freeholder (land, a trade of your own), a man of property (40 coins), a county officer, or someone well known (renown 20). The assembly, alas, admits only men in this century. Among the native peoples, the council fire hears speakers and people of renown (15). **Stand** at the governor's house (the council fire), then campaign until the count.
 
 ## The court and the council
-**Seek a place at court** at the governor's house in the capital: renown 20 (or a seat in the assembly) and the governor's good opinion (15). When a council seat falls empty, the governor may offer it to someone at court he likes.
+**Seek a place at court** at the governor's house in the capital: renown 20 (or a seat in the assembly) and the governor's good opinion (15). When a council seat falls empty, the governor may offer it to someone at court he likes (a letter: accept or decline). The council itself, its seats and its politics are in [[council|The governor's council]].
 
 ## The governor's chair
 When the governor dies or is recalled, the crown appoints a successor from among those of standing ([[favour|Favour]]). Among the native peoples, when the leader dies, the elders choose someone of great renown and regard (about 70, and more than the council's best).
 
 ## Governing
-A governor's few decisions are on Society › Office: taxes, how much of the revenue goes home to the crown (more pleases it; less keeps the colony rich), building (forts, churches, farms, ports, courthouses), calling out the militia, war and peace, laws (up to 4 at a time) and public works, and appointing the council. The council and the clerks run the rest.`,
+A governor's decisions are on Society › Office: taxes, how much of the revenue goes home to the crown (more pleases it; less keeps the colony rich), building (forts, churches, farms, ports, courthouses), calling out the militia, war and peace, laws (up to 4 at a time) and public works. The council's advice comes with each: going against it costs a little. Appointing and dismissing the council, proclamations, and the assembly's bills are on Society › Council ([[council|The governor's council]]).`,
+  },
+  // ---- POWER (r12): the council, trials, the press
+  {
+    id: "council",
+    part: "power",
+    title: "The governor's council",
+    line: "Eight seats with real work, their politics, and the governor's hand; the assembly's bills.",
+    where:
+      "Society › Council (the chamber, your seat, the governor's hand, the assembly); the governor's house at the capital.",
+    body: `## The seats
+The council sits with the governor at the capital. Each seat has its title among its people and a portfolio of its own, and things it can do to the colony through its treasury, its laws, its land, its forts and its treaties.
+
+${seatsTable()}
+
+Native peoples keep their own fire: the war chief, the speaker, the keeper of stores, the scout and the healer.
+
+## Reaching a seat
+A seat is reached by your **case**: renown, favour at home, what the governor thinks of you, your connections (a patron, friends already at the table, a place at court, a seat in the house or a county office), and your fitness for the portfolio (the Secretary's letters, the Receiver-general's trade, the Surveyor-general's woodcraft...). Being young, in disgrace, wanted by the law or living poorly counts against you. Society › Council shows your case for every seat.
+- An **empty** seat wants a case of ${CLAIM_BAR}; **unseating** someone wants ${UNSEAT_BAR} or more (more against a able holder the governor likes). Another player's seat can't be taken.
+- **Ask the governor** for a seat at the governor's house in the capital (once in 90 days), or be received at court and wait for a letter offering one. A player governor decides for themselves.
+- One office at a time: a seat on the council is your one office ([[office|Office]]).
+
+## Council politics
+- **Advice and votes.** Measures (paper money, farming out the customs, a fort, presents to a nation, a treaty of trade, a land grant, the taxes) are put to the council and divide a week later; you vote with the governor or against him. The governor's own decisions (war, taxes, laws, works, proclamations) come with the council's advice; a governor who goes against a majority pays a little (unrest, and councillors who remember).
+- **Parties.** Each councillor sits with **the governor's friends** or **the country party**. Your votes decide which you're counted with.
+- **The governor's favour** (0 to 100) rises with votes for his measures and a seat well used, and falls with votes against, failures, scandal and the papers' attacks. Below 25 you're warned; below 15 a governor the computer plays may put you off the council.
+- **Scandal.** Graft (land jobbing, the treasury's money lent to friends) pays, until it comes out: disgrace, a scandal, the governor's favour gone, perhaps dismissal and a trial for corruption.
+- When no player holds a seat, the computer's councillors use theirs now and then, sensibly: audits when the treasury's low, treaties with an angry neighbour, a muster in wartime, a day of thanksgiving when the counties are restless.
+
+## The governor's hand
+A governor appoints anyone of the colony to a seat (a player is asked, and may refuse) and dismisses whoever has lost their confidence, issues proclamations, and answers the assembly.
+
+${proclamationsTable()}
+
+## The assembly
+Members (burgesses, and those elected to the house) bring in **bills**; the house divides a month later, the court party against the country party (a member from the county a bill is for votes for it; the bringer's renown and persuasion, and the papers, sway the rest). A bill that passes goes to the governor, who **assents** (it's law) or **vetoes** it; a governor who says nothing for three weeks has assented, by custom.
+
+${billsTable()}
+
+- **The speaker** is chosen by the house from its members after each election (put your name forward for the chair), sits on the council, can **steer** a bill (bringing waverers round), and carries the house's address to the governor.
+- A governor can **dissolve** the house (a new election within the month; unrest) or **prorogue** it for six months (no bills and no new laws until it sits; unrest).`,
+  },
+  {
+    id: "trials",
+    part: "power",
+    title: "Trials",
+    line: "Cases at law played out as scenes: the charge, the witnesses, the plea, the jury, the verdict.",
+    where:
+      "Scenes in the court-house (they wait in your diary); Society › Office (the court roll, and people you could bring before the court).",
+    body: `## Who comes to trial
+- **You**, for a crime: taken up by the watch, you wait in the gaol for the sessions ([[crime|Crime and the law]]).
+- **Someone you accuse**: a constable brings people before the justices, a churchwarden presents sinners, the attorney general prosecutes for the crown, and anyone who knows another's secret (a crime, adultery, a child out of wedlock) can bring them to court (Society › Office).
+- **A debtor**: a debt left unpaid twice over (six months) brings the lender's suit: the debtors' prison and your goods seized.
+- **A duel's survivor**: a death at dawn may bring a trial for manslaughter.
+- **A printer**, for libel (a person attacked in print sues) or seditious libel (the governor prosecutes) ([[press|Newspapers]]).
+- **A councillor** in disgrace, for corruption.
+- **Witchcraft** in the English colonies (above all New England) from 1640 to 1700, and **heresy** before the Holy Office in the Spanish and Portuguese colonies. Both are rare.
+
+## The scenes
+Each player in a case (the accused, the accuser, the judge) gets the scenes that are theirs, in the court-house; the computer plays everyone else. A scene waits about ${STAGE_DAYS} days for an answer; after that the court goes on without you.
+1. **The charge.** Engage counsel (a better defence), answer it yourself, settle with a private accuser, or bribe the clerk to lose the papers. The accuser presses the charge, settles, or withdraws it.
+2. **Witnesses and evidence.** Call your friends and family in the county, cross-examine (letters), pay a witness to forget (perjury if it fails), or say nothing. The accuser calls witnesses, or pays one to remember.
+3. **The plea.** Not guilty (the jury decides); guilty (a lighter sentence, no jury); benefit of clergy (under English law, if you read, once). A witch may **confess and name others** (those who did were spared the rope at Salem); a heretic may **abjure** and do penance; a printer may plead **the truth** (juries listen, more so after Zenger's case in 1735).
+4. **Before the jury.** Speak for yourself (persuasion), let counsel speak, throw yourself on the court's mercy, or buy the court (worse if it's found out).
+5. **The verdict.** The jury (or a justice who's a player) decides, and the sentence is carried out when you've heard it.
+
+The case's standing is the evidence against the defence and the jury's leaning (what the county thinks of the accused). The scenes say how it looks.
+
+## Sentences
+Crimes by their grade and your record, as in [[crime|Crime and the law]]: a fine, the pillory, the whip and the gaol, the brand, transportation, the rope (a governor may reprieve). Others: a presentment, a fine of 3 or the stocks; libel, a fine of 15 or 25 and the pillory; seditious libel, the pillory, a fine of 30 and six months; debt, the debtors' prison and goods seized; corruption, dismissal from every office and a fine; a death in a duel, manslaughter (burned on the thumb, and a year); witchcraft, the rope, or banishment, or a public penance for one who confessed; heresy, penance in the sanbenito, or half your goods and exile.
+
+## Presiding
+A **justice of the peace** who is a player presides over the county's cases: the sessions bring one now and then (a stolen hog, an assault, a disorderly house, a bastardy case), and anything the constable or the churchwardens bring. At the verdict you sum up for a conviction (the full sentence or a merciful one), direct an acquittal, leave it to the jury, or take the money someone has put in your way. Fees and renown come with it; a guilty man let go angers the town, and a justice who sells verdicts may be found out.`,
+  },
+  {
+    id: "press",
+    part: "power",
+    title: "Newspapers",
+    line: "A paper of your own: readers, writers, a line, and pieces that move elections, causes and governors.",
+    where:
+      "Society › Press; the printing house (in a capital, or a town of 2,500).",
+    body: `## Getting a paper
+- **Found one** at a printing house where the law allows a press: ${FOUND_COST} coins, letters 3. Newspapers come to the English colonies in ${PAPER_YEAR.english}, New Spain in ${PAPER_YEAR.spanish}, New Netherland's successors in ${PAPER_YEAR.dutch}, New France only in ${PAPER_YEAR.french}; a free nation of your own may print when it likes.
+- **Buy one** from its printer, at its printing house (about its worth and a fifth).
+- **Rise to it**: the printer's trade (News and print) ends at Publisher, with a press and a paper of your own.
+- **Licensing.** In its years (the English colonies until the 1720s, the other crowns always, and wherever the governor has passed the Licensing of the press) a press wants the governor's licence; he gives it to people he likes, and to papers for the government. You may print without one, but every piece risks the press being seized.
+
+## Running it
+- **Readers** follow the town's size, the paper's line, its credit, the times (war sells) and its writers. Each reader brings in a little each month; writers cost ${WRITER_WAGE} a month each, the paper and ink 1.
+- **Writers** (up to ${MAX_WRITERS}), hired from the townsfolk who can write: one more piece a month each, and the best one's wit makes every piece land harder.
+- **The line**: for the government (an easy licence, fewer readers when the town is angry), open to all, or for the country party (readers in hard times, and the governor's suspicion). Changing it costs credit.
+- **Credit** (0 to 100): how far the paper is believed. Pieces that land raise it.
+
+## Pieces
+Each month you may print one piece, and one more for each writer: **for or against** a person (a candidate, an officer, a councillor, another player), a cause, or the governor. The page shows how hard it will land and what it risks.
+- **A person**: their chances at the polls move (for a county office and for the assembly), a councillor's standing with the governor moves, a player's renown moves.
+- **A cause**: its support in the colony moves.
+- **The governor**: praise calms the town and pleases him; an attack stirs the town and the causes against the government, and he remembers it.
+- **The dangers**: a person attacked may **sue for libel** (a player decides for themselves: sue, answer in their own paper, or let it pass); the governor may **prosecute for seditious libel** or **shut the press** for a year; an unlicensed press may be seized and fined.
+
+## In the news
+Every piece goes out as talk from the paper's town, so it reaches the news of everyone within reach. **Reading the gazette** (the tavern or the printing house) gives you the latest pieces of the papers within reach, with the leads and the prices current; and a printer hears the stories behind leads first.`,
   },
   {
     id: "military",
@@ -1445,5 +1635,31 @@ export const WORDS: [string, string, string?][] = [
     "Ware",
     "One of a people's own goods (woollens, brandy, wampum...), besides the ten common goods.",
     "wares",
+  ],
+  // ---- POWER (r12)
+  [
+    "Court party",
+    "The governor's friends on the council and in the house; the country party is his opposition.",
+    "council",
+  ],
+  [
+    "Prorogue",
+    "To send the assembly home for a time without dissolving it: no bills, and no new laws, until it sits again.",
+    "council",
+  ],
+  [
+    "Presentment",
+    "A churchwarden's or constable's charge laid before the justices: drunkenness, swearing, a bastard child.",
+    "trials",
+  ],
+  [
+    "Seditious libel",
+    "Printing anything that brings the government into contempt. Truth was no defence, until juries began to say otherwise (Zenger, 1735).",
+    "press",
+  ],
+  [
+    "Licensing",
+    "The governor's (or the crown's) leave to print. Without it, a press may be seized.",
+    "press",
   ],
 ];

@@ -28,6 +28,7 @@ import {
   foundCheck as foundCauseCheck,
   movementOf,
 } from "../../engine/Movements";
+import { localOfficesOf } from "../../engine/Offices"; // POWER (r12)
 import { standCheck } from "../../engine/Politics";
 import { houseCheck, housePrice, landCheck } from "../../engine/Property";
 import type { PlaceKind } from "../../engine/Types";
@@ -663,6 +664,131 @@ const GOALS: Goal[] = [
     ],
     go: tab({ k: "tab", tab: "society", sub: "colony" }),
     guide: "founding",
+  },
+  // ---------------------------------------------------------------- POWER (r12)
+  {
+    id: "office-powers",
+    title: "Use an office's powers",
+    words:
+      "authority power arrest patrol warrant license tavern levy poll posse muster range resolution feast pave search wharves present sinner dismiss subordinate appoint",
+    group: "Office and the law",
+    where:
+      "Society › Office: under an office you hold, its duty, its lever and its powers (each with its cost, its odds and what it does); offices in your gift, to fill or dismiss.",
+    needs: (ui) => [
+      localOfficesOf(ui.s, ui.life!.c).length
+        ? { label: "You hold a county office", met: true }
+        : { label: "Hold a county or town office first", met: false },
+    ],
+    go: tab({ k: "tab", tab: "society", sub: "office" }),
+    guide: "office",
+  },
+  {
+    id: "one-office",
+    title: "Change offices",
+    words:
+      "resign another office second office two offices both swap one at a time",
+    group: "Office and the law",
+    where:
+      "Society › Office: one office at a time. Standing for, seeking or accepting another warns you which you'd give up; winning it resigns the old one.",
+    go: tab({ k: "tab", tab: "society", sub: "office" }),
+    guide: "office",
+  },
+  {
+    id: "council-seat",
+    title: "Sit on the governor's council",
+    words:
+      "council cabinet seat secretary treasurer receiver attorney surveyor marshal commissioner chaplain minister",
+    group: "Office and the law",
+    where:
+      "Society › Council shows your case for every seat (renown, favour, the governor's regard, connections, fitness). Ask the governor in person at the capital, or be received at court and wait for an offer.",
+    needs: (ui) => {
+      const n = ui.s.nations[ui.me!.nation];
+      return [
+        {
+          label: `Renown 20 or more (you have ${Math.round(ui.life!.renown)})`,
+          met: ui.life!.renown >= 20,
+        },
+        {
+          label:
+            n && ui.life!.prov === n.capital
+              ? "You're at the capital"
+              : `At the capital${n ? `, ${ui.map.provinces[n.capital]?.name}` : ""}`,
+          met: !!n && ui.life!.prov === n.capital,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "society", sub: "council" }),
+    guide: "council",
+  },
+  {
+    id: "govern",
+    title: "Govern: appoint, proclaim, answer the house",
+    words:
+      "governor appoint dismiss council proclamation proclaim thanksgiving bounty frontier martial law pardon veto assent dissolve prorogue",
+    group: "Office and the law",
+    where:
+      "Society › Council, when you govern: appoint and dismiss the council, issue proclamations (with the council's advice), assent to or veto the house's bills, dissolve or prorogue it.",
+    go: tab({ k: "tab", tab: "society", sub: "council" }),
+    guide: "council",
+  },
+  {
+    id: "bill",
+    title: "Bring in a bill",
+    words:
+      "bill law act assembly house vote legislation road bounty paper money",
+    group: "Office and the law",
+    where:
+      "Society › Council (or your burgess's office on Society › Office): choose a bill; the house divides on it in a month, then the governor assents or vetoes.",
+    needs: (ui) => [
+      (ui.s.polities[ui.me!.nation]?.assembly ?? []).includes(ui.me!.id)
+        ? { label: "You sit in the house", met: true }
+        : { label: "A seat in the house (a burgess, or elected)", met: false },
+    ],
+    go: tab({ k: "tab", tab: "society", sub: "council" }),
+    guide: "council",
+  },
+  {
+    id: "court-case",
+    title: "Take someone to court",
+    words: "court trial accuse sue prosecute charge justice jury libel witness",
+    group: "Office and the law",
+    where:
+      "Society › Office: bring someone whose secret you know before the court; a constable brings people before the justices, a churchwarden presents sinners, the attorney general prosecutes. The trial is played out in scenes.",
+    go: tab({ k: "tab", tab: "society", sub: "office" }),
+    guide: "trials",
+  },
+  {
+    id: "preside",
+    title: "Preside over trials",
+    words: "justice judge bench sessions verdict sentence preside",
+    group: "Office and the law",
+    where:
+      "Society › Office: as justice of the peace, the county's cases come to you, and you give the verdict and the sentence in the court-house.",
+    go: tab({ k: "tab", tab: "society", sub: "office" }),
+    guide: "trials",
+  },
+  {
+    id: "newspaper",
+    title: "Own a newspaper",
+    words:
+      "newspaper paper press printing gazette publisher print found buy journal",
+    group: "Office and the law",
+    where:
+      "Society › Press: found a paper at a printing house, buy one from its printer, or rise to publisher in the printer's trade.",
+    needs: (ui) => [inTown(ui, "press", "printing house")],
+    go: tab({ k: "tab", tab: "society", sub: "press" }),
+    guide: "press",
+  },
+  {
+    id: "print-piece",
+    title: "Swing an election or a cause in print",
+    words:
+      "piece article attack praise candidate election cause movement governor libel propaganda",
+    group: "Office and the law",
+    where:
+      "Society › Press, with a paper of your own: a piece for or against a person, a cause or the governor, with how hard it lands and what it risks.",
+    go: tab({ k: "tab", tab: "society", sub: "press" }),
+    guide: "press",
   },
   // ---------------------------------------------------------------- learning
   {

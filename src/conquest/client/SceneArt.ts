@@ -42,6 +42,8 @@ const ALIAS: Record<string, string> = {
   snow: "road",
   swamp: "woods",
   river: "road",
+  // POWER (r12): the court-house, if its painting is missing.
+  courtroom: "governor",
 };
 
 function key(scene: string): string {
@@ -75,6 +77,7 @@ export function indoors(scene: string): boolean {
     "letter",
     "den",
     "gaol",
+    "courtroom", // POWER (r12)
   ].includes(key(scene));
 }
 

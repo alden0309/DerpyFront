@@ -34,6 +34,7 @@ import {
   WORK_DAYS,
 } from "../../engine/LifeRules";
 import { joinCheck, movementOf, movementsHere } from "../../engine/Movements";
+import { giveUpWarning } from "../../engine/OneOffice"; // POWER (r12)
 import { standCheck } from "../../engine/Politics";
 import { businessOf, expandCheck, handRoom } from "../../engine/Property";
 import {
@@ -82,6 +83,7 @@ import {
   tradesLink,
   workNotes,
 } from "./Livelihood";
+import { powerParts } from "./PowerParts"; // POWER (r12)
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 import { TERMS } from "./Terms";
@@ -373,12 +375,17 @@ function standButton(ui: GameUi): TemplateResult {
       run: () => undefined,
     });
   const check = standCheck(s, life);
+  // POWER (r12): one office at a time.
+  const warn = giveUpWarning(s, ui.w, life.c, {
+    kind: "assembly",
+    n: ui.me!.nation,
+  });
   return actButton({
     label: `Stand for ${pol.name}`,
     ok: check.ok,
-    why: check.ok ? null : check.why,
+    why: check.ok ? warn : check.why,
     title: check.ok
-      ? `The next election is on ${formatDate(pol.election)}.`
+      ? `The next election is on ${formatDate(pol.election)}.${warn ? ` ${warn}` : ""}`
       : check.why,
     run: () => void ui.cmd({ k: "stand" }),
   });
@@ -1284,7 +1291,7 @@ function extrasParts(ui: GameUi, p: number, area: PlaceKind): PlacePart[] {
             (a.owner === me.nation || a.owner === life.job?.nation),
         )
       : [];
-  const out: PlacePart[] = [];
+  const out: PlacePart[] = [...powerParts(ui, p, area)]; // POWER (r12)
   if (movements.length)
     out.push({
       key: "causes",
