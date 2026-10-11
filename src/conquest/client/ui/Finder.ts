@@ -6,6 +6,7 @@
 
 import { html, nothing, TemplateResult } from "lit";
 import { ref } from "lit/directives/ref.js";
+import { areasOf, homeHere } from "../../engine/Areas"; // HOME (r12)
 import { BOATS } from "../../engine/Boats";
 import { knowsDen } from "../../engine/CrimeQueries";
 import { followerCap, peopleOf, raiseCheck } from "../../engine/Followers";
@@ -29,7 +30,12 @@ import {
   movementOf,
 } from "../../engine/Movements";
 import { standCheck } from "../../engine/Politics";
-import { houseCheck, housePrice, landCheck } from "../../engine/Property";
+import {
+  houseCheck,
+  houseOf,
+  housePrice,
+  landCheck,
+} from "../../engine/Property";
 import type { PlaceKind } from "../../engine/Types";
 import { FindIcon } from "../Icons";
 import type { DrawerView, GameUi } from "./Context";
@@ -70,9 +76,9 @@ const place =
   async (ui: GameUi) => {
     const life = ui.life!;
     ui.modal(null);
-    const a = areas.find(
-      (x) => !life.travel && hasPlace(ui.s, ui.w, life.prov, x),
-    );
+    // HOME (r12): home isn't on the town's list of places, but it's there.
+    const here = life.travel ? [] : areasOf(ui.s, ui.w, life.prov, life);
+    const a = areas.find((x) => here.includes(x));
     if (a && life.area !== a) await ui.cmd({ k: "enter", area: a });
     ui.open({ k: "tab", tab: "here" });
     if (!a)
@@ -247,7 +253,7 @@ const GOALS: Goal[] = [
     words: "home cottage lodge property roof live settle dwelling",
     group: "Money and home",
     where:
-      "Estate › House & land, wherever you're settled (or at the market, a native village, or your home). The house is in the town you're in.",
+      "Here › Home (your lodgings): buy any house outright, or rent one by the month. Or Estate › House & land, the market or a native village. The house is in the town you're in.",
     needs: (ui) => {
       const life = ui.life!;
       const v = houseCheck(ui.s, life);
@@ -264,7 +270,8 @@ const GOALS: Goal[] = [
         out.push({ label: v.check.why, met: false });
       return out;
     },
-    go: tab({ k: "tab", tab: "estate", sub: "house" }),
+    go: (ui) => goHome(ui),
+    goLabel: "Go home",
     guide: "property",
   },
   {
@@ -483,9 +490,9 @@ const GOALS: Goal[] = [
     words: "duel insult fight rival enemy challenge honour",
     group: "People",
     where:
-      "Their card: Insult, Spread a rumour, Challenge to a duel. Or pick a fight at the tavern.",
+      "Their card: Insult, Spread a rumour, Challenge to a duel (played out as scenes: seconds, weapons, the field at dawn). Or pick a fight at the tavern.",
     go: tab({ k: "tab", tab: "people", sub: "known" }),
-    guide: "people",
+    guide: "duels",
   },
   // ---------------------------------------------------------------- society
   {
@@ -787,7 +794,145 @@ const GOALS: Goal[] = [
     goLabel: "Read about the map",
     guide: "map",
   },
+  // ---- HOME (r12): the household, the family, duels, other players
+  {
+    id: "improve-house",
+    title: "Improve my house",
+    words:
+      "home house rooms parlour garden kitchen study nursery stable storehouse furnish furniture servants maid cook upgrade",
+    group: "Money and home",
+    where:
+      "Here › Home (your house): add rooms and grounds, furnish it, keep servants, take in lodgers, or move up to a better house.",
+    needs: (ui) => [
+      {
+        label: houseOf(ui.life!, ui.life!.prov)
+          ? "You have a house here"
+          : "You need a house here first (buy or rent one at Home)",
+        met: !!houseOf(ui.life!, ui.life!.prov),
+      },
+    ],
+    go: (ui) => goHome(ui),
+    goLabel: "Go home",
+    guide: "property",
+  },
+  {
+    id: "rent-house",
+    title: "Rent a house",
+    words: "rent lease lodgings tenant landlord house cheap",
+    group: "Money and home",
+    where:
+      "Here › Home (your lodgings): rent any house by the month: no upkeep or rates, but nothing to sell.",
+    go: (ui) => goHome(ui),
+    goLabel: "Go home",
+    guide: "property",
+    who: "colonist",
+  },
+  {
+    id: "let-house",
+    title: "Let a house, or take in lodgers",
+    words: "let rent out tenant landlord lodger income second house",
+    group: "Money and home",
+    where:
+      "Here › Home: Your other property (let a house you don't live in), or Lodgers (in the house you live in).",
+    go: (ui) => goHome(ui),
+    goLabel: "Go home",
+    guide: "property",
+    who: "colonist",
+  },
+  {
+    id: "store-goods",
+    title: "Keep goods at home",
+    words: "store goods storehouse cellar keep carry stash warehouse",
+    group: "Money and home",
+    where:
+      "Here › Home (your house): Kept at home. Ten loads in any house, thirty more with a storehouse; they don't count against what you carry.",
+    go: (ui) => goHome(ui),
+    goLabel: "Go home",
+    guide: "property",
+  },
+  {
+    id: "family-time",
+    title: "Spend time with my family",
+    words:
+      "family wife husband spouse children kids evening home love time together",
+    group: "People",
+    where:
+      "Here › Home: an evening with the family, time with your husband or wife, play with the children.",
+    go: (ui) => goHome(ui),
+    goLabel: "Go home",
+    guide: "family",
+  },
+  {
+    id: "teach",
+    title: "Teach my children",
+    words: "teach children son daughter heir lessons educate school skills",
+    group: "People",
+    where:
+      "Here › Home: under The family, pick a child (five to fifteen) and a skill you know well. What they learn goes into an heir's skills.",
+    go: (ui) => goHome(ui),
+    goLabel: "Go home",
+    guide: "family",
+  },
+  {
+    id: "tree",
+    title: "See my family tree",
+    words:
+      "family tree genealogy ancestors parents grandparents children grandchildren relatives kin",
+    group: "People",
+    where:
+      "You › Family: the family tree, with portraits. Drag or pinch to move about; click anyone for their card.",
+    go: (ui) => {
+      ui.modal(null);
+      ui.modal({ k: "tree" });
+    },
+    goLabel: "Open the tree",
+    guide: "family",
+  },
+  {
+    id: "players",
+    title: "Find the other players",
+    words: "players friends multiplayer others where rival town",
+    group: "People",
+    where:
+      "People › People you know: Other players, where they are (as far as you can see). In your town they stand in its places, marked as players.",
+    go: tab({ k: "tab", tab: "people", sub: "known" }),
+    guide: "multiplayer",
+  },
+  {
+    id: "study-home",
+    title: "Study at home",
+    words: "study read books learn skill letters home evening",
+    group: "Learning",
+    where:
+      "Here › Home: Study, in any skill (twice as far with a study of your own). Or hire a tutor.",
+    go: (ui) => goHome(ui),
+    goLabel: "Go home",
+    guide: "property",
+  },
+  // ---- end HOME (r12)
 ];
+
+/** HOME (r12): step into your home here, or say where it is. */
+async function goHome(ui: GameUi): Promise<void> {
+  const life = ui.life!;
+  ui.modal(null);
+  if (!life.travel && homeHere(life, life.prov)) {
+    if (life.area !== "home") await ui.cmd({ k: "enter", area: "home" });
+    ui.open({ k: "tab", tab: "here" });
+    requestAnimationFrame(() =>
+      document
+        .querySelector(".cq-area-banner")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    );
+    return;
+  }
+  ui.open({ k: "tab", tab: "here" });
+  ui.toast(
+    life.travel
+      ? "You're on the road: home is where you settle."
+      : `Your home is at ${ui.map.provinces[life.home]?.name ?? "your home"}.`,
+  );
+}
 
 let query = "";
 let openId = "";

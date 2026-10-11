@@ -5,9 +5,31 @@
 
 import { BOATS, CREW_WAGE } from "../../engine/Boats";
 import { CONTRACT_PLACES, MAX_CONTRACTS } from "../../engine/Contracts";
+import {
+  DOWN,
+  DUEL_DAYS,
+  DUEL_DEATH_HEAT,
+  DUEL_HEAT,
+} from "../../engine/Duels"; // HOME (r12)
 import { COMPANY_BOUNTY, COMPANY_PAY, SIGNING } from "../../engine/Followers";
 import { FOUND, TERMS as SETTLE_TERMS } from "../../engine/Founding";
 import { GATHERINGS, SCALE } from "../../engine/Gatherings";
+import {
+  FURNISH,
+  HOME_COOLDOWN,
+  LEASE_RENT,
+  LET_RENT,
+  LODGER_RENT,
+  LODGING_SHARE,
+  ROOM_ORDER,
+  ROOMS,
+  SERVANT_ORDER,
+  SERVANTS,
+  STORE_BASE,
+  STORE_MORE,
+  TEACH_AGES,
+  TEACH_MAX,
+} from "../../engine/HouseRules"; // HOME (r12)
 import { JOB_GROUPS, jobGroupOf } from "../../engine/JobsData";
 import { CARRY } from "../../engine/LifeQueries";
 import {
@@ -202,6 +224,23 @@ function livingTable(): string {
         `| **${l.name}** (${l.nativeName.toLowerCase()}) | ${n(l.cost)} / ${n(l.nativeCost)} | ${sg(l.health)} | ${sg(l.stress)} | ${sg(l.renown)} |`,
     )
     .join("\n")}`;
+}
+
+// HOME (r12): rooms and servants, from the house rules.
+function roomsTable(): string {
+  return `| Room or ground | Colonists | Native peoples | Upkeep a month | Needs | What it does |\n|---|---|---|---|---|---|\n${ROOM_ORDER.map(
+    (id) => {
+      const r = ROOMS[id];
+      return `| **${r.name}** | ${r.cost} | ${r.nativeName ? `${r.nativeName} (${r.nativeCost})` : "not their way"} | ${r.upkeep || "none"} | ${r.minLevel > 1 ? `a ${HOUSES[r.minLevel - 1].name.toLowerCase()}` : "any house"} | ${r.text} |`;
+    },
+  ).join("\n")}`;
+}
+
+function servantsTable(): string {
+  return `| Servant | Wages a month | What they do |\n|---|---|---|\n${SERVANT_ORDER.map(
+    (k) =>
+      `| **${SERVANTS[k].name}** | ${SERVANTS[k].wage} | ${SERVANTS[k].text} |`,
+  ).join("\n")}`;
 }
 
 function housesTable(): string {
@@ -517,19 +556,63 @@ An officer keeps himself out of his commission's pay (mess bills, uniforms, hors
 
 ! Pitfall: Debts come due, and are paid from your purse on the day. If you can't pay, the lender holds it against you for three years, you lose a little renown and gain stress, and the debt comes due again in three months.`,
   },
+  // ---- HOME (r12): house and property
   {
     id: "property",
     part: "living",
-    title: "Houses, land and gifts",
-    line: "A house of your own, land to let, a business, and gifts to the town.",
+    title: "Your house, your household and your property",
+    line: "Lodgings or a house of your own, its rooms, furniture and servants, letting and lodgers, land, a business, and gifts to the town.",
     where:
-      "Estate › House & land; or the market, a village or your home (a house), the fields (land), the governor's house (a grant).",
-    body: `## A house of your own
-Buy one wherever you're settled: on Estate › House & land, or at the market, a village or your home. It's in the town you're in; your household moves in with you. A better one replaces it for its price less half the old one's worth.
+      "Here › Home (your lodgings or your house); Estate › House & land; the market or a village (a house), the fields (land), the governor's house (a grant).",
+    body: `## Home
+Every town you live in has a **Home** among its places (Here). Before you own a house it's **your lodgings**: where you lodge goes with the way you live (a straw pallet in a tavern garret when frugal, a room in a widow's house when modest, rooms of your own when comfortable, the best inn when genteel, a whole house rented furnished when grand), and your rent is part of your living (about ${Math.round(LODGING_SHARE * 100)}% of it). Live better and you lodge better (Estate › Purse).
+
+Once you have a house, Home is that house: its card shows the house, its rank (I to IV) and what it gives you each month, and everything you can do there.
+
+## A house of your own
+At Home you can **buy any house outright**, or **rent one by the month**; at the market or a native village, or on Estate › House & land, you can buy the next one up. It stands in the town you're in, and your household moves in with you. A better one replaces the old for its price less half the old one's worth.
 
 ${housesTable()}
 
-A house eases the mind every month (more for a better one); from a house up it adds a little renown, and a fine house or a mansion your health too. From gentlefolk up your station expects a house **at your home** (the town you live in). Colonists' towns levy rates on houses.
+A house eases the mind every month (more for a better one); from a house up it adds a little renown, and a fine house or a mansion your health too. From gentlefolk up your station expects a house **at your home** (the town you live in). Colonists' towns levy rates on houses you own and live in.
+
+**Renting** (colonists only): ${LEASE_RENT.map((r, i) => `${HOUSES[i].name.toLowerCase()} ${r}`).join(", ")} coins a month, with the first month and a month's surety in hand. No upkeep and no rates, but nothing to sell, and you can't build on it. Fail to pay the rent and your things are put in the street. Buying the house you rent ends the lease.
+
+You can own houses in several towns. **Make this your home** (at the house) moves your household there.
+
+## Rooms and grounds
+Added at Home, once each:
+
+${roomsTable()}
+
+## Furniture
+${FURNISH.slice(1)
+  .map(
+    (f, i) =>
+      `- **${f.name}** (${f.cost} coins${i + 1 > 1 ? `; a ${HOUSES[i].name.toLowerCase()} or better` : ""}): ${f.text} −${-f.stress} stress a month${f.renown ? `, +${f.renown} renown` : ""}.`,
+  )
+  .join("\n")}
+
+Native lodges are furnished with mats, painted hides and trade blankets, for about a third of the price.
+
+## Servants
+Colonists keep servants (one, or more with servants' quarters: the house's rank plus two). Each is paid monthly; one who can't be paid leaves.
+
+${servantsTable()}
+
+A parlour, good furniture and a cook give a gathering at home a better start.
+
+## Letting, lodgers and stores
+- **Let a house** you don't live in: ${LET_RENT.map((r, i) => `${HOUSES[i].name.toLowerCase()} ${r}`).join(", ")} coins a month, and the tenant pays the rates. A tenant may give notice (about one in thirty a month). End the let to use it again.
+- **Take in lodgers** (in a house you own): ${LODGER_RENT} coins a month each, and a point of stress a month each. As many as the house's rank.
+- **Keep goods at home**: ${STORE_BASE} loads in any house, ${STORE_MORE} more with a storehouse. Goods kept at home don't count against what you carry. Take them out before you sell the house.
+
+## At home
+- **An evening with the family**, **time with your husband or wife**, **playing with the children**: an easier mind, and they think the better of you ([[family|Family and heirs]]).
+- **Teach a child** (five to fifteen) something you know well: it stays with them, and an heir starts with it in their skills.
+- **Rest and recover**: health and calm (more with a cook, good furniture and a garden). **Study**: experience in any skill, twice as much with a study. **Hire a tutor**.
+- **Give a gathering**, **give a dinner**, **write a letter**.
+- **What else money buys, and where**: land, a horse, a carriage, good tools, a pew, a boat, shares, people in your service, a land grant, each with the way to the place that sells it.
 
 ## Land
 - **Ten acres** for ${LAND_LOT.cost} coins (Estate › House & land, or the fields), up to ${LAND_LOT.max * 10} acres in a town. Let to tenants: ${LAND_LOT.rent} a month in rent for each ten acres. Any land or house of your own makes you a freeholder, fit for the offices the freeholders elect.
@@ -554,8 +637,13 @@ ${Object.values(WORKS)
     (w) =>
       `- **${w.label}** (${w.cost} coins): +${w.renown} renown${w.need ? `; you need renown ${w.need} to be taken seriously` : ""}. ${w.text}`,
   )
-  .join("\n")}`,
+  .join("\n")}
+
+> Tip: A cottage and a kitchen garden pay for themselves in calm and a cheaper table. Add a garden early; servants and a parlour when your station asks for them.
+
+! Pitfall: Servants, rooms and rent are paid every month whether you're home or not. Check the house's monthly figure (point at it) before you add more.`,
   },
+  // ---- end HOME (r12)
   {
     id: "markets",
     part: "living",
@@ -839,6 +927,8 @@ Their card lists what you could do, each with its verdict before you try: **will
 | Causes | Recruit them to your cause; join theirs; ask them to come to your settlement |
 | Hostile | Insult; spread a rumour; challenge to a duel; pry into their affairs; blackmail |
 
+A duel is played out as a run of scenes, from the seconds to the field at dawn ([[duels|Duels]]).
+
 And on everyone's card: **Write a letter** (wherever they are), **Ask them to join you** (into your service), and for lawmen **Arrest them**.
 
 ## Tongues
@@ -879,13 +969,28 @@ Divorce is possible where the church allows it (puritan, reformed and Lutheran c
 
 ! Pitfall: Keep a secret lover far from your spouse's friends.`,
   },
+  // ---- HOME (r12): family and heirs, duels
   {
     id: "family",
     part: "people",
     title: "Family and heirs",
-    line: "Children, your heir, your line, and what passes on when you die.",
-    where: "You › Family.",
-    body: `## Children
+    line: "Your family tree, time at home, teaching the children, your heir, your line, and what passes on when you die.",
+    where:
+      "You › Family (the family tree); Here › Home (time with your family).",
+    body: `## The family tree
+You › Family opens with your family set down as a genealogist would: your grandparents and parents, your brothers and sisters, your husband or wife (and any before them), lovers who gave you children, your children and their husbands and wives, your grandchildren, and your in-laws. Each is a portrait with their name, their years (or their age) and how they're kin to you. The dead are shown in sepia with a cross; **your heir** wears a gold ribbon.
+- **Moving about**: drag (or a finger) to move, the mouse wheel or a pinch to come closer, or the + and − buttons; **All** shows the whole family, **You** goes back to you. **Open it large** gives it the whole screen.
+- **Click anyone** (or tap them) for their card.
+- Husbands and wives are joined by a double rule; lovers by a red one; a child you never owned to hangs by a broken line.
+
+## Time at home
+At Home (Here):
+- **An evening with the family** (every ${HOME_COOLDOWN.evening} days): stress falls; your husband or wife and the children remember it.
+- **Time with your husband or wife** (every ${HOME_COOLDOWN.spouse} days): more stress gone, and they think a good deal better of you. If they're another player, they get the evening too.
+- **Play with the children** (every ${HOME_COOLDOWN.children} days, children under fourteen): they love you for it.
+- **Teach a child** (from ${TEACH_AGES[0]} to ${TEACH_AGES[1]}, once a month each): pick one of your own skills (you need 4 or more, and well ahead of them) and they learn a point of it, up to ${TEACH_MAX}. A nursery and schoolroom makes it two points for a parent of 8 or more in the skill, and spares your patience. **What you teach stays with them: if they become your heir, they start with it in their skills.**
+
+## Children
 Married couples have children (and lovers, sometimes). Children grow up in your home and think well of you as their parent. Under sixteen a child can't work, marry or hold office, but can learn.
 
 ## Your heir
@@ -898,17 +1003,58 @@ With no heir, your story ends and you watch ([[death|Death and watching]]).
 ## What passes on
 - **The purse**, less a third to your widow or widower if you chose to leave them one (the box on You › Family).
 - **The family business**, if your work was your own: an heir of sixteen or more takes it up at once; a younger one comes into it at sixteen.
-- Your boats, and some of your people.
+- Your houses and land, your boats, and some of your people.
 - About a third of your renown, and less than a third of your favour.
-- Not your skills: the heir has their own. Not your friendships, your patron, your ambitions or your offices.
+- Not your skills: the heir has their own (and what you taught them). Not your friendships, your patron, your ambitions or your offices.
 
 Your heir starts with good health and a clear head, at their own home.
 
 ## Your line
 You › Family shows the generations before you. Each generation of the line counts toward your Derp Coins at the end.
 
-> Tip: Name an heir early, and give them a good start: a tutor, a trade, a good marriage. A child heir can't work until sixteen.`,
+> Tip: Name an heir early, and give them a good start: lessons at home in your best skill, a tutor, a trade, a good marriage. A child heir can't work until sixteen.`,
   },
+  {
+    id: "duels",
+    part: "people",
+    title: "Duels",
+    line: "A challenge given or taken, played out from the seconds to the field at dawn, and what comes after.",
+    where:
+      "Their card (Challenge to a duel); or they call you out (an insult, an affair found out, a quarrel at a gathering).",
+    body: `A duel is played out as a run of scenes, each with its choices. Along the top of each: **I.** the challenge, **II.** the weapons, **III.** the field, **IV.** the exchanges, **V.** after.
+
+## I. The challenge
+You can call out a rival, a nemesis or anyone who hates you (their card, under Hostile); people call you out too. One duel at a time. First, a **second**: a friend in town (or someone who thinks well of you) to carry your terms and see fair play. A second adds a point to your odds and can talk for you on the field; going without costs a point.
+- Called out, you can also **apologise** (−4 renown, nobody bleeds) or **refuse to meet them** (−6 renown, and "coward" on your door).
+- Having called them out, you can **withdraw the challenge** (−3 renown).
+
+## II. The weapons
+By the code, **the one who was challenged chooses**.
+- **Smallswords**: skill tells. Up to three passes; it ends when someone is badly hurt (${DOWN} wounds) or yields. Wounds are seldom mortal.
+- **Pistols**: nearer a coin toss. One shot each, two at most if both miss; a ball can kill.
+If they choose, your second can argue for the other (persuasion; it may not wash).
+
+## III. The field at dawn
+Take your ground; or a last **word of peace** through your second (persuasion against their pride: if they hear it, you shake hands and nobody bleeds); or, with pistols, **resolve to fire into the air** (if they do the same, honour is satisfied and the town thinks well of you both; if not, they fire at you at leisure); with swords, **ask that it end at first blood**.
+
+## IV. The exchanges
+Each choice shows your odds; point at them for why. They come from your **Fighting** against theirs, and from traits on both sides: brave, scarred (+1), craven (−2), an old wound, sickness, age past 55; a strong arm and a cruel streak with a sword; practice (diligent) or an unsteady hand (a drunkard) with pistols; your health and nerves; and your second.
+- Swords: **keep your guard** (safer, lighter wounds either way), **press the attack**, or **feint, then thrust** (the deepest wound if it works; sly sorts do it better). After a pass you can **yield**.
+- Pistols: **take careful aim** (the better shot; they fire as you do), **fire at the word** (worse, but if you hit first their shot goes wild), or **fire into the air**.
+
+## V. After
+- **Wounds** come off your health (a grave one can kill you, and your heir carries on). Their wounds may kill them.
+- **Renown**: +6 for the victory (+4 if they died of it), +1 for standing and losing, +2 when honour is satisfied, +3 for firing into the air together; −3 for yielding. The loser remembers it.
+- **The law's interest**: duelling is against the law in the colonies: a duel draws ${DUEL_HEAT} [[crime|heat]], a death ${DUEL_DEATH_HEAT}. After a death you can face it out (+2 renown), lie low (the heat cools a little; your nerves don't), or ask your patron to speak for you. Among the native peoples it's their custom, not the law's affair.
+- If they live, you can offer them your hand: rivals no longer, if they'll take it.
+
+Duels between players: the one challenged accepts or refuses (refusing costs renown); both then see the duel played out as a scene.
+
+> Tip: Name a second, choose swords if you're the better fighter and pistols if you're not, and keep your guard until they're hurt.
+
+! Pitfall: A scene left unanswered is decided for you by the seconds (the first choice you could take) after ${DUEL_DAYS} days.`,
+  },
+  // ---- end HOME (r12)
   {
     id: "languages",
     part: "people",
@@ -1252,9 +1398,11 @@ Choose **With friends** in the lobby and open a game room. List it under open ga
 The host sets the speed. Anyone may pause; only the host starts the clock again. Skipping ahead needs everyone living a life to agree (click ⏩ to ask; the others click it to agree), and it stops for anyone's letters or news. A letter waits ${LETTER_SECONDS} seconds of running time for an answer before it decides itself.
 
 ## Other players
-- Their medallions are on the map, with their names; World lists them.
-- Asking another player anything (courting, marriage, a favour, meeting in secret) goes to them, and they accept or refuse.
-- You can sell them goods, write to them (they answer from their own letter case), invite them to your gatherings, hire them or work for them (wages come out of the master's purse), and, as a lawman, arrest them if they're wanted.
+- **In your town** they stand in its places like anyone else (Here), marked **player** (or **rival player**, in red), and the top of Here says who's in town and where: click them to go to them. At their own home they're indoors, out of the town's places.
+- **People** lists every other player: where they are as far as you can see (the fog of war holds for them too: out of sight is out of sight), what they are to you, and what they think of you. World lists them as well.
+- **On the map** their medallions and walkers show where you can see them, with their names.
+- Asking another player anything (friendship, courting, marriage, a favour, meeting in secret, a duel) goes to them, and they accept or refuse. A duel they accept is shown to you both as a scene ([[duels|Duels]]).
+- You can sell them goods, write to them (they answer from their own letter case), invite them to your gatherings, hire them or work for them (wages come out of the master's purse), and, as a lawman, arrest them if they're wanted. A husband or wife who's another player shares your home, and an evening together.
 - Chat goes in the News panel.
 
 ## Leaving and saving

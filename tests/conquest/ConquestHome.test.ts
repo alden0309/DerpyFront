@@ -6,6 +6,7 @@
 // chain of scenes; and other players in your town.
 
 import { describe, expect, test } from "vitest";
+import { CHAPTERS } from "../../src/conquest/client/guide/Chapters";
 import { areasOf, presence } from "../../src/conquest/engine/Areas";
 import { makeCharacter } from "../../src/conquest/engine/Characters";
 import {
@@ -30,7 +31,7 @@ import {
   SERVANTS,
 } from "../../src/conquest/engine/HouseRules";
 import * as INTER from "../../src/conquest/engine/Interactions";
-import { familyTree } from "../../src/conquest/engine/Kin";
+import { familyTree, kinWord } from "../../src/conquest/engine/Kin";
 import { succeedTo } from "../../src/conquest/engine/Life";
 import { actCheck, actsAt } from "../../src/conquest/engine/LifeActs";
 import {
@@ -737,5 +738,29 @@ describe("duels as scenes", () => {
     const n = life.events.length;
     duel(g, life, g.char(b.id), true);
     expect(life.events.length).toBe(n);
+  });
+});
+
+describe("the guide and the names of kin", () => {
+  test("the guide covers the household, the family tree, duels and other players", () => {
+    const ch = (id: string) => CHAPTERS.find((c) => c.id === id)!;
+    expect(ch("duels").part).toBe("people");
+    for (const r of Object.values(ROOMS))
+      expect(ch("property").body, r.name).toContain(r.name);
+    for (const sv of Object.values(SERVANTS))
+      expect(ch("property").body, sv.name).toContain(sv.name);
+    expect(ch("family").body).toMatch(/family tree/i);
+    expect(ch("multiplayer").body).toMatch(/rival player/);
+  });
+
+  test("your own people are named as kin", () => {
+    const g = world();
+    const life = lifeOf(g);
+    const w = wife(g, life);
+    const k = kid(g, life, 7);
+    expect(kinWord(g.s, life, w)).toBe("Your wife");
+    expect(kinWord(g.s, life, k)).toMatch(/^Your (son|daughter)$/);
+    const me = meOf(g.s, life)!;
+    expect(kinWord(g.s, life, me)).toBeNull();
   });
 });
