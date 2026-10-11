@@ -429,12 +429,21 @@ export function articlesAcceptance(
       "A gamble on cargoes",
       npc.role === "merchant" || npc.role === "captain" ? 0 : -4,
     );
-  else
-    e.add(
-      `What it should make: ${Math.round(fc.profit * 10) / 10} a month`,
-      Math.max(-15, Math.min(15, Math.round(fc.profit * 2))),
-      true,
-    );
+  else {
+    // A business that would lose money is worse than none.
+    const pm = Math.round(fc.profit * 10) / 10;
+    if (pm >= 0)
+      e.add(
+        `What it should make: ${pm} a month`,
+        Math.min(15, Math.round(pm * 2)),
+        true,
+      );
+    else
+      e.add(
+        `It would lose money: \u2212${-pm} a month`,
+        Math.max(-30, Math.round(pm * 5)),
+      );
+  }
   // The terms.
   const fair = fairShares(s, t, firm)[i];
   const diff = mine.share - fair;

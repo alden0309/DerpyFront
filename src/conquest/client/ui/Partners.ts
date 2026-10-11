@@ -68,6 +68,7 @@ import type {
   FirmDecisionKey,
   FirmTerms,
   JobKind,
+  Letter,
   LifeEventPending,
   PlaceKind,
 } from "../../engine/Types";
@@ -1628,6 +1629,42 @@ export function articlesScene(
     scene,
     ev.key,
   );
+}
+
+// ---------------------------------------------------------------- in the letters
+
+/** Under a letter of articles: answer them (the scene), or how they stand. */
+export function articlesLetter(
+  ui: GameUi,
+  l: Letter,
+): TemplateResult | typeof nothing {
+  const life = ui.life;
+  if (!life || l.arg === undefined) return nothing;
+  const o = offerById(ui.s, l.arg);
+  if (!o) return nothing;
+  const ev = life.events.find(
+    (e) => e.key === "p2p-articles" && e.ctx.o === o.id,
+  );
+  if (ev && o.to === life.c && o.status === "open")
+    return html`<div class="cq-btnrow">
+      <button
+        class="cq-btn primary small"
+        @click=${() => ui.modal({ k: "event", id: ev.id })}
+      >
+        Read the articles, and answer
+      </button>
+    </div>`;
+  const word: Partial<Record<string, string>> = {
+    signed: "signed",
+    refused: "declined",
+    lapsed: "lapsed",
+  };
+  const w = word[o.status];
+  return w
+    ? html`<p class="cq-muted small">
+        The articles of ${o.terms.name}: <b>${w}</b>.
+      </p>`
+    : nothing;
 }
 
 // ---------------------------------------------------------------- on someone's card

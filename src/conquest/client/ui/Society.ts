@@ -78,6 +78,7 @@ import {
   section,
   token,
 } from "./Context";
+import { articlesLetter } from "./Partners"; // PARTNERS (r13)
 import { curly, reasons } from "./Scene";
 import { steadyOrder } from "./Steady";
 
@@ -191,6 +192,7 @@ function letterCard(ui: GameUi, l: Letter): TemplateResult {
       : html`<p class="cq-post-text muted">
           A letter is on its way to you from ${charName(other)}.
         </p>`}
+    ${l.kind === "articles" ? articlesLetter(ui, l) : nothing}
     ${l.arg &&
     (l.kind === "favour" ||
       l.kind === "business" ||
