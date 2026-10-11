@@ -567,7 +567,7 @@ const SOURCE_NAMES: Record<LeadSource, string> = {
   tavern: "talk in the tavern",
   docks: "sailors at the docks",
   letter: "a letter",
-  talk: "talk in the market",
+  talk: "talk about the town",
 };
 
 /** Hear of a story: it goes in your leads, and its place on your map. */
@@ -676,10 +676,7 @@ export function leadCheck(
     return { ok: false, why: "There's nothing more to be had there." };
   if (life.travel) return { ok: false, why: "Not on the road." };
   if (life.prov !== lead.p)
-    return {
-      ok: false,
-      why: `Go to ${lead.p >= 0 ? "the place" : "it"} first.`,
-    };
+    return { ok: false, why: "Go there first: you work a lead on the spot." };
   if ((life.leads ?? []).some((x) => x.work))
     return { ok: false, why: "You're working another lead." };
   const def = leadAct(lead.kind, act);

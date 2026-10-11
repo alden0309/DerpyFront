@@ -15,6 +15,7 @@ import {
   earn,
   gainXp,
   journal,
+  outcomeMeta,
   remembers,
   spend,
   touchLife,
@@ -618,6 +619,13 @@ export function present(
     });
   }
   const chief = s.chars[nation.ruler];
+  outcomeMeta(g, life, {
+    key: "present",
+    title: "Gifts for the council",
+    scene: "councilfire",
+    c: chief?.alive ? chief.id : -1,
+    ok: true,
+  });
   if (chief?.alive)
     remembers(
       g,
