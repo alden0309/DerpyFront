@@ -30,6 +30,7 @@ import {
   no,
   opinionOf,
   promotionView,
+  rankOf,
   stationOf,
   yes,
 } from "./LifeQueries";
@@ -602,6 +603,9 @@ function keepOf(s: GameState, life: Life, pr: Property): number {
 }
 
 /** Keep for what you own, ventures, and what it costs to live beneath yourself. */
+/** Share of a commissioned officer's pay that goes on keeping up the rank. */
+export const OFFICER_KEEP = 0.2;
+
 export function moneyMonthly(g: ConquestGame, life: Life): void {
   const s = g.s;
   touchLife(g, life);
@@ -629,6 +633,13 @@ export function moneyMonthly(g: ConquestGame, life: Life): void {
     }
   }
   venturesMonthly(g, life);
+  // An officer keeps himself: mess bills, uniforms, horses and servants come
+  // out of a commission's pay (about a fifth of it).
+  const rank = rankOf(life);
+  if (rank?.commission && !isChildLife(s, life)) {
+    const keep = Math.round(rank.wage * OFFICER_KEEP * 100) / 100;
+    if (keep > 0) spend(g, life, keep);
+  }
   // Living beneath your station, when you could afford better: people talk.
   // (Fallen on hard times, they pity you instead.)
   const b = isChildLife(s, life) ? null : beneathStation(s, life);
