@@ -62,7 +62,6 @@ import {
   TERRAIN_TINT,
 } from "./MapView";
 import { Net } from "./Net";
-import { likenessOf } from "./Portrait";
 import { confirmMarch, setConfirmMarch } from "./Prefs";
 import { music, play, unlockOnFirstGesture } from "./Sound";
 import { describeEvent, GOOD_COLORS, GOOD_NAMES, TERRAIN_NAMES } from "./Text";
@@ -88,6 +87,7 @@ import {
 import { herePanel, provincePage } from "./ui/Here";
 import { journalTab } from "./ui/Journal";
 import { needsAttention, tradesPage } from "./ui/Livelihood";
+import { medallionFace, onMedallionReady } from "./ui/Medallion";
 import { ModalHooks, renderModal } from "./ui/Modals";
 import { personPage, youTab } from "./ui/Sheet";
 import { forgetSteady, setSteadyRedraw, touched } from "./ui/Steady";
@@ -256,6 +256,10 @@ export class GameView extends LitElement {
     window.addEventListener("touchstart", touched, { passive: true });
     window.addEventListener("touchmove", touched, { passive: true });
     setSteadyRedraw(() => this.requestRender());
+    onMedallionReady(() => {
+      this.markCache.clear();
+      if (this.view) this.view.needsDraw = true;
+    });
     unlockOnFirstGesture();
     music.start();
     this.letterTimer = window.setInterval(() => {
@@ -277,6 +281,7 @@ export class GameView extends LitElement {
     window.removeEventListener("touchstart", touched);
     window.removeEventListener("touchmove", touched);
     setSteadyRedraw(null);
+    onMedallionReady(null);
     cancelAnimationFrame(this.frame);
     this.resizeObs?.disconnect();
     clearTimeout(this.renderTimer);
@@ -863,16 +868,13 @@ export class GameView extends LitElement {
       const native = lifeIsNative(s, l);
       // The likeness and clothes, worked out once (not on every frame).
       const age = ageOfLife(s, l);
-      const key = `${c.id}|${age}|${n?.color}|${native}|${l.frame}|${c.look ? JSON.stringify(c.look).length : 0}`;
+      const key = `${c.id}|${age}|${n?.color}|${native}|${l.frame}|${c.look ? JSON.stringify(c.look) : ""}`;
       let look = this.markCache.get(key);
       if (!look) {
         if (this.markCache.size > 64) this.markCache.clear();
         look = {
-          face: likenessOf(c, {
-            age,
-            color: n?.color ?? "#6b4f33",
-            native,
-          }),
+          // The likeness they chose: tuned, and turned their way.
+          face: medallionFace(c, age),
           colors: figureColorsOf(c, native, l.frame),
         };
         this.markCache.set(key, look);
