@@ -5,6 +5,7 @@
 
 import { dateOf } from "./Calendar"; // MAP (r12)
 import { Explain } from "./Explain";
+import { hooks } from "./Hooks"; // PARTNERS (r13)
 import {
   ALLOWANCE,
   ALLOWANCE_YEARS,
@@ -556,6 +557,9 @@ export function monthlyBudget(
     for (const k of Object.keys(life.kit ?? {}) as KitKey[])
       if (KIT[k].upkeep && hasKit(s, life, k))
         e.add(`Keep: ${KIT[k].name.toLowerCase()}`, -KIT[k].upkeep);
+    // PARTNERS (r13): your share of the firms you're a partner in.
+    for (const h of hooks.budget)
+      for (const part of h(s, life)) e.add(part.label, part.value);
   }
   return e.done(1);
 }

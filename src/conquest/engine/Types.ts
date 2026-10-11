@@ -1531,6 +1531,8 @@ export interface GameState {
   society?: SocietyState;
   /** POWER (r12): the council, bills, trials and newspapers. */
   power?: PowerState;
+  /** PARTNERS (r13): firms, and the articles going between partners. */
+  partners?: PartnersState;
 }
 
 export type TravellerKind =
@@ -1816,7 +1818,9 @@ export type LifeCommand =
   // POWER (r12): offices' powers, the council, bills, trials and the press.
   | PowerCommand
   // HOME (r12): the household: rooms, servants, letting, family time, the house you live in.
-  | HomeCommand;
+  | HomeCommand
+  // PARTNERS (r13): business partnerships.
+  | PartnersCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1855,6 +1859,8 @@ export interface GameDelta {
   society?: SocietyDelta;
   /** POWER (r12): the council, trials and papers that changed. */
   power?: PowerDelta;
+  /** PARTNERS (r13): firms and offers that changed. */
+  partners?: PartnersDelta;
 }
 
 // ---- WORLD (r11)
@@ -2253,7 +2259,9 @@ export type LetterKind =
   | "introduce"
   | "reply"
   | "blackmail"
-  | "news";
+  | "news"
+  // PARTNERS (r13): articles of copartnership, sent and answered by post.
+  | "articles";
 
 /** A letter written, carried and (perhaps) answered. */
 export interface Letter {
@@ -2751,3 +2759,223 @@ export interface DuelAftermath {
 // Harbours, sea lanes and the seasons need no state of their own (they come
 // from the map and the date); a life's achievements are `Life.achieved` and
 // `Life.achCount` (Achievements.ts).
+
+// ---- PARTNERS (r13)
+// Business partnerships, in the period's way: articles of copartnership
+// between two or more partners (players or not), each with a share of the
+// profit and loss, a capital account, and a role (the managing partner does
+// the work and keeps the books; a silent partner only puts in money). A
+// firm ("Ashby & Cole") holds a business (any trade's shop, inn, farm, mill,
+// press, ship or trading post), a newspaper, or only its cargoes; its books
+// are kept monthly; its partners vote on what it does.
+
+/** The managing partner does the work and keeps the books; a silent one puts in money. */
+export type FirmRole = "managing" | "silent";
+
+/** What a firm holds: a business, a newspaper (kept by its owner), or only cargoes. */
+export type FirmHold = "biz" | "paper" | "venture";
+
+/** One partner in a firm. */
+export interface FirmPartner {
+  c: number;
+  /** Percent of the profit and loss; a firm's partners make 100. */
+  share: number;
+  role: FirmRole;
+  /** Their capital account: what they put in (a winding up returns it first). */
+  capital: number;
+  since: number;
+  /** Profit paid them so far. */
+  drawn: number;
+  /** Kept out of the books, unknown to the others, so far. */
+  skim?: number;
+  /** A managing partner keeping a second set of books. */
+  cooking?: boolean;
+  /** Found out: the sum they were caught with (it counts against them). */
+  caught?: number;
+  /** Died: the day, until the share has passed to an heir. */
+  dead?: number;
+}
+
+/** The business a firm holds: a trade's shop, inn, farm, mill, press, ship or post. */
+export interface FirmBiz {
+  job: JobKind;
+  place: PlaceKind;
+  /** 1 to 3, as a business of one's own. */
+  level: number;
+  /** Hands at work. */
+  hands: number;
+  name: string;
+}
+
+/** A month in a firm's books. */
+export interface FirmMonth {
+  day: number;
+  /** Takings (with a cargo come home, or a paper's sales). */
+  takings: number;
+  /** Wages, upkeep, excise and interest (and a cargo lost). */
+  costs: number;
+  /** Divided among the partners (or, if less than nothing, called from them). */
+  profit: number;
+  note?: string;
+}
+
+/** What can be put to the partners. */
+export type FirmDecisionKey =
+  | "expand"
+  | "loan"
+  | "repay"
+  | "goods"
+  | "call"
+  | "admit"
+  | "buyout"
+  | "manager"
+  | "sell";
+
+/** A matter put to the partners: who put it, and how each voted. */
+export interface FirmDecision {
+  id: number;
+  key: FirmDecisionKey;
+  /** Who put it. */
+  by: number;
+  /** Coins (a loan, a cargo, a call), or a share in percent (a newcomer's). */
+  arg: number;
+  /** The partner (or newcomer) it's about, or -1. */
+  c: number;
+  /** A newcomer's capital. */
+  cap?: number;
+  day: number;
+  /** Decided by this day (the silent count against it). */
+  until: number;
+  /** Character id: 1 aye, -1 no. */
+  votes: Record<number, number>;
+  /** A computer partner's reason, by character id. */
+  why?: Record<number, string>;
+  status: "open" | "carried" | "lost";
+}
+
+/** One side of the articles. */
+export interface FirmSide {
+  c: number;
+  /** Percent. */
+  share: number;
+  /** Coins put in at signing. */
+  cap: number;
+  role: FirmRole;
+}
+
+/** The terms of articles of copartnership. */
+export interface FirmTerms {
+  hold: FirmHold;
+  /** Who brings the business or the paper (a character), or -1 (founded together, or cargoes). */
+  holder: number;
+  /** The property or paper brought, or -1 (a new business, or a computer character's own trade). */
+  id: number;
+  /** The business's trade (brought or founded). */
+  job?: JobKind;
+  /** A business founded together: how big, 1 to 3. */
+  level?: number;
+  /** Where the firm is. */
+  prov: number;
+  /** The one who first proposed, and the other. */
+  sides: [FirmSide, FirmSide];
+  /** Decisions by a majority of the shares, or only all together. */
+  rule: "majority" | "unanimous";
+  /** Who drew up the articles (an attorney or a law clerk), or -1. */
+  lawyer: number;
+  name: string;
+}
+
+/** Articles put to someone: in person, or on their way by post. */
+export interface FirmOffer {
+  id: number;
+  /** Who put these terms, and who's to answer them. */
+  from: number;
+  to: number;
+  terms: FirmTerms;
+  /** A firm taking in a new partner, or -1. */
+  firm: number;
+  day: number;
+  /** The letter carrying the terms (or the computer's answer), or -1 in person. */
+  letter: number;
+  /** Counter-offers so far. */
+  round: number;
+  status: "post" | "open" | "answered" | "signed" | "refused" | "lapsed";
+  /** A computer character's answer by post: yes or no, while it travels back. */
+  yes?: boolean;
+  /** Who paid the lawyer (the clauses lean their way). */
+  drafted?: number;
+}
+
+/** A firm: its partners, its business, its chest and its books. */
+export interface Firm {
+  id: number;
+  name: string;
+  hold: FirmHold;
+  biz: FirmBiz | null;
+  /** A newspaper held (kept by its owner, the profit shared). */
+  paper?: number;
+  prov: number;
+  partners: FirmPartner[];
+  /** The firm's own money, not divided. */
+  chest: number;
+  /** What it has borrowed. */
+  debt: number;
+  rule: "majority" | "unanimous";
+  /** Who drew up the articles, and for whom. */
+  lawyer: number;
+  drafted: number;
+  founded: number;
+  status: "trading" | "dissolved";
+  /** A cargo at sea: the stake, the day it's due, what it is. */
+  cargo: { stake: number; due: number; name: string } | null;
+  books: FirmMonth[];
+  decisions: FirmDecision[];
+  /** The firm's story. */
+  lines: { day: number; text: string }[];
+  /** A suit at law between partners, waiting on the verdict. */
+  suit?: { trial: number; by: number; against: number; sum: number } | null;
+  /** A partner's share seized by their creditors, waiting to be sold. */
+  seized?: { c: number; price: number; day: number } | null;
+  /** The business it lost (a ship taken or wrecked), which it may fit out again. */
+  lost?: { job: JobKind; place: PlaceKind; name: string } | null;
+  /** The last day it was told the enemy held its town. */
+  held?: number;
+  /** Wound up on this day. */
+  ended?: number;
+}
+
+/** Everything of the PARTNERS track kept in the game. */
+export interface PartnersState {
+  firms: Firm[];
+  offers: FirmOffer[];
+}
+
+/** What changed in it since the last delta. */
+export interface PartnersDelta {
+  firms?: Firm[];
+  offers?: FirmOffer[];
+}
+
+/** A command for partnerships (Partners.ts). */
+export interface PartnersCommand {
+  k: "partners";
+  /** propose, sign, refuse, counter, vote, decide, books, name. */
+  act: string;
+  /** A firm or an offer. */
+  id?: number;
+  /** A decision. */
+  d?: number;
+  c?: number;
+  arg?: number;
+  cap?: number;
+  key?: string;
+  yes?: boolean;
+  name?: string;
+  terms?: FirmTerms;
+  /** In person, or by post. */
+  post?: boolean;
+  /** A counter-offer: the counterer's share and capital, and the other's capital. */
+  share?: number;
+  mine?: number;
+  theirs?: number;
+}

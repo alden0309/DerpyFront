@@ -17,6 +17,7 @@ import {
   rsvpBreakdown,
   scheduleWedding,
 } from "./Gatherings";
+import { hooks } from "./Hooks"; // PARTNERS (r13)
 import { letterHand } from "./Interpreters"; // wave 2 (r11)
 import { affairWith, exposeBy, startAffair } from "./Liaisons";
 import {
@@ -139,6 +140,8 @@ export const LETTER_KINDS: Record<LetterKind, LetterKindDef> = {
   reply: { label: "A reply", text: "", ask: false },
   blackmail: { label: "A letter without a name", text: "", ask: true },
   news: { label: "News", text: "", ask: false },
+  // PARTNERS (r13): answered in a scene of its own (Partners.ts), not yes or no here.
+  articles: { label: "Articles of copartnership", text: "", ask: false },
 };
 
 /** What a player may write. */
@@ -913,6 +916,8 @@ function arriveAt(g: ConquestGame, life: Life, l: Letter): void {
       return;
     }
   }
+  // PARTNERS (r13): articles of copartnership are answered by the partnership's own rules.
+  for (const h of hooks.letterArrives) if (h(g, life, l)) return;
   l.status = "delivered";
   if (other) {
     pushPost(g, other, { ...l, read: false, done: !l.ask });
