@@ -35,10 +35,38 @@ const HOME_HOPS = 2;
 const LANES_KM = 1200;
 
 /**
- * Other things that let a life see: its followers, its boats (LIFE r11 can
- * register them here). Each returns provinces to see around.
+ * Other things that let a life see. Each returns provinces to see around.
+ * (Your people and boats away from you are built in: see `awayEyes`.)
  */
 export const fogSources: ((s: GameState, life: Life) => number[])[] = [];
+
+/**
+ * Your eyes elsewhere: people of yours out on their own work (a clerk
+ * trading, the band on a job, a mate aboard your boat) see the country
+ * round where they are, and a boat with hands aboard sees her harbour and
+ * the sea off it. Those at your side, and the boat you're sailing in, see
+ * only what you do. Returns [province, extra km of sight] pairs.
+ */
+export function awayEyes(s: GameState, life: Life): [number, number][] {
+  const out: [number, number][] = [];
+  for (const f of life.people ?? []) {
+    if (!f.task || !s.chars[f.c]?.alive) continue;
+    out.push([f.task.p, 0]);
+  }
+  for (const b of life.boats ?? []) {
+    if (life.travel?.boat === b.id) continue;
+    const manned =
+      b.crew > 0 ||
+      !!b.away ||
+      (life.people ?? []).some(
+        (f) => f.task?.kind === "boat" && f.task.boat === b.id,
+      );
+    if (!manned) continue;
+    // Out on her work (a skipper at the helm), or lying at her port.
+    out.push([b.away ? b.away.p : b.prov, b.away ? 60 : 0]);
+  }
+  return out;
+}
 
 /** Add the provinces in sight of `p` to `out`. */
 export function sightAround(
@@ -99,6 +127,8 @@ export function sightOf(s: GameState, w: World, life: Life): Set<number> {
     sightAround(s, w, a.prov, out);
     if (a.path.length) sightAround(s, w, a.path[0], out);
   }
+  // Your people out on their own work, and your boats with hands aboard.
+  for (const [p, extra] of awayEyes(s, life)) sightAround(s, w, p, out, extra);
   for (const f of fogSources)
     for (const p of f(s, life)) sightAround(s, w, p, out);
   return out;

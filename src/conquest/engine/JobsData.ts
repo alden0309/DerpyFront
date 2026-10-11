@@ -39,6 +39,8 @@ export interface JobRequires {
   contacts?: "underworld" | "natives" | "sea";
   /** Pirate waters in pirate years (or a name that draws the crews). */
   pirates?: boolean;
+  /** Wave 2 (r11): a colonists' tongue and a native one, each spoken well enough to talk in. */
+  tongues?: boolean;
 }
 
 /** Kinds of work, for the register and the list of every trade. */
@@ -476,10 +478,10 @@ export const MORE_JOBS: Record<R11JobKind, JobDef> = {
     danger: 0.004,
     stress: 2,
     employer: "sachem",
-    requires: { skills: { persuasion: 4 }, contacts: "natives" },
+    requires: { tongues: true },
     fame: 0.4,
     group: "native",
-    good: "Persuasion, and trust on both sides: treaties, trade and wars turn on your words.",
+    good: "Two tongues and trust on both sides: treaties, trade and wars turn on your words. Every month at the work you learn more of both.",
     text: "Carrying words between the council fire and the governor's house, and making sure they mean the same at both ends.",
   },
   guide: {

@@ -224,6 +224,8 @@ export interface Character {
   /** Gone to Europe for good: out of the Americas. */
   abroad?: boolean; /** How they look, if a player drew it or it came down their family (else generated). */
   look?: import("./Appearance").Appearance;
+  /** Wave 2 (r11): tongues learned beyond their people's and their work's (a hired interpreter's). */
+  learned?: Record<TongueId, TongueLevel>;
 }
 
 // ---------------------------------------------------------------- lives
@@ -2070,7 +2072,9 @@ export type FollowerKind =
   | "rogue"
   | "mate"
   | "guide"
-  | "officer";
+  | "officer"
+  // Wave 2 (r11): speaks for you across a barrier.
+  | "interpreter";
 
 /** What one of your people is doing while not at your side. */
 export interface FollowerTask {

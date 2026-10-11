@@ -402,6 +402,13 @@ function tonguePart(
   t: TalkView,
   s: GameState,
 ): { label: string; value: number; dc: number } | null {
+  // Wave 2 (r11): an interpreter by trade loses less in the carrying.
+  if (t.via >= 0 && t.sworn)
+    return {
+      label: `Through ${charName(s.chars[t.via])}, an interpreter by trade`,
+      value: -4,
+      dc: 1,
+    };
   if (t.via >= 0)
     return {
       label: `Through an interpreter, ${charName(s.chars[t.via])}`,
