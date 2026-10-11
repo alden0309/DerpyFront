@@ -1895,55 +1895,13 @@ export class MapView {
     c.fill(path, "evenodd");
     c.save();
     c.clip(path, "evenodd");
-    // A wash of cloud and stain, the same every time, over many provinces at
-    // once (the biggest few dozen are enough to mottle it; fewer on a
-    // struggling device).
-    const blots = unknown
-      .map((p) => {
-        const b = this.provBox[p];
-        return { p, size: (b[2] - b[0]) * (b[3] - b[1]) };
-      })
-      .sort((a, b) => b.size - a.size || a.p - b.p)
-      .slice(0, this.lowPower ? 18 : 48)
-      .map((x) => x.p);
-    for (const p of blots) {
-      const def = this.map.provinces[p];
-      const b = this.provBox[p];
-      const r = Math.max(30, Math.hypot(b[2] - b[0], b[3] - b[1]) * 0.9);
-      const h = Math.imul(p + 17, 2654435761) >>> 0;
-      const ox = ((h & 255) / 255 - 0.5) * r * 0.8;
-      const oy = (((h >>> 8) & 255) / 255 - 0.5) * r * 0.8;
-      const light = (h >>> 16) % 3;
-      const g = c.createRadialGradient(
-        def.x + ox,
-        def.y + oy,
-        0,
-        def.x + ox,
-        def.y + oy,
-        r,
-      );
-      g.addColorStop(
-        0,
-        light === 0
-          ? "rgba(46,34,22,0.26)"
-          : light === 1
-            ? "rgba(150,124,88,0.2)"
-            : "rgba(118,96,66,0.14)",
-      );
-      g.addColorStop(1, "rgba(91,74,54,0)");
-      c.fillStyle = g;
-      c.fillRect(def.x + ox - r, def.y + oy - r, r * 2, r * 2);
-    }
-    // Paper grain, and a fine engraver's hatch.
-    const pat = this.pattern("paper", c);
-    if (pat) {
-      pat.setTransform(new DOMMatrix().scaleSelf(0.5 / v.scale, 0.5 / v.scale));
-      c.globalCompositeOperation = "multiply";
-      c.globalAlpha = 0.55;
-      c.fillStyle = pat;
+    // A wash of cloud and stain, painted once into a tile and laid over
+    // the whole fog in one go.
+    const cloth = this.fogCloth(c);
+    if (cloth) {
+      cloth.setTransform(new DOMMatrix().scaleSelf(1.3, 1.3));
+      c.fillStyle = cloth;
       c.fill(path, "evenodd");
-      c.globalAlpha = 1;
-      c.globalCompositeOperation = "source-over";
     }
     const ub = this.boxOf(unknown);
     c.strokeStyle = "rgba(30,22,14,0.09)";
@@ -2014,6 +1972,50 @@ export class MapView {
         "rgba(232,216,180,0.42)",
       );
     }
+  }
+
+  /** WORLD r11: the fog's mottled wash, a tile made once for the chart's canvas. */
+  private cloth: { for: CanvasRenderingContext2D; pat: CanvasPattern } | null =
+    null;
+  private fogCloth(c: CanvasRenderingContext2D): CanvasPattern | null {
+    if (this.cloth?.for === c) return this.cloth.pat;
+    const size = 512;
+    const t = document.createElement("canvas");
+    t.width = size;
+    t.height = size;
+    const x = t.getContext("2d");
+    if (!x) return null;
+    for (let i = 0; i < 46; i++) {
+      const h = Math.imul(i + 31, 2654435761) >>> 0;
+      const cx = h & (size - 1);
+      const cy = (h >>> 9) & (size - 1);
+      const r = 60 + ((h >>> 18) & 127);
+      const tone = i % 3;
+      // Drawn wrapped round the edges, so the tile repeats without a seam.
+      for (const dx of [-size, 0, size])
+        for (const dy of [-size, 0, size]) {
+          const bx = cx + dx;
+          const by = cy + dy;
+          if (bx + r < 0 || bx - r > size || by + r < 0 || by - r > size)
+            continue;
+          const g = x.createRadialGradient(bx, by, 0, bx, by, r);
+          g.addColorStop(
+            0,
+            tone === 0
+              ? "rgba(40,30,19,0.3)"
+              : tone === 1
+                ? "rgba(160,134,96,0.24)"
+                : "rgba(120,98,68,0.16)",
+          );
+          g.addColorStop(1, "rgba(91,74,54,0)");
+          x.fillStyle = g;
+          x.fillRect(bx - r, by - r, r * 2, r * 2);
+        }
+    }
+    const pat = c.createPattern(t, "repeat");
+    if (!pat) return null;
+    this.cloth = { for: c, pat };
+    return pat;
   }
 
   private boxOf(provs: number[]): [number, number, number, number] {
