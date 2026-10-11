@@ -1126,6 +1126,9 @@ function heirSkills(
   // HOME (r12): what a parent taught them at home.
   for (const [k, v] of Object.entries(c.taught ?? {}))
     out[k as Skill] = Math.min(14, out[k as Skill] + (v ?? 0));
+  // EDU (r13): what they learned at school, at the bench or at college.
+  for (const [k, v] of Object.entries(c.edu?.pts ?? {}))
+    out[k as Skill] = Math.min(15, out[k as Skill] + Math.floor(v ?? 0));
   return out;
 }
 
@@ -1235,6 +1238,7 @@ export function succeedTo(
       ? `You are now ${charName(heir)}, a child of ${heirAge}. Until sixteen you can't work, marry or hold office, but you can learn.`
       : `You are now ${charName(heir)}, ${heirAge}.`,
   );
+  for (const h of hooks.heir) h(g, life, heir); // EDU (r13): home from school
   visit(g, life, life.prov);
 }
 

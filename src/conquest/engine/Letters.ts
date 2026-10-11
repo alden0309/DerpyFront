@@ -186,6 +186,8 @@ export function addressOf(s: GameState, c: Character): number {
   if (life) return life.travel ? life.travel.dest : life.prov;
   const t = (s.travellers ?? []).find((x) => x.c === c.id);
   if (t) return t.depart >= 0 ? t.path[t.path.length - 1] : t.prov;
+  // EDU (r13): a child with a master, or at college, is written to there.
+  if (c.edu?.now?.away && c.edu.now.at >= 0) return c.edu.now.at;
   if (c.home !== undefined) return c.home;
   const n = s.nations.find(
     (x) =>

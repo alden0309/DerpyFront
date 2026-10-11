@@ -1089,7 +1089,13 @@ const BASE_EVENTS: LifeEventDef[] = [
     cooldown: 900,
     when: (g, life) => {
       const kid = kidsOf(g, life).find(
-        (k) => ageOf(g.s, k) >= 11 && ageOf(g.s, k) <= 15,
+        (k) =>
+          ageOf(g.s, k) >= 11 &&
+          ageOf(g.s, k) <= 15 &&
+          // EDU (r13): not one already at school, with a master or a trade.
+          !k.edu?.now &&
+          !k.edu?.papers?.length &&
+          !k.edu?.past.some((x) => x.kind !== "school"),
       );
       return kid ? { c: kid.id } : null;
     },
@@ -1101,7 +1107,8 @@ const BASE_EVENTS: LifeEventDef[] = [
     choices: [
       {
         label: "Send them to school (5 coins)",
-        tip: "Educated, if they take to it.",
+        // EDU (r13): a real school, master or college is chosen on You › Family.
+        tip: "Educated, if they take to it. (A real school, a master or a college: You › Family, Schooling.)",
         blocked: (g, life) => poor(life, 5),
         apply: (g, life, ctx) => {
           spend(g, life, 5);
@@ -1124,7 +1131,8 @@ const BASE_EVENTS: LifeEventDef[] = [
       },
       {
         label: "Apprentice them out",
-        tip: "Tougher, and out from under your feet.",
+        // EDU (r13): binding them to a master by indenture is on You › Family.
+        tip: "Tougher, and out from under your feet. (To bind them to a master by indenture: You › Family, Schooling.)",
         apply: (g, life, ctx) => {
           const c = g.char(ctx.c);
           c.stats.ste = Math.min(18, c.stats.ste + 1);
@@ -3623,6 +3631,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
 // ---------------------------------------------------------------- a few calls out
 
 import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
+import { EDU_EVENTS } from "./EduEvents"; // EDU (r13)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
@@ -3665,6 +3674,12 @@ function byKey(key: string): LifeEventDef | undefined {
   if (!powerAdded) {
     powerAdded = true;
     for (const d of POWER_EVENTS)
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // EDU (r13): letters from children away at school, with a master, at college.
+    for (const d of EDU_EVENTS)
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);

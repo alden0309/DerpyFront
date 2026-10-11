@@ -145,6 +145,7 @@ export function kidsAtHome(
       (c): c is Character =>
         !!c?.alive &&
         !c.abroad &&
+        !c.edu?.now?.away && // EDU (r13): not away at school or with a master
         (c.home === undefined || c.home === life.home) &&
         ageOf(s, c) <= maxAge &&
         ageOf(s, c) >= minAge,

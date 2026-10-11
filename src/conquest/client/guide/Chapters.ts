@@ -106,6 +106,23 @@ import {
 } from "../../engine/Achievements";
 import { HARVEST_BONUS } from "../../engine/Seasons";
 import type { JobKind, Nation } from "../../engine/Types";
+// EDU (r13): schools, apprenticeships, colleges and the peoples' own ways.
+import {
+  BIND_AGES,
+  CALLINGS,
+  COLLEGE_AGES,
+  COLLEGE_RANKS,
+  COLLEGE_SURETY,
+  COLLEGE_YEARS,
+  COLLEGES,
+  COURSE_ORDER,
+  COURSES,
+  DEGREE_RENOWN,
+  MASTER_CAP,
+  PATHS,
+  SCHOOLS,
+  type Gains,
+} from "../../engine/EduData";
 
 export interface Chapter {
   id: string;
@@ -347,6 +364,73 @@ function achievementsTable(): string {
         .map((a) => `| ${a.name} | ${a.how} | ${a.coins} |`)
         .join("\n")}`,
   ).join("\n\n");
+}
+
+// ---------------------------------------------------------------- EDU (r13): tables
+
+/** "letters +3.5, persuasion +0.5". */
+function gains(g: Gains): string {
+  return Object.entries(g)
+    .map(
+      ([k, v]) =>
+        `${lower(SKILL_NAMES[k as keyof typeof SKILL_NAMES])} +${n(v ?? 0)}`,
+    )
+    .join(", ");
+}
+
+const SEXES = { boys: "boys", girls: "girls", both: "boys and girls" };
+
+function schoolsTable(native: boolean): string {
+  return `| School | Ages | Years | For | A month | Teaches |\n|---|---|---|---|---|---|\n${SCHOOLS.filter(
+    (d) => d.native === native,
+  )
+    .map(
+      (d) =>
+        `| **${d.name}** | ${d.ages[0]} to ${d.ages[1]} | ${d.years} | ${SEXES[d.sex]}${d.faiths ? " (Catholic)" : ""} | ${n(d.fee)}${d.board ? ` (+${n(d.board)} board away)` : ""} | ${gains(d.skills)} |`,
+    )
+    .join("\n")}`;
+}
+
+function callingsTable(): string {
+  return `| Trade | For | The ladder it leads to | Taught by | Premium | Years | Teaches |\n|---|---|---|---|---|---|---|\n${CALLINGS.map(
+    (c) =>
+      `| **${c.name}** | ${SEXES[c.sex]} | ${c.job ? `${JOBS[c.job].name} (as ${lower(JOBS[c.job].ranks[1]?.title ?? "a journeyman")})` : "none: a household of her own"} | ${c.mistress ? "a mistress of the town" : c.roles.map((r) => lower(ROLES[r].title)).join(" or ")} | ${c.premium || "none"} | ${c.years} | ${gains(c.skills)} |`,
+  ).join("\n")}`;
+}
+
+function collegesTable(abroad: boolean): string {
+  return `| College | Where | Opens | Whose | A month | Courses |\n|---|---|---|---|---|---|\n${COLLEGES.filter(
+    (c) => (c.prov === null) === abroad,
+  )
+    .map(
+      (c) =>
+        `| **${c.name}** | ${c.town} | ${c.from < 1500 ? "long before" : c.from}${c.to ? ` (to ${c.to})` : ""} | ${c.nativeOnly ? "Native scholars" : `${c.powers.map((k) => k[0].toUpperCase() + k.slice(1)).join(", ")}${c.natives ? ", Native scholars" : ""}`}${c.faiths && c.faiths.length < 4 ? ` (${c.faiths.join(", ")})` : ""} | ${c.fee ? n(c.fee) : "free"} | ${c.courses.map((k) => lower(COURSES[k].name)).join(", ")}${c.physicFrom ? ` (physic from ${c.physicFrom})` : ""} |`,
+    )
+    .join("\n")}`;
+}
+
+function coursesTable(): string {
+  return `| Course | The degree | Teaches over ${COLLEGE_YEARS} years | Opens the door to |\n|---|---|---|---|\n${COURSE_ORDER.map(
+    (k) =>
+      `| **${COURSES[k].name}** | ${COURSES[k].degree} | ${gains(COURSES[k].skills)} | ${COURSES[k].door ? `${JOBS[COURSES[k].door!].name}, as ${lower(JOBS[COURSES[k].door!].ranks[COURSES[k].doorRank]?.title ?? "")}` : "any learned trade a rung up"} |`,
+  ).join("\n")}`;
+}
+
+function pathsTable(): string {
+  return `| Path | Ages | Years | For | Taught by | Teaches |\n|---|---|---|---|---|---|\n${PATHS.map(
+    (p) =>
+      `| **${p.name}** | ${p.ages[0]} to ${p.ages[1]} | ${p.years} | ${SEXES[p.sex]} | ${p.roles.map((r) => lower(ROLES[r].title)).join(" or ")} | ${gains(p.skills)} |`,
+  ).join("\n")}`;
+}
+
+function missionsList(): string {
+  const m = SCHOOLS.find((d) => d.key === "mission")!;
+  return (m.places ?? [])
+    .map(
+      (p) =>
+        `- ${p.name[0].toUpperCase()}${p.name.slice(1)} (${p.from} to ${p.to})`,
+    )
+    .join("\n");
 }
 
 export const CHAPTERS: Chapter[] = [
@@ -1160,6 +1244,71 @@ You › Family shows the generations before you. Each generation of the line cou
 
 > Tip: Name an heir early, and give them a good start: lessons at home in your best skill, a tutor, a trade, a good marriage. A child heir can't work until sixteen.`,
   },
+  // ---- EDU (r13)
+  {
+    id: "schooling",
+    part: "people",
+    title: "Children: school, apprenticeship and college",
+    line: "Sending your sons and daughters to a dame school, a grammar school, a tutor or a convent; binding them apprentice to a master; college at home or over the sea; and the peoples' own ways of teaching.",
+    where:
+      "You › Family: Schooling and trades (choose for each child); Here › Home (each child's schooling at a glance).",
+    body: `## Choosing
+You › Family lists every child of yours (and orphaned brothers and sisters in your care) with what they're at: a chip on their card, the year of the course, what they've learned so far, and the latest letter from away. **Choose…** beside a child opens their future: **School**, **A trade** and **College** (for the native peoples, **The people's ways** and **A mission school**). Every choice says where, with whom, what it costs a month or once, how long it takes and what it teaches, and greys with the reason when it can't be had (their age, a boys-only school, too little Latin, a test of religion, no master with room, too few coins). **Bring home** ends it early: what's been learned is kept.
+
+The family tree shows each child's schooling on their card ("At Harvard", "Apprentice cooper", "Journeyman cooper"), and the bills are lines in the month's budget (Estate › Purse). Three months unpaid and the school sends them home.
+
+## School
+${schoolsTable(false)}
+
+- **Dame schools** are in any colonial town, for a penny or two a week. **Latin grammar schools** are in a capital or a town of 2,000 with a church, in the English towns from 1635 (Boston's Latin school) and the Dutch from 1659; a boy boards at the nearest if there's none at home. **Sewing schools** are for girls, in towns of 800.
+- **The Jesuits** teach Catholic boys for nothing but the board: at Quebec (1635 to 1768), Mexico, Santiago de Guatemala, Havana, and in Maryland. **Convent schools** board Catholic girls: the Ursulines at Quebec (1639), Trois-Rivières and New Orleans (1727), the Congrégation de Notre-Dame at Montreal (1658), and the convents of Mexico, Santiago, Havana and Santo Domingo.
+- **A tutor** lives in and teaches any child from five to fifteen: dearer than a school, quicker than any, and the family's girls learn as much as the boys.
+- Teaching them yourself at home ([[family|Family and heirs]]) goes on alongside.
+
+## A trade: apprenticeship
+From ${BIND_AGES[0]} to ${BIND_AGES[1]} (about twelve to fourteen), a child can be **bound apprentice by indenture** to a master of a town: a real person, the town's master craftsman, ship's captain, printer, physician, merchant, attorney or innkeeper for their trades, and for the girls' trades a mistress of the town (the merchant's or the innkeeper's wife, a goodwife). The page looks in your town and in the towns you know of your own colony, nearest first, and shows each master with what the town says of them (a kind master, a fair one, a hard one) and whether they've room (each takes ${MASTER_CAP} at most).
+- **The indenture**: some seven years (five or six for most girls' trades), living in the master's house, who keeps them in meat, drink, lodging and clothes and teaches them the art and mystery of the trade (and to read and write). Some trades ask a **premium** paid once; most crafts in the colonies ask none. It's drawn up as the period's document (an *Indenture of Apprenticeship*, a *Brevet d'apprentissage* before a notary in New France, an *Escritura de aprendizaje* in New Spain, a *leercontract* among the Dutch).
+- **Out at the end** with their freedom dues and a new suit, a **journeyman**: any master of the trade takes them on a rung up the ladder ([[trades|Every trade]]), and an heir with their time served steps straight into it.
+- **What happens on the way**: a hard master (complain to the justices, fetch them home, or tell them to bear it), a good one (a gift of thanks), a flight in the night (a search and a notice in the gazette, or let them go; young Franklin ran from his brother's printing house in 1723), the master's death (the indenture is assigned to the widow or the next master of the trade, or they come home), and letters home in their own hand (or the master's, for a little one).
+
+${callingsTable()}
+
+## College
+From ${COLLEGE_AGES[0]} to ${COLLEGE_AGES[1]}, for sons only (no college admitted women in these years), with **Latin and letters** enough to be admitted (5 at the colonies' colleges, 6 at a university; a grammar school, the Jesuits or a tutor gets them there). Each college opens in its own year and takes its own people (a test of religion at some: Oxford only Anglicans; after 1662 no dissenter takes a Cambridge degree). ${COLLEGE_YEARS} years to the degree.
+- **The bill** is by the month for chamber, commons and tuition, and ${COLLEGE_SURETY} months' bills must be in hand to be admitted. Entered as ${COLLEGE_RANKS.map((r, i) => `**${lower(r.name)}** (${["half", "the ordinary", "twice the"][i]} cost)`).join(", ")}. Over the sea, the passage is paid going out, and letters take two months.
+- **Classmates** are real people of the colony who go on with their lives: they remember your child, and an heir who studied with them knows them (the closest is a friend).
+- **The degree**: the *educated* trait, ${DEGREE_RENOWN} renown for the family, and doors into the learned trades: taken on a rung up as a minister, a lawyer, a physician, an official, a schoolmaster or a surveyor, and two up through the course's own door.
+- **What happens there**: scrapes and fines, tradesmen's bills, the Great Awakening (1740 to 1745 in the colleges here), a challenge to a duel, the smallpox abroad, and after too much trouble being sent down (a letter may turn it to rustication).
+
+**In the colonies**
+
+${collegesTable(false)}
+
+**Over the sea**
+
+${collegesTable(true)}
+
+${coursesTable()}
+
+## The native peoples
+Children learn from the people around them, for nothing: a person of the village teaches each path.
+
+${pathsTable()}
+
+**Mission schools** board children of the nations who live near one, teaching letters in their own tongue and the colonists', with the catechism. Many families feared what the missionaries would take from their children; some sent one for the letters and the friendship it bought. A child who finishes speaks the colonists' tongue. Where and when:
+
+${missionsList()}
+
+A Native scholar with the letters can go on to **the Indian College at Harvard** (1655 to 1698) or **Dartmouth** (from 1769), at the charity's cost.
+
+## Heirs and the family
+- What a child learns, at school, at the bench or at college, **goes into their skills if they become your heir**, with what you taught them at home.
+- A child away when you die **comes home as your heir**: an apprentice with most of the term served is released a journeyman, a scholar three years in is given the degree; otherwise they leave with what they've learned.
+- Your heir pays for brothers and sisters already away.
+- **Computer families** do the same, at no cost to anyone: the town's children go to the dame school, the master's sons are apprenticed, the gentry's go to college, so there are apprentices in the masters' houses and classmates at every college.
+
+> Tip: A boy bound for college wants a grammar school from seven (or a tutor) and his Latin at 5 by fifteen. A girl's trade (mantua-maker, milliner, midwife) is a living of her own. Look at what the town says of a master before you sign: a kind master teaches faster, and a hard one is how apprentices run away.`,
+  },
   {
     id: "duels",
     part: "people",
@@ -1899,5 +2048,36 @@ export const WORDS: [string, string, string?][] = [
     "Licensing",
     "The governor's (or the crown's) leave to print. Without it, a press may be seized.",
     "press",
+  ],
+  // ---- EDU (r13)
+  [
+    "Indenture",
+    "A contract in two copies cut apart along a wavy line, each party keeping one: an apprentice's (or a servant's) term and terms.",
+    "schooling",
+  ],
+  [
+    "Journeyman",
+    "A tradesman who has served an apprenticeship and works for wages by the day (journée), on the way to being a master.",
+    "schooling",
+  ],
+  [
+    "Premium",
+    "A sum paid to a master, once, to take an apprentice: large for merchants, lawyers and surgeons, little or nothing for most crafts.",
+    "schooling",
+  ],
+  [
+    "Commencement",
+    "A college's degree day: disputations in Latin before the public, and a feast after.",
+    "schooling",
+  ],
+  [
+    "Servitor",
+    "A poor scholar who waits at table and runs errands for his keep (a sizar at Cambridge).",
+    "schooling",
+  ],
+  [
+    "Dame school",
+    "A goodwife teaching small children their letters in her kitchen, for a penny or two a week.",
+    "schooling",
   ],
 ];

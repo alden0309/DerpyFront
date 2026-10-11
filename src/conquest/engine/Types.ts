@@ -228,6 +228,8 @@ export interface Character {
   learned?: Record<TongueId, TongueLevel>;
   /** HOME (r12): what a parent taught them at home, by skill (carried into an heir's skills). */
   taught?: Partial<Record<Skill, number>>;
+  /** EDU (r13): school, an apprenticeship or college: what they're at now, and what's done. */
+  edu?: Schooling;
 }
 
 // ---------------------------------------------------------------- lives
@@ -1816,7 +1818,9 @@ export type LifeCommand =
   // POWER (r12): offices' powers, the council, bills, trials and the press.
   | PowerCommand
   // HOME (r12): the household: rooms, servants, letting, family time, the house you live in.
-  | HomeCommand;
+  | HomeCommand
+  // EDU (r13): the children sent to school, bound apprentice, or to college.
+  | EduCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -2751,3 +2755,93 @@ export interface DuelAftermath {
 // Harbours, sea lanes and the seasons need no state of their own (they come
 // from the map and the date); a life's achievements are `Life.achieved` and
 // `Life.achCount` (Achievements.ts).
+
+// ---- EDU (r13)
+// Children sent to a dame school, a grammar school, a convent or a tutor;
+// bound apprentice by indenture to a master in a trade; sent to college at
+// home or abroad; or, among the native peoples, taught by the elders, the
+// hunters, the makers and the healers (or at a mission school). It lives on
+// the child (`Character.edu`), so a computer family's children have it too.
+
+/** What sort of learning: a school, an apprenticeship, a college, or a people's own way. */
+export type EduKind = "school" | "apprentice" | "college" | "path";
+
+/** What a child is at now. */
+export interface EduNow {
+  kind: EduKind;
+  /** The school, the trade (calling), the college or the path (EduData.ts). */
+  key: string;
+  /** Where: a province, or -1 over the sea (a college in Europe, Lima). */
+  at: number;
+  /** The master or mistress, the tutor, the elder (a character), or -1. */
+  by: number;
+  since: number;
+  /** The day it's done: the indenture served, the degree taken. */
+  until: number;
+  /** Lives away from home: with the master, at college, at a convent. */
+  away: boolean;
+  /** Coins a month (tuition and board), paid by the seat that sent them; 0 for computer families. */
+  fee: number;
+  /** The player's seat that pays for it (a child of theirs, or a brother or sister of the heir). */
+  seat?: string;
+  /** College: entered as a servitor (0), a commoner (1) or a gentleman-commoner (2); and the course. */
+  rank?: number;
+  course?: string;
+  /** How it's going: a hard master or a wretched time −2, a good one +2. */
+  mood: number;
+  /** Scrapes, complaints, a flight: trouble had. */
+  trouble?: number;
+  /** Months the fees have gone unpaid. */
+  owed?: number;
+  /** The last letter home (day). */
+  wrote?: number;
+  /** How much of the course has been learned already, 0 to 1 (a player's child learns month by month). */
+  got?: number;
+}
+
+/** Something finished (or left), for the record. */
+export interface EduDone {
+  kind: EduKind;
+  key: string;
+  at: number;
+  by: number;
+  from: number;
+  to: number;
+  /** Served the whole term or took the degree (false: left early). */
+  done: boolean;
+  /** Why it ended early: "ran away", "sent down", "came home as heir". */
+  why?: string;
+  course?: string;
+}
+
+/** A child's schooling: what they're at, what's done, and what it taught them. */
+export interface Schooling {
+  now: EduNow | null;
+  past: EduDone[];
+  /** Skill points learned (fractions kept); an heir starts with them. */
+  pts: Partial<Record<Skill, number>>;
+  /** Trades whose apprenticeship was served: taken on as a journeyman. */
+  papers?: JobKind[];
+  /** The college that gave them a degree, and the course read there. */
+  degree?: string;
+  course?: string;
+  /** Friends made at college or at the bench (character ids). */
+  mates?: number[];
+}
+
+/** A command for the children's schooling (Edu.ts). */
+export interface EduCommand {
+  k: "edu";
+  /** school, bind, college, path, home (bring them home). */
+  act: string;
+  /** The child. */
+  c: number;
+  /** The school, the trade, the college or the path. */
+  key?: string;
+  /** Where (a province), and with whom (a master or mistress). */
+  p?: number;
+  by?: number;
+  /** College: how entered (0 servitor, 1 commoner, 2 gentleman-commoner) and the course. */
+  rank?: number;
+  course?: string;
+}
