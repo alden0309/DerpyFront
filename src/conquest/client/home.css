@@ -639,7 +639,7 @@
 .cq-duel-steps li {
   counter-increment: duel;
   position: relative;
-  padding: 0 0.7rem 0 0.2rem;
+  padding: 0 0.45rem 0 0.2rem;
   font-family: var(--fell-sc);
   font-size: 0.8rem;
   color: rgba(110, 85, 56, 0.6);
@@ -649,14 +649,11 @@
   content: counter(duel, upper-roman) ". ";
   font-family: var(--fell);
 }
-.cq-duel-steps li + li::after {
-  content: "";
-  position: absolute;
-  left: -0.55rem;
-  top: 50%;
-  width: 0.35rem;
-  height: 1px;
-  background: var(--sepia);
+.cq-duel-steps li:not(:last-child)::after {
+  content: "›";
+  margin-left: 0.45rem;
+  font-family: var(--fell);
+  color: rgba(138, 106, 62, 0.7);
 }
 .cq-duel-steps li.done {
   color: var(--ink-soft);

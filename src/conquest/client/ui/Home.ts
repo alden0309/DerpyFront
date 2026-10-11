@@ -535,9 +535,10 @@ function lodgingsCard(ui: GameUi): TemplateResult {
       <p class="cq-house-gives">
         <span class="cq-give quiet">no house of your own</span>
         ${wants
-          ? html`<span class="cq-give bad"
-              >${station.who[0].toUpperCase()}${station.who.slice(1)} is
-              expected to keep a house</span
+          ? html`<span
+              class="cq-give bad"
+              title=${`${station.who[0].toUpperCase()}${station.who.slice(1)} is expected to keep a house at home.`}
+              >your station expects a house</span
             >`
           : nothing}
       </p>
@@ -1004,7 +1005,48 @@ function houseFolds(ui: GameUi, h: Property): TemplateResult {
             )}
           </ul>`
       : nothing}`,
-  )}`;
+  )}
+  ${sellFold(ui, h)}`;
+}
+
+/** Selling the house (or giving up the lease): what it's worth, and the button. */
+function sellFold(ui: GameUi, h: Property): TemplateResult {
+  const native = lifeIsNative(ui.s, ui.life!);
+  const worth = h.leased
+    ? 0
+    : Math.round((native ? LODGES : HOUSES)[h.level - 1].cost * 0.5) +
+      extrasWorth(h, native);
+  const kept = storedLoads(h) > 0;
+  const word = h.leased ? "Give up the lease" : `Sell it (about ${worth})`;
+  return fold(
+    "home:sell",
+    h.leased ? "Give up the lease" : "Sell the house",
+    h.leased ? "rented" : `${worth}`,
+    html`<p class="small">
+        ${h.leased
+          ? "You hand back the keys: no more rent, and nothing back."
+          : "Half of what the house cost, and half of what you put into its rooms and furniture. The servants and lodgers go with it."}
+        ${h.prov === ui.life!.home ? " You'll be back in lodgings here." : ""}
+      </p>
+      <div class="cq-acts">
+        ${actButton({
+          label: word,
+          ok: !kept,
+          cls: "rough",
+          why: kept ? "Take out what you keep there first." : null,
+          run: () => {
+            if (
+              confirm(
+                h.leased
+                  ? `Give up the lease on the ${h.name.toLowerCase()}?`
+                  : `Sell the ${h.name.toLowerCase()} for about ${worth} coins?`,
+              )
+            )
+              void ui.cmd({ k: "property", act: "sell", id: h.id });
+          },
+        })}
+      </div>`,
+  );
 }
 
 // ---------------------------------------------------------------- buying or renting a house here
