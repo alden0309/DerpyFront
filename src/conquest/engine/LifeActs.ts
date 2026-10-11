@@ -95,7 +95,7 @@ import { DAYS_PER_YEAR } from "./Rules";
 import { heardHere } from "./Rumours";
 import type { Character, GameState, Life, PlaceKind, Skill } from "./Types";
 import { SEATS } from "./Types";
-import { buyRank, hardDay, selfStartCheck, startJob } from "./Work";
+import { buyRank, selfStartCheck, startJob } from "./Work";
 
 // ---------------------------------------------------------------- place acts
 
@@ -120,33 +120,9 @@ export interface ActDef {
 const adult = (s: GameState, _w: World, life: Life): Check =>
   isChildLife(s, life) ? no("Not until you're sixteen.") : yes;
 
+// LIFE (r11): "Put in a hard day" is gone: work runs itself at your post,
+// as hard as you choose to go at it (Trades.ts).
 export const ACTS: ActDef[] = [
-  {
-    key: "work",
-    places: [
-      "tavern",
-      "market",
-      "church",
-      "councilfire",
-      "docks",
-      "fort",
-      "workshop",
-      "press",
-      "fields",
-      "governor",
-      "village",
-      "woods",
-      "apothecary",
-    ],
-    label: "Put in a hard day",
-    text: "A long day at your post: more skill, a good word from your master, a tired back.",
-    cooldown: 7,
-    when: (s, w, life) => {
-      if (!life.job) return no("You have no work.");
-      if (life.job.prov !== life.prov) return no("That's done where you work.");
-      return yes;
-    },
-  },
   {
     key: "traplines",
     places: ["woods"],
@@ -989,9 +965,6 @@ export function doAct(
     ok: odds !== null ? pass : null,
   });
   switch (key) {
-    case "work":
-      addStress(g, life, 2);
-      return hardDay(g, life);
     case "traplines": {
       startJob(
         g,

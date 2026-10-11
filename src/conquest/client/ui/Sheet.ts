@@ -61,6 +61,7 @@ import {
   token,
 } from "./Context";
 import { roleOf, verdictChip } from "./Here";
+import { personR11 } from "./Livelihood";
 import { sittingPrompt } from "./Sitting";
 import { steadySet } from "./Steady";
 
@@ -573,6 +574,7 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
         </div>`
       : nothing}
     ${mine && c.alive && !c.abroad ? actsSection(ui, c) : nothing}
+    ${mine && c.alive && !c.abroad ? personR11(ui, c) : nothing}
     ${section(
       "Their family",
       html`<dl class="cq-family">

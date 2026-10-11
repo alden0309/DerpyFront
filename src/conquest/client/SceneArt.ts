@@ -36,6 +36,12 @@ const ALIAS: Record<string, string> = {
   sea: "deck",
   storm: "deck",
   town: "market",
+  // LIFE (r11): new places and the road's own scenes, if their art is missing.
+  den: "tavern",
+  gaol: "fort",
+  snow: "road",
+  swamp: "woods",
+  river: "road",
 };
 
 function key(scene: string): string {
@@ -67,6 +73,8 @@ export function indoors(scene: string): boolean {
     "press",
     "apothecary",
     "letter",
+    "den",
+    "gaol",
   ].includes(key(scene));
 }
 

@@ -26,7 +26,9 @@ export type DrawerView =
   | { k: "prov"; p: number }
   | { k: "char"; c: number }
   | { k: "army"; id: number }
-  | { k: "nation"; n: number };
+  | { k: "nation"; n: number }
+  /** LIFE (r11): a page of its own (every trade). */
+  | { k: "life"; page: "trades" };
 
 export type Modal =
   | { k: "event"; id: number }

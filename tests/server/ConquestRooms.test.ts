@@ -203,7 +203,8 @@ describe("Derpy Conquest server", () => {
     a.send({ t: "pause", p: false });
     await a.next("clock", (m) => !m.paused);
     const day = a.next("d", (m) => m.d.day > g.state.day);
-    runFor(env.rooms, 2);
+    // A day every three seconds at 1×.
+    runFor(env.rooms, 4);
     expect((await day).d.day).toBeGreaterThan(g.state.day);
   });
 
@@ -477,7 +478,8 @@ describe.skipIf(!TEST_DB)(
       a.send({ t: "speed", s: 4 });
       await a.next("clock", (m) => !m.paused);
       const room = env.rooms.rooms.get(b.code)!;
-      runFor(env.rooms, 100);
+      // 8×: two and two-thirds days a second.
+      runFor(env.rooms, 300);
       expect(room.game!.state.day).toBeGreaterThan(730);
       lifeOfSeat(room.game!.state, b.you)!.tally.days = 1000;
 

@@ -19,6 +19,16 @@ import type {
   Tincture,
   TraitId,
 } from "./Types";
+// LIFE (r11): the new trades, backgrounds, townsfolk and places.
+import {
+  type JobGroup,
+  type JobRequires,
+  MORE_BACKGROUNDS,
+  MORE_JOBS,
+  MORE_PLACES,
+  MORE_ROLE_JOBS,
+  MORE_ROLES,
+} from "./JobsData";
 
 // ---------------------------------------------------------------- skills
 
@@ -220,6 +230,8 @@ export interface BackgroundDef {
   lifestyle: Lifestyle;
   /** Spare skill points this background brings (hard lives teach). */
   bonusPoints?: number;
+  /** LIFE (r11): a name in the underworld from the start (and the den at home known). */
+  notoriety?: number;
 }
 
 export const BACKGROUNDS: Record<BackgroundId, BackgroundDef> = {
@@ -444,6 +456,7 @@ export const BACKGROUNDS: Record<BackgroundId, BackgroundDef> = {
     renown: 1,
     lifestyle: "modest",
   },
+  ...MORE_BACKGROUNDS,
 };
 
 export const COLONIST_BACKGROUNDS = (
@@ -497,6 +510,10 @@ export interface RankDef {
   buy?: { cost: number; what: string };
   /** An officer's commission: given by the colony's marshal or governor. */
   commission?: boolean;
+  /** LIFE (r11): a name in the underworld this rung needs. */
+  notoriety?: number;
+  /** LIFE (r11): something you must keep for this rung (a highwayman's horse). */
+  kit?: KitKey;
 }
 
 export interface JobDef {
@@ -527,6 +544,18 @@ export interface JobDef {
   /** What your own business is called once you've bought into it. */
   business?: string;
   text: string;
+  /** LIFE (r11): its kind of work, for the register and the list of trades. */
+  group?: JobGroup;
+  /** LIFE (r11): what it's good for, in a line. */
+  good?: string;
+  /** LIFE (r11): what it takes before anyone will have you (or you can set up). */
+  requires?: JobRequires;
+  /** LIFE (r11): work done at sea (or at the docks), on the road, or wherever you are. */
+  post?: "sea" | "road" | "anywhere";
+  /** LIFE (r11): a crooked living: how grave (1 petty, 3 a hanging matter), and the heat a day's work draws. */
+  crime?: { grade: number; heat: number };
+  /** LIFE (r11): keeps the peace (the watch, thief-takers). */
+  law?: boolean;
 }
 
 const rk = (
@@ -949,6 +978,7 @@ export const JOBS: Record<JobKind, JobDef> = {
     employer: "maker",
     text: "Canoes, pots, baskets and beadwork, for use and for trade.",
   },
+  ...MORE_JOBS,
 };
 
 export const JOB_KINDS = Object.keys(JOBS) as JobKind[];
@@ -1279,17 +1309,21 @@ export const ROLES: Record<RoleId, RoleDef> = {
     wealth: 2,
     becomes: ["warrior", 1],
   },
+  ...MORE_ROLES,
 };
 
 /** The trades a role takes people on for. */
 export function roleJobs(role: RoleId | undefined): JobKind[] {
   if (!role) return [];
   const r = ROLES[role];
-  return r.jobs ?? (r.job ? [r.job] : []);
+  const old = r.jobs ?? (r.job ? [r.job] : []);
+  // LIFE (r11): the new trades, taken on by the same masters.
+  const more = MORE_ROLE_JOBS[role];
+  return more ? [...old, ...more] : old;
 }
 
-/** Townsfolk kept per province, at most. */
-export const LOCALS_CAP = 12;
+/** Townsfolk kept per province, at most (LIFE r11: room for the constable and the fence). */
+export const LOCALS_CAP = 14;
 
 // ---------------------------------------------------------------- places
 
@@ -1359,6 +1393,7 @@ export const PLACES: Record<PlaceKind, PlaceDef> = {
     nativeName: "Your lodge",
     text: "Your own fire, your own people, and nobody's business but yours.",
   },
+  ...MORE_PLACES,
 };
 
 // ---------------------------------------------------------------- property

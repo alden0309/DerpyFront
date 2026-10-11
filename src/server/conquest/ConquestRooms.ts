@@ -23,6 +23,13 @@ import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
 import { lifeOfSeat, lifeScore } from "../../conquest/engine/LifeQueries";
 import { AMERICAS } from "../../conquest/engine/Map";
 import {
+  attentionMark,
+  SKIP_DAYS_PER_SECOND,
+  SKIP_MAX_DAYS,
+  skipBlocker,
+  whyWoken,
+} from "../../conquest/engine/Pace";
+import {
   DEFAULT_SPEED,
   LETTER_SECONDS,
   MAX_SPEED,
@@ -214,6 +221,7 @@ const Message = z.discriminatedUnion("t", [
     s: z.number().int().min(1).max(MAX_SPEED),
   }),
   z.object({ t: z.literal("pause"), p: z.boolean() }),
+  z.object({ t: z.literal("skip"), on: z.boolean() }),
   z.object({ t: z.literal("chat"), text: z.string().min(1).max(300) }),
   z.object({ t: z.literal("save") }),
   z.object({ t: z.literal("end") }),
@@ -283,6 +291,18 @@ interface Room {
   results: ResultLine[] | null;
   /** Players' unanswered events: milliseconds of unpaused play left. */
   letters: Map<number, number>;
+  /**
+   * LIFE (r11): skipping ahead. Alone it starts when asked; in company when
+   * every player living a life has asked. It stops when anything needs anyone
+   * (the attention mark changes), and the clock goes back as it was.
+   */
+  skip: {
+    on: boolean;
+    asked: Set<string>;
+    mark: string;
+    from: number;
+    wasPaused: boolean;
+  };
 }
 
 function randomToken(bytes: number): string {
@@ -391,6 +411,15 @@ export class ConquestRooms {
   /** Called when someone comes or goes during a game. */
   private onSeatsChanged(room: Room): void {
     const playing = room.seats.some((s) => s.conn);
+    // Those who've gone have no say in skipping ahead; with nobody left it stops.
+    for (const id of [...room.skip.asked])
+      if (!room.seats.some((x) => x.id === id && x.conn))
+        room.skip.asked.delete(id);
+    if (!playing && room.skip.on) {
+      room.skip.on = false;
+      room.skip.asked.clear();
+      room.skip.wasPaused = true;
+    }
     if (!playing && room.game && !room.game.state.over && !room.paused) {
       room.paused = true;
       this.broadcast(room, {
@@ -482,9 +511,17 @@ export class ConquestRooms {
         return this.startGame(room);
       case "cmd":
         return this.command(room, seat, m.id, m.c);
+      case "skip":
+        return this.askSkip(room, seat, m.on);
       case "speed":
       case "pause":
         if (!room.game || room.game.state.over) return;
+        // Touching the clock ends a skip ahead.
+        if (room.skip.on && (m.t === "speed" || m.p)) {
+          room.skip.on = false;
+          room.skip.asked.clear();
+          this.skipMsg(room, seat.name, `${seat.name} stopped skipping ahead.`);
+        }
         // The host sets the pace in company (anyone may pause).
         if (m.t === "speed") {
           if (!room.solo && room.host !== seat.id) return;
@@ -631,6 +668,13 @@ export class ConquestRooms {
       overAt: null,
       results: null,
       letters: new Map(),
+      skip: {
+        on: false,
+        asked: new Set(),
+        mark: "",
+        from: 0,
+        wasPaused: false,
+      },
     };
     if (conn) {
       const seat = this.seatFor(conn);
@@ -810,6 +854,93 @@ export class ConquestRooms {
     }
   }
 
+  // ---------------------------------------------------------------- skipping ahead (LIFE r11)
+
+  private skipMsg(room: Room, by: string | null, why: string | null): void {
+    this.broadcast(room, {
+      t: "skip",
+      on: room.skip.on,
+      asked: [...room.skip.asked],
+      by,
+      why,
+    });
+  }
+
+  /** Players whose say counts: connected and living a life. */
+  private skipVoters(room: Room): Seat[] {
+    const s = room.game!.state;
+    return room.seats.filter((x) => {
+      if (!x.conn) return false;
+      const life = lifeOfSeat(s, x.id);
+      return !!life && !life.watching && life.c >= 0;
+    });
+  }
+
+  private askSkip(room: Room, seat: Seat, on: boolean): void {
+    const game = room.game;
+    if (!game || game.state.over) return;
+    if (!on) {
+      if (room.skip.on)
+        return this.stopSkip(room, `${seat.name} stopped skipping ahead.`);
+      room.skip.asked.delete(seat.id);
+      return this.skipMsg(room, seat.name, null);
+    }
+    if (room.skip.on) return;
+    const blocked = skipBlocker(game.state);
+    if (blocked) {
+      if (seat.conn)
+        this.send(seat.conn, {
+          t: "skip",
+          on: false,
+          asked: [...room.skip.asked],
+          by: null,
+          why: blocked,
+        });
+      return;
+    }
+    room.skip.asked.add(seat.id);
+    const voters = this.skipVoters(room);
+    if (room.solo || voters.every((v) => room.skip.asked.has(v.id)))
+      return this.startSkip(room, seat.name);
+    this.skipMsg(room, seat.name, null);
+  }
+
+  private startSkip(room: Room, by: string): void {
+    const game = room.game!;
+    room.skip.on = true;
+    room.skip.wasPaused = room.paused;
+    room.skip.mark = attentionMark(game.state);
+    room.skip.from = game.state.day;
+    room.paused = false;
+    room.owed = 0;
+    this.broadcast(room, {
+      t: "clock",
+      speed: room.speed,
+      paused: false,
+      by: null,
+    });
+    this.skipMsg(room, by, null);
+    for (const x of room.seats) this.sendLetters(room, x);
+  }
+
+  /** Back to the clock as it was, and tell everyone why. */
+  private stopSkip(room: Room, why: string): void {
+    if (!room.skip.on) return;
+    room.skip.on = false;
+    room.skip.asked.clear();
+    room.paused = room.skip.wasPaused;
+    room.owed = 0;
+    this.broadcast(room, {
+      t: "clock",
+      speed: room.speed,
+      paused: room.paused,
+      by: null,
+    });
+    this.skipMsg(room, null, why);
+    for (const x of room.seats) this.sendLetters(room, x);
+    if (room.paused) void this.save(room);
+  }
+
   private sendGame(room: Room, seat: Seat): void {
     if (!seat.conn || !room.game) return;
     // Bring everyone else's copy up to date first, so this full state and
@@ -828,6 +959,14 @@ export class ConquestRooms {
       seats: seatInfo(room),
     });
     this.sendLetters(room, seat);
+    if (room.skip.on || room.skip.asked.size)
+      this.send(seat.conn, {
+        t: "skip",
+        on: room.skip.on,
+        asked: [...room.skip.asked],
+        by: null,
+        why: null,
+      });
   }
 
   private startGame(room: Room): void {
@@ -964,12 +1103,30 @@ export class ConquestRooms {
       void this.save(room);
     this.letterClock(room, room.paused ? 0 : dt);
     if (room.paused) return;
-    room.owed += (dt / 1000) * SPEED_DAYS_PER_SECOND[room.speed] * TEST_FAST;
+    const skipping = room.skip.on;
+    room.owed +=
+      (dt / 1000) *
+      (skipping ? SKIP_DAYS_PER_SECOND : SPEED_DAYS_PER_SECOND[room.speed]) *
+      TEST_FAST;
     let ticks = 0;
     while (room.owed >= 1 && ticks < 10 * TEST_FAST && !game.state.over) {
       game.tick();
       room.owed -= 1;
       ticks++;
+      // Skipping ahead stops the moment anything needs anyone.
+      if (skipping) {
+        const mark = attentionMark(game.state);
+        if (mark !== room.skip.mark) {
+          this.flush(room);
+          this.stopSkip(room, whyWoken(game.state, room.skip.mark));
+          break;
+        }
+        if (game.state.day - room.skip.from >= SKIP_MAX_DAYS) {
+          this.flush(room);
+          this.stopSkip(room, "A whole year went by quietly.");
+          break;
+        }
+      }
     }
     if (room.owed > 10 * TEST_FAST) room.owed = 0;
     if (game.state.over) {

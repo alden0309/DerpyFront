@@ -34,6 +34,7 @@ import { answerLifeEvent, lifeEventsDaily, raiseLifeEvent } from "./LifeEvents";
 import {
   allowanceDue,
   atPost,
+  carried,
   hasPlace,
   heirOf,
   hopDaysFor,
@@ -120,6 +121,16 @@ import {
   STATS,
 } from "./Types";
 import { militaryCommand } from "./War";
+// LIFE (r11): the pace (skip ahead), boats, and the round-11 life's hooks.
+import { landBoat, nextLegDays } from "./Boats";
+import {
+  carryLimit,
+  lifeR11Ended,
+  lifeR11Succeeded,
+  roadRiskFactor,
+} from "./LifeR11";
+import { wake } from "./Pace";
+import { crookedStart } from "./Trades";
 import { employerFor, leaveJob, takeJob, workDaily, workMonthly } from "./Work";
 
 // ---------------------------------------------------------------- making a character
@@ -450,6 +461,8 @@ export function beginLife(
   );
   // The background's own work, with whoever takes people on for it at home.
   life.area = undefined;
+  // LIFE (r11): a crooked upbringing starts with a name and knows the den.
+  crookedStart(g, life);
   if (bg.job) {
     const def = JOBS[bg.job];
     const at = def.places.find((pl) => hasPlace(s, g.w, life.prov, pl));
@@ -537,6 +550,10 @@ export function travelTo(
     paceOf(s, life),
   );
   if (!route) return "There's no way there from here.";
+  // LIFE (r11): a boat's hold of goods won't go overland on your back.
+  const tooMuch = carryLimit(s, life, -1);
+  if (carried(life) > tooMuch)
+    return `You're carrying ${carried(life)} loads and can manage ${tooMuch} on the road: sell some, or sail in your own boat.`;
   if (life.purse < route.cost)
     return `The journey costs ${route.cost} coins; you have ${Math.floor(life.purse)}.`;
   spend(g, life, route.cost);
@@ -576,12 +593,19 @@ function hop(g: ConquestGame, life: Life): void {
   if (t.path.length === 0) {
     life.travel = null;
     journal(g, life, `You arrive at ${formatPlace(g, next)}.`);
+    // LIFE (r11): an arrival stops a skip ahead; your boat stays where you land.
+    wake(g, life, `You arrive at ${formatPlace(g, next)}.`);
+    if (t.boat !== undefined) landBoat(g, life, t.boat, next);
     if (next !== life.home && g.rng.chance(0.15)) addRenown(g, life, 0.5);
     return;
   }
+  // LIFE (r11): in your own boat, at her speed.
+  const own = t.boat !== undefined ? nextLegDays(g, life, next, t.path[0]) : -1;
   const days = Math.max(
     1,
-    hopDaysFor(g.map, next, t.path[0], t.sea[0], paceOf(s, life)),
+    own > 0
+      ? own
+      : hopDaysFor(g.map, next, t.path[0], t.sea[0], paceOf(s, life)),
   );
   t.depart = s.day;
   t.arrive = s.day + days;
@@ -598,6 +622,8 @@ function roadRisk(g: ConquestGame, life: Life): void {
   if (t.sea[0]) risk = ROAD_RISK.sea;
   else if (pr.owner < 0) risk = ROAD_RISK.wild;
   else if (atWar(s, pr.owner, me.nation)) risk = ROAD_RISK.hostile;
+  // LIFE (r11): the land's own dangers, and a guide's eye on the trail.
+  risk *= roadRiskFactor(g, life);
   if (g.rng.chance(risk)) lifeEventsDaily(g, life, t.sea[0] ? "sea" : "road");
 }
 
@@ -630,6 +656,9 @@ export function livesDaily(g: ConquestGame): void {
     }
     workDaily(g, life, (key, ctx) => raiseOrSend(g, life, key, ctx));
     if (!life.watching && life.c >= 0) lifeEventsDaily(g, life);
+    // LIFE (r11): the law, your people, your boats, contracts.
+    for (const h of hooks.lifeDaily)
+      if (!life.watching && life.c >= 0) h(g, life);
   }
 }
 
@@ -694,6 +723,9 @@ export function livesMonthly(g: ConquestGame): void {
     if (!me?.alive) continue;
     lifeMonth(g, life, me);
     if (life.watching || life.c < 0) continue;
+    // LIFE (r11): wages for your people and crews, heat cooling, contracts.
+    for (const h of hooks.lifeMonthly)
+      if (!life.watching && life.c >= 0) h(g, life);
     // Letters from friends and family far off.
     const letter = letterWriter(g, life);
     if (letter) raiseOrSend(g, life, letter.key, { c: letter.from.id });
@@ -1150,6 +1182,8 @@ export function succeedTo(
   life.outcome = null;
   life.area = undefined;
   life.favor = Math.round(life.favor * 0.3);
+  // LIFE (r11): the heir keeps the boats and (some of) the people; not the rest.
+  lifeR11Succeeded(g, life);
   life.health = hasTrait(heir, "sickly") ? 70 : 82;
   life.stress = 20;
   heir.home ??= life.home;
@@ -1214,6 +1248,8 @@ export function endLine(g: ConquestGame, life: Life, why: string): void {
   life.property = [];
   life.ambition = null;
   life.area = undefined;
+  // LIFE (r11): nobody left to keep the boats, the people or the company.
+  lifeR11Ended(g, life);
 }
 
 /** A watching player becomes someone already in the world. */
@@ -1628,6 +1664,11 @@ export function lifeCommand(
   const me = meOf(s, life);
   if (!me || life.watching) return "You're watching the world now.";
   const child = isChildLife(s, life);
+  // LIFE (r11): some things can't be done from a cell (or in irons).
+  for (const h of hooks.gate) {
+    const why = h(g, life, c);
+    if (why) return why;
+  }
   switch (c.k) {
     case "travel":
       return travelTo(g, life, c.to, !!c.bySea);
@@ -1760,6 +1801,11 @@ export function lifeCommand(
       );
       return null;
     default:
+      // LIFE (r11): work, the law, your people, boats and contracts.
+      for (const h of hooks.command) {
+        const r = h(g, life, c);
+        if (r !== undefined) return r;
+      }
       return "Unknown command.";
   }
 }

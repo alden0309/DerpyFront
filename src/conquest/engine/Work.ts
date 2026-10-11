@@ -6,6 +6,7 @@
 // asking (and they say yes or no, and why), promoted by your master when
 // you've earned it, and you climb by buying into a business of your own.
 
+import { crimeWorkDay, lawWorkDay } from "./Crime";
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
 import { addRenown, gainXp, journal, milestone, touchLife } from "./LifeCore";
@@ -39,9 +40,19 @@ import {
   WORK_DAYS,
 } from "./LifeRules";
 import type { World } from "./Map";
+import { wake } from "./Pace";
 import { openBusiness } from "./Property";
 import { charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
+import {
+  effortDay,
+  effortMonth,
+  effortOf,
+  jobGate,
+  OVERTIME_SHARE,
+  rungKit,
+  shirkDay,
+} from "./Trades";
 import type {
   Breakdown,
   Character,
@@ -52,6 +63,7 @@ import type {
   PlaceKind,
   Skill,
 } from "./Types";
+import { workMatter } from "./WorkEvents";
 
 function provName(g: ConquestGame, p: number): string {
   return g.map.provinces[p]?.name ?? "somewhere";
@@ -118,6 +130,7 @@ export function hireGates(
   const me = meOf(s, life);
   if (!me) return no("You're watching.");
   if (isChildLife(s, life)) return no("Not until you're sixteen.");
+  if (life.crime?.jail) return no("Not from a cell.");
   if (life.travel) return no("You're on the road.");
   if (!roleJobs(boss.role).includes(kind))
     return no("They don't take people on.");
@@ -138,7 +151,8 @@ export function hireGates(
         ? "That's work among the native peoples."
         : "That's colonists' work.",
     );
-  return yes;
+  // LIFE (r11): a port, the north, contacts, a name in the underworld.
+  return jobGate(s, w, life, kind, life.prov);
 }
 
 const HEAVY: JobKind[] = [
@@ -209,6 +223,29 @@ export function hireAcceptance(
     kind !== "soldier"
   )
     e.add("A gentleman's child, at this?", -10);
+  // LIFE (r11): the underworld wants a name; the law wants a clean one.
+  const notoriety = life.crime?.notoriety ?? 0;
+  if (def.crime) {
+    if (notoriety >= 5)
+      e.add(
+        `Known in the underworld (${Math.floor(notoriety)})`,
+        Math.min(20, Math.floor(notoriety / 3)),
+      );
+    else e.add("Nobody here knows you", -5);
+    if (hasTrait(me, "honest")) e.add("Too honest a face for this", -10);
+    if (life.job && JOBS[life.job.kind].law)
+      e.add("You smell of the watch-house", -60);
+  }
+  if (def.law || def.ownNation) {
+    if ((life.crime?.record.length ?? 0) > 0)
+      e.add(
+        `A record (${life.crime!.record.length} conviction${life.crime!.record.length === 1 ? "" : "s"})`,
+        -15 * life.crime!.record.length,
+      );
+    if (life.crime?.branded) e.add("Branded a felon", -25);
+    if (def.law && notoriety >= 20)
+      e.add("Known to keep bad company", -Math.floor(notoriety / 3));
+  }
   return e.done(0);
 }
 
@@ -286,6 +323,9 @@ export function takeJob(
     return def.native
       ? "That's work among the native peoples."
       : "That's colonists' work.";
+  // LIFE (r11): a port, the north, contacts: some trades can't be had everywhere.
+  const gate = jobGate(s, g.w, life, kind, life.prov);
+  if (!gate.ok) return gate.why;
   const boss = employerFor(s, g.w, life.prov, kind, place);
   if (!boss && !def.selfStart) return "There's nobody here to take you on.";
   if (life.job) leaveJob(g, life, "for other work");
@@ -358,6 +398,7 @@ export function promote(g: ConquestGame, life: Life): void {
     "good",
   );
   milestone(g, life, "promoted", `Rose to ${title.toLowerCase()}`);
+  wake(g, life, `You're made ${title.toLowerCase()}.`);
 }
 
 /** Who could give you your next rung: your master, or for a commission the great. */
@@ -422,6 +463,12 @@ export function promotionAcceptance(
   if (hasTrait(me, "lazy")) e.add("Idle", -10);
   if ((job.awayDays ?? 0) > 7) e.add("Often away from your post", -15);
   else if ((job.worked ?? 0) >= 12) e.add("Never misses a day", 5);
+  // LIFE (r11): how hard you go at it.
+  if (effortOf(life) === "shirk") e.add("Known to shirk", -20);
+  else if (effortOf(life) === "hard" || effortOf(life) === "overtime")
+    e.add("Works harder than anyone", 10);
+  const kit = rungKit(s, life, job.rank + 1);
+  if (!kit.ok) e.add(kit.why, -100);
   if (next.buy && !next.commission)
     e.add(`That rung is bought: ${next.buy.what}`, -100);
   return e.done(0);
@@ -484,7 +531,14 @@ export function workDaily(
       job.awayDays = 0;
       touchLife(g, life);
     }
-    if (!SUNDAY(s.day)) job.worked = (job.worked ?? 0) + 1;
+    if (!SUNDAY(s.day)) {
+      // LIFE (r11): the day is worked for you, as hard as you go at it.
+      job.worked = Math.round(((job.worked ?? 0) + effortDay(life)) * 10) / 10;
+      shirkDay(g, life, raise);
+      if (JOBS[job.kind].crime) crimeWorkDay(g, life, raise);
+      if (JOBS[job.kind].law) lawWorkDay(g, life, raise);
+      workMatter(g, life, raise);
+    }
     // The sheet sees the week's work on Saturdays.
     if (((s.day % 7) + 7) % 7 === 6) touchLife(g, life);
     return;
@@ -520,6 +574,7 @@ export function workDaily(
       "bad",
     );
     leaveJob(g, life, "for being absent");
+    wake(g, life, "You've lost your place for being away too long.");
   }
 }
 
@@ -534,11 +589,16 @@ export function workMonthly(
   if (!job) return;
   touchLife(g, life);
   const def = JOBS[job.kind];
-  const share = Math.min(1, (job.worked ?? 0) / WORK_DAYS);
+  // LIFE (r11): overtime earns more; how hard you went at it, what you learned.
+  const share = Math.min(
+    effortOf(life) === "overtime" ? OVERTIME_SHARE : 1,
+    (job.worked ?? 0) / WORK_DAYS,
+  );
+  const learn = effortMonth(g, life) * Math.min(1, share);
   if (share >= 0.5) job.months++;
   if (share > 0) {
-    gainXp(g, life, def.main, Math.round(7 * share * 10) / 10, true);
-    gainXp(g, life, def.second, Math.round(3 * share * 10) / 10, true);
+    gainXp(g, life, def.main, Math.round(7 * learn * 10) / 10, true);
+    gainXp(g, life, def.second, Math.round(3 * learn * 10) / 10, true);
     const fame = (def.fame ?? 0) * Math.max(0, job.rank - 1) * share;
     if (fame > 0) addRenown(g, life, fame);
   }
@@ -566,15 +626,24 @@ export function workMonthly(
       "good",
     );
     milestone(g, life, "job", "Served out an indenture");
+    wake(g, life, "Your indenture is served.");
     return;
   }
   // The next rung.
   const view = promotionView(s, life);
   if (!view.check.ok || !view.next) return;
   if (view.next.buy && !view.next.commission) return;
+  if (!rungKit(s, life, job.rank + 1).ok) return;
   const me = meOf(s, life)!;
+  // LIFE (r11): hard work brings the next rung sooner; shirking puts it off.
+  const keen =
+    effortOf(life) === "hard" || effortOf(life) === "overtime"
+      ? 1.3
+      : effortOf(life) === "shirk"
+        ? 0.5
+        : 1;
   if (job.own) {
-    let chance = PROMOTION_CHANCE;
+    let chance = PROMOTION_CHANCE * keen;
     if (hasTrait(me, "ambitious")) chance *= 1.3;
     if (hasTrait(me, "content")) chance *= 0.8;
     if (g.rng.chance(chance)) promote(g, life);
@@ -595,9 +664,9 @@ export function workMonthly(
     return;
   }
   const boss = bossOf(s, life);
-  if (boss && g.rng.chance(OFFER_CHANCE))
+  if (boss && g.rng.chance(OFFER_CHANCE * keen))
     raise("boss-promotion", { c: boss.id });
-  else if (!boss && g.rng.chance(PROMOTION_CHANCE)) promote(g, life);
+  else if (!boss && g.rng.chance(PROMOTION_CHANCE * keen)) promote(g, life);
 }
 
 /** A hard day at your post: more skill, a good word from your master, a tired back. */

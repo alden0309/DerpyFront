@@ -217,6 +217,12 @@ export function placesIn(s: GameState, w: World, p: number): PlaceKind[] {
     if (owner.capital === p || (pr.b.courthouse ?? 0) > 0) out.push("governor");
     if (owner.capital === p || folk >= 1500) out.push("apothecary");
     if (wooded) out.push("woods");
+    // LIFE (r11): a watch-house and gaol in a town of any size; a den in a
+    // big one or a port (found, not seen: Areas.ts shows it to those who know).
+    if (folk >= 500 || owner.capital === p || (pr.b.courthouse ?? 0) > 0)
+      out.push("gaol");
+    if (folk >= 900 || owner.capital === p || (def.coastal && folk >= 400))
+      out.push("den");
   } else if (owner?.kind === "native") {
     out.push("village", "councilfire", "fields");
     if (def.coastal || owner.capital === p) out.push("market");
@@ -268,9 +274,23 @@ export function atPost(s: GameState, w: World, life: Life): boolean {
       return life.travel === null;
     case "clerk":
       return job.rank >= 2 || life.prov === job.prov;
-    default:
-      return life.travel === null && life.prov === job.prov;
   }
+  // LIFE (r11): in a cell nobody works; some work goes to sea, the road, or anywhere.
+  if (life.crime?.jail) return false;
+  // A militia officer leading their own company in the field is on service.
+  if (job.kind === "militia" && (life.company?.army ?? -1) >= 0) return true;
+  switch (JOBS[job.kind].post) {
+    case "sea":
+      return (
+        (life.travel !== null && life.travel.sea[0] === true) ||
+        (life.travel === null && hasPlace(s, w, life.prov, "docks"))
+      );
+    case "road":
+      return life.travel !== null || life.prov === job.prov;
+    case "anywhere":
+      return true;
+  }
+  return life.travel === null && life.prov === job.prov;
 }
 
 /** Why a job here can't be taken, or ok. */
@@ -383,6 +403,17 @@ export function promotionView(s: GameState, life: Life): PromotionView {
       label: `renown ${next.renown} (${Math.floor(life.renown)})`,
       met: life.renown >= next.renown,
     });
+  // LIFE (r11): a name in the underworld; a horse for the road.
+  if (next.notoriety)
+    needs.push({
+      label: `notoriety ${next.notoriety} (${Math.floor(life.crime?.notoriety ?? 0)})`,
+      met: (life.crime?.notoriety ?? 0) >= next.notoriety,
+    });
+  if (next.kit)
+    needs.push({
+      label: next.kit === "horse" ? "a horse of your own" : `a ${next.kit}`,
+      met: hasKit(s, life, next.kit),
+    });
   if (next.opinion !== undefined && !job.own) {
     const boss = s.chars[job.employer];
     const op = boss?.alive ? opinionOf(s, boss, life).total : -100;
@@ -427,7 +458,9 @@ export function wageOf(
   const r = rankOf(life);
   if (!r || !life.job) return 0;
   if (!actual) return atPost(s, w, life) ? r.wage : 0;
-  const share = Math.min(1, (life.job.worked ?? 0) / WORK_DAYS);
+  // LIFE (r11): overtime earns up to 1.4 of a month's wage.
+  const cap = life.work?.effort === "overtime" ? 1.4 : 1;
+  const share = Math.min(cap, (life.job.worked ?? 0) / WORK_DAYS);
   return Math.round(r.wage * share * 100) / 100;
 }
 
@@ -465,15 +498,18 @@ export function monthlyBudget(
 ): Breakdown {
   const e = new Explain();
   const wage = wageOf(s, w, life, actual);
+  // LIFE (r11): a crooked living brings takings, not wages, and pays no dues.
+  const crooked = !!life.job && !!JOBS[life.job.kind].crime;
+  const what = crooked ? "Takings" : "Wage";
   if (wage)
     e.add(
       actual && life.job
-        ? `Wage: ${jobTitle(life).toLowerCase()} (${Math.min(WORK_DAYS, life.job.worked ?? 0)} of ${WORK_DAYS} days)`
-        : `Wage: ${jobTitle(life).toLowerCase()}`,
+        ? `${what}: ${jobTitle(life).toLowerCase()} (${Math.round(life.job.worked ?? 0)} of ${WORK_DAYS} days)`
+        : `${what}: ${jobTitle(life).toLowerCase()}`,
       wage,
     );
   if (allowanceDue(s, life)) e.add("Your family's allowance", ALLOWANCE);
-  let earned = wage;
+  let earned = crooked ? 0 : wage;
   for (const o of officesOf(s, life.c)) {
     // A governor who holds a commission (or any post) draws the larger pay.
     const pay =

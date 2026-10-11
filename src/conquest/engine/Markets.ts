@@ -21,6 +21,7 @@ import {
   touchLife,
 } from "./LifeCore";
 import { carried, CARRY, meOf, placesIn } from "./LifeQueries";
+import { carryLimit } from "./LifeR11";
 import { isWinter, type World } from "./Map";
 import { charName, hasTrait, people } from "./Queries";
 import { EUROPE_PRICE } from "./Rules";
@@ -525,8 +526,13 @@ export function tradeCheck(
   if (qty > 0) {
     if (!soldHere(s, w, life.prov, item))
       return { ok: false, why: "Nobody sells that here." };
-    if (carried(life) + qty > CARRY)
-      return { ok: false, why: `You can carry ${CARRY} loads at most.` };
+    // LIFE (r11): your people and your boat's hold where she lies carry more.
+    const cap = carryLimit(s, life, life.prov);
+    if (carried(life) + qty > cap)
+      return {
+        ok: false,
+        why: `You can carry ${cap} loads at most${cap > CARRY ? " (with your people and your boat)" : ""}.`,
+      };
     const q = quote(s, w, life, life.prov, item, qty);
     if (life.purse < q.total)
       return { ok: false, why: `That costs ${q.total.toFixed(1)} coins.` };

@@ -10,6 +10,7 @@
 // the day, so the server and every browser agree without being told.
 
 import { dateOf } from "./Calendar";
+import { knowsDen } from "./CrimeQueries";
 import {
   familyAtHome,
   isNativeChar,
@@ -47,7 +48,10 @@ export function areasOf(
   p: number,
   life?: Life | null,
 ): PlaceKind[] {
-  const out = placesIn(s, w, p);
+  // LIFE (r11): the den is only there for those who know it.
+  const out = placesIn(s, w, p).filter(
+    (pl) => pl !== "den" || (!!life && knowsDen(life, p)),
+  );
   if (life && life.c >= 0 && !life.watching && life.home === p)
     out.push("home");
   return out;

@@ -37,6 +37,9 @@ export function rolesFor(g: ConquestGame, p: number): RoleId[] {
     if (has("governor")) out.push("official", "lawyer");
     if (has("press")) out.push("printer");
     if (has("apothecary")) out.push("physician");
+    // LIFE (r11): the law of the town, and the other side of it.
+    if (has("gaol")) out.push("constable");
+    if (has("den")) out.push("fence");
     // Common folk, so the fort, the docks and the fields have people in them.
     if (has("fort")) out.push("soldier");
     if (has("docks")) out.push("sailor");
@@ -101,6 +104,9 @@ const ROLE_STAT: Record<RoleId, Stat> = {
   sailor: "mar",
   labourer: "ste",
   youngwarrior: "mar",
+  // LIFE (r11)
+  constable: "mar",
+  fence: "int",
 };
 
 /** Someone to fill a role in a province, with a family around them. */
@@ -136,7 +142,8 @@ export function makeLocal(
           role === "official" ||
           role === "lawyer" ||
           role === "preacher" ||
-          role === "sachem"
+          role === "sachem" ||
+          role === "constable"
         ? false
         : rng.chance(native ? 0.4 : 0.2);
   const c = makeCharacter(s, rng, {

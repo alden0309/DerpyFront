@@ -7,6 +7,7 @@ import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { bananaMark } from "../../derpland/Icons";
+import { boatRoute, sailCheck } from "../engine/Boats";
 import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
 import { fogged, fogView } from "../engine/Fog";
@@ -23,6 +24,7 @@ import {
   travelRoute,
 } from "../engine/LifeQueries";
 import { AMERICAS, worldOf } from "../engine/Map";
+import { SKIP_DAYS_PER_SECOND } from "../engine/Pace";
 import { findPath } from "../engine/Paths";
 import { armySpeed, charName } from "../engine/Queries";
 import {
@@ -85,6 +87,7 @@ import {
 } from "./ui/Context";
 import { herePanel, provincePage } from "./ui/Here";
 import { journalTab } from "./ui/Journal";
+import { needsAttention, tradesPage } from "./ui/Livelihood";
 import { ModalHooks, renderModal } from "./ui/Modals";
 import { personPage, youTab } from "./ui/Sheet";
 import { forgetSteady, setSteadyRedraw, touched } from "./ui/Steady";
@@ -182,6 +185,9 @@ export class GameView extends LitElement {
   private code = "";
   private speed = 1;
   private paused = false;
+  /** LIFE (r11): skipping ahead, and who has asked to (seat ids). */
+  private skipOn = false;
+  private skipAsked: string[] = [];
   private seats: SeatInfo[] = [];
   private dayAt = 0;
 
@@ -455,6 +461,25 @@ export class GameView extends LitElement {
           );
         this.requestRender();
         return;
+      case "skip": {
+        const was = this.skipOn;
+        this.skipOn = m.on;
+        this.skipAsked = m.asked;
+        this.dayAt = performance.now();
+        if (m.why) this.toast(m.why, m.on ? "" : "good");
+        else if (
+          !m.on &&
+          !was &&
+          m.by &&
+          m.by !== this.myName() &&
+          m.asked.length &&
+          !m.asked.includes(this.you)
+        )
+          this.toast(`${m.by} wants to skip ahead. Press ⏩ to agree.`);
+        if (m.on && !was) play("paper");
+        this.requestRender();
+        return;
+      }
       case "seats":
         this.seats = m.seats;
         this.host = m.host;
@@ -723,6 +748,8 @@ export class GameView extends LitElement {
       this.setPaused(!this.paused);
     } else if (/^[1-4]$/.test(e.key)) {
       this.setSpeed(Number(e.key));
+    } else if (e.key === "5") {
+      this.toggleSkip();
     } else if (e.key === "Escape") {
       if (this.picking) this.picking = false;
       else if (this.ask) this.ask = null;
@@ -757,6 +784,13 @@ export class GameView extends LitElement {
     this.net.send({ t: "pause", p });
   }
 
+  /** LIFE (r11): skip ahead until something needs you (or ask the others to). */
+  private toggleSkip(): void {
+    if (this.s.over) return;
+    const asked = this.skipAsked.includes(this.you);
+    this.net.send({ t: "skip", on: !(this.skipOn || asked) });
+  }
+
   private setSpeed(sp: number): void {
     if (this.s.over || sp < 1 || sp > MAX_SPEED) return;
     if (!this.canSetSpeed) {
@@ -771,6 +805,8 @@ export class GameView extends LitElement {
   private dayNow(): number {
     if (this.paused || this.s.over) return this.s.day;
     const elapsed = (performance.now() - this.dayAt) / 1000;
+    if (this.skipOn)
+      return this.s.day + Math.min(6, elapsed * SKIP_DAYS_PER_SECOND);
     return (
       this.s.day + Math.min(1.5, elapsed * SPEED_DAYS_PER_SECOND[this.speed])
     );
@@ -852,6 +888,9 @@ export class GameView extends LitElement {
         female: c.female,
         native,
         mounted: hasKit(s, l, "horse") || hasKit(s, l, "carriage"),
+        boats: (l.boats ?? [])
+          .filter((b) => l.travel?.boat !== b.id)
+          .map((b) => ({ p: b.prov, kind: b.kind, name: b.name })),
       });
     }
     // Yours on top.
@@ -925,7 +964,8 @@ export class GameView extends LitElement {
         explored: null,
         lives: this.marks(),
         road: this.road(),
-        speed: this.speed,
+        // Skipping ahead, feet move fastest of all (LIFE r11).
+        speed: this.skipOn ? 5 : this.speed,
         fog: this.fog(),
         leads: this.leadPins(),
       };
@@ -1124,6 +1164,7 @@ export class GameView extends LitElement {
                 By sea, ${Math.ceil(sea!.days)} days, ${sea!.cost}c
               </button>`
             : nothing}
+          ${this.ownBoats(m.to)}
           <button
             class="cq-btn small quiet"
             @click=${() => {
@@ -1153,6 +1194,36 @@ export class GameView extends LitElement {
           </label>`
         : nothing}
     </div>`;
+  }
+
+  /** LIFE (r11): sail there in your own boat, if she lies here. */
+  private ownBoats(to: number): TemplateResult | typeof nothing {
+    const life = this.life;
+    if (!life || life.travel) return nothing;
+    const boats = (life.boats ?? []).filter((b) => b.prov === life.prov);
+    if (!boats.length || !map.provinces[to]?.coastal) return nothing;
+    return html`${boats.map((b) => {
+      const route = boatRoute(map, life.prov, to, b.kind);
+      const check = sailCheck(this.s, map, life, b, to);
+      return html`<button
+        class="cq-btn small"
+        ?disabled=${!check.ok}
+        title=${check.ok
+          ? "No fare: her crew's wages and keep only"
+          : check.why}
+        @click=${() => {
+          this.ask = null;
+          void this.cmd({ k: "sail", to, boat: b.id }).then((ok) => {
+            if (ok) {
+              play("paper");
+              this.stack = [{ k: "tab", tab: "here" }];
+            }
+          });
+        }}
+      >
+        In the ${b.name}${route ? `, ${Math.ceil(route.days)} days` : ""}
+      </button>`;
+    })}`;
   }
 
   private onHover(p: number | null): void {
@@ -1381,6 +1452,8 @@ export class GameView extends LitElement {
         return nationPage(ui, v.n);
       case "char":
         return personPage(ui, v.c);
+      case "life":
+        return tradesPage(ui);
       case "tab":
         switch (v.tab) {
           case "here":
@@ -1425,7 +1498,7 @@ export class GameView extends LitElement {
         : html`<span class="cq-who watching">
             ${life?.ended ? "Watching the world" : "Not yet born"}
           </span>`}
-      <div class="cq-clock">
+      <div class="cq-clock ${this.skipOn ? "skipping" : ""}">
         <span class="cq-date">${formatDate(s.day)}</span>
         <div class="cq-speed" role="group" aria-label="Game speed">
           <button
@@ -1458,6 +1531,7 @@ export class GameView extends LitElement {
                 ${SPEED_LABELS[sp]}
               </button>`,
           )}
+          ${this.skipButton()}
         </div>
       </div>
       ${life && me && budget
@@ -1524,6 +1598,39 @@ export class GameView extends LitElement {
     </header>`;
   }
 
+  /** LIFE (r11): skip ahead through the quiet days, until something needs you. */
+  private skipButton(): TemplateResult {
+    const s = this.s;
+    const voters = this.seats.filter(
+      (x) => x.online && x.made && !x.watching,
+    ).length;
+    const asked = this.skipAsked.includes(this.you);
+    const title = this.skipOn
+      ? "Skipping ahead until something needs you. Click to stop (key 5)."
+      : this.solo || voters <= 1
+        ? "Skip ahead: the days run fast until something needs you (a letter, an arrival, news of your people), then the clock goes back as it was (key 5)."
+        : asked
+          ? `You've asked to skip ahead: ${this.skipAsked.length} of ${voters} agree. Click to take it back.`
+          : `Skip ahead: everyone living a life must agree (${this.skipAsked.length} of ${voters} have). It stops for anyone's letters or news.`;
+    return html`<button
+      class="cq-skip-btn ${this.skipOn ? "on" : ""} ${asked && !this.skipOn
+        ? "asked"
+        : ""}"
+      ?disabled=${s.over}
+      title=${title}
+      aria-label=${this.skipOn ? "Stop skipping ahead" : "Skip ahead"}
+      aria-pressed=${this.skipOn || asked}
+      @click=${() => this.toggleSkip()}
+    >
+      <svg viewBox="0 0 16 12" aria-hidden="true">
+        <path d="M1 2l6 4-6 4zM8 2l6 4-6 4z" />
+      </svg>
+      ${!this.skipOn && !this.solo && this.skipAsked.length && voters > 1
+        ? html`<small>${this.skipAsked.length}/${voters}</small>`
+        : nothing}
+    </button>`;
+  }
+
   private meterChip(
     label: string,
     v: number,
@@ -1587,7 +1694,9 @@ export class GameView extends LitElement {
     const badge: Partial<Record<Tab, boolean>> = {};
     if (life && !life.watching && life.c >= 0) {
       badge.affairs =
-        !!life.invite || (!!life.job && promotionView(this.s, life).check.ok);
+        !!life.invite ||
+        (!!life.job && promotionView(this.s, life).check.ok) ||
+        needsAttention(life);
       badge.journal = life.events.length > 0;
     }
     if (life?.watching) badge.here = true;

@@ -276,7 +276,10 @@ export type PlaceKind =
   | "woods"
   | "apothecary"
   /** Your own house, where your family is (only in your home province). */
-  | "home";
+  | "home"
+  // LIFE (r11): the watch-house and gaol; the thieves' den (found, not seen).
+  | "gaol"
+  | "den";
 
 /** A trade with a ladder to climb. */
 export type JobKind =
@@ -300,7 +303,9 @@ export type JobKind =
   | "healer"
   | "trader"
   | "speaker"
-  | "maker";
+  | "maker"
+  // LIFE (r11): more trades, the law, arms, the wrong side of the law.
+  | R11JobKind;
 
 /** What the people of a place do, and so what they can offer you. */
 export type RoleId =
@@ -326,7 +331,10 @@ export type RoleId =
   | "soldier"
   | "sailor"
   | "labourer"
-  | "youngwarrior";
+  | "youngwarrior"
+  // LIFE (r11): the high constable at the gaol; the fence at the den.
+  | "constable"
+  | "fence";
 
 export type BackgroundId =
   | "farmer"
@@ -348,7 +356,9 @@ export type BackgroundId =
   | "healer"
   | "trader"
   | "speaker"
-  | "maker";
+  | "maker"
+  // LIFE (r11): more ways to have been brought up.
+  | R11BackgroundId;
 
 export type Lifestyle =
   | "frugal"
@@ -416,6 +426,8 @@ export interface Travel {
   arrive: number;
   /** The whole journey's cost, already paid. */
   cost: number;
+  /** LIFE (r11): sailing in your own boat (its id); it stays where you land. */
+  boat?: number;
 }
 
 export interface JournalEntry {
@@ -446,7 +458,9 @@ export type MilestoneKind =
   | "heir"
   | "takeover"
   | "watching"
-  | "end";
+  | "end"
+  // LIFE (r11): a conviction at the quarter sessions.
+  | "convicted";
 
 export interface LifeMilestone {
   day: number;
@@ -714,6 +728,22 @@ export interface Life {
   leads?: LifeLead[];
   /** WORLD r11: culture goods carried to sell (they count against the loads you can carry). */
   wares?: Partial<Record<WareId, number>>;
+  /** LIFE (r11): how your work runs itself. */
+  work?: WorkState;
+  /** LIFE (r11): your name with the law and the underworld. */
+  crime?: CrimeState;
+  /** LIFE (r11): people in your service. */
+  people?: Follower[];
+  /** LIFE (r11): a company of your own under arms. */
+  company?: Company | null;
+  /** LIFE (r11): contracts offered to you, and those you've taken. */
+  contracts?: Contract[];
+  /** LIFE (r11): boats you own, each where you left it. */
+  boats?: Boat[];
+  /** LIFE (r11): counts up whenever something needs you (it stops a skip ahead). */
+  wake?: number;
+  /** LIFE (r11): what last needed you. */
+  wakeWhy?: string;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1690,7 +1720,33 @@ export type LifeCommand =
   | { k: "present"; item: TradeItem }
   // ---- ART (r11)
   /** Sit for a new likeness: a portrait from the gallery, tuned (Appearance.ts). */
-  | { k: "likeness"; look: import("./Appearance").Appearance };
+  | { k: "likeness"; look: import("./Appearance").Appearance }
+  // LIFE (r11): work that runs itself, trades taken up, crime and the law,
+  // your people, your boats, contracts.
+  | { k: "effort"; v: Effort }
+  | { k: "takeup"; job: JobKind; place: PlaceKind }
+  | { k: "crime"; act: string; c?: number; arg?: number }
+  | { k: "law"; act: string; c?: number; arg?: number }
+  | {
+      k: "people";
+      act: string;
+      id?: number;
+      c?: number;
+      arg?: number;
+      to?: number;
+      kind?: string;
+    }
+  | {
+      k: "boat";
+      act: string;
+      id?: number;
+      kind?: string;
+      arg?: number;
+      use?: string;
+      name?: string;
+    }
+  | { k: "sail"; to: number; boat: number }
+  | { k: "contract"; act: string; id: number; arg?: number };
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1845,3 +1901,255 @@ export interface LifeLead {
 // The portrait gallery's kinds of sitter and a character's look live in
 // Sitters.ts and Appearance.ts; `Character.look` and `LifePlan.look` hold a
 // look (a gallery portrait and its tuning).
+
+// ---- LIFE (r11)
+
+/** The trades, offices of the law and lines of work added in round 11. */
+export type R11JobKind =
+  | "blacksmith"
+  | "cooper"
+  | "tanner"
+  | "ropewalker"
+  | "shipwright"
+  | "carpenter"
+  | "miller"
+  | "brewer"
+  | "distiller"
+  | "fisherman"
+  | "whaler"
+  | "surveyor"
+  | "schoolmaster"
+  | "midwife"
+  | "apothecary"
+  | "shopkeeper"
+  | "interpreter"
+  | "guide"
+  | "counsellor"
+  | "watch"
+  | "militia"
+  | "thieftaker"
+  | "thief"
+  | "fence"
+  | "smuggler"
+  | "highwayman"
+  | "counterfeiter"
+  | "pirate";
+
+export type R11BackgroundId =
+  | "blacksmith"
+  | "cooper"
+  | "tanner"
+  | "ropewalker"
+  | "shipwright"
+  | "carpenter"
+  | "miller"
+  | "brewer"
+  | "distiller"
+  | "fisherman"
+  | "whaler"
+  | "surveyor"
+  | "schoolmaster"
+  | "midwife"
+  | "apothecary"
+  | "shopkeeper"
+  | "tapster"
+  | "watchman"
+  | "militiaman"
+  | "thieftaker"
+  | "pickpocket"
+  | "smuggler"
+  | "footpad"
+  | "coiner"
+  | "pirate"
+  | "guide"
+  | "interpreter";
+
+/** How hard you go at your work, day in, day out. */
+export type Effort = "shirk" | "steady" | "hard" | "overtime";
+
+/** Your work running itself while you're at your post. */
+export interface WorkState {
+  effort: Effort;
+  /** The day the last matter at work came up. */
+  matter?: number;
+  /** Shirking: days you got away with it this month, and the last day you were caught. */
+  caught?: number;
+  /** A task taken on: its key, the day it's due, and what it pays. */
+  task?: { key: string; due: number; pay: number; skill: Skill } | null;
+}
+
+/** Someone the law wants: a rogue with a price on their head. */
+export interface Wanted {
+  c: number;
+  /** Province last seen in. */
+  p: number;
+  crime: string;
+  bounty: number;
+  since: number;
+}
+
+/** A conviction on the record. */
+export interface Conviction {
+  day: number;
+  crime: string;
+  sentence: string;
+  p: number;
+}
+
+/** Your name with the law and the underworld. */
+export interface CrimeState {
+  /** How well the underworld knows you, 0 to 100. */
+  notoriety: number;
+  /** How hard each nation's law is looking for you (by nation index), 0 to 100. */
+  heat: Record<number, number>;
+  /** Provinces whose den you know. */
+  dens: number[];
+  record: Conviction[];
+  /** In the gaol: where, until when, why, and whether the trial is still to come. */
+  jail: {
+    p: number;
+    until: number;
+    charge: string;
+    grade: number;
+    trial: boolean;
+    nation: number;
+  } | null;
+  /** Burned on the thumb: the mark of a felon spared. */
+  branded?: boolean;
+  /** Bound and shipped away: until when. */
+  transported?: number;
+  /** For a lawman: rogues taken up, and bribes taken. */
+  arrests?: number;
+  bribes?: number;
+}
+
+export type FollowerKind =
+  | "clerk"
+  | "hand"
+  | "sword"
+  | "rogue"
+  | "mate"
+  | "guide"
+  | "officer";
+
+/** What one of your people is doing while not at your side. */
+export interface FollowerTask {
+  kind: "trade" | "job" | "boat" | "wait";
+  /** Where they are, and the day they're back (or the job's done). */
+  p: number;
+  back: number;
+  /** Trading: the money they took; a band's job: what it is; a boat: its id. */
+  stake?: number;
+  what?: string;
+  boat?: number;
+  /** Go again when they're back. */
+  repeat?: boolean;
+}
+
+/** Someone in your service: a real character, with wages, loyalty and work of their own. */
+export interface Follower {
+  id: number;
+  c: number;
+  kind: FollowerKind;
+  rank: number;
+  /** Coins a month, or (rogues) a share of the take. */
+  wage: number;
+  share: number;
+  /** 0 to 100: below 20 they may leave, or worse. */
+  loyalty: number;
+  joined: number;
+  task: FollowerTask | null;
+  /** Months unpaid. */
+  owed?: number;
+  /** What they've done for you (trips, jobs, fights). */
+  deeds?: number;
+}
+
+/** A company of your own under arms: raised, paid and led by you. */
+export interface Company {
+  name: string;
+  kind: "militia" | "rangers" | "regulars" | "warriors";
+  men: number;
+  /** 0 to 1: how well drilled. */
+  drill: number;
+  /** 0 to 1. */
+  morale: number;
+  raised: number;
+  /** Taken the field: the army it marches as, or -1. */
+  army: number;
+  /** Months unpaid. */
+  owed?: number;
+  /** In the field in wartime, paid by the colony rather than you. */
+  inPay?: boolean;
+}
+
+export type ContractKind =
+  | "escort"
+  | "outlaws"
+  | "guard"
+  | "raid"
+  | "explore"
+  | "find"
+  | "bounty";
+
+/** Work for a sword (or a company) for hire. */
+export interface Contract {
+  id: number;
+  kind: ContractKind;
+  /** Who offers it. */
+  giver: number;
+  /** Where it was offered, and where it's done. */
+  from: number;
+  target: number;
+  pay: number;
+  /** Done by this day, or forfeit. */
+  due: number;
+  /** Strength of the opposition (0 for none). */
+  foe: number;
+  title: string;
+  text: string;
+  status: "offered" | "taken" | "done" | "failed";
+  /** Guard: days still to stand; the person to escort or find. */
+  stay?: number;
+  c?: number;
+  /** Offered until this day. */
+  until: number;
+}
+
+export type BoatKind =
+  | "canoe"
+  | "shallop"
+  | "sloop"
+  | "schooner"
+  | "brig"
+  | "ship";
+
+export type BoatUse =
+  | "idle"
+  | "fishing"
+  | "whaling"
+  | "trading"
+  | "smuggling"
+  | "privateering";
+
+/** A boat of your own: it stays in the port where you left it. */
+export interface Boat {
+  id: number;
+  kind: BoatKind;
+  name: string;
+  /** The port (or shore) where it lies. */
+  prov: number;
+  /** 0 (a wreck) to 100. */
+  condition: number;
+  /** Hands aboard (paid by you), and how they feel, 0 to 100. */
+  crew: number;
+  morale: number;
+  use: BoatUse;
+  bought: number;
+  /** Months the crew's gone unpaid. */
+  owed?: number;
+  /** A quirk of a second-hand boat ("leaks", "quick"). */
+  quirk?: string;
+  /** Away on its own work with a skipper (a follower id), back on this day. */
+  away?: { back: number; skipper: number; p: number } | null;
+}
