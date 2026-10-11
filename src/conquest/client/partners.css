@@ -702,6 +702,18 @@
   .cq-firm-name {
     font-size: 1.25rem;
   }
+  /* Small tiles: the firm's sign tucked into the corner, the name left alone. */
+  .cq-area-firm {
+    left: auto;
+    right: 0.22rem;
+    bottom: 0.22rem;
+    max-width: 56%;
+    font-size: 0.58rem;
+    padding: 0 0.2rem;
+  }
+  .cq-area-tile:has(.cq-area-firm) .cq-area-name {
+    margin-bottom: 0;
+  }
 }
 
 /* The articles drawn up: the clauses, and beside them what they'd say. */
