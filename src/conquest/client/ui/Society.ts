@@ -306,10 +306,7 @@ export function lettersPage(ui: GameUi): TemplateResult {
     <div class="cq-seg cq-post-tabs" role="tablist">
       ${(
         [
-          [
-            "in",
-            `Received${waiting.length ? ` (${waiting.length} to answer)` : ""}`,
-          ],
+          ["in", "Received"],
           ["out", "Sent"],
           ["road", "On the road"],
         ] as const
@@ -324,7 +321,13 @@ export function lettersPage(ui: GameUi): TemplateResult {
               ui.redraw();
             }}
           >
-            ${label}<span class="cq-muted small"> ${counts[k]}</span>
+            ${label}<span class="cq-muted small"
+              >${k === "in" && waiting.length
+                ? waiting.length === counts.in
+                  ? `${waiting.length} to answer`
+                  : `${counts.in} · ${waiting.length} to answer`
+                : counts[k]}</span
+            >
           </button>`,
       )}
     </div>

@@ -21,6 +21,10 @@
   flex: 1;
   text-align: center;
 }
+.cq-post-tabs > button.on .cq-muted {
+  color: inherit;
+  opacity: 0.85;
+}
 .cq-post-list {
   display: flex;
   flex-direction: column;
@@ -101,7 +105,8 @@
   font-style: italic;
 }
 .cq-post-answer {
-  margin-top: 0.55rem;
+  margin: 0.55rem 0 0;
+  animation: none;
 }
 
 /* ---------------------------------------------------------------- the writing desk */
@@ -742,6 +747,10 @@
     height: 34px;
   }
   .cq-banner-end .cq-letters:disabled {
+    display: none;
+  }
+  /* Room for one: events waiting come first; the letters show after. */
+  .cq-banner-end .cq-letters.has:not(.cq-post-btn) ~ .cq-post-btn {
     display: none;
   }
 }

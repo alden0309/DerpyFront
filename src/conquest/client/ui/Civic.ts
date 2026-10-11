@@ -238,7 +238,9 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
                 "small",
               )}
         </div>
-        ${!elig.ok ? html`<p class="cq-muted small">${elig.why}</p>` : nothing}`;
+        ${!elig.ok && !(here && v && !v.check.ok)
+          ? html`<p class="cq-muted small">${elig.why}</p>`
+          : nothing}`;
     }
   }
   return html`<li class="cq-office ${mine ? "mine" : ""}">
@@ -581,7 +583,18 @@ let gov: {
   capital: number;
   offices: Partial<Record<Seat, number>>;
   free: boolean;
+  /** The adjective was typed in, so the name no longer suggests one. */
+  adjTyped?: boolean;
 } | null = null;
+
+/** "the Commonwealth of Virginia" -> "Virginian"; "" when there's no good guess. */
+function adjectiveFor(name: string): string {
+  const w = name.trim().split(/\s+/).pop() ?? "";
+  if (!/^[A-Z][a-z]{2,}$/.test(w)) return "";
+  if (w.endsWith("ida")) return `${w.slice(0, -1)}ian`;
+  if (w.endsWith("a")) return `${w}n`;
+  return "";
+}
 
 const CHARGE_LIST: Charge[] = [
   "none",
@@ -696,8 +709,14 @@ export function constituteModal(ui: GameUi): TemplateResult {
             type="text"
             maxlength="40"
             .value=${d.name}
-            @input=${(e: Event) =>
-              (d.name = (e.target as HTMLInputElement).value)}
+            @input=${(e: Event) => {
+              d.name = (e.target as HTMLInputElement).value;
+              const adj = d.adjTyped ? "" : adjectiveFor(d.name);
+              if (adj && adj !== d.adjective) {
+                d.adjective = adj;
+                ui.redraw();
+              }
+            }}
             @change=${() => ui.redraw()}
           />
         </label>
@@ -707,8 +726,10 @@ export function constituteModal(ui: GameUi): TemplateResult {
             type="text"
             maxlength="20"
             .value=${d.adjective}
-            @input=${(e: Event) =>
-              (d.adjective = (e.target as HTMLInputElement).value)}
+            @input=${(e: Event) => {
+              d.adjective = (e.target as HTMLInputElement).value;
+              d.adjTyped = true;
+            }}
             @change=${() => ui.redraw()}
           />
         </label>
