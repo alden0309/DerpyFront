@@ -14,8 +14,15 @@
 // you can see them.
 
 import { dateOf } from "../engine/Calendar";
-import { isWinter, type World } from "../engine/Map";
+import { isFeverSeason, isWinter, type World } from "../engine/Map";
 import { armyMen, countRegs, people, settlers } from "../engine/Queries";
+import {
+  iceBound,
+  isFloodSeason,
+  isHarvest,
+  isMudSeason,
+  riversFrozen,
+} from "../engine/Seasons";
 import type {
   Army,
   Character,
@@ -26,6 +33,20 @@ import type {
   Terrain,
   Travel,
 } from "../engine/Types";
+import { type HarbourKind, harbourMark } from "./HarbourArt";
+import {
+  alongWay,
+  decodeArc,
+  decodeHalf,
+  latOfY,
+  type Leg,
+  makeWay,
+  restOfWay,
+  SeaChart,
+  type SeaData,
+  walkWay,
+  type Way,
+} from "./Harbours";
 import {
   anchor,
   coffeeRing,
@@ -44,6 +65,7 @@ import {
   unknownMark,
   whiteFlag,
 } from "./MapArt";
+import { drawStorm, stormsOn } from "./SeasonArt";
 import {
   drawSprite,
   loadSprites,
@@ -83,6 +105,8 @@ export interface Geo {
   /** Land beyond the board (South America), half-cell, delta-encoded. */
   backdrop?: number[][];
   labels?: ChartLabel[];
+  /** MAP (r12): the harbours and sea lanes (americas-sea.json). */
+  sea?: SeaData;
 }
 
 export const TERRAIN_TINT: Record<Terrain, string> = {
@@ -105,16 +129,34 @@ const FOG_FILL = "#604e39";
 const CLOSED_FILL = "#3e352b";
 
 /**
- * Wave 2 (r11): what the season puts on the chart in a month: snow (all the
- * north, or only the far north), the southern winter, autumn woods, or
- * nothing. Months that look the same share a key.
+ * What the season puts on the chart in a month: snow (all the north, or
+ * only the far north), the southern winter, the autumn woods (wave 2,
+ * r11); MAP (r12): ice on the shores, lakes and rivers, mud and floods in
+ * the thaw, the spring's green, fever haze, the harvest's gold. Months
+ * that look the same share a key, so the chart is redrawn only when the
+ * look changes (nine times a year).
  */
 export function seasonLook(month: number): string {
+  const coast = (lat: number, lon = -70) => ({ lat, lon, coastal: true });
+  const inland = (lat: number) => ({ lat, lon: -80, coastal: false });
   return [
     isWinter(40, month) ? "w" : "",
     isWinter(50, month) ? "n" : "",
     isWinter(-40, month) ? "s" : "",
     month === 8 || month === 9 ? "a" : "",
+    iceBound(coast(56), month) ? "I" : "",
+    iceBound(coast(51), month) ? "J" : "",
+    iceBound(coast(47), month) ? "K" : "",
+    iceBound(inland(47), month) ? "L" : "",
+    iceBound(inland(43), month) ? "M" : "",
+    riversFrozen(47, month) ? "R" : "",
+    riversFrozen(43, month) ? "r" : "",
+    isMudSeason(47, month) ? "D" : "",
+    isMudSeason(40, month) ? "d" : "",
+    isFloodSeason(45, month) ? "F" : "",
+    isFloodSeason(38, month) ? "f" : "",
+    month === 4 ? "g" : "",
+    month >= 5 && month <= 9 ? "v" : "",
   ].join("");
 }
 
@@ -131,52 +173,24 @@ function mix(hex: string, amount: number): string {
   return `rgb(${m[0]},${m[1]},${m[2]})`;
 }
 
-interface DecodedArc {
-  left: number;
-  right: number;
-  pts: Float32Array;
-}
-
-/** One pass of Chaikin smoothing, keeping the ends where they are. */
-function smooth(pts: number[]): number[] {
-  const n = pts.length / 2;
-  if (n < 3) return pts;
-  const out = [pts[0], pts[1]];
-  for (let i = 0; i < n - 1; i++) {
-    const x0 = pts[i * 2];
-    const y0 = pts[i * 2 + 1];
-    const x1 = pts[i * 2 + 2];
-    const y1 = pts[i * 2 + 3];
-    out.push(
-      0.75 * x0 + 0.25 * x1,
-      0.75 * y0 + 0.25 * y1,
-      0.25 * x0 + 0.75 * x1,
-      0.25 * y0 + 0.75 * y1,
-    );
-  }
-  out.push(pts[pts.length - 2], pts[pts.length - 1]);
-  return out;
-}
-
-function decodeArc(raw: number[]): DecodedArc {
-  const pts: number[] = [];
-  let x = 0;
-  let y = 0;
-  for (let i = 2; i < raw.length; i += 2) {
-    x += raw[i];
-    y += raw[i + 1];
-    pts.push(x, y);
-  }
-  return { left: raw[0], right: raw[1], pts: new Float32Array(smooth(pts)) };
-}
+type DecodedArc = ReturnType<typeof decodeArc>;
 
 /** The map's shapes, fetched once and shared by everything that draws it. */
 let geoPromise: Promise<Geo> | null = null;
 export function loadGeo(): Promise<Geo> {
-  geoPromise ??= import("../data/americas-geo.json?url").then(async (m) => {
-    const res = await fetch(m.default);
-    return (await res.json()) as Geo;
-  });
+  geoPromise ??= Promise.all([
+    import("../data/americas-geo.json?url").then(async (m) => {
+      const res = await fetch(m.default);
+      return (await res.json()) as Geo;
+    }),
+    // MAP (r12): the harbours and sea lanes; the map still draws without them.
+    import("../data/americas-sea.json?url")
+      .then(async (m) => {
+        const res = await fetch(m.default);
+        return res.ok ? ((await res.json()) as SeaData) : undefined;
+      })
+      .catch(() => undefined),
+  ]).then(([geo, sea]) => ({ ...geo, sea }));
   return geoPromise;
 }
 
@@ -203,19 +217,6 @@ export function provincePaths(geo: Geo): Path2D[] {
     }
     return path;
   });
-}
-
-/** Delta-encoded half-cell points to map units. */
-function decodeHalf(raw: number[]): [number, number][] {
-  const out: [number, number][] = [];
-  let x = 0;
-  let y = 0;
-  for (let i = 0; i < raw.length; i += 2) {
-    x += raw[i];
-    y += raw[i + 1];
-    out.push([x / 2, y / 2]);
-  }
-  return out;
 }
 
 export interface View {
@@ -418,6 +419,14 @@ export class MapView {
   private lastBaseAt = -1e9;
   private viewChangedAt = 0;
 
+  /** MAP (r12): each province's own shore (for ice), and each river with its latitude. */
+  private provCoast: Path2D[] = [];
+  private riverLines: { path: Path2D; lat: number }[] = [];
+  /** MAP (r12): the harbours and the lanes between them (null without the data). */
+  private sea: SeaChart | null = null;
+  /** MAP (r12): each hop's way, walked and sailed, worked out once. */
+  private ways = new Map<string, Way>();
+
   // Sailing routes, by port.
   private water: Uint8Array | null = null;
   private gw = 0;
@@ -438,6 +447,12 @@ export class MapView {
     this.chartCanvas.setAttribute("aria-hidden", "true");
     this.cctx = this.chartCanvas.getContext("2d", { alpha: false })!;
     this.buildPaths();
+    if (this.geo.sea)
+      this.sea = new SeaChart(
+        this.geo.sea,
+        this.map.provinces,
+        this.geo.rivers.map((r) => decodeHalf(r)),
+      );
     this.attachInput();
     loadSprites(() => this.markDirty());
     // Names are drawn in the period types; redraw once they've loaded.
@@ -647,6 +662,20 @@ export class MapView {
       pts.forEach(([x, y], i) =>
         i === 0 ? this.rivers.moveTo(x, y) : this.rivers.lineTo(x, y),
       );
+      // MAP (r12): each river on its own, to freeze and flood with its season.
+      const path = new Path2D();
+      pts.forEach(([x, y], i) =>
+        i === 0 ? path.moveTo(x, y) : path.lineTo(x, y),
+      );
+      const my = pts.reduce((n, [, y]) => n + y, 0) / Math.max(1, pts.length);
+      this.riverLines.push({ path, lat: latOfY(my, this.geo.width) });
+    }
+    // MAP (r12): each province's own shore.
+    this.provCoast = this.map.provinces.map(() => new Path2D());
+    for (const a of this.arcs) {
+      if (a.left >= 0 && a.right >= 0) continue;
+      const p = a.left >= 0 ? a.left : a.right;
+      if (p >= 0 && this.provCoast[p]) this.addArc(this.provCoast[p], a);
     }
     for (const r of this.geo.backdrop ?? []) {
       const pts = decodeHalf(r);
@@ -934,31 +963,57 @@ export class MapView {
   }
 
   /**
-   * The way between two provinces for one hop: overland through the middle
-   * of their shared border, or by sea round the coast.
+   * MAP (r12): the way between two provinces for one hop. Overland, through
+   * the middle of their shared border. By sea, or across water to a shore
+   * with no border between (Long Island Sound, the Chesapeake, the islands):
+   * walk down to the quay, sail from harbour to harbour, walk up to the
+   * town. `paddle`: someone who'd take a canoe goes along a river that runs
+   * from one into the other, or along the shore of a lake or the coast.
    */
-  private hopPath(from: number, to: number, sea: boolean): [number, number][] {
-    const key = `${from}>${to}${sea ? "s" : ""}`;
-    const cached = this.hops.get(key);
-    if (cached) return cached;
+  private hopWay(from: number, to: number, sea: boolean, paddle = false): Way {
+    const key = `${from}>${to}${sea ? "s" : ""}${paddle ? "p" : ""}`;
+    const had = this.ways.get(key);
+    if (had) return had;
     const a = this.map.provinces[from];
     const b = this.map.provinces[to];
-    let path: [number, number][] = [
-      [a.x, a.y],
-      [b.x, b.y],
-    ];
-    if (sea) path = this.waterRoute(a.x, a.y, b.x, b.y) ?? path;
-    else {
-      const mid = this.borderMid.get(pairOf(from, to));
-      if (mid)
-        path = [
-          [a.x, a.y],
-          [mid[0], mid[1]],
-          [b.x, b.y],
-        ];
+    const mid = this.borderMid.get(pairOf(from, to));
+    let way: Way | null = null;
+    if (sea || !mid) {
+      way = this.sea?.seaWay(from, to) ?? null;
+      // Without the harbours (their data didn't load): the old way, round
+      // the coast from town to town.
+      if (!way && sea && !this.sea) {
+        const old = this.waterRoute(a.x, a.y, b.x, b.y);
+        if (old) way = makeWay([{ pts: old, leg: "sail" }]);
+      }
+    } else if (paddle && this.sea) {
+      way = this.sea.riverWay(from, to);
+      if (!way) {
+        const shore = this.sea.seaWay(from, to);
+        // Along the shore only where the water doesn't take them far round.
+        const direct = Math.hypot(b.x - a.x, b.y - a.y);
+        if (shore && wayLength(shore) <= direct * 1.8 + 12) way = shore;
+      }
     }
-    this.hops.set(key, path);
-    return path;
+    way ??= walkWay(
+      mid
+        ? [
+            [a.x, a.y],
+            [mid[0], mid[1]],
+            [b.x, b.y],
+          ]
+        : [
+            [a.x, a.y],
+            [b.x, b.y],
+          ],
+    );
+    this.ways.set(key, way);
+    return way;
+  }
+
+  /** The points of a hop's way (for the dotted roads). */
+  private hopPath(from: number, to: number, sea: boolean): [number, number][] {
+    return this.hopWay(from, to, sea).pts;
   }
 
   /** A port's route out to Europe (east, or round the Horn), in map units. */
@@ -1618,29 +1673,29 @@ export class MapView {
     const month = dateOf(Math.floor(o.dayNow)).month;
     this.seasonMonth = month;
     this.seasonSeen = seasonLook(month);
-    if (o.mode === "nation" || o.mode === "terrain") {
-      for (let p = 0; p < this.provPaths.length; p++) {
-        if (!knownLand(p)) continue;
-        const def = this.map.provinces[p];
-        if (isWinter(def.lat, month)) {
-          c.fillStyle = "rgba(246,249,252,0.42)";
-          c.fill(this.provPaths[p], "evenodd");
-        } else if (
-          (month === 8 || month === 9) &&
-          def.lat > 34 &&
-          (def.terrain === "forest" || def.terrain === "hills")
-        ) {
-          c.fillStyle = "rgba(196,104,40,0.13)";
-          c.fill(this.provPaths[p], "evenodd");
-        }
-      }
-    }
+    const seasonal = o.mode === "nation" || o.mode === "terrain";
+    if (seasonal) this.paintSeason(c, s, v, month, knownLand);
     c.strokeStyle = "rgba(70, 55, 35, 0.22)";
     c.lineWidth = Math.max(0.5, 0.8 / v.scale);
     c.stroke(this.borders);
     c.strokeStyle = "rgba(82, 130, 160, 0.75)";
     c.lineWidth = Math.min(1.2, 1.1 / v.scale);
-    c.stroke(this.rivers);
+    if (!seasonal) c.stroke(this.rivers);
+    else
+      for (const r of this.riverLines) {
+        // MAP (r12): frozen white in the northern winter, brown and swollen in the thaw.
+        if (riversFrozen(r.lat, month)) {
+          c.strokeStyle = "rgba(232,242,248,0.95)";
+          c.lineWidth = Math.min(1.8, 1.6 / v.scale);
+        } else if (isFloodSeason(r.lat, month)) {
+          c.strokeStyle = "rgba(104,112,100,0.85)";
+          c.lineWidth = Math.min(2.4, 2.2 / v.scale);
+        } else {
+          c.strokeStyle = "rgba(82, 130, 160, 0.75)";
+          c.lineWidth = Math.min(1.2, 1.1 / v.scale);
+        }
+        c.stroke(r.path);
+      }
     if (o.mode === "nation") {
       c.strokeStyle = "rgba(45, 32, 20, 0.8)";
       c.lineWidth = 1.9 / v.scale;
@@ -1737,6 +1792,7 @@ export class MapView {
     // Towns, villages and forts, drawn as the old chart-makers did.
     const townH = Math.max(15, Math.min(46, 8 + v.scale * 10));
     const showTowns = o.mode === "nation" || o.mode === "terrain";
+    if (showTowns) this.paintHarbours(c, o, v, sx, sy, onScreen, month);
     for (let p = 0; p < s.provinces.length; p++) {
       const prov = s.provinces[p];
       const def = this.map.provinces[p];
@@ -1795,7 +1851,9 @@ export class MapView {
               0,
               bd,
             );
-          if (prov.b.port && v.scale >= 2.2) anchor(c, x + 4, y + 27);
+          // MAP (r12): the port is drawn at its harbour, on the shore.
+          if (prov.b.port && v.scale >= 2.2 && !this.sea?.harbour(p))
+            anchor(c, x + 4, y + 27);
           // A ribbon in the owner's colours under a capital.
           if (capital && !native) {
             c.fillStyle = nation.color;
@@ -1824,6 +1882,129 @@ export class MapView {
         if (v.scale >= 0.8)
           marginNote(c, x + 34, y - 30, "in open revolt!", x + 14, y - 12);
       }
+    }
+  }
+
+  /**
+   * MAP (r12): the season on the chart. Snow over a winter's country (deeper
+   * in the far north), ice along the frozen shores and lakes, mud in the
+   * thaw, the green of May, a fever haze over the hot lowlands in the
+   * sickly season, the gold of the harvest on farm country, and the turning
+   * woods of autumn.
+   */
+  private paintSeason(
+    c: CanvasRenderingContext2D,
+    s: GameState,
+    v: View,
+    month: number,
+    knownLand: (p: number) => boolean,
+  ): void {
+    for (let p = 0; p < this.provPaths.length; p++) {
+      if (!knownLand(p)) continue;
+      const def = this.map.provinces[p];
+      const wash = (color: string) => {
+        c.fillStyle = color;
+        c.fill(this.provPaths[p], "evenodd");
+      };
+      if (isWinter(def.lat, month))
+        wash(
+          def.lat >= 50 ? "rgba(246,249,252,0.56)" : "rgba(246,249,252,0.42)",
+        );
+      else if (isMudSeason(def.lat, month)) wash("rgba(112,82,44,0.1)");
+      else if (month === 4 && def.lat > 30 && def.terrain !== "desert")
+        wash("rgba(104,160,68,0.08)");
+      else if (
+        (month === 8 || month === 9) &&
+        def.lat > 34 &&
+        (def.terrain === "forest" || def.terrain === "hills")
+      )
+        wash("rgba(196,104,40,0.13)");
+      if (
+        isHarvest(def.lat, month) &&
+        def.lat >= 30 &&
+        (this.world.raw[p] === "grain" ||
+          this.world.raw[p] === "tobacco" ||
+          (s.provinces[p].b.farm ?? 0) > 0)
+      )
+        wash("rgba(226,178,64,0.14)");
+      if (
+        month >= 5 &&
+        month <= 8 &&
+        isFeverSeason(def.lat, month) &&
+        (this.world.tropical[p] ||
+          (def.lat < 33 &&
+            (def.terrain === "marsh" || def.terrain === "jungle")))
+      )
+        wash("rgba(176,184,70,0.08)");
+    }
+    // Ice along the frozen shores, the lakes and the St. Lawrence.
+    c.save();
+    c.lineJoin = "round";
+    c.lineCap = "round";
+    c.strokeStyle = "rgba(234,243,249,0.82)";
+    c.lineWidth = Math.max(2.2, 5 / v.scale);
+    for (let p = 0; p < this.provCoast.length; p++) {
+      if (!knownLand(p)) continue;
+      if (iceBound(this.map.provinces[p], month)) c.stroke(this.provCoast[p]);
+    }
+    c.restore();
+  }
+
+  /**
+   * MAP (r12): the harbours on the chart, where the boats tie up: a pier
+   * run out from the shore, a stone quay with piers for a real port (and a
+   * crane for a great one), canoes drawn up below a native village, an
+   * anchor off a shore nobody holds. Ice locks the frozen ones.
+   */
+  private paintHarbours(
+    c: CanvasRenderingContext2D,
+    o: Overlay,
+    v: View,
+    sx: (x: number) => number,
+    sy: (y: number) => number,
+    onScreen: (x: number, y: number, pad?: number) => boolean,
+    month: number,
+  ): void {
+    if (!this.sea || v.scale < 1.25) return;
+    const s = o.state;
+    const fog = o.fog ?? null;
+    const size = Math.max(6, Math.min(16, 3 + v.scale * 2.6));
+    for (const hb of this.sea.harbours) {
+      const p = hb.p;
+      const def = this.map.provinces[p];
+      if (def.closed || (fog && !fog.known.has(p))) continue;
+      // A province's own harbour, and the lake landings of inland country.
+      if (def.coastal && this.sea.harbour(p) !== hb) continue;
+      const hx = sx(hb.x);
+      const hy = sy(hb.y);
+      if (!onScreen(hx, hy, 40)) continue;
+      const prov = s.provinces[p];
+      const owner = fog ? (fog.owner(p) ?? -1) : prov.owner;
+      let kind: HarbourKind;
+      if (owner < 0) {
+        if (v.scale < 2.2 || !def.coastal) continue;
+        kind = "anchorage";
+      } else if (s.nations[owner]?.kind === "native") kind = "landing";
+      else if (!def.coastal) kind = "pier";
+      else {
+        const port = prov.b.port ?? 0;
+        kind =
+          port >= 2 || (port >= 1 && s.nations[owner].capital === p)
+            ? "port"
+            : port >= 1 || settlers(prov) >= 2500
+              ? "quay"
+              : "pier";
+      }
+      harbourMark(
+        c,
+        sx(hb.lx),
+        sy(hb.ly),
+        hx,
+        hy,
+        kind,
+        size,
+        iceBound(def, month),
+      );
     }
   }
 
@@ -2146,14 +2327,15 @@ export class MapView {
   // ---------------------------------------------------------------- every frame
 
   /** Where an army is drawn right now, in map units, and which way it faces. */
-  private armySpot(a: Army, dayNow: number): [number, number, number] {
+  private armySpot(a: Army, dayNow: number): [number, number, number, Leg] {
     const from = this.map.provinces[a.prov];
-    if (a.depart < 0 || a.path.length === 0) return [from.x, from.y, 0];
+    if (a.depart < 0 || a.path.length === 0) return [from.x, from.y, 0, "walk"];
     const t = Math.max(
       0,
       Math.min(1, (dayNow - a.depart) / Math.max(1, a.arrive - a.depart)),
     );
-    return this.along(this.hopPath(a.prov, a.path[0], a.sea), t);
+    // MAP (r12): marching down to the boats, at sea, marching up from them.
+    return alongWay(this.hopWay(a.prov, a.path[0], a.sea), t);
   }
 
   /** A point along a route at fraction t, and the heading there. */
@@ -2315,6 +2497,7 @@ export class MapView {
     // Ships on their way to Europe and back.
     const figure = Math.max(13, Math.min(30, 9 + v.scale * 5));
     this.drawAmbience(o, now, sx, sy, onScreen);
+    this.drawStorms(o, now, sx, sy, onScreen); // MAP (r12)
     for (const n of s.nations) {
       if (n.kind !== "power" || !n.alive) continue;
       for (const cv of n.convoys) {
@@ -2325,7 +2508,10 @@ export class MapView {
         // A quarter of the voyage is on the map: sailing out, or coming in.
         const onMap = cv.out ? t / 0.25 : (t - 0.75) / 0.25;
         if (onMap < 0 || onMap > 1) continue;
-        const route = this.routeFrom(cv.port);
+        // MAP (r12): out from the port's harbour, never over the land.
+        const route = this.sea
+          ? this.sea.toEurope(cv.port)
+          : this.routeFrom(cv.port);
         if (route.length < 2) continue;
         const [mx, my, ang] = this.along(route, cv.out ? onMap : 1 - onMap);
         const x = sx(mx);
@@ -2360,7 +2546,7 @@ export class MapView {
         ? s.armies.find((a) => a.id === o.selectedArmy)
         : undefined;
     const drawPath = (
-      from: [number, number, number],
+      from: readonly [number, number, ...unknown[]],
       start: number,
       path: number[],
       color: string,
@@ -2458,7 +2644,7 @@ export class MapView {
         );
       const important = mine || hostile || a.id === o.selectedArmy;
       if (!important && v.scale < 0.9) continue;
-      const [mx, my, heading] = this.smoothSpot(a, day);
+      const [mx, my, heading, leg] = this.smoothSpot(a, day);
       let x = sx(mx);
       const y = sy(my);
       if (!onScreen(x, y, 40)) continue;
@@ -2481,7 +2667,7 @@ export class MapView {
         ctx.ellipse(x, y + 1, h * 0.55, h * 0.2, 0, 0, Math.PI * 2);
         ctx.stroke();
       }
-      if (a.sea) {
+      if (moving && leg === "sail") {
         if (!this.drawShip(ctx, x, y, h * 1.3, heading, nation.color, now))
           ship(ctx, x, y, h * 0.8, dir > 0 ? 0 : Math.PI, nation.color, now);
       } else if (moving) {
@@ -2828,14 +3014,34 @@ export class MapView {
         0,
         Math.min(1, (day - t.depart) / Math.max(0.5, t.arrive - t.depart)),
       );
-      const way = this.hopPath(t.prov, t.path[0], t.sea[0] ?? false);
-      const [mx, my, heading] = this.along(way, frac);
-      const x = sx(mx);
-      const y = sy(my);
-      if (!onScreen(x, y, 40)) continue;
       const c = s.chars[t.c];
       const n = c ? s.nations[c.nation] : undefined;
       const native = n?.kind === "native" || c?.religion === "native";
+      // MAP (r12): by sea they walk down to the quay and sail from harbour
+      // to harbour; canoe folk (the nations, the fur traders, the
+      // merchants who came by water) paddle the rivers and shores between
+      // neighbours; everyone else goes on foot, horse or wagon.
+      const bySea = t.sea[0] ?? false;
+      const paddler =
+        native ||
+        t.kind === "trader" ||
+        t.mode === "ship" ||
+        t.mode === "canoe";
+      // Not on the rivers and lakes while they're frozen.
+      const iced = riversFrozen(
+        this.map.provinces[t.path[0]].lat,
+        dateOf(Math.floor(day)).month,
+      );
+      const way = this.hopWay(
+        t.prov,
+        t.path[0],
+        bySea,
+        paddler && !bySea && !iced,
+      );
+      const [mx, my, heading, leg] = alongWay(way, frac);
+      const x = sx(mx);
+      const y = sy(my);
+      if (!onScreen(x, y, 40)) continue;
       const dir = Math.cos(heading) < 0 ? -1 : 1;
       const phase = this.stride(`t${t.id}`, true, o.running, now, o.speed ?? 1);
       const col = this.colorsOf(c, native);
@@ -2846,7 +3052,17 @@ export class MapView {
         ctx.shadowColor = "rgba(252,244,222,0.85)";
         ctx.shadowBlur = 1.5;
       }
-      switch (t.mode) {
+      // Afloat: their ship, or a canoe on the rivers and lakes; ashore, on foot
+      // (a sailor or a canoe man ashore walks with his pack).
+      const mode =
+        leg === "sail"
+          ? bySea && !native
+            ? "ship"
+            : "canoe"
+          : t.mode === "ship" || t.mode === "canoe"
+            ? "foot"
+            : t.mode;
+      switch (mode) {
         case "ship":
           drawSloop(
             ctx,
@@ -2878,7 +3094,10 @@ export class MapView {
             female: c?.female,
             native,
             carry:
-              t.kind === "pedlar" || t.kind === "family"
+              t.kind === "pedlar" ||
+              t.kind === "family" ||
+              t.mode === "ship" ||
+              t.mode === "canoe"
                 ? "pack"
                 : t.kind === "messenger"
                   ? null
@@ -2904,6 +3123,40 @@ export class MapView {
     }
   }
 
+  /**
+   * MAP (r12): the hurricanes of the season, wheeling across the islands
+   * and the Gulf (only where you'd see the sky darken: near country in
+   * sight).
+   */
+  private drawStorms(
+    o: Overlay,
+    now: number,
+    sx: (x: number) => number,
+    sy: (y: number) => number,
+    onScreen: (x: number, y: number, pad?: number) => boolean,
+  ): void {
+    if (o.mode !== "nation" && o.mode !== "terrain") return;
+    const storms = stormsOn(o.dayNow, this.geo.width);
+    if (!storms.length) return;
+    const fog = o.fog;
+    for (const st of storms) {
+      const x = sx(st.x);
+      const y = sy(st.y);
+      const r = st.r * this.view.scale;
+      if (!onScreen(x, y, r + 20)) continue;
+      if (fog) {
+        const near = this.map.provinces.some(
+          (d, p) =>
+            fog.seen.has(p) && Math.hypot(d.x - st.x, d.y - st.y) < st.r + 140,
+        );
+        if (!near) continue;
+      }
+      this.movers++;
+      const fade = Math.min(1, st.age * 6, (1 - st.age) * 6);
+      drawStorm(this.ctx, x, y, r, now / 900, 0.85 * fade);
+    }
+  }
+
   /** Chimney smoke over the towns, cookfires in the villages, the sea breaking on the coast. */
   private drawAmbience(
     o: Overlay,
@@ -2918,6 +3171,7 @@ export class MapView {
     if (o.mode !== "nation" && o.mode !== "terrain") return;
     const t = now / 1000;
     const fog = o.fog;
+    const month = dateOf(Math.floor(o.dayNow)).month;
     const known = (p: number) =>
       !this.map.provinces[p].closed && (!fog || fog.known.has(p));
     // Waves along the shore (not off land you don't know).
@@ -2971,24 +3225,39 @@ export class MapView {
           this.burning(x + h * 0.35, y - h * 0.05, h * 0.7, t, p + 3, wind);
       }
     }
-    // Boats off the coastal towns: fishing smacks and sloops, canoes off the villages.
+    // Boats off the coastal towns: fishing smacks and sloops, canoes off the
+    // villages. MAP (r12): they work between the moorings and the anchorage
+    // nearby, always on the water.
     if (v.scale >= 1.2) {
       const h = Math.max(11, Math.min(26, 6 + v.scale * 3.4));
-      for (const [p, hx, hy] of this.harbours()) {
+      for (let p = 0; p < s.provinces.length; p++) {
+        const spot = this.harbourSpot(p);
+        if (!spot) continue;
         const prov = s.provinces[p];
         if (prov.owner < 0) continue;
         if (fog && !fog.seen.has(p)) continue;
         const nation = s.nations[prov.owner];
         const native = nation.kind === "native";
         if (!native && settlers(prov) < 300) continue;
+        // MAP (r12): nobody's out while the ice is in.
+        if (iceBound(this.map.provinces[p], month)) continue;
         const boats = native ? 1 : settlers(prov) >= 2500 ? 2 : 1;
         for (let k = 0; k < boats; k++) {
-          const a = t / (native ? 7 : 11) + p * 1.7 + k * Math.PI;
-          const r = GRID * (0.5 + k * 0.4);
-          const bx = sx(hx + Math.cos(a) * r);
-          const by = sy(hy + Math.sin(a) * r * 0.55);
+          const [hx, hy, ox, oy] = spot(k);
+          // Out to the anchorage and back, easing at each end.
+          const period = native ? 16 : 24;
+          const ph = (t / period + p * 0.37 + k * 0.5) % 1;
+          const f = 0.5 - 0.5 * Math.cos(ph * Math.PI * 2);
+          const bx = sx(hx + (ox - hx) * f);
+          const by = sy(hy + (oy - hy) * f);
           if (!onScreen(bx, by, 30)) continue;
-          const dir = -Math.sin(a) >= 0 ? 1 : -1;
+          const going = ph < 0.5 ? 1 : -1;
+          const dir =
+            Math.abs(ox - hx) < 0.2
+              ? (p + k) % 2
+                ? 1
+                : -1
+              : (ox > hx ? 1 : -1) * going;
           if (native)
             drawCanoe(ctx, bx, by, h, t * 6 + p, dir, {
               coat: "#8a5a35",
@@ -3179,6 +3448,31 @@ export class MapView {
       ctx.arc(px, py, r, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  /**
+   * MAP (r12): where a province's own boats work: from the moorings out to
+   * a nearby anchorage, as [x, y, x2, y2] for the k-th boat. Null for an
+   * inland province (or one whose water is too narrow for a boat).
+   */
+  private harbourSpot(
+    p: number,
+  ): ((k: number) => [number, number, number, number]) | null {
+    if (!this.sea) {
+      // Without the harbours' data: the old spots off each town.
+      const old = this.harbours().find(([q]) => q === p);
+      if (!old) return null;
+      return (k) => {
+        const r = GRID * (0.5 + k * 0.4);
+        return [old[1] - r, old[2], old[1] + r, old[2]];
+      };
+    }
+    const hb = this.sea.harbour(p);
+    if (!hb || !this.map.provinces[p].coastal) return null;
+    return (k) => {
+      const to = hb.berths[k % Math.max(1, hb.berths.length)];
+      return to ? [hb.x, hb.y, to[0], to[1]] : [hb.x, hb.y, hb.x, hb.y];
+    };
   }
 
   /** Open water off each coastal province's town, found once. */
@@ -3387,8 +3681,10 @@ export class MapView {
         if (!m.you && o.fog && !o.fog.seen.has(b.p)) continue;
         const k = moored.get(b.p) ?? 0;
         moored.set(b.p, k + 1);
-        const bx = sx(def.x) + 16 + k * 13;
-        const by = sy(def.y) + 10 + k * 3;
+        // MAP (r12): at the moorings off the town, on the water.
+        const spot = this.sea?.mooring(b.p, k);
+        const bx = spot ? sx(spot[0]) : sx(def.x) + 16 + k * 13;
+        const by = spot ? sy(spot[1]) : sy(def.y) + 10 + k * 3;
         if (!onScreen(bx, by, 30)) continue;
         ctx.save();
         ctx.shadowColor = "rgba(252,244,222,0.9)";
@@ -3492,9 +3788,11 @@ export class MapView {
           0,
           Math.min(1, (day - t.depart) / Math.max(0.5, t.arrive - t.depart)),
         );
-        const way = this.hopPath(m.p, t.path[0], t.sea[0] ?? false);
-        [mx, my, heading] = this.along(way, frac);
-        walker = t.sea[0] ? "sail" : "walk";
+        // MAP (r12): down to the quay, harbour to harbour, up to the town.
+        const way = this.hopWay(m.p, t.path[0], t.sea[0] ?? false);
+        let leg: Leg;
+        [mx, my, heading, leg] = alongWay(way, frac);
+        walker = leg === "sail" ? "sail" : "walk";
         this.movers++;
         if (m.you) {
           // The rest of the road, flowing on ahead.
@@ -3504,11 +3802,8 @@ export class MapView {
           ctx.lineWidth = 2.2;
           ctx.beginPath();
           ctx.moveTo(sx(mx), sy(my));
-          const rest = this.hopPath(m.p, t.path[0], t.sea[0] ?? false);
-          const after = rest.filter(
-            (_, i) => i / Math.max(1, rest.length - 1) > frac,
-          );
-          for (const [px, py] of after) ctx.lineTo(sx(px), sy(py));
+          for (const [px, py] of restOfWay(way, frac).slice(1))
+            ctx.lineTo(sx(px), sy(py));
           let at = t.path[0];
           for (let i = 1; i < t.path.length; i++) {
             for (const [px, py] of this.hopPath(
@@ -3645,7 +3940,7 @@ export class MapView {
    * where it was drawn last so it glides rather than hops when a new day's
    * news arrives. A big jump (a new route, a retreat) snaps straight there.
    */
-  private smoothSpot(a: Army, day: number): [number, number, number] {
+  private smoothSpot(a: Army, day: number): [number, number, number, Leg] {
     const want = this.armySpot(a, day);
     const was = this.armyDrawn.get(a.id);
     const t = performance.now();
@@ -3659,7 +3954,7 @@ export class MapView {
     const x = was.x + (want[0] - was.x) * k;
     const y = was.y + (want[1] - was.y) * k;
     this.armyDrawn.set(a.id, { x, y, t });
-    return [x, y, want[2]];
+    return [x, y, want[2], want[3]];
   }
 
   /** The rest of a moving army's route, its dashes flowing toward the end. */
@@ -3677,25 +3972,15 @@ export class MapView {
     let at = a.prov;
     a.path.forEach((q, i) => {
       const walk = this.map.provinces[at].nb.some(([x]) => x === q);
-      const way = this.hopPath(at, q, i === 0 ? a.sea : !walk);
+      const way = this.hopWay(at, q, i === 0 ? a.sea : !walk);
       // The first hop: only the part still ahead.
-      const from =
-        i === 0
-          ? Math.max(
-              1,
-              Math.ceil(
-                way.length *
-                  Math.max(
-                    0,
-                    Math.min(
-                      1,
-                      (day - a.depart) / Math.max(1, a.arrive - a.depart),
-                    ),
-                  ),
-              ),
-            )
-          : 1;
-      for (const p of way.slice(from)) pts.push(p);
+      if (i === 0) {
+        const t = Math.max(
+          0,
+          Math.min(1, (day - a.depart) / Math.max(1, a.arrive - a.depart)),
+        );
+        for (const p of restOfWay(way, t).slice(1)) pts.push(p);
+      } else for (const p of way.pts.slice(1)) pts.push(p);
       at = q;
     });
     if (pts.length < 2) return;
@@ -3857,18 +4142,20 @@ export class MapView {
     // Out of sight, out of mind: no word of where they are until they're home.
     const here = route[Math.min(route.length - 1, frac < 0.5 ? hop : hop + 1)];
     if (fog && here !== undefined && !fog.seen.has(here)) return;
-    const bySea = sea[hop] ?? false;
-    const way =
+    // MAP (r12): in the canoes only on the water.
+    const [mx, my, ang, leg] =
       route.length > 1
-        ? this.hopPath(route[hop], route[hop + 1], bySea)
+        ? alongWay(
+            this.hopWay(route[hop], route[hop + 1], sea[hop] ?? false),
+            frac,
+          )
         : [
-            [this.map.provinces[ms.from].x, this.map.provinces[ms.from].y] as [
-              number,
-              number,
-            ],
+            this.map.provinces[ms.from].x,
+            this.map.provinces[ms.from].y,
+            0,
+            "walk",
           ];
-    const [mx, my, ang] =
-      way.length > 1 ? this.along(way, frac) : [way[0][0], way[0][1], 0];
+    const bySea = leg === "sail";
     const x = sx(mx);
     const y = sy(my);
     const back = ms.stage === "back";
@@ -3921,6 +4208,17 @@ export function ramp(t: number): string {
     x.map((v, i) => Math.round(v + (y[i] - v) * k));
   const rgb = t < 0.5 ? mixc(a, b, t * 2) : mixc(b, c, (t - 0.5) * 2);
   return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+}
+
+/** MAP (r12): how long a way is, in map units. */
+function wayLength(w: Way): number {
+  let n = 0;
+  for (let i = 1; i < w.pts.length; i++)
+    n += Math.hypot(
+      w.pts[i][0] - w.pts[i - 1][0],
+      w.pts[i][1] - w.pts[i - 1][1],
+    );
+  return n;
 }
 
 function pairOf(a: number, b: number): string {

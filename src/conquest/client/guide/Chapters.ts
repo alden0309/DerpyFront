@@ -98,6 +98,13 @@ import {
 } from "../../engine/Tongues";
 import { EFFORT_ORDER, EFFORTS } from "../../engine/Trades";
 import { STAGE_DAYS } from "../../engine/Trials";
+// MAP (r12): seasons and achievements, for their chapters.
+import {
+  ACHIEVEMENT_COINS,
+  ACHIEVEMENT_GROUPS,
+  ACHIEVEMENTS,
+} from "../../engine/Achievements";
+import { HARVEST_BONUS } from "../../engine/Seasons";
 import type { JobKind, Nation } from "../../engine/Types";
 
 export interface Chapter {
@@ -330,6 +337,18 @@ function effortTable(): string {
 
 // ---------------------------------------------------------------- the chapters
 
+/** MAP (r12): every achievement and what it pays, from the rules. */
+function achievementsTable(): string {
+  return ACHIEVEMENT_GROUPS.map(
+    (g) =>
+      `**${g.name}**\n\n| Achievement | How | Coins |\n|---|---|---|\n${ACHIEVEMENTS.filter(
+        (a) => a.group === g.id,
+      )
+        .map((a) => `| ${a.name} | ${a.how} | ${a.coins} |`)
+        .join("\n")}`,
+  ).join("\n\n");
+}
+
 export const CHAPTERS: Chapter[] = [
   // ================================================================ getting started
   {
@@ -540,6 +559,64 @@ What happens to you comes as a letter with choices, and the odds of each. Alone,
 The host sets the speed. Anyone may pause, but only the host starts the clock again. To skip ahead, everyone living a life must agree: the first click asks, and the others click the same button to agree.
 
 > Tip: Use skip ahead for long quiet stretches (a voyage, a winter at your post). It always stops when something needs you.`,
+  },
+  // MAP (r12): the seasons.
+  {
+    id: "seasons",
+    part: "living",
+    title: "The seasons",
+    line: "Winter roads and frozen harbours, mud and floods, the harvest, fevers and hurricanes: what each season does, and where.",
+    where:
+      "The season's sign by the date in the banner (point at it, or tap it, for what it brings where you are); the map itself.",
+    body: `The year turns the same for everyone (December to February is winter, and so on), but what each season brings depends on where you are. Its sign stands beside the date: a snowflake, a shoot, the sun, a falling leaf, and in the Caribbean from August to October the whirl of the hurricane. Point at it (or tap it) for what the season brings where you are now.
+
+## Winter
+- **The northern roads** (New England, New York, New France, the lakes) are slower in the snow: a third again as long, more in the hills, and over half as long again in the far north. In the south and the islands it's the dry season: good roads and healthy months.
+- **The rivers freeze**: in the deep winter you cross them on the ice instead of waiting for a ferry (on the road, the ice may not hold).
+- **Harbours ice up**: the St. Lawrence and its gulf from December to April, Hudson's Bay and Labrador longer, the lakes through the deep winter. No ship sails in or out (the travel choices go overland instead), boats there do little work, and sailors, shipwrights and smugglers in an ice-bound port earn less. Boston, Halifax and St. John's stay open.
+- **Colds and pleurisy** go round the north: a chill on the chest may come to you (rest by the fire, send for the physician, or work through it and risk pleurisy). Living frugally makes it likelier; good living, and a robust nature, less.
+- **Fewer people on the roads**; the trappers' furs are prime (trappers and hunters earn more), the fishing boats stay in (fishermen and whalers earn less), and there's little to do in the fields.
+
+## Spring
+- **Mud season**: the thaw turns the northern roads to soup in March and April (a fifth to a third slower).
+- **The rivers in flood**: a river crossing takes twice as long, and the river may come up into the town.
+- **The hungry months** (February to April): last year's corn runs low. Corn is dearest at market in March; in the north it costs more to live (a little more after a good harvest, a quarter more after a poor one).
+
+## Summer
+- **The campaigning season**: the roads at their best, and the most people out on them.
+- **Fevers in the south**: in the Carolinas, Florida, the Gulf, the islands and New Spain, agues and worse from June to October. A fever may come to you (Jesuit's bark, bleeding, or sweating it out).
+
+## Autumn
+- **The harvest** (September and October; in the islands and the south, the cane and the tobacco from January to March). Each country's harvest comes in **good, fair or poor** (neighbours share theirs: the weather comes over whole regions), and the same years are hard in every game (the great frost of 1709).
+  - Farmers, field hands and planters (and the native growers) earn **harvest wages** on top of their pay: ${Math.round(HARVEST_BONUS.good * 100)}% more in a good year, ${Math.round(HARVEST_BONUS.fair * 100)}% in a fair one, ${Math.round(HARVEST_BONUS.poor * 100)}% in a poor one. Millers are busy grinding it through the autumn.
+  - Anyone can **Help bring in the harvest** at the fields: a stint at harvest wages (by your farming, and the year), the farmer's thanks, and sometimes an invitation to the **harvest frolic** after ([[gatherings|Gatherings]]); a frolic is merrier after a good harvest.
+  - Corn is cheap after the harvest; after a poor one it stays dear all year.
+- **Hurricane season** in the Caribbean and the Gulf (August to October): storms at sea and on the coasts, and you can see them wheel across the map.
+
+## On the road
+Besides the snow, the passes and the fords, the seasons bring their own scenes: the mud of the thaw (take to the woods, hire oxen or slog on), a frozen river to cross, frostbite in a northern winter, and a farmer by the road wanting hands at the harvest.
+
+## On the map
+Snow over a winter's country (deeper in the far north), ice along the frozen shores and lakes and white frozen rivers, brown mud in the thaw and swollen rivers, the green of May, a fever haze over the hot lowlands, gold over the farm country at harvest, the woods turning in autumn, and the hurricanes.
+
+> Tip: Travel north in summer and autumn; sail out of Quebec before December. A stint at the harvest in a good year is good money for anyone, and the farmer may ask you to the frolic.`,
+    glossary: [
+      [
+        "Mud season",
+        "The thaw, when the northern roads turn to mud.",
+        "seasons",
+      ],
+      [
+        "The hungry months",
+        "Late winter, when last year's corn runs low and bread is dear.",
+        "seasons",
+      ],
+      [
+        "Ice-bound",
+        "A harbour shut by ice: no ships until the spring.",
+        "seasons",
+      ],
+    ],
   },
   {
     id: "work",
@@ -1524,6 +1601,13 @@ Going to Europe is worth Derp Coins at the end ([[coins|Derp Coins]]).`,
 
 Click any province for its page: who holds it, its places, the people you know there, and **The road there**. Right-click (or hold) a province to set out at once.
 
+## Harbours and sea lanes
+Every coastal province has a **harbour**, drawn on its shore: a wooden **pier** at a small colony's landing, a stone **quay** with piers at a port, a quay with a crane at a great one, **canoes drawn up** below a native village, and an **anchor** off a shore nobody holds. The great ports sit where they really were (Havana on the north coast, New York on its bay, Boston, Charles Town, Quebec on the river); inland lake country has its landings too.
+
+Every boat on the map keeps to the water. A ship sails harbour to harbour along the sea lanes: whoever goes by sea walks down to the quay, sails, and on landing **walks up from the quay to the town**. So do armies at sea, the convoys for Europe (out from the harbour and away over the horizon), expeditions by canoe, your own boats at their moorings, and the boats working off each town. Crossings with no border between (the Sound, the Chesapeake, the islands) go by boat. Canoes go up and down the rivers (the Mississippi, the Ohio, the Columbia) and along the lakes and the coasts between neighbours; nobody paddles a frozen river.
+
+In winter the northern harbours freeze: ice along the shore, and no boats out ([[seasons|The seasons]]).
+
 ## The fog of war
 Each line of characters has its own map. You start knowing your own colony (or your people's land), the country two marches around home, and, if you're a sailor or a trader by upbringing or work, the sea lanes from home's ports. Everywhere you go, and everything you can see from there, is added for good. Heirs keep the line's map.
 
@@ -1572,7 +1656,8 @@ The **News** panel on the map has the colonies' news as it reaches you: wars, ba
     where: "Journal.",
     body: `- **Diary**: everything that happened to you, newest first, across the generations. Show everything, or only the good or the bad. At the top, anything **waiting on you**: letters and events with choices, and when each decides itself.
 - **Leads**: stories worth chasing ([[leads|Leads]]).
-- **The story**: the moments that made your line (births, marriages, promotions, offices, battles, deaths), and **Your story, told**, as it will be told in ${END_YEAR}.`,
+- **The story**: the moments that made your line (births, marriages, promotions, offices, battles, deaths), and **Your story, told**, as it will be told in ${END_YEAR}.
+- **Achievements**: every achievement, earned and not, and the Derp Coins each pays once ([[coins|Derp Coins]]).`,
   },
   {
     id: "multiplayer",
@@ -1632,7 +1717,7 @@ Reaching ${END_YEAR} with a character still living is worth coins of its own.`,
     id: "coins",
     part: "world",
     title: "Derp Coins",
-    line: "What a line of lives earns at the end.",
+    line: "What a line of lives earns at the end, and achievements as you go.",
     body: `When the game ends (in ${END_YEAR}, or when the host ends it), each player's line is paid in Derp Coins, if they're signed in to Derp Land and their line played at least two years. The end screen shows every line of the sum.
 
 | For | Coins |
@@ -1649,7 +1734,12 @@ Reaching ${END_YEAR} with a character still living is worth coins of its own.`,
 | Going to Europe | ${LIFE_COINS.europe} |
 | Living to see ${END_YEAR} | ${LIFE_COINS.reached1776} |
 
-> Tip: A dynasty that rose high pays a few dozen; a short life, a handful.`,
+## Achievements
+Besides what a line earns at the end, there are ${ACHIEVEMENTS.length} **achievements**, marks of a life across everything in the game (your first job to living to see ${END_YEAR}, the native peoples' own paths, the seasons). Each pays a few Derp Coins (${ACHIEVEMENT_COINS} for all of them) **the first time your account earns it, and never again**: earning it in another game, or the same game played again, pays nothing. They're paid the moment they're earned, with a scene to say so, if you're signed in to Derp Land; a guest is told, but not paid. **Journal › Achievements** has them all: on your account (and when), earned in this game, and how to earn the rest. Your Derp Land profile shows the ones you've earned.
+
+${achievementsTable()}
+
+> Tip: A dynasty that rose high pays a few dozen; a short life, a handful. Achievements are a one-time bonus on top: the easy ones come in your first years.`,
   },
   // ================================================================ reference
   {

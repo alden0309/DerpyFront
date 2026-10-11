@@ -1,6 +1,6 @@
 // Derp Land's database: accounts, sessions, saved DerpyFront games (for
-// stats and replays), Derpy Conquest results and saved campaigns, and store
-// purchases, in the
+// stats and replays), Derpy Conquest results, saved campaigns and
+// achievements, and store purchases, in the
 // Postgres that DATABASE_URL points at
 // (a free Neon database on the hosted site). Without DATABASE_URL the game
 // still runs; accounts and the store just say they aren't set up.
@@ -173,6 +173,16 @@ CREATE INDEX IF NOT EXISTS derpy_conquest_saves_accounts
 -- they aren't offered. Saves from before this column existed were version 2.
 ALTER TABLE derpy_conquest_saves
   ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 2;
+
+-- Derpy Conquest achievements (MAP r12): each paid once per account.
+CREATE TABLE IF NOT EXISTS derpy_conquest_achievements (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  key TEXT NOT NULL,
+  game_id TEXT,
+  coins INTEGER NOT NULL,
+  earned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, key)
+);
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two

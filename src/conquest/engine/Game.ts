@@ -17,6 +17,7 @@ import {
 import { answerEvent, eventsDaily, eventsMonthly } from "./Events";
 import { folkMonthly } from "./Folk";
 import { recordMilestone, yearlyMarks } from "./History";
+import { hooks } from "./Hooks"; // MAP (r12)
 import {
   beginLife,
   lifeCommand,
@@ -26,6 +27,7 @@ import {
 } from "./Life";
 import { World, worldOf } from "./Map";
 // WORLD r11: fog of war, province markets, leads, and fitting old saves to the map.
+import "./Achievements"; // MAP (r12): achievements watch every life
 import { fogDaily } from "./Fog";
 import "./Household"; // HOME (r12): the household's commands register themselves
 import { leadsDaily, leadsMonthly } from "./Leads";
@@ -443,7 +445,11 @@ export class ConquestGame {
 
   /** Carry out a player's command for their character; why it can't, or null. */
   lifeCommand(seat: string, c: LifeCommand): string | null {
-    return lifeCommand(this, seat, c);
+    const err = lifeCommand(this, seat, c);
+    // MAP (r12): what a command earns (an achievement) shows at once.
+    const life = this.s.lives.find((l) => l.seat === seat);
+    if (life) for (const h of hooks.afterCommand) h(this, life);
+    return err;
   }
 
   // ---------------------------------------------------------------- commands

@@ -45,6 +45,7 @@ import type { World } from "./Map";
 import { ageOf, charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
+import { harvestNow } from "./Seasons"; // MAP (r12)
 import { dice, society } from "./SocietyCore";
 import { sharedLevel, tonguesOf } from "./Tongues";
 import type {
@@ -544,6 +545,13 @@ export function rsvpBreakdown(
     if (shared < 1) e.add("No tongue in common", -10);
   }
   if (gat.kind === "wedding") e.add("Everyone loves a wedding", 10);
+  // MAP (r12): a frolic is merrier after a good harvest.
+  if (gat.kind === "frolic") {
+    const at = w.map.provinces[gat.prov];
+    const h = harvestNow(at.lat, at.lon, gat.day);
+    if (h === "good") e.add("A good harvest to celebrate", 8);
+    if (h === "poor") e.add("A poor harvest: little to celebrate", -6);
+  }
   if (gat.kind === "funeral") {
     const kin = gat.about.some((d) => {
       const x = s.chars[d];
@@ -1388,6 +1396,29 @@ function npcGathering(
     ask: true,
     arg: gat.id,
   });
+}
+
+/**
+ * MAP (r12): a farmer you helped bring the harvest in asks you to the
+ * husking frolic (unless one's already planned for you).
+ */
+export function askToFrolic(
+  g: ConquestGame,
+  life: Life,
+  host: Character,
+): void {
+  const s = g.s;
+  if (myGatherings(s, life).some((x) => x.status === "planned")) return;
+  npcGathering(
+    g,
+    life,
+    host,
+    "frolic",
+    [],
+    householdsOf(s, host.home ?? life.prov).filter(
+      (c) => c.id !== host.id && !lifeOfChar(s, c.id) && ageOf(s, c) >= 16,
+    ),
+  );
 }
 
 /** Gatherings a player gives or is asked to. */

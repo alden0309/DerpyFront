@@ -7,6 +7,7 @@ import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { bananaMark } from "../../derpland/Icons";
+import { ACHIEVEMENT_NOTE } from "../engine/Achievements"; // MAP (r12)
 import { boatRoute, sailCheck } from "../engine/Boats";
 import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
@@ -88,7 +89,14 @@ import { tabPage } from "./ui/Tabs";
 import { term } from "./ui/Terms";
 import { nationPage, worldTab } from "./ui/World";
 // SOCIETY (r11)
+import {
+  achievementToasts,
+  onAchieved,
+  onAchievementList,
+  type AchievementToast,
+} from "./ui/Achievements"; // MAP (r12)
 import { officesPage } from "./ui/Civic";
+import { seasonChip } from "./ui/SeasonChip"; // MAP (r12)
 import { postButton } from "./ui/Society";
 import { FigureColors, figureColorsOf } from "./Walkers";
 
@@ -207,6 +215,8 @@ export class GameView extends LitElement {
   @state() private log: LogLine[] = [];
   @state() private logOpen = false;
   @state() private toasts: Toast[] = [];
+  /** MAP (r12): achievements just earned, as little scenes. */
+  @state() private achToasts: AchievementToast[] = [];
   /** Choosing on the map where your army marches. */
   @state() private picking = false;
   @state() private chatText = "";
@@ -576,6 +586,21 @@ export class GameView extends LitElement {
       case "saved":
         this.savedAt = m.at;
         return;
+      // MAP (r12): achievements.
+      case "achievements":
+        onAchievementList(m);
+        this.requestRender();
+        return;
+      case "achieved": {
+        const t = onAchieved(m, this.nextId++);
+        this.achToasts = [...this.achToasts.slice(-1), t];
+        if (t.first && t.coins) play("honour");
+        setTimeout(() => {
+          this.achToasts = this.achToasts.filter((x) => x.id !== t.id);
+        }, 8000);
+        this.requestRender();
+        return;
+      }
       case "ack":
       case "err":
         return;
@@ -607,7 +632,8 @@ export class GameView extends LitElement {
     if (o) this.lastOutcomeN = o.n;
     if (!staged)
       for (const e of fresh.slice(-2))
-        if (!inScene.has(e.text))
+        // (An achievement has its own toast, from the server.)
+        if (!inScene.has(e.text) && !e.text.startsWith(ACHIEVEMENT_NOTE))
           this.toast(e.text, e.tone ?? "", whereFor(e.text));
     if (fresh.some((e) => e.tone === "good")) play("bell");
     // Events that need an answer.
@@ -1561,6 +1587,9 @@ export class GameView extends LitElement {
         </main>
       </div>
       <div class="cq-toasts" aria-live="polite">
+        ${achievementToasts(ui, this.achToasts, (id) => {
+          this.achToasts = this.achToasts.filter((x) => x.id !== id);
+        })}
         ${this.dispatches.map((id) => {
           const r = this.s.battles.find((b) => b.id === id);
           return r
@@ -1649,7 +1678,10 @@ export class GameView extends LitElement {
             ${life?.ended ? "Watching the world" : "Not yet born"}
           </span>`}
       <div class="cq-clock ${this.skipOn ? "skipping" : ""}">
-        <span class="cq-date">${formatDate(s.day)}</span>
+        <div class="cq-dateline">
+          <span class="cq-date">${formatDate(s.day)}</span>
+          ${seasonChip(s, life ?? null)}
+        </div>
         <div class="cq-speed" role="group" aria-label="Game speed">
           <button
             class="cq-pause ${this.paused ? "on" : ""}"

@@ -26,6 +26,7 @@ import { isWinter, type World } from "./Map";
 import { charName, hasTrait, people } from "./Queries";
 import { EUROPE_PRICE } from "./Rules";
 import { rumour } from "./Rumours";
+import { foodSeasonFactor, harvestNow } from "./Seasons"; // MAP (r12)
 import type {
   GameState,
   Good,
@@ -248,10 +249,9 @@ export function seasonOf(
   switch (item) {
     case "grain":
     case "maize":
-      if (!north) return month >= 8 && month <= 10 ? 0.93 : 1.03;
-      if (month >= 8 && month <= 10) return 0.82;
-      if (month >= 2 && month <= 5) return 1.18;
-      return 1;
+      // MAP (r12): dearest in the hungry months of late winter, cheap after
+      // the harvest; and the year's harvest, good or poor, on top.
+      return foodSeasonFactor(def.lat, def.lon, day);
     case "fish":
       if (north && isWinter(def.lat, month)) return 1.2;
       return month === 3 || month === 4 ? 0.86 : 1;
@@ -388,8 +388,16 @@ export function priceView(
   const depth = depthOf(s, w, p, item);
   const net = netNow(m, item, day);
   const why: string[] = [];
-  if (season < 0.97) why.push("in season");
-  if (season > 1.03) why.push("out of season");
+  // MAP (r12): the hungry months, and how the harvest came in.
+  const food = item === "grain" || item === "maize";
+  const def = w.map.provinces[p];
+  const harvest = food ? harvestNow(def.lat, def.lon, day) : "fair";
+  if (food && harvest !== "fair")
+    why.push(harvest === "poor" ? "a poor harvest" : "a good harvest");
+  if (food && def.lat > 30 && [1, 2, 3].includes(dateOf(day).month))
+    why.push("the hungry months: last year's corn running low");
+  else if (season < 0.97) why.push("in season");
+  else if (season > 1.03) why.push("out of season");
   if (war.why) why.push(war.why);
   why.push(...shock.why);
   if (net > depth * 0.3) why.push("a glut: traders have been selling here");

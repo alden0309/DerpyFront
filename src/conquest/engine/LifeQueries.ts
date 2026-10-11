@@ -3,6 +3,7 @@
 // offers, who's here and what they think of you, the road to somewhere,
 // what a promotion still needs. Numbers come as Breakdowns, like the rest.
 
+import { dateOf } from "./Calendar"; // MAP (r12)
 import { Explain } from "./Explain";
 import {
   ALLOWANCE,
@@ -41,8 +42,9 @@ import {
   WORK_DAYS,
 } from "./LifeRules";
 import type { World } from "./Map";
-import { landHopDays, seaHopDays } from "./Paths";
+import { landHopDays, landHopDaysIn, seaHopDays } from "./Paths";
 import { propertyBudget } from "./Property";
+import { iceBound, seasonPay } from "./Seasons"; // MAP (r12)
 // SOCIETY (r11)
 import { seatTitleOf } from "./CouncilTitles"; // POWER (r12)
 import { AMERICAS, worldOf } from "./Map";
@@ -539,6 +541,15 @@ export function monthlyBudget(
   for (const d of duesOn(s, life, earned)) e.add(d.label, d.value);
   const cost = lifestyleCost(s, life).total;
   if (cost) e.add("Living", -cost);
+  // MAP (r12): the season's work and bread (paid on the month just worked).
+  for (const part of seasonPay(
+    w.map.provinces[life.job?.prov ?? life.prov],
+    actual ? s.day - 1 : s.day,
+    crooked ? null : (life.job?.kind ?? null),
+    wage,
+    cost,
+  ))
+    e.add(part.label, part.value);
   if (!actual) {
     for (const part of propertyBudget(s, life).parts)
       e.add(part.label, part.value);
@@ -1016,13 +1027,26 @@ export function hopDaysFor(
   to: number,
   sea: boolean,
   pace = 1,
+  /** MAP (r12): the day the hop begins, for the season's roads (-1: any). */
+  day = -1,
 ): number {
   if (sea) {
     const lane = map.provinces[from].sea.find(([q]) => q === to);
     return lane ? seaHopDays(lane[1]) : -1;
   }
   const nb = map.provinces[from].nb.find(([q]) => q === to);
-  return nb ? landHopDays(map, to, nb[1], nb[2], nb[3], WALK_SPEED * pace) : -1;
+  if (!nb) return -1;
+  return day >= 0
+    ? landHopDaysIn(
+        map,
+        to,
+        nb[1],
+        nb[2],
+        nb[3],
+        WALK_SPEED * pace,
+        dateOf(day).month,
+      )
+    : landHopDays(map, to, nb[1], nb[2], nb[3], WALK_SPEED * pace);
 }
 
 /** Where a traveller can take ship: a port (or, for natives, any coast by canoe). */
@@ -1058,6 +1082,7 @@ export function travelRoute(
   const prev = new Int32Array(count).fill(-1);
   const bySea = new Uint8Array(count);
   const done = new Uint8Array(count);
+  const month = dateOf(s.day).month; // MAP (r12): the season's roads
   days[from] = 0;
   for (;;) {
     let u = -1;
@@ -1072,18 +1097,24 @@ export function travelRoute(
     for (const [q, km, river, strait] of map.provinces[u].nb) {
       if (done[q]) continue;
       const d =
-        best + landHopDays(map, q, km, river, strait, WALK_SPEED * pace);
+        best +
+        landHopDaysIn(map, q, km, river, strait, WALK_SPEED * pace, month);
       if (d < days[q]) {
         days[q] = d;
         prev[q] = u;
         bySea[q] = 0;
       }
     }
-    if (sea && canEmbark(s, map, u, native)) {
+    // MAP (r12): no ships out of (or into) a harbour the ice has shut.
+    if (
+      sea &&
+      canEmbark(s, map, u, native) &&
+      !iceBound(map.provinces[u], month)
+    ) {
       const reach = native ? 400 : SEA_PASSAGE_KM;
       for (const [q, km] of map.provinces[u].sea) {
         if (km > reach) break;
-        if (done[q]) continue;
+        if (done[q] || iceBound(map.provinces[q], month)) continue;
         const d = best + seaHopDays(km) + (native ? 1 : 0);
         if (d < days[q]) {
           days[q] = d;
@@ -1106,7 +1137,7 @@ export function travelRoute(
   let cost = 0;
   let at = from;
   path.forEach((q, i) => {
-    const d = hopDaysFor(map, at, q, seaHops[i], pace);
+    const d = hopDaysFor(map, at, q, seaHops[i], pace, s.day); // MAP (r12)
     legs.push(d);
     if (seaHops[i]) {
       if (!sailor && !native) {

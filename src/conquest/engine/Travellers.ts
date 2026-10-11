@@ -6,12 +6,14 @@
 // time, stop a few days where a player is (you'll find them at the tavern,
 // the market or the church), and go home again.
 
+import { dateOf } from "./Calendar"; // MAP (r12)
 import { reveal } from "./Fog"; // WORLD r11
 import { seedLocals } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { hopDaysFor, isNativeChar, travelRoute } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
 import { settlers } from "./Queries";
+import { travelFactor } from "./Seasons"; // MAP (r12)
 import type {
   Character,
   GameState,
@@ -104,7 +106,7 @@ function modeFor(
 }
 
 function hopDays(g: ConquestGame, t: Traveller): number {
-  const d = hopDaysFor(g.map, t.prov, t.path[0], t.sea[0]);
+  const d = hopDaysFor(g.map, t.prov, t.path[0], t.sea[0], 1, g.s.day); // MAP (r12)
   return Math.max(1, Math.round((d < 0 ? 3 : d) * PACE[t.mode]));
 }
 
@@ -390,11 +392,14 @@ export function travellersMonthly(g: ConquestGame): void {
         t.path.includes(life.prov),
     ).length;
     // Two or three set out most months, so the roads are seldom empty.
+    // MAP (r12): fewer in a hard winter, more in the summer.
+    const def = g.map.provinces[life.prov];
+    const season = travelFactor(def.lat, dateOf(s.day).month);
     let coming = near;
     for (const odds of [0.9, 0.7, 0.45])
       if (
         coming < NEAR_PLAYER &&
-        g.rng.chance(odds) &&
+        g.rng.chance(Math.min(0.95, odds * season)) &&
         spawnToward(g, life.prov)
       )
         coming++;

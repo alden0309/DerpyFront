@@ -1,8 +1,10 @@
 // How armies get from one province to another: marching over land they may
 // enter, or sailing from their own coasts.
 
+import { dateOf } from "./Calendar";
 import { canEnter } from "./Queries";
 import { TERRAIN } from "./Rules";
+import { iceBound, riverFactor, roadFactor } from "./Seasons"; // MAP (r12)
 import { GameState, MapDef } from "./Types";
 
 const MARCH_KM_PER_DAY = 22;
@@ -29,6 +31,33 @@ export function landHopDays(
   );
 }
 
+/**
+ * MAP (r12): a land hop in a given month: snow in a northern winter and mud
+ * in the thaw slow the road; a frozen river is crossed on the ice, one in
+ * flood takes longer.
+ */
+export function landHopDaysIn(
+  map: MapDef,
+  to: number,
+  km: number,
+  river: number,
+  strait: number,
+  speed: number,
+  month: number,
+): number {
+  const def = map.provinces[to];
+  const terrain = TERRAIN[def.terrain];
+  return Math.max(
+    2,
+    Math.ceil(
+      (km / (MARCH_KM_PER_DAY * terrain.speed * speed)) *
+        roadFactor(def, month),
+    ) +
+      (river ? Math.round(RIVER_DAYS * riverFactor(def.lat, month)) : 0) +
+      (strait ? STRAIT_DAYS : 0),
+  );
+}
+
 export function seaHopDays(km: number): number {
   return EMBARK_DAYS + Math.ceil(km / SEA_KM_PER_DAY);
 }
@@ -41,6 +70,8 @@ export function canSailFrom(
   p: number,
 ): boolean {
   if (!map.provinces[p].coastal) return false;
+  // MAP (r12): not out of a harbour the ice has shut.
+  if (iceBound(map.provinces[p], dateOf(s.day).month)) return false;
   const pr = s.provinces[p];
   if (pr.occupier >= 0) return pr.occupier === n;
   return pr.owner === n;
@@ -111,6 +142,7 @@ export function routeTree(
   };
   days[from] = 0;
   push(0, from);
+  const month = dateOf(s.day).month; // MAP (r12): the season's roads
   while (heapD.length > 0) {
     const u = pop();
     if (done[u]) continue;
@@ -119,7 +151,7 @@ export function routeTree(
     const base = days[u];
     for (const [q, km, river, strait] of map.provinces[u].nb) {
       if (done[q] || !canEnter(s, n, q)) continue;
-      const d = base + landHopDays(map, q, km, river, strait, speed);
+      const d = base + landHopDaysIn(map, q, km, river, strait, speed, month);
       if (d < days[q]) {
         days[q] = d;
         prev[q] = u;
@@ -131,6 +163,7 @@ export function routeTree(
       for (const [q, km] of map.provinces[u].sea) {
         if (km > map.seaLaneKm) break;
         if (done[q] || !canEnter(s, n, q)) continue;
+        if (iceBound(map.provinces[q], month)) continue; // MAP (r12)
         const d = base + seaHopDays(km);
         if (d < days[q]) {
           days[q] = d;
@@ -187,10 +220,21 @@ export function hopDays(
 ): number {
   if (!bySea) {
     const nb = map.provinces[from].nb.find(([q]) => q === to);
-    return nb ? landHopDays(map, to, nb[1], nb[2], nb[3], speed) : -1;
+    return nb
+      ? landHopDaysIn(
+          map,
+          to,
+          nb[1],
+          nb[2],
+          nb[3],
+          speed,
+          dateOf(s.day).month, // MAP (r12)
+        )
+      : -1;
   }
   const lane = map.provinces[from].sea.find(([q]) => q === to);
   if (!lane || lane[1] > map.seaLaneKm || !canSailFrom(s, map, n, from))
     return -1;
+  if (iceBound(map.provinces[to], dateOf(s.day).month)) return -1; // MAP (r12)
   return seaHopDays(lane[1]);
 }

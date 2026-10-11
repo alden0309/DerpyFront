@@ -3617,6 +3617,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   ...R11_EVENTS,
   ...SOCIETY_EVENTS, // SOCIETY (r11)
   ...DUEL_EVENTS, // HOME (r12): duels as a chain of scenes
+  ...SEASON_EVENTS, // MAP (r12)
 ];
 
 // ---------------------------------------------------------------- a few calls out
@@ -3628,6 +3629,7 @@ import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";
 import { POWER_DEFAULTS, POWER_EVENTS } from "./PowerEvents"; // POWER (r12)
 import { R11_EVENTS } from "./R11Events";
+import { SEASON_EVENTS } from "./SeasonLife"; // MAP (r12)
 import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
 

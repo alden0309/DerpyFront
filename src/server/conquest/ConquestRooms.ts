@@ -14,6 +14,7 @@ import type http from "http";
 import type { Duplex } from "stream";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
+import { checkAchievements } from "../../conquest/engine/Achievements"; // MAP (r12)
 import { validateLook } from "../../conquest/engine/Appearance";
 import { dateOf } from "../../conquest/engine/Calendar";
 import { lifeCoins } from "../../conquest/engine/Coins";
@@ -55,6 +56,7 @@ import {
   ServerMessage,
 } from "../../conquest/Protocol";
 import { loadConquest, saveConquest, savesFor } from "../derpy/ConquestSaves";
+import { achievementsOf, awardAchievement } from "../derpy/DerpyAchievements"; // MAP (r12)
 import { accountForToken } from "../derpy/DerpyAuth";
 import { recordConquestGame } from "../derpy/DerpyConquest";
 import { derpyDbConfigured } from "../derpy/DerpyDb";
@@ -266,6 +268,8 @@ interface Seat {
   plan: LifePlan | null;
   ready: boolean;
   conn: Conn | null;
+  /** MAP (r12): achievements already told (and paid for) in this game. */
+  achSeen?: Set<string>;
 }
 
 interface Room {
@@ -959,6 +963,7 @@ export class ConquestRooms {
       seats: seatInfo(room),
     });
     this.sendLetters(room, seat);
+    void this.sendAchievements(seat); // MAP (r12)
     if (room.skip.on || room.skip.asked.size)
       this.send(seat.conn, {
         t: "skip",
@@ -1030,6 +1035,83 @@ export class ConquestRooms {
     if (!room.game) return;
     room.lastSent = this.now();
     this.broadcast(room, { t: "d", d: room.game.takeDelta() });
+    void this.achievements(room);
+  }
+
+  /**
+   * MAP (r12): achievements newly earned in the game: each paid once per
+   * account, and the player told (the toast). The first look at a seat
+   * (a game begun or picked up again) only notes what's there, quietly
+   * making sure it was paid.
+   */
+  private achievements(room: Room): Promise<unknown> {
+    const game = room.game;
+    if (!game) return Promise.resolve();
+    const pays: Promise<unknown>[] = [];
+    for (const seat of room.seats) {
+      const life = lifeOfSeat(game.state, seat.id);
+      if (!life) continue;
+      const got = Object.keys(life.achieved ?? {});
+      if (!seat.achSeen) {
+        seat.achSeen = new Set(got);
+        for (const key of got)
+          pays.push(this.payAchievement(room, seat, key, false));
+        continue;
+      }
+      for (const key of got) {
+        if (seat.achSeen.has(key)) continue;
+        seat.achSeen.add(key);
+        pays.push(this.payAchievement(room, seat, key, true));
+      }
+    }
+    return Promise.all(pays);
+  }
+
+  private async payAchievement(
+    room: Room,
+    seat: Seat,
+    key: string,
+    tell: boolean,
+  ): Promise<void> {
+    let paid: { first: boolean; coins: number } | null = null;
+    if (seat.accountId !== null && derpyDbConfigured()) {
+      try {
+        paid = await awardAchievement(
+          seat.accountId,
+          key,
+          room.saveId ?? room.code,
+        );
+      } catch (err) {
+        log.warn(`couldn't pay achievement ${key}: ${err}`);
+      }
+    }
+    if (tell && seat.conn)
+      this.send(seat.conn, {
+        t: "achieved",
+        key,
+        coins: seat.accountId !== null ? (paid?.coins ?? 0) : null,
+        first: paid?.first ?? false,
+      });
+  }
+
+  /** MAP (r12): the account's achievements, for the page (a guest has none). */
+  private async sendAchievements(seat: Seat): Promise<void> {
+    if (!seat.conn) return;
+    if (seat.accountId === null || !derpyDbConfigured()) {
+      this.send(seat.conn, {
+        t: "achievements",
+        signedIn: seat.accountId !== null,
+        have: [],
+      });
+      return;
+    }
+    try {
+      const have = await achievementsOf(seat.accountId);
+      if (seat.conn)
+        this.send(seat.conn, { t: "achievements", signedIn: true, have });
+    } catch (err) {
+      log.warn(`couldn't read achievements: ${err}`);
+    }
   }
 
   /** Save a running campaign with signed-in players to the database. */
@@ -1190,6 +1272,9 @@ export class ConquestRooms {
     if (room.results) return room.results;
     room.overAt = this.now();
     const s = game.state;
+    // MAP (r12): the last day's achievements (alive in 1776), paid before the results.
+    for (const life of s.lives) checkAchievements(game, life);
+    await this.achievements(room);
     const reachedEnd = s.day >= s.endDay;
     const lines = room.seats
       .map((seat) => ({ seat, life: lifeOfSeat(s, seat.id) }))

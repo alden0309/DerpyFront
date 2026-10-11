@@ -609,7 +609,7 @@ function hop(g: ConquestGame, life: Life): void {
     1,
     own > 0
       ? own
-      : hopDaysFor(g.map, next, t.path[0], t.sea[0], paceOf(s, life)),
+      : hopDaysFor(g.map, next, t.path[0], t.sea[0], paceOf(s, life), s.day),
   );
   t.depart = s.day;
   t.arrive = s.day + days;

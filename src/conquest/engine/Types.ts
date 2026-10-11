@@ -776,6 +776,10 @@ export interface Life {
   founding?: Founding | null;
   /** SOCIETY (r11): a nation waiting for you to set up its government. */
   constitute?: { n: number; until: number; free: boolean } | null;
+  /** MAP (r12): achievements earned in this game, by key: the day. */
+  achieved?: Record<string, number>;
+  /** MAP (r12): counts some achievements wait on (days at sea, on a winter road). */
+  achCount?: Record<string, number>;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -2673,6 +2677,8 @@ export interface PowerCommand {
   name?: string;
   stance?: Paper["stance"];
   yes?: boolean;
+}
+
 // ---- HOME (r12)
 // The household (your house, its rooms, servants, lettings and stores),
 // duels played out as scenes, and the family tree.
@@ -2740,3 +2746,8 @@ export interface DuelAftermath {
   /** Who was wounded, if anyone. */
   wounded: number[];
 }
+
+// ---- MAP (r12)
+// Harbours, sea lanes and the seasons need no state of their own (they come
+// from the map and the date); a life's achievements are `Life.achieved` and
+// `Life.achCount` (Achievements.ts).

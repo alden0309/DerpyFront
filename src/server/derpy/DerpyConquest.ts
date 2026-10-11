@@ -2,7 +2,12 @@
 // and the Derp Coins it paid. Read back for the Conquest and Overall
 // leaderboards and players' profiles.
 
+import {
+  ACHIEVEMENT_BY_KEY,
+  ACHIEVEMENTS,
+} from "../../conquest/engine/Achievements"; // MAP (r12)
 import { logger } from "../Logger";
+import { achievementsOf } from "./DerpyAchievements"; // MAP (r12)
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
 
 const log = logger.child({ component: "DerpyConquest" });
@@ -247,10 +252,25 @@ export interface ConquestGameSummary {
   coins: number;
 }
 
+/** MAP (r12): an achievement on a player's profile. */
+export interface ProfileAchievement {
+  key: string;
+  name: string;
+  how: string;
+  group: string;
+  coins: number;
+  /** When the account first earned it (ISO). */
+  at: string;
+}
+
 /** A player's Conquest stats and recent games, by account id. */
-export async function conquestProfile(
-  accountId: number,
-): Promise<{ stats: ConquestStats; games: ConquestGameSummary[] }> {
+export async function conquestProfile(accountId: number): Promise<{
+  stats: ConquestStats;
+  games: ConquestGameSummary[];
+  /** MAP (r12): achievements earned, and how many there are. */
+  achievements: ProfileAchievement[];
+  achievementCount: number;
+}> {
   const pool = await db();
   const stats = await pool.query(
     `SELECT ${CONQUEST_COLUMNS} FROM derpy_conquest_players cp WHERE cp.account_id = $1`,
@@ -267,8 +287,25 @@ export async function conquestProfile(
      LIMIT 100`,
     [accountId],
   );
+  const earned = await achievementsOf(accountId);
   return {
     stats: rowToConquest(stats.rows[0] ?? {}),
+    achievements: earned.flatMap((a): ProfileAchievement[] => {
+      const def = ACHIEVEMENT_BY_KEY.get(a.key);
+      return def
+        ? [
+            {
+              key: a.key,
+              name: def.name,
+              how: def.how,
+              group: def.group,
+              coins: a.coins,
+              at: a.at,
+            },
+          ]
+        : [];
+    }),
+    achievementCount: ACHIEVEMENTS.length,
     games: games.rows.map((g) => ({
       gameId: g.game_id,
       endedAt: new Date(g.ended_at).toISOString(),
