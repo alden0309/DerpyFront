@@ -1114,14 +1114,20 @@ export class ConquestRooms {
     }
   }
 
-  /** Save a running campaign with signed-in players to the database. */
-  private save(room: Room): Promise<void> {
+  /**
+   * Save a running campaign with signed-in players to the database. With
+   * `fresh`, a save already under way is waited for and then followed by
+   * another, so what's written is the state now (the end of a game must not
+   * be lost behind an autosave of the day before).
+   */
+  private save(room: Room, fresh = false): Promise<void> {
     if (!room.game || !room.saveId || !derpyDbConfigured())
       return Promise.resolve();
     const game = room.game;
     const lives = room.seats.filter((s) => lifeOfSeat(game.state, s.id));
     if (!lives.some((s) => s.accountId !== null)) return Promise.resolve();
-    if (room.saving) return room.saving;
+    if (room.saving)
+      return fresh ? room.saving.then(() => this.save(room)) : room.saving;
     const seats = lives.map((s) => ({
       seat: s.id,
       name: s.name,
@@ -1307,7 +1313,7 @@ export class ConquestRooms {
       coinLines: x.coins.lines,
     }));
     const winner = lines[0];
-    await this.save(room);
+    await this.save(room, true);
     await recordConquestGame({
       gameId: room.saveId ?? `${room.code}-${room.startedAt}`,
       startedAt: room.startedAt,
