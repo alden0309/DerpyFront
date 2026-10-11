@@ -41,7 +41,9 @@ export type Modal =
   | { k: "credits" }
   | { k: "maker" }
   | { k: "takeover" }
-  | { k: "trade" };
+  | { k: "trade" }
+  // ART (r11): sit for a new likeness.
+  | { k: "likeness" };
 
 export interface GameUi {
   s: GameState;

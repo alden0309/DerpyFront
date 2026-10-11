@@ -1,88 +1,62 @@
-// How a character looks: the features of their face, their hair and its
-// colour, what they wear on their head and their back, and the marks life
-// has left on them. Players choose theirs in the register; everyone else is
-// given a look of their own, the same each time, that fits their people,
-// their station and the years they live in; children take after their
-// parents. The client paints portraits from these (client/avatar/).
+// How a character looks: one of the period portraits in the gallery
+// (Gallery.ts), the face that comes closest, with the hair and clothes
+// tuned a shade or a colour and the hair greying with the years. Players
+// pick theirs in the register; everyone else is given a picture that fits
+// their sex, years, people and station, the same each time, and a new one
+// as they pass from youth to their prime and on to old age. A player's
+// children are given a child's picture, and a grown one at sixteen that
+// takes after the family's hair.
 //
 // Everything here is pure: the same person always looks the same, and
 // nothing draws on the game's own random numbers.
 
 import { dateOf } from "./Calendar";
-import { nextRandom } from "./Rng";
+import { GALLERY } from "./Gallery";
 import { DAYS_PER_YEAR } from "./Rules";
+import {
+  AGE_BANDS,
+  type AgeBand,
+  type HairTone,
+  type People,
+  type Sitter,
+  type SitterClass,
+} from "./Sitters";
 import type { Character } from "./Types";
+
+export type { AgeBand, HairTone, People, Sitter, SitterClass } from "./Sitters";
 
 // ---------------------------------------------------------------- the look
 
-export interface Appearance {
-  /** Skin tone (SKIN_TONES). */
-  skin: number;
-  /** Face shape (FACE_SHAPES). */
-  face: number;
-  jaw: number;
-  cheeks: number;
-  /** Eye shape (EYE_SHAPES). */
-  eyes: number;
-  eyeColor: number;
-  /** How far apart the eyes are set (EYE_SETS). */
-  eyeSet: number;
-  brows: number;
-  nose: number;
-  mouth: number;
-  ears: number;
-  /** Hair style or wig (HAIR key). */
-  hair: string;
-  hairColor: number;
-  /** Beard or moustache (BEARDS key). */
-  beard: string;
-  /** Hat, cap, bonnet or headdress (HEADWEAR key). */
-  hat: string;
-  /** What they wear (CLOTHES key). */
-  clothes: string;
-  /** Main, second and trim colours of the clothes (CLOTH_COLORS). */
-  colors: [number, number, number];
-  /** Spectacles, earrings, a gorget... (ACCESSORIES keys). */
-  extras: string[];
-  /** Freckles, scars, paint... (MARKS keys). */
-  marks: string[];
-  /** Lines in the face beyond their years, 0 to 3. */
-  lines: number;
-  /** How early the hair greys, 0 (late) to 3 (early). */
-  greying: number;
+/** A likeness: a picture from the gallery, and how it's tuned. */
+export interface Look {
+  /** The grown picture (a gallery id); "" until a child of the family is grown. */
+  p: string;
+  /** The picture as a child, under sixteen (a gallery id). */
+  kid?: string;
+  /** The hair's colour (HAIR_TONES), or -1 as painted. */
+  hair: number;
+  /** The hair a shade lighter (+) or darker (-), -2 to 2. */
+  hairL: number;
+  /** The clothes' colour (CLOTH_COLORS), or -1 as painted. */
+  cloth: number;
+  /** The clothes a shade lighter (+) or darker (-), -2 to 2. */
+  clothL: number;
+  /** How the hair greys with the years: 0 not at all, 1 as most do, 2 early. */
+  grey: number;
+  /** Turned to look the other way. */
+  flip: boolean;
 }
 
-// ---------------------------------------------------------------- palettes
+/** The name the rest of the game knows a look by. */
+export type Appearance = Look;
 
 export interface Swatch {
   name: string;
   hex: string;
 }
 
-export const SKIN_TONES: Swatch[] = [
-  { name: "Porcelain", hex: "#f1d8c4" },
-  { name: "Fair", hex: "#e9c6aa" },
-  { name: "Light", hex: "#deb493" },
-  { name: "Warm", hex: "#d2a37e" },
-  { name: "Olive", hex: "#c39470" },
-  { name: "Tan", hex: "#b48261" },
-  { name: "Copper", hex: "#a46f4e" },
-  { name: "Bronze", hex: "#8f5d3e" },
-  { name: "Brown", hex: "#784a30" },
-  { name: "Deep", hex: "#5c3623" },
-];
-
-export const EYE_COLORS: Swatch[] = [
-  { name: "Dark brown", hex: "#2b1a10" },
-  { name: "Brown", hex: "#4b2e19" },
-  { name: "Hazel", hex: "#6b5631" },
-  { name: "Green", hex: "#526b46" },
-  { name: "Grey", hex: "#6d7781" },
-  { name: "Blue", hex: "#4a6b96" },
-  { name: "Pale blue", hex: "#7f9ec2" },
-];
-
-export const HAIR_COLORS: Swatch[] = [
+/** Hair colours to tune to (the first nine are the old looks' colours). */
+export const HAIR_TONES: Swatch[] = [
   { name: "Black", hex: "#16110e" },
   { name: "Dark brown", hex: "#2e2019" },
   { name: "Brown", hex: "#4b3222" },
@@ -92,6 +66,8 @@ export const HAIR_COLORS: Swatch[] = [
   { name: "Dark blond", hex: "#866742" },
   { name: "Blond", hex: "#b8935a" },
   { name: "Flaxen", hex: "#d3bc8a" },
+  { name: "Grey", hex: "#8f8a83" },
+  { name: "White", hex: "#d8d4cc" },
 ];
 
 /** Dyes and stuffs of the period: broadcloth, linen, silk, hide. */
@@ -122,130 +98,60 @@ export const CLOTH_COLORS: Swatch[] = [
   { name: "Turquoise", hex: "#3f8a86" },
 ];
 
-// Colour indices, for the tables below.
-const C = {
+/** The tuning swatch nearest a painted hair tone (for heirs taking after it). */
+const TONE_SWATCH: Record<HairTone, number> = {
   black: 0,
-  charcoal: 1,
-  grey: 2,
-  umber: 3,
-  russet: 4,
-  buff: 5,
-  madder: 6,
-  scarlet: 7,
-  claret: 8,
-  indigo: 9,
-  sky: 10,
-  green: 11,
-  olive: 12,
-  ochre: 13,
-  linen: 14,
-  white: 15,
-  plum: 16,
-  orange: 17,
-  slate: 18,
-  rose: 19,
-  deer: 20,
-  smoked: 21,
-  palehide: 22,
-  turquoise: 23,
-} as const;
+  dark: 1,
+  brown: 2,
+  auburn: 4,
+  fair: 7,
+  grey: 9,
+  white: 10,
+  hidden: -1,
+};
 
-// ---------------------------------------------------------------- features
-
-export const FACE_SHAPES = [
-  "Oval",
-  "Round",
-  "Long",
-  "Square",
-  "Heart",
-  "Broad",
-  "Gaunt",
-  "Fleshy",
-];
-export const JAWS = [
-  "Soft",
-  "Firm",
-  "Square",
-  "Pointed",
-  "Heavy",
-  "Receding",
-  "Cleft",
-];
-export const CHEEKS = ["Flat", "Full", "High", "Hollow"];
-export const EYE_SHAPES = [
-  "Almond",
-  "Round",
-  "Hooded",
-  "Narrow",
-  "Downturned",
-  "Deep-set",
-  "Prominent",
-  "Upturned",
-];
-export const EYE_SETS = ["Close", "Even", "Wide"];
-export const BROWS = ["Fine", "Arched", "Straight", "Heavy", "Bushy"];
-export const NOSES = [
-  "Straight",
-  "Aquiline",
-  "Snub",
-  "Broad",
-  "Long",
-  "Button",
-  "Hooked",
-  "Bulbous",
-];
-export const MOUTHS = ["Thin", "Full", "Wide", "Small", "Bow"];
-export const EARS = ["Small", "Middling", "Large", "Jug"];
-
-/** The numbered features, their names and how many each has. */
-export const FEATURES = {
-  skin: SKIN_TONES.map((s) => s.name),
-  face: FACE_SHAPES,
-  jaw: JAWS,
-  cheeks: CHEEKS,
-  eyes: EYE_SHAPES,
-  eyeColor: EYE_COLORS.map((s) => s.name),
-  eyeSet: EYE_SETS,
-  brows: BROWS,
-  nose: NOSES,
-  mouth: MOUTHS,
-  ears: EARS,
-  hairColor: HAIR_COLORS.map((s) => s.name),
-  lines: ["None", "A few", "Weathered", "Deep"],
-  greying: ["Late", "Middling", "Early", "Very early"],
-} as const;
-
-export type Feature = keyof typeof FEATURES;
-
-// ---------------------------------------------------------------- stations and peoples
-
-/** What a person does, as far as their clothes tell it. */
-export type Station =
-  | "labourer"
-  | "tradesman"
-  | "merchant"
-  | "gentry"
-  | "clergy"
-  | "soldier"
-  | "officer"
-  | "sailor"
-  | "learned"
-  | "frontier";
-
-export const STATIONS: readonly Station[] = [
-  "labourer",
-  "tradesman",
-  "merchant",
-  "gentry",
-  "clergy",
-  "soldier",
-  "officer",
-  "sailor",
-  "learned",
-  "frontier",
+/** The painted tone a tuning swatch reads as. */
+const SWATCH_TONE: HairTone[] = [
+  "black",
+  "dark",
+  "brown",
+  "auburn",
+  "auburn",
+  "auburn",
+  "fair",
+  "fair",
+  "fair",
+  "grey",
+  "white",
 ];
 
-/** Where a native people lives, for what they wore. */
+// ---------------------------------------------------------------- the gallery
+
+/** The gallery's pictures, by id. */
+export const SITTERS: ReadonlyMap<string, Sitter> = new Map(
+  GALLERY.map((s) => [s.id, s]),
+);
+
+export function sitterById(id: string | undefined): Sitter | undefined {
+  return id ? SITTERS.get(id) : undefined;
+}
+
+/** How old someone of an age looks. */
+export function ageBand(age: number): AgeBand {
+  return age < 16
+    ? "child"
+    : age < 25
+      ? "youth"
+      : age < 40
+        ? "prime"
+        : age < 55
+          ? "middle"
+          : "elder";
+}
+
+// ---------------------------------------------------------------- peoples
+
+/** Where a native people lives, for which of their pictures suit them. */
 export type Region =
   | "woodlands"
   | "subarctic"
@@ -321,313 +227,64 @@ export function regionOf(culture: string): Region {
   return REGION_OF[culture] ?? "woodlands";
 }
 
-// ---------------------------------------------------------------- the wardrobe
-
-/** Something to wear or a way to be: a hair style, hat, coat or mark. */
-export interface Item {
-  key: string;
-  /** Its name in the register. */
-  name: string;
-  /** Who wears it: men, women or anyone. */
-  sex: "m" | "f" | "a";
-  /** Colonists, native peoples, or anyone. */
-  people: "c" | "n" | "a";
-  /** The first year it fits (nobody wears it before). */
-  from: number;
-  /** The last year it's in fashion (people keep wearing it after). */
-  to: number;
-  /** Stations it's given to (any, if absent). */
-  st?: readonly Station[];
-  /** Cultures or native regions it's given to (any, if absent). */
-  where?: readonly string[];
-  /** How often it's given, against others that fit. */
-  w?: number;
+/** The people a culture's pictures come from. */
+export function peopleOfCulture(culture: string): People {
+  return EUROPEAN.has(culture) ? (culture as People) : "native";
 }
 
-const ANY = { from: 1500, to: 1800 } as const;
-const GOOD: Station[] = ["gentry", "merchant", "learned", "officer"];
+/** Peoples whose painters dressed and painted much alike. */
+const KIN: Record<People, People[]> = {
+  english: ["dutch", "swedish", "french"],
+  dutch: ["english", "swedish", "french"],
+  swedish: ["dutch", "english", "french"],
+  french: ["english", "spanish", "dutch"],
+  spanish: ["portuguese", "french"],
+  portuguese: ["spanish", "french"],
+  native: [],
+  african: [],
+  mestizo: ["spanish", "portuguese"],
+};
 
-// prettier-ignore
-export const HAIR: Item[] = [
-  // Men, colonists.
-  { key: "cropped", name: "Cropped short", sex: "m", people: "c", ...ANY, st: ["labourer", "soldier", "sailor", "tradesman", "frontier"] },
-  { key: "collar", name: "Collar length", sex: "m", people: "c", from: 1500, to: 1690, w: 3 },
-  { key: "roundhead", name: "Round-cut", sex: "m", people: "c", from: 1500, to: 1700, st: ["labourer", "tradesman", "learned", "clergy", "soldier"] },
-  { key: "cavalier", name: "Long locks", sex: "m", people: "c", from: 1620, to: 1690, st: ["gentry", "officer", "merchant"], w: 2 },
-  { key: "queue", name: "Long, tied back", sex: "m", people: "c", from: 1690, to: 1800, w: 2 },
-  { key: "natural", name: "Short and natural", sex: "m", people: "c", from: 1690, to: 1800, st: ["labourer", "tradesman", "frontier", "sailor", "clergy", "learned"] },
-  { key: "full_wig", name: "Full-bottomed wig", sex: "m", people: "c", from: 1665, to: 1725, st: GOOD, w: 3 },
-  { key: "powder_wig", name: "Powdered full wig", sex: "m", people: "c", from: 1700, to: 1745, st: ["gentry", "learned", "officer"], w: 2 },
-  { key: "tie_wig", name: "Powdered tie-wig", sex: "m", people: "c", from: 1715, to: 1800, st: ["gentry", "officer", "merchant", "learned"], w: 3 },
-  { key: "bob_wig", name: "Bob wig", sex: "m", people: "c", from: 1715, to: 1800, st: ["tradesman", "merchant", "learned", "clergy"], w: 2 },
-  { key: "balding", name: "Balding", sex: "m", people: "a", ...ANY, w: 0 },
-  { key: "tonsure", name: "Tonsure", sex: "m", people: "c", ...ANY, st: ["clergy"], where: ["spanish", "french", "portuguese"], w: 0 },
-  // Women, colonists.
-  { key: "parted", name: "Parted and drawn back", sex: "f", people: "c", ...ANY, w: 3 },
-  { key: "fringe", name: "Curled fringe", sex: "f", people: "c", from: 1615, to: 1665, st: ["gentry", "merchant", "tradesman"] },
-  { key: "ringlets", name: "Side ringlets", sex: "f", people: "c", from: 1630, to: 1700, st: ["gentry", "merchant"], w: 3 },
-  { key: "piled", name: "Curls piled high", sex: "f", people: "c", from: 1680, to: 1720, st: ["gentry", "merchant"], w: 2 },
-  { key: "dressed", name: "Smooth and dressed up", sex: "f", people: "c", from: 1710, to: 1800, w: 2 },
-  { key: "powdered", name: "Powdered and dressed high", sex: "f", people: "c", from: 1750, to: 1800, st: ["gentry"], w: 2 },
-  { key: "braided", name: "Braids round the head", sex: "f", people: "c", ...ANY, where: ["dutch", "swedish", "english", "french"] },
-  { key: "loose", name: "Long and loose", sex: "a", people: "c", ...ANY, w: 0 },
-  // Native men.
-  { key: "n_long", name: "Long and loose", sex: "m", people: "n", ...ANY, w: 2 },
-  { key: "n_braids", name: "Two braids", sex: "a", people: "n", ...ANY, where: ["plains", "woodlands", "southeast", "subarctic", "southwest", "northwest"], w: 2 },
-  { key: "n_roach", name: "Scalplock and crest", sex: "m", people: "n", ...ANY, where: ["haudenosaunee", "wendat", "attawandaron", "erie", "susquehannock", "illinois", "osage", "pawnee", "cherokee", "muscogee", "chickasaw", "natchez", "lenape"], w: 3 },
-  { key: "n_half", name: "One side shaved, knotted", sex: "m", people: "n", ...ANY, where: ["powhatan"], w: 4 },
-  { key: "n_knot", name: "Knotted at the back", sex: "a", people: "n", ...ANY, where: ["southwest", "california"], w: 3 },
-  { key: "n_topknot", name: "Tied up on top", sex: "m", people: "n", ...ANY, where: ["timucua", "calusa", "california", "northwest", "caribbean"], w: 3 },
-  { key: "n_forelock", name: "Long with a forelock", sex: "m", people: "n", ...ANY, where: ["blackfoot", "oceti", "shoshone"], w: 2 },
-  { key: "n_short", name: "Cut short", sex: "m", people: "n", ...ANY, where: ["mesoamerica", "caribbean"], w: 2 },
-  // Native women.
-  { key: "n_parted", name: "Long, centre-parted", sex: "f", people: "n", ...ANY, w: 2 },
-  { key: "n_tail", name: "Clubbed and wrapped", sex: "f", people: "n", ...ANY, where: ["woodlands", "southeast", "subarctic"], w: 3 },
-  { key: "n_whorls", name: "Whorls at the sides", sex: "f", people: "n", ...ANY, where: ["pueblo"], w: 1 },
-  { key: "n_bangs", name: "Long with a fringe", sex: "f", people: "n", ...ANY, where: ["southwest", "california", "caribbean"], w: 2 },
-  { key: "n_ribbons", name: "Braids wound with cloth", sex: "f", people: "n", ...ANY, where: ["mesoamerica"], w: 4 },
+// ---------------------------------------------------------------- stations
+
+/** What a person does, as far as their clothes tell it. */
+export type Station =
+  | "labourer"
+  | "tradesman"
+  | "merchant"
+  | "gentry"
+  | "clergy"
+  | "soldier"
+  | "officer"
+  | "sailor"
+  | "learned"
+  | "frontier";
+
+export const STATIONS: readonly Station[] = [
+  "labourer",
+  "tradesman",
+  "merchant",
+  "gentry",
+  "clergy",
+  "soldier",
+  "officer",
+  "sailor",
+  "learned",
+  "frontier",
 ];
 
-// prettier-ignore
-export const BEARDS: Item[] = [
-  { key: "none", name: "Clean-shaven", sex: "a", people: "a", ...ANY, w: 6 },
-  { key: "stubble", name: "Unshaven", sex: "m", people: "a", ...ANY, st: ["labourer", "sailor", "frontier", "soldier"] },
-  { key: "moustache", name: "Moustache", sex: "m", people: "c", from: 1500, to: 1700, w: 2 },
-  { key: "vandyke", name: "Moustache and tuft", sex: "m", people: "c", from: 1610, to: 1690, w: 3 },
-  { key: "spade", name: "Spade beard", sex: "m", people: "c", from: 1500, to: 1645, w: 3 },
-  { key: "pointed", name: "Pointed beard", sex: "m", people: "c", from: 1500, to: 1670, w: 2 },
-  { key: "full", name: "Full beard", sex: "m", people: "c", ...ANY, st: ["sailor", "frontier", "labourer", "clergy"] },
-];
-
-// prettier-ignore
-export const HEADWEAR: Item[] = [
-  { key: "none", name: "Bareheaded", sex: "a", people: "a", ...ANY, w: 6 },
-  // Men, colonists.
-  { key: "capotain", name: "Tall capotain", sex: "m", people: "c", from: 1590, to: 1665, st: ["tradesman", "merchant", "learned", "clergy", "labourer"], w: 3 },
-  { key: "plumed", name: "Broad hat with a plume", sex: "m", people: "c", from: 1620, to: 1690, st: ["gentry", "officer"], w: 2 },
-  { key: "broad", name: "Broad-brimmed hat", sex: "a", people: "c", ...ANY, st: ["labourer", "tradesman", "clergy", "frontier"], w: 2 },
-  { key: "tricorne", name: "Cocked hat", sex: "m", people: "c", from: 1690, to: 1800, w: 3 },
-  { key: "laced", name: "Gold-laced cocked hat", sex: "m", people: "c", from: 1700, to: 1800, st: ["officer", "gentry"], w: 2 },
-  { key: "monmouth", name: "Knitted cap", sex: "m", people: "c", ...ANY, st: ["sailor", "labourer"], w: 3 },
-  { key: "tuque", name: "Red woollen tuque", sex: "m", people: "c", from: 1640, to: 1800, st: ["frontier", "sailor", "labourer"], where: ["french"], w: 3 },
-  { key: "fur_cap", name: "Fur cap", sex: "m", people: "c", ...ANY, st: ["frontier"], w: 2 },
-  { key: "morion", name: "Morion helmet", sex: "m", people: "c", from: 1550, to: 1660, st: ["soldier"], w: 3 },
-  { key: "pot", name: "Lobster-tail helmet", sex: "m", people: "c", from: 1625, to: 1690, st: ["soldier", "officer"], w: 2 },
-  { key: "mitre", name: "Grenadier's cap", sex: "m", people: "c", from: 1700, to: 1800, st: ["soldier"], where: ["english", "dutch", "swedish"], w: 1 },
-  { key: "skullcap", name: "Skullcap", sex: "m", people: "c", ...ANY, st: ["clergy", "learned"], w: 1 },
-  { key: "biretta", name: "Biretta", sex: "m", people: "c", ...ANY, st: ["clergy"], where: ["spanish", "french", "portuguese"], w: 2 },
-  { key: "at_home", name: "Soft cap, at home", sex: "m", people: "c", from: 1680, to: 1800, st: ["learned", "gentry", "merchant"], w: 1 },
-  // Women, colonists.
-  { key: "coif", name: "Linen coif", sex: "f", people: "c", ...ANY, w: 4 },
-  { key: "lace_cap", name: "Lace-edged cap", sex: "f", people: "c", from: 1670, to: 1800, w: 3 },
-  { key: "mob_cap", name: "Mob cap", sex: "f", people: "c", from: 1730, to: 1800, w: 3 },
-  { key: "hood", name: "Black hood", sex: "f", people: "c", ...ANY, st: ["merchant", "tradesman", "learned", "gentry"], w: 2 },
-  { key: "steeple", name: "High hat over a coif", sex: "f", people: "c", from: 1600, to: 1665, st: ["tradesman", "labourer", "merchant"], w: 2 },
-  { key: "fontange", name: "Fontange", sex: "f", people: "c", from: 1685, to: 1715, st: ["gentry", "merchant"], w: 2 },
-  { key: "straw", name: "Straw hat", sex: "f", people: "c", from: 1730, to: 1800, w: 2 },
-  { key: "mantilla", name: "Lace mantilla", sex: "f", people: "c", ...ANY, where: ["spanish", "portuguese"], w: 3 },
-  { key: "headscarf", name: "Kerchief over the hair", sex: "f", people: "c", ...ANY, st: ["labourer", "tradesman"], w: 2 },
-  { key: "veil", name: "Veil and wimple", sex: "f", people: "c", ...ANY, st: ["clergy"], where: ["spanish", "french", "portuguese"], w: 0 },
-  // Native peoples.
-  { key: "n_feather", name: "A feather", sex: "a", people: "n", ...ANY, w: 3 },
-  { key: "n_feathers", name: "Hanging feathers", sex: "m", people: "n", ...ANY, w: 2 },
-  { key: "n_headband", name: "Headband", sex: "a", people: "n", ...ANY, w: 2 },
-  { key: "n_gustoweh", name: "Feathered cap", sex: "m", people: "n", ...ANY, where: ["haudenosaunee", "wendat", "attawandaron", "erie", "susquehannock"], w: 4 },
-  { key: "n_roach", name: "Roach headdress", sex: "m", people: "n", ...ANY, where: ["woodlands", "plains", "southeast"], w: 2 },
-  { key: "n_fur_turban", name: "Fur turban", sex: "m", people: "n", ...ANY, where: ["anishinaabe", "illinois", "osage", "pawnee", "cree", "wabanaki", "mikmaq"], w: 2 },
-  { key: "n_turban", name: "Cloth turban", sex: "m", people: "n", from: 1690, to: 1800, where: ["southeast", "woodlands"], w: 3 },
-  { key: "n_spruce", name: "Woven spruce-root hat", sex: "a", people: "n", ...ANY, where: ["northwest"], w: 4 },
-  { key: "n_palm", name: "Palm-leaf hat", sex: "m", people: "n", from: 1560, to: 1800, where: ["mesoamerica", "caribbean"], w: 2 },
-  { key: "n_cloth", name: "Folded head cloth", sex: "a", people: "n", ...ANY, where: ["mesoamerica"], w: 2 },
-  { key: "n_peaked", name: "Peaked cloth cap", sex: "f", people: "n", from: 1680, to: 1800, where: ["mikmaq", "wabanaki", "innu", "cree"], w: 3 },
-];
-
-// prettier-ignore
-export const CLOTHES: Item[] = [
-  // Men, colonists.
-  { key: "jerkin", name: "Shirt and leather jerkin", sex: "m", people: "c", from: 1500, to: 1700, st: ["labourer", "tradesman", "frontier"], w: 3 },
-  { key: "waistcoat", name: "Shirt, waistcoat and neckcloth", sex: "m", people: "c", from: 1670, to: 1800, st: ["labourer", "tradesman", "frontier", "sailor"], w: 3 },
-  { key: "doublet_ruff", name: "Doublet and ruff", sex: "m", people: "c", from: 1560, to: 1640, st: ["gentry", "merchant", "learned", "officer"], w: 3 },
-  { key: "doublet_band", name: "Doublet and falling band", sex: "m", people: "c", from: 1610, to: 1675, st: ["tradesman", "merchant", "gentry", "learned"], w: 3 },
-  { key: "doublet_lace", name: "Doublet, lace collar and sash", sex: "m", people: "c", from: 1625, to: 1675, st: ["gentry", "officer"], w: 3 },
-  { key: "golilla", name: "Black suit and golilla", sex: "m", people: "c", from: 1623, to: 1700, st: ["gentry", "merchant", "learned"], where: ["spanish", "portuguese"], w: 5 },
-  { key: "plain_coat", name: "Plain coat and neckcloth", sex: "m", people: "c", from: 1670, to: 1800, st: ["tradesman", "merchant", "learned"], w: 3 },
-  { key: "justaucorps", name: "Justaucorps and lace cravat", sex: "m", people: "c", from: 1670, to: 1730, st: ["gentry", "merchant", "officer"], w: 3 },
-  { key: "coat_stock", name: "Coat, waistcoat and stock", sex: "m", people: "c", from: 1720, to: 1800, st: ["gentry", "merchant", "learned"], w: 3 },
-  { key: "black_suit", name: "Black suit and bands", sex: "m", people: "c", ...ANY, st: ["learned", "clergy"], w: 2 },
-  { key: "gown_bands", name: "Minister's gown and bands", sex: "m", people: "c", ...ANY, st: ["clergy"], where: ["english", "dutch", "swedish"], w: 4 },
-  { key: "cassock", name: "Cassock and rabat", sex: "m", people: "c", ...ANY, st: ["clergy"], where: ["french", "spanish", "portuguese"], w: 4 },
-  { key: "friar", name: "Friar's habit", sex: "m", people: "c", ...ANY, st: ["clergy"], where: ["spanish", "french", "portuguese"], w: 2 },
-  { key: "breastplate", name: "Breastplate and gorget", sex: "m", people: "c", from: 1500, to: 1680, st: ["soldier", "officer"], w: 3 },
-  { key: "buff_coat", name: "Buff coat and sash", sex: "m", people: "c", from: 1615, to: 1695, st: ["soldier", "officer"], w: 3 },
-  { key: "regimental", name: "Regimental coat", sex: "m", people: "c", from: 1680, to: 1800, st: ["soldier", "officer"], w: 5 },
-  { key: "sailor", name: "Sailor's jacket and neckerchief", sex: "m", people: "c", ...ANY, st: ["sailor"], w: 5 },
-  { key: "hunting_shirt", name: "Fringed hunting shirt", sex: "m", people: "c", from: 1740, to: 1800, st: ["frontier"], w: 4 },
-  { key: "capote", name: "Blanket capote and sash", sex: "m", people: "c", from: 1640, to: 1800, st: ["frontier", "labourer"], where: ["french"], w: 4 },
-  { key: "buckskin", name: "Buckskin jacket", sex: "m", people: "c", ...ANY, st: ["frontier"], w: 3 },
-  // Women, colonists.
-  { key: "bodice", name: "Bodice and kerchief", sex: "f", people: "c", ...ANY, st: ["labourer", "tradesman", "frontier", "sailor"], w: 3 },
-  { key: "short_gown", name: "Short gown and kerchief", sex: "f", people: "c", from: 1700, to: 1800, st: ["labourer", "tradesman", "frontier"], w: 3 },
-  { key: "bodice_ruff", name: "Stomacher and ruff", sex: "f", people: "c", from: 1560, to: 1640, st: ["gentry", "merchant", "learned"], w: 3 },
-  { key: "gown_collar", name: "Dark gown and broad collar", sex: "f", people: "c", from: 1615, to: 1690, st: ["tradesman", "merchant", "learned", "clergy"], w: 3 },
-  { key: "satin", name: "Satin gown with lace and pearls", sex: "f", people: "c", from: 1630, to: 1690, st: ["gentry"], w: 3 },
-  { key: "mantua", name: "Mantua and stomacher", sex: "f", people: "c", from: 1680, to: 1740, st: ["gentry", "merchant"], w: 3 },
-  { key: "robe", name: "Robe à la française", sex: "f", people: "c", from: 1720, to: 1800, st: ["gentry", "merchant"], w: 3 },
-  { key: "plain_gown", name: "Plain gown and neckerchief", sex: "f", people: "c", ...ANY, st: ["tradesman", "merchant", "learned", "clergy"], w: 2 },
-  { key: "habit", name: "Nun's habit", sex: "f", people: "c", ...ANY, st: ["clergy"], where: ["french", "spanish", "portuguese"], w: 0 },
-  // Native men.
-  { key: "n_mantle", name: "Deerskin mantle", sex: "m", people: "n", from: 1500, to: 1720, where: ["woodlands", "southeast", "caribbean", "california"], w: 3 },
-  { key: "n_hide_shirt", name: "Fringed hide shirt", sex: "m", people: "n", ...ANY, where: ["plains", "southwest", "subarctic", "woodlands"], w: 3 },
-  { key: "n_trade_shirt", name: "Trade shirt and matchcoat", sex: "m", people: "n", from: 1640, to: 1800, where: ["woodlands", "southeast", "subarctic", "plains"], w: 4 },
-  { key: "n_matchcoat", name: "Matchcoat over the shoulders", sex: "a", people: "n", from: 1620, to: 1800, where: ["woodlands", "southeast"], w: 2 },
-  { key: "n_fur_robe", name: "Fur robe", sex: "a", people: "n", ...ANY, where: ["subarctic", "plains", "woodlands"], w: 2 },
-  { key: "n_tilma", name: "Cotton shirt and knotted mantle", sex: "m", people: "n", ...ANY, where: ["mesoamerica"], w: 4 },
-  { key: "n_blanket", name: "Woven shirt and blanket", sex: "m", people: "n", ...ANY, where: ["southwest"], w: 3 },
-  { key: "n_cedar", name: "Woven cedar-bark cape", sex: "a", people: "n", ...ANY, where: ["northwest"], w: 4 },
-  { key: "n_coat", name: "Trade coat", sex: "m", people: "n", from: 1680, to: 1800, st: ["gentry", "officer", "merchant"], where: ["woodlands", "southeast"], w: 2 },
-  // Native women.
-  { key: "n_wrap", name: "Deerskin wrap and mantle", sex: "f", people: "n", ...ANY, where: ["woodlands", "southeast", "california", "caribbean"], w: 3 },
-  { key: "n_hide_dress", name: "Hide dress with a yoke", sex: "f", people: "n", ...ANY, where: ["plains", "southwest", "subarctic", "woodlands"], w: 3 },
-  { key: "n_blouse", name: "Trade-cloth blouse and brooches", sex: "f", people: "n", from: 1690, to: 1800, where: ["woodlands", "southeast", "subarctic"], w: 4 },
-  { key: "n_huipil", name: "Huipil", sex: "f", people: "n", ...ANY, where: ["mesoamerica"], w: 5 },
-  { key: "n_manta", name: "Manta over one shoulder", sex: "f", people: "n", ...ANY, where: ["pueblo", "dine"], w: 4 },
-];
-
-// prettier-ignore
-export const ACCESSORIES: Item[] = [
-  { key: "spectacles", name: "Spectacles", sex: "a", people: "c", from: 1600, to: 1800, st: ["learned", "clergy", "merchant"] },
-  { key: "earrings", name: "Earrings", sex: "a", people: "a", ...ANY },
-  { key: "pearls", name: "Pearls", sex: "f", people: "c", ...ANY, st: ["gentry", "merchant"] },
-  { key: "beads", name: "Bead necklace", sex: "a", people: "a", ...ANY },
-  { key: "wampum", name: "Wampum", sex: "a", people: "n", ...ANY, where: ["woodlands"] },
-  { key: "gorget", name: "Silver gorget", sex: "m", people: "a", from: 1600, to: 1800, st: ["officer", "gentry"] },
-  { key: "shell", name: "Shell gorget", sex: "a", people: "n", ...ANY, where: ["southeast", "plains"] },
-  { key: "cross", name: "A cross", sex: "a", people: "a", ...ANY },
-  { key: "pipe", name: "Clay pipe", sex: "m", people: "a", ...ANY },
-];
-
-// prettier-ignore
-export const MARKS: Item[] = [
-  { key: "freckles", name: "Freckles", sex: "a", people: "a", ...ANY },
-  { key: "ruddy", name: "Ruddy cheeks", sex: "a", people: "a", ...ANY },
-  { key: "pox", name: "Pox scars", sex: "a", people: "a", ...ANY },
-  { key: "beauty", name: "Beauty mark", sex: "a", people: "a", ...ANY },
-  { key: "scar", name: "A scar", sex: "a", people: "a", ...ANY },
-  { key: "paint", name: "Red face paint", sex: "a", people: "n", ...ANY },
-  { key: "lines_paint", name: "Painted lines", sex: "m", people: "n", ...ANY },
-  { key: "tattoo", name: "Tattooed lines", sex: "a", people: "n", ...ANY },
-  { key: "red_part", name: "Vermilion parting", sex: "f", people: "n", ...ANY },
-];
-
-const KINDS = {
-  hair: HAIR,
-  beard: BEARDS,
-  hat: HEADWEAR,
-  clothes: CLOTHES,
-} as const;
-
-export type ItemKind = keyof typeof KINDS;
-
-const INDEX = new Map<string, Map<string, Item>>();
-for (const [kind, list] of Object.entries({
-  ...KINDS,
-  extras: ACCESSORIES,
-  marks: MARKS,
-}))
-  INDEX.set(kind, new Map(list.map((i) => [i.key, i])));
-
-export function itemOf(
-  kind: ItemKind | "extras" | "marks",
-  key: string,
-): Item | undefined {
-  return INDEX.get(kind)?.get(key);
-}
-
-/**
- * The choices that suit someone, for the register: their sex and people,
- * nothing not yet worn in their year and nothing long out of fashion.
- */
-export function choicesFor(
-  kind: ItemKind | "extras" | "marks",
-  o: { female: boolean; native: boolean; year: number },
-): Item[] {
-  const list =
-    kind === "extras" ? ACCESSORIES : kind === "marks" ? MARKS : KINDS[kind];
-  // Nothing long out of fashion either (a ruff in 1750).
-  return list.filter(
-    (i) => fits(i, o.female, o.native, o.year) && i.to + 35 >= o.year,
-  );
-}
-
-function fits(
-  i: Item,
-  female: boolean,
-  native: boolean,
-  year: number,
-): boolean {
-  if (i.sex !== "a" && (i.sex === "f") !== female) return false;
-  if (i.people !== "a" && (i.people === "n") !== native) return false;
-  return i.from <= year;
-}
-
-// ---------------------------------------------------------------- randomness
-
-/** A stream of numbers from a seed, the same each time. */
-class Stream {
-  private s: number;
-  constructor(...seed: number[]) {
-    let h = 0x811c9dc5;
-    for (const n of seed) {
-      h ^= n | 0;
-      h = Math.imul(h, 0x01000193);
-      h ^= h >>> 13;
-    }
-    this.s = h | 0;
+/** The kind of sitter whose picture suits a station. */
+export function classOfStation(st: Station): SitterClass {
+  switch (st) {
+    case "labourer":
+    case "frontier":
+      return "labourer";
+    case "sailor":
+    case "tradesman":
+      return "trades";
+    default:
+      return st;
   }
-  next(): number {
-    const [v, s] = nextRandom(this.s);
-    this.s = s;
-    return v;
-  }
-  int(lo: number, hi: number): number {
-    return lo + Math.floor(this.next() * (hi - lo + 1));
-  }
-  chance(p: number): boolean {
-    return this.next() < p;
-  }
-  /** An index, by weights. */
-  weighted(weights: readonly number[]): number {
-    const total = weights.reduce((a, b) => a + Math.max(0, b), 0);
-    if (total <= 0) return 0;
-    let r = this.next() * total;
-    for (let i = 0; i < weights.length; i++) {
-      r -= Math.max(0, weights[i]);
-      if (r < 0) return i;
-    }
-    return weights.length - 1;
-  }
-  pick<T>(list: readonly T[]): T {
-    return list[Math.floor(this.next() * list.length)];
-  }
-}
-
-// ---------------------------------------------------------------- who wears what
-
-export interface LookSeed {
-  /** Character id (or any number that stands for the person). */
-  id: number;
-  culture: string;
-  female: boolean;
-  age: number;
-  station: Station;
-  /** The year they're seen in. */
-  year: number;
-  religion?: string;
-}
-
-/** Fashions run in four periods; within one, a person keeps their clothes. */
-export function eraOf(year: number): number {
-  return year < 1632 ? 0 : year < 1678 ? 1 : year < 1722 ? 2 : 3;
 }
 
 /** The station a character's clothes show: their post, their title, or a guess. */
@@ -652,6 +309,7 @@ export function stationOf(c: Character): Station {
     trader: "merchant",
     maker: "tradesman",
     warleader: "officer",
+    youngwarrior: "soldier",
   };
   if (byRole[role]) return byRole[role];
   for (const s of STATIONS) if (role.includes(s)) return s;
@@ -664,37 +322,8 @@ export function stationOf(c: Character): Station {
   if (/priest|minister|monk|friar|nun|shaman/.test(role)) return "clergy";
   if (c.title) return "gentry";
   // The people at court and in governors' houses, mostly.
-  const r = new Stream(c.id, 77).next();
-  return r < 0.5 ? "gentry" : r < 0.75 ? "merchant" : "learned";
-}
-
-/** What a station is called among the native peoples, for the register. */
-export function stationName(st: Station, native: boolean): string {
-  if (native)
-    return {
-      labourer: "Grower",
-      tradesman: "Maker",
-      merchant: "Trader",
-      gentry: "Leader",
-      clergy: "Healer",
-      soldier: "Warrior",
-      officer: "War leader",
-      sailor: "Fisher",
-      learned: "Speaker",
-      frontier: "Hunter",
-    }[st];
-  return {
-    labourer: "Labourer",
-    tradesman: "Tradesman",
-    merchant: "Merchant",
-    gentry: "Gentry",
-    clergy: "Clergy",
-    soldier: "Soldier",
-    officer: "Officer",
-    sailor: "Sailor",
-    learned: "Learned",
-    frontier: "Frontier",
-  }[st];
+  const r = hash(c.id, 77) % 100;
+  return r < 50 ? "gentry" : r < 75 ? "merchant" : "learned";
 }
 
 /** A background's station, for a new character's first look. */
@@ -727,510 +356,339 @@ export function stationOfBackground(bg: string): Station {
   );
 }
 
-/** How much an item suits someone (0: not at all). */
-function suit(i: Item, o: LookSeed, native: boolean, region: Region): number {
-  if (!fits(i, o.female, native, o.year)) return 0;
-  let w = i.w ?? 1;
-  if (w <= 0) return 0;
-  // Out of fashion: the old still wear it now and then.
-  if (o.year > i.to) w *= o.age >= 50 && o.year - i.to < 30 ? 0.35 : 0;
-  if (i.st) {
-    if (!i.st.includes(o.station)) {
-      // Natives' dress isn't so strictly by station.
-      if (native && i.people === "n") w *= 0.25;
-      else return 0;
-    } else w *= 2;
+// ---------------------------------------------------------------- choosing a picture
+
+/** A number from some others, the same each time (FNV-1a, mixed). */
+export function hash(...parts: (number | string)[]): number {
+  let h = 0x811c9dc5;
+  for (const p of parts) {
+    if (typeof p === "number") {
+      h ^= p | 0;
+      h = Math.imul(h, 0x01000193);
+    } else
+      for (let i = 0; i < p.length; i++) {
+        h ^= p.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+      }
+    h ^= h >>> 13;
   }
-  if (i.where) {
-    if (i.where.includes(o.culture) || i.where.includes(region)) w *= 2;
-    else return 0;
-  }
-  return w;
+  h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+  h ^= h >>> 16;
+  return h >>> 0;
 }
 
-function pickItem(
-  list: readonly Item[],
-  o: LookSeed,
-  native: boolean,
-  region: Region,
-  r: Stream,
-  fallback: string,
-): string {
-  const weights = list.map((i) => suit(i, o, native, region));
-  if (weights.every((w) => w <= 0)) return fallback;
-  return list[r.weighted(weights)].key;
+/** Who a picture is wanted for. */
+export interface Wanted {
+  /** Stands for the person: different people get different pictures. */
+  id: number;
+  female: boolean;
+  age: number;
+  people: People;
+  cls: SitterClass;
+  /** The year they're seen in. */
+  year: number;
+  /** For the peoples of the country: where they live. */
+  region?: string;
+  /** The colour their hair is (or was), to keep from picture to picture. */
+  tone?: HairTone;
+  /** Prefer a wig, a hat, long hair (for old looks brought over). */
+  wig?: boolean;
+  hat?: boolean;
 }
 
-/** Weighted pick of a feature index. */
-function feature(r: Stream, weights: readonly number[]): number {
-  return r.weighted(weights);
-}
-
-/** Skin, eye and hair colouring by people. */
-function colouring(
-  culture: string,
-  native: boolean,
-  region: Region,
-  r: Stream,
-): { skin: number; eyeColor: number; hairColor: number } {
-  if (native) {
-    const skin =
-      region === "subarctic" || region === "northwest"
-        ? feature(r, [0, 0, 0, 0, 1, 3, 4, 3, 1, 0])
-        : region === "mesoamerica" || region === "caribbean"
-          ? feature(r, [0, 0, 0, 0, 0, 2, 3, 4, 3, 1])
-          : feature(r, [0, 0, 0, 0, 1, 3, 4, 4, 2, 0]);
-    return {
-      skin,
-      eyeColor: feature(r, [6, 3, 0.3, 0, 0, 0, 0]),
-      hairColor: feature(r, [8, 3, 0.4, 0, 0, 0, 0, 0, 0]),
-    };
-  }
-  const south = culture === "spanish" || culture === "portuguese";
-  const north = culture === "swedish" || culture === "dutch";
-  const skin = south
-    ? feature(r, [0, 1, 3, 4, 4, 2, 1, 0.5, 0.3, 0.2])
-    : north
-      ? feature(r, [3, 5, 3, 1, 0.3, 0, 0, 0, 0, 0])
-      : culture === "french"
-        ? feature(r, [2, 4, 4, 2, 1, 0.3, 0, 0, 0, 0])
-        : feature(r, [2.5, 5, 3.5, 1.5, 0.5, 0.2, 0, 0, 0, 0]);
-  const eyeColor = south
-    ? feature(r, [4, 4, 2, 1, 0.5, 0.5, 0.2])
-    : north
-      ? feature(r, [0.5, 1, 1, 1.5, 2, 3, 2.5])
-      : feature(r, [1, 2, 2, 1.5, 1.5, 2.5, 1.2]);
-  const hairColor = south
-    ? feature(r, [4, 4, 2, 1, 0.3, 0.1, 0.4, 0.1, 0])
-    : north
-      ? feature(r, [0.3, 1, 1.5, 1, 0.5, 0.5, 2, 2.5, 2])
-      : feature(r, [1, 2.5, 3, 2, 1, 0.7, 1.5, 1, 0.5]);
-  return { skin, eyeColor, hairColor };
-}
-
-/** Uniforms and sashes by nation. */
-const UNIFORM: Record<string, [number, number, number]> = {
-  english: [C.scarlet, C.indigo, C.buff],
-  french: [C.linen, C.indigo, C.scarlet],
-  spanish: [C.linen, C.madder, C.indigo],
-  dutch: [C.indigo, C.grey, C.orange],
-  swedish: [C.indigo, C.ochre, C.ochre],
-  portuguese: [C.indigo, C.scarlet, C.linen],
-};
-const SASH: Record<string, number> = {
-  english: C.scarlet,
-  french: C.white,
-  spanish: C.madder,
-  dutch: C.orange,
-  swedish: C.sky,
-  portuguese: C.indigo,
+const BAND_INDEX: Record<AgeBand, number> = {
+  child: 0,
+  youth: 1,
+  prime: 2,
+  middle: 3,
+  elder: 4,
 };
 
-/** Colours a garment is likely to come in. */
-function clothColors(
-  clothes: string,
-  o: LookSeed,
-  r: Stream,
-): [number, number, number] {
-  const p = (list: readonly number[]) => r.pick(list);
-  const plain = [C.umber, C.russet, C.olive, C.charcoal, C.slate, C.buff];
-  const sober = [C.black, C.charcoal, C.umber, C.slate];
-  const rich = [
-    C.claret,
-    C.indigo,
-    C.green,
-    C.plum,
-    C.scarlet,
-    C.ochre,
-    C.sky,
-    C.russet,
-    C.rose,
+/** Classes that dress alike, a little. */
+function classNear(a: SitterClass, b: SitterClass): boolean {
+  const groups: SitterClass[][] = [
+    ["labourer", "trades"],
+    ["trades", "merchant"],
+    ["merchant", "learned", "gentry"],
+    ["soldier", "officer"],
+    ["officer", "gentry"],
+    ["clergy", "learned"],
   ];
-  const trade = [C.indigo, C.scarlet, C.green, C.madder, C.black];
-  const shirts = [C.white, C.linen, C.sky, C.rose, C.ochre];
-  switch (clothes) {
-    case "regimental":
-      return UNIFORM[o.culture] ?? UNIFORM.english;
-    case "buff_coat":
-    case "breastplate":
-      return [C.buff, p(plain), SASH[o.culture] ?? C.scarlet];
-    case "doublet_lace":
-      return [p([C.black, ...rich]), p(rich), SASH[o.culture] ?? C.scarlet];
-    case "jerkin":
-    case "waistcoat":
-      return [p(plain), p(plain), p([C.linen, C.white])];
-    case "sailor":
-      return [
-        p([C.indigo, C.slate, C.charcoal]),
-        p([C.linen, C.white]),
-        p([C.scarlet, C.indigo, C.ochre]),
-      ];
-    case "hunting_shirt":
-      return [p([C.linen, C.buff, C.olive]), p(plain), p([C.buff])];
-    case "capote":
-      return [
-        p([C.white, C.linen, C.indigo]),
-        p(plain),
-        p([C.scarlet, C.ochre, C.green]),
-      ];
-    case "buckskin":
-      return [p([C.deer, C.smoked, C.palehide]), p(plain), C.buff];
-    case "gown_bands":
-    case "black_suit":
-    case "cassock":
-    case "golilla":
-      return [C.black, C.black, C.white];
-    case "friar":
-      return [p([C.umber, C.grey]), C.umber, C.linen];
-    case "habit":
-      return [C.black, C.white, C.white];
-    case "gown_collar":
-      return [p([C.black, C.black, C.charcoal, C.umber]), p(sober), C.white];
-    case "bodice":
-    case "short_gown":
-      return [
-        p([...plain, C.madder, C.sky, C.rose]),
-        p([...plain, C.indigo]),
-        p([C.linen, C.white]),
-      ];
-    case "plain_gown":
-      return [p([...sober, C.slate, C.green, C.russet]), p(sober), C.white];
-    case "bodice_ruff":
-    case "satin":
-    case "mantua":
-    case "robe":
-    case "doublet_ruff":
-    case "justaucorps":
-    case "coat_stock":
-      return [
-        p(
-          o.station === "gentry"
-            ? [C.black, ...rich]
-            : [C.black, ...sober, ...rich],
-        ),
-        p(rich),
-        p([C.ochre, C.white, C.linen]),
-      ];
-    case "doublet_band":
-    case "plain_coat":
-      return [
-        p(o.religion === "puritan" ? sober : [...sober, ...plain]),
-        p(plain),
-        C.white,
-      ];
-    // Native dress: hide, trade cloth, and the colours of beads and quills.
-    case "n_mantle":
-    case "n_wrap":
-    case "n_hide_shirt":
-    case "n_hide_dress":
-      return [
-        p([C.deer, C.smoked, C.palehide]),
-        p([C.deer, C.smoked]),
-        p([C.scarlet, C.indigo, C.white, C.ochre, C.turquoise]),
-      ];
-    case "n_fur_robe":
-      return [
-        p([C.smoked, C.umber, C.deer]),
-        p([C.deer]),
-        p([C.scarlet, C.white, C.ochre]),
-      ];
-    case "n_trade_shirt":
-    case "n_blouse":
-      return [p(shirts), p(trade), p([C.scarlet, C.white, C.ochre, C.indigo])];
-    case "n_matchcoat":
-      return [
-        p(trade),
-        p([C.deer, C.smoked]),
-        p([C.scarlet, C.white, C.ochre]),
-      ];
-    case "n_coat":
-      return [
-        p([C.scarlet, C.indigo, C.green]),
-        p(shirts),
-        p([C.ochre, C.white]),
-      ];
-    case "n_tilma":
-      return [
-        C.white,
-        p([C.linen, C.ochre, C.russet, C.indigo]),
-        p([C.scarlet, C.indigo, C.green]),
-      ];
-    case "n_huipil":
-      return [
-        p([C.white, C.linen]),
-        p([C.indigo, C.madder, C.charcoal]),
-        p([C.scarlet, C.ochre, C.green, C.plum]),
-      ];
-    case "n_manta":
-      return [C.black, p([C.scarlet, C.green]), p([C.scarlet, C.indigo])];
-    case "n_blanket":
-      return [
-        p([C.white, C.linen, C.charcoal]),
-        p([C.scarlet, C.indigo, C.black]),
-        p([C.scarlet, C.white]),
-      ];
-    case "n_cedar":
-      return [
-        p([C.deer, C.palehide, C.umber]),
-        p([C.black, C.umber]),
-        p([C.scarlet, C.turquoise, C.black]),
-      ];
-    default:
-      return [p([...plain, ...sober]), p(plain), C.linen];
-  }
+  return groups.some((g) => g.includes(a) && g.includes(b));
 }
 
+/** How well a picture suits someone (-Infinity: not at all). */
+export function suitability(s: Sitter, w: Wanted): number {
+  if ((s.sex === "f") !== w.female) return -Infinity;
+  const band = BAND_INDEX[ageBand(w.age)];
+  const sb = BAND_INDEX[s.age];
+  let v = 0;
+  // Children and the grown stand in for each other only for a people with
+  // no pictures of them (the peoples of the country's children, mostly).
+  if ((band === 0) !== (sb === 0)) v -= 20;
+  else {
+    const gap = Math.abs(band - sb);
+    v -= gap === 0 ? 0 : gap === 1 ? 3.5 : 9;
+  }
+  // Their own people above all; peoples with no pictures fall to their kin.
+  // An African sitter is shown as one even at the wrong years before anyone
+  // else's picture stands in.
+  if (s.people === w.people) v += 10;
+  else if (w.people === "native" || s.people === "native") return -Infinity;
+  else if (KIN[w.people].includes(s.people)) v += 5;
+  else if (s.people === "african" || s.people === "mestizo") return -Infinity;
+  else if (w.people === "african") v -= 6;
+  if (s.cls === w.cls) v += 6;
+  else if (classNear(s.cls, w.cls)) v += 2.5;
+  // Working folk aren't painted in silk and armour, nor the gentry in rags.
+  const humble = w.cls === "labourer" || w.cls === "trades";
+  if (humble && (s.dress === "fine" || s.dress === "armour" || s.wig)) v -= 1.5;
+  if (!humble && w.cls !== "clergy" && s.cls === "labourer") v -= 1;
+  // Clergy and soldiers only when wanted: a habit or a breastplate is a choice.
+  if ((s.cls === "clergy") !== (w.cls === "clergy")) v -= 4;
+  if (s.dress === "armour" && w.cls !== "soldier" && w.cls !== "officer")
+    v -= 3;
+  // The fashions of their own years.
+  v -= Math.min(4, Math.abs(s.year - w.year) / 30);
+  if (w.region && s.region) v += s.region === w.region ? 1.5 : 0;
+  if (s.col) v += 0.5;
+  if (w.tone && s.hair !== "hidden") {
+    const old = sb >= 4 && (s.hair === "grey" || s.hair === "white");
+    if (s.hair === w.tone || old) v += 1.5;
+  }
+  if (w.wig !== undefined && s.wig === w.wig) v += 1.5;
+  if (w.hat !== undefined && (s.head !== "bare") === w.hat) v += 1;
+  return v;
+}
+
+/** How far below the best a picture may fall and still be picked. */
+const SPREAD = 3;
+
+const pickCache = new Map<string, string>();
+
 /**
- * A look for someone no player has drawn: stable for the person, fitting
- * their people, sex, age, station and the year. Their features never
- * change; their clothes and hair follow fashion as the years go by.
+ * A picture for someone: among those that suit them about as well as the
+ * best, one chosen by who they are, so neighbours seldom share a face.
  */
-export function generateLook(o: LookSeed): Appearance {
-  const native = isNativeCulture(o.culture);
-  const region = regionOf(o.culture);
-  const g = new Stream(o.id, 0x51ed);
-  const { skin, eyeColor, hairColor } = colouring(o.culture, native, region, g);
-  const look: Appearance = {
-    skin,
-    face: feature(g, [
-      4,
-      2,
-      2,
-      2,
-      1.5,
-      native ? 2.5 : 1,
-      // Lean or stout (the same all their life: the years add flesh as
-      // they're painted, not here).
-      1.1,
-      1,
-    ]),
-    jaw: feature(
-      g,
-      o.female ? [4, 2, 0.5, 2, 0.3, 0.8, 0.3] : [2, 3, 2, 1, 1.5, 1, 1],
-    ),
-    cheeks: feature(g, native ? [1, 2, 4, 1] : [2, 2.5, 2, 1]),
-    eyes: feature(
-      g,
-      native ? [3, 1, 2, 3, 1, 1, 0.4, 1.6] : [3, 2, 2, 1, 1.5, 1.5, 1, 0.8],
-    ),
-    eyeColor,
-    eyeSet: feature(g, [1, 4, 1.5]),
-    brows: feature(g, o.female ? [3, 3, 2, 0.5, 0.2] : [1, 1.5, 2.5, 2.5, 1.5]),
-    nose: feature(
-      g,
-      native
-        ? [3, 3, 0.5, 2, 1.5, 0.5, 1.5, 0.4]
-        : o.female
-          ? [4, 1.5, 2, 0.8, 1.5, 2, 0.4, 0.3]
-          : [3, 2.5, 1.2, 1.2, 2, 0.8, 1.2, 0.9],
-    ),
-    mouth: feature(g, o.female ? [1, 3, 1, 2, 3] : [3, 2, 2, 1.5, 1]),
-    ears: feature(g, [2, 4, 2, 0.6]),
-    hair: "",
-    hairColor,
-    beard: "none",
-    hat: "none",
-    clothes: "",
-    colors: [0, 0, 0],
-    extras: [],
-    marks: [],
-    lines: feature(g, [4, 3, 1.5, 0.6]),
-    greying: feature(g, [2, 4, 2.5, 1]),
-  };
-  // Marks of birth and a hard life (drawn once, from the person).
-  const fair = skin <= 2 && !native;
-  if (fair && hairColor >= 4 && g.chance(0.45)) look.marks.push("freckles");
-  else if (fair && g.chance(0.12)) look.marks.push("freckles");
-  if (!native && g.chance(0.1)) look.marks.push("pox");
-  if (!native && fair && g.chance(0.25)) look.marks.push("ruddy");
-  const scarred =
-    (o.station === "soldier" ||
-    o.station === "officer" ||
-    o.station === "sailor"
-      ? 0.25
-      : 0.05) > g.next();
-  if (scarred && o.age >= 18) look.marks.push("scar");
-
-  // What they wear: chosen for the period of fashion and their station.
-  const s = new Stream(o.id, eraOf(o.year), STATIONS.indexOf(o.station), 0x7a3);
-  const child = o.age < 14;
-  const seed: LookSeed = child ? { ...o, station: kidStation(o.station) } : o;
-  look.clothes = pickItem(
-    CLOTHES,
-    seed,
-    native,
-    region,
-    s,
-    native
-      ? o.female
-        ? "n_wrap"
-        : "n_mantle"
-      : o.female
-        ? "bodice"
-        : "jerkin",
+export function pickSitter(wanted: Wanted): Sitter {
+  // Fashion is judged by the decade (and the picture kept for it).
+  const w = { ...wanted, year: Math.floor(wanted.year / 10) * 10 + 5 };
+  const band = ageBand(w.age);
+  const key = `${w.id}|${w.female ? 1 : 0}|${band}|${w.people}|${w.cls}|${w.year}|${w.region ?? ""}|${w.tone ?? ""}|${w.wig ?? ""}|${w.hat ?? ""}`;
+  const hit = pickCache.get(key);
+  if (hit) return SITTERS.get(hit)!;
+  const scored = GALLERY.map((s) => ({ s, v: suitability(s, w) })).filter(
+    (x) => x.v > -Infinity,
   );
-  look.colors = clothColors(look.clothes, o, s);
-  look.hair = pickItem(
-    HAIR,
-    seed,
-    native,
-    region,
-    s,
-    native
-      ? o.female
-        ? "n_parted"
-        : "n_long"
-      : o.female
-        ? "parted"
-        : "collar",
-  );
-  if (child && !native)
-    look.hair = o.female
-      ? s.pick(["parted", "loose", "braided"])
-      : s.pick(["collar", o.year >= 1690 ? "natural" : "roundhead", "cropped"]);
-  if (child && native && (look.hair === "n_roach" || look.hair === "n_half"))
-    look.hair = o.female ? "n_parted" : "n_long";
-  look.hat = pickItem(HEADWEAR, seed, native, region, s, "none");
-  // Children go bareheaded, or in a plain cap.
-  if (child)
-    look.hat = native
-      ? s.chance(0.25)
-        ? "n_feather"
-        : "none"
-      : o.female
-        ? s.pick(["coif", "coif", "none", o.year >= 1680 ? "lace_cap" : "coif"])
-        : s.chance(0.2) && o.age >= 8
-          ? o.year >= 1690
-            ? "tricorne"
-            : "broad"
-          : "none";
-  if (!o.female && !native && !child)
-    look.beard = pickItem(BEARDS, seed, native, region, s, "none");
-  // Clergy dress as clergy.
-  if (o.station === "clergy" && !native && !child) {
-    const catholic = o.religion === "catholic";
-    if (o.female && catholic && s.chance(0.6)) {
-      look.clothes = "habit";
-      look.hat = "veil";
-      look.colors = [C.black, C.white, C.white];
-    } else if (!o.female && catholic && look.hat === "none" && s.chance(0.4))
-      look.hat = "biretta";
-    if (!o.female && catholic && look.clothes === "friar" && s.chance(0.7)) {
-      look.hair = "tonsure";
-      look.hat = "none";
-    }
-  }
-  // The years: balding men, and spectacles.
-  const r = new Stream(o.id, 0xa9e);
-  const baldAt = 30 + r.next() * 60;
-  if (!o.female && !native && o.age >= baldAt && !isWig(look.hair))
-    look.hair = "balding";
-  if (
-    !native &&
-    o.age >= 45 &&
-    r.chance(0.3) &&
-    (o.station === "learned" ||
-      o.station === "clergy" ||
-      o.station === "merchant")
-  )
-    look.extras.push("spectacles");
-  // Ornaments.
-  const a = new Stream(o.id, eraOf(o.year), 0x0a7);
-  if (native) {
-    if (a.chance(o.female ? 0.6 : 0.45)) look.extras.push("earrings");
-    if (region === "woodlands" && a.chance(0.35)) look.extras.push("wampum");
-    else if (a.chance(0.45)) look.extras.push("beads");
-    if (
-      !o.female &&
-      o.year >= 1690 &&
-      (region === "woodlands" || region === "southeast") &&
-      a.chance(o.station === "gentry" || o.station === "officer" ? 0.6 : 0.15)
-    )
-      look.extras.push("gorget");
-    else if ((region === "southeast" || region === "plains") && a.chance(0.2))
-      look.extras.push("shell");
-    if (
-      !o.female &&
-      a.chance(o.station === "soldier" || o.station === "officer" ? 0.4 : 0.08)
-    )
-      look.marks.push(a.chance(0.65) ? "paint" : "lines_paint");
-    if (
-      a.chance(
-        [
-          "timucua",
-          "calusa",
-          "wendat",
-          "haudenosaunee",
-          "osage",
-          "natchez",
-          "caddo",
-        ].includes(o.culture)
-          ? 0.3
-          : 0.02,
-      )
-    )
-      look.marks.push("tattoo");
-    if (o.female && a.chance(0.4)) look.marks.push("red_part");
-    if (o.religion && o.religion !== "native" && a.chance(0.5))
-      look.extras.push("cross");
-  } else {
-    if (
-      o.female &&
-      (o.station === "gentry" || o.station === "merchant") &&
-      a.chance(0.55)
-    )
-      look.extras.push("pearls");
-    else if (o.female && a.chance(0.2)) look.extras.push("beads");
-    if (o.female && a.chance(0.3)) look.extras.push("earrings");
-    if (!o.female && o.station === "sailor" && a.chance(0.3))
-      look.extras.push("earrings");
-    if (!o.female && o.station === "officer" && o.year >= 1650 && a.chance(0.6))
-      look.extras.push("gorget");
-    if (o.religion === "catholic" && (o.station === "clergy" || a.chance(0.12)))
-      look.extras.push("cross");
-    if (!o.female && o.age >= 25 && a.chance(0.08)) look.extras.push("pipe");
-    if (o.female && o.year >= 1640 && o.station === "gentry" && a.chance(0.15))
-      look.marks.push("beauty");
-  }
-  if (child) {
-    look.extras = look.extras.filter(
-      (x) => x !== "pipe" && x !== "spectacles" && x !== "gorget",
-    );
-    look.marks = look.marks.filter(
-      (x) => x === "freckles" || x === "ruddy" || x === "red_part",
-    );
-  }
-  return look;
+  let best = -Infinity;
+  for (const x of scored) best = Math.max(best, x.v);
+  const pool = scored.filter((x) => x.v >= best - SPREAD);
+  const s = pool.length
+    ? pool[hash(w.id, band, 0x9a11) % pool.length].s
+    : GALLERY[0];
+  if (pickCache.size > 4000) pickCache.clear();
+  pickCache.set(key, s.id);
+  return s;
 }
 
-function kidStation(st: Station): Station {
-  return st === "soldier" ||
-    st === "officer" ||
-    st === "clergy" ||
-    st === "sailor"
-    ? "tradesman"
-    : st;
+/** The colour someone's hair is, by their people (stays with them all their life). */
+export function naturalTone(id: number, people: People): HairTone {
+  const r = hash(id, 0x4a1) % 100;
+  if (people === "native" || people === "african" || people === "mestizo")
+    return r < 80 ? "black" : "dark";
+  if (people === "spanish" || people === "portuguese")
+    return r < 40 ? "black" : r < 80 ? "dark" : r < 93 ? "brown" : "auburn";
+  if (people === "swedish" || people === "dutch")
+    return r < 10 ? "dark" : r < 40 ? "brown" : r < 52 ? "auburn" : "fair";
+  return r < 15
+    ? "black"
+    : r < 40
+      ? "dark"
+      : r < 70
+        ? "brown"
+        : r < 82
+          ? "auburn"
+          : "fair";
 }
-
-export function isWig(hair: string): boolean {
-  return (
-    hair === "full_wig" ||
-    hair === "powder_wig" ||
-    hair === "tie_wig" ||
-    hair === "bob_wig"
-  );
-}
-
-// ---------------------------------------------------------------- children
 
 /**
- * A child's look: features from one parent or the other (or between the
- * two), colouring that runs in the family, and clothes for the child's own
- * sex and the family's station. `seed` is the child's id.
+ * The people a character's picture comes from. In the colonies the
+ * colonists' neighbours were often African, free or enslaved, and in New
+ * Spain and Brazil of mixed descent: a family's line decides it, so parents
+ * and children agree.
+ */
+export function ancestryOf(c: Character, st: Station): People {
+  const base = peopleOfCulture(c.culture);
+  if (base === "native" || base === "swedish") return base;
+  const roll = (hash(c.family || c.first, c.culture, 0xa11) % 1000) / 1000;
+  const humble =
+    st === "labourer" ||
+    st === "tradesman" ||
+    st === "sailor" ||
+    st === "soldier" ||
+    st === "frontier";
+  const african = base === "portuguese" ? 0.12 : base === "dutch" ? 0.04 : 0.05;
+  const mixed = base === "spanish" ? 0.15 : base === "portuguese" ? 0.08 : 0;
+  if (roll < african) return humble ? "african" : base;
+  if (roll < african + mixed) return "mestizo";
+  return base;
+}
+
+/** What's wanted for a character no player has pictured, at an age. */
+export function wantedFor(c: Character, age: number): Wanted {
+  const st = stationOf(c);
+  const people = ancestryOf(c, st);
+  return {
+    id: c.id,
+    female: c.female,
+    age,
+    people,
+    cls: classOfStation(st),
+    year: yearAtAge(c, age),
+    region: people === "native" ? regionOf(c.culture) : undefined,
+    tone: naturalTone(c.id, people),
+  };
+}
+
+// ---------------------------------------------------------------- a character's look
+
+/** The year a character is `age`, from the day they were born. */
+export function yearAtAge(c: Character, age: number): number {
+  return dateOf(c.born + Math.round(age * DAYS_PER_YEAR)).year;
+}
+
+/** A look that shows a picture as painted. */
+export function plainLook(p: string): Look {
+  return { p, hair: -1, hairL: 0, cloth: -1, clothL: 0, grey: 0, flip: false };
+}
+
+/**
+ * How a character looks at an age: the look a player chose (or their family
+ * passed down), or a picture of their own that suits their years.
+ */
+export function lookOf(c: Character, age: number): Look {
+  if (c.look) return c.look;
+  const s = pickSitter(wantedFor(c, age));
+  return s.age === "child" ? { ...plainLook(""), kid: s.id } : plainLook(s.id);
+}
+
+/**
+ * The picture a look shows at an age. A child of a player's family wears
+ * their child's picture until sixteen, and is given a grown one (with the
+ * family's hair) if no one has chosen it.
+ */
+export function sitterAt(look: Look, age: number, c?: Character): Sitter {
+  const child = age < 16;
+  if (child && look.kid) {
+    const k = SITTERS.get(look.kid);
+    if (k) return k;
+  }
+  const own = SITTERS.get(look.p);
+  if (own && (own.age === "child") === child) return own;
+  const base: Wanted = c
+    ? wantedFor(c, age)
+    : {
+        id: hash(look.p, look.kid ?? ""),
+        female: own?.sex === "f",
+        age,
+        people: own?.people ?? "english",
+        cls: own?.cls ?? "trades",
+        year: own?.year ?? 1700,
+      };
+  const tone = SWATCH_TONE[look.hair];
+  return pickSitter({ ...base, tone: tone ?? base.tone });
+}
+
+/** The picture someone is shown with at an age. */
+export function sitterOf(c: Character, age: number): Sitter {
+  return sitterAt(lookOf(c, age), age, c);
+}
+
+/** How grey a look's hair has gone at an age, 0 to 1. */
+export function greyAt(look: Look, age: number, s: Sitter): number {
+  if (look.grey <= 0 || s.wig || s.hair === "hidden") return 0;
+  if (s.hair === "grey" || s.hair === "white") return 0;
+  const from = look.grey >= 2 ? 32 : 40;
+  return Math.max(0, Math.min(1, (age - from) / 30));
+}
+
+/** A copy of a look, so edits don't touch the original. */
+export function copyLook(look: Look): Look {
+  const out: Look = {
+    p: look.p,
+    hair: look.hair,
+    hairL: look.hairL,
+    cloth: look.cloth,
+    clothL: look.clothL,
+    grey: look.grey,
+    flip: look.flip,
+  };
+  if (look.kid) out.kid = look.kid;
+  return out;
+}
+
+// ---------------------------------------------------------------- new likenesses
+
+/** Who a likeness is chosen for (the register, a new character). */
+export interface LookSeed {
+  /** Any number that stands for the person. */
+  id: number;
+  culture: string;
+  female: boolean;
+  age: number;
+  station: Station;
+  /** The year they're seen in. */
+  year: number;
+  religion?: string;
+}
+
+function wantedOfSeed(o: LookSeed): Wanted {
+  const people = peopleOfCulture(o.culture);
+  return {
+    id: o.id,
+    female: o.female,
+    age: o.age,
+    people,
+    cls: classOfStation(o.station),
+    year: o.year,
+    region: people === "native" ? regionOf(o.culture) : undefined,
+    tone: naturalTone(o.id, people),
+  };
+}
+
+/** A likeness for someone new: a picture that suits them, as painted, greying as most do. */
+export function generateLook(o: LookSeed): Look {
+  return { ...plainLook(pickSitter(wantedOfSeed(o)).id), grey: 1 };
+}
+
+/**
+ * A look made to fit someone: a picture of the other sex, of a child for a
+ * grown person (or the reverse), or of another people's dress for one of the
+ * peoples of the country (or the reverse) is chosen afresh; with `restyle`
+ * the picture is chosen afresh anyway. The tuning stays.
+ */
+export function fitLook(look: Look, o: LookSeed, restyle = false): Look {
+  // A draft from before the gallery: start afresh.
+  if (!look || !("p" in look) || validateLook(look)) return generateLook(o);
+  const s = SITTERS.get(look.p);
+  const native = isNativeCulture(o.culture);
+  const fits =
+    s &&
+    (s.sex === "f") === o.female &&
+    (s.age === "child") === o.age < 16 &&
+    (s.people === "native") === native;
+  if (fits && !restyle) return copyLook(look);
+  return { ...copyLook(look), p: pickSitter(wantedOfSeed(o)).id };
+}
+
+/**
+ * A child's look in a player's family: a child's picture of their people
+ * with a parent's hair, and their grown picture left to be chosen (by them,
+ * or for them at sixteen, with the same hair).
  */
 export function inheritLook(
-  mother: Appearance,
-  father: Appearance,
+  mother: Look,
+  father: Look,
   seed: number,
   child: {
     female: boolean;
@@ -1238,298 +696,373 @@ export function inheritLook(
     year: number;
     religion?: string;
   } = { female: false, culture: "english", year: 1650 },
-): Appearance {
-  const r = new Stream(seed, 0x1e9);
-  const from = <K extends keyof Appearance>(k: K): Appearance[K] =>
-    r.chance(0.5) ? mother[k] : father[k];
-  const between = (k: Feature & keyof Appearance): number => {
-    const a = mother[k] as number;
-    const b = father[k] as number;
-    const roll = r.next();
-    if (roll < 0.4) return a;
-    if (roll < 0.8) return b;
-    return Math.round((a + b) / 2);
-  };
-  // Clothes for the station of the parent they take after, chosen as for anyone.
-  const parent = child.female ? mother : father;
-  const station = stationOfLook(parent);
-  const dressed = generateLook({
+): Look {
+  const parent = hash(seed, 0x1e9) % 2 === 0 ? mother : father;
+  const ps = SITTERS.get(parent.p);
+  const people =
+    ps && ps.people !== "native" && !isNativeCulture(child.culture)
+      ? ps.people
+      : peopleOfCulture(child.culture);
+  // The hair runs in the family: the parent's tuning, or as their picture shows it.
+  const hair =
+    parent.hair >= 0
+      ? parent.hair
+      : ps && ps.hair !== "hidden" && ps.hair !== "grey" && ps.hair !== "white"
+        ? TONE_SWATCH[ps.hair]
+        : -1;
+  const tone = hair >= 0 ? SWATCH_TONE[hair] : naturalTone(seed, people);
+  const kid = pickSitter({
     id: seed,
-    culture: child.culture,
     female: child.female,
-    // Dressed for the years they'll be grown in.
-    age: 20,
-    station,
-    year: Math.min(1776, child.year + 18),
-    religion: child.religion,
+    age: 8,
+    people,
+    cls: ps?.cls ?? "trades",
+    year: child.year,
+    tone,
   });
-  return {
-    skin: between("skin"),
-    face: from("face"),
-    jaw: from("jaw"),
-    cheeks: from("cheeks"),
-    eyes: from("eyes"),
-    eyeColor: from("eyeColor"),
-    eyeSet: from("eyeSet"),
-    brows: from("brows"),
-    nose: from("nose"),
-    mouth: from("mouth"),
-    ears: from("ears"),
-    hair: dressed.hair,
-    hairColor: r.chance(0.15) ? between("hairColor") : from("hairColor"),
-    beard: dressed.beard,
-    hat: dressed.hat,
-    clothes: dressed.clothes,
-    colors: r.chance(0.5) ? [...parent.colors] : dressed.colors,
-    extras: dressed.extras.filter((x) => itemOf("extras", x) !== undefined),
-    marks: [
-      ...(mother.marks.includes("freckles") || father.marks.includes("freckles")
-        ? r.chance(0.6)
-          ? ["freckles"]
-          : []
-        : []),
-      ...dressed.marks.filter(
-        (m) => m !== "freckles" && m !== "scar" && m !== "pox",
-      ),
-    ],
-    lines: from("lines"),
-    greying: from("greying"),
+  const out: Look = {
+    p: "",
+    hair,
+    hairL: hair >= 0 ? parent.hairL : 0,
+    cloth: -1,
+    clothL: 0,
+    grey: Math.max(1, parent.grey),
+    flip: false,
   };
+  if (kid.age === "child") out.kid = kid.id;
+  return out;
 }
 
-/** The year a character is `age`, from the day they were born. */
-export function yearAtAge(c: Character, age: number): number {
-  return dateOf(c.born + Math.round(age * DAYS_PER_YEAR)).year;
+// ---------------------------------------------------------------- checking
+
+const KEYS = new Set([
+  "p",
+  "kid",
+  "hair",
+  "hairL",
+  "cloth",
+  "clothL",
+  "grey",
+  "flip",
+]);
+
+function intIn(v: unknown, lo: number, hi: number): boolean {
+  return typeof v === "number" && Number.isInteger(v) && v >= lo && v <= hi;
 }
 
 /**
- * How a character looks at an age: the look a player chose (or their
- * family passed down), or one of their own. Someone with parents in the
- * world has their features from them.
+ * Why a look can't be used (from a player, so anything), or null if it's
+ * fine. With `female`, its pictures must be of that sex; with `grown`, it
+ * must have a grown picture (a child of the family may have it chosen for
+ * them later). A look in the old drawn shape passes: it's brought over
+ * (migrateLook) where it's used.
  */
-export function lookOf(c: Character, age: number): Appearance {
-  if (c.look) return c.look;
-  const year = yearAtAge(c, age);
-  const seed: LookSeed = {
-    id: c.id,
-    culture: c.culture,
-    female: c.female,
-    age,
-    station: stationOf(c),
-    year,
-    religion: c.religion,
-  };
-  const own = generateLook(seed);
-  if (c.mother < 0 && c.father < 0) return own;
-  // Take after the parents: features from theirs, clothes their own.
-  const parent = (id: number, female: boolean) =>
-    id >= 0 ? generateLook({ ...seed, id, female, age: 30 }) : own;
-  const kin = inheritLook(
-    parent(c.mother, true),
-    parent(c.father, false),
-    c.id,
-    { female: c.female, culture: c.culture, year, religion: c.religion },
+export function validateLook(
+  look: unknown,
+  o: { female?: boolean; grown?: boolean } = {},
+): string | null {
+  if (!look || typeof look !== "object" || Array.isArray(look))
+    return "A likeness is needed.";
+  const l = look as Record<string, unknown>;
+  if (!("p" in l)) return isOldLook(l) ? null : "Likeness: choose a portrait.";
+  if (Object.keys(l).some((k) => !KEYS.has(k)))
+    return "Likeness: unknown parts.";
+  if (typeof l.p !== "string") return "Likeness: choose a portrait.";
+  const s = l.p === "" ? undefined : SITTERS.get(l.p);
+  if (l.p !== "" && !s) return "Likeness: no such portrait.";
+  if (s && s.age === "child") return "Likeness: that portrait is of a child.";
+  if (l.kid !== undefined) {
+    const k = typeof l.kid === "string" ? SITTERS.get(l.kid) : undefined;
+    if (!k || k.age !== "child") return "Likeness: no such child's portrait.";
+  }
+  if (l.p === "" && o.grown) return "Likeness: choose a portrait.";
+  if (!intIn(l.hair, -1, HAIR_TONES.length - 1))
+    return "Likeness: no such hair colour.";
+  if (!intIn(l.cloth, -1, CLOTH_COLORS.length - 1))
+    return "Likeness: no such colour for the clothes.";
+  if (!intIn(l.hairL, -2, 2) || !intIn(l.clothL, -2, 2))
+    return "Likeness: a shade too far.";
+  if (!intIn(l.grey, 0, 2)) return "Likeness: greying is 0 to 2.";
+  if (typeof l.flip !== "boolean") return "Likeness: turned or not.";
+  const kid = typeof l.kid === "string" ? SITTERS.get(l.kid) : undefined;
+  for (const x of [s, kid])
+    if (x && o.female !== undefined && (x.sex === "f") !== o.female)
+      return o.female
+        ? "Likeness: that portrait is of a man."
+        : "Likeness: that portrait is of a woman.";
+  return null;
+}
+
+// ---------------------------------------------------------------- old looks
+
+/** The drawn looks of earlier versions, as far as bringing them over needs. */
+const OLD_KEYS = [
+  "skin",
+  "face",
+  "hair",
+  "hairColor",
+  "hat",
+  "clothes",
+  "colors",
+  "greying",
+];
+
+function isOldLook(l: Record<string, unknown>): boolean {
+  return (
+    OLD_KEYS.every((k) => k in l) &&
+    typeof l.hair === "string" &&
+    typeof l.hat === "string" &&
+    typeof l.clothes === "string" &&
+    intIn(l.hairColor, 0, 8) &&
+    intIn(l.greying, 0, 3) &&
+    Array.isArray(l.colors) &&
+    l.colors.length === 3 &&
+    l.colors.every((c) => intIn(c, 0, CLOTH_COLORS.length - 1))
   );
+}
+
+/** The kind of sitter an old look's clothes showed. */
+const OLD_CLOTHES: Record<string, SitterClass> = {
+  jerkin: "labourer",
+  waistcoat: "labourer",
+  bodice: "labourer",
+  short_gown: "labourer",
+  sailor: "trades",
+  hunting_shirt: "labourer",
+  capote: "labourer",
+  buckskin: "labourer",
+  doublet_band: "trades",
+  plain_coat: "trades",
+  plain_gown: "trades",
+  gown_collar: "merchant",
+  doublet_ruff: "gentry",
+  doublet_lace: "gentry",
+  golilla: "gentry",
+  justaucorps: "gentry",
+  coat_stock: "gentry",
+  bodice_ruff: "gentry",
+  satin: "gentry",
+  mantua: "gentry",
+  robe: "gentry",
+  black_suit: "learned",
+  gown_bands: "clergy",
+  cassock: "clergy",
+  friar: "clergy",
+  habit: "clergy",
+  breastplate: "soldier",
+  buff_coat: "soldier",
+  regimental: "soldier",
+  n_coat: "gentry",
+};
+
+const OLD_TONES: HairTone[] = [
+  "black",
+  "dark",
+  "brown",
+  "auburn",
+  "auburn",
+  "auburn",
+  "fair",
+  "fair",
+  "fair",
+];
+
+/**
+ * A drawn look of an earlier version, brought over: the portrait nearest
+ * its sex, people, dress, hair and hat, with its hair colour, its coat's
+ * colour and its greying. Anything that isn't an old look comes back as is.
+ */
+export function migrateLook(
+  look: unknown,
+  o: {
+    id: number;
+    female: boolean;
+    culture: string;
+    age: number;
+    year: number;
+  },
+): Look | null {
+  if (!look || typeof look !== "object") return null;
+  const l = look as Record<string, unknown>;
+  if ("p" in l) {
+    if (!validateLook(l, { female: o.female })) return l as unknown as Look;
+    // A portrait since taken out of the gallery: the nearest of their sex
+    // and years instead, the tuning kept.
+    const native = isNativeCulture(o.culture);
+    const fresh: Record<string, unknown> = { ...l };
+    const p = SITTERS.get(String(l.p));
+    if (l.p !== "" && (!p || p.age === "child" || (p.sex === "f") !== o.female))
+      fresh.p = pickSitter({
+        id: hash(o.id, String(l.p)),
+        female: o.female,
+        age: Math.max(16, o.age),
+        people: peopleOfCulture(o.culture),
+        cls: native ? "gentry" : "trades",
+        year: o.year,
+        region: native ? regionOf(o.culture) : undefined,
+      }).id;
+    const k = SITTERS.get(String(l.kid));
+    if (
+      l.kid !== undefined &&
+      (!k || k.age !== "child" || (k.sex === "f") !== o.female)
+    )
+      delete fresh.kid;
+    return validateLook(fresh, { female: o.female })
+      ? null
+      : (fresh as unknown as Look);
+  }
+  if (!isOldLook(l)) return null;
+  const hair = l.hair as string;
+  const wig = /wig$/.test(hair);
+  const native = isNativeCulture(o.culture);
+  const people = peopleOfCulture(o.culture);
+  const s = pickSitter({
+    id: hash(o.id, JSON.stringify(l)),
+    female: o.female,
+    age: Math.max(16, o.age),
+    people,
+    cls: OLD_CLOTHES[l.clothes as string] ?? (native ? "gentry" : "trades"),
+    year: o.year,
+    region: native ? regionOf(o.culture) : undefined,
+    tone: wig ? undefined : OLD_TONES[l.hairColor as number],
+    wig: native ? undefined : wig,
+    hat: (l.hat as string) !== "none",
+  });
+  const colors = l.colors as number[];
   return {
-    ...own,
-    ...pickGenes(kin),
-    marks: own.marks,
+    p: s.id,
+    // A wig keeps its powder; their own hair keeps the colour they chose.
+    hair: wig || s.hair === "hidden" ? -1 : (l.hairColor as number),
+    hairL: 0,
+    cloth: colors[0],
+    clothL: 0,
+    grey: (l.greying as number) >= 2 ? 2 : 1,
+    flip: false,
   };
 }
 
-/** The features someone is born with (not their clothes or marks). */
-function pickGenes(l: Appearance): Partial<Appearance> {
-  return {
-    skin: l.skin,
-    face: l.face,
-    jaw: l.jaw,
-    cheeks: l.cheeks,
-    eyes: l.eyes,
-    eyeColor: l.eyeColor,
-    eyeSet: l.eyeSet,
-    brows: l.brows,
-    nose: l.nose,
-    mouth: l.mouth,
-    ears: l.ears,
-    hairColor: l.hairColor,
-    greying: l.greying,
-  };
+/** A look as it should be stored: new looks as they are, old ones brought over. */
+export function asLook(
+  look: unknown,
+  c: Pick<Character, "id" | "female" | "culture" | "born">,
+  age = 30,
+): Look | undefined {
+  const year = dateOf(c.born + Math.round(age * DAYS_PER_YEAR)).year;
+  return (
+    migrateLook(look, {
+      id: c.id,
+      female: c.female,
+      culture: c.culture,
+      age,
+      year,
+    }) ?? undefined
+  );
 }
 
-/** The station someone's clothes show. */
-export function stationOfLook(look: Appearance): Station {
-  const item = itemOf("clothes", look.clothes);
-  if (!item?.st?.length) return item?.people === "n" ? "labourer" : "tradesman";
-  return item.st[0];
+/**
+ * A played character sits for a new likeness (the gallery in the game):
+ * any portrait of their own sex, tuned as they like. Why not, or null.
+ */
+export function sitForLikeness(
+  g: { touchChar(c: Character): Character },
+  me: Character,
+  look: unknown,
+  age: number,
+): string | null {
+  const why = validateLook(look, { female: me.female, grown: age >= 16 });
+  if (why) return why;
+  const l = asLook(look, me, age);
+  if (!l) return "Likeness: choose a portrait.";
+  g.touchChar(me).look = l;
+  return null;
+}
+
+/** Bring every character's old drawn look over to a portrait (a game saved before the gallery). */
+export function migrateLooks(s: {
+  day: number;
+  chars: (Character | null | undefined)[] | Record<number, Character>;
+}): void {
+  for (const c of Object.values(s.chars) as (Character | null | undefined)[]) {
+    if (!c?.look || "p" in c.look) continue;
+    const age = Math.max(16, Math.floor((s.day - c.born) / DAYS_PER_YEAR));
+    const l = asLook(c.look, c, age);
+    if (l) c.look = l;
+    else delete c.look;
+  }
 }
 
 // ---------------------------------------------------------------- for the map
 
+function mixHex(a: string, b: string, t: number): string {
+  const pa = parseInt(a.slice(1), 16);
+  const pb = parseInt(b.slice(1), 16);
+  const ch = (sh: number) =>
+    Math.round(((pa >> sh) & 255) * (1 - t) + ((pb >> sh) & 255) * t);
+  return `#${((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1)}`;
+}
+
+/** A colour a shade lighter (+) or darker (-). */
+export function shadeHex(hex: string, steps: number): string {
+  if (!steps) return hex;
+  return steps > 0
+    ? mixHex(hex, "#ffffff", 0.14 * steps)
+    : mixHex(hex, "#000000", -0.18 * steps);
+}
+
+/** The hair colour a look shows at an age (its tuning, greying), for small figures. */
+export function hairHexAt(look: Look, s: Sitter, age: number): string {
+  let hex = look.hair >= 0 ? HAIR_TONES[look.hair].hex : s.hx;
+  hex = shadeHex(hex, look.hairL);
+  const g = greyAt(look, age, s);
+  return g > 0 ? mixHex(hex, "#b9b4ab", g) : hex;
+}
+
+/** The colour of a look's clothes, for small figures. */
+export function clothHexOf(look: Look, s: Sitter): string {
+  return shadeHex(
+    look.cloth >= 0 ? CLOTH_COLORS[look.cloth].hex : s.cx,
+    look.clothL,
+  );
+}
+
 /** The colours of a little figure on the map: coat, breeches, hat, skin, hair. */
-export function figureColors(look: Appearance): {
+export function figureColors(
+  look: Look,
+  age = 30,
+): {
   coat: string;
   breeches: string;
   hat: string | null;
   skin: string;
   hair: string;
 } {
-  const cloth = (i: number) => CLOTH_COLORS[i]?.hex ?? CLOTH_COLORS[0].hex;
-  const hat = look.hat;
-  const hatColor =
-    hat === "none" || hat.startsWith("n_feather")
-      ? null
-      : hat === "coif" ||
-          hat === "lace_cap" ||
-          hat === "mob_cap" ||
-          hat === "veil" ||
-          hat === "headscarf" ||
-          hat === "fontange"
-        ? "#efe9dc"
-        : hat === "tuque"
-          ? "#a8302a"
-          : hat === "monmouth" ||
-              hat === "n_headband" ||
-              hat === "n_turban" ||
-              hat === "n_cloth" ||
-              hat === "n_peaked"
-            ? cloth(look.colors[2])
-            : hat === "morion" || hat === "pot"
-              ? "#8d8f90"
-              : hat === "straw" || hat === "n_palm" || hat === "n_spruce"
-                ? "#c3a46a"
-                : hat === "fur_cap" || hat === "n_fur_turban"
-                  ? "#5b4130"
-                  : hat === "n_roach" || hat === "n_gustoweh"
-                    ? "#8f2b22"
-                    : "#1f1a16";
+  const s = sitterAt(look, age);
+  const coat = clothHexOf(look, s);
   return {
-    coat: cloth(look.colors[0]),
-    breeches: cloth(look.colors[1]),
-    hat: hatColor,
-    skin: SKIN_TONES[look.skin]?.hex ?? SKIN_TONES[2].hex,
-    hair:
-      isWig(look.hair) && look.hair !== "full_wig"
-        ? "#dcd6c9"
-        : (HAIR_COLORS[look.hairColor]?.hex ?? HAIR_COLORS[1].hex),
+    coat,
+    breeches: mixHex(coat, "#1a1410", 0.35),
+    hat:
+      s.head === "bare"
+        ? null
+        : s.head === "cap" || s.head === "veil"
+          ? s.dress === "clerical" && s.head === "veil"
+            ? "#1e1b18"
+            : "#ece5d6"
+          : s.head === "headdress"
+            ? "#8f2b22"
+            : "#1f1a16",
+    skin: s.sx,
+    hair: s.wig ? s.hx : hairHexAt(look, s, age),
   };
 }
 
-// ---------------------------------------------------------------- checking
+/** The ages a band runs between, for the register. */
+export const BAND_AGES: Record<AgeBand, [number, number]> = {
+  child: [0, 15],
+  youth: [16, 24],
+  prime: [25, 39],
+  middle: [40, 54],
+  elder: [55, 120],
+};
 
-const NUMBERED: [keyof Appearance, number][] = [
-  ["skin", SKIN_TONES.length],
-  ["face", FACE_SHAPES.length],
-  ["jaw", JAWS.length],
-  ["cheeks", CHEEKS.length],
-  ["eyes", EYE_SHAPES.length],
-  ["eyeColor", EYE_COLORS.length],
-  ["eyeSet", EYE_SETS.length],
-  ["brows", BROWS.length],
-  ["nose", NOSES.length],
-  ["mouth", MOUTHS.length],
-  ["ears", EARS.length],
-  ["hairColor", HAIR_COLORS.length],
-  ["lines", 4],
-  ["greying", 4],
-];
-
-/** Why a look can't be used (from a player, so anything), or null if it's fine. */
-export function validateLook(look: unknown): string | null {
-  if (!look || typeof look !== "object" || Array.isArray(look))
-    return "A likeness is needed.";
-  const l = look as Record<string, unknown>;
-  for (const [k, n] of NUMBERED) {
-    const v = l[k];
-    if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v >= n)
-      return `Likeness: ${k} is out of range.`;
-  }
-  for (const k of ["hair", "beard", "hat", "clothes"] as const) {
-    const v = l[k];
-    if (typeof v !== "string" || !itemOf(k, v))
-      return `Likeness: no such ${k === "hat" ? "headwear" : k}.`;
-  }
-  const colors = l.colors;
-  if (
-    !Array.isArray(colors) ||
-    colors.length !== 3 ||
-    colors.some(
-      (c) =>
-        typeof c !== "number" ||
-        !Number.isInteger(c) ||
-        c < 0 ||
-        c >= CLOTH_COLORS.length,
-    )
-  )
-    return "Likeness: three colours for the clothes.";
-  for (const [k, kind, max] of [
-    ["extras", "extras", ACCESSORIES.length],
-    ["marks", "marks", MARKS.length],
-  ] as const) {
-    const v = l[k];
-    if (
-      !Array.isArray(v) ||
-      v.length > max ||
-      new Set(v).size !== v.length ||
-      v.some((x) => typeof x !== "string" || !itemOf(kind, x))
-    )
-      return `Likeness: unknown ${k === "extras" ? "ornaments" : "marks"}.`;
-  }
-  const known = new Set<string>([
-    ...NUMBERED.map(([k]) => k as string),
-    "hair",
-    "beard",
-    "hat",
-    "clothes",
-    "colors",
-    "extras",
-    "marks",
-  ]);
-  if (Object.keys(l).some((k) => !known.has(k)))
-    return "Likeness: unknown parts.";
-  return null;
-}
-
-/** Colours for a garment, chosen as for anyone (the register's dice). */
-export function colorsFor(
-  clothes: string,
-  o: LookSeed,
-): [number, number, number] {
-  return clothColors(clothes, o, new Stream(o.id, 0xc01));
-}
-
-/**
- * A look made to fit someone: whatever they couldn't wear (the other sex's,
- * another people's, or not yet worn in their year) is chosen afresh, and
- * with `restyle` their hair, hat and clothes are chosen afresh anyway. Their
- * features stay.
- */
-export function fitLook(
-  look: Appearance,
-  o: LookSeed,
-  restyle = false,
-): Appearance {
-  const native = isNativeCulture(o.culture);
-  const fresh = generateLook(o);
-  const ok = (kind: ItemKind | "extras" | "marks", key: string) => {
-    const i = itemOf(kind, key);
-    return i !== undefined && fits(i, o.female, native, o.year);
-  };
-  const out = copyLook(look);
-  for (const k of ["hair", "beard", "hat", "clothes"] as const)
-    if (restyle || !ok(k, out[k])) out[k] = fresh[k];
-  if (restyle || out.clothes !== look.clothes) out.colors = fresh.colors;
-  out.extras = out.extras.filter((x) => ok("extras", x));
-  out.marks = out.marks.filter((x) => ok("marks", x));
-  if (o.female || o.age < 14) out.beard = "none";
-  return out;
-}
-
-/** A copy of a look, so edits don't touch the original. */
-export function copyLook(look: Appearance): Appearance {
-  return {
-    ...look,
-    colors: [...look.colors],
-    extras: [...look.extras],
-    marks: [...look.marks],
-  };
-}
+export { AGE_BANDS };

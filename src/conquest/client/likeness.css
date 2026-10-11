@@ -1,0 +1,310 @@
+/* ================================================================
+   Likenesses from the gallery of paintings (r11, ART): pictures
+   turned and tuned, cut-out sitters in scenes, moods, and the
+   register's gallery.
+   ================================================================ */
+
+/* A tuned picture is an inline SVG: it fills its frame like an <img>. */
+.cq-portrait > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+.cq-portrait img.flip {
+  transform: scaleX(-1);
+}
+.cq-portrait.dead > svg {
+  filter: grayscale(1) sepia(0.35);
+  opacity: 0.75;
+}
+/* The painting's own light: a frame shows the face a little high. */
+.cq-portrait > img,
+.cq-portrait > svg {
+  object-position: 50% 30%;
+}
+
+/* A passing mood can't change a painted face, so the light does it. */
+.cq-portrait.mood-smile > img,
+.cq-portrait.mood-smile > svg {
+  filter: brightness(1.06) saturate(1.08);
+}
+.cq-portrait.mood-worried > img,
+.cq-portrait.mood-worried > svg {
+  filter: brightness(0.94) saturate(0.82);
+}
+.cq-portrait.mood-frown > img,
+.cq-portrait.mood-frown > svg,
+.cq-portrait.mood-angry > img,
+.cq-portrait.mood-angry > svg {
+  filter: saturate(0.86) contrast(1.06);
+}
+
+/* In a scene the sitter stands cut out of their own ground, over the scene's. */
+.cq-scene-figure > .cq-portrait.bare {
+  border-radius: 0;
+  -webkit-mask-image: linear-gradient(#000 78%, transparent 99%);
+  mask-image: linear-gradient(#000 78%, transparent 99%);
+}
+.cq-scene-figure > .cq-portrait.bare > svg {
+  border-radius: 0;
+  overflow: visible;
+}
+.cq-scene-figure > .cq-portrait.bare::after {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- the register */
+
+.cq-lk {
+  display: grid;
+  grid-template-columns: minmax(15rem, 19rem) minmax(0, 1fr);
+  gap: 1rem 1.6rem;
+  align-items: start;
+}
+.cq-lk-side {
+  position: sticky;
+  top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.cq-lk-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+.cq-lk-preview .cq-lk-picture.cq-portrait.huge {
+  width: 12rem;
+  height: 15rem;
+}
+.cq-lk-credit {
+  display: block;
+  max-width: 17rem;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  color: var(--ink-soft);
+}
+.cq-lk-ages > button[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+.cq-lk-tune {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: 100%;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(138, 106, 62, 0.35);
+}
+.cq-lk-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.cq-lk-row.inline {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.cq-lk-row > .cq-field-label {
+  font-family: var(--fell-sc);
+  font-size: 1rem;
+  color: var(--ink-soft);
+}
+.cq-lk .cq-swatches-pick {
+  gap: 0.22rem;
+}
+.cq-lk .cq-swatches-pick button {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+/* "As painted": the picture's own colour, crossed by a fine line. */
+.cq-lk .cq-swatches-pick button.painted {
+  background:
+    linear-gradient(
+      135deg,
+      transparent 46%,
+      rgba(251, 243, 220, 0.9) 47%,
+      rgba(251, 243, 220, 0.9) 53%,
+      transparent 54%
+    ),
+    var(--sw);
+}
+.cq-lk-shade {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.cq-lk-shade-v {
+  min-width: 6.5rem;
+  text-align: center;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.95rem;
+}
+.cq-lk-flip[aria-pressed="true"] {
+  background: var(--nation);
+  border-color: var(--nation-deep);
+  color: var(--nation-ink);
+}
+.cq-lk-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.cq-lk-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem 0.7rem;
+}
+.cq-lk-filter select {
+  width: 100%;
+  font-size: 0.92rem;
+  padding: 0.3em 0.4em;
+}
+.cq-lk-count {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-family: var(--fell);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.cq-lk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.2rem, 1fr));
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cq-lk-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  padding: 0;
+  border: 2px solid rgba(60, 40, 15, 0.55);
+  border-radius: 3px;
+  overflow: hidden;
+  background: #2b1d12;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(43, 29, 18, 0.35);
+  transition:
+    transform 0.12s,
+    box-shadow 0.12s;
+}
+.cq-lk-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.cq-lk-thumb:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 9px rgba(43, 29, 18, 0.4);
+}
+.cq-lk-thumb.on {
+  border-color: #d9b45a;
+  box-shadow:
+    0 0 0 2px var(--nation-deep),
+    0 4px 10px rgba(43, 29, 18, 0.45);
+}
+.cq-lk-more {
+  align-self: center;
+}
+.cq-lk-near {
+  margin: 0.2rem 0 0;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+.cq-lk-grid.near .cq-lk-thumb:not(.on) {
+  opacity: 0.88;
+}
+
+/* The in-game sitting: the gallery in a modal, and a word on the sheet. */
+.cq-lk-sitting {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.cq-lk-sitting-foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(138, 106, 62, 0.35);
+}
+.cq-sheet-top .cq-lk-resit {
+  margin-top: 0.3rem;
+}
+.cq-lk-nudge {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.4rem 0;
+  padding: 0.45rem 0.7rem;
+  border-left: 3px solid var(--nation);
+  background: rgba(255, 250, 235, 0.55);
+  font-family: var(--fell);
+  font-style: italic;
+}
+
+@media (max-width: 760px) {
+  /* On a phone: the face and its years, then the gallery, then the tuning. */
+  .cq-lk {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .cq-lk-side {
+    display: contents;
+  }
+  .cq-lk-preview {
+    order: 1;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.8rem;
+  }
+  .cq-lk-preview figcaption {
+    flex: 1;
+    min-width: 0;
+  }
+  .cq-lk-ages {
+    order: 2;
+    align-self: center;
+  }
+  .cq-lk-main {
+    order: 3;
+  }
+  .cq-lk-tune {
+    order: 4;
+  }
+  .cq-lk-preview .cq-lk-picture.cq-portrait.huge {
+    width: 8rem;
+    height: 10rem;
+  }
+  .cq-lk-credit {
+    max-width: none;
+    text-align: left;
+    font-size: 0.85rem;
+  }
+  .cq-lk-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cq-lk-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+}

@@ -105,8 +105,21 @@ const Settings = z.object({
 const Tincture = z.string().max(12);
 const Feature = z.number().int().min(0).max(40);
 const Part = z.string().max(24);
-/** A likeness: checked to the last part (Appearance.ts) once it's the right shape. */
-const Look = z
+/** A likeness: a portrait from the gallery and how it's tuned (Appearance.ts). */
+const GalleryLook = z
+  .object({
+    p: z.string().max(24),
+    kid: z.string().max(24).optional(),
+    hair: z.number().int().min(-1).max(40),
+    hairL: z.number().int().min(-2).max(2),
+    cloth: z.number().int().min(-1).max(40),
+    clothL: z.number().int().min(-2).max(2),
+    grey: z.number().int().min(0).max(2),
+    flip: z.boolean(),
+  })
+  .strict();
+/** A drawn likeness from before the gallery (an older client): brought over to a portrait. */
+const DrawnLook = z
   .object({
     skin: Feature,
     face: Feature,
@@ -130,7 +143,10 @@ const Look = z
     lines: Feature,
     greying: Feature,
   })
-  .strict()
+  .strict();
+/** Checked to the last part (Appearance.ts) once it's the right shape. */
+const Look = z
+  .union([GalleryLook, DrawnLook])
   .refine((l) => validateLook(l) === null, { message: "Not a likeness." });
 const Plan = z.object({
   origin: z.string().max(40),

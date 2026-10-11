@@ -14,6 +14,7 @@ import "../../derpland/fonts";
 import "./App";
 import "./conquest.css";
 import "./life.css";
+import "./likeness.css";
 import "./scene.css";
 import "./steady.css";
 import "./world.css"; // WORLD r11

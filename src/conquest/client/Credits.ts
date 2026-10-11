@@ -1,9 +1,10 @@
-// Who made the art, sounds and music in Derpy Conquest, and under what
-// licence (the portraits are painted by the game itself). Shown in the
-// game's menu and on the lobby page. CC-BY works need their author named;
-// the rest are public domain or CC0 but credited anyway.
+// Who made the portraits, art, sounds and music in Derpy Conquest, and
+// under what licence. Shown in the game's menu and on the lobby page. CC-BY
+// works need their author named; the rest are public domain or CC0 but
+// credited anyway. The portraits are listed in PortraitCredits.ts.
 
 import { html, TemplateResult } from "lit";
+import { PORTRAIT_CREDITS } from "./PortraitCredits";
 
 export interface Credit {
   what: string;
@@ -471,6 +472,16 @@ export const CREDITS: Credit[] = [
     source:
       "https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1600025",
   },
+  // The gallery's paintings (r11).
+  ...PORTRAIT_CREDITS.map(
+    (c): Credit => ({
+      what: "Portrait",
+      title: c.title,
+      author: c.author,
+      license: c.license,
+      source: c.source,
+    }),
+  ),
 ];
 
 const GROUPS: [Credit["what"], string][] = [

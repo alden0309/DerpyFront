@@ -84,6 +84,8 @@ function figure(
         facing: side === "you" ? "right" : "left",
         expression: expr,
         size: "xl",
+        // ART (r11): the sitter cut out of their painting, over the scene.
+        bare: true,
       },
       "scene",
     )}

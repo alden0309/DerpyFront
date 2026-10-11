@@ -4,7 +4,7 @@
 // the player watches (or takes over someone else, or begins anew).
 
 import { ambitionsMonthly, setAmbition } from "./Ambitions";
-import { copyLook, validateLook } from "./Appearance";
+import { asLook, sitForLikeness, validateLook } from "./Appearance";
 import { areasOf } from "./Areas";
 import { dateOf, formatDate } from "./Calendar";
 import { kill, makeCharacter, succession } from "./Characters";
@@ -227,8 +227,11 @@ export function planProblem(
     return "That faith isn't open to your people here.";
   if (!Number.isInteger(plan.face) || plan.face < 0 || plan.face > 999)
     return "Choose a likeness.";
-  if (plan.look !== undefined && validateLook(plan.look))
-    return validateLook(plan.look);
+  if (
+    plan.look !== undefined &&
+    validateLook(plan.look, { female: plan.female, grown: true })
+  )
+    return validateLook(plan.look, { female: plan.female, grown: true });
   const sg = plan.sigil;
   if (
     !sg ||
@@ -342,7 +345,7 @@ export function beginLife(
     made: true,
   });
   c.face = plan.face;
-  if (plan.look) c.look = copyLook(plan.look);
+  if (plan.look) c.look = asLook(plan.look, c, plan.age); // ART (r11): old drawn looks brought over
   c.home = plan.home;
   g.touchChar(c);
   const bg = BACKGROUNDS[plan.background];
@@ -1696,6 +1699,9 @@ export function lifeCommand(
     case "will":
       touchLife(g, life).shareWithSpouse = !!c.share;
       return null;
+    // ART (r11): a new likeness, chosen from the gallery.
+    case "likeness":
+      return sitForLikeness(g, me, c.look, ageOf(s, me));
     case "event":
       return withOutcome(g, life, "event", () =>
         answerLifeEvent(g, life, c.id, c.choice),
