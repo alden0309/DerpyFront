@@ -670,12 +670,13 @@ function callingOffersFor(
   kid: Character,
   key: string,
   counts = apprenticeCounts(a.s),
+  towns?: number[],
 ): EduOffer[] {
   const { s, w } = a;
   const calling = CALLING_BY_KEY.get(key);
   if (!calling) return [];
   const out: EduOffer[] = [];
-  for (const p of masterTowns(s, w, a.home, kid)) {
+  for (const p of towns ?? masterTowns(s, w, a.home, kid)) {
     for (const m of mastersIn(s, w, p, calling, kid)) {
       const have = counts.get(m.id) ?? 0;
       const t = masterTemper(m);
@@ -1795,8 +1796,11 @@ function startComputerChild(
       );
     return;
   }
+  let schools: EduOffer[] | null = null;
   const school = (key: string) =>
-    schoolOffersFor(a, kid).find((o) => o.key === key && o.check.ok);
+    (schools ??= schoolOffersFor(a, kid)).find(
+      (o) => o.key === key && o.check.ok,
+    );
   if (age <= 6 && !past.length && r.chance(0.5)) return take(school("dame"));
   if (
     !kid.female &&
@@ -1822,9 +1826,10 @@ function startComputerChild(
         (c.sex === "both" || (c.sex === "girls") === kid.female) &&
         c.premium <= (status >= 3 ? 30 : 8),
     );
+    // A computer family looks for a master in its own town.
     const offers = callings
-      .flatMap((c) => callingOffersFor(a, kid, c.key, counts))
-      .filter((o) => o.check.ok && o.at === p);
+      .flatMap((c) => callingOffersFor(a, kid, c.key, counts, [p]))
+      .filter((o) => o.check.ok);
     if (offers.length) take(offers[r.int(0, offers.length - 1)]);
     return;
   }
