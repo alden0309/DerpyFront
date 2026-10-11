@@ -12,7 +12,13 @@
 // price, which a route only pays where there's no other way.
 
 import type { ChartArc, SeaData, SeaGeo, SeaProvince } from "./Harbours";
-import { decodeArc, decodeHalf, encodeHalf, smoothPts } from "./Harbours";
+import {
+  decodeArc,
+  decodeHalf,
+  encodeHalf,
+  projectLatLon,
+  smoothPts,
+} from "./Harbours";
 
 /** Bodies of water smaller than this many cells get no harbours (ponds). */
 const MIN_BODY = 40;
@@ -85,25 +91,6 @@ export const PORT_SITES: Record<string, [number, number]> = {
   kumeyaay: [32.71, -117.17], // San Diego
   panuco: [22.25, -97.86], // Tampico
 };
-
-/** A latitude and longitude in map units (the map's Miller projection: build-map.mjs). */
-export function projectLatLon(
-  lat: number,
-  lon: number,
-  width: number,
-): [number, number] {
-  const DEG = Math.PI / 180;
-  const LON0 = -168;
-  const LON1 = -46;
-  const LAT1 = 66;
-  const millerY = (l: number) =>
-    1.25 * Math.log(Math.tan(Math.PI / 4 + 0.4 * l * DEG));
-  const cell = ((LON1 - LON0) * DEG) / width;
-  return [
-    (lon * DEG - LON0 * DEG) / cell,
-    (millerY(LAT1) - millerY(lat)) / cell,
-  ];
-}
 
 export interface BuiltHarbour {
   p: number;

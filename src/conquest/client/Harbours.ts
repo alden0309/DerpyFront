@@ -156,6 +156,35 @@ export function encodeHalf(pts: [number, number][]): number[] {
   return out;
 }
 
+// The map's Miller projection (scripts/conquest/build-map.mjs).
+const PROJ_LON0 = -168;
+const PROJ_LON1 = -46;
+const PROJ_LAT1 = 66;
+const millerY = (lat: number) =>
+  1.25 * Math.log(Math.tan(Math.PI / 4 + (0.4 * lat * Math.PI) / 180));
+
+/** A latitude and longitude in map units, for a map `width` units across. */
+export function projectLatLon(
+  lat: number,
+  lon: number,
+  width: number,
+): [number, number] {
+  const DEG = Math.PI / 180;
+  const cell = ((PROJ_LON1 - PROJ_LON0) * DEG) / width;
+  return [
+    (lon * DEG - PROJ_LON0 * DEG) / cell,
+    (millerY(PROJ_LAT1) - millerY(lat)) / cell,
+  ];
+}
+
+/** The latitude at a height on the map (map units). */
+export function latOfY(y: number, width: number): number {
+  const DEG = Math.PI / 180;
+  const cell = ((PROJ_LON1 - PROJ_LON0) * DEG) / width;
+  const my = millerY(PROJ_LAT1) - y * cell;
+  return (Math.atan(Math.exp(my / 1.25)) - Math.PI / 4) / 0.4 / DEG;
+}
+
 /** Walking counts this many times a stretch at sea, for the time it takes on a hop. */
 const WALK_WEIGHT = 2.5;
 

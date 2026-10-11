@@ -120,7 +120,6 @@ export function riverFactor(lat: number, month: number): number {
 export function travelFactor(lat: number, month: number): number {
   if (isWinter(lat, month) && isNorth(lat)) return lat >= 50 ? 0.35 : 0.55;
   if (isMudSeason(lat, month)) return 0.8;
-  if (month >= 5 && month <= 8) return 1.15;
   return 1;
 }
 
@@ -232,4 +231,151 @@ export function seasonLabel(
   } else if (isHarvest(p.lat, month)) note = "harvest";
   const name = key[0].toUpperCase() + key.slice(1);
   return { key, name, note, icon };
+}
+
+// ---------------------------------------------------------------- work and bread
+
+/** Work that's busiest at the harvest (and idle in a northern winter). */
+const FIELD_WORK = new Set(["farmer", "grower", "servant"]);
+/** The mills grind the harvest through the autumn. */
+const MILL_WORK = new Set(["miller", "millhand"]);
+/** Furs are prime in the cold months. */
+const FUR_WORK = new Set(["trapper", "hunter"]);
+/** The fishing boats stay in through the ice and the gales. */
+const FISH_WORK = new Set(["fisherman", "whaler"]);
+/** Waterfront work that stops when the harbour freezes. */
+const HARBOUR_WORK = new Set([
+  "sailor",
+  "shipwright",
+  "ropewalker",
+  "smuggler",
+  "pirate",
+]);
+
+/** What a harvest pays on top of a hand's wage. */
+export const HARVEST_BONUS: Record<HarvestKind, number> = {
+  poor: 0.15,
+  fair: 0.35,
+  good: 0.6,
+};
+
+const HARVEST_WORDS: Record<HarvestKind, string> = {
+  poor: "a poor harvest",
+  fair: "a fair harvest",
+  good: "a good harvest",
+};
+
+/**
+ * The season's turn in a month's money: harvest wages for the hands in the
+ * fields (as the harvest came in), prime furs for the trappers in a
+ * northern winter, little work for the fishermen and the waterfront when
+ * the ice is in, little in the fields in a northern winter, and bread dear
+ * in the hungry months of late winter. `wage` is the month's wage (by the
+ * days worked), `living` what living costs a month; `day` is a day of the
+ * month worked.
+ */
+export function seasonPay(
+  p: SeasonPlace,
+  day: number,
+  job: string | null,
+  wage: number,
+  living: number,
+): { label: string; value: number }[] {
+  const out: { label: string; value: number }[] = [];
+  const month = dateOf(day).month;
+  // In quarter-coins, as wages are reckoned.
+  const add = (label: string, value: number) => {
+    const v = Math.round(value * 4) / 4;
+    if (v) out.push({ label, value: v });
+  };
+  if (job && wage > 0) {
+    const northWinter = isWinter(p.lat, month) && isNorth(p.lat);
+    if (FIELD_WORK.has(job) && isHarvest(p.lat, month)) {
+      const h = harvestNow(p.lat, p.lon, day);
+      add(`Harvest wages (${HARVEST_WORDS[h]})`, wage * HARVEST_BONUS[h]);
+    } else if (FIELD_WORK.has(job) && northWinter)
+      add("Winter: little to do in the fields", -wage * 0.2);
+    if (MILL_WORK.has(job) && (month === 9 || month === 10))
+      add("The mill grinds the harvest", wage * 0.25);
+    if (FUR_WORK.has(job) && northWinter) add("Prime winter furs", wage * 0.3);
+    if (FISH_WORK.has(job) && northWinter)
+      add("Ice and gales keep the boats in", -wage * 0.35);
+    if (HARBOUR_WORK.has(job) && iceBound(p, month))
+      add("The harbour's frozen: little work", -wage * 0.4);
+  }
+  // The long northern winters: the stores run low by February.
+  if (living > 0 && p.lat > 40 && month >= 1 && month <= 3) {
+    const h = harvestNow(p.lat, p.lon, day);
+    add(
+      h === "poor"
+        ? "Bread dear after a poor harvest"
+        : "Bread dear in the hungry months",
+      -living * (h === "poor" ? 0.25 : h === "good" ? 0.06 : 0.12),
+    );
+  }
+  return out;
+}
+
+/**
+ * What the season brings where you are, line by line, for the date's
+ * tooltip and the guide: the roads, the rivers and the harbour, sickness,
+ * work and bread.
+ */
+export function seasonNotes(
+  p: SeasonPlace,
+  day: number,
+  tropical: boolean,
+): string[] {
+  const month = dateOf(day).month;
+  const out: string[] = [];
+  const { lat } = p;
+  const road = roadFactor(p, month);
+  if (road > 1.01)
+    out.push(
+      isMudSeason(lat, month)
+        ? `Mud season: the roads about ${Math.round((road - 1) * 100)}% slower.`
+        : `Snow on the roads: about ${Math.round((road - 1) * 100)}% slower${p.terrain === "mountains" || p.terrain === "hills" ? " (worse in the hills)" : ""}.`,
+    );
+  else if (month >= 5 && month <= 7)
+    out.push("The campaigning season: the roads at their best.");
+  if (riversFrozen(lat, month))
+    out.push("The rivers are frozen: crossed on the ice, no ferry wanted.");
+  else if (isFloodSeason(lat, month))
+    out.push("The rivers are in flood: a crossing takes twice as long.");
+  if (p.coastal && iceBound(p, month))
+    out.push(
+      "The harbour is ice-bound: no ships in or out until the ice goes out.",
+    );
+  const sick = sicknessRisk(p, month, tropical);
+  if (sick.kind === "chill")
+    out.push(
+      "Colds and pleurisy about: keep warm (living frugally is riskier).",
+    );
+  if (sick.kind === "fever")
+    out.push(
+      "The fever season: agues and worse, above all in the hot lowlands.",
+    );
+  if (isHurricaneSeason(lat, p.lon, month))
+    out.push("Hurricane season: storms at sea and on the coasts.");
+  if (isWinter(lat, month) && isNorth(lat))
+    out.push("Fewer people on the roads; trappers' furs are prime.");
+  if (isHarvest(lat, month)) {
+    const h = harvestNow(p.lat, p.lon, day);
+    out.push(
+      `The harvest (${h === "good" ? "a good one" : h === "poor" ? "a poor one" : "a fair one"}): hands wanted in the fields at harvest wages, then the frolics.`,
+    );
+  }
+  if (lat > 30 && month >= 1 && month <= 3) {
+    const h = harvestNow(p.lat, p.lon, day);
+    out.push(
+      `The hungry months: corn dear at market${lat > 40 ? ", and the cost of living up" : ""}${h === "poor" ? ", dearer after last year's poor harvest" : ""}.`,
+    );
+  }
+  if (!out.length)
+    out.push(
+      tropical || lat < 24
+        ? "The dry season: good roads and healthy months."
+        : "A quiet season: nothing much in the way.",
+    );
+  return out;
 }

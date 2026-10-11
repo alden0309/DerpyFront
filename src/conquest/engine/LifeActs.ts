@@ -5,7 +5,7 @@
 // and effects that last: opinions, renown, money, health and skills.
 
 import { presentAt } from "./Areas";
-import { formatDate } from "./Calendar";
+import { dateOf, formatDate } from "./Calendar";
 import { eligibleHere } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { afterHearing } from "./Leads"; // WORLD r11
@@ -94,6 +94,8 @@ import {
 import { ageOf, charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { heardHere } from "./Rumours";
+import { harvestStint } from "./SeasonLife"; // MAP (r12)
+import { isHarvest } from "./Seasons"; // MAP (r12)
 import type { Character, GameState, Life, PlaceKind, Skill } from "./Types";
 import { SEATS } from "./Types";
 import { buyRank, selfStartCheck, startJob } from "./Work";
@@ -124,6 +126,26 @@ const adult = (s: GameState, _w: World, life: Life): Check =>
 // LIFE (r11): "Put in a hard day" is gone: work runs itself at your post,
 // as hard as you choose to go at it (Trades.ts).
 export const ACTS: ActDef[] = [
+  // MAP (r12): harvest work, in its months (SeasonLife.ts).
+  {
+    key: "harvest",
+    places: ["fields"],
+    label: "Help bring in the harvest",
+    text: "A stint in the fields at harvest wages: reaping, binding, carting and husking from first light. Hands are short and the farmers pay well, better in a good year; and they remember who came.",
+    cooldown: 10,
+    skill: "farming",
+    when: (s, w, life) => {
+      if (isChildLife(s, life)) return no("Not until you're sixteen.");
+      const def = w.map.provinces[life.prov];
+      if (!isHarvest(def.lat, dateOf(s.day).month))
+        return no(
+          def.lat >= 30
+            ? "Only at the harvest (September and October)."
+            : "Only at the harvest (January to March here: the cane and the tobacco).",
+        );
+      return yes;
+    },
+  },
   {
     key: "traplines",
     places: ["woods"],
@@ -1509,6 +1531,8 @@ export function doAct(
     case "work-church":
     case "work-college":
       return buildWork(g, life, key.slice(5));
+    case "harvest": // MAP (r12)
+      return harvestStint(g, life);
     default:
       return "Unknown act.";
   }

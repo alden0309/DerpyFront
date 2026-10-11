@@ -14,9 +14,15 @@
 // you can see them.
 
 import { dateOf } from "../engine/Calendar";
-import { isWinter, type World } from "../engine/Map";
+import { isFeverSeason, isWinter, type World } from "../engine/Map";
 import { armyMen, countRegs, people, settlers } from "../engine/Queries";
-import { iceBound } from "../engine/Seasons";
+import {
+  iceBound,
+  isFloodSeason,
+  isHarvest,
+  isMudSeason,
+  riversFrozen,
+} from "../engine/Seasons";
 import type {
   Army,
   Character,
@@ -32,6 +38,7 @@ import {
   alongWay,
   decodeArc,
   decodeHalf,
+  latOfY,
   type Leg,
   makeWay,
   restOfWay,
@@ -58,6 +65,7 @@ import {
   unknownMark,
   whiteFlag,
 } from "./MapArt";
+import { drawStorm, stormsOn } from "./SeasonArt";
 import {
   drawSprite,
   loadSprites,
@@ -121,16 +129,34 @@ const FOG_FILL = "#604e39";
 const CLOSED_FILL = "#3e352b";
 
 /**
- * Wave 2 (r11): what the season puts on the chart in a month: snow (all the
- * north, or only the far north), the southern winter, autumn woods, or
- * nothing. Months that look the same share a key.
+ * What the season puts on the chart in a month: snow (all the north, or
+ * only the far north), the southern winter, the autumn woods (wave 2,
+ * r11); MAP (r12): ice on the shores, lakes and rivers, mud and floods in
+ * the thaw, the spring's green, fever haze, the harvest's gold. Months
+ * that look the same share a key, so the chart is redrawn only when the
+ * look changes (nine times a year).
  */
 export function seasonLook(month: number): string {
+  const coast = (lat: number, lon = -70) => ({ lat, lon, coastal: true });
+  const inland = (lat: number) => ({ lat, lon: -80, coastal: false });
   return [
     isWinter(40, month) ? "w" : "",
     isWinter(50, month) ? "n" : "",
     isWinter(-40, month) ? "s" : "",
     month === 8 || month === 9 ? "a" : "",
+    iceBound(coast(56), month) ? "I" : "",
+    iceBound(coast(51), month) ? "J" : "",
+    iceBound(coast(47), month) ? "K" : "",
+    iceBound(inland(47), month) ? "L" : "",
+    iceBound(inland(43), month) ? "M" : "",
+    riversFrozen(47, month) ? "R" : "",
+    riversFrozen(43, month) ? "r" : "",
+    isMudSeason(47, month) ? "D" : "",
+    isMudSeason(40, month) ? "d" : "",
+    isFloodSeason(45, month) ? "F" : "",
+    isFloodSeason(38, month) ? "f" : "",
+    month === 4 ? "g" : "",
+    month >= 5 && month <= 9 ? "v" : "",
   ].join("");
 }
 
@@ -393,6 +419,9 @@ export class MapView {
   private lastBaseAt = -1e9;
   private viewChangedAt = 0;
 
+  /** MAP (r12): each province's own shore (for ice), and each river with its latitude. */
+  private provCoast: Path2D[] = [];
+  private riverLines: { path: Path2D; lat: number }[] = [];
   /** MAP (r12): the harbours and the lanes between them (null without the data). */
   private sea: SeaChart | null = null;
   /** MAP (r12): each hop's way, walked and sailed, worked out once. */
@@ -633,6 +662,20 @@ export class MapView {
       pts.forEach(([x, y], i) =>
         i === 0 ? this.rivers.moveTo(x, y) : this.rivers.lineTo(x, y),
       );
+      // MAP (r12): each river on its own, to freeze and flood with its season.
+      const path = new Path2D();
+      pts.forEach(([x, y], i) =>
+        i === 0 ? path.moveTo(x, y) : path.lineTo(x, y),
+      );
+      const my = pts.reduce((n, [, y]) => n + y, 0) / Math.max(1, pts.length);
+      this.riverLines.push({ path, lat: latOfY(my, this.geo.width) });
+    }
+    // MAP (r12): each province's own shore.
+    this.provCoast = this.map.provinces.map(() => new Path2D());
+    for (const a of this.arcs) {
+      if (a.left >= 0 && a.right >= 0) continue;
+      const p = a.left >= 0 ? a.left : a.right;
+      if (p >= 0 && this.provCoast[p]) this.addArc(this.provCoast[p], a);
     }
     for (const r of this.geo.backdrop ?? []) {
       const pts = decodeHalf(r);
@@ -1630,29 +1673,29 @@ export class MapView {
     const month = dateOf(Math.floor(o.dayNow)).month;
     this.seasonMonth = month;
     this.seasonSeen = seasonLook(month);
-    if (o.mode === "nation" || o.mode === "terrain") {
-      for (let p = 0; p < this.provPaths.length; p++) {
-        if (!knownLand(p)) continue;
-        const def = this.map.provinces[p];
-        if (isWinter(def.lat, month)) {
-          c.fillStyle = "rgba(246,249,252,0.42)";
-          c.fill(this.provPaths[p], "evenodd");
-        } else if (
-          (month === 8 || month === 9) &&
-          def.lat > 34 &&
-          (def.terrain === "forest" || def.terrain === "hills")
-        ) {
-          c.fillStyle = "rgba(196,104,40,0.13)";
-          c.fill(this.provPaths[p], "evenodd");
-        }
-      }
-    }
+    const seasonal = o.mode === "nation" || o.mode === "terrain";
+    if (seasonal) this.paintSeason(c, s, v, month, knownLand);
     c.strokeStyle = "rgba(70, 55, 35, 0.22)";
     c.lineWidth = Math.max(0.5, 0.8 / v.scale);
     c.stroke(this.borders);
     c.strokeStyle = "rgba(82, 130, 160, 0.75)";
     c.lineWidth = Math.min(1.2, 1.1 / v.scale);
-    c.stroke(this.rivers);
+    if (!seasonal) c.stroke(this.rivers);
+    else
+      for (const r of this.riverLines) {
+        // MAP (r12): frozen white in the northern winter, brown and swollen in the thaw.
+        if (riversFrozen(r.lat, month)) {
+          c.strokeStyle = "rgba(232,242,248,0.95)";
+          c.lineWidth = Math.min(1.8, 1.6 / v.scale);
+        } else if (isFloodSeason(r.lat, month)) {
+          c.strokeStyle = "rgba(104,112,100,0.85)";
+          c.lineWidth = Math.min(2.4, 2.2 / v.scale);
+        } else {
+          c.strokeStyle = "rgba(82, 130, 160, 0.75)";
+          c.lineWidth = Math.min(1.2, 1.1 / v.scale);
+        }
+        c.stroke(r.path);
+      }
     if (o.mode === "nation") {
       c.strokeStyle = "rgba(45, 32, 20, 0.8)";
       c.lineWidth = 1.9 / v.scale;
@@ -1840,6 +1883,71 @@ export class MapView {
           marginNote(c, x + 34, y - 30, "in open revolt!", x + 14, y - 12);
       }
     }
+  }
+
+  /**
+   * MAP (r12): the season on the chart. Snow over a winter's country (deeper
+   * in the far north), ice along the frozen shores and lakes, mud in the
+   * thaw, the green of May, a fever haze over the hot lowlands in the
+   * sickly season, the gold of the harvest on farm country, and the turning
+   * woods of autumn.
+   */
+  private paintSeason(
+    c: CanvasRenderingContext2D,
+    s: GameState,
+    v: View,
+    month: number,
+    knownLand: (p: number) => boolean,
+  ): void {
+    for (let p = 0; p < this.provPaths.length; p++) {
+      if (!knownLand(p)) continue;
+      const def = this.map.provinces[p];
+      const wash = (color: string) => {
+        c.fillStyle = color;
+        c.fill(this.provPaths[p], "evenodd");
+      };
+      if (isWinter(def.lat, month))
+        wash(
+          def.lat >= 50 ? "rgba(246,249,252,0.56)" : "rgba(246,249,252,0.42)",
+        );
+      else if (isMudSeason(def.lat, month)) wash("rgba(112,82,44,0.1)");
+      else if (month === 4 && def.lat > 30 && def.terrain !== "desert")
+        wash("rgba(104,160,68,0.08)");
+      else if (
+        (month === 8 || month === 9) &&
+        def.lat > 34 &&
+        (def.terrain === "forest" || def.terrain === "hills")
+      )
+        wash("rgba(196,104,40,0.13)");
+      if (
+        isHarvest(def.lat, month) &&
+        def.lat >= 30 &&
+        (this.world.raw[p] === "grain" ||
+          this.world.raw[p] === "tobacco" ||
+          (s.provinces[p].b.farm ?? 0) > 0)
+      )
+        wash("rgba(226,178,64,0.14)");
+      if (
+        month >= 5 &&
+        month <= 8 &&
+        isFeverSeason(def.lat, month) &&
+        (this.world.tropical[p] ||
+          (def.lat < 33 &&
+            (def.terrain === "marsh" || def.terrain === "jungle")))
+      )
+        wash("rgba(176,184,70,0.08)");
+    }
+    // Ice along the frozen shores, the lakes and the St. Lawrence.
+    c.save();
+    c.lineJoin = "round";
+    c.lineCap = "round";
+    c.strokeStyle = "rgba(234,243,249,0.82)";
+    c.lineWidth = Math.max(2.2, 5 / v.scale);
+    for (let p = 0; p < this.provCoast.length; p++) {
+      if (!knownLand(p)) continue;
+      if (iceBound(this.map.provinces[p], month)) c.stroke(this.provCoast[p]);
+    }
+    c.restore();
   }
 
   /**
@@ -2389,6 +2497,7 @@ export class MapView {
     // Ships on their way to Europe and back.
     const figure = Math.max(13, Math.min(30, 9 + v.scale * 5));
     this.drawAmbience(o, now, sx, sy, onScreen);
+    this.drawStorms(o, now, sx, sy, onScreen); // MAP (r12)
     for (const n of s.nations) {
       if (n.kind !== "power" || !n.alive) continue;
       for (const cv of n.convoys) {
@@ -2918,7 +3027,17 @@ export class MapView {
         t.kind === "trader" ||
         t.mode === "ship" ||
         t.mode === "canoe";
-      const way = this.hopWay(t.prov, t.path[0], bySea, paddler && !bySea);
+      // Not on the rivers and lakes while they're frozen.
+      const iced = riversFrozen(
+        this.map.provinces[t.path[0]].lat,
+        dateOf(Math.floor(day)).month,
+      );
+      const way = this.hopWay(
+        t.prov,
+        t.path[0],
+        bySea,
+        paddler && !bySea && !iced,
+      );
       const [mx, my, heading, leg] = alongWay(way, frac);
       const x = sx(mx);
       const y = sy(my);
@@ -3004,6 +3123,40 @@ export class MapView {
     }
   }
 
+  /**
+   * MAP (r12): the hurricanes of the season, wheeling across the islands
+   * and the Gulf (only where you'd see the sky darken: near country in
+   * sight).
+   */
+  private drawStorms(
+    o: Overlay,
+    now: number,
+    sx: (x: number) => number,
+    sy: (y: number) => number,
+    onScreen: (x: number, y: number, pad?: number) => boolean,
+  ): void {
+    if (o.mode !== "nation" && o.mode !== "terrain") return;
+    const storms = stormsOn(o.dayNow, this.geo.width);
+    if (!storms.length) return;
+    const fog = o.fog;
+    for (const st of storms) {
+      const x = sx(st.x);
+      const y = sy(st.y);
+      const r = st.r * this.view.scale;
+      if (!onScreen(x, y, r + 20)) continue;
+      if (fog) {
+        const near = this.map.provinces.some(
+          (d, p) =>
+            fog.seen.has(p) && Math.hypot(d.x - st.x, d.y - st.y) < st.r + 140,
+        );
+        if (!near) continue;
+      }
+      this.movers++;
+      const fade = Math.min(1, st.age * 6, (1 - st.age) * 6);
+      drawStorm(this.ctx, x, y, r, now / 900, 0.85 * fade);
+    }
+  }
+
   /** Chimney smoke over the towns, cookfires in the villages, the sea breaking on the coast. */
   private drawAmbience(
     o: Overlay,
@@ -3018,6 +3171,7 @@ export class MapView {
     if (o.mode !== "nation" && o.mode !== "terrain") return;
     const t = now / 1000;
     const fog = o.fog;
+    const month = dateOf(Math.floor(o.dayNow)).month;
     const known = (p: number) =>
       !this.map.provinces[p].closed && (!fog || fog.known.has(p));
     // Waves along the shore (not off land you don't know).
@@ -3085,6 +3239,8 @@ export class MapView {
         const nation = s.nations[prov.owner];
         const native = nation.kind === "native";
         if (!native && settlers(prov) < 300) continue;
+        // MAP (r12): nobody's out while the ice is in.
+        if (iceBound(this.map.provinces[p], month)) continue;
         const boats = native ? 1 : settlers(prov) >= 2500 ? 2 : 1;
         for (let k = 0; k < boats; k++) {
           const [hx, hy, ox, oy] = spot(k);

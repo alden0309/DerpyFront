@@ -3604,6 +3604,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   // LIFE (r11): matters at work, crime and the law, your people, boats, the road.
   ...R11_EVENTS,
   ...SOCIETY_EVENTS, // SOCIETY (r11)
+  ...SEASON_EVENTS, // MAP (r12)
 ];
 
 // ---------------------------------------------------------------- a few calls out
@@ -3613,6 +3614,7 @@ import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";
 import { R11_EVENTS } from "./R11Events";
+import { SEASON_EVENTS } from "./SeasonLife"; // MAP (r12)
 import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
 
