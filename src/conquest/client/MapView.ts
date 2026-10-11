@@ -1385,6 +1385,56 @@ export class MapView {
     return { sameScale, covered };
   }
 
+  /**
+   * Wave 2 (r11): a hatch of fine parallel lines as a pattern, `period`
+   * screen pixels apart, rising `rise` pixels for each one across, drawn at
+   * the chart's resolution. Filling a shape with it does what clipping to
+   * the shape and stroking hundreds of lines did, for a fraction of the
+   * cost.
+   */
+  private hatch(
+    c: CanvasRenderingContext2D,
+    v: View,
+    period: number,
+    rise: number,
+    width: number,
+    color: string,
+  ): CanvasPattern | null {
+    const k = this.chartDpr();
+    const key = `${period}|${rise}|${width}|${color}|${k}`;
+    let pat = this.hatches.get(key);
+    if (pat === undefined) {
+      const tw = Math.max(2, Math.round(period * k));
+      const th = Math.max(2, Math.round(period * rise * k));
+      const t = document.createElement("canvas");
+      t.width = tw;
+      t.height = th;
+      const x = t.getContext("2d");
+      pat = null;
+      if (x) {
+        x.strokeStyle = color;
+        x.lineWidth = width * k;
+        x.lineCap = "butt";
+        x.beginPath();
+        // One line corner to corner, and its neighbours, so the tile
+        // repeats without a seam.
+        for (const dx of [-tw, 0, tw]) {
+          x.moveTo(dx, th);
+          x.lineTo(dx + tw, 0);
+        }
+        x.stroke();
+        pat = c.createPattern(t, "repeat");
+      }
+      this.hatches.set(key, pat);
+    }
+    // One tile pixel to a chart pixel, anchored to the map.
+    pat?.setTransform(
+      new DOMMatrix().scaleSelf(1 / (v.scale * k), 1 / (v.scale * k)),
+    );
+    return pat;
+  }
+  private hatches = new Map<string, CanvasPattern | null>();
+
   /** A repeating texture, made once per canvas. */
   private pattern(
     name: SpriteName,
@@ -1504,18 +1554,11 @@ export class MapView {
     // The world beyond the board: South America, hatched, unplayable.
     c.fillStyle = "#cfc3a2";
     c.fill(this.backdrop);
-    c.save();
-    c.clip(this.backdrop);
-    c.strokeStyle = "rgba(90,70,45,0.18)";
-    c.lineWidth = 1.2 / v.scale;
-    c.beginPath();
-    const step = 7 / v.scale;
-    for (let x = x0 - (y1 - y0); x < x1; x += step) {
-      c.moveTo(x, y1);
-      c.lineTo(x + (y1 - y0), y0);
+    const backHatch = this.hatch(c, v, 7, 1, 1.2, "rgba(90,70,45,0.18)");
+    if (backHatch) {
+      c.fillStyle = backHatch;
+      c.fill(this.backdrop);
     }
-    c.stroke();
-    c.restore();
     // Shallow water along the coast, as on old charts.
     c.strokeStyle = "rgba(160, 205, 215, 0.3)";
     c.lineWidth = 9 / v.scale;
@@ -1810,19 +1853,11 @@ export class MapView {
     // Over its rivers and borders too: there's nothing there for you.
     c.fillStyle = CLOSED_FILL;
     c.fill(this.closedPath, "evenodd");
-    c.save();
-    c.clip(this.closedPath, "evenodd");
-    const b = this.closedBox();
-    c.strokeStyle = "rgba(15,10,6,0.35)";
-    c.lineWidth = 1.2 / v.scale;
-    c.beginPath();
-    const step = 6 / v.scale;
-    for (let x = b[0] - (b[3] - b[1]); x < b[2]; x += step) {
-      c.moveTo(x, b[3]);
-      c.lineTo(x + (b[3] - b[1]), b[1]);
+    const closedHatch = this.hatch(c, v, 6, 1, 1.2, "rgba(15,10,6,0.35)");
+    if (closedHatch) {
+      c.fillStyle = closedHatch;
+      c.fill(this.closedPath, "evenodd");
     }
-    c.stroke();
-    c.restore();
     const [lx, ly] = this.closedAt;
     this.inkLabel(
       c,
@@ -1833,26 +1868,6 @@ export class MapView {
       -8,
       "rgba(222,206,170,0.62)",
     );
-  }
-
-  private closedBox(): [number, number, number, number] {
-    let b: [number, number, number, number] = [
-      Infinity,
-      Infinity,
-      -Infinity,
-      -Infinity,
-    ];
-    this.map.provinces.forEach((def, p) => {
-      if (!def.closed) return;
-      const q = this.provBox[p];
-      b = [
-        Math.min(b[0], q[0]),
-        Math.min(b[1], q[1]),
-        Math.max(b[2], q[2]),
-        Math.max(b[3], q[3]),
-      ];
-    });
-    return b;
   }
 
   /** Spaced italic letters, in map units, as the chart-makers wrote across the land. */
@@ -1920,28 +1935,20 @@ export class MapView {
     for (const p of unknown) path.addPath(this.provPaths[p]);
     c.fillStyle = FOG_FILL;
     c.fill(path, "evenodd");
-    c.save();
-    c.clip(path, "evenodd");
     // A wash of cloud and stain, painted once into a tile and laid over
-    // the whole fog in one go.
+    // the whole fog in one go; then a fine hatch (wave 2, r11: both as
+    // fills of the fog's shape rather than drawn inside a clip of it).
     const cloth = this.fogCloth(c);
     if (cloth) {
       cloth.setTransform(new DOMMatrix().scaleSelf(1.3, 1.3));
       c.fillStyle = cloth;
       c.fill(path, "evenodd");
     }
-    const ub = this.boxOf(unknown);
-    c.strokeStyle = "rgba(30,22,14,0.09)";
-    c.lineWidth = 0.8 / v.scale;
-    c.beginPath();
-    const step = 4 / v.scale;
-    const rise = (ub[3] - ub[1]) * 0.5;
-    for (let x = ub[0] - rise; x < ub[2]; x += step) {
-      c.moveTo(x, ub[3]);
-      c.lineTo(x + rise, ub[1]);
+    const fogHatch = this.hatch(c, v, 4, 2, 0.8, "rgba(30,22,14,0.09)");
+    if (fogHatch) {
+      c.fillStyle = fogHatch;
+      c.fill(path, "evenodd");
     }
-    c.stroke();
-    c.restore();
     // The edge where your knowledge runs out: the fog bleeds softly into
     // the known land (land only, so the sea stays clear).
     const edge = new Path2D();
@@ -2043,25 +2050,6 @@ export class MapView {
     if (!pat) return null;
     this.cloth = { for: c, pat };
     return pat;
-  }
-
-  private boxOf(provs: number[]): [number, number, number, number] {
-    let b: [number, number, number, number] = [
-      Infinity,
-      Infinity,
-      -Infinity,
-      -Infinity,
-    ];
-    for (const p of provs) {
-      const q = this.provBox[p];
-      b = [
-        Math.min(b[0], q[0]),
-        Math.min(b[1], q[1]),
-        Math.max(b[2], q[2]),
-        Math.max(b[3], q[3]),
-      ];
-    }
-    return b;
   }
 
   /** Nation names along their curves, letter-spaced to span the land. */
