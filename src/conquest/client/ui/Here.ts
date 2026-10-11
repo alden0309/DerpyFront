@@ -86,6 +86,7 @@ import {
   tradesLink,
   workNotes,
 } from "./Livelihood";
+import { firmTag, partnerPart } from "./Partners"; // PARTNERS (r13)
 import { playersHere, playerTag } from "./Players"; // HOME (r12)
 import { powerParts } from "./PowerParts"; // POWER (r12)
 import { hostAt } from "./Society"; // SOCIETY (r11)
@@ -634,6 +635,7 @@ function areasView(ui: GameUi, p: number): TemplateResult {
                 : "nobody"}</span
           >
           ${work ? html`<span class="cq-area-work">your work</span>` : nothing}
+          ${firmTag(ui, p, a)}
         </button>`;
       })}
     </nav>
@@ -1315,6 +1317,8 @@ function extrasParts(ui: GameUi, p: number, area: PlaceKind): PlacePart[] {
         )
       : [];
   const out: PlacePart[] = [...powerParts(ui, p, area)]; // POWER (r12)
+  const firms = partnerPart(ui, p, area); // PARTNERS (r13)
+  if (firms) out.push(firms);
   if (movements.length)
     out.push({
       key: "causes",

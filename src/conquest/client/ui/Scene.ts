@@ -33,6 +33,7 @@ import type { GameUi } from "./Context";
 import { duelScene } from "./DuelScene"; // HOME (r12)
 import { roleOf } from "./Here";
 import { letterClock, ModalHooks } from "./Modals";
+import { articlesScene } from "./Partners"; // PARTNERS (r13)
 import { talkLine } from "./Society"; // SOCIETY (r11)
 
 type Expr = NonNullable<PortraitOpts["expression"]>;
@@ -231,6 +232,8 @@ export function eventScene(
   if (!life || !ev) return outcomeScene(ui);
   // HOME (r12): a duel's scenes have their own staging.
   if (ev.key.startsWith("duel-")) return duelScene(ui, ev, hooks);
+  // PARTNERS (r13): articles of copartnership, to sign or answer.
+  if (ev.key === "p2p-articles") return articlesScene(ui, ev, hooks);
   const scene = ev.scene ?? "home";
   const other = ev.c !== undefined && ev.c >= 0 ? ui.s.chars[ev.c] : undefined;
   cue(scene, `ev:${ev.id}`);

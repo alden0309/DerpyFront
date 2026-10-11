@@ -73,7 +73,9 @@ export type Modal =
   | { k: "guide"; ch?: string }
   | { k: "finder" }
   // HOME (r12): the family tree, large.
-  | { k: "tree" };
+  | { k: "tree" }
+  // PARTNERS (r13): articles of copartnership, drawn up.
+  | { k: "articles"; c: number };
 
 export interface GameUi {
   s: GameState;

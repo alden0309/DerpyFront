@@ -314,8 +314,8 @@ export function fairShares(
   const [a, b] = contributions(s, t, firm);
   const total = Math.max(1, a + b);
   const bonus = total * (t.hold === "venture" ? 0.1 : 0.2);
+  // The work is worth a share of its own, to whichever side manages.
   const ma = t.sides[0].role === "managing" ? bonus : 0;
-  const mb = t.sides[1].role === "managing" ? bonus : 0;
   const fa = Math.round(((a + ma) / (total + bonus)) * 100);
   return [fa, 100 - fa];
 }
@@ -1326,15 +1326,11 @@ function admitNewcomer(g: ConquestGame, o: FirmOffer): string | null {
     f,
     `${charName(c)} comes into the firm: ${side.share} in a hundred, for ${side.cap} coins.`,
   );
-  for (const p of f.partners)
-    if (p.c !== c.id)
-      lifeOfChar(s, p.c) &&
-        journal(
-          g,
-          lifeOfChar(s, p.c)!,
-          `${charName(c)} is a partner in ${f.name} now.`,
-          "good",
-        );
+  for (const p of f.partners) {
+    const pl = p.c !== c.id ? lifeOfChar(s, p.c) : undefined;
+    if (pl)
+      journal(g, pl, `${charName(c)} is a partner in ${f.name} now.`, "good");
+  }
   if (l)
     journal(
       g,
@@ -1428,7 +1424,7 @@ export function partnersDaily(g: ConquestGame): void {
     if (f.seized && g.s.day - f.seized.day > 30) sellSeized(g, f, "stranger");
     if (
       f.status === "trading" &&
-      !f.partners.some((p) => lifeOfChar(g.s, p.c) || p.dead !== undefined)
+      !f.partners.some((p) => !!lifeOfChar(g.s, p.c) || p.dead !== undefined)
     ) {
       // No player left in it: it goes on without us, out of the books.
       f.status = "dissolved";

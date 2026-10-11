@@ -27,6 +27,7 @@ import { GameUi, Modal, token } from "./Context";
 import { familyTreeModal } from "./FamilyTree"; // HOME (r12)
 import { finderModal, resetFinder } from "./Finder";
 import { roleOf } from "./Here";
+import { articlesModal } from "./Partners"; // PARTNERS (r13)
 import { eventScene, interactScene, outcomeScene } from "./Scene";
 import { sittingPage } from "./Sitting";
 // SOCIETY (r11)
@@ -128,6 +129,11 @@ export function renderModal(
     case "tree":
       body = familyTreeModal(ui);
       cls = "wide kin";
+      break;
+    // PARTNERS (r13)
+    case "articles":
+      body = articlesModal(ui, m);
+      cls = "wide partners";
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);

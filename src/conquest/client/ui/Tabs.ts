@@ -66,6 +66,7 @@ import {
   type PlacePart,
 } from "./Livelihood";
 import { howTo, pageHead } from "./Nav";
+import { partnersPage } from "./Partners"; // PARTNERS (r13)
 import {
   familySection,
   goodsSection,
@@ -552,13 +553,16 @@ function estatePage(ui: GameUi, sub: string): TemplateResult {
                     </li>`}
               <li>
                 <b>A business</b> comes with the higher rungs of many trades (a
-                shop, a press, a mill, a tavern): see Work.
+                shop, a press, a mill, a tavern): see Work. Or go into
+                partnership: Estate › Partnerships.
               </li>
             </ul>`,
           )}`}`;
     }
     case "boats":
       return boatsPage(ui);
+    case "partners": // PARTNERS (r13)
+      return partnersPage(ui);
     case "goods":
       return html`${pageHead(
         "Goods",

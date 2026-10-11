@@ -456,9 +456,8 @@ function paperMonth(g: ConquestGame, f: Firm): number {
     return 0;
   }
   let income = r2(x.income ?? 0);
-  let skim = 0;
   if (holder.cooking && income > 0) {
-    skim = r1(income * SKIM_SHARE);
+    const skim = r1(income * SKIM_SHARE);
     holder.skim = r2((holder.skim ?? 0) + skim);
     income = r2(income - skim);
   }
@@ -892,7 +891,7 @@ export function npcVote(
       const part = (d.arg * (partnerIn(f, voter.id)?.share ?? 0)) / 100;
       if (part > wealth) return { yes: false, why: "More than they have" };
       const use =
-        (f.biz && f.biz.level < 3) || (!f.biz && !!f.lost) || f.chest < 5;
+        (!!f.biz && f.biz.level < 3) || (!f.biz && !!f.lost) || f.chest < 5;
       return use
         ? { yes: true, why: "The firm needs it" }
         : { yes: false, why: "Money better kept at home" };

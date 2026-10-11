@@ -10,6 +10,7 @@ import { areasOf, homeHere } from "../../engine/Areas"; // HOME (r12)
 import { BOATS } from "../../engine/Boats";
 import { dateOf } from "../../engine/Calendar"; // MAP (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
+import { buyoutPrice } from "../../engine/Firms"; // PARTNERS (r13)
 import { followerCap, peopleOf, raiseCheck } from "../../engine/Followers";
 import { foundCheck as foundColonyCheck } from "../../engine/Founding";
 import {
@@ -31,6 +32,7 @@ import {
   movementOf,
 } from "../../engine/Movements";
 import { localOfficesOf } from "../../engine/Offices"; // POWER (r12)
+import { firmsWith, MAX_FIRMS } from "../../engine/PartnersCore"; // PARTNERS (r13)
 import { standCheck } from "../../engine/Politics";
 import {
   houseCheck,
@@ -1084,6 +1086,88 @@ const GOALS: Goal[] = [
     goLabel: "Back to the map",
     guide: "map",
   },
+  // ---- PARTNERS (r13): business partnerships
+  {
+    id: "partnership",
+    title: "Go into business with someone",
+    words:
+      "partner partnership business firm company copartnership articles invest share capital found together venture cargo",
+    group: "Money and home",
+    where:
+      "Anyone's card: In business › Propose a partnership (in person, or by post if they're far off). At the market: Partnerships lists who in town might go into business with you. Bring in a business, buy a share of theirs, found one together, or pool money for cargoes.",
+    needs: (ui) => [
+      adult(ui),
+      {
+        label: `In ${firmsWith(ui.s, ui.life!.c).length} of ${MAX_FIRMS} partnerships`,
+        met: firmsWith(ui.s, ui.life!.c).length < MAX_FIRMS,
+      },
+    ],
+    go: place("market"),
+    goLabel: "Go to the market",
+    guide: "partners",
+  },
+  {
+    id: "take-partner",
+    title: "Take on a partner",
+    words:
+      "partner take on silent partner investor capital money my business shop inn sell a share",
+    group: "Money and home",
+    where:
+      "Bring your own business into a partnership: their card, In business › Propose a partnership, and choose your business as what the firm holds. They put in capital for a share; you run it as the managing partner. Already in a firm: Estate › Partnerships, Bring in a new partner (put to the partners).",
+    needs: (ui) => [
+      {
+        label: (ui.life!.property ?? []).some((p) => p.kind === "business")
+          ? "You have a business of your own"
+          : firmsWith(ui.s, ui.life!.c).length
+            ? "You're in a firm (bring someone in by vote)"
+            : "A business of your own (the top rungs of many trades), or found one together",
+        met:
+          (ui.life!.property ?? []).some((p) => p.kind === "business") ||
+          firmsWith(ui.s, ui.life!.c).length > 0,
+      },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "partners" }),
+    goLabel: "Partnerships",
+    guide: "partners",
+  },
+  {
+    id: "buy-out",
+    title: "Buy out my partner",
+    words: "buy out partner share firm end partnership own it alone",
+    group: "Money and home",
+    where:
+      "Estate › Partnerships: Put something to the partners › Buy out a partner. You pay a fair price (what the share would fetch wound up, and a year of its profit); with the greater part (or all, if the articles say so) it's yours, and if you're the last partner the business is yours alone.",
+    needs: (ui) => {
+      const f = firmsWith(ui.s, ui.life!.c)[0];
+      const other = f?.partners.find((p) => p.c !== ui.life!.c);
+      const price = f && other ? buyoutPrice(ui.s, f, other.c) : 0;
+      return [
+        { label: f ? `A partner in ${f.name}` : "In a partnership", met: !!f },
+        ...(f && other
+          ? [
+              {
+                label: `${price} coins for ${ui.s.chars[other.c]?.first ?? "their"}'s share (you have ${Math.floor(ui.life!.purse)})`,
+                met: ui.life!.purse >= price,
+              },
+            ]
+          : []),
+      ];
+    },
+    go: tab({ k: "tab", tab: "estate", sub: "partners" }),
+    goLabel: "Partnerships",
+    guide: "partners",
+  },
+  {
+    id: "firm-books",
+    title: "See my firm's books",
+    words: "books ledger firm partnership profit accounts chest debt vote",
+    group: "Money and home",
+    where:
+      "Estate › Partnerships: each firm's partners and shares, the books month by month, the chest and the debt, and what's before the partners.",
+    go: tab({ k: "tab", tab: "estate", sub: "partners" }),
+    guide: "partners",
+  },
+  // ---- end PARTNERS (r13)
   {
     id: "achievements",
     title: "See my achievements",
