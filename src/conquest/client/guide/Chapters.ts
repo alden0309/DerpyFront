@@ -73,7 +73,7 @@ export interface Chapter {
 export const PARTS: { id: string; title: string }[] = [
   { id: "start", title: "Getting started" },
   { id: "living", title: "Making a living" },
-  { id: "people", title: "People" },
+  { id: "people", title: "You and others" },
   { id: "power", title: "Standing and power" },
   { id: "world", title: "The world" },
   { id: "reference", title: "Reference" },
@@ -778,7 +778,7 @@ The watch (watchman up to high sheriff) and the thief-takers (fighting 4) work f
   },
   {
     id: "you",
-    part: "living",
+    part: "people",
     title: "Skills, traits and ambitions",
     line: "What you're good at, what you're like, and what you've set your heart on.",
     where: "You › Yourself (skills, attributes and traits); You › Ambition.",
@@ -798,7 +798,7 @@ Set your heart on something (You › Ambition): rise in your trade, make a fortu
   },
   {
     id: "health",
-    part: "living",
+    part: "people",
     title: "Health and stress",
     line: "Keeping body and mind together.",
     where: "The banner (point at health or stress), You › Yourself.",
