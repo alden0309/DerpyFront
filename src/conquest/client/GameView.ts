@@ -902,6 +902,9 @@ export class GameView extends LitElement {
     // second, the smoke and the sea alone at 15, paused at 10; and never
     // more than about a third of the time spent drawing.
     const base = this.paused ? 100 : this.view.movers > 0 ? 33 : 66;
+    // At the quicker speeds the chart (owners, towns, sieges) keeps up once
+    // a second rather than three times.
+    this.view.chartEvery = !this.paused && this.speed >= 3 ? 1000 : 300;
     const gap = Math.max(base, this.view.frameCost * 3);
     if (this.view.needsDraw || (animating && t - this.lastDraw > gap)) {
       this.lastDraw = t;

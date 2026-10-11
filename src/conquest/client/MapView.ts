@@ -379,6 +379,8 @@ export class MapView {
   lowPower = false;
   /** Things on the move drawn last frame (they want a quicker frame rate). */
   movers = 0;
+  /** At most this often (ms) is the chart redrawn for a change on it (not for a new view). */
+  chartEvery = 300;
   /** Pictures drawn at the size they're shown, with their halo, to stamp quickly. */
   private stamps = new Map<string, HTMLCanvasElement | null>();
   /** Clothes of the people on the roads, worked out once each. */
@@ -503,10 +505,10 @@ export class MapView {
     h: number,
     flip: boolean,
     halo: number,
+    k = this.dpr,
   ): boolean {
     const img = sprite(name);
     if (!img) return false;
-    const k = this.dpr;
     const hh = Math.max(4, Math.round(h * 2) / 2);
     const key = `${name}|${hh}|${flip ? 1 : 0}|${halo}|${k}`;
     let c = this.stamps.get(key);
@@ -1693,13 +1695,34 @@ export class MapView {
             c.ellipse(tx, y + 1, w * 0.58, h * 0.2, 0, 0, Math.PI * 2);
             c.fill();
           }
-          if (!drawSprite(c, name, tx, y + 2, h) && v.scale >= 2.2) {
+          if (
+            !this.stamp(c, name, tx, y + 2, h, false, 0, bd) &&
+            v.scale >= 2.2
+          ) {
             if (prov.b.fort) tower(c, x - 8, y + 27, prov.b.fort);
           }
           if (prov.b.fort && sprite("fort") && v.scale >= 1.4)
-            drawSprite(c, "fort", tx - townH * 0.55, y + 6, townH * 0.55);
+            this.stamp(
+              c,
+              "fort",
+              tx - townH * 0.55,
+              y + 6,
+              townH * 0.55,
+              false,
+              0,
+              bd,
+            );
           if (prov.b.tradingpost && v.scale >= 2)
-            drawSprite(c, "tradingPost", x + townH * 0.5, y + 8, townH * 0.5);
+            this.stamp(
+              c,
+              "tradingPost",
+              x + townH * 0.5,
+              y + 8,
+              townH * 0.5,
+              false,
+              0,
+              bd,
+            );
           if (prov.b.port && v.scale >= 2.2) anchor(c, x + 4, y + 27);
           // A ribbon in the owner's colours under a capital.
           if (capital && !native) {
@@ -2171,7 +2194,8 @@ export class MapView {
         !this.baseView ||
         (!fit.covered && fit.sameScale && now - this.lastBaseAt > 200);
       const due = settled
-        ? now - this.lastBaseAt > (this.baseDirty && fit.covered ? 300 : 0)
+        ? now - this.lastBaseAt >
+          (this.baseDirty && fit.covered ? this.chartEvery : 0)
         : false;
       if (urgent || due) {
         this.renderBase(o, now);
@@ -3252,7 +3276,7 @@ export class MapView {
   }
 
   /** A likeness, loaded once; null until it's ready. */
-  private face(url: string): HTMLImageElement | null {
+  private face(url: string): { pic: CanvasImageSource; ratio: number } | null {
     let img = this.faces.get(url);
     if (!img) {
       img = new Image();
@@ -3261,8 +3285,26 @@ export class MapView {
       img.src = url;
       this.faces.set(url, img);
     }
-    return img.complete && img.naturalWidth > 0 ? img : null;
+    if (!img.complete || img.naturalWidth <= 0) return null;
+    // WORLD r11: a painted (SVG) likeness is drawn once into a small picture;
+    // drawing the SVG itself on every frame was costly.
+    let shot = this.faceShots.get(url);
+    if (!shot) {
+      const ratio = img.naturalHeight / img.naturalWidth;
+      const c = document.createElement("canvas");
+      c.width = 96;
+      c.height = Math.round(96 * ratio);
+      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+      if (this.faceShots.size > 40) this.faceShots.clear();
+      shot = { pic: c, ratio };
+      this.faceShots.set(url, shot);
+    }
+    return shot;
   }
+  private faceShots = new Map<
+    string,
+    { pic: CanvasImageSource; ratio: number }
+  >();
 
   /** You and the other players: medallions, walkers and ships, and roads. */
   private drawLives(
@@ -3443,8 +3485,8 @@ export class MapView {
       if (img) {
         // The face sits in the upper middle of a portrait.
         const w = r * 2.3;
-        const h = (w * img.naturalHeight) / img.naturalWidth;
-        ctx.drawImage(img, x - w / 2, cy - r * 1.05, w, h);
+        const h = w * img.ratio;
+        ctx.drawImage(img.pic, x - w / 2, cy - r * 1.05, w, h);
       } else {
         ctx.fillStyle = "#e9dcb8";
         ctx.fillRect(x - r, cy - r, r * 2, r * 2);
