@@ -910,6 +910,18 @@ export class GameView extends LitElement {
         boats: (l.boats ?? [])
           .filter((b) => l.travel?.boat !== b.id)
           .map((b) => ({ p: b.prov, kind: b.kind, name: b.name })),
+        // Wave 2 (r11): your people away on their own work.
+        away:
+          l.seat === this.you
+            ? (l.people ?? [])
+                .filter((f) => f.task && s.chars[f.c]?.alive)
+                .map((f) => ({
+                  p: f.task!.p,
+                  c: f.c,
+                  kind: f.kind,
+                  name: s.chars[f.c].first,
+                }))
+            : undefined,
       });
     }
     // Yours on top.

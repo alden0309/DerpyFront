@@ -302,6 +302,8 @@ export interface LifeMark {
   mounted?: boolean;
   /** LIFE (r11): their boats, each where it lies (not the one they're sailing in). */
   boats?: { p: number; kind: string; name: string }[];
+  /** Wave 2 (r11): your people off on work of their own, where they are (yours only). */
+  away?: { p: number; c: number; kind: string; name: string }[];
 }
 
 /** Which figure stands for an army: its most numerous kind of regiment. */
@@ -3375,12 +3377,14 @@ export class MapView {
       ctx.stroke();
       ctx.setLineDash([]);
     }
-    // LIFE (r11): boats lying in port, each a little ship at its moorings.
+    // LIFE (r11): boats lying in port, each a little ship at its moorings
+    // (another player's only where you can see it: wave 2, r11).
     const moored = new Map<number, number>();
     for (const m of o.lives ?? [])
       for (const b of m.boats ?? []) {
         const def = this.map.provinces[b.p];
         if (!def) continue;
+        if (!m.you && o.fog && !o.fog.seen.has(b.p)) continue;
         const k = moored.get(b.p) ?? 0;
         moored.set(b.p, k + 1);
         const bx = sx(def.x) + 16 + k * 13;
@@ -3410,6 +3414,56 @@ export class MapView {
           ctx.fillText(b.name, bx, by + 12);
         }
       }
+    // Wave 2 (r11): your people off on their own work (a clerk trading, the
+    // band on a job, a mate aboard): a figure standing at the place, your
+    // eyes there through the fog.
+    const posted = new Map<number, number>();
+    for (const m of o.lives ?? []) {
+      if (!m.you) continue;
+      for (const a of m.away ?? []) {
+        const def = this.map.provinces[a.p];
+        if (!def) continue;
+        const k = posted.get(a.p) ?? 0;
+        posted.set(a.p, k + 1);
+        const ax = sx(def.x) - 16 - k * 10;
+        const ay = sy(def.y) + 12;
+        if (!onScreen(ax, ay, 30)) continue;
+        const ch = s.chars[a.c];
+        const native = ch ? s.nations[ch.nation]?.kind === "native" : false;
+        ctx.save();
+        ctx.shadowColor = "rgba(252,244,222,0.9)";
+        ctx.shadowBlur = 2;
+        drawWalker(
+          ctx,
+          ax,
+          ay,
+          figure * 1.05,
+          0,
+          1,
+          this.colorsOf(ch, native),
+          {
+            female: ch?.female,
+            native,
+            carry:
+              a.kind === "clerk"
+                ? "pack"
+                : a.kind === "sword"
+                  ? "musket"
+                  : a.kind === "guide"
+                    ? "staff"
+                    : null,
+            stride: 0,
+          },
+        );
+        ctx.restore();
+        if (this.view.scale >= 1.6) {
+          ctx.font = "italic 11px 'IM Fell English', Georgia, serif";
+          ctx.fillStyle = "rgba(38,24,12,0.85)";
+          ctx.textAlign = "center";
+          ctx.fillText(a.name, ax, ay + 12);
+        }
+      }
+    }
     for (const m of o.lives ?? []) {
       if (
         !m.you &&

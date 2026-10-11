@@ -238,7 +238,7 @@ const BASE_EVENTS: LifeEventDef[] = [
     cooldown: 200,
     title: "Men on the road",
     body: (g, life) =>
-      `Three men step out of the trees ahead, one with a fowling piece he's holding the wrong way round. "Your purse," says the one with the fewest teeth, "and we'll all go home." You have ${Math.floor(life.purse)} coins on you.`,
+      `Three men step out of the trees ahead, one with a fowling piece he's holding the wrong way round. "Your purse," says the one with the fewest teeth, "and we'll all go home." ${life.purse >= 1 ? `You have ${Math.floor(life.purse)} coins on you.` : "You have nothing on you, and say so."}`,
     choices: [
       {
         label: "Hand it over",

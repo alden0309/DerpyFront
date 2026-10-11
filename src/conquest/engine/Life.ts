@@ -51,6 +51,7 @@ import {
   officesOf,
   opinionOf,
   paceOf,
+  purseWords,
   skillLevel,
   travelRoute,
   wageOf,
@@ -558,7 +559,7 @@ export function travelTo(
   if (carried(life) > tooMuch)
     return `You're carrying ${carried(life)} loads and can manage ${tooMuch} on the road: sell some, or sail in your own boat.`;
   if (life.purse < route.cost)
-    return `The journey costs ${route.cost} coins; you have ${Math.floor(life.purse)}.`;
+    return `The journey costs ${route.cost} coins; ${purseWords(life.purse)}.`;
   spend(g, life, route.cost);
   if (life.travel) {
     life.travel.path = [life.travel.path[0], ...route.path];
@@ -1366,7 +1367,7 @@ export function leaveForEurope(
     if (lifeIsNative(s, life))
       return "Few of your people cross the ocean, and only when asked: wait for an invitation.";
     if (life.purse < EUROPE_FORTUNE)
-      return `To live in Europe you need ${EUROPE_FORTUNE} coins (you have ${Math.floor(life.purse)}).`;
+      return `To live in Europe you need ${EUROPE_FORTUNE} coins (${purseWords(life.purse)}).`;
     if (!((s.provinces[life.prov].b.port ?? 0) > 0))
       return "Ships for Europe sail from a port.";
   }

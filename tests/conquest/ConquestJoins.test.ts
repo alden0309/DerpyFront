@@ -326,6 +326,15 @@ describe("news at the new pace", () => {
     rumour(g, prov("Havana"), "A stranger's wedding.");
     rumour(g, prov("Havana"), "Your friend has wed.", friend.id, "good");
     rumour(g, life.prov, "Gold in the hills!", -1, undefined, true);
+    rumour(
+      g,
+      prov("Nansemond"),
+      "A poll at Nansemond.",
+      -1,
+      undefined,
+      false,
+      true,
+    );
     expect(g.s.rumours.find((r) => r.text === "Gold in the hills!")?.lead).toBe(
       true,
     );

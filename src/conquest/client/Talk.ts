@@ -2,8 +2,9 @@
 // three seconds the world's doings come by slowly, so what's said in the
 // country round you (a death in town, an election, a battle up the river, a
 // failed harvest) joins the news the day the talk reaches where you are,
-// and so does anything said of people you know, wherever it happened. The
-// stories behind leads stay in the taverns: you hear those by listening.
+// and so does anything said of people you know, wherever it happened. A
+// town's poll is news in that town. The stories behind leads stay in the
+// taverns: you hear those by listening.
 
 import { kmBetween } from "../engine/Map";
 import { reachesOn } from "../engine/Rumours";
@@ -42,8 +43,8 @@ export function talkReaching(
     if (r.lead || r.about === life.c) continue;
     const on = reachesOn(map, r, here);
     if (on <= from || on > to) continue;
-    if (kmBetween(map, r.p, here) > TALK_KM && !caresAbout(s, life, r.about))
-      continue;
+    const far = r.local ? r.p !== here : kmBetween(map, r.p, here) > TALK_KM;
+    if (far && !caresAbout(s, life, r.about)) continue;
     out.push(r);
   }
   return out.sort((a, b) => a.day - b.day || a.id - b.id);

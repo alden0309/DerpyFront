@@ -1558,6 +1558,8 @@ export interface Rumour {
   tone?: "good" | "bad";
   /** Wave 2 (r11): a story behind a lead (heard by listening, not in the news). */
   lead?: boolean;
+  /** Wave 2 (r11): the town's own business (a poll): news only in that town. */
+  local?: boolean;
 }
 
 // ---------------------------------------------------------------- commands

@@ -22,6 +22,7 @@ import {
   no,
   opinionOf,
   promotionView,
+  purseWords,
   rankOf,
   skillLevel,
   startRank,
@@ -491,7 +492,7 @@ export function buyRank(g: ConquestGame, life: Life): string | null {
   );
   if (unmet.length) return `Needs ${unmet[0].label}.`;
   if (life.purse < next.buy.cost)
-    return `You need ${next.buy.cost} coins (you have ${Math.floor(life.purse)}).`;
+    return `You need ${next.buy.cost} coins (${purseWords(life.purse)}).`;
   const s = g.s;
   touchLife(g, life);
   life.purse = Math.round((life.purse - next.buy.cost) * 100) / 100;

@@ -33,6 +33,7 @@ import {
   meOf,
   no,
   paceOf,
+  purseWords,
   skillLevel,
   travelRoute,
   yes,
@@ -365,7 +366,7 @@ export function takeCheck(
       );
     if (life.purse < road.cost)
       return no(
-        `The journey there costs ${road.cost} coins; you have ${Math.floor(life.purse)}.`,
+        `The journey there costs ${road.cost} coins; ${purseWords(life.purse)}.`,
       );
   }
   return yes;

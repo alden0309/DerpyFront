@@ -35,6 +35,7 @@ import {
   npcSkill,
   opinionOf,
   peopleHere,
+  purseWords,
   skillLevel,
   yes,
 } from "./LifeQueries";
@@ -669,7 +670,8 @@ export function sendTrading(
   if (f.task) return "They're busy.";
   if (!Number.isFinite(stake) || stake < 10)
     return "A stake of 10 coins at least.";
-  if (life.purse < stake) return `You have ${Math.floor(life.purse)} coins.`;
+  if (life.purse < stake)
+    return `A stake of ${Math.round(stake)}: ${purseWords(life.purse)}.`;
   if (life.travel) return "Not from the road.";
   spend(g, life, stake);
   const days = 30 + g.rng.int(0, 30);

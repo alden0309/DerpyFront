@@ -84,6 +84,16 @@ export type Check = { ok: true } | { ok: false; why: string };
 export const yes: Check = { ok: true };
 export const no = (why: string): Check => ({ ok: false, why });
 
+/**
+ * Wave 2 (r11): what's in your purse, in words: "you have 12", or, living
+ * on credit, "you're 3 in debt" (never "you have -3").
+ */
+export function purseWords(purse: number): string {
+  if (purse <= -1) return `you're ${Math.ceil(-purse)} in debt`;
+  if (purse < 1) return "you have nothing";
+  return `you have ${Math.floor(purse)}`;
+}
+
 // ---------------------------------------------------------------- whose life
 
 export function lifeOfSeat(s: GameState, seat: string): Life | undefined {

@@ -1120,6 +1120,9 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
     o.prov,
     `${charName(s.chars[win.c])} is ${returned ? "returned as" : "chosen"} ${name}.`,
     win.c,
+    undefined,
+    false,
+    true, // the town's own news (wave 2, r11)
   );
 }
 
