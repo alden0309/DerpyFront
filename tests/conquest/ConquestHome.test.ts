@@ -123,8 +123,18 @@ describe("the Home place", () => {
     // No upkeep or rates on a rented house; can't build on it.
     expect(b.parts.some((p) => /Upkeep|Rates/.test(p.label))).toBe(false);
     expect(homeCheck(g2.s, l2, { act: "room", kind: "garden" }).ok).toBe(false);
-    // Buying it outright ends the lease.
+    // The market's "next house up" counts a rented house for nothing.
     l2.purse = 100;
+    const g3 = world();
+    const l3 = lifeOf(g3);
+    l3.purse = 30;
+    g3.lifeCommand("s1", { k: "home", act: "lease", arg: 2 });
+    l3.purse = 100;
+    expect(g3.lifeCommand("s1", { k: "property", act: "house" })).toBeNull();
+    expect(houseOf(l3)!.level).toBe(1);
+    expect(houseOf(l3)!.leased).toBeUndefined();
+    expect(l3.purse).toBe(100 - HOUSES[0].cost);
+    // Buying it outright ends the lease.
     expect(g2.lifeCommand("s1", { k: "home", act: "buy", arg: 2 })).toBeNull();
     expect(houseOf(l2)!.leased).toBeUndefined();
   });

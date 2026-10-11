@@ -202,7 +202,9 @@ export function buyHouse(
   const here = g.map.provinces[life.prov].name;
   if (house) {
     const rented = !!house.leased;
-    house.level = want ?? house.level + 1;
+    // The house bought: as asked, or the next one up from the one you own
+    // (a house you only rent counts for nothing).
+    house.level = want ?? v.level + 1;
     house.name = def.name;
     delete house.leased;
     house.let = null;

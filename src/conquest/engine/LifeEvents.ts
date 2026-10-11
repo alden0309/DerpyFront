@@ -68,6 +68,18 @@ export function houseFire(g: ConquestGame, life: Life): void {
     );
     return;
   }
+  // HOME (r12): a rented house burns at the landlord's cost; you lose the roof.
+  if (house.leased) {
+    touchLife(g, life);
+    life.property = (life.property ?? []).filter((p) => p !== house);
+    say(
+      g,
+      life,
+      `The ${house.name.toLowerCase()} you rented burned. It's the landlord's loss; yours is the roof, and your best coat.`,
+      "bad",
+    );
+    return;
+  }
   const defs = native(g, life) ? LODGES : HOUSES;
   const repair = Math.round((defs[house.level - 1]?.cost ?? 20) * 0.3);
   if (life.purse >= repair) {
