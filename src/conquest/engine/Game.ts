@@ -27,6 +27,7 @@ import {
 import { World, worldOf } from "./Map";
 // WORLD r11: fog of war, province markets, leads, and fitting old saves to the map.
 import { fogDaily } from "./Fog";
+import "./Household"; // HOME (r12): the household's commands register themselves
 import { leadsDaily, leadsMonthly } from "./Leads";
 import { fitStateToMap } from "./MapFix";
 import { marketsMonthly } from "./Markets";

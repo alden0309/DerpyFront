@@ -4,7 +4,7 @@
 // has a cooldown, sometimes a cost, often a skill check with its odds shown,
 // and effects that last: opinions, renown, money, health and skills.
 
-import { presentAt } from "./Areas";
+import { homeHere, presentAt } from "./Areas";
 import { formatDate } from "./Calendar";
 import { eligibleHere } from "./Folk";
 import type { ConquestGame } from "./Game";
@@ -767,8 +767,13 @@ export function actCheck(
   const me = meOf(s, life);
   if (!me) return no("You're watching.");
   if (life.travel) return no("You're on the road.");
-  if (!hasPlace(s, w, life.prov, place))
-    return no("There's no such place here.");
+  // HOME (r12): home isn't on the town's list of places: it's where you live
+  // (or a house of yours here). Without this every act at home was refused.
+  const there =
+    place === "home"
+      ? homeHere(life, life.prov)
+      : hasPlace(s, w, life.prov, place);
+  if (!there) return no("There's no such place here.");
   if (isChildLife(s, life) && !def.child)
     return no("Not until you're sixteen.");
   const left = Math.max(0, (life.cooldowns[`act:${key}`] ?? 0) - s.day);

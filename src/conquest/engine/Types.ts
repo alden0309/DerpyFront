@@ -226,6 +226,8 @@ export interface Character {
   look?: import("./Appearance").Appearance;
   /** Wave 2 (r11): tongues learned beyond their people's and their work's (a hired interpreter's). */
   learned?: Record<TongueId, TongueLevel>;
+  /** HOME (r12): what a parent taught them at home, by skill (carried into an heir's skills). */
+  taught?: Partial<Record<Skill, number>>;
 }
 
 // ---------------------------------------------------------------- lives
@@ -620,6 +622,20 @@ export interface Property {
   hands: number[];
   since: number;
   name: string;
+  /** HOME (r12): rooms and grounds added to a house. */
+  rooms?: HomeRoomId[];
+  /** HOME (r12): how well a house is furnished, 0 (bare) to 3. */
+  furnish?: number;
+  /** HOME (r12): servants kept in a house. */
+  servants?: ServantKind[];
+  /** HOME (r12): goods and wares kept in a house (by good or ware id). */
+  store?: Partial<Record<string, number>>;
+  /** HOME (r12): a house let to a tenant. */
+  let?: HouseLet | null;
+  /** HOME (r12): lodgers taken into a house. */
+  lodgers?: number;
+  /** HOME (r12): a house rented by the month, not owned. */
+  leased?: boolean;
 }
 
 /** A goal a character has set themselves. */
@@ -1790,7 +1806,9 @@ export type LifeCommand =
   | { k: "sail"; to: number; boat: number }
   | { k: "contract"; act: string; id: number; arg?: number }
   // SOCIETY (r11): letters, gatherings, local office, tongues, settlements.
-  | SocietyCommand;
+  | SocietyCommand
+  // HOME (r12): the household: rooms, servants, letting, family time, the house you live in.
+  | HomeCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -2444,4 +2462,72 @@ export interface SocietyCommand {
   gov?: GovForm;
   offices?: Partial<Record<Seat, number>>;
   free?: boolean;
+}
+
+// ---- HOME (r12)
+// The household (your house, its rooms, servants, lettings and stores),
+// duels played out as scenes, and the family tree.
+
+/** Rooms and grounds a house can have added. */
+export type HomeRoomId =
+  | "parlour"
+  | "garden"
+  | "kitchen"
+  | "study"
+  | "nursery"
+  | "stable"
+  | "store"
+  | "quarters";
+
+/** Servants a household can keep. */
+export type ServantKind =
+  | "maid"
+  | "cook"
+  | "manservant"
+  | "nurse"
+  | "groom"
+  | "gardener";
+
+/** A house let to a tenant: since when, and the rent a month. */
+export interface HouseLet {
+  since: number;
+  rent: number;
+}
+
+/** A command for the household (Household.ts). */
+export interface HomeCommand {
+  k: "home";
+  /**
+   * buy, lease, room, furnish, servant, dismiss, let, unlet, lodger,
+   * nolodger, store, take, evening, spouse, children, teach, study, rest,
+   * move, giveup.
+   */
+  act: string;
+  /** The house (a property id), when not the one here. */
+  id?: number;
+  /** A level (a house to buy, furnishing), or how many. */
+  arg?: number;
+  /** A room, a servant, a skill. */
+  kind?: string;
+  /** A child, for teaching. */
+  c?: number;
+  /** A good or ware to store or take, and how many loads. */
+  item?: string;
+  qty?: number;
+}
+
+/** What a duel left behind, for the law (and trials) to take up. */
+export interface DuelAftermath {
+  day: number;
+  /** Where it was fought, and whose law runs there. */
+  prov: number;
+  nation: number;
+  /** Who called whom out. */
+  challenger: number;
+  challenged: number;
+  weapon: "swords" | "pistols";
+  /** Who died of it, or -1. */
+  dead: number;
+  /** Who was wounded, if anyone. */
+  wounded: number[];
 }

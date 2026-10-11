@@ -8,6 +8,14 @@
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
 import {
+  extrasWorth,
+  houseCoins,
+  houseComforts,
+  LEASE_RENT,
+  ratesOn,
+  SERVANTS,
+} from "./HouseRules"; // HOME (r12)
+import {
   addRenown,
   addStress,
   earn,
@@ -20,6 +28,7 @@ import {
 } from "./LifeCore";
 import {
   Check,
+  hasKit,
   isNativeChar,
   lifeIsNative,
   meOf,
@@ -35,7 +44,6 @@ import {
   EXPAND_COST,
   HAND_TAKINGS,
   HAND_WAGE,
-  HOUSE_RATES,
   HouseDef,
   HOUSES,
   JOBS,
@@ -126,6 +134,8 @@ function unsettled(s: GameState, life: Life): string | null {
 export function houseCheck(
   s: GameState,
   life: Life,
+  /** HOME (r12): a particular house (1 cottage to 4 mansion), else the next one up. */
+  want?: number,
 ): { check: Check; next: HouseDef | null; level: number } {
   const me = meOf(s, life);
   if (!me) return { check: no("You're watching."), next: null, level: 0 };
@@ -136,45 +146,72 @@ export function houseCheck(
   const away = unsettled(s, life);
   if (away) return { check: no(away), next: null, level: 0 };
   const defs = houseDefs(lifeIsNative(s, life));
-  const have = houseOf(life, life.prov);
+  // HOME (r12): a house you rent is no house of your own: you can buy it.
+  const have = ownedHouse(life, life.prov);
   const level = have?.level ?? 0;
-  const next = defs[level] ?? null;
+  const next = defs[(want ?? level + 1) - 1] ?? null;
   if (!next)
     return { check: no("You have the finest house there is."), next, level };
-  const cost = next.cost - (have ? Math.round(defs[level - 1].cost * 0.5) : 0);
+  if (want !== undefined && want <= level)
+    return {
+      check: no(
+        want === level
+          ? "That's the house you have."
+          : "You have a better one.",
+      ),
+      next,
+      level,
+    };
+  const cost = housePrice(s, life, want);
   if (life.purse < cost)
     return { check: no(`${next.name}: ${cost} coins.`), next, level };
   return { check: yes, next, level };
 }
 
-/** The price of the next house here (less half the old one's worth). */
-export function housePrice(s: GameState, life: Life): number {
+/** HOME (r12): a house here you own (not one you rent). */
+export function ownedHouse(life: Life, p: number): Property | undefined {
+  const h = houseOf(life, p);
+  return h && !h.leased ? h : undefined;
+}
+
+/** The price of the next house here (or a given one), less half the old one's worth. */
+export function housePrice(s: GameState, life: Life, want?: number): number {
   const defs = houseDefs(lifeIsNative(s, life));
-  const have = houseOf(life, life.prov);
+  const have = ownedHouse(life, life.prov);
   const level = have?.level ?? 0;
-  const next = defs[level];
+  const next = defs[(want ?? level + 1) - 1];
   if (!next) return 0;
   return next.cost - (have ? Math.round(defs[level - 1].cost * 0.5) : 0);
 }
 
 /** Buy a house here, or a better one; your household moves here with you. */
-export function buyHouse(g: ConquestGame, life: Life): string | null {
+export function buyHouse(
+  g: ConquestGame,
+  life: Life,
+  /** HOME (r12): straight to a given house, else the next one up. */
+  want?: number,
+): string | null {
   const s = g.s;
-  const v = houseCheck(s, life);
+  const v = houseCheck(s, life, want);
   if (!v.check.ok) return v.check.why;
-  const cost = housePrice(s, life);
+  const cost = housePrice(s, life, want);
   const list = props(g, life);
   let house = houseOf(life, life.prov);
   spend(g, life, cost);
   const def = v.next!;
   const here = g.map.provinces[life.prov].name;
   if (house) {
-    house.level++;
+    const rented = !!house.leased;
+    house.level = want ?? house.level + 1;
     house.name = def.name;
+    delete house.leased;
+    house.let = null;
     journal(
       g,
       life,
-      `You move into a ${def.name.toLowerCase()} at ${here}, for ${cost} coins and the old place.`,
+      rented
+        ? `You buy a ${def.name.toLowerCase()} at ${here} for ${cost} coins, and give up the one you rented.`
+        : `You move into a ${def.name.toLowerCase()} at ${here}, for ${cost} coins and the old place.`,
       "good",
     );
   } else {
@@ -182,7 +219,7 @@ export function buyHouse(g: ConquestGame, life: Life): string | null {
       id: g.nextId(),
       kind: "house",
       prov: life.prov,
-      level: 1,
+      level: want ?? 1,
       hands: [],
       since: s.day,
       name: def.name,
@@ -202,17 +239,78 @@ export function buyHouse(g: ConquestGame, life: Life): string | null {
       "renown",
       `Built a ${def.name.toLowerCase()} at ${here}`,
     );
-  if (life.home !== life.prov) {
-    life.home = life.prov;
-    const me = meOf(s, life)!;
-    g.touchChar(me).home = life.prov;
-    for (const id of [me.spouse, ...me.children]) {
-      const c = s.chars[id];
-      if (c?.alive && !c.abroad && (id === me.spouse || ageOf(s, c) < 21))
-        g.touchChar(c).home = life.prov;
-    }
-    journal(g, life, `Your household moves to ${here}.`);
+  moveHousehold(g, life);
+  return null;
+}
+
+/** HOME (r12): your household comes to live where you are. */
+export function moveHousehold(g: ConquestGame, life: Life): void {
+  const s = g.s;
+  if (life.home === life.prov) return;
+  const here = g.map.provinces[life.prov].name;
+  touchLife(g, life).home = life.prov;
+  const me = meOf(s, life)!;
+  g.touchChar(me).home = life.prov;
+  for (const id of [me.spouse, ...me.children]) {
+    const c = s.chars[id];
+    if (c?.alive && !c.abroad && (id === me.spouse || ageOf(s, c) < 21))
+      g.touchChar(c).home = life.prov;
   }
+  journal(g, life, `Your household moves to ${here}.`);
+}
+
+/** HOME (r12): rent a house here by the month, rather than buy one. */
+export function leaseCheck(s: GameState, life: Life, want: number): Check {
+  const v = houseCheck(s, life, want);
+  if (!v.next) return v.check;
+  if (lifeIsNative(s, life))
+    return no("Among your people a lodge is built, not rented.");
+  const have = houseOf(life, life.prov);
+  if (have && !have.leased) return no("You own a house here already.");
+  if (have?.leased && have.level === want) return no("You rent it already.");
+  const rent = LEASE_RENT[want - 1];
+  if (life.purse < rent * 2)
+    return no(`A month in hand and a month's surety: ${rent * 2} coins.`);
+  if (!v.check.ok && !/coins/.test(v.check.why)) return v.check;
+  return yes;
+}
+
+export function leaseHouse(
+  g: ConquestGame,
+  life: Life,
+  want: number,
+): string | null {
+  const s = g.s;
+  const check = leaseCheck(s, life, want);
+  if (!check.ok) return check.why;
+  const def = houseDefs(false)[want - 1];
+  const rent = LEASE_RENT[want - 1];
+  spend(g, life, rent);
+  const here = g.map.provinces[life.prov].name;
+  let house = houseOf(life, life.prov);
+  if (house) {
+    house.level = want;
+    house.name = def.name;
+  } else {
+    house = {
+      id: g.nextId(),
+      kind: "house",
+      prov: life.prov,
+      level: want,
+      hands: [],
+      since: s.day,
+      name: def.name,
+      leased: true,
+    };
+    props(g, life).push(house);
+  }
+  journal(
+    g,
+    life,
+    `You take a ${def.name.toLowerCase()} at ${here} on a lease: ${rent} coins a month, the first paid now.`,
+    "good",
+  );
+  moveHousehold(g, life);
   return null;
 }
 
@@ -388,8 +486,14 @@ export function sellProperty(
   if (life.travel) return "Not from the road.";
   let worth: number;
   if (pr.kind === "house") {
-    const defs = houseDefs(lifeIsNative(g.s, life));
-    worth = Math.round(defs[pr.level - 1].cost * 0.5);
+    // HOME (r12): what's stored there comes out first; rooms and furniture go with it.
+    if (Object.values(pr.store ?? {}).some((v) => (v ?? 0) > 0))
+      return "Take out what you keep there first.";
+    const native = lifeIsNative(g.s, life);
+    const defs = houseDefs(native);
+    worth = pr.leased
+      ? 0
+      : Math.round(defs[pr.level - 1].cost * 0.5) + extrasWorth(pr, native);
   } else if (pr.kind === "land")
     worth = Math.round(pr.level * LAND_LOT.cost * 0.7);
   else {
@@ -406,7 +510,13 @@ export function sellProperty(
   touchLife(g, life);
   life.property = propertyOf(life).filter((x) => x !== pr);
   earn(g, life, worth);
-  journal(g, life, `You sell the ${pr.name.toLowerCase()} for ${worth} coins.`);
+  journal(
+    g,
+    life,
+    pr.leased
+      ? `You give up the lease on the ${pr.name.toLowerCase()}.`
+      : `You sell the ${pr.name.toLowerCase()} for ${worth} coins.`,
+  );
   return null;
 }
 
@@ -450,7 +560,7 @@ export function endow(
 
 /** Rates on a house a month (colonists' towns levy them; villages don't). */
 export function houseRates(s: GameState, life: Life, pr: Property): number {
-  return lifeIsNative(s, life) ? 0 : (HOUSE_RATES[pr.level - 1] ?? 0);
+  return ratesOn(pr, lifeIsNative(s, life)); // HOME (r12): not on a let or rented house
 }
 
 /** A business's upkeep a month: repairs, rent of the yard, a ship's caulking. */
@@ -468,9 +578,16 @@ export function propertyBudget(s: GameState, life: Life): Breakdown {
   for (const pr of propertyOf(life)) {
     if (pr.kind === "house") {
       const def = houseDefs(native)[pr.level - 1];
-      if (def) e.add(`Upkeep: ${def.name.toLowerCase()}`, -def.upkeep);
+      if (def && !pr.leased)
+        e.add(`Upkeep: ${def.name.toLowerCase()}`, -def.upkeep);
       const rates = houseRates(s, life, pr);
       if (rates) e.add(`Rates: ${pr.name.toLowerCase()}`, -rates);
+      // HOME (r12): rooms, servants, rent paid and taken, the kitchen garden.
+      houseCoins(e, pr, {
+        native,
+        home: pr.prov === life.home,
+        horse: hasKit(s, life, "horse"),
+      });
     } else if (pr.kind === "land") {
       e.add(`Rents: ${pr.level * 10} acres`, pr.level * LAND_LOT.rent);
       e.add("Quitrents", -pr.level * LAND_LOT.upkeep);
@@ -544,11 +661,22 @@ export function propertyMonthly(g: ConquestGame, life: Life): void {
     if (pr.kind === "house") {
       const def = houseDefs(native)[pr.level - 1];
       if (!def) continue;
-      spend(g, life, def.upkeep + houseRates(s, life, pr));
-      if (pr.prov === life.home) {
+      spend(g, life, (pr.leased ? 0 : def.upkeep) + houseRates(s, life, pr));
+      houseMonth(g, life, pr, native); // HOME (r12)
+      if (pr.prov === life.home && !pr.let) {
         if (def.renown) addRenown(g, life, def.renown);
         if (def.stress) addStress(g, life, def.stress);
         if (def.health) heal(g, life, def.health);
+        // HOME (r12): the rooms, the furniture and the servants.
+        const me = meOf(s, life);
+        const kids = (me?.children ?? []).filter((k) => {
+          const c = s.chars[k];
+          return !!c?.alive && ageOf(s, c) < 12;
+        }).length;
+        const fx = houseComforts(pr, { native, kids });
+        if (fx.renown) addRenown(g, life, fx.renown);
+        if (fx.stress) addStress(g, life, fx.stress);
+        if (fx.health) heal(g, life, fx.health);
       }
     } else if (pr.kind === "land") {
       // Good harvests and bad: the tenants pay what they can.
@@ -560,5 +688,58 @@ export function propertyMonthly(g: ConquestGame, life: Life): void {
           100,
       );
     }
+  }
+}
+
+/**
+ * HOME (r12): a month of a house's extras: servants who can't be paid
+ * leave, then rooms, servants, rent paid and taken and the kitchen garden
+ * are settled as the budget says; a tenant may give notice; a lease that
+ * can't be paid ends.
+ */
+function houseMonth(
+  g: ConquestGame,
+  life: Life,
+  pr: Property,
+  native: boolean,
+): void {
+  const s = g.s;
+  const name = pr.name.toLowerCase();
+  // A lease that can't be paid: out you go.
+  if (pr.leased && life.purse < LEASE_RENT[pr.level - 1]) {
+    life.property = propertyOf(life).filter((x) => x !== pr);
+    journal(
+      g,
+      life,
+      `You can't pay the rent on the ${name}: the landlord has your things put in the street.`,
+      "bad",
+    );
+    addStress(g, life, 8);
+    return;
+  }
+  // Servants who'd go unpaid give notice.
+  const wages = () =>
+    (pr.servants ?? []).reduce((m, k) => m + SERVANTS[k].wage, 0);
+  while ((pr.servants ?? []).length && life.purse < wages()) {
+    const gone = pr.servants!.pop()!;
+    journal(
+      g,
+      life,
+      `${SERVANTS[gone].name.replace(/^A /, "Your ")} has left: no wages, no work.`,
+      "bad",
+    );
+  }
+  const e = new Explain();
+  houseCoins(e, pr, {
+    native,
+    home: pr.prov === life.home,
+    horse: hasKit(s, life, "horse"),
+  });
+  const total = Math.round(e.total * 100) / 100;
+  if (total) earn(g, life, total);
+  // A tenant may move on.
+  if (pr.let && g.rng.chance(0.03)) {
+    pr.let = null;
+    journal(g, life, `Your tenant at the ${name} has given notice and gone.`);
   }
 }

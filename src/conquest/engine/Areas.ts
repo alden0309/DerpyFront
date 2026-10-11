@@ -52,9 +52,19 @@ export function areasOf(
   const out = placesIn(s, w, p).filter(
     (pl) => pl !== "den" || (!!life && knowsDen(life, p)),
   );
-  if (life && life.c >= 0 && !life.watching && life.home === p)
+  if (life && life.c >= 0 && !life.watching && homeHere(life, p))
     out.push("home");
   return out;
+}
+
+/** HOME (r12): you have a home here: where you live, or a house of yours (not one let out). */
+export function homeHere(life: Life, p: number): boolean {
+  return (
+    life.home === p ||
+    (life.property ?? []).some(
+      (x) => x.kind === "house" && x.prov === p && !x.let,
+    )
+  );
 }
 
 /** What a place is called here (a market is a trading ground in a village). */
@@ -317,6 +327,8 @@ interface Resident {
   workAt?: PlaceKind;
   traveller?: Traveller;
   life?: Life;
+  /** HOME (r12): a player who shares your home (your husband or wife, parent or child). */
+  shared?: boolean;
 }
 
 /** Who is travelling just now (and so not at home). */
@@ -345,10 +357,25 @@ function residents(
     out.push({ c, ...r });
   };
   // Other players here.
+  const mine = life && life.c >= 0 ? s.chars[life.c] : undefined;
   for (const l of s.lives) {
     if (l.c < 0 || l.watching || l.travel || l.prov !== p || l === life)
       continue;
-    add(s.chars[l.c], { base: "player", life: l });
+    const c = s.chars[l.c];
+    // HOME (r12): family who live with you are at your home, not their own.
+    const kin =
+      !!mine &&
+      !!c &&
+      (mine.spouse === c.id ||
+        mine.father === c.id ||
+        mine.mother === c.id ||
+        c.father === mine.id ||
+        c.mother === mine.id);
+    add(c, {
+      base: "player",
+      life: l,
+      shared: kin && !!life && l.home === life.home,
+    });
   }
   // Your own family, at home.
   if (life && life.c >= 0 && life.home === p)
@@ -436,8 +463,26 @@ function spotFor(
   const sunday = ((day % 7) + 7) % 7 === 0;
   switch (r.base) {
     case "player": {
-      const area = playerArea(s, w, r.life!, have);
-      return { area, doing: `played by ${r.life!.name}`, kind: "player" };
+      // HOME (r12): what another player is doing, and where. At their own
+      // home they're indoors, out of the town's places (unless it's yours too).
+      const other = r.life!;
+      const area = playerArea(s, w, other, have);
+      if (area === "home" && !r.shared) return null;
+      const job = other.job;
+      const working =
+        !!job && job.prov === p && job.place === area && job.army < 0;
+      const title = working
+        ? (JOBS[job!.kind].ranks[job!.rank]?.title ?? "").toLowerCase()
+        : "";
+      return {
+        area,
+        doing: working
+          ? `at work${title ? `, ${title}` : ""}`
+          : area === "home"
+            ? pick(LEISURE.home!, d2)
+            : "looking about",
+        kind: "player",
+      };
     }
     case "mine":
       if (d1 < 0.7 || !have.has("market"))
