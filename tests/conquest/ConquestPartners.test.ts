@@ -6,7 +6,10 @@
 // to law; heirs, bankrupts, a ship lost; winding up; and that it all
 // saves, loads, travels in deltas, and pools money without printing it.
 
-import { describe, expect, test } from "vitest";
+import http from "http";
+import { AddressInfo } from "net";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { WebSocket } from "ws";
 import { kill, makeCharacter } from "../../src/conquest/engine/Characters";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import {
@@ -18,6 +21,7 @@ import {
 } from "../../src/conquest/engine/Firms";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import {
+  lifeOfSeat,
   meOf,
   monthlyBudget,
   peopleHere,
@@ -28,6 +32,7 @@ import {
   HAND_TAKINGS,
   HAND_WAGE,
 } from "../../src/conquest/engine/LifeRules";
+import { AMERICAS, worldOf } from "../../src/conquest/engine/Map";
 import {
   articlesAcceptance,
   fairShares,
@@ -42,14 +47,16 @@ import {
   offersOf,
   partnerIn,
 } from "../../src/conquest/engine/PartnersCore";
-import { trialsOf } from "../../src/conquest/engine/PowerCore";
+import { power, trialsOf } from "../../src/conquest/engine/PowerCore";
 import type {
   Character,
   Firm,
   FirmTerms,
+  GameDelta,
   GameState,
   Life,
 } from "../../src/conquest/engine/Types";
+import type { ServerMessage } from "../../src/conquest/Protocol";
 import { lifeOf, map, plan, prov, ticks, toNextMonth, world } from "./LifeUtil";
 
 const JT = prov("Jamestown");
@@ -334,6 +341,45 @@ describe("the books", () => {
     const f = innFirm(g, life);
     const b = monthlyBudget(g.s, g.w, life);
     expect(b.parts.some((p) => p.label.includes(f.name))).toBe(true);
+  });
+
+  test("a newspaper in partnership: its owner shares out the profit by share", () => {
+    const { g, life } = one();
+    const me = meOf(g.s, life)!;
+    const ps = power(g);
+    ps.papers.push({
+      id: g.nextId(),
+      name: "The Virginia Courant",
+      owner: me.id,
+      p: JT,
+      nation: me.nation,
+      founded: g.s.day,
+      stance: "independent",
+      writers: [],
+      readers: 700,
+      credit: 60,
+      licensed: true,
+      next: [],
+      printed: [],
+      issued: g.s.day,
+      income: 0,
+    });
+    const c = npcWithTrade(g, life, "merchant");
+    like(g, life, c, 60);
+    const ch = holdChoices(g.s, g.w, life, c).find((x) => x.hold === "paper")!;
+    expect(ch).toBeTruthy();
+    const t = suggestTerms(g.s, g.w, life, c, ch);
+    expect(t.sides[0].role).toBe("managing");
+    expect(
+      g.lifeCommand("s1", { k: "partners", act: "propose", terms: t }),
+    ).toBeNull();
+    const f = firmsWith(g.s, life.c)[0];
+    expect(f.hold).toBe("paper");
+    ps.papers[0].income = 6;
+    const purse = life.purse;
+    expect(firmMonth(g, f)).toBe(6);
+    const theirs = 100 - partnerIn(f, life.c)!.share;
+    expect(purse - life.purse).toBeCloseTo((6 * theirs) / 100, 2);
   });
 
   test("pooling capital: two can set up what one alone couldn't", () => {
@@ -891,4 +937,211 @@ describe("the state", () => {
     };
     expect(run()).toBe(run());
   });
+});
+
+// ---------------------------------------------------------------- through the server
+
+vi.mock("../../src/server/Logger", () => ({
+  logger: {
+    child: () => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() }),
+  },
+}));
+
+class Client {
+  readonly messages: ServerMessage[] = [];
+  private waiters: {
+    test: (m: ServerMessage) => boolean;
+    resolve: (m: ServerMessage) => void;
+  }[] = [];
+  readonly ws: WebSocket;
+  readonly open: Promise<void>;
+  constructor(url: string) {
+    this.ws = new WebSocket(url);
+    this.open = new Promise((r) => this.ws.on("open", () => r()));
+    this.ws.on("message", (data) => {
+      const m = JSON.parse(String(data)) as ServerMessage;
+      this.messages.push(m);
+      this.waiters = this.waiters.filter((w) => {
+        if (!w.test(m)) return true;
+        w.resolve(m);
+        return false;
+      });
+    });
+  }
+  send(m: unknown) {
+    this.ws.send(JSON.stringify(m));
+  }
+  next<T extends ServerMessage["t"]>(
+    t: T,
+    test: (m: Extract<ServerMessage, { t: T }>) => boolean = () => true,
+  ) {
+    return new Promise<Extract<ServerMessage, { t: T }>>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`timed out waiting for ${t}`)),
+        4000,
+      );
+      this.waiters.push({
+        test: (m) => m.t === t && test(m as Extract<ServerMessage, { t: T }>),
+        resolve: (m) => {
+          clearTimeout(timer);
+          resolve(m as Extract<ServerMessage, { t: T }>);
+        },
+      });
+    });
+  }
+  /** Wait until what this player sees passes a test. */
+  async until(pred: (s: GameState) => boolean): Promise<GameState> {
+    for (let i = 0; i < 20; i++) {
+      const s = this.state();
+      if (s && pred(s)) return s;
+      await this.next("d").catch(() => undefined);
+    }
+    return this.state();
+  }
+  /** The game as this player sees it: the start, and every delta since. */
+  state(): GameState {
+    let s: GameState | null = null;
+    for (const m of this.messages) {
+      if (m.t === "game") s = JSON.parse(JSON.stringify(m.state));
+      else if (m.t === "d" && s) applyDelta(s, m.d as GameDelta);
+    }
+    return s!;
+  }
+  close() {
+    this.ws.close();
+  }
+}
+
+describe("two players through the rooms server", () => {
+  let server: http.Server;
+  let url = "";
+  const clients: Client[] = [];
+  beforeAll(async () => {
+    const { attachConquest, ConquestRooms } =
+      await import("../../src/server/conquest/ConquestRooms");
+    const rooms = new ConquestRooms(() => 1_800_000_000_000);
+    server = http.createServer();
+    attachConquest(server, rooms);
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}/conquest/ws`;
+  });
+  afterAll(async () => {
+    for (const c of clients) c.close();
+    await new Promise((r) => server.close(r));
+  });
+  const client = async (name: string) => {
+    const c = new Client(url);
+    clients.push(c);
+    await c.open;
+    c.send({ t: "hello", name });
+    await c.next("welcome");
+    return c;
+  };
+
+  test("articles proposed, countered and signed between two players", async () => {
+    const host = await client("Alden");
+    const lobby = host.next("lobby");
+    host.send({
+      t: "create",
+      solo: false,
+      open: true,
+      settings: { difficulty: "normal", start: 1700 },
+    });
+    const l = await lobby;
+    const friend = await client("Bea");
+    const joined = host.next("lobby", (m) => m.seats.length === 2);
+    friend.send({ t: "join", code: l.code });
+    await joined;
+    host.send({ t: "plan", plan: plan({ home: JT, background: "clerk" }) });
+    friend.send({
+      t: "plan",
+      plan: plan({
+        home: JT,
+        first: "Beatrice",
+        family: "Cole",
+        female: true,
+        background: "clerk",
+      }),
+    });
+    await host.next("lobby", (m) => m.seats.every((s) => s.made));
+    friend.send({ t: "ready", ready: true });
+    await host.next("lobby", (m) => m.seats.some((s) => s.ready));
+    const games = [host.next("game"), friend.next("game")];
+    host.send({ t: "start" });
+    const [hg, fg] = await Promise.all(games);
+    const paused = host.next("clock", (m) => m.paused);
+    host.send({ t: "pause", p: true });
+    await paused;
+
+    // Alden puts articles to Beatrice, in person: a company for cargoes.
+    const s = host.state();
+    const a = lifeOfSeat(s, hg.you)!;
+    const b = lifeOfSeat(s, fg.you)!;
+    const bc = s.chars[b.c];
+    const w = worldOf(AMERICAS);
+    const ch = holdChoices(s, w, a, bc).find((x) => x.key === "venture")!;
+    const t = suggestTerms(s, w, a, bc, ch, 1);
+    t.sides[0].cap = 6;
+    t.sides[1].cap = 4;
+    t.sides[0].share = 60;
+    t.sides[1].share = 40;
+    const ack1 = host.next("ack", (m) => m.id === 1);
+    host.send({
+      t: "cmd",
+      id: 1,
+      c: { k: "partners", act: "propose", terms: t },
+    });
+    expect((await ack1).err).toBeNull();
+
+    // She sees the articles as a scene to answer, and sends back her own terms.
+    const fs = await friend.until(
+      (x) =>
+        !!lifeOfSeat(x, fg.you)?.events.some((e) => e.key === "p2p-articles"),
+    );
+    const ev = lifeOfSeat(fs, fg.you)!.events.find(
+      (e) => e.key === "p2p-articles",
+    );
+    expect(ev).toBeTruthy();
+    const offer = fs.partners!.offers.find((o) => o.to === b.c)!;
+    const ack2 = friend.next("ack", (m) => m.id === 2);
+    friend.send({
+      t: "cmd",
+      id: 2,
+      c: {
+        k: "partners",
+        act: "counter",
+        id: offer.id,
+        share: 50,
+        mine: 5,
+        theirs: 5,
+      },
+    });
+    expect((await ack2).err).toBeNull();
+
+    // He gets her terms back, and signs.
+    const hs = await host.until(
+      (x) =>
+        !!lifeOfSeat(x, hg.you)?.events.some((e) => e.key === "p2p-articles"),
+    );
+    expect(
+      lifeOfSeat(hs, hg.you)!.events.some((e) => e.key === "p2p-articles"),
+    ).toBe(true);
+    const ack3 = host.next("ack", (m) => m.id === 3);
+    host.send({
+      t: "cmd",
+      id: 3,
+      c: { k: "partners", act: "sign", id: offer.id },
+    });
+    expect((await ack3).err).toBeNull();
+
+    // Both see the firm, with the shares as Beatrice put them.
+    for (const c of [host, friend]) {
+      const f = (await c.until((x) => !!x.partners?.firms.length)).partners!
+        .firms[0];
+      expect(f.name).toBe(t.name);
+      expect(f.partners.map((p) => p.share).sort()).toEqual([50, 50]);
+      expect(f.hold).toBe("venture");
+      expect(f.chest).toBe(10);
+    }
+  }, 30000);
 });
