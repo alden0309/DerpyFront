@@ -390,10 +390,7 @@ function letterBase(
     else {
       const hand = scribe();
       if (hand)
-        e.add(
-          `Put into ${tongueName(hand.tongue)} by ${hand.by.first}, and carried by a runner`,
-          1,
-        );
+        e.add(`Put into ${tongueName(hand.tongue)} by ${hand.by.first}`, 1);
       else e.add("Read out to them by an interpreter", -5);
     }
   } else {

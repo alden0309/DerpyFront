@@ -263,6 +263,9 @@ export interface FogView {
 
 export function fogView(s: GameState, w: World, life: Life): FogView {
   const known = knownOf(life);
+  // Wave 2 (r11): before the first day has run, what you'll start out
+  // knowing (else the first look at the map shows only what's in sight).
+  if (!life.known) for (const p of startingKnowledge(s, w, life)) known.add(p);
   const seen = sightOf(s, w, life);
   for (const p of seen) known.add(p);
   return {

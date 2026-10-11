@@ -303,7 +303,7 @@ export interface LifeMark {
   /** LIFE (r11): their boats, each where it lies (not the one they're sailing in). */
   boats?: { p: number; kind: string; name: string }[];
   /** Wave 2 (r11): your people off on work of their own, where they are (yours only). */
-  away?: { p: number; c: number; kind: string; name: string }[];
+  away?: { p: number; c: number; kind: string; name: string; title: string }[];
 }
 
 /** Which figure stands for an army: its most numerous kind of regiment. */
@@ -3456,11 +3456,16 @@ export class MapView {
           },
         );
         ctx.restore();
-        if (this.view.scale >= 1.6) {
+        // Their name and work to the left, clear of a boat's name.
+        if (this.view.scale >= 1.6 && k === 0) {
           ctx.font = "italic 11px 'IM Fell English', Georgia, serif";
-          ctx.fillStyle = "rgba(38,24,12,0.85)";
-          ctx.textAlign = "center";
-          ctx.fillText(a.name, ax, ay + 12);
+          ctx.textAlign = "right";
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "rgba(251,243,220,0.85)";
+          ctx.fillStyle = "rgba(38,24,12,0.9)";
+          const label = `${a.name}, ${a.title}`;
+          ctx.strokeText(label, ax - 8, ay - figure * 0.45);
+          ctx.fillText(label, ax - 8, ay - figure * 0.45);
         }
       }
     }

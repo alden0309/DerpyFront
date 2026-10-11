@@ -15,6 +15,7 @@ import {
 import {
   awayEyes,
   fogDaily,
+  fogView,
   knownOf,
   sightOf,
 } from "../../src/conquest/engine/Fog";
@@ -262,6 +263,20 @@ describe("interpreters work in tongues", () => {
     expect(alone.parts.some((p) => /Read out to them/.test(p.label))).toBe(
       true,
     );
+  });
+});
+
+describe("the first look at the map", () => {
+  test("before the first day has run, the map already shows what you start out knowing", () => {
+    const g = world({ start: 1650 });
+    const life = lifeOf(g);
+    expect(life.known).toBeUndefined();
+    const boston = prov("Massachusetts Bay");
+    const view = fogView(g.s, g.w, life);
+    expect(view.known.has(boston)).toBe(true);
+    expect(view.seen.has(boston)).toBe(false);
+    fogDaily(g);
+    expect(fogView(g.s, g.w, life).known.has(boston)).toBe(true);
   });
 });
 

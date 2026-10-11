@@ -11,6 +11,7 @@ import { boatRoute, sailCheck } from "../engine/Boats";
 import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
 import { fogged, fogView } from "../engine/Fog";
+import { followerTitle } from "../engine/Followers"; // wave 2 (r11)
 import {
   ageOfLife,
   hasKit,
@@ -920,6 +921,7 @@ export class GameView extends LitElement {
                   c: f.c,
                   kind: f.kind,
                   name: s.chars[f.c].first,
+                  title: followerTitle(f).toLowerCase(),
                 }))
             : undefined,
       });
