@@ -1320,3 +1320,65 @@
     }
   }
 }
+
+/* MAP (r12): Derpy Conquest achievements on a profile. */
+@layer components {
+  .dl-achievements {
+    margin-bottom: 30px;
+  }
+  .dl-ach-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 14px;
+    margin-bottom: 14px;
+    font-family: var(--fell);
+    font-weight: 400;
+    color: var(--vellum);
+  }
+  .dl-ach-count {
+    font-family: var(--body);
+    font-size: 14px;
+    font-weight: 550;
+    color: var(--text-2);
+  }
+  .dl-ach-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .dl-ach {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px 5px 6px;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    background: var(--surface-2);
+    font-size: 14px;
+    cursor: default;
+  }
+  .dl-ach-medal {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    border-radius: 50%;
+    background: radial-gradient(
+      circle at 35% 30%,
+      #fff1b8,
+      var(--gold) 55%,
+      #9a6b1c
+    );
+    box-shadow:
+      0 0 0 2px rgba(163, 57, 44, 0.85),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.35);
+  }
+  .dl-ach-coins {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--peel);
+  }
+}

@@ -7,6 +7,7 @@ import { formatDate } from "../../engine/Calendar";
 import { charName } from "../../engine/Queries";
 import type { JournalEntry } from "../../engine/Types";
 import { LetterIcon } from "../Icons";
+import { achievementsPage } from "./Achievements"; // MAP (r12)
 import { GameUi, section } from "./Context";
 import { pageHead } from "./Nav";
 import { leadsSection } from "./WorldUi";
@@ -22,6 +23,7 @@ export function journalTab(ui: GameUi, sub = "diary"): TemplateResult {
     return html`<p class="cq-empty">
       Nothing written yet. Make a character, or take over someone.
     </p>`;
+  if (sub === "achievements") return achievementsPage(ui); // MAP (r12)
   if (sub === "leads")
     return html`${pageHead(
       "Leads",

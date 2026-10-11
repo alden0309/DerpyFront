@@ -23,6 +23,7 @@ import "./world.css"; // WORLD r11
 import "./livelihood.css";
 // r11 wave 2: finding your way, and How to Play.
 import "./guide.css";
+import "./map12.css"; // MAP (r12): seasons, achievements
 import "./nav.css";
 
 document.body.appendChild(document.createElement("conquest-app"));

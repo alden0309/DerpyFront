@@ -122,12 +122,14 @@ export const TAB_DEFS: TabDef[] = [
   {
     id: "journal",
     label: "Journal",
-    blurb: "Your diary and what waits on you, leads, and the story so far",
+    blurb:
+      "Your diary and what waits on you, leads, the story so far, and achievements",
     icon: JournalIcon,
     subs: [
       { id: "diary", label: "Diary", guide: "journal" },
       { id: "leads", label: "Leads", guide: "leads" },
       { id: "story", label: "The story", guide: "end" },
+      { id: "achievements", label: "Achievements", guide: "coins" }, // MAP (r12)
     ],
     guide: "journal",
   },

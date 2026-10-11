@@ -7,6 +7,7 @@
 import { html, nothing, TemplateResult } from "lit";
 import { ref } from "lit/directives/ref.js";
 import { BOATS } from "../../engine/Boats";
+import { dateOf } from "../../engine/Calendar"; // MAP (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
 import { followerCap, peopleOf, raiseCheck } from "../../engine/Followers";
 import { foundCheck as foundColonyCheck } from "../../engine/Founding";
@@ -30,6 +31,7 @@ import {
 } from "../../engine/Movements";
 import { standCheck } from "../../engine/Politics";
 import { houseCheck, housePrice, landCheck } from "../../engine/Property";
+import { isHarvest } from "../../engine/Seasons"; // MAP (r12)
 import type { PlaceKind } from "../../engine/Types";
 import { FindIcon } from "../Icons";
 import type { DrawerView, GameUi } from "./Context";
@@ -786,6 +788,62 @@ const GOALS: Goal[] = [
     go: (ui) => ui.modal({ k: "guide", ch: "map" }),
     goLabel: "Read about the map",
     guide: "map",
+  },
+  // ---------------------------------------------------------------- MAP (r12): seasons, harbours, achievements
+  {
+    id: "harvest",
+    title: "Earn harvest wages",
+    words: "harvest reap corn wheat autumn fields hand wages frolic season",
+    group: "Travel and the world",
+    where:
+      "At the fields in the harvest months (September and October; January to March in the south): Help bring in the harvest. Farmers and hands earn harvest wages on top of their pay.",
+    needs: (ui) => {
+      const life = ui.life!;
+      const def = ui.map.provinces[life.prov];
+      return [
+        {
+          label: def.lat >= 30 ? "September or October" : "January to March",
+          met: isHarvest(def.lat, dateOf(ui.s.day).month),
+        },
+        { label: "Sixteen or over", met: !isChildLife(ui.s, life) },
+      ];
+    },
+    go: place("fields"),
+    goLabel: "Go to the fields",
+    guide: "seasons",
+  },
+  {
+    id: "season",
+    title: "Know what the season brings",
+    words:
+      "season winter spring summer autumn snow ice frozen mud flood fever hurricane weather roads",
+    group: "Travel and the world",
+    where:
+      "Point at (or tap) the season's sign by the date in the banner: the roads, the rivers and the harbour, sickness, the harvest and the price of bread where you are.",
+    go: (ui) => ui.modal({ k: "guide", ch: "seasons" }),
+    goLabel: "Read about the seasons",
+    guide: "seasons",
+  },
+  {
+    id: "sail",
+    title: "Sail to another port",
+    words: "sail ship boat port harbour voyage sea passage quay",
+    group: "Travel and the world",
+    where:
+      "From a port (it has docks): click a coastal province, then The road there, and choose by sea. You board at the quay and land at theirs. No ships out of a frozen harbour in winter.",
+    go: (ui) => ui.modal(null),
+    goLabel: "Back to the map",
+    guide: "map",
+  },
+  {
+    id: "achievements",
+    title: "See my achievements",
+    words: "achievements medals derp coins rewards trophies goals",
+    group: "Travel and the world",
+    where:
+      "Journal › Achievements: each pays a few Derp Coins the first time your account earns it.",
+    go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
+    guide: "coins",
   },
 ];
 

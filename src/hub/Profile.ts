@@ -74,13 +74,27 @@ interface ConquestGame {
   provinces: number;
   coins: number;
 }
+/** MAP (r12): a Derpy Conquest achievement the player has earned. */
+interface ConquestAchievement {
+  key: string;
+  name: string;
+  how: string;
+  group: string;
+  coins: number;
+  at: string;
+}
 interface Profile {
   username: string;
   coins: number;
   createdAt: string;
   stats: FrontStats;
   games: FrontGame[];
-  conquest: { stats: ConquestStats; games: ConquestGame[] };
+  conquest: {
+    stats: ConquestStats;
+    games: ConquestGame[];
+    achievements?: ConquestAchievement[];
+    achievementCount?: number;
+  };
 }
 
 type Filter = "all" | "derpyfront" | "conquest";
@@ -179,6 +193,7 @@ export class DerpProfile extends HubPage {
       <div class="dl-statgroups">
         ${this.frontStats(p.stats)} ${this.conquestStats(p.conquest.stats)}
       </div>
+      ${this.achievements(p)}
 
       <section class="dl-panel dl-history">
         <div class="dl-history-head">
@@ -252,6 +267,45 @@ export class DerpProfile extends HubPage {
         ${stat("Provinces taken", s.conquests)}
         ${stat("Coins earned", nf(s.coinsEarned))}
       </dl>
+    </section>`;
+  }
+
+  /** MAP (r12): the Derpy Conquest achievements this player has earned. */
+  private achievements(p: Profile): TemplateResult {
+    const got = p.conquest.achievements ?? [];
+    const all = p.conquest.achievementCount ?? 0;
+    if (!all) return html``;
+    const coins = got.reduce((n, a) => n + a.coins, 0);
+    return html`<section class="dl-panel dl-achievements">
+      <h2 class="dl-h2 dl-ach-title">
+        Derpy Conquest achievements
+        <span class="dl-ach-count"
+          >${got.length} of
+          ${all}${coins ? html` · ${nf(coins)} coins` : ""}</span
+        >
+      </h2>
+      ${got.length
+        ? html`<ul class="dl-ach-list">
+            ${got.map(
+              (a) =>
+                html`<li
+                  class="dl-ach"
+                  title="${a.how} Earned ${shortDate(a.at)}${a.coins
+                    ? `, ${a.coins} coins`
+                    : ""}."
+                >
+                  <span class="dl-ach-medal" aria-hidden="true"></span>
+                  <span class="dl-ach-name">${a.name}</span>
+                  ${a.coins
+                    ? html`<span class="dl-ach-coins">+${a.coins}</span>`
+                    : ""}
+                </li>`,
+            )}
+          </ul>`
+        : html`<p class="dl-empty">
+            None yet. Each one pays a few Derp Coins the first time, from your
+            first job to living to see 1776.
+          </p>`}
     </section>`;
   }
 

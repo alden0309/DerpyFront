@@ -394,7 +394,7 @@ describe.skipIf(!TEST_DB)(
       const c = new pg.default.Client({ connectionString: TEST_DB });
       await c.connect();
       await c.query(
-        "DROP TABLE IF EXISTS derpy_conquest_saves, derpy_conquest_players, derpy_conquest_games, derpy_owned, derpy_game_players, derpy_games, derpy_sessions, derpy_accounts CASCADE",
+        "DROP TABLE IF EXISTS derpy_conquest_achievements, derpy_conquest_saves, derpy_conquest_players, derpy_conquest_games, derpy_owned, derpy_game_players, derpy_games, derpy_sessions, derpy_accounts CASCADE",
       );
       await c.end();
       ({ closeDerpyDb: closeDb } =
@@ -494,7 +494,11 @@ describe.skipIf(!TEST_DB)(
       const board = await conquestLeaderboard();
       const row = board.find((r) => r.username === "Alden")!;
       expect(row.games).toBe(1);
-      expect(row.coins).toBe(results[0].coins);
+      // MAP (r12): the account also holds what achievements paid as it went.
+      const ach = await pool.query(
+        "SELECT coalesce(sum(coins), 0)::int AS n FROM derpy_conquest_achievements",
+      );
+      expect(row.coins).toBe((results[0].coins ?? 0) + Number(ach.rows[0].n));
       const overall = await overallLeaderboard();
       expect(overall.find((r) => r.username === "Alden")).toMatchObject({
         conquestGames: 1,

@@ -150,4 +150,13 @@ export type ServerMessage =
   /** Your waiting events: seconds of unpaused play each has left. */
   | { t: "letters"; left: Record<number, number>; paused: boolean }
   | { t: "end"; results: ResultLine[] }
-  | { t: "err"; msg: string };
+  | { t: "err"; msg: string }
+  // MAP (r12): achievements. The account's (when you join a game), and each
+  // one as it's earned: the Derp Coins it paid (0 if the account had it
+  // already; null for a guest, who isn't paid).
+  | {
+      t: "achievements";
+      signedIn: boolean;
+      have: { key: string; at: string; coins: number }[];
+    }
+  | { t: "achieved"; key: string; coins: number | null; first: boolean };

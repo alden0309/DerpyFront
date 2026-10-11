@@ -46,6 +46,9 @@ export const hooks = {
     life: Life,
     c: LifeCommand,
   ) => string | null)[],
+  // MAP (r12)
+  /** After each life command (achievements earned by it show at once, even paused). */
+  afterCommand: [] as ((g: ConquestGame, life: Life) => void)[],
   /** Puts an event to a life (LifeEvents.ts registers it), without importing it. */
   raise: [] as ((
     g: ConquestGame,

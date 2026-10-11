@@ -28,6 +28,7 @@ import {
   ConquestGameSummary,
   conquestProfile,
   ConquestStats,
+  type ProfileAchievement, // MAP (r12)
 } from "./DerpyConquest";
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
 
@@ -351,7 +352,13 @@ export interface Profile {
   createdAt: string;
   stats: StatsSummary;
   games: GameSummary[];
-  conquest: { stats: ConquestStats; games: ConquestGameSummary[] };
+  conquest: {
+    stats: ConquestStats;
+    games: ConquestGameSummary[];
+    /** MAP (r12) */
+    achievements?: ProfileAchievement[];
+    achievementCount?: number;
+  };
 }
 
 /** A player's stats and their saved games (newest first), or null. */

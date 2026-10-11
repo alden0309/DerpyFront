@@ -760,6 +760,10 @@ export interface Life {
   founding?: Founding | null;
   /** SOCIETY (r11): a nation waiting for you to set up its government. */
   constitute?: { n: number; until: number; free: boolean } | null;
+  /** MAP (r12): achievements earned in this game, by key: the day. */
+  achieved?: Record<string, number>;
+  /** MAP (r12): counts some achievements wait on (days at sea, on a winter road). */
+  achCount?: Record<string, number>;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -2445,3 +2449,8 @@ export interface SocietyCommand {
   offices?: Partial<Record<Seat, number>>;
   free?: boolean;
 }
+
+// ---- MAP (r12)
+// Harbours, sea lanes and the seasons need no state of their own (they come
+// from the map and the date); a life's achievements are `Life.achieved` and
+// `Life.achCount` (Achievements.ts).
