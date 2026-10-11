@@ -55,6 +55,8 @@ interface Goal {
   /** What the go button says. */
   goLabel?: string;
   guide: string;
+  /** Only for a native life, or only for a colonist's. */
+  who?: "native" | "colonist";
 }
 
 const tab = (t: DrawerView) => (ui: GameUi) => {
@@ -523,19 +525,36 @@ const GOALS: Goal[] = [
     group: "Society",
     where:
       "Write to the crown at the governor's house or the docks (2 coins, once in 60 days). Society › Standing explains what favour does.",
-    needs: (ui) =>
-      lifeIsNative(ui.s, ui.life!)
-        ? [
-            {
-              label:
-                "Your people's letters go through the colony's governor: bring gifts to the council fire instead",
-              met: false,
-            },
-          ]
-        : [adult(ui), coins(ui, 2)],
+    needs: (ui) => [adult(ui), coins(ui, 2)],
     go: place("governor", "docks"),
     goLabel: "Go to the governor's house",
     guide: "favour",
+    who: "colonist",
+  },
+  {
+    id: "regard",
+    title: "Win the elders' regard",
+    words: "favour favor regard elders council fire chief tobacco gifts wampum",
+    group: "Society",
+    where:
+      "Offer tobacco and gifts at the council fire (2 coins, once a month): 2 regard, and the elders remember it. A speaker can carry a wampum belt to the elders (5). Society › Standing shows your regard and what it opens.",
+    needs: (ui) => [adult(ui), coins(ui, 2)],
+    go: place("councilfire"),
+    goLabel: "Go to the council fire",
+    guide: "favour",
+    who: "native",
+  },
+  {
+    id: "lead",
+    title: "Lead my people",
+    words: "chief sachem leader council fire elders speaker war chief rule",
+    group: "Society",
+    where:
+      "Society › Standing has the road: win renown (hunts, raids, councils, treaties), sit at the council fire when it chooses (renown 15), take a council seat when the leader offers one, and when the leader dies the elders choose someone of great renown and regard.",
+    needs: (ui) => [adult(ui)],
+    go: tab({ k: "tab", tab: "society", sub: "standing" }),
+    guide: "office",
+    who: "native",
   },
   {
     id: "renown",
@@ -808,13 +827,18 @@ export function finderModal(ui: GameUi): TemplateResult {
         You're watching: take over someone, or begin a new life.
       </p>`;
   const q = query.trim();
-  const shown = GOALS.map((g) => ({ g, sc: matches(g, q) }))
+  const native = lifeIsNative(ui.s, life);
+  const mine = GOALS.filter(
+    (g) => !g.who || g.who === (native ? "native" : "colonist"),
+  );
+  const shown = mine
+    .map((g) => ({ g, sc: matches(g, q) }))
     .filter((x) => x.sc > 0)
     .sort((a, b) => (q ? b.sc - a.sc : 0));
   const groups = q
     ? [["Best matches", shown.map((x) => x.g)] as const]
-    : [...new Set(GOALS.map((g) => g.group))].map(
-        (name) => [name, GOALS.filter((g) => g.group === name)] as const,
+    : [...new Set(mine.map((g) => g.group))].map(
+        (name) => [name, mine.filter((g) => g.group === name)] as const,
       );
   return html`<div class="cq-finder">
     <h2 class="cq-h1">I want to…</h2>

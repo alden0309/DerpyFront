@@ -514,10 +514,11 @@ function estatePage(ui: GameUi, sub: string): TemplateResult {
             "Where to buy",
             html`<ul class="cq-where-list small">
               <li>
-                <b>A house</b>: right here (the button above), wherever you're
-                settled; or at the market, a village or your home. The house is
-                in the town you're in; a better one replaces it for half the old
-                one's worth.
+                <b>${native ? "A lodge" : "A house"}</b>: right here (the button
+                above), wherever you're settled; or at the market, a village or
+                your home. It stands in the ${native ? "village" : "town"}
+                you're in; a better one replaces it for half the old one's
+                worth.
               </li>
               ${native
                 ? html`<li>
@@ -743,8 +744,13 @@ function societyPage(ui: GameUi, sub: string): TemplateResult {
       const eu = europeSection(ui);
       return html`${pageHead(
         "Standing",
-        html`Your ${term("renown")} and ${term("favour")}, the offices you hold,
-        and the road to the assembly, the council and the governor's chair.`,
+        lifeIsNative(s, life)
+          ? html`Your ${term("renown")} and the elders'
+            ${term("favour", "regard")}, the place you hold, and the road to the
+            council fire and to leading your people.`
+          : html`Your ${term("renown")} and ${term("favour")}, the offices you
+            hold, and the road to the assembly, the council and the governor's
+            chair.`,
       )}
       ${standingSection(ui)}
       ${section(
@@ -752,8 +758,9 @@ function societyPage(ui: GameUi, sub: string): TemplateResult {
         html`<ul class="cq-where-list small">
           ${lifeIsNative(s, life)
             ? html`<li>
-                Bring tobacco and gifts to the council fire, carry a wampum belt
-                as a speaker, and give feasts for the village.
+                <b>Offer tobacco and gifts</b> at the council fire: 2 coins,
+                once a month. It wins 2 regard, and the elders there remember
+                it.
               </li>`
             : html`<li>
                 <b>Write to the crown</b> at the governor's house or the docks:

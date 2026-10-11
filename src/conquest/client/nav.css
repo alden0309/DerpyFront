@@ -96,6 +96,20 @@
   font-weight: 700;
   vertical-align: 1px;
 }
+/* Six pages have no room for counts (a row that wraps when a letter comes
+   would move every page down): a dot in the corner, like the rail's. */
+.cq-subtabs:has(> :nth-child(6)) .cq-subtab-n {
+  position: absolute;
+  top: 0.32rem;
+  right: 0;
+  min-width: 0;
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  padding: 0;
+  font-size: 0;
+  box-shadow: 0 0 0 1.5px rgba(255, 240, 220, 0.9);
+}
 .cq-page-head {
   margin-top: 0.2rem;
 }
@@ -173,6 +187,22 @@
   padding: 0.3rem 0 0.3rem 0.9rem;
   border-left: 2px solid var(--vellum-3);
   margin-bottom: 0.3rem;
+}
+/* What money buys, and where: the place over what it sells (a long place
+   name made the column of wares too narrow to read). */
+.cq-where-spend {
+  display: block;
+}
+.cq-where-spend dt {
+  margin-top: 0.4rem;
+  line-height: 1.2;
+}
+.cq-where-spend dt:first-child {
+  margin-top: 0;
+}
+.cq-where-spend dd {
+  padding-left: 0.9rem;
+  line-height: 1.35;
 }
 .cq-at-place {
   font-size: 1rem;
