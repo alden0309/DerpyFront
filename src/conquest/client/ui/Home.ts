@@ -1264,7 +1264,6 @@ function moneyBuys(ui: GameUi): TemplateResult {
 
 /** The top of Estate › House & land: every house you have, and the way home. */
 export function housesSection(ui: GameUi): TemplateResult {
-  const s = ui.s;
   const life = ui.life!;
   const houses = housesOf(life);
   const atHome = !life.travel && life.prov === life.home;
