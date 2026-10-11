@@ -1,6 +1,8 @@
-// Your affairs: the work you do and the ladder above you, the army you serve
-// in or command, the offices you hold and the road to more, the colony you
-// govern (if it comes to that), the cause you've sworn to, and Europe.
+// The sections that were "Your affairs" (r11 wave 2: Affairs is split into
+// the Work, Estate and Society tabs, ui/Tabs.ts): the work you do and the
+// ladder above you, the army you serve in or command, the offices you hold
+// and the road to more, the colony you govern (if it comes to that), the
+// cause you've sworn to, your purse and property, and Europe.
 
 import { html, nothing, TemplateResult } from "lit";
 import {
@@ -117,32 +119,12 @@ import {
   provLink,
   section,
 } from "./Context";
-import { affairsSections, tradesLink, workNotes } from "./Livelihood";
-import { societySection } from "./Society"; // SOCIETY (r11)
-
-export function affairsTab(ui: GameUi): TemplateResult {
-  const life = ui.life;
-  const me = ui.me;
-  if (!life || !me)
-    return html`<p class="cq-empty">
-      You're watching. Take over someone, or begin a new life.
-    </p>`;
-  return html`<header class="cq-panel-head">
-      <h2 class="cq-h1">Your affairs</h2>
-      <p class="cq-muted small">
-        Work, what you own, what you want, the army, office, causes, and the
-        voyage home.
-      </p>
-    </header>
-    ${workSection(ui)} ${affairsSections(ui)} ${ambitionSection(ui)}
-    ${purseSection(ui)} ${propertySection(ui)} ${armySection(ui)}
-    ${standingSection(ui)} ${societySection(ui)} ${governingSection(ui)}
-    ${causeSection(ui)} ${europeSection(ui)}`;
-}
+import { tradesLink, workNotes } from "./Livelihood";
+import { term } from "./Terms";
 
 // ---------------------------------------------------------------- work
 
-function workSection(ui: GameUi): TemplateResult {
+export function workSection(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
   const job = life.job;
@@ -155,51 +137,27 @@ function workSection(ui: GameUi): TemplateResult {
       </p>`,
     );
   if (!job) {
-    const hirers = employersIn(s, ui.w, life.prov).slice(0, 6);
+    const hirers = employersIn(s, ui.w, life.prov).length;
     return section(
       "Work",
       html`<p>You have no work.</p>
         <p class="cq-muted small">
-          Work is given, not found: go to a place and ask whoever hires there (a
-          planter, a sergeant, a master, a merchant). They'll take you or tell
-          you why not. Some trades you can set up on your own: a farm, a
-          trapline, a shop.
+          Work is given, not found: a master, a planter, a sergeant or a
+          merchant takes you on (ask them; they'll say yes, or why not). Some
+          trades you can take up on your own: a farm, a trapline, a shop, the
+          road. Once you have a place, your days there are worked for you.
         </p>
-        ${hirers.length
-          ? html`<ul class="cq-hirers">
-              ${hirers.map(
-                (h) =>
-                  html`<li>
-                    ${charLink(ui, h.c)}
-                    <span class="cq-muted small"
-                      >hires
-                      ${h.jobs
-                        .map((k) => JOBS[k].name.toLowerCase())
-                        .join(", ")}
-                      at the
-                      ${PLACES[h.place].name
-                        .replace(/^The /, "")
-                        .toLowerCase()}</span
-                    >
-                    <button
-                      class="cq-btn small"
-                      @click=${() =>
-                        ui.modal({
-                          k: "interact",
-                          c: h.c.id,
-                          act: "work",
-                          arg: 0,
-                        })}
-                    >
-                      Ask for work
-                    </button>
-                  </li>`,
-              )}
-            </ul>`
-          : html`<p class="cq-muted small">
-              Nobody hires here. Travel to a town.
-            </p>`}
-        ${tradesLink(ui)}`,
+        <div class="cq-btnrow">
+          <button
+            class="cq-btn small primary"
+            @click=${() => ui.open({ k: "tab", tab: "work", sub: "find" })}
+          >
+            Find
+            work${hirers
+              ? ` (${hirers} hiring in ${ui.map.provinces[life.prov].name})`
+              : ""}
+          </button>
+        </div>`,
     );
   }
   const def = JOBS[job.kind];
@@ -344,7 +302,7 @@ function workSection(ui: GameUi): TemplateResult {
 
 // ---------------------------------------------------------------- the army
 
-function armySection(ui: GameUi): TemplateResult | typeof nothing {
+export function armySection(ui: GameUi): TemplateResult | typeof nothing {
   const s = ui.s;
   const life = ui.life!;
   const me = ui.me!;
@@ -427,7 +385,7 @@ function armySection(ui: GameUi): TemplateResult | typeof nothing {
 
 // ---------------------------------------------------------------- office and standing
 
-function standingSection(ui: GameUi): TemplateResult {
+export function standingSection(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
   const me = ui.me!;
@@ -444,14 +402,20 @@ function standingSection(ui: GameUi): TemplateResult {
     "Standing",
     html`<div class="cq-stats">
         <div class="cq-stat">
-          <span class="cq-stat-label">Renown</span
-          ><span class="cq-stat-value">${Math.round(life.renown)}</span>
+          <span class="cq-stat-label">${term("renown")}</span>${term(
+            "renown",
+            String(Math.round(life.renown)),
+            "cq-stat-value",
+          )}
           <span class="cq-stat-note">who knows your name</span>
         </div>
         <div class="cq-stat">
           <span class="cq-stat-label"
-            >${native ? "Elders' regard" : "Favour at home"}</span
-          ><span class="cq-stat-value">${Math.round(life.favor)}</span>
+            >${term(
+              "favour",
+              native ? "Elders' regard" : "Favour at home",
+            )}</span
+          >${term("favour", String(Math.round(life.favor)), "cq-stat-value")}
           <span class="cq-stat-note"
             >${native ? "the council fire" : "the crown's ear"}</span
           >
@@ -566,6 +530,7 @@ function standingSection(ui: GameUi): TemplateResult {
                   })}
                 </dl>`
             : nothing}`,
+        true,
       )}`,
   );
 }
@@ -580,7 +545,7 @@ const BUILDABLE: BuildingKind[] = [
   "courthouse",
 ];
 
-function governingSection(ui: GameUi): TemplateResult | typeof nothing {
+export function governingSection(ui: GameUi): TemplateResult | typeof nothing {
   const s = ui.s;
   const me = ui.me!;
   const n = s.nations.findIndex((x) => x.alive && x.ruler === me.id);
@@ -760,7 +725,7 @@ function governingSection(ui: GameUi): TemplateResult | typeof nothing {
 
 // ---------------------------------------------------------------- ambition
 
-function ambitionSection(ui: GameUi): TemplateResult | typeof nothing {
+export function ambitionSection(ui: GameUi): TemplateResult | typeof nothing {
   const s = ui.s;
   const life = ui.life!;
   if (isChildLife(s, life)) return nothing;
@@ -882,7 +847,7 @@ function bestOpenSkill(ui: GameUi): string {
 const KIT_KEYS: KitKey[] = ["tools", "horse", "carriage", "pew"];
 
 /** Where money can be spent, and on what. */
-const WHERE_TO_SPEND: [string, string][] = [
+export const WHERE_TO_SPEND: [string, string][] = [
   ["The market", "good tools, a horse, a coach, shares in a company"],
   ["The docks", "a cargo ventured on the next ship out"],
   ["The church", "a pew, an almshouse, a new church"],
@@ -891,7 +856,7 @@ const WHERE_TO_SPEND: [string, string][] = [
 ];
 
 /** Your standing, the month's money, what you keep and what's out working. */
-function purseSection(ui: GameUi): TemplateResult | typeof nothing {
+export function purseSection(ui: GameUi): TemplateResult | typeof nothing {
   const s = ui.s;
   const life = ui.life!;
   if (isChildLife(s, life)) return nothing;
@@ -1038,23 +1003,13 @@ function purseSection(ui: GameUi): TemplateResult | typeof nothing {
                 </li>`;
               })}
             </ul>`
-        : nothing}
-      ${more(
-        "What money can buy, and where",
-        html`<dl class="cq-where-spend">
-          ${WHERE_TO_SPEND.map(
-            ([w, what]) =>
-              html`<dt>${w}</dt>
-                <dd>${what}</dd>`,
-          )}
-        </dl>`,
-      )}`,
+        : nothing} `,
   );
 }
 
 // ---------------------------------------------------------------- property
 
-function propertySection(ui: GameUi): TemplateResult | typeof nothing {
+export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
   const s = ui.s;
   const life = ui.life!;
   if (isChildLife(s, life)) return nothing;
@@ -1432,7 +1387,7 @@ function appointBlock(ui: GameUi, n: number): TemplateResult {
 
 // ---------------------------------------------------------------- the cause
 
-function causeSection(ui: GameUi): TemplateResult {
+export function causeSection(ui: GameUi): TemplateResult {
   const s = ui.s;
   const me = ui.me!;
   const m = movementOf(s, me.id);
@@ -1612,7 +1567,7 @@ function foundBlock(ui: GameUi): TemplateResult {
 
 let takeHeir = false;
 
-function europeSection(ui: GameUi): TemplateResult | typeof nothing {
+export function europeSection(ui: GameUi): TemplateResult | typeof nothing {
   const s = ui.s;
   const life = ui.life!;
   const native = lifeIsNative(s, life);

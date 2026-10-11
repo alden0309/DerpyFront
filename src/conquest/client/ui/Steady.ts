@@ -228,6 +228,23 @@ export function steadySet(
   return t.order as string[];
 }
 
+/**
+ * A list kept in the order it was first shown this visit (r11 wave 2: the
+ * letters, gatherings and offices): what comes later goes at the end, so
+ * answering a letter or a new one arriving never moves the rest.
+ */
+export function steadyOrder<T>(
+  list: string,
+  scope: string,
+  items: readonly T[],
+  keyOf: (t: T) => Key,
+): T[] {
+  const by = new Map(items.map((x) => [String(keyOf(x)), x]));
+  return steadySet(list, scope, [...by.keys()])
+    .map((k) => by.get(k))
+    .filter((x): x is T => x !== undefined);
+}
+
 /** Forget every list (a new game). */
 export function forgetSteady(): void {
   tracks.clear();

@@ -7,56 +7,92 @@ import { formatDate } from "../../engine/Calendar";
 import { charName } from "../../engine/Queries";
 import type { JournalEntry } from "../../engine/Types";
 import { LetterIcon } from "../Icons";
-import { GameUi, more, section } from "./Context";
+import { GameUi, section } from "./Context";
+import { pageHead } from "./Nav";
 import { leadsSection } from "./WorldUi";
 
 let filter: "all" | "good" | "bad" = "all";
 let shown = 60;
 
-export function journalTab(ui: GameUi): TemplateResult {
+/** The Journal's pages: the diary (and what waits on you), leads, the story. */
+export function journalTab(ui: GameUi, sub = "diary"): TemplateResult {
   const s = ui.s;
   const life = ui.life;
   if (!life)
     return html`<p class="cq-empty">
       Nothing written yet. Make a character, or take over someone.
     </p>`;
+  if (sub === "leads")
+    return html`${pageHead(
+      "Leads",
+      "Stories worth chasing: gold in the hills, a wreck, cheap land, a price on an outlaw's head. Each is pinned on the map with a red seal.",
+    )}
+    ${leadsSection(ui)}`;
+  if (sub === "story") {
+    const milestones = life.milestones;
+    return html`${pageHead(
+      "The story so far",
+      life.line.length > 1
+        ? `${life.line.length} generations of the ${s.chars[life.line[0]]?.family ?? ""} line: the moments that made it.`
+        : "The moments that made your life, as they'll be told in 1776.",
+      html`<div class="cq-btnrow">
+        <button class="cq-btn small" @click=${() => ui.modal({ k: "end" })}>
+          Your story, told
+        </button>
+      </div>`,
+    )}
+    ${milestones.length
+      ? html`<ol class="cq-timeline compact">
+          ${milestones
+            .slice()
+            .reverse()
+            .map(
+              (m) =>
+                html`<li class=${m.kind === "died" ? "bad" : ""}>
+                  <time>${formatDate(m.day)}</time><span>${m.text}</span>
+                </li>`,
+            )}
+        </ol>`
+      : html`<p class="cq-empty">Nothing worth the telling yet.</p>`}`;
+  }
   const entries = life.journal
     .filter((e) => filter === "all" || e.tone === filter)
     .slice()
     .reverse();
-  const milestones = life.milestones;
   const keys = keysOf(entries);
   const set = (f: typeof filter) => {
     filter = f;
     shown = 60;
     ui.redraw();
   };
-  return html`<header class="cq-panel-head">
-      <h2 class="cq-h1">Journal</h2>
-      <p class="cq-muted small">
-        ${life.line.length > 1
-          ? `${life.line.length} generations of the ${s.chars[life.line[0]]?.family ?? ""} line.`
-          : "Your days, as they went."}
-      </p>
-    </header>
-    ${leadsSection(ui)}
-    ${milestones.length
-      ? more(
-          `The story so far (${milestones.length})`,
-          html`<ol class="cq-timeline compact">
-            ${milestones
-              .slice()
-              .reverse()
-              .map(
-                (m) =>
-                  html`<li class=${m.kind === "died" ? "bad" : ""}>
-                    <time>${formatDate(m.day)}</time><span>${m.text}</span>
-                  </li>`,
-              )}
-          </ol>`,
-          false,
-        )
-      : nothing}
+  return html`${pageHead(
+      "Diary",
+      "Your days as they went, newest first, and anything waiting for your answer.",
+    )}
+    ${section(
+      "Waiting on you",
+      life.events.length
+        ? html`<ul class="cq-list">
+            ${life.events.map(
+              (e) =>
+                html`<li>
+                  <button
+                    class="cq-link"
+                    @click=${() => ui.modal({ k: "event", id: e.id })}
+                  >
+                    ${LetterIcon()} ${e.title}
+                  </button>
+                  <span class="cq-muted small"
+                    >decides itself ${formatDate(e.expires)}</span
+                  >
+                </li>`,
+            )}
+          </ul>`
+        : html`<p class="cq-muted small">
+            Nothing waits on you. Letters wanting an answer are in Society ›
+            Letters.
+          </p>`,
+    )}
     <div class="cq-seg small" role="radiogroup" aria-label="Show">
       ${(
         [
@@ -75,27 +111,6 @@ export function journalTab(ui: GameUi): TemplateResult {
           </button>`,
       )}
     </div>
-    ${life.events.length
-      ? section(
-          "Waiting on you",
-          html`<ul class="cq-list">
-            ${life.events.map(
-              (e) =>
-                html`<li>
-                  <button
-                    class="cq-link"
-                    @click=${() => ui.modal({ k: "event", id: e.id })}
-                  >
-                    ${LetterIcon()} ${e.title}
-                  </button>
-                  <span class="cq-muted small"
-                    >decides itself ${formatDate(e.expires)}</span
-                  >
-                </li>`,
-            )}
-          </ul>`,
-        )
-      : nothing}
     <ol class="cq-journal">
       ${entries.length === 0
         ? html`<li class="cq-muted">Nothing yet.</li>`

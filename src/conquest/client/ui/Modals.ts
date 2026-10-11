@@ -11,6 +11,7 @@ import type { BattleSide, LifePlan, RegType } from "../../engine/Types";
 import type { ResultLine } from "../../Protocol";
 import { creditsList } from "../Credits";
 import { flagFor } from "../Flags";
+import { guideOverlay } from "../guide/Guide";
 import "../Maker";
 import { confirmMarch, setConfirmMarch } from "../Prefs";
 import "../Range";
@@ -23,6 +24,7 @@ import {
   strengthBars,
 } from "./Battle";
 import { GameUi, Modal, token } from "./Context";
+import { finderModal, resetFinder } from "./Finder";
 import { roleOf } from "./Here";
 import { eventScene, interactScene, outcomeScene } from "./Scene";
 import { sittingPage } from "./Sitting";
@@ -54,6 +56,9 @@ export function renderModal(
   m: Modal,
   hooks: ModalHooks,
 ): TemplateResult {
+  // The guide is a book of its own, over everything (r11 wave 2).
+  if (m.k === "guide" || m.k === "help")
+    return guideOverlay(m.k === "guide" ? m.ch : "start", () => ui.modal(null));
   let body: TemplateResult;
   let cls = "";
   switch (m.k) {
@@ -76,9 +81,9 @@ export function renderModal(
     case "menu":
       body = menu(ui, hooks);
       break;
-    case "help":
-      body = helpPage();
-      cls = "wide";
+    case "finder":
+      body = finderModal(ui);
+      cls = "finder";
       break;
     case "end":
       body = endPage(ui, hooks);
@@ -405,9 +410,30 @@ function menu(ui: GameUi, hooks: ModalHooks): TemplateResult {
             : "The game saves every few minutes and whenever you pause."
           : "Sign in to Derp Land to save games and come back to them."}
       </p>
-      <button class="cq-btn" @click=${() => ui.modal({ k: "help" })}>
-        How to play
-      </button>
+      <div class="cq-menu-help">
+        <button
+          class="cq-btn primary"
+          @click=${() => ui.modal({ k: "guide", ch: "start" })}
+        >
+          How to play
+        </button>
+        ${ui.life && !ui.life.watching
+          ? html`<button
+              class="cq-btn"
+              @click=${() => {
+                resetFinder();
+                ui.modal({ k: "finder" });
+              }}
+            >
+              I want to…
+            </button>`
+          : nothing}
+      </div>
+      <p class="cq-muted small">
+        Every page has a <b>?</b> for its chapter of the guide; point at (or
+        tap) any number for what it is and how to raise it. Keys: <b>?</b> the
+        guide, <b>/</b> I want to…
+      </p>
       ${ui.life && !ui.life.watching
         ? html`<button class="cq-btn" @click=${() => ui.modal({ k: "end" })}>
             Your story so far
@@ -533,74 +559,6 @@ function creditsPage(ui: GameUi): TemplateResult {
         Back to the menu
       </button>
     </div>
-  `;
-}
-
-const HELP: [string, string][] = [
-  [
-    "Who you are",
-    "One person in the Americas between your start year and 1776: a settler, a soldier, a printer, a planter, a minister, a trader, a warrior or a speaker of one of the native nations. The nations, wars and colonies go on around you, run by the computer. What you make of your life is up to you.",
-  ],
-  [
-    "Time",
-    "The world runs day by day. Pause with the space bar; 1 to 4 set the speed (1×, 2×, 4×, 8×). In company the host sets the speed. Alone, the game pauses when something needs your answer.",
-  ],
-  [
-    "Going places",
-    "Click any province on the map to see it and the road there: overland or, from a port, by sea. Travel costs days and coins, and the road has its dangers. Your token on the map shows where you are.",
-  ],
-  [
-    "Places and work",
-    "Each province has places: the tavern, the church, the market, the fort, the docks, the governor's house, the council fire. Each offers things to do, and work. Every trade is a ladder: serve your months, grow your skills, keep your master happy (or buy the next rung), and you climb.",
-  ],
-  [
-    "People",
-    "Everyone you meet has an opinion of you, and it explains itself (point at the number). Talk, flatter, give gifts, borrow, court, marry, make friends and enemies, find a patron, fight duels.",
-  ],
-  [
-    "Health, stress, renown, money",
-    "Health falls with age, fever and wounds; at nothing you die. Stress rises with hard work, debt and grief, and wrecks health; drink, prayer and rest bring it down. Renown is who knows your name: it opens offices and causes. Your purse pays for how you live.",
-  ],
-  [
-    "Family and heirs",
-    "Marry and have children. When you die your heir carries on as you (a child heir can learn but not work until sixteen). Name your heir on your sheet. With no heir, your story ends and you watch: take over anyone living, or begin a new life.",
-  ],
-  [
-    "The army",
-    "Enlist at a fort (or as a warrior at the council fire). You march with your army and share its battles: wounds, renown, promotion. Colonels, generals and war chiefs can take command of an army where it stands and march it themselves.",
-  ],
-  [
-    "Causes and risings",
-    "History brings its risings (Bacon's, Leisler's, Pueblo, Pontiac, the Regulators, the Sons of Liberty) and you can found your own. Join at a tavern or council fire; grow it with meetings, pamphlets and arms; then rise. A rising is a real war, and the map changes if it wins.",
-  ],
-  [
-    "Office",
-    "Stand for the assembly at the governor's house; seek a place at court; win a council seat. When a governor dies or is recalled, the crown appoints someone of renown and favour, and that could be you. A governor sets taxes, builds, raises militia and makes war and peace.",
-  ],
-  [
-    "Europe",
-    "Rich enough (or invited: Parliament, the army in Flanders, a recall) you may sail for Europe from a port. Leave an heir behind and you carry on as them; take everyone and your story ends.",
-  ],
-  [
-    "The end",
-    "The world ends on 1 January 1776. Your story is told (the roads you travelled, the moments that mattered) and paid in Derp Coins.",
-  ],
-];
-
-function helpPage(): TemplateResult {
-  return html`
-    <h2 class="cq-h1">How Derpy Conquest works</h2>
-    <dl class="cq-help">
-      ${HELP.map(
-        ([t, d]) =>
-          html`<dt>${t}</dt>
-            <dd>${d}</dd>`,
-      )}
-    </dl>
-    <p class="cq-muted small">
-      Keys: space pauses, 1–4 set the speed, + and − zoom, Esc closes things.
-      Point at any number to see what made it.
-    </p>
   `;
 }
 

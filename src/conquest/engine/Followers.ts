@@ -893,7 +893,7 @@ export function takeTheField(g: ConquestGame, life: Life): string | null {
   journal(
     g,
     life,
-    `${co.name} takes the field under you: ${co.men} men. March them from the army's page (Affairs): where there's war, they fight and besiege like any army.`,
+    `${co.name} takes the field under you: ${co.men} men. March them from the army's page (People › Your people): where there's war, they fight and besiege like any army.`,
     "good",
   );
   return null;

@@ -74,12 +74,12 @@ import {
   bar,
   charLink,
   GameUi,
-  more,
   provLink,
   section,
   token,
 } from "./Context";
 import { curly, reasons } from "./Scene";
+import { steadyOrder } from "./Steady";
 
 // ---------------------------------------------------------------- counts for badges
 
@@ -338,7 +338,12 @@ export function lettersPage(ui: GameUi): TemplateResult {
       : nothing}
     <div class="cq-post-list">
       ${shown.length
-        ? shown.slice(0, 40).map((l) => letterCard(ui, l))
+        ? steadyOrder(
+            `letters-${tab}`,
+            `${ui.visit}`,
+            shown.slice(0, 40),
+            (l) => l.id,
+          ).map((l) => letterCard(ui, l))
         : html`<p class="cq-empty">
             ${tab === "in"
               ? "No letters yet. Write to someone, and they'll write back."
@@ -777,6 +782,15 @@ let plan: {
 
 const DAYS = [7, 14, 30, 60, 90];
 
+/** A place the gathering was asked for from (the Here page's "Give a gathering here"). */
+let preferVenue: PlaceKind | "" = "";
+
+/** Open the gathering planner at a venue, with a kind that suits it. */
+export function hostAt(ui: GameUi, venue: PlaceKind): void {
+  preferVenue = venue;
+  ui.modal({ k: "host" });
+}
+
 function draftGathering(ui: GameUi, life: Life): Gathering {
   const me = meOf(ui.s, life)!;
   return {
@@ -810,15 +824,21 @@ export function hostModal(ui: GameUi): TemplateResult {
     const w = GATHERINGS[k].who;
     return w === "any" || (w === "native") === native;
   });
-  if (plan.key !== key)
+  if (plan.key !== key) {
+    const want = preferVenue;
+    preferVenue = "";
+    const fits = want
+      ? kinds.find((k) => GATHERINGS[k].venues.includes(want))
+      : undefined;
     plan = {
       key,
-      kind: native ? "nfeast" : "dinner",
-      venue: "",
+      kind: fits ?? (native ? "nfeast" : "dinner"),
+      venue: want,
       days: 14,
       scale: 1,
       guests: [],
     };
+  }
   const venues = venuesFor(s, ui.w, life, plan.kind);
   if (!venues.includes(plan.venue as PlaceKind)) plan.venue = venues[0] ?? "";
   const def = GATHERINGS[plan.kind];
@@ -1077,7 +1097,12 @@ export function gatheringsPage(ui: GameUi): TemplateResult {
     ${section(
       "Yours",
       mine.length
-        ? html`${mine.map(
+        ? html`${steadyOrder(
+            "gather-mine",
+            `${ui.visit}`,
+            mine,
+            (x) => x.id,
+          ).map(
             (x) =>
               html`<div class="cq-gather-card">
                 <p class="cq-gather-title">
@@ -1122,7 +1147,12 @@ export function gatheringsPage(ui: GameUi): TemplateResult {
     ${section(
       "You're asked to",
       asked.length
-        ? html`${asked.map((x) => {
+        ? html`${steadyOrder(
+            "gather-asked",
+            `${ui.visit}`,
+            asked,
+            (x) => x.id,
+          ).map((x) => {
             const r = x.rsvp[me.id];
             const here = life.prov === x.prov;
             return html`<div class="cq-gather-card">
@@ -1349,146 +1379,70 @@ export function personSociety(ui: GameUi, c: Character): TemplateResult {
   </div>`;
 }
 
-// ---------------------------------------------------------------- your affairs, at a glance
+// ---------------------------------------------------------------- the heart, and a new government
 
-export function societySection(ui: GameUi): TemplateResult {
+/** Secret affairs and the town's talk of you (You › Family). */
+export function heartSection(ui: GameUi): TemplateResult | typeof nothing {
   const s = ui.s;
   const life = ui.life!;
-  const me = ui.me!;
-  const { unread, ask } = postCounts(life);
-  const all = myGatherings(s, life);
-  const giving = all.filter(
-    (x) => x.host === me.id && x.status === "planned",
-  ).length;
-  const asked = all.filter(
-    (x) => x.host !== me.id && x.status === "planned" && !x.rsvp[me.id],
-  ).length;
-  const offices = localOfficesOf(s, me.id);
   const affairs = affairsOf(life);
   const scandal = scandalOf(s, life);
-  const tile = (
-    title: string,
-    line: string | TemplateResult,
-    run: () => void,
-    hot = false,
-  ) =>
-    html`<button class="cq-soc-tile ${hot ? "hot" : ""}" @click=${run}>
-      <b>${title}</b><span class="small">${line}</span>
-    </button>`;
+  if (!affairs.length && !scandal) return nothing;
   return section(
-    "Society",
-    html`<div class="cq-soc-tiles">
-        ${tile(
-          "Letters",
-          ask
-            ? `${ask} to answer`
-            : unread
-              ? `${unread} unread`
-              : "Write to anyone",
-          () => ui.open({ k: "letters" }),
-          ask > 0,
-        )}
-        ${tile(
-          "Gatherings",
-          asked
-            ? `${asked} invitation${asked === 1 ? "" : "s"}`
-            : giving
-              ? `${giving} planned`
-              : "Give one",
-          () => ui.open({ k: "gatherings" }),
-          asked > 0,
-        )}
-        ${tile(
-          "Local office",
-          offices.length
-            ? officeTitle(s, ui.w, offices[0])
-            : "The county's offices",
-          () => ui.open({ k: "offices", p: offices[0]?.prov ?? life.prov }),
-        )}
-        ${tile(
-          life.founding ? "Your settlement" : "A settlement",
-          life.founding
-            ? `${life.founding.stage === "underway" ? "on the way to" : "getting up"} ${ui.map.provinces[life.founding.target].name}`
-            : "Found one of your own",
-          () => ui.open({ k: "founding" }),
-        )}
-      </div>
-      ${life.constitute && life.constitute.until > s.day
-        ? html`<div class="cq-callout lit">
-            <p>
-              <b>${s.nations[life.constitute.n]?.name}</b> waits for its
-              government: a name, a flag, a form, its first officers.
-            </p>
-            <button
-              class="cq-btn primary"
-              @click=${() => ui.modal({ k: "constitute" })}
-            >
-              Set up the government…
-            </button>
-          </div>`
-        : nothing}
-      ${scandal
-        ? html`<p class="cq-callout bad small">
-            The talk of the town: ${scandal.toLowerCase()}.
+    "Secrets of the heart",
+    html`${scandal
+      ? html`<p class="cq-callout bad small">
+          The talk of the town: ${scandal.toLowerCase()}.
+        </p>`
+      : nothing}
+    ${affairs.length
+      ? html`<ul class="cq-ties">
+            ${affairs.map(
+              (a) =>
+                html`<li>
+                  <span class="cq-tie lover">secret</span> ${charLink(
+                    ui,
+                    s.chars[a.c],
+                  )}
+                  <span class="cq-muted small"
+                    >${exposureWord(a)}${a.kids.length
+                      ? `, ${a.kids.length} child${a.kids.length > 1 ? "ren" : ""}`
+                      : ""}</span
+                  >
+                  ${bar(a.exposure / 100, "invert")}
+                  <button
+                    class="cq-btn quiet small"
+                    @click=${() =>
+                      ui.cmd({ k: "society", act: "endaffair", c: a.c })}
+                  >
+                    End it
+                  </button>
+                </li>`,
+            )}
+          </ul>
+          <p class="cq-muted small">
+            Meet in secret (their card) to keep it alive; every meeting, and
+            every letter, may be noticed. Stealth helps.
           </p>`
-        : nothing}
-      ${affairs.length
-        ? more(
-            `Secret affairs (${affairs.length})`,
-            html`<ul class="cq-ties">
-                ${affairs.map(
-                  (a) =>
-                    html`<li>
-                      <span class="cq-tie lover">secret</span> ${charLink(
-                        ui,
-                        s.chars[a.c],
-                      )}
-                      <span class="cq-muted small"
-                        >${exposureWord(a)}${a.kids.length
-                          ? `, ${a.kids.length} child${a.kids.length > 1 ? "ren" : ""}`
-                          : ""}</span
-                      >
-                      ${bar(a.exposure / 100, "invert")}
-                      <button
-                        class="cq-btn quiet small"
-                        @click=${() =>
-                          ui.cmd({ k: "society", act: "endaffair", c: a.c })}
-                      >
-                        End it
-                      </button>
-                    </li>`,
-                )}
-              </ul>
-              <p class="cq-muted small">
-                Meet in secret (their card) to keep it alive; every meeting, and
-                every letter, may be noticed. Stealth helps.
-              </p>`,
-            true,
-          )
-        : nothing}`,
+      : nothing}`,
   );
 }
 
-/** A slim row on the Here page: this county's offices, a gathering, a letter. */
-export function hereStrip(ui: GameUi): TemplateResult | typeof nothing {
+/** After a rising won, or a free colony planted: the call to frame a government. */
+export function constituteCallout(ui: GameUi): TemplateResult | typeof nothing {
+  const s = ui.s;
   const life = ui.life;
-  if (!life || life.c < 0 || life.travel) return nothing;
-  const { ask } = postCounts(life);
-  return html`<div class="cq-soc-strip">
+  if (!life?.constitute || life.constitute.until <= s.day) return nothing;
+  return html`<div class="cq-callout lit">
+    <p>
+      <b>${s.nations[life.constitute.n]?.name}</b> waits for its government: a
+      name, a flag, a form, its first officers.
+    </p>
     <button
-      class="cq-btn small"
-      @click=${() => ui.open({ k: "offices", p: life.prov })}
+      class="cq-btn primary"
+      @click=${() => ui.modal({ k: "constitute" })}
     >
-      County offices
-    </button>
-    <button class="cq-btn small" @click=${() => ui.modal({ k: "host" })}>
-      Give a gathering
-    </button>
-    <button
-      class="cq-btn small ${ask ? "lit" : ""}"
-      @click=${() => ui.open({ k: "letters" })}
-    >
-      Letters${ask ? ` (${ask})` : ""}
+      Set up the government…
     </button>
   </div>`;
 }

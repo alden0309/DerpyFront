@@ -1399,13 +1399,13 @@ export const SOCIETY_EVENTS: LifeEventDef[] = [
     choices: [
       {
         label: "To work",
-        tip: "Open Affairs, then set up the new government: name, flag, colour, form, capital and first officers.",
+        tip: "Open Society › Colony, then set up the new government: name, flag, colour, form, capital and first officers.",
         apply: (g, life) => {
           addRenown(g, life, 2);
           journal(
             g,
             life,
-            'The new government waits on you: Affairs, then "Set up the government".',
+            'The new government waits on you: Society › Colony, then "Set up the government".',
             "good",
           );
         },

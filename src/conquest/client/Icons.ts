@@ -79,6 +79,30 @@ export const AffairsIcon = () =>
     svg`<path d="M5 19L17 5" /><path d="M15 5h2v2" /><path d="M6 15l3 3" /><path d="M19 19C14 17 9 13 7 6" /><path d="M7 6c3 0 6 1 8 4" />`,
   );
 
+/** A hammer over a saw's teeth: work. */
+export const WorkIcon = () =>
+  icon(
+    svg`<path d="M14 4l6 6-2 2-6-6z" /><path d="M13 7L4 16l2 2 9-9" /><path d="M3 21h8l1-2h-8z" />`,
+  );
+
+/** A house with a coin at its door: your purse, house, land and boats. */
+export const EstateIcon = () =>
+  icon(
+    svg`<path d="M3 11l9-7 9 7" /><path d="M5 10v10h14V10" /><path d="M10 20v-5h4v5" /><circle cx="18.5" cy="17.5" r="2.6" fill="var(--coin, none)" />`,
+  );
+
+/** A pediment on columns: society, office and causes. */
+export const SocietyIcon = () =>
+  icon(
+    svg`<path d="M3 9l9-5 9 5z" /><path d="M5 9v9M9.5 9v9M14.5 9v9M19 9v9" /><path d="M3 21h18M4 18h16" />`,
+  );
+
+/** A reading glass: "I want to…". */
+export const FindIcon = () =>
+  icon(
+    svg`<circle cx="10" cy="10" r="6" /><path d="M14.5 14.5L21 21" /><path d="M7.5 9a2.8 2.8 0 0 1 2.5-2" />`,
+  );
+
 /** A bound journal. */
 export const JournalIcon = () =>
   icon(
