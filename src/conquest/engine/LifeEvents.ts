@@ -1025,7 +1025,10 @@ const BASE_EVENTS: LifeEventDef[] = [
     pool: "any",
     cooldown: 500,
     when: (g, life) => {
-      const kid = kidsOf(g, life).find((k) => ageOf(g.s, k) < 10);
+      // EDU (r13): not one boarding away at school.
+      const kid = kidsOf(g, life).find(
+        (k) => ageOf(g.s, k) < 10 && !k.edu?.now?.away,
+      );
       return kid ? { c: kid.id } : null;
     },
     title: "A sick child",
@@ -1149,7 +1152,8 @@ const BASE_EVENTS: LifeEventDef[] = [
     cooldown: 900,
     when: (g, life) => {
       const kid = kidsOf(g, life).find(
-        (k) => ageOf(g.s, k) >= 18 && k.spouse < 0,
+        // EDU (r13): an apprentice may not marry, nor a student at college.
+        (k) => ageOf(g.s, k) >= 18 && k.spouse < 0 && !k.edu?.now,
       );
       if (!kid) return null;
       const match = someone(
