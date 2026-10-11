@@ -21,7 +21,6 @@ import {
   meOf,
   monthlyBudget,
   paceOf,
-  promotionView,
   travelRoute,
 } from "../engine/LifeQueries";
 import { AMERICAS, worldOf } from "../engine/Map";
@@ -44,15 +43,7 @@ import type {
   Terrain,
 } from "../engine/Types";
 import type { ResultLine, SeatInfo, ServerMessage } from "../Protocol";
-import {
-  AffairsIcon,
-  HereIcon,
-  JournalIcon,
-  LetterIcon,
-  PeopleIcon,
-  SelfIcon,
-  WorldIcon,
-} from "./Icons";
+import { FindIcon, LetterIcon } from "./Icons";
 import {
   LifeMark,
   loadGeo,
@@ -63,14 +54,12 @@ import {
   TERRAIN_TINT,
 } from "./MapView";
 import { Net } from "./Net";
-import { likenessOf } from "./Portrait";
 import { confirmMarch, setConfirmMarch } from "./Prefs";
 import { music, play, unlockOnFirstGesture } from "./Sound";
 import { talkLine, talkReaching } from "./Talk"; // wave 2 (r11)
 import { describeEvent, GOOD_COLORS, GOOD_NAMES, TERRAIN_NAMES } from "./Text";
 import { nationVars } from "./Theme";
 import { hideTip, num, plain } from "./Tip";
-import { affairsTab } from "./ui/Affairs";
 import {
   captureAnchors,
   pointerOver,
@@ -79,24 +68,28 @@ import {
 } from "./ui/Anchor";
 import { armyPanel } from "./ui/ArmyPanel";
 import { battleDispatch, myBattleNation } from "./ui/Battle";
-import {
-  breakdownTip,
-  DrawerView,
-  GameUi,
-  Modal,
-  Tab,
-  token,
-} from "./ui/Context";
+import { breakdownTip, DrawerView, GameUi, Modal, token } from "./ui/Context";
+import { resetFinder } from "./ui/Finder";
 import { herePanel, provincePage } from "./ui/Here";
-import { journalTab } from "./ui/Journal";
-import { needsAttention, tradesPage } from "./ui/Livelihood";
+import { medallionFace, onMedallionReady } from "./ui/Medallion";
 import { ModalHooks, renderModal } from "./ui/Modals";
-import { personPage, youTab } from "./ui/Sheet";
+import {
+  badges,
+  guideFor,
+  homeOf,
+  rememberSub,
+  subOf,
+  TAB_DEFS,
+  tabHead,
+} from "./ui/Nav";
+import { personPage } from "./ui/Sheet";
 import { forgetSteady, setSteadyRedraw, touched } from "./ui/Steady";
-import { nationPage, peopleTab, worldTab } from "./ui/World";
+import { tabPage } from "./ui/Tabs";
+import { term } from "./ui/Terms";
+import { nationPage, worldTab } from "./ui/World";
 // SOCIETY (r11)
-import { foundingPage, officesPage } from "./ui/Civic";
-import { gatheringsPage, lettersPage, postButton } from "./ui/Society";
+import { officesPage } from "./ui/Civic";
+import { postButton } from "./ui/Society";
 import { FigureColors, figureColorsOf } from "./Walkers";
 
 export type GameStart = Extract<ServerMessage, { t: "game" }>;
@@ -118,16 +111,70 @@ interface Toast {
   id: number;
   text: string;
   tone: "good" | "bad" | "";
+  /** Where to act on it (a notice that leads somewhere). */
+  go?: DrawerView;
 }
 
-const TABS: { id: Tab; label: string; icon: () => TemplateResult }[] = [
-  { id: "here", label: "Here", icon: HereIcon },
-  { id: "you", label: "You", icon: SelfIcon },
-  { id: "people", label: "People", icon: PeopleIcon },
-  { id: "affairs", label: "Affairs", icon: AffairsIcon },
-  { id: "journal", label: "Journal", icon: JournalIcon },
-  { id: "world", label: "World", icon: WorldIcon },
-];
+/**
+ * Where a line of news is acted on (r11 wave 2: notices lead somewhere).
+ * The words are the engine's own journal lines.
+ */
+function whereFor(text: string): DrawerView | undefined {
+  if (
+    /\(A lead, noted in your journal\.\)|working a lead|weren't alone at/.test(
+      text,
+    )
+  )
+    return { k: "tab", tab: "journal", sub: "leads" };
+  if (/\bletter\b|by letter|wants an answer/i.test(text))
+    return { k: "tab", tab: "society", sub: "letters" };
+  if (/gathering|wedding|invit|You'll give|call off your/i.test(text))
+    return { k: "tab", tab: "society", sub: "gatherings" };
+  if (/[Cc]ontract/.test(text))
+    return { k: "tab", tab: "work", sub: "contracts" };
+  if (
+    /\bgaol\b|taken up for|Fined |pillory|Whipped|Transported|the watch\b/.test(
+      text,
+    )
+  )
+    return { k: "tab", tab: "work", sub: "law" };
+  if (
+    /signs on as your|throws in with you|your people|your band|sets out trading|is your \w+ now|You let .* go|desert/i.test(
+      text,
+    )
+  )
+    return { k: "tab", tab: "people", sub: "yours" };
+  if (
+    /'s crew|careened|You buy the|You sell the|skippers|takes command of the|sail in the/.test(
+      text,
+    )
+  )
+    return { k: "tab", tab: "estate", sub: "boats" };
+  if (/You're made [^:.]*: [\d.]+ coins a month/.test(text))
+    return { k: "tab", tab: "work", sub: "job" };
+  if (/You're made |a seat|at court/.test(text))
+    return { k: "tab", tab: "society", sub: "standing" };
+  if (
+    /your post|lost it|indenture|your own master|keeps you on|caught you idling|freehold/.test(
+      text,
+    )
+  )
+    return { k: "tab", tab: "work", sub: "job" };
+  if (
+    /You are (no longer )?[a-z]|the poll|burgess|Returned as|county grumbles/.test(
+      text,
+    )
+  )
+    return { k: "tab", tab: "society", sub: "office" };
+  if (/You move into|ten acres|You buy a |acres|to show for it\?/.test(text))
+    return { k: "tab", tab: "estate", sub: "house" };
+  // What your station expects: how you live, and what you give away.
+  if (/^People talk: /.test(text))
+    return { k: "tab", tab: "estate", sub: "purse" };
+  if (/has grown to \d/.test(text))
+    return { k: "tab", tab: "you", sub: "self" };
+  return undefined;
+}
 
 /** "1:05" */
 function clockText(sec: number): string {
@@ -258,6 +305,10 @@ export class GameView extends LitElement {
     window.addEventListener("touchstart", touched, { passive: true });
     window.addEventListener("touchmove", touched, { passive: true });
     setSteadyRedraw(() => this.requestRender());
+    onMedallionReady(() => {
+      this.markCache.clear();
+      if (this.view) this.view.needsDraw = true;
+    });
     unlockOnFirstGesture();
     music.start();
     this.letterTimer = window.setInterval(() => {
@@ -279,6 +330,7 @@ export class GameView extends LitElement {
     window.removeEventListener("touchstart", touched);
     window.removeEventListener("touchmove", touched);
     setSteadyRedraw(null);
+    onMedallionReady(null);
     cancelAnimationFrame(this.frame);
     this.resizeObs?.disconnect();
     clearTimeout(this.renderTimer);
@@ -486,7 +538,15 @@ export class GameView extends LitElement {
         this.skipOn = m.on;
         this.skipAsked = m.asked;
         this.dayAt = performance.now();
-        if (m.why) this.toast(m.why, m.on ? "" : "good");
+        if (m.why)
+          this.toast(
+            m.why,
+            m.on ? "" : "good",
+            whereFor(m.why) ??
+              (this.life?.events.length
+                ? { k: "tab", tab: "journal", sub: "diary" }
+                : undefined),
+          );
         else if (
           !m.on &&
           !was &&
@@ -547,7 +607,8 @@ export class GameView extends LitElement {
     if (o) this.lastOutcomeN = o.n;
     if (!staged)
       for (const e of fresh.slice(-2))
-        if (!inScene.has(e.text)) this.toast(e.text, e.tone ?? "");
+        if (!inScene.has(e.text))
+          this.toast(e.text, e.tone ?? "", whereFor(e.text));
     if (fresh.some((e) => e.tone === "good")) play("bell");
     // Events that need an answer.
     const waiting = life.events.filter((e) => !this.seenEvents.has(e.id));
@@ -714,9 +775,13 @@ export class GameView extends LitElement {
     ].slice(0, 120);
   }
 
-  private toast(text: string, tone: Toast["tone"] = ""): void {
+  private toast(
+    text: string,
+    tone: Toast["tone"] = "",
+    go: DrawerView | undefined = undefined,
+  ): void {
     const id = this.nextId++;
-    this.toasts = [...this.toasts.slice(-2), { id, text, tone }];
+    this.toasts = [...this.toasts.slice(-2), { id, text, tone, go }];
     setTimeout(() => {
       this.toasts = this.toasts.filter((t) => t.id !== id);
     }, 6000);
@@ -783,6 +848,15 @@ export class GameView extends LitElement {
       this.selectedArmy = null;
       this.preview = null;
       if (this.view) this.view.needsDraw = true;
+    } else if (e.key === "?") {
+      // The guide, at the chapter for what's open.
+      this.modalView = {
+        k: "guide",
+        ch: guideFor(this.stack[this.stack.length - 1]),
+      };
+    } else if (e.key === "/" && this.life && !this.life.watching) {
+      e.preventDefault();
+      this.ui.modal({ k: "finder" });
     } else if (e.key === "+" || e.key === "=") {
       this.view?.zoomBy(1.25);
     } else if (e.key === "-") {
@@ -880,16 +954,13 @@ export class GameView extends LitElement {
       const native = lifeIsNative(s, l);
       // The likeness and clothes, worked out once (not on every frame).
       const age = ageOfLife(s, l);
-      const key = `${c.id}|${age}|${n?.color}|${native}|${l.frame}|${c.look ? JSON.stringify(c.look).length : 0}`;
+      const key = `${c.id}|${age}|${n?.color}|${native}|${l.frame}|${c.look ? JSON.stringify(c.look) : ""}`;
       let look = this.markCache.get(key);
       if (!look) {
         if (this.markCache.size > 64) this.markCache.clear();
         look = {
-          face: likenessOf(c, {
-            age,
-            color: n?.color ?? "#6b4f33",
-            native,
-          }),
+          // The likeness they chose: tuned, and turned their way.
+          face: medallionFace(c, age),
           colors: figureColorsOf(c, native, l.frame),
         };
         this.markCache.set(key, look);
@@ -1294,6 +1365,9 @@ export class GameView extends LitElement {
 
   private open(v: DrawerView): void {
     hideTip();
+    // Pages that now live in a tab (letters, gatherings, every trade...).
+    v = homeOf(v, this.life);
+    if (v.k === "tab") v = { k: "tab", tab: v.tab, sub: subOf(v) || undefined };
     const cur = this.stack[this.stack.length - 1];
     if (cur && JSON.stringify(cur) === JSON.stringify(v)) return;
     // A new page opens at its top; going back returns to where you were.
@@ -1337,6 +1411,7 @@ export class GameView extends LitElement {
       },
       modal: (m) => {
         hideTip();
+        if (m?.k === "finder" && this.modalView?.k !== "finder") resetFinder();
         this.modalView = m;
       },
       focusProv: (p) => {
@@ -1417,13 +1492,32 @@ export class GameView extends LitElement {
                       ‹ Back
                     </button>`
                   : html`<span></span>`}
-                <button
-                  class="cq-drawer-x"
-                  aria-label="Close"
-                  @click=${() => (this.stack = [])}
-                >
-                  ×
-                </button>
+                <span class="cq-drawer-tools">
+                  ${ui.life && !ui.life.watching
+                    ? html`<button
+                        class="cq-find-btn"
+                        title="I want to… (find anything: buy a house, hire men, write a letter)"
+                        @click=${() => ui.modal({ k: "finder" })}
+                      >
+                        ${FindIcon()}<span>I want to…</span>
+                      </button>`
+                    : nothing}
+                  <button
+                    class="cq-help-btn"
+                    title="How to play: this page's chapter"
+                    aria-label="How to play: this page"
+                    @click=${() => ui.modal({ k: "guide", ch: guideFor(cur) })}
+                  >
+                    ?
+                  </button>
+                  <button
+                    class="cq-drawer-x"
+                    aria-label="Close"
+                    @click=${() => (this.stack = [])}
+                  >
+                    ×
+                  </button>
+                </span>
               </div>
               <div class="cq-drawer-page" data-steady>
                 ${this.drawerBody(cur)}
@@ -1475,8 +1569,19 @@ export class GameView extends LitElement {
               })
             : nothing;
         })}
-        ${this.toasts.map(
-          (t) => html`<div class="cq-toast ${t.tone}">${t.text}</div>`,
+        ${this.toasts.map((t) =>
+          t.go
+            ? html`<button
+                class="cq-toast ${t.tone} go"
+                title="Go there"
+                @click=${() => {
+                  this.toasts = this.toasts.filter((x) => x.id !== t.id);
+                  this.open(t.go!);
+                }}
+              >
+                ${t.text}<span class="cq-toast-go" aria-hidden="true">›</span>
+              </button>`
+            : html`<div class="cq-toast ${t.tone}">${t.text}</div>`,
         )}
       </div>
       ${this.proclamationView()} ${this.askPopup()}
@@ -1495,32 +1600,25 @@ export class GameView extends LitElement {
         return nationPage(ui, v.n);
       case "char":
         return personPage(ui, v.c);
-      case "life":
-        return tradesPage(ui);
-      // SOCIETY (r11)
-      case "letters":
-        return lettersPage(ui);
-      case "gatherings":
-        return gatheringsPage(ui);
+      // SOCIETY (r11): a county's offices elsewhere.
       case "offices":
         return officesPage(ui, v.p);
-      case "founding":
-        return foundingPage(ui);
-      case "tab":
-        switch (v.tab) {
-          case "here":
-            return herePanel(ui);
-          case "you":
-            return youTab(ui);
-          case "people":
-            return peopleTab(ui);
-          case "affairs":
-            return affairsTab(ui);
-          case "journal":
-            return journalTab(ui);
-          case "world":
-            return worldTab(ui);
-        }
+      // These live in tabs now (Nav.homeOf); kept for anything that asks.
+      case "life":
+      case "letters":
+      case "gatherings":
+      case "founding": {
+        const home = homeOf(v, ui.life);
+        return home.k === "tab" ? this.drawerBody(home) : html``;
+      }
+      case "tab": {
+        if (v.tab === "here") return herePanel(ui);
+        if (v.tab === "world") return worldTab(ui);
+        const sub = subOf(v);
+        rememberSub(v.tab, sub);
+        return html`${tabHead(ui, v.tab, sub, badges(ui))}
+          <div class="cq-tabpage">${tabPage(ui, v.tab, sub)}</div>`;
+      }
     }
   }
 
@@ -1601,28 +1699,30 @@ export class GameView extends LitElement {
                 `val ${life.purse < 0 ? "bad" : ""}`,
               )}
             </span>
-            ${this.meterChip(
-              "Health",
-              life.health,
-              "0 is death. Rest, physic and good living mend it; age, fever and wounds wear it.",
-              false,
-            )}
-            ${this.meterChip(
-              "Stress",
-              life.stress,
-              "At 70 your health and judgement suffer. Drink, prayer, rest and company bring it down.",
-              true,
-            )}
-            <span
-              class="cq-chip-stat"
-              title="Who knows your name. Opens offices, causes and doors."
-            >
+            ${this.meterChip("health", "Health", life.health, false)}
+            ${this.meterChip("stress", "Stress", life.stress, true)}
+            <span class="cq-chip-stat">
               <span class="lbl">Renown</span>
-              <span class="val">${Math.round(life.renown)}</span>
+              ${term("renown", String(Math.round(life.renown)), "val")}
+            </span>
+            <span class="cq-chip-stat wide-only">
+              <span class="lbl"
+                >${lifeIsNative(s, life) ? "Regard" : "Favour"}</span
+              >
+              ${term("favour", String(Math.round(life.favor)), "val")}
             </span>
           </div>`
         : html`<div class="cq-chips-bar"></div>`}
       <div class="cq-banner-end">
+        ${life && !life.watching && me
+          ? html`<button
+              class="cq-find-btn banner"
+              title="I want to… (find anything: buy a house, hire men, write a letter)"
+              @click=${() => this.ui.modal({ k: "finder" })}
+            >
+              ${FindIcon()}<span>I want to…</span>
+            </button>`
+          : nothing}
         ${life && !life.watching
           ? html`<button
               class="cq-letters ${events ? "has" : ""}"
@@ -1685,16 +1785,16 @@ export class GameView extends LitElement {
   }
 
   private meterChip(
+    key: string,
     label: string,
     v: number,
-    tip: string,
     invert: boolean,
   ): TemplateResult {
     const f = Math.max(0, Math.min(1, v / 100));
     const bad = invert ? f >= 0.7 : f < 0.35;
-    return html`<span class="cq-chip-stat meter" title=${tip}>
+    return html`<span class="cq-chip-stat meter">
       <span class="lbl">${label}</span>
-      <span class="val ${bad ? "bad" : ""}">${Math.round(v)}</span>
+      ${term(key, String(Math.round(v)), `val ${bad ? "bad" : ""}`)}
       <span class="cq-minibar ${invert ? "invert" : ""} ${bad ? "bad" : ""}"
         ><span style="width:${Math.round(f * 100)}%"></span
       ></span>
@@ -1734,7 +1834,8 @@ export class GameView extends LitElement {
       ${window.innerWidth <= 820 && life.events.length > 2
         ? html`<button
             class="cq-tray-more"
-            @click=${() => this.open({ k: "tab", tab: "journal" })}
+            @click=${() =>
+              this.open({ k: "tab", tab: "journal", sub: "diary" })}
           >
             and ${life.events.length - 2} more
           </button>`
@@ -1743,32 +1844,23 @@ export class GameView extends LitElement {
   }
 
   private tabs(cur: DrawerView | undefined, ui: GameUi): TemplateResult {
-    const life = ui.life;
-    const badge: Partial<Record<Tab, boolean>> = {};
-    if (life && !life.watching && life.c >= 0) {
-      badge.affairs =
-        !!life.invite ||
-        (!!life.job && promotionView(this.s, life).check.ok) ||
-        needsAttention(life);
-      badge.journal = life.events.length > 0;
-    }
-    if (life?.watching) badge.here = true;
+    const marks = badges(ui);
     return html`<nav class="cq-tabs" aria-label="Your life">
-      ${TABS.map(
-        (t) =>
-          html`<button
-            class="cq-tab ${cur?.k === "tab" && cur.tab === t.id ? "on" : ""}"
-            aria-pressed=${cur?.k === "tab" && cur.tab === t.id}
-            @click=${() =>
-              cur?.k === "tab" && cur.tab === t.id
-                ? (this.stack = [])
-                : this.open({ k: "tab", tab: t.id })}
-          >
-            ${t.icon()}<span>${t.label}</span>${badge[t.id]
-              ? html`<i class="cq-dot" aria-label="needs attention"></i>`
-              : nothing}
-          </button>`,
-      )}
+      ${TAB_DEFS.map((t) => {
+        const on = cur?.k === "tab" && cur.tab === t.id;
+        const n = marks.get(t.id) ?? 0;
+        return html`<button
+          class="cq-tab ${on ? "on" : ""}"
+          aria-pressed=${on}
+          title=${t.blurb}
+          @click=${() =>
+            on ? (this.stack = []) : this.open({ k: "tab", tab: t.id })}
+        >
+          ${t.icon()}<span>${t.label}</span>${n
+            ? html`<i class="cq-dot" aria-label="needs attention"></i>`
+            : nothing}
+        </button>`;
+      })}
     </nav>`;
   }
 

@@ -89,6 +89,7 @@ import {
   provLink,
   section,
 } from "./Context";
+import { term } from "./Terms";
 
 /** Run a command that tells a story, then show the scene of it. */
 async function scene(
@@ -153,9 +154,11 @@ export function workNotes(ui: GameUi): TemplateResult {
     </p>
     ${def.crime
       ? html`<p class="small cq-lv-crimeline">
-          <span>Notoriety <b>${Math.floor(notorietyOf(life))}</b></span>
           <span
-            >The law here:
+            >${term("notoriety")} <b>${Math.floor(notorietyOf(life))}</b></span
+          >
+          <span
+            >${term("heat", "The law here")}:
             ${heatBadge(heatOf(life, nation))}${watchLine(ui, life.prov)}</span
           >
         </p>`
@@ -176,7 +179,7 @@ function watchLine(ui: GameUi, p: number): TemplateResult {
     >`;
 }
 
-function heatBadge(heat: number): TemplateResult {
+export function heatBadge(heat: number): TemplateResult {
   const cls = heat >= 45 ? "hot" : heat >= 20 ? "warm" : "cool";
   const word =
     heat >= 45
@@ -228,7 +231,7 @@ export function takeUpRows(
           >
             ${takeUpLabel(k)}
           </button>`}
-      ${!check.ok
+      ${!check.ok && !(life.job && /already/.test(check.why))
         ? html`<span class="cq-why cq-lv-why">${check.why}</span>`
         : nothing}
     </li>`;
@@ -240,7 +243,7 @@ export function takeUpRows(
 let tradeGroup: JobGroup | "all" = "all";
 
 /** Every trade your people follow, how to get into it, and what it's good for. */
-export function tradesPage(ui: GameUi): TemplateResult {
+export function tradesPage(ui: GameUi, head = true): TemplateResult {
   const s = ui.s;
   const life = ui.life;
   if (!life || !ui.me) return html`<p class="cq-empty">You're watching.</p>`;
@@ -248,14 +251,16 @@ export function tradesPage(ui: GameUi): TemplateResult {
   const groups = JOB_GROUPS.filter((g) => all.some((t) => t.group === g.id));
   const list =
     tradeGroup === "all" ? all : all.filter((t) => t.group === tradeGroup);
-  return html`<header class="cq-panel-head">
-      <h2 class="cq-h1">Every trade</h2>
-      <p class="cq-muted small">
-        Where each line of work is done, who takes people on (or whether you can
-        set up on your own), the ladder, what it asks and what it's good for. Go
-        to the place in a town that has it and ask, or take it up yourself.
-      </p>
-    </header>
+  return html`${head
+      ? html`<header class="cq-panel-head">
+          <h2 class="cq-h1">Every trade</h2>
+        </header>`
+      : nothing}
+    <p class="cq-muted small">
+      Where each line of work is done, who takes people on (or whether you can
+      set up on your own), the ladder, what it asks and what it's good for. Go
+      to the place in a town that has it and ask, or take it up yourself.
+    </p>
     <nav class="cq-lv-chips" aria-label="Kinds of work">
       ${[{ id: "all" as const, name: "All" }, ...groups].map(
         (g) =>
@@ -319,11 +324,11 @@ export function tradesPage(ui: GameUi): TemplateResult {
     </ul>`;
 }
 
-/** A link to the list of every trade. */
+/** A link to the list of every trade (Work › Find work). */
 export function tradesLink(ui: GameUi): TemplateResult {
   return html`<button
     class="cq-link cq-lv-tradeslink"
-    @click=${() => ui.open({ k: "life", page: "trades" })}
+    @click=${() => ui.open({ k: "tab", tab: "work", sub: "find" })}
   >
     Every trade, and how to get into it ›
   </button>`;
@@ -331,7 +336,36 @@ export function tradesLink(ui: GameUi): TemplateResult {
 
 // ---------------------------------------------------------------- what a place offers
 
-/** Everything round 11 adds to a place: the law, people for hire, contracts, boats. */
+/**
+ * Something a place offers beyond its everyday acts (r11 wave 2): the law or
+ * the underworld, people for hire, contracts, the boatyard. The Here page
+ * folds each under a header that says how many; the Work, People and Estate
+ * pages list them for every place in town.
+ */
+export interface PlacePart {
+  key: string;
+  title: string;
+  count: number;
+  /** A short note beside the title (your strength, how many you keep). */
+  note?: string;
+  body: TemplateResult;
+  /** Open by default (the den's business at the den). */
+  open?: boolean;
+}
+
+/** Do something at a place in this town: step into it first if you're elsewhere. */
+export async function atPlace(
+  ui: GameUi,
+  area: PlaceKind,
+  c: Parameters<GameUi["cmd"]>[0],
+): Promise<void> {
+  const life = ui.life;
+  if (life && life.area !== area && !(await ui.cmd({ k: "enter", area })))
+    return;
+  await scene(ui, c);
+}
+
+/** Everything round 11 adds to a place, each part under its own heading. */
 export function placeBlocks(
   ui: GameUi,
   p: number,
@@ -339,11 +373,29 @@ export function placeBlocks(
 ): TemplateResult {
   const life = ui.life!;
   if (life.travel) return html``;
-  return html`${crimeBlock(ui, p, area)} ${hireBlock(ui, p, area)}
-  ${contractsBlock(ui, p, area)} ${boatyardBlock(ui, p, area)}`;
+  const parts = [
+    crimePart(ui, p, area),
+    hirePart(ui, p, area),
+    contractsPart(ui, p, area),
+    boatyardPart(ui, p, area),
+  ].filter((x): x is PlacePart => !!x);
+  return html`${parts.map(
+    (x) =>
+      html`<h4 class="cq-area-h">
+          ${x.title}
+          ${x.note
+            ? html`<span class="cq-muted small">${x.note}</span>`
+            : nothing}
+        </h4>
+        ${x.body}`,
+  )}`;
 }
 
-function crimeBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
+export function crimePart(
+  ui: GameUi,
+  p: number,
+  area: PlaceKind,
+): PlacePart | null {
   const s = ui.s;
   const life = ui.life!;
   const acts = CRIME_ACTS.filter((a) => a.places.includes(area));
@@ -367,135 +419,149 @@ function crimeBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
             arrestCheck(s, life, l.c).ok,
         )
       : [];
-  if (!shown.length && !wanted.length) return html``;
-  return html`<h4 class="cq-area-h">
-      ${area === "den"
+  if (!shown.length && !wanted.length) return null;
+  return {
+    key: "crime",
+    title:
+      area === "den"
         ? "The den's business"
         : area === "gaol"
           ? "The law"
-          : "On the quiet"}
-    </h4>
-    ${area === "den" || area === "gaol"
-      ? html`<p class="small cq-lv-crimeline">
-          <span>Your notoriety <b>${Math.floor(notorietyOf(life))}</b></span>
-          <span
-            >The law here:
-            ${heatBadge(heatOf(life, lawAt(s, p)))}${watchLine(ui, p)}</span
+          : "On the quiet",
+    count: shown.length + wanted.length,
+    open: area === "den" || area === "gaol",
+    body: html`${area === "den" || area === "gaol"
+        ? html`<p class="small cq-lv-crimeline">
+            <span
+              >Your ${term("notoriety", "notoriety")}
+              <b>${Math.floor(notorietyOf(life))}</b></span
+            >
+            <span
+              >${term("heat", "The law here")}:
+              ${heatBadge(heatOf(life, lawAt(s, p)))}${watchLine(ui, p)}</span
+            >
+          </p>`
+        : nothing}
+      <div class="cq-acts">
+        ${shown.map(({ a, check }) => {
+          const o = crimeActOdds(s, life, a.key);
+          const cost = a.cost?.(s, life) ?? 0;
+          return html`<button
+            class="cq-act-btn ${a.jailed ? "lit" : ""} ${check.ok
+              ? ""
+              : "has-why"}"
+            ?disabled=${!check.ok}
+            title=${check.ok ? a.text : `${check.why} ${a.text}`}
+            @click=${() =>
+              atPlace(ui, area, { k: a.law ? "law" : "crime", act: a.key })}
           >
-        </p>`
-      : nothing}
-    <div class="cq-acts">
-      ${shown.map(({ a, check }) => {
-        const o = crimeActOdds(s, life, a.key);
-        const cost = a.cost?.(s, life) ?? 0;
-        return html`<button
-          class="cq-act-btn ${a.jailed ? "lit" : ""} ${check.ok
-            ? ""
-            : "has-why"}"
-          ?disabled=${!check.ok}
-          title=${check.ok ? a.text : `${check.why} ${a.text}`}
-          @click=${() => scene(ui, { k: a.law ? "law" : "crime", act: a.key })}
-        >
-          <span class="cq-act-label">${a.label}${cost ? ` (${cost})` : ""}</span
-          >${odds(o)}
-          <span class="cq-act-why">${check.ok ? "" : check.why}</span>
-        </button>`;
-      })}
-    </div>
-    ${wanted.length
-      ? html`<p class="small">Wanted here:</p>
-          <ul class="cq-lv-list">
-            ${wanted.map(
-              (l) =>
-                html`<li>
-                  ${charLink(ui, s.chars[l.c])}
-                  <span class="cq-muted small"
-                    >${heatBadge(heatOf(l, lawAt(s, p)))}</span
-                  >
-                  <button
-                    class="cq-btn small rough"
-                    @click=${() =>
-                      scene(ui, { k: "law", act: "arrest", c: l.c })}
-                  >
-                    Arrest
-                  </button>
-                </li>`,
-            )}
-          </ul>`
-      : nothing}`;
+            <span class="cq-act-label"
+              >${a.label}${cost ? ` (${cost})` : ""}</span
+            >${odds(o)}
+            <span class="cq-act-why">${check.ok ? "" : check.why}</span>
+          </button>`;
+        })}
+      </div>
+      ${wanted.length
+        ? html`<p class="small">Wanted here:</p>
+            <ul class="cq-lv-list">
+              ${wanted.map(
+                (l) =>
+                  html`<li>
+                    ${charLink(ui, s.chars[l.c])}
+                    <span class="cq-muted small"
+                      >${heatBadge(heatOf(l, lawAt(s, p)))}</span
+                    >
+                    <button
+                      class="cq-btn small rough"
+                      @click=${() =>
+                        atPlace(ui, area, { k: "law", act: "arrest", c: l.c })}
+                    >
+                      Arrest
+                    </button>
+                  </li>`,
+              )}
+            </ul>`
+        : nothing}`,
+  };
 }
 
 function initials(first: string, family: string): string {
   return `${first[0] ?? ""}${family.replace(/^of the /, "")[0] ?? ""}`;
 }
 
-function hireBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
+export function hirePart(
+  ui: GameUi,
+  p: number,
+  area: PlaceKind,
+): PlacePart | null {
   const s = ui.s;
   const life = ui.life!;
-  if (isChildLife(s, life)) return html``;
-  if (area === "den" && !knowsDen(life, p)) return html``;
+  if (isChildLife(s, life)) return null;
+  if (area === "den" && !knowsDen(life, p)) return null;
   const list = candidatesAt(s, ui.w, life, p, area).filter(
     (c) =>
       !life.cooldowns[
         `people:hired:${p}:${Math.floor(s.day / 30)}:${area}:${c.slot}`
       ],
   );
-  if (!list.length) return html``;
+  if (!list.length) return null;
   const check = hireCheck(s, ui.w, life, area);
-  return html`<h4 class="cq-area-h">
-      People for hire
-      <span class="cq-muted small"
-        >${peopleOf(life).length} of ${followerCap(s, life)} in your
-        service</span
-      >
-    </h4>
-    <ul class="cq-lv-list cq-lv-hire">
-      ${list.map((c) => {
-        const def = FOLLOWER_KINDS[c.kind];
-        return html`<li>
-          <span class="cq-lv-mono ${c.kind}" aria-hidden="true"
-            >${initials(c.first, c.family)}</span
-          >
-          <span class="cq-folk-text">
-            <b>${c.first} ${c.family}, ${def.ranks[0].toLowerCase()}</b>
-            <span class="cq-muted small"
-              >${c.age}, ${c.note}; ${SKILL_NAMES[def.skill].toLowerCase()}
-              ${c.skill};
-              ${c.kind === "rogue"
-                ? `${Math.round(c.share * 100)}% of the take`
-                : `${c.wage} a month`}</span
+  return {
+    key: "hire",
+    title: "People for hire",
+    count: list.length,
+    note: `${peopleOf(life).length} of ${followerCap(s, life)} in your service`,
+    body: html`<ul class="cq-lv-list cq-lv-hire">
+        ${list.map((c) => {
+          const def = FOLLOWER_KINDS[c.kind];
+          return html`<li>
+            <span class="cq-lv-mono ${c.kind}" aria-hidden="true"
+              >${initials(c.first, c.family)}</span
             >
-          </span>
-          <button
-            class="cq-btn small cq-ask ${check.ok ? "primary" : ""}"
-            ?disabled=${!check.ok}
-            title=${check.ok ? def.text : check.why}
-            @click=${() => scene(ui, { k: "people", act: "hire", arg: c.slot })}
-          >
-            Hire
-          </button>
-        </li>`;
-      })}
-    </ul>
-    ${!check.ok ? html`<p class="cq-why small">${check.why}</p>` : nothing}`;
+            <span class="cq-folk-text">
+              <b>${c.first} ${c.family}, ${def.ranks[0].toLowerCase()}</b>
+              <span class="cq-muted small"
+                >${c.age}, ${c.note}; ${SKILL_NAMES[def.skill].toLowerCase()}
+                ${c.skill};
+                ${c.kind === "rogue"
+                  ? `${Math.round(c.share * 100)}% of the take`
+                  : `${c.wage} a month`}</span
+              >
+            </span>
+            <button
+              class="cq-btn small cq-ask ${check.ok ? "primary" : ""}"
+              ?disabled=${!check.ok}
+              title=${check.ok ? def.text : check.why}
+              @click=${() =>
+                atPlace(ui, area, { k: "people", act: "hire", arg: c.slot })}
+            >
+              Hire
+            </button>
+          </li>`;
+        })}
+      </ul>
+      ${!check.ok ? html`<p class="cq-why small">${check.why}</p>` : nothing}`,
+  };
 }
 
-function contractsBlock(
+export function contractsPart(
   ui: GameUi,
   p: number,
   area: PlaceKind,
-): TemplateResult {
+): PlacePart | null {
   const s = ui.s;
   const life = ui.life!;
-  if (isChildLife(s, life)) return html``;
+  if (isChildLife(s, life)) return null;
   const offers = offeredHere(s, ui.w, life, area);
-  if (!offers.length) return html``;
+  if (!offers.length) return null;
   const mine = strengthOf(s, life);
-  return html`<h4 class="cq-area-h">
-      Contracts
-      <span class="cq-muted small">your strength ${mine}</span>
-    </h4>
-    <ul class="cq-lv-list cq-lv-contracts">
+  return {
+    key: "contracts",
+    title: "Contracts",
+    count: offers.length,
+    note: `your strength ${mine}`,
+    body: html`<ul class="cq-lv-list cq-lv-contracts">
       ${offers.map((c) => {
         const check = takeCheck(s, ui.w, life, c);
         return html`<li>
@@ -512,95 +578,108 @@ function contractsBlock(
             class="cq-btn small cq-ask ${check.ok ? "primary" : ""}"
             ?disabled=${!check.ok}
             title=${check.ok ? "Take it on" : check.why}
-            @click=${() => scene(ui, { k: "contract", act: "take", id: c.id })}
+            @click=${() =>
+              atPlace(ui, area, { k: "contract", act: "take", id: c.id })}
           >
             Take it
           </button>
         </li>`;
       })}
-    </ul>`;
+    </ul>`,
+  };
 }
 
-function boatyardBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
-  const s = ui.s;
+/** Your boats lying here (shown with the place, not folded away). */
+export function boatsHere(
+  ui: GameUi,
+  p: number,
+  area: PlaceKind,
+): TemplateResult {
   const life = ui.life!;
   if (area !== "docks" && !(area === "village" && ui.map.provinces[p].coastal))
     return html``;
-  const kinds = boatyard(s, ui.w, p);
-  const used = area === "docks" ? usedBoats(s, ui.w, p) : [];
   const here = boatsOf(life).filter(
     (b) => b.prov === p && life.travel?.boat !== b.id,
   );
-  if (!kinds.length && !here.length) return html``;
-  return html`${here.map((b) => boatCard(ui, b.id, true))}
-  ${kinds.length
-    ? html`<h4 class="cq-area-h">The boatyard</h4>
-        <ul class="cq-lv-list cq-lv-boats">
-          ${kinds.map((k) => {
-            const def = BOATS[k];
-            const price = boatPrice(s, life, k);
-            const check = buyCheck(s, ui.w, life, k, price);
-            return html`<li>
-              ${boatGlyph(k)}
-              <span class="cq-folk-text">
-                <b>A ${def.name.toLowerCase()}, new</b>
-                <span class="cq-muted small"
-                  >${def.loads} loads, ${def.berths} berths,
-                  ${def.crew
-                    ? `${plural(def.crew, "hand")} to sail`
-                    : "no crew"},
-                  ${def.speed > 1
-                    ? "quick"
-                    : def.speed < 1
-                      ? "slow"
-                      : "steady"};
-                  keep
-                  ${Math.round((def.upkeep + def.crew * CREW_WAGE) * 10) / 10} a
-                  month with her crew. ${def.text}</span
-                >
-              </span>
-              <button
-                class="cq-btn small cq-ask ${check.ok ? "primary" : ""}"
-                ?disabled=${!check.ok}
-                title=${check.ok ? "" : check.why}
-                @click=${() =>
-                  scene(ui, { k: "boat", act: "buy", kind: k, arg: -1 })}
-              >
-                Buy ${price}
-              </button>
-            </li>`;
-          })}
-          ${used.map((u) => {
-            const check = buyCheck(s, ui.w, life, u.kind, u.price);
-            return html`<li>
-              ${boatGlyph(u.kind)}
-              <span class="cq-folk-text">
-                <b
-                  >The ${u.name}, a second-hand
-                  ${BOATS[u.kind].name.toLowerCase()}</b
-                >
-                <span class="cq-muted small"
-                  >${u.condition}% sound; ${u.quirk}.</span
-                >
-              </span>
-              <button
-                class="cq-btn small cq-ask ${check.ok ? "primary" : ""}"
-                ?disabled=${!check.ok}
-                title=${check.ok ? "" : check.why}
-                @click=${() =>
-                  scene(ui, {
-                    k: "boat",
-                    act: "buy",
-                    kind: u.kind,
-                    arg: u.slot,
-                  })}
-              >
-                Buy ${u.price}
-              </button>
-            </li>`;
-          })}
-        </ul>`
-    : nothing}`;
+  return html`${here.map((b) => boatCard(ui, b.id, true))}`;
+}
+
+export function boatyardPart(
+  ui: GameUi,
+  p: number,
+  area: PlaceKind,
+): PlacePart | null {
+  const s = ui.s;
+  const life = ui.life!;
+  if (area !== "docks" && !(area === "village" && ui.map.provinces[p].coastal))
+    return null;
+  const kinds = boatyard(s, ui.w, p);
+  const used = area === "docks" ? usedBoats(s, ui.w, p) : [];
+  if (!kinds.length && !used.length) return null;
+  return {
+    key: "boatyard",
+    title: area === "docks" ? "The boatyard" : "Canoes",
+    count: kinds.length + used.length,
+    note: `you have ${Math.floor(life.purse)} coins`,
+    body: html`<ul class="cq-lv-list cq-lv-boats">
+      ${kinds.map((k) => {
+        const def = BOATS[k];
+        const price = boatPrice(s, life, k);
+        const check = buyCheck(s, ui.w, life, k, price);
+        return html`<li>
+          ${boatGlyph(k)}
+          <span class="cq-folk-text">
+            <b>A ${def.name.toLowerCase()}, new</b>
+            <span class="cq-muted small"
+              >${def.loads} loads, ${def.berths} berths,
+              ${def.crew ? `${plural(def.crew, "hand")} to sail` : "no crew"},
+              ${def.speed > 1 ? "quick" : def.speed < 1 ? "slow" : "steady"};
+              keep ${Math.round((def.upkeep + def.crew * CREW_WAGE) * 10) / 10}
+              a month with her crew. ${def.text}</span
+            >
+          </span>
+          <button
+            class="cq-btn small cq-ask ${check.ok ? "primary" : ""}"
+            ?disabled=${!check.ok}
+            title=${check.ok ? "" : check.why}
+            @click=${() =>
+              atPlace(ui, area, { k: "boat", act: "buy", kind: k, arg: -1 })}
+          >
+            Buy ${price}
+          </button>
+        </li>`;
+      })}
+      ${used.map((u) => {
+        const check = buyCheck(s, ui.w, life, u.kind, u.price);
+        return html`<li>
+          ${boatGlyph(u.kind)}
+          <span class="cq-folk-text">
+            <b
+              >The ${u.name}, a second-hand
+              ${BOATS[u.kind].name.toLowerCase()}</b
+            >
+            <span class="cq-muted small"
+              >${u.condition}% sound; ${u.quirk}.</span
+            >
+          </span>
+          <button
+            class="cq-btn small cq-ask ${check.ok ? "primary" : ""}"
+            ?disabled=${!check.ok}
+            title=${check.ok ? "" : check.why}
+            @click=${() =>
+              atPlace(ui, area, {
+                k: "boat",
+                act: "buy",
+                kind: u.kind,
+                arg: u.slot,
+              })}
+          >
+            Buy ${u.price}
+          </button>
+        </li>`;
+      })}
+    </ul>`,
+  };
 }
 
 /** A small drawn hull for a kind of boat (one mast, two, three). */
@@ -627,7 +706,11 @@ export function boatGlyph(kind: string): TemplateResult {
 }
 
 /** One of your boats: where she lies, her crew, her work; managed when you're aboard. */
-function boatCard(ui: GameUi, id: number, here: boolean): TemplateResult {
+export function boatCard(
+  ui: GameUi,
+  id: number,
+  here: boolean,
+): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
   const b = boatsOf(life).find((x) => x.id === id);
@@ -837,15 +920,9 @@ export function jailCallout(ui: GameUi): TemplateResult {
   </div>`;
 }
 
-// ---------------------------------------------------------------- the people page (Affairs)
+// ---------------------------------------------------------------- your people, company, boats, contracts, the law
 
-/** Your people, your company, your boats, your contracts and the law: for Affairs. */
-export function affairsSections(ui: GameUi): TemplateResult {
-  return html`${peopleSection(ui)} ${companySection(ui)} ${boatsSection(ui)}
-  ${contractsSection(ui)} ${lawSection(ui)}`;
-}
-
-function peopleSection(ui: GameUi): TemplateResult {
+export function peopleSection(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
   if (isChildLife(s, life)) return html``;
@@ -893,7 +970,7 @@ function peopleSection(ui: GameUi): TemplateResult {
                   class="cq-lv-loyal ${lowLoyal ? "bad" : ""}"
                   title="Loyalty ${Math.round(
                     f.loyalty,
-                  )}: below 20 they may leave (or worse)"
+                  )}: below 15 they may leave in any month (and two months unpaid, for certain); a clerk below 25 may run off with your stake"
                   >${bar(f.loyalty / 100)}</span
                 >
               </div>
@@ -988,7 +1065,7 @@ function peopleSection(ui: GameUi): TemplateResult {
   );
 }
 
-function companySection(ui: GameUi): TemplateResult {
+export function companySection(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
   const co = life.company;
@@ -1022,8 +1099,8 @@ function companySection(ui: GameUi): TemplateResult {
         ${co.inPay ? "in the colony's pay" : `${pay} a month`}</span
       >`,
     html`<div class="cq-lv-gauges small">
-        <span>Drill ${bar(co.drill)}</span>
-        <span>Spirits ${bar(co.morale)}</span>
+        <span>${term("drill", "Drill")} ${bar(co.drill)}</span>
+        <span>${term("drill", "Spirits")} ${bar(co.morale)}</span>
         <span
           >${army
             ? html`In the field at ${provLink(ui, army.prov)}`
@@ -1083,7 +1160,7 @@ function companySection(ui: GameUi): TemplateResult {
   );
 }
 
-function boatsSection(ui: GameUi): TemplateResult {
+export function boatsSection(ui: GameUi): TemplateResult {
   const life = ui.life!;
   const list = boatsOf(life);
   if (!list.length) return html``;
@@ -1095,7 +1172,7 @@ function boatsSection(ui: GameUi): TemplateResult {
   );
 }
 
-function contractsSection(ui: GameUi): TemplateResult {
+export function contractsSection(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
   const all = life.contracts ?? [];
@@ -1158,7 +1235,7 @@ function contractsSection(ui: GameUi): TemplateResult {
   );
 }
 
-function lawSection(ui: GameUi): TemplateResult {
+export function lawSection(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
   const c = life.crime;
@@ -1172,8 +1249,7 @@ function lawSection(ui: GameUi): TemplateResult {
     lawman ? "The law" : "The law and the underworld",
     html`<div class="cq-lv-gauges small">
         <span
-          title="How well the underworld knows you: it opens the den, better rungs on the crooked ladders, and the band's respect; honest folk think less of you"
-          >Notoriety ${bar((c?.notoriety ?? 0) / 100)}
+          >${term("notoriety")} ${bar((c?.notoriety ?? 0) / 100)}
           ${Math.floor(c?.notoriety ?? 0)}</span
         >
         ${c?.branded ? html`<b class="bad">Branded on the thumb</b>` : nothing}

@@ -554,7 +554,7 @@ export function completeSettlement(g: ConquestGame, life: Life): void {
     g,
     life,
     f.independent
-      ? `You plant your colony at ${name}, answerable to no crown. Now give it a name, a flag and a government (Affairs).`
+      ? `You plant your colony at ${name}, answerable to no crown. Now give it a name, a flag and a government (Society › Colony).`
       : `The settlement at ${name} is planted: cabins up, fields marked out, and you its proprietor. Name its officers and see it grow.`,
     "good",
   );

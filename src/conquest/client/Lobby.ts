@@ -18,6 +18,7 @@ import {
 import deskMap from "./art/desk_map.webp?url";
 import { creditsList } from "./Credits";
 import { emblem, flag } from "./Flags";
+import { guideOverlay } from "./guide/Guide";
 import { Net } from "./Net";
 import "./Range";
 
@@ -70,6 +71,8 @@ export class Lobby extends LitElement {
     start: 1650,
   };
   @state() private code = "";
+  /** How to Play, open over the lobby (r11 wave 2). */
+  @state() private guide = false;
 
   private refresh = 0;
 
@@ -132,6 +135,15 @@ export class Lobby extends LitElement {
               rebellion or start one, sit in the assembly, rise to colonel or
               governor, or sail home rich. The colonies and nations go on around
               you. Real time with pause, alone or with friends.
+            </p>
+            <p>
+              <button class="cq-btn" @click=${() => (this.guide = true)}>
+                How to play
+              </button>
+              <span class="cq-muted small"
+                >The first hour, five example lives, and a chapter for every
+                part of the game.</span
+              >
             </p>
             ${this.online
               ? nothing
@@ -293,6 +305,9 @@ export class Lobby extends LitElement {
           </details>
         </footer>
       </div>
+      ${this.guide
+        ? guideOverlay("start", () => (this.guide = false))
+        : nothing}
     </div>`;
   }
 

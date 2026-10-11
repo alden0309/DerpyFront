@@ -10,6 +10,7 @@ import { newGameState } from "../engine/Setup";
 import type { GameState, LifePlan, StartYear } from "../engine/Types";
 import { END_YEAR, ServerMessage } from "../Protocol";
 import { flag } from "./Flags";
+import { guideOverlay } from "./guide/Guide";
 import { settingsFields } from "./Lobby";
 import "./Maker";
 import { Net } from "./Net";
@@ -40,6 +41,8 @@ export class Room extends LitElement {
 
   @state() private sent: string | null = null;
   @state() private copied = false;
+  /** How to Play, open over the register (r11 wave 2). */
+  @state() private guide: string | null = null;
 
   createRenderRoot() {
     return this;
@@ -99,6 +102,13 @@ export class Room extends LitElement {
                   ${this.copied ? "Link copied" : "Copy invite link"}
                 </button>`
               : nothing}
+            <button
+              class="cq-btn"
+              @click=${() => (this.guide = "maker")}
+              title="How to Play: making a character, the first hour, and every part of the game"
+            >
+              How to play
+            </button>
             <button class="cq-btn quiet" @click=${() => this.leave()}>
               Leave
             </button>
@@ -112,14 +122,20 @@ export class Room extends LitElement {
               .signed=${me?.made ? this.sent : null}
               .signLabel=${me?.made ? "Sign the changes" : "Sign the register"}
               .intro=${html`A register of persons setting out for the Americas,
-              in the year ${start}. Everything here has a roll button: make as
-              much or as little of it as you like.`}
+                in the year ${start}. Everything here has a roll button: make as
+                much or as little of it as you like.
+                <button class="cq-link" @click=${() => (this.guide = "maker")}>
+                  What each choice means ›
+                </button>`}
               @cq-plan=${(e: CustomEvent<LifePlan>) => this.sign(e.detail)}
             ></cq-maker>
           </div>
           <aside class="cq-room-side">${this.side()}</aside>
         </div>
       </div>
+      ${this.guide !== null
+        ? guideOverlay(this.guide, () => (this.guide = null))
+        : nothing}
     </div>`;
   }
 

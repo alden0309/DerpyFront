@@ -715,7 +715,7 @@ ACTS.push(
     key: "shares",
     places: ["market"],
     label: "Buy shares in a company",
-    text: "A stake in one of the great trading companies: a dividend every month, a price that rises and falls, and now and then a bubble that bursts. Sell whenever you like (Affairs).",
+    text: "A stake in one of the great trading companies: a dividend every month, a price that rises and falls, and now and then a bubble that bursts. Sell whenever you like (Estate › Purse).",
     cooldown: 30,
     when: (s, w, life) => ventureCheck(s, life, "shares"),
   },

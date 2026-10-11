@@ -30,6 +30,7 @@ import {
   stationOf,
 } from "../../engine/LifeQueries";
 import {
+  ATTRIBUTE_HELP,
   ATTRIBUTE_NAMES,
   LIFE_TRAIT_TEXT,
   LIFESTYLES,
@@ -63,10 +64,11 @@ import {
 import { roleOf, verdictChip } from "./Here";
 import { personR11 } from "./Livelihood";
 import { sittingPrompt } from "./Sitting";
-import { personSociety, tonguesSection } from "./Society"; // SOCIETY (r11)
+import { personSociety } from "./Society"; // SOCIETY (r11)
 import { steadySet } from "./Steady";
+import { term, termMark } from "./Terms";
 
-function traitChips(c: Character, life = false): TemplateResult {
+export function traitChips(c: Character, life = false): TemplateResult {
   if (c.traits.length === 0)
     return html`<span class="cq-muted small">No marked traits.</span>`;
   return html`<span class="cq-traits">
@@ -81,15 +83,18 @@ function traitChips(c: Character, life = false): TemplateResult {
   </span>`;
 }
 
-function meter(
-  label: string,
+export function meter(
+  label: string | TemplateResult,
   v: number,
   max: number,
   tip: string,
   invert = false,
 ): TemplateResult {
   const f = v / max;
-  return html`<div class="cq-meter" title=${tip}>
+  return html`<div
+    class="cq-meter"
+    title=${typeof label === "string" ? tip : ""}
+  >
     <span class="cq-meter-label">${label}</span>
     ${bar(invert ? 1 - f : f, invert ? "invert" : "")}
     <span class="cq-meter-n">${Math.round(v)}</span>
@@ -98,7 +103,7 @@ function meter(
 
 /** The You tab. */
 /** Your work, what you're after and what you own, at a glance. */
-function glance(ui: GameUi): TemplateResult {
+export function glance(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
   const a = life.ambition;
@@ -113,9 +118,11 @@ function glance(ui: GameUi): TemplateResult {
         ? `${pr.level * 10} acres`
         : pr.name.toLowerCase(),
   );
-  const toAffairs = () => ui.open({ k: "tab", tab: "affairs" });
   return html`<div class="cq-glance">
-    <button class="cq-glance-item" @click=${toAffairs}>
+    <button
+      class="cq-glance-item"
+      @click=${() => ui.open({ k: "tab", tab: "work", sub: "job" })}
+    >
       <span class="cq-meter-label">Work</span>
       <span>${life.job ? jobTitle(life) : "None"}</span>
       ${life.job
@@ -125,14 +132,20 @@ function glance(ui: GameUi): TemplateResult {
           >`
         : html`<span class="cq-muted small">ask someone who hires</span>`}
     </button>
-    <button class="cq-glance-item" @click=${toAffairs}>
+    <button
+      class="cq-glance-item"
+      @click=${() => ui.open({ k: "tab", tab: "you", sub: "ambition" })}
+    >
       <span class="cq-meter-label">Ambition</span>
       <span>${def?.name ?? "None set"}</span>
       ${prog
         ? bar(prog[1] > 0 ? prog[0] / prog[1] : 0, "xp")
         : html`<span class="cq-muted small">choose one</span>`}
     </button>
-    <button class="cq-glance-item" @click=${toAffairs}>
+    <button
+      class="cq-glance-item"
+      @click=${() => ui.open({ k: "tab", tab: "estate", sub: "house" })}
+    >
       <span class="cq-meter-label">Property</span>
       <span
         >${owned.length
@@ -143,6 +156,7 @@ function glance(ui: GameUi): TemplateResult {
   </div>`;
 }
 
+/** You › Yourself: who you are, how you're keeping, what you're good at. */
 export function youTab(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life;
@@ -153,7 +167,6 @@ export function youTab(ui: GameUi): TemplateResult {
     </p>`;
   const native = isNativeChar(s, me);
   const budget = monthlyBudget(s, ui.w, life);
-  const cost = lifestyleCost(s, life);
   const child = isChildLife(s, life);
   const station = stationOf(s, life);
   return html`<header class="cq-sheet-top">
@@ -174,25 +187,30 @@ export function youTab(ui: GameUi): TemplateResult {
     </header>
     <div class="cq-meters">
       ${meter(
-        "Health",
+        term("health"),
         life.health,
         100,
         "0 is death. Rest, physic and good living mend it; age, fever and wounds wear it.",
       )}
       ${meter(
-        "Stress",
+        term("stress"),
         life.stress,
         100,
         "At 70 your health and judgement suffer. Drink, prayer, rest and good company bring it down.",
         true,
       )}
       <div class="cq-meter">
-        <span class="cq-meter-label">Renown</span>
-        <span class="cq-meter-big">${plain(life.renown)}</span>
-        <span class="cq-muted small">favour at court ${plain(life.favor)}</span>
+        <span class="cq-meter-label">${term("renown")}</span>
+        ${term("renown", plain(life.renown), "cq-meter-big")}
+        <span class="cq-muted small"
+          >${term(
+            "favour",
+            `${native ? "elders' regard" : "favour at home"} ${plain(life.favor)}`,
+          )}</span
+        >
       </div>
       <div class="cq-meter">
-        <span class="cq-meter-label">Purse</span>
+        <span class="cq-meter-label">${term("purse")}</span>
         <span class="cq-meter-big">${plain(life.purse)}</span>
         ${num(
           `${budget.total >= 0 ? "+" : ""}${plain(budget.total)} a month`,
@@ -202,64 +220,45 @@ export function youTab(ui: GameUi): TemplateResult {
       </div>
     </div>
     ${child ? nothing : glance(ui)}
-    ${section(
-      "How you live",
-      html`<div
-          class="cq-seg cq-living"
-          role="radiogroup"
-          aria-label="Way of living"
-        >
-          ${LIFESTYLES.map(
-            (l) =>
-              html`<button
-                role="radio"
-                aria-checked=${life.lifestyle === l}
-                class=${!child && station.expected === l ? "expected" : ""}
-                title=${livingOf(native, l).text}
-                @click=${() => ui.cmd({ k: "lifestyle", v: l })}
-              >
-                ${livingOf(native, l).name}
-              </button>`,
-          )}
-        </div>
-        <p class="cq-muted small">
-          ${livingOf(native, life.lifestyle).text}
-          ${num(`${plain(cost.total)} a month`, () =>
-            breakdownTip("Living costs", cost),
-          )}
-        </p>
-        ${child
-          ? nothing
-          : html`<p class="small cq-station-line">
-              Among <b>${station.name}</b>,
-              ${station.expected === life.lifestyle
-                ? "living as expected"
-                : LIFESTYLES.indexOf(life.lifestyle) <
-                    LIFESTYLES.indexOf(station.expected)
-                  ? html`<span class="bad"
-                      >expected to live
-                      ${livingOf(native, station.expected).name.toLowerCase()}
-                      (marked)</span
-                    >`
-                  : "living above your station"}.
-              <button
-                class="cq-link small"
-                @click=${() => ui.open({ k: "tab", tab: "affairs" })}
-              >
-                Your purse
-              </button>
-            </p>`}`,
-    )}
+    ${child
+      ? nothing
+      : html`<p class="small cq-station-line">
+          ${term("station", "Station")}: among <b>${station.name}</b>. How you
+          live:
+          <b>${livingOf(native, life.lifestyle).name}</b>${station.expected ===
+          life.lifestyle
+            ? ", as they expect"
+            : LIFESTYLES.indexOf(life.lifestyle) <
+                LIFESTYLES.indexOf(station.expected)
+              ? html`;
+                  <span class="bad"
+                    >they expect
+                    ${livingOf(
+                      native,
+                      station.expected,
+                    ).name.toLowerCase()}</span
+                  >`
+              : ", above what they expect"}.
+          <button
+            class="cq-link small"
+            @click=${() => ui.open({ k: "tab", tab: "estate", sub: "purse" })}
+          >
+            Change how you live ›
+          </button>
+        </p>`}
     ${section(
       "Attributes",
       html`<div class="cq-attrs">
         ${STATS.map((st) => {
           const b = statOf(s, me, st);
-          return html`<div class="cq-attr">
+          return html`<div class="cq-attr" title=${ATTRIBUTE_HELP[st]}>
             <span class="cq-stat-label">${ATTRIBUTE_NAMES[st]}</span>
             ${num(
               String(b.total),
-              () => breakdownTip(ATTRIBUTE_NAMES[st], b),
+              () =>
+                breakdownTip(ATTRIBUTE_NAMES[st], b, undefined, [
+                  ATTRIBUTE_HELP[st],
+                ]),
               "cq-stat-value",
             )}
           </div>`;
@@ -267,7 +266,7 @@ export function youTab(ui: GameUi): TemplateResult {
       </div>`,
     )}
     ${section(
-      "Skills",
+      html`Skills ${termMark("skills")}`,
       html`<ul class="cq-skills">
         ${SKILLS.map((sk) => {
           const b = skillOf(s, life, sk);
@@ -280,6 +279,7 @@ export function youTab(ui: GameUi): TemplateResult {
               String(b.total),
               () =>
                 breakdownTip(SKILL_NAMES[sk], b, undefined, [
+                  SKILL_HELP[sk],
                   `${Math.floor(xp)} of ${need} toward the next level.`,
                 ]),
               "cq-skill-n",
@@ -298,8 +298,6 @@ export function youTab(ui: GameUi): TemplateResult {
           )}
         </ul>`,
     )}
-    ${familySection(ui, me)} ${tiesSection(ui)} ${tonguesSection(ui)}
-    ${goodsSection(ui)}
     ${child
       ? html`<p class="cq-callout small">
           A child of ${ageOfLife(s, life)}: you can't work, marry or hold office
@@ -308,7 +306,51 @@ export function youTab(ui: GameUi): TemplateResult {
       : nothing}`;
 }
 
-function familySection(ui: GameUi, me: Character): TemplateResult {
+/** Estate › Purse: how you live, and what it costs. */
+export function livingSection(ui: GameUi): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const me = ui.me!;
+  const native = isNativeChar(s, me);
+  const cost = lifestyleCost(s, life);
+  const child = isChildLife(s, life);
+  const station = stationOf(s, life);
+  return section(
+    "How you live",
+    html`<div
+        class="cq-seg cq-living"
+        role="radiogroup"
+        aria-label="Way of living"
+      >
+        ${LIFESTYLES.map(
+          (l) =>
+            html`<button
+              role="radio"
+              aria-checked=${life.lifestyle === l}
+              class=${!child && station.expected === l ? "expected" : ""}
+              title=${livingOf(native, l).text}
+              @click=${() => ui.cmd({ k: "lifestyle", v: l })}
+            >
+              ${livingOf(native, l).name}
+            </button>`,
+        )}
+      </div>
+      <p class="cq-muted small">
+        ${livingOf(native, life.lifestyle).text}
+        ${num(`${plain(cost.total)} a month`, () =>
+          breakdownTip("Living costs", cost),
+        )}
+      </p>
+      ${child
+        ? nothing
+        : html`<p class="cq-muted small">
+            The underlined way is what your ${term("station", "station")}
+            (${station.name}) expects of you.
+          </p>`}`,
+  );
+}
+
+export function familySection(ui: GameUi, me: Character): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
   const spouse = s.chars[me.spouse];
@@ -423,7 +465,7 @@ function familySection(ui: GameUi, me: Character): TemplateResult {
   );
 }
 
-function tiesSection(ui: GameUi): TemplateResult | typeof nothing {
+export function tiesSection(ui: GameUi): TemplateResult | typeof nothing {
   const s = ui.s;
   const life = ui.life!;
   const entries = Object.entries(life.ties)
@@ -449,7 +491,7 @@ function tiesSection(ui: GameUi): TemplateResult | typeof nothing {
   );
 }
 
-function goodsSection(ui: GameUi): TemplateResult {
+export function goodsSection(ui: GameUi): TemplateResult {
   const life = ui.life!;
   const goods = Object.entries(life.goods).filter(([, v]) => (v ?? 0) > 0) as [
     Good,

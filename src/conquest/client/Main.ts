@@ -21,5 +21,8 @@ import "./steady.css";
 import "./world.css"; // WORLD r11
 // LIFE (r11): work, the law, your people, your boats, the road.
 import "./livelihood.css";
+// r11 wave 2: finding your way, and How to Play.
+import "./guide.css";
+import "./nav.css";
 
 document.body.appendChild(document.createElement("conquest-app"));

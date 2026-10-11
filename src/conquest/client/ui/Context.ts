@@ -20,10 +20,23 @@ import { portrait } from "../Portrait";
 import { nationName } from "../Text";
 import { num, plain, TipContent } from "../Tip";
 
-export type Tab = "here" | "you" | "people" | "affairs" | "journal" | "world";
+/**
+ * The ledger tabs (round 11 wave 2: Affairs split into Work, Estate and
+ * Society, so each subject has one obvious home).
+ */
+export type Tab =
+  | "here"
+  | "you"
+  | "people"
+  | "work"
+  | "estate"
+  | "society"
+  | "journal"
+  | "world";
 
 export type DrawerView =
-  | { k: "tab"; tab: Tab }
+  /** A tab, and which of its pages (sub-tabs) is open. */
+  | { k: "tab"; tab: Tab; sub?: string }
   | { k: "prov"; p: number }
   | { k: "char"; c: number }
   | { k: "army"; id: number }
@@ -55,7 +68,10 @@ export type Modal =
   // SOCIETY (r11)
   | { k: "write"; c?: number; kind?: LetterKind; arg?: number; about?: number }
   | { k: "host" }
-  | { k: "constitute" };
+  | { k: "constitute" }
+  // The UI overhaul (r11 wave 2): the guide, and "I want to…".
+  | { k: "guide"; ch?: string }
+  | { k: "finder" };
 
 export interface GameUi {
   s: GameState;

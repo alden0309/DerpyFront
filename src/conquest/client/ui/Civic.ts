@@ -61,6 +61,7 @@ import {
   token,
 } from "./Context";
 import { verdictChip } from "./Here";
+import { steadyOrder } from "./Steady";
 
 // ---------------------------------------------------------------- offices
 
@@ -288,7 +289,9 @@ export function officesPage(ui: GameUi, p: number): TemplateResult {
     </header>
     ${list.length
       ? html`<ul class="cq-offices-list">
-          ${list.map((o) => officeRow(ui, o))}
+          ${steadyOrder("offices", `${ui.visit}:${p}`, list, (o) => o.id).map(
+            (o) => officeRow(ui, o),
+          )}
         </ul>`
       : keys.length
         ? html`<p class="cq-empty">
