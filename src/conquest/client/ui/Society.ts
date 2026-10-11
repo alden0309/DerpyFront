@@ -1296,10 +1296,15 @@ export function talkLine(
   const t = talkView(ui.s, ui.w, life, c);
   const theirs = tongueName(t.theirs);
   if (t.via >= 0)
-    return html`<p class="cq-tongue-note via">
-      Through an interpreter: ${charLink(ui, ui.s.chars[t.via], false)} speaks
-      with you both. It's slow, and things are lost.
-    </p>`;
+    return t.sworn
+      ? html`<p class="cq-tongue-note via">
+          Through an interpreter: ${charLink(ui, ui.s.chars[t.via], false)}
+          interprets by trade, so little is lost.
+        </p>`
+      : html`<p class="cq-tongue-note via">
+          Through an interpreter: ${charLink(ui, ui.s.chars[t.via], false)}
+          speaks with you both. It's slow, and things are lost.
+        </p>`;
   if (t.level >= 3) return nothing;
   if (t.level === 2)
     return html`<p class="cq-tongue-note">
