@@ -86,8 +86,8 @@ import {
   tradesLink,
   workNotes,
 } from "./Livelihood";
-import { powerParts } from "./PowerParts"; // POWER (r12)
 import { playersHere, playerTag } from "./Players"; // HOME (r12)
+import { powerParts } from "./PowerParts"; // POWER (r12)
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 import { TERMS } from "./Terms";

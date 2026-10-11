@@ -45,8 +45,8 @@ import {
   subordinatesSection,
 } from "./Civic";
 import { GameUi, section, token, type Tab } from "./Context";
-import { pressPage } from "./Gazette"; // POWER (r12)
 import { familyTreeSection } from "./FamilyTree"; // HOME (r12)
+import { pressPage } from "./Gazette"; // POWER (r12)
 import { verdictChip } from "./Here";
 import { housesSection } from "./Home"; // HOME (r12)
 import { journalTab } from "./Journal";
