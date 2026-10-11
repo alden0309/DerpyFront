@@ -133,6 +133,8 @@ export interface Sitter {
   year: number;
   /** Painted in the Americas (colonists, the peoples of the country). */
   col?: boolean;
+  /** A print or drawing on paper: shown framed, never cut out of its ground. */
+  flat?: boolean;
   /** For the peoples of the country: where (woodlands, southeast, brazil...). */
   region?: string;
   /** The colours of the hair, clothes and skin as painted (for the map's walkers). */

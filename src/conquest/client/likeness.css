@@ -262,32 +262,43 @@
 }
 
 @media (max-width: 760px) {
+  /* On a phone: the face and its years, then the gallery, then the tuning. */
   .cq-lk {
-    grid-template-columns: minmax(0, 1fr);
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
   }
   .cq-lk-side {
-    position: static;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
-    gap: 0.5rem 0.8rem;
+    display: contents;
   }
   .cq-lk-preview {
-    grid-row: span 2;
+    order: 1;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.8rem;
+  }
+  .cq-lk-preview figcaption {
+    flex: 1;
+    min-width: 0;
   }
   .cq-lk-ages {
-    justify-self: start;
+    order: 2;
+    align-self: center;
+  }
+  .cq-lk-main {
+    order: 3;
   }
   .cq-lk-tune {
-    grid-column: 1 / -1;
+    order: 4;
   }
   .cq-lk-preview .cq-lk-picture.cq-portrait.huge {
-    width: 7.6rem;
-    height: 9.5rem;
+    width: 8rem;
+    height: 10rem;
   }
   .cq-lk-credit {
-    max-width: 8rem;
-    font-size: 0.7rem;
+    max-width: none;
+    text-align: left;
+    font-size: 0.85rem;
   }
   .cq-lk-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));

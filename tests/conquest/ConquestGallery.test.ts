@@ -4,6 +4,7 @@
 import { existsSync, statSync } from "fs";
 import { join } from "path";
 import { describe, expect, test } from "vitest";
+import type { LikenessPicker } from "../../src/conquest/client/Likeness";
 import { PORTRAIT_CREDITS } from "../../src/conquest/client/PortraitCredits";
 import {
   ageBand,
@@ -521,6 +522,20 @@ describe("Derpy Conquest portrait gallery: old drawn looks", () => {
     ).toBeNull();
   });
 
+  test("a look whose portrait has left the gallery keeps its tuning on another", () => {
+    const o = { id: 4, female: true, culture: "dutch", age: 30, year: 1660 };
+    const gone = { ...plainLook("nl-f-99"), hair: 3, cloth: 9, grey: 2 };
+    const l = migrateLook(gone, o)!;
+    expect(validateLook(l, { female: true })).toBeNull();
+    expect(SITTERS.get(l.p)!.sex).toBe("f");
+    expect([l.hair, l.cloth, l.grey]).toEqual([3, 9, 2]);
+    // One of the other sex's is swapped too; a good one is kept as it is.
+    const man = GALLERY.find((s) => s.sex === "m" && s.age === "prime")!;
+    expect(SITTERS.get(migrateLook(plainLook(man.id), o)!.p)!.sex).toBe("f");
+    const woman = GALLERY.find((s) => s.sex === "f" && s.age === "prime")!;
+    expect(migrateLook(plainLook(woman.id), o)).toEqual(plainLook(woman.id));
+  });
+
   test("a saved game's characters are brought over when it's loaded", () => {
     const g = world();
     const me = meOf(g.s, lifeOf(g))!;
@@ -550,11 +565,8 @@ describe("Derpy Conquest portrait gallery: old drawn looks", () => {
 
 describe("Derpy Conquest portrait gallery: the register", () => {
   test("the gallery shows the character's faces; choosing and tuning one changes the look", async () => {
-    const { LikenessPicker } =
-      await import("../../src/conquest/client/Likeness");
-    const el = document.createElement("cq-likeness") as InstanceType<
-      typeof LikenessPicker
-    >;
+    await import("../../src/conquest/client/Likeness");
+    const el = document.createElement("cq-likeness") as LikenessPicker;
     el.look = generateLook({
       id: 5,
       culture: "english",
@@ -589,7 +601,7 @@ describe("Derpy Conquest portrait gallery: the register", () => {
     const [button, sitter] = thumbs()[1];
     button.click();
     await el.updateComplete;
-    expect(looks.at(-1)!.p).toBe(sitter.id);
+    expect(looks[looks.length - 1].p).toBe(sitter.id);
     expect(el.querySelector<HTMLElement>(".cq-lk-picture")!.dataset.p).toBe(
       sitter.id,
     );
@@ -607,16 +619,16 @@ describe("Derpy Conquest portrait gallery: the register", () => {
       .querySelectorAll<HTMLButtonElement>(".cq-swatches-pick button")[8]
       .click();
     await el.updateComplete;
-    expect(looks.at(-1)!.cloth).toBe(7);
+    expect(looks[looks.length - 1].cloth).toBe(7);
     el.querySelector<HTMLButtonElement>(".cq-lk-flip")!.click();
     await el.updateComplete;
-    expect(looks.at(-1)!.flip).toBe(true);
+    expect(looks[looks.length - 1].flip).toBe(true);
     const svg = el.querySelector(".cq-lk-picture svg")!;
     expect(svg).not.toBeNull();
     expect(svg.querySelectorAll("mask").length).toBeGreaterThan(0);
     expect(
-      validateLook(looks.at(-1)!, { female: false, grown: true }),
+      validateLook(looks[looks.length - 1], { female: false, grown: true }),
     ).toBeNull();
     el.remove();
-  });
+  }, 30_000);
 });

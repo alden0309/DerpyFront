@@ -112,7 +112,8 @@ export function tuningOf(
     cloth: null,
     clothK: 0,
     flip: turned(s, look, o.facing),
-    bare: !!o.bare,
+    // Prints and drawings stay on their paper.
+    bare: !!o.bare && !s.flat,
   };
   if (!look) return t;
   const canHair = !s.wig && s.hair !== "hidden";
@@ -134,7 +135,7 @@ export function tuningOf(
       look.cloth >= 0 ? CLOTH_COLORS[look.cloth].hex : s.cx,
       look.clothL,
     );
-    t.clothK = 0.85;
+    t.clothK = 0.82;
   }
   return t;
 }
@@ -147,29 +148,64 @@ function plain(t: Tuning): boolean {
 let seq = 0;
 
 /**
- * The table that takes a pixel's lightness to the new colour's: the
- * painting's light and shade kept, the colour changed. `mean` is how light
- * the painted part is on the whole, so it lands on the colour asked for.
+ * How a part of the picture is taken to a new colour, keeping the painting's
+ * light and shade. The part's lightness is first scaled so its average
+ * lands at 0.4 (`mean` is how light it is as painted), then a table takes
+ * that to the new colour: the average to the colour itself, the shadows
+ * and highlights darker and lighter, softened so dark hair doesn't turn to
+ * tinsel when it's made fair. Clothes keep a little of their own darkness
+ * (a black coat dyed scarlet comes out a deep red); hair takes the colour
+ * asked for.
  */
-function table(target: number, mean: number): string {
-  const m = Math.max(0.05, Math.min(0.85, mean));
-  const out: string[] = [];
-  for (let i = 0; i <= 16; i++) {
-    const x = i / 16;
-    const v = target * Math.pow(x / m, 0.72);
-    out.push(Math.max(0, Math.min(1, v)).toFixed(3));
-  }
-  return out.join(" ");
+export function recolourSpec(
+  hex: string,
+  mean: number,
+  kind: "hair" | "cloth",
+): { gain: number; tables: [string, string, string] } {
+  const hair = kind === "hair";
+  const m = Math.max(hair ? 0.08 : 0.04, Math.min(0.6, mean));
+  let rgb = rgbOf(hex);
+  const lum = Math.max(
+    0.02,
+    0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2],
+  );
+  // Dyes on old cloth are a little muted.
+  if (!hair) rgb = rgb.map((c) => c * 0.85 + lum * 0.15) as typeof rgb;
+  const want = hair ? lum : Math.pow(lum, 0.7) * Math.pow(m, 0.3);
+  const k = want / lum;
+  const p = hair ? 0.5 : 0.8;
+  const tables = rgb.map((c) => {
+    const out: string[] = [];
+    for (let i = 0; i <= 32; i++) {
+      const v = c * k * Math.pow(i / 32 / 0.4, p);
+      out.push(Math.max(0, Math.min(1, v)).toFixed(3));
+    }
+    return out.join(" ");
+  }) as [string, string, string];
+  return { gain: 1 / (2.5 * m), tables };
 }
 
-function recolour(id: string, hex: string, mean: number): SVGTemplateResult {
-  const [r, g, b] = rgbOf(hex);
+function recolour(
+  id: string,
+  hex: string,
+  mean: number,
+  kind: "hair" | "cloth",
+): SVGTemplateResult {
+  const { gain, tables } = recolourSpec(hex, mean, kind);
+  const w = [0.2126, 0.7152, 0.0722].map((x) => (x * gain).toFixed(4));
+  const row = `${w.join(" ")} 0 0`;
   return svg`<filter id=${id} color-interpolation-filters="sRGB">
-    <feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0" />
+    ${
+      kind === "hair"
+        ? svg`<feGaussianBlur in="SourceGraphic" stdDeviation="3.2" result="soft" />
+          <feComposite in="soft" in2="SourceGraphic" operator="arithmetic" k1="0" k2="0.72" k3="0.28" k4="0" />`
+        : ""
+    }
+    <feColorMatrix type="matrix" values=${`${row} ${row} ${row} 0 0 0 1 0`} />
     <feComponentTransfer>
-      <feFuncR type="table" tableValues=${table(r, mean)} />
-      <feFuncG type="table" tableValues=${table(g, mean)} />
-      <feFuncB type="table" tableValues=${table(b, mean)} />
+      <feFuncR type="table" tableValues=${tables[0]} />
+      <feFuncG type="table" tableValues=${tables[1]} />
+      <feFuncB type="table" tableValues=${tables[2]} />
     </feComponentTransfer>
   </filter>`;
 }
@@ -210,7 +246,7 @@ export function picture(s: Sitter, t: Tuning, small: boolean): TemplateResult {
     hex: string,
     k: number,
     mean: number,
-  ): SVGTemplateResult => svg`${recolour(`${id}${which}`, hex, mean)}
+  ): SVGTemplateResult => svg`${recolour(`${id}${which}`, hex, mean, which === "h" ? "hair" : "cloth")}
     <image href=${href} width="480" height="600" preserveAspectRatio="none"
       filter=${`url(#${id}${which})`} mask=${`url(#${id}m${which === "h" ? 0 : 1})`} opacity=${k.toFixed(2)} />`;
   const figure = svg`<image href=${href} width="480" height="600" preserveAspectRatio="none" />

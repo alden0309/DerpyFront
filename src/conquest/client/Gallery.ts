@@ -1,21 +1,22 @@
 // Where the gallery's pictures are: for each painting (engine/Gallery.ts) a
 // head-and-shoulders crop, a small one for lists, and its masks (hair in
 // red, clothes in green, the figure itself in blue). Only their addresses
-// are in the bundle; a picture is fetched the first time it's shown.
+// are in the bundle (never the pictures themselves, however small); a
+// picture is fetched the first time it's shown.
 
 const FULL = import.meta.glob<string>("./portraits/full/*.webp", {
   eager: true,
-  query: "?url",
+  query: "?url&no-inline",
   import: "default",
 });
 const THUMB = import.meta.glob<string>("./portraits/thumb/*.webp", {
   eager: true,
-  query: "?url",
+  query: "?url&no-inline",
   import: "default",
 });
 const MASK = import.meta.glob<string>("./portraits/mask/*.webp", {
   eager: true,
-  query: "?url",
+  query: "?url&no-inline",
   import: "default",
 });
 

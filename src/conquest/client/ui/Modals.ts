@@ -572,10 +572,10 @@ function creditsPage(ui: GameUi): TemplateResult {
   return html`
     <h2 class="cq-h1">Credits</h2>
     <p class="cq-lede small">
-      The people are painted for Derpy Conquest, and the scenes behind them are
-      paintings and prints of the 1600s and 1700s, now in the public domain. The
-      other pictures, sounds and music were shared freely by the people who made
-      them. With thanks to:
+      The people are real portraits, and the scenes behind them paintings and
+      prints, of the 1600s and 1700s, now in the public domain. The other
+      pictures, sounds and music were shared freely by the people who made them.
+      With thanks to:
     </p>
     ${creditsList()}
     <p class="cq-muted small">

@@ -435,11 +435,15 @@ export function suitability(s: Sitter, w: Wanted): number {
   // else's picture stands in.
   if (s.people === w.people) v += 10;
   else if (w.people === "native" || s.people === "native") return -Infinity;
-  else if (KIN[w.people].includes(s.people)) v += 4;
+  else if (KIN[w.people].includes(s.people)) v += 5;
   else if (s.people === "african" || s.people === "mestizo") return -Infinity;
   else if (w.people === "african") v -= 6;
-  if (s.cls === w.cls) v += 5;
-  else if (classNear(s.cls, w.cls)) v += 2;
+  if (s.cls === w.cls) v += 6;
+  else if (classNear(s.cls, w.cls)) v += 2.5;
+  // Working folk aren't painted in silk and armour, nor the gentry in rags.
+  const humble = w.cls === "labourer" || w.cls === "trades";
+  if (humble && (s.dress === "fine" || s.dress === "armour" || s.wig)) v -= 1.5;
+  if (!humble && w.cls !== "clergy" && s.cls === "labourer") v -= 1;
   // Clergy and soldiers only when wanted: a habit or a breastplate is a choice.
   if ((s.cls === "clergy") !== (w.cls === "clergy")) v -= 4;
   if (s.dress === "armour" && w.cls !== "soldier" && w.cls !== "officer")
@@ -880,7 +884,33 @@ export function migrateLook(
 ): Look | null {
   if (!look || typeof look !== "object") return null;
   const l = look as Record<string, unknown>;
-  if ("p" in l) return validateLook(l) ? null : (l as unknown as Look);
+  if ("p" in l) {
+    if (!validateLook(l, { female: o.female })) return l as unknown as Look;
+    // A portrait since taken out of the gallery: the nearest of their sex
+    // and years instead, the tuning kept.
+    const native = isNativeCulture(o.culture);
+    const fresh: Record<string, unknown> = { ...l };
+    const p = SITTERS.get(String(l.p));
+    if (l.p !== "" && (!p || p.age === "child" || (p.sex === "f") !== o.female))
+      fresh.p = pickSitter({
+        id: hash(o.id, String(l.p)),
+        female: o.female,
+        age: Math.max(16, o.age),
+        people: peopleOfCulture(o.culture),
+        cls: native ? "gentry" : "trades",
+        year: o.year,
+        region: native ? regionOf(o.culture) : undefined,
+      }).id;
+    const k = SITTERS.get(String(l.kid));
+    if (
+      l.kid !== undefined &&
+      (!k || k.age !== "child" || (k.sex === "f") !== o.female)
+    )
+      delete fresh.kid;
+    return validateLook(fresh, { female: o.female })
+      ? null
+      : (fresh as unknown as Look);
+  }
   if (!isOldLook(l)) return null;
   const hair = l.hair as string;
   const wig = /wig$/.test(hair);
@@ -1006,10 +1036,7 @@ export function figureColors(
   skin: string;
   hair: string;
 } {
-  const s =
-    SITTERS.get(age < 16 && look.kid ? look.kid : look.p) ??
-    sitterById(look.kid) ??
-    GALLERY[0];
+  const s = sitterAt(look, age);
   const coat = clothHexOf(look, s);
   return {
     coat,

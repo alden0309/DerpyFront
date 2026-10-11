@@ -70,7 +70,7 @@ const PEOPLE_NAMES: Record<People, string> = {
   dutch: "Dutch",
   swedish: "Swedish",
   portuguese: "Portuguese",
-  native: "Peoples of the country",
+  native: "Native peoples",
   african: "African",
   mestizo: "Of mixed descent",
 };
