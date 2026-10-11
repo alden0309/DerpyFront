@@ -104,6 +104,20 @@ const UNKNOWN_FILL = "#d6cfba";
 const FOG_FILL = "#604e39";
 const CLOSED_FILL = "#3e352b";
 
+/**
+ * Wave 2 (r11): what the season puts on the chart in a month: snow (all the
+ * north, or only the far north), the southern winter, autumn woods, or
+ * nothing. Months that look the same share a key.
+ */
+export function seasonLook(month: number): string {
+  return [
+    isWinter(40, month) ? "w" : "",
+    isWinter(50, month) ? "n" : "",
+    isWinter(-40, month) ? "s" : "",
+    month === 8 || month === 9 ? "a" : "",
+  ].join("");
+}
+
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -353,6 +367,8 @@ export class MapView {
   private strides = new Map<string, { phase: number; t: number }>();
   /** The month the chart's season was drawn for. */
   private seasonMonth = -1;
+  /** Wave 2 (r11): how the season looks (snow, autumn); the chart changes only with it. */
+  private seasonSeen = "";
   /** Points along the coasts where the sea breaks, in map units. */
   private wavePts: [number, number, number][] | null = null;
   /** Open water off each coastal town, for its boats: [province, x, y]. */
@@ -426,6 +442,11 @@ export class MapView {
     void document.fonts?.ready.then(() => this.markDirty());
   }
 
+  /** Wave 2 (r11): the chart has changed and its turn to be redrawn has come. */
+  chartWaiting(now: number): boolean {
+    return this.baseDirty && now - this.lastBaseAt > this.chartEvery;
+  }
+
   /** Something on the chart changed (owners, buildings, the view mode). */
   markDirty(): void {
     this.baseDirty = true;
@@ -453,6 +474,9 @@ export class MapView {
     const parts: (string | number)[] = [mode, fog?.key ?? "-"];
     for (let p = 0; p < s.provinces.length; p++) {
       const pr = s.provinces[p];
+      // Wave 2 (r11): country you don't know is fog (its owner is in the
+      // fog's key), and what goes on out of sight isn't news on your chart.
+      if (fog && !fog.seen.has(p)) continue;
       const folk = pr.owner >= 0 ? settlers(pr) : 0;
       parts.push(
         pr.owner,
@@ -1548,6 +1572,7 @@ export class MapView {
     // The season: snow lies over winter country; the woods turn in autumn.
     const month = dateOf(Math.floor(o.dayNow)).month;
     this.seasonMonth = month;
+    this.seasonSeen = seasonLook(month);
     if (o.mode === "nation" || o.mode === "terrain") {
       for (let p = 0; p < this.provPaths.length; p++) {
         if (!knownLand(p)) continue;
@@ -2185,7 +2210,10 @@ export class MapView {
     const fog = o.fog ?? null;
     /** In sight (or no fog at all). */
     const inSight = (p: number) => !fog || fog.seen.has(p);
-    if (dateOf(Math.floor(o.dayNow)).month !== this.seasonMonth)
+    // Wave 2 (r11): only when the season looks different (five times a
+    // year), not every month: skipping ahead, that was a redraw a second.
+    const month = dateOf(Math.floor(o.dayNow)).month;
+    if (month !== this.seasonMonth && seasonLook(month) !== this.seasonSeen)
       this.baseDirty = true;
 
     // The chart: redraw it if it's out of date and the moment is right,
@@ -2550,7 +2578,9 @@ export class MapView {
 
     // Keep drawing until the chart has caught up with the view.
     const after = this.baseFits();
-    this.needsDraw = this.baseDirty || !after.covered;
+    // Wave 2 (r11): a chart change waiting its turn doesn't make every
+    // frame a full one; the paced frames (or `chartWaiting`) pick it up.
+    this.needsDraw = !after.covered || this.chartWaiting(now);
     // How dear that was, to pace the next frames (and draw more simply).
     const cost = performance.now() - t0;
     this.frameCost = this.frameCost * 0.85 + cost * 0.15;

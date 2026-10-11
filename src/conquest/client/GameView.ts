@@ -963,9 +963,19 @@ export class GameView extends LitElement {
     // At the quicker speeds the chart (owners, towns, sieges) keeps up once
     // a second rather than three times.
     this.view.chartEvery =
-      this.paused || this.speed < 3 ? 300 : this.speed >= 4 ? 1600 : 1000;
+      this.paused || this.speed < 3
+        ? 300
+        : this.skipOn
+          ? 2500 // wave 2 (r11)
+          : this.speed >= 4
+            ? 1600
+            : 1000;
     const gap = Math.max(base, this.view.frameCost * 3);
-    if (this.view.needsDraw || (animating && t - this.lastDraw > gap)) {
+    if (
+      this.view.needsDraw ||
+      this.view.chartWaiting(t) || // wave 2 (r11)
+      (animating && t - this.lastDraw > gap)
+    ) {
       this.lastDraw = t;
       this.view.needsDraw = false;
       // What to draw, gathered only when drawing (not on every frame).
