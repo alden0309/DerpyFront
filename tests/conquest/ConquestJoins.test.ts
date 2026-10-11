@@ -8,6 +8,11 @@ import { describe, expect, test } from "vitest";
 import { talkLine, talkReaching } from "../../src/conquest/client/Talk";
 import { buyBoat, setCrew } from "../../src/conquest/engine/Boats";
 import {
+  contractOffers,
+  contractRoad,
+  takeCheck,
+} from "../../src/conquest/engine/Contracts";
+import {
   awayEyes,
   fogDaily,
   knownOf,
@@ -350,5 +355,54 @@ describe("news at the new pace", () => {
     );
     expect(leadTalk.length).toBeGreaterThan(0);
     for (const r of leadTalk) expect(r.lead).toBe(true);
+  });
+});
+
+describe("contracts you can see through", () => {
+  test("a contract is only taken if you could get there in time, afford the road, and aren't marching with an army", () => {
+    const g = world({ start: 1650 });
+    const life = lifeOf(g);
+    clearEvents(g, life);
+    let offer = contractOffers(g.s, g.w, life.prov, "tavern")[0];
+    for (let m = 1; !offer && m < 12; m++)
+      offer = contractOffers(
+        { ...g.s, day: g.s.day + m * 30 },
+        g.w,
+        life.prov,
+        "tavern",
+      )[0];
+    expect(offer).toBeTruthy();
+    const far = prov("Fort Albany");
+    const road = contractRoad(g.s, g.w, life, far)!;
+    expect(road.days).toBeGreaterThan(10);
+    const c = { ...offer, target: far, due: g.s.day + 400 };
+    life.purse = 100;
+    expect(takeCheck(g.s, g.w, life, c).ok).toBe(true);
+    // Too far for the time allowed.
+    const hurry = takeCheck(g.s, g.w, life, { ...c, due: g.s.day + 5 });
+    expect(hurry.ok ? "" : hurry.why).toMatch(/never get there in time/);
+    // No money for the road.
+    life.purse = 0;
+    const poor = takeCheck(g.s, g.w, life, c);
+    if (road.cost > 0) expect(poor.ok ? "" : poor.why).toMatch(/costs/);
+    life.purse = 100;
+    // A soldier marching with an army can only take work where the army is.
+    life.job = {
+      kind: "soldier",
+      rank: 0,
+      prov: life.prov,
+      place: "fort",
+      employer: -1,
+      nation: g.s.chars[life.c].nation,
+      army: 12345,
+      since: g.s.day,
+      months: 0,
+      away: 0,
+    };
+    const marching = takeCheck(g.s, g.w, life, c);
+    expect(marching.ok ? "" : marching.why).toMatch(/march with an army/);
+    expect(takeCheck(g.s, g.w, life, { ...c, target: life.prov }).ok).toBe(
+      true,
+    );
   });
 });
