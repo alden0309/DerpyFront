@@ -471,3 +471,41 @@ export function lifeSpan(
   if (c.alive) return `b. ${b}, aged ${ageOf(s, c)}`;
   return `${b} – ${c.died ? year(c.died.day) : "?"}`;
 }
+
+/** How someone is kin to the character you play, in a word or two, if they are. */
+export function kinWord(
+  s: GameState,
+  life: Life | null | undefined,
+  c: Character,
+): string | null {
+  const me = life ? meOf(s, life) : undefined;
+  if (!me || c.id === me.id) return null;
+  const f = c.female;
+  const isParentOf = (p: Character | undefined, k: Character | undefined) =>
+    !!p && !!k && (k.father === p.id || k.mother === p.id);
+  if (me.spouse === c.id) return f ? "Your wife" : "Your husband";
+  if (isParentOf(me, c)) return f ? "Your daughter" : "Your son";
+  if (isParentOf(c, me)) return f ? "Your mother" : "Your father";
+  if (
+    (me.father >= 0 && c.father === me.father) ||
+    (me.mother >= 0 && c.mother === me.mother)
+  )
+    return f ? "Your sister" : "Your brother";
+  const parent = (k: Character, which: "father" | "mother") =>
+    s.chars[k[which]];
+  if (
+    isParentOf(me, parent(c, "father")) ||
+    isParentOf(me, parent(c, "mother"))
+  )
+    return f ? "Your granddaughter" : "Your grandson";
+  if (
+    isParentOf(c, parent(me, "father")) ||
+    isParentOf(c, parent(me, "mother"))
+  )
+    return f ? "Your grandmother" : "Your grandfather";
+  const sp = s.chars[me.spouse];
+  if (sp && isParentOf(c, sp)) return f ? "Mother-in-law" : "Father-in-law";
+  if (s.chars[c.spouse] && isParentOf(me, s.chars[c.spouse]))
+    return f ? "Daughter-in-law" : "Son-in-law";
+  return null;
+}

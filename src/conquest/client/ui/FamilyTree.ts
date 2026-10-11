@@ -174,11 +174,15 @@ export function familyTreeView(
       );
     }
   }
+  // Several families hung from one row: each its own rail, a little lower.
+  const rails = new Map<number, number>();
   for (const d of t.descents) {
     const kids = d.children.filter((id) => byId.has(id));
     if (!kids.length) continue;
     const pTop = tp(d.parents[0]);
-    const busY = pTop + CH + (RH - CH) / 2 + 6;
+    const rail = rails.get(pTop) ?? 0;
+    rails.set(pTop, rail + 1);
+    const busY = pTop + CH + (RH - CH) / 2 + 2 + (rail % 3) * 6;
     let dropX: number;
     let dropY: number;
     if (d.parents.length === 2) {

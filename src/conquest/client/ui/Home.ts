@@ -7,7 +7,7 @@
 // letters, the house's rooms, furniture, servants, lodgers and stores, your
 // other properties, and where everything else money buys is to be had.
 
-import { html, nothing, TemplateResult } from "lit";
+import { html, nothing, svg, TemplateResult } from "lit";
 import { areaName, areasOf } from "../../engine/Areas";
 import { formatDate } from "../../engine/Calendar";
 import { Explain } from "../../engine/Explain";
@@ -145,7 +145,7 @@ export function houseArt(level: number, native: boolean): TemplateResult {
     >
       <path d="M2 64 H118" stroke=${ink} stroke-width="1.2" />
       ${l === 0
-        ? html`<path
+        ? svg`<path
               d="M30 64 Q60 18 90 64"
               fill="#e9d9b0"
               stroke=${ink}
@@ -153,7 +153,7 @@ export function houseArt(level: number, native: boolean): TemplateResult {
             />
             <path d="M54 64 Q60 48 66 64" fill="#3a2716" />`
         : l === 1
-          ? html`<path
+          ? svg`<path
                 d="M34 64 Q60 16 86 64 Z"
                 fill="#d9c08b"
                 stroke=${ink}
@@ -167,10 +167,10 @@ export function houseArt(level: number, native: boolean): TemplateResult {
               />
               <path d="M54 64 Q60 50 66 64" fill=${ink} />
               <path d="M60 18 L56 8 M60 18 L64 7" stroke=${ink} />`
-          : html`<path
-                d="M${l === 2 ? 26 : l === 3 ? 12 : 4} 64 V40 Q60 ${l === 4
-                  ? 6
-                  : 14} ${l === 2 ? 94 : l === 3 ? 108 : 116} 40 V64 Z"
+          : svg`<path
+                d="M${l === 2 ? 26 : l === 3 ? 12 : 4} 64 V40 Q60 ${
+                  l === 4 ? 6 : 14
+                } ${l === 2 ? 94 : l === 3 ? 108 : 116} 40 V64 Z"
                 fill="#d9c08b"
                 stroke=${ink}
                 stroke-width="1.4"
@@ -178,9 +178,11 @@ export function houseArt(level: number, native: boolean): TemplateResult {
               ${Array.from(
                 { length: l + 2 },
                 (_, i) =>
-                  html`<path
-                    d="M${(l === 2 ? 30 : l === 3 ? 16 : 8) +
-                    i * (l === 2 ? 16 : l === 3 ? 18 : 22)} 64 V44"
+                  svg`<path
+                    d="M${
+                      (l === 2 ? 30 : l === 3 ? 16 : 8) +
+                      i * (l === 2 ? 16 : l === 3 ? 18 : 22)
+                    } 64 V44"
                     stroke=${ink}
                     stroke-width="0.6"
                   />`,
@@ -202,7 +204,7 @@ export function houseArt(level: number, native: boolean): TemplateResult {
     Array.from({ length: n }, (_, i) => {
       const step = W / (n + 1);
       const x = x0 + step * (i + 1) - 4;
-      return html`<rect
+      return svg`<rect
           x=${x}
           y=${row}
           width="8"
@@ -219,7 +221,7 @@ export function houseArt(level: number, native: boolean): TemplateResult {
   return html`<svg class="cq-house-art" viewBox="0 0 120 70" aria-hidden="true">
     <path d="M2 64 H118" stroke=${ink} stroke-width="1.2" />
     ${l === 0
-      ? html`<path
+      ? svg`<path
             d="M40 64 V36 H80 V64 M36 36 L60 20 L84 36"
             fill="none"
             stroke=${ink}
@@ -236,7 +238,7 @@ export function houseArt(level: number, native: boolean): TemplateResult {
           >
             to let
           </text>`
-      : html`<rect
+      : svg`<rect
             x=${x0}
             y=${wallTop}
             width=${W}
@@ -246,25 +248,28 @@ export function houseArt(level: number, native: boolean): TemplateResult {
             stroke-width="1.4"
           />
           <path
-            d="M${x0 - 4} ${wallTop} L${l >= 3 ? x0 + 10 : 60} ${wallTop -
-            roofH} ${l >= 3 ? `L${x0 + W - 10} ${wallTop - roofH}` : ""} L${x0 +
-            W +
-            4} ${wallTop} Z"
+            d="M${x0 - 4} ${wallTop} L${l >= 3 ? x0 + 10 : 60} ${
+              wallTop - roofH
+            } ${l >= 3 ? `L${x0 + W - 10} ${wallTop - roofH}` : ""} L${
+              x0 + W + 4
+            } ${wallTop} Z"
             fill=${l >= 3 ? "#8a6a4a" : "#b39058"}
             stroke=${ink}
             stroke-width="1.4"
           />
-          ${l === 1
-            ? html`<path
-                d="M${x0 - 2} ${wallTop - 4} L60 ${wallTop - roofH + 2} L${x0 +
-                W +
-                2} ${wallTop - 4}"
+          ${
+            l === 1
+              ? svg`<path
+                d="M${x0 - 2} ${wallTop - 4} L60 ${wallTop - roofH + 2} L${
+                  x0 + W + 2
+                } ${wallTop - 4}"
                 fill="none"
                 stroke=${ink}
                 stroke-width="0.5"
                 stroke-dasharray="1 2"
               />`
-            : nothing}
+              : nothing
+          }
           <rect
             x=${x0 + W * 0.7}
             y=${wallTop - roofH - 4}
@@ -274,9 +279,11 @@ export function houseArt(level: number, native: boolean): TemplateResult {
             stroke=${ink}
             stroke-width="1"
           />
-          ${l >= 2
-            ? windows(wallTop + 6, l === 2 ? 4 : l === 3 ? 5 : 7)
-            : nothing}
+          ${
+            l >= 2
+              ? windows(wallTop + 6, l === 2 ? 4 : l === 3 ? 5 : 7)
+              : nothing
+          }
           ${windows(
             l >= 2 ? 50 : 46,
             l === 1 ? 2 : l === 2 ? 4 : l === 3 ? 4 : 6,
@@ -290,14 +297,16 @@ export function houseArt(level: number, native: boolean): TemplateResult {
             stroke=${ink}
             stroke-width="0.8"
           />
-          ${l === 4
-            ? html`<path
+          ${
+            l === 4
+              ? svg`<path
                   d="M50 ${wallTop} L60 ${wallTop - 9} L70 ${wallTop} Z"
                   fill=${wall}
                   stroke=${ink}
                 />
                 <path d="M53 50 v14 M67 50 v14" stroke=${ink} />`
-            : nothing}`}
+              : nothing
+          }`}
   </svg>`;
 }
 
@@ -455,9 +464,9 @@ export function homeBanner(ui: GameUi, p: number): string {
 export function homeTileSub(ui: GameUi, p: number): string {
   const life = ui.life!;
   const h = houseOf(life, p);
-  if (!h) return "lodging";
+  if (!h) return "no house yet";
   const lv = ["", "I", "II", "III", "IV"][h.level];
-  return `${lv}${h.leased ? " · rented" : ""}${p !== life.home ? " · not home" : ""}`;
+  return `${lv} of IV${h.leased ? ", rented" : ""}${p !== life.home ? ", not home" : ""}`;
 }
 
 // ---------------------------------------------------------------- the Home place
@@ -470,7 +479,7 @@ export function homePlace(ui: GameUi, p: number): TemplateResult {
   const child = isChildLife(s, life);
   const h = houseOf(life, p);
   const isHome = life.home === p;
-  return html`<div class="cq-home">
+  return html`<div class="cq-hearth">
     ${h ? houseCard(ui, h) : lodgingsCard(ui)}
     ${!isHome && h
       ? html`<div class="cq-callout small">
@@ -1029,7 +1038,8 @@ function buyFold(ui: GameUi, h: Property | undefined): TemplateResult {
           if (level <= owned) return nothing;
           const buy = houseCheck(s, life, level);
           const price = housePrice(s, life, level);
-          const lease = native ? null : leaseCheck(s, life, level);
+          // Renting is for those without a house of their own here.
+          const lease = native || owned ? null : leaseCheck(s, life, level);
           const rented = h?.leased && h.level === level;
           return html`<li>
             <span class="cq-house-offer-pic">${houseArt(level, native)}</span>
@@ -1173,7 +1183,7 @@ const ELSEWHERE: {
   {
     what: "A horse",
     where: ["market", "fields", "village"],
-    text: KIT.horse.text,
+    text: `ride, and go overland in two thirds the time (${KIT.horse.cost})`,
   },
   { what: "A carriage", where: ["market"], text: "a coach and pair" },
   {
@@ -1224,7 +1234,10 @@ function moneyBuys(ui: GameUi): TemplateResult {
             <b>${x.what}</b>
             <span class="cq-muted small"
               >${x.text}; at
-              ${x.where
+              ${(x.where.some((w) => here.has(w))
+                ? x.where.filter((w) => here.has(w))
+                : x.where
+              )
                 .map((w) => areaName(s, life.prov, w).replace(/^The /, "the "))
                 .join(" or ")}</span
             >

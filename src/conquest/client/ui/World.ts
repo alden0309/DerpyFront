@@ -27,6 +27,7 @@ import {
   token,
 } from "./Context";
 import { personRow } from "./Here";
+import { playersSection } from "./Players"; // HOME (r12)
 import { steady } from "./Steady";
 import { cultureChips } from "./WorldUi";
 
@@ -80,6 +81,7 @@ export function peopleTab(ui: GameUi): TemplateResult {
         you could do with them.
       </p>
     </header>
+    ${playersSection(ui) /* HOME (r12) */}
     ${family.length
       ? section(
           "Family",

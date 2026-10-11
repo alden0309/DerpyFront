@@ -8,6 +8,7 @@ import { areaName, areasOf, presence, Present } from "../../engine/Areas";
 import { formatDate } from "../../engine/Calendar";
 import { knowsDen } from "../../engine/CrimeQueries";
 import { interactionView, InteractionView } from "../../engine/Interactions";
+import { kinWord } from "../../engine/Kin"; // HOME (r12)
 import { actCheck, actLabel, actOdds, actsAt } from "../../engine/LifeActs";
 import {
   isChildLife,
@@ -83,6 +84,7 @@ import {
   tradesLink,
   workNotes,
 } from "./Livelihood";
+import { playersHere, playerTag } from "./Players"; // HOME (r12)
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 import { TERMS } from "./Terms";
@@ -288,7 +290,8 @@ export function herePanel(ui: GameUi): TemplateResult {
       ? s.armies.find((a) => a.id === life.job!.army)
       : undefined;
   const leading = s.armies.find((a) => a.commander === me.id);
-  return html`${provHeader(ui, p)} ${jailCallout(ui)} ${welcome(ui)}
+  return html`${provHeader(ui, p)} ${playersHere(ui)} ${jailCallout(ui)}
+  ${welcome(ui)}
   ${t
     ? html`<div class="cq-callout road">
         <p>
@@ -422,6 +425,9 @@ export function roleOf(ui: GameUi, c: Character): string {
         : seat[0].toUpperCase() + seat.slice(1);
   }
   if (life) return `Played by ${life.name}`;
+  // HOME (r12): your own people are your wife, your son, your mother first.
+  const kin = kinWord(ui.s, ui.life, c);
+  if (kin) return c.role ? `${kin}, ${ROLES[c.role].title.toLowerCase()}` : kin;
   if (c.role) return ROLES[c.role].title;
   const parent = s.chars[c.father] ?? s.chars[c.mother];
   if (parent?.role)
@@ -453,6 +459,7 @@ export function personRow(ui: GameUi, c: Character): TemplateResult {
             : nothing}</span
         >
       </span>
+      ${playerTag(ui, c)}
       ${op
         ? num(
             `${op.total > 0 ? "+" : ""}${op.total}`,
@@ -815,7 +822,11 @@ function presentRow(
           <i class="cq-doing">${gone ? "has gone out" : x.doing}</i></span
         >
       </span>
-      ${tag ? html`<span class="cq-chip ${x.kind}">${tag}</span>` : nothing}
+      ${x.kind === "player"
+        ? playerTag(ui, c)
+        : tag
+          ? html`<span class="cq-chip ${x.kind}">${tag}</span>`
+          : nothing}
       ${op
         ? num(
             `${op.total > 0 ? "+" : ""}${op.total}`,

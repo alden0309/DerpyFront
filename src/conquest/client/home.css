@@ -3,7 +3,7 @@
    what it gives you in small ruled chips. Lists of rooms, servants and
    offers are ledger rows; nothing moves when a button greys. */
 
-.cq-home {
+.cq-hearth {
   margin-top: 0.6rem;
 }
 
@@ -365,7 +365,6 @@
   left: 0;
   top: 0;
   transform-origin: 0 0;
-  background-image: var(--paper);
 }
 .cq-kin-lines {
   position: absolute;
@@ -753,17 +752,80 @@
 
 @media (max-width: 640px) {
   .cq-duel-steps {
-    flex-wrap: wrap;
-    row-gap: 0.1rem;
     margin: 0.45rem 0.6rem 0;
   }
   .cq-duel-steps li {
-    font-size: 0.7rem;
-    padding-right: 0.45rem;
+    font-size: 0.78rem;
+    padding-right: 0.55rem;
+  }
+  /* Numerals only, but the step you're at. */
+  .cq-duel-steps li:not(.now) span {
+    display: none;
   }
   .cq-duel-state,
   .cq-duel-last {
     margin-left: 1rem;
     margin-right: 1rem;
   }
+}
+
+/* ---------------------------------------------------------------- other players */
+
+.cq-chip.player {
+  color: #fbf1dc;
+  background: #2e4a6a;
+  border-color: #1e3550;
+  font-size: 0.72rem;
+}
+.cq-chip.player.rival {
+  background: #7a2a1e;
+  border-color: #5a1a12;
+}
+.cq-players-here {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.4rem;
+  margin: 0.35rem 0 0.5rem;
+  padding: 0.35rem 0.5rem;
+  background: rgba(46, 74, 106, 0.08);
+  border: 1px solid rgba(46, 74, 106, 0.3);
+  border-left: 3px solid #2e4a6a;
+}
+.cq-players-head {
+  font-family: var(--fell-sc);
+  font-size: 0.85rem;
+  color: #2e4a6a;
+  margin-right: 0.2rem;
+}
+.cq-player-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.55rem 0.15rem 0.2rem;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: rgba(251, 243, 220, 0.85);
+  border: 1px solid var(--frame, #2e4a6a);
+  border-radius: 999px;
+  cursor: pointer;
+}
+.cq-player-pill:hover {
+  background: var(--vellum-2);
+}
+.cq-player-pill span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+.cq-player-pill b {
+  font-size: 0.85rem;
+}
+.cq-player-pill small {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+.cq-players .cq-opinion {
+  margin-left: 0.3rem;
 }

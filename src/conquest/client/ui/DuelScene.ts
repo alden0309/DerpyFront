@@ -131,6 +131,7 @@ export function duelScene(
         them,
         day: ev.day,
       })}
+      <div class="cq-scene-ribbon"><h2>${ev.title}</h2></div>
       ${report
         ? nothing
         : html`<ol class="cq-duel-steps" aria-label="The affair of honour">
@@ -140,11 +141,10 @@ export function duelScene(
                   class=${i < step ? "done" : i === step ? "now" : ""}
                   aria-current=${i === step ? "step" : "false"}
                 >
-                  ${name}
+                  <span>${name}</span>
                 </li>`,
             )}
           </ol>`}
-      <div class="cq-scene-ribbon"><h2>${ev.title}</h2></div>
       ${ctx.w || second
         ? html`<div class="cq-duel-state">
             ${ctx.w
