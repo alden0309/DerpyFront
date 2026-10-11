@@ -364,7 +364,55 @@
   min-height: calc(3.45rem * 2 + 6px);
 }
 
+/* Your first days, at the top of Here. */
+.cq-welcome {
+  margin: 0.6rem 0 0.4rem;
+  padding: 0.65rem 0.85rem 0.6rem;
+  border: 1px solid var(--brass);
+  border-left: 4px solid var(--brass);
+  background: rgba(201, 155, 58, 0.12);
+  font-size: 0.92rem;
+}
+.cq-welcome-head {
+  font-family: var(--fell-sc);
+  font-size: 1.05rem;
+  color: var(--nation-deep);
+  margin-bottom: 0.2rem;
+}
+.cq-welcome ul {
+  list-style: none;
+  margin: 0 0 0.45rem;
+  padding: 0;
+}
+.cq-welcome li {
+  position: relative;
+  padding: 0.12rem 0 0.12rem 1.05rem;
+}
+.cq-welcome li::before {
+  content: "❧";
+  position: absolute;
+  left: 0;
+  top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--sepia);
+}
+
 /* ---------------------------------------------------------------- notices that lead somewhere */
+
+/* With a page open, notices come down over the map, not over the page's own
+   buttons (the rail is 74px and the page 410px, 370px when narrower). */
+@media (min-width: 1081px) {
+  cq-game:has(.cq-drawer) .cq-toasts {
+    left: calc(50% + 242px);
+    width: min(520px, calc(100% - 484px - 2rem));
+  }
+}
+@media (min-width: 821px) and (max-width: 1080px) {
+  cq-game:has(.cq-drawer) .cq-toasts {
+    left: calc(50% + 222px);
+    width: min(520px, calc(100% - 444px - 2rem));
+  }
+}
 
 .cq-toast.go {
   display: flex;

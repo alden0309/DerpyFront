@@ -164,8 +164,11 @@ function whereFor(text: string): DrawerView | undefined {
     )
   )
     return { k: "tab", tab: "society", sub: "office" };
-  if (/You move into|ten acres|You buy a |acres/.test(text))
+  if (/You move into|ten acres|You buy a |acres|to show for it\?/.test(text))
     return { k: "tab", tab: "estate", sub: "house" };
+  // What your station expects: how you live, and what you give away.
+  if (/^People talk: /.test(text))
+    return { k: "tab", tab: "estate", sub: "purse" };
   if (/has grown to \d/.test(text))
     return { k: "tab", tab: "you", sub: "self" };
   return undefined;
@@ -518,7 +521,15 @@ export class GameView extends LitElement {
         this.skipOn = m.on;
         this.skipAsked = m.asked;
         this.dayAt = performance.now();
-        if (m.why) this.toast(m.why, m.on ? "" : "good");
+        if (m.why)
+          this.toast(
+            m.why,
+            m.on ? "" : "good",
+            whereFor(m.why) ??
+              (this.life?.events.length
+                ? { k: "tab", tab: "journal", sub: "diary" }
+                : undefined),
+          );
         else if (
           !m.on &&
           !was &&

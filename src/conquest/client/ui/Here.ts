@@ -84,6 +84,7 @@ import {
 } from "./Livelihood";
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
+import { TERMS } from "./Terms";
 import {
   cultureChips,
   lastSeenNote,
@@ -200,6 +201,78 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
   );
 }
 
+/** Put away for good once dismissed (in this browser). */
+let welcomeGone = (() => {
+  try {
+    return localStorage.getItem("cq-welcome-gone") === "1";
+  } catch {
+    return false;
+  }
+})();
+
+/**
+ * Your first days (r11 wave 2): what to do first, for a new life's first
+ * weeks, with the way to the guide and to "I want to…".
+ */
+function welcome(ui: GameUi): TemplateResult | typeof nothing {
+  const life = ui.life!;
+  if (welcomeGone || life.tally.days > 60 || life.line.length > 1)
+    return nothing;
+  if (life.travel || life.crime?.jail) return nothing;
+  const job = life.job;
+  const where =
+    job && job.prov === life.prov
+      ? areaName(ui.s, life.prov, job.place).replace(/^The /, "the ")
+      : null;
+  return html`<aside class="cq-welcome" aria-label="Your first days">
+    <p class="cq-welcome-head">Your first days</p>
+    <ul>
+      <li>
+        ${where
+          ? html`Your work at ${where} runs itself: every working day there is
+            worked for you, and wages come at the month's end. Choose how hard
+            you work on Work › Your work.`
+          : isChildLife(ui.s, life)
+            ? "You're a child: learn what you can (study, pray, listen) until sixteen."
+            : html`You have no work yet: Work › Find work lists everyone who
+              hires here.`}
+      </li>
+      <li>
+        Click a place to step into it; click anyone to see what they think of
+        you and what you could do together.
+      </li>
+      <li>
+        Space (or ▶) starts the clock; ⏩ skips ahead until something needs you.
+      </li>
+    </ul>
+    <div class="cq-btnrow">
+      <button
+        class="cq-btn small primary"
+        @click=${() => ui.modal({ k: "guide", ch: "start" })}
+      >
+        Your first hour
+      </button>
+      <button class="cq-btn small" @click=${() => ui.modal({ k: "finder" })}>
+        I want to…
+      </button>
+      <button
+        class="cq-btn small quiet"
+        @click=${() => {
+          welcomeGone = true;
+          try {
+            localStorage.setItem("cq-welcome-gone", "1");
+          } catch {
+            // A private window: it goes for now.
+          }
+          ui.redraw();
+        }}
+      >
+        Got it
+      </button>
+    </div>
+  </aside>`;
+}
+
 /** The province you're in: its places, who's in each, and what you can do. */
 export function herePanel(ui: GameUi): TemplateResult {
   const s = ui.s;
@@ -213,7 +286,7 @@ export function herePanel(ui: GameUi): TemplateResult {
       ? s.armies.find((a) => a.id === life.job!.army)
       : undefined;
   const leading = s.armies.find((a) => a.commander === me.id);
-  return html`${provHeader(ui, p)} ${jailCallout(ui)}
+  return html`${provHeader(ui, p)} ${jailCallout(ui)} ${welcome(ui)}
   ${t
     ? html`<div class="cq-callout road">
         <p>
@@ -371,7 +444,10 @@ export function personRow(ui: GameUi, c: Character): TemplateResult {
         <span class="cq-muted small"
           >${roleOf(ui, c)},
           ${ageOf(s, c)}${tie
-            ? html` · <span class="cq-tie ${tie}">${tie}</span>`
+            ? html` ·
+                <span class="cq-tie ${tie}" title=${TERMS.ties.what}
+                  >${tie}</span
+                >`
             : nothing}</span
         >
       </span>
@@ -720,7 +796,9 @@ function presentRow(
       <span class="cq-folk-text">
         <span class="cq-present-name"
           ><b>${charName(c)}</b>${tie
-            ? html` <span class="cq-tie ${tie}">${tie}</span>`
+            ? html` <span class="cq-tie ${tie}" title=${TERMS.ties.what}
+                >${tie}</span
+              >`
             : nothing}</span
         >
         <span class="cq-present-sub"
