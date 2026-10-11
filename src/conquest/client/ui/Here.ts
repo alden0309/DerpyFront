@@ -238,11 +238,12 @@ function welcome(ui: GameUi): TemplateResult | typeof nothing {
               hires here.`}
       </li>
       <li>
-        Click a place to step into it; click anyone to see what they think of
-        you and what you could do together.
+        Click (or tap) a place to step into it, and anyone to see what they
+        think of you and what you could do together.
       </li>
       <li>
-        Space (or ▶) starts the clock; ⏩ skips ahead until something needs you.
+        ▶ starts the clock (or Space, on a keyboard); ⏩ skips ahead until
+        something needs you.
       </li>
     </ul>
     <div class="cq-btnrow">
