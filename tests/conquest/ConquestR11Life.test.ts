@@ -333,6 +333,11 @@ describe("crime and the law", () => {
     expect(sentenceFor(4, 0).key).toBe("hang");
     // Petty theft never hangs, however long the record.
     expect(sentenceFor(1, 5).key).not.toBe("hang");
+    // A burglar with a record is transported; a highwayman with one hangs.
+    expect(sentenceFor(2, 3).key).toBe("transport");
+    expect(sentenceFor(3, 1).key).toBe("hang");
+    // A felony pleaded guilty is lighter, but never just a fine.
+    expect(sentenceFor(2, 0, true).key).toBe("gaol");
   });
 
   test("transportation sends you far off, bound; hanging ends the life (the heir carries on)", () => {

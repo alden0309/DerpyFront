@@ -358,7 +358,11 @@ export const CRIME_EVENTS: LifeEventDef[] = [
               "The case falls apart: a witness who can't remember, a justice in a hurry. Free.",
             );
           else {
-            if (life.crime?.jail) life.crime.jail.grade += 1;
+            const j = life.crime?.jail;
+            if (j) {
+              j.grade += 1;
+              j.charge = `${j.charge}, and corrupting the court`;
+            }
             sentence(g, life, false);
           }
         },

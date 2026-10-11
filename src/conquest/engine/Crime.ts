@@ -242,15 +242,19 @@ export function sentenceFor(
   priors: number,
   lighter = false,
 ): Sentence {
-  // A record makes it worse, but petty theft alone never hangs.
+  // A record makes it worse, but only a hanging matter (or a record on
+  // top of one) hangs: a burglar's last stop is transportation.
   const g = Math.max(
     1,
-    grade + Math.min(grade >= 2 ? 2 : 1, priors) - (lighter ? 1 : 0),
+    grade + Math.min(grade >= 3 ? 2 : 1, priors) - (lighter ? 1 : 0),
   );
   if (g <= 1)
-    return priors === 0
-      ? { key: "fine", text: "a fine of 10 coins", n: 10 }
-      : { key: "pillory", text: "an hour in the pillory", n: 0 };
+    return grade >= 2
+      ? // A felony, pleaded and forgiven a little: never just a fine.
+        { key: "gaol", text: "three months in the gaol", n: 3 }
+      : priors === 0
+        ? { key: "fine", text: "a fine of 10 coins", n: 10 }
+        : { key: "pillory", text: "an hour in the pillory", n: 0 };
   if (g === 2)
     return {
       key: "whip",
@@ -258,9 +262,7 @@ export function sentenceFor(
       n: 3,
     };
   if (g === 3)
-    return priors === 0 || lighter
-      ? { key: "transport", text: "transportation for seven years", n: 7 }
-      : { key: "hang", text: "hanging", n: 0 };
+    return { key: "transport", text: "transportation for seven years", n: 7 };
   return { key: "hang", text: "hanging", n: 0 };
 }
 
@@ -512,12 +514,15 @@ function hotPursuit(g: ConquestGame, life: Life): void {
     Math.max(0.4, 1 - stealth * 0.03);
   if (!g.rng.chance(chance)) return;
   const job = life.job;
-  const kind = job && JOBS[job.kind].crime ? job.kind : "thief";
+  const crooked = !!job && !!JOBS[job.kind].crime;
+  const kind = crooked ? job.kind : "thief";
+  // An honest post's rank says nothing of the crime: petty theft.
+  const rank = crooked ? job.rank : 0;
   raiseEvent(g, life, "crime-seized", {
-    g: crimeGrade(kind, job?.rank ?? 0),
+    g: crimeGrade(kind, rank),
     n: nation,
     k: Object.keys(JOBS).indexOf(kind),
-    r: job?.rank ?? 0,
+    r: rank,
   });
 }
 
@@ -942,12 +947,14 @@ export function arrest(
   if (!check.ok) return check.why;
   const other = lifeOfChar(g.s, cId)!;
   const job = other.job;
-  const kind = job && JOBS[job.kind].crime ? job.kind : "thief";
+  const crooked = !!job && !!JOBS[job.kind].crime;
+  const kind = crooked ? job.kind : "thief";
+  const rank = crooked ? job.rank : 0;
   raiseEvent(g, other, "crime-seized", {
-    g: crimeGrade(kind, job?.rank ?? 0),
+    g: crimeGrade(kind, rank),
     n: lawAt(g.s, life.prov),
     k: Object.keys(JOBS).indexOf(kind),
-    r: job?.rank ?? 0,
+    r: rank,
     by: life.c,
   });
   setCooldown(g, life, `law:arrest:${cId}`, 30);
