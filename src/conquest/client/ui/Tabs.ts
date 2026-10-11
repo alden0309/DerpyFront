@@ -39,6 +39,7 @@ import {
 } from "./Affairs";
 import { foundingPage, officesPage } from "./Civic";
 import { GameUi, section, token, type Tab } from "./Context";
+import { familyTreeSection } from "./FamilyTree"; // HOME (r12)
 import { verdictChip } from "./Here";
 import { housesSection } from "./Home"; // HOME (r12)
 import { journalTab } from "./Journal";
@@ -169,7 +170,8 @@ function youPage(ui: GameUi, sub: string): TemplateResult {
         "Family",
         "Your husband or wife, your children and your heir, your line, and the people who matter to you.",
       )}
-      ${familySection(ui, me)} ${heartSection(ui)} ${tiesSection(ui)}
+      ${familyTreeSection(ui)} ${familySection(ui, me)} ${heartSection(ui)}
+      ${tiesSection(ui)}
       ${!spouse?.alive && !isChildLife(s, life)
         ? section(
             "Marrying",

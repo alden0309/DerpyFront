@@ -9,6 +9,13 @@ import { describe, expect, test } from "vitest";
 import { areasOf, presence } from "../../src/conquest/engine/Areas";
 import { makeCharacter } from "../../src/conquest/engine/Characters";
 import {
+  DUEL_EVENTS,
+  duelChoicesShown,
+  duelOdds,
+  duelOn,
+} from "../../src/conquest/engine/Duels";
+import { hooks } from "../../src/conquest/engine/Hooks";
+import {
   homeCheck,
   housesOf,
   kidsAtHome,
@@ -22,6 +29,8 @@ import {
   ROOMS,
   SERVANTS,
 } from "../../src/conquest/engine/HouseRules";
+import * as INTER from "../../src/conquest/engine/Interactions";
+import { familyTree } from "../../src/conquest/engine/Kin";
 import { succeedTo } from "../../src/conquest/engine/Life";
 import { actCheck, actsAt } from "../../src/conquest/engine/LifeActs";
 import {
@@ -418,5 +427,315 @@ describe("other players in your town", () => {
     b.area = "home";
     const m2 = presence(g.s, g.w, a.prov, g.s.day, a);
     expect(m2.get("home")?.some((x) => x.c === b.c) ?? false).toBe(false);
+  });
+});
+
+describe("the family tree", () => {
+  function person(
+    g: ReturnType<typeof world>,
+    life: Life,
+    o: { female: boolean; age: number; father?: number; mother?: number },
+  ): Character {
+    const me = meOf(g.s, life)!;
+    const c = makeCharacter(g.s, g.rng, {
+      nation: me.nation,
+      culture: "english",
+      religion: "anglican",
+      female: o.female,
+      age: o.age,
+    });
+    if (o.father !== undefined) {
+      c.father = o.father;
+      g.s.chars[o.father].children.push(c.id);
+    }
+    if (o.mother !== undefined) {
+      c.mother = o.mother;
+      g.s.chars[o.mother].children.push(c.id);
+    }
+    return c;
+  }
+  const wed = (a: Character, b: Character) => {
+    a.spouse = b.id;
+    b.spouse = a.id;
+  };
+
+  test("three generations up and down, in-laws, and a lover's child", () => {
+    const g = world();
+    const life = lifeOf(g);
+    const me = meOf(g.s, life)!;
+    // Grandparents and parents.
+    const gf = person(g, life, { female: false, age: 80 });
+    const gm = person(g, life, { female: true, age: 78 });
+    wed(gf, gm);
+    const dad = person(g, life, {
+      female: false,
+      age: 52,
+      father: gf.id,
+      mother: gm.id,
+    });
+    const mum = person(g, life, { female: true, age: 50 });
+    wed(dad, mum);
+    me.father = dad.id;
+    me.mother = mum.id;
+    dad.children.push(me.id);
+    mum.children.push(me.id);
+    const sis = person(g, life, {
+      female: true,
+      age: 25,
+      father: dad.id,
+      mother: mum.id,
+    });
+    // A wife, her parents and brother.
+    const w = wife(g, life);
+    const wf = person(g, life, { female: false, age: 55 });
+    const wm = person(g, life, { female: true, age: 53 });
+    wed(wf, wm);
+    w.father = wf.id;
+    w.mother = wm.id;
+    wf.children.push(w.id);
+    wm.children.push(w.id);
+    const wb = person(g, life, {
+      female: false,
+      age: 20,
+      father: wf.id,
+      mother: wm.id,
+    });
+    // Children, a son married with a child of his own.
+    const son = person(g, life, {
+      female: false,
+      age: 22,
+      father: me.id,
+      mother: w.id,
+    });
+    const dil = person(g, life, { female: true, age: 20 });
+    wed(son, dil);
+    const grandkid = person(g, life, {
+      female: false,
+      age: 1,
+      father: son.id,
+      mother: dil.id,
+    });
+    const girl = person(g, life, {
+      female: true,
+      age: 12,
+      father: me.id,
+      mother: w.id,
+    });
+    // A lover, and a child of it you never owned.
+    const lover = person(g, life, { female: true, age: 26 });
+    const secret = person(g, life, { female: false, age: 2, mother: lover.id });
+    life.affairs = [
+      {
+        c: lover.id,
+        since: 0,
+        exposure: 0,
+        known: [],
+        kids: [secret.id],
+        met: 0,
+        blackmailer: -1,
+      },
+    ];
+    // Grandfather has died.
+    gf.alive = false;
+    gf.died = { day: g.s.day - 400, cause: "old age" };
+    life.heir = girl.id;
+
+    const t = familyTree(g.s, life)!;
+    const at = (c: Character) => t.nodes.find((n) => n.c === c.id);
+    expect(at(me)?.kind).toBe("you");
+    expect(at(gf)?.gen).toBe(-2);
+    expect(at(gm)?.label).toBe("Grandmother");
+    expect(at(dad)?.label).toBe("Your father");
+    expect(at(sis)?.label).toBe("Your sister");
+    expect(at(w)?.label).toBe("Your wife");
+    expect(at(wf)?.label).toBe("Father-in-law");
+    expect(at(wb)?.label).toBe("Brother-in-law");
+    expect(at(son)?.gen).toBe(1);
+    expect(at(dil)?.label).toBe("Daughter-in-law");
+    expect(at(grandkid)?.gen).toBe(2);
+    expect(at(lover)?.kind).toBe("lover");
+    expect(at(secret)?.kind).toBe("lovechild");
+    // The heir is marked, and only the heir.
+    expect(t.nodes.filter((n) => n.heir).map((n) => n.c)).toEqual([girl.id]);
+    expect(at(girl)?.label).toMatch(/heir/);
+    // Nobody stands on anyone else in a row.
+    for (let gen = t.minGen; gen <= t.maxGen; gen++) {
+      const xs = t.nodes
+        .filter((n) => n.gen === gen)
+        .map((n) => n.x)
+        .sort((a, b) => a - b);
+      for (let i = 1; i < xs.length; i++)
+        expect(xs[i] - xs[i - 1], `row ${gen}`).toBeGreaterThanOrEqual(0.99);
+    }
+    // Every line joins people on the tree; the lover's child hangs by a broken one.
+    const ids = new Set(t.nodes.map((n) => n.c));
+    for (const d of t.descents)
+      for (const id of [...d.parents, ...d.children])
+        expect(ids.has(id)).toBe(true);
+    expect(t.descents.find((d) => d.children.includes(secret.id))?.hidden).toBe(
+      true,
+    );
+    expect(
+      t.couples.some((c) => c.kind === "married" && [c.a, c.b].includes(w.id)),
+    ).toBe(true);
+    expect(t.couples.some((c) => c.kind === "lovers")).toBe(true);
+  });
+
+  test("a lone soul is a tree of one", () => {
+    const g = world();
+    const life = lifeOf(g);
+    const t = familyTree(g.s, life)!;
+    expect(t.nodes).toHaveLength(1);
+    expect(t.minGen).toBe(0);
+  });
+});
+
+describe("duels as scenes", () => {
+  function rival(g: ReturnType<typeof world>, life: Life): Character {
+    const me = meOf(g.s, life)!;
+    const c = makeCharacter(g.s, g.rng, {
+      nation: me.nation,
+      culture: "english",
+      religion: "anglican",
+      female: false,
+      age: 30,
+    });
+    c.home = life.prov;
+    g.s.locals[life.prov].push(c.id);
+    life.ties[c.id] = "rival";
+    life.met.push(c.id);
+    return c;
+  }
+  const pending = (life: Life) =>
+    life.events.find((e) => e.key.startsWith("duel-"));
+  const choose = (g: ReturnType<typeof world>, life: Life, i: number) => {
+    const ev = pending(life)!;
+    expect(
+      g.lifeCommand("s1", { k: "event", id: ev.id, choice: i }),
+    ).toBeNull();
+  };
+
+  test("a challenge goes through seconds, weapons, dawn and the exchanges", () => {
+    const g = world();
+    const life = lifeOf(g);
+    const foe = rival(g, life);
+    life.skills.fighting = 9;
+    const seen: unknown[] = [];
+    hooks.duelAftermath.push((_g, _l, d) => seen.push(d));
+    expect(
+      g.lifeCommand("s1", { k: "person", c: foe.id, act: "duel" }),
+    ).toBeNull();
+    expect(duelOn(life)).toBe(true);
+    expect(pending(life)?.key).toBe("duel-call");
+    // No second to hand: go alone.
+    expect(pending(life)!.ctx.ch).toBe(1);
+    choose(g, life, 1);
+    expect(pending(life)?.key).toBe("duel-weapons");
+    choose(g, life, 0); // agree to their choice
+    expect(pending(life)?.key).toBe("duel-dawn");
+    const w = pending(life)!.ctx.w;
+    expect([1, 2]).toContain(w);
+    choose(g, life, 0); // take your ground
+    let guard = 0;
+    while (pending(life)?.key === "duel-exchange" && guard++ < 6) {
+      const ev = pending(life)!;
+      const shown = duelChoicesShown(ev.key, ev.ctx);
+      expect(shown.length).toBeGreaterThan(0);
+      choose(g, life, shown[0]);
+    }
+    // It ended: an outcome scene (unless you died of it), and the law heard.
+    if (life.c >= 0 && meOf(g.s, life)?.alive)
+      expect(pending(life)?.key).toBe("duel-outcome");
+    expect(seen).toHaveLength(1);
+    expect(
+      life.journal.some((j) => /dawn|smallswords|pistols/.test(j.text)),
+    ).toBe(true);
+    hooks.duelAftermath.pop();
+  });
+
+  test("being called out, and apologising, ends it without blood", () => {
+    const g = world();
+    const life = lifeOf(g);
+    const foe = rival(g, life);
+    const renown = (life.renown = 10);
+    const health = life.health;
+    const { duel } = INTER;
+    duel(g, life, g.char(foe.id), true);
+    expect(pending(life)?.ctx.ch).toBe(0);
+    expect(duelChoicesShown("duel-call", pending(life)!.ctx)).toEqual([
+      0, 1, 2, 3,
+    ]);
+    choose(g, life, 2);
+    expect(duelOn(life)).toBe(false);
+    expect(life.renown).toBeLessThan(renown);
+    expect(life.health).toBe(health);
+  });
+
+  test("odds come from Fighting and traits, and a second helps", () => {
+    const g = world();
+    const life = lifeOf(g);
+    const foe = rival(g, life);
+    const ctx = { c: foe.id, w: 1, sec: -1, r: 0, mw: 0, fw: 0 };
+    life.skills.fighting = 5;
+    const lo = duelOdds(g.s, life, ctx, "guard").chance;
+    life.skills.fighting = 10;
+    const hi = duelOdds(g.s, life, ctx, "guard").chance;
+    expect(hi).toBeGreaterThan(lo);
+    life.skills.fighting = 3;
+    const alone = duelOdds(g.s, life, ctx, "guard").chance;
+    const second = duelOdds(g.s, life, { ...ctx, sec: foe.id + 1 }, "guard");
+    expect(second.chance).toBeGreaterThan(alone);
+    expect(second.why.parts.some((p) => /second/.test(p.label))).toBe(true);
+    foe.traits = [...foe.traits.filter((t) => t !== "craven"), "brave"];
+    const braver = duelOdds(g.s, life, ctx, "guard").chance;
+    expect(braver).toBeLessThan(alone);
+    // Guarding is safer than pressing.
+    expect(duelOdds(g.s, life, ctx, "press").chance).toBeLessThan(
+      duelOdds(g.s, life, ctx, "guard").chance,
+    );
+  });
+
+  test("a death on the field brings the law's heat in a colony", () => {
+    const g = world();
+    const life = lifeOf(g);
+    const foe = rival(g, life);
+    const def = DUEL_EVENTS.find((d) => d.key === "duel-exchange")!;
+    // Pistols, last exchange, they're already mortally hurt.
+    const ctx = {
+      c: foe.id,
+      ch: 1,
+      sc: -1,
+      sec: -1,
+      fsec: -1,
+      w: 2,
+      r: 1,
+      mw: 0,
+      fw: 120,
+      fb: 0,
+      dl: 0,
+      fdl: 1,
+      p: life.prov,
+    };
+    g.rng.next();
+    // "Call honour satisfied" ends it with the wounds as they stand.
+    def.choices[0].apply(g, life, ctx, true);
+    expect(foe.alive).toBe(false);
+    const heat = Object.values(life.crime?.heat ?? {})[0] ?? 0;
+    expect(heat).toBeGreaterThanOrEqual(25);
+    const out = pending(life)!;
+    expect(out.key).toBe("duel-outcome");
+    expect(duelChoicesShown(out.key, out.ctx)).toEqual([0, 1, 2]);
+  });
+
+  test("a second challenge while one is fought is settled at once", () => {
+    const g = world();
+    const life = lifeOf(g);
+    const a = rival(g, life);
+    const b = rival(g, life);
+    const { duel } = INTER;
+    duel(g, life, g.char(a.id), true);
+    const n = life.events.length;
+    duel(g, life, g.char(b.id), true);
+    expect(life.events.length).toBe(n);
   });
 });

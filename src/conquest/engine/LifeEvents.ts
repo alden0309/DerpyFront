@@ -3604,10 +3604,12 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   // LIFE (r11): matters at work, crime and the law, your people, boats, the road.
   ...R11_EVENTS,
   ...SOCIETY_EVENTS, // SOCIETY (r11)
+  ...DUEL_EVENTS, // HOME (r12): duels as a chain of scenes
 ];
 
 // ---------------------------------------------------------------- a few calls out
 
+import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";

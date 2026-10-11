@@ -24,6 +24,7 @@ import {
   strengthBars,
 } from "./Battle";
 import { GameUi, Modal, token } from "./Context";
+import { familyTreeModal } from "./FamilyTree"; // HOME (r12)
 import { finderModal, resetFinder } from "./Finder";
 import { roleOf } from "./Here";
 import { eventScene, interactScene, outcomeScene } from "./Scene";
@@ -122,6 +123,11 @@ export function renderModal(
     case "constitute":
       body = constituteModal(ui);
       cls = "wide society";
+      break;
+    // HOME (r12)
+    case "tree":
+      body = familyTreeModal(ui);
+      cls = "wide kin";
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);

@@ -331,3 +331,439 @@
     width: 6.2rem;
   }
 }
+
+/* ---------------------------------------------------------------- the family tree */
+
+.cq-kin-view {
+  position: relative;
+  height: 430px;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+  background:
+    radial-gradient(
+      ellipse at 50% 40%,
+      rgba(255, 249, 228, 0.9),
+      rgba(236, 220, 180, 0.95) 70%,
+      rgba(214, 190, 140, 1)
+    ),
+    var(--vellum);
+  border: 1px solid #a88a54;
+  outline: 3px double rgba(138, 106, 62, 0.55);
+  outline-offset: -8px;
+  box-shadow: inset 0 0 40px rgba(120, 85, 40, 0.28);
+}
+.cq-kin-view:active {
+  cursor: grabbing;
+}
+.cq-kin-view.modal {
+  height: min(74vh, 760px);
+}
+.cq-kin-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  background-image: var(--paper);
+}
+.cq-kin-lines {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.cq-kin-line,
+.cq-kin-wed {
+  fill: none;
+  stroke: #4a3220;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.cq-kin-line.hidden {
+  stroke-dasharray: 5 4;
+  stroke: #7a5a3a;
+}
+.cq-kin-wed {
+  stroke: #8a6420;
+  stroke-width: 1.4;
+}
+.cq-kin-wed.far {
+  stroke-width: 1.2;
+}
+.cq-kin-wed.lovers {
+  stroke: #9e2a1e;
+}
+
+/* The cartouche: arms, the family's name, the year it was set down. */
+.cq-kin-title {
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.35rem 1.4rem 0.4rem 0.9rem;
+  white-space: nowrap;
+  background: rgba(251, 243, 220, 0.85);
+  border: 1px solid #a88a54;
+  border-radius: 40px / 50%;
+  box-shadow:
+    0 0 0 4px rgba(251, 243, 220, 0.7),
+    0 0 0 5px rgba(138, 106, 62, 0.5);
+}
+.cq-kin-arms {
+  width: 40px;
+  height: 42px;
+}
+.cq-kin-head {
+  margin: 0;
+  font-family: var(--fell);
+  font-size: 1.55rem;
+  line-height: 1.1;
+  color: var(--ink);
+}
+.cq-kin-sub {
+  margin: 0;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+/* The generations, numbered down the margin. */
+.cq-kin-gen {
+  position: absolute;
+  left: 6px;
+  width: 52px;
+  margin: 0;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.72rem;
+  line-height: 1.1;
+  text-align: center;
+  color: rgba(74, 50, 32, 0.6);
+}
+.cq-kin-gen span {
+  display: block;
+  font-style: normal;
+  font-size: 1.3rem;
+  color: rgba(74, 50, 32, 0.45);
+}
+
+/* A person: an oval portrait over their name, years and kinship. */
+.cq-kin-card {
+  position: absolute;
+  width: 116px;
+  height: 150px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font: inherit;
+  text-align: center;
+  color: var(--ink);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.cq-kin-card:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+.cq-kin-card .cq-kin-face {
+  width: 62px;
+  height: 76px;
+  border-width: 3px;
+  transition: transform 0.15s;
+}
+.cq-kin-card:hover .cq-kin-face {
+  transform: scale(1.05);
+}
+.cq-kin-card.kind-you .cq-kin-face {
+  width: 70px;
+  height: 86px;
+  box-shadow:
+    0 0 0 2px #fbf3dc,
+    0 0 0 4px var(--seal),
+    0 2px 6px rgba(43, 29, 18, 0.45);
+}
+.cq-kin-card.kind-you {
+  top: auto;
+}
+.cq-kin-name {
+  margin-top: 3px;
+  max-width: 116px;
+  font-family: var(--fell);
+  font-size: 0.92rem;
+  line-height: 1.05;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.cq-kin-name i {
+  font-style: normal;
+  font-variant: small-caps;
+}
+.cq-kin-cross {
+  color: var(--seal);
+}
+.cq-kin-dates {
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+.cq-kin-rel {
+  font-family: var(--fell-sc);
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  color: #6b4a10;
+  line-height: 1.1;
+}
+.cq-kin-card.dead .cq-kin-name,
+.cq-kin-card.dead .cq-kin-rel {
+  opacity: 0.7;
+}
+.cq-kin-card.kind-inlaw .cq-kin-face,
+.cq-kin-card.kind-former .cq-kin-face {
+  width: 54px;
+  height: 66px;
+  margin-top: 6px;
+}
+.cq-kin-player {
+  padding: 0 0.25rem;
+  font-family: var(--sans);
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  color: #fff;
+  background: #2e4a6a;
+  border-radius: 2px;
+}
+/* The heir's ribbon, across the top of the portrait. */
+.cq-kin-ribbon {
+  position: absolute;
+  top: -7px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 0 0.55rem;
+  font-family: var(--fell-sc);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: #fbf1dc;
+  background: linear-gradient(#b88a34, #8a6420);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  clip-path: polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%);
+}
+.cq-kin-card.heir .cq-kin-face {
+  box-shadow:
+    0 0 0 2px #fbf3dc,
+    0 0 0 4px #b88a34,
+    0 2px 6px rgba(43, 29, 18, 0.45);
+}
+
+/* + − All You, in the corner. */
+.cq-kin-tools {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 4px;
+}
+.cq-kin-tool {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.4rem;
+  font-family: var(--fell);
+  font-size: 1.05rem;
+  color: var(--ink);
+  background: rgba(251, 243, 220, 0.92);
+  border: 1px solid var(--sepia);
+  border-radius: 3px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(43, 29, 18, 0.25);
+}
+.cq-kin-tool.wide {
+  font-size: 0.85rem;
+  font-family: var(--sans);
+}
+.cq-kin-tool:hover {
+  background: var(--vellum-3);
+}
+.cq-kin-hint {
+  align-self: center;
+  font-style: italic;
+}
+.cq-kin-section .cq-btnrow {
+  margin-top: 0.45rem;
+}
+.cq-modal.kin {
+  width: min(1180px, 96vw);
+}
+.cq-kin-modal .cq-h1 {
+  margin: 0 0 0.6rem;
+}
+
+@media (max-width: 520px) {
+  .cq-kin-view {
+    height: min(58vh, 460px);
+  }
+  .cq-kin-view.modal {
+    height: 72vh;
+  }
+  .cq-kin-tool {
+    min-width: 2.4rem;
+    height: 2.4rem;
+  }
+}
+
+/* ---------------------------------------------------------------- duels */
+
+/* The steps of an affair of honour, along the top of the picture. */
+.cq-duel-steps {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin: 0.55rem 1rem 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: duel;
+}
+.cq-duel-steps li {
+  counter-increment: duel;
+  position: relative;
+  padding: 0 0.7rem 0 0.2rem;
+  font-family: var(--fell-sc);
+  font-size: 0.8rem;
+  color: rgba(110, 85, 56, 0.6);
+  white-space: nowrap;
+}
+.cq-duel-steps li::before {
+  content: counter(duel, upper-roman) ". ";
+  font-family: var(--fell);
+}
+.cq-duel-steps li + li::after {
+  content: "";
+  position: absolute;
+  left: -0.55rem;
+  top: 50%;
+  width: 0.35rem;
+  height: 1px;
+  background: var(--sepia);
+}
+.cq-duel-steps li.done {
+  color: var(--ink-soft);
+}
+.cq-duel-steps li.now {
+  color: var(--seal);
+  font-weight: 700;
+}
+.cq-duel-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem 1.1rem;
+  margin: 0.7rem 2rem 0;
+  padding: 0.35rem 0.6rem;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.cq-duel-weapon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--fell);
+  font-size: 1rem;
+}
+.cq-duel-icon {
+  width: 1.6rem;
+  height: 1.3rem;
+}
+.cq-duel-wound {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.cq-duel-wound b {
+  font-family: var(--fell);
+  font-weight: 400;
+}
+.cq-duel-blood {
+  position: relative;
+  display: inline-block;
+  width: 4.2rem;
+  height: 0.45rem;
+  background: rgba(138, 106, 62, 0.18);
+  border: 1px solid rgba(138, 106, 62, 0.45);
+}
+.cq-duel-blood i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: linear-gradient(#b0382a, #7a1d13);
+}
+.cq-duel-wound.hurt .small {
+  color: #8a4a20;
+}
+.cq-duel-wound.bad .small {
+  color: var(--seal);
+  font-weight: 700;
+}
+.cq-duel-second {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+/* What the last choice came to, as a note in the margin. */
+.cq-duel-last {
+  margin: 0.7rem 2rem 0;
+  padding: 0.35rem 0.75rem;
+  border-left: 3px solid var(--seal);
+  background: rgba(158, 42, 30, 0.06);
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 1rem;
+}
+.cq-duel-last p {
+  margin: 0;
+}
+.cq-duel-choices .cq-choice {
+  position: relative;
+  padding-right: 3.6rem;
+}
+.cq-duel-choices .cq-choice > .cq-odds {
+  position: absolute;
+  right: 0.7rem;
+  top: 0.65rem;
+  font-size: 0.85rem;
+}
+.cq-duel-choices .cq-choice.blocked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .cq-duel-steps {
+    flex-wrap: wrap;
+    row-gap: 0.1rem;
+    margin: 0.45rem 0.6rem 0;
+  }
+  .cq-duel-steps li {
+    font-size: 0.7rem;
+    padding-right: 0.45rem;
+  }
+  .cq-duel-state,
+  .cq-duel-last {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
+}
