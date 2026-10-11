@@ -52,6 +52,7 @@ import { wake } from "./Pace";
 import { charName } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { effortOf, EFFORTS } from "./Trades";
+import { openCrimeTrial } from "./Trials"; // POWER (r12): the sessions as scenes
 import type {
   CrimeState,
   GameState,
@@ -485,8 +486,11 @@ export function crimeDaily(g: ConquestGame, life: Life): void {
   }
   if (s.day < j.until) return;
   if (j.trial) {
+    // POWER (r12): the quarter sessions played out as scenes (Trials.ts);
+    // an old save's waiting "crime-trial" letter is still answered as it was.
     if (!life.events.some((e) => e.key === "crime-trial")) {
-      raiseEvent(g, life, "crime-trial", { g: j.grade, n: j.nation });
+      if (!openCrimeTrial(g, life))
+        raiseEvent(g, life, "crime-trial", { g: j.grade, n: j.nation });
       // A trial can't wait forever: if nobody answers it's decided for you.
       j.until = s.day + 60;
     }

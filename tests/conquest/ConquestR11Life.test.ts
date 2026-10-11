@@ -83,6 +83,20 @@ function clearEvents(g: ReturnType<typeof world>, life: Life): void {
     answerLifeEvent(g, life, ev.id, ev.choices.length - 1);
 }
 
+/** POWER (r12): play a trial's scenes: answer yourself, say nothing, plead, hear the verdict. */
+function sessions(g: ReturnType<typeof world>, life: Life, plea: string): void {
+  const pick = (key: string, re: RegExp) => {
+    const ev = life.events.find((e) => e.key === key)!;
+    expect(ev, key).toBeDefined();
+    const i = ev.choices.findIndex((c) => re.test(c.label));
+    expect(answerLifeEvent(g, life, ev.id, Math.max(0, i))).toBeNull();
+  };
+  pick("trial-charge", /yourself/);
+  pick("trial-witness", /Say nothing/);
+  pick("trial-plea", new RegExp(plea));
+  pick("trial-end", /./);
+}
+
 describe("the pace of a life", () => {
   test("1× is a day every three seconds; 2×, 4× and 8× from there; skipping is quicker still", () => {
     expect(SPEED_DAYS_PER_SECOND[1]).toBeCloseTo(1 / 3, 5);
@@ -317,13 +331,13 @@ describe("crime and the law", () => {
     ).toMatch(/gaol/);
     for (
       let d = 0;
-      d < 30 && !life.events.some((e) => e.key === "crime-trial");
+      d < 30 && !life.events.some((e) => e.key === "trial-charge");
       d++
     )
       g.tick();
-    const trial = life.events.find((e) => e.key === "crime-trial")!;
-    expect(trial).toBeDefined();
-    expect(answerLifeEvent(g, life, trial.id, 0)).toBeNull();
+    // POWER (r12): the quarter sessions are scenes now; plead guilty.
+    expect(life.events.some((e) => e.key === "trial-charge")).toBe(true);
+    sessions(g, life, "Guilty");
     expect(life.crime!.record.length).toBe(1);
     // Sentences grow with the crime and the record.
     expect(sentenceFor(1, 0).key).toBe("fine");
@@ -392,9 +406,8 @@ describe("crime and the law", () => {
     jail(g, life, "highway robbery", 3, lawAt(g.s, life.prov));
     life.crime!.jail!.until = g.s.day;
     g.tick();
-    const trial = life.events.find((e) => e.key === "crime-trial")!;
-    const clergy = trial.choices.findIndex((c) => /clergy/.test(c.label));
-    expect(answerLifeEvent(g, life, trial.id, clergy)).toBeNull();
+    // POWER (r12): the quarter sessions are scenes now; plead clergy.
+    sessions(g, life, "clergy");
     expect(life.crime!.branded).toBe(true);
     expect(life.crime!.jail).toBeNull();
     expect(meOf(g.s, life)?.alive).toBe(true);

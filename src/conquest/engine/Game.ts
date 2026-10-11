@@ -34,6 +34,8 @@ import { missionCommand, missionsDaily, outpostsDaily } from "./Missions";
 import { movementsMonthly } from "./Movements";
 import { makePolities, politicsMonthly } from "./Politics";
 import { popsMonthly } from "./Pops";
+import { powerDaily, powerMonthly } from "./Power"; // POWER (r12)
+import { takePowerDelta } from "./PowerCore"; // POWER (r12)
 import { scoreOf } from "./Queries";
 import { Rng } from "./Rng";
 import { END_YEAR } from "./Rules";
@@ -322,6 +324,8 @@ export class ConquestGame {
     if (this.rumours) d.rumours = s.rumours ?? [];
     if (this.societyKeys.size > 0)
       d.society = societyDelta(s, this.societyKeys); // SOCIETY (r11)
+    const power = takePowerDelta(this); // POWER (r12)
+    if (power) d.power = power;
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)
@@ -369,6 +373,7 @@ export class ConquestGame {
     fogDaily(this); // WORLD r11
     leadsDaily(this); // WORLD r11
     societyDaily(this); // SOCIETY (r11)
+    powerDaily(this); // POWER (r12)
     if (isMonthStart(s.day)) this.month();
     if (s.day >= s.endDay) this.finish();
   }
@@ -391,6 +396,7 @@ export class ConquestGame {
     marketsMonthly(this); // WORLD r11
     leadsMonthly(this); // WORLD r11
     societyMonthly(this); // SOCIETY (r11)
+    powerMonthly(this); // POWER (r12)
     if (this.aiEnabled) {
       for (const n of this.state.nations) {
         if (n.alive && n.player === null) runAi(this, n.id);

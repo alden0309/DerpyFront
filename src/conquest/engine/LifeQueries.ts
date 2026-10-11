@@ -44,6 +44,7 @@ import type { World } from "./Map";
 import { landHopDays, seaHopDays } from "./Paths";
 import { propertyBudget } from "./Property";
 // SOCIETY (r11)
+import { seatTitleOf } from "./CouncilTitles"; // POWER (r12)
 import { AMERICAS, worldOf } from "./Map";
 import { localOfficesOf, OFFICES, officeTitle } from "./Offices";
 import {
@@ -59,7 +60,6 @@ import {
   DAYS_PER_YEAR,
   EUROPE_PRICE,
   NATIVE_SEAT_NAMES,
-  SEAT_NAMES,
   TITLE_NAMES,
 } from "./Rules";
 import { societyOpinion } from "./SocietyOpinion";
@@ -736,7 +736,8 @@ export function officesOf(s: GameState, c: number): OfficeView[] {
           label: n.gov // SOCIETY (r11): a nation its founders set up
             ? `${rulerTitle(n, !!s.chars[c]?.female)} of ${n.name.replace(/^the /, "")}`
             : `${n.title > 0 ? `${TITLE_NAMES[n.title]} and g` : "G"}overnor of ${n.name.replace(/^the /, "")}`,
-          stipend: 24,
+          // POWER (r12): an assembly that withholds the governor's salary.
+          stipend: (s.power?.cabinets[n.id]?.unpaid ?? 0) > s.day ? 0 : 24,
           level: 3,
         });
       else if (n.kind === "native")
@@ -766,16 +767,29 @@ export function officesOf(s: GameState, c: number): OfficeView[] {
             label:
               n.kind === "native"
                 ? `${NATIVE_SEAT_NAMES[seat]} of the ${n.name}`
-                : `${SEAT_NAMES[seat]} of ${n.name.replace(/^the /, "")}`,
+                : `${seatTitleOf(n, seat)} of ${n.name.replace(/^the /, "")}`, // POWER (r12): colonial titles
             stipend: n.kind === "native" ? 3 : 5,
             level: 2,
           });
+    // POWER (r12): the colony's own council seats.
+    for (const seat of ["attorney", "surveyor"] as const)
+      if (n.kind === "power" && s.power?.cabinets[n.id]?.[seat] === c)
+        out.push({
+          kind: "council",
+          nation: n.id,
+          label: `${seatTitleOf(n, seat)} of ${n.name.replace(/^the /, "")}`,
+          stipend: 5,
+          level: 2,
+        });
     const pol = s.polities[n.id];
     if (pol?.assembly.includes(c))
       out.push({
         kind: "assembly",
         nation: n.id,
-        label: `${n.kind === "native" ? "Speaker at" : "Member of"} ${pol.name}`,
+        label:
+          s.power?.cabinets[n.id]?.speaker === c // POWER (r12): the speaker's chair
+            ? `Speaker of ${pol.name}`
+            : `${n.kind === "native" ? "Speaker at" : "Member of"} ${pol.name}`,
         stipend: n.kind === "native" ? 1 : 2,
         level: 1,
       });

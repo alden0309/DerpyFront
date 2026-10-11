@@ -3612,6 +3612,7 @@ import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";
+import { POWER_DEFAULTS, POWER_EVENTS } from "./PowerEvents"; // POWER (r12)
 import { R11_EVENTS } from "./R11Events";
 import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
@@ -3639,6 +3640,22 @@ function enlist(
 // ---------------------------------------------------------------- firing and answering
 
 const BY_KEY = new Map(LIFE_EVENTS.map((e) => [e.key, e]));
+
+// POWER (r12): the scenes of trials, the council and the press, added the
+// first time an event is looked up (after every module has loaded, so the
+// lists can import what they like).
+let powerAdded = false;
+function byKey(key: string): LifeEventDef | undefined {
+  if (!powerAdded) {
+    powerAdded = true;
+    for (const d of POWER_EVENTS)
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+  }
+  return BY_KEY.get(key);
+}
 
 function text<T>(
   v: string | ((g: ConquestGame, life: Life, ctx: LCtx) => T),
@@ -3834,7 +3851,7 @@ export function raiseLifeEvent(
   key: string,
   ctx: LCtx = {},
 ): void {
-  const def = BY_KEY.get(key);
+  const def = byKey(key);
   if (!def || life.watching || life.c < 0) return;
   // The same letter twice is one letter (proposals: one per asker).
   if (key.startsWith("p2p-")) {
@@ -3885,8 +3902,12 @@ function firstAllowed(
   life: Life,
   ev: LifeEventPending,
 ): number {
-  const def = BY_KEY.get(ev.key);
+  const def = byKey(ev.key);
   if (!def) return 0;
+  // POWER (r12): a trial, council or press scene left unanswered takes its quiet course.
+  const quiet = POWER_DEFAULTS[ev.key];
+  if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
+    return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.
   if (def.pool === "raised") {
     const last = def.choices.length - 1;
@@ -3906,7 +3927,7 @@ function answer(
 ): void {
   touchLife(g, life);
   life.events = life.events.filter((e) => e.id !== ev.id);
-  const def = BY_KEY.get(ev.key);
+  const def = byKey(ev.key);
   const c = def?.choices[choice];
   if (!def || !c || life.c < 0) return;
   const odds = choiceOdds(g, life, c, ev.ctx);
@@ -3941,7 +3962,7 @@ export function answerLifeEvent(
   if (!ev) return "That's been settled.";
   if (!Number.isInteger(choice) || choice < 0 || choice >= ev.choices.length)
     return "No such choice.";
-  const def = BY_KEY.get(ev.key);
+  const def = byKey(ev.key);
   const why = def?.choices[choice]?.blocked?.(g, life, ev.ctx);
   if (why) return `${why}.`;
   answer(g, life, ev, choice);
