@@ -2,6 +2,8 @@
 // plain emblem in a native nation's colour (they didn't fly flags).
 
 import { html, svg, TemplateResult } from "lit";
+import type { NationFlag } from "../engine/Types";
+import { chargePath } from "./Arms";
 
 export function flag(key: string, cls = "cq-flag"): TemplateResult {
   switch (key) {
@@ -142,13 +144,74 @@ export function rebelFlag(color: string, cls = "cq-flag"): TemplateResult {
 }
 
 export function flagFor(
-  n: { key: string; kind: string; color: string; religion?: string },
+  n: {
+    key: string;
+    kind: string;
+    color: string;
+    religion?: string;
+    flag?: NationFlag;
+  },
   cls = "cq-flag",
 ): TemplateResult {
+  // SOCIETY (r11): a flag its founders made.
+  if (n.flag) return customFlag(n.flag, cls);
   if (n.kind === "native") return emblem(n.color, cls);
   if (n.kind === "rebels")
     return n.religion === "native"
       ? emblem(n.color, cls)
       : rebelFlag(n.color, cls);
   return flag(n.key.replace(/^crown-/, ""), cls);
+}
+
+/** SOCIETY (r11): a new nation's flag, as its founders made it. */
+export function customFlag(f: NationFlag, cls = "cq-flag"): TemplateResult {
+  const b = f.second;
+  let div = svg``;
+  switch (f.division) {
+    case "pale":
+      div = svg`<rect x="20" width="20" height="40" fill=${b} />`;
+      break;
+    case "fess":
+      div = svg`<rect y="13.3" width="60" height="13.4" fill=${b} />`;
+      break;
+    case "bend":
+      div = svg`<path d="M0 0h10l50 33v7H50L0 7z" fill=${b} />`;
+      break;
+    case "cross":
+      div = svg`<rect x="17" width="8" height="40" fill=${b} /><rect y="16" width="60" height="8" fill=${b} />`;
+      break;
+    case "saltire":
+      div = svg`<path d="M0 0 60 40M60 0 0 40" stroke=${b} stroke-width="7" />`;
+      break;
+    case "canton":
+      div = svg`<rect width="27" height="20" fill=${b} />`;
+      break;
+    case "triband":
+      div = svg`<rect x="20" width="20" height="40" fill=${b} /><rect width="60" height="40" fill="none" />`;
+      break;
+    case "stripes":
+      div = svg`${[0, 1, 2, 3, 4, 5, 6, 7, 8]
+        .filter((i) => i % 2 === 1)
+        .map(
+          (i) =>
+            svg`<rect y=${(i * 40) / 9} width="60" height=${40 / 9} fill=${b} />`,
+        )}`;
+      break;
+  }
+  const inCanton = f.division === "canton";
+  const [cx, cy, k] = inCanton ? [13.5, 10, 0.62] : [30, 20, 0.95];
+  return html`<svg class=${cls} viewBox="0 0 60 40" aria-hidden="true">
+    <rect width="60" height="40" fill=${f.field} />
+    ${div}
+    ${f.charge !== "none"
+      ? svg`<g transform="translate(${cx} ${cy}) scale(${k})" fill=${f.chargeColor} stroke=${f.chargeColor} stroke-width="0.6" stroke-linejoin="round">${chargePath(f.charge)}</g>`
+      : svg``}
+    <rect
+      width="60"
+      height="40"
+      fill="none"
+      stroke="rgba(0,0,0,.25)"
+      stroke-width="1"
+    />
+  </svg>`;
 }

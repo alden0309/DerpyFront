@@ -16,6 +16,7 @@ import "./conquest.css";
 import "./life.css";
 import "./likeness.css";
 import "./scene.css";
+import "./society.css"; // SOCIETY (r11)
 import "./steady.css";
 import "./world.css"; // WORLD r11
 // LIFE (r11): work, the law, your people, your boats, the road.

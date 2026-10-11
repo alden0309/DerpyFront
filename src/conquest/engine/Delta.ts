@@ -1,5 +1,6 @@
 // Applies the server's deltas to a player's copy of the game state.
 
+import { applySocietyDelta } from "./SocietyCore"; // SOCIETY (r11)
 import { GameDelta, GameState } from "./Types";
 
 const MAX_BATTLES_KEPT = 40;
@@ -53,6 +54,7 @@ export function applyDelta(s: GameState, d: GameDelta): void {
   if (d.movements) s.movements = d.movements;
   if (d.travellers) s.travellers = d.travellers;
   if (d.rumours) s.rumours = d.rumours;
+  if (d.society) applySocietyDelta(s, d.society); // SOCIETY (r11)
   if (d.polities) {
     for (const [n, pol] of Object.entries(d.polities))
       s.polities[Number(n)] = pol;

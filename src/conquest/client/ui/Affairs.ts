@@ -118,6 +118,7 @@ import {
   section,
 } from "./Context";
 import { affairsSections, tradesLink, workNotes } from "./Livelihood";
+import { societySection } from "./Society"; // SOCIETY (r11)
 
 export function affairsTab(ui: GameUi): TemplateResult {
   const life = ui.life;
@@ -135,8 +136,8 @@ export function affairsTab(ui: GameUi): TemplateResult {
     </header>
     ${workSection(ui)} ${affairsSections(ui)} ${ambitionSection(ui)}
     ${purseSection(ui)} ${propertySection(ui)} ${armySection(ui)}
-    ${standingSection(ui)} ${governingSection(ui)} ${causeSection(ui)}
-    ${europeSection(ui)}`;
+    ${standingSection(ui)} ${societySection(ui)} ${governingSection(ui)}
+    ${causeSection(ui)} ${europeSection(ui)}`;
 }
 
 // ---------------------------------------------------------------- work

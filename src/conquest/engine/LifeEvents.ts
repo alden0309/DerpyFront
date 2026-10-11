@@ -3603,6 +3603,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   ...LEAD_EVENTS, // WORLD r11
   // LIFE (r11): matters at work, crime and the law, your people, boats, the road.
   ...R11_EVENTS,
+  ...SOCIETY_EVENTS, // SOCIETY (r11)
 ];
 
 // ---------------------------------------------------------------- a few calls out
@@ -3612,6 +3613,7 @@ import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";
 import { R11_EVENTS } from "./R11Events";
+import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
 
 function joinM(g: ConquestGame, life: Life, id: number): string | null {

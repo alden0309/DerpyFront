@@ -9,6 +9,7 @@ import type {
   Breakdown,
   Character,
   GameState,
+  LetterKind,
   Life,
   LifeCommand,
   MapDef,
@@ -28,7 +29,12 @@ export type DrawerView =
   | { k: "army"; id: number }
   | { k: "nation"; n: number }
   /** LIFE (r11): a page of its own (every trade). */
-  | { k: "life"; page: "trades" };
+  | { k: "life"; page: "trades" }
+  // SOCIETY (r11)
+  | { k: "letters" }
+  | { k: "gatherings" }
+  | { k: "offices"; p: number }
+  | { k: "founding" };
 
 export type Modal =
   | { k: "event"; id: number }
@@ -45,7 +51,11 @@ export type Modal =
   | { k: "takeover" }
   | { k: "trade" }
   // ART (r11): sit for a new likeness.
-  | { k: "likeness" };
+  | { k: "likeness" }
+  // SOCIETY (r11)
+  | { k: "write"; c?: number; kind?: LetterKind; arg?: number; about?: number }
+  | { k: "host" }
+  | { k: "constitute" };
 
 export interface GameUi {
   s: GameState;

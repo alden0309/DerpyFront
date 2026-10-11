@@ -32,6 +32,7 @@ import { GOOD_NAMES } from "../Text";
 import type { GameUi } from "./Context";
 import { roleOf } from "./Here";
 import { letterClock, ModalHooks } from "./Modals";
+import { talkLine } from "./Society"; // SOCIETY (r11)
 
 type Expr = NonNullable<PortraitOpts["expression"]>;
 
@@ -485,6 +486,7 @@ export function interactScene(
       </div>
       <div class="cq-scene-text">
         <p>${def.text}</p>
+        ${talkLine(ui, c)}
       </div>
       ${verdict}
       <div class="cq-scene-actions">${action}</div>`,

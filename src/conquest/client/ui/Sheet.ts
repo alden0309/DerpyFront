@@ -63,6 +63,7 @@ import {
 import { roleOf, verdictChip } from "./Here";
 import { personR11 } from "./Livelihood";
 import { sittingPrompt } from "./Sitting";
+import { personSociety, tonguesSection } from "./Society"; // SOCIETY (r11)
 import { steadySet } from "./Steady";
 
 function traitChips(c: Character, life = false): TemplateResult {
@@ -297,7 +298,8 @@ export function youTab(ui: GameUi): TemplateResult {
           )}
         </ul>`,
     )}
-    ${familySection(ui, me)} ${tiesSection(ui)} ${goodsSection(ui)}
+    ${familySection(ui, me)} ${tiesSection(ui)} ${tonguesSection(ui)}
+    ${goodsSection(ui)}
     ${child
       ? html`<p class="cq-callout small">
           A child of ${ageOfLife(s, life)}: you can't work, marry or hold office
@@ -573,6 +575,7 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
             : nothing}
         </div>`
       : nothing}
+    ${mine && c.alive && !c.abroad ? personSociety(ui, c) : nothing}
     ${mine && c.alive && !c.abroad ? actsSection(ui, c) : nothing}
     ${mine && c.alive && !c.abroad ? personR11(ui, c) : nothing}
     ${section(
@@ -632,7 +635,7 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
 
 /** Reasons an interaction isn't for the two of you at all (not shown). */
 const NOT_BETWEEN_YOU =
-  /^(They don't take|They've nothing|You belong to no|They belong to no|They're a player|Not in this century|That's you|They haven't the standing|Too close kin|Not your own family|They're married|You're married|They're a child|You don't work for|They're not your master|You'd need a business|You have no work|You're your own master|Only with another|A commission comes|They've nothing to teach|A duel needs|A child)/;
+  /^(Only with a lover|You've nothing on them|Nothing to seek|You're not getting up|Nothing they could teach|You know their secret|They paid you lately|They don't take|They've nothing|You belong to no|They belong to no|They're a player|Not in this century|That's you|They haven't the standing|Too close kin|Not your own family|They're married|You're married|They're a child|You don't work for|They're not your master|You'd need a business|You have no work|You're your own master|Only with another|A commission comes|They've nothing to teach|A duel needs|A child)/;
 
 /**
  * What you could do with someone, grouped. Once a button is shown it stays

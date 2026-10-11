@@ -38,6 +38,8 @@ import { scoreOf } from "./Queries";
 import { Rng } from "./Rng";
 import { END_YEAR } from "./Rules";
 import { newGameState } from "./Setup";
+import { societyDaily, societyMonthly } from "./Society"; // SOCIETY (r11)
+import { societyDelta } from "./SocietyCore"; // SOCIETY (r11)
 import { dealsMonthly, tradeCommand } from "./Trade";
 import {
   Army,
@@ -84,6 +86,8 @@ export class ConquestGame {
   private marketsTouched = new Set<number>();
   private leads = false;
   private sent = new Map<string, Map<string, string>>();
+  /** SOCIETY (r11): society keys changed ("g", "o<p>"). */
+  private societyKeys = new Set<string>();
   /** While an act or a choice is being carried out: whose, and what it wrote. */
   capture: {
     seat: string;
@@ -243,6 +247,11 @@ export class ConquestGame {
     return { full: false, patch };
   }
 
+  /** SOCIETY (r11): gatherings ("g") or a province's offices ("o<p>") changed. */
+  societyChanged(key: string): void {
+    this.societyKeys.add(key);
+  }
+
   battle(r: BattleReport): void {
     this.state.battles.push(r);
     if (this.state.battles.length > 40)
@@ -311,6 +320,8 @@ export class ConquestGame {
     if (this.movements) d.movements = s.movements;
     if (this.travellers) d.travellers = s.travellers ?? [];
     if (this.rumours) d.rumours = s.rumours ?? [];
+    if (this.societyKeys.size > 0)
+      d.society = societyDelta(s, this.societyKeys); // SOCIETY (r11)
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)
@@ -324,6 +335,7 @@ export class ConquestGame {
     this.rumours = false;
     this.marketsTouched = new Set();
     this.leads = false;
+    this.societyKeys = new Set(); // SOCIETY (r11)
     this.politiesTouched = new Set();
     this.provs = new Set();
     this.nations = new Set();
@@ -356,6 +368,7 @@ export class ConquestGame {
     livesDaily(this);
     fogDaily(this); // WORLD r11
     leadsDaily(this); // WORLD r11
+    societyDaily(this); // SOCIETY (r11)
     if (isMonthStart(s.day)) this.month();
     if (s.day >= s.endDay) this.finish();
   }
@@ -377,6 +390,7 @@ export class ConquestGame {
     livesMonthly(this);
     marketsMonthly(this); // WORLD r11
     leadsMonthly(this); // WORLD r11
+    societyMonthly(this); // SOCIETY (r11)
     if (this.aiEnabled) {
       for (const n of this.state.nations) {
         if (n.alive && n.player === null) runAi(this, n.id);

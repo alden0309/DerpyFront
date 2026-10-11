@@ -58,9 +58,41 @@ import {
 import { AMERICAS, World, worldOf } from "./Map";
 import { joinMovement, movementOf, recruitInto } from "./Movements";
 import { handOf, hireCheck, hireHand } from "./Property";
+// SOCIETY (r11)
+import { addSettler, settleAcceptance, settleCheck } from "./Founding";
+import {
+  affairWith,
+  exposeBy,
+  hushMoney,
+  learnSecret,
+  scandalize,
+  secretOn,
+  startAffair,
+  wouldBeAffair,
+} from "./Liaisons";
+import {
+  appointerOf,
+  eligible,
+  giveOffice,
+  officeById,
+  officeName,
+  OFFICES,
+  seekAcceptance,
+} from "./Offices";
 import { ageOf, charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR, SEAT_NAMES } from "./Rules";
 import { rumour } from "./Rumours";
+import { learnTongue } from "./Society";
+import {
+  LESSON_FEE,
+  LESSON_POINTS,
+  motherTongue,
+  TALK_POINTS,
+  talkWith,
+  tongueName,
+  tonguesOf,
+  type TalkView,
+} from "./Tongues";
 import type {
   Breakdown,
   Character,
@@ -281,7 +313,141 @@ export const INTERACTIONS: Record<PersonAct, InteractionDef> = {
     skill: "fighting",
     player: "ask",
   },
+  // SOCIETY (r11)
+  tryst: {
+    label: "Meet in secret",
+    group: "romance",
+    text: "A stolen hour with your lover, somewhere nobody looks. Stealth keeps it quiet; if either of you is married, every meeting is a risk.",
+    cooldown: 21,
+    mode: "chance",
+    skill: "stealth",
+    player: "ask",
+  },
+  tongue: {
+    label: "Take lessons in their tongue",
+    group: "friendly",
+    text: "Pay them to teach you their tongue, a lesson at a time. The more Learning you have, the faster it comes.",
+    cooldown: 21,
+    mode: "accept",
+    player: "no",
+  },
+  seek: {
+    label: "Seek an appointment",
+    group: "work",
+    text: "Ask for an office in their gift: the county court, the watch, the parish, the town. Offices pay fees, bring renown, and lead on to the assembly and the council.",
+    cooldown: 90,
+    mode: "accept",
+    player: "no",
+  },
+  settle: {
+    label: "Ask them to come to your settlement",
+    group: "cause",
+    text: "Bring their household to the settlement you're getting up, on the terms you're offering.",
+    cooldown: 60,
+    mode: "accept",
+    player: "no",
+  },
+  pry: {
+    label: "Pry into their affairs",
+    group: "hostile",
+    text: "Ask around, read what's left on desks, follow them once or twice. Everybody has something to hide; some have something worth knowing.",
+    cooldown: 120,
+    mode: "chance",
+    skill: "stealth",
+    player: "no",
+  },
+  blackmail: {
+    label: "Blackmail",
+    group: "hostile",
+    text: "You know their secret. A quiet word, and a sum named. They may pay; they may not.",
+    cooldown: 180,
+    mode: "chance",
+    skill: "stealth",
+    player: "no",
+  },
 };
+
+/** How much talk each interaction needs: 0 signs will do, 1 a few words, 2 a real conversation. */
+const WORDS: Record<PersonAct, number> = {
+  talk: 0,
+  gift: 0,
+  insult: 0,
+  duel: 0,
+  trade: 0,
+  quit: 0,
+  rumour: 0,
+  tryst: 0,
+  pry: 0,
+  tongue: 0,
+  hire: 1,
+  work: 1,
+  befriend: 1,
+  court: 1,
+  promote: 1,
+  borrow: 1,
+  join: 1,
+  bribe: 1,
+  blackmail: 1,
+  settle: 1,
+  flatter: 2,
+  mentor: 2,
+  propose: 2,
+  patron: 2,
+  recruit: 2,
+  seek: 2,
+};
+
+/** How the barrier weighs on what they decide, and on the odds. */
+function tonguePart(
+  t: TalkView,
+  s: GameState,
+): { label: string; value: number; dc: number } | null {
+  if (t.via >= 0)
+    return {
+      label: `Through an interpreter, ${charName(s.chars[t.via])}`,
+      value: -8,
+      dc: 2,
+    };
+  if (t.level >= 3) return null;
+  const tongue = tongueName(t.tongue);
+  if (t.level === 2) return { label: `Halting ${tongue}`, value: -5, dc: 1 };
+  if (t.level === 1)
+    return {
+      label: `Only a few words of ${tongue} between you`,
+      value: -20,
+      dc: 4,
+    };
+  return {
+    label: "No tongue in common: signs and gestures",
+    value: -35,
+    dc: 6,
+  };
+}
+
+/** Whether you and they can talk (an interpreter counts). */
+export function talkView(
+  s: GameState,
+  w: World,
+  life: Life,
+  c: Character,
+): TalkView {
+  return talkWith(s, w.map, life, c, () => peopleHere(s, life.prov, life));
+}
+
+/** Offices this person has the giving of that you could hold. */
+export function seekable(s: GameState, life: Life, c: Character): number[] {
+  const out: number[] = [];
+  for (const list of Object.values(s.society?.offices ?? {}))
+    for (const o of list)
+      if (
+        appointerOf(s, o) === c.id &&
+        OFFICES[o.key].how !== "elected" &&
+        o.key !== "founder" &&
+        o.holder !== life.c
+      )
+        out.push(o.id);
+  return out;
+}
 
 /** What the character card shows for an interaction. */
 export interface InteractionView {
@@ -298,6 +464,8 @@ export interface InteractionView {
   player: boolean;
   /** A different label for this person (the trade they'd take you on for). */
   label?: string;
+  /** SOCIETY (r11): how well you can talk, and through whom. */
+  tongue?: TalkView;
 }
 
 function relation(a: Character, b: Character): boolean {
@@ -371,6 +539,15 @@ function gates(
   )
     return no("They haven't answered you yet.");
   const age = ageOf(s, c);
+  // SOCIETY (r11): words are needed for most things.
+  const words = WORDS[act] ?? 0;
+  if (words > 0 && !other) {
+    const t = talkView(s, w, life, c);
+    if (t.level < words)
+      return no(
+        `You share ${t.level === 0 ? "no tongue" : "only a few words"} with ${c.first}: you'd need ${words === 2 ? "to speak" : "a few words of"} ${tongueName(t.theirs)}, or an interpreter.`,
+      );
+  }
   switch (act) {
     case "gift":
       return life.purse >= 1 ? yes : no("You've nothing to give.");
@@ -397,8 +574,10 @@ function gates(
     case "propose": {
       if (age < 16) return no("They're a child.");
       if (c.female === me.female) return no("Not in this century.");
-      if (me.spouse >= 0) return no("You're married.");
-      if (c.spouse >= 0) return no("They're married.");
+      if (me.spouse === c.id) return no("You're married to them.");
+      // SOCIETY (r11): courting someone while married is an affair; marrying isn't possible.
+      if (act === "propose" && me.spouse >= 0) return no("You're married.");
+      if (act === "propose" && c.spouse >= 0) return no("They're married.");
       if (relation(me, c)) return no("Too close kin.");
       if (act === "propose" && life.purse < weddingCost(s, life))
         return no(`A wedding costs ${weddingCost(s, life)} coins.`);
@@ -471,6 +650,39 @@ function gates(
       if (movementOf(s, me.id)) return no("You belong to a movement already.");
       return yes;
     }
+    // SOCIETY (r11)
+    case "tryst":
+      if (life.ties[c.id] !== "lover") return no("Only with a lover.");
+      return yes;
+    case "tongue": {
+      const theirs = tonguesOf(s, w.map, c);
+      const mine = tonguesOf(s, w.map, me);
+      const t = motherTongue(c.culture);
+      if ((theirs[t] ?? 0) < 3 || (mine[t] ?? 0) >= 3)
+        return no("Nothing they could teach you.");
+      return life.purse >= LESSON_FEE
+        ? yes
+        : no(`A lesson costs ${LESSON_FEE} coins.`);
+    }
+    case "seek": {
+      const o = officeById(s, arg ?? -1);
+      if (!o || appointerOf(s, o) !== c.id)
+        return no("Nothing to seek from them.");
+      return eligible(s, life, o);
+    }
+    case "settle":
+      return settleCheck(s, life, c);
+    case "pry":
+      if (age < 18) return no("A child.");
+      if (secretOn(life, c.id)) return no("You know their secret already.");
+      return yes;
+    case "blackmail": {
+      const sec = secretOn(life, c.id);
+      if (!sec) return no("You've nothing on them.");
+      if (sec.paid !== undefined && s.day - sec.paid < 180)
+        return no("They paid you lately.");
+      return yes;
+    }
     case "duel":
       if (age < 16) return no("A child.");
       if (relation(me, c) || me.spouse === c.id)
@@ -488,8 +700,27 @@ function gates(
   }
 }
 
-/** They decide: what they think of it, and why. */
+/** They decide, with what the tongue barrier adds. */
 function acceptance(
+  s: GameState,
+  w: World,
+  life: Life,
+  c: Character,
+  act: PersonAct,
+  arg?: number,
+): Breakdown | null {
+  const b = acceptanceOf(s, w, life, c, act, arg);
+  if (!b || lifeOfChar(s, c.id) || act === "tongue") return b;
+  const part = tonguePart(talkView(s, w, life, c), s);
+  if (!part) return b;
+  return {
+    total: Math.round(b.total + part.value),
+    parts: [...b.parts, { label: part.label, value: part.value }],
+  };
+}
+
+/** They decide: what they think of it, and why. */
+function acceptanceOf(
   s: GameState,
   w: World,
   life: Life,
@@ -583,6 +814,21 @@ function acceptance(
       if (hasTrait(c, "generous")) e.add("Open-handed", 5);
       return e.done(0);
     }
+    // SOCIETY (r11)
+    case "seek": {
+      const o = officeById(s, arg ?? -1);
+      return o ? seekAcceptance(s, life, o, c) : null;
+    }
+    case "settle":
+      return life.founding ? settleAcceptance(s, life, c) : null;
+    case "tongue": {
+      const e = new Explain().add("A fee is a fee", 10);
+      opinion(e, 3);
+      if (hasTrait(c, "greedy")) e.add("Glad of the money", 5);
+      if (hasTrait(c, "lazy")) e.add("Can't be bothered", -10);
+      if (hasTrait(c, "generous")) e.add("Glad to share it", 5);
+      return e.done(0);
+    }
     case "patron": {
       const e = new Explain().add("Patronage is given sparingly", -25);
       opinion(e);
@@ -606,14 +852,21 @@ function chanceOf(
   act: PersonAct,
 ): { p: number; why: Breakdown } | null {
   const status = c.role ? ROLES[c.role].status : 2;
+  // SOCIETY (r11): talking through a barrier is harder.
+  const words = WORDS[act] ?? 0;
+  const lang =
+    words > 0 && !lifeOfChar(s, c.id)
+      ? tonguePart(talkView(s, WORLD, life, c), s)
+      : null;
   const roll = (sk: Skill, dc: number, against: string) => {
     const have = skillLevel(s, life, sk);
+    const e = new Explain()
+      .add(`Your ${SKILL_NAMES[sk].toLowerCase()}`, have, true)
+      .add(against, -dc, true);
+    if (lang) e.add(lang.label, -lang.dc, true);
     return {
-      p: checkChance(have, dc),
-      why: new Explain()
-        .add(`Your ${SKILL_NAMES[sk].toLowerCase()}`, have, true)
-        .add(against, -dc, true)
-        .done(0),
+      p: checkChance(have, dc + (lang?.dc ?? 0)),
+      why: e.done(0),
     };
   };
   switch (act) {
@@ -659,6 +912,27 @@ function chanceOf(
     }
     case "duel":
       return roll("fighting", charSkill(s, c, "fighting"), "Their fighting");
+    // SOCIETY (r11)
+    case "tryst": {
+      const a = affairWith(life, c.id);
+      return roll(
+        "stealth",
+        a ? 5 + Math.floor(a.exposure / 20) : 3,
+        a ? "Watchful eyes" : "Nosy neighbours",
+      );
+    }
+    case "pry":
+      return roll("stealth", 6 + status, "How careful they are");
+    case "blackmail": {
+      let dc = 5 + status;
+      if (hasTrait(c, "brave")) dc += 3;
+      if (hasTrait(c, "craven")) dc -= 3;
+      return roll(
+        "stealth",
+        dc,
+        hasTrait(c, "brave") ? "Their nerve (brave)" : "Their nerve",
+      );
+    }
     case "recruit": {
       const pr = s.provinces[c.home ?? 0];
       const grievance = Math.floor((pr?.unrest ?? 0) / 15);
@@ -705,6 +979,19 @@ export function interactionView(
   }
   if (act === "bribe" && c)
     view.label = `Grease their palm (${bribeCost(s, c)})`;
+  // SOCIETY (r11)
+  if (c && meOf(s, life) && !other && c.id !== life.c && c.alive)
+    view.tongue = talkView(s, w, life, c);
+  if (act === "talk" && view.tongue && view.tongue.level === 0)
+    view.label = "Talk with signs";
+  if (act === "court" && c && wouldBeAffair(s, life, c))
+    view.label = "Court in secret";
+  if (act === "seek") {
+    const o = officeById(s, arg ?? -1);
+    if (o) view.label = `Seek appointment: ${officeName(s, o).toLowerCase()}`;
+  }
+  if (act === "tongue" && c)
+    view.label = `Lessons in ${tongueName(motherTongue(c.culture))} (${LESSON_FEE})`;
   if (!c || !meOf(s, life) || view.player) return view;
   if (def.mode === "accept") {
     view.accept = acceptance(s, w, life, c, act, arg);
@@ -774,6 +1061,23 @@ export function doInteraction(
   touchLife(g, life);
   if (def.cooldown) setCooldown(g, life, `p:${act}:${cId}`, def.cooldown);
   meet(g, life, cId);
+  // SOCIETY (r11): every conversation teaches a little of their tongue.
+  if (
+    !lifeOfChar(s, cId) &&
+    act !== "tongue" &&
+    act !== "pry" &&
+    act !== "rumour"
+  ) {
+    const theirs = motherTongue(c.culture);
+    const t = view.tongue;
+    if (t && (tonguesOf(s, g.map, me)[theirs] ?? 0) < 3)
+      learnTongue(
+        g,
+        life,
+        theirs,
+        t.level === 0 ? TALK_POINTS * 0.7 : TALK_POINTS,
+      );
+  }
   // You go to them where they are.
   const at = findIn(s, g.w, life.prov, cId, s.day, life);
   if (at) life.area = at.area;
@@ -807,6 +1111,12 @@ export function doInteraction(
       const first = !c.memories.some(
         (m) => m.of === me.id && m.why === "Good company",
       );
+      // SOCIETY (r11): no tongue in common, so it goes by signs.
+      if (view.tongue && view.tongue.level === 0) {
+        remembers(g, life, c, "Good company", 1, 1);
+        journal(g, life, signTalk(g, c));
+        return null;
+      }
       remembers(g, life, c, "Good company", 3, 1);
       journal(g, life, smallTalk(g, life, c, first));
       return null;
@@ -883,11 +1193,26 @@ export function doInteraction(
     }
     case "court":
       gainXp(g, life, "persuasion", 5);
+      // SOCIETY (r11): courting while married is an affair, and talk spreads.
+      if (wouldBeAffair(s, life, c)) {
+        gainXp(g, life, "stealth", 3);
+        const a = affairWith(life, cId);
+        if (a) exposeBy(g, life, a, pass ? 3 : 8);
+      }
       if (pass) {
         remembers(g, life, c, "Courted me", 12, 2);
         if (opinionOf(s, c, life).total >= 60) {
           setTie(g, life, cId, "lover");
-          journal(g, life, `You and ${name} are sweethearts now.`, "good");
+          if (wouldBeAffair(s, life, c)) {
+            startAffair(g, life, cId);
+            journal(
+              g,
+              life,
+              `You and ${name} are lovers now. Nobody must know.`,
+              "good",
+            );
+          } else
+            journal(g, life, `You and ${name} are sweethearts now.`, "good");
         } else
           journal(
             g,
@@ -1070,7 +1395,128 @@ export function doInteraction(
       return duel(g, life, c, false, pass);
     case "trade":
       return "Only with another player.";
+    // SOCIETY (r11)
+    case "tryst": {
+      const a = affairWith(life, cId);
+      outcomeMeta(g, life, { scene: "woods" });
+      if (pass) {
+        addStress(g, life, -6);
+        remembers(g, life, c, "A stolen hour", 6, 2);
+        if (a) {
+          a.met = s.day;
+          exposeBy(g, life, a, 2);
+        }
+        journal(
+          g,
+          life,
+          `An hour with ${name} in the old mill, where nobody goes. Nobody saw. Probably.`,
+          "good",
+        );
+      } else {
+        addStress(g, life, 4);
+        if (a) {
+          a.met = s.day;
+          exposeBy(g, life, a, 22);
+        }
+        journal(
+          g,
+          life,
+          `You and ${name} were nearly caught: a lantern, a dog, a neighbour who looked twice.`,
+          "bad",
+        );
+      }
+      return null;
+    }
+    case "tongue": {
+      spend(g, life, LESSON_FEE);
+      const t = motherTongue(c.culture);
+      const got = learnTongue(g, life, t, LESSON_POINTS);
+      remembers(g, life, c, "A keen pupil", 3, 1);
+      journal(
+        g,
+        life,
+        `A lesson in ${tongueName(t)} with ${name}: verbs, the names of things, and a great deal of laughing at your accent (+${Math.round(got)}).`,
+      );
+      return null;
+    }
+    case "seek": {
+      const o = officeById(s, arg ?? -1)!;
+      if (o.holder >= 0 && o.holder !== life.c) {
+        const old = s.chars[o.holder];
+        if (old?.alive)
+          remembers(g, life, g.char(old.id), "Took my office", -20, 4);
+      }
+      giveOffice(g, o, life.c, `by ${name}'s appointment`);
+      remembers(g, life, c, "I gave them office", 3, 2);
+      return null;
+    }
+    case "settle":
+      addSettler(g, life, c);
+      return null;
+    case "pry":
+      gainXp(g, life, "stealth", 5);
+      if (pass) {
+        const found = learnSecret(g, life, c);
+        journal(
+          g,
+          life,
+          found
+            ? `You learn something: ${found}.`
+            : `You turn over every stone, and ${name} is exactly what they seem. How dull.`,
+          found ? "good" : undefined,
+        );
+      } else {
+        remembers(g, life, c, "Pried into my affairs", -15, 3);
+        journal(
+          g,
+          life,
+          `${name} caught you going through ${c.female ? "her" : "his"} papers.`,
+          "bad",
+        );
+      }
+      return null;
+    case "blackmail": {
+      const sec = secretOn(life, cId)!;
+      gainXp(g, life, "stealth", 5);
+      if (pass) {
+        const pay = hushMoney(s, c);
+        earn(g, life, pay);
+        sec.paid = s.day;
+        remembers(g, life, c, "Blackmails me", -30, 6);
+        journal(
+          g,
+          life,
+          `${name} pays ${pay} coins without a word, and looks at you as if memorising your face.`,
+          "good",
+        );
+      } else {
+        remembers(g, life, c, "Tried to blackmail me", -40, 6);
+        setTie(g, life, cId, "rival");
+        if (g.rng.chance(0.4))
+          scandalize(g, life, `Tried to blackmail ${name}`);
+        journal(
+          g,
+          life,
+          `${name} laughs in your face: "Tell them, then." It's your word against theirs, and they have friends.`,
+          "bad",
+        );
+      }
+      return null;
+    }
   }
+}
+
+/** SOCIETY (r11): a conversation without a word in common. */
+function signTalk(g: ConquestGame, c: Character): string {
+  const name = charName(c);
+  const theirs = tongueName(motherTongue(c.culture));
+  const lines = [
+    `You point, mime and draw in the dirt with a stick. ${name} nods, laughs, and answers at length in ${theirs}. Something has been agreed; you're not sure what.`,
+    `"Weather," you say, pointing at the sky. ${name} says a word in ${theirs} that might mean "weather", or "sky", or "you fool". You both smile.`,
+    `A long exchange of gestures about horses, or possibly marriage. You come away with three words of ${theirs} and a dried fish.`,
+    `${name} speaks slowly and loudly in ${theirs}, as everyone does to foreigners. You catch a word here and there. It's a start.`,
+  ];
+  return lines[g.rng.int(0, lines.length - 1)];
 }
 
 /** A word with someone, flavoured by who they are and how they feel. */
@@ -1298,6 +1744,11 @@ export function answerProposal(
       if (both) {
         setTie(g, life, them.id, "lover");
         setTie(g, asker, me.id, "lover");
+        // SOCIETY (r11): lovers while married keep it secret.
+        if (me.spouse >= 0 || them.spouse >= 0) {
+          startAffair(g, life, them.id);
+          startAffair(g, asker, me.id);
+        }
       }
       journal(
         g,
@@ -1361,6 +1812,21 @@ export function answerProposal(
       if (m) joinMovement(g, life, m.id);
       break;
     }
+    // SOCIETY (r11)
+    case "tryst":
+      for (const [l, other] of [
+        [life, them],
+        [asker, me],
+      ] as const) {
+        addStress(g, l, -6);
+        const a = affairWith(l, other.id);
+        if (a) {
+          a.met = s.day;
+          exposeBy(g, l, a, 3);
+        }
+        journal(g, l, `A stolen hour with ${charName(other)}.`, "good");
+      }
+      break;
     case "hire": {
       const pr = (asker.property ?? []).find(
         (p) => p.kind === "business" && p.hands.length < 7,
@@ -1458,6 +1924,19 @@ export function interactionMenu(
       continue;
     }
     if (act === "trade") continue;
+    // SOCIETY (r11): one line per office in their gift.
+    if (act === "seek") {
+      if (c)
+        for (const id of seekable(s, life, c))
+          out.push({
+            group: def.group,
+            act,
+            arg: id,
+            view: interactionView(s, w, life, cId, act, id),
+          });
+      continue;
+    }
+    if (act === "settle" && !life.founding) continue;
     out.push({
       group: def.group,
       act,

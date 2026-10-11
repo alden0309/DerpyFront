@@ -26,6 +26,9 @@ import { GameUi, Modal, token } from "./Context";
 import { roleOf } from "./Here";
 import { eventScene, interactScene, outcomeScene } from "./Scene";
 import { sittingPage } from "./Sitting";
+// SOCIETY (r11)
+import { constituteModal } from "./Civic";
+import { hostModal, writeModal } from "./Society";
 import "./Story";
 import { marketPage } from "./WorldUi";
 
@@ -101,6 +104,19 @@ export function renderModal(
     case "trade":
       // WORLD r11: the province's own market, prices that answer to trade.
       body = marketPage(ui);
+      break;
+    // SOCIETY (r11)
+    case "write":
+      body = writeModal(ui, m);
+      cls = "wide society";
+      break;
+    case "host":
+      body = hostModal(ui);
+      cls = "wide society";
+      break;
+    case "constitute":
+      body = constituteModal(ui);
+      cls = "wide society";
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);

@@ -9,6 +9,7 @@ import { dayOf } from "./Calendar";
 import { kill, makeCharacter, succession } from "./Characters";
 import { cede, declareIndependence } from "./Crown";
 import { merge } from "./Economy";
+import { risingWon } from "./Founding"; // SOCIETY (r11)
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
 import {
@@ -865,6 +866,9 @@ function won(g: ConquestGame, m: Movement): void {
   }
   m.status = "won";
   g.event({ k: "news", day: s.day, n: m.against, text });
+  // SOCIETY (r11): the leader sets up the new government.
+  if ((m.goal === "overthrow" || m.goal === "independence") && leader?.alive)
+    risingWon(g, m.against, leader.id, m.goal === "independence");
   for (const c of [m.leader, ...m.members]) {
     const life = lifeOfChar(s, c);
     if (!life) continue;

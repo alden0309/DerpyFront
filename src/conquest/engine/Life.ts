@@ -95,6 +95,7 @@ import { isWinter } from "./Map";
 import { marketTrade, present } from "./Markets"; // WORLD r11
 import { cashVenture, moneyMonthly, sellKit } from "./Money";
 import { LETTER_KEYS, letterWriter } from "./MoreEvents";
+import { ensureOffices } from "./Offices"; // SOCIETY (r11)
 import {
   buyHouse,
   buyLand,
@@ -106,6 +107,7 @@ import {
 } from "./Property";
 import { ageOf, atWar, charName, hasTrait, settlers, stat } from "./Queries";
 import { DAYS_PER_YEAR, deathRiskByAge, STAT_START, TRAITS } from "./Rules";
+import { societyCommand } from "./Society"; // SOCIETY (r11)
 import { sendLetter, travellersDaily, travellersMonthly } from "./Travellers";
 import {
   Army,
@@ -504,6 +506,7 @@ function visit(g: ConquestGame, life: Life, p: number): void {
     life.tally.provinces = life.visited.length;
   }
   seedLocals(g, p);
+  ensureOffices(g, p); // SOCIETY (r11): the county's officers
 }
 
 // ---------------------------------------------------------------- jobs
@@ -1791,6 +1794,8 @@ export function lifeCommand(
       return "Not yet.";
     case "europe":
       return leaveForEurope(g, life, !!c.takeHeir);
+    case "society": // SOCIETY (r11)
+      return societyCommand(g, life, c);
     case "decline":
       if (!life.invite) return "Nobody has asked.";
       touchLife(g, life).invite = null;

@@ -32,6 +32,7 @@ import {
   yes,
 } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
+import { localCampaign, localOfficesOf, localScore } from "./Offices"; // SOCIETY (r11)
 import { ageOf, charName, provincesOf, stat } from "./Queries";
 import { DAYS_PER_YEAR, SEAT_NAMES, SEAT_STAT } from "./Rules";
 import type {
@@ -130,7 +131,8 @@ export function standCheck(s: GameState, life: Life): Check {
         (life.job.kind === "sailor" && life.job.rank >= 3))
     ) ||
     life.purse >= 40 ||
-    life.background === "gentry";
+    life.background === "gentry" ||
+    localOfficesOf(s, me.id).length > 0; // SOCIETY (r11): local office is a step up
   if (native) {
     const speaker = life.job?.kind === "speaker" && life.job.rank >= 1;
     if (!speaker && life.renown < 15)
@@ -187,7 +189,13 @@ export function campaignBoost(
   points: number,
   why: string,
 ): void {
-  if (!life.campaign) return;
+  // SOCIETY (r11): a local poll gains too.
+  const local = localCampaign(g, life, points);
+  if (!life.campaign) {
+    if (local)
+      journal(g, life, `Your campaign gains from ${why} (+${points}).`);
+    return;
+  }
   touchLife(g, life).campaign!.points += points;
   journal(g, life, `Your campaign gains from ${why} (+${points}).`);
 }
@@ -206,6 +214,7 @@ export function candidateScore(s: GameState, c: number): number {
     if (life.job?.kind === "law") v += 4;
     if (life.lifestyle === "comfortable") v += 2;
     v += Math.min(10, life.tally.topRank * 2);
+    v += Math.min(12, localScore(s, c) / 2); // SOCIETY (r11)
     return v - rumours * 10;
   }
   const status = ch.role ? ROLES[ch.role].status : 3;
@@ -423,6 +432,7 @@ export function governorScore(s: GameState, life: Life): number {
     life.favor * 1.5 +
     council +
     assembly +
+    Math.min(30, localScore(s, me.id)) + // SOCIETY (r11): offices in the counties
     stat(s, me, "dip") +
     stat(s, me, "ste")
   );

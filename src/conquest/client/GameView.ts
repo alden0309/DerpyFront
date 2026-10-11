@@ -92,6 +92,9 @@ import { ModalHooks, renderModal } from "./ui/Modals";
 import { personPage, youTab } from "./ui/Sheet";
 import { forgetSteady, setSteadyRedraw, touched } from "./ui/Steady";
 import { nationPage, peopleTab, worldTab } from "./ui/World";
+// SOCIETY (r11)
+import { foundingPage, officesPage } from "./ui/Civic";
+import { gatheringsPage, lettersPage, postButton } from "./ui/Society";
 import { FigureColors, figureColorsOf } from "./Walkers";
 
 export type GameStart = Extract<ServerMessage, { t: "game" }>;
@@ -140,7 +143,7 @@ const MODES: { id: MapMode; label: string }[] = [
 const NO_SET = new Set<number>();
 /** News big enough to be proclaimed: a rising, its victory, a revolution. */
 const PROCLAIMED =
-  /has risen in arms|has carried|declares itself free|has driven the|gives way to/;
+  /has risen in arms|has carried|declares itself free|has driven the|gives way to|is proclaimed at/;
 
 @customElement("cq-game")
 export class GameView extends LitElement {
@@ -1454,6 +1457,15 @@ export class GameView extends LitElement {
         return personPage(ui, v.c);
       case "life":
         return tradesPage(ui);
+      // SOCIETY (r11)
+      case "letters":
+        return lettersPage(ui);
+      case "gatherings":
+        return gatheringsPage(ui);
+      case "offices":
+        return officesPage(ui, v.p);
+      case "founding":
+        return foundingPage(ui);
       case "tab":
         switch (v.tab) {
           case "here":
@@ -1587,6 +1599,7 @@ export class GameView extends LitElement {
                 : nothing}
             </button>`
           : nothing}
+        ${postButton(ui)}
         <button
           class="cq-menu-btn"
           aria-label="Menu"
