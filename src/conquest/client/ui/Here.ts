@@ -6,6 +6,7 @@ import { html, nothing, TemplateResult } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { areaName, areasOf, presence, Present } from "../../engine/Areas";
 import { formatDate } from "../../engine/Calendar";
+import { seatTitleOf } from "../../engine/CouncilTitles"; // POWER (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
 import { interactionView, InteractionView } from "../../engine/Interactions";
 import { actCheck, actLabel, actOdds, actsAt } from "../../engine/LifeActs";
@@ -34,7 +35,7 @@ import {
   WORK_DAYS,
 } from "../../engine/LifeRules";
 import { joinCheck, movementOf, movementsHere } from "../../engine/Movements";
-import { giveUpWarning } from "../../engine/OneOffice"; // POWER (r12)
+import { giveUpWarning, postTitle } from "../../engine/OneOffice"; // POWER (r12)
 import { standCheck } from "../../engine/Politics";
 import { businessOf, expandCheck, handRoom } from "../../engine/Property";
 import {
@@ -425,8 +426,11 @@ export function roleOf(ui: GameUi, c: Character): string {
         ? seat === "marshal"
           ? "War chief"
           : "Speaker"
-        : seat[0].toUpperCase() + seat.slice(1);
+        : seatTitleOf(n, seat); // POWER (r12): the seat's colonial title
   }
+  // POWER (r12): an office of the county or the colony.
+  const post = postTitle(s, c.id);
+  if (post && !life) return post;
   if (life) return `Played by ${life.name}`;
   if (c.role) return ROLES[c.role].title;
   const parent = s.chars[c.father] ?? s.chars[c.mother];

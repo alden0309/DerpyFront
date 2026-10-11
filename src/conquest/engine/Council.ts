@@ -9,6 +9,7 @@
 // or disgraced. The governor appoints and dismisses them, issues
 // proclamations, and answers the council and the assembly.
 
+import { chooseSpeaker } from "./Assembly";
 import { kill, makeNotable } from "./Characters";
 import { seatHolderId, seatsOf, seatTitle } from "./CouncilTitles";
 import { diplomacyCommand } from "./Diplomacy";
@@ -131,9 +132,10 @@ export function factionOf(
   n: number,
   c: number,
 ): "court" | "country" {
+  // A governor's council leans his way: most sit with his friends.
   return (
     s.power?.cabinets[n]?.faction[c] ??
-    (hash01(c, n, 77) < 0.55 ? "court" : "country")
+    (hash01(c * 7919 + n * 104729, 77) < 0.68 ? "court" : "country")
   );
 }
 
@@ -2105,6 +2107,12 @@ export function councilMonthly(g: ConquestGame): void {
       cab.speaker = -1;
       powerChanged(g, `c${n}`);
     }
+    if (
+      nation.kind === "power" &&
+      cab.speaker < 0 &&
+      s.polities[n]?.assembly.length
+    )
+      chooseSpeaker(g, n);
     // Favour drifts toward what the governor thinks of them; the
     // computer's governor puts out the ones he's lost faith in.
     for (const { seat, c } of councillors(s, n)) {

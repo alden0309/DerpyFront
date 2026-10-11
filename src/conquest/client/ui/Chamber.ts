@@ -81,6 +81,7 @@ function chair(ui: GameUi, n: number, seat: CouncilSeat): TemplateResult {
     c?.alive && (s.power?.cabinets[n]?.scandal[id] ?? 0) > s.day;
   return html`<li
     class="cq-chair ${mine ? "mine" : ""} ${c?.alive ? "" : "empty"}"
+    title=${SEAT_PORTFOLIO[seat]}
   >
     <div class="cq-chair-face">
       ${c?.alive
@@ -96,13 +97,19 @@ function chair(ui: GameUi, n: number, seat: CouncilSeat): TemplateResult {
               : nothing}</span
           >`
         : html`<span class="cq-chair-who cq-muted">empty</span>`}
-      <span class="cq-chair-port small">${SEAT_PORTFOLIO[seat]}</span>
+      ${c?.alive && nation.kind === "power" && seat === "speaker"
+        ? html`<span class="cq-chair-meta"
+            ><span class="cq-party house">chosen by the house</span></span
+          >`
+        : nothing}
       ${c?.alive && nation.kind === "power" && seat !== "speaker"
         ? html`<span class="cq-chair-meta">
-            <span class="cq-party ${party}"
-              >${party === "court"
-                ? "the governor's friends"
-                : "country party"}</span
+            <span
+              class="cq-party ${party}"
+              title=${party === "court"
+                ? "The court party: the governor's friends"
+                : "The country party: the assembly's men, wary of the governor"}
+              >${party}</span
             >
             ${num(
               `favour ${Math.round(fav)}`,
@@ -116,7 +123,7 @@ function chair(ui: GameUi, n: number, seat: CouncilSeat): TemplateResult {
               `cq-fav ${fav < 25 ? "bad" : fav >= 60 ? "good" : ""}`,
             )}
             ${disgraced
-              ? html`<span class="cq-chip bad">in disgrace</span>`
+              ? html`<span class="cq-chip bad">disgraced</span>`
               : nothing}
           </span>`
         : nothing}
@@ -130,13 +137,17 @@ function chamber(ui: GameUi, n: number): TemplateResult {
   const gov = s.chars[nation.ruler];
   const seats = seatsOf(nation);
   const cab = s.power?.cabinets[n];
-  const court = seats.filter((st) => {
-    const id = seatHolderId(s, n, st);
-    return id >= 0 && s.chars[id]?.alive && factionOf(s, n, id) === "court";
-  }).length;
   const filled = seats.filter(
     (st) => s.chars[seatHolderId(s, n, st)]?.alive,
   ).length;
+  // The speaker is the house's man, of neither party at the board.
+  const partisans = seats.filter(
+    (st) => st !== "speaker" && s.chars[seatHolderId(s, n, st)]?.alive,
+  );
+  const court = partisans.filter(
+    (st) => factionOf(s, n, seatHolderId(s, n, st)) === "court",
+  ).length;
+  const country = partisans.length - court;
   return html`<div class="cq-chamber">
     <div class="cq-chamber-head">
       ${gov?.alive ? token(ui, gov, "xl") : nothing}
@@ -150,8 +161,8 @@ function chamber(ui: GameUi, n: number): TemplateResult {
         <p class="cq-muted small">
           ${filled} of ${seats.length} seats
           filled${nation.kind === "power"
-            ? html` · ${court} with the governor, ${filled - court} with the
-              country party`
+            ? html` · ${court} of the court party (the governor's friends),
+              ${country} of the country party`
             : nothing}
           ${cab?.unpaid && cab.unpaid > s.day
             ? html` · <span class="cq-chip bad">salary withheld</span>`
@@ -185,8 +196,8 @@ function seatPowerRow(ui: GameUi, a: SeatActionDef): TemplateResult {
       : check.ok
         ? { ok: false as const, why: "Nobody (or nowhere) to do it to." }
         : check;
-  return html`<li class="cq-power">
-    <div class="cq-power-text">
+  return html`<li class="cq-pw">
+    <div class="cq-pw-text">
       <b>${a.label}</b>${a.measure
         ? html` <span class="cq-chip gold">a measure: the council votes</span>`
         : nothing}
@@ -197,7 +208,7 @@ function seatPowerRow(ui: GameUi, a: SeatActionDef): TemplateResult {
           >`
         : nothing}
     </div>
-    <div class="cq-power-do">
+    <div class="cq-pw-do">
       ${targets.length
         ? html`<select
             class="cq-office-pick"
@@ -247,7 +258,7 @@ function yourSeat(ui: GameUi, n: number, seat: CouncilSeat): TemplateResult {
           </div>`
         : nothing}
       ${acts.length
-        ? html`<ul class="cq-powers">
+        ? html`<ul class="cq-pw-list">
             ${acts.map((a) => seatPowerRow(ui, a))}
           </ul>`
         : html`<p class="cq-muted small">
@@ -393,7 +404,7 @@ function reach(ui: GameUi, n: number): TemplateResult {
                 of ${o.bar === Infinity ? "(a player holds it)" : o.bar}</span
               >
             </div>
-            ${warn ? html`<p class="cq-warn small">${warn}</p>` : nothing}
+            ${warn ? html`<p class="cq-pw-warn small">${warn}</p>` : nothing}
             <div class="cq-btnrow">
               ${action(
                 "Ask the governor for it",
@@ -485,7 +496,7 @@ function governorHand(ui: GameUi, n: number): TemplateResult {
   )}
   ${section(
     "Proclamations",
-    html`<ul class="cq-powers">
+    html`<ul class="cq-pw-list">
         ${PROCLAMATIONS.filter(
           (p) =>
             nation.kind === "power" ||
@@ -495,8 +506,8 @@ function governorHand(ui: GameUi, n: number): TemplateResult {
           const advice = proclamationAdvice(s, n, p.key);
           const key = `proc:${p.key}`;
           const pick = pickOf(key, provs[0] ?? -1);
-          return html`<li class="cq-power">
-            <div class="cq-power-text">
+          return html`<li class="cq-pw">
+            <div class="cq-pw-text">
               <b>${p.label}</b>
               <span class="small">${p.text}</span>
               ${num(
@@ -511,7 +522,7 @@ function governorHand(ui: GameUi, n: number): TemplateResult {
                 `cq-advice small ${advice.noes > advice.ayes ? "bad" : "good"}`,
               )}
             </div>
-            <div class="cq-power-do">
+            <div class="cq-pw-do">
               ${p.county
                 ? html`<select
                     class="cq-office-pick"
@@ -549,7 +560,7 @@ function governorHand(ui: GameUi, n: number): TemplateResult {
   )}
   ${nation.kind === "power"
     ? section(
-        "The assembly",
+        "Answering the house",
         html`${waiting.length
             ? html`<ul class="cq-matters">
                 ${waiting.map(

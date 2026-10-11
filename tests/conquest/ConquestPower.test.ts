@@ -39,7 +39,11 @@ import {
   pieceTargets,
   readPapers,
 } from "../../src/conquest/engine/Press";
-import { openTrial, trialById } from "../../src/conquest/engine/Trials";
+import {
+  openTrial,
+  sentenceOf,
+  trialById,
+} from "../../src/conquest/engine/Trials";
 import type {
   Character,
   GameState,
@@ -550,6 +554,35 @@ describe("trials as scenes", () => {
     expect(answer(g, life, "trial-end", 0)).toBeNull();
     expect(meOf(g.s, life)!.alive).toBe(true);
     expect(life.renown).toBeLessThan(renown);
+  });
+
+  test("pleading guilty is always the lighter sentence", () => {
+    const g = world({
+      start: 1700,
+      plans: [{ seat: "s1", name: "A", plan: plan({ age: 35 }) }],
+    });
+    const life = lifeOf(g);
+    const n = meOf(g.s, life)!.nation;
+    const accuser = g.s.locals[life.prov]
+      .map((id) => g.s.chars[id])
+      .find((c) => c?.alive && c.id !== life.c)!;
+    const kinds = ["corruption", "libel", "sedition", "duel"] as const;
+    for (const kind of kinds)
+      for (const grade of [1, 2, 3]) {
+        const t = openTrial(g, {
+          kind,
+          defendant: life.c,
+          accuser: accuser.id,
+          p: life.prov,
+          nation: n,
+          charge: "a test",
+          grade,
+        });
+        expect(sentenceOf(g.s, t, true).text).not.toBe(
+          sentenceOf(g.s, t, false).text,
+        );
+        t.done = true;
+      }
   });
 });
 

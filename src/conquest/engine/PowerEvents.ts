@@ -218,7 +218,9 @@ export const TRIAL_EVENTS: LifeEventDef[] = [
     body: (g, life, ctx) => {
       const t = T(g, ctx);
       if (!t) return "The case is over.";
-      return `"How say you: guilty, or not guilty?" ${standing(t)} Found guilty, the sentence would be ${sentenceOf(g.s, t, false).text}; pleading guilty, ${sentenceOf(g.s, t, true).text}.`;
+      const full = sentenceOf(g.s, t, false).text;
+      const mercy = sentenceOf(g.s, t, true).text;
+      return `"How say you: guilty, or not guilty?" ${standing(t)} Found guilty, the sentence would be ${full}; ${mercy === full ? "pleading guilty would spare you nothing but the trial" : `pleading guilty, ${mercy}`}.`;
     },
     choices: [
       {
@@ -544,7 +546,9 @@ export const TRIAL_EVENTS: LifeEventDef[] = [
         : guilty
           ? `${charName(d)} is found guilty of ${t.charge}. The sentence: ${t.sentence}.`
           : `${charName(d)} is acquitted of ${t.charge}.`;
-      return `${head}\n${t.lines.slice(-4, -1).join(" ")}`;
+      // The clerk's minutes, less the charge (first) and the verdict (last).
+      const record = t.lines.slice(1, -1).slice(-4);
+      return `${head}${record.length ? `\nFrom the court's record: ${record.join(" ")}` : ""}`;
     },
     choices: [
       {

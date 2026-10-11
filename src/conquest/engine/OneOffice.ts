@@ -19,7 +19,7 @@ import type { ConquestGame } from "./Game";
 import { journal } from "./LifeCore";
 import { lifeOfChar } from "./LifeQueries";
 import type { World } from "./Map";
-import { OFFICES, officeTitle, vacate } from "./Offices";
+import { OFFICES, officeName, officeTitle, vacate } from "./Offices";
 import { cabinetOf, power, powerChanged } from "./PowerCore";
 import type {
   CouncilSeat,
@@ -260,6 +260,24 @@ export function oneOfficeSweep(g: ConquestGame): void {
 /** Whether an unplayed character holds any political office (to fill vacancies with the free). */
 export function holdsPost(s: GameState, c: number): boolean {
   return postsOf(s, c).length > 0;
+}
+
+/** Someone's best office as a short title ("Sheriff", "Receiver-general"), for nameplates. */
+export function postTitle(s: GameState, c: number): string | null {
+  const best = [...postsOf(s, c)].sort((a, b) => b.rank - a.rank)[0];
+  if (!best) return null;
+  switch (best.kind) {
+    case "local":
+      return officeName(s, best.o!);
+    case "council":
+      return seatWord(s, best.n, best.seat!);
+    case "assembly":
+      return best.seat === "speaker"
+        ? "Speaker of the house"
+        : "Member of the house";
+    case "governor":
+      return s.nations[best.n]?.kind === "native" ? "Leader" : "Governor";
+  }
 }
 
 /** A played character's best office, in words (for cards). */

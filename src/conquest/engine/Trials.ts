@@ -518,7 +518,11 @@ export function sentenceOf(s: GameState, t: Trial, lighter: boolean): Doom {
         ? { text: "a fine of 3 coins", fine: 3 }
         : { text: "an hour in the stocks", pillory: true };
     case "libel":
-      return lighter || t.grade < 2
+      if (lighter)
+        return t.grade < 2
+          ? { text: "a fine of 8 coins", fine: 8 }
+          : { text: "a fine of 15 coins", fine: 15 };
+      return t.grade < 2
         ? { text: "a fine of 15 coins", fine: 15 }
         : {
             text: "a fine of 25 coins and an hour in the pillory",
@@ -541,7 +545,19 @@ export function sentenceOf(s: GameState, t: Trial, lighter: boolean): Doom {
         seize: true,
       };
     case "corruption":
-      return lighter || t.grade < 3
+      if (lighter)
+        return t.grade < 3
+          ? {
+              text: "dismissal from office and a fine of 10 coins",
+              fine: 10,
+              dismiss: true,
+            }
+          : {
+              text: "dismissal from office and a fine of 20 coins",
+              fine: 20,
+              dismiss: true,
+            };
+      return t.grade < 3
         ? {
             text: "dismissal from office and a fine of 20 coins",
             fine: 20,

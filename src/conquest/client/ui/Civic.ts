@@ -239,7 +239,7 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
             </p>`
           : nothing}
         ${warn && (standing || check.ok)
-          ? html`<p class="cq-warn small">${warn}</p>`
+          ? html`<p class="cq-pw-warn small">${warn}</p>`
           : nothing}`;
     } else if (iAppoint) {
       const pool = leverTargets(s, life, o).filter((c) => !lifeOfChar(s, c.id));
@@ -286,7 +286,7 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
             : nothing}
         </div>
         ${pick === life.c && selfWarn
-          ? html`<p class="cq-warn small">${selfWarn}</p>`
+          ? html`<p class="cq-pw-warn small">${selfWarn}</p>`
           : nothing}`;
     } else if (by) {
       const elig = eligible(s, life, o);
@@ -327,7 +327,9 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
         ${!elig.ok && !(here && v && !v.check.ok)
           ? html`<p class="cq-muted small">${elig.why}</p>`
           : nothing}
-        ${seekWarn ? html`<p class="cq-warn small">${seekWarn}</p>` : nothing}`;
+        ${seekWarn
+          ? html`<p class="cq-pw-warn small">${seekWarn}</p>`
+          : nothing}`;
     }
   }
   return html`<li class="cq-office ${mine ? "mine" : ""}">
@@ -368,8 +370,8 @@ function powerRow(ui: GameUi, o: LocalOffice, pw: OfficePower): TemplateResult {
   const pick = powerPick[key] ?? targets[0]?.id ?? -1;
   const side = powerSide[key] ?? 1;
   const chance = powerOdds(s, life, pw);
-  return html`<li class="cq-power">
-    <div class="cq-power-text">
+  return html`<li class="cq-pw">
+    <div class="cq-pw-text">
       <b>${powerLabel(s, o, pw)}</b>
       <span class="small">${pw.text}</span>
       ${pw.check
@@ -379,7 +381,7 @@ function powerRow(ui: GameUi, o: LocalOffice, pw: OfficePower): TemplateResult {
           >`
         : nothing}
     </div>
-    <div class="cq-power-do">
+    <div class="cq-pw-do">
       ${targets.length
         ? html`<select
             class="cq-office-pick"
@@ -452,7 +454,7 @@ function powersBlock(
   const list = powersOf(o);
   if (!list.length) return nothing;
   return html`<h4 class="cq-int-group">The office's powers</h4>
-    <ul class="cq-powers">
+    <ul class="cq-pw-list">
       ${list.map((pw) => powerRow(ui, o, pw))}
     </ul>`;
 }
