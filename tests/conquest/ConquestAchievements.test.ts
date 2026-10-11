@@ -62,8 +62,9 @@ describe("achievements (MAP r12)", () => {
     ticks(g, 1);
     expect(life.achieved?.["first-job"]).toBeLessThanOrEqual(g.s.day);
     const notes = () =>
-      life.journal.filter((j) => /Achievement: An honest living/.test(j.text))
-        .length;
+      life.journal.filter((j) =>
+        /^Achievement earned: An honest living\. /.test(j.text),
+      ).length;
     expect(notes()).toBe(1);
     ticks(g, 30);
     expect(notes()).toBe(1);

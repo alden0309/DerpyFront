@@ -588,6 +588,12 @@ export const ACHIEVEMENT_BY_KEY = new Map(ACHIEVEMENTS.map((a) => [a.key, a]));
 export const ACHIEVEMENT_COINS = ACHIEVEMENTS.reduce((n, a) => n + a.coins, 0);
 
 /**
+ * How the journal line for one earned begins (the client shows its own
+ * toast for it, so the line isn't toasted twice).
+ */
+export const ACHIEVEMENT_NOTE = "Achievement earned: ";
+
+/**
  * Anything newly earned is marked (and noted in the journal). Returns the
  * new keys. `quick`: only the cheap checks (the daily round does the dear
  * ones once a week).
@@ -608,12 +614,7 @@ export function checkAchievements(
     touchLife(g, life);
     (life.achieved ??= {})[def.key] = g.s.day;
     got.push(def.key);
-    journal(
-      g,
-      life,
-      `Achievement: ${def.name}. ${def.how.replace(/\.$/, "")}: done.`,
-      "good",
-    );
+    journal(g, life, `${ACHIEVEMENT_NOTE}${def.name}. ${def.how}`, "good");
   }
   return got;
 }

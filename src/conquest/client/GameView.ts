@@ -7,6 +7,7 @@ import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { bananaMark } from "../../derpland/Icons";
+import { ACHIEVEMENT_NOTE } from "../engine/Achievements"; // MAP (r12)
 import { boatRoute, sailCheck } from "../engine/Boats";
 import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
@@ -631,7 +632,8 @@ export class GameView extends LitElement {
     if (o) this.lastOutcomeN = o.n;
     if (!staged)
       for (const e of fresh.slice(-2))
-        if (!inScene.has(e.text))
+        // (An achievement has its own toast, from the server.)
+        if (!inScene.has(e.text) && !e.text.startsWith(ACHIEVEMENT_NOTE))
           this.toast(e.text, e.tone ?? "", whereFor(e.text));
     if (fresh.some((e) => e.tone === "good")) play("bell");
     // Events that need an answer.
