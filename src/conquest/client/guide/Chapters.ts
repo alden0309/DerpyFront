@@ -867,7 +867,7 @@ On anyone's card (or at the market, under Partnerships): **Propose a partnership
 **Another player** gets the articles as a scene: **sign**, **decline**, or send back **terms of their own** (the shares and what each puts in), back and forth up to ${MAX_ROUNDS} times. By post if you're in different places, so it works from one colony to another. Unanswered articles lapse after ${OFFER_DAYS} days.
 
 ## The books
-Each month the firm's business is reckoned exactly as a business of your own would be: takings from its hands (more with the **managing partner's skill** in the trade, and a good deal less if nobody's there to mind it), less wages, upkeep, excise and interest. A hand is taken on each month while there's room and money in the chest.
+Each month the firm's business is reckoned exactly as a business of your own would be: takings from its hands (more with the **managing partner's skill** in the trade, and a good deal less if they're away from the town or busy with other work: a managing partner who works for someone else minds only a business in their own trade), less wages, upkeep, excise and interest. A hand is taken on each month while there's room and money in the chest.
 - **Profit is divided by share** straight into the partners' purses. Your share shows in Estate › Purse.
 - **A loss comes out of the firm's chest**, and when the chest is empty it's **called from the partners** by share (into debt, if need be).
 - Estate › Partnerships shows the firm's sign, the partners and their shares, the chest and the debt, a year of months as a chart, the last few as a ledger, and what your share is worth.
@@ -889,7 +889,7 @@ When a firm is wound up (sold up by vote, or forced): the business is sold, a ca
 
 > Tip: Pooling money is the point: two can set up a mill or a ship that neither could alone. Let the one who knows the trade manage it, and have a lawyer draw up the articles if you're the silent partner.
 
-! Pitfall: A business nobody minds makes little. If the managing partner is away, change the managing partner (a vote), or the books will show it.`,
+! Pitfall: A business nobody minds makes little. If the managing partner is away, or has other work, change the managing partner (a vote), or the books will show it.`,
     glossary: [
       [
         "Copartnership",

@@ -397,7 +397,7 @@ export function articlesAcceptance(
   const i = t.sides[0].c === npc.id ? 0 : 1;
   const mine = t.sides[i];
   const yours = t.sides[1 - i];
-  e.add("Going into business is no small thing", -8);
+  e.add("A partnership is no small thing", -8);
   const op = opinionOf(s, npc, asker).total;
   e.add(`What ${npc.first} thinks of you (${op})`, Math.round(op / 3), true);
   const tie = asker.ties[npc.id];
@@ -406,7 +406,7 @@ export function articlesAcceptance(
   const fame = Math.min(8, Math.floor(asker.renown / 6));
   if (fame) e.add(`Your name (renown ${Math.floor(asker.renown)})`, fame);
   if (caughtCheating(s, asker.c))
-    e.add("Talk of how you kept your last partner's books", -25);
+    e.add("Talk of your last partner's books", -25);
   if (t.lawyer >= 0) e.add("Articles drawn up by a lawyer", 4);
   // Their trade.
   const theirs = roleJobs(npc.role);
@@ -431,7 +431,7 @@ export function articlesAcceptance(
     );
   else
     e.add(
-      `What it should make: ${fc.profit} a month`,
+      `What it should make: ${Math.round(fc.profit * 10) / 10} a month`,
       Math.max(-15, Math.min(15, Math.round(fc.profit * 2))),
       true,
     );
@@ -440,26 +440,23 @@ export function articlesAcceptance(
   const diff = mine.share - fair;
   if (diff >= 0)
     e.add(
-      `Their share, ${mine.share} in a hundred (fair is ${fair})`,
+      `Their share: ${mine.share} (fair is ${fair})`,
       Math.min(20, Math.round(diff * 0.8)),
       true,
     );
   else
     e.add(
-      `The terms favour you: ${mine.share} in a hundred (fair is ${fair})`,
+      `The terms favour you (${mine.share}; fair is ${fair})`,
       Math.max(-45, Math.round(diff * 1.2)),
     );
   // Their means.
   const wealth = means?.wealth ?? 5;
   if (mine.cap > wealth)
-    e.add(
-      `More than they could put in (${mine.cap}; they have ${wealth})`,
-      -30,
-    );
+    e.add(`More than they have (${mine.cap} of ${wealth})`, -30);
   else if (mine.cap > wealth * 0.6) e.add("A good part of all they have", -8);
   // Who does the work.
   if (t.hold === "biz" && t.holder === npc.id && mine.role !== "managing")
-    e.add("Hand over the running of their own business? Never", -30);
+    e.add("Hand over their own business? Never", -30);
   if (t.job) {
     const main = JOBS[t.job].main;
     if (mine.role === "managing") {
@@ -492,9 +489,7 @@ export function articlesAcceptance(
   // How things are decided.
   if (mine.share < 50)
     e.add(
-      t.rule === "unanimous"
-        ? "A say in everything (all must agree)"
-        : "You'd outvote them",
+      t.rule === "unanimous" ? "A say in everything" : "You'd outvote them",
       t.rule === "unanimous" ? 4 : -4,
     );
   const n = firmsWith(s, npc.id).length;
@@ -590,7 +585,7 @@ export function articlesText(
   };
   const mgr = t.sides.find((x) => x.role === "managing");
   const lawyer = t.lawyer >= 0 ? s.chars[t.lawyer] : undefined;
-  return `Articles of Agreement, made the ${nth(d.day)} day of ${months[d.month]} ${d.year}, between ${charName(a)} and ${charName(b)}: that they shall be copartners in ${holdWords(s, map, t)}, under the name and firm of ${t.name}. ${a?.first ?? "The one"} to bring in ${brings(0)}; ${b?.first ?? "the other"} ${brings(1)}. The profit and loss to be divided, ${a?.family ?? "the one"} ${parts(t.sides[0].share)} and ${b?.family ?? "the other"} ${parts(t.sides[1].share)}. ${mgr ? `${charName(s.chars[mgr.c])} to manage the business and keep the books.` : ""} Nothing of moment to be done without the consent of ${t.rule === "unanimous" ? "all the partners" : "the greater part in interest"}.${lawyer ? ` Drawn up by ${charName(lawyer)}.` : ""}`;
+  return `Articles of Agreement, made the ${nth(d.day)} day of ${months[d.month]} ${d.year}, between ${charName(a)} and ${charName(b)}: that they shall be copartners in ${holdWords(s, map, t)}, under the name and firm of ${t.name}${t.name.endsWith(".") ? "" : "."} ${a?.first ?? "The one"} to bring in ${brings(0)}; ${b?.first ?? "the other"} ${brings(1)}. The profit and loss to be divided, ${a?.family ?? "the one"} ${parts(t.sides[0].share)} and ${b?.family ?? "the other"} ${parts(t.sides[1].share)}. ${mgr ? `${charName(s.chars[mgr.c])} to manage the business and keep the books.` : ""} Nothing of moment to be done without the consent of ${t.rule === "unanimous" ? "all the partners" : "the greater part in interest"}.${lawyer ? ` Drawn up by ${charName(lawyer)}.` : ""}`;
 }
 
 /** The post to someone: days, postage, the chance it's lost. */
@@ -776,8 +771,9 @@ export function suggestTerms(
     t.sides[0].cap = 20;
     t.sides[1].cap = Math.min(20, round5(wealth / 2));
   }
+  // A fair split, rounded to fives in their favour.
   const fair = fairShares(s, t)[0];
-  t.sides[0].share = Math.max(5, Math.min(95, Math.round(fair / 5) * 5));
+  t.sides[0].share = Math.max(5, Math.min(95, Math.floor(fair / 5) * 5));
   t.sides[1].share = 100 - t.sides[0].share;
   return t;
 }
@@ -1349,7 +1345,6 @@ export function askNewcomer(g: ConquestGame, f: Firm, d: FirmDecision): void {
   const by = lifeOfChar(s, d.by);
   const c = s.chars[d.c];
   if (!by || !c?.alive) return;
-  const mgr = managerOf(f);
   const terms: FirmTerms = {
     hold: f.hold,
     holder: -1,
@@ -1357,12 +1352,7 @@ export function askNewcomer(g: ConquestGame, f: Firm, d: FirmDecision): void {
     ...(f.biz ? { job: f.biz.job, level: f.biz.level } : {}),
     prov: f.prov,
     sides: [
-      {
-        c: d.by,
-        share: 100 - d.arg,
-        cap: 0,
-        role: mgr?.c === d.by ? "managing" : "managing",
-      },
+      { c: d.by, share: 100 - d.arg, cap: 0, role: "managing" },
       { c: c.id, share: d.arg, cap: d.cap ?? 0, role: "silent" },
     ],
     rule: f.rule,

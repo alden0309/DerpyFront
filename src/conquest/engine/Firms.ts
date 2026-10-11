@@ -137,11 +137,37 @@ export function playerPartners(s: GameState, f: Firm): Life[] {
   return out;
 }
 
-/** Whether someone looks after the business in person this month. */
-export function mindsIt(s: GameState, c: Character, p: number): boolean {
+/**
+ * Why a managing partner can't give the business their days, or null if
+ * they do: away from the town, or busy with other work (as a business of
+ * one's own is minded only by working it).
+ */
+export function notMinding(
+  s: GameState,
+  c: Character,
+  p: number,
+  job?: string,
+): string | null {
   const life = lifeOfChar(s, c.id);
-  if (life) return !life.travel && life.prov === p;
-  return !c.abroad && (c.home === undefined || c.home === p);
+  if (life) {
+    if (life.travel || life.prov !== p) return "away from the town";
+    const work = life.job;
+    if (work && !work.own && work.kind !== job) return "busy with other work";
+    return null;
+  }
+  return !c.abroad && (c.home === undefined || c.home === p)
+    ? null
+    : "away from the town";
+}
+
+/** Whether someone looks after the business in person this month. */
+export function mindsIt(
+  s: GameState,
+  c: Character,
+  p: number,
+  job?: string,
+): boolean {
+  return notMinding(s, c, p, job) === null;
 }
 
 /** The colony the firm trades under is at war. */
@@ -168,6 +194,8 @@ export interface FirmMonthView {
   /** The managing partner's skill in the trade, and whether they mind it. */
   skill: number;
   minding: boolean;
+  /** Why not, if not. */
+  away?: string;
   /** The enemy holds the town. */
   held: boolean;
   hands: number;
@@ -203,7 +231,9 @@ export function firmMonthView(
     const mgr = managerOf(f as Firm);
     const c = mgr ? s.chars[mgr.c] : undefined;
     v.skill = c ? charSkill(s, c, def.main) : 3;
-    v.minding = !!c && mindsIt(s, c, f.prov);
+    const away = c ? notMinding(s, c, f.prov, biz.job) : "nobody to run it";
+    v.minding = !away;
+    if (away) v.away = away;
     v.held = (s.provinces[f.prov]?.occupier ?? -1) >= 0;
     v.hands = full ? bizRoom(biz.level) : biz.hands;
     const per = HAND_TAKINGS * (0.8 + v.skill / 25) * (v.minding ? 1 : 0.6);
@@ -218,7 +248,7 @@ export function firmMonthView(
     e.add(
       v.held
         ? "Takings: the enemy holds the town"
-        : `Takings: ${v.hands} hand${v.hands === 1 ? "" : "s"}, ${def.main} ${v.skill}${v.minding ? "" : ", nobody minding it"}`,
+        : `Takings: ${v.hands} hand${v.hands === 1 ? "" : "s"}, ${def.main} ${v.skill}${v.away ? `, its manager ${v.away}` : ""}`,
       v.takings,
       true,
     );
@@ -1723,8 +1753,13 @@ export function heirsDaily(g: ConquestGame, f: Firm): void {
       continue;
     }
     const heirLife = lifeOfChar(s, heir);
+    const grown = ageOf(s, s.chars[heir]) >= 16;
     const role =
-      heirLife && wasManager ? "managing" : wasManager ? "silent" : p.role;
+      heirLife && wasManager && grown
+        ? "managing"
+        : wasManager
+          ? "silent"
+          : p.role;
     succeed(f, p, heir, s.day, role);
     ensureManager(s, f);
     const heirName = charName(s.chars[heir]);

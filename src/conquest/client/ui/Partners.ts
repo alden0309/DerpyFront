@@ -32,6 +32,7 @@ import {
   articlesAcceptance,
   articlesForecast,
   articlesText,
+  bizJobOfRole,
   fairShares,
   foundingCost,
   holdChoices,
@@ -364,8 +365,8 @@ function firmCard(ui: GameUi, f: Firm): TemplateResult {
         <span class="cq-stat-note"
           >${v
             ? v.minding
-              ? `${charName(s.chars[mgr?.c ?? -1]).split(" ")[0]} minds it`
-              : "nobody minding it"
+              ? `${mgr?.c === life.c ? "you mind" : `${s.chars[mgr?.c ?? -1]?.first ?? "the manager"} minds`} it`
+              : (v.away ?? "nobody minding it")
             : "the paper's sales"}</span
         >
       </div>
@@ -424,11 +425,16 @@ function booksBlock(ui: GameUi, f: Firm, share: number): TemplateResult {
   const H = 54;
   const max = Math.max(1, ...rows.map((b) => Math.abs(b.profit)));
   const bw = W / 12;
-  const zero = H / 2;
+  // The line of nothing at the foot when every month made money, at the
+  // top when none did, and in the middle otherwise.
+  const ups = rows.some((b) => b.profit > 0);
+  const downs = rows.some((b) => b.profit < 0);
+  const zero = ups && downs ? H / 2 : downs ? 3 : H - 3;
+  const room = ups && downs ? H / 2 - 3 : H - 6;
   const chart = svg`<svg class="cq-firm-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Profit by month">
     <line x1="0" x2="${W}" y1="${zero}" y2="${zero}" class="axis" />
     ${rows.map((b, i) => {
-      const h = Math.max(1, (Math.abs(b.profit) / max) * (zero - 3));
+      const h = Math.max(1, (Math.abs(b.profit) / max) * room);
       const x = (12 - rows.length + i) * bw + bw * 0.18;
       const y = b.profit >= 0 ? zero - h : zero;
       return svg`<rect x="${x}" y="${y}" width="${bw * 0.64}" height="${h}" class=${b.profit >= 0 ? "up" : "down"}><title>${formatMonth(b.day)}: ${signed(b.profit)}</title></rect>`;
@@ -891,7 +897,10 @@ function rebuild(ui: GameUi, c: Character): void {
   const { list, found } = choicesFor(ui, c);
   let ch: HoldChoice | undefined;
   if (draft.choice === "found") {
-    ch = found.find((x) => x.job === draft.job) ?? found[0];
+    // Your own trade first, then theirs, then whatever the town has room for.
+    const want = [draft.job, ui.life!.job?.kind ?? null, bizJobOfRole(c)];
+    ch =
+      want.map((j) => found.find((x) => x.job === j)).find(Boolean) ?? found[0];
     draft.job = ch?.job ?? null;
   } else ch = list.find((x) => x.key === draft.choice);
   if (!ch) {
@@ -945,6 +954,7 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
     redraw();
   };
   const pickChoice = (k: string) => {
+    if (k === "found" && draft.choice !== "found") draft.job = null;
     draft.choice = k;
     rebuild(ui, c);
     redraw();
@@ -976,313 +986,338 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
         >${token(ui, c, "small")}<b>${c.first}</b></span
       >
     </header>
-    <ol class="cq-articles-clauses">
-      <li>
-        <h4><span>I.</span> What the firm shall hold</h4>
-        <div
-          class="cq-articles-holds"
-          role="radiogroup"
-          aria-label="What the firm holds"
-        >
-          ${list.map(
-            (x) =>
-              html`<button
-                role="radio"
-                aria-checked=${draft.choice === x.key}
-                class="cq-articles-hold ${draft.choice === x.key ? "on" : ""}"
-                ?disabled=${!!x.why}
-                title=${x.why ?? ""}
-                @click=${() => pickChoice(x.key)}
-              >
-                ${x.label}${x.why
-                  ? html`<span class="cq-why">${x.why}</span>`
-                  : nothing}
-              </button>`,
-          )}
-          ${found.length
-            ? html`<button
-                role="radio"
-                aria-checked=${draft.choice === "found"}
-                class="cq-articles-hold ${draft.choice === "found" ? "on" : ""}"
-                @click=${() => pickChoice("found")}
-              >
-                A new business at ${ui.map.provinces[life.prov]?.name}, founded
-                together
-              </button>`
-            : nothing}
-        </div>
-        ${draft.choice === "found"
-          ? html`<div class="cq-articles-found">
-              <label class="cq-field"
-                ><span>The trade</span>
-                <select
-                  @change=${(e: Event) => {
-                    draft.job = (e.target as HTMLSelectElement)
-                      .value as JobKind;
-                    rebuild(ui, c);
-                    redraw();
-                  }}
-                >
-                  ${found.map(
-                    (x) =>
-                      html`<option
-                        value=${x.job!}
-                        ?selected=${x.job === draft.job}
-                      >
-                        ${bizName(x.job!, 1)}
-                        (${JOBS[x.job!].name.toLowerCase()})
-                      </option>`,
-                  )}
-                </select></label
-              >
-              <span class="cq-seg small" role="radiogroup" aria-label="How big">
-                ${[1, 2, 3].map(
-                  (lv) =>
-                    html`<button
-                      role="radio"
-                      aria-checked=${draft.level === lv}
-                      @click=${() => {
-                        draft.level = lv;
+    <div class="cq-articles-body">
+      <div class="cq-articles-main">
+        <ol class="cq-articles-clauses">
+          <li>
+            <h4><span>I.</span> What the firm shall hold</h4>
+            <div
+              class="cq-articles-holds"
+              role="radiogroup"
+              aria-label="What the firm holds"
+            >
+              ${list.map(
+                (x) =>
+                  html`<button
+                    role="radio"
+                    aria-checked=${draft.choice === x.key}
+                    class="cq-articles-hold ${draft.choice === x.key
+                      ? "on"
+                      : ""}"
+                    ?disabled=${!!x.why}
+                    title=${x.why ?? ""}
+                    @click=${() => pickChoice(x.key)}
+                  >
+                    ${x.label}${x.why
+                      ? html`<span class="cq-why">${x.why}</span>`
+                      : nothing}
+                  </button>`,
+              )}
+              ${found.length
+                ? html`<button
+                    role="radio"
+                    aria-checked=${draft.choice === "found"}
+                    class="cq-articles-hold ${draft.choice === "found"
+                      ? "on"
+                      : ""}"
+                    @click=${() => pickChoice("found")}
+                  >
+                    A new business at ${ui.map.provinces[life.prov]?.name},
+                    founded together
+                  </button>`
+                : nothing}
+            </div>
+            ${draft.choice === "found"
+              ? html`<div class="cq-articles-found">
+                  <label class="cq-field"
+                    ><span>The trade</span>
+                    <select
+                      @change=${(e: Event) => {
+                        draft.job = (e.target as HTMLSelectElement)
+                          .value as JobKind;
                         rebuild(ui, c);
                         redraw();
                       }}
                     >
-                      ${["", "I", "II", "III"][lv]}
-                      <span
-                        >${bizCost(draft.job ?? "craftsman", lv)},
-                        ${bizRoom(lv)} hands</span
-                      >
-                    </button>`,
-                )}
-              </span>
-            </div>`
-          : nothing}
-      </li>
-      <li>
-        <h4><span>II.</span> The name and firm</h4>
-        <input
-          class="cq-articles-name"
-          type="text"
-          maxlength="40"
-          aria-label="The firm's name"
-          .value=${t.name}
-          @input=${(e: Event) => {
-            t.name = (e.target as HTMLInputElement).value;
-          }}
-          @change=${redraw}
-        />
-      </li>
-      <li>
-        <h4><span>III.</span> Shares of the profit and loss</h4>
-        <div class="cq-articles-shares">
-          <span class="cq-articles-side"><b>${t.sides[0].share}</b> yours</span>
-          <span class="cq-articles-slider">
+                      ${found.map(
+                        (x) =>
+                          html`<option
+                            value=${x.job!}
+                            ?selected=${x.job === draft.job}
+                          >
+                            ${bizName(x.job!, 1)}
+                            (${JOBS[x.job!].name.toLowerCase()})
+                          </option>`,
+                      )}
+                    </select></label
+                  >
+                  <span
+                    class="cq-seg small"
+                    role="radiogroup"
+                    aria-label="How big"
+                  >
+                    ${[1, 2, 3].map(
+                      (lv) =>
+                        html`<button
+                          role="radio"
+                          aria-checked=${draft.level === lv}
+                          @click=${() => {
+                            draft.level = lv;
+                            rebuild(ui, c);
+                            redraw();
+                          }}
+                        >
+                          ${["", "I", "II", "III"][lv]}
+                          <span
+                            >${bizCost(draft.job ?? "craftsman", lv)},
+                            ${bizRoom(lv)} hands</span
+                          >
+                        </button>`,
+                    )}
+                  </span>
+                </div>`
+              : nothing}
+          </li>
+          <li>
+            <h4><span>II.</span> The name and firm</h4>
             <input
-              type="range"
-              min="5"
-              max="95"
-              step="5"
-              aria-label="Your share"
-              .value=${String(t.sides[0].share)}
-              @input=${(e: Event) =>
-                setShare(Number((e.target as HTMLInputElement).value))}
+              class="cq-articles-name"
+              type="text"
+              maxlength="40"
+              aria-label="The firm's name"
+              .value=${t.name}
+              @input=${(e: Event) => {
+                t.name = (e.target as HTMLInputElement).value;
+              }}
+              @change=${redraw}
             />
-            <i
-              class="cq-articles-fair"
-              style="left:${fair[0]}%"
-              title="A fair split: ${fair[0]} to ${fair[1]}"
-            ></i>
-          </span>
-          <span class="cq-articles-side right"
-            ><b>${t.sides[1].share}</b> ${c.first}'s</span
-          >
-        </div>
-        <p class="cq-muted small">
-          Fair, by what each brings and who does the work: ${fair[0]} to
-          ${fair[1]}.
-        </p>
-      </li>
-      <li>
-        <h4><span>IV.</span> Capital brought in</h4>
-        <div class="cq-articles-caps">
-          <label class="cq-firm-num"
-            >Yours
-            <input
-              type="number"
-              min="0"
-              max="999"
-              step="5"
-              .value=${String(t.sides[0].cap)}
-              @change=${(e: Event) =>
-                setCap(0, Number((e.target as HTMLInputElement).value))}
-            />
-            coins</label
-          >
-          <label class="cq-firm-num"
-            >${c.first}'s
-            <input
-              type="number"
-              min="0"
-              max="999"
-              step="5"
-              .value=${String(t.sides[1].cap)}
-              @change=${(e: Event) =>
-                setCap(1, Number((e.target as HTMLInputElement).value))}
-            />
-            coins</label
-          >
-        </div>
-        <p class="cq-muted small">
-          ${cost
-            ? html`Setting it up costs ${cost}; the chest keeps
-                <b class=${chest < 0 ? "bad" : ""}>${chest}</b> to work with.`
-            : html`In the chest at signing: <b>${chest}</b>.`}
-          You have ${Math.floor(life.purse)}.
-        </p>
-      </li>
-      <li>
-        <h4><span>V.</span> The management</h4>
-        <span class="cq-seg small" role="radiogroup" aria-label="Who manages">
-          <button
-            role="radio"
-            aria-checked=${youManage}
-            ?disabled=${lockedManager && !youManage}
-            @click=${() => {
-              t.sides[0].role = "managing";
-              t.sides[1].role = "silent";
-              redraw();
-            }}
-          >
-            You manage
-          </button>
-          <button
-            role="radio"
-            aria-checked=${!youManage}
-            ?disabled=${lockedManager && youManage}
-            @click=${() => {
-              t.sides[0].role = "silent";
-              t.sides[1].role = "managing";
-              redraw();
-            }}
-          >
-            ${c.first} manages
-          </button>
-        </span>
-        <span
-          class="cq-seg small"
-          role="radiogroup"
-          aria-label="How it's decided"
-        >
-          <button
-            role="radio"
-            aria-checked=${t.rule === "majority"}
-            @click=${() => {
-              t.rule = "majority";
-              redraw();
-            }}
-          >
-            By the greater part
-          </button>
-          <button
-            role="radio"
-            aria-checked=${t.rule === "unanimous"}
-            @click=${() => {
-              t.rule = "unanimous";
-              redraw();
-            }}
-          >
-            All together
-          </button>
-        </span>
-        <p class="cq-muted small">
-          The managing partner does the work and keeps the books; their skill in
-          the trade makes the takings.
-        </p>
-      </li>
-      <li>
-        <h4><span>VI.</span> Drawn up by</h4>
-        <select
-          aria-label="Who draws up the articles"
-          @change=${(e: Event) => {
-            t.lawyer = Number((e.target as HTMLSelectElement).value);
-            redraw();
-          }}
-        >
-          <option value="-1" ?selected=${t.lawyer < 0}>
-            Yourselves, no lawyer
-          </option>
-          ${lawyers.map(
-            (x) =>
-              html`<option value=${x.c} ?selected=${t.lawyer === x.c}>
-                ${x.c === life.c
-                  ? "You, as a lawyer"
-                  : `${charName(s.chars[x.c])}, ${x.title.toLowerCase()}`}${x.fee
-                  ? ` (${x.fee} coins)`
-                  : ""}
-              </option>`,
-          )}
-        </select>
-        <p class="cq-muted small">
-          ${lawyers.length
-            ? "A lawyer's articles lean your way when partners fall out: at arbitration, and in court."
-            : "No attorney or law clerk here to draw them up."}
-        </p>
-      </li>
-    </ol>
-    <blockquote class="cq-articles-text">
-      ${curly(articlesText(s, ui.map, t))}
-    </blockquote>
-    <div class="cq-articles-foot">
-      <div class="cq-articles-verdict">
-        <p class="small">
-          ${t.hold === "venture"
-            ? "Its profit is what its cargoes bring home."
-            : html`Going, it should make about
-              ${num(`${signed(fc.profit)} a month`, () =>
-                breakdownTip("A month, once it's going", fc.why, signed),
-              )}:
-              yours ${signed((fc.profit * t.sides[0].share) / 100)}.`}
-        </p>
-        ${other
-          ? html`<div class="cq-accept player">
-              <span class="cq-accept-verdict">${c.first} will decide</span>
-              <span class="cq-muted small"
-                >Another player: they'll get the articles as a scene to sign,
-                decline or answer with their own terms.</span
+          </li>
+          <li>
+            <h4><span>III.</span> Shares of the profit and loss</h4>
+            <div class="cq-articles-shares">
+              <span class="cq-articles-side"
+                ><b>${t.sides[0].share}</b> yours</span
               >
-            </div>`
-          : accept
-            ? html`<div class="cq-accept ${accept.total > 0 ? "will" : "wont"}">
-                <span class="cq-accept-verdict"
-                  >${accept.total > 0 ? "Will sign" : "Will refuse"}</span
+              <span class="cq-articles-slider">
+                <input
+                  type="range"
+                  min="5"
+                  max="95"
+                  step="5"
+                  aria-label="Your share"
+                  .value=${String(t.sides[0].share)}
+                  @input=${(e: Event) =>
+                    setShare(Number((e.target as HTMLInputElement).value))}
+                />
+                <i
+                  class="cq-articles-fair"
+                  style="left:${fair[0]}%"
+                  title="A fair split: ${fair[0]} to ${fair[1]}"
+                ></i>
+              </span>
+              <span class="cq-articles-side right"
+                ><b>${t.sides[1].share}</b> ${c.first}'s</span
+              >
+            </div>
+            <p class="cq-muted small">
+              Fair, by what each brings and who does the work: ${fair[0]} to
+              ${fair[1]}.
+            </p>
+          </li>
+          <li>
+            <h4><span>IV.</span> Capital brought in</h4>
+            <div class="cq-articles-caps">
+              <label class="cq-firm-num"
+                >Yours
+                <input
+                  type="number"
+                  min="0"
+                  max="999"
+                  step="5"
+                  .value=${String(t.sides[0].cap)}
+                  @change=${(e: Event) =>
+                    setCap(0, Number((e.target as HTMLInputElement).value))}
+                />
+                coins</label
+              >
+              <label class="cq-firm-num"
+                >${c.first}'s
+                <input
+                  type="number"
+                  min="0"
+                  max="999"
+                  step="5"
+                  .value=${String(t.sides[1].cap)}
+                  @change=${(e: Event) =>
+                    setCap(1, Number((e.target as HTMLInputElement).value))}
+                />
+                coins</label
+              >
+            </div>
+            <p class="cq-muted small">
+              ${cost
+                ? html`Setting it up costs ${cost}; the chest keeps
+                    <b class=${chest < 0 ? "bad" : ""}>${chest}</b> to work
+                    with.`
+                : html`In the chest at signing: <b>${chest}</b>.`}
+              You have ${Math.floor(life.purse)}.
+            </p>
+          </li>
+          <li>
+            <h4><span>V.</span> The management</h4>
+            <span
+              class="cq-seg small"
+              role="radiogroup"
+              aria-label="Who manages"
+            >
+              <button
+                role="radio"
+                aria-checked=${youManage}
+                ?disabled=${lockedManager && !youManage}
+                @click=${() => {
+                  t.sides[0].role = "managing";
+                  t.sides[1].role = "silent";
+                  redraw();
+                }}
+              >
+                You manage
+              </button>
+              <button
+                role="radio"
+                aria-checked=${!youManage}
+                ?disabled=${lockedManager && youManage}
+                @click=${() => {
+                  t.sides[0].role = "silent";
+                  t.sides[1].role = "managing";
+                  redraw();
+                }}
+              >
+                ${c.first} manages
+              </button>
+            </span>
+            <span
+              class="cq-seg small"
+              role="radiogroup"
+              aria-label="How it's decided"
+            >
+              <button
+                role="radio"
+                aria-checked=${t.rule === "majority"}
+                @click=${() => {
+                  t.rule = "majority";
+                  redraw();
+                }}
+              >
+                By the greater part
+              </button>
+              <button
+                role="radio"
+                aria-checked=${t.rule === "unanimous"}
+                @click=${() => {
+                  t.rule = "unanimous";
+                  redraw();
+                }}
+              >
+                All together
+              </button>
+            </span>
+            <p class="cq-muted small">
+              The managing partner does the work and keeps the books; their
+              skill in the trade makes the takings.
+            </p>
+          </li>
+          <li>
+            <h4><span>VI.</span> Drawn up by</h4>
+            <select
+              aria-label="Who draws up the articles"
+              @change=${(e: Event) => {
+                t.lawyer = Number((e.target as HTMLSelectElement).value);
+                redraw();
+              }}
+            >
+              <option value="-1" ?selected=${t.lawyer < 0}>
+                Yourselves, no lawyer
+              </option>
+              ${lawyers.map(
+                (x) =>
+                  html`<option value=${x.c} ?selected=${t.lawyer === x.c}>
+                    ${x.c === life.c
+                      ? "You, as a lawyer"
+                      : `${charName(s.chars[x.c])}, ${x.title.toLowerCase()}`}${x.fee
+                      ? ` (${x.fee} coins)`
+                      : ""}
+                  </option>`,
+              )}
+            </select>
+            <p class="cq-muted small">
+              ${lawyers.length
+                ? "A lawyer's articles lean your way when partners fall out: at arbitration, and in court."
+                : "No attorney or law clerk here to draw them up."}
+            </p>
+          </li>
+        </ol>
+        <blockquote class="cq-articles-text">
+          ${curly(articlesText(s, ui.map, t))}
+        </blockquote>
+      </div>
+      <aside class="cq-articles-panel">
+        <div class="cq-articles-verdict">
+          <p class="small">
+            ${t.hold === "venture"
+              ? "Its profit is what its cargoes bring home."
+              : html`Going, it should make about
+                ${num(`${signed(fc.profit)} a month`, () =>
+                  breakdownTip("A month, once it's going", fc.why, signed),
+                )}:
+                yours ${signed((fc.profit * t.sides[0].share) / 100)}.`}
+          </p>
+          ${other
+            ? html`<div class="cq-accept player">
+                <span class="cq-accept-verdict">${c.first} will decide</span>
+                <span class="cq-muted small"
+                  >Another player: they'll get the articles as a scene to sign,
+                  decline or answer with their own terms.</span
                 >
-                <span class="cq-accept-score"
-                  >${accept.total > 0 ? "+" : ""}${accept.total}</span
-                >
-                ${reasons(accept, 9, 9)}
               </div>`
-            : nothing}
-      </div>
-      <div class="cq-scene-actions cq-articles-actions">
-        ${!check.ok ? html`<p class="cq-why">${check.why}</p>` : nothing}
-        <button
-          class="cq-btn primary ${accept && accept.total <= 0 ? "risky" : ""}"
-          ?disabled=${!check.ok}
-          @click=${async () => {
-            if (
-              await ui.cmd({ k: "partners", act: "propose", terms: t, post })
-            ) {
-              play("seal");
-              ui.modal({ k: "outcome" });
-            }
-          }}
-        >
-          ${post ? `Send them to ${c.first} by post` : `Put them to ${c.first}`}
-        </button>
-        <button class="cq-btn quiet" @click=${() => ui.modal(null)}>
-          Back
-        </button>
-      </div>
+            : accept
+              ? html`<div
+                  class="cq-accept ${accept.total > 0 ? "will" : "wont"}"
+                >
+                  <span class="cq-accept-verdict"
+                    >${accept.total > 0 ? "Will sign" : "Will refuse"}</span
+                  >
+                  <span class="cq-accept-score"
+                    >${accept.total > 0 ? "+" : ""}${accept.total}</span
+                  >
+                  ${reasons(accept, 9, 9)}
+                </div>`
+              : nothing}
+        </div>
+        <div class="cq-articles-actions">
+          <button
+            class="cq-btn primary ${accept && accept.total <= 0 ? "risky" : ""}"
+            ?disabled=${!check.ok}
+            @click=${async () => {
+              if (
+                await ui.cmd({ k: "partners", act: "propose", terms: t, post })
+              ) {
+                play("seal");
+                ui.modal({ k: "outcome" });
+              }
+            }}
+          >
+            ${post
+              ? `Send them to ${c.first} by post`
+              : `Put them to ${c.first}`}
+          </button>
+          <button class="cq-btn quiet" @click=${() => ui.modal(null)}>
+            Back
+          </button>
+          <p class="cq-why ${check.ok ? "none" : ""}">
+            ${check.ok ? "" : check.why}
+          </p>
+        </div>
+      </aside>
     </div>
   </div>`;
 }
@@ -1617,6 +1652,13 @@ export function partnerCard(ui: GameUi, c: Character): TemplateResult {
         : { ok: true as const };
   return html`<section class="cq-section cq-pa-card">
     <h3 class="cq-h3">In business</h3>
+    <p class="cq-muted small">
+      Go into partnership with ${c.first}: a business one of you has, a new one
+      founded together, or cargoes.
+      ${lifeOfChar(s, c.id)
+        ? `${c.first} answers the articles ${c.female ? "herself" : "himself"}.`
+        : `${c.first} will say yes or no, and why.`}
+    </p>
     ${shared.length
       ? html`<ul class="cq-list small">
           ${shared.map(
@@ -1704,7 +1746,7 @@ export function partnerPart(
         )}
       </ul>
       ${firms.length
-        ? html`<p class="cq-muted small">
+        ? html`<p class="cq-muted small cq-pa-town">
             In town:
             ${firms.map(
               (f) =>

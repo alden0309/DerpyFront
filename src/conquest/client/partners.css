@@ -440,9 +440,6 @@
 
 /* ---------------------------------------------------------------- the articles */
 
-.cq-modal.partners {
-  width: min(760px, 100%);
-}
 .cq-articles {
   display: flex;
   flex-direction: column;
@@ -616,25 +613,16 @@
   border-left: 3px solid var(--seal);
   background: rgba(255, 250, 235, 0.6);
 }
-.cq-articles-foot {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.8rem;
-  align-items: end;
-}
-.cq-articles-verdict .cq-accept {
-  margin: 0.2rem 0 0;
-}
 .cq-articles-actions {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 0.35rem;
-  min-width: 12rem;
   margin: 0;
 }
 .cq-articles-actions .cq-why {
-  max-width: 14rem;
+  margin: 0;
+  min-height: 2.4em;
 }
 
 /* In the scene: the deed, a table of the terms, your own terms. */
@@ -698,12 +686,6 @@
   .cq-articles-clauses {
     grid-template-columns: minmax(0, 1fr);
   }
-  .cq-articles-foot {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .cq-articles-actions {
-    min-width: 0;
-  }
   .cq-articles-table,
   .cq-articles-fc,
   .cq-articles-counter {
@@ -720,4 +702,60 @@
   .cq-firm-name {
     font-size: 1.25rem;
   }
+}
+
+/* The articles drawn up: the clauses, and beside them what they'd say. */
+.cq-modal.partners {
+  width: min(1000px, 100%);
+}
+.cq-articles-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 1.1rem;
+  align-items: start;
+}
+.cq-articles-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.cq-articles-panel {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.55rem 0.6rem 0.6rem;
+  border: 1px solid var(--rule);
+  background: rgba(255, 250, 235, 0.55);
+}
+.cq-articles-panel .cq-accept {
+  margin: 0;
+}
+.cq-articles-panel .cq-articles-verdict > p {
+  margin: 0 0 0.4rem;
+}
+.cq-articles-actions .cq-why.none {
+  visibility: hidden;
+}
+.cq-pa-town {
+  margin-top: 0.4rem;
+}
+@media (max-width: 760px) {
+  .cq-articles-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cq-articles-panel {
+    position: static;
+  }
+}
+/* In the panel: one reason a line (the list holds its height), and the
+   forecast keeps two lines' room, so the buttons below never move. */
+.cq-articles-panel .cq-why-list {
+  grid-template-columns: minmax(0, 1fr);
+  font-size: 0.86rem;
+}
+.cq-articles-panel .cq-articles-verdict > p {
+  min-height: 2.7em;
 }
