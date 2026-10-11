@@ -16,6 +16,7 @@ import { ageOf, charName } from "../../engine/Queries";
 import { arms } from "../Arms";
 import { portrait } from "../Portrait";
 import type { GameUi } from "./Context";
+import { eduKinBadge } from "./Schooling"; // EDU (r13)
 
 /** A slot (one card and its margin), a generation's row, the card itself. */
 const UW = 132;
@@ -227,6 +228,7 @@ export function familyTreeView(
       }}
     >
       ${n.heir ? html`<span class="cq-kin-ribbon">Heir</span>` : nothing}
+      ${n.kind === "you" ? nothing : eduKinBadge(c)}
       ${portrait(
         c,
         {

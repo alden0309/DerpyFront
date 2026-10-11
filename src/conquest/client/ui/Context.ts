@@ -73,7 +73,10 @@ export type Modal =
   | { k: "guide"; ch?: string }
   | { k: "finder" }
   // HOME (r12): the family tree, large.
-  | { k: "tree" };
+  | { k: "tree" }
+  // EDU (r13): a child's future (a school, a trade or a college), and an indenture.
+  | { k: "school"; c: number }
+  | { k: "indenture"; c: number };
 
 export interface GameUi {
   s: GameState;

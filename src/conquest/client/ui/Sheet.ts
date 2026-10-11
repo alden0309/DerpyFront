@@ -63,6 +63,7 @@ import {
 } from "./Context";
 import { roleOf, verdictChip } from "./Here";
 import { personR11 } from "./Livelihood";
+import { eduChip } from "./Schooling"; // EDU (r13)
 import { sittingPrompt } from "./Sitting";
 import { personSociety } from "./Society"; // SOCIETY (r11)
 import { steadySet } from "./Steady";
@@ -399,6 +400,7 @@ export function familySection(ui: GameUi, me: Character): TemplateResult {
                       ${c.abroad
                         ? html`<span class="cq-muted small">in Europe</span>`
                         : nothing}
+                      ${eduChip(c)}
                       ${c.id === heir
                         ? html`<span class="cq-chip good">heir</span>`
                         : c.alive && !c.abroad

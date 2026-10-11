@@ -4,7 +4,9 @@
 // what a promotion still needs. Numbers come as Breakdowns, like the rest.
 
 import { dateOf } from "./Calendar"; // MAP (r12)
+import { eduStartRank } from "./EduData"; // EDU (r13)
 import { Explain } from "./Explain";
+import { hooks } from "./Hooks"; // EDU (r13)
 import {
   ALLOWANCE,
   ALLOWANCE_YEARS,
@@ -71,6 +73,7 @@ import {
   Character,
   GameState,
   Good,
+  type JobKind, // EDU (r13)
   KitKey,
   Life,
   Lifestyle,
@@ -355,6 +358,16 @@ export function jobCheck(
 /** The rung a new hand starts on: the first, or the second if they're good. */
 export function startRank(s: GameState, life: Life, kind: string): number {
   const def = JOBS[kind as keyof typeof JOBS];
+  // EDU (r13): a trade served (a journeyman), or a degree (a rung or two up).
+  const er = Math.min(
+    eduStartRank(meOf(s, life)?.edu, kind as JobKind),
+    def.ranks.length - 1,
+  );
+  if (
+    er > 0 &&
+    def.ranks.slice(1, er + 1).every((r) => !r.buy && !r.commission)
+  )
+    return er;
   const r1 = def.ranks[1];
   if (
     r1 &&
@@ -550,6 +563,9 @@ export function monthlyBudget(
     cost,
   ))
     e.add(part.label, part.value);
+  // EDU (r13): school fees, a tutor, college bills.
+  for (const h of hooks.budget)
+    for (const part of h(s, life)) e.add(part.label, part.value);
   if (!actual) {
     for (const part of propertyBudget(s, life).parts)
       e.add(part.label, part.value);
@@ -841,7 +857,15 @@ export function familyAtHome(s: GameState, life: Life): Character[] {
   if (sp?.alive && !sp.abroad) out.push(sp);
   for (const k of me.children) {
     const c = s.chars[k];
-    if (c?.alive && !c.abroad && c.spouse < 0 && ageOf(s, c) < 21) out.push(c);
+    // EDU (r13): not a child boarding with a master or away at college.
+    if (
+      c?.alive &&
+      !c.abroad &&
+      c.spouse < 0 &&
+      ageOf(s, c) < 21 &&
+      !c.edu?.now?.away
+    )
+      out.push(c);
   }
   return out;
 }

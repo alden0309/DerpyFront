@@ -14,6 +14,7 @@ import {
   economyMonthly,
   worksDaily,
 } from "./Economy";
+import { eduMonthly } from "./Edu"; // EDU (r13): school, apprenticeship, college
 import { answerEvent, eventsDaily, eventsMonthly } from "./Events";
 import { folkMonthly } from "./Folk";
 import { recordMilestone, yearlyMarks } from "./History";
@@ -400,6 +401,7 @@ export class ConquestGame {
     leadsMonthly(this); // WORLD r11
     societyMonthly(this); // SOCIETY (r11)
     powerMonthly(this); // POWER (r12)
+    eduMonthly(this); // EDU (r13)
     if (this.aiEnabled) {
       for (const n of this.state.nations) {
         if (n.alive && n.player === null) runAi(this, n.id);

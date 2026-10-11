@@ -28,6 +28,7 @@ import { familyTreeModal } from "./FamilyTree"; // HOME (r12)
 import { finderModal, resetFinder } from "./Finder";
 import { roleOf } from "./Here";
 import { eventScene, interactScene, outcomeScene } from "./Scene";
+import { indentureModal, schoolModal } from "./Schooling"; // EDU (r13)
 import { sittingPage } from "./Sitting";
 // SOCIETY (r11)
 import { constituteModal } from "./Civic";
@@ -128,6 +129,15 @@ export function renderModal(
     case "tree":
       body = familyTreeModal(ui);
       cls = "wide kin";
+      break;
+    // EDU (r13)
+    case "school":
+      body = schoolModal(ui, m.c);
+      cls = "wide school";
+      break;
+    case "indenture":
+      body = indentureModal(ui, m.c);
+      cls = "indenture";
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);

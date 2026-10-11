@@ -67,6 +67,14 @@ export const hooks = {
     life: Life,
     d: import("./Types").DuelAftermath,
   ) => void)[],
+  // EDU (r13)
+  /** Lines of a life's month's budget kept elsewhere (school fees, college bills). */
+  budget: [] as ((
+    s: import("./Types").GameState,
+    life: Life,
+  ) => { label: string; value: number }[])[],
+  /** An heir has just taken up the line (after the purse, skills and business passed). */
+  heir: [] as ((g: ConquestGame, life: Life, heir: Character) => void)[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */
