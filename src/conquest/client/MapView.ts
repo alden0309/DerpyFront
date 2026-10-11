@@ -2320,10 +2320,20 @@ export class MapView {
       }
     }
 
-    // Parties out in the wilds (yours).
+    // Parties out in the wilds (yours): their way over country you know,
+    // and the party itself only where you can see it (wave 2, r11).
     if (o.me >= 0) {
       for (const ms of s.nations[o.me]?.missions ?? [])
-        this.drawMission(ms, day, figure, now, s.nations[o.me].color, sx, sy);
+        this.drawMission(
+          ms,
+          day,
+          figure,
+          now,
+          s.nations[o.me].color,
+          sx,
+          sy,
+          fog,
+        );
     }
 
     // Path of the selected army, and the preview of a move.
@@ -3732,6 +3742,7 @@ export class MapView {
     color: string,
     sx: (x: number) => number,
     sy: (y: number) => number,
+    fog: MapFog | null = null,
   ): void {
     const ctx = this.ctx;
     let t: number;
@@ -3743,17 +3754,17 @@ export class MapView {
     const sea = ms.sea ?? [];
     const legs = ms.legs?.length ? ms.legs : [1];
     const total = legs.reduce((a, b) => a + b, 0) || 1;
-    // The way, dotted, hop by hop.
+    // The way, dotted, hop by hop (only over country you know).
     ctx.setLineDash([2, 5]);
     ctx.strokeStyle = "rgba(43,29,18,0.65)";
     ctx.lineWidth = 1.6;
     ctx.beginPath();
     for (let i = 0; i < route.length - 1; i++) {
+      if (fog && !(fog.known.has(route[i]) && fog.known.has(route[i + 1])))
+        continue;
       const way = this.hopPath(route[i], route[i + 1], sea[i] ?? false);
       way.forEach(([px, py], k) =>
-        k === 0 && i === 0
-          ? ctx.moveTo(sx(px), sy(py))
-          : ctx.lineTo(sx(px), sy(py)),
+        k === 0 ? ctx.moveTo(sx(px), sy(py)) : ctx.lineTo(sx(px), sy(py)),
       );
     }
     ctx.stroke();
@@ -3766,6 +3777,9 @@ export class MapView {
       hop++;
     }
     const frac = Math.max(0, Math.min(1, at / Math.max(0.001, legs[hop])));
+    // Out of sight, out of mind: no word of where they are until they're home.
+    const here = route[Math.min(route.length - 1, frac < 0.5 ? hop : hop + 1)];
+    if (fog && here !== undefined && !fog.seen.has(here)) return;
     const bySea = sea[hop] ?? false;
     const way =
       route.length > 1

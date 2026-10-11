@@ -30,6 +30,7 @@ import { letterAcceptance } from "../../src/conquest/engine/Letters";
 import { touchLife } from "../../src/conquest/engine/LifeCore";
 import { answerLifeEvent } from "../../src/conquest/engine/LifeEvents";
 import { peopleHere } from "../../src/conquest/engine/LifeQueries";
+import { missionsDaily } from "../../src/conquest/engine/Missions";
 import { lifeTonguePoints, tonguesOf } from "../../src/conquest/engine/Tongues";
 import { jobGate } from "../../src/conquest/engine/Trades";
 import type { Follower, Life } from "../../src/conquest/engine/Types";
@@ -254,5 +255,50 @@ describe("interpreters work in tongues", () => {
     expect(alone.parts.some((p) => /Read out to them/.test(p.label))).toBe(
       true,
     );
+  });
+});
+
+describe("expeditions and the fog", () => {
+  test("an expedition home safe puts the country it passed through on its nation's maps", () => {
+    const g = world({ start: 1650 });
+    const life = lifeOf(g);
+    clearEvents(g, life);
+    fogDaily(g);
+    const me = g.s.chars[life.c];
+    const nation = g.s.nations[me.nation];
+    const target = prov("Havana");
+    const way = [prov("Jamestown"), target];
+    expect(knownOf(life).has(target)).toBe(false);
+    const leader = Object.values(g.s.chars).find(
+      (c) => c.alive && c.nation === me.nation && c.id !== me.id,
+    )!;
+    const mission = {
+      id: g.nextId(),
+      kind: "explore" as const,
+      leader: leader.id,
+      from: way[0],
+      target,
+      start: g.s.day - 20,
+      arrive: g.s.day - 10,
+      home: g.s.day,
+      stage: "back" as const,
+      men: 12,
+      incident: true,
+      route: way,
+      sea: [true],
+      legs: [10],
+    };
+    // Lost on the way: nothing comes back.
+    nation.missions.push({ ...mission, men: 0 });
+    missionsDaily(g);
+    expect(knownOf(life).has(target)).toBe(false);
+    // Home safe: the journals are printed.
+    nation.missions.push({ ...mission, id: g.nextId() });
+    missionsDaily(g);
+    expect(nation.missions.length).toBe(0);
+    const known = knownOf(life);
+    expect(known.has(target)).toBe(true);
+    for (const [q] of g.map.provinces[target].nb)
+      if (!g.map.provinces[q].closed) expect(known.has(q)).toBe(true);
   });
 });
