@@ -83,6 +83,7 @@ import { GOOD_NAMES } from "../Text";
 import { num } from "../Tip";
 import { breakdownTip, GameUi, section, token } from "./Context";
 import { actButton, runAct } from "./Here";
+import { homeSchooling } from "./Schooling"; // EDU (r13)
 import { hostAt } from "./Society";
 
 // ---------------------------------------------------------------- doing things at home
@@ -592,6 +593,7 @@ function familyBlock(
   return html`<p class="cq-act-group">The family</p>
     <div class="cq-acts">${parts}</div>
     ${!child && isHome && kids.length ? teachBlock(ui, kids) : nothing}
+    ${!child && isHome ? homeSchooling(ui) : nothing}
     ${!child && isHome && !sp && !little.length && !kids.length
       ? html`<p class="cq-muted small cq-pad">
           A household of one. Marry (the church's <i>Seek a match</i>, then

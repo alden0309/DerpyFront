@@ -151,8 +151,17 @@ export function progressOf(s: GameState, now: EduNow): number {
 /** What the whole course teaches. */
 export function gainsOf(now: EduNow): Gains {
   switch (now.kind) {
-    case "school":
-      return SCHOOL_BY_KEY.get(now.key)?.skills ?? {};
+    case "school": {
+      const def = SCHOOL_BY_KEY.get(now.key);
+      if (!def) return {};
+      // A tutor kept for fewer years teaches less in all.
+      return def.key === "tutor"
+        ? scaled(
+            def.skills,
+            Math.min(1, (now.until - now.since) / DAYS_PER_YEAR / def.years),
+          )
+        : def.skills;
+    }
     case "apprentice":
       return CALLING_BY_KEY.get(now.key)?.skills ?? {};
     case "college": {
@@ -166,6 +175,16 @@ export function gainsOf(now: EduNow): Gains {
     case "path":
       return PATH_BY_KEY.get(now.key)?.skills ?? {};
   }
+}
+
+function scaled(g: Gains, f: number): Gains {
+  if (f === 1) return g;
+  return Object.fromEntries(
+    Object.entries(g).map(([k, v]) => [
+      k,
+      Math.round((v ?? 0) * f * 100) / 100,
+    ]),
+  );
 }
 
 /** What it's called: "the Latin grammar school", "a cooper", "Harvard College". */
@@ -476,9 +495,15 @@ function schoolOffersFor(a: Asker, kid: Character): EduOffer[] {
   for (const def of SCHOOLS) {
     if (def.native !== native) continue;
     if (def.faiths && !def.faiths.includes(kid.religion)) continue;
+    if (def.sex !== "both" && (def.sex === "girls") !== kid.female) continue;
     const place = schoolPlace(a, def, kid);
     const away = !!place && (!!def.boards || place.at !== a.home);
     const fee = def.fee + (away ? def.board : 0);
+    // A tutor stays until they're sixteen or so, not the whole five years.
+    const years =
+      def.key === "tutor"
+        ? Math.max(1, Math.min(def.years, 17 - ageOf(s, kid)))
+        : def.years;
     const { needs, check } = settle([
       need(place ? cap(place.name) : noPlace(def), !!place),
       ageNeed(s, kid, def.ages),
@@ -495,9 +520,9 @@ function schoolOffersFor(a: Asker, kid: Character): EduOffer[] {
       by: -1,
       fee: a.life ? fee : 0,
       once: 0,
-      years: def.years,
+      years,
       away,
-      skills: def.skills,
+      skills: scaled(def.skills, years / def.years),
       needs,
       check,
     });
@@ -542,15 +567,16 @@ export function masterTemper(m: Character): number {
 }
 
 /** What the town says of a master. */
-export function masterName(t: number): string {
+export function masterName(t: number, female = false): string {
+  const his = female ? "her" : "his";
   return t <= -2
     ? "known as a hard master"
     : t < 0
-      ? "said to be sharp with his people"
+      ? `said to be sharp with ${his} people`
       : t >= 2
-        ? "known as a kind master"
+        ? `known as a kind ${female ? "mistress" : "master"}`
         : t > 0
-          ? "a fair master, they say"
+          ? `a fair ${female ? "mistress" : "master"}, they say`
           : "nobody says much either way";
 }
 
@@ -681,7 +707,7 @@ function callingOffersFor(
         key,
         name: calling.name,
         where: `with ${charName(m)} at ${provName(w.map, p)}`,
-        text: `${charName(m)}, ${ageOf(s, m)}: ${masterName(t)}.`,
+        text: `${ageOf(s, m)} years old: ${masterName(t, m.female)}.`,
         at: p,
         by: m.id,
         fee: 0,
@@ -782,11 +808,18 @@ function collegeOffersFor(
       need(
         year < c.from
           ? `Not founded until ${c.from}`
-          : `Open (since ${c.from})`,
+          : c.from < 1500
+            ? "Open these four hundred years"
+            : `Open (since ${c.from})`,
         year >= c.from,
       ),
       held ? null : need(`${c.town} is in other hands`, false),
-      need("No college admitted women in these years", !kid.female),
+      need(
+        kid.female
+          ? "No college admitted women in these years"
+          : "A son (colleges took only men)",
+        !kid.female,
+      ),
       faithOk
         ? null
         : need(
@@ -797,7 +830,7 @@ function collegeOffersFor(
           ),
       ageNeed(s, kid, COLLEGE_AGES),
       need(
-        `Latin and letters ${c.letters} to be admitted (${letters}): a grammar school or a tutor`,
+        `Latin and letters ${c.letters} to be admitted (${letters})${letters >= c.letters ? "" : ": a grammar school or a tutor"}`,
         letters >= c.letters,
       ),
       a.life
@@ -1040,7 +1073,10 @@ function begin(
       const def = CALLING_BY_KEY.get(o.key)!;
       if (by) {
         remembers(g, life, g.char(by.id), "Took my child apprentice", 6, 8);
-        outcomeMeta(g, life, { c: by.id, scene: "workshop" });
+        outcomeMeta(g, life, {
+          c: by.id,
+          scene: by.role ? ROLES[by.role].place : "workshop",
+        });
       }
       remembers(g, life, kid, "Bound me apprentice", mood < 0 ? -4 : 2, 8);
       journal(
@@ -1601,11 +1637,11 @@ export function letterHome(
     : me.id === kid.father
       ? "Honoured Father"
       : "Honoured Sir";
-  const sign = `Your dutiful ${sonOf(kid)},\n${kid.first}`;
+  const sign = `\nYour dutiful ${sonOf(kid)},\n${kid.first}`;
   let body: string;
   const where = eduWhere(s, g.map, rec as EduNow);
   if (!writes && master) {
-    body = `${me.female ? "Madam" : "Sir"},\n${kid.first} being yet too young to write a good hand, I send you word for ${him(kid)}. ${cap(he(kid))} is in health and minds ${his(kid)} book${rec.kind === "apprentice" ? " and the work" : ""}${(rec as EduNow).mood < 0 ? ", though not so well as I would like" : " very well"}. I am, ${me.female ? "Madam" : "Sir"}, your humble servant,\n${charName(master)}`;
+    body = `${me.female ? "Madam" : "Sir"},\n${kid.first} being yet too young to write a good hand, I send you word for ${him(kid)}. ${cap(he(kid))} is in health and minds ${his(kid)} book${rec.kind === "apprentice" ? " and the work" : ""}${(rec as EduNow).mood < 0 ? ", though not so well as I would like" : " very well"}.\nI am, ${me.female ? "Madam" : "Sir"}, your humble servant,\n${charName(master)}`;
   } else if (why === "done") {
     body =
       rec.kind === "college"
@@ -2014,7 +2050,7 @@ export function eduStatus(
       : "";
   return {
     chip,
-    line: `${cap(eduName(now))}, ${eduWhere(s, map, now)}: the ${ORD[year - 1] ?? `${year}th`} year of ${years}${course}`,
+    line: `${now.kind === "apprentice" ? `Apprentice ${lower(eduName(now))},` : cap(eduName(now))} ${eduWhere(s, map, now)}: the ${ORD[year - 1] ?? `${year}th`} year of ${years}${course}`,
     progress: progressOf(s, now),
     tone: now.mood <= -1 ? "bad" : now.mood >= 1 ? "good" : "",
   };

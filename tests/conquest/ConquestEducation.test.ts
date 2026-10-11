@@ -180,7 +180,10 @@ describe("school", () => {
     expect(ok(small, "dame")).toBe(true);
     expect(ok(small, "grammar")).toBe(false);
     expect(ok(boy, "grammar")).toBe(true);
-    expect(ok(girl, "grammar")).toBe(false);
+    // The Latin school is for boys: it isn't offered for a girl at all.
+    expect(
+      schoolOffers(g.s, g.w, life, girl).some((o) => o.key === "grammar"),
+    ).toBe(false);
     expect(ok(girl, "needle")).toBe(true);
     // Girls have their own schools; no convent for a Protestant family.
     expect(

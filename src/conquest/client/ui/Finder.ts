@@ -10,6 +10,7 @@ import { areasOf, homeHere } from "../../engine/Areas"; // HOME (r12)
 import { BOATS } from "../../engine/Boats";
 import { dateOf } from "../../engine/Calendar"; // MAP (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
+import { schoolable } from "../../engine/Edu"; // EDU (r13)
 import { followerCap, peopleOf, raiseCheck } from "../../engine/Followers";
 import { foundCheck as foundColonyCheck } from "../../engine/Founding";
 import {
@@ -38,6 +39,7 @@ import {
   housePrice,
   landCheck,
 } from "../../engine/Property";
+import { ageOf } from "../../engine/Queries"; // EDU (r13)
 import { isHarvest } from "../../engine/Seasons"; // MAP (r12)
 import type { PlaceKind } from "../../engine/Types";
 import { FindIcon } from "../Icons";
@@ -1094,7 +1096,77 @@ const GOALS: Goal[] = [
     go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
     guide: "coins",
   },
+  // ---------------------------------------------------------------- EDU (r13): school, a trade, college
+  {
+    id: "school",
+    title: "Send my child to school",
+    words:
+      "school dame grammar latin tutor convent ursulines jesuit sewing educate children son daughter letters mission",
+    group: "People",
+    where:
+      "You › Family: Schooling and trades, Choose… beside a child. A dame school from four; the Latin grammar school (boys) or a sewing school (girls) from seven; the Jesuits or a convent in the Catholic colonies; a tutor at home; among the native peoples the elders' teaching or a mission school.",
+    needs: (ui) => [adult(ui), childAged(ui, 4, 15)],
+    go: (ui) => goSchooling(ui),
+    goLabel: "Take me to You › Family",
+    guide: "schooling",
+  },
+  {
+    id: "apprentice",
+    title: "Apprentice my son or daughter",
+    words:
+      "apprentice apprenticeship indenture bind trade master mistress son daughter journeyman cooper smith printer mantua milliner seamstress midwife housewifery",
+    group: "People",
+    where:
+      "You › Family: Schooling and trades, Choose…, A trade. Pick the trade, then a master in your town or one you know: some seven years living in the master's house, a premium for some trades, and out a journeyman on that trade's ladder.",
+    needs: (ui) => [adult(ui), childAged(ui, 11, 16)],
+    go: (ui) => goSchooling(ui),
+    goLabel: "Take me to You › Family",
+    guide: "schooling",
+    who: "colonist",
+  },
+  {
+    id: "college",
+    title: "Send my child to college",
+    words:
+      "college university harvard yale william mary princeton kings oxford cambridge edinburgh leiden paris salamanca degree latin son scholar",
+    group: "People",
+    where:
+      "You › Family: Schooling and trades, Choose…, College. From fourteen, a son with Latin and letters 5 (6 for a university abroad), and a few months' bills in hand; four years to the degree. Each college opens in its own year.",
+    needs: (ui) => [adult(ui), childAged(ui, 14, 20, true)],
+    go: (ui) => goSchooling(ui),
+    goLabel: "Take me to You › Family",
+    guide: "schooling",
+  },
 ];
+
+/** EDU (r13): a child of yours of an age for it (a son, for college). */
+function childAged(ui: GameUi, lo: number, hi: number, son = false): Need {
+  const s = ui.s;
+  const kids = schoolable(s, ui.life!).filter(
+    (c) =>
+      ageOf(s, c) >= lo &&
+      ageOf(s, c) <= hi &&
+      (!son || !c.female) &&
+      !c.edu?.now,
+  );
+  return {
+    label: kids.length
+      ? `${kids.map((c) => `${c.first} (${ageOf(s, c)})`).join(", ")} at home`
+      : `A ${son ? "son" : "child"} of ${lo} to ${hi} at home, and not at school already`,
+    met: kids.length > 0,
+  };
+}
+
+/** EDU (r13): You › Family, at the children's schooling. */
+function goSchooling(ui: GameUi): void {
+  ui.modal(null);
+  ui.open({ k: "tab", tab: "you", sub: "family" });
+  requestAnimationFrame(() =>
+    document
+      .querySelector(".cq-sch-section")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+  );
+}
 
 /** HOME (r12): step into your home here, or say where it is. */
 async function goHome(ui: GameUi): Promise<void> {

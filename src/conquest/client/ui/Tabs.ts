@@ -66,6 +66,7 @@ import {
   type PlacePart,
 } from "./Livelihood";
 import { howTo, pageHead } from "./Nav";
+import { schoolingSection } from "./Schooling"; // EDU (r13)
 import {
   familySection,
   goodsSection,
@@ -177,8 +178,8 @@ function youPage(ui: GameUi, sub: string): TemplateResult {
         "Family",
         "Your husband or wife, your children and your heir, your line, and the people who matter to you.",
       )}
-      ${familyTreeSection(ui)} ${familySection(ui, me)} ${heartSection(ui)}
-      ${tiesSection(ui)}
+      ${familyTreeSection(ui)} ${schoolingSection(ui)} ${familySection(ui, me)}
+      ${heartSection(ui)} ${tiesSection(ui)}
       ${!spouse?.alive && !isChildLife(s, life)
         ? section(
             "Marrying",
