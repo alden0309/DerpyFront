@@ -1117,5 +1117,8 @@ export function tradeRates(
 
 /** Loads carried now. */
 export function carried(life: Life): number {
-  return Object.values(life.goods).reduce((m, v) => m + (v ?? 0), 0);
+  let n = Object.values(life.goods).reduce((m, v) => m + (v ?? 0), 0);
+  // WORLD r11: culture goods are loads too.
+  for (const v of Object.values(life.wares ?? {})) n += v ?? 0;
+  return n;
 }

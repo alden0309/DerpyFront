@@ -6,6 +6,7 @@ import { seatCandidates } from "./Characters";
 import { mainPort } from "./Economy";
 import type { ConquestGame } from "./Game";
 import { skipped } from "./Hooks";
+import { boomAt } from "./Leads";
 import { kmBetween } from "./Map";
 import {
   isExplored,
@@ -31,6 +32,7 @@ import {
   expectedRemit,
   hasTrait,
   holder,
+  nationSettlers,
   nationsBorder,
   peaceWillingness,
   provinceValue,
@@ -55,6 +57,7 @@ import {
   Army,
   BuildingKind,
   Character,
+  GameState,
   Good,
   PeaceTerms,
   RegType,
@@ -207,9 +210,38 @@ function marriages(g: ConquestGame, n: number): void {
   }
 }
 
+/**
+ * WORLD r11: days between a power's new settlements. A struggling colony
+ * of a few hundred souls plants a new one every four years or so; a
+ * populous, rich one every year or two, as the real colonies did.
+ */
+export function colonyGapDays(s: GameState, n: number): number {
+  const nation = s.nations[n];
+  const folk = nationSettlers(s, n);
+  const years = Math.max(
+    COLONY_GAP_YEARS.min,
+    Math.min(
+      COLONY_GAP_YEARS.max,
+      COLONY_GAP_YEARS.base - folk / 3000 - Math.max(0, nation.gold) / 500,
+    ),
+  );
+  return Math.round(years * 365);
+}
+
+export const COLONY_GAP_YEARS = { base: 4.5, min: 1.25, max: 6 };
+
+/** WORLD r11: the day this power may next plant a settlement. */
+export function nextColonyDay(s: GameState, n: number): number {
+  const at = s.nations[n].cooldowns["colony"];
+  // At the start, give the first one some time.
+  return at ?? s.startDay + Math.round(colonyGapDays(s, n) * 0.5);
+}
+
 function colonize(g: ConquestGame, n: number): void {
   const s = g.s;
   if (s.provinces.some((pr) => pr.colony?.by === n)) return;
+  // WORLD r11: settlements come every few years, not every few months.
+  if (s.day < nextColonyDay(s, n)) return;
   // Only as fast as the colony can govern it.
   if (adminUsed(s, g.w, n).total + 1.2 > adminCapacity(s, n).total) return;
   let best = -1;
@@ -241,14 +273,17 @@ function colonize(g: ConquestGame, n: number): void {
       if (o >= 0 && s.nations[o].kind === "native")
         anger += relationOf(s, g.w, o, n).total < -20 ? 2 : 0.3;
     }
+    // A strike nearby makes empty land worth settling.
+    const boom = boomAt(s, p) ? 3 : 1;
     const score =
-      (value * g.w.capacity[p]) / 1000 / (1 + check.days! / 120) - anger;
+      (boom * value * g.w.capacity[p]) / 1000 / (1 + check.days! / 120) - anger;
     if (score > bestScore) {
       best = p;
       bestScore = score;
     }
   }
-  if (best >= 0) g.command(n, { k: "colonize", p: best });
+  if (best >= 0 && g.command(n, { k: "colonize", p: best }) === null)
+    g.nation(n).cooldowns["colony"] = s.day + colonyGapDays(s, n);
 }
 
 function build(g: ConquestGame, n: number): void {
@@ -603,9 +638,10 @@ function nativeAi(g: ConquestGame, n: number): void {
     if (s.nations[enemy].kind === "rebels") continue;
     if (warMonths(s, war) < 4) continue;
     const score = warScore(s, war, n).total;
+    // WORLD r11: a native nation takes back its own country, not new land.
     const held = s.provinces
       .map((pr, p) => (pr.owner === enemy && pr.occupier === n ? p : -1))
-      .filter((p) => p >= 0);
+      .filter((p) => p >= 0 && g.w.startOwner[p] === nation.key);
     const terms: PeaceTerms =
       score >= 30 && held.length > 0
         ? { take: held.slice(0, 1), give: [], gold: 0 }

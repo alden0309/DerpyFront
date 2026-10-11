@@ -87,13 +87,16 @@ export function newGameState(map: MapDef, settings: GameSettings): GameState {
     locals: {},
     movements: [],
     polities: {},
+    // WORLD r11: province markets and the stories going round.
+    markets: {},
+    leads: [],
   };
   const rng = new Rng(state);
   const keyIndex = new Map<string, number>();
   const byName = new Map(map.provinces.map((p, i) => [p.name, i]));
   /** Who holds each province at this start: a nation key, or null. */
   const ownerKey = map.provinces.map((def) =>
-    era ? (era.owners[def.name] ?? null) : def.owner,
+    def.closed ? null : era ? (era.owners[def.name] ?? null) : def.owner,
   );
   const startProvinces = (key: string) =>
     ownerKey.flatMap((k, i) => (k === key ? [i] : []));
@@ -199,7 +202,7 @@ export function newGameState(map: MapDef, settings: GameSettings): GameState {
       pops.push(...settlerPops(n.culture, n.religion, settlersHere));
       const locals = Math.round(cap * NATIVE_DENSITY_WILD * 0.3 * wobble);
       if (locals > 50) pops.push(tribe(nearest[p] ?? "local", locals));
-    } else {
+    } else if (!def.closed) {
       const size = Math.round(cap * NATIVE_DENSITY_WILD * wobble);
       if (size > 30) pops.push(tribe(nearest[p] ?? "local", size));
     }

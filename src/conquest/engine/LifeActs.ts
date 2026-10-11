@@ -8,6 +8,7 @@ import { presentAt } from "./Areas";
 import { formatDate } from "./Calendar";
 import { eligibleHere } from "./Folk";
 import type { ConquestGame } from "./Game";
+import { afterHearing } from "./Leads"; // WORLD r11
 import {
   addRenown,
   addStress,
@@ -158,7 +159,7 @@ export const ACTS: ActDef[] = [
     key: "gossip",
     places: ["tavern", "market", "village", "docks"],
     label: "Listen to the talk",
-    text: "What people are saying: deaths, weddings, wars, scandals, and who's been seen with whom.",
+    text: "What people are saying: deaths, weddings, wars, scandals, who's been seen with whom, and where prices are high. Sometimes a lead.",
     cooldown: 5,
     child: true,
   },
@@ -198,7 +199,7 @@ export const ACTS: ActDef[] = [
     key: "drink",
     places: ["tavern"],
     label: "Drink and listen",
-    text: "A pot of ale, the news, and the people worth knowing. Eases the mind; too much of it becomes a habit.",
+    text: "A pot of ale, the news, and the people worth knowing; sometimes a story worth chasing. Eases the mind; too much of it becomes a habit.",
     cooldown: 5,
     cost: 0.3,
     skill: "persuasion",
@@ -353,7 +354,7 @@ export const ACTS: ActDef[] = [
     key: "news",
     places: ["docks"],
     label: "News from Europe",
-    text: "Sailors in from London, Paris and Seville: wars, prices and who's in favour.",
+    text: "Sailors in from London, Paris and Seville: wars, prices and who's in favour, and talk of wrecks and ships wanting hands.",
     cooldown: 30,
     child: true,
   },
@@ -422,7 +423,7 @@ export const ACTS: ActDef[] = [
     key: "gazette",
     places: ["press", "tavern"],
     label: "Read the gazette",
-    text: "What's happening in the colonies and beyond.",
+    text: "What's happening in the colonies and beyond, the prices current at the nearest ports, and the best-checked stories going round: gold, wrecks, cheap land, rewards. Often a lead worth following.",
     cooldown: 10,
     skill: "letters",
     child: true,
@@ -928,9 +929,27 @@ function gossip(g: ConquestGame, life: Life): string | null {
   const heard = heardHere(s, g.map, life.prov).slice(0, 3);
   if (!heard.length) {
     journal(g, life, g.rng.pick(GOSSIP)!);
+    afterHearing(
+      g,
+      life,
+      life.area === "docks"
+        ? "docks"
+        : life.area === "tavern"
+          ? "tavern"
+          : "talk",
+    ); // WORLD r11
     return null;
   }
   for (const r of heard) journal(g, life, `They say: ${r.text}`);
+  afterHearing(
+    g,
+    life,
+    life.area === "docks"
+      ? "docks"
+      : life.area === "tavern"
+        ? "tavern"
+        : "talk",
+  ); // WORLD r11
   return null;
 }
 
@@ -1020,6 +1039,7 @@ export function doAct(
       addStress(g, life, hasTrait(me, "drunkard") ? -9 : -6);
       gainXp(g, life, "persuasion", 5);
       if (g.rng.chance(0.4)) journal(g, life, g.rng.pick(GOSSIP)!);
+      afterHearing(g, life, "tavern"); // WORLD r11
       // Someone at the bar now, if there's anyone you don't know.
       const atBar = presentAt(s, g.w, life.prov, place, s.day, life)
         .filter((p) => p.kind !== "player" && !life.met.includes(p.c))
@@ -1262,6 +1282,7 @@ export function doAct(
               " in London.",
       );
       gainXp(g, life, "trade", 2);
+      afterHearing(g, life, "docks"); // WORLD r11
       return null;
     }
     case "drill":
@@ -1323,6 +1344,7 @@ export function doAct(
     case "gazette":
       gainXp(g, life, "letters", 4);
       journal(g, life, gazetteLine(g));
+      afterHearing(g, life, "gazette"); // WORLD r11
       return null;
     case "freehold": {
       spend(g, life, 30);

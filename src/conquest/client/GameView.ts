@@ -9,6 +9,7 @@ import { repeat } from "lit/directives/repeat.js";
 import { bananaMark } from "../../derpland/Icons";
 import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
+import { fogged, fogView } from "../engine/Fog";
 import {
   ageOfLife,
   hasKit,
@@ -52,6 +53,7 @@ import {
 import {
   LifeMark,
   loadGeo,
+  MapFog,
   MapMode,
   MapView,
   ramp,
@@ -87,7 +89,7 @@ import { ModalHooks, renderModal } from "./ui/Modals";
 import { personPage, youTab } from "./ui/Sheet";
 import { forgetSteady, setSteadyRedraw, touched } from "./ui/Steady";
 import { nationPage, peopleTab, worldTab } from "./ui/World";
-import { figureColorsOf } from "./Walkers";
+import { FigureColors, figureColorsOf } from "./Walkers";
 
 export type GameStart = Extract<ServerMessage, { t: "game" }>;
 
@@ -218,6 +220,13 @@ export class GameView extends LitElement {
   private visit = 0;
   /** Counts scenes opened, so a scene keeps its look while it's open. */
   private modalSeq = 0;
+  /** WORLD r11: what you know and see of the map, worked out once per update. */
+  private fogCache: { fog: MapFog | null } | null = null;
+  /** WORLD r11: likenesses and clothes for the players' marks, made once each. */
+  private markCache = new Map<
+    string,
+    { face: string | null; colors: FigureColors }
+  >();
   private roadCache: {
     key: string;
     road: { from: number; path: number[]; sea: boolean[] } | null;
@@ -382,7 +391,7 @@ export class GameView extends LitElement {
       rightClick: (p, at) => this.onMapRightClick(p, at),
       hover: (p) => this.onHover(p),
     });
-    if (!host.contains(this.view.canvas)) host.appendChild(this.view.canvas);
+    this.view.mount(host);
     this.view.resize(host.clientWidth, host.clientHeight);
     this.resizeObs?.disconnect();
     this.resizeObs = new ResizeObserver(() =>
@@ -419,7 +428,10 @@ export class GameView extends LitElement {
         for (const e of m.d.events ?? []) this.onEvent(e, where, inArmy);
         this.afterLife(wasWatching);
         if (m.d.over) this.modalView = { k: "end" };
-        if (m.d.prov || m.d.nations) this.view?.markDirty();
+        // WORLD r11: the chart is redrawn only when something on it changed.
+        this.fogCache = null;
+        if (this.view?.chartChanged(this.s, this.mode, this.fog()))
+          this.view.markDirty();
         if (m.d.wars) this.setMood();
         this.requestRender();
         return;
@@ -665,20 +677,28 @@ export class GameView extends LitElement {
     }, 6000);
   }
 
-  /** Panels re-render a few times a second at most. */
+  /**
+   * Panels re-render a few times a second at most; at the faster speeds,
+   * twice a second (WORLD r11: a whole drawer of people redrawn four times
+   * a second was much of the lag on a phone).
+   */
   private requestRender(): void {
     if (this.view) this.view.needsDraw = true;
     const now = performance.now();
-    if (now - this.lastRender > 250) {
+    const every = !this.paused && this.speed >= 3 ? 500 : 250;
+    if (now - this.lastRender > every) {
       this.lastRender = now;
       this.tick++;
       return;
     }
     clearTimeout(this.renderTimer);
-    this.renderTimer = window.setTimeout(() => {
-      this.lastRender = performance.now();
-      this.tick++;
-    }, 260);
+    this.renderTimer = window.setTimeout(
+      () => {
+        this.lastRender = performance.now();
+        this.tick++;
+      },
+      every - (now - this.lastRender) + 10,
+    );
   }
 
   private async cmd(c: LifeCommand): Promise<boolean> {
@@ -756,6 +776,43 @@ export class GameView extends LitElement {
     );
   }
 
+  /** WORLD r11: your open leads, pinned on the map. */
+  private leadPins(): { p: number; found: boolean; working: boolean }[] {
+    const life = this.life;
+    if (!life || life.watching) return [];
+    const out: { p: number; found: boolean; working: boolean }[] = [];
+    for (const ll of life.leads ?? []) {
+      if (ll.status !== "open" && ll.status !== "found" && !ll.work) continue;
+      const lead = this.s.leads?.find((x) => x.id === ll.id);
+      if (lead)
+        out.push({
+          p: lead.p,
+          found: ll.status === "found",
+          working: !!ll.work,
+        });
+    }
+    return out;
+  }
+
+  /** WORLD r11: the map's fog for you (none while watching). */
+  private fog(): MapFog | null {
+    if (this.fogCache) return this.fogCache.fog;
+    const life = this.life;
+    let fog: MapFog | null = null;
+    if (fogged(life)) {
+      const v = fogView(this.s, world, life);
+      let sig = 0;
+      for (const p of v.known)
+        sig = (sig * 31 + p * 7 + (v.owner(p) ?? -3) + 3) | 0;
+      fog = {
+        ...v,
+        key: `${v.known.size}|${sig}|${[...v.seen].sort((a, b) => a - b).join(".")}`,
+      };
+    }
+    this.fogCache = { fog };
+    return fog;
+  }
+
   private marks(): LifeMark[] {
     const s = this.s;
     const out: LifeMark[] = [];
@@ -765,21 +822,33 @@ export class GameView extends LitElement {
       const n = s.nations[c.nation];
       const led = s.armies.find((a) => a.commander === c.id);
       const native = lifeIsNative(s, l);
+      // The likeness and clothes, worked out once (not on every frame).
+      const age = ageOfLife(s, l);
+      const key = `${c.id}|${age}|${n?.color}|${native}|${l.frame}|${c.look ? JSON.stringify(c.look).length : 0}`;
+      let look = this.markCache.get(key);
+      if (!look) {
+        if (this.markCache.size > 64) this.markCache.clear();
+        look = {
+          face: likenessOf(c, {
+            age,
+            color: n?.color ?? "#6b4f33",
+            native,
+          }),
+          colors: figureColorsOf(c, native, l.frame),
+        };
+        this.markCache.set(key, look);
+      }
       out.push({
         c: c.id,
         p: l.prov,
         travel: l.travel,
         army: led?.id ?? l.job?.army ?? -1,
         frame: l.frame,
-        face: likenessOf(c, {
-          age: ageOfLife(s, l),
-          color: n?.color ?? "#6b4f33",
-          native: lifeIsNative(s, l),
-        }),
+        face: look.face,
         label: l.seat === this.you ? "" : l.name,
         you: l.seat === this.you,
         // Their own colours: their frame for a coat until the painted looks come.
-        colors: figureColorsOf(c, native, l.frame),
+        colors: look.colors,
         female: c.female,
         native,
         mounted: hasKit(s, l, "horse") || hasKit(s, l, "carriage"),
@@ -822,31 +891,44 @@ export class GameView extends LitElement {
     if (!this.view || !this.s) return;
     for (const [p, at] of this.flashes)
       if (performance.now() - at > 4000) this.flashes.delete(p);
-    this.view.overlay = {
-      state: this.s,
-      me: this.nationNow(),
-      dayNow: this.dayNow(),
-      running: !this.paused && !this.s.over,
-      selectedProv: this.selectedProv,
-      selectedArmy: this.selectedArmy,
-      battles: this.flashes,
-      preview: this.preview,
-      mode: this.mode,
-      colonizable: NO_SET,
-      explored: null,
-      lives: this.marks(),
-      road: this.road(),
-      speed: this.speed,
-    };
     const moving = this.s.lives.some((l) => l.travel);
     // The world is alive at close range (smoke, fires, the sea): keep drawing,
     // a little slower when paused.
-    const alive = this.view.view.scale >= 0.8;
+    const alive =
+      this.view.view.scale >= 0.8 &&
+      (this.mode === "nation" || this.mode === "terrain");
     const animating = !this.paused || this.flashes.size > 0 || moving || alive;
-    const gap = this.paused ? 66 : 32;
+    // WORLD r11: paced to the device. Moving things at up to 30 frames a
+    // second, the smoke and the sea alone at 15, paused at 10; and never
+    // more than about a third of the time spent drawing.
+    const base = this.paused ? 100 : this.view.movers > 0 ? 33 : 66;
+    // At the quicker speeds the chart (owners, towns, sieges) keeps up once
+    // a second rather than three times.
+    this.view.chartEvery =
+      this.paused || this.speed < 3 ? 300 : this.speed >= 4 ? 1600 : 1000;
+    const gap = Math.max(base, this.view.frameCost * 3);
     if (this.view.needsDraw || (animating && t - this.lastDraw > gap)) {
       this.lastDraw = t;
       this.view.needsDraw = false;
+      // What to draw, gathered only when drawing (not on every frame).
+      this.view.overlay = {
+        state: this.s,
+        me: this.nationNow(),
+        dayNow: this.dayNow(),
+        running: !this.paused && !this.s.over,
+        selectedProv: this.selectedProv,
+        selectedArmy: this.selectedArmy,
+        battles: this.flashes,
+        preview: this.preview,
+        mode: this.mode,
+        colonizable: NO_SET,
+        explored: null,
+        lives: this.marks(),
+        road: this.road(),
+        speed: this.speed,
+        fog: this.fog(),
+        leads: this.leadPins(),
+      };
       this.view.draw(t);
     }
   }

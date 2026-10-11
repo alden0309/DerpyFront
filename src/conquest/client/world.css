@@ -1,0 +1,312 @@
+/* ---- WORLD (r11): the map's two layers, the fog, markets, culture goods and leads. */
+
+/* The chart under, the moving things over it. */
+.cq-map-host {
+  overflow: hidden;
+}
+.cq-map-host > canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.cq-map-chart {
+  pointer-events: none;
+}
+
+/* Goods and wares: little engraved pictures. */
+.cq-good-icon {
+  width: 1.35em;
+  height: 1.35em;
+  flex: none;
+  vertical-align: -0.3em;
+  filter: drop-shadow(0 0.5px 0 rgba(255, 250, 235, 0.6));
+}
+.cq-good-icon.lg {
+  width: 2.4rem;
+  height: 2.4rem;
+}
+.cq-culture-goods {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.3rem 0 0;
+}
+.cq-good-chip {
+  padding-left: 0.3em;
+}
+
+/* The market. */
+.cq-market-news {
+  margin: 0.2rem 0 0.6rem;
+  padding: 0.35rem 0.6rem;
+  border-left: 3px solid var(--brass);
+  background: rgba(201, 155, 58, 0.12);
+}
+.cq-table.cq-market td {
+  padding: 0.28rem 0.35rem;
+}
+.cq-market-row {
+  cursor: pointer;
+}
+.cq-market-row:hover {
+  background: rgba(138, 106, 62, 0.1);
+}
+.cq-market-row.on {
+  background: rgba(201, 155, 58, 0.22);
+  box-shadow: inset 3px 0 0 var(--brass);
+}
+.cq-market-good {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.cq-market-good span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.cq-market-good small {
+  font-size: 0.72rem;
+}
+.cq-market-stock {
+  color: var(--ink-soft);
+  font-style: italic;
+  white-space: nowrap;
+}
+.cq-spark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.cq-spark svg {
+  overflow: visible;
+}
+.cq-spark polyline {
+  fill: none;
+  stroke: var(--sepia);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.cq-spark i {
+  font-style: normal;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+}
+.cq-spark.up polyline,
+.cq-spark.up i {
+  stroke: var(--seal);
+  color: var(--seal);
+}
+.cq-spark.down polyline,
+.cq-spark.down i {
+  stroke: var(--verdigris);
+  color: var(--verdigris);
+}
+.cq-spark.empty {
+  display: inline-block;
+  width: 46px;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-deal-hint {
+  margin: 0.2rem 0 0.6rem;
+}
+.cq-deal {
+  margin: 0.2rem 0 0.9rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--sepia);
+  border-radius: 3px;
+  background: rgba(255, 250, 235, 0.55)
+    linear-gradient(180deg, rgba(201, 155, 58, 0.1), transparent 60%);
+  box-shadow: 0 1px 0 rgba(255, 250, 235, 0.7) inset;
+}
+.cq-deal-head {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+.cq-deal-head > div {
+  display: flex;
+  flex-direction: column;
+}
+.cq-deal-head b {
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.15rem;
+}
+.cq-deal-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin: 0.55rem 0 0.4rem;
+}
+.cq-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.cq-stepper > b {
+  min-width: 2ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+}
+.cq-deal-sum {
+  margin: 0.3rem 0;
+}
+.cq-deal-move {
+  display: block;
+  font-size: 0.9rem;
+}
+.cq-deal-move.up b {
+  color: var(--seal);
+}
+.cq-deal-move.down b {
+  color: var(--verdigris);
+}
+.cq-gifts {
+  list-style: none;
+  padding: 0;
+  margin: 0.4rem 0;
+}
+.cq-gifts li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.cq-gifts li > span:first-of-type {
+  flex: 1;
+}
+
+/* Leads. */
+.cq-count-chip {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 0.35em;
+  border-radius: 999px;
+  background: var(--seal);
+  color: #fbf1dc;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  text-align: center;
+  vertical-align: 2px;
+}
+.cq-leads {
+  list-style: none;
+  padding: 0;
+  margin: 0.3rem 0 0;
+}
+.cq-lead {
+  padding: 0.55rem 0.1rem 0.6rem;
+  border-bottom: 1px solid var(--rule);
+}
+.cq-lead.dry,
+.cq-lead.done,
+.cq-lead.faded {
+  opacity: 0.62;
+}
+.cq-lead-head {
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+}
+.cq-lead-head > .cq-chip {
+  margin-left: auto;
+  flex: none;
+}
+.cq-lead-mark {
+  flex: none;
+  width: 1.8rem;
+  height: 1.8rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--sepia);
+  background: radial-gradient(circle at 35% 30%, #fbf1dc, var(--vellum-3));
+  color: var(--seal);
+  font-size: 0.95rem;
+  box-shadow: 0 1px 2px rgba(43, 29, 18, 0.25);
+}
+.cq-lead.found .cq-lead-mark {
+  background: radial-gradient(circle at 35% 30%, #fff3c4, var(--brass));
+}
+.cq-lead-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.cq-lead-text > b {
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.05rem;
+}
+.cq-lead-story {
+  font-family: var(--fell);
+  font-style: italic;
+}
+.cq-lead-note {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.cq-lead-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+  align-items: center;
+  margin: 0.4rem 0 0 2.35rem;
+}
+.cq-lead-act {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+.cq-chip.lead-working {
+  border-color: var(--brass);
+  color: #7b5a12;
+  background: rgba(201, 155, 58, 0.14);
+}
+.cq-leads-here {
+  border: 1px solid rgba(201, 155, 58, 0.55);
+  border-radius: 3px;
+  padding: 0.3rem 0.6rem 0.4rem;
+  background: rgba(201, 155, 58, 0.08);
+}
+
+/* Out of sight. */
+.cq-fog-note {
+  font-style: italic;
+}
+.cq-callout.cq-fog-note {
+  border-left-color: #5b4a36;
+  background: rgba(91, 74, 54, 0.1);
+}
+
+@media (max-width: 520px) {
+  .cq-table.cq-market th:nth-child(5),
+  .cq-table.cq-market td:nth-child(5) {
+    display: none;
+  }
+  .cq-lead-acts {
+    margin-left: 0;
+  }
+}
+.cq-spark svg {
+  width: 46px;
+  height: 14px;
+  flex: none;
+}
+.cq-market-trend {
+  width: 64px;
+}
+.cq-market-lede {
+  font-family: var(--fell);
+  font-size: 1.02rem;
+  line-height: 1.4;
+  margin: 0 0 0.6rem;
+}

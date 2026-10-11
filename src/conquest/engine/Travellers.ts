@@ -6,6 +6,7 @@
 // time, stop a few days where a player is (you'll find them at the tavern,
 // the market or the church), and go home again.
 
+import { reveal } from "./Fog"; // WORLD r11
 import { seedLocals } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { hopDaysFor, isNativeChar, travelRoute } from "./LifeQueries";
@@ -286,6 +287,8 @@ function deliver(
   const life = g.s.lives.find((l) => l.seat === letter.seat);
   delete t.letter;
   if (!life || life.watching || life.c < 0) return;
+  // WORLD r11: a letter tells you of the place it was written.
+  reveal(g, life, [t.home]);
   raise(life, letter.key, { c: letter.from, by: t.c });
 }
 

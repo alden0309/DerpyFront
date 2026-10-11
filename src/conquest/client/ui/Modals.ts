@@ -4,18 +4,10 @@
 
 import { html, nothing, TemplateResult } from "lit";
 import { formatDate } from "../../engine/Calendar";
-import {
-  carried,
-  CARRY,
-  lifeTitle,
-  marketPrice,
-  takeoverCandidates,
-  tradeRates,
-} from "../../engine/LifeQueries";
+import { lifeTitle, takeoverCandidates } from "../../engine/LifeQueries";
 import { ageOf, charName } from "../../engine/Queries";
 import { REG_NAMES } from "../../engine/Rules";
-import type { BattleSide, Good, LifePlan, RegType } from "../../engine/Types";
-import { GOODS } from "../../engine/Types";
+import type { BattleSide, LifePlan, RegType } from "../../engine/Types";
 import type { ResultLine } from "../../Protocol";
 import { creditsList } from "../Credits";
 import { flagFor } from "../Flags";
@@ -23,7 +15,7 @@ import "../Maker";
 import { confirmMarch, setConfirmMarch } from "../Prefs";
 import "../Range";
 import { music, play, setSoundSettings, soundSettings } from "../Sound";
-import { GOOD_NAMES, nationName } from "../Text";
+import { nationName } from "../Text";
 import {
   battleVerdict,
   myBattleNation,
@@ -34,6 +26,7 @@ import { GameUi, Modal, token } from "./Context";
 import { roleOf } from "./Here";
 import { eventScene, interactScene, outcomeScene } from "./Scene";
 import "./Story";
+import { marketPage } from "./WorldUi";
 
 /** What the menu and the results need from the game screen. */
 export interface ModalHooks {
@@ -100,7 +93,8 @@ export function renderModal(
       cls = "wide";
       break;
     case "trade":
-      body = tradePage(ui);
+      // WORLD r11: the province's own market, prices that answer to trade.
+      body = marketPage(ui);
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);
@@ -269,72 +263,6 @@ function side(
       </tbody>
     </table>
   </div>`;
-}
-
-// ---------------------------------------------------------------- the market
-
-function tradePage(ui: GameUi): TemplateResult {
-  const s = ui.s;
-  const life = ui.life;
-  if (!life || !ui.me) return html`<p class="cq-muted">You're watching.</p>`;
-  const load = carried(life);
-  const place = ui.map.provinces[life.prov].name;
-  const trade = (good: Good, qty: number) => ui.cmd({ k: "trade", good, qty });
-  return html`
-    <h2 class="cq-h1">The market at ${place}</h2>
-    <p class="cq-lede small">
-      Buy cheap, carry it (up to ${CARRY} loads), sell dear somewhere else. Furs
-      are cheap in the villages and dear on the coast; guns, cloth and tools the
-      other way round. You carry ${load} of ${CARRY}; purse
-      ${Math.floor(life.purse)}.
-    </p>
-    <table class="cq-table cq-market">
-      <thead>
-        <tr>
-          <th>Good</th>
-          <th class="r">Buy</th>
-          <th class="r">Sell</th>
-          <th class="r">Yours</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        ${GOODS.filter((g) => marketPrice(s, life.prov, g) > 0).map((g) => {
-          const r = tradeRates(s, life, g);
-          const have = life.goods[g] ?? 0;
-          return html`<tr>
-            <td>${GOOD_NAMES[g]}</td>
-            <td class="r">${r.buy.toFixed(1)}</td>
-            <td class="r">${r.sell.toFixed(1)}</td>
-            <td class="r">${have || ""}</td>
-            <td class="cq-trade-btns">
-              <button
-                class="cq-btn small"
-                ?disabled=${load >= CARRY || life.purse < r.buy}
-                @click=${() => trade(g, 1)}
-              >
-                Buy 1
-              </button>
-              <button
-                class="cq-btn small"
-                ?disabled=${load + 5 > CARRY || life.purse < r.buy * 5}
-                @click=${() => trade(g, 5)}
-              >
-                5
-              </button>
-              <button
-                class="cq-btn small"
-                ?disabled=${have < 1}
-                @click=${() => trade(g, -have)}
-              >
-                Sell all
-              </button>
-            </td>
-          </tr>`;
-        })}
-      </tbody>
-    </table>
-  `;
 }
 
 // ---------------------------------------------------------------- a new life, someone else's

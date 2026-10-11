@@ -24,6 +24,11 @@ import {
   livesMonthly,
 } from "./Life";
 import { World, worldOf } from "./Map";
+// WORLD r11: fog of war, province markets, leads, and fitting old saves to the map.
+import { fogDaily } from "./Fog";
+import { leadsDaily, leadsMonthly } from "./Leads";
+import { fitStateToMap } from "./MapFix";
+import { marketsMonthly } from "./Markets";
 import { missionCommand, missionsDaily, outpostsDaily } from "./Missions";
 import { movementsMonthly } from "./Movements";
 import { makePolities, politicsMonthly } from "./Politics";
@@ -74,6 +79,10 @@ export class ConquestGame {
   private politiesTouched = new Set<number>();
   private travellers = false;
   private rumours = false;
+  /** WORLD r11: markets touched, leads changed, and what each player last got. */
+  private marketsTouched = new Set<number>();
+  private leads = false;
+  private sent = new Map<string, Map<string, string>>();
   /** While an act or a choice is being carried out: whose, and what it wrote. */
   capture: {
     seat: string;
@@ -93,8 +102,14 @@ export class ConquestGame {
     readonly state: GameState,
   ) {
     this.w = worldOf(map);
+    fitStateToMap(state, map);
     this.rng = new Rng(state);
     this.seenId = state.nextId;
+    // Players start from the whole state as it is now: later changes to
+    // anything in it go out as just the fields that changed.
+    state.provinces.forEach((pr, p) => this.diff(`p${p}`, pr));
+    state.nations.forEach((n, i) => this.diff(`n${i}`, n));
+    for (const life of state.lives) this.diff(`l${life.seat}`, life);
   }
 
   /**
@@ -195,6 +210,35 @@ export class ConquestGame {
   rumoursChanged(): void {
     this.rumours = true;
   }
+  marketsChanged(p: number): void {
+    this.marketsTouched.add(p);
+  }
+  leadsChanged(): void {
+    this.leads = true;
+  }
+
+  /**
+   * WORLD r11: what of something already sent has changed: just those
+   * fields, or all of it if it's new to the players or lost a field.
+   */
+  private diff(
+    key: string,
+    obj: object,
+  ): { full: boolean; patch: Record<string, unknown> | null } {
+    const before = this.sent.get(key);
+    const now = new Map<string, string>();
+    for (const [k, v] of Object.entries(obj))
+      if (v !== undefined) now.set(k, JSON.stringify(v));
+    this.sent.set(key, now);
+    if (!before) return { full: true, patch: null };
+    for (const k of before.keys())
+      if (!now.has(k)) return { full: true, patch: null };
+    let patch: Record<string, unknown> | null = null;
+    for (const [k, json] of now)
+      if (before.get(k) !== json)
+        (patch ??= {})[k] = (obj as Record<string, unknown>)[k];
+    return { full: false, patch };
+  }
 
   battle(r: BattleReport): void {
     this.state.battles.push(r);
@@ -220,13 +264,15 @@ export class ConquestGame {
       if (s.chars[id]) this.charsTouched.add(id);
     this.seenId = s.nextId;
     const d: GameDelta = { day: s.day };
-    if (this.provs.size > 0) {
-      d.prov = {};
-      for (const p of this.provs) d.prov[p] = s.provinces[p];
+    for (const p of this.provs) {
+      const x = this.diff(`p${p}`, s.provinces[p]);
+      if (x.full) (d.prov ??= {})[p] = s.provinces[p];
+      else if (x.patch) (d.provPatch ??= {})[p] = x.patch;
     }
-    if (this.nations.size > 0) {
-      d.nations = {};
-      for (const n of this.nations) d.nations[n] = s.nations[n];
+    for (const n of this.nations) {
+      const x = this.diff(`n${n}`, s.nations[n]);
+      if (x.full) (d.nations ??= {})[n] = s.nations[n];
+      else if (x.patch) (d.nationPatch ??= {})[n] = x.patch;
     }
     if (this.charsTouched.size > 0) {
       d.chars = {};
@@ -242,13 +288,19 @@ export class ConquestGame {
     if (this.europe) d.europe = s.europe;
     if (this.battles.length > 0) d.battles = this.battles;
     if (this.events.length > 0) d.events = this.events;
-    if (this.livesTouched.size > 0) {
-      d.lives = {};
-      for (const seat of this.livesTouched) {
-        const life = s.lives.find((l) => l.seat === seat);
-        if (life) d.lives[seat] = life;
-      }
+    for (const seat of this.livesTouched) {
+      const life = s.lives.find((l) => l.seat === seat);
+      if (!life) continue;
+      const x = this.diff(`l${seat}`, life);
+      if (x.full) (d.lives ??= {})[seat] = life;
+      else if (x.patch) (d.lifePatch ??= {})[seat] = x.patch;
     }
+    if (this.marketsTouched.size > 0) {
+      d.markets = {};
+      for (const p of this.marketsTouched)
+        d.markets[p] = s.markets?.[p] ?? null;
+    }
+    if (this.leads) d.leads = s.leads ?? [];
     if (this.localsTouched.size > 0) {
       d.locals = {};
       for (const p of this.localsTouched) d.locals[p] = s.locals[p] ?? [];
@@ -267,6 +319,8 @@ export class ConquestGame {
     this.movements = false;
     this.travellers = false;
     this.rumours = false;
+    this.marketsTouched = new Set();
+    this.leads = false;
     this.politiesTouched = new Set();
     this.provs = new Set();
     this.nations = new Set();
@@ -297,6 +351,8 @@ export class ConquestGame {
     convoysDaily(this);
     eventsDaily(this);
     livesDaily(this);
+    fogDaily(this); // WORLD r11
+    leadsDaily(this); // WORLD r11
     if (isMonthStart(s.day)) this.month();
     if (s.day >= s.endDay) this.finish();
   }
@@ -316,6 +372,8 @@ export class ConquestGame {
     politicsMonthly(this);
     movementsMonthly(this);
     livesMonthly(this);
+    marketsMonthly(this); // WORLD r11
+    leadsMonthly(this); // WORLD r11
     if (this.aiEnabled) {
       for (const n of this.state.nations) {
         if (n.alive && n.player === null) runAi(this, n.id);
