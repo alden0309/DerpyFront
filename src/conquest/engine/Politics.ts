@@ -5,7 +5,7 @@
 // the council fire. A governor (or a native leader) gets a few levers on the
 // nation the computer otherwise runs.
 
-import { characterCommand, makeCharacter } from "./Characters";
+import { makeCharacter } from "./Characters";
 import { crownCommand } from "./Crown";
 import { economyCommand } from "./Economy";
 import type { ConquestGame } from "./Game";
@@ -16,7 +16,6 @@ import {
   journal,
   meet,
   milestone,
-  remembers,
   touchLife,
 } from "./LifeCore";
 import {
@@ -33,8 +32,18 @@ import {
 } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
 import { localCampaign, localOfficesOf, localScore } from "./Offices"; // SOCIETY (r11)
+// POWER (r12): one office at a time, the council, the speaker, the papers.
+import { chooseSpeaker } from "./Assembly";
+import {
+  councilAdvice,
+  govAppoint,
+  offerCouncilSeat,
+  overruled,
+} from "./Council";
+import { takingPost } from "./OneOffice";
+import { swayOf } from "./PowerCore";
 import { ageOf, charName, provincesOf, stat } from "./Queries";
-import { DAYS_PER_YEAR, SEAT_NAMES, SEAT_STAT } from "./Rules";
+import { DAYS_PER_YEAR } from "./Rules";
 import type {
   BuildingKind,
   GameState,
@@ -215,10 +224,11 @@ export function candidateScore(s: GameState, c: number): number {
     if (life.lifestyle === "comfortable") v += 2;
     v += Math.min(10, life.tally.topRank * 2);
     v += Math.min(12, localScore(s, c) / 2); // SOCIETY (r11)
+    v += swayOf(s, c); // POWER (r12): the papers
     return v - rumours * 10;
   }
   const status = ch.role ? ROLES[ch.role].status : 3;
-  return status * 4 + stat(s, ch, "dip") + 6 - rumours * 10;
+  return status * 4 + stat(s, ch, "dip") + 6 - rumours * 10 + swayOf(s, c); // POWER (r12)
 }
 
 function holdElection(g: ConquestGame, pol: Polity): void {
@@ -261,10 +271,14 @@ function holdElection(g: ConquestGame, pol: Polity): void {
   );
   const winners = ranked.slice(0, pol.seats).map(([c]) => c);
   const before = new Set(pol.assembly);
+  // POWER (r12): one office at a time: a new member gives up the others.
+  for (const c of winners)
+    if (!before.has(c)) takingPost(g, c, { kind: "assembly", n: pol.nation });
   pol.assembly = winners;
   pol.candidates = [];
   pol.election = s.day + ELECTION_YEARS * DAYS_PER_YEAR;
   g.politiesChanged(pol.nation);
+  chooseSpeaker(g, pol.nation); // POWER (r12): the new house chooses its speaker
   g.event({
     k: "news",
     local: true,
@@ -344,51 +358,13 @@ export function seekCourt(g: ConquestGame, life: Life): string | null {
   return null;
 }
 
-/** The ruler considers a player at court for an empty (or weakly held) seat. */
+/**
+ * The ruler considers a player at court for an empty (or weakly held) seat.
+ * POWER (r12): the offer comes as a letter to accept or decline, weighing
+ * renown, favour, the ruler's regard, connections and fitness for the seat.
+ */
 function offerSeat(g: ConquestGame, life: Life): void {
-  const s = g.s;
-  const me = meOf(s, life);
-  if (!me) return;
-  const nation = s.nations[me.nation];
-  if (!nation?.alive) return;
-  if (SEATS.some((st) => nation.council[st] === me.id)) return;
-  const native = nation.kind === "native";
-  const ruler = s.chars[nation.ruler];
-  const op = ruler?.alive ? opinionOf(s, ruler, life).total : 0;
-  const seats = native ? (["marshal", "envoy"] as const) : SEATS;
-  for (const seat of seats) {
-    const holder = s.chars[nation.council[seat]];
-    const mine = stat(s, me, SEAT_STAT[seat]);
-    const theirs = holder?.alive ? stat(s, holder, SEAT_STAT[seat]) : -1;
-    if (isPlayed(s, holder?.id ?? -1)) continue;
-    const fit = native
-      ? seat === "marshal"
-        ? life.job?.kind === "warrior" && life.job.rank >= 2
-        : (life.job?.kind === "speaker" && life.job.rank >= 1) ||
-          life.renown >= 35
-      : true;
-    if (!fit) continue;
-    const empty = !holder?.alive;
-    if (empty ? op >= 15 : op >= 40 && mine >= theirs + 2) {
-      const nn = g.nation(nation.id);
-      if (holder?.alive && !nn.court.includes(holder.id) && !native)
-        nn.court.push(holder.id);
-      nn.council[seat] = me.id;
-      nn.court = nn.court.filter((x) => x !== me.id);
-      const title = native
-        ? seat === "marshal"
-          ? `war chief of the ${nation.name}`
-          : `speaker of the ${nation.name}`
-        : `${SEAT_NAMES[seat].toLowerCase()} of ${nation.name.replace(/^the /, "")}`;
-      touchLife(g, life).tally.topOffice = Math.max(life.tally.topOffice, 2);
-      addRenown(g, life, 6);
-      journal(g, life, `You're made ${title}.`, "good");
-      milestone(g, life, "office", `Made ${title}`);
-      if (ruler?.alive)
-        remembers(g, life, g.char(ruler.id), "Gave me a seat", 0, 0);
-      return;
-    }
-  }
+  offerCouncilSeat(g, life);
 }
 
 /** Letters home: the crown remembers who writes well. */
@@ -464,6 +440,7 @@ function chooseSuccessor(g: ConquestGame, n: number): number {
   const bar = Math.max(native ? 70 : 100, ...rivals);
   if (bestScore < bar) return -1;
   const me = meOf(s, best)!;
+  takingPost(g, me.id, { kind: "governor", n }); // POWER (r12): one office at a time
   touchLife(g, best).tally.topOffice = 3;
   addRenown(g, best, 15);
   const title = native
@@ -641,6 +618,9 @@ export function lawCheck(
     return no(`It can't stand with ${LAWS[def.against].name}.`);
   if ((life.cooldowns["gov:law"] ?? 0) > s.day)
     return no("The assembly won't sit again so soon.");
+  // POWER (r12): an assembly sent home passes no laws.
+  if ((s.power?.cabinets[n]?.prorogued ?? 0) > s.day)
+    return no("You've prorogued the assembly: it isn't sitting.");
   return yes;
 }
 
@@ -673,9 +653,21 @@ function govLever(g: ConquestGame, life: Life, lever: GovLever): string | null {
   const nation = s.nations[n];
   if (!lever || typeof lever !== "object") return "Bad order.";
   switch (lever.l) {
-    case "tax":
+    case "tax": {
       if (nation.kind !== "power") return "Your people pay no taxes.";
-      return economyCommand(g, n, { k: "tax", level: lever.level });
+      const was = nation.tax;
+      const err = economyCommand(g, n, { k: "tax", level: lever.level });
+      // POWER (r12): the council's advice, taken or not.
+      if (!err && lever.level !== was)
+        overruled(
+          g,
+          life,
+          n,
+          councilAdvice(s, n, lever.level > was ? "taxup" : "taxdown", me.id),
+          lever.level > was ? "You raise the taxes" : "You lower the taxes",
+        );
+      return err;
+    }
     case "remit":
       return crownCommand(g, n, { k: "remit", share: lever.share });
     case "raise": {
@@ -709,8 +701,10 @@ function govLever(g: ConquestGame, life: Life, lever: GovLever): string | null {
       return err;
     }
     case "war": {
+      const advice = councilAdvice(s, n, "war", me.id); // POWER (r12)
       const err = militaryCommand(g, n, { k: "war", n: lever.n });
       if (!err) {
+        overruled(g, life, n, advice, `War on ${s.nations[lever.n].name}`);
         journal(
           g,
           life,
@@ -746,6 +740,13 @@ function govLever(g: ConquestGame, life: Life, lever: GovLever): string | null {
       const def = LAWS[lever.law];
       const x = g.nation(n);
       touchLife(g, life).cooldowns["gov:law"] = s.day + 90;
+      overruled(
+        g,
+        life,
+        n,
+        councilAdvice(s, n, "law", me.id),
+        lever.on ? def.name : `Repealing ${def.name}`,
+      ); // POWER (r12)
       if (lever.on) {
         x.laws = [...(x.laws ?? []), lever.law];
         x.mods.push({
@@ -763,29 +764,15 @@ function govLever(g: ConquestGame, life: Life, lever: GovLever): string | null {
       }
       return null;
     }
-    case "appoint": {
-      const err = characterCommand(g, n, {
-        k: "appoint",
-        seat: lever.seat,
-        c: lever.c,
-      });
-      if (!err) {
-        const c = s.chars[lever.c];
-        if (c)
-          remembers(g, life, g.char(c.id), "Raised me to the council", 15, 5);
-        journal(
-          g,
-          life,
-          `You appoint ${charName(c)} ${SEAT_NAMES[lever.seat].toLowerCase()}.`,
-        );
-      }
-      return err;
-    }
+    case "appoint":
+      // POWER (r12): through the council (a player is asked; one office at a time).
+      return govAppoint(g, life, lever.seat, lever.c);
     case "project": {
       const check = projectCheck(s, n, lever.key);
       if (!check.ok) return check.why;
       const def = PROJECTS[lever.key];
       const x = g.nation(n);
+      overruled(g, life, n, councilAdvice(s, n, "project", me.id), def.name); // POWER (r12)
       x.gold -= def.cost;
       x.mods.push({
         key: `project:${lever.key}`,

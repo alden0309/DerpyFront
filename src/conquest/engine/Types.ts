@@ -1509,6 +1509,8 @@ export interface GameState {
   leads?: WorldLead[];
   /** SOCIETY (r11): local offices and gatherings. */
   society?: SocietyState;
+  /** POWER (r12): the council, bills, trials and newspapers. */
+  power?: PowerState;
 }
 
 export type TravellerKind =
@@ -1790,7 +1792,9 @@ export type LifeCommand =
   | { k: "sail"; to: number; boat: number }
   | { k: "contract"; act: string; id: number; arg?: number }
   // SOCIETY (r11): letters, gatherings, local office, tongues, settlements.
-  | SocietyCommand;
+  | SocietyCommand
+  // POWER (r12): offices' powers, the council, bills, trials and the press.
+  | PowerCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1827,6 +1831,8 @@ export interface GameDelta {
   lifePatch?: Record<string, Partial<Life>>;
   /** SOCIETY (r11): offices and gatherings that changed. */
   society?: SocietyDelta;
+  /** POWER (r12): the council, trials and papers that changed. */
+  power?: PowerDelta;
 }
 
 // ---- WORLD (r11)
@@ -2444,4 +2450,209 @@ export interface SocietyCommand {
   gov?: GovForm;
   offices?: Partial<Record<Seat, number>>;
   free?: boolean;
+}
+
+// ---- POWER (r12)
+// One political office at a time; real powers for the county and colony
+// offices; the governor's council with its portfolios, votes and factions;
+// the assembly's bills; trials played out as scenes; newspapers.
+
+/** The governor's council: the five old seats and three of the colony's own. */
+export type CouncilSeat = Seat | "attorney" | "surveyor" | "speaker";
+
+/** A measure put to the council: who brought it, and how each voted. */
+export interface CouncilMatter {
+  id: number;
+  /** What it does if carried (a key of Council.ts MEASURES). */
+  key: string;
+  title: string;
+  text: string;
+  /** Who brought it (a character); the governor's own if it's the ruler. */
+  by: number;
+  /** A province, a nation or a person it's about, or -1. */
+  arg: number;
+  day: number;
+  /** The council divides on this day. */
+  until: number;
+  /** Character id: 1 aye, -1 no, 0 abstained. */
+  votes: Record<number, number>;
+  status: "open" | "carried" | "lost";
+}
+
+/** A bill before the colony's assembly. */
+export interface Bill {
+  id: number;
+  key: string;
+  title: string;
+  /** The member who brought it in. */
+  by: number;
+  /** The county it's for, or -1. */
+  p: number;
+  day: number;
+  /** Debated in the house, then the governor's assent, then law (or lost, or vetoed). */
+  stage: "house" | "governor" | "law" | "lost" | "vetoed";
+  /** The day the house divides, or the governor must answer by. */
+  until: number;
+  ayes: number;
+  noes: number;
+}
+
+/** A colony's (or native nation's) council beyond the five seats. */
+export interface Cabinet {
+  n: number;
+  /** The colony's own three seats (character ids, -1 empty). */
+  attorney: number;
+  surveyor: number;
+  speaker: number;
+  /** How the governor favours each councillor, 0 to 100. */
+  favour: Record<number, number>;
+  /** Which side each sits with: the governor's friends, or the country party. */
+  faction: Record<number, "court" | "country">;
+  matters: CouncilMatter[];
+  bills: Bill[];
+  /** Proclamations in force: key, and the day each lapses. */
+  proclaimed: Record<string, number>;
+  /** The assembly sent home until this day. */
+  prorogued?: number;
+  /** A councillor under a cloud: character id, and the day it lifts. */
+  scandal: Record<number, number>;
+  /** The governor's salary withheld by the assembly until this day. */
+  unpaid?: number;
+  /** Members who've put their names forward for the speaker's chair. */
+  speakerBid?: number[];
+  /** Votes the speaker has brought round, by bill id. */
+  steer?: Record<number, number>;
+  /** The computer's councillors: when each of their powers may be used again. */
+  last?: Record<string, number>;
+  /** Players' votes with (+) and against (−) the governor: their party. */
+  record?: Record<number, number>;
+}
+
+export type TrialKind =
+  | "crime"
+  | "accused"
+  | "libel"
+  | "sedition"
+  | "debt"
+  | "duel"
+  | "witchcraft"
+  | "heresy"
+  | "presentment"
+  | "corruption";
+
+/** A case at law, heard in scenes: the charge, the witnesses, the plea, the jury, the verdict. */
+export interface Trial {
+  id: number;
+  kind: TrialKind;
+  /** Who's tried, who brought it (-1 the Crown), who sits in judgment (-1 the bench). */
+  defendant: number;
+  accuser: number;
+  judge: number;
+  p: number;
+  nation: number;
+  charge: string;
+  /** How grave: 1 a fine, 2 the whip, 3 transportation, 4 a hanging matter. */
+  grade: number;
+  /** The case against, the defence, and how the jury leans (points). */
+  evidence: number;
+  defence: number;
+  sympathy: number;
+  /** 0 the charge, 1 the witnesses, 2 the plea, 3 the jury, 4 the verdict, 5 done. */
+  stage: number;
+  /** Seats this stage still waits on. */
+  waiting: string[];
+  /** The day the stage moves on whether or not they've answered. */
+  until: number;
+  plea?: "guilty" | "not" | "clergy" | "confess" | "truth" | "mercy";
+  counsel?: boolean;
+  /** Coins put in the judge's way. */
+  bribe?: number;
+  verdict?: "guilty" | "acquitted";
+  /** The court asked mercy in the sentence. */
+  lighter?: boolean;
+  sentence?: string;
+  /** The sentence (or the acquittal) has been carried out. */
+  done?: boolean;
+  /** What happened, in order, for the record. */
+  lines: string[];
+  day: number;
+}
+
+/** What a paper prints about someone or something. */
+export interface Piece {
+  /** "c" a person, "m" a cause, "g" a governor (nation), "s" the sale of a paper. */
+  on: "c" | "m" | "g";
+  id: number;
+  /** For (1) or against (-1). */
+  side: number;
+  head: string;
+  /** How hard it landed. */
+  force: number;
+  day: number;
+}
+
+/** A newspaper and its press. */
+export interface Paper {
+  id: number;
+  name: string;
+  /** Owner (a character), the town it's printed in, and its nation. */
+  owner: number;
+  p: number;
+  nation: number;
+  founded: number;
+  /** Its line: for the governor, its own, or the country party's. */
+  stance: "court" | "independent" | "country";
+  /** Writers it pays (character ids). */
+  writers: number[];
+  readers: number;
+  /** How far it's believed, 0 to 100. */
+  credit: number;
+  /** Licensed by the governor (where the law wants a licence). */
+  licensed: boolean;
+  /** Shut by the governor until this day. */
+  shut?: number;
+  /** Pieces waiting for the next issue, and those in the last few. */
+  next: Piece[];
+  printed: Piece[];
+  /** The day of the last issue. */
+  issued: number;
+  /** Coins it made last month (after wages). */
+  income?: number;
+}
+
+/** Everything of the POWER track kept in the game. */
+export interface PowerState {
+  cabinets: Record<number, Cabinet>;
+  trials: Trial[];
+  papers: Paper[];
+  /** What the papers (and sheriffs) have done for or against a person at the polls, and when it fades. */
+  sway: Record<number, { v: number; until: number }>;
+  /** Debts gone unpaid: "seat:lender" → months in default. */
+  dunned: Record<string, number>;
+}
+
+/** What changed in it since the last delta. */
+export interface PowerDelta {
+  cabinets?: Record<number, Cabinet>;
+  trials?: Trial[];
+  papers?: Paper[];
+  sway?: Record<number, { v: number; until: number }>;
+}
+
+/** A command for offices' powers, the council, the assembly, trials and the press. */
+export interface PowerCommand {
+  k: "power";
+  act: string;
+  id?: number;
+  c?: number;
+  p?: number;
+  n?: number;
+  arg?: number;
+  key?: string;
+  seat?: CouncilSeat;
+  side?: number;
+  on?: "c" | "m" | "g";
+  name?: string;
+  stance?: Paper["stance"];
+  yes?: boolean;
 }

@@ -6,6 +6,7 @@ import { html, nothing, TemplateResult } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { areaName, areasOf, presence, Present } from "../../engine/Areas";
 import { formatDate } from "../../engine/Calendar";
+import { seatTitleOf } from "../../engine/CouncilTitles"; // POWER (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
 import { interactionView, InteractionView } from "../../engine/Interactions";
 import { actCheck, actLabel, actOdds, actsAt } from "../../engine/LifeActs";
@@ -34,6 +35,7 @@ import {
   WORK_DAYS,
 } from "../../engine/LifeRules";
 import { joinCheck, movementOf, movementsHere } from "../../engine/Movements";
+import { giveUpWarning, postTitle } from "../../engine/OneOffice"; // POWER (r12)
 import { standCheck } from "../../engine/Politics";
 import { businessOf, expandCheck, handRoom } from "../../engine/Property";
 import {
@@ -82,6 +84,7 @@ import {
   tradesLink,
   workNotes,
 } from "./Livelihood";
+import { powerParts } from "./PowerParts"; // POWER (r12)
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 import { TERMS } from "./Terms";
@@ -373,12 +376,17 @@ function standButton(ui: GameUi): TemplateResult {
       run: () => undefined,
     });
   const check = standCheck(s, life);
+  // POWER (r12): one office at a time.
+  const warn = giveUpWarning(s, ui.w, life.c, {
+    kind: "assembly",
+    n: ui.me!.nation,
+  });
   return actButton({
     label: `Stand for ${pol.name}`,
     ok: check.ok,
-    why: check.ok ? null : check.why,
+    why: check.ok ? warn : check.why,
     title: check.ok
-      ? `The next election is on ${formatDate(pol.election)}.`
+      ? `The next election is on ${formatDate(pol.election)}.${warn ? ` ${warn}` : ""}`
       : check.why,
     run: () => void ui.cmd({ k: "stand" }),
   });
@@ -418,8 +426,11 @@ export function roleOf(ui: GameUi, c: Character): string {
         ? seat === "marshal"
           ? "War chief"
           : "Speaker"
-        : seat[0].toUpperCase() + seat.slice(1);
+        : seatTitleOf(n, seat); // POWER (r12): the seat's colonial title
   }
+  // POWER (r12): an office of the county or the colony.
+  const post = postTitle(s, c.id);
+  if (post && !life) return post;
   if (life) return `Played by ${life.name}`;
   if (c.role) return ROLES[c.role].title;
   const parent = s.chars[c.father] ?? s.chars[c.mother];
@@ -1284,7 +1295,7 @@ function extrasParts(ui: GameUi, p: number, area: PlaceKind): PlacePart[] {
             (a.owner === me.nation || a.owner === life.job?.nation),
         )
       : [];
-  const out: PlacePart[] = [];
+  const out: PlacePart[] = [...powerParts(ui, p, area)]; // POWER (r12)
   if (movements.length)
     out.push({
       key: "causes",

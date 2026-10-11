@@ -81,6 +81,7 @@ import {
 } from "./Movements";
 import { standingLocally } from "./Offices"; // SOCIETY (r11)
 import { campaignBoost, seekCourt, writeToCrown } from "./Politics";
+import { readPapers } from "./Press"; // POWER (r12)
 import {
   buyHouse,
   buyLand,
@@ -1322,6 +1323,7 @@ export function doAct(
     case "gazette":
       gainXp(g, life, "letters", 4);
       journal(g, life, gazetteLine(g));
+      readPapers(g, life); // POWER (r12): the colony's newspapers
       afterHearing(g, life, "gazette"); // WORLD r11
       return null;
     case "freehold": {

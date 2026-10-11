@@ -122,6 +122,11 @@ export function watchStrength(s: GameState, w: World, p: number): Breakdown {
       l.job?.prov === p,
   ).length;
   if (lawmen) e.add("Players keeping the peace here", lawmen * 14);
+  // POWER (r12): an officer's patrol, a doubled watch, a posse out.
+  const patrol = pr.mods.find(
+    (m) => m.key === "power:patrol" && m.until > s.day,
+  );
+  if (patrol) e.add(patrol.label, 12);
   if (pr.unrest >= 50) e.add("Disorder in the streets", -8);
   void w;
   return e.done(0, 0, 100);

@@ -6,6 +6,7 @@
 // Each has a duty to do, a lever or two, fees, renown, and leads on to the
 // assembly, the council and the governor's chair.
 
+import { BILL_KEYS, bringBill } from "./Assembly"; // POWER (r12)
 import { Explain } from "./Explain";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
@@ -34,6 +35,8 @@ import {
 } from "./LifeQueries";
 import { ROLES, SKILL_NAMES } from "./LifeRules";
 import type { World } from "./Map";
+import { holdsPost, postsOf, takingPost } from "./OneOffice"; // POWER (r12)
+import { swayOf } from "./PowerCore"; // POWER (r12)
 import { ageOf, charName, settlers, stat } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
@@ -344,8 +347,8 @@ export const OFFICES: Record<OfficeKey, OfficeDef> = {
     },
     lever: {
       key: "bill",
-      label: "Introduce a bill",
-      text: "A bill for the county: roads, a ferry, a bounty on wolves. Passed or not, it's your name on it.",
+      label: "Bring in a bill",
+      text: "A bill for the county or the colony (a road, a bounty on wolves, paper money, the governor's salary). The house divides on it in a month; then the governor assents, or doesn't.",
       cooldown: 180,
     },
     step: "A burgess sits in the assembly: the governor's court and council are next.",
@@ -720,7 +723,7 @@ function seatFirst(g: ConquestGame, o: LocalOffice): void {
   const s = g.s;
   if (o.key === "founder") return;
   const pool = householdsOf(s, o.prov).filter(
-    (c) => npcEligible(s, c, o) && !localOfficesOf(s, c.id).length,
+    (c) => npcEligible(s, c, o) && !holdsPost(s, c.id), // POWER (r12): one office each
   );
   if (!pool.length) return;
   pool.sort((a, b) => npcFit(s, b, o) - npcFit(s, a, o) || a.id - b.id);
@@ -789,6 +792,9 @@ export function eligible(s: GameState, life: Life, o: LocalOffice): Check {
       "Freeholders only: land, a house, a business of your own, or 40 coins.",
     );
   if (o.holder === me.id) return no("You hold it.");
+  // POWER (r12): a governor holds no other office.
+  if (postsOf(s, me.id).some((p) => p.kind === "governor"))
+    return no("A governor holds no other office.");
   void nation;
   return yes;
 }
@@ -838,6 +844,16 @@ export function appointerOf(s: GameState, o: LocalOffice): number {
   const founder = holderOf("founder");
   if (founder >= 0 && o.key !== "founder") return founder;
   const ruler = s.nations[o.nation]?.ruler ?? -1;
+  // POWER (r12): the sheriff names the collector of the rates; a city's
+  // mayor names the captain of its watch.
+  if (o.key === "collector") {
+    const sh = holderOf("sheriff");
+    if (sh >= 0) return sh;
+  }
+  if (o.key === "watch") {
+    const m = holderOf("mayor");
+    if (m >= 0) return m;
+  }
   if (def.how === "court") {
     const j = holderOf("justice");
     return j >= 0 ? j : ruler;
@@ -898,6 +914,7 @@ export function giveOffice(
 ): void {
   const s = g.s;
   const prev = s.chars[o.holder];
+  takingPost(g, c, { kind: "local", n: o.nation, o }); // POWER (r12): one office at a time
   o.holder = c;
   o.since = s.day;
   // A new officer may set to work at once.
@@ -951,14 +968,13 @@ function fillVacancy(g: ConquestGame, o: LocalOffice): void {
   const byLife = lifeOfChar(s, by);
   // A player who appoints gets a while to choose.
   if (byLife && s.day - o.since < 60) return;
-  const pool = householdsOf(s, o.prov).filter((c) => npcEligible(s, c, o));
-  if (!pool.length) return;
-  // One office to a person, where the county has the people.
-  const busy = (c: Character) => (localOfficesOf(s, c.id).length ? 1 : 0);
-  pool.sort(
-    (a, b) =>
-      busy(a) - busy(b) || npcFit(s, b, o) - npcFit(s, a, o) || a.id - b.id,
+  // POWER (r12): one office to a person; a post with nobody free stays
+  // empty (a chance for a newcomer).
+  const pool = householdsOf(s, o.prov).filter(
+    (c) => npcEligible(s, c, o) && !holdsPost(s, c.id),
   );
+  if (!pool.length) return;
+  pool.sort((a, b) => npcFit(s, b, o) - npcFit(s, a, o) || a.id - b.id);
   const pick = pool[0];
   giveOffice(g, o, pick.id, "by appointment");
 }
@@ -1015,6 +1031,12 @@ export function pollStanding(
   if (o.holder === me.id) e.add("Sitting already", 6);
   if (life.home !== o.prov) e.add("You don't live in the county", -10);
   if (life.scandal && life.scandal.until > s.day) e.add("The scandal", -10);
+  const sway = Math.round(swayOf(s, me.id)); // POWER (r12): the papers
+  if (sway)
+    e.add(
+      sway > 0 ? "The papers speak for you" : "The papers against you",
+      sway,
+    );
   return e.done(0);
 }
 
@@ -1029,7 +1051,8 @@ function npcPoll(
     status * 3 +
     stat(s, c, "dip") +
     hash01(c.id, o.id, o.election) * 8 +
-    (sitting ? 6 : 0)
+    (sitting ? 6 : 0) +
+    swayOf(s, c.id) // POWER (r12): the papers
   );
 }
 
@@ -1077,7 +1100,7 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
       (c) =>
         npcEligible(s, c, o) &&
         !field.some((f) => f.c === c.id) &&
-        !localOfficesOf(s, c.id).length,
+        !holdsPost(s, c.id), // POWER (r12)
     )
     .sort(
       (a, b) =>
@@ -1476,23 +1499,15 @@ export function pullLever(
       return null;
     }
     case "bill": {
-      const pass = r.chance(0.35 + skillLevel(s, life, "persuasion") * 0.03);
-      gainXp(g, life, "persuasion", 6);
-      if (pass) {
-        addRenown(g, life, 4);
-        touchLife(g, life).favor = Math.min(100, life.favor + 3);
-        journal(
-          g,
-          life,
-          "Your bill for the county passes the house: a ferry, a road, and a bounty on wolves.",
-          "good",
-        );
-      } else
-        journal(
-          g,
-          life,
-          "Your bill dies in committee, smothered in amendments.",
-        );
+      // POWER (r12): a real bill, debated in the house and put to the governor.
+      const key = BILL_KEYS[arg ?? -1];
+      if (!key) return "Which bill?";
+      const err = bringBill(g, life, o.nation, key, o.prov);
+      if (err) {
+        // Not brought in: the lever isn't spent.
+        delete touchLife(g, life).cooldowns[`lever:${o.key}:${o.prov}`];
+        return err;
+      }
       return null;
     }
     case "skim": {

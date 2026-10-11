@@ -15,6 +15,17 @@ import {
   TERMS,
 } from "../../engine/Founding";
 import { interactionView } from "../../engine/Interactions";
+// POWER (r12): office powers, one office at a time, bills, the court roll.
+import { BILL_KEYS, billCheck, BILLS } from "../../engine/Assembly";
+import {
+  powerCheck,
+  powerLabel,
+  powerOdds,
+  powersOf,
+  powerTargets,
+  subordinates,
+  type OfficePower,
+} from "../../engine/Authority";
 import { lifeOfChar, peopleHere } from "../../engine/LifeQueries";
 import { CHARGES } from "../../engine/LifeRules";
 import {
@@ -30,6 +41,7 @@ import {
   pollStanding,
   standLocalCheck,
 } from "../../engine/Offices";
+import { giveUpWarning } from "../../engine/OneOffice";
 import { charName, provincesOf, tribesfolk } from "../../engine/Queries";
 import { SEAT_NAMES } from "../../engine/Rules";
 import { officesIn } from "../../engine/SocietyCore";
@@ -38,6 +50,7 @@ import {
   FLAG_DIVISIONS,
   GOV_FORMS,
 } from "../../engine/SocietyRules";
+import { courtRoll, KIND_NAMES, STAGES } from "../../engine/Trials";
 import type {
   Charge,
   GovForm,
@@ -57,6 +70,7 @@ import {
   charLink,
   GameUi,
   nationLink,
+  odds,
   section,
   token,
 } from "./Context";
@@ -91,6 +105,49 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
       const lever = def.lever;
       const targets = lever?.who ? leverTargets(s, life, o) : [];
       const pick = leverPick[o.id] ?? targets[0]?.id ?? -1;
+      // POWER (r12): the burgess's lever brings in a real bill.
+      const billKey = BILL_KEYS[leverPick[-o.id] ?? 0] ?? BILL_KEYS[0];
+      const billRow =
+        o.key === "burgess"
+          ? html`<div class="cq-btnrow">
+                <select
+                  class="cq-office-pick wide"
+                  aria-label="Which bill"
+                  @change=${(e: Event) => {
+                    leverPick[-o.id] = Number(
+                      (e.target as HTMLSelectElement).value,
+                    );
+                    ui.redraw();
+                  }}
+                >
+                  ${BILL_KEYS.map(
+                    (k, i) =>
+                      html`<option value=${i} ?selected=${k === billKey}>
+                        ${BILLS[k].title.replace(
+                          "{county}",
+                          ui.map.provinces[o.prov]?.name ?? "the county",
+                        )}
+                      </option>`,
+                  )}
+                </select>
+                ${action(
+                  "Bring in the bill",
+                  leverCheck(s, life, o).ok
+                    ? billCheck(s, life, o.nation, billKey)
+                    : leverCheck(s, life, o),
+                  () =>
+                    ui.cmd({
+                      k: "society",
+                      act: "lever",
+                      id: o.id,
+                      arg: BILL_KEYS.indexOf(billKey),
+                    }),
+                  "small",
+                  BILLS[billKey].does,
+                )}
+              </div>
+              <p class="cq-muted small">As law: ${BILLS[billKey].does}</p>`
+          : nothing;
       acts = html`<div class="cq-btnrow">
           ${action(
             def.duty.label,
@@ -99,7 +156,7 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
             "primary small",
             def.duty.text,
           )}
-          ${lever
+          ${lever && o.key !== "burgess"
             ? html`${lever.who
                 ? html`<select
                     class="cq-office-pick"
@@ -143,13 +200,19 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
             ? "the county grumbles"
             : "you'll be dismissed"}.
           ${o.duty ? html`Last done ${formatDate(o.duty)}.` : nothing}
-        </p>`;
+        </p>
+        ${billRow} ${powersBlock(ui, o)}`;
     } else if (def.how === "elected") {
       const check = standing
         ? { ok: false as const, why: "You're standing." }
         : standLocalCheck(s, life, o);
       const me = pollStanding(s, life, o);
       const rival = pollRival(s, o, life.c);
+      const warn = giveUpWarning(s, ui.w, life.c, {
+        kind: "local",
+        n: o.nation,
+        o,
+      });
       acts = html`<div class="cq-btnrow">
           ${action(
             standing
@@ -174,40 +237,62 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
                 : html`(unopposed, so far)`}.
               Canvass at the tavern, print a broadside, stand a round.
             </p>`
+          : nothing}
+        ${warn && (standing || check.ok)
+          ? html`<p class="cq-pw-warn small">${warn}</p>`
           : nothing}`;
     } else if (iAppoint) {
       const pool = leverTargets(s, life, o).filter((c) => !lifeOfChar(s, c.id));
       const pick = leverPick[o.id] ?? pool[0]?.id ?? -1;
       const selfOk = eligible(s, life, o).ok;
+      const selfWarn = selfOk
+        ? giveUpWarning(s, ui.w, life.c, { kind: "local", n: o.nation, o })
+        : null;
       acts = html`<div class="cq-btnrow">
-        <select
-          class="cq-office-pick"
-          @change=${(e: Event) => {
-            leverPick[o.id] = Number((e.target as HTMLSelectElement).value);
-            ui.redraw();
-          }}
-        >
-          ${selfOk
-            ? html`<option value=${life.c} ?selected=${pick === life.c}>
-                Yourself
-              </option>`
-            : nothing}
-          ${pool.map(
-            (c) =>
-              html`<option value=${c.id} ?selected=${c.id === pick}>
-                ${charName(c)}
-              </option>`,
+          <select
+            class="cq-office-pick"
+            @change=${(e: Event) => {
+              leverPick[o.id] = Number((e.target as HTMLSelectElement).value);
+              ui.redraw();
+            }}
+          >
+            ${selfOk
+              ? html`<option value=${life.c} ?selected=${pick === life.c}>
+                  Yourself
+                </option>`
+              : nothing}
+            ${pool.map(
+              (c) =>
+                html`<option value=${c.id} ?selected=${c.id === pick}>
+                  ${charName(c)}
+                </option>`,
+            )}
+          </select>
+          ${action(
+            "Appoint",
+            pick >= 0 ? { ok: true } : { ok: false, why: "Nobody to appoint." },
+            () => ui.cmd({ k: "society", act: "appoint", id: o.id, c: pick }),
+            "small primary",
           )}
-        </select>
-        ${action(
-          "Appoint",
-          pick >= 0 ? { ok: true } : { ok: false, why: "Nobody to appoint." },
-          () => ui.cmd({ k: "society", act: "appoint", id: o.id, c: pick }),
-          "small primary",
-        )}
-      </div>`;
+          ${o.holder >= 0 && o.holder !== life.c
+            ? html`<button
+                class="cq-btn quiet small"
+                @click=${() =>
+                  confirm(`Dismiss ${charName(holder)}?`) &&
+                  void ui.cmd({ k: "power", act: "dismiss", id: o.id })}
+              >
+                Dismiss ${holder?.first ?? ""}
+              </button>`
+            : nothing}
+        </div>
+        ${pick === life.c && selfWarn
+          ? html`<p class="cq-pw-warn small">${selfWarn}</p>`
+          : nothing}`;
     } else if (by) {
       const elig = eligible(s, life, o);
+      const seekWarn = elig.ok
+        ? giveUpWarning(s, ui.w, life.c, { kind: "local", n: o.nation, o })
+        : null;
       const here = peopleHere(s, life.prov, life).some((c) => c.id === by.id);
       const v = here
         ? interactionView(s, ui.w, life, by.id, "seek", o.id)
@@ -241,6 +326,9 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
         </div>
         ${!elig.ok && !(here && v && !v.check.ok)
           ? html`<p class="cq-muted small">${elig.why}</p>`
+          : nothing}
+        ${seekWarn
+          ? html`<p class="cq-pw-warn small">${seekWarn}</p>`
           : nothing}`;
     }
   }
@@ -266,6 +354,227 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
     <p class="cq-muted small">${def.text} <i>${def.step}</i></p>
     ${acts}
   </li>`;
+}
+
+// ---------------------------------------------------------------- POWER (r12): an office's powers
+
+const powerPick: Record<string, number> = {};
+const powerSide: Record<string, number> = {};
+
+function powerRow(ui: GameUi, o: LocalOffice, pw: OfficePower): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const key = `${o.id}:${pw.key}`;
+  const targets =
+    pw.target !== "none" ? powerTargets(s, ui.w, life, o, pw) : [];
+  const pick = powerPick[key] ?? targets[0]?.id ?? -1;
+  const side = powerSide[key] ?? 1;
+  const chance = powerOdds(s, life, pw);
+  return html`<li class="cq-pw">
+    <div class="cq-pw-text">
+      <b>${powerLabel(s, o, pw)}</b>
+      <span class="small">${pw.text}</span>
+      ${pw.check
+        ? html`<span class="cq-muted small"
+            >${pw.check.skill[0].toUpperCase()}${pw.check.skill.slice(1)}
+            ${odds(chance)}</span
+          >`
+        : nothing}
+    </div>
+    <div class="cq-pw-do">
+      ${targets.length
+        ? html`<select
+            class="cq-office-pick"
+            aria-label="Whom"
+            @change=${(e: Event) => {
+              powerPick[key] = Number((e.target as HTMLSelectElement).value);
+              ui.redraw();
+            }}
+          >
+            ${targets.map(
+              (t) =>
+                html`<option value=${t.id} ?selected=${t.id === pick}>
+                  ${t.label}
+                </option>`,
+            )}
+          </select>`
+        : nothing}
+      ${pw.sided
+        ? html`<div
+            class="cq-seg small"
+            role="radiogroup"
+            aria-label="For or against"
+          >
+            <button
+              role="radio"
+              aria-checked=${side > 0}
+              class=${side > 0 ? "on" : ""}
+              @click=${() => {
+                powerSide[key] = 1;
+                ui.redraw();
+              }}
+            >
+              ${pw.key === "speech" ? "With the governor" : "For"}
+            </button>
+            <button
+              role="radio"
+              aria-checked=${side < 0}
+              class=${side < 0 ? "on" : ""}
+              @click=${() => {
+                powerSide[key] = -1;
+                ui.redraw();
+              }}
+            >
+              Against
+            </button>
+          </div>`
+        : nothing}
+      ${action(
+        pw.cost ? `Do it (${pw.cost})` : "Do it",
+        powerCheck(s, ui.w, life, o, pw.key),
+        () =>
+          void ui.cmd({
+            k: "power",
+            act: "use",
+            id: o.id,
+            key: pw.key,
+            c: pick,
+            side,
+          }),
+        "small",
+      )}
+    </div>
+  </li>`;
+}
+
+function powersBlock(
+  ui: GameUi,
+  o: LocalOffice,
+): TemplateResult | typeof nothing {
+  const list = powersOf(o);
+  if (!list.length) return nothing;
+  return html`<h4 class="cq-int-group">The office's powers</h4>
+    <ul class="cq-pw-list">
+      ${list.map((pw) => powerRow(ui, o, pw))}
+    </ul>`;
+}
+
+/** Offices in your gift (whose holders you appoint and can dismiss). */
+export function subordinatesSection(
+  ui: GameUi,
+): TemplateResult | typeof nothing {
+  const s = ui.s;
+  const life = ui.life;
+  if (!life || life.c < 0) return nothing;
+  const list = subordinates(s, life);
+  if (!list.length) return nothing;
+  return section(
+    "Offices in your gift",
+    html`<ul class="cq-list">
+        ${list.map((o) => {
+          const h = s.chars[o.holder];
+          return html`<li>
+            <b>${officeName(s, o)}</b> of ${ui.map.provinces[o.prov]?.name}:
+            ${h?.alive
+              ? charLink(ui, h, false)
+              : html`<span class="cq-chip gold">vacant: yours to fill</span>`}
+            ${h?.alive
+              ? html`<button
+                  class="cq-btn quiet small"
+                  @click=${() =>
+                    confirm(`Dismiss ${charName(h)}?`) &&
+                    void ui.cmd({ k: "power", act: "dismiss", id: o.id })}
+                >
+                  Dismiss
+                </button>`
+              : nothing}
+          </li>`;
+        })}
+      </ul>
+      <p class="cq-muted small">
+        You name these officers; a vacancy waits two months for your choice
+        (below, on the county's list), then the county fills it.
+      </p>`,
+  );
+}
+
+/** The court roll: cases waiting or heard lately in a county. */
+export function courtRollSection(
+  ui: GameUi,
+  p: number,
+): TemplateResult | typeof nothing {
+  const s = ui.s;
+  const list = courtRoll(s, p).slice().reverse().slice(0, 8);
+  if (!list.length) return nothing;
+  return section(
+    "The court roll",
+    html`<ul class="cq-roll">
+      ${list.map((t) => {
+        const d = s.chars[t.defendant];
+        const judge = s.chars[t.judge];
+        return html`<li class=${t.stage >= 5 ? "done" : "open"}>
+          <span><b>${charName(d)}</b>, ${t.charge}</span>
+          <span class="cq-muted small">
+            ${KIND_NAMES[t.kind]}${judge?.alive
+              ? html`, before ${charName(judge)}`
+              : ""}
+            ·
+            ${t.stage >= 5
+              ? t.verdict === "guilty"
+                ? html`<span class="cq-chip bad">guilty: ${t.sentence}</span>`
+                : html`<span class="cq-chip good">acquitted</span>`
+              : html`<span class="cq-chip gold">${STAGES[t.stage]}</span>`}
+          </span>
+        </li>`;
+      })}
+    </ul>`,
+  );
+}
+
+/** People whose secrets you know: bring them before the court. */
+export function accuseSection(ui: GameUi): TemplateResult | typeof nothing {
+  const s = ui.s;
+  const life = ui.life;
+  if (!life || life.c < 0) return nothing;
+  const list = (life.secrets ?? []).filter(
+    (x) =>
+      (x.kind === "crime" || x.kind === "affair" || x.kind === "child") &&
+      s.chars[x.of]?.alive &&
+      !lifeOfChar(s, x.of),
+  );
+  if (!list.length) return nothing;
+  return section(
+    "Before the court",
+    html`<p class="small">
+        What you know of these people would stand in court. Bring them before
+        the justices (a trial, with you as the accuser): win, and your name
+        rises; lose, and they'll hate you, and your secret's spent.
+      </p>
+      <ul class="cq-list">
+        ${list.map(
+          (x) =>
+            html`<li>
+              ${charLink(ui, s.chars[x.of], false)}
+              <span class="cq-muted small"
+                >${x.kind === "crime"
+                  ? "a crime"
+                  : x.kind === "affair"
+                    ? "adultery"
+                    : "a child out of wedlock"}</span
+              >
+              <button
+                class="cq-btn small"
+                @click=${() =>
+                  confirm(
+                    `Bring ${charName(s.chars[x.of])} before the court?`,
+                  ) && void ui.cmd({ k: "power", act: "accuse", c: x.of })}
+              >
+                Bring them before the court
+              </button>
+            </li>`,
+        )}
+      </ul>`,
+  );
 }
 
 export function officesPage(ui: GameUi, p: number): TemplateResult {
@@ -300,7 +609,8 @@ export function officesPage(ui: GameUi, p: number): TemplateResult {
           </p>`
         : html`<p class="cq-empty">
             There's no government here to hold office in.
-          </p>`}`;
+          </p>`}
+    ${courtRollSection(ui, p)}`;
 }
 
 // ---------------------------------------------------------------- a settlement

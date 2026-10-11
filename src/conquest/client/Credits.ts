@@ -297,6 +297,17 @@ export const CREDITS: Credit[] = [
       "https://commons.wikimedia.org/wiki/File:Pieter_Bruegel_the_Elder_-_Hunters_in_the_Snow_(Winter)_-_Google_Art_Project.jpg",
   },
   // ===== end LIFE (r11) =====
+  // ===== POWER (r12): the court-house, for trials =====
+  {
+    what: "Picture",
+    title:
+      "Industry and Idleness, plate 10: The Industrious 'Prentice Alderman of London, the Idle One Brought Before Him & Impeached by his Accomplice (1747): the court-house",
+    author: "William Hogarth (The Metropolitan Museum of Art)",
+    license: "CC0",
+    source:
+      "https://commons.wikimedia.org/wiki/File:The_Industrious_%27Prentice_Alderman_of_London,_the_Idle_One_Brought_Before_Him_%26_Impeached_by_his_Accomplice-_Industry_and_Idleness,_plate_10_MET_DP825000.jpg",
+  },
+  // ===== end POWER (r12) =====
   {
     what: "Picture",
     title: "RPG map symbols: fort 2 (sepia map style)",

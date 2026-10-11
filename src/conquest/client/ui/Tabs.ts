@@ -37,8 +37,15 @@ import {
   WHERE_TO_SPEND,
   workSection,
 } from "./Affairs";
-import { foundingPage, officesPage } from "./Civic";
+import { councilPage } from "./Chamber"; // POWER (r12)
+import {
+  accuseSection,
+  foundingPage,
+  officesPage,
+  subordinatesSection,
+} from "./Civic";
 import { GameUi, section, token, type Tab } from "./Context";
+import { pressPage } from "./Gazette"; // POWER (r12)
 import { verdictChip } from "./Here";
 import { journalTab } from "./Journal";
 import {
@@ -718,16 +725,23 @@ function societyPage(ui: GameUi, sub: string): TemplateResult {
               </ul>`,
             )
           : nothing}
+        ${subordinatesSection(ui)}
         ${life.travel
           ? html`<p class="cq-empty">
               On the road. A town's offices show when you're there.
             </p>`
           : officesPage(ui, life.prov)}
+        ${accuseSection(ui)}
         <p class="cq-muted small cq-pad">
-          The colony's assembly, its council and the governor's chair are on
-          Society › Standing.
+          One office at a time: winning, being appointed or accepting another
+          resigns this one. The governor's council and the assembly's bills are
+          on Society › Council; the road to them on Society › Standing.
         </p>`;
     }
+    case "council": // POWER (r12)
+      return councilPage(ui);
+    case "press": // POWER (r12)
+      return pressPage(ui);
     case "letters":
       return lettersPage(ui);
     case "gatherings":
