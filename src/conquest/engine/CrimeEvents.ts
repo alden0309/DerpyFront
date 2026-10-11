@@ -417,7 +417,8 @@ export const CRIME_EVENTS: LifeEventDef[] = [
                 g: Math.max(2, JOBS[k].crime?.grade ?? 2),
                 n: ctx.n ?? -1,
                 k: Object.keys(JOBS).indexOf(k),
-                r: rank,
+                // A big job is housebreaking at the least, whatever your rank.
+                r: k === "thief" ? Math.max(2, rank) : rank,
               });
             }
           }

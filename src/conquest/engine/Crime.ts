@@ -242,11 +242,15 @@ export function sentenceFor(
   priors: number,
   lighter = false,
 ): Sentence {
-  // A record makes it worse, but only a hanging matter (or a record on
-  // top of one) hangs: a burglar's last stop is transportation.
+  // A record makes it worse, but only a hanging matter hangs: petty theft
+  // stops at the whip, a burglar's last stop is transportation.
+  const ceiling = grade >= 3 ? Infinity : grade + 1;
   const g = Math.max(
     1,
-    grade + Math.min(grade >= 3 ? 2 : 1, priors) - (lighter ? 1 : 0),
+    Math.min(
+      ceiling,
+      grade + Math.min(grade >= 2 ? 2 : 1, priors) - (lighter ? 1 : 0),
+    ),
   );
   if (g <= 1)
     return grade >= 2
