@@ -3640,6 +3640,7 @@ import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";
+import { PARTNER_EVENTS } from "./PartnerEvents"; // PARTNERS (r13)
 import { POWER_DEFAULTS, POWER_EVENTS } from "./PowerEvents"; // POWER (r12)
 import { R11_EVENTS } from "./R11Events";
 import { SEASON_EVENTS } from "./SeasonLife"; // MAP (r12)
@@ -3677,7 +3678,8 @@ let powerAdded = false;
 function byKey(key: string): LifeEventDef | undefined {
   if (!powerAdded) {
     powerAdded = true;
-    for (const d of POWER_EVENTS)
+    // PARTNERS (r13): a partnership's scenes, added the same way.
+    for (const d of [...POWER_EVENTS, ...PARTNER_EVENTS])
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);

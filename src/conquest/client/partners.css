@@ -1,0 +1,773 @@
+/* ===== PARTNERS (r13): partnerships. A firm is a shop sign over a ledger:
+   the name painted in gilt on a green board, the partners and their shares
+   below, the books ruled in red and black. The articles are a deed on
+   vellum, clause by numbered clause. ===== */
+
+/* Five pages under Estate: keep them on one line in the drawer. */
+.cq-subtabs:has(> :nth-child(5)):not(:has(> :nth-child(6))) .cq-subtab {
+  padding-left: 0.42rem;
+  padding-right: 0.42rem;
+}
+
+/* ---------------------------------------------------------------- the sign */
+
+.cq-firm {
+  margin: 0.6rem 0 1rem;
+  border: 1px solid var(--sepia);
+  border-radius: 4px;
+  background: rgba(255, 250, 235, 0.55);
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 250, 235, 0.5),
+    0 1px 2px rgba(60, 40, 15, 0.14);
+  overflow: hidden;
+}
+.cq-firm-board {
+  position: relative;
+  padding: 0.55rem 0.8rem 0.5rem;
+  text-align: center;
+  color: #f3e3b4;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.025) 0 2px,
+      transparent 2px 9px
+    ),
+    linear-gradient(180deg, #2d4436, #1f3027 70%, #19271f);
+  border-bottom: 3px double #c9a24a;
+}
+.cq-firm-board::before,
+.cq-firm-board::after {
+  content: "";
+  position: absolute;
+  top: 0.45rem;
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #f6e2a4, #8c6a22 70%);
+}
+.cq-firm-board::before {
+  left: 0.5rem;
+}
+.cq-firm-board::after {
+  right: 0.5rem;
+}
+.cq-firm-est {
+  display: block;
+  font-family: var(--sans);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(243, 227, 180, 0.72);
+}
+.cq-firm-name {
+  margin: 0.05rem 0 0;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.45rem;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+  color: #e9c766;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.55),
+    0 0 10px rgba(233, 199, 102, 0.18);
+  overflow-wrap: anywhere;
+}
+.cq-firm-hold {
+  margin: 0.15rem 0 0.25rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.9rem;
+  color: rgba(243, 227, 180, 0.9);
+}
+.cq-firm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem;
+  margin: 0;
+}
+.cq-firm-chips .cq-chip {
+  background: rgba(255, 250, 235, 0.92);
+  color: var(--ink);
+  font-size: 0.72rem;
+}
+.cq-firm-chips .cq-chip.gold {
+  color: #7b5a12;
+}
+.cq-firm-chips .cq-chip.bad {
+  color: var(--seal);
+}
+
+/* ---------------------------------------------------------------- partners */
+
+.cq-firm-partners {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0.7rem 0.2rem;
+}
+.cq-firm-partner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 6.2rem 3.4rem;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.15rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-firm-partner:last-child {
+  border-bottom: 0;
+}
+.cq-firm-partner.you .cq-firm-pname > b {
+  color: var(--nation-deep);
+}
+.cq-firm-pname {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+.cq-firm-pname .cq-link,
+.cq-firm-pname > b {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.cq-firm-share {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-variant-numeric: tabular-nums;
+}
+.cq-firm-share b {
+  min-width: 2.4rem;
+  text-align: right;
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1.02rem;
+}
+.cq-firm-sharebar {
+  flex: 1;
+  height: 0.42rem;
+  border-radius: 2px;
+  background: rgba(138, 106, 62, 0.18);
+  overflow: hidden;
+}
+.cq-firm-sharebar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--nation), var(--nation-deep));
+}
+.cq-firm-cap {
+  text-align: right;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.cq-firm-stats {
+  margin: 0.35rem 0.7rem 0.2rem;
+}
+.cq-firm-cargo {
+  margin: 0.1rem 0.7rem 0.3rem;
+}
+
+/* ---------------------------------------------------------------- the books */
+
+.cq-firm-books,
+.cq-firm-matters {
+  padding: 0.1rem 0.7rem 0.3rem;
+}
+.cq-firm-nobooks {
+  padding: 0 0.7rem;
+}
+.cq-firm-chart {
+  display: block;
+  width: 100%;
+  height: 3.4rem;
+  margin: 0.15rem 0 0.25rem;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 calc(25% - 1px),
+      rgba(138, 106, 62, 0.12) calc(25% - 1px) 25%
+    ),
+    rgba(255, 250, 235, 0.4);
+  border: 1px solid var(--rule);
+}
+.cq-firm-chart .axis {
+  stroke: rgba(158, 42, 30, 0.55);
+  stroke-width: 0.6;
+}
+.cq-firm-chart .up {
+  fill: var(--verdigris);
+}
+.cq-firm-chart .down {
+  fill: var(--seal);
+}
+.cq-firm-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.cq-firm-ledger th {
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  text-align: right;
+  border-bottom: 1px solid rgba(158, 42, 30, 0.45);
+  padding: 0.1rem 0.25rem;
+}
+.cq-firm-ledger th:first-child,
+.cq-firm-ledger td:first-child {
+  text-align: left;
+}
+.cq-firm-ledger td {
+  text-align: right;
+  padding: 0.12rem 0.25rem;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-firm-ledger td.bad {
+  color: var(--seal);
+}
+.cq-firm-notes {
+  margin: 0.2rem 0 0;
+}
+
+/* ---------------------------------------------------------------- matters */
+
+.cq-firm-dlist {
+  list-style: none;
+  margin: 0.2rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.cq-firm-dlist > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem 0.5rem;
+  align-items: center;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: rgba(255, 250, 235, 0.5);
+}
+.cq-firm-dlist > li.open {
+  grid-template-columns: minmax(0, 1fr);
+  border-left: 4px solid var(--brass);
+}
+.cq-firm-dlist > li.done {
+  opacity: 0.85;
+}
+.cq-firm-dwords {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cq-firm-tally {
+  display: flex;
+  height: 0.38rem;
+  background: rgba(138, 106, 62, 0.16);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.cq-firm-tally .aye {
+  background: var(--verdigris);
+}
+.cq-firm-tally .no {
+  background: var(--seal);
+  margin-left: auto;
+}
+.cq-firm-votes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.6rem;
+  color: var(--ink-soft);
+}
+.cq-firm-vote.aye {
+  color: var(--verdigris);
+}
+.cq-firm-vote.no {
+  color: var(--seal);
+}
+
+/* ---------------------------------------------------------------- putting things */
+
+.cq-firm-putmore {
+  margin: 0.2rem 0.7rem 0.4rem;
+}
+.cq-firm-putlist {
+  list-style: none;
+  margin: 0;
+  padding: 0.2rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.cq-firm-put {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.35rem 0.45rem 0.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: rgba(255, 250, 235, 0.45);
+}
+.cq-firm-put-text {
+  display: flex;
+  flex-direction: column;
+}
+.cq-firm-put-text > b {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1rem;
+  color: var(--nation-deep);
+}
+.cq-firm-put-do {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+.cq-firm-put-do .cq-why {
+  flex-basis: 100%;
+}
+.cq-firm-pick {
+  max-width: 11rem;
+}
+.cq-firm-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+.cq-firm-num input {
+  width: 4.2rem;
+}
+.cq-firm-own {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin: 0 0.7rem 0.45rem;
+}
+.cq-firm-rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.cq-firm-rename input {
+  flex: 1 1 10rem;
+}
+.cq-btn.risky.quiet {
+  color: var(--seal);
+}
+.cq-firm-story {
+  margin: 0 0.7rem 0.55rem;
+}
+.cq-firm-story ul {
+  list-style: none;
+  padding-left: 0;
+}
+.cq-firm-story li {
+  padding: 0.1rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+
+/* ---------------------------------------------------------------- offers, the past, the card */
+
+.cq-pa-offers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.cq-pa-offers > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--brass);
+  border-radius: 3px;
+  background: rgba(255, 250, 235, 0.55);
+}
+.cq-pa-offers > li.in {
+  border-left-color: #2a5aa8;
+}
+.cq-pa-past {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.cq-pa-past li {
+  padding: 0.12rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+
+/* The firm's name on its place's tile (Here). */
+.cq-area-firm {
+  position: absolute;
+  left: 0.35rem;
+  bottom: 1.45rem;
+  max-width: calc(100% - 0.7rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--fell-sc);
+  font-size: 0.7rem;
+  line-height: 1.25;
+  padding: 0 0.32rem;
+  color: #e9c766;
+  background: rgba(31, 48, 39, 0.92);
+  border: 1px solid rgba(201, 162, 74, 0.7);
+  border-radius: 2px;
+}
+.cq-area-firm.mine {
+  box-shadow: 0 0 0 1px rgba(233, 199, 102, 0.6);
+}
+.cq-area-tile:has(.cq-area-firm) .cq-area-name {
+  margin-bottom: 1rem;
+}
+
+/* ---------------------------------------------------------------- the articles */
+
+.cq-articles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.cq-articles-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.2rem 2rem 0.6rem 0.2rem;
+  border-bottom: 3px double var(--sepia);
+}
+.cq-articles-sitter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+}
+.cq-articles-sitter b {
+  font-family: var(--fell);
+  font-weight: 400;
+}
+.cq-articles-title {
+  text-align: center;
+  min-width: 0;
+}
+.cq-articles-kicker {
+  display: block;
+  font-family: var(--fell);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.cq-articles-title h2 {
+  margin: 0;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: var(--nation-deep);
+  letter-spacing: 0.02em;
+}
+.cq-articles-clauses {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 1rem;
+}
+.cq-articles-clauses > li {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.cq-articles-clauses > li:first-child {
+  grid-column: 1 / -1;
+}
+.cq-articles-clauses h4 {
+  margin: 0;
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1.05rem;
+  color: var(--nation-deep);
+  border-bottom: 1px solid var(--rule);
+}
+.cq-articles-clauses h4 > span {
+  display: inline-block;
+  min-width: 1.8rem;
+  font-family: var(--fell-sc);
+  color: var(--seal);
+}
+.cq-articles-clauses p {
+  margin: 0;
+}
+.cq-articles-holds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.cq-articles-hold {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: rgba(255, 250, 235, 0.55);
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+.cq-articles-hold.on {
+  border-color: var(--nation);
+  background: var(--nation);
+  color: var(--nation-ink);
+}
+.cq-articles-hold:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.cq-articles-hold .cq-why {
+  font-size: 0.75rem;
+}
+.cq-articles-found {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+.cq-articles-name {
+  font-family: var(--fell-sc);
+  font-size: 1.15rem;
+}
+.cq-articles-shares {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+.cq-articles-side {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.cq-articles-side b {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1.3rem;
+  color: var(--nation-deep);
+  font-variant-numeric: tabular-nums;
+}
+.cq-articles-slider {
+  position: relative;
+  display: block;
+}
+.cq-articles-slider input {
+  width: 100%;
+  accent-color: var(--nation);
+}
+.cq-articles-fair {
+  position: absolute;
+  top: -0.15rem;
+  width: 2px;
+  height: calc(100% + 0.3rem);
+  margin-left: -1px;
+  background: var(--brass);
+  pointer-events: none;
+}
+.cq-articles-caps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.cq-articles-clauses .cq-seg {
+  align-self: flex-start;
+}
+.cq-articles-text {
+  margin: 0.2rem 0;
+  padding: 0.55rem 0.8rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--seal);
+  background: rgba(255, 250, 235, 0.6);
+}
+.cq-articles-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  margin: 0;
+}
+.cq-articles-actions .cq-why {
+  margin: 0;
+  min-height: 2.4em;
+}
+
+/* In the scene: the deed, a table of the terms, your own terms. */
+.cq-articles-deed p {
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.cq-articles-table {
+  margin: 0.2rem 2rem 0.3rem;
+  border-collapse: collapse;
+  width: calc(100% - 4rem);
+}
+.cq-articles-table th,
+.cq-articles-table td {
+  padding: 0.18rem 0.4rem;
+  border-bottom: 1px dotted var(--rule);
+  text-align: left;
+}
+.cq-articles-table thead th {
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 0.95rem;
+  color: var(--nation-deep);
+  border-bottom: 1px solid var(--sepia);
+}
+.cq-articles-table tbody th {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+.cq-articles-fc {
+  margin: 0.1rem 2rem 0.2rem;
+}
+.cq-articles-counter {
+  margin: 0.3rem 2rem;
+  padding: 0.45rem 0.65rem 0.55rem;
+  border: 1px solid var(--sepia);
+  border-left: 4px solid var(--brass);
+  background: rgba(255, 250, 235, 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.cq-articles-counter h4 {
+  margin: 0;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  color: var(--nation-deep);
+}
+
+@media (max-width: 640px) {
+  .cq-articles-head {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding-right: 2rem;
+  }
+  .cq-articles-head > .cq-articles-sitter:last-child {
+    display: none;
+  }
+  .cq-articles-title h2 {
+    font-size: 1.45rem;
+  }
+  .cq-articles-clauses {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cq-articles-table,
+  .cq-articles-fc,
+  .cq-articles-counter {
+    margin-left: 0.8rem;
+    margin-right: 0.8rem;
+  }
+  .cq-articles-table {
+    width: calc(100% - 1.6rem);
+  }
+  .cq-firm-partner {
+    grid-template-columns: auto minmax(0, 1fr) 5rem 3rem;
+    gap: 0.35rem;
+  }
+  .cq-firm-name {
+    font-size: 1.25rem;
+  }
+  /* Small tiles: the firm's sign tucked into the corner, the name left alone. */
+  .cq-area-firm {
+    left: auto;
+    right: 0.22rem;
+    bottom: 0.22rem;
+    max-width: 56%;
+    font-size: 0.58rem;
+    padding: 0 0.2rem;
+  }
+  .cq-area-tile:has(.cq-area-firm) .cq-area-name {
+    margin-bottom: 0;
+  }
+}
+
+/* The articles drawn up: the clauses, and beside them what they'd say. */
+.cq-modal.partners {
+  width: min(1000px, 100%);
+}
+.cq-articles-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 19rem;
+  gap: 1.1rem;
+  align-items: start;
+}
+.cq-articles-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.cq-articles-panel {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.55rem 0.6rem 0.6rem;
+  border: 1px solid var(--rule);
+  background: rgba(255, 250, 235, 0.55);
+}
+.cq-articles-panel .cq-accept {
+  margin: 0;
+}
+.cq-articles-panel .cq-articles-verdict > p {
+  margin: 0 0 0.4rem;
+}
+.cq-articles-actions .cq-why.none {
+  visibility: hidden;
+}
+.cq-pa-town {
+  margin-top: 0.4rem;
+}
+@media (max-width: 760px) {
+  .cq-articles-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cq-articles-panel {
+    position: static;
+  }
+}
+/* In the panel: one reason a line (the list holds its height), and the
+   forecast keeps two lines' room, so the buttons below never move. */
+.cq-articles-panel .cq-why-list {
+  grid-template-columns: minmax(0, 1fr);
+  font-size: 0.86rem;
+}
+.cq-articles-panel .cq-articles-verdict > p {
+  min-height: 2.7em;
+}

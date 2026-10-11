@@ -76,7 +76,9 @@ export type Modal =
   | { k: "tree" }
   // EDU (r13): a child's future (a school, a trade or a college), and an indenture.
   | { k: "school"; c: number }
-  | { k: "indenture"; c: number };
+  | { k: "indenture"; c: number }
+  // PARTNERS (r13): articles of copartnership, drawn up.
+  | { k: "articles"; c: number };
 
 export interface GameUi {
   s: GameState;

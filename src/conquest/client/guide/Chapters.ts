@@ -105,7 +105,7 @@ import {
   ACHIEVEMENTS,
 } from "../../engine/Achievements";
 import { HARVEST_BONUS } from "../../engine/Seasons";
-import type { JobKind, Nation } from "../../engine/Types";
+import type { FirmDecisionKey, JobKind, Nation } from "../../engine/Types";
 // EDU (r13): schools, apprenticeships, colleges and the peoples' own ways.
 import {
   BIND_AGES,
@@ -123,6 +123,24 @@ import {
   SCHOOLS,
   type Gains,
 } from "../../engine/EduData";
+// PARTNERS (r13): partnerships, for their chapter.
+import { DECISIONS, MAX_DEBT } from "../../engine/Firms";
+import { BAILIFFS_AT } from "../../engine/Money";
+import {
+  bizCost,
+  bizJobs,
+  bizRoom,
+  CALLS,
+  CARGOES,
+  FIRE_SALE,
+  LAWYER_FEE,
+  LOANS,
+  MAX_FIRMS,
+  MAX_PARTNERS,
+  MAX_ROUNDS,
+  OFFER_DAYS,
+  VOTE_DAYS,
+} from "../../engine/PartnersCore";
 
 export interface Chapter {
   id: string;
@@ -355,6 +373,36 @@ function effortTable(): string {
 // ---------------------------------------------------------------- the chapters
 
 /** MAP (r12): every achievement and what it pays, from the rules. */
+// PARTNERS (r13): what a business costs to found together, and what can be put to the partners.
+function partnersTable(): string {
+  const rows = bizJobs().map((k) => {
+    const def = JOBS[k];
+    return `| **${def.business}** (${lower(def.name)}) | ${placeName(def.places[0])} | ${SKILL_NAMES[def.main]} | ${[1, 2, 3].map((lv) => bizCost(k, lv)).join(" / ")} |`;
+  });
+  return `| Business | Where | The manager's skill | Cost: I / II / III |
+|---|---|---|---|
+${rows.join("\n")}
+
+Sizes I, II and III have room for ${[1, 2, 3].map((lv) => bizRoom(lv)).join(", ")} hands. A farm at size III is a plantation.`;
+}
+
+function decisionsTable(): string {
+  const extra: Partial<Record<FirmDecisionKey, string>> = {
+    loan: `${LOANS.join(", ")} coins; up to ${MAX_DEBT} owed`,
+    goods: `${CARGOES.join(", ")} coins; one at sea at a time`,
+    call: `${CALLS.join(", ")} coins`,
+    admit: "a share of 5 to 50, for capital",
+  };
+  return `| Matter | What it does | How much |
+|---|---|---|
+${(Object.keys(DECISIONS) as FirmDecisionKey[])
+  .map(
+    (k) =>
+      `| **${DECISIONS[k].label}** | ${DECISIONS[k].text} | ${extra[k] ?? ""} |`,
+  )
+  .join("\n")}`;
+}
+
 function achievementsTable(): string {
   return ACHIEVEMENT_GROUPS.map(
     (g) =>
@@ -874,6 +922,82 @@ ${Object.values(WORKS)
 ! Pitfall: Servants, rooms and rent are paid every month whether you're home or not. Check the house's monthly figure (point at it) before you add more.`,
   },
   // ---- end HOME (r12)
+  // ---- PARTNERS (r13): business partnerships
+  {
+    id: "partners",
+    part: "living",
+    title: "Partnerships",
+    line: "Going into business with someone: articles of copartnership, shares and capital, the books, votes, and what goes wrong.",
+    where:
+      "Estate › Partnerships; anyone's card (In business › Propose a partnership); the market (Partnerships); a firm's name on its place's tile (Here).",
+    body: `Two (or up to ${MAX_PARTNERS}) people go into business as one **firm**, under articles of copartnership, in the period's way: "Ashby & Cole". Each **partner** holds a **share** of the profit and loss (shares make a hundred), has a **capital account** (what they brought in), and is either the **managing partner** (who does the work and keeps the books) or a **silent partner** (who only puts in money). You can be in ${MAX_FIRMS} partnerships at a time.
+
+## What a firm can hold
+- **A business one of you brings in**: your own (the shop, the inn, the farm, the mill, the press, the ship that came with your trade's top rungs), or theirs. A computer character with a trade of their own (an innkeeper, a merchant, a planter, a ship's captain, a master craftsman, a printer, a trader) brings their business, and wants to go on running it.
+- **A new business, founded together**, where you are: any trade with a business of its own, at any of three sizes. Setting it up is paid from what you both put in:
+
+${partnersTable()}
+
+- **Your newspaper**: you keep it and run it; your partners have their shares of what it makes.
+- **Cargoes only**: a company that pools money to buy goods and ship them.
+
+## Drawing up the articles
+On anyone's card (or at the market, under Partnerships): **Propose a partnership**. In person if they're here; by post if they're not (the articles go as a letter, and can be lost at sea). The articles say:
+- **I.** what the firm holds; **II.** its name ("Drackley & Cole", or your own); **III.** the shares (with the fair split marked: what each brings, and a fifth more for the one who does the work); **IV.** the capital each puts in; **V.** who manages, and whether matters are decided **by the greater part** (shares over half) or **all together**; **VI.** who draws them up.
+- **A lawyer** (an attorney or a law clerk in town, ${LAWYER_FEE.attorney} or ${LAWYER_FEE.clerk} coins, or yourself if you're in the law) draws up articles that **lean your way when partners fall out**: at arbitration, and in court. Another player who's a lawyer is paid the fee.
+
+**A computer character** signs or refuses there and then, with every reason shown, as with any interaction: what they think of you, your name, whether it's their trade, what the business should make, whether the terms are fair to them (the strongest reason of all), whether they could afford their part, who'd run it, their nature, and how many partnerships they're in already. By post, their answer comes back by post.
+
+**Another player** gets the articles as a scene: **sign**, **decline**, or send back **terms of their own** (the shares and what each puts in), back and forth up to ${MAX_ROUNDS} times. By post if you're in different places, so it works from one colony to another. Unanswered articles lapse after ${OFFER_DAYS} days.
+
+## The books
+Each month the firm's business is reckoned exactly as a business of your own would be: takings from its hands (more with the **managing partner's skill** in the trade, and a good deal less if they're away from the town or busy with other work: a managing partner who works for someone else minds only a business in their own trade), less wages, upkeep, excise and interest. A hand is taken on each month while there's room and money in the chest.
+- **Profit is divided by share** straight into the partners' purses. Your share shows in Estate › Purse.
+- **A loss comes out of the firm's chest**, and when the chest is empty it's **called from the partners** by share (into debt, if need be).
+- Estate › Partnerships shows the firm's sign, the partners and their shares, the chest and the debt, a year of months as a chart, the last few as a ledger, and what your share is worth.
+
+## Putting things to the partners
+Any partner can put a matter to the others; computer partners vote by their own interests (with their reasons), players vote in a scene or on the page. Matters left unanswered for ${VOTE_DAYS} days count against.
+
+${decisionsTable()}
+
+## When things go wrong
+- **Two sets of books**: the managing partner can keep a quarter of the takings out of the books (a computer partner with a deceitful or greedy nature may too). The others may find it out, the sooner the better they know trade and letters (and if their lawyer drew the articles): then **say nothing**, **demand it back** (persuasion), **take them to law** (a suit in the county court, played out as a [[trials|trial]]: win, and they pay it back and are put out of the firm), or **dissolve the partnership**.
+- **A quarrel over the accounts**, with a partner who's soured on you or after bad months: **give way and pay**, **go to arbitration** (two merchants hear you; your lawyer's articles help), **let them sue**, or **dissolve**.
+- **A partner fails** (a player's purse past ${-BAILIFFS_AT} in debt, or a computer partner's ruin): their creditors seize the share to sell for ${Math.round(FIRE_SALE * 100)} in a hundred of its worth. **Buy it yourself**, let **a creditor's man** take it (a silent stranger in the firm), or **wind up**.
+- **War and the sea**: a firm's ship can be wrecked, or taken by privateers in wartime (a good master loses fewer); cargoes are lost more often in war. A town in the enemy's hands takes nothing, and still pays its hands.
+- **A partner dies**: the share passes to their heir (a player's heir, or the eldest grown child, or the widow). You may **welcome the heir**, **buy them out** at a fair price, or put the **winding up** to the partners. With no heir, the share goes to the rest.
+
+## Winding up
+When a firm is wound up (sold up by vote, or forced): the business is sold, a cargo at sea is sold as it lies, **debts are paid first, then each partner's capital, then what's left is shared by share** (or a shortfall called by share). If buy-outs leave one partner, the partnership ends and **the business is theirs alone**.
+
+> Tip: Pooling money is the point: two can set up a mill or a ship that neither could alone. Let the one who knows the trade manage it, and have a lawyer draw up the articles if you're the silent partner.
+
+! Pitfall: A business nobody minds makes little. If the managing partner is away, or has other work, change the managing partner (a vote), or the books will show it.`,
+    glossary: [
+      [
+        "Copartnership",
+        "Two or more people in business together as one firm, under articles that set out each one's share, capital and part in the work.",
+        "partners",
+      ],
+      [
+        "Managing partner",
+        "The partner who runs a firm's business and keeps its books; their skill in the trade makes the takings.",
+        "partners",
+      ],
+      [
+        "Silent partner",
+        "A partner who puts in money and takes their share, and leaves the running of the business to the others.",
+        "partners",
+      ],
+      [
+        "Capital account",
+        "What a partner brought into a firm. When a firm is wound up, debts are paid first, then each partner's capital, then the rest by share.",
+        "partners",
+      ],
+    ],
+  },
+  // ---- end PARTNERS (r13)
   {
     id: "markets",
     part: "living",

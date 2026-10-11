@@ -27,6 +27,7 @@ import { GameUi, Modal, token } from "./Context";
 import { familyTreeModal } from "./FamilyTree"; // HOME (r12)
 import { finderModal, resetFinder } from "./Finder";
 import { roleOf } from "./Here";
+import { articlesModal } from "./Partners"; // PARTNERS (r13)
 import { eventScene, interactScene, outcomeScene } from "./Scene";
 import { indentureModal, schoolModal } from "./Schooling"; // EDU (r13)
 import { sittingPage } from "./Sitting";
@@ -138,6 +139,11 @@ export function renderModal(
     case "indenture":
       body = indentureModal(ui, m.c);
       cls = "indenture";
+      break;
+    // PARTNERS (r13)
+    case "articles":
+      body = articlesModal(ui, m);
+      cls = "wide partners";
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);

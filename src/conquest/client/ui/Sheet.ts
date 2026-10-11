@@ -63,6 +63,7 @@ import {
 } from "./Context";
 import { roleOf, verdictChip } from "./Here";
 import { personR11 } from "./Livelihood";
+import { partnerCard } from "./Partners"; // PARTNERS (r13)
 import { eduChip } from "./Schooling"; // EDU (r13)
 import { sittingPrompt } from "./Sitting";
 import { personSociety } from "./Society"; // SOCIETY (r11)
@@ -622,6 +623,7 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
     ${mine && c.alive && !c.abroad ? personSociety(ui, c) : nothing}
     ${mine && c.alive && !c.abroad ? actsSection(ui, c) : nothing}
     ${mine && c.alive && !c.abroad ? personR11(ui, c) : nothing}
+    ${mine && c.alive && !c.abroad ? partnerCard(ui, c) : nothing}
     ${section(
       "Their family",
       html`<dl class="cq-family">

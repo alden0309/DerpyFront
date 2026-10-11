@@ -36,6 +36,8 @@ import { fitStateToMap } from "./MapFix";
 import { marketsMonthly } from "./Markets";
 import { missionCommand, missionsDaily, outpostsDaily } from "./Missions";
 import { movementsMonthly } from "./Movements";
+import { partnersDaily, partnersMonthly } from "./Partners"; // PARTNERS (r13)
+import { takePartnersDelta } from "./PartnersCore"; // PARTNERS (r13)
 import { makePolities, politicsMonthly } from "./Politics";
 import { popsMonthly } from "./Pops";
 import { powerDaily, powerMonthly } from "./Power"; // POWER (r12)
@@ -330,6 +332,8 @@ export class ConquestGame {
       d.society = societyDelta(s, this.societyKeys); // SOCIETY (r11)
     const power = takePowerDelta(this); // POWER (r12)
     if (power) d.power = power;
+    const firms = takePartnersDelta(this); // PARTNERS (r13)
+    if (firms) d.partners = firms;
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)
@@ -378,6 +382,7 @@ export class ConquestGame {
     leadsDaily(this); // WORLD r11
     societyDaily(this); // SOCIETY (r11)
     powerDaily(this); // POWER (r12)
+    partnersDaily(this); // PARTNERS (r13)
     if (isMonthStart(s.day)) this.month();
     if (s.day >= s.endDay) this.finish();
   }
@@ -402,6 +407,7 @@ export class ConquestGame {
     societyMonthly(this); // SOCIETY (r11)
     powerMonthly(this); // POWER (r12)
     eduMonthly(this); // EDU (r13)
+    partnersMonthly(this); // PARTNERS (r13)
     if (this.aiEnabled) {
       for (const n of this.state.nations) {
         if (n.alive && n.player === null) runAi(this, n.id);

@@ -75,6 +75,21 @@ export const hooks = {
   ) => { label: string; value: number }[])[],
   /** An heir has just taken up the line (after the purse, skills and business passed). */
   heir: [] as ((g: ConquestGame, life: Life, heir: Character) => void)[],
+  // PARTNERS (r13)
+  /**
+   * A player's letter reached its reader (Letters.ts): another module that
+   * answers this kind of letter takes it (and returns true), or leaves it.
+   */
+  letterArrives: [] as ((
+    g: ConquestGame,
+    life: Life,
+    l: import("./Types").Letter,
+  ) => boolean)[],
+  /** Lines for the month's forecast only (Estate › Purse), from another module. */
+  forecast: [] as ((
+    s: import("./Types").GameState,
+    life: Life,
+  ) => import("./Types").Part[])[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

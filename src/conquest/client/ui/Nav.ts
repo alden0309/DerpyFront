@@ -26,6 +26,7 @@ import {
   WorldIcon,
 } from "../Icons";
 import type { DrawerView, GameUi, Tab } from "./Context";
+import { partnerMarks } from "./Partners"; // PARTNERS (r13)
 import { postCounts } from "./Society";
 
 export interface SubDef {
@@ -94,11 +95,13 @@ export const TAB_DEFS: TabDef[] = [
   {
     id: "estate",
     label: "Estate",
-    blurb: "Your purse and how you live, house and land, boats, and goods",
+    blurb:
+      "Your purse and how you live, house and land, partnerships, boats, and goods",
     icon: EstateIcon,
     subs: [
       { id: "purse", label: "Purse", guide: "money" },
       { id: "house", label: "House & land", guide: "property" },
+      { id: "partners", label: "Partnerships", guide: "partners" }, // PARTNERS (r13)
       { id: "boats", label: "Boats", guide: "boats" },
       { id: "goods", label: "Goods", guide: "markets" },
     ],
@@ -245,6 +248,7 @@ export function badges(ui: GameUi): Map<string, number> {
       (life.company?.owed ? 1 : 0),
   );
   add("estate", "boats", (life.boats ?? []).filter((b) => b.owed).length);
+  add("estate", "partners", partnerMarks(ui)); // PARTNERS (r13)
   const { ask } = postCounts(life);
   add("society", "letters", ask);
   const me = ui.me;

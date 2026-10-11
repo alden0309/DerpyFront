@@ -1,5 +1,6 @@
 // Applies the server's deltas to a player's copy of the game state.
 
+import { applyPartnersDelta } from "./PartnersCore"; // PARTNERS (r13)
 import { applyPowerDelta } from "./PowerCore"; // POWER (r12)
 import { applySocietyDelta } from "./SocietyCore"; // SOCIETY (r11)
 import { GameDelta, GameState } from "./Types";
@@ -57,6 +58,7 @@ export function applyDelta(s: GameState, d: GameDelta): void {
   if (d.rumours) s.rumours = d.rumours;
   if (d.society) applySocietyDelta(s, d.society); // SOCIETY (r11)
   if (d.power) applyPowerDelta(s, d.power); // POWER (r12)
+  if (d.partners) applyPartnersDelta(s, d.partners); // PARTNERS (r13)
   if (d.polities) {
     for (const [n, pol] of Object.entries(d.polities))
       s.polities[Number(n)] = pol;
