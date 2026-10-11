@@ -287,6 +287,14 @@ export const CREDITS: Credit[] = [
     source:
       "https://commons.wikimedia.org/wiki/File:Salomon_van_Ruysdael_-_River_Landscape_with_Ferry_-_Google_Art_Project.jpg",
   },
+  {
+    what: "Picture",
+    title: "The Hunters in the Snow (1565): snow in the mountains",
+    author: "Pieter Bruegel the Elder",
+    license: "Public domain",
+    source:
+      "https://commons.wikimedia.org/wiki/File:Pieter_Bruegel_the_Elder_-_Hunters_in_the_Snow_(Winter)_-_Google_Art_Project.jpg",
+  },
   // ===== end LIFE (r11) =====
   {
     what: "Picture",

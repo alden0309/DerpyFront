@@ -36,7 +36,7 @@ const ALIAS: Record<string, string> = {
   sea: "deck",
   storm: "deck",
   town: "market",
-  // LIFE (r11): new places and the road's own scenes, until (or unless) they have art.
+  // LIFE (r11): new places and the road's own scenes, if their art is missing.
   den: "tavern",
   gaol: "fort",
   snow: "road",
