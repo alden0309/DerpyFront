@@ -11,6 +11,7 @@ import { boatRoute, sailCheck } from "../engine/Boats";
 import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
 import { fogged, fogView } from "../engine/Fog";
+import { followerTitle } from "../engine/Followers"; // wave 2 (r11)
 import {
   ageOfLife,
   hasKit,
@@ -65,6 +66,7 @@ import { Net } from "./Net";
 import { likenessOf } from "./Portrait";
 import { confirmMarch, setConfirmMarch } from "./Prefs";
 import { music, play, unlockOnFirstGesture } from "./Sound";
+import { talkLine, talkReaching } from "./Talk"; // wave 2 (r11)
 import { describeEvent, GOOD_COLORS, GOOD_NAMES, TERRAIN_NAMES } from "./Text";
 import { nationVars } from "./Theme";
 import { hideTip, num, plain } from "./Tip";
@@ -432,9 +434,24 @@ export class GameView extends LitElement {
           ((before.job?.army ?? -1) >= 0 ||
             this.s.armies.some((a) => a.commander === before.c));
         const wasWatching = before?.watching ?? true;
+        const talkFrom = this.s.day;
         applyDelta(this.s, m.d);
         this.dayAt = performance.now();
         for (const e of m.d.events ?? []) this.onEvent(e, where, inArmy);
+        // Wave 2 (r11): the talk that reached you today.
+        for (const r of talkReaching(
+          this.s,
+          map,
+          this.life,
+          talkFrom,
+          this.s.day,
+        ))
+          this.addLog(
+            talkLine(map, this.life!, r),
+            r.tone ?? "",
+            undefined,
+            r.day,
+          );
         this.afterLife(wasWatching);
         if (m.d.over) this.modalView = { k: "end" };
         // WORLD r11: the chart is redrawn only when something on it changed.
@@ -894,6 +911,19 @@ export class GameView extends LitElement {
         boats: (l.boats ?? [])
           .filter((b) => l.travel?.boat !== b.id)
           .map((b) => ({ p: b.prov, kind: b.kind, name: b.name })),
+        // Wave 2 (r11): your people away on their own work.
+        away:
+          l.seat === this.you
+            ? (l.people ?? [])
+                .filter((f) => f.task && s.chars[f.c]?.alive)
+                .map((f) => ({
+                  p: f.task!.p,
+                  c: f.c,
+                  kind: f.kind,
+                  name: s.chars[f.c].first,
+                  title: followerTitle(f).toLowerCase(),
+                }))
+            : undefined,
       });
     }
     // Yours on top.
@@ -947,9 +977,19 @@ export class GameView extends LitElement {
     // At the quicker speeds the chart (owners, towns, sieges) keeps up once
     // a second rather than three times.
     this.view.chartEvery =
-      this.paused || this.speed < 3 ? 300 : this.speed >= 4 ? 1600 : 1000;
+      this.paused || this.speed < 3
+        ? 300
+        : this.skipOn
+          ? 2500 // wave 2 (r11)
+          : this.speed >= 4
+            ? 1600
+            : 1000;
     const gap = Math.max(base, this.view.frameCost * 3);
-    if (this.view.needsDraw || (animating && t - this.lastDraw > gap)) {
+    if (
+      this.view.needsDraw ||
+      this.view.chartWaiting(t) || // wave 2 (r11)
+      (animating && t - this.lastDraw > gap)
+    ) {
       this.lastDraw = t;
       this.view.needsDraw = false;
       // What to draw, gathered only when drawing (not on every frame).

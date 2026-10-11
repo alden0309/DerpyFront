@@ -23,6 +23,7 @@ import {
   inviteMore,
   rsvp,
 } from "./Gatherings";
+import { interpreterStudy } from "./Interpreters"; // wave 2 (r11)
 import {
   answerLetter,
   npcWrite,
@@ -154,6 +155,9 @@ function tonguesMonthly(g: ConquestGame): void {
     if (life.c < 0 || life.watching || life.travel) continue;
     const t = provinceTongue(s, g.map, life.prov);
     if (t) learnTongue(g, life, t, LIVING_POINTS);
+    // Wave 2 (r11): an interpreter at work keeps learning both tongues.
+    const study = interpreterStudy(s, g.map, life);
+    if (study) learnTongue(g, life, study.tongue, study.points);
   }
 }
 

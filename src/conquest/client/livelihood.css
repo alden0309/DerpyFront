@@ -213,6 +213,11 @@
   background: radial-gradient(circle at 35% 30%, #e9efd8, #9fb07a);
   color: #2f4a1c;
 }
+/* Wave 2 (r11): an interpreter. */
+.cq-lv-mono.interpreter {
+  background: radial-gradient(circle at 35% 30%, #f1e6f2, #b39ab8);
+  color: #3c1f45;
+}
 .cq-lv-mono.contract {
   font-family: var(--fell);
   font-size: 1.05rem;

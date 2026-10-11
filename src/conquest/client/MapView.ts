@@ -104,6 +104,20 @@ const UNKNOWN_FILL = "#d6cfba";
 const FOG_FILL = "#604e39";
 const CLOSED_FILL = "#3e352b";
 
+/**
+ * Wave 2 (r11): what the season puts on the chart in a month: snow (all the
+ * north, or only the far north), the southern winter, autumn woods, or
+ * nothing. Months that look the same share a key.
+ */
+export function seasonLook(month: number): string {
+  return [
+    isWinter(40, month) ? "w" : "",
+    isWinter(50, month) ? "n" : "",
+    isWinter(-40, month) ? "s" : "",
+    month === 8 || month === 9 ? "a" : "",
+  ].join("");
+}
+
 function hexToRgb(hex: string): [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -288,6 +302,8 @@ export interface LifeMark {
   mounted?: boolean;
   /** LIFE (r11): their boats, each where it lies (not the one they're sailing in). */
   boats?: { p: number; kind: string; name: string }[];
+  /** Wave 2 (r11): your people off on work of their own, where they are (yours only). */
+  away?: { p: number; c: number; kind: string; name: string; title: string }[];
 }
 
 /** Which figure stands for an army: its most numerous kind of regiment. */
@@ -353,6 +369,8 @@ export class MapView {
   private strides = new Map<string, { phase: number; t: number }>();
   /** The month the chart's season was drawn for. */
   private seasonMonth = -1;
+  /** Wave 2 (r11): how the season looks (snow, autumn); the chart changes only with it. */
+  private seasonSeen = "";
   /** Points along the coasts where the sea breaks, in map units. */
   private wavePts: [number, number, number][] | null = null;
   /** Open water off each coastal town, for its boats: [province, x, y]. */
@@ -426,6 +444,11 @@ export class MapView {
     void document.fonts?.ready.then(() => this.markDirty());
   }
 
+  /** Wave 2 (r11): the chart has changed and its turn to be redrawn has come. */
+  chartWaiting(now: number): boolean {
+    return this.baseDirty && now - this.lastBaseAt > this.chartEvery;
+  }
+
   /** Something on the chart changed (owners, buildings, the view mode). */
   markDirty(): void {
     this.baseDirty = true;
@@ -453,6 +476,9 @@ export class MapView {
     const parts: (string | number)[] = [mode, fog?.key ?? "-"];
     for (let p = 0; p < s.provinces.length; p++) {
       const pr = s.provinces[p];
+      // Wave 2 (r11): country you don't know is fog (its owner is in the
+      // fog's key), and what goes on out of sight isn't news on your chart.
+      if (fog && !fog.seen.has(p)) continue;
       const folk = pr.owner >= 0 ? settlers(pr) : 0;
       parts.push(
         pr.owner,
@@ -1361,6 +1387,56 @@ export class MapView {
     return { sameScale, covered };
   }
 
+  /**
+   * Wave 2 (r11): a hatch of fine parallel lines as a pattern, `period`
+   * screen pixels apart, rising `rise` pixels for each one across, drawn at
+   * the chart's resolution. Filling a shape with it does what clipping to
+   * the shape and stroking hundreds of lines did, for a fraction of the
+   * cost.
+   */
+  private hatch(
+    c: CanvasRenderingContext2D,
+    v: View,
+    period: number,
+    rise: number,
+    width: number,
+    color: string,
+  ): CanvasPattern | null {
+    const k = this.chartDpr();
+    const key = `${period}|${rise}|${width}|${color}|${k}`;
+    let pat = this.hatches.get(key);
+    if (pat === undefined) {
+      const tw = Math.max(2, Math.round(period * k));
+      const th = Math.max(2, Math.round(period * rise * k));
+      const t = document.createElement("canvas");
+      t.width = tw;
+      t.height = th;
+      const x = t.getContext("2d");
+      pat = null;
+      if (x) {
+        x.strokeStyle = color;
+        x.lineWidth = width * k;
+        x.lineCap = "butt";
+        x.beginPath();
+        // One line corner to corner, and its neighbours, so the tile
+        // repeats without a seam.
+        for (const dx of [-tw, 0, tw]) {
+          x.moveTo(dx, th);
+          x.lineTo(dx + tw, 0);
+        }
+        x.stroke();
+        pat = c.createPattern(t, "repeat");
+      }
+      this.hatches.set(key, pat);
+    }
+    // One tile pixel to a chart pixel, anchored to the map.
+    pat?.setTransform(
+      new DOMMatrix().scaleSelf(1 / (v.scale * k), 1 / (v.scale * k)),
+    );
+    return pat;
+  }
+  private hatches = new Map<string, CanvasPattern | null>();
+
   /** A repeating texture, made once per canvas. */
   private pattern(
     name: SpriteName,
@@ -1480,18 +1556,11 @@ export class MapView {
     // The world beyond the board: South America, hatched, unplayable.
     c.fillStyle = "#cfc3a2";
     c.fill(this.backdrop);
-    c.save();
-    c.clip(this.backdrop);
-    c.strokeStyle = "rgba(90,70,45,0.18)";
-    c.lineWidth = 1.2 / v.scale;
-    c.beginPath();
-    const step = 7 / v.scale;
-    for (let x = x0 - (y1 - y0); x < x1; x += step) {
-      c.moveTo(x, y1);
-      c.lineTo(x + (y1 - y0), y0);
+    const backHatch = this.hatch(c, v, 7, 1, 1.2, "rgba(90,70,45,0.18)");
+    if (backHatch) {
+      c.fillStyle = backHatch;
+      c.fill(this.backdrop);
     }
-    c.stroke();
-    c.restore();
     // Shallow water along the coast, as on old charts.
     c.strokeStyle = "rgba(160, 205, 215, 0.3)";
     c.lineWidth = 9 / v.scale;
@@ -1548,6 +1617,7 @@ export class MapView {
     // The season: snow lies over winter country; the woods turn in autumn.
     const month = dateOf(Math.floor(o.dayNow)).month;
     this.seasonMonth = month;
+    this.seasonSeen = seasonLook(month);
     if (o.mode === "nation" || o.mode === "terrain") {
       for (let p = 0; p < this.provPaths.length; p++) {
         if (!knownLand(p)) continue;
@@ -1785,19 +1855,11 @@ export class MapView {
     // Over its rivers and borders too: there's nothing there for you.
     c.fillStyle = CLOSED_FILL;
     c.fill(this.closedPath, "evenodd");
-    c.save();
-    c.clip(this.closedPath, "evenodd");
-    const b = this.closedBox();
-    c.strokeStyle = "rgba(15,10,6,0.35)";
-    c.lineWidth = 1.2 / v.scale;
-    c.beginPath();
-    const step = 6 / v.scale;
-    for (let x = b[0] - (b[3] - b[1]); x < b[2]; x += step) {
-      c.moveTo(x, b[3]);
-      c.lineTo(x + (b[3] - b[1]), b[1]);
+    const closedHatch = this.hatch(c, v, 6, 1, 1.2, "rgba(15,10,6,0.35)");
+    if (closedHatch) {
+      c.fillStyle = closedHatch;
+      c.fill(this.closedPath, "evenodd");
     }
-    c.stroke();
-    c.restore();
     const [lx, ly] = this.closedAt;
     this.inkLabel(
       c,
@@ -1808,26 +1870,6 @@ export class MapView {
       -8,
       "rgba(222,206,170,0.62)",
     );
-  }
-
-  private closedBox(): [number, number, number, number] {
-    let b: [number, number, number, number] = [
-      Infinity,
-      Infinity,
-      -Infinity,
-      -Infinity,
-    ];
-    this.map.provinces.forEach((def, p) => {
-      if (!def.closed) return;
-      const q = this.provBox[p];
-      b = [
-        Math.min(b[0], q[0]),
-        Math.min(b[1], q[1]),
-        Math.max(b[2], q[2]),
-        Math.max(b[3], q[3]),
-      ];
-    });
-    return b;
   }
 
   /** Spaced italic letters, in map units, as the chart-makers wrote across the land. */
@@ -1895,28 +1937,20 @@ export class MapView {
     for (const p of unknown) path.addPath(this.provPaths[p]);
     c.fillStyle = FOG_FILL;
     c.fill(path, "evenodd");
-    c.save();
-    c.clip(path, "evenodd");
     // A wash of cloud and stain, painted once into a tile and laid over
-    // the whole fog in one go.
+    // the whole fog in one go; then a fine hatch (wave 2, r11: both as
+    // fills of the fog's shape rather than drawn inside a clip of it).
     const cloth = this.fogCloth(c);
     if (cloth) {
       cloth.setTransform(new DOMMatrix().scaleSelf(1.3, 1.3));
       c.fillStyle = cloth;
       c.fill(path, "evenodd");
     }
-    const ub = this.boxOf(unknown);
-    c.strokeStyle = "rgba(30,22,14,0.09)";
-    c.lineWidth = 0.8 / v.scale;
-    c.beginPath();
-    const step = 4 / v.scale;
-    const rise = (ub[3] - ub[1]) * 0.5;
-    for (let x = ub[0] - rise; x < ub[2]; x += step) {
-      c.moveTo(x, ub[3]);
-      c.lineTo(x + rise, ub[1]);
+    const fogHatch = this.hatch(c, v, 4, 2, 0.8, "rgba(30,22,14,0.09)");
+    if (fogHatch) {
+      c.fillStyle = fogHatch;
+      c.fill(path, "evenodd");
     }
-    c.stroke();
-    c.restore();
     // The edge where your knowledge runs out: the fog bleeds softly into
     // the known land (land only, so the sea stays clear).
     const edge = new Path2D();
@@ -2018,25 +2052,6 @@ export class MapView {
     if (!pat) return null;
     this.cloth = { for: c, pat };
     return pat;
-  }
-
-  private boxOf(provs: number[]): [number, number, number, number] {
-    let b: [number, number, number, number] = [
-      Infinity,
-      Infinity,
-      -Infinity,
-      -Infinity,
-    ];
-    for (const p of provs) {
-      const q = this.provBox[p];
-      b = [
-        Math.min(b[0], q[0]),
-        Math.min(b[1], q[1]),
-        Math.max(b[2], q[2]),
-        Math.max(b[3], q[3]),
-      ];
-    }
-    return b;
   }
 
   /** Nation names along their curves, letter-spaced to span the land. */
@@ -2185,7 +2200,10 @@ export class MapView {
     const fog = o.fog ?? null;
     /** In sight (or no fog at all). */
     const inSight = (p: number) => !fog || fog.seen.has(p);
-    if (dateOf(Math.floor(o.dayNow)).month !== this.seasonMonth)
+    // Wave 2 (r11): only when the season looks different (five times a
+    // year), not every month: skipping ahead, that was a redraw a second.
+    const month = dateOf(Math.floor(o.dayNow)).month;
+    if (month !== this.seasonMonth && seasonLook(month) !== this.seasonSeen)
       this.baseDirty = true;
 
     // The chart: redraw it if it's out of date and the moment is right,
@@ -2320,10 +2338,20 @@ export class MapView {
       }
     }
 
-    // Parties out in the wilds (yours).
+    // Parties out in the wilds (yours): their way over country you know,
+    // and the party itself only where you can see it (wave 2, r11).
     if (o.me >= 0) {
       for (const ms of s.nations[o.me]?.missions ?? [])
-        this.drawMission(ms, day, figure, now, s.nations[o.me].color, sx, sy);
+        this.drawMission(
+          ms,
+          day,
+          figure,
+          now,
+          s.nations[o.me].color,
+          sx,
+          sy,
+          fog,
+        );
     }
 
     // Path of the selected army, and the preview of a move.
@@ -2540,7 +2568,9 @@ export class MapView {
 
     // Keep drawing until the chart has caught up with the view.
     const after = this.baseFits();
-    this.needsDraw = this.baseDirty || !after.covered;
+    // Wave 2 (r11): a chart change waiting its turn doesn't make every
+    // frame a full one; the paced frames (or `chartWaiting`) pick it up.
+    this.needsDraw = !after.covered || this.chartWaiting(now);
     // How dear that was, to pace the next frames (and draw more simply).
     const cost = performance.now() - t0;
     this.frameCost = this.frameCost * 0.85 + cost * 0.15;
@@ -3347,12 +3377,14 @@ export class MapView {
       ctx.stroke();
       ctx.setLineDash([]);
     }
-    // LIFE (r11): boats lying in port, each a little ship at its moorings.
+    // LIFE (r11): boats lying in port, each a little ship at its moorings
+    // (another player's only where you can see it: wave 2, r11).
     const moored = new Map<number, number>();
     for (const m of o.lives ?? [])
       for (const b of m.boats ?? []) {
         const def = this.map.provinces[b.p];
         if (!def) continue;
+        if (!m.you && o.fog && !o.fog.seen.has(b.p)) continue;
         const k = moored.get(b.p) ?? 0;
         moored.set(b.p, k + 1);
         const bx = sx(def.x) + 16 + k * 13;
@@ -3382,6 +3414,61 @@ export class MapView {
           ctx.fillText(b.name, bx, by + 12);
         }
       }
+    // Wave 2 (r11): your people off on their own work (a clerk trading, the
+    // band on a job, a mate aboard): a figure standing at the place, your
+    // eyes there through the fog.
+    const posted = new Map<number, number>();
+    for (const m of o.lives ?? []) {
+      if (!m.you) continue;
+      for (const a of m.away ?? []) {
+        const def = this.map.provinces[a.p];
+        if (!def) continue;
+        const k = posted.get(a.p) ?? 0;
+        posted.set(a.p, k + 1);
+        const ax = sx(def.x) - 16 - k * 10;
+        const ay = sy(def.y) + 12;
+        if (!onScreen(ax, ay, 30)) continue;
+        const ch = s.chars[a.c];
+        const native = ch ? s.nations[ch.nation]?.kind === "native" : false;
+        ctx.save();
+        ctx.shadowColor = "rgba(252,244,222,0.9)";
+        ctx.shadowBlur = 2;
+        drawWalker(
+          ctx,
+          ax,
+          ay,
+          figure * 1.05,
+          0,
+          1,
+          this.colorsOf(ch, native),
+          {
+            female: ch?.female,
+            native,
+            carry:
+              a.kind === "clerk"
+                ? "pack"
+                : a.kind === "sword"
+                  ? "musket"
+                  : a.kind === "guide"
+                    ? "staff"
+                    : null,
+            stride: 0,
+          },
+        );
+        ctx.restore();
+        // Their name and work to the left, clear of a boat's name.
+        if (this.view.scale >= 1.6 && k === 0) {
+          ctx.font = "italic 11px 'IM Fell English', Georgia, serif";
+          ctx.textAlign = "right";
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "rgba(251,243,220,0.85)";
+          ctx.fillStyle = "rgba(38,24,12,0.9)";
+          const label = `${a.name}, ${a.title}`;
+          ctx.strokeText(label, ax - 8, ay - figure * 0.45);
+          ctx.fillText(label, ax - 8, ay - figure * 0.45);
+        }
+      }
+    }
     for (const m of o.lives ?? []) {
       if (
         !m.you &&
@@ -3732,6 +3819,7 @@ export class MapView {
     color: string,
     sx: (x: number) => number,
     sy: (y: number) => number,
+    fog: MapFog | null = null,
   ): void {
     const ctx = this.ctx;
     let t: number;
@@ -3743,17 +3831,17 @@ export class MapView {
     const sea = ms.sea ?? [];
     const legs = ms.legs?.length ? ms.legs : [1];
     const total = legs.reduce((a, b) => a + b, 0) || 1;
-    // The way, dotted, hop by hop.
+    // The way, dotted, hop by hop (only over country you know).
     ctx.setLineDash([2, 5]);
     ctx.strokeStyle = "rgba(43,29,18,0.65)";
     ctx.lineWidth = 1.6;
     ctx.beginPath();
     for (let i = 0; i < route.length - 1; i++) {
+      if (fog && !(fog.known.has(route[i]) && fog.known.has(route[i + 1])))
+        continue;
       const way = this.hopPath(route[i], route[i + 1], sea[i] ?? false);
       way.forEach(([px, py], k) =>
-        k === 0 && i === 0
-          ? ctx.moveTo(sx(px), sy(py))
-          : ctx.lineTo(sx(px), sy(py)),
+        k === 0 ? ctx.moveTo(sx(px), sy(py)) : ctx.lineTo(sx(px), sy(py)),
       );
     }
     ctx.stroke();
@@ -3766,6 +3854,9 @@ export class MapView {
       hop++;
     }
     const frac = Math.max(0, Math.min(1, at / Math.max(0.001, legs[hop])));
+    // Out of sight, out of mind: no word of where they are until they're home.
+    const here = route[Math.min(route.length - 1, frac < 0.5 ? hop : hop + 1)];
+    if (fog && here !== undefined && !fog.seen.has(here)) return;
     const bySea = sea[hop] ?? false;
     const way =
       route.length > 1

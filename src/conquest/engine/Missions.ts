@@ -9,6 +9,7 @@ import { kill, nationCharacters, remember } from "./Characters";
 import type { Ctx, EventDef } from "./Events";
 import { raiseEvent, registerEvents } from "./Events";
 import { Explain } from "./Explain";
+import { fogged, reveal } from "./Fog"; // wave 2 (r11)
 import type { ConquestGame } from "./Game";
 import { isFeverSeason, isWinter, kmBetween, World } from "./Map";
 import {
@@ -525,6 +526,17 @@ function end(
     c: m.leader,
     text: `${what}: ${why}.`,
   });
+  // Wave 2 (r11): home safe, their journals and maps are printed, and the
+  // nation's people learn the country they passed through.
+  if (result === "back") {
+    const seen = [
+      ...m.route,
+      m.target,
+      ...g.map.provinces[m.target].nb.map(([q]) => q),
+    ];
+    for (const life of s.lives)
+      if (fogged(life) && s.chars[life.c]?.nation === n) reveal(g, life, seen);
+  }
 }
 
 // ---------------------------------------------------------------- trouble on the way

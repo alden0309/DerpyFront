@@ -201,7 +201,8 @@ export function describeEvent(
         ? `${e.count} settlers landed from ${s.nations[e.n].name.replace(/^the /, "the ")}.`
         : null;
     case "convoy":
-      return us(e.n)
+      // Wave 2 (r11): a convoy that made next to nothing isn't news.
+      return us(e.n) && Math.abs(e.gold) >= 5
         ? e.out
           ? `Our convoy sold its cargo in Europe (merchants ${e.gold >= 0 ? "made" : "lost"} ${Math.abs(e.gold)} gold).`
           : `A convoy arrived from Europe with goods worth ${Math.abs(e.gold)} gold more than they cost.`

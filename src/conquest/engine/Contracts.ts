@@ -29,9 +29,13 @@ import {
   Check,
   hasPlace,
   isChildLife,
+  lifeIsNative,
   meOf,
   no,
+  paceOf,
+  purseWords,
   skillLevel,
+  travelRoute,
   yes,
 } from "./LifeQueries";
 import type { World } from "./Map";
@@ -344,7 +348,55 @@ export function takeCheck(
     return no(
       "Rewards go to thief-takers, or those strong enough to take a rogue (strength 20).",
     );
+  // Wave 2 (r11): work you could actually get to.
+  if (c.target !== life.prov && !life.travel) {
+    if (
+      (life.job?.army ?? -1) >= 0 ||
+      s.armies.some((a) => a.commander === me.id)
+    )
+      return no(
+        "You march with an army: you can't go off on a contract elsewhere (only one here).",
+      );
+    const road = contractRoad(s, w, life, c.target);
+    if (!road) return no("There's no way there from here.");
+    const left = c.due - s.day;
+    if (road.days > left - 3)
+      return no(
+        `You'd never get there in time: ${Math.ceil(road.days)} days on the road, and it's due in ${left}.`,
+      );
+    if (life.purse < road.cost)
+      return no(
+        `The journey there costs ${road.cost} coins; ${purseWords(life.purse)}.`,
+      );
+  }
   return yes;
+}
+
+/**
+ * Wave 2 (r11): the way to a contract's ground from where you are: the
+ * quicker of road and sea, and the cheaper (nothing by sea in your own boat
+ * lying here).
+ */
+export function contractRoad(
+  s: GameState,
+  w: World,
+  life: Life,
+  to: number,
+): { days: number; cost: number } | null {
+  const native = lifeIsNative(s, life);
+  const sailor = life.job?.kind === "sailor";
+  const pace = paceOf(s, life);
+  const ownBoat = (life.boats ?? []).some((b) => b.prov === life.prov);
+  let best: { days: number; cost: number } | null = null;
+  for (const bySea of [false, true]) {
+    const r = travelRoute(s, w.map, life.prov, to, bySea, native, sailor, pace);
+    if (!r) continue;
+    const cost = bySea && ownBoat ? 0 : r.cost;
+    best = best
+      ? { days: Math.min(best.days, r.days), cost: Math.min(best.cost, cost) }
+      : { days: r.days, cost };
+  }
+  return best;
 }
 
 export function takeContract(

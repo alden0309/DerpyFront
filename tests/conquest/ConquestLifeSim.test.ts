@@ -60,6 +60,9 @@ const seen = {
   topMilitia: 0,
 };
 
+/** Wave 2 (r11): the sword's contracts seen through, by id. */
+const contractsDone = new Set<number>();
+
 /** LIFE (r11): a life of crime, played for fifty years by a careful rogue. */
 function playRogue(
   g: ConquestGame,
@@ -186,10 +189,10 @@ function playSword(
   const me = meOf(s, life);
   if (!me || ageOf(s, me) < 16 || life.crime?.jail) return;
   seen.swordWeeks++;
-  seen.contractsDone = Math.max(
-    seen.contractsDone,
-    (life.contracts ?? []).filter((c) => c.status === "done").length,
-  );
+  // Wave 2 (r11): counted by id (a life keeps only its last eight contracts).
+  for (const c of life.contracts ?? [])
+    if (c.status === "done") contractsDone.add(c.id);
+  seen.contractsDone = contractsDone.size;
   const taken = (life.contracts ?? []).find((c) => c.status === "taken");
   if (life.travel) return;
   seen.topMilitia = Math.max(
@@ -563,6 +566,8 @@ describe("a scripted life, played headless", () => {
     expect(seen.maxHeat > 20 || seen.jailed > 0).toBe(true);
     expect(seen.swordWeeks).toBeGreaterThan(100);
     expect(seen.contractsTaken).toBeGreaterThan(0);
+    // Wave 2 (r11): most of what the sword takes on gets done.
+    expect(seen.contractsDone).toBeGreaterThan(seen.contractsTaken * 0.4);
     expect(seen.swordsHired + seen.companies).toBeGreaterThan(0);
     // ...and rose in the militia, or captained a company of their own.
     expect(seen.topMilitia >= 3 || seen.companies > 0).toBe(true);

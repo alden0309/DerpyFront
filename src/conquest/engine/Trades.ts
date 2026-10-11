@@ -9,6 +9,7 @@
 
 import { CRIME_BACKGROUNDS, knowsDen, underworldContact } from "./CrimeQueries";
 import type { ConquestGame } from "./Game";
+import { interpreterCheck } from "./Interpreters"; // wave 2 (r11)
 import { jobGroupOf, type JobGroup, type JobRequires } from "./JobsData";
 import { addStress, journal, remembers, touchLife } from "./LifeCore";
 import {
@@ -182,6 +183,10 @@ export function jobGate(
     return no(
       "Nobody in the underworld will vouch for you: find the den first (listen at the tavern), or make a name.",
     );
+  if (req.tongues) {
+    const t = interpreterCheck(s, w.map, life);
+    if (!t.ok) return t;
+  }
   if (req.contacts === "natives" && !nativeContacts(s, w, life))
     return no(
       "Needs friends among the native peoples: be born to them, or know the woods (5) and have travelled in their country.",

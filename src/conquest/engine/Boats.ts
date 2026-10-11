@@ -30,6 +30,7 @@ import {
   lifeIsNative,
   meOf,
   no,
+  purseWords,
   skillLevel,
   yes,
 } from "./LifeQueries";
@@ -328,7 +329,7 @@ export function buyCheck(
   if (boatsOf(life).length >= 4)
     return no("Four boats are as many as one family can see to.");
   if (life.purse < price)
-    return no(`Costs ${price} coins (you have ${Math.floor(life.purse)}).`);
+    return no(`Costs ${price} coins (${purseWords(life.purse)}).`);
   return yes;
 }
 

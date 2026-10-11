@@ -541,7 +541,7 @@ export function leadsMonthly(g: ConquestGame): void {
     const p = rng.pick(options);
     if (p === undefined) continue;
     const lead = newLead(g, kind, p, i);
-    rumour(g, p, lead.text);
+    rumour(g, p, lead.text, -1, undefined, true); // a lead (wave 2, r11)
     changed = true;
   }
   if (changed) g.leadsChanged();

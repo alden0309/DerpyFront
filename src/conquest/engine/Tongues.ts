@@ -364,6 +364,41 @@ function neighbourCultures(s: GameState, map: MapDef, p: number): string[] {
   return [...out];
 }
 
+/**
+ * Wave 2 (r11): the tongue of the nearest people of one sort (native or
+ * colonists) to a province, by marches; null if there's none near.
+ */
+export function nearestTongue(
+  s: GameState,
+  map: MapDef,
+  p: number,
+  native: boolean,
+): TongueId | null {
+  if (p < 0 || !map.provinces[p]) return null;
+  const seen = new Set<number>([p]);
+  let front = [p];
+  for (let hop = 0; hop <= 14 && front.length; hop++) {
+    const found: TongueId[] = [];
+    for (const q of front) {
+      const o = s.provinces[q]?.owner ?? -1;
+      const n = o >= 0 ? s.nations[o] : undefined;
+      if (!n?.alive || n.kind === "crown" || n.kind === "rebels") continue;
+      const t = motherTongue(n.culture);
+      if ((TONGUES[t]?.native ?? false) === native) found.push(t);
+    }
+    if (found.length) return found.sort()[0];
+    const next: number[] = [];
+    for (const q of front)
+      for (const [r] of map.provinces[q]?.nb ?? [])
+        if (!seen.has(r)) {
+          seen.add(r);
+          next.push(r);
+        }
+    front = next;
+  }
+  return null;
+}
+
 function homeOf(s: GameState, c: Character): number {
   return c.home ?? s.nations[c.nation]?.capital ?? -1;
 }
@@ -391,7 +426,7 @@ export function npcTongues(
 ): Record<TongueId, TongueLevel> {
   const p = homeOf(s, c);
   const near = p >= 0 ? neighbourCultures(s, map, p) : [];
-  const key = `${c.id}|${c.culture}|${c.role ?? ""}|${p}|${near.join(",")}|${yearOf(s) >= 1650 ? 1 : 0}${yearOf(s) >= 1700 ? 1 : 0}`;
+  const key = `${c.id}|${c.culture}|${c.role ?? ""}|${p}|${near.join(",")}|${yearOf(s) >= 1650 ? 1 : 0}${yearOf(s) >= 1700 ? 1 : 0}${c.learned ? `|${Object.entries(c.learned).join(";")}` : ""}`;
   const npcCache = cacheOf(npcCaches, s);
   const hit = npcCache.get(key);
   if (hit) return hit;
@@ -431,6 +466,9 @@ export function npcTongues(
       mine === "english" ? "french" : mine === "french" ? "english" : "french",
       r(99) < 0.5 ? 1 : 0,
     );
+  // Wave 2 (r11): what they've learned beyond that (a hired interpreter's tongues).
+  for (const [t, lvl] of Object.entries(c.learned ?? {}))
+    if (TONGUES[t]) set(t, lvl);
   npcCache.set(key, out);
   return out;
 }
@@ -472,7 +510,14 @@ export function baseTongues(
   // Traders and go-betweens grow up with a second tongue.
   if (first && (bg === "trader" || bg === "trapper" || bg === "speaker"))
     out[first] = Math.max(out[first] ?? 0, 2 * LEVEL_POINTS);
-  else if (first && (bg === "preacher" || bg === "sailor" || bg === "healer"))
+  // Wave 2 (r11): a go-between was brought up between two peoples, and
+  // speaks the nearest of the other side's tongues well.
+  if (bg === "interpreter") {
+    const other =
+      first ??
+      nearestTongue(s, map, life.home, !(TONGUES[mine]?.native ?? false));
+    if (other) out[other] = Math.max(out[other] ?? 0, 2 * LEVEL_POINTS + 40);
+  } else if (first && (bg === "preacher" || bg === "sailor" || bg === "healer"))
     out[first] = Math.max(out[first] ?? 0, LEVEL_POINTS);
   // The educated have a little of the other great tongue of Europe.
   const lingua = LINGUA[mine];
@@ -558,6 +603,18 @@ export interface TalkView {
   via: number;
   /** Their own tongue (what you'd learn by talking with them). */
   theirs: TongueId;
+  /** Wave 2 (r11): the interpreter is one by trade (yours, or a player in the work). */
+  sworn?: boolean;
+}
+
+/** Wave 2 (r11): someone who interprets for a living: a hired interpreter, or a player in the trade. */
+export function interpretsByTrade(s: GameState, c: number): boolean {
+  for (const l of s.lives) {
+    if (l.c === c && l.job?.kind === "interpreter") return true;
+    if ((l.people ?? []).some((f) => f.c === c && f.kind === "interpreter"))
+      return true;
+  }
+  return false;
 }
 
 /** Kin tongues: a speaker of one catches a little of the other. */
@@ -613,28 +670,39 @@ export function talkWith(
   const theirs = motherTongue(c.culture);
   if (!me) return { level: 3, tongue: theirs, via: -1, theirs };
   const pts = life.tongues?.c === life.c ? life.tongues.pts : null;
-  const key = `${life.c}|${c.id}|${life.prov}|${s.day}|${around ? 1 : 0}|${pts ? Object.values(pts).join(",") : ""}`;
+  const key = `${life.c}|${c.id}|${life.prov}|${s.day}|${around ? 1 : 0}|${pts ? Object.values(pts).join(",") : ""}|${(life.people ?? []).map((f) => (f.task ? "" : f.c)).join(",")}`;
   const talkCache = cacheOf(talkCaches, s);
   const hit = talkCache.get(key);
   if (hit) return hit;
   const mine = tonguesOf(s, map, me);
-  const yours = tonguesOf(s, map, c);
-  const { level, tongue } = sharedLevel(mine, yours);
+  const theirTongues = tonguesOf(s, map, c);
+  const { level, tongue } = sharedLevel(mine, theirTongues);
   let view: TalkView = {
     level,
     tongue: tongue ?? motherTongue(me.culture),
     via: -1,
     theirs,
   };
-  if (level < 2 && around) {
-    // Someone here who speaks with both of you.
-    for (const x of around()) {
+  if (level < 2) {
+    // Someone who speaks with both of you: your own people at your side
+    // first (an interpreter of yours above all), then anyone here.
+    const mates: Character[] = [];
+    for (const f of life.people ?? []) {
+      const x = s.chars[f.c];
+      if (!f.task && x?.alive && !x.abroad) mates.push(x);
+    }
+    mates.sort(
+      (a, b) =>
+        Number(interpretsByTrade(s, b.id)) - Number(interpretsByTrade(s, a.id)),
+    );
+    for (const x of [...mates, ...(around ? around() : [])]) {
       if (x.id === c.id || x.id === me.id) continue;
       const xs = tonguesOf(s, map, x);
       const withMe = sharedLevel(mine, xs).level;
-      const withThem = sharedLevel(xs, yours).level;
+      const withThem = sharedLevel(xs, theirTongues).level;
       if (withMe >= 2 && withThem >= 2) {
         view = { level: 2, tongue: view.tongue, via: x.id, theirs };
+        if (interpretsByTrade(s, x.id)) view.sworn = true;
         break;
       }
     }

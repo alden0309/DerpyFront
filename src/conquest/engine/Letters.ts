@@ -17,6 +17,7 @@ import {
   rsvpBreakdown,
   scheduleWedding,
 } from "./Gatherings";
+import { letterHand } from "./Interpreters"; // wave 2 (r11)
 import { affairWith, exposeBy, startAffair } from "./Liaisons";
 import {
   addRenown,
@@ -381,14 +382,24 @@ function letterBase(
   const mine = tonguesOf(s, map, me);
   const theirs = tonguesOf(s, map, c);
   const theirTongue = motherTongue(c.culture);
+  // Wave 2 (r11): someone at your side who can put it into their tongue.
+  const scribe = () => letterHand(s, map, life, c);
   if (isNativeChar(s, c)) {
     if ((mine[theirTongue] ?? 0) >= 2)
       e.add(`Your words in ${tongueName(theirTongue)}, carried by a runner`, 2);
-    else e.add("Read out to them by an interpreter", -5);
+    else {
+      const hand = scribe();
+      if (hand)
+        e.add(`Put into ${tongueName(hand.tongue)} by ${hand.by.first}`, 1);
+      else e.add("Read out to them by an interpreter", -5);
+    }
   } else {
     const shared = sharedLevel(mine, theirs);
+    const hand = shared.level < 2 ? scribe() : null;
     if (shared.level >= 3 && shared.tongue !== motherTongue(me.culture))
       e.add(`Written in good ${tongueName(shared.tongue!)}`, 3);
+    else if (hand)
+      e.add(`Put into ${tongueName(hand.tongue)} by ${hand.by.first}`, -2);
     else if (shared.level < 2)
       e.add("In a tongue they can barely read", shared.level === 1 ? -10 : -20);
   }

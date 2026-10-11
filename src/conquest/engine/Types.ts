@@ -224,6 +224,8 @@ export interface Character {
   /** Gone to Europe for good: out of the Americas. */
   abroad?: boolean; /** How they look, if a player drew it or it came down their family (else generated). */
   look?: import("./Appearance").Appearance;
+  /** Wave 2 (r11): tongues learned beyond their people's and their work's (a hired interpreter's). */
+  learned?: Record<TongueId, TongueLevel>;
 }
 
 // ---------------------------------------------------------------- lives
@@ -1554,6 +1556,10 @@ export interface Rumour {
   /** Who it's about, or -1. */
   about: number;
   tone?: "good" | "bad";
+  /** Wave 2 (r11): a story behind a lead (heard by listening, not in the news). */
+  lead?: boolean;
+  /** Wave 2 (r11): the town's own business (a poll): news only in that town. */
+  local?: boolean;
 }
 
 // ---------------------------------------------------------------- commands
@@ -2070,7 +2076,9 @@ export type FollowerKind =
   | "rogue"
   | "mate"
   | "guide"
-  | "officer";
+  | "officer"
+  // Wave 2 (r11): speaks for you across a barrier.
+  | "interpreter";
 
 /** What one of your people is doing while not at your side. */
 export interface FollowerTask {

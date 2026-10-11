@@ -25,6 +25,8 @@ export function rumour(
   text: string,
   about = -1,
   tone?: "good" | "bad",
+  lead = false, // wave 2 (r11)
+  local = false, // wave 2 (r11)
 ): void {
   const s = g.s;
   if (p < 0 || !g.map.provinces[p]) return;
@@ -38,6 +40,8 @@ export function rumour(
     text,
     about,
     ...(tone ? { tone } : {}),
+    ...(lead ? { lead: true } : {}),
+    ...(local ? { local: true } : {}),
   });
   const old = s.day - RUMOUR_DAYS;
   s.rumours = s.rumours.filter((r) => r.day >= old).slice(-MAX_RUMOURS);

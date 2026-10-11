@@ -10,6 +10,11 @@ import { addHeat, addNotoriety } from "./Crime";
 import { lawAt } from "./CrimeQueries";
 import type { ConquestGame } from "./Game";
 import {
+  interpreterTongues,
+  interpretingFor,
+  tonguesInWords,
+} from "./Interpreters"; // wave 2 (r11)
+import {
   beginOutcome,
   earn,
   endOutcome,
@@ -30,6 +35,7 @@ import {
   npcSkill,
   opinionOf,
   peopleHere,
+  purseWords,
   skillLevel,
   yes,
 } from "./LifeQueries";
@@ -156,6 +162,19 @@ export const FOLLOWER_KINDS: Record<FollowerKind, FollowerKindDef> = {
     text: "Drills your company and keeps it together: a well-officered company fights better and deserts less.",
     fight: 2,
   },
+  // Wave 2 (r11): someone who speaks for you across a barrier.
+  interpreter: {
+    name: "Interpreter",
+    plural: "Interpreters",
+    ranks: ["Go-between", "Interpreter", "Sworn interpreter"],
+    wage: [2.5, 3.5, 5],
+    skill: "persuasion",
+    second: "letters",
+    stat: "dip",
+    where: ["village", "governor"],
+    text: "Speaks your tongue and the country's: at your side, they carry your words where you share no tongue (a smaller penalty than a stranger's help), and put your letters into the reader's tongue.",
+    fight: 0.5,
+  },
 };
 
 export const FOLLOWER_KIND_ORDER: FollowerKind[] = [
@@ -166,6 +185,7 @@ export const FOLLOWER_KIND_ORDER: FollowerKind[] = [
   "mate",
   "guide",
   "officer",
+  "interpreter", // wave 2 (r11)
 ];
 
 /** Signing money for someone new. */
@@ -333,6 +353,13 @@ const NOTES: Record<FollowerKind, string[]> = {
     "a militia captain without a company",
     "a drillmaster",
   ],
+  // Wave 2 (r11): what an interpreter speaks is said in candidatesAt.
+  interpreter: [
+    "raised between two peoples",
+    "lately with a missionary",
+    "a trader's child, raised in the village",
+    "a captive who came back",
+  ],
 };
 
 /** The people for hire at a place this month (the same for everyone). */
@@ -368,15 +395,28 @@ export function candidatesAt(
       }
     : (NAMES[owner.culture] ?? NAMES.english);
   const out: Candidate[] = [];
-  const count = 2 + rng.int(0, 2);
+  // Wave 2 (r11): the governor's house keeps an interpreter or two, no more.
+  const count =
+    kinds.length === 1 && kinds[0] === "interpreter"
+      ? 1 + rng.int(0, 1)
+      : 2 + rng.int(0, 2);
   for (let slot = 0; slot < count; slot++) {
     let kind = kinds[rng.int(0, kinds.length - 1)];
     // Natives hire guides and swords; colonists everyone.
-    if (native && kind !== "guide" && kind !== "sword" && kind !== "hand")
+    if (
+      native &&
+      kind !== "guide" &&
+      kind !== "sword" &&
+      kind !== "hand" &&
+      kind !== "interpreter" // wave 2 (r11)
+    )
       kind = "guide";
     const def = FOLLOWER_KINDS[kind];
     const female =
-      kind === "clerk" || kind === "guide" || kind === "rogue"
+      kind === "clerk" ||
+      kind === "guide" ||
+      kind === "rogue" ||
+      kind === "interpreter" // wave 2 (r11)
         ? rng.chance(0.2)
         : rng.chance(0.06);
     const stats = {
@@ -392,7 +432,7 @@ export function candidatesAt(
     const wage = def.wage[0]
       ? Math.round((def.wage[0] + better * 0.8) * 10) / 10
       : 0;
-    out.push({
+    const cand: Candidate = {
       slot,
       kind,
       first: rng.pick(female ? names.female : names.male)!,
@@ -404,7 +444,11 @@ export function candidatesAt(
       wage,
       share: def.share?.[0] ?? 0,
       note: rng.pick(NOTES[kind])!,
-    });
+    };
+    // Wave 2 (r11): an interpreter says what they speak.
+    if (kind === "interpreter")
+      cand.note += `; speaks ${tonguesInWords(interpreterTongues(s, w.map, life, p, skill))}`;
+    out.push(cand);
   }
   return out;
 }
@@ -461,6 +505,9 @@ export function hireFollower(
     stats: cand.stats,
   });
   c.home = life.home;
+  // Wave 2 (r11): an interpreter's tongues are theirs for good.
+  if (cand.kind === "interpreter")
+    c.learned = interpreterTongues(s, g.map, life, life.prov, cand.skill);
   g.touchChar(c);
   spend(g, life, SIGNING);
   touchLife(g, life).cooldowns[key] = s.day + 40;
@@ -623,7 +670,8 @@ export function sendTrading(
   if (f.task) return "They're busy.";
   if (!Number.isFinite(stake) || stake < 10)
     return "A stake of 10 coins at least.";
-  if (life.purse < stake) return `You have ${Math.floor(life.purse)} coins.`;
+  if (life.purse < stake)
+    return `A stake of ${Math.round(stake)}: ${purseWords(life.purse)}.`;
   if (life.travel) return "Not from the road.";
   spend(g, life, stake);
   const days = 30 + g.rng.int(0, 30);
@@ -974,6 +1022,13 @@ export function peopleMonthly(g: ConquestGame, life: Life): void {
           ),
         ),
       );
+      // Wave 2 (r11): an interpreter earns their keep where you can't talk.
+      if (
+        f.kind === "interpreter" &&
+        !f.task &&
+        interpretingFor(s, g.map, life)
+      )
+        f.deeds = (f.deeds ?? 0) + 1;
       if (f.kind === "rogue") {
         const heat = Object.values(life.crime?.heat ?? {}).reduce(
           (m, v) => Math.max(m, v),
