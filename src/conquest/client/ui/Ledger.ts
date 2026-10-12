@@ -56,7 +56,9 @@ function fcLine(l: ForecastLine): TemplateResult {
   const trip = l.key.startsWith("tr:");
   return html`<li class="luck">
     <span title=${l.label}
-      >${trip ? l.label.replace(/ \(a trip:.*\)$/, "") : l.label}</span
+      >${trip
+        ? l.label.replace(/ \(a month on average;.*\)$/, "")
+        : l.label}</span
     >
     <span class="cq-range"
       >${range
