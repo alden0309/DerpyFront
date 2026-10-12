@@ -19,7 +19,7 @@
 // let go, a manager put in, and the month's account kept for its page.
 // Nothing here rolls dice: a business's month is as its forecast says.
 
-import { dateOf } from "./Calendar";
+import { dateOf, dayOf } from "./Calendar";
 import { followerSkill } from "./Followers";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
@@ -772,13 +772,23 @@ export function bizAdvice(
           ? `Too many hands for its custom yet: it's new, and has custom for about ${v.custom} hand${v.custom === 1 ? "" : "s"} this month (it builds over ${RAMP.length} months). The rest bring in little.`
           : `Too many hands for the trade here: the town's custom keeps about ${v.custom} busy${o.rivals?.length ? `, after its rivals' share` : ""}; the rest bring in ${Math.round(OVERFLOW * 100)} in a hundred of a hand's takings.`,
     });
-  const need = BUSINESS_HANDS[i.level] ?? 2;
-  if (i.level >= 2 && v.custom + 1 < need * 0.6 && v.ramp >= 1)
-    out.push({
-      key: "toobig",
-      tone: "bad",
-      text: `Too big for the town: a ${["", "small", "middling", "great"][i.level]} ${name} costs ${v.upkeep} a month to keep, and the custom here is for about ${v.custom} hands. A smaller place, or a bigger town, would pay.`,
-    });
+  // Too big: a smaller place would make more here, once it's going.
+  if (i.level >= 2) {
+    const going = (lv: number) => {
+      const x: BizInput = { ...i, level: lv, month: -1, months: undefined };
+      x.hands = bestHands(x);
+      const b = bizMonth(x);
+      return b.profit - b.mgr;
+    };
+    const here = going(i.level);
+    const smaller = Math.max(...[1, 2].filter((lv) => lv < i.level).map(going));
+    if (smaller > here + 0.5)
+      out.push({
+        key: "toobig",
+        tone: here < 0 ? "bad" : "note",
+        text: `Too big for the town: a ${["", "small", "middling", "great"][i.level]} ${name} costs ${placeUpkeep(i.job, i.level)} a month to keep, and the custom here keeps about ${r1(Number.isFinite(i.custom) ? i.custom : 0)} hands busy. A smaller place would make about ${r1(smaller)} a month here to its ${r1(here)}; a bigger town would pay.`,
+      });
+  }
   if (i.skill < 4)
     out.push({
       key: "skill",
@@ -883,13 +893,25 @@ export function bizPlan(
   let breakEven = 0;
   let paysFrom = 0;
   let day = s.day;
+  let hands = -1;
   for (let m = 0; m < months; m++) {
     const i: BizInput = {
       ...base,
       months: m < RAMP.length ? m : undefined,
       month: dateOf(day).month,
     };
-    i.hands = bestHands({ ...i, month: -1 });
+    // Hands as it takes them on: the ones that pay at first, then one more
+    // (or fewer) a month as its custom builds, as autoHands does.
+    const want = bestHands({ ...i, month: -1 });
+    hands =
+      hands < 0
+        ? want
+        : want > hands
+          ? hands + 1
+          : want < hands
+            ? hands - 1
+            : hands;
+    i.hands = hands;
     const v = bizMonth(i);
     cum = r2(cum + v.profit - v.mgr);
     out.push({
@@ -902,7 +924,10 @@ export function bizPlan(
     });
     if (!paysFrom && v.profit - v.mgr > 0) paysFrom = m + 1;
     if (!breakEven && cum >= 0) breakEven = m + 1;
-    day += 30;
+    // The first of the next month.
+    const d = dateOf(day);
+    day =
+      d.month === 11 ? dayOf(d.year + 1, 0, 1) : dayOf(d.year, d.month + 1, 1);
   }
   const goingIn: BizInput = { ...base, month: -1, months: undefined };
   goingIn.hands = bestHands(goingIn);
