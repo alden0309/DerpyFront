@@ -217,6 +217,31 @@ export const TERMS: Record<string, Term> = {
     raise: "Open Estate › Ledger, or click the month's notice when it comes.",
     ch: "ledger",
   },
+  // INTRIGUE (r15): Seduction.ts, Plots.ts, Weddings.ts
+  scheme: {
+    name: "A scheme",
+    what: "Something you have going on someone over weeks: winning them (as a lover, or to keep), or a plot to have them killed.",
+    good: "Society › Intrigue shows each as it ripens: the weeks gone, the chance it comes off, the chance it's found out, and what's happened.",
+    raise:
+      "Open someone's card: Hearts and schemes. The odds are shown before you begin. Nobody else is told of it unless it comes out.",
+    ch: "intrigue",
+  },
+  kept: {
+    name: "Kept",
+    what: "A lover kept at a monthly allowance: a mistress, or a kept man, with rooms of their own.",
+    good: "As close as lovers, without a marriage. The allowance is a line in the month's figure; two months unpaid and it's over.",
+    raise:
+      "Seduce… on their card, and choose To keep. Grown people only, and never close kin. End it on Society › Intrigue.",
+    ch: "intrigue",
+  },
+  betrothal: {
+    name: "Betrothed",
+    what: "Promised to marry, with the wedding still to plan.",
+    good: "Plan the wedding as an event (the rite, how grand, the day, the guests), or marry quietly before the minister. Breaking it off costs damages and goodwill.",
+    raise:
+      "Ask for their hand (Interactions on their card), or say yes when you're asked.",
+    ch: "intrigue",
+  },
   drill: {
     name: "Drill and spirits",
     what: "How trained your company is, and how glad they are to be in it.",

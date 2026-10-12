@@ -15,6 +15,7 @@ import { schoolable } from "../../engine/Edu"; // EDU (r13)
 import { buyoutPrice } from "../../engine/Firms"; // PARTNERS (r13)
 import { followerCap, peopleOf, raiseCheck } from "../../engine/Followers";
 import { foundCheck as foundColonyCheck } from "../../engine/Founding";
+import { ADULT_AGE, betrothalOf } from "../../engine/IntrigueCore"; // INTRIGUE (r15)
 import { affairsOf } from "../../engine/Ledger"; // LEDGER (r15)
 import {
   hasPlace,
@@ -48,6 +49,7 @@ import { isHarvest } from "../../engine/Seasons"; // MAP (r12)
 import type { PlaceKind } from "../../engine/Types";
 import { FindIcon } from "../Icons";
 import type { DrawerView, GameUi } from "./Context";
+import { canWritePersonal } from "./Intrigue"; // INTRIGUE (r15)
 import { TAB_BY_ID } from "./Nav";
 
 interface Need {
@@ -102,6 +104,12 @@ const check = (
   c: { ok: true } | { ok: false; why: string },
   yes: string,
 ): Need => (c.ok ? { label: yes, met: true } : { label: c.why, met: false });
+
+/** INTRIGUE (r15): eighteen, for anything of the heart (and a plot). */
+const grown = (ui: GameUi): Need =>
+  ui.me && ageOf(ui.s, ui.me) >= ADULT_AGE
+    ? { label: "Eighteen or over", met: true }
+    : { label: "Not until you're eighteen.", met: false };
 
 const adult = (ui: GameUi): Need =>
   isChildLife(ui.s, ui.life!)
@@ -1378,6 +1386,116 @@ const GOALS: Goal[] = [
     guide: "events",
   },
   // ---- end EVENTS (r15)
+  // ---- INTRIGUE (r15): hearts and schemes
+  {
+    id: "intr-seduce",
+    title: "Win someone's heart",
+    words:
+      "seduce seduction mistress kept man lover affair romance woo charm tempt flirt",
+    group: "People",
+    where:
+      "Their card: Hearts and schemes › Seduce…: as lovers, or to keep (a mistress or a kept man, an allowance a month). The chance, the weeks and the risks are shown first. Grown people only (eighteen and over, both of you), never close kin.",
+    needs: (ui) => [grown(ui)],
+    go: tab({ k: "tab", tab: "people", sub: "known" }),
+    goLabel: "People you know",
+    guide: "intrigue",
+  },
+  {
+    id: "intr-child",
+    title: "Have a child with my husband or wife",
+    words:
+      "child children baby heir conceive pregnant spouse wife husband court romance family",
+    group: "People",
+    where:
+      "Society › Intrigue (or their card): Court your wife, or husband. For half a year a child is half again as likely, and they think the better of you.",
+    needs: (ui) => [
+      {
+        label: "Married",
+        met: (ui.me?.spouse ?? -1) >= 0,
+      },
+    ],
+    go: tab({ k: "tab", tab: "society", sub: "intrigue" }),
+    goLabel: "Society › Intrigue",
+    guide: "intrigue",
+  },
+  {
+    id: "intr-wedding",
+    title: "Plan my wedding",
+    words:
+      "wedding marry marriage betrothal betrothed engaged promised banns licence church ceremony guests feast dowry",
+    group: "People",
+    where:
+      "Ask for their hand (their card); then Society › Intrigue › Plan the wedding…: the rite, how grand, the day (the banns take three Sundays, or buy a licence) and the guests, the cost on the button. Or a quiet wedding before the minister.",
+    needs: (ui) => [
+      {
+        label:
+          ui.me && betrothalOf(ui.s, ui.me.id)
+            ? "Promised"
+            : "Promised to someone (ask for their hand first)",
+        met: !!ui.me && !!betrothalOf(ui.s, ui.me.id),
+      },
+    ],
+    go: tab({ k: "tab", tab: "society", sub: "intrigue" }),
+    goLabel: "Society › Intrigue",
+    guide: "intrigue",
+  },
+  {
+    id: "intr-attend",
+    title: "Go to a gathering I'm asked to",
+    words:
+      "invitation invited attend travel journey wedding ball feast funeral christening go guest",
+    group: "Society",
+    where:
+      "Society › Gatherings: an invitation somewhere else shows the journey; Accept, and go sets out in good time, and Come home after brings you back.",
+    go: tab({ k: "tab", tab: "society", sub: "gatherings" }),
+    goLabel: "Gatherings",
+    guide: "intrigue",
+  },
+  {
+    id: "intr-plot",
+    title: "Plot to kill someone",
+    words:
+      "kill murder assassinate poison plot ambush cutthroat accident enemy rid scheme",
+    group: "People",
+    where:
+      "Their card: Hearts and schemes › Plot against…: poison, a cutthroat, an ambush, an accident at the docks or a duel with a bully; the cost, the weeks, the chance it comes off and the chance it's found out, before you begin. Never a child. Found out, it's a trial.",
+    needs: (ui) => [grown(ui)],
+    go: tab({ k: "tab", tab: "people", sub: "known" }),
+    goLabel: "People you know",
+    guide: "intrigue",
+  },
+  {
+    id: "intr-guard",
+    title: "Protect myself from a plot",
+    words: "guard guards protect bodyguard warned plot assassin murder safe",
+    group: "People",
+    where:
+      "When something isn't right, the warning's scene: hire men to watch over you, find out who, or leave town. Society › Intrigue shows plots you know of, and your guards.",
+    go: tab({ k: "tab", tab: "society", sub: "intrigue" }),
+    goLabel: "Society › Intrigue",
+    guide: "intrigue",
+  },
+  {
+    id: "intr-letter",
+    title: "Write to another player in my own words",
+    words:
+      "letter write message private freeform player friend note mail own words post",
+    group: "Society",
+    where:
+      "Society › Letters › In your own words, to a player… (or their card): a subject and up to two thousand characters, by the post. Only they will read it.",
+    needs: (ui) => [
+      {
+        label: canWritePersonal(ui)
+          ? "Another player to write to"
+          : "Another player in the game",
+        met: canWritePersonal(ui),
+      },
+    ],
+    go: (ui) => ui.modal({ k: "intrigue", what: "letter" }),
+    goLabel: "Write",
+    guide: "intrigue",
+  },
+  // ---- end INTRIGUE (r15)
   {
     id: "achievements",
     title: "See my achievements",

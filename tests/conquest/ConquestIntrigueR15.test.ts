@@ -319,7 +319,7 @@ describe("the odds shown are the odds rolled", () => {
       // Each trial on days of its own (the track's dice are drawn by the day).
       s.day = day0 + i * 11;
       c.alive = true;
-      delete c.died;
+      c.died = null;
       life.health = 100;
       const x = scheme(g, life, c, {
         method: "ambush",

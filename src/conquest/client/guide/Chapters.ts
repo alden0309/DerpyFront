@@ -165,6 +165,8 @@ import {
 } from "../../engine/PartnersCore";
 // LEDGER (r15): money made plain, its chapter and the boats' table.
 import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
+// INTRIGUE (r15): hearts and schemes.
+import { INTRIGUE_CHAPTER } from "./IntrigueChapter";
 
 export interface Chapter {
   id: string;
@@ -1427,7 +1429,7 @@ With another player's character, asking goes to them: they accept or refuse them
     title: "Courting, marriage and lovers",
     line: "Walking out, proposing, a wedding, and the affairs of the heart that are nobody's business.",
     where:
-      "Their card (Court, Propose marriage, Meet in secret); the church's Seek a match; Society › Gatherings for a wedding.",
+      "Their card (Court, Ask for their hand, Meet in secret); the church's Seek a match; Society › Intrigue for a wedding to plan.",
     body: `## Finding someone
 **Seek a match** at the church (or the council fire) introduces you to the unmarried of the parish. Anyone else you meet will do, too.
 
@@ -1435,7 +1437,7 @@ With another player's character, asking goes to them: they accept or refuse them
 **Court** someone (their card) to walk out together: a matter of your persuasion, harder the higher they stand. Done well, it may become love; sweethearts are likelier to say yes.
 
 ## Proposing
-**Propose marriage** when they think well enough of you. What weighs with them: their opinion of you, being sweethearts, your prospects (your rung and your renown), whether you're beneath their family, a house of your own, living comfortably, and debts. A wedding costs more the higher you stand. They come to live in your home. A wedding can be a gathering, with guests and a toast ([[gatherings|Gatherings]]).
+Courting and marriage are for grown people: eighteen and over, both of you, and never close kin. **Ask for their hand** when they think well enough of you. What weighs with them: their opinion of you, being sweethearts, your prospects (your rung and your renown), whether you're beneath their family, a house of your own, living comfortably, and debts. A yes makes you **betrothed**: then plan the wedding (the rite, how grand, the day, the guests) and play it as an event, or have **a quiet wedding before the minister** there and then ([[intrigue|Hearts and schemes]]). A wedding costs more the higher you stand. They come to live in your home.
 
 Far off? Write **a love letter**, or **a proposal of marriage**, by post ([[letters|Letters]]).
 
@@ -1681,6 +1683,9 @@ Others give gatherings too, and invite you (by letter if you're away): your neig
 
 > Tip: Invite people who like each other. A quarrel at your table costs you more than it costs them.`,
   },
+  // ---- INTRIGUE (r15): hearts and schemes (guide/IntrigueChapter.ts)
+  INTRIGUE_CHAPTER,
+  // ---- end INTRIGUE (r15)
   // ---- DICE (r14): Liar's dice in the tavern
   {
     id: "dice",
