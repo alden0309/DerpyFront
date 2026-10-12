@@ -58,6 +58,7 @@ import {
   token,
 } from "./Context";
 import { howTo, pageHead } from "./Nav";
+import { price } from "./Price"; // LEDGER (r15)
 
 /** What's picked in each select, kept between redraws. */
 const picks: Record<string, number> = {};
@@ -538,7 +539,13 @@ function governorHand(ui: GameUi, n: number): TemplateResult {
                   </select>`
                 : nothing}
               ${action(
-                "Proclaim it",
+                html`Proclaim
+                it${p.cost
+                  ? price(p.cost, {
+                      have: nation.gold,
+                      note: "from the treasury",
+                    })
+                  : nothing}`,
                 check,
                 () =>
                   void ui.cmd({

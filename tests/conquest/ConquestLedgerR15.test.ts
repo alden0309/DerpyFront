@@ -123,7 +123,7 @@ const shape = (life: Life) =>
     life.job ? `${life.job.kind}${life.job.rank}` : "",
   ].join("|");
 
-describe("the month's figure", () => {
+describe("the month's figure", { timeout: 120_000 }, () => {
   test("counts boats' crews, your people, keep and voyages; a full crew shows at once", () => {
     const { g, life } = merchant();
     cmd(g, { k: "enter", area: "docks" });
@@ -318,182 +318,188 @@ function schoonerAt(g: ConquestGame, life: Life, use: BoatUse): Boat {
   return b;
 }
 
-describe("risk and reward, shown as the engine rolls it", () => {
-  const N = 2500;
-  for (const use of [
-    "fishing",
-    "whaling",
-    "trading",
-    "smuggling",
-    "privateering",
-  ] as BoatUse[])
-    test(`a schooner ${use}: the odds shown are the odds rolled`, () => {
-      const { g, life } = merchant(7, 0);
-      // High summer (no winter at the banks), you aboard in port.
-      g.s.day = g.s.day - (g.s.day % 365) + 190;
-      life.travel = null;
-      const b0 = schoonerAt(g, life, use);
-      life.skills.seamanship = 6;
-      const view = boatJobOdds(g.s, g.w, life, b0, use);
-      expect(view.ok).toBe(true);
-      const p = view.outcomes.reduce((m, o) => m + o.p, 0);
-      expect(p).toBeCloseTo(1, 6);
-      const counts = view.outcomes.map(() => 0);
-      const lostIdx = view.outcomes.findIndex(
-        (o) => o.bad && o.hi === 0 && /lost|seized|taken/.test(o.label),
-      );
-      const emptyIdx = view.outcomes.findIndex(
-        (o) => o.hi === 0 && !(o.bad && /lost|seized|taken/.test(o.label)),
-      );
-      let total = 0;
-      const wear = BOAT_WEAR.work;
-      let hurt = 0;
-      for (let i = 0; i < N; i++) {
-        const b = schoonerAt(g, life, use);
+describe(
+  "risk and reward, shown as the engine rolls it",
+  { timeout: 120_000 },
+  () => {
+    const N = 2500;
+    for (const use of [
+      "fishing",
+      "whaling",
+      "trading",
+      "smuggling",
+      "privateering",
+    ] as BoatUse[])
+      test(`a schooner ${use}: the odds shown are the odds rolled`, () => {
+        const { g, life } = merchant(7, 0);
+        // High summer (no winter at the banks), you aboard in port.
+        g.s.day = g.s.day - (g.s.day % 365) + 190;
+        life.travel = null;
+        const b0 = schoonerAt(g, life, use);
         life.skills.seamanship = 6;
-        life.xp.seamanship = 0;
-        life.purse = 1000;
-        const wages =
-          Math.round((BOATS.schooner.upkeep + b.crew * CREW_WAGE) * 10) / 10;
-        boatsMonthly(g, life);
-        const got = Math.round((life.purse - 1000 + wages) * 100) / 100;
-        total += got;
-        const gone = !life.boats?.some((x) => x.id === b.id);
-        if (!gone && b.condition < 100 - wear - 0.01) hurt++;
-        let k: number;
-        if (gone) k = lostIdx;
-        else if (got <= 0) k = emptyIdx;
-        else k = bucket(view, got);
-        expect(k, `${use}: ${got}`).toBeGreaterThanOrEqual(0);
-        counts[k]++;
-      }
-      view.outcomes.forEach((o, i) => {
-        const f = counts[i] / N;
-        const sd = Math.sqrt((o.p * (1 - o.p)) / N);
-        expect(
-          Math.abs(f - o.p),
-          `${use} ${o.label}: shown ${o.p}, rolled ${f}`,
-        ).toBeLessThan(4 * sd + 0.004);
-      });
-      // What's expected, on average.
-      expect(Math.abs(total / N - view.expected)).toBeLessThan(
-        Math.max(0.15, view.expected * 0.06),
-      );
-      // The damage risks: a squall, a stove boat, a fight.
-      const damage = view.risks.filter(
-        (r) => r.p < 1 && /soundness/.test(r.label),
-      );
-      if (damage.length) {
-        const pd = damage.reduce((m, r) => m + r.p, 0);
-        const sd = Math.sqrt((pd * (1 - pd)) / N);
-        expect(
-          Math.abs(
-            hurt / N - pd * (1 - (lostIdx >= 0 ? view.outcomes[lostIdx].p : 0)),
-          ),
-        ).toBeLessThan(4 * sd + 0.004);
-      }
-    });
-
-  test("a clerk's trip: the odds shown are the odds rolled, and skill helps", () => {
-    const { g, life } = merchant(9, 0);
-    const f = follower(g, life, "clerk");
-    const stake = 100;
-    for (const loyalty of [100, 15]) {
-      f.loyalty = loyalty;
-      const view = clerkOdds(g.s, f, stake);
-      expect(view.outcomes.reduce((m, o) => m + o.p, 0)).toBeCloseTo(1, 6);
-      const counts = view.outcomes.map(() => 0);
-      const N = 3000;
-      let sum = 0;
-      for (let i = 0; i < N; i++) {
-        life.people = [f];
-        f.loyalty = loyalty;
-        f.task = {
-          kind: "trade",
-          p: life.prov,
-          back: g.s.day,
-          stake,
-          repeat: false,
-        };
-        life.purse = 0;
-        peopleDaily(g, life);
-        const ran = !life.people.includes(f);
-        const back = life.purse;
-        sum += back - stake;
-        const k = ran
-          ? view.outcomes.findIndex((o) => o.label === "they never come back")
-          : view.outcomes.findIndex(
-              (o) =>
-                o.label !== "they never come back" &&
-                Math.abs(o.lo - back) < 0.01,
-            );
-        expect(k, `back ${back}`).toBeGreaterThanOrEqual(0);
-        counts[k]++;
-      }
-      view.outcomes.forEach((o, i) => {
-        const fr = counts[i] / N;
-        const sd = Math.sqrt((o.p * (1 - o.p)) / N);
-        expect(Math.abs(fr - o.p), `${o.label}: ${o.p} vs ${fr}`).toBeLessThan(
-          4 * sd + 0.004,
+        const view = boatJobOdds(g.s, g.w, life, b0, use);
+        expect(view.ok).toBe(true);
+        const p = view.outcomes.reduce((m, o) => m + o.p, 0);
+        expect(p).toBeCloseTo(1, 6);
+        const counts = view.outcomes.map(() => 0);
+        const lostIdx = view.outcomes.findIndex(
+          (o) => o.bad && o.hi === 0 && /lost|seized|taken/.test(o.label),
         );
+        const emptyIdx = view.outcomes.findIndex(
+          (o) => o.hi === 0 && !(o.bad && /lost|seized|taken/.test(o.label)),
+        );
+        let total = 0;
+        const wear = BOAT_WEAR.work;
+        let hurt = 0;
+        for (let i = 0; i < N; i++) {
+          const b = schoonerAt(g, life, use);
+          life.skills.seamanship = 6;
+          life.xp.seamanship = 0;
+          life.purse = 1000;
+          const wages =
+            Math.round((BOATS.schooner.upkeep + b.crew * CREW_WAGE) * 10) / 10;
+          boatsMonthly(g, life);
+          const got = Math.round((life.purse - 1000 + wages) * 100) / 100;
+          total += got;
+          const gone = !life.boats?.some((x) => x.id === b.id);
+          if (!gone && b.condition < 100 - wear - 0.01) hurt++;
+          let k: number;
+          if (gone) k = lostIdx;
+          else if (got <= 0) k = emptyIdx;
+          else k = bucket(view, got);
+          expect(k, `${use}: ${got}`).toBeGreaterThanOrEqual(0);
+          counts[k]++;
+        }
+        view.outcomes.forEach((o, i) => {
+          const f = counts[i] / N;
+          const sd = Math.sqrt((o.p * (1 - o.p)) / N);
+          expect(
+            Math.abs(f - o.p),
+            `${use} ${o.label}: shown ${o.p}, rolled ${f}`,
+          ).toBeLessThan(4 * sd + 0.004);
+        });
+        // What's expected, on average.
+        expect(Math.abs(total / N - view.expected)).toBeLessThan(
+          Math.max(0.15, view.expected * 0.06),
+        );
+        // The damage risks: a squall, a stove boat, a fight.
+        const damage = view.risks.filter(
+          (r) => r.p < 1 && /soundness/.test(r.label),
+        );
+        if (damage.length) {
+          const pd = damage.reduce((m, r) => m + r.p, 0);
+          const sd = Math.sqrt((pd * (1 - pd)) / N);
+          expect(
+            Math.abs(
+              hurt / N -
+                pd * (1 - (lostIdx >= 0 ? view.outcomes[lostIdx].p : 0)),
+            ),
+          ).toBeLessThan(4 * sd + 0.004);
+        }
       });
-      expect(Math.abs(sum / N - view.expected)).toBeLessThan(stake * 0.03);
-    }
-    // A skilled clerk does better than an unskilled one; a war makes it worse.
-    const unskilled = tradeOdds(50, { skill: 0 });
-    const skilled = tradeOdds(50, { skill: 12 });
-    const atWar = tradeOdds(50, { skill: 12, war: true });
-    expect(skilled.expected).toBeGreaterThan(unskilled.expected);
-    expect(atWar.expected).toBeLessThan(skilled.expected);
-    expect(skilled.outcomes[0].p).toBeLessThan(unskilled.outcomes[0].p);
-    expect(TRADE_LUCK[0].x).toBe(0);
-  });
 
-  test("odds are said plainly", () => {
-    expect(chanceWords(0.2)).toBe("1 in 5");
-    expect(chanceWords(0.04)).toBe("1 in 25");
-    expect(chanceWords(2 / 3)).toBe("2 in 3");
-    expect(chanceWords(0.35)).toBe("7 in 20");
-    expect(chanceWords(0.988)).toBe("all but 1 in 83");
-    expect(chanceWords(0)).toBe("never");
-    expect(chanceWords(1)).toBe("certain");
-  });
+    test("a clerk's trip: the odds shown are the odds rolled, and skill helps", () => {
+      const { g, life } = merchant(9, 0);
+      const f = follower(g, life, "clerk");
+      const stake = 100;
+      for (const loyalty of [100, 15]) {
+        f.loyalty = loyalty;
+        const view = clerkOdds(g.s, f, stake);
+        expect(view.outcomes.reduce((m, o) => m + o.p, 0)).toBeCloseTo(1, 6);
+        const counts = view.outcomes.map(() => 0);
+        const N = 3000;
+        let sum = 0;
+        for (let i = 0; i < N; i++) {
+          life.people = [f];
+          f.loyalty = loyalty;
+          f.task = {
+            kind: "trade",
+            p: life.prov,
+            back: g.s.day,
+            stake,
+            repeat: false,
+          };
+          life.purse = 0;
+          peopleDaily(g, life);
+          const ran = !life.people.includes(f);
+          const back = life.purse;
+          sum += back - stake;
+          const k = ran
+            ? view.outcomes.findIndex((o) => o.label === "they never come back")
+            : view.outcomes.findIndex(
+                (o) =>
+                  o.label !== "they never come back" &&
+                  Math.abs(o.lo - back) < 0.01,
+              );
+          expect(k, `back ${back}`).toBeGreaterThanOrEqual(0);
+          counts[k]++;
+        }
+        view.outcomes.forEach((o, i) => {
+          const fr = counts[i] / N;
+          const sd = Math.sqrt((o.p * (1 - o.p)) / N);
+          expect(
+            Math.abs(fr - o.p),
+            `${o.label}: ${o.p} vs ${fr}`,
+          ).toBeLessThan(4 * sd + 0.004);
+        });
+        expect(Math.abs(sum / N - view.expected)).toBeLessThan(stake * 0.03);
+      }
+      // A skilled clerk does better than an unskilled one; a war makes it worse.
+      const unskilled = tradeOdds(50, { skill: 0 });
+      const skilled = tradeOdds(50, { skill: 12 });
+      const atWar = tradeOdds(50, { skill: 12, war: true });
+      expect(skilled.expected).toBeGreaterThan(unskilled.expected);
+      expect(atWar.expected).toBeLessThan(skilled.expected);
+      expect(skilled.outcomes[0].p).toBeLessThan(unskilled.outcomes[0].p);
+      expect(TRADE_LUCK[0].x).toBe(0);
+    });
 
-  test("no whales in the south, and nobody to command her while you're away", () => {
-    const g = world({
-      start: 1700,
-      seed: 4,
-      plans: [
-        {
-          seat: "s1",
-          name: "A",
-          plan: plan({ home: prov("Jamestown"), background: "clerk" }),
-        },
-      ],
+    test("odds are said plainly", () => {
+      expect(chanceWords(0.2)).toBe("1 in 5");
+      expect(chanceWords(0.04)).toBe("1 in 25");
+      expect(chanceWords(2 / 3)).toBe("2 in 3");
+      expect(chanceWords(0.35)).toBe("7 in 20");
+      expect(chanceWords(0.988)).toBe("all but 1 in 83");
+      expect(chanceWords(0)).toBe("never");
+      expect(chanceWords(1)).toBe("certain");
     });
-    const life = lifeOf(g);
-    const b = schoonerAt(g, life, "whaling");
-    expect(boatJobOdds(g.s, g.w, life, b, "whaling").ok).toBe(false);
-    life.prov = NORTH;
-    const away = boatJobOdds(g.s, g.w, life, b, "fishing");
-    expect(away.ok).toBe(false);
-    expect(away.why).toMatch(/skipper/);
-    // With a full crew to come, the cost of signing them shows.
-    b.crew = 0;
-    const hire = boatJobOdds(g.s, g.w, life, b, "fishing", {
-      crew: BOATS.schooner.crew,
+
+    test("no whales in the south, and nobody to command her while you're away", () => {
+      const g = world({
+        start: 1700,
+        seed: 4,
+        plans: [
+          {
+            seat: "s1",
+            name: "A",
+            plan: plan({ home: prov("Jamestown"), background: "clerk" }),
+          },
+        ],
+      });
+      const life = lifeOf(g);
+      const b = schoonerAt(g, life, "whaling");
+      expect(boatJobOdds(g.s, g.w, life, b, "whaling").ok).toBe(false);
+      life.prov = NORTH;
+      const away = boatJobOdds(g.s, g.w, life, b, "fishing");
+      expect(away.ok).toBe(false);
+      expect(away.why).toMatch(/skipper/);
+      // With a full crew to come, the cost of signing them shows.
+      b.crew = 0;
+      const hire = boatJobOdds(g.s, g.w, life, b, "fishing", {
+        crew: BOATS.schooner.crew,
+      });
+      expect(hire.costNow).toBe(BOATS.schooner.crew);
+      expect(hire.costMonth).toBeCloseTo(
+        BOATS.schooner.upkeep + BOATS.schooner.crew * CREW_WAGE,
+        5,
+      );
     });
-    expect(hire.costNow).toBe(BOATS.schooner.crew);
-    expect(hire.costMonth).toBeCloseTo(
-      BOATS.schooner.upkeep + BOATS.schooner.crew * CREW_WAGE,
-      5,
-    );
-  });
-});
+  },
+);
 
 // ---------------------------------------------------------------- the books
 
-describe("the month's books and statements", () => {
+describe("the month's books and statements", { timeout: 120_000 }, () => {
   test("every coin is written under a name; the month closes into a statement", () => {
     const { g, life } = merchant(13, 500);
     cmd(g, { k: "enter", area: "docks" });
@@ -578,76 +584,82 @@ describe("the month's books and statements", () => {
 
 // ---------------------------------------------------------------- the tracker and acres
 
-describe("what's out working, and the acres you own", () => {
-  test("the tracker lists boats, cargoes, shares and traders, with what they're expected to bring", () => {
-    const { g, life } = merchant(19, 900);
-    cmd(g, { k: "enter", area: "docks" });
-    cmd(g, { k: "boat", act: "buy", kind: "sloop", arg: -1 });
-    const b = life.boats![0];
-    cmd(g, { k: "boat", act: "crew", id: b.id, arg: 3 });
-    cmd(g, { k: "boat", act: "use", id: b.id, use: "fishing" });
-    cmd(g, { k: "act", place: "docks", act: "venture" });
-    const clerk = follower(g, life, "clerk");
-    cmd(g, { k: "people", act: "trade-again", id: clerk.id, arg: 50 });
-    const list = affairsOf(g.s, g.w, life);
-    const boat = list.find((x) => x.id === `b:${b.id}`)!;
-    expect(boat.status).toBe("at work");
-    expect(boat.expected!.value).toBeGreaterThan(0);
-    expect(boat.cost).toBeLessThan(0);
-    const cargo = list.find((x) => x.kind === "cargo")!;
-    expect(cargo.due).toBeGreaterThan(g.s.day);
-    expect(cargo.expected!.per).toBe("home");
-    const trader = list.find((x) => x.id === `f:${clerk.id}`)!;
-    expect(trader.status).toBe("trading");
-    expect(trader.expected!.lo).toBe(-50);
-    // The trip's coming home is news of your affairs, under its own name.
-    for (let i = 0; i < 70 && clerk.task?.back !== undefined; i++) {
-      const back = clerk.task.back;
-      g.tick();
-      if (g.s.day >= back) break;
-    }
-    expect(life.journal.some((j) => j.aff === "trader")).toBe(true);
-    expect(life.books!.lines.some((l) => l.k === `tr:${clerk.id}`)).toBe(true);
-  });
+describe(
+  "what's out working, and the acres you own",
+  { timeout: 120_000 },
+  () => {
+    test("the tracker lists boats, cargoes, shares and traders, with what they're expected to bring", () => {
+      const { g, life } = merchant(19, 900);
+      cmd(g, { k: "enter", area: "docks" });
+      cmd(g, { k: "boat", act: "buy", kind: "sloop", arg: -1 });
+      const b = life.boats![0];
+      cmd(g, { k: "boat", act: "crew", id: b.id, arg: 3 });
+      cmd(g, { k: "boat", act: "use", id: b.id, use: "fishing" });
+      cmd(g, { k: "act", place: "docks", act: "venture" });
+      const clerk = follower(g, life, "clerk");
+      cmd(g, { k: "people", act: "trade-again", id: clerk.id, arg: 50 });
+      const list = affairsOf(g.s, g.w, life);
+      const boat = list.find((x) => x.id === `b:${b.id}`)!;
+      expect(boat.status).toBe("at work");
+      expect(boat.expected!.value).toBeGreaterThan(0);
+      expect(boat.cost).toBeLessThan(0);
+      const cargo = list.find((x) => x.kind === "cargo")!;
+      expect(cargo.due).toBeGreaterThan(g.s.day);
+      expect(cargo.expected!.per).toBe("home");
+      const trader = list.find((x) => x.id === `f:${clerk.id}`)!;
+      expect(trader.status).toBe("trading");
+      expect(trader.expected!.lo).toBe(-50);
+      // The trip's coming home is news of your affairs, under its own name.
+      for (let i = 0; i < 70 && clerk.task?.back !== undefined; i++) {
+        const back = clerk.task.back;
+        g.tick();
+        if (g.s.day >= back) break;
+      }
+      expect(life.journal.some((j) => j.aff === "trader")).toBe(true);
+      expect(life.books!.lines.some((l) => l.k === `tr:${clerk.id}`)).toBe(
+        true,
+      );
+    });
 
-  test("acres by province, with a subtotal each and a grand total", () => {
-    const { g, life } = merchant(23, 900);
-    cmd(g, { k: "property", act: "land" });
-    cmd(g, { k: "property", act: "land" });
-    const other = prov("Plymouth");
-    life.property!.push(
-      {
-        id: g.nextId(),
-        kind: "land",
-        prov: other,
-        level: 3,
-        hands: [],
-        since: g.s.day,
-        name: "Land",
-      },
-      {
-        id: g.nextId(),
-        kind: "business",
-        prov: other,
-        level: 2,
-        job: "farmer",
-        place: "fields",
-        hands: [],
-        since: g.s.day,
-        name: "farm",
-      },
-    );
-    const a = acresOf(g.s, g.w, life);
-    const home = a.rows.find((r) => r.prov === life.prov)!;
-    expect(home.total).toBe(20);
-    const there = a.rows.find((r) => r.prov === other)!;
-    expect(there.total).toBe(30 + FARM_ACRES[2]);
-    expect(there.lines.length).toBe(2);
-    expect(a.total).toBe(20 + 30 + FARM_ACRES[2]);
-    // Home first.
-    expect(a.rows[0].prov).toBe(life.home);
-  });
-});
+    test("acres by province, with a subtotal each and a grand total", () => {
+      const { g, life } = merchant(23, 900);
+      cmd(g, { k: "property", act: "land" });
+      cmd(g, { k: "property", act: "land" });
+      const other = prov("Plymouth");
+      life.property!.push(
+        {
+          id: g.nextId(),
+          kind: "land",
+          prov: other,
+          level: 3,
+          hands: [],
+          since: g.s.day,
+          name: "Land",
+        },
+        {
+          id: g.nextId(),
+          kind: "business",
+          prov: other,
+          level: 2,
+          job: "farmer",
+          place: "fields",
+          hands: [],
+          since: g.s.day,
+          name: "farm",
+        },
+      );
+      const a = acresOf(g.s, g.w, life);
+      const home = a.rows.find((r) => r.prov === life.prov)!;
+      expect(home.total).toBe(20);
+      const there = a.rows.find((r) => r.prov === other)!;
+      expect(there.total).toBe(30 + FARM_ACRES[2]);
+      expect(there.lines.length).toBe(2);
+      expect(a.total).toBe(20 + 30 + FARM_ACRES[2]);
+      // Home first.
+      expect(a.rows[0].prov).toBe(life.home);
+    });
+  },
+);
 
 describe("a month's wages and keep are paid as the forecast said, people too", () => {
   test("followers' wages and a company's pay are their own lines", () => {

@@ -36,6 +36,7 @@ import type { Paper, Piece } from "../../engine/Types";
 import { num } from "../Tip";
 import { action, breakdownTip, charLink, GameUi, section } from "./Context";
 import { howTo, pageHead } from "./Nav";
+import { price } from "./Price"; // LEDGER (r15)
 
 const draft: {
   on: Piece["on"];
@@ -321,7 +322,7 @@ function staff(ui: GameUi, x: Paper): TemplateResult {
           )}
         </select>
         ${action(
-          `Hire a writer (${WRITER_WAGE} a month)`,
+          html`Hire a writer${price(WRITER_WAGE, { per: "month" })}`,
           x.writers.length >= MAX_WRITERS
             ? { ok: false, why: `${MAX_WRITERS} is all a paper can feed.` }
             : pool.length
@@ -362,7 +363,7 @@ function staff(ui: GameUi, x: Paper): TemplateResult {
             confirm(`Sell ${x.name} for about ${paperValue(x)} coins?`) &&
             void ui.cmd({ k: "power", act: "sell" })}
         >
-          Sell the paper (about ${paperValue(x)})
+          Sell the paper${price(paperValue(x), { gain: true, approx: true })}
         </button>
       </div>`,
   );
@@ -423,7 +424,7 @@ function getOne(ui: GameUi): TemplateResult {
         : nothing}
       <div class="cq-btnrow">
         ${action(
-          `Found a paper (${FOUND_COST})`,
+          html`Found a paper${price(FOUND_COST, { have: life.purse })}`,
           check,
           () => void ui.cmd({ k: "power", act: "found", stance: draft.stance }),
           "primary",
@@ -451,7 +452,10 @@ function getOne(ui: GameUi): TemplateResult {
                   readers</span
                 >
                 ${action(
-                  `Buy it (${Math.round(paperValue(x) * 1.2)})`,
+                  html`Buy
+                  it${price(Math.round(paperValue(x) * 1.2), {
+                    have: life.purse,
+                  })}`,
                   b,
                   () => void ui.cmd({ k: "power", act: "buy", id: x.id }),
                   "small",

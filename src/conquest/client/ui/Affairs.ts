@@ -48,6 +48,7 @@ import {
   STATION_HOUSE,
   WORK_DAYS,
 } from "../../engine/LifeRules";
+import { kitWorth } from "../../engine/Money"; // LEDGER (r15)
 import {
   activeMovements,
   foundCheck,
@@ -120,6 +121,7 @@ import {
 } from "./Context";
 import { forecastBlock } from "./Ledger"; // LEDGER (r15)
 import { tradesLink, workNotes } from "./Livelihood";
+import { price } from "./Price"; // LEDGER (r15)
 import { term } from "./Terms";
 
 // ---------------------------------------------------------------- work
@@ -930,7 +932,11 @@ export function purseSection(ui: GameUi): TemplateResult | typeof nothing {
                               kit: k,
                             })}
                         >
-                          ${k === "pew" ? "Give up" : "Sell"}
+                          ${k === "pew"
+                            ? "Give up"
+                            : html`Sell${price(kitWorth(s, life, k), {
+                                gain: true,
+                              })}`}
                         </button>`
                       : nothing}
                   </li>`,
@@ -970,7 +976,9 @@ export function purseSection(ui: GameUi): TemplateResult | typeof nothing {
                             play("coins");
                         }}
                       >
-                        Sell
+                        Sell${price(Math.round(v.value * 100) / 100, {
+                          gain: true,
+                        })}
                       </button>`
                     : nothing}
                 </li>`;
@@ -1046,7 +1054,10 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
                 <div class="cq-prop-acts">
                   ${ex
                     ? action(
-                        `Grow it${EXPAND_COST[pr.level] !== undefined ? ` (${EXPAND_COST[pr.level]})` : ""}`,
+                        html`Grow
+                        it${EXPAND_COST[pr.level] !== undefined
+                          ? price(EXPAND_COST[pr.level], { have: life.purse })
+                          : nothing}`,
                         ex,
                         async () => {
                           if (
@@ -1092,7 +1103,14 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
       <div class="cq-btnrow">
         ${house.next
           ? action(
-              `${house.level ? "A better house" : native ? "A lodge of your own" : "A house of your own"}: ${house.next.name.toLowerCase()} (${housePrice(s, life)})`,
+              html`${house.level
+                ? "A better house"
+                : native
+                  ? "A lodge of your own"
+                  : "A house of your own"}:
+              ${house.next.name.toLowerCase()}${price(housePrice(s, life), {
+                have: life.purse,
+              })}`,
               house.check,
               prop("house"),
               "small",
@@ -1101,7 +1119,7 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
             )
           : nothing}
         ${action(
-          `Ten acres (${LAND_LOT.cost})`,
+          html`Ten acres${price(LAND_LOT.cost, { have: life.purse })}`,
           land,
           prop("land"),
           "small",
@@ -1127,9 +1145,9 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
             const ok = !busy && life.purse >= e.cost;
             return html`<li>
               <b>${e.label.replace(/^(\w)/, (m) => m.toUpperCase())}</b>
-              <span class="small">(${e.cost} coins, +${e.renown} renown)</span>
+              <span class="small">(+${e.renown} renown)</span>
               ${action(
-                "Give",
+                html`Give${price(e.cost, { have: life.purse })}`,
                 ok
                   ? { ok: true }
                   : {
@@ -1188,7 +1206,10 @@ function commandBlock(ui: GameUi, a: Army): TemplateResult {
       ),
     )}
     ${action(
-      `Beat the drum for volunteers (${RECRUIT_COST})`,
+      html`Beat the drum for
+      volunteers${price(RECRUIT_COST, {
+        have: life.purse,
+      })}`,
       a.depart >= 0
         ? { ok: false, why: "Not on the march" }
         : !own
@@ -1286,7 +1307,11 @@ function projectsBlock(ui: GameUi, n: number): TemplateResult {
           ${built
             ? nothing
             : action(
-                "Build it",
+                html`Build
+                it${price(d.cost, {
+                  have: nation.gold,
+                  note: "from the treasury",
+                })}`,
                 check,
                 async () => {
                   if (

@@ -165,7 +165,7 @@ const seenMemo = new Map<string, number>();
 function seenDay(life: Life): number {
   const k = seenKey(life);
   if (!seenMemo.has(k)) {
-    let v = -1;
+    let v: number;
     try {
       v = Number(localStorage.getItem(k) ?? -1);
     } catch {

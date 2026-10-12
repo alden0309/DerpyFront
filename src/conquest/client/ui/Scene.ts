@@ -13,7 +13,12 @@ import {
   INTERACTIONS,
   interactionView,
 } from "../../engine/Interactions";
-import { carried, lifeOfChar, opinionOf } from "../../engine/LifeQueries";
+import {
+  carried,
+  lifeOfChar,
+  opinionOf,
+  weddingCost, // LEDGER (r15)
+} from "../../engine/LifeQueries";
 import { PLACES } from "../../engine/LifeRules";
 import { ageOf, charName } from "../../engine/Queries";
 import type {
@@ -34,6 +39,7 @@ import { duelScene } from "./DuelScene"; // HOME (r12)
 import { roleOf } from "./Here";
 import { letterClock, ModalHooks } from "./Modals";
 import { articlesScene } from "./Partners"; // PARTNERS (r13)
+import { price, splitPrice } from "./Price"; // LEDGER (r15)
 import { talkLine } from "./Society"; // SOCIETY (r11)
 
 type Expr = NonNullable<PortraitOpts["expression"]>;
@@ -272,7 +278,13 @@ export function eventScene(
                   }
                 }}
               >
-                <span class="cq-choice-label">${c.label}</span>
+                <span class="cq-choice-label"
+                  >${splitPrice(c.label).text}${splitPrice(c.label).cost
+                    ? price(splitPrice(c.label).cost!, {
+                        have: ui.life?.purse,
+                      })
+                    : nothing}</span
+                >
                 ${c.tip
                   ? html`<span class="cq-choice-tip">${c.tip}</span>`
                   : nothing}
@@ -357,7 +369,11 @@ export function interactScene(
       ui.modal({ k: "outcome" });
     }
   };
-  const title = v.label ?? def.label;
+  // LEDGER (r15): what it costs goes in a coin chip on the button.
+  const said = splitPrice(v.label ?? def.label);
+  const title = said.text;
+  const fee =
+    said.cost ?? (m.act === "propose" ? weddingCost(ui.s, life) : null);
   const verdict = v.player
     ? html`<div class="cq-accept player">
         <span class="cq-accept-verdict">${c.first} will decide</span>
@@ -396,7 +412,7 @@ export function interactScene(
               ?disabled=${life.purse < n}
               @click=${() => run(n)}
             >
-              ${n} coins
+              Give${price(n, { have: life.purse })}
             </button>`,
         )}
       </div>
@@ -476,7 +492,7 @@ export function interactScene(
               : "Ask anyway"
             : def.mode === "chance"
               ? "Try it"
-              : "Do it"}
+              : "Do it"}${fee ? price(fee, { have: life.purse }) : nothing}
       </button>
       <button class="cq-btn quiet" @click=${() => ui.modal(null)}>
         Back

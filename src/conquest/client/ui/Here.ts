@@ -176,11 +176,12 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
       ${land
         ? html`<div class="cq-travel-way">
             <span
-              ><b>Overland</b>: about ${Math.ceil(land.days)} days, ${land.cost}
-              coins for food and lodging.</span
+              ><b>Overland</b>: about ${Math.ceil(land.days)} days, food and
+              lodging on the way.</span
             >
             ${action(
-              "Set out",
+              html`Set
+              out${land.cost ? price(land.cost, { have: life.purse }) : nothing}`,
               blocked ? { ok: false, why: blocked } : { ok: true },
               () => void go(false),
               "small primary",
@@ -192,13 +193,16 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
             <span
               ><b>By sea</b>: about ${Math.ceil(sea!.days)} days,
               ${sea!.cost
-                ? `${sea!.cost} coins passage`
+                ? "the passage"
                 : sailor
                   ? "free while you sail"
                   : "by canoe"}.</span
             >
             ${action(
-              "Take ship",
+              html`Take
+              ship${sea!.cost
+                ? price(sea!.cost, { have: life.purse })
+                : nothing}`,
               blocked ? { ok: false, why: blocked } : { ok: true },
               () => void go(true),
               "small",
@@ -1265,8 +1269,11 @@ function actsBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
   if (area === "tavern" && !isChildLife(s, life))
     buttons.set("~dice", () => {
       const d = diceAct(ui, p);
+      const dl = splitPrice(d.label); // LEDGER (r15): the stake in its chip
       return actButton({
-        label: d.label,
+        label: dl.text,
+        cost: dl.cost ?? undefined,
+        have: life.purse,
         ok: d.ok,
         cls: d.lit ? "lit" : "",
         why: d.why,

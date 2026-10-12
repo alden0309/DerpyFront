@@ -150,10 +150,15 @@ export function buyKit(g: ConquestGame, life: Life, k: KitKey): string | null {
   return null;
 }
 
+/** LEDGER (r15): what a kept thing fetches sold (a pew, nothing). */
+export function kitWorth(s: GameState, life: Life, k: KitKey): number {
+  return k === "pew" ? 0 : Math.round(kitPrice(s, life, k) * 0.4);
+}
+
 /** Sell off a kept thing (a horse, a coach) for what it'll fetch. */
 export function sellKit(g: ConquestGame, life: Life, k: KitKey): string | null {
   if (life.kit?.[k] === undefined) return "You don't have one.";
-  const worth = k === "pew" ? 0 : Math.round(kitPrice(g.s, life, k) * 0.4);
+  const worth = kitWorth(g.s, life, k);
   touchLife(g, life);
   delete life.kit![k];
   if (worth) earn(g, life, worth);

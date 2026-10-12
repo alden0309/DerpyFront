@@ -25,6 +25,7 @@ import type { LeadKind, TradeItem, WareId } from "../../engine/Types";
 import { cultureGoods, isWare, WARES } from "../../engine/Wares";
 import { itemIcon, itemName } from "../GoodsArt";
 import { action, GameUi, odds, section } from "./Context";
+import { price } from "./Price"; // LEDGER (r15)
 
 // ---------------------------------------------------------------- what you can see
 
@@ -360,7 +361,9 @@ function dealBox(ui: GameUi): TemplateResult {
     </p>
     <div class="cq-btnrow">
       ${action(
-        pick.buy ? `Buy ${qty}` : `Sell ${qty}`,
+        pick.buy
+          ? html`Buy ${qty}${price(q.total, { have: ui.life?.purse })}`
+          : html`Sell ${qty}${price(q.total, { gain: true })}`,
         check,
         () =>
           void ui.cmd({ k: "market", item: x, qty: signed }).then((ok) => {
@@ -509,16 +512,16 @@ function leadRow(ui: GameUi, v: LeadView, here: boolean): TemplateResult {
                 (a) =>
                   html`<span class="cq-lead-act">
                     ${action(
-                      html`${a.def.label} ${odds(a.odds)}`,
+                      html`${a.def.label}${a.def.cost
+                        ? price(a.def.cost, { have: ui.life?.purse })
+                        : nothing}
+                      ${odds(a.odds)}`,
                       a.check,
                       () => void ui.cmd({ k: "lead", id: v.ll.id, act: a.act }),
                       "small",
                       `${a.def.text} ${a.def.days} days, ${a.def.cost} coins.`,
                     )}
-                    <span class="cq-muted small"
-                      >${a.def.days}
-                      days${a.def.cost ? `, ${a.def.cost} coins` : ""}</span
-                    >
+                    <span class="cq-muted small">${a.def.days} days</span>
                   </span>`,
               )
             : html`<button

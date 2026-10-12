@@ -463,9 +463,9 @@ export function crimePart(
             @click=${() =>
               atPlace(ui, area, { k: a.law ? "law" : "crime", act: a.key })}
           >
-            <span class="cq-act-label"
-              >${a.label}${cost ? ` (${cost})` : ""}</span
-            >${odds(o)}
+            <span class="cq-act-label">${a.label}</span>${cost
+              ? price(cost, { have: life.purse })
+              : nothing}${odds(o)}
             <span class="cq-act-why">${check.ok ? "" : check.why}</span>
           </button>`;
         })}

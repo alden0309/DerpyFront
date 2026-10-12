@@ -28,6 +28,7 @@ import {
   siblingsOf,
   skillOf,
   stationOf,
+  weddingCost, // LEDGER (r15)
 } from "../../engine/LifeQueries";
 import {
   ATTRIBUTE_HELP,
@@ -64,6 +65,7 @@ import {
 import { roleOf, verdictChip } from "./Here";
 import { personR11 } from "./Livelihood";
 import { partnerCard } from "./Partners"; // PARTNERS (r13)
+import { price, splitPrice } from "./Price"; // LEDGER (r15)
 import { eduChip } from "./Schooling"; // EDU (r13)
 import { sittingPrompt } from "./Sitting";
 import { personSociety } from "./Society"; // SOCIETY (r11)
@@ -722,6 +724,15 @@ function actsSection(ui: GameUi, c: Character): TemplateResult {
               .map(({ act, arg, view }) => {
                 const def = INTERACTIONS[act];
                 const hostile = gr === "hostile";
+                // LEDGER (r15): what it costs, on the button.
+                const said = splitPrice(view.label ?? def.label);
+                const cost =
+                  said.cost ??
+                  (act === "propose"
+                    ? weddingCost(s, life)
+                    : act === "gift"
+                      ? Math.max(1, Math.round(arg ?? 5))
+                      : null);
                 return html`<button
                   class="cq-int ${hostile ? "rough" : ""} ${view.will
                     ? "lit"
@@ -730,7 +741,8 @@ function actsSection(ui: GameUi, c: Character): TemplateResult {
                   title=${view.check.ok ? def.text : `${view.check.why}`}
                   @click=${() => ui.modal({ k: "interact", c: c.id, act, arg })}
                 >
-                  <span class="cq-int-label">${view.label ?? def.label}</span>
+                  <span class="cq-int-label">${said.text}</span>
+                  ${cost ? price(cost, { have: life.purse }) : nothing}
                   ${verdictChip(view)}
                   <span class="cq-act-why"
                     >${view.check.ok ? "" : view.check.why}</span

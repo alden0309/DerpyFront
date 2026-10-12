@@ -75,6 +75,7 @@ import {
   token,
 } from "./Context";
 import { verdictChip } from "./Here";
+import { price, splitPrice } from "./Price"; // LEDGER (r15)
 import { steadyOrder } from "./Steady";
 
 // ---------------------------------------------------------------- offices
@@ -372,7 +373,7 @@ function powerRow(ui: GameUi, o: LocalOffice, pw: OfficePower): TemplateResult {
   const chance = powerOdds(s, life, pw);
   return html`<li class="cq-pw">
     <div class="cq-pw-text">
-      <b>${powerLabel(s, o, pw)}</b>
+      <b>${splitPrice(powerLabel(s, o, pw)).text}</b>
       <span class="small">${pw.text}</span>
       ${pw.check
         ? html`<span class="cq-muted small"
@@ -430,7 +431,7 @@ function powerRow(ui: GameUi, o: LocalOffice, pw: OfficePower): TemplateResult {
           </div>`
         : nothing}
       ${action(
-        pw.cost ? `Do it (${pw.cost})` : "Do it",
+        html`Do it${pw.cost ? price(pw.cost, { have: life.purse }) : nothing}`,
         powerCheck(s, ui.w, life, o, pw.key),
         () =>
           void ui.cmd({
@@ -719,7 +720,7 @@ export function foundingPage(ui: GameUi): TemplateResult {
                         arg: foundDraft.terms,
                       })}
                   >
-                    Plant it here (${FOUND.start})
+                    Plant it here${price(FOUND.start, { have: life.purse })}
                   </button>
                 </li>`;
               })}
@@ -806,7 +807,10 @@ export function foundingPage(ui: GameUi): TemplateResult {
         ${f.stage === "planning"
           ? html`<div class="cq-btnrow">
               ${action(
-                `Lay in supplies (${Math.max(1, need - Math.floor(f.supplies))})`,
+                html`Lay in
+                supplies${price(Math.max(1, need - Math.floor(f.supplies)), {
+                  have: life.purse,
+                })}`,
                 f.supplies >= need
                   ? { ok: false, why: "Enough laid in." }
                   : life.purse < Math.max(1, need - f.supplies)
@@ -862,7 +866,11 @@ export function foundingPage(ui: GameUi): TemplateResult {
     ${f.stage === "planning"
       ? html`<div class="cq-btnrow end">
           ${action(
-            `Set out (passage ${FOUND.passagePer * f.settlers.length})`,
+            html`Set
+            out${price(FOUND.passagePer * f.settlers.length, {
+              have: life.purse,
+              note: "the families' passage",
+            })}`,
             go,
             async () => {
               if (await ui.cmd({ k: "society", act: "setout" })) play("bell");
