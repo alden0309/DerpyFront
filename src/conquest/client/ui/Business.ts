@@ -81,6 +81,7 @@ import { action, breakdownTip, GameUi, more, section, token } from "./Context";
 import { howTo, pageHead } from "./Nav";
 import { oddsPanel } from "./Odds";
 import { coins, price, priceWords } from "./Price";
+import { term } from "./Terms";
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 const signed = (v: number) =>
@@ -384,7 +385,9 @@ function bizCard(ui: GameUi, pr: Property): TemplateResult {
         <span class="cq-stat-note">${mindWords(v)}</span>
       </div>
       <div class="cq-stat">
-        <span class="cq-stat-label">The town's custom</span>
+        <span class="cq-stat-label"
+          >${term("custom", "The town's custom")}</span
+        >
         ${num(
           `${r1(tc.free)} of ${r1(tc.room)}`,
           () => ({

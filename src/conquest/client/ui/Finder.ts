@@ -8,6 +8,7 @@ import { html, nothing, TemplateResult } from "lit";
 import { ref } from "lit/directives/ref.js";
 import { areasOf, homeHere } from "../../engine/Areas"; // HOME (r12)
 import { BOATS } from "../../engine/Boats";
+import { bizTradesAt } from "../../engine/Business"; // BUSINESS (r15)
 import { dateOf } from "../../engine/Calendar"; // MAP (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
 import { STALL_SECONDS, tableAt } from "../../engine/DiceCore"; // DICE (r14)
@@ -1321,6 +1322,107 @@ const GOALS: Goal[] = [
     guide: "ledger",
   },
   // ---- end LEDGER (r15)
+  // ---- BUSINESS (r15): starting a business, and a trading company
+  {
+    id: "start-business",
+    title: "Start a business of my own",
+    words:
+      "start business own set up open shop store inn tavern forge mill farm ship printing house brewhouse trade alone",
+    group: "Money and home",
+    where:
+      "Start a business… (Estate › Business, the market, or Work › Find work): choose the kind and size, see what it costs and its months one by one (when it starts making money, when it's paid for itself), what drives its takings and the risks; then set it up alone, or draw up articles with a partner.",
+    needs: (ui) => {
+      const life = ui.life!;
+      const kinds = life.travel ? 0 : bizTradesAt(ui.s, ui.w, life.prov).length;
+      return [
+        adult(ui),
+        {
+          label: life.travel
+            ? "In a town (you're on the road)"
+            : kinds
+              ? `${ui.map.provinces[life.prov].name} has the place for ${kinds} kinds`
+              : `${ui.map.provinces[life.prov].name} has no place for a business`,
+          met: kinds > 0,
+        },
+      ];
+    },
+    go: (ui) => ui.modal({ k: "startbiz" }),
+    goLabel: "Start a business…",
+    guide: "business",
+  },
+  {
+    id: "business-losing",
+    title: "Find out why my business is losing money",
+    words:
+      "losing money business loss why profit hands custom minded away manager too big rivals season shop inn",
+    group: "Money and home",
+    where:
+      "Estate › Business: each business's page says why it makes or loses money, the worst first (nobody minding it, not your trade, too many hands for the town's custom, too big a place, the season, its first months), with its month's account and a year's chart. A business that loses two months running tells you in your journal.",
+    needs: (ui) => [
+      {
+        label: (ui.life!.property ?? []).some((p) => p.kind === "business")
+          ? "A business of your own"
+          : "A business of your own, or a partnership",
+        met:
+          (ui.life!.property ?? []).some((p) => p.kind === "business") ||
+          firmsWith(ui.s, ui.life!.c).length > 0,
+      },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "business" }),
+    goLabel: "Estate › Business",
+    guide: "business",
+  },
+  {
+    id: "business-manager",
+    title: "Have someone mind my business",
+    words:
+      "manager mind business away travel run shop inn steward foreman clerk while I'm gone",
+    group: "Money and home",
+    where:
+      "Estate › Business, on the business's page: A manager. One of your people (People › Your people: a clerk, a hand, a mate...) minds it while you're away or busy, with their own skill in the trade. Unminded, a business takes 0.6 of its takings.",
+    needs: (ui) => [
+      {
+        label: (ui.life!.people ?? []).length
+          ? "Someone in your service"
+          : "Someone in your service (hire them at the tavern, the market or the docks)",
+        met: (ui.life!.people ?? []).length > 0,
+      },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "business" }),
+    goLabel: "Estate › Business",
+    guide: "business",
+  },
+  {
+    id: "trading-company",
+    title: "Start a trading company",
+    words:
+      "trading company goods tobacco furs sugar rum molasses fish timber flour iron cloth wine export ship cargo factor route",
+    group: "Money and home",
+    where:
+      "Start a business… › A trading company: choose its goods, where it sells them (Europe or another port), the loads a cargo and how often; the odds of a voyage show before you commit (sold, spoiled, wrecked, taken, seized) and what it should make a month once it's going. Alone, or with partners (Articles…). Set up at a port with a market and docks.",
+    needs: (ui) => [
+      adult(ui),
+      inTown(ui, "docks", "docks"),
+      coins(ui, 15, "to set it up, and a chest for its cargoes"),
+    ],
+    go: (ui) => ui.modal({ k: "startbiz" }),
+    goLabel: "Start a business…",
+    guide: "business",
+  },
+  {
+    id: "silent-partner",
+    title: "Put money into someone's business",
+    words:
+      "silent partner invest money share someone's business inn store dividend income passive",
+    group: "Money and home",
+    where:
+      "Their card: In business › Propose a partnership, then the preset Put money into their business as a silent partner: it fills in a fair share for what you put in, says what it should bring you a month, and they run it. Your share of its profit comes every month.",
+    needs: (ui) => [adult(ui)],
+    go: place("market"),
+    goLabel: "Go to the market",
+    guide: "partners",
+  },
+  // ---- end BUSINESS (r15)
   // ---- EVENTS (r15): things that happen, and the pace of them
   {
     id: "events-waiting",
