@@ -7,6 +7,7 @@
 // of the world: lovers, rivals, petitioners, hosts, blackmailers.
 
 import { dateOf } from "./Calendar";
+import { wouldBeg } from "./EventPacing"; // EVENTS (r15)
 import { Explain } from "./Explain";
 import { charterAcceptance, grantCharter } from "./Founding";
 import type { ConquestGame } from "./Game";
@@ -1754,9 +1755,11 @@ export function postMonthly(g: ConquestGame): void {
             { ask: true, arg: demand },
           );
         });
-      if (t === "friend" && far(c) && r.chance(0.5))
+      // EVENTS (r15): rich people don't beg: only what they're short of.
+      const asks = [5, 10, 15].filter((a) => wouldBeg(s, c, a));
+      if (t === "friend" && far(c) && asks.length && r.chance(0.5))
         options.push(() => {
-          const ask = r.pick([5, 10, 15])!;
+          const ask = r.pick(asks)!;
           npcWrite(
             g,
             life,
@@ -1774,6 +1777,7 @@ export function postMonthly(g: ConquestGame): void {
         (c) =>
           c?.alive &&
           !c.abroad &&
+          !lifeOfChar(s, c.id) && // EVENTS (r15)
           (c.role === "merchant" ||
             c.role === "captain" ||
             c.role === "planter") &&

@@ -969,7 +969,13 @@ function tiesMonthly(g: ConquestGame, life: Life, me: Character): void {
   for (const [key, tie] of Object.entries(life.ties)) {
     if (tie !== "rival") continue;
     const c = s.chars[Number(key)];
-    if (c && opinionOf(s, c, life).total <= -70 && g.rng.chance(0.15))
+    // EVENTS (r15): another player swears enmity for themselves, or doesn't.
+    if (
+      c &&
+      !isPlayed(s, c.id) &&
+      opinionOf(s, c, life).total <= -70 &&
+      g.rng.chance(0.15)
+    )
       raiseLifeEvent(g, life, "nemesis-sworn", { c: c.id });
   }
   void me;

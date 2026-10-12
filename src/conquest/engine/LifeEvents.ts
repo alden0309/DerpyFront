@@ -1427,10 +1427,10 @@ const BASE_EVENTS: LifeEventDef[] = [
     key: "friend-loan",
     pool: "any",
     cooldown: 700,
+    // EVENTS (r15): a friend who's really short of it; never another player.
     when: (g, life) => {
-      const f = Object.entries(life.ties).find(([, t]) => t === "friend");
-      const c = f ? g.s.chars[Number(f[0])] : undefined;
-      return c?.alive && life.purse >= 10 ? { c: c.id } : null;
+      const c = needyFriend(g.s, life, 8);
+      return c && life.purse >= 10 ? { c: c.id } : null;
     },
     title: "A friend in need",
     body: (g, life, ctx) =>
@@ -3630,6 +3630,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   ...SOCIETY_EVENTS, // SOCIETY (r11)
   ...DUEL_EVENTS, // HOME (r12): duels as a chain of scenes
   ...SEASON_EVENTS, // MAP (r12)
+  ...R15_EVENTS, // EVENTS (r15)
 ];
 
 // ---------------------------------------------------------------- a few calls out
@@ -3637,6 +3638,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
 import { DICE_EVENTS } from "./DiceEvents"; // DICE (r14)
 import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
 import { EDU_EVENTS } from "./EduEvents"; // EDU (r13)
+import { needyFriend } from "./EventPacing"; // EVENTS (r15)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
@@ -3644,6 +3646,7 @@ import { joinMovement, riseFor } from "./Movements";
 import { PARTNER_EVENTS } from "./PartnerEvents"; // PARTNERS (r13)
 import { POWER_DEFAULTS, POWER_EVENTS } from "./PowerEvents"; // POWER (r12)
 import { R11_EVENTS } from "./R11Events";
+import { R15_EVENTS } from "./R15Events"; // EVENTS (r15)
 import { SEASON_EVENTS } from "./SeasonLife"; // MAP (r12)
 import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
@@ -3792,7 +3795,8 @@ function figureOf(
   const job = life.job;
   const scene = SCENES[def.key] ?? SCENES[`${def.key.split("-")[0]}-`];
   if (job && !job.own && scene === job.place && g.s.chars[job.employer]?.alive)
-    return job.employer;
+    // EVENTS (r15): a player who employs you isn't stood in a scene they never played.
+    return g.s.lives.some((l) => l.c === job.employer) ? -1 : job.employer;
   return -1;
 }
 
@@ -3881,6 +3885,7 @@ function fire(g: ConquestGame, life: Life, def: LifeEventDef, ctx: LCtx): void {
   life.cooldowns[`ev:${def.key}`] = g.s.day + gap;
   life.events.push(render(g, life, def, ctx));
   life.tally.events++;
+  for (const h of hooks.eventFired) h(g, life, def.key, def.pool); // EVENTS (r15)
 }
 
 /** The game puts an event to a player (a rising's hour, an arrest, an invitation). */
@@ -3922,7 +3927,11 @@ export function lifeEventsDaily(
     if ((life.cooldowns[`ev:${def.key}`] ?? 0) > s.day) continue;
     const ctx = def.when ? def.when(g, life) : {};
     if (!ctx) continue;
-    options.push({ def, ctx, w: def.weight ?? 1 });
+    // EVENTS (r15): families rest, weights fade, no other player's words.
+    let w = def.weight ?? 1;
+    for (const h of hooks.eventWeight)
+      w = h(g, life, def.key, def.pool, ctx, w);
+    if (w > 0) options.push({ def, ctx, w });
   }
   const total = options.reduce((m, o) => m + o.w, 0);
   if (total <= 0) return;

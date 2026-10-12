@@ -8,6 +8,7 @@
 // in trades that need no master.
 
 import { CRIME_BACKGROUNDS, knowsDen, underworldContact } from "./CrimeQueries";
+import { played } from "./EventPacing"; // EVENTS (r15)
 import type { ConquestGame } from "./Game";
 import { interpreterCheck } from "./Interpreters"; // wave 2 (r11)
 import { jobGroupOf, type JobGroup, type JobRequires } from "./JobsData";
@@ -405,7 +406,9 @@ export function shirkDay(
   const job = life.job;
   if (!job || job.own || effortOf(life) !== "shirk") return;
   const boss = g.s.chars[job.employer];
-  if (!boss?.alive || !g.rng.chance(SHIRK_CAUGHT)) return;
+  // EVENTS (r15): a player employer catches nobody idling but by looking.
+  if (!boss?.alive || played(g.s, boss.id) || !g.rng.chance(SHIRK_CAUGHT))
+    return;
   const w = workState(g, life);
   w.caught = (w.caught ?? 0) + 1;
   remembers(g, life, boss, "Shirks", -8, 0.5);
