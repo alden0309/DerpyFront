@@ -183,6 +183,49 @@ export function play(kind: SoundKind): void {
   });
 }
 
+// ---------------------------------------------------------------- DICE (r14)
+
+/**
+ * Dice made of nothing but noise: the rattle of dice shaken in a leather cup
+ * (a run of short bright clicks), and the knock of cups lifted off the board
+ * (a dull thump). Made on the spot, so there's no recording to load.
+ */
+export function playDice(kind: "rattle" | "lift"): void {
+  if (!settings.sfx || !unlocked) return;
+  const a = context();
+  if (!a || !sfxGain) return;
+  const t0 = a.currentTime + 0.02;
+  const burst = (at: number, len: number, freq: number, gain: number) => {
+    const n = Math.max(1, Math.floor(a.sampleRate * len));
+    const buf = a.createBuffer(1, n, a.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++)
+      d[i] = (Math.random() * 2 - 1) * (1 - i / n) ** 3;
+    const src = a.createBufferSource();
+    src.buffer = buf;
+    const f = a.createBiquadFilter();
+    f.type = "bandpass";
+    f.frequency.value = freq;
+    f.Q.value = 1.4;
+    const g = a.createGain();
+    g.gain.value = gain;
+    src.connect(f).connect(g).connect(sfxGain!);
+    src.start(at);
+  };
+  if (kind === "rattle") {
+    let at = t0;
+    for (let i = 0; i < 11; i++) {
+      at += 0.035 + Math.random() * 0.05;
+      burst(at, 0.025, 2200 + Math.random() * 1800, 0.55 + Math.random() * 0.3);
+    }
+    // The cup set down on the board.
+    burst(at + 0.09, 0.09, 260, 1.1);
+  } else {
+    burst(t0, 0.12, 180, 1.3);
+    burst(t0 + 0.05, 0.05, 1400, 0.4);
+  }
+}
+
 // ---------------------------------------------------------------- music
 
 class MusicPlayer {

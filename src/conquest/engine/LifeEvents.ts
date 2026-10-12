@@ -3634,6 +3634,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
 
 // ---------------------------------------------------------------- a few calls out
 
+import { DICE_EVENTS } from "./DiceEvents"; // DICE (r14)
 import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
 import { EDU_EVENTS } from "./EduEvents"; // EDU (r13)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
@@ -3684,8 +3685,9 @@ function byKey(key: string): LifeEventDef | undefined {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
       }
-    // EDU (r13): letters from children away at school, with a master, at college.
-    for (const d of EDU_EVENTS)
+    // EDU (r13): letters from children away at school, with a master, at
+    // college; DICE (r14): an invitation to the dice, a cheat, a sore loser.
+    for (const d of [...EDU_EVENTS, ...DICE_EVENTS])
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);

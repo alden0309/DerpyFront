@@ -290,6 +290,23 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     check: (g, l) =>
       g.s.movements.some((m) => m.leader === l.c || m.members.includes(l.c)),
   },
+  // DICE (r14): Liar's dice in the tavern (counted by Dice.ts).
+  {
+    key: "dice-last",
+    name: "Down to the last die",
+    how: "Win a game of Liar's dice with one die left under your cup.",
+    coins: 2,
+    group: "society",
+    check: (_g, l) => achCount(l, "dice-last") > 0,
+  },
+  {
+    key: "dice-full",
+    name: "The whole table",
+    how: "Win a game of Liar's dice against five others.",
+    coins: 2,
+    group: "society",
+    check: (_g, l) => achCount(l, "dice-full") > 0,
+  },
   // ---- office and power
   {
     key: "local-office",

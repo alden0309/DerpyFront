@@ -1,0 +1,1094 @@
+/* ===== DICE (r14): Liar's dice at the tavern table =====
+   The painted tavern behind; the others seated round a dark oak board,
+   each with their leather cup, the dice they have left as pips, and their
+   last word in a bubble; the bid standing in the middle of the board; your
+   own dice large under your raised cup; the bid picker, Raise and Liar!
+   Bone dice with black pips, a red pip for a wild one. */
+
+.cq-modal.scene.dice {
+  width: min(1080px, 100%);
+}
+.cq-dice {
+  position: relative;
+}
+
+/* ---------------------------------------------------------------- the stage */
+
+.cq-dice-stage {
+  position: relative;
+  overflow: hidden;
+  background: #1c120a;
+  border-bottom: 3px solid #b88a34;
+  box-shadow: 0 2px 0 #5a3f18;
+  isolation: isolate;
+  padding: 2.5rem 1.2rem 0;
+  display: flex;
+  flex-direction: column;
+}
+.cq-dice-stage .cq-scene-bg {
+  background-position: center 30%;
+  filter: sepia(0.25) saturate(0.8) contrast(1.02) brightness(0.62) blur(1px);
+}
+.cq-dice-stage .cq-scene-light,
+.cq-dice-stage .cq-scene-bg {
+  z-index: 0;
+}
+.cq-dice-stage.short {
+  height: 150px;
+  padding: 0;
+  justify-content: flex-end;
+  align-items: center;
+}
+.cq-dice-spread {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.6rem;
+  margin-bottom: 1.9rem;
+}
+.cq-dice-spread .cq-die {
+  width: 2.1rem;
+  height: 2.1rem;
+}
+.cq-dice-spread .cq-die:nth-child(3) {
+  rotate: -14deg;
+}
+.cq-dice-spread .cq-die:nth-child(4) {
+  rotate: 9deg;
+}
+
+/* The others, seated round the board. */
+.cq-dice-ring {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: end;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+.cq-dice-ring.n1 {
+  max-width: 260px;
+}
+.cq-dice-ring.n2 {
+  max-width: 520px;
+}
+.cq-dice-ring.n3 {
+  max-width: 720px;
+}
+.cq-dice-seat {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.cq-dice-say {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 2.9rem;
+  width: 100%;
+  margin-bottom: 0.3rem;
+}
+.cq-dice-bubble {
+  position: relative;
+  max-width: 100%;
+  padding: 0.25rem 0.65rem 0.3rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.88rem;
+  line-height: 1.2;
+  color: var(--ink);
+  background: var(--vellum);
+  border: 1px solid var(--sepia);
+  border-radius: 0.9rem;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  animation: cq-pop 0.35s both;
+}
+.cq-dice-bubble.liar {
+  font-family: var(--fell-sc);
+  font-style: normal;
+  font-size: 1rem;
+  color: #fbf1dc;
+  background: linear-gradient(#a3321f, #7c2214);
+  border-color: #5a160c;
+}
+.cq-dice-sitter {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+.cq-dice-likeness.cq-portrait {
+  width: 4.8rem;
+  height: 6rem;
+  border-width: 3px;
+  transition:
+    box-shadow 0.3s,
+    filter 0.3s,
+    opacity 0.3s;
+}
+.cq-dice-seat[style*="--frame"] .cq-nameplate {
+  border-color: var(--frame);
+}
+.cq-dice-seat.turn .cq-dice-likeness {
+  box-shadow:
+    0 0 0 3px #f0d27a,
+    0 0 26px 8px rgba(240, 200, 110, 0.6);
+  animation: cq-dice-glow 1.6s ease-in-out infinite alternate;
+}
+@keyframes cq-dice-glow {
+  to {
+    box-shadow:
+      0 0 0 3px #f6e3a0,
+      0 0 34px 12px rgba(240, 200, 110, 0.75);
+  }
+}
+.cq-dice-seat.out .cq-dice-likeness,
+.cq-dice-seat.gone .cq-dice-likeness {
+  filter: grayscale(0.85) sepia(0.3);
+  opacity: 0.55;
+}
+.cq-dice-turn {
+  position: absolute;
+  bottom: -0.35rem;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 2;
+  padding: 0 0.5rem;
+  font-family: var(--fell-sc);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  white-space: nowrap;
+  color: #2b1d12;
+  background: linear-gradient(#f6e3a0, #d9b45a);
+  border: 1px solid #8a6420;
+  border-radius: 1rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.cq-dice-turn.out {
+  color: #e8dcc0;
+  background: #3b2a1b;
+  border-color: #6b5338;
+}
+.cq-dice-turn b {
+  font-family: var(--sans);
+  font-weight: 700;
+}
+.cq-dice-seat .cq-nameplate {
+  margin-top: 0.3rem;
+  padding: 0.18rem 0.6rem 0.22rem;
+  max-width: 100%;
+}
+.cq-dice-seat .cq-nameplate b {
+  font-size: 0.95rem;
+}
+.cq-dice-seat .cq-nameplate small {
+  font-size: 0.72rem;
+}
+.cq-dice-seat.me .cq-nameplate {
+  border-color: #e9c766;
+}
+
+/* A cup on the board, and the dice left as pips (or the dice, lifted). */
+.cq-dice-spot {
+  position: relative;
+  z-index: 4;
+  height: 3.9rem;
+  margin-top: 0.3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.2rem;
+}
+.cq-dice-cupart {
+  width: 2.7rem;
+  height: 2.5rem;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.55));
+}
+.cq-dice-spot .cq-dice-cupart.lift {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  animation: cq-cup-lift 0.8s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+  pointer-events: none;
+}
+@keyframes cq-cup-lift {
+  from {
+    transform: none;
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-3.4rem) rotate(-14deg);
+    opacity: 0;
+  }
+}
+.cq-dice-pips {
+  display: flex;
+  gap: 0.18rem;
+}
+.cq-dice-pips i {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  border: 1px solid rgba(233, 199, 102, 0.8);
+}
+.cq-dice-pips i.on {
+  background: #e9c766;
+  box-shadow: 0 0 4px rgba(233, 199, 102, 0.6);
+}
+.cq-dice-shown {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.15rem;
+  max-width: 5.6rem;
+  animation: cq-dice-in 0.5s 0.25s both;
+}
+.cq-dice-shown .cq-die {
+  width: 1.55rem;
+  height: 1.55rem;
+}
+@keyframes cq-dice-in {
+  from {
+    transform: translateY(6px) scale(0.85);
+    opacity: 0;
+  }
+}
+
+/* The oak board, curving up behind the cups. */
+.cq-dice-board {
+  position: relative;
+  z-index: 2;
+  margin: -3.3rem -1.2rem 0;
+  padding: 3.6rem 1.2rem 1rem;
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr) 8rem;
+  align-items: center;
+  min-height: 8.4rem;
+  background:
+    radial-gradient(
+      ellipse 60% 70% at 50% 18%,
+      rgba(255, 205, 130, 0.2),
+      transparent 70%
+    ),
+    repeating-linear-gradient(
+      91deg,
+      rgba(0, 0, 0, 0.07) 0 2px,
+      transparent 2px 11px
+    ),
+    linear-gradient(#6e4524, #4b2d17 55%, #36200f);
+  border-radius: 50% 50% 0 0 / 2.6rem 2.6rem 0 0;
+  box-shadow:
+    inset 0 3px 0 rgba(255, 220, 160, 0.22),
+    inset 0 -14px 24px rgba(0, 0, 0, 0.35),
+    0 -6px 18px rgba(0, 0, 0, 0.45);
+}
+.cq-dice-pot {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #f2e6c6;
+  font-family: var(--fell);
+  font-size: 1rem;
+}
+.cq-dice-pot b {
+  font-family: var(--fell-sc);
+  font-size: 1.25rem;
+  color: #f0d27a;
+}
+.cq-dice-coins {
+  width: 2.6rem;
+  height: 2.4rem;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.6));
+}
+.cq-dice-board-line {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: #fbf1dc;
+  min-height: 4.6rem;
+  justify-content: center;
+}
+.cq-dice-tally {
+  font-family: var(--fell-sc);
+  font-size: 1.55rem;
+  line-height: 1.15;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.cq-dice-tally b {
+  color: #f0d27a;
+}
+.cq-dice-board-line.reveal.falls .cq-dice-tally b {
+  color: #f08c74;
+}
+.cq-dice-board-line.won .cq-dice-tally {
+  color: #f6e3a0;
+}
+.cq-dice-sub {
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: #d9c08b;
+}
+.cq-dice-bidbig {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  animation: cq-pop 0.35s both;
+}
+.cq-dice-bidbig b {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 3rem;
+  line-height: 1;
+  color: #fbf1dc;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);
+}
+.cq-dice-bidbig i {
+  font-family: var(--fell);
+  font-style: normal;
+  font-size: 1.6rem;
+  color: #d9c08b;
+}
+.cq-die.big {
+  width: 3.1rem;
+  height: 3.1rem;
+}
+.cq-dice-lastline {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- a die */
+
+.cq-die {
+  display: inline-block;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  overflow: visible;
+  filter: drop-shadow(0 2px 2px rgba(30, 18, 6, 0.45));
+}
+.cq-die-body {
+  fill: #f1e6cb;
+  stroke: #7a5a32;
+  stroke-width: 3;
+}
+.cq-die-shine {
+  fill: rgba(255, 255, 255, 0.35);
+}
+.cq-die-pip {
+  fill: #1f140b;
+}
+.cq-die.wild .cq-die-pip {
+  fill: #9e2a1e;
+}
+.cq-die.hit {
+  filter: drop-shadow(0 0 5px rgba(240, 200, 100, 0.95))
+    drop-shadow(0 2px 2px rgba(30, 18, 6, 0.45));
+}
+.cq-die.hit .cq-die-body {
+  stroke: #d9a82e;
+  stroke-width: 6;
+}
+.cq-die.miss {
+  opacity: 0.42;
+}
+
+/* ---------------------------------------------------------------- below the board */
+
+.cq-dice-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
+  gap: 1rem 1.6rem;
+  margin: 0.8rem 1.8rem 0;
+  animation: cq-fade-up 0.5s 0.3s both;
+}
+.cq-dice-h {
+  margin: 0 0 0.45rem;
+  padding-bottom: 0.2rem;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.15rem;
+  color: var(--nation-deep);
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.cq-dice-h.small {
+  font-size: 0.98rem;
+  margin-top: 0.6rem;
+}
+
+/* Your cup, raised, and your dice under it. */
+.cq-dice-yours {
+  position: relative;
+  padding: 0.2rem 0 0 3.6rem;
+  min-height: 4.6rem;
+}
+.cq-dice-yours .cq-dice-cupart.up {
+  position: absolute;
+  left: 0;
+  top: -0.2rem;
+  width: 3.1rem;
+  height: 2.9rem;
+  rotate: -24deg;
+  translate: 0 -0.2rem;
+}
+.cq-dice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  min-height: 3.7rem;
+  align-items: center;
+}
+.cq-dice-row .cq-die {
+  width: 3.2rem;
+  height: 3.2rem;
+}
+.cq-dice-wild {
+  margin: 0.3rem 0 0;
+  color: var(--ink-soft);
+}
+.cq-dice-tell {
+  min-height: 2.5rem;
+  margin-top: 0.4rem;
+}
+.cq-dice-tell p {
+  margin: 0;
+  padding: 0.35rem 0.7rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 1.02rem;
+  line-height: 1.3;
+  background: rgba(201, 155, 58, 0.12);
+  border-left: 3px solid var(--brass);
+  animation: cq-fade-up 0.4s both;
+}
+/* The last four moves of the round, newest at the foot, in a fixed space. */
+.cq-dice-history ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  height: 6.2rem;
+  overflow: hidden;
+}
+.cq-dice-history li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.1rem 0;
+  border-bottom: 1px dotted var(--rule);
+  font-size: 0.95rem;
+}
+.cq-dice-history li .who {
+  min-width: 5.5rem;
+  font-family: var(--fell-sc);
+  color: var(--ink-soft);
+}
+.cq-dice-history li .what {
+  font-family: var(--fell);
+}
+.cq-dice-history li.liar .what {
+  color: var(--seal);
+  font-family: var(--fell-sc);
+}
+.cq-dice-history li.blank {
+  color: var(--ink-soft);
+  font-style: italic;
+  border: none;
+}
+
+/* The picker. */
+.cq-dice-play.idle .cq-dice-pick {
+  opacity: 0.6;
+}
+.cq-dice-pick {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem 0.9rem;
+  transition: opacity 0.3s;
+}
+.cq-dice-qty {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.cq-dice-step {
+  width: 2.3rem;
+  height: 2.3rem;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--ink);
+  background: linear-gradient(#fbf3de, #eadcb8);
+  border: 1px solid var(--sepia);
+  border-radius: 50%;
+  cursor: pointer;
+}
+.cq-dice-step:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.cq-dice-q {
+  min-width: 2.2rem;
+  text-align: center;
+  font-family: var(--fell);
+  font-size: 2.1rem;
+  line-height: 1;
+}
+.cq-dice-q b {
+  font-weight: 400;
+}
+.cq-dice-times {
+  font-family: var(--fell);
+  font-size: 1.4rem;
+  color: var(--ink-soft);
+}
+.cq-dice-faces {
+  display: flex;
+  gap: 0.3rem;
+}
+.cq-dice-face {
+  padding: 0.18rem;
+  background: none;
+  border: 2px solid transparent;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  line-height: 0;
+}
+.cq-dice-face .cq-die {
+  width: 2.35rem;
+  height: 2.35rem;
+}
+.cq-dice-face.on {
+  border-color: #c99b3a;
+  background: rgba(201, 155, 58, 0.18);
+}
+.cq-dice-face:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+.cq-dice-face:focus-visible,
+.cq-dice-step:focus-visible {
+  outline: 2px solid var(--nation);
+  outline-offset: 2px;
+}
+.cq-dice-odds {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  min-height: 1.6rem;
+  font-size: 1rem;
+}
+.cq-dice-odds.dim {
+  opacity: 0.6;
+}
+.cq-dice-odds.sub {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.cq-dice-odds.sub b.good,
+.cq-dice-chance.good {
+  color: var(--verdigris);
+}
+.cq-dice-odds.sub b.bad,
+.cq-dice-chance.bad {
+  color: var(--seal);
+}
+.cq-dice-odds-bid {
+  font-family: var(--fell);
+}
+.cq-dice-chance {
+  font-family: var(--fell-sc);
+  font-size: 1.05rem;
+  border-bottom: 1px dotted currentColor;
+}
+.cq-dice-bar {
+  display: inline-block;
+  width: 6.5rem;
+  height: 0.42rem;
+  background: rgba(138, 106, 62, 0.2);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.cq-dice-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #9e2a1e, #c99b3a 45%, #2c6a4c);
+  background-size: 6.5rem 100%;
+  transition: width 0.3s;
+}
+.cq-dice-acts {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+.cq-dice-acts .cq-btn {
+  min-height: 2.9rem;
+  margin: 0;
+}
+.cq-dice-raise span {
+  font-family: var(--fell);
+  font-style: italic;
+}
+.cq-dice-liar {
+  font-family: var(--fell-sc);
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  color: #fbf1dc;
+  background: linear-gradient(#a3321f, #7c2214);
+  border-color: #5a160c;
+}
+.cq-dice-liar:not(:disabled):hover {
+  background: linear-gradient(#b53a24, #8a2716);
+}
+.cq-dice-status {
+  min-height: 1.5em;
+  margin: 0.45rem 0 0;
+  font-family: var(--fell);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.cq-dice-status.now {
+  color: var(--verdigris);
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* Gathering: who's sitting down, who's asked, who won't. */
+.cq-dice-who,
+.cq-dice-places {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.cq-dice-who li,
+.cq-dice-places li {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.cq-dice-who li > span,
+.cq-dice-places li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.cq-dice-who li.asked {
+  opacity: 0.8;
+}
+.cq-dice-who li.asked .cq-portrait {
+  border-style: dashed;
+}
+.cq-dice-who li.refused {
+  opacity: 0.65;
+}
+.cq-dice-places li .n {
+  width: 1.3rem;
+  font-family: var(--fell-sc);
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+.cq-dice-places li.won .n {
+  color: #a87d1f;
+}
+.cq-dice-places li.won b {
+  color: var(--verdigris);
+}
+.cq-dice-play.end .cq-fx {
+  margin: 0;
+}
+
+.cq-dice-foot {
+  margin: 0.7rem 1.8rem 0;
+  flex-wrap: wrap;
+}
+.cq-dice-foot p {
+  margin: 0;
+  flex: 1 1 18rem;
+}
+.cq-dice-foot .cq-link {
+  margin-left: 0.3rem;
+}
+.cq-dice-foot-btns {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* ---------------------------------------------------------------- opening a table */
+
+.cq-dice-open {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr);
+  grid-template-rows: auto 1fr;
+  gap: 0.8rem 1.6rem;
+  margin: 1rem 1.8rem 0;
+}
+.cq-dice-open > section:nth-child(2) {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.cq-dice-stakes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.cq-dice-stake {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  padding: 0.45rem 0.2rem 0.4rem;
+  color: var(--ink);
+  background: linear-gradient(#fbf3de, #eee2c2);
+  border: 1px solid var(--rule);
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+.cq-dice-stake b {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1.6rem;
+  line-height: 1;
+}
+.cq-dice-stake span {
+  font-style: italic;
+  color: var(--ink-soft);
+  text-align: center;
+  line-height: 1.15;
+}
+.cq-dice-stake.on {
+  border-color: #c99b3a;
+  box-shadow: inset 0 0 0 2px rgba(201, 155, 58, 0.55);
+  background: linear-gradient(#fff6dc, #f3e2b4);
+}
+.cq-dice-ask {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 22rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.cq-dice-asker {
+  border: 1px solid var(--rule);
+  border-radius: 0.4rem;
+  background: rgba(255, 250, 235, 0.5);
+}
+.cq-dice-asker.on {
+  border-color: #c99b3a;
+  background: rgba(201, 155, 58, 0.14);
+}
+.cq-dice-asker-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1.4rem auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.cq-dice-asker-row .cq-folk-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.cq-dice-asker-row .cq-folk-text b {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cq-dice-check {
+  width: 1.2rem;
+  height: 1.2rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--sepia);
+  border-radius: 0.2rem;
+  background: #fffaf0;
+  color: var(--verdigris);
+  font-weight: 700;
+  line-height: 1;
+}
+.cq-dice-why {
+  padding: 0 0.6rem 0.3rem 2.4rem;
+}
+.cq-dice-why .cq-why-list {
+  margin: 0;
+  font-size: 0.8rem;
+}
+.cq-dice-rules p {
+  margin: 0 0 0.3rem;
+  line-height: 1.4;
+}
+
+/* ---------------------------------------------------------------- in the tavern */
+
+/* A sign over the tavern's tile (the faces give way to it). */
+.cq-area-dice {
+  position: absolute;
+  left: 0.3rem;
+  right: 0.3rem;
+  top: 0.3rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-family: var(--fell-sc);
+  font-size: 0.66rem;
+  line-height: 1.35;
+  padding: 0 0.2rem;
+  color: #f6ead0;
+  background: rgba(110, 32, 20, 0.92);
+  border: 1px solid rgba(233, 199, 102, 0.75);
+  border-radius: 2px;
+}
+.cq-area-dice.mine {
+  box-shadow: 0 0 0 1px rgba(233, 199, 102, 0.7);
+}
+.cq-area-tile:has(.cq-area-dice) .cq-area-faces {
+  display: none;
+}
+.cq-area-tile:has(.cq-area-work) .cq-area-dice {
+  top: 1.35rem;
+}
+.cq-dice-fold p {
+  margin: 0 0 0.4rem;
+}
+.cq-dice-fold-faces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.cq-tray-dice .cq-tray-die {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex: none;
+}
+.cq-tray-dice .cq-tray-die rect {
+  fill: #f1e6cb;
+  stroke: #7a5a32;
+  stroke-width: 5;
+}
+.cq-tray-dice .cq-tray-die circle {
+  fill: #1f140b;
+}
+
+/* ---------------------------------------------------------------- a phone */
+
+@media (max-width: 760px) {
+  .cq-dice-stage {
+    padding: 2.4rem 0.4rem 0;
+  }
+  .cq-dice-ring {
+    gap: 0.2rem;
+  }
+  .cq-dice-say {
+    display: none;
+  }
+  .cq-dice-likeness.cq-portrait {
+    width: 3.1rem;
+    height: 3.9rem;
+    border-width: 2px;
+  }
+  .cq-dice-seat .cq-nameplate {
+    padding: 0.1rem 0.25rem 0.12rem;
+  }
+  .cq-dice-seat .cq-nameplate b {
+    font-size: 0.78rem;
+  }
+  .cq-dice-seat .cq-nameplate small {
+    display: none;
+  }
+  .cq-dice-turn {
+    font-size: 0.64rem;
+    padding: 0 0.3rem;
+  }
+  .cq-dice-spot {
+    height: 3.5rem;
+  }
+  .cq-dice-cupart {
+    width: 1.9rem;
+    height: 1.8rem;
+  }
+  .cq-dice-pips i {
+    width: 0.36rem;
+    height: 0.36rem;
+  }
+  .cq-dice-pips {
+    gap: 0.1rem;
+  }
+  .cq-dice-shown {
+    max-width: 4rem;
+  }
+  .cq-dice-shown .cq-die {
+    width: 1.12rem;
+    height: 1.12rem;
+  }
+  .cq-area-dice .long {
+    display: none;
+  }
+  .cq-dice-lastline {
+    display: block;
+    position: relative;
+    z-index: 3;
+    margin: 0.3rem 0 0.2rem;
+    min-height: 1.3rem;
+    font-family: var(--fell);
+    font-style: italic;
+    font-size: 0.86rem;
+    text-align: center;
+    color: #f2e6c6;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cq-dice-lastline b {
+    font-family: var(--fell-sc);
+    font-style: normal;
+    color: #f0d27a;
+  }
+  .cq-dice-board {
+    margin: -2.9rem -0.4rem 0;
+    padding: 3.1rem 0.6rem 1.9rem;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 7.4rem;
+    border-radius: 50% 50% 0 0 / 1.6rem 1.6rem 0 0;
+  }
+  .cq-dice-board-line {
+    grid-column: 1;
+    grid-row: 1;
+    min-height: 3.6rem;
+  }
+  .cq-dice-pot {
+    grid-row: 2;
+    justify-content: center;
+    font-size: 0.85rem;
+  }
+  .cq-dice-pot b {
+    font-size: 1rem;
+  }
+  .cq-dice-coins {
+    width: 1.6rem;
+    height: 1.5rem;
+  }
+  .cq-dice-tally {
+    font-size: 1.15rem;
+  }
+  .cq-dice-sub {
+    font-size: 0.82rem;
+  }
+  .cq-dice-bidbig b {
+    font-size: 2.1rem;
+  }
+  .cq-die.big {
+    width: 2.3rem;
+    height: 2.3rem;
+  }
+  .cq-dice-body,
+  .cq-dice-open {
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0.8rem 0.9rem 0;
+    gap: 0.9rem;
+  }
+  .cq-dice-open > section:nth-child(2) {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  /* The picker first: it's what you came to do. */
+  .cq-dice-body .cq-dice-play {
+    order: -1;
+  }
+  .cq-dice-yours {
+    padding-left: 2.6rem;
+    min-height: 4rem;
+  }
+  .cq-dice-yours .cq-dice-cupart.up {
+    width: 2.3rem;
+    height: 2.2rem;
+  }
+  .cq-dice-row {
+    gap: 0.3rem;
+    min-height: 2.8rem;
+  }
+  .cq-dice-row .cq-die {
+    width: 2.7rem;
+    height: 2.7rem;
+  }
+  .cq-dice-face .cq-die {
+    width: 2.05rem;
+    height: 2.05rem;
+  }
+  .cq-dice-step {
+    width: 2.2rem;
+    height: 2.2rem;
+  }
+  .cq-dice-q {
+    font-size: 1.8rem;
+    min-width: 1.8rem;
+  }
+  .cq-dice-history ol {
+    height: 6.2rem;
+  }
+  .cq-dice-foot {
+    margin: 0.8rem 0.9rem 0;
+  }
+  .cq-dice-ask {
+    max-height: 18rem;
+  }
+  .cq-dice-stakes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------------------------------------------------------------- still */
+
+@media (prefers-reduced-motion: reduce) {
+  .cq-dice *,
+  .cq-dice *::before,
+  .cq-dice *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .cq-dice-spot .cq-dice-cupart.lift {
+    display: none;
+  }
+}
+.cq-dice.still * {
+  animation: none !important;
+}
+.cq-dice.still .cq-dice-spot .cq-dice-cupart.lift {
+  display: none;
+}

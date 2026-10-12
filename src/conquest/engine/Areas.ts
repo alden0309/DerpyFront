@@ -11,6 +11,7 @@
 
 import { dateOf } from "./Calendar";
 import { knowsDen } from "./CrimeQueries";
+import { diceSeatedIn } from "./DiceCore"; // DICE (r14)
 import {
   familyAtHome,
   isNativeChar,
@@ -610,6 +611,21 @@ export function presence(
     if (!spot) continue;
     const area = have.has(spot.area) ? spot.area : fallback(have);
     out.get(area)?.push({ c: r.c.id, doing: spot.doing, kind: spot.kind });
+  }
+  // DICE (r14): whoever sits at a dice table here is in the tavern.
+  const seated = have.has("tavern") ? diceSeatedIn(s, p) : null;
+  if (seated?.size) {
+    const kinds = new Map<number, PresentKind>();
+    for (const [, v] of out)
+      for (let i = v.length - 1; i >= 0; i--)
+        if (seated.has(v[i].c)) kinds.set(v[i].c, v.splice(i, 1)[0].kind);
+    for (const [c, doing] of seated) {
+      const ch = s.chars[c];
+      if (!ch?.alive || ch.abroad || (life && c === life.c)) continue;
+      const kind =
+        kinds.get(c) ?? (lifeOfChar(s, c) ? "player" : ("leisure" as const));
+      out.get("tavern")!.push({ c, doing, kind });
+    }
   }
   const status = (id: number) => {
     const c = s.chars[id];

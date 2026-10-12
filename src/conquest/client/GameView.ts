@@ -70,6 +70,7 @@ import {
 import { armyPanel } from "./ui/ArmyPanel";
 import { battleDispatch, myBattleNation } from "./ui/Battle";
 import { breakdownTip, DrawerView, GameUi, Modal, token } from "./ui/Context";
+import { diceTrayItem, onDiceClock } from "./ui/DiceTable"; // DICE (r14)
 import { resetFinder } from "./ui/Finder";
 import { herePanel, provincePage } from "./ui/Here";
 import { medallionFace, onMedallionReady } from "./ui/Medallion";
@@ -377,6 +378,18 @@ export class GameView extends LitElement {
     }
     if (this.modalView?.k === "outcome")
       this.outcomeSeen = this.life?.outcome?.n ?? -1;
+    // DICE (r14): alone, the world holds still while you sit at the table
+    // (as it does for a scene); it goes on when you step away.
+    if (
+      this.solo &&
+      this.modalView?.k === "dice" &&
+      !this.paused &&
+      !this.s.over
+    ) {
+      this.autoPaused = true;
+      this.paused = true;
+      this.net.send({ t: "pause", p: true });
+    }
     // Alone, the clock stopped for a letter starts again once they're all
     // answered.
     if (
@@ -601,6 +614,11 @@ export class GameView extends LitElement {
         this.requestRender();
         return;
       }
+      // DICE (r14): how long the player whose turn it is has to bid.
+      case "diceclock":
+        onDiceClock(m);
+        this.requestRender();
+        return;
       case "ack":
       case "err":
         return;
@@ -624,7 +642,8 @@ export class GameView extends LitElement {
     const staged =
       this.modalView?.k === "event" ||
       this.modalView?.k === "interact" ||
-      this.modalView?.k === "outcome";
+      this.modalView?.k === "outcome" ||
+      this.modalView?.k === "dice"; // DICE (r14): the table shows it
     // Lines a scene is about to show aren't toasted as well.
     const o = life.outcome;
     const inScene =
@@ -1836,13 +1855,31 @@ export class GameView extends LitElement {
   /** Events waiting for an answer, each with the time it has left. */
   private eventTray(ui: GameUi): TemplateResult | typeof nothing {
     const life = ui.life;
-    if (!life || life.watching || life.events.length === 0) return nothing;
+    // DICE (r14): a table you're sitting at, while you've stepped away from it.
+    const dice = this.modalView?.k === "dice" ? null : diceTrayItem(ui);
+    if (!life || life.watching || (life.events.length === 0 && !dice))
+      return nothing;
     if (this.modalView?.k === "event") return nothing;
     return html`<div
       class="cq-letter-tray"
       role="list"
       aria-label="Waiting for an answer"
     >
+      ${dice
+        ? html`<button
+            role="listitem"
+            class="cq-tray-letter cq-tray-dice ${dice.urgent ? "urgent" : ""}"
+            @click=${() => (this.modalView = { k: "dice", id: dice.id })}
+          >
+            <svg class="cq-tray-die" viewBox="0 0 100 100" aria-hidden="true">
+              <rect x="6" y="6" width="88" height="88" rx="18" />
+              <circle cx="30" cy="30" r="9" />
+              <circle cx="70" cy="70" r="9" />
+              <circle cx="50" cy="50" r="9" />
+            </svg>
+            <span class="cq-tray-title">${dice.label}</span>
+          </button>`
+        : nothing}
       ${repeat(
         // On a phone, two at most: more would come down over the page.
         life.events.slice(0, window.innerWidth <= 820 ? 2 : 4),

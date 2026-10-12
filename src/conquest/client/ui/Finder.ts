@@ -10,6 +10,7 @@ import { areasOf, homeHere } from "../../engine/Areas"; // HOME (r12)
 import { BOATS } from "../../engine/Boats";
 import { dateOf } from "../../engine/Calendar"; // MAP (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
+import { STALL_SECONDS, tableAt } from "../../engine/DiceCore"; // DICE (r14)
 import { schoolable } from "../../engine/Edu"; // EDU (r13)
 import { buyoutPrice } from "../../engine/Firms"; // PARTNERS (r13)
 import { followerCap, peopleOf, raiseCheck } from "../../engine/Followers";
@@ -1170,6 +1171,63 @@ const GOALS: Goal[] = [
     guide: "partners",
   },
   // ---- end PARTNERS (r13)
+  // ---- DICE (r14): Liar's dice in the tavern
+  {
+    id: "dice",
+    title: "Play Liar's dice",
+    words:
+      "dice liar liars gamble gambling game bet wager stake pot tavern cards bluff play",
+    group: "People",
+    where:
+      "The tavern: Things to do › Liar's dice…. Choose the stake (2, 5, 10 or 25) and ask up to five of the people there to sit down: each says yes or no, with their reasons. Five dice each under a cup; bid on what lies under all the cups (ones are wild), or call the last bid a lie. The last with dice takes the pot. It teaches Stealth.",
+    needs: (ui) => [
+      adult(ui),
+      inTown(ui, "tavern", "tavern"),
+      {
+        label:
+          ui.life!.purse < 0
+            ? "Nobody dices with a debtor: pay what you owe first"
+            : `2 coins at least for a stake (you have ${Math.floor(ui.life!.purse)})`,
+        met: ui.life!.purse >= 2,
+      },
+    ],
+    go: (ui) => goDice(ui),
+    goLabel: "Go to the tavern's table",
+    guide: "dice",
+  },
+  {
+    id: "dice-friend",
+    title: "Play dice with a friend",
+    words:
+      "dice liar liars friend player players multiplayer together invite table game company",
+    group: "People",
+    where: `Both of you in the same town's tavern. Open a table (Things to do › Liar's dice…) and tick them in the list: they get an invitation to accept or decline. Or, if they've opened one, sit down at it from the tavern (until the first roll). Each sees only their own dice until the cups come up, and a player who doesn't bid in ${STALL_SECONDS} seconds has the smallest raise made for them.`,
+    needs: (ui) => {
+      const life = ui.life!;
+      const here = ui.s.lives.filter(
+        (l) =>
+          l !== life &&
+          !l.watching &&
+          l.c >= 0 &&
+          !l.travel &&
+          l.prov === life.prov,
+      );
+      return [
+        adult(ui),
+        inTown(ui, "tavern", "tavern"),
+        {
+          label: here.length
+            ? `${here.map((l) => l.name).join(", ")} in town with you`
+            : "Another player in the same town",
+          met: here.length > 0,
+        },
+      ];
+    },
+    go: (ui) => goDice(ui),
+    goLabel: "Go to the tavern's table",
+    guide: "dice",
+  },
+  // ---- end DICE (r14)
   {
     id: "achievements",
     title: "See my achievements",
@@ -1250,6 +1308,26 @@ function goSchooling(ui: GameUi): void {
       .querySelector(".cq-sch-section")
       ?.scrollIntoView({ behavior: "smooth", block: "start" }),
   );
+}
+
+/** DICE (r14): into the tavern, and to its table (open one, or the one there). */
+async function goDice(ui: GameUi): Promise<void> {
+  const life = ui.life!;
+  ui.modal(null);
+  const here = life.travel ? [] : areasOf(ui.s, ui.w, life.prov, life);
+  if (!here.includes("tavern")) {
+    ui.open({ k: "tab", tab: "here" });
+    ui.toast(
+      life.travel
+        ? "You're on the road: look when you arrive."
+        : `${ui.map.provinces[life.prov].name} has no tavern: a bigger town will.`,
+    );
+    return;
+  }
+  if (life.area !== "tavern") await ui.cmd({ k: "enter", area: "tavern" });
+  ui.open({ k: "tab", tab: "here" });
+  const t = tableAt(ui.s, life.prov);
+  ui.modal({ k: "dice", id: t?.id });
 }
 
 /** HOME (r12): step into your home here, or say where it is. */

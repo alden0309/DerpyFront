@@ -1,4 +1,4 @@
-// What a character can do at the places of a province (drink, gamble, pray,
+// What a character can do at the places of a province (drink, pray,
 // hunt, drill, write a pamphlet, petition the governor...) and with the
 // people they meet (talk, flatter, court, propose, borrow, duel...). Each
 // has a cooldown, sometimes a cost, often a skill check with its odds shown,
@@ -205,22 +205,8 @@ export const ACTS: ActDef[] = [
     skill: "persuasion",
     when: adult,
   },
-  {
-    key: "gamble",
-    places: ["tavern"],
-    label: "Dice and cards (5 coins)",
-    text: "Win or lose five coins. Trade sense and a straight face help; luck does most of it.",
-    cooldown: 4,
-    cost: 0,
-    skill: "trade",
-    dc: 7,
-    when: (s, w, life) =>
-      isChildLife(s, life)
-        ? no("Not until you're sixteen.")
-        : life.purse < 5
-          ? no("You need 5 coins to sit down.")
-          : yes,
-  },
+  // DICE (r14): "Dice and cards" is gone: Liar's dice is played at a table
+  // of its own (Dice.ts), with the people in the tavern.
   {
     key: "round",
     places: ["tavern"],
@@ -1067,25 +1053,6 @@ export function doAct(
           g,
           life,
           "One pot became several, most nights. You've a taste for it now.",
-          "bad",
-        );
-      }
-      return null;
-    }
-    case "gamble": {
-      gainXp(g, life, "trade", 3);
-      if (pass) {
-        const won = 4 + g.rng.int(0, 3);
-        earn(g, life, won);
-        addStress(g, life, -3);
-        journal(g, life, `The dice loved you tonight: +${won} coins.`, "good");
-      } else {
-        spend(g, life, 5);
-        addStress(g, life, 3);
-        journal(
-          g,
-          life,
-          "The dice took five coins and your good humour.",
           "bad",
         );
       }

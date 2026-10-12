@@ -18,6 +18,14 @@ import { checkAchievements } from "../../conquest/engine/Achievements"; // MAP (
 import { validateLook } from "../../conquest/engine/Appearance";
 import { dateOf } from "../../conquest/engine/Calendar";
 import { lifeCoins } from "../../conquest/engine/Coins";
+import { dropFromTable } from "../../conquest/engine/Dice"; // DICE (r14)
+import {
+  diceView,
+  seatOf,
+  STALL_SECONDS,
+  stateForSeat,
+  tablesOf,
+} from "../../conquest/engine/DiceCore"; // DICE (r14)
 import { ConquestGame, STATE_VERSION } from "../../conquest/engine/Game";
 import { planProblem } from "../../conquest/engine/Life";
 import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
@@ -295,6 +303,11 @@ interface Room {
   results: ResultLine[] | null;
   /** Players' unanswered events: milliseconds of unpaused play left. */
   letters: Map<number, number>;
+  /**
+   * DICE (r14): a player's turn at a dice table, by table: the move it's
+   * for (the table's count of moves), and when the table moves for them.
+   */
+  dice: Map<number, { seq: number; due: number; away: boolean }>;
   /**
    * LIFE (r11): skipping ahead. Alone it starts when asked; in company when
    * every player living a life has asked. It stops when anything needs anyone
@@ -672,6 +685,7 @@ export class ConquestRooms {
       overAt: null,
       results: null,
       letters: new Map(),
+      dice: new Map(), // DICE (r14)
       skip: {
         on: false,
         asked: new Set(),
@@ -957,12 +971,14 @@ export class ConquestRooms {
       secret: seat.secret,
       host: room.host,
       solo: room.solo,
-      state: room.game.state,
+      // DICE (r14): everyone's dice but your own stay under their cups.
+      state: stateForSeat(room.game.state, seat.id),
       speed: room.speed,
       paused: room.paused,
       seats: seatInfo(room),
     });
     this.sendLetters(room, seat);
+    this.sendDiceClocks(room, seat); // DICE (r14)
     void this.sendAchievements(seat); // MAP (r12)
     if (room.skip.on || room.skip.asked.size)
       this.send(seat.conn, {
@@ -1034,7 +1050,18 @@ export class ConquestRooms {
   private flush(room: Room): void {
     if (!room.game) return;
     room.lastSent = this.now();
-    this.broadcast(room, { t: "d", d: room.game.takeDelta() });
+    const d = room.game.takeDelta();
+    // DICE (r14): when a dice table changed, each player gets their own copy
+    // (their own dice, nobody else's until the cups are lifted).
+    if (d.dice)
+      for (const seat of room.seats) {
+        if (seat.conn)
+          this.send(seat.conn, {
+            t: "d",
+            d: { ...d, dice: diceView(d.dice, seat.id) },
+          });
+      }
+    else this.broadcast(room, { t: "d", d });
     void this.achievements(room);
   }
 
@@ -1190,6 +1217,8 @@ export class ConquestRooms {
     if (t - room.lastSaved > SAVE_EVERY_MS && !room.paused)
       void this.save(room);
     this.letterClock(room, room.paused ? 0 : dt);
+    // DICE (r14): the dice go on whether the world runs or not.
+    this.diceClock(room, t);
     if (room.paused) return;
     const skipping = room.skip.on;
     room.owed +=
@@ -1258,6 +1287,106 @@ export class ConquestRooms {
     for (const id of [...room.letters.keys()])
       if (!pending.has(id)) room.letters.delete(id);
     if (answered) this.flush(room);
+  }
+
+  /**
+   * DICE (r14): a player who stalls can't hold up a table they share with
+   * another player. On their turn they have STALL_SECONDS of real time (and
+   * a little more for the computer players' moves the browsers play back
+   * first); away from the game, a moment. Then the table moves for them:
+   * an ordinary command, the smallest raise (or "Liar!"). Everyone at the
+   * table is told how long they have. Alone with the town's people, the
+   * table waits.
+   */
+  private diceClock(room: Room, now: number): void {
+    const game = room.game!;
+    const live = new Set<number>();
+    for (const t of tablesOf(game.state)) {
+      if (t.status !== "playing") continue;
+      const x = t.seats[t.turn];
+      if (!x || x.seat === undefined || x.state !== "in") continue;
+      const players = t.seats.filter(
+        (y) => y.seat !== undefined && y.state === "in",
+      );
+      if (players.length < 2) continue;
+      live.add(t.id);
+      const seat = room.seats.find((y) => y.id === x.seat);
+      const away = !seat?.conn;
+      let c = room.dice.get(t.id);
+      if (!c || c.seq !== t.seq) {
+        // The computer players' moves since the last player's, which the
+        // browsers play back before it's anyone's turn.
+        let i = t.acts.length - 1;
+        while (
+          i >= 0 &&
+          !(
+            (t.acts[i].k === "bid" || t.acts[i].k === "liar") &&
+            seatOf(t, t.acts[i].c)?.seat !== undefined
+          )
+        )
+          i--;
+        const pace = Math.min(
+          25_000,
+          t.acts
+            .slice(i + 1)
+            .reduce(
+              (m, a) =>
+                m +
+                (a.k === "reveal"
+                  ? 4000
+                  : a.k === "bid" || a.k === "liar"
+                    ? 1100
+                    : 300),
+              0,
+            ),
+        );
+        c = {
+          seq: t.seq,
+          due: now + pace + (away ? 1500 : STALL_SECONDS * 1000),
+          away,
+        };
+        room.dice.set(t.id, c);
+        this.broadcast(room, {
+          t: "diceclock",
+          id: t.id,
+          c: x.c,
+          left: Math.ceil((c.due - now) / 1000),
+        });
+      } else if (away && !c.away) {
+        // They've just gone: a moment, then the table moves for them.
+        c.away = true;
+        c.due = Math.min(c.due, now + 1500);
+      }
+      if (now < c.due) continue;
+      room.dice.delete(t.id);
+      const err = game.lifeCommand(x.seat, {
+        k: "dice",
+        act: "auto",
+        id: t.id,
+      });
+      // Somebody who can't be moved for (in irons, say) leaves the table.
+      if (err) dropFromTable(game, t.id, x.c);
+      this.flush(room);
+    }
+    for (const id of [...room.dice.keys()])
+      if (!live.has(id)) room.dice.delete(id);
+  }
+
+  /** DICE (r14): the clocks running at dice tables, for someone just come in. */
+  private sendDiceClocks(room: Room, seat: Seat): void {
+    if (!seat.conn || !room.game) return;
+    const now = this.now();
+    for (const [id, c] of room.dice) {
+      const t = tablesOf(room.game.state).find((x) => x.id === id);
+      const x = t?.seats[t.turn];
+      if (!t || !x) continue;
+      this.send(seat.conn, {
+        t: "diceclock",
+        id,
+        c: x.c,
+        left: Math.max(0, Math.ceil((c.due - now) / 1000)),
+      });
+    }
   }
 
   private sendLetters(room: Room, seat: Seat): void {

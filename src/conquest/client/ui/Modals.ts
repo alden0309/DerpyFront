@@ -24,6 +24,7 @@ import {
   strengthBars,
 } from "./Battle";
 import { GameUi, Modal, token } from "./Context";
+import { diceModal } from "./DiceTable"; // DICE (r14)
 import { familyTreeModal } from "./FamilyTree"; // HOME (r12)
 import { finderModal, resetFinder } from "./Finder";
 import { roleOf } from "./Here";
@@ -144,6 +145,11 @@ export function renderModal(
     case "articles":
       body = articlesModal(ui, m);
       cls = "wide partners";
+      break;
+    // DICE (r14)
+    case "dice":
+      body = diceModal(ui, m);
+      cls = "scene dice";
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);

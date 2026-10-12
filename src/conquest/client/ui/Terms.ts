@@ -168,6 +168,31 @@ export const TERMS: Record<string, Term> = {
       "Lie low and let it pass; keep secret affairs secret (Stealth and Intrigue help).",
     ch: "love",
   },
+  // DICE (r14): DiceCore.ts (stakes, wilds), Dice.ts (the pot, experience).
+  dice: {
+    name: "Liar's dice",
+    what: 'A tavern game for two to six: five dice each under a cup, bids on how many of a face lie under all the cups, and a call of "Liar!" to lift them.',
+    good: "Win the pot (everyone's stake), ease your mind, and learn a straight face and a quick eye: it teaches Stealth. A big pot is talked about.",
+    raise:
+      "Open a table at the tavern (Things to do › Liar's dice…), or sit down at one. Bid what your own dice make likely, and call a bid that needs more than the table can hold.",
+    ch: "dice",
+  },
+  dicewild: {
+    name: "Wild ones",
+    what: "At Liar's dice a one counts as whatever face was bid. Nobody bids on ones.",
+    good: "Every one under the cups helps any bid: a third of the dice you can't see count for any face.",
+    raise:
+      "Count your own ones with the face you bid. Four of five dice hidden? Expect about a third of them to count.",
+    ch: "dice",
+  },
+  dicepot: {
+    name: "The pot",
+    what: "Everyone's stake at a table of Liar's dice, put in when they sit down.",
+    good: "The last with dice takes it all. Getting up from a game leaves your stake in it; getting up before the first roll gives it back.",
+    raise:
+      "A bigger stake makes a bigger pot: 2, 5, 10 or 25 coins a seat. The town's people of small means won't sit down at the big ones.",
+    ch: "dice",
+  },
   drill: {
     name: "Drill and spirits",
     what: "How trained your company is, and how glad they are to be in it.",
