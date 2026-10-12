@@ -320,7 +320,7 @@ export const QUESTIONS: Question[] = [
   {
     key: "salary",
     name: "The King's instruction: a fixed salary for the governor",
-    due: "when his salary isn't withheld already",
+    due: "when his salary isn't withheld already, and the governor isn't a player",
     title: () => "His Majesty's instruction: a fixed salary for the governor",
     when: (g, n) => {
       const cab = g.s.power?.cabinets[n];
