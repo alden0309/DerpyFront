@@ -267,10 +267,11 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   {
     key: "famous",
     name: "Famous",
-    how: "Reach 150 renown.",
+    // POLLS (r16): 100, not 150: above 60 renown comes harder now.
+    how: "Reach 100 renown.",
     coins: 4,
     group: "society",
-    check: (g, l) => l.tally.peakRenown >= 150,
+    check: (g, l) => l.tally.peakRenown >= 100,
   },
   {
     key: "patron",

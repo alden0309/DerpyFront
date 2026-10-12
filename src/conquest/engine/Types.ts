@@ -810,6 +810,8 @@ export interface Life {
   bondage?: Bondage;
   /** CHAMBER (r16): small talk kept fresh: the lines said lately, the last levee's faces. */
   chatter?: Chatter;
+  /** POLLS (r16): the canvass at a poll you stand in, its last result, your seat's record, your paper's puffing. */
+  polls?: PollsLife;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -885,7 +887,12 @@ export interface Polity {
   /** Day of the next election. */
   election: number;
   /** Standing at the next election: characters and their campaign points. */
-  candidates: { c: number; points: number }[];
+  candidates: {
+    c: number;
+    points: number;
+    /** POLLS (r16): a challenger put up against a player: the day he began canvassing. */
+    since?: number;
+  }[];
 }
 
 // ---------------------------------------------------------------- people
@@ -1868,7 +1875,9 @@ export type LifeCommand =
   // INTRIGUE (r15): seduction, plots, betrothals and weddings, private letters.
   | IntrigueCommand
   // LABOUR (r15): bondage, treated as history.
-  | LabourCommand;
+  | LabourCommand
+  // POLLS (r16): money spent on a poll (treating, the sheriff, a patron).
+  | PollsCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -4134,4 +4143,98 @@ export interface Chatter {
   n?: Record<string, [number, number]>;
   /** The faces at the last levee (character ids, sorted). */
   levee?: number[];
+}
+
+// ---- POLLS (r16)
+// Elections that can be lost: the canvass week by week, money spent on a poll
+// (treating, the sheriff's goodwill, a patron's price), computer rivals with
+// patrons and money, the governor's interest; renown and favour on a curve,
+// favour that slips in an unchanged seat; a paper that speaks for its owner.
+
+/** One line of a candidate's standing at a poll, by a stable key. */
+export interface PollLine {
+  k: string;
+  label: string;
+  v: number;
+}
+
+/** A week of the canvass: your standing and the strongest rival's. */
+export interface CanvassWeek {
+  d: number;
+  me: number;
+  them: number;
+}
+
+/** A poll a player is standing in (or sitting for), as its canvass goes. */
+export interface Canvass {
+  /** "local": a county office (id is the office's); "assembly": the colony's house (id is the nation). */
+  kind: "local" | "assembly";
+  id: number;
+  /** The county it's fought in. */
+  p: number;
+  /** The day of the count (as the poll stood when last looked at). */
+  poll: number;
+  /** When the canvass began. */
+  since: number;
+  /** The strongest rival as it stands (a character), or -1. */
+  rival: number;
+  /** Week by week, oldest first (the last 30). */
+  weeks: CanvassWeek[];
+  /** What moved it this week: the biggest changes, by line (+ for you). */
+  moved: { label: string; v: number }[];
+  /** Last week's lines (key to value), yours and the rival's, to see what moved. */
+  lastMe: Record<string, number>;
+  lastThem: Record<string, number>;
+  /** Money spent on it, by kind ("treat", "sheriff", "patron"). */
+  spent: Record<string, number>;
+  /** Treating's points (they fade a little each week). */
+  treat: number;
+  /** The sheriff whose goodwill was bought (a character), or -1. */
+  sheriff: number;
+  /** A great man whose interest was bought (a character), or -1. */
+  patron: number;
+  /** The governor's friends work for (1) or against (-1) you, once they've been told. */
+  gov?: number;
+  /** A sitting member's (or holder's) own canvass points for the count ahead (they fade like any). */
+  pts?: number;
+}
+
+/** How a poll you stood in came out, and why. */
+export interface PollResult {
+  day: number;
+  kind: "local" | "assembly";
+  title: string;
+  won: boolean;
+  me: number;
+  them: number;
+  /** Whoever beat you (or came nearest), or -1. */
+  rival: number;
+  /** The reasons, biggest first. */
+  why: string[];
+}
+
+/** POLLS' bookkeeping on a life (all optional, so old saves load). */
+export interface PollsLife {
+  canvass?: Canvass | null;
+  last?: PollResult | null;
+  /** The seat held (a key), and since when. */
+  seat?: string;
+  seatSince?: number;
+  /** The last yearly reckoning in the seat, and years in a row with nothing delivered. */
+  reckoned?: number;
+  idle?: number;
+  /** The last thing delivered in office (a law, a work, a power carried), and when. */
+  delivered?: number;
+  deliveredWhat?: string;
+  /** Your own paper's puffing of you: its county, how much, and until when. */
+  puff?: { p: number; v: number; until: number } | null;
+}
+
+/** Money laid out on a poll you're standing in (Canvass.ts). */
+export interface PollsCommand {
+  k: "polls";
+  /** "treat" the voters, the "sheriff"'s goodwill, a "patron"'s price. */
+  act: "treat" | "sheriff" | "patron";
+  /** The great man asked (for "patron"). */
+  c?: number;
 }

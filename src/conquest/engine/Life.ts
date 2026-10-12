@@ -134,6 +134,7 @@ import {
   roadRiskFactor,
 } from "./LifeR11";
 import { wake } from "./Pace";
+import { standingMonth } from "./Standing"; // POLLS (r16)
 import { crookedStart } from "./Trades";
 import { employerFor, leaveJob, takeJob, workDaily, workMonthly } from "./Work";
 
@@ -840,11 +841,9 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
     g.rng.chance(0.004)
   )
     gainTrait(g, life, "gouty");
-  // Fame fades unless it's fed; the crown forgets.
-  if (life.renown > 15)
-    life.renown =
-      Math.round((life.renown - (life.renown - 15) * 0.02) * 10) / 10;
-  if (life.favor > 0) life.favor = Math.round(life.favor * 0.98 * 10) / 10;
+  // Fame fades unless it's fed; the crown forgets. POLLS (r16): faster the
+  // higher they stand (the same as ever below 60).
+  standingMonth(life);
   // Debts come due.
   for (const d of life.debts) {
     if (d.due > s.day) continue;

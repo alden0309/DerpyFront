@@ -61,6 +61,7 @@ import {
 import { landOf, propertyBudget, sellProperty } from "./Property";
 import { charName } from "./Queries";
 import { rumour } from "./Rumours";
+import { addFavor } from "./Standing"; // POLLS (r16)
 import type {
   GameState,
   KitKey,
@@ -562,7 +563,7 @@ export function buildWork(
   spend(g, life, w.cost);
   touchLife(g, life).cooldowns[`work:${key}`] = g.s.day + 10 * 365;
   addRenown(g, life, w.renown);
-  life.favor += w.favor;
+  addFavor(g, life, w.favor); // POLLS (r16): on the curve
   addStress(g, life, -10);
   heal(g, life, 2);
   const here = g.map.provinces[life.prov].name;

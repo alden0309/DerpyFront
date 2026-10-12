@@ -42,6 +42,7 @@ import { ageOf, charName, settlers, stat } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
 import { dice, hash01, officesIn, society } from "./SocietyCore";
+import { addFavor, delivered } from "./Standing"; // POLLS (r16)
 import type {
   Breakdown,
   Character,
@@ -52,6 +53,16 @@ import type {
   PlaceKind,
   Skill,
 } from "./Types";
+// POLLS (r16): polls with a player in them are counted by the canvass.
+import {
+  countReasons,
+  localCountField,
+  localHasPlayer,
+  POLL,
+  refusedResult,
+  tellResults,
+  type PendingResult,
+} from "./Canvass";
 
 export type OfficeHow = "elected" | "governor" | "court" | "council" | "clan";
 
@@ -1096,7 +1107,7 @@ export function pollRival(
 function holdPoll(g: ConquestGame, o: LocalOffice): void {
   const s = g.s;
   const def = OFFICES[o.key];
-  const field: { c: number; score: number }[] = [];
+  let field: { c: number; score: number }[] = []; // POLLS (r16): let
   const sitting = s.chars[o.holder];
   if (sitting?.alive && !sitting.abroad && !lifeOfChar(s, sitting.id))
     field.push({ c: sitting.id, score: npcPoll(s, sitting, o, true) });
@@ -1126,9 +1137,41 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
     )
     .slice(0, 2);
   for (const c of pool) field.push({ c: c.id, score: npcPoll(s, c, o, false) });
+  // POLLS (r16): with a player at the poll, everyone is counted by the
+  // canvass's lines (the same the County offices page shows), and each
+  // player is told why it went as it did.
+  const counted = localHasPlayer(s, o);
+  const refused: PendingResult[] = [];
+  if (counted)
+    field = localCountField(s, o).filter((f) => {
+      const life = lifeOfChar(s, f.c);
+      if (!life || f.c === o.holder) return true;
+      const e = eligible(s, life, { ...o, holder: -1 });
+      if (!e.ok)
+        refused.push(
+          refusedResult(
+            s,
+            life,
+            { kind: "local", o },
+            officeTitle(s, g.w, o),
+            e.why,
+          ),
+        );
+      return e.ok;
+    });
   const r = dice(g);
-  for (const f of field) f.score += r.int(-3, 3);
+  const luck = counted ? POLL.luck : 3; // POLLS (r16): the canvass's luck
+  for (const f of field) f.score += r.int(-luck, luck);
   field.sort((a, b) => b.score - a.score || a.c - b.c);
+  const why = counted
+    ? countReasons(
+        s,
+        { kind: "local", o },
+        officeTitle(s, g.w, o),
+        field,
+        field[0] ? [field[0].c] : [],
+      )
+    : [];
   const players = o.candidates.map((x) => x.c);
   o.candidates = [];
   o.election = s.day + def.years * DAYS_PER_YEAR;
@@ -1156,6 +1199,7 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
     }
   }
   if (o.key === "burgess") seatBurgess(g, o);
+  tellResults(g, [...why, ...refused]); // POLLS (r16)
   rumour(
     g,
     o.prov,
@@ -1414,6 +1458,7 @@ export function pullLever(
         `A new bridge at ${here}, with your name on the board at the end of it.`,
         "good",
       );
+      delivered(g, life, `the new bridge at ${here}`); // POLLS (r16)
       return null;
     }
     case "market": {
@@ -1431,6 +1476,7 @@ export function pullLever(
         `Market day at ${here} every Thursday, by your proclamation. The carts come in from all over.`,
         "good",
       );
+      delivered(g, life, `the market day at ${here}`); // POLLS (r16)
       return null;
     }
     case "dispute": {
@@ -1514,6 +1560,7 @@ export function pullLever(
         `The drums beat across ${here}: four hundred militia muster under the county's colours.`,
         "good",
       );
+      delivered(g, life, `the militia mustered at ${here}`); // POLLS (r16)
       return null;
     }
     case "bill": {
@@ -1574,6 +1621,7 @@ export function pullLever(
         "Bread and firewood for the poor of the parish, at your own charge.",
         "good",
       );
+      delivered(g, life, "bread for the poor of the parish"); // POLLS (r16)
       return null;
     }
     case "raid": {
@@ -1601,7 +1649,7 @@ export function pullLever(
       return null;
     }
     case "belt": {
-      touchLife(g, life).favor = Math.min(100, life.favor + 5);
+      addFavor(g, life, 5); // POLLS (r16): on the curve
       gainXp(g, life, "persuasion", 5);
       journal(
         g,

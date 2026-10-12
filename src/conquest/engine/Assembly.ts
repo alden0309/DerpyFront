@@ -6,6 +6,7 @@
 // speaker sits on the governor's council. The governor can dissolve the
 // house (a new election) or prorogue it (send it home for half a year).
 
+import { partyOf } from "./Canvass"; // POLLS (r16)
 import type { ConquestGame } from "./Game";
 import {
   addRenown,
@@ -31,6 +32,7 @@ import { charName, stat } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
 import { hash01 } from "./SocietyCore";
+import { addFavor, delivered } from "./Standing"; // POLLS (r16)
 import type { Bill, Cabinet, GameState, Life, ModFx } from "./Types";
 
 export interface BillDef {
@@ -476,10 +478,9 @@ function becomeLaw(g: ConquestGame, n: number, b: Bill): void {
   const life = lifeOfChar(s, b.by);
   if (life) {
     addRenown(g, life, 4);
-    touchLife(g, life).favor = Math.min(
-      100,
-      life.favor + (def.gov > 0 ? 2 : 0),
-    );
+    // POLLS (r16): favour on the curve, and a law delivered from your seat.
+    addFavor(g, life, def.gov > 0 ? 2 : 0);
+    delivered(g, life, lower(billTitle(g, b)));
     journal(g, life, `${billTitle(g, b)} is law: ${def.does}`, "good");
     milestone(g, life, "office", `Passed ${lower(billTitle(g, b))}`);
   }
@@ -541,15 +542,24 @@ export function chooseSpeaker(g: ConquestGame, n: number): void {
   const c = cab(g, n);
   let best = -1;
   let score = -Infinity;
+  // POLLS (r16): the house's majority party chooses its own man.
+  const parties = pol.assembly.map((id) => partyOf(s, n, id));
+  const court = parties.filter((x) => x === "court").length;
+  const country = parties.filter((x) => x === "country").length;
+  const majority =
+    court === country ? null : court > country ? "court" : "country";
   for (const id of pol.assembly) {
     const ch = s.chars[id];
     if (!ch?.alive) continue;
     const life = lifeOfChar(s, id);
     let v = life
-      ? life.renown / 4 +
+      ? // POLLS (r16): renown counts, but only so far (it was renown ÷ 4).
+        Math.min(12, life.renown / 6) +
         skillLevel(s, life, "persuasion") +
         skillLevel(s, life, "letters") / 2
       : stat(s, ch, "dip") * 2 + stat(s, ch, "int");
+    const party = partyOf(s, n, id);
+    if (majority && party) v += party === majority ? 4 : -4; // POLLS (r16)
     if (c.speakerBid?.includes(id)) v += 8;
     if (id === c.speaker) v += 4;
     v += hash01(id, n, pol.election) * 6;

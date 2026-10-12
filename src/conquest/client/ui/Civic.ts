@@ -26,6 +26,7 @@ import {
   subordinates,
   type OfficePower,
 } from "../../engine/Authority";
+import { localView } from "../../engine/Canvass"; // POLLS (r16)
 import { lifeOfChar, peopleHere } from "../../engine/LifeQueries";
 import { CHARGES } from "../../engine/LifeRules";
 import {
@@ -37,8 +38,6 @@ import {
   officeKeysFor,
   officeName,
   OFFICES,
-  pollRival,
-  pollStanding,
   standLocalCheck,
 } from "../../engine/Offices";
 import { giveUpWarning } from "../../engine/OneOffice";
@@ -62,11 +61,10 @@ import { SEATS } from "../../engine/Types";
 import { customFlag, flagFor } from "../Flags";
 import { play } from "../Sound";
 import { GOOD_NAMES, nationName, TERRAIN_NAMES } from "../Text";
-import { num } from "../Tip";
+import { pollChip } from "./Canvass"; // POLLS (r16)
 import {
   action,
   bar,
-  breakdownTip,
   charLink,
   GameUi,
   nationLink,
@@ -207,8 +205,8 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
       const check = standing
         ? { ok: false as const, why: "You're standing." }
         : standLocalCheck(s, life, o);
-      const me = pollStanding(s, life, o);
-      const rival = pollRival(s, o, life.c);
+      // POLLS (r16): the canvass's own lines (what the count uses).
+      const pv = localView(s, life, o);
       const warn = giveUpWarning(s, ui.w, life.c, {
         kind: "local",
         n: o.nation,
@@ -226,17 +224,10 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
         </div>
         ${standing || check.ok
           ? html`<p class="small">
-              Your standing
-              ${num(
-                String(me.total),
-                () => breakdownTip("Your standing at the poll", me),
-                `cq-opinion ${rival && me.total > rival.score ? "good" : "bad"}`,
-              )}
-              ${rival
-                ? html`against ${charLink(ui, s.chars[rival.c], false)} (about
-                  ${Math.round(rival.score)})`
-                : html`(unopposed, so far)`}.
-              Canvass at the tavern, print a broadside, stand a round.
+              ${pollChip(ui, pv.me, pv.rival)}
+              ${standing
+                ? "The canvass, week by week, and money for the poll are at the top of this page."
+                : "Canvass at the tavern, print a broadside, stand a round, treat the voters."}
             </p>`
           : nothing}
         ${warn && (standing || check.ok)

@@ -636,7 +636,8 @@ export function stationOf(s: GameState, life: Life): StationView {
     }
     if (life.background === "gentry" && life.line.length === 1)
       up(2, "Born to the gentry", "one of the gentry");
-    if (life.renown >= 150)
+    // POLLS (r16): 100, not 150 (above 60 renown comes harder now).
+    if (life.renown >= 100)
       up(3, "Your name is known everywhere", "someone so famous");
     else if (life.renown >= 60)
       up(2, "Your name is known", "someone so well known");

@@ -52,6 +52,7 @@ import { ageOf, charName, settlers } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
 import { officesIn } from "./SocietyCore";
+import { addFavor, delivered } from "./Standing"; // POLLS (r16)
 import { present } from "./Trials";
 import type {
   Character,
@@ -585,8 +586,7 @@ export const POWERS: Partial<Record<OfficeKey, OfficePower[]>> = {
         addRenown(g, life, 1);
         if (side > 0 && m.against === o.nation && m.goal !== "reform")
           touchLife(g, life).favor = Math.max(0, life.favor - 2);
-        if (side < 0 && m.against === o.nation)
-          touchLife(g, life).favor = Math.min(100, life.favor + 1);
+        if (side < 0 && m.against === o.nation) addFavor(g, life, 1); // POLLS (r16): on the curve
         return `The town meeting resolves ${side > 0 ? "for" : "against"} ${m.name}, by a show of hands.`;
       },
     },
@@ -706,7 +706,7 @@ export const POWERS: Partial<Record<OfficeKey, OfficePower[]>> = {
               pass ? 6 : 2,
               2,
             );
-          touchLife(g, life).favor = Math.min(100, life.favor + (pass ? 2 : 0));
+          addFavor(g, life, pass ? 2 : 0); // POLLS (r16): on the curve
           return pass
             ? "You speak for the governor's measures, well. His friends nod."
             : "You speak for the governor's measures; nobody listens much.";
@@ -1239,6 +1239,9 @@ export function usePower(
   o.duty = Math.max(o.duty, s.day - 20);
   g.societyChanged(`o${o.prov}`);
   journal(g, life, text, odds === null ? undefined : pass ? "good" : "bad");
+  // POLLS (r16): a power carried is something delivered from the seat.
+  if (pass)
+    delivered(g, life, pw.label.replace(/\s*\(\d+\)$/, "").toLowerCase());
   return null;
 }
 

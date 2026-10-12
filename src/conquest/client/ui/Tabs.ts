@@ -39,6 +39,7 @@ import {
 } from "./Affairs";
 import { bondagePage } from "./Bondage"; // LABOUR (r15)
 import { businessPage, startBizButton } from "./Business"; // BUSINESS (r15)
+import { canvassSection } from "./Canvass"; // POLLS (r16)
 import { councilPage } from "./Chamber"; // POWER (r12)
 import {
   accuseSection,
@@ -741,7 +742,7 @@ function societyPage(ui: GameUi, sub: string): TemplateResult {
     case "office": {
       const held = localOfficesOf(s, me.id);
       const gov = governingSection(ui);
-      return html`${gov}
+      return html`${gov} ${canvassSection(ui) /* POLLS (r16) */}
         ${held.length
           ? section(
               "Offices you hold",

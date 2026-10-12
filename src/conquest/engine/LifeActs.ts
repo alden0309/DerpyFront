@@ -6,6 +6,7 @@
 
 import { homeHere, presentAt } from "./Areas";
 import { dateOf, formatDate } from "./Calendar";
+import { CANVASS_POINTS, canvassingSeat } from "./Canvass"; // POLLS (r16)
 import {
   almsLine,
   gossipAt,
@@ -104,6 +105,7 @@ import { DAYS_PER_YEAR } from "./Rules";
 import { heardHere } from "./Rumours";
 import { harvestStint } from "./SeasonLife"; // MAP (r12)
 import { isHarvest } from "./Seasons"; // MAP (r12)
+import { addFavor } from "./Standing"; // POLLS (r16)
 import type { Character, GameState, Life, PlaceKind, Skill } from "./Types";
 import { SEATS } from "./Types";
 import { buyRank, selfStartCheck, startJob } from "./Work";
@@ -623,7 +625,9 @@ export const ACTS: ActDef[] = [
     skill: "persuasion",
     dc: 7,
     when: (s, w, life) =>
-      life.campaign || standingLocally(s, life) // SOCIETY (r11): local polls too
+      life.campaign ||
+      standingLocally(s, life) || // SOCIETY (r11): local polls too
+      canvassingSeat(s, life) // POLLS (r16): a sitting member, the count near
         ? yes
         : no("You're not standing for anything."),
   },
@@ -635,7 +639,9 @@ export const ACTS: ActDef[] = [
     cooldown: 30,
     cost: 2,
     when: (s, w, life) =>
-      life.campaign || standingLocally(s, life) // SOCIETY (r11): local polls too
+      life.campaign ||
+      standingLocally(s, life) || // SOCIETY (r11): local polls too
+      canvassingSeat(s, life) // POLLS (r16): a sitting member, the count near
         ? yes
         : no("You're not standing for anything."),
   },
@@ -1059,7 +1065,7 @@ export function doAct(
         meet(g, life, c.id);
         remembers(g, life, g.char(c.id), "Stood us a round", 6, 1);
       }
-      campaignBoost(g, life, 3, "a round for the house");
+      campaignBoost(g, life, CANVASS_POINTS.round, "a round for the house"); // POLLS (r16): one table
       roundLine(g, life, here); // CHAMBER (r16)
       return null;
     }
@@ -1197,7 +1203,7 @@ export function doAct(
             2,
           );
       }
-      life.favor += 2;
+      addFavor(g, life, 2); // POLLS (r16): on the curve
       journal(
         g,
         life,
@@ -1455,11 +1461,16 @@ export function doAct(
       return buyArms(g, life);
     case "canvass":
       gainXp(g, life, "persuasion", 6);
-      campaignBoost(g, life, pass ? 4 : 1, "canvassing");
+      campaignBoost(
+        g,
+        life,
+        pass ? CANVASS_POINTS.pass : CANVASS_POINTS.fail, // POLLS (r16): one table
+        "canvassing",
+      );
       return null;
     case "broadside":
       gainXp(g, life, "letters", 4);
-      campaignBoost(g, life, 6, "a broadside");
+      campaignBoost(g, life, CANVASS_POINTS.broadside, "a broadside"); // POLLS (r16): one table
       return null;
     case "tools":
     case "horse":

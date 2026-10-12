@@ -16,7 +16,6 @@ import {
   journal,
   loseTrait,
   remembers,
-  touchLife,
 } from "./LifeCore";
 import type { LCtx } from "./LifeEvents";
 import {
@@ -30,6 +29,7 @@ import { isFeverSeason, isHurricaneSeason, isWinter } from "./Map";
 import { holdsPost } from "./OneOffice";
 import { ageOf, settlers } from "./Queries";
 import { isHarvest } from "./Seasons";
+import { addFavor } from "./Standing"; // POLLS (r16)
 import type { Character, Life, Skill, TraitId } from "./Types";
 
 // ---------------------------------------------------------------- what it comes to
@@ -54,7 +54,7 @@ export function fx(
   if (f.coins) earn(g, life, f.coins);
   if (f.renown) addRenown(g, life, f.renown);
   if (f.stress) addStress(g, life, f.stress);
-  if (f.favor) touchLife(g, life).favor = Math.max(0, life.favor + f.favor);
+  if (f.favor) addFavor(g, life, f.favor); // POLLS (r16): on the curve
   for (const [k, v] of Object.entries(f.xp ?? {}))
     gainXp(g, life, k as Skill, v ?? 0);
   if (f.gain) gainTrait(g, life, f.gain);

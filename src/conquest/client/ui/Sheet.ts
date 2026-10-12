@@ -51,6 +51,7 @@ import { WARES } from "../../engine/Wares";
 import { arms } from "../Arms";
 import { GOOD_NAMES } from "../Text";
 import { num, plain } from "../Tip";
+import { curveNotes } from "./Canvass"; // POLLS (r16)
 import {
   action,
   bar,
@@ -206,11 +207,15 @@ export function youTab(ui: GameUi): TemplateResult {
       )}
       <div class="cq-meter">
         <span class="cq-meter-label">${term("renown")}</span>
-        ${term("renown", plain(life.renown), "cq-meter-big")}
+        ${term("renown", plain(life.renown), "cq-meter-big", () =>
+          curveNotes(life, "renown"),
+        )}
         <span class="cq-muted small"
           >${term(
             "favour",
             `${native ? "elders' regard" : "favour at home"} ${plain(life.favor)}`,
+            "",
+            () => curveNotes(life, "favour"), // POLLS (r16)
           )}</span
         >
       </div>

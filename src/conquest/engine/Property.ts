@@ -59,6 +59,7 @@ import {
   SHIP_UPKEEP_MULT,
 } from "./LifeRules";
 import { ageOf, charName } from "./Queries";
+import { addFavor } from "./Standing"; // POLLS (r16)
 import type {
   Breakdown,
   Character,
@@ -579,7 +580,7 @@ export function endow(
   spend(g, life, e.cost);
   touchLife(g, life).cooldowns[`endow:${what}`] = g.s.day + 365;
   addRenown(g, life, e.renown);
-  life.favor += e.favor;
+  addFavor(g, life, e.favor); // POLLS (r16): on the curve
   addStress(g, life, -4);
   journal(g, life, `${e.label}: ${e.cost} coins. ${e.text}`, "good");
   if (e.cost >= 35)

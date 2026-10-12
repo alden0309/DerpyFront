@@ -47,6 +47,7 @@ import { ageOf, charName, provincesOf, settlers, stat } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
 import { hash01 } from "./SocietyCore";
+import { delivered } from "./Standing"; // POLLS (r16)
 import { accuse, graceTrials, prosecute } from "./Trials";
 import type {
   Breakdown,
@@ -188,6 +189,14 @@ const theName = (o: Nation) => (o.kind === "native" ? `the ${o.name}` : o.name);
 export const CLAIM_BAR = 25;
 export const UNSEAT_BAR = 45;
 
+/** POLLS (r16): what renown and favour count for in a seat's case (full at renown 100, favour 60). */
+export const SEAT_CASE = {
+  renownDiv: 5,
+  renownCap: 20,
+  favourDiv: 5,
+  favourCap: 12,
+};
+
 /** Your case for a seat: renown, favour at home, the governor's regard, connections, fitness. */
 export function seatClaim(
   s: GameState,
@@ -199,11 +208,17 @@ export function seatClaim(
   const me = meOf(s, life);
   const nation = s.nations[n];
   if (!me || !nation) return e.done(0);
-  e.add(`Renown (${Math.floor(life.renown)})`, Math.min(20, life.renown / 3));
+  // POLLS (r16): renown and favour count to where their curve flattens
+  // (renown 100, favour 60), not to 60 and 48, so the years above 60 still
+  // make a case.
+  e.add(
+    `Renown (${Math.floor(life.renown)})`,
+    Math.min(SEAT_CASE.renownCap, life.renown / SEAT_CASE.renownDiv),
+  );
   if (life.favor > 0)
     e.add(
       nation.kind === "native" ? "The elders' regard" : "Favour at home",
-      Math.min(12, life.favor / 4),
+      Math.min(SEAT_CASE.favourCap, life.favor / SEAT_CASE.favourDiv),
     );
   const gov = s.chars[nation.ruler];
   if (gov?.alive && gov.id !== me.id) {
@@ -1271,6 +1286,7 @@ export function useSeatAction(
   else addRenown(g, life, 1);
   journal(g, life, text, pass ? "good" : "bad");
   laterWork?.(g, n, me.id, key, t, pass, text); // CHAMBER (r16): what it comes to, later
+  if (pass) delivered(g, life, a.label.toLowerCase()); // POLLS (r16): a seat's power carried
   return null;
 }
 
@@ -1871,6 +1887,8 @@ export function settleMatter(
     councillors(s, n).some((x) => x.c === m.by)
   )
     setFavour(g, n, m.by, 3);
+  // POLLS (r16): a measure of yours carried is something delivered from the seat.
+  if (carried && by) delivered(g, by, title);
 }
 
 /** A player governor signs (or refuses) what the council carried. */
