@@ -1260,7 +1260,7 @@ function partnerRow(ui: GameUi, c: Character, v: StartView): TemplateResult {
     job: v.job,
     level: v.level,
   });
-  const role = c.role ? c.role : lifeOfChar(s, c.id) ? "player" : "";
+  const role = c.role ?? (lifeOfChar(s, c.id) ? "player" : "");
   return html`<li>
     ${token(ui, c, "small")}
     <span class="cq-folk-text">
