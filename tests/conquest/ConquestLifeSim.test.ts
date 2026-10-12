@@ -500,7 +500,18 @@ describe("a scripted life, played headless", () => {
     });
     const log: string[] = [];
     const years = 50;
-    for (let week = 0; week < years * 52; week++) {
+    // Fifty years, and then (if both are still living, as at 68 and 70 about
+    // one run in twelve is) on until one of them dies, up to 25 years more:
+    // the death and the heir are what this test is for, not the dice's luck.
+    const someoneDied = () =>
+      ["s1", "s2"].some((seat) =>
+        lifeOf(g, seat).milestones.some((m) => m.kind === "died"),
+      );
+    for (
+      let week = 0;
+      week < years * 52 || (!someoneDied() && week < (years + 25) * 52);
+      week++
+    ) {
       for (let d = 0; d < 7 && !g.s.over; d++) g.tick();
       for (const life of g.s.lives)
         if (life.seat === "s3") playRogue(g, life, week, log);
