@@ -112,6 +112,7 @@ export function groupOfKey(key: string, label = ""): LedgerGroup {
     case "np":
       return "firms";
     case "p":
+    case "bond": // LABOUR (r15): those held in bondage, their keep and their work
       return "property";
     case "kit":
     case "ok":

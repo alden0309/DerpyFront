@@ -10,16 +10,10 @@
 // holds anyone rolls nothing and goes exactly as it did.
 
 import {
-  bondLaw,
-  colonyOf,
-  holdingLawful,
-  lawOf,
-  REFUGE_NAMES,
-  type Refuge,
-} from "./BondLaw";
-import {
+  allowanceOf,
   bdice,
   birthChance,
+  bondForecast,
   bondName,
   boundOf,
   buyCheck,
@@ -27,46 +21,49 @@ import {
   CROP_LUCK,
   customaryPolicy,
   deathChance,
+  familyAway,
   fieldsOf,
   flightChance,
-  FREEDOM_DUES,
   freeCheck,
   freeCost,
+  FREEDOM_DUES,
   freeSurname,
   hashOf,
   healthTarget,
   heldAdults,
   HIRE_LUCK,
   hiredOf,
-  homeFor,
   isBound,
   isHeld,
   leftBehind,
   moodTarget,
   nameFor,
   note,
+  r1,
+  r2,
   refugeOdds,
   RISE_OUTCOMES,
   riseChance,
   saleAt,
   saleFamily,
+  seatSalt,
+  SECRET_MARK,
+  selfPrice,
   sellCheck,
   sellWorth,
-  seatSalt,
-  selfPrice,
   willCheck,
   workOf,
-  allowanceOf,
-  bondForecast,
-  familyAway,
-  SECRET_MARK,
-  r1,
-  r2,
-  type SaleLot,
   type SalePerson,
 } from "./BondCore";
+import {
+  bondLaw,
+  colonyOf,
+  holdingLawful,
+  lawOf,
+  REFUGE_NAMES,
+  type Refuge,
+} from "./BondLaw";
 import { dateOf } from "./Calendar";
-import { nextTurn } from "./Odds";
 import { kill, makeCharacter } from "./Characters";
 import type { ConquestGame } from "./Game";
 import { hooks, raiseEvent } from "./Hooks";
@@ -83,14 +80,15 @@ import {
   touchLife,
 } from "./LifeCore";
 import { lifeIsNative, meOf } from "./LifeQueries";
+import { nextTurn } from "./Odds";
 import { ageOf } from "./Queries";
 import { Rng } from "./Rng";
 import { DAYS_PER_YEAR } from "./Rules";
 import type {
   AffairItem,
+  Bondage,
   BondPolicy,
   BondWork,
-  Bondage,
   Character,
   GameState,
   LabourCommand,
@@ -117,7 +115,12 @@ function people(g: ConquestGame, life: Life): Character[] {
 }
 
 /** A journal line only the household's own player is sent. */
-function secretly(g: ConquestGame, life: Life, text: string, tone?: "good" | "bad") {
+function secretly(
+  g: ConquestGame,
+  life: Life,
+  text: string,
+  tone?: "good" | "bad",
+) {
   journal(g, life, SECRET_MARK + text, tone, false);
 }
 
@@ -138,7 +141,10 @@ function makePerson(
   const s = g.s;
   const b = life.bondage!;
   const pr = s.provinces[b.home];
-  const owner = s.nations[pr && pr.owner >= 0 ? pr.owner : Math.max(0, meOf(s, life)!.nation)];
+  const owner =
+    s.nations[
+      pr && pr.owner >= 0 ? pr.owner : Math.max(0, meOf(s, life)!.nation)
+    ];
   const c = makeCharacter(s, rng, {
     nation: owner.id,
     culture: owner.culture,
@@ -177,7 +183,11 @@ function buy(g: ConquestGame, life: Life, key: string): string | null {
   if (!check.ok) return check.why;
   const b = bondageFor(g, life);
   // Those bought live where the household does (your home, the first time).
-  if (!b.people.length && b.home !== life.home && holdingLawful(s, g.map, life.home)) {
+  if (
+    !b.people.length &&
+    b.home !== life.home &&
+    holdingLawful(s, g.map, life.home)
+  ) {
     b.home = life.home;
     b.policy = customaryPolicy(s, g.map, life.home);
   }
@@ -187,12 +197,22 @@ function buy(g: ConquestGame, life: Life, key: string): string | null {
     g,
     {
       key: "bond:buy",
-      label: lot!.kind === "indenture" ? "An indenture bought" : "Bought at a sale",
+      label:
+        lot!.kind === "indenture" ? "An indenture bought" : "Bought at a sale",
     },
     () => spend(g, life, lot!.price),
   );
   for (const x of lot!.people)
-    list.push(makePerson(g, life, rng, x, lot!.kind, Math.round(lot!.price / lot!.people.length)));
+    list.push(
+      makePerson(
+        g,
+        life,
+        rng,
+        x,
+        lot!.kind,
+        Math.round(lot!.price / lot!.people.length),
+      ),
+    );
   // Husband and wife, and their children.
   const head = list[0];
   const partner = list.find((_, i) => lot!.people[i].rel === "partner");
@@ -214,11 +234,21 @@ function buy(g: ConquestGame, life: Life, key: string): string | null {
     }
   });
   // Someone sold out of an estate leaves family behind there.
-  if (lot!.kind === "held" && lot!.people.length === 1 && head.bond!.origin === "creole" && rng.chance(0.55))
+  if (
+    lot!.kind === "held" &&
+    lot!.people.length === 1 &&
+    head.bond!.origin === "creole" &&
+    rng.chance(0.55)
+  )
     familyLeftBehind(g, life, rng, head, p);
   (b.bought ??= []).push(key);
-  b.bought = b.bought.filter((k) => Number(k.split(":")[1]) >= dateOf(s.day).year * 12 + dateOf(s.day).month - 1);
-  for (const c of list) note(b, { day: s.day, k: "bought", c: c.id, n: c.bond!.paid });
+  b.bought = b.bought.filter(
+    (k) =>
+      Number(k.split(":")[1]) >=
+      dateOf(s.day).year * 12 + dateOf(s.day).month - 1,
+  );
+  for (const c of list)
+    note(b, { day: s.day, k: "bought", c: c.id, n: c.bond!.paid });
   const where = g.map.provinces[p].name;
   const names = list.map((c) => bondName(c)).join(", ");
   journal(
@@ -250,7 +280,9 @@ function familyLeftBehind(
     culture: c.culture,
     religion: c.religion,
     female,
-    age: asPartner ? Math.max(18, age + rng.int(-6, 4)) : age + 18 + rng.int(0, 10),
+    age: asPartner
+      ? Math.max(18, age + rng.int(-6, 4))
+      : age + 18 + rng.int(0, 10),
     first: n.first,
     family: "",
   });
@@ -279,11 +311,26 @@ function familyLeftBehind(
 
 // ---------------------------------------------------------------- the household's choices
 
-const POLICY_KEYS = ["food", "housing", "regime", "families", "passes", "church", "letters", "punish"] as const;
+const POLICY_KEYS = [
+  "food",
+  "housing",
+  "regime",
+  "families",
+  "passes",
+  "church",
+  "letters",
+  "punish",
+] as const;
 
-function setPolicy(g: ConquestGame, life: Life, kind: string, arg: number): string | null {
+function setPolicy(
+  g: ConquestGame,
+  life: Life,
+  kind: string,
+  arg: number,
+): string | null {
   const s = g.s;
-  if (!(POLICY_KEYS as readonly string[]).includes(kind)) return "No such policy.";
+  if (!(POLICY_KEYS as readonly string[]).includes(kind))
+    return "No such policy.";
   const b = life.bondage;
   if (!b) return "You hold no one.";
   const law = bondLaw(s, g.map, b.home);
@@ -304,11 +351,13 @@ function setPolicy(g: ConquestGame, life: Life, kind: string, arg: number): stri
       pol.church = !!arg;
       break;
     case "letters":
-      if (arg && !law.reading) return law.lettersWhy ?? "The law forbids it here.";
+      if (arg && !law.reading)
+        return law.lettersWhy ?? "The law forbids it here.";
       pol.letters = !!arg;
       break;
     case "families":
-      if (!arg && !law.apart) return `${law.code}: families may not be sold apart here.`;
+      if (!arg && !law.apart)
+        return `${law.code}: families may not be sold apart here.`;
       pol.families = !!arg;
       break;
     case "passes":
@@ -320,9 +369,15 @@ function setPolicy(g: ConquestGame, life: Life, kind: string, arg: number): stri
   return null;
 }
 
-function setWork(g: ConquestGame, life: Life, c: Character | undefined, kind: string): string | null {
+function setWork(
+  g: ConquestGame,
+  life: Life,
+  c: Character | undefined,
+  kind: string,
+): string | null {
   const s = g.s;
-  if (!c || !isBound(c) || c.bond!.seat !== life.seat) return "Not in your household.";
+  if (!c || !isBound(c) || c.bond!.seat !== life.seat)
+    return "Not in your household.";
   const w = kind as BondWork;
   if (!["fields", "house", "craft", "rest"].includes(w)) return "No such work.";
   if (w !== "rest" && ageOf(s, c) < 12) return "A child: no work.";
@@ -368,8 +423,17 @@ export function setFree(
   remembers(g, life, ch, "Freed me", 40, 0);
   // Their family still held hope for it too.
   for (const f of people(g, life))
-    if (f.id === c.spouse || f.mother === c.id || f.father === c.id || c.mother === f.id || c.father === f.id)
-      g.touchChar(f).bond = { ...f.bond!, mood: Math.min(100, f.bond!.mood + 8) };
+    if (
+      f.id === c.spouse ||
+      f.mother === c.id ||
+      f.father === c.id ||
+      c.mother === f.id ||
+      c.father === f.id
+    )
+      g.touchChar(f).bond = {
+        ...f.bond!,
+        mood: Math.min(100, f.bond!.mood + 8),
+      };
 }
 
 /** A free person lives somewhere: a townsman (or woman) of that place. */
@@ -384,11 +448,16 @@ function becomeLocal(g: ConquestGame, c: Character, p: number): void {
 }
 
 /** A place someone free might go: Philadelphia or another northern town, St. Augustine... */
-function refugeHome(g: ConquestGame, to: Refuge, from: number): number | undefined {
+function refugeHome(
+  g: ConquestGame,
+  to: Refuge,
+  from: number,
+): number | undefined {
   const s = g.s;
   const map = g.map;
   const byId = (id: string) => map.provinces.findIndex((x) => x.id === id);
-  const english = (p: number) => p >= 0 && lawOf(s, p).law !== "native" && lawOf(s, p).law !== "none";
+  const english = (p: number) =>
+    p >= 0 && lawOf(s, p).law !== "native" && lawOf(s, p).law !== "none";
   switch (to) {
     case "florida": {
       const p = byId("st-augustine");
@@ -396,7 +465,10 @@ function refugeHome(g: ConquestGame, to: Refuge, from: number): number | undefin
     }
     case "north":
     case "town": {
-      const want = to === "north" ? ["upland", "new-amsterdam", "massachusetts-bay", "narragansett"] : [];
+      const want =
+        to === "north"
+          ? ["upland", "new-amsterdam", "massachusetts-bay", "narragansett"]
+          : [];
       for (const id of want) {
         const p = byId(id);
         if (p >= 0 && p !== from && english(p)) return p;
@@ -410,7 +482,10 @@ function refugeHome(g: ConquestGame, to: Refuge, from: number): number | undefin
         const d = map.provinces[p];
         if (!d || p === from || !english(p)) return;
         if (Math.abs(d.lat - lat) > 6 || Math.abs(d.lon - lon) > 8) return;
-        const n = pr.pops.reduce((m, x) => m + (x.cls === "tribe" ? 0 : x.size), 0);
+        const n = pr.pops.reduce(
+          (m, x) => m + (x.cls === "tribe" ? 0 : x.size),
+          0,
+        );
         if (n > most) {
           most = n;
           best = p;
@@ -440,7 +515,11 @@ function refugeHome(g: ConquestGame, to: Refuge, from: number): number | undefin
   }
 }
 
-function free(g: ConquestGame, life: Life, c: Character | undefined): string | null {
+function free(
+  g: ConquestGame,
+  life: Life,
+  c: Character | undefined,
+): string | null {
   const s = g.s;
   const check = freeCheck(s, g.map, life, c);
   if (!check.ok) return check.why;
@@ -448,13 +527,20 @@ function free(g: ConquestGame, life: Life, c: Character | undefined): string | n
   const ch = c!;
   if (ch.bond!.status === "indenture") {
     setFree(g, life, ch, "released from the indenture");
-    journal(g, life, `You release ${bondName(ch)} from the rest of the indenture. ${ch.female ? "She" : "He"} is free.`, "good");
+    journal(
+      g,
+      life,
+      `You release ${bondName(ch)} from the rest of the indenture. ${ch.female ? "She" : "He"} is free.`,
+      "good",
+    );
     return null;
   }
   const fc = freeCost(s, g.map, life);
   const r = fc.rule;
   if (r.kind === "petition") {
-    withFlow(g, { key: "bond:free", label: "Fees: freeing someone" }, () => spend(g, life, fc.fee));
+    withFlow(g, { key: "bond:free", label: "Fees: freeing someone" }, () =>
+      spend(g, life, fc.fee),
+    );
     const odds = petitionOdds(r.petition!.odds, ch);
     (b.petitions ??= []).push({
       c: ch.id,
@@ -481,14 +567,25 @@ export function petitionOdds(base: number, c: Character): number {
 }
 
 /** Free someone now, past the law's hurdles (fees, passage, security, allowance). */
-function freeNow(g: ConquestGame, life: Life, c: Character, how: string, estate = false): boolean {
+function freeNow(
+  g: ConquestGame,
+  life: Life,
+  c: Character,
+  how: string,
+  estate = false,
+): boolean {
   const s = g.s;
   const b = life.bondage!;
   const fc = freeCost(s, g.map, life);
   const r = fc.rule;
   if (life.purse < fc.need) return false;
-  withFlow(g, { key: "bond:free", label: estate ? "Fees: freed by will" : "Fees: freeing someone" }, () =>
-    spend(g, life, fc.fee + fc.passage),
+  withFlow(
+    g,
+    {
+      key: "bond:free",
+      label: estate ? "Fees: freed by will" : "Fees: freeing someone",
+    },
+    () => spend(g, life, fc.fee + fc.passage),
   );
   if (fc.security) (b.bonds ??= []).push({ c: c.id, sum: fc.security });
   if (fc.allowance) (b.allowance ??= []).push(c.id);
@@ -507,7 +604,11 @@ function freeNow(g: ConquestGame, life: Life, c: Character, how: string, estate 
   return true;
 }
 
-function setWill(g: ConquestGame, life: Life, c: Character | undefined): string | null {
+function setWill(
+  g: ConquestGame,
+  life: Life,
+  c: Character | undefined,
+): string | null {
   const check = willCheck(g.s, g.map, life, c);
   if (!check.ok) return check.why;
   const ch = g.touchChar(c!);
@@ -528,31 +629,61 @@ function setWill(g: ConquestGame, life: Life, c: Character | undefined): string 
 }
 
 /** Let someone who has saved their price buy their freedom. */
-export function selfPurchase(g: ConquestGame, life: Life, c: Character | undefined, waive = false): string | null {
+export function selfPurchase(
+  g: ConquestGame,
+  life: Life,
+  c: Character | undefined,
+  waive = false,
+): string | null {
   const s = g.s;
-  if (!c || !isHeld(c) || c.bond!.seat !== life.seat) return "Not held in your household.";
+  if (!c || !isHeld(c) || c.bond!.seat !== life.seat)
+    return "Not held in your household.";
   const priceNow = selfPrice(s, g.map, life, c);
   const saved = c.bond!.saved ?? 0;
-  if (!waive && saved < priceNow) return `${bondName(c)} has saved ${r1(saved)} of ${priceNow}.`;
+  if (!waive && saved < priceNow)
+    return `${bondName(c)} has saved ${r1(saved)} of ${priceNow}.`;
   const fc = freeCost(s, g.map, life);
   if (fc.rule.kind === "none") return fc.rule.text;
   if (fc.rule.kind === "petition") {
     // Their money paid, the petition goes in as any other.
-    if (!waive) withFlow(g, { key: "bond:self", label: "A freedom bought" }, () => earn(g, life, priceNow));
-    g.touchChar(c).bond = { ...c.bond!, saved: waive ? saved : r1(saved - priceNow) };
+    if (!waive)
+      withFlow(g, { key: "bond:self", label: "A freedom bought" }, () =>
+        earn(g, life, priceNow),
+      );
+    g.touchChar(c).bond = {
+      ...c.bond!,
+      saved: waive ? saved : r1(saved - priceNow),
+    };
     return free(g, life, c);
   }
-  if (life.purse + (waive ? 0 : priceNow) < fc.need) return `The law's fees and security: ${fc.need} coins in hand.`;
-  if (!waive) withFlow(g, { key: "bond:self", label: "A freedom bought" }, () => earn(g, life, priceNow));
-  g.touchChar(c).bond = { ...c.bond!, saved: waive ? saved : r1(saved - priceNow) };
-  freeNow(g, life, c, waive ? "by deed, the price forgiven" : "by buying their own freedom");
+  if (life.purse + (waive ? 0 : priceNow) < fc.need)
+    return `The law's fees and security: ${fc.need} coins in hand.`;
+  if (!waive)
+    withFlow(g, { key: "bond:self", label: "A freedom bought" }, () =>
+      earn(g, life, priceNow),
+    );
+  g.touchChar(c).bond = {
+    ...c.bond!,
+    saved: waive ? saved : r1(saved - priceNow),
+  };
+  freeNow(
+    g,
+    life,
+    c,
+    waive ? "by deed, the price forgiven" : "by buying their own freedom",
+  );
   return null;
 }
 
 // ---------------------------------------------------------------- selling
 
 /** Sell someone (with their family, if `all`): the price, and what it breaks. */
-export function sellPerson(g: ConquestGame, life: Life, c: Character, all: boolean): string | null {
+export function sellPerson(
+  g: ConquestGame,
+  life: Life,
+  c: Character,
+  all: boolean,
+): string | null {
   const s = g.s;
   const check = sellCheck(s, g.map, life, c, all);
   if (!check.ok) return check.why;
@@ -563,7 +694,14 @@ export function sellPerson(g: ConquestGame, life: Life, c: Character, all: boole
   const rng = bdice(s, hashOf(c.id, 0x5e11));
   const away = elsewhere(g, b.home, rng);
   for (const x of list) {
-    g.touchChar(x).bond = { ...x.bond!, seat: undefined, by: -1, at: away, will: undefined, grief: s.day + 365 };
+    g.touchChar(x).bond = {
+      ...x.bond!,
+      seat: undefined,
+      by: -1,
+      at: away,
+      will: undefined,
+      grief: s.day + 365,
+    };
     delete x.bond!.seat;
     delete x.bond!.will;
     b.people = b.people.filter((id) => id !== x.id);
@@ -571,7 +709,11 @@ export function sellPerson(g: ConquestGame, life: Life, c: Character, all: boole
   }
   withFlow(g, { key: "bond:sell", label: "Sold" }, () => earn(g, life, worth));
   for (const f of left) {
-    g.touchChar(f).bond = { ...f.bond!, grief: s.day + 365, mood: Math.max(0, f.bond!.mood - 15) };
+    g.touchChar(f).bond = {
+      ...f.bond!,
+      grief: s.day + 365,
+      mood: Math.max(0, f.bond!.mood - 15),
+    };
     remembers(g, life, f, "Sold my family away", -40, 0);
   }
   // Everyone in the household knows it could be them.
@@ -594,13 +736,19 @@ function elsewhere(g: ConquestGame, p: number, rng: Rng): number {
   const col = colonyOf(map, p);
   const same = map.provinces
     .map((_, i) => i)
-    .filter((i) => i !== p && colonyOf(map, i) === col && holdingLawful(g.s, map, i));
+    .filter(
+      (i) => i !== p && colonyOf(map, i) === col && holdingLawful(g.s, map, i),
+    );
   return same.length ? same[rng.int(0, same.length - 1)] : p;
 }
 
 // ---------------------------------------------------------------- the command
 
-function bondCommand(g: ConquestGame, life: Life, c: LifeCommand): string | null | undefined {
+function bondCommand(
+  g: ConquestGame,
+  life: Life,
+  c: LifeCommand,
+): string | null | undefined {
   if (c.k !== "bond") return undefined;
   const cmd = c as LabourCommand;
   const s = g.s;
@@ -626,19 +774,26 @@ function bondCommand(g: ConquestGame, life: Life, c: LifeCommand): string | null
       const check = sellCheck(s, g.map, life, ch, all);
       if (!check.ok) return check.why;
       // Selling someone from their family is put to you as a scene first.
-      if (cmd.arg !== 1 && leftBehind(s, life, all ? saleFamily(s, life, ch) : [ch]).length) {
+      if (
+        cmd.arg !== 1 &&
+        leftBehind(s, life, all ? saleFamily(s, life, ch) : [ch]).length
+      ) {
         raiseEvent(g, life, "bond-plea", { c: ch.id, all: all ? 1 : 0 });
         return null;
       }
       return sellPerson(g, life, ch, all);
     }
     case "hear": {
-      if (!ch || !isBound(ch) || ch.bond!.seat !== life.seat) return "Not in your household.";
+      if (!ch || !isBound(ch) || ch.bond!.seat !== life.seat)
+        return "Not in your household.";
       const key = `bond:hear:${ch.id}`;
       if ((life.cooldowns[key] ?? 0) > s.day)
         return `You heard ${bondName(ch)} lately: ${(life.cooldowns[key] ?? 0) - s.day} days.`;
       touchLife(g, life).cooldowns[key] = s.day + 60;
-      raiseEvent(g, life, "bond-voice", { c: ch.id, t: voiceTopic(g, life, ch) });
+      raiseEvent(g, life, "bond-voice", {
+        c: ch.id,
+        t: voiceTopic(g, life, ch),
+      });
       return null;
     }
     default:
@@ -675,12 +830,19 @@ export function bondMonthly(g: ConquestGame, life: Life): void {
   const before = b.people.length;
   b.people = b.people.filter((id) => {
     const c = s.chars[id];
-    return !!c?.alive && c.bond?.seat === life.seat && (isBound(c) || c.bond?.status === "fled");
+    return (
+      !!c?.alive &&
+      c.bond?.seat === life.seat &&
+      (isBound(c) || c.bond?.status === "fled")
+    );
   });
   if (b.people.length !== before) touchLife(g, life);
   // The month's keep first, as the forecast had it, under its own name.
   const keep = bondForecast(s, life, g.w).find((x) => x.key === "bond:keep");
-  if (keep) withFlow(g, { key: "bond:keep", label: keep.label }, () => spend(g, life, -keep.value));
+  if (keep)
+    withFlow(g, { key: "bond:keep", label: keep.label }, () =>
+      spend(g, life, -keep.value),
+    );
   const short = life.purse < 0;
   payAllowances(g, life);
   settleFled(g, life);
@@ -738,7 +900,10 @@ function work(g: ConquestGame, life: Life, salt: number): void {
   }
   const hired = hiredOf(s, life);
   if (hired.length) {
-    const gross = hired.reduce((m, c) => m + workOf(s, map, life, c, "craft"), 0);
+    const gross = hired.reduce(
+      (m, c) => m + workOf(s, map, life, c, "craft"),
+      0,
+    );
     const roll = bdice(s, salt ^ 0x41e3).next();
     let acc = 0;
     let mul: number = HIRE_LUCK[1].mul;
@@ -750,44 +915,84 @@ function work(g: ConquestGame, life: Life, salt: number): void {
       }
     }
     const take = r2(gross * mul);
-    withFlow(g, { key: "bond:hire", label: `Hired out in town: ${hired.length}`, chance: true, aff: "property" }, () => {
-      earn(g, life, take);
-      spend(g, life, r2(take * CROP_EXCISE));
-    });
+    withFlow(
+      g,
+      {
+        key: "bond:hire",
+        label: `Hired out in town: ${hired.length}`,
+        chance: true,
+        aff: "property",
+      },
+      () => {
+        earn(g, life, take);
+        spend(g, life, r2(take * CROP_EXCISE));
+      },
+    );
   }
   // House work: a household kept, an easier mind, better dinners.
-  const house = people(g, life).filter((c) => c.bond!.work === "house" && ageOf(s, c) >= 12);
+  const house = people(g, life).filter(
+    (c) => c.bond!.work === "house" && ageOf(s, c) >= 12,
+  );
   if (house.length && life.prov === life.bondage!.home && !life.travel) {
     addStress(g, life, -Math.min(3, house.length));
     heal(g, life, Math.min(1, house.length * 0.5));
   }
 }
 
-function personMonth(g: ConquestGame, life: Life, c: Character, short: boolean): void {
+function personMonth(
+  g: ConquestGame,
+  life: Life,
+  c: Character,
+  short: boolean,
+): void {
   const s = g.s;
   const map = g.map;
   const m = c.bond!;
   const rng = bdice(s, hashOf(c.id, 0x9e41));
   const ht = healthTarget(s, map, life, c).total - (short ? 10 : 0);
   const mt = moodTarget(s, map, life, c).total - (short ? 8 : 0);
-  const health = Math.max(1, Math.min(100, Math.round(m.health + (ht - m.health) * 0.15 + rng.int(-2, 2))));
-  const mood = Math.max(0, Math.min(100, Math.round(m.mood + (mt - m.mood) * 0.2)));
+  const health = Math.max(
+    1,
+    Math.min(
+      100,
+      Math.round(m.health + (ht - m.health) * 0.15 + rng.int(-2, 2)),
+    ),
+  );
+  const mood = Math.max(
+    0,
+    Math.min(100, Math.round(m.mood + (mt - m.mood) * 0.2)),
+  );
   const sk = { ...m.sk };
   const age = ageOf(s, c);
   if (age >= 12) {
-    const k = m.work === "fields" ? "field" : m.work === "house" ? "house" : m.work === "craft" ? "craft" : null;
+    const k =
+      m.work === "fields"
+        ? "field"
+        : m.work === "house"
+          ? "house"
+          : m.work === "craft"
+            ? "craft"
+            : null;
     if (k && sk[k] < 8 && rng.chance(0.06)) sk[k] += 1;
   }
   // Their own time (the task system, a trade hired out, Sundays) is theirs to save from.
   let saved = m.saved ?? 0;
   if (m.status === "held" && age >= 14) {
     const pol = life.bondage!.policy;
-    saved += (pol.regime === "task" ? 0.08 : 0.02) + (m.work === "craft" && hiredOf(s, life).includes(c) ? 0.15 : 0);
+    saved +=
+      (pol.regime === "task" ? 0.08 : 0.02) +
+      (m.work === "craft" && hiredOf(s, life).includes(c) ? 0.15 : 0);
   }
   // Letters, where they're taught and the law allows.
   let lit = m.lit ?? 0;
   const law = bondLaw(s, map, life.bondage!.home);
-  if (life.bondage!.policy.letters && age >= 6 && lit < (law.writing ? 2 : 1) && rng.chance(0.04)) lit += 1;
+  if (
+    life.bondage!.policy.letters &&
+    age >= 6 &&
+    lit < (law.writing ? 2 : 1) &&
+    rng.chance(0.04)
+  )
+    lit += 1;
   g.touchChar(c).bond = {
     ...m,
     health,
@@ -808,8 +1013,14 @@ function followHome(g: ConquestGame, life: Life): void {
   b.home = life.home;
   const parted: Character[] = [];
   for (const c of people(g, life)) {
-    const away = familyAway(s, c).filter((f) => f.bond?.at === from || f.home === from);
-    g.touchChar(c).bond = { ...c.bond!, at: life.home, ...(away.length ? { grief: s.day + 300 } : {}) };
+    const away = familyAway(s, c).filter(
+      (f) => f.bond?.at === from || f.home === from,
+    );
+    g.touchChar(c).bond = {
+      ...c.bond!,
+      at: life.home,
+      ...(away.length ? { grief: s.day + 300 } : {}),
+    };
     if (away.length) parted.push(c);
   }
   journal(
@@ -830,7 +1041,10 @@ function births(g: ConquestGame, life: Life, salt: number): void {
     const father = s.chars[mother.spouse];
     const rng = bdice(s, hashOf(mother.id, 0x6a1e));
     const female = rng.chance(0.5);
-    const tradition = mother.bond!.origin === "creole" || mother.bond!.origin === "europe" ? "creole" : mother.bond!.origin;
+    const tradition =
+      mother.bond!.origin === "creole" || mother.bond!.origin === "europe"
+        ? "creole"
+        : mother.bond!.origin;
     const n = nameFor(rng, tradition, female, mother.culture);
     const kid = makeCharacter(s, rng, {
       nation: mother.nation,
@@ -911,11 +1125,24 @@ function deaths(g: ConquestGame, life: Life, salt: number): void {
     if (!bdice(s, salt ^ hashOf(c.id, 0xdead)).chance(p)) continue;
     const age = ageOf(s, c);
     const cause =
-      age < 2 ? "a fever in infancy" : age >= 60 ? `old age at ${age}` : c.bond!.health < 40 ? `a long sickness at ${age}` : `a fever at ${age}`;
+      age < 2
+        ? "a fever in infancy"
+        : age >= 60
+          ? `old age at ${age}`
+          : c.bond!.health < 40
+            ? `a long sickness at ${age}`
+            : `a fever at ${age}`;
     kill(g, c, cause);
     note(b, { day: s.day, k: "died", c: c.id });
     for (const f of people(g, life))
-      if (f.id === c.spouse || f.mother === c.id || f.father === c.id || c.mother === f.id || c.father === f.id || c.children.includes(f.id))
+      if (
+        f.id === c.spouse ||
+        f.mother === c.id ||
+        f.father === c.id ||
+        c.mother === f.id ||
+        c.father === f.id ||
+        c.children.includes(f.id)
+      )
         g.touchChar(f).bond = { ...f.bond!, grief: s.day + 300 };
     journal(g, life, `${bondName(c)} has died: ${cause}.`, "bad");
   }
@@ -946,7 +1173,12 @@ function flights(g: ConquestGame, life: Life, salt: number): void {
       fled: { day: s.day, to, was, due: s.day + 25 + rng.int(0, 35) },
     };
     note(b, { day: s.day, k: "fled", c: c.id });
-    journal(g, life, `${bondName(c)} is gone in the night, making (they say) for ${REFUGE_NAMES[to]}.`, "bad");
+    journal(
+      g,
+      life,
+      `${bondName(c)} is gone in the night, making (they say) for ${REFUGE_NAMES[to]}.`,
+      "bad",
+    );
     raiseEvent(g, life, "bond-fled", { c: c.id });
     // A freedom seeker may come to another player's door.
     doorFor(g, life, c, to);
@@ -988,8 +1220,10 @@ function settleFled(g: ConquestGame, life: Life): void {
   for (const id of [...b.people]) {
     const c = s.chars[id];
     const f = c?.bond?.fled;
-    if (!c?.alive || c.bond!.status !== "fled" || !f || f.out || f.due > s.day) continue;
-    const odds = refugeOdds(s, g.map, life, c).find((x) => x.to === f.to)?.free ?? 0.3;
+    if (!c?.alive || c.bond!.status !== "fled" || !f || f.out || f.due > s.day)
+      continue;
+    const odds =
+      refugeOdds(s, g.map, life, c).find((x) => x.to === f.to)?.free ?? 0.3;
     const p = Math.max(0.02, Math.min(0.95, odds + (f.aid ?? 0)));
     const freeNowRoll = bdice(s, hashOf(c.id, 0xf7ee)).chance(p);
     if (freeNowRoll) reachedFreedom(g, life, c);
@@ -998,7 +1232,12 @@ function settleFled(g: ConquestGame, life: Life): void {
 }
 
 /** They got clear: a free person in the world (or beyond it, in the swamp or the mountains). */
-export function reachedFreedom(g: ConquestGame, life: Life, c: Character, where?: number): void {
+export function reachedFreedom(
+  g: ConquestGame,
+  life: Life,
+  c: Character,
+  where?: number,
+): void {
   const s = g.s;
   const b = life.bondage!;
   const f = c.bond!.fled!;
@@ -1013,13 +1252,22 @@ export function reachedFreedom(g: ConquestGame, life: Life, c: Character, where?
     ...(home !== undefined ? { at: home } : {}),
   };
   if (home !== undefined) {
-    if (!ch.family) ch.family = freeSurname(bdice(s, c.id), ch, s.nations[ch.nation]?.culture ?? "english");
+    if (!ch.family)
+      ch.family = freeSurname(
+        bdice(s, c.id),
+        ch,
+        s.nations[ch.nation]?.culture ?? "english",
+      );
     becomeLocal(g, ch, home);
   }
   b.people = b.people.filter((x) => x !== c.id);
   note(b, { day: s.day, k: "free", c: c.id });
   for (const fam of people(g, life))
-    if (fam.id === c.spouse || c.children.includes(fam.id) || c.mother === fam.id)
+    if (
+      fam.id === c.spouse ||
+      c.children.includes(fam.id) ||
+      c.mother === fam.id
+    )
       g.touchChar(fam).bond = { ...fam.bond!, grief: s.day + 200 };
   journal(
     g,
@@ -1031,7 +1279,12 @@ export function reachedFreedom(g: ConquestGame, life: Life, c: Character, where?
 }
 
 /** Taken up and brought back: the law's fees paid, and a household that knows it. */
-export function takenBack(g: ConquestGame, life: Life, c: Character, by?: string): void {
+export function takenBack(
+  g: ConquestGame,
+  life: Life,
+  c: Character,
+  by?: string,
+): void {
   const s = g.s;
   const b = life.bondage!;
   const f = c.bond!.fled!;
@@ -1043,12 +1296,19 @@ export function takenBack(g: ConquestGame, life: Life, c: Character, by?: string
     fled: { ...f, out: by ? "returned" : "taken" },
     grief: s.day + 240,
     mood: Math.max(0, ch.bond!.mood - 15),
-    ...(f.was === "indenture" && ch.bond!.until ? { until: ch.bond!.until + 2 * (s.day - f.day) + 60 } : {}),
+    ...(f.was === "indenture" && ch.bond!.until
+      ? { until: ch.bond!.until + 2 * (s.day - f.day) + 60 }
+      : {}),
   };
   note(b, { day: s.day, k: "taken", c: c.id });
-  withFlow(g, { key: "bond:taken", label: "Fees: a freedom seeker taken up" }, () => spend(g, life, 2));
+  withFlow(
+    g,
+    { key: "bond:taken", label: "Fees: a freedom seeker taken up" },
+    () => spend(g, life, 2),
+  );
   if (b.policy.punish === 2)
-    for (const x of people(g, life)) g.touchChar(x).bond = { ...x.bond!, mood: Math.max(0, x.bond!.mood - 6) };
+    for (const x of people(g, life))
+      g.touchChar(x).bond = { ...x.bond!, mood: Math.max(0, x.bond!.mood - 6) };
   journal(
     g,
     life,
@@ -1064,15 +1324,25 @@ function rising(g: ConquestGame, life: Life, salt: number): void {
   if (!p || !bdice(s, salt ^ 0x215e).chance(p)) return;
   const b = life.bondage!;
   const rng = bdice(s, salt ^ 0x215f);
-  const adults = heldAdults(s, life).sort((a, c) => a.bond!.mood - c.bond!.mood);
+  const adults = heldAdults(s, life).sort(
+    (a, c) => a.bond!.mood - c.bond!.mood,
+  );
   const betrayed = rng.next() < RISE_OUTCOMES[0].p;
-  const leaders = adults.slice(0, Math.max(1, Math.min(3, Math.round(adults.length / 4))));
+  const leaders = adults.slice(
+    0,
+    Math.max(1, Math.min(3, Math.round(adults.length / 4))),
+  );
   if (betrayed) {
     for (const c of leaders) {
       kill(g, c, "condemned by the colony's court for a plot to rise");
       note(b, { day: s.day, k: "plot", c: c.id });
     }
-    for (const x of people(g, life)) g.touchChar(x).bond = { ...x.bond!, grief: s.day + 300, mood: Math.max(0, x.bond!.mood - 10) };
+    for (const x of people(g, life))
+      g.touchChar(x).bond = {
+        ...x.bond!,
+        grief: s.day + 300,
+        mood: Math.max(0, x.bond!.mood - 10),
+      };
     journal(
       g,
       life,
@@ -1085,15 +1355,23 @@ function rising(g: ConquestGame, life: Life, salt: number): void {
   }
   // They rise: the barns burn, and they go, the bitterest first, with their families.
   const going = new Set<number>();
-  for (const c of adults) if (c.bond!.mood < 45 || leaders.includes(c)) going.add(c.id);
+  for (const c of adults)
+    if (c.bond!.mood < 45 || leaders.includes(c)) going.add(c.id);
   for (const id of [...going]) {
     const c = s.chars[id];
-    for (const k of c.children) if (s.chars[k]?.alive && isBound(s.chars[k])) going.add(k);
-    if (s.chars[c.spouse]?.alive && isBound(s.chars[c.spouse])) going.add(c.spouse);
+    for (const k of c.children)
+      if (s.chars[k]?.alive && isBound(s.chars[k])) going.add(k);
+    if (s.chars[c.spouse]?.alive && isBound(s.chars[c.spouse]))
+      going.add(c.spouse);
   }
   const damage = 8 + rng.int(0, 12);
-  withFlow(g, { key: "bond:rising", label: "A rising: barns and stores burnt" }, () => spend(g, life, damage));
-  if (life.prov === b.home && !life.travel && rng.chance(0.5)) hurt(g, life, 10 + rng.int(0, 10), "the night your household rose");
+  withFlow(
+    g,
+    { key: "bond:rising", label: "A rising: barns and stores burnt" },
+    () => spend(g, life, damage),
+  );
+  if (life.prov === b.home && !life.travel && rng.chance(0.5))
+    hurt(g, life, 10 + rng.int(0, 10), "the night your household rose");
   let free = 0;
   let lost = 0;
   const refs = refugeOdds(s, map, life);
@@ -1131,8 +1409,11 @@ function rising(g: ConquestGame, life: Life, salt: number): void {
 function servedOut(g: ConquestGame, life: Life): void {
   const s = g.s;
   for (const c of people(g, life)) {
-    if (c.bond!.status !== "indenture" || (c.bond!.until ?? Infinity) > s.day) continue;
-    withFlow(g, { key: "bond:dues", label: "Freedom dues" }, () => spend(g, life, FREEDOM_DUES));
+    if (c.bond!.status !== "indenture" || (c.bond!.until ?? Infinity) > s.day)
+      continue;
+    withFlow(g, { key: "bond:dues", label: "Freedom dues" }, () =>
+      spend(g, life, FREEDOM_DUES),
+    );
     setFree(g, life, c, "the indenture served");
     note(life.bondage!, { day: s.day, k: "served", c: c.id });
     journal(
@@ -1147,7 +1428,8 @@ function servedOut(g: ConquestGame, life: Life): void {
 function askToBuy(g: ConquestGame, life: Life): void {
   const s = g.s;
   for (const c of people(g, life)) {
-    if (!isHeld(c) || (c.bond!.saved ?? 0) < selfPrice(s, g.map, life, c)) continue;
+    if (!isHeld(c) || (c.bond!.saved ?? 0) < selfPrice(s, g.map, life, c))
+      continue;
     const key = `bond:ask:${c.id}`;
     if ((life.cooldowns[key] ?? 0) > s.day) continue;
     life.cooldowns[key] = s.day + 365;
@@ -1172,17 +1454,37 @@ function settlePetitions(g: ConquestGame, life: Life): void {
     const granted = bdice(s, hashOf(c.id, pet.day, 0x9e7)).chance(pet.odds);
     if (granted) {
       const fc = freeCost(s, g.map, life);
-      setFree(g, life, c, pet.will ? "by will, with the council's licence" : "by petition");
+      setFree(
+        g,
+        life,
+        c,
+        pet.will ? "by will, with the council's licence" : "by petition",
+      );
       if (fc.rule.leave) {
-        withFlow(g, { key: "bond:free", label: "Fees: freeing someone" }, () => spend(g, life, fc.passage));
+        withFlow(g, { key: "bond:free", label: "Fees: freeing someone" }, () =>
+          spend(g, life, fc.passage),
+        );
         const away = refugeHome(g, "north", b.home);
         if (away !== undefined) becomeLocal(g, g.touchChar(c), away);
       }
-      journal(g, life, `${pet.who.replace(/^\w/, (m) => m.toUpperCase())} grant${pet.who.startsWith("the") ? "" : "s"} the petition: ${bondName(c)} is free.`, "good");
+      journal(
+        g,
+        life,
+        `${pet.who.replace(/^\w/, (m) => m.toUpperCase())} grant${pet.who.startsWith("the") ? "" : "s"} the petition: ${bondName(c)} is free.`,
+        "good",
+      );
     } else {
-      g.touchChar(c).bond = { ...c.bond!, mood: Math.max(0, c.bond!.mood - 12) };
+      g.touchChar(c).bond = {
+        ...c.bond!,
+        mood: Math.max(0, c.bond!.mood - 12),
+      };
       note(b, { day: s.day, k: "denied", c: c.id });
-      journal(g, life, `${pet.who.replace(/^\w/, (m) => m.toUpperCase())} refuse${pet.who.startsWith("the") ? "" : "s"} the petition to free ${bondName(c)}${c.bond!.merit ? "" : ": no meritorious service was shown"}.`, "bad");
+      journal(
+        g,
+        life,
+        `${pet.who.replace(/^\w/, (m) => m.toUpperCase())} refuse${pet.who.startsWith("the") ? "" : "s"} the petition to free ${bondName(c)}${c.bond!.merit ? "" : ": no meritorious service was shown"}.`,
+        "bad",
+      );
     }
   }
   b.petitions = keep;
@@ -1195,8 +1497,13 @@ function payAllowances(g: ConquestGame, life: Life): void {
   if (list.length !== (b.allowance ?? []).length) b.allowance = list;
   for (const id of list) {
     const c = s.chars[id];
-    withFlow(g, { key: `bond:allow:${id}`, label: `Allowance to ${bondName(c)}, freed (the act of 1712)` }, () =>
-      spend(g, life, allowanceOf()),
+    withFlow(
+      g,
+      {
+        key: `bond:allow:${id}`,
+        label: `Allowance to ${bondName(c)}, freed (the act of 1712)`,
+      },
+      () => spend(g, life, allowanceOf()),
     );
   }
 }
@@ -1213,8 +1520,16 @@ function callBonds(g: ConquestGame, life: Life): void {
     const p = age >= 60 ? 0.15 : age >= 50 ? 0.06 : 0.02;
     if (!bdice(s, hashOf(c.id, 0xb0d5)).chance(p)) continue;
     const sum = Math.round(x.sum / 4);
-    withFlow(g, { key: "bond:security", label: "The town calls on a bond" }, () => spend(g, life, sum));
-    journal(g, life, `${bondName(c)}, whom you freed, has come to want in ${c.female ? "her" : "his"} age: the town calls on your bond for ${sum} coins.`);
+    withFlow(
+      g,
+      { key: "bond:security", label: "The town calls on a bond" },
+      () => spend(g, life, sum),
+    );
+    journal(
+      g,
+      life,
+      `${bondName(c)}, whom you freed, has come to want in ${c.female ? "her" : "his"} age: the town calls on your bond for ${sum} coins.`,
+    );
   }
 }
 
@@ -1224,16 +1539,27 @@ function familyElsewhere(g: ConquestGame, life: Life, salt: number): void {
   const seen = new Set<number>();
   for (const c of people(g, life))
     for (const f of familyAway(s, c)) {
-      if (seen.has(f.id) || f.bond?.seat || !f.bond || f.bond.status !== "held") continue;
+      if (seen.has(f.id) || f.bond?.seat || !f.bond || f.bond.status !== "held")
+        continue;
       seen.add(f.id);
       const age = ageOf(s, f);
       const p = age < 50 ? 0.002 : age < 65 ? 0.006 : 0.02;
       if (!bdice(s, salt ^ hashOf(f.id, 0xe15e)).chance(p)) continue;
       kill(g, f, `a fever at ${age}`);
       for (const x of people(g, life))
-        if (x.spouse === f.id || x.mother === f.id || x.father === f.id || f.children.includes(x.id))
+        if (
+          x.spouse === f.id ||
+          x.mother === f.id ||
+          x.father === f.id ||
+          f.children.includes(x.id)
+        )
           g.touchChar(x).bond = { ...x.bond!, grief: s.day + 300 };
-      journal(g, life, `Word comes from ${g.map.provinces[f.bond.at]?.name ?? "another estate"} that ${bondName(f)}, ${c.first}'s ${kinWord(c, f)}, has died.`, "bad");
+      journal(
+        g,
+        life,
+        `Word comes from ${g.map.provinces[f.bond.at]?.name ?? "another estate"} that ${bondName(f)}, ${c.first}'s ${kinWord(c, f)}, has died.`,
+        "bad",
+      );
     }
 }
 
@@ -1280,18 +1606,43 @@ function executeWill(g: ConquestGame, life: Life): void {
     g.touchChar(c).bond = { ...c.bond!, will: undefined };
     delete c.bond!.will;
     if (!r.will || r.kind === "none") {
-      g.touchChar(c).bond = { ...c.bond!, mood: Math.max(0, c.bond!.mood - 25), grief: s.day + 300 };
-      journal(g, life, `The will's freeing of ${bondName(c)} is void under ${r.law}: ${c.female ? "she" : "he"} passes to the heir.`, "bad");
+      g.touchChar(c).bond = {
+        ...c.bond!,
+        mood: Math.max(0, c.bond!.mood - 25),
+        grief: s.day + 300,
+      };
+      journal(
+        g,
+        life,
+        `The will's freeing of ${bondName(c)} is void under ${r.law}: ${c.female ? "she" : "he"} passes to the heir.`,
+        "bad",
+      );
       continue;
     }
     if (r.kind === "petition") {
       const odds = petitionOdds(r.petition!.odds, c);
-      (b.petitions ??= []).push({ c: c.id, day: s.day, due: s.day + r.petition!.days, who: r.petition!.who, odds, will: true });
-      journal(g, life, `As the will asked, the executors petition ${r.petition!.who} to free ${bondName(c)}.`);
+      (b.petitions ??= []).push({
+        c: c.id,
+        day: s.day,
+        due: s.day + r.petition!.days,
+        who: r.petition!.who,
+        odds,
+        will: true,
+      });
+      journal(
+        g,
+        life,
+        `As the will asked, the executors petition ${r.petition!.who} to free ${bondName(c)}.`,
+      );
       continue;
     }
     if (!freeNow(g, life, c, "by will", true))
-      journal(g, life, `The estate can't give the law's security for ${bondName(c)}'s freedom (${fc.need} coins): ${c.female ? "she" : "he"} passes to the heir.`, "bad");
+      journal(
+        g,
+        life,
+        `The estate can't give the law's security for ${bondName(c)}'s freedom (${fc.need} coins): ${c.female ? "she" : "he"} passes to the heir.`,
+        "bad",
+      );
   }
 }
 
@@ -1301,13 +1652,24 @@ function settleEndedLines(g: ConquestGame): void {
   for (const life of s.lives) {
     if (!life.watching || !life.bondage) continue;
     const b = life.bondage;
-    const list = b.people.map((id) => s.chars[id]).filter((c): c is Character => !!c?.alive && isBound(c) && c.bond!.seat === life.seat);
+    const list = b.people
+      .map((id) => s.chars[id])
+      .filter(
+        (c): c is Character =>
+          !!c?.alive && isBound(c) && c.bond!.seat === life.seat,
+      );
     if (!list.length && !b.petitions?.length) continue;
     touchLife(g, life);
     // The will first (the estate's money is in the purse still).
     const fc = freeCost(s, g.map, life);
     for (const c of list) {
-      if (c.bond!.will && fc.rule.will && fc.rule.kind !== "petition" && fc.rule.kind !== "none" && life.purse >= fc.need) {
+      if (
+        c.bond!.will &&
+        fc.rule.will &&
+        fc.rule.kind !== "petition" &&
+        fc.rule.kind !== "none" &&
+        life.purse >= fc.need
+      ) {
         freeNow(g, life, c, "by will", true);
         continue;
       }
@@ -1315,13 +1677,22 @@ function settleEndedLines(g: ConquestGame): void {
         setFree(g, life, c, "the master's death");
         continue;
       }
-      g.touchChar(c).bond = { ...c.bond!, seat: undefined, by: -1, will: undefined };
+      g.touchChar(c).bond = {
+        ...c.bond!,
+        seat: undefined,
+        by: -1,
+        will: undefined,
+      };
       delete c.bond!.seat;
       delete c.bond!.will;
     }
     b.people = [];
     b.petitions = [];
-    journal(g, life, "Those your family held pass with the estate to kin in the colony.");
+    journal(
+      g,
+      life,
+      "Those your family held pass with the estate to kin in the colony.",
+    );
   }
 }
 
@@ -1355,7 +1726,12 @@ hooks.birth.push((g, kid, mother) => {
 // ---------------------------------------------------------------- for the scenes
 
 /** A door opened to someone fleeing (another player's choice): hide them, help them on, or send for the constable. */
-export function answerDoor(g: ConquestGame, at: Life, c: Character, how: "help" | "hide" | "constable"): void {
+export function answerDoor(
+  g: ConquestGame,
+  at: Life,
+  c: Character,
+  how: "help" | "hide" | "constable",
+): void {
   const s = g.s;
   const holder = s.lives.find((l) => l.seat === c.bond?.seat);
   const f = c.bond?.fled;
@@ -1363,25 +1739,50 @@ export function answerDoor(g: ConquestGame, at: Life, c: Character, how: "help" 
   const ch = g.touchChar(c);
   if (how === "help") {
     ch.bond = { ...ch.bond!, fled: { ...f, aid: (f.aid ?? 0) + 0.15 } };
-    secretly(g, at, `You gave ${bondName(c)} bread and a blanket at the back door, and the road north.`, "good");
+    secretly(
+      g,
+      at,
+      `You gave ${bondName(c)} bread and a blanket at the back door, and the road north.`,
+      "good",
+    );
     return;
   }
   if (how === "hide") {
     ch.bond = { ...ch.bond!, fled: { ...f, due: s.day } };
     reachedFreedom(g, holder, c, at.home);
-    secretly(g, at, `You hid ${bondName(c)} in the loft until the hue and cry died down. ${c.female ? "She" : "He"} lives free at ${g.map.provinces[at.home].name} now.`, "good");
+    secretly(
+      g,
+      at,
+      `You hid ${bondName(c)} in the loft until the hue and cry died down. ${c.female ? "She" : "He"} lives free at ${g.map.provinces[at.home].name} now.`,
+      "good",
+    );
     // Word may get out.
     if (bdice(s, hashOf(c.id, 0x7a1e)).chance(0.2)) {
       const fine = 10;
-      withFlow(g, { key: "bond:fine", label: "A fine for harbouring" }, () => spend(g, at, fine));
-      journal(g, at, `Word got out that you sheltered someone fleeing their bondage: the justices fine you ${fine} coins under the law.`, "bad");
-      journal(g, holder, `Word reaches you that ${bondName(c)} was sheltered by ${meOf(s, at) ? `${meOf(s, at)!.first} ${meOf(s, at)!.family}` : "a neighbour"} at ${g.map.provinces[at.home].name}; the justices have fined them.`);
+      withFlow(g, { key: "bond:fine", label: "A fine for harbouring" }, () =>
+        spend(g, at, fine),
+      );
+      journal(
+        g,
+        at,
+        `Word got out that you sheltered someone fleeing their bondage: the justices fine you ${fine} coins under the law.`,
+        "bad",
+      );
+      journal(
+        g,
+        holder,
+        `Word reaches you that ${bondName(c)} was sheltered by ${meOf(s, at) ? `${meOf(s, at)!.first} ${meOf(s, at)!.family}` : "a neighbour"} at ${g.map.provinces[at.home].name}; the justices have fined them.`,
+      );
     }
     return;
   }
   ch.bond = { ...ch.bond!, fled: { ...f, due: s.day } };
   takenBack(g, holder, c, "taken up by a neighbour's constable");
-  journal(g, at, `You sent for the constable. ${bondName(c)} was taken back to the household ${c.female ? "she" : "he"} fled.`);
+  journal(
+    g,
+    at,
+    `You sent for the constable. ${bondName(c)} was taken back to the household ${c.female ? "she" : "he"} fled.`,
+  );
   addStress(g, at, 4);
 }
 
@@ -1410,13 +1811,22 @@ hooks.affairs.push((s, w, life) => {
         : `${plural(list.length, "person", "people")}, none in the fields`,
       status: minded(life) ? "at work" : "unminded",
       ...(f.idle.length
-        ? { warn: `${f.idle.length} with no fields to work: buy land, or set them to other work` }
+        ? {
+            warn: `${f.idle.length} with no fields to work: buy land, or set them to other work`,
+          }
         : {}),
       p: b.home,
       due: nextTurn(s.day),
       cost: -keep,
       ...(fields?.chance
-        ? { expected: { value: fields.value, lo: fields.chance[0], hi: fields.chance[1], per: "month" as const } }
+        ? {
+            expected: {
+              value: fields.value,
+              lo: fields.chance[0],
+              hi: fields.chance[1],
+              per: "month" as const,
+            },
+          }
         : {}),
       go,
     });

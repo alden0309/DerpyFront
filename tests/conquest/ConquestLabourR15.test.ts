@@ -9,27 +9,18 @@
 // business in multiplayer.
 
 import { describe, expect, test } from "vitest";
-import {
-  BOND_HISTORY,
-  bondLaw,
-  colonyOf,
-  freeRule,
-  holdingLawful,
-  importBan,
-  MARKETS,
-  saleChance,
-} from "../../src/conquest/engine/BondLaw";
+import { sitterOf } from "../../src/conquest/engine/Appearance";
 import {
   bondForecast,
   bondRisks,
   boundOf,
   CROP_EXCISE,
   CROP_LUCK,
-  CROPS,
   cropAt,
+  CROPS,
   deathChance,
-  FOOD_COST,
   flightChance,
+  FOOD_COST,
   freeCost,
   healthTarget,
   HOUSING_COST,
@@ -44,17 +35,30 @@ import {
   workOf,
   yearly,
 } from "../../src/conquest/engine/BondCore";
-import { bondageFor, bondMonthly, setFree } from "../../src/conquest/engine/Bondage";
+import {
+  BOND_HISTORY,
+  bondLaw,
+  colonyOf,
+  freeRule,
+  holdingLawful,
+  importBan,
+  MARKETS,
+  saleChance,
+} from "../../src/conquest/engine/BondLaw";
+import {
+  bondageFor,
+  bondMonthly,
+  setFree,
+} from "../../src/conquest/engine/Bondage";
 import { dayOf } from "../../src/conquest/engine/Calendar";
 import { makeCharacter } from "../../src/conquest/engine/Characters";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { raiseEvent } from "../../src/conquest/engine/Hooks";
-import { sitterOf } from "../../src/conquest/engine/Appearance";
+import { succeedTo } from "../../src/conquest/engine/Life";
+import { peopleHere } from "../../src/conquest/engine/LifeQueries";
 import { hireCheck } from "../../src/conquest/engine/Property";
 import { ageOf, charName } from "../../src/conquest/engine/Queries";
-import { peopleHere } from "../../src/conquest/engine/LifeQueries";
-import { succeedTo } from "../../src/conquest/engine/Life";
 import type {
   BondOrigin,
   BondPolicy,
@@ -62,7 +66,7 @@ import type {
   Character,
   Life,
 } from "../../src/conquest/engine/Types";
-import { lifeOf, map, plan, prov, world } from "./LifeUtil";
+import { lifeOf, map, plan, world } from "./LifeUtil";
 
 const P = (id: string) => {
   const i = map.provinces.findIndex((x) => x.id === id);
@@ -92,7 +96,12 @@ function holder(
           home: P(home),
           background: "farmer",
           ...(o.french
-            ? { origin: "france", religion: "catholic", first: "Pierre", family: "Lefebvre" }
+            ? {
+                origin: "france",
+                religion: "catholic",
+                first: "Pierre",
+                family: "Lefebvre",
+              }
             : {}),
         }),
       },
@@ -158,9 +167,30 @@ function setPolicy(life: Life, p: Partial<BondPolicy>) {
   life.bondage!.policy = { ...life.bondage!.policy, ...p };
 }
 
-const HARSH: Partial<BondPolicy> = { food: 0, housing: 0, regime: "gang", punish: 2, families: false, passes: false };
-const CUSTOM: Partial<BondPolicy> = { food: 1, housing: 1, regime: "gang", punish: 1, families: false, passes: false };
-const KIND: Partial<BondPolicy> = { food: 2, housing: 2, regime: "task", punish: 0, families: true, passes: true };
+const HARSH: Partial<BondPolicy> = {
+  food: 0,
+  housing: 0,
+  regime: "gang",
+  punish: 2,
+  families: false,
+  passes: false,
+};
+const CUSTOM: Partial<BondPolicy> = {
+  food: 1,
+  housing: 1,
+  regime: "gang",
+  punish: 1,
+  families: false,
+  passes: false,
+};
+const KIND: Partial<BondPolicy> = {
+  food: 2,
+  housing: 2,
+  regime: "task",
+  punish: 0,
+  families: true,
+  passes: true,
+};
 
 /** Settle everyone at the spirits and health their keeping tends to. */
 function settle(g: ConquestGame, life: Life): void {
@@ -179,15 +209,21 @@ describe("LABOUR: where and when the law allowed it", () => {
     expect(holdingLawful(g.s, map, p, dayOf(1655))).toBe(false);
     expect(holdingLawful(g.s, map, p, dayOf(1663))).toBe(true);
     expect(bondLaw(g.s, map, p, dayOf(1663)).code).toBe("the act of 1662");
-    expect(bondLaw(g.s, map, p, dayOf(1710)).code).toBe("the slave code of 1705");
+    expect(bondLaw(g.s, map, p, dayOf(1710)).code).toBe(
+      "the slave code of 1705",
+    );
   });
 
   test("Maryland from 1664, Massachusetts from the Body of Liberties (1641)", () => {
     const { g } = holder("st-mary-s", { start: 1650 });
     expect(holdingLawful(g.s, map, P("st-mary-s"), dayOf(1660))).toBe(false);
     expect(holdingLawful(g.s, map, P("st-mary-s"), dayOf(1665))).toBe(true);
-    expect(holdingLawful(g.s, map, P("massachusetts-bay"), dayOf(1650))).toBe(true);
-    expect(bondLaw(g.s, map, P("massachusetts-bay"), dayOf(1650)).why).toMatch(/lawfull Captives/);
+    expect(holdingLawful(g.s, map, P("massachusetts-bay"), dayOf(1650))).toBe(
+      true,
+    );
+    expect(bondLaw(g.s, map, P("massachusetts-bay"), dayOf(1650)).why).toMatch(
+      /lawfull Captives/,
+    );
   });
 
   test("Georgia's Trustees banned it from 1735 until 1 January 1751", () => {
@@ -207,7 +243,9 @@ describe("LABOUR: where and when the law allowed it", () => {
     expect(holdingLawful(g.s, map, P("quebec"), dayOf(1690))).toBe(true);
     expect(bondLaw(g.s, map, P("quebec"), dayOf(1710)).code).toMatch(/Raudot/);
     expect(bondLaw(g.s, map, P("martinique"), dayOf(1700)).apart).toBe(false);
-    expect(freeRule("french", "louisiana", 1725).petition?.who).toBe("the Superior Council");
+    expect(freeRule("french", "louisiana", 1725).petition?.who).toBe(
+      "the Superior Council",
+    );
   });
 
   test("nobody may be held in the people's own country", () => {
@@ -227,14 +265,29 @@ describe("LABOUR: where and when the law allowed it", () => {
   });
 
   test("freeing: each colony's hurdles, as the acts set them", () => {
-    expect(freeRule("english", "virginia", 1700)).toMatchObject({ kind: "deed", leave: 6 });
-    expect(freeRule("english", "virginia", 1724)).toMatchObject({ kind: "petition" });
-    expect(freeRule("english", "maryland", 1753)).toMatchObject({ will: false, maxAge: 50 });
-    expect(freeRule("english", "northcarolina", 1742)).toMatchObject({ kind: "petition", leave: 6 });
+    expect(freeRule("english", "virginia", 1700)).toMatchObject({
+      kind: "deed",
+      leave: 6,
+    });
+    expect(freeRule("english", "virginia", 1724)).toMatchObject({
+      kind: "petition",
+    });
+    expect(freeRule("english", "maryland", 1753)).toMatchObject({
+      will: false,
+      maxAge: 50,
+    });
+    expect(freeRule("english", "northcarolina", 1742)).toMatchObject({
+      kind: "petition",
+      leave: 6,
+    });
     expect(freeRule("english", "southcarolina", 1723).leave).toBe(12);
     expect(freeRule("english", "southcarolina", 1736).leave).toBe(6);
     expect(freeRule("english", "southcarolina", 1741).leave).toBeUndefined();
-    expect(freeRule("english", "newyork", 1715)).toMatchObject({ kind: "security", security: 300, allowance: 30 });
+    expect(freeRule("english", "newyork", 1715)).toMatchObject({
+      kind: "security",
+      security: 300,
+      allowance: 30,
+    });
     expect(freeRule("english", "pennsylvania", 1730).security).toBe(45);
     expect(freeRule("english", "delaware", 1768).security).toBe(90);
     expect(freeRule("english", "massachusetts", 1710).security).toBe(75);
@@ -245,8 +298,12 @@ describe("LABOUR: where and when the law allowed it", () => {
   test("the Association stops the ships from December 1774; Rhode Island from June 1774", () => {
     const { g } = holder("jamestown");
     expect(importBan(g.s, map, P("jamestown"), dayOf(1774, 10, 1))).toBeNull();
-    expect(importBan(g.s, map, P("jamestown"), dayOf(1775, 0, 1))).toMatch(/Association/);
-    expect(importBan(g.s, map, P("narragansett"), dayOf(1774, 6, 1))).toMatch(/Rhode Island/);
+    expect(importBan(g.s, map, P("jamestown"), dayOf(1775, 0, 1))).toMatch(
+      /Association/,
+    );
+    expect(importBan(g.s, map, P("narragansett"), dayOf(1774, 6, 1))).toMatch(
+      /Rhode Island/,
+    );
   });
 
   test("every market and every dated event is a real place and a real year in the game's span", () => {
@@ -256,7 +313,9 @@ describe("LABOUR: where and when the law allowed it", () => {
       expect(e.year).toBeLessThanOrEqual(1776);
       // The period's legal words only where the law (or a title) is quoted.
       const plain = e.text.replace(/"[^"]*"/g, "").replace(/Negro Act/g, "");
-      expect(plain, e.text).not.toMatch(/\bnegro(es)?\b|\bslaves?\b(?! (code|trade|patrols|ships?|holding|port))/i);
+      expect(plain, e.text).not.toMatch(
+        /\bnegro(es)?\b|\bslaves?\b(?! (code|trade|patrols|ships?|holding|port))/i,
+      );
     }
   });
 });
@@ -264,7 +323,11 @@ describe("LABOUR: where and when the law allowed it", () => {
 // ---------------------------------------------------------------- the sales
 
 describe("LABOUR: buying, only where and when people were sold", () => {
-  function monthWithSale(g: ConquestGame, p: number, kind: "held" | "indenture"): void {
+  function monthWithSale(
+    g: ConquestGame,
+    p: number,
+    kind: "held" | "indenture",
+  ): void {
     for (let i = 0; i < 48; i++) {
       if (saleAt(g.s, map, p).some((l) => l.kind === kind)) return;
       g.s.day += 30;
@@ -277,8 +340,21 @@ describe("LABOUR: buying, only where and when people were sold", () => {
       start: 1700,
       seed: 4,
       plans: [
-        { seat: "s1", name: "A", plan: plan({ home: P("charles-town"), background: "farmer" }) },
-        { seat: "s2", name: "B", plan: plan({ home: P("charles-town"), background: "farmer", first: "Beatrice", female: true }) },
+        {
+          seat: "s1",
+          name: "A",
+          plan: plan({ home: P("charles-town"), background: "farmer" }),
+        },
+        {
+          seat: "s2",
+          name: "B",
+          plan: plan({
+            home: P("charles-town"),
+            background: "farmer",
+            first: "Beatrice",
+            female: true,
+          }),
+        },
       ],
     });
     g.aiEnabled = false;
@@ -289,9 +365,13 @@ describe("LABOUR: buying, only where and when people were sold", () => {
     const a = saleAt(g.s, map, p);
     expect(saleAt(g.s, map, p)).toEqual(a);
     const lot = a.find((l) => l.kind === "held")!;
-    expect(g.lifeCommand("s1", { k: "bond", act: "buy", key: lot.key } as never)).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "bond", act: "buy", key: lot.key } as never),
+    ).toBeNull();
     expect(saleAt(g.s, map, p).find((l) => l.key === lot.key)!.sold).toBe(true);
-    expect(g.lifeCommand("s2", { k: "bond", act: "buy", key: lot.key } as never)).toBe("Sold already.");
+    expect(
+      g.lifeCommand("s2", { k: "bond", act: "buy", key: lot.key } as never),
+    ).toBe("Sold already.");
     const life = lifeOf(g, "s1");
     const bought = boundOf(g.s, life);
     expect(bought.length).toBe(lot.people.length);
@@ -306,7 +386,9 @@ describe("LABOUR: buying, only where and when people were sold", () => {
     const { g } = holder("jamestown");
     expect(saleChance(g.s, map, P("hochelaga"))).toBe(0);
     expect(saleChance(g.s, map, P("jamestown"), dayOf(1650))).toBe(0);
-    expect(saleChance(g.s, map, P("jamestown"), dayOf(1720))).toBeGreaterThan(0);
+    expect(saleChance(g.s, map, P("jamestown"), dayOf(1720))).toBeGreaterThan(
+      0,
+    );
   });
 
   test("you must be at the sale, with a lawful home and the money; and not of the Native nations", () => {
@@ -317,7 +399,9 @@ describe("LABOUR: buying, only where and when people were sold", () => {
     expect(cmd(g, { k: "bond", act: "buy", key: lot.key })).toMatch(/Costs/);
     life.purse = 500;
     life.prov = P("pamunkey");
-    expect(cmd(g, { k: "bond", act: "buy", key: lot.key })).toBe("The sale is elsewhere.");
+    expect(cmd(g, { k: "bond", act: "buy", key: lot.key })).toBe(
+      "The sale is elsewhere.",
+    );
   });
 
   test("indentures: an English port sells servants for a term, and the term ends with freedom dues", () => {
@@ -342,7 +426,8 @@ describe("LABOUR: buying, only where and when people were sold", () => {
 describe("LABOUR: the odds respond to how a household is kept", () => {
   test("harshness: worse health and spirits, more flight, more risings", () => {
     const { g, life } = holder("charles-town");
-    for (let i = 0; i < 8; i++) person(g, life, { age: 20 + i, female: i % 2 === 1 });
+    for (let i = 0; i < 8; i++)
+      person(g, life, { age: 20 + i, female: i % 2 === 1 });
     const read = (pol: Partial<BondPolicy>) => {
       setPolicy(life, pol);
       settle(g, life);
@@ -395,8 +480,10 @@ describe("LABOUR: the odds respond to how a household is kept", () => {
     // keep, less what flight and death take of what they cost to buy.
     const net = (pol: Partial<BondPolicy>) => {
       const { g, life } = holder("jamestown", { year: 1730 });
-      for (let i = 0; i < 6; i++) person(g, life, { age: 22 + i * 3, female: i % 3 === 0 });
-      for (let i = 0; i < 6; i++) g.lifeCommand("s1", { k: "property", act: "land" } as never);
+      for (let i = 0; i < 6; i++)
+        person(g, life, { age: 22 + i * 3, female: i % 3 === 0 });
+      for (let i = 0; i < 6; i++)
+        g.lifeCommand("s1", { k: "property", act: "land" } as never);
       setPolicy(life, pol);
       settle(g, life);
       const price = 48;
@@ -404,7 +491,9 @@ describe("LABOUR: the odds respond to how a household is kept", () => {
       for (const c of boundOf(g.s, life)) {
         const work = workOf(g.s, map, life, c) * (1 - CROP_EXCISE);
         const keep = keepOf(g.s, life.bondage!.policy, c);
-        const lost = flightChance(g.s, map, life, c).total * 0.4 + deathChance(g.s, map, life, c);
+        const lost =
+          flightChance(g.s, map, life, c).total * 0.4 +
+          deathChance(g.s, map, life, c);
         v += work - keep - lost * price;
       }
       return v;
@@ -425,7 +514,10 @@ describe("LABOUR: the odds respond to how a household is kept", () => {
     const work = workOf(g.s, map, life, c) * (1 - CROP_EXCISE);
     const keep = keepOf(g.s, life.bondage!.policy, c);
     // The price, spread over twelve years, and what flight and death take.
-    const risk = (flightChance(g.s, map, life, c).total * 0.4 + deathChance(g.s, map, life, c)) * 45;
+    const risk =
+      (flightChance(g.s, map, life, c).total * 0.4 +
+        deathChance(g.s, map, life, c)) *
+      45;
     const enslaved = work - keep - 45 / 144 - risk;
     // A hired hand: 2 a month, 3.2 a month's takings at skill 5, less the excise.
     const hired = 3.2 * (0.8 + 5 / 25) * (1 - 0.08) - 2;
@@ -442,9 +534,15 @@ describe("LABOUR: flight, risings and deaths happen at the rates shown", () => {
    * (each month starts the same: the shown chances are the month's), and
    * count what happens against what was shown.
    */
-  function trial(pol: Partial<BondPolicy>, n: number, months: number, home = "charles-town") {
+  function trial(
+    pol: Partial<BondPolicy>,
+    n: number,
+    months: number,
+    home = "charles-town",
+  ) {
     const { g, life } = holder(home, { year: 1720 });
-    for (let i = 0; i < 4; i++) g.lifeCommand("s1", { k: "property", act: "land" } as never);
+    for (let i = 0; i < 4; i++)
+      g.lifeCommand("s1", { k: "property", act: "land" } as never);
     bondageFor(g, life);
     setPolicy(life, pol);
     const fresh = () => {
@@ -454,7 +552,8 @@ describe("LABOUR: flight, risings and deaths happen at the rates shown", () => {
       }
       life.bondage!.people = [];
       life.bondage!.petitions = [];
-      for (let i = 0; i < n; i++) person(g, life, { age: 18 + (i % 20), female: i % 2 === 1 });
+      for (let i = 0; i < n; i++)
+        person(g, life, { age: 18 + (i % 20), female: i % 2 === 1 });
       settle(g, life);
     };
     let shownFlight = 0;
@@ -506,7 +605,10 @@ describe("LABOUR: flight, risings and deaths happen at the rates shown", () => {
     settle(g, life);
     const r = bondRisks(g.s, map, life);
     const c = boundOf(g.s, life)[0];
-    expect(r.each[0].flight).toBeCloseTo(yearly(flightChance(g.s, map, life, c).total), 6);
+    expect(r.each[0].flight).toBeCloseTo(
+      yearly(flightChance(g.s, map, life, c).total),
+      6,
+    );
     expect(r.freeOdds).toBeGreaterThan(0);
     expect(r.freeOdds).toBeLessThan(1);
   });
@@ -517,13 +619,20 @@ describe("LABOUR: flight, risings and deaths happen at the rates shown", () => {
 describe("LABOUR: the month's money, as the forecast has it", () => {
   test("the keep is a fixed line, paid exactly; the fields a chance line from the table rolled", () => {
     const { g, life } = holder("jamestown", { year: 1720 });
-    for (let i = 0; i < 4; i++) g.lifeCommand("s1", { k: "property", act: "land" } as never);
+    for (let i = 0; i < 4; i++)
+      g.lifeCommand("s1", { k: "property", act: "land" } as never);
     for (let i = 0; i < 4; i++) person(g, life);
     person(g, life, { age: 6, work: "rest" });
     life.prov = life.bondage!.home;
     const parts = bondForecast(g.s, life, g.w);
     const keep = parts.find((x) => x.key === "bond:keep")!;
-    expect(keep.value).toBeCloseTo(-(4 * (FOOD_COST[1] + HOUSING_COST[1]) + 0.5 * (FOOD_COST[1] + HOUSING_COST[1])), 6);
+    expect(keep.value).toBeCloseTo(
+      -(
+        4 * (FOOD_COST[1] + HOUSING_COST[1]) +
+        0.5 * (FOOD_COST[1] + HOUSING_COST[1])
+      ),
+      6,
+    );
     const fields = parts.find((x) => x.key === "bond:fields")!;
     expect(fields.chance).toBeDefined();
     const gross = boundOf(g.s, life)
@@ -547,7 +656,9 @@ describe("LABOUR: the month's money, as the forecast has it", () => {
     expect(freeCost(g.s, map, life).security).toBe(300);
     expect(cmd(g, { k: "bond", act: "free", c: c.id })).toBeNull();
     expect(c.bond!.status).toBe("free");
-    const line = bondForecast(g.s, life, g.w).find((x) => x.key === `bond:allow:${c.id}`)!;
+    const line = bondForecast(g.s, life, g.w).find(
+      (x) => x.key === `bond:allow:${c.id}`,
+    )!;
     expect(line.value).toBeCloseTo(-2.5, 2);
   });
 });
@@ -573,7 +684,18 @@ describe("LABOUR: freedom, past the law's hurdles", () => {
     expect(boundOf(g.s, life).some((x) => x.id === c.id)).toBe(false);
     // They can be hired like anyone else (a hand at a business of your own).
     life.prov = c.home!;
-    life.property = [{ id: 999, kind: "business", prov: c.home!, level: 1, job: "farmer", hands: [], since: 0, name: "farm" }];
+    life.property = [
+      {
+        id: 999,
+        kind: "business",
+        prov: c.home!,
+        level: 1,
+        job: "farmer",
+        hands: [],
+        since: 0,
+        name: "farm",
+      },
+    ];
     expect(hireCheck(g.s, life, c).ok).toBe(true);
   });
 
@@ -663,7 +785,9 @@ describe("LABOUR: families, and selling", () => {
     expect(b.bond!.grief).toBeGreaterThan(g.s.day);
     expect(kid.bond!.grief).toBeGreaterThan(g.s.day);
     expect(cmd(g, { k: "bond", act: "sell", c: kid.id })).toMatch(/child/);
-    expect(cmd(g, { k: "bond", act: "sell", c: kid.id, key: "all" })).toBeNull();
+    expect(
+      cmd(g, { k: "bond", act: "sell", c: kid.id, key: "all" }),
+    ).toBeNull();
     expect(boundOf(g.s, life).length).toBe(0);
   });
 
@@ -674,16 +798,34 @@ describe("LABOUR: families, and selling", () => {
     a.spouse = b.id;
     b.spouse = a.id;
     setPolicy(life, { families: true });
-    expect(cmd(g, { k: "bond", act: "sell", c: a.id, arg: 1 })).toMatch(/never sells a family apart/);
-    expect(cmd(g, { k: "bond", act: "policy", kind: "families", arg: 0 })).toBeNull();
+    expect(cmd(g, { k: "bond", act: "sell", c: a.id, arg: 1 })).toMatch(
+      /never sells a family apart/,
+    );
+    expect(
+      cmd(g, { k: "bond", act: "policy", kind: "families", arg: 0 }),
+    ).toBeNull();
     // Under the Code Noir it's the law.
     const fr = holder("martinique", { year: 1720, french: true });
     const x = person(fr.g, fr.life, { age: 30 });
     const y = person(fr.g, fr.life, { age: 28, female: true });
     x.spouse = y.id;
     y.spouse = x.id;
-    expect(fr.g.lifeCommand("s1", { k: "bond", act: "sell", c: x.id, arg: 1 } as never)).toMatch(/Code Noir/);
-    expect(fr.g.lifeCommand("s1", { k: "bond", act: "policy", kind: "families", arg: 0 } as never)).toMatch(/Code Noir/);
+    expect(
+      fr.g.lifeCommand("s1", {
+        k: "bond",
+        act: "sell",
+        c: x.id,
+        arg: 1,
+      } as never),
+    ).toMatch(/Code Noir/);
+    expect(
+      fr.g.lifeCommand("s1", {
+        k: "bond",
+        act: "policy",
+        kind: "families",
+        arg: 0,
+      } as never),
+    ).toMatch(/Code Noir/);
   });
 
   test("a child born to a woman held is held as she is (Virginia, 1662)", () => {
@@ -721,7 +863,14 @@ describe("LABOUR: inheritance, and the end of a line", () => {
     expect(cmd(g, { k: "bond", act: "will", c: named.id })).toBeNull();
     expect(named.bond!.will).toBe(true);
     const me = g.s.chars[life.c];
-    const heir = makeCharacter(g.s, g.rng, { nation: me.nation, culture: me.culture, religion: me.religion, female: false, age: 20, father: me.id });
+    const heir = makeCharacter(g.s, g.rng, {
+      nation: me.nation,
+      culture: me.culture,
+      religion: me.religion,
+      female: false,
+      age: 20,
+      father: me.id,
+    });
     me.children.push(heir.id);
     succeedTo(g, life, heir.id);
     expect(life.c).toBe(heir.id);
@@ -735,10 +884,21 @@ describe("LABOUR: inheritance, and the end of a line", () => {
     const named = person(g, life, { age: 30 });
     expect(cmd(g, { k: "bond", act: "will", c: named.id })).toBeNull();
     const me = g.s.chars[life.c];
-    const heir = makeCharacter(g.s, g.rng, { nation: me.nation, culture: me.culture, religion: me.religion, female: true, age: 20, mother: -1, father: me.id });
+    const heir = makeCharacter(g.s, g.rng, {
+      nation: me.nation,
+      culture: me.culture,
+      religion: me.religion,
+      female: true,
+      age: 20,
+      mother: -1,
+      father: me.id,
+    });
     succeedTo(g, life, heir.id);
     expect(named.bond!.status).toBe("held");
-    expect(life.bondage!.petitions![0]).toMatchObject({ c: named.id, will: true });
+    expect(life.bondage!.petitions![0]).toMatchObject({
+      c: named.id,
+      will: true,
+    });
   });
 
   test("Maryland after 1752: a will can't free them (the mark can't even be made)", () => {
@@ -757,7 +917,11 @@ describe("LABOUR: people, portraits, saves and secrets", () => {
       const c = person(g, life, { age, female: age % 2 === 1 });
       expect(sitterOf(c, ageOf(g.s, c)).people).toBe("african");
     }
-    const servant = person(g, life, { status: "indenture", origin: "europe", age: 20 });
+    const servant = person(g, life, {
+      status: "indenture",
+      origin: "europe",
+      age: 20,
+    });
     expect(sitterOf(servant, 20).people).not.toBe("african");
     const freed = person(g, life, { age: 40 });
     setFree(g, life, freed, "by deed");
@@ -776,8 +940,12 @@ describe("LABOUR: people, portraits, saves and secrets", () => {
     const c = person(g, life, { age: 30 });
     const client = JSON.parse(JSON.stringify(g.s));
     g.takeDelta();
-    expect(cmd(g, { k: "bond", act: "policy", kind: "food", arg: 2 })).toBeNull();
-    expect(cmd(g, { k: "bond", act: "work", c: c.id, kind: "house" })).toBeNull();
+    expect(
+      cmd(g, { k: "bond", act: "policy", kind: "food", arg: 2 }),
+    ).toBeNull();
+    expect(
+      cmd(g, { k: "bond", act: "work", c: c.id, kind: "house" }),
+    ).toBeNull();
     applyDelta(client, g.takeDelta());
     expect(lifeOf({ s: client } as ConquestGame).bondage!.policy.food).toBe(2);
     expect(client.chars[c.id].bond.work).toBe("house");
@@ -792,15 +960,32 @@ describe("LABOUR: people, portraits, saves and secrets", () => {
       start: 1700,
       seed: 9,
       plans: [
-        { seat: "s1", name: "A", plan: plan({ home: P("charles-town"), background: "farmer" }) },
-        { seat: "s2", name: "B", plan: plan({ home: P("upland"), background: "farmer", first: "Beatrice", female: true }) },
+        {
+          seat: "s1",
+          name: "A",
+          plan: plan({ home: P("charles-town"), background: "farmer" }),
+        },
+        {
+          seat: "s2",
+          name: "B",
+          plan: plan({
+            home: P("upland"),
+            background: "farmer",
+            first: "Beatrice",
+            female: true,
+          }),
+        },
       ],
     });
     g.aiEnabled = false;
     const a = lifeOf(g, "s1");
     const b = lifeOf(g, "s2");
     const c = person(g, a, { age: 25 });
-    c.bond = { ...c.bond!, status: "fled", fled: { day: g.s.day, to: "north", was: "held", due: g.s.day + 30 } };
+    c.bond = {
+      ...c.bond!,
+      status: "fled",
+      fled: { day: g.s.day, to: "north", was: "held", due: g.s.day + 30 },
+    };
     g.takeDelta();
     // The door: raised on B, and answered.
     raiseEvent(g, b, "bond-door", { c: c.id });
@@ -808,21 +993,47 @@ describe("LABOUR: people, portraits, saves and secrets", () => {
     const d = g.takeDelta();
     const toA = labourDeltaForSeat(d, "s1");
     const toB = labourDeltaForSeat(d, "s2");
-    const seenByA = { ...(toA.lives?.s2 ?? {}), ...(toA.lifePatch?.s2 ?? {}) } as Partial<Life>;
-    const seenByB = { ...(toB.lives?.s2 ?? {}), ...(toB.lifePatch?.s2 ?? {}) } as Partial<Life>;
-    expect((seenByA.events ?? []).some((e) => e.key === "bond-door")).toBe(false);
-    expect((seenByB.events ?? []).some((e) => e.key === "bond-door")).toBe(true);
+    const seenByA = {
+      ...(toA.lives?.s2 ?? {}),
+      ...(toA.lifePatch?.s2 ?? {}),
+    } as Partial<Life>;
+    const seenByB = {
+      ...(toB.lives?.s2 ?? {}),
+      ...(toB.lifePatch?.s2 ?? {}),
+    } as Partial<Life>;
+    expect((seenByA.events ?? []).some((e) => e.key === "bond-door")).toBe(
+      false,
+    );
+    expect((seenByB.events ?? []).some((e) => e.key === "bond-door")).toBe(
+      true,
+    );
     // B hides them: free, in B's town; A hears only that they're gone.
     const ev = b.events.find((e) => e.key === "bond-door")!;
-    expect(g.lifeCommand("s2", { k: "event", id: ev.id, choice: 1 } as never)).toBeNull();
+    expect(
+      g.lifeCommand("s2", { k: "event", id: ev.id, choice: 1 } as never),
+    ).toBeNull();
     expect(c.bond!.status).toBe("free");
     expect(c.home).toBe(b.home);
     const secret = b.journal.filter((j) => j.text.startsWith(SECRET_MARK));
     expect(secret.length).toBeGreaterThan(0);
-    expect(labourForOthers(b).journal!.some((j) => j.text.startsWith(SECRET_MARK))).toBe(false);
-    expect(labourStateForSeat(g.s, "s1").lives.find((l) => l.seat === "s2")!.journal.some((j) => j.text.startsWith(SECRET_MARK))).toBe(false);
-    expect(labourStateForSeat(g.s, "s2").lives.find((l) => l.seat === "s2")!.journal.some((j) => j.text.startsWith(SECRET_MARK))).toBe(true);
-    expect(a.journal.some((j) => j.text.includes("Beatrice") && !/fine/.test(j.text))).toBe(false);
+    expect(
+      labourForOthers(b).journal!.some((j) => j.text.startsWith(SECRET_MARK)),
+    ).toBe(false);
+    expect(
+      labourStateForSeat(g.s, "s1")
+        .lives.find((l) => l.seat === "s2")!
+        .journal.some((j) => j.text.startsWith(SECRET_MARK)),
+    ).toBe(false);
+    expect(
+      labourStateForSeat(g.s, "s2")
+        .lives.find((l) => l.seat === "s2")!
+        .journal.some((j) => j.text.startsWith(SECRET_MARK)),
+    ).toBe(true);
+    expect(
+      a.journal.some(
+        (j) => j.text.includes("Beatrice") && !/fine/.test(j.text),
+      ),
+    ).toBe(false);
   });
 
   test("the Native nations' lives have nothing to do with the trade", () => {
@@ -832,10 +1043,19 @@ describe("LABOUR: people, portraits, saves and secrets", () => {
         {
           seat: "s1",
           name: "A",
-          plan: plan({ origin: "powhatan", home: P("pamunkey"), background: "grower", religion: "native", first: "Opechan", family: "of the Pamunkey" }),
+          plan: plan({
+            origin: "powhatan",
+            home: P("pamunkey"),
+            background: "grower",
+            religion: "native",
+            first: "Opechan",
+            family: "of the Pamunkey",
+          }),
         },
       ],
     });
-    expect(g.lifeCommand("s1", { k: "bond", act: "buy", key: "1:1:0" } as never)).toMatch(/people's ways/);
+    expect(
+      g.lifeCommand("s1", { k: "bond", act: "buy", key: "1:1:0" } as never),
+    ).toMatch(/people's ways/);
   });
 });

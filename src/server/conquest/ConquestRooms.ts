@@ -16,6 +16,11 @@ import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 import { checkAchievements } from "../../conquest/engine/Achievements"; // MAP (r12)
 import { validateLook } from "../../conquest/engine/Appearance";
+import {
+  labourDeltaForSeat,
+  labourDeltaSecret,
+  labourStateForSeat,
+} from "../../conquest/engine/BondCore"; // LABOUR (r15)
 import { dateOf } from "../../conquest/engine/Calendar";
 import { lifeCoins } from "../../conquest/engine/Coins";
 import { dropFromTable } from "../../conquest/engine/Dice"; // DICE (r14)
@@ -26,11 +31,6 @@ import {
   stateForSeat,
   tablesOf,
 } from "../../conquest/engine/DiceCore"; // DICE (r14)
-import {
-  labourDeltaForSeat,
-  labourDeltaSecret,
-  labourStateForSeat,
-} from "../../conquest/engine/BondCore"; // LABOUR (r15)
 import { ConquestGame, STATE_VERSION } from "../../conquest/engine/Game";
 import { planProblem } from "../../conquest/engine/Life";
 import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
@@ -978,7 +978,10 @@ export class ConquestRooms {
       solo: room.solo,
       // DICE (r14): everyone's dice but your own stay under their cups.
       // LABOUR (r15): and another household's door, opened to someone fleeing.
-      state: labourStateForSeat(stateForSeat(room.game.state, seat.id), seat.id),
+      state: labourStateForSeat(
+        stateForSeat(room.game.state, seat.id),
+        seat.id,
+      ),
       speed: room.speed,
       paused: room.paused,
       seats: seatInfo(room),

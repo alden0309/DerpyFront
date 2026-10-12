@@ -165,6 +165,8 @@ import {
 } from "../../engine/PartnersCore";
 // LEDGER (r15): money made plain, its chapter and the boats' table.
 import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
+// LABOUR (r15): bondage in the colonies, as history.
+import { BOND_CHAPTER } from "./BondChapter";
 
 export interface Chapter {
   id: string;
@@ -2124,6 +2126,9 @@ Causes brew among the people, and some rise ([[movements|Causes and risings]]). 
 ## The news
 The **News** panel on the map has the colonies' news as it reaches you: wars, battles, treaties, risings, successions. Click a battle for its report. In company, the other players' chat is there too. The talk in the taverns (Here) is the news that has reached that town; the gazette brings it faster, and with prices.`,
   },
+  // ---- LABOUR (r15): bondage in the colonies (guide/BondChapter.ts)
+  BOND_CHAPTER,
+  // ---- end LABOUR (r15)
   {
     id: "journal",
     part: "world",

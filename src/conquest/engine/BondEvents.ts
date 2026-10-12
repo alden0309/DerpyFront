@@ -16,7 +16,6 @@
 // Restrained and non-graphic throughout; no slurs. Cruelty is never
 // rewarded: no choice here pays for harshness.
 
-import { BOND_HISTORY, bondLaw, colonyOf, lawOf, type Colony } from "./BondLaw";
 import {
   bondName,
   boundOf,
@@ -26,12 +25,20 @@ import {
   ORIGIN_NAMES,
   selfPrice,
 } from "./BondCore";
+import { BOND_HISTORY, bondLaw, colonyOf, lawOf, type Colony } from "./BondLaw";
 import { answerDoor, selfPurchase, sellPerson } from "./Bondage";
 import { dateOf } from "./Calendar";
 import { FAMILY_REST } from "./EventPacing";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
-import { addRenown, addStress, journal, remembers, spend, touchLife } from "./LifeCore";
+import {
+  addRenown,
+  addStress,
+  journal,
+  remembers,
+  spend,
+  touchLife,
+} from "./LifeCore";
 import type { LCtx, LifeEventDef } from "./LifeEvents";
 import { lifeIsNative } from "./LifeQueries";
 import { ageOf } from "./Queries";
@@ -66,7 +73,10 @@ const His = (c?: Character) => (c?.female ? "Her" : "His");
 /** Spirits up or down, kept between 0 and 100. */
 function spirits(g: ConquestGame, c: Character | undefined, n: number): void {
   if (!c?.bond) return;
-  g.touchChar(c).bond = { ...c.bond, mood: Math.max(0, Math.min(100, c.bond.mood + n)) };
+  g.touchChar(c).bond = {
+    ...c.bond,
+    mood: Math.max(0, Math.min(100, c.bond.mood + n)),
+  };
 }
 
 /** The whole household's spirits. */
@@ -88,8 +98,12 @@ function someoneHeld(
   return list.length ? list[(g.s.day + life.c) % list.length] : undefined;
 }
 
-const say = (g: ConquestGame, life: Life, text: string, tone?: "good" | "bad") =>
-  journal(g, life, text, tone);
+const say = (
+  g: ConquestGame,
+  life: Life,
+  text: string,
+  tone?: "good" | "bad",
+) => journal(g, life, text, tone);
 
 // ---------------------------------------------------------------- heard: their own voices
 
@@ -107,7 +121,10 @@ function voiceBody(g: ConquestGame, life: Life, ctx: LCtx): string {
       return `${name} has hardly spoken since ${his(c)} family was parted. ${He(c)} stands with ${his(c)} hat in ${his(c)} hands and asks one thing: where they were taken, and whether ${he(c)} may ever see them.`;
     case 2: {
       const f = familyAway(s, c)[0];
-      const where = f ? (g.map.provinces[f.bond?.at ?? f.home ?? -1]?.name ?? "another estate") : "another estate";
+      const where = f
+        ? (g.map.provinces[f.bond?.at ?? f.home ?? -1]?.name ??
+          "another estate")
+        : "another estate";
       return `${name}'s ${f ? (c.spouse === f.id ? (f.female ? "wife" : "husband") : c.mother === f.id ? "mother" : "family") : "family"}${f ? `, ${bondName(f)},` : ""} is held on an estate at ${where}. ${He(c)} asks for a pass to walk there on a Saturday night and come back by Monday's work, as other households allow.`;
     }
     case 3:
@@ -156,19 +173,29 @@ const VOICE: LifeEventDef = {
                         : "Listen",
       tip: (g, life, ctx) => {
         const c = person(g, life, ctx);
-        if (ctx.t === 0) return c?.bond?.born && c.bond.born !== c.first ? `From now on, ${c.bond.born}.` : "They're called by it already.";
-        if (ctx.t === 5) return "They pay you their savings; then the law's own fees and hurdles.";
+        if (ctx.t === 0)
+          return c?.bond?.born && c.bond.born !== c.first
+            ? `From now on, ${c.bond.born}.`
+            : "They're called by it already.";
+        if (ctx.t === 5)
+          return "They pay you their savings; then the law's own fees and hurdles.";
         if (ctx.t === 6) {
           const law = bondLaw(g.s, g.map, life.bondage!.home);
-          return law.reading ? (law.writing ? "Reading and writing." : `Reading only: ${law.lettersWhy}`) : (law.lettersWhy ?? "The law forbids it here.");
+          return law.reading
+            ? law.writing
+              ? "Reading and writing."
+              : `Reading only: ${law.lettersWhy}`
+            : (law.lettersWhy ?? "The law forbids it here.");
         }
         return "Their spirits rise, and they remember it.";
       },
       blocked: (g, life, ctx) => {
         const c = person(g, life, ctx);
         if (!c) return "They've gone";
-        if (ctx.t === 0 && (!c.bond!.born || c.bond!.born === c.first)) return "They're called by their own name already";
-        if (ctx.t === 6 && !bondLaw(g.s, g.map, life.bondage!.home).reading) return "The law forbids it here";
+        if (ctx.t === 0 && (!c.bond!.born || c.bond!.born === c.first))
+          return "They're called by their own name already";
+        if (ctx.t === 6 && !bondLaw(g.s, g.map, life.bondage!.home).reading)
+          return "The law forbids it here";
         return null;
       },
       apply: (g, life, ctx) => {
@@ -180,31 +207,60 @@ const VOICE: LifeEventDef = {
             if (c.bond!.born) {
               const old = c.first;
               g.touchChar(c).first = c.bond!.born;
-              say(g, life, `You call ${old} by ${his(c)} own name from now on: ${c.first}. The household takes it up within the week.`, "good");
+              say(
+                g,
+                life,
+                `You call ${old} by ${his(c)} own name from now on: ${c.first}. The household takes it up within the week.`,
+                "good",
+              );
             }
             spirits(g, c, 10);
             remembers(g, life, c, "Called me by my own name", 12, 0);
             break;
           case 1:
             spend(g, life, 1);
-            g.touchChar(c).bond = { ...c.bond!, grief: Math.min(c.bond!.grief ?? 0, g.s.day + 60) };
+            g.touchChar(c).bond = {
+              ...c.bond!,
+              grief: Math.min(c.bond!.grief ?? 0, g.s.day + 60),
+            };
             spirits(g, c, 10);
             remembers(g, life, c, "Helped me find my family", 12, 5);
-            say(g, life, `You send to ask after ${bondName(c)}'s family, and give ${him(c)} a pass to go when they're found.`);
+            say(
+              g,
+              life,
+              `You send to ask after ${bondName(c)}'s family, and give ${him(c)} a pass to go when they're found.`,
+            );
             break;
           case 2:
             touchLife(g, life);
             b.policy = { ...b.policy, passes: true };
             spirits(g, c, 8);
             remembers(g, life, c, "Let me see my family", 10, 5);
-            say(g, life, "Your household has passes now, to visit family on other estates.", "good");
+            say(
+              g,
+              life,
+              "Your household has passes now, to visit family on other estates.",
+              "good",
+            );
             break;
           case 3:
             touchLife(g, life);
             b.policy = { ...b.policy, families: true };
             household(g, life, 4);
-            remembers(g, life, c, "Promised never to sell my children from me", 15, 0);
-            say(g, life, "You promise: no family in your household will be sold apart.", "good");
+            remembers(
+              g,
+              life,
+              c,
+              "Promised never to sell my children from me",
+              15,
+              0,
+            );
+            say(
+              g,
+              life,
+              "You promise: no family in your household will be sold apart.",
+              "good",
+            );
             break;
           case 4:
             spirits(g, c, 10);
@@ -218,10 +274,18 @@ const VOICE: LifeEventDef = {
             b.policy = { ...b.policy, letters: true };
             spirits(g, c, 8);
             remembers(g, life, c, "Had me taught to read", 12, 0);
-            say(g, life, "The household is to be taught its letters, as far as the law allows.", "good");
+            say(
+              g,
+              life,
+              "The household is to be taught its letters, as far as the law allows.",
+              "good",
+            );
             break;
           case 7:
-            g.touchChar(c).bond = { ...c.bond!, saved: (c.bond!.saved ?? 0) + 2 };
+            g.touchChar(c).bond = {
+              ...c.bond!,
+              saved: (c.bond!.saved ?? 0) + 2,
+            };
             spirits(g, c, 6);
             remembers(g, life, c, "Let me work for wages", 8, 3);
             break;
@@ -233,7 +297,12 @@ const VOICE: LifeEventDef = {
       },
     },
     {
-      label: (_g, _l, ctx) => (ctx.t === 5 ? "Free them, and take none of it" : ctx.t === 0 ? "Listen, and say what you can" : "Listen, and promise nothing"),
+      label: (_g, _l, ctx) =>
+        ctx.t === 5
+          ? "Free them, and take none of it"
+          : ctx.t === 0
+            ? "Listen, and say what you can"
+            : "Listen, and promise nothing",
       tip: (_g, _l, ctx) =>
         ctx.t === 5
           ? "Their savings stay theirs. You pay the law's fees."
@@ -251,7 +320,8 @@ const VOICE: LifeEventDef = {
       },
     },
     {
-      label: (_g, _l, ctx) => (ctx.t === 5 ? "Refuse" : "Send them back to work"),
+      label: (_g, _l, ctx) =>
+        ctx.t === 5 ? "Refuse" : "Send them back to work",
       tip: (g, life, ctx) =>
         ctx.t === 5 && lawOf(g.s, life.bondage!.home).law === "spanish"
           ? "Under Spain's law (coartación) you can't refuse a fair price."
@@ -264,7 +334,14 @@ const VOICE: LifeEventDef = {
         const c = person(g, life, ctx);
         if (!c) return;
         spirits(g, c, ctx.t === 5 ? -18 : -6);
-        remembers(g, life, c, ctx.t === 5 ? "Refused to let me buy my freedom" : "Wouldn't hear me", ctx.t === 5 ? -30 : -8, 5);
+        remembers(
+          g,
+          life,
+          c,
+          ctx.t === 5 ? "Refused to let me buy my freedom" : "Wouldn't hear me",
+          ctx.t === 5 ? -30 : -8,
+          5,
+        );
       },
     },
   ],
@@ -283,7 +360,11 @@ const PLEA: LifeEventDef = {
     const c = person(g, life, ctx);
     if (!c) return "They've gone.";
     const left = boundOf(s, life).filter(
-      (f) => f.id === c.spouse || f.id === c.mother || f.id === c.father || c.children.includes(f.id),
+      (f) =>
+        f.id === c.spouse ||
+        f.id === c.mother ||
+        f.id === c.father ||
+        c.children.includes(f.id),
     );
     const first = left[0];
     const rel = first
@@ -308,13 +389,19 @@ const PLEA: LifeEventDef = {
       apply: (g, life, ctx) => {
         const c = person(g, life, ctx);
         household(g, life, 3);
-        if (c) remembers(g, life, c, "Didn't sell me away from my family", 10, 3);
+        if (c)
+          remembers(g, life, c, "Didn't sell me away from my family", 10, 3);
       },
     },
     {
       label: "Sell them together, as a family",
       tip: "A husband or wife and young children go with them.",
-      blocked: (g, life, ctx) => (ctx.all ? "That's the sale already" : person(g, life, ctx) ? null : "They've gone"),
+      blocked: (g, life, ctx) =>
+        ctx.all
+          ? "That's the sale already"
+          : person(g, life, ctx)
+            ? null
+            : "They've gone",
       apply: (g, life, ctx) => {
         const c = person(g, life, ctx);
         if (!c) return;
@@ -355,7 +442,10 @@ const FLED: LifeEventDef = {
         const c = g.s.chars[ctx.c];
         spend(g, life, 2);
         if (c?.bond?.fled && !c.bond.fled.out)
-          g.touchChar(c).bond = { ...c.bond, fled: { ...c.bond.fled, aid: (c.bond.fled.aid ?? 0) - 0.1 } };
+          g.touchChar(c).bond = {
+            ...c.bond,
+            fled: { ...c.bond.fled, aid: (c.bond.fled.aid ?? 0) - 0.1 },
+          };
       },
     },
     {
@@ -364,7 +454,10 @@ const FLED: LifeEventDef = {
       apply: (g, life, ctx) => {
         const c = g.s.chars[ctx.c];
         if (c?.bond?.fled && !c.bond.fled.out)
-          g.touchChar(c).bond = { ...c.bond, fled: { ...c.bond.fled, aid: (c.bond.fled.aid ?? 0) + 0.1 } };
+          g.touchChar(c).bond = {
+            ...c.bond,
+            fled: { ...c.bond.fled, aid: (c.bond.fled.aid ?? 0) + 0.1 },
+          };
         addRenown(g, life, -1);
         household(g, life, 2);
       },
@@ -449,7 +542,9 @@ const BUYFREE: LifeEventDef = {
       label: "Refuse",
       tip: "They keep their savings, and their bondage. Spirits fall hard.",
       blocked: (g, life) =>
-        lawOf(g.s, life.bondage!.home).law === "spanish" ? "Spain's law doesn't allow it" : null,
+        lawOf(g.s, life.bondage!.home).law === "spanish"
+          ? "Spain's law doesn't allow it"
+          : null,
       apply: (g, life, ctx) => {
         const c = person(g, life, ctx);
         if (!c) return;
@@ -474,7 +569,8 @@ const RISING: LifeEventDef = {
       : "The court's sentence has been carried out. Your neighbours want the patrols doubled and the law made harder; the minister preaches on obedience. In the quarters, nobody sings any more.",
   choices: [
     {
-      label: "Ask yourself what drove them to it, and change how the household is kept",
+      label:
+        "Ask yourself what drove them to it, and change how the household is kept",
       tip: "Nothing is undone. But those who remain see the difference.",
       apply: (g, life) => {
         addStress(g, life, 4);
@@ -482,9 +578,18 @@ const RISING: LifeEventDef = {
         const b = life.bondage;
         if (b) {
           touchLife(g, life);
-          b.policy = { ...b.policy, punish: 0, food: b.policy.food === 0 ? 1 : b.policy.food, housing: b.policy.housing === 0 ? 1 : b.policy.housing };
+          b.policy = {
+            ...b.policy,
+            punish: 0,
+            food: b.policy.food === 0 ? 1 : b.policy.food,
+            housing: b.policy.housing === 0 ? 1 : b.policy.housing,
+          };
         }
-        say(g, life, "You change how your household is kept: no more harshness, and provisions and quarters at least as is customary.");
+        say(
+          g,
+          life,
+          "You change how your household is kept: no more harshness, and provisions and quarters at least as is customary.",
+        );
       },
     },
     {
@@ -514,7 +619,19 @@ const WOOLMAN: LifeEventDef = {
     holds(g, life) &&
     yr(g) >= 1746 &&
     yr(g) <= 1772 &&
-    inCol(g, life, "pennsylvania", "newjersey", "delaware", "maryland", "virginia", "northcarolina", "newyork", "rhodeisland", "massachusetts")
+    inCol(
+      g,
+      life,
+      "pennsylvania",
+      "newjersey",
+      "delaware",
+      "maryland",
+      "virginia",
+      "northcarolina",
+      "newyork",
+      "rhodeisland",
+      "massachusetts",
+    )
       ? {}
       : null,
   title: "A Quaker tailor at your table",
@@ -535,7 +652,11 @@ const WOOLMAN: LifeEventDef = {
       tip: "A few coins from a stranger, and a little dignity.",
       apply: (g, life) => {
         household(g, life, 3);
-        say(g, life, "He left a coin with each who served him, and thanked them by name.");
+        say(
+          g,
+          life,
+          "He left a coin with each who served him, and thanked them by name.",
+        );
       },
     },
     {
@@ -555,10 +676,15 @@ const GERMANTOWN: LifeEventDef = {
   cooldown: REST,
   scene: "church",
   when: (g, life) =>
-    holds(g, life) && yr(g) >= 1688 && yr(g) <= 1692 && inCol(g, life, "pennsylvania", "newjersey", "delaware") ? {} : null,
+    holds(g, life) &&
+    yr(g) >= 1688 &&
+    yr(g) <= 1692 &&
+    inCol(g, life, "pennsylvania", "newjersey", "delaware")
+      ? {}
+      : null,
   title: "The paper from Germantown",
   body: () =>
-    "At the meeting, a paper from four Friends of Germantown (Garret Hendricks, Derick and Abraham op den Graeff, and Francis Daniel Pastorius) is read out: \"Is there any that would be done or handled at this manner? viz., to be sold or made a slave for all the time of his life?\" Nobody can answer it, and the meeting sends it up to the Yearly Meeting as too weighty a matter to decide.",
+    'At the meeting, a paper from four Friends of Germantown (Garret Hendricks, Derick and Abraham op den Graeff, and Francis Daniel Pastorius) is read out: "Is there any that would be done or handled at this manner? viz., to be sold or made a slave for all the time of his life?" Nobody can answer it, and the meeting sends it up to the Yearly Meeting as too weighty a matter to decide.',
   choices: [
     {
       label: "Stand up and say they're right",
@@ -589,7 +715,20 @@ const AWAKENING: LifeEventDef = {
   cooldown: REST,
   scene: "church",
   when: (g, life) =>
-    holds(g, life) && yr(g) >= 1740 && yr(g) <= 1759 && inCol(g, life, "virginia", "maryland", "northcarolina", "southcarolina", "georgia") ? {} : null,
+    holds(g, life) &&
+    yr(g) >= 1740 &&
+    yr(g) <= 1759 &&
+    inCol(
+      g,
+      life,
+      "virginia",
+      "maryland",
+      "northcarolina",
+      "southcarolina",
+      "georgia",
+    )
+      ? {}
+      : null,
   title: "A preacher of the Awakening",
   body: (g) =>
     yr(g) < 1748
@@ -604,8 +743,17 @@ const AWAKENING: LifeEventDef = {
         const b = life.bondage!;
         const law = bondLaw(g.s, g.map, b.home);
         touchLife(g, life);
-        b.policy = { ...b.policy, church: true, letters: law.reading ? true : b.policy.letters };
-        say(g, life, "Those you hold go to hear the preacher, and come back singing.", "good");
+        b.policy = {
+          ...b.policy,
+          church: true,
+          letters: law.reading ? true : b.policy.letters,
+        };
+        say(
+          g,
+          life,
+          "Those you hold go to hear the preacher, and come back singing.",
+          "good",
+        );
       },
     },
     {
@@ -631,7 +779,22 @@ const NEIGHBOUR: LifeEventDef = {
   cooldown: REST,
   scene: "market",
   when: (g, life) =>
-    holds(g, life) && yr(g) >= 1755 && inCol(g, life, "pennsylvania", "newjersey", "delaware", "rhodeisland", "northcarolina", "newyork", "massachusetts", "maryland") ? {} : null,
+    holds(g, life) &&
+    yr(g) >= 1755 &&
+    inCol(
+      g,
+      life,
+      "pennsylvania",
+      "newjersey",
+      "delaware",
+      "rhodeisland",
+      "northcarolina",
+      "newyork",
+      "massachusetts",
+      "maryland",
+    )
+      ? {}
+      : null,
   title: "A Friend who won't trade with you",
   body: () =>
     "Your neighbour, a Friend, tells you courteously that she won't buy from you any more, nor sell to you: the meeting has resolved that Friends shall have no part in the keeping of people in bondage, and she can't square it with her conscience to profit by it at second hand. She says she bears you no ill will, and means it.",
@@ -649,7 +812,11 @@ const NEIGHBOUR: LifeEventDef = {
       tip: "Free them, she says, as the meeting's visitors have asked of Friends: and pay them for their years.",
       apply: (g, life) => {
         addStress(g, life, 3);
-        say(g, life, "\"Free them,\" she said, \"and pay them for their years.\" You have no answer ready.");
+        say(
+          g,
+          life,
+          '"Free them," she said, "and pay them for their years." You have no answer ready.',
+        );
       },
     },
     {
@@ -675,7 +842,20 @@ const PASSDAY: LifeEventDef = {
   body: (g, life, ctx) => {
     const c = person(g, life, ctx);
     const f = c ? familyAway(g.s, c)[0] : undefined;
-    const rel = f && c ? (c.spouse === f.id ? (f.female ? "wife" : "husband") : c.mother === f.id ? "mother" : c.children.includes(f.id) ? (f.female ? "daughter" : "son") : "kin") : "kin";
+    const rel =
+      f && c
+        ? c.spouse === f.id
+          ? f.female
+            ? "wife"
+            : "husband"
+          : c.mother === f.id
+            ? "mother"
+            : c.children.includes(f.id)
+              ? f.female
+                ? "daughter"
+                : "son"
+              : "kin"
+        : "kin";
     return `Word has come that ${nm(g, ctx)}'s ${rel} lies sick at ${g.map.provinces[f?.bond?.at ?? f?.home ?? -1]?.name ?? "another estate"}. ${He(c)} asks for a pass, and a week.`;
   },
   choices: [
@@ -713,7 +893,11 @@ const MERIT: LifeEventDef = {
   scene: "home",
   when: (g, life) => {
     if (!holds(g, life) || life.prov !== life.bondage!.home) return null;
-    const c = someoneHeld(g, life, (x) => !x.bond!.merit && ageOf(g.s, x) >= 16 && ageOf(g.s, x) < 55);
+    const c = someoneHeld(
+      g,
+      life,
+      (x) => !x.bond!.merit && ageOf(g.s, x) >= 16 && ageOf(g.s, x) < 55,
+    );
     return c ? { c: c.id } : null;
   },
   title: "Fire in the night",
@@ -728,7 +912,10 @@ const MERIT: LifeEventDef = {
       apply: (g, life, ctx) => {
         const c = person(g, life, ctx);
         if (!c) return;
-        g.touchChar(c).bond = { ...c.bond!, merit: "saving a child from a fire" };
+        g.touchChar(c).bond = {
+          ...c.bond!,
+          merit: "saving a child from a fire",
+        };
         spirits(g, c, 8);
         remembers(g, life, c, "Owned what I did", 15, 0);
         const fc = freeCost(g.s, g.map, life);
@@ -750,7 +937,11 @@ const MERIT: LifeEventDef = {
         const c = person(g, life, ctx);
         if (!c) return;
         spend(g, life, 5);
-        g.touchChar(c).bond = { ...c.bond!, merit: "saving a child from a fire", saved: (c.bond!.saved ?? 0) + 5 };
+        g.touchChar(c).bond = {
+          ...c.bond!,
+          merit: "saving a child from a fire",
+          saved: (c.bond!.saved ?? 0) + 5,
+        };
         spirits(g, c, 8);
         remembers(g, life, c, "Rewarded me", 8, 3);
       },
@@ -761,7 +952,10 @@ const MERIT: LifeEventDef = {
       apply: (g, life, ctx) => {
         const c = person(g, life, ctx);
         if (!c) return;
-        g.touchChar(c).bond = { ...c.bond!, merit: "saving a child from a fire" };
+        g.touchChar(c).bond = {
+          ...c.bond!,
+          merit: "saving a child from a fire",
+        };
         spirits(g, c, 2);
       },
     },
@@ -775,7 +969,11 @@ const MARKET: LifeEventDef = {
   cooldown: REST,
   scene: "market",
   when: (g, life) =>
-    holds(g, life) && life.bondage!.policy.regime === "task" && inCol(g, life, "southcarolina", "georgia", "islands", "jamaica") ? {} : null,
+    holds(g, life) &&
+    life.bondage!.policy.regime === "task" &&
+    inCol(g, life, "southcarolina", "georgia", "islands", "jamaica")
+      ? {}
+      : null,
   title: "The Sunday market",
   body: (g) =>
     `On Sundays those you hold sell what they've grown and made in their own time at the town market: eggs, fowls, baskets, a little rice and corn. ${yr(g) >= 1740 && yr(g) < 1776 ? "The Negro Act of 1740 forbids it, and the assembly grumbles; everyone buys from them anyway." : "Everyone buys from them."} A neighbour asks whether you mean to let it go on.`,
@@ -785,7 +983,8 @@ const MARKET: LifeEventDef = {
       tip: "Their own money, toward their own ends.",
       apply: (g, life) => {
         household(g, life, 5);
-        for (const c of heldAdults(g.s, life)) g.touchChar(c).bond = { ...c.bond!, saved: (c.bond!.saved ?? 0) + 1 };
+        for (const c of heldAdults(g.s, life))
+          g.touchChar(c).bond = { ...c.bond!, saved: (c.bond!.saved ?? 0) + 1 };
       },
     },
     {
@@ -803,7 +1002,12 @@ const CAPTIVES: LifeEventDef = {
   cooldown: REST,
   scene: "market",
   when: (g, life) =>
-    holds(g, life) && yr(g) >= 1680 && yr(g) <= 1715 && inCol(g, life, "southcarolina", "northcarolina", "georgia") ? {} : null,
+    holds(g, life) &&
+    yr(g) >= 1680 &&
+    yr(g) <= 1715 &&
+    inCol(g, life, "southcarolina", "northcarolina", "georgia")
+      ? {}
+      : null,
   title: "Captives brought in from the west",
   body: () =>
     "Traders come into Charles Town from the Savannah towns with Native captives taken in raids their allies were paid to make: Apalachee, Timucua, Choctaw, women and children most of them. They are to be shipped to the islands and sold, where they can't find their way home. It is the colony's richest trade after deerskins, and it is setting the whole south-east against Carolina.",
@@ -819,7 +1023,11 @@ const CAPTIVES: LifeEventDef = {
       apply: (g, life) => {
         addRenown(g, life, 1);
         touchLife(g, life).favor = Math.max(0, life.favor - 3);
-        say(g, life, "You spoke against the trade in captives. The traders won't forget it.");
+        say(
+          g,
+          life,
+          "You spoke against the trade in captives. The traders won't forget it.",
+        );
       },
     },
     {
@@ -836,7 +1044,8 @@ const PANIC: LifeEventDef = {
   weight: 4,
   cooldown: REST,
   scene: "tavern",
-  when: (g, life) => (holds(g, life) && yr(g) === 1741 && inCol(g, life, "newyork") ? {} : null),
+  when: (g, life) =>
+    holds(g, life) && yr(g) === 1741 && inCol(g, life, "newyork") ? {} : null,
   title: "The fires of 1741",
   body: () =>
     "Fires all spring, the fort's chapel among them, and now the city is sure it was a plot of the enslaved and the poor. A servant girl, Mary Burton, names name after name for the reward; the gaol is full, the magistrates take confessions from men who'll say anything to live, and every household with someone held is looked at sideways. The justices want to question those in yours.",
@@ -848,7 +1057,11 @@ const PANIC: LifeEventDef = {
         touchLife(g, life).favor = Math.max(0, life.favor - 2);
         addStress(g, life, 4);
         household(g, life, 8);
-        say(g, life, "You stood surety for your household before the justices. They were let alone.");
+        say(
+          g,
+          life,
+          "You stood surety for your household before the justices. They were let alone.",
+        );
       },
     },
     {
@@ -856,7 +1069,11 @@ const PANIC: LifeEventDef = {
       tip: "The law's way. In this year, the law's way is terrifying.",
       apply: (g, life) => {
         household(g, life, -10);
-        say(g, life, "Your household came back from the justices silent. Nobody was named, this time.");
+        say(
+          g,
+          life,
+          "Your household came back from the justices silent. Nobody was named, this time.",
+        );
       },
     },
   ],
@@ -869,7 +1086,11 @@ const SOMERSET: LifeEventDef = {
   cooldown: REST,
   scene: "home",
   when: (g, life) =>
-    holds(g, life) && (yr(g) === 1772 ? mo(g) >= 8 : yr(g) === 1773) && lawOf(g.s, life.bondage!.home).law === "english" ? {} : null,
+    holds(g, life) &&
+    (yr(g) === 1772 ? mo(g) >= 8 : yr(g) === 1773) &&
+    lawOf(g.s, life.bondage!.home).law === "english"
+      ? {}
+      : null,
   title: "News from London",
   body: () =>
     "The papers have Lord Mansfield's judgment in Somerset's case: a man brought from Virginia to England can't be forced out of it and back into slavery. It frees nobody in the colonies. But in the quarters it is whispered that the king has set everyone free, and only the planters are hiding it.",
@@ -896,7 +1117,11 @@ const DUNMORE: LifeEventDef = {
   cooldown: REST,
   scene: "home",
   when: (g, life) =>
-    holds(g, life) && ((yr(g) === 1775 && mo(g) >= 10) || yr(g) === 1776) && inCol(g, life, "virginia", "maryland", "northcarolina") ? {} : null,
+    holds(g, life) &&
+    ((yr(g) === 1775 && mo(g) >= 10) || yr(g) === 1776) &&
+    inCol(g, life, "virginia", "maryland", "northcarolina")
+      ? {}
+      : null,
   title: "Lord Dunmore's proclamation",
   body: () =>
     "The governor, driven aboard a ship in the Chesapeake, has proclaimed freedom for the enslaved men of rebels who will come to his lines and fight for the king. Hundreds already have. Your neighbours are moving those they hold inland, away from the water.",
@@ -911,7 +1136,11 @@ const DUNMORE: LifeEventDef = {
       tip: "Fewer will reach the ships. It parts families from those nearby.",
       apply: (g, life) => {
         for (const c of heldAdults(g.s, life))
-          g.touchChar(c).bond = { ...c.bond!, grief: g.s.day + 180, mood: Math.max(0, c.bond!.mood - 8) };
+          g.touchChar(c).bond = {
+            ...c.bond!,
+            grief: g.s.day + 180,
+            mood: Math.max(0, c.bond!.mood - 8),
+          };
       },
     },
   ],

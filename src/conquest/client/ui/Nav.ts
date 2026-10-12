@@ -105,6 +105,7 @@ export const TAB_DEFS: TabDef[] = [
       { id: "house", label: "House & land", guide: "property" },
       { id: "partners", label: "Partnerships", guide: "partners" }, // PARTNERS (r13)
       { id: "boats", label: "Boats", guide: "boats" },
+      { id: "bondage", label: "Bondage", guide: "bondage" }, // LABOUR (r15)
       { id: "goods", label: "Goods", guide: "markets" },
     ],
     guide: "money",

@@ -29,6 +29,7 @@ import "./power.css"; // POWER (r12): offices, the council, the court, the press
 // HOME (r12): the household, the family tree, duels.
 import "./dice.css"; // DICE (r14): Liar's dice
 import "./home.css";
+import "./labour.css"; // LABOUR (r15): those held in bondage
 import "./ledger.css"; // LEDGER (r15): money made plain
 import "./partners.css"; // PARTNERS (r13): partnerships
 import "./schooling.css"; // EDU (r13): school, apprenticeship, college

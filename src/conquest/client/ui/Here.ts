@@ -61,6 +61,7 @@ import {
   TERRAIN_NAMES,
 } from "../Text";
 import { num } from "../Tip";
+import { bondDocksButton } from "./Bondage"; // LABOUR (r15)
 import {
   action,
   bar,
@@ -898,6 +899,7 @@ const ACT_GROUPS: [string, string][] = [
 ];
 
 const ACT_GROUP: Record<string, string> = {
+  "~bond": "buy", // LABOUR (r15)
   peddle: "work",
   hunt: "work",
   trap: "work",
@@ -1282,6 +1284,9 @@ function actsBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
         run: d.run,
       });
     });
+  // LABOUR (r15): a sale at the docks (people, or servants' indentures).
+  const bond = area === "docks" ? bondDocksButton(ui, actButton) : null;
+  if (bond) buttons.set("~bond", bond);
   if (stand) buttons.set("~stand", () => standButton(ui));
   if (europe) buttons.set("~europe", () => europeButton(ui));
   const now = [

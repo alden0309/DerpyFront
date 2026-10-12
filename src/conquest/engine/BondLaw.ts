@@ -594,7 +594,10 @@ function englishFreeing(col: Colony, year: number): FreeRule {
             security: Math.round(60 * POUND),
             will: true,
           }
-        : deed("the custom of the Lower Counties", "Freed by a deed or by will.");
+        : deed(
+            "the custom of the Lower Counties",
+            "Freed by a deed or by will.",
+          );
     case "newjersey":
       return year >= 1714
         ? {
@@ -658,7 +661,10 @@ function englishFreeing(col: Colony, year: number): FreeRule {
           : "Freed by a deed or by will.",
       );
     default:
-      return deed("the law of England's colonies", "Freed by a deed or by will.");
+      return deed(
+        "the law of England's colonies",
+        "Freed by a deed or by will.",
+      );
   }
 }
 
@@ -710,7 +716,9 @@ function holding(law: LawOf, col: Colony, year: number): Held {
               "Not yet: the king hasn't given New France leave to hold anyone in bondage (he will in 1689).",
             );
       return held(
-        year >= 1685 ? "the Code Noir (1685)" : "the king's law in the colonies",
+        year >= 1685
+          ? "the Code Noir (1685)"
+          : "the king's law in the colonies",
         year >= 1685
           ? "Lawful: the Code Noir of March 1685 governs the enslaved in the islands."
           : "Lawful, by custom: the islands have been worked by enslaved Africans since their first years.",
@@ -772,7 +780,10 @@ function englishHolding(col: Colony, year: number): Held {
             "the Body of Liberties (1641)",
             'Lawful: the Body of Liberties (1641) forbids "bond slaverie" except for "lawfull Captives taken in just warres, and such strangers as willingly selle themselves or are sold to us".',
           )
-        : banned("no law yet", "Not yet: Massachusetts writes its law in 1641.");
+        : banned(
+            "no law yet",
+            "Not yet: Massachusetts writes its law in 1641.",
+          );
     case "connecticut":
       return year >= 1650
         ? held(
@@ -820,7 +831,10 @@ function englishHolding(col: Colony, year: number): Held {
     case "northcarolina":
     case "southcarolina":
       if (year < 1669)
-        return banned("no colony yet", "Not yet: Carolina is chartered in 1663 and settled in 1670.");
+        return banned(
+          "no colony yet",
+          "Not yet: Carolina is chartered in 1663 and settled in 1670.",
+        );
       return held(
         col === "southcarolina"
           ? year >= 1740
@@ -861,7 +875,9 @@ function englishHolding(col: Colony, year: number): Held {
     case "bermuda":
     case "bahamas":
       return held(
-        year >= 1661 ? "Barbados' act of 1661 and its copies" : "the islands' custom",
+        year >= 1661
+          ? "Barbados' act of 1661 and its copies"
+          : "the islands' custom",
         year >= 1661
           ? "Lawful: Barbados' 'Act for the better ordering and governing of Negroes' (1661) is the model for every English island's code."
           : "Lawful: Barbados' council resolved in 1636 that Africans and Indians brought to be sold serve for life.",
@@ -968,10 +984,7 @@ export function bondLaw(
       notes.push(
         "No more than three may gather together; none may carry arms (the act of 1712).",
       );
-    if (
-      (col === "massachusetts" || col === "maine") &&
-      year >= 1766
-    )
+    if ((col === "massachusetts" || col === "maine") && year >= 1766)
       notes.push(
         "Freedom suits are heard in the courts (Jenny Slew won hers in 1766), and the enslaved of Boston petition the General Court for freedom (1773).",
       );
@@ -988,7 +1001,12 @@ export function bondLaw(
           "The Code Noir of 1724 (article 43) forbids selling a husband and wife apart, or children under fourteen from their parents: such a sale is void.",
         );
       }
-    } else if (col !== "canada" && col !== "acadia" && col !== "north" && year >= 1685) {
+    } else if (
+      col !== "canada" &&
+      col !== "acadia" &&
+      col !== "north" &&
+      year >= 1685
+    ) {
       apart = false;
       notes.push(
         "The Code Noir (article 47) forbids selling a husband, a wife and their young children apart.",
@@ -1029,6 +1047,15 @@ export function bondLaw(
   };
 }
 
+/** Whether people may be held in a colony under a crown's law in a year, and on what (for the guide's tables). */
+export function lawfulIn(
+  law: LawOf,
+  col: Colony,
+  year: number,
+): { legal: boolean; code: string; why: string } {
+  return holding(law, col, year);
+}
+
 /** Whether people may be held in a province on a day (the quick check). */
 export function holdingLawful(
   s: GameState,
@@ -1063,31 +1090,109 @@ export interface MarketDef {
  */
 export const MARKETS: MarketDef[] = [
   // English: the Chesapeake, the Carolinas, Georgia, the north, the islands.
-  { id: "jamestown", law: "english", from: 1662, chance: 0.15, peak: [1700, 1774, 0.35] },
-  { id: "rappahannock", law: "english", from: 1662, chance: 0.08, peak: [1700, 1774, 0.25] },
-  { id: "pamunkey", law: "english", from: 1662, chance: 0.08, peak: [1700, 1774, 0.2] },
-  { id: "severn", law: "english", from: 1664, chance: 0.08, peak: [1700, 1774, 0.25] },
+  {
+    id: "jamestown",
+    law: "english",
+    from: 1662,
+    chance: 0.15,
+    peak: [1700, 1774, 0.35],
+  },
+  {
+    id: "rappahannock",
+    law: "english",
+    from: 1662,
+    chance: 0.08,
+    peak: [1700, 1774, 0.25],
+  },
+  {
+    id: "pamunkey",
+    law: "english",
+    from: 1662,
+    chance: 0.08,
+    peak: [1700, 1774, 0.2],
+  },
+  {
+    id: "severn",
+    law: "english",
+    from: 1664,
+    chance: 0.08,
+    peak: [1700, 1774, 0.25],
+  },
   { id: "st-mary-s", law: "english", from: 1664, chance: 0.06 },
-  { id: "charles-town", law: "english", from: 1670, chance: 0.15, peak: [1700, 1774, 0.5] },
+  {
+    id: "charles-town",
+    law: "english",
+    from: 1670,
+    chance: 0.15,
+    peak: [1700, 1774, 0.5],
+  },
   { id: "cape-fear", law: "english", from: 1730, chance: 0.06 },
   { id: "albemarle", law: "english", from: 1670, chance: 0.04 },
-  { id: "guale", law: "english", from: 1751, chance: 0.12, peak: [1766, 1775, 0.35] },
-  { id: "new-amsterdam", law: "english", from: 1664, chance: 0.1, peak: [1700, 1774, 0.14] },
+  {
+    id: "guale",
+    law: "english",
+    from: 1751,
+    chance: 0.12,
+    peak: [1766, 1775, 0.35],
+  },
+  {
+    id: "new-amsterdam",
+    law: "english",
+    from: 1664,
+    chance: 0.1,
+    peak: [1700, 1774, 0.14],
+  },
   { id: "raritan", law: "english", from: 1665, chance: 0.04 },
   { id: "upland", law: "english", from: 1682, chance: 0.08 },
   { id: "massachusetts-bay", law: "english", from: 1641, chance: 0.05 },
-  { id: "narragansett", law: "english", from: 1700, chance: 0.08, peak: [1725, 1774, 0.12] },
-  { id: "barbados", law: "english", from: 1636, chance: 0.6, peak: [1660, 1774, 0.75] },
+  {
+    id: "narragansett",
+    law: "english",
+    from: 1700,
+    chance: 0.08,
+    peak: [1725, 1774, 0.12],
+  },
+  {
+    id: "barbados",
+    law: "english",
+    from: 1636,
+    chance: 0.6,
+    peak: [1660, 1774, 0.75],
+  },
   { id: "antigua", law: "english", from: 1650, chance: 0.4 },
   { id: "st-kitts", law: "english", from: 1640, chance: 0.4 },
-  { id: "jamaica", law: "english", from: 1656, chance: 0.5, peak: [1690, 1774, 0.8] },
+  {
+    id: "jamaica",
+    law: "english",
+    from: 1656,
+    chance: 0.5,
+    peak: [1690, 1774, 0.8],
+  },
   // French: the islands, Saint-Domingue, Louisiana (the Company's ships, 1719 to 1731).
   { id: "martinique", law: "french", from: 1640, chance: 0.5 },
   { id: "guadeloupe", law: "french", from: 1640, chance: 0.45 },
-  { id: "le-cap", law: "french", from: 1697, chance: 0.5, peak: [1730, 1774, 0.8] },
+  {
+    id: "le-cap",
+    law: "french",
+    from: 1697,
+    chance: 0.5,
+    peak: [1730, 1774, 0.8],
+  },
   { id: "leogane", law: "french", from: 1697, chance: 0.4 },
-  { id: "bayogoula", law: "french", from: 1719, chance: 0.04, peak: [1719, 1731, 0.3] },
-  { id: "mobile", law: "french", from: 1719, chance: 0.02, peak: [1719, 1731, 0.12] },
+  {
+    id: "bayogoula",
+    law: "french",
+    from: 1719,
+    chance: 0.04,
+    peak: [1719, 1731, 0.3],
+  },
+  {
+    id: "mobile",
+    law: "french",
+    from: 1719,
+    chance: 0.02,
+    peak: [1719, 1731, 0.12],
+  },
   // Spanish: the asiento's ports.
   { id: "havana", law: "spanish", from: 1607, chance: 0.4 },
   { id: "santiago-de-cuba", law: "spanish", from: 1607, chance: 0.15 },
@@ -1096,7 +1201,14 @@ export const MARKETS: MarketDef[] = [
   { id: "veracruz", law: "spanish", from: 1607, chance: 0.3 },
   { id: "portobelo", law: "spanish", from: 1607, chance: 0.25 },
   // Dutch: New Amsterdam under the Company; Curaçao, the great depot.
-  { id: "new-amsterdam", law: "dutch", from: 1626, to: 1664, chance: 0.06, peak: [1655, 1664, 0.12] },
+  {
+    id: "new-amsterdam",
+    law: "dutch",
+    from: 1626,
+    to: 1664,
+    chance: 0.06,
+    peak: [1655, 1664, 0.12],
+  },
   { id: "curacao", law: "dutch", from: 1660, chance: 0.6 },
 ];
 
@@ -1135,7 +1247,11 @@ export function importBan(
     return "Rhode Island's act of June 1774 forbids bringing anyone enslaved into the colony; those brought in are free.";
   if (col === "connecticut" && ym >= 1774 * 12 + 9)
     return "Connecticut's act of 1774 forbids bringing anyone enslaved into the colony.";
-  if (isThirteen(col) && ym >= 1774 * 12 + 11 && (col !== "georgia" || ym >= 1775 * 12 + 6))
+  if (
+    isThirteen(col) &&
+    ym >= 1774 * 12 + 11 &&
+    (col !== "georgia" || ym >= 1775 * 12 + 6)
+  )
     return 'The Continental Association: from 1 December 1774 the colonies "will neither import nor purchase any slave imported".';
   return null;
 }
@@ -1153,12 +1269,16 @@ export function saleChance(
   const { law } = lawOf(s, p);
   const m = MARKETS.find(
     (x) =>
-      x.id === id && x.law === law && year >= x.from && (x.to === undefined || year < x.to),
+      x.id === id &&
+      x.law === law &&
+      year >= x.from &&
+      (x.to === undefined || year < x.to),
   );
   if (!m) return 0;
   if (!holdingLawful(s, map, p, day)) return 0;
   // The Association stops the ships, not the sales of an estate.
-  let chance = m.peak && year >= m.peak[0] && year <= m.peak[1] ? m.peak[2] : m.chance;
+  let chance =
+    m.peak && year >= m.peak[0] && year <= m.peak[1] ? m.peak[2] : m.chance;
   if (importBan(s, map, p, day)) chance = Math.min(chance, 0.04);
   if (colonyOf(map, p) === "pennsylvania" && year >= 1773) chance *= 0.3;
   return Math.round(chance * 1000) / 1000;
@@ -1210,21 +1330,44 @@ export function refugesFrom(
   // in 1763. Only while Spain still holds St. Augustine.
   const aug = map.provinces.findIndex((x) => x.id === "st-augustine");
   const spanishAug =
-    aug >= 0 && lawOf(s, aug).law === "spanish" && d.year >= 1687 && d.year < 1763;
+    aug >= 0 &&
+    lawOf(s, aug).law === "spanish" &&
+    d.year >= 1687 &&
+    d.year < 1763;
   if (spanishAug && (col === "southcarolina" || col === "georgia"))
     out.push({ to: "florida", w: 4 });
-  else if (spanishAug && col === "northcarolina") out.push({ to: "florida", w: 1 });
+  else if (spanishAug && col === "northcarolina")
+    out.push({ to: "florida", w: 1 });
   if ((col === "virginia" || col === "northcarolina") && d.year >= 1700)
     out.push({ to: "swamp", w: 2 });
   if (col === "jamaica" || col === "hispaniola" || col === "cuba")
     out.push({ to: "maroons", w: col === "jamaica" && d.year >= 1740 ? 1 : 2 });
-  if (
-    col === "virginia" &&
-    d.year === 1775 &&
-    d.month >= 10
-  )
+  if (col === "virginia" && d.year === 1775 && d.month >= 10)
     out.push({ to: "dunmore", w: 5 });
-  const island = map.provinces[p] && !["virginia", "maryland", "northcarolina", "southcarolina", "georgia", "pennsylvania", "newyork", "newjersey", "delaware", "massachusetts", "connecticut", "rhodeisland", "newhampshire", "maine", "louisiana", "illinois", "canada", "acadia", "florida", "ohio"].includes(col);
+  const island =
+    map.provinces[p] &&
+    ![
+      "virginia",
+      "maryland",
+      "northcarolina",
+      "southcarolina",
+      "georgia",
+      "pennsylvania",
+      "newyork",
+      "newjersey",
+      "delaware",
+      "massachusetts",
+      "connecticut",
+      "rhodeisland",
+      "newhampshire",
+      "maine",
+      "louisiana",
+      "illinois",
+      "canada",
+      "acadia",
+      "florida",
+      "ohio",
+    ].includes(col);
   if (!island) out.push({ to: "nations", w: 1.2 });
   out.push({ to: "town", w: 1.5 });
   if (map.provinces[p]?.coastal) out.push({ to: "sea", w: 1 });
@@ -1256,60 +1399,325 @@ export interface BondEvent {
 
 /** Bondage in the Americas, 1607 to 1776, as the game tells it. */
 export const BOND_HISTORY: BondEvent[] = [
-  { year: 1619, month: 8, where: ["virginia"], text: "\"Twenty and odd Negroes\", taken from a Portuguese slave ship, are landed at Point Comfort from the White Lion and traded for food." },
-  { year: 1626, where: ["newyork"], text: "The Dutch West India Company brings eleven African men to New Amsterdam: Paulo Angola, Simon Congo and Anthony Portuguese among them." },
-  { year: 1636, where: ["islands"], text: "Barbados' council resolves that Africans and Indians brought to be sold \"should serve for life\"." },
-  { year: 1637, where: ["massachusetts", "connecticut"], native: true, text: "After the Pequot War, captive Pequot women and children are given out as servants in New England, and men shipped to Bermuda and Providence Island." },
-  { year: 1641, where: ["massachusetts", "maine", "newhampshire"], text: "The Massachusetts Body of Liberties forbids \"bond slaverie\", except for captives taken in just wars and strangers sold to the colony: the first English colonial law to allow it." },
-  { year: 1644, where: ["newyork"], text: "New Netherland gives eleven Company men a \"half-freedom\": land of their own and a yearly due, but their children still bound." },
-  { year: 1652, where: ["rhodeisland"], text: "Providence and Warwick limit anyone's bondage to ten years. The law is never enforced." },
-  { year: 1661, where: ["islands", "jamaica"], text: "Barbados passes \"An Act for the better ordering and governing of Negroes\", the model for Jamaica's, South Carolina's and Antigua's codes." },
-  { year: 1662, month: 12, where: ["virginia"], text: "Virginia's assembly rules that a child is \"bond or free only according to the condition of the mother\": bondage becomes hereditary." },
-  { year: 1663, month: 9, where: ["virginia"], rising: true, text: "In Gloucester County, indentured servants plot a rising (whether any enslaved Africans were with them is not known); a servant named Birkenhead betrays it, and four are hanged." },
-  { year: 1664, where: ["maryland"], text: "Maryland makes the servitude of Africans for life (durante vita)." },
-  { year: 1667, where: ["virginia"], text: "Virginia declares that baptism does not free anyone from bondage." },
-  { year: 1669, where: ["northcarolina", "southcarolina"], text: "Carolina's Fundamental Constitutions give every freeman \"absolute power and authority over his negro slaves\"." },
-  { year: 1676, where: ["massachusetts", "rhodeisland", "connecticut"], native: true, text: "After King Philip's War, hundreds of Wampanoag, Narragansett and Nipmuc captives are sold into slavery in the West Indies." },
-  { year: 1680, where: ["virginia"], text: "Virginia forbids the enslaved to carry arms or leave a plantation without a certificate." },
-  { year: 1685, month: 3, where: ["islands", "hispaniola"], text: "Louis XIV's Code Noir governs the enslaved of the French islands: baptism, Sundays, families not to be sold apart, and terrible punishments." },
-  { year: 1687, where: ["florida", "southcarolina"], rising: true, text: "Eight men, two women and a child flee Carolina by canoe and reach St. Augustine. Spain refuses to send them back." },
-  { year: 1688, month: 2, where: ["pennsylvania", "newjersey", "delaware"], text: "Four Friends of Germantown write the first protest against slavery in the English colonies: \"Is there any that would be done or handled at this manner?\"" },
-  { year: 1689, where: ["canada"], text: "Louis XIV gives the colonists of New France leave to hold enslaved people." },
-  { year: 1691, where: ["virginia"], text: "Virginia: anyone who frees an enslaved person must pay to carry them out of the colony." },
-  { year: 1693, month: 11, where: ["florida", "southcarolina", "georgia"], text: "Charles II of Spain decrees that those fleeing slavery in the English colonies who reach Florida and become Catholics shall be free." },
-  { year: 1704, where: ["florida", "southcarolina"], native: true, text: "James Moore's Carolinians and their Creek allies destroy the Apalachee missions and carry off more than a thousand Apalachee to be sold at Charles Town." },
-  { year: 1704, where: ["southcarolina"], text: "South Carolina sets up the first slave patrols in the colonies; the other plantation colonies follow." },
-  { year: 1705, month: 10, where: ["virginia"], text: "Virginia's slave code gathers the old acts and declares the enslaved real estate." },
-  { year: 1709, month: 4, where: ["canada"], text: "The intendant Raudot's ordinance: the panis, Indigenous captives traded from the west, and Africans bought in New France belong to those who bought them." },
-  { year: 1712, month: 4, where: ["newyork"], rising: true, text: "In New York some two dozen enslaved men and women, most of them Akan, set a fire on Maiden Lane and fight those who come to put it out; nine colonists die. Twenty-one are executed, and the assembly passes a harsher code." },
-  { year: 1715, month: 4, where: ["southcarolina", "northcarolina", "georgia"], native: true, text: "The Yamasee War: the nations rise against Carolina's traders, whose trade in Native captives had driven raids across the southeast. When it ends, so does the great Indian slave trade." },
-  { year: 1722, where: ["southcarolina"], text: "South Carolina orders that anyone freed must leave the province within twelve months." },
-  { year: 1723, where: ["virginia"], text: "Virginia forbids freeing anyone \"except for some meritorious services\", by the governor and council's licence." },
-  { year: 1724, month: 9, where: ["louisiana", "illinois"], text: "Louisiana's Code Noir: no selling husband and wife apart, or children under fourteen; no freeing without the Superior Council's decree." },
-  { year: 1734, month: 4, where: ["canada"], rising: true, text: "Marie-Joseph Angélique, enslaved in Montreal, is accused of the fire that burns the merchants' quarter, and hanged." },
-  { year: 1735, where: ["georgia"], text: "Parliament approves the Trustees' act banning slavery in Georgia." },
-  { year: 1736, where: ["islands"], rising: true, text: "In Antigua a plot led by Court (\"Prince Klaas\") is discovered before it begins; dozens are executed." },
-  { year: 1738, where: ["florida", "southcarolina", "georgia"], text: "Florida's governor founds Gracia Real de Santa Teresa de Mose north of St. Augustine: a free town of those who fled the English colonies, with Francisco Menéndez as captain of its militia." },
-  { year: 1739, month: 3, where: ["jamaica"], rising: true, text: "After ten years of war, Jamaica's Leeward Maroons under Cudjoe make a treaty: their freedom and land, in return for sending back new runaways." },
-  { year: 1739, month: 9, where: ["southcarolina", "georgia"], rising: true, text: "The Stono rising: some twenty Kongolese men under Jemmy march south for Florida with drums and a banner, crying \"Liberty\"; others join them. Militia catch them at the Edisto; about twenty colonists and some forty of the rebels die." },
-  { year: 1740, month: 5, where: ["southcarolina"], text: "South Carolina's Negro Act: no gathering, no growing or selling for themselves, no teaching to write, a ticket for every journey." },
-  { year: 1740, where: ["virginia", "maryland", "northcarolina", "southcarolina"], text: "George Whitefield's open letter rebukes the planters of the southern colonies for their cruelty to the enslaved." },
-  { year: 1741, where: ["newyork"], rising: true, text: "A run of fires in New York sets off a panic about a plot of the enslaved and the poor: thirty Black men and four white people are executed, and seventy deported." },
-  { year: 1746, where: ["virginia", "maryland", "northcarolina"], text: "John Woolman, a Quaker tailor of New Jersey, travels through Virginia and Carolina, and is troubled by what he sees in the houses that feed him." },
-  { year: 1751, month: 1, where: ["georgia"], text: "Georgia's ban ends: slavery is lawful there from 1 January 1751." },
-  { year: 1752, month: 6, where: ["maryland"], text: "Maryland forbids freeing anyone by will, or anyone over fifty." },
-  { year: 1754, where: ["pennsylvania", "newjersey", "delaware", "rhodeisland"], text: "Woolman publishes \"Some Considerations on the Keeping of Negroes\"." },
-  { year: 1758, where: ["pennsylvania", "newjersey", "delaware"], text: "The Philadelphia Yearly Meeting resolves to keep Friends who buy or sell enslaved people out of its business, and sends Woolman and others to visit those who hold them." },
-  { year: 1760, month: 4, where: ["jamaica"], rising: true, text: "Tacky's War: hundreds of Coromantee men and women rise in Jamaica's St. Mary's parish. It takes months to put down." },
-  { year: 1763, where: ["florida", "southcarolina", "georgia"], text: "Spain gives Florida up to Britain; the people of Mose leave with the Spanish for Cuba." },
-  { year: 1766, where: ["massachusetts"], text: "Jenny Slew sues for her freedom in Massachusetts, and wins." },
-  { year: 1770, where: ["pennsylvania"], text: "Anthony Benezet opens a school for Black children in Philadelphia." },
-  { year: 1772, month: 6, where: "all", text: "In London, Lord Mansfield rules in Somerset's case that an enslaved man brought to England can't be forced out of it. The news reaches the colonies by late summer." },
-  { year: 1773, where: "all", text: "Phillis Wheatley, enslaved in Boston, publishes her Poems on Various Subjects in London. In Boston, enslaved men petition the General Court for their freedom." },
-  { year: 1774, month: 6, where: ["rhodeisland"], text: "Rhode Island forbids bringing anyone enslaved into the colony." },
-  { year: 1774, month: 10, where: "all", text: "The Continental Congress's Association: the colonies agree to \"neither import nor purchase any slave imported after the first day of December next\"." },
-  { year: 1775, month: 4, where: ["pennsylvania"], text: "Philadelphians found \"the Society for the Relief of Free Negroes Unlawfully Held in Bondage\", the first such society in the colonies." },
-  { year: 1775, month: 11, where: ["virginia"], rising: true, text: "Lord Dunmore proclaims freedom for the enslaved men of rebels who will fight for the king; hundreds escape to his lines." },
+  {
+    year: 1619,
+    month: 8,
+    where: ["virginia"],
+    text: '"Twenty and odd Negroes", taken from a Portuguese slave ship, are landed at Point Comfort from the White Lion and traded for food.',
+  },
+  {
+    year: 1626,
+    where: ["newyork"],
+    text: "The Dutch West India Company brings eleven African men to New Amsterdam: Paulo Angola, Simon Congo and Anthony Portuguese among them.",
+  },
+  {
+    year: 1636,
+    where: ["islands"],
+    text: 'Barbados\' council resolves that Africans and Indians brought to be sold "should serve for life".',
+  },
+  {
+    year: 1637,
+    where: ["massachusetts", "connecticut"],
+    native: true,
+    text: "After the Pequot War, captive Pequot women and children are given out as servants in New England, and men shipped to Bermuda and Providence Island.",
+  },
+  {
+    year: 1641,
+    where: ["massachusetts", "maine", "newhampshire"],
+    text: 'The Massachusetts Body of Liberties forbids "bond slaverie", except for captives taken in just wars and strangers sold to the colony: the first English colonial law to allow it.',
+  },
+  {
+    year: 1644,
+    where: ["newyork"],
+    text: 'New Netherland gives eleven Company men a "half-freedom": land of their own and a yearly due, but their children still bound.',
+  },
+  {
+    year: 1652,
+    where: ["rhodeisland"],
+    text: "Providence and Warwick limit anyone's bondage to ten years. The law is never enforced.",
+  },
+  {
+    year: 1661,
+    where: ["islands", "jamaica"],
+    text: "Barbados passes \"An Act for the better ordering and governing of Negroes\", the model for Jamaica's, South Carolina's and Antigua's codes.",
+  },
+  {
+    year: 1662,
+    month: 12,
+    where: ["virginia"],
+    text: 'Virginia\'s assembly rules that a child is "bond or free only according to the condition of the mother": bondage becomes hereditary.',
+  },
+  {
+    year: 1663,
+    month: 9,
+    where: ["virginia"],
+    rising: true,
+    text: "In Gloucester County, indentured servants plot a rising (whether any enslaved Africans were with them is not known); a servant named Birkenhead betrays it, and four are hanged.",
+  },
+  {
+    year: 1664,
+    where: ["maryland"],
+    text: "Maryland makes the servitude of Africans for life (durante vita).",
+  },
+  {
+    year: 1667,
+    where: ["virginia"],
+    text: "Virginia declares that baptism does not free anyone from bondage.",
+  },
+  {
+    year: 1669,
+    where: ["northcarolina", "southcarolina"],
+    text: 'Carolina\'s Fundamental Constitutions give every freeman "absolute power and authority over his negro slaves".',
+  },
+  {
+    year: 1676,
+    where: ["massachusetts", "rhodeisland", "connecticut"],
+    native: true,
+    text: "After King Philip's War, hundreds of Wampanoag, Narragansett and Nipmuc captives are sold into slavery in the West Indies.",
+  },
+  {
+    year: 1680,
+    where: ["virginia"],
+    text: "Virginia forbids the enslaved to carry arms or leave a plantation without a certificate.",
+  },
+  {
+    year: 1685,
+    month: 3,
+    where: ["islands", "hispaniola"],
+    text: "Louis XIV's Code Noir governs the enslaved of the French islands: baptism, Sundays, families not to be sold apart, and terrible punishments.",
+  },
+  {
+    year: 1687,
+    where: ["florida", "southcarolina"],
+    rising: true,
+    text: "Eight men, two women and a child flee Carolina by canoe and reach St. Augustine. Spain refuses to send them back.",
+  },
+  {
+    year: 1688,
+    month: 2,
+    where: ["pennsylvania", "newjersey", "delaware"],
+    text: 'Four Friends of Germantown write the first protest against slavery in the English colonies: "Is there any that would be done or handled at this manner?"',
+  },
+  {
+    year: 1689,
+    where: ["canada"],
+    text: "Louis XIV gives the colonists of New France leave to hold enslaved people.",
+  },
+  {
+    year: 1691,
+    where: ["virginia"],
+    text: "Virginia: anyone who frees an enslaved person must pay to carry them out of the colony.",
+  },
+  {
+    year: 1693,
+    month: 11,
+    where: ["florida", "southcarolina", "georgia"],
+    text: "Charles II of Spain decrees that those fleeing slavery in the English colonies who reach Florida and become Catholics shall be free.",
+  },
+  {
+    year: 1700,
+    month: 6,
+    where: [
+      "massachusetts",
+      "maine",
+      "newhampshire",
+      "rhodeisland",
+      "connecticut",
+    ],
+    text: 'Samuel Sewall, a judge of Boston, prints "The Selling of Joseph", the first tract against slavery in New England: "all Men, as they are the Sons of Adam, are Coheirs; and have equal Right unto Liberty".',
+  },
+  {
+    year: 1704,
+    where: ["florida", "southcarolina"],
+    native: true,
+    text: "James Moore's Carolinians and their Creek allies destroy the Apalachee missions and carry off more than a thousand Apalachee to be sold at Charles Town.",
+  },
+  {
+    year: 1704,
+    where: ["southcarolina"],
+    text: "South Carolina sets up the first slave patrols in the colonies; the other plantation colonies follow.",
+  },
+  {
+    year: 1705,
+    month: 10,
+    where: ["virginia"],
+    text: "Virginia's slave code gathers the old acts and declares the enslaved real estate.",
+  },
+  {
+    year: 1709,
+    month: 4,
+    where: ["canada"],
+    text: "The intendant Raudot's ordinance: the panis, Indigenous captives traded from the west, and Africans bought in New France belong to those who bought them.",
+  },
+  {
+    year: 1712,
+    month: 4,
+    where: ["newyork"],
+    rising: true,
+    text: "In New York some two dozen enslaved men and women, most of them Akan, set a fire on Maiden Lane and fight those who come to put it out; nine colonists die. Twenty-one are executed, and the assembly passes a harsher code.",
+  },
+  {
+    year: 1715,
+    month: 4,
+    where: ["southcarolina", "northcarolina", "georgia"],
+    native: true,
+    text: "The Yamasee War: the nations rise against Carolina's traders, whose trade in Native captives had driven raids across the southeast. When it ends, so does the great Indian slave trade.",
+  },
+  {
+    year: 1722,
+    where: ["southcarolina"],
+    text: "South Carolina orders that anyone freed must leave the province within twelve months.",
+  },
+  {
+    year: 1723,
+    where: ["virginia"],
+    text: 'Virginia forbids freeing anyone "except for some meritorious services", by the governor and council\'s licence.',
+  },
+  {
+    year: 1724,
+    month: 9,
+    where: ["louisiana", "illinois"],
+    text: "Louisiana's Code Noir: no selling husband and wife apart, or children under fourteen; no freeing without the Superior Council's decree.",
+  },
+  {
+    year: 1734,
+    month: 4,
+    where: ["canada"],
+    rising: true,
+    text: "Marie-Joseph Angélique, enslaved in Montreal, is accused of the fire that burns the merchants' quarter, and hanged.",
+  },
+  {
+    year: 1735,
+    where: ["georgia"],
+    text: "Parliament approves the Trustees' act banning slavery in Georgia.",
+  },
+  {
+    year: 1736,
+    where: ["islands"],
+    rising: true,
+    text: 'In Antigua a plot led by Court ("Prince Klaas") is discovered before it begins; dozens are executed.',
+  },
+  {
+    year: 1738,
+    where: ["florida", "southcarolina", "georgia"],
+    text: "Florida's governor founds Gracia Real de Santa Teresa de Mose north of St. Augustine: a free town of those who fled the English colonies, with Francisco Menéndez as captain of its militia.",
+  },
+  {
+    year: 1739,
+    month: 3,
+    where: ["jamaica"],
+    rising: true,
+    text: "After ten years of war, Jamaica's Leeward Maroons under Cudjoe make a treaty: their freedom and land, in return for sending back new runaways.",
+  },
+  {
+    year: 1739,
+    month: 9,
+    where: ["southcarolina", "georgia"],
+    rising: true,
+    text: 'The Stono rising: some twenty Kongolese men under Jemmy march south for Florida with drums and a banner, crying "Liberty"; others join them. Militia catch them at the Edisto; about twenty colonists and some forty of the rebels die.',
+  },
+  {
+    year: 1740,
+    month: 5,
+    where: ["southcarolina"],
+    text: "South Carolina's Negro Act: no gathering, no growing or selling for themselves, no teaching to write, a ticket for every journey.",
+  },
+  {
+    year: 1740,
+    where: ["virginia", "maryland", "northcarolina", "southcarolina"],
+    text: "George Whitefield's open letter rebukes the planters of the southern colonies for their cruelty to the enslaved.",
+  },
+  {
+    year: 1741,
+    where: ["newyork"],
+    rising: true,
+    text: "A run of fires in New York sets off a panic about a plot of the enslaved and the poor: thirty Black men and four white people are executed, and seventy deported.",
+  },
+  {
+    year: 1746,
+    where: ["virginia", "maryland", "northcarolina"],
+    text: "John Woolman, a Quaker tailor of New Jersey, travels through Virginia and Carolina, and is troubled by what he sees in the houses that feed him.",
+  },
+  {
+    year: 1751,
+    month: 1,
+    where: ["georgia"],
+    text: "Georgia's ban ends: slavery is lawful there from 1 January 1751.",
+  },
+  {
+    year: 1752,
+    month: 6,
+    where: ["maryland"],
+    text: "Maryland forbids freeing anyone by will, or anyone over fifty.",
+  },
+  {
+    year: 1754,
+    where: ["pennsylvania", "newjersey", "delaware", "rhodeisland"],
+    text: 'Woolman publishes "Some Considerations on the Keeping of Negroes".',
+  },
+  {
+    year: 1758,
+    where: ["pennsylvania", "newjersey", "delaware"],
+    text: "The Philadelphia Yearly Meeting resolves to keep Friends who buy or sell enslaved people out of its business, and sends Woolman and others to visit those who hold them.",
+  },
+  {
+    year: 1760,
+    month: 4,
+    where: ["jamaica"],
+    rising: true,
+    text: "Tacky's War: hundreds of Coromantee men and women rise in Jamaica's St. Mary's parish. It takes months to put down.",
+  },
+  {
+    year: 1763,
+    where: ["florida", "southcarolina", "georgia"],
+    text: "Spain gives Florida up to Britain; the people of Mose leave with the Spanish for Cuba.",
+  },
+  {
+    year: 1766,
+    where: ["massachusetts"],
+    text: "Jenny Slew sues for her freedom in Massachusetts, and wins.",
+  },
+  {
+    year: 1770,
+    where: ["pennsylvania"],
+    text: "Anthony Benezet opens a school for Black children in Philadelphia.",
+  },
+  {
+    year: 1772,
+    month: 6,
+    where: "all",
+    text: "In London, Lord Mansfield rules in Somerset's case that an enslaved man brought to England can't be forced out of it. The news reaches the colonies by late summer.",
+  },
+  {
+    year: 1773,
+    where: "all",
+    text: "Phillis Wheatley, enslaved in Boston, publishes her Poems on Various Subjects in London. In Boston, enslaved men petition the General Court for their freedom.",
+  },
+  {
+    year: 1774,
+    month: 6,
+    where: ["rhodeisland"],
+    text: "Rhode Island forbids bringing anyone enslaved into the colony.",
+  },
+  {
+    year: 1774,
+    month: 10,
+    where: "all",
+    text: 'The Continental Congress\'s Association: the colonies agree to "neither import nor purchase any slave imported after the first day of December next".',
+  },
+  {
+    year: 1775,
+    month: 4,
+    where: ["pennsylvania"],
+    text: 'Philadelphians found "the Society for the Relief of Free Negroes Unlawfully Held in Bondage", the first such society in the colonies.',
+  },
+  {
+    year: 1775,
+    month: 11,
+    where: ["virginia"],
+    rising: true,
+    text: "Lord Dunmore proclaims freedom for the enslaved men of rebels who will fight for the king; hundreds escape to his lines.",
+  },
 ];
 
 /** The history of a colony up to a year (newest first), and what's everywhere. */

@@ -15,7 +15,6 @@
 
 import {
   bondLaw,
-  type BondLaw,
   colonyOf,
   DEED_FEE,
   holdingLawful,
@@ -27,12 +26,20 @@ import {
   REFUGE_SHORT,
   refugesFrom,
   saleChance,
+  type BondLaw,
   type Colony,
   type FreeRule,
 } from "./BondLaw";
 import { dateOf } from "./Calendar";
 import { Explain } from "./Explain";
-import { isChildLife, lifeIsNative, meOf, no, yes, type Check } from "./LifeQueries";
+import {
+  isChildLife,
+  lifeIsNative,
+  meOf,
+  no,
+  yes,
+  type Check,
+} from "./LifeQueries";
 import type { World } from "./Map";
 import { chanceWords, type OddsOutcome, type OddsView } from "./Odds";
 import { landOf, propertyOf } from "./Property";
@@ -40,13 +47,13 @@ import { ageOf, settlers } from "./Queries";
 import { Rng } from "./Rng";
 import { DAYS_PER_YEAR } from "./Rules";
 import type {
+  Bondage,
   BondMark,
   BondNote,
   BondOrigin,
   BondPolicy,
   BondRefuge,
   BondWork,
-  Bondage,
   Breakdown,
   Character,
   GameDelta,
@@ -181,11 +188,30 @@ const OWN_NAMES: Record<Exclude<BondOrigin, "creole" | "europe">, NamePair> = {
     f: ["Mgbeke", "Mgbafor", "Mgboye", "Mgbankwo", "Adaeze", "Nneka"],
   },
   kongo: {
-    m: ["Mbemba", "Nkanga", "Mpanzu", "Nsaku", "Nlaza", "Lukeni", "Antonio", "Pedro", "Manuel"],
+    m: [
+      "Mbemba",
+      "Nkanga",
+      "Mpanzu",
+      "Nsaku",
+      "Nlaza",
+      "Lukeni",
+      "Antonio",
+      "Pedro",
+      "Manuel",
+    ],
     f: ["Nzinga", "Kimpa", "Nsimba", "Nzuzi", "Mafuta", "Maria", "Isabel"],
   },
   mande: {
-    m: ["Samba", "Moussa", "Bakary", "Ibrahima", "Mamadou", "Ayuba", "Suleiman", "Lamine"],
+    m: [
+      "Samba",
+      "Moussa",
+      "Bakary",
+      "Ibrahima",
+      "Mamadou",
+      "Ayuba",
+      "Suleiman",
+      "Lamine",
+    ],
     f: ["Fatoumata", "Aminata", "Mariama", "Hawa", "Binta", "Nyima"],
   },
   wolof: {
@@ -227,19 +253,103 @@ const AKAN_RECORDED: Record<string, string> = {
 /** Names enslavers gave, by the colony's people: classical, biblical, everyday. */
 const GIVEN_NAMES: Record<string, NamePair> = {
   english: {
-    m: ["Caesar", "Pompey", "Cato", "Scipio", "Jupiter", "Hercules", "Prince", "Jack", "Tom", "Will", "Harry", "Ned", "Sam", "Abraham", "Isaac", "Moses", "Peter", "Robin", "Toby", "London"],
-    f: ["Venus", "Phoebe", "Dido", "Diana", "Flora", "Chloe", "Dinah", "Hagar", "Sarah", "Rachel", "Bess", "Nan", "Sukey", "Jenny", "Peg", "Betty", "Lucy", "Hannah", "Patience", "Grace"],
+    m: [
+      "Caesar",
+      "Pompey",
+      "Cato",
+      "Scipio",
+      "Jupiter",
+      "Hercules",
+      "Prince",
+      "Jack",
+      "Tom",
+      "Will",
+      "Harry",
+      "Ned",
+      "Sam",
+      "Abraham",
+      "Isaac",
+      "Moses",
+      "Peter",
+      "Robin",
+      "Toby",
+      "London",
+    ],
+    f: [
+      "Venus",
+      "Phoebe",
+      "Dido",
+      "Diana",
+      "Flora",
+      "Chloe",
+      "Dinah",
+      "Hagar",
+      "Sarah",
+      "Rachel",
+      "Bess",
+      "Nan",
+      "Sukey",
+      "Jenny",
+      "Peg",
+      "Betty",
+      "Lucy",
+      "Hannah",
+      "Patience",
+      "Grace",
+    ],
   },
   french: {
-    m: ["Jean", "Pierre", "Louis", "César", "Pompée", "Jupiter", "Joseph", "François", "Jacques", "Baptiste", "Augustin", "Hercule"],
-    f: ["Marie", "Marguerite", "Jeanne", "Catherine", "Louison", "Rose", "Angélique", "Victoire", "Françoise", "Thérèse"],
+    m: [
+      "Jean",
+      "Pierre",
+      "Louis",
+      "César",
+      "Pompée",
+      "Jupiter",
+      "Joseph",
+      "François",
+      "Jacques",
+      "Baptiste",
+      "Augustin",
+      "Hercule",
+    ],
+    f: [
+      "Marie",
+      "Marguerite",
+      "Jeanne",
+      "Catherine",
+      "Louison",
+      "Rose",
+      "Angélique",
+      "Victoire",
+      "Françoise",
+      "Thérèse",
+    ],
   },
   spanish: {
-    m: ["Francisco", "Juan", "Antonio", "Pedro", "Domingo", "Manuel", "José", "Miguel"],
+    m: [
+      "Francisco",
+      "Juan",
+      "Antonio",
+      "Pedro",
+      "Domingo",
+      "Manuel",
+      "José",
+      "Miguel",
+    ],
     f: ["María", "Juana", "Isabel", "Ana", "Rosa", "Catalina", "Francisca"],
   },
   dutch: {
-    m: ["Pieter", "Jan", "Claes", "Anthony", "Paulo", "Simon", "Manuel", "Frans"],
+    m: [
+      "Pieter",
+      "Jan",
+      "Claes",
+      "Anthony",
+      "Paulo",
+      "Simon",
+      "Manuel",
+      "Frans",
+    ],
     f: ["Maria", "Mayken", "Susanna", "Lucretia", "Isabel", "Catharina"],
   },
 };
@@ -247,9 +357,29 @@ const GIVEN_NAMES: Record<string, NamePair> = {
 /** Names of those bound by indenture, by where they came from. */
 const SERVANT_NAMES: { m: string[]; f: string[]; fam: string[] }[] = [
   {
-    m: ["John", "Thomas", "William", "Richard", "Robert", "Edward", "Henry", "James"],
+    m: [
+      "John",
+      "Thomas",
+      "William",
+      "Richard",
+      "Robert",
+      "Edward",
+      "Henry",
+      "James",
+    ],
     f: ["Mary", "Elizabeth", "Anne", "Margaret", "Jane", "Alice"],
-    fam: ["Smith", "Jones", "Taylor", "Brown", "Harris", "Cooke", "Ward", "Hale", "Pratt", "Webb"],
+    fam: [
+      "Smith",
+      "Jones",
+      "Taylor",
+      "Brown",
+      "Harris",
+      "Cooke",
+      "Ward",
+      "Hale",
+      "Pratt",
+      "Webb",
+    ],
   },
   {
     m: ["Patrick", "Owen", "Darby", "Bryan", "Dennis", "Cornelius"],
@@ -276,7 +406,16 @@ const ENGAGE_NAMES = {
 
 /** Surnames freed people took (Paul Cuffe took his father's Akan name, Kofi). */
 const FREE_NAMES: Record<string, string[]> = {
-  english: ["Freeman", "Liberty", "Hope", "Freedom", "Peace", "Newport", "Prince", "Lew"],
+  english: [
+    "Freeman",
+    "Liberty",
+    "Hope",
+    "Freedom",
+    "Peace",
+    "Newport",
+    "Prince",
+    "Lew",
+  ],
   french: ["Liberté", "Lafortune", "Bonhomme", "Beaulieu", "Jolicoeur"],
   spanish: ["de la Cruz", "Libre", "de Mose", "de la Rosa"],
   dutch: ["Vrij", "de Vries", "Manuel", "Angola"],
@@ -284,7 +423,11 @@ const FREE_NAMES: Record<string, string[]> = {
 
 /** The people whose law a colony's naming follows. */
 function namingOf(culture: string): string {
-  return GIVEN_NAMES[culture] ? culture : culture === "portuguese" ? "spanish" : "english";
+  return GIVEN_NAMES[culture]
+    ? culture
+    : culture === "portuguese"
+      ? "spanish"
+      : "english";
 }
 
 // ---------------------------------------------------------------- money
@@ -367,8 +510,16 @@ export const FOOD_COST = [0.22, 0.38, 0.6] as const;
 export const HOUSING_COST = [0.04, 0.1, 0.2] as const;
 
 export const FOOD_NAMES = ["Scant", "As is customary", "Ample"] as const;
-export const HOUSING_NAMES = ["Rough cabins", "Customary quarters", "Sound houses"] as const;
-export const PUNISH_NAMES = ["Restraint", "As the neighbours do", "Harshly"] as const;
+export const HOUSING_NAMES = [
+  "Rough cabins",
+  "Customary quarters",
+  "Sound houses",
+] as const;
+export const PUNISH_NAMES = [
+  "Restraint",
+  "As the neighbours do",
+  "Harshly",
+] as const;
 
 /** What keeping someone costs a month. */
 export function keepOf(s: GameState, policy: BondPolicy, c: Character): number {
@@ -407,7 +558,12 @@ export const CROPS: Record<Crop, CropDef> = {
 };
 
 /** What the fields grow at a place in a year. */
-export function cropAt(s: GameState, map: MapDef, p: number, day = s.day): Crop {
+export function cropAt(
+  s: GameState,
+  map: MapDef,
+  p: number,
+  day = s.day,
+): Crop {
   const year = dateOf(day).year;
   const col = colonyOf(map, p);
   const coastal = map.provinces[p]?.coastal ?? false;
@@ -579,7 +735,11 @@ export const DEFAULT_POLICY: BondPolicy = {
 };
 
 /** The household's customary policy where it lives (the task system in the Lowcountry). */
-export function customaryPolicy(s: GameState, map: MapDef, p: number): BondPolicy {
+export function customaryPolicy(
+  s: GameState,
+  map: MapDef,
+  p: number,
+): BondPolicy {
   const crop = cropAt(s, map, p);
   const law = bondLaw(s, map, p);
   return {
@@ -614,7 +774,11 @@ export function familyAway(s: GameState, c: Character): Character[] {
   });
 }
 
-function hereWith(s: GameState, c: Character, x: Character | undefined): boolean {
+function hereWith(
+  s: GameState,
+  c: Character,
+  x: Character | undefined,
+): boolean {
   return (
     !!x?.alive &&
     !!x.bond &&
@@ -639,7 +803,9 @@ export function moodTarget(
   e.add("Quarters", [-8, 0, 6][pol.housing]);
   if (workShare(ageOf(s, c)) > 0)
     e.add(
-      pol.regime === "task" ? "The task system: their own time" : "Gangs under a driver",
+      pol.regime === "task"
+        ? "The task system: their own time"
+        : "Gangs under a driver",
       pol.regime === "task" ? 8 : -6,
     );
   if (pol.families) e.add("Families never sold apart", 5);
@@ -647,7 +813,8 @@ export function moodTarget(
   if (pol.passes) e.add(away ? "Passes to see family" : "Passes", away ? 6 : 2);
   else if (away) e.add("Family elsewhere, and no passes", -4);
   if (pol.church) e.add("Church allowed", m.faith === "christian" ? 4 : 1);
-  if (pol.letters && bondLaw(s, map, b.home).reading) e.add("Letters taught", 4);
+  if (pol.letters && bondLaw(s, map, b.home).reading)
+    e.add("Letters taught", 4);
   e.add("Punishment", [6, -4, -16][pol.punish]);
   if (hereWith(s, c, s.chars[c.spouse])) e.add("Husband or wife here", 6);
   if (c.children.some((k) => hereWith(s, c, s.chars[k])))
@@ -655,7 +822,9 @@ export function moodTarget(
   if ((m.grief ?? 0) > s.day) e.add("Grieving", -22);
   if (seasoning(s, c)) e.add("Newly come, after the passage", -10);
   if (m.status === "indenture") e.add("A term that ends", 10);
-  const freed = b.log.some((n) => n.k === "freed" && s.day - n.day < 2 * DAYS_PER_YEAR);
+  const freed = b.log.some(
+    (n) => n.k === "freed" && s.day - n.day < 2 * DAYS_PER_YEAR,
+  );
   if (freed) e.add("Someone freed lately: hope", 4);
   return e.done(0, 0, 100);
 }
@@ -742,14 +911,20 @@ export function flightChance(
   const despair = (100 - m.mood) / 100;
   e.add("Always", FLIGHT_BASE);
   e.add("How they bear it", FLIGHT_DESPAIR * despair * despair);
-  if ((m.grief ?? 0) > s.day) e.add("Grief: family taken from them", FLIGHT_GRIEF);
+  if ((m.grief ?? 0) > s.day)
+    e.add("Grief: family taken from them", FLIGHT_GRIEF);
   e.mul("Refuges near", refugePull(s, map, b.home));
   const law = bondLaw(s, map, b.home);
   if (law.patrols) e.mul("Patrols ride at night", 0.8);
   if (b.policy.passes) e.mul("Passes: more on the roads", 1.1);
   if (age >= 16 && age <= 35) e.mul("Young and strong", 1.3);
   else if (age > 45) e.mul("Older", 0.5);
-  if (c.female && c.children.some((k) => hereWith(s, c, s.chars[k]) && ageOf(s, s.chars[k]) < 10))
+  if (
+    c.female &&
+    c.children.some(
+      (k) => hereWith(s, c, s.chars[k]) && ageOf(s, s.chars[k]) < 10,
+    )
+  )
     e.mul("Young children to think of", 0.6);
   if (m.status === "indenture") e.mul("A term that ends", 0.6);
   return e.done(5);
@@ -783,12 +958,20 @@ export function refugeOdds(
   return list.map((r) => ({
     to: r.to,
     pick: r.w / total,
-    free: Math.min(0.85, REFUGE_ODDS[r.to] * (law.patrols ? 0.8 : 1) * lit * indent),
+    free: Math.min(
+      0.85,
+      REFUGE_ODDS[r.to] * (law.patrols ? 0.8 : 1) * lit * indent,
+    ),
   }));
 }
 
 /** The chance someone who flees reaches freedom, all told. */
-export function freedomChance(s: GameState, map: MapDef, life: Life, c?: Character): number {
+export function freedomChance(
+  s: GameState,
+  map: MapDef,
+  life: Life,
+  c?: Character,
+): number {
   return refugeOdds(s, map, life, c).reduce((m, r) => m + r.pick * r.free, 0);
 }
 
@@ -802,8 +985,12 @@ export function riseChance(s: GameState, map: MapDef, life: Life): Breakdown {
   const adults = heldAdults(s, life);
   if (adults.length < RISE_MIN) return e.done(6);
   const b = life.bondage!;
-  const d = adults.reduce((m, c) => m + (100 - c.bond!.mood) / 100, 0) / adults.length;
-  e.add(`${adults.length} grown people held`, RISE_BASE * Math.min(30, adults.length));
+  const d =
+    adults.reduce((m, c) => m + (100 - c.bond!.mood) / 100, 0) / adults.length;
+  e.add(
+    `${adults.length} grown people held`,
+    RISE_BASE * Math.min(30, adults.length),
+  );
   e.mul("How they bear it", d * d * d);
   e.mul("Refuges near", refugePull(s, map, b.home));
   if (bondLaw(s, map, b.home).patrols) e.mul("Patrols and the militia", 0.7);
@@ -964,16 +1151,66 @@ export function saleMonth(day: number): number {
 }
 
 const ORIGIN_MIX: Record<string, [BondOrigin, number][]> = {
-  chesapeake: [["igbo", 40], ["akan", 15], ["mande", 12], ["wolof", 6], ["kongo", 15], ["creole", 12]],
-  lowcountry: [["kongo", 40], ["mande", 15], ["wolof", 10], ["akan", 10], ["igbo", 10], ["creole", 15]],
-  islands: [["akan", 35], ["igbo", 25], ["kongo", 12], ["fon", 10], ["yoruba", 5], ["creole", 13]],
-  french: [["fon", 25], ["yoruba", 10], ["kongo", 30], ["wolof", 10], ["mande", 10], ["creole", 15]],
-  spanish: [["kongo", 40], ["akan", 15], ["fon", 10], ["yoruba", 5], ["mande", 10], ["creole", 20]],
-  dutch: [["kongo", 60], ["akan", 15], ["creole", 25]],
-  north: [["creole", 40], ["akan", 20], ["kongo", 12], ["mande", 10], ["malagasy", 8], ["igbo", 10]],
+  chesapeake: [
+    ["igbo", 40],
+    ["akan", 15],
+    ["mande", 12],
+    ["wolof", 6],
+    ["kongo", 15],
+    ["creole", 12],
+  ],
+  lowcountry: [
+    ["kongo", 40],
+    ["mande", 15],
+    ["wolof", 10],
+    ["akan", 10],
+    ["igbo", 10],
+    ["creole", 15],
+  ],
+  islands: [
+    ["akan", 35],
+    ["igbo", 25],
+    ["kongo", 12],
+    ["fon", 10],
+    ["yoruba", 5],
+    ["creole", 13],
+  ],
+  french: [
+    ["fon", 25],
+    ["yoruba", 10],
+    ["kongo", 30],
+    ["wolof", 10],
+    ["mande", 10],
+    ["creole", 15],
+  ],
+  spanish: [
+    ["kongo", 40],
+    ["akan", 15],
+    ["fon", 10],
+    ["yoruba", 5],
+    ["mande", 10],
+    ["creole", 20],
+  ],
+  dutch: [
+    ["kongo", 60],
+    ["akan", 15],
+    ["creole", 25],
+  ],
+  north: [
+    ["creole", 40],
+    ["akan", 20],
+    ["kongo", 12],
+    ["mande", 10],
+    ["malagasy", 8],
+    ["igbo", 10],
+  ],
 };
 
-function mixFor(col: Colony, law: string, year: number): [BondOrigin, number][] {
+function mixFor(
+  col: Colony,
+  law: string,
+  year: number,
+): [BondOrigin, number][] {
   if (law === "spanish") return ORIGIN_MIX.spanish;
   if (law === "dutch") return ORIGIN_MIX.dutch;
   if (law === "french") return ORIGIN_MIX.french;
@@ -982,10 +1219,18 @@ function mixFor(col: Colony, law: string, year: number): [BondOrigin, number][] 
     return ORIGIN_MIX.lowcountry;
   if (col === "virginia" || col === "maryland")
     // The charter generation came by way of the islands, before the ships from Africa.
-    return year < 1680 ? [["creole", 60], ["kongo", 20], ["akan", 20]] : ORIGIN_MIX.chesapeake;
+    return year < 1680
+      ? [
+          ["creole", 60],
+          ["kongo", 20],
+          ["akan", 20],
+        ]
+      : ORIGIN_MIX.chesapeake;
   const north = ORIGIN_MIX.north;
   // Madagascar ships came to New York from about 1680 to 1720.
-  return year >= 1680 && year <= 1721 ? north : north.filter(([o]) => o !== "malagasy");
+  return year >= 1680 && year <= 1721
+    ? north
+    : north.filter(([o]) => o !== "malagasy");
 }
 
 function pickWeighted<T>(rng: Rng, list: [T, number][]): T {
@@ -1020,7 +1265,8 @@ export function nameFor(
 
 function faithFor(rng: Rng, origin: BondOrigin): BondMark["faith"] {
   if (origin === "creole") return rng.chance(0.4) ? "christian" : "own";
-  if (origin === "mande" || origin === "wolof") return rng.chance(0.55) ? "islam" : "own";
+  if (origin === "mande" || origin === "wolof")
+    return rng.chance(0.55) ? "islam" : "own";
   if (origin === "kongo") return rng.chance(0.5) ? "christian" : "own";
   return "own";
 }
@@ -1066,12 +1312,23 @@ export function saleAt(
     for (let i = 0; i < lots; i++) {
       // An estate sale (people born here, families) or a ship's.
       const estate = banned !== null || rng.chance(year < 1680 ? 0.6 : 0.3);
-      const origin = estate ? "creole" : pickWeighted(rng, mixFor(col, law, year).filter(([o]) => o !== "creole"));
+      const origin = estate
+        ? "creole"
+        : pickWeighted(
+            rng,
+            mixFor(col, law, year).filter(([o]) => o !== "creole"),
+          );
       const shape = rng.next();
       const people: SalePerson[] = [];
-      const person = (rel: SalePerson["rel"], female: boolean, age: number, o: BondOrigin) => {
+      const person = (
+        rel: SalePerson["rel"],
+        female: boolean,
+        age: number,
+        o: BondOrigin,
+      ) => {
         const n = nameFor(rng, o, female, culture);
-        const health = estate || o === "creole" ? 60 + rng.int(0, 30) : 45 + rng.int(0, 25);
+        const health =
+          estate || o === "creole" ? 60 + rng.int(0, 30) : 45 + rng.int(0, 25);
         people.push({
           first: n.first,
           ...(n.born ? { born: n.born } : {}),
@@ -1090,20 +1347,46 @@ export function saleAt(
         person("self", false, m, "creole");
         person("partner", true, m - rng.int(0, 5), "creole");
         const kids = 1 + rng.int(0, 2);
-        for (let k = 0; k < kids; k++) person("child", rng.chance(0.5), 1 + rng.int(0, 10), "creole");
+        for (let k = 0; k < kids; k++)
+          person("child", rng.chance(0.5), 1 + rng.int(0, 10), "creole");
       } else if (shape < 0.5) {
         // A mother and her child.
         person("self", true, 19 + rng.int(0, 12), origin);
-        person("child", rng.chance(0.5), rng.int(0, 7), estate ? "creole" : origin);
+        person(
+          "child",
+          rng.chance(0.5),
+          rng.int(0, 7),
+          estate ? "creole" : origin,
+        );
       } else {
         const female = rng.chance(0.35);
         person("self", female, 15 + rng.int(0, 20), origin);
       }
       const price = people.reduce(
-        (m, x) => m + priceOf(s, map, p, { age: x.age, female: x.female, health: x.health, craft: x.sk.craft }, day),
+        (m, x) =>
+          m +
+          priceOf(
+            s,
+            map,
+            p,
+            {
+              age: x.age,
+              female: x.female,
+              health: x.health,
+              craft: x.sk.craft,
+            },
+            day,
+          ),
         0,
       );
-      const ship = rng.pick(["a Bristol ship", "a Liverpool ship", "a London ship", "a Newport sloop", "a ship from Barbados", "the ship"])!;
+      const ship = rng.pick([
+        "a Bristol ship",
+        "a Liverpool ship",
+        "a London ship",
+        "a Newport sloop",
+        "a ship from Barbados",
+        "the ship",
+      ])!;
       const note = estate
         ? rng.pick([
             "from the estate of a planter lately dead, sold to settle his debts",
@@ -1111,7 +1394,14 @@ export function saleAt(
             "brought up from the islands",
           ])!
         : `lately brought from ${ORIGIN_COAST[origin]} in ${law === "french" ? "a ship of the Company" : law === "spanish" ? "an asiento ship" : law === "dutch" ? "a West India Company ship" : ship}; weak from the passage`;
-      out.push({ key: `${p}:${month}:${i}`, kind: "held", people, price, note, sold: false });
+      out.push({
+        key: `${p}:${month}:${i}`,
+        kind: "held",
+        people,
+        price,
+        note,
+        sold: false,
+      });
     }
   }
   if (indenturesAt(s, map, p, day)) {
@@ -1125,7 +1415,15 @@ export function saleAt(
               [0, 50],
               [1, year >= 1700 ? 25 : 15],
               [2, year >= 1715 ? 15 : 5],
-              [3, year >= 1720 && (col === "pennsylvania" || col === "newjersey" || col === "maryland") ? 30 : 0],
+              [
+                3,
+                year >= 1720 &&
+                (col === "pennsylvania" ||
+                  col === "newjersey" ||
+                  col === "maryland")
+                  ? 30
+                  : 0,
+              ],
             ] as [number, number][])
           ];
       const female = rng.chance(french ? 0.1 : 0.25);
@@ -1138,7 +1436,11 @@ export function saleAt(
         age,
         origin: "europe",
         faith: "christian",
-        sk: { field: 1 + rng.int(0, 4), house: 1 + rng.int(0, 3), craft: 1 + rng.int(0, 5) },
+        sk: {
+          field: 1 + rng.int(0, 4),
+          house: 1 + rng.int(0, 3),
+          craft: 1 + rng.int(0, 5),
+        },
         health: 60 + rng.int(0, 25),
         rel: "self",
         term,
@@ -1231,7 +1533,15 @@ export function freeCost(s: GameState, map: MapDef, life: Life): FreeCost {
   const passage = rule.leave ? PASSAGE : 0;
   const security = rule.security ?? 0;
   const allowance = rule.allowance ?? 0;
-  return { rule, law, fee, passage, security, allowance, need: fee + passage + security };
+  return {
+    rule,
+    law,
+    fee,
+    passage,
+    security,
+    allowance,
+    need: fee + passage + security,
+  };
 }
 
 /** Whether someone can be freed now (or a petition filed for them), and why not. */
@@ -1243,7 +1553,8 @@ export function freeCheck(
 ): Check {
   const ok = holdsNow(s, life);
   if (!ok.ok) return ok;
-  if (!c || !isBound(c) || c.bond!.seat !== life.seat) return no("Not in your household.");
+  if (!c || !isBound(c) || c.bond!.seat !== life.seat)
+    return no("Not in your household.");
   if (c.bond!.status === "indenture") return yes;
   const fc = freeCost(s, map, life);
   const r = fc.rule;
@@ -1252,7 +1563,9 @@ export function freeCheck(
     return no("A petition for them is before the council already.");
   const me = meOf(s, life)!;
   if (r.minAge && ageOf(s, me) < r.minAge)
-    return no(`Under ${r.law}, only a master of ${r.minAge} or more may free anyone.`);
+    return no(
+      `Under ${r.law}, only a master of ${r.minAge} or more may free anyone.`,
+    );
   if (r.maxAge && ageOf(s, c) > r.maxAge)
     return no(`Under ${r.law}, no one over ${r.maxAge} may be freed.`);
   if (life.purse < fc.need)
@@ -1265,10 +1578,16 @@ export function freeCheck(
 }
 
 /** Whether a will can free someone here, and why not. */
-export function willCheck(s: GameState, map: MapDef, life: Life, c: Character | undefined): Check {
+export function willCheck(
+  s: GameState,
+  map: MapDef,
+  life: Life,
+  c: Character | undefined,
+): Check {
   const ok = holdsNow(s, life);
   if (!ok.ok) return ok;
-  if (!c || !isHeld(c) || c.bond!.seat !== life.seat) return no("Not held in your household.");
+  if (!c || !isHeld(c) || c.bond!.seat !== life.seat)
+    return no("Not held in your household.");
   if (c.bond!.will) return yes;
   const r = freeCost(s, map, life).rule;
   if (!r.will) return no(`${r.law}: ${r.text}`);
@@ -1276,13 +1595,18 @@ export function willCheck(s: GameState, map: MapDef, life: Life, c: Character | 
 }
 
 /** Those who'd go with someone sold "with their family": a husband or wife and children under fourteen, held here. */
-export function saleFamily(s: GameState, life: Life, c: Character): Character[] {
+export function saleFamily(
+  s: GameState,
+  life: Life,
+  c: Character,
+): Character[] {
   const out = [c];
   const sp = s.chars[c.spouse];
   if (sp && hereWith(s, c, sp) && isHeld(sp)) out.push(sp);
   for (const k of c.children) {
     const kid = s.chars[k];
-    if (kid && hereWith(s, c, kid) && isHeld(kid) && ageOf(s, kid) < 14) out.push(kid);
+    if (kid && hereWith(s, c, kid) && isHeld(kid) && ageOf(s, kid) < 14)
+      out.push(kid);
   }
   // A child is sold with its mother (and her husband), not alone.
   const mother = s.chars[c.mother];
@@ -1292,7 +1616,11 @@ export function saleFamily(s: GameState, life: Life, c: Character): Character[] 
 }
 
 /** Those left behind if someone is sold alone: family here. */
-export function leftBehind(s: GameState, life: Life, sold: Character[]): Character[] {
+export function leftBehind(
+  s: GameState,
+  life: Life,
+  sold: Character[],
+): Character[] {
   const ids = new Set(sold.map((c) => c.id));
   const out = new Map<number, Character>();
   for (const c of sold)
@@ -1310,21 +1638,30 @@ export function sellCheck(
 ): Check {
   const ok = holdsNow(s, life);
   if (!ok.ok) return ok;
-  if (!c || !isHeld(c) || c.bond!.seat !== life.seat) return no("Not held in your household.");
+  if (!c || !isHeld(c) || c.bond!.seat !== life.seat)
+    return no("Not held in your household.");
   if (life.travel) return no("You're on the road.");
   const law = bondLaw(s, map, life.bondage!.home);
   const lot = withFamily ? saleFamily(s, life, c) : [c];
   const apart = leftBehind(s, life, lot).length > 0;
   if (apart && !law.apart)
-    return no(`${law.code}: a husband, a wife and their young children may not be sold apart. Such a sale is void.`);
+    return no(
+      `${law.code}: a husband, a wife and their young children may not be sold apart. Such a sale is void.`,
+    );
   if (apart && life.bondage!.policy.families)
     return no("Your household never sells a family apart.");
-  if (ageOf(s, c) < 14 && !withFamily) return no("A child is not sold from its mother.");
+  if (ageOf(s, c) < 14 && !withFamily)
+    return no("A child is not sold from its mother.");
   return yes;
 }
 
 /** What selling someone (and those going with them) brings. */
-export function sellWorth(s: GameState, map: MapDef, life: Life, list: Character[]): number {
+export function sellWorth(
+  s: GameState,
+  map: MapDef,
+  life: Life,
+  list: Character[],
+): number {
   const p = life.bondage!.home;
   return Math.round(
     list.reduce(
@@ -1343,7 +1680,12 @@ export function sellWorth(s: GameState, map: MapDef, life: Life, list: Character
 }
 
 /** What someone would need to buy their own freedom (their price as it's reckoned now). */
-export function selfPrice(s: GameState, map: MapDef, life: Life, c: Character): number {
+export function selfPrice(
+  s: GameState,
+  map: MapDef,
+  life: Life,
+  c: Character,
+): number {
   return Math.round(
     priceOf(s, map, life.bondage!.home, {
       age: ageOf(s, c),
@@ -1448,7 +1790,10 @@ export function bondForecast(s: GameState, life: Life, w?: World): Part[] {
     }
     const hired = hiredOf(s, life);
     if (hired.length) {
-      const g = hired.reduce((m, c) => m + workOf(s, w.map, life, c, "craft"), 0);
+      const g = hired.reduce(
+        (m, c) => m + workOf(s, w.map, life, c, "craft"),
+        0,
+      );
       const k = 1 - CROP_EXCISE;
       out.push({
         key: "bond:hire",
@@ -1474,48 +1819,59 @@ export function labourSecretKey(key: string): boolean {
 }
 
 /** Journal lines that are a household's own business. */
-export const SECRET_MARK = "⁠";
+export const SECRET_MARK = String.fromCharCode(0x2060);
 
 /**
  * Another player's life as this one may be sent it: whoever they sheltered
  * at their door stays their own business. A copy; nothing is touched.
  */
 export function labourForOthers<T extends Partial<Life>>(l: T): T {
-  const secret =
-    l.events?.some((e) => labourSecretKey(e.key)) ||
-    l.journal?.some((j) => j.text.startsWith(SECRET_MARK)) ||
-    (l.outcome && labourSecretKey(l.outcome.key)) ||
-    (l.cooldowns && "ev:bond-door" in l.cooldowns) ||
-    (l.evSeen && "bond-door" in l.evSeen);
+  const secret = [
+    l.events?.some((e) => labourSecretKey(e.key)),
+    l.journal?.some((j) => j.text.startsWith(SECRET_MARK)),
+    !!l.outcome && labourSecretKey(l.outcome.key),
+    !!l.cooldowns && "ev:bond-door" in l.cooldowns,
+    !!l.evSeen && "bond-door" in l.evSeen,
+  ].some((x) => x === true);
   if (!secret) return l;
   const out: T = { ...l };
   if (l.events) out.events = l.events.filter((e) => !labourSecretKey(e.key));
-  if (l.journal) out.journal = l.journal.filter((j) => !j.text.startsWith(SECRET_MARK));
+  if (l.journal)
+    out.journal = l.journal.filter((j) => !j.text.startsWith(SECRET_MARK));
   if (l.outcome && labourSecretKey(l.outcome.key)) out.outcome = null;
-  if (l.cooldowns && "ev:bond-door" in l.cooldowns) {
-    const { ["ev:bond-door"]: _gone, ...rest } = l.cooldowns;
-    out.cooldowns = rest;
-  }
-  if (l.evSeen && "bond-door" in l.evSeen) {
-    const { ["bond-door"]: _seen, ...rest } = l.evSeen;
-    out.evSeen = rest;
-  }
+  if (l.cooldowns && "ev:bond-door" in l.cooldowns)
+    out.cooldowns = Object.fromEntries(
+      Object.entries(l.cooldowns).filter(([k]) => k !== "ev:bond-door"),
+    );
+  if (l.evSeen && "bond-door" in l.evSeen)
+    out.evSeen = Object.fromEntries(
+      Object.entries(l.evSeen).filter(([k]) => k !== "bond-door"),
+    );
   return out;
 }
 
 /** Whether a delta has anything in it that must be sent differently to each seat. */
 export function labourDeltaSecret(d: GameDelta): boolean {
-  for (const l of [...Object.values(d.lives ?? {}), ...Object.values(d.lifePatch ?? {})])
+  for (const l of [
+    ...Object.values(d.lives ?? {}),
+    ...Object.values(d.lifePatch ?? {}),
+  ])
     if (labourForOthers(l as Partial<Life>) !== l) return true;
   return false;
 }
 
 /** A delta as one seat may be sent it: other households' secrets taken out. */
-export function labourDeltaForSeat(d: GameDelta, seat: string | null): GameDelta {
+export function labourDeltaForSeat(
+  d: GameDelta,
+  seat: string | null,
+): GameDelta {
   const strip = (rec: Record<string, unknown> | undefined) =>
     rec &&
     Object.fromEntries(
-      Object.entries(rec).map(([k, l]) => [k, k === seat ? l : labourForOthers(l as Partial<Life>)]),
+      Object.entries(rec).map(([k, l]) => [
+        k,
+        k === seat ? l : labourForOthers(l as Partial<Life>),
+      ]),
     );
   const out: GameDelta = { ...d };
   if (d.lives) out.lives = strip(d.lives) as GameDelta["lives"];
@@ -1524,8 +1880,14 @@ export function labourDeltaForSeat(d: GameDelta, seat: string | null): GameDelta
 }
 
 /** The whole game as one seat may see it (on joining): other households' secrets taken out. */
-export function labourStateForSeat(s: GameState, seat: string | null): GameState {
-  return { ...s, lives: s.lives.map((l) => (l.seat === seat ? l : labourForOthers(l))) };
+export function labourStateForSeat(
+  s: GameState,
+  seat: string | null,
+): GameState {
+  return {
+    ...s,
+    lives: s.lives.map((l) => (l.seat === seat ? l : labourForOthers(l))),
+  };
 }
 
 // ---------------------------------------------------------------- small things
@@ -1538,7 +1900,13 @@ export const DEED = DEED_FEE;
 
 /** Whether a game's touched life has any bondage worth a look this month. */
 export function bondActive(life: Life): boolean {
-  return !!life.bondage && (life.bondage.people.length > 0 || (life.bondage.petitions?.length ?? 0) > 0 || (life.bondage.allowance?.length ?? 0) > 0 || (life.bondage.bonds?.length ?? 0) > 0);
+  return (
+    !!life.bondage &&
+    (life.bondage.people.length > 0 ||
+      (life.bondage.petitions?.length ?? 0) > 0 ||
+      (life.bondage.allowance?.length ?? 0) > 0 ||
+      (life.bondage.bonds?.length ?? 0) > 0)
+  );
 }
 
 /** The name of someone, for the journal: "Cato" or "Mary Kelly". */
