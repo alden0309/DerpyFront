@@ -61,6 +61,7 @@ import { joinMovement, movementOf, recruitInto } from "./Movements";
 import { handOf, hireCheck, hireHand } from "./Property";
 // SOCIETY (r11)
 import { addSettler, settleAcceptance, settleCheck } from "./Founding";
+import { ADULT_AGE, betrothalOf } from "./IntrigueCore"; // INTRIGUE (r15)
 import {
   affairWith,
   exposeBy,
@@ -105,6 +106,7 @@ import type {
   Skill,
 } from "./Types";
 import { GOODS, PERSON_ACTS, SEATS } from "./Types";
+import { betroth, betrothCheck, quietWedding } from "./Weddings"; // INTRIGUE (r15)
 import {
   bossOf,
   canPromote,
@@ -537,6 +539,12 @@ function gates(
   const child = isChildLife(s, life);
   if (child && act !== "talk" && act !== "gift")
     return no("Not until you're sixteen.");
+  // INTRIGUE (r15): nothing of the heart under eighteen, on either side.
+  if (
+    (act === "court" || act === "propose" || act === "tryst") &&
+    ageOf(s, me) < ADULT_AGE
+  )
+    return no("Not until you're eighteen.");
   const other = lifeOfChar(s, c.id);
   if (other && def.player === "no")
     return no("They're a player: ask them yourself.");
@@ -581,13 +589,24 @@ function gates(
     case "court":
     case "propose": {
       if (age < 16) return no("They're a child.");
+      if (age < ADULT_AGE) return no("Not until they're eighteen."); // INTRIGUE (r15)
       if (c.female === me.female) return no("Not in this century.");
       if (me.spouse === c.id) return no("You're married to them.");
       // SOCIETY (r11): courting someone while married is an affair; marrying isn't possible.
       if (act === "propose" && me.spouse >= 0) return no("You're married.");
       if (act === "propose" && c.spouse >= 0) return no("They're married.");
       if (relation(me, c)) return no("Too close kin.");
-      if (act === "propose" && life.purse < weddingCost(s, life))
+      // INTRIGUE (r15): asking for their hand (arg 1) makes a betrothal, and costs nothing yet.
+      if (act === "propose") {
+        const b = betrothCheck(s, me, c);
+        if (!b.ok) {
+          const mine = betrothalOf(s, me.id);
+          // Promised to them already: plan the wedding, or marry quietly.
+          if (!(mine && (mine.a === c.id || mine.b === c.id) && arg !== 1))
+            return b;
+        }
+      }
+      if (act === "propose" && arg !== 1 && life.purse < weddingCost(s, life))
         return no(`A wedding costs ${weddingCost(s, life)} coins.`);
       return yes;
     }
@@ -661,6 +680,7 @@ function gates(
     // SOCIETY (r11)
     case "tryst":
       if (life.ties[c.id] !== "lover") return no("Only with a lover.");
+      if (age < ADULT_AGE) return no("Not until they're eighteen."); // INTRIGUE (r15)
       return yes;
     case "tongue": {
       const theirs = tonguesOf(s, w.map, c);
@@ -996,6 +1016,10 @@ export function interactionView(
     view.label = "Talk with signs";
   if (act === "court" && c && wouldBeAffair(s, life, c))
     view.label = "Court in secret";
+  // INTRIGUE (r15): a betrothal and a wedding to plan, or married quietly now.
+  if (act === "propose")
+    view.label =
+      arg === 1 ? "Ask for their hand" : "A quiet wedding before the minister";
   if (act === "seek") {
     const o = officeById(s, arg ?? -1);
     if (o) view.label = `Seek appointment: ${officeName(s, o).toLowerCase()}`;
@@ -1244,6 +1268,13 @@ export function doInteraction(
       }
       return null;
     case "propose":
+      // INTRIGUE (r15): asking for their hand makes a betrothal; else married quietly now.
+      if (arg === 1) return betroth(g, life, c);
+      {
+        const b = betrothalOf(s, me.id);
+        if (b && (b.a === c.id || b.b === c.id))
+          return quietWedding(g, life, b.id);
+      }
       return wed(g, life, c);
     case "work": {
       const jobs = workOffered(c);
@@ -1575,10 +1606,16 @@ function smallTalk(
 }
 
 /** A wedding: the spouse leaves any post and moves in; a dowry, perhaps. */
-export function wed(g: ConquestGame, life: Life, c: Character): string | null {
+export function wed(
+  g: ConquestGame,
+  life: Life,
+  c: Character,
+  /** INTRIGUE (r15): paid for when it was planned; the dowry settled in its own scene. */
+  o: { paid?: boolean; dowry?: boolean } = {},
+): string | null {
   const s = g.s;
   const me = meOf(s, life)!;
-  spend(g, life, weddingCost(s, life));
+  if (!o.paid) spend(g, life, weddingCost(s, life));
   // A spouse who kept a post gives it up to move in.
   for (const [k, list] of Object.entries(s.locals)) {
     if (list.includes(c.id)) {
@@ -1603,7 +1640,7 @@ export function wed(g: ConquestGame, life: Life, c: Character): string | null {
   c.home = life.home;
   setTie(g, life, c.id, null);
   remembers(g, life, c, "Our wedding day", 20, 0);
-  const dowry = Math.max(0, status - 1) * 4;
+  const dowry = o.dowry === false ? 0 : Math.max(0, status - 1) * 4;
   if (dowry) earn(g, life, dowry);
   life.tally.marriages++;
   addStress(g, life, -10);
@@ -1704,6 +1741,7 @@ function propose(
     ctx.price = Math.max(0, Math.round(arg ?? 0));
   }
   if (act === "hire") ctx.wage = 3;
+  if (act === "propose" && arg === 1) ctx.bet = 1; // INTRIGUE (r15): a betrothal
   raiseLifeEvent(g, other, `p2p-${act}`, ctx);
   journal(
     g,
@@ -1791,6 +1829,11 @@ export function answerProposal(
     }
     case "propose": {
       if (me.spouse >= 0 || them.spouse >= 0) break;
+      // INTRIGUE (r15): promised, with a wedding to plan.
+      if (ctx.bet) {
+        if (betrothCheck(s, them, me).ok) betroth(g, asker, me);
+        break;
+      }
       if (asker.purse < weddingCost(s, asker)) {
         journal(g, life, `${name} can't pay for the wedding just now.`);
         break;
@@ -1965,6 +2008,14 @@ export function interactionMenu(
       continue;
     }
     if (act === "settle" && !life.founding) continue;
+    // INTRIGUE (r15): ask for their hand (a betrothal), or a quiet wedding now.
+    if (act === "propose")
+      out.push({
+        group: def.group,
+        act,
+        arg: 1,
+        view: interactionView(s, w, life, cId, act, 1),
+      });
     out.push({
       group: def.group,
       act,

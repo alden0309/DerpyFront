@@ -137,6 +137,20 @@ for (const [f, keys] of Object.entries(FAMILIES))
   for (const k of keys) FAMILY_OF.set(k, f);
 
 /**
+ * INTRIGUE (r15): another module's events join a family (or start one), with
+ * how long it rests: raised events (a gathering's vignettes) rest by family too.
+ */
+export function registerFamily(
+  family: string,
+  keys: string[],
+  rest: number,
+): void {
+  FAMILIES[family] = [...(FAMILIES[family] ?? []), ...keys];
+  FAMILY_REST[family] ??= rest;
+  for (const k of keys) FAMILY_OF.set(k, family);
+}
+
+/**
  * An event's family: named above, or (for what happens at home) the word its
  * key begins with, so a farmer's droughts and hogs and prices rest together.
  */

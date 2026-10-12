@@ -27,10 +27,16 @@ import {
   tablesOf,
 } from "../../conquest/engine/DiceCore"; // DICE (r14)
 import { ConquestGame, STATE_VERSION } from "../../conquest/engine/Game";
+import {
+  deltaForSeat,
+  deltaHasSecrets,
+  stateForIntrigue,
+} from "../../conquest/engine/IntrigueCore"; // INTRIGUE (r15)
 import { planProblem } from "../../conquest/engine/Life";
 import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
 import { lifeOfSeat, lifeScore } from "../../conquest/engine/LifeQueries";
 import { AMERICAS } from "../../conquest/engine/Map";
+import { NOTE_MAX } from "../../conquest/engine/Notes"; // INTRIGUE (r15)
 import {
   attentionMark,
   SKIP_DAYS_PER_SECOND,
@@ -92,6 +98,8 @@ const OVER_CLOSE_MS = 10 * 60_000;
 /** Running games are saved this often. */
 const SAVE_EVERY_MS = 3 * 60_000;
 const MAX_MESSAGES_PER_SECOND = 25;
+/** INTRIGUE (r15): private letters a seat may send in a minute of real time. */
+const NOTES_A_MINUTE = 5;
 const CODE_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 
 /** The world as it stands on each start date, to check characters against before a game begins. */
@@ -972,7 +980,8 @@ export class ConquestRooms {
       host: room.host,
       solo: room.solo,
       // DICE (r14): everyone's dice but your own stay under their cups.
-      state: stateForSeat(room.game.state, seat.id),
+      // INTRIGUE (r15): and everyone's schemes and private letters but your own.
+      state: stateForIntrigue(stateForSeat(room.game.state, seat.id), seat.id),
       speed: room.speed,
       paused: room.paused,
       seats: seatInfo(room),
@@ -1031,6 +1040,13 @@ export class ConquestRooms {
   private command(room: Room, seat: Seat, id: number, c: unknown): void {
     const game = room.game;
     if (!game || !seat.conn) return;
+    // INTRIGUE (r15): a letter in your own words, checked here as well as by
+    // the game: its length, and how many a seat may send a minute.
+    const why = this.noteLimit(seat, c);
+    if (why) {
+      this.send(seat.conn, { t: "ack", id, err: why });
+      return;
+    }
     let err: string | null;
     try {
       err = game.lifeCommand(
@@ -1046,6 +1062,36 @@ export class ConquestRooms {
     this.send(seat.conn, { t: "ack", id, err });
   }
 
+  /** INTRIGUE (r15): private letters sent by each seat lately (times, by the server's clock). */
+  private notes = new Map<string, number[]>();
+
+  /** INTRIGUE (r15): why a private letter can't go just now (too long, too many), or null. */
+  private noteLimit(seat: Seat, c: unknown): string | null {
+    const cmd = c as {
+      k?: unknown;
+      act?: unknown;
+      body?: unknown;
+      subject?: unknown;
+    };
+    if (!cmd || cmd.k !== "intrigue" || cmd.act !== "write") return null;
+    if (typeof cmd.body !== "string" || cmd.body.length > NOTE_MAX * 2)
+      return `No more than ${NOTE_MAX} characters.`;
+    if (
+      cmd.subject !== undefined &&
+      (typeof cmd.subject !== "string" || cmd.subject.length > 200)
+    )
+      return "That subject is too long.";
+    const now = this.now();
+    const recent = (this.notes.get(seat.id) ?? []).filter(
+      (t) => now - t < 60_000,
+    );
+    if (recent.length >= NOTES_A_MINUTE)
+      return "You've written a great deal just now: let the ink dry a minute.";
+    recent.push(now);
+    this.notes.set(seat.id, recent);
+    return null;
+  }
+
   /** Sends everyone what changed since last time. */
   private flush(room: Room): void {
     if (!room.game) return;
@@ -1053,13 +1099,15 @@ export class ConquestRooms {
     const d = room.game.takeDelta();
     // DICE (r14): when a dice table changed, each player gets their own copy
     // (their own dice, nobody else's until the cups are lifted).
-    if (d.dice)
+    // INTRIGUE (r15): so too schemes, and secrets in a life (a plot's lines,
+    // a private letter): each player is sent only their own.
+    const secret = deltaHasSecrets(d);
+    if (d.dice || secret)
       for (const seat of room.seats) {
-        if (seat.conn)
-          this.send(seat.conn, {
-            t: "d",
-            d: { ...d, dice: diceView(d.dice, seat.id) },
-          });
+        if (!seat.conn) continue;
+        let mine = d.dice ? { ...d, dice: diceView(d.dice, seat.id) } : d;
+        if (secret) mine = deltaForSeat(room.game.state, mine, seat.id);
+        this.send(seat.conn, { t: "d", d: mine });
       }
     else this.broadcast(room, { t: "d", d });
     void this.achievements(room);

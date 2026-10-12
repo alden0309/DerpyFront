@@ -5,6 +5,7 @@
 
 import { dateOf } from "./Calendar";
 import { Explain } from "./Explain";
+import { hooks } from "./Hooks"; // INTRIGUE (r15)
 import { isFeverSeason, isWinter, kmBetween, World } from "./Map";
 import {
   ADULT_AGE,
@@ -392,6 +393,7 @@ export function birthChance(s: GameState, c: Character): Breakdown {
     e.mul(`${c.children.length} children already`, 0.6);
   if (hasTrait(c, "sickly") || hasTrait(sp, "sickly"))
     e.mul("Sickly parent", 0.7);
+  for (const h of hooks.birthChance) h(s, c, e); // INTRIGUE (r15): courting each other again
   return e.done(3, 0, 1);
 }
 

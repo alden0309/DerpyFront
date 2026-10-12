@@ -1,6 +1,7 @@
 // Applies the server's deltas to a player's copy of the game state.
 
 import { applyDiceDelta } from "./DiceCore"; // DICE (r14)
+import { applyIntrigueDelta } from "./IntrigueCore"; // INTRIGUE (r15)
 import { applyPartnersDelta } from "./PartnersCore"; // PARTNERS (r13)
 import { applyPowerDelta } from "./PowerCore"; // POWER (r12)
 import { applySocietyDelta } from "./SocietyCore"; // SOCIETY (r11)
@@ -61,6 +62,7 @@ export function applyDelta(s: GameState, d: GameDelta): void {
   if (d.power) applyPowerDelta(s, d.power); // POWER (r12)
   if (d.partners) applyPartnersDelta(s, d.partners); // PARTNERS (r13)
   if (d.dice) applyDiceDelta(s, d.dice); // DICE (r14)
+  if (d.intrigue) applyIntrigueDelta(s, d.intrigue); // INTRIGUE (r15)
   if (d.polities) {
     for (const [n, pol] of Object.entries(d.polities))
       s.polities[Number(n)] = pol;

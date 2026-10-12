@@ -1385,7 +1385,8 @@ export const TALES: LifeEventDef[] = [
           !c.abroad &&
           c.spouse < 0 &&
           c.female !== m.female &&
-          ageOf(g.s, c) >= 16 &&
+          ageOf(g.s, c) >= 18 && // INTRIGUE (r15): grown, both
+          ageOf(g.s, m) >= 18 &&
           !g.s.lives.some((l) => l.c === c.id)
         );
       })?.[0];

@@ -926,12 +926,15 @@ const BASE_EVENTS: LifeEventDef[] = [
         ageOfLife(g.s, life) > 45
       )
         return null;
+      // INTRIGUE (r15): nothing of the heart under eighteen, on either side.
+      if (ageOfLife(g.s, life) < 18) return null;
       const c = someone(
         g,
         life,
         (x) =>
           x.spouse < 0 &&
           x.female !== me(g, life).female &&
+          ageOf(g.s, x) >= 18 &&
           ageOf(g.s, x) <= 40 &&
           isNativeChar(g.s, x) === isNativeChar(g.s, me(g, life)),
       );
@@ -3639,6 +3642,7 @@ import { DICE_EVENTS } from "./DiceEvents"; // DICE (r14)
 import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
 import { EDU_EVENTS } from "./EduEvents"; // EDU (r13)
 import { needyFriend } from "./EventPacing"; // EVENTS (r15)
+import { INTRIGUE_EVENTS } from "./IntrigueEvents"; // INTRIGUE (r15)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
 import { MORE_EVENTS } from "./MoreEvents";
@@ -3690,7 +3694,8 @@ function byKey(key: string): LifeEventDef | undefined {
       }
     // EDU (r13): letters from children away at school, with a master, at
     // college; DICE (r14): an invitation to the dice, a cheat, a sore loser.
-    for (const d of [...EDU_EVENTS, ...DICE_EVENTS])
+    // INTRIGUE (r15): seduction, plots, the wedding day, vignettes, letters.
+    for (const d of [...EDU_EVENTS, ...DICE_EVENTS, ...INTRIGUE_EVENTS])
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
