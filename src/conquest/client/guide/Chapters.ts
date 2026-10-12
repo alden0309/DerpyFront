@@ -1570,7 +1570,7 @@ Others give gatherings too, and invite you (by letter if you're away): your neig
     id: "dice",
     part: "people",
     title: "Liar's dice",
-    line: 'The tavern\'s game of nerve: five dice under a cup, bids on what lies under all the cups, and a call of "Liar!".',
+    line: "The tavern's game of nerve: five dice under a cup, bids on what lies under all the cups, and the call of Liar!",
     where:
       "The tavern: Things to do › Liar's dice… (or sit down at a table that's gathering there). A table you're sitting at waits at the top of the screen while you step away from it.",
     body: `## The game
