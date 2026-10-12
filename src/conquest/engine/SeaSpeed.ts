@@ -25,10 +25,16 @@ export const CANOE_SPEED = 0.8;
 
 /**
  * Days for a passage over one sea lane of `km`: finding a ship (or, when the
- * voyage goes on from here, a day at a port of call), then the sailing.
+ * voyage goes on from here, a day at a port of call), then the sailing. A
+ * short crossing that is the whole of the voyage (a ferry over the James,
+ * across a bay: not `afterSea`, and `last`) is a day or two.
  */
-export function passageHopDays(km: number, afterSea = false): number {
-  if (km <= SHORT_CROSSING_KM) return km <= 50 ? 1 : 2;
+export function passageHopDays(
+  km: number,
+  afterSea = false,
+  last = true,
+): number {
+  if (km <= SHORT_CROSSING_KM && !afterSea && last) return km <= 50 ? 1 : 2;
   return (
     (afterSea ? PASSAGE_CALL_DAYS : PASSAGE_FIND_DAYS) +
     Math.ceil(km / SEA_KM_DAY)

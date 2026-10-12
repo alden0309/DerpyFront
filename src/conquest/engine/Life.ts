@@ -619,6 +619,7 @@ function hop(g: ConquestGame, life: Life): void {
           s.day,
           wasSea, // SEA (r15): a day at a port of call
           t.sea[0] && lifeIsNative(s, life),
+          !t.sea[1], // SEA (r15): the voyage ends with this hop
         ),
   );
   t.depart = s.day;

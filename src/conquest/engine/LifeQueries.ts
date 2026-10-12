@@ -1073,11 +1073,15 @@ export function hopDaysFor(
   afterSea = false,
   /** SEA (r15): paddled along the coast in a canoe (the native peoples). */
   canoe = false,
+  /** SEA (r15): the voyage ends with this hop (a short one alone is a ferry). */
+  lastSea = true,
 ): number {
   if (sea) {
     const lane = map.provinces[from].sea.find(([q]) => q === to);
     if (!lane) return -1;
-    return canoe ? canoeHopDays(lane[1]) : passageHopDays(lane[1], afterSea); // SEA (r15)
+    return canoe
+      ? canoeHopDays(lane[1])
+      : passageHopDays(lane[1], afterSea, lastSea); // SEA (r15)
   }
   const nb = map.provinces[from].nb.find(([q]) => q === to);
   if (!nb) return -1;
@@ -1165,7 +1169,7 @@ export function travelRoute(
           best +
           (native
             ? canoeHopDays(km)
-            : passageHopDays(km, bySea[u] === 1 && u !== from));
+            : passageHopDays(km, bySea[u] === 1 && u !== from, q === to));
         if (d < days[q]) {
           days[q] = d;
           prev[q] = u;
@@ -1196,6 +1200,7 @@ export function travelRoute(
       s.day, // MAP (r12)
       i > 0 && seaHops[i - 1], // SEA (r15): a port of call
       native && seaHops[i],
+      !seaHops[i + 1], // SEA (r15): the voyage ends here
     );
     legs.push(d);
     if (seaHops[i]) {
