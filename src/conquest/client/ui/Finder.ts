@@ -1321,6 +1321,63 @@ const GOALS: Goal[] = [
     guide: "ledger",
   },
   // ---- end LEDGER (r15)
+  // ---- EVENTS (r15): things that happen, and the pace of them
+  {
+    id: "events-waiting",
+    title: "Answer what's waiting",
+    words:
+      "event events letter letters scene choice choices answer decide waiting happened knock",
+    group: "Body and mind",
+    where:
+      "The letters waiting at the top of the screen: each a scene with its choices, the odds of any that test a skill, and what each comes to. Alone, the game waits for you; in company a letter decides itself if left too long.",
+    needs: (ui) => {
+      const n = ui.life!.events.length;
+      return [
+        {
+          label: n ? `${n} waiting for you now` : "Nothing waiting just now",
+          met: n > 0,
+        },
+      ];
+    },
+    go: (ui) => {
+      const first = ui.life!.events[0];
+      if (first) ui.modal({ k: "event", id: first.id });
+      else tab({ k: "tab", tab: "journal", sub: "diary" })(ui);
+    },
+    goLabel: "Open it",
+    guide: "events",
+  },
+  {
+    id: "events-pace",
+    title: "Know what can happen to me",
+    words:
+      "events random repeat repeats again same often variety happen happens rest family families why",
+    group: "Body and mind",
+    where:
+      "Things come by who and where you are, the season and the year. None comes round again for a long while (four years at home, about a year on the road, at sea and at work), and a family of them (sicknesses, money troubles, quarrels) rests together. Journal › Diary keeps what came of them.",
+    go: tab({ k: "tab", tab: "journal", sub: "diary" }),
+    goLabel: "Journal",
+    guide: "events",
+  },
+  {
+    id: "events-matters",
+    title: "Handle a matter at work",
+    words:
+      "matter matters work task trouble trade job robbed lines wolverine thaw master foreman",
+    group: "Work",
+    where:
+      "At work, every month or two, a task or a trouble of your trade's own comes as a letter: several to every trade, each with its own choices, none twice in a year. Take it on (a skill check), the careful way, or leave it.",
+    needs: (ui) => [
+      {
+        label: ui.life!.job ? "In work" : "Work of some kind",
+        met: !!ui.life!.job,
+      },
+    ],
+    go: tab({ k: "tab", tab: "work", sub: "job" }),
+    goLabel: "Your work",
+    guide: "events",
+  },
+  // ---- end EVENTS (r15)
   {
     id: "achievements",
     title: "See my achievements",

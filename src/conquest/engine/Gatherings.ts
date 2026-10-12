@@ -934,11 +934,24 @@ function nextTurn(
   const me = meOf(s, life);
   if (!me) return null;
   const host = s.chars[gat.host];
-  const here = attendees(s, gat).filter((c) => c.id !== me.id);
-  if (host && host.id !== me.id && host.alive && !here.includes(host))
+  const came = attendees(s, gat).filter((c) => c.id !== me.id);
+  // EVENTS (r15): other players at the gathering speak and act for
+  // themselves; the evening's turns are about the computer's people (and
+  // what's really so: a wedding's couple, the child christened, the dead).
+  const here = came.filter((c) => !lifeOfChar(s, c.id));
+  if (
+    host &&
+    host.id !== me.id &&
+    host.alive &&
+    !here.includes(host) &&
+    !lifeOfChar(s, host.id)
+  )
     here.unshift(host);
-  if (!here.length)
-    return gat.played.includes("empty") ? null : { key: "empty", c: -1 };
+  // Only other players came: no "nobody came", and only a ceremony's own turn.
+  if (!here.length && !(came.length && gat.about.length))
+    return gat.played.includes("empty") || came.length
+      ? null
+      : { key: "empty", c: -1 };
   const r = dice(g);
   const pool = GATHERINGS[gat.kind].pool.filter((k) => !gat.played.includes(k));
   // The ceremony's own turn first.

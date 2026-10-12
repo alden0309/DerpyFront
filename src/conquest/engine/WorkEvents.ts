@@ -19,6 +19,7 @@ import {
 import type { LCtx, LifeEventDef } from "./LifeEvents";
 import { rankOf } from "./LifeQueries";
 import { JOBS } from "./LifeRules";
+import { pickMatter } from "./Matters"; // EVENTS (r15)
 import { charName } from "./Queries";
 import { matterDue, noteMatter } from "./Trades";
 import type { JobKind, Life, Skill } from "./Types";
@@ -215,7 +216,7 @@ export const MATTERS: Partial<Record<JobKind, MatterSet>> = {
     ),
     trouble: m(
       "Robbed lines",
-      "Someone has been robbing your traps and leaving them sprung.",
+      "A rival trapper has been working your line ahead of you: the traps sprung, the bait gone, and a marten's tail left in one by way of a joke.",
       "Track the thief",
       "Move your lines",
       "Shrug it off",
@@ -773,8 +774,14 @@ function matterOf(life: Life, ctx: LCtx): Matter | undefined {
 function fill(g: ConquestGame, life: Life, text: string): string {
   const boss =
     life.job && !life.job.own ? g.s.chars[life.job.employer] : undefined;
+  // EVENTS (r15): a player who employs you isn't given words they never said.
+  const who = !boss?.alive
+    ? "your master"
+    : g.s.lives.some((l) => l.c === boss.id)
+      ? "the foreman"
+      : charName(boss);
   return text
-    .replace(/\{boss\}/g, boss?.alive ? charName(boss) : "your master")
+    .replace(/\{boss\}/g, who)
     .replace(/\{here\}/g, g.map.provinces[life.prov]?.name ?? "town");
 }
 
@@ -784,7 +791,9 @@ function bossNotes(g: ConquestGame, life: Life, why: string, v: number): void {
   const job = life.job;
   if (!job || job.own) return;
   const boss = g.s.chars[job.employer];
-  if (boss?.alive) remembers(g, life, boss, why, v, 0.5);
+  // EVENTS (r15): a player employer makes up their own mind about you.
+  if (boss?.alive && !g.s.lives.some((l) => l.c === boss.id))
+    remembers(g, life, boss, why, v, 0.5);
 }
 
 function skillFor(life: Life, mt: Matter | undefined, trouble: boolean): Skill {
@@ -987,7 +996,11 @@ export function workMatter(
         ? 1 / 40
         : 1 / 26;
   if (!g.rng.chance(chance)) return;
-  noteMatter(g, life);
   const trouble = g.rng.chance(effort === "shirk" ? 0.65 : 0.45);
-  raise(trouble ? "work-trouble" : "work-task", { t: trouble ? 1 : 0 });
+  // EVENTS (r15): one of the trade's many matters, each resting a year after
+  // it comes; when they're all resting, a quiet day.
+  const pick = pickMatter(g, life, trouble ? "trouble" : "task");
+  if (!pick) return;
+  noteMatter(g, life);
+  raise(pick.key, pick.ctx);
 }

@@ -4,6 +4,7 @@
 // the great events of the century, and when a cause rises in arms.
 
 import { dateOf } from "./Calendar";
+import { needyFriend } from "./EventPacing"; // EVENTS (r15)
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { wed } from "./Interactions";
@@ -1495,11 +1496,10 @@ export const TALES: LifeEventDef[] = [
     key: "friend-debt",
     pool: "any",
     cooldown: 500,
+    // EVENTS (r15): a friend who's really short of it; never another player.
     when: (g, life) => {
-      const id = Object.entries(life.ties).find(
-        ([k, t]) => t === "friend" && g.s.chars[Number(k)]?.alive,
-      )?.[0];
-      return id !== undefined && life.purse >= 10 ? { c: Number(id) } : null;
+      const c = needyFriend(g.s, life, 10);
+      return c && life.purse >= 10 ? { c: c.id } : null;
     },
     title: "A friend in trouble",
     body: (g, life, ctx) =>

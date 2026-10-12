@@ -794,6 +794,8 @@ export interface Life {
   books?: MonthBooks;
   /** LEDGER (r15): the last months' statements, newest last. */
   statements?: Statement[];
+  /** EVENTS (r15): how often each event (and each trade's matter) has come to this line. */
+  evSeen?: EventsSeen;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -3316,3 +3318,15 @@ export interface AffairItem {
   /** The page that manages it. */
   go?: { tab: string; sub?: string };
 }
+
+// ---- EVENTS (r15)
+
+/** Where an event is drawn from: the daily draw, the road, the sea, or raised by the game. */
+export type EventPool = "any" | "road" | "sea" | "raised";
+
+/**
+ * How many times each event has come to a line, by key (and, for matters at
+ * work and big jobs, by trade and variant): an event's weight fades with each
+ * showing, so what hasn't happened yet comes first. Kept through heirs.
+ */
+export type EventsSeen = Record<string, number>;

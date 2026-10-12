@@ -106,6 +106,27 @@ export const hooks = {
     w: import("./Map").World,
     life: Life,
   ) => import("./Types").AffairItem[])[],
+  // EVENTS (r15)
+  /**
+   * The weight a drawn event (the daily draw, the road, the sea) has for a
+   * life: its family's rest, fading with each showing, and never another
+   * player's words. 0 holds it back.
+   */
+  eventWeight: [] as ((
+    g: ConquestGame,
+    life: Life,
+    key: string,
+    pool: import("./Types").EventPool,
+    ctx: Record<string, number>,
+    w: number,
+  ) => number)[],
+  /** An event has just been put to a life (drawn or raised). */
+  eventFired: [] as ((
+    g: ConquestGame,
+    life: Life,
+    key: string,
+    pool: import("./Types").EventPool,
+  ) => void)[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

@@ -48,6 +48,7 @@ import {
 } from "./LifeQueries";
 import { checkChance, JOBS } from "./LifeRules";
 import type { World } from "./Map";
+import { pickLaw, pickScore } from "./Matters"; // EVENTS (r15)
 import { wake } from "./Pace";
 import { charName } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
@@ -162,11 +163,13 @@ export function crimeWorkDay(
     });
   else if (g.rng.chance(1 / 30) && !life.events.length) {
     const last = life.work?.matter ?? -999;
-    if (s.day - last >= 21) {
+    // EVENTS (r15): one of the trade's big jobs, not the same one monthly.
+    const pick = s.day - last >= 21 ? pickScore(g, life, nation) : null;
+    if (pick) {
       touchLife(g, life);
       life.work ??= { effort: "steady" };
       life.work.matter = s.day;
-      raise("crime-score", { n: nation });
+      raise(pick.key, pick.ctx);
     }
   }
 }
@@ -188,9 +191,11 @@ export function lawWorkDay(
   touchLife(g, life);
   life.work ??= { effort: "steady" };
   life.work.matter = s.day;
-  raise(g.rng.chance(0.3) ? "law-bribe" : "law-collar", {
-    g: g.rng.int(1, job.kind === "thieftaker" ? 3 : 2),
-  });
+  // EVENTS (r15): a rogue or a purse not seen lately.
+  const bribe = g.rng.chance(0.3);
+  const grade = g.rng.int(1, job.kind === "thieftaker" ? 3 : 2);
+  const pick = pickLaw(g, life, bribe ? "bribe" : "collar", grade);
+  if (pick) raise(pick.key, pick.ctx);
 }
 
 // ---------------------------------------------------------------- caught
@@ -852,9 +857,12 @@ function runCrimeAct(
         "Money changes hands in the dark. A constable's memory grows short.",
       );
       return null;
-    case "score":
-      raiseEvent(g, life, "crime-score", { n: nation });
+    case "score": {
+      // EVENTS (r15): the den's tip of the day, whichever it is.
+      const pick = pickScore(g, life, nation, true);
+      if (pick) raiseEvent(g, life, pick.key, pick.ctx);
       return null;
+    }
     case "amends":
       addHeat(g, life, nation, -40);
       addRenown(g, life, 0.5);

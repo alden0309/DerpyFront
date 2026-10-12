@@ -4,6 +4,7 @@
 // to you (friendship, courting, marriage, a duel, a job, a trade), each a
 // scene to answer.
 
+import { played, wouldBeg } from "./EventPacing"; // EVENTS (r15)
 import type { ConquestGame } from "./Game";
 import { answerProposal } from "./Interactions";
 import {
@@ -329,8 +330,9 @@ export const MORE_EVENTS: LifeEventDef[] = [
     cooldown: 0,
     scene: "letter",
     title: "News from home",
+    // EVENTS (r15): only kin who are really short of it ask for money.
     body: (g, life, ctx) =>
-      `A letter in ${name(g, ctx)}'s hand, crossed and recrossed to save paper. Everyone is well, except those who aren't. There's a line at the end about money, very small.`,
+      `A letter in ${name(g, ctx)}'s hand, crossed and recrossed to save paper. Everyone is well, except those who aren't. ${wouldBeg(g.s, who(g, ctx), 5) ? "There's a line at the end about money, very small." : "There's a line at the end asking whether you're eating properly, underlined twice."}`,
     choices: [
       {
         label: "Send something home (5 coins)",
@@ -548,8 +550,13 @@ export function letterWriter(
   const s = g.s;
   const me = meOf(s, life);
   if (!me) return null;
+  // EVENTS (r15): other players write their own letters.
   const far = (c: Character | undefined) =>
-    !!c?.alive && !c.abroad && c.home !== undefined && c.home !== life.prov;
+    !!c?.alive &&
+    !c.abroad &&
+    c.home !== undefined &&
+    c.home !== life.prov &&
+    !played(s, c.id);
   for (const [k, t] of Object.entries(life.ties)) {
     const c = s.chars[Number(k)];
     if ((t === "friend" || t === "lover") && far(c) && g.rng.chance(0.06))

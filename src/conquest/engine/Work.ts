@@ -7,6 +7,7 @@
 // you've earned it, and you climb by buying into a business of your own.
 
 import { crimeWorkDay, lawWorkDay } from "./Crime";
+import { npc, played } from "./EventPacing"; // EVENTS (r15)
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
 import { addRenown, gainXp, journal, milestone, touchLife } from "./LifeCore";
@@ -547,7 +548,8 @@ export function workDaily(
   }
   job.awayDays = (job.awayDays ?? 0) + 1;
   if (job.own || job.kind === "servant" || job.army >= 0) return;
-  const boss = bossOf(s, life);
+  // EVENTS (r15): a player employer doesn't write letters they never wrote.
+  const boss = npc(s, bossOf(s, life));
   if (job.awayDays === AWAY_WARN_DAYS) {
     touchLife(g, life);
     if (boss) raise("boss-where", { c: boss.id });
@@ -661,12 +663,14 @@ export function workMonthly(
       .find(
         (c) =>
           c?.alive &&
+          !played(s, c.id) && // EVENTS (r15): no commission in a player's name
           opinionOf(s, c, life).total >= commissionOpinion(job.rank + 1),
       );
     if (giver && g.rng.chance(0.25)) raise("commission-offer", { c: giver.id });
     return;
   }
-  const boss = bossOf(s, life);
+  // EVENTS (r15): a player employer isn't made to call you in.
+  const boss = npc(s, bossOf(s, life));
   if (boss && g.rng.chance(OFFER_CHANCE * keen))
     raise("boss-promotion", { c: boss.id });
   else if (!boss && g.rng.chance(PROMOTION_CHANCE * keen)) promote(g, life);

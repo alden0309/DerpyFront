@@ -184,8 +184,14 @@ describe("work runs itself", () => {
         answerLifeEvent(g, life, ev.id, 0);
       }
     }
+    // EVENTS (r15): the classic pair, or one of the trade's own variants.
     expect(
-      [...keys].some((k) => k === "work-task" || k === "work-trouble"),
+      [...keys].some(
+        (k) =>
+          k === "work-task" ||
+          k === "work-trouble" ||
+          k.startsWith(`work-${life.job?.kind ?? "farmer"}-`),
+      ),
     ).toBe(true);
   });
 
