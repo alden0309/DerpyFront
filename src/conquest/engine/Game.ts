@@ -34,6 +34,7 @@ import "./Achievements"; // MAP (r12): achievements watch every life
 import { fogDaily } from "./Fog";
 import "./Household"; // HOME (r12): the household's commands register themselves
 import { leadsDaily, leadsMonthly } from "./Leads";
+import "./Ledger"; // LEDGER (r15): the month's books, statements and forecast
 import { fitStateToMap } from "./MapFix";
 import { marketsMonthly } from "./Markets";
 import { missionCommand, missionsDaily, outpostsDaily } from "./Missions";
@@ -393,6 +394,7 @@ export class ConquestGame {
   }
 
   private month(): void {
+    for (const h of hooks.monthStart) h(this); // LEDGER (r15)
     if (dateOf(this.state.day).month === 0) yearlyMarks(this);
     economyMonthly(this);
     popsMonthly(this);
@@ -419,6 +421,7 @@ export class ConquestGame {
       }
     }
     this.updateScores();
+    for (const h of hooks.monthEnd) h(this); // LEDGER (r15)
   }
 
   updateScores(): void {

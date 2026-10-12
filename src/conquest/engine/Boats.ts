@@ -12,6 +12,7 @@ import { addHeat } from "./Crime";
 import { lawAt } from "./CrimeQueries";
 import { followerSkill, peopleOf } from "./Followers";
 import type { ConquestGame } from "./Game";
+import { setFlow, type FlowTag } from "./LedgerCore"; // LEDGER (r15)
 import {
   addRenown,
   beginOutcome,
@@ -722,10 +723,85 @@ export function boatHold(life: Life, p: number): number {
 
 // ---------------------------------------------------------------- the months
 
+/**
+ * LEDGER (r15): what each kind of work can bring, and its dangers: the one
+ * table the month's work is rolled from and the odds shown before you put
+ * her to it are reckoned from (Odds.ts). Spreads are [least, width]: the
+ * month's luck is least + a roll × width.
+ */
+export const BOAT_WORK = {
+  fishing: {
+    base: {
+      canoe: 1.2,
+      shallop: 3.5,
+      sloop: 7,
+      schooner: 10,
+      brig: 0,
+      ship: 0,
+    },
+    /** Where the fish are thick (a province whose good is fish). */
+    grounds: 1.5,
+    /** In a northern winter. */
+    winter: 0.4,
+    spread: [0.7, 0.6],
+    squall: { p: 0.015, damage: 15 },
+  },
+  whaling: {
+    /** No whales south of this. */
+    minLat: 39.5,
+    base: { canoe: 0, shallop: 0, sloop: 14, schooner: 20, brig: 30, ship: 45 },
+    /** A voyage that finds nothing. */
+    empty: 0.35,
+    luck: [0.6, 1.6],
+    stove: { p: 0.04, damage: 20, men: 1 },
+  },
+  trading: {
+    perLoad: 0.14,
+    spread: [0.4, 1.2],
+    /** Lost with her cargo. */
+    lost: 0.012,
+  },
+  smuggling: {
+    perLoad: 0.26,
+    spread: [0.5, 1],
+    heat: 4,
+    /** Seized by the customs, cargo and all. */
+    seized: 0.035,
+    seizedHeat: 20,
+  },
+  privateering: {
+    prize: 0.35,
+    perGun: 4,
+    spread: [0.5, 1],
+    /** With no war on it's piracy: the law's heat, every month. */
+    pirateHeat: 10,
+    fight: { p: 0.06, damage: 25, crew: 0.2 },
+    /** Taken by a frigate. */
+    taken: 0.012,
+  },
+} as const;
+
+/** LEDGER (r15): what a month wears off her, laid up or at work (more if she leaks). */
+export const BOAT_WEAR = { idle: 0.5, work: 2, leak: 0.5 };
+
+/** LEDGER (r15): her master's skill, as a multiplier on what she brings in. */
+export function boatKnack(skill: number): number {
+  return 0.7 + Math.min(20, skill) * 0.04;
+}
+
+/** LEDGER (r15): whether it's winter at her port (fishing's poor), on a day. */
+export function boatWinter(map: MapDef, p: number, day: number): boolean {
+  const month = Math.floor((day % 365) / 30.5);
+  return isWinter(map.provinces[p].lat, month);
+}
+
 /** A boat's month: keep, wages, morale, and whatever she's used for. */
 export function boatsMonthly(g: ConquestGame, life: Life): void {
+  const was = setFlow(g, null); // LEDGER (r15)
   for (const b of [...boatsOf(life)]) {
     touchLife(g, life);
+    // LEDGER (r15): her crew's wages and keep, in the month's books.
+    setFlow(g, boatFlow(b, false));
     const def = BOATS[b.kind];
     const wages = Math.round((def.upkeep + b.crew * CREW_WAGE) * 10) / 10;
     if (life.purse >= wages) {
@@ -758,15 +834,33 @@ export function boatsMonthly(g: ConquestGame, life: Life): void {
     b.condition = Math.max(
       0,
       b.condition -
-        (b.use === "idle" ? 0.5 : 2) -
-        (b.quirk === "leaks a little" ? 0.5 : 0),
+        (b.use === "idle" ? BOAT_WEAR.idle : BOAT_WEAR.work) -
+        (b.quirk === "leaks a little" ? BOAT_WEAR.leak : 0),
     );
     if (b.condition <= 0) {
       lose(g, life, b, `The ${b.name} rotted at her moorings and sank.`);
       continue;
     }
+    setFlow(g, boatFlow(b, true)); // LEDGER (r15): what her work brings
     if (b.use !== "idle") work(g, life, b);
   }
+  setFlow(g, was);
+}
+
+/** LEDGER (r15): the name a boat's money goes under in the month's books. */
+export function boatFlow(b: Boat, job: boolean): FlowTag {
+  return job
+    ? {
+        key: `bj:${b.id}`,
+        label: `The ${b.name}, ${USE_NAMES[b.use].toLowerCase()}`,
+        chance: true,
+        aff: "boat",
+      }
+    : {
+        key: `b:${b.id}`,
+        label: `The ${b.name}: crew and keep`,
+        aff: "boat",
+      };
 }
 
 function lose(g: ConquestGame, life: Life, b: Boat, text: string): void {
@@ -779,17 +873,20 @@ function lose(g: ConquestGame, life: Life, b: Boat, text: string): void {
   wake(g, life, text);
 }
 
-/** Who's in command of her this month: her skipper, or you if you're aboard in port. */
-function master(
-  g: ConquestGame,
+/**
+ * Who's in command of her this month: her skipper, or you if you're aboard
+ * in port. LEDGER (r15): exported, for the odds.
+ */
+export function boatMaster(
+  s: GameState,
   life: Life,
   b: Boat,
-): { skill: number; you: boolean } | null {
-  const s = g.s;
+): { skill: number; you: boolean; c?: number } | null {
   const skipper = peopleOf(life).find(
     (f) => f.task?.kind === "boat" && f.task.boat === b.id,
   );
-  if (skipper) return { skill: followerSkill(s, skipper), you: false };
+  if (skipper)
+    return { skill: followerSkill(s, skipper), you: false, c: skipper.c };
   if (!life.travel && life.prov === b.prov)
     return { skill: skillLevel(s, life, "seamanship"), you: true };
   return null;
@@ -798,31 +895,28 @@ function master(
 function work(g: ConquestGame, life: Life, b: Boat): void {
   const s = g.s;
   const def = BOATS[b.kind];
-  const m = master(g, life, b);
+  const m = boatMaster(s, life, b);
   if (!m) return;
   if (b.crew < def.crew) return;
   const p = b.prov;
   const map = g.map.provinces[p];
-  const month = Math.floor((s.day % 365) / 30.5);
-  const winter = isWinter(map.lat, month);
-  const knack = 0.7 + Math.min(20, m.skill) * 0.04;
+  const winter = boatWinter(g.map, p, s.day);
+  const knack = boatKnack(m.skill);
   const name = b.name;
   let got = 0;
   switch (b.use) {
     case "fishing": {
-      const base = {
-        canoe: 1.2,
-        shallop: 3.5,
-        sloop: 7,
-        schooner: 10,
-        brig: 0,
-        ship: 0,
-      }[b.kind];
-      const fishy = g.w.raw[p] === "fish" ? 1.5 : 1;
+      const F = BOAT_WORK.fishing;
+      const base = F.base[b.kind];
+      const fishy = g.w.raw[p] === "fish" ? F.grounds : 1;
       got =
-        base * fishy * knack * (winter ? 0.4 : 1) * (0.7 + g.rng.next() * 0.6);
-      if (g.rng.chance(0.015)) {
-        b.condition = Math.max(0, b.condition - 15);
+        base *
+        fishy *
+        knack *
+        (winter ? F.winter : 1) *
+        (F.spread[0] + g.rng.next() * F.spread[1]);
+      if (g.rng.chance(F.squall.p)) {
+        b.condition = Math.max(0, b.condition - F.squall.damage);
         journal(
           g,
           life,
@@ -833,24 +927,19 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
       break;
     }
     case "whaling": {
-      if (map.lat < 39.5) {
+      const W = BOAT_WORK.whaling;
+      if (map.lat < W.minLat) {
         journal(g, life, `No whales off ${map.name}: the ${name} lies idle.`);
         b.use = "idle";
         return;
       }
-      const base = {
-        canoe: 0,
-        shallop: 0,
-        sloop: 14,
-        schooner: 20,
-        brig: 30,
-        ship: 45,
-      }[b.kind];
-      const luck = g.rng.next() < 0.35 ? 0 : 0.6 + g.rng.next() * 1.6;
+      const base = W.base[b.kind];
+      const luck =
+        g.rng.next() < W.empty ? 0 : W.luck[0] + g.rng.next() * W.luck[1];
       got = base * luck * knack;
-      if (g.rng.chance(0.04)) {
-        b.condition = Math.max(0, b.condition - 20);
-        b.crew = Math.max(0, b.crew - 1);
+      if (g.rng.chance(W.stove.p)) {
+        b.condition = Math.max(0, b.condition - W.stove.damage);
+        b.crew = Math.max(0, b.crew - W.stove.men);
         journal(
           g,
           life,
@@ -861,8 +950,13 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
       break;
     }
     case "trading": {
-      got = def.loads * 0.14 * knack * (0.4 + g.rng.next() * 1.2);
-      if (g.rng.chance(0.012)) {
+      const T = BOAT_WORK.trading;
+      got =
+        def.loads *
+        T.perLoad *
+        knack *
+        (T.spread[0] + g.rng.next() * T.spread[1]);
+      if (g.rng.chance(T.lost)) {
         lose(
           g,
           life,
@@ -874,29 +968,39 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
       break;
     }
     case "smuggling": {
-      got = def.loads * 0.26 * knack * (0.5 + g.rng.next());
+      const S = BOAT_WORK.smuggling;
+      got =
+        def.loads *
+        S.perLoad *
+        knack *
+        (S.spread[0] + g.rng.next() * S.spread[1]);
       const nation = lawAt(s, p);
-      addHeat(g, life, nation, 4);
-      if (g.rng.chance(0.035)) {
+      addHeat(g, life, nation, S.heat);
+      if (g.rng.chance(S.seized)) {
         lose(
           g,
           life,
           b,
           `Customs officers seized the ${name} at ${map.name}, cargo and all.`,
         );
-        addHeat(g, life, nation, 20);
+        addHeat(g, life, nation, S.seizedHeat);
         return;
       }
       break;
     }
     case "privateering": {
+      const P = BOAT_WORK.privateering;
       const me = meOf(s, life);
       const at = me
         ? s.wars.filter((w) => w.a === me.nation || w.b === me.nation)
         : [];
       const pirate = !at.length;
-      if (g.rng.chance(0.35)) {
-        got = def.guns * 4 * (0.5 + g.rng.next()) * knack;
+      if (g.rng.chance(P.prize)) {
+        got =
+          def.guns *
+          P.perGun *
+          (P.spread[0] + g.rng.next() * P.spread[1]) *
+          knack;
         journal(
           g,
           life,
@@ -905,10 +1009,10 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
         );
         addRenown(g, life, pirate ? 0 : 1);
       }
-      if (pirate) addHeat(g, life, lawAt(s, p), 10);
-      if (g.rng.chance(0.06)) {
-        b.condition = Math.max(0, b.condition - 25);
-        b.crew = Math.max(0, b.crew - Math.ceil(b.crew * 0.2));
+      if (pirate) addHeat(g, life, lawAt(s, p), P.pirateHeat);
+      if (g.rng.chance(P.fight.p)) {
+        b.condition = Math.max(0, b.condition - P.fight.damage);
+        b.crew = Math.max(0, b.crew - Math.ceil(b.crew * P.fight.crew));
         journal(
           g,
           life,
@@ -916,7 +1020,7 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
           "bad",
         );
       }
-      if (g.rng.chance(0.012)) {
+      if (g.rng.chance(P.taken)) {
         lose(
           g,
           life,

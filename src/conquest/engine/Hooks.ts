@@ -85,11 +85,27 @@ export const hooks = {
     life: Life,
     l: import("./Types").Letter,
   ) => boolean)[],
-  /** Lines for the month's forecast only (Estate › Purse), from another module. */
+  /**
+   * Lines for the month's forecast only (Estate › Purse), from another module.
+   * LEDGER (r15): a part may carry a `key` (the same as its flow's) and a
+   * `chance` range; the world is passed for those that need the map.
+   */
   forecast: [] as ((
     s: import("./Types").GameState,
     life: Life,
+    w?: import("./Map").World,
   ) => import("./Types").Part[])[],
+  // LEDGER (r15)
+  /** At the very start of the world's month, before anything else is reckoned. */
+  monthStart: [] as ((g: ConquestGame) => void)[],
+  /** At the very end of the world's month, after everything else. */
+  monthEnd: [] as ((g: ConquestGame) => void)[],
+  /** Things of a player's out working, for the tracker (Estate › Ledger). */
+  affairs: [] as ((
+    s: import("./Types").GameState,
+    w: import("./Map").World,
+    life: Life,
+  ) => import("./Types").AffairItem[])[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

@@ -11,6 +11,7 @@ import { addHeat } from "./Crime";
 import { peopleOf, strengthOf } from "./Followers";
 import type { ConquestGame } from "./Game";
 import { raiseEvent } from "./Hooks";
+import { withFlow } from "./LedgerCore"; // LEDGER (r15)
 import {
   addRenown,
   addStress,
@@ -475,7 +476,10 @@ export function dropContract(
 function done(g: ConquestGame, life: Life, c: Contract, text: string): void {
   touchLife(g, life);
   c.status = "done";
-  earn(g, life, c.pay);
+  // LEDGER (r15): a contract's fee, in the month's books.
+  withFlow(g, { key: `ct:${c.id}`, label: `Contract: ${c.title}` }, () =>
+    earn(g, life, c.pay),
+  );
   addRenown(g, life, 1 + Math.round(c.foe / 25));
   const giver = g.s.chars[c.giver];
   if (giver?.alive) remembers(g, life, giver, "Kept a hard bargain", 10, 3);

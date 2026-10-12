@@ -15,6 +15,7 @@ import {
   ratesOn,
   SERVANTS,
 } from "./HouseRules"; // HOME (r12)
+import { setFlow, type FlowTag } from "./LedgerCore"; // LEDGER (r15)
 import {
   addRenown,
   addStress,
@@ -610,13 +611,23 @@ export function propertyBudget(s: GameState, life: Life): Breakdown {
   return e.done(1);
 }
 
-function takings(s: GameState, life: Life, pr: Property): number {
+/**
+ * A business's takings for the month. `days`: the days worked in the month
+ * being settled (LEDGER r15: at the month's turn the count has been reset,
+ * so the settlement passes the month's own; the forecast uses the days so far).
+ */
+function takings(
+  s: GameState,
+  life: Life,
+  pr: Property,
+  days?: number,
+): number {
   const def = pr.job ? JOBS[pr.job] : null;
   const sk = def ? skillLevel(s, life, def.main) : 5;
   const minding =
     life.job?.own &&
     life.job.prov === pr.prov &&
-    (life.job.worked ?? WORK_DAYS) >= WORK_DAYS / 2;
+    (days ?? life.job.worked ?? WORK_DAYS) >= WORK_DAYS / 2;
   const per = HAND_TAKINGS * (0.8 + sk / 25) * (minding ? 1 : 0.6);
   return Math.round(per * pr.hands.length * 10) / 10;
 }
@@ -627,9 +638,11 @@ export function propertyMonthly(g: ConquestGame, life: Life): void {
   if (!list.length) return;
   touchLife(g, life);
   const native = lifeIsNative(s, life);
+  const was = setFlow(g, null); // LEDGER (r15)
   // Hands who've died or gone, and those who won't work unpaid.
   for (const pr of list) {
     if (pr.kind !== "business") continue;
+    setFlow(g, propertyFlow(g, pr)); // LEDGER (r15): this property's money
     pr.hands = pr.hands.filter((h) => s.chars[h]?.alive && !s.chars[h].abroad);
     for (const h of [...pr.hands]) {
       const other = s.lives.find((l) => l.c === h);
@@ -652,7 +665,7 @@ export function propertyMonthly(g: ConquestGame, life: Life): void {
       }
       spend(g, life, HAND_WAGE);
     }
-    const take = takings(s, life, pr);
+    const take = takings(s, life, pr, life.job?.lastWorked); // LEDGER (r15)
     if (take > 0) {
       earn(g, life, take);
       if (!native) spend(g, life, Math.round(take * EXCISE * 100) / 100);
@@ -660,6 +673,7 @@ export function propertyMonthly(g: ConquestGame, life: Life): void {
     spend(g, life, businessUpkeep(pr));
   }
   for (const pr of list) {
+    setFlow(g, propertyFlow(g, pr)); // LEDGER (r15)
     if (pr.kind === "house") {
       const def = houseDefs(native)[pr.level - 1];
       if (!def) continue;
@@ -691,6 +705,26 @@ export function propertyMonthly(g: ConquestGame, life: Life): void {
       );
     }
   }
+  setFlow(g, was); // LEDGER (r15)
+}
+
+/** LEDGER (r15): the name a property's money goes under in the month's books. */
+export function propertyFlow(
+  g: { map: { provinces: { name: string }[] } },
+  pr: Property,
+): FlowTag {
+  const at = g.map.provinces[pr.prov]?.name ?? "";
+  if (pr.kind === "land")
+    return {
+      key: `p:${pr.id}`,
+      label: `Rents less quitrents: ${pr.level * 10} acres at ${at}`,
+      chance: true,
+      aff: "property",
+    };
+  return {
+    key: `p:${pr.id}`,
+    label: `${pr.name}${pr.let ? " (let)" : pr.leased ? " (rented)" : ""} at ${at}`,
+  };
 }
 
 /**

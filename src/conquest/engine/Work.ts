@@ -516,7 +516,8 @@ export function buyRank(g: ConquestGame, life: Life): string | null {
 
 // ---------------------------------------------------------------- the days
 
-const SUNDAY = (day: number) => ((day % 7) + 7) % 7 === 0;
+/** A day of rest (LEDGER r15: exported, for the month's forecast). */
+export const SUNDAY = (day: number) => ((day % 7) + 7) % 7 === 0;
 
 /** A day at your post (or away from it). Raises a letter, or a dismissal. */
 export function workDaily(
@@ -603,6 +604,7 @@ export function workMonthly(
     const fame = (def.fame ?? 0) * Math.max(0, job.rank - 1) * share;
     if (fame > 0) addRenown(g, life, fame);
   }
+  job.lastWorked = job.worked ?? 0; // LEDGER (r15): the month's business is minded by them
   job.worked = 0;
   job.away = job.awayDays ? Math.floor(job.awayDays / 30) : 0;
   // The master's post passes on: whoever holds it now keeps you on.

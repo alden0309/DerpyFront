@@ -484,13 +484,15 @@ export function wageOf(
   w: World,
   life: Life,
   actual = false,
+  /** LEDGER (r15): the days the month is expected to come to (a forecast by them). */
+  worked?: number,
 ): number {
   const r = rankOf(life);
   if (!r || !life.job) return 0;
-  if (!actual) return atPost(s, w, life) ? r.wage : 0;
+  if (!actual && worked === undefined) return atPost(s, w, life) ? r.wage : 0;
   // LIFE (r11): overtime earns up to 1.4 of a month's wage.
   const cap = life.work?.effort === "overtime" ? 1.4 : 1;
-  const share = Math.min(cap, (life.job.worked ?? 0) / WORK_DAYS);
+  const share = Math.min(cap, (worked ?? life.job.worked ?? 0) / WORK_DAYS);
   return Math.round(r.wage * share * 100) / 100;
 }
 
@@ -525,9 +527,11 @@ export function monthlyBudget(
   w: World,
   life: Life,
   actual = false,
+  /** LEDGER (r15): a forecast's wage by the days the month should come to. */
+  worked?: number,
 ): Breakdown {
   const e = new Explain();
-  const wage = wageOf(s, w, life, actual);
+  const wage = wageOf(s, w, life, actual, actual ? undefined : worked);
   // LIFE (r11): a crooked living brings takings, not wages, and pays no dues.
   const crooked = !!life.job && !!JOBS[life.job.kind].crime;
   const what = crooked ? "Takings" : "Wage";
@@ -573,8 +577,11 @@ export function monthlyBudget(
       if (KIT[k].upkeep && hasKit(s, life, k))
         e.add(`Keep: ${KIT[k].name.toLowerCase()}`, -KIT[k].upkeep);
     // PARTNERS (r13): your share of the firms you're a partner in.
+    // LEDGER (r15): and every other month's flow (boats, your people, ventures);
+    // a line keeps its key and, if it runs on luck, its range.
     for (const h of hooks.forecast)
-      for (const part of h(s, life)) e.add(part.label, part.value);
+      for (const part of h(s, life, w))
+        if (part.value || part.chance) e.parts.push(part);
   }
   return e.done(1);
 }
