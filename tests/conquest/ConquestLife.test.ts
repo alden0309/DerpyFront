@@ -25,6 +25,7 @@ import {
 } from "../../src/conquest/engine/LifeQueries";
 import { EUROPE_FORTUNE } from "../../src/conquest/engine/LifeRules";
 import { movementOf } from "../../src/conquest/engine/Movements";
+import { addSway } from "../../src/conquest/engine/PowerCore"; // POLLS (r16)
 import { ageOf } from "../../src/conquest/engine/Queries";
 import type { GameState } from "../../src/conquest/engine/Types";
 import { lifeOf, map, plan, prov, ticks, world } from "./LifeUtil";
@@ -319,6 +320,10 @@ describe("politics", () => {
     life.renown = 40;
     expect(g.lifeCommand("s1", { k: "stand" })).toBeNull();
     life.campaign!.points = 200;
+    // POLLS (r16): renown and canvassing no longer carry an election by
+    // themselves; the papers and a patron of your own see him in.
+    addSway(g, me.id, 30);
+    life.patron = g.s.nations[me.nation].council.spymaster;
     const pol = g.s.polities[me.nation];
     g.s.day = pol.election - 1;
     g.tick();

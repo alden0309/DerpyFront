@@ -8,6 +8,7 @@
 import { html, nothing, TemplateResult } from "lit";
 import { formatDate } from "../../engine/Calendar";
 import { hasPlace } from "../../engine/LifeQueries";
+import { chanceWords } from "../../engine/Odds"; // POLLS (r16)
 import {
   buyCheck,
   FOUND_COST,
@@ -16,6 +17,7 @@ import {
   licenceNeeded,
   licenceOdds,
   MAX_WRITERS,
+  mockChance,
   paperOf,
   papersIn,
   papersWithin,
@@ -25,14 +27,15 @@ import {
   piecesPerMonth,
   piecesThisMonth,
   pieceTargets,
-  printCheck,
+  printCheck, // POLLS (r16)
+  puffEffect,
   READER_PRICE,
   STANCE_NAMES,
   WRITER_WAGE,
   writerPool,
 } from "../../engine/Press";
 import { charName, stat } from "../../engine/Queries";
-import type { Paper, Piece } from "../../engine/Types";
+import type { Life, Paper, Piece } from "../../engine/Types";
 import { num } from "../Tip";
 import { action, breakdownTip, charLink, GameUi, section } from "./Context";
 import { howTo, pageHead } from "./Nav";
@@ -152,6 +155,20 @@ function masthead(ui: GameUi, x: Paper): TemplateResult {
     </p>`;
 }
 
+/** POLLS (r16): what a puff for yourself would do, in words, from the engine's own numbers. */
+function puffWords(ui: GameUi, life: Life, x: Paper, force: number): string {
+  const s = ui.s;
+  const fx = puffEffect(life, x, force, s.day);
+  const mock = mockChance(s, x);
+  const name = ui.map.provinces[x.p]?.name;
+  const town = name ? ` at ${name}` : "";
+  return `A word for yourself. Your own readers${town} are persuaded more than by a piece about anyone else (+${fx.here} at a poll in the county, for a year and a half); at polls elsewhere it raises eyebrows (${fx.elsewhere}).${
+    mock
+      ? ` A rival paper may mock it (${chanceWords(mock)}): the puff half spoiled, renown −2, your paper's credit −3.`
+      : " No rival paper in the colony to mock it."
+  }`;
+}
+
 function composer(ui: GameUi, x: Paper): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
@@ -161,8 +178,12 @@ function composer(ui: GameUi, x: Paper): TemplateResult {
   const risk = pieceRisk(s, life, x, draft.on, draft.id, draft.side);
   const check = printCheck(s, life);
   const left = piecesPerMonth(x) - piecesThisMonth(s, x);
-  const what =
-    draft.on === "c"
+  // POLLS (r16): a piece for its own proprietor.
+  const self = draft.on === "c" && draft.id === life.c;
+  if (self && draft.side < 0) draft.side = 1;
+  const what = self
+    ? puffWords(ui, life, x, force.total)
+    : draft.on === "c"
       ? "Moves their chances at the polls (and a councillor's standing with the governor); a player's renown."
       : draft.on === "m"
         ? "Moves the cause's support in the colony."
@@ -221,6 +242,8 @@ function composer(ui: GameUi, x: Paper): TemplateResult {
             role="radio"
             aria-checked=${draft.side < 0}
             class=${draft.side < 0 ? "on" : ""}
+            ?disabled=${self}
+            title=${self ? "Your own paper won't print against you." : ""}
             @click=${() => {
               draft.side = -1;
               ui.redraw();

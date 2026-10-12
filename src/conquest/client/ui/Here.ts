@@ -6,6 +6,7 @@ import { html, nothing, TemplateResult } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { areaName, areasOf, presence, Present } from "../../engine/Areas";
 import { formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
+import { assemblyView } from "../../engine/Canvass"; // POLLS (r16)
 import { seatTitleOf } from "../../engine/CouncilTitles"; // POWER (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
 import { interactionView, InteractionView } from "../../engine/Interactions";
@@ -381,14 +382,17 @@ function standButton(ui: GameUi): TemplateResult {
   const life = ui.life!;
   const pol = s.polities[ui.me!.nation];
   if (!pol) return html``;
-  if (life.campaign)
+  if (life.campaign) {
+    // POLLS (r16): the canvass as it stands, and where to see it move.
+    const v = assemblyView(s, life, ui.me!.nation);
     return actButton({
       label: `Standing for ${pol.name}`,
       ok: false,
       cls: "cq-campaign",
-      why: `${life.campaign.points} campaign points; the count is on ${formatDate(pollDay(pol.election))}`,
+      why: `Your standing ${Math.round(v.me.total)}${v.rival ? `, the last seat about ${Math.round(v.rival.st.total)}` : ""}; the count is on ${formatDate(pollDay(pol.election))}. The canvass is on Society › Office.`,
       run: () => undefined,
     });
+  }
   const check = standCheck(s, life);
   // POWER (r12): one office at a time.
   const warn = giveUpWarning(s, ui.w, life.c, {

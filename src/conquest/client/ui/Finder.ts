@@ -10,6 +10,7 @@ import { areasOf, homeHere } from "../../engine/Areas"; // HOME (r12)
 import { BOATS } from "../../engine/Boats";
 import { bizTradesAt } from "../../engine/Business"; // BUSINESS (r15)
 import { dateOf } from "../../engine/Calendar"; // MAP (r12)
+import { pollOf, treatView } from "../../engine/Canvass"; // POLLS (r16)
 import { knowsDen } from "../../engine/CrimeQueries";
 import { cruiseOffers, pardonCheck } from "../../engine/Cruises"; // SEA (r15)
 import { STALL_SECONDS, tableAt } from "../../engine/DiceCore"; // DICE (r14)
@@ -1754,6 +1755,92 @@ const GOALS: Goal[] = [
     guide: "sea",
   },
   // ---- end SEA (r15)
+  // ---- POLLS (r16): polls and the canvass, renown and favour's curve, a paper for yourself
+  {
+    id: "polls-win",
+    title: "Win an election",
+    words:
+      "election poll win canvass vote stand burgess selectman mayor assembly campaign lose lost",
+    group: "Society",
+    where:
+      "Society › Office: stand at a county poll (or for the assembly at the governor's house). While you stand, the canvass at the top shows your standing against the strongest rival week by week, your chance at the count, what moved it, and both sides line by line.",
+    needs: (ui) => {
+      const ref = pollOf(ui.s, ui.life!);
+      return [
+        ref
+          ? {
+              label: "You're standing: the canvass is on Society › Office",
+              met: true,
+            }
+          : {
+              label:
+                "Stand at a poll first (Society › Office, or the governor's house)",
+              met: false,
+            },
+      ];
+    },
+    go: tab({ k: "tab", tab: "society", sub: "office" }),
+    goLabel: "See the canvass",
+    guide: "polls",
+  },
+  {
+    id: "polls-treat",
+    title: "Treat the voters, or buy the sheriff's goodwill",
+    words:
+      "treat treating punch voters sheriff bribe goodwill present patron interest great man price money election",
+    group: "Society",
+    where:
+      "Society › Office, the canvass's Money for the poll: treat the voters (once a week, in the county), a present for the sheriff, a great man's interest. Each says on its button what it costs and what it does to your standing.",
+    needs: (ui) => {
+      const v = treatView(ui.s, ui.life!);
+      return [
+        check(
+          v.ok ? { ok: true } : { ok: false, why: v.why },
+          "You could treat the voters now",
+        ),
+      ];
+    },
+    go: tab({ k: "tab", tab: "society", sub: "office" }),
+    goLabel: "See the canvass",
+    guide: "polls",
+  },
+  {
+    id: "polls-why",
+    title: "Know why I lost (or won) a poll",
+    words: "why lost poll election result count reasons defeat",
+    group: "Society",
+    where:
+      "The journal says why at every count (the lines that made the difference), and Society › Office keeps your last poll's result and its reasons under the canvass.",
+    go: tab({ k: "tab", tab: "society", sub: "office" }),
+    guide: "polls",
+  },
+  {
+    id: "polls-puff",
+    title: "Print a piece in my own favour",
+    words: "newspaper paper print puff myself own favour praise election press",
+    group: "Society",
+    where:
+      "Society › Press, Print a piece: About, Yourself. It persuades your own readers more, raises eyebrows elsewhere, and a rival paper may mock it (the page says how likely).",
+    needs: (ui) => [
+      ui.s.power?.papers.some((x) => x.owner === ui.life!.c)
+        ? { label: "You own a paper", met: true }
+        : { label: "Own a newspaper first (found or buy one)", met: false },
+    ],
+    go: tab({ k: "tab", tab: "society", sub: "press" }),
+    guide: "polls",
+  },
+  {
+    id: "polls-renown",
+    title: "Keep my renown and favour up",
+    words:
+      "renown favour fame fading decay curve keep up famous crown ear slip seat deliver",
+    group: "Society",
+    where:
+      "Society › Standing: point at your renown or favour for what a gain counts for now and what a month takes. Above 60 both come harder and fade faster; favour in the same seat slips each year unless something is delivered from it (a law, a work, a power or a measure carried).",
+    go: tab({ k: "tab", tab: "society", sub: "standing" }),
+    guide: "polls",
+  },
+  // ---- end POLLS (r16)
   // ---- LABOUR (r15): bondage in the colonies, as history
   {
     id: "bond-law",

@@ -260,6 +260,47 @@ export const TERMS: Record<string, Term> = {
     raise: "Open Estate › Ledger, or click the month's notice when it comes.",
     ch: "ledger",
   },
+  // POLLS (r16): Canvass.ts, Standing.ts
+  canvass: {
+    name: "The canvass",
+    what: "Your standing at a poll as it moves, week by week, against the strongest rival (for the house, against whoever would take the last seat).",
+    good: "The highest standing at the count wins (each side has a little luck, ±4). Society › Office shows it while you stand, with your chance at the count and what moved it this week.",
+    raise:
+      "Canvass at the tavern or the market, stand a round, print a broadside, treat the voters, win the county's regard, buy the sheriff's goodwill or a great man's interest. Canvassing and treating fade unless they're kept up.",
+    ch: "polls",
+  },
+  treating: {
+    name: "Treating",
+    what: "Punch at the hustings and dinners for the freeholders, at your charge.",
+    good: "Counts at the poll (up to 8, each treat for less than the one before); it fades 1 in 20 a week.",
+    raise:
+      "Society › Office, the canvass: Treat the voters, once a week in the county (3 to 9 coins by the county's size).",
+    ch: "polls",
+  },
+  govfriends: {
+    name: "The governor's friends",
+    what: "The governor's party at the polls.",
+    good: "They work for a court-party man the governor thinks well of (+6), and against a member of the country party or anyone he dislikes (−8).",
+    raise:
+      "Be received at court and keep the governor's good opinion; or win without them, with a patron and the sheriff.",
+    ch: "polls",
+  },
+  interest: {
+    name: "A great man's interest",
+    what: "A councillor's or a grandee's word to his tenants and friends at a poll.",
+    good: "+8 at the poll (+4 for a patron of your own in the colony). Many of the computer's candidates have one.",
+    raise:
+      "Society › Office, the canvass: buy a great man's interest, if he thinks well enough of you (10). His price is on the button.",
+    ch: "polls",
+  },
+  delivered: {
+    name: "Delivered",
+    what: "Something to show for a year in a seat: a bill of yours made law, a work or a market day, bread for the poor, the militia mustered, a power or a measure carried, a governor's law or work.",
+    good: "A year in the same seat with something delivered and your favour holds; with nothing, it slips (4, then 6, 8, 10 a year).",
+    raise:
+      "Use your office's powers and levers, and bring in bills and measures.",
+    ch: "polls",
+  },
   // BUSINESS (r15): Business.ts, Company.ts
   custom: {
     name: "Custom",

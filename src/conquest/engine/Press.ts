@@ -483,13 +483,6 @@ export function pieceTargets(
       note: `${Math.round(m.support)} support`,
     }));
   const out = new Map<number, { id: number; label: string; note: string }>();
-  // POLLS (r16): the owner first: a paper may speak for its proprietor.
-  if (s.chars[life.c]?.alive)
-    out.set(life.c, {
-      id: life.c,
-      label: "Yourself",
-      note: "a word for the paper's own proprietor",
-    });
   const add = (c: number, note: string) => {
     const ch = s.chars[c];
     if (!ch?.alive || c === life.c || out.has(c)) return;
@@ -518,7 +511,15 @@ export function pieceTargets(
       add(id, "on the council");
   for (const l of s.lives)
     if (s.chars[l.c]?.nation === n && !l.watching) add(l.c, "a player");
-  return [...out.values()].slice(0, 30);
+  const list = [...out.values()].slice(0, 30);
+  // POLLS (r16): a paper may speak for its own proprietor (last on the list).
+  if (s.chars[life.c]?.alive)
+    list.push({
+      id: life.c,
+      label: "Yourself",
+      note: "a word for the paper's own proprietor",
+    });
+  return list;
 }
 
 function activeCauses(s: GameState, n: number): Movement[] {

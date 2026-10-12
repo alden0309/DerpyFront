@@ -514,12 +514,12 @@ describe("POLLS r16: a paper that speaks for its owner", () => {
   }
 
   test("you may print in your own favour, never against yourself", () => {
-    const g = world({ start: 1720 });
+    const g = world({ start: 1700 });
     const life = lifeOf(g);
     paper(g, life);
     const t = pieceTargets(g.s, life, "c");
-    expect(t[0].id).toBe(life.c);
-    expect(t[0].label).toBe("Yourself");
+    const me = t.find((x) => x.id === life.c)!;
+    expect(me.label).toBe("Yourself");
     expect(
       g.lifeCommand("s1", {
         k: "power",
@@ -544,7 +544,7 @@ describe("POLLS r16: a paper that speaks for its owner", () => {
   });
 
   test("it persuades your own readers more, and raises eyebrows elsewhere", () => {
-    const g = world({ start: 1720 });
+    const g = world({ start: 1700 });
     const { life, o } = standing(g, "burgess", 200);
     const x = paper(g, life);
     const fx = puffEffect(life, x, 4, g.s.day);
@@ -563,7 +563,7 @@ describe("POLLS r16: a paper that speaks for its owner", () => {
   });
 
   test("a rival paper may mock it, at the chance shown", () => {
-    const g = world({ start: 1720 });
+    const g = world({ start: 1700 });
     const life = lifeOf(g);
     const x = paper(g, life);
     expect(mockChance(g.s, x)).toBe(0);

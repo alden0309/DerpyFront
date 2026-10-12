@@ -167,6 +167,7 @@ import {
 import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
 // BUSINESS (r15): starting a business, and a trading company.
 import { BUSINESS_CHAPTER } from "./BusinessChapter";
+import { POLLS_CHAPTER } from "./PollsChapter"; // POLLS (r16)
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
 // INTRIGUE (r15): hearts and schemes.
 import { INTRIGUE_CHAPTER } from "./IntrigueChapter";
@@ -1792,7 +1793,7 @@ Other players in the same tavern see the table on its tile ("Dice: 3 at the tabl
 | 20 | a place at court; standing for the assembly without property |
 | 40 | a company of your own, without an officer's rank |
 | 50 | (with favour 15) an invitation to Parliament may come |
-| 60 / 150 | your station rises: gentlefolk, then the better sort |
+| 60 / 100 | your station rises: gentlefolk, then the better sort |
 
 It also weighs in nearly every answer: offices, petitions, recommendations, a governor's reprieve at the gallows, and being made governor.
 
@@ -1800,7 +1801,10 @@ It also weighs in nearly every answer: offices, petitions, recommendations, a go
 Promotions and higher rungs (some trades bring renown every month at the top); office and its duties; gatherings that go well; gifts to the town and the great works; standing a round; contracts, battles won and leads that pay; speaking at the council; reaching an ambition; a newspaper of your own.
 
 ## Losing it
-Above 15, renown slips back a little each month (a fiftieth of what's above 15) unless it's fed. Scandal, failed contracts, living beneath your station, debts unpaid and defeats cost it. Your heir starts with about a third of yours.`,
+Above 15, renown slips back a little each month (a fiftieth of what's above 15) unless it's fed. Scandal, failed contracts, living beneath your station, debts unpaid and defeats cost it. Your heir starts with about a third of yours.
+
+## Above 60 it comes harder
+Above 60 each gain counts for less (at 100, half) and it fades faster the higher it stands, so a busy public life settles near 100, not in the hundreds. At a poll it counts only lightly: [[polls|Polls and the canvass]].`,
   },
   {
     id: "favour",
@@ -1824,7 +1828,7 @@ Above 15, renown slips back a little each month (a fiftieth of what's above 15) 
 - Some choices in letters and events (siding with the crown wins favour and often costs you with your neighbours).
 
 ## Keeping it
-Favour fades by 2% a month. Your heir keeps less than a third of it.
+Favour fades by 2% a month, faster above 60, where each gain counts for less (at 85, half). A year in the same seat with nothing delivered from it (a law, a work, a power or a measure carried) and it slips: 4, then 6, 8, 10 a year ([[polls|Polls and the canvass]]). Your heir keeps less than a third of it.
 
 > Tip: Write to the crown every two months from the moment you can afford it. It's the cheapest road to a governor's chair.`,
   },
@@ -1851,7 +1855,7 @@ ${officesTable(true)}
 
 French, Spanish, Dutch and Swedish towns use their own titles (capitaine de milice, alcalde, schout and so on), and native titles follow the people (werowance, mico...).
 
-- **Elected** offices: **Stand at the poll** on the offices page, then canvass (the tavern, the market, the council fire), print a broadside (the press, 2) and stand a round. The poll decides, every year or two (four for a native town council); an empty seat gets a special poll.
+- **Elected** offices: **Stand at the poll** on the offices page, then canvass (the tavern, the market, the council fire), print a broadside (the press, 2), stand a round, and treat the voters. The poll decides, every year or two (four for a native town council); an empty seat gets a special poll. It can be lost: [[polls|Polls and the canvass]].
 - **Appointed** offices are given by the justices, the county court, the sachem or the governor: **Seek an appointment** on their card, or petition them by letter.
 - Each office has a **duty**, done once a month in the county (neglect it five months and you're warned; eight and an appointed officer is dismissed, an elected one loses renown), and a **lever** to pull now and then.
 - An office in your gift is yours to fill when it falls empty.
@@ -1873,7 +1877,7 @@ French, Spanish and Dutch officers do the same under their own names (the alcald
 Some offices name others: the justices name the constable and the watch, the sheriff names the collector of the rates, a city's mayor names its watch, the sachem the war captain and the speaker, the clan mothers the sachem, and the governor the justices, the sheriff and the county lieutenant. Offices in your gift are listed on Society › Office: fill a vacancy (you have two months before the county fills it), or **dismiss** whoever holds one (they'll remember it).
 
 ## The assembly
-Each colony has an assembly (the House of Burgesses, the General Court...), with elections every 3 years. To stand: a freeholder (land, a trade of your own), a man of property (40 coins), a county officer, or someone well known (renown 20). The assembly, alas, admits only men in this century. Among the native peoples, the council fire hears speakers and people of renown (15). **Stand** at the governor's house (the council fire), then campaign until the count.
+Each colony has an assembly (the House of Burgesses, the General Court...), with elections every 3 years. To stand: a freeholder (land, a trade of your own), a man of property (40 coins), a county officer, or someone well known (renown 20). The assembly, alas, admits only men in this century. Among the native peoples, the council fire hears speakers and people of renown (15). **Stand** at the governor's house (the council fire), then campaign until the count: the canvass and its money are on Society › Office ([[polls|Polls and the canvass]]).
 
 ## The court and the council
 **Seek a place at court** at the governor's house in the capital: renown 20 (or a seat in the assembly) and the governor's good opinion (15). When a council seat falls empty, the governor may offer it to someone at court he likes (a letter: accept or decline). The council itself, its seats and its politics are in [[council|The governor's council]].
@@ -1884,6 +1888,9 @@ When the governor dies or is recalled, the crown appoints a successor from among
 ## Governing
 A governor's decisions are on Society › Office: taxes, how much of the revenue goes home to the crown (more pleases it; less keeps the colony rich), building (forts, churches, farms, ports, courthouses), calling out the militia, war and peace, laws (up to 4 at a time) and public works. The council's advice comes with each: going against it costs a little. Appointing and dismissing the council, proclamations, and the assembly's bills are on Society › Council ([[council|The governor's council]]).`,
   },
+  // ---- POLLS (r16): polls and the canvass, renown and favour's curve (guide/PollsChapter.ts)
+  POLLS_CHAPTER,
+  // ---- end POLLS (r16)
   // ---- POWER (r12): the council, trials, the press
   {
     id: "council",
@@ -1977,7 +1984,7 @@ A **justice of the peace** who is a player presides over the county's cases: the
 - **Credit** (0 to 100): how far the paper is believed. Pieces that land raise it.
 
 ## Pieces
-Each month you may print one piece, and one more for each writer: **for or against** a person (a candidate, an officer, a councillor, another player), a cause, or the governor. The page shows how hard it will land and what it risks.
+Each month you may print one piece, and one more for each writer: **for or against** a person (a candidate, an officer, a councillor, another player, or **for yourself**), a cause, or the governor. The page shows how hard it will land and what it risks. A piece for yourself persuades your own readers more, raises eyebrows elsewhere, and a rival paper may mock it ([[polls|Polls and the canvass]]).
 - **A person**: their chances at the polls move (for a county office and for the assembly), a councillor's standing with the governor moves, a player's renown moves.
 - **A cause**: its support in the colony moves.
 - **The governor**: praise calms the town and pleases him; an attack stirs the town and the causes against the government, and he remembers it.

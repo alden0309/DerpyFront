@@ -34,6 +34,7 @@ import "./intrigue.css"; // INTRIGUE (r15): hearts and schemes
 import "./labour.css"; // LABOUR (r15): those held in bondage
 import "./ledger.css"; // LEDGER (r15): money made plain
 import "./partners.css"; // PARTNERS (r13): partnerships
+import "./polls.css"; // POLLS (r16): the canvass
 import "./schooling.css"; // EDU (r13): school, apprenticeship, college
 import "./sea.css"; // SEA (r15): at sea, the privateering company, hurricanes
 
