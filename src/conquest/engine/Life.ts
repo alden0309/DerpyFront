@@ -13,6 +13,7 @@ import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
 import { doInteraction, workOffered } from "./Interactions";
 import { leadCommand } from "./Leads"; // WORLD r11
+import { budgetFlow, debtFlow, withFlow } from "./LedgerCore"; // LEDGER (r15)
 import { doAct } from "./LifeActs";
 import {
   addRenown,
@@ -745,10 +746,12 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
   // Money: wages (by the days worked) and stipends in, living out.
   const budget = monthlyBudget(s, w, life, true);
   payPlayerBoss(g, life);
-  for (const part of budget.parts) {
-    if (part.value > 0) earn(g, life, part.value);
-    else spend(g, life, -part.value);
-  }
+  for (const part of budget.parts)
+    // LEDGER (r15): each line under its own name in the month's books.
+    withFlow(g, budgetFlow(part), () => {
+      if (part.value > 0) earn(g, life, part.value);
+      else spend(g, life, -part.value);
+    });
   if (life.purse < -10) {
     addStress(g, life, 4);
     if (life.lifestyle !== "frugal") {
@@ -829,7 +832,9 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
     if (d.due > s.day) continue;
     const lender = s.chars[d.to];
     if (life.purse >= d.amount) {
-      spend(g, life, d.amount);
+      withFlow(g, debtFlow(d.to, charName(lender)), () =>
+        spend(g, life, d.amount),
+      ); // LEDGER (r15)
       journal(
         g,
         life,

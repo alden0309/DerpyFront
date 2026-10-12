@@ -8,6 +8,7 @@
 
 import { dateOf } from "./Calendar";
 import type { ConquestGame } from "./Game";
+import { setFlow, withFlow } from "./LedgerCore"; // LEDGER (r15)
 import {
   addRenown,
   addStress,
@@ -149,10 +150,15 @@ export function buyKit(g: ConquestGame, life: Life, k: KitKey): string | null {
   return null;
 }
 
+/** LEDGER (r15): what a kept thing fetches sold (a pew, nothing). */
+export function kitWorth(s: GameState, life: Life, k: KitKey): number {
+  return k === "pew" ? 0 : Math.round(kitPrice(s, life, k) * 0.4);
+}
+
 /** Sell off a kept thing (a horse, a coach) for what it'll fetch. */
 export function sellKit(g: ConquestGame, life: Life, k: KitKey): string | null {
   if (life.kit?.[k] === undefined) return "You don't have one.";
-  const worth = k === "pew" ? 0 : Math.round(kitPrice(g.s, life, k) * 0.4);
+  const worth = kitWorth(g.s, life, k);
   touchLife(g, life);
   delete life.kit![k];
   if (worth) earn(g, life, worth);
@@ -327,7 +333,9 @@ function venturesMonthly(g: ConquestGame, life: Life): void {
   const me = meOf(s, life);
   const year = dateOf(s.day).year;
   const keep: Venture[] = [];
+  const was = setFlow(g, null); // LEDGER (r15)
   for (const v of list) {
+    setFlow(g, ventureFlow(v)); // LEDGER (r15): a dividend, a cargo home
     if (v.kind === "shares") {
       // The South Sea year, and the odd bad one besides.
       const crash =
@@ -397,7 +405,30 @@ function venturesMonthly(g: ConquestGame, life: Life): void {
       );
     } else if (luck.x === 0) addStress(g, life, 6);
   }
+  setFlow(g, was);
   life.ventures = keep;
+}
+
+/** LEDGER (r15): the name a venture's money goes under in the month's books. */
+export function ventureFlow(v: Venture): {
+  key: string;
+  label: string;
+  chance: true;
+  aff: "cargo" | "shares";
+} {
+  return v.kind === "cargo"
+    ? {
+        key: `v:${v.id}`,
+        label: `A cargo of ${v.name}`,
+        chance: true,
+        aff: "cargo",
+      }
+    : {
+        key: `v:${v.id}`,
+        label: `Dividend: shares in ${v.name}`,
+        chance: true,
+        aff: "shares",
+      };
 }
 
 // ---------------------------------------------------------------- a dinner for the town
@@ -606,12 +637,30 @@ function keepOf(s: GameState, life: Life, pr: Property): number {
 /** Share of a commissioned officer's pay that goes on keeping up the rank. */
 export const OFFICER_KEEP = 0.2;
 
+/** LEDGER (r15): what keeping up an officer's rank costs a month (0 if none). */
+export function officerKeep(s: GameState, life: Life): number {
+  const rank = rankOf(life);
+  if (!rank?.commission || isChildLife(s, life)) return 0;
+  return Math.round(rank.wage * OFFICER_KEEP * 100) / 100;
+}
+
+/** LEDGER (r15): the officer's keep, in the month's books. */
+export const OFFICER_FLOW = { key: "ok", label: "Keeping up your rank" };
+
 export function moneyMonthly(g: ConquestGame, life: Life): void {
   const s = g.s;
   touchLife(g, life);
-  bailiffs(g, life);
+  // LEDGER (r15): the bailiffs, and each kept thing, in the month's books.
+  withFlow(g, { key: "bailiffs", label: "Sold by the bailiffs" }, () =>
+    bailiffs(g, life),
+  );
+  const was = setFlow(g, null);
   // Keep: fodder, the coachman, the pew rent.
   for (const k of Object.keys(life.kit ?? {}) as KitKey[]) {
+    setFlow(g, {
+      key: `kit:${k}`,
+      label: `Keep: ${KIT[k].name.toLowerCase()}`,
+    });
     if (!hasKit(s, life, k)) {
       if (k === "tools") {
         delete life.kit![k];
@@ -632,14 +681,12 @@ export function moneyMonthly(g: ConquestGame, life: Life): void {
       addStress(g, life, -1);
     }
   }
+  setFlow(g, was);
   venturesMonthly(g, life);
   // An officer keeps himself: mess bills, uniforms, horses and servants come
   // out of a commission's pay (about a fifth of it).
-  const rank = rankOf(life);
-  if (rank?.commission && !isChildLife(s, life)) {
-    const keep = Math.round(rank.wage * OFFICER_KEEP * 100) / 100;
-    if (keep > 0) spend(g, life, keep);
-  }
+  const keep = officerKeep(s, life);
+  if (keep > 0) withFlow(g, OFFICER_FLOW, () => spend(g, life, keep)); // LEDGER (r15)
   // Living beneath your station, when you could afford better: people talk.
   // (Fallen on hard times, they pity you instead.)
   const b = isChildLife(s, life) ? null : beneathStation(s, life);

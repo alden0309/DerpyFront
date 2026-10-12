@@ -54,6 +54,7 @@ import { breakdownTip, type GameUi, token } from "./Context";
 import { storyLines, tableStory } from "./DiceLog"; // FIXES (r15)
 import { roleOf } from "./Here";
 import type { PlacePart } from "./Livelihood";
+import { price } from "./Price"; // LEDGER (r15)
 import { curly, reasons } from "./Scene";
 import { term } from "./Terms";
 
@@ -1154,7 +1155,7 @@ function gatheringView(
                 title=${join ?? ""}
                 @click=${() => ui.cmd({ k: "dice", act: "join", id: t.id })}
               >
-                Sit down (${t.stake})
+                Sit down${price(t.stake, { have: ui.life?.purse })}
               </button>`}
       </div>
       <p class="cq-dice-status">${!host && !x && join ? join : nothing}</p>
@@ -1224,7 +1225,7 @@ function endView(
                 }
               }}
             >
-              Play again (${t.stake})
+              Play again${price(t.stake, { have: ui.life?.purse })}
             </button>`
           : nothing}
         <button class="cq-btn" @click=${() => ui.modal(null)}>
@@ -1497,7 +1498,9 @@ function openView(ui: GameUi, t: DiceTable | undefined): TemplateResult {
         title=${why ?? ""}
         @click=${go}
       >
-        ${t ? `Ask ${o.ask.length || ""}` : `Open the table (${stake})`}
+        ${t
+          ? `Ask ${o.ask.length || ""}`
+          : html`Open the table${price(stake, { have: ui.life?.purse })}`}
       </button>
       <button
         class="cq-btn quiet"

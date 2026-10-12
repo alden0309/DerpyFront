@@ -13,6 +13,7 @@ import { formatDate } from "../engine/Calendar";
 import { applyDelta } from "../engine/Delta";
 import { fogged, fogView } from "../engine/Fog";
 import { followerTitle } from "../engine/Followers"; // wave 2 (r11)
+import { forecastBreakdown, ledgerForecast } from "../engine/Ledger"; // LEDGER (r15)
 import {
   ageOfLife,
   hasKit,
@@ -20,7 +21,6 @@ import {
   lifeOfSeat,
   lifeTitle,
   meOf,
-  monthlyBudget,
   paceOf,
   travelRoute,
 } from "../engine/LifeQueries";
@@ -34,6 +34,7 @@ import {
   SPEED_LABELS,
 } from "../engine/Rules";
 import type {
+  AffairKind, // LEDGER (r15)
   Army,
   GameEvent,
   GameState,
@@ -99,6 +100,7 @@ import {
   type AchievementToast,
 } from "./ui/Achievements"; // MAP (r12)
 import { officesPage } from "./ui/Civic";
+import { affairKindName } from "./ui/Ledger"; // LEDGER (r15)
 import { seasonChip } from "./ui/SeasonChip"; // MAP (r12)
 import { postButton } from "./ui/Society";
 import { FigureColors, figureColorsOf } from "./Walkers";
@@ -116,6 +118,8 @@ interface LogLine {
   text: string;
   tone: "good" | "bad" | "";
   battle?: number;
+  /** LEDGER (r15): news of your own affairs, not the world's. */
+  aff?: boolean;
 }
 
 interface Toast {
@@ -124,7 +128,12 @@ interface Toast {
   tone: "good" | "bad" | "";
   /** Where to act on it (a notice that leads somewhere). */
   go?: DrawerView;
+  /** LEDGER (r15): news of your own affairs, of this kind. */
+  aff?: AffairKind;
 }
+
+/** LEDGER (r15): where news of your own affairs leads. */
+const LEDGER_PAGE: DrawerView = { k: "tab", tab: "estate", sub: "ledger" };
 
 /**
  * Where a line of news is acted on (r11 wave 2: notices lead somewhere).
@@ -217,6 +226,8 @@ export class GameView extends LitElement {
   @state() private mode: MapMode = "nation";
   @state() private log: LogLine[] = [];
   @state() private logOpen = false;
+  /** LEDGER (r15): the News shows everything, your own affairs, or the world's. */
+  @state() private logShow: "all" | "mine" | "world" = "all";
   @state() private toasts: Toast[] = [];
   /** MAP (r12): achievements just earned, as little scenes. */
   @state() private achToasts: AchievementToast[] = [];
@@ -661,11 +672,24 @@ export class GameView extends LitElement {
     const inScene =
       o && o.n !== this.lastOutcomeN ? new Set(o.lines) : new Set<string>();
     if (o) this.lastOutcomeN = o.n;
+    // LEDGER (r15): news of your own affairs is kept in the News as well, and
+    // comes as its own notice (it stays longer, and leads to the ledger).
+    const own = fresh.filter((e) => e.aff);
+    for (const e of own)
+      this.addLog(e.text, e.tone ?? "", undefined, e.day, true);
     if (!staged)
-      for (const e of fresh.slice(-2))
+      for (const e of [
+        ...fresh.filter((x) => !x.aff).slice(-2),
+        ...own.slice(-3),
+      ])
         // (An achievement has its own toast, from the server.)
         if (!inScene.has(e.text) && !e.text.startsWith(ACHIEVEMENT_NOTE))
-          this.toast(e.text, e.tone ?? "", whereFor(e.text));
+          this.toast(
+            e.text,
+            e.tone ?? "",
+            e.aff ? LEDGER_PAGE : whereFor(e.text),
+            e.aff,
+          );
     if (fresh.some((e) => e.tone === "good")) play("bell");
     // Events that need an answer.
     const waiting = life.events.filter((e) => !this.seenEvents.has(e.id));
@@ -825,9 +849,10 @@ export class GameView extends LitElement {
     tone: LogLine["tone"],
     battle?: number,
     day = this.s.day,
+    aff = false, // LEDGER (r15)
   ): void {
     this.log = [
-      { id: this.nextId++, day, text, tone, battle },
+      { id: this.nextId++, day, text, tone, battle, ...(aff ? { aff } : {}) },
       ...this.log,
     ].slice(0, 120);
   }
@@ -836,12 +861,19 @@ export class GameView extends LitElement {
     text: string,
     tone: Toast["tone"] = "",
     go: DrawerView | undefined = undefined,
+    aff?: AffairKind, // LEDGER (r15)
   ): void {
     const id = this.nextId++;
-    this.toasts = [...this.toasts.slice(-2), { id, text, tone, go }];
-    setTimeout(() => {
-      this.toasts = this.toasts.filter((t) => t.id !== id);
-    }, 6000);
+    this.toasts = [
+      ...this.toasts.slice(aff ? -3 : -2),
+      { id, text, tone, go, ...(aff ? { aff } : {}) },
+    ];
+    setTimeout(
+      () => {
+        this.toasts = this.toasts.filter((t) => t.id !== id);
+      },
+      aff ? 11000 : 6000,
+    );
   }
 
   /**
@@ -1632,14 +1664,22 @@ export class GameView extends LitElement {
         ${this.toasts.map((t) =>
           t.go
             ? html`<button
-                class="cq-toast ${t.tone} go"
-                title="Go there"
+                class="cq-toast ${t.tone} go ${t.aff ? "affair" : ""}"
+                title=${t.aff ? "Open your ledger" : "Go there"}
                 @click=${() => {
                   this.toasts = this.toasts.filter((x) => x.id !== t.id);
                   this.open(t.go!);
                 }}
               >
-                ${t.text}<span class="cq-toast-go" aria-hidden="true">›</span>
+                ${t.aff
+                  ? html`<span class="cq-toast-kind"
+                      >${affairKindName(t.aff)}</span
+                    >`
+                  : nothing}${t.text}<span
+                  class="cq-toast-go"
+                  aria-hidden="true"
+                  >›</span
+                >
               </button>`
             : html`<div class="cq-toast ${t.tone}">${t.text}</div>`,
         )}
@@ -1687,7 +1727,9 @@ export class GameView extends LitElement {
     const life = ui.life;
     const me = ui.me;
     const events = life?.events.length ?? 0;
-    const budget = life && me ? monthlyBudget(s, world, life) : null;
+    // LEDGER (r15): the month's figure counts everything (luck as what's expected).
+    const forecast = life && me ? ledgerForecast(s, world, life) : null;
+    const budget = forecast ? forecastBreakdown(forecast) : null;
     return html`<header class="cq-banner">
       <a class="cq-home" href="/" title="Derp Land" aria-label="Derp Land"
         >${bananaMark("cq-home-mark")}</a
@@ -1754,11 +1796,16 @@ export class GameView extends LitElement {
               ${num(
                 html`${plain(life.purse)}
                   <small class=${budget.total >= 0 ? "up" : "down"}
-                    >${budget.total >= 0 ? "+" : "−"}${plain(
-                      Math.abs(budget.total),
-                    )}</small
+                    >${forecast?.expected ? "≈" : ""}${budget.total >= 0
+                      ? "+"
+                      : "−"}${plain(Math.abs(budget.total))}</small
                   >`,
-                () => breakdownTip("A month's money", budget),
+                () =>
+                  breakdownTip("A month's money", budget, undefined, [
+                    forecast && forecast.expected
+                      ? `For certain ${forecast.fixed >= 0 ? "+" : ""}${forecast.fixed}; by luck, about ${forecast.expected >= 0 ? "+" : ""}${forecast.expected} (lines marked ≈, from worst to best). Estate › Purse has it all, and Estate › Ledger the months' accounts.`
+                      : "Estate › Purse has it all, and Estate › Ledger the months' accounts.",
+                  ]),
                 `val ${life.purse < 0 ? "bad" : ""}`,
               )}
             </span>
@@ -2014,6 +2061,43 @@ export class GameView extends LitElement {
     }
   }
 
+  /** LEDGER (r15): everything, your own affairs, or the world's news. */
+  private logFilter(): TemplateResult {
+    const mine = this.log.filter((l) => l.aff).length;
+    return html`<span
+      class="cq-log-filter"
+      role="group"
+      aria-label="Show"
+      @click=${(e: Event) => e.stopPropagation()}
+    >
+      ${(
+        [
+          ["all", "All"],
+          ["mine", "Yours"],
+          ["world", "The world"],
+        ] as const
+      ).map(
+        ([k, label]) =>
+          html`<button
+            aria-pressed=${this.logShow === k}
+            title=${k === "mine"
+              ? "Only news of your own affairs: boats, cargoes, traders, partnerships, the month's accounts"
+              : k === "world"
+                ? "Only the news of the world"
+                : "All the news"}
+            @click=${() => {
+              this.logShow = k;
+              this.logStuck = true;
+            }}
+          >
+            ${label}${k === "mine" && mine
+              ? html`<b class="cq-count">${mine}</b>`
+              : nothing}
+          </button>`,
+      )}
+    </span>`;
+  }
+
   private chronicle(): TemplateResult {
     const others = this.seats.filter((x) => x.made && x.id !== this.you);
     return html`<section class="cq-chronicle ${this.logOpen ? "open" : ""}">
@@ -2023,6 +2107,7 @@ export class GameView extends LitElement {
         @click=${() => (this.logOpen = !this.logOpen)}
       >
         <span>News</span>
+        ${this.logOpen ? this.logFilter() : nothing}
         ${others.length
           ? html`<span class="cq-players"
               >${others.map(
@@ -2045,10 +2130,17 @@ export class GameView extends LitElement {
                 ? html`<li class="cq-muted">News will gather here.</li>`
                 : nothing}
               ${repeat(
-                this.log.slice(0, 60).reverse(),
+                this.log
+                  .filter(
+                    (l) =>
+                      this.logShow === "all" ||
+                      (this.logShow === "mine") === !!l.aff,
+                  )
+                  .slice(0, 60)
+                  .reverse(),
                 (l) => l.id,
                 (l) =>
-                  html`<li class=${l.tone}>
+                  html`<li class="${l.tone} ${l.aff ? "affair" : ""}">
                     <span class="cq-log-date"
                       >${formatDate(l.day).replace(/ \d{4}$/, "")}</span
                     >

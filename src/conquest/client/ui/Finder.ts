@@ -15,6 +15,7 @@ import { schoolable } from "../../engine/Edu"; // EDU (r13)
 import { buyoutPrice } from "../../engine/Firms"; // PARTNERS (r13)
 import { followerCap, peopleOf, raiseCheck } from "../../engine/Followers";
 import { foundCheck as foundColonyCheck } from "../../engine/Founding";
+import { affairsOf } from "../../engine/Ledger"; // LEDGER (r15)
 import {
   hasPlace,
   isChildLife,
@@ -1228,6 +1229,98 @@ const GOALS: Goal[] = [
     guide: "dice",
   },
   // ---- end DICE (r14)
+  // ---- LEDGER (r15): money made plain
+  {
+    id: "month-money",
+    title: "See what a month brings in and costs",
+    words:
+      "money income expenses month monthly budget wages costs forecast purse figure ledger crew upkeep",
+    group: "Money and home",
+    where:
+      "Point at your purse in the banner, or open Estate › Purse: everything that comes and goes each month (wages, living, rents, keep, boats' crews, your people's wages, a company), what's certain apart from what runs on luck (voyages, cargoes, dividends, rents) as what's expected, from worst to best.",
+    go: tab({ k: "tab", tab: "estate", sub: "purse" }),
+    goLabel: "Estate › Purse",
+    guide: "ledger",
+  },
+  {
+    id: "track-affairs",
+    title: "Keep track of my boats, cargoes and traders",
+    words:
+      "track boats boat cargo cargoes ventures shares traders clerks firms affairs ledger out working news missed",
+    group: "Money and home",
+    where:
+      "Estate › Ledger: everything of yours out working (boats and their work, cargoes and shares, traders, partnerships, a company), when each is due and what it should bring; your own news kept apart from the world's; and every month's accounts. Your own news also comes as its own notice, and the News has a Yours tab.",
+    needs: (ui) => {
+      const n = affairsOf(ui.s, ui.w, ui.life!).length;
+      return [
+        {
+          label: n
+            ? `${n} of yours out working`
+            : "Something out working: a boat at work, a cargo, a clerk trading",
+          met: n > 0,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "estate", sub: "ledger" }),
+    goLabel: "Estate › Ledger",
+    guide: "ledger",
+  },
+  {
+    id: "statement",
+    title: "See last month's accounts",
+    words:
+      "accounts statement month ledger books income spent where money went last month",
+    group: "Money and home",
+    where:
+      "Estate › Ledger, The month's accounts: at each month's turn a statement of every coin in and out, line by line, with what was expected beside it. The last twelve months are kept.",
+    go: tab({ k: "tab", tab: "estate", sub: "ledger" }),
+    goLabel: "Estate › Ledger",
+    guide: "ledger",
+  },
+  {
+    id: "boat-odds",
+    title: "Know what a boat's work will bring",
+    words:
+      "boat odds risk reward fishing whaling coasting trading smuggling privateering chance profit crew worth it",
+    group: "Money and home",
+    where:
+      "Estate › Boats (or her port's docks): under each boat, what her work should make a month after her crew, keep and skipper; open Risk and reward of each kind of work for every kind side by side, each outcome's chance, the dangers, and what changes the odds. The boatyard says what a new boat could do there.",
+    needs: (ui) => [
+      {
+        label: (ui.life!.boats ?? []).length
+          ? "A boat of your own"
+          : "A boat of your own (the boatyard shows what a new one could do)",
+        met: (ui.life!.boats ?? []).length > 0,
+      },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "boats" }),
+    goLabel: "Estate › Boats",
+    guide: "ledger",
+  },
+  {
+    id: "trader-odds",
+    title: "Know what a trader would make me",
+    words:
+      "clerk trader factor agent hire hiring trading odds stake profit risk worth it wages",
+    group: "People",
+    where:
+      "People › Your people: pick a clerk's stake and the trip's odds show before you send them (what comes back each way, what's expected a trip and a month after their wages). People for hire at the market and the docks say what a clerk would make trading for you.",
+    go: tab({ k: "tab", tab: "people", sub: "yours" }),
+    goLabel: "People › Your people",
+    guide: "ledger",
+  },
+  {
+    id: "acres",
+    title: "Count the acres I own",
+    words: "acres land estate province provinces total how much land own farm",
+    group: "Money and home",
+    where:
+      "Estate › House & land, Your acres: the acres you own in each province, a subtotal for each, and all told.",
+    go: tab({ k: "tab", tab: "estate", sub: "house" }),
+    goLabel: "Estate › House & land",
+    guide: "ledger",
+  },
+  // ---- end LEDGER (r15)
   {
     id: "achievements",
     title: "See my achievements",

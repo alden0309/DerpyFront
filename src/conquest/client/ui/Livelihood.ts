@@ -12,6 +12,7 @@ import {
   boatsOf,
   boatyard,
   buyCheck,
+  CREW_BOUNTY, // LEDGER (r15)
   CREW_WAGE,
   repairCost,
   sailCheck,
@@ -42,6 +43,7 @@ import {
   watchStrength,
 } from "../../engine/CrimeQueries";
 import {
+  bonusCost, // LEDGER (r15)
   candidatesAt,
   COMPANY_BOUNTY,
   COMPANY_PAY,
@@ -56,11 +58,13 @@ import {
   promoteCheck,
   raiseCheck,
   recruitCheck,
+  SIGNING, // LEDGER (r15)
   strengthOf,
 } from "../../engine/Followers";
 import { JOB_GROUPS, type JobGroup } from "../../engine/JobsData";
 import { isChildLife, lifeOfChar } from "../../engine/LifeQueries";
 import { JOBS, SKILL_NAMES } from "../../engine/LifeRules";
+import { boatChoices, clerkOdds, tradeOdds } from "../../engine/Odds"; // LEDGER (r15)
 import { charName } from "../../engine/Queries";
 import {
   EFFORT_ORDER,
@@ -73,6 +77,8 @@ import {
   tradesFor,
 } from "../../engine/Trades";
 import type {
+  Boat, // LEDGER (r15)
+  BoatKind, // LEDGER (r15)
   BoatUse,
   Character,
   JobKind,
@@ -89,6 +95,8 @@ import {
   provLink,
   section,
 } from "./Context";
+import { boatUses, oddsLine, oddsPanel } from "./Odds"; // LEDGER (r15)
+import { price, priceWords } from "./Price"; // LEDGER (r15)
 import { term } from "./Terms";
 
 /** Run a command that tells a story, then show the scene of it. */
@@ -455,9 +463,9 @@ export function crimePart(
             @click=${() =>
               atPlace(ui, area, { k: a.law ? "law" : "crime", act: a.key })}
           >
-            <span class="cq-act-label"
-              >${a.label}${cost ? ` (${cost})` : ""}</span
-            >${odds(o)}
+            <span class="cq-act-label">${a.label}</span>${cost
+              ? price(cost, { have: life.purse })
+              : nothing}${odds(o)}
             <span class="cq-act-why">${check.ok ? "" : check.why}</span>
           </button>`;
         })}
@@ -528,21 +536,68 @@ export function hirePart(
                   ? `${Math.round(c.share * 100)}% of the take`
                   : `${c.wage} a month`}</span
               >
+              ${hireWorth(ui, c.kind, c.skill, c.wage)}
             </span>
             <button
               class="cq-btn small cq-ask ${check.ok ? "primary" : ""}"
               ?disabled=${!check.ok}
-              title=${check.ok ? def.text : check.why}
+              title=${check.ok
+                ? `${def.text} Signing money ${priceWords(SIGNING)}${c.kind === "rogue" ? "" : `, then ${c.wage} a month`}.`
+                : check.why}
               @click=${() =>
                 atPlace(ui, area, { k: "people", act: "hire", arg: c.slot })}
             >
               Hire
+              ${price(SIGNING, { have: life.purse })}${c.kind === "rogue"
+                ? nothing
+                : price(c.wage, { per: "month" })}
             </button>
           </li>`;
         })}
       </ul>
       ${!check.ok ? html`<p class="cq-why small">${check.why}</p>` : nothing}`,
   };
+}
+
+/**
+ * LEDGER (r15): what someone for hire would bring you, before you take them
+ * on: a clerk's trading with a stake, against their wages; a mate's hand on
+ * a boat of yours.
+ */
+function hireWorth(
+  ui: GameUi,
+  kind: string,
+  skill: number,
+  wage: number,
+): TemplateResult | typeof nothing {
+  const life = ui.life!;
+  if (kind === "clerk") {
+    const stake = life.purse >= 100 ? 50 : 25;
+    const v = tradeOdds(stake, { skill, wage });
+    return html`<span class="small cq-hire-worth"
+      >Trading for you with ${stake}: ${oddsLine(v)}.</span
+    >`;
+  }
+  if (kind === "mate") {
+    const b = boatsOf(life).find((x) => BOATS[x.kind].crew > 0);
+    if (!b) return nothing;
+    const best = boatChoices(ui.s, ui.w, life, b, {
+      crew: Math.max(b.crew, BOATS[b.kind].crew),
+      skill: skill,
+    })
+      .filter(
+        (x) =>
+          x.use !== "idle" && (x.view.ok || /skipper/.test(x.view.why ?? "")),
+      )
+      .sort((a, z) => z.view.net - a.view.net)[0];
+    return best
+      ? html`<span class="small cq-hire-worth"
+          >As skipper of the ${b.name}, ${USE_NAMES[best.use].toLowerCase()}:
+          ${oddsLine(best.view)}, less ${wage} wages.</span
+        >`
+      : nothing;
+  }
+  return nothing;
 }
 
 export function contractsPart(
@@ -624,8 +679,8 @@ export function boatyardPart(
     body: html`<ul class="cq-lv-list cq-lv-boats">
       ${kinds.map((k) => {
         const def = BOATS[k];
-        const price = boatPrice(s, life, k);
-        const check = buyCheck(s, ui.w, life, k, price);
+        const cost = boatPrice(s, life, k);
+        const check = buyCheck(s, ui.w, life, k, cost);
         return html`<li>
           ${boatGlyph(k)}
           <span class="cq-folk-text">
@@ -634,18 +689,20 @@ export function boatyardPart(
               >${def.loads} loads, ${def.berths} berths,
               ${def.crew ? `${plural(def.crew, "hand")} to sail` : "no crew"},
               ${def.speed > 1 ? "quick" : def.speed < 1 ? "slow" : "steady"};
-              keep ${Math.round((def.upkeep + def.crew * CREW_WAGE) * 10) / 10}
-              a month with her crew. ${def.text}</span
+              keep ${keepOf(k)} a month with her crew. ${def.text}</span
             >
+            ${yardWorth(ui, p, k)}
           </span>
           <button
             class="cq-btn small cq-ask ${check.ok ? "primary" : ""}"
             ?disabled=${!check.ok}
-            title=${check.ok ? "" : check.why}
+            title=${check.ok
+              ? `${priceWords(cost)}, then ${def.crew ? `${def.crew} hands at ${def.crew} coins to sign and ` : ""}${keepOf(k)} a month with her crew`
+              : check.why}
             @click=${() =>
               atPlace(ui, area, { k: "boat", act: "buy", kind: k, arg: -1 })}
           >
-            Buy ${price}
+            Buy ${price(cost, { have: life.purse })}
           </button>
         </li>`;
       })}
@@ -659,7 +716,8 @@ export function boatyardPart(
               ${BOATS[u.kind].name.toLowerCase()}</b
             >
             <span class="cq-muted small"
-              >${u.condition}% sound; ${u.quirk}.</span
+              >${u.condition}% sound; ${u.quirk}; keep ${keepOf(u.kind)} a month
+              with her crew.</span
             >
           </span>
           <button
@@ -674,12 +732,54 @@ export function boatyardPart(
                 arg: u.slot,
               })}
           >
-            Buy ${u.price}
+            Buy ${price(u.price, { have: life.purse })}
           </button>
         </li>`;
       })}
     </ul>`,
   };
+}
+
+/** LEDGER (r15): a boat's keep a month with a full crew. */
+function keepOf(k: BoatKind): number {
+  return Math.round((BOATS[k].upkeep + BOATS[k].crew * CREW_WAGE) * 10) / 10;
+}
+
+/**
+ * LEDGER (r15): the best a new boat of this kind could do from this port,
+ * with a full crew and you aboard, after her crew's wages and keep.
+ */
+function yardWorth(
+  ui: GameUi,
+  p: number,
+  k: BoatKind,
+): TemplateResult | typeof nothing {
+  const life = ui.life!;
+  const def = BOATS[k];
+  const trial: Boat = {
+    id: -1,
+    kind: k,
+    name: "new",
+    prov: p,
+    condition: 100,
+    crew: def.crew,
+    morale: 70,
+    use: "idle",
+    bought: ui.s.day,
+  };
+  const best = boatChoices(
+    ui.s,
+    ui.w,
+    { ...life, prov: p, travel: null },
+    trial,
+  )
+    .filter((x) => x.use !== "idle" && x.view.ok)
+    .sort((a, z) => z.view.net - a.view.net)[0];
+  if (!best) return nothing;
+  return html`<span class="small cq-hire-worth"
+    >At her best here, ${USE_NAMES[best.use].toLowerCase()} with you aboard:
+    ${oddsLine(best.view)}.</span
+  >`;
 }
 
 /** A small drawn hull for a kind of boat (one mast, two, three). */
@@ -758,9 +858,24 @@ export function boatCard(
           ${def.crew
             ? html`${action(
                 b.crew < def.crew
-                  ? `Sign on ${def.crew - b.crew} hands (${def.crew - b.crew})`
-                  : "Sign on one more",
-                { ok: true },
+                  ? html`Sign on ${def.crew - b.crew}
+                    hand${def.crew - b.crew === 1 ? "" : "s"}${price(
+                      (def.crew - b.crew) * CREW_BOUNTY,
+                      { have: life.purse },
+                    )}${price((def.crew - b.crew) * CREW_WAGE, {
+                      per: "month",
+                    })}`
+                  : html`Sign on one
+                    more${price(CREW_BOUNTY, {
+                      have: life.purse,
+                    })}${price(CREW_WAGE, { per: "month" })}`,
+                life.purse >=
+                  (b.crew < def.crew ? def.crew - b.crew : 1) * CREW_BOUNTY
+                  ? { ok: true }
+                  : {
+                      ok: false,
+                      why: `Signing them costs ${priceWords((b.crew < def.crew ? def.crew - b.crew : 1) * CREW_BOUNTY)}`,
+                    },
                 () =>
                   void ui.cmd({
                     k: "boat",
@@ -769,6 +884,7 @@ export function boatCard(
                     arg: b.crew < def.crew ? def.crew : b.crew + 1,
                   }),
                 "small",
+                `${CREW_BOUNTY} a hand to sign, then ${CREW_WAGE} a month each`,
               )}
               ${b.crew > 0
                 ? action(
@@ -787,7 +903,7 @@ export function boatCard(
             : nothing}
           ${b.condition < 98
             ? action(
-                `Repair (${repairCost(b)})`,
+                html`Repair ${price(repairCost(b), { have: life.purse })}`,
                 life.purse >= repairCost(b)
                   ? { ok: true }
                   : { ok: false, why: `${repairCost(b)} coins` },
@@ -796,7 +912,7 @@ export function boatCard(
               )
             : nothing}
           ${action(
-            `Sell (${sellPrice(b)})`,
+            html`Sell ${price(sellPrice(b), { gain: true })}`,
             { ok: true },
             () => {
               if (confirm(`Sell the ${b.name} for ${sellPrice(b)} coins?`))
@@ -822,6 +938,7 @@ export function boatCard(
           </button>`,
       )}
     </div>
+    ${boatWorth(ui, b)}
     <p class="cq-muted small">
       ${USE_TEXT[b.use]}
       ${b.use !== "idle"
@@ -860,6 +977,33 @@ export function boatCard(
         </div>`
       : nothing}
   </div>`;
+}
+
+/**
+ * LEDGER (r15): risk and reward of each kind of work she can do, before you
+ * put her to it: a line for the work she's at, and every kind side by side.
+ */
+function boatWorth(ui: GameUi, b: Boat): TemplateResult {
+  const def = BOATS[b.kind];
+  const crew = Math.max(b.crew, def.crew);
+  const now = boatChoices(ui.s, ui.w, ui.life!, b, { crew }).find(
+    (x) => x.use === b.use,
+  )?.view;
+  return html`${now
+      ? html`<p class="small cq-boat-worth">
+          <b>${USE_NAMES[b.use]}:</b> ${b.use === "idle"
+            ? `her crew and keep, ${now.costMonth} a month, and nothing coming in.`
+            : oddsLine(now)}${crew > b.crew
+            ? ` (with the ${crew - b.crew} more hands she needs)`
+            : ""}
+        </p>`
+      : nothing}
+    <details class="cq-more">
+      <summary>Risk and reward of each kind of work</summary>
+      ${boatUses(ui, b, b.use === "idle" ? (def.uses[1] ?? "idle") : b.use, {
+        crew,
+      })}
+    </details>`;
 }
 
 // ---------------------------------------------------------------- travel in your own boat
@@ -974,27 +1118,17 @@ export function peopleSection(ui: GameUi): TemplateResult {
                   >${bar(f.loyalty / 100)}</span
                 >
               </div>
-              <div class="cq-btnrow">
-                ${f.kind === "clerk" && !f.task
-                  ? [10, 25, 50, 100].map((n) =>
-                      action(
-                        `Trade with ${n}`,
-                        life.purse >= n
-                          ? { ok: true }
-                          : { ok: false, why: `${n} coins` },
-                        () =>
-                          void ui.cmd({
-                            k: "people",
-                            act: "trade-again",
-                            id: f.id,
-                            arg: n,
-                          }),
-                        "small",
-                        "They trade with your stake and go again when they're back",
-                        false,
-                      ),
-                    )
+              ${f.kind === "clerk" && !f.task
+                ? html`${oddsPanel(clerkOdds(s, f, stakeOf(f.id)), {
+                    title: `Trading with ${stakeOf(f.id)}`,
+                  })}`
+                : f.kind === "clerk" && f.task?.kind === "trade"
+                  ? html`<p class="small cq-boat-worth">
+                      ${oddsLine(clerkOdds(s, f, f.task.stake ?? 0))}
+                    </p>`
                   : nothing}
+              <div class="cq-btnrow">
+                ${f.kind === "clerk" && !f.task ? stakePicker(ui, f) : nothing}
                 ${f.task &&
                 f.task.kind !== "boat" &&
                 !(f.task.kind === "trade" && !f.task.repeat)
@@ -1007,15 +1141,26 @@ export function peopleSection(ui: GameUi): TemplateResult {
                     )
                   : nothing}
                 ${action(
-                  "A bonus",
-                  { ok: true },
+                  html`A bonus${price(bonusCost(f), { have: life.purse })}`,
+                  life.purse >= bonusCost(f)
+                    ? { ok: true }
+                    : { ok: false, why: `Costs ${priceWords(bonusCost(f))}` },
                   () => void ui.cmd({ k: "people", act: "bonus", id: f.id }),
                   "small quiet",
                   "A coin or two over their wages: loyalty",
+                  false,
                 )}
                 ${promo.ok
                   ? action(
-                      `Make ${def.ranks[f.rank + 1]?.toLowerCase()}`,
+                      html`Make
+                      ${def.ranks[f.rank + 1]?.toLowerCase()}${(def.wage[
+                        f.rank + 1
+                      ] ?? 0) > f.wage
+                        ? price(def.wage[f.rank + 1], {
+                            per: "month",
+                            note: `up from ${f.wage}`,
+                          })
+                        : nothing}`,
                       promo,
                       () =>
                         void ui.cmd({ k: "people", act: "promote", id: f.id }),
@@ -1065,6 +1210,48 @@ export function peopleSection(ui: GameUi): TemplateResult {
   );
 }
 
+/** LEDGER (r15): the stake picked for each clerk (the odds show for it). */
+const stakes = new Map<number, number>();
+const STAKES = [10, 25, 50, 100];
+const stakeOf = (id: number) => stakes.get(id) ?? 25;
+
+/** Pick a stake (the odds above show for it), then send them. */
+function stakePicker(ui: GameUi, f: { id: number }): TemplateResult {
+  const life = ui.life!;
+  const pick = stakeOf(f.id);
+  return html`<span class="cq-seg small" role="radiogroup" aria-label="Stake">
+      ${STAKES.map(
+        (n) =>
+          html`<button
+            role="radio"
+            aria-checked=${n === pick}
+            @click=${() => {
+              stakes.set(f.id, n);
+              ui.redraw();
+            }}
+          >
+            ${n}
+          </button>`,
+      )}
+    </span>
+    ${action(
+      html`Send them trading${price(pick, { have: life.purse })}`,
+      life.purse >= pick
+        ? { ok: true }
+        : { ok: false, why: `A stake of ${priceWords(pick)}` },
+      () =>
+        void ui.cmd({
+          k: "people",
+          act: "trade-again",
+          id: f.id,
+          arg: pick,
+        }),
+      "small primary",
+      "They trade with your stake, and go again when they're back (with what came back, up to the stake)",
+      false,
+    )}`;
+}
+
 export function companySection(ui: GameUi): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
@@ -1081,7 +1268,13 @@ export function companySection(ui: GameUi): TemplateResult {
         </p>
         <div class="cq-btnrow">
           ${action(
-            "Raise a company",
+            html`Raise a
+            company${price(20 * COMPANY_BOUNTY, {
+              have: life.purse,
+            })}${price(20 * COMPANY_PAY.militia, {
+              per: "month",
+              note: "for twenty militia; rangers and regulars cost more",
+            })}`,
             check,
             () => scene(ui, { k: "people", act: "raise" }),
             "small primary",
@@ -1134,7 +1327,12 @@ export function companySection(ui: GameUi): TemplateResult {
               "March as an army of your nation: with a war on, they fight and besiege",
             )}
             ${action(
-              `Twenty more men (${20 * COMPANY_BOUNTY})`,
+              html`Twenty more
+              men${price(20 * COMPANY_BOUNTY, {
+                have: life.purse,
+              })}${price(Math.round(20 * COMPANY_PAY[co.kind] * 10) / 10, {
+                per: "month",
+              })}`,
               life.purse >= 20 * COMPANY_BOUNTY
                 ? { ok: true }
                 : { ok: false, why: `${20 * COMPANY_BOUNTY} coins` },

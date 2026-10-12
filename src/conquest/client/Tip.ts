@@ -50,9 +50,14 @@ function render(c: TipContent): string {
   if (c.b) {
     out += `<table class="cq-tip-list">`;
     for (const p of c.b.parts) {
+      // LEDGER (r15): a line that runs on luck: what's expected, and its range.
+      const range =
+        p.chance && (p.chance[0] !== p.value || p.chance[1] !== p.value)
+          ? ` (${signed(p.chance[0], fmt)} to ${signed(p.chance[1], fmt)})`
+          : "";
       const v = p.mul
         ? `×${Math.round(p.value * 100) / 100}`
-        : signed(p.value, fmt);
+        : `${p.chance ? "≈" : ""}${signed(p.value, fmt)}${range}`;
       const cls = p.mul
         ? p.value >= 1
           ? "up"

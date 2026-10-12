@@ -67,6 +67,7 @@ import {
   housePrice,
   leaseCheck,
   propertyOf,
+  propertyWorth, // LEDGER (r15)
 } from "../../engine/Property";
 import { ageOf } from "../../engine/Queries";
 import type {
@@ -83,6 +84,7 @@ import { GOOD_NAMES } from "../Text";
 import { num } from "../Tip";
 import { breakdownTip, GameUi, section, token } from "./Context";
 import { actButton, runAct } from "./Here";
+import { price, splitPrice } from "./Price"; // LEDGER (r15)
 import { homeSchooling } from "./Schooling"; // EDU (r13)
 import { hostAt } from "./Society";
 
@@ -109,6 +111,7 @@ function homeButton(
     ok: check.ok,
     why: check.ok ? null : check.why,
     cost: o.cost,
+    have: ui.life!.purse, // LEDGER (r15)
     cls: o.cls,
     title: check.ok ? (o.title ?? "") : `${check.why} ${o.title ?? ""}`,
     run: () => void home(ui, c, o.scene ?? true),
@@ -121,11 +124,13 @@ function actHere(ui: GameUi, key: string): TemplateResult {
   const life = ui.life!;
   const def = ACT_BY_KEY.get(key)!;
   const check = actCheck(s, ui.w, life, "home", key);
-  const label = actLabel(s, life, def);
+  // LEDGER (r15): the cost in its chip, not the words.
+  const { text: label, cost } = splitPrice(actLabel(s, life, def));
   return actButton({
     label,
     ok: check.ok,
-    cost: def.cost && !/\(\d/.test(label) ? def.cost : undefined,
+    cost: cost ?? def.cost ?? undefined,
+    have: life.purse,
     why: check.ok ? null : check.why,
     title: check.ok ? def.text : `${check.why} ${def.text}`,
     run: () => runAct(ui, "home", key),
@@ -846,10 +851,11 @@ function houseFolds(ui: GameUi, h: Property): TemplateResult {
             ? html`<span class="cq-chip good">built</span>`
             : homeButton(
                 ui,
-                `Add (${def.cost})`,
+                "Add",
                 { act: "room", kind: r },
                 {
                   cls: "slim",
+                  cost: def.cost, // LEDGER (r15)
                 },
               )}
         </li>`;
@@ -885,8 +891,9 @@ function houseFolds(ui: GameUi, h: Property): TemplateResult {
       ${next <= 3
         ? homeButton(
             ui,
-            `Furnish: ${furnishName(next, native).toLowerCase()} (${furnishCost(next, native)})`,
+            `Furnish: ${furnishName(next, native).toLowerCase()}`,
             { act: "furnish" },
+            { cost: furnishCost(next, native) }, // LEDGER (r15)
           )
         : nothing}`,
   )}
@@ -918,7 +925,7 @@ function houseFolds(ui: GameUi, h: Property): TemplateResult {
                   </button>`
                 : homeButton(
                     ui,
-                    "Hire",
+                    html`Hire${price(d.wage, { per: "month" })}`,
                     { act: "servant", kind: k },
                     {
                       cls: "slim",
@@ -939,7 +946,15 @@ function houseFolds(ui: GameUi, h: Property): TemplateResult {
             (+1 stress a month each).
           </p>
           <div class="cq-acts">
-            ${homeButton(ui, "Take in a lodger", { act: "lodger" })}
+            ${homeButton(
+              ui,
+              html`Take in a
+              lodger${price(LODGER_RENT, {
+                gain: true,
+                per: "month",
+              })}`,
+              { act: "lodger" },
+            )}
             ${(h.lodgers ?? 0) > 0
               ? homeButton(
                   ui,
@@ -1013,13 +1028,11 @@ function houseFolds(ui: GameUi, h: Property): TemplateResult {
 
 /** Selling the house (or giving up the lease): what it's worth, and the button. */
 function sellFold(ui: GameUi, h: Property): TemplateResult {
-  const native = lifeIsNative(ui.s, ui.life!);
-  const worth = h.leased
-    ? 0
-    : Math.round((native ? LODGES : HOUSES)[h.level - 1].cost * 0.5) +
-      extrasWorth(h, native);
+  const worth = propertyWorth(ui.s, ui.life!, h); // LEDGER (r15): what selling pays
   const kept = storedLoads(h) > 0;
-  const word = h.leased ? "Give up the lease" : `Sell it (about ${worth})`;
+  const word = h.leased
+    ? "Give up the lease"
+    : html`Sell it${price(worth, { gain: true })}`;
   return fold(
     "home:sell",
     h.leased ? "Give up the lease" : "Sell the house",
@@ -1041,7 +1054,7 @@ function sellFold(ui: GameUi, h: Property): TemplateResult {
               confirm(
                 h.leased
                   ? `Give up the lease on the ${h.name.toLowerCase()}?`
-                  : `Sell the ${h.name.toLowerCase()} for about ${worth} coins?`,
+                  : `Sell the ${h.name.toLowerCase()} for ${worth} coins?`,
               )
             )
               void ui.cmd({ k: "property", act: "sell", id: h.id });
@@ -1081,7 +1094,7 @@ function buyFold(ui: GameUi, h: Property | undefined): TemplateResult {
           const level = i + 1;
           if (level <= owned) return nothing;
           const buy = houseCheck(s, life, level);
-          const price = housePrice(s, life, level);
+          const cost = housePrice(s, life, level);
           // Renting is for those without a house of their own here.
           const lease = native || owned ? null : leaseCheck(s, life, level);
           const rented = h?.leased && h.level === level;
@@ -1110,7 +1123,7 @@ function buyFold(ui: GameUi, h: Property | undefined): TemplateResult {
                 title=${buy.check.ok ? "" : buy.check.why}
                 @click=${() => void home(ui, { act: "buy", arg: level })}
               >
-                ${native ? "Build" : "Buy"} ${price}
+                ${native ? "Build" : "Buy"}${price(cost, { have: life.purse })}
               </button>
               ${lease
                 ? rented
@@ -1124,7 +1137,10 @@ function buyFold(ui: GameUi, h: Property | undefined): TemplateResult {
                       @click=${() =>
                         void home(ui, { act: "lease", arg: level })}
                     >
-                      Rent ${leaseRent(level)}/mo
+                      Rent${price(leaseRent(level), {
+                        per: "month",
+                        have: life.purse,
+                      })}
                     </button>`
                 : nothing}
             </span>
@@ -1189,7 +1205,11 @@ function otherProperty(ui: GameUi, p: number): TemplateResult {
                   )
                 : homeButton(
                     ui,
-                    "Let it",
+                    html`Let
+                    it${price(LET_RENT[pr.level - 1], {
+                      gain: true,
+                      per: "month",
+                    })}`,
                     { act: "let", id: pr.id },
                     {
                       cls: "slim",

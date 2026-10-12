@@ -50,6 +50,7 @@ import { pressPage } from "./Gazette"; // POWER (r12)
 import { verdictChip } from "./Here";
 import { housesSection } from "./Home"; // HOME (r12)
 import { journalTab } from "./Journal";
+import { acresSection, ledgerPage } from "./Ledger"; // LEDGER (r15)
 import {
   atPlace,
   boatsSection,
@@ -521,7 +522,7 @@ function estatePage(ui: GameUi, sub: string): TemplateResult {
       )}
       ${child
         ? html`<p class="cq-empty">Not until you're sixteen.</p>`
-        : html`${housesSection(ui)} ${propertySection(ui)}
+        : html`${housesSection(ui)} ${acresSection(ui)} ${propertySection(ui)}
           ${section(
             "Where to buy",
             html`<ul class="cq-where-list small">
@@ -560,6 +561,8 @@ function estatePage(ui: GameUi, sub: string): TemplateResult {
             </ul>`,
           )}`}`;
     }
+    case "ledger": // LEDGER (r15)
+      return ledgerPage(ui);
     case "boats":
       return boatsPage(ui);
     case "partners": // PARTNERS (r13)

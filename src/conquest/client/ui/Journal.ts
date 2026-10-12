@@ -9,10 +9,12 @@ import type { JournalEntry } from "../../engine/Types";
 import { LetterIcon } from "../Icons";
 import { achievementsPage } from "./Achievements"; // MAP (r12)
 import { GameUi, section } from "./Context";
+import { takeJournalAffairs } from "./Ledger"; // LEDGER (r15)
 import { pageHead } from "./Nav";
 import { leadsSection } from "./WorldUi";
 
-let filter: "all" | "good" | "bad" = "all";
+// LEDGER (r15): your own affairs (boats, cargoes, traders, firms), or the rest.
+let filter: "all" | "good" | "bad" | "mine" | "rest" = "all";
 let shown = 60;
 
 /** The Journal's pages: the diary (and what waits on you), leads, the story. */
@@ -57,8 +59,17 @@ export function journalTab(ui: GameUi, sub = "diary"): TemplateResult {
         </ol>`
       : html`<p class="cq-empty">Nothing worth the telling yet.</p>`}`;
   }
+  if (takeJournalAffairs()) filter = "mine"; // LEDGER (r15)
   const entries = life.journal
-    .filter((e) => filter === "all" || e.tone === filter)
+    .filter((e) =>
+      filter === "all"
+        ? true
+        : filter === "mine"
+          ? !!e.aff
+          : filter === "rest"
+            ? !e.aff
+            : e.tone === filter,
+    )
     .slice()
     .reverse();
   const keys = keysOf(entries);
@@ -99,6 +110,8 @@ export function journalTab(ui: GameUi, sub = "diary"): TemplateResult {
       ${(
         [
           ["all", "Everything"],
+          ["mine", "Your affairs"],
+          ["rest", "The rest"],
           ["good", "Good"],
           ["bad", "Bad"],
         ] as const
@@ -164,7 +177,7 @@ function entry(
       ? html`<li class="cq-journal-who">${charName(ui.s.chars[e.c])}</li>`
       : nothing;
   return html`${who}
-    <li class=${e.tone ?? ""}>
+    <li class="${e.tone ?? ""} ${e.aff ? "affair" : ""}">
       <time>${formatDate(e.day)}</time>
       <span>${e.text}</span>
     </li>`;

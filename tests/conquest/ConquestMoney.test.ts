@@ -574,7 +574,14 @@ describe("money over a lifetime", () => {
     expect(rows.passive.length).toBe(years);
     const peak = (p: Profile) => Math.max(...rows[p].map((r) => r.purse));
     // Thrift keeps you out of want, but a tenant who never spends isn't rich.
-    expect(peak("passive")).toBeLessThan(400);
+    // LEDGER (r15): a business is now paid the takings its budget promised
+    // (until r15 every owner's business was paid as if left unminded at the
+    // month's turn). The spender's planting pays, and that moves the world's
+    // dice: in this run the tenant falls into debt once, is cut back to
+    // frugal for good, and puts by 450 or so by 68. Not rich, and a small
+    // fraction of what the spender has.
+    expect(peak("passive")).toBeLessThan(600);
+    expect(peak("passive") * 4).toBeLessThan(peak("spender"));
     // The spender has things to show for it: land, a house, a business.
     const owns = rows.spender.map((r) => r.owns).join(" ");
     expect(owns).toMatch(/h\d/);

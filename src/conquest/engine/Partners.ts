@@ -34,6 +34,7 @@ import {
 } from "./Firms";
 import type { ConquestGame } from "./Game";
 import { hooks, raiseEvent } from "./Hooks";
+import { withFlow, type FlowTag } from "./LedgerCore"; // LEDGER (r15)
 import { addressOf, correspondents, npcWrite, postRoute } from "./Letters";
 import {
   beginOutcome,
@@ -1475,8 +1476,11 @@ export function partnersMonthly(g: ConquestGame): void {
   if (!ps) return;
   for (const f of ps.firms) {
     if (f.status !== "trading") continue;
-    firmMonth(g, f);
-    firmTroubles(g, f);
+    // LEDGER (r15): each partner's share, in their month's books and news.
+    withFlow(g, firmFlow(f), () => {
+      firmMonth(g, f);
+      firmTroubles(g, f);
+    });
   }
   tidyPartners(g);
 }
@@ -1625,10 +1629,12 @@ function firmBudget(s: GameState, life: Life): Part[] {
           ? {
               label: `Partners' shares of ${x.name}`,
               value: -r2((inc * (100 - p.share)) / 100),
+              key: `firm:${f.id}`, // LEDGER (r15)
             }
           : {
               label: `Your share: ${f.name} (${p.share}%)`,
               value: r2((inc * p.share) / 100),
+              key: `firm:${f.id}`, // LEDGER (r15)
             },
       );
       continue;
@@ -1638,11 +1644,17 @@ function firmBudget(s: GameState, life: Life): Part[] {
       out.push({
         label: `Your share: ${f.name} (${p.share}%)`,
         value: r2((v * p.share) / 100),
+        key: `firm:${f.id}`, // LEDGER (r15)
       });
   }
   return out;
 }
 hooks.forecast.push(firmBudget);
+
+/** LEDGER (r15): the name a firm's month goes under in each partner's books. */
+export function firmFlow(f: { id: number; name: string }): FlowTag {
+  return { key: `firm:${f.id}`, label: `Your share: ${f.name}`, aff: "firm" };
+}
 
 // ---------------------------------------------------------------- for the pages
 

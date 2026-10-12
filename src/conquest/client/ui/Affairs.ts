@@ -21,7 +21,6 @@ import {
   isChildLife,
   jobTitle,
   lifeIsNative,
-  monthlyBudget,
   officesOf,
   opinionOf,
   promotionView,
@@ -50,6 +49,7 @@ import {
   STATION_HOUSE,
   WORK_DAYS,
 } from "../../engine/LifeRules";
+import { kitWorth } from "../../engine/Money"; // LEDGER (r15)
 import {
   activeMovements,
   foundCheck,
@@ -79,6 +79,7 @@ import {
   landCheck,
   propertyBudget,
   propertyOf,
+  propertyWorth, // LEDGER (r15)
 } from "../../engine/Property";
 import {
   armyMen,
@@ -120,7 +121,9 @@ import {
   provLink,
   section,
 } from "./Context";
+import { forecastBlock } from "./Ledger"; // LEDGER (r15)
 import { tradesLink, workNotes } from "./Livelihood";
+import { price } from "./Price"; // LEDGER (r15)
 import { term } from "./Terms";
 
 // ---------------------------------------------------------------- work
@@ -866,20 +869,10 @@ export function purseSection(ui: GameUi): TemplateResult | typeof nothing {
   if (isChildLife(s, life)) return nothing;
   const st = stationOf(s, life);
   const b = beneathStation(s, life);
-  const budget = monthlyBudget(s, ui.w, life);
-  const ins = budget.parts.filter((p) => !p.mul && p.value > 0);
-  const outs = budget.parts.filter((p) => !p.mul && p.value < 0);
   const kit = KIT_KEYS.filter((k) => hasKit(s, life, k));
   const ventures = life.ventures ?? [];
   const native = lifeIsNative(s, life);
   const could = life.purse >= 2 * livingOf(native, st.expected).cost;
-  const line = (p: { label: string; value: number }) =>
-    html`<li>
-      <span>${p.label}</span
-      ><b class=${p.value >= 0 ? "good" : "bad"}
-        >${p.value >= 0 ? "+" : "−"}${Math.abs(p.value).toFixed(1)}</b
-      >
-    </li>`;
   return section(
     "Purse and standing",
     html`<div class="cq-station">
@@ -916,24 +909,7 @@ export function purseSection(ui: GameUi): TemplateResult | typeof nothing {
               : "Beneath your station, but money's short: people pity you rather than talk."}
         </p>
       </div>
-      <div class="cq-ledger">
-        <ul aria-label="Coming in">
-          ${ins.length
-            ? ins.map(line)
-            : html`<li class="cq-muted"><span>Nothing coming in</span></li>`}
-        </ul>
-        <ul aria-label="Going out">
-          ${outs.map(line)}
-        </ul>
-        <p class="cq-ledger-total">
-          A month, all told:
-          <b class=${budget.total >= 0 ? "good" : "bad"}
-            >${budget.total >= 0 ? "+" : "−"}${Math.abs(budget.total).toFixed(
-              1,
-            )}</b
-          >
-        </p>
-      </div>
+      ${forecastBlock(ui)}
       ${kit.length
         ? html`<h4 class="cq-int-group">What you keep</h4>
             <ul class="cq-kit">
@@ -961,7 +937,11 @@ export function purseSection(ui: GameUi): TemplateResult | typeof nothing {
                               kit: k,
                             })}
                         >
-                          ${k === "pew" ? "Give up" : "Sell"}
+                          ${k === "pew"
+                            ? "Give up"
+                            : html`Sell${price(kitWorth(s, life, k), {
+                                gain: true,
+                              })}`}
                         </button>`
                       : nothing}
                   </li>`,
@@ -1001,7 +981,9 @@ export function purseSection(ui: GameUi): TemplateResult | typeof nothing {
                             play("coins");
                         }}
                       >
-                        Sell
+                        Sell${price(Math.round(v.value * 100) / 100, {
+                          gain: true,
+                        })}
                       </button>`
                     : nothing}
                 </li>`;
@@ -1077,7 +1059,10 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
                 <div class="cq-prop-acts">
                   ${ex
                     ? action(
-                        `Grow it${EXPAND_COST[pr.level] !== undefined ? ` (${EXPAND_COST[pr.level]})` : ""}`,
+                        html`Grow
+                        it${EXPAND_COST[pr.level] !== undefined
+                          ? price(EXPAND_COST[pr.level], { have: life.purse })
+                          : nothing}`,
                         ex,
                         async () => {
                           if (
@@ -1097,10 +1082,12 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
                   <button
                     class="cq-btn small quiet"
                     @click=${() =>
-                      confirm(`Sell the ${kind.toLowerCase()} at ${where}?`) &&
+                      confirm(
+                        `Sell the ${kind.toLowerCase()} at ${where} for ${propertyWorth(s, life, pr)} coins?`,
+                      ) &&
                       void ui.cmd({ k: "property", act: "sell", id: pr.id })}
                   >
-                    Sell
+                    Sell${price(propertyWorth(s, life, pr), { gain: true })}
                   </button>
                 </div>
               </li>`;
@@ -1123,7 +1110,14 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
       <div class="cq-btnrow">
         ${house.next
           ? action(
-              `${house.level ? "A better house" : native ? "A lodge of your own" : "A house of your own"}: ${house.next.name.toLowerCase()} (${housePrice(s, life)})`,
+              html`${house.level
+                ? "A better house"
+                : native
+                  ? "A lodge of your own"
+                  : "A house of your own"}:
+              ${house.next.name.toLowerCase()}${price(housePrice(s, life), {
+                have: life.purse,
+              })}`,
               house.check,
               prop("house"),
               "small",
@@ -1132,7 +1126,7 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
             )
           : nothing}
         ${action(
-          `Ten acres (${LAND_LOT.cost})`,
+          html`Ten acres${price(LAND_LOT.cost, { have: life.purse })}`,
           land,
           prop("land"),
           "small",
@@ -1158,9 +1152,9 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
             const ok = !busy && life.purse >= e.cost;
             return html`<li>
               <b>${e.label.replace(/^(\w)/, (m) => m.toUpperCase())}</b>
-              <span class="small">(${e.cost} coins, +${e.renown} renown)</span>
+              <span class="small">(+${e.renown} renown)</span>
               ${action(
-                "Give",
+                html`Give${price(e.cost, { have: life.purse })}`,
                 ok
                   ? { ok: true }
                   : {
@@ -1219,7 +1213,10 @@ function commandBlock(ui: GameUi, a: Army): TemplateResult {
       ),
     )}
     ${action(
-      `Beat the drum for volunteers (${RECRUIT_COST})`,
+      html`Beat the drum for
+      volunteers${price(RECRUIT_COST, {
+        have: life.purse,
+      })}`,
       a.depart >= 0
         ? { ok: false, why: "Not on the march" }
         : !own
@@ -1317,7 +1314,11 @@ function projectsBlock(ui: GameUi, n: number): TemplateResult {
           ${built
             ? nothing
             : action(
-                "Build it",
+                html`Build
+                it${price(d.cost, {
+                  have: nation.gold,
+                  note: "from the treasury",
+                })}`,
                 check,
                 async () => {
                   if (

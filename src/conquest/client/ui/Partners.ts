@@ -85,6 +85,7 @@ import {
 import type { PlacePart } from "./Livelihood";
 import { letterClock, ModalHooks } from "./Modals";
 import { howTo, pageHead } from "./Nav";
+import { price } from "./Price"; // LEDGER (r15)
 import { curly, reasons, shell, stage } from "./Scene";
 
 const money = (v: number) =>
@@ -651,16 +652,34 @@ function putBlock(ui: GameUi, f: Firm): TemplateResult {
     const c = who(k);
     const check = decisionCheck(s, life, f, k, a, c, pick.cap);
     const cost = decisionCost(f, k);
+    // LEDGER (r15): what it costs, in a coin chip: from the chest, or your purse.
+    const chest = { have: f.chest, note: "from the firm's chest" };
     const label =
       k === "expand"
         ? f.biz
-          ? `Grow it (${cost})`
+          ? html`Grow it${price(cost, chest)}`
           : f.lost
-            ? `Fit out another ${f.lost.name} (${cost})`
+            ? html`Fit out another ${f.lost.name}${price(cost, chest)}`
             : DECISIONS[k].label
         : k === "buyout" && c >= 0
-          ? `Buy them out (${buyoutPrice(s, f, c)})`
+          ? html`Buy them
+            out${price(buyoutPrice(s, f, c), {
+              have: life.purse,
+            })}`
           : DECISIONS[k].label;
+    const put =
+      k === "goods" && a
+        ? html`Put it${price(a, chest)}`
+        : k === "call" && a
+          ? html`Put
+            it${price(
+              Math.round((a * (partnerIn(f, life.c)?.share ?? 0)) / 100),
+              {
+                have: life.purse,
+                note: `your part of ${a}, by your share`,
+              },
+            )}`
+          : "Put it";
     return html`<li class="cq-firm-put">
       <span class="cq-firm-put-text">
         <b>${DECISIONS[k].label}</b>
@@ -755,11 +774,10 @@ function putBlock(ui: GameUi, f: Firm): TemplateResult {
         ${action(
           k === "sell"
             ? "Put it"
-            : label.startsWith("Buy") ||
-                label.startsWith("Grow") ||
-                label.startsWith("Fit")
+            : (k === "expand" && (f.biz || f.lost)) ||
+                (k === "buyout" && c >= 0)
               ? label
-              : "Put it",
+              : put,
           check,
           () =>
             ui.cmd({
@@ -943,6 +961,11 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
   const fc = articlesForecast(s, t);
   const accept = other ? null : articlesAcceptance(s, t, c, life);
   const lawyers = lawyersHere(s, life);
+  // LEDGER (r15): the lawyer's fee, paid when the articles are put.
+  const fee =
+    t.lawyer < 0 || t.lawyer === life.c
+      ? 0
+      : (lawyers.find((x) => x.c === t.lawyer)?.fee ?? 0);
   const cost = foundingCost(t);
   const chest = t.sides[0].cap + t.sides[1].cap - cost;
   const setShare = (v: number) => {
@@ -1309,7 +1332,17 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
           >
             ${post
               ? `Send them to ${c.first} by post`
-              : `Put them to ${c.first}`}
+              : `Put them to ${c.first}`}${(route?.cost ?? 0) + fee > 0
+              ? price((route?.cost ?? 0) + fee, {
+                  have: life.purse,
+                  note: [
+                    fee ? `the lawyer's fee ${fee}` : "",
+                    route?.cost ? `postage ${route.cost}` : "",
+                  ]
+                    .filter(Boolean)
+                    .join(", "),
+                })
+              : nothing}
           </button>
           <button class="cq-btn quiet" @click=${() => ui.modal(null)}>
             Back
@@ -1582,7 +1615,12 @@ export function articlesScene(
                   ?disabled=${!canPay}
                   @click=${() => run({ k: "partners", act: "sign", id: o.id })}
                 >
-                  <span class="cq-choice-label">Sign the articles</span>
+                  <span class="cq-choice-label"
+                    >Sign the
+                    articles${mine.cap
+                      ? price(mine.cap, { have: life.purse })
+                      : nothing}</span
+                  >
                   <span class="cq-choice-tip"
                     >${canPay
                       ? `The firm is made: ${mine.cap ? `${mine.cap} coins go into it, and ` : ""}your share of the profit comes out every month.`

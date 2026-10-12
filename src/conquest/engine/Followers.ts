@@ -14,6 +14,7 @@ import {
   interpretingFor,
   tonguesInWords,
 } from "./Interpreters"; // wave 2 (r11)
+import { setFlow, withFlow } from "./LedgerCore"; // LEDGER (r15)
 import {
   beginOutcome,
   earn,
@@ -46,6 +47,7 @@ import { wake } from "./Pace";
 import { ageOf, charName, enemiesOf, hasTrait } from "./Queries";
 import { Rng } from "./Rng";
 import type {
+  Army, // LEDGER (r15)
   Character,
   Company,
   Follower,
@@ -53,6 +55,7 @@ import type {
   GameState,
   Life,
   LifeCommand,
+  Nation, // LEDGER (r15)
   PlaceKind,
   Skill,
   Stat,
@@ -786,11 +789,16 @@ export function promoteFollower(
   return null;
 }
 
+/** LEDGER (r15): what a bonus costs (a coin or two over their wages). */
+export function bonusCost(f: Follower): number {
+  return Math.max(2, Math.round(f.wage || 3));
+}
+
 /** A coin or two over their wages: loyalty bought, honestly. */
 export function bonus(g: ConquestGame, life: Life, id: number): string | null {
   const f = peopleOf(life).find((x) => x.id === id);
   if (!f) return "Not one of your people.";
-  const cost = Math.max(2, Math.round(f.wage || 3));
+  const cost = bonusCost(f);
   if (life.purse < cost) return `Costs ${cost} coins.`;
   if ((life.cooldowns[`people:bonus:${id}`] ?? 0) > g.s.day)
     return "You gave them something lately.";
@@ -982,11 +990,13 @@ export function disband(g: ConquestGame, life: Life): string | null {
 export function peopleMonthly(g: ConquestGame, life: Life): void {
   const s = g.s;
   const list = peopleOf(life);
+  const was = setFlow(g, null); // LEDGER (r15)
   if (list.length) {
     touchLife(g, life);
     let owed = 0;
     for (const f of [...list]) {
       const c = s.chars[f.c];
+      setFlow(g, followerFlow(s, f)); // LEDGER (r15): their wages
       if (!c?.alive || c.abroad) {
         life.people = peopleOf(life).filter((x) => x !== f);
         journal(
@@ -1041,6 +1051,7 @@ export function peopleMonthly(g: ConquestGame, life: Life): void {
         continue;
       }
     }
+    setFlow(g, { key: "people", label: "Your people", aff: "people" });
     if (owed)
       journal(
         g,
@@ -1049,7 +1060,22 @@ export function peopleMonthly(g: ConquestGame, life: Life): void {
         "bad",
       );
   }
+  if (life.company)
+    setFlow(g, { key: "co", label: `${life.company.name}`, aff: "company" });
   companyMonthly(g, life);
+  setFlow(g, was);
+}
+
+/** LEDGER (r15): the name a follower's wages go under in the month's books. */
+export function followerFlow(
+  s: GameState,
+  f: Follower,
+): { key: string; label: string; aff: "people" } {
+  return {
+    key: `f:${f.id}`,
+    label: `${charName(s.chars[f.c])}, ${followerTitle(f).toLowerCase()}: wages`,
+    aff: "people",
+  };
 }
 
 function leave(
@@ -1100,16 +1126,7 @@ function companyMonthly(g: ConquestGame, life: Life): void {
     }
     co.men = Math.round(a.regs.reduce((m, r) => m + r.men, 0));
   }
-  const pay = Math.round(co.men * COMPANY_PAY[co.kind] * 10) / 10;
-  // In the field in wartime, the colony takes the company into its pay,
-  // with an allowance for its captain.
-  const field = co.army >= 0 ? s.armies.find((x) => x.id === co.army) : null;
-  const crown = field ? s.nations[field.owner] : null;
-  const inPay =
-    !!field &&
-    !!crown &&
-    enemiesOf(s, field.owner).length > 0 &&
-    crown.gold >= pay + 3 + co.men * 0.05;
+  const { pay, inPay, field, crown } = companyPay(s, co);
   if (inPay !== !!co.inPay) {
     journal(
       g,
@@ -1123,7 +1140,7 @@ function companyMonthly(g: ConquestGame, life: Life): void {
     else delete co.inPay;
   }
   if (inPay) {
-    const allowance = Math.round((3 + co.men * 0.05) * 10) / 10;
+    const allowance = companyAllowance(co.men);
     g.nation(field!.owner).gold -= Math.round((pay + allowance) * 10) / 10;
     earn(g, life, allowance);
     co.owed = 0;
@@ -1164,23 +1181,111 @@ function companyMonthly(g: ConquestGame, life: Life): void {
   }
 }
 
+/**
+ * LEDGER (r15): what a company costs you this month, or (in the field in
+ * wartime, when the colony can pay) that the colony takes it into its pay.
+ */
+export function companyPay(
+  s: GameState,
+  co: Company,
+): {
+  pay: number;
+  inPay: boolean;
+  field: Army | null;
+  crown: Nation | null;
+} {
+  const pay = Math.round(co.men * COMPANY_PAY[co.kind] * 10) / 10;
+  // In the field in wartime, the colony takes the company into its pay,
+  // with an allowance for its captain.
+  const field =
+    co.army >= 0 ? (s.armies.find((x) => x.id === co.army) ?? null) : null;
+  const crown = field ? s.nations[field.owner] : null;
+  const inPay =
+    !!field &&
+    !!crown &&
+    enemiesOf(s, field.owner).length > 0 &&
+    crown.gold >= pay + 3 + co.men * 0.05;
+  return { pay, inPay, field, crown };
+}
+
+/** LEDGER (r15): a captain's allowance while the colony pays the company. */
+export function companyAllowance(men: number): number {
+  return Math.round((3 + men * 0.05) * 10) / 10;
+}
+
 /** Each day: trading trips and band jobs come home. */
 export function peopleDaily(g: ConquestGame, life: Life): void {
   const s = g.s;
   for (const f of [...peopleOf(life)]) {
     const t = f.task;
     if (!t || t.back > s.day) continue;
-    if (t.kind === "trade") tradeHome(g, life, f);
-    else if (t.kind === "job") jobHome(g, life, f);
+    // LEDGER (r15): what comes home, in the month's books and your own news.
+    if (t.kind === "trade")
+      withFlow(g, tradeFlow(s, f), () => tradeHome(g, life, f));
+    else if (t.kind === "job")
+      withFlow(
+        g,
+        { key: "band", label: "Your band's jobs", chance: true, aff: "band" },
+        () => jobHome(g, life, f),
+      );
   }
 }
 
-const TRADE_LUCK = [
+/**
+ * What a trading trip comes to: the one table a clerk's trip is rolled from
+ * and its odds are reckoned from (Odds.ts). LEDGER (r15): exported.
+ */
+export const TRADE_LUCK = [
   { p: 0.08, x: 0, text: "lost: robbed on the road, or the cargo went down" },
   { p: 0.22, x: 0.85, text: "sold into a poor market" },
   { p: 0.48, x: 1.22, text: "a fair trip" },
   { p: 0.22, x: 1.6, text: "a rich trip" },
 ];
+
+/** LEDGER (r15): a trip's other terms: days out, and a disloyal clerk's temptation. */
+export const TRADE_TRIP = {
+  days: [30, 60] as [number, number],
+  /** Below this loyalty a clerk may keep the stake… */
+  disloyal: 25,
+  /** …this often. */
+  runs: 0.35,
+  /** Each point of skill shifts the roll this much the right way (up to `skillMax`). */
+  skillStep: 0.012,
+  skillMax: 0.15,
+  /** In wartime the roll goes this much the wrong way. */
+  war: 0.05,
+};
+
+/**
+ * LEDGER (r15): how far a clerk's skill (and a war) shift a trip's roll: up
+ * is towards a rich trip. (Until r15 the shift ran the wrong way: a skilled
+ * clerk was likelier to lose the stake, and a war made trips better.)
+ */
+export function tradeShift(skill: number, war: boolean): number {
+  return (
+    Math.min(TRADE_TRIP.skillMax, skill * TRADE_TRIP.skillStep) -
+    (war ? TRADE_TRIP.war : 0)
+  );
+}
+
+/** LEDGER (r15): whether a follower's people are at war (the roads are worse). */
+export function tradeAtWar(s: GameState, f: Follower): boolean {
+  const c = s.chars[f.c];
+  return s.wars.some((w) => w.a === c?.nation || w.b === c?.nation);
+}
+
+/** LEDGER (r15): the name a clerk's trip goes under in the month's books. */
+export function tradeFlow(
+  s: GameState,
+  f: Follower,
+): { key: string; label: string; chance: true; aff: "trader" } {
+  return {
+    key: `tr:${f.id}`,
+    label: `${charName(s.chars[f.c])}'s trading`,
+    chance: true,
+    aff: "trader",
+  };
+}
 
 function tradeHome(g: ConquestGame, life: Life, f: Follower): void {
   const s = g.s;
@@ -1190,7 +1295,7 @@ function tradeHome(g: ConquestGame, life: Life, f: Follower): void {
   touchLife(g, life);
   f.task = null;
   // A disloyal clerk keeps the money.
-  if (f.loyalty < 25 && g.rng.chance(0.35)) {
+  if (f.loyalty < TRADE_TRIP.disloyal && g.rng.chance(TRADE_TRIP.runs)) {
     life.people = peopleOf(life).filter((x) => x !== f);
     journal(
       g,
@@ -1202,9 +1307,9 @@ function tradeHome(g: ConquestGame, life: Life, f: Follower): void {
     return;
   }
   const skill = followerSkill(s, f);
-  const war = s.wars.some((w) => w.a === c?.nation || w.b === c?.nation);
-  let roll = g.rng.next() - Math.min(0.15, skill * 0.012);
-  if (war) roll += 0.05;
+  const war = tradeAtWar(s, f);
+  // LEDGER (r15): skill turns the trip towards a rich one, a war against it.
+  let roll = g.rng.next() + tradeShift(skill, war);
   let pick = TRADE_LUCK[TRADE_LUCK.length - 1];
   for (const luck of TRADE_LUCK) {
     if (roll < luck.p) {

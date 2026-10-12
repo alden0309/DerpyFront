@@ -4,6 +4,7 @@
 
 import { kill } from "./Characters";
 import type { ConquestGame } from "./Game";
+import { flowAff, noteFlow } from "./LedgerCore"; // LEDGER (r15)
 import { meOf } from "./LifeQueries";
 import { SKILL_MAX, SKILL_NAMES, xpToNext } from "./LifeRules";
 import { charName, hasTrait } from "./Queries";
@@ -32,14 +33,19 @@ export function journal(
   life: Life,
   text: string,
   tone?: "good" | "bad",
+  /** LEDGER (r15): false: never news of your affairs (a skill grown on the way). */
+  affairs = true,
 ): void {
   touchLife(g, life);
   if (g.capture?.seat === life.seat) g.capture.lines.push(text);
+  // LEDGER (r15): news of your own affairs is marked as such.
+  const aff = affairs ? flowAff(g) : undefined;
   life.journal.push({
     day: g.s.day,
     text,
     ...(tone ? { tone } : {}),
     c: life.c,
+    ...(aff ? { aff } : {}),
   });
   if (life.journal.length > MAX_JOURNAL)
     life.journal.splice(0, life.journal.length - MAX_JOURNAL);
@@ -108,6 +114,7 @@ export function gainXp(
       // FIXES (r15): "your letters have grown", not "has".
       `Your ${SKILL_NAMES[sk].toLowerCase()} ${/s$/.test(SKILL_NAMES[sk]) ? "have" : "has"} grown to ${life.skills[sk]}.`,
       "good",
+      false, // LEDGER (r15)
     );
   }
   if (life.skills[sk] >= SKILL_MAX) life.xp[sk] = 0;
@@ -135,9 +142,11 @@ export function addRenown(g: ConquestGame, life: Life, n: number): void {
 
 export function earn(g: ConquestGame, life: Life, coins: number): void {
   touchLife(g, life);
+  const was = life.purse;
   life.purse = Math.round((life.purse + coins) * 100) / 100;
   if (coins > 0) life.tally.earned += coins;
   life.tally.peakPurse = Math.max(life.tally.peakPurse, life.purse);
+  noteFlow(g, life, life.purse - was); // LEDGER (r15): the month's books
 }
 
 export function spend(g: ConquestGame, life: Life, coins: number): void {

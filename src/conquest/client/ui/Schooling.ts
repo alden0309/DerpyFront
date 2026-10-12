@@ -50,6 +50,7 @@ import type {
 } from "../../engine/Types";
 import { play } from "../Sound";
 import { bar, charLink, GameUi, token } from "./Context";
+import { price } from "./Price"; // LEDGER (r15)
 import { curly } from "./Scene";
 
 // ---------------------------------------------------------------- doing it
@@ -872,7 +873,12 @@ function offerCard(
         title=${o.check.ok ? "" : o.check.why}
         @click=${run}
       >
-        ${label}
+        ${label}${o.once
+          ? price(o.once, {
+              have: ui.life?.purse,
+              note: o.kind === "apprentice" ? "the premium" : "the passage",
+            })
+          : nothing}${o.fee ? price(o.fee, { per: "month" }) : nothing}
       </button>
     </div>
   </article>`;

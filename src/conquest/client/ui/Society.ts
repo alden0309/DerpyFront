@@ -79,6 +79,7 @@ import {
   token,
 } from "./Context";
 import { articlesLetter } from "./Partners"; // PARTNERS (r13)
+import { price } from "./Price"; // LEDGER (r15)
 import { curly, reasons } from "./Scene";
 import { steadyOrder } from "./Steady";
 
@@ -239,7 +240,13 @@ function letterCard(ui: GameUi, l: Letter): TemplateResult {
                   play("seal");
               }}
             >
-              ${labels[0]}
+              ${labels[0]}${l.arg &&
+              (l.kind === "favour" ||
+                l.kind === "business" ||
+                l.kind === "threat" ||
+                l.kind === "blackmail")
+                ? price(l.arg, { have: ui.life?.purse })
+                : nothing}
             </button>
             <button
               class="cq-btn small"
@@ -738,7 +745,16 @@ export function writeModal(
             : nothing}
         <div class="cq-btnrow end">
           ${action(
-            html`${QuillIcon()} Seal and send`,
+            html`${QuillIcon()} Seal and
+            send${route
+              ? price(route.cost + (desk.kind === "business" ? arg : 0), {
+                  have: life.purse,
+                  note:
+                    desk.kind === "business"
+                      ? `the postage and your stake of ${arg}`
+                      : "the postage",
+                })
+              : nothing}`,
             check,
             async () => {
               if (
@@ -1007,7 +1023,7 @@ export function hostModal(ui: GameUi): TemplateResult {
     </ul>
     <div class="cq-btnrow end">
       ${action(
-        `Send the invitations (${cost})`,
+        html`Send the invitations${price(cost, { have: life.purse })}`,
         guestCheck,
         async () => {
           if (
@@ -1268,7 +1284,7 @@ export function tonguesSection(ui: GameUi): TemplateResult {
         ? html`<div class="cq-btnrow">
             ${books.map((b) =>
               action(
-                `${b.title} (${b.cost})`,
+                html`${b.title}${price(b.cost, { have: life.purse })}`,
                 (pts[b.tongue] ?? 0) >= BOOK_CAP
                   ? { ok: false, why: "Books will take you no further." }
                   : (life.cooldowns[`book:${b.tongue}`] ?? 0) > s.day

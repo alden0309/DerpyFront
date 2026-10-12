@@ -112,6 +112,10 @@ export interface Part {
   value: number;
   /** A multiplier (×1.2) rather than an amount added. */
   mul?: boolean;
+  /** LEDGER (r15): a stable key for a month's money line (the same as its flow's). */
+  key?: string;
+  /** LEDGER (r15): a line that runs on luck: `value` is what's expected, from lo to hi. */
+  chance?: [number, number];
 }
 
 /** A number together with everything that made it. */
@@ -418,6 +422,8 @@ export interface Job {
   worked?: number;
   /** Days in a row away from the post (too many and you're let go). */
   awayDays?: number;
+  /** LEDGER (r15): days worked in the month just reckoned (a business is minded by them). */
+  lastWorked?: number;
 }
 
 /** On the road (or at sea): the hops still to go, like an army's march. */
@@ -442,6 +448,8 @@ export interface JournalEntry {
   tone?: "good" | "bad";
   /** The character it happened to (lives span generations). */
   c: number;
+  /** LEDGER (r15): news of your own affairs (a boat home, a cargo sold), not the world's. */
+  aff?: AffairKind;
 }
 
 export type MilestoneKind =
@@ -782,6 +790,10 @@ export interface Life {
   achieved?: Record<string, number>;
   /** MAP (r12): counts some achievements wait on (days at sea, on a winter road). */
   achCount?: Record<string, number>;
+  /** LEDGER (r15): the month's books so far (every coin in and out, by where it came from). */
+  books?: MonthBooks;
+  /** LEDGER (r15): the last months' statements, newest last. */
+  statements?: Statement[];
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -3221,4 +3233,86 @@ export interface DiceCommand {
   /** A bid: how many, of which face. */
   q?: number;
   f?: number;
+}
+
+// ---- LEDGER (r15)
+// Money made plain: the month's books and statements, news of your own
+// affairs kept apart from the world's, and the things of yours out working.
+
+/** What of a player's own affairs a journal entry is news of. */
+export type AffairKind =
+  | "boat"
+  | "cargo"
+  | "shares"
+  | "trader"
+  | "band"
+  | "people"
+  | "company"
+  | "firm"
+  | "paper"
+  | "property"
+  | "contract"
+  | "statement";
+
+/** One line of a month's books: coins in (+) or out (−) from one source. */
+export interface BookLine {
+  /** A stable key for the source ("b:12" a boat's crew and keep, "m:Living"). */
+  k: string;
+  /** What it was, in words. */
+  l: string;
+  /** Coins in (+) or out (−), summed over the month. */
+  v: number;
+  /** Settled at the month's turn (wages, keep, rents). */
+  t?: 1;
+  /** Ran on luck (a voyage, a cargo, a dividend, the rents). */
+  c?: 1;
+}
+
+/** The month's books so far. */
+export interface MonthBooks {
+  /** The day the month's books were opened, and the purse then. */
+  from: number;
+  open: number;
+  lines: BookLine[];
+  /** What the month's turn was expected to bring, all told (the forecast as it began). */
+  expected?: number;
+  /** The forecast as the turn began, by key (for "expected" beside "came to"). */
+  exp?: Record<string, number>;
+}
+
+/** A month's statement, closed at the month's turn. */
+export interface Statement extends MonthBooks {
+  /** The day it was closed, and the purse then. */
+  to: number;
+  close: number;
+}
+
+/** Something of yours out working, for the tracker (Estate › Ledger). */
+export interface AffairItem {
+  kind: AffairKind;
+  /** A stable id ("b:12"). */
+  id: string;
+  /** "The Swallow", "A cargo of tobacco for London". */
+  title: string;
+  /** What it's doing: "fishing off Marblehead, with Richard as skipper". */
+  what: string;
+  /** How it stands, in a word or two: "at work", "at sea", "idle", "unpaid". */
+  status: string;
+  /** Bad news waiting on it (short-handed, unpaid, a disloyal clerk). */
+  warn?: string;
+  /** Where it is (a province). */
+  p?: number;
+  /** The day it's due back or home. */
+  due?: number;
+  /** What it costs a month (negative), if anything. */
+  cost?: number;
+  /** What it's expected to bring: a month (or a trip, or when it's home), with the range. */
+  expected?: {
+    value: number;
+    lo: number;
+    hi: number;
+    per: "month" | "trip" | "home";
+  };
+  /** The page that manages it. */
+  go?: { tab: string; sub?: string };
 }

@@ -14,6 +14,7 @@ import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { raiseEvent } from "./Hooks";
 import { afterHearing } from "./Leads";
+import { withFlow, type FlowTag } from "./LedgerCore"; // LEDGER (r15)
 import {
   addRenown,
   earn,
@@ -1115,14 +1116,25 @@ export function pressMonthly(g: ConquestGame): void {
           (x.readers * READER_PRICE - x.writers.length * WRITER_WAGE - 1) * 100,
         ) / 100;
       x.income = income;
-      if (income >= 0) earn(g, ol, income);
-      else spend(g, ol, -income);
+      // LEDGER (r15): the paper's month, in its owner's books and news.
+      withFlow(g, paperFlow(x), () =>
+        income >= 0 ? earn(g, ol, income) : spend(g, ol, -income),
+      );
       // A printer hears things first.
       if (s.day % 3 === 0 || hash01(x.id, s.day) < 0.34)
         afterHearing(g, ol, "gazette");
     } else if (!shut && r.chance(0.4)) npcPiece(g, x);
     powerChanged(g, "p");
   }
+}
+
+/** LEDGER (r15): the name a paper's month goes under in its owner's books. */
+export function paperFlow(x: { id: number; name: string }): FlowTag {
+  return {
+    key: `np:${x.id}`,
+    label: `${x.name}: the month's profit`,
+    aff: "paper",
+  };
 }
 
 /** A paper of the computer's prints something, in its line. */
