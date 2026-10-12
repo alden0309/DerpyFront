@@ -1494,7 +1494,7 @@ export const BOND_HISTORY: BondEvent[] = [
   },
   {
     year: 1688,
-    month: 2,
+    month: 4,
     where: ["pennsylvania", "newjersey", "delaware"],
     text: 'Four Friends of Germantown write the first protest against slavery in the English colonies: "Is there any that would be done or handled at this manner?"',
   },

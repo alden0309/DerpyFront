@@ -641,7 +641,7 @@ const WOOLMAN: LifeEventDef = {
       : null,
   title: "A Quaker tailor at your table",
   body: () =>
-    "A Quaker tailor from Mount Holly, John Woolman, travelling among Friends, stays a night under your roof. He is plainly dressed in undyed cloth, and won't drink from your silver. At breakfast he asks, very gently, whether he may pay those who served him at table; and later, walking out past the quarters, he asks whether you have ever considered how you would wish to be treated, were your places changed.",
+    "A Quaker tailor from Mount Holly, John Woolman, travelling among Friends, stays a night under your roof. He is plainly dressed, and quiet, and eats little. At breakfast he asks, very gently, whether he may pay those who served him at table; and later, walking out past the quarters, he asks whether you have ever considered how you would wish to be treated, were your places changed.",
   choices: [
     {
       label: "Hear him out, and think on it",
@@ -689,7 +689,7 @@ const GERMANTOWN: LifeEventDef = {
       : null,
   title: "The paper from Germantown",
   body: () =>
-    'At the meeting, a paper from four Friends of Germantown (Garret Hendricks, Derick and Abraham op den Graeff, and Francis Daniel Pastorius) is read out: "Is there any that would be done or handled at this manner? viz., to be sold or made a slave for all the time of his life?" Nobody can answer it, and the meeting sends it up to the Yearly Meeting as too weighty a matter to decide.',
+    'At the meeting, a paper from four Friends of Germantown (Garret Hendericks, Derick op de Graeff, Francis Daniel Pastorius and Abraham op den Graef) is read out: "Is there any that would be done or handled at this manner? viz., to be sold or made a slave for all the time of his life?" Nobody can answer it, and the meeting sends it up to the Quarterly Meeting as too weighty a matter to decide here.',
   choices: [
     {
       label: "Stand up and say they're right",

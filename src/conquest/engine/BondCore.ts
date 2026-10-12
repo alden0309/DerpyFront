@@ -1402,8 +1402,6 @@ export function saleAt(
         "a Liverpool ship",
         "a London ship",
         "a Newport sloop",
-        "a ship from Barbados",
-        "the ship",
       ])!;
       const note = estate
         ? rng.pick([
