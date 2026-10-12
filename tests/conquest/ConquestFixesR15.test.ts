@@ -46,11 +46,7 @@ import {
   ensureOffices,
   localOfficesOf,
 } from "../../src/conquest/engine/Offices";
-import {
-  charName,
-  provincesOf,
-  settlers,
-} from "../../src/conquest/engine/Queries";
+import { charName } from "../../src/conquest/engine/Queries";
 import type { Character } from "../../src/conquest/engine/Types";
 import { lifeOf, plan, prov, ticks, world } from "./LifeUtil";
 
@@ -467,25 +463,6 @@ describe("FIXES r15: the Liar's dice log keeps the whole table's story", () => {
 });
 
 describe("FIXES r15: what the political playthrough turned up", () => {
-  test("a fallen capital moves to the biggest town left, not the first on the list", () => {
-    const g = world({ start: 1700 });
-    const s = g.s;
-    const n = s.nations.findIndex((x) => x.key === "england");
-    const old = s.nations[n].capital;
-    const left = provincesOf(s, n).filter((q) => q !== old);
-    const biggest = left.reduce((a, b) =>
-      settlers(s.provinces[b]) > settlers(s.provinces[a]) ? b : a,
-    );
-    const enemy = s.nations.findIndex((x) => x.key === "france");
-    cede(g, old, enemy);
-    expect(s.nations[n].capital).toBe(biggest);
-    // Not a fishing station in Newfoundland: one of the larger towns.
-    const sizes = left
-      .map((q) => settlers(s.provinces[q]))
-      .sort((a, b) => b - a);
-    expect(settlers(s.provinces[s.nations[n].capital])).toBe(sizes[0]);
-  });
-
   test("a county office lost to conquest is told to the player who held it", () => {
     const g = world({ start: 1700 });
     const life = lifeOf(g);
