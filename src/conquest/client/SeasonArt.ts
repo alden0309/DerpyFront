@@ -67,6 +67,9 @@ function hash(n: number): number {
 }
 
 /**
+ * SEA (r15): no longer drawn: the map shows the engine's own storms
+ * (StormArt.ts, Storms.ts). Kept for the seasons test.
+ *
  * The hurricanes out on `day` (fractional): two to four a season, born
  * east of the Windward Islands from August to October, running west-north-
  * west through the islands and the Gulf and recurving north. Map units for

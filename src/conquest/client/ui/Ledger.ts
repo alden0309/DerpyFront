@@ -142,6 +142,7 @@ export function forecastBlock(ui: GameUi): TemplateResult {
 // ---------------------------------------------------------------- your own news
 
 const KIND_NAMES: Record<AffairKind, string> = {
+  sea: "At sea", // SEA (r15): a cruise or a voyage
   boat: "Your boats",
   cargo: "A cargo",
   shares: "Your shares",
@@ -220,6 +221,11 @@ const ico = (body: TemplateResult | ReturnType<typeof svg>) =>
 
 function affairIcon(kind: AffairKind): TemplateResult {
   switch (kind) {
+    // SEA (r15): a cruise or a voyage: a square-rigger under sail.
+    case "sea":
+      return ico(
+        svg`<path d="M5 22h22l-3 5H8z"/><path d="M12 22V5M21 22V8"/><path d="M8 7h8l-1 5H9zM8 13h8l-1 5H9zM18 10h6l-1 4h-4zM18 15h6l-1 4h-4z"/><path d="M12 5l5-1"/>`,
+      );
     case "boat":
       return ico(
         svg`<path d="M4 21h24l-4 6H8z"/><path d="M16 21V4"/><path d="M16 5q8 7 0 14z"/><path d="M15 7q-7 6 0 11z"/>`,

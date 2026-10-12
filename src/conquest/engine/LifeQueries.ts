@@ -47,6 +47,7 @@ import type { World } from "./Map";
 import { landHopDays, landHopDaysIn, seaHopDays } from "./Paths";
 import { propertyBudget } from "./Property";
 import { iceBound, seasonPay } from "./Seasons"; // MAP (r12)
+import { canoeHopDays, passageHopDays } from "./SeaSpeed"; // SEA (r15)
 // SOCIETY (r11)
 import { seatTitleOf } from "./CouncilTitles"; // POWER (r12)
 import { AMERICAS, worldOf } from "./Map";
@@ -278,6 +279,11 @@ export function jobTitle(life: Life): string {
 export function atPost(s: GameState, w: World, life: Life): boolean {
   const job = life.job;
   if (!job) return false;
+  // SEA (r15): gone on a voyage of your own trade (the fur brigade, a survey) is work.
+  for (const h of hooks.atPost) {
+    const r = h(s, life);
+    if (r !== undefined) return r;
+  }
   switch (job.kind) {
     case "soldier":
     case "warrior":
@@ -1063,10 +1069,22 @@ export function hopDaysFor(
   pace = 1,
   /** MAP (r12): the day the hop begins, for the season's roads (-1: any). */
   day = -1,
+  /** SEA (r15): the voyage goes on from a port of call (a day there, not two to find a ship). */
+  afterSea = false,
+  /** SEA (r15): paddled along the coast in a canoe (the native peoples). */
+  canoe = false,
+  /** SEA (r15): the voyage ends with this hop (a short one alone is a ferry). */
+  lastSea = true,
+  /** SEA (r15): the post, which keeps the old pace (four days in port, 110 km a day). */
+  post = false,
 ): number {
   if (sea) {
     const lane = map.provinces[from].sea.find(([q]) => q === to);
-    return lane ? seaHopDays(lane[1]) : -1;
+    if (!lane) return -1;
+    if (post) return seaHopDays(lane[1]);
+    return canoe
+      ? canoeHopDays(lane[1])
+      : passageHopDays(lane[1], afterSea, lastSea); // SEA (r15)
   }
   const nb = map.provinces[from].nb.find(([q]) => q === to);
   if (!nb) return -1;
@@ -1109,6 +1127,8 @@ export function travelRoute(
   sailor = false,
   /** Faster than walking: a horse, a coach. */
   pace = 1,
+  /** SEA (r15): the post's way, at its old pace (Letters.ts); passages are quicker. */
+  post = false,
 ): Route | null {
   if (from === to) return null;
   const count = map.provinces.length;
@@ -1149,7 +1169,14 @@ export function travelRoute(
       for (const [q, km] of map.provinces[u].sea) {
         if (km > reach) break;
         if (done[q] || iceBound(map.provinces[q], month)) continue;
-        const d = best + seaHopDays(km) + (native ? 1 : 0);
+        // SEA (r15): two days to find a ship, a day at each port of call after.
+        const d =
+          best +
+          (post
+            ? seaHopDays(km) + (native ? 1 : 0)
+            : native
+              ? canoeHopDays(km)
+              : passageHopDays(km, bySea[u] === 1 && u !== from, q === to));
         if (d < days[q]) {
           days[q] = d;
           prev[q] = u;
@@ -1171,7 +1198,18 @@ export function travelRoute(
   let cost = 0;
   let at = from;
   path.forEach((q, i) => {
-    const d = hopDaysFor(map, at, q, seaHops[i], pace, s.day); // MAP (r12)
+    const d = hopDaysFor(
+      map,
+      at,
+      q,
+      seaHops[i],
+      pace,
+      s.day, // MAP (r12)
+      i > 0 && seaHops[i - 1], // SEA (r15): a port of call
+      native && seaHops[i],
+      !seaHops[i + 1], // SEA (r15): the voyage ends here
+      post,
+    );
     legs.push(d);
     if (seaHops[i]) {
       if (!sailor && !native) {

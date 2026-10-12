@@ -4,7 +4,7 @@
 // (people for hire at the tavern, the boatyard at the docks, contracts,
 // the den's business, the watch-house); Affairs keeps the ledger of them.
 
-import { html, nothing, TemplateResult } from "lit";
+import { html, nothing, svg, TemplateResult } from "lit";
 import {
   boatPrice,
   boatRoute,
@@ -797,12 +797,13 @@ export function boatGlyph(kind: string): TemplateResult {
     <path d="M3 20h34l-5 6H9z" class="hull" />
     ${[...Array(masts).keys()].map((i) => {
       const x = masts === 1 ? 20 : 12 + i * (16 / Math.max(1, masts - 1));
-      return html`<path d="M${x} 20V4" class="mast" /><path
+      // SEA (r15): svg, not html, so the masts and sails are drawn inside the <svg>.
+      return svg`<path d="M${x} 20V4" class="mast" /><path
           d="M${x} 6q6 6 0 12z"
           class="sail"
         />`;
     })}
-    ${masts === 0 ? html`<path d="M14 14l12 -4" class="mast" />` : nothing}
+    ${masts === 0 ? svg`<path d="M14 14l12 -4" class="mast" />` : nothing}
   </svg>`;
 }
 

@@ -798,7 +798,8 @@ const SHOCKS: {
     months: 3,
     why: "the hurricane",
     say: (x) => `A hurricane has flattened the cane at ${x}: sugar is dear.`,
-    when: (s, w, p) => w.raw[p] === "sugar" && w.tropical[p],
+    // SEA (r15): only real storms flatten the cane now (Storms.ts).
+    when: () => false,
   },
 ];
 

@@ -91,6 +91,7 @@ import { firmTag, partnerPart } from "./Partners"; // PARTNERS (r13)
 import { playersHere, playerTag } from "./Players"; // HOME (r12)
 import { powerParts } from "./PowerParts"; // POWER (r12)
 import { price, splitPrice } from "./Price"; // LEDGER (r15)
+import { seaCallout } from "./SeaPage"; // SEA (r15)
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 import { TERMS } from "./Terms";
@@ -302,7 +303,8 @@ export function herePanel(ui: GameUi): TemplateResult {
   const leading = s.armies.find((a) => a.commander === me.id);
   return html`${provHeader(ui, p)} ${playersHere(ui)} ${jailCallout(ui)}
   ${welcome(ui)}
-  ${t
+  ${t && t.ship !== undefined ? seaCallout(ui) : nothing /* SEA (r15) */}
+  ${t && t.ship === undefined
     ? html`<div class="cq-callout road">
         <p>
           On the road to <b>${ui.map.provinces[t.dest].name}</b>. Next:

@@ -127,6 +127,37 @@ export const hooks = {
     key: string,
     pool: import("./Types").EventPool,
   ) => void)[],
+  // SEA (r15)
+  /** Each day of the world, after the lives' own (the hurricanes, ships at sea). */
+  daily: [] as ((g: ConquestGame) => void)[],
+  /**
+   * A letter from afar (a computer character's) for a life: a module that
+   * holds it back (at sea: it waits in port) takes it and returns true.
+   */
+  holdLetter: [] as ((
+    g: ConquestGame,
+    life: Life,
+    key: string,
+    ctx: Record<string, number>,
+  ) => boolean)[],
+  /**
+   * A firm's month for a kind of firm kept elsewhere (a privateer): its
+   * profit, or undefined if it isn't that module's.
+   */
+  firmMonth: [] as ((
+    g: ConquestGame,
+    f: import("./Types").Firm,
+  ) => number | undefined)[],
+  /** At your post or not, decided elsewhere (on a voyage of your own trade): undefined if not that module's. */
+  atPost: [] as ((
+    s: import("./Types").GameState,
+    life: Life,
+  ) => boolean | undefined)[],
+  /** What a firm holds besides its chest, business, cargo and paper (a privateer's ship). */
+  firmAssets: [] as ((
+    s: import("./Types").GameState,
+    f: import("./Types").Firm,
+  ) => number)[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

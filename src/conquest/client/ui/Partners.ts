@@ -254,6 +254,9 @@ function holdLine(ui: GameUi, f: Firm): string {
   // BUSINESS (r15): a trading company's trade.
   if (f.hold === "company" && f.co)
     return `${goodsName(f.co.plan.item)} from ${placeName(s, ui.w, f.co.plan.from, f.co.plan.from)} to ${placeName(s, ui.w, f.co.plan.to, f.co.plan.from)} · ${f.co.plan.loads} loads every ${f.co.plan.every === 1 ? "month" : `${f.co.plan.every} months`}`;
+  // SEA (r15): a privateering company's ship (Work › At sea sends her cruising).
+  if (f.sea)
+    return `The ${f.sea.ship}, a privateer out of ${town}${f.sea.lost ? " (lost)" : f.sea.cruise >= 0 ? ", on a cruise" : ""} · her cruises: Work › At sea`;
   if (f.lost) return `Cargoes, out of ${town} (its ${f.lost.name} lost)`;
   return `Cargoes, out of ${town}`;
 }

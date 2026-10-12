@@ -11,6 +11,7 @@ import { BOATS } from "../../engine/Boats";
 import { bizTradesAt } from "../../engine/Business"; // BUSINESS (r15)
 import { dateOf } from "../../engine/Calendar"; // MAP (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
+import { cruiseOffers, pardonCheck } from "../../engine/Cruises"; // SEA (r15)
 import { STALL_SECONDS, tableAt } from "../../engine/DiceCore"; // DICE (r14)
 import { schoolable } from "../../engine/Edu"; // EDU (r13)
 import { buyoutPrice } from "../../engine/Firms"; // PARTNERS (r13)
@@ -23,6 +24,7 @@ import {
   lifeIsNative,
   opinionOf,
   promotionView,
+  skillLevel, // SEA (r15)
 } from "../../engine/LifeQueries";
 import {
   EUROPE_FORTUNE,
@@ -38,6 +40,7 @@ import {
 import { localOfficesOf } from "../../engine/Offices"; // POWER (r12)
 import { firmsWith, MAX_FIRMS } from "../../engine/PartnersCore"; // PARTNERS (r13)
 import { standCheck } from "../../engine/Politics";
+import { commissionAt } from "../../engine/Privateers"; // SEA (r15)
 import {
   houseCheck,
   houseOf,
@@ -1490,6 +1493,149 @@ const GOALS: Goal[] = [
     go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
     guide: "coins",
   },
+  // ---- SEA (r15): to sea in person
+  {
+    id: "go-privateering",
+    title: "Go to sea on a privateer (or a pirate)",
+    words:
+      "privateer privateering pirate piracy cruise sea sail prizes prize sign articles ship captain quartermaster hand letter marque plunder treasure galleon nassau tortuga port royal",
+    group: "Work",
+    where:
+      "Work › At sea, at a port where a ship is fitting out: privateers at the ports of a colony at war, pirates in the islands, Florida and the Carolinas (1650 to 1730), best at a haven. Sign as a hand, an officer or her captain, with the odds shown; you sail with her on the map and are paid your share when she's home.",
+    needs: (ui) => {
+      const s = ui.s;
+      const life = ui.life!;
+      const here = life.travel ? 0 : cruiseOffers(s, ui.w, life.prov).length;
+      return [
+        adult(ui),
+        {
+          label: here
+            ? `${here} ship${here === 1 ? "" : "s"} fitting out here`
+            : "A port where a ship is fitting out (a colony at war, or pirate waters)",
+          met: here > 0,
+        },
+        {
+          label: "Seamanship 2 or fighting 4, to sign as a hand",
+          met:
+            skillLevel(s, life, "seamanship") >= 2 ||
+            skillLevel(s, life, "fighting") >= 4,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "work", sub: "sea" }),
+    goLabel: "Work › At sea",
+    guide: "sea",
+  },
+  {
+    id: "own-privateer",
+    title: "Take my own boat out privateering",
+    words:
+      "own boat sloop schooner privateer privateering letter marque commission cruise command captain prizes pirate",
+    group: "Work",
+    where:
+      "Work › At sea, at the port where she lies: a sloop or bigger, crewed and sound. Take out a letter of marque (a colony at war), choose a hunting ground and a short or long cruise, and fit her out; you command her.",
+    needs: (ui) => {
+      const life = ui.life!;
+      const b = (life.boats ?? []).filter((x) =>
+        BOATS[x.kind].uses.includes("privateering"),
+      );
+      return [
+        {
+          label: b.length
+            ? `The ${b[0].name}`
+            : "A sloop or bigger (Estate › Boats, or a boatyard)",
+          met: b.length > 0,
+        },
+        {
+          label:
+            "A war on, for a letter of marque (or go on the account: piracy)",
+          met: ui.me
+            ? ui.s.wars.some(
+                (w) => w.a === ui.me!.nation || w.b === ui.me!.nation,
+              )
+            : false,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "work", sub: "sea" }),
+    goLabel: "Work › At sea",
+    guide: "sea",
+  },
+  {
+    id: "privateer-company",
+    title: "Start a privateering company with other players",
+    words:
+      "privateering company privateer partners partnership owners shares friends players fit out ship subscribe invest war",
+    group: "Money and home",
+    where:
+      "Work › At sea, Get up a company, at a port of a colony at war: a ship new from the yard or your own boat, your stake; ask other players by letter, let the town's merchants take up the rest, and sign the owners' articles. Then send her cruising, or command her yourself.",
+    needs: (ui) => [
+      adult(ui),
+      {
+        label: "A port of a colony at war",
+        met: !ui.life!.travel && commissionAt(ui.s, ui.w, ui.life!.prov) >= 0,
+      },
+    ],
+    go: tab({ k: "tab", tab: "work", sub: "sea" }),
+    goLabel: "Work › At sea",
+    guide: "sea",
+  },
+  {
+    id: "trade-voyage",
+    title: "Go on a voyage with my trade",
+    words:
+      "voyage merchant sailor whaling whaler fur brigade trader posts surveyor survey patent travel venture lay go with stay ashore send word",
+    group: "Work",
+    where:
+      "It comes to you as a scene every month or two at your post: a merchant sailor's voyage (with a venture of your own), a whaler's season on the grounds, the fur brigade to the posts, a surveyor's patent. Go with it on the map, or stay ashore and send word. Under way, Work › At sea shows where you are.",
+    needs: (ui) => {
+      const k = ui.life!.job?.kind;
+      return [
+        {
+          label: k
+            ? `Your trade: ${k}`
+            : "A trade that travels: sailor, whaler, fur trader (a partner), native trader, surveyor",
+          met:
+            !!k &&
+            ["sailor", "whaler", "trapper", "trader", "surveyor"].includes(k),
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "work", sub: "sea" }),
+    goLabel: "Work › At sea",
+    guide: "sea",
+  },
+  {
+    id: "hurricanes",
+    title: "Know when a hurricane is coming",
+    words:
+      "hurricane storm weather season tempest signs swell glass barometer red sky batten shelter harbour",
+    group: "Travel and the world",
+    where:
+      "They show on the map from June to November, turning, with their track and where they're heading; Work › At sea lists those abroad. A day or two before one reaches you come the signs (a scene): batten down ashore, or run for a harbour at sea.",
+    go: tab({ k: "tab", tab: "work", sub: "sea" }),
+    goLabel: "Work › At sea",
+    guide: "sea",
+  },
+  {
+    id: "pirate-pardon",
+    title: "Take the King's pardon for piracy",
+    words:
+      "pardon pirate piracy amnesty act of grace surrender governor 1718 1688 forgive heat",
+    group: "Office and the law",
+    where:
+      "Work › At sea, while a pardon is proclaimed (1688, and September 1717 to the end of 1718), at an English colony: surrender to the governor and your piracy is forgiven.",
+    needs: (ui) => [
+      check(
+        pardonCheck(ui.s, ui.w, ui.life!),
+        "A pardon on offer, and you here to take it",
+      ),
+    ],
+    go: tab({ k: "tab", tab: "work", sub: "sea" }),
+    goLabel: "Work › At sea",
+    guide: "sea",
+  },
+  // ---- end SEA (r15)
   // ---------------------------------------------------------------- EDU (r13): school, a trade, college
   {
     id: "school",

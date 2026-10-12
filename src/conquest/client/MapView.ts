@@ -65,7 +65,7 @@ import {
   unknownMark,
   whiteFlag,
 } from "./MapArt";
-import { drawStorm, stormsOn } from "./SeasonArt";
+import { drawStorm } from "./SeasonArt";
 import {
   drawSprite,
   loadSprites,
@@ -73,6 +73,7 @@ import {
   SpriteName,
   spriteWidth,
 } from "./Sprites";
+import { drawStormWay, seaStorms } from "./StormArt"; // SEA (r15)
 import { GOOD_COLORS } from "./Text";
 import {
   drawCanoe,
@@ -3209,7 +3210,8 @@ export class MapView {
   /**
    * MAP (r12): the hurricanes of the season, wheeling across the islands
    * and the Gulf (only where you'd see the sky darken: near country in
-   * sight).
+   * sight). SEA (r15): the engine's own storms (Storms.ts), turning slowly,
+   * with their track behind and their way ahead.
    */
   private drawStorms(
     o: Overlay,
@@ -3219,7 +3221,7 @@ export class MapView {
     onScreen: (x: number, y: number, pad?: number) => boolean,
   ): void {
     if (o.mode !== "nation" && o.mode !== "terrain") return;
-    const storms = stormsOn(o.dayNow, this.geo.width);
+    const storms = seaStorms(o.state, o.dayNow, this.geo.width); // SEA (r15)
     if (!storms.length) return;
     const fog = o.fog;
     for (const st of storms) {
@@ -3235,8 +3237,9 @@ export class MapView {
         if (!near) continue;
       }
       this.movers++;
-      const fade = Math.min(1, st.age * 6, (1 - st.age) * 6);
-      drawStorm(this.ctx, x, y, r, now / 900, 0.85 * fade);
+      // SEA (r15): its way, then the whirl, turning slowly.
+      drawStormWay(this.ctx, st, sx, sy, this.view.scale);
+      drawStorm(this.ctx, x, y, r, now / 2400, 0.85 * st.alpha);
     }
   }
 

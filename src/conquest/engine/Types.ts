@@ -440,6 +440,8 @@ export interface Travel {
   cost: number;
   /** LIFE (r11): sailing in your own boat (its id); it stays where you land. */
   boat?: number;
+  /** SEA (r15): aboard a cruise or a voyage (its id): the ship carries you, not your own feet. */
+  ship?: number;
 }
 
 export interface JournalEntry {
@@ -1553,6 +1555,8 @@ export interface GameState {
   partners?: PartnersState;
   /** DICE (r14): the tables of Liar's dice in the taverns. */
   dice?: DiceState;
+  /** SEA (r15): the hurricanes, cruises and voyages, and privateers fitting out. */
+  sea?: SeaState;
 }
 
 export type TravellerKind =
@@ -1846,7 +1850,9 @@ export type LifeCommand =
   // DICE (r14): Liar's dice in the tavern.
   | DiceCommand
   // BUSINESS (r15): a business of your own, its hands and manager; a trading company.
-  | BusinessCommand;
+  | BusinessCommand
+  // SEA (r15): cruises, voyages, the privateering company.
+  | SeaCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1889,6 +1895,8 @@ export interface GameDelta {
   partners?: PartnersDelta;
   /** DICE (r14): the tables, when any changed (each player's copy hides the others' dice). */
   dice?: DiceState;
+  /** SEA (r15): the hurricanes, cruises and voyages, when any changed. */
+  sea?: SeaState;
 }
 
 // ---- WORLD (r11)
@@ -2262,6 +2270,8 @@ export interface Boat {
   quirk?: string;
   /** Away on its own work with a skipper (a follower id), back on this day. */
   away?: { back: number; skipper: number; p: number } | null;
+  /** SEA (r15): a letter of marque for her (a governor's commission): whose, and from when. */
+  marque?: { nation: number; day: number } | null;
 }
 
 // ---- SOCIETY (r11)
@@ -2898,7 +2908,9 @@ export type FirmHold =
   | "paper"
   | "venture"
   // BUSINESS (r15): a trading company for particular goods.
-  | "company";
+  | "company"
+  // SEA (r15): a privateer, fitted out under a letter of marque.
+  | "privateer";
 
 /** One partner in a firm. */
 export interface FirmPartner {
@@ -3073,6 +3085,8 @@ export interface Firm {
   ended?: number;
   /** BUSINESS (r15): a trading company's trade, factors and voyages. */
   co?: CompanyState;
+  /** SEA (r15): a privateering company's ship, her commission and her cruises. */
+  sea?: PrivateerFit | null;
 }
 
 /** Everything of the PARTNERS track kept in the game. */
@@ -3258,6 +3272,7 @@ export interface DiceCommand {
 
 /** What of a player's own affairs a journal entry is news of. */
 export type AffairKind =
+  | "sea" // SEA (r15): a cruise or a voyage
   | "boat"
   | "cargo"
   | "shares"
@@ -3445,4 +3460,246 @@ export interface BusinessCommand {
   plan?: CompanyPlan;
   /** A company's chest at its founding. */
   cap?: number;
+}
+
+// ---- SEA (r15)
+// To sea in person. Cruises: a privateer under a letter of marque, or a
+// pirate on the account, sailing from port to the hunting grounds and home
+// with the players aboard (each one's `travel.ship` is the cruise): sails
+// sighted, chases, boardings and prizes, sold at the prize court or to a
+// fence. Voyages: the trades that travel (a merchant's run to the islands, a
+// whaling voyage, the fur brigade to the posts, a survey in the
+// backcountry). The privateering company (a firm: FirmHold "privateer").
+// And the hurricanes, crossing the map by the day.
+
+/** A hurricane, from the tropical Atlantic or the Caribbean, moving by the day. */
+export interface Storm {
+  id: number;
+  /** As the islands named them: the saint of the day it was first seen. */
+  name: string;
+  born: number;
+  /** Its eye; where it heads (degrees: 0 north, 90 east, 270 west); how fast (km a day). */
+  lat: number;
+  lon: number;
+  dir: number;
+  km: number;
+  /** 1 (a gale) to 5 (the greatest storms); 0 blown out. */
+  force: number;
+  /** As strong as it will grow over warm water. */
+  peak: number;
+  /** Where its eye was each day, oldest first ([lat, lon]). */
+  track: [number, number][];
+  /** Its way: recurving north and north-east, west into the Gulf, or up the coast. */
+  bent: "recurve" | "gulf" | "coast";
+  /** The latitude it turns north at. */
+  turn: number;
+  /** Provinces it has struck, and seats it has warned (each once). */
+  struck: number[];
+  warned: string[];
+  /** The day it blew itself out (it fades from the map after). */
+  ended?: number;
+}
+
+/** A privateer's commission (from a governor), or none: a pirate. */
+export type CruiseFlag = "privateer" | "pirate";
+
+/** Aboard as captain, an officer (a lieutenant, the quartermaster), or a hand. */
+export type CruiseRole = "captain" | "officer" | "crew";
+
+/** A player aboard a cruise. */
+export interface Hand {
+  seat: string;
+  c: number;
+  role: CruiseRole;
+  joined: number;
+}
+
+/** A ship taken. */
+export interface Prize {
+  id: number;
+  /** "the Nuestra Señora del Rosario". */
+  name: string;
+  /** Her rig: a sloop, a schooner, a snow, a ship, a galleon. */
+  kind: string;
+  /** Whose she was (a nation), or -1. */
+  flag: number;
+  /** What she and her cargo should fetch at a fair sale. */
+  value: number;
+  day: number;
+  /** Sent in with a prize crew (sold when the cruise is home), or her plunder only (carried). */
+  how: "sent" | "plunder";
+  /** A lawful prize under the commission (an enemy's, in wartime), or piracy. */
+  lawful: boolean;
+  status: "at sea" | "home" | "retaken" | "sold";
+  /** What it fetched, once sold. */
+  sold?: number;
+}
+
+/** The matter before the ship: a sail sighted, alongside, taken, or a man-of-war. */
+export interface Encounter {
+  kind: string;
+  flag: number;
+  guns: number;
+  value: number;
+  name: string;
+  stage: "sighted" | "alongside" | "taken" | "warship";
+  day: number;
+}
+
+/** A ship's way across the map: where she is, and the hops ahead (by sea, or on the rivers). */
+export interface Underway {
+  prov: number;
+  path: number[];
+  sea: boolean[];
+  /** Left `prov` on this day; makes path[0] on that one. */
+  depart: number;
+  arrive: number;
+}
+
+/** A cruise: a ship out after prizes, with players aboard. */
+export interface Cruise {
+  id: number;
+  flag: CruiseFlag;
+  /** The commission's nation (a privateer), or the nation she sailed from (a pirate). */
+  nation: number;
+  /** The ship: her name, rig, guns, men aboard (all told), hull and spirit (0 to 100). */
+  ship: string;
+  kind: BoatKind;
+  guns: number;
+  men: number;
+  hull: number;
+  morale: number;
+  /** Whose she is: an outfit of the town's merchants (or the pirates' own), a player's boat, a company. */
+  owner: "outfit" | "boat" | "firm";
+  boat?: { seat: string; id: number };
+  firm?: number;
+  /** The captain (a character), or -1 for one of the computer's nobody knows (`cname`). */
+  captain: number;
+  cname: string;
+  /** The players aboard. */
+  hands: Hand[];
+  /** Where she sailed from (and comes home to), and the hunting ground. */
+  port: number;
+  ground: string;
+  /** The stations she cruises between on the ground. */
+  stations: number[];
+  phase: "fitting" | "out" | "hunting" | "home" | "selling" | "done" | "lost";
+  way: Underway | null;
+  /** She sails on this day; hunts until that one; the court (or the fence) settles on the next. */
+  sails: number;
+  until: number;
+  court?: number;
+  start: number;
+  /** Chances at a sail so far on the ground. */
+  chances: number;
+  encounter: Encounter | null;
+  prizes: Prize[];
+  /** Days since the last prize (the men grow restless); scurvy's hold (0 to 100). */
+  idle: number;
+  scurvy: number;
+  /** What she's done, newest last. */
+  log: { day: number; text: string }[];
+  /** How it ended. */
+  end?: string;
+  /** The offer at the quay she was fitted out from (so it isn't offered twice). */
+  offer?: string;
+  /** Letters from afar for those aboard, waiting till she makes port. */
+  mail?: { seat: string; key: string; ctx: Record<string, number> }[];
+  /** News of the peace reached her (prizes after it are restored to their owners). */
+  peace?: number;
+}
+
+/** The trades that travel: a merchant's run, a whaling voyage, the fur brigade, a survey. */
+export type VoyageKind = "merchant" | "whaling" | "furs" | "survey";
+
+/** A player gone with their trade: out, at the far end, and home again. */
+export interface Voyage {
+  id: number;
+  kind: VoyageKind;
+  seat: string;
+  c: number;
+  /** The ship (or the brigade, or the survey party), and its master (a character, or -1). */
+  ship: string;
+  master: number;
+  from: number;
+  to: number;
+  phase: "out" | "there" | "home" | "done";
+  way: Underway | null;
+  /** Sets off home from the far end on this day: be aboard. */
+  sails: number;
+  start: number;
+  /** Coins put into a private venture (a sailor's privilege, the trade goods). */
+  stake: number;
+  /** What the voyage has made so far: barrels of oil, packs of fur, chains run. */
+  take: number;
+  log: { day: number; text: string }[];
+  end?: string;
+  /** Letters from afar waiting till you're ashore. */
+  mail?: { key: string; ctx: Record<string, number> }[];
+  /** Goods sent with the brigade while you stayed at home: it comes back on `sails`. */
+  sent?: boolean;
+}
+
+/** A privateering company's ship and her commission. */
+export interface PrivateerFit {
+  ship: string;
+  kind: BoatKind;
+  guns: number;
+  hull: number;
+  /** The letter of marque: whose, and from when; null without one. */
+  commission: { nation: number; day: number } | null;
+  /** Out on a cruise (its id), or -1 in port. */
+  cruise: number;
+  cruises: number;
+  /** Prizes taken, and what the owners' half fetched, all told. */
+  taken: number;
+  fetched: number;
+  /** Where she lies (a province). */
+  at: number;
+  /** Lost (taken, foundered): how. She's gone; the company may buy another. */
+  lost?: string;
+  /** This month's prize money in, and outfits laid out (for the books). */
+  inMonth?: number;
+  outMonth?: number;
+}
+
+/** A company being got up to fit out a privateer: who's put in what. */
+export interface Subscription {
+  id: number;
+  /** Who's getting it up (a player's character), and where. */
+  by: number;
+  prov: number;
+  name: string;
+  /** The ship: new from the yard (her kind and price), or a boat of the getter-up's (put in at what she'd fetch). */
+  kind: BoatKind;
+  price: number;
+  boat?: number;
+  shipName: string;
+  /** Who's put in what (characters; a boat put in counts at what she'd fetch), and who's been asked. */
+  stakes: { c: number; coins: number; boat?: number }[];
+  asked: number[];
+  opened: number;
+  until: number;
+  status: "open" | "signed" | "lapsed";
+}
+
+/** Everything of the SEA track kept in the game. */
+export interface SeaState {
+  storms: Storm[];
+  cruises: Cruise[];
+  voyages: Voyage[];
+  subs: Subscription[];
+}
+
+/** A command for the sea (Cruises.ts, Voyages.ts, Privateers.ts). */
+export interface SeaCommand {
+  k: "sea";
+  /** What to do (Cruises.ts lists them). */
+  act: string;
+  id?: number;
+  /** A hunting ground, a role, a ship's kind. */
+  key?: string;
+  arg?: number;
+  c?: number;
+  name?: string;
 }

@@ -73,13 +73,13 @@ export function isFeverSeason(lat: number, month: number): boolean {
   return month >= 11 || month <= 3;
 }
 
-/** Hurricane season in the Caribbean and the Gulf. */
+/** Hurricane season in the Caribbean and the Gulf (SEA r15: June to November, as it is). */
 export function isHurricaneSeason(
   lat: number,
   lon: number,
   month: number,
 ): boolean {
   return (
-    lat > 10 && lat < 33 && lon > -98 && lon < -60 && month >= 7 && month <= 9
+    lat > 10 && lat < 33 && lon > -98 && lon < -58 && month >= 5 && month <= 10
   );
 }

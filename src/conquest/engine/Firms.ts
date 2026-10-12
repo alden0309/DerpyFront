@@ -29,7 +29,7 @@ import {
 import { dateOf } from "./Calendar";
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
-import { raiseEvent } from "./Hooks";
+import { hooks, raiseEvent } from "./Hooks"; // SEA (r15): hooks
 import {
   addStress,
   earn,
@@ -467,6 +467,11 @@ export function firmMonth(g: ConquestGame, f: Firm): number {
   const mgrChar = mgr ? s.chars[mgr.c] : undefined;
   // A newspaper: its owner has its sales; the profit is shared out by them.
   if (f.hold === "paper") return paperMonth(g, f);
+  // SEA (r15): a privateering company's ship keeps its own books (Privateers.ts).
+  for (const h of hooks.firmMonth) {
+    const v = h(g, f);
+    if (v !== undefined) return v;
+  }
   if (f.biz) {
     // A hand taken on each month there's room and the money for it; one
     // let go when the firm lost money and the chest is bare.
@@ -695,6 +700,7 @@ export function windingUpShares(s: GameState, f: Firm): Map<number, number> {
   for (const v of f.co?.voyages ?? []) pool += Math.round(v.cost * 0.7);
   const x = f.paper !== undefined ? paperById(s, f.paper) : undefined;
   if (x) pool += paperValue(x);
+  for (const h of hooks.firmAssets) pool += h(s, f); // SEA (r15): a privateer's ship
   const caps = f.partners.map((p) => Math.max(0, p.capital - (p.caught ?? 0)));
   const total = caps.reduce((a, b) => a + b, 0);
   f.partners.forEach((p, i) => {
@@ -991,6 +997,10 @@ export function decisionCheck(
   switch (key) {
     case "expand": {
       if (f.hold === "paper") return no("A newspaper grows by its readers.");
+      if (f.sea)
+        return no(
+          "A privateer grows by her prizes (a new ship: Work › At sea).",
+        ); // SEA (r15)
       if (!f.biz && !f.lost) return no("There's no business to grow.");
       if (f.biz && f.biz.level >= 3) return no("It's as big as it gets.");
       const cost = decisionCost(f, key);
@@ -1013,6 +1023,7 @@ export function decisionCheck(
     case "goods":
       if (!CARGOES.includes(arg)) return no("Choose a sum.");
       if (f.hold === "paper") return no("Not a newspaper's business.");
+      if (f.sea) return no("A privateer's cargoes are her prizes."); // SEA (r15)
       if (f.cargo) return no("A cargo is at sea already.");
       if (f.chest < arg)
         return no(`The chest has ${Math.floor(f.chest)}: not enough.`);

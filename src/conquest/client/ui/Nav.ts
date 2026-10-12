@@ -28,6 +28,7 @@ import {
 import type { DrawerView, GameUi, Tab } from "./Context";
 import { affairsUnseen } from "./Ledger"; // LEDGER (r15)
 import { partnerMarks } from "./Partners"; // PARTNERS (r13)
+import { seaMarks } from "./SeaPage"; // SEA (r15)
 import { postCounts } from "./Society";
 
 export interface SubDef {
@@ -83,13 +84,15 @@ export const TAB_DEFS: TabDef[] = [
   {
     id: "work",
     label: "Work",
-    blurb: "Your work and its ladder, finding work, contracts, and the law",
+    blurb:
+      "Your work and its ladder, finding work, contracts, the law, and the sea",
     icon: WorkIcon,
     subs: [
       { id: "job", label: "Your work", guide: "work" },
       { id: "find", label: "Find work", guide: "trades" },
       { id: "contracts", label: "Contracts", guide: "followers" },
       { id: "law", label: "The law", guide: "crime" },
+      { id: "sea", label: "At sea", guide: "sea" }, // SEA (r15)
     ],
     guide: "work",
   },
@@ -243,6 +246,7 @@ export function badges(ui: GameUi): Map<string, number> {
   const s = ui.s;
   if (life.job && promotionView(s, life).check.ok) add("work", "job", 1);
   if (life.crime?.jail) add("work", "law", 1);
+  add("work", "sea", seaMarks(ui)); // SEA (r15)
   const people = life.people ?? [];
   add(
     "people",

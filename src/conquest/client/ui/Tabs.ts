@@ -70,6 +70,7 @@ import {
 import { howTo, pageHead } from "./Nav";
 import { partnersPage } from "./Partners"; // PARTNERS (r13)
 import { schoolingSection } from "./Schooling"; // EDU (r13)
+import { seaPage } from "./SeaPage"; // SEA (r15)
 import {
   familySection,
   goodsSection,
@@ -289,6 +290,8 @@ function workPage(ui: GameUi, sub: string): TemplateResult {
     }
     case "law":
       return lawPage(ui);
+    case "sea": // SEA (r15)
+      return seaPage(ui);
     default: {
       const army = armySection(ui);
       return html`${pageHead(
