@@ -12,6 +12,7 @@
 // Grown men and women only (eighteen and over, both), never close kin, and
 // nothing is described: the door closes.
 
+import { isBound } from "./BondCore"; // LABOUR (r15)
 import { birth } from "./Characters";
 import { startDuel } from "./Duels";
 import { realMeans } from "./EventPacing";
@@ -142,6 +143,8 @@ export function seduceCheck(
   if (ageOf(s, me) < ADULT_AGE) return no("Not until you're eighteen.");
   if (!grown(s, c)) return no("Not until they're eighteen.");
   if (closeKin(s, me, c)) return no("Too close kin.");
+  // LABOUR (r15): someone held or bound to service isn't free to say yes or no.
+  if (isBound(c) || isBound(me)) return no("Not free to say yes or no.");
   if (c.female === me.female) return no("Not in this century.");
   if (me.spouse === c.id)
     return no(`Your own ${c.female ? "wife" : "husband"}: court them instead.`);

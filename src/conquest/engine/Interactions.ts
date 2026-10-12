@@ -60,6 +60,7 @@ import { AMERICAS, World, worldOf } from "./Map";
 import { joinMovement, movementOf, recruitInto } from "./Movements";
 import { handOf, hireCheck, hireHand } from "./Property";
 // SOCIETY (r11)
+import { isBound } from "./BondCore"; // LABOUR (r15)
 import { addSettler, settleAcceptance, settleCheck } from "./Founding";
 import { ADULT_AGE, betrothalOf } from "./IntrigueCore"; // INTRIGUE (r15)
 import {
@@ -590,6 +591,7 @@ function gates(
     case "propose": {
       if (age < 16) return no("They're a child.");
       if (age < ADULT_AGE) return no("Not until they're eighteen."); // INTRIGUE (r15)
+      if (isBound(c) || isBound(me)) return no("Not free to say yes or no."); // LABOUR (r15)
       if (c.female === me.female) return no("Not in this century.");
       if (me.spouse === c.id) return no("You're married to them.");
       // SOCIETY (r11): courting someone while married is an affair; marrying isn't possible.
@@ -681,6 +683,7 @@ function gates(
     case "tryst":
       if (life.ties[c.id] !== "lover") return no("Only with a lover.");
       if (age < ADULT_AGE) return no("Not until they're eighteen."); // INTRIGUE (r15)
+      if (isBound(c) || isBound(me)) return no("Not free to say yes or no."); // LABOUR (r15)
       return yes;
     case "tongue": {
       const theirs = tonguesOf(s, w.map, c);

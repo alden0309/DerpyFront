@@ -19,6 +19,7 @@
 // copy alone holds the plot (IntrigueCore.ts): the target sees nothing of it
 // unless they find it out.
 
+import { isBound } from "./BondCore"; // LABOUR (r15)
 import { kill } from "./Characters";
 import { lawAt } from "./CrimeQueries";
 import { realMeans } from "./EventPacing";
@@ -244,6 +245,8 @@ export function plotCheck(
   if (c.id === me.id) return no("That's you.");
   if (!grown(s, me)) return no("Not until you're eighteen.");
   if (!grown(s, c)) return no("Never a child.");
+  // LABOUR (r15): never someone held or bound to service.
+  if (isBound(c)) return no("Not someone held or bound to service.");
   if (me.spouse === c.id) return no("Not your own husband or wife.");
   if (closeKin(s, me, c)) return no("Not your own blood.");
   if (life.travel) return no("You're on the road.");
@@ -434,6 +437,7 @@ export function accompliceCandidates(
       c.id !== x.target &&
       !x.helpers.includes(c.id) &&
       grown(s, c) &&
+      !isBound(c) && // LABOUR (r15)
       !isPlayed(s, c.id) &&
       !(target && (closeKin(s, c, target) || c.spouse === target.id)) &&
       opinionOf(s, c, life).total >= 10,
