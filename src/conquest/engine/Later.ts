@@ -28,13 +28,18 @@ type G = { s: GameState; map: MapDef };
 
 const Y = DAYS_PER_YEAR;
 
-interface LaterDef {
+export interface LaterDef {
+  /** What it comes to, for the guide: well, and badly. */
+  well: string;
+  badly: string;
   /** Days until it comes to something: the least and the most. */
   days: [number, number];
   /** Only if the work went well (a survey that came home half done comes to nothing). */
   needsPass: boolean;
-  /** The chance it turns out well. */
-  good: (g: ConquestGame, n: number, arg: number) => number;
+  /** The chance it turns out well; in a war (with anyone, or with its target), `pWar`. */
+  p: number;
+  pWar?: number;
+  war?: "any" | "target";
   /** What it's about besides its target: a county (a road's), or a nation (who watches). */
   arg2?: (g: ConquestGame, n: number, arg: number) => number;
   /** Where it's going, for the page ("a road through Henrico"). */
@@ -99,9 +104,11 @@ function watcher(g: ConquestGame, n: number, p: number): number {
 
 export const LATER: Record<string, LaterDef> = {
   survey: {
+    well: "a road through a backcountry county: its trade +5% for six years; the nation whose hunting grounds it crosses wary (−4)",
+    badly: "a road that's a mire: the county's unrest +1 for a year",
     days: [150, 270],
     needsPass: true,
-    good: () => 0.8,
+    p: 0.8,
     arg2: (g, n) => roadCounty(g, n),
     pending: (g, n, w) => `a road through ${county(g, w.arg2)}`,
     come: (g, n, w) => {
@@ -119,9 +126,13 @@ export const LATER: Record<string, LaterDef> = {
     },
   },
   boundary: {
+    well: "the line holds: both sides +3 toward each other",
+    badly: "the marks are cut down and the quarrel starts again (−3)",
     days: [300, 400],
     needsPass: true,
-    good: (g, n, o) => (atWar(g.s, n, o) ? 0.2 : 0.75),
+    p: 0.75,
+    pWar: 0.2,
+    war: "target",
     pending: (g, n, w) => `the line with ${g.s.nations[w.arg]?.name ?? "them"}`,
     come: (g, n, w) => {
       const o = w.arg;
@@ -136,9 +147,11 @@ export const LATER: Record<string, LaterDef> = {
     },
   },
   audit: {
+    well: "the arrears come in: 3 to 6 more into the treasury",
+    badly: "a collector runs off with 2 of the colony's money",
     days: [240, 330],
     needsPass: true,
-    good: () => 0.7,
+    p: 0.7,
     pending: () => "the arrears your audit chased",
     come: (g, n, w) => {
       if (w.good) {
@@ -151,9 +164,11 @@ export const LATER: Record<string, LaterDef> = {
     },
   },
   records: {
+    well: "the courts cite your books: unrest −1 for a year, and renown +1",
+    badly: "the mice get half of them: nothing",
     days: [300, 400],
     needsPass: false,
-    good: () => 0.8,
+    p: 0.8,
     pending: () => "the fair copies of the colony's records",
     come: (g, n, w) => {
       if (!w.good)
@@ -167,9 +182,11 @@ export const LATER: Record<string, LaterDef> = {
     },
   },
   draft: {
+    well: "the laws hold in the courts: unrest −1 for a year",
+    badly: "a hole in the act: unrest +1 for half a year",
     days: [180, 270],
     needsPass: false,
-    good: () => 0.8,
+    p: 0.8,
     pending: () => "the laws you drafted, tried in the courts",
     come: (g, n, w) => {
       if (!w.good) {
@@ -183,9 +200,13 @@ export const LATER: Record<string, LaterDef> = {
     },
   },
   muster: {
+    well: "the militia turns out quicker: steadier, and unrest −1 for a year",
+    badly: "the drill's forgotten: nothing",
     days: [120, 240],
     needsPass: false,
-    good: (g, n) => (g.s.wars.some((w) => w.a === n || w.b === n) ? 0.8 : 0.6),
+    p: 0.6,
+    pWar: 0.8,
+    war: "any",
     pending: () => "the militia you mustered",
     come: (g, n, w) => {
       if (!w.good)
@@ -198,9 +219,12 @@ export const LATER: Record<string, LaterDef> = {
     },
   },
   treat: {
+    well: "their traders come down: +4 toward the colony, trade +1% for two years",
+    badly:
+      "their young men raid a frontier county anyway: −3, and the county's unrest +2",
     days: [180, 365],
     needsPass: true,
-    good: () => 0.7,
+    p: 0.7,
     arg2: (g, n) => roadCounty(g, n),
     pending: (g, n, w) => `the belts you gave the ${nameOf(g, w.arg)}`,
     come: (g, n, w) => {
@@ -228,9 +252,11 @@ export const LATER: Record<string, LaterDef> = {
     },
   },
   mission: {
+    well: "a school among them: +4 toward the colony",
+    badly: "the mission comes home: −3",
     days: [365, 600],
     needsPass: false,
-    good: () => 0.65,
+    p: 0.65,
     pending: (g, n, w) => `the mission among the ${nameOf(g, w.arg)}`,
     come: (g, n, w) => {
       const o = w.arg;
@@ -244,9 +270,11 @@ export const LATER: Record<string, LaterDef> = {
     },
   },
   address: {
+    well: "a grievance redressed: unrest −1 for a year, and renown +2",
+    badly: "four pages of thanks and nothing conceded",
     days: [60, 150],
     needsPass: false,
-    good: () => 0.5,
+    p: 0.5,
     pending: () => "the governor's answer to the house's address",
     come: (g, n, w) => {
       if (w.good) {
@@ -261,6 +289,21 @@ export const LATER: Record<string, LaterDef> = {
     },
   },
 };
+
+/** The chance a work turns out well, as things stand. */
+export function laterChance(
+  s: GameState,
+  n: number,
+  def: LaterDef,
+  arg: number,
+): number {
+  if (def.pWar === undefined) return def.p;
+  const war =
+    def.war === "target"
+      ? atWar(s, n, arg)
+      : s.wars.some((w) => w.a === n || w.b === n);
+  return war ? def.pWar : def.p;
+}
 
 /** What a councillor's work still has to come, and what it came to lately (this nation). */
 export function laterOf(s: GameState, n: number): LaterWork[] {
@@ -294,7 +337,7 @@ function scheduleLater(
     arg2: def.arg2?.(g, n, arg) ?? -1,
     day: s.day,
     due: s.day + lo + Math.floor(r.next() * (hi - lo + 1)),
-    good: r.next() < def.good(g, n, arg),
+    good: r.next() < laterChance(g.s, n, def, arg),
   };
   cab.later = [...(cab.later ?? []), w];
   powerChanged(g, `c${n}`);

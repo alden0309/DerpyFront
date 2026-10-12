@@ -71,6 +71,9 @@ export interface SessionChoice {
 
 export interface Question {
   key: string;
+  /** What it is, for the guide, and when it comes. */
+  name: string;
+  due: string;
   title: (g: G, n: number, arg: number) => string;
   /** This year's question if it can be: its argument (or -1), else null. */
   when: (g: G, n: number) => number | null;
@@ -184,6 +187,8 @@ const nativesNear = (g: G, n: number) =>
 export const QUESTIONS: Question[] = [
   {
     key: "supply",
+    name: "A bill of supply",
+    due: "any year; likelier in war",
     title: () => "A bill of supply",
     when: () => -1,
     weight: (g, n) => (atWarAny(g.s, n) ? 4 : 2),
@@ -248,6 +253,8 @@ export const QUESTIONS: Question[] = [
   },
   {
     key: "grievances",
+    name: "An address of grievances",
+    due: "any year; likelier with the counties restless or the taxes high",
     title: () => "An address of grievances",
     when: () => -1,
     weight: (g, n) => {
@@ -312,6 +319,8 @@ export const QUESTIONS: Question[] = [
   },
   {
     key: "salary",
+    name: "The King's instruction: a fixed salary for the governor",
+    due: "when his salary isn't withheld already",
     title: () => "His Majesty's instruction: a fixed salary for the governor",
     when: (g, n) => {
       const cab = g.s.power?.cabinets[n];
@@ -379,6 +388,8 @@ export const QUESTIONS: Question[] = [
   },
   {
     key: "currency",
+    name: "Bills of credit",
+    due: "any year; likelier with the treasury low",
     title: () => "Bills of credit",
     when: () => -1,
     weight: (g, n) => (g.s.nations[n].gold < 25 ? 2 : 1),
@@ -431,6 +442,8 @@ export const QUESTIONS: Question[] = [
   },
   {
     key: "frontier",
+    name: "Petitions from the backcountry",
+    due: "a colony with a frontier; likelier in war",
     title: (g, n, p) =>
       `Petitions from ${g.map.provinces[p]?.name ?? "the backcountry"} and the frontier counties`,
     when: (g, n) => {
@@ -488,6 +501,8 @@ export const QUESTIONS: Question[] = [
   },
   {
     key: "church",
+    name: "An act for the better support of the clergy",
+    due: "the English colonies",
     title: () => "An act for the better support of the clergy",
     when: (g, n) => (g.s.nations[n].culture === "english" ? -1 : null),
     weight: () => 0.8,
@@ -550,6 +565,8 @@ export const QUESTIONS: Question[] = [
   },
   {
     key: "election",
+    name: "A disputed return",
+    due: "the first session after an election",
     title: (g, n) => {
       const d = disputed(g.s, n);
       const p = d ? (g.s.chars[d[0]]?.home ?? -1) : -1;
@@ -638,6 +655,8 @@ export const QUESTIONS: Question[] = [
   },
   {
     key: "indiantrade",
+    name: "An act to regulate the Indian trade",
+    due: "a native nation next door",
     title: () => "An act to regulate the Indian trade",
     when: (g, n) => (nativesNear(g, n).length ? -1 : null),
     weight: () => 0.9,
@@ -691,6 +710,8 @@ export const QUESTIONS: Question[] = [
   },
   {
     key: "war",
+    name: "Men and money for the King's expedition",
+    due: "the crowns at war in Europe",
     title: (g, n, o) =>
       `Men and money for the King's expedition against ${g.s.nations[o]?.name ?? "the enemy"}`,
     when: (g, n) => {
@@ -763,6 +784,8 @@ export const QUESTIONS: Question[] = [
   },
   {
     key: "roads",
+    name: "A bill for roads and ferries",
+    due: "any year",
     title: () => "A bill for roads and ferries",
     when: () => -1,
     weight: () => 0.8,

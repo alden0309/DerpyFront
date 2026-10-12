@@ -18,6 +18,7 @@ import {
   ensureCabinet,
   neighboursOf,
   registerBusiness,
+  registerDocketWait,
   registerMeasures,
   relate,
   type MeasureDef,
@@ -49,6 +50,10 @@ type G = { s: GameState; map: MapDef };
 /** A kind of business, as the council's docket knows it. */
 export interface BusinessDef {
   key: string;
+  /** What it is, for the guide: "War against a nation beyond the line". */
+  label: string;
+  /** When it comes, for the guide. */
+  due: string;
   /** If it's due now, what it's about (a province, a nation, -1), else null. */
   when: (g: ConquestGame, n: number) => number | null;
   /** How likely, among what's due. */
@@ -615,6 +620,8 @@ export const BUSINESS: BusinessDef[] = [
   // The old business, as the governor used to bring it.
   {
     key: "taxup",
+    label: "Raise the taxes",
+    due: "the treasury under 30",
     weight: 2,
     cares: { court: 1, planters: -2, merchants: -1, frontier: -1 },
     when: (g, n) => {
@@ -624,6 +631,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "taxdown",
+    label: "Lower the taxes",
+    due: "the counties restless (unrest over 35)",
     weight: 2,
     cares: { country: 2, planters: 2, merchants: 1 },
     when: (g, n) =>
@@ -631,12 +640,16 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "thanksgiving",
+    label: "A day of public thanksgiving",
+    due: "the counties restless (unrest over 20)",
     weight: 1,
     cares: { clergy: 2, merchants: -1 },
     when: (g, n) => (avgUnrest(g.s, n) > 20 ? -1 : null),
   },
   {
     key: "remit",
+    label: "Send more of the revenue home",
+    due: "the crown's favour under 35",
     weight: 1,
     cares: { court: 1, country: -2, merchants: -1, planters: -1 },
     when: (g, n) => {
@@ -646,6 +659,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "presents",
+    label: "Presents for a nation beyond the line",
+    due: "a native nation next door, and 20 in the treasury",
     weight: 1,
     cares: { merchants: 1, clergy: 1, frontier: -1 },
     by: seatOrGov("envoy"),
@@ -656,6 +671,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "fort",
+    label: "A fort on the frontier",
+    due: "a war",
     weight: 2,
     cares: { frontier: 2, merchants: -1 },
     by: seatOrGov("marshal"),
@@ -669,6 +686,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "grant",
+    label: "A land grant to a company of adventurers",
+    due: "few colonists coming",
     weight: 1,
     cares: { planters: 1, frontier: -1, clergy: 0 },
     by: seatOrGov("surveyor"),
@@ -676,6 +695,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "customs",
+    label: "Farm out the customs",
+    due: "the treasury under 20",
     weight: 0.6,
     cares: { court: 1, merchants: -1 },
     by: seatOrGov("treasurer"),
@@ -684,6 +705,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "trade",
+    label: "A treaty of trade",
+    due: "a friendly neighbour without one",
     weight: 0.7,
     cares: { merchants: 2, frontier: -1 },
     by: seatOrGov("envoy"),
@@ -700,6 +723,8 @@ export const BUSINESS: BusinessDef[] = [
   // ---- the new business
   {
     key: "native-war",
+    label: "War against a nation beyond the line",
+    due: "a native nation next door hostile (relations under −20), and the colony strong enough",
     weight: 1.5,
     cares: MEASURES_R16["native-war"].cares!,
     by: seatOrGov("marshal"),
@@ -716,6 +741,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "native-peace",
+    label: "Treat for peace with a nation",
+    due: "a war with a native nation going on ten months",
     weight: 2.5,
     cares: MEASURES_R16["native-peace"].cares!,
     by: seatOrGov("envoy"),
@@ -732,6 +759,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "war-quota",
+    label: "The colony's quota for the crown's war",
+    due: "the crowns at war in Europe, and 12 in the treasury",
     weight: 3,
     cares: MEASURES_R16["war-quota"].cares!,
     when: (g, n) => {
@@ -741,6 +770,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "militia",
+    label: "Raise the militia of a frontier county",
+    due: "a war, and a frontier county of 200 settlers",
     weight: 1.5,
     cares: MEASURES_R16.militia.cares!,
     by: seatOrGov("marshal"),
@@ -754,6 +785,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "boundary",
+    label: "A boundary dispute with a neighbouring colony",
+    due: "another crown's colony next door, at peace",
     weight: 1,
     cares: MEASURES_R16.boundary.cares!,
     by: seatOrGov("surveyor"),
@@ -769,6 +802,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "petition",
+    label: "A petition from a county",
+    due: "always: relief after a hard year, rangers against raiders, a ferry and a road, or a court-house",
     weight: 3,
     cares: MEASURES_R16.petition.cares!,
     by: (g, n, arg) => {
@@ -780,6 +815,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "treasury",
+    label: "An inquiry into the treasury's accounts",
+    due: "talk of a hand in the till, or a thin year",
     weight: 1.2,
     cares: MEASURES_R16.treasury.cares!,
     by: seatOrGov("attorney"),
@@ -793,6 +830,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "guardship",
+    label: "A guard ship against the pirates",
+    due: "the pirate years (1680 to 1730), a coast, and 15 in the treasury",
     weight: 1,
     cares: MEASURES_R16.guardship.cares!,
     when: (g, n) => {
@@ -805,6 +844,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "quarantine",
+    label: "A quarantine",
+    due: "a sickness in one of the colony's towns",
     weight: 2,
     cares: MEASURES_R16.quarantine.cares!,
     when: (g, n) => {
@@ -818,6 +859,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "college",
+    label: "A charter for a college",
+    due: "from 1690, with 30 in the treasury; once in a colony",
     weight: 0.5,
     once: true,
     cares: MEASURES_R16.college.cares!,
@@ -826,6 +869,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "lottery",
+    label: "A lottery for the public works",
+    due: "the treasury under 25",
     weight: 0.6,
     cares: MEASURES_R16.lottery.cares!,
     by: seatOrGov("treasurer"),
@@ -833,6 +878,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "navalstores",
+    label: "A bounty on tar, pitch and turpentine",
+    due: "the English colonies from 1705",
     weight: 0.7,
     cares: MEASURES_R16.navalstores.cares!,
     when: (g, n) => {
@@ -846,6 +893,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "inspection",
+    label: "An act for inspecting the colony's staple",
+    due: "from 1712; once in a colony",
     weight: 0.6,
     once: true,
     cares: MEASURES_R16.inspection.cares!,
@@ -853,6 +902,8 @@ export const BUSINESS: BusinessDef[] = [
   },
   {
     key: "county",
+    label: "Erect a backcountry county",
+    due: "a frontier county of 400 settlers",
     weight: 0.8,
     cares: MEASURES_R16.county.cares!,
     by: seatOrGov("surveyor"),
@@ -968,6 +1019,10 @@ const OLD_CARES: Record<string, Partial<Record<FactionKey, number>>> = {
 // The council learns of the new business when this module loads.
 registerMeasures(MEASURES_R16);
 registerBusiness({ choose: chooseBusiness, note: noteDocket });
+registerDocketWait((s, n, key) => {
+  const d = docketFree(s, n, key, -1);
+  return Number.isFinite(d) ? d : 9999;
+});
 
 /** Every kind of business, for the guide: its title as it reads, and who cares. */
 export function businessKinds(): { key: string; once: boolean }[] {

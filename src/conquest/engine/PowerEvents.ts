@@ -4,17 +4,20 @@
 // assent; and a newspaper's attack (sue, answer, or let it pass).
 
 import { answerBill, billTitle } from "./Assembly";
+import { listWords } from "./ChamberCore"; // CHAMBER (r16)
 import {
   acceptSeat,
   answerSeatAsk,
   councilAdvice,
   councillors,
+  measureCares,
   SEAT_BY_INDEX,
   seatName,
   signMatter,
   voteMatter,
 } from "./Council";
 import { SEAT_PORTFOLIO } from "./CouncilTitles";
+import { factionName } from "./Factions"; // CHAMBER (r16)
 import type { ConquestGame } from "./Game";
 import { journal } from "./LifeCore";
 import type { LCtx, LifeEventDef } from "./LifeEvents";
@@ -38,7 +41,7 @@ import {
   verdictHeard,
   witnessFee,
 } from "./Trials";
-import type { Life, Trial } from "./Types";
+import type { FactionKey, Life, Trial } from "./Types";
 
 const T = (g: ConquestGame, ctx: LCtx): Trial | undefined =>
   trialById(g.s, ctx.t);
@@ -571,6 +574,28 @@ export const TRIAL_EVENTS: LifeEventDef[] = [
 
 const seatOf = (ctx: LCtx) => SEAT_BY_INDEX[ctx.seat] ?? "treasurer";
 
+/** CHAMBER (r16): "The merchants want it; the backcountry men are against it. " */
+function caresWords(g: ConquestGame, n: number, key: string): string {
+  const cares = measureCares(key);
+  const glad: string[] = [];
+  const sore: string[] = [];
+  for (const [f, v] of Object.entries(cares) as [FactionKey, number][]) {
+    if (f === "court" || f === "country" || !v) continue;
+    (v > 0 ? glad : sore).push(factionName(g.s, n, f));
+  }
+  const up = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  const parts: string[] = [];
+  if (glad.length)
+    parts.push(`${up(listWords(glad))} want${glad.length === 1 ? "s" : ""} it`);
+  if (sore.length)
+    parts.push(
+      `${parts.length ? listWords(sore) : up(listWords(sore))} ${sore.length === 1 ? "is" : "are"} against it`,
+    );
+  return parts.length
+    ? `${parts.join("; ")}: they'll remember your vote. `
+    : "";
+}
+
 export const COUNCIL_EVENTS: LifeEventDef[] = [
   {
     key: "council-offer",
@@ -619,7 +644,13 @@ export const COUNCIL_EVENTS: LifeEventDef[] = [
       const gov = m.by === s.nations[ctx.n]?.ruler;
       const ayes = Object.values(m.votes).filter((v) => v > 0).length;
       const noes = Object.values(m.votes).filter((v) => v < 0).length;
-      return `${gov ? `The governor, ${charName(by)},` : charName(by)} lays a measure before the council: ${m.title}. ${m.text}\nSo far ${ayes} for and ${noes} against. ${gov ? "Voting with the governor wins his favour; against him, the country party's." : ""}`;
+      // CHAMBER (r16): who brought it, and which factions care which way (they remember).
+      const who = gov
+        ? `The governor, ${charName(by)},`
+        : councillors(s, ctx.n).some((x) => x.c === m.by)
+          ? charName(by)
+          : `${charName(by)}, for ${by?.home !== undefined ? (g.map.provinces[by.home]?.name ?? "the county") : "the county"},`;
+      return `${who} lays ${gov ? "a measure" : "a matter"} before the council: ${m.title}. ${m.text}\n${caresWords(g, ctx.n, m.key)}So far ${ayes} for and ${noes} against. ${gov ? "Voting with the governor wins his favour; against him, the country party's." : ""}`;
     },
     choices: [
       {

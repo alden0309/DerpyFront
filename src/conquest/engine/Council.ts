@@ -167,6 +167,21 @@ export function seatName(s: GameState, n: number, seat: CouncilSeat): string {
 
 const shortName = (n: Nation) => n.name.replace(/^the /, "");
 
+/** CHAMBER (r16): a seat power's line, one of a few (by who and when: no dice). */
+function vary(
+  g: ConquestGame,
+  by: number,
+  key: string,
+  lines: string[],
+): string {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
+  return lines[Math.floor(hash01(by, g.s.day, h) * lines.length)];
+}
+const upperFirst = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+/** CHAMBER (r16): "the Haudenosaunee", "France", "the Netherlands". */
+const theName = (o: Nation) => (o.kind === "native" ? `the ${o.name}` : o.name);
+
 // ---------------------------------------------------------------- reaching a seat
 
 /** The bar a claim must clear for an empty seat, and to unseat someone. */
@@ -624,9 +639,16 @@ export const SEAT_ACTIONS: SeatActionDef[] = [
       }
       if (pass) {
         setFavour(g, n, by, 2);
-        return "Nothing but quarrels over pigs and prices. The colony is loyal, this month.";
+        return vary(g, by, "letters", [
+          "Nothing but quarrels over pigs and prices. The colony is loyal, this month.",
+          "A love letter, two complaints about the post and a recipe for cider. The colony is loyal, and thirsty.",
+          "A merchant's letter that is mostly about the price of rum, and partly, you think, about smuggling it. Loyal enough.",
+        ]);
       }
-      return "The letters say nothing, or say it in a cipher you can't read.";
+      return vary(g, by, "letters-no", [
+        "The letters say nothing, or say it in a cipher you can't read.",
+        "The post-office's letters are steamed, read and sealed again, and tell you only that the post-office drinks.",
+      ]);
     },
   },
   {
@@ -642,7 +664,11 @@ export const SEAT_ACTIONS: SeatActionDef[] = [
         admin: 1,
       });
       setFavour(g, n, by, 3);
-      return "The minute-books are copied fair and the patents indexed. The colony's business runs smoother for a year.";
+      return vary(g, by, "records", [
+        "The minute-books are copied fair and the patents indexed. The colony's business runs smoother for a year.",
+        "A clerk with a good hand and a bad cough copies out forty years of minutes. The colony can find its own laws again.",
+        "The patents are bound, the commissions filed and the seals counted. One is missing; nobody says whose.",
+      ]);
     },
   },
   // ---- the treasurer
@@ -722,7 +748,11 @@ export const SEAT_ACTIONS: SeatActionDef[] = [
           g.s.day,
           gov.cooldowns["gov:law"] - 45,
         );
-      return "You put the colony's laws in good English and better Latin. The courts thank you; so does the governor.";
+      return vary(g, by, "draft", [
+        "You put the colony's laws in good English and better Latin. The courts thank you; so does the governor.",
+        "You strike out three 'whereases' from every act and the courts finish a day early. The lawyers are appalled.",
+        "The acts are drafted, numbered and printed. One of them even says what it means.",
+      ]);
     },
   },
   // ---- the surveyor-general
@@ -753,7 +783,11 @@ export const SEAT_ACTIONS: SeatActionDef[] = [
         if (g.s.nations[o].kind === "native")
           relate(g, o, n, "Surveyors on our hunting grounds", -4, 3);
       setFavour(g, n, by, 4);
-      return "The lines are run and the plats drawn: land for a thousand families. The nations beyond the line watch the surveyors' blazes go up.";
+      return vary(g, by, "survey", [
+        "The lines are run and the plats drawn: land for a thousand families. The nations beyond the line watch the surveyors' blazes go up.",
+        "A month of chains, compasses and mosquitoes, and the backcountry is on paper. The land jobbers are at your door before you've washed.",
+        "The survey comes home with the plats, a fever and a rattlesnake in a box. The plats are the useful part.",
+      ]);
     },
   },
   {
@@ -768,12 +802,12 @@ export const SEAT_ACTIONS: SeatActionDef[] = [
       const o = g.s.nations[t];
       if (!pass) {
         relate(g, t, n, "A boundary dispute", -3, 3);
-        return `The line with ${o.name} ends in a quarrel over a creek.`;
+        return `The line with ${theName(o)} ends in a quarrel over a creek.`;
       }
       relate(g, t, n, "The boundary agreed", 8, 8);
       relate(g, n, t, "The boundary agreed", 8, 8);
       setFavour(g, n, by, 4);
-      return `The line with ${o.name} is run and marked, and both sides sign the map.`;
+      return `The line with ${theName(o)} is run and marked, and both sides sign the map.`;
     },
   },
   {
@@ -814,7 +848,11 @@ export const SEAT_ACTIONS: SeatActionDef[] = [
           for (const r of g.touch(a).regs)
             r.morale = Math.min(1, r.morale + 0.05);
       setFavour(g, n, by, 3);
-      return "Drums on every green from the coast to the falls. The militia's steadier for it, and the counties quieter.";
+      return vary(g, by, "muster", [
+        "Drums on every green from the coast to the falls. The militia's steadier for it, and the counties quieter.",
+        "The general muster: every man with a firelock, some with two, and one with a pitchfork who swears it's loaded. Steadier, all the same.",
+        "The militia drills from breakfast to dinner and drinks from dinner to dark. The colonels call it a success.",
+      ]);
     },
   },
   {
@@ -865,14 +903,24 @@ export const SEAT_ACTIONS: SeatActionDef[] = [
     },
     run: (g, n, by, t, pass) => {
       const o = g.s.nations[t];
+      // CHAMBER (r16): "the Haudenosaunee", but "the French envoys", not "the France".
+      const them =
+        o.kind === "native" ? `the ${o.name}` : `the ${o.adjective} envoys`;
       if (!pass) {
         relate(g, t, n, "A council that went badly", -3, 2);
-        return `The talks with ${o.name} break up in hard words.`;
+        return vary(g, by, "treat-no", [
+          `The talks with ${theName(o)} break up in hard words.`,
+          `The talks go badly from the first speech: ${them} leave before the presents are opened.`,
+        ]);
       }
       relate(g, t, n, "A treaty council", 10, 5);
       relate(g, n, t, "A treaty council", 6, 5);
       setFavour(g, n, by, 5);
-      return `Belts given and taken, and the ${o.name} go home pleased. Peace is surer for it.`;
+      return vary(g, by, "treat", [
+        `Belts given and taken, and ${them} go home pleased. Peace is surer for it.`,
+        `Three days of speeches, a feast and a great deal of tobacco: ${them} go home with promises, and so do you.`,
+        `You speak well and listen better. ${upperFirst(them)} remember it, and say so in their own speeches.`,
+      ]);
     },
   },
   {
@@ -909,7 +957,11 @@ export const SEAT_ACTIONS: SeatActionDef[] = [
         unrest: -2,
       });
       setFavour(g, n, by, 2);
-      return "Sermons from every pulpit, and a feast after. The colony counts its blessings, and grumbles less.";
+      return vary(g, by, "thanks", [
+        "Sermons from every pulpit, and a feast after. The colony counts its blessings, and grumbles less.",
+        "A day of thanksgiving: the churches full, the shops shut and the taverns, by a miracle, mostly shut too.",
+        "The colony gives thanks for the harvest, the peace and the governor's health, in that order of sincerity.",
+      ]);
     },
   },
   {
@@ -1152,7 +1204,22 @@ export function seatActionCheck(s: GameState, life: Life, key: string): Check {
     return no("It's before the council already.");
   if (a.measure === "presents" && s.nations[n].gold < 10)
     return no("The treasury can't spare 10.");
+  // CHAMBER (r16): no kind of business twice in a year, whoever brings it.
+  if (a.measure && docketWait) {
+    const wait = docketWait(s, n, a.measure);
+    if (wait > 0)
+      return no(`The council had it before it lately: again in ${wait} days.`);
+  }
   return yes;
+}
+
+/** CHAMBER (r16): days before a kind of business may come before the council again (Docket.ts). */
+let docketWait: ((s: GameState, n: number, key: string) => number) | null =
+  null;
+export function registerDocketWait(
+  fn: (s: GameState, n: number, key: string) => number,
+): void {
+  docketWait = fn;
 }
 
 /** A councillor uses their seat's power (or puts a measure to the council). */

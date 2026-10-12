@@ -227,10 +227,18 @@ function talkNews(
   const war = s.wars.find((w) => w.a === n || w.b === n);
   if (war) {
     const foe = s.nations[war.a === n ? war.b : war.a];
+    const them =
+      foe?.kind === "native" ? `the ${foe.name}` : (foe?.name ?? "the enemy");
+    const lines = [
+      `${name} talks of nothing but the war with ${them}: the militia, the forts, and what it all costs.`,
+      `${name} unrolls a map of the frontier and shows you where ${them} will come, and where the colony will stop them, and then rolls it up again rather quickly.`,
+      `${name} has had a dispatch about the war with ${them} and reads you the parts that aren't secret, which is most of it.`,
+      `${name} asks whether you think the war with ${them} will be over by Christmas, and doesn't like your face when you answer.`,
+    ];
     out.push({
-      key: `war:${war.a}-${war.b}-${war.start}`,
-      text: `${name} talks of nothing but the war with ${foe?.name ?? "the enemy"}: the militia, the forts, and what it all costs.`,
-      rest: 240,
+      key: `war:${war.a}-${war.b}-${war.start}:${Math.floor((s.day - war.start) / 365)}`,
+      text: lines[Math.floor((s.day - war.start) / 365) % lines.length],
+      rest: 365,
     });
   }
   const cab = s.power?.cabinets[n];
@@ -248,12 +256,19 @@ function talkNews(
       text: `${name} says the house had better ${nation.ruler === c.id ? "throw out" : "make up its mind about"} ${lower(bill.title.replace("{county}", g.map.provinces[bill.p]?.name ?? "the county"))}.`,
       rest: 9999,
     });
-  if (cab?.session && cab.session.carried === undefined)
+  if (cab?.session && cab.session.carried === undefined) {
+    const q = SESSION_TITLES[cab.session.key] ?? "the session's business";
+    const lines = [
+      `${name} wants to know how the house will go on ${q}. Everyone does.`,
+      `${name} has counted the house on ${q} three times and got three answers. You're asked for a fourth.`,
+      `${name} talks about ${q} as if the house were a horse that might yet be persuaded to jump.`,
+    ];
     out.push({
       key: `session:${cab.session.id}`,
-      text: `${name} wants to know how the house will go at the session. Everyone does.`,
+      text: lines[cab.session.id % lines.length],
       rest: 9999,
     });
+  }
   if (hasTrait(c, "gouty"))
     out.push({
       key: `gout:${c.id}`,
@@ -267,20 +282,45 @@ function talkNews(
       rest: 365,
     });
   const tob = s.europe.price.tobacco;
-  if (tob !== undefined && (tob > 6 || tob < 3.5))
+  if (tob !== undefined && (tob > 6 || tob < 3.5)) {
+    const p = Math.round(tob * 10) / 10;
+    const lines =
+      tob > 6
+        ? [
+            `${name} says tobacco fetches ${p} at home, and half the colony is planting it in the front garden.`,
+            `${name} has heard tobacco is ${p} at home and wonders aloud whether the governor's garden would grow it.`,
+          ]
+        : [
+            `${name} says tobacco fetches ${p} at home, and the planters will be selling their wigs.`,
+            `${name} says tobacco is down to ${p} at home: the planters are in debt to the merchants, and the merchants to London.`,
+            `${name} blames the tobacco price (${p}, at home) on the Dutch, the French, the weather and the Navigation Acts, in turn.`,
+          ];
+    const y = dateOf(s.day).year;
     out.push({
-      key: `tob:${dateOf(s.day).year}:${tob > 6 ? "up" : "down"}`,
-      text:
-        tob > 6
-          ? `${name} says tobacco fetches ${Math.round(tob * 10) / 10} at home, and half the colony is planting it in the front garden.`
-          : `${name} says tobacco fetches ${Math.round(tob * 10) / 10} at home, and the planters will be selling their wigs.`,
-      rest: 365,
+      key: `tob:${Math.floor(y / 2)}:${tob > 6 ? "up" : "down"}`,
+      text: lines[Math.floor(y / 2) % lines.length],
+      rest: 2 * Y,
     });
+  }
   const fresh = out.filter((x) => newsFresh(life, x.key, s.day, x.rest));
   return fresh[0] ?? null;
 }
 
 const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+
+/** The session's questions, as the governor's table speaks of them. */
+const SESSION_TITLES: Record<string, string> = {
+  supply: "the supply",
+  grievances: "the address of grievances",
+  salary: "the King's instruction about the salary",
+  currency: "the bills of credit",
+  frontier: "the frontier's petitions",
+  church: "the clergy's rate",
+  election: "the disputed return",
+  indiantrade: "the Indian trade",
+  war: "the King's expedition",
+  roads: "the roads and ferries",
+};
 
 /** The last line of talk that carried news (it goes in the journal whatever the count). */
 let lastNews: string | null = null;
@@ -466,6 +506,15 @@ export function pamphletLine(g: ConquestGame, life: Life, pass: boolean): void {
 
 // ---------------------------------------------------------------- the levee
 
+/** The levee when it's the same faces as last time. */
+const USUAL = [
+  "At the governor's levee: the usual company.",
+  "At the governor's levee: the same faces, the same wigs, and the same story about the Spanish ambassador.",
+  "At the governor's levee: everyone who was there last time, standing where they stood last time.",
+  "At the governor's levee: the usual company, a little older and no wiser, and you with them.",
+  "At the governor's levee: the usual company, and the governor's usual Madeira.",
+];
+
 /**
  * The levee: the faces there. The first time, everyone by name; the same
  * faces again, "the usual company" (and after the first few that year, only
@@ -494,18 +543,19 @@ export function leveeLine(g: ConquestGame, life: Life, met: Character[]): void {
     );
     return;
   }
-  const fresh = met.filter((x) => !before.includes(x.id));
+  const newFaces = met.filter((x) => !before.includes(x.id));
   const gone = before
     .filter((id) => !ids.includes(id))
     .map((id) => s.chars[id])
     .filter((x): x is Character => !!x);
-  if (!fresh.length && !gone.length) {
-    sayOrWrite(g, life, "levee", "At the governor's levee: the usual company.");
+  if (!newFaces.length && !gone.length) {
+    const roll = cdice(s, 67, life.c, s.day).next();
+    sayOrWrite(g, life, "levee", fresh(g, life, "lv", USUAL, roll, 300));
     return;
   }
   const parts: string[] = [];
-  if (fresh.length)
-    parts.push(`new among them ${listWords(fresh.map((x) => charName(x)))}`);
+  if (newFaces.length)
+    parts.push(`new among them ${listWords(newFaces.map((x) => charName(x)))}`);
   if (gone.length)
     parts.push(
       `${listWords(gone.map((x) => charName(x)))} ${gone.length === 1 ? "is" : "are"} missed${gone.some((x) => !x.alive) ? " (the churchyard has its own levee)" : ""}`,
@@ -685,12 +735,22 @@ function townNews(
   const war = s.wars.find((w) => w.a === n || w.b === n);
   if (war) {
     const foe = s.nations[war.a === n ? war.b : war.a];
+    const yr = Math.floor((s.day - war.start) / 365);
+    const lines =
+      foe?.kind === "native"
+        ? [
+            `A trader back from the interior says the ${foe.name} are painting for war in every village.`,
+            `A ranger in from the frontier says the ${foe.name} burned two cabins on the creek last week. He says it twice, and orders rum.`,
+            `They say the ${foe.name} have sent the war belt to their neighbours. Nobody knows who has taken it up.`,
+          ]
+        : [
+            `A trader back from the interior says the ${foe?.adjective ?? "enemy"} are building forts on every river.`,
+            `A sailor off a prize says the ${foe?.adjective ?? "enemy"} privateers are thick as gulls off the capes.`,
+            `They say the ${foe?.adjective ?? "enemy"} will be at the falls by spring. They said it last spring too.`,
+          ];
     out.push({
-      key: `war:${war.a}-${war.b}-${war.start}`,
-      text:
-        foe?.kind === "native"
-          ? `A trader back from the interior says the ${foe.name.replace(/^the /, "")} are painting for war in every village.`
-          : `A trader back from the interior says ${foe?.name ?? "the enemy"} are building forts on every river.`,
+      key: `war:${war.a}-${war.b}-${war.start}:${yr}`,
+      text: lines[yr % lines.length],
       rest: 300,
     });
   }
@@ -704,12 +764,19 @@ function townNews(
       rest: 9999,
     });
   const tob = s.europe.price.tobacco;
-  if (tob !== undefined && tob < 3.5)
+  if (tob !== undefined && tob < 3.5) {
+    const y = Math.floor(dateOf(s.day).year / 2);
+    const lines = [
+      "The price of tobacco is down again, and the planters are in a black mood.",
+      "Tobacco's down again. A planter at the next table is explaining why it's the merchants' fault, at length, to a merchant.",
+      "Tobacco's so cheap the ministers are refusing their salaries in it. The ministers are not pleased; nor is anyone else.",
+    ];
     out.push({
-      key: `tob:${dateOf(s.day).year}`,
-      text: "The price of tobacco is down again, and the planters are in a black mood.",
-      rest: 365,
+      key: `tob:${y}`,
+      text: lines[y % lines.length],
+      rest: 2 * Y,
     });
+  }
   return out.find((x) => newsFresh(life, x.key, s.day, x.rest)) ?? null;
 }
 

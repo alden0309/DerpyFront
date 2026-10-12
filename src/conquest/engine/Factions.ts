@@ -117,6 +117,11 @@ const NAMES: Record<string, Names> = {
   },
 };
 
+/** A people's names for the factions ("english", "puritan", "french"...), for the guide. */
+export function factionNamesOf(people: string): Names {
+  return NAMES[people] ?? NAMES.english;
+}
+
 function namesOf(nation: Nation | undefined): Names {
   if (nation?.religion === "puritan") return NAMES.puritan;
   return NAMES[nation?.culture ?? "english"] ?? NAMES.english;
