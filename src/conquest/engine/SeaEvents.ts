@@ -153,7 +153,7 @@ export function oddsText(v: OddsView): string {
 
 // ---------------------------------------------------------------- the hunt
 
-const HUNT: LifeEventDef[] = [
+const HUNT = (): LifeEventDef[] => [
   {
     key: "sea-sail",
     pool: "raised",
@@ -609,7 +609,7 @@ function ready(g: ConquestGame, life: Life, ctx: LCtx): void {
   touchLife(g, life).cooldowns[`storm:${ctx.st}`] = 1;
 }
 
-const STORMS: LifeEventDef[] = [
+const STORMS = (): LifeEventDef[] => [
   {
     key: "sea-storm-signs",
     pool: "raised",
@@ -788,7 +788,6 @@ function stormAtSea(
 
 // ---------------------------------------------------------------- the trades that travel
 
-const VOYAGE_KINDS = Object.keys(VOYAGE_DEFS) as VoyageKind[];
 
 /** A voyage's offer: its text, its odds going and staying. */
 function voyageBody(g: ConquestGame, life: Life, ctx: LCtx, kind: VoyageKind): string {
@@ -894,8 +893,8 @@ function voyageDef(kind: VoyageKind): LifeEventDef {
   };
 }
 
-const VOYAGES: LifeEventDef[] = [
-  ...VOYAGE_KINDS.map(voyageDef),
+const VOYAGES = (): LifeEventDef[] => [
+  ...(Object.keys(VOYAGE_DEFS) as VoyageKind[]).map(voyageDef),
   {
     key: "sea-whale",
     pool: "raised",
@@ -968,7 +967,7 @@ function signChoice(role: CruiseRole): LifeEventDef["choices"][number] {
   };
 }
 
-const QUAY: LifeEventDef[] = [
+const QUAY = (): LifeEventDef[] => [
   {
     key: "sea-fitting",
     pool: "raised",
@@ -1057,7 +1056,7 @@ function inviteChoice(coins: number): LifeEventDef["choices"][number] {
   };
 }
 
-const COMPANY_SCENES: LifeEventDef[] = [
+const COMPANY_SCENES = (): LifeEventDef[] => [
   {
     key: "sea-sub-invite",
     pool: "raised",
@@ -1081,8 +1080,20 @@ const COMPANY_SCENES: LifeEventDef[] = [
   },
 ];
 
-/** Every scene of the sea, added to the life events the first time one is looked up (LifeEvents.ts). */
-export const SEA_EVENTS: LifeEventDef[] = [...HUNT, ...STORMS, ...VOYAGES, ...QUAY, ...COMPANY_SCENES];
+/**
+ * Every scene of the sea, made the first time one is looked up (LifeEvents'
+ * byKey): the modules they call import each other, so nothing here is built
+ * while one of them is still loading. The hurricanes rest with the weather
+ * at sea, and a town struck with the calamities.
+ */
+let built: LifeEventDef[] | null = null;
+export function seaEvents(): LifeEventDef[] {
+  if (built) return built;
+  built = [...HUNT(), ...STORMS(), ...VOYAGES(), ...QUAY(), ...COMPANY_SCENES()];
+  registerFamily("sea-weather", ["sea-storm-ship", "sea-storm-signs-ship"], 60);
+  registerFamily("calamity", ["sea-storm-town"], 365);
+  return built;
+}
 
 /**
  * The choice a scene takes if it's left unanswered (LifeEvents' firstAllowed):
@@ -1090,17 +1101,19 @@ export const SEA_EVENTS: LifeEventDef[] = [...HUNT, ...STORMS, ...VOYAGES, ...QU
  * pardon. The hunt's scenes take the captain's usual way (their first), and
  * the ship settles them herself if nobody answers in a few days.
  */
-export const SEA_QUIET: Record<string, number> = Object.fromEntries(
-  SEA_EVENTS.filter((d) =>
-    ["sea-voyage-", "sea-fitting", "sea-whale", "sea-pardon", "sea-sub-invite"].some((k) =>
-      d.key.startsWith(k),
-    ),
-  ).map((d) => [d.key, d.choices.length - 1]),
-);
-
-// The hurricanes rest with the weather at sea, and a town struck with the calamities.
-registerFamily("sea-weather", ["sea-storm-ship", "sea-storm-signs-ship"], 60);
-registerFamily("calamity", ["sea-storm-town"], 365);
+let quiet: Record<string, number> | null = null;
+export function seaQuiet(): Record<string, number> {
+  quiet ??= Object.fromEntries(
+    seaEvents()
+      .filter((d) =>
+        ["sea-voyage-", "sea-fitting", "sea-whale", "sea-pardon", "sea-sub-invite"].some((k) =>
+          d.key.startsWith(k),
+        ),
+      )
+      .map((d) => [d.key, d.choices.length - 1]),
+  );
+  return quiet;
+}
 
 /** Helpers for the client's sea page and the tests. */
 export { wouldChase, planOf, deciderOf };

@@ -128,6 +128,16 @@ const r1 = (v: number) => Math.round(v * 10) / 10;
 const r2 = (v: number) => Math.round(v * 100) / 100;
 const cap = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t);
 
+// SEA (r15): this module's hooks, registered by Sea.ts once every sea module
+// has loaded (they import each other, so nothing is pushed while one of them
+// is still half-loaded).
+const LATER: (() => void)[] = [];
+const later = (f: () => unknown): void => void LATER.push(() => void f());
+/** Register this module's hooks (Sea.ts calls it, once). */
+export function registerCruises(): void {
+  for (const f of LATER.splice(0)) f();
+}
+
 // ---------------------------------------------------------------- who and where
 
 /** A power's index by its key, or -1. */
@@ -929,6 +939,7 @@ export function ownCruise(
 /** Leave the articles before she sails (in port). */
 export function unsign(g: ConquestGame, life: Life): string | null {
   for (const cr of seaOf(g.s).cruises) {
+    if (cr.phase === "done" || cr.phase === "lost") continue;
     const h = cr.hands.find((x) => x.seat === life.seat && x.c === life.c);
     if (!h) continue;
     if (cr.phase !== "fitting") return "She's sailed: you're aboard till she's home.";
@@ -1282,10 +1293,12 @@ export function sight(g: ConquestGame, cr: Cruise, r: Rng): Encounter | null {
     const flags = groundFlags(s, gd).filter((f) => f >= 0);
     // Her own navy for a pirate; the enemy's for a privateer.
     const foes = [...enemiesOf(s, cr.nation)];
+    // The enemy's navy where its ships sail these waters, else any of it.
+    const here = foes.filter((f) => flags.includes(f));
     const flag =
       cr.flag === "pirate"
         ? (r.pick(flags) ?? cr.nation)
-        : (r.pick(foes.length ? foes : flags) ?? -1);
+        : (r.pick(here.length ? here : foes.length ? foes : flags) ?? -1);
     cr.encounter = {
       kind: WARSHIP.kind,
       flag,
@@ -1979,7 +1992,7 @@ export function describe(s: GameState, e: Encounter): string {
 
 // ---------------------------------------------------------------- storms at sea
 
-STORM_AT_SEA.unshift((g, life, st) => {
+later(() => STORM_AT_SEA.unshift((g, life, st) => {
   const cr = s0(g, life);
   if (!cr) return false;
   // One scene for the ship, to whoever decides; the rest are told.
@@ -1997,10 +2010,10 @@ STORM_AT_SEA.unshift((g, life, st) => {
   if (d) raiseEvent(g, d, "sea-storm-ship", { cr: cr.id, st: st.id, f: Math.round(st.force * 10) / 10 });
   else stormNow(g, cr, st.force, "heave", sdice(g).chance(0.6));
   return true;
-});
+}));
 
 /** The signs at sea: whoever decides for her is asked; the rest see the master eyeing the glass. */
-STORM_SIGNS.push((g, life, st) => {
+later(() => STORM_SIGNS.push((g, life, st) => {
   const cr = s0(g, life);
   if (!cr) return false;
   const d = deciderOf(g.s, cr);
@@ -2011,7 +2024,7 @@ STORM_SIGNS.push((g, life, st) => {
     `A long swell from the south-east and a falling glass: ${stormName(st)} is coming, and ${d ? charName(meOf(g.s, d)) : cap(cr.cname)} must decide what the ${cr.ship} does about it.`,
   );
   return true;
-});
+}));
 
 function s0(g: ConquestGame, life: Life): Cruise | undefined {
   const id = life.travel?.ship;
@@ -2211,7 +2224,7 @@ const PHASE_WORDS: Record<Cruise["phase"], string> = {
 };
 
 /** LEDGER (r15): your cruise in the tracker (Estate › Ledger, out working). */
-hooks.affairs.push((s, w, life) => {
+later(() => hooks.affairs.push((s, w, life) => {
   const out: import("./Types").AffairItem[] = [];
   for (const cr of seaOf(s).cruises) {
     if (cr.phase === "done" || cr.phase === "lost") continue;
@@ -2233,10 +2246,10 @@ hooks.affairs.push((s, w, life) => {
     });
   }
   return out;
-});
+}));
 
 /** LEDGER (r15): prizes to be paid this month, by luck. */
-hooks.forecast.push((s, life, w) => {
+later(() => hooks.forecast.push((s, life, w) => {
   const out: import("./Types").Part[] = [];
   if (!w) return out;
   for (const cr of seaOf(s).cruises) {
@@ -2252,7 +2265,7 @@ hooks.forecast.push((s, life, w) => {
       });
   }
   return out;
-});
+}));
 
 // ---------------------------------------------------------------- hooks
 
@@ -2278,7 +2291,7 @@ const ASHORE = new Set([
   "edu",
 ]);
 
-hooks.gate.push((g, life, c) => {
+later(() => hooks.gate.push((g, life, c) => {
   const id = life.travel?.ship;
   if (id === undefined) return null;
   const cr = cruiseById(g.s, id);
@@ -2286,10 +2299,10 @@ hooks.gate.push((g, life, c) => {
     return null;
   if (!ASHORE.has(c.k)) return null;
   return `You're at sea aboard the ${cr.ship}: that waits till she makes port.`;
-});
+}));
 
 /** Letters from afar wait for you in port. */
-hooks.holdLetter.push((g, life, key, ctx) => {
+later(() => hooks.holdLetter.push((g, life, key, ctx) => {
   const id = life.travel?.ship;
   if (id === undefined) return false;
   const cr = cruiseById(g.s, id);
@@ -2297,18 +2310,18 @@ hooks.holdLetter.push((g, life, key, ctx) => {
   (cr.mail ??= []).push({ seat: life.seat, key, ctx });
   seaChanged(g);
   return true;
-});
+}));
 
 /** A player's letter for someone at sea waits on the quay till they're home. */
-hooks.letterArrives.push((g, _writer, l) => {
+later(() => hooks.letterArrives.push((g, _writer, l) => {
   const reader = lifeOfChar(g.s, l.to);
   if (!reader || reader.travel?.ship === undefined) return false;
   l.arrive = g.s.day + 1;
   return true;
-});
+}));
 
 /** A hand who dies is struck off; a captain's place goes to the quartermaster. */
-hooks.death.push((g, c) => {
+later(() => hooks.death.push((g, c) => {
   for (const cr of seaOf(g.s).cruises) {
     const h = cr.hands.find((x) => x.c === c.id);
     if (!h) continue;
@@ -2319,7 +2332,7 @@ hooks.death.push((g, c) => {
     }
     logLine(g, cr, `${charName(c)} died aboard.`);
   }
-});
+}));
 
 /** The sea's commands. */
 export function cruiseCommand(
@@ -2405,20 +2418,20 @@ function pardonNotice(g: ConquestGame, life: Life): void {
   raiseEvent(g, life, "sea-pardon", {});
 }
 
-hooks.command.push(cruiseCommand);
-hooks.daily.push((g) => {
+later(() => hooks.command.push(cruiseCommand));
+later(() => hooks.daily.push((g) => {
   cruisesDaily(g);
   for (const life of g.s.lives) {
     if (life.watching || life.c < 0 || !meOf(g.s, life)) continue;
     fittingNotice(g, life);
     pardonNotice(g, life);
   }
-});
+}));
 
 // The old drawn hurricanes come only with a real storm now (Storms.ts raises them).
-hooks.eventWeight.push((_g, _life, key, pool, _ctx, w) =>
+later(() => hooks.eventWeight.push((_g, _life, key, pool, _ctx, w) =>
   pool !== "raised" && (key === "hurricane" || key === "trv-hurricane") ? 0 : w,
-);
+));
 
 export { wayAt, chancesIn, CREW_PARTS, havenIn, menAboard };
 export type { Storm };

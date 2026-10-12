@@ -84,6 +84,16 @@ import type {
 const r1 = (v: number) => Math.round(v * 10) / 10;
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
+// SEA (r15): this module's hooks, registered by Sea.ts once every sea module
+// has loaded (they import each other, so nothing is pushed while one of them
+// is still half-loaded).
+const LATER: (() => void)[] = [];
+const later = (f: () => unknown): void => void LATER.push(() => void f());
+/** Register this module's hooks (Sea.ts calls it, once). */
+export function registerPrivateers(): void {
+  for (const f of LATER.splice(0)) f();
+}
+
 // ---------------------------------------------------------------- the numbers
 
 export const COMPANY = {
@@ -759,7 +769,7 @@ function prizeFlow(f: Firm) {
 }
 
 // The owners' half: into the chest and out again at once, by share.
-CRUISE_OWNERS.push((g, cr, coins) => {
+later(() => CRUISE_OWNERS.push((g, cr, coins) => {
   const s = g.s;
   const f = firmOf(s, cr);
   if (!f?.sea) return;
@@ -783,10 +793,10 @@ CRUISE_OWNERS.push((g, cr, coins) => {
   f.chest = r2(f.chest + coins - paid);
   firmLine(g, f, `The ${x.ship}'s cruise: ${n} prize${n === 1 ? "" : "s"} condemned; the owners' half, ${r1(coins)}, paid out by share.`);
   partnersChanged(g, "f");
-});
+}));
 
 // Taken or foundered: the company keeps its chest.
-CRUISE_LOST.push((g, cr) => {
+later(() => CRUISE_LOST.push((g, cr) => {
   const s = g.s;
   const f = firmOf(s, cr);
   if (!f?.sea) return;
@@ -802,7 +812,7 @@ CRUISE_LOST.push((g, cr) => {
       wake(g, l, `The ${f.sea.ship} is lost.`);
     }
   }
-});
+}));
 
 /** Each day: a company's ship home from her cruise (and her commission's state). */
 function companiesDaily(g: ConquestGame): void {
@@ -837,7 +847,7 @@ function companiesDaily(g: ConquestGame): void {
 }
 
 /** The company's ship, in its books: her keep in port, prize money and outfits, the call if the chest is bare. */
-hooks.firmMonth.push((g, f) => {
+later(() => hooks.firmMonth.push((g, f) => {
   const x = f.sea;
   if (!x) return undefined;
   const keep = x.lost ? 0 : BOATS[x.kind].upkeep;
@@ -870,17 +880,17 @@ hooks.firmMonth.push((g, f) => {
   x.outMonth = 0;
   partnersChanged(g, "f");
   return r2(takings - costs);
-});
+}));
 
 /** What the ship would fetch, for a winding up or a buyout. */
-hooks.firmAssets.push((_s, f) => {
+later(() => hooks.firmAssets.push((_s, f) => {
   const x = f.sea;
   if (!x || x.lost) return 0;
   return r2(BOATS[x.kind].price * (x.hull / 100) * 0.6);
-});
+}));
 
 /** LEDGER (r15): your share of her keep when the chest can't pay it, and her prizes by luck. */
-hooks.forecast.push((s, life, w) => {
+later(() => hooks.forecast.push((s, life, w) => {
   const out: Part[] = [];
   for (const f of companiesOf(s, life.c)) {
     const p = partnerIn(f, life.c)!;
@@ -897,10 +907,10 @@ hooks.forecast.push((s, life, w) => {
       out.push({ key: `firm:${f.id}:prizes`, label: `The ${x.ship}'s prizes (${p.share}%)`, value: month, chance: [0, r1(v.hi)] });
   }
   return out;
-});
+}));
 
 /** LEDGER (r15): the company in the tracker. */
-hooks.affairs.push((s, w, life) =>
+later(() => hooks.affairs.push((s, w, life) =>
   companiesOf(s, life.c).map((f) => {
     const p = partnerIn(f, life.c)!;
     const x = f.sea!;
@@ -920,7 +930,7 @@ hooks.affairs.push((s, w, life) =>
       go: { tab: "work", sub: "sea" },
     };
   }),
-);
+));
 
 /** The company's commands. */
 function companyCommand(g: ConquestGame, life: Life, c: LifeCommand): string | null | undefined {
@@ -951,9 +961,9 @@ function companyCommand(g: ConquestGame, life: Life, c: LifeCommand): string | n
   return undefined;
 }
 
-hooks.command.push(companyCommand);
-hooks.daily.push((g) => {
+later(() => hooks.command.push(companyCommand));
+later(() => hooks.daily.push((g) => {
   subsDaily(g);
   companiesDaily(g);
-});
+}));
 

@@ -72,6 +72,16 @@ import { bossOf } from "./Work";
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
+// SEA (r15): this module's hooks, registered by Sea.ts once every sea module
+// has loaded (they import each other, so nothing is pushed while one of them
+// is still half-loaded).
+const LATER: (() => void)[] = [];
+const later = (f: () => unknown): void => void LATER.push(() => void f());
+/** Register this module's hooks (Sea.ts calls it, once). */
+export function registerVoyages(): void {
+  for (const f of LATER.splice(0)) f();
+}
+
 // ---------------------------------------------------------------- the table
 
 /** What a voyage's luck can come to: a venture's (or a brigade's goods') return, times the stake. */
@@ -857,7 +867,7 @@ function settleStake(g: ConquestGame, v: Voyage, life: Life, mult: number): stri
 
 // ---------------------------------------------------------------- storms and letters
 
-STORM_AT_SEA.unshift((g, life, st: Storm) => {
+later(() => STORM_AT_SEA.unshift((g, life, st: Storm) => {
   const v = seaOf(g.s).voyages.find((x) => x.seat === life.seat && x.c === life.c && x.phase !== "done" && life.travel?.ship === x.id);
   if (!v) return false;
   if (madeReady(life, st)) {
@@ -866,7 +876,7 @@ STORM_AT_SEA.unshift((g, life, st: Storm) => {
   }
   raiseEvent(g, life, "sea-storm-ship", { v: v.id, st: st.id, f: Math.round(st.force * 10) / 10 });
   return true;
-});
+}));
 
 /** A hurricane at sea on a voyage: run before it, or heave to. */
 export function voyageStorm(g: ConquestGame, life: Life, v: Voyage, force: number, how: "run" | "heave", pass: boolean): void {
@@ -884,26 +894,26 @@ export function voyageStorm(g: ConquestGame, life: Life, v: Voyage, force: numbe
   syncVoyage(g, v);
 }
 
-hooks.holdLetter.push((g, life, key, ctx) => {
+later(() => hooks.holdLetter.push((g, life, key, ctx) => {
   const v = seaOf(g.s).voyages.find((x) => x.seat === life.seat && x.phase !== "done" && life.travel?.ship === x.id);
   if (!v) return false;
   (v.mail ??= []).push({ key, ctx });
   seaChanged(g);
   return true;
-});
+}));
 
 /** Gone on a voyage of your own trade is a day at your post. */
-hooks.atPost.push((s, life) => {
+later(() => hooks.atPost.push((s, life) => {
   const v = seaOf(s).voyages.find(
     (x) => x.seat === life.seat && x.c === life.c && x.phase !== "done" && !x.sent,
   );
   if (!v || !life.job) return undefined;
   return voyageKindOf(life.job.kind, life.job.rank, lifeIsNative(s, life)) === v.kind ? true : undefined;
-});
+}));
 
 /** At sea (or on the trail) with a voyage, the things of the town wait. */
 const ASHORE = new Set(["travel", "halt", "sail", "act", "job", "takeup", "enter", "trade", "market", "lead", "present", "crime", "law", "dice", "property", "boat", "home"]);
-hooks.gate.push((g, life, c) => {
+later(() => hooks.gate.push((g, life, c) => {
   const id = life.travel?.ship;
   if (id === undefined) return null;
   const v = seaOf(g.s).voyages.find((x) => x.id === id && x.phase !== "done");
@@ -911,10 +921,10 @@ hooks.gate.push((g, life, c) => {
   return v.kind === "merchant" || v.kind === "whaling"
     ? `You're at sea aboard the ${v.ship}: that waits till you're ashore.`
     : `You're on the trail with ${v.ship}: that waits till you're back.`;
-});
+}));
 
 /** LEDGER (r15): a voyage in the tracker. */
-hooks.affairs.push((s, w, life) =>
+later(() => hooks.affairs.push((s, w, life) =>
   seaOf(s)
     .voyages.filter((v) => v.seat === life.seat && v.c === life.c && v.phase !== "done")
     .map((v) => ({
@@ -954,7 +964,7 @@ hooks.affairs.push((s, w, life) =>
         : {}),
       go: { tab: "work", sub: "sea" },
     })),
-);
+));
 
 /** A voyage's commands (going and staying are a scene's choices). */
 function voyageCommand(g: ConquestGame, life: Life, c: LifeCommand): string | null | undefined {
@@ -967,10 +977,10 @@ function voyageCommand(g: ConquestGame, life: Life, c: LifeCommand): string | nu
   return null;
 }
 
-hooks.command.push(voyageCommand);
-hooks.daily.push((g) => {
+later(() => hooks.command.push(voyageCommand));
+later(() => hooks.daily.push((g) => {
   voyagesDaily(g);
   for (const life of g.s.lives)
     if (!life.watching && life.c >= 0 && meOf(g.s, life)) offerDaily(g, life);
-});
+}));
 

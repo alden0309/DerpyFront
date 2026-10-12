@@ -452,6 +452,9 @@ function strikeTown(g: ConquestGame, st: Storm, p: number, km: number): void {
           "bad",
         );
     }
+    // It has found you: no signs after it.
+    if (life.prov === p && !life.travel && !st.warned.includes(`w:${life.seat}`))
+      st.warned.push(`w:${life.seat}`);
     if (life.prov === p && !life.travel && sev >= 1)
       raiseEvent(g, life, "sea-storm-town", {
         st: st.id,
@@ -509,7 +512,9 @@ function warnLives(g: ConquestGame): void {
     const near = stormBearingDown(s, spot.lat, spot.lon);
     if (!near) continue;
     const key = `w:${life.seat}`;
-    if (near.st.warned.includes(key)) continue;
+    // Warned once; and not at all once it has found you.
+    if (near.st.warned.includes(key) || near.st.warned.includes(`m:${life.seat}`))
+      continue;
     near.st.warned.push(key);
     seaChanged(g);
     const days = Math.max(1, Math.round(near.km / Math.max(200, near.st.km)));
@@ -569,8 +574,18 @@ export function struckLately(s: GameState, n: number, days = 30): number {
 
 const cap = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t);
 
+// SEA (r15): this module's hooks, registered by Sea.ts once every sea module
+// has loaded (they import each other, so nothing is pushed while one of them
+// is still half-loaded).
+const LATER: (() => void)[] = [];
+const later = (f: () => unknown): void => void LATER.push(() => void f());
+/** Register this module's hooks (Sea.ts calls it, once). */
+export function registerStorms(): void {
+  for (const f of LATER.splice(0)) f();
+}
+
 // A passage, or your own boat: the hurricane's scene at sea (unless you made port).
-STORM_AT_SEA.push((g, life, st) => {
+later(() => STORM_AT_SEA.push((g, life, st) => {
   if (life.travel?.ship !== undefined) return false;
   if (madeReady(life, st)) {
     journal(
@@ -583,6 +598,6 @@ STORM_AT_SEA.push((g, life, st) => {
   }
   raiseEvent(g, life, "trv-hurricane", { st: st.id });
   return true;
-});
+}));
 
-hooks.daily.push(stormsDaily);
+later(() => hooks.daily.push(stormsDaily));

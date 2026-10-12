@@ -61,6 +61,7 @@ import type {
   Voyage,
 } from "../../engine/Types";
 import { VOYAGE_DEFS } from "../../engine/Voyages";
+import "../../engine/Sea"; // the sea's hooks: the month's forecast, the tracker
 import { boatGlyph } from "./Livelihood";
 import { action, bar, charLink, GameUi, provLink, section } from "./Context";
 import { howTo, pageHead } from "./Nav";
