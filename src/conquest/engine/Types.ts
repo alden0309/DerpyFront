@@ -234,6 +234,8 @@ export interface Character {
   taught?: Partial<Record<Skill, number>>;
   /** EDU (r13): school, an apprenticeship or college: what they're at now, and what's done. */
   edu?: Schooling;
+  /** LABOUR (r15): held in bondage, bound by indenture, fled, or freed. */
+  bond?: BondMark;
 }
 
 // ---------------------------------------------------------------- lives
@@ -796,6 +798,8 @@ export interface Life {
   statements?: Statement[];
   /** EVENTS (r15): how often each event (and each trade's matter) has come to this line. */
   evSeen?: EventsSeen;
+  /** LABOUR (r15): those held in bondage or bound by indenture, and how they're kept. */
+  bondage?: Bondage;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1842,7 +1846,9 @@ export type LifeCommand =
   // PARTNERS (r13): business partnerships.
   | PartnersCommand
   // DICE (r14): Liar's dice in the tavern.
-  | DiceCommand;
+  | DiceCommand
+  // LABOUR (r15): bondage, treated as history.
+  | LabourCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -3330,3 +3336,156 @@ export type EventPool = "any" | "road" | "sea" | "raised";
  * showing, so what hasn't happened yet comes first. Kept through heirs.
  */
 export type EventsSeen = Record<string, number>;
+
+// ---- LABOUR (r15)
+// Bondage, treated as history: enslaved people (named characters with
+// families, held only where and when the law allowed it: BondLaw.ts),
+// indentured servants bound for a term, a household's policies, escapes and
+// risings, and freedom past the period's hurdles (BondCore.ts, Bondage.ts,
+// BondEvents.ts).
+
+/** Where someone held in bondage came from: a people of Africa, born in the Americas, or Europe (an indentured servant). */
+export type BondOrigin =
+  | "akan"
+  | "igbo"
+  | "kongo"
+  | "mande"
+  | "wolof"
+  | "fon"
+  | "yoruba"
+  | "malagasy"
+  | "creole"
+  | "europe";
+
+/** Held for life, bound by indenture, freed (or born free), or fled and not taken. */
+export type BondStatus = "held" | "indenture" | "free" | "fled";
+
+/** What someone is set to: the fields, the house, a trade in town, or nothing (a child, the old, the sick). */
+export type BondWork = "fields" | "house" | "craft" | "rest";
+
+/** Where a freedom seeker makes for (BondLaw.ts). */
+export type BondRefuge =
+  | "florida"
+  | "swamp"
+  | "nations"
+  | "town"
+  | "sea"
+  | "maroons"
+  | "dunmore"
+  | "north";
+
+/** A person's bondage (or freedom), kept on their character. */
+export interface BondMark {
+  status: BondStatus;
+  /** The player's seat that holds them. */
+  seat?: string;
+  /** A computer character who holds them (a planter on another estate), or -1 someone unnamed. */
+  by?: number;
+  /** Where they live. */
+  at: number;
+  origin: BondOrigin;
+  /** Their own faith, Islam, or Christian. */
+  faith: "own" | "islam" | "christian";
+  /** 0 to 100. */
+  health: number;
+  /** How they bear it, 0 (despair or fury) to 100. */
+  mood: number;
+  /** Fieldwork, housework and a trade, 0 to 10. */
+  sk: { field: number; house: number; craft: number };
+  work: BondWork;
+  /** Husband or wife (a marriage the English colonies' law didn't recognise). */
+  partner?: number;
+  /** Coins saved toward their own freedom. */
+  saved?: number;
+  /** An indenture: served on this day. */
+  until?: number;
+  /** Grieving (someone sold away, a death) until this day. */
+  grief?: number;
+  /** What was paid for them. */
+  paid?: number;
+  /** The day they came into this household. */
+  since: number;
+  /** Reading (1), and writing too (2). */
+  lit?: number;
+  /** Named in a will to be freed. */
+  will?: boolean;
+  /** A service the law could call meritorious (a fire put out, a life saved). */
+  merit?: string;
+  /** Fled: when, from whose household, where for, and how it ended. */
+  fled?: {
+    day: number;
+    from: string;
+    to: BondRefuge;
+    out?: "taken" | "free" | "harboured" | "returned";
+  };
+  /** Freed: when and how. */
+  freed?: { day: number; how: string };
+  /** The name they had before (an African name an enslaver replaced). */
+  born?: string;
+}
+
+/** How a household keeps those it holds: a few plain choices, each with its consequences. */
+export interface BondPolicy {
+  /** Provisions and clothes: scant, customary or ample. */
+  food: 0 | 1 | 2;
+  /** Quarters: rough cabins, customary quarters, sound houses. */
+  housing: 0 | 1 | 2;
+  /** The task system (a day's task, then their own time) or gangs under a driver. */
+  regime: "task" | "gang";
+  /** Never sell a family apart. */
+  families: boolean;
+  /** Passes to visit family on other estates. */
+  passes: boolean;
+  /** Religious instruction and baptism. */
+  church: boolean;
+  /** Teaching letters, where the law allows it. */
+  letters: boolean;
+  /** Punishment: the least, as the neighbours do, or harshly. */
+  punish: 0 | 1 | 2;
+}
+
+/** One thing that happened in a household's bondage (an escape, a death, a birth, a freeing). */
+export interface BondNote {
+  day: number;
+  k: string;
+  c?: number;
+  n?: number;
+  p?: number;
+}
+
+/** A household's bondage: who it holds, how, and what has happened. */
+export interface Bondage {
+  /** Those held and those bound by indenture (characters). */
+  people: number[];
+  policy: BondPolicy;
+  /** Where the household was at the last month's turn (those held follow it where the law allows). */
+  home: number;
+  /** What has happened, newest last. */
+  log: BondNote[];
+  /** A petition to free someone, waiting on the council or the court. */
+  petition?: { c: number; day: number; due: number; who: string } | null;
+  /** Freed people the law has you pay a yearly allowance (New York, 1712 to 1729). */
+  allowance?: number[];
+  /** Lots at a sale bought already ("p:month:i"), so a lot is sold once. */
+  bought?: string[];
+  /** Sold away from this household. */
+  sold?: number[];
+  /** Freed by this household. */
+  freed?: number[];
+  /** Freedom seekers this household sheltered (only it knows). */
+  sheltered?: number[];
+}
+
+/** A command about those held in bondage or bound by indenture (Bondage.ts). */
+export interface LabourCommand {
+  k: "bond";
+  /** buy, indenture, work, policy, free, will, sell, hear, petition. */
+  act: string;
+  /** The person. */
+  c?: number;
+  /** A sale's lot ("p:month:i"), and (for a family) which of them ("all" or an index). */
+  key?: string;
+  /** A policy's name, or a kind of work. */
+  kind?: string;
+  arg?: number;
+}
