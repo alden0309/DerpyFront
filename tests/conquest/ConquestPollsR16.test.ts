@@ -429,6 +429,36 @@ describe("POLLS r16: elections that can be lost", () => {
     );
   });
 
+  test("a seat in the house is fought in your county: beaten by its challenger, you lose it", () => {
+    const g = world({ start: 1700 });
+    const life = lifeOf(g);
+    life.purse = 200;
+    life.renown = 60;
+    const me = meOf(g.s, life)!;
+    const pol = g.s.polities[me.nation];
+    pol.election = pollDay(g.s.day + 60);
+    expect(g.lifeCommand("s1", { k: "stand" })).toBeNull();
+    ticks(g, 2);
+    const ref = { kind: "assembly" as const, n: me.nation };
+    const rival = rivalFor(g.s, life, ref)!;
+    // The rival shown is the county's own challenger, not the last seat.
+    expect(pol.candidates.some((x) => x.c === rival.c)).toBe(true);
+    expect(g.s.chars[rival.c].home).toBe(life.home);
+    // The papers make him unbeatable in the county.
+    addSway(g, rival.c, 30);
+    addSway(g, me.id, -30);
+    let done = false;
+    for (let i = 0; i < 90 && !done; i++) {
+      g.tick();
+      done = life.journal.some((j) => /election to|Elected to|Returned to/.test(j.text));
+    }
+    expect(pol.assembly).not.toContain(me.id);
+    expect(pol.assembly).toContain(rival.c);
+    const why = life.journal.find((j) => /^Why you lost the poll for/.test(j.text))!;
+    expect(why.text).toContain(g.s.chars[rival.c].first);
+    expect(life.polls!.last!.rival).toBe(rival.c);
+  });
+
   test("the chance shown is the count's own luck", () => {
     const r = new Rng({ rng: 12345 });
     for (const gap of [-6, -2, 0, 1, 3, 7]) {

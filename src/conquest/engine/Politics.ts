@@ -38,6 +38,7 @@ import { chooseSpeaker } from "./Assembly";
 import {
   assemblyHasPlayer,
   assemblyScore,
+  assemblyWinners,
   countLuck,
   countReasons,
   tellResults,
@@ -280,7 +281,14 @@ function holdElection(g: ConquestGame, pol: Polity): void {
   const ranked = [...field.entries()].sort(
     (a, b) => b[1] - a[1] || a[0] - b[0],
   );
-  const winners = ranked.slice(0, pol.seats).map(([c]) => c);
+  const winners = counted // POLLS (r16): a player's seat is fought in their county
+    ? assemblyWinners(
+        s,
+        pol.nation,
+        ranked.map(([c, v]) => ({ c, score: v })),
+        pol.seats,
+      )
+    : ranked.slice(0, pol.seats).map(([c]) => c);
   const why = counted // POLLS (r16): why it went as it did, for each player
     ? countReasons(
         s,

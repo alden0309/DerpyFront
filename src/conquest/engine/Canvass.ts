@@ -673,8 +673,55 @@ export function rivalFor(
     .sort((a, b) => b.st.total - a.st.total || a.c - b.c);
   if (!others.length) return null;
   if (ref.kind === "local") return others[0];
+  // The house: your seat is fought in your county, against the strongest of
+  // those put up against you there; with nobody, against the last seat.
+  const ch = others.find((x) => isChallenger(s, ref.n, x.c, life.home));
+  if (ch) return ch;
   const seats = s.polities[ref.n]?.seats ?? 6;
   return others[Math.min(seats, others.length) - 1];
+}
+
+/** One of the computer's people put up for the house in this county during a canvass. */
+function isChallenger(s: GameState, n: number, c: number, p: number): boolean {
+  return (
+    !lifeOfChar(s, c) &&
+    s.chars[c]?.home === p &&
+    !!s.polities[n]?.candidates.some((x) => x.c === c)
+  );
+}
+
+/**
+ * Who takes the house's seats (Politics.ts holdElection, with a player in
+ * it): a player's seat is fought in their county, so a player beaten by the
+ * strongest challenger put up there loses, and that challenger sits; a player
+ * who beats him sits. The rest of the seats go by the count, as ever.
+ */
+export function assemblyWinners(
+  s: GameState,
+  n: number,
+  ranked: { c: number; score: number }[],
+  seats: number,
+): number[] {
+  const sure: number[] = [];
+  const out = new Set<number>();
+  for (const x of ranked) {
+    const life = lifeOfChar(s, x.c);
+    if (!life) continue;
+    const ch = ranked.find(
+      (y) =>
+        y.c !== x.c &&
+        !sure.includes(y.c) &&
+        isChallenger(s, n, y.c, life.home),
+    );
+    if (ch && ch.score > x.score) {
+      out.add(x.c);
+      sure.push(ch.c);
+    } else sure.push(x.c);
+  }
+  const rest = ranked
+    .filter((y) => !sure.includes(y.c) && !out.has(y.c))
+    .map((y) => y.c);
+  return [...sure, ...rest].slice(0, seats);
 }
 
 /** Your chance at the count, from the gap and the luck at the count (each side ± POLL.luck). */
@@ -1186,12 +1233,19 @@ export function countReasons(
     if (!life) continue;
     const won = winners.includes(x.c);
     const others = ranked.filter((y) => y.c !== x.c);
-    // Who beat you, or who came nearest (the first loser, or the last winner).
-    const rival = won
-      ? (others.find((y) => !winners.includes(y.c)) ?? null)
-      : (others
-          .filter((y) => winners.includes(y.c))
-          .sort((a, b) => a.score - b.score)[0] ?? null);
+    // Who beat you, or who came nearest: for the house, your county's
+    // challenger if there was one; else the first loser, or the last winner.
+    const county =
+      ref.kind === "assembly"
+        ? others.find((y) => isChallenger(s, ref.n, y.c, life.home))
+        : undefined;
+    const rival =
+      county ??
+      (won
+        ? (others.find((y) => !winners.includes(y.c)) ?? null)
+        : (others
+            .filter((y) => winners.includes(y.c))
+            .sort((a, b) => a.score - b.score)[0] ?? null));
     const me = playerStanding(s, life, ref);
     const rl = rival ? lifeOfChar(s, rival.c) : undefined;
     const them = rival
