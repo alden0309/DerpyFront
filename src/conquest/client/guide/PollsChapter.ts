@@ -34,7 +34,7 @@ function linesTable(): string {
 | Treating | ${POLL.treatPoints} points a treat, with diminishing returns; 1 in 20 fades each week | ${POLL.treatCap} |
 | The county's regard | its people's opinion of you, ÷ ${POLL.regardDiv} (the computer's people: by their station and family) | ±${POLL.regardCap} |
 | Party | your party, by how far the county leans its way (a county near the middle, only a little) | ±${POLL.party} |
-| The governor's friends | for a court man he likes; against the country party, or one he dislikes | +${POLL.govFor} / −${POLL.govAgainst} |
+| The governor's friends | for a court man he likes; against the country party, or one he dislikes (in full at the house; at a county poll ${pct(0.8)} for a great office, half for a lesser one) | +${POLL.govFor} / −${POLL.govAgainst} |
 | The sheriff | he runs the poll: his opinion of you ÷ 10; his goodwill bought | ±${POLL.sheriffLean}, +${POLL.sheriffBought} |
 | A patron | your own, in the colony; a great man's interest bought | +${POLL.patronOwn} / +${POLL.patronBought} |
 | A freeholder · sitting already | the computer's merchants, planters and better are freeholders too | +${POLL.freeholder} · +${POLL.sitting} |
@@ -95,7 +95,7 @@ On the canvass, each with its cost on its button and what it would do to your st
 **Canvass the voters** (every two weeks, at a tavern or a market) is free and on the canvass too: ${CANVASS_POINTS.pass} canvass points if it goes well (on your persuasion), ${CANVASS_POINTS.fail} if not; standing a round at the tavern brings ${CANVASS_POINTS.round}. They're worth as much as the money, but they fade unless they're kept up. A sitting member, or a county office's holder, canvasses for the count ahead the same way in its last half-year. Standing for two at once (a county office and the house), your canvass is for the one counted first. The money spent shows in Estate › Ledger under the poll's name.
 
 ## The governor's friends
-A colony's governor (the computer's) and his friends take a side. A court-party man he thinks well of (20) has them working for him (+${POLL.govFor}); **a member of the country party, or anyone he dislikes, has them working against him** (−${POLL.govAgainst}), and you're told when they start. You're of the court party when you're received at court, or when your votes on the council say so; of the country party when they say that.
+A colony's governor (the computer's) and his friends take a side. A court-party man he thinks well of (20) has them working for him (+${POLL.govFor} at the house); **a member of the country party, or anyone he dislikes, has them working against him** (−${POLL.govAgainst} at the house, less at a county poll), and you're told when they start. You're of the court party when you're received at court, or when your votes on the council say so; of the country party when they say that.
 
 ## At the count
 Each side has its luck (±${POLL.luck}), and the highest standing wins. **Your journal says why**: the two or three lines that made the difference ("Edward's canvass, +11 to your +4; Colonel Byrd's interest behind Edward, +7; the governor's friends worked against you"), and the County offices page keeps your last poll's result and its reasons. A candidate who no longer may stand at the count (not a freeholder now, say) is struck off the list, and told why.

@@ -79,7 +79,7 @@ export const POLL = {
   regardCap: 12,
   /** Your party and the county's lean: up to this, by how far it leans (± either way). */
   party: 5,
-  /** The governor's friends: for a court man he likes, against the opposition. */
+  /** The governor's friends: for a court man he likes, against the opposition (at the house; less at a county poll, by its stakes). */
   govFor: 6,
   govAgainst: 8,
   /** The governor's friends for a computer candidate of the court party. */
@@ -347,8 +347,12 @@ export function govInterest(s: GameState, ref: PollRef, life: Life): number {
   if (!gov?.alive || gov.id === life.c || isPlayed(s, gov.id)) return 0;
   const party = partyOf(s, n, life.c);
   const op = opinionOf(s, gov, life).total;
-  if (party === "country" || op < 0) return -POLL.govAgainst;
-  if (party === "court" && op >= 20) return POLL.govFor;
+  // The house is their battle; a county office less so (as the computer's
+  // people fight it: a great office 4 in 5, a lesser one half).
+  const stakes = pollStakes(ref);
+  if (party === "country" || op < 0)
+    return -Math.round(POLL.govAgainst * stakes);
+  if (party === "court" && op >= 20) return Math.round(POLL.govFor * stakes);
   return 0;
 }
 

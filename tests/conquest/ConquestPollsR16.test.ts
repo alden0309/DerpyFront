@@ -26,6 +26,7 @@ import {
   playerStanding,
   POLL,
   pollOf,
+  pollStakes,
   rivalFor,
   sheriffOf,
   treatValue,
@@ -302,7 +303,9 @@ describe("POLLS r16: elections that can be lost", () => {
     // Before: renown 250 was worth 100 at a county poll (0.4 a point).
     const now = canvassNow(g.s, life)!;
     expect(now.me.lines.find((l) => l.k === "name")!.v).toBe(POLL.renownCap);
-    expect(now.me.lines.find((l) => l.k === "gov")!.v).toBe(-POLL.govAgainst);
+    expect(now.me.lines.find((l) => l.k === "gov")!.v).toBe(
+      -Math.round(POLL.govAgainst * pollStakes(now.ref)),
+    );
     expect(now.rival).not.toBeNull();
     // Renown is a tenth of his standing, not the whole of it.
     expect(now.me.total).toBeLessThan(60);
@@ -440,10 +443,18 @@ describe("POLLS r16: elections that can be lost", () => {
     const n = o.nation;
     const ref = { kind: "local" as const, o };
     ensureCabinet(g, n).faction[life.c] = "country";
-    expect(govInterest(g.s, ref, life)).toBe(-POLL.govAgainst);
+    // A county office is less their battle than the house.
+    const against = -Math.round(POLL.govAgainst * pollStakes(ref));
+    expect(against).toBeLessThan(0);
+    expect(against).toBeGreaterThan(-POLL.govAgainst);
+    expect(govInterest(g.s, ref, life)).toBe(against);
     expect(
       playerStanding(g.s, life, ref).lines.find((l) => l.k === "gov")?.v,
-    ).toBe(-POLL.govAgainst);
+    ).toBe(against);
+    // At the house, in full.
+    expect(govInterest(g.s, { kind: "assembly" as const, n }, life)).toBe(
+      -POLL.govAgainst,
+    );
     ticks(g, 8);
     expect(
       life.journal.some((j) =>
