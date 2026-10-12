@@ -44,7 +44,7 @@ function choice(i: number) {
       const w = wouldBring(g.s, ctx.n, sess!, life, i);
       const members = (k: number) =>
         k === 0 ? "nobody" : k === 1 ? "1 member" : `${k} members`;
-      return `If the house carries it: ${ch.tip}${p.glad.length ? ` Speaking for it pleases ${listWords(p.glad)}` : ""}${p.sore.length ? `${p.glad.length ? "; it angers" : " Speaking for it angers"} ${listWords(p.sore)}` : ""}${p.glad.length || p.sore.length ? "." : ""} A good speech would bring ${members(w.good)} over${w.poor !== w.good ? `, a poor one ${members(w.poor)}` : ""}: those who lean only a little the other way.`;
+      return `If the house carries it: ${ch.tip}${p.glad.length ? ` Speaking for it pleases ${listWords(p.glad)}` : ""}${p.sore.length ? `${p.glad.length ? "; it angers" : " Speaking for it angers"} ${listWords(p.sore)}` : ""}${p.glad.length || p.sore.length ? "." : ""} A good speech would bring ${members(w.good)} over${w.poor !== w.good ? `; a poor one, ${members(w.poor)}` : ""}.`;
     },
     apply: (g: ConquestGame, life: Life, ctx: LCtx) =>
       void standInSession(g, life, ctx.n, ctx.id, i),

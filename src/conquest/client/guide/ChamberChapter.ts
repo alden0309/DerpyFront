@@ -32,6 +32,23 @@ function caresCell(cares: Partial<Record<FactionKey, number>>, sign: 1 | -1) {
   return list.length ? list.join(", ") : "–";
 }
 
+/** The journal's caps, in words: "3 for small talk with each person, 2 for flattery...". */
+function capsWords(): string {
+  const names: Record<string, string> = {
+    talk: "small talk with each person",
+    flatter: "flattery of each person",
+    round: "the round",
+    levee: "the levee",
+    alms: "alms",
+    pamphlet: "pamphlets",
+    drink: "the talk of the town",
+    gift: "gifts to the same person (the money is in the month's accounts)",
+  };
+  return Object.entries(JOURNAL_CAP)
+    .map(([k, v]) => `${v} for ${names[k] ?? k}`)
+    .join(", ");
+}
+
 /** Every kind of business that comes before the council, from the docket. */
 function businessTable(): string {
   const rows = BUSINESS.map((b) => {
@@ -144,18 +161,11 @@ ${laterTable()}
 ## Small talk in the journal
 The governor's talk and flattery, the tavern round, the talk of the town, the levee, alms and pamphlets draw from larger pools, and a line rests a while once it's been said.
 - **News comes first** and always goes in the journal: a war, the matter before the council, the bill before the house, the session's question, the governor's gout (if he has it), the price of tobacco at home. Each piece is told once, not every week.
-- **Flavour goes in the journal the first few times a year** (${Object.entries(
-    JOURNAL_CAP,
-  )
-    .map(
-      ([k, v]) =>
-        `${v} for ${k === "drink" ? "the talk of the town" : k === "talk" ? "small talk with each person" : k}`,
-    )
-    .join(
-      ", ",
-    )}). After that it's said when you do it (you see it in the scene) but not written down.
+- **Flavour goes in the journal the first few times a year** (${capsWords()}). After that it's said when you do it (you see it in the scene) but not written down.
 - **The town's old stories** are heard at most ${GOSSIP_HEARINGS === 2 ? "twice" : `${GOSSIP_HEARINGS} times`} in a life, a couple of years apart; some belong to their years (Captain Kidd, Blackbeard, the South Sea Bubble, Mr Whitefield). When there's nothing new, nothing is written.
 - **The levee** names everyone the first time; after that it's "the usual company", naming only who's new and who's missed.
+- **Letters to the crown** are answered from London, Paris, Madrid, Amsterdam, Stockholm or Lisbon as the colony's crown is, and by its own board (the Board of Trade, the Ministry of Marine, the Council of the Indies...), in lines that don't come round again within the year.
+- **Another player's character** only ever does what their player does: a word with them, or a gift, is written as what you did ("You pass the time of day with Beatrice"), never as their laughing at your story or thanking you.
 
 > Tip: The factions remember both ways. A vote that pleases the merchants may cost you the planters; the session is where you choose your friends for the year.
 

@@ -105,13 +105,20 @@ export function factionsSection(
               )}
             </div>
             ${m?.why.length
-              ? html`<p class="cq-faction-why small">
+              ? html`<ul class="cq-faction-why small">
                   ${m.why
                     .slice(-2)
                     .reverse()
-                    .map((x) => x.t)
-                    .join("; ")}
-                </p>`
+                    .map(
+                      (x) =>
+                        html`<li>
+                          <span class="cq-care ${x.v > 0 ? "for" : "against"}"
+                            >${x.v > 0 ? "+" : "−"}${Math.abs(x.v)}</span
+                          >
+                          ${x.t}
+                        </li>`,
+                    )}
+                </ul>`
               : nothing}
           </li>`;
         })}
@@ -222,7 +229,8 @@ export function sessionSection(
       </ul>
       ${open
         ? html`<p class="cq-muted small">
-            As the house leans now, with the members speeches have brought over.
+            As the house leans now, with the members the speeches have brought
+            over.
             ${waiting
               ? html`<button
                   class="cq-btn small primary"
