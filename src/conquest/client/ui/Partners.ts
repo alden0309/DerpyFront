@@ -8,7 +8,15 @@
 // on its place's tile; and the market's "Partnerships".
 
 import { html, nothing, svg, TemplateResult } from "lit";
+import {
+  presetOf,
+  presetsFor,
+  presetTerms,
+  termsSummary,
+  type PresetKey,
+} from "../../engine/BizPresets"; // BUSINESS (r15)
 import { formatDate, formatMonth } from "../../engine/Calendar";
+import { companyOdds, goodsName, placeName } from "../../engine/Company"; // BUSINESS (r15)
 import {
   avgProfit,
   bizName,
@@ -17,6 +25,7 @@ import {
   decisionCost,
   DECISIONS,
   decisionWords,
+  firmHowItPays,
   firmMonthView,
   tally,
   windingUpShares,
@@ -74,11 +83,13 @@ import type {
 } from "../../engine/Types";
 import { play } from "../Sound";
 import { num } from "../Tip";
+import { companyCard, planPicker, takePendingPreset } from "./Business"; // BUSINESS (r15)
 import {
   action,
   breakdownTip,
   charLink,
   GameUi,
+  more,
   section,
   token,
 } from "./Context";
@@ -240,6 +251,9 @@ function holdLine(ui: GameUi, f: Firm): string {
   }
   if (f.biz)
     return `${bizName(f.biz.job, f.biz.level)[0].toUpperCase()}${bizName(f.biz.job, f.biz.level).slice(1)} at ${town} · ${["", "I", "II", "III"][f.biz.level]} · ${f.biz.hands} of ${bizRoom(f.biz.level)} hands`;
+  // BUSINESS (r15): a trading company's trade.
+  if (f.hold === "company" && f.co)
+    return `${goodsName(f.co.plan.item)} from ${placeName(s, ui.w, f.co.plan.from, f.co.plan.from)} to ${placeName(s, ui.w, f.co.plan.to, f.co.plan.from)} · ${f.co.plan.loads} loads every ${f.co.plan.every === 1 ? "month" : `${f.co.plan.every} months`}`;
   if (f.lost) return `Cargoes, out of ${town} (its ${f.lost.name} lost)`;
   return `Cargoes, out of ${town}`;
 }
@@ -250,7 +264,10 @@ function firmCard(ui: GameUi, f: Firm): TemplateResult {
   const life = ui.life!;
   const me = partnerIn(f, life.c)!;
   const mgr = managerOf(f);
-  const v = f.hold === "paper" ? null : firmMonthView(s, f);
+  const v =
+    f.hold === "paper" || f.hold === "company" ? null : firmMonthView(s, f); // BUSINESS (r15)
+  const co =
+    f.hold === "company" && f.co ? companyOdds(s, ui.w, f.co.plan) : null;
   const last = f.books[f.books.length - 1];
   const worth = buyoutPrice(s, f, life.c);
   const wind = windingUpShares(s, f).get(life.c) ?? 0;
@@ -363,13 +380,21 @@ function firmCard(ui: GameUi, f: Firm): TemplateResult {
               () => breakdownTip("A month as it stands", v.why, signed),
               `cq-stat-value ${v.profit < 0 ? "bad" : ""}`,
             )
-          : html`<span class="cq-stat-value">${signed(avgProfit(s, f))}</span>`}
+          : co
+            ? html`<span class="cq-stat-value ${co.net < 0 ? "bad" : ""}"
+                >${signed(co.net)}</span
+              >`
+            : html`<span class="cq-stat-value"
+                >${signed(avgProfit(s, f))}</span
+              >`}
         <span class="cq-stat-note"
           >${v
             ? v.minding
               ? `${mgr?.c === life.c ? "you mind" : `${s.chars[mgr?.c ?? -1]?.first ?? "the manager"} minds`} it`
               : (v.away ?? "nobody minding it")
-            : "the paper's sales"}</span
+            : co
+              ? "its voyages, on average"
+              : "the paper's sales"}</span
         >
       </div>
       <div class="cq-stat">
@@ -395,6 +420,13 @@ function firmCard(ui: GameUi, f: Firm): TemplateResult {
           ${formatMonth(f.cargo.due)}.
         </p>`
       : nothing}
+    ${f.hold === "company" && f.co ? companyCard(ui, f, false) : nothing}
+    ${more(
+      "How it makes its money",
+      html`<ul class="cq-biz-how small">
+        ${firmHowItPays(s, ui.w, f).map((x) => html`<li>${x}</li>`)}
+      </ul>`,
+    )}
     ${booksBlock(ui, f, me.share)} ${mattersBlock(ui, f)} ${putBlock(ui, f)}
     ${ownBlock(ui, f)}
     ${f.lines.length
@@ -932,6 +964,28 @@ function rebuild(ui: GameUi, c: Character): void {
     : null;
 }
 
+/** BUSINESS (r15): fill the articles in by a preset, with a fair split. */
+function applyPreset(
+  ui: GameUi,
+  c: Character,
+  key: PresetKey,
+  o: Parameters<typeof presetTerms>[5] = {},
+): void {
+  const t = presetTerms(ui.s, ui.w, ui.life!, c, key, o);
+  if (!t) return;
+  draft.choice =
+    key === "found"
+      ? "found"
+      : key === "cargo"
+        ? "venture"
+        : key === "company"
+          ? "company"
+          : `${key === "mine" ? "mine" : "theirs"}:${t.id}`;
+  draft.job = t.job ?? null;
+  draft.level = t.level ?? 1;
+  draft.terms = t;
+}
+
 /** The articles drawn up: what the firm holds, shares, capital, who manages. */
 export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
   const s = ui.s;
@@ -943,6 +997,9 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
   if (draft.key !== key) {
     draft = { key, c: m.c, choice: "", job: null, level: 1, terms: null };
     rebuild(ui, c);
+    // BUSINESS (r15): opened with a preset (from the start window).
+    const want = takePendingPreset();
+    if (want) applyPreset(ui, c, want.key, want);
   }
   const t = draft.terms;
   const here =
@@ -958,8 +1015,13 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
     </p>`;
   const check = termsCheck(s, ui.w, life, t, post);
   const fair = fairShares(s, t);
-  const fc = articlesForecast(s, t);
-  const accept = other ? null : articlesAcceptance(s, t, c, life);
+  const fc = articlesForecast(s, t, undefined, ui.w); // BUSINESS (r15): the world, for a company
+  const accept = other
+    ? null
+    : articlesAcceptance(s, t, c, life, undefined, ui.w);
+  // BUSINESS (r15): the presets, and the articles in plain words.
+  const presets = presetsFor(s, ui.w, life, c);
+  const cur = presetOf(t, life);
   const lawyers = lawyersHere(s, life);
   // LEDGER (r15): the lawyer's fee, paid when the articles are put.
   const fee =
@@ -1012,6 +1074,30 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
     </header>
     <div class="cq-articles-body">
       <div class="cq-articles-main">
+        <div
+          class="cq-pa-presets"
+          role="radiogroup"
+          aria-label="A partnership like"
+        >
+          <span class="cq-pa-presets-h">A partnership like…</span>
+          ${presets.map(
+            (p) =>
+              html`<button
+                role="radio"
+                aria-checked=${cur === p.key}
+                class="cq-pa-preset ${cur === p.key ? "on" : ""}"
+                ?disabled=${!!p.why}
+                title=${p.why ?? p.text}
+                @click=${() => {
+                  applyPreset(ui, c, p.key);
+                  redraw();
+                }}
+              >
+                <b>${p.label}</b>
+                <span class="small">${p.why ?? p.text}</span>
+              </button>`,
+          )}
+        </div>
         <ol class="cq-articles-clauses">
           <li>
             <h4><span>I.</span> What the firm shall hold</h4>
@@ -1099,6 +1185,19 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
                         </button>`,
                     )}
                   </span>
+                </div>`
+              : nothing}
+            ${t.hold === "company" && t.co
+              ? html`<div class="cq-articles-found">
+                  ${planPicker(
+                    ui,
+                    t.co,
+                    (p) => {
+                      t.co = p;
+                      redraw();
+                    },
+                    t.co.from,
+                  )}
                 </div>`
               : nothing}
           </li>
@@ -1286,6 +1385,9 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
       </div>
       <aside class="cq-articles-panel">
         <div class="cq-articles-verdict">
+          <p class="cq-pa-plain small">
+            <b>In plain words:</b> ${termsSummary(s, ui.w, life, t)}
+          </p>
           <p class="small">
             ${t.hold === "venture"
               ? "Its profit is what its cargoes bring home."

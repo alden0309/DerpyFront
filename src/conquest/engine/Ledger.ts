@@ -38,6 +38,7 @@ import {
   SHARE_SWING,
   VENTURE_LUCK,
   VENTURE_WAR_LOSS,
+  VENTURE_WAR_PRICE, // BUSINESS (r15)
 } from "./LifeRules";
 import type { World } from "./Map";
 import { officerKeep, ventureFlow, venturesOf } from "./Money";
@@ -343,13 +344,17 @@ export function ventureOdds(
     ...rest.map((l) => ({
       label: l.text,
       p: ((1 - loss) * l.p) / total,
-      back: r2(v.stake * l.x),
+      back: r2(v.stake * l.x * (war ? VENTURE_WAR_PRICE : 1)), // BUSINESS (r15)
     })),
   ];
   return {
     expected: r1(outcomes.reduce((m, o) => m + o.p * o.back, 0)),
     lo: 0,
-    hi: r1(v.stake * VENTURE_LUCK[VENTURE_LUCK.length - 1].x),
+    hi: r1(
+      v.stake *
+        VENTURE_LUCK[VENTURE_LUCK.length - 1].x *
+        (war ? VENTURE_WAR_PRICE : 1), // BUSINESS (r15)
+    ),
     outcomes,
   };
 }
@@ -708,8 +713,8 @@ export function affairsOf(s: GameState, w: World, life: Life): AffairItem[] {
         kind: "people",
         id: `f:${f.id}`,
         title: name,
-        what: `waiting at ${at(t.p)}`,
-        status: "waiting",
+        what: t.what ? `${t.what} at ${at(t.p)}` : `waiting at ${at(t.p)}`, // BUSINESS (r15)
+        status: t.what ? "at work" : "waiting", // BUSINESS (r15): a business's manager
         p: t.p,
         cost: -f.wage,
         go: { tab: "people", sub: "yours" },

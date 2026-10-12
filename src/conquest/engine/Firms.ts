@@ -12,6 +12,21 @@
 // short) by share. Nothing here makes money that a business of one's own
 // wouldn't: the partnership pools capital, so bigger businesses can be had.
 
+import {
+  bestHands,
+  bizAdvice,
+  bizMonth,
+  freshCustom,
+  marginal,
+  northern,
+  RAMP,
+  townCustom,
+  UNMINDED,
+  type Advice,
+  type BizInput,
+  type BizView,
+} from "./Business"; // BUSINESS (r15)
+import { dateOf } from "./Calendar";
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
 import { raiseEvent } from "./Hooks";
@@ -34,18 +49,16 @@ import {
   yes,
 } from "./LifeQueries";
 import {
-  BUSINESS_UPKEEP,
-  EXCISE,
   EXPAND_COST,
-  HAND_TAKINGS,
   HAND_WAGE,
   JOBS,
   ROLES,
-  SHIP_UPKEEP_MULT,
   VENTURE_DAYS,
   VENTURE_LUCK,
   VENTURE_WAR_LOSS,
+  VENTURE_WAR_PRICE, // BUSINESS (r15)
 } from "./LifeRules";
+import type { World } from "./Map"; // BUSINESS (r15)
 import { BAILIFFS_AT } from "./Money";
 import { wake } from "./Pace";
 import { askNewcomer } from "./Partners";
@@ -114,7 +127,8 @@ function chargeTo(g: ConquestGame, c: number, coins: number): void {
 }
 
 /** Tell a player partner something, and wake them for it if it matters. */
-function tell(
+/** BUSINESS (r15): exported for the trading company (Company.ts). */
+export function tell(
   g: ConquestGame,
   c: number,
   text: string,
@@ -200,16 +214,68 @@ export interface FirmMonthView {
   held: boolean;
   hands: number;
   why: Breakdown;
+  /** BUSINESS (r15): the business's month in full (custom, season, the master's work). */
+  biz?: BizView;
 }
 
 /**
- * A month of a firm's business, as it stands (or with every hand it has room
- * for, `full`): the same sums as a business of one's own.
+ * BUSINESS (r15): everything a firm's business is reckoned from, as a
+ * business of one's own is (Business.ts): the managing partner's skill,
+ * whether they mind it, the town's custom, the season, the months it's open.
+ * `full`: once it's going, with the hands that pay (a year's average month).
+ * `day`: a day of the month being reckoned (the month just worked, at its turn).
+ */
+export function firmBizInput(
+  s: GameState,
+  f: Pick<Firm, "biz" | "prov" | "partners" | "debt"> & { id?: number },
+  full = false,
+  day = s.day,
+): BizInput | null {
+  const biz = f.biz;
+  if (!biz) return null;
+  const def = JOBS[biz.job];
+  const mgr = managerOf(f as Firm);
+  const c = mgr ? s.chars[mgr.c] : undefined;
+  const skill = c ? charSkill(s, c, def.main) : 3;
+  const away = c ? notMinding(s, c, f.prov, biz.job) : "nobody to run it";
+  const ml = c ? lifeOfChar(s, c.id) : undefined;
+  const owner = s.provinces[f.prov]?.owner ?? -1;
+  const i: BizInput = {
+    job: biz.job,
+    level: biz.level,
+    hands: biz.hands,
+    skill,
+    minded: !away,
+    ...(away ? { away } : {}),
+    // The managing partner's own work: a computer partner's always, a
+    // player's when they've no other work to do.
+    master: away ? "none" : ml && ml.job ? "none" : "work",
+    who: c ? c.first : "nobody",
+    custom:
+      biz.st?.custom ??
+      townCustom(s, f.prov, biz.job, {
+        firm: f.id,
+        chars: f.partners.map((x) => x.c),
+      }).free,
+    month: full ? -1 : dateOf(day).month,
+    north: biz.st?.north ?? true,
+    ...(!full && biz.st?.months !== undefined ? { months: biz.st.months } : {}),
+    held: (s.provinces[f.prov]?.occupier ?? -1) >= 0,
+    native: owner >= 0 && s.nations[owner]?.kind === "native",
+  };
+  if (full) i.hands = bestHands(i);
+  return i;
+}
+
+/**
+ * A month of a firm's business, as it stands (or once it's going, `full`):
+ * the same sums as a business of one's own (Business.ts).
  */
 export function firmMonthView(
   s: GameState,
-  f: Pick<Firm, "biz" | "prov" | "partners" | "debt">,
+  f: Pick<Firm, "biz" | "prov" | "partners" | "debt"> & { id?: number },
   full = false,
+  day = s.day,
 ): FirmMonthView {
   const e = new Explain();
   const v: FirmMonthView = {
@@ -226,29 +292,23 @@ export function firmMonthView(
     why: { total: 0, parts: [] },
   };
   const biz = f.biz;
-  if (biz) {
-    const def = JOBS[biz.job];
-    const mgr = managerOf(f as Firm);
-    const c = mgr ? s.chars[mgr.c] : undefined;
-    v.skill = c ? charSkill(s, c, def.main) : 3;
-    const away = c ? notMinding(s, c, f.prov, biz.job) : "nobody to run it";
-    v.minding = !away;
-    if (away) v.away = away;
-    v.held = (s.provinces[f.prov]?.occupier ?? -1) >= 0;
-    v.hands = full ? bizRoom(biz.level) : biz.hands;
-    const per = HAND_TAKINGS * (0.8 + v.skill / 25) * (v.minding ? 1 : 0.6);
-    v.takings = v.held ? 0 : r1(per * v.hands);
-    v.wages = v.hands * HAND_WAGE;
-    v.upkeep =
-      (BUSINESS_UPKEEP[biz.level] ?? 0) *
-      (biz.job === "sailor" ? SHIP_UPKEEP_MULT : 1);
-    const owner = s.provinces[f.prov]?.owner ?? -1;
-    const nativeLand = owner >= 0 && s.nations[owner]?.kind === "native";
-    v.excise = nativeLand ? 0 : r2(v.takings * EXCISE);
+  const input = firmBizInput(s, f, full, day);
+  if (biz && input) {
+    const b = bizMonth(input);
+    v.biz = b;
+    v.skill = input.skill;
+    v.minding = input.minded;
+    if (input.away) v.away = input.away;
+    v.held = input.held;
+    v.hands = input.hands;
+    v.takings = b.takings;
+    v.wages = b.wages;
+    v.upkeep = b.upkeep;
+    v.excise = b.excise;
     e.add(
       v.held
         ? "Takings: the enemy holds the town"
-        : `Takings: ${v.hands} hand${v.hands === 1 ? "" : "s"}, ${def.main} ${v.skill}${v.away ? `, its manager ${v.away}` : ""}`,
+        : `Takings: ${v.hands} hand${v.hands === 1 ? "" : "s"}${b.master ? ` and ${input.who}'s own work` : ""}, ${JOBS[biz.job].main} ${v.skill}${v.away ? `, its manager ${v.away}` : ""}`,
       v.takings,
       true,
     );
@@ -317,7 +377,7 @@ function cargoHome(g: ConquestGame, f: Firm): { back: number; text: string } {
       }
     }
   }
-  const back = r2(cargo.stake * luck.x);
+  const back = r2(cargo.stake * luck.x * (war ? VENTURE_WAR_PRICE : 1)); // BUSINESS (r15): war prices
   const text =
     luck.x === 0
       ? `the cargo of ${cargo.name} is ${war ? "taken by a privateer" : "lost at sea"}`
@@ -326,7 +386,8 @@ function cargoHome(g: ConquestGame, f: Firm): { back: number; text: string } {
 }
 
 /** Divide coins from the chest among the partners by share. */
-function divide(g: ConquestGame, f: Firm, amount: number): void {
+/** BUSINESS (r15): exported for the trading company (Company.ts). */
+export function divide(g: ConquestGame, f: Firm, amount: number): void {
   let paid = 0;
   for (const p of f.partners) {
     const a = r2((amount * p.share) / 100);
@@ -339,7 +400,13 @@ function divide(g: ConquestGame, f: Firm, amount: number): void {
 }
 
 /** Call coins into the chest from the partners by share. */
-function callIn(g: ConquestGame, f: Firm, amount: number, why: string): void {
+/** BUSINESS (r15): exported for the trading company (Company.ts). */
+export function callIn(
+  g: ConquestGame,
+  f: Firm,
+  amount: number,
+  why: string,
+): void {
   for (const p of f.partners) {
     const a = r2((amount * p.share) / 100);
     if (!a) continue;
@@ -355,7 +422,8 @@ function callIn(g: ConquestGame, f: Firm, amount: number, why: string): void {
 }
 
 /** Remember a month in the books. */
-function book(
+/** BUSINESS (r15): exported for the trading company (Company.ts). */
+export function book(
   g: ConquestGame,
   f: Firm,
   takings: number,
@@ -389,6 +457,7 @@ function npcStartsSkimming(g: ConquestGame, c: Character): boolean {
  */
 export function firmMonth(g: ConquestGame, f: Firm): number {
   if (f.status !== "trading") return 0;
+  if (f.hold === "company") return 0; // BUSINESS (r15): Company.ts keeps its books
   const s = g.s;
   let takings = 0;
   let costs = 0;
@@ -401,12 +470,22 @@ export function firmMonth(g: ConquestGame, f: Firm): number {
   if (f.biz) {
     // A hand taken on each month there's room and the money for it; one
     // let go when the firm lost money and the chest is bare.
-    const last = f.books[f.books.length - 1];
-    if (bizRoom(f.biz.level) > f.biz.hands && f.chest >= HAND_WAGE * 2)
-      f.biz.hands++;
-    else if (f.biz.hands > 0 && f.chest <= 0 && (last?.profit ?? 0) < 0)
-      f.biz.hands--;
-    const v = firmMonthView(s, f);
+    // BUSINESS (r15): a hand taken on when one more would pay (and the chest
+    // can pay them), one let go when one fewer would; reckoned on the
+    // custom as it is now and a year's average month, so the seasons don't
+    // hire and fire.
+    const inp = firmBizInput(s, f, false, s.day - 1);
+    if (inp) {
+      const mg = marginal({ ...inp, month: -1 });
+      if (
+        bizRoom(f.biz.level) > f.biz.hands &&
+        mg.more > 0.05 &&
+        f.chest >= HAND_WAGE * 2
+      )
+        f.biz.hands++;
+      else if (f.biz.hands > 0 && mg.fewer > 0.05) f.biz.hands--;
+    }
+    const v = firmMonthView(s, f, false, s.day - 1);
     takings = v.takings;
     costs = r2(v.wages + v.upkeep + v.excise + v.interest);
     if (v.held) notes.push("the enemy holds the town");
@@ -472,8 +551,97 @@ export function firmMonth(g: ConquestGame, f: Firm): number {
     profit,
     notes.join("; ") || undefined,
   );
+  // BUSINESS (r15): the months it's been open, and the custom for the next.
+  if (f.biz) {
+    const st = (f.biz.st ??= {});
+    if (st.months !== undefined) {
+      st.months++;
+      if (st.months >= RAMP.length) delete st.months;
+    }
+    st.custom = freshCustom(s, g.w, f.prov, f.biz.job, {
+      firm: f.id,
+      chars: f.partners.map((x) => x.c),
+    });
+    st.north = northern(g.w, f.prov);
+    firmWarn(g, f);
+  }
   partnersChanged(g, "f");
   return profit;
+}
+
+/**
+ * BUSINESS (r15): a firm's business that has lost money two months running,
+ * and would lose again as it stands, warns its partners, with why.
+ */
+function firmWarn(g: ConquestGame, f: Firm): void {
+  const st = f.biz?.st;
+  if (!st) return;
+  const [a, b] = f.books.slice(-2);
+  if (!a || !b || a.profit >= 0 || b.profit >= 0) return;
+  if ((st.warned ?? -1e9) + 90 > g.s.day) return;
+  if (firmMonthView(g.s, f).profit >= 0) return;
+  st.warned = g.s.day;
+  const why = firmAdvice(g.s, g.w, f).find((x) => x.tone === "bad");
+  for (const p of f.partners)
+    tell(
+      g,
+      p.c,
+      `${f.name} has lost money two months running (${r1(a.profit)}, ${r1(b.profit)}).${why ? ` ${why.text}` : ""}`,
+      "bad",
+    );
+}
+
+/** BUSINESS (r15): why a firm's business makes or loses money, in plain words. */
+export function firmAdvice(
+  s: GameState,
+  w: World | undefined,
+  f: Pick<Firm, "biz" | "prov" | "partners" | "debt"> & { id?: number },
+): Advice[] {
+  if (!f.biz) return [];
+  const v = firmMonthView(s, f);
+  if (!v.biz) return [];
+  const tc = townCustom(
+    s,
+    f.prov,
+    f.biz.job,
+    { firm: f.id, chars: f.partners.map((x) => x.c) },
+    w,
+  );
+  return bizAdvice(s, v.biz, { rivals: tc.rivals, room: tc.room });
+}
+
+/** BUSINESS (r15): how a firm makes its money, in a few plain lines. */
+export function firmHowItPays(s: GameState, w: World, f: Firm): string[] {
+  const town = w.map.provinces[f.prov]?.name ?? "the town";
+  const split =
+    "What's left each month is divided among the partners by share; a loss comes out of the chest, and when the chest is bare it's called from the partners by share.";
+  if (f.hold === "paper")
+    return [
+      "Its readers pay for it; its writers and the printing are paid out of that. The paper's owner keeps it and its books.",
+      split,
+    ];
+  if (f.hold === "venture")
+    return [
+      `It sends cargoes out of ${town}. Each comes home in 4 to 10 months: lost 1 in 7 (1 in 4 in a war), sold into a glut for 0.6 of its stake, at a fair price for 1.35, or for a fortune, 2.1 (war prices are a quarter higher). Its manager's trade tips the odds a little.`,
+      "The month a cargo comes home, what it gained or lost is in the division; its stake goes back into the chest.",
+      split,
+    ];
+  if (f.hold === "company")
+    return [
+      "It buys its goods at its port at the market's price (its buying dears the price there), ships them, and sells them where it trades to (its selling cheapens them there). Its factors are paid every month.",
+      "A cargo may be wrecked, taken by a privateer in a war, seized where the laws of trade forbid the voyage, or spoil in part. The month a cargo comes home, what it fetched less what it cost is in the books.",
+      split,
+    ];
+  const v = firmMonthView(s, f);
+  const b = v.biz;
+  const mgr = managerOf(f);
+  const who = mgr ? (s.chars[mgr.c]?.first ?? "its manager") : "its manager";
+  return [
+    `It makes its money from the ${f.biz?.name ?? "business"}'s takings: ${v.hands} hand${v.hands === 1 ? "" : "s"} at about ${b?.perHand ?? 0} each this month${b?.master ? `, and ${who}'s own work there (${b.master})` : ""}, as far as the town's custom goes.`,
+    `Out of the takings come the hands' wages (${HAND_WAGE} each), the place's keep (${v.upkeep}), the excise (8 in a hundred of the takings) and any interest.`,
+    `${who} must be in ${town} and free to work it, or it takes ${UNMINDED} of what it should.`,
+    split,
+  ];
 }
 
 /** A newspaper held in partnership: its owner shares out last month's profit. */
@@ -523,6 +691,8 @@ export function windingUpShares(s: GameState, f: Firm): Map<number, number> {
   let pool = f.chest - f.debt;
   if (f.biz) pool += bizSale(f.biz.level);
   if (f.cargo) pool += Math.round(f.cargo.stake * 0.7);
+  // BUSINESS (r15): a company's cargoes at sea, sold as they lie.
+  for (const v of f.co?.voyages ?? []) pool += Math.round(v.cost * 0.7);
   const x = f.paper !== undefined ? paperById(s, f.paper) : undefined;
   if (x) pool += paperValue(x);
   const caps = f.partners.map((p) => Math.max(0, p.capital - (p.caught ?? 0)));
@@ -630,6 +800,12 @@ export function removePartner(
 export function endWithOne(g: ConquestGame, f: Firm): void {
   const s = g.s;
   if (f.status !== "trading") return;
+  // BUSINESS (r15): a trading company goes on with one partner (it may begin with one).
+  if (f.hold === "company" && f.partners.length === 1) {
+    ensureManager(s, f);
+    partnersChanged(g, "f");
+    return;
+  }
   const p = f.partners[0];
   const life = p ? lifeOfChar(s, p.c) : undefined;
   if (life && !life.watching) {
@@ -669,6 +845,7 @@ function close(g: ConquestGame, f: Firm, why: string): void {
   f.ended = s.day;
   f.biz = null;
   f.cargo = null;
+  if (f.co) f.co.voyages = []; // BUSINESS (r15): sold as they lay, in the winding up
   f.chest = 0;
   f.debt = 0;
   f.seized = null;
@@ -804,6 +981,13 @@ export function decisionCheck(
   if (isChildLife(s, life)) return no("Not until you're grown.");
   if (f.decisions.some((d) => d.status === "open" && d.key === key))
     return no("It's before the partners already.");
+  // BUSINESS (r15): a trading company sails on the cycle its manager sets.
+  if (f.hold === "company" && (key === "expand" || key === "goods"))
+    return no(
+      key === "goods"
+        ? "Its cargoes sail on the cycle its managing partner sets."
+        : "It grows by bigger cargoes: its managing partner sets them.",
+    );
   switch (key) {
     case "expand": {
       if (f.hold === "paper") return no("A newspaper grows by its readers.");

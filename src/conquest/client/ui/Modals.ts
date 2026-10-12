@@ -23,6 +23,7 @@ import {
   reasonList,
   strengthBars,
 } from "./Battle";
+import { startBizModal } from "./Business"; // BUSINESS (r15)
 import { GameUi, Modal, token } from "./Context";
 import { diceModal } from "./DiceTable"; // DICE (r14)
 import { familyTreeModal } from "./FamilyTree"; // HOME (r12)
@@ -150,6 +151,11 @@ export function renderModal(
     case "dice":
       body = diceModal(ui, m);
       cls = "scene dice";
+      break;
+    // BUSINESS (r15)
+    case "startbiz":
+      body = startBizModal(ui);
+      cls = "wide partners startbiz";
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);

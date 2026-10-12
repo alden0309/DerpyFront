@@ -255,7 +255,8 @@ export function followerDoing(
     case "boat":
       return `skippering your boat at ${at}`;
     case "wait":
-      return `waiting at ${at}`;
+      // BUSINESS (r15): "minding your store at Jamestown".
+      return t.what ? `${t.what} at ${at}` : `waiting at ${at}`;
   }
 }
 

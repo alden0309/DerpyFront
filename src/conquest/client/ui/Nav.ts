@@ -97,12 +97,13 @@ export const TAB_DEFS: TabDef[] = [
     id: "estate",
     label: "Estate",
     blurb:
-      "Your purse and how you live, your ledger, house and land, partnerships, boats, and goods",
+      "Your purse and how you live, your ledger, house and land, business, partnerships, boats, and goods",
     icon: EstateIcon,
     subs: [
       { id: "purse", label: "Purse", guide: "money" },
       { id: "ledger", label: "Ledger", guide: "ledger" }, // LEDGER (r15)
       { id: "house", label: "House & land", guide: "property" },
+      { id: "business", label: "Business", guide: "business" }, // BUSINESS (r15)
       { id: "partners", label: "Partnerships", guide: "partners" }, // PARTNERS (r13)
       { id: "boats", label: "Boats", guide: "boats" },
       { id: "goods", label: "Goods", guide: "markets" },

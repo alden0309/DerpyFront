@@ -217,6 +217,30 @@ export const TERMS: Record<string, Term> = {
     raise: "Open Estate › Ledger, or click the month's notice when it comes.",
     ch: "ledger",
   },
+  // BUSINESS (r15): Business.ts, Company.ts
+  custom: {
+    name: "Custom",
+    what: "The trade a town has for a business of its kind, counted in hands' worth: more in a bigger town, at a port, or where the country makes what the trade works; less for each rival (another inn, another store).",
+    good: "Hands within it bring in their full takings; a hand past it brings in about a third. A new business builds its custom over three months, and the season moves it.",
+    raise:
+      "Choose a bigger town, or a trade the town has few of; start small and grow when the custom is there (Estate › Business shows it).",
+    ch: "business",
+  },
+  minded: {
+    name: "Minded",
+    what: "A business with someone there to run it: you in the town with no other work (or at your own trade there), a managing partner who's free, or a manager of yours.",
+    good: "A minded business takes all its takings; nobody minding it, it takes 0.6 of them, and its hands no longer earn their wages.",
+    raise:
+      "Stay in town and keep clear of other work, or put one of your people in as its manager (on its page).",
+    ch: "business",
+  },
+  factor: {
+    name: "Factor",
+    what: "A trading company's agent at a port: buys and sells its goods for a commission and a small retainer.",
+    good: "Where the country makes the goods, factors buy at the landings for less than the market; they hold a cargo back while prices wouldn't pay.",
+    raise: "One at each port of the Americas a company uses.",
+    ch: "business",
+  },
   drill: {
     name: "Drill and spirits",
     what: "How trained your company is, and how glad they are to be in it.",

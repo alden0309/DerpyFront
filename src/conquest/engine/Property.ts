@@ -5,6 +5,15 @@
 // the town (a church bell, a school, a mended road, a feast) buy renown.
 // Money has somewhere to go, and coming by it takes some doing.
 
+import {
+  bestHands,
+  bizSettled,
+  freshCustom,
+  handCount,
+  northern,
+  propertyInput,
+  propertyView,
+} from "./Business"; // BUSINESS (r15)
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
 import {
@@ -34,16 +43,13 @@ import {
   lifeIsNative,
   meOf,
   no,
-  skillLevel,
   yes,
 } from "./LifeQueries";
 import {
   BUSINESS_HANDS,
   BUSINESS_UPKEEP,
   ENDOWMENTS,
-  EXCISE,
   EXPAND_COST,
-  HAND_TAKINGS,
   HAND_WAGE,
   HouseDef,
   HOUSES,
@@ -51,7 +57,6 @@ import {
   LAND_LOT,
   LODGES,
   SHIP_UPKEEP_MULT,
-  WORK_DAYS,
 } from "./LifeRules";
 import { ageOf, charName } from "./Queries";
 import type {
@@ -107,7 +112,7 @@ export function businessOf(
 
 /** Hands a business has room for still. */
 export function handRoom(pr: Property): number {
-  return Math.max(0, (BUSINESS_HANDS[pr.level] ?? 0) - pr.hands.length);
+  return Math.max(0, (BUSINESS_HANDS[pr.level] ?? 0) - handCount(pr)); // BUSINESS (r15): hands from the town too
 }
 
 /** Whose business someone works at as a hand, if anyone's. */
@@ -388,6 +393,22 @@ export function openBusiness(g: ConquestGame, life: Life, job: Job): Property {
     name,
   };
   list.push(pr);
+  // BUSINESS (r15): it opens with the town's custom reckoned, and the hands
+  // that pay taken on from the town (it used to open with none, and only cost).
+  pr.biz = {
+    custom: freshCustom(g.s, g.w, job.prov, job.kind, { prop: pr.id }),
+    north: northern(g.w, job.prov),
+    auto: true,
+  };
+  const start = bestHands({ ...propertyInput(g.s, life, pr), month: -1 });
+  if (start > 0) {
+    pr.biz.extra = start;
+    journal(
+      g,
+      life,
+      `${start === 1 ? "A hand" : `${start} hands`} from the town come${start === 1 ? "s" : ""} to work at your ${name}, at ${HAND_WAGE} coins a month${start === 1 ? "" : " each"}.`,
+    );
+  }
   return pr;
 }
 
@@ -427,7 +448,8 @@ export function hireCheck(s: GameState, life: Life, c: Character): Check {
   const pr = businessOf(life, life.prov);
   if (!pr)
     return no("You'd need a business of your own here to take on hands.");
-  if (handRoom(pr) <= 0)
+  // BUSINESS (r15): a hand taken on by name takes a town hand's place.
+  if ((BUSINESS_HANDS[pr.level] ?? 0) - pr.hands.length <= 0)
     return no(`Your ${pr.name} has all the hands it can use.`);
   if (ageOf(s, c) < 14) return no("A child.");
   if (handOf(s, c.id)) return no("They work for someone already.");
@@ -447,6 +469,11 @@ export function hireHand(
   const pr = businessOf(life, life.prov)!;
   touchLife(g, life);
   pr.hands.push(c.id);
+  // BUSINESS (r15): a hand from the town makes way for them, if it's full.
+  if (handCount(pr) > (BUSINESS_HANDS[pr.level] ?? 0) && pr.biz?.extra) {
+    pr.biz.extra--;
+    if (!pr.biz.extra) delete pr.biz.extra;
+  }
   remembers(g, life, g.char(c.id), "Gave me work", 10, 3);
   journal(
     g,
@@ -601,41 +628,20 @@ export function propertyBudget(s: GameState, life: Life): Breakdown {
       e.add(`Rents: ${pr.level * 10} acres`, pr.level * LAND_LOT.rent);
       e.add("Quitrents", -pr.level * LAND_LOT.upkeep);
     } else {
-      const up = businessUpkeep(pr);
-      if (up) e.add(`Upkeep: ${pr.name}`, -up);
-      if (!pr.hands.length) continue;
-      const paid = pr.hands.filter(
-        (h) => !s.lives.some((l) => l.c === h),
-      ).length;
-      if (paid)
-        e.add(`Wages: ${paid} hand${paid === 1 ? "" : "s"}`, -paid * HAND_WAGE);
-      const take = takings(s, life, pr);
-      e.add(`Takings: ${pr.name}`, take);
-      if (!native && take > 0) e.add("Excise and duties", -take * EXCISE);
+      // BUSINESS (r15): one reckoning for every business (Business.ts).
+      const v = propertyView(s, life, pr);
+      if (v.upkeep) e.add(`Upkeep: ${pr.name}`, -v.upkeep);
+      const paid = v.input.paid ?? v.input.hands;
+      if (paid) e.add(`Wages: ${paid} hand${paid === 1 ? "" : "s"}`, -v.wages);
+      if (v.takings || v.input.hands)
+        e.add(
+          `Takings: ${pr.name}${v.master ? " (your own work too)" : ""}`,
+          v.takings,
+        );
+      if (v.excise) e.add("Excise and duties", -v.excise);
     }
   }
   return e.done(1);
-}
-
-/**
- * A business's takings for the month. `days`: the days worked in the month
- * being settled (LEDGER r15: at the month's turn the count has been reset,
- * so the settlement passes the month's own; the forecast uses the days so far).
- */
-function takings(
-  s: GameState,
-  life: Life,
-  pr: Property,
-  days?: number,
-): number {
-  const def = pr.job ? JOBS[pr.job] : null;
-  const sk = def ? skillLevel(s, life, def.main) : 5;
-  const minding =
-    life.job?.own &&
-    life.job.prov === pr.prov &&
-    (days ?? life.job.worked ?? WORK_DAYS) >= WORK_DAYS / 2;
-  const per = HAND_TAKINGS * (0.8 + sk / 25) * (minding ? 1 : 0.6);
-  return Math.round(per * pr.hands.length * 10) / 10;
 }
 
 export function propertyMonthly(g: ConquestGame, life: Life): void {
@@ -671,12 +677,30 @@ export function propertyMonthly(g: ConquestGame, life: Life): void {
       }
       spend(g, life, HAND_WAGE);
     }
-    const take = takings(s, life, pr, life.job?.lastWorked); // LEDGER (r15)
-    if (take > 0) {
-      earn(g, life, take);
-      if (!native) spend(g, life, Math.round(take * EXCISE * 100) / 100);
+    // BUSINESS (r15): hands from the town, paid or gone.
+    const st = pr.biz;
+    while ((st?.extra ?? 0) > 0 && life.purse < HAND_WAGE) {
+      st!.extra = (st!.extra ?? 0) - 1;
+      journal(
+        g,
+        life,
+        `A hand has left your ${pr.name}: no wages, no work.`,
+        "bad",
+      );
     }
-    spend(g, life, businessUpkeep(pr));
+    if (st?.extra) spend(g, life, st.extra * HAND_WAGE);
+    else if (st) delete st.extra;
+    // The month just worked, reckoned as its forecast was (Business.ts).
+    const v = propertyView(s, life, pr, {
+      days: life.job?.lastWorked, // LEDGER (r15)
+      day: s.day - 1,
+    });
+    if (v.takings > 0) {
+      earn(g, life, v.takings);
+      if (v.excise) spend(g, life, v.excise);
+    }
+    spend(g, life, v.upkeep);
+    bizSettled(g, life, pr, v, handCount(pr)); // BUSINESS (r15)
   }
   for (const pr of list) {
     setFlow(g, propertyFlow(g, pr)); // LEDGER (r15)

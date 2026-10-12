@@ -165,6 +165,8 @@ import {
 } from "../../engine/PartnersCore";
 // LEDGER (r15): money made plain, its chapter and the boats' table.
 import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
+// BUSINESS (r15): starting a business, and a trading company.
+import { BUSINESS_CHAPTER } from "./BusinessChapter";
 
 export interface Chapter {
   id: string;
@@ -1021,7 +1023,7 @@ A parlour, good furniture and a cook give a gathering at home a better start.
 - Land isn't bought and sold among the native peoples.
 
 ## A business
-At the top rungs of many trades the shop, the press, the mill, the tavern or the ship is yours. Hire hands for it (offer anyone work from their card): each costs wages and brings in takings. Grow it (45, then 120 coins) for room for more hands.
+Start one of any trade the town has the place for (Estate › Business, the market, or Work › Find work), or have one with the top rungs of many trades (the shop, the press, the mill, the tavern, the ship). It takes on the hands that pay from the town, as its custom allows; each costs wages and brings in takings. Grow it (45, then 120 coins) for room for more hands. Its own page (Estate › Business) shows its account, why it makes what it makes, and what to do: see [[business|Starting a business]].
 
 ## Gifts to the town
 Once a year each, on Estate › House & land:
@@ -1045,6 +1047,9 @@ ${Object.values(WORKS)
 ! Pitfall: Servants, rooms and rent are paid every month whether you're home or not. Check the house's monthly figure (point at it) before you add more.`,
   },
   // ---- end HOME (r12)
+  // ---- BUSINESS (r15): starting a business (guide/BusinessChapter.ts)
+  BUSINESS_CHAPTER,
+  // ---- end BUSINESS (r15)
   // ---- PARTNERS (r13): business partnerships
   {
     id: "partners",
@@ -1063,9 +1068,12 @@ ${partnersTable()}
 
 - **Your newspaper**: you keep it and run it; your partners have their shares of what it makes.
 - **Cargoes only**: a company that pools money to buy goods and ship them.
+- **A trading company for particular goods**: its goods, its route and the size and pace of its cargoes, with factors at its ports (see [[business|Starting a business]]). Its managing partner sets its trade.
 
 ## Drawing up the articles
-On anyone's card (or at the market, under Partnerships): **Propose a partnership**. In person if they're here; by post if they're not (the articles go as a letter, and can be lost at sea). The articles say:
+On anyone's card (or at the market, under Partnerships, or from the Start a business window): **Propose a partnership**. In person if they're here; by post if they're not (the articles go as a letter, and can be lost at sea).
+
+**Presets** fill the articles in at a click, with the fair split and who runs it, and say them in plain words ("You put in 30; Agnes puts in her inn. You get 15 in a hundred of what it makes (about +1.2 a month once it's going); Agnes runs it."): **put money into their business as a silent partner**, **found a business together** (whoever knows the trade and is free runs it), **take on a partner in mine**, **pool money for cargoes**, **a trading company together**. A business brought in is valued at the more of 0.6 of what it would cost to set up, or twenty months of what it makes. Change any clause after. The articles say:
 - **I.** what the firm holds; **II.** its name ("Drackley & Cole", or your own); **III.** the shares (with the fair split marked: what each brings, and a fifth more for the one who does the work); **IV.** the capital each puts in; **V.** who manages, and whether matters are decided **by the greater part** (shares over half) or **all together**; **VI.** who draws them up.
 - **A lawyer** (an attorney or a law clerk in town, ${LAWYER_FEE.attorney} or ${LAWYER_FEE.clerk} coins, or yourself if you're in the law) draws up articles that **lean your way when partners fall out**: at arbitration, and in court. Another player who's a lawyer is paid the fee.
 
@@ -1074,7 +1082,7 @@ On anyone's card (or at the market, under Partnerships): **Propose a partnership
 **Another player** gets the articles as a scene: **sign**, **decline**, or send back **terms of their own** (the shares and what each puts in), back and forth up to ${MAX_ROUNDS} times. By post if you're in different places, so it works from one colony to another. Unanswered articles lapse after ${OFFER_DAYS} days.
 
 ## The books
-Each month the firm's business is reckoned exactly as a business of your own would be: takings from its hands (more with the **managing partner's skill** in the trade, and a good deal less if they're away from the town or busy with other work: a managing partner who works for someone else minds only a business in their own trade), less wages, upkeep, excise and interest. A hand is taken on each month while there's room and money in the chest.
+Each month the firm's business is reckoned exactly as a business of your own would be ([[business|Starting a business]]): takings from its hands and the managing partner's own work, as far as the town's custom goes (more with the **managing partner's skill** in the trade, and only 0.6 of it if they're away from the town or busy with other work: a managing partner who works for someone else minds only a business in their own trade), less wages, upkeep, excise and interest. A hand is taken on when one more would pay and the chest can pay them, and let go when one fewer would. A new business builds its custom over its first months. Each firm says **how it makes its money**, and why it's losing when it is; lose money two months running and the partners are told why.
 - **Profit is divided by share** straight into the partners' purses. Your share shows in Estate › Purse.
 - **A loss comes out of the firm's chest**, and when the chest is empty it's **called from the partners** by share (into debt, if need be).
 - Estate › Partnerships shows the firm's sign, the partners and their shares, the chest and the debt, a year of months as a chart, the last few as a ledger, and what your share is worth.

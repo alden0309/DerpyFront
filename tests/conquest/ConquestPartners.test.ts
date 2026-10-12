@@ -10,10 +10,12 @@ import http from "http";
 import { AddressInfo } from "net";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { WebSocket } from "ws";
+import { bizMonth, propertyView } from "../../src/conquest/engine/Business"; // BUSINESS (r15)
 import { kill, makeCharacter } from "../../src/conquest/engine/Characters";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import {
   buyoutPrice,
+  firmBizInput,
   firmMonth,
   firmMonthView,
   loseShip,
@@ -29,8 +31,8 @@ import {
 import {
   BUSINESS_UPKEEP,
   EXCISE,
-  HAND_TAKINGS,
   HAND_WAGE,
+  JOBS,
 } from "../../src/conquest/engine/LifeRules";
 import { AMERICAS, worldOf } from "../../src/conquest/engine/Map";
 import {
@@ -275,11 +277,35 @@ describe("the books", () => {
     const hands = f.biz!.hands;
     // The sums of a business of one's own (Property.ts), with the managing
     // partner's skill: takings by the hand, wages, upkeep, excise.
+    // BUSINESS (r15): both are reckoned by Business.bizMonth (the town's
+    // custom, the season, the manager's own work); an owner with the same
+    // skill, hands, town and month makes the same.
     expect(v.minding).toBe(true);
-    expect(v.takings).toBeCloseTo(
-      Math.round(HAND_TAKINGS * (0.8 + v.skill / 25) * hands * 10) / 10,
-      2,
-    );
+    const input = firmBizInput(g.s, f)!;
+    expect(v.takings).toBeCloseTo(bizMonth(input).takings, 2);
+    const own = {
+      id: -5,
+      kind: "business" as const,
+      prov: f.prov,
+      level: f.biz!.level,
+      job: f.biz!.job,
+      place: f.biz!.place,
+      hands: [],
+      since: g.s.day,
+      name: f.biz!.name,
+      biz: { extra: hands, custom: input.custom, north: input.north },
+    };
+    const owner = {
+      ...life,
+      job: null,
+      prov: f.prov,
+      travel: null,
+      property: [own],
+      skills: { ...life.skills, [JOBS[f.biz!.job].main]: input.skill },
+    };
+    const mine = propertyView(g.s, owner, own);
+    expect(mine.input.skill).toBe(input.skill);
+    expect(mine.takings).toBeCloseTo(v.takings, 2);
     expect(v.wages).toBe(hands * HAND_WAGE);
     expect(v.upkeep).toBe(BUSINESS_UPKEEP[f.biz!.level]);
     expect(v.excise).toBeCloseTo(v.takings * EXCISE, 2);
@@ -750,6 +776,9 @@ describe("when things go wrong", () => {
     const ch = holdChoices(g.s, g.w, life, c).find(
       (x) => x.key === "found:shopkeeper",
     )!;
+    // BUSINESS (r15): he gives up clerking to mind it (a store nobody minds
+    // takes on no hands, and would have no takings to skim).
+    life.job = null;
     const t = suggestTerms(g.s, g.w, life, c, ch, 1);
     t.sides[0].cap = 40;
     t.sides[1].cap = 20;

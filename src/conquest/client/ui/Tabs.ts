@@ -37,6 +37,7 @@ import {
   WHERE_TO_SPEND,
   workSection,
 } from "./Affairs";
+import { businessPage, startBizButton } from "./Business"; // BUSINESS (r15)
 import { councilPage } from "./Chamber"; // POWER (r12)
 import {
   accuseSection,
@@ -321,6 +322,7 @@ function findWorkPage(ui: GameUi): TemplateResult {
   const byPlace = new Map<PlaceKind, typeof bosses>();
   for (const b of bosses)
     byPlace.set(b.place, [...(byPlace.get(b.place) ?? []), b]);
+  // BUSINESS (r15): "A business of your own", before every trade.
   return html`${pageHead(
     "Find work",
     html`Who takes people on in ${townName(ui)}, what you could set up on your
@@ -454,6 +456,18 @@ function findWorkPage(ui: GameUi): TemplateResult {
               </ul>`,
             )
           : nothing}`}
+  ${child || life.travel
+    ? nothing
+    : section(
+        "A business of your own",
+        html`<p class="small">
+            A shop, an inn, a forge, a mill, a store, a ship, a farm: set one up
+            here of any trade the town has the place for, alone or with a
+            partner, and see its months one by one before you pay. Or a trading
+            company for particular goods.
+          </p>
+          <div class="cq-btnrow">${startBizButton(ui)}</div>`,
+      )}
   ${section("Every trade", tradesPage(ui, false))}`;
 }
 
@@ -554,7 +568,9 @@ function estatePage(ui: GameUi, sub: string): TemplateResult {
                       fields (Buy a freehold), or your farm's next rung.
                     </li>`}
               <li>
-                <b>A business</b> comes with the higher rungs of many trades (a
+                <b>A business</b>: start one here of any trade the town has the
+                place for (Estate › Business, or the market), alone or with a
+                partner. It also comes with the higher rungs of many trades (a
                 shop, a press, a mill, a tavern): see Work. Or go into
                 partnership: Estate › Partnerships.
               </li>
@@ -565,6 +581,8 @@ function estatePage(ui: GameUi, sub: string): TemplateResult {
       return ledgerPage(ui);
     case "boats":
       return boatsPage(ui);
+    case "business": // BUSINESS (r15)
+      return businessPage(ui);
     case "partners": // PARTNERS (r13)
       return partnersPage(ui);
     case "goods":
