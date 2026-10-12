@@ -93,12 +93,13 @@ function sessionTable(): string {
       const glad = (Object.entries(c.marks) as [FactionKey, number][])
         .filter(([, v]) => v >= 2)
         .map(([f]) => EN[f]);
-      const first = i === 0;
-      return `| ${first ? `**${q.name}**` : ""} | ${first ? q.due : ""} | ${c.label} | ${c.tip.replace(/\|/g, "/")} | ${glad.length ? glad.join(", ") : "–"} |`;
+      // The question on every row (a phone shows each row as a card of its own); when it comes, on the first.
+      const question = i === 0 ? `**${q.name}** (${q.due})` : q.name;
+      return `| ${question} | ${c.label} | ${c.tip.replace(/\|/g, "/")} | ${glad.length ? glad.join(", ") : "–"} |`;
     }),
   );
-  return `| The question | When | The choice | If the house carries it | Speaking for it pleases |
-|---|---|---|---|---|
+  return `| The question | The choice | If the house carries it | Speaking for it pleases |
+|---|---|---|---|
 ${rows.join("\n")}`;
 }
 
