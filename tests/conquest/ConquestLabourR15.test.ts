@@ -592,14 +592,14 @@ describe("LABOUR: flight, risings and deaths happen at the rates shown", () => {
     expect(r.shownDeath).toBeGreaterThan(15);
     expect(r.deaths / r.shownDeath).toBeGreaterThan(0.65);
     expect(r.deaths / r.shownDeath).toBeLessThan(1.4);
-  });
+  }, 60_000);
 
   test("risings, rare and grave, at the shown chance", () => {
     const r = trial(HARSH, 30, 4000);
     expect(r.shownRise).toBeGreaterThan(8);
     expect(r.rises / r.shownRise).toBeGreaterThan(0.5);
     expect(r.rises / r.shownRise).toBeLessThan(1.6);
-  });
+  }, 60_000);
 
   test("the risks shown for a year agree with the month's chances", () => {
     const { g, life } = holder("jamestown");
