@@ -9,6 +9,7 @@
 import { describe, expect, test, vi } from "vitest";
 import { memberFaction } from "../../src/conquest/engine/Assembly";
 import { dateOf, dayOf } from "../../src/conquest/engine/Calendar";
+import { houseLever as chairHouseLever } from "../../src/conquest/engine/Chair";
 import {
   GOSSIP_HEARINGS,
   GOSSIP_LINES,
@@ -490,20 +491,28 @@ describe("the assembly's session", () => {
       heard.push(`${lever}:${by.join(",")}`);
       return true;
     };
-    hooks.houseLever.push(h);
-    q.choices[2].carry(g, n, -1, [life.c]);
-    hooks.houseLever.splice(hooks.houseLever.indexOf(h), 1);
-    expect(heard).toEqual([`supply:${life.c}`]);
-    expect(g.s.nations[n].mods.some((m) => m.key === "session:nosupply")).toBe(
-      false,
-    );
-    q.choices[2].carry(g, n, -1, [life.c]);
-    expect(g.s.nations[n].mods.some((m) => m.key === "session:nosupply")).toBe(
-      true,
-    );
-    // Withholding the salary falls back on the house's own old way.
-    QUESTION_BY_KEY.get("salary")!.choices[2].carry(g, n, -1, [life.c]);
-    expect(g.s.power!.cabinets[n].unpaid).toBeGreaterThan(g.s.day);
+    // The governor's own track (CHAIR) listens from the start.
+    expect(hooks.houseLever).toContain(chairHouseLever);
+    // Taken out for this test, so the mechanism is seen on its own.
+    const listening = hooks.houseLever.splice(0);
+    try {
+      hooks.houseLever.push(h);
+      q.choices[2].carry(g, n, -1, [life.c]);
+      hooks.houseLever.splice(0);
+      expect(heard).toEqual([`supply:${life.c}`]);
+      expect(
+        g.s.nations[n].mods.some((m) => m.key === "session:nosupply"),
+      ).toBe(false);
+      q.choices[2].carry(g, n, -1, [life.c]);
+      expect(
+        g.s.nations[n].mods.some((m) => m.key === "session:nosupply"),
+      ).toBe(true);
+      // Withholding the salary falls back on the house's own old way.
+      QUESTION_BY_KEY.get("salary")!.choices[2].carry(g, n, -1, [life.c]);
+      expect(g.s.power!.cabinets[n].unpaid).toBeGreaterThan(g.s.day);
+    } finally {
+      hooks.houseLever.splice(0, hooks.houseLever.length, ...listening);
+    }
   });
 
   test("a player governor hears what the house sits on and what it carried, and isn't asked to settle his own salary", () => {
