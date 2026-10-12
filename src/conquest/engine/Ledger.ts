@@ -176,8 +176,8 @@ export function projectedWorked(
   return worked;
 }
 
-/** The land's rents run on the harvest: from 0.6 to 1.4 of the rent. */
-const RENT_YEAR = [0.6, 1.4];
+/** The land's rents run on the harvest: from 0.6 to 1.4 of the rent (Property.ts rolls 0.6 + 0.8 × luck). */
+export const RENT_YEAR = [0.6, 1.4] as const;
 
 /** A property's line of the month: its upkeep, rates, rents and takings together. */
 export function propertyLine(

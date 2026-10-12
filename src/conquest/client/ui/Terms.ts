@@ -193,6 +193,30 @@ export const TERMS: Record<string, Term> = {
       "A bigger stake makes a bigger pot: 2, 5, 10 or 25 coins a seat. The town's people of small means won't sit down at the big ones.",
     ch: "dice",
   },
+  // LEDGER (r15): Ledger.ts (the forecast, the books, the tracker)
+  byluck: {
+    name: "By luck",
+    what: "Money that depends on chance: what a boat brings in at her work, a clerk's trading, a dividend, a cargo come home, the rents your tenants manage. Shown as what's expected, with the worst and the best.",
+    good: "Over many months it comes to about what's expected; in any one month it can be the worst or the best.",
+    raise:
+      "A better master for a boat, a better clerk for a stake, the right waters and the right season, peace for a cargo. The odds are shown before you commit: under a boat, beside a clerk's stake, at the boatyard and among people for hire.",
+    ch: "ledger",
+  },
+  outworking: {
+    name: "Out working",
+    what: "Everything of yours away earning: boats at work, cargoes at sea, shares, clerks trading, a band on a job, partnerships, a company, a newspaper, contracts in hand.",
+    good: "Estate › Ledger lists them all: how each stands, when it's due back, what it costs to keep and what it should bring.",
+    raise:
+      "Buy a boat and crew her, send a clerk trading, venture a cargo, take shares, go into partnership.",
+    ch: "ledger",
+  },
+  statement: {
+    name: "The month's accounts",
+    what: "At each month's turn, a statement of every coin that came in and went out, line by line: at the turn (with what was expected beside it), by luck, and during the month.",
+    good: "Shows where the money went, and what each boat, clerk and venture really made. The last twelve months are kept in Estate › Ledger.",
+    raise: "Open Estate › Ledger, or click the month's notice when it comes.",
+    ch: "ledger",
+  },
   drill: {
     name: "Drill and spirits",
     what: "How trained your company is, and how glad they are to be in it.",

@@ -28,6 +28,7 @@ import { num } from "../Tip";
 import { breakdownTip, GameUi, section } from "./Context";
 import { howTo, pageHead } from "./Nav";
 import { coins } from "./Price";
+import { term } from "./Terms"; // LEDGER (r15)
 
 const signed = (v: number) =>
   `${v > 0 ? "+" : v < 0 ? "−" : ""}${coins(Math.abs(v))}`;
@@ -103,7 +104,7 @@ export function forecastBlock(ui: GameUi): TemplateResult {
     </div>
     ${luck.length
       ? html`<div class="cq-forecast-chance">
-          <h4>By luck: what's expected, from worst to best</h4>
+          <h4>${term("byluck")}: what's expected, from worst to best</h4>
           <ul aria-label="By luck">
             ${luck.map(fcLine)}
           </ul>
@@ -410,7 +411,7 @@ function statementsSection(ui: GameUi): TemplateResult {
   const want = openStatement;
   openStatement = null;
   return section(
-    "The month's accounts",
+    term("statement"),
     list.length
       ? html`<ul class="cq-statements">
           ${list.map((st, i) => {
@@ -466,7 +467,7 @@ export function ledgerPage(ui: GameUi): TemplateResult {
   );
   return html`${head}
   ${section(
-    html`Out working
+    html`${term("outworking")}
       <span class="cq-muted small"
         >${items.length ? `${items.length}` : "nothing yet"}</span
       >`,

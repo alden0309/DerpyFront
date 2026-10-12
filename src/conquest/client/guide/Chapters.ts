@@ -152,6 +152,8 @@ import {
   OFFER_DAYS,
   VOTE_DAYS,
 } from "../../engine/PartnersCore";
+// LEDGER (r15): money made plain, its chapter and the boats' table.
+import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
 
 export interface Chapter {
   id: string;
@@ -846,6 +848,9 @@ An officer keeps himself out of his commission's pay (mess bills, uniforms, hors
 
 ! Pitfall: Debts come due, and are paid from your purse on the day. If you can't pay, the lender holds it against you for three years, you lose a little renown and gain stress, and the debt comes due again in three months.`,
   },
+  // ---- LEDGER (r15): money made plain (guide/LedgerChapter.ts)
+  LEDGER_CHAPTER,
+  // ---- end LEDGER (r15)
   // ---- HOME (r12): house and property
   {
     id: "property",
@@ -1133,6 +1138,11 @@ While you're aboard in port, or with a **mate** of yours as skipper while you're
 - **Privateering** (sloop and up): with a war on, prizes; without one, piracy.
 
 She can be damaged, wrecked, captured or seized.
+
+## What each kind of work brings (LEDGER r15)
+${boatWorkTable()}
+
+Each boat's card shows the same for her, with her own master, crew and port: [[ledger|Your ledger]].
 
 > Tip: A canoe or a shallop is the cheapest way along the coast. A mate lets your boat earn while you're elsewhere.`,
   },
