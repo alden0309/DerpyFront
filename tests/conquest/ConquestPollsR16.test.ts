@@ -8,12 +8,20 @@ import { ACHIEVEMENTS } from "../../src/conquest/engine/Achievements";
 import { nameMark } from "../../src/conquest/engine/Ambitions";
 import { pollDay } from "../../src/conquest/engine/Calendar";
 import {
+  canvassingSeat,
   canvassNow,
   canvassValue,
+  challengersAtCount,
   countLuck,
+  countyLean,
+  countyLeanBy,
   fieldAt,
   govInterest,
   localView,
+  npcPatron,
+  npcStanding,
+  partyLine,
+  partyOf,
   patronsFor,
   playerStanding,
   POLL,
@@ -25,9 +33,14 @@ import {
   winChance,
 } from "../../src/conquest/engine/Canvass";
 import { ensureCabinet } from "../../src/conquest/engine/Council";
+import { householdsOf } from "../../src/conquest/engine/Folk";
+import { ACTS } from "../../src/conquest/engine/LifeActs";
 import { addRenown } from "../../src/conquest/engine/LifeCore";
 import { meOf, stationOf } from "../../src/conquest/engine/LifeQueries";
+import { ROLES } from "../../src/conquest/engine/LifeRules";
 import { ensureOffices, OFFICES } from "../../src/conquest/engine/Offices";
+import { holdsPost } from "../../src/conquest/engine/OneOffice";
+import { campaignBoost } from "../../src/conquest/engine/Politics";
 import { addSway, power } from "../../src/conquest/engine/PowerCore";
 import {
   mockChance,
@@ -35,6 +48,7 @@ import {
   PUFF,
   puffEffect,
 } from "../../src/conquest/engine/Press";
+import { ageOf } from "../../src/conquest/engine/Queries";
 import { Rng } from "../../src/conquest/engine/Rng";
 import {
   addFavor,
@@ -450,11 +464,15 @@ describe("POLLS r16: elections that can be lost", () => {
     let done = false;
     for (let i = 0; i < 90 && !done; i++) {
       g.tick();
-      done = life.journal.some((j) => /election to|Elected to|Returned to/.test(j.text));
+      done = life.journal.some((j) =>
+        /election to|Elected to|Returned to/.test(j.text),
+      );
     }
     expect(pol.assembly).not.toContain(me.id);
     expect(pol.assembly).toContain(rival.c);
-    const why = life.journal.find((j) => /^Why you lost the poll for/.test(j.text))!;
+    const why = life.journal.find((j) =>
+      /^Why you lost the poll for/.test(j.text),
+    )!;
     expect(why.text).toContain(g.s.chars[rival.c].first);
     expect(life.polls!.last!.rival).toBe(rival.c);
   });
@@ -517,6 +535,177 @@ describe("POLLS r16: elections that can be lost", () => {
     o.election = pollDay(g.s.day + 100);
     ticks(g, 2);
     expect(life.polls?.canvass?.kind).toBe("local");
+  });
+
+  test("a sitting member canvasses for the count ahead: the acts serve, the points count and fade", () => {
+    const g = world({ start: 1700 });
+    const life = lifeOf(g);
+    const me = meOf(g.s, life)!;
+    const pol = g.s.polities[me.nation];
+    pol.assembly.push(me.id);
+    pol.election = pollDay(g.s.day + 400);
+    const canvassAct = ACTS.find((a) => a.key === "canvass")!;
+    const broadside = ACTS.find((a) => a.key === "broadside")!;
+    // Far from the count: nothing to canvass for.
+    expect(canvassingSeat(g.s, life)).toBe(false);
+    expect(canvassAct.when!(g.s, g.w, life).ok).toBe(false);
+    pol.election = pollDay(g.s.day + 100);
+    ticks(g, 2);
+    expect(pollOf(g.s, life)?.kind).toBe("assembly");
+    expect(canvassingSeat(g.s, life)).toBe(true);
+    expect(canvassAct.when!(g.s, g.w, life).ok).toBe(true);
+    expect(broadside.when!(g.s, g.w, life).ok).toBe(true);
+    const ref = { kind: "assembly" as const, n: me.nation };
+    const line = () =>
+      playerStanding(g.s, life, ref).lines.find((l) => l.k === "canvass")?.v ??
+      0;
+    expect(line()).toBe(0);
+    campaignBoost(g, life, 6, "a broadside");
+    expect(life.polls!.canvass!.pts).toBe(6);
+    expect(line()).toBeCloseTo(canvassValue(6), 1);
+    expect(life.journal[life.journal.length - 1].text).toMatch(
+      /Your campaign gains/,
+    );
+    // A week later it has faded a tenth.
+    ticks(g, 7);
+    expect(life.polls!.canvass!.pts).toBeCloseTo(6 * POLL.canvassFade, 1);
+  });
+
+  test("standing for a county office and the house at once, the canvass is for the one counted first", () => {
+    const g = world({ start: 1700 });
+    const { life, o } = standing(g, "burgess", 300);
+    const me = meOf(g.s, life)!;
+    const pol = g.s.polities[me.nation];
+    pol.election = pollDay(g.s.day + 100);
+    expect(g.lifeCommand("s1", { k: "stand" })).toBeNull();
+    ticks(g, 2);
+    expect(pollOf(g.s, life)?.kind).toBe("assembly");
+    expect(life.polls?.canvass?.kind).toBe("assembly");
+    // The house's challenger was put up in the county.
+    expect(pol.candidates.some((x) => g.s.chars[x.c].home === life.home)).toBe(
+      true,
+    );
+    // With the county's poll sooner, the county's.
+    o.election = pollDay(g.s.day + 30);
+    expect(pollOf(g.s, life)?.kind).toBe("local");
+  });
+
+  test("nobody is returned unopposed by accident: at the count a challenger stands in the county", () => {
+    const g = world({ start: 1700 });
+    const life = lifeOf(g);
+    life.purse = 100;
+    life.renown = 30;
+    const me = meOf(g.s, life)!;
+    const n = me.nation;
+    const pol = g.s.polities[n];
+    pol.election = pollDay(g.s.day + 200);
+    expect(g.lifeCommand("s1", { k: "stand" })).toBeNull();
+    // As if the canvass had been for something else: nobody stands against him.
+    pol.candidates = [];
+    challengersAtCount(g, n);
+    const put = pol.candidates.find((x) => g.s.chars[x.c].home === life.home);
+    expect(put).toBeDefined();
+    expect(put!.since).toBe(g.s.day);
+    expect(
+      life.journal.some((j) =>
+        /stands against you at the last moment/.test(j.text),
+      ),
+    ).toBe(true);
+    // Put up at the last moment, his canvass is a quarter of what it might be.
+    pol.election = pollDay(g.s.day + 1);
+    const ref = { kind: "assembly" as const, n };
+    const st = npcStanding(g.s, ref, put!.c);
+    const cv = st.lines.find((l) => l.k === "canvass")?.v ?? 0;
+    expect(cv).toBeLessThanOrEqual(POLL.canvassCap * 0.25 + 0.05);
+    expect(cv).toBeGreaterThan(0);
+    // And he always has a great man's interest behind him.
+    expect(npcPatron(g.s, ref, put!.c)).toBeGreaterThanOrEqual(0);
+    expect(st.lines.some((l) => l.k === "patron")).toBe(true);
+    // A second call puts up nobody more.
+    const count = pol.candidates.length;
+    challengersAtCount(g, n);
+    expect(pol.candidates.length).toBe(count);
+  });
+
+  test("the challenger is the other party's man where the county has one, and his backers pay his treating", () => {
+    const g = world({ start: 1700 });
+    const life = lifeOf(g);
+    life.purse = 100;
+    life.renown = 30;
+    const me = meOf(g.s, life)!;
+    const n = me.nation;
+    const cab = ensureCabinet(g, n);
+    cab.faction[life.c] = "court";
+    // Every man who might stand is of the court, but one.
+    const men = householdsOf(g.s, life.home).filter(
+      (c) =>
+        !c.female &&
+        c.id !== me.id &&
+        (c.role ? ROLES[c.role].status : 1) >= 3 &&
+        c.nation === n,
+    );
+    for (const c of men) cab.faction[c.id] = "court";
+    const odd = men.find((c) => !holdsPost(g.s, c.id) && ageOf(g.s, c) >= 25);
+    if (odd) cab.faction[odd.id] = "country";
+    const pol = g.s.polities[n];
+    pol.election = pollDay(g.s.day + 200);
+    expect(g.lifeCommand("s1", { k: "stand" })).toBeNull();
+    ticks(g, 2);
+    const first = pol.candidates.find(
+      (x) => g.s.chars[x.c].home === life.home,
+    )!;
+    expect(first).toBeDefined();
+    if (odd) expect(first.c).toBe(odd.id);
+    expect(partyOf(g.s, n, first.c)).not.toBe("court");
+    // Near the count he treats at least as his backers pay for it.
+    pol.election = pollDay(g.s.day + 1);
+    first.since = g.s.day - 400;
+    const ref = { kind: "assembly" as const, n };
+    const treat =
+      npcStanding(g.s, ref, first.c).lines.find((l) => l.k === "treat")?.v ?? 0;
+    expect(treat).toBeGreaterThanOrEqual(
+      POLL.treatCap * POLL.challengerTreat - 0.05,
+    );
+  });
+
+  test("a county's lean is graded: near the middle a party counts only a little", () => {
+    const g = world({ start: 1700 });
+    let mild = 0;
+    for (let p = 0; p < g.s.provinces.length; p++) {
+      const by = countyLeanBy(g.s, p);
+      expect(Math.abs(by)).toBeLessThanOrEqual(1);
+      const court = partyLine(g.s, p, "court");
+      expect(court).toBeCloseTo(-partyLine(g.s, p, "country"), 6);
+      expect(Math.abs(court)).toBeLessThanOrEqual(POLL.party);
+      expect(countyLean(g.s, p)).toBe(by > 0 ? "country" : "court");
+      if (Math.abs(by) < 0.5) {
+        mild++;
+        expect(Math.abs(court)).toBeLessThan(POLL.party / 2);
+      }
+    }
+    expect(mild).toBeGreaterThan(0);
+  });
+
+  test("the computer's people are counted on a player's scale: station, a freehold, address", () => {
+    const g = world({ start: 1700 });
+    const life = lifeOf(g);
+    const o = ensureOffices(g, life.prov).find((x) => x.key === "burgess")!;
+    const ref = { kind: "local" as const, o };
+    const man = householdsOf(g.s, life.home).find(
+      (c) => c.role && ROLES[c.role].status === 4,
+    )!;
+    expect(man).toBeDefined();
+    const st = npcStanding(g.s, ref, man.id);
+    const v = (k: string) => st.lines.find((l) => l.k === k)?.v ?? 0;
+    expect(v("station")).toBe(3 * POLL.stationPer);
+    expect(v("freehold")).toBe(POLL.freeholder);
+    expect(v("skill")).toBeLessThanOrEqual(POLL.persuasionCap);
+    // A player's persuasion counts only so far too.
+    life.skills.persuasion = 40;
+    const mine = playerStanding(g.s, life, ref).lines.find(
+      (l) => l.k === "skill",
+    )!;
+    expect(mine.v).toBeLessThanOrEqual(POLL.persuasionCap);
   });
 });
 

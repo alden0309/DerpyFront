@@ -39,8 +39,10 @@ import {
   assemblyHasPlayer,
   assemblyScore,
   assemblyWinners,
+  challengersAtCount,
   countLuck,
   countReasons,
+  sittingCanvass,
   tellResults,
 } from "./Canvass"; // POLLS (r16)
 import {
@@ -196,7 +198,8 @@ export function campaignBoost(
   // SOCIETY (r11): a local poll gains too.
   const local = localCampaign(g, life, points);
   if (!life.campaign) {
-    if (local)
+    // POLLS (r16): a sitting member canvasses for the count ahead.
+    if (local || sittingCanvass(g, life, points))
       journal(g, life, `Your campaign gains from ${why} (+${points}).`);
     return;
   }
@@ -235,6 +238,7 @@ function holdElection(g: ConquestGame, pol: Polity): void {
   // canvass's lines (the same the pages show), with a little luck each, and
   // the computer's challengers put up during the canvass stand too.
   const counted = assemblyHasPlayer(s, pol.nation);
+  if (counted) challengersAtCount(g, pol.nation); // POLLS (r16): nobody returned unopposed by accident
   const score = (c: number, old: number) =>
     counted ? assemblyScore(s, pol.nation, c) + countLuck(g, c) : old;
   // Sitting members stand again (unless they're dead or gone).

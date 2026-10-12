@@ -885,7 +885,12 @@ export interface Polity {
   /** Day of the next election. */
   election: number;
   /** Standing at the next election: characters and their campaign points. */
-  candidates: { c: number; points: number }[];
+  candidates: {
+    c: number;
+    points: number;
+    /** POLLS (r16): a challenger put up against a player: the day he began canvassing. */
+    since?: number;
+  }[];
 }
 
 // ---------------------------------------------------------------- people
@@ -4097,6 +4102,8 @@ export interface Canvass {
   patron: number;
   /** The governor's friends work for (1) or against (-1) you, once they've been told. */
   gov?: number;
+  /** A sitting member's (or holder's) own canvass points for the count ahead (they fade like any). */
+  pts?: number;
 }
 
 /** How a poll you stood in came out, and why. */

@@ -15,6 +15,7 @@
 
 import { memberFaction } from "./Assembly";
 import { formatDate, pollDay } from "./Calendar";
+import { makeCharacter } from "./Characters";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
@@ -57,8 +58,11 @@ export const POLL = {
   /** Renown counts this much a point, and no more than `renownCap` in all. */
   renownPer: 0.12,
   renownCap: 10,
-  /** Persuasion, a point for each two levels. */
+  /** Persuasion, a point for each two levels, up to `persuasionCap`. */
   persuasionPer: 0.5,
+  persuasionCap: 8,
+  /** The computer's people's address: their diplomacy × this. */
+  addressPer: 0.8,
   /** Canvassing: `cap` × points ÷ (points + `half`); points fade a tenth a week. */
   canvassCap: 14,
   canvassHalf: 20,
@@ -69,19 +73,19 @@ export const POLL = {
   treatFade: 0.95,
   /** What one treating buys (in treating's points). */
   treatPoints: 6,
-  /** The county's regard: its people's opinion of you ÷ 3, up to ±15. */
-  regardDiv: 3,
-  regardCap: 15,
-  /** Your party and the county's lean. */
+  /** The county's regard: its people's opinion of you ÷ 4, up to ±12. */
+  regardDiv: 4,
+  regardCap: 12,
+  /** Your party and the county's lean: up to this, by how far it leans (± either way). */
   party: 5,
   /** The governor's friends: for a court man he likes, against the opposition. */
   govFor: 6,
   govAgainst: 8,
   /** The governor's friends for a computer candidate of the court party. */
   govNpc: 3,
-  /** The sheriff runs the poll: his opinion ÷ 10, up to ±4; his goodwill bought, 5. */
-  sheriffLean: 4,
-  sheriffBought: 5,
+  /** The sheriff runs the poll: his opinion ÷ 10, up to ±3; his goodwill bought, 4. */
+  sheriffLean: 3,
+  sheriffBought: 4,
   /** A patron of your own in the colony, 4; a great man's interest bought, 8. */
   patronOwn: 4,
   patronBought: 8,
@@ -101,6 +105,14 @@ export const POLL = {
   stationPer: 1.5,
   /** The computer's candidates canvass for the last half-year before a poll. */
   npcWeeks: 26,
+  /**
+   * A challenger for the house, put up against a player by the other
+   * interest: he canvasses hard (vigour from `challengerVigour`), his backers
+   * pay for his treating (`challengerTreat` of its cap at the least), and a
+   * great man of his party always stands behind him.
+   */
+  challengerVigour: 0.65,
+  challengerTreat: 0.45,
 };
 
 /** What treating the voters costs in a county (more in a big town). */
@@ -139,16 +151,24 @@ export type PollRef =
 /** Weeks before a poll a sitting member's canvass begins (they stand again). */
 const SITTING_WEEKS = 26;
 
-/** The poll a player is in: standing, or sitting with the count near. */
+/**
+ * The poll a player is in: standing, or sitting with the count near. Standing
+ * for two at once (a county office and the house), the one counted first.
+ */
 export function pollOf(s: GameState, life: Life): PollRef | null {
   const me = meOf(s, life);
   if (!me || life.watching) return null;
+  const standing: PollRef[] = [];
   for (const list of Object.values(s.society?.offices ?? {}))
     for (const o of list)
-      if (o.candidates.some((y) => y.c === life.c)) return { kind: "local", o };
-  if (life.campaign) return { kind: "assembly", n: life.campaign.nation };
+      if (o.candidates.some((y) => y.c === life.c))
+        standing.push({ kind: "local", o });
+  if (life.campaign)
+    standing.push({ kind: "assembly", n: life.campaign.nation });
+  if (standing.length) return firstCounted(s, standing);
   const near = (day: number) =>
     pollDay(day) - s.day <= SITTING_WEEKS * 7 && pollDay(day) >= s.day;
+  const sitting: PollRef[] = [];
   for (const list of Object.values(s.society?.offices ?? {}))
     for (const o of list)
       if (
@@ -156,11 +176,16 @@ export function pollOf(s: GameState, life: Life): PollRef | null {
         OFFICES[o.key].how === "elected" &&
         near(o.election)
       )
-        return { kind: "local", o };
+        sitting.push({ kind: "local", o });
   const pol = s.polities[me.nation];
   if (pol?.assembly.includes(me.id) && near(pol.election))
-    return { kind: "assembly", n: me.nation };
-  return null;
+    sitting.push({ kind: "assembly", n: me.nation });
+  return sitting.length ? firstCounted(s, sitting) : null;
+}
+
+/** Of several polls, the one counted first (the earlier in the list on a tie). */
+function firstCounted(s: GameState, refs: PollRef[]): PollRef {
+  return refs.reduce((a, b) => (pollDayOf(s, b) < pollDayOf(s, a) ? b : a));
 }
 
 /** The day of a poll's count. */
@@ -213,12 +238,39 @@ export function partyOf(
   return null;
 }
 
-/** Which way a county leans: the country party where it's restless, the court where it's quiet. */
-export function countyLean(s: GameState, p: number): "court" | "country" {
+/**
+ * How far a county leans, from −1 (the court's) to +1 (the country's): the
+ * country party where it's restless, the court where it's quiet. Most
+ * counties lean firmly one way; a county near the middle only a little, so
+ * a small change in its temper moves a candidate's party line a little.
+ */
+export function countyLeanBy(s: GameState, p: number): number {
   const unrest = s.provinces[p]?.unrest ?? 0;
-  return hash01(p, 911) * 0.7 + Math.min(0.3, Math.max(0, unrest) / 100) > 0.42
-    ? "country"
-    : "court";
+  const x =
+    hash01(p, 911) * 0.7 + Math.min(0.3, Math.max(0, unrest) / 100) - 0.42;
+  return Math.max(-1, Math.min(1, x / 0.2));
+}
+
+/** Which way a county leans, in a word. */
+export function countyLean(s: GameState, p: number): "court" | "country" {
+  return countyLeanBy(s, p) > 0 ? "country" : "court";
+}
+
+/** "leans country", or "leans a little to the court" near the middle. */
+export function leanWords(s: GameState, p: number): string {
+  const by = countyLeanBy(s, p);
+  const side = by > 0 ? "country" : "court";
+  return Math.abs(by) < 0.5 ? `leans a little to the ${side}` : `leans ${side}`;
+}
+
+/** A party's line in a county: + where the county leans its way, by how far. */
+export function partyLine(
+  s: GameState,
+  p: number,
+  party: "court" | "country",
+): number {
+  const by = countyLeanBy(s, p);
+  return POLL.party * (party === "country" ? by : -by);
 }
 
 /** The county's sheriff (who runs its polls), if there is one. */
@@ -330,7 +382,11 @@ export function playerStanding(
       POLL.householder,
     );
   const pers = skillLevel(s, life, "persuasion");
-  add("skill", `Persuasion (${pers})`, pers * POLL.persuasionPer);
+  add(
+    "skill",
+    `Persuasion (${pers}, counts to ${POLL.persuasionCap})`,
+    Math.min(POLL.persuasionCap, pers * POLL.persuasionPer),
+  );
   const pts = canvassPoints(s, life, ref);
   add("canvass", `Canvassing (${Math.round(pts)} points)`, canvassValue(pts));
   const cv = life.polls?.canvass;
@@ -356,13 +412,12 @@ export function playerStanding(
   }
   if (!native) {
     const party = partyOf(s, n, me.id);
-    const lean = countyLean(s, p);
     add(
       "party",
       party
-        ? `The ${party} party: the county leans ${lean}`
+        ? `The ${party} party: the county ${leanWords(s, p)}`
         : "No party: neither side's interest is yours",
-      party ? (party === lean ? POLL.party : -POLL.party) : 0,
+      party ? partyLine(s, p, party) : 0,
     );
     const gi = govInterest(s, ref, life);
     if (gi)
@@ -446,15 +501,27 @@ export function npcStanding(
   const h = (k: number) => hash01(c, salt, day, k);
   // The lesser offices aren't fought for as the house is.
   const stakes = pollStakes(ref);
+  // Put up for the house against a player by the other interest: backed.
+  const put =
+    ref.kind === "assembly"
+      ? s.polities[n]?.candidates.find((x) => x.c === c)
+      : undefined;
+  const challenger = !!put;
   add("base", "Name on the list", POLL.base);
-  add("station", "His station", status * 2);
+  // The same scale as a player's (labouring folk 0 to the great 4).
+  add("station", "His station", Math.max(0, status - 1) * POLL.stationPer);
+  if (status >= 3 && !native) add("freehold", "A freeholder", POLL.freeholder);
   if (ch.home === p)
     add(
       "home",
       native ? "Of the town" : "A householder of the county",
       POLL.householder,
     );
-  add("skill", "Address", stat(s, ch, "dip") * 0.6);
+  add(
+    "skill",
+    "Address",
+    Math.min(POLL.persuasionCap, stat(s, ch, "dip") * POLL.addressPer),
+  );
   // His friends and family, his dealings: the county thinks well of most of
   // its people of standing (less fought over for a lesser office).
   add(
@@ -467,25 +534,42 @@ export function npcStanding(
   );
   // He canvasses for the last half-year before the poll, harder some than others.
   const weeksLeft = Math.max(0, (day - s.day) / 7);
+  // A challenger's canvass builds from the day he was put up (a quarter at once).
+  const since =
+    put?.since !== undefined
+      ? Math.max(0.25, (s.day - put.since) / 7 / (POLL.npcWeeks / 2))
+      : 1;
   const ramp = opts.late
     ? 0.25
-    : Math.max(0, Math.min(1, (POLL.npcWeeks - weeksLeft) / POLL.npcWeeks));
-  const vigour = 0.6 + h(1) * 0.5;
-  add("canvass", "His canvass", POLL.canvassCap * vigour * ramp * stakes);
+    : Math.max(
+        0,
+        Math.min(1, since, (POLL.npcWeeks - weeksLeft) / POLL.npcWeeks),
+      );
+  const vigour = challenger
+    ? POLL.challengerVigour + h(1) * 0.3
+    : 0.6 + h(1) * 0.5;
+  add(
+    "canvass",
+    "His canvass",
+    Math.min(POLL.canvassCap, POLL.canvassCap * vigour) * ramp * stakes,
+  );
   const wealth = ch.role ? ROLES[ch.role].wealth : 5;
+  const own = Math.min(POLL.treatCap - 2, (wealth / 10) * (0.4 + h(2) * 0.8));
+  // A challenger's backers pay for his treating.
+  const backed = challenger
+    ? POLL.treatCap * (POLL.challengerTreat + h(2) * (1 - POLL.challengerTreat))
+    : 0;
   add(
     "treat",
     native ? "His feasts" : "His treating",
-    Math.min(POLL.treatCap - 2, (wealth / 10) * (0.4 + h(2) * 0.8)) *
-      ramp *
-      stakes,
+    Math.max(own, backed) * ramp * stakes,
   );
   if (!native) {
     const party = partyOf(s, n, c) ?? memberFaction(s, n, c);
     add(
       "party",
-      `The ${party} party: the county leans ${countyLean(s, p)}`,
-      party === countyLean(s, p) ? POLL.party : -POLL.party,
+      `The ${party} party: the county ${leanWords(s, p)}`,
+      partyLine(s, p, party),
     );
     const nation = s.nations[n];
     const gov = s.chars[nation?.ruler ?? -1];
@@ -536,16 +620,33 @@ export function npcPatron(s: GameState, ref: PollRef, c: number): number {
   if (!ch || !nation) return -1;
   const status = ch.role ? ROLES[ch.role].status : 1;
   const salt = ref.kind === "local" ? ref.o.id : nation.id * 7 + 3;
-  if (hash01(c, salt, 17) > (status >= 4 ? 0.55 : 0.2)) return -1;
-  const pool = (Object.values(nation.council) as number[]).filter(
+  // A challenger for the house always has a great man behind him.
+  const challenger =
+    ref.kind === "assembly" &&
+    !!s.polities[ref.n]?.candidates.some((x) => x.c === c);
+  if (!challenger && hash01(c, salt, 17) > (status >= 4 ? 0.55 : 0.2))
+    return -1;
+  const council = (Object.values(nation.council) as number[]).filter(
     (x) => s.chars[x]?.alive && !isPlayed(s, x) && x !== c,
   );
   const p = countyFor(s, ref, c);
   const justice = officesIn(s, p).find((o) => o.key === "justice")?.holder;
-  if (justice !== undefined && s.chars[justice]?.alive && justice !== c)
+  const pool = [...council];
+  if (
+    justice !== undefined &&
+    s.chars[justice]?.alive &&
+    justice !== c &&
+    !isPlayed(s, justice)
+  )
     pool.push(justice);
-  if (!pool.length) return -1;
-  return pool[Math.floor(hash01(c, salt, 19) * pool.length)];
+  // His own party's men first (POLLS r16).
+  const party = challenger ? partyOf(s, nation.id, c) : null;
+  const ours = party
+    ? pool.filter((x) => partyOf(s, nation.id, x) === party)
+    : [];
+  const from = ours.length ? ours : pool;
+  if (!from.length) return -1;
+  return from[Math.floor(hash01(c, salt, 19) * from.length)];
 }
 
 /** How hard the computer's people fight a poll: the house 1, a county's great office 0.8, a lesser one 0.5. */
@@ -567,11 +668,43 @@ function freeholder(s: GameState, life: Life): boolean {
   return life.purse >= 40;
 }
 
-/** Canvass points a player has at this poll (their own, or the campaign's). */
+/** Canvass points a player has at this poll (their own, or the campaign's; a sitting member's in the canvass). */
 export function canvassPoints(s: GameState, life: Life, ref: PollRef): number {
+  const sat = canvassOf(life, ref)?.pts ?? 0;
   if (ref.kind === "local")
-    return ref.o.candidates.find((x) => x.c === life.c)?.points ?? 0;
-  return life.campaign?.nation === ref.n ? life.campaign.points : 0;
+    return ref.o.candidates.find((x) => x.c === life.c)?.points ?? sat;
+  return life.campaign?.nation === ref.n ? life.campaign.points : sat;
+}
+
+/**
+ * A sitting member (or a county office's holder) canvassing for the count
+ * ahead (Politics.ts campaignBoost): the points go to their canvass. False
+ * when they're not sitting with a count near (or are standing as a candidate,
+ * whose points are the campaign's).
+ */
+export function sittingCanvass(
+  g: ConquestGame,
+  life: Life,
+  points: number,
+): boolean {
+  const ref = pollOf(g.s, life);
+  if (!ref) return false;
+  if (ref.kind === "assembly" && life.campaign) return false;
+  if (ref.kind === "local" && ref.o.candidates.some((x) => x.c === life.c))
+    return false;
+  const cv = ensureCanvass(g, life, ref);
+  touchLife(g, life);
+  cv.pts = r1((cv.pts ?? 0) + points);
+  return true;
+}
+
+/** Whether a life is sitting with a count near (and may canvass for it). */
+export function canvassingSeat(s: GameState, life: Life): boolean {
+  const ref = pollOf(s, life);
+  if (!ref) return false;
+  return ref.kind === "assembly"
+    ? !life.campaign
+    : !ref.o.candidates.some((x) => x.c === life.c);
 }
 
 function sameRef(cv: Canvass, ref: PollRef): boolean {
@@ -700,6 +833,14 @@ function isChallenger(s: GameState, n: number, c: number, p: number): boolean {
   );
 }
 
+/** Whether a living challenger stands for the house in this county. */
+function hasChallenger(s: GameState, n: number, p: number): boolean {
+  return !!s.polities[n]?.candidates.some(
+    (x) =>
+      s.chars[x.c]?.alive && !s.chars[x.c].abroad && isChallenger(s, n, x.c, p),
+  );
+}
+
 /**
  * Who takes the house's seats (Politics.ts holdElection, with a player in
  * it): a player's seat is fought in their county, so a player beaten by the
@@ -820,6 +961,13 @@ function canvassDaily(g: ConquestGame, life: Life): void {
 function week(g: ConquestGame, life: Life, ref: PollRef, cv: Canvass): void {
   const s = g.s;
   touchLife(g, life);
+  // A challenger who has died or gone abroad is replaced.
+  if (
+    ref.kind === "assembly" &&
+    cv.weeks.length &&
+    !hasChallenger(s, ref.n, life.home)
+  )
+    assemblyChallengers(g, life, ref.n);
   if (cv.weeks.length) {
     // Voters forget: canvassing and treating fade unless kept up.
     if (ref.kind === "local") {
@@ -830,6 +978,7 @@ function week(g: ConquestGame, life: Life, ref: PollRef, cv: Canvass): void {
       }
     } else if (life.campaign)
       life.campaign.points = r1(life.campaign.points * POLL.canvassFade);
+    if (cv.pts) cv.pts = r1(cv.pts * POLL.canvassFade);
     cv.treat = r1(cv.treat * POLL.treatFade);
   }
   const me = playerStanding(s, life, ref);
@@ -929,19 +1078,31 @@ export const LINE_NAMES: Record<string, string> = {
  * the assembly begins, one or two of the county's people of standing put up
  * against them (each with his own interest and money, by the lines above).
  */
-function assemblyChallengers(g: ConquestGame, life: Life, n: number): void {
+function assemblyChallengers(
+  g: ConquestGame,
+  life: Life,
+  n: number,
+  late = false,
+): void {
   const s = g.s;
   const pol = s.polities[n];
   const nation = s.nations[n];
   if (!pol || nation?.kind !== "power") return;
   const ref: PollRef = { kind: "assembly", n };
   const p = life.home;
+  // The other interest puts him up: the other party's man if the county has
+  // one (a player of no party faces the county's own lean).
+  const mine = partyOf(s, n, life.c);
+  const theirs =
+    mine === "court" ? "country" : mine === "country" ? "court" : null;
+  const wanted = theirs ?? countyLean(s, p);
   const pool = householdsOf(s, p)
     .filter((c) => {
       const st = c.role ? ROLES[c.role].status : 1;
       return (
         st >= 3 &&
         !c.female &&
+        c.nation === n &&
         ageOf(s, c) >= 25 &&
         !isPlayed(s, c.id) &&
         !pol.assembly.includes(c.id) &&
@@ -949,23 +1110,66 @@ function assemblyChallengers(g: ConquestGame, life: Life, n: number): void {
         !holdsPost(s, c.id)
       );
     })
+    .map((c) => ({ c, v: npcStanding(s, ref, c.id).total }))
     .sort(
       (a, b) =>
-        npcStanding(s, ref, b.id).total - npcStanding(s, ref, a.id).total ||
-        a.id - b.id,
-    );
-  const want = pdiceOf(g).chance(0.5) ? 2 : 1;
+        Number(partyOf(s, n, b.c.id) === wanted) -
+          Number(partyOf(s, n, a.c.id) === wanted) ||
+        b.v - a.v ||
+        a.c.id - b.c.id,
+    )
+    .map((x) => x.c);
+  const dice = pdiceOf(g);
+  const want = dice.chance(0.5) ? 2 : 1;
   const picked = pool.slice(0, want);
+  // Nobody free in the county: a man of standing comes forward (a planter,
+  // a merchant or a lawyer lately settled there), on POLLS' own dice.
+  if (
+    !picked.length &&
+    !hasChallenger(s, n, p) &&
+    s.provinces[p]?.owner === n
+  ) {
+    const c = makeCharacter(s, dice, {
+      nation: n,
+      culture: nation.culture,
+      religion: nation.religion,
+      female: false,
+      age: dice.int(30, 55),
+    });
+    c.home = p;
+    c.role = dice.pick(["planter", "merchant", "lawyer"] as const)!;
+    g.touchChar(c);
+    picked.push(c);
+  }
   if (!picked.length) return;
-  for (const c of picked) pol.candidates.push({ c: c.id, points: 0 });
+  for (const c of picked)
+    pol.candidates.push({ c: c.id, points: 0, since: s.day });
   g.politiesChanged(n);
   const first = picked[0];
   const pat = npcPatron(s, ref, first.id);
   journal(
     g,
     life,
-    `${charName(first)}${first.role ? `, ${ROLES[first.role].title.toLowerCase()} of ${g.map.provinces[p]?.name}` : ""}, means to stand for ${pol.name}${pat >= 0 ? `, with ${charName(s.chars[pat])}'s interest behind him` : ""}.${picked[1] ? ` So does ${charName(picked[1])}.` : ""}`,
+    `${charName(first)}${first.role ? `, ${ROLES[first.role].title.toLowerCase()} of ${g.map.provinces[p]?.name}` : ""}, ${late ? "stands against you at the last moment for" : "means to stand for"} ${pol.name}${pat >= 0 ? `, with ${charName(s.chars[pat])}'s interest behind him` : ""}.${picked[1] ? ` So does ${charName(picked[1])}.` : ""}`,
   );
+}
+
+/**
+ * At the count for the house (Politics.ts holdElection): every player in it
+ * faces a challenger in their county. One who never canvassed for it (they
+ * stood days before, or canvassed for a county office first) meets one put up
+ * at the last moment, with a quarter of a canvass.
+ */
+export function challengersAtCount(g: ConquestGame, n: number): void {
+  const s = g.s;
+  const pol = s.polities[n];
+  if (!pol || s.nations[n]?.kind !== "power") return;
+  for (const life of s.lives) {
+    if (life.c < 0 || life.watching || !s.chars[life.c]?.alive) continue;
+    const inIt = life.campaign?.nation === n || pol.assembly.includes(life.c);
+    if (inIt && !hasChallenger(s, n, life.home))
+      assemblyChallengers(g, life, n, true);
+  }
 }
 
 // ---------------------------------------------------------------- money laid out on a poll

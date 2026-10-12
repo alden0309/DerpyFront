@@ -6,6 +6,7 @@
 
 import { homeHere, presentAt } from "./Areas";
 import { dateOf, formatDate } from "./Calendar";
+import { canvassingSeat } from "./Canvass"; // POLLS (r16)
 import { eligibleHere } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { afterHearing } from "./Leads"; // WORLD r11
@@ -617,7 +618,9 @@ export const ACTS: ActDef[] = [
     skill: "persuasion",
     dc: 7,
     when: (s, w, life) =>
-      life.campaign || standingLocally(s, life) // SOCIETY (r11): local polls too
+      life.campaign ||
+      standingLocally(s, life) || // SOCIETY (r11): local polls too
+      canvassingSeat(s, life) // POLLS (r16): a sitting member, the count near
         ? yes
         : no("You're not standing for anything."),
   },
@@ -629,7 +632,9 @@ export const ACTS: ActDef[] = [
     cooldown: 30,
     cost: 2,
     when: (s, w, life) =>
-      life.campaign || standingLocally(s, life) // SOCIETY (r11): local polls too
+      life.campaign ||
+      standingLocally(s, life) || // SOCIETY (r11): local polls too
+      canvassingSeat(s, life) // POLLS (r16): a sitting member, the count near
         ? yes
         : no("You're not standing for anything."),
   },

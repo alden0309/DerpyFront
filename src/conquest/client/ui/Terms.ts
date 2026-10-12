@@ -263,7 +263,7 @@ export const TERMS: Record<string, Term> = {
   // POLLS (r16): Canvass.ts, Standing.ts
   canvass: {
     name: "The canvass",
-    what: "Your standing at a poll as it moves, week by week, against the strongest rival (for the house, against whoever would take the last seat).",
+    what: "Your standing at a poll as it moves, week by week, against the strongest rival (for the house, the challenger put up in your county).",
     good: "The highest standing at the count wins (each side has a little luck, ±4). Society › Office shows it while you stand, with your chance at the count and what moved it this week.",
     raise:
       "Canvass at the tavern or the market, stand a round, print a broadside, treat the voters, win the county's regard, buy the sheriff's goodwill or a great man's interest. Canvassing and treating fade unless they're kept up.",

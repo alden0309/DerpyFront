@@ -26,17 +26,17 @@ function linesTable(): string {
 |---|---|---|
 | Your name on the list | everyone has it | ${POLL.base} |
 | Renown | ${POLL.renownPer} a point | ${POLL.renownCap} |
-| Your station | ${POLL.stationPer} a step (the computer's people: 2 a step) | ${n(4 * POLL.stationPer)} |
+| Your station | ${POLL.stationPer} a step, the same for the computer's people | ${n(4 * POLL.stationPer)} |
 | A householder of the county | living there | ${POLL.householder} |
-| Persuasion | ${POLL.persuasionPer} a level | ${n(20 * POLL.persuasionPer)} |
+| Persuasion | ${POLL.persuasionPer} a level (the computer's people: their address, ${POLL.addressPer} a point of diplomacy) | ${POLL.persuasionCap} |
 | Canvassing | its points, with diminishing returns; a tenth fades each week | ${POLL.canvassCap} |
 | Treating | ${POLL.treatPoints} points a treat, with diminishing returns; 1 in 20 fades each week | ${POLL.treatCap} |
-| The county's regard | its people's opinion of you, a third of it | ±${POLL.regardCap} |
-| Party | your party and the county's lean | ±${POLL.party} |
+| The county's regard | its people's opinion of you, ÷ ${POLL.regardDiv} (the computer's people: by their station and family) | ±${POLL.regardCap} |
+| Party | your party, by how far the county leans its way (a county near the middle, only a little) | ±${POLL.party} |
 | The governor's friends | for a court man he likes; against the country party, or one he dislikes | +${POLL.govFor} / −${POLL.govAgainst} |
 | The sheriff | he runs the poll: his opinion of you ÷ 10; his goodwill bought | ±${POLL.sheriffLean}, +${POLL.sheriffBought} |
 | A patron | your own, in the colony; a great man's interest bought | +${POLL.patronOwn} / +${POLL.patronBought} |
-| A freeholder · sitting already | | +${POLL.freeholder} · +${POLL.sitting} |
+| A freeholder · sitting already | the computer's merchants, planters and better are freeholders too | +${POLL.freeholder} · +${POLL.sitting} |
 | Living out of the county · a scandal | | ${POLL.away} · ${POLL.scandal} |
 | The papers | pieces for or against you | ±${POLL.swayCap} |
 | Talked about in the town | each rumour against you | ${POLL.rumour} |
@@ -64,17 +64,25 @@ export const POLLS_CHAPTER: Chapter = {
   where:
     "Society › Office (the canvass, at the top while you stand, and each office's row); Society › Standing (renown and favour); Society › Press (a piece for yourself).",
   body: `## A poll is a contest
-At a county poll (selectman, mayor, burgess, churchwarden...) and at an election to the assembly, every candidate's **standing** is made of the same lines, yours and the computer's people's alike. The highest standing at the count wins the office; for the assembly, the best six take its seats. Point at any standing for its lines.
+At a county poll (selectman, mayor, burgess, churchwarden...) and at an election to the assembly, every candidate's **standing** is made of the same lines, yours and the computer's people's alike. The highest standing at the count wins the office. **A seat in the house is fought in your county**: beat the man put up against you there and you sit; lose to him and he takes it. Point at any standing for its lines.
 
 ${linesTable()}
 
 **Renown counts, but lightly and only so far.** A famous man who doesn't canvass, isn't liked in the county, belongs to the wrong party or has the governor's friends against him **loses** to a planter of the county with a great man's interest behind him. (Renown still helps a little more by the back door: people think better of the well known, and fame raises your station.)
 
 ## The computer's candidates
-They're people of the county, and they fight: each **canvasses** for the last half-year before a poll, harder some than others; **treats** the voters with his own money (a merchant or a planter more than a smith); many have **a great man's interest** behind them (a councillor's, or the county's justice's); the sheriff may be their kinsman; a court-party man has the governor's friends. When you stand for the assembly, one or two of your county's people of standing put up against you, and you're told who and with whose interest. The county's people fight a great office (a mayor, a burgess) at ${pct(0.8)} of what they'd put into a seat in the house, a lesser one (a churchwarden, a selectman) at half.
+They're people of the county, and they fight: each **canvasses** for the last half-year before a poll, harder some than others; **treats** the voters with his own money (a merchant or a planter more than a smith); many have **a great man's interest** behind them (a councillor's, or the county's justice's); the sheriff may be their kinsman; a court-party man has the governor's friends. The county's people fight a great office (a mayor, a burgess) at ${pct(0.8)} of what they'd put into a seat in the house, a lesser one (a churchwarden, a selectman) at half.
+
+**A challenger for the house.** When you stand for the assembly (or sit, and the count is half a year off), the other interest puts up one or two of your county's people of standing against you, and you're told who and with whose interest:
+- he's **the other party's man** where the county has one (against a member of no party, the county's own lean);
+- **a great man of his party always stands behind him**, and **his backers pay his treating** (at least ${pct(POLL.challengerTreat)} of what treating can do);
+- he **canvasses hard**, building from the day he's put up;
+- a county with nobody free to stand sees a newcomer of standing come forward (a planter, a merchant or a lawyer lately settled there).
+
+Nobody is returned unopposed by accident: if you never canvassed for the house (you stood days before, or canvassed for a county office first), a man is put up against you at the last moment, with a quarter of a canvass.
 
 ## The canvass, week by week
-While you stand (or sit, and the count is less than half a year off), **Society › Office** shows the canvass at the top: your standing against the strongest rival (for the house, against whoever would take the last seat), **your chance at the count** (from the luck at the count, ±${POLL.luck} on each side: the same numbers the count rolls), a chart of both, week by week, **what moved it this week** (your canvassing, his treating, the county's regard...), and both sides line by line.
+While you stand (or sit, and the count is less than half a year off), **Society › Office** shows the canvass at the top: your standing against the strongest rival (for the house, the challenger in your county), **your chance at the count** (from the luck at the count, ±${POLL.luck} on each side: the same numbers the count rolls), a chart of both, week by week, **what moved it this week** (your canvassing, his treating, the county's regard...), and both sides line by line.
 
 ## Money for the poll
 Each with its cost on its button and what it does to your standing:
@@ -82,7 +90,7 @@ Each with its cost on its button and what it does to your standing:
 - **A present for the sheriff** (once a poll, in the county): 4 and 2 for each step of his station (10 to 14); +${POLL.sheriffBought} at the count (he opens and closes the poll to suit you). A plain man takes it amiss ${chanceWords(0.15)}, an honest one ${chanceWords(0.85)}: then he sends it back, and remembers it.
 - **A great man's interest** (once a poll): a councillor's, or a county grandee's, if he thinks well enough of you (10); his price is 6 and 4 for each step of his station (about 22 to 26). +${POLL.patronBought} (or +${POLL.patronBought - POLL.patronOwn} more if you have a patron already).
 
-Canvassing at the tavern or the market (every two weeks), standing a round and a broadside at the press (2) are free or nearly, and worth as much as the money; but they fade unless they're kept up. The money spent shows in Estate › Ledger under the poll's name.
+Canvassing at the tavern or the market (every two weeks), standing a round and a broadside at the press (2) are free or nearly, and worth as much as the money; but they fade unless they're kept up. A sitting member, or a county office's holder, canvasses for the count ahead the same way in its last half-year. Standing for two at once (a county office and the house), your canvass is for the one counted first. The money spent shows in Estate › Ledger under the poll's name.
 
 ## The governor's friends
 A colony's governor (the computer's) and his friends take a side. A court-party man he thinks well of (20) has them working for him (+${POLL.govFor}); **a member of the country party, or anyone he dislikes, has them working against him** (−${POLL.govAgainst}), and you're told when they start. You're of the court party when you're received at court, or when your votes on the council say so; of the country party when they say that.

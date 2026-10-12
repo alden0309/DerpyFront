@@ -1,6 +1,6 @@
 // POLLS (r16): the canvass on the office pages. Your standing at the poll
-// you're in against the strongest rival (or, for the house, whoever would
-// take the last seat), week by week; what moved it; both sides line by line;
+// you're in against the strongest rival (or, for the house, the challenger
+// put up in your county), week by week; what moved it; both sides line by line;
 // the money you can lay out on it, each with its cost on the button and what
 // it does; and how your last poll went, and why. Renown and favour's curve
 // for the Standing page's tooltips.
