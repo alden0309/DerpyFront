@@ -38,11 +38,8 @@ export const DICE_EVENTS: LifeEventDef[] = [
     cooldown: 0,
     scene: "tavern",
     title: "A game of Liar's dice",
-    body: (g, life, ctx) => {
-      const t = tableById(g.s, ctx.t);
-      const n = t ? t.seats.filter((x) => x.state === "in").length : 1;
-      return `${charName(who(g, ctx))} has a table at the tavern: Liar's dice, ${ctx.stake} coins a seat, ${n} sitting down so far. "Will you make one of us?"\nFive dice each under a cup; you bid on what lies under all the cups (ones are wild) until someone calls "Liar!". The last with dice takes the pot.`;
-    },
+    body: (g, _life, ctx) =>
+      `${charName(who(g, ctx))} has a table at the tavern: Liar's dice, ${ctx.stake} coins a seat. "Will you make one of us?"\nFive dice each under a cup; you bid on what lies under all the cups (ones are wild) until someone calls "Liar!". The last with dice takes the pot.`,
     choices: [
       {
         label: (_g, _l, ctx) => `Take a seat (${ctx.stake} coins)`,
@@ -240,11 +237,15 @@ export const DICE_EVENTS: LifeEventDef[] = [
   },
 ];
 
-/** Now and then, in the tavern: a stranger with loaded dice. */
+/**
+ * Now and then, in the tavern, for someone who plays at the dice (a table
+ * played before): a stranger with loaded dice.
+ */
 function tavernDaily(g: ConquestGame, life: Life): void {
   const s = g.s;
   if (life.watching || life.c < 0 || life.travel || life.area !== "tavern")
     return;
+  if (!life.achCount?.["dice-tables"]) return;
   if (life.events.length >= 2 || isChildLife(s, life)) return;
   if ((life.cooldowns["ev:dice-loaded"] ?? 0) > s.day) return;
   if (seatedAt(s, life.c)) return;

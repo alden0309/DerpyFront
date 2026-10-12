@@ -32,6 +32,7 @@ import {
 } from "../../src/conquest/engine/DiceCore";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { actCheck } from "../../src/conquest/engine/LifeActs";
+import { autoAnswerLife } from "../../src/conquest/engine/LifeEvents";
 import { lifeOfSeat, opinionOf } from "../../src/conquest/engine/LifeQueries";
 import { Rng } from "../../src/conquest/engine/Rng";
 import type {
@@ -326,17 +327,20 @@ describe("Liar's dice: who sits down", () => {
     );
     ch.role = role;
     ch.traits = [];
-    // Someone of small means can't stake 25.
-    const p0 = folk.find((x) => meansOf(g.s, x) < 25)!;
-    expect(p0).toBeTruthy();
-    g.char(p0.id).memories = [];
-    const poor = sitAcceptance(g.s, life, p0, 25);
+    // A labourer can't stake 25.
+    ch.role = "labourer";
+    ch.memories = [];
+    expect(meansOf(g.s, ch)).toBeLessThan(25);
+    const poor = sitAcceptance(g.s, life, ch, 25);
     expect(poor.parts.some((p) => p.label === "Hasn't the money")).toBe(true);
     expect(poor.total).toBeLessThanOrEqual(0);
-    // Asked, a refusal is written at the table with its reason.
-    const t = openWith(g, life, [p0.id], 25);
-    const refused = t.acts.find((a) => a.k === "refuse" && a.c === p0.id);
-    expect(refused?.why).toBe("Hasn't the money");
+    ch.role = role;
+    // Asked, a refusal is written at the table with its worst reason: a
+    // zealot who doesn't care for the risk.
+    ch.traits = ["zealous", "craven"];
+    const t = openWith(g, life, [c.id], 25);
+    const refused = t.acts.find((a) => a.k === "refuse" && a.c === c.id);
+    expect(refused?.why).toBe("Dice are the devil's bones");
     expect(t.seats.length).toBe(1);
     // Alone, you can't roll.
     expect(cmd(g, life, { act: "start", id: t.id })).toMatch(/someone/);
@@ -467,6 +471,52 @@ describe("Liar's dice: who sits down", () => {
         f: 2,
       }),
     ).toMatch(/Raise the bid/);
+  });
+
+  test("an invitation left unanswered is a no; a cheat comes only to those who play", () => {
+    const g = world({
+      start: 1700,
+      seed: 9,
+      plans: [
+        {
+          seat: "a",
+          name: "Alden",
+          plan: plan({ home: JT, background: "clerk" }),
+        },
+        {
+          seat: "b",
+          name: "Bea",
+          plan: plan({
+            home: JT,
+            first: "Beatrice",
+            family: "Cole",
+            female: true,
+            background: "clerk",
+          }),
+        },
+      ],
+    });
+    g.aiEnabled = false;
+    const [a, b] = ["a", "b"].map((x) => lifeOf(g, x));
+    for (const l of [a, b]) {
+      l.purse = 50;
+      l.area = "tavern";
+      l.events = [];
+    }
+    const t = openWith(g, a, [b.c], 2);
+    const ev = b.events.find((e) => e.key === "p2p-dice")!;
+    autoAnswerLife(g, "b", ev.id);
+    expect(t.asked).toEqual([]);
+    expect(t.seats.length).toBe(1);
+    expect(t.acts.some((x) => x.k === "refuse" && x.c === b.c)).toBe(true);
+    expect(b.purse).toBe(50);
+    // Nobody who hasn't played at the dice meets the tavern's sharps.
+    for (let i = 0; i < 400; i++) {
+      g.tick();
+      b.area = "tavern";
+      b.events = b.events.filter((e) => e.key === "dice-loaded");
+    }
+    expect(b.events.some((e) => e.key === "dice-loaded")).toBe(false);
   });
 
   test("leaving: mid-round when the cups come up, between rounds at once; setting out mid-round throws the round in", () => {

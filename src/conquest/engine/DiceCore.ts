@@ -260,7 +260,8 @@ export function bidChance(
 
 /** "certain", "likely", "a stretch", "a long shot". */
 export function chanceWord(p: number): string {
-  if (p >= 0.999) return "certain";
+  // Certain only when your own dice make the bid already.
+  if (p >= 1) return "certain";
   if (p >= 0.55) return "likely";
   if (p >= 0.25) return "a stretch";
   return "a long shot";

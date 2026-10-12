@@ -27,6 +27,7 @@ import type {
   GameState,
   Life,
 } from "./Types";
+import { SEATS } from "./Types";
 
 type Mood = NonNullable<DiceAct["mood"]>;
 
@@ -35,6 +36,11 @@ type Mood = NonNullable<DiceAct["mood"]>;
 /** What someone has to play with: their trade's means, or their household's. */
 export function meansOf(s: GameState, c: Character): number {
   if (c.role) return ROLES[c.role].wealth;
+  // The governor, his council and his court: gentlemen, whatever their trade.
+  const n = s.nations[c.nation];
+  if (n?.ruler === c.id) return 120;
+  if (n && SEATS.some((st) => n.council[st] === c.id)) return 60;
+  if (n?.court.includes(c.id)) return 35;
   const sp = s.chars[c.spouse];
   if (sp?.alive && sp.role) return Math.round(ROLES[sp.role].wealth * 0.6);
   const father = s.chars[c.father];

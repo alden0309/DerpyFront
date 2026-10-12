@@ -1615,7 +1615,7 @@ Other players in the same tavern see the table on its tile ("Dice: 3 at the tabl
 - It teaches **Stealth** (a straight face and a quick eye): ${XP_TABLE} experience, and ${XP_ROUND} more for each round you sit through, up to ${XP_MAX}; a third as much for any more tables that week.
 - The town's people at the table remember it: "+5 A good night at the dice", or, if you took their money at a stake of 5 or more, "−5 Took my money at the dice".
 - Two [[coins|achievements]]: **Down to the last die** (win with one die left under your cup) and **The whole table** (win against five others).
-- Now and then in the tavern: a stranger winning too often with loaded dice (a sharp eye catches him), and, after a big pot, a sore loser.
+- Now and then in the tavern, once you've played at the dice: a stranger winning too often with loaded dice (a sharp eye catches him); and, after a big pot, a sore loser.
 
 > Tip: Open at the face you hold most, a little under what you'd expect; raise on your own faces; and call when a bid needs more than half the dice you can't see.
 

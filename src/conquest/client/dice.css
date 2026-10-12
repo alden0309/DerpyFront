@@ -21,7 +21,7 @@
   border-bottom: 3px solid #b88a34;
   box-shadow: 0 2px 0 #5a3f18;
   isolation: isolate;
-  padding: 2.7rem 1.2rem 0;
+  padding: 2.5rem 1.2rem 0;
   display: flex;
   flex-direction: column;
 }
@@ -91,9 +91,9 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  height: 3.4rem;
+  height: 2.9rem;
   width: 100%;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.3rem;
 }
 .cq-dice-bubble {
   position: relative;
@@ -128,9 +128,9 @@
   display: flex;
   justify-content: center;
 }
-.cq-dice-face.cq-portrait {
-  width: 5.4rem;
-  height: 6.7rem;
+.cq-dice-likeness.cq-portrait {
+  width: 4.8rem;
+  height: 6rem;
   border-width: 3px;
   transition:
     box-shadow 0.3s,
@@ -140,7 +140,7 @@
 .cq-dice-seat[style*="--frame"] .cq-nameplate {
   border-color: var(--frame);
 }
-.cq-dice-seat.turn .cq-dice-face {
+.cq-dice-seat.turn .cq-dice-likeness {
   box-shadow:
     0 0 0 3px #f0d27a,
     0 0 26px 8px rgba(240, 200, 110, 0.6);
@@ -153,8 +153,8 @@
       0 0 34px 12px rgba(240, 200, 110, 0.75);
   }
 }
-.cq-dice-seat.out .cq-dice-face,
-.cq-dice-seat.gone .cq-dice-face {
+.cq-dice-seat.out .cq-dice-likeness,
+.cq-dice-seat.gone .cq-dice-likeness {
   filter: grayscale(0.85) sepia(0.3);
   opacity: 0.55;
 }
@@ -203,8 +203,8 @@
 .cq-dice-spot {
   position: relative;
   z-index: 4;
-  height: 4.4rem;
-  margin-top: 0.35rem;
+  height: 3.9rem;
+  margin-top: 0.3rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -271,12 +271,12 @@
 .cq-dice-board {
   position: relative;
   z-index: 2;
-  margin: -3.6rem -1.2rem 0;
-  padding: 3.9rem 1.2rem 0.9rem;
+  margin: -3.3rem -1.2rem 0;
+  padding: 3.6rem 1.2rem 1rem;
   display: grid;
   grid-template-columns: 8rem minmax(0, 1fr) 8rem;
   align-items: center;
-  min-height: 9.6rem;
+  min-height: 8.4rem;
   background:
     radial-gradient(
       ellipse 60% 70% at 50% 18%,
@@ -413,8 +413,8 @@
 .cq-dice-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr);
-  gap: 1.1rem 1.6rem;
-  margin: 1rem 1.8rem 0;
+  gap: 1rem 1.6rem;
+  margin: 0.8rem 1.8rem 0;
   animation: cq-fade-up 0.5s 0.3s both;
 }
 .cq-dice-h {
@@ -438,8 +438,8 @@
 /* Your cup, raised, and your dice under it. */
 .cq-dice-yours {
   position: relative;
-  padding: 0.3rem 0 0 3.6rem;
-  min-height: 5.6rem;
+  padding: 0.2rem 0 0 3.6rem;
+  min-height: 4.6rem;
 }
 .cq-dice-yours .cq-dice-cupart.up {
   position: absolute;
@@ -458,16 +458,16 @@
   align-items: center;
 }
 .cq-dice-row .cq-die {
-  width: 3.5rem;
-  height: 3.5rem;
+  width: 3.2rem;
+  height: 3.2rem;
 }
 .cq-dice-wild {
   margin: 0.3rem 0 0;
   color: var(--ink-soft);
 }
 .cq-dice-tell {
-  min-height: 2.7rem;
-  margin-top: 0.5rem;
+  min-height: 2.5rem;
+  margin-top: 0.4rem;
 }
 .cq-dice-tell p {
   margin: 0;
@@ -480,15 +480,13 @@
   border-left: 3px solid var(--brass);
   animation: cq-fade-up 0.4s both;
 }
+/* The last four moves of the round, newest at the foot, in a fixed space. */
 .cq-dice-history ol {
   margin: 0;
   padding: 0;
   list-style: none;
-  height: 7.6rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  height: 6.2rem;
+  overflow: hidden;
 }
 .cq-dice-history li {
   display: flex;
@@ -602,6 +600,7 @@
   opacity: 0.6;
 }
 .cq-dice-odds.sub {
+  display: block;
   margin-top: 0.1rem;
   font-size: 0.9rem;
   color: var(--ink-soft);
@@ -724,7 +723,7 @@
 }
 
 .cq-dice-foot {
-  margin: 1rem 1.8rem 0;
+  margin: 0.7rem 1.8rem 0;
   flex-wrap: wrap;
 }
 .cq-dice-foot p {
@@ -857,18 +856,20 @@
 
 /* ---------------------------------------------------------------- in the tavern */
 
+/* A sign over the tavern's tile (the faces give way to it). */
 .cq-area-dice {
   position: absolute;
-  left: 0.35rem;
-  top: 0.35rem;
-  max-width: calc(100% - 3.6rem);
+  left: 0.3rem;
+  right: 0.3rem;
+  top: 0.3rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
   font-family: var(--fell-sc);
-  font-size: 0.7rem;
-  line-height: 1.3;
-  padding: 0 0.32rem;
+  font-size: 0.66rem;
+  line-height: 1.35;
+  padding: 0 0.2rem;
   color: #f6ead0;
   background: rgba(110, 32, 20, 0.92);
   border: 1px solid rgba(233, 199, 102, 0.75);
@@ -877,8 +878,11 @@
 .cq-area-dice.mine {
   box-shadow: 0 0 0 1px rgba(233, 199, 102, 0.7);
 }
+.cq-area-tile:has(.cq-area-dice) .cq-area-faces {
+  display: none;
+}
 .cq-area-tile:has(.cq-area-work) .cq-area-dice {
-  top: 1.45rem;
+  top: 1.35rem;
 }
 .cq-dice-fold p {
   margin: 0 0 0.4rem;
@@ -914,9 +918,9 @@
   .cq-dice-say {
     display: none;
   }
-  .cq-dice-face.cq-portrait {
-    width: 3.2rem;
-    height: 4rem;
+  .cq-dice-likeness.cq-portrait {
+    width: 3.1rem;
+    height: 3.9rem;
     border-width: 2px;
   }
   .cq-dice-seat .cq-nameplate {
@@ -953,6 +957,9 @@
     width: 1.12rem;
     height: 1.12rem;
   }
+  .cq-area-dice .long {
+    display: none;
+  }
   .cq-dice-lastline {
     display: block;
     position: relative;
@@ -975,7 +982,7 @@
   }
   .cq-dice-board {
     margin: -2.9rem -0.4rem 0;
-    padding: 3.1rem 0.6rem 0.6rem;
+    padding: 3.1rem 0.6rem 1.9rem;
     grid-template-columns: minmax(0, 1fr);
     min-height: 7.4rem;
     border-radius: 50% 50% 0 0 / 1.6rem 1.6rem 0 0;

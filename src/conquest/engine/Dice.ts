@@ -696,6 +696,9 @@ function aftermath(
     );
     gainXp(g, l, "stealth", xp);
     if (fresh) touchLife(g, l).cooldowns["dice:xp"] = s.day + XP_DAYS;
+    // Tables played (a player who knows the dice meets the tavern's sharps).
+    const played = (touchLife(g, l).achCount ??= {});
+    played["dice-tables"] = (played["dice-tables"] ?? 0) + 1;
     if (won) {
       earn(g, l, t.pot);
       add(x.c, `+${t.pot} coins: the pot`);

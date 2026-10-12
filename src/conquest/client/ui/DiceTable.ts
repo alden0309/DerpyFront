@@ -461,7 +461,7 @@ function seatView(
           expression: mood,
           size: "l",
         },
-        "cq-dice-face",
+        "cq-dice-likeness",
       )}
       ${turn
         ? html`<span class="cq-dice-turn"
@@ -517,13 +517,18 @@ function boardView(
       <span class="cq-dice-sub">${t.pot} coins</span>
     </div>`;
   }
-  if (t.status === "open")
+  if (t.status === "open") {
+    const deciding = t.asked.map((c) => s.chars[c]?.first ?? "?");
+    const seated = t.seats.filter((x) => x.state === "in").length;
     return html`<div class="cq-dice-board-line">
-      <span class="cq-dice-tally">Liar's dice</span>
+      <span class="cq-dice-tally">Waiting for the first roll</span>
       <span class="cq-dice-sub"
-        >${t.stake} coins a seat · ${MIN_SEATS} to ${MAX_SEATS} players</span
+        >${seated} at the
+        table${deciding.length ? ` · ${deciding.join(" and ")} deciding` : ""} ·
+        ${MIN_SEATS} to ${MAX_SEATS} players</span
       >
     </div>`;
+  }
   const r = v.reveal;
   if (r && r.bid) {
     const stands = (r.count ?? 0) >= r.bid.q;
@@ -724,7 +729,7 @@ function historyView(
   me: number,
 ): TemplateResult {
   const s = ui.s;
-  const rows = v.history.slice(-7);
+  const rows = v.history.slice(-4);
   return html`<div class="cq-dice-history">
     <h4 class="cq-dice-h small">
       ${v.round ? `Round ${v.round}` : "Before the first roll"}
@@ -1169,12 +1174,16 @@ export function diceModal(
     </div>
     <div class="cq-scene-foot cq-dice-foot">
       <p class="cq-muted small">
-        ${ui.solo
-          ? "The world waits while you sit at the table."
-          : t.seats.filter((y) => y.seat !== undefined && y.state === "in")
-                .length > 1
-            ? `In company: a player who doesn't bid in ${STALL_SECONDS} seconds has the smallest raise made for them.`
-            : "The town's people wait for you to bid."}
+        ${t.status === "done"
+          ? "The table is cleared away in a few days."
+          : t.status === "open"
+            ? `A table nobody rolls breaks up after a few days, every stake given back.`
+            : ui.solo
+              ? "The world waits while you sit at the table."
+              : t.seats.filter((y) => y.seat !== undefined && y.state === "in")
+                    .length > 1
+                ? `In company: a player who doesn't bid in ${STALL_SECONDS} seconds has the smallest raise made for them.`
+                : "The town's people wait for you to bid."}
         <button
           class="cq-link"
           @click=${() => ui.modal({ k: "guide", ch: "dice" })}
@@ -1431,7 +1440,7 @@ export function diceTag(
     title=${t.status === "open"
       ? "A table of Liar's dice, gathering"
       : "Liar's dice going"}
-    >Dice: ${n} at the table</span
+    >Dice: ${n}<span class="long"> at the table</span></span
   >`;
 }
 
