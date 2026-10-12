@@ -188,3 +188,20 @@
 .cq-bond-history li.native b {
   color: var(--verdigris);
 }
+
+.cq-bond-op {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.cq-bond-op.good {
+  color: var(--verdigris);
+}
+.cq-bond-op.bad {
+  color: var(--seal);
+}
+.cq-bond-policy .cq-seg > button {
+  white-space: nowrap;
+}
+.cq-bond-lot-who {
+  display: block;
+}

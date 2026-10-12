@@ -8,7 +8,11 @@
 // the world; old saves load; another household's door stays its own
 // business in multiplayer.
 
-import { describe, expect, test } from "vitest";
+import http from "http";
+import { AddressInfo } from "net";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { WebSocket } from "ws";
+import type { ServerMessage } from "../../src/conquest/Protocol";
 import { sitterOf } from "../../src/conquest/engine/Appearance";
 import {
   bondForecast,
@@ -57,7 +61,7 @@ import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { raiseEvent } from "../../src/conquest/engine/Hooks";
 import { succeedTo } from "../../src/conquest/engine/Life";
-import { peopleHere } from "../../src/conquest/engine/LifeQueries";
+import { lifeOfSeat, peopleHere } from "../../src/conquest/engine/LifeQueries";
 import { LAND_LOT } from "../../src/conquest/engine/LifeRules";
 import { hireCheck } from "../../src/conquest/engine/Property";
 import { ageOf, charName } from "../../src/conquest/engine/Queries";
@@ -66,6 +70,8 @@ import type {
   BondPolicy,
   BondWork,
   Character,
+  GameDelta,
+  GameState,
   Life,
 } from "../../src/conquest/engine/Types";
 import { lifeOf, map, plan, world } from "./LifeUtil";
@@ -1064,5 +1070,186 @@ describe("LABOUR: people, portraits, saves and secrets", () => {
     expect(
       g.lifeCommand("s1", { k: "bond", act: "buy", key: "1:1:0" } as never),
     ).toMatch(/people's ways/);
+  });
+});
+
+// ---------------------------------------------------------------- through the rooms server
+
+vi.mock("../../src/server/Logger", () => ({
+  logger: {
+    child: () => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() }),
+  },
+}));
+
+class Client {
+  readonly messages: ServerMessage[] = [];
+  private waiters: {
+    test: (m: ServerMessage) => boolean;
+    resolve: (m: ServerMessage) => void;
+  }[] = [];
+  readonly ws: WebSocket;
+  readonly open: Promise<void>;
+  constructor(
+    url: string,
+    private tick: () => void,
+  ) {
+    this.ws = new WebSocket(url);
+    this.open = new Promise((r) => this.ws.on("open", () => r()));
+    this.ws.on("message", (data) => {
+      const m = JSON.parse(String(data)) as ServerMessage;
+      this.messages.push(m);
+      this.waiters = this.waiters.filter((w) => {
+        if (!w.test(m)) return true;
+        w.resolve(m);
+        return false;
+      });
+    });
+  }
+  send(m: unknown) {
+    this.ws.send(JSON.stringify(m));
+  }
+  next<T extends ServerMessage["t"]>(
+    t: T,
+    test: (m: Extract<ServerMessage, { t: T }>) => boolean = () => true,
+  ) {
+    return new Promise<Extract<ServerMessage, { t: T }>>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`timed out waiting for ${t}`)),
+        4000,
+      );
+      this.waiters.push({
+        test: (m) => m.t === t && test(m as Extract<ServerMessage, { t: T }>),
+        resolve: (m) => {
+          clearTimeout(timer);
+          resolve(m as Extract<ServerMessage, { t: T }>);
+        },
+      });
+    });
+  }
+  private id = 100;
+  async cmd(c: object): Promise<string | null> {
+    const id = this.id++;
+    this.tick();
+    const ack = this.next("ack", (m) => m.id === id);
+    this.send({ t: "cmd", id, c });
+    return (await ack).err;
+  }
+  /** The game as this player sees it: the start, and every delta since. */
+  state(): GameState {
+    let s: GameState | null = null;
+    for (const m of this.messages) {
+      if (m.t === "game") s = JSON.parse(JSON.stringify(m.state));
+      else if (m.t === "d" && s) applyDelta(s, m.d as GameDelta);
+    }
+    return s!;
+  }
+  close() {
+    this.ws.close();
+  }
+}
+
+describe("LABOUR: a freedom seeker at another player's door, through the rooms server", () => {
+  let server: http.Server;
+  let url = "";
+  let clock = 1_800_000_000_000;
+  let rooms: import("../../src/server/conquest/ConquestRooms").ConquestRooms;
+  const clients: Client[] = [];
+  beforeAll(async () => {
+    const { attachConquest, ConquestRooms } =
+      await import("../../src/server/conquest/ConquestRooms");
+    rooms = new ConquestRooms(() => clock);
+    server = http.createServer();
+    attachConquest(server, rooms);
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}/conquest/ws`;
+  });
+  afterAll(async () => {
+    for (const c of clients) c.close();
+    await new Promise((r) => server.close(r));
+  });
+  const client = async (name: string) => {
+    const c = new Client(url, () => (clock += 60));
+    clients.push(c);
+    await c.open;
+    c.send({ t: "hello", name });
+    await c.next("welcome");
+    return c;
+  };
+
+  test("only the player at the door is ever sent it, or what they did", async () => {
+    const host = await client("Alden");
+    const lobby = host.next("lobby");
+    host.send({
+      t: "create",
+      solo: false,
+      open: true,
+      settings: { difficulty: "normal", start: 1700 },
+    });
+    const l = await lobby;
+    const friend = await client("Bea");
+    const joined = host.next("lobby", (m) => m.seats.length === 2);
+    friend.send({ t: "join", code: l.code });
+    await joined;
+    host.send({
+      t: "plan",
+      plan: plan({ home: P("charles-town"), background: "farmer" }),
+    });
+    friend.send({
+      t: "plan",
+      plan: plan({
+        home: P("upland"),
+        first: "Beatrice",
+        family: "Cole",
+        female: true,
+        background: "farmer",
+      }),
+    });
+    await host.next("lobby", (m) => m.seats.every((x) => x.made));
+    friend.send({ t: "ready", ready: true });
+    await host.next("lobby", (m) => m.seats.some((x) => x.ready));
+    const games = [host.next("game"), friend.next("game")];
+    host.send({ t: "start" });
+    const [hg, fg] = await Promise.all(games);
+    const paused = host.next("clock", (m) => m.paused);
+    host.send({ t: "pause", p: true });
+    await paused;
+    const game = rooms.rooms.get(l.code)!.game!;
+    const A = lifeOfSeat(game.s, hg.you)!;
+    const B = lifeOfSeat(game.s, fg.you)!;
+    // Someone has fled Alden's household, and comes to Beatrice's door.
+    const c = person(game, A, { age: 25 });
+    c.bond = {
+      ...c.bond!,
+      status: "fled",
+      fled: { day: game.s.day, to: "north", was: "held", due: game.s.day + 30 },
+    };
+    raiseEvent(game, B, "bond-door", { c: c.id });
+    expect(await friend.cmd({ k: "enter", area: "tavern" })).toBeNull();
+    const ev = B.events.find((e) => e.key === "bond-door")!;
+    expect(ev).toBeDefined();
+    // She hides them.
+    expect(await friend.cmd({ k: "event", id: ev.id, choice: 1 })).toBeNull();
+    expect(await host.cmd({ k: "enter", area: "tavern" })).toBeNull();
+    await new Promise((r) => setTimeout(r, 60));
+    const bAsAliceSees = host.state().lives.find((x) => x.seat === fg.you)!;
+    const bAsBeaSees = friend.state().lives.find((x) => x.seat === fg.you)!;
+    const everSentToAlden = JSON.stringify(host.messages);
+    expect(everSentToAlden).not.toContain("bond-door");
+    expect(everSentToAlden).not.toContain("in the loft");
+    expect(
+      bAsAliceSees.journal.some((j) => j.text.startsWith(SECRET_MARK)),
+    ).toBe(false);
+    expect(bAsBeaSees.journal.some((j) => j.text.includes("in the loft"))).toBe(
+      true,
+    );
+    // A rejoin's full state hides it too.
+    const back = await client("Alden");
+    const again = back.next("game");
+    back.send({ t: "rejoin", code: l.code, secret: hg.secret });
+    const g2 = await again;
+    expect(JSON.stringify(g2.state)).not.toContain("in the loft");
+    // And what Alden knows is only that they're free.
+    expect(c.bond!.status).toBe("free");
+    expect(host.state().chars[c.id].bond!.status).toBe("free");
   });
 });

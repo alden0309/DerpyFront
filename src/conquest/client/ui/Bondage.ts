@@ -323,7 +323,7 @@ function personCard(ui: GameUi, c: Character): TemplateResult {
           ? num(
               `${op.total > 0 ? "+" : ""}${op.total}`,
               () => breakdownTip(`What ${c.first} thinks of you`, op),
-              `cq-opinion ${op.total >= 20 ? "good" : op.total <= -20 ? "bad" : ""}`,
+              `cq-bond-op ${op.total >= 20 ? "good" : op.total <= -20 ? "bad" : ""}`,
             )
           : nothing}</span
       >
@@ -645,6 +645,11 @@ function policyRows(ui: GameUi): PolicyRow[] {
 }
 
 function keepingSection(ui: GameUi): TemplateResult {
+  // What each choice would cost the whole household a month (a child half).
+  const heads = boundOf(ui.s, ui.life!).reduce(
+    (m, c) => m + (ageOf(ui.s, c) < 12 ? 0.5 : 1),
+    0,
+  );
   const s = ui.s;
   const life = ui.life!;
   const pol = life.bondage!.policy;
@@ -691,7 +696,9 @@ function keepingSection(ui: GameUi): TemplateResult {
                         })}
                     >
                       ${o.label}${o.cost !== undefined
-                        ? price(o.cost, { per: "each" })
+                        ? price(o.cost * heads, {
+                            note: "The household's provisions (or quarters) a month",
+                          })
                         : nothing}
                     </button>`,
                 )}
@@ -813,28 +820,30 @@ function workSection(ui: GameUi): TemplateResult {
 // ---------------------------------------------------------------- the docks
 
 function lotPeople(lot: SaleLot): TemplateResult {
-  return html`${lot.people.map(
-    (x, i) =>
-      html`${i ? ", " : ""}<b>${x.first}${x.family
-        ? ` ${x.family}`
-        : ""}</b>${x.born && x.born !== x.first
-        ? html` <span class="cq-muted">(born ${x.born})</span>`
-        : nothing}
-      ${x.rel === "partner"
-        ? x.female
-          ? "his wife, "
-          : "her husband, "
-        : x.rel === "child"
+  return html`<span class="cq-bond-lot-who"
+    >${lot.people.map(
+      (x, i) =>
+        html`${i ? ", " : ""}<b>${x.first}${x.family
+          ? ` ${x.family}`
+          : ""}</b>${x.born && x.born !== x.first
+          ? html` <span class="cq-muted">(born ${x.born})</span>`
+          : nothing}
+        ${x.rel === "partner"
           ? x.female
-            ? "a daughter, "
-            : "a son, "
-          : ""}${x.age}${x.rel === "self" && lot.kind === "held"
-        ? html`,
-            <span class="cq-muted"
-              >${ORIGIN_NAMES[x.origin].split(",")[0]}</span
-            >`
-        : nothing}`,
-  )}`;
+            ? "his wife, "
+            : "her husband, "
+          : x.rel === "child"
+            ? x.female
+              ? "a daughter, "
+              : "a son, "
+            : ""}${x.age}${x.rel === "self" && lot.kind === "held"
+          ? html`,
+              <span class="cq-muted"
+                >${ORIGIN_NAMES[x.origin].split(",")[0]}</span
+              >`
+          : nothing}`,
+    )}</span
+  >`;
 }
 
 function docksSection(ui: GameUi): TemplateResult | typeof nothing {
@@ -928,7 +937,7 @@ function freedomSection(ui: GameUi): TemplateResult | typeof nothing {
   return section(
     html`Freedom ${term("manumission", "?", "cq-term-mark")}`,
     html`<p class="small">
-        <b>${r.law}:</b> ${r.text}
+        <b>${r.law.charAt(0).toUpperCase()}${r.law.slice(1)}:</b> ${r.text}
         ${r.kind !== "none"
           ? html`Fees
             ${price(fc.fee)}${fc.passage
