@@ -149,11 +149,11 @@ export interface PreyDef {
 }
 
 export const PREY: PreyDef[] = [
-  { kind: "sloop", w: 30, value: [40, 85], guns: [0, 4], speed: 1.25 },
-  { kind: "schooner", w: 22, value: [60, 125], guns: [0, 6], speed: 1.4 },
-  { kind: "snow", w: 26, value: [100, 195], guns: [2, 8], speed: 1.05 },
-  { kind: "ship", w: 18, value: [170, 360], guns: [6, 16], speed: 1.0 },
-  { kind: "galleon", w: 4, value: [550, 1250], guns: [24, 40], speed: 0.8 },
+  { kind: "sloop", w: 30, value: [30, 60], guns: [0, 4], speed: 1.25 },
+  { kind: "schooner", w: 22, value: [45, 90], guns: [0, 6], speed: 1.4 },
+  { kind: "snow", w: 26, value: [70, 140], guns: [2, 8], speed: 1.05 },
+  { kind: "ship", w: 18, value: [120, 260], guns: [6, 16], speed: 1.0 },
+  { kind: "galleon", w: 4, value: [400, 900], guns: [24, 40], speed: 0.8 },
 ];
 
 /** A man-of-war: fast, and a broadside nobody wants. */
@@ -164,9 +164,9 @@ export const CRUISE = {
   /** Days on the ground: a short cruise and a long one. */
   hunt: { short: 30, long: 55 },
   /** A chance at a sail every so many days on the ground. */
-  chanceDays: 6,
+  chanceDays: 7,
   /** The chance a sail is sighted at each. */
-  sail: 0.62,
+  sail: 0.5,
   /** Of the sails sighted, a man-of-war (more in wartime). */
   warship: 0.06,
   warshipWar: 0.1,
@@ -187,7 +187,7 @@ export const CRUISE = {
   /** What a fence pays: at a haven, at a den you know, otherwise. */
   fence: { haven: 0.6, den: 0.45, quay: 0.3 },
   /** Victuals, powder and shot for the owners to find, a month for each part of her company. */
-  outfit: 0.5,
+  outfit: 1.5,
   /** A fitting cruise sails this many days after the first signs. */
   fitting: [3, 6] as [number, number],
   /** An encounter left unanswered this long is settled by the captain. */

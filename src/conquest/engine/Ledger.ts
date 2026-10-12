@@ -730,6 +730,7 @@ export function affairsOf(s: GameState, w: World, life: Life): AffairItem[] {
   const lineOf = (key: string) => lines.find((x) => x.key === key);
   for (const f of firmsWith(s, life.c)) {
     if (f.status !== "trading") continue;
+    if (f.sea) continue; // SEA (r15): a privateering company is listed by Privateers.ts
     const p = partnerIn(f, life.c);
     const firmShare = lineOf(`firm:${f.id}`)?.value ?? 0;
     out.push({

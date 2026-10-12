@@ -142,7 +142,9 @@ export function seaPage(ui: GameUi): TemplateResult {
       c.hands.some((h) => h.seat === life.seat && h.c === life.c),
   );
   const voyage = voyageOfLife(s, life);
-  const here = life.travel ? [] : cruiseOffers(s, ui.w, life.prov).filter((o) => o.cruise !== mine?.id);
+  const here = life.travel
+    ? []
+    : cruiseOffers(s, ui.w, life.prov).filter((o) => !mine || o.cruise !== mine.id);
   return html`${pageHead(
     "At sea",
     html`Go to sea in person: sign a privateer's or a pirate's
@@ -155,6 +157,38 @@ export function seaPage(ui: GameUi): TemplateResult {
   ${voyage ? voyageCard(ui, voyage) : nothing}
   ${quaySection(ui, here)} ${ownBoatSection(ui)} ${companySection(ui)}
   ${pardonSection(ui)} ${stormSection(ui)}`;
+}
+
+// ---------------------------------------------------------------- the Here page
+
+/** Here: aboard a cruise or a voyage, in place of "on the road". */
+export function seaCallout(ui: GameUi): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const t = life.travel!;
+  const cr = seaOf(s).cruises.find((c) => c.id === t.ship);
+  const v = seaOf(s).voyages.find((x) => x.id === t.ship);
+  const next = t.path.length
+    ? html`making for <b>${ui.map.provinces[t.path[0]].name}</b>, about
+        ${formatDate(t.arrive)}`
+    : html`at sea`;
+  const what = cr
+    ? html`Aboard the <b>${cr.ship}</b>, ${cr.flag === "pirate" ? "on the account" : "privateering"}
+        ${GROUND_BY_KEY.get(cr.ground)?.name ?? ""} (${PHASE[cr.phase].toLowerCase()})`
+    : v
+      ? html`${v.kind === "merchant" || v.kind === "whaling" ? html`Aboard the <b>${v.ship}</b>` : html`With ${v.ship}`},
+          ${VOYAGE_DEFS[v.kind].name.toLowerCase()} to
+          ${ui.map.provinces[v.to]?.name ?? "far off"}`
+      : html`Under way`;
+  return html`<div class="cq-callout road">
+    <p>${what}: ${next}. The town's business waits till you're ashore.</p>
+    <button
+      class="cq-btn small"
+      @click=${() => ui.open({ k: "tab", tab: "work", sub: "sea" })}
+    >
+      At sea
+    </button>
+  </div>`;
 }
 
 // ---------------------------------------------------------------- your cruise
@@ -225,7 +259,7 @@ function cruiseCard(ui: GameUi, cr: Cruise): TemplateResult {
         >
       </div>
       <p class="small">
-        <b>${PHASE[cr.phase]}</b>${gd ? html`, for ${gd.name}` : nothing}:
+        <b>${PHASE[cr.phase]}</b>${gd ? ` (${gd.name})` : ""}:
         ${where} ${days}
         ${captain ? "" : html`Her captain: ${cap(cr.cname)}.`}
       </p>
@@ -375,6 +409,8 @@ function surveyGlyph(): TemplateResult {
 function quaySection(ui: GameUi, offers: CruiseOffer[]): TemplateResult {
   const s = ui.s;
   const life = ui.life!;
+  // At sea or on the road, there's no quay to stand on.
+  if (life.travel) return html``;
   const p = life.prov;
   const priv = privateersFitHere(s, ui.w, p);
   const pir = piratesFitHere(s, ui.w, p);

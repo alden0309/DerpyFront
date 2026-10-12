@@ -2232,11 +2232,12 @@ later(() => hooks.affairs.push((s, w, life) => {
     if (!h) continue;
     const gd = GROUND_BY_KEY.get(cr.ground);
     const x = cruiseExpect(s, w.map, cr, life);
+    const kept = cr.prizes.filter((p) => p.status !== "retaken").length;
     out.push({
       kind: "sea",
       id: `sea:${cr.id}`,
       title: `The ${cr.ship}'s cruise`,
-      what: `${ROLE_NAMES[cr.flag][h.role]}, ${cr.flag === "pirate" ? "on the account" : "privateering"} ${gd?.name ?? ""}${cr.prizes.length ? ` · ${cr.prizes.filter((p) => p.status !== "retaken").length} prize${cr.prizes.length === 1 ? "" : "s"}` : ""}`,
+      what: `${ROLE_NAMES[cr.flag][h.role]}, ${cr.flag === "pirate" ? "on the account" : "privateering"} ${gd?.name ?? ""}${kept ? ` · ${kept} prize${kept === 1 ? "" : "s"}` : ""}`,
       status: PHASE_WORDS[cr.phase],
       p: cr.way?.prov ?? cr.port,
       due: cr.phase === "selling" ? cr.court : cr.phase === "fitting" ? cr.sails : cr.until,
