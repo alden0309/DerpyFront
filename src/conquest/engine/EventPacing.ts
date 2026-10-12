@@ -65,7 +65,6 @@ export const FAMILIES: Record<string, string[]> = {
     "earthquake",
     "great-snow",
     "town-fire-bell",
-    "wthr-hail",
     "wthr-flood",
   ],
   windfall: [
@@ -120,6 +119,17 @@ export const FAMILY_REST: Record<string, number> = {
   pulpit: 200,
   "sea-weather": 60,
   robbers: 90,
+  // The round's own (EVENTS r15), by the word their keys begin with.
+  youth: 90,
+  young: 90,
+  kin: 90,
+  age: 120,
+  town: 60,
+  port: 90,
+  front: 90,
+  nat: 90,
+  wthr: 60,
+  role: 90,
 };
 
 const FAMILY_OF = new Map<string, string>();
