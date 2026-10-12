@@ -5,6 +5,15 @@
 
 import { describe, expect, test } from "vitest";
 import {
+  CameraKeys,
+  PAN_FAST,
+  PAN_PACE,
+  panDir,
+  panStep,
+  typing,
+  type Pannable,
+} from "../../src/conquest/client/CameraKeys";
+import {
   dateOf,
   formatDate,
   isMonthStart,
@@ -210,5 +219,129 @@ describe("FIXES r15: friendships don't vanish without a word", () => {
     expect(doInteraction(g, life, b.id, "mentor")).toBeNull();
     expect(life.ties[b.id]).toBe("mentor");
     expect(life.ties[a.id]).toBe("friend");
+  });
+});
+
+describe("FIXES r15: W A S D and the arrows move the camera", () => {
+  class FakeMap implements Pannable {
+    moved: [number, number][] = [];
+    screenSize = { width: 1440, height: 900 };
+    panBy(dx: number, dy: number): void {
+      this.moved.push([dx, dy]);
+    }
+    get total(): [number, number] {
+      return this.moved.reduce((a, [x, y]) => [a[0] + x, a[1] + y], [0, 0] as [
+        number,
+        number,
+      ]);
+    }
+  }
+  const key = (
+    type: "keydown" | "keyup",
+    code: string,
+    o: KeyboardEventInit = {},
+    target: EventTarget = window,
+  ) => {
+    const e = new KeyboardEvent(type, {
+      code,
+      bubbles: true,
+      cancelable: true,
+      ...o,
+    });
+    target.dispatchEvent(e);
+    return e;
+  };
+  /** Hold for `ms` in frames of 16 ms. */
+  const hold = (k: CameraKeys, map: FakeMap, ms: number) => {
+    let t = performance.now();
+    for (let i = 0; i < ms / 16; i++) {
+      t += 16;
+      k.step(t, map);
+    }
+  };
+
+  test("each key moves the camera its way (the map slides the other)", () => {
+    const k = new CameraKeys(() => false);
+    k.attach();
+    const cases: [string, number, number][] = [
+      ["KeyD", -1, 0],
+      ["ArrowRight", -1, 0],
+      ["KeyA", 1, 0],
+      ["ArrowLeft", 1, 0],
+      ["KeyW", 0, 1],
+      ["ArrowUp", 0, 1],
+      ["KeyS", 0, -1],
+      ["ArrowDown", 0, -1],
+    ];
+    for (const [code, sx, sy] of cases) {
+      const map = new FakeMap();
+      const e = key("keydown", code);
+      expect(e.defaultPrevented).toBe(true);
+      expect(k.moving).toBe(true);
+      hold(k, map, 400);
+      key("keyup", code);
+      expect(k.moving).toBe(false);
+      const [x, y] = map.total;
+      expect(Math.sign(Math.round(x))).toBe(sx);
+      expect(Math.sign(Math.round(y))).toBe(sy);
+    }
+    k.detach();
+  });
+
+  test("diagonals no faster than straight; Shift goes faster; a short ramp", () => {
+    const [x1, y1] = panStep(1, 0, 0.1, 1, false, 1440, 900);
+    const [x2, y2] = panStep(1, 1, 0.1, 1, false, 1440, 900);
+    expect(Math.hypot(x2, y2)).toBeCloseTo(Math.hypot(x1, y1), 6);
+    const [xf] = panStep(1, 0, 0.1, 1, true, 1440, 900);
+    expect(xf / x1).toBeCloseTo(PAN_FAST, 6);
+    // Full pace: PAN_PACE screen widths a second.
+    expect(x1).toBeCloseTo(PAN_PACE * 1440 * 0.1, 6);
+    const [x0] = panStep(1, 0, 0.1, 0, false, 1440, 900);
+    expect(x0).toBeLessThan(x1);
+    expect(x0).toBeGreaterThan(0);
+  });
+
+  test("left alone while typing, while a window is open, and with Ctrl or Cmd", () => {
+    let blocked = false;
+    const k = new CameraKeys(() => blocked);
+    k.attach();
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    const e = key("keydown", "KeyW", {}, input);
+    expect(e.defaultPrevented).toBe(false);
+    expect(k.moving).toBe(false);
+    const area = document.createElement("textarea");
+    document.body.appendChild(area);
+    key("keydown", "ArrowUp", {}, area);
+    expect(k.moving).toBe(false);
+    expect(typing(input)).toBe(true);
+    expect(typing(document.body)).toBe(false);
+    // Ctrl-S, Cmd-A: the browser's.
+    key("keydown", "KeyS", { ctrlKey: true });
+    key("keydown", "KeyA", { metaKey: true });
+    expect(k.moving).toBe(false);
+    // A window open: nothing moves, and a key held when it opens lets go.
+    blocked = true;
+    key("keydown", "KeyD");
+    expect(k.moving).toBe(false);
+    blocked = false;
+    key("keydown", "KeyD");
+    expect(k.moving).toBe(true);
+    blocked = true;
+    const map = new FakeMap();
+    hold(k, map, 100);
+    expect(map.moved.length).toBe(0);
+    expect(k.moving).toBe(false);
+    // Losing the window's focus lets go too.
+    blocked = false;
+    key("keydown", "KeyD");
+    window.dispatchEvent(new Event("blur"));
+    expect(k.moving).toBe(false);
+    // Other keys are none of its business.
+    expect(panDir("Space")).toBeNull();
+    expect(panDir("KeyQ")).toBeNull();
+    input.remove();
+    area.remove();
+    k.detach();
   });
 });

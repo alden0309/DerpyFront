@@ -1189,6 +1189,18 @@ export class MapView {
     this.clampView();
   }
 
+  /** FIXES (r15): move the camera by screen pixels (W A S D, the arrows). */
+  panBy(dx: number, dy: number): void {
+    this.view.tx += dx;
+    this.view.ty += dy;
+    this.clampView();
+  }
+
+  /** FIXES (r15): the map's size on screen, for the keys' pace. */
+  get screenSize(): { width: number; height: number } {
+    return { width: this.cssWidth, height: this.cssHeight };
+  }
+
   zoomBy(
     factor: number,
     cx = this.cssWidth / 2,

@@ -44,6 +44,7 @@ import type {
   Terrain,
 } from "../engine/Types";
 import type { ResultLine, SeatInfo, ServerMessage } from "../Protocol";
+import { CameraKeys } from "./CameraKeys"; // FIXES (r15)
 import { FindIcon, LetterIcon } from "./Icons";
 import {
   LifeMark,
@@ -255,6 +256,8 @@ export class GameView extends LitElement {
   private dayAt = 0;
 
   private view: MapView | null = null;
+  /** FIXES (r15): W A S D and the arrows move the camera. */
+  private camKeys = new CameraKeys(() => !!this.modalView || !!this.results);
   private selectedProv: number | null = null;
   private selectedArmy: number | null = null;
   private preview: number[] | null = null;
@@ -311,6 +314,7 @@ export class GameView extends LitElement {
     super.connectedCallback();
     this.net.on(this.onNet);
     window.addEventListener("keydown", this.onKey);
+    this.camKeys.attach(); // FIXES (r15)
     window.addEventListener("pointermove", trackPointer, { passive: true });
     window.addEventListener("pointerdown", trackPointer, { passive: true });
     window.addEventListener("touchstart", touched, { passive: true });
@@ -327,6 +331,11 @@ export class GameView extends LitElement {
     }, 1000);
     const loop = (t: number) => {
       this.frame = requestAnimationFrame(loop);
+      // FIXES (r15): the camera keys, a frame at a time ("Go there?" closes).
+      if (this.camKeys.moving) {
+        if (this.ask) this.ask = null;
+        this.camKeys.step(t, this.view ?? undefined);
+      }
       this.drawMap(t);
     };
     this.frame = requestAnimationFrame(loop);
@@ -336,6 +345,7 @@ export class GameView extends LitElement {
     super.disconnectedCallback();
     this.net.off(this.onNet);
     window.removeEventListener("keydown", this.onKey);
+    this.camKeys.detach(); // FIXES (r15)
     window.removeEventListener("pointermove", trackPointer);
     window.removeEventListener("pointerdown", trackPointer);
     window.removeEventListener("touchstart", touched);

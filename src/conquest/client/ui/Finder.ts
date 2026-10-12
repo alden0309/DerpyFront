@@ -1279,6 +1279,19 @@ const GOALS: Goal[] = [
     goLabel: "Take me to You › Family",
     guide: "schooling",
   },
+  // ---------------------------------------------------------------- FIXES (r15)
+  {
+    id: "camera-keys",
+    title: "Move the map with the keys",
+    words:
+      "move map camera pan scroll keys keyboard wasd arrows arrow look around view",
+    group: "Travel and the world",
+    where:
+      "On the map: hold W A S D or the arrow keys to move the view (Shift to go faster), or drag it. The keys move the map, never you; they rest while you type or a window is open.",
+    go: (ui) => ui.modal({ k: "guide", ch: "keys" }),
+    goLabel: "Read the keys",
+    guide: "keys",
+  },
 ];
 
 /** EDU (r13): a child of yours of an age for it (a son, for college). */

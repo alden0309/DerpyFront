@@ -1951,6 +1951,7 @@ Going to Europe is worth Derp Coins at the end ([[coins|Derp Coins]]).`,
 - **Leads** are pinned with a red seal (gold once something's found there).
 - Towns, forts, ports and armies show on the land; sieges and battles flare where they happen.
 - **◎** finds you; **+** and **−** zoom (or the + and − keys, or the wheel).
+- **Move the map** by dragging it, or with **W A S D** or the **arrow keys** (hold **Shift** to go faster). The keys move the view, never you, and rest while you type or a window is open.
 - **Map views** at the foot: Nations (who holds what), Terrain, Economy (what each province's land yields) and People (how crowded).
 
 Click any province for its page: who holds it, its places, the people you know there, and **The road there**. Right-click (or hold) a province to set out at once.
@@ -2106,6 +2107,7 @@ ${achievementsTable()}
 | Space | Pause, or start the clock |
 | 1, 2, 3, 4 | Speed 1×, 2×, 4×, 8× |
 | 5 | Skip ahead (again to stop) |
+| W A S D, or the arrows | Move the map (hold Shift to go faster) |
 | + and − | Zoom the map |
 | ? | This guide, at the page you're on |
 | / | I want to… |
