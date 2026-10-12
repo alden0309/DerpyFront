@@ -142,7 +142,7 @@ Elevation from [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (US
 Coastline, islands, lakes, rivers and provinces from [Natural Earth](https://www.naturalearthdata.com/)  
 Public Domain  
 Elevation from [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (SRTM, GMTED2010 and ETOPO1; see the [attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md))  
-The seats of the warlords about 200 AD follow the *Records of the Three Kingdoms* (Chen Shou) and the *Book of the Later Han* (Fan Ye), with names as in *Romance of the Three Kingdoms* (Luo Guanzhong); all are public domain.
+The seats of the warlords about 200 AD follow the _Records of the Three Kingdoms_ (Chen Shou) and the _Book of the Later Han_ (Fan Ye), with names as in _Romance of the Three Kingdoms_ (Luo Guanzhong); all are public domain.
 
 ## Icons
 
