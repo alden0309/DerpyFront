@@ -1,0 +1,234 @@
+{
+  "id": "ChinaRomanceOfTheThreeKingdoms",
+  "name": "China - Romance Of The Three Kingdoms",
+  "translation_key": "map.chinaromanceofthethreekingdoms",
+  "categories": ["new", "asia"],
+  "multiplayer_frequency": 0,
+  "min_lake_size": 20,
+  "themes": ["three_kingdoms"],
+  "custom_tribes": [
+    "Shangdang",
+    "Hedong",
+    "Hongnong",
+    "Nanyang",
+    "Yingchuan",
+    "Chenliu",
+    "Henei",
+    "Dongjun",
+    "Jiyin",
+    "Taishan",
+    "Langya",
+    "Donghai",
+    "Guangling",
+    "Xiapi",
+    "Beihai",
+    "Donglai",
+    "Pingyuan",
+    "Bohai",
+    "Hejian",
+    "Zhongshan",
+    "Changshan",
+    "Zhao",
+    "Wei Commandery",
+    "Dai",
+    "Yanmen",
+    "Yunzhong",
+    "Wuyuan",
+    "Shuofang",
+    "Xihe",
+    "Shangjun",
+    "Anding",
+    "Beidi",
+    "Longxi",
+    "Tianshui",
+    "Wudu",
+    "Zhangye",
+    "Jiuquan",
+    "Dunhuang",
+    "Xuantu",
+    "Lelang",
+    "Liaoxi",
+    "Youbeiping",
+    "Yuyang",
+    "Shanggu",
+    "Zhuo",
+    "Lujiang",
+    "Jiujiang",
+    "Danyang",
+    "Kuaiji",
+    "Yuzhang",
+    "Wuling",
+    "Lingling",
+    "Guiyang",
+    "Nanjun",
+    "Ba",
+    "Guanghan",
+    "Qianwei",
+    "Yuexi",
+    "Zangke",
+    "Yongchang",
+    "Rinan",
+    "Jiuzhen",
+    "Hepu",
+    "Nanhai",
+    "Yulin",
+    "Yellow Turbans",
+    "White Wave Bandits",
+    "Taishan Bandits",
+    "Liu Pi",
+    "Gong Du",
+    "Zhou Cang",
+    "Zang Ba",
+    "Sun Guan",
+    "Chang Xi",
+    "Guan Hai",
+    "Hua Xin",
+    "Song Jian",
+    "Yang Qianwan",
+    "Baima Di",
+    "Little Yuezhi",
+    "Dingling",
+    "Buyeo",
+    "Okjeo",
+    "Dongye",
+    "Mahan",
+    "Jinhan",
+    "Byeonhan",
+    "Yelang",
+    "Kunming",
+    "Ailao",
+    "Banshun"
+  ],
+  "nations": [
+    {
+      "coordinates": [876, 801],
+      "name": "Cao Cao",
+      "flag": "Cao Cao (3K)"
+    },
+    {
+      "coordinates": [904, 647],
+      "name": "Yuan Shao",
+      "flag": "Yuan Shao (3K)"
+    },
+    {
+      "coordinates": [1114, 604],
+      "name": "Yuan Tan",
+      "flag": "Yuan Tan (3K)"
+    },
+    {
+      "coordinates": [1003, 404],
+      "name": "Yuan Xi",
+      "flag": "Yuan Xi (3K)"
+    },
+    {
+      "coordinates": [805, 549],
+      "name": "Gao Gan",
+      "flag": "Gao Gan (3K)"
+    },
+    {
+      "coordinates": [879, 522],
+      "name": "Zhang Yan",
+      "flag": "Zhang Yan (3K)"
+    },
+    {
+      "coordinates": [922, 872],
+      "name": "Liu Bei",
+      "flag": "Liu Bei (3K)"
+    },
+    {
+      "coordinates": [1267, 966],
+      "name": "Sun Ce",
+      "flag": "Sun Ce (3K)"
+    },
+    {
+      "coordinates": [778, 940],
+      "name": "Liu Biao",
+      "flag": "Liu Biao (3K)"
+    },
+    {
+      "coordinates": [902, 1025],
+      "name": "Huang Zu",
+      "flag": "Huang Zu (3K)"
+    },
+    {
+      "coordinates": [832, 1192],
+      "name": "Zhang Xian",
+      "flag": "Zhang Xian (3K)"
+    },
+    {
+      "coordinates": [318, 1009],
+      "name": "Liu Zhang",
+      "flag": "Liu Zhang (3K)"
+    },
+    {
+      "coordinates": [453, 1087],
+      "name": "Yan Yan",
+      "flag": "Yan Yan (3K)"
+    },
+    {
+      "coordinates": [497, 859],
+      "name": "Zhang Lu",
+      "flag": "Zhang Lu (3K)"
+    },
+    {
+      "coordinates": [578, 780],
+      "name": "Ma Teng",
+      "flag": "Ma Teng (3K)"
+    },
+    {
+      "coordinates": [305, 636],
+      "name": "Han Sui",
+      "flag": "Han Sui (3K)"
+    },
+    {
+      "coordinates": [1344, 287],
+      "name": "Gongsun Du",
+      "flag": "Gongsun Du (3K)"
+    },
+    {
+      "coordinates": [393, 1664],
+      "name": "Shi Xie",
+      "flag": "Shi Xie (3K)"
+    },
+    {
+      "coordinates": [729, 1510],
+      "name": "Zhang Jin",
+      "flag": "Zhang Jin (3K)"
+    },
+    {
+      "coordinates": [211, 1375],
+      "name": "Meng Huo",
+      "flag": "Meng Huo (3K)"
+    },
+    {
+      "coordinates": [802, 245],
+      "name": "Xianbei",
+      "flag": "Xianbei (3K)"
+    },
+    {
+      "coordinates": [1205, 279],
+      "name": "Wuhuan",
+      "flag": "Wuhuan (3K)"
+    },
+    {
+      "coordinates": [750, 664],
+      "name": "Xiongnu",
+      "flag": "Xiongnu (3K)"
+    },
+    {
+      "coordinates": [174, 640],
+      "name": "Qiang",
+      "flag": "Qiang (3K)"
+    },
+    {
+      "coordinates": [1147, 1081],
+      "name": "Shanyue",
+      "flag": "Shanyue (3K)"
+    },
+    {
+      "coordinates": [1498, 279],
+      "name": "Goguryeo",
+      "flag": "Goguryeo (3K)"
+    }
+  ]
+}
