@@ -3647,6 +3647,7 @@ import { PARTNER_EVENTS } from "./PartnerEvents"; // PARTNERS (r13)
 import { POWER_DEFAULTS, POWER_EVENTS } from "./PowerEvents"; // POWER (r12)
 import { R11_EVENTS } from "./R11Events";
 import { R15_EVENTS } from "./R15Events"; // EVENTS (r15)
+import { SEA_EVENTS, SEA_QUIET } from "./SeaEvents"; // SEA (r15)
 import { SEASON_EVENTS } from "./SeasonLife"; // MAP (r12)
 import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
@@ -3691,6 +3692,12 @@ function byKey(key: string): LifeEventDef | undefined {
     // EDU (r13): letters from children away at school, with a master, at
     // college; DICE (r14): an invitation to the dice, a cheat, a sore loser.
     for (const d of [...EDU_EVENTS, ...DICE_EVENTS])
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // SEA (r15): the scenes of the sea (cruises, hurricanes, voyages), raised only.
+    for (const d of SEA_EVENTS)
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
@@ -3953,7 +3960,7 @@ function firstAllowed(
   const def = byKey(ev.key);
   if (!def) return 0;
   // POWER (r12): a trial, council or press scene left unanswered takes its quiet course.
-  const quiet = POWER_DEFAULTS[ev.key];
+  const quiet = POWER_DEFAULTS[ev.key] ?? SEA_QUIET[ev.key]; // SEA (r15)
   if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
     return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.

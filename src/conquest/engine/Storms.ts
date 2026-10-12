@@ -44,9 +44,9 @@ export const STORM_BIRTH = [
 ];
 /** At most this many at once. */
 export const MAX_STORMS = 3;
-/** Km a day in the tropics, and after recurving (they speed up going north-east). */
+/** Km a day in the tropics, and the most after recurving (they quicken going north-east). */
 export const STORM_KM: [number, number] = [300, 600];
-export const STORM_KM_MAX = 750;
+export const STORM_KM_MAX = 600;
 /** Degrees a day a storm can turn. */
 export const STORM_TURN = 20;
 /** Where its winds strike, from the eye (km): this, and so much more each step of force. */
@@ -263,7 +263,7 @@ export function stepStorm(map: MapDef, st: Storm, wobble: number): boolean {
   );
   // Recurved, it quickens north-east.
   if (st.lat >= st.turn && st.bent !== "gulf")
-    st.km = Math.min(STORM_KM_MAX, Math.round(st.km * 1.12));
+    st.km = Math.min(STORM_KM_MAX, Math.round(st.km * 1.08));
   [st.lat, st.lon] = moveAlong(st.lat, st.lon, st.dir, st.km);
   // It builds over warm water and blows out over land and in the north.
   const land = overLand(map, st.lat, st.lon);
@@ -474,6 +474,17 @@ function strikeShips(g: ConquestGame, st: Storm): void {
   if (moved) g.travellersChanged();
 }
 
+/**
+ * Who answers the signs for a life at sea: a cruise asks only whoever
+ * decides for her and tells the rest (Cruises.ts), returning true.
+ */
+export const STORM_SIGNS: ((
+  g: ConquestGame,
+  life: Life,
+  st: Storm,
+  days: number,
+) => boolean)[] = [];
+
 /** The signs, a day or two ahead: to whoever's in its way, once. */
 function warnLives(g: ConquestGame): void {
   const s = g.s;
@@ -488,6 +499,7 @@ function warnLives(g: ConquestGame): void {
     near.st.warned.push(key);
     seaChanged(g);
     const days = Math.max(1, Math.round(near.km / Math.max(200, near.st.km)));
+    if (spot.sea && STORM_SIGNS.some((h) => h(g, life, near.st, days))) continue;
     raiseEvent(g, life, spot.sea ? "sea-storm-signs-ship" : "sea-storm-signs", {
       st: near.st.id,
       d: days,

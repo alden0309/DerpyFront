@@ -179,7 +179,7 @@ export function cruiseOfLife(s: GameState, life: Life): Cruise | undefined {
 /** The voyage a life is on now (aboard, or ashore at the far end), if any. */
 export function voyageOfLife(s: GameState, life: Life): Voyage | undefined {
   return s.sea?.voyages.find(
-    (v) => v.seat === life.seat && v.c === life.c && v.phase !== "done",
+    (v) => v.seat === life.seat && v.c === life.c && v.phase !== "done" && !v.sent,
   );
 }
 
@@ -192,10 +192,9 @@ export function signedCruise(s: GameState, life: Life): Cruise | undefined {
   );
 }
 
-/** At sea: aboard a cruise or a voyage that's under way (not in port). */
-export function atSea(s: GameState, life: Life): boolean {
-  const id = life.travel?.ship;
-  return id !== undefined && life.travel !== null;
+/** At sea (or on the trail): aboard a cruise or a voyage that's under way, not in port. */
+export function atSea(life: Life): boolean {
+  return life.travel?.ship !== undefined;
 }
 
 /** A short name for a ship's rig ("a sloop", "a snow"). */

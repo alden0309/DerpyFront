@@ -149,11 +149,11 @@ export interface PreyDef {
 }
 
 export const PREY: PreyDef[] = [
-  { kind: "sloop", w: 30, value: [30, 60], guns: [0, 4], speed: 1.25 },
-  { kind: "schooner", w: 22, value: [45, 90], guns: [0, 6], speed: 1.4 },
-  { kind: "snow", w: 26, value: [70, 140], guns: [2, 8], speed: 1.05 },
-  { kind: "ship", w: 18, value: [120, 260], guns: [6, 16], speed: 1.0 },
-  { kind: "galleon", w: 4, value: [400, 900], guns: [24, 40], speed: 0.8 },
+  { kind: "sloop", w: 30, value: [40, 85], guns: [0, 4], speed: 1.25 },
+  { kind: "schooner", w: 22, value: [60, 125], guns: [0, 6], speed: 1.4 },
+  { kind: "snow", w: 26, value: [100, 195], guns: [2, 8], speed: 1.05 },
+  { kind: "ship", w: 18, value: [170, 360], guns: [6, 16], speed: 1.0 },
+  { kind: "galleon", w: 4, value: [550, 1250], guns: [24, 40], speed: 0.8 },
 ];
 
 /** A man-of-war: fast, and a broadside nobody wants. */

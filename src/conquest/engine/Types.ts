@@ -3523,6 +3523,8 @@ export interface Voyage {
   end?: string;
   /** Letters from afar waiting till you're ashore. */
   mail?: { key: string; ctx: Record<string, number> }[];
+  /** Goods sent with the brigade while you stayed at home: it comes back on `sails`. */
+  sent?: boolean;
 }
 
 /** A privateering company's ship and her commission. */
