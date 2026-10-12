@@ -380,13 +380,15 @@ export function canvassSection(ui: GameUi): TemplateResult | typeof nothing {
           : "You sit already: you stand again at the count."}
       </p>
       <p class="cq-canvass-head">
-        You stand at
-        ${num(
-          String(Math.round(me.total)),
-          () => standingTip("Your standing at the poll", me),
-          `cq-opinion ${ahead ? "good" : "bad"}`,
-        )};
-        ${rivalLine(ui, ref, rival)}.
+        <span
+          >You stand at
+          ${num(
+            String(Math.round(me.total)),
+            () => standingTip("Your standing at the poll", me),
+            `cq-opinion ${ahead ? "good" : "bad"}`,
+          )};
+          ${rivalLine(ui, ref, rival)}.</span
+        >
         <span
           class="cq-chip ${now.chance >= 0.65
             ? "good"
@@ -429,7 +431,7 @@ export function canvassSection(ui: GameUi): TemplateResult | typeof nothing {
             would.
           </p>`
         : nothing}
-      <h4 class="cq-int-group">Money for the poll</h4>
+      <h4 class="cq-int-group">Canvassing and money for the poll</h4>
       ${cv ? levers(ui, ref, cv) : nothing}`,
   )}
   ${last ? lastResult(ui, last) : nothing}`;
