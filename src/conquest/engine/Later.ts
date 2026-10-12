@@ -219,17 +219,43 @@ export const LATER: Record<string, LaterDef> = {
     },
   },
   treat: {
-    well: "their traders come down: +4 toward the colony, trade +1% for two years",
+    well: "their traders come down (or a neighbouring colony's sloops come in): +4 toward the colony, trade +1% for two years",
     badly:
-      "their young men raid a frontier county anyway: −3, and the county's unrest +2",
+      "raiders from over the line strike a frontier county anyway: −3, and the county's unrest +2",
     days: [180, 365],
     needsPass: true,
     p: 0.7,
     arg2: (g, n) => roadCounty(g, n),
-    pending: (g, n, w) => `the belts you gave the ${nameOf(g, w.arg)}`,
+    pending: (g, n, w) =>
+      g.s.nations[w.arg]?.kind === "native"
+        ? `the belts you gave the ${nameOf(g, w.arg)}`
+        : `the treaty you made with ${g.s.nations[w.arg]?.name ?? "the neighbours"}`,
     come: (g, n, w) => {
       const o = w.arg;
-      if (!g.s.nations[o]?.alive) return "";
+      const x = g.s.nations[o];
+      if (!x?.alive) return "";
+      // A crown's colony: its traders and its governor, not belts and young men.
+      if (x.kind !== "native") {
+        if (w.good) {
+          relate(g, o, n, "A treaty remembered", 4, 4);
+          colonyMod(
+            g,
+            n,
+            "later:treat",
+            `${x.adjective} traders in the ports`,
+            2 * Y,
+            {
+              production: 0.01,
+            },
+          );
+          return `The treaty you made with ${x.name} holds: ${x.adjective} sloops come into ${county(g, g.s.nations[n].capital)} with their cargoes, and the frontier is quieter.`;
+        }
+        relate(g, o, n, "A treaty broken on the frontier", -3, 3);
+        countyMod(g, w.arg2, "later:raid", "Raided, treaty or no treaty", Y, {
+          unrest: 2,
+        });
+        return `The ${x.adjective} commandant on the frontier didn't hold with the treaty you made: raiders from over the line in ${county(g, w.arg2)}, whatever his governor promised.`;
+      }
       if (w.good) {
         relate(g, o, n, "A treaty remembered", 4, 4);
         colonyMod(

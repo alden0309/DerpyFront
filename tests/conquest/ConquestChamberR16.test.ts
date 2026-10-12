@@ -46,6 +46,7 @@ import { hooks } from "../../src/conquest/engine/Hooks";
 import { LATER } from "../../src/conquest/engine/Later";
 import { autoAnswerLife } from "../../src/conquest/engine/LifeEvents";
 import { meOf, opinionOf } from "../../src/conquest/engine/LifeQueries";
+import { writeToCrown } from "../../src/conquest/engine/Politics";
 import {
   divisionNow,
   QUESTION_BY_KEY,
@@ -107,6 +108,9 @@ const toDay = (g: ConquestGame, day: number) => {
 };
 
 // ---------------------------------------------------------------- the council's business
+
+/** The last of a list (the tests' lib has no Array.prototype.at). */
+const last = <T>(xs: T[]): T => xs[xs.length - 1];
 
 describe("the council's business", () => {
   test("varied business, real stakes, and no kind of it twice in a year", () => {
@@ -358,7 +362,7 @@ describe("the assembly's session", () => {
     expect(sess.swayed[life.c]).toBeGreaterThanOrEqual(0);
     const q = QUESTION_BY_KEY.get(sess.key)!;
     const glad = Object.entries(q.choices[0].marks).find(([, v]) => v > 0)!;
-    expect(standWith(g.s, n, life.c, glad[0] as never)!.why.at(-1)!.t).toMatch(
+    expect(last(standWith(g.s, n, life.c, glad[0] as never)!.why).t).toMatch(
       /you spoke for/,
     );
     const before = divisionNow(g.s, n, sess);
@@ -459,6 +463,42 @@ describe("the assembly's session", () => {
     expect(g.s.power!.cabinets[n].unpaid).toBeGreaterThan(g.s.day);
   });
 
+  test("a player governor hears what the house sits on and what it carried, and isn't asked to settle his own salary", () => {
+    const g = world({
+      start: 1700,
+      seed: 9,
+      plans: [
+        { seat: "s1", name: "A", plan: plan({ age: 30 }) },
+        {
+          seat: "s2",
+          name: "B",
+          plan: plan({ age: 40, first: "Bartholomew" }),
+        },
+      ],
+    });
+    const a = lifeOf(g, "s1");
+    const b = lifeOf(g, "s2");
+    const n = meOf(g.s, a)!.nation;
+    strong(a);
+    const pol = g.s.polities[n]!;
+    if (!pol.assembly.includes(a.c)) pol.assembly.push(a.c);
+    pol.assembly = pol.assembly.filter((c) => c !== b.c);
+    g.nation(n).ruler = b.c;
+    expect(QUESTION_BY_KEY.get("salary")!.when(g, n)).toBeNull();
+    const year = dateOf(g.s.day).year + (dateOf(g.s.day).month >= 3 ? 1 : 0);
+    toDay(g, dayOf(year, 3, 1));
+    const sess = g.s.power!.cabinets[n].session!;
+    expect(sess.key).not.toBe("salary");
+    expect(b.events.some((e) => e.key === "session-sits")).toBe(false);
+    expect(b.journal.some((j) => / sits on .*It divides on/.test(j.text))).toBe(
+      true,
+    );
+    toDay(g, sess.until + 1);
+    expect(b.journal.some((j) => /divides on .*It carries/.test(j.text))).toBe(
+      true,
+    );
+  });
+
   test("ten questions, each with three choices that say what they do", () => {
     expect(QUESTIONS.length).toBeGreaterThanOrEqual(10);
     for (const q of QUESTIONS) {
@@ -484,7 +524,7 @@ describe("a seat's work comes to something later", () => {
     const w = cab.later?.find((x) => x.key === "survey" && x.by === life.c);
     if (!w) {
       // The survey came home half done (the shown odds): nothing to come.
-      expect(life.journal.at(-1)!.text).toMatch(/half done|fever/);
+      expect(last(life.journal).text).toMatch(/half done|fever/);
       return;
     }
     expect(w.due - w.day).toBeGreaterThanOrEqual(LATER.survey.days[0]);
@@ -508,7 +548,7 @@ describe("a seat's work comes to something later", () => {
       delete life.cooldowns["seat:draft"];
       if (g.lifeCommand("s1", { k: "power", act: "seat", key: "draft" }))
         continue;
-      const w = cab.later!.at(-1)!;
+      const w = last(cab.later!);
       all++;
       if (w.good) good++;
       cab.later = [];
@@ -582,6 +622,67 @@ describe("the journal's small talk", () => {
     expect(JOURNAL_CAP.drink).toBeGreaterThan(0);
   });
 
+  test("with another player's character, only what you did: no laughing at your story or thanks in their name", () => {
+    const g = world({
+      start: 1700,
+      seed: 9,
+      plans: [
+        { seat: "s1", name: "A", plan: plan({ age: 30 }) },
+        {
+          seat: "s2",
+          name: "B",
+          plan: plan({ age: 30, first: "Beatrice", female: true }),
+        },
+      ],
+    });
+    const a = lifeOf(g, "s1");
+    const b = lifeOf(g, "s2");
+    a.purse = 100;
+    const lines: string[] = [];
+    for (let i = 0; i < 12; i++) {
+      ticks(g, 8);
+      a.travel = null;
+      b.travel = null;
+      b.prov = a.prov;
+      g.char(b.c).home = a.prov;
+      delete a.cooldowns[`p:talk:${b.c}`];
+      const before = a.journal.length;
+      const err = g.lifeCommand("s1", { k: "person", c: b.c, act: "talk" });
+      if (err) continue;
+      for (const j of a.journal.slice(before))
+        if (!/grown to/.test(j.text)) lines.push(j.text);
+    }
+    expect(lines.length).toBeGreaterThan(0);
+    for (const t of lines)
+      expect(t).toMatch(/^You (get to know|pass|stop|spend|seek)/);
+    delete a.cooldowns[`p:gift:${b.c}`];
+    const before = a.journal.length;
+    expect(
+      g.lifeCommand("s1", { k: "person", c: b.c, act: "gift", arg: 3 }),
+    ).toBeNull();
+    const gave = a.journal.slice(before).map((j) => j.text);
+    expect(gave.some((t) => /^You gave Beatrice .*3 coins\.$/.test(t))).toBe(
+      true,
+    );
+  });
+
+  test("a letter to the crown names the colony's own city and board, from a pool", () => {
+    const { g, life } = councillor(7, "envoy");
+    const seen = new Set<string>();
+    for (let i = 0; i < 8; i++) {
+      g.s.day += 45;
+      const before = life.journal.length;
+      writeToCrown(g, life, true);
+      for (const j of life.journal.slice(before))
+        if (!/grown to/.test(j.text)) seen.add(j.text);
+    }
+    expect(seen.size).toBeGreaterThan(3);
+    for (const t of seen) {
+      expect(t).not.toMatch(/or Paris|Seville/);
+      expect(t).toMatch(/London|Board of Trade/);
+    }
+  });
+
   test("the governor's gout is talked of only when he has it", () => {
     const { g, life, n } = councillor(7, "envoy");
     const gov = g.char(g.s.nations[n].ruler);
@@ -594,7 +695,7 @@ describe("the journal's small talk", () => {
     gov.traits.push("gouty");
     g.s.day += 400;
     gossipAt(g, life, 0.5);
-    expect(life.journal.at(-1)!.text).toMatch(/governor's gout is worse/);
+    expect(last(life.journal).text).toMatch(/governor's gout is worse/);
   });
 });
 

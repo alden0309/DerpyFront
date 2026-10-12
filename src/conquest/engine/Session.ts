@@ -324,6 +324,8 @@ export const QUESTIONS: Question[] = [
     title: () => "His Majesty's instruction: a fixed salary for the governor",
     when: (g, n) => {
       const cab = g.s.power?.cabinets[n];
+      // A player governor lays the King's instruction before the house himself, or doesn't.
+      if (playedC(g.s, g.s.nations[n].ruler)) return null;
       return (cab?.unpaid ?? 0) > g.s.day ? null : -1;
     },
     weight: () => 0.8,
@@ -998,7 +1000,23 @@ function openSessions(g: ConquestGame): void {
     powerChanged(g, `c${n}`);
     for (const life of players)
       raiseEvent(g, life, "session-sits", { n, id: cab.session.id });
+    // A player governor has no voice down there, but hears what the house sits on.
+    const gov = governorLife(s, n);
+    if (gov && !players.includes(gov)) {
+      const qq = QUESTION_BY_KEY.get(q.key)!;
+      journal(
+        g,
+        gov,
+        `${pol.name.replace(/^the /, "The ")} sits on ${lowerQ(qq, g, n, q.arg)}. It divides on ${formatDate(cab.session.until)}; Society › Council shows how it leans.`,
+      );
+    }
   }
+}
+
+/** The governor's life, if a player governs the colony. */
+function governorLife(s: GameState, n: number): Life | undefined {
+  const gov = lifeOfC(s, s.nations[n]?.ruler ?? -1);
+  return gov && !gov.watching ? gov : undefined;
 }
 
 /** A player stands for a choice (0 to 2), or aside (-1). */
@@ -1118,6 +1136,10 @@ function divide(g: ConquestGame, n: number): void {
           : undefined,
     );
   }
+  // A player governor hears what the house did (it was the house's own vote).
+  const gov = governorLife(s, n);
+  if (gov && !sessionPlayers(s, n).includes(gov))
+    journal(g, gov, `${head} ${sess.text}`.trim());
   rumour(
     g,
     s.nations[n].capital,

@@ -585,11 +585,11 @@ function caresWords(g: ConquestGame, n: number, key: string): string {
   }
   const up = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const parts: string[] = [];
-  if (glad.length)
-    parts.push(`${up(listWords(glad))} want${glad.length === 1 ? "s" : ""} it`);
+  // Every faction's name is a body of people ("the merchants", "the clergy"): plural.
+  if (glad.length) parts.push(`${up(listWords(glad))} want it`);
   if (sore.length)
     parts.push(
-      `${parts.length ? listWords(sore) : up(listWords(sore))} ${sore.length === 1 ? "is" : "are"} against it`,
+      `${parts.length ? listWords(sore) : up(listWords(sore))} are against it`,
     );
   return parts.length
     ? `${parts.join("; ")}: they'll remember your vote. `

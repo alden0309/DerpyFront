@@ -61,7 +61,14 @@ import { joinMovement, movementOf, recruitInto } from "./Movements";
 import { handOf, hireCheck, hireHand } from "./Property";
 // SOCIETY (r11)
 import { isBound } from "./BondCore"; // LABOUR (r15)
-import { flatterLine, sayOrWrite, sayTalk, talkLine } from "./Chatter"; // CHAMBER (r16)
+import {
+  flatterLine,
+  giftThanks,
+  playerTalkLine,
+  sayOrWrite,
+  sayTalk,
+  talkLine,
+} from "./Chatter"; // CHAMBER (r16)
 import { addSettler, settleAcceptance, settleCheck } from "./Founding";
 import { ADULT_AGE, betrothalOf } from "./IntrigueCore"; // INTRIGUE (r15)
 import {
@@ -1150,15 +1157,24 @@ export function doInteraction(
         (m) => m.of === me.id && m.why === "Good company",
       );
       // SOCIETY (r11): no tongue in common, so it goes by signs.
+      // CHAMBER (r16): another player's character says and does only what
+      // their player does: with them, the line is only what you did.
+      const withPlayer = !!lifeOfChar(s, cId);
+      const said = (t: string) =>
+        withPlayer
+          ? first
+            ? `You get to know ${name}.`
+            : playerTalkLine(g, life, c)
+          : t;
       if (view.tongue && view.tongue.level === 0) {
         remembers(g, life, c, "Good company", 1, 1);
-        sayTalk(g, life, c, signTalk(g, c), first); // CHAMBER (r16)
+        sayTalk(g, life, c, said(signTalk(g, c)), first); // CHAMBER (r16)
         return null;
       }
       remembers(g, life, c, "Good company", 3, 1);
       // CHAMBER (r16): news first, larger pools; small talk with the same
       // person goes in the journal only the first few times a year.
-      sayTalk(g, life, c, smallTalk(g, life, c, first), first);
+      sayTalk(g, life, c, said(smallTalk(g, life, c, first)), first);
       return null;
     }
     case "flatter":
@@ -1208,7 +1224,8 @@ export function doInteraction(
       journal(
         g,
         life,
-        `You gave ${name} ${amount} coins. ${v >= 15 ? "They won't forget it." : "They thank you."}`,
+        // CHAMBER (r16): thanks from a larger pool; another player's are theirs to give.
+        `You gave ${name} ${amount} coins. ${giftThanks(g, life, c, v >= 15)}`.trim(),
       );
       return null;
     }

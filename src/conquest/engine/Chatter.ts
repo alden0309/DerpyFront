@@ -374,6 +374,105 @@ export function talkLine(
   };
 }
 
+/**
+ * A word with another player's character: only what you did. Their own
+ * player says and does the rest (no laughing at your story in their name).
+ */
+const WITH_PLAYER = [
+  (n: string) => `You pass the time of day with ${n}.`,
+  (n: string) => `You stop for a word with ${n}.`,
+  (n: string) => `You spend an hour in ${n}'s company.`,
+  (n: string) => `You seek out ${n} for a talk.`,
+];
+
+export function playerTalkLine(
+  g: ConquestGame,
+  life: Life,
+  c: Character,
+): string {
+  const roll = cdice(g.s, 59, life.c, c.id, g.s.day).next();
+  const lines = WITH_PLAYER.map((f) => f(charName(c)));
+  return fresh(g, life, `tp${c.id}`, lines, roll, 60);
+}
+
+// ---------------------------------------------------------------- the crown
+
+const CROWN_OK = [
+  (city: string) =>
+    `Your letter reached the right desk in ${city}. Someone there knows your name now.`,
+  (city: string, board: string) =>
+    `Your letter to ${board} is read, minuted and answered in a clerk's hand: your name is on a list in ${city} now, near the top.`,
+  (city: string, board: string) =>
+    `A secretary at ${board} thanks you for your "judicious observations". In ${city}, that is practically a knighthood.`,
+  (city: string) =>
+    `Your letter is passed from desk to desk in ${city} and arrives, by some miracle, on the right one.`,
+  (city: string, board: string) =>
+    `Word comes back from ${city}: your letter was read aloud at ${board}, and nobody laughed.`,
+  (city: string) =>
+    `Your letter reaches ${city} in a month and a great man's ear in two. He mentions your name at dinner.`,
+];
+
+const CROWN_BAD = [
+  () => "Your letter was read, filed, and very possibly used to wrap a fish.",
+  (city: string, board: string) =>
+    `Your letter to ${board} is acknowledged on a printed form, with your name spelled three ways.`,
+  (city: string, board: string) =>
+    `Your letter went down with the packet, or so the clerk at ${board} would like you to believe.`,
+  (city: string) =>
+    `Your letter reaches ${city} the week a ministry falls. Nobody there knows who anybody is, least of all you.`,
+];
+
+/**
+ * A letter to the crown: a line from a pool, with the right city and board
+ * for the colony's crown (no more "London (or Paris, or Seville)"), none
+ * again within the year. The letter's favour is real, so it's written down.
+ */
+export function crownLine(g: ConquestGame, life: Life, pass: boolean): string {
+  const s = g.s;
+  const me = s.chars[life.c];
+  const home = me ? homeOf(s, me) : HOME.english;
+  const pool = (pass ? CROWN_OK : CROWN_BAD).map((f) =>
+    f(home.city, home.board),
+  );
+  const roll = cdice(s, 83, life.c, s.day).next();
+  return fresh(g, life, pass ? "cok" : "cbad", pool, roll, 300);
+}
+
+// ---------------------------------------------------------------- a gift
+
+const THANKS = [
+  "They thank you.",
+  "They thank you, and count it when they think you aren't looking.",
+  "They pocket it with a little bow.",
+  "They say you shouldn't have, and keep it.",
+  "They thank you, a shade more warmly than the sum deserves.",
+];
+
+const THANKS_BIG = [
+  "They won't forget it.",
+  "They'll remember it, and say so.",
+  "They hold your hand a moment longer than they need to: they won't forget this.",
+];
+
+/** How someone of the computer's takes a gift (none again soon); another player's own thanks are theirs to give. */
+export function giftThanks(
+  g: ConquestGame,
+  life: Life,
+  c: Character,
+  big: boolean,
+): string {
+  if (g.s.lives.some((l) => l.c === c.id)) return "";
+  const roll = cdice(g.s, 89, life.c, c.id, g.s.day).next();
+  return fresh(
+    g,
+    life,
+    big ? "gb" : "gt",
+    big ? THANKS_BIG : THANKS,
+    roll,
+    120,
+  );
+}
+
 // ---------------------------------------------------------------- flattery
 
 const FLATTER_OK = [
