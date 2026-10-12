@@ -1131,12 +1131,13 @@
 /* The arrow to the next seat, in the gap between them. */
 .cq-dice-next {
   position: absolute;
-  top: 50%;
+  /* The portrait's middle: the speech above it, then half its height. */
+  top: calc(2.9rem + 0.3rem + 3rem);
   right: -0.25rem;
   z-index: 3;
   translate: 50% -55%;
   font-family: var(--fell);
-  font-size: 1.9rem;
+  font-size: 2.2rem;
   line-height: 1;
   color: #e9c766;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
@@ -1160,7 +1161,7 @@
 .cq-dice-history ol.cq-dice-log {
   height: auto;
   min-height: 6.2rem;
-  max-height: 11.5rem;
+  max-height: 9rem;
   overflow-y: auto;
   scrollbar-width: thin;
   padding-right: 0.35rem;
@@ -1223,8 +1224,13 @@
     font-size: 0.68rem;
   }
   .cq-dice-next {
+    top: 1.95rem;
     font-size: 1.15rem;
     right: -0.1rem;
+  }
+  .cq-dice-ring.n5 .cq-dice-next,
+  .cq-dice-ring.n6 .cq-dice-next {
+    top: 1.62rem;
   }
   .cq-dice-history ol.cq-dice-log {
     max-height: 9.5rem;

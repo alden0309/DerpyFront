@@ -43,6 +43,7 @@ import type {
   DiceBid,
   DiceSeat,
   DiceTable,
+  GameState,
   PlaceKind,
 } from "../../engine/Types";
 import { portrait } from "../Portrait";
@@ -494,6 +495,9 @@ function seatView(
       ? `--frame:${lifeOfChar(s, x.c)!.frame}`
       : ""}
   >
+    ${order >= 0 && order < count - 1
+      ? html`<span class="cq-dice-next" aria-hidden="true">›</span>`
+      : nothing}
     <div class="cq-dice-say">
       ${line
         ? html`<span
@@ -522,9 +526,6 @@ function seatView(
             >${order + 1}</span
           >`
         : nothing}
-      ${order >= 0 && order < count - 1
-        ? html`<span class="cq-dice-next" aria-hidden="true">›</span>`
-        : nothing}
       ${turn
         ? html`<span class="cq-dice-turn"
             >${me ? "your turn" : "to bid"}${left !== null
@@ -542,7 +543,7 @@ function seatView(
               : nothing}
     </div>
     <span class="cq-nameplate">
-      <b>${me ? "You" : c.first}</b>
+      <b>${me ? "You" : seatName(s, t, x.c)}</b>
       <small
         >${x.seat !== undefined && !me
           ? "a player"
@@ -573,12 +574,12 @@ function boardView(
   me: number,
 ): TemplateResult {
   const s = ui.s;
-  const who = (c: number) => (c === me ? "you" : (s.chars[c]?.first ?? "?"));
+  const who = (c: number) => (c === me ? "you" : seatName(s, t, c));
   if (v.won) {
     const w = v.won.c;
     return html`<div class="cq-dice-board-line won">
       <span class="cq-dice-tally"
-        >${w === me ? "You take" : `${s.chars[w]?.first} takes`} the pot</span
+        >${w === me ? "You take" : `${seatName(s, t, w)} takes`} the pot</span
       >
       <span class="cq-dice-sub">${t.pot} coins</span>
     </div>`;
@@ -712,7 +713,7 @@ function lastLine(
   const text = r && who >= 0 ? (r.say ?? "") : a ? sayOf(a) : "";
   return html`<p class="cq-dice-lastline" aria-live="polite">
     ${text
-      ? html`<b>${c === me ? "You" : (ui.s.chars[c]?.first ?? "")}:</b> ${curly(
+      ? html`<b>${c === me ? "You" : seatName(ui.s, t, c)}:</b> ${curly(
             `"${text}"`,
           )}`
       : html`&nbsp;`}
@@ -808,6 +809,16 @@ function mineView(
 
 // ---------------------------------------------------------------- FIXES (r15): the table's log
 
+/** FIXES (r15): a sitter's first name, with the surname's initial if two at the table share it. */
+function seatName(s: GameState, t: DiceTable, c: number): string {
+  const ch = s.chars[c];
+  if (!ch) return "?";
+  const twin = t.seats.some(
+    (x) => x.c !== c && s.chars[x.c]?.first === ch.first,
+  );
+  return twin ? `${ch.first} ${ch.family.charAt(0)}.` : ch.first;
+}
+
 /** Whether each table's log keeps to its newest line (until scrolled up to read). */
 const logStuck = new Map<number, boolean>();
 let logSeq = -1;
@@ -826,7 +837,7 @@ function historyView(
     logStuck.clear();
   }
   const acts = tableStory(t);
-  const lines = storyLines(t, acts, upTo, me, (c) => s.chars[c]?.first ?? "?");
+  const lines = storyLines(t, acts, upTo, me, (c) => seatName(s, t, c));
   const gap = (acts[0]?.n ?? 1) > 1;
   // After the page is drawn: to the newest line, unless you scrolled up.
   requestAnimationFrame(() => {
@@ -953,7 +964,7 @@ function pickerView(
             : "Your turn: open the round with any bid."
           : !caught
             ? "…"
-            : `${ui.s.chars[turnC]?.first ?? "Someone"} to bid${left !== null ? ` · ${clockText(left)}` : ""}${then >= 0 ? `, then ${then === me ? "you" : (ui.s.chars[then]?.first ?? "")}` : ""}…`;
+            : `${seatName(ui.s, t, turnC)} to bid${left !== null ? ` · ${clockText(left)}` : ""}${then >= 0 ? `, then ${then === me ? "you" : seatName(ui.s, t, then)}` : ""}…`;
   return html`<section class="cq-dice-play ${disabled ? "idle" : "live"}">
     <h3 class="cq-dice-h">Your bid</h3>
     <div class="cq-dice-pick" role="group" aria-label="Your bid">

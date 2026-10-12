@@ -1531,7 +1531,7 @@ export class MapView {
         for (let i = 0; i < dots; i++) {
           const fx = (i * 0.618034 + 0.13) % 1;
           const fy = (i * 0.381966 + 0.29 + (i % 3) * 0.21) % 1;
-          const r = (0.55 + ((i * 7) % 5) * 0.12) * k;
+          const r = (0.45 + ((i * 7) % 5) * 0.1) * k;
           x.fillStyle = `rgba(255,255,255,${alpha})`;
           x.beginPath();
           x.arc(fx * tw, fy * tw, r, 0, Math.PI * 2);
@@ -1969,7 +1969,7 @@ export class MapView {
       };
       if (isWinter(def.lat, month)) {
         wash(
-          def.lat >= 50 ? "rgba(246,249,252,0.2)" : "rgba(246,249,252,0.12)",
+          def.lat >= 50 ? "rgba(246,249,252,0.12)" : "rgba(246,249,252,0.06)",
         );
         if (def.lat >= 50) {
           deepSnow.addPath(this.provPaths[p]);
@@ -2007,14 +2007,14 @@ export class MapView {
     }
     // FIXES (r15): the snow itself, as flecks over the owner's colour.
     if (snowy) {
-      const f = this.flecks(c, v, 9, 7, 0.78);
+      const f = this.flecks(c, v, 13, 5, 0.72);
       if (f) {
         c.fillStyle = f;
         c.fill(snow, "evenodd");
       }
     }
     if (deep) {
-      const f = this.flecks(c, v, 7, 9, 0.85);
+      const f = this.flecks(c, v, 10, 6, 0.8);
       if (f) {
         c.fillStyle = f;
         c.fill(deepSnow, "evenodd");
