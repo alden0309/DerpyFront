@@ -481,6 +481,19 @@ export function greatStands(s: GameState, life: Life, key: string): boolean {
   return true;
 }
 
+/**
+ * Whether you have this mark now: a hall or a coach while it stands; a
+ * portrait if it's of you (an heir sits for their own); an endowment once
+ * for the line (it carries the family's name).
+ */
+export function greatHad(s: GameState, life: Life, key: string): boolean {
+  const def = GREAT_BY_KEY.get(key);
+  if (!def || life.chair?.great?.[key] === undefined) return false;
+  if (def.kind === "house") return greatStands(s, life, key);
+  if (def.kind === "portrait") return life.chair.sitter?.[key] === life.c;
+  return true;
+}
+
 /** Can you have this mark of greatness now. */
 export function greatCheck(
   s: GameState,
@@ -495,9 +508,8 @@ export function greatCheck(
   if (isChildLife(s, life) || ageOf(s, me) < 18)
     return no("Not until you're grown.");
   if (life.travel) return no("Not from the road.");
-  if (greatStands(s, life, key)) return no("You have it.");
-  if (life.chair?.great?.[key] !== undefined && def.kind !== "house")
-    return no("You've done it.");
+  if (greatHad(s, life, key))
+    return no(def.kind === "house" ? "You have it." : "You've done it.");
   const why = def.needs?.(s, w, life);
   if (why) return no(why);
   const cost = def.cost(s, life);
@@ -531,6 +543,8 @@ export function buyGreat(
   touchLife(g, life);
   life.chair ??= {};
   life.chair.great = { ...(life.chair.great ?? {}), [key]: s.day };
+  if (def.kind === "portrait")
+    life.chair.sitter = { ...(life.chair.sitter ?? {}), [key]: life.c };
   addRenown(g, life, def.renown);
   if (def.favor)
     life.favor = Math.min(100, Math.round((life.favor + def.favor) * 10) / 10);

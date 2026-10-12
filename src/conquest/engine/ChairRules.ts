@@ -48,7 +48,7 @@ export function speakerOk(s: GameState, c: number): Check {
   if (!ch?.alive) return no("Gone.");
   const age = ageOf(s, ch);
   if (age < SPEAKER_AGE)
-    return no(`The chair wants a man of ${SPEAKER_AGE} at the least.`);
+    return no(`The chair wants a member of ${SPEAKER_AGE} at the least.`);
   if (age >= SPEAKER_YOUNG) return yes;
   const life = lifeOfChar(s, c);
   // The computer's members are grown men of standing; a player's years in

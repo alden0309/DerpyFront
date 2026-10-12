@@ -10,8 +10,10 @@ import { describe, expect, test } from "vitest";
 import { chooseSpeaker } from "../../src/conquest/engine/Assembly";
 import {
   answerRoll,
+  houseLever,
   recallRoll,
   renewRoll,
+  replaceGovernor,
 } from "../../src/conquest/engine/Chair";
 import {
   addressAnswerOdds,
@@ -20,10 +22,13 @@ import {
   chairOf,
   courtNeeds,
   infirmity,
+  LATELY,
   lieutenantOf,
   LT,
   PETITION,
   petitionCheck,
+  RECALL,
+  RECALLED,
   recallOdds,
   renewOdds,
   roadView,
@@ -47,6 +52,7 @@ import { ConquestGame } from "../../src/conquest/engine/Game";
 import {
   GREAT,
   greatCheck,
+  greatHad,
   legacyOf,
 } from "../../src/conquest/engine/Grandeur";
 import { actCheck } from "../../src/conquest/engine/LifeActs";
@@ -791,5 +797,142 @@ describe("CHAIR r16: saves, the delta, old saves, determinism", () => {
       JSON.stringify(b.s.nations[n].chair),
     );
     expect(a.s.nations[n].ruler).toBe(b.s.nations[n].ruler);
+  });
+});
+
+describe("CHAIR r16: the house's session hands us its levers (CHAMBER's hooks.houseLever)", () => {
+  test("supply refused in the session stands a year, and the computer's governor answers by the odds", () => {
+    const g = world({ seed: 17 });
+    const s = g.s;
+    const n = england(g).id;
+    const ch = chairOf(s, n)!;
+    const g0 = ch.grievances;
+    expect(houseLever(g, n, "supply", [])).toBe(true);
+    const a = chairOf(s, n)!.address!;
+    expect(a.session).toBe(true);
+    expect(a.supply).toBe(true);
+    expect(a.salary).toBe(false);
+    expect(chairOf(s, n)!.grievances).toBe(g0 + 1);
+    // The governor has answered (the computer's, by answerRoll's odds).
+    expect(a.answer).toBeDefined();
+    if (a.answer === "hold")
+      expect(england(g).mods.some((m) => m.key === "supply-refused")).toBe(
+        true,
+      );
+    // It's the year's address: the speaker can't move another.
+    expect(chairOf(s, n)!.lastAddress).toBe(s.day);
+    // An address of grievances is a grievance the crown hears.
+    expect(houseLever(g, n, "address", [])).toBe(true);
+    expect(chairOf(s, n)!.grievances).toBe(g0 + 2);
+  });
+
+  test("a player who governs answers it himself; a lever on top of one in force joins it", () => {
+    const g = world({
+      seed: 23,
+      plans: [
+        {
+          seat: "gov",
+          name: "Gov",
+          plan: plan({ first: "Alexander", family: "Spotswood", age: 40 }),
+        },
+      ],
+    });
+    const s = g.s;
+    const n = england(g).id;
+    const gov = meIn(g, "gov");
+    const govLife = lifeOf(g, "gov");
+    g.nation(n).ruler = gov.id;
+    ticks(g, 2);
+    expect(houseLever(g, n, "salary", [])).toBe(true);
+    const a = chairOf(s, n)!.address!;
+    expect(a.stage).toBe("carried");
+    expect(a.answer).toBeUndefined();
+    expect(govLife.events.some((e) => e.key === "chair-address")).toBe(true);
+    expect((s.power!.cabinets[n].unpaid ?? 0) > s.day).toBe(true);
+    // Supply on top: the same address, both levers.
+    expect(houseLever(g, n, "supply", [])).toBe(true);
+    expect(chairOf(s, n)!.address).toBe(a);
+    expect(a.supply).toBe(true);
+    expect(england(g).mods.some((m) => m.key === "supply-refused")).toBe(true);
+  });
+
+  test("with no crown commission, the session falls back on its own ways", () => {
+    const g = world({ seed: 17 });
+    const n = england(g).id;
+    g.nation(n).independent = true;
+    expect(houseLever(g, n, "supply", [])).toBe(false);
+  });
+});
+
+describe("CHAIR r16: after the chair", () => {
+  test("a governor the crown recalls waits longer than one whose term ran out", () => {
+    const g = world({ seed: 7 });
+    const s = g.s;
+    const life = lifeOf(g);
+    const me = meIn(g);
+    age(g, me, 40);
+    const n = england(g).id;
+    g.nation(n).ruler = me.id;
+    ticks(g, 2);
+    replaceGovernor(g, n, "recall", -1);
+    expect(england(g).ruler).not.toBe(me.id);
+    expect(life.chair!.lately).toBe(s.day + RECALLED);
+    g.nation(n).ruler = me.id;
+    ticks(g, 2);
+    replaceGovernor(g, n, "term", -1);
+    expect(life.chair!.lately).toBe(s.day + LATELY);
+  });
+
+  test("the recall's odds come from its table, and never pass its ceiling", () => {
+    const g = world({ seed: 3 });
+    const s = g.s;
+    const nation = england(g);
+    const n = nation.id;
+    const ch = nation.chair!;
+    const by = s.power!.cabinets[n].attorney;
+    nation.favor = 0;
+    ch.grievances = 9;
+    ch.lost = 9;
+    const pet: RecallPetition = {
+      id: 1,
+      by,
+      since: s.day,
+      sails: s.day,
+      answer: s.day,
+      stage: "sent",
+      names: Array.from({ length: 20 }, (_, i) => 10_000 + i),
+      refused: [],
+      court: PETITION.maxCourt,
+      defence: 0,
+    };
+    expect(recallOdds(s, n, pet, by).total).toBe(RECALL.max);
+    // A fresh governor the crown trusts, and nobody's names: a long shot.
+    nation.favor = 70;
+    ch.grievances = 0;
+    ch.lost = 0;
+    expect(recallOdds(s, n, null, by).total).toBeLessThan(0.1);
+  });
+
+  test("an heir sits for their own portrait; an endowment is the line's", () => {
+    const g = world({ seed: 7 });
+    const s = g.s;
+    const life = lifeOf(g);
+    const me = meIn(g);
+    age(g, me, 40);
+    life.renown = 60;
+    life.purse = 1000;
+    expect(
+      g.lifeCommand("s1", { k: "chair", act: "great", key: "portrait" }),
+    ).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "chair", act: "great", key: "school" }),
+    ).toBeNull();
+    expect(greatHad(s, life, "portrait")).toBe(true);
+    // The heir (another character in the same life).
+    life.chair!.sitter = { portrait: me.id + 100_000 };
+    expect(greatHad(s, life, "portrait")).toBe(false);
+    expect(greatCheck(s, g.w, life, "portrait").ok).toBe(true);
+    expect(greatHad(s, life, "school")).toBe(true);
+    expect(greatCheck(s, g.w, life, "school").ok).toBe(false);
   });
 });

@@ -24,8 +24,10 @@ import {
   followCost,
   infirmity,
   LT,
+  NAME_WEIGHT,
   PETITION,
   recallOdds,
+  RENEW,
   renewOdds,
 } from "./ChairCore";
 import { registerFamily } from "./EventPacing";
@@ -185,7 +187,7 @@ const CHAIR_EVENTS: LifeEventDef[] = [
       const pet = chairOf(g.s, ctx.n)?.petition;
       const gov = govOf(g, ctx.n);
       if (!pet) return "The petition is no more.";
-      return `${nameOf(g, pet.by)} is getting up a petition to the crown for ${charName(gov)}'s recall, and asks for your name to it (${pet.names.length} so far). A councillor's name counts for ${Math.round(0.06 * 100)} in a hundred of its chance, a member's ${Math.round(0.03 * 100)}. If the governor hears of it, he won't forget.`;
+      return `${nameOf(g, pet.by)} is getting up a petition to the crown for ${charName(gov)}'s recall, and asks for your name to it (${pet.names.length} so far). A councillor's name counts for ${Math.round(NAME_WEIGHT.council * 100)} in a hundred of its chance, a member's ${Math.round(NAME_WEIGHT.house * 100)}. If the governor hears of it, he won't forget.`;
     },
     choices: [
       {
@@ -225,7 +227,7 @@ const CHAIR_EVENTS: LifeEventDef[] = [
       },
       {
         label: "Ask the crown for another term (2 coins)",
-        tip: "Letters: landed, +15 in a hundred to its chance; otherwise +5.",
+        tip: `Letters: landed, +${Math.round(RENEW.askPass * 100)} in a hundred to its chance; otherwise +${Math.round(RENEW.askFail * 100)}.`,
         check: { skill: "letters", dc: 8 },
         blocked: (g, life) =>
           life.purse < 2 ? "You have nothing for the postage" : null,
@@ -234,7 +236,10 @@ const CHAIR_EVENTS: LifeEventDef[] = [
           const ch = chairOf(g.s, ctx.n);
           if (!ch) return;
           g.nation(ctx.n);
-          ch.renewAsk = Math.max(ch.renewAsk ?? 0, pass ? 0.15 : 0.05);
+          ch.renewAsk = Math.max(
+            ch.renewAsk ?? 0,
+            pass ? RENEW.askPass : RENEW.askFail,
+          );
           journal(
             g,
             life,
@@ -256,7 +261,7 @@ const CHAIR_EVENTS: LifeEventDef[] = [
     body: (g, life, ctx) => {
       const a = chairOf(g.s, ctx.n)?.address;
       if (!a || a.stage !== "carried") return "The house's address is settled.";
-      return `The house has carried ${nameOf(g, a.by)}'s address against you, ${a.ayes} to ${a.noes}: ${[a.salary ? "your salary withheld" : "", a.supply ? `supply refused (the colony's revenue down ${Math.round(-ADDRESS.supply.tax * 100)} in a hundred, its militia unpaid, and London blaming you)` : ""].filter(Boolean).join(", and ")}, until ${formatDate(a.until)}. The crown has heard of it.`;
+      return `${a.session ? "In its session the house has carried an address against you" : `The house has carried ${nameOf(g, a.by)}'s address against you, ${a.ayes} to ${a.noes}`}: ${[a.salary ? "your salary withheld" : "", a.supply ? `supply refused (the colony's revenue down ${Math.round(-ADDRESS.supply.tax * 100)} in a hundred, its militia unpaid, and London blaming you)` : ""].filter(Boolean).join(", and ")}, until ${formatDate(a.until)}. The crown has heard of it.`;
     },
     choices: [
       {

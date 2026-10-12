@@ -4095,6 +4095,8 @@ export interface Address {
   votes?: Record<number, number>;
   /** How the governor answered a carried address. */
   answer?: "yield" | "dissolve" | "hold";
+  /** Carried by the house's yearly session (CHAMBER), not a division on the speaker's motion. */
+  session?: boolean;
 }
 
 /** A colony's governorship: the commission, its lieutenant, and what's moving against him. */
@@ -4144,6 +4146,8 @@ export interface LifeChair {
   outside?: number;
   /** Marks of greatness, by key: the day each was had. */
   great?: Record<string, number>;
+  /** A portrait's sitter (a character id): an heir sits for their own. */
+  sitter?: Record<string, number>;
   /** Governor here lately: until this day the crown looks elsewhere for the chair. */
   lately?: number;
   /** The lieutenancy declined: not offered again until this day. */

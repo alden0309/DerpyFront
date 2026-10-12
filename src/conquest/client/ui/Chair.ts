@@ -43,7 +43,7 @@ import {
   whereabouts,
   wouldSign,
 } from "../../engine/ChairCore";
-import { GREAT, greatCheck, greatStands } from "../../engine/Grandeur";
+import { GREAT, greatCheck, greatHad } from "../../engine/Grandeur";
 import { isPlayed, lifeIsNative } from "../../engine/LifeQueries";
 import { chanceWords } from "../../engine/Odds";
 import { charName } from "../../engine/Queries";
@@ -66,6 +66,11 @@ const hundred = (v: number) =>
 const fmtHundred = (v: number) => `${hundred(v)} in 100`;
 const pct = (p: number) => `${Math.round(p * 100)}%`;
 const shortName = (name: string) => name.replace(/^the /, "");
+/** The governor's pronouns (a player who governs may be a woman). */
+const pro = (c: Character | undefined) =>
+  c?.female
+    ? { he: "she", He: "She", his: "her", His: "Her", him: "her" }
+    : { he: "he", He: "He", his: "his", His: "His", him: "him" };
 
 /** An odds chip for a skill check on a button: "62%". */
 function oddsChip(p: number): TemplateResult {
@@ -143,17 +148,19 @@ export function chairSection(ui: GameUi): TemplateResult | typeof nothing {
   const renew = renewOdds(s, n);
   const lt = lieutenantOf(s, n);
   const ill = infirmity(s, ui.w, gov, ch);
+  const p = pro(gov);
   return section(
     html`The governor's chair`,
     html`<div class="cq-chair-gov">
         <p>
-          ${charLink(ui, gov)}, ${healthWords(s, ui.w, gov, ch)}. His
+          ${charLink(ui, gov)}, ${healthWords(s, ui.w, gov, ch)}. ${p.His}
           ${term("commission")} runs to
           <b>${formatDate(ch.ends)}</b>${ch.terms > 1
-            ? html` (his ${ch.terms === 2 ? "second" : `${ch.terms}th`} term)`
+            ? html` (${p.his} ${ch.terms === 2 ? "second" : `${ch.terms}th`}
+              term)`
             : nothing};
           then the crown renews it
-          ${chanceTip("Would the crown renew his commission?", renew)}, as
+          ${chanceTip(`Would the crown renew ${p.his} commission?`, renew)}, as
           things stand, or names another.
         </p>
         <p>
@@ -162,18 +169,18 @@ export function chairSection(ui: GameUi): TemplateResult | typeof nothing {
             ? html`${charLink(ui, s.chars[lt])}${lt === me.id
                 ? " (you)"
                 : ""}${actingNow(s, n)
-                ? html` <span class="cq-chip gold">acting for him</span>`
+                ? html` <span class="cq-chip gold">acting for ${p.him}</span>`
                 : nothing}`
             : html`<span class="cq-muted"
                 >none.
                 ${ill
-                  ? `He is ${ill}: the crown will name one (a case of ${LT.bar} is offered it first).`
+                  ? `${p.He} is ${ill}: the crown will name one (a case of ${LT.bar} is offered it first).`
                   : "Named when the governor grows old or ill."}</span
               >`}
         </p>
         ${ch.lost
           ? html`<p class="small bad">
-              Towns lost while he governed: ${ch.lost}.
+              Towns lost while ${p.he} governed: ${ch.lost}.
             </p>`
           : nothing}
       </div>
@@ -190,7 +197,7 @@ function petitionBlock(ui: GameUi, gov: Character): TemplateResult {
   const ch = chairOf(s, n)!;
   const pet = ch.petition;
   const head = html`<p class="cq-h4">
-    ${term("petition", "A petition for his recall")}
+    ${term("petition", `A petition for ${pro(gov).his} recall`)}
   </p>`;
   if (pet && pet.by !== me.id) {
     const by = s.chars[pet.by];
@@ -205,7 +212,7 @@ function petitionBlock(ui: GameUi, gov: Character): TemplateResult {
           ? `sailing on ${formatDate(pet.sails)}`
           : "at sea"};
         the crown's answer about ${formatDate(pet.answer)}. As it stands it
-        would land ${chanceTip("Would the crown recall him?", o)}.
+        would land ${chanceTip(`Would the crown recall ${pro(gov).him}?`, o)}.
       </p>`;
   }
   if (pet) return html`${head}${myPetitionPanel(ui, gov, pet)}`;
@@ -274,7 +281,8 @@ function oddsBlock(
           >${chanceWords(1 - p)}</span
         >
         <span class="cq-odds-what"
-          >Thrown out: he's your enemy, and may put you off his council
+          >Thrown out: ${pro(gov).he}'s your enemy, and may put you off
+          ${pro(gov).his} council
           <span class="cq-odds-bar"
             ><span style="width:${Math.round((1 - p) * 100)}%"></span></span
         ></span>
@@ -384,8 +392,9 @@ function addressBlock(
   const head = html`<p class="cq-h4">
     ${term("address", "The house's address")}
   </p>`;
+  const p = pro(gov);
   const asks = (salary: boolean, supply: boolean) =>
-    [salary ? "his salary withheld" : "", supply ? "supply refused" : ""]
+    [salary ? `${p.his} salary withheld` : "", supply ? "supply refused" : ""]
       .filter(Boolean)
       .join(" and ");
   if (a && a.stage === "moved")
@@ -400,8 +409,11 @@ function addressBlock(
     return html`${head}
       <p class="small">
         <span class="cq-chip bad">${asks(force.salary, force.supply)}</span>
-        The house carried ${charLink(ui, s.chars[force.by], false)}'s address,
-        ${force.ayes} to ${force.noes}; it stands until
+        ${force.session
+          ? "The house carried it in its session"
+          : html`The house carried ${charLink(ui, s.chars[force.by], false)}'s
+            address, ${force.ayes} to ${force.noes}`};
+        it stands until
         ${formatDate(force.until)}${force.answer === "hold"
           ? `: ${gov.first} holds out`
           : ""}.
@@ -411,7 +423,7 @@ function addressBlock(
       ? html`${head}
           <p class="cq-muted small">
             The speaker moves an address against the governor from the chair:
-            his salary withheld, supply refused, or both.
+            ${p.his} salary withheld, supply refused, or both.
           </p>`
       : nothing;
   const check = addressCheck(s, life, draft.salary, draft.supply);
@@ -429,7 +441,7 @@ function addressBlock(
     <p class="small">
       From the chair you can move the house's address against ${gov.first}.
       Carried, it stands a year, and the crown hears of it (a grievance against
-      him, weighed at his term's end and on any petition).
+      ${p.him}, weighed at ${p.his} term's end and on any petition).
     </p>
     <div class="cq-seg" role="group" aria-label="What the address asks">
       <button
@@ -439,7 +451,7 @@ function addressBlock(
           ui.redraw();
         }}
       >
-        Withhold his salary<span>he goes unpaid</span>
+        Withhold ${p.his} salary<span>${p.he} goes unpaid</span>
       </button>
       <button
         aria-pressed=${draft.supply}
@@ -450,7 +462,7 @@ function addressBlock(
       >
         Refuse supply<span
           >revenue ${hundred(ADDRESS.supply.tax)} in 100, the militia unpaid,
-          London blames him</span
+          London blames ${p.him}</span
         >
       </button>
     </div>
@@ -459,9 +471,14 @@ function addressBlock(
       ${num(
         `${div.ayes} to ${div.noes}`,
         () =>
-          breakdownTip("What the house holds against him", grief, undefined, [
-            "Country members lean for it, court members against; refusing supply hurts the colony too, and loses a few.",
-          ]),
+          breakdownTip(
+            `What the house holds against ${p.him}`,
+            grief,
+            undefined,
+            [
+              "Country members lean for it, court members against; refusing supply hurts the colony too, and loses a few.",
+            ],
+          ),
         `cq-opinion ${div.ayes > div.noes ? "good" : "bad"}`,
       )}${div.abstain ? ` (${div.abstain} to decide for themselves)` : ""}.
       Carried, ${gov.first} would give way ${chanceWords(odds.yield)}, dissolve
@@ -660,9 +677,7 @@ export function greatSection(ui: GameUi): TemplateResult | typeof nothing {
             <ul class="cq-chair-great">
               ${GREAT.filter((d) => d.kind === kind).map((d) => {
                 const check = greatCheck(s, ui.w, life, d.key);
-                const has =
-                  greatStands(s, life, d.key) ||
-                  (d.kind !== "house" && got[d.key] !== undefined);
+                const has = greatHad(s, life, d.key);
                 const cost = d.cost(s, life);
                 return html`<li class=${has ? "has" : ""}>
                   <div>

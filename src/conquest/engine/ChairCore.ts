@@ -55,6 +55,31 @@ import { worldRng } from "./WorldRng";
 /** A royal governor's commission: three to eight years, then another term (two to four) or a successor. */
 export const TERM = { min: 3, max: 8, againMin: 2, againMax: 4 };
 
+/** The crown's mind at a commission's end (renewOdds reads every figure here). */
+export const RENEW = {
+  /** Most governors serve one term. */
+  base: 0.3,
+  /** The crown's trust in the colony: favour 55 counts for nothing. */
+  trustMid: 55,
+  trustPer: 1 / 150,
+  trustMax: 0.25,
+  grievance: -0.12,
+  grievanceMax: -0.36,
+  lost: -0.08,
+  lostMax: -0.24,
+  /** Each term served already, beyond the first. */
+  term: -0.12,
+  /** Grown old in the post. */
+  oldAge: 65,
+  old: -0.15,
+  honour: 0.05,
+  /** A governor's own letters asking for another term: landed, or not. */
+  askPass: 0.15,
+  askFail: 0.05,
+  min: 0.03,
+  max: 0.8,
+};
+
 /** The lieutenant governorship: named when the governor is this old (or ill). */
 export const LT = {
   /** The case it wants (the same case the crown weighs for the chair). */
@@ -98,6 +123,48 @@ export const PETITION = {
   answerFail: 0.08,
 };
 
+/**
+ * What moves the crown to recall a governor on a petition (recallOdds reads
+ * every figure here; the page and the guide show them). A recall was a long
+ * shot: a well-got-up petition against a governor who's done nothing much
+ * wrong lands about 1 in 3; against one who's lost a town or let the
+ * counties boil, better than even.
+ */
+export const RECALL = {
+  /** The crown is slow to recall a governor. */
+  base: -0.15,
+  /** The crown's trust in him: favour 50 counts for nothing; each point below adds. */
+  trustMid: 50,
+  trustPer: 1 / 120,
+  trustMax: 0.3,
+  /** Unrest above this, a point at a time, up to a fifth. */
+  unrestFrom: 15,
+  unrestMax: 0.2,
+  /** Each town lost while he governed, and each grievance the crown has heard. */
+  lost: 0.1,
+  lostMax: 0.3,
+  grievance: 0.12,
+  grievanceMax: 0.36,
+  disgrace: 0.08,
+  disgraceMax: 0.16,
+  /** The petitioner's own favour at home (a player's), or friends at home (the computer's). */
+  favorPer: 1 / 800,
+  favorMax: 0.12,
+  npcMax: 0.1,
+  /** Each name: a councillor's, a member's; each friend at court who'll speak for it. */
+  council: 0.05,
+  councilMax: 0.15,
+  house: 0.02,
+  houseMax: 0.1,
+  court: 0.04,
+  /** His own friends at court (a step of honour each); a man lately sent out; a term ending anyway. */
+  honour: -0.06,
+  fresh: -0.08,
+  ending: -0.05,
+  /** Never likelier than this, nor less likely than 3 in 100. */
+  max: 0.75,
+};
+
 /** The house's address against the governor. */
 export const ADDRESS = {
   /** Days the house debates before it divides; days it stands once carried. */
@@ -111,8 +178,9 @@ export const ADDRESS = {
   yielded: { favor: -3 },
 };
 
-/** A governor here lately is passed over for the chair this long. */
+/** A governor here lately is passed over for the chair this long; one the crown recalled, longer. */
 export const LATELY = 5 * DAYS_PER_YEAR;
+export const RECALLED = 10 * DAYS_PER_YEAR;
 
 /** Living outside your colony: its seats lapse after this many days. */
 export const LAPSE_DAYS = 90;
@@ -207,29 +275,32 @@ export function renewOdds(s: GameState, n: number): Breakdown {
   const gov = s.chars[nation?.ruler ?? -1];
   const e = new Explain();
   if (!ch || !gov) return e.done(3, 0, 0);
-  e.add("Most governors serve one term", 0.3, true);
+  const R = RENEW;
+  e.add("Most governors serve one term", R.base, true);
   e.add(
     `The crown's trust in the colony (favour ${Math.round(nation.favor)})`,
-    pct(clamp((nation.favor - 55) / 150, -0.25, 0.25)),
+    pct(
+      clamp((nation.favor - R.trustMid) * R.trustPer, -R.trustMax, R.trustMax),
+    ),
   );
   if (ch.grievances)
     e.add(
       `Grievances heard against him (${ch.grievances})`,
-      -Math.min(0.36, ch.grievances * 0.12),
+      pct(Math.max(R.grievanceMax, ch.grievances * R.grievance)),
     );
   if (ch.lost)
     e.add(
       `Towns lost while he governed (${ch.lost})`,
-      -Math.min(0.24, ch.lost * 0.08),
+      pct(Math.max(R.lostMax, ch.lost * R.lost)),
     );
   if (ch.terms > 1)
-    e.add(`Terms served already (${ch.terms})`, -0.12 * (ch.terms - 1));
-  if (ageOf(s, gov) >= 65)
-    e.add(`Grown old in the post (${ageOf(s, gov)})`, -0.15);
+    e.add(`Terms served already (${ch.terms})`, pct(R.term * (ch.terms - 1)));
+  if (ageOf(s, gov) >= R.oldAge)
+    e.add(`Grown old in the post (${ageOf(s, gov)})`, R.old);
   if (nation.title > 0)
-    e.add(`Honoured by the crown (${TITLE_NAMES[nation.title]})`, 0.05);
+    e.add(`Honoured by the crown (${TITLE_NAMES[nation.title]})`, R.honour);
   if (ch.renewAsk) e.add("His letters asking for another term", ch.renewAsk);
-  return e.done(3, 0.03, 0.8);
+  return e.done(3, R.min, R.max);
 }
 
 // ---------------------------------------------------------------- the governor's health
@@ -366,14 +437,14 @@ function petitionerWeight(s: GameState, by: number): [string, number] | null {
     if (life.favor <= 0) return null;
     return [
       `Your favour at home (${Math.round(life.favor)})`,
-      pct(Math.min(0.25, life.favor / 400)),
+      pct(Math.min(RECALL.favorMax, life.favor * RECALL.favorPer)),
     ];
   }
   const c = s.chars[by];
   if (!c) return null;
   return [
     `${c.first} ${c.family}'s friends at home`,
-    pct(Math.min(0.15, (stat(s, c, "dip") + stat(s, c, "ste")) / 120)),
+    pct(Math.min(RECALL.npcMax, (stat(s, c, "dip") + stat(s, c, "ste")) / 150)),
   ];
 }
 
@@ -394,31 +465,38 @@ export function recallOdds(
   const gov = s.chars[nation?.ruler ?? -1];
   const e = new Explain();
   if (!ch || !gov) return e.done(3, 0, 0);
-  e.add("The crown is slow to recall a governor", -0.1, true);
+  const R = RECALL;
+  e.add("The crown is slow to recall a governor", R.base, true);
   e.add(
     `The crown's trust in ${gov.first} (favour ${Math.round(nation.favor)})`,
-    pct(clamp((50 - nation.favor) / 120, -0.3, 0.3)),
+    pct(
+      clamp((R.trustMid - nation.favor) * R.trustPer, -R.trustMax, R.trustMax),
+    ),
   );
   const u = avgUnrest(s, n);
-  if (u > 15)
+  if (u > R.unrestFrom)
     e.add(
       `Unrest in the colony (${Math.round(u)})`,
-      pct(Math.min(0.2, (u - 15) / 100)),
+      pct(Math.min(R.unrestMax, (u - R.unrestFrom) / 100)),
     );
   if (ch.lost)
     e.add(
       `Towns lost while he governed (${ch.lost})`,
-      Math.min(0.3, ch.lost * 0.1),
+      pct(Math.min(R.lostMax, ch.lost * R.lost)),
     );
   if (ch.grievances)
     e.add(
       `Grievances the crown has heard (${ch.grievances})`,
-      Math.min(0.36, ch.grievances * 0.12),
+      pct(Math.min(R.grievanceMax, ch.grievances * R.grievance)),
     );
   const disgrace = nation.mods.filter(
     (m) => DISGRACE.has(m.key) && m.until > s.day,
   ).length;
-  if (disgrace) e.add("In disgrace at court", Math.min(0.16, disgrace * 0.08));
+  if (disgrace)
+    e.add(
+      "In disgrace at court",
+      pct(Math.min(R.disgraceMax, disgrace * R.disgrace)),
+    );
   const w = petitionerWeight(s, by);
   if (w) e.add(w[0], w[1]);
   if (pet) {
@@ -427,17 +505,17 @@ export function recallOdds(
     if (council)
       e.add(
         `Councillors' names on it (${council})`,
-        Math.min(0.2, council * 0.06),
+        pct(Math.min(R.councilMax, council * R.council)),
       );
     if (house)
       e.add(
         `Members' names on it (${house})`,
-        pct(Math.min(0.15, house * 0.03)),
+        pct(Math.min(R.houseMax, house * R.house)),
       );
     if (pet.court)
       e.add(
         `Friends at court who'll speak for it (${pet.court})`,
-        Math.min(0.15, pet.court * 0.05),
+        pct(pet.court * R.court),
       );
     if (pet.defence)
       e.add(`${gov.first}'s own letters against it`, -pet.defence);
@@ -445,16 +523,20 @@ export function recallOdds(
   if (nation.title > 0)
     e.add(
       `His friends at court (a ${TITLE_NAMES[nation.title].toLowerCase()})`,
-      pct(-0.06 * nation.title),
+      pct(R.honour * nation.title),
     );
-  if (s.day - ch.since < 2 * DAYS_PER_YEAR) e.add("Lately sent out", -0.08);
+  if (s.day - ch.since < 2 * DAYS_PER_YEAR) e.add("Lately sent out", R.fresh);
   if (ch.ends - s.day < DAYS_PER_YEAR)
-    e.add("His term ends soon: the crown would rather wait", -0.05);
-  return e.done(3, 0.03, 0.85);
+    e.add("His term ends soon: the crown would rather wait", R.ending);
+  return e.done(3, 0.03, R.max);
 }
 
 /** What each name, and each friend at court, would add (for the page). */
-export const NAME_WEIGHT = { council: 0.06, house: 0.03, court: 0.05 };
+export const NAME_WEIGHT = {
+  council: RECALL.council,
+  house: RECALL.house,
+  court: RECALL.court,
+};
 
 /** Can you get up a petition for the governor's recall. */
 export function petitionCheck(s: GameState, life: Life): Check {

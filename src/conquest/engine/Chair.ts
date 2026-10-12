@@ -44,6 +44,7 @@ import {
   PETITION,
   petitionCheck,
   petitionPool,
+  RECALLED,
   recallOdds,
   renewOdds,
   skillOdds,
@@ -332,7 +333,8 @@ export function replaceGovernor(
   try {
     if (oldLife) {
       const lc = lifeChair(g, oldLife);
-      lc.lately = s.day + LATELY;
+      // A recalled governor waits longer before the crown looks at him again.
+      lc.lately = s.day + (why === "recall" ? RECALLED : LATELY);
       journal(
         g,
         oldLife,
@@ -1098,7 +1100,9 @@ function npcPetitions(g: ConquestGame, n: number): void {
     ...(s.polities[n]?.assembly ?? []),
   ];
   let best = -1;
-  let bestP = 0.18;
+  // A tenth before any names: with the council's and the house's names
+  // gathered as it goes, a third or more by the time it sails.
+  let bestP = 0.1;
   for (const c of [...new Set(pool)].sort((a, b) => a - b)) {
     const x = s.chars[c];
     if (!x?.alive || x.abroad || isPlayed(s, c) || c === nation.ruler) continue;
@@ -1280,6 +1284,19 @@ function divideAddress(g: ConquestGame, n: number): void {
       );
     return;
   }
+  carryAddress(g, n, a);
+}
+
+/** An address carried (by a division, or by the house's session): it stands a year, and the governor answers. */
+function carryAddress(g: ConquestGame, n: number, a: Address): void {
+  const s = g.s;
+  const nation = g.nation(n);
+  const ch = nation.chair!;
+  const byLife = a.session ? undefined : lifeOfChar(s, a.by);
+  const gov = s.chars[nation.ruler];
+  const govLife = gov ? lifeOfChar(s, gov.id) : undefined;
+  ch.address = a;
+  if (a.session) ch.lastAddress = s.day; // the year's address
   a.stage = "carried";
   a.until = s.day + ADDRESS.lasts;
   if (a.salary) {
@@ -1306,17 +1323,19 @@ function divideAddress(g: ConquestGame, n: number): void {
     journal(
       g,
       byLife,
-      `The house carries your address against ${charName(gov)}, ${d.ayes} to ${d.noes}: ${asksWords(a.salary, a.supply)}, and the crown hears of it.`,
+      `The house carries your address against ${charName(gov)}, ${a.ayes} to ${a.noes}: ${asksWords(a.salary, a.supply)}, and the crown hears of it.`,
       "good",
     );
   }
-  rumour(
-    g,
-    nation.capital,
-    `The house has carried an address against the governor: ${asksWords(a.salary, a.supply)}.`,
-    a.by,
-    "bad",
-  );
+  // (The session tells the house and the town its own way.)
+  if (!a.session)
+    rumour(
+      g,
+      nation.capital,
+      `The house has carried an address against the governor: ${asksWords(a.salary, a.supply)}.`,
+      a.by,
+      "bad",
+    );
   if (govLife) {
     raiseEvent(g, govLife, "chair-address", { n, c: a.by });
     return;
@@ -1430,6 +1449,97 @@ function endAddress(
     powerChanged(g, `c${n}`);
   }
   nation.mods = nation.mods.filter((m) => m.key !== "supply-refused");
+}
+
+/**
+ * CHAMBER (r16)'s yearly session carried one of the house's levers against
+ * the governor (its `hooks.houseLever`): supply refused or his salary
+ * withheld stands as the house's address does, a year, and the governor
+ * answers it (a player in a scene, the computer by the odds); an address of
+ * grievances is a grievance the crown hears. Returns false where there's no
+ * crown commission to carry it (the session then does what the house
+ * always could).
+ */
+export function houseLever(
+  g: ConquestGame,
+  n: number,
+  lever: "supply" | "salary" | "address",
+  by: number[],
+): boolean {
+  const s = g.s;
+  const nation = s.nations[n];
+  const ch = chairOf(s, n);
+  if (!ch || !nation) return false;
+  const gov = s.chars[nation.ruler];
+  const govLife = gov ? lifeOfChar(s, gov.id) : undefined;
+  g.nation(n);
+  if (lever === "address") {
+    ch.grievances++;
+    if (govLife)
+      journal(
+        g,
+        govLife,
+        "The house's address of grievances goes to London with the next ship: the crown will hear of it when it weighs your commission.",
+        "bad",
+      );
+    return true;
+  }
+  const salary = lever === "salary";
+  const supply = lever === "supply";
+  const cur = ch.address;
+  if (cur && cur.stage === "carried" && cur.until > s.day) {
+    // One stands already: the session adds its lever to it.
+    if ((salary && cur.salary) || (supply && cur.supply)) return true;
+    if (salary) {
+      cur.salary = true;
+      const cab = power(g).cabinets[n];
+      if (cab) {
+        cab.unpaid = cur.until;
+        powerChanged(g, `c${n}`);
+      }
+    }
+    if (supply) {
+      cur.supply = true;
+      natMod(
+        g,
+        n,
+        "supply-refused",
+        "Supply refused by the house",
+        cur.until - s.day,
+        {
+          ...ADDRESS.supply,
+        },
+      );
+    }
+    if (govLife)
+      journal(
+        g,
+        govLife,
+        `The house's session adds ${asksWords(salary, supply)} to its address against you, until ${formatDate(cur.until)}.`,
+        "bad",
+      );
+    return true;
+  }
+  const speaker = s.power?.cabinets[n]?.speaker ?? -1;
+  const mover =
+    by.find((c) => s.chars[c]?.alive) ??
+    (s.chars[speaker]?.alive
+      ? speaker
+      : (s.polities[n]?.assembly.find((c) => s.chars[c]?.alive) ?? -1));
+  carryAddress(g, n, {
+    id: g.nextId(),
+    by: mover,
+    day: s.day,
+    salary,
+    supply,
+    divide: s.day,
+    until: 0,
+    stage: "carried",
+    ayes: 0,
+    noes: 0,
+    session: true,
+  });
+  return true;
 }
 
 /** The house the computer plays moves an address of its own against a governor it can't bear. */
@@ -1828,4 +1938,9 @@ hooks.lifeMonthly.push(chairLifeMonthly);
 hooks.lifeDaily.push(chairLifeDaily);
 hooks.budget.push(chairBudget);
 hooks.capitalMoved.push(capitalMoved);
+// CHAMBER (r16)'s session hands the house's levers to us (its hook arrives
+// with the merge; until then there's nothing to register with).
+(hooks as unknown as { houseLever?: (typeof houseLever)[] }).houseLever?.push(
+  houseLever,
+);
 hooks.created.push(fillCabinets);

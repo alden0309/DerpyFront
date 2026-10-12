@@ -12,8 +12,10 @@ import {
   LAPSE_DAYS,
   LATELY,
   LT,
-  NAME_WEIGHT,
   PETITION,
+  RECALL,
+  RECALLED,
+  RENEW,
   TERM,
 } from "../../engine/ChairCore";
 import {
@@ -28,6 +30,8 @@ import type { CouncilSeat } from "../../engine/Types";
 import type { Chapter } from "./Chapters";
 
 const hundred = (v: number) => `${Math.round(v * 100)}`;
+const signed = (v: number) =>
+  `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.round(Math.abs(v) * 100)}`;
 
 /** The presents each council seat expects, from the table the engine charges. */
 function presentsTable(): string {
@@ -43,6 +47,29 @@ function presentsTable(): string {
   return `| The seat | Presents to the governor's friends |
 |---|---|
 ${(Object.keys(names) as CouncilSeat[]).map((k) => `| ${names[k]} | ${SEAT_PRESENTS[k]} coins |`).join("\n")}`;
+}
+
+/** What moves the crown to recall a governor, from the table recallOdds reads. */
+function recallTable(): string {
+  const R = RECALL;
+  return `| What | In 100 |
+|---|---|
+| The crown is slow to recall a governor | ${signed(R.base)} |
+| The crown's trust in him (the colony's favour): 50 counts for nothing, each point below adds and each above takes off | up to ${signed(R.trustMax)} either way |
+| Unrest in the colony above ${R.unrestFrom}, a point at a time | up to ${signed(R.unrestMax)} |
+| Each town lost while he governed | ${signed(R.lost)} (up to ${signed(R.lostMax)}) |
+| Each grievance the crown has heard (an address carried, a petition near-run) | ${signed(R.grievance)} (up to ${signed(R.grievanceMax)}) |
+| In disgrace at court | ${signed(R.disgrace)} each (up to ${signed(R.disgraceMax)}) |
+| Your own favour at home | a point in ${Math.round(1 / R.favorPer / 100)} (up to ${signed(R.favorMax)}) |
+| Each councillor's name on it | ${signed(R.council)} (up to ${signed(R.councilMax)}) |
+| Each member's name on it | ${signed(R.house)} (up to ${signed(R.houseMax)}) |
+| Each friend at court who'll speak for it | ${signed(R.court)} (up to ${PETITION.maxCourt}) |
+| His own friends at court (each step of his honours) | ${signed(R.honour)} |
+| He was sent out less than two years ago | ${signed(R.fresh)} |
+| His term ends within the year (the crown would rather wait) | ${signed(R.ending)} |
+| His own letters against it (if he answers it) | ${signed(-PETITION.answerPass)} if they land, ${signed(-PETITION.answerFail)} if not |
+
+Never more than ${hundred(R.max)} in 100, nor less than 3.`;
 }
 
 /** Marks of greatness, from Grandeur's own table. */
@@ -75,8 +102,8 @@ export const CHAIR_CHAPTER: Chapter = {
 
 ## The crown's commission
 A royal governor holds the crown's **commission** for **${TERM.min} to ${TERM.max} years**. When it runs out, the crown either renews it for **${TERM.againMin} to ${TERM.againMax} years** more or names another man, who comes out from home (or is one of the council, or you).
-- **The odds of renewal** start at about 3 in 10 (most governors served one term) and move with the crown's trust in the colony (its favour), the grievances it has heard against him (an address carried, a petition near-run: each ${hundred(0.12)} in 100 against), towns lost while he governed (${hundred(0.08)} each), terms already served, his age (over 65), honours, and his own letters asking for another term.
-- **Society › Standing** shows his commission's end and the odds; if you govern, **Society › Office** shows yours. Three months before it runs out you're asked whether to **ask the crown for another term** (Letters: landed, +15 in 100; otherwise +5).
+- **The odds of renewal** start at ${hundred(RENEW.base)} in 100 (most governors served one term) and move with the crown's trust in the colony (its favour: ${RENEW.trustMid} counts for nothing; up to ${hundred(RENEW.trustMax)} either way), the grievances it has heard against him (an address carried, a petition near-run: each ${signed(RENEW.grievance)}), towns lost while he governed (${signed(RENEW.lost)} each), each term served already (${signed(RENEW.term)}), his age (over ${RENEW.oldAge}: ${signed(RENEW.old)}), honours (${signed(RENEW.honour)}), and his own letters asking for another term. Never more than ${hundred(RENEW.max)} in 100.
+- **Society › Standing** shows his commission's end and the odds; if you govern, **Society › Office** shows yours. Three months before it runs out you're asked whether to **ask the crown for another term** (Letters: landed, ${signed(RENEW.askPass)} in 100; otherwise ${signed(RENEW.askFail)}).
 - A governor whose term is done sails for home; if it's you, you stay in the colony, a private gentleman with a governor's name. The crown looks elsewhere for the chair for **${Math.round(LATELY / 365)} years** after.
 
 ## The lieutenant governor
@@ -88,10 +115,13 @@ When the governor grows **old (${LT.age}) or ill** (gouty, sickly, never well si
 ## A petition for the governor's recall
 Anyone of standing can get up a petition to the crown for his recall: a councillor, a member of the house, or a name the crown knows (renown ${PETITION.renown}), ${PETITION.age} or older, living in the colony; not in his first year, and not within ${Math.round(PETITION.rest / 365)} years of a petition of yours the crown threw out.
 - **It costs** an agent's fee in London (**${PETITION.fee}**) and his retainer (**${PETITION.retainer} a month**) while it runs. It gathers names for **${Math.round(PETITION.gather / 30)} months**, sails, and the crown's answer comes about **${Math.round(PETITION.voyage / 30)} months** later.
-- **The odds are shown before you begin**, and as it goes. What makes them: the crown is slow to recall a governor (−10 in 100); the crown's trust in him (favour 50 counts for nothing, each point below adds and above takes off); unrest in the colony; towns lost while he governed (${hundred(0.1)} each); grievances the crown has heard (${hundred(0.12)} each); disgrace at court; your own favour at home; the names on it (a councillor's **${hundred(NAME_WEIGHT.council)}**, a member's **${hundred(NAME_WEIGHT.house)}**); friends at court who'll speak for it (**${hundred(NAME_WEIGHT.court)}** each, up to ${PETITION.maxCourt}); his friends at court (his honours); a man lately sent out; a term about to end anyway; and his own letters against it.
+- **The odds are shown before you begin**, and as it goes. A recall is a long shot: a well-got-up petition against a governor who has done nothing much wrong lands about 1 in 3; against one who has lost a town or let the counties boil, better than even. What makes them:
+
+${recallTable()}
 - **As it goes:** **ask the council and the house for names** (Persuasion, every three weeks: two names if it goes well, one if not, and then word reaches him); **write to friends at court** (Letters, ${PETITION.postage} coins postage, every six weeks); or **let it drop**.
 - **If it's granted** the governor is recalled and the chair falls empty (the lieutenant governor succeeds, or the crown chooses): renown +8, favour +5.
 - **If it's thrown out** he is your enemy for ten years, he may put you off his council, and your favour at home falls 6. A near thing (2 in 5 or better) still leaves the crown a grievance against him.
+- **A governor the crown recalls** is passed over for the chair for **${Math.round(RECALLED / 365)} years** (one whose term ran out, ${Math.round(LATELY / 365)}).
 - **Against a player who governs** it's a contest: they're told at once, see the odds, and can answer it with letters of their own (Letters: ${hundred(PETITION.answerPass)} off its chance if they land, ${hundred(PETITION.answerFail)} if not), or offer to make peace (you decide whether to drop it). Other players at the table are asked for their names, and answer for themselves.
 - **The computer's rivals** get up petitions too, where it would stand a chance: an ambitious councillor, or one who can't bear the governor.
 
