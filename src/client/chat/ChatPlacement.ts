@@ -12,7 +12,7 @@
 // (private windows, blocked site data), so every read and write is guarded
 // and the chat simply falls back to its corner.
 
-export const CHAT_PLACEMENT_KEY = "derpy.chatPlacement";
+export const CHAT_PLACEMENT_KEY = "derpyChatPlacement";
 
 /** The closest the chat comes to a screen edge, in CSS pixels. */
 export const CHAT_EDGE_MARGIN = 8;

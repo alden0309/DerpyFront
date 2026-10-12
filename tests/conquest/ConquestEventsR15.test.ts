@@ -834,11 +834,15 @@ describe("two friends in company, through the rooms server", () => {
     A.purse = 600;
     B.purse = 1;
     const w = watch(game);
+    // Every character Alden plays (his answers may end a life and pass it
+    // to an heir, or leave him watching, when his c is -1).
+    const aldens = new Set<number>([A.c]);
     for (let month = 0; month < 36 && !B.watching && B.c >= 0; month++) {
       for (let d = 0; d < 30; d++) {
         A.health = B.health = 90;
         game.tick();
         w.step();
+        if (A.c >= 0) aldens.add(A.c);
         A.purse = Math.max(A.purse, 600);
         B.purse = Math.min(B.purse, 3);
       }
@@ -852,8 +856,8 @@ describe("two friends in company, through the rooms server", () => {
     const toB = w.fired.filter((f) => f.seat === fg.you);
     expect(toB.length).toBeGreaterThan(5);
     for (const f of toB) {
-      expect(f.c, f.key).not.toBe(A.c);
-      expect(f.ctx.c, f.key).not.toBe(A.c);
+      expect(aldens.has(f.c), f.key).toBe(false);
+      expect(aldens.has(f.ctx.c), f.key).toBe(false);
     }
     expect(
       toB.some((f) => f.key === "friend-loan" || f.key === "friend-debt"),
@@ -864,8 +868,8 @@ describe("two friends in company, through the rooms server", () => {
       const d = m.d as GameDelta;
       const mine = d.lives?.[fg.you] ?? d.lifePatch?.[fg.you];
       for (const ev of (mine as Life | undefined)?.events ?? []) {
-        expect(ev.c ?? -1).not.toBe(A.c);
-        expect(ev.ctx.c).not.toBe(A.c);
+        expect(aldens.has(ev.c ?? -1)).toBe(false);
+        expect(aldens.has(ev.ctx.c)).toBe(false);
       }
     }
   }, 300_000);
