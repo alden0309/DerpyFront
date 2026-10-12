@@ -7,6 +7,7 @@
 // assembly, the council and the governor's chair.
 
 import { BILL_KEYS, bringBill } from "./Assembly"; // POWER (r12)
+import { formatDate, pollDay } from "./Calendar"; // FIXES (r15)
 import { Explain } from "./Explain";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
@@ -682,6 +683,21 @@ export function ensureOffices(g: ConquestGame, p: number): LocalOffice[] {
   let list = soc.offices[p];
   // The land changed hands: the old offices lapse.
   if (list && list.length && list[0].nation !== owner) {
+    // FIXES (r15): a player who held one (or stood for one) is told.
+    for (const o of list) {
+      if (o.key === "founder" && o.nation === owner) continue;
+      const lost = [o.holder, ...o.candidates.map((x) => x.c)];
+      for (const c of lost) {
+        const l = lifeOfChar(s, c);
+        if (!l) continue;
+        journal(
+          g,
+          l,
+          `${g.map.provinces[p]?.name ?? "The county"} is in ${s.nations[owner]?.adjective ?? "other"} hands now: ${c === o.holder ? `your place as ${officeName(s, o)} has lapsed` : `the poll for ${officeName(s, o)} won't be held`}.`,
+          "bad",
+        );
+      }
+    }
     list = list.filter((o) => o.key === "founder" && o.nation === owner);
     soc.offices[p] = list;
     g.societyChanged(`o${p}`);
@@ -996,7 +1012,9 @@ export function standLocalCheck(
     .flat()
     .find((x) => x.candidates.some((y) => y.c === life.c));
   if (other) return no("You're standing for another office already.");
-  if (o.election - s.day < 7) return no("Too late: the poll is upon us.");
+  // FIXES (r15): the poll is counted on the 1st after it falls due.
+  if (pollDay(o.election) - s.day < 7)
+    return no("Too late: the poll is upon us.");
   return yes;
 }
 
@@ -1651,10 +1669,12 @@ export function standLocal(
   if (!check.ok) return check.why;
   o.candidates.push({ c: life.c, points: 0 });
   g.societyChanged(`o${o.prov}`);
+  // FIXES (r15): the day of the count, and "1 month" not "1 months".
+  const months = Math.max(1, Math.round((pollDay(o.election) - s.day) / 30));
   journal(
     g,
     life,
-    `You put your name up for ${officeTitle(s, g.w, o)}. The poll is in ${Math.max(1, Math.round((o.election - s.day) / 30))} months: canvass, treat the voters, print a broadside.`,
+    `You put your name up for ${officeTitle(s, g.w, o)}. The poll is on ${formatDate(pollDay(o.election))}, in ${months} month${months === 1 ? "" : "s"}: canvass, treat the voters, print a broadside.`,
   );
   return null;
 }

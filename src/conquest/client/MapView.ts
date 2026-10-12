@@ -1189,6 +1189,18 @@ export class MapView {
     this.clampView();
   }
 
+  /** FIXES (r15): move the camera by screen pixels (W A S D, the arrows). */
+  panBy(dx: number, dy: number): void {
+    this.view.tx += dx;
+    this.view.ty += dy;
+    this.clampView();
+  }
+
+  /** FIXES (r15): the map's size on screen, for the keys' pace. */
+  get screenSize(): { width: number; height: number } {
+    return { width: this.cssWidth, height: this.cssHeight };
+  }
+
   zoomBy(
     factor: number,
     cx = this.cssWidth / 2,
@@ -1491,6 +1503,49 @@ export class MapView {
     return pat;
   }
   private hatches = new Map<string, CanvasPattern | null>();
+
+  /**
+   * FIXES (r15): flecks of snow as a pattern, `dots` white specks scattered
+   * (always the same way) over a tile `period` screen pixels square, so a
+   * winter's country shows snow without bleaching the owner's colour.
+   */
+  private flecks(
+    c: CanvasRenderingContext2D,
+    v: View,
+    period: number,
+    dots: number,
+    alpha: number,
+  ): CanvasPattern | null {
+    const k = this.chartDpr();
+    const key = `flecks|${period}|${dots}|${alpha}|${k}`;
+    let pat = this.hatches.get(key);
+    if (pat === undefined) {
+      const tw = Math.max(4, Math.round(period * k));
+      const t = document.createElement("canvas");
+      t.width = tw;
+      t.height = tw;
+      const x = t.getContext("2d");
+      pat = null;
+      if (x) {
+        // A fixed scatter (golden-angle steps), the same on every screen.
+        for (let i = 0; i < dots; i++) {
+          const fx = (i * 0.618034 + 0.13) % 1;
+          const fy = (i * 0.381966 + 0.29 + (i % 3) * 0.21) % 1;
+          const r = (0.45 + ((i * 7) % 5) * 0.1) * k;
+          x.fillStyle = `rgba(255,255,255,${alpha})`;
+          x.beginPath();
+          x.arc(fx * tw, fy * tw, r, 0, Math.PI * 2);
+          x.fill();
+        }
+        pat = c.createPattern(t, "repeat");
+      }
+      this.hatches.set(key, pat);
+    }
+    pat?.setTransform(
+      new DOMMatrix().scaleSelf(1 / (v.scale * k), 1 / (v.scale * k)),
+    );
+    return pat;
+  }
 
   /** A repeating texture, made once per canvas. */
   private pattern(
@@ -1899,6 +1954,12 @@ export class MapView {
     month: number,
     knownLand: (p: number) => boolean,
   ): void {
+    // FIXES (r15): snow was a 42% (56% in the far north) white wash, which
+    // turned England's red pink every winter. Now a light wash and flecks.
+    const snow = new Path2D();
+    const deepSnow = new Path2D();
+    let snowy = 0;
+    let deep = 0;
     for (let p = 0; p < this.provPaths.length; p++) {
       if (!knownLand(p)) continue;
       const def = this.map.provinces[p];
@@ -1906,11 +1967,18 @@ export class MapView {
         c.fillStyle = color;
         c.fill(this.provPaths[p], "evenodd");
       };
-      if (isWinter(def.lat, month))
+      if (isWinter(def.lat, month)) {
         wash(
-          def.lat >= 50 ? "rgba(246,249,252,0.56)" : "rgba(246,249,252,0.42)",
+          def.lat >= 50 ? "rgba(246,249,252,0.12)" : "rgba(246,249,252,0.06)",
         );
-      else if (isMudSeason(def.lat, month)) wash("rgba(112,82,44,0.1)");
+        if (def.lat >= 50) {
+          deepSnow.addPath(this.provPaths[p]);
+          deep++;
+        } else {
+          snow.addPath(this.provPaths[p]);
+          snowy++;
+        }
+      } else if (isMudSeason(def.lat, month)) wash("rgba(112,82,44,0.1)");
       else if (month === 4 && def.lat > 30 && def.terrain !== "desert")
         wash("rgba(104,160,68,0.08)");
       else if (
@@ -1936,6 +2004,21 @@ export class MapView {
             (def.terrain === "marsh" || def.terrain === "jungle")))
       )
         wash("rgba(176,184,70,0.08)");
+    }
+    // FIXES (r15): the snow itself, as flecks over the owner's colour.
+    if (snowy) {
+      const f = this.flecks(c, v, 13, 5, 0.72);
+      if (f) {
+        c.fillStyle = f;
+        c.fill(snow, "evenodd");
+      }
+    }
+    if (deep) {
+      const f = this.flecks(c, v, 10, 6, 0.8);
+      if (f) {
+        c.fillStyle = f;
+        c.fill(deepSnow, "evenodd");
+      }
     }
     // Ice along the frozen shores, the lakes and the St. Lawrence.
     c.save();

@@ -2,7 +2,8 @@
 // the nations of the Americas), and any nation's page.
 
 import { html, nothing, TemplateResult } from "lit";
-import { dateOf, formatDate } from "../../engine/Calendar";
+import { dateOf, formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
+import { seatHolderId, seatsOf, seatTitle } from "../../engine/CouncilTitles"; // FIXES (r15)
 import { lifeTitle, meOf, opinionOf } from "../../engine/LifeQueries";
 import { activeMovements } from "../../engine/Movements";
 import {
@@ -11,9 +12,8 @@ import {
   provincesOf,
   strengthOf,
 } from "../../engine/Queries";
-import { END_YEAR, SEAT_NAMES } from "../../engine/Rules";
+import { END_YEAR } from "../../engine/Rules";
 import type { Character, Nation } from "../../engine/Types";
-import { SEATS } from "../../engine/Types";
 import { flagFor } from "../Flags";
 import { nationName, people } from "../Text";
 import { movementCard } from "./Affairs";
@@ -51,10 +51,12 @@ export function peopleTab(ui: GameUi): TemplateResult {
     .map(alive)
     .filter((c): c is Character => !!c);
   const familyIds = new Set(family.map((c) => c.id));
+  // FIXES (r15): family who are also friends (or rivals) are listed here
+  // too; a son befriended used to show only under Family, and seemed gone.
   const ties = Object.keys(life.ties)
     .map(Number)
     .map(alive)
-    .filter((c): c is Character => !!c && !familyIds.has(c.id));
+    .filter((c): c is Character => !!c);
   const tieIds = new Set(ties.map((c) => c.id));
   const patron = alive(life.patron);
   const met = life.met
@@ -292,9 +294,10 @@ export function nationPage(ui: GameUi, id: number): TemplateResult {
               : html`<span class="cq-muted">none</span>`}
           </dd>
           ${n.kind === "power" || native
-            ? SEATS.map((seat) => {
-                const c = s.chars[n.council[seat]];
-                return html`<dt>${SEAT_NAMES[seat]}</dt>
+            ? seatsOf(n).map((seat) => {
+                // FIXES (r15): every seat, by its title here.
+                const c = s.chars[seatHolderId(s, n.id, seat)];
+                return html`<dt>${seatTitle(s, n.id, seat)}</dt>
                   <dd>
                     ${c?.alive
                       ? charLink(ui, c)
@@ -313,7 +316,7 @@ export function nationPage(ui: GameUi, id: number): TemplateResult {
                   )
                 : html`<span class="cq-muted">no one sitting</span>`}.
               Next ${native ? "gathering" : "election"}
-              ${formatDate(pol.election)}.
+              ${formatDate(pollDay(pol.election))}.
             </p>`
           : nothing}`,
     )}

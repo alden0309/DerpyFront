@@ -3,7 +3,7 @@
 // and setting up a new nation's government with its flag.
 
 import { html, nothing, TemplateResult } from "lit";
-import { formatDate } from "../../engine/Calendar";
+import { formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
 import {
   constituteCheck,
   firstOfficers,
@@ -337,7 +337,7 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
       <b class="cq-office-name">${officeName(s, o)}</b>
       <span class="cq-muted small"
         >${HOW[def.how] ?? ""}${def.how === "elected"
-          ? `, every ${def.years} year${def.years > 1 ? "s" : ""}: next poll ${formatDate(o.election)}`
+          ? `, every ${def.years} year${def.years > 1 ? "s" : ""}: next poll ${formatDate(pollDay(o.election))}`
           : by
             ? html`: ${charLink(ui, by, false)}`
             : ""}</span

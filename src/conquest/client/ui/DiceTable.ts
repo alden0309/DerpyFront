@@ -43,6 +43,7 @@ import type {
   DiceBid,
   DiceSeat,
   DiceTable,
+  GameState,
   PlaceKind,
 } from "../../engine/Types";
 import { portrait } from "../Portrait";
@@ -50,6 +51,7 @@ import { sceneArt } from "../SceneArt";
 import { play, playDice } from "../Sound";
 import { num } from "../Tip";
 import { breakdownTip, type GameUi, token } from "./Context";
+import { storyLines, tableStory } from "./DiceLog"; // FIXES (r15)
 import { roleOf } from "./Here";
 import type { PlacePart } from "./Livelihood";
 import { curly, reasons } from "./Scene";
@@ -373,6 +375,46 @@ function viewAt(t: DiceTable, upTo: number): View {
   return v;
 }
 
+// ---------------------------------------------------------------- FIXES (r15): the whole table's story
+
+/**
+ * Who opens the next round, as the cups stand: the loser of the call, or if
+ * that was their last die, the next round the table with dice.
+ */
+function nextOpener(t: DiceTable, v: View): number {
+  const r = v.reveal;
+  if (!r || r.loser === undefined) return -1;
+  const i = t.seats.findIndex((x) => x.c === r.loser);
+  if (i < 0) return -1;
+  const live = (j: number) => {
+    const x = t.seats[j];
+    return (
+      (v.state.get(x.c) ?? x.state) === "in" &&
+      (v.counts.get(x.c) ?? x.n) > 0 &&
+      !x.quitting
+    );
+  };
+  // The last with dice takes the pot: no next round.
+  if (t.seats.filter((_, j) => live(j)).length <= 1) return -1;
+  for (let k = 0; k < t.seats.length; k++) {
+    const j = (i + k) % t.seats.length;
+    if (live(j)) return t.seats[j].c;
+  }
+  return -1;
+}
+
+/** Whose turn comes after `c` (still in, going round the table), or -1. */
+function nextAfter(t: DiceTable, v: View, c: number): number {
+  const i = t.seats.findIndex((x) => x.c === c);
+  if (i < 0) return -1;
+  for (let k = 1; k < t.seats.length; k++) {
+    const x = t.seats[(i + k) % t.seats.length];
+    if ((v.state.get(x.c) ?? x.state) === "in" && (v.counts.get(x.c) ?? 1) > 0)
+      return x.c;
+  }
+  return -1;
+}
+
 /** Who speaks as the cups come up: a computer player who lost, or won the call. */
 function revealSpeaker(t: DiceTable, r: DiceAct): number {
   if (r.loser !== undefined && isComputer(t, r.loser)) return r.loser;
@@ -412,6 +454,10 @@ function seatView(
   v: View,
   side: "left" | "right",
   me: boolean,
+  /** FIXES (r15): place in the order of play, of how many; who opens next. */
+  order = -1,
+  count = 0,
+  opener = -1,
 ): TemplateResult {
   const s = ui.s;
   const c = s.chars[x.c];
@@ -432,14 +478,26 @@ function seatView(
   const cups = r?.cups?.[x.c];
   const bid = r?.bid;
   const left = turn ? clockLeft(t, x.c) : null;
+  const opensNext = opener === x.c && !v.won; // FIXES (r15)
   return html`<div
+    role="listitem"
     class="cq-dice-seat ${st} ${turn ? "turn" : ""} ${me
       ? "me"
-      : ""} ${x.seat !== undefined ? "player" : ""}"
+      : ""} ${x.seat !== undefined ? "player" : ""} ${opensNext
+      ? "opens"
+      : ""} ${order === count - 1 ? "last" : ""}"
+    aria-label="${order >= 0 ? `${order + 1} of ${count}: ` : ""}${me
+      ? "you"
+      : c.first}${turn ? ", to bid" : ""}${opensNext
+      ? ", opens the next round"
+      : ""}"
     style=${x.seat !== undefined && lifeOfChar(s, x.c)
       ? `--frame:${lifeOfChar(s, x.c)!.frame}`
       : ""}
   >
+    ${order >= 0 && order < count - 1
+      ? html`<span class="cq-dice-next" aria-hidden="true">›</span>`
+      : nothing}
     <div class="cq-dice-say">
       ${line
         ? html`<span
@@ -463,20 +521,29 @@ function seatView(
         },
         "cq-dice-likeness",
       )}
+      ${order >= 0
+        ? html`<span class="cq-dice-order" aria-hidden="true"
+            >${order + 1}</span
+          >`
+        : nothing}
       ${turn
         ? html`<span class="cq-dice-turn"
             >${me ? "your turn" : "to bid"}${left !== null
               ? html` · <b>${clockText(left)}</b>`
               : nothing}</span
           >`
-        : st === "out"
-          ? html`<span class="cq-dice-turn out">out</span>`
-          : st === "gone"
-            ? html`<span class="cq-dice-turn out">gone</span>`
-            : nothing}
+        : opensNext
+          ? html`<span class="cq-dice-turn opens"
+              >${me ? "you open next" : "opens next"}</span
+            >`
+          : st === "out"
+            ? html`<span class="cq-dice-turn out">out</span>`
+            : st === "gone"
+              ? html`<span class="cq-dice-turn out">gone</span>`
+              : nothing}
     </div>
     <span class="cq-nameplate">
-      <b>${me ? "You" : c.first}</b>
+      <b>${me ? "You" : seatName(s, t, x.c)}</b>
       <small
         >${x.seat !== undefined && !me
           ? "a player"
@@ -507,12 +574,12 @@ function boardView(
   me: number,
 ): TemplateResult {
   const s = ui.s;
-  const who = (c: number) => (c === me ? "you" : (s.chars[c]?.first ?? "?"));
+  const who = (c: number) => (c === me ? "you" : seatName(s, t, c));
   if (v.won) {
     const w = v.won.c;
     return html`<div class="cq-dice-board-line won">
       <span class="cq-dice-tally"
-        >${w === me ? "You take" : `${s.chars[w]?.first} takes`} the pot</span
+        >${w === me ? "You take" : `${seatName(s, t, w)} takes`} the pot</span
       >
       <span class="cq-dice-sub">${t.pot} coins</span>
     </div>`;
@@ -531,6 +598,7 @@ function boardView(
   }
   const r = v.reveal;
   if (r && r.bid) {
+    const opener = nextOpener(t, v); // FIXES (r15)
     const stands = (r.count ?? 0) >= r.bid.q;
     const wild = Object.values(r.cups ?? {})
       .flat()
@@ -547,7 +615,9 @@ function boardView(
           ? "the bid stands"
           : "a lie"}:
         ${r.loser === me ? "you lose" : `${who(r.loser ?? -1)} loses`} a
-        die</span
+        die${opener >= 0
+          ? ` · ${opener === me ? "you open" : `${who(opener)} opens`} the next round`
+          : ""}</span
       >
     </div>`;
   }
@@ -587,6 +657,7 @@ function stageView(
 ): TemplateResult {
   const art = sceneArt("tavern");
   const half = Math.ceil(others.length / 2);
+  const opener = nextOpener(t, v); // FIXES (r15)
   return html`<div class="cq-dice-stage indoors">
     <div
       class="cq-scene-bg"
@@ -598,9 +669,23 @@ function stageView(
         · ${formatDate(ui.s.day)}</span
       >
     </p>
-    <div class="cq-dice-ring n${others.length}">
+    <div
+      class="cq-dice-ring n${others.length}"
+      role="list"
+      aria-label="The table, in the order of play"
+    >
       ${others.map((x, i) =>
-        seatView(ui, t, x, v, i < half ? "left" : "right", x.c === me),
+        seatView(
+          ui,
+          t,
+          x,
+          v,
+          i < half ? "left" : "right",
+          x.c === me,
+          i,
+          others.length,
+          opener,
+        ),
       )}
     </div>
     ${lastLine(ui, t, v, me)}
@@ -628,7 +713,7 @@ function lastLine(
   const text = r && who >= 0 ? (r.say ?? "") : a ? sayOf(a) : "";
   return html`<p class="cq-dice-lastline" aria-live="polite">
     ${text
-      ? html`<b>${c === me ? "You" : (ui.s.chars[c]?.first ?? "")}:</b> ${curly(
+      ? html`<b>${c === me ? "You" : seatName(ui.s, t, c)}:</b> ${curly(
             `"${text}"`,
           )}`
       : html`&nbsp;`}
@@ -658,6 +743,7 @@ function mineView(
   v: View,
   x: DiceSeat | undefined,
   me: number,
+  upTo: number, // FIXES (r15): the log, played back as far as the table
 ): TemplateResult {
   if (!x)
     return html`<section class="cq-dice-mine watching">
@@ -665,7 +751,7 @@ function mineView(
       <p class="cq-muted">
         The dice are under their cups: you'll see them when someone calls.
       </p>
-      ${historyView(ui, t, v, me)}
+      ${historyView(ui, t, v, me, upTo)}
     </section>`;
   const st = v.state.get(x.c) ?? x.state;
   // The dice of the round being shown: now, or (catching up) as revealed.
@@ -717,43 +803,85 @@ function mineView(
     <div class="cq-dice-tell ${tell ? "on" : ""}" aria-live="polite">
       ${tell ? html`<p>${curly(tell.text)}</p>` : nothing}
     </div>
-    ${historyView(ui, t, v, me)}
+    ${historyView(ui, t, v, me, upTo)}
   </section>`;
 }
 
-/** The round so far: each bid, and the call. */
+// ---------------------------------------------------------------- FIXES (r15): the table's log
+
+/** FIXES (r15): a sitter's first name, with the surname's initial if two at the table share it. */
+function seatName(s: GameState, t: DiceTable, c: number): string {
+  const ch = s.chars[c];
+  if (!ch) return "?";
+  const twin = t.seats.some(
+    (x) => x.c !== c && s.chars[x.c]?.first === ch.first,
+  );
+  return twin ? `${ch.first} ${ch.family.charAt(0)}.` : ch.first;
+}
+
+/** Whether each table's log keeps to its newest line (until scrolled up to read). */
+const logStuck = new Map<number, boolean>();
+let logSeq = -1;
+
+/** The table's log: oldest at the top, newest at the foot, like the game's own. */
 function historyView(
   ui: GameUi,
   t: DiceTable,
   v: View,
   me: number,
+  upTo: number,
 ): TemplateResult {
   const s = ui.s;
-  const rows = v.history.slice(-4);
+  if (logSeq !== ui.modalSeq) {
+    logSeq = ui.modalSeq;
+    logStuck.clear();
+  }
+  const acts = tableStory(t);
+  const lines = storyLines(t, acts, upTo, me, (c) => seatName(s, t, c));
+  const gap = (acts[0]?.n ?? 1) > 1;
+  // After the page is drawn: to the newest line, unless you scrolled up.
+  requestAnimationFrame(() => {
+    const ol = document.querySelector<HTMLElement>(
+      `.cq-dice-log[data-t="${t.id}"]`,
+    );
+    if (ol && logStuck.get(t.id) !== false) ol.scrollTop = ol.scrollHeight;
+  });
   return html`<div class="cq-dice-history">
     <h4 class="cq-dice-h small">
-      ${v.round ? `Round ${v.round}` : "Before the first roll"}
+      The table's log
+      <span class="cq-muted small"
+        >${v.round ? `Round ${v.round}` : "Before the first roll"}</span
+      >
     </h4>
-    <ol>
-      ${rows.length
-        ? rows.map(
-            (a) =>
-              html`<li class=${a.k === "liar" ? "liar" : ""}>
-                <span class="who"
-                  >${a.c === me ? "You" : (s.chars[a.c]?.first ?? "?")}</span
-                >
-                <span class="what"
-                  >${a.k === "liar"
-                    ? "Liar!"
-                    : a.bid
-                      ? bidWords(a.bid)
-                      : ""}${a.auto
-                    ? html` <i>(made for them)</i>`
-                    : nothing}</span
-                >
-              </li>`,
+    <ol
+      class="cq-dice-log"
+      data-t=${t.id}
+      aria-live="polite"
+      @scroll=${(e: Event) => {
+        const ol = e.target as HTMLElement;
+        logStuck.set(
+          t.id,
+          ol.scrollHeight - ol.scrollTop - ol.clientHeight < 24,
+        );
+      }}
+    >
+      ${gap
+        ? html`<li class="blank">Earlier moves are no longer kept.</li>`
+        : nothing}
+      ${lines.length
+        ? lines.map((l) =>
+            l.who !== undefined
+              ? html`<li class="move ${l.kind}">
+                  <span class="who">${l.who}</span>
+                  <span class="what"
+                    >${l.kind === "liar" ? "Liar!" : l.text}${l.auto
+                      ? html` <i>(made for them)</i>`
+                      : nothing}</span
+                  >
+                </li>`
+              : html`<li class=${l.kind}>${l.text}</li>`,
           )
-        : html`<li class="blank">No bids yet.</li>`}
+        : html`<li class="blank">No moves yet.</li>`}
     </ol>
   </div>`;
 }
@@ -821,6 +949,7 @@ function pickerView(
   };
   const turnC = v.turn;
   const left = clockLeft(t, turnC);
+  const then = nextAfter(t, v, turnC); // FIXES (r15): who bids after them
   const status = !x
     ? "You're watching."
     : x.state !== "in"
@@ -835,7 +964,7 @@ function pickerView(
             : "Your turn: open the round with any bid."
           : !caught
             ? "…"
-            : `${ui.s.chars[turnC]?.first ?? "Someone"} to bid${left !== null ? ` · ${clockText(left)}` : ""}…`;
+            : `${seatName(ui.s, t, turnC)} to bid${left !== null ? ` · ${clockText(left)}` : ""}${then >= 0 ? `, then ${then === me ? "you" : seatName(ui.s, t, then)}` : ""}…`;
   return html`<section class="cq-dice-play ${disabled ? "idle" : "live"}">
     <h3 class="cq-dice-h">Your bid</h3>
     <div class="cq-dice-pick" role="group" aria-label="Your bid">
@@ -1124,10 +1253,9 @@ export function diceModal(
   const caught = n >= last;
   const v = viewAt(t, n);
   const x = mySeat(ui, t);
+  // FIXES (r15): everyone at the table, you too, in the order they bid.
   const others =
-    t.status === "open"
-      ? t.seats.filter((y) => y.state === "in")
-      : t.seats.filter((y) => y.c !== me || !x);
+    t.status === "open" ? t.seats.filter((y) => y.state === "in") : t.seats;
   const ended = t.status === "done" && (!!v.won || caught);
   const leave = async () => {
     if (
@@ -1169,7 +1297,7 @@ export function diceModal(
         ? gatheringView(ui, t, x)
         : ended
           ? endView(ui, t, x, me)
-          : html`${mineView(ui, t, v, x, me)}
+          : html`${mineView(ui, t, v, x, me, n)}
             ${pickerView(ui, t, v, x, me, caught)}`}
     </div>
     <div class="cq-scene-foot cq-dice-foot">

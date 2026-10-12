@@ -323,7 +323,11 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     how: "Sit in your colony's assembly (or at the council fire).",
     coins: 3,
     group: "office",
-    check: (g, l) => l.tally.topOffice >= 1,
+    // FIXES (r15): won at a poll (or sitting in the house), not just any
+    // office: an appointment to the council paid "Elected" before.
+    check: (g, l) =>
+      l.tally.elections > 0 ||
+      officesOf(g.s, l.c).some((o) => o.kind === "assembly"),
   },
   {
     key: "council",

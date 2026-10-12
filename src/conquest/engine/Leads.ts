@@ -346,7 +346,8 @@ export const LEAD_DEFS: Record<LeadKind, LeadDef> = {
     weight: 2,
     says: [
       (x, n) =>
-        `${n} has robbed the post road near ${x} three times. The governor offers a reward.`,
+        // FIXES (r15): "the Harpe brothers have", not "has".
+        `${n} ${/ brothers$/.test(n) ? "have" : "has"} robbed the post road near ${x} three times. The governor offers a reward.`,
       (x, n) => `Wanted, dead or alive: ${n}, last seen near ${x}.`,
     ],
   },

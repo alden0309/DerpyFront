@@ -44,6 +44,7 @@ import type {
   Terrain,
 } from "../engine/Types";
 import type { ResultLine, SeatInfo, ServerMessage } from "../Protocol";
+import { CameraKeys } from "./CameraKeys"; // FIXES (r15)
 import { FindIcon, LetterIcon } from "./Icons";
 import {
   LifeMark,
@@ -70,6 +71,7 @@ import {
 import { armyPanel } from "./ui/ArmyPanel";
 import { battleDispatch, myBattleNation } from "./ui/Battle";
 import { breakdownTip, DrawerView, GameUi, Modal, token } from "./ui/Context";
+import { noteDiceActs } from "./ui/DiceLog"; // FIXES (r15)
 import { diceTrayItem, onDiceClock } from "./ui/DiceTable"; // DICE (r14)
 import { resetFinder } from "./ui/Finder";
 import { herePanel, provincePage } from "./ui/Here";
@@ -255,6 +257,8 @@ export class GameView extends LitElement {
   private dayAt = 0;
 
   private view: MapView | null = null;
+  /** FIXES (r15): W A S D and the arrows move the camera. */
+  private camKeys = new CameraKeys(() => !!this.modalView || !!this.results);
   private selectedProv: number | null = null;
   private selectedArmy: number | null = null;
   private preview: number[] | null = null;
@@ -311,6 +315,7 @@ export class GameView extends LitElement {
     super.connectedCallback();
     this.net.on(this.onNet);
     window.addEventListener("keydown", this.onKey);
+    this.camKeys.attach(); // FIXES (r15)
     window.addEventListener("pointermove", trackPointer, { passive: true });
     window.addEventListener("pointerdown", trackPointer, { passive: true });
     window.addEventListener("touchstart", touched, { passive: true });
@@ -327,6 +332,11 @@ export class GameView extends LitElement {
     }, 1000);
     const loop = (t: number) => {
       this.frame = requestAnimationFrame(loop);
+      // FIXES (r15): the camera keys, a frame at a time ("Go there?" closes).
+      if (this.camKeys.moving) {
+        if (this.ask) this.ask = null;
+        this.camKeys.step(t, this.view ?? undefined);
+      }
       this.drawMap(t);
     };
     this.frame = requestAnimationFrame(loop);
@@ -336,6 +346,7 @@ export class GameView extends LitElement {
     super.disconnectedCallback();
     this.net.off(this.onNet);
     window.removeEventListener("keydown", this.onKey);
+    this.camKeys.detach(); // FIXES (r15)
     window.removeEventListener("pointermove", trackPointer);
     window.removeEventListener("pointerdown", trackPointer);
     window.removeEventListener("touchstart", touched);
@@ -511,6 +522,7 @@ export class GameView extends LitElement {
         const wasWatching = before?.watching ?? true;
         const talkFrom = this.s.day;
         applyDelta(this.s, m.d);
+        if (m.d.dice) noteDiceActs(this.s); // FIXES (r15): the tables' whole story
         this.dayAt = performance.now();
         for (const e of m.d.events ?? []) this.onEvent(e, where, inArmy);
         // Wave 2 (r11): the talk that reached you today.

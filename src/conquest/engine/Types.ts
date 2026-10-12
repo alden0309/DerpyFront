@@ -2517,6 +2517,8 @@ export interface CouncilMatter {
   /** Character id: 1 aye, -1 no, 0 abstained. */
   votes: Record<number, number>;
   status: "open" | "carried" | "lost";
+  /** FIXES (r15): carried, but it couldn't be done (why: "Needs 50 gold."). */
+  undone?: string;
 }
 
 /** A bill before the colony's assembly. */

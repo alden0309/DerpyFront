@@ -1583,6 +1583,11 @@ Others give gatherings too, and invite you (by letter if you're away): your neig
 - The loser of the call **opens the next round**, and everyone shakes again.
 - With no dice left, you're **out**. The **last with dice takes the pot**.
 
+## Reading the table
+- **The row of seats** is everyone at the table, **you too**, in the order they bid: each has a number (1, 2, 3…) and an arrow points to the next; after the last, it comes round to 1 again. Whose turn it is wears a gold **to bid** (yours says **your turn**); under the picker it says who bids after them.
+- When the cups come up, the board says who loses a die and who **opens the next round**, and their seat wears **opens next**.
+- **The table's log**, under your cup, keeps the whole game: each round as it was rolled and who opened it, every bid and call, and every reveal with its count and who lost a die ("Margaret called Liar! on Edward's three threes: eleven showing. The bid stands: Margaret loses a die."). The oldest is at the top and the newest at the foot, like the game's own log; scroll up to read back, and it stays where you left it until you come down again.
+
 ## Ones are wild
 A one counts as **any face**: when "four fives" is called, every five and every one under the cups is counted. So nobody bids on ones, and your own ones count for whatever you bid.
 
@@ -1951,6 +1956,7 @@ Going to Europe is worth Derp Coins at the end ([[coins|Derp Coins]]).`,
 - **Leads** are pinned with a red seal (gold once something's found there).
 - Towns, forts, ports and armies show on the land; sieges and battles flare where they happen.
 - **◎** finds you; **+** and **−** zoom (or the + and − keys, or the wheel).
+- **Move the map** by dragging it, or with **W A S D** or the **arrow keys** (hold **Shift** to go faster). The keys move the view, never you, and rest while you type or a window is open.
 - **Map views** at the foot: Nations (who holds what), Terrain, Economy (what each province's land yields) and People (how crowded).
 
 Click any province for its page: who holds it, its places, the people you know there, and **The road there**. Right-click (or hold) a province to set out at once.
@@ -2106,6 +2112,7 @@ ${achievementsTable()}
 | Space | Pause, or start the clock |
 | 1, 2, 3, 4 | Speed 1×, 2×, 4×, 8× |
 | 5 | Skip ahead (again to stop) |
+| W A S D, or the arrows | Move the map (hold Shift to go faster) |
 | + and − | Zoom the map |
 | ? | This guide, at the page you're on |
 | / | I want to… |

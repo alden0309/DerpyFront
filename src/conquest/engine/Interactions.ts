@@ -1189,7 +1189,15 @@ export function doInteraction(
       return null;
     case "mentor": {
       for (const [id, t] of Object.entries(life.ties))
-        if (t === "mentor") delete life.ties[Number(id)];
+        if (t === "mentor") {
+          // FIXES (r15): a friend who taught you is a friend again after.
+          const old = s.chars[Number(id)];
+          const friend = old?.memories.some(
+            (m) => m.of === me.id && m.why === "A true friend",
+          );
+          if (friend) life.ties[Number(id)] = "friend";
+          else delete life.ties[Number(id)];
+        }
       setTie(g, life, cId, "mentor");
       remembers(g, life, c, "My pupil", 8, 0);
       const [sk] = bestSkill(s, c);

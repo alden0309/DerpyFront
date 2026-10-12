@@ -951,6 +951,14 @@ function tiesMonthly(g: ConquestGame, life: Life, me: Character): void {
     const id = Number(key);
     const c = s.chars[id];
     if (!c?.alive || c.abroad) {
+      // FIXES (r15): a friend gone for good (to Europe, or transported) is missed out loud.
+      if (c?.alive && (tie === "friend" || tie === "lover"))
+        journal(
+          g,
+          life,
+          `Your ${tie} ${charName(c)} has gone away for good.`,
+          "bad",
+        );
       delete life.ties[id];
       continue;
     }
@@ -1081,6 +1089,14 @@ function lifeDied(g: ConquestGame, c: Character, cause: string): void {
     } else if (life.patron === c.id) {
       life.patron = -1;
       journal(g, life, `Your patron ${charName(c)} has died.`, "bad");
+    } else if (life.ties[c.id] === "friend" || life.ties[c.id] === "lover") {
+      // FIXES (r15): friends died without a word, and just left the list.
+      journal(
+        g,
+        life,
+        `Your ${life.ties[c.id]} ${charName(c)} died: ${cause}.`,
+        "bad",
+      );
     }
   }
   const life = lifeOfChar(s, c.id);

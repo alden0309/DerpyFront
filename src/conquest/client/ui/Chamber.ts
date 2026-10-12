@@ -14,7 +14,7 @@ import {
   division,
   governorLean,
 } from "../../engine/Assembly";
-import { formatDate } from "../../engine/Calendar";
+import { formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
 import {
   actionTargets,
   councilAdvice,
@@ -300,9 +300,10 @@ function matters(ui: GameUi, n: number): TemplateResult | typeof nothing {
                     >`
                   : html`<span
                       class="cq-chip ${m.status === "carried" ? "good" : "bad"}"
-                      >${m.status}</span
+                      >${m.undone ? "carried, not done" : m.status}</span
                     >`}
-                ${ayes} aye, ${noes} no
+                ${ayes} aye, ${noes}
+                no${m.undone ? html` · <i>${m.undone}</i>` : nothing}
               </span>
             </div>
             ${m.status === "open" &&
@@ -655,7 +656,7 @@ function assembly(ui: GameUi, n: number): TemplateResult | typeof nothing {
         ${speaker?.alive
           ? charLink(ui, speaker, false)
           : html`<span class="cq-muted">none chosen</span>`}.
-        Next election ${formatDate(pol.election)}.
+        Next election ${formatDate(pollDay(pol.election))}.
         ${member ? html`<span class="cq-chip good">you sit</span>` : nothing}
       </p>
       ${live.length

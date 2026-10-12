@@ -11,7 +11,8 @@ import {
   ambitionProgress,
   AMBITIONS,
 } from "../../engine/Ambitions";
-import { formatDate } from "../../engine/Calendar";
+import { formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
+import { seatHolderId, seatsOf, seatTitle } from "../../engine/CouncilTitles"; // FIXES (r15)
 import {
   atPost,
   beneathStation,
@@ -455,7 +456,8 @@ export function standingSection(ui: GameUi): TemplateResult {
         ? html`<p class="small">
             <b>${pol.name}</b>: ${pol.assembly.length} of ${pol.seats} seats
             filled; ${native ? "the council fire chooses again" : "elections"}
-            every ${ELECTION_YEARS} years, next on ${formatDate(pol.election)}.
+            every ${ELECTION_YEARS} years, next on
+            ${formatDate(pollDay(pol.election))}.
             ${life.campaign
               ? html`<span class="good"
                   >You're standing: ${life.campaign.points} campaign
@@ -519,9 +521,11 @@ export function standingSection(ui: GameUi): TemplateResult {
                 <dl class="cq-family">
                   <dt>${native ? "Leader" : "Governor"}</dt>
                   <dd>${charLink(ui, ruler)}</dd>
-                  ${SEATS.map((seat) => {
-                    const c = s.chars[n.council[seat]];
-                    return html`<dt>${SEAT_NAMES[seat]}</dt>
+                  ${seatsOf(n).map((seat) => {
+                    // FIXES (r15): every seat, by its title here ("Secretary
+                    // of the colony", not "Spymaster"), the colony's own too.
+                    const c = s.chars[seatHolderId(s, n.id, seat)];
+                    return html`<dt>${seatTitle(s, n.id, seat)}</dt>
                       <dd>
                         ${c?.alive
                           ? charLink(ui, c)
