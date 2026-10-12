@@ -669,7 +669,8 @@ export function offerOdds(
 
 // ---------------------------------------------------------------- signing
 
-function newCruise(
+/** A new cruise from an offer (the quay's, your own boat's, a company's). */
+export function newCruise(
   g: ConquestGame,
   o: CruiseOffer,
   extra: Partial<Cruise>,
@@ -763,7 +764,7 @@ export function signOn(
   const what =
     cr.flag === "pirate"
       ? "the articles of a pirate company"
-      : `a privateer's articles under a ${s.nations[cr.nation]?.adjective ?? ""} commission`;
+      : `a privateer's articles under ${aRig(`${s.nations[cr.nation]?.adjective ?? ""} commission`)}`;
   journal(
     g,
     life,
@@ -1896,6 +1897,10 @@ export function settle(g: ConquestGame, cr: Cruise): void {
         earn(g, life, mine),
       );
     const own = cr.owner === "boat" && cr.boat?.seat === h.seat ? owners : 0;
+    if (!home.length) {
+      affairNews(g, life, "sea", `The ${cr.ship}'s company is paid off: home without a prize, there's nothing to share.`);
+      continue;
+    }
     const lines: string[] = [];
     if (home.length)
       lines.push(

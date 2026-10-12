@@ -106,6 +106,16 @@ export function saintOf(month: number, day: number): string {
   return pick;
 }
 
+/** A storm's name: the saint of the day, or the next saint's if that one's taken this season. */
+function freshName(taken: string[], month: number, day: number): string {
+  const first = saintOf(month, day);
+  if (!taken.includes(first)) return first;
+  const i = SAINTS.findIndex((x) => x[2] === first);
+  for (let k = i + 1; k < SAINTS.length; k++)
+    if (!taken.includes(SAINTS[k][2])) return SAINTS[k][2];
+  return `${first} (${taken.filter((t) => t.startsWith(first)).length + 1})`;
+}
+
 /** "the San Mateo hurricane". */
 export function stormName(st: Pick<Storm, "name">): string {
   return `the ${st.name} hurricane`;
@@ -218,7 +228,11 @@ export function maybeBorn(g: ConquestGame): Storm | null {
   const date = dateOf(s.day);
   const st: Storm = {
     id: g.nextId(),
-    name: saintOf(date.month, date.day),
+    name: freshName(
+      sea.storms.filter((x) => s.day - x.born < 200).map((x) => x.name),
+      date.month,
+      date.day,
+    ),
     born: s.day,
     lat: Math.round(lat * 1000) / 1000,
     lon: Math.round(lon * 1000) / 1000,

@@ -3541,6 +3541,13 @@ export interface PrivateerFit {
   /** Prizes taken, and what the owners' half fetched, all told. */
   taken: number;
   fetched: number;
+  /** Where she lies (a province). */
+  at: number;
+  /** Lost (taken, foundered): how. She's gone; the company may buy another. */
+  lost?: string;
+  /** This month's prize money in, and outfits laid out (for the books). */
+  inMonth?: number;
+  outMonth?: number;
 }
 
 /** A company being got up to fit out a privateer: who's put in what. */
@@ -3550,14 +3557,13 @@ export interface Subscription {
   by: number;
   prov: number;
   name: string;
-  /** The ship: new from the yard (kind), off the quay (a used slot), or a boat of theirs. */
+  /** The ship: new from the yard (her kind and price), or a boat of the getter-up's (put in at what she'd fetch). */
   kind: BoatKind;
   price: number;
   boat?: number;
-  used?: number;
   shipName: string;
-  /** Who's put in what (characters), and who's been asked. */
-  stakes: { c: number; coins: number }[];
+  /** Who's put in what (characters; a boat put in counts at what she'd fetch), and who's been asked. */
+  stakes: { c: number; coins: number; boat?: number }[];
   asked: number[];
   opened: number;
   until: number;

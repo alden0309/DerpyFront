@@ -51,6 +51,7 @@ import {
   strikeDc,
 } from "./CruiseData";
 import { registerFamily } from "./EventPacing";
+import { companyOdds, joinCheck, joinCompany, subById, subNeeded, subTotal } from "./Privateers";
 import type { ConquestGame } from "./Game";
 import { addRenown, addStress, gainXp, hurt, journal, spend, touchLife } from "./LifeCore";
 import type { LCtx, LifeEventDef } from "./LifeEvents";
@@ -1031,8 +1032,57 @@ const QUAY: LifeEventDef[] = [
   },
 ];
 
+// ---------------------------------------------------------------- the company
+
+function inviteChoice(coins: number): LifeEventDef["choices"][number] {
+  return {
+    label: `Put in ${coins} (${coins} coins)`,
+    tip: (g, life, ctx) => {
+      const sub = subById(g.s, ctx.sub);
+      if (!sub) return "It's closed.";
+      const share = (coins / (subTotal(sub) + coins)) * 100;
+      const v = companyOdds(g.s, g.w, { kind: sub.kind, port: sub.prov, nation: g.s.provinces[sub.prov].owner, share, stake: coins });
+      return v
+        ? `About ${Math.round(share)}% of her as she stands: a cruise is expected to bring you about ${v.expected} (${chanceWords(v.risks[0].p)} she's taken). Given back if she never signs.`
+        : "Given back if she never signs.";
+    },
+    blocked: (g, life, ctx) => {
+      const c = joinCheck(g.s, g.w, life, subById(g.s, ctx.sub), coins);
+      return c.ok ? null : c.why.replace(/\.$/, "");
+    },
+    apply: (g, life, ctx) => {
+      const err = joinCompany(g, life, ctx.sub, coins);
+      if (err) journal(g, life, err, "bad");
+    },
+  };
+}
+
+const COMPANY_SCENES: LifeEventDef[] = [
+  {
+    key: "sea-sub-invite",
+    pool: "raised",
+    cooldown: 0,
+    scene: "letter",
+    title: "A share in a privateer",
+    body: (g, life, ctx) => {
+      const sub = subById(g.s, ctx.sub);
+      const who = g.s.chars[ctx.c];
+      if (!sub) return "The subscription has closed.";
+      return `${who ? who.first : "A friend"} writes from ${g.map.provinces[sub.prov].name}: "I am getting up a company to fit out the ${sub.shipName}, ${BOATS[sub.kind].name.toLowerCase()} of ${BOATS[sub.kind].guns} guns, as a privateer under the governor's commission. ${subTotal(sub)} is put in so far, of ${subNeeded(g.s, g.w, sub)} wanted in coin. Will you take a share? The owners have half of every prize the court condemns, by what each put in."\nThe money goes by the same post; it's given back if she never signs.`;
+    },
+    choices: [inviteChoice(10), inviteChoice(25), inviteChoice(50), {
+      label: "Decline",
+      tip: "Wish them luck, and keep your money.",
+      apply: (g, life, ctx) => {
+        const by = g.s.chars[ctx.c];
+        journal(g, life, `You decline a share in the privateer${by ? ` ${by.first} is getting up` : ""}.`);
+      },
+    }],
+  },
+];
+
 /** Every scene of the sea, added to the life events the first time one is looked up (LifeEvents.ts). */
-export const SEA_EVENTS: LifeEventDef[] = [...HUNT, ...STORMS, ...VOYAGES, ...QUAY];
+export const SEA_EVENTS: LifeEventDef[] = [...HUNT, ...STORMS, ...VOYAGES, ...QUAY, ...COMPANY_SCENES];
 
 /**
  * The choice a scene takes if it's left unanswered (LifeEvents' firstAllowed):
@@ -1042,7 +1092,7 @@ export const SEA_EVENTS: LifeEventDef[] = [...HUNT, ...STORMS, ...VOYAGES, ...QU
  */
 export const SEA_QUIET: Record<string, number> = Object.fromEntries(
   SEA_EVENTS.filter((d) =>
-    ["sea-voyage-", "sea-fitting", "sea-whale", "sea-pardon"].some((k) =>
+    ["sea-voyage-", "sea-fitting", "sea-whale", "sea-pardon", "sea-sub-invite"].some((k) =>
       d.key.startsWith(k),
     ),
   ).map((d) => [d.key, d.choices.length - 1]),
