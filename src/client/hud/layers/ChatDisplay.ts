@@ -3,6 +3,12 @@
 // server (ChatReceivedEvent); the AI nations' lines from NationChatter, which
 // reads the game's own updates. Names are drawn from this client's view of
 // the game, so anonymized games and the "hide names" setting are respected.
+//
+// The chat can be dragged anywhere on the screen by its grip (the dotted tab
+// beside the folded button, or the open panel's header), with the mouse or a
+// finger. Where it is put is remembered per browser (ChatPlacement.ts) and
+// kept on screen; double-clicking the grip, or the panel's reset button,
+// puts it back in its corner. A drag never reaches the map underneath.
 
 import { GameMode, PlayerType } from "@openfront/engine-api/game/GameTypes";
 import { assetUrl } from "@openfront/shared/AssetUrls";
@@ -24,6 +30,16 @@ import {
   OpenChatEvent,
   SendChatEvent,
 } from "../../chat/ChatEvents";
+import {
+  ChatOffsets,
+  ChatPlacement,
+  clampDrag,
+  fitOffsets,
+  loadChatPlacement,
+  placementFromBox,
+  saveChatPlacement,
+  scaledOffsets,
+} from "../../chat/ChatPlacement";
 import {
   ChatterLine,
   ChatterPlayer,
@@ -110,6 +126,22 @@ export function gameViewWorld(game: GameView): ChatterWorld {
   };
 }
 
+/** A drag of the chat by its grip, from pointerdown to pointerup. */
+interface ChatDrag {
+  pointerId: number;
+  grip: HTMLElement;
+  startX: number;
+  startY: number;
+  /** The chat's box when the drag began. */
+  start: { left: number; top: number; width: number; height: number };
+  dx: number;
+  dy: number;
+  moved: boolean;
+}
+
+/** Pointer travel (px) before a press on the grip counts as a drag. */
+const DRAG_SLOP = 3;
+
 /** Readable on the panel's dark glass: dark player colours are lifted. */
 function readable(c: Colord): string {
   let out = c;
@@ -144,9 +176,17 @@ export class ChatDisplay extends LitElement implements Controller {
   @state() private bottom = 12;
   @state() private aiOn = true;
   @state() private now = Date.now();
+  /** Where the player dragged the chat; null for its usual corner. */
+  @state() private placement: ChatPlacement | null = null;
+  /** The placement's offsets, fitted to this screen and the chat's size. */
+  @state() private fitted: ChatOffsets | null = null;
+  @state() private viewport = { w: 0, h: 0 };
+  @state() private dragging = false;
+  private drag: ChatDrag | null = null;
 
   @query(".chat-input") private input?: HTMLInputElement;
   @query(".chat-scroll") private scroller?: HTMLDivElement;
+  @query(".chat-box") private box?: HTMLDivElement;
 
   createRenderRoot() {
     return this;
@@ -162,6 +202,9 @@ export class ChatDisplay extends LitElement implements Controller {
     this.muted = new Set();
     this.chatter = null;
     this.aiOn = this.userSettings.aiChatter();
+    this.placement = loadChatPlacement();
+    this.fitted = null;
+    this.endDrag(false);
 
     const onReceive = (e: ChatReceivedEvent) => this.onReceive(e.message);
     const onOpen = () => this.openAndFocus();
@@ -399,6 +442,7 @@ export class ChatDisplay extends LitElement implements Controller {
     const place = () => {
       const desktop = window.innerWidth >= 1024;
       this.bottom = desktop || hud === null ? 12 : hud.offsetHeight + 8;
+      this.viewport = { w: window.innerWidth, h: window.innerHeight };
     };
     place();
     if (hud !== null && typeof ResizeObserver !== "undefined") {
@@ -415,6 +459,162 @@ export class ChatDisplay extends LitElement implements Controller {
     if (this.open && this.scroller && this.stickToBottom) {
       this.scroller.scrollTop = this.scroller.scrollHeight;
     }
+    this.fitToScreen();
+  }
+
+  // ----------------------------------------------------------------- drag
+
+  /**
+   * Keep a placed chat wholly on screen: its size changes as it opens, folds
+   * and shows new lines, and the screen as the window is resized or turned.
+   */
+  private fitToScreen() {
+    if (this.placement === null || this.dragging || !this.box) {
+      if (this.placement === null && this.fitted !== null) this.fitted = null;
+      return;
+    }
+    const { w, h } = this.viewport;
+    if (w <= 0 || h <= 0) return;
+    const r = this.box.getBoundingClientRect();
+    const next = fitOffsets(
+      scaledOffsets(this.placement, w, h),
+      r.width,
+      r.height,
+      w,
+      h,
+    );
+    const cur = this.fitted;
+    if (
+      cur === null ||
+      cur.h !== next.h ||
+      cur.v !== next.v ||
+      cur.x !== next.x ||
+      cur.y !== next.y
+    ) {
+      this.fitted = next;
+    }
+  }
+
+  private onGripDown(e: PointerEvent) {
+    if (e.button !== 0 || this.drag !== null || !this.box) return;
+    // The header's own buttons keep working; only its bare parts are a grip.
+    const target = e.target as Element | null;
+    if (target?.closest?.("button, input, a, kbd") ?? false) return;
+    // Nothing underneath sees the press: no map pan, no click, no selection.
+    e.preventDefault();
+    e.stopPropagation();
+    const grip = e.currentTarget as HTMLElement;
+    const r = this.box.getBoundingClientRect();
+    this.drag = {
+      pointerId: e.pointerId,
+      grip,
+      startX: e.clientX,
+      startY: e.clientY,
+      start: { left: r.left, top: r.top, width: r.width, height: r.height },
+      dx: 0,
+      dy: 0,
+      moved: false,
+    };
+    try {
+      grip.setPointerCapture(e.pointerId);
+    } catch {
+      // Not every pointer can be captured (or jsdom); moves still arrive.
+    }
+    this.dragging = true;
+  }
+
+  private onGripMove(e: PointerEvent) {
+    const d = this.drag;
+    if (d === null || e.pointerId !== d.pointerId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (!d.moved && Math.abs(dx) + Math.abs(dy) < DRAG_SLOP) return;
+    d.moved = true;
+    const { w, h } = this.viewport;
+    const c = clampDrag(d.start, dx, dy, w, h);
+    d.dx = c.dx;
+    d.dy = c.dy;
+    // Moved with a transform while the finger is down: no re-render per move.
+    if (this.box) this.box.style.transform = `translate(${c.dx}px, ${c.dy}px)`;
+  }
+
+  private onGripUp(e: PointerEvent) {
+    const d = this.drag;
+    if (d === null || e.pointerId !== d.pointerId) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this.endDrag(e.type === "pointerup");
+  }
+
+  /** Finish a drag: drop the chat where it is (`keep`), or snap it back. */
+  private endDrag(keep: boolean) {
+    const d = this.drag;
+    this.drag = null;
+    this.dragging = false;
+    if (d === null) return;
+    try {
+      if (d.grip.hasPointerCapture?.(d.pointerId)) {
+        d.grip.releasePointerCapture(d.pointerId);
+      }
+    } catch {
+      // Already released.
+    }
+    if (keep && d.moved && this.box) {
+      const r = this.box.getBoundingClientRect();
+      const { w, h } = this.viewport;
+      const p = placementFromBox(
+        { left: r.left, top: r.top, width: r.width, height: r.height },
+        w,
+        h,
+      );
+      this.placement = p;
+      this.fitted = null;
+      saveChatPlacement(p);
+    }
+    // The new placement's offsets take over from the drag's transform.
+    if (this.box) this.box.style.transform = "";
+  }
+
+  /** Back to the usual corner, and forget the saved spot. */
+  private resetPlacement() {
+    this.endDrag(false);
+    this.placement = null;
+    this.fitted = null;
+    saveChatPlacement(null);
+  }
+
+  /** The grip's handlers, shared by the folded tab and the open header. */
+  private gripHandlers() {
+    return {
+      down: (e: PointerEvent) => this.onGripDown(e),
+      move: (e: PointerEvent) => this.onGripMove(e),
+      up: (e: PointerEvent) => this.onGripUp(e),
+      dbl: (e: MouseEvent) => {
+        if ((e.target as Element | null)?.closest?.("button") ?? false) return;
+        e.preventDefault();
+        e.stopPropagation();
+        this.resetPlacement();
+      },
+    };
+  }
+
+  private renderGripDots(): TemplateResult {
+    return html`<svg
+      viewBox="0 0 8 14"
+      width="8"
+      height="14"
+      aria-hidden="true"
+      class="fill-current"
+    >
+      <circle cx="2" cy="2" r="1.3" />
+      <circle cx="6" cy="2" r="1.3" />
+      <circle cx="2" cy="7" r="1.3" />
+      <circle cx="6" cy="7" r="1.3" />
+      <circle cx="2" cy="12" r="1.3" />
+      <circle cx="6" cy="12" r="1.3" />
+    </svg>`;
   }
 
   private onScroll() {
@@ -546,8 +746,12 @@ export class ChatDisplay extends LitElement implements Controller {
       .filter((e) => e.kind !== "system" && this.now - e.at < PREVIEW_MS)
       .slice(-PREVIEW_LINES);
     if (recent.length === 0) return html``;
+    // Below a chat parked at the top, newest nearest the button.
+    const below = this.placement?.v === "top";
     return html`<div
-      class="mb-1.5 flex flex-col gap-1 pointer-events-none max-w-[min(360px,calc(100vw-16px))]"
+      class="${below
+        ? "mt-1.5 flex-col-reverse"
+        : "mb-1.5 flex-col"} flex gap-1 pointer-events-none max-w-[min(360px,calc(100vw-16px))]"
     >
       ${recent.map(
         (e) =>
@@ -564,29 +768,48 @@ export class ChatDisplay extends LitElement implements Controller {
     const key = formatKeyForDisplay(
       this.userSettings.keybinds(false).openChat ?? "Enter",
     ).replace(/^Enter$/, "↵");
+    const grip = this.gripHandlers();
     return html`
       ${this.renderPreview()}
-      <button
-        class="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-gray-800/92 backdrop-blur-sm text-white text-sm font-semibold pl-3 pr-3.5 py-1.5 shadow-lg border border-white/10 hover:bg-gray-700/95 transition-colors"
-        @click=${() => this.openAndFocus()}
-        aria-label=${translateText("game_chat.open")}
-        title="${translateText("game_chat.open")} (${key})"
+      <div
+        class="pointer-events-auto inline-flex items-stretch rounded-full bg-gray-800/92 backdrop-blur-sm shadow-lg border border-white/10 text-white"
       >
-        <span aria-hidden="true">💬</span>
-        ${translateText("game_chat.title")}
-        ${this.unread > 0
-          ? html`<span
-              class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[11px] font-bold leading-none"
-              aria-label=${translateText("game_chat.unread", {
-                count: this.unread,
-              })}
-              >${this.unread > 99 ? "99+" : this.unread}</span
-            >`
-          : html`<kbd
-              class="hidden sm:inline text-[10px] font-normal text-white/50 border border-white/20 rounded px-1"
-              >${key}</kbd
-            >`}
-      </button>
+        <span
+          class="chat-grip inline-flex items-center justify-center w-6 pl-1.5 rounded-l-full border-r border-white/10 text-white/45 hover:text-white/80 hover:bg-white/10 touch-none select-none ${this
+            .dragging
+            ? "cursor-grabbing"
+            : "cursor-grab"}"
+          title=${translateText("game_chat.drag")}
+          aria-label=${translateText("game_chat.drag")}
+          @pointerdown=${grip.down}
+          @pointermove=${grip.move}
+          @pointerup=${grip.up}
+          @pointercancel=${grip.up}
+          @dblclick=${grip.dbl}
+          >${this.renderGripDots()}</span
+        >
+        <button
+          class="inline-flex items-center gap-2 rounded-r-full text-sm font-semibold pl-2.5 pr-3.5 py-1.5 hover:bg-gray-700/95 transition-colors"
+          @click=${() => this.openAndFocus()}
+          aria-label=${translateText("game_chat.open")}
+          title="${translateText("game_chat.open")} (${key})"
+        >
+          <span aria-hidden="true">💬</span>
+          ${translateText("game_chat.title")}
+          ${this.unread > 0
+            ? html`<span
+                class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[11px] font-bold leading-none"
+                aria-label=${translateText("game_chat.unread", {
+                  count: this.unread,
+                })}
+                >${this.unread > 99 ? "99+" : this.unread}</span
+              >`
+            : html`<kbd
+                class="hidden sm:inline text-[10px] font-normal text-white/50 border border-white/20 rounded px-1"
+                >${key}</kbd
+              >`}
+        </button>
+      </div>
     `;
   }
 
@@ -594,18 +817,49 @@ export class ChatDisplay extends LitElement implements Controller {
     const ro = this.readOnly();
     const visible = this.entries;
     const len = this.draft.length;
+    const grip = this.gripHandlers();
+    // Room for the lines: the panel never runs off a short screen.
+    const roomBelow =
+      this.placement === null
+        ? `calc(100vh - ${this.bottom}px - 170px)`
+        : "calc(100vh - 160px)";
     return html`
       <div
         class="pointer-events-auto flex flex-col w-[calc(100vw-16px)] sm:w-[360px] rounded-xl bg-gray-800/92 backdrop-blur-sm shadow-2xl border border-white/10 text-white overflow-hidden"
         @click=${() => (this.menuFor = null)}
       >
         <div
-          class="flex items-center gap-2 px-3 py-1.5 bg-black/30 border-b border-white/10"
+          class="chat-grip flex items-center gap-2 pl-2 pr-3 py-1.5 bg-black/30 border-b border-white/10 touch-none select-none ${this
+            .dragging
+            ? "cursor-grabbing"
+            : "cursor-grab"}"
+          title=${translateText("game_chat.drag")}
+          @pointerdown=${grip.down}
+          @pointermove=${grip.move}
+          @pointerup=${grip.up}
+          @pointercancel=${grip.up}
+          @dblclick=${grip.dbl}
         >
+          <span class="text-white/40 inline-flex"
+            >${this.renderGripDots()}</span
+          >
           <span class="font-semibold text-sm"
             >💬 ${translateText("game_chat.title")}</span
           >
           <span class="flex-1"></span>
+          ${this.placement !== null
+            ? html`<button
+                class="chat-reset w-6 h-6 inline-flex items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/10"
+                @click=${(ev: Event) => {
+                  ev.stopPropagation();
+                  this.resetPlacement();
+                }}
+                title=${translateText("game_chat.reset_position")}
+                aria-label=${translateText("game_chat.reset_position")}
+              >
+                ↺
+              </button>`
+            : nothing}
           <button
             class="text-xs px-2 py-0.5 rounded-full border ${this.aiOn
               ? "border-sky-300/40 bg-sky-400/20 text-sky-100"
@@ -628,7 +882,7 @@ export class ChatDisplay extends LitElement implements Controller {
         </div>
         <div
           class="chat-scroll overflow-y-auto py-1 min-h-[72px]"
-          style="max-height: min(38vh, calc(100vh - ${this.bottom}px - 170px))"
+          style="max-height: min(38vh, ${roomBelow})"
           @scroll=${() => this.onScroll()}
         >
           ${visible.length === 0
@@ -709,12 +963,30 @@ export class ChatDisplay extends LitElement implements Controller {
 
   render() {
     if (!this.game) return html``;
+    const body = this.open ? this.renderOpen() : this.renderCollapsed();
+    if (this.placement === null) {
+      return html`
+        <div
+          class="chat-box fixed left-2 sm:left-3 z-[205] flex flex-col items-start pointer-events-none"
+          style="bottom: calc(${this.bottom}px + env(safe-area-inset-bottom))"
+        >
+          ${body}
+        </div>
+      `;
+    }
+    // A placed chat grows away from the edges it hugs: down from the top,
+    // up from the bottom, left from the right.
+    const o =
+      this.fitted ??
+      scaledOffsets(this.placement, this.viewport.w, this.viewport.h);
+    const column = o.v === "top" ? "flex-col-reverse" : "flex-col";
+    const align = o.h === "left" ? "items-start" : "items-end";
     return html`
       <div
-        class="fixed left-2 sm:left-3 z-[205] flex flex-col items-start pointer-events-none"
-        style="bottom: calc(${this.bottom}px + env(safe-area-inset-bottom))"
+        class="chat-box fixed z-[205] flex ${column} ${align} pointer-events-none"
+        style="${o.h}: ${o.x}px; ${o.v}: ${o.y}px"
       >
-        ${this.open ? this.renderOpen() : this.renderCollapsed()}
+        ${body}
       </div>
     `;
   }
