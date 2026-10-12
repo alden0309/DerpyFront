@@ -61,6 +61,7 @@ import { joinMovement, movementOf, recruitInto } from "./Movements";
 import { handOf, hireCheck, hireHand } from "./Property";
 // SOCIETY (r11)
 import { isBound } from "./BondCore"; // LABOUR (r15)
+import { flatterLine, sayOrWrite, sayTalk, talkLine } from "./Chatter"; // CHAMBER (r16)
 import { addSettler, settleAcceptance, settleCheck } from "./Founding";
 import { ADULT_AGE, betrothalOf } from "./IntrigueCore"; // INTRIGUE (r15)
 import {
@@ -1151,29 +1152,37 @@ export function doInteraction(
       // SOCIETY (r11): no tongue in common, so it goes by signs.
       if (view.tongue && view.tongue.level === 0) {
         remembers(g, life, c, "Good company", 1, 1);
-        journal(g, life, signTalk(g, c));
+        sayTalk(g, life, c, signTalk(g, c), first); // CHAMBER (r16)
         return null;
       }
       remembers(g, life, c, "Good company", 3, 1);
-      journal(g, life, smallTalk(g, life, c, first));
+      // CHAMBER (r16): news first, larger pools; small talk with the same
+      // person goes in the journal only the first few times a year.
+      sayTalk(g, life, c, smallTalk(g, life, c, first), first);
       return null;
     }
     case "flatter":
       gainXp(g, life, "persuasion", 5);
+      // CHAMBER (r16): lines from larger pools; praise that landed is
+      // written down the first few times a year, praise that didn't always.
       if (pass) {
         remembers(g, life, c, "Flattered me", 10, 2);
-        journal(
+        sayOrWrite(
           g,
           life,
-          `${name} colours at your praise, and stands a little taller.`,
+          `flatter:${cId}`,
+          flatterLine(g, life, c, true),
+          false,
           "good",
         );
       } else {
         remembers(g, life, c, "Laid it on thick", -6, 1);
-        journal(
+        sayOrWrite(
           g,
           life,
-          `${name} saw through the flattery, and said so.`,
+          `flatter:${cId}`,
+          flatterLine(g, life, c, false),
+          true,
           "bad",
         );
       }
@@ -1583,15 +1592,7 @@ function smallTalk(
   const op = opinionOf(s, c, life).total;
   const role = c.role ? ROLES[c.role].title.toLowerCase() : null;
   if (first) return `You get to know ${name}${role ? `, the ${role}` : ""}.`;
-  const warm = [
-    `${name} laughs at your story, and tells a better one.`,
-    `You and ${name} put the world to rights for an hour.`,
-    `${name} asks after your family, and remembers their names.`,
-  ];
-  const cool = [
-    `${name} answers in as few words as will do.`,
-    `${name} keeps glancing at the door.`,
-  ];
+  // CHAMBER (r16): the warm and cool lines are in Chatter.ts's larger pools.
   const trade: Partial<Record<string, string>> = {
     innkeeper: `${name} complains about the price of malt and the morals of the excise man.`,
     preacher: `${name} hopes to see you on Sunday, and says it like a threat.`,
@@ -1603,9 +1604,9 @@ function smallTalk(
   };
   const r = g.rng.next();
   if (c.role && trade[c.role] && r < 0.4) return trade[c.role]!;
-  return op >= 10
-    ? warm[Math.floor(r * warm.length)]
-    : cool[Math.floor(r * cool.length)];
+  // CHAMBER (r16): news first, then larger pools, none again within a few
+  // months (the same roll: no new dice).
+  return talkLine(g, life, c, r, op >= 10).text;
 }
 
 /** A wedding: the spouse leaves any post and moves in; a dowry, perhaps. */

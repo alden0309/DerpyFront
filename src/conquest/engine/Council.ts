@@ -15,6 +15,7 @@ import { seatHolderId, seatsOf, seatTitle } from "./CouncilTitles";
 import { diplomacyCommand } from "./Diplomacy";
 import { economyCommand } from "./Economy";
 import { Explain } from "./Explain";
+import { factionLean, factionName, interestOf, markFaction } from "./Factions"; // CHAMBER (r16)
 import type { ConquestGame } from "./Game";
 import { raiseEvent } from "./Hooks";
 import {
@@ -53,6 +54,7 @@ import type {
   Character,
   CouncilMatter,
   CouncilSeat,
+  FactionKey,
   GameState,
   Life,
   MapDef,
@@ -1201,7 +1203,23 @@ export function useSeatAction(
   if (!pass) addStress(g, life, 2);
   else addRenown(g, life, 1);
   journal(g, life, text, pass ? "good" : "bad");
+  laterWork?.(g, n, me.id, key, t, pass, text); // CHAMBER (r16): what it comes to, later
   return null;
+}
+
+/** CHAMBER (r16): work a seat's power sets going, that comes to something later (Later.ts). */
+type LaterFn = (
+  g: ConquestGame,
+  n: number,
+  by: number,
+  key: string,
+  arg: number,
+  pass: boolean,
+  text: string,
+) => void;
+let laterWork: LaterFn | null = null;
+export function registerLaterWork(fn: LaterFn): void {
+  laterWork = fn;
 }
 
 // ---------------------------------------------------------------- measures and votes
@@ -1219,6 +1237,12 @@ export interface MeasureDef {
   /** Only the council's advice on a governor's own decision (not put to a vote). */
   advice?: boolean;
   apply: (g: ConquestGame, n: number, arg: number) => string;
+  /** CHAMBER (r16): which way each faction leans on an aye (it remembers the votes). */
+  cares?: Partial<Record<FactionKey, number>>;
+  /** CHAMBER (r16): what happens if the council throws it out ("" for nothing). */
+  lost?: (g: ConquestGame, n: number, arg: number) => string;
+  /** CHAMBER (r16): its stakes in a line, for this one (a petition's sum and county). */
+  textOf?: (g: { s: GameState; map: MapDef }, n: number, arg: number) => string;
 }
 
 export const MEASURES: Record<string, MeasureDef> = {
@@ -1405,6 +1429,48 @@ export const MEASURES: Record<string, MeasureDef> = {
   },
 };
 
+// CHAMBER (r16): the council's wider business (Docket.ts) joins the measures
+// when it loads, and chooses what the governor brings.
+
+/** Add kinds of measure (Docket.ts). */
+export function registerMeasures(defs: Record<string, MeasureDef>): void {
+  Object.assign(MEASURES, defs);
+}
+
+interface Business {
+  choose: (
+    g: ConquestGame,
+    n: number,
+    roll: number,
+  ) => { key: string; arg: number; by?: number } | null;
+  note: (g: ConquestGame, n: number, key: string, arg: number) => void;
+}
+let business: Business | null = null;
+
+/** The docket that chooses the governor's business and keeps it from repeating (Docket.ts). */
+export function registerBusiness(b: Business): void {
+  business = b;
+}
+
+/** Which way each faction leans on an aye for a kind of measure. */
+export function measureCares(key: string): Partial<Record<FactionKey, number>> {
+  return MEASURES[key]?.cares ?? CARES_OF_OLD[key] ?? {};
+}
+
+/** The factions' leanings on the measures a seat brings (the governor's are in Docket.ts). */
+const CARES_OF_OLD: Record<string, Partial<Record<FactionKey, number>>> = {
+  customs: { court: 1, merchants: -1 },
+  paper: { planters: 2, frontier: 1, merchants: -2 },
+  fort: { frontier: 2, merchants: -1 },
+  presents: { merchants: 1, clergy: 1, frontier: -1 },
+  trade: { merchants: 2, frontier: -1 },
+  taxup: { planters: -2, merchants: -1, frontier: -1 },
+  taxdown: { planters: 2, merchants: 1 },
+  thanksgiving: { clergy: 2, merchants: -1 },
+  grant: { planters: 1, frontier: -1 },
+  remit: { merchants: -1, planters: -1 },
+};
+
 /** How a councillor would vote on a measure, and why. */
 export function councillorVote(
   s: GameState,
@@ -1440,12 +1506,32 @@ export function councillorVote(
             : "";
   }
   if (c === by) return { v: 10, why: "Brought it" };
+  // CHAMBER (r16): their interest, and what their factions remember of whoever brought it.
+  if (nation.kind === "power") {
+    const f = interestOf(s, n, c);
+    const care = measureCares(key)[f] ?? 0;
+    if (care) {
+      v += care;
+      if (Math.abs(care) >= Math.abs(def.lean[seat] ?? 0))
+        why = `${upper(factionName(s, n, f))} ${care > 0 ? "want it" : "are against it"}`;
+    }
+    const lean = factionLean(s, n, c, by);
+    if (Math.abs(lean) >= 1) {
+      v += lean;
+      why ||=
+        lean > 0
+          ? "Their friends think well of whoever brought it"
+          : "Their friends remember whoever brought it";
+    }
+  }
   // A councillor in disfavour sulks.
   const fav = favourOf(s, n, c);
   if (governors) v += (fav - 50) / 25;
   v += hash01(c, key.length, n, Math.floor(s.day / 30)) * 2 - 1;
   return { v: v > 0.2 ? 1 : v < -0.2 ? -1 : 0, why: why || "On the merits" };
 }
+
+const upper = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** The council's advice on a measure: each councillor's vote. */
 export function councilAdvice(
@@ -1490,7 +1576,7 @@ export function putMeasure(
     id: g.nextId(),
     key,
     title: def.title(g, n, arg),
-    text: def.text,
+    text: def.textOf?.(g, n, arg) ?? def.text, // CHAMBER (r16)
     by,
     arg,
     day: s.day,
@@ -1505,6 +1591,7 @@ export function putMeasure(
   }
   if (isPlayed(s, by)) m.votes[by] = 1;
   cab.matters.push(m);
+  business?.note(g, n, key, arg); // CHAMBER (r16): none twice in a year
   cab.matters = cab.matters
     .filter((x) => x.status === "open" || s.day - x.day < 2 * DAYS_PER_YEAR)
     .slice(-12);
@@ -1541,6 +1628,7 @@ export function voteMatter(
     record(g, n, life.c, v > 0 ? 1 : -1);
     if (v < 0) addRenown(g, life, 1);
   }
+  rememberVote(g, n, life.c, m, v); // CHAMBER (r16)
   journal(
     g,
     life,
@@ -1551,6 +1639,42 @@ export function voteMatter(
         : `You abstain on ${m.title}.`,
   );
   return null;
+}
+
+/**
+ * CHAMBER (r16): the factions remember how a player voted: each interest by
+ * how it leans on the measure, the court party by whether it was the
+ * governor's (or by his leaning), the country party by its own.
+ */
+export function rememberVote(
+  g: ConquestGame,
+  n: number,
+  c: number,
+  m: CouncilMatter,
+  v: number,
+): void {
+  const s = g.s;
+  if (!v || s.nations[n]?.kind !== "power") return;
+  const def = MEASURES[m.key];
+  const cab = ensureCabinet(g, n);
+  const side = v > 0 ? 1 : -1;
+  const why = `you voted ${side > 0 ? "for" : "against"} ${lowerFirst(m.title)}`;
+  const fromGov = m.by === s.nations[n].ruler;
+  const cares = measureCares(m.key);
+  const marks: Partial<Record<FactionKey, number>> = {};
+  for (const [f, care] of Object.entries(cares) as [FactionKey, number][])
+    if (f !== "court" && f !== "country" && care) marks[f] = care * 3 * side;
+  const court = fromGov
+    ? side > 0
+      ? 3
+      : -4
+    : Math.sign(def?.gov ?? 0) * 2 * side;
+  const country =
+    Math.sign(def?.country ?? 0) * 2 * side + (fromGov && side < 0 ? 2 : 0);
+  if (court) marks.court = court + (cares.court ?? 0) * side;
+  if (country) marks.country = country + (cares.country ?? 0) * side;
+  for (const [f, dv] of Object.entries(marks) as [FactionKey, number][])
+    markFaction(g, cab, c, f, dv, why);
 }
 
 /** A player's record of votes with (+) and against (−) the governor: it decides their party. */
@@ -1594,9 +1718,13 @@ function decideMatters(g: ConquestGame, n: number): void {
     // The governor signs what the council carries: a player governor
     // brought it or will be asked; the computer signs unless it's against
     // his instructions and the mover is out of favour.
+    let refused = false; // CHAMBER (r16): carried, but the governor won't sign
     if (carried && !fromGov && !govPlayed) {
       const def = MEASURES[m.key];
-      if (def.gov < 0 && favourOf(s, n, m.by) < 60) carried = false;
+      if (def.gov < 0 && favourOf(s, n, m.by) < 60) {
+        carried = false;
+        refused = true;
+      }
     }
     if (carried && !fromGov && govPlayed) {
       const gl = lifeOfChar(s, nation.ruler)!;
@@ -1607,7 +1735,7 @@ function decideMatters(g: ConquestGame, n: number): void {
       m.votes[-1] = 0;
       continue;
     }
-    settleMatter(g, n, m, carried, ayes, noes);
+    settleMatter(g, n, m, carried, ayes, noes, refused);
   }
 }
 
@@ -1622,6 +1750,8 @@ export function settleMatter(
   carried: boolean,
   ayes: number,
   noes: number,
+  /** CHAMBER (r16): the council carried it, and the governor wouldn't sign. */
+  refused = false,
 ): void {
   const s = g.s;
   let text = "";
@@ -1633,11 +1763,12 @@ export function settleMatter(
       undone = true;
       text = out.slice(1);
     } else text = out;
-  }
+  } else if (MEASURES[m.key]?.lost) text = MEASURES[m.key].lost!(g, n, m.arg); // CHAMBER (r16)
   // FIXES (r15): "presents for the Haudenosaunee", not "the haudenosaunee".
   const title = lowerFirst(m.title);
   m.status = carried ? "carried" : "lost";
   if (undone) m.undone = text; // FIXES (r15)
+  if (refused) m.undone = "The governor wouldn't sign it."; // CHAMBER (r16)
   powerChanged(g, `c${n}`);
   for (const { c } of councillors(s, n)) {
     const life = lifeOfChar(s, c);
@@ -1649,7 +1780,9 @@ export function settleMatter(
         ? `The council carries ${title} (${ayes} to ${noes}). ${text}`
         : undone
           ? `The council carries ${title} (${ayes} to ${noes}), but it can't be done: ${lowerFirst(text)}`
-          : `The council throws out ${title} (${noes} against${ayes ? `, ${ayes} for` : ""}).${text ? ` ${text}` : ""}`,
+          : refused
+            ? `The council carries ${title} (${ayes} to ${noes}), but the governor won't sign it.${text ? ` ${text}` : ""}`
+            : `The council throws out ${title} (${noes} against${ayes ? `, ${ayes} for` : ""}).${text ? ` ${text}` : ""}`,
       carried ? "good" : "bad",
     );
   }
@@ -1664,7 +1797,13 @@ export function settleMatter(
           ? `The council carries ${title}, but it can't be done: ${lowerFirst(text)}`
           : `The council throws out ${title}.`,
     );
-  if (carried && m.by !== s.nations[n].ruler) setFavour(g, n, m.by, 3);
+  // CHAMBER (r16): a petitioner who isn't at the table has no favour to win.
+  if (
+    carried &&
+    m.by !== s.nations[n].ruler &&
+    councillors(s, n).some((x) => x.c === m.by)
+  )
+    setFavour(g, n, m.by, 3);
 }
 
 /** A player governor signs (or refuses) what the council carried. */
@@ -2222,7 +2361,7 @@ export function councilMonthly(g: ConquestGame): void {
       r.chance(0.3)
     ) {
       const key = govMeasure(g, n, r.next());
-      if (key) putMeasure(g, n, key.key, key.arg, nation.ruler);
+      if (key) putMeasure(g, n, key.key, key.arg, key.by ?? nation.ruler);
     }
     decideMatters(g, n);
   }
@@ -2233,7 +2372,9 @@ function govMeasure(
   g: ConquestGame,
   n: number,
   roll: number,
-): { key: string; arg: number } | null {
+): { key: string; arg: number; by?: number } | null {
+  // CHAMBER (r16): the docket's wider business, none twice in a year.
+  if (business) return business.choose(g, n, roll);
   const s = g.s;
   const nation = s.nations[n];
   const out: { key: string; arg: number }[] = [];

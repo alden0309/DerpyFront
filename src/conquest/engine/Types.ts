@@ -808,6 +808,8 @@ export interface Life {
   attend?: Attendance | null;
   /** LABOUR (r15): those held in bondage or bound by indenture, and how they're kept. */
   bondage?: Bondage;
+  /** CHAMBER (r16): small talk kept fresh: the lines said lately, the last levee's faces. */
+  chatter?: Chatter;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -2620,6 +2622,16 @@ export interface Cabinet {
   last?: Record<string, number>;
   /** Players' votes with (+) and against (−) the governor: their party. */
   record?: Record<number, number>;
+  /** CHAMBER (r16): each kind of business, the day it last came before the council (none twice in a year). */
+  docket?: Record<string, number>;
+  /** CHAMBER (r16): how each player stands with each faction, and why. */
+  stand?: Record<number, Partial<Record<FactionKey, FactionMark>>>;
+  /** CHAMBER (r16): councillors' work still to come to something, and what it came to lately. */
+  later?: LaterWork[];
+  /** CHAMBER (r16): the assembly's session this year (or last). */
+  session?: HouseSession;
+  /** CHAMBER (r16): the great questions of the last few sessions, newest last. */
+  sessions?: string[];
 }
 
 export type TrialKind =
@@ -4041,4 +4053,85 @@ export interface LabourCommand {
   /** A policy's name, or a kind of work. */
   kind?: string;
   arg?: number;
+}
+
+// ---- CHAMBER (r16)
+// The council's varied business, factions that remember how you voted, the
+// assembly's yearly session, a seat's work that comes to something later,
+// and the small talk of the journal kept fresh.
+
+/** A faction in a colony's politics: the two parties, and four interests. */
+export type FactionKey =
+  | "court"
+  | "country"
+  | "merchants"
+  | "planters"
+  | "frontier"
+  | "clergy";
+
+/** One thing a faction remembers of a player. */
+export interface FactionWhy {
+  /** "voted for presents for the Haudenosaunee". */
+  t: string;
+  v: number;
+  day: number;
+}
+
+/** What a faction thinks of a player: how they stand (−40 to 40), and why (newest last). */
+export interface FactionMark {
+  v: number;
+  why: FactionWhy[];
+}
+
+/** A councillor's work that comes to something later (a road surveyed opens, a mission takes root). */
+export interface LaterWork {
+  id: number;
+  /** The seat power it came of ("survey", "treat"...). */
+  key: string;
+  /** Who did it (a character). */
+  by: number;
+  /** A province, a nation or -1. */
+  arg: number;
+  /** A second place or nation it touches (a road's province, the nation that watches), or -1. */
+  arg2: number;
+  /** When it was done, and when it comes to something. */
+  day: number;
+  due: number;
+  /** Settled when it was done, on the chamber's own dice: whether it turns out well. */
+  good: boolean;
+  /** What it came to, once it has. */
+  text?: string;
+  tone?: "good" | "bad";
+}
+
+/** The assembly's session of a year: its great question and how the house divided. */
+export interface HouseSession {
+  id: number;
+  year: number;
+  /** The question (a key of Session.ts QUESTIONS). */
+  key: string;
+  /** A nation, a province or a person it's about, or -1. */
+  arg: number;
+  opened: number;
+  /** The house divides on this day. */
+  until: number;
+  /** Players' stands: character id → the choice (0, 1, 2), or -1 for standing aside. */
+  stands: Record<number, number>;
+  /** Members a player's speech brought over: character id → members. */
+  swayed: Record<number, number>;
+  /** How the house divided, choice by choice, and which carried (once divided). */
+  votes?: number[];
+  carried?: number;
+  /** What came of it, in a line. */
+  text?: string;
+}
+
+/** A life's small talk kept fresh. */
+export interface Chatter {
+  /** A line's (or a piece of news's) key → the day it was last said. */
+  used: Record<string, number>;
+  /** Lines of each kind written to the journal: kind → [the year, how many]. */
+  n?: Record<string, [number, number]>;
+  /** The faces at the last levee (character ids, sorted). */
+  levee?: number[];
 }
