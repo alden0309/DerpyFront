@@ -83,6 +83,11 @@
 .cq-chair-odds .cq-odds-rows li {
   grid-template-columns: 4.6rem minmax(0, 1fr) auto;
 }
+/* "all but 1 in 33" wraps in its own column rather than running on. */
+.cq-chair-odds .cq-odds-chance {
+  white-space: normal;
+  line-height: 1.2;
+}
 .cq-chair-odds .cq-odds-amt {
   font-size: 0.8rem;
 }
@@ -132,7 +137,7 @@
 
 @media (max-width: 560px) {
   .cq-chair-odds .cq-odds-rows li {
-    grid-template-columns: 3.6rem minmax(0, 1fr);
+    grid-template-columns: 4.4rem minmax(0, 1fr);
   }
   .cq-chair-odds .cq-odds-amt {
     grid-column: 2;
