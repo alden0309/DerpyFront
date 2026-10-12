@@ -280,6 +280,25 @@ describe("dragging the chat", () => {
     expect(where()).toMatchObject({ right: 1440 - 8, bottom: 900 - 8 });
   });
 
+  it("stays on screen when it grows while held", async () => {
+    chat = await mount();
+    pointer(grip(), "pointerdown", 20, 870);
+    pointer(grip(), "pointermove", 1390, 500);
+    expect(where().right).toBe(1440 - 8);
+    // An unread badge turns up mid-drag: the box is wider now.
+    FOLDED.w = 160;
+    try {
+      pointer(grip(), "pointermove", 1420, 500);
+      expect(where().right).toBe(1440 - 8);
+      pointer(grip(), "pointerup", 1420, 500);
+      await settle(chat);
+      expect(where().right).toBe(1440 - 8);
+      expect(saved()).toMatchObject({ h: "right", x: 8 });
+    } finally {
+      FOLDED.w = 120;
+    }
+  });
+
   it("a press that does not move is not a drag", async () => {
     chat = await mount();
     pointer(grip(), "pointerdown", 20, 870);

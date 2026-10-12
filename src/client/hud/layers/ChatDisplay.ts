@@ -533,7 +533,19 @@ export class ChatDisplay extends LitElement implements Controller {
     if (!d.moved && Math.abs(dx) + Math.abs(dy) < DRAG_SLOP) return;
     d.moved = true;
     const { w, h } = this.viewport;
-    const c = clampDrag(d.start, dx, dy, w, h);
+    // The box as it is now, without the drag's transform: it can grow while
+    // held (an unread badge, a new line in the preview).
+    let base = d.start;
+    if (this.box) {
+      const r = this.box.getBoundingClientRect();
+      base = {
+        left: r.left - d.dx,
+        top: r.top - d.dy,
+        width: r.width,
+        height: r.height,
+      };
+    }
+    const c = clampDrag(base, dx, dy, w, h);
     d.dx = c.dx;
     d.dy = c.dy;
     // Moved with a transform while the finger is down: no re-render per move.
