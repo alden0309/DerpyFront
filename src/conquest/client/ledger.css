@@ -1,0 +1,702 @@
+/* LEDGER (r15): money made plain. The coin chip on every button that spends;
+   the month's figure with its luck kept apart; risk and reward before you
+   commit; the ledger page (what's out working, your own news, the month's
+   statements); acres by province; your own news among the world's. */
+
+/* ---------------------------------------------------------------- the coin chip */
+
+.cq-price {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 0.22em;
+  margin-left: 0.4em;
+  padding: 0 0.42em 0 0.3em;
+  height: 1.45em;
+  border: 1px solid rgba(150, 110, 35, 0.45);
+  border-radius: 999px;
+  background: rgba(201, 155, 58, 0.2);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.8em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  vertical-align: 0.05em;
+}
+.cq-price-coin {
+  width: 0.72em;
+  height: 0.72em;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, #f6e08e, #c99b3a 58%, #8a6420);
+  box-shadow: inset 0 0 0 1px rgba(100, 66, 15, 0.45);
+}
+.cq-price .per {
+  font-weight: 400;
+  opacity: 0.8;
+}
+.cq-price.short {
+  border-color: rgba(158, 42, 30, 0.6);
+  background: rgba(158, 42, 30, 0.12);
+  color: var(--seal);
+}
+.cq-price.short .cq-price-coin {
+  filter: grayscale(0.6);
+}
+.cq-price.gain {
+  border-color: rgba(44, 106, 76, 0.45);
+  background: rgba(44, 106, 76, 0.12);
+  color: var(--verdigris);
+}
+/* On a dark (primary) button the chip stays legible. */
+.cq-btn.primary .cq-price,
+.cq-seg > button[aria-pressed="true"] .cq-price,
+.cq-seg > button[aria-checked="true"] .cq-price {
+  border-color: rgba(255, 245, 220, 0.5);
+  background: rgba(255, 245, 220, 0.2);
+  color: inherit;
+}
+.cq-btn.primary .cq-price.short {
+  background: rgba(255, 220, 210, 0.85);
+  color: var(--seal);
+}
+/* A greyed button still shows its price plainly. */
+.cq-btn:disabled .cq-price,
+.cq-act-btn:disabled .cq-price {
+  opacity: 0.95;
+}
+
+/* ---------------------------------------------------------------- the month's figure */
+
+.cq-forecast {
+  border: 1px solid var(--rule);
+  background: rgba(255, 250, 235, 0.45);
+  font-size: 0.86rem;
+}
+.cq-forecast-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.2rem 0.9rem;
+  padding: 0.5rem 0.65rem 0.35rem;
+}
+.cq-forecast h4,
+.cq-forecast-chance h4 {
+  margin: 0 0 0.15rem;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 0.92rem;
+  color: var(--ink-soft);
+}
+.cq-forecast ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cq-forecast li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.1rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-forecast li > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cq-forecast li b,
+.cq-forecast li .cq-range {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.cq-forecast .good {
+  color: var(--verdigris);
+}
+.cq-forecast .bad {
+  color: var(--seal);
+}
+.cq-forecast-chance {
+  padding: 0.35rem 0.65rem 0.4rem;
+  border-top: 1px solid var(--rule);
+  background: rgba(201, 155, 58, 0.07);
+}
+.cq-forecast-chance li > span:first-child::before {
+  content: "~ ";
+  color: var(--brass);
+  font-weight: 700;
+}
+.cq-range {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  margin-left: 0.3rem;
+}
+.cq-forecast-total {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.2rem 1rem;
+  padding: 0.35rem 0.65rem 0.45rem;
+  border-top: 1px solid var(--sepia);
+}
+.cq-forecast-total b {
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 560px) {
+  .cq-forecast-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------- risk and reward */
+
+.cq-odds-panel {
+  margin: 0.4rem 0 0.2rem;
+  padding: 0.45rem 0.6rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--brass);
+  background: rgba(255, 250, 235, 0.55);
+  font-size: 0.85rem;
+}
+.cq-odds-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.15rem 0.6rem;
+  margin: 0 0 0.25rem;
+}
+.cq-odds-head b {
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 0.98rem;
+}
+.cq-odds-net {
+  font-variant-numeric: tabular-nums;
+}
+.cq-odds-net.good {
+  color: var(--verdigris);
+}
+.cq-odds-net.bad {
+  color: var(--seal);
+}
+.cq-odds-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cq-odds-rows li {
+  display: grid;
+  grid-template-columns: 4.6rem 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.08rem 0;
+}
+.cq-odds-chance {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.cq-odds-bar {
+  position: relative;
+  display: block;
+  height: 0.5rem;
+  margin-top: 0.12rem;
+  background: rgba(138, 106, 62, 0.14);
+  border-radius: 2px;
+}
+.cq-odds-bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--brass);
+}
+.cq-odds-rows li.bad .cq-odds-bar > span {
+  background: var(--seal);
+}
+.cq-odds-what {
+  min-width: 0;
+}
+.cq-odds-what small {
+  color: var(--ink-soft);
+}
+.cq-odds-amt {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.cq-odds-rows li.bad .cq-odds-amt {
+  color: var(--seal);
+}
+.cq-odds-risks,
+.cq-odds-factors {
+  margin: 0.3rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--ink-soft);
+}
+.cq-odds-risks li::marker {
+  color: var(--seal);
+}
+.cq-odds-why {
+  margin: 0.2rem 0 0;
+  color: var(--seal);
+  font-style: italic;
+}
+
+/* Every use a boat can be put to, side by side. */
+.cq-uses-table {
+  width: 100%;
+  margin: 0.35rem 0 0.2rem;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+.cq-uses-table th,
+.cq-uses-table td {
+  padding: 0.16rem 0.3rem;
+  border-bottom: 1px dotted var(--rule);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cq-uses-table th:first-child,
+.cq-uses-table td:first-child {
+  text-align: left;
+}
+.cq-uses-table thead th {
+  font-weight: 400;
+  font-family: var(--fell);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.cq-uses-table tr.on td {
+  background: rgba(201, 155, 58, 0.16);
+}
+.cq-uses-table td.good {
+  color: var(--verdigris);
+}
+.cq-uses-table td.bad {
+  color: var(--seal);
+}
+.cq-uses-table td.na {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+@media (max-width: 560px) {
+  .cq-uses-table .wide {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- the ledger page */
+
+.cq-affairs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.cq-affair {
+  display: grid;
+  grid-template-columns: 2.2rem 1fr auto;
+  gap: 0.15rem 0.6rem;
+  align-items: start;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--rule);
+  background: rgba(255, 250, 235, 0.5);
+}
+.cq-affair.warn {
+  border-left: 3px solid var(--seal);
+}
+.cq-affair-icon {
+  width: 2.2rem;
+  height: 2.2rem;
+  color: var(--sepia);
+}
+.cq-affair-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.cq-affair-body {
+  min-width: 0;
+}
+.cq-affair-body b {
+  font-family: var(--fell);
+  font-size: 1rem;
+  font-weight: 400;
+}
+.cq-affair-body p {
+  margin: 0.05rem 0 0;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+.cq-affair-body .cq-why {
+  color: var(--seal);
+}
+.cq-affair-side {
+  text-align: right;
+  font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+}
+.cq-affair-side .cq-chip {
+  margin-bottom: 0.15rem;
+}
+.cq-affair-side small {
+  display: block;
+  color: var(--ink-soft);
+}
+.cq-affair-side .good {
+  color: var(--verdigris);
+}
+.cq-affair-side .bad {
+  color: var(--seal);
+}
+@media (max-width: 560px) {
+  .cq-affair {
+    grid-template-columns: 1.8rem 1fr;
+  }
+  .cq-affair-icon {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+  .cq-affair-side {
+    grid-column: 2;
+    text-align: left;
+  }
+}
+.cq-affairs-sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.88rem;
+}
+.cq-affairs-sum b {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Your own news. */
+.cq-own-news {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.88rem;
+}
+.cq-own-news li {
+  display: grid;
+  grid-template-columns: 5.6rem 1fr;
+  gap: 0.5rem;
+  padding: 0.2rem 0 0.2rem 0.45rem;
+  border-left: 3px solid var(--brass);
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-own-news li.bad {
+  border-left-color: var(--seal);
+}
+.cq-own-news li.good {
+  border-left-color: var(--verdigris);
+}
+.cq-own-news li.fresh {
+  background: rgba(201, 155, 58, 0.14);
+}
+.cq-own-news time {
+  font-family: var(--fell);
+  font-style: italic;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* The month's statements. */
+.cq-statements {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cq-statements > li {
+  border-bottom: 1px solid var(--rule);
+}
+.cq-statements summary {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 0.8rem;
+  align-items: baseline;
+  padding: 0.3rem 0.2rem;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.cq-statements summary span:first-child {
+  font-family: var(--fell);
+}
+.cq-statements summary .good {
+  color: var(--verdigris);
+}
+.cq-statements summary .bad {
+  color: var(--seal);
+}
+.cq-statement {
+  margin: 0.1rem 0 0.6rem;
+  padding: 0.5rem 0.7rem 0.55rem;
+  background: rgba(255, 250, 235, 0.65) var(--paper);
+  border: 1px solid var(--rule);
+  box-shadow: inset 0 0 0 3px rgba(255, 250, 235, 0.6);
+  font-size: 0.86rem;
+}
+.cq-statement h5 {
+  margin: 0.35rem 0 0.1rem;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+.cq-statement table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.cq-statement td {
+  padding: 0.08rem 0.2rem;
+  border-bottom: 1px dotted var(--rule);
+  font-variant-numeric: tabular-nums;
+}
+.cq-statement td:nth-child(n + 2) {
+  text-align: right;
+  white-space: nowrap;
+  width: 4.2rem;
+}
+.cq-statement td.exp {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+.cq-statement td.good {
+  color: var(--verdigris);
+}
+.cq-statement td.bad {
+  color: var(--seal);
+}
+.cq-statement .luck::after {
+  content: " ~";
+  color: var(--brass);
+  font-weight: 700;
+}
+.cq-statement-foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.2rem 1rem;
+  margin-top: 0.4rem;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 560px) {
+  .cq-statements summary {
+    grid-template-columns: 1fr auto;
+  }
+  .cq-statements summary .wide {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- acres */
+
+.cq-acres {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.cq-acres th,
+.cq-acres td {
+  padding: 0.14rem 0.3rem;
+  text-align: left;
+}
+.cq-acres td:last-child,
+.cq-acres th:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cq-acres tbody th {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 0.98rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 0.3rem;
+}
+.cq-acres td:first-child {
+  padding-left: 1.1rem;
+  color: var(--ink-soft);
+}
+.cq-acres tr.sub td {
+  border-top: 1px dotted var(--rule);
+  font-weight: 700;
+  color: var(--ink);
+}
+.cq-acres tfoot td {
+  border-top: 2px double var(--sepia);
+  padding-top: 0.3rem;
+  font-family: var(--fell-sc);
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------- your own news among the world's */
+
+.cq-toast.affair {
+  border-left-width: 6px;
+  border-left-color: var(--brass);
+  background:
+    linear-gradient(90deg, rgba(201, 155, 58, 0.16), transparent 40%),
+    var(--vellum) var(--paper);
+  font-family: var(--fell);
+  font-size: 1rem;
+}
+.cq-toast.affair.bad {
+  border-left-color: var(--seal);
+}
+.cq-toast.affair.good {
+  border-left-color: var(--verdigris);
+}
+.cq-toast-kind {
+  display: block;
+  margin-bottom: 0.08rem;
+  font-family: var(--fell-sc);
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+.cq-log li.affair {
+  border-left: 3px solid var(--brass);
+  background: rgba(201, 155, 58, 0.1);
+  font-family: var(--fell);
+}
+.cq-log li.affair.bad {
+  border-left-color: var(--seal);
+}
+.cq-log li.affair.good {
+  border-left-color: var(--verdigris);
+}
+.cq-log-filter {
+  display: inline-flex;
+  margin-left: auto;
+  margin-right: 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  overflow: hidden;
+  font-family: var(--sans);
+  font-size: 0.74rem;
+}
+.cq-log-filter button {
+  border: 0;
+  border-right: 1px solid var(--rule);
+  background: transparent;
+  padding: 0.1rem 0.45rem;
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+.cq-log-filter button:last-child {
+  border-right: 0;
+}
+.cq-log-filter button[aria-pressed="true"] {
+  background: var(--nation);
+  color: var(--nation-ink);
+}
+.cq-log-filter .cq-count {
+  position: static;
+  margin-left: 0.2rem;
+}
+
+/* Your own affairs in the diary. */
+.cq-journal li.affair {
+  border-left: 3px solid var(--brass);
+  padding-left: 0.45rem;
+  background: rgba(201, 155, 58, 0.08);
+}
+.cq-journal li.affair.good {
+  border-left-color: var(--verdigris);
+}
+.cq-journal li.affair.bad {
+  border-left-color: var(--seal);
+}
+
+/* What someone for hire, or a boat, would bring: under the name. */
+.cq-hire-worth,
+.cq-boat-worth {
+  display: block;
+  margin: 0.1rem 0 0;
+  color: var(--ink-soft);
+}
+.cq-boat-worth b {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* LEDGER (r15): fixes from the first screenshots. */
+.cq-forecast li.luck {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+}
+.cq-forecast li.luck .cq-range {
+  margin: 0;
+  text-align: right;
+}
+.cq-forecast li.luck b,
+.cq-forecast li.luck .cq-num {
+  min-width: 3.4rem;
+  text-align: right;
+}
+.cq-acres tbody th[colspan] {
+  text-align: left;
+}
+.cq-uses-table {
+  table-layout: auto;
+}
+.cq-uses-table td.wide,
+.cq-uses-table th.wide {
+  white-space: normal;
+  text-align: left;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  padding-left: 0.6rem;
+}
+.cq-odds-head b {
+  font-family: inherit;
+  font-size: inherit;
+}
+.cq-odds-head > b:first-child {
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 0.98rem;
+}
+.cq-stmt-head td {
+  border-bottom: 0;
+  font-style: italic;
+}
+/* The coin chip in a thing-to-do button: beside the label, before the odds. */
+.cq-act-btn {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.cq-act-btn > .cq-price {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  justify-self: end;
+  margin-left: 0;
+}
+.cq-act-btn > .cq-odds,
+.cq-act-btn > .cq-verdict-chip {
+  grid-column: 3;
+}
+.cq-lv-boatcard {
+  overflow: hidden;
+}
+/* A notice of your own affairs: its kind on a line above the words. */
+.cq-toast.affair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 0.6rem;
+  text-align: left;
+}
+.cq-toast.affair .cq-toast-kind {
+  grid-column: 1 / -1;
+}

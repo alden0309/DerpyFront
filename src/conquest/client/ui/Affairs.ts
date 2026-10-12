@@ -20,7 +20,6 @@ import {
   isChildLife,
   jobTitle,
   lifeIsNative,
-  monthlyBudget,
   officesOf,
   opinionOf,
   promotionView,
@@ -119,6 +118,7 @@ import {
   provLink,
   section,
 } from "./Context";
+import { forecastBlock } from "./Ledger"; // LEDGER (r15)
 import { tradesLink, workNotes } from "./Livelihood";
 import { term } from "./Terms";
 
@@ -862,20 +862,10 @@ export function purseSection(ui: GameUi): TemplateResult | typeof nothing {
   if (isChildLife(s, life)) return nothing;
   const st = stationOf(s, life);
   const b = beneathStation(s, life);
-  const budget = monthlyBudget(s, ui.w, life);
-  const ins = budget.parts.filter((p) => !p.mul && p.value > 0);
-  const outs = budget.parts.filter((p) => !p.mul && p.value < 0);
   const kit = KIT_KEYS.filter((k) => hasKit(s, life, k));
   const ventures = life.ventures ?? [];
   const native = lifeIsNative(s, life);
   const could = life.purse >= 2 * livingOf(native, st.expected).cost;
-  const line = (p: { label: string; value: number }) =>
-    html`<li>
-      <span>${p.label}</span
-      ><b class=${p.value >= 0 ? "good" : "bad"}
-        >${p.value >= 0 ? "+" : "−"}${Math.abs(p.value).toFixed(1)}</b
-      >
-    </li>`;
   return section(
     "Purse and standing",
     html`<div class="cq-station">
@@ -912,24 +902,7 @@ export function purseSection(ui: GameUi): TemplateResult | typeof nothing {
               : "Beneath your station, but money's short: people pity you rather than talk."}
         </p>
       </div>
-      <div class="cq-ledger">
-        <ul aria-label="Coming in">
-          ${ins.length
-            ? ins.map(line)
-            : html`<li class="cq-muted"><span>Nothing coming in</span></li>`}
-        </ul>
-        <ul aria-label="Going out">
-          ${outs.map(line)}
-        </ul>
-        <p class="cq-ledger-total">
-          A month, all told:
-          <b class=${budget.total >= 0 ? "good" : "bad"}
-            >${budget.total >= 0 ? "+" : "−"}${Math.abs(budget.total).toFixed(
-              1,
-            )}</b
-          >
-        </p>
-      </div>
+      ${forecastBlock(ui)}
       ${kit.length
         ? html`<h4 class="cq-int-group">What you keep</h4>
             <ul class="cq-kit">

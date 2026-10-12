@@ -19,6 +19,7 @@ import {
 import { isMonthStart } from "./Calendar";
 import {
   followerSkill,
+  peopleOf,
   SIGNING,
   TRADE_LUCK,
   TRADE_TRIP,
@@ -81,7 +82,10 @@ export function chanceWords(p: number): string {
       if (Math.abs(p - a / b) < 0.006) return `${a} in ${b}`;
   if (p < 0.25) return `1 in ${Math.max(2, Math.round(1 / p))}`;
   if (p > 0.9) return `all but 1 in ${Math.round(1 / (1 - p))}`;
-  return `${Math.round(p * 20)} in 20`;
+  const n = Math.round(p * 20);
+  for (const d of [2, 4, 5, 10])
+    if (n % (20 / d) === 0) return `${n / (20 / d)} in ${d}`;
+  return `${n} in 20`;
 }
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -135,9 +139,17 @@ export function boatJobOdds(
   const map = w.map;
   const prov = map.provinces[b.prov];
   const crew = o.crew ?? b.crew;
-  const costMonth = r1(def.upkeep + crew * CREW_WAGE);
-  const hire = Math.max(0, crew - b.crew) * CREW_BOUNTY;
   const m = boatMaster(s, life, b);
+  // Her skipper's wages are part of what she costs a month.
+  const skipper = peopleOf(life).find(
+    (f) => f.task?.kind === "boat" && f.task.boat === b.id,
+  );
+  const costMonth = r1(
+    def.upkeep +
+      crew * CREW_WAGE +
+      (o.skill === undefined ? (skipper?.wage ?? 0) : 0),
+  );
+  const hire = Math.max(0, crew - b.crew) * CREW_BOUNTY;
   const skill = o.skill ?? m?.skill ?? skillLevel(s, life, "seamanship");
   const knack = boatKnack(skill);
   const day = o.day ?? nextTurn(s.day);
@@ -156,6 +168,9 @@ export function boatJobOdds(
           : `your seamanship ${skill}`;
   const factors = [
     `Her master: ${who}, ×${r2(knack)} on what she brings in (×0.7 with none, ×1.5 at 20).`,
+    ...(skipper && o.skill === undefined
+      ? [`Her skipper's wages, ${skipper.wage} a month, are in what she costs.`]
+      : []),
   ];
   const risks: OddsView["risks"] = [
     {

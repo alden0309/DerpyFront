@@ -244,7 +244,7 @@ export function ledgerParts(s: GameState, life: Life, w?: World): Part[] {
       const t = tradeFlow(s, f);
       out.push({
         key: t.key,
-        label: `${t.label} (${f.task.stake} out; a trip ${o.lo} to +${o.hi})`,
+        label: `${t.label}, ${f.task.stake} out (a trip: ${o.lo} to +${o.hi})`,
         value: tripPerMonth(o),
         chance: [o.lo, o.hi],
       });

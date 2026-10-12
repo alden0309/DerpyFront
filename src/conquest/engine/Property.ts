@@ -721,9 +721,10 @@ export function propertyFlow(
       chance: true,
       aff: "property",
     };
+  const name = pr.name.replace(/^\w/, (m) => m.toUpperCase());
   return {
     key: `p:${pr.id}`,
-    label: `${pr.name}${pr.let ? " (let)" : pr.leased ? " (rented)" : ""} at ${at}`,
+    label: `${name}${pr.let ? " (let)" : pr.leased ? " (rented)" : ""} at ${at}`,
   };
 }
 

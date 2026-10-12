@@ -90,6 +90,7 @@ import {
 import { firmTag, partnerPart } from "./Partners"; // PARTNERS (r13)
 import { playersHere, playerTag } from "./Players"; // HOME (r12)
 import { powerParts } from "./PowerParts"; // POWER (r12)
+import { price, splitPrice } from "./Price"; // LEDGER (r15)
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 import { TERMS } from "./Terms";
@@ -865,8 +866,10 @@ export function actButton(o: {
   odds?: TemplateResult | typeof nothing;
   cls?: string;
   title?: string;
-  /** What it costs, shown on the button (when the label doesn't say). */
+  /** What it costs, shown on the button (LEDGER r15: the shared coin chip). */
   cost?: number;
+  /** LEDGER (r15): your purse, so a cost you can't meet shows red. */
+  have?: number;
 }): TemplateResult {
   return html`<button
     class="cq-act-btn ${o.cls ?? ""} ${o.why ? "has-why" : ""}"
@@ -875,9 +878,7 @@ export function actButton(o: {
     @click=${o.run}
   >
     <span class="cq-act-label">${o.label}</span>${o.cost
-      ? html`<span class="cq-act-cost" title="Costs ${o.cost} coins"
-          >${o.cost}</span
-        >`
+      ? price(o.cost, { have: o.have })
       : nothing}${o.odds ?? nothing}
     <span class="cq-act-why">${o.why ?? ""}</span>
   </button>`;
@@ -1032,7 +1033,9 @@ function workBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
         : nothing}
       ${next?.buy && buy
         ? actButton({
-            label: `Buy ${next.buy.what} (${next.buy.cost})`,
+            label: `Buy ${next.buy.what}`,
+            cost: next.buy.cost, // LEDGER (r15)
+            have: life.purse,
             ok: buy.ok,
             cls: buy.ok ? "lit" : "",
             why: buy.ok ? null : buy.why,
@@ -1041,7 +1044,9 @@ function workBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
         : nothing}
       ${biz && ex
         ? actButton({
-            label: `Grow the ${biz.name}${EXPAND_COST[biz.level] !== undefined ? ` (${EXPAND_COST[biz.level]})` : ""}`,
+            label: `Grow the ${biz.name}`,
+            cost: EXPAND_COST[biz.level], // LEDGER (r15)
+            have: life.purse,
             ok: ex.ok,
             why: ex.ok ? null : ex.why,
             run: async () => {
@@ -1211,13 +1216,14 @@ function actsBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
   for (const { a, check } of acts)
     buttons.set(a.key, () => {
       const o = actOdds(s, life, a.key);
-      const label = actLabel(s, life, a);
+      // LEDGER (r15): the cost goes in its chip, not the words.
+      const { text: label, cost } = splitPrice(actLabel(s, life, a));
       return actButton({
         label,
         ok: check.ok,
         odds: odds(o),
-        // The cost on the button, when the label doesn't say it already.
-        cost: a.cost && !/\(\d/.test(label) ? a.cost : undefined,
+        cost: cost ?? a.cost ?? undefined,
+        have: life.purse,
         why: check.ok ? null : check.why,
         title: check.ok ? a.text : `${check.why} ${a.text}`,
         run: () => runAct(ui, area, a.key),

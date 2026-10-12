@@ -53,6 +53,8 @@ import { lifeOf, map, plan, prov, world } from "./LifeUtil";
 
 const NORTH = prov("Massachusetts Bay");
 
+const last = <T>(a: T[]): T => a[a.length - 1];
+
 /** A clerk in a northern port with a purse to spend. */
 function merchant(seed = 5, purse = 900): { g: ConquestGame; life: Life } {
   const g = world({
@@ -182,7 +184,7 @@ describe("the month's figure", () => {
       g.tick();
       if (shape(life) !== was || life.watching) continue;
       checked++;
-      const st = life.statements!.at(-1)!;
+      const st = last(life.statements!);
       const turn = st.lines.filter((l) => l.t);
       // Every coin of the turn is named, and forecast.
       for (const l of turn) {
@@ -280,8 +282,7 @@ describe("the month's figure", () => {
     const line = f.lines.find((l) => l.key === `p:${pr.id}`)!;
     expect(line.parts!.some((p) => p.label.startsWith("Takings"))).toBe(true);
     g.tick();
-    const got = life
-      .statements!.at(-1)!
+    const got = last(life.statements!)
       .lines.filter((l) => l.t && l.k === `p:${pr.id}`)
       .reduce((a, l) => a + l.v, 0);
     expect(got).toBeCloseTo(line.value, 1);
@@ -503,13 +504,13 @@ describe("the month's books and statements", () => {
     // What was bought went under the command's name.
     expect(mid.some((l) => l.k === "cmd:boat" && l.v < 0)).toBe(true);
     g.tick();
-    const st = life.statements!.at(-1)!;
+    const st = last(life.statements!);
     expect(st.open).toBe(open);
     const sum = st.lines.reduce((m, l) => m + l.v, 0);
     expect(st.close - st.open).toBeCloseTo(sum, 2);
     expect(st.expected).toBeDefined();
     // The statement is news of your own affairs.
-    const note = life.journal.at(-1)!;
+    const note = last(life.journal);
     expect(note.aff).toBe("statement");
     expect(note.text).toMatch(/month's accounts/);
     // A fresh month's books.
@@ -529,7 +530,7 @@ describe("the month's books and statements", () => {
     const lines = life.books!.lines;
     expect(lines.find((l) => l.k === "x:1")?.v).toBe(4);
     expect(lines.find((l) => l.k === "x:2")?.c).toBe(1);
-    expect(life.journal.at(-1)!.aff).toBe("boat");
+    expect(last(life.journal).aff).toBe("boat");
     const was = setFlow(g, { key: "y", label: "Y" });
     earn(g, life, 1);
     setFlow(g, was);

@@ -789,11 +789,16 @@ export function promoteFollower(
   return null;
 }
 
+/** LEDGER (r15): what a bonus costs (a coin or two over their wages). */
+export function bonusCost(f: Follower): number {
+  return Math.max(2, Math.round(f.wage || 3));
+}
+
 /** A coin or two over their wages: loyalty bought, honestly. */
 export function bonus(g: ConquestGame, life: Life, id: number): string | null {
   const f = peopleOf(life).find((x) => x.id === id);
   if (!f) return "Not one of your people.";
-  const cost = Math.max(2, Math.round(f.wage || 3));
+  const cost = bonusCost(f);
   if (life.purse < cost) return `Costs ${cost} coins.`;
   if ((life.cooldowns[`people:bonus:${id}`] ?? 0) > g.s.day)
     return "You gave them something lately.";
