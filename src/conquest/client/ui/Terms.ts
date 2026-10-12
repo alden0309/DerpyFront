@@ -185,6 +185,47 @@ export const TERMS: Record<string, Term> = {
       "Count your own ones with the face you bid. Four of five dice hidden? Expect about a third of them to count.",
     ch: "dice",
   },
+  // SEA (r15): Cruises.ts, CruiseData.ts, Privateers.ts, Storms.ts
+  articles: {
+    name: "Articles",
+    what: "The agreement a ship's company signs before a cruise: the shares of every prize, by rank (a privateer's captain has 4 parts, an officer 2, a hand 1; pirates share more evenly: 2, 1½ and 1).",
+    good: "Signing puts you aboard: you sail with her on the map, and are paid your parts when her prizes are sold.",
+    raise:
+      "Sign at the quay where a ship is fitting out (Work › At sea). Seamanship and a name get you a better berth: an officer's needs seamanship 7, a captain's 10 and renown, or a pirate's name.",
+    ch: "sea",
+  },
+  marque: {
+    name: "Letter of marque",
+    what: "A governor's commission to take the enemy's ships as prizes, granted only while the colony is at war. It's what makes a privateer not a pirate.",
+    good: "Prizes taken under it are condemned by the prize court and sold lawfully; it lapses with the peace.",
+    raise:
+      "Take one out for your own boat at a port of a colony at war (the fees are on the button), or get up a privateering company. Take a ship it doesn't cover (a neutral, or your own nation's) and you're a pirate.",
+    ch: "sea",
+  },
+  "prize-court": {
+    name: "The prize court",
+    what: "The vice-admiralty court at home that condemns a privateer's prizes as lawful and sells them. Its fees and the Crown's part take 15 in a hundred.",
+    good: "Of what's left, half goes to her owners and half to her company by their parts. Pirates have no court: a fence pays 30 to 60 in a hundred, best at a pirates' haven.",
+    raise:
+      "Send prizes in with a prize crew (all her worth, if she isn't retaken) or carry off her plunder (a third, but sure).",
+    ch: "sea",
+  },
+  "privateer-company": {
+    name: "Privateering company",
+    what: "A partnership of owners who fit out a privateer: a ship, her letter of marque, and her cruises, with shares by what each put in.",
+    good: "The owners have half of what the prize court condemns, paid out at once by share. Players can sail in her as captain or officers.",
+    raise:
+      "In wartime, at a port of a colony at war: Work › At sea, Get up a company. Ask other players by letter; the town's merchants take up the rest.",
+    ch: "sea",
+  },
+  hurricane: {
+    name: "Hurricane",
+    what: "A great storm out of the tropical sea, June to November (worst in August and September), moving 300 to 600 km a day across the map.",
+    good: "Ships in its path are battered, blown off course or lost; towns it strikes lose roofs, crops, ships in harbour and people, and prices rise after.",
+    raise:
+      "Watch for the signs a day or two ahead (a long swell, a falling glass, a red sky): batten down ashore, or run for a harbour at sea.",
+    ch: "sea",
+  },
   dicepot: {
     name: "The pot",
     what: "Everyone's stake at a table of Liar's dice, put in when they sit down.",

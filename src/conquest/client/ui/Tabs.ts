@@ -83,6 +83,7 @@ import {
   lettersPage,
   tonguesSection,
 } from "./Society";
+import { seaPage } from "./SeaPage"; // SEA (r15)
 import { term, termMark } from "./Terms";
 import { peopleTab } from "./World";
 import { fogOfUi } from "./WorldUi";
@@ -288,6 +289,8 @@ function workPage(ui: GameUi, sub: string): TemplateResult {
     }
     case "law":
       return lawPage(ui);
+    case "sea": // SEA (r15)
+      return seaPage(ui);
     default: {
       const army = armySection(ui);
       return html`${pageHead(

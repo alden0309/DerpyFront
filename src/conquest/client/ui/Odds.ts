@@ -22,6 +22,8 @@ const pct = (p: number) =>
 /** An outcome's amount: "+40 to +70", "nothing", "−50". */
 function amount(lo: number, hi: number, trip: boolean, stake: number): string {
   if (trip) {
+    // SEA (r15): a range (a cruise's prizes), net of what was put in.
+    if (lo !== hi) return `${signed(lo - stake)} to ${signed(hi - stake)}`;
     const net = lo - stake;
     return net === 0 ? "your stake back" : signed(net);
   }

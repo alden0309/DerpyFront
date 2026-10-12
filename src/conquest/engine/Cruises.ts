@@ -816,6 +816,50 @@ export function ownCruiseCheck(
   return yes;
 }
 
+/** Your own boat on a cruise, you in command: the odds, from the same table she'd sail by. */
+export function ownCruiseOdds(
+  s: GameState,
+  w: World,
+  life: Life,
+  boatId: number,
+  ground: string,
+  long: boolean,
+  pirate: boolean,
+): OddsView | null {
+  const b = (life.boats ?? []).find((x) => x.id === boatId);
+  const gd = GROUND_BY_KEY.get(ground);
+  if (!b || !gd) return null;
+  const passage = Math.max(0, daysTo(w.map, b.prov, gd, b.kind));
+  const hunt = long ? CRUISE.hunt.long : CRUISE.hunt.short;
+  const flag: CruiseFlag = pirate ? "pirate" : "privateer";
+  const nation = pirate ? (meOf(s, life)?.nation ?? -1) : (b.marque?.nation ?? meOf(s, life)?.nation ?? -1);
+  const foes = enemiesOf(s, nation);
+  return cruiseOdds(s, {
+    plan: {
+      flag,
+      nation,
+      kind: b.kind,
+      guns: BOATS[b.kind].guns,
+      hull: b.condition,
+      ground,
+      hunt,
+      sea: skillLevel(s, life, "seamanship"),
+      fight: skillLevel(s, life, "fighting"),
+      lead: skillLevel(s, life, "leadership"),
+      war: foes.size > 0,
+      lawful: (n) => pirate || foes.has(n),
+      flags: groundFlags(s, gd),
+    },
+    role: "captain",
+    others: [],
+    owner: 1,
+    fence: pirate ? fenceAt(s, w.map, b.prov, life).rate : 1,
+    passage: passage * 2,
+    outfit: ownOutfit(b.kind, pirate, hunt, passage),
+    title: `The ${b.name}, ${pirate ? "on the account" : "privateering"} ${gd.name}`,
+  });
+}
+
 /** Victuals and powder for your own boat's company, for a cruise of so many days. */
 export function ownOutfit(
   kind: BoatKind,

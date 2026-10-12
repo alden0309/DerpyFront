@@ -32,5 +32,6 @@ import "./home.css";
 import "./ledger.css"; // LEDGER (r15): money made plain
 import "./partners.css"; // PARTNERS (r13): partnerships
 import "./schooling.css"; // EDU (r13): school, apprenticeship, college
+import "./sea.css"; // SEA (r15): at sea, the privateering company, hurricanes
 
 document.body.appendChild(document.createElement("conquest-app"));

@@ -1,0 +1,108 @@
+/* SEA (r15): Work › At sea. A cruise's card is a page of a ship's log: blue
+   ruled paper with a sea-blue edge (a pirate's edge is black), the prizes
+   in a list like a muster, the log in iron-gall ink. */
+
+.cq-sea-card {
+  margin: 0.6rem 0;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--sepia);
+  border-left: 4px solid #2a5aa8;
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0 1.38rem,
+      rgba(42, 90, 168, 0.07) 1.38rem 1.45rem
+    ),
+    linear-gradient(180deg, rgba(232, 242, 246, 0.65), rgba(255, 250, 235, 0.55));
+}
+.cq-sea-card.pirate {
+  border-left-color: #1d1712;
+}
+.cq-sea-card.company {
+  border-left-color: var(--brass);
+}
+.cq-sea-card.open {
+  border-style: dashed;
+  border-left-style: solid;
+}
+.cq-sea-card > p {
+  margin: 0.35rem 0;
+}
+.cq-sea-alert {
+  margin: 0.35rem 0;
+  padding: 0.25rem 0.5rem;
+  border-left: 3px solid var(--seal);
+  background: rgba(158, 42, 30, 0.08);
+  font-weight: 700;
+}
+.cq-sea-prizes {
+  list-style: none;
+  margin: 0.35rem 0;
+  padding: 0;
+  font-size: 0.85rem;
+}
+.cq-sea-prizes > li {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-sea-prize-name {
+  font-family: var(--fell);
+  min-width: 0;
+}
+.cq-sea-prize-val {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cq-sea-log {
+  margin: 0.25rem 0 0;
+  padding-left: 1.2rem;
+  font-family: var(--fell);
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+.cq-sea-log > li {
+  margin: 0.1rem 0;
+}
+.cq-sea-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  margin: 0.45rem 0;
+}
+.cq-sea-pick .cq-seg {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.cq-sea-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.35rem 0;
+}
+.cq-sea-name input {
+  flex: 0 1 14rem;
+  min-width: 0;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--vellum);
+}
+.cq-sea-storms {
+  margin: 0.3rem 0;
+  padding-left: 1.2rem;
+  font-size: 0.9rem;
+}
+@media (max-width: 520px) {
+  .cq-sea-prizes > li {
+    grid-template-columns: 1fr auto;
+  }
+  .cq-sea-prize-val {
+    grid-column: 1 / -1;
+    color: var(--ink-soft);
+  }
+}
