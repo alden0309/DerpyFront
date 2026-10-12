@@ -71,6 +71,7 @@ import {
 import { armyPanel } from "./ui/ArmyPanel";
 import { battleDispatch, myBattleNation } from "./ui/Battle";
 import { breakdownTip, DrawerView, GameUi, Modal, token } from "./ui/Context";
+import { noteDiceActs } from "./ui/DiceLog"; // FIXES (r15)
 import { diceTrayItem, onDiceClock } from "./ui/DiceTable"; // DICE (r14)
 import { resetFinder } from "./ui/Finder";
 import { herePanel, provincePage } from "./ui/Here";
@@ -521,6 +522,7 @@ export class GameView extends LitElement {
         const wasWatching = before?.watching ?? true;
         const talkFrom = this.s.day;
         applyDelta(this.s, m.d);
+        if (m.d.dice) noteDiceActs(this.s); // FIXES (r15): the tables' whole story
         this.dayAt = performance.now();
         for (const e of m.d.events ?? []) this.onEvent(e, where, inArmy);
         // Wave 2 (r11): the talk that reached you today.

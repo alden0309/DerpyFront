@@ -1092,3 +1092,178 @@
 .cq-dice.still .cq-dice-spot .cq-dice-cupart.lift {
   display: none;
 }
+
+/* ===== FIXES (r15): the order of play, and the table's log =====
+   Everyone at the table (you too) sits in the row in the order they bid:
+   a brass number on each, an arrow to the next, a gold "to bid" on whose
+   turn it is and "opens next" on who opens the next round after a call.
+   The log keeps the whole table's story, oldest at the top. */
+
+.cq-dice-order {
+  position: absolute;
+  top: -0.35rem;
+  left: calc(50% - 3.15rem);
+  z-index: 3;
+  width: 1.45rem;
+  height: 1.45rem;
+  display: grid;
+  place-items: center;
+  font-family: var(--fell-sc);
+  font-size: 0.86rem;
+  line-height: 1;
+  color: #2b1d12;
+  background: radial-gradient(circle at 35% 30%, #fbecc0, #d9b45a 72%);
+  border: 1px solid #7a5418;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.55);
+}
+.cq-dice-seat.turn .cq-dice-order {
+  background: radial-gradient(circle at 35% 30%, #fff6d6, #f0d27a 70%);
+  box-shadow:
+    0 0 0 2px rgba(240, 210, 122, 0.55),
+    0 0 12px 3px rgba(240, 200, 110, 0.8);
+}
+.cq-dice-seat.out .cq-dice-order,
+.cq-dice-seat.gone .cq-dice-order {
+  opacity: 0.5;
+  filter: grayscale(0.7);
+}
+/* The arrow to the next seat, in the gap between them. */
+.cq-dice-next {
+  position: absolute;
+  top: 50%;
+  right: -0.25rem;
+  z-index: 3;
+  translate: 50% -55%;
+  font-family: var(--fell);
+  font-size: 1.9rem;
+  line-height: 1;
+  color: #e9c766;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+.cq-dice-turn.opens {
+  color: #2b1d12;
+  background: linear-gradient(#f4ecd6, #cdbb92);
+  border-color: #7a6440;
+}
+.cq-dice-seat.opens .cq-dice-likeness {
+  box-shadow:
+    0 0 0 3px #e2d2a6,
+    0 0 16px 4px rgba(226, 210, 166, 0.45);
+}
+.cq-dice-seat.me .cq-nameplate b {
+  color: #f0d27a;
+}
+
+/* The table's log: every round, bid, call and reveal, newest at the foot. */
+.cq-dice-history ol.cq-dice-log {
+  height: auto;
+  min-height: 6.2rem;
+  max-height: 11.5rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding-right: 0.35rem;
+  overscroll-behavior: contain;
+}
+.cq-dice-log li.round,
+.cq-dice-log li.reveal,
+.cq-dice-log li.out,
+.cq-dice-log li.gone,
+.cq-dice-log li.void,
+.cq-dice-log li.sit,
+.cq-dice-log li.refuse,
+.cq-dice-log li.win {
+  display: block;
+}
+.cq-dice-log li.round {
+  margin-top: 0.45rem;
+  padding: 0.12rem 0 0.08rem;
+  font-family: var(--fell-sc);
+  font-size: 0.9rem;
+  color: var(--nation-deep);
+  border-bottom: 1px solid var(--rule);
+}
+.cq-dice-log li.round:first-child {
+  margin-top: 0;
+}
+.cq-dice-log li.reveal {
+  margin: 0.15rem 0;
+  padding: 0.25rem 0.55rem;
+  font-family: var(--fell);
+  font-style: italic;
+  line-height: 1.3;
+  background: rgba(201, 155, 58, 0.12);
+  border-left: 3px solid var(--brass);
+  border-bottom: none;
+}
+.cq-dice-log li.out,
+.cq-dice-log li.gone,
+.cq-dice-log li.void,
+.cq-dice-log li.sit,
+.cq-dice-log li.refuse {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.cq-dice-log li.out {
+  color: var(--seal);
+}
+.cq-dice-log li.win {
+  font-family: var(--fell-sc);
+  color: var(--verdigris);
+  border-bottom: none;
+}
+
+@media (max-width: 760px) {
+  .cq-dice-order {
+    width: 1.1rem;
+    height: 1.1rem;
+    top: -0.25rem;
+    left: calc(50% - 2.15rem);
+    font-size: 0.68rem;
+  }
+  .cq-dice-next {
+    font-size: 1.15rem;
+    right: -0.1rem;
+  }
+  .cq-dice-history ol.cq-dice-log {
+    max-height: 9.5rem;
+  }
+  /* Five or six at the table on a phone: a little smaller, all in one row. */
+  .cq-dice-ring.n5 .cq-dice-likeness.cq-portrait,
+  .cq-dice-ring.n6 .cq-dice-likeness.cq-portrait {
+    width: 2.55rem;
+    height: 3.25rem;
+  }
+  .cq-dice-ring.n5 .cq-dice-order,
+  .cq-dice-ring.n6 .cq-dice-order {
+    left: calc(50% - 1.85rem);
+  }
+  .cq-dice-ring.n5 .cq-dice-seat .cq-nameplate,
+  .cq-dice-ring.n6 .cq-dice-seat .cq-nameplate {
+    padding: 0.08rem 0.15rem 0.1rem;
+  }
+  .cq-dice-ring.n5 .cq-dice-seat .cq-nameplate b,
+  .cq-dice-ring.n6 .cq-dice-seat .cq-nameplate b {
+    font-size: 0.68rem;
+  }
+  .cq-dice-ring.n5 .cq-dice-turn,
+  .cq-dice-ring.n6 .cq-dice-turn {
+    font-size: 0.56rem;
+    padding: 0 0.22rem;
+  }
+  .cq-dice-ring.n5 .cq-dice-shown,
+  .cq-dice-ring.n6 .cq-dice-shown {
+    max-width: 3.1rem;
+  }
+  .cq-dice-ring.n5 .cq-dice-shown .cq-die,
+  .cq-dice-ring.n6 .cq-dice-shown .cq-die {
+    width: 0.92rem;
+    height: 0.92rem;
+  }
+  .cq-dice-ring.n5 .cq-dice-cupart,
+  .cq-dice-ring.n6 .cq-dice-cupart {
+    width: 1.6rem;
+    height: 1.5rem;
+  }
+}

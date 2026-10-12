@@ -1583,6 +1583,11 @@ Others give gatherings too, and invite you (by letter if you're away): your neig
 - The loser of the call **opens the next round**, and everyone shakes again.
 - With no dice left, you're **out**. The **last with dice takes the pot**.
 
+## Reading the table
+- **The row of seats** is everyone at the table, **you too**, in the order they bid: each has a number (1, 2, 3…) and an arrow points to the next; after the last, it comes round to 1 again. Whose turn it is wears a gold **to bid** (yours says **your turn**); under the picker it says who bids after them.
+- When the cups come up, the board says who loses a die and who **opens the next round**, and their seat wears **opens next**.
+- **The table's log**, under your cup, keeps the whole game: each round as it was rolled and who opened it, every bid and call, and every reveal with its count and who lost a die ("Margaret called Liar! on Edward's three threes: eleven showing. The bid stands: Margaret loses a die."). The oldest is at the top and the newest at the foot, like the game's own log; scroll up to read back, and it stays where you left it until you come down again.
+
 ## Ones are wild
 A one counts as **any face**: when "four fives" is called, every five and every one under the cups is counted. So nobody bids on ones, and your own ones count for whatever you bid.
 

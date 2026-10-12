@@ -14,12 +14,20 @@ import {
   type Pannable,
 } from "../../src/conquest/client/CameraKeys";
 import {
+  noteDiceActs,
+  storyLines,
+  tableStory,
+} from "../../src/conquest/client/ui/DiceLog";
+import { presentAt } from "../../src/conquest/engine/Areas";
+import {
   dateOf,
   formatDate,
   isMonthStart,
   pollDay,
 } from "../../src/conquest/engine/Calendar";
 import { kill } from "../../src/conquest/engine/Characters";
+import { sitAcceptance } from "../../src/conquest/engine/DiceAi";
+import { tablesOf } from "../../src/conquest/engine/DiceCore";
 import {
   doInteraction,
   interactionView,
@@ -29,7 +37,7 @@ import { meOf } from "../../src/conquest/engine/LifeQueries";
 import { ensureOffices } from "../../src/conquest/engine/Offices";
 import { charName } from "../../src/conquest/engine/Queries";
 import type { Character } from "../../src/conquest/engine/Types";
-import { lifeOf, plan, ticks, world } from "./LifeUtil";
+import { lifeOf, plan, prov, ticks, world } from "./LifeUtil";
 
 describe("FIXES r15: elections are shown on the day they're counted", () => {
   test("pollDay is the first of the month on or after the day", () => {
@@ -343,5 +351,102 @@ describe("FIXES r15: W A S D and the arrows move the camera", () => {
     input.remove();
     area.remove();
     k.detach();
+  });
+});
+
+describe("FIXES r15: the Liar's dice log keeps the whole table's story", () => {
+  test("every round, bid, call and reveal, oldest first, beyond the server's last 90 moves", () => {
+    const g = world({
+      start: 1700,
+      seed: 5,
+      plans: [
+        {
+          seat: "s1",
+          name: "Alden",
+          plan: plan({ home: prov("Jamestown"), background: "clerk" }),
+        },
+      ],
+    });
+    g.aiEnabled = false;
+    const life = lifeOf(g);
+    const here = () =>
+      presentAt(g.s, g.w, life.prov, "tavern", g.s.day, life)
+        .filter((x) => x.kind !== "player")
+        .map((x) => g.s.chars[x.c]);
+    for (let i = 0; i < 120 && here().length < 5; i++) {
+      g.tick();
+      life.events = [];
+    }
+    life.events = [];
+    life.purse = 300;
+    life.area = "tavern";
+    const folk = here();
+    for (const c of folk)
+      g.char(c.id).memories.push({
+        of: life.c,
+        why: "Test",
+        value: 90,
+        until: 0,
+      });
+    const ask = folk
+      .filter((c) => sitAcceptance(g.s, life, c, 5).total > 0)
+      .slice(0, 5)
+      .map((c) => c.id);
+    expect(ask.length).toBeGreaterThanOrEqual(3);
+    const cmd = (c: object) =>
+      g.lifeCommand(life.seat, { k: "dice", ...c } as never);
+    expect(cmd({ act: "open", stake: 5, ask })).toBeNull();
+    const t = tablesOf(g.s).find((x) => x.status === "open")!;
+    expect(cmd({ act: "start", id: t.id })).toBeNull();
+    // As the browser does: note the table after every change.
+    noteDiceActs(g.s);
+    for (let i = 0; i < 900 && t.status === "playing"; i++) {
+      expect(cmd({ act: "auto", id: t.id })).toBeNull();
+      noteDiceActs(g.s);
+    }
+    expect(t.status).toBe("done");
+    // The server kept only the last 90; the log has them all from the first.
+    const story = tableStory(t);
+    expect(t.acts.length).toBeLessThanOrEqual(90);
+    expect(story[0].n).toBe(1);
+    expect(story.length).toBeGreaterThan(t.acts.length);
+    for (let i = 1; i < story.length; i++)
+      expect(story[i].n).toBe(story[i - 1].n + 1);
+    const lines = storyLines(t, story, Infinity, life.c, (c) =>
+      charName(g.s.chars[c]),
+    );
+    // Oldest first, ending with the pot.
+    for (let i = 1; i < lines.length; i++)
+      expect(lines[i].n).toBeGreaterThan(lines[i - 1].n);
+    expect(lines[lines.length - 1].kind).toBe("win");
+    expect(lines[lines.length - 1].text).toMatch(/the pot of \d+\./);
+    // A round line for every round rolled, saying who opened it.
+    const rounds = lines.filter((l) => l.kind === "round");
+    expect(rounds.length).toBe(t.round);
+    expect(rounds[0].text).toMatch(/^Round 1: .* opens?, \d+ dice/);
+    // Every call has its reveal and its outcome, in plain words.
+    const reveals = story.filter((a) => a.k === "reveal");
+    const said = lines.filter((l) => l.kind === "reveal");
+    expect(said.length).toBe(reveals.length);
+    reveals.forEach((r, i) => {
+      const caller = r.c === life.c ? "You" : charName(g.s.chars[r.c]);
+      expect(said[i].text.startsWith(`${caller} called Liar! on `)).toBe(true);
+      expect(said[i].text).toMatch(
+        /showing.*\. (The bid stands|A lie): .* (loses|lose) a die\.$/,
+      );
+      const stands = (r.count ?? 0) >= r.bid!.q;
+      expect(said[i].text.includes("The bid stands")).toBe(stands);
+    });
+    // Every bid is there, by name.
+    expect(lines.filter((l) => l.kind === "bid").length).toBe(
+      story.filter((a) => a.k === "bid").length,
+    );
+    // Played back only as far as the table has been shown.
+    const mid = story[Math.floor(story.length / 2)].n;
+    expect(
+      storyLines(t, story, mid, life.c, (c) => charName(g.s.chars[c])).every(
+        (l) => l.n <= mid,
+      ),
+    ).toBe(true);
   });
 });
