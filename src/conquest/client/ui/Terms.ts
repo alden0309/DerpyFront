@@ -36,7 +36,7 @@ export const TERMS: Record<string, Term> = {
   renown: {
     name: "Renown",
     what: "How many people know your name, and think it worth knowing.",
-    good: "Opens doors: the governor's levee (5), a place at court and the assembly (20), a company of your own (40), an invitation to Parliament (50, with favour 15), being thought famous (60, and 100). Helps with offices, petitions, letters and a governor's reprieve. At a poll it counts only lightly (0.12 a point, 10 at most): the county's regard, the canvass and a patron count for more.",
+    good: "Opens doors: the governor's levee (5), a place at court and the assembly (20), a company of your own (40), an invitation to Parliament (50, with favour 15), being thought famous (60, and 100). A council seat's case counts it up to 100. Helps with offices, petitions, letters and a governor's reprieve. At a poll it counts only lightly (0.12 a point, 10 at most): the county's regard, the canvass and a patron count for more.",
     raise:
       "Promotions, office and its duties, gatherings that go well, gifts to the town, standing a round, contracts, battles, leads that pay, reaching an ambition. Above 15 it fades a little each month unless it's fed. Above 60 it comes harder (at 100 a gain counts half) and fades faster the higher it stands: the great are forgotten fast.",
     ch: "standing",
@@ -46,7 +46,7 @@ export const TERMS: Record<string, Term> = {
   favour: {
     name: "Favour",
     what: "Whether your name is known and liked at home: the crown's ear (for native peoples, the elders' regard). From 0 to 100.",
-    good: "Counts half again as much as renown toward being made governor. With renown 50 and favour 15 an invitation to Parliament may come. It helps petitions (a pardon, redress, a charter for a settlement) and appointments the governor makes.",
+    good: "Counts half again as much as renown toward being made governor. With renown 50 and favour 15 an invitation to Parliament may come. It helps petitions (a pardon, redress, a charter for a settlement), appointments the governor makes, and a council seat's case (up to 60).",
     raise:
       "Write to the crown at the governor's house or the docks (2 coins, every 60 days: +6 if the letter is well judged, +1 if not). Gifts to the town, a burgess's bill that passes, carrying a wampum belt, and some choices in letters. It fades by 2% a month, faster above 60, where each gain counts for less (at 85, half). A year in the same seat with nothing delivered (a law, a work, a power or a measure carried) and it slips (4, then 6, 8, 10). An heir keeps less than a third.",
     ch: "favour",

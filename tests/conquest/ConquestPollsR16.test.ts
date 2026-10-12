@@ -32,7 +32,11 @@ import {
   treatView,
   winChance,
 } from "../../src/conquest/engine/Canvass";
-import { ensureCabinet } from "../../src/conquest/engine/Council";
+import {
+  ensureCabinet,
+  SEAT_CASE,
+  seatClaim,
+} from "../../src/conquest/engine/Council";
 import { householdsOf } from "../../src/conquest/engine/Folk";
 import { ACTS } from "../../src/conquest/engine/LifeActs";
 import { addRenown } from "../../src/conquest/engine/LifeCore";
@@ -183,6 +187,35 @@ describe("POLLS r16: renown and favour on a curve", () => {
     expect(nameMark(10)).toBe(20);
     expect(nameMark(80)).toBeLessThan(15);
     expect(nameMark(200)).toBe(8);
+  });
+
+  test("a council seat's case counts renown to 100 and favour to 60, where their curves flatten", () => {
+    const g = world({ start: 1700 });
+    const life = lifeOf(g);
+    const n = meOf(g.s, life)!.nation;
+    const line = (re: RegExp) =>
+      seatClaim(g.s, life, n, "attorney").parts.find((p) => re.test(p.label))
+        ?.value ?? 0;
+    life.renown = 60;
+    life.favor = 48;
+    const r60 = line(/^Renown/);
+    const f48 = line(/^Favour at home/);
+    life.renown = 100;
+    life.favor = 60;
+    // The years above 60 still make a case.
+    expect(line(/^Renown/)).toBeGreaterThan(r60);
+    expect(line(/^Favour at home/)).toBeGreaterThan(f48);
+    expect(line(/^Renown/)).toBe(SEAT_CASE.renownCap);
+    expect(line(/^Favour at home/)).toBe(SEAT_CASE.favourCap);
+    // And no further: they stay where their curves flatten.
+    life.renown = 300;
+    life.favor = 100;
+    expect(line(/^Renown/)).toBe(SEAT_CASE.renownCap);
+    expect(line(/^Favour at home/)).toBe(SEAT_CASE.favourCap);
+    // A busy politician's renown and favour settle where they're worth it.
+    expect(settlesAt(RENOWN_CURVE, 6)).toBeGreaterThanOrEqual(
+      SEAT_CASE.renownCap * SEAT_CASE.renownDiv * 0.9,
+    );
   });
 });
 

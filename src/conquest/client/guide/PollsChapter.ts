@@ -4,6 +4,7 @@
 // and the month really do.
 
 import { POLL } from "../../engine/Canvass";
+import { SEAT_CASE } from "../../engine/Council";
 import { chanceWords } from "../../engine/Odds";
 import { PUFF } from "../../engine/Press";
 import { seatSlip } from "../../engine/Standing";
@@ -111,7 +112,7 @@ ${curveTable()}
 
 **Favour in an unchanged seat.** Each year in the same seat (a county office, the house, the speaker's chair, a council seat, the governor's chair), if nothing was **delivered** from it (a bill of yours made law, a public work or a market day, bread for the poor, the militia mustered, an office's or a seat's power carried, a measure of yours through the council, a governor's law or work), favour slips: ${seatSlip(1)} the first idle year, then ${seatSlip(2)}, ${seatSlip(3)}, up to ${seatSlip(9)}. A year with something delivered and it holds (your journal says which).
 
-Thresholds are set for the curve: **Famous** (the achievement) is 100 renown, and so is the station of "someone so famous"; **Make a name** asks twenty more below 60, and fewer above it.
+Thresholds are set for the curve: **Famous** (the achievement) is 100 renown, and so is the station of "someone so famous"; **Make a name** asks twenty more below 60, and fewer above it; a council seat's **case** counts renown up to ${SEAT_CASE.renownCap * SEAT_CASE.renownDiv} (a fifth of it) and favour up to ${SEAT_CASE.favourCap * SEAT_CASE.favourDiv} (a fifth of it), so the years above 60 still make a case. Everything else that asks for renown or favour asks for 60 or less, where the curve doesn't reach.
 
 > Tip: Stand where you live, keep canvassing, treat the voters a few times as the poll nears, and buy a great man's interest if the canvass is close. If the governor's friends are against you, a patron and the sheriff can still carry it.
 

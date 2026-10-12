@@ -172,6 +172,14 @@ const shortName = (n: Nation) => n.name.replace(/^the /, "");
 export const CLAIM_BAR = 25;
 export const UNSEAT_BAR = 45;
 
+/** POLLS (r16): what renown and favour count for in a seat's case (full at renown 100, favour 60). */
+export const SEAT_CASE = {
+  renownDiv: 5,
+  renownCap: 20,
+  favourDiv: 5,
+  favourCap: 12,
+};
+
 /** Your case for a seat: renown, favour at home, the governor's regard, connections, fitness. */
 export function seatClaim(
   s: GameState,
@@ -183,11 +191,17 @@ export function seatClaim(
   const me = meOf(s, life);
   const nation = s.nations[n];
   if (!me || !nation) return e.done(0);
-  e.add(`Renown (${Math.floor(life.renown)})`, Math.min(20, life.renown / 3));
+  // POLLS (r16): renown and favour count to where their curve flattens
+  // (renown 100, favour 60), not to 60 and 48, so the years above 60 still
+  // make a case.
+  e.add(
+    `Renown (${Math.floor(life.renown)})`,
+    Math.min(SEAT_CASE.renownCap, life.renown / SEAT_CASE.renownDiv),
+  );
   if (life.favor > 0)
     e.add(
       nation.kind === "native" ? "The elders' regard" : "Favour at home",
-      Math.min(12, life.favor / 4),
+      Math.min(SEAT_CASE.favourCap, life.favor / SEAT_CASE.favourDiv),
     );
   const gov = s.chars[nation.ruler];
   if (gov?.alive && gov.id !== me.id) {
