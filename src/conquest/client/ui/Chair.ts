@@ -419,8 +419,9 @@ function addressBlock(
         <span class="cq-chip bad">${asks(force.salary, force.supply)}</span>
         ${force.session
           ? "The house carried it in its session"
-          : html`The house carried ${charLink(ui, s.chars[force.by], false)}'s
-            address, ${force.ayes} to ${force.noes}`};
+          : html`The house carried the address
+            ${charLink(ui, s.chars[force.by], false)} moved, ${force.ayes} to
+            ${force.noes}`};
         it stands until
         ${formatDate(force.until)}${force.answer === "hold"
           ? `: ${gov.first} holds out`
