@@ -703,11 +703,21 @@ function townNews(
   const out: { key: string; text: string; rest: number }[] = [];
   const cab = s.power?.cabinets[n];
   const bill = cab?.bills.find((b) => b.stage === "house");
-  if (bill) {
+  if (bill && bill.by !== life.c) {
     const member = s.chars[bill.by];
+    const title = lower(
+      bill.title.replace(
+        "{county}",
+        g.map.provinces[bill.p]?.name ?? "the county",
+      ),
+    );
+    // Another player's bill is told as what they did, no more.
+    const played = s.lives.some((l) => l.c === bill.by);
     out.push({
       key: `bill:${bill.id}`,
-      text: `The house is sitting on ${lower(bill.title.replace("{county}", g.map.provinces[bill.p]?.name ?? "the county"))}. ${member ? `${charName(member)} spoke for it for three hours` : "A member spoke for three hours"} and changed nobody's mind.`,
+      text: played
+        ? `The house is sitting on ${title}, brought in by ${charName(member)}. The taproom is divided, and says so.`
+        : `The house is sitting on ${title}. ${member ? `${charName(member)} spoke for it for three hours` : "A member spoke for three hours"} and changed nobody's mind.`,
       rest: 9999,
     });
   }
