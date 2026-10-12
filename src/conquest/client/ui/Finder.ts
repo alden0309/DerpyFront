@@ -10,6 +10,7 @@ import { areasOf, homeHere } from "../../engine/Areas"; // HOME (r12)
 import { BOATS } from "../../engine/Boats";
 import { bizTradesAt } from "../../engine/Business"; // BUSINESS (r15)
 import { dateOf } from "../../engine/Calendar"; // MAP (r12)
+import { followCheck, LT, petitionCheck } from "../../engine/ChairCore"; // CHAIR (r16)
 import { knowsDen } from "../../engine/CrimeQueries";
 import { cruiseOffers, pardonCheck } from "../../engine/Cruises"; // SEA (r15)
 import { STALL_SECONDS, tableAt } from "../../engine/DiceCore"; // DICE (r14)
@@ -40,7 +41,7 @@ import {
 } from "../../engine/Movements";
 import { localOfficesOf } from "../../engine/Offices"; // POWER (r12)
 import { firmsWith, MAX_FIRMS } from "../../engine/PartnersCore"; // PARTNERS (r13)
-import { standCheck } from "../../engine/Politics";
+import { governorScore, standCheck } from "../../engine/Politics"; // CHAIR (r16): governorScore
 import { commissionAt } from "../../engine/Privateers"; // SEA (r15)
 import {
   houseCheck,
@@ -1754,6 +1755,111 @@ const GOALS: Goal[] = [
     guide: "sea",
   },
   // ---- end SEA (r15)
+  // ---- CHAIR (r16): the road to the governor's chair
+  {
+    id: "chair-road",
+    title: "See where I am on the road to the governor's chair",
+    words:
+      "governor chair road ladder steps next where am i council assembly court lieutenant commission",
+    group: "Society",
+    where:
+      "Society › Standing › The road to the governor's chair: each step ticked with the day you reached it, the one you're on, and what would bring the chair nearer.",
+    who: "colonist",
+    go: tab({ k: "tab", tab: "society", sub: "standing" }),
+    goLabel: "Society › Standing",
+    guide: "chair",
+  },
+  {
+    id: "chair-recall",
+    title: "Petition the crown for the governor's recall",
+    words:
+      "petition recall governor crown board of trade remove depose bring down names signatures agent london",
+    group: "Society",
+    where:
+      "Society › Standing › The governor's chair: the odds before you begin, then names from the council and the house and friends at court as it goes. Its answer comes in about six months.",
+    who: "colonist",
+    needs: (ui) => [
+      check(petitionCheck(ui.s, ui.life!), "You could begin one now"),
+    ],
+    go: tab({ k: "tab", tab: "society", sub: "standing" }),
+    goLabel: "Society › Standing",
+    guide: "chair",
+  },
+  {
+    id: "chair-address",
+    title: "Withhold the governor's salary, or refuse supply",
+    words:
+      "address house assembly speaker salary withhold supply refuse purse governor quarrel",
+    group: "Society",
+    where:
+      "From the speaker's chair: Society › Standing › The governor's chair › The house's address. The house divides two weeks later; carried, it stands a year.",
+    who: "colonist",
+    needs: (ui) => {
+      const me = ui.me;
+      const speaker =
+        !!me && ui.s.power?.cabinets[me.nation]?.speaker === me.id;
+      return [
+        {
+          label: speaker
+            ? "You're the speaker"
+            : "The speaker moves it (the house chooses its speaker)",
+          met: speaker,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "society", sub: "standing" }),
+    goLabel: "Society › Standing",
+    guide: "chair",
+  },
+  {
+    id: "chair-lt",
+    title: "Become lieutenant governor",
+    words:
+      "lieutenant governor deputy acting succeed successor old ill gout commission",
+    group: "Society",
+    where: `The crown offers it when the governor grows old or ill: the best case in the colony, ${LT.bar} or more, is asked first (a letter). It's shown on Society › Standing.`,
+    who: "colonist",
+    needs: (ui) => {
+      const score = Math.round(governorScore(ui.s, ui.life!));
+      return [
+        {
+          label: `A case of ${LT.bar} (yours ${score})`,
+          met: score >= LT.bar,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "society", sub: "standing" }),
+    goLabel: "Society › Standing",
+    guide: "chair",
+  },
+  {
+    id: "chair-follow",
+    title: "Follow the government to the new capital",
+    words:
+      "capital fallen moved government follow move household seat lapse conquered",
+    group: "Society",
+    where:
+      "When the capital falls, the government goes to the biggest town left. Society › Standing (or the scene that comes with the news): Follow the government, and your household moves in when you arrive.",
+    who: "colonist",
+    needs: (ui) => [check(followCheck(ui.s, ui.life!), "You could go now")],
+    go: tab({ k: "tab", tab: "society", sub: "standing" }),
+    goLabel: "Society › Standing",
+    guide: "chair",
+  },
+  {
+    id: "chair-great",
+    title: "Spend a governor's money: a hall, a coach, portraits, endowments",
+    words:
+      "spend money rich mansion hall coach four portrait painting likeness endow endowment school almshouse college scholarship bells library legacy name remembered",
+    group: "Money and home",
+    where:
+      "Estate › House & land › Marks of greatness: a great house with your name, a coach and four, portraits, and endowments that carry your name. Each is a line in your story.",
+    who: "colonist",
+    go: tab({ k: "tab", tab: "estate", sub: "house" }),
+    goLabel: "Estate › House & land",
+    guide: "chair",
+  },
+  // ---- end CHAIR (r16)
   // ---- LABOUR (r15): bondage in the colonies, as history
   {
     id: "bond-law",

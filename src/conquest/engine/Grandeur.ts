@@ -50,6 +50,10 @@ export interface GreatDef {
   key: string;
   /** The kind of thing, for grouping on the page. */
   kind: "house" | "portrait" | "endowment";
+  /** What it is, for anyone ("A free school in your name"). */
+  title: string;
+  /** Its own price (a hall also wants a mansion, a coach a carriage). */
+  base: number;
   /** Its name, for you ("Lee Hall", "The Lee Free School"). */
   name: (s: GameState, w: World, life: Life) => string;
   /** What it is, in a line. */
@@ -199,6 +203,8 @@ export const GREAT: GreatDef[] = [
   {
     key: "hall",
     kind: "house",
+    title: "A great house with your name",
+    base: HALL_EXTRA,
     name: (s, w, life) => `${familyOf(s, life)} Hall`,
     text: "A mansion with gardens, a ballroom and your name over the gate.",
     does: "The great dine there: the governor's and the council's regard +6. A mansion's station, and renown while it stands.",
@@ -233,6 +239,8 @@ export const GREAT: GreatDef[] = [
   {
     key: "coach",
     kind: "house",
+    title: "A coach and four",
+    base: COACH_EXTRA,
     name: () => "A coach and four",
     text: "Four matched horses, a coachman and footmen in your livery, and your arms on the doors.",
     does: "Journeys at a carriage's pace; the town notices you pass (the council's regard +3), and renown while you keep it.",
@@ -260,6 +268,8 @@ export const GREAT: GreatDef[] = [
   {
     key: "portrait",
     kind: "portrait",
+    title: "Your portrait",
+    base: 30,
     name: (s, w, life) => `Your likeness by ${limnerOf(s, w, life)}`,
     text: "Sit for your portrait, in your best coat, with a column and a curtain behind.",
     does: "Calm (stress −3), and a likeness your heirs will hang.",
@@ -271,6 +281,8 @@ export const GREAT: GreatDef[] = [
   {
     key: "portrait-spouse",
     kind: "portrait",
+    title: "Your husband's or wife's portrait",
+    base: 30,
     name: (s, w, life) => {
       const sp = s.chars[meOf(s, life)?.spouse ?? -1];
       return `${sp ? `${sp.first}'s` : "Your husband's or wife's"} likeness`;
@@ -296,6 +308,8 @@ export const GREAT: GreatDef[] = [
   {
     key: "portrait-family",
     kind: "portrait",
+    title: "A family piece",
+    base: 70,
     name: (s, w, life) =>
       `The ${familyOf(s, life)} family, a conversation piece`,
     text: "The whole family on one canvas: the dog, the spaniel, the view of the river.",
@@ -325,6 +339,8 @@ export const GREAT: GreatDef[] = [
   {
     key: "school",
     kind: "endowment",
+    title: "A free school in your name",
+    base: 180,
     name: (s, w, life) => `The ${familyOf(s, life)} Free School`,
     text: "A schoolhouse, a master's salary for ever, and your name over the door.",
     does: "The colony's administration +1 for 25 years.",
@@ -349,6 +365,8 @@ export const GREAT: GreatDef[] = [
   {
     key: "almshouse",
     kind: "endowment",
+    title: "An almshouse in your name",
+    base: 200,
     name: (s, w, life) => `The ${familyOf(s, life)} Almshouse`,
     text: "Rooms, bread and firewood for the poor of the parish, kept by your endowment.",
     does: "Unrest in your county −3 for 25 years.",
@@ -373,6 +391,8 @@ export const GREAT: GreatDef[] = [
   {
     key: "college",
     kind: "endowment",
+    title: "A scholarship at the college",
+    base: 260,
     name: (s, w, life) =>
       `The ${familyOf(s, life)} scholarship at ${collegeOf(s, w, life)}`,
     text: "A scholar's keep for ever, to be called by your name in every list of the college's benefactors.",
@@ -398,6 +418,8 @@ export const GREAT: GreatDef[] = [
   {
     key: "bells",
     kind: "endowment",
+    title: "A ring of bells for the church",
+    base: 120,
     name: (s, w, life) =>
       `A ring of bells for the church at ${homeName(w, life)}`,
     text: "Six bells cast in London, with your name on the tenor.",
@@ -422,6 +444,8 @@ export const GREAT: GreatDef[] = [
   {
     key: "library",
     kind: "endowment",
+    title: "A library for the colony",
+    base: 150,
     name: (s, w, life) =>
       `A library for ${s.nations[meOf(s, life)?.nation ?? -1]?.name.replace(/^the /, "") ?? "the colony"}`,
     text: "Divinity, law, physic and history, in a room anyone of the colony may read in.",

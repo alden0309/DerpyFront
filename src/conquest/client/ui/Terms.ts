@@ -185,6 +185,39 @@ export const TERMS: Record<string, Term> = {
       "Count your own ones with the face you bid. Four of five dice hidden? Expect about a third of them to count.",
     ch: "dice",
   },
+  // CHAIR (r16): ChairCore.ts, Chair.ts
+  commission: {
+    name: "Commission",
+    what: "The crown's appointment of a governor: three to eight years, then renewed for a few more, or another man named.",
+    good: "When it runs out the chair can fall empty without anyone dying. Society › Standing shows when, and the crown's odds of renewing it.",
+    raise:
+      "The crown renews a governor it trusts (the colony's favour) and hasn't heard grievances against: an address carried, a petition near-run, towns lost.",
+    ch: "chair",
+  },
+  lieutenant: {
+    name: "Lieutenant governor",
+    what: "The crown's commission to act for the governor in his absence and succeed him: named when he grows old or ill.",
+    good: "Acting, you preside at the council with the acting governor's pay; when the chair falls empty, you take it.",
+    raise:
+      "Be the best case in the colony (70 or more) when the governor grows old or ill: the crown offers it to you first.",
+    ch: "chair",
+  },
+  petition: {
+    name: "A petition for recall",
+    what: "A petition to the crown, got up over months, asking it to recall the governor.",
+    good: "Granted, the chair falls empty. Thrown out, he's your enemy for ten years.",
+    raise:
+      "His misrule (unrest, towns lost, grievances), the crown's cooling on him, your favour at home, councillors' and members' names, and friends at court make it land.",
+    ch: "chair",
+  },
+  address: {
+    name: "The house's address",
+    what: "The house's resolution against the governor, moved by the speaker: his salary withheld, supply refused, or both, for a year.",
+    good: "It hurts him (and refusing supply hurts the colony too); the crown hears of it, and he may give way, dissolve the house, or hold out.",
+    raise:
+      "Move it from the speaker's chair (Society › Standing). The country party leans for it; high taxes, unrest and vetoes bring the rest.",
+    ch: "chair",
+  },
   // SEA (r15): Cruises.ts, CruiseData.ts, Privateers.ts, Storms.ts
   articles: {
     name: "Articles",

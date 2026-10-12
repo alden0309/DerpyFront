@@ -110,6 +110,7 @@ import "../Range";
 import { play } from "../Sound";
 import { BUILDING_LABELS, nationName } from "../Text";
 import { num } from "../Tip";
+import { commissionBlock, greatSection, roadList } from "./Chair"; // CHAIR (r16)
 import {
   action,
   bar,
@@ -473,70 +474,50 @@ export function standingSection(ui: GameUi): TemplateResult {
         native
           ? "The road to leading your people"
           : "The road to the governor's chair",
-        html`<ol class="cq-road">
-            ${native
-              ? html`<li>
-                    Win renown (hunts, raids, councils, treaties) and become a
-                    speaker at the council fire, or a war chief.
-                  </li>
-                  <li>
-                    Sit at the council fire (stand there when it chooses: renown
-                    15).
-                  </li>
-                  <li>
-                    When a council seat falls empty, the leader may offer it to
-                    a warrior of rank or a speaker of renown.
-                  </li>
-                  <li>
-                    When the leader dies, the elders choose: someone of great
-                    renown and regard (you're at <b>${Math.round(score)}</b>;
-                    they look for about 70 and more than the council's best).
-                  </li>`
-              : html`<li>
-                    Make something of yourself: property, a trade, renown (20),
-                    or 40 coins in your purse.
-                  </li>
-                  <li>
-                    Stand for ${pol?.name ?? "the assembly"} at the governor's
-                    house; canvass, treat the voters, print broadsides.
-                  </li>
-                  <li>
-                    Seek a place at court (the governor's house at the capital:
-                    renown 20 and the governor's good opinion, 15).
-                  </li>
-                  <li>
-                    When a council seat falls empty, the governor may offer it
-                    to someone at court he likes.
-                  </li>
-                  <li>
-                    When the governor dies or is recalled, the crown appoints a
-                    successor: someone of renown, favour and office (you're at
-                    <b>${Math.round(score)}</b>; the crown looks for about 100
-                    and more than the council's best). Write letters home to win
-                    favour.
-                  </li>`}
-          </ol>
-          ${n
-            ? html`<h4 class="cq-h4">
-                  ${native ? "The council fire" : "The council"} of
-                  ${nationName(n.name)}
-                </h4>
-                <dl class="cq-family">
-                  <dt>${native ? "Leader" : "Governor"}</dt>
-                  <dd>${charLink(ui, ruler)}</dd>
-                  ${seatsOf(n).map((seat) => {
-                    // FIXES (r15): every seat, by its title here ("Secretary
-                    // of the colony", not "Spymaster"), the colony's own too.
-                    const c = s.chars[seatHolderId(s, n.id, seat)];
-                    return html`<dt>${seatTitle(s, n.id, seat)}</dt>
-                      <dd>
-                        ${c?.alive
-                          ? charLink(ui, c)
-                          : html`<span class="cq-muted">empty</span>`}
-                      </dd>`;
-                  })}
-                </dl>`
-            : nothing}`,
+        html`${
+          native
+            ? html`<ol class="cq-road">
+                <li>
+                  Win renown (hunts, raids, councils, treaties) and become a
+                  speaker at the council fire, or a war chief.
+                </li>
+                <li>
+                  Sit at the council fire (stand there when it chooses: renown
+                  15).
+                </li>
+                <li>
+                  When a council seat falls empty, the leader may offer it to a
+                  warrior of rank or a speaker of renown.
+                </li>
+                <li>
+                  When the leader dies, the elders choose: someone of great
+                  renown and regard (you're at <b>${Math.round(score)}</b>; they
+                  look for about 70 and more than the council's best).
+                </li>
+              </ol>`
+            : roadList(ui) /* CHAIR (r16): where you are on the road */
+        }
+        ${n
+          ? html`<h4 class="cq-h4">
+                ${native ? "The council fire" : "The council"} of
+                ${nationName(n.name)}
+              </h4>
+              <dl class="cq-family">
+                <dt>${native ? "Leader" : "Governor"}</dt>
+                <dd>${charLink(ui, ruler)}</dd>
+                ${seatsOf(n).map((seat) => {
+                  // FIXES (r15): every seat, by its title here ("Secretary
+                  // of the colony", not "Spymaster"), the colony's own too.
+                  const c = s.chars[seatHolderId(s, n.id, seat)];
+                  return html`<dt>${seatTitle(s, n.id, seat)}</dt>
+                    <dd>
+                      ${c?.alive
+                        ? charLink(ui, c)
+                        : html`<span class="cq-muted">empty</span>`}
+                    </dd>`;
+                })}
+              </dl>`
+          : nothing}`,
         true,
       )}`,
   );
@@ -699,6 +680,12 @@ export function governingSection(ui: GameUi): TemplateResult | typeof nothing {
           Declare war
         </button>
       </div>
+      ${
+        commissionBlock(
+          ui,
+          n,
+        ) /* CHAIR (r16): your commission, and what's against you */
+      }
       ${lawsBlock(ui, n)} ${projectsBlock(ui, n)} ${appointBlock(ui, n)}
       ${enemies.length
         ? html`<ul class="cq-list">
@@ -1170,7 +1157,8 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
             </li>`;
           })}
         </ul>`,
-      )}`,
+      )}
+      ${greatSection(ui) /* CHAIR (r16): marks of greatness */}`,
   );
 }
 

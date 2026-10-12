@@ -28,6 +28,7 @@ import "./nav.css";
 import "./power.css"; // POWER (r12): offices, the council, the court, the press
 // HOME (r12): the household, the family tree, duels.
 import "./business.css"; // BUSINESS (r15): a business of your own, and starting one
+import "./chair.css"; // CHAIR (r16): the road to the governor's chair
 import "./dice.css"; // DICE (r14): Liar's dice
 import "./home.css";
 import "./intrigue.css"; // INTRIGUE (r15): hearts and schemes

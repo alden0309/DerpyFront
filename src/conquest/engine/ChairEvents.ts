@@ -28,6 +28,7 @@ import {
   recallOdds,
   renewOdds,
 } from "./ChairCore";
+import { registerFamily } from "./EventPacing";
 import type { ConquestGame } from "./Game";
 import { withFlow } from "./LedgerCore";
 import { journal, spend } from "./LifeCore";
@@ -346,8 +347,20 @@ const CHAIR_EVENTS: LifeEventDef[] = [
   },
 ];
 
+let paced = false;
+
 /** The scenes, for LifeEvents' lookup (added the first time it looks). */
 export function chairEvents(): LifeEventDef[] {
+  // They rest together with the event pacing, as a family of their own
+  // (registered here, after every module has loaded).
+  if (!paced) {
+    paced = true;
+    registerFamily(
+      "chair",
+      CHAIR_EVENTS.map((d) => d.key),
+      30,
+    );
+  }
   return CHAIR_EVENTS;
 }
 

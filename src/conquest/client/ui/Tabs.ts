@@ -39,6 +39,7 @@ import {
 } from "./Affairs";
 import { bondagePage } from "./Bondage"; // LABOUR (r15)
 import { businessPage, startBizButton } from "./Business"; // BUSINESS (r15)
+import { chairSection } from "./Chair"; // CHAIR (r16)
 import { councilPage } from "./Chamber"; // POWER (r12)
 import {
   accuseSection,
@@ -807,6 +808,7 @@ function societyPage(ui: GameUi, sub: string): TemplateResult {
             chair.`,
       )}
       ${standingSection(ui)}
+      ${chairSection(ui) /* CHAIR (r16): the governor's chair as it stands */}
       ${section(
         html`Winning favour ${termMark("favour")}`,
         html`<ul class="cq-where-list small">

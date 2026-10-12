@@ -57,7 +57,6 @@ import {
   ensureCabinet,
   factionOf,
 } from "./Council";
-import { registerFamily } from "./EventPacing";
 import type { ConquestGame } from "./Game";
 import { hooks, raiseEvent } from "./Hooks";
 import { withFlow } from "./LedgerCore";
@@ -441,8 +440,24 @@ function npcLtSuccessor(g: ConquestGame, n: number): number {
   if (!crownColony(s.nations[n])) return -1;
   const lt = lieutenantOf(s, n);
   if (lt < 0 || isPlayed(s, lt)) return -1;
+  // A player whose case clears the crown's bar comes first (Politics' own
+  // rule), whichever order the hooks were registered in.
+  if (playerClearsBar(s, n)) return -1;
   offCabinet(g, n, lt);
   return lt;
+}
+
+/** Whether a player's case would win the chair now (Politics.chooseSuccessor's rule). */
+function playerClearsBar(s: GameState, n: number): boolean {
+  const nation = s.nations[n];
+  for (const life of s.lives) {
+    const me = meOf(s, life);
+    if (!me?.alive || me.abroad || life.watching) continue;
+    if (me.nation !== n || ageOf(s, me) < 25 || lifeIsNative(s, life)) continue;
+    if ((life.chair?.lately ?? 0) > s.day || nation.ruler === me.id) continue;
+    if (governorScore(s, life) >= bestCouncilCase(s, n, me.id)) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------- the lieutenant governor
@@ -1191,13 +1206,14 @@ function divideAddress(g: ConquestGame, n: number): void {
   const nation = g.nation(n);
   const ch = nation.chair!;
   const a = ch.address!;
+  // The same salt the page's forecast uses (the year it was moved).
   const d = addressDivision(
     s,
     n,
     a.by,
     a.salary,
     a.supply,
-    a.id,
+    Math.floor(a.day / DAYS_PER_YEAR),
     a.votes ?? {},
   );
   a.ayes = d.ayes;
@@ -1702,6 +1718,7 @@ function chairMonthly(g: ConquestGame): void {
 /** CHAIR (r16): the colony's own council seats are filled from the start, like the old five. */
 function fillCabinets(g: ConquestGame): void {
   const s = g.s;
+  keepCommissions(g);
   for (const nation of s.nations) {
     if (!nation.alive || nation.kind !== "power") continue;
     const n = nation.id;
@@ -1766,18 +1783,3 @@ hooks.lifeDaily.push(chairLifeDaily);
 hooks.budget.push(chairBudget);
 hooks.capitalMoved.push(capitalMoved);
 hooks.created.push(fillCabinets);
-
-registerFamily(
-  "chair",
-  [
-    "chair-lt",
-    "chair-petition",
-    "chair-peace",
-    "chair-sign",
-    "chair-term",
-    "chair-address",
-    "chair-address-vote",
-    "chair-capital",
-  ],
-  30,
-);
