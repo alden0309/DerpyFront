@@ -4,12 +4,6 @@
    losing money and green for what's paying; the "Start a business" window is
    a prospectus on vellum, clause by numbered clause, like the articles. ===== */
 
-/* Seven pages under Estate: a little tighter so they keep to one line. */
-.cq-subtabs:has(> :nth-child(7)) .cq-subtab {
-  padding-left: 0.38rem;
-  padding-right: 0.38rem;
-}
-
 /* ---------------------------------------------------------------- warnings */
 
 .cq-biz-alarm {
@@ -110,9 +104,10 @@
   border-top: 1px dotted var(--rule);
   padding-top: 0.3rem;
 }
+/* The drawer is narrow: what a control is above, its buttons below. */
 .cq-biz-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.3rem 0.8rem;
   align-items: center;
   padding: 0.3rem 0;
@@ -134,9 +129,13 @@
   color: var(--nation-deep);
 }
 .cq-biz-row .cq-btnrow {
-  justify-content: flex-end;
+  justify-content: flex-start;
+  align-items: center;
   flex-wrap: wrap;
   margin: 0;
+}
+.cq-biz-row .cq-firm-pick {
+  max-width: 100%;
 }
 .cq-biz-auto {
   display: flex;
@@ -473,12 +472,6 @@
   }
   .cq-sb-two {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .cq-biz-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .cq-biz-row .cq-btnrow {
-    justify-content: flex-start;
   }
 }
 @media (max-width: 640px) {

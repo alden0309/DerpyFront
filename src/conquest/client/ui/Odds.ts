@@ -41,7 +41,11 @@ export function oddsPanel(
   const stake = trip ? v.costNow : 0;
   const expectedLine = trip
     ? html`Expected ${signed(v.expected)} a trip
-        (${v.days ? `${v.days[0]} to ${v.days[1]} days` : ""});
+        (${v.days
+          ? v.days[0] === v.days[1]
+            ? `${v.days[0]} days` /* BUSINESS (r15): one length */
+            : `${v.days[0]} to ${v.days[1]} days`
+          : ""});
         <b class="cq-odds-net ${v.net >= 0 ? "good" : "bad"}"
           >${signed(v.net)} a month</b
         >${v.costMonth ? html` after ${coins(v.costMonth)} wages` : nothing}`

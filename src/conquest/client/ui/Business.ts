@@ -87,6 +87,17 @@ const r1 = (v: number) => Math.round(v * 10) / 10;
 const signed = (v: number) =>
   `${v > 0 ? "+" : v < 0 ? "−" : ""}${coins(Math.abs(v))}`;
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+/** Advice without its "Losing money: ", as a sentence. */
+const sentence = (t: string) => cap(t.replace(/^Losing money: /, ""));
+/** A business's name in the start window (the trapper's is a fur company, not a trading company). */
+const kindName = (job: JobKind, level: number) =>
+  job === "trapper"
+    ? "Fur company"
+    : cap(
+        job === "farmer" && level >= 3
+          ? "plantation"
+          : (JOBS[job].business ?? job),
+      );
 const SIZE = ["", "small", "middling", "great"];
 const ROMAN = ["", "I", "II", "III"];
 
@@ -147,25 +158,25 @@ export function businessPage(ui: GameUi): TemplateResult {
     ...mine.flatMap((pr) => {
       const v = propertyView(s, life, pr);
       if (v.profit - v.mgr >= 0) return [];
-      const why = bizAdvice(s, v, { owner: true }).find(
+      const worst = bizAdvice(s, v, { owner: true }).find(
         (a) => a.tone === "bad",
       );
       return [
         html`<li>
           <b>${cap(pr.name)} at ${ui.map.provinces[pr.prov]?.name}</b>:
           ${signed(r1(v.profit - v.mgr))} a month as it stands.
-          ${why ? why.text.replace(/^Losing money: /, "") : ""}
+          ${worst ? sentence(worst.text) : ""}
         </li>`,
       ];
     }),
     ...inFirms.flatMap((f) => {
       const v = firmMonthView(s, f);
       if (v.profit >= 0) return [];
-      const why = firmAdvice(s, ui.w, f).find((a) => a.tone === "bad");
+      const worst = firmAdvice(s, ui.w, f).find((a) => a.tone === "bad");
       return [
         html`<li>
           <b>${f.name}</b>: ${signed(v.profit)} a month as it stands.
-          ${why ? why.text.replace(/^Losing money: /, "") : ""}
+          ${worst ? sentence(worst.text) : ""}
         </li>`,
       ];
     }),
@@ -315,9 +326,7 @@ function bizCard(ui: GameUi, pr: Property): TemplateResult {
     ${net < 0
       ? html`<p class="cq-biz-warn" role="status">
           <b>Losing money</b>, ${signed(net)} a month as it stands.
-          ${advice
-            .find((a) => a.tone === "bad")
-            ?.text.replace(/^Losing money: /, "") ?? ""}
+          ${sentence(advice.find((a) => a.tone === "bad")?.text ?? "")}
         </p>`
       : nothing}
     <div class="cq-stats cq-firm-stats">
@@ -1059,13 +1068,7 @@ function startBizTab(ui: GameUi): TemplateResult {
                   ui.redraw();
                 }}
               >
-                <b
-                  >${cap(
-                    x.job === "farmer" && draft.level >= 3
-                      ? "plantation"
-                      : (JOBS[x.job].business ?? x.job),
-                  )}</b
-                >
+                <b>${kindName(x.job, draft.level)}</b>
                 <span class="cq-sb-kind-figs"
                   >${coins(x.cost)} ·
                   <i class=${x.plan.going.profit < 0 ? "bad" : "good"}
@@ -1206,10 +1209,7 @@ function startBizTab(ui: GameUi): TemplateResult {
     <aside class="cq-articles-panel cq-sb-panel">
       ${bad.length
         ? html`<div class="cq-biz-warn">
-            <b>It would lose money.</b> ${bad[0].text.replace(
-              /^Losing money: /,
-              "",
-            )}
+            <b>It would lose money.</b> ${sentence(bad[0].text)}
           </div>`
         : html`<div class="cq-biz-good">
             <b>A sound start.</b> It should pay from month

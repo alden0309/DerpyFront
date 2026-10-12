@@ -74,6 +74,9 @@ import type {
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 const r2 = (v: number) => Math.round(v * 100) / 100;
+/** "+0.5", "−4". */
+const sgn = (v: number) =>
+  `${r1(v) > 0 ? "+" : r1(v) < 0 ? "−" : ""}${Math.abs(r1(v))}`;
 
 // ---------------------------------------------------------------- the rules' numbers
 
@@ -772,10 +775,18 @@ export function bizAdvice(
           ? `Too many hands for its custom yet: it's new, and has custom for about ${v.custom} hand${v.custom === 1 ? "" : "s"} this month (it builds over ${RAMP.length} months). The rest bring in little.`
           : `Too many hands for the trade here: the town's custom keeps about ${v.custom} busy${o.rivals?.length ? `, after its rivals' share` : ""}; the rest bring in ${Math.round(OVERFLOW * 100)} in a hundred of a hand's takings.`,
     });
-  // Too big: a smaller place would make more here, once it's going.
+  // Too big: a smaller place would make more here, once it's going (judged
+  // as if it were minded, so it's the size that's said, not who minds it).
   if (i.level >= 2) {
     const going = (lv: number) => {
-      const x: BizInput = { ...i, level: lv, month: -1, months: undefined };
+      const x: BizInput = {
+        ...i,
+        level: lv,
+        month: -1,
+        months: undefined,
+        minded: true,
+        master: i.minded ? i.master : "work",
+      };
       x.hands = bestHands(x);
       const b = bizMonth(x);
       return b.profit - b.mgr;
@@ -786,7 +797,7 @@ export function bizAdvice(
       out.push({
         key: "toobig",
         tone: here < 0 ? "bad" : "note",
-        text: `Too big for the town: a ${["", "small", "middling", "great"][i.level]} ${name} costs ${placeUpkeep(i.job, i.level)} a month to keep, and the custom here keeps about ${r1(Number.isFinite(i.custom) ? i.custom : 0)} hands busy. A smaller place would make about ${r1(smaller)} a month here to its ${r1(here)}; a bigger town would pay.`,
+        text: `Too big for the town: a ${["", "small", "middling", "great"][i.level]} ${name} costs ${placeUpkeep(i.job, i.level)} a month to keep, and the custom here keeps about ${r1(Number.isFinite(i.custom) ? i.custom : 0)} hands busy. A smaller place would make about ${sgn(smaller)} a month here to its ${sgn(here)}; a bigger town would pay.`,
       });
   }
   if (i.skill < 4)
@@ -834,7 +845,8 @@ export function bizAdvice(
       tone: losing ? "bad" : "note",
       text: `A hand fewer would save about ${mg.fewer} a month.`,
     });
-  if (i.hands === 0 && i.master !== "work")
+  // No hands where hands would pay (unminded, they wouldn't: that's said above).
+  if (i.hands === 0 && i.master !== "work" && i.minded)
     out.push({
       key: "nohands",
       tone: "bad",
