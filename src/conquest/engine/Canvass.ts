@@ -455,6 +455,16 @@ export function npcStanding(
       POLL.householder,
     );
   add("skill", "Address", stat(s, ch, "dip") * 0.6);
+  // His friends and family, his dealings: the county thinks well of most of
+  // its people of standing (less fought over for a lesser office).
+  add(
+    "regard",
+    native ? "The town's regard for him" : "The county's regard for him",
+    Math.max(
+      -POLL.regardCap,
+      Math.min(POLL.regardCap, ((status - 2) * 2 + h(7) * 8 - 2) * stakes),
+    ),
+  );
   // He canvasses for the last half-year before the poll, harder some than others.
   const weeksLeft = Math.max(0, (day - s.day) / 7);
   const ramp = opts.late
@@ -1365,12 +1375,16 @@ function reasons(
       return `${name} (${fmt(a)})`;
     if (k === "regard")
       return won
-        ? `the county thought better of you (${fmt(a)} to ${fmt(b)})`
+        ? `the county thought better of you (${fmt(a)} to ${rn}'s ${fmt(b)})`
         : `the county thought better of ${rn} (${fmt(b)} to your ${fmt(a)})`;
     if (k === "party")
       return won
-        ? `your party suits the county (${fmt(a)} to ${fmt(b)})`
-        : `${rn}'s party suits the county (${fmt(b)} to your ${fmt(a)})`;
+        ? a > 0
+          ? `your party suits the county (${fmt(a)} to ${fmt(b)})`
+          : `${rn}'s party doesn't suit the county (${fmt(b)})`
+        : b > 0
+          ? `${rn}'s party suits the county (${fmt(b)} to your ${fmt(a)})`
+          : `your party doesn't suit the county (${fmt(a)})`;
     if (k === "papers" || k === "puff")
       return `the papers (${fmt(a)} to ${fmt(b)})`;
     if (k === "sitting") return a > b ? "you sat already" : `${rn} sat already`;
