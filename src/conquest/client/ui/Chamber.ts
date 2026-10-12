@@ -300,9 +300,10 @@ function matters(ui: GameUi, n: number): TemplateResult | typeof nothing {
                     >`
                   : html`<span
                       class="cq-chip ${m.status === "carried" ? "good" : "bad"}"
-                      >${m.status}</span
+                      >${m.undone ? "carried, not done" : m.status}</span
                     >`}
-                ${ayes} aye, ${noes} no
+                ${ayes} aye, ${noes}
+                no${m.undone ? html` · <i>${m.undone}</i>` : nothing}
               </span>
             </div>
             ${m.status === "open" &&

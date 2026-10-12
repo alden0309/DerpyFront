@@ -105,7 +105,8 @@ export function gainXp(
     journal(
       g,
       life,
-      `Your ${SKILL_NAMES[sk].toLowerCase()} has grown to ${life.skills[sk]}.`,
+      // FIXES (r15): "your letters have grown", not "has".
+      `Your ${SKILL_NAMES[sk].toLowerCase()} ${/s$/.test(SKILL_NAMES[sk]) ? "have" : "has"} grown to ${life.skills[sk]}.`,
       "good",
     );
   }

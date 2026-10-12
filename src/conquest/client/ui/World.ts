@@ -3,6 +3,7 @@
 
 import { html, nothing, TemplateResult } from "lit";
 import { dateOf, formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
+import { seatHolderId, seatsOf, seatTitle } from "../../engine/CouncilTitles"; // FIXES (r15)
 import { lifeTitle, meOf, opinionOf } from "../../engine/LifeQueries";
 import { activeMovements } from "../../engine/Movements";
 import {
@@ -11,9 +12,8 @@ import {
   provincesOf,
   strengthOf,
 } from "../../engine/Queries";
-import { END_YEAR, SEAT_NAMES } from "../../engine/Rules";
+import { END_YEAR } from "../../engine/Rules";
 import type { Character, Nation } from "../../engine/Types";
-import { SEATS } from "../../engine/Types";
 import { flagFor } from "../Flags";
 import { nationName, people } from "../Text";
 import { movementCard } from "./Affairs";
@@ -294,9 +294,10 @@ export function nationPage(ui: GameUi, id: number): TemplateResult {
               : html`<span class="cq-muted">none</span>`}
           </dd>
           ${n.kind === "power" || native
-            ? SEATS.map((seat) => {
-                const c = s.chars[n.council[seat]];
-                return html`<dt>${SEAT_NAMES[seat]}</dt>
+            ? seatsOf(n).map((seat) => {
+                // FIXES (r15): every seat, by its title here.
+                const c = s.chars[seatHolderId(s, n.id, seat)];
+                return html`<dt>${seatTitle(s, n.id, seat)}</dt>
                   <dd>
                     ${c?.alive
                       ? charLink(ui, c)

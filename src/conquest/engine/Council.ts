@@ -1637,6 +1637,7 @@ export function settleMatter(
   // FIXES (r15): "presents for the Haudenosaunee", not "the haudenosaunee".
   const title = lowerFirst(m.title);
   m.status = carried ? "carried" : "lost";
+  if (undone) m.undone = text; // FIXES (r15)
   powerChanged(g, `c${n}`);
   for (const { c } of councillors(s, n)) {
     const life = lifeOfChar(s, c);

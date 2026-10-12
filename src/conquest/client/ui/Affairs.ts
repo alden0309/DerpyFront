@@ -12,6 +12,7 @@ import {
   AMBITIONS,
 } from "../../engine/Ambitions";
 import { formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
+import { seatHolderId, seatsOf, seatTitle } from "../../engine/CouncilTitles"; // FIXES (r15)
 import {
   atPost,
   beneathStation,
@@ -520,9 +521,11 @@ export function standingSection(ui: GameUi): TemplateResult {
                 <dl class="cq-family">
                   <dt>${native ? "Leader" : "Governor"}</dt>
                   <dd>${charLink(ui, ruler)}</dd>
-                  ${SEATS.map((seat) => {
-                    const c = s.chars[n.council[seat]];
-                    return html`<dt>${SEAT_NAMES[seat]}</dt>
+                  ${seatsOf(n).map((seat) => {
+                    // FIXES (r15): every seat, by its title here ("Secretary
+                    // of the colony", not "Spymaster"), the colony's own too.
+                    const c = s.chars[seatHolderId(s, n.id, seat)];
+                    return html`<dt>${seatTitle(s, n.id, seat)}</dt>
                       <dd>
                         ${c?.alive
                           ? charLink(ui, c)

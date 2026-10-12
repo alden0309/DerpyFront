@@ -40,7 +40,7 @@ import {
   interactionView,
 } from "../../src/conquest/engine/Interactions";
 import { LEAD_DEFS } from "../../src/conquest/engine/Leads";
-import { setTie } from "../../src/conquest/engine/LifeCore";
+import { gainXp, setTie } from "../../src/conquest/engine/LifeCore";
 import { meOf } from "../../src/conquest/engine/LifeQueries";
 import {
   ensureOffices,
@@ -524,10 +524,15 @@ describe("FIXES r15: what the political playthrough turned up", () => {
       day: s.day,
       until: s.day,
       votes: {},
-      status: "open" as const,
+      status: "open" as "open" | "carried" | "lost",
+      undone: undefined as string | undefined,
     });
     g.nation(n).gold = 0;
-    settleMatter(g, n, matter(1), true, 5, 1);
+    const m1 = matter(1);
+    settleMatter(g, n, m1, true, 5, 1);
+    // The chamber shows it: carried, not done, and why.
+    expect(m1.status).toBe("lost");
+    expect(m1.undone).toBe("The treasury can't spare it.");
     const undone = life.journal[life.journal.length - 1].text;
     expect(undone).toBe(
       `The council carries presents for the ${s.nations[o].name} (5 to 1), but it can't be done: the treasury can't spare it.`,
@@ -557,6 +562,20 @@ describe("FIXES r15: what the political playthrough turned up", () => {
     expect(elected.check(g, life)).toBe(false);
     life.tally.elections = 1;
     expect(elected.check(g, life)).toBe(true);
+  });
+
+  test("your letters have grown (not has); your trade has", () => {
+    const g = world({ start: 1700 });
+    const life = lifeOf(g);
+    gainXp(g, life, "letters", 400);
+    gainXp(g, life, "trade", 400);
+    const texts = life.journal.map((j) => j.text);
+    expect(
+      texts.some((x) => /^Your letters have grown to \d+\.$/.test(x)),
+    ).toBe(true);
+    expect(texts.some((x) => /^Your trade has grown to \d+\.$/.test(x))).toBe(
+      true,
+    );
   });
 
   test("the Harpe brothers have robbed the post road (not has)", () => {
