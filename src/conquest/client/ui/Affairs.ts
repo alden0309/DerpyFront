@@ -110,6 +110,7 @@ import "../Range";
 import { play } from "../Sound";
 import { BUILDING_LABELS, nationName } from "../Text";
 import { num } from "../Tip";
+import { curveNotes } from "./Canvass"; // POLLS (r16)
 import {
   action,
   bar,
@@ -410,6 +411,7 @@ export function standingSection(ui: GameUi): TemplateResult {
             "renown",
             String(Math.round(life.renown)),
             "cq-stat-value",
+            () => curveNotes(life, "renown"), // POLLS (r16)
           )}
           <span class="cq-stat-note">who knows your name</span>
         </div>
@@ -419,7 +421,12 @@ export function standingSection(ui: GameUi): TemplateResult {
               "favour",
               native ? "Elders' regard" : "Favour at home",
             )}</span
-          >${term("favour", String(Math.round(life.favor)), "cq-stat-value")}
+          >${term(
+            "favour",
+            String(Math.round(life.favor)),
+            "cq-stat-value",
+            () => curveNotes(life, "favour"), // POLLS (r16)
+          )}
           <span class="cq-stat-note"
             >${native ? "the council fire" : "the crown's ear"}</span
           >
@@ -463,8 +470,8 @@ export function standingSection(ui: GameUi): TemplateResult {
             ${formatDate(pollDay(pol.election))}.
             ${life.campaign
               ? html`<span class="good"
-                  >You're standing: ${life.campaign.points} campaign
-                  points.</span
+                  >You're standing: the canvass, week by week, is on Society ›
+                  Office.</span
                 >`
               : nothing}
           </p>`

@@ -34,6 +34,7 @@ import {
 import { joinMovement, movementOf } from "./Movements";
 import { businessOf, houseOf, landOf } from "./Property";
 import { ageOf, charName } from "./Queries";
+import { addFavor } from "./Standing"; // POLLS (r16)
 import type { Character, JobKind, Life, Skill, TraitId } from "./Types";
 import { leaveJob, takeJob } from "./Work";
 
@@ -72,7 +73,7 @@ function fx(g: ConquestGame, life: Life, f: Fx, cause = "misadventure"): void {
   if (f.coins) earn(g, life, f.coins);
   if (f.renown) addRenown(g, life, f.renown);
   if (f.stress) addStress(g, life, f.stress);
-  if (f.favor) touchLife(g, life).favor = Math.max(0, life.favor + f.favor);
+  if (f.favor) addFavor(g, life, f.favor); // POLLS (r16): on the curve
   for (const [k, v] of Object.entries(f.xp ?? {}))
     gainXp(g, life, k as Skill, v ?? 0);
   if (f.gain) gainTrait(g, life, f.gain);

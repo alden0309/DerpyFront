@@ -26,6 +26,7 @@ import {
 import { JOBS, SKILL_NAMES } from "./LifeRules";
 import { movementOf } from "./Movements";
 import { ageOf } from "./Queries";
+import { gainFactor, RENOWN_CURVE } from "./StandingCurve"; // POLLS (r16)
 import type { GameState, Life, Skill, TraitId } from "./Types";
 import { SKILLS } from "./Types";
 
@@ -46,6 +47,11 @@ export interface AmbitionDef {
   reward: { renown: number; stress: number; trait?: TraitId; text: string };
   /** Asks which skill. */
   skill?: boolean;
+}
+
+/** POLLS (r16): renown to win for "Make a name", from where you stand. */
+export function nameMark(base: number): number {
+  return Math.max(8, Math.round(20 * gainFactor(RENOWN_CURVE, base + 10)));
 }
 
 const kids = (s: GameState, life: Life) => {
@@ -133,11 +139,13 @@ export const AMBITIONS: Record<string, AmbitionDef> = {
   },
   name: {
     name: "Make a name",
-    text: "Win twenty renown more than you have.",
+    // POLLS (r16): above 60 renown comes harder (each gain counts for less),
+    // so the mark is nearer for the well known.
+    text: "Win twenty renown more than you have (fewer above 60, where it comes harder).",
     base: (s, life) => Math.floor(life.renown),
     progress: (s, life, base) => [
       Math.max(0, Math.floor(life.renown) - base),
-      20,
+      nameMark(base),
     ],
     reward: {
       renown: 4,

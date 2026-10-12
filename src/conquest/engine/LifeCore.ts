@@ -10,6 +10,7 @@ import { SKILL_MAX, SKILL_NAMES, xpToNext } from "./LifeRules";
 import { charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR, TRAITS } from "./Rules";
 import { rumour } from "./Rumours";
+import { afterGain, RENOWN_CURVE } from "./StandingCurve"; // POLLS (r16)
 import type {
   Character,
   Life,
@@ -126,7 +127,12 @@ export function addRenown(g: ConquestGame, life: Life, n: number): void {
   touchLife(g, life);
   const me = meOf(g.s, life);
   const mult = n > 0 && me && hasTrait(me, "famous") ? 1.2 : 1;
-  life.renown = Math.max(0, Math.round((life.renown + n * mult) * 10) / 10);
+  // POLLS (r16): above 60 a gain counts for less (the same below it).
+  const next =
+    n > 0
+      ? afterGain(RENOWN_CURVE, life.renown, n * mult)
+      : life.renown + n * mult;
+  life.renown = Math.max(0, Math.round(next * 10) / 10);
   life.tally.peakRenown = Math.max(life.tally.peakRenown, life.renown);
   if (me && life.renown >= 60 && !me.traits.includes("famous")) {
     gainTrait(g, life, "famous");

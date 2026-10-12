@@ -39,7 +39,7 @@ import {
 } from "./LifeQueries";
 import { kmBetween, type World } from "./Map";
 import { localOfficesOf } from "./Offices";
-import { addSway, pdice, power, powerChanged } from "./PowerCore";
+import { addSway, papersOf, pdice, power, powerChanged } from "./PowerCore"; // POLLS (r16): papersOf
 import { ageOf, charName, provincesOf, settlers, stat } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
@@ -483,6 +483,13 @@ export function pieceTargets(
       note: `${Math.round(m.support)} support`,
     }));
   const out = new Map<number, { id: number; label: string; note: string }>();
+  // POLLS (r16): the owner first: a paper may speak for its proprietor.
+  if (s.chars[life.c]?.alive)
+    out.set(life.c, {
+      id: life.c,
+      label: "Yourself",
+      note: "a word for the paper's own proprietor",
+    });
   const add = (c: number, note: string) => {
     const ch = s.chars[c];
     if (!ch?.alive || c === life.c || out.has(c)) return;
@@ -660,6 +667,9 @@ export function printPiece(
   if (on !== "c" && on !== "m" && on !== "g") return "About what?";
   if (!pieceTargets(s, life, on).some((t) => t.id === id)) return "About whom?";
   const sd = side > 0 ? 1 : -1;
+  // POLLS (r16): a piece for its own proprietor (never against).
+  const self = on === "c" && id === life.c;
+  if (self && sd < 0) return "Your own paper won't print against you.";
   const force = pieceForce(s, life, x).total;
   const risk = pieceRisk(s, life, x, on, id, sd).total;
   const r = pdice(g);
@@ -676,7 +686,7 @@ export function printPiece(
     on,
     id,
     side: sd,
-    head: headline(s, x, on, id, sd),
+    head: self ? selfHeadline(s, x, life.c) : headline(s, x, on, id, sd),
     force: Math.round(force * (landed ? 1 : 0.5) * 10) / 10,
     day: s.day,
   };
@@ -689,10 +699,123 @@ export function printPiece(
     `${x.name} prints "${piece.head}".${landed ? " It's talked of in every tavern." : " It falls a little flat."}`,
     landed ? "good" : undefined,
   );
+  if (self) {
+    puffSelf(g, life, x, piece); // POLLS (r16)
+    return null;
+  }
   applyPiece(g, x, piece, life);
   // The dangers.
   if (r.chance(risk / 100)) danger(g, life, x, piece);
   return null;
+}
+
+// ---------------------------------------------------------------- POLLS (r16): a paper that speaks for its owner
+
+const SELF_HEADS = [
+  "A word for {x}, from one who knows him",
+  "{x} and the county's business",
+  "What the county owes {x}",
+  "A friend to the freeholders: {x}",
+];
+
+function selfHeadline(s: GameState, x: Paper, c: number): string {
+  return SELF_HEADS[
+    Math.floor(hash01(x.id, c, s.day, 5) * SELF_HEADS.length)
+  ].replace("{x}", charName(s.chars[c]));
+}
+
+/** A puff for yourself: how much more it moves your own readers, what it costs you elsewhere. */
+export const PUFF = {
+  /** Its force counts this much more with the paper's own readers (at polls in its county)... */
+  here: 1.5,
+  /** ...and up to this much in all. */
+  max: 10,
+  /** At polls elsewhere it raises eyebrows: a third of it against you, up to 4. */
+  elsewhere: 1 / 3,
+  elsewhereMax: 4,
+  /** It lasts as long as a piece's sway. */
+  days: 540,
+  /** A rival paper's mockery: this chance, more for a paper few believe and for each rival. */
+  mock: 0.2,
+  mockLowCredit: 0.1,
+  mockEach: 0.05,
+  mockMax: 0.45,
+};
+
+/** Other papers in the colony that might mock a puff. */
+export function rivalPapers(s: GameState, x: Paper): Paper[] {
+  return papersOf(s).filter(
+    (y) => y.id !== x.id && y.nation === x.nation && y.owner !== x.owner,
+  );
+}
+
+/** The chance a rival paper mocks a puff for its own proprietor. */
+export function mockChance(s: GameState, x: Paper): number {
+  const rivals = rivalPapers(s, x).length;
+  if (!rivals) return 0;
+  return Math.min(
+    PUFF.mockMax,
+    PUFF.mock +
+      (x.credit < 50 ? PUFF.mockLowCredit : 0) +
+      (rivals - 1) * PUFF.mockEach,
+  );
+}
+
+/** What a puff of this force does: at polls in the paper's county, and elsewhere. */
+export function puffEffect(
+  life: Life,
+  x: Paper,
+  force: number,
+  day: number,
+): { here: number; elsewhere: number } {
+  const cur = life.polls?.puff;
+  const was = cur && cur.until > day && cur.p === x.p ? cur.v : 0;
+  const here = Math.min(PUFF.max, was + force * PUFF.here);
+  return {
+    here: Math.round(here * 10) / 10,
+    elsewhere:
+      -Math.round(Math.min(PUFF.elsewhereMax, here * PUFF.elsewhere) * 10) / 10,
+  };
+}
+
+function puffSelf(g: ConquestGame, life: Life, x: Paper, piece: Piece): void {
+  const s = g.s;
+  x.printed.push(piece);
+  if (x.printed.length > 12) x.printed.splice(0, x.printed.length - 12);
+  powerChanged(g, "p");
+  const fx = puffEffect(life, x, piece.force, s.day);
+  const pl = (touchLife(g, life).polls ??= {});
+  pl.puff = { p: x.p, v: fx.here, until: s.day + PUFF.days };
+  addRenown(g, life, piece.force / 6);
+  rumour(g, x.p, `${x.name}: "${piece.head}"`, life.c, "good");
+  const here = g.map.provinces[x.p]?.name ?? "its county";
+  journal(
+    g,
+    life,
+    `${x.name} speaks for its proprietor. Its readers at ${here} are persuaded (+${fx.here} at a poll there); elsewhere eyebrows are raised (${fx.elsewhere} at a poll).`,
+  );
+  // A rival paper's mockery.
+  const rivals = rivalPapers(s, x);
+  if (rivals.length && pdice(g).chance(mockChance(s, x))) {
+    const by = rivals[Math.floor(hash01(x.id, s.day, 7) * rivals.length)];
+    pl.puff.v = Math.round(pl.puff.v * 5) / 10;
+    x.credit = Math.max(0, x.credit - 3);
+    addRenown(g, life, -2);
+    addSway(g, life.c, -piece.force / 2);
+    journal(
+      g,
+      life,
+      `${by.name} has some fun with it: "The ${x.name.replace(/^The /, "")} has discovered a great man, and he owns the ${x.name.replace(/^The /, "")}." The puff is half spoiled, and the town laughs.`,
+      "bad",
+    );
+    rumour(
+      g,
+      by.p,
+      `${by.name} laughs at ${x.name} for puffing its own proprietor.`,
+      life.c,
+      "bad",
+    );
+  }
 }
 
 /** What a piece does in the world. */

@@ -46,6 +46,7 @@ import { ageOf, charName, provincesOf, settlers, stat } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
 import { hash01 } from "./SocietyCore";
+import { delivered } from "./Standing"; // POLLS (r16)
 import { accuse, graceTrials, prosecute } from "./Trials";
 import type {
   Breakdown,
@@ -1201,6 +1202,7 @@ export function useSeatAction(
   if (!pass) addStress(g, life, 2);
   else addRenown(g, life, 1);
   journal(g, life, text, pass ? "good" : "bad");
+  if (pass) delivered(g, life, a.label.toLowerCase()); // POLLS (r16): a seat's power carried
   return null;
 }
 
@@ -1665,6 +1667,8 @@ export function settleMatter(
           : `The council throws out ${title}.`,
     );
   if (carried && m.by !== s.nations[n].ruler) setFavour(g, n, m.by, 3);
+  // POLLS (r16): a measure of yours carried is something delivered from the seat.
+  if (carried && by) delivered(g, by, title);
 }
 
 /** A player governor signs (or refuses) what the council carried. */

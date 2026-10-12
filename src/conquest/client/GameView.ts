@@ -71,6 +71,7 @@ import {
 } from "./ui/Anchor";
 import { armyPanel } from "./ui/ArmyPanel";
 import { battleDispatch, myBattleNation } from "./ui/Battle";
+import { curveNotes } from "./ui/Canvass"; // POLLS (r16)
 import { breakdownTip, DrawerView, GameUi, Modal, token } from "./ui/Context";
 import { noteDiceActs } from "./ui/DiceLog"; // FIXES (r15)
 import { diceTrayItem, onDiceClock } from "./ui/DiceTable"; // DICE (r14)
@@ -1813,13 +1814,17 @@ export class GameView extends LitElement {
             ${this.meterChip("stress", "Stress", life.stress, true)}
             <span class="cq-chip-stat">
               <span class="lbl">Renown</span>
-              ${term("renown", String(Math.round(life.renown)), "val")}
+              ${term("renown", String(Math.round(life.renown)), "val", () =>
+                curveNotes(life, "renown"),
+              )}
             </span>
             <span class="cq-chip-stat wide-only">
               <span class="lbl"
                 >${lifeIsNative(s, life) ? "Regard" : "Favour"}</span
               >
-              ${term("favour", String(Math.round(life.favor)), "val")}
+              ${term("favour", String(Math.round(life.favor)), "val", () =>
+                curveNotes(life, "favour"),
+              )}
             </span>
           </div>`
         : html`<div class="cq-chips-bar"></div>`}

@@ -36,6 +36,13 @@ import { localCampaign, localOfficesOf, localScore } from "./Offices"; // SOCIET
 // POWER (r12): one office at a time, the council, the speaker, the papers.
 import { chooseSpeaker } from "./Assembly";
 import {
+  assemblyHasPlayer,
+  assemblyScore,
+  countLuck,
+  countReasons,
+  tellResults,
+} from "./Canvass"; // POLLS (r16)
+import {
   councilAdvice,
   govAppoint,
   offerCouncilSeat,
@@ -45,6 +52,7 @@ import { takingPost } from "./OneOffice";
 import { swayOf } from "./PowerCore";
 import { ageOf, charName, provincesOf, stat } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
+import { addFavor, delivered } from "./Standing"; // POLLS (r16)
 import type {
   BuildingKind,
   GameState,
@@ -222,16 +230,27 @@ function holdElection(g: ConquestGame, pol: Polity): void {
   const nation = s.nations[pol.nation];
   const native = nation.kind === "native";
   const field = new Map<number, number>();
+  // POLLS (r16): with a player in it, the election is counted by the
+  // canvass's lines (the same the pages show), with a little luck each, and
+  // the computer's challengers put up during the canvass stand too.
+  const counted = assemblyHasPlayer(s, pol.nation);
+  const score = (c: number, old: number) =>
+    counted ? assemblyScore(s, pol.nation, c) + countLuck(g, c) : old;
   // Sitting members stand again (unless they're dead or gone).
   for (const c of pol.assembly) {
     const ch = s.chars[c];
-    if (ch?.alive && !ch.abroad) field.set(c, candidateScore(s, c) + 6);
+    if (ch?.alive && !ch.abroad)
+      field.set(c, score(c, candidateScore(s, c) + 6));
   }
   // Players who stood.
   for (const life of s.lives) {
     if (life.campaign?.nation !== pol.nation || life.c < 0) continue;
-    field.set(life.c, candidateScore(s, life.c));
+    field.set(life.c, score(life.c, candidateScore(s, life.c)));
   }
+  if (counted)
+    for (const x of pol.candidates)
+      if (s.chars[x.c]?.alive && !s.chars[x.c].abroad && !field.has(x.c))
+        field.set(x.c, score(x.c, 0));
   // Challengers from among the colony's people of standing.
   const provs = provincesOf(s, pol.nation);
   const challengers = 2 + g.rng.int(0, 2);
@@ -250,12 +269,27 @@ function holdElection(g: ConquestGame, pol: Polity): void {
       ? "elder"
       : g.rng.pick(["planter", "merchant", "lawyer"] as const)!;
     g.touchChar(c);
-    field.set(c.id, candidateScore(s, c.id) + g.rng.int(-4, 8));
+    const luck = g.rng.int(-4, 8);
+    field.set(
+      c.id,
+      counted // POLLS (r16): late entrants, by the same lines
+        ? assemblyScore(s, pol.nation, c.id, true) + luck / 4
+        : candidateScore(s, c.id) + luck,
+    );
   }
   const ranked = [...field.entries()].sort(
     (a, b) => b[1] - a[1] || a[0] - b[0],
   );
   const winners = ranked.slice(0, pol.seats).map(([c]) => c);
+  const why = counted // POLLS (r16): why it went as it did, for each player
+    ? countReasons(
+        s,
+        { kind: "assembly", n: pol.nation },
+        pol.name,
+        ranked.map(([c, v]) => ({ c, score: v })),
+        winners,
+      )
+    : [];
   const before = new Set(pol.assembly);
   // POWER (r12): one office at a time: a new member gives up the others.
   for (const c of winners)
@@ -299,6 +333,7 @@ function holdElection(g: ConquestGame, pol: Polity): void {
       journal(g, life, `You lost the election to ${pol.name}.`, "bad");
     }
   }
+  tellResults(g, why); // POLLS (r16)
 }
 
 // ---------------------------------------------------------------- court and council
@@ -362,7 +397,7 @@ export function writeToCrown(
   gainXp(g, life, "letters", 6);
   touchLife(g, life);
   if (pass) {
-    life.favor = Math.min(100, life.favor + 6);
+    addFavor(g, life, 6); // POLLS (r16): on the curve
     journal(
       g,
       life,
@@ -370,7 +405,7 @@ export function writeToCrown(
       "good",
     );
   } else {
-    life.favor = Math.min(100, life.favor + 1);
+    addFavor(g, life, 1); // POLLS (r16)
     journal(
       g,
       life,
@@ -743,6 +778,7 @@ function govLever(g: ConquestGame, life: Life, lever: GovLever): string | null {
         });
         journal(g, life, `${def.name}: it's the law now. ${def.text}`, "good");
         milestone(g, life, "office", `Passed ${def.name}`);
+        delivered(g, life, def.name); // POLLS (r16)
       } else {
         x.laws = (x.laws ?? []).filter((k) => k !== lever.law);
         x.mods = x.mods.filter((m) => m.key !== `law:${lever.law}`);
@@ -779,6 +815,7 @@ function govLever(g: ConquestGame, life: Life, lever: GovLever): string | null {
         "office",
         `Built ${def.name.toLowerCase().replace(/^an? /, "a ")}`,
       );
+      delivered(g, life, def.name.toLowerCase()); // POLLS (r16)
       return null;
     }
     default:

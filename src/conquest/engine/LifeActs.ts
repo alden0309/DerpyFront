@@ -97,6 +97,7 @@ import { DAYS_PER_YEAR } from "./Rules";
 import { heardHere } from "./Rumours";
 import { harvestStint } from "./SeasonLife"; // MAP (r12)
 import { isHarvest } from "./Seasons"; // MAP (r12)
+import { addFavor } from "./Standing"; // POLLS (r16)
 import type { Character, GameState, Life, PlaceKind, Skill } from "./Types";
 import { SEATS } from "./Types";
 import { buyRank, selfStartCheck, startJob } from "./Work";
@@ -1206,7 +1207,7 @@ export function doAct(
             2,
           );
       }
-      life.favor += 2;
+      addFavor(g, life, 2); // POLLS (r16): on the curve
       journal(
         g,
         life,

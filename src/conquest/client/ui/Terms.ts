@@ -31,22 +31,24 @@ export const TERMS: Record<string, Term> = {
       "Work (wages at the month's end), rents from land, a business's takings, trade between markets, ventures and shares, contracts, leads.",
     ch: "money",
   },
-  // Life.ts: renown above 15 slips back 2% of the excess a month.
+  // Life.ts / StandingCurve.ts (POLLS r16): above 15 it slips back 2% of the
+  // excess a month, more above 60; above 60 each gain counts for less.
   renown: {
     name: "Renown",
     what: "How many people know your name, and think it worth knowing.",
-    good: "Opens doors: the governor's levee (5), a place at court and the assembly (20), a company of your own (40), an invitation to Parliament (50, with favour 15). Helps with offices, petitions, letters and a governor's reprieve.",
+    good: "Opens doors: the governor's levee (5), a place at court and the assembly (20), a company of your own (40), an invitation to Parliament (50, with favour 15), being thought famous (60, and 100). Helps with offices, petitions, letters and a governor's reprieve. At a poll it counts only lightly (0.12 a point, 10 at most): the county's regard, the canvass and a patron count for more.",
     raise:
-      "Promotions, office and its duties, gatherings that go well, gifts to the town, standing a round, contracts, battles, leads that pay, reaching an ambition. Above 15 it fades a little each month unless it's fed.",
+      "Promotions, office and its duties, gatherings that go well, gifts to the town, standing a round, contracts, battles, leads that pay, reaching an ambition. Above 15 it fades a little each month unless it's fed. Above 60 it comes harder (at 100 a gain counts half) and fades faster the higher it stands: the great are forgotten fast.",
     ch: "standing",
   },
-  // Politics.ts governorScore, writeToCrown; Life.ts favour fades 2% a month.
+  // Politics.ts governorScore, writeToCrown; Standing.ts (POLLS r16): the
+  // curve above 60, and the slip in an unchanged seat.
   favour: {
     name: "Favour",
     what: "Whether your name is known and liked at home: the crown's ear (for native peoples, the elders' regard). From 0 to 100.",
     good: "Counts half again as much as renown toward being made governor. With renown 50 and favour 15 an invitation to Parliament may come. It helps petitions (a pardon, redress, a charter for a settlement) and appointments the governor makes.",
     raise:
-      "Write to the crown at the governor's house or the docks (2 coins, every 60 days: +6 if the letter is well judged, +1 if not). Gifts to the town, a burgess's bill that passes, carrying a wampum belt, and some choices in letters. It fades by 2% a month; an heir keeps less than a third.",
+      "Write to the crown at the governor's house or the docks (2 coins, every 60 days: +6 if the letter is well judged, +1 if not). Gifts to the town, a burgess's bill that passes, carrying a wampum belt, and some choices in letters. It fades by 2% a month, faster above 60, where each gain counts for less (at 85, half). A year in the same seat with nothing delivered (a law, a work, a power or a measure carried) and it slips (4, then 6, 8, 10). An heir keeps less than a third.",
     ch: "favour",
   },
   // Life.ts monthly health
@@ -69,7 +71,7 @@ export const TERMS: Record<string, Term> = {
   // LifeQueries stationOf, beneathStation
   station: {
     name: "Station",
-    what: "Where the town ranks you: labouring folk, the middling sort, gentlefolk, the better sort, the great. It's set by what your rung pays, the offices you hold, your renown (60, 150) and a fine house.",
+    what: "Where the town ranks you: labouring folk, the middling sort, gentlefolk, the better sort, the great. It's set by what your rung pays, the offices you hold, your renown (60, 100) and a fine house.",
     good: "Each station expects a way of living (frugal up to grand) and, from gentlefolk up, a house. Live beneath it while you could afford better and it costs 3 stress and 0.4 renown a month for each step short.",
     raise:
       "Climb your trade (a rung paying 3, 7, 13 or 21 a month lifts you a station), hold office, become well known. Then live up to it: Estate › Purse sets how you live; Estate › House & land buys the house.",
@@ -318,12 +320,18 @@ export const TERMS: Record<string, Term> = {
 };
 
 /** A term's explanation, as a tooltip. */
-export function termTip(key: string): TipContent {
+export function termTip(key: string, extra?: () => string[]): TipContent {
   const t = TERMS[key];
   if (!t) return { title: key };
   return {
     title: t.name,
-    notes: [t.what, `What it's for: ${t.good}`, `How: ${t.raise}`],
+    // POLLS (r16): a number may add what's true of it now (renown's curve).
+    notes: [
+      t.what,
+      `What it's for: ${t.good}`,
+      `How: ${t.raise}`,
+      ...(extra?.() ?? []),
+    ],
   };
 }
 
@@ -335,10 +343,11 @@ export function term(
   key: string,
   label?: string | TemplateResult,
   cls = "",
+  extra?: () => string[], // POLLS (r16): what's true of this number now
 ): TemplateResult {
   return num(
     label ?? TERMS[key]?.name ?? key,
-    () => termTip(key),
+    () => termTip(key, extra),
     `cq-term ${cls}`,
   );
 }

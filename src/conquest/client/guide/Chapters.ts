@@ -939,7 +939,7 @@ ${tradesTables()}
 ${livingTable()}
 
 ## Station
-Where the town ranks you: ${STATION_NAMES.join(", ")}. It's set by what your rung pays (${STATION_WAGE.map((w) => `${w}`).join(", ")} coins a month or more lift you a station each), the offices you hold (the assembly, the council, the governor's chair), your renown (60 and 150), and a fine house or a mansion. Each station expects a way of living, and from gentlefolk up a house (any roof of your own, then a fine house, then a mansion).
+Where the town ranks you: ${STATION_NAMES.join(", ")}. It's set by what your rung pays (${STATION_WAGE.map((w) => `${w}`).join(", ")} coins a month or more lift you a station each), the offices you hold (the assembly, the council, the governor's chair), your renown (60 and 100), and a fine house or a mansion. Each station expects a way of living, and from gentlefolk up a house (any roof of your own, then a fine house, then a mansion).
 
 Live beneath your station while you could afford better (twice the expected living in your purse) and it costs **${BENEATH_STRESS} stress and ${BENEATH_RENOWN} renown a month for each step short**. When money's short, people pity you rather than talk.
 
