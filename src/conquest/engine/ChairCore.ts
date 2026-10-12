@@ -176,6 +176,19 @@ export const ADDRESS = {
   supply: { tax: -0.3, morale: -0.1, favor: -6, unrest: 2 },
   /** A governor who gives way: the crown thinks him weak. */
   yielded: { favor: -3 },
+  /**
+   * How members lean: their party (country for, court against), what the
+   * house holds against him, and the mover's own weight in the house
+   * (renown and persuasion, never more than a member's party).
+   */
+  party: 3,
+  renownPer: 1 / 60,
+  renownMax: 1.5,
+  persuasionPer: 1 / 10,
+  persuasionMax: 1,
+  /** The computer's mover: a point of diplomacy in six. */
+  npcPer: 1 / 6,
+  npcMax: 2,
 };
 
 /** A governor here lately is passed over for the chair this long; one the crown recalled, longer. */
@@ -694,12 +707,17 @@ export function grievancesOf(s: GameState, n: number): Breakdown {
 
 /** The mover's weight in the house. */
 function moverSway(s: GameState, by: number): number {
+  const A = ADDRESS;
   const life = lifeOfChar(s, by);
   if (life)
     return (
-      Math.min(3, life.renown / 30) + skillLevel(s, life, "persuasion") / 5
+      Math.min(A.renownMax, life.renown * A.renownPer) +
+      Math.min(
+        A.persuasionMax,
+        skillLevel(s, life, "persuasion") * A.persuasionPer,
+      )
     );
-  return stat(s, s.chars[by], "dip") / 3;
+  return Math.min(A.npcMax, stat(s, s.chars[by], "dip") * A.npcPer);
 }
 
 /** How one of the computer's members leans on an address: positive is aye. */
@@ -713,7 +731,7 @@ export function addressLean(
   salt: number,
 ): number {
   const side = memberFaction(s, n, c) === "country" ? 1 : -1;
-  let v = side * 3 + grievancesOf(s, n).total + moverSway(s, by);
+  let v = side * ADDRESS.party + grievancesOf(s, n).total + moverSway(s, by);
   if (supply) v -= 1.5;
   else if (salary) v += 0.5;
   v += hash01(c, n, salt, 0x41) * 4 - 2;

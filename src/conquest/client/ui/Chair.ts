@@ -484,7 +484,7 @@ function addressBlock(
             grief,
             undefined,
             [
-              "Country members lean for it, court members against; refusing supply hurts the colony too, and loses a few.",
+              "Country members lean for it, court members against; your own weight in the house brings a few over, never more than a member's party. Refusing supply hurts the colony too, and loses a few.",
             ],
           ),
         `cq-opinion ${div.ayes > div.noes ? "good" : "bad"}`,
