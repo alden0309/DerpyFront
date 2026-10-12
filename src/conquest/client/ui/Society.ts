@@ -78,6 +78,7 @@ import {
   section,
   token,
 } from "./Context";
+import { canWritePersonal, journeyBlock, personalSnippet } from "./Intrigue"; // INTRIGUE (r15)
 import { articlesLetter } from "./Partners"; // PARTNERS (r13)
 import { price } from "./Price"; // LEDGER (r15)
 import { curly, reasons } from "./Scene";
@@ -188,11 +189,13 @@ function letterCard(ui: GameUi, l: Letter): TemplateResult {
         ${status === nothing ? nothing : html`<span>${status}</span>`}
       </span>
     </header>
-    ${showBody
-      ? html`<p class="cq-post-text">${curly(l.text)}</p>`
-      : html`<p class="cq-post-text muted">
-          A letter is on its way to you from ${charName(other)}.
-        </p>`}
+    ${showBody && l.kind === "personal" // INTRIGUE (r15): in their own words
+      ? personalSnippet(ui, l)
+      : showBody
+        ? html`<p class="cq-post-text">${curly(l.text)}</p>`
+        : html`<p class="cq-post-text muted">
+            A letter is on its way to you from ${charName(other)}.
+          </p>`}
     ${l.kind === "articles" ? articlesLetter(ui, l) : nothing}
     ${l.arg &&
     (l.kind === "favour" ||
@@ -265,7 +268,11 @@ function letterCard(ui: GameUi, l: Letter): TemplateResult {
               : nothing}
           </div>
           <p class="cq-muted small">Unanswered, it lapses in ${left} days.</p>`
-      : !mine && l.status === "delivered" && other?.alive && !l.ask
+      : !mine &&
+          l.status === "delivered" &&
+          other?.alive &&
+          !l.ask &&
+          l.kind !== "personal" // INTRIGUE (r15): answered from its own buttons
         ? html`<div class="cq-btnrow">
             <button
               class="cq-btn quiet small"
@@ -310,6 +317,14 @@ export function lettersPage(ui: GameUi): TemplateResult {
         <button class="cq-btn primary" @click=${() => ui.modal({ k: "write" })}>
           ${QuillIcon()} Write a letter
         </button>
+        ${canWritePersonal(ui) // INTRIGUE (r15)
+          ? html`<button
+              class="cq-btn"
+              @click=${() => ui.modal({ k: "intrigue", what: "letter" })}
+            >
+              In your own words, to a player…
+            </button>`
+          : nothing}
       </div>
     </header>
     <div class="cq-seg cq-post-tabs" role="tablist">
@@ -724,6 +739,13 @@ export function writeModal(
               <span class="cq-muted small"
                 >Another player: they'll answer it themselves.</span
               >
+              <button
+                class="cq-btn small"
+                @click=${() =>
+                  ui.modal({ k: "intrigue", what: "letter", c: to!.id })}
+              >
+                Or write in your own words…
+              </button>
             </div>`
           : accept && to
             ? html`<div class="cq-accept ${accept.total > 0 ? "will" : "wont"}">
@@ -1188,6 +1210,7 @@ export function gatheringsPage(ui: GameUi): TemplateResult {
                   : "You haven't answered."}
                 ${r?.yes && !here ? html`<b>Be there on the day.</b>` : nothing}
               </p>
+              ${journeyBlock(ui, x) /* INTRIGUE (r15): the journey there */}
               ${r
                 ? nothing
                 : html`<div class="cq-btnrow">

@@ -80,7 +80,14 @@ export type Modal =
   // PARTNERS (r13): articles of copartnership, drawn up.
   | { k: "articles"; c: number }
   // DICE (r14): a table of Liar's dice (or opening one; or asking more to it).
-  | { k: "dice"; id?: number; ask?: boolean };
+  | { k: "dice"; id?: number; ask?: boolean }
+  // INTRIGUE (r15): win someone, plot, an accomplice, a wedding, a letter in your own words.
+  | {
+      k: "intrigue";
+      what: "seduce" | "plot" | "recruit" | "wedding" | "letter" | "read";
+      c?: number;
+      id?: number;
+    };
 
 export interface GameUi {
   s: GameState;

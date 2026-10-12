@@ -202,7 +202,7 @@ const WEDDING_SCENES: LifeEventDef[] = [
             why: "Our wedding day",
             renown: 1,
             mood: 2,
-            line: "The groom winked at the congregation.",
+            line: "Someone at the altar winked at the congregation.",
           }),
       },
       {
@@ -219,6 +219,9 @@ const WEDDING_SCENES: LifeEventDef[] = [
       {
         label: "Bolt for the door",
         tip: "Jilted at the altar: they'll never forgive it, and the town will never forget (−4 renown).",
+        // Once the vows are said (the other said theirs first), it's done.
+        blocked: (g, life, ctx) =>
+          wedOf(g, ctx)?.vows ? "The vows are said" : null,
         apply: (g, life, ctx) => {
           const b = wedOf(g, ctx);
           if (b) jilt(g, life, b.id, true);
@@ -427,7 +430,10 @@ const WEDDING_SCENES: LifeEventDef[] = [
                   renown: 1,
                   line: "The toasts went on past midnight.",
                 }
-              : { stress: 3, line: "A story was told at the groom's expense." },
+              : {
+                  stress: 3,
+                  line: "A story was told at the couple's expense.",
+                },
           ),
       },
       {
@@ -516,7 +522,7 @@ const WEDDING_SCENES: LifeEventDef[] = [
             mood: 2,
             renown: 1,
             stress: -2,
-            line: "The bride and groom sang a duet on a bench.",
+            line: "The happy couple sang a duet on a bench.",
           }),
       },
       {
@@ -545,7 +551,7 @@ const WEDDING_SCENES: LifeEventDef[] = [
               ? {
                   mood: 2,
                   renown: 0.5,
-                  line: "The groom carried the bride over the mud.",
+                  line: "One of the couple was carried over the mud by the other.",
                 }
               : {
                   mood: 1,
@@ -1914,11 +1920,12 @@ const WARN: LifeEventDef = {
   ],
 };
 
-/** Setting out on the road (Life.ts), without importing it here. */
+/** Setting out on the road, or by sea (Life.ts), without importing it here. */
 export let travelHook: (
   g: ConquestGame,
   life: Life,
   to: number,
+  bySea?: boolean,
 ) => string | null = () => "You can't travel now.";
 export function setTravelHook(f: typeof travelHook): void {
   travelHook = f;

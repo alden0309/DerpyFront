@@ -28,6 +28,7 @@ import { diceModal } from "./DiceTable"; // DICE (r14)
 import { familyTreeModal } from "./FamilyTree"; // HOME (r12)
 import { finderModal, resetFinder } from "./Finder";
 import { roleOf } from "./Here";
+import { intrigueModal } from "./Intrigue"; // INTRIGUE (r15)
 import { articlesModal } from "./Partners"; // PARTNERS (r13)
 import { eventScene, interactScene, outcomeScene } from "./Scene";
 import { indentureModal, schoolModal } from "./Schooling"; // EDU (r13)
@@ -150,6 +151,11 @@ export function renderModal(
     case "dice":
       body = diceModal(ui, m);
       cls = "scene dice";
+      break;
+    // INTRIGUE (r15)
+    case "intrigue":
+      body = intrigueModal(ui, m);
+      cls = `intrigue ${m.what === "wedding" || m.what === "plot" ? "wide" : ""}`;
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);

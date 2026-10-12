@@ -63,6 +63,7 @@ import {
   token,
 } from "./Context";
 import { roleOf, verdictChip } from "./Here";
+import { intrigueCard } from "./Intrigue"; // INTRIGUE (r15)
 import { personR11 } from "./Livelihood";
 import { partnerCard } from "./Partners"; // PARTNERS (r13)
 import { price, splitPrice } from "./Price"; // LEDGER (r15)
@@ -626,6 +627,7 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
     ${mine && c.alive && !c.abroad ? actsSection(ui, c) : nothing}
     ${mine && c.alive && !c.abroad ? personR11(ui, c) : nothing}
     ${mine && c.alive && !c.abroad ? partnerCard(ui, c) : nothing}
+    ${mine && c.alive && !c.abroad ? intrigueCard(ui, c) : nothing}
     ${section(
       "Their family",
       html`<dl class="cq-family">
@@ -728,7 +730,7 @@ function actsSection(ui: GameUi, c: Character): TemplateResult {
                 const said = splitPrice(view.label ?? def.label);
                 const cost =
                   said.cost ??
-                  (act === "propose"
+                  (act === "propose" && arg !== 1 // INTRIGUE (r15): asking for a hand is free
                     ? weddingCost(s, life)
                     : act === "gift"
                       ? Math.max(1, Math.round(arg ?? 5))

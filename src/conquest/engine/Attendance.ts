@@ -7,7 +7,7 @@
 // setting out is your answer, and coming home is a box you tick.
 
 import type { ConquestGame } from "./Game";
-import { gatheringById, gatheringName, GATHERINGS, rsvp } from "./Gatherings";
+import { gatheringById, gatheringName, rsvp } from "./Gatherings";
 import { hooks, raiseEvent } from "./Hooks";
 import { pickVignette, travelHook } from "./IntrigueEvents";
 import { journal, touchLife } from "./LifeCore";
@@ -200,7 +200,7 @@ export function attendDaily(g: ConquestGame, life: Life): void {
         touchLife(g, life);
         return;
       }
-      const err = travelHook(g, life, gat!.prov);
+      const err = setOut(g, life, gat!.prov);
       if (err)
         return clear(
           `You couldn't set out for ${gatheringName(s, g.w, gat!).replace(/^The /, "the ")}: ${err.replace(/\.$/, "").toLowerCase()}.`,
@@ -222,9 +222,13 @@ export function attendDaily(g: ConquestGame, life: Life): void {
       return;
     }
     case "there": {
-      if (!done) return;
+      if (!done) {
+        // You left of your own accord: nothing will fetch you home.
+        if (life.travel || life.prov !== gat!.prov) clear();
+        return;
+      }
       if (!a.back || life.travel || life.prov === a.from) return clear();
-      const err = travelHook(g, life, a.from);
+      const err = setOut(g, life, a.from);
       if (err)
         return clear(
           `You meant to go home, but couldn't: ${err.replace(/\.$/, "").toLowerCase()}.`,
@@ -239,7 +243,15 @@ export function attendDaily(g: ConquestGame, life: Life): void {
   }
 }
 
+/** Set out by the quicker way (as the journey was reckoned), by land if the sea won't serve. */
+function setOut(g: ConquestGame, life: Life, to: number): string | null {
+  const r = bestRoute(g.s, g.w, life, life.prov, to);
+  if (r?.sea) {
+    const err = travelHook(g, life, to, true);
+    if (!err) return null;
+  }
+  return travelHook(g, life, to, false);
+}
+
 /** A vignette of the evening, for a guest (or a host) at a gathering. */
 hooks.gatherTurn.push((g, life, gat, here) => pickVignette(g, life, gat, here));
-
-void GATHERINGS;

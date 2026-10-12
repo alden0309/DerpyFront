@@ -585,20 +585,10 @@ export function keptMonthly(g: ConquestGame, life: Life): void {
     }
     const other = lifeOfChar(s, c.id);
     if (life.purse >= k.cost) {
-      withFlow(
-        g,
-        { key: `intr:kept:${k.c}`, label: `An allowance for ${c.first}` },
-        () => spend(g, life, k.cost),
-      );
-      if (other)
-        withFlow(
-          g,
-          {
-            key: `intr:keptby:${k.by}`,
-            label: `An allowance from ${meOf(s, life)?.first ?? "someone"}`,
-          },
-          () => earn(g, other, k.cost),
-        );
+      // Booked under a plain name: the books go with your life to every
+      // player's copy of the game, and whom you keep is your own affair.
+      withFlow(g, KEPT_FLOW, () => spend(g, life, k.cost));
+      if (other) withFlow(g, KEPT_BY_FLOW, () => earn(g, other, k.cost));
       k.owed = 0;
     } else {
       k.owed++;
@@ -782,22 +772,25 @@ export function fondly(g: ConquestGame, life: Life, sp: Character): void {
 
 // ---------------------------------------------------------------- the reckoning
 
-/** Each month: a kept lover's allowance (a line of its own in the forecast). */
-hooks.forecast.push((s, life) => [
-  ...keptOf(s, life).map((k) => ({
-    key: `intr:kept:${k.c}`,
-    label: `An allowance for ${s.chars[k.c]?.first ?? "someone"}`,
-    value: -k.cost,
-  })),
+/** The month's allowances, as booked (one line each way, by a plain name). */
+const KEPT_FLOW = { key: "intr:kept", label: "Private allowances" };
+const KEPT_BY_FLOW = { key: "intr:keptby", label: "An allowance" };
+
+/** Each month: what you pay those you keep, and what you're paid if kept. */
+hooks.forecast.push((s, life) => {
+  const out: { key: string; label: string; value: number }[] = [];
+  const paid = keptOf(s, life).reduce((m, k) => m + k.cost, 0);
+  if (paid) out.push({ ...KEPT_FLOW, value: -paid });
   // Kept by another player: their allowance comes to you.
-  ...intrigueOf(s)
-    .kept.filter((k) => k.c === life.c && life.c >= 0)
-    .map((k) => ({
-      key: `intr:keptby:${k.by}`,
-      label: `An allowance from ${s.chars[k.by]?.first ?? "someone"}`,
-      value: k.cost,
-    })),
-]);
+  const got =
+    life.c >= 0
+      ? intrigueOf(s)
+          .kept.filter((k) => k.c === life.c)
+          .reduce((m, k) => m + k.cost, 0)
+      : 0;
+  if (got) out.push({ ...KEPT_BY_FLOW, value: got });
+  return out;
+});
 
 /** Courting each other again makes a child likelier, for a while. */
 hooks.birthChance.push((s, c, e) => {

@@ -11,7 +11,6 @@
 // minister, there and then.
 
 import { marry } from "./Characters";
-import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
 import {
   gatheringById,
@@ -428,6 +427,8 @@ export function sceneList(
 export function solemnize(g: ConquestGame, b: Betrothal): boolean {
   const s = g.s;
   if (b.vows) return true;
+  // Broken off (a bolt from the altar while the other was saying theirs): no marriage.
+  if (b.status === "broken" || b.status === "wed") return false;
   const a = s.chars[b.a];
   const c = s.chars[b.b];
   if (!a?.alive || !c?.alive || a.spouse >= 0 || c.spouse >= 0) return false;
@@ -813,5 +814,3 @@ hooks.death.push((g, c) => {
 export function weddingLuck(g: ConquestGame, p: number): boolean {
   return idice(g).chance(p);
 }
-
-void Explain;

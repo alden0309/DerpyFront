@@ -138,18 +138,30 @@ export function writeNote(
 }
 
 /**
- * A private letter that reaches someone who isn't played (the player's gone
- * on as their heir, or watches): delivered, unread, and nothing more.
+ * A private letter arrives. A player finds it in their letter case (and the
+ * note of it in their journal is theirs alone, like the letter); someone
+ * who isn't played (the player's gone on as their heir, or watches) has it
+ * delivered, unread, and nothing more.
  */
 hooks.letterArrives.push((g, life, l) => {
   if (l.kind !== "personal") return false;
-  if (lifeOfChar(g.s, l.to)) return false;
+  const s = g.s;
   l.status = "delivered";
   touchLife(g, life);
+  const reader = lifeOfChar(s, l.to);
+  if (reader) {
+    pushPost(g, reader, { ...l, read: false, done: true });
+    secretNote(
+      g,
+      reader,
+      `A letter from ${charName(s.chars[l.from])}${l.subject ? `: "${l.subject}"` : ""}. It's in your letter case.`,
+    );
+    return true;
+  }
   secretNote(
     g,
     life,
-    `Your letter reached ${charName(g.s.chars[l.to])}. Whether it was read, you'll never know.`,
+    `Your letter reached ${charName(s.chars[l.to])}. Whether it was read, you'll never know.`,
   );
   return true;
 });

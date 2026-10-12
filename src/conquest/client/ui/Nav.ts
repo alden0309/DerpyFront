@@ -26,6 +26,7 @@ import {
   WorldIcon,
 } from "../Icons";
 import type { DrawerView, GameUi, Tab } from "./Context";
+import { intrigueMarks } from "./Intrigue"; // INTRIGUE (r15)
 import { affairsUnseen } from "./Ledger"; // LEDGER (r15)
 import { partnerMarks } from "./Partners"; // PARTNERS (r13)
 import { postCounts } from "./Society";
@@ -113,7 +114,7 @@ export const TAB_DEFS: TabDef[] = [
     id: "society",
     label: "Society",
     blurb:
-      "Standing and favour, office, the council, the press, letters, gatherings, causes, a colony",
+      "Standing and favour, office, the council, the press, letters, gatherings, intrigue, causes, a colony",
     icon: SocietyIcon,
     subs: [
       { id: "standing", label: "Standing", guide: "favour" },
@@ -122,6 +123,7 @@ export const TAB_DEFS: TabDef[] = [
       { id: "press", label: "Press", guide: "press" }, // POWER (r12)
       { id: "letters", label: "Letters", guide: "letters" },
       { id: "gatherings", label: "Gatherings", guide: "gatherings" },
+      { id: "intrigue", label: "Intrigue", guide: "intrigue" }, // INTRIGUE (r15)
       { id: "causes", label: "Causes", guide: "movements" },
       { id: "colony", label: "Colony", guide: "founding" },
     ],
@@ -261,6 +263,7 @@ export function badges(ui: GameUi): Map<string, number> {
     ).length;
     add("society", "gatherings", asked);
   }
+  add("society", "intrigue", intrigueMarks(ui)); // INTRIGUE (r15): a wedding to plan
   if (life.invite) add("society", "standing", 1);
   if (life.constitute && life.constitute.until > s.day)
     add("society", "colony", 1);

@@ -61,7 +61,7 @@ import {
 } from "./LifeQueries";
 import { SKILL_NAMES } from "./LifeRules";
 import type { World } from "./Map";
-import { ageOf, charName, hasTrait, stat } from "./Queries";
+import { charName, hasTrait, stat } from "./Queries";
 import { rumour } from "./Rumours";
 import { mySchemes, schemeOn } from "./Seduction";
 import { openTrial } from "./Trials";
@@ -1220,5 +1220,3 @@ export function plotStage(x: IntrigueScheme): string {
   if (x.status !== "on") return x.status;
   return `week ${x.week} of ${x.weeks}`;
 }
-
-void ageOf;

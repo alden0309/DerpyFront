@@ -1,0 +1,503 @@
+/* INTRIGUE (r15): hearts and schemes. Society › Intrigue, the card's
+   "Hearts and schemes", the scheme windows and the wedding planner, the
+   journey to a gathering, and letters in your own words on letter paper.
+   Built from the register's own pieces (the odds panel, the seg buttons, the
+   interaction buttons); only what's new is styled here. */
+
+.cq-modal.intrigue {
+  width: min(640px, 100%);
+}
+.cq-modal.intrigue.wide {
+  width: min(820px, 100%);
+}
+
+.cq-intr > .cq-h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+/* ---------------------------------------------------------------- a window's head */
+
+.cq-intr-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: center;
+  margin-bottom: 0.8rem;
+}
+.cq-intr.wedding .cq-intr-head {
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 0.35rem 0.6rem;
+}
+.cq-intr-head .cq-h1 {
+  margin: 0.05rem 0 0.2rem;
+}
+.cq-intr-op.good {
+  color: var(--verdigris);
+}
+.cq-intr-op.bad {
+  color: var(--seal);
+}
+
+.cq-intr .cq-seg.big {
+  margin: 0.2rem 0 0.7rem;
+}
+.cq-intr .cq-seg.big > button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.4rem;
+}
+.cq-intr .cq-seg.big > button > span:last-child {
+  flex-basis: 100%;
+}
+
+.cq-intr .cq-odds-panel {
+  margin: 0.4rem 0 0.6rem;
+}
+.cq-intr-rows li {
+  grid-template-columns: 4.6rem 1fr 3.2rem;
+}
+.cq-intr-player {
+  margin: 0.3rem 0 0.4rem;
+  line-height: 1.4;
+}
+.cq-intr-why h4 {
+  margin-top: 0.5rem;
+}
+.cq-intr-why.two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1.2rem;
+}
+.cq-intr-why .cq-why-list {
+  grid-template-columns: minmax(0, 1fr);
+  font-size: 0.88rem;
+}
+.cq-intr-note {
+  margin: 0.6rem 0 0.2rem;
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------------- choosing how (a plot's way, a wedding's rite) */
+
+.cq-intr-methods,
+.cq-intr-rites {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.4rem;
+  margin: 0.2rem 0 0.5rem;
+}
+.cq-intr-rites {
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+}
+.cq-intr-method {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  gap: 0.2rem 0.4rem;
+  align-items: start;
+  min-height: 4.1rem;
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  font: inherit;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: rgba(255, 250, 235, 0.5);
+  cursor: pointer;
+}
+.cq-intr-method b {
+  font-family: var(--fell);
+  font-weight: normal;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+.cq-intr-method > .small {
+  grid-column: 1 / -1;
+  color: var(--ink-soft);
+  line-height: 1.3;
+}
+.cq-intr-rites .cq-intr-method b {
+  grid-column: 1 / -1;
+}
+.cq-intr-method:hover {
+  border-color: var(--sepia);
+}
+.cq-intr-method.on {
+  border-color: var(--nation);
+  background: rgba(255, 250, 235, 0.95);
+  box-shadow: inset 0 0 0 1px var(--nation);
+}
+.cq-intr-method.dim {
+  opacity: 0.6;
+}
+.cq-intr.plot .cq-intr-method.on {
+  border-color: var(--seal);
+  box-shadow: inset 0 0 0 1px var(--seal);
+}
+
+/* ---------------------------------------------------------------- the wedding planner */
+
+.cq-intr-tiers > button {
+  min-width: 0;
+}
+.cq-intr-day {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem 0.8rem;
+  align-items: center;
+}
+.cq-intr-day input[type="range"] {
+  width: 100%;
+  accent-color: var(--nation);
+}
+.cq-intr-day > .cq-intr-check,
+.cq-intr-day > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.cq-intr-check {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+.cq-intr-guests {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+  gap: 0.25rem 0.5rem;
+  max-height: 13rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0.2rem;
+  list-style: none;
+  border: 1px solid var(--rule);
+  background: rgba(255, 250, 235, 0.35);
+}
+.cq-intr-guests label {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.15rem 0.3rem;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.cq-intr-guests label.on {
+  background: rgba(201, 155, 58, 0.18);
+}
+.cq-intr-guests label.dim {
+  opacity: 0.55;
+  cursor: default;
+}
+.cq-intr-guests label > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.cq-intr-guests b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.cq-intr-bill {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.3rem 1rem;
+  margin: 0.7rem 0 0.1rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------- accomplices */
+
+.cq-intr-recruits {
+  margin: 0.6rem 0;
+  padding: 0;
+  list-style: none;
+}
+.cq-intr-recruits > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.cq-intr-recruits .cq-why-list {
+  grid-template-columns: minmax(0, 1fr);
+  font-size: 0.82rem;
+  margin: 0.15rem 0 0;
+}
+
+/* ---------------------------------------------------------------- Society › Intrigue */
+
+.cq-intr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.cq-intr-scheme {
+  padding: 0.55rem 0.7rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--brass);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 235, 0.6), rgba(242, 230, 198, 0.4)),
+    var(--paper);
+}
+.cq-intr-scheme.plot,
+.cq-intr-scheme.bad {
+  border-left-color: var(--seal);
+}
+.cq-intr-scheme > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+.cq-intr-scheme > header > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cq-intr-scheme p {
+  margin: 0.35rem 0 0;
+}
+.cq-intr-progress {
+  display: block;
+  height: 4px;
+  margin: 0.45rem 0 0.1rem;
+  background: rgba(138, 106, 62, 0.18);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.cq-intr-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--brass);
+  transition: width 0.4s ease;
+}
+.cq-intr-scheme.plot .cq-intr-progress > span {
+  background: var(--seal);
+}
+.cq-intr-lines {
+  margin: 0.35rem 0 0.2rem;
+  padding-left: 1.1rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+.cq-intr-lines li:last-child {
+  color: var(--ink);
+}
+.cq-intr-bet {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.7rem;
+  align-items: start;
+}
+.cq-intr-bet p {
+  margin: 0 0 0.35rem;
+}
+.cq-intr-kept {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cq-intr-kept > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.cq-intr-kept > li > span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cq-intr-past {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.92rem;
+}
+.cq-intr-past li {
+  margin: 0.2rem 0;
+}
+
+/* ---------------------------------------------------------------- the journey to a gathering */
+
+.cq-intr-journey {
+  margin: 0.45rem 0 0.1rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px dashed var(--rule);
+  background: rgba(255, 250, 235, 0.35);
+}
+.cq-intr-journey p {
+  margin: 0 0 0.3rem;
+}
+.cq-intr-journey .cq-btnrow {
+  align-items: center;
+}
+.cq-intr-players {
+  color: var(--ink-soft);
+}
+
+/* ---------------------------------------------------------------- letters in your own words */
+
+.cq-intr-paper {
+  position: relative;
+  margin: 0.6rem 0 0.4rem;
+  padding: 1rem 1.2rem 0.8rem;
+  border: 1px solid var(--rule);
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 1.48rem,
+      rgba(138, 106, 62, 0.13) 1.48rem,
+      rgba(138, 106, 62, 0.13) 1.52rem
+    ),
+    #f8edd2;
+  box-shadow:
+    inset 0 0 22px rgba(138, 106, 62, 0.2),
+    0 2px 6px rgba(60, 40, 15, 0.15);
+  font-family: var(--fell);
+  font-size: 1.08rem;
+  line-height: 1.52rem;
+}
+.cq-intr-paper-date {
+  margin: 0 0 0.4rem;
+  text-align: right;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.cq-intr-subject,
+.cq-intr-body {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.1rem 0.2rem;
+  border: 0;
+  border-bottom: 1px dotted transparent;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.52rem;
+}
+.cq-intr-subject {
+  font-family: var(--fell-sc);
+  margin-bottom: 0.3rem;
+}
+.cq-intr-body {
+  min-height: calc(1.52rem * 9);
+  resize: vertical;
+  font-style: italic;
+}
+.cq-intr-subject:focus,
+.cq-intr-body:focus {
+  outline: none;
+  background: rgba(255, 250, 235, 0.55);
+  border-bottom-color: var(--sepia);
+}
+.cq-intr-paper-sign {
+  margin: 0.4rem 0 0;
+  text-align: right;
+  font-family: var(--script);
+  font-size: 1.55rem;
+  line-height: 1.8rem;
+  color: var(--nation-deep);
+}
+.cq-intr-count {
+  position: absolute;
+  left: 1.2rem;
+  bottom: 0.65rem;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+.cq-intr-count.low {
+  color: var(--seal);
+}
+.cq-intr-paper.read {
+  padding: 1.3rem 1.5rem 1rem;
+}
+.cq-intr-paper-subject {
+  margin: 0 0 0.4rem;
+  font-family: var(--fell-sc);
+}
+.cq-intr-paper-to {
+  margin: 0 0 0.2rem;
+  font-style: italic;
+}
+.cq-intr-paper-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-style: italic;
+  min-height: 4.5rem;
+}
+.cq-intr-snip-subject {
+  margin: 0.4rem 0 0;
+  font-family: var(--fell-sc);
+}
+.cq-post-text.cq-intr-snip {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-style: italic;
+}
+
+/* ---------------------------------------------------------------- phones */
+
+@media (max-width: 560px) {
+  .cq-intr-why.two {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cq-intr-methods {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cq-intr-rites {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cq-intr-method {
+    min-height: 3.6rem;
+  }
+  .cq-intr .cq-seg.big {
+    flex-direction: column;
+  }
+  .cq-intr .cq-seg.big > button {
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .cq-intr .cq-seg.big > button:last-child {
+    border-bottom: 0;
+  }
+  .cq-intr-recruits > li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .cq-intr-recruits > li > .cq-btn,
+  .cq-intr-recruits > li > .cq-why {
+    grid-column: 1 / -1;
+  }
+  .cq-intr-kept > li {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .cq-intr-kept > li > .cq-btn {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+  .cq-intr-paper {
+    padding: 0.8rem 0.8rem 0.7rem;
+  }
+  .cq-intr-count {
+    left: 0.8rem;
+  }
+}

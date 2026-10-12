@@ -13,6 +13,7 @@ import { withFlow } from "./LedgerCore";
 import { travelTo } from "./Life";
 import { writeNote } from "./Notes";
 import { dropScheme, plotWeek, recruit, startPlot } from "./Plots";
+import { POWER_DEFAULTS } from "./PowerEvents";
 import {
   dismissKept,
   keptMonthly,
@@ -24,7 +25,22 @@ import {
 import type { IntrigueCommand, Life, LifeCommand } from "./Types";
 import { betrothalsMonthly, jilt, planWedding, quietWedding } from "./Weddings";
 
-setTravelHook((g, life, to) => travelTo(g, life, to, false));
+setTravelHook((g, life, to, bySea) => travelTo(g, life, to, !!bySea));
+
+// Left unanswered (a player away from the table), a scene takes its quiet
+// course: nobody's money is spent for them, and nothing rash is done.
+Object.assign(POWER_DEFAULTS, {
+  "intr-warn": 3, // put it out of your mind
+  "intr-arrive": 1, // call on the host
+  "intr-known": 0, // say nothing, and watch them
+  "gather-v-loo": 2, // your purse is your own
+  "gather-v-spill": 1, // laugh it off
+  "gather-v-thanks": 1, // warm thanks
+  "gather-v-wager": 2, // decline
+  "gather-v-godparent": 1, // say you're not worthy
+  "gather-w-vows": 0, // say the words
+  "gather-w-dowry": 0, // accept it with thanks
+});
 
 const PRIVATE = { key: "cmd:intrigue", label: "Private business" };
 
