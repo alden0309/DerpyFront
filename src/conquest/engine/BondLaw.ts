@@ -25,20 +25,21 @@
 // (£30 security), the 1688 Germantown protest, the Yearly Meeting's minute of
 // 1758 and the duty of 1773; Delaware's act of 31 October 1767 (£60 a
 // person); Carolina's Fundamental Constitutions (1669), South Carolina's 1704
-// patrols, its 1722 act (the freed to leave within twelve months), 1735 act
+// patrols (Virginia's from 1726, North Carolina's searchers from 1753,
+// Georgia's from 1757), its 1722 act (the freed to leave within twelve months), 1735 act
 // (six months) and the Negro Act of 10 May 1740 (no teaching to write; silent
 // on freeing); North Carolina's 1741 act (the county court's leave, for
 // meritorious services, and the freed to leave within six months); Georgia's
 // 1735 act and its repeal from 1 January 1751, its 1755 and 1770 codes; the
-// Code Noir of March 1685 (articles 2, 47, 55) and the edict of 24 October
-// 1713; Louisiana's Code Noir registered 10 September 1724 (articles 43, 50);
+// Code Noir of March 1685 (articles 2, 47, 55), the ordinances of 1711 and
+// 24 October 1713 (the governor and intendant's leave) and the tax of 1745; Louisiana's Code Noir registered 10 September 1724 (articles 43, 50);
 // Louis XIV's leave of 1689 and the Raudot ordinance of 13 April 1709 for New
 // France; Charles II of Spain's edict of 1693 and Fort Mose (1738); the
 // Barbados council's resolution of 1636 and its 1661 act; the Continental
 // Association of 20 October 1774.
 
 import { dateOf } from "./Calendar";
-import type { GameState, MapDef } from "./Types";
+import type { BondRefuge, GameState, MapDef } from "./Types";
 
 // ---------------------------------------------------------------- the colonies
 
@@ -447,9 +448,15 @@ export function freeRule(law: LawOf, col: Colony, year: number): FreeRule {
       return year >= 1713
         ? {
             kind: "petition",
-            law: "the Code Noir (1685), article 55, and the edict of 1713",
-            text: "Since 1713 freeing anyone in the islands needs the written leave of the governor and the intendant, and a tax paid.",
-            fee: 10,
+            law:
+              year >= 1745
+                ? "the ordinances of 1713 and 1745"
+                : "the Code Noir (1685), article 55, and the ordinance of 1713",
+            text:
+              year >= 1745
+                ? "Freeing anyone in the islands needs the written leave of the governor and the intendant (since 1713), and since 1745 a tax on the freedom paid."
+                : "Since 1713 freeing anyone in the islands needs the written leave of the governor and the intendant; a freeing without it is void.",
+            fee: year >= 1745 ? 10 : 4,
             petition: {
               who: "the governor and the intendant",
               odds: 0.75,
@@ -498,10 +505,10 @@ function englishFreeing(col: Colony, year: number): FreeRule {
         return {
           kind: "petition",
           law: "the act of 1723",
-          text: 'No one may be freed "upon any pretence whatsoever, except for some meritorious services", judged by the governor and council, who must grant a licence. A will that frees anyone without it is void. Fewer than twenty-five were freed this way before the Revolution.',
+          text: 'No one may be freed "upon any pretence whatsoever, except for some meritorious services", judged by the governor and council, who must grant a licence. Anyone freed without it is taken up by the churchwardens and sold; a will can only ask the council for the same licence. Fewer than twenty-five were freed this way before the Revolution.',
           fee: 3,
           petition: { who: "the governor and council", odds: 0.12, days: 90 },
-          will: false,
+          will: true,
         };
       if (year >= 1691)
         return {
@@ -942,7 +949,7 @@ export function bondLaw(
     }
     patrols =
       (col === "southcarolina" && year >= 1704) ||
-      (col === "virginia" && year >= 1727) ||
+      (col === "virginia" && year >= 1726) ||
       (col === "northcarolina" && year >= 1753) ||
       (col === "georgia" && year >= 1757);
     if (col === "virginia" && year >= 1667)
@@ -1160,15 +1167,7 @@ export function saleChance(
 // ---------------------------------------------------------------- where those who flee make for
 
 /** Where a freedom seeker might make for. */
-export type Refuge =
-  | "florida"
-  | "swamp"
-  | "nations"
-  | "town"
-  | "sea"
-  | "maroons"
-  | "dunmore"
-  | "north";
+export type Refuge = BondRefuge;
 
 export const REFUGE_NAMES: Record<Refuge, string> = {
   florida: "Spanish Florida, where the king's edict promises freedom",
@@ -1266,7 +1265,7 @@ export const BOND_HISTORY: BondEvent[] = [
   { year: 1652, where: ["rhodeisland"], text: "Providence and Warwick limit anyone's bondage to ten years. The law is never enforced." },
   { year: 1661, where: ["islands", "jamaica"], text: "Barbados passes \"An Act for the better ordering and governing of Negroes\", the model for Jamaica's, South Carolina's and Antigua's codes." },
   { year: 1662, month: 12, where: ["virginia"], text: "Virginia's assembly rules that a child is \"bond or free only according to the condition of the mother\": bondage becomes hereditary." },
-  { year: 1663, where: ["virginia"], rising: true, text: "In Gloucester County, indentured servants and enslaved men plot a rising; a servant betrays it." },
+  { year: 1663, month: 9, where: ["virginia"], rising: true, text: "In Gloucester County, indentured servants plot a rising (whether any enslaved Africans were with them is not known); a servant named Birkenhead betrays it, and four are hanged." },
   { year: 1664, where: ["maryland"], text: "Maryland makes the servitude of Africans for life (durante vita)." },
   { year: 1667, where: ["virginia"], text: "Virginia declares that baptism does not free anyone from bondage." },
   { year: 1669, where: ["northcarolina", "southcarolina"], text: "Carolina's Fundamental Constitutions give every freeman \"absolute power and authority over his negro slaves\"." },

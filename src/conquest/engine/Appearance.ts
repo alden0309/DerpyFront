@@ -425,8 +425,12 @@ export function suitability(s: Sitter, w: Wanted): number {
   let v = 0;
   // Children and the grown stand in for each other only for a people with
   // no pictures of them (the peoples of the country's children, mostly).
-  if ((band === 0) !== (sb === 0)) v -= 20;
-  else {
+  if ((band === 0) !== (sb === 0)) {
+    v -= 20;
+    // LABOUR (r15): an African child with no picture of their own is shown
+    // by the youngest of their own people, not by a European child.
+    if (w.people === "african") v -= Math.abs(sb - band) - 1;
+  } else {
     const gap = Math.abs(band - sb);
     v -= gap === 0 ? 0 : gap === 1 ? 3.5 : 9;
   }
@@ -437,7 +441,8 @@ export function suitability(s: Sitter, w: Wanted): number {
   else if (w.people === "native" || s.people === "native") return -Infinity;
   else if (KIN[w.people].includes(s.people)) v += 5;
   else if (s.people === "african" || s.people === "mestizo") return -Infinity;
-  else if (w.people === "african") v -= 6;
+  // LABOUR (r15): never someone else's people (the gallery has Africans of both sexes).
+  else if (w.people === "african") return -Infinity;
   if (s.cls === w.cls) v += 6;
   else if (classNear(s.cls, w.cls)) v += 2.5;
   // Working folk aren't painted in silk and armour, nor the gentry in rags.
@@ -518,6 +523,9 @@ export function naturalTone(id: number, people: People): HairTone {
  * and children agree.
  */
 export function ancestryOf(c: Character, st: Station): People {
+  // LABOUR (r15): those held in bondage (or freed from it) are African, or
+  // born in the Americas of African parents; a servant under indenture isn't.
+  if (c.bond && c.bond.origin !== "europe") return "african";
   const base = peopleOfCulture(c.culture);
   if (base === "native" || base === "swedish") return base;
   const roll = (hash(c.family || c.first, c.culture, 0xa11) % 1000) / 1000;
