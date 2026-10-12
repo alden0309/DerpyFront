@@ -7,6 +7,8 @@ import { migrateLooks } from "./Appearance";
 import { dateOf, isMonthStart } from "./Calendar";
 import { characterCommand, charactersMonthly } from "./Characters";
 import { crownCommand, crownMonthly, europeMonthly } from "./Crown";
+import { diceDaily } from "./Dice"; // DICE (r14): Liar's dice in the tavern
+import { takeDiceDelta } from "./DiceCore"; // DICE (r14)
 import { diplomacyCommand, diplomacyMonthly } from "./Diplomacy";
 import {
   convoysDaily,
@@ -334,6 +336,8 @@ export class ConquestGame {
     if (power) d.power = power;
     const firms = takePartnersDelta(this); // PARTNERS (r13)
     if (firms) d.partners = firms;
+    const dice = takeDiceDelta(this); // DICE (r14)
+    if (dice) d.dice = dice;
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)
@@ -383,6 +387,7 @@ export class ConquestGame {
     societyDaily(this); // SOCIETY (r11)
     powerDaily(this); // POWER (r12)
     partnersDaily(this); // PARTNERS (r13)
+    diceDaily(this); // DICE (r14)
     if (isMonthStart(s.day)) this.month();
     if (s.day >= s.endDay) this.finish();
   }

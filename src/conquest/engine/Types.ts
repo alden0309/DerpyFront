@@ -1535,6 +1535,8 @@ export interface GameState {
   power?: PowerState;
   /** PARTNERS (r13): firms, and the articles going between partners. */
   partners?: PartnersState;
+  /** DICE (r14): the tables of Liar's dice in the taverns. */
+  dice?: DiceState;
 }
 
 export type TravellerKind =
@@ -1709,7 +1711,7 @@ export type LifeCommand =
   | { k: "travel"; to: number; bySea?: boolean }
   /** Stop at the next place on the road. */
   | { k: "halt" }
-  /** Something to do at a place here (pray, gamble, write a pamphlet). */
+  /** Something to do at a place here (pray, stand a round, write a pamphlet). */
   | { k: "act"; place: PlaceKind; act: string; arg?: number }
   /** Take a job a place here offers. */
   | { k: "job"; place: PlaceKind; job: JobKind }
@@ -1824,7 +1826,9 @@ export type LifeCommand =
   // EDU (r13): the children sent to school, bound apprentice, or to college.
   | EduCommand
   // PARTNERS (r13): business partnerships.
-  | PartnersCommand;
+  | PartnersCommand
+  // DICE (r14): Liar's dice in the tavern.
+  | DiceCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1865,6 +1869,8 @@ export interface GameDelta {
   power?: PowerDelta;
   /** PARTNERS (r13): firms and offers that changed. */
   partners?: PartnersDelta;
+  /** DICE (r14): the tables, when any changed (each player's copy hides the others' dice). */
+  dice?: DiceState;
 }
 
 // ---- WORLD (r11)
@@ -3072,4 +3078,145 @@ export interface PartnersCommand {
   share?: number;
   mine?: number;
   theirs?: number;
+}
+
+// ---- DICE (r14)
+// Liar's dice in the tavern: two to six at a table, five dice each under a
+// cup, bidding in turn on how many of a face lie under all the cups (ones
+// are wild), until someone calls "Liar!". The loser of each call gives up a
+// die; the last with dice takes the pot. Players and the town's people sit
+// together; every player's copy of the game hides everyone's dice but their
+// own until the cups are lifted (the server's per-seat view, DiceCore.ts).
+
+/** A bid: so many dice showing a face (2 to 6: ones are wild and never bid). */
+export interface DiceBid {
+  q: number;
+  f: number;
+}
+
+/** Someone at a table. */
+export interface DiceSeat {
+  c: number;
+  /** A player's seat in the room; absent for a computer character. */
+  seat?: string;
+  /** The dice under their cup this round: hidden from everyone else until the cups are lifted. */
+  dice: number[];
+  /** How many dice they have left (anyone can see how full a cup is). */
+  n: number;
+  /** In the game; out of dice; or gone from the table (the buy-in forfeit). */
+  state: "in" | "out" | "gone";
+  /** Asked to leave mid-round: they go when the cups are next lifted. */
+  quitting?: boolean;
+  /** Rounds they've sat through. */
+  rounds: number;
+  /** What they put in, and what went on tick (a drunkard's credit). */
+  paid: number;
+  tick?: number;
+}
+
+/** What happened at a table, in order, for the browser to play back. */
+export interface DiceAct {
+  /** Counts up through the table's life. */
+  n: number;
+  k:
+    | "sit"
+    | "refuse"
+    | "roll"
+    | "bid"
+    | "liar"
+    | "reveal"
+    | "out"
+    | "gone"
+    | "void"
+    | "win";
+  /** Who did it. */
+  c: number;
+  round: number;
+  bid?: DiceBid;
+  /** What a computer player said, and how they looked saying it. */
+  say?: string;
+  mood?: "neutral" | "smile" | "frown" | "angry" | "worried";
+  /** Made for them: a player who stalled or went away (the smallest raise, or a call). */
+  auto?: boolean;
+  /** reveal: every cup lifted, the count of the bid's face (wilds too), who bid it, who lost a die. */
+  cups?: Record<number, number[]>;
+  count?: number;
+  bidder?: number;
+  loser?: number;
+  /** roll: how many dice each had at the start of the round. */
+  ns?: Record<number, number>;
+  /** Whose turn it is after this. */
+  turn?: number;
+  /** refuse: why (a computer character's reasons, in brief). */
+  why?: string;
+}
+
+/** A computer player's face read by a player at the table (only that player sees it). */
+export interface DiceTell {
+  /** The bid it came with (DiceAct.n). */
+  n: number;
+  /** Who read it, and whose face. */
+  to: number;
+  by: number;
+  text: string;
+}
+
+/** At the end of a table: what it came to for each player (coins, stress, experience, opinions). */
+export interface DiceResult {
+  winner: number;
+  pot: number;
+  /** By character: lines such as "+20 coins", "+5 Hal Cole (A good night at the dice)". */
+  fx: Record<number, string[]>;
+}
+
+/** A table of Liar's dice in a tavern. */
+export interface DiceTable {
+  id: number;
+  prov: number;
+  /** Who opened it (a player's character). */
+  host: number;
+  /** The buy-in, and the pot it makes. */
+  stake: number;
+  pot: number;
+  /** Gathering (open: anyone may still sit down), playing, or done. */
+  status: "open" | "playing" | "done";
+  seats: DiceSeat[];
+  /** Players asked who haven't answered yet (characters). */
+  asked: number[];
+  round: number;
+  /** Whose turn: an index into seats. */
+  turn: number;
+  /** The bid standing, and who made it; null at the start of a round. */
+  bid: DiceBid | null;
+  by: number;
+  acts: DiceAct[];
+  tells: DiceTell[];
+  /** Counts every move: the server's clock for a stalling player goes by it. */
+  seq: number;
+  opened: number;
+  started?: number;
+  ended?: number;
+  result?: DiceResult;
+  /** The table's own dice (seeded when it opens). Never sent to a player. */
+  rng: number;
+}
+
+/** Everything of the DICE track kept in the game. */
+export interface DiceState {
+  tables: DiceTable[];
+}
+
+/** A command for Liar's dice (Dice.ts). */
+export interface DiceCommand {
+  k: "dice";
+  /** open, ask, join, start, bid, liar, leave, auto, again. */
+  act: string;
+  /** The table. */
+  id?: number;
+  /** open: the stake, and who's asked to sit down (characters). */
+  stake?: number;
+  ask?: number[];
+  /** A bid: how many, of which face. */
+  q?: number;
+  f?: number;
 }

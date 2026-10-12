@@ -159,4 +159,7 @@ export type ServerMessage =
       signedIn: boolean;
       have: { key: string; at: string; coins: number }[];
     }
-  | { t: "achieved"; key: string; coins: number | null; first: boolean };
+  | { t: "achieved"; key: string; coins: number | null; first: boolean }
+  // DICE (r14): whose turn it is at a dice table, and the seconds they have
+  // before the table bids for them (only at a table with two players or more).
+  | { t: "diceclock"; id: number; c: number; left: number };
