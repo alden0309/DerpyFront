@@ -228,14 +228,23 @@ export function intrigueView(
   };
 }
 
+/**
+ * A cooldown or a count of showings that gives a secret away: a scheme's own
+ * ("intr:..."), or the rest after a secret scene ("ev:intr-warn" would say a
+ * warning came; "ev:p2p-intr-seduce" that someone made advances).
+ */
+function secretMark(k: string): boolean {
+  return k.startsWith("intr") || secretKey(k.replace(/^ev:/, ""));
+}
+
 /** Whether anything in this (whole or patched) life is another player's secret. */
 function lifeHasSecrets(l: Partial<Life>): boolean {
   if (l.journal?.some((j) => j.sec)) return true;
   if (l.events?.some((e) => secretKey(e.key))) return true;
   if (l.post?.some((x) => x.kind === "personal")) return true;
   if (l.outcome && secretKey(l.outcome.key)) return true;
-  if (l.cooldowns && Object.keys(l.cooldowns).some((k) => k.startsWith("intr")))
-    return true;
+  if (l.cooldowns && Object.keys(l.cooldowns).some(secretMark)) return true;
+  if (l.evSeen && Object.keys(l.evSeen).some(secretMark)) return true;
   return false;
 }
 
@@ -249,7 +258,11 @@ export function lifeForOthers<T extends Partial<Life>>(l: T): T {
   if (l.outcome && secretKey(l.outcome.key)) out.outcome = null;
   if (l.cooldowns)
     out.cooldowns = Object.fromEntries(
-      Object.entries(l.cooldowns).filter(([k]) => !k.startsWith("intr")),
+      Object.entries(l.cooldowns).filter(([k]) => !secretMark(k)),
+    );
+  if (l.evSeen)
+    out.evSeen = Object.fromEntries(
+      Object.entries(l.evSeen).filter(([k]) => !secretMark(k)),
     );
   return out;
 }
