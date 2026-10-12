@@ -2,7 +2,7 @@
 // the nations of the Americas), and any nation's page.
 
 import { html, nothing, TemplateResult } from "lit";
-import { dateOf, formatDate } from "../../engine/Calendar";
+import { dateOf, formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
 import { lifeTitle, meOf, opinionOf } from "../../engine/LifeQueries";
 import { activeMovements } from "../../engine/Movements";
 import {
@@ -51,10 +51,12 @@ export function peopleTab(ui: GameUi): TemplateResult {
     .map(alive)
     .filter((c): c is Character => !!c);
   const familyIds = new Set(family.map((c) => c.id));
+  // FIXES (r15): family who are also friends (or rivals) are listed here
+  // too; a son befriended used to show only under Family, and seemed gone.
   const ties = Object.keys(life.ties)
     .map(Number)
     .map(alive)
-    .filter((c): c is Character => !!c && !familyIds.has(c.id));
+    .filter((c): c is Character => !!c);
   const tieIds = new Set(ties.map((c) => c.id));
   const patron = alive(life.patron);
   const met = life.met
@@ -313,7 +315,7 @@ export function nationPage(ui: GameUi, id: number): TemplateResult {
                   )
                 : html`<span class="cq-muted">no one sitting</span>`}.
               Next ${native ? "gathering" : "election"}
-              ${formatDate(pol.election)}.
+              ${formatDate(pollDay(pol.election))}.
             </p>`
           : nothing}`,
     )}

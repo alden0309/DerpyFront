@@ -196,8 +196,36 @@ export function setTie(
   tie: Tie | null,
 ): void {
   touchLife(g, life);
+  const was = life.ties[c]; // FIXES (r15)
   if (tie) life.ties[c] = tie;
   else delete life.ties[c];
+  if (was === "friend" && tie !== was) friendshipEnded(g, life, c, tie);
+}
+
+/**
+ * FIXES (r15): a friendship that ends always says so (a friend turned down
+ * for a loan used to walk off without a word). Not when they become your
+ * lover, your teacher or your husband or wife, or when they've died (that
+ * has its own line).
+ */
+function friendshipEnded(
+  g: ConquestGame,
+  life: Life,
+  c: number,
+  now: Tie | null,
+): void {
+  const ch = g.s.chars[c];
+  const me = meOf(g.s, life);
+  if (!ch?.alive || !me || now === "lover" || now === "mentor") return;
+  if (me.spouse === c || ch.spouse === me.id) return;
+  journal(
+    g,
+    life,
+    now
+      ? `${charName(ch)}, once your friend, is your ${now} now.`
+      : `You and ${charName(ch)} are friends no longer.`,
+    "bad",
+  );
 }
 
 export function gainTrait(g: ConquestGame, life: Life, t: TraitId): void {

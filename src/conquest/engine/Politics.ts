@@ -5,6 +5,7 @@
 // the council fire. A governor (or a native leader) gets a few levers on the
 // nation the computer otherwise runs.
 
+import { formatDate, pollDay } from "./Calendar"; // FIXES (r15)
 import { makeCharacter } from "./Characters";
 import { crownCommand } from "./Crown";
 import { economyCommand } from "./Economy";
@@ -171,24 +172,9 @@ function stand(g: ConquestGame, life: Life): string | null {
   return null;
 }
 
+/** FIXES (r15): the day the count is held (it was a month guessed by 30.42-day steps, often the month before). */
 function dateText(day: number): string {
-  const y = 1607 + Math.floor(day / DAYS_PER_YEAR);
-  const months = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
-  const inYear = ((day % DAYS_PER_YEAR) + DAYS_PER_YEAR) % DAYS_PER_YEAR;
-  return `${months[Math.min(11, Math.floor(inYear / 30.42))]} ${y}`;
+  return formatDate(pollDay(day));
 }
 
 /** A campaign gains ground (a round, a speech, a broadside). */

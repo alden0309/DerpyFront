@@ -11,7 +11,7 @@ import {
   ambitionProgress,
   AMBITIONS,
 } from "../../engine/Ambitions";
-import { formatDate } from "../../engine/Calendar";
+import { formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
 import {
   atPost,
   beneathStation,
@@ -455,7 +455,8 @@ export function standingSection(ui: GameUi): TemplateResult {
         ? html`<p class="small">
             <b>${pol.name}</b>: ${pol.assembly.length} of ${pol.seats} seats
             filled; ${native ? "the council fire chooses again" : "elections"}
-            every ${ELECTION_YEARS} years, next on ${formatDate(pol.election)}.
+            every ${ELECTION_YEARS} years, next on
+            ${formatDate(pollDay(pol.election))}.
             ${life.campaign
               ? html`<span class="good"
                   >You're standing: ${life.campaign.points} campaign

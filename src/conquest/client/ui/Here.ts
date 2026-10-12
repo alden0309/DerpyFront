@@ -5,7 +5,7 @@
 import { html, nothing, TemplateResult } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { areaName, areasOf, presence, Present } from "../../engine/Areas";
-import { formatDate } from "../../engine/Calendar";
+import { formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
 import { seatTitleOf } from "../../engine/CouncilTitles"; // POWER (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
 import { interactionView, InteractionView } from "../../engine/Interactions";
@@ -378,7 +378,7 @@ function standButton(ui: GameUi): TemplateResult {
       label: `Standing for ${pol.name}`,
       ok: false,
       cls: "cq-campaign",
-      why: `${life.campaign.points} campaign points; the count is on ${formatDate(pol.election)}`,
+      why: `${life.campaign.points} campaign points; the count is on ${formatDate(pollDay(pol.election))}`,
       run: () => undefined,
     });
   const check = standCheck(s, life);
@@ -392,7 +392,7 @@ function standButton(ui: GameUi): TemplateResult {
     ok: check.ok,
     why: check.ok ? warn : check.why,
     title: check.ok
-      ? `The next election is on ${formatDate(pol.election)}.${warn ? ` ${warn}` : ""}`
+      ? `The next election is on ${formatDate(pollDay(pol.election))}.${warn ? ` ${warn}` : ""}`
       : check.why,
     run: () => void ui.cmd({ k: "stand" }),
   });

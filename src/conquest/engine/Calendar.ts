@@ -39,6 +39,18 @@ export function isMonthStart(day: number): boolean {
   return dateOf(day).day === 1;
 }
 
+/**
+ * FIXES (r15): the day a poll falling due on `day` is actually counted.
+ * Polls (the assembly's and the county offices') are held at the turn of
+ * the month, so one due mid-month waits for the 1st: show this day, not
+ * the due date.
+ */
+export function pollDay(day: number): number {
+  let d = Math.ceil(day);
+  while (!isMonthStart(d)) d++;
+  return d;
+}
+
 const MONTH_NAMES = [
   "January",
   "February",

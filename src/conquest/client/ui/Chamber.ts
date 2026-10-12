@@ -14,7 +14,7 @@ import {
   division,
   governorLean,
 } from "../../engine/Assembly";
-import { formatDate } from "../../engine/Calendar";
+import { formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
 import {
   actionTargets,
   councilAdvice,
@@ -655,7 +655,7 @@ function assembly(ui: GameUi, n: number): TemplateResult | typeof nothing {
         ${speaker?.alive
           ? charLink(ui, speaker, false)
           : html`<span class="cq-muted">none chosen</span>`}.
-        Next election ${formatDate(pol.election)}.
+        Next election ${formatDate(pollDay(pol.election))}.
         ${member ? html`<span class="cq-chip good">you sit</span>` : nothing}
       </p>
       ${live.length
