@@ -40,6 +40,7 @@ import {
   yes,
   type Check,
 } from "./LifeQueries";
+import { LAND_LOT } from "./LifeRules";
 import type { World } from "./Map";
 import { chanceWords, type OddsOutcome, type OddsView } from "./Odds";
 import { landOf, propertyOf } from "./Property";
@@ -689,6 +690,19 @@ export function fieldsOf(
   return { workers, idle, acres, crop: cropAt(s, map, b.home) };
 }
 
+/**
+ * The tenants' rent no longer coming from lots of your land the household
+ * works (a farm's own acres were never let): a month, on average.
+ */
+export function rentForgone(life: Life, workers: number): number {
+  const b = life.bondage;
+  if (!b || !workers) return 0;
+  const lots = landOf(life, b.home)?.level ?? 0;
+  const farm = Math.floor((acresAt(life, b.home) - lots * 10) / ACRES_EACH);
+  const used = Math.max(0, Math.min(lots, workers - farm));
+  return r2(used * LAND_LOT.rent);
+}
+
 /** Whether the household's home is a town big enough to hire people out in. */
 export function hireTown(s: GameState, life: Life): boolean {
   const b = life.bondage;
@@ -1084,14 +1098,18 @@ export function fieldsOdds(s: GameState, w: World, life: Life): OddsView {
   const f = fieldsOf(s, w.map, life);
   const gross = f.workers.reduce((m, c) => m + workOf(s, w.map, life, c), 0);
   const net = (v: number) => r1(v * (1 - CROP_EXCISE));
+  const less = rentForgone(life, f.workers.length);
   const outcomes: OddsOutcome[] = CROP_LUCK.map((x) => ({
     label: x.label,
     p: x.p,
-    lo: net(gross * x.mul),
-    hi: net(gross * x.mul),
+    lo: r1(net(gross * x.mul) - less),
+    hi: r1(net(gross * x.mul) - less),
     bad: x.mul < 1,
   }));
-  const expected = net(gross * CROP_LUCK.reduce((m, x) => m + x.p * x.mul, 0));
+  const rent = rentForgone(life, f.workers.length);
+  const expected = r1(
+    net(gross * CROP_LUCK.reduce((m, x) => m + x.p * x.mul, 0)) - rent,
+  );
   const keep = householdKeep(s, life);
   return {
     title: `The fields: ${f.workers.length} at work on ${f.acres} acres (${CROPS[f.crop].name})`,
@@ -1110,7 +1128,7 @@ export function fieldsOdds(s: GameState, w: World, life: Life): OddsView {
       "Their skill, their health and their spirits: a worker who is ill-fed, grieving or in despair does far less.",
       "Gangs under a driver get a little more from the day than the task system, and wear people down for it.",
       `Away from home, nobody minds the place: ${Math.round(AWAY_FACTOR * 100)}% of the work.`,
-      `What the fields bring pays the duty (${Math.round(CROP_EXCISE * 100)}%).`,
+      `What the fields bring pays the duty (${Math.round(CROP_EXCISE * 100)}%); land the household works isn't let, so its tenants' rent (${LAND_LOT.rent} a lot) no longer comes in.`,
     ],
   };
 }
@@ -1781,11 +1799,15 @@ export function bondForecast(s: GameState, life: Life, w?: World): Part[] {
     if (f.workers.length) {
       const g = f.workers.reduce((m, c) => m + workOf(s, w.map, life, c), 0);
       const k = 1 - CROP_EXCISE;
+      const rent = rentForgone(life, f.workers.length);
       out.push({
         key: "bond:fields",
-        label: `The fields: ${f.workers.length} at work (${CROPS[f.crop].name})`,
-        value: r2(ex.fields * k),
-        chance: [r2(g * CROP_LUCK[2].mul * k), r2(g * CROP_LUCK[0].mul * k)],
+        label: `The fields: ${f.workers.length} at work (${CROPS[f.crop].name})${rent ? ", less the tenants' rent on their acres" : ""}`,
+        value: r2(ex.fields * k - rent),
+        chance: [
+          r2(g * CROP_LUCK[2].mul * k - rent),
+          r2(g * CROP_LUCK[0].mul * k - rent),
+        ],
       });
     }
     const hired = hiredOf(s, life);

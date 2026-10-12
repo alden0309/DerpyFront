@@ -42,6 +42,7 @@ import {
   r1,
   r2,
   refugeOdds,
+  rentForgone,
   RISE_OUTCOMES,
   riseChance,
   saleAt,
@@ -884,6 +885,7 @@ function work(g: ConquestGame, life: Life, salt: number): void {
       }
     }
     const take = r2(gross * mul);
+    const rent = rentForgone(life, f.workers.length);
     withFlow(
       g,
       {
@@ -895,6 +897,8 @@ function work(g: ConquestGame, life: Life, salt: number): void {
       () => {
         earn(g, life, take);
         spend(g, life, r2(take * CROP_EXCISE));
+        // The lots they work aren't let: the tenants' rent isn't coming.
+        if (rent) spend(g, life, rent);
       },
     );
   }

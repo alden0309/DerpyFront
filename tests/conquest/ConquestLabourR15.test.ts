@@ -29,6 +29,7 @@ import {
   labourForOthers,
   labourStateForSeat,
   moodTarget,
+  rentForgone,
   riseChance,
   saleAt,
   SECRET_MARK,
@@ -57,6 +58,7 @@ import { ConquestGame } from "../../src/conquest/engine/Game";
 import { raiseEvent } from "../../src/conquest/engine/Hooks";
 import { succeedTo } from "../../src/conquest/engine/Life";
 import { peopleHere } from "../../src/conquest/engine/LifeQueries";
+import { LAND_LOT } from "../../src/conquest/engine/LifeRules";
 import { hireCheck } from "../../src/conquest/engine/Property";
 import { ageOf, charName } from "../../src/conquest/engine/Queries";
 import type {
@@ -639,7 +641,12 @@ describe("LABOUR: the month's money, as the forecast has it", () => {
       .filter((c) => c.bond!.work === "fields" && ageOf(g.s, c) >= 12)
       .reduce((m, c) => m + workOf(g.s, map, life, c), 0);
     const mean = CROP_LUCK.reduce((m, x) => m + x.p * x.mul, 0);
-    expect(fields.value).toBeCloseTo(gross * mean * (1 - CROP_EXCISE), 1);
+    // Less the tenants' rent on the lots they work (the lots aren't let now).
+    expect(rentForgone(life, 4)).toBeCloseTo(4 * LAND_LOT.rent, 6);
+    expect(fields.value).toBeCloseTo(
+      gross * mean * (1 - CROP_EXCISE) - rentForgone(life, 4),
+      1,
+    );
     expect(cropAt(g.s, map, P("jamestown"))).toBe("tobacco");
     expect(CROPS.tobacco.value).toBeGreaterThan(0);
     // Paid at the turn: the keep exactly.
