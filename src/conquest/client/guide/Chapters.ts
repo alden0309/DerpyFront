@@ -165,6 +165,7 @@ import {
 } from "../../engine/PartnersCore";
 // LEDGER (r15): money made plain, its chapter and the boats' table.
 import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
+import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
 
 export interface Chapter {
   id: string;
@@ -1263,16 +1264,20 @@ Each boat's card shows the same for her, with her own master, crew and port: [[l
 - **Overland**: on foot, ${ROAD_COST_PER_DAY} coins a day for food and lodging. A horse makes journeys take two thirds the time; a carriage, half. A guide in your service makes them quicker and safer.
 - **By sea**, from a port: a passage costs ${SEA_FARE_BASE} coins and ${SEA_FARE_PER_100KM} for every hundred kilometres. Sailors travel free while they sail; the native peoples go by canoe.
 - **In your own boat**: no fare at all ([[boats|Boats]]).
+- **How long by sea** (SEA r15): two days in port to find a ship, then about 160 km a day, and a day at each port of call; a short crossing is a day or two. Your own boat gets away in a day and sails faster. Boston to New York: 19 days on foot, 14 on horseback, 6 by passage, 4 in your own sloop. The whole table: [[sea|To sea in person]].
 
 The road's page gives the days and the cost of each before you go. On the way, **Stop at the next place** (Here) halts you there. Places and people open up when you arrive.
 
 You can't travel alone while you march with an army (stay behind in garrison at a fort to come and go), and an army's commander marches it instead.
 
 ## What happens on the way
-Each day of a journey may bring an event, chosen by where you are, the season, wars and who rules the land: fever and rattlesnakes in the southern swamps, snow on the mountain passes, fords in spate, the native peoples' lands (a welcome, a party barring the path), Spanish patrols in Florida, coureurs des bois in the north, buffalo and prairie fire in the west, enemy horsemen in wartime; and at sea, hurricanes in the southern summer and autumn, gales, fog and ice on the Banks, the doldrums, pirates in the Caribbean, a press gang. Each is a scene with two or three choices, with skill checks shown as odds. Days lost, goods or coins lost, wounds and fevers, friends among the nations, a find.
+Each day of a journey may bring an event, chosen by where you are, the season, wars and who rules the land: fever and rattlesnakes in the southern swamps, snow on the mountain passes, fords in spate, the native peoples' lands (a welcome, a party barring the path), Spanish patrols in Florida, coureurs des bois in the north, buffalo and prairie fire in the west, enemy horsemen in wartime; and at sea, the hurricanes when one finds you (they move on the map: [[sea|To sea in person]]), gales, fog and ice on the Banks, the doldrums, pirates in the Caribbean, a press gang. Each is a scene with two or three choices, with skill checks shown as odds. Days lost, goods or coins lost, wounds and fevers, friends among the nations, a find.
 
-> Tip: Letters sent by sea can be lost; so can you. Hurricane season in the Caribbean is summer and autumn.`,
+> Tip: Letters sent by sea can be lost; so can you. Hurricane season is June to November, worst in August and September: the storms show on the map ([[sea|To sea in person]]).`,
   },
+  // ---- SEA (r15): to sea in person (guide/SeaChapter.ts)
+  SEA_CHAPTER,
+  // ---- end SEA (r15)
   {
     id: "followers",
     part: "living",

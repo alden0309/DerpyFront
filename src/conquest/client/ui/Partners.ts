@@ -240,6 +240,9 @@ function holdLine(ui: GameUi, f: Firm): string {
   }
   if (f.biz)
     return `${bizName(f.biz.job, f.biz.level)[0].toUpperCase()}${bizName(f.biz.job, f.biz.level).slice(1)} at ${town} · ${["", "I", "II", "III"][f.biz.level]} · ${f.biz.hands} of ${bizRoom(f.biz.level)} hands`;
+  // SEA (r15): a privateering company's ship (Work › At sea sends her cruising).
+  if (f.sea)
+    return `The ${f.sea.ship}, a privateer out of ${town}${f.sea.lost ? " (lost)" : f.sea.cruise >= 0 ? ", on a cruise" : ""} · her cruises: Work › At sea`;
   if (f.lost) return `Cargoes, out of ${town} (its ${f.lost.name} lost)`;
   return `Cargoes, out of ${town}`;
 }
