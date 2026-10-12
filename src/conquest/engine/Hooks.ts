@@ -190,6 +190,20 @@ export const hooks = {
     c: Character,
     e: import("./Explain").Explain,
   ) => void)[],
+  // CHAMBER (r16)
+  /**
+   * The assembly's yearly session has carried a lever against the governor:
+   * supply refused, his salary withheld, or an address against him. The
+   * governor's own module (CHAIR) carries it out and returns true; if none
+   * does, the session falls back on what the house always could (Assembly.ts's
+   * withheld salary, the speaker's address). `by`: the players who stood for it.
+   */
+  houseLever: [] as ((
+    g: ConquestGame,
+    n: number,
+    lever: "supply" | "salary" | "address",
+    by: number[],
+  ) => boolean)[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

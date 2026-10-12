@@ -169,6 +169,7 @@ import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
 import { BUSINESS_CHAPTER } from "./BusinessChapter";
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
 // INTRIGUE (r15): hearts and schemes.
+import { CHAMBER_CHAPTER } from "./ChamberChapter"; // CHAMBER (r16)
 import { INTRIGUE_CHAPTER } from "./IntrigueChapter";
 // LABOUR (r15): bondage in the colonies, as history.
 import { BOND_CHAPTER } from "./BondChapter";
@@ -1906,8 +1907,8 @@ A seat is reached by your **case**: renown, favour at home, what the governor th
 - One office at a time: a seat on the council is your one office ([[office|Office]]).
 
 ## Council politics
-- **Advice and votes.** Measures (paper money, farming out the customs, a fort, presents to a nation, a treaty of trade, a land grant, the taxes) are put to the council and divide a week later; you vote with the governor or against him. The governor's own decisions (war, taxes, laws, works, proclamations) come with the council's advice; a governor who goes against a majority pays a little (unrest, and councillors who remember).
-- **Parties.** Each councillor sits with **the court party** (the governor's friends) or **the country party**; the speaker is the house's man. Your votes decide which you're counted with.
+- **Advice and votes.** Measures (paper money, farming out the customs, a fort, presents to a nation, a treaty of trade, a land grant, the taxes, and much more: [[chamber|The council's business]]) are put to the council and divide a week later; you vote with the governor or against him. The governor's own decisions (war, taxes, laws, works, proclamations) come with the council's advice; a governor who goes against a majority pays a little (unrest, and councillors who remember).
+- **Parties.** Each councillor sits with **the court party** (the governor's friends) or **the country party**; the speaker is the house's man. Your votes decide which you're counted with, and the factions remember them ([[chamber|The factions]]).
 - **The governor's favour** (0 to 100) rises with votes for his measures and a seat well used, and falls with votes against, failures, scandal and the papers' attacks. Below 25 you're warned; below 15 a governor the computer plays may put you off the council.
 - **Scandal.** Graft (land jobbing, the treasury's money lent to friends) pays, until it comes out: disgrace, a scandal, the governor's favour gone, perhaps dismissal and a trial for corruption.
 - When no player holds a seat, the computer's councillors use theirs now and then, sensibly: audits when the treasury's low, treaties with an angry neighbour, a muster in wartime, a day of thanksgiving when the counties are restless.
@@ -1925,6 +1926,9 @@ ${billsTable()}
 - **The speaker** is chosen by the house from its members after each election (put your name forward for the chair), sits on the council, can **steer** a bill (bringing waverers round), and carries the house's address to the governor.
 - A governor can **dissolve** the house (a new election within the month; unrest) or **prorogue** it for six months (no bills and no new laws until it sits; unrest).`,
   },
+  // ---- CHAMBER (r16): the council's business, the factions, the session (guide/ChamberChapter.ts)
+  CHAMBER_CHAPTER,
+  // ---- end CHAMBER (r16)
   {
     id: "trials",
     part: "power",

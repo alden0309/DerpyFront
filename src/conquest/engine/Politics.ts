@@ -7,6 +7,7 @@
 
 import { formatDate, pollDay } from "./Calendar"; // FIXES (r15)
 import { makeCharacter } from "./Characters";
+import { crownLine } from "./Chatter"; // CHAMBER (r16)
 import { crownCommand } from "./Crown";
 import { economyCommand } from "./Economy";
 import type { ConquestGame } from "./Game";
@@ -366,7 +367,7 @@ export function writeToCrown(
     journal(
       g,
       life,
-      "Your letter reached the right desk in London (or Paris, or Seville). Someone there knows your name now.",
+      crownLine(g, life, true), // CHAMBER (r16): the colony's own city, a larger pool
       "good",
     );
   } else {
@@ -374,7 +375,7 @@ export function writeToCrown(
     journal(
       g,
       life,
-      "Your letter was read, filed, and very possibly used to wrap a fish.",
+      crownLine(g, life, false), // CHAMBER (r16)
     );
   }
   return null;

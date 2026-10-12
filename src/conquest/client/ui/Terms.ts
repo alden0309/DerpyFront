@@ -282,6 +282,31 @@ export const TERMS: Record<string, Term> = {
     raise: "One at each port of the Americas a company uses.",
     ch: "business",
   },
+  // CHAMBER (r16): Factions.ts, Session.ts, Docket.ts
+  faction: {
+    name: "Faction",
+    what: "A party (the governor's friends, or the house's men) or an interest (the merchants, the landed men, the backcountry, the church) in a colony's politics.",
+    good: "It remembers how you vote in council and where you stand at the session, and its members think the better or the worse of you for it (at most 10 either way). Its councillors lean toward the measures of someone it likes.",
+    raise:
+      "Vote and speak for what it wants. Society › Council shows each, what it thinks of you and why. It fades by a fifth each January.",
+    ch: "chamber",
+  },
+  session: {
+    name: "The session",
+    what: "The assembly's yearly sitting on its great question: 1 April, dividing a month later.",
+    good: "What the house carries is done (supply voted or refused, bills of credit, roads, a salary settled or withheld). Your speech pulls over the members who lean only a little the other way; the factions remember where you stood.",
+    raise:
+      "Sit in the house or on the council. A scene asks where you stand; the odds of your speech are on its buttons.",
+    ch: "chamber",
+  },
+  docket: {
+    name: "The docket",
+    what: "The council's business: war and peace, the crown's demands, boundaries, the counties' petitions, a scandal in the treasury, and more.",
+    good: "No kind of business comes before the council twice in a year, whoever brings it.",
+    raise:
+      "The governor, a county or the councillor whose business it is brings it; a councillor's own measures wait their turn.",
+    ch: "chamber",
+  },
   // INTRIGUE (r15): Seduction.ts, Plots.ts, Weddings.ts
   scheme: {
     name: "A scheme",

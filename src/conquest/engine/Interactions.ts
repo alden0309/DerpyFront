@@ -61,6 +61,14 @@ import { joinMovement, movementOf, recruitInto } from "./Movements";
 import { handOf, hireCheck, hireHand } from "./Property";
 // SOCIETY (r11)
 import { isBound } from "./BondCore"; // LABOUR (r15)
+import {
+  flatterLine,
+  giftThanks,
+  playerTalkLine,
+  sayOrWrite,
+  sayTalk,
+  talkLine,
+} from "./Chatter"; // CHAMBER (r16)
 import { addSettler, settleAcceptance, settleCheck } from "./Founding";
 import { ADULT_AGE, betrothalOf } from "./IntrigueCore"; // INTRIGUE (r15)
 import {
@@ -1149,31 +1157,48 @@ export function doInteraction(
         (m) => m.of === me.id && m.why === "Good company",
       );
       // SOCIETY (r11): no tongue in common, so it goes by signs.
+      // CHAMBER (r16): another player's character says and does only what
+      // their player does: with them, the line is only what you did.
+      const withPlayer = !!lifeOfChar(s, cId);
+      const said = (t: string) =>
+        withPlayer
+          ? first
+            ? `You get to know ${name}.`
+            : playerTalkLine(g, life, c)
+          : t;
       if (view.tongue && view.tongue.level === 0) {
         remembers(g, life, c, "Good company", 1, 1);
-        journal(g, life, signTalk(g, c));
+        sayTalk(g, life, c, said(signTalk(g, c)), first); // CHAMBER (r16)
         return null;
       }
       remembers(g, life, c, "Good company", 3, 1);
-      journal(g, life, smallTalk(g, life, c, first));
+      // CHAMBER (r16): news first, larger pools; small talk with the same
+      // person goes in the journal only the first few times a year.
+      sayTalk(g, life, c, said(smallTalk(g, life, c, first)), first);
       return null;
     }
     case "flatter":
       gainXp(g, life, "persuasion", 5);
+      // CHAMBER (r16): lines from larger pools; praise that landed is
+      // written down the first few times a year, praise that didn't always.
       if (pass) {
         remembers(g, life, c, "Flattered me", 10, 2);
-        journal(
+        sayOrWrite(
           g,
           life,
-          `${name} colours at your praise, and stands a little taller.`,
+          `flatter:${cId}`,
+          flatterLine(g, life, c, true),
+          false,
           "good",
         );
       } else {
         remembers(g, life, c, "Laid it on thick", -6, 1);
-        journal(
+        sayOrWrite(
           g,
           life,
-          `${name} saw through the flattery, and said so.`,
+          `flatter:${cId}`,
+          flatterLine(g, life, c, false),
+          true,
           "bad",
         );
       }
@@ -1196,10 +1221,16 @@ export function doInteraction(
         earn(g, player, amount);
         journal(g, player, `${charName(me)} gave you ${amount} coins.`, "good");
       }
-      journal(
+      // CHAMBER (r16): thanks from a larger pool (another player's are theirs
+      // to give); a habit of gifts to the same person goes in the journal the
+      // first few times a year, a gift to another player always. The money is
+      // in the month's accounts either way.
+      sayOrWrite(
         g,
         life,
-        `You gave ${name} ${amount} coins. ${v >= 15 ? "They won't forget it." : "They thank you."}`,
+        `gift:${cId}`,
+        `You gave ${name} ${amount} coins. ${giftThanks(g, life, c, v >= 15)}`.trim(),
+        !!player,
       );
       return null;
     }
@@ -1583,15 +1614,7 @@ function smallTalk(
   const op = opinionOf(s, c, life).total;
   const role = c.role ? ROLES[c.role].title.toLowerCase() : null;
   if (first) return `You get to know ${name}${role ? `, the ${role}` : ""}.`;
-  const warm = [
-    `${name} laughs at your story, and tells a better one.`,
-    `You and ${name} put the world to rights for an hour.`,
-    `${name} asks after your family, and remembers their names.`,
-  ];
-  const cool = [
-    `${name} answers in as few words as will do.`,
-    `${name} keeps glancing at the door.`,
-  ];
+  // CHAMBER (r16): the warm and cool lines are in Chatter.ts's larger pools.
   const trade: Partial<Record<string, string>> = {
     innkeeper: `${name} complains about the price of malt and the morals of the excise man.`,
     preacher: `${name} hopes to see you on Sunday, and says it like a threat.`,
@@ -1603,9 +1626,9 @@ function smallTalk(
   };
   const r = g.rng.next();
   if (c.role && trade[c.role] && r < 0.4) return trade[c.role]!;
-  return op >= 10
-    ? warm[Math.floor(r * warm.length)]
-    : cool[Math.floor(r * cool.length)];
+  // CHAMBER (r16): news first, then larger pools, none again within a few
+  // months (the same roll: no new dice).
+  return talkLine(g, life, c, r, op >= 10).text;
 }
 
 /** A wedding: the spouse leaves any post and moves in; a dowry, perhaps. */

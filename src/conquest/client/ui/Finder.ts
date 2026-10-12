@@ -774,6 +774,73 @@ const GOALS: Goal[] = [
     go: tab({ k: "tab", tab: "society", sub: "council" }),
     guide: "council",
   },
+  // ---- CHAMBER (r16): the council's business, the factions, the session
+  {
+    id: "factions",
+    title: "Know what the factions think of me",
+    words:
+      "faction factions party parties court country merchants planters backcountry frontier clergy interest votes remember regard opinion",
+    group: "Office and the law",
+    where:
+      "Society › Council, The factions: each party and interest, how many of them are in the colony's politics, what each thinks of you and why (your votes in council, your stands at the session). It's in their members' opinion of you too.",
+    go: tab({ k: "tab", tab: "society", sub: "council" }),
+    goLabel: "Society › Council",
+    guide: "chamber",
+    who: "colonist",
+  },
+  {
+    id: "session",
+    title: "Speak at the assembly's session",
+    words:
+      "session assembly house sitting supply salary grievances address bills of credit speech speak vote stand question spring",
+    group: "Office and the law",
+    where:
+      "Each 1 April the house sits on the year's great question, and a scene asks where you stand (three choices, or standing aside), with the odds your speech lands and how many members it would bring over. It divides a month later. Society › Council shows how the house leans.",
+    needs: (ui) => {
+      const s = ui.s;
+      const n = ui.me!.nation;
+      const cab = s.power?.cabinets[n];
+      const inHouse = (s.polities[n]?.assembly ?? []).includes(ui.me!.id);
+      const onCouncil =
+        !!cab &&
+        ([cab.attorney, cab.surveyor, cab.speaker].includes(ui.me!.id) ||
+          Object.values(s.nations[n]?.council ?? {}).includes(ui.me!.id));
+      return [
+        inHouse || onCouncil
+          ? { label: "You sit in the house or on the council", met: true }
+          : { label: "A seat in the house or on the council", met: false },
+      ];
+    },
+    go: tab({ k: "tab", tab: "society", sub: "council" }),
+    goLabel: "Society › Council",
+    guide: "chamber",
+    who: "colonist",
+  },
+  {
+    id: "council-business",
+    title: "Know what's before the council",
+    words:
+      "council matter matters measure business docket petition war vote treasury inquiry boundary quota agenda",
+    group: "Office and the law",
+    where:
+      "Society › Council, Before the council: each matter, who brought it, what's at stake, which interests are for and against, and how the vote stands. No kind of business comes twice in a year.",
+    go: tab({ k: "tab", tab: "society", sub: "council" }),
+    goLabel: "Society › Council",
+    guide: "chamber",
+  },
+  {
+    id: "seat-work",
+    title: "See what my seat's work came to",
+    words:
+      "seat power later result survey road treaty audit mission muster records drafted laws address consequences",
+    group: "Office and the law",
+    where:
+      "Society › Council, What your work comes to: a survey's road, a treaty's traders, an audit's arrears, a mission's school, months later. It's in your journal when it comes.",
+    go: tab({ k: "tab", tab: "society", sub: "council" }),
+    goLabel: "Society › Council",
+    guide: "chamber",
+  },
+  // ---- end CHAMBER (r16)
   {
     id: "court-case",
     title: "Take someone to court",

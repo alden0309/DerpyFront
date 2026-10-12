@@ -50,6 +50,7 @@ import { iceBound, seasonPay } from "./Seasons"; // MAP (r12)
 import { canoeHopDays, passageHopDays } from "./SeaSpeed"; // SEA (r15)
 // SOCIETY (r11)
 import { seatTitleOf } from "./CouncilTitles"; // POWER (r12)
+import { chamberOpinion } from "./Factions"; // CHAMBER (r16)
 import { AMERICAS, worldOf } from "./Map";
 import { localOfficesOf, OFFICES, officeTitle } from "./Offices";
 import {
@@ -988,6 +989,7 @@ export function opinionOf(s: GameState, c: Character, life: Life): Breakdown {
     e.add(m.why, m.value);
   }
   societyOpinion(s, c, life, e); // SOCIETY (r11)
+  chamberOpinion(s, c, life, e); // CHAMBER (r16): what their factions remember of your votes
   return e.done(0, -100, 100);
 }
 

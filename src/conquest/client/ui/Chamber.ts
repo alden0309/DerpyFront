@@ -47,6 +47,13 @@ import type { CouncilSeat, Nation } from "../../engine/Types";
 import { nationName } from "../Text";
 import { num } from "../Tip";
 import {
+  caresChips,
+  factionsSection,
+  laterChip,
+  laterSection,
+  sessionSection,
+} from "./ChamberParts"; // CHAMBER (r16)
+import {
   action,
   bar,
   breakdownTip,
@@ -59,6 +66,7 @@ import {
 } from "./Context";
 import { howTo, pageHead } from "./Nav";
 import { price } from "./Price"; // LEDGER (r15)
+import { termMark } from "./Terms"; // CHAMBER (r16)
 
 /** What's picked in each select, kept between redraws. */
 const picks: Record<string, number> = {};
@@ -201,7 +209,7 @@ function seatPowerRow(ui: GameUi, a: SeatActionDef): TemplateResult {
     <div class="cq-pw-text">
       <b>${a.label}</b>${a.measure
         ? html` <span class="cq-chip gold">a measure: the council votes</span>`
-        : nothing}
+        : nothing}${laterChip(a.key)}
       <span class="small">${a.text}</span>
       ${a.check
         ? html`<span class="cq-muted small"
@@ -294,6 +302,7 @@ function matters(ui: GameUi, n: number): TemplateResult | typeof nothing {
                 >brought by ${charName(s.chars[m.by])}, ${formatDate(m.day)} ·
                 ${m.text}</span
               >
+              ${caresChips(ui, n, m)}
               <span class="small">
                 ${m.status === "open"
                   ? html`<span class="cq-chip"
@@ -344,9 +353,12 @@ function matters(ui: GameUi, n: number): TemplateResult | typeof nothing {
       </ul>
       <p class="cq-muted small">
         Voting with the governor's measures wins his favour (and counts you
-        among his friends); against them, the country party's. A measure carried
-        goes to the governor to sign.
+        among his friends); against them, the country party's. The interests
+        remember your votes on what they care about. A measure carried goes to
+        the governor to sign. No kind of business comes before the council twice
+        in a year.
       </p>`,
+    termMark("docket"), // CHAMBER (r16)
   );
 }
 
@@ -790,7 +802,9 @@ export function councilPage(ui: GameUi): TemplateResult {
       ? "The leader and those who sit at the fire with them: the war chief, the speaker, the keeper of stores, the scout and the healer."
       : "The governor and eight seats, each with its portfolio. Councillors advise and vote, keep the governor's favour (or lose it), and are dismissed or disgraced. One office at a time: a seat here is your one office.",
   )}
-  ${chamber(ui, n)} ${seat ? yourSeat(ui, n, seat) : nothing} ${matters(ui, n)}
+  ${chamber(ui, n)} ${seat ? yourSeat(ui, n, seat) : nothing}
+  ${laterSection(ui, n)} ${matters(ui, n)} ${sessionSection(ui, n)}
+  ${factionsSection(ui, n)}
   ${governs ? governorHand(ui, n) : !seat ? reach(ui, n) : nothing}
   ${assembly(ui, n)}
   ${more(

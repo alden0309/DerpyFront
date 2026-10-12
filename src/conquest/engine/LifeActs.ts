@@ -6,6 +6,13 @@
 
 import { homeHere, presentAt } from "./Areas";
 import { dateOf, formatDate } from "./Calendar";
+import {
+  almsLine,
+  gossipAt,
+  leveeLine,
+  pamphletLine,
+  roundLine,
+} from "./Chatter"; // CHAMBER (r16)
 import { eligibleHere } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { afterHearing } from "./Leads"; // WORLD r11
@@ -814,20 +821,8 @@ export function actsAt(place: PlaceKind): ActDef[] {
   return ACTS.filter((a) => a.places.includes(place));
 }
 
-const GOSSIP = [
-  "They say the governor's gout is worse, and his temper with it.",
-  "A ship's mate swears he saw a sea serpent off the Capes. He was sober, he says.",
-  "The price of tobacco is down again, and the planters are in a black mood.",
-  "Somebody's cow got into the churchyard. The minister is taking it personally.",
-  "The assembly sat three days and agreed only on the date of the next sitting.",
-  "A trader back from the interior says the French are building forts on every river.",
-  "The new tax is either a scandal or a necessity, depending who's buying.",
-  "The magistrate's daughter has turned down a third suitor. The fourth is in the corner.",
-  "There's talk of war in Europe. There's always talk of war in Europe.",
-  "A preacher passed through who could make a stone weep and a drunkard sign the pledge. Neither lasted.",
-  "Smallpox in the next province, they say. Or measles. Or a rumour of smallpox.",
-  "Two gentlemen nearly fought a duel over a horse. The horse has since died, which settled it.",
-];
+// CHAMBER (r16): the talk of the town (it was GOSSIP here) is in Chatter.ts:
+// news first, then the old stories, each heard twice in a life at most.
 
 /** What an act's button says for this character. */
 export function actLabel(s: GameState, life: Life, def: ActDef): string {
@@ -923,7 +918,7 @@ function gossip(g: ConquestGame, life: Life): string | null {
   gainXp(g, life, "persuasion", 3);
   const heard = heardHere(s, g.map, life.prov).slice(0, 3);
   if (!heard.length) {
-    journal(g, life, g.rng.pick(GOSSIP)!);
+    gossipAt(g, life, g.rng.next()); // CHAMBER (r16): the same one roll as before
     afterHearing(
       g,
       life,
@@ -1030,7 +1025,7 @@ export function doAct(
     case "drink": {
       addStress(g, life, hasTrait(me, "drunkard") ? -9 : -6);
       gainXp(g, life, "persuasion", 5);
-      if (g.rng.chance(0.4)) journal(g, life, g.rng.pick(GOSSIP)!);
+      if (g.rng.chance(0.4)) gossipAt(g, life, g.rng.next()); // CHAMBER (r16)
       afterHearing(g, life, "tavern"); // WORLD r11
       // Someone at the bar now, if there's anyone you don't know.
       const atBar = presentAt(s, g.w, life.prov, place, s.day, life)
@@ -1065,11 +1060,7 @@ export function doAct(
         remembers(g, life, g.char(c.id), "Stood us a round", 6, 1);
       }
       campaignBoost(g, life, 3, "a round for the house");
-      journal(
-        g,
-        life,
-        `You stood the house a round at ${here}. They'll drink to your health, and remember your name.`,
-      );
+      roundLine(g, life, here); // CHAMBER (r16)
       return null;
     }
     case "brawl": {
@@ -1130,7 +1121,7 @@ export function doAct(
       );
       if (minister)
         remembers(g, life, g.char(minister.id), "Generous to the poor", 8, 2);
-      journal(g, life, "You gave alms at the church door.");
+      almsLine(g, life); // CHAMBER (r16)
       return null;
     }
     case "match": {
@@ -1295,22 +1286,10 @@ export function doAct(
       if (pass) {
         addRenown(g, life, 2);
         if (m) movementPamphlet(g, life, m, true);
-        else
-          journal(
-            g,
-            life,
-            "Your pamphlet sold out and was argued over in every tavern.",
-            "good",
-          );
+        else pamphletLine(g, life, true); // CHAMBER (r16)
       } else {
         if (m) movementPamphlet(g, life, m, false);
-        else
-          journal(
-            g,
-            life,
-            "Your pamphlet was used, mostly, to light pipes.",
-            "bad",
-          );
+        else pamphletLine(g, life, false); // CHAMBER (r16)
       }
       return null;
     }
@@ -1378,11 +1357,7 @@ export function doAct(
         outcomeMeta(g, life, { c: gov.id });
       }
       gainXp(g, life, "persuasion", 4);
-      journal(
-        g,
-        life,
-        `At the governor's levee you meet ${met.map((c) => charName(c)).join(", ") || "nobody worth the trip"}.`,
-      );
+      leveeLine(g, life, met); // CHAMBER (r16): "the usual company" when it's the same faces
       return null;
     }
     case "court":

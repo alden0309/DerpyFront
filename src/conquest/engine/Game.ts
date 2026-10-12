@@ -33,6 +33,7 @@ import { World, worldOf } from "./Map";
 // WORLD r11: fog of war, province markets, leads, and fitting old saves to the map.
 import "./Achievements"; // MAP (r12): achievements watch every life
 import "./Bondage"; // LABOUR (r15): bondage, treated as history
+import "./Chamber"; // CHAMBER (r16): the council's business, factions, the session
 import { fogDaily } from "./Fog";
 import "./Household"; // HOME (r12): the household's commands register themselves
 import "./Intrigue"; // INTRIGUE (r15): seduction, plots, weddings, private letters
