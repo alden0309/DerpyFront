@@ -94,7 +94,11 @@ export const VENTURE_LUCK: { p: number; x: number; label: string }[] = [
 
 /** The fur brigade's luck with the trade goods. */
 export const FUR_LUCK: { p: number; x: number; label: string }[] = [
-  { p: 0.06, x: 0, label: "robbed on the portage, or the canoes lost in a rapid" },
+  {
+    p: 0.06,
+    x: 0,
+    label: "robbed on the portage, or the canoes lost in a rapid",
+  },
   { p: 0.24, x: 1.1, label: "a thin year at the posts" },
   { p: 0.46, x: 1.6, label: "a fair trade" },
   { p: 0.24, x: 2.2, label: "prime winter beaver, and plenty of it" },
@@ -157,7 +161,11 @@ export const SEND_SHARE = 0.75;
 export const SEND_DAYS = 60;
 
 /** The trade a voyage belongs to, for a job. */
-export function voyageKindOf(job: JobKind, rank: number, native: boolean): VoyageKind | null {
+export function voyageKindOf(
+  job: JobKind,
+  rank: number,
+  native: boolean,
+): VoyageKind | null {
   if (job === "sailor" && rank <= 3) return "merchant";
   if (job === "whaler") return "whaling";
   if (job === "trapper" && rank >= 2) return "furs";
@@ -169,7 +177,13 @@ export function voyageKindOf(job: JobKind, rank: number, native: boolean): Voyag
 // ---------------------------------------------------------------- where to
 
 /** Whaling grounds: the stations whalers worked out of the northern ports. */
-const WHALING_GROUNDS = ["plymouth", "narragansett", "paumanok", "avalon", "chebucto"];
+const WHALING_GROUNDS = [
+  "plymouth",
+  "narragansett",
+  "paumanok",
+  "avalon",
+  "chebucto",
+];
 
 /** Where a voyage would go from here, or -1 (the same for everyone this month). */
 export function destinationOf(
@@ -188,7 +202,11 @@ export function destinationOf(
       if (p === from || !d.coastal || d.closed) return;
       if (kind === "whaling") {
         if (!WHALING_GROUNDS.includes(d.id)) return;
-      } else if ((s.provinces[p].b.port ?? 0) <= 0 || settlers(s.provinces[p]) < 300) return;
+      } else if (
+        (s.provinces[p].b.port ?? 0) <= 0 ||
+        settlers(s.provinces[p]) < 300
+      )
+        return;
       const km = kmApart(here.lat, here.lon, d.lat, d.lon);
       if (kind === "merchant" && (km < 350 || km > 3200)) return;
       if (kind === "whaling" && km > 1600) return;
@@ -198,7 +216,8 @@ export function destinationOf(
     return r.pick(list) ?? -1;
   }
   // Overland: the far posts (a native town), or the backcountry (open country).
-  const route = (p: number) => travelRoute(s, map, from, p, false, kind === "furs");
+  const route = (p: number) =>
+    travelRoute(s, map, from, p, false, kind === "furs");
   const list: number[] = [];
   map.provinces.forEach((d, p) => {
     if (p === from || d.closed) return;
@@ -227,7 +246,10 @@ export function destinationOf(
 
 function sdiceFor(s: GameState, p: number, salt: number) {
   const month = Math.floor(s.day / 30);
-  let h = (s.settings.seed | 0) ^ Math.imul(p + 31, 0x9e3779b1) ^ Math.imul(month + salt, 0x85ebca6b);
+  let h =
+    (s.settings.seed | 0) ^
+    Math.imul(p + 31, 0x9e3779b1) ^
+    Math.imul(month + salt, 0x85ebca6b);
   h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d);
   h ^= h >>> 12;
   const holder = { rng: h | 0 };
@@ -236,13 +258,22 @@ function sdiceFor(s: GameState, p: number, salt: number) {
       holder.rng = (Math.imul(holder.rng, 1664525) + 1013904223) | 0;
       return ((holder.rng >>> 0) % 1000000) / 1000000;
     };
-    int = (lo: number, hi: number) => lo + Math.floor(this.next() * (hi - lo + 1));
-    pick = <T>(xs: readonly T[]): T | undefined => (xs.length ? xs[this.int(0, xs.length - 1)] : undefined);
+    int = (lo: number, hi: number) =>
+      lo + Math.floor(this.next() * (hi - lo + 1));
+    pick = <T>(xs: readonly T[]): T | undefined =>
+      xs.length ? xs[this.int(0, xs.length - 1)] : undefined;
   })();
 }
 
 /** Days for one leg of a voyage: a ship at a passage's pace, a brigade on the rivers, a party on foot. */
-function legDays(map: MapDef, from: number, to: number, sea: boolean, kind: VoyageKind, day: number): number {
+function legDays(
+  map: MapDef,
+  from: number,
+  to: number,
+  sea: boolean,
+  kind: VoyageKind,
+  day: number,
+): number {
   if (sea) {
     const lane = map.provinces[from].sea.find(([q]) => q === to);
     return lane ? passageHopDays(lane[1], true) : 3;
@@ -278,9 +309,14 @@ function routeOf(
 // ---------------------------------------------------------------- who goes
 
 /** A voyage of your trade could be offered here now: your job, your post, nothing else afoot. */
-export function voyageReady(s: GameState, w: World, life: Life): VoyageKind | null {
+export function voyageReady(
+  s: GameState,
+  w: World,
+  life: Life,
+): VoyageKind | null {
   const job = life.job;
-  if (!job || life.travel || life.crime?.jail || isChildLife(s, life)) return null;
+  if (!job || life.travel || life.crime?.jail || isChildLife(s, life))
+    return null;
   if (job.army >= 0) return null;
   const kind = voyageKindOf(job.kind, job.rank, lifeIsNative(s, life));
   if (!kind) return null;
@@ -288,9 +324,20 @@ export function voyageReady(s: GameState, w: World, life: Life): VoyageKind | nu
   if (kind === "merchant" || kind === "whaling") {
     if (!hasPlace(s, w, life.prov, "docks")) return null;
   }
-  if (seaOf(s).voyages.some((v) => v.seat === life.seat && v.phase !== "done" && !v.sent))
+  if (
+    seaOf(s).voyages.some(
+      (v) => v.seat === life.seat && v.phase !== "done" && !v.sent,
+    )
+  )
     return null;
-  if (seaOf(s).cruises.some((c) => c.phase !== "done" && c.phase !== "lost" && c.hands.some((h) => h.seat === life.seat)))
+  if (
+    seaOf(s).cruises.some(
+      (c) =>
+        c.phase !== "done" &&
+        c.phase !== "lost" &&
+        c.hands.some((h) => h.seat === life.seat),
+    )
+  )
     return null;
   if ((life.cooldowns[`voy:${kind}`] ?? 0) > s.day) return null;
   return kind;
@@ -323,11 +370,14 @@ export function voyageOdds(
   const from = life.prov;
   const rt = to >= 0 ? routeOf(s, w.map, kind, from, to) : null;
   const passage = rt ? rt.days : 10;
-  const days: [number, number] = [passage * 2 + def.stay[0], passage * 2 + def.stay[1]];
+  const days: [number, number] = [
+    passage * 2 + def.stay[0],
+    passage * 2 + def.stay[1],
+  ];
   const outcomes: OddsOutcome[] = [];
-  let expected = 0;
+  let expected: number;
   let cost = 0;
-  let hi = 0;
+  let hi: number;
   const risks: OddsView["risks"] = [];
   const factors: string[] = [];
   if (kind === "merchant" || kind === "furs") {
@@ -353,14 +403,27 @@ export function voyageOdds(
         : "Your rank sets the venture: a deckhand's privilege is small, a captain's large.",
     );
   } else if (kind === "whaling") {
-    const chances = Math.floor(((def.stay[0] + def.stay[1]) / 2) / WHALE_CHANCE_DAYS);
+    const chances = Math.floor(
+      (def.stay[0] + def.stay[1]) / 2 / WHALE_CHANCE_DAYS,
+    );
     const mean = chances * WHALE_TAKEN;
     const lay = layOf(life);
     const each = ((WHALE_VALUE[0] + WHALE_VALUE[1]) / 2) * lay;
     const p0 = Math.pow(1 - WHALE_TAKEN, chances);
-    outcomes.push({ label: "a dry voyage: no whale", p: p0, lo: 0, hi: 0, bad: true });
+    outcomes.push({
+      label: "a dry voyage: no whale",
+      p: p0,
+      lo: 0,
+      hi: 0,
+      bad: true,
+    });
     const p1 = chances * WHALE_TAKEN * Math.pow(1 - WHALE_TAKEN, chances - 1);
-    outcomes.push({ label: "one whale", p: p1, lo: r1(WHALE_VALUE[0] * lay), hi: r1(WHALE_VALUE[1] * lay) });
+    outcomes.push({
+      label: "one whale",
+      p: p1,
+      lo: r1(WHALE_VALUE[0] * lay),
+      hi: r1(WHALE_VALUE[1] * lay),
+    });
     outcomes.push({
       label: "two or more",
       p: Math.max(0, 1 - p0 - p1),
@@ -369,27 +432,58 @@ export function voyageOdds(
     });
     expected = go ? r1(mean * each) : 0;
     hi = r1(WHALE_VALUE[1] * lay * chances);
-    risks.push({ label: "A stove boat (a wound)", p: 0.12, note: "a whale's flukes" });
-    factors.push(`Your lay is 1/${Math.round(1 / lay)} of the catch: it grows with your rank.`);
+    risks.push({
+      label: "A stove boat (a wound)",
+      p: 0.12,
+      note: "a whale's flukes",
+    });
+    factors.push(
+      `Your lay is 1/${Math.round(1 / lay)} of the catch: it grows with your rank.`,
+    );
     if (!go) {
       outcomes.length = 0;
-      factors.unshift("Staying ashore, you work alongshore at your wage: no lay.");
+      factors.unshift(
+        "Staying ashore, you work alongshore at your wage: no lay.",
+      );
     }
   } else {
-    const fee = SURVEY_FEE[Math.min(life.job?.rank ?? 0, SURVEY_FEE.length - 1)];
-    outcomes.push({ label: go ? "the patent run, and your fee" : "your deputy's half of the fee", p: 1, lo: go ? fee : fee / 2, hi: go ? fee : fee / 2 });
+    const fee =
+      SURVEY_FEE[Math.min(life.job?.rank ?? 0, SURVEY_FEE.length - 1)];
+    outcomes.push({
+      label: go
+        ? "the patent run, and your fee"
+        : "your deputy's half of the fee",
+      p: 1,
+      lo: go ? fee : fee / 2,
+      hi: go ? fee : fee / 2,
+    });
     expected = go ? fee : fee / 2;
     hi = expected;
-    if (go) factors.push("Going yourself: the whole fee, renown with the gentry, and the woods' skill.");
+    if (go)
+      factors.push(
+        "Going yourself: the whole fee, renown with the gentry, and the woods' skill.",
+      );
   }
   if (go) {
     if (kind === "merchant" || kind === "whaling")
       risks.push(
-        { label: "Storms, and in their season hurricanes", p: 0.15, note: "the ship damaged, days lost, a wound" },
-        { label: "Left behind if you're not aboard when she sails home", p: 0, note: "be at the quay on the day" },
+        {
+          label: "Storms, and in their season hurricanes",
+          p: 0.15,
+          note: "the ship damaged, days lost, a wound",
+        },
+        {
+          label: "Left behind if you're not aboard when she sails home",
+          p: 0,
+          note: "be at the quay on the day",
+        },
       );
     else
-      risks.push({ label: "The road's dangers: rivers, robbers, a fever", p: 0.2, note: "a few days lost, a wound" });
+      risks.push({
+        label: "The road's dangers: rivers, robbers, a fever",
+        p: 0.2,
+        note: "a few days lost, a wound",
+      });
     factors.push("Your wages go on as at your post.");
   }
   return {
@@ -456,7 +550,16 @@ export function goVoyage(
     c: life.c,
     ship:
       kind === "merchant" || kind === "whaling"
-        ? (r.pick(["Swallow", "Endeavour", "Speedwell", "Hopewell", "Dolphin", "Two Brothers", "Good Intent", "Sea Flower"]) ?? "Swallow")
+        ? (r.pick([
+            "Swallow",
+            "Endeavour",
+            "Speedwell",
+            "Hopewell",
+            "Dolphin",
+            "Two Brothers",
+            "Good Intent",
+            "Sea Flower",
+          ]) ?? "Swallow")
         : kind === "furs"
           ? "the brigade"
           : "the survey party",
@@ -469,7 +572,8 @@ export function goVoyage(
       path: [...rt.path],
       sea: [...rt.sea],
       depart: s.day,
-      arrive: s.day + legDays(g.map, life.prov, rt.path[0], rt.sea[0], kind, s.day),
+      arrive:
+        s.day + legDays(g.map, life.prov, rt.path[0], rt.sea[0], kind, s.day),
     },
     sails: 0,
     start: s.day,
@@ -478,8 +582,10 @@ export function goVoyage(
     log: [],
   };
   if (amount)
-    withFlow(g, { key: `voy:${v.id}`, label: `${def.name}: your venture`, aff: "sea" }, () =>
-      spend(g, life, amount),
+    withFlow(
+      g,
+      { key: `voy:${v.id}`, label: `${def.name}: your venture`, aff: "sea" },
+      () => spend(g, life, amount),
     );
   seaState(g).voyages.push(v);
   seaChanged(g);
@@ -511,8 +617,14 @@ export function stayVoyage(
   if (kind === "furs" && send) {
     const stake = stakeFor(life, kind);
     if (!stake || life.purse < stake) return `Trade goods: ${stake} coins.`;
-    withFlow(g, { key: `voy:send:${s.day}`, label: "Goods sent with the brigade", aff: "sea" }, () =>
-      spend(g, life, stake),
+    withFlow(
+      g,
+      {
+        key: `voy:send:${s.day}`,
+        label: "Goods sent with the brigade",
+        aff: "sea",
+      },
+      () => spend(g, life, stake),
     );
     // It comes back with the brigade, about two months on.
     const v: Voyage = {
@@ -536,18 +648,39 @@ export function stayVoyage(
     seaState(g).voyages.push(v);
     seaChanged(g);
     touchLife(g, life);
-    journal(g, life, `You send ${stake} coins of trade goods up with the brigade; its master takes his cut of what comes back.`);
+    journal(
+      g,
+      life,
+      `You send ${stake} coins of trade goods up with the brigade; its master takes his cut of what comes back.`,
+    );
     return null;
   }
   if (kind === "survey" && send) {
-    const fee = SURVEY_FEE[Math.min(life.job?.rank ?? 0, SURVEY_FEE.length - 1)] / 2;
-    withFlow(g, { key: `voy:deputy:${s.day}`, label: "A survey run by your deputy", aff: "sea" }, () =>
-      earn(g, life, fee),
+    const fee =
+      SURVEY_FEE[Math.min(life.job?.rank ?? 0, SURVEY_FEE.length - 1)] / 2;
+    withFlow(
+      g,
+      {
+        key: `voy:deputy:${s.day}`,
+        label: "A survey run by your deputy",
+        aff: "sea",
+      },
+      () => earn(g, life, fee),
     );
-    journal(g, life, `Your deputy runs the patent's lines while you stay: half the fee, ${fee} coins.`);
+    journal(
+      g,
+      life,
+      `Your deputy runs the patent's lines while you stay: half the fee, ${fee} coins.`,
+    );
     return null;
   }
-  journal(g, life, kind === "whaling" ? "You stay ashore this season and work alongshore." : "You stay ashore: the next one will do.");
+  journal(
+    g,
+    life,
+    kind === "whaling"
+      ? "You stay ashore this season and work alongshore."
+      : "You stay ashore: the next one will do.",
+  );
   return null;
 }
 
@@ -589,7 +722,12 @@ export function voyagesDaily(g: ConquestGame): void {
         v.phase = "done";
         v.end = settleStake(g, v, life!, SEND_SHARE);
         logV(g, v, `Back: ${v.end}.`);
-        affairNews(g, life!, "sea", `The brigade is back from the posts: ${v.end}.`);
+        affairNews(
+          g,
+          life!,
+          "sea",
+          `The brigade is back from the posts: ${v.end}.`,
+        );
       }
       continue;
     }
@@ -636,7 +774,8 @@ function arrived(g: ConquestGame, v: Voyage): boolean {
   }
   if (w.path.length) {
     w.depart = g.s.day;
-    w.arrive = g.s.day + legDays(g.map, next, w.path[0], w.sea[0], v.kind, g.s.day);
+    w.arrive =
+      g.s.day + legDays(g.map, next, w.path[0], w.sea[0], v.kind, g.s.day);
   }
   seaChanged(g);
   return w.path.length === 0;
@@ -662,7 +801,12 @@ function atFarEnd(g: ConquestGame, v: Voyage, life: Life): void {
     // On the grounds, aboard: the ship cruises off the coast.
     v.way = null;
     onGrounds(g, v, life);
-    affairNews(g, life, "sea", `The ${v.ship} is on the whaling grounds off ${where}: lookouts at the masthead, the boats ready.`);
+    affairNews(
+      g,
+      life,
+      "sea",
+      `The ${v.ship} is on the whaling grounds off ${where}: lookouts at the masthead, the boats ready.`,
+    );
   } else {
     life.travel = null;
     life.area = v.kind === "merchant" ? "docks" : life.area;
@@ -722,42 +866,81 @@ function whalingDay(g: ConquestGame, v: Voyage, life: Life): void {
   const since = s.day - v.start;
   if (since <= 0 || since % WHALE_CHANCE_DAYS !== 0) return;
   const r = sdice(g);
-  if (!v.log.some((l) => l.text.startsWith("There she blows")) && !life.events.length) {
+  if (
+    !v.log.some((l) => l.text.startsWith("There she blows")) &&
+    !life.events.length
+  ) {
     logV(g, v, "There she blows!");
     raiseEvent(g, life, "sea-whale", { v: v.id });
     return;
   }
   if (r.chance(WHALE_TAKEN)) {
-    const value = Math.round(WHALE_VALUE[0] + r.next() * (WHALE_VALUE[1] - WHALE_VALUE[0]));
+    const value = Math.round(
+      WHALE_VALUE[0] + r.next() * (WHALE_VALUE[1] - WHALE_VALUE[0]),
+    );
     v.take += value;
     logV(g, v, `A whale taken: about ${value} coins of oil and bone.`);
-    journal(g, life, `"There she blows!" The boats are away, and the ${v.ship} has a whale alongside to cut in: about ${value} coins of oil and bone.`, "good");
+    journal(
+      g,
+      life,
+      `"There she blows!" The boats are away, and the ${v.ship} has a whale alongside to cut in: about ${value} coins of oil and bone.`,
+      "good",
+    );
   }
 }
 
 /** A whale hunt you're in: take the harpoon yourself, pull an oar, or stay with the ship. */
-export function whaleNow(g: ConquestGame, life: Life, how: "harpoon" | "oar" | "ship", pass: boolean): void {
-  const v = seaOf(g.s).voyages.find((x) => x.seat === life.seat && x.phase === "there" && x.kind === "whaling");
+export function whaleNow(
+  g: ConquestGame,
+  life: Life,
+  how: "harpoon" | "oar" | "ship",
+  pass: boolean,
+): void {
+  const v = seaOf(g.s).voyages.find(
+    (x) => x.seat === life.seat && x.phase === "there" && x.kind === "whaling",
+  );
   if (!v) return;
   const r = sdice(g);
-  const value = Math.round(WHALE_VALUE[0] + r.next() * (WHALE_VALUE[1] - WHALE_VALUE[0]));
+  const value = Math.round(
+    WHALE_VALUE[0] + r.next() * (WHALE_VALUE[1] - WHALE_VALUE[0]),
+  );
   if (how === "harpoon") {
     if (pass) {
       v.take += value;
       addRenown(g, life, 1);
       gainXp(g, life, "fighting", 6);
-      journal(g, life, `Your iron went home first time. A whale alongside: about ${value} coins of oil and bone.`, "good");
+      journal(
+        g,
+        life,
+        `Your iron went home first time. A whale alongside: about ${value} coins of oil and bone.`,
+        "good",
+      );
     } else {
       hurt(g, life, 10 + r.int(0, 10), "a whale's flukes");
-      journal(g, life, "The whale sounded, came up under the boat and stove her in. You were pulled out of the sea half drowned.", "bad");
+      journal(
+        g,
+        life,
+        "The whale sounded, came up under the boat and stove her in. You were pulled out of the sea half drowned.",
+        "bad",
+      );
     }
   } else if (how === "oar") {
     if (r.chance(WHALE_TAKEN + 0.1)) {
       v.take += value;
-      journal(g, life, `You pulled till your hands bled, and the steersman's iron held: a whale, about ${value} coins of oil and bone.`, "good");
+      journal(
+        g,
+        life,
+        `You pulled till your hands bled, and the steersman's iron held: a whale, about ${value} coins of oil and bone.`,
+        "good",
+      );
     } else journal(g, life, "A long pull, and the whale was gone.");
     gainXp(g, life, "seamanship", 4);
-  } else journal(g, life, "You stayed with the ship while the boats went after her.");
+  } else
+    journal(
+      g,
+      life,
+      "You stayed with the ship while the boats went after her.",
+    );
   seaChanged(g);
 }
 
@@ -767,12 +950,22 @@ function sailHome(g: ConquestGame, v: Voyage, life: Life): void {
   const aboard =
     v.kind === "whaling"
       ? life.travel?.ship === v.id
-      : life.prov === v.to && (!life.travel || life.travel.ship === v.id) && !life.crime?.jail;
+      : life.prov === v.to &&
+        (!life.travel || life.travel.ship === v.id) &&
+        !life.crime?.jail;
   if (!aboard) {
     v.phase = "done";
     v.end = "Left behind.";
     logV(g, v, "Sailed home without you.");
-    affairNews(g, life, "sea", v.kind === "merchant" ? `The ${v.ship} sailed home without you. Your venture is still in her hold: it'll be settled, less what the master charges for the trouble.` : `The ${v.ship === "the brigade" ? "brigade" : v.ship} went home without you.`, "bad");
+    affairNews(
+      g,
+      life,
+      "sea",
+      v.kind === "merchant"
+        ? `The ${v.ship} sailed home without you. Your venture is still in her hold: it'll be settled, less what the master charges for the trouble.`
+        : `The ${v.ship === "the brigade" ? "brigade" : v.ship} went home without you.`,
+      "bad",
+    );
     // A venture left aboard comes home without you, at a discount.
     if (v.stake) settleStake(g, v, life, 0.8);
     const boss = s.chars[v.master];
@@ -791,7 +984,12 @@ function sailHome(g: ConquestGame, v: Voyage, life: Life): void {
     v.phase = "done";
     v.end = "No way home.";
     life.travel = null;
-    journal(g, life, "There's no way home with them now: you'll have to find your own.", "bad");
+    journal(
+      g,
+      life,
+      "There's no way home with them now: you'll have to find your own.",
+      "bad",
+    );
     seaChanged(g);
     return;
   }
@@ -810,26 +1008,40 @@ function sailHome(g: ConquestGame, v: Voyage, life: Life): void {
 
 /** Home: the venture, the lay or the fee paid. */
 function homeAgain(g: ConquestGame, v: Voyage, life: Life): void {
-  const s = g.s;
   v.phase = "done";
   touchLife(g, life);
   life.travel = null;
   life.prov = v.from;
-  life.area = v.kind === "merchant" || v.kind === "whaling" ? "docks" : undefined;
+  life.area =
+    v.kind === "merchant" || v.kind === "whaling" ? "docks" : undefined;
   const home = g.map.provinces[v.from].name;
   const lines: string[] = [];
   if (v.kind === "whaling") {
     const lay = layOf(life);
     const pay = Math.round(v.take * lay * 10) / 10;
     if (pay > 0)
-      withFlow(g, { key: `voy:${v.id}`, label: `The ${v.ship}'s voyage: your lay`, chance: true, aff: "sea" }, () =>
-        earn(g, life, pay),
+      withFlow(
+        g,
+        {
+          key: `voy:${v.id}`,
+          label: `The ${v.ship}'s voyage: your lay`,
+          chance: true,
+          aff: "sea",
+        },
+        () => earn(g, life, pay),
       );
-    lines.push(v.take ? `the catch fetched ${Math.round(v.take)} coins; your lay of 1/${Math.round(1 / lay)} is ${pay}` : "a dry voyage: no lay to pay");
+    lines.push(
+      v.take
+        ? `the catch fetched ${Math.round(v.take)} coins; your lay of 1/${Math.round(1 / lay)} is ${pay}`
+        : "a dry voyage: no lay to pay",
+    );
   } else if (v.kind === "survey") {
-    const fee = SURVEY_FEE[Math.min(life.job?.rank ?? 0, SURVEY_FEE.length - 1)];
-    withFlow(g, { key: `voy:${v.id}`, label: "A patent surveyed: your fee", aff: "sea" }, () =>
-      earn(g, life, fee),
+    const fee =
+      SURVEY_FEE[Math.min(life.job?.rank ?? 0, SURVEY_FEE.length - 1)];
+    withFlow(
+      g,
+      { key: `voy:${v.id}`, label: "A patent surveyed: your fee", aff: "sea" },
+      () => earn(g, life, fee),
     );
     addRenown(g, life, 1);
     gainXp(g, life, "letters", 6);
@@ -845,7 +1057,12 @@ function homeAgain(g: ConquestGame, v: Voyage, life: Life): void {
 }
 
 /** A venture's (or the brigade's goods') return. */
-function settleStake(g: ConquestGame, v: Voyage, life: Life, mult: number): string {
+function settleStake(
+  g: ConquestGame,
+  v: Voyage,
+  life: Life,
+  mult: number,
+): string {
   const luck = v.kind === "furs" ? FUR_LUCK : VENTURE_LUCK;
   const r = sdice(g);
   let roll = r.next();
@@ -859,128 +1076,218 @@ function settleStake(g: ConquestGame, v: Voyage, life: Life, mult: number): stri
   }
   const back = Math.round(v.stake * pick.x * mult * 10) / 10;
   if (back > 0)
-    withFlow(g, { key: `voy:${v.id}`, label: `${VOYAGE_DEFS[v.kind].name}: your venture`, chance: true, aff: "sea" }, () =>
-      earn(g, life, back),
+    withFlow(
+      g,
+      {
+        key: `voy:${v.id}`,
+        label: `${VOYAGE_DEFS[v.kind].name}: your venture`,
+        chance: true,
+        aff: "sea",
+      },
+      () => earn(g, life, back),
     );
   return `your ${v.kind === "furs" ? "trade goods" : "venture"} of ${v.stake}: ${pick.label}, ${back} coins back`;
 }
 
 // ---------------------------------------------------------------- storms and letters
 
-later(() => STORM_AT_SEA.unshift((g, life, st: Storm) => {
-  const v = seaOf(g.s).voyages.find((x) => x.seat === life.seat && x.c === life.c && x.phase !== "done" && life.travel?.ship === x.id);
-  if (!v) return false;
-  if (madeReady(life, st)) {
-    journal(g, life, `The ${v.ship} lay snug in harbour while ${stormName(st)} blew itself out.`, "good");
+later(() =>
+  STORM_AT_SEA.unshift((g, life, st: Storm) => {
+    const v = seaOf(g.s).voyages.find(
+      (x) =>
+        x.seat === life.seat &&
+        x.c === life.c &&
+        x.phase !== "done" &&
+        life.travel?.ship === x.id,
+    );
+    if (!v) return false;
+    if (madeReady(life, st)) {
+      journal(
+        g,
+        life,
+        `The ${v.ship} lay snug in harbour while ${stormName(st)} blew itself out.`,
+        "good",
+      );
+      return true;
+    }
+    raiseEvent(g, life, "sea-storm-ship", {
+      v: v.id,
+      st: st.id,
+      f: Math.round(st.force * 10) / 10,
+    });
     return true;
-  }
-  raiseEvent(g, life, "sea-storm-ship", { v: v.id, st: st.id, f: Math.round(st.force * 10) / 10 });
-  return true;
-}));
+  }),
+);
 
 /** A hurricane at sea on a voyage: run before it, or heave to. */
-export function voyageStorm(g: ConquestGame, life: Life, v: Voyage, force: number, how: "run" | "heave", pass: boolean): void {
+export function voyageStorm(
+  g: ConquestGame,
+  life: Life,
+  v: Voyage,
+  force: number,
+  how: "run" | "heave",
+  pass: boolean,
+): void {
   const r = sdice(g);
   const delay = how === "heave" ? 3 : 1;
   if (v.way) v.way.arrive += delay + (pass ? 0 : 2);
   if (!pass) hurt(g, life, 5 + r.int(0, Math.round(force * 3)), "a hurricane");
   if (v.stake && !pass && r.chance(0.25)) {
     v.stake = Math.round(v.stake * 0.5);
-    journal(g, life, "Half your venture went over the side to lighten her.", "bad");
+    journal(
+      g,
+      life,
+      "Half your venture went over the side to lighten her.",
+      "bad",
+    );
   }
-  life.cooldowns["ev:trv-hurricane"] = Math.max(life.cooldowns["ev:trv-hurricane"] ?? 0, g.s.day + 330);
+  life.cooldowns["ev:trv-hurricane"] = Math.max(
+    life.cooldowns["ev:trv-hurricane"] ?? 0,
+    g.s.day + 330,
+  );
   gainXp(g, life, "seamanship", 8);
   logV(g, v, pass ? "Rode out a hurricane." : "Battered by a hurricane.");
   syncVoyage(g, v);
 }
 
-later(() => hooks.holdLetter.push((g, life, key, ctx) => {
-  const v = seaOf(g.s).voyages.find((x) => x.seat === life.seat && x.phase !== "done" && life.travel?.ship === x.id);
-  if (!v) return false;
-  (v.mail ??= []).push({ key, ctx });
-  seaChanged(g);
-  return true;
-}));
+later(() =>
+  hooks.holdLetter.push((g, life, key, ctx) => {
+    const v = seaOf(g.s).voyages.find(
+      (x) =>
+        x.seat === life.seat &&
+        x.phase !== "done" &&
+        life.travel?.ship === x.id,
+    );
+    if (!v) return false;
+    (v.mail ??= []).push({ key, ctx });
+    seaChanged(g);
+    return true;
+  }),
+);
 
 /** Gone on a voyage of your own trade is a day at your post. */
-later(() => hooks.atPost.push((s, life) => {
-  const v = seaOf(s).voyages.find(
-    (x) => x.seat === life.seat && x.c === life.c && x.phase !== "done" && !x.sent,
-  );
-  if (!v || !life.job) return undefined;
-  return voyageKindOf(life.job.kind, life.job.rank, lifeIsNative(s, life)) === v.kind ? true : undefined;
-}));
+later(() =>
+  hooks.atPost.push((s, life) => {
+    const v = seaOf(s).voyages.find(
+      (x) =>
+        x.seat === life.seat && x.c === life.c && x.phase !== "done" && !x.sent,
+    );
+    if (!v || !life.job) return undefined;
+    return voyageKindOf(life.job.kind, life.job.rank, lifeIsNative(s, life)) ===
+      v.kind
+      ? true
+      : undefined;
+  }),
+);
 
 /** At sea (or on the trail) with a voyage, the things of the town wait. */
-const ASHORE = new Set(["travel", "halt", "sail", "act", "job", "takeup", "enter", "trade", "market", "lead", "present", "crime", "law", "dice", "property", "boat", "home"]);
-later(() => hooks.gate.push((g, life, c) => {
-  const id = life.travel?.ship;
-  if (id === undefined) return null;
-  const v = seaOf(g.s).voyages.find((x) => x.id === id && x.phase !== "done");
-  if (!v || !ASHORE.has(c.k)) return null;
-  return v.kind === "merchant" || v.kind === "whaling"
-    ? `You're at sea aboard the ${v.ship}: that waits till you're ashore.`
-    : `You're on the trail with ${v.ship}: that waits till you're back.`;
-}));
+const ASHORE = new Set([
+  "travel",
+  "halt",
+  "sail",
+  "act",
+  "job",
+  "takeup",
+  "enter",
+  "trade",
+  "market",
+  "lead",
+  "present",
+  "crime",
+  "law",
+  "dice",
+  "property",
+  "boat",
+  "home",
+]);
+later(() =>
+  hooks.gate.push((g, life, c) => {
+    const id = life.travel?.ship;
+    if (id === undefined) return null;
+    const v = seaOf(g.s).voyages.find((x) => x.id === id && x.phase !== "done");
+    if (!v || !ASHORE.has(c.k)) return null;
+    return v.kind === "merchant" || v.kind === "whaling"
+      ? `You're at sea aboard the ${v.ship}: that waits till you're ashore.`
+      : `You're on the trail with ${v.ship}: that waits till you're back.`;
+  }),
+);
 
 /** LEDGER (r15): a voyage in the tracker. */
-later(() => hooks.affairs.push((s, w, life) =>
-  seaOf(s)
-    .voyages.filter((v) => v.seat === life.seat && v.c === life.c && v.phase !== "done")
-    .map((v) => ({
-      kind: "sea" as const,
-      id: `voy:${v.id}`,
-      title: v.sent
-        ? "Goods with the fur brigade"
-        : v.kind === "merchant" || v.kind === "whaling"
-          ? `The ${v.ship}`
-          : VOYAGE_DEFS[v.kind].name,
-      what: v.sent
-        ? `${v.stake} coins of trade goods, traded at the posts by the brigade's master (yours: ${Math.round(SEND_SHARE * 100)} in a hundred of what they fetch)`
-        : `${VOYAGE_DEFS[v.kind].name} to ${w.map.provinces[v.to]?.name ?? "far off"}${v.stake ? `, ${v.stake} coins ventured` : ""}`,
-      status: v.sent
-        ? "up at the posts"
-        : v.phase === "out"
-          ? "outward"
-          : v.phase === "there"
-            ? "at the far end"
-            : "homeward",
-      p: v.way?.prov ?? v.to,
-      due: v.phase === "there" ? v.sails : undefined,
-      cost: 0,
-      ...(v.stake
-        ? {
-            expected: {
-              value: r1(
-                v.stake *
-                  (v.sent ? SEND_SHARE : 1) *
-                  (v.kind === "furs" ? FUR_LUCK : VENTURE_LUCK).reduce((m, l) => m + l.p * l.x, 0),
-              ),
-              lo: 0,
-              hi: r1(v.stake * (v.sent ? SEND_SHARE : 1) * (v.kind === "furs" ? 2.2 : 1.7)),
-              per: "home" as const,
-            },
-          }
-        : {}),
-      go: { tab: "work", sub: "sea" },
-    })),
-));
+later(() =>
+  hooks.affairs.push((s, w, life) =>
+    seaOf(s)
+      .voyages.filter(
+        (v) => v.seat === life.seat && v.c === life.c && v.phase !== "done",
+      )
+      .map((v) => ({
+        kind: "sea" as const,
+        id: `voy:${v.id}`,
+        title: v.sent
+          ? "Goods with the fur brigade"
+          : v.kind === "merchant" || v.kind === "whaling"
+            ? `The ${v.ship}`
+            : VOYAGE_DEFS[v.kind].name,
+        what: v.sent
+          ? `${v.stake} coins of trade goods, traded at the posts by the brigade's master (yours: ${Math.round(SEND_SHARE * 100)} in a hundred of what they fetch)`
+          : `${VOYAGE_DEFS[v.kind].name} to ${w.map.provinces[v.to]?.name ?? "far off"}${v.stake ? `, ${v.stake} coins ventured` : ""}`,
+        status: v.sent
+          ? "up at the posts"
+          : v.phase === "out"
+            ? "outward"
+            : v.phase === "there"
+              ? "at the far end"
+              : "homeward",
+        p: v.way?.prov ?? v.to,
+        due: v.phase === "there" ? v.sails : undefined,
+        cost: 0,
+        ...(v.stake
+          ? {
+              expected: {
+                value: r1(
+                  v.stake *
+                    (v.sent ? SEND_SHARE : 1) *
+                    (v.kind === "furs" ? FUR_LUCK : VENTURE_LUCK).reduce(
+                      (m, l) => m + l.p * l.x,
+                      0,
+                    ),
+                ),
+                lo: 0,
+                hi: r1(
+                  v.stake *
+                    (v.sent ? SEND_SHARE : 1) *
+                    (v.kind === "furs" ? 2.2 : 1.7),
+                ),
+                per: "home" as const,
+              },
+            }
+          : {}),
+        go: { tab: "work", sub: "sea" },
+      })),
+  ),
+);
 
 /** A voyage's commands (going and staying are a scene's choices). */
-function voyageCommand(g: ConquestGame, life: Life, c: LifeCommand): string | null | undefined {
+function voyageCommand(
+  g: ConquestGame,
+  life: Life,
+  c: LifeCommand,
+): string | null | undefined {
   if (c.k !== "sea") return undefined;
   if (c.act !== "aboard") return undefined;
   // Back aboard at the far end, before she sails (nothing to do: being at the quay is enough).
-  const v = seaOf(g.s).voyages.find((x) => x.seat === life.seat && x.phase === "there");
+  const v = seaOf(g.s).voyages.find(
+    (x) => x.seat === life.seat && x.phase === "there",
+  );
   if (!v) return "You're on no voyage.";
   if (life.prov !== v.to) return `She lies at ${g.map.provinces[v.to].name}.`;
   return null;
 }
 
 later(() => hooks.command.push(voyageCommand));
-later(() => hooks.daily.push((g) => {
-  voyagesDaily(g);
-  for (const life of g.s.lives)
-    if (!life.watching && life.c >= 0 && meOf(g.s, life)) offerDaily(g, life);
-}));
-
+later(() =>
+  hooks.daily.push((g) => {
+    voyagesDaily(g);
+    for (const life of g.s.lives)
+      if (!life.watching && life.c >= 0 && meOf(g.s, life)) offerDaily(g, life);
+  }),
+);

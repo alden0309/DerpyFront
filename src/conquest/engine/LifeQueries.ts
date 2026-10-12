@@ -45,9 +45,9 @@ import {
 } from "./LifeRules";
 import type { World } from "./Map";
 import { landHopDays, landHopDaysIn, seaHopDays } from "./Paths";
-import { canoeHopDays, passageHopDays } from "./SeaSpeed"; // SEA (r15)
 import { propertyBudget } from "./Property";
 import { iceBound, seasonPay } from "./Seasons"; // MAP (r12)
+import { canoeHopDays, passageHopDays } from "./SeaSpeed"; // SEA (r15)
 // SOCIETY (r11)
 import { seatTitleOf } from "./CouncilTitles"; // POWER (r12)
 import { AMERICAS, worldOf } from "./Map";

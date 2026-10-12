@@ -20,9 +20,9 @@ import { dateOf } from "./Calendar";
 import type { ConquestGame } from "./Game";
 import { hooks, raiseEvent } from "./Hooks";
 import { journal, touchLife } from "./LifeCore";
+import { shockMarket } from "./Markets";
 import { wake } from "./Pace";
 import { rumour } from "./Rumours";
-import { shockMarket } from "./Markets";
 import {
   headingTo,
   kmApart,
@@ -340,7 +340,9 @@ export function stormBearingDown(
     if (st.ended !== undefined || st.force < 1) continue;
     const km = kmApart(st.lat, st.lon, lat, lon);
     if (km > within) continue;
-    const toward = Math.abs(turnTo(st.dir, headingTo(st.lat, st.lon, lat, lon)));
+    const toward = Math.abs(
+      turnTo(st.dir, headingTo(st.lat, st.lon, lat, lon)),
+    );
     if (km > stormReach(st.force) && toward > 65) continue;
     if (!best || km < best.km) best = { st, km };
   }
@@ -356,7 +358,13 @@ export function lifeSpot(
   if (t && t.path.length && t.sea[0]) {
     const at = wayAt(
       g.map,
-      { prov: life.prov, path: t.path, sea: t.sea, depart: t.depart, arrive: t.arrive },
+      {
+        prov: life.prov,
+        path: t.path,
+        sea: t.sea,
+        depart: t.depart,
+        arrive: t.arrive,
+      },
       life.prov,
       g.s.day,
     );
@@ -453,7 +461,11 @@ function strikeTown(g: ConquestGame, st: Storm, p: number, km: number): void {
         );
     }
     // It has found you: no signs after it.
-    if (life.prov === p && !life.travel && !st.warned.includes(`w:${life.seat}`))
+    if (
+      life.prov === p &&
+      !life.travel &&
+      !st.warned.includes(`w:${life.seat}`)
+    )
       st.warned.push(`w:${life.seat}`);
     if (life.prov === p && !life.travel && sev >= 1)
       raiseEvent(g, life, "sea-storm-town", {
@@ -513,12 +525,16 @@ function warnLives(g: ConquestGame): void {
     if (!near) continue;
     const key = `w:${life.seat}`;
     // Warned once; and not at all once it has found you.
-    if (near.st.warned.includes(key) || near.st.warned.includes(`m:${life.seat}`))
+    if (
+      near.st.warned.includes(key) ||
+      near.st.warned.includes(`m:${life.seat}`)
+    )
       continue;
     near.st.warned.push(key);
     seaChanged(g);
     const days = Math.max(1, Math.round(near.km / Math.max(200, near.st.km)));
-    if (spot.sea && STORM_SIGNS.some((h) => h(g, life, near.st, days))) continue;
+    if (spot.sea && STORM_SIGNS.some((h) => h(g, life, near.st, days)))
+      continue;
     raiseEvent(g, life, spot.sea ? "sea-storm-signs-ship" : "sea-storm-signs", {
       st: near.st.id,
       d: days,
@@ -585,19 +601,21 @@ export function registerStorms(): void {
 }
 
 // A passage, or your own boat: the hurricane's scene at sea (unless you made port).
-later(() => STORM_AT_SEA.push((g, life, st) => {
-  if (life.travel?.ship !== undefined) return false;
-  if (madeReady(life, st)) {
-    journal(
-      g,
-      life,
-      `You lay snug in harbour while ${stormName(st)} blew itself out to seaward.`,
-      "good",
-    );
+later(() =>
+  STORM_AT_SEA.push((g, life, st) => {
+    if (life.travel?.ship !== undefined) return false;
+    if (madeReady(life, st)) {
+      journal(
+        g,
+        life,
+        `You lay snug in harbour while ${stormName(st)} blew itself out to seaward.`,
+        "good",
+      );
+      return true;
+    }
+    raiseEvent(g, life, "trv-hurricane", { st: st.id });
     return true;
-  }
-  raiseEvent(g, life, "trv-hurricane", { st: st.id });
-  return true;
-}));
+  }),
+);
 
 later(() => hooks.daily.push(stormsDaily));

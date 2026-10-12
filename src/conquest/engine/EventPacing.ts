@@ -137,7 +137,11 @@ for (const [f, keys] of Object.entries(FAMILIES))
   for (const k of keys) FAMILY_OF.set(k, f);
 
 /** SEA (r15): a family of events from another module, and its rest. */
-export function registerFamily(family: string, keys: string[], rest: number): void {
+export function registerFamily(
+  family: string,
+  keys: string[],
+  rest: number,
+): void {
   FAMILIES[family] = [...(FAMILIES[family] ?? []), ...keys];
   FAMILY_REST[family] = rest;
   for (const k of keys) FAMILY_OF.set(k, family);

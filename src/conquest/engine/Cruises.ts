@@ -28,16 +28,18 @@
 // port. The world's dice are never touched: the sea's own (sdice) roll for
 // the ship, and a scene's choice rolls as every scene does.
 
-import { BOATS, boatRoute } from "./Boats";
+import { boatRoute, BOATS } from "./Boats";
 import { dateOf, formatDate } from "./Calendar";
 import { addHeat, addNotoriety, jail } from "./Crime";
 import { knowsDen, lawAt } from "./CrimeQueries";
 import {
+  boardDc,
+  chaseDc,
   CREW_PARTS,
   CRUISE,
+  type Ground,
   GROUND_BY_KEY,
   GROUNDS,
-  type Ground,
   havenIn,
   HAVENS,
   hullPace,
@@ -46,13 +48,10 @@ import {
   PREY,
   ROLE_NAMES,
   ROLE_PARTS,
-  WARSHIP,
-  WOUND,
-  boardDc,
-  chaseDc,
-  fightWarshipDc,
   runDc,
   strikeDc,
+  WARSHIP,
+  WOUND,
 } from "./CruiseData";
 import {
   chancesIn,
@@ -79,8 +78,8 @@ import {
   touchLife,
 } from "./LifeCore";
 import {
-  type Check,
   charSkill,
+  type Check,
   isChildLife,
   lifeOfChar,
   lifeOfSeat,
@@ -317,10 +316,7 @@ export function handFraction(
   fence = 0,
 ): number {
   const life = lifeOfSeat(s, h.seat);
-  const owner =
-    cr.owner === "boat" && cr.boat?.seat === h.seat
-      ? 1
-      : 0;
+  const owner = cr.owner === "boat" && cr.boat?.seat === h.seat ? 1 : 0;
   return shareFraction({
     flag: cr.flag,
     kind: cr.kind,
@@ -328,8 +324,7 @@ export function handFraction(
     others: cr.hands.filter((x) => x !== h).map((x) => x.role),
     owner,
     fence:
-      fence ||
-      (cr.flag === "pirate" ? fenceAt(s, map, cr.port, life).rate : 1),
+      fence || (cr.flag === "pirate" ? fenceAt(s, map, cr.port, life).rate : 1),
   });
 }
 
@@ -350,17 +345,81 @@ const PIRATE_SHIPS = [
   "Happy Return",
 ];
 const PRIVATEER_SHIPS: Record<string, string[]> = {
-  england: ["Tartar", "Defiance", "Dragon", "Duke", "Duchess", "Charming Sally", "Prince William", "Terrible", "Hawke", "Boscawen"],
-  france: ["La Concorde", "Le Triomphant", "La Fortune", "Le Hardi", "La Belle Poule", "Le Comte de Toulouse"],
-  spain: ["San José", "El Volante", "Nuestra Señora del Carmen", "La Galga", "San Antonio", "El Rayo"],
-  netherlands: ["De Vliegende Draak", "Fortuyn", "De Hoop", "Zeepaard", "De Eendracht"],
+  england: [
+    "Tartar",
+    "Defiance",
+    "Dragon",
+    "Duke",
+    "Duchess",
+    "Charming Sally",
+    "Prince William",
+    "Terrible",
+    "Hawke",
+    "Boscawen",
+  ],
+  france: [
+    "La Concorde",
+    "Le Triomphant",
+    "La Fortune",
+    "Le Hardi",
+    "La Belle Poule",
+    "Le Comte de Toulouse",
+  ],
+  spain: [
+    "San José",
+    "El Volante",
+    "Nuestra Señora del Carmen",
+    "La Galga",
+    "San Antonio",
+    "El Rayo",
+  ],
+  netherlands: [
+    "De Vliegende Draak",
+    "Fortuyn",
+    "De Hoop",
+    "Zeepaard",
+    "De Eendracht",
+  ],
   sweden: ["Fortuna", "Kalmar Nyckel", "Svärdet"],
 };
 const PRIZE_NAMES: Record<string, string[]> = {
-  england: ["Mary and Sarah", "Prosperous", "Charming Betty", "Two Friends", "Endeavour", "Susannah", "Good Hope", "Hannah", "Swift", "Sea Nymph"],
-  france: ["Saint-Pierre", "Marie-Anne", "Bonne Espérance", "Saint-Louis", "Diligente", "Jeune Henriette", "Aimable"],
-  spain: ["Santa Rosa", "Nuestra Señora de Begoña", "San Felipe", "Santísima Trinidad", "San Francisco de Asís", "Santa Catalina", "Buen Jesús"],
-  netherlands: ["Vergulde Swaen", "Hoop", "Witte Paard", "Sint Jan", "Eenhoorn"],
+  england: [
+    "Mary and Sarah",
+    "Prosperous",
+    "Charming Betty",
+    "Two Friends",
+    "Endeavour",
+    "Susannah",
+    "Good Hope",
+    "Hannah",
+    "Swift",
+    "Sea Nymph",
+  ],
+  france: [
+    "Saint-Pierre",
+    "Marie-Anne",
+    "Bonne Espérance",
+    "Saint-Louis",
+    "Diligente",
+    "Jeune Henriette",
+    "Aimable",
+  ],
+  spain: [
+    "Santa Rosa",
+    "Nuestra Señora de Begoña",
+    "San Felipe",
+    "Santísima Trinidad",
+    "San Francisco de Asís",
+    "Santa Catalina",
+    "Buen Jesús",
+  ],
+  netherlands: [
+    "Vergulde Swaen",
+    "Hoop",
+    "Witte Paard",
+    "Sint Jan",
+    "Eenhoorn",
+  ],
   sweden: ["Kronan", "Svanen", "Fortuna"],
 };
 const CAPTAINS = [
@@ -392,7 +451,8 @@ function prizeName(s: GameState, r: Rng, flag: number, kind: string): string {
   const key = s.nations[flag]?.key ?? "england";
   const list = PRIZE_NAMES[key] ?? PRIZE_NAMES.england;
   const n = r.pick(list) ?? "Fortune";
-  if (kind === "galleon") return `the ${n.startsWith("Nuestra") || n.startsWith("San") || n.startsWith("Santa") ? n : "Nuestra Señora de la Concepción"}`;
+  if (kind === "galleon")
+    return `the ${n.startsWith("Nuestra") || n.startsWith("San") || n.startsWith("Santa") ? n : "Nuestra Señora de la Concepción"}`;
   return `the ${n}`;
 }
 
@@ -440,11 +500,7 @@ export function privateersFitHere(s: GameState, w: World, p: number): number {
 }
 
 /** Ships fitting out at a port this month (the same for everyone), and cruises fitting you could join. */
-export function cruiseOffers(
-  s: GameState,
-  w: World,
-  p: number,
-): CruiseOffer[] {
+export function cruiseOffers(s: GameState, w: World, p: number): CruiseOffer[] {
   const out: CruiseOffer[] = [];
   const map = w.map;
   const month = Math.floor(s.day / 30);
@@ -464,11 +520,18 @@ export function cruiseOffers(
         port: cr.port,
         ground: cr.ground,
         hunt: cr.until - cr.start,
-        passage: Math.max(0, daysTo(map, p, GROUND_BY_KEY.get(cr.ground)!, cr.kind)),
+        passage: Math.max(
+          0,
+          daysTo(map, p, GROUND_BY_KEY.get(cr.ground)!, cr.kind),
+        ),
         sails: cr.sails,
         aboard: cr.hands.map((h) => h.role),
       });
-  const taken = new Set(seaOf(s).cruises.map((c) => c.offer).filter(Boolean));
+  const taken = new Set(
+    seaOf(s)
+      .cruises.map((c) => c.offer)
+      .filter(Boolean),
+  );
   const kinds = (port: number): BoatKind[] => {
     const lv = s.provinces[port].b.port ?? 0;
     return lv >= 2
@@ -483,18 +546,31 @@ export function cruiseOffers(
     for (let slot = 0; slot < n; slot++) {
       const key = `o:${p}:${month}:${salt}:${slot}`;
       const ks = kinds(p);
-      const kind = ks[Math.min(ks.length - 1, Math.floor(rng.next() * rng.next() * ks.length))];
+      const kind =
+        ks[
+          Math.min(
+            ks.length - 1,
+            Math.floor(rng.next() * rng.next() * ks.length),
+          )
+        ];
       const grounds = groundsFrom(s, map, p, kind);
       if (!grounds.length) {
         rng.next();
         continue;
       }
-      const gi = grounds[Math.min(grounds.length - 1, Math.floor(rng.next() * rng.next() * grounds.length))];
+      const gi =
+        grounds[
+          Math.min(
+            grounds.length - 1,
+            Math.floor(rng.next() * rng.next() * grounds.length),
+          )
+        ];
       const nkey = s.nations[nation]?.key ?? "england";
       const ship =
         flag === "pirate"
           ? (rng.pick(PIRATE_SHIPS) ?? "Revenge")
-          : (rng.pick(PRIVATEER_SHIPS[nkey] ?? PRIVATEER_SHIPS.england) ?? "Tartar");
+          : (rng.pick(PRIVATEER_SHIPS[nkey] ?? PRIVATEER_SHIPS.england) ??
+            "Tartar");
       const cname = rng.pick(CAPTAINS) ?? "Thomas Gale";
       const long = rng.chance(0.45);
       const guns = Math.round(BOATS[kind].guns * (0.8 + rng.next() * 0.5));
@@ -519,8 +595,7 @@ export function cruiseOffers(
       });
     }
   };
-  if (piratesFitHere(s, w, p))
-    make("pirate", s.provinces[p].owner, 515);
+  if (piratesFitHere(s, w, p)) make("pirate", s.provinces[p].owner, 515);
   const priv = privateersFitHere(s, w, p);
   if (priv >= 0) make("privateer", priv, 616);
   return out;
@@ -557,18 +632,26 @@ export function roleCheck(
   const seaLife =
     ["sailor", "fisherman", "whaler", "pirate", "smuggler"].includes(
       life.background,
-    ) || (!!job && ["sailor", "fisherman", "whaler", "pirate", "smuggler"].includes(job.kind));
+    ) ||
+    (!!job &&
+      ["sailor", "fisherman", "whaler", "pirate", "smuggler"].includes(
+        job.kind,
+      ));
   const name = life.crime?.notoriety ?? 0;
   if (role === "crew") {
     if (sea < 2 && !seaLife && fight < 4)
-      return no("Needs seamanship 2 (or fighting 4): a landsman's no use aboard.");
+      return no(
+        "Needs seamanship 2 (or fighting 4): a landsman's no use aboard.",
+      );
     return yes;
   }
   if (role === "officer") {
     if (flag === "pirate") {
       const qm = job?.kind === "pirate" && job.rank >= 2;
       if (!qm && name < 25 && sea < 8)
-        return no("The pirates choose their quartermaster: a pirate's name (notoriety 25), or seamanship 8.");
+        return no(
+          "The pirates choose their quartermaster: a pirate's name (notoriety 25), or seamanship 8.",
+        );
       return yes;
     }
     const mate = job?.kind === "sailor" && job.rank >= 2;
@@ -584,13 +667,16 @@ export function roleCheck(
   if (flag === "pirate") {
     const cpt = job?.kind === "pirate" && job.rank >= 3;
     if (!cpt && (name < 50 || sea < 9))
-      return no("The pirates elect their captain: a pirate captain's rank, or a great name (notoriety 50) and seamanship 9.");
+      return no(
+        "The pirates elect their captain: a pirate captain's rank, or a great name (notoriety 50) and seamanship 9.",
+      );
     return yes;
   }
-  const master =
-    job?.kind === "sailor" && job.rank >= 3;
+  const master = job?.kind === "sailor" && job.rank >= 3;
   if (!master && (sea < 10 || life.renown < 8))
-    return no("The owners want a master they know: a ship's captain's rank, or seamanship 10 and renown 8.");
+    return no(
+      "The owners want a master they know: a ship's captain's rank, or seamanship 10 and renown 8.",
+    );
   return yes;
 }
 
@@ -609,7 +695,10 @@ export function signCheck(
   if (life.travel) return no("You're on the road.");
   if (life.prov !== o.port)
     return no(`She fits out at ${w.map.provinces[o.port].name}.`);
-  if (s.armies.some((a) => a.commander === me.id) || (life.job?.army ?? -1) >= 0)
+  if (
+    s.armies.some((a) => a.commander === me.id) ||
+    (life.job?.army ?? -1) >= 0
+  )
     return no("You march with an army.");
   if (life.job?.kind === "servant" && (life.job.until ?? 0) > s.day)
     return no("Servants don't come and go as they please.");
@@ -619,10 +708,17 @@ export function signCheck(
     return no("The war's over: her commission is void.");
   const cr = o.cruise !== undefined ? cruiseById(s, o.cruise) : undefined;
   if (role === "captain") {
-    if (cr && (cr.hands.some((h) => h.role === "captain") || cr.owner !== "outfit"))
+    if (
+      cr &&
+      (cr.hands.some((h) => h.role === "captain") || cr.owner !== "outfit")
+    )
       return no("She has her captain.");
   }
-  if (role === "officer" && cr && cr.hands.filter((h) => h.role === "officer").length >= 2)
+  if (
+    role === "officer" &&
+    cr &&
+    cr.hands.filter((h) => h.role === "officer").length >= 2
+  )
     return no("Her officers' berths are taken.");
   return roleCheck(s, life, o.flag, role, o.owner);
 }
@@ -780,7 +876,11 @@ export function signOn(
     life,
     `You sign ${what}: ${ROLE_NAMES[cr.flag][role].toLowerCase()} of the ${cr.ship}, ${aRig(BOATS[cr.kind].name.toLowerCase())} of ${cr.guns} guns, for a cruise ${gd.name}. She sails on ${formatDate(cr.sails)}: be aboard.`,
   );
-  logLine(g, cr, `${charName(meOf(s, life))} signs as ${ROLE_NAMES[cr.flag][role].toLowerCase()}.`);
+  logLine(
+    g,
+    cr,
+    `${charName(meOf(s, life))} signs as ${ROLE_NAMES[cr.flag][role].toLowerCase()}.`,
+  );
   if (cr.flag === "pirate") addNotoriety(g, life, 2);
   return null;
 }
@@ -800,13 +900,17 @@ export function ownCruiseCheck(
   if (life.travel) return no("You're on the road.");
   const b = (life.boats ?? []).find((x) => x.id === boatId);
   if (!b) return no("Not your boat.");
-  if (b.prov !== life.prov) return no(`She lies at ${w.map.provinces[b.prov].name}.`);
+  if (b.prov !== life.prov)
+    return no(`She lies at ${w.map.provinces[b.prov].name}.`);
   if (b.away) return no("She's away with her skipper.");
   if (!BOATS[b.kind].uses.includes("privateering"))
-    return no(`A ${BOATS[b.kind].name.toLowerCase()} is no ship to take prizes in.`);
+    return no(
+      `A ${BOATS[b.kind].name.toLowerCase()} is no ship to take prizes in.`,
+    );
   if (b.crew < BOATS[b.kind].crew)
     return no(`She needs ${BOATS[b.kind].crew} hands (she has ${b.crew}).`);
-  if (b.condition < 50) return no("Her hull's not fit for a cruise: repair her first.");
+  if (b.condition < 50)
+    return no("Her hull's not fit for a cruise: repair her first.");
   const busy = seaBusy(s, life);
   if (busy) return no(busy);
   const g = GROUND_BY_KEY.get(ground);
@@ -815,10 +919,20 @@ export function ownCruiseCheck(
     return no(`${cap(g.name)} is out of her reach (or out of season).`);
   if (!pirate) {
     const m = b.marque;
-    if (!m) return no("She has no letter of marque: take one out at the governor's house.");
-    if (!inWar(s, m.nation)) return no("Her letter of marque lapsed with the peace.");
+    if (!m)
+      return no(
+        "She has no letter of marque: take one out at the governor's house.",
+      );
+    if (!inWar(s, m.nation))
+      return no("Her letter of marque lapsed with the peace.");
   }
-  const roles = roleCheck(s, life, pirate ? "pirate" : "privateer", "captain", "boat");
+  const roles = roleCheck(
+    s,
+    life,
+    pirate ? "pirate" : "privateer",
+    "captain",
+    "boat",
+  );
   if (!roles.ok) return roles;
   const outfit = ownOutfit(b.kind, pirate, CRUISE.hunt.short, 0);
   if (life.purse < outfit)
@@ -842,7 +956,9 @@ export function ownCruiseOdds(
   const passage = Math.max(0, daysTo(w.map, b.prov, gd, b.kind));
   const hunt = long ? CRUISE.hunt.long : CRUISE.hunt.short;
   const flag: CruiseFlag = pirate ? "pirate" : "privateer";
-  const nation = pirate ? (meOf(s, life)?.nation ?? -1) : (b.marque?.nation ?? meOf(s, life)?.nation ?? -1);
+  const nation = pirate
+    ? (meOf(s, life)?.nation ?? -1)
+    : (b.marque?.nation ?? meOf(s, life)?.nation ?? -1);
   const foes = enemiesOf(s, nation);
   return cruiseOdds(s, {
     plan: {
@@ -920,10 +1036,20 @@ export function ownCruise(
       sails: s.day + 1,
       aboard: [],
     },
-    { boat: { seat: life.seat, id: b.id }, hull: b.condition, morale: b.morale },
+    {
+      boat: { seat: life.seat, id: b.id },
+      hull: b.condition,
+      morale: b.morale,
+    },
   );
-  withFlow(g, { key: `sea:${cr.id}`, label: `The ${b.name}'s cruise: victuals and powder`, aff: "sea" }, () =>
-    spend(g, life, outfit),
+  withFlow(
+    g,
+    {
+      key: `sea:${cr.id}`,
+      label: `The ${b.name}'s cruise: victuals and powder`,
+      aff: "sea",
+    },
+    () => spend(g, life, outfit),
   );
   cr.hands.push({ seat: life.seat, c: life.c, role: "captain", joined: s.day });
   journal(
@@ -942,7 +1068,8 @@ export function unsign(g: ConquestGame, life: Life): string | null {
     if (cr.phase === "done" || cr.phase === "lost") continue;
     const h = cr.hands.find((x) => x.seat === life.seat && x.c === life.c);
     if (!h) continue;
-    if (cr.phase !== "fitting") return "She's sailed: you're aboard till she's home.";
+    if (cr.phase !== "fitting")
+      return "She's sailed: you're aboard till she's home.";
     if (cr.owner === "boat" && cr.boat?.seat === life.seat)
       return cancelOwn(g, cr, "her captain changed his mind");
     cr.hands = cr.hands.filter((x) => x !== h);
@@ -969,7 +1096,13 @@ function cancelOwn(g: ConquestGame, cr: Cruise, why: string): string | null {
 // ---------------------------------------------------------------- the ship's way
 
 /** Days for a leg: under a passage's sail out and home, easy sail on the ground. */
-function legDays(map: MapDef, from: number, to: number, cr: Cruise, hunting: boolean): number {
+function legDays(
+  map: MapDef,
+  from: number,
+  to: number,
+  cr: Cruise,
+  hunting: boolean,
+): number {
   const lane = map.provinces[from].sea.find(([q]) => q === to);
   const km = lane ? lane[1] : 300;
   const pace = hullPace(BOATS[cr.kind].speed, cr.hull) * (hunting ? 0.5 : 1);
@@ -977,7 +1110,13 @@ function legDays(map: MapDef, from: number, to: number, cr: Cruise, hunting: boo
 }
 
 /** Set her on her way from `from` to `to` (a passage), or false if there's none. */
-function setCourse(g: ConquestGame, cr: Cruise, from: number, to: number, hunting: boolean): boolean {
+function setCourse(
+  g: ConquestGame,
+  cr: Cruise,
+  from: number,
+  to: number,
+  hunting: boolean,
+): boolean {
   const s = g.s;
   if (from === to) {
     cr.way = { prov: from, path: [], sea: [], depart: s.day, arrive: s.day };
@@ -1043,7 +1182,8 @@ function sailOn(g: ConquestGame, cr: Cruise): number {
   w.prov = next;
   if (w.path.length) {
     w.depart = g.s.day;
-    w.arrive = g.s.day + legDays(g.map, next, w.path[0], cr, cr.phase === "hunting");
+    w.arrive =
+      g.s.day + legDays(g.map, next, w.path[0], cr, cr.phase === "hunting");
   }
   seaChanged(g);
   // The coast seen from the deck.
@@ -1053,7 +1193,8 @@ function sailOn(g: ConquestGame, cr: Cruise): number {
       reveal(g, life, [next]);
       gainXp(g, life, "seamanship", 3);
       life.trail.push({ day: g.s.day, p: next, c: life.c });
-      if (life.trail.length > 400) life.trail.splice(0, life.trail.length - 400);
+      if (life.trail.length > 400)
+        life.trail.splice(0, life.trail.length - 400);
     }
   }
   return w.path.length ? -1 : next;
@@ -1087,7 +1228,11 @@ export function cruisesDaily(g: ConquestGame): void {
           cr.until = s.day + hunt;
           const gd = GROUND_BY_KEY.get(cr.ground)!;
           logLine(g, cr, `On the ground: ${gd.name}.`);
-          tellAll(g, cr, `The ${cr.ship} is on her cruising ground, ${gd.name}: a sharp lookout now.`);
+          tellAll(
+            g,
+            cr,
+            `The ${cr.ship} is on her cruising ground, ${gd.name}: a sharp lookout now.`,
+          );
           setCourse(g, cr, at, nextStation(cr, at), true);
         }
         dayAtSea(g, cr);
@@ -1098,7 +1243,11 @@ export function cruisesDaily(g: ConquestGame): void {
         if (at >= 0) setCourse(g, cr, at, nextStation(cr, at), true);
         hunt(g, cr);
         if (cr.phase === "hunting" && s.day >= cr.until && !cr.encounter)
-          turnForHome(g, cr, "Her time on the ground is up: she puts about for home.");
+          turnForHome(
+            g,
+            cr,
+            "Her time on the ground is up: she puts about for home.",
+          );
         dayAtSea(g, cr);
         break;
       }
@@ -1137,7 +1286,11 @@ function peaceNews(g: ConquestGame, cr: Cruise): void {
     cr.phase = "done";
     cr.end = "The peace came before she sailed: her commission is void.";
     logLine(g, cr, cr.end);
-    tellAll(g, cr, `The peace is signed: the ${cr.ship}'s commission is void, and she won't sail.`);
+    tellAll(
+      g,
+      cr,
+      `The peace is signed: the ${cr.ship}'s commission is void, and she won't sail.`,
+    );
     return;
   }
   if (cr.phase !== "out" && cr.phase !== "hunting") return;
@@ -1162,7 +1315,12 @@ function setSail(g: ConquestGame, cr: Cruise): void {
   for (const h of [...cr.hands]) {
     const life = lifeOfSeat(s, h.seat);
     const aboard =
-      !!life && !life.watching && life.c === h.c && life.prov === cr.port && !life.travel && !life.crime?.jail;
+      !!life &&
+      !life.watching &&
+      life.c === h.c &&
+      life.prov === cr.port &&
+      !life.travel &&
+      !life.crime?.jail;
     if (aboard) continue;
     cr.hands = cr.hands.filter((x) => x !== h);
     if (h.role === "captain") {
@@ -1170,7 +1328,12 @@ function setSail(g: ConquestGame, cr: Cruise): void {
       cr.cname = CAPTAINS[cr.id % CAPTAINS.length];
     }
     if (life && life.c === h.c)
-      journal(g, life, `The ${cr.ship} sailed without you: you weren't aboard.`, "bad");
+      journal(
+        g,
+        life,
+        `The ${cr.ship} sailed without you: you weren't aboard.`,
+        "bad",
+      );
   }
   if (cr.owner === "boat") {
     const life = cr.boat ? lifeOfSeat(s, cr.boat.seat) : undefined;
@@ -1208,11 +1371,20 @@ function setSail(g: ConquestGame, cr: Cruise): void {
   }
   cr.men = menAboard(cr.kind);
   logLine(g, cr, `Sails from ${g.map.provinces[cr.port].name} for ${gd.name}.`);
-  tellAll(g, cr, `The ${cr.ship} sails on the morning tide for ${gd.name}, with you aboard.`);
+  tellAll(
+    g,
+    cr,
+    `The ${cr.ship} sails on the morning tide for ${gd.name}, with you aboard.`,
+  );
   for (const h of cr.hands) {
     const life = lifeOfSeat(s, h.seat);
     if (life && life.c === h.c)
-      milestone(g, life, "voyage", `Sailed in the ${cr.ship} on a cruise ${gd.name}`);
+      milestone(
+        g,
+        life,
+        "voyage",
+        `Sailed in the ${cr.ship} on a cruise ${gd.name}`,
+      );
   }
   syncHands(g, cr);
 }
@@ -1304,7 +1476,9 @@ export function sight(g: ConquestGame, cr: Cruise, r: Rng): Encounter | null {
       flag,
       guns: WARSHIP.guns,
       value: 0,
-      name: s.nations[flag]?.adjective ? aRig(`${s.nations[flag].adjective} man-of-war`) : "a man-of-war",
+      name: s.nations[flag]?.adjective
+        ? aRig(`${s.nations[flag].adjective} man-of-war`)
+        : "a man-of-war",
       stage: "warship",
       day: s.day,
     };
@@ -1367,7 +1541,11 @@ function pose(g: ConquestGame, cr: Cruise): void {
     const plan = planOf(s, g.map, cr);
     const r = sdice(g);
     if (r.next() < chanceOf(plan.lead, strikeDc(e.guns, cr.flag))) {
-      tellAll(g, cr, `The ${cr.ship} ran up alongside ${describe(s, e)} and her captain hailed her to strike: she did, without a shot.`);
+      tellAll(
+        g,
+        cr,
+        `The ${cr.ship} ran up alongside ${describe(s, e)} and her captain hailed her to strike: she did, without a shot.`,
+      );
       boardNow(g, cr, "strike", true, r);
       return;
     }
@@ -1383,7 +1561,9 @@ function pose(g: ConquestGame, cr: Cruise): void {
       raiseEvent(
         g,
         d,
-        wouldChase(planOf(s, g.map, cr), e.kind, e.flag) ? "sea-sail" : "sea-sail-let",
+        wouldChase(planOf(s, g.map, cr), e.kind, e.flag)
+          ? "sea-sail"
+          : "sea-sail-let",
         ctx,
       );
       break;
@@ -1402,7 +1582,12 @@ function clearEncounterEvents(g: ConquestGame, cr: Cruise): void {
   for (const life of g.s.lives) {
     const before = life.events.length;
     life.events = life.events.filter(
-      (e) => !(e.key.startsWith("sea-") && e.ctx.cr === cr.id && SHIP_SCENES.has(e.key)),
+      (e) =>
+        !(
+          e.key.startsWith("sea-") &&
+          e.ctx.cr === cr.id &&
+          SHIP_SCENES.has(e.key)
+        ),
     );
     if (life.events.length !== before) touchLife(g, life);
   }
@@ -1418,7 +1603,11 @@ const SHIP_SCENES = new Set([
 ]);
 
 /** The captain's own way with the matter (no player deciding, or none answered in time). */
-export function autoResolve(g: ConquestGame, cr: Cruise, r: Rng = sdice(g)): void {
+export function autoResolve(
+  g: ConquestGame,
+  cr: Cruise,
+  r: Rng = sdice(g),
+): void {
   const s = g.s;
   let guard = 0;
   while (cr.encounter && guard++ < 6) {
@@ -1432,11 +1621,24 @@ export function autoResolve(g: ConquestGame, cr: Cruise, r: Rng = sdice(g)): voi
       case "sighted": {
         const go = wouldChase(plan, e.kind, e.flag);
         const k = PREY.find((x) => x.kind === e.kind)!;
-        chaseNow(g, cr, go, go && r.next() < chanceOf(plan.sea, chaseDc(k.speed, ours)), false);
+        chaseNow(
+          g,
+          cr,
+          go,
+          go && r.next() < chanceOf(plan.sea, chaseDc(k.speed, ours)),
+          false,
+        );
         break;
       }
       case "alongside":
-        boardNow(g, cr, "strike", r.next() < chanceOf(plan.lead, strikeDc(e.guns, cr.flag)), r, false);
+        boardNow(
+          g,
+          cr,
+          "strike",
+          r.next() < chanceOf(plan.lead, strikeDc(e.guns, cr.flag)),
+          r,
+          false,
+        );
         break;
       case "taken":
         prizeNow(g, cr, "send", false);
@@ -1448,7 +1650,11 @@ export function autoResolve(g: ConquestGame, cr: Cruise, r: Rng = sdice(g)): voi
 const chanceOf = (skill: number, dc: number) => checkChance(skill, dc);
 
 /** The captain's way with the matter's present stage only (a hand isn't asked). */
-function autoResolveStage(g: ConquestGame, cr: Cruise, r: Rng = sdice(g)): void {
+function autoResolveStage(
+  g: ConquestGame,
+  cr: Cruise,
+  r: Rng = sdice(g),
+): void {
   const e = cr.encounter;
   if (!e) return;
   const plan = planOf(g.s, g.map, cr);
@@ -1458,7 +1664,13 @@ function autoResolveStage(g: ConquestGame, cr: Cruise, r: Rng = sdice(g)): void 
     const k = PREY.find((x) => x.kind === e.kind)!;
     const caught = go && r.next() < chanceOf(plan.sea, chaseDc(k.speed, ours));
     if (go)
-      tellAll(g, cr, caught ? `"Sail ho!" The ${cr.ship} gives chase to ${describe(g.s, e)}, and comes up with her.` : `"Sail ho!" The ${cr.ship} gives chase to ${describe(g.s, e)}, and loses her.`);
+      tellAll(
+        g,
+        cr,
+        caught
+          ? `"Sail ho!" The ${cr.ship} gives chase to ${describe(g.s, e)}, and comes up with her.`
+          : `"Sail ho!" The ${cr.ship} gives chase to ${describe(g.s, e)}, and loses her.`,
+      );
     chaseNow(g, cr, go, caught, false);
   } else if (e.stage === "taken") prizeNow(g, cr, "send");
 }
@@ -1482,7 +1694,11 @@ export function chaseNow(
   }
   if (!pass) {
     logLine(g, cr, `Chased ${who}; she showed us her heels.`);
-    tellAll(g, cr, `The ${cr.ship} chased ${who} all day, and lost her in the dusk.`);
+    tellAll(
+      g,
+      cr,
+      `The ${cr.ship} chased ${who} all day, and lost her in the dusk.`,
+    );
     cr.encounter = null;
     cr.morale = Math.max(0, cr.morale - 2);
     seaChanged(g);
@@ -1514,7 +1730,7 @@ export function boardNow(
     seaChanged(g);
     return;
   }
-  let taken = false;
+  let taken: boolean;
   let fought = false;
   if (how === "strike") {
     if (pass) {
@@ -1533,7 +1749,12 @@ export function boardNow(
   if (fought) fight(g, cr, e.guns, taken, r);
   if (!taken) {
     logLine(g, cr, `Boarded ${who}, and were beaten off.`);
-    tellAll(g, cr, `The ${cr.ship} boarded ${who} and was beaten off: men hurt, the rigging cut about.`, "bad");
+    tellAll(
+      g,
+      cr,
+      `The ${cr.ship} boarded ${who} and was beaten off: men hurt, the rigging cut about.`,
+      "bad",
+    );
     cr.encounter = null;
     seaChanged(g);
     return;
@@ -1570,12 +1791,23 @@ export function handBoard(
   if (how === "first" && pass) addRenown(g, life, 1.5);
   if (how === "back") {
     addRenown(g, life, -1);
-    journal(g, life, "You hung back at the rail. Nobody said anything; nobody had to.", "bad");
+    journal(
+      g,
+      life,
+      "You hung back at the rail. Nobody said anything; nobody had to.",
+      "bad",
+    );
   }
 }
 
 /** A fight at close quarters: hull and men, wounds among the players aboard. */
-function fight(g: ConquestGame, cr: Cruise, guns: number, won: boolean, r: Rng): void {
+function fight(
+  g: ConquestGame,
+  cr: Cruise,
+  guns: number,
+  won: boolean,
+  r: Rng,
+): void {
   const s = g.s;
   const hurtHull = Math.round(4 + guns * 0.8 + r.next() * 8) * (won ? 1 : 1.5);
   cr.hull = Math.max(5, Math.round(cr.hull - hurtHull));
@@ -1587,12 +1819,21 @@ function fight(g: ConquestGame, cr: Cruise, guns: number, won: boolean, r: Rng):
     gainXp(g, life, "fighting", 6);
     const part = HAND_PART.get(h.seat);
     const wound =
-      part === "back" ? 0 : part === "first" ? WOUND[h.role] * 1.8 : WOUND[h.role];
+      part === "back"
+        ? 0
+        : part === "first"
+          ? WOUND[h.role] * 1.8
+          : WOUND[h.role];
     if (r.next() < wound) {
       const n = 8 + r.int(0, 18);
       const died = hurt(g, life, n, "a boarding fight");
       if (!died) {
-        journal(g, life, `You took a wound in the boarding: a cutlass cut, and a splinter in the leg.`, "bad");
+        journal(
+          g,
+          life,
+          `You took a wound in the boarding: a cutlass cut, and a splinter in the leg.`,
+          "bad",
+        );
         addStress(g, life, 6);
       }
     } else if (won) addRenown(g, life, h.role === "captain" ? 1.5 : 0.5);
@@ -1617,14 +1858,28 @@ export function prizeNow(
   // A privateer who takes a neutral (or her own nation's) is a pirate from now.
   if (cr.flag === "privateer" && !foes.has(e.flag) && cr.peace === undefined) {
     cr.flag = "pirate";
-    logLine(g, cr, "She has taken a ship her commission doesn't cover: piracy.");
-    tellAll(g, cr, `The ${cr.ship} has taken ${describe(s, e)}, whom her commission doesn't cover. Her letter of marque is no shield now: every soul aboard is a pirate in the law's eyes.`, "bad", true);
+    logLine(
+      g,
+      cr,
+      "She has taken a ship her commission doesn't cover: piracy.",
+    );
+    tellAll(
+      g,
+      cr,
+      `The ${cr.ship} has taken ${describe(s, e)}, whom her commission doesn't cover. Her letter of marque is no shield now: every soul aboard is a pirate in the law's eyes.`,
+      "bad",
+      true,
+    );
   }
   cr.idle = 0;
   cr.morale = Math.min(100, cr.morale + 8);
   const who = describe(s, e);
   if (how === "burn" || how === "free") {
-    logLine(g, cr, how === "burn" ? `Burned ${who}.` : `Let ${who} go, her people unharmed.`);
+    logLine(
+      g,
+      cr,
+      how === "burn" ? `Burned ${who}.` : `Let ${who} go, her people unharmed.`,
+    );
     for (const h of cr.hands) {
       const life = lifeOfSeat(s, h.seat);
       if (!life || life.c !== h.c) continue;
@@ -1646,8 +1901,7 @@ export function prizeNow(
     lawful: cr.flag === "pirate" ? false : lawful,
     status: how === "plunder" ? "home" : "at sea",
   };
-  if (cr.flag === "privateer" && !lawful)
-    prize.lawful = false; // after the peace: to be restored
+  if (cr.flag === "privateer" && !lawful) prize.lawful = false; // after the peace: to be restored
   // A prize crew: she may be retaken before she makes port.
   if (how === "send") {
     cr.men = Math.max(4, cr.men - Math.ceil(cr.men * 0.08));
@@ -1658,15 +1912,32 @@ export function prizeNow(
   cr.prizes.push(prize);
   seaChanged(g);
   const where = g.map.provinces[cr.way?.prov ?? cr.port]?.name ?? "the coast";
-  logLine(g, cr, `Took ${who}${how === "plunder" ? ", her plunder carried off" : ", sent in with a prize crew"}${prize.status === "retaken" ? " (retaken before she made port)" : ""}.`);
-  tellAll(g, cr, `A prize! The ${cr.ship} has taken ${who} off ${where}: ${how === "plunder" ? `her plunder, about ${prize.value} coins' worth,` : `she should fetch about ${prize.value} coins, and is`} ${how === "plunder" ? "carried aboard" : prize.status === "retaken" ? "sent in, and retaken by her own people on the way" : "sent in with a prize crew"}.`, prize.status === "retaken" ? "bad" : "good", true);
-  rumour(g, cr.way?.prov ?? cr.port, `The ${cr.flag === "pirate" ? "pirate" : "privateer"} ${cr.ship} has taken ${who}.`, -1, "bad");
+  logLine(
+    g,
+    cr,
+    `Took ${who}${how === "plunder" ? ", her plunder carried off" : ", sent in with a prize crew"}${prize.status === "retaken" ? " (retaken before she made port)" : ""}.`,
+  );
+  tellAll(
+    g,
+    cr,
+    `A prize! The ${cr.ship} has taken ${who} off ${where}: ${how === "plunder" ? `her plunder, about ${prize.value} coins' worth,` : `she should fetch about ${prize.value} coins, and is`} ${how === "plunder" ? "carried aboard" : prize.status === "retaken" ? "sent in, and retaken by her own people on the way" : "sent in with a prize crew"}.`,
+    prize.status === "retaken" ? "bad" : "good",
+    true,
+  );
+  rumour(
+    g,
+    cr.way?.prov ?? cr.port,
+    `The ${cr.flag === "pirate" ? "pirate" : "privateer"} ${cr.ship} has taken ${who}.`,
+    -1,
+    "bad",
+  );
   pirateHeat(g, cr, e.flag);
   for (const h of cr.hands) {
     const life = lifeOfSeat(s, h.seat);
     if (!life || life.c !== h.c) continue;
     gainXp(g, life, "seamanship", 4);
-    if (cr.flag === "privateer") addRenown(g, life, h.role === "captain" ? 1 : 0.3);
+    if (cr.flag === "privateer")
+      addRenown(g, life, h.role === "captain" ? 1 : 0.3);
   }
 }
 
@@ -1693,7 +1964,6 @@ export function warshipNow(
   how: "run" | "fight" | "strike",
   pass: boolean,
 ): void {
-  const s = g.s;
   const e = cr.encounter;
   if (!e || e.stage !== "warship") return;
   cr.encounter = null;
@@ -1702,10 +1972,22 @@ export function warshipNow(
     if (how === "fight") {
       fight(g, cr, e.guns, true, sdice(g));
       logLine(g, cr, `Fought off ${e.name}, and got clear.`);
-      tellAll(g, cr, `${cap(e.name)} came down on the ${cr.ship}: she fought her off, battered, and got clear.`, "good", true);
+      tellAll(
+        g,
+        cr,
+        `${cap(e.name)} came down on the ${cr.ship}: she fought her off, battered, and got clear.`,
+        "good",
+        true,
+      );
     } else {
       logLine(g, cr, `Ran from ${e.name}, and lost her in the night.`);
-      tellAll(g, cr, `${cap(e.name)}! The ${cr.ship} crowded on sail and ran, and lost her in the night.`, undefined, true);
+      tellAll(
+        g,
+        cr,
+        `${cap(e.name)}! The ${cr.ship} crowded on sail and ran, and lost her in the night.`,
+        undefined,
+        true,
+      );
       cr.hull = Math.max(5, cr.hull - 3);
     }
     return;
@@ -1730,7 +2012,8 @@ function captured(g: ConquestGame, cr: Cruise, e: Encounter): void {
       touchLife(g, life);
       life.boats = (life.boats ?? []).filter((b) => b.id !== cr.boat!.id);
       for (const f of life.people ?? [])
-        if (f.task?.kind === "boat" && f.task.boat === cr.boat.id) f.task = null;
+        if (f.task?.kind === "boat" && f.task.boat === cr.boat.id)
+          f.task = null;
     }
   }
   for (const hook of CRUISE_LOST) hook(g, cr);
@@ -1740,7 +2023,12 @@ function captured(g: ConquestGame, cr: Cruise, e: Encounter): void {
   let bestKm = Infinity;
   s.provinces.forEach((pr, p) => {
     if (pr.owner !== navy || !g.map.provinces[p].coastal) return;
-    const km = kmApart(g.map.provinces[p].lat, g.map.provinces[p].lon, g.map.provinces[at].lat, g.map.provinces[at].lon);
+    const km = kmApart(
+      g.map.provinces[p].lat,
+      g.map.provinces[p].lon,
+      g.map.provinces[at].lat,
+      g.map.provinces[at].lon,
+    );
     if (km < bestKm) {
       bestKm = km;
       port = p;
@@ -1757,10 +2045,22 @@ function captured(g: ConquestGame, cr: Cruise, e: Encounter): void {
     reveal(g, life, [port]);
     if (cr.flag === "pirate") {
       jail(g, life, "piracy", 3, navy >= 0 ? navy : lawAt(s, port));
-      affairNews(g, life, "sea", `Taken by ${e.name}: the ${cr.ship}'s company are carried to ${g.map.provinces[port].name} in irons, to be tried for piracy.`, "bad");
+      affairNews(
+        g,
+        life,
+        "sea",
+        `Taken by ${e.name}: the ${cr.ship}'s company are carried to ${g.map.provinces[port].name} in irons, to be tried for piracy.`,
+        "bad",
+      );
     } else {
       addStress(g, life, 15);
-      affairNews(g, life, "sea", `Taken by ${e.name}! The ${cr.ship} is a prize herself. You're carried into ${g.map.provinces[port].name} a prisoner, and let go on your parole to find your own way home.`, "bad");
+      affairNews(
+        g,
+        life,
+        "sea",
+        `Taken by ${e.name}! The ${cr.ship} is a prize herself. You're carried into ${g.map.provinces[port].name} a prisoner, and let go on your parole to find your own way home.`,
+        "bad",
+      );
       wake(g, life, `The ${cr.ship} was taken.`);
     }
   }
@@ -1778,13 +2078,21 @@ function captured(g: ConquestGame, cr: Cruise, e: Encounter): void {
 export const CRUISE_LOST: ((g: ConquestGame, cr: Cruise) => void)[] = [];
 
 /** Scurvy: put in for limes and water (days lost), or press on. */
-export function scurvyNow(g: ConquestGame, cr: Cruise, how: "limes" | "press"): void {
+export function scurvyNow(
+  g: ConquestGame,
+  cr: Cruise,
+  how: "limes" | "press",
+): void {
   const s = g.s;
   if (how === "limes") {
     cr.scurvy = 0;
     cr.until = Math.max(s.day, cr.until - 6);
     logLine(g, cr, "Put in for limes and water: the scurvy's beaten.");
-    tellAll(g, cr, `The ${cr.ship} puts in at a quiet bay for limes and water. Six days lost; the men's gums are mending.`);
+    tellAll(
+      g,
+      cr,
+      `The ${cr.ship} puts in at a quiet bay for limes and water. Six days lost; the men's gums are mending.`,
+    );
     return;
   }
   cr.scurvy = Math.min(100, cr.scurvy + 10);
@@ -1812,18 +2120,39 @@ export function mutinyNow(
   }
   if (pass) {
     cr.morale = Math.min(100, cr.morale + (how === "seize" ? 20 : 30));
-    logLine(g, cr, how === "seize" ? "Seized the ringleaders; the rest went back to their duty." : "Promised them the next prize; the grumbling stopped.");
+    logLine(
+      g,
+      cr,
+      how === "seize"
+        ? "Seized the ringleaders; the rest went back to their duty."
+        : "Promised them the next prize; the grumbling stopped.",
+    );
     return;
   }
   cr.morale = Math.min(100, cr.morale + 15);
   cr.men = Math.max(4, cr.men - 3);
-  logLine(g, cr, "The men rose. When it was over, three were in irons and she was going home.");
-  tellAll(g, cr, `Mutiny aboard the ${cr.ship}! It was put down, but she's going home.`, "bad", true);
+  logLine(
+    g,
+    cr,
+    "The men rose. When it was over, three were in irons and she was going home.",
+  );
+  tellAll(
+    g,
+    cr,
+    `Mutiny aboard the ${cr.ship}! It was put down, but she's going home.`,
+    "bad",
+    true,
+  );
   turnForHome(g, cr, "After the mutiny she puts about for home.");
 }
 
 /** For home: the cruise's end (a pirate captain may make for a haven to sell). */
-export function turnForHome(g: ConquestGame, cr: Cruise, why: string, to = cr.port): void {
+export function turnForHome(
+  g: ConquestGame,
+  cr: Cruise,
+  why: string,
+  to = cr.port,
+): void {
   const ok =
     cr.phase === "out" ||
     cr.phase === "hunting" ||
@@ -1849,11 +2178,21 @@ export function turnForHome(g: ConquestGame, cr: Cruise, why: string, to = cr.po
     const from = w?.prov ?? cr.port;
     if (!setCourse(g, cr, from, to, false)) {
       cr.port = from;
-      cr.way = { prov: from, path: [], sea: [], depart: g.s.day, arrive: g.s.day };
+      cr.way = {
+        prov: from,
+        path: [],
+        sea: [],
+        depart: g.s.day,
+        arrive: g.s.day,
+      };
     }
   }
   logLine(g, cr, why);
-  tellAll(g, cr, `${why.replace(/\.$/, "")} (for ${g.map.provinces[cr.port].name}).`);
+  tellAll(
+    g,
+    cr,
+    `${why.replace(/\.$/, "")} (for ${g.map.provinces[cr.port].name}).`,
+  );
   seaChanged(g);
 }
 
@@ -1863,7 +2202,8 @@ function makePort(g: ConquestGame, cr: Cruise): void {
   cr.phase = "selling";
   const p = cr.port;
   cr.way = { prov: p, path: [], sea: [], depart: s.day, arrive: s.day };
-  cr.court = s.day + (cr.flag === "pirate" ? CRUISE.fenceDays : CRUISE.courtDays);
+  cr.court =
+    s.day + (cr.flag === "pirate" ? CRUISE.fenceDays : CRUISE.courtDays);
   logLine(g, cr, `Home: ${g.map.provinces[p].name}.`);
   // Your own boat lies here now.
   if (cr.owner === "boat" && cr.boat) {
@@ -1885,7 +2225,13 @@ function makePort(g: ConquestGame, cr: Cruise): void {
     life.area = "docks";
     reveal(g, life, [p]);
     const n = cr.prizes.filter((x) => x.status === "home").length;
-    affairNews(g, life, "sea", `The ${cr.ship} is home at ${g.map.provinces[p].name}${n ? ` with ${n} prize${n === 1 ? "" : "s"}: ${cr.flag === "pirate" ? "the fence will see you" : "the prize court sits"} on ${formatDate(cr.court)}` : ", empty-handed"}.`, n ? "good" : undefined);
+    affairNews(
+      g,
+      life,
+      "sea",
+      `The ${cr.ship} is home at ${g.map.provinces[p].name}${n ? ` with ${n} prize${n === 1 ? "" : "s"}: ${cr.flag === "pirate" ? "the fence will see you" : "the prize court sits"} on ${formatDate(cr.court)}` : ", empty-handed"}.`,
+      n ? "good" : undefined,
+    );
     wake(g, life, `The ${cr.ship} is home.`);
   }
   // Letters held while at sea come now.
@@ -1908,7 +2254,12 @@ export function settle(g: ConquestGame, cr: Cruise): void {
   let where = "the prize court";
   if (cr.flag === "pirate") {
     const cap0 = cr.hands.find((h) => h.role === "captain");
-    const f = fenceAt(s, map, cr.port, cap0 ? lifeOfSeat(s, cap0.seat) : undefined);
+    const f = fenceAt(
+      s,
+      map,
+      cr.port,
+      cap0 ? lifeOfSeat(s, cap0.seat) : undefined,
+    );
     fenceRate = f.rate;
     where = f.where;
   }
@@ -1919,18 +2270,25 @@ export function settle(g: ConquestGame, cr: Cruise): void {
       p.sold = 0;
       continue;
     }
-    const v = r2(cr.flag === "pirate" ? p.value * fenceRate : p.value * (1 - CRUISE.court));
+    const v = r2(
+      cr.flag === "pirate" ? p.value * fenceRate : p.value * (1 - CRUISE.court),
+    );
     p.sold = v;
     p.status = "sold";
     gross += v;
   }
   gross = r2(gross);
-  const ownersHalf =
-    cr.flag === "privateer" ? r2(gross * CRUISE.owners) : 0;
+  const ownersHalf = cr.flag === "privateer" ? r2(gross * CRUISE.owners) : 0;
   const shipShare =
-    cr.flag === "pirate" && cr.owner !== "outfit" ? r2(gross * CRUISE.pirateShip) : 0;
+    cr.flag === "pirate" && cr.owner !== "outfit"
+      ? r2(gross * CRUISE.pirateShip)
+      : 0;
   const crewPart = r2(gross - ownersHalf - shipShare);
-  const parts = totalParts(cr.kind, cr.flag, cr.hands.map((h) => h.role));
+  const parts = totalParts(
+    cr.kind,
+    cr.flag,
+    cr.hands.map((h) => h.role),
+  );
   const perPart = parts ? crewPart / parts : 0;
   const owners = r2(ownersHalf + shipShare);
   // The owners: your own boat's (you), a company's chest, or the town's merchants.
@@ -1938,8 +2296,15 @@ export function settle(g: ConquestGame, cr: Cruise): void {
     if (cr.owner === "boat" && cr.boat) {
       const life = lifeOfSeat(s, cr.boat.seat);
       if (life && !life.watching)
-        withFlow(g, { key: `sea:${cr.id}`, label: `The ${cr.ship}'s prizes: the owner's part`, chance: true, aff: "sea" }, () =>
-          earn(g, life, owners),
+        withFlow(
+          g,
+          {
+            key: `sea:${cr.id}`,
+            label: `The ${cr.ship}'s prizes: the owner's part`,
+            chance: true,
+            aff: "sea",
+          },
+          () => earn(g, life, owners),
         );
     } else if (cr.owner === "firm" && cr.firm !== undefined)
       for (const h of CRUISE_OWNERS) h(g, cr, owners);
@@ -1950,12 +2315,24 @@ export function settle(g: ConquestGame, cr: Cruise): void {
     if (!life || life.watching || life.c !== h.c) continue;
     const mine = r2(perPart * ROLE_PARTS[cr.flag][h.role]);
     if (mine > 0)
-      withFlow(g, { key: `sea:${cr.id}`, label: `The ${cr.ship}'s cruise: your share`, chance: true, aff: "sea" }, () =>
-        earn(g, life, mine),
+      withFlow(
+        g,
+        {
+          key: `sea:${cr.id}`,
+          label: `The ${cr.ship}'s cruise: your share`,
+          chance: true,
+          aff: "sea",
+        },
+        () => earn(g, life, mine),
       );
     const own = cr.owner === "boat" && cr.boat?.seat === h.seat ? owners : 0;
     if (!home.length) {
-      affairNews(g, life, "sea", `The ${cr.ship}'s company is paid off: home without a prize, there's nothing to share.`);
+      affairNews(
+        g,
+        life,
+        "sea",
+        `The ${cr.ship}'s company is paid off: home without a prize, there's nothing to share.`,
+      );
       continue;
     }
     const lines: string[] = [];
@@ -1966,22 +2343,42 @@ export function settle(g: ConquestGame, cr: Cruise): void {
           : `The court condemned ${home.filter((x) => x.lawful).length} prize${home.filter((x) => x.lawful).length === 1 ? "" : "s"}: ${gross} coins after its fees`,
       );
     if (restored)
-      lines.push(`${restored} coins' worth taken after the peace was restored to her owners`);
+      lines.push(
+        `${restored} coins' worth taken after the peace was restored to her owners`,
+      );
     lines.push(
       `your ${ROLE_PARTS[cr.flag][h.role]} part${ROLE_PARTS[cr.flag][h.role] === 1 ? "" : "s"} of ${Math.round(parts * 10) / 10}: ${mine} coins${own ? `, and ${own} as her owner` : ""}`,
     );
-    affairNews(g, life, "sea", `The ${cr.ship}'s cruise is paid off. ${cap(lines.join("; "))}.`, mine + own > 0 ? "good" : undefined);
+    affairNews(
+      g,
+      life,
+      "sea",
+      `The ${cr.ship}'s cruise is paid off. ${cap(lines.join("; "))}.`,
+      mine + own > 0 ? "good" : undefined,
+    );
     if (cr.flag === "pirate" && mine > 0)
-      rumour(g, cr.port, `Pirates are spending gold freely at ${map.provinces[cr.port].name}.`, -1, "bad");
+      rumour(
+        g,
+        cr.port,
+        `Pirates are spending gold freely at ${map.provinces[cr.port].name}.`,
+        -1,
+        "bad",
+      );
   }
   cr.phase = "done";
-  cr.end = home.length ? `Paid off: ${gross} coins for ${home.length} prize${home.length === 1 ? "" : "s"}.` : "Home without a prize.";
+  cr.end = home.length
+    ? `Paid off: ${gross} coins for ${home.length} prize${home.length === 1 ? "" : "s"}.`
+    : "Home without a prize.";
   logLine(g, cr, cr.end);
   seaChanged(g);
 }
 
 /** Who gets the owners' half of a company's cruise (Privateers.ts). */
-export const CRUISE_OWNERS: ((g: ConquestGame, cr: Cruise, coins: number) => void)[] = [];
+export const CRUISE_OWNERS: ((
+  g: ConquestGame,
+  cr: Cruise,
+  coins: number,
+) => void)[] = [];
 
 /** "a Spanish snow, the Santa Rosa (6 guns)", "an English sloop, the Swift (no guns)". */
 export function describe(s: GameState, e: Encounter): string {
@@ -1992,39 +2389,53 @@ export function describe(s: GameState, e: Encounter): string {
 
 // ---------------------------------------------------------------- storms at sea
 
-later(() => STORM_AT_SEA.unshift((g, life, st) => {
-  const cr = s0(g, life);
-  if (!cr) return false;
-  // One scene for the ship, to whoever decides; the rest are told.
-  const key = `cr:${cr.id}`;
-  if (st.warned.includes(key)) return true;
-  st.warned.push(key);
-  seaChanged(g);
-  const d = deciderOf(g.s, cr);
-  const sheltered = d && madeReady(d, st);
-  if (sheltered) {
-    logLine(g, cr, `Lay in shelter while ${stormName(st)} blew past.`);
-    tellAll(g, cr, `The ${cr.ship} lay snug in a sheltered road while ${stormName(st)} blew itself out to seaward.`, "good");
+later(() =>
+  STORM_AT_SEA.unshift((g, life, st) => {
+    const cr = s0(g, life);
+    if (!cr) return false;
+    // One scene for the ship, to whoever decides; the rest are told.
+    const key = `cr:${cr.id}`;
+    if (st.warned.includes(key)) return true;
+    st.warned.push(key);
+    seaChanged(g);
+    const d = deciderOf(g.s, cr);
+    const sheltered = d && madeReady(d, st);
+    if (sheltered) {
+      logLine(g, cr, `Lay in shelter while ${stormName(st)} blew past.`);
+      tellAll(
+        g,
+        cr,
+        `The ${cr.ship} lay snug in a sheltered road while ${stormName(st)} blew itself out to seaward.`,
+        "good",
+      );
+      return true;
+    }
+    if (d)
+      raiseEvent(g, d, "sea-storm-ship", {
+        cr: cr.id,
+        st: st.id,
+        f: Math.round(st.force * 10) / 10,
+      });
+    else stormNow(g, cr, st.force, "heave", sdice(g).chance(0.6));
     return true;
-  }
-  if (d) raiseEvent(g, d, "sea-storm-ship", { cr: cr.id, st: st.id, f: Math.round(st.force * 10) / 10 });
-  else stormNow(g, cr, st.force, "heave", sdice(g).chance(0.6));
-  return true;
-}));
+  }),
+);
 
 /** The signs at sea: whoever decides for her is asked; the rest see the master eyeing the glass. */
-later(() => STORM_SIGNS.push((g, life, st) => {
-  const cr = s0(g, life);
-  if (!cr) return false;
-  const d = deciderOf(g.s, cr);
-  if (d && d.seat === life.seat) return false;
-  journal(
-    g,
-    life,
-    `A long swell from the south-east and a falling glass: ${stormName(st)} is coming, and ${d ? charName(meOf(g.s, d)) : cap(cr.cname)} must decide what the ${cr.ship} does about it.`,
-  );
-  return true;
-}));
+later(() =>
+  STORM_SIGNS.push((g, life, st) => {
+    const cr = s0(g, life);
+    if (!cr) return false;
+    const d = deciderOf(g.s, cr);
+    if (d && d.seat === life.seat) return false;
+    journal(
+      g,
+      life,
+      `A long swell from the south-east and a falling glass: ${stormName(st)} is coming, and ${d ? charName(meOf(g.s, d)) : cap(cr.cname)} must decide what the ${cr.ship} does about it.`,
+    );
+    return true;
+  }),
+);
 
 function s0(g: ConquestGame, life: Life): Cruise | undefined {
   const id = life.travel?.ship;
@@ -2045,11 +2456,20 @@ export function stormNow(
   cr.hull = Math.max(0, cr.hull - hit);
   cr.men = Math.max(4, cr.men - (pass ? 0 : r.int(1, 2 + Math.round(force))));
   cr.until = Math.max(g.s.day, cr.until - (how === "heave" ? 3 : 1));
-  logLine(g, cr, pass ? `Rode out a hurricane (hull ${Math.round(cr.hull)}).` : `Mauled by a hurricane (hull ${Math.round(cr.hull)}).`);
+  logLine(
+    g,
+    cr,
+    pass
+      ? `Rode out a hurricane (hull ${Math.round(cr.hull)}).`
+      : `Mauled by a hurricane (hull ${Math.round(cr.hull)}).`,
+  );
   for (const h of cr.hands) {
     const life = lifeOfSeat(g.s, h.seat);
     if (!life || life.c !== h.c) continue;
-    life.cooldowns["ev:trv-hurricane"] = Math.max(life.cooldowns["ev:trv-hurricane"] ?? 0, g.s.day + 330); // MAP (r12): the achievement
+    life.cooldowns["ev:trv-hurricane"] = Math.max(
+      life.cooldowns["ev:trv-hurricane"] ?? 0,
+      g.s.day + 330,
+    ); // MAP (r12): the achievement
     gainXp(g, life, "seamanship", 8);
     if (!pass && r.chance(0.4)) hurt(g, life, 6 + r.int(0, 10), "a hurricane");
   }
@@ -2067,7 +2487,8 @@ function foundered(g: ConquestGame, cr: Cruise): void {
   logLine(g, cr, cr.end);
   if (cr.owner === "boat" && cr.boat) {
     const life = lifeOfSeat(s, cr.boat.seat);
-    if (life) life.boats = (life.boats ?? []).filter((b) => b.id !== cr.boat!.id);
+    if (life)
+      life.boats = (life.boats ?? []).filter((b) => b.id !== cr.boat!.id);
   }
   for (const hook of CRUISE_LOST) hook(g, cr);
   for (const h of cr.hands) {
@@ -2079,7 +2500,13 @@ function foundered(g: ConquestGame, cr: Cruise): void {
     life.prov = at;
     life.area = undefined;
     reveal(g, life, [at]);
-    affairNews(g, life, "sea", `The ${cr.ship} went down in the hurricane. You came ashore on a spar at ${g.map.provinces[at].name}, with your life and little else.`, "bad");
+    affairNews(
+      g,
+      life,
+      "sea",
+      `The ${cr.ship} went down in the hurricane. You came ashore on a spar at ${g.map.provinces[at].name}, with your life and little else.`,
+      "bad",
+    );
     wake(g, life, `The ${cr.ship} foundered.`);
   }
   seaChanged(g);
@@ -2100,7 +2527,9 @@ export const PARDONS: { power: string; text: string }[] = [
 ];
 
 /** Whether a pardon is to be had now (and whose), or null. */
-export function pardonOpen(s: GameState): { power: string; text: string } | null {
+export function pardonOpen(
+  s: GameState,
+): { power: string; text: string } | null {
   const d = dateOf(s.day);
   const ym = d.year * 12 + d.month;
   if (ym >= 1688 * 12 && ym < 1689 * 12) return PARDONS[0];
@@ -2110,15 +2539,21 @@ export function pardonOpen(s: GameState): { power: string; text: string } | null
 
 export function pardonCheck(s: GameState, w: World, life: Life): Check {
   const open = pardonOpen(s);
-  if (!open) return no("No pardon is on offer: the Acts of Grace came in 1688 and in 1717-18.");
+  if (!open)
+    return no(
+      "No pardon is on offer: the Acts of Grace came in 1688 and in 1717-18.",
+    );
   if (life.travel) return no("You're at sea.");
   const n = powerIndex(s, open.power);
   if (n < 0 || s.provinces[life.prov]?.owner !== n)
-    return no(`Surrender to a governor of ${s.nations[n]?.name ?? "the Crown"}'s colonies.`);
+    return no(
+      `Surrender to a governor of ${s.nations[n]?.name ?? "the Crown"}'s colonies.`,
+    );
   const pirate =
     life.job?.kind === "pirate" || (life.cooldowns["sea:pirate"] ?? 0) > 0;
   if (!pirate) return no("You've no piracy to be pardoned for.");
-  if ((life.cooldowns["pardoned"] ?? 0) > 0) return no("You've had the King's pardon once.");
+  if ((life.cooldowns["pardoned"] ?? 0) > 0)
+    return no("You've had the King's pardon once.");
   if (life.crime?.jail) return no("Not from a cell.");
   void w;
   return yes;
@@ -2132,7 +2567,12 @@ export function takePardon(g: ConquestGame, life: Life): string | null {
   const c = life.crime!;
   c.heat = {};
   life.cooldowns["pardoned"] = g.s.day;
-  journal(g, life, "You surrender to the governor and take the King's pardon. The past is forgiven; a pirate taken again after it will hang without a second thought.", "good");
+  journal(
+    g,
+    life,
+    "You surrender to the governor and take the King's pardon. The past is forgiven; a pirate taken again after it will hang without a second thought.",
+    "good",
+  );
   milestone(g, life, "convicted", "Took the King's pardon for piracy");
   return null;
 }
@@ -2140,16 +2580,28 @@ export function takePardon(g: ConquestGame, life: Life): string | null {
 // ---------------------------------------------------------------- your own boat's commission
 
 /** A letter of marque for your boat: at a governor's house in a colony at war. */
-export function marqueCheck(s: GameState, w: World, life: Life, boatId: number): Check {
+export function marqueCheck(
+  s: GameState,
+  w: World,
+  life: Life,
+  boatId: number,
+): Check {
   const b = (life.boats ?? []).find((x) => x.id === boatId);
   if (!b) return no("Not your boat.");
-  if (!BOATS[b.kind].uses.includes("privateering")) return no("She's no privateer.");
+  if (!BOATS[b.kind].uses.includes("privateering"))
+    return no("She's no privateer.");
   if (life.travel) return no("You're on the road.");
   const owner = s.provinces[life.prov]?.owner ?? -1;
-  if (owner < 0 || s.nations[owner]?.kind !== "power") return no("Only a colony's governor grants letters of marque.");
-  if (!inWar(s, owner)) return no(`${s.nations[owner].name} isn't at war: no commissions are granted.`);
-  if (b.marque && b.marque.nation === owner && inWar(s, b.marque.nation)) return no("She has her letter of marque.");
-  if (life.purse < marqueFee(b.kind)) return no(`The commission and its bond: ${marqueFee(b.kind)} coins.`);
+  if (owner < 0 || s.nations[owner]?.kind !== "power")
+    return no("Only a colony's governor grants letters of marque.");
+  if (!inWar(s, owner))
+    return no(
+      `${s.nations[owner].name} isn't at war: no commissions are granted.`,
+    );
+  if (b.marque && b.marque.nation === owner && inWar(s, b.marque.nation))
+    return no("She has her letter of marque.");
+  if (life.purse < marqueFee(b.kind))
+    return no(`The commission and its bond: ${marqueFee(b.kind)} coins.`);
   return yes;
 }
 
@@ -2158,7 +2610,11 @@ export function marqueFee(kind: BoatKind): number {
   return 3 + Math.round(BOATS[kind].guns / 2);
 }
 
-export function takeMarque(g: ConquestGame, life: Life, boatId: number): string | null {
+export function takeMarque(
+  g: ConquestGame,
+  life: Life,
+  boatId: number,
+): string | null {
   const check = marqueCheck(g.s, g.w, life, boatId);
   if (!check.ok) return check.why;
   const b = (life.boats ?? []).find((x) => x.id === boatId)!;
@@ -2167,14 +2623,23 @@ export function takeMarque(g: ConquestGame, life: Life, boatId: number): string 
   spend(g, life, fee);
   touchLife(g, life);
   b.marque = { nation: owner, day: g.s.day };
-  journal(g, life, `The governor signs a letter of marque for the ${b.name} against ${[...enemiesOf(g.s, owner)].map((n) => g.s.nations[n].name).join(" and ")}: ${fee} coins in fees. She may take their ships as prizes while the war lasts.`);
+  journal(
+    g,
+    life,
+    `The governor signs a letter of marque for the ${b.name} against ${[...enemiesOf(g.s, owner)].map((n) => g.s.nations[n].name).join(" and ")}: ${fee} coins in fees. She may take their ships as prizes while the war lasts.`,
+  );
   return null;
 }
 
 // ---------------------------------------------------------------- what a hand's cruise stands to make
 
 /** Your share of what's taken so far (if it all sells as hoped), for the page. */
-export function shareSoFar(s: GameState, map: MapDef, cr: Cruise, life: Life): number {
+export function shareSoFar(
+  s: GameState,
+  map: MapDef,
+  cr: Cruise,
+  life: Life,
+): number {
   const h = cr.hands.find((x) => x.seat === life.seat && x.c === life.c);
   if (!h) return 0;
   const frac = handFraction(s, map, cr, h);
@@ -2196,10 +2661,16 @@ export function cruiseExpect(
 ): { value: number; lo: number; hi: number } {
   const so = shareSoFar(s, map, cr, life);
   const h = cr.hands.find((x) => x.seat === life.seat && x.c === life.c);
-  if (!h || (cr.phase !== "fitting" && cr.phase !== "out" && cr.phase !== "hunting"))
+  if (
+    !h ||
+    (cr.phase !== "fitting" && cr.phase !== "out" && cr.phase !== "hunting")
+  )
     return { value: so, lo: so, hi: so };
   const plan = planOf(s, map, cr);
-  const left = cr.phase === "hunting" ? Math.max(0, cr.until - s.day) : cr.until - cr.start;
+  const left =
+    cr.phase === "hunting"
+      ? Math.max(0, cr.until - s.day)
+      : cr.until - cr.start;
   const odds = cruiseOdds(s, {
     plan: { ...plan, hunt: left },
     role: h.role,
@@ -2224,49 +2695,61 @@ const PHASE_WORDS: Record<Cruise["phase"], string> = {
 };
 
 /** LEDGER (r15): your cruise in the tracker (Estate › Ledger, out working). */
-later(() => hooks.affairs.push((s, w, life) => {
-  const out: import("./Types").AffairItem[] = [];
-  for (const cr of seaOf(s).cruises) {
-    if (cr.phase === "done" || cr.phase === "lost") continue;
-    const h = cr.hands.find((x) => x.seat === life.seat && x.c === life.c);
-    if (!h) continue;
-    const gd = GROUND_BY_KEY.get(cr.ground);
-    const x = cruiseExpect(s, w.map, cr, life);
-    const kept = cr.prizes.filter((p) => p.status !== "retaken").length;
-    out.push({
-      kind: "sea",
-      id: `sea:${cr.id}`,
-      title: `The ${cr.ship}'s cruise`,
-      what: `${ROLE_NAMES[cr.flag][h.role]}, ${cr.flag === "pirate" ? "on the account" : "privateering"} ${gd?.name ?? ""}${kept ? ` · ${kept} prize${kept === 1 ? "" : "s"}` : ""}`,
-      status: PHASE_WORDS[cr.phase],
-      p: cr.way?.prov ?? cr.port,
-      due: cr.phase === "selling" ? cr.court : cr.phase === "fitting" ? cr.sails : cr.until,
-      ...(cr.flag === "pirate" ? { warn: "piracy: the law's heat with every prize" } : {}),
-      expected: { value: x.value, lo: x.lo, hi: x.hi, per: "home" },
-      go: { tab: "work", sub: "sea" },
-    });
-  }
-  return out;
-}));
+later(() =>
+  hooks.affairs.push((s, w, life) => {
+    const out: import("./Types").AffairItem[] = [];
+    for (const cr of seaOf(s).cruises) {
+      if (cr.phase === "done" || cr.phase === "lost") continue;
+      const h = cr.hands.find((x) => x.seat === life.seat && x.c === life.c);
+      if (!h) continue;
+      const gd = GROUND_BY_KEY.get(cr.ground);
+      const x = cruiseExpect(s, w.map, cr, life);
+      const kept = cr.prizes.filter((p) => p.status !== "retaken").length;
+      out.push({
+        kind: "sea",
+        id: `sea:${cr.id}`,
+        title: `The ${cr.ship}'s cruise`,
+        what: `${ROLE_NAMES[cr.flag][h.role]}, ${cr.flag === "pirate" ? "on the account" : "privateering"} ${gd?.name ?? ""}${kept ? ` · ${kept} prize${kept === 1 ? "" : "s"}` : ""}`,
+        status: PHASE_WORDS[cr.phase],
+        p: cr.way?.prov ?? cr.port,
+        due:
+          cr.phase === "selling"
+            ? cr.court
+            : cr.phase === "fitting"
+              ? cr.sails
+              : cr.until,
+        ...(cr.flag === "pirate"
+          ? { warn: "piracy: the law's heat with every prize" }
+          : {}),
+        expected: { value: x.value, lo: x.lo, hi: x.hi, per: "home" },
+        go: { tab: "work", sub: "sea" },
+      });
+    }
+    return out;
+  }),
+);
 
 /** LEDGER (r15): prizes to be paid this month, by luck. */
-later(() => hooks.forecast.push((s, life, w) => {
-  const out: import("./Types").Part[] = [];
-  if (!w) return out;
-  for (const cr of seaOf(s).cruises) {
-    if (cr.phase !== "selling") continue;
-    if (!cr.hands.some((x) => x.seat === life.seat && x.c === life.c)) continue;
-    const v = shareSoFar(s, w.map, cr, life);
-    if (v > 0)
-      out.push({
-        key: `sea:${cr.id}`,
-        label: `The ${cr.ship}'s prizes: your share`,
-        value: v,
-        chance: [0, r1(v * 1.2)],
-      });
-  }
-  return out;
-}));
+later(() =>
+  hooks.forecast.push((s, life, w) => {
+    const out: import("./Types").Part[] = [];
+    if (!w) return out;
+    for (const cr of seaOf(s).cruises) {
+      if (cr.phase !== "selling") continue;
+      if (!cr.hands.some((x) => x.seat === life.seat && x.c === life.c))
+        continue;
+      const v = shareSoFar(s, w.map, cr, life);
+      if (v > 0)
+        out.push({
+          key: `sea:${cr.id}`,
+          label: `The ${cr.ship}'s prizes: your share`,
+          value: v,
+          chance: [0, r1(v * 1.2)],
+        });
+    }
+    return out;
+  }),
+);
 
 // ---------------------------------------------------------------- hooks
 
@@ -2292,48 +2775,59 @@ const ASHORE = new Set([
   "edu",
 ]);
 
-later(() => hooks.gate.push((g, life, c) => {
-  const id = life.travel?.ship;
-  if (id === undefined) return null;
-  const cr = cruiseById(g.s, id);
-  if (!cr || !(cr.phase === "out" || cr.phase === "hunting" || cr.phase === "home"))
-    return null;
-  if (!ASHORE.has(c.k)) return null;
-  return `You're at sea aboard the ${cr.ship}: that waits till she makes port.`;
-}));
+later(() =>
+  hooks.gate.push((g, life, c) => {
+    const id = life.travel?.ship;
+    if (id === undefined) return null;
+    const cr = cruiseById(g.s, id);
+    if (
+      !cr ||
+      !(cr.phase === "out" || cr.phase === "hunting" || cr.phase === "home")
+    )
+      return null;
+    if (!ASHORE.has(c.k)) return null;
+    return `You're at sea aboard the ${cr.ship}: that waits till she makes port.`;
+  }),
+);
 
 /** Letters from afar wait for you in port. */
-later(() => hooks.holdLetter.push((g, life, key, ctx) => {
-  const id = life.travel?.ship;
-  if (id === undefined) return false;
-  const cr = cruiseById(g.s, id);
-  if (!cr) return false;
-  (cr.mail ??= []).push({ seat: life.seat, key, ctx });
-  seaChanged(g);
-  return true;
-}));
+later(() =>
+  hooks.holdLetter.push((g, life, key, ctx) => {
+    const id = life.travel?.ship;
+    if (id === undefined) return false;
+    const cr = cruiseById(g.s, id);
+    if (!cr) return false;
+    (cr.mail ??= []).push({ seat: life.seat, key, ctx });
+    seaChanged(g);
+    return true;
+  }),
+);
 
 /** A player's letter for someone at sea waits on the quay till they're home. */
-later(() => hooks.letterArrives.push((g, _writer, l) => {
-  const reader = lifeOfChar(g.s, l.to);
-  if (!reader || reader.travel?.ship === undefined) return false;
-  l.arrive = g.s.day + 1;
-  return true;
-}));
+later(() =>
+  hooks.letterArrives.push((g, _writer, l) => {
+    const reader = lifeOfChar(g.s, l.to);
+    if (!reader || reader.travel?.ship === undefined) return false;
+    l.arrive = g.s.day + 1;
+    return true;
+  }),
+);
 
 /** A hand who dies is struck off; a captain's place goes to the quartermaster. */
-later(() => hooks.death.push((g, c) => {
-  for (const cr of seaOf(g.s).cruises) {
-    const h = cr.hands.find((x) => x.c === c.id);
-    if (!h) continue;
-    cr.hands = cr.hands.filter((x) => x !== h);
-    if (cr.captain === c.id) {
-      cr.captain = -1;
-      cr.cname = `the quartermaster, ${CAPTAINS[(cr.id + 3) % CAPTAINS.length]}`;
+later(() =>
+  hooks.death.push((g, c) => {
+    for (const cr of seaOf(g.s).cruises) {
+      const h = cr.hands.find((x) => x.c === c.id);
+      if (!h) continue;
+      cr.hands = cr.hands.filter((x) => x !== h);
+      if (cr.captain === c.id) {
+        cr.captain = -1;
+        cr.cname = `the quartermaster, ${CAPTAINS[(cr.id + 3) % CAPTAINS.length]}`;
+      }
+      logLine(g, cr, `${charName(c)} died aboard.`);
     }
-    logLine(g, cr, `${charName(c)} died aboard.`);
-  }
-}));
+  }),
+);
 
 /** The sea's commands. */
 export function cruiseCommand(
@@ -2349,13 +2843,22 @@ export function cruiseCommand(
     case "unsign":
       return unsign(g, life);
     case "own":
-      return ownCruise(g, life, c.id ?? -1, c.key ?? "", (c.arg ?? 0) > 0, c.name === "pirate");
+      return ownCruise(
+        g,
+        life,
+        c.id ?? -1,
+        c.key ?? "",
+        (c.arg ?? 0) > 0,
+        c.name === "pirate",
+      );
     case "home": {
       const cr = cruiseById(g.s, life.travel?.ship ?? -1);
       if (!cr) return "You're not at sea.";
       const h = cr.hands.find((x) => x.seat === life.seat);
-      if (h?.role !== "captain") return "Only her captain can put her about for home.";
-      if (cr.phase !== "hunting" && cr.phase !== "out") return "She's on her way home.";
+      if (h?.role !== "captain")
+        return "Only her captain can put her about for home.";
+      if (cr.phase !== "hunting" && cr.phase !== "out")
+        return "She's on her way home.";
       if (cr.encounter) return "Settle the matter in hand first.";
       turnForHome(g, cr, "Her captain puts her about for home.");
       syncHands(g, cr);
@@ -2365,8 +2868,10 @@ export function cruiseCommand(
       const cr = cruiseById(g.s, life.travel?.ship ?? -1);
       if (!cr) return "You're not at sea.";
       const h = cr.hands.find((x) => x.seat === life.seat);
-      if (h?.role !== "captain") return "Only her captain decides where she sells.";
-      if (cr.flag !== "pirate") return "A privateer's prizes go to the prize court at home.";
+      if (h?.role !== "captain")
+        return "Only her captain decides where she sells.";
+      if (cr.flag !== "pirate")
+        return "A privateer's prizes go to the prize court at home.";
       if (cr.encounter) return "Settle the matter in hand first.";
       const from = cr.way?.path[0] ?? cr.way?.prov ?? cr.port;
       const hv = havenNear(g.s, g.map, from, cr.kind);
@@ -2388,10 +2893,12 @@ function fittingNotice(g: ConquestGame, life: Life): void {
   const s = g.s;
   const job = life.job?.kind;
   const rogue = job === "pirate" || job === "smuggler";
-  if (!rogue && job !== "sailor" && job !== "fisherman" && job !== "whaler") return;
+  if (!rogue && job !== "sailor" && job !== "fisherman" && job !== "whaler")
+    return;
   if (life.travel || life.crime?.jail || isChildLife(s, life)) return;
   if ((life.cooldowns["sea:fit"] ?? 0) > s.day) return;
-  if (life.events.some((e) => e.key === "sea-fitting") || seaBusy(s, life)) return;
+  if (life.events.some((e) => e.key === "sea-fitting") || seaBusy(s, life))
+    return;
   if (!sdice(g).chance(1 / 30)) return;
   const o = cruiseOffers(s, g.w, life.prov).find(
     (x) =>
@@ -2420,19 +2927,25 @@ function pardonNotice(g: ConquestGame, life: Life): void {
 }
 
 later(() => hooks.command.push(cruiseCommand));
-later(() => hooks.daily.push((g) => {
-  cruisesDaily(g);
-  for (const life of g.s.lives) {
-    if (life.watching || life.c < 0 || !meOf(g.s, life)) continue;
-    fittingNotice(g, life);
-    pardonNotice(g, life);
-  }
-}));
+later(() =>
+  hooks.daily.push((g) => {
+    cruisesDaily(g);
+    for (const life of g.s.lives) {
+      if (life.watching || life.c < 0 || !meOf(g.s, life)) continue;
+      fittingNotice(g, life);
+      pardonNotice(g, life);
+    }
+  }),
+);
 
 // The old drawn hurricanes come only with a real storm now (Storms.ts raises them).
-later(() => hooks.eventWeight.push((_g, _life, key, pool, _ctx, w) =>
-  pool !== "raised" && (key === "hurricane" || key === "trv-hurricane") ? 0 : w,
-));
+later(() =>
+  hooks.eventWeight.push((_g, _life, key, pool, _ctx, w) =>
+    pool !== "raised" && (key === "hurricane" || key === "trv-hurricane")
+      ? 0
+      : w,
+  ),
+);
 
-export { wayAt, chancesIn, CREW_PARTS, havenIn, menAboard };
+export { chancesIn, CREW_PARTS, havenIn, menAboard, wayAt };
 export type { Storm };

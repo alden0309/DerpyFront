@@ -69,6 +69,7 @@ import {
 import { howTo, pageHead } from "./Nav";
 import { partnersPage } from "./Partners"; // PARTNERS (r13)
 import { schoolingSection } from "./Schooling"; // EDU (r13)
+import { seaPage } from "./SeaPage"; // SEA (r15)
 import {
   familySection,
   goodsSection,
@@ -83,7 +84,6 @@ import {
   lettersPage,
   tonguesSection,
 } from "./Society";
-import { seaPage } from "./SeaPage"; // SEA (r15)
 import { term, termMark } from "./Terms";
 import { peopleTab } from "./World";
 import { fogOfUi } from "./WorldUi";

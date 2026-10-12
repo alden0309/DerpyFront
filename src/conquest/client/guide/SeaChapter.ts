@@ -16,6 +16,7 @@ import {
   ROLE_PARTS,
   WARSHIP,
 } from "../../engine/CruiseData";
+import { chanceWords } from "../../engine/Odds";
 import { COMPANY } from "../../engine/Privateers";
 import {
   CANOE_SPEED,
@@ -37,7 +38,6 @@ import {
   WHALE_TAKEN,
   WHALE_VALUE,
 } from "../../engine/Voyages";
-import { chanceWords } from "../../engine/Odds";
 import type { Chapter } from "./Chapters";
 
 const pct = (v: number) => `${Math.round(v * 100)} in a hundred`;
@@ -61,7 +61,10 @@ function havensTable(): string {
 
 function preyTable(): string {
   const all = PREY.reduce((m, k) => m + k.w, 0);
-  const plain = PREY.filter((k) => k.kind !== "galleon").reduce((m, k) => m + k.w, 0);
+  const plain = PREY.filter((k) => k.kind !== "galleon").reduce(
+    (m, k) => m + k.w,
+    0,
+  );
   const rows = PREY.map((k) => {
     const often =
       k.kind === "galleon"
@@ -171,10 +174,30 @@ So Boston to New York is about 6 days by passage and 4 in your own sloop (19 on 
 
 > Tip: A privateer's best ground is where the enemy's ships pass: the page picks it for you, and shows the odds of each. A long cruise takes more prizes and brings scurvy; a schooner outsails nearly everything.`,
   glossary: [
-    ["Articles", "The shares of a ship's company, signed before a cruise.", "sea"],
-    ["Letter of marque", "A governor's commission to take the enemy's ships, in wartime.", "sea"],
-    ["Prize court", "The court that condemns and sells a privateer's prizes.", "sea"],
-    ["Privateering company", "Owners who fit out a privateer, by shares.", "sea"],
-    ["Hurricane", "A great storm out of the tropical sea, June to November.", "sea"],
+    [
+      "Articles",
+      "The shares of a ship's company, signed before a cruise.",
+      "sea",
+    ],
+    [
+      "Letter of marque",
+      "A governor's commission to take the enemy's ships, in wartime.",
+      "sea",
+    ],
+    [
+      "Prize court",
+      "The court that condemns and sells a privateer's prizes.",
+      "sea",
+    ],
+    [
+      "Privateering company",
+      "Owners who fit out a privateer, by shares.",
+      "sea",
+    ],
+    [
+      "Hurricane",
+      "A great storm out of the tropical sea, June to November.",
+      "sea",
+    ],
   ],
 };

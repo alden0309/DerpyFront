@@ -653,7 +653,10 @@ function raiseOrSend(
 ): void {
   const from = g.s.chars[ctx.c];
   // SEA (r15): at sea, letters from afar wait for you in port.
-  if (LETTER_KEYS.includes(key) && hooks.holdLetter.some((h) => h(g, life, key, ctx)))
+  if (
+    LETTER_KEYS.includes(key) &&
+    hooks.holdLetter.some((h) => h(g, life, key, ctx))
+  )
     return;
   if (LETTER_KEYS.includes(key) && from?.alive)
     sendLetter(g, life, key, from, () => raiseLifeEvent(g, life, key, ctx));

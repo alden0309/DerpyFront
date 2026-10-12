@@ -10,7 +10,6 @@ import { remember, succession } from "./Characters";
 import { merge } from "./Economy";
 import type { ConquestGame } from "./Game";
 import { isFeverSeason, isWinter } from "./Map";
-import { struckLately } from "./Storms"; // SEA (r15)
 import {
   ageOf,
   charName,
@@ -28,6 +27,7 @@ import {
 } from "./Queries";
 import { ADULT_AGE, DAYS_PER_YEAR, EUROPE_PRICE, EVENT_DAYS } from "./Rules";
 import { settlerPops } from "./Setup";
+import { struckLately } from "./Storms"; // SEA (r15)
 import { Modifier, PendingEvent, TreatyKind } from "./Types";
 
 export type Ctx = Record<string, number>;

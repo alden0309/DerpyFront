@@ -66,7 +66,6 @@ import {
   whiteFlag,
 } from "./MapArt";
 import { drawStorm } from "./SeasonArt";
-import { drawStormWay, seaStorms } from "./StormArt"; // SEA (r15)
 import {
   drawSprite,
   loadSprites,
@@ -74,6 +73,7 @@ import {
   SpriteName,
   spriteWidth,
 } from "./Sprites";
+import { drawStormWay, seaStorms } from "./StormArt"; // SEA (r15)
 import { GOOD_COLORS } from "./Text";
 import {
   drawCanoe,

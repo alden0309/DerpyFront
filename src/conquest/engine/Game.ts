@@ -46,10 +46,10 @@ import { popsMonthly } from "./Pops";
 import { powerDaily, powerMonthly } from "./Power"; // POWER (r12)
 import { takePowerDelta } from "./PowerCore"; // POWER (r12)
 import { scoreOf } from "./Queries";
-import "./Sea"; // SEA (r15): hurricanes, cruises, voyages, privateers
-import { takeSeaDelta } from "./SeaCore"; // SEA (r15)
 import { Rng } from "./Rng";
 import { END_YEAR } from "./Rules";
+import "./Sea"; // SEA (r15): hurricanes, cruises, voyages, privateers
+import { takeSeaDelta } from "./SeaCore"; // SEA (r15)
 import { newGameState } from "./Setup";
 import { societyDaily, societyMonthly } from "./Society"; // SOCIETY (r11)
 import { societyDelta } from "./SocietyCore"; // SOCIETY (r11)

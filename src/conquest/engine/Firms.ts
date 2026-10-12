@@ -813,7 +813,10 @@ export function decisionCheck(
   switch (key) {
     case "expand": {
       if (f.hold === "paper") return no("A newspaper grows by its readers.");
-      if (f.sea) return no("A privateer grows by her prizes (a new ship: Work › At sea)."); // SEA (r15)
+      if (f.sea)
+        return no(
+          "A privateer grows by her prizes (a new ship: Work › At sea).",
+        ); // SEA (r15)
       if (!f.biz && !f.lost) return no("There's no business to grow.");
       if (f.biz && f.biz.level >= 3) return no("It's as big as it gets.");
       const cost = decisionCost(f, key);

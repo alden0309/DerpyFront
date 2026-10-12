@@ -28,8 +28,8 @@ import {
 import type { DrawerView, GameUi, Tab } from "./Context";
 import { affairsUnseen } from "./Ledger"; // LEDGER (r15)
 import { partnerMarks } from "./Partners"; // PARTNERS (r13)
-import { postCounts } from "./Society";
 import { seaMarks } from "./SeaPage"; // SEA (r15)
+import { postCounts } from "./Society";
 
 export interface SubDef {
   id: string;
@@ -84,7 +84,8 @@ export const TAB_DEFS: TabDef[] = [
   {
     id: "work",
     label: "Work",
-    blurb: "Your work and its ladder, finding work, contracts, the law, and the sea",
+    blurb:
+      "Your work and its ladder, finding work, contracts, the law, and the sea",
     icon: WorkIcon,
     subs: [
       { id: "job", label: "Your work", guide: "work" },

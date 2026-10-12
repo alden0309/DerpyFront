@@ -121,7 +121,10 @@ export function moveAlong(
   const mid = (lat + nLat) / 2;
   const dLon =
     (km * Math.sin(dir * RAD)) / (KM_DEG * Math.max(0.2, Math.cos(mid * RAD)));
-  return [Math.round(nLat * 1000) / 1000, Math.round((lon + dLon) * 1000) / 1000];
+  return [
+    Math.round(nLat * 1000) / 1000,
+    Math.round((lon + dLon) * 1000) / 1000,
+  ];
 }
 
 /** The heading from one point to another (degrees: 0 north, 90 east). */
@@ -179,7 +182,8 @@ export function cruiseOfLife(s: GameState, life: Life): Cruise | undefined {
 /** The voyage a life is on now (aboard, or ashore at the far end), if any. */
 export function voyageOfLife(s: GameState, life: Life): Voyage | undefined {
   return s.sea?.voyages.find(
-    (v) => v.seat === life.seat && v.c === life.c && v.phase !== "done" && !v.sent,
+    (v) =>
+      v.seat === life.seat && v.c === life.c && v.phase !== "done" && !v.sent,
   );
 }
 

@@ -14,7 +14,11 @@
       transparent 0 1.38rem,
       rgba(42, 90, 168, 0.07) 1.38rem 1.45rem
     ),
-    linear-gradient(180deg, rgba(232, 242, 246, 0.65), rgba(255, 250, 235, 0.55));
+    linear-gradient(
+      180deg,
+      rgba(232, 242, 246, 0.65),
+      rgba(255, 250, 235, 0.55)
+    );
 }
 .cq-sea-card.pirate {
   border-left-color: #1d1712;

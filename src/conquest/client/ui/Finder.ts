@@ -10,14 +10,13 @@ import { areasOf, homeHere } from "../../engine/Areas"; // HOME (r12)
 import { BOATS } from "../../engine/Boats";
 import { dateOf } from "../../engine/Calendar"; // MAP (r12)
 import { knowsDen } from "../../engine/CrimeQueries";
+import { cruiseOffers, pardonCheck } from "../../engine/Cruises"; // SEA (r15)
 import { STALL_SECONDS, tableAt } from "../../engine/DiceCore"; // DICE (r14)
 import { schoolable } from "../../engine/Edu"; // EDU (r13)
 import { buyoutPrice } from "../../engine/Firms"; // PARTNERS (r13)
 import { followerCap, peopleOf, raiseCheck } from "../../engine/Followers";
 import { foundCheck as foundColonyCheck } from "../../engine/Founding";
 import { affairsOf } from "../../engine/Ledger"; // LEDGER (r15)
-import { cruiseOffers, pardonCheck } from "../../engine/Cruises"; // SEA (r15)
-import { commissionAt } from "../../engine/Privateers"; // SEA (r15)
 import {
   hasPlace,
   isChildLife,
@@ -40,6 +39,7 @@ import {
 import { localOfficesOf } from "../../engine/Offices"; // POWER (r12)
 import { firmsWith, MAX_FIRMS } from "../../engine/PartnersCore"; // PARTNERS (r13)
 import { standCheck } from "../../engine/Politics";
+import { commissionAt } from "../../engine/Privateers"; // SEA (r15)
 import {
   houseCheck,
   houseOf,
@@ -1439,12 +1439,19 @@ const GOALS: Goal[] = [
       );
       return [
         {
-          label: b.length ? `The ${b[0].name}` : "A sloop or bigger (Estate › Boats, or a boatyard)",
+          label: b.length
+            ? `The ${b[0].name}`
+            : "A sloop or bigger (Estate › Boats, or a boatyard)",
           met: b.length > 0,
         },
         {
-          label: "A war on, for a letter of marque (or go on the account: piracy)",
-          met: (ui.me ? ui.s.wars.some((w) => w.a === ui.me!.nation || w.b === ui.me!.nation) : false),
+          label:
+            "A war on, for a letter of marque (or go on the account: piracy)",
+          met: ui.me
+            ? ui.s.wars.some(
+                (w) => w.a === ui.me!.nation || w.b === ui.me!.nation,
+              )
+            : false,
         },
       ];
     },
@@ -1483,8 +1490,12 @@ const GOALS: Goal[] = [
       const k = ui.life!.job?.kind;
       return [
         {
-          label: k ? `Your trade: ${k}` : "A trade that travels: sailor, whaler, fur trader (a partner), native trader, surveyor",
-          met: !!k && ["sailor", "whaler", "trapper", "trader", "surveyor"].includes(k),
+          label: k
+            ? `Your trade: ${k}`
+            : "A trade that travels: sailor, whaler, fur trader (a partner), native trader, surveyor",
+          met:
+            !!k &&
+            ["sailor", "whaler", "trapper", "trader", "surveyor"].includes(k),
         },
       ];
     },
@@ -1507,11 +1518,17 @@ const GOALS: Goal[] = [
   {
     id: "pirate-pardon",
     title: "Take the King's pardon for piracy",
-    words: "pardon pirate piracy amnesty act of grace surrender governor 1718 1688 forgive heat",
+    words:
+      "pardon pirate piracy amnesty act of grace surrender governor 1718 1688 forgive heat",
     group: "Office and the law",
     where:
       "Work › At sea, while a pardon is proclaimed (1688, and September 1717 to the end of 1718), at an English colony: surrender to the governor and your piracy is forgiven.",
-    needs: (ui) => [check(pardonCheck(ui.s, ui.w, ui.life!), "A pardon on offer, and you here to take it")],
+    needs: (ui) => [
+      check(
+        pardonCheck(ui.s, ui.w, ui.life!),
+        "A pardon on offer, and you here to take it",
+      ),
+    ],
     go: tab({ k: "tab", tab: "work", sub: "sea" }),
     goLabel: "Work › At sea",
     guide: "sea",

@@ -17,10 +17,15 @@
 // ship), the peace voids her commission, and a captain who takes a neutral
 // makes pirates of them all (her commission's forfeit).
 
-import { BOATS, boatPrice, boatyard, sellPrice } from "./Boats";
+import { boatPrice, BOATS, boatyard, sellPrice } from "./Boats";
 import { formatDate } from "./Calendar";
 import { CRUISE, GROUND_BY_KEY } from "./CruiseData";
-import { chanceOdds, chancesIn, prizeCounts, type CruisePlan } from "./CruiseOdds";
+import {
+  chanceOdds,
+  chancesIn,
+  prizeCounts,
+  type CruisePlan,
+} from "./CruiseOdds";
 import {
   CRUISE_LOST,
   CRUISE_OWNERS,
@@ -33,20 +38,22 @@ import {
   ownOutfit,
   privateersFitHere,
 } from "./Cruises";
+import { householdsOf, seedLocals } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { hooks, raiseEvent } from "./Hooks";
 import { affairNews } from "./Ledger";
 import { withFlow } from "./LedgerCore";
 import { earn, journal, spend, touchLife } from "./LifeCore";
 import {
-  type Check,
   isChildLife,
   lifeOfChar,
   meOf,
   no,
   skillLevel,
   yes,
+  type Check,
 } from "./LifeQueries";
+import { ROLES } from "./LifeRules";
 import type { World } from "./Map";
 import { chanceWords, type OddsOutcome, type OddsView } from "./Odds";
 import { wake } from "./Pace";
@@ -63,9 +70,7 @@ import {
   partners,
   partnersChanged,
 } from "./PartnersCore";
-import { householdsOf, seedLocals } from "./Folk";
 import { charName } from "./Queries";
-import { ROLES } from "./LifeRules";
 import { aRig, seaChanged, seaOf, seaState } from "./SeaCore";
 import type {
   BoatKind,
@@ -130,7 +135,11 @@ export function subTotal(sub: Subscription): number {
 
 /** Coins in hand (not a boat). */
 function subCash(sub: Subscription): number {
-  return r2(sub.stakes.filter((x) => x.boat === undefined).reduce((m, x) => m + x.coins, 0));
+  return r2(
+    sub.stakes
+      .filter((x) => x.boat === undefined)
+      .reduce((m, x) => m + x.coins, 0),
+  );
 }
 
 /** What the company must have in coin to sign: the ship (if new), the commission, a first cruise's victuals. */
@@ -138,7 +147,9 @@ export function subNeeded(s: GameState, w: World, sub: Subscription): number {
   const fee = marqueFee(sub.kind);
   const nation = commissionAt(s, w, sub.prov);
   const best = bestGround(s, w, sub.kind, sub.prov, nation);
-  const near = groundsFrom(s, w.map, sub.prov, sub.kind).find((x) => x.g.key === best);
+  const near = groundsFrom(s, w.map, sub.prov, sub.kind).find(
+    (x) => x.g.key === best,
+  );
   // Victuals enough for a long first cruise, so she can sail as soon as she's signed.
   const outfit = ownOutfit(sub.kind, false, CRUISE.hunt.long, near?.days ?? 5);
   return r2((sub.boat === undefined ? sub.price : 0) + fee + outfit);
@@ -166,11 +177,14 @@ function companyPlan(
   const near = groundsFrom(s, w.map, port, kind);
   const pick = ground
     ? near.find((x) => x.g.key === ground)
-    : (near.find((x) => x.g.key === bestGround(s, w, kind, port, nation)) ?? near[0]);
+    : (near.find((x) => x.g.key === bestGround(s, w, kind, port, nation)) ??
+      near[0]);
   if (!pick) return null;
   const foes = enemiesOf(s, nation);
   const sk = (k: "seamanship" | "fighting" | "leadership") =>
-    captain ? skillLevel(s, captain, k) : { seamanship: 9, fighting: 8, leadership: 8 }[k];
+    captain
+      ? skillLevel(s, captain, k)
+      : { seamanship: 9, fighting: 8, leadership: 8 }[k];
   return {
     plan: {
       flag: "privateer",
@@ -223,7 +237,8 @@ export function bestGround(
       flags: groundFlags(s, x.g),
     };
     const c = chanceOdds(plan);
-    const v = (c.prize * c.value * chancesIn(plan.hunt)) / (plan.hunt + x.days * 2);
+    const v =
+      (c.prize * c.value * chancesIn(plan.hunt)) / (plan.hunt + x.days * 2);
     if (v > bestV + 1e-9) {
       bestV = v;
       best = x.g.key;
@@ -254,7 +269,17 @@ export function companyOdds(
     ground?: string;
   },
 ): OddsView | null {
-  const cp = companyPlan(s, w, o.kind, o.port, o.nation, o.hull ?? 100, !!o.long, o.captain, o.ground);
+  const cp = companyPlan(
+    s,
+    w,
+    o.kind,
+    o.port,
+    o.nation,
+    o.hull ?? 100,
+    !!o.long,
+    o.captain,
+    o.ground,
+  );
   if (!cp) return null;
   const { plan, passage } = cp;
   const K = chancesIn(plan.hunt);
@@ -262,15 +287,26 @@ export function companyOdds(
   const c = chanceOdds(plan);
   const retake = plan.war ? CRUISE.retakeWar : CRUISE.retake;
   // The owners' half of what the court pays; your part of it by share.
-  const mine = (1 - CRUISE.court) * CRUISE.owners * (o.share / 100) * (1 - retake);
+  const mine =
+    (1 - CRUISE.court) * CRUISE.owners * (o.share / 100) * (1 - retake);
   const outcomes: OddsOutcome[] = [
     { label: "nothing taken", p: counts[0] ?? 0, lo: 0, hi: 0, bad: true },
   ];
   if ((counts[1] ?? 0) > 0)
-    outcomes.push({ label: "one prize", p: counts[1], lo: r1(c.lo * mine), hi: r1(c.hi * mine) });
+    outcomes.push({
+      label: "one prize",
+      p: counts[1],
+      lo: r1(c.lo * mine),
+      hi: r1(c.hi * mine),
+    });
   const more = counts.slice(2).reduce((m, p) => m + p, 0);
   if (more > 0.001)
-    outcomes.push({ label: "two or more", p: more, lo: r1(c.lo * 2 * mine), hi: r1(c.hi * K * mine) });
+    outcomes.push({
+      label: "two or more",
+      p: more,
+      lo: r1(c.lo * 2 * mine),
+      hi: r1(c.hi * K * mine),
+    });
   const mean = counts.reduce((m, p, n) => m + p * n, 0);
   const expected = r1(mean * c.value * mine);
   const outfit = ownOutfit(o.kind, false, plan.hunt, passage);
@@ -294,8 +330,16 @@ export function companyOdds(
         p: taken,
         note: `the ship lost (your part of her, about ${r1((shipWorth * o.share) / 100)}), the chest kept`,
       },
-      { label: "A prize retaken before she makes port", p: retake, note: "each prize sent in" },
-      { label: "The peace", p: 0, note: "voids the commission: she can't cruise till the next war" },
+      {
+        label: "A prize retaken before she makes port",
+        p: retake,
+        note: "each prize sent in",
+      },
+      {
+        label: "The peace",
+        p: 0,
+        note: "voids the commission: she can't cruise till the next war",
+      },
     ],
     factors: [
       `The prize court takes ${Math.round(CRUISE.court * 100)} in a hundred; the owners have half of the rest, the company that sails her the other half.`,
@@ -323,7 +367,10 @@ export function openCheck(
   if (isChildLife(s, life)) return no("Not until you're grown.");
   if (life.travel) return no("You're on the road.");
   const nation = commissionAt(s, w, life.prov);
-  if (nation < 0) return no("Letters of marque are granted only where the colony is at war, at a port.");
+  if (nation < 0)
+    return no(
+      "Letters of marque are granted only where the colony is at war, at a port.",
+    );
   if (firmsWith(s, life.c).length >= MAX_FIRMS)
     return no(`You're in ${MAX_FIRMS} partnerships already.`);
   if (seaOf(s).subs.some((x) => x.by === life.c && x.status === "open"))
@@ -331,11 +378,21 @@ export function openCheck(
   if (o.boat !== undefined) {
     const b = (life.boats ?? []).find((x) => x.id === o.boat);
     if (!b) return no("Not your boat.");
-    if (b.prov !== life.prov) return no(`She lies at ${w.map.provinces[b.prov].name}.`);
+    if (b.prov !== life.prov)
+      return no(`She lies at ${w.map.provinces[b.prov].name}.`);
     if (b.away) return no("She's away with her skipper.");
-    if (!BOATS[b.kind].uses.includes("privateering")) return no("She's no privateer.");
+    if (!BOATS[b.kind].uses.includes("privateering"))
+      return no("She's no privateer.");
     if (b.condition < 50) return no("Repair her first.");
-    if (seaOf(s).cruises.some((c) => c.boat?.seat === life.seat && c.boat.id === b.id && c.phase !== "done" && c.phase !== "lost"))
+    if (
+      seaOf(s).cruises.some(
+        (c) =>
+          c.boat?.seat === life.seat &&
+          c.boat.id === b.id &&
+          c.phase !== "done" &&
+          c.phase !== "lost",
+      )
+    )
       return no("She's on a cruise.");
     return yes;
   }
@@ -343,7 +400,8 @@ export function openCheck(
   if (!kind || !COMPANY.kinds.includes(kind)) return no("Choose a ship.");
   if (!boatyard(s, w, life.prov).includes(kind))
     return no(`The yard here can't build a ${BOATS[kind].name.toLowerCase()}.`);
-  if (o.stake < COMPANY.minStake) return no(`Put in ${COMPANY.minStake} at the least.`);
+  if (o.stake < COMPANY.minStake)
+    return no(`Put in ${COMPANY.minStake} at the least.`);
   if (life.purse < o.stake) return no(`You have ${Math.floor(life.purse)}.`);
   return yes;
 }
@@ -358,10 +416,15 @@ export function openCompany(
   const check = openCheck(s, g.w, life, o);
   if (!check.ok) return check.why;
   const me = meOf(s, life)!;
-  const b = o.boat !== undefined ? life.boats!.find((x) => x.id === o.boat)! : undefined;
+  const b =
+    o.boat !== undefined
+      ? life.boats!.find((x) => x.id === o.boat)!
+      : undefined;
   const kind = b ? b.kind : o.kind!;
   const price = b ? sellPrice(b) : boatPrice(s, life, kind);
-  const shipName = b ? b.name : (o.name?.trim().slice(0, 30) || defaultShipName(s, life));
+  const shipName = b
+    ? b.name
+    : (shipNameOf(o.name) ?? defaultShipName(s, life));
   const sub: Subscription = {
     id: g.nextId(),
     by: life.c,
@@ -371,7 +434,9 @@ export function openCompany(
     price,
     ...(b ? { boat: b.id } : {}),
     shipName,
-    stakes: b ? [{ c: life.c, coins: price, boat: b.id }] : [{ c: life.c, coins: r2(o.stake) }],
+    stakes: b
+      ? [{ c: life.c, coins: price, boat: b.id }]
+      : [{ c: life.c, coins: r2(o.stake) }],
     asked: [],
     opened: s.day,
     until: s.day + COMPANY.openDays,
@@ -391,32 +456,72 @@ export function openCompany(
 
 /** A stake's money, for the month's books. */
 function stakeFlow(sub: Subscription) {
-  return { key: `sea:co:${sub.id}`, label: `A share in the ${sub.shipName} (a privateer)`, aff: "firm" as const };
+  return {
+    key: `sea:co:${sub.id}`,
+    label: `A share in the ${sub.shipName} (a privateer)`,
+    aff: "firm" as const,
+  };
 }
 
-const SHIP_NAMES = ["Revenge", "Tartar", "Defiance", "Dragon", "Charming Sally", "Prince Frederick", "Hawke", "Royal Hunter", "Lively", "Speedwell", "Fame", "Terrible"];
+const SHIP_NAMES = [
+  "Revenge",
+  "Tartar",
+  "Defiance",
+  "Dragon",
+  "Charming Sally",
+  "Prince Frederick",
+  "Hawke",
+  "Royal Hunter",
+  "Lively",
+  "Speedwell",
+  "Fame",
+  "Terrible",
+];
+
+/** A name given for her (trimmed, 30 letters at most), or none if it's blank. */
+function shipNameOf(name: string | undefined): string | undefined {
+  const t = name?.trim().slice(0, 30) ?? "";
+  return t.length > 0 ? t : undefined;
+}
 
 function defaultShipName(s: GameState, life: Life): string {
   return SHIP_NAMES[(life.c + s.day) % SHIP_NAMES.length];
 }
 
 /** Whether you may put money into a company being got up. */
-export function joinCheck(s: GameState, w: World, life: Life, sub: Subscription | undefined, coins: number): Check {
+export function joinCheck(
+  s: GameState,
+  w: World,
+  life: Life,
+  sub: Subscription | undefined,
+  coins: number,
+): Check {
   if (!sub || sub.status !== "open") return no("The subscription's closed.");
   if (!meOf(s, life) || life.watching) return no("You're watching.");
   if (isChildLife(s, life)) return no("Not until you're grown.");
-  if (sub.stakes.some((x) => x.c === life.c)) return no("You've put in already.");
+  if (sub.stakes.some((x) => x.c === life.c))
+    return no("You've put in already.");
   if (life.prov !== sub.prov && !sub.asked.includes(life.c))
-    return no(`It's got up at ${w.map.provinces[sub.prov].name}: be there, or be asked.`);
-  if (sub.stakes.length >= MAX_PARTNERS) return no(`${MAX_PARTNERS} owners is as many as it can hold.`);
-  if (firmsWith(s, life.c).length >= MAX_FIRMS) return no(`You're in ${MAX_FIRMS} partnerships already.`);
-  if (!Number.isFinite(coins) || coins < COMPANY.minStake) return no(`Put in ${COMPANY.minStake} at the least.`);
+    return no(
+      `It's got up at ${w.map.provinces[sub.prov].name}: be there, or be asked.`,
+    );
+  if (sub.stakes.length >= MAX_PARTNERS)
+    return no(`${MAX_PARTNERS} owners is as many as it can hold.`);
+  if (firmsWith(s, life.c).length >= MAX_FIRMS)
+    return no(`You're in ${MAX_FIRMS} partnerships already.`);
+  if (!Number.isFinite(coins) || coins < COMPANY.minStake)
+    return no(`Put in ${COMPANY.minStake} at the least.`);
   if (life.purse < coins) return no(`You have ${Math.floor(life.purse)}.`);
   return yes;
 }
 
 /** Put money into a company being got up (taken now; given back if it never signs). */
-export function joinCompany(g: ConquestGame, life: Life, id: number, coins: number): string | null {
+export function joinCompany(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+  coins: number,
+): string | null {
   const s = g.s;
   const sub = subById(s, id);
   const check = joinCheck(s, g.w, life, sub, coins);
@@ -425,33 +530,55 @@ export function joinCompany(g: ConquestGame, life: Life, id: number, coins: numb
   withFlow(g, stakeFlow(sub!), () => spend(g, life, coins));
   sub!.stakes.push({ c: life.c, coins });
   seaChanged(g);
-  journal(g, life, `You put ${coins} coins into the ${sub!.shipName}, a privateer being fitted out at ${g.map.provinces[sub!.prov].name}.`);
+  journal(
+    g,
+    life,
+    `You put ${coins} coins into the ${sub!.shipName}, a privateer being fitted out at ${g.map.provinces[sub!.prov].name}.`,
+  );
   const by = lifeOfChar(s, sub!.by);
   if (by && by !== life) {
-    journal(g, by, `${charName(meOf(s, life))} puts ${coins} coins into the ${sub!.shipName}.`, "good");
+    journal(
+      g,
+      by,
+      `${charName(meOf(s, life))} puts ${coins} coins into the ${sub!.shipName}.`,
+      "good",
+    );
     wake(g, by, `${charName(meOf(s, life))} has subscribed.`);
   }
   return null;
 }
 
 /** Ask another player's character to subscribe (a letter: they may put in from wherever they are). */
-export function askToJoin(g: ConquestGame, life: Life, id: number, c: number): string | null {
+export function askToJoin(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+  c: number,
+): string | null {
   const s = g.s;
   const sub = subById(s, id);
   if (!sub || sub.status !== "open") return "The subscription's closed.";
   if (sub.by !== life.c) return "It's not your company.";
   const them = lifeOfChar(s, c);
   if (!them || them.watching || them === life) return "Choose another player.";
-  if (sub.asked.includes(c) || sub.stakes.some((x) => x.c === c)) return "They've been asked.";
+  if (sub.asked.includes(c) || sub.stakes.some((x) => x.c === c))
+    return "They've been asked.";
   sub.asked.push(c);
   seaChanged(g);
   raiseEvent(g, them, "sea-sub-invite", { c: life.c, sub: id });
-  journal(g, life, `You write to ${charName(s.chars[c])} asking them to take a share in the ${sub.shipName}.`);
+  journal(
+    g,
+    life,
+    `You write to ${charName(s.chars[c])} asking them to take a share in the ${sub.shipName}.`,
+  );
   return null;
 }
 
 /** The richest merchant (or other person of means) of the town nobody plays, who'd take up a share. */
-export function townMerchant(s: GameState, sub: Subscription): Character | undefined {
+export function townMerchant(
+  s: GameState,
+  sub: Subscription,
+): Character | undefined {
   return householdsOf(s, sub.prov)
     .filter(
       (c) =>
@@ -462,16 +589,23 @@ export function townMerchant(s: GameState, sub: Subscription): Character | undef
         ROLES[c.role].wealth >= 25 &&
         firmsWith(s, c.id).length < NPC_MAX_FIRMS,
     )
-    .sort((a, b) => ROLES[b.role!].wealth - ROLES[a.role!].wealth || a.id - b.id)[0];
+    .sort(
+      (a, b) => ROLES[b.role!].wealth - ROLES[a.role!].wealth || a.id - b.id,
+    )[0];
 }
 
 /** The town's merchants take up what's still wanting (one of them, as a silent owner). */
-export function merchantsTakeUp(g: ConquestGame, life: Life, id: number): string | null {
+export function merchantsTakeUp(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+): string | null {
   const s = g.s;
   const sub = subById(s, id);
   if (!sub || sub.status !== "open") return "The subscription's closed.";
   if (sub.by !== life.c) return "It's not your company.";
-  if (sub.stakes.length >= MAX_PARTNERS) return `${MAX_PARTNERS} owners is as many as it can hold.`;
+  if (sub.stakes.length >= MAX_PARTNERS)
+    return `${MAX_PARTNERS} owners is as many as it can hold.`;
   const want = r2(subNeeded(s, g.w, sub) - subCash(sub));
   if (want <= 0) return "It has what it needs.";
   seedLocals(g, sub.prov); // the town's people, as when anyone comes looking
@@ -480,28 +614,44 @@ export function merchantsTakeUp(g: ConquestGame, life: Life, id: number): string
   const coins = Math.max(COMPANY.minStake, Math.ceil(want));
   sub.stakes.push({ c: m.id, coins });
   seaChanged(g);
-  journal(g, life, `${charName(m)} (${ROLES[m.role!].title.toLowerCase()}) takes up the rest: ${coins} coins, for a silent share.`);
+  journal(
+    g,
+    life,
+    `${charName(m)} (${ROLES[m.role!].title.toLowerCase()}) takes up the rest: ${coins} coins, for a silent share.`,
+  );
   return null;
 }
 
 /** Whether the company can sign its articles now. */
-export function signCheck(s: GameState, w: World, life: Life, sub: Subscription | undefined): Check {
+export function signCheck(
+  s: GameState,
+  w: World,
+  life: Life,
+  sub: Subscription | undefined,
+): Check {
   if (!sub || sub.status !== "open") return no("The subscription's closed.");
   if (sub.by !== life.c) return no("It's not your company.");
-  if (life.prov !== sub.prov) return no(`Be at ${w.map.provinces[sub.prov].name}.`);
-  if (commissionAt(s, w, sub.prov) < 0) return no("The war's over: no letters of marque are granted.");
+  if (life.prov !== sub.prov)
+    return no(`Be at ${w.map.provinces[sub.prov].name}.`);
+  if (commissionAt(s, w, sub.prov) < 0)
+    return no("The war's over: no letters of marque are granted.");
   const need = subNeeded(s, w, sub);
   const cash = subCash(sub);
   if (cash < need) return no(`It wants ${need} in coin and has ${cash}.`);
   if (sub.boat !== undefined) {
     const b = (life.boats ?? []).find((x) => x.id === sub.boat);
-    if (!b || b.prov !== sub.prov || b.away) return no("Your boat must be here.");
+    if (!b || b.prov !== sub.prov || b.away)
+      return no("Your boat must be here.");
   }
   return yes;
 }
 
 /** Sign the owners' articles: the ship bought (or yours put in), her commission taken, the company formed. */
-export function signCompany(g: ConquestGame, life: Life, id: number): string | null {
+export function signCompany(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+): string | null {
   const s = g.s;
   const sub = subById(s, id);
   const check = signCheck(s, g.w, life, sub);
@@ -510,7 +660,9 @@ export function signCompany(g: ConquestGame, life: Life, id: number): string | n
   const nation = commissionAt(s, g.w, x.prov);
   const total = subTotal(x);
   // Shares by what each put in, to a tenth, summing to a hundred.
-  const shares = x.stakes.map((st) => Math.round((st.coins / total) * 1000) / 10);
+  const shares = x.stakes.map(
+    (st) => Math.round((st.coins / total) * 1000) / 10,
+  );
   const drift = r1(100 - shares.reduce((m, v) => m + v, 0));
   shares[0] = r1(shares[0] + drift);
   let hull = 100;
@@ -518,7 +670,8 @@ export function signCompany(g: ConquestGame, life: Life, id: number): string | n
     const b = life.boats!.find((y) => y.id === x.boat)!;
     hull = b.condition;
     life.boats = life.boats!.filter((y) => y !== b);
-    for (const f of life.people ?? []) if (f.task?.kind === "boat" && f.task.boat === b.id) f.task = null;
+    for (const f of life.people ?? [])
+      if (f.task?.kind === "boat" && f.task.boat === b.id) f.task = null;
     touchLife(g, life);
   }
   const fee = marqueFee(x.kind);
@@ -569,7 +722,9 @@ export function signCompany(g: ConquestGame, life: Life, id: number): string | n
   partnersChanged(g, "f");
   x.status = "signed";
   seaChanged(g);
-  const foes = [...enemiesOf(s, nation)].map((n) => s.nations[n].name).join(" and ");
+  const foes = [...enemiesOf(s, nation)]
+    .map((n) => s.nations[n].name)
+    .join(" and ");
   firmLine(
     g,
     f,
@@ -600,13 +755,19 @@ function subsDaily(g: ConquestGame): void {
       const l = lifeOfChar(s, st.c);
       if (!l || st.boat !== undefined) continue;
       withFlow(g, stakeFlow(x), () => earn(g, l, st.coins));
-      journal(g, l, `The ${x.shipName} never signed her articles: your ${st.coins} coins are given back.`);
+      journal(
+        g,
+        l,
+        `The ${x.shipName} never signed her articles: your ${st.coins} coins are given back.`,
+      );
     }
   }
   // Old ones forgotten.
   const before = s.sea?.subs.length ?? 0;
   if (s.sea && before)
-    s.sea.subs = s.sea.subs.filter((x) => x.status === "open" || s.day - x.until < 60);
+    s.sea.subs = s.sea.subs.filter(
+      (x) => x.status === "open" || s.day - x.until < 60,
+    );
   if (s.sea && s.sea.subs.length !== before) seaChanged(g);
 }
 
@@ -629,20 +790,31 @@ export function cruiseCheck(
   command: boolean,
 ): Check {
   if (!f || f.status !== "trading" || !f.sea) return no("No such company.");
-  if (managerOf(f)?.c !== life.c) return no("Her managing owner sends her out.");
+  if (managerOf(f)?.c !== life.c)
+    return no("Her managing owner sends her out.");
   const x = f.sea;
   if (x.lost) return no(`The ${x.ship} is lost: buy another ship first.`);
   if (x.cruise >= 0) return no(`The ${x.ship} is at sea.`);
   if (!x.commission || enemiesOf(s, x.commission.nation).size === 0)
     return no("Her letter of marque lapsed with the peace.");
-  if (x.hull < 40) return no(`Her hull is at ${Math.round(x.hull)}: she wants repairs first.`);
+  if (x.hull < 40)
+    return no(`Her hull is at ${Math.round(x.hull)}: she wants repairs first.`);
   if (!groundsFrom(s, w.map, x.at, x.kind).some((gr) => gr.g.key === ground))
     return no("Out of her reach (or out of season).");
   if (command) {
-    if (life.travel || life.prov !== x.at) return no(`To command her, be at ${w.map.provinces[x.at].name}.`);
-    if (seaOf(s).cruises.some((c) => c.phase !== "done" && c.phase !== "lost" && c.hands.some((h) => h.seat === life.seat)))
+    if (life.travel || life.prov !== x.at)
+      return no(`To command her, be at ${w.map.provinces[x.at].name}.`);
+    if (
+      seaOf(s).cruises.some(
+        (c) =>
+          c.phase !== "done" &&
+          c.phase !== "lost" &&
+          c.hands.some((h) => h.seat === life.seat),
+      )
+    )
       return no("You're bound on another cruise.");
-    if (skillLevel(s, life, "seamanship") < 2) return no("Needs seamanship 2 at the least to command her.");
+    if (skillLevel(s, life, "seamanship") < 2)
+      return no("Needs seamanship 2 at the least to command her.");
   }
   return yes;
 }
@@ -662,7 +834,9 @@ export function companyCruise(
   if (!check.ok) return check.why;
   const x = f!.sea!;
   const gd = GROUND_BY_KEY.get(ground)!;
-  const passage = groundsFrom(s, g.w.map, x.at, x.kind).find((gr) => gr.g.key === ground)!.days;
+  const passage = groundsFrom(s, g.w.map, x.at, x.kind).find(
+    (gr) => gr.g.key === ground,
+  )!.days;
   const hunt = long ? CRUISE.hunt.long : CRUISE.hunt.short;
   const outfit = ownOutfit(x.kind, false, hunt, passage);
   if (f!.chest < outfit)
@@ -689,13 +863,23 @@ export function companyCruise(
     },
     { firm: f!.id, hull: x.hull },
   );
-  if (command) cr.hands.push({ seat: life.seat, c: life.c, role: "captain", joined: s.day });
+  if (command)
+    cr.hands.push({
+      seat: life.seat,
+      c: life.c,
+      role: "captain",
+      joined: s.day,
+    });
   f!.chest = r2(f!.chest - outfit);
   x.outMonth = r2((x.outMonth ?? 0) + outfit);
   x.cruise = cr.id;
   partnersChanged(g, "f");
   seaChanged(g);
-  firmLine(g, f!, `The ${x.ship} fits out for a cruise ${gd.name} (${outfit} for victuals and powder), ${command ? `${charName(me)} in command` : `under ${cr.cname}`}; she sails on ${formatDate(cr.sails)}.`);
+  firmLine(
+    g,
+    f!,
+    `The ${x.ship} fits out for a cruise ${gd.name} (${outfit} for victuals and powder), ${command ? `${charName(me)} in command` : `under ${cr.cname}`}; she sails on ${formatDate(cr.sails)}.`,
+  );
   for (const p of f!.partners) {
     const l = lifeOfChar(s, p.c);
     if (!l || l.watching) continue;
@@ -709,23 +893,39 @@ export function companyCruise(
   return null;
 }
 
-const HIRED = ["Captain Josiah Penhallow", "Captain Elias Thorne", "Captain Walter Kemp", "Captain Samuel Fenn", "Captain Thomas Gale", "Captain Ezekiel Dare"];
+const HIRED = [
+  "Captain Josiah Penhallow",
+  "Captain Elias Thorne",
+  "Captain Walter Kemp",
+  "Captain Samuel Fenn",
+  "Captain Thomas Gale",
+  "Captain Ezekiel Dare",
+];
 
 /** Buy her a new ship (she was lost), from the chest. */
-export function buyShip(g: ConquestGame, life: Life, id: number, kind: BoatKind, name?: string): string | null {
+export function buyShip(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+  kind: BoatKind,
+  name?: string,
+): string | null {
   const s = g.s;
   const f = firmById(s, id);
   if (!f?.sea || f.status !== "trading") return "No such company.";
-  if (managerOf(f)?.c !== life.c) return "Her managing owner buys for the company.";
+  if (managerOf(f)?.c !== life.c)
+    return "Her managing owner buys for the company.";
   if (!f.sea.lost) return "She's afloat.";
   if (life.prov !== f.prov) return `Be at ${g.map.provinces[f.prov].name}.`;
-  if (!COMPANY.kinds.includes(kind) || !boatyard(s, g.w, f.prov).includes(kind)) return "The yard can't build her.";
+  if (!COMPANY.kinds.includes(kind) || !boatyard(s, g.w, f.prov).includes(kind))
+    return "The yard can't build her.";
   const price = BOATS[kind].price;
-  if (f.chest < price) return `She's ${price}; the chest has ${Math.floor(f.chest)}: call in capital first.`;
+  if (f.chest < price)
+    return `She's ${price}; the chest has ${Math.floor(f.chest)}: call in capital first.`;
   f.chest = r2(f.chest - price);
   f.sea = {
     ...f.sea,
-    ship: name?.trim().slice(0, 30) || SHIP_NAMES[(f.id + s.day) % SHIP_NAMES.length],
+    ship: shipNameOf(name) ?? SHIP_NAMES[(f.id + s.day) % SHIP_NAMES.length],
     kind,
     guns: BOATS[kind].guns,
     hull: 100,
@@ -734,27 +934,43 @@ export function buyShip(g: ConquestGame, life: Life, id: number, kind: BoatKind,
   };
   delete f.sea.lost;
   partnersChanged(g, "f");
-  firmLine(g, f, `A new ship bought for the company: the ${f.sea.ship}, ${BOATS[kind].name.toLowerCase()} of ${BOATS[kind].guns} guns (${price}).`);
+  firmLine(
+    g,
+    f,
+    `A new ship bought for the company: the ${f.sea.ship}, ${BOATS[kind].name.toLowerCase()} of ${BOATS[kind].guns} guns (${price}).`,
+  );
   return null;
 }
 
 /** Take out a new letter of marque (a new war), from the chest. */
-export function companyMarque(g: ConquestGame, life: Life, id: number): string | null {
+export function companyMarque(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+): string | null {
   const s = g.s;
   const f = firmById(s, id);
   if (!f?.sea || f.status !== "trading") return "No such company.";
-  if (managerOf(f)?.c !== life.c) return "Her managing owner takes out her commission.";
+  if (managerOf(f)?.c !== life.c)
+    return "Her managing owner takes out her commission.";
   if (life.prov !== f.prov) return `Be at ${g.map.provinces[f.prov].name}.`;
   const nation = commissionAt(s, g.w, f.prov);
-  if (nation < 0) return "The colony isn't at war: no letters of marque are granted.";
-  if (f.sea.commission && enemiesOf(s, f.sea.commission.nation).size > 0) return "She has her commission.";
+  if (nation < 0)
+    return "The colony isn't at war: no letters of marque are granted.";
+  if (f.sea.commission && enemiesOf(s, f.sea.commission.nation).size > 0)
+    return "She has her commission.";
   const fee = marqueFee(f.sea.kind);
-  if (f.chest < fee) return `The fees are ${fee}; the chest has ${Math.floor(f.chest)}.`;
+  if (f.chest < fee)
+    return `The fees are ${fee}; the chest has ${Math.floor(f.chest)}.`;
   f.chest = r2(f.chest - fee);
   f.sea.commission = { nation, day: s.day };
   f.sea.outMonth = r2((f.sea.outMonth ?? 0) + fee);
   partnersChanged(g, "f");
-  firmLine(g, f, `A new letter of marque for the ${f.sea.ship} (${fee} in fees).`);
+  firmLine(
+    g,
+    f,
+    `A new letter of marque for the ${f.sea.ship} (${fee} in fees).`,
+  );
   return null;
 }
 
@@ -762,59 +978,88 @@ export function companyMarque(g: ConquestGame, life: Life, id: number): string |
 
 /** The firm a cruise belongs to. */
 function firmOf(s: GameState, cr: Cruise): Firm | undefined {
-  return cr.owner === "firm" && cr.firm !== undefined ? firmById(s, cr.firm) : undefined;
+  return cr.owner === "firm" && cr.firm !== undefined
+    ? firmById(s, cr.firm)
+    : undefined;
 }
 
 /** A partner's flow, for the month's books. */
 function prizeFlow(f: Firm) {
-  return { key: `firm:${f.id}:prizes`, label: `The ${f.sea?.ship ?? "ship"}'s prizes: your share`, chance: true as const, aff: "firm" as const };
+  return {
+    key: `firm:${f.id}:prizes`,
+    label: `The ${f.sea?.ship ?? "ship"}'s prizes: your share`,
+    chance: true as const,
+    aff: "firm" as const,
+  };
 }
 
 // The owners' half: into the chest and out again at once, by share.
-later(() => CRUISE_OWNERS.push((g, cr, coins) => {
-  const s = g.s;
-  const f = firmOf(s, cr);
-  if (!f?.sea) return;
-  const x = f.sea;
-  const n = cr.prizes.filter((p) => p.status === "sold" && (p.sold ?? 0) > 0).length;
-  x.fetched = r2(x.fetched + coins);
-  x.taken += n;
-  x.inMonth = r2((x.inMonth ?? 0) + coins);
-  let paid = 0;
-  for (const p of f.partners) {
-    const a = r2((coins * p.share) / 100);
-    if (!a) continue;
-    paid += a;
-    p.drawn = r2(p.drawn + a);
-    const l = lifeOfChar(s, p.c);
-    if (l && !l.watching) {
-      withFlow(g, prizeFlow(f), () => earn(g, l, a));
-      affairNews(g, l, "firm", `The ${x.ship}'s prizes are condemned: the owners' half is ${r1(coins)} coins, and your ${p.share}% is ${a}.`, "good");
+later(() =>
+  CRUISE_OWNERS.push((g, cr, coins) => {
+    const s = g.s;
+    const f = firmOf(s, cr);
+    if (!f?.sea) return;
+    const x = f.sea;
+    const n = cr.prizes.filter(
+      (p) => p.status === "sold" && (p.sold ?? 0) > 0,
+    ).length;
+    x.fetched = r2(x.fetched + coins);
+    x.taken += n;
+    x.inMonth = r2((x.inMonth ?? 0) + coins);
+    let paid = 0;
+    for (const p of f.partners) {
+      const a = r2((coins * p.share) / 100);
+      if (!a) continue;
+      paid += a;
+      p.drawn = r2(p.drawn + a);
+      const l = lifeOfChar(s, p.c);
+      if (l && !l.watching) {
+        withFlow(g, prizeFlow(f), () => earn(g, l, a));
+        affairNews(
+          g,
+          l,
+          "firm",
+          `The ${x.ship}'s prizes are condemned: the owners' half is ${r1(coins)} coins, and your ${p.share}% is ${a}.`,
+          "good",
+        );
+      }
     }
-  }
-  f.chest = r2(f.chest + coins - paid);
-  firmLine(g, f, `The ${x.ship}'s cruise: ${n} prize${n === 1 ? "" : "s"} condemned; the owners' half, ${r1(coins)}, paid out by share.`);
-  partnersChanged(g, "f");
-}));
+    f.chest = r2(f.chest + coins - paid);
+    firmLine(
+      g,
+      f,
+      `The ${x.ship}'s cruise: ${n} prize${n === 1 ? "" : "s"} condemned; the owners' half, ${r1(coins)}, paid out by share.`,
+    );
+    partnersChanged(g, "f");
+  }),
+);
 
 // Taken or foundered: the company keeps its chest.
-later(() => CRUISE_LOST.push((g, cr) => {
-  const s = g.s;
-  const f = firmOf(s, cr);
-  if (!f?.sea) return;
-  f.sea.lost = cr.end ?? "Lost.";
-  f.sea.cruise = -1;
-  f.sea.hull = 0;
-  partnersChanged(g, "f");
-  firmLine(g, f, `The ${f.sea.ship} is lost: ${f.sea.lost}`);
-  for (const p of f.partners) {
-    const l = lifeOfChar(s, p.c);
-    if (l && !l.watching) {
-      affairNews(g, l, "firm", `${f.name}: the ${f.sea.ship} is lost (${f.sea.lost.replace(/\.$/, "")}). The company keeps its chest; it may buy another ship, or wind up.`, "bad");
-      wake(g, l, `The ${f.sea.ship} is lost.`);
+later(() =>
+  CRUISE_LOST.push((g, cr) => {
+    const s = g.s;
+    const f = firmOf(s, cr);
+    if (!f?.sea) return;
+    f.sea.lost = cr.end ?? "Lost.";
+    f.sea.cruise = -1;
+    f.sea.hull = 0;
+    partnersChanged(g, "f");
+    firmLine(g, f, `The ${f.sea.ship} is lost: ${f.sea.lost}`);
+    for (const p of f.partners) {
+      const l = lifeOfChar(s, p.c);
+      if (l && !l.watching) {
+        affairNews(
+          g,
+          l,
+          "firm",
+          `${f.name}: the ${f.sea.ship} is lost (${f.sea.lost.replace(/\.$/, "")}). The company keeps its chest; it may buy another ship, or wind up.`,
+          "bad",
+        );
+        wake(g, l, `The ${f.sea.ship} is lost.`);
+      }
     }
-  }
-}));
+  }),
+);
 
 /** Each day: a company's ship home from her cruise (and her commission's state). */
 function companiesDaily(g: ConquestGame): void {
@@ -833,7 +1078,11 @@ function companiesDaily(g: ConquestGame): void {
           // A captain who took a neutral made pirates of them: the commission's forfeit.
           if (cr.flag === "pirate" && x.commission) {
             x.commission = null;
-            firmLine(g, f, `Her captain took a ship her commission didn't cover: the letter of marque is forfeit.`);
+            firmLine(
+              g,
+              f,
+              `Her captain took a ship her commission didn't cover: the letter of marque is forfeit.`,
+            );
           }
         }
         partnersChanged(g, "f");
@@ -849,93 +1098,157 @@ function companiesDaily(g: ConquestGame): void {
 }
 
 /** The company's ship, in its books: her keep in port, prize money and outfits, the call if the chest is bare. */
-later(() => hooks.firmMonth.push((g, f) => {
-  const x = f.sea;
-  if (!x) return undefined;
-  const keep = x.lost ? 0 : BOATS[x.kind].upkeep;
-  f.chest = r2(f.chest - keep);
-  const takings = r2(x.inMonth ?? 0);
-  const costs = r2((x.outMonth ?? 0) + keep);
-  // The bare chest is called from the owners by share.
-  if (f.chest < 0) {
-    const short = r2(-f.chest);
-    for (const p of f.partners) {
-      const a = r2((short * p.share) / 100);
-      if (!a) continue;
-      const l = lifeOfChar(g.s, p.c);
-      if (l) {
-        spend(g, l, a);
-        journal(g, l, `${f.name}: the chest is bare and the ${x.ship}'s keep is due: your part, ${a} coins, is called from you.`, "bad");
+later(() =>
+  hooks.firmMonth.push((g, f) => {
+    const x = f.sea;
+    if (!x) return undefined;
+    const keep = x.lost ? 0 : BOATS[x.kind].upkeep;
+    f.chest = r2(f.chest - keep);
+    const takings = r2(x.inMonth ?? 0);
+    const costs = r2((x.outMonth ?? 0) + keep);
+    // The bare chest is called from the owners by share.
+    if (f.chest < 0) {
+      const short = r2(-f.chest);
+      for (const p of f.partners) {
+        const a = r2((short * p.share) / 100);
+        if (!a) continue;
+        const l = lifeOfChar(g.s, p.c);
+        if (l) {
+          spend(g, l, a);
+          journal(
+            g,
+            l,
+            `${f.name}: the chest is bare and the ${x.ship}'s keep is due: your part, ${a} coins, is called from you.`,
+            "bad",
+          );
+        }
       }
+      f.chest = 0;
     }
-    f.chest = 0;
-  }
-  f.books.push({
-    day: g.s.day,
-    takings,
-    costs,
-    profit: r2(takings - costs),
-    note: x.lost ? "the ship lost" : x.cruise >= 0 ? "at sea" : "in port",
-  });
-  if (f.books.length > 24) f.books.splice(0, f.books.length - 24);
-  x.inMonth = 0;
-  x.outMonth = 0;
-  partnersChanged(g, "f");
-  return r2(takings - costs);
-}));
+    f.books.push({
+      day: g.s.day,
+      takings,
+      costs,
+      profit: r2(takings - costs),
+      note: x.lost ? "the ship lost" : x.cruise >= 0 ? "at sea" : "in port",
+    });
+    if (f.books.length > 24) f.books.splice(0, f.books.length - 24);
+    x.inMonth = 0;
+    x.outMonth = 0;
+    partnersChanged(g, "f");
+    return r2(takings - costs);
+  }),
+);
 
 /** What the ship would fetch, for a winding up or a buyout. */
-later(() => hooks.firmAssets.push((_s, f) => {
-  const x = f.sea;
-  if (!x || x.lost) return 0;
-  return r2(BOATS[x.kind].price * (x.hull / 100) * 0.6);
-}));
+later(() =>
+  hooks.firmAssets.push((_s, f) => {
+    const x = f.sea;
+    if (!x || x.lost) return 0;
+    return r2(BOATS[x.kind].price * (x.hull / 100) * 0.6);
+  }),
+);
 
 /** LEDGER (r15): your share of her keep when the chest can't pay it, and her prizes by luck. */
-later(() => hooks.forecast.push((s, life, w) => {
-  const out: Part[] = [];
-  for (const f of companiesOf(s, life.c)) {
-    const p = partnerIn(f, life.c)!;
-    const x = f.sea!;
-    const keep = x.lost ? 0 : BOATS[x.kind].upkeep;
-    const call = Math.max(0, keep - Math.max(0, f.chest));
-    if (call > 0)
-      out.push({ key: `firm:${f.id}`, label: `${f.name}: her keep, called (${p.share}%)`, value: -r2((call * p.share) / 100) });
-    if (!w || x.lost || !x.commission) continue;
-    const v = companyOdds(s, w, { kind: x.kind, port: x.at, nation: x.commission.nation, hull: x.hull, share: p.share, stake: 0 });
-    if (!v) continue;
-    const month = r2((v.expected * 30) / Math.max(30, v.days?.[0] ?? 45));
-    if (month > 0)
-      out.push({ key: `firm:${f.id}:prizes`, label: `The ${x.ship}'s prizes (${p.share}%)`, value: month, chance: [0, r1(v.hi)] });
-  }
-  return out;
-}));
+later(() =>
+  hooks.forecast.push((s, life, w) => {
+    const out: Part[] = [];
+    for (const f of companiesOf(s, life.c)) {
+      const p = partnerIn(f, life.c)!;
+      const x = f.sea!;
+      const keep = x.lost ? 0 : BOATS[x.kind].upkeep;
+      const call = Math.max(0, keep - Math.max(0, f.chest));
+      if (call > 0)
+        out.push({
+          key: `firm:${f.id}`,
+          label: `${f.name}: her keep, called (${p.share}%)`,
+          value: -r2((call * p.share) / 100),
+        });
+      if (!w || x.lost || !x.commission) continue;
+      const v = companyOdds(s, w, {
+        kind: x.kind,
+        port: x.at,
+        nation: x.commission.nation,
+        hull: x.hull,
+        share: p.share,
+        stake: 0,
+      });
+      if (!v) continue;
+      const month = r2((v.expected * 30) / Math.max(30, v.days?.[0] ?? 45));
+      if (month > 0)
+        out.push({
+          key: `firm:${f.id}:prizes`,
+          label: `The ${x.ship}'s prizes (${p.share}%)`,
+          value: month,
+          chance: [0, r1(v.hi)],
+        });
+    }
+    return out;
+  }),
+);
 
 /** LEDGER (r15): the company in the tracker. */
-later(() => hooks.affairs.push((s, w, life) =>
-  companiesOf(s, life.c).map((f) => {
-    const p = partnerIn(f, life.c)!;
-    const x = f.sea!;
-    const cr = x.cruise >= 0 ? cruiseById(s, x.cruise) : undefined;
-    const v = !x.lost && x.commission ? companyOdds(s, w, { kind: x.kind, port: x.at, nation: x.commission.nation, hull: x.hull, share: p.share, stake: 0 }) : null;
-    return {
-      kind: "firm" as const,
-      id: `co:${f.id}`,
-      title: `The ${x.ship} (${p.share}%)`,
-      what: `${BOATS[x.kind].name} of ${x.guns} guns, ${x.commission ? `${s.nations[x.commission.nation]?.adjective ?? ""} letter of marque` : "no commission"}; ${x.cruises} cruise${x.cruises === 1 ? "" : "s"}, ${x.taken} prize${x.taken === 1 ? "" : "s"}, ${r1(x.fetched)} to the owners`,
-      status: x.lost ? "lost" : cr ? (cr.phase === "fitting" ? "fitting out" : cr.phase === "selling" ? "the prize court" : "on a cruise") : "in port",
-      p: x.at,
-      ...(cr ? { due: cr.phase === "selling" ? cr.court : cr.until } : {}),
-      ...(x.lost ? { warn: "the ship's lost: buy another, or wind up" } : !x.commission ? { warn: "no letter of marque: she can't cruise" } : {}),
-      cost: -r2(((x.lost ? 0 : BOATS[x.kind].upkeep) * p.share) / 100),
-      ...(v ? { expected: { value: v.expected, lo: 0, hi: v.hi, per: "trip" as const } } : {}),
-      go: { tab: "work", sub: "sea" },
-    };
-  }),
-));
+later(() =>
+  hooks.affairs.push((s, w, life) =>
+    companiesOf(s, life.c).map((f) => {
+      const p = partnerIn(f, life.c)!;
+      const x = f.sea!;
+      const cr = x.cruise >= 0 ? cruiseById(s, x.cruise) : undefined;
+      const v =
+        !x.lost && x.commission
+          ? companyOdds(s, w, {
+              kind: x.kind,
+              port: x.at,
+              nation: x.commission.nation,
+              hull: x.hull,
+              share: p.share,
+              stake: 0,
+            })
+          : null;
+      return {
+        kind: "firm" as const,
+        id: `co:${f.id}`,
+        title: `The ${x.ship} (${p.share}%)`,
+        what: `${BOATS[x.kind].name} of ${x.guns} guns, ${x.commission ? `${s.nations[x.commission.nation]?.adjective ?? ""} letter of marque` : "no commission"}; ${x.cruises} cruise${x.cruises === 1 ? "" : "s"}, ${x.taken} prize${x.taken === 1 ? "" : "s"}, ${r1(x.fetched)} to the owners`,
+        status: x.lost
+          ? "lost"
+          : cr
+            ? cr.phase === "fitting"
+              ? "fitting out"
+              : cr.phase === "selling"
+                ? "the prize court"
+                : "on a cruise"
+            : "in port",
+        p: x.at,
+        ...(cr ? { due: cr.phase === "selling" ? cr.court : cr.until } : {}),
+        ...(x.lost
+          ? { warn: "the ship's lost: buy another, or wind up" }
+          : !x.commission
+            ? { warn: "no letter of marque: she can't cruise" }
+            : {}),
+        cost: -r2(((x.lost ? 0 : BOATS[x.kind].upkeep) * p.share) / 100),
+        ...(v
+          ? {
+              expected: {
+                value: v.expected,
+                lo: 0,
+                hi: v.hi,
+                per: "trip" as const,
+              },
+            }
+          : {}),
+        go: { tab: "work", sub: "sea" },
+      };
+    }),
+  ),
+);
 
 /** The company's commands. */
-function companyCommand(g: ConquestGame, life: Life, c: LifeCommand): string | null | undefined {
+function companyCommand(
+  g: ConquestGame,
+  life: Life,
+  c: LifeCommand,
+): string | null | undefined {
   if (c.k !== "sea") return undefined;
   switch (c.act) {
     case "co-open":
@@ -954,9 +1267,22 @@ function companyCommand(g: ConquestGame, life: Life, c: LifeCommand): string | n
     case "co-sign":
       return signCompany(g, life, c.id ?? -1);
     case "co-cruise":
-      return companyCruise(g, life, c.id ?? -1, c.key ?? "", (c.arg ?? 0) > 0, c.name === "command");
+      return companyCruise(
+        g,
+        life,
+        c.id ?? -1,
+        c.key ?? "",
+        (c.arg ?? 0) > 0,
+        c.name === "command",
+      );
     case "co-ship":
-      return buyShip(g, life, c.id ?? -1, (c.key ?? "sloop") as BoatKind, c.name);
+      return buyShip(
+        g,
+        life,
+        c.id ?? -1,
+        (c.key ?? "sloop") as BoatKind,
+        c.name,
+      );
     case "co-marque":
       return companyMarque(g, life, c.id ?? -1);
   }
@@ -964,8 +1290,9 @@ function companyCommand(g: ConquestGame, life: Life, c: LifeCommand): string | n
 }
 
 later(() => hooks.command.push(companyCommand));
-later(() => hooks.daily.push((g) => {
-  subsDaily(g);
-  companiesDaily(g);
-}));
-
+later(() =>
+  hooks.daily.push((g) => {
+    subsDaily(g);
+    companiesDaily(g);
+  }),
+);

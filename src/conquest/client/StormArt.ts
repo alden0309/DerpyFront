@@ -48,7 +48,9 @@ export function seaStorms(
       ? Math.max(0, 1 - (dayNow - st.ended!) / (FADE_DAYS + 1))
       : Math.min(1, 0.35 + (dayNow - st.born) * 0.65);
     if (alpha <= 0.02) continue;
-    const [lat, lon] = ended ? [st.lat, st.lon] : moveAlong(st.lat, st.lon, st.dir, st.km * t);
+    const [lat, lon] = ended
+      ? [st.lat, st.lon]
+      : moveAlong(st.lat, st.lon, st.dir, st.km * t);
     const [x, y] = projectLatLon(lat, lon, width);
     const k = kmPerUnit(lat, width);
     const force = ended ? Math.max(0.5, st.force) : Math.max(0.8, st.force);

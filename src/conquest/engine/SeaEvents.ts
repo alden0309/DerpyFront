@@ -15,7 +15,19 @@
 
 import { BOATS } from "./Boats";
 import { formatDate } from "./Calendar";
-import { GROUND_BY_KEY, hullPace, PREY, ROLE_NAMES, WARSHIP } from "./CruiseData";
+import {
+  boardDc,
+  chaseDc,
+  CRUISE,
+  fightWarshipDc,
+  GROUND_BY_KEY,
+  hullPace,
+  PREY,
+  ROLE_NAMES,
+  runDc,
+  strikeDc,
+  WARSHIP,
+} from "./CruiseData";
 import { wouldChase } from "./CruiseOdds";
 import {
   boardNow,
@@ -42,21 +54,28 @@ import {
   takePardon,
   warshipNow,
 } from "./Cruises";
-import {
-  boardDc,
-  chaseDc,
-  CRUISE,
-  fightWarshipDc,
-  runDc,
-  strikeDc,
-} from "./CruiseData";
 import { registerFamily } from "./EventPacing";
-import { companyOdds, joinCheck, joinCompany, subById, subNeeded, subTotal } from "./Privateers";
 import type { ConquestGame } from "./Game";
-import { addRenown, addStress, gainXp, hurt, journal, spend, touchLife } from "./LifeCore";
+import {
+  addRenown,
+  addStress,
+  gainXp,
+  hurt,
+  journal,
+  spend,
+  touchLife,
+} from "./LifeCore";
 import type { LCtx, LifeEventDef } from "./LifeEvents";
 import { chanceWords, type OddsView } from "./Odds";
-import { seaOf, seaChanged } from "./SeaCore";
+import {
+  companyOdds,
+  joinCheck,
+  joinCompany,
+  subById,
+  subNeeded,
+  subTotal,
+} from "./Privateers";
+import { seaChanged, seaOf } from "./SeaCore";
 import { stormById, stormName } from "./Storms";
 import type { Cruise, CruiseRole, Life, Voyage, VoyageKind } from "./Types";
 import {
@@ -107,7 +126,8 @@ function orders(g: ConquestGame, life: Life, cr: Cruise): string {
 /** Her pace against ours, in words. */
 function paceWords(theirs: number, ours: number): string {
   const d = theirs - ours;
-  if (d > 0.15) return "She has the legs of us: a long chase, and likely a lost one";
+  if (d > 0.15)
+    return "She has the legs of us: a long chase, and likely a lost one";
   if (d > 0.02) return "She's a shade quicker than we are";
   if (d > -0.1) return "She sails much as we do";
   return "She's a slug: we'll be up with her by noon";
@@ -124,7 +144,12 @@ function ours(cr: Cruise): number {
 }
 
 /** A life's part of a prize of this value, as the articles have it (after the court's fees or the fence). */
-function myShare(g: ConquestGame, life: Life, cr: Cruise, value: number): number {
+function myShare(
+  g: ConquestGame,
+  life: Life,
+  cr: Cruise,
+  value: number,
+): number {
   const h = cr.hands.find((x) => x.seat === life.seat && x.c === life.c);
   if (!h) return 0;
   return r1(value * handFraction(g.s, g.map, cr, h));
@@ -147,7 +172,9 @@ export function oddsText(v: OddsView): string {
   );
   for (const r of v.risks)
     if (r.p > 0)
-      out.push(`· Risk, ${chanceWords(r.p)}: ${r.label.toLowerCase()}${r.note ? ` (${r.note})` : ""}.`);
+      out.push(
+        `· Risk, ${chanceWords(r.p)}: ${r.label.toLowerCase()}${r.note ? ` (${r.note})` : ""}.`,
+      );
   return out.join("\n");
 }
 
@@ -221,7 +248,8 @@ const HUNT = (): LifeEventDef[] => [
       const cr = cruiseOf(g, life, ctx);
       const e = cr?.encounter;
       if (!cr || !e) return "The sail is gone over the horizon.";
-      const lawful = cr.flag === "pirate" || enemiesOf(g.s, cr.nation).has(e.flag);
+      const lawful =
+        cr.flag === "pirate" || enemiesOf(g.s, cr.nation).has(e.flag);
       const why = !lawful
         ? `Your commission covers only the enemy's ships: take her, and every man aboard is a pirate in the law's eyes, the commission no shield and the prizes forfeit.`
         : `A galleon of ${e.guns} guns against your ${cr.guns}: the master shakes his head. "She'd blow us out of the water before we were near enough to board."`;
@@ -243,7 +271,8 @@ const HUNT = (): LifeEventDef[] => [
           const cr = cruiseOf(g, life, ctx);
           const e = cr?.encounter;
           if (!cr || !e) return "She's gone.";
-          return cr.flag === "privateer" && !enemiesOf(g.s, cr.nation).has(e.flag)
+          return cr.flag === "privateer" &&
+            !enemiesOf(g.s, cr.nation).has(e.flag)
             ? "Piracy, if you take her: the law's heat, and a rope at the end of it."
             : "A long chase and a bloody boarding, against her guns.";
         },
@@ -299,7 +328,9 @@ const HUNT = (): LifeEventDef[] => [
                 Math.min(
                   0.95,
                   0.6 +
-                    (commanderSkill(g.s, cr, "fighting") - boardDc(e.guns, cr.guns)) * 0.07,
+                    (commanderSkill(g.s, cr, "fighting") -
+                      boardDc(e.guns, cr.guns)) *
+                      0.07,
                 ),
               ),
           );
@@ -310,7 +341,13 @@ const HUNT = (): LifeEventDef[] => [
           dc: (g, life, ctx) => {
             const cr = cruiseOf(g, life, ctx);
             if (!cr?.encounter) return 7;
-            return effDc(g.s, cr, life, "leadership", strikeDc(cr.encounter.guns, cr.flag));
+            return effDc(
+              g.s,
+              cr,
+              life,
+              "leadership",
+              strikeDc(cr.encounter.guns, cr.flag),
+            );
           },
         },
         blocked: (g, life, ctx) => past(g, life, ctx, "alongside"),
@@ -327,7 +364,13 @@ const HUNT = (): LifeEventDef[] => [
           dc: (g, life, ctx) => {
             const cr = cruiseOf(g, life, ctx);
             if (!cr?.encounter) return 7;
-            return effDc(g.s, cr, life, "fighting", boardDc(cr.encounter.guns, cr.guns));
+            return effDc(
+              g.s,
+              cr,
+              life,
+              "fighting",
+              boardDc(cr.encounter.guns, cr.guns),
+            );
           },
         },
         blocked: (g, life, ctx) => past(g, life, ctx, "alongside"),
@@ -373,10 +416,13 @@ The boarding goes as the captain's men can carry it. Your own part in it is your
       {
         label: "Be first over the rail",
         tip: "Fighting: win your fight and the men follow you (renown, and a better chance of carrying her). Lose it, and you're likely hurt.",
-        check: { skill: "fighting", dc: (g, life, ctx) => {
-          const cr = cruiseOf(g, life, ctx);
-          return cr?.encounter ? boardDc(cr.encounter.guns, cr.guns) + 1 : 7;
-        } },
+        check: {
+          skill: "fighting",
+          dc: (g, life, ctx) => {
+            const cr = cruiseOf(g, life, ctx);
+            return cr?.encounter ? boardDc(cr.encounter.guns, cr.guns) + 1 : 7;
+          },
+        },
         blocked: (g, life, ctx) => past(g, life, ctx, "alongside"),
         apply: (g, life, ctx, pass) => {
           const cr = cruiseOf(g, life, ctx);
@@ -417,7 +463,9 @@ The boarding goes as the captain's men can carry it. Your own part in it is your
         label: (g, life, ctx) => {
           const cr = cruiseOf(g, life, ctx);
           const v = cr?.encounter?.value ?? 0;
-          return cr ? `Send her in with a prize crew (≈ ${myShare(g, life, cr, v)} to you)` : "Send her in with a prize crew";
+          return cr
+            ? `Send her in with a prize crew (≈ ${myShare(g, life, cr, v)} to you)`
+            : "Send her in with a prize crew";
         },
         tip: "Her whole worth, sold at home: but she may be retaken on the way, and the prize crew thins your company.",
         blocked: (g, life, ctx) => past(g, life, ctx, "taken"),
@@ -430,7 +478,9 @@ The boarding goes as the captain's men can carry it. Your own part in it is your
         label: (g, life, ctx) => {
           const cr = cruiseOf(g, life, ctx);
           const v = Math.round((cr?.encounter?.value ?? 0) * CRUISE.plunder);
-          return cr ? `Take what's worth carrying (≈ ${myShare(g, life, cr, v)} to you)` : "Take what's worth carrying";
+          return cr
+            ? `Take what's worth carrying (≈ ${myShare(g, life, cr, v)} to you)`
+            : "Take what's worth carrying";
         },
         tip: `About ${Math.round(CRUISE.plunder * 100)} in a hundred of her worth (the coin, the silver, the best of the cargo), carried aboard: sure, unless your own ship is taken.`,
         blocked: (g, life, ctx) => past(g, life, ctx, "taken"),
@@ -617,22 +667,32 @@ const STORMS = (): LifeEventDef[] => [
     scene: "docks",
     title: "A falling glass",
     body: (g, life, ctx) => {
-      const boats = (life.boats ?? []).filter((b) => b.prov === life.prov).length;
+      const boats = (life.boats ?? []).filter(
+        (b) => b.prov === life.prov,
+      ).length;
       return `A long, heavy swell is running in from the south-east though there's hardly a breath of wind. The glass in the customs house has been falling since morning, and the sky at sunset was red as a forge. The old hands say it plainly: a hurricane, ${ctx.d <= 1 ? "by tomorrow" : `in ${ctx.d} days or so`}.${boats ? ` You have ${boats === 1 ? "a boat" : `${boats} boats`} in the harbour.` : ""}`;
     },
     choices: [
       {
         label: (_g, life) => {
-          const n = (life.boats ?? []).filter((b) => b.prov === life.prov).length;
-          return n ? `Batten down, and haul up your boats (${n} coins)` : "Batten down: shutters up, the stores carried up";
+          const n = (life.boats ?? []).filter(
+            (b) => b.prov === life.prov,
+          ).length;
+          return n
+            ? `Batten down, and haul up your boats (${n} coins)`
+            : "Batten down: shutters up, the stores carried up";
         },
         tip: "Made ready, the storm does much less harm to your house and boats here.",
         blocked: (_g, life) => {
-          const n = (life.boats ?? []).filter((b) => b.prov === life.prov).length;
+          const n = (life.boats ?? []).filter(
+            (b) => b.prov === life.prov,
+          ).length;
           return life.purse < n ? `Needs ${n} coins` : null;
         },
         apply: (g, life, ctx) => {
-          const n = (life.boats ?? []).filter((b) => b.prov === life.prov).length;
+          const n = (life.boats ?? []).filter(
+            (b) => b.prov === life.prov,
+          ).length;
           if (n) spend(g, life, n);
           ready(g, life, ctx);
           journal(
@@ -645,7 +705,8 @@ const STORMS = (): LifeEventDef[] => [
       {
         label: "Pay it no mind",
         tip: "Old men's weather-lore. Perhaps it'll pass to seaward.",
-        apply: (g, life) => journal(g, life, "You pay the old hands' talk no mind."),
+        apply: (g, life) =>
+          journal(g, life, "You pay the old hands' talk no mind."),
       },
     ],
   },
@@ -683,7 +744,8 @@ const STORMS = (): LifeEventDef[] => [
       {
         label: "Stand on, and trust to her",
         tip: "Keep your course and your days. If it finds you, it finds you.",
-        apply: (g, life) => journal(g, life, "You stand on, and keep a weather eye."),
+        apply: (g, life) =>
+          journal(g, life, "You stand on, and keep a weather eye."),
       },
     ],
   },
@@ -699,13 +761,19 @@ const STORMS = (): LifeEventDef[] => [
       {
         label: "Run before it",
         tip: "Seamanship: under bare poles, fast and wild. Broach, and she's on her beam ends.",
-        check: { skill: "seamanship", dc: (_g, _l, ctx) => Math.round(6 + ctx.f) },
+        check: {
+          skill: "seamanship",
+          dc: (_g, _l, ctx) => Math.round(6 + ctx.f),
+        },
         apply: (g, life, ctx, pass) => stormAtSea(g, life, ctx, "run", pass),
       },
       {
         label: "Heave to and ride it out",
         tip: "Seamanship: slower, steadier; a few days lost.",
-        check: { skill: "seamanship", dc: (_g, _l, ctx) => Math.round(4 + ctx.f) },
+        check: {
+          skill: "seamanship",
+          dc: (_g, _l, ctx) => Math.round(4 + ctx.f),
+        },
         apply: (g, life, ctx, pass) => stormAtSea(g, life, ctx, "heave", pass),
       },
     ],
@@ -724,21 +792,38 @@ const STORMS = (): LifeEventDef[] => [
         tip: "Safe, mostly. A frightening night.",
         apply: (g, life, ctx) => {
           addStress(g, life, Math.round(6 + ctx.f * 2));
-          journal(g, life, "You sat the night out in the church with half the town, praying and listening to the roof.");
+          journal(
+            g,
+            life,
+            "You sat the night out in the church with half the town, praying and listening to the roof.",
+          );
         },
       },
       {
         label: "Help at the harbour",
         tip: "Seamanship: save the boats and the people in them. Renown, and salvage, if it goes well; the sea, if it doesn't.",
-        check: { skill: "seamanship", dc: (_g, _l, ctx) => Math.round(5 + ctx.f) },
+        check: {
+          skill: "seamanship",
+          dc: (_g, _l, ctx) => Math.round(5 + ctx.f),
+        },
         apply: (g, life, ctx, pass) => {
           gainXp(g, life, "seamanship", 10);
           if (pass) {
             addRenown(g, life, 2);
-            journal(g, life, "You were in the water half the night with a rope round your waist. Two boats saved, and a family out of a sinking one. The town knows your name.", "good");
+            journal(
+              g,
+              life,
+              "You were in the water half the night with a rope round your waist. Two boats saved, and a family out of a sinking one. The town knows your name.",
+              "good",
+            );
           } else {
             hurt(g, life, Math.round(8 + ctx.f * 3), "a hurricane");
-            journal(g, life, "A sea took your feet from under you on the quay and threw you against a bollard.", "bad");
+            journal(
+              g,
+              life,
+              "A sea took your feet from under you on the quay and threw you against a bollard.",
+              "bad",
+            );
           }
         },
       },
@@ -747,11 +832,25 @@ const STORMS = (): LifeEventDef[] => [
         tip: "Craft: save what you can of your own. Fail, and the repairs cost you.",
         check: { skill: "craft", dc: (_g, _l, ctx) => Math.round(3 + ctx.f) },
         apply: (g, life, ctx, pass) => {
-          if (pass) journal(g, life, "Shutters nailed, the stores up in the loft: you came through with a few slates gone.", "good");
+          if (pass)
+            journal(
+              g,
+              life,
+              "Shutters nailed, the stores up in the loft: you came through with a few slates gone.",
+              "good",
+            );
           else {
-            const cost = Math.min(Math.max(0, life.purse), Math.round(2 + ctx.f * 2));
+            const cost = Math.min(
+              Math.max(0, life.purse),
+              Math.round(2 + ctx.f * 2),
+            );
             if (cost) spend(g, life, cost);
-            journal(g, life, `The wind had the roof off over your head. Repairs: ${cost} coins.`, "bad");
+            journal(
+              g,
+              life,
+              `The wind had the roof off over your head. Repairs: ${cost} coins.`,
+              "bad",
+            );
           }
         },
       },
@@ -772,7 +871,9 @@ function stormAtSea(
     stormNow(g, cr, ctx.f, how, pass);
     return;
   }
-  const v = seaOf(g.s).voyages.find((x) => x.id === ctx.v && x.seat === life.seat);
+  const v = seaOf(g.s).voyages.find(
+    (x) => x.id === ctx.v && x.seat === life.seat,
+  );
   if (v) {
     voyageStorm(g, life, v, ctx.f, how, pass);
     journal(
@@ -788,9 +889,13 @@ function stormAtSea(
 
 // ---------------------------------------------------------------- the trades that travel
 
-
 /** A voyage's offer: its text, its odds going and staying. */
-function voyageBody(g: ConquestGame, life: Life, ctx: LCtx, kind: VoyageKind): string {
+function voyageBody(
+  g: ConquestGame,
+  life: Life,
+  ctx: LCtx,
+  kind: VoyageKind,
+): string {
   const def = VOYAGE_DEFS[kind];
   const to = g.map.provinces[ctx.to]?.name ?? "far off";
   const go = voyageOdds(g.s, g.w, life, kind, ctx.to, true);
@@ -819,7 +924,11 @@ function voyageDef(kind: VoyageKind): LifeEventDef {
       },
       blocked: (_g, life) => {
         const n = stakeFor(life, kind);
-        return !n ? "Your rank allows no venture" : life.purse < n ? `Needs ${n} coins` : null;
+        return !n
+          ? "Your rank allows no venture"
+          : life.purse < n
+            ? `Needs ${n} coins`
+            : null;
       },
       apply: (g, life, ctx) => {
         const err = goVoyage(g, life, kind, ctx.to, true);
@@ -831,7 +940,8 @@ function voyageDef(kind: VoyageKind): LifeEventDef {
       kind === "merchant"
         ? "Go aboard"
         : kind === "whaling"
-          ? (_g, life) => `Ship for the season (a 1/${Math.round(1 / layOf(life))} lay)`
+          ? (_g, life) =>
+              `Ship for the season (a 1/${Math.round(1 / layOf(life))} lay)`
           : kind === "furs"
             ? "Go with the brigade"
             : "Run the lines yourself",
@@ -851,15 +961,22 @@ function voyageDef(kind: VoyageKind): LifeEventDef {
   });
   if (kind === "furs")
     choices.push({
-      label: (_g, life) => `Send your goods with it (${stakeFor(life, kind)} coins)`,
+      label: (_g, life) =>
+        `Send your goods with it (${stakeFor(life, kind)} coins)`,
       tip: (_g, life) => {
         const n = stakeFor(life, kind);
-        const back = r1(FUR_LUCK.reduce((m, l) => m + l.p * l.x, 0) * n * SEND_SHARE);
+        const back = r1(
+          FUR_LUCK.reduce((m, l) => m + l.p * l.x, 0) * n * SEND_SHARE,
+        );
         return `Stay at home: the brigade's master trades them for you and takes his cut (you get ${Math.round(SEND_SHARE * 100)} in a hundred of what they fetch): about ${back} back, in two months.`;
       },
       blocked: (_g, life) => {
         const n = stakeFor(life, kind);
-        return !n ? "Your rank allows no goods of your own" : life.purse < n ? `Needs ${n} coins` : null;
+        return !n
+          ? "Your rank allows no goods of your own"
+          : life.purse < n
+            ? `Needs ${n} coins`
+            : null;
       },
       apply: (g, life) => {
         const err = stayVoyage(g, life, kind, true);
@@ -877,7 +994,9 @@ function voyageDef(kind: VoyageKind): LifeEventDef {
     });
   choices.push({
     label: seagoing ? "Stay ashore" : "Stay at home",
-    tip: seagoing ? "Work the quay at your wage this time." : "The next one will do.",
+    tip: seagoing
+      ? "Work the quay at your wage this time."
+      : "The next one will do.",
     apply: (g, life) => {
       stayVoyage(g, life, kind, false);
     },
@@ -887,7 +1006,8 @@ function voyageDef(kind: VoyageKind): LifeEventDef {
     pool: "raised",
     cooldown: 0,
     scene: seagoing ? "docks" : "woods",
-    title: (g, _l, ctx) => `${def.name} to ${g.map.provinces[ctx.to]?.name ?? "far off"}`,
+    title: (g, _l, ctx) =>
+      `${def.name} to ${g.map.provinces[ctx.to]?.name ?? "far off"}`,
     body: (g, life, ctx) => voyageBody(g, life, ctx, kind),
     choices,
   };
@@ -902,7 +1022,9 @@ const VOYAGES = (): LifeEventDef[] => [
     scene: "deck",
     title: "There she blows!",
     body: (g, life) => {
-      const v = seaOf(g.s).voyages.find((x) => x.seat === life.seat && x.phase === "there");
+      const v = seaOf(g.s).voyages.find(
+        (x) => x.seat === life.seat && x.phase === "there",
+      );
       return `"There she blows! There she blows, and breaches!" A right whale, a mile to windward, rolling in the swell. The boats go down with a rush, six to a boat and the mate at the steering oar${v ? `, and the ${v.ship}'s master looks round for who'll take the iron` : ""}.`;
     },
     choices: [
@@ -949,7 +1071,8 @@ function signChoice(role: CruiseRole): LifeEventDef["choices"][number] {
       const o = offerOf(g, life, ctx);
       if (!o) return "She's sailed.";
       const v = offerOdds(g.s, g.w, life, o, role);
-      const nothing = v.outcomes.find((x) => x.label === "nothing taken")?.p ?? 0;
+      const nothing =
+        v.outcomes.find((x) => x.label === "nothing taken")?.p ?? 0;
       return `${chanceWords(1 - nothing)} of a prize; ${chanceWords(v.risks[0]?.p ?? 0)} of being taken. You sail with her, on the map, till she's home.`;
     },
     blocked: (g, life, ctx) => {
@@ -995,7 +1118,12 @@ const QUAY = (): LifeEventDef[] => [
       {
         label: "Not this time",
         tip: "Let her sail without you. There'll be others.",
-        apply: (g, life) => journal(g, life, "You watch her warp out of the harbour without you."),
+        apply: (g, life) =>
+          journal(
+            g,
+            life,
+            "You watch her warp out of the harbour without you.",
+          ),
       },
     ],
   },
@@ -1025,7 +1153,8 @@ const QUAY = (): LifeEventDef[] => [
       {
         label: "Not yet",
         tip: "The pardon runs a while yet. You can take it later at a governor's house (Work › At sea).",
-        apply: (g, life) => journal(g, life, "You keep the King's pardon in mind."),
+        apply: (g, life) =>
+          journal(g, life, "You keep the King's pardon in mind."),
       },
     ],
   },
@@ -1040,7 +1169,13 @@ function inviteChoice(coins: number): LifeEventDef["choices"][number] {
       const sub = subById(g.s, ctx.sub);
       if (!sub) return "It's closed.";
       const share = (coins / (subTotal(sub) + coins)) * 100;
-      const v = companyOdds(g.s, g.w, { kind: sub.kind, port: sub.prov, nation: g.s.provinces[sub.prov].owner, share, stake: coins });
+      const v = companyOdds(g.s, g.w, {
+        kind: sub.kind,
+        port: sub.prov,
+        nation: g.s.provinces[sub.prov].owner,
+        share,
+        stake: coins,
+      });
       return v
         ? `About ${Math.round(share)}% of her as she stands: a cruise is expected to bring you about ${v.expected} (${chanceWords(v.risks[0].p)} she's taken). Given back if she never signs.`
         : "Given back if she never signs.";
@@ -1069,14 +1204,23 @@ const COMPANY_SCENES = (): LifeEventDef[] => [
       if (!sub) return "The subscription has closed.";
       return `${who ? who.first : "A friend"} writes from ${g.map.provinces[sub.prov].name}: "I am getting up a company to fit out the ${sub.shipName}, ${BOATS[sub.kind].name.toLowerCase()} of ${BOATS[sub.kind].guns} guns, as a privateer under the governor's commission. ${subTotal(sub)} is put in so far, of ${subNeeded(g.s, g.w, sub)} wanted in coin. Will you take a share? The owners have half of every prize the court condemns, by what each put in."\nThe money goes by the same post; it's given back if she never signs.`;
     },
-    choices: [inviteChoice(10), inviteChoice(25), inviteChoice(50), {
-      label: "Decline",
-      tip: "Wish them luck, and keep your money.",
-      apply: (g, life, ctx) => {
-        const by = g.s.chars[ctx.c];
-        journal(g, life, `You decline a share in the privateer${by ? ` ${by.first} is getting up` : ""}.`);
+    choices: [
+      inviteChoice(10),
+      inviteChoice(25),
+      inviteChoice(50),
+      {
+        label: "Decline",
+        tip: "Wish them luck, and keep your money.",
+        apply: (g, life, ctx) => {
+          const by = g.s.chars[ctx.c];
+          journal(
+            g,
+            life,
+            `You decline a share in the privateer${by ? ` ${by.first} is getting up` : ""}.`,
+          );
+        },
       },
-    }],
+    ],
   },
 ];
 
@@ -1089,7 +1233,13 @@ const COMPANY_SCENES = (): LifeEventDef[] => [
 let built: LifeEventDef[] | null = null;
 export function seaEvents(): LifeEventDef[] {
   if (built) return built;
-  built = [...HUNT(), ...STORMS(), ...VOYAGES(), ...QUAY(), ...COMPANY_SCENES()];
+  built = [
+    ...HUNT(),
+    ...STORMS(),
+    ...VOYAGES(),
+    ...QUAY(),
+    ...COMPANY_SCENES(),
+  ];
   registerFamily("sea-weather", ["sea-storm-ship", "sea-storm-signs-ship"], 60);
   registerFamily("calamity", ["sea-storm-town"], 365);
   return built;
@@ -1106,9 +1256,13 @@ export function seaQuiet(): Record<string, number> {
   quiet ??= Object.fromEntries(
     seaEvents()
       .filter((d) =>
-        ["sea-voyage-", "sea-fitting", "sea-whale", "sea-pardon", "sea-sub-invite"].some((k) =>
-          d.key.startsWith(k),
-        ),
+        [
+          "sea-voyage-",
+          "sea-fitting",
+          "sea-whale",
+          "sea-pardon",
+          "sea-sub-invite",
+        ].some((k) => d.key.startsWith(k)),
       )
       .map((d) => [d.key, d.choices.length - 1]),
   );
@@ -1116,5 +1270,5 @@ export function seaQuiet(): Record<string, number> {
 }
 
 /** Helpers for the client's sea page and the tests. */
-export { wouldChase, planOf, deciderOf };
+export { deciderOf, planOf, wouldChase };
 export type { Voyage };
