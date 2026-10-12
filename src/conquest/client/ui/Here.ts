@@ -61,6 +61,7 @@ import {
   TERRAIN_NAMES,
 } from "../Text";
 import { num } from "../Tip";
+import { bondDocksButton, heldWord } from "./Bondage"; // LABOUR (r15)
 import {
   action,
   bar,
@@ -456,6 +457,12 @@ export function roleOf(ui: GameUi, c: Character): string {
   if (sp?.role)
     return `${c.female ? "Wife" : "Husband"} of the ${ROLES[sp.role].title.toLowerCase()}`;
   if (s.armies.some((a) => a.commander === c.id)) return "Commander";
+  // LABOUR (r15): held in bondage, under indenture, or freed.
+  const bond = heldWord(c);
+  if (bond)
+    return bond !== "freed" && c.bond?.seat && c.bond.seat === ui.life?.seat
+      ? `${bond.charAt(0).toUpperCase()}${bond.slice(1)} in your household`
+      : `${bond.charAt(0).toUpperCase()}${bond.slice(1)}`;
   return isNativeChar(s, c) ? "Of the village" : "Of the town";
 }
 
@@ -900,6 +907,7 @@ const ACT_GROUPS: [string, string][] = [
 ];
 
 const ACT_GROUP: Record<string, string> = {
+  "~bond": "buy", // LABOUR (r15)
   peddle: "work",
   hunt: "work",
   trap: "work",
@@ -1296,6 +1304,9 @@ function actsBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
         run: d.run,
       });
     });
+  // LABOUR (r15): a sale at the docks (people, or servants' indentures).
+  const bond = area === "docks" ? bondDocksButton(ui, actButton) : null;
+  if (bond) buttons.set("~bond", bond);
   if (stand) buttons.set("~stand", () => standButton(ui));
   if (europe) buttons.set("~europe", () => europeButton(ui));
   const now = [

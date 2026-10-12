@@ -16,6 +16,11 @@ import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 import { checkAchievements } from "../../conquest/engine/Achievements"; // MAP (r12)
 import { validateLook } from "../../conquest/engine/Appearance";
+import {
+  labourDeltaForSeat,
+  labourDeltaSecret,
+  labourStateForSeat,
+} from "../../conquest/engine/BondCore"; // LABOUR (r15)
 import { dateOf } from "../../conquest/engine/Calendar";
 import { lifeCoins } from "../../conquest/engine/Coins";
 import { dropFromTable } from "../../conquest/engine/Dice"; // DICE (r14)
@@ -981,7 +986,11 @@ export class ConquestRooms {
       solo: room.solo,
       // DICE (r14): everyone's dice but your own stay under their cups.
       // INTRIGUE (r15): and everyone's schemes and private letters but your own.
-      state: stateForIntrigue(stateForSeat(room.game.state, seat.id), seat.id),
+      // LABOUR (r15): and another household's door, opened to someone fleeing.
+      state: labourStateForSeat(
+        stateForIntrigue(stateForSeat(room.game.state, seat.id), seat.id),
+        seat.id,
+      ),
       speed: room.speed,
       paused: room.paused,
       seats: seatInfo(room),
@@ -1101,12 +1110,15 @@ export class ConquestRooms {
     // (their own dice, nobody else's until the cups are lifted).
     // INTRIGUE (r15): so too schemes, and secrets in a life (a plot's lines,
     // a private letter): each player is sent only their own.
+    // LABOUR (r15): so too a household's door opened to someone fleeing.
     const secret = deltaHasSecrets(d);
-    if (d.dice || secret)
+    const bond = labourDeltaSecret(d);
+    if (d.dice || secret || bond)
       for (const seat of room.seats) {
         if (!seat.conn) continue;
         let mine = d.dice ? { ...d, dice: diceView(d.dice, seat.id) } : d;
         if (secret) mine = deltaForSeat(room.game.state, mine, seat.id);
+        if (bond) mine = labourDeltaForSeat(mine, seat.id);
         this.send(seat.conn, { t: "d", d: mine });
       }
     else this.broadcast(room, { t: "d", d });

@@ -170,6 +170,8 @@ import { BUSINESS_CHAPTER } from "./BusinessChapter";
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
 // INTRIGUE (r15): hearts and schemes.
 import { INTRIGUE_CHAPTER } from "./IntrigueChapter";
+// LABOUR (r15): bondage in the colonies, as history.
+import { BOND_CHAPTER } from "./BondChapter";
 
 export interface Chapter {
   id: string;
@@ -2142,6 +2144,9 @@ Causes brew among the people, and some rise ([[movements|Causes and risings]]). 
 ## The news
 The **News** panel on the map has the colonies' news as it reaches you: wars, battles, treaties, risings, successions. Click a battle for its report. In company, the other players' chat is there too. The talk in the taverns (Here) is the news that has reached that town; the gazette brings it faster, and with prices.`,
   },
+  // ---- LABOUR (r15): bondage in the colonies (guide/BondChapter.ts)
+  BOND_CHAPTER,
+  // ---- end LABOUR (r15)
   {
     id: "journal",
     part: "world",

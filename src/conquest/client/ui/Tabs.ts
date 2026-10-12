@@ -37,6 +37,7 @@ import {
   WHERE_TO_SPEND,
   workSection,
 } from "./Affairs";
+import { bondagePage } from "./Bondage"; // LABOUR (r15)
 import { businessPage, startBizButton } from "./Business"; // BUSINESS (r15)
 import { councilPage } from "./Chamber"; // POWER (r12)
 import {
@@ -587,6 +588,8 @@ function estatePage(ui: GameUi, sub: string): TemplateResult {
       return boatsPage(ui);
     case "business": // BUSINESS (r15)
       return businessPage(ui);
+    case "bondage": // LABOUR (r15)
+      return bondagePage(ui);
     case "partners": // PARTNERS (r13)
       return partnersPage(ui);
     case "goods":

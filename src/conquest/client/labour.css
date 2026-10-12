@@ -1,0 +1,207 @@
+/* LABOUR (r15): Estate › Bondage. Those held in bondage, as people: a card
+   each (their likeness, name and family, health and spirits, their work),
+   how the household is kept, the risks, the docks' sales, freedom, the law
+   and its history. Restrained: the register's ink and vellum, no ornament. */
+
+.cq-bond-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 25rem), 1fr));
+  gap: 0.6rem;
+}
+
+.cq-bond-card {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--sepia);
+  background: rgba(255, 250, 235, 0.5);
+  padding: 0.55rem 0.65rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.cq-bond-card.grief {
+  border-left-color: #5b4a3a;
+  background: rgba(232, 222, 206, 0.55);
+}
+
+.cq-bond-top {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.cq-bond-top .cq-portrait {
+  flex: none;
+}
+.cq-bond-who {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+.cq-bond-name {
+  font-family: var(--fell);
+  font-size: 1.08rem;
+  font-weight: 400;
+  line-height: 1.15;
+}
+.cq-bond-family {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.cq-bond-family b {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.cq-bond-gauges {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem 0.6rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 0.35rem;
+}
+.cq-bond-gauge {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.cq-bond-gauge .cq-num {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.cq-bond-gauge .cq-bar {
+  flex: 1;
+  min-width: 2.2rem;
+}
+
+.cq-bond-skills {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.cq-bond-work {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.cq-bond-acts {
+  margin: 0;
+  flex-wrap: wrap;
+}
+.cq-bond-card .cq-more summary {
+  color: var(--ink-soft);
+}
+
+.cq-bond-fled {
+  margin-top: 0.6rem;
+  color: var(--ink-soft);
+}
+
+/* How the household is kept: one row per choice. */
+.cq-bond-policies {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0.4rem 0;
+}
+.cq-bond-policy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border-bottom: 1px dotted var(--rule);
+  padding-bottom: 0.5rem;
+}
+.cq-bond-policy-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.cq-bond-policy .cq-seg > button {
+  display: inline-flex;
+  align-items: center;
+}
+.cq-bond-policy .cq-seg > button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cq-bond-risks {
+  margin: 0.2rem 0 0.4rem;
+  padding-left: 1.1rem;
+  font-size: 0.88rem;
+}
+.cq-bond-risks li {
+  margin-bottom: 0.25rem;
+}
+
+/* The docks: lots for sale. */
+.cq-bond-lots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.cq-bond-lots li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid var(--rule);
+  padding: 0.4rem 0.55rem;
+  background: rgba(255, 250, 235, 0.4);
+  font-size: 0.88rem;
+}
+.cq-bond-lots li > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+.cq-bond-lots li.sold {
+  opacity: 0.55;
+}
+
+.cq-bond-law {
+  margin: 0.2rem 0 0.4rem;
+  padding-left: 1.1rem;
+}
+.cq-bond-history,
+.cq-bond-record {
+  margin: 0.2rem 0;
+  padding-left: 1.1rem;
+}
+.cq-bond-history li {
+  margin-bottom: 0.25rem;
+}
+.cq-bond-history li.rising b {
+  color: var(--seal);
+}
+.cq-bond-history li.native b {
+  color: var(--verdigris);
+}
+
+.cq-bond-op {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.cq-bond-op.good {
+  color: var(--verdigris);
+}
+.cq-bond-op.bad {
+  color: var(--seal);
+}
+.cq-bond-policy .cq-seg > button {
+  white-space: nowrap;
+}
+.cq-bond-lot-who {
+  display: block;
+}

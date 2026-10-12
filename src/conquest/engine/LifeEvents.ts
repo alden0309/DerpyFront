@@ -3634,10 +3634,12 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   ...DUEL_EVENTS, // HOME (r12): duels as a chain of scenes
   ...SEASON_EVENTS, // MAP (r12)
   ...R15_EVENTS, // EVENTS (r15)
+  ...BOND_EVENTS, // LABOUR (r15): bondage, treated as history
 ];
 
 // ---------------------------------------------------------------- a few calls out
 
+import { BOND_EVENTS } from "./BondEvents"; // LABOUR (r15)
 import { DICE_EVENTS } from "./DiceEvents"; // DICE (r14)
 import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
 import { EDU_EVENTS } from "./EduEvents"; // EDU (r13)

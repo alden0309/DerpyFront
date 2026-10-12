@@ -254,6 +254,8 @@ export function yearOf(s: GameState): number {
 export function charName(c: Character | undefined): string {
   if (!c) return "nobody";
   if (c.title) return c.title;
+  // LABOUR (r15): someone with no surname (the enslaved often had none recorded).
+  if (!c.family) return c.first;
   return `${c.first} ${c.family}`;
 }
 

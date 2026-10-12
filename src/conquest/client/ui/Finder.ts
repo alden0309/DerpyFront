@@ -1754,6 +1754,68 @@ const GOALS: Goal[] = [
     guide: "sea",
   },
   // ---- end SEA (r15)
+  // ---- LABOUR (r15): bondage in the colonies, as history
+  {
+    id: "bond-law",
+    title: "Know where slavery was lawful, and when",
+    words:
+      "slavery slave slaves enslaved bondage law lawful legal code colony georgia ban virginia history",
+    group: "Travel and the world",
+    where:
+      "Estate › Bondage, The law: whether anyone may be held where your household lives, on what law, how they may be freed, and the history there. The How to Play's chapter Bondage in the colonies has a table of every colony, year by year.",
+    go: tab({ k: "tab", tab: "estate", sub: "bondage" }),
+    goLabel: "Estate › Bondage",
+    guide: "bondage",
+  },
+  {
+    id: "bond-free",
+    title: "Free someone held in bondage",
+    words:
+      "free freedom manumit manumission emancipate liberty will petition release indenture enslaved slave",
+    group: "People",
+    where:
+      "Estate › Bondage: Free (by deed, or a petition where the law demands one), Free in your will, or let them buy their freedom once they've saved their price. The law's fees are on the button; some colonies want security in hand, or send the freed out of the colony.",
+    needs: (ui) => [
+      {
+        label:
+          (ui.life!.bondage?.people.length ?? 0)
+            ? "Someone held in your household"
+            : "Nobody held in your household",
+        met: (ui.life!.bondage?.people.length ?? 0) > 0,
+      },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "bondage" }),
+    goLabel: "Estate › Bondage",
+    guide: "bondage",
+    who: "colonist",
+  },
+  {
+    id: "bond-indenture",
+    title: "Take on a servant under indenture",
+    words:
+      "indenture indentured servant servants redemptioner engage bound term passage labour labor cheap workers",
+    group: "People",
+    where:
+      "The docks of an English port (and New France's until the 1730s), when a ship has servants: buy the indenture there, or on Estate › Bondage. Four to seven years' work for the passage, the same keep as anyone, and freedom dues at the end.",
+    go: tab({ k: "tab", tab: "estate", sub: "bondage" }),
+    goLabel: "Estate › Bondage",
+    guide: "bondage",
+    who: "colonist",
+  },
+  {
+    id: "bond-risks",
+    title: "Know the risks of flight and of a rising",
+    words:
+      "flight escape run away runaway revolt rising rebellion uprising odds risk maroon florida patrol treatment",
+    group: "People",
+    where:
+      "Estate › Bondage, The risks: each person's chance of flight a year, of reaching freedom, of a rising, and the deaths expected; and what changes the odds (how the household is kept, grief, refuges near, patrols).",
+    go: tab({ k: "tab", tab: "estate", sub: "bondage" }),
+    goLabel: "Estate › Bondage",
+    guide: "bondage",
+    who: "colonist",
+  },
+  // ---- end LABOUR (r15)
   // ---------------------------------------------------------------- EDU (r13): school, a trade, college
   {
     id: "school",
