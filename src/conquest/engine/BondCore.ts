@@ -49,6 +49,7 @@ import type {
   Bondage,
   Breakdown,
   Character,
+  GameDelta,
   GameState,
   Life,
   MapDef,
@@ -710,7 +711,7 @@ export function deathChance(
                 : 0.015;
   const h = c.bond!.health;
   if (h < 70) p *= 1 + (70 - h) / 25;
-  if (seasoning(s, c)) p *= 3.5;
+  if (seasoning(s, c)) p *= 3;
   if (c.bond!.work === "fields" && workShare(age) > 0)
     p *= CROPS[cropAt(s, map, life.bondage!.home)].death;
   return Math.min(0.2, p);
@@ -1483,13 +1484,48 @@ export function labourForOthers<T extends Partial<Life>>(l: T): T {
   const secret =
     l.events?.some((e) => labourSecretKey(e.key)) ||
     l.journal?.some((j) => j.text.startsWith(SECRET_MARK)) ||
-    (l.outcome && labourSecretKey(l.outcome.key));
+    (l.outcome && labourSecretKey(l.outcome.key)) ||
+    (l.cooldowns && "ev:bond-door" in l.cooldowns) ||
+    (l.evSeen && "bond-door" in l.evSeen);
   if (!secret) return l;
   const out: T = { ...l };
   if (l.events) out.events = l.events.filter((e) => !labourSecretKey(e.key));
   if (l.journal) out.journal = l.journal.filter((j) => !j.text.startsWith(SECRET_MARK));
   if (l.outcome && labourSecretKey(l.outcome.key)) out.outcome = null;
+  if (l.cooldowns && "ev:bond-door" in l.cooldowns) {
+    const { ["ev:bond-door"]: _gone, ...rest } = l.cooldowns;
+    out.cooldowns = rest;
+  }
+  if (l.evSeen && "bond-door" in l.evSeen) {
+    const { ["bond-door"]: _seen, ...rest } = l.evSeen;
+    out.evSeen = rest;
+  }
   return out;
+}
+
+/** Whether a delta has anything in it that must be sent differently to each seat. */
+export function labourDeltaSecret(d: GameDelta): boolean {
+  for (const l of [...Object.values(d.lives ?? {}), ...Object.values(d.lifePatch ?? {})])
+    if (labourForOthers(l as Partial<Life>) !== l) return true;
+  return false;
+}
+
+/** A delta as one seat may be sent it: other households' secrets taken out. */
+export function labourDeltaForSeat(d: GameDelta, seat: string | null): GameDelta {
+  const strip = (rec: Record<string, unknown> | undefined) =>
+    rec &&
+    Object.fromEntries(
+      Object.entries(rec).map(([k, l]) => [k, k === seat ? l : labourForOthers(l as Partial<Life>)]),
+    );
+  const out: GameDelta = { ...d };
+  if (d.lives) out.lives = strip(d.lives) as GameDelta["lives"];
+  if (d.lifePatch) out.lifePatch = strip(d.lifePatch) as GameDelta["lifePatch"];
+  return out;
+}
+
+/** The whole game as one seat may see it (on joining): other households' secrets taken out. */
+export function labourStateForSeat(s: GameState, seat: string | null): GameState {
+  return { ...s, lives: s.lives.map((l) => (l.seat === seat ? l : labourForOthers(l))) };
 }
 
 // ---------------------------------------------------------------- small things

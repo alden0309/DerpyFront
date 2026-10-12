@@ -26,6 +26,11 @@ import {
   stateForSeat,
   tablesOf,
 } from "../../conquest/engine/DiceCore"; // DICE (r14)
+import {
+  labourDeltaForSeat,
+  labourDeltaSecret,
+  labourStateForSeat,
+} from "../../conquest/engine/BondCore"; // LABOUR (r15)
 import { ConquestGame, STATE_VERSION } from "../../conquest/engine/Game";
 import { planProblem } from "../../conquest/engine/Life";
 import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
@@ -972,7 +977,8 @@ export class ConquestRooms {
       host: room.host,
       solo: room.solo,
       // DICE (r14): everyone's dice but your own stay under their cups.
-      state: stateForSeat(room.game.state, seat.id),
+      // LABOUR (r15): and another household's door, opened to someone fleeing.
+      state: labourStateForSeat(stateForSeat(room.game.state, seat.id), seat.id),
       speed: room.speed,
       paused: room.paused,
       seats: seatInfo(room),
@@ -1053,12 +1059,17 @@ export class ConquestRooms {
     const d = room.game.takeDelta();
     // DICE (r14): when a dice table changed, each player gets their own copy
     // (their own dice, nobody else's until the cups are lifted).
-    if (d.dice)
+    // LABOUR (r15): so too a household's door opened to someone fleeing.
+    const bond = labourDeltaSecret(d);
+    if (d.dice || bond)
       for (const seat of room.seats) {
         if (seat.conn)
           this.send(seat.conn, {
             t: "d",
-            d: { ...d, dice: diceView(d.dice, seat.id) },
+            d: labourDeltaForSeat(
+              d.dice ? { ...d, dice: diceView(d.dice, seat.id) } : d,
+              seat.id,
+            ),
           });
       }
     else this.broadcast(room, { t: "d", d });

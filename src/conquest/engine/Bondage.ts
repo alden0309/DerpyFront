@@ -18,7 +18,6 @@ import {
   type Refuge,
 } from "./BondLaw";
 import {
-  adultsOf,
   bdice,
   birthChance,
   bondName,
@@ -666,7 +665,8 @@ export function voiceTopic(g: ConquestGame, life: Life, c: Character): number {
 
 // ---------------------------------------------------------------- the month
 
-function bondMonthly(g: ConquestGame, life: Life): void {
+/** A household's month (run at each month's turn, after the life's own). */
+export function bondMonthly(g: ConquestGame, life: Life): void {
   const s = g.s;
   const b = life.bondage;
   if (!b) return;
@@ -678,19 +678,18 @@ function bondMonthly(g: ConquestGame, life: Life): void {
     return !!c?.alive && c.bond?.seat === life.seat && (isBound(c) || c.bond?.status === "fled");
   });
   if (b.people.length !== before) touchLife(g, life);
+  // The month's keep first, as the forecast had it, under its own name.
+  const keep = bondForecast(s, life, g.w).find((x) => x.key === "bond:keep");
+  if (keep) withFlow(g, { key: "bond:keep", label: keep.label }, () => spend(g, life, -keep.value));
+  const short = life.purse < 0;
+  payAllowances(g, life);
   settleFled(g, life);
   settlePetitions(g, life);
-  payAllowances(g, life);
   callBonds(g, life);
   const list = people(g, life);
   if (!list.length) return;
   touchLife(g, life);
   followHome(g, life);
-  // The month's keep and work, each under its own name in the books.
-  const parts = bondForecast(s, life, g.w);
-  const keep = parts.find((x) => x.key === "bond:keep");
-  if (keep) withFlow(g, { key: "bond:keep", label: keep.label }, () => spend(g, life, -keep.value));
-  const short = life.purse < 0;
   work(g, life, salt);
   // Each person's month: health, spirits, skill, what they save.
   for (const c of list) personMonth(g, life, c, short);
@@ -877,7 +876,9 @@ function births(g: ConquestGame, life: Life, salt: number): void {
 
 function marriages(g: ConquestGame, life: Life, salt: number): void {
   const s = g.s;
-  const singles = people(g, life).filter((c) => c.spouse < 0 && ageOf(s, c) >= 17 && ageOf(s, c) <= 40);
+  const singles = people(g, life).filter(
+    (c) => c.spouse < 0 && isHeld(c) && ageOf(s, c) >= 17 && ageOf(s, c) <= 40,
+  );
   const rng = bdice(s, salt ^ 0x3a1);
   if (!rng.chance(0.03)) return;
   const a = singles.find((c) => !c.female);
@@ -1443,5 +1444,3 @@ function minded(life: Life): boolean {
 export function householdOf(s: GameState, life: Life): Character[] {
   return boundOf(s, life);
 }
-
-export { adultsOf };

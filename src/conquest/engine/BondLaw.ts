@@ -703,11 +703,11 @@ function holding(law: LawOf, col: Colony, year: number): Held {
                 : "the king's leave (1689)",
               year >= 1709
                 ? "Lawful: the intendant Raudot's ordinance of 1709 says the panis and Africans bought here belong to those who bought them."
-                : "Lawful: Louis XIV gave the colonists leave to hold slaves in 1689.",
+                : "Lawful: Louis XIV gave the colonists leave to hold enslaved people in 1689.",
             )
           : banned(
               "no law yet",
-              "Not yet: the king hasn't given New France leave to hold slaves (he will in 1689).",
+              "Not yet: the king hasn't given New France leave to hold anyone in bondage (he will in 1689).",
             );
       return held(
         year >= 1685 ? "the Code Noir (1685)" : "the king's law in the colonies",
@@ -801,7 +801,7 @@ function englishHolding(col: Colony, year: number): Held {
     case "newjersey":
       return held(
         year >= 1714 ? "the act of 1714" : "the Concessions (1665)",
-        "Lawful: the proprietors' Concessions of 1665 even gave land for each slave brought in.",
+        "Lawful: the proprietors' Concessions of 1665 even gave land for each enslaved person brought in.",
       );
     case "pennsylvania":
       return year >= 1682
@@ -809,7 +809,7 @@ function englishHolding(col: Colony, year: number): Held {
             year >= 1726 ? "the act of 1726" : "the act of 1700",
             year >= 1758
               ? "Lawful, but the Quakers' Yearly Meeting resolved in 1758 to keep Friends who buy or sell anyone out of its business."
-              : "Lawful: Penn himself held slaves, though the Friends of Germantown protested in 1688.",
+              : "Lawful: Penn himself held people in bondage, though the Friends of Germantown protested in 1688.",
           )
         : held("the Dutch and Swedes' custom", "Lawful, by custom.");
     case "delaware":
@@ -1256,7 +1256,7 @@ export interface BondEvent {
 
 /** Bondage in the Americas, 1607 to 1776, as the game tells it. */
 export const BOND_HISTORY: BondEvent[] = [
-  { year: 1619, month: 8, where: ["virginia"], text: "\"Twenty and odd Negroes\", taken from a Portuguese slaver, are landed at Point Comfort from the White Lion and traded for food." },
+  { year: 1619, month: 8, where: ["virginia"], text: "\"Twenty and odd Negroes\", taken from a Portuguese slave ship, are landed at Point Comfort from the White Lion and traded for food." },
   { year: 1626, where: ["newyork"], text: "The Dutch West India Company brings eleven African men to New Amsterdam: Paulo Angola, Simon Congo and Anthony Portuguese among them." },
   { year: 1636, where: ["islands"], text: "Barbados' council resolves that Africans and Indians brought to be sold \"should serve for life\"." },
   { year: 1637, where: ["massachusetts", "connecticut"], native: true, text: "After the Pequot War, captive Pequot women and children are given out as servants in New England, and men shipped to Bermuda and Providence Island." },
@@ -1274,8 +1274,8 @@ export const BOND_HISTORY: BondEvent[] = [
   { year: 1685, month: 3, where: ["islands", "hispaniola"], text: "Louis XIV's Code Noir governs the enslaved of the French islands: baptism, Sundays, families not to be sold apart, and terrible punishments." },
   { year: 1687, where: ["florida", "southcarolina"], rising: true, text: "Eight men, two women and a child flee Carolina by canoe and reach St. Augustine. Spain refuses to send them back." },
   { year: 1688, month: 2, where: ["pennsylvania", "newjersey", "delaware"], text: "Four Friends of Germantown write the first protest against slavery in the English colonies: \"Is there any that would be done or handled at this manner?\"" },
-  { year: 1689, where: ["canada"], text: "Louis XIV gives the colonists of New France leave to hold slaves." },
-  { year: 1691, where: ["virginia"], text: "Virginia: anyone who frees a slave must pay to carry them out of the colony." },
+  { year: 1689, where: ["canada"], text: "Louis XIV gives the colonists of New France leave to hold enslaved people." },
+  { year: 1691, where: ["virginia"], text: "Virginia: anyone who frees an enslaved person must pay to carry them out of the colony." },
   { year: 1693, month: 11, where: ["florida", "southcarolina", "georgia"], text: "Charles II of Spain decrees that those fleeing slavery in the English colonies who reach Florida and become Catholics shall be free." },
   { year: 1704, where: ["florida", "southcarolina"], native: true, text: "James Moore's Carolinians and their Creek allies destroy the Apalachee missions and carry off more than a thousand Apalachee to be sold at Charles Town." },
   { year: 1704, where: ["southcarolina"], text: "South Carolina sets up the first slave patrols in the colonies; the other plantation colonies follow." },
@@ -1298,17 +1298,17 @@ export const BOND_HISTORY: BondEvent[] = [
   { year: 1746, where: ["virginia", "maryland", "northcarolina"], text: "John Woolman, a Quaker tailor of New Jersey, travels through Virginia and Carolina, and is troubled by what he sees in the houses that feed him." },
   { year: 1751, month: 1, where: ["georgia"], text: "Georgia's ban ends: slavery is lawful there from 1 January 1751." },
   { year: 1752, month: 6, where: ["maryland"], text: "Maryland forbids freeing anyone by will, or anyone over fifty." },
-  { year: 1754, where: ["pennsylvania", "newjersey", "delaware", "rhodeisland"], text: "Woolman publishes Some Considerations on the Keeping of Negroes." },
-  { year: 1758, where: ["pennsylvania", "newjersey", "delaware"], text: "The Philadelphia Yearly Meeting resolves to keep Friends who buy or sell slaves out of its business, and sends Woolman and others to visit those who hold them." },
+  { year: 1754, where: ["pennsylvania", "newjersey", "delaware", "rhodeisland"], text: "Woolman publishes \"Some Considerations on the Keeping of Negroes\"." },
+  { year: 1758, where: ["pennsylvania", "newjersey", "delaware"], text: "The Philadelphia Yearly Meeting resolves to keep Friends who buy or sell enslaved people out of its business, and sends Woolman and others to visit those who hold them." },
   { year: 1760, month: 4, where: ["jamaica"], rising: true, text: "Tacky's War: hundreds of Coromantee men and women rise in Jamaica's St. Mary's parish. It takes months to put down." },
   { year: 1763, where: ["florida", "southcarolina", "georgia"], text: "Spain gives Florida up to Britain; the people of Mose leave with the Spanish for Cuba." },
   { year: 1766, where: ["massachusetts"], text: "Jenny Slew sues for her freedom in Massachusetts, and wins." },
   { year: 1770, where: ["pennsylvania"], text: "Anthony Benezet opens a school for Black children in Philadelphia." },
-  { year: 1772, month: 6, where: "all", text: "In London, Lord Mansfield rules in Somerset's case that a slave brought to England can't be forced out of it. The news reaches the colonies by late summer." },
+  { year: 1772, month: 6, where: "all", text: "In London, Lord Mansfield rules in Somerset's case that an enslaved man brought to England can't be forced out of it. The news reaches the colonies by late summer." },
   { year: 1773, where: "all", text: "Phillis Wheatley, enslaved in Boston, publishes her Poems on Various Subjects in London. In Boston, enslaved men petition the General Court for their freedom." },
   { year: 1774, month: 6, where: ["rhodeisland"], text: "Rhode Island forbids bringing anyone enslaved into the colony." },
   { year: 1774, month: 10, where: "all", text: "The Continental Congress's Association: the colonies agree to \"neither import nor purchase any slave imported after the first day of December next\"." },
-  { year: 1775, month: 4, where: ["pennsylvania"], text: "Philadelphians found the Society for the Relief of Free Negroes Unlawfully Held in Bondage." },
+  { year: 1775, month: 4, where: ["pennsylvania"], text: "Philadelphians found \"the Society for the Relief of Free Negroes Unlawfully Held in Bondage\", the first such society in the colonies." },
   { year: 1775, month: 11, where: ["virginia"], rising: true, text: "Lord Dunmore proclaims freedom for the enslaved men of rebels who will fight for the king; hundreds escape to his lines." },
 ];
 
