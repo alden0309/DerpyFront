@@ -1,7 +1,7 @@
 // CHAMBER (r16): the scene of the assembly's yearly session. Where do you
 // stand on the year's great question? Three real choices (each with what it
 // does if the house carries it, who it pleases and who it angers, and the
-// odds your speech brings members over) and standing aside, which is also
+// members your speech would bring over) and standing aside, which is also
 // what happens if you leave it: nobody speaks for you.
 
 import { formatDate } from "./Calendar";
@@ -16,6 +16,7 @@ import {
   QUESTION_BY_KEY,
   speechOf,
   standInSession,
+  wouldBring,
 } from "./Session";
 import type { HouseSession, Life } from "./Types";
 
@@ -40,8 +41,10 @@ function choice(i: number) {
       if (!q) return "";
       const ch = q.choices[i];
       const p = pleases(g.s, ctx.n, ch);
-      const sp = speechOf(g.s, ctx.n, life);
-      return `If the house carries it: ${ch.tip}${p.glad.length ? ` Speaking for it pleases ${listWords(p.glad)}` : ""}${p.sore.length ? `${p.glad.length ? "; it angers" : " Speaking for it angers"} ${listWords(p.sore)}` : ""}${p.glad.length || p.sore.length ? "." : ""} A good speech brings ${sp.pass} members over${sp.fail ? `, a poor one ${sp.fail}` : ""}.`;
+      const w = wouldBring(g.s, ctx.n, sess!, life, i);
+      const members = (k: number) =>
+        k === 0 ? "nobody" : k === 1 ? "1 member" : `${k} members`;
+      return `If the house carries it: ${ch.tip}${p.glad.length ? ` Speaking for it pleases ${listWords(p.glad)}` : ""}${p.sore.length ? `${p.glad.length ? "; it angers" : " Speaking for it angers"} ${listWords(p.sore)}` : ""}${p.glad.length || p.sore.length ? "." : ""} A good speech would bring ${members(w.good)} over${w.poor !== w.good ? `, a poor one ${members(w.poor)}` : ""}: those who lean only a little the other way.`;
     },
     apply: (g: ConquestGame, life: Life, ctx: LCtx) =>
       void standInSession(g, life, ctx.n, ctx.id, i),

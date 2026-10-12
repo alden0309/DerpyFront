@@ -37,6 +37,7 @@ export const JOURNAL_CAP: Record<string, number> = {
   alms: 2,
   pamphlet: 3,
   drink: 4,
+  gift: 3,
 };
 
 /** A flavour line from the talk of the town is heard at most this often in a life. */

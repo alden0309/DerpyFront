@@ -23,10 +23,12 @@ import {
 } from "../../engine/Factions";
 import { LATER, pendingWords } from "../../engine/Later";
 import {
+  broughtOver,
   divisionNow,
   nextSessionDay,
   QUESTION_BY_KEY,
   speechOf,
+  wouldBring,
 } from "../../engine/Session";
 import type { CouncilMatter, FactionKey } from "../../engine/Types";
 import { num } from "../Tip";
@@ -171,7 +173,12 @@ export function sessionSection(
   const open = sess.carried === undefined;
   const votes = open ? divisionNow(s, n, sess) : (sess.votes ?? [0, 0, 0]);
   const mine = sess.stands[life.c];
+  // While you can still speak: what a good speech for each choice would bring over.
+  const canSpeak = open && !!waiting;
   const sp = speechOf(s, n, life);
+  const bring = canSpeak
+    ? q.choices.map((_, i) => wouldBring(s, n, sess, life, i).good)
+    : null;
   return section(
     html`The session of ${sess.year}`,
     html`<div class="cq-session ${open ? "open" : "done"}">
@@ -203,6 +210,13 @@ export function sessionSection(
               ></span
             ></span>
             <span class="cq-session-n">${votes[i]}</span>
+            ${bring
+              ? html`<span class="cq-session-bring cq-muted small"
+                  >${bring[i]
+                    ? `a good speech from you: ${bring[i]} more`
+                    : "a speech wouldn't move anyone"}</span
+                >`
+              : nothing}
           </li>`;
         })}
       </ul>
@@ -222,8 +236,12 @@ export function sessionSection(
                 : mine < 0
                   ? "You've kept your counsel."
                   : html`You spoke for ${q.choices[mine].short}, and brought
-                    ${sess.swayed[life.c] ?? 0} over.`}
-            A good speech from you would bring ${sp.pass} members over.
+                    ${broughtOver(s, n, sess, life.c)} over.`}
+            ${canSpeak
+              ? html`Your speech lands ${Math.round(sp.chance * 100)} times in
+                100 (persuasion), and brings over the members who lean only a
+                little the other way.`
+              : nothing}
           </p>`
         : html`<p class="small"><i>${sess.text}</i></p>
             <p class="cq-muted small">

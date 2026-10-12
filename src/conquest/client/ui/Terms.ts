@@ -294,7 +294,7 @@ export const TERMS: Record<string, Term> = {
   session: {
     name: "The session",
     what: "The assembly's yearly sitting on its great question: 1 April, dividing a month later.",
-    good: "What the house carries is done (supply voted or refused, bills of credit, roads, a salary settled or withheld). Your speech brings members over; the factions remember where you stood.",
+    good: "What the house carries is done (supply voted or refused, bills of credit, roads, a salary settled or withheld). Your speech pulls over the members who lean only a little the other way; the factions remember where you stood.",
     raise:
       "Sit in the house or on the council. A scene asks where you stand; the odds of your speech are on its buttons.",
     ch: "chamber",

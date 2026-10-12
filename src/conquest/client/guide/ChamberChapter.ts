@@ -17,7 +17,7 @@ import {
 } from "../../engine/Factions";
 import { LATER } from "../../engine/Later";
 import { chanceWords } from "../../engine/Odds";
-import { QUESTIONS, SESSION_DAYS } from "../../engine/Session";
+import { QUESTIONS, SESSION_DAYS, SPEECH } from "../../engine/Session";
 import type { FactionKey } from "../../engine/Types";
 import type { Chapter } from "./Chapters";
 
@@ -130,8 +130,8 @@ Each spring (**1 April**) the house sits on the year's great question, and divid
 
 ${sessionTable()}
 
-- **Your speech** brings members over: its chance (on the button) is your persuasion (4 in 100 a point, from 35 in 100), and a little for renown (no more than 12 in 100); a good speech brings 2 members and one more for every 4 points of persuasion (the speaker 2 more), a poor one none (the speaker 1).
-- **The house divides** by its members' parties and interests, with your own vote if you sit there, and the members the speeches brought over. The most votes carries; a tie goes to the middle way.
+- **Your speech** pulls members over. Its chance of landing (on the button) is your persuasion (4 in 100 a point, from 35 in 100), and a little for renown (no more than 12 in 100). Each member leans toward each choice by their party and their interest (each faction leans from half a point to 3 for or against a choice) and a little of their own; a speech that lands pulls with ${SPEECH.reach} and ${SPEECH.perPoint} more for each point of persuasion up to 20 (the speaker ${SPEECH.speaker} more), a poor one ${SPEECH.weak} (the speaker ${SPEECH.weakSpeaker}). A member comes over when the pull is more than how far they lean the other way, so the waverers come and the partisans don't. Each choice in the scene says how many a good speech would bring over, and Society › Council shows it under each choice.
+- **The house divides** by its members' parties and interests, with your own vote if you sit there, and the members the speeches pulled over (two speeches for different choices pull against each other). The most votes carries; a tie goes to the middle way.
 - **The factions remember where you stood**, win or lose, and you gain a little renown for speaking. Standing aside (or not answering) offends nobody: nobody speaks in your name.
 - Refusing supply, withholding the governor's salary and carrying an address against him are the house's levers against a governor ([[council|The governor's council]]).
 - Society › Council shows this year's question, how the house leans now, your stand, and what it carried.

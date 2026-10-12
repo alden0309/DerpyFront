@@ -102,6 +102,10 @@ function watcher(g: ConquestGame, n: number, p: number): number {
   return near ?? -1;
 }
 
+/** One of a few lines for what a work came to (by the work: no dice). */
+const pick = (w: LaterWork, lines: string[]) =>
+  lines[Math.abs(w.id * 7 + w.due) % lines.length];
+
 export const LATER: Record<string, LaterDef> = {
   survey: {
     well: "a road through a backcountry county: its trade +5% for six years; the nation whose hunting grounds it crosses wary (−4)",
@@ -116,13 +120,20 @@ export const LATER: Record<string, LaterDef> = {
       const o = watcher(g, n, p);
       if (!w.good) {
         countyMod(g, p, "later:mire", "A road that's a mire", Y, { unrest: 1 });
-        return `The road you surveyed through ${county(g, p)} is a mire from the first rains to the last. The settlers curse it by name: yours.`;
+        return pick(w, [
+          `The road you surveyed through ${county(g, p)} is a mire from the first rains to the last. The settlers curse it by name: yours.`,
+          `The road you surveyed through ${county(g, p)} washes out in the first spring flood. The settlers ford it, and name the ford after you.`,
+        ]);
       }
       countyMod(g, p, "later:road", "A road through the backcountry", 6 * Y, {
         production: 0.05,
       });
       if (o >= 0) relate(g, o, n, "A road through our hunting grounds", -4, 4);
-      return `Your road through ${county(g, p)} is open: trade up${o >= 0 ? `, the ${nameOf(g, o)} wary` : ""}.`;
+      return pick(w, [
+        `Your road through ${county(g, p)} is open: trade up${o >= 0 ? `, the ${nameOf(g, o)} wary` : ""}.`,
+        `The road you surveyed through ${county(g, p)} has its first wagons, its first tavern and its first quarrel over a toll${o >= 0 ? `. The ${nameOf(g, o)} watch it from the tree line` : ""}.`,
+        `Carts go down your road from ${county(g, p)} to the landing with the crop, and the land along it doubles in price${o >= 0 ? `. The ${nameOf(g, o)} count the new chimneys` : ""}.`,
+      ]);
     },
   },
   boundary: {
@@ -140,10 +151,16 @@ export const LATER: Record<string, LaterDef> = {
       if (w.good && !atWar(g.s, n, o)) {
         relate(g, o, n, "The line holds", 3, 4);
         relate(g, n, o, "The line holds", 3, 4);
-        return `The line you ran with ${g.s.nations[o].name} holds: a year without a quarrel over the creeks, which is a record.`;
+        return pick(w, [
+          `The line you ran with ${g.s.nations[o].name} holds: a year without a quarrel over the creeks, which is a record.`,
+          `The line you ran with ${g.s.nations[o].name} is still where you put it, and the surveyors on both sides drink to it at the boundary oak.`,
+        ]);
       }
       relate(g, o, n, "The line's marks cut down", -3, 3);
-      return `The marks you blazed on the line with ${g.s.nations[o].name} are cut down by someone's hogs and someone else's axe. The quarrel starts again where it left off.`;
+      return pick(w, [
+        `The marks you blazed on the line with ${g.s.nations[o].name} are cut down by someone's hogs and someone else's axe. The quarrel starts again where it left off.`,
+        `A settler builds his cabin squarely across the line you ran with ${g.s.nations[o].name}. Both sides tax him, he pays neither, and the quarrel is back.`,
+      ]);
     },
   },
   audit: {
@@ -157,10 +174,16 @@ export const LATER: Record<string, LaterDef> = {
       if (w.good) {
         const more = 3 + (w.id % 4);
         g.nation(n).gold += more;
-        return `The collectors you shamed pay up: ${more} more into the treasury, and a great deal of injured feeling.`;
+        return pick(w, [
+          `The collectors you shamed pay up: ${more} more into the treasury, and a great deal of injured feeling.`,
+          `The arrears your audit chased come in at last: ${more} into the treasury, most of it in tobacco and some of it in apologies.`,
+        ]);
       }
       if (g.s.nations[n].gold >= 2) g.nation(n).gold -= 2;
-      return "One of the collectors you audited has gone to Carolina with his book, his horse and a little of the colony's money.";
+      return pick(w, [
+        "One of the collectors you audited has gone to Carolina with his book, his horse and a little of the colony's money.",
+        "A collector you audited loses his books in a kitchen fire he swears was an accident. The colony is out 2, and he is out of a kitchen.",
+      ]);
     },
   },
   records: {
@@ -172,13 +195,19 @@ export const LATER: Record<string, LaterDef> = {
     pending: () => "the fair copies of the colony's records",
     come: (g, n, w) => {
       if (!w.good)
-        return "Half the minute-books you had copied fair are eaten by mice in the secretary's office. The other half are very well kept.";
+        return pick(w, [
+          "Half the minute-books you had copied fair are eaten by mice in the secretary's office. The other half are very well kept.",
+          "The fair copies you had made are lent to a councillor who leaves them out in the rain. The rain reads them first.",
+        ]);
       colonyMod(g, n, "later:records", "Records that settle suits", Y, {
         unrest: -1,
       });
       const life = lifeOfC(g.s, w.by);
       if (life) addRenown(g, life, 1);
-      return "The fair copies you made settle a land suit no court could: the colony's judges cite your books now, and the counties are quieter for it.";
+      return pick(w, [
+        "The fair copies you made settle a land suit no court could: the colony's judges cite your books now, and the counties are quieter for it.",
+        "A widow's title to her land turns on a page of the minutes you had copied fair. She wins, the court cites your books, and the counties are quieter for it.",
+      ]);
     },
   },
   draft: {
@@ -193,10 +222,16 @@ export const LATER: Record<string, LaterDef> = {
         colonyMod(g, n, "later:loophole", "A hole in the act", Y / 2, {
           unrest: 1,
         });
-        return "A clever lawyer finds a hole in the act you drafted big enough to drive a cart of tobacco through, and drives one.";
+        return pick(w, [
+          "A clever lawyer finds a hole in the act you drafted big enough to drive a cart of tobacco through, and drives one.",
+          "A word you left out of the act you drafted turns out to have been the important one. The courts argue about it for six months.",
+        ]);
       }
       colonyMod(g, n, "later:draft", "Laws that hold", Y, { unrest: -1 });
-      return "The laws you drafted are tried at the general court and hold: the lawyers grumble, the counties obey.";
+      return pick(w, [
+        "The laws you drafted are tried at the general court and hold: the lawyers grumble, the counties obey.",
+        "The act you drafted is tried in three county courts and means the same thing in each, which the old judges call unheard of.",
+      ]);
     },
   },
   muster: {
@@ -210,12 +245,18 @@ export const LATER: Record<string, LaterDef> = {
     pending: () => "the militia you mustered",
     come: (g, n, w) => {
       if (!w.good)
-        return "The drill from your muster is half forgotten by the harvest; the sergeants swear it never happened.";
+        return pick(w, [
+          "The drill from your muster is half forgotten by the harvest; the sergeants swear it never happened.",
+          "The militia you mustered remembers the drink better than the drill.",
+        ]);
       colonyMod(g, n, "later:muster", "A militia that knows its drums", Y, {
         morale: 0.03,
         unrest: -1,
       });
-      return "The militia you mustered turns out quicker now: the counties know their drums, and the drummers know the counties.";
+      return pick(w, [
+        "The militia you mustered turns out quicker now: the counties know their drums, and the drummers know the counties.",
+        "When the alarm comes, the militia you mustered is on the green within the hour with its powder dry. The counties sleep better for it.",
+      ]);
     },
   },
   treat: {
@@ -248,7 +289,10 @@ export const LATER: Record<string, LaterDef> = {
               production: 0.01,
             },
           );
-          return `The treaty you made with ${x.name} holds: ${x.adjective} sloops come into ${county(g, g.s.nations[n].capital)} with their cargoes, and the frontier is quieter.`;
+          return pick(w, [
+            `The treaty you made with ${x.name} holds: ${x.adjective} sloops come into ${county(g, g.s.nations[n].capital)} with their cargoes, and the frontier is quieter.`,
+            `The ${x.adjective} governor writes to thank the colony for the treaty you made; his merchants write more warmly still, with bills of lading.`,
+          ]);
         }
         relate(g, o, n, "A treaty broken on the frontier", -3, 3);
         countyMod(g, w.arg2, "later:raid", "Raided, treaty or no treaty", Y, {
@@ -268,13 +312,19 @@ export const LATER: Record<string, LaterDef> = {
             production: 0.01,
           },
         );
-        return `The belts you gave the ${nameOf(g, o)} are remembered: their traders come down to ${county(g, g.s.nations[n].capital)} with furs, and the paths are open.`;
+        return pick(w, [
+          `The belts you gave the ${nameOf(g, o)} are remembered: their traders come down to ${county(g, g.s.nations[n].capital)} with furs, and the paths are open.`,
+          `The ${nameOf(g, o)}'s traders come down to ${county(g, g.s.nations[n].capital)} with furs and the belt you gave them, and show it to anyone who'll look.`,
+        ]);
       }
       relate(g, o, n, "Young men who didn't hold with the treaty", -3, 3);
       countyMod(g, w.arg2, "later:raid", "Raided, treaty or no treaty", Y, {
         unrest: 2,
       });
-      return `The ${nameOf(g, o)}'s young men didn't hold with the treaty you made: a raid on ${county(g, w.arg2)}, whatever their elders promised.`;
+      return pick(w, [
+        `The ${nameOf(g, o)}'s young men didn't hold with the treaty you made: a raid on ${county(g, w.arg2)}, whatever their elders promised.`,
+        `A party of the ${nameOf(g, o)}'s young men raid ${county(g, w.arg2)} all the same. Their sachems send word that they're sorry, and that young men are young men.`,
+      ]);
     },
   },
   mission: {
@@ -289,10 +339,16 @@ export const LATER: Record<string, LaterDef> = {
       if (!g.s.nations[o]?.alive) return "";
       if (w.good) {
         relate(g, o, n, "A school among us", 4, 5);
-        return `The mission you sent among the ${nameOf(g, o)} has a school with a dozen scholars and a grammar of their tongue. Their sachems speak warmly of you, and correct the missionary's grammar.`;
+        return pick(w, [
+          `The mission you sent among the ${nameOf(g, o)} has a school with a dozen scholars and a grammar of their tongue. Their sachems speak warmly of you, and correct the missionary's grammar.`,
+          `The mission you sent among the ${nameOf(g, o)} has a schoolhouse, a garden and the sachems' grandchildren reading in two tongues.`,
+        ]);
       }
       relate(g, o, n, "Missionaries who preached more than they taught", -3, 3);
-      return `The mission you sent among the ${nameOf(g, o)} comes home thin and frightened: the sachems wanted the school and not the sermons, and said so at length.`;
+      return pick(w, [
+        `The mission you sent among the ${nameOf(g, o)} comes home thin and frightened: the sachems wanted the school and not the sermons, and said so at length.`,
+        `The mission you sent among the ${nameOf(g, o)} is asked to leave, politely, after the missionary tells a council its dreams are the Devil's.`,
+      ]);
     },
   },
   address: {
@@ -309,9 +365,16 @@ export const LATER: Record<string, LaterDef> = {
         });
         const life = lifeOfC(g.s, w.by);
         if (life) addRenown(g, life, 2);
-        return "The governor answers the house's address you carried: the fees of the secretary's office are cut, and the counties drink your health.";
+        return pick(w, [
+          "The governor answers the house's address you carried: the fees of the secretary's office are cut, and the counties drink your health.",
+          "The governor grants two of the grievances in the house's address you carried and promises a third. The counties drink your health.",
+          "Word comes that the sheriffs' fees are cut, as the house's address you carried asked. You're toasted in every county town.",
+        ]);
       }
-      return "The governor's answer to the house's address you carried arrives: four pages thanking the house for its loyalty, and conceding nothing.";
+      return pick(w, [
+        "The governor's answer to the house's address you carried arrives: four pages thanking the house for its loyalty, and conceding nothing.",
+        "The governor answers the house's address you carried by conceding nothing, at length, in a beautiful hand. The court party calls it statesmanship.",
+      ]);
     },
   },
 };

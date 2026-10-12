@@ -4117,7 +4117,7 @@ export interface HouseSession {
   until: number;
   /** Players' stands: character id → the choice (0, 1, 2), or -1 for standing aside. */
   stands: Record<number, number>;
-  /** Members a player's speech brought over: character id → members. */
+  /** How hard a player's speech pulls the members, in hundredths of a member's leaning: character id → pull. */
   swayed: Record<number, number>;
   /** How the house divided, choice by choice, and which carried (once divided). */
   votes?: number[];

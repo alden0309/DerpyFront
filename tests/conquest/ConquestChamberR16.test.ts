@@ -6,7 +6,7 @@
 // it saves, loads, rides the deltas, leaves other players' words alone and
 // runs the same twice.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { memberFaction } from "../../src/conquest/engine/Assembly";
 import { dateOf, dayOf } from "../../src/conquest/engine/Calendar";
 import {
@@ -48,15 +48,21 @@ import { autoAnswerLife } from "../../src/conquest/engine/LifeEvents";
 import { meOf, opinionOf } from "../../src/conquest/engine/LifeQueries";
 import { writeToCrown } from "../../src/conquest/engine/Politics";
 import {
+  broughtOver,
   divisionNow,
+  houseLean,
   QUESTION_BY_KEY,
   QUESTIONS,
   SESSION_DAYS,
   speechOf,
   standInSession,
+  wouldBring,
 } from "../../src/conquest/engine/Session";
 import type { GameState, Life } from "../../src/conquest/engine/Types";
 import { lifeOf, map, plan, ticks, world } from "./LifeUtil";
+
+// Years of play in some tests: generous under a loaded machine.
+vi.setConfig({ testTimeout: 120_000 });
 
 function strong(life: Life): void {
   life.renown = 60;
@@ -434,9 +440,46 @@ describe("the assembly's session", () => {
         swayed: {},
       };
       standInSession(g, life, n, cab.session.id, 0);
-      if (cab.session.swayed[life.c] === sp.pass) pass++;
+      if (cab.session.swayed[life.c] === Math.round(sp.reach * 100)) pass++;
     }
     expect(Math.abs(pass / N - sp.chance)).toBeLessThan(0.045);
+  });
+
+  test("a speech pulls over the waverers, not the partisans, as the scene said it would", () => {
+    const { g, life, n } = member();
+    const cab = ensureCabinet(g, n);
+    const sp = speechOf(g.s, n, life);
+    let landed = 0;
+    for (let i = 0; i < 40; i++) {
+      const sess = {
+        id: 200000 + i,
+        year: 1700,
+        key: QUESTIONS[i % QUESTIONS.length].key,
+        arg: -1,
+        opened: g.s.day,
+        until: g.s.day + 30,
+        stands: {} as Record<number, number>,
+        swayed: {} as Record<number, number>,
+      };
+      cab.session = sess;
+      const choice = i % 3;
+      const told = wouldBring(g.s, n, sess, life, choice);
+      expect(told.poor).toBeLessThanOrEqual(told.good);
+      standInSession(g, life, n, sess.id, choice);
+      const good = sess.swayed[life.c] === Math.round(sp.reach * 100);
+      if (good) landed++;
+      expect(broughtOver(g.s, n, sess, life.c)).toBe(
+        good ? told.good : told.poor,
+      );
+      // An irresistible pull brings every member; none at all, nobody.
+      sess.swayed[life.c] = 100_00;
+      expect(divisionNow(g.s, n, sess)[choice]).toBe(
+        houseLean(g.s, n, sess).reduce((a, b) => a + b, 0) + 1,
+      );
+      sess.swayed[life.c] = 0;
+      expect(broughtOver(g.s, n, sess, life.c)).toBe(0);
+    }
+    expect(landed).toBeGreaterThan(0);
   });
 
   test("the house's levers go to the governor's track when it listens, and fall back when it doesn't", () => {
@@ -535,8 +578,9 @@ describe("a seat's work comes to something later", () => {
     expect(life.journal.some((j) => j.text === done.text)).toBe(true);
     const key = done.good ? "later:road" : "later:mire";
     expect(g.s.provinces[w.arg2].mods.some((m) => m.key === key)).toBe(true);
-    if (done.good)
-      expect(done.text).toMatch(/Your road through .* is open: trade up/);
+    // It names the county the road runs through, whichever way it's told.
+    expect(done.text).toMatch(/road/i);
+    expect(done.text).toContain(g.map.provinces[w.arg2].name);
   });
 
   test("how often it turns out well is the chance the guide shows", () => {

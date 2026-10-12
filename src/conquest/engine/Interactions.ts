@@ -1221,11 +1221,16 @@ export function doInteraction(
         earn(g, player, amount);
         journal(g, player, `${charName(me)} gave you ${amount} coins.`, "good");
       }
-      journal(
+      // CHAMBER (r16): thanks from a larger pool (another player's are theirs
+      // to give); a habit of gifts to the same person goes in the journal the
+      // first few times a year, a gift to another player always. The money is
+      // in the month's accounts either way.
+      sayOrWrite(
         g,
         life,
-        // CHAMBER (r16): thanks from a larger pool; another player's are theirs to give.
+        `gift:${cId}`,
         `You gave ${name} ${amount} coins. ${giftThanks(g, life, c, v >= 15)}`.trim(),
+        !!player,
       );
       return null;
     }

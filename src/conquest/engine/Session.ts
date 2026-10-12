@@ -858,12 +858,17 @@ export function sessionPlayers(s: GameState, n: number): Life[] {
   );
 }
 
-/** What a player's speech can do: the chance it lands, and the members it brings over. */
+/**
+ * What a player's speech can do: the chance it lands, and how far it pulls
+ * the members (a good speech, and a poor one). A member comes over when the
+ * pull is more than how much they lean toward their own side, so a member
+ * whose party and interest are dead against it never does.
+ */
 export function speechOf(
   s: GameState,
   n: number,
   life: Life,
-): { chance: number; pass: number; fail: number } {
+): { chance: number; reach: number; weak: number } {
   const persuasion = skillLevel(s, life, "persuasion");
   // Renown counts, a little, and no more than it should.
   const chance = Math.max(
@@ -873,10 +878,56 @@ export function speechOf(
   const speaker = s.power?.cabinets[n]?.speaker === life.c;
   return {
     chance: Math.round(chance * 100) / 100,
-    pass: 2 + Math.floor(persuasion / 4) + (speaker ? 2 : 0),
-    fail: speaker ? 1 : 0,
+    reach:
+      Math.round(
+        (SPEECH.reach +
+          Math.min(20, persuasion) * SPEECH.perPoint +
+          (speaker ? SPEECH.speaker : 0)) *
+          100,
+      ) / 100,
+    weak: speaker ? SPEECH.weakSpeaker : SPEECH.weak,
   };
 }
+
+/** The pull of a speech on the members, in the units of their leanings (a faction's lean is 0.5 to 3). */
+export const SPEECH = {
+  /** A good speech's pull, and more for each point of persuasion (up to 20). */
+  reach: 0.8,
+  perPoint: 0.06,
+  /** The speaker in the chair carries more weight. */
+  speaker: 0.6,
+  /** A poor speech. */
+  weak: 0.1,
+  weakSpeaker: 0.4,
+} as const;
+
+/** Each of the computer's members: how they lean toward each choice (their party's and interest's leans, and a little of their own). */
+function memberLeans(
+  s: GameState,
+  n: number,
+  sess: HouseSession,
+): { c: number; v: number[] }[] {
+  const q = QUESTION_BY_KEY.get(sess.key);
+  if (!q) return [];
+  const out: { c: number; v: number[] }[] = [];
+  for (const c of s.polities[n]?.assembly ?? []) {
+    if (!s.chars[c]?.alive || playedC(s, c)) continue;
+    const fs = factionsOf(s, n, c);
+    out.push({
+      c,
+      v: q.choices.map((ch, i) => {
+        let v = 0;
+        for (const f of fs) v += ch.lean[f] ?? 0;
+        return v + (hash01(c, sess.id, i, 53) * 2 - 1) * 1.2;
+      }),
+    });
+  }
+  return out;
+}
+
+/** The choice a member leans to most (the first, on a tie). */
+const topOf = (v: number[]) =>
+  v.reduce((best, x, i) => (x > v[best] ? i : best), 0);
 
 /** How the computer's members lean, choice by choice, before anyone speaks. */
 export function houseLean(
@@ -884,53 +935,73 @@ export function houseLean(
   n: number,
   sess: HouseSession,
 ): number[] {
-  const q = QUESTION_BY_KEY.get(sess.key);
   const out = [0, 0, 0];
-  if (!q) return out;
-  for (const c of s.polities[n]?.assembly ?? []) {
-    if (!s.chars[c]?.alive || playedC(s, c)) continue;
-    const fs = factionsOf(s, n, c);
-    let best = 0;
-    let top = -Infinity;
-    q.choices.forEach((ch, i) => {
-      let v = 0;
-      for (const f of fs) v += ch.lean[f] ?? 0;
-      v += (hash01(c, sess.id, i, 53) * 2 - 1) * 1.2;
-      if (v > top) {
-        top = v;
-        best = i;
-      }
-    });
-    out[best]++;
-  }
+  for (const m of memberLeans(s, n, sess)) out[topOf(m.v)]++;
   return out;
 }
 
-/** The division as it would fall now: the members, the players' own votes and the members their speeches brought over. */
+/**
+ * The division as it would fall now: each member votes for what they lean
+ * to most once the speeches' pull is added (the strongest speech for each
+ * choice), and the players in the house vote as they stood. `without`
+ * leaves one player's stand out (to see what their speech did).
+ */
 export function divisionNow(
   s: GameState,
   n: number,
   sess: HouseSession,
+  without = -1,
 ): number[] {
-  const votes = houseLean(s, n, sess);
+  const pull = [0, 0, 0];
+  const votes = [0, 0, 0];
   for (const [k, i] of Object.entries(sess.stands)) {
     const c = Number(k);
-    if (i < 0 || i > 2) continue;
+    if (c === without || i < 0 || i > 2) continue;
+    pull[i] = Math.max(pull[i], (sess.swayed[c] ?? 0) / 100);
     if (inHouse(s, n, c)) votes[i]++;
-    let bring = sess.swayed[c] ?? 0;
-    while (bring > 0) {
-      // Members come over from the largest of the other sides.
-      let from = -1;
-      for (let j = 0; j < 3; j++)
-        if (j !== i && votes[j] > 0 && (from < 0 || votes[j] > votes[from]))
-          from = j;
-      if (from < 0) break;
-      votes[from]--;
-      votes[i]++;
-      bring--;
-    }
   }
+  for (const m of memberLeans(s, n, sess))
+    votes[topOf(m.v.map((x, i) => x + pull[i]))]++;
   return votes;
+}
+
+/** The members a player's speech brought over: the house with it, less the house without it. */
+export function broughtOver(
+  s: GameState,
+  n: number,
+  sess: HouseSession,
+  c: number,
+): number {
+  const i = sess.stands[c];
+  if (i === undefined || i < 0 || i > 2) return 0;
+  const own = inHouse(s, n, c) ? 1 : 0;
+  return Math.max(
+    0,
+    divisionNow(s, n, sess)[i] - divisionNow(s, n, sess, c)[i] - own,
+  );
+}
+
+/** What a speech for a choice would bring over, if it's good and if it's poor (for the scene and the page). */
+export function wouldBring(
+  s: GameState,
+  n: number,
+  sess: HouseSession,
+  life: Life,
+  choice: number,
+): { good: number; poor: number } {
+  const sp = speechOf(s, n, life);
+  const trial = (reach: number) =>
+    broughtOver(
+      s,
+      n,
+      {
+        ...sess,
+        stands: { ...sess.stands, [life.c]: choice },
+        swayed: { ...sess.swayed, [life.c]: Math.round(reach * 100) },
+      },
+      life.c,
+    );
+  return { good: trial(sp.reach), poor: trial(sp.weak) };
 }
 
 // ---------------------------------------------------------------- the year's round
@@ -1051,7 +1122,9 @@ export function standInSession(
   const ch = q.choices[choice];
   const sp = speechOf(s, n, life);
   const pass = cdice(s, 41, n, sess.id, life.c).next() < sp.chance;
-  sess.swayed[life.c] = pass ? sp.pass : sp.fail;
+  // The speech's pull, in hundredths of a member's leaning.
+  sess.swayed[life.c] = Math.round((pass ? sp.reach : sp.weak) * 100);
+  const moved = broughtOver(s, n, sess, life.c);
   const year = dateOf(s.day).year;
   for (const [f, dv] of Object.entries(ch.marks) as [FactionKey, number][])
     markFaction(g, cab, life.c, f, dv, `you spoke for ${ch.short} (${year})`);
@@ -1061,8 +1134,8 @@ export function standInSession(
     g,
     life,
     pass
-      ? `You speak for ${ch.short}, and the house listens: ${sess.swayed[life.c]} members come over. As it stands, ${leanWords(q, lean)}.`
-      : `You speak for ${ch.short}. The house hears you out politely, which is worse than heckling.${sess.swayed[life.c] ? ` A member or so comes over.` : ""} As it stands, ${leanWords(q, lean)}.`,
+      ? `You speak for ${ch.short}, and the house listens: ${moved ? `${moved} member${moved === 1 ? "" : "s"} come${moved === 1 ? "s" : ""} over` : "but the rest are too set on their own side to move"}. As it stands, ${leanWords(q, lean)}.`
+      : `You speak for ${ch.short}. The house hears you out politely, which is worse than heckling.${moved ? ` ${moved === 1 ? "A member comes" : `${moved} members come`} over all the same.` : ""} As it stands, ${leanWords(q, lean)}.`,
     pass ? "good" : undefined,
   );
   return null;
@@ -1090,12 +1163,8 @@ function divide(g: ConquestGame, n: number): void {
   const votes = divisionNow(s, n, sess);
   let carried = 0;
   for (let i = 1; i < 3; i++) if (votes[i] > votes[carried]) carried = i;
-  // A tie: the middle way.
-  if (
-    votes.filter((v) => v === votes[carried]).length > 1 &&
-    votes[1] === votes[carried]
-  )
-    carried = 1;
+  // A tie: the house splits the difference, and the middle way carries.
+  if (votes.filter((v) => v === votes[carried]).length > 1) carried = 1;
   const by = Object.entries(sess.stands)
     .filter(([, i]) => i === carried)
     .map(([c]) => Number(c))

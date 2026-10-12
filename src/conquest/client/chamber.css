@@ -198,6 +198,12 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+/* What a good speech would bring over: under its row, the full width. */
+.cq-session-bring {
+  grid-column: 1 / -1;
+  margin-top: -0.2rem;
+  font-style: italic;
+}
 .cq-session .cq-btn {
   margin: 0.15rem 0.3rem 0.15rem 0;
 }

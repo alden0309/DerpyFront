@@ -795,7 +795,7 @@ const GOALS: Goal[] = [
       "session assembly house sitting supply salary grievances address bills of credit speech speak vote stand question spring",
     group: "Office and the law",
     where:
-      "Each 1 April the house sits on the year's great question, and a scene asks where you stand (three choices, or standing aside), with the odds your speech brings members over. It divides a month later. Society › Council shows how the house leans.",
+      "Each 1 April the house sits on the year's great question, and a scene asks where you stand (three choices, or standing aside), with the odds your speech lands and how many members it would bring over. It divides a month later. Society › Council shows how the house leans.",
     needs: (ui) => {
       const s = ui.s;
       const n = ui.me!.nation;
