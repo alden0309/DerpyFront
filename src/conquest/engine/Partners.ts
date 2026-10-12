@@ -13,7 +13,20 @@
 // This module also runs the track: the days and the months, the commands,
 // and the hooks that tie it to letters, deaths and the month's budget.
 
+import { bestHands, freshCustom, northern } from "./Business"; // BUSINESS (r15)
 import { dateOf } from "./Calendar";
+import {
+  CO_SETUP,
+  companyDaily,
+  companyForecast,
+  companyMonth,
+  companyOdds,
+  companyTitle,
+  defaultPlan,
+  goodsName,
+  newCompany,
+  planCheck,
+} from "./Company"; // BUSINESS (r15)
 import { Explain } from "./Explain";
 import {
   avgProfit,
@@ -22,6 +35,7 @@ import {
   castVote,
   clearFirmEvents,
   decisionCheck,
+  firmBizInput,
   firmMonth,
   firmMonthView,
   firmTroubles,
@@ -101,6 +115,7 @@ import { rumour } from "./Rumours";
 import type {
   Breakdown,
   Character,
+  CompanyPlan,
   Firm,
   FirmBiz,
   FirmDecision,
@@ -164,6 +179,8 @@ export interface HoldChoice {
   prov: number;
   /** Why it can't be (shown greyed), if so. */
   why?: string;
+  /** BUSINESS (r15): a trading company's line of trade. */
+  co?: CompanyPlan;
 }
 
 const town = (map: MapDef, p: number) => map.provinces[p]?.name ?? "somewhere";
@@ -266,6 +283,19 @@ export function holdChoices(
     id: -1,
     prov: life.travel ? life.home : life.prov,
   });
+  // BUSINESS (r15): a trading company for particular goods, out of this port.
+  const plan = life.travel ? null : defaultPlan(s, w, life.prov);
+  out.push({
+    key: "company",
+    label: "A trading company for particular goods",
+    hold: "company",
+    holder: -1,
+    id: -1,
+    prov: life.travel ? life.home : life.prov,
+    ...(plan
+      ? { co: plan }
+      : { why: "Not from a port with a market and docks" }),
+  });
   return out;
 }
 
@@ -273,6 +303,7 @@ export function holdChoices(
 
 /** What a founding costs, paid from the chest at signing. */
 export function foundingCost(t: FirmTerms): number {
+  if (t.hold === "company") return CO_SETUP; // BUSINESS (r15)
   return t.hold === "biz" && t.holder < 0 && t.job
     ? bizCost(t.job, t.level ?? 1)
     : 0;
@@ -296,14 +327,26 @@ export function contributions(
       return;
     }
     if (t.holder !== side.c) return;
-    if (t.hold === "biz" && t.job)
-      out[i] += Math.round(bizCost(t.job, t.level ?? 1) * 0.6);
+    if (t.hold === "biz" && t.job) out[i] += bizBrought(s, t); // BUSINESS (r15)
     if (t.hold === "paper") {
       const x = paperById(s, t.id);
       if (x) out[i] += paperValue(x);
     }
   });
   return out;
+}
+
+/**
+ * BUSINESS (r15): what a business brought into a firm is worth: what it'd
+ * cost to set up again (less wear), or ten months of what it makes once it's
+ * going, whichever is more. A going concern is worth what it earns.
+ */
+export const BROUGHT_MONTHS = 10;
+export function bizBrought(s: GameState, t: FirmTerms): number {
+  if (t.hold !== "biz" || !t.job || t.holder < 0) return 0;
+  const set = Math.round(bizCost(t.job, t.level ?? 1) * 0.6);
+  const going = articlesForecast(s, t).profit;
+  return Math.max(set, Math.round(going * BROUGHT_MONTHS));
 }
 
 /** The shares that would be fair: what each brings, and something for the work. */
@@ -314,7 +357,8 @@ export function fairShares(
 ): [number, number] {
   const [a, b] = contributions(s, t, firm);
   const total = Math.max(1, a + b);
-  const bonus = total * (t.hold === "venture" ? 0.1 : 0.2);
+  const bonus =
+    total * (t.hold === "venture" || t.hold === "company" ? 0.1 : 0.2);
   // The work is worth a share of its own, to whichever side manages.
   const ma = t.sides[0].role === "managing" ? bonus : 0;
   const fa = Math.round(((a + ma) / (total + bonus)) * 100);
@@ -326,7 +370,21 @@ export function articlesForecast(
   s: GameState,
   t: FirmTerms,
   firm?: Firm,
+  w?: World,
 ): { profit: number; why: Breakdown } {
+  // BUSINESS (r15): a trading company: its voyages on average, less its factors.
+  if (t.hold === "company") {
+    const net = w && t.co ? companyOdds(s, w, t.co).net : 0;
+    return {
+      profit: net,
+      why: {
+        total: net,
+        parts: [
+          { label: "Its cargoes on average, less its factors", value: net },
+        ],
+      },
+    };
+  }
   if (firm) {
     const v = firmMonthView(s, firm, true);
     return { profit: v.profit, why: v.why };
@@ -393,6 +451,8 @@ export function articlesAcceptance(
   npc: Character,
   asker: Life,
   firm?: Firm,
+  /** BUSINESS (r15): the world, for a trading company's odds. */
+  w?: World,
 ): Breakdown {
   const e = new Explain();
   const i = t.sides[0].c === npc.id ? 0 : 1;
@@ -416,7 +476,7 @@ export function articlesAcceptance(
     e.add("Capital for their own business", 6);
   else if (t.job && theirs.includes(t.job)) e.add("Their own trade", 12);
   else if (
-    t.hold === "venture" &&
+    (t.hold === "venture" || t.hold === "company") && // BUSINESS (r15)
     (npc.role === "merchant" || npc.role === "captain")
   )
     e.add("Cargoes are their business", 8);
@@ -424,7 +484,7 @@ export function articlesAcceptance(
     e.add("Money to put to work", 4);
   else e.add("Not their line of business", -12);
   // What it should make.
-  const fc = articlesForecast(s, t, firm);
+  const fc = articlesForecast(s, t, firm, w);
   if (t.hold === "venture")
     e.add(
       "A gamble on cargoes",
@@ -544,6 +604,8 @@ function lawyerFee(s: GameState, life: Life, t: FirmTerms): number {
 /** "the inn at Jamestown", "a new shop at Jamestown", "The Boston Gazette". */
 export function holdWords(s: GameState, map: MapDef, t: FirmTerms): string {
   if (t.hold === "venture") return "cargoes, to be bought and shipped";
+  if (t.hold === "company" && t.co)
+    return `a company trading ${goodsName(t.co.item).toLowerCase()} out of ${town(map, t.co.from)}`; // BUSINESS (r15)
   if (t.hold === "paper") return paperById(s, t.id)?.name ?? "a newspaper";
   const name = t.job ? bizName(t.job, t.level ?? 1) : "business";
   return t.holder < 0
@@ -709,6 +771,16 @@ export function termsCheck(
   } else if (t.hold === "venture") {
     if (a.cap + b.cap < 10)
       return no("A company for cargoes needs 10 coins at least.");
+  } else if (t.hold === "company") {
+    // BUSINESS (r15): a trading company: its line of trade, and its first cargo.
+    if (!t.co) return no("What will it trade?");
+    const pc = planCheck(s, w, t.co);
+    if (!pc.ok) return pc;
+    const first = companyOdds(s, w, t.co).costNow;
+    if (a.cap + b.cap < CO_SETUP + first)
+      return no(
+        `Setting it up (${CO_SETUP}) and its first cargo (${Math.ceil(first)}): put in ${Math.ceil(CO_SETUP + first)} between you.`,
+      );
   } else return no("What will the firm hold?");
   // A lawyer, and the money.
   const fee = lawyerFee(s, life, t);
@@ -777,6 +849,13 @@ export function suggestTerms(
   } else if (choice.hold === "paper") {
     const x = paperById(s, choice.id);
     t.sides[1].cap = round5((x ? paperValue(x) : 30) * 0.4);
+  } else if (choice.hold === "company" && choice.co) {
+    // BUSINESS (r15): the setting up and two cargoes, shared.
+    t.co = { ...choice.co };
+    t.name = companyTitle(mineManages ? me.family : c.family, choice.co.item);
+    const need = CO_SETUP + companyOdds(s, w, choice.co).costNow * 2;
+    t.sides[1].cap = Math.min(round5(need / 2), round5(wealth / 2));
+    t.sides[0].cap = Math.max(round5(need / 2), round5(need) - t.sides[1].cap);
   } else {
     t.sides[0].cap = 20;
     t.sides[1].cap = Math.min(20, round5(wealth / 2));
@@ -934,7 +1013,7 @@ function deliverHere(g: ConquestGame, life: Life, o: FirmOffer): string | null {
     partnersChanged(g, "o");
     return null;
   }
-  const b = articlesAcceptance(s, o.terms, c, life, firm);
+  const b = articlesAcceptance(s, o.terms, c, life, firm, g.w);
   if (b.total > 0) {
     const err = sign(g, o);
     if (err) {
@@ -1117,7 +1196,7 @@ function articlesArrive(g: ConquestGame, writer: Life, l: Letter): boolean {
     // A computer character reads them and writes back.
     const npc = s.chars[l.to];
     const firm = o.firm >= 0 ? firmById(s, o.firm) : undefined;
-    const b = articlesAcceptance(s, o.terms, npc, writer, firm);
+    const b = articlesAcceptance(s, o.terms, npc, writer, firm, g.w);
     const yesA = b.total > 0;
     const worst = [...b.parts]
       .filter((p) => !p.mul && p.value < 0)
@@ -1213,8 +1292,38 @@ function sign(g: ConquestGame, o: FirmOffer): string | null {
         level: lv,
         hands: bizRoom(lv),
         name: bizName(t.job, lv),
+        st: { months: 0 }, // BUSINESS (r15): its custom builds
       };
     }
+  }
+  // BUSINESS (r15): the town's custom reckoned, and the hands that pay taken
+  // on (a new one's at its first month's custom), not every hand it has room for.
+  if (biz) {
+    biz.st = {
+      ...biz.st,
+      custom: freshCustom(s, g.w, t.prov, biz.job, {
+        chars: t.sides.map((x) => x.c),
+      }),
+      north: northern(g.w, t.prov),
+    };
+    const pseudo = {
+      biz,
+      prov: t.prov,
+      debt: 0,
+      partners: t.sides.map(
+        (x): FirmPartner => ({
+          c: x.c,
+          share: x.share,
+          role: x.role,
+          capital: x.cap,
+          since: 0,
+          drawn: 0,
+        }),
+      ),
+    };
+    const inp = firmBizInput(s, pseudo);
+    if (inp && !(t.holder >= 0 && lifeOfChar(s, t.holder)))
+      biz.hands = bestHands({ ...inp, month: -1 });
   }
   if (t.hold === "paper") {
     const x = paperById(s, t.id);
@@ -1231,6 +1340,7 @@ function sign(g: ConquestGame, o: FirmOffer): string | null {
     hold: t.hold,
     biz,
     ...(t.hold === "paper" ? { paper: t.id } : {}),
+    ...(t.hold === "company" && t.co ? { co: newCompany(t.co, s.day) } : {}), // BUSINESS (r15)
     prov: t.prov,
     partners: t.sides.map(
       (x, i): FirmPartner => ({
@@ -1415,6 +1525,7 @@ export function partnersDaily(g: ConquestGame): void {
   for (const o of ps.offers) offerDaily(g, o);
   for (const f of ps.firms) {
     if (f.status !== "trading") continue;
+    if (f.hold === "company") companyDaily(g, f); // BUSINESS (r15)
     heirsDaily(g, f);
     if (f.status !== "trading") continue;
     suitsDaily(g, f);
@@ -1478,7 +1589,9 @@ export function partnersMonthly(g: ConquestGame): void {
     if (f.status !== "trading") continue;
     // LEDGER (r15): each partner's share, in their month's books and news.
     withFlow(g, firmFlow(f), () => {
-      firmMonth(g, f);
+      if (f.hold === "company")
+        companyMonth(g, f); // BUSINESS (r15)
+      else firmMonth(g, f);
       firmTroubles(g, f);
     });
   }
@@ -1616,10 +1729,23 @@ hooks.death.push((g, c) => partnerDied(g, c));
 // ---------------------------------------------------------------- the month's forecast
 
 /** Your share of each firm's month, for Estate › Purse. */
-function firmBudget(s: GameState, life: Life): Part[] {
+function firmBudget(s: GameState, life: Life, w?: World): Part[] {
   const out: Part[] = [];
   for (const f of firmsWith(s, life.c)) {
     const p = partnerIn(f, life.c)!;
+    // BUSINESS (r15): a trading company: its cargoes run on luck.
+    if (f.hold === "company") {
+      if (!w || !f.co) continue;
+      const fc = companyForecast(s, w, f);
+      const sh = p.share / 100;
+      out.push({
+        label: `Your share: ${f.name} (${p.share}%)`,
+        value: r2((fc.fixed + fc.expected) * sh),
+        key: `firm:${f.id}`,
+        chance: [r2(fc.lo * sh), r2(fc.hi * sh)],
+      });
+      continue;
+    }
     if (f.hold === "paper") {
       const x = paperById(s, f.paper ?? -1);
       const inc = x?.income ?? 0;

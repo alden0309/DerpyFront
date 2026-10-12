@@ -1452,7 +1452,8 @@ export const LAND_LOT = { cost: 22, rent: 0.3, upkeep: 0.05, max: 20 };
 
 /** A hired hand: their wage a month, and the takings they bring in. */
 export const HAND_WAGE = 2;
-export const HAND_TAKINGS = 3.2;
+/** BUSINESS (r15): 3.5 (was 3.2), so a hand pays a fair master in every season. */
+export const HAND_TAKINGS = 3.5;
 /** Hands a business can use at each size; and what growing it costs. */
 export const BUSINESS_HANDS = [0, 2, 4, 7];
 export const EXPAND_COST = [0, 45, 120];

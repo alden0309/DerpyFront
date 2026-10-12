@@ -461,6 +461,47 @@ export function quote(
   };
 }
 
+/**
+ * BUSINESS (r15): what buying (qty > 0) or selling (qty < 0) would come to
+ * here for a company's factor, at a merchant's cut of `cut` (as `quote`).
+ */
+export function quoteCut(
+  s: GameState,
+  w: World,
+  p: number,
+  item: TradeItem,
+  qty: number,
+  cut: number,
+  day = s.day,
+): Quote {
+  const v = priceView(s, w, p, item, day);
+  const base = basePrice(s, w, p, item);
+  const n = Math.abs(qty);
+  const dir = qty > 0 ? -1 : 1;
+  let total = 0;
+  for (let k = 0; k < n; k++)
+    total += priceAt(base, v.depth, v.net + dir * (k + 0.5), v.mul);
+  total *= qty > 0 ? 1 + cut : 1 - cut;
+  const after = priceAt(base, v.depth, v.net + dir * n, v.mul);
+  return {
+    total: round2(total),
+    before: v.price,
+    after: round2(after),
+    each: n ? round2(total / n) : 0,
+  };
+}
+
+/** BUSINESS (r15): loads bought out of (qty > 0) or sold into (qty < 0) a market by a company. */
+export function marketMove(
+  g: ConquestGame,
+  p: number,
+  item: TradeItem,
+  qty: number,
+): void {
+  const m = marketAt(g, p);
+  m.net[item] = round2((m.net[item] ?? 0) - qty);
+}
+
 /** One load's buying and selling price for you here (for lists). */
 export function ratesFor(
   s: GameState,

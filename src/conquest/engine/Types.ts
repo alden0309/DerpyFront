@@ -646,6 +646,8 @@ export interface Property {
   lodgers?: number;
   /** HOME (r12): a house rented by the month, not owned. */
   leased?: boolean;
+  /** BUSINESS (r15): a business's own state (custom, months open, manager, books). */
+  biz?: BizState;
 }
 
 /** A goal a character has set themselves. */
@@ -1842,7 +1844,9 @@ export type LifeCommand =
   // PARTNERS (r13): business partnerships.
   | PartnersCommand
   // DICE (r14): Liar's dice in the tavern.
-  | DiceCommand;
+  | DiceCommand
+  // BUSINESS (r15): a business of your own, its hands and manager; a trading company.
+  | BusinessCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -2889,7 +2893,12 @@ export interface EduCommand {
 export type FirmRole = "managing" | "silent";
 
 /** What a firm holds: a business, a newspaper (kept by its owner), or only cargoes. */
-export type FirmHold = "biz" | "paper" | "venture";
+export type FirmHold =
+  | "biz"
+  | "paper"
+  | "venture"
+  // BUSINESS (r15): a trading company for particular goods.
+  | "company";
 
 /** One partner in a firm. */
 export interface FirmPartner {
@@ -2921,6 +2930,8 @@ export interface FirmBiz {
   /** Hands at work. */
   hands: number;
   name: string;
+  /** BUSINESS (r15): the town's custom as the month began, months open, the climate. */
+  st?: BizState;
 }
 
 /** A month in a firm's books. */
@@ -2999,6 +3010,8 @@ export interface FirmTerms {
   /** Who drew up the articles (an attorney or a law clerk), or -1. */
   lawyer: number;
   name: string;
+  /** BUSINESS (r15): a trading company's line of trade. */
+  co?: CompanyPlan;
 }
 
 /** Articles put to someone: in person, or on their way by post. */
@@ -3058,6 +3071,8 @@ export interface Firm {
   held?: number;
   /** Wound up on this day. */
   ended?: number;
+  /** BUSINESS (r15): a trading company's trade, factors and voyages. */
+  co?: CompanyState;
 }
 
 /** Everything of the PARTNERS track kept in the game. */
@@ -3330,3 +3345,102 @@ export type EventPool = "any" | "road" | "sea" | "raised";
  * showing, so what hasn't happened yet comes first. Kept through heirs.
  */
 export type EventsSeen = Record<string, number>;
+
+// ---- BUSINESS (r15)
+// A business that pays when it's run sensibly, and says plainly why when it
+// doesn't: the town's custom and its rivals, the season, the months it takes
+// to build custom, who minds it; its own books month by month; a manager put
+// in; and a trading company for particular goods.
+
+/** A business's own state: what the town's custom was as the month began, and its books. */
+export interface BizState {
+  /** The town's custom free for it, in hands' worth, as the month began. */
+  custom?: number;
+  /** A northern (or temperate) town: the winter takes custom down. */
+  north?: boolean;
+  /** Months open, while its custom is still building (gone once it's built). */
+  months?: number;
+  /** Hands taken on from the town's labouring folk (besides those taken on by name). */
+  extra?: number;
+  /** Take on and let go hands from the town each month, as they pay. */
+  auto?: boolean;
+  /** A manager put in to mind it (one of your people, by their id in your service). */
+  mgr?: number;
+  /** The last months' accounts, newest last. */
+  acct?: BizMonth[];
+  /** The day it last warned of losses. */
+  warned?: number;
+}
+
+/** One month of a business's account. */
+export interface BizMonth {
+  day: number;
+  takings: number;
+  wages: number;
+  upkeep: number;
+  excise: number;
+  /** A manager's wage. */
+  mgr?: number;
+  profit: number;
+  hands: number;
+  /** Who minded it: 1 in person, 2 a manager, 0 nobody. */
+  minded: 0 | 1 | 2;
+}
+
+/** What a trading company trades, and where: set at its founding, changed by its manager. */
+export interface CompanyPlan {
+  /** The goods it buys and sells (a market good or ware). */
+  item: TradeItem;
+  /** The port it buys at. */
+  from: number;
+  /** Where it sells: a port, or -1 for Europe (London, Amsterdam, La Rochelle...). */
+  to: number;
+  /** Loads a cargo. */
+  loads: number;
+  /** Months between sailings. */
+  every: number;
+}
+
+/** A company's cargo at sea. */
+export interface CompanyVoyage {
+  id: number;
+  item: TradeItem;
+  loads: number;
+  /** What it cost to buy, ship and insure. */
+  cost: number;
+  from: number;
+  to: number;
+  sailed: number;
+  due: number;
+}
+
+/** A trading company: its line of trade, its voyages, its record. */
+export interface CompanyState {
+  plan: CompanyPlan;
+  /** The day the next cargo sails. */
+  next: number;
+  voyages: CompanyVoyage[];
+  /** Voyages made, and those lost (wrecked, taken or seized). */
+  made: number;
+  lost: number;
+  /** This month so far: sales, the cost of the cargoes that came home (or didn't), and what happened. */
+  sales?: number;
+  closed?: number;
+  notes?: string[];
+}
+
+/** A command for a business of your own, or a trading company (Business.ts, Company.ts). */
+export interface BusinessCommand {
+  k: "business";
+  /** found, hand, unhand, manager, unmanager, company, plan, sail. */
+  act: string;
+  /** A property (a business) or a firm. */
+  id?: number;
+  job?: JobKind;
+  level?: number;
+  /** A character (a hand to let go), or one of your people (a manager). */
+  c?: number;
+  plan?: CompanyPlan;
+  /** A company's chest at its founding. */
+  cap?: number;
+}
