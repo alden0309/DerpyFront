@@ -907,6 +907,7 @@ const ACT_GROUP: Record<string, string> = {
   runaway: "work",
   traplines: "work",
   "~market": "work",
+  "~startbiz": "work", // BUSINESS (r15)
   "~gifts": "work",
   venture: "work",
   shares: "work",
@@ -1254,6 +1255,17 @@ function actsBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
         label: "Buy and sell goods",
         ok: true,
         run: () => ui.modal({ k: "trade" }),
+      }),
+    );
+  // BUSINESS (r15): start a business here, or a trading company.
+  if (area === "market" && !isChildLife(s, life))
+    buttons.set("~startbiz", () =>
+      actButton({
+        label: "Start a business…",
+        ok: true,
+        title:
+          "A business of your own here, or a trading company: its months one by one before you pay, alone or with a partner",
+        run: () => ui.modal({ k: "startbiz" }),
       }),
     );
   // WORLD r11: gifts of goods at a native council fire.
