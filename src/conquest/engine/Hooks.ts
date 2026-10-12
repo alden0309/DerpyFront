@@ -204,6 +204,19 @@ export const hooks = {
     lever: "supply" | "salary" | "address",
     by: number[],
   ) => boolean)[],
+  // CHAIR (r16)
+  /**
+   * A colony's capital has fallen to another (Crown.ts's cede): the old seat
+   * of government and the new one (-1 if nothing is left).
+   */
+  capitalMoved: [] as ((
+    g: ConquestGame,
+    n: number,
+    from: number,
+    to: number,
+  ) => void)[],
+  /** A new game is made: every polity and life in place, before the first delta. */
+  created: [] as ((g: ConquestGame) => void)[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

@@ -15,6 +15,7 @@ import {
   governorLean,
 } from "../../engine/Assembly";
 import { formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
+import { seatPresents } from "../../engine/ChairRules"; // CHAIR (r16)
 import {
   actionTargets,
   councilAdvice,
@@ -46,6 +47,7 @@ import { charName, provincesOf } from "../../engine/Queries";
 import type { CouncilSeat, Nation } from "../../engine/Types";
 import { nationName } from "../Text";
 import { num } from "../Tip";
+import { chamberChips } from "./Chair"; // CHAIR (r16)
 import {
   caresChips,
   factionsSection,
@@ -179,6 +181,12 @@ function chamber(ui: GameUi, n: number): TemplateResult {
           ${cab?.prorogued && cab.prorogued > s.day
             ? html` · <span class="cq-chip bad">assembly prorogued</span>`
             : nothing}
+          ${
+            chamberChips(
+              ui,
+              n,
+            ) /* CHAIR (r16): the lieutenant governor, supply */
+          }
         </p>
       </div>
     </div>
@@ -421,7 +429,11 @@ function reach(ui: GameUi, n: number): TemplateResult {
             ${warn ? html`<p class="cq-pw-warn small">${warn}</p>` : nothing}
             <div class="cq-btnrow">
               ${action(
-                "Ask the governor for it",
+                // CHAIR (r16): the presents his friends expect, on the button.
+                html`Ask the governor for
+                it${seatPresents(s, n, seat)
+                  ? price(seatPresents(s, n, seat), { have: life.purse })
+                  : nothing}`,
                 atCapital
                   ? check
                   : {

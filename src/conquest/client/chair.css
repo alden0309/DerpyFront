@@ -1,0 +1,146 @@
+/* CHAIR (r16): the road to the governor's chair (where you are on it), the
+   chair as it stands (the governor, his commission, the lieutenant governor,
+   a petition for his recall, the house's address), a governor's own
+   commission, and marks of greatness. Built from the register's own pieces
+   (the odds panel, chips, the seg buttons); only what's new is styled here. */
+
+.cq-chair-road {
+  list-style: none;
+  margin: 0.2rem 0 0.4rem;
+  padding: 0;
+  font-size: 0.9rem;
+}
+.cq-chair-road > li {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: 0.35rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-soft);
+}
+.cq-chair-road > li:last-child {
+  border-bottom: 0;
+}
+.cq-chair-road > li b {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1rem;
+}
+.cq-chair-road > li p {
+  margin-top: 0.1rem;
+}
+.cq-chair-road > li.done,
+.cq-chair-road > li.here {
+  color: var(--ink);
+}
+.cq-chair-road > li.done b {
+  color: var(--verdigris);
+}
+.cq-chair-road > li.here {
+  margin: 0.15rem -0.4rem;
+  padding: 0.35rem 0.4rem;
+  border: 1px solid var(--brass);
+  border-left-width: 3px;
+  background: rgba(201, 155, 58, 0.09);
+}
+.cq-chair-road > li.optional:not(.done):not(.here) b {
+  font-style: italic;
+}
+.cq-chair-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-top: 0.05rem;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  font-size: 0.8rem;
+  line-height: 1;
+  background: rgba(255, 250, 235, 0.5);
+}
+.cq-chair-road > li.done .cq-chair-mark {
+  border-color: rgba(44, 106, 76, 0.5);
+  color: var(--verdigris);
+}
+.cq-chair-road > li.here .cq-chair-mark {
+  border-color: var(--brass);
+  background: var(--brass);
+  color: var(--nation-ink);
+}
+
+.cq-chair-gov p,
+.cq-chair-mine p {
+  margin: 0.15rem 0;
+}
+.cq-chair-chance {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cq-chair-odds .cq-odds-head b {
+  font-size: 0.92rem;
+}
+.cq-chair-odds .cq-odds-rows li {
+  grid-template-columns: 4.6rem minmax(0, 1fr) auto;
+}
+/* "all but 1 in 33" wraps in its own column rather than running on. */
+.cq-chair-odds .cq-odds-chance {
+  white-space: normal;
+  line-height: 1.2;
+}
+.cq-chair-odds .cq-odds-amt {
+  font-size: 0.8rem;
+}
+.cq-chair-odds > p.small {
+  margin-top: 0.3rem;
+}
+
+.cq-chair-mine {
+  margin: 0.2rem 0 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--nation);
+  background: rgba(255, 250, 235, 0.45);
+}
+
+.cq-chair-where {
+  margin-top: 0.2rem;
+}
+
+.cq-chair-great {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+/* The drawer is narrow everywhere: the button (a price and its keep) goes
+   under the words, so they keep the width. */
+.cq-chair-great > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  align-items: start;
+  gap: 0.25rem 0.6rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.cq-chair-great > li:last-child {
+  border-bottom: 0;
+}
+.cq-chair-great > li b {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1rem;
+}
+.cq-chair-great > li .cq-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .cq-chair-odds .cq-odds-rows li {
+    grid-template-columns: 4.4rem minmax(0, 1fr);
+  }
+  .cq-chair-odds .cq-odds-amt {
+    grid-column: 2;
+    text-align: left;
+  }
+}

@@ -437,11 +437,14 @@ export function governorScore(s: GameState, life: Life): number {
   const offices = officesOf(s, me.id);
   const council = offices.some((o) => o.kind === "council") ? 25 : 0;
   const assembly = offices.some((o) => o.kind === "assembly") ? 10 : 0;
+  // CHAIR (r16): the crown's lieutenant governor has a head start.
+  const lt = s.nations[me.nation]?.chair?.lt === me.id ? 20 : 0;
   return (
     life.renown +
     life.favor * 1.5 +
     council +
     assembly +
+    lt +
     Math.min(30, localScore(s, me.id)) + // SOCIETY (r11): offices in the counties
     stat(s, me, "dip") +
     stat(s, me, "ste")
@@ -460,6 +463,8 @@ function chooseSuccessor(g: ConquestGame, n: number): number {
     if (!me?.alive || me.abroad || life.watching) continue;
     if (me.nation !== n || ageOf(s, me) < 25) continue;
     if (native !== isNativeChar(s, me)) continue;
+    // CHAIR (r16): a governor here lately is passed over for a while.
+    if ((life.chair?.lately ?? 0) > s.day || nation.ruler === me.id) continue;
     const score = governorScore(s, life);
     if (score > bestScore) {
       best = life;

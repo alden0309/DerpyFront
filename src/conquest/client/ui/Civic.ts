@@ -62,6 +62,7 @@ import { customFlag, flagFor } from "../Flags";
 import { play } from "../Sound";
 import { GOOD_NAMES, nationName, TERRAIN_NAMES } from "../Text";
 import { pollChip } from "./Canvass"; // POLLS (r16)
+import { appointerWhere } from "./Chair"; // CHAIR (r16)
 import {
   action,
   bar,
@@ -316,6 +317,7 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
                 "small",
               )}
         </div>
+        ${appointerWhere(ui, by) /* CHAIR (r16): where the appointer is */}
         ${!elig.ok && !(here && v && !v.check.ok)
           ? html`<p class="cq-muted small">${elig.why}</p>`
           : nothing}

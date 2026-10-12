@@ -167,6 +167,7 @@ import {
 import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
 // BUSINESS (r15): starting a business, and a trading company.
 import { BUSINESS_CHAPTER } from "./BusinessChapter";
+import { CHAIR_CHAPTER } from "./ChairChapter"; // CHAIR (r16)
 import { POLLS_CHAPTER } from "./PollsChapter"; // POLLS (r16)
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
 // INTRIGUE (r15): hearts and schemes.
@@ -1884,7 +1885,7 @@ Each colony has an assembly (the House of Burgesses, the General Court...), with
 **Seek a place at court** at the governor's house in the capital: renown 20 (or a seat in the assembly) and the governor's good opinion (15). When a council seat falls empty, the governor may offer it to someone at court he likes (a letter: accept or decline). The council itself, its seats and its politics are in [[council|The governor's council]].
 
 ## The governor's chair
-When the governor dies or is recalled, the crown appoints a successor from among those of standing ([[favour|Favour]]). Among the native peoples, when the leader dies, the elders choose someone of great renown and regard (about 70, and more than the council's best).
+When the governor dies, when his commission runs out (three to eight years), or when the crown recalls him, the crown appoints a successor: the lieutenant governor if there is one, else someone of standing ([[favour|Favour]]). Society › Standing shows where you are on the road, and what would bring the chair nearer: a petition for his recall, the house's address against him, the lieutenancy. All of it is in [[chair|The governor's chair]]. Among the native peoples, when the leader dies, the elders choose someone of great renown and regard (about 70, and more than the council's best).
 
 ## Governing
 A governor's decisions are on Society › Office: taxes, how much of the revenue goes home to the crown (more pleases it; less keeps the colony rich), building (forts, churches, farms, ports, courthouses), calling out the militia, war and peace, laws (up to 4 at a time) and public works. The council's advice comes with each: going against it costs a little. Appointing and dismissing the council, proclamations, and the assembly's bills are on Society › Council ([[council|The governor's council]]).`,
@@ -1936,6 +1937,9 @@ ${billsTable()}
   // ---- CHAMBER (r16): the council's business, the factions, the session (guide/ChamberChapter.ts)
   CHAMBER_CHAPTER,
   // ---- end CHAMBER (r16)
+  // ---- CHAIR (r16): the governor's chair (guide/ChairChapter.ts)
+  CHAIR_CHAPTER,
+  // ---- end CHAIR (r16)
   {
     id: "trials",
     part: "power",

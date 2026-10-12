@@ -10,6 +10,7 @@
 // proclamations, and answers the council and the assembly.
 
 import { chooseSpeaker } from "./Assembly";
+import { seatPresents } from "./ChairRules"; // CHAIR (r16)
 import { kill, makeNotable } from "./Characters";
 import { seatHolderId, seatsOf, seatTitle } from "./CouncilTitles";
 import { diplomacyCommand } from "./Diplomacy";
@@ -18,6 +19,7 @@ import { Explain } from "./Explain";
 import { factionLean, factionName, interestOf, markFaction } from "./Factions"; // CHAMBER (r16)
 import type { ConquestGame } from "./Game";
 import { raiseEvent } from "./Hooks";
+import { withFlow } from "./LedgerCore"; // CHAIR (r16)
 import {
   addRenown,
   addStress,
@@ -27,6 +29,7 @@ import {
   meet,
   milestone,
   remembers,
+  spend, // CHAIR (r16)
   touchLife,
 } from "./LifeCore";
 import {
@@ -280,6 +283,10 @@ export function seekSeatCheck(
     return no("A churchman's seat.");
   const left = (life.cooldowns[`seek-seat:${n}`] ?? 0) - s.day;
   if (left > 0) return no(`You asked lately (again in ${left} days).`);
+  // CHAIR (r16): the governor's friends expect presents from a new councillor.
+  const gifts = seatPresents(s, n, seat);
+  if (gifts && life.purse < gifts)
+    return no(`The governor's friends expect presents: ${gifts} coins.`);
   return yes;
 }
 
@@ -344,8 +351,32 @@ export function seekSeat(
     );
     return null;
   }
+  payPresents(g, life, n, seat); // CHAIR (r16)
   seatCouncillor(g, n, seat, me.id, `appointed by ${charName(gov)}`);
   return null;
+}
+
+/** CHAIR (r16): the presents a new councillor makes the governor's friends. */
+function payPresents(
+  g: ConquestGame,
+  life: Life,
+  n: number,
+  seat: CouncilSeat,
+): boolean {
+  const gifts = seatPresents(g.s, n, seat);
+  if (!gifts) return true;
+  if (life.purse < gifts) return false;
+  withFlow(
+    g,
+    { key: "chair:presents", label: "Presents to the governor's friends" },
+    () => spend(g, life, gifts),
+  );
+  journal(
+    g,
+    life,
+    `Presents to the governor's friends, as a new councillor makes them: ${gifts} coins.`,
+  );
+  return true;
 }
 
 /** Index of each seat, for event contexts (numbers only). */
@@ -524,6 +555,16 @@ export function acceptSeat(
   const holder = seatHolderId(s, n, seat);
   if (holder >= 0 && isPlayed(s, holder) && holder !== me.id) {
     journal(g, life, "Someone else took the seat before your answer came.");
+    return;
+  }
+  // CHAIR (r16): no presents for his friends, no seat.
+  if (!payPresents(g, life, n, seat)) {
+    journal(
+      g,
+      life,
+      `You can't find the ${seatPresents(s, n, seat)} coins in presents the governor's friends expect: the seat goes to another.`,
+      "bad",
+    );
     return;
   }
   const gov = s.chars[nation.ruler];

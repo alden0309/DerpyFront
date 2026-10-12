@@ -91,5 +91,15 @@ export function splitPrice(label: string): {
   cost: number | null;
 } {
   const m = /^(.*?)\s*\((\d+(?:\.\d+)?)(?: coins)?\)$/.exec(label);
-  return m ? { text: m[1], cost: Number(m[2]) } : { text: label, cost: null };
+  if (m) return { text: m[1], cost: Number(m[2]) };
+  // CHAIR (r16): a price followed by the skill check's odds the engine
+  // appends ("Bribe them (5 coins) (Persuasion 62%)"): the odds stay in the
+  // words, the price goes in the chip.
+  const k =
+    /^(.*?)\s*\((\d+(?:\.\d+)?)(?: coins)?\)(\s*\([A-Z][a-z]+ \d+%\))$/.exec(
+      label,
+    );
+  return k
+    ? { text: `${k[1]}${k[3]}`, cost: Number(k[2]) }
+    : { text: label, cost: null };
 }
