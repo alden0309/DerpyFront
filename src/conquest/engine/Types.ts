@@ -4148,6 +4148,8 @@ export interface LifeChair {
   great?: Record<string, number>;
   /** A portrait's sitter (a character id): an heir sits for their own. */
   sitter?: Record<string, number>;
+  /** Times each character of the line governed the colony (stints ended), by character id. */
+  served?: Record<string, number>;
   /** Governor here lately: until this day the crown looks elsewhere for the chair. */
   lately?: number;
   /** The lieutenancy declined: not offered again until this day. */

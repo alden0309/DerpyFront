@@ -29,6 +29,7 @@ import {
   chairOf,
   courtCheck,
   crownColony,
+  crownPickOdds,
   followCheck,
   followCost,
   grievancesOf,
@@ -47,6 +48,7 @@ import {
   RECALLED,
   recallOdds,
   renewOdds,
+  servedHere,
   skillOdds,
   termYears,
   wouldSign,
@@ -242,6 +244,18 @@ export function recallRoll(
   return cdice(s, 2, n, pet.id).next() < recallOdds(s, n, pet, pet.by).total;
 }
 
+/** The crown names this player rather than a man of its own: by crownPickOdds exactly. */
+export function crownPickRoll(
+  s: GameState,
+  n: number,
+  life: Life,
+  barred: number,
+): boolean {
+  return (
+    cdice(s, 11, n, life.c, barred).next() < crownPickOdds(s, n, life).total
+  );
+}
+
 /** How a governor the computer plays answers an address carried against him, by addressAnswerOdds exactly. */
 export function answerRoll(
   s: GameState,
@@ -335,6 +349,10 @@ export function replaceGovernor(
       const lc = lifeChair(g, oldLife);
       // A recalled governor waits longer before the crown looks at him again.
       lc.lately = s.day + (why === "recall" ? RECALLED : LATELY);
+      lc.served = {
+        ...(lc.served ?? {}),
+        [old.id]: servedHere(oldLife, old.id) + 1,
+      };
       journal(
         g,
         oldLife,
@@ -443,9 +461,18 @@ function chairSuccessor(g: ConquestGame, n: number): number {
       bestScore = sc;
     }
   }
+  // The crown weighs the colony's best case against a man of its own.
   if (best && bestScore >= bestCouncilCase(s, n, best.c)) {
-    installPlayer(g, best, n, "by the crown's choice");
-    return best.c;
+    if (crownPickRoll(s, n, best, barred)) {
+      installPlayer(g, best, n, "by the crown's choice");
+      return best.c;
+    }
+    journal(
+      g,
+      best,
+      `The crown has chosen a man of its own for the chair of ${shortName(nation)}, though your name was before the Board of Trade.`,
+      "bad",
+    );
   }
   const r = cdice(s, 4, n, barred);
   const pool = councillors(s, n)

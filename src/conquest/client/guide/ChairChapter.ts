@@ -8,6 +8,7 @@
 
 import {
   ADDRESS,
+  CROWN_PICK,
   FOLLOW,
   LAPSE_DAYS,
   LATELY,
@@ -72,6 +73,19 @@ function recallTable(): string {
 Never more than ${hundred(R.max)} in 100, nor less than 3.`;
 }
 
+/** What makes the crown name you rather than a man of its own, from CROWN_PICK. */
+function crownPickTable(): string {
+  const C = CROWN_PICK;
+  return `| What | In 100 |
+|---|---|
+| As often as not the crown sends a man of its own | ${hundred(C.base)} to begin with |
+| Your case above the bar, a point at a time | a point in ${Math.round(1 / C.casePer / 100)} (up to ${signed(C.caseMax)}) |
+| Your favour at home | a point in ${Math.round(1 / C.favorPer / 100)} (up to ${signed(C.favorMax)}) |
+| Each time you've governed here before (the crown likes new men) | ${signed(C.before)} (up to ${signed(C.beforeMax)}) |
+
+Never less than ${hundred(C.min)} in 100 nor more than ${hundred(C.max)}, and nothing at all if your case is short of the bar.`;
+}
+
 /** Marks of greatness, from Grandeur's own table. */
 function greatTable(): string {
   const cost = (key: string, base: number) =>
@@ -105,6 +119,9 @@ A royal governor holds the crown's **commission** for **${TERM.min} to ${TERM.ma
 - **The odds of renewal** start at ${hundred(RENEW.base)} in 100 (most governors served one term) and move with the crown's trust in the colony (its favour: ${RENEW.trustMid} counts for nothing; up to ${hundred(RENEW.trustMax)} either way), the grievances it has heard against him (an address carried, a petition near-run: each ${signed(RENEW.grievance)}), towns lost while he governed (${signed(RENEW.lost)} each), each term served already (${signed(RENEW.term)}), his age (over ${RENEW.oldAge}: ${signed(RENEW.old)}), honours (${signed(RENEW.honour)}), and his own letters asking for another term. Never more than ${hundred(RENEW.max)} in 100.
 - **Society › Standing** shows his commission's end and the odds; if you govern, **Society › Office** shows yours. Three months before it runs out you're asked whether to **ask the crown for another term** (Letters: landed, ${signed(RENEW.askPass)} in 100; otherwise ${signed(RENEW.askFail)}).
 - A governor whose term is done sails for home; if it's you, you stay in the colony, a private gentleman with a governor's name. The crown looks elsewhere for the chair for **${Math.round(LATELY / 365)} years** after.
+- **Who the crown names.** The lieutenant governor succeeds whenever the chair falls empty. Failing one, at a governor's death the crown names the colony's best case on the spot (100 or more, and better than the council's best). At a commission's end or after a recall it has months to choose, and weighs that case against a man of its own from home, as most royal governors were. The road's last step on Society › Standing shows your chance:
+
+${crownPickTable()}
 
 ## The lieutenant governor
 When the governor grows **old (${LT.age}) or ill** (gouty, sickly, never well since a wound, failing, laid up), the crown names a **lieutenant governor**: the best case in the colony, **${LT.bar}** or more, is offered the commission first (the same case the crown weighs for the chair); if nobody's is, one of the council.

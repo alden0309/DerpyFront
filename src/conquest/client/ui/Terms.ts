@@ -189,7 +189,7 @@ export const TERMS: Record<string, Term> = {
   commission: {
     name: "Commission",
     what: "The crown's appointment of a governor: three to eight years, then renewed for a few more, or another man named.",
-    good: "When it runs out the chair can fall empty without anyone dying. Society › Standing shows when, and the crown's odds of renewing it.",
+    good: "When it runs out the chair can fall empty without anyone dying. Society › Standing shows when, the crown's odds of renewing it, and your chance of being named in his place (the crown weighs the colony's best case against a man of its own).",
     raise:
       "The crown renews a governor it trusts (the colony's favour) and hasn't heard grievances against: an address carried, a petition near-run, towns lost.",
     ch: "chair",

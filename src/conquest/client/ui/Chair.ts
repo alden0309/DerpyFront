@@ -116,7 +116,15 @@ export function roadList(ui: GameUi): TemplateResult {
                 : nothing}${x.here
                 ? html` <span class="cq-chip gold">you are here</span>`
                 : nothing}
-              <p class="small">${x.text}</p>
+              <p class="small">
+                ${x.text}${x.pick
+                  ? html` As things stand it would name you
+                    ${chanceTip(
+                      "Would the crown name you, or a man of its own?",
+                      x.pick,
+                    )}.`
+                  : nothing}
+              </p>
             </div>
           </li>`,
       )}

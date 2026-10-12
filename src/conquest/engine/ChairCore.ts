@@ -182,6 +182,30 @@ export const ADDRESS = {
 export const LATELY = 5 * DAYS_PER_YEAR;
 export const RECALLED = 10 * DAYS_PER_YEAR;
 
+/**
+ * When the crown fills the chair at a commission's end or after a recall
+ * (it has the months to choose), it weighs the colony's best case against a
+ * man of its own from home, as most royal governors were. Only a case that
+ * clears the bar (the council's best, and 100) is weighed at all; the
+ * lieutenant governor succeeds without it, and at a governor's death the
+ * best case is named on the spot.
+ */
+export const CROWN_PICK = {
+  /** As often as not the crown sends a man of its own. */
+  base: 0.4,
+  /** Your case above the bar, a point at a time. */
+  casePer: 1 / 400,
+  caseMax: 0.25,
+  /** Your favour at home. */
+  favorPer: 1 / 500,
+  favorMax: 0.15,
+  /** Each time you've governed here before: the crown likes new men. */
+  before: -0.15,
+  beforeMax: -0.3,
+  min: 0.1,
+  max: 0.8,
+};
+
 /** Living outside your colony: its seats lapse after this many days. */
 export const LAPSE_DAYS = 90;
 
@@ -874,7 +898,7 @@ export function whereabouts(
   return {
     p,
     days,
-    text: `at ${name}${capital}${t && t.depart >= 0 ? " (on his way there)" : ""}${days > 0 ? `, about ${days} day${days === 1 ? "" : "s"} from here` : ""}`,
+    text: `at ${name}${capital}${t && t.depart >= 0 ? ` (on ${ch.female ? "her" : "his"} way there)` : ""}${days > 0 ? `, about ${days} day${days === 1 ? "" : "s"} from here` : ""}`,
   };
 }
 
@@ -892,6 +916,8 @@ export interface RoadStep {
   optional?: boolean;
   /** What it needs, and where you stand: plain words. */
   text: string;
+  /** The chair: the chance the crown would name you at a commission's end or a recall. */
+  pick?: Breakdown;
 }
 
 /** The road to the governor's chair, from where you stand. */
@@ -996,12 +1022,65 @@ export function roadView(s: GameState, w: World, life: Life): RoadStep[] {
       ? ch
         ? `You govern. Your commission runs to ${formatDate(ch.ends)}.`
         : "You govern."
-      : `When the chair falls empty (his death, his recall, or his commission's end${ch ? ` on ${formatDate(ch.ends)}` : ""}), the crown names the lieutenant governor, or the best case of 100 that beats the council's best (yours ${score}; the council's best ${best}).${lately ? " Lately governor here, you're passed over for a while." : ""}`,
+      : `${ruler?.alive ? `${charName(ruler)} is ${healthWords(s, w, ruler, ch)}${ch ? `, and ${ruler.female ? "her" : "his"} commission runs to ${formatDate(ch.ends)}` : ""}. ` : ""}When the chair falls empty, the lieutenant governor succeeds; failing one, at a death the crown names the best case of 100 that beats the council's best (yours ${score}; the council's best ${best}), and at a commission's end or a recall it weighs that case against a man of its own from home.${lately ? ` Lately governor here, you're passed over until ${formatDate(life.chair!.lately!)}.` : ""}`,
   });
-  // You are here: the first step not done that isn't optional (or the chair).
-  const at = out.find((x) => !x.done && !x.optional) ?? out[out.length - 1];
+  if (!governs && !lately && score >= best)
+    out[out.length - 1].pick = crownPickOdds(s, n, life);
+  // You are here: the next step to take after the furthest one reached
+  // (a councillor who never sat in the house is past it), or the chair.
+  let last = -1;
+  out.forEach((x, i) => {
+    if (x.done && !x.optional) last = i;
+  });
+  const at =
+    out.find((x, i) => i > last && !x.done && !x.optional) ??
+    out[out.length - 1];
   at.here = true;
   return out;
+}
+
+/** How many times this character has governed this colony before (stints ended). */
+export function servedHere(life: Life, c: number): number {
+  return life.chair?.served?.[c] ?? 0;
+}
+
+/**
+ * The chance the crown names you rather than a man of its own, when it fills
+ * the chair at a commission's end or after a recall (0 if your case doesn't
+ * clear the bar). The round rolls exactly this (Chair.ts's crownPickRoll).
+ */
+export function crownPickOdds(s: GameState, n: number, life: Life): Breakdown {
+  const e = new Explain();
+  const me = meOf(s, life);
+  if (!me) return e.done(3, 0, 0);
+  const score = governorScore(s, life);
+  const bar = bestCouncilCase(s, n, me.id);
+  if (score < bar) {
+    e.add(
+      `Your case (${Math.round(score)}) is short of the bar (${bar})`,
+      0,
+      true,
+    );
+    return e.done(3, 0, 0);
+  }
+  const C = CROWN_PICK;
+  e.add("As often as not the crown sends a man of its own", C.base, true);
+  e.add(
+    `Your case above the bar (${Math.round(score)} against ${bar})`,
+    pct(Math.min(C.caseMax, (score - bar) * C.casePer)),
+  );
+  if (life.favor > 0)
+    e.add(
+      `Your favour at home (${Math.round(life.favor)})`,
+      pct(Math.min(C.favorMax, life.favor * C.favorPer)),
+    );
+  const before = servedHere(life, me.id);
+  if (before)
+    e.add(
+      `You've governed here before (${before === 1 ? "once" : `${before} times`}): the crown likes new men`,
+      pct(Math.max(C.beforeMax, before * C.before)),
+    );
+  return e.done(3, C.min, C.max);
 }
 
 /** The council's best case for the chair, as the crown sees it (the same as Politics' bar). */

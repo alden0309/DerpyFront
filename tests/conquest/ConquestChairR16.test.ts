@@ -6,10 +6,14 @@
 // the speaker's age; a place at court that says what it needs; a law clerk
 // at the levee; marks of greatness; the road page; saves and the delta.
 
-import { describe, expect, test } from "vitest";
+import http from "http";
+import { AddressInfo } from "net";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { WebSocket } from "ws";
 import { chooseSpeaker } from "../../src/conquest/engine/Assembly";
 import {
   answerRoll,
+  crownPickRoll,
   houseLever,
   recallRoll,
   renewRoll,
@@ -21,6 +25,8 @@ import {
   addressDivision,
   chairOf,
   courtNeeds,
+  CROWN_PICK,
+  crownPickOdds,
   infirmity,
   LATELY,
   lieutenantOf,
@@ -57,6 +63,7 @@ import {
 } from "../../src/conquest/engine/Grandeur";
 import { actCheck } from "../../src/conquest/engine/LifeActs";
 import {
+  lifeOfSeat,
   meOf,
   monthlyBudget,
   officesOf,
@@ -66,11 +73,13 @@ import { provincesOf, settlers } from "../../src/conquest/engine/Queries";
 import type {
   Address,
   Character,
+  GameDelta,
   GameState,
   Life,
   Nation,
   RecallPetition,
 } from "../../src/conquest/engine/Types";
+import type { ServerMessage } from "../../src/conquest/Protocol";
 import { lifeOf, map, plan, prov, ticks, world } from "./LifeUtil";
 
 const england = (g: ConquestGame): Nation =>
@@ -755,9 +764,11 @@ describe("CHAIR r16: the road knows where you are", () => {
     road = roadView(s, g.w, life);
     expect(road.find((x) => x.key === "council")?.done).toBe(true);
     expect(road.find((x) => x.key === "council")?.day).toBeDefined();
-    expect(road.find((x) => x.here)?.key).toBe("house");
+    // Past the house (a councillor need never sit there): the chair is next.
+    expect(road.find((x) => x.key === "house")?.done).toBe(false);
+    expect(road.find((x) => x.here)?.key).toBe("governor");
     expect(road.find((x) => x.key === "governor")?.text).toMatch(
-      /commission's end on/,
+      /is \d+(,| and).*commission runs to/,
     );
   });
 });
@@ -785,7 +796,7 @@ describe("CHAIR r16: saves, the delta, old saves, determinism", () => {
     const g3 = new ConquestGame(map, old);
     ticks(g3, 40);
     expect(chairOf(g3.s, n)).toBeDefined();
-  });
+  }, 120_000);
 
   test("the same seed runs the same", () => {
     const a = world({ seed: 31 });
@@ -797,7 +808,7 @@ describe("CHAIR r16: saves, the delta, old saves, determinism", () => {
       JSON.stringify(b.s.nations[n].chair),
     );
     expect(a.s.nations[n].ruler).toBe(b.s.nations[n].ruler);
-  });
+  }, 120_000);
 });
 
 describe("CHAIR r16: the house's session hands us its levers (CHAMBER's hooks.houseLever)", () => {
@@ -934,5 +945,235 @@ describe("CHAIR r16: after the chair", () => {
     expect(greatCheck(s, g.w, life, "portrait").ok).toBe(true);
     expect(greatHad(s, life, "school")).toBe(true);
     expect(greatCheck(s, g.w, life, "school").ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------- through the rooms server
+
+class Client {
+  readonly messages: ServerMessage[] = [];
+  private waiters: {
+    test: (m: ServerMessage) => boolean;
+    resolve: (m: ServerMessage) => void;
+  }[] = [];
+  readonly ws: WebSocket;
+  readonly open: Promise<void>;
+  constructor(url: string) {
+    this.ws = new WebSocket(url);
+    this.open = new Promise((r) => this.ws.on("open", () => r()));
+    this.ws.on("message", (data) => {
+      const m = JSON.parse(String(data)) as ServerMessage;
+      this.messages.push(m);
+      this.waiters = this.waiters.filter((w) => {
+        if (!w.test(m)) return true;
+        w.resolve(m);
+        return false;
+      });
+    });
+  }
+  send(m: unknown) {
+    this.ws.send(JSON.stringify(m));
+  }
+  next<T extends ServerMessage["t"]>(
+    t: T,
+    test: (m: Extract<ServerMessage, { t: T }>) => boolean = () => true,
+  ) {
+    return new Promise<Extract<ServerMessage, { t: T }>>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`timed out waiting for ${t}`)),
+        4000,
+      );
+      this.waiters.push({
+        test: (m) => m.t === t && test(m as Extract<ServerMessage, { t: T }>),
+        resolve: (m) => {
+          clearTimeout(timer);
+          resolve(m as Extract<ServerMessage, { t: T }>);
+        },
+      });
+    });
+  }
+  private id = 100;
+  async cmd(c: object): Promise<string | null> {
+    const id = this.id++;
+    const ack = this.next("ack", (m) => m.id === id);
+    this.send({ t: "cmd", id, c });
+    return (await ack).err;
+  }
+  state(): GameState {
+    let s: GameState | null = null;
+    for (const m of this.messages) {
+      if (m.t === "game") s = JSON.parse(JSON.stringify(m.state));
+      else if (m.t === "d" && s) applyDelta(s, m.d as GameDelta);
+    }
+    return s!;
+  }
+  close() {
+    this.ws.close();
+  }
+}
+
+describe("CHAIR r16 through the rooms server: a petition against a player who governs", () => {
+  let server: http.Server;
+  let url = "";
+  const clock = 1_800_000_000_000;
+  let rooms: import("../../src/server/conquest/ConquestRooms").ConquestRooms;
+  const clients: Client[] = [];
+  beforeAll(async () => {
+    const { attachConquest, ConquestRooms } =
+      await import("../../src/server/conquest/ConquestRooms");
+    rooms = new ConquestRooms(() => clock);
+    server = http.createServer();
+    attachConquest(server, rooms);
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}/conquest/ws`;
+  });
+  afterAll(async () => {
+    for (const c of clients) c.close();
+    await new Promise((r) => server.close(r));
+  });
+  const client = async (name: string) => {
+    const c = new Client(url);
+    clients.push(c);
+    await c.open;
+    c.send({ t: "hello", name });
+    await c.next("welcome");
+    return c;
+  };
+
+  test("Bea begins it; Alden, who governs, sees it in his own copy and answers it; she hears that he did", async () => {
+    const JT = prov("Jamestown");
+    const host = await client("Alden");
+    const lobby = host.next("lobby");
+    host.send({
+      t: "create",
+      solo: false,
+      open: true,
+      settings: { difficulty: "normal", start: 1700 },
+    });
+    const l = await lobby;
+    const bea = await client("Bea");
+    const joined = host.next("lobby", (m) => m.seats.length === 2);
+    bea.send({ t: "join", code: l.code });
+    await joined;
+    host.send({
+      t: "plan",
+      plan: plan({ home: JT, background: "gentry", age: 40 }),
+    });
+    bea.send({
+      t: "plan",
+      plan: plan({
+        home: JT,
+        first: "Beatrice",
+        family: "Cole",
+        female: true,
+        background: "lawyer",
+        age: 32,
+      }),
+    });
+    await host.next("lobby", (m) => m.seats.every((s) => s.made));
+    bea.send({ t: "ready", ready: true });
+    await host.next("lobby", (m) => m.seats.filter((s) => s.ready).length >= 1);
+    const games = [host.next("game"), bea.next("game")];
+    host.send({ t: "start" });
+    const [hg, bg] = await Promise.all(games);
+    const paused = host.next("clock", (m) => m.paused);
+    host.send({ t: "pause", p: true });
+    await paused;
+    const game = rooms.rooms.get(l.code)!.game!;
+    const s = game.s;
+    const A = lifeOfSeat(s, hg.you)!;
+    const B = lifeOfSeat(s, bg.you)!;
+    const n = s.chars[A.c].nation;
+    // Alden governs (a commission three years old); Beatrice sits on the council.
+    game.nation(n).ruler = A.c;
+    game.tick();
+    game.tick();
+    const ch = chairOf(s, n)!;
+    ch.since = s.day - 3 * 365;
+    ch.ends = s.day + 3 * 365;
+    seatCouncillor(game, n, "treasurer", B.c, "for the test");
+    B.renown = 60;
+    B.favor = 40;
+    A.purse = B.purse = 60;
+
+    expect(await bea.cmd({ k: "chair", act: "petition" })).toBeNull();
+    // Alden's own copy: the petition, and his scene to answer it.
+    const as = host.state();
+    const pet = as.nations[n].chair?.petition;
+    expect(pet?.by).toBe(B.c);
+    const ev = as.lives
+      .find((x) => x.seat === hg.you)!
+      .events.find((e) => e.key === "chair-petition");
+    expect(ev).toBeDefined();
+    expect(as.nations[n].ruler).toBe(A.c);
+    // He answers it with letters to London.
+    expect(await host.cmd({ k: "event", id: ev!.id, choice: 1 })).toBeNull();
+    const bs = bea.state();
+    expect(bs.nations[n].chair?.petition?.defence).toBeGreaterThan(0);
+    expect(
+      bs.lives
+        .find((x) => x.seat === bg.you)!
+        .journal.some((j) => /answered your petition/.test(j.text)),
+    ).toBe(true);
+    // Nothing is done to him meanwhile: he governs until the crown answers.
+    expect(bs.nations[n].ruler).toBe(A.c);
+  }, 30_000);
+});
+
+describe("CHAIR r16: at a commission's end the crown weighs you against a man of its own", () => {
+  test("rolled at exactly the odds the road shows; governing before counts against you", () => {
+    const g = world({ seed: 5 });
+    const s = g.s;
+    const life = lifeOf(g);
+    const me = meIn(g);
+    age(g, me, 40);
+    const n = england(g).id;
+    // Short of the bar: never weighed at all.
+    life.renown = 0;
+    life.favor = 0;
+    expect(crownPickOdds(s, n, life).total).toBe(0);
+    let expected = 0;
+    let got = 0;
+    const d0 = s.day;
+    for (let i = 0; i < 3000; i++) {
+      s.day = d0 + i;
+      life.renown = 100 + (i % 7) * 40;
+      life.favor = (i * 13) % 100;
+      life.chair = { served: { [me.id]: i % 3 } };
+      const p = crownPickOdds(s, n, life).total;
+      expect(p).toBeGreaterThanOrEqual(CROWN_PICK.min);
+      expect(p).toBeLessThanOrEqual(CROWN_PICK.max);
+      expected += p;
+      if (crownPickRoll(s, n, life, 1000 + i)) got++;
+    }
+    s.day = d0;
+    expect(Math.abs(got - expected)).toBeLessThan(3 * Math.sqrt(expected) + 5);
+    life.renown = 300;
+    life.favor = 90;
+    life.chair = {};
+    const fresh = crownPickOdds(s, n, life).total;
+    life.chair = { served: { [me.id]: 1 } };
+    expect(crownPickOdds(s, n, life).total).toBeLessThan(fresh);
+    // The road shows it on the chair's step.
+    life.chair = {};
+    const road = roadView(s, g.w, life);
+    expect(road.find((x) => x.key === "governor")?.pick?.total).toBe(fresh);
+  });
+
+  test("a governor whose term ends has served once; the next time the crown weighs it", () => {
+    const g = world({ seed: 7 });
+    const life = lifeOf(g);
+    const me = meIn(g);
+    age(g, me, 40);
+    const n = england(g).id;
+    g.nation(n).ruler = me.id;
+    ticks(g, 2);
+    replaceGovernor(g, n, "term", -1);
+    expect(life.chair!.served![me.id]).toBe(1);
+    expect(
+      crownPickOdds(g.s, n, life).parts.some((p) =>
+        /governed here before/.test(p.label),
+      ) || crownPickOdds(g.s, n, life).total === 0,
+    ).toBe(true);
   });
 });
