@@ -743,7 +743,6 @@ function done(
   x: IntrigueScheme,
   c: Character,
 ): void {
-  const s = g.s;
   const def = PLOT_METHODS[x.method ?? "poison"];
   const where = g.map.provinces[x.p]?.name ?? "town";
   close(

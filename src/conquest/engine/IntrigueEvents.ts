@@ -83,7 +83,6 @@ const who = (g: ConquestGame, ctx: LCtx): Character | undefined =>
 const name = (g: ConquestGame, ctx: LCtx) => charName(who(g, ctx));
 const first = (g: ConquestGame, ctx: LCtx) => who(g, ctx)?.first ?? "Someone";
 const he = (c: Character | undefined) => (c?.female ? "she" : "he");
-const him = (c: Character | undefined) => (c?.female ? "her" : "him");
 const his = (c: Character | undefined) => (c?.female ? "her" : "his");
 const cap = (t: string) => t[0].toUpperCase() + t.slice(1);
 const poor = (life: Life, n: number) =>
