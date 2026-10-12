@@ -150,7 +150,8 @@ export function workNotes(ui: GameUi): TemplateResult {
   return html`${effortPicker(ui)}
     <p class="cq-muted small cq-lv-runs">
       Your days at your post are worked for you (Sundays off): no need to keep
-      this page open. Every few weeks a matter at work comes to you as a letter.
+      this page open. Every month or two a matter at work comes to you as a
+      letter: your trade has several, and none comes twice in a year.
     </p>
     ${def.crime
       ? html`<p class="small cq-lv-crimeline">

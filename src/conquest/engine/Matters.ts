@@ -193,16 +193,18 @@ export function fxWords(
   if (f.name && f.name > 0) out.push("your name in the underworld");
   if (f.seize) out.push(`a ${Math.round(f.seize * 100)}% chance of the watch`);
   if (f.gain) out.push(TRAITS[f.gain].name.toLowerCase());
-  return out.length ? out.join(", ") : "nothing more";
+  return out.join(", ");
 }
 
 function tipOf(g: ConquestGame, life: Life, v: Variant, c: MChoice): string {
   const lead = c.tip ? `${c.tip}. ` : "";
   const w = fxWords(g, life, v, c, c.win);
+  const l = c.lose ? fxWords(g, life, v, c, c.lose) : "";
   if (c.check && c.lose)
-    return `${lead}Done well: ${w}. Botched: ${fxWords(g, life, v, c, c.lose)}.`;
+    return `${lead}Done well: ${w || "it's done"}. Botched: ${l || "nothing comes of it"}.`;
   if (c.odds !== undefined && c.lose)
-    return `${lead}${Math.round(c.odds * 100)}% it comes off: ${w}; if not: ${fxWords(g, life, v, c, c.lose)}.`;
+    return `${lead}${Math.round(c.odds * 100)}% it comes off${w ? `: ${w}` : ""}; if not: ${l || "nothing comes of it"}.`;
+  if (!w) return c.tip ? `${c.tip}.` : "Nothing lost, nothing gained.";
   return `${lead}${w[0].toUpperCase()}${w.slice(1)}.`;
 }
 

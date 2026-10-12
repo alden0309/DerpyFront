@@ -18,6 +18,7 @@ import {
   wouldBeg,
 } from "../../src/conquest/engine/EventPacing";
 import { ConquestGame } from "../../src/conquest/engine/Game";
+import { answerInvite, invitables } from "../../src/conquest/engine/Gatherings";
 import { hooks } from "../../src/conquest/engine/Hooks";
 import {
   answerLifeEvent,
@@ -600,6 +601,60 @@ describe("no event speaks for another player", () => {
       return [...played].filter((c) => c !== life.c);
     }
   }, 300_000);
+
+  test("at a gathering, another player there is never a turn's subject: they act for themselves", () => {
+    let turns = 0;
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const g = world({
+        start: 1650,
+        seed,
+        plans: [
+          { seat: "a", name: "Alden", plan: plan() },
+          {
+            seat: "b",
+            name: "Pat",
+            plan: plan({ first: "Patience", family: "Cole", female: true }),
+          },
+        ],
+      });
+      const A = lifeOfSeat(g.s, "a")!;
+      const B = lifeOfSeat(g.s, "b")!;
+      A.purse = 100;
+      // They can't abide each other: the barb, the brawl, the drunk would all pick her.
+      A.ties[B.c] = "rival";
+      B.ties[A.c] = "rival";
+      const guests = invitables(g.s, g.w, A)
+        .filter((x) => x.near && x.c.id !== B.c)
+        .slice(0, 3);
+      expect(
+        g.lifeCommand("a", {
+          k: "society",
+          act: "host",
+          kind: "dinner",
+          venue: "home",
+          days: 7,
+          arg: 1,
+          list: [B.c, ...guests.map((x) => x.c.id)],
+        }),
+      ).toBeNull();
+      const gat = g.s.society!.gatherings.find((x) => x.host === A.c)!;
+      answerInvite(g, gat, B.c, true, "a neighbour");
+      const w = watch(g);
+      for (let d = 0; d < 12; d++) {
+        g.tick();
+        B.prov = A.prov;
+        B.travel = null;
+        w.step();
+      }
+      for (const f of w.fired.filter((x) => x.key.startsWith("gather-"))) {
+        turns++;
+        const other = f.seat === "a" ? B.c : A.c;
+        expect(f.ctx.c, `${f.seat} ${f.key}`).not.toBe(other);
+        expect(f.c, `${f.seat} ${f.key}`).not.toBe(other);
+      }
+    }
+    expect(turns).toBeGreaterThan(5);
+  }, 120_000);
 
   test("a player who employs you writes no letters and catches nobody idling in an event", () => {
     const g = world({
