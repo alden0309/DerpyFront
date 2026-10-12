@@ -38,6 +38,11 @@ import {
   seatClaim,
 } from "../../src/conquest/engine/Council";
 import { householdsOf } from "../../src/conquest/engine/Folk";
+import {
+  deltaForSeat,
+  deltaHasSecrets,
+  stateForIntrigue,
+} from "../../src/conquest/engine/IntrigueCore";
 import { ACTS } from "../../src/conquest/engine/LifeActs";
 import { addRenown } from "../../src/conquest/engine/LifeCore";
 import { meOf, stationOf } from "../../src/conquest/engine/LifeQueries";
@@ -885,6 +890,75 @@ describe("POLLS r16: saves and the delta", () => {
       (d.lifePatch?.s1 as Partial<Life> | undefined) ??
       (d.lives?.s1 as Partial<Life> | undefined);
     expect(l?.polls?.canvass?.weeks.length).toBeGreaterThan(0);
+  });
+
+  test("in company, a present to the sheriff and the canvass's book are sent to nobody else", () => {
+    const g = world({
+      start: 1700,
+      plans: [
+        { seat: "s1", name: "Alden", plan: plan() },
+        {
+          seat: "s2",
+          name: "Beatrice",
+          plan: plan({ first: "Beatrice", female: true }),
+        },
+      ],
+    });
+    const { life, o } = standing(g, "burgess", 200);
+    const sh = sheriffOf(g.s, o.prov);
+    expect(sh).toBeDefined();
+    sh!.traits = sh!.traits.filter((t) => t !== "honest");
+    g.takeDelta();
+    expect(g.lifeCommand("s1", { k: "polls", act: "treat" })).toBeNull();
+    expect(g.lifeCommand("s1", { k: "polls", act: "sheriff" })).toBeNull();
+    ticks(g, 8);
+    const cv = life.polls!.canvass!;
+    const bribe = /present for|sends your present back/;
+    // His own copy has it all.
+    expect(cv.spent.treat).toBeGreaterThan(0);
+    expect(life.journal.some((j) => bribe.test(j.text))).toBe(true);
+    expect(cv.weeks.length).toBeGreaterThan(0);
+    // Beatrice's copy, on joining or a resync: the treating, not the present.
+    const hers = stateForIntrigue(g.s, "s2").lives.find(
+      (l) => l.seat === "s1",
+    )!;
+    expect(hers.polls!.canvass!.sheriff).toBe(-1);
+    expect(hers.polls!.canvass!.spent).toEqual({});
+    expect(hers.polls!.canvass!.weeks).toEqual([]);
+    expect(hers.polls!.canvass!.treat).toBe(cv.treat);
+    expect(hers.journal.some((j) => bribe.test(j.text))).toBe(false);
+    // His own copy is untouched.
+    const his = stateForIntrigue(g.s, "s1").lives.find((l) => l.seat === "s1")!;
+    expect(his.polls!.canvass!.spent.sheriff ?? cv.spent.sheriff).toBe(
+      cv.spent.sheriff,
+    );
+    // And the delta, seat by seat.
+    g.lifeCommand("s1", { k: "polls", act: "treat" });
+    ticks(g, 1);
+    const d = g.takeDelta();
+    expect(deltaHasSecrets(d)).toBe(true);
+    const toHer = deltaForSeat(g.s, d, "s2");
+    const lp = (toHer.lifePatch?.s1 ?? toHer.lives?.s1) as
+      | Partial<Life>
+      | undefined;
+    if (lp?.polls?.canvass) {
+      expect(lp.polls.canvass.sheriff).toBe(-1);
+      expect(lp.polls.canvass.spent).toEqual({});
+    }
+    expect((lp?.journal ?? []).some((j) => bribe.test(j.text))).toBe(false);
+    // At the count, the reasons are his alone.
+    o.election = pollDay(g.s.day + 2);
+    ticks(g, 40);
+    expect(life.polls!.last).toBeTruthy();
+    expect(life.polls!.last!.why.length).toBeGreaterThan(0);
+    const after = stateForIntrigue(g.s, "s2").lives.find(
+      (l) => l.seat === "s1",
+    )!;
+    expect(after.polls!.last!.won).toBe(life.polls!.last!.won);
+    expect(after.polls!.last!.why).toEqual([]);
+    expect(after.journal.some((j) => /^Why you (won|lost)/.test(j.text))).toBe(
+      false,
+    );
   });
 
   test("a life's plan with no politics never gets a canvass", () => {

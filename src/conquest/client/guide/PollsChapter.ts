@@ -3,7 +3,7 @@
 // (POLL, RENOWN_CURVE, FAVOUR_CURVE, PUFF), so the guide says what the count
 // and the month really do.
 
-import { POLL } from "../../engine/Canvass";
+import { CANVASS_POINTS, POLL } from "../../engine/Canvass";
 import { SEAT_CASE } from "../../engine/Council";
 import { chanceWords } from "../../engine/Odds";
 import { PUFF } from "../../engine/Press";
@@ -86,12 +86,13 @@ Nobody is returned unopposed by accident: if you never canvassed for the house (
 While you stand (or sit, and the count is less than half a year off), **Society › Office** shows the canvass at the top: your standing against the strongest rival (for the house, the challenger in your county), **your chance at the count** (from the luck at the count, ±${POLL.luck} on each side: the same numbers the count rolls), a chart of both, week by week, **what moved it this week** (your canvassing, his treating, the county's regard...), and both sides line by line.
 
 ## Money for the poll
-Each with its cost on its button and what it does to your standing:
+On the canvass, each with its cost on its button and what it would do to your standing now:
+- **Print a broadside** (once a month, at a press): 2 coins; ${CANVASS_POINTS.broadside} canvass points (your name and promises on every tavern door).
 - **Treat the voters** (once a week, in the county): punch at the hustings and a dinner for the freeholders, 3 coins in a small county and up to 9 in a great town. Each treat counts for less than the one before; it fades 1 in 20 a week.
 - **A present for the sheriff** (once a poll, in the county): 4 and 2 for each step of his station (10 to 14); +${POLL.sheriffBought} at the count (he opens and closes the poll to suit you). A plain man takes it amiss ${chanceWords(0.15)}, an honest one ${chanceWords(0.85)}: then he sends it back, and remembers it.
 - **A great man's interest** (once a poll): a councillor's, or a county grandee's, if he thinks well enough of you (10); his price is 6 and 4 for each step of his station (about 22 to 26). +${POLL.patronBought} (or +${POLL.patronBought - POLL.patronOwn} more if you have a patron already).
 
-Canvassing at the tavern or the market (every two weeks), standing a round and a broadside at the press (2) are free or nearly, and worth as much as the money; but they fade unless they're kept up. A sitting member, or a county office's holder, canvasses for the count ahead the same way in its last half-year. Standing for two at once (a county office and the house), your canvass is for the one counted first. The money spent shows in Estate › Ledger under the poll's name.
+**Canvass the voters** (every two weeks, at a tavern or a market) is free and on the canvass too: ${CANVASS_POINTS.pass} canvass points if it goes well (on your persuasion), ${CANVASS_POINTS.fail} if not; standing a round at the tavern brings ${CANVASS_POINTS.round}. They're worth as much as the money, but they fade unless they're kept up. A sitting member, or a county office's holder, canvasses for the count ahead the same way in its last half-year. Standing for two at once (a county office and the house), your canvass is for the one counted first. The money spent shows in Estate › Ledger under the poll's name.
 
 ## The governor's friends
 A colony's governor (the computer's) and his friends take a side. A court-party man he thinks well of (20) has them working for him (+${POLL.govFor}); **a member of the country party, or anyone he dislikes, has them working against him** (−${POLL.govAgainst}), and you're told when they start. You're of the court party when you're received at court, or when your votes on the council say so; of the country party when they say that.

@@ -6,7 +6,7 @@
 
 import { homeHere, presentAt } from "./Areas";
 import { dateOf, formatDate } from "./Calendar";
-import { canvassingSeat } from "./Canvass"; // POLLS (r16)
+import { CANVASS_POINTS, canvassingSeat } from "./Canvass"; // POLLS (r16)
 import { eligibleHere } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { afterHearing } from "./Leads"; // WORLD r11
@@ -1070,7 +1070,7 @@ export function doAct(
         meet(g, life, c.id);
         remembers(g, life, g.char(c.id), "Stood us a round", 6, 1);
       }
-      campaignBoost(g, life, 3, "a round for the house");
+      campaignBoost(g, life, CANVASS_POINTS.round, "a round for the house"); // POLLS (r16): one table
       journal(
         g,
         life,
@@ -1486,11 +1486,16 @@ export function doAct(
       return buyArms(g, life);
     case "canvass":
       gainXp(g, life, "persuasion", 6);
-      campaignBoost(g, life, pass ? 4 : 1, "canvassing");
+      campaignBoost(
+        g,
+        life,
+        pass ? CANVASS_POINTS.pass : CANVASS_POINTS.fail, // POLLS (r16): one table
+        "canvassing",
+      );
       return null;
     case "broadside":
       gainXp(g, life, "letters", 4);
-      campaignBoost(g, life, 6, "a broadside");
+      campaignBoost(g, life, CANVASS_POINTS.broadside, "a broadside"); // POLLS (r16): one table
       return null;
     case "tools":
     case "horse":

@@ -19,6 +19,7 @@ import { makeCharacter } from "./Characters";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
+import { secretNote } from "./IntrigueCore";
 import { withFlow } from "./LedgerCore";
 import { journal, remembers, spend, touchLife } from "./LifeCore";
 import {
@@ -114,6 +115,9 @@ export const POLL = {
   challengerVigour: 0.65,
   challengerTreat: 0.45,
 };
+
+/** Canvass points the acts bring (LifeActs.ts): canvassing (on a persuasion check), a broadside, a round. */
+export const CANVASS_POINTS = { pass: 4, fail: 1, broadside: 6, round: 3 };
 
 /** What treating the voters costs in a county (more in a big town). */
 export function treatCost(s: GameState, p: number): number {
@@ -1322,7 +1326,8 @@ function pollsCommand(
           -12,
           3,
         );
-        journal(
+        // Between you and him: other players aren't told.
+        secretNote(
           g,
           life,
           `${charName(sh)} sends your present back with a cold note: the sheriff isn't to be bought. He'll remember it at the poll.`,
@@ -1335,7 +1340,7 @@ function pollsCommand(
       );
       cv.sheriff = sh.id;
       remembers(g, life, g.char(sh.id), "A handsome present", 6, 2);
-      journal(
+      secretNote(
         g,
         life,
         `A handsome present for ${charName(sh)}. He'll open the poll when your freeholders are in town, and close it before the other side's are (+${POLL.sheriffBought} to your standing).`,
@@ -1526,8 +1531,9 @@ export function tellResults(g: ConquestGame, list: PendingResult[]): void {
     const p = (touchLife(g, life).polls ??= {});
     p.last = res;
     if (p.canvass) p.canvass = null;
+    // The reckoning is the player's own (it can tell of a present to the sheriff).
     if (res.why.length)
-      journal(
+      secretNote(
         g,
         life,
         `${res.won ? "Why you won" : "Why you lost"} the poll for ${res.title} (${res.me} to ${res.them}): ${res.why.join("; ")}.`,

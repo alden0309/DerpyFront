@@ -8,8 +8,12 @@
 import { html, nothing, TemplateResult } from "lit";
 import { formatDate } from "../../engine/Calendar";
 import {
+  CANVASS_POINTS,
   canvassNow,
+  canvassPoints,
+  canvassValue,
   LINE_NAMES,
+  npcPatron,
   patronsFor,
   patronView,
   POLL,
@@ -23,6 +27,8 @@ import {
   type PollRef,
   type Standing,
 } from "../../engine/Canvass";
+import { actCheck, actOdds, ACTS } from "../../engine/LifeActs";
+import type { Check } from "../../engine/LifeQueries";
 import { chanceWords } from "../../engine/Odds";
 import { charName } from "../../engine/Queries";
 import { favourView, renownView, seatSlip } from "../../engine/Standing";
@@ -31,7 +37,13 @@ import {
   RENOWN_CURVE,
   settlesAt,
 } from "../../engine/StandingCurve";
-import type { Canvass, Life, PollLine, PollResult } from "../../engine/Types";
+import type {
+  Canvass,
+  Life,
+  PlaceKind,
+  PollLine,
+  PollResult,
+} from "../../engine/Types";
 import type { TipContent } from "../Tip";
 import { num } from "../Tip";
 import { action, charLink, GameUi, section } from "./Context";
@@ -128,7 +140,47 @@ function levers(ui: GameUi, ref: PollRef, cv: Canvass): TemplateResult {
   const pv = patronView(s, life, pick);
   const spent = Object.values(cv.spent).reduce((a, b) => a + b, 0);
   const boughtPatron = cv.patron >= 0 ? s.chars[cv.patron] : undefined;
+  // Canvassing and broadsides: what each does to the canvass now.
+  const pts = canvassPoints(s, life, ref);
+  const gainOf = (p: number) =>
+    Math.round((canvassValue(pts + p) - canvassValue(pts)) * 10) / 10;
+  const can = actAt(ui, "canvass", ["tavern", "market", "councilfire"]);
+  const canOdds = actOdds(s, life, "canvass");
+  const bs = actAt(ui, "broadside", ["press"]);
+  const bsCost = ACTS.find((x) => x.key === "broadside")?.cost ?? 2;
   return html`<div class="cq-canvass-levers">
+    <div class="cq-canvass-lever">
+      ${action(
+        native ? "Talk with the town" : "Canvass the voters",
+        can.check,
+        () => void runAct(ui, can.place, "canvass"),
+        "small",
+      )}
+      <span class="small"
+        ><b class="good">+${gainOf(CANVASS_POINTS.pass)}</b> to your standing
+        now if it goes
+        well${canOdds !== null
+          ? html` (${chanceWords(canOdds)}, on your persuasion)`
+          : nothing},
+        +${gainOf(CANVASS_POINTS.fail)} if not. Free; every two weeks, at a
+        tavern or a market.</span
+      >
+    </div>
+    ${native
+      ? nothing
+      : html`<div class="cq-canvass-lever">
+          ${action(
+            html`Print a broadside${price(bsCost, { have: life.purse })}`,
+            bs.check,
+            () => void runAct(ui, bs.place, "broadside"),
+            "small",
+          )}
+          <span class="small"
+            ><b class="good">+${gainOf(CANVASS_POINTS.broadside)}</b> to your
+            standing now: your name and your promises on every tavern door. Once
+            a month, at a press.</span
+          >
+        </div>`}
     <div class="cq-canvass-lever">
       ${action(
         html`${native ? "A feast for the town" : "Treat the voters"}${price(
@@ -216,12 +268,47 @@ function levers(ui: GameUi, ref: PollRef, cv: Canvass): TemplateResult {
                 >`}
         </div>`}
     <p class="cq-muted small">
-      Free, and worth as much: canvass at the tavern or the market (every two
-      weeks), stand a round, print a broadside at the press (2). Canvassing
-      counts up to ${POLL.canvassCap} and fades a tenth a week.
+      Standing a round at the tavern helps the canvass too
+      (+${CANVASS_POINTS.round} points). Canvassing counts up to
+      ${POLL.canvassCap} and fades a tenth a week, so the last few months count
+      most.
       ${spent ? html`Laid out on this poll so far: ${spent} coins.` : nothing}
     </p>
   </div>`;
+}
+
+/** Where an act can be done here (the first such place that will do), and if not, why. */
+function actAt(
+  ui: GameUi,
+  key: string,
+  places: PlaceKind[],
+): { place: PlaceKind; check: Check } {
+  const s = ui.s;
+  const life = ui.life!;
+  let first: { place: PlaceKind; check: Check } | null = null;
+  for (const place of places) {
+    const check = actCheck(s, ui.w, life, place, key);
+    if (check.ok) return { place, check };
+    if (!first && check.why !== "There's no such place here.")
+      first = { place, check };
+  }
+  return (
+    first ?? {
+      place: places[0],
+      check: {
+        ok: false,
+        why:
+          key === "broadside"
+            ? "There's no press here."
+            : "There's nowhere here to canvass: a tavern or a market.",
+      },
+    }
+  );
+}
+
+/** Run an act, then show what came of it (as Here does). */
+async function runAct(ui: GameUi, place: PlaceKind, act: string) {
+  if (await ui.cmd({ k: "act", place, act })) ui.modal({ k: "outcome" });
 }
 
 const patronPick: Record<number, number> = {};
@@ -234,6 +321,23 @@ function rivalLine(
   const s = ui.s;
   if (!rival) return html`unopposed, so far`;
   const c = s.chars[rival.c];
+  // The house: the man put up against you in your county, if there is one.
+  const put =
+    ref.kind === "assembly" &&
+    !!s.polities[ref.n]?.candidates.some((x) => x.c === rival.c) &&
+    c?.home === ui.life?.home;
+  const pat = put ? npcPatron(s, ref, rival.c) : -1;
+  if (put)
+    return html`${charLink(ui, c, false)}, put up against you in the
+    county${pat >= 0
+      ? html`, with ${charName(s.chars[pat])}'s interest`
+      : nothing},
+    at about
+    ${num(
+      String(Math.round(rival.st.total)),
+      () => standingTip(`${charName(c)}'s standing`, rival.st),
+      "cq-opinion",
+    )}`;
   return ref.kind === "assembly"
     ? html`the last of the ${s.polities[ref.n]?.seats ?? 6} seats goes at about
       ${num(
