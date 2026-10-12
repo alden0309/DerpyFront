@@ -129,6 +129,21 @@ Public Domain
 Marshall Lake outline and landmark positions © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), licensed under ODbL  
 Elevation from [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (USGS NED; see the [attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md))
 
+### California - Detailed Map
+
+State outline from the U.S. Census Bureau [cartographic boundary files](https://www.census.gov/geographies/mapping-files/time-series/geo/cartographic-boundary.html) (1:500,000); San Diego, Mission, Humboldt, Arcata, Tomales and Morro bays and their sand spits from U.S. Census Bureau [TIGER/Line](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) area water  
+Public Domain  
+Lakes, rivers, Suisun Bay and Mexico's outline from [Natural Earth](https://www.naturalearthdata.com/)  
+Public Domain  
+Elevation from [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (USGS NED and SRTM; see the [attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md))
+
+### China - Romance Of The Three Kingdoms Map
+
+Coastline, islands, lakes, rivers and provinces from [Natural Earth](https://www.naturalearthdata.com/)  
+Public Domain  
+Elevation from [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/) (SRTM, GMTED2010 and ETOPO1; see the [attribution](https://github.com/tilezen/joerd/blob/master/docs/attribution.md))  
+The seats of the warlords about 200 AD follow the _Records of the Three Kingdoms_ (Chen Shou) and the _Book of the Later Han_ (Fan Ye), with names as in _Romance of the Three Kingdoms_ (Luo Guanzhong); all are public domain.
+
 ## Icons
 
 ### [The Noun Project](https://thenounproject.com/)
@@ -144,3 +159,7 @@ Guild icon by Trimanggolo Mulyo – https://thenounproject.com/icon/guild-826614
 Licensed under [CC BY-SA 3.0 DE](https://creativecommons.org/licenses/by-sa/3.0/de/deed.en)
 
 The flags of the native nations on the Thirteen Colonies maps, the Moultrie (South Carolina, 1775) and Georgia (state arms) flags, and the Apopka flag are original drawings made for Derpy Front. They use no tribal seals or other copyrighted artwork.
+
+The flags of the cities on the California - Detailed map ("<city> (CA)") are original drawings made for Derpy Front. They do not reproduce any city's official flag or seal.
+
+The banners on the China - Romance Of The Three Kingdoms map ("<name> (3K)") are original drawings made for Derpy Front, in the manner of the period's war banners: a coloured field with a toothed trim and the family name in a disc. The characters are set in [Noto Serif CJK](https://github.com/notofonts/noto-cjk), licensed under the [SIL Open Font License 1.1](https://openfontlicense.org). The frontier peoples' emblems (the Xianbei deer, the Wuhuan Red Mountain, the Xiongnu sun and moon, the Qiang ram, the Shanyue hills, Goguryeo's three-legged crow and the Dian bronze drum of Nanzhong) are original drawings after motifs in their own art and records. No game art is used.

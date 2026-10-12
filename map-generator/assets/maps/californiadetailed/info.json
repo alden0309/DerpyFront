@@ -1,0 +1,422 @@
+{
+  "id": "CaliforniaDetailed",
+  "name": "California - Detailed",
+  "translation_key": "map.californiadetailed",
+  "categories": ["new", "north_america"],
+  "multiplayer_frequency": 0,
+  "min_lake_size": 20,
+  "themes": ["north_america"],
+  "custom_tribes": [
+    "Lodi",
+    "Turlock",
+    "Hanford",
+    "Tulare",
+    "Porterville",
+    "Delano",
+    "Lompoc",
+    "Carmel",
+    "Gilroy",
+    "Hollister",
+    "Watsonville",
+    "Petaluma",
+    "Sonoma",
+    "Healdsburg",
+    "Arcata",
+    "Weed",
+    "Dunsmuir",
+    "Quincy",
+    "Nevada City",
+    "Grass Valley",
+    "Auburn",
+    "Jackson",
+    "Angels Camp",
+    "Mariposa",
+    "Oakhurst",
+    "Lone Pine",
+    "Independence",
+    "Tehachapi",
+    "Mojave",
+    "Boron",
+    "Trona",
+    "Twentynine Palms",
+    "Yucca Valley",
+    "Joshua Tree",
+    "Desert Hot Springs",
+    "Borrego Springs",
+    "Brawley",
+    "Calexico",
+    "Julian",
+    "Ramona",
+    "Carlsbad",
+    "Encinitas",
+    "Del Mar",
+    "La Jolla",
+    "Laguna Beach",
+    "Newport Beach",
+    "Huntington Beach",
+    "Pasadena",
+    "Burbank",
+    "Glendale",
+    "Pomona",
+    "Ontario",
+    "Rancho Cucamonga",
+    "Hemet",
+    "Lake Elsinore",
+    "Ojai",
+    "Solvang",
+    "Pismo Beach",
+    "Morro Bay",
+    "Cambria",
+    "Coalinga",
+    "Lemoore",
+    "Los Banos",
+    "Tracy",
+    "Livermore",
+    "Pleasanton",
+    "Walnut Creek",
+    "Concord",
+    "Vallejo",
+    "Fairfield",
+    "Vacaville",
+    "Davis",
+    "Woodland",
+    "Oroville",
+    "Red Bluff",
+    "Corning",
+    "Willows",
+    "Colusa",
+    "Lakeport",
+    "Willits",
+    "Garberville",
+    "Ferndale",
+    "Fortuna",
+    "Burney",
+    "Tulelake",
+    "Cedarville",
+    "Bridgeport",
+    "Lee Vining",
+    "June Lake",
+    "Big Pine",
+    "Baker",
+    "Amboy",
+    "Winterhaven",
+    "Half Moon Bay",
+    "Bodega Bay",
+    "Mendocino",
+    "Point Arena",
+    "Kernville",
+    "Taft",
+    "Avenal",
+    "Firebaugh",
+    "Chowchilla",
+    "Madera",
+    "Reedley",
+    "Selma",
+    "Exeter",
+    "Lindsay",
+    "Shafter",
+    "Wasco"
+  ],
+  "nations": [
+    {
+      "coordinates": [1028, 1680],
+      "name": "Los Angeles",
+      "flag": "Los Angeles (CA)"
+    },
+    {
+      "coordinates": [1037, 1736],
+      "name": "Long Beach",
+      "flag": "Long Beach (CA)"
+    },
+    {
+      "coordinates": [936, 1683],
+      "name": "Malibu",
+      "flag": "Malibu (CA)"
+    },
+    {
+      "coordinates": [977, 1611],
+      "name": "Santa Clarita",
+      "flag": "Santa Clarita (CA)"
+    },
+    {
+      "coordinates": [1084, 1723],
+      "name": "Anaheim",
+      "flag": "Anaheim (CA)"
+    },
+    {
+      "coordinates": [1172, 1697],
+      "name": "Riverside",
+      "flag": "Riverside (CA)"
+    },
+    {
+      "coordinates": [1252, 1636],
+      "name": "Big Bear Lake",
+      "flag": "Big Bear Lake (CA)"
+    },
+    {
+      "coordinates": [1216, 1790],
+      "name": "Temecula",
+      "flag": "Temecula (CA)"
+    },
+    {
+      "coordinates": [1180, 1850],
+      "name": "Oceanside",
+      "flag": "Oceanside (CA)"
+    },
+    {
+      "coordinates": [1228, 1866],
+      "name": "Escondido",
+      "flag": "Escondido (CA)"
+    },
+    {
+      "coordinates": [1219, 1947],
+      "name": "San Diego",
+      "flag": "San Diego (CA)"
+    },
+    {
+      "coordinates": [1014, 1827],
+      "name": "Avalon",
+      "flag": "Avalon (CA)"
+    },
+    {
+      "coordinates": [861, 1635],
+      "name": "Ventura",
+      "flag": "Ventura (CA)"
+    },
+    {
+      "coordinates": [781, 1606],
+      "name": "Santa Barbara",
+      "flag": "Santa Barbara (CA)"
+    },
+    {
+      "coordinates": [1316, 1719],
+      "name": "Palm Springs",
+      "flag": "Palm Springs (CA)"
+    },
+    {
+      "coordinates": [1373, 1739],
+      "name": "Indio",
+      "flag": "Indio (CA)"
+    },
+    {
+      "coordinates": [1491, 1924],
+      "name": "El Centro",
+      "flag": "El Centro (CA)"
+    },
+    {
+      "coordinates": [1648, 1750],
+      "name": "Blythe",
+      "flag": "Blythe (CA)"
+    },
+    {
+      "coordinates": [1628, 1503],
+      "name": "Needles",
+      "flag": "Needles (CA)"
+    },
+    {
+      "coordinates": [1231, 1504],
+      "name": "Barstow",
+      "flag": "Barstow (CA)"
+    },
+    {
+      "coordinates": [1186, 1578],
+      "name": "Victorville",
+      "flag": "Victorville (CA)"
+    },
+    {
+      "coordinates": [1041, 1550],
+      "name": "Lancaster",
+      "flag": "Lancaster (CA)"
+    },
+    {
+      "coordinates": [1119, 1358],
+      "name": "Ridgecrest",
+      "flag": "Ridgecrest (CA)"
+    },
+    {
+      "coordinates": [1247, 1185],
+      "name": "Death Valley",
+      "flag": "Death Valley (CA)"
+    },
+    {
+      "coordinates": [660, 1497],
+      "name": "Santa Maria",
+      "flag": "Santa Maria (CA)"
+    },
+    {
+      "coordinates": [623, 1429],
+      "name": "San Luis Obispo",
+      "flag": "San Luis Obispo (CA)"
+    },
+    {
+      "coordinates": [619, 1359],
+      "name": "Paso Robles",
+      "flag": "Paso Robles (CA)"
+    },
+    {
+      "coordinates": [425, 1160],
+      "name": "Monterey",
+      "flag": "Monterey (CA)"
+    },
+    {
+      "coordinates": [464, 1142],
+      "name": "Salinas",
+      "flag": "Salinas (CA)"
+    },
+    {
+      "coordinates": [404, 1079],
+      "name": "Santa Cruz",
+      "flag": "Santa Cruz (CA)"
+    },
+    {
+      "coordinates": [430, 1007],
+      "name": "San Jose",
+      "flag": "San Jose (CA)"
+    },
+    {
+      "coordinates": [389, 985],
+      "name": "Palo Alto",
+      "flag": "Palo Alto (CA)"
+    },
+    {
+      "coordinates": [346, 916],
+      "name": "San Francisco",
+      "flag": "San Francisco (CA)"
+    },
+    {
+      "coordinates": [370, 910],
+      "name": "Oakland",
+      "flag": "Oakland (CA)"
+    },
+    {
+      "coordinates": [371, 810],
+      "name": "Napa",
+      "flag": "Napa (CA)"
+    },
+    {
+      "coordinates": [303, 779],
+      "name": "Santa Rosa",
+      "flag": "Santa Rosa (CA)"
+    },
+    {
+      "coordinates": [230, 631],
+      "name": "Ukiah",
+      "flag": "Ukiah (CA)"
+    },
+    {
+      "coordinates": [141, 567],
+      "name": "Fort Bragg",
+      "flag": "Fort Bragg (CA)"
+    },
+    {
+      "coordinates": [97, 291],
+      "name": "Eureka",
+      "flag": "Eureka (CA)"
+    },
+    {
+      "coordinates": [101, 92],
+      "name": "Crescent City",
+      "flag": "Crescent City (CA)"
+    },
+    {
+      "coordinates": [896, 1412],
+      "name": "Bakersfield",
+      "flag": "Bakersfield (CA)"
+    },
+    {
+      "coordinates": [850, 1217],
+      "name": "Visalia",
+      "flag": "Visalia (CA)"
+    },
+    {
+      "coordinates": [769, 1134],
+      "name": "Fresno",
+      "flag": "Fresno (CA)"
+    },
+    {
+      "coordinates": [657, 1018],
+      "name": "Merced",
+      "flag": "Merced (CA)"
+    },
+    {
+      "coordinates": [575, 949],
+      "name": "Modesto",
+      "flag": "Modesto (CA)"
+    },
+    {
+      "coordinates": [530, 881],
+      "name": "Stockton",
+      "flag": "Stockton (CA)"
+    },
+    {
+      "coordinates": [503, 757],
+      "name": "Sacramento",
+      "flag": "Sacramento (CA)"
+    },
+    {
+      "coordinates": [482, 641],
+      "name": "Yuba City",
+      "flag": "Yuba City (CA)"
+    },
+    {
+      "coordinates": [450, 521],
+      "name": "Chico",
+      "flag": "Chico (CA)"
+    },
+    {
+      "coordinates": [365, 346],
+      "name": "Redding",
+      "flag": "Redding (CA)"
+    },
+    {
+      "coordinates": [338, 108],
+      "name": "Yreka",
+      "flag": "Yreka (CA)"
+    },
+    {
+      "coordinates": [656, 166],
+      "name": "Alturas",
+      "flag": "Alturas (CA)"
+    },
+    {
+      "coordinates": [637, 384],
+      "name": "Susanville",
+      "flag": "Susanville (CA)"
+    },
+    {
+      "coordinates": [708, 606],
+      "name": "Truckee",
+      "flag": "Truckee (CA)"
+    },
+    {
+      "coordinates": [739, 687],
+      "name": "South Lake Tahoe",
+      "flag": "South Lake Tahoe (CA)"
+    },
+    {
+      "coordinates": [610, 727],
+      "name": "Placerville",
+      "flag": "Placerville (CA)"
+    },
+    {
+      "coordinates": [674, 880],
+      "name": "Sonora",
+      "flag": "Sonora (CA)"
+    },
+    {
+      "coordinates": [802, 929],
+      "name": "Yosemite Valley",
+      "flag": "Yosemite Valley (CA)"
+    },
+    {
+      "coordinates": [901, 948],
+      "name": "Mammoth Lakes",
+      "flag": "Mammoth Lakes (CA)"
+    },
+    {
+      "coordinates": [995, 1006],
+      "name": "Bishop",
+      "flag": "Bishop (CA)"
+    }
+  ]
+}

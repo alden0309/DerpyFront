@@ -78,6 +78,55 @@ describe("which voice a nation speaks with", () => {
       GameMapType.WashingtonDCDetailed,
       "us_dc",
     ],
+    [
+      "Los Angeles",
+      "Los Angeles (CA)",
+      GameMapType.CaliforniaDetailed,
+      "socal",
+    ],
+    [
+      "San Francisco",
+      "San Francisco (CA)",
+      GameMapType.CaliforniaDetailed,
+      "norcal",
+    ],
+    ["Fresno", "Fresno (CA)", GameMapType.CaliforniaDetailed, "central_valley"],
+    [
+      "Yosemite Valley",
+      "Yosemite Valley (CA)",
+      GameMapType.CaliforniaDetailed,
+      "sierra",
+    ],
+    [
+      "Palm Springs",
+      "Palm Springs (CA)",
+      GameMapType.CaliforniaDetailed,
+      "california_desert",
+    ],
+    [
+      "Cao Cao",
+      "Cao Cao (3K)",
+      GameMapType.ChinaRomanceOfTheThreeKingdoms,
+      "three_kingdoms",
+    ],
+    [
+      "Shi Xie",
+      "Shi Xie (3K)",
+      GameMapType.ChinaRomanceOfTheThreeKingdoms,
+      "three_kingdoms",
+    ],
+    [
+      "Xianbei",
+      "Xianbei (3K)",
+      GameMapType.ChinaRomanceOfTheThreeKingdoms,
+      "frontier_north",
+    ],
+    [
+      "Meng Huo",
+      "Meng Huo (3K)",
+      GameMapType.ChinaRomanceOfTheThreeKingdoms,
+      "frontier_south",
+    ],
     ["Olympus", "mars", GameMapType.Mars, "space"],
     ["Wessex", "1_Wessex", GameMapType.Britannia, "medieval"],
     ["Munster", "1_Munster", GameMapType.Britannia, "irish"],
@@ -120,6 +169,29 @@ describe("which voice a nation speaks with", () => {
     expect(generic.length / all.length).toBeLessThan(0.1);
   });
 
+  test("the new maps' nations each speak their region's voice", () => {
+    const byMap = (dir: string) =>
+      allNations()
+        .filter((n) => n.map === dir)
+        .map((n) => voiceFor(n.name, n.flag, n.type));
+    const california = byMap("californiadetailed");
+    expect(california.length).toBeGreaterThanOrEqual(50);
+    expect(new Set(california)).toEqual(
+      new Set([
+        "socal",
+        "norcal",
+        "central_valley",
+        "sierra",
+        "california_desert",
+      ]),
+    );
+    const china = byMap("chinaromanceofthethreekingdoms");
+    expect(china.length).toBeGreaterThanOrEqual(20);
+    expect(new Set(china)).toEqual(
+      new Set(["three_kingdoms", "frontier_north", "frontier_south"]),
+    );
+  });
+
   test("the custom maps' nations are all covered", () => {
     const custom = allNations().filter((n) =>
       [
@@ -131,6 +203,8 @@ describe("which voice a nation speaks with", () => {
         "thirteencolonies",
         "thirteencoloniesdetailed",
         "washingtondcdetailed",
+        "californiadetailed",
+        "chinaromanceofthethreekingdoms",
       ].includes(n.map),
     );
     for (const n of custom) {
