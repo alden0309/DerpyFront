@@ -595,7 +595,7 @@ describe("LABOUR: flight, risings and deaths happen at the rates shown", () => {
   });
 
   test("risings, rare and grave, at the shown chance", () => {
-    const r = trial(HARSH, 30, 1500);
+    const r = trial(HARSH, 30, 4000);
     expect(r.shownRise).toBeGreaterThan(8);
     expect(r.rises / r.shownRise).toBeGreaterThan(0.5);
     expect(r.rises / r.shownRise).toBeLessThan(1.6);

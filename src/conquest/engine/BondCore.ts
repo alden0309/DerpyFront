@@ -907,7 +907,7 @@ export function refugePull(s: GameState, map: MapDef, p: number): number {
 }
 
 export const FLIGHT_BASE = 0.0003;
-export const FLIGHT_DESPAIR = 0.008;
+export const FLIGHT_DESPAIR = 0.006;
 export const FLIGHT_GRIEF = 0.004;
 
 /** The chance a month that someone flees, and why. */
@@ -989,7 +989,7 @@ export function freedomChance(
   return refugeOdds(s, map, life, c).reduce((m, r) => m + r.pick * r.free, 0);
 }
 
-export const RISE_BASE = 0.0003;
+export const RISE_BASE = 0.0001;
 /** Grown people held, before a rising can be thought of. */
 export const RISE_MIN = 4;
 
@@ -1005,7 +1005,7 @@ export function riseChance(s: GameState, map: MapDef, life: Life): Breakdown {
     `${adults.length} grown people held`,
     RISE_BASE * Math.min(30, adults.length),
   );
-  e.mul("How they bear it", d * d * d);
+  e.mul("How they bear it", d * d * d * d);
   e.mul("Refuges near", refugePull(s, map, b.home));
   if (bondLaw(s, map, b.home).patrols) e.mul("Patrols and the militia", 0.7);
   return e.done(6);

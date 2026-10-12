@@ -58,7 +58,7 @@
 
 .cq-bond-gauges {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.3rem 0.6rem;
   border-top: 1px solid var(--rule);
   padding-top: 0.35rem;
@@ -77,11 +77,6 @@
 .cq-bond-gauge .cq-bar {
   flex: 1;
   min-width: 2.2rem;
-}
-@media (max-width: 520px) {
-  .cq-bond-gauges {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .cq-bond-skills {
@@ -115,12 +110,11 @@
   margin: 0.4rem 0;
 }
 .cq-bond-policy {
-  display: grid;
-  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
-  gap: 0.2rem 0.8rem;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
   border-bottom: 1px dotted var(--rule);
-  padding-bottom: 0.4rem;
+  padding-bottom: 0.5rem;
 }
 .cq-bond-policy-head {
   display: flex;
@@ -134,11 +128,6 @@
 .cq-bond-policy .cq-seg > button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-@media (max-width: 700px) {
-  .cq-bond-policy {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .cq-bond-risks {
@@ -161,6 +150,7 @@
 }
 .cq-bond-lots li {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 0.6rem;
@@ -174,15 +164,10 @@
   flex-direction: column;
   gap: 0.1rem;
   min-width: 0;
+  flex: 1 1 14rem;
 }
 .cq-bond-lots li.sold {
   opacity: 0.55;
-}
-@media (max-width: 520px) {
-  .cq-bond-lots li {
-    flex-direction: column;
-    align-items: stretch;
-  }
 }
 
 .cq-bond-law {

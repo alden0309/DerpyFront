@@ -73,11 +73,15 @@ function lawTable(): string {
         return "·";
       const law = typeof pl.law === "function" ? pl.law(y) : pl.law;
       const h = lawfulIn(law, pl.col, y);
-      return h.legal ? "lawful" : "**no**";
+      return h.legal
+        ? "lawful"
+        : /custom/.test(h.code)
+          ? "by custom"
+          : "**no**";
     });
     return `| **${pl.name}** | ${cells.join(" | ")} |`;
   });
-  return `${head}\n${rows.join("\n")}\n\n"·": not yet a colony. Virginia and Maryland held Africans by custom (some as servants for a term, some for life by the courts) before their laws made bondage hereditary in 1662 and 1664; New France had no leave from the king until 1689; Georgia's Trustees banned it from the colony's founding until 1 January 1751.`;
+  return `${head}\n${rows.join("\n")}\n\n"·": not yet a colony. "By custom": Virginia and Maryland held Africans by custom (some as servants for a term, some for life by the courts) before their laws made bondage hereditary in 1662 and 1664; New France had no leave from the king until 1689; Georgia's Trustees banned it from the colony's founding until 1 January 1751.`;
 }
 
 /** How freeing someone went, colony by colony: made from the game's own law. */

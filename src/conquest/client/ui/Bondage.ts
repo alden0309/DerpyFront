@@ -1074,8 +1074,8 @@ function recordSection(ui: GameUi): TemplateResult | typeof nothing {
 /** For other pages: whether a character is held in some household. */
 export function heldWord(c: Character | undefined): string | null {
   if (!c?.bond) return null;
-  if (isHeld(c)) return "held in bondage";
+  if (isHeld(c)) return "held";
   if (isBound(c)) return "under indenture";
-  if (c.bond.status === "free") return "free";
+  if (c.bond.status === "free") return c.bond.freed ? "freed" : null;
   return null;
 }

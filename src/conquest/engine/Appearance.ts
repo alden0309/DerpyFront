@@ -289,6 +289,12 @@ export function classOfStation(st: Station): SitterClass {
 
 /** The station a character's clothes show: their post, their title, or a guess. */
 export function stationOf(c: Character): Station {
+  // LABOUR (r15): those held in bondage (or freed from it), or under
+  // indenture, are working people: a trade, or the fields and the house.
+  if (c.bond)
+    return c.bond.work === "craft" || c.bond.sk.craft >= 6
+      ? "tradesman"
+      : "labourer";
   const role = (c.role ?? "") as string;
   const byRole: Record<string, Station> = {
     innkeeper: "tradesman",

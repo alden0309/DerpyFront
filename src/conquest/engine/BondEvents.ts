@@ -389,8 +389,13 @@ const PLEA: LifeEventDef = {
       apply: (g, life, ctx) => {
         const c = person(g, life, ctx);
         household(g, life, 3);
-        if (c)
-          remembers(g, life, c, "Didn't sell me away from my family", 10, 3);
+        if (!c) return;
+        remembers(g, life, c, "Didn't sell me away from my family", 10, 3);
+        say(
+          g,
+          life,
+          `You send the buyer's man away. ${bondName(c)} stays with ${his(c)} family.`,
+        );
       },
     },
     {
@@ -730,13 +735,15 @@ const AWAKENING: LifeEventDef = {
       ? {}
       : null,
   title: "A preacher of the Awakening",
-  body: (g) =>
-    yr(g) < 1748
-      ? "George Whitefield has preached in the county to a crowd of thousands in a field, and printed an open letter to the planters of the southern colonies: their cruelty to the enslaved, he writes, is a sin that cries to heaven. Those you hold ask to go and hear the next preacher when he comes. Some have heard already."
-      : "Samuel Davies, the Presbyterian minister of Hanover, writes to ask leave to teach those you hold to read their Bibles. He has spelling books and Watts's psalms from London for them, and preaches to enslaved and free alike; hundreds have been baptised by him.",
+  body: (g, life) =>
+    yr(g) >= 1748 && inCol(g, life, "virginia")
+      ? "Samuel Davies, the Presbyterian minister of Hanover, writes to ask leave to teach those you hold to read their Bibles. He has spelling books and Watts's psalms from London for them, and preaches to enslaved and free alike, and has baptised many of them."
+      : yr(g) >= 1755 && inCol(g, life, "northcarolina", "virginia")
+        ? "Separate Baptist preachers from Sandy Creek hold meetings in the county, where the enslaved and the free worship together and call one another brother and sister. Those you hold ask leave to go."
+        : "George Whitefield has preached in the county to a crowd of thousands in a field, and printed an open letter to the planters of the southern colonies: their cruelty to the enslaved, he writes, is a sin that cries to heaven. Those you hold ask to go and hear the next preacher when he comes. Some have heard already.",
   choices: [
     {
-      label: "Let them go to hear him, and be taught",
+      label: "Let them go, and be taught",
       tip: "Spirits rise. Reading, where the law allows it.",
       apply: (g, life) => {
         household(g, life, 5);
@@ -757,7 +764,7 @@ const AWAKENING: LifeEventDef = {
       },
     },
     {
-      label: "Go to hear him yourself, and keep them home",
+      label: "Go yourself, and keep them home",
       tip: "He moves you. They hear about it from others.",
       apply: (g, life) => {
         addStress(g, life, -3);

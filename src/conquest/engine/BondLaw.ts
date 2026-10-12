@@ -1589,13 +1589,13 @@ export const BOND_HISTORY: BondEvent[] = [
   {
     year: 1735,
     where: ["georgia"],
-    text: "Parliament approves the Trustees' act banning slavery in Georgia.",
+    text: "The king in council approves the Trustees' act forbidding slavery in Georgia, to make the colony a barrier against Spanish Florida.",
   },
   {
     year: 1736,
     where: ["islands"],
     rising: true,
-    text: 'In Antigua a plot led by Court ("Prince Klaas") is discovered before it begins; dozens are executed.',
+    text: 'In Antigua a plot led by Court ("Prince Klaas") is discovered before it begins; eighty-eight people are executed.',
   },
   {
     year: 1738,
