@@ -67,6 +67,7 @@ import {
   housePrice,
   leaseCheck,
   propertyOf,
+  propertyWorth, // LEDGER (r15)
 } from "../../engine/Property";
 import { ageOf } from "../../engine/Queries";
 import type {
@@ -1027,15 +1028,11 @@ function houseFolds(ui: GameUi, h: Property): TemplateResult {
 
 /** Selling the house (or giving up the lease): what it's worth, and the button. */
 function sellFold(ui: GameUi, h: Property): TemplateResult {
-  const native = lifeIsNative(ui.s, ui.life!);
-  const worth = h.leased
-    ? 0
-    : Math.round((native ? LODGES : HOUSES)[h.level - 1].cost * 0.5) +
-      extrasWorth(h, native);
+  const worth = propertyWorth(ui.s, ui.life!, h); // LEDGER (r15): what selling pays
   const kept = storedLoads(h) > 0;
   const word = h.leased
     ? "Give up the lease"
-    : html`Sell it${price(worth, { gain: true, approx: true })}`;
+    : html`Sell it${price(worth, { gain: true })}`;
   return fold(
     "home:sell",
     h.leased ? "Give up the lease" : "Sell the house",
@@ -1057,7 +1054,7 @@ function sellFold(ui: GameUi, h: Property): TemplateResult {
               confirm(
                 h.leased
                   ? `Give up the lease on the ${h.name.toLowerCase()}?`
-                  : `Sell the ${h.name.toLowerCase()} for about ${worth} coins?`,
+                  : `Sell the ${h.name.toLowerCase()} for ${worth} coins?`,
               )
             )
               void ui.cmd({ k: "property", act: "sell", id: h.id });

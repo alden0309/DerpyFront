@@ -78,6 +78,7 @@ import {
   landCheck,
   propertyBudget,
   propertyOf,
+  propertyWorth, // LEDGER (r15)
 } from "../../engine/Property";
 import {
   armyMen,
@@ -1077,10 +1078,12 @@ export function propertySection(ui: GameUi): TemplateResult | typeof nothing {
                   <button
                     class="cq-btn small quiet"
                     @click=${() =>
-                      confirm(`Sell the ${kind.toLowerCase()} at ${where}?`) &&
+                      confirm(
+                        `Sell the ${kind.toLowerCase()} at ${where} for ${propertyWorth(s, life, pr)} coins?`,
+                      ) &&
                       void ui.cmd({ k: "property", act: "sell", id: pr.id })}
                   >
-                    Sell
+                    Sell${price(propertyWorth(s, life, pr), { gain: true })}
                   </button>
                 </div>
               </li>`;

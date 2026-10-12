@@ -478,6 +478,22 @@ export function dismissHand(
   return null;
 }
 
+/**
+ * LEDGER (r15): what a property would sell for (half of what it cost; land
+ * 0.7 of it), so the Sell button can say so. sellProperty pays exactly this.
+ */
+export function propertyWorth(s: GameState, life: Life, pr: Property): number {
+  if (pr.kind === "house") {
+    const native = lifeIsNative(s, life);
+    const defs = houseDefs(native);
+    return pr.leased
+      ? 0
+      : Math.round(defs[pr.level - 1].cost * 0.5) + extrasWorth(pr, native);
+  }
+  if (pr.kind === "land") return Math.round(pr.level * LAND_LOT.cost * 0.7);
+  return 20 + EXPAND_COST.slice(0, pr.level).reduce((a, b) => a + b, 0) * 0.5;
+}
+
 /** Sell something: half of what it cost. */
 export function sellProperty(
   g: ConquestGame,
@@ -487,28 +503,18 @@ export function sellProperty(
   const pr = propertyOf(life).find((x) => x.id === id);
   if (!pr) return "You don't own that.";
   if (life.travel) return "Not from the road.";
-  let worth: number;
   if (pr.kind === "house") {
     // HOME (r12): what's stored there comes out first; rooms and furniture go with it.
     if (Object.values(pr.store ?? {}).some((v) => (v ?? 0) > 0))
       return "Take out what you keep there first.";
-    const native = lifeIsNative(g.s, life);
-    const defs = houseDefs(native);
-    worth = pr.leased
-      ? 0
-      : Math.round(defs[pr.level - 1].cost * 0.5) + extrasWorth(pr, native);
-  } else if (pr.kind === "land")
-    worth = Math.round(pr.level * LAND_LOT.cost * 0.7);
-  else {
-    if (
-      life.job?.own &&
-      life.job.prov === pr.prov &&
-      life.job.place === pr.place
-    )
-      return "You work it yourself: give up the trade first.";
-    worth =
-      20 + EXPAND_COST.slice(0, pr.level).reduce((a, b) => a + b, 0) * 0.5;
-  }
+  } else if (
+    pr.kind !== "land" &&
+    life.job?.own &&
+    life.job.prov === pr.prov &&
+    life.job.place === pr.place
+  )
+    return "You work it yourself: give up the trade first.";
+  const worth = propertyWorth(g.s, life, pr); // LEDGER (r15): one reckoning
   for (const h of [...pr.hands]) dismissHand(g, life, h);
   touchLife(g, life);
   life.property = propertyOf(life).filter((x) => x !== pr);

@@ -538,7 +538,7 @@ export function monthlyBudget(
   if (wage)
     e.add(
       actual && life.job
-        ? `${what}: ${jobTitle(life).toLowerCase()} (${Math.round(life.job.worked ?? 0)} of ${WORK_DAYS} days)`
+        ? `${what}: ${jobTitle(life).toLowerCase()} (${Math.round(Math.min((life.work?.effort === "overtime" ? 1.4 : 1) * WORK_DAYS, life.job.worked ?? 0))} of ${WORK_DAYS} days)` // LEDGER (r15): only the days that are paid, never "26 of 24"
         : `${what}: ${jobTitle(life).toLowerCase()}`,
       wage,
     );

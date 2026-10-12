@@ -41,6 +41,7 @@ import {
   tradeOdds,
   type OddsView,
 } from "../../src/conquest/engine/Odds";
+import { propertyWorth } from "../../src/conquest/engine/Property";
 import type {
   Boat,
   BoatUse,
@@ -657,6 +658,31 @@ describe(
       expect(a.total).toBe(20 + 30 + FARM_ACRES[2]);
       // Home first.
       expect(a.rows[0].prov).toBe(life.home);
+    });
+
+    test("a Sell button's figure is what the sale pays", () => {
+      const { g, life } = merchant(31, 900);
+      cmd(g, { k: "property", act: "land" });
+      cmd(g, { k: "property", act: "house" });
+      life.property!.push({
+        id: g.nextId(),
+        kind: "business",
+        prov: life.prov,
+        level: 2,
+        job: "farmer",
+        place: "fields",
+        hands: [],
+        since: g.s.day,
+        name: "farm",
+      });
+      for (const pr of [...life.property!]) {
+        const worth = propertyWorth(g.s, life, pr);
+        expect(worth).toBeGreaterThan(0);
+        const was = life.purse;
+        cmd(g, { k: "property", act: "sell", id: pr.id });
+        expect(life.purse - was).toBeCloseTo(worth, 6);
+      }
+      expect(life.property!.length).toBe(0);
     });
   },
 );
