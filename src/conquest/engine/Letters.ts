@@ -276,7 +276,8 @@ export function postRoute(
   if (from < 0 || to < 0 || !map.provinces[from] || !map.provinces[to])
     return null;
   if (from === to) return { days: 1, cost: 0.2, sea: 0, risk: 0, from, to };
-  const r = travelRoute(s, map, from, to, true, false, true, POST_PACE);
+  // SEA (r15): the post keeps its old pace; the quicker passages are for people.
+  const r = travelRoute(s, map, from, to, true, false, true, POST_PACE, true);
   if (!r) {
     // No road nor lane: a runner, the long way round.
     const km = kmBetween(map, from, to);

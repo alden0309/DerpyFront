@@ -44,7 +44,7 @@ import {
   WORK_DAYS,
 } from "./LifeRules";
 import type { World } from "./Map";
-import { landHopDays, landHopDaysIn } from "./Paths";
+import { landHopDays, landHopDaysIn, seaHopDays } from "./Paths";
 import { canoeHopDays, passageHopDays } from "./SeaSpeed"; // SEA (r15)
 import { propertyBudget } from "./Property";
 import { iceBound, seasonPay } from "./Seasons"; // MAP (r12)
@@ -1075,10 +1075,13 @@ export function hopDaysFor(
   canoe = false,
   /** SEA (r15): the voyage ends with this hop (a short one alone is a ferry). */
   lastSea = true,
+  /** SEA (r15): the post, which keeps the old pace (four days in port, 110 km a day). */
+  post = false,
 ): number {
   if (sea) {
     const lane = map.provinces[from].sea.find(([q]) => q === to);
     if (!lane) return -1;
+    if (post) return seaHopDays(lane[1]);
     return canoe
       ? canoeHopDays(lane[1])
       : passageHopDays(lane[1], afterSea, lastSea); // SEA (r15)
@@ -1124,6 +1127,8 @@ export function travelRoute(
   sailor = false,
   /** Faster than walking: a horse, a coach. */
   pace = 1,
+  /** SEA (r15): the post's way, at its old pace (Letters.ts); passages are quicker. */
+  post = false,
 ): Route | null {
   if (from === to) return null;
   const count = map.provinces.length;
@@ -1167,9 +1172,11 @@ export function travelRoute(
         // SEA (r15): two days to find a ship, a day at each port of call after.
         const d =
           best +
-          (native
-            ? canoeHopDays(km)
-            : passageHopDays(km, bySea[u] === 1 && u !== from, q === to));
+          (post
+            ? seaHopDays(km) + (native ? 1 : 0)
+            : native
+              ? canoeHopDays(km)
+              : passageHopDays(km, bySea[u] === 1 && u !== from, q === to));
         if (d < days[q]) {
           days[q] = d;
           prev[q] = u;
@@ -1201,6 +1208,7 @@ export function travelRoute(
       i > 0 && seaHops[i - 1], // SEA (r15): a port of call
       native && seaHops[i],
       !seaHops[i + 1], // SEA (r15): the voyage ends here
+      post,
     );
     legs.push(d);
     if (seaHops[i]) {
