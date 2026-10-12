@@ -1478,21 +1478,37 @@ export const FAMILY_EVENTS: LifeEventDef[] = [
         },
       },
       {
-        label: costs("Settle the debt", 6),
-        tip: "Only if there is one: +25 opinion.",
-        blocked: (g, life, ctx) =>
+        // Only a brother or sister really short of it has a debt to settle.
+        label: (g, life, ctx) =>
           wouldBeg(g.s, g.s.chars[ctx.c], 6)
-            ? poor(life, 6)
-            : "There's no debt to settle",
+            ? costs("Settle the debt", 6)
+            : costs("Send them home with a present", 2),
+        tip: (g, life, ctx) =>
+          wouldBeg(g.s, g.s.chars[ctx.c], 6)
+            ? "+25 opinion, and no more said about it."
+            : "+12 opinion: something for the house.",
+        blocked: (g, life, ctx) =>
+          poor(life, wouldBeg(g.s, g.s.chars[ctx.c], 6) ? 6 : 2),
         apply: (g, life, ctx) => {
-          fx(g, life, { coins: -6 });
-          like(g, life, ctx, "Settled my debt", 25, 8);
-          say(
-            g,
-            life,
-            "Paid, and not a word more about it. That's what family is for, apparently.",
-            "good",
-          );
+          if (wouldBeg(g.s, g.s.chars[ctx.c], 6)) {
+            fx(g, life, { coins: -6 });
+            like(g, life, ctx, "Settled my debt", 25, 8);
+            say(
+              g,
+              life,
+              "Paid, and not a word more about it. That's what family is for, apparently.",
+              "good",
+            );
+          } else {
+            fx(g, life, { coins: -2 });
+            like(g, life, ctx, "Sent me home with a present", 12, 5);
+            say(
+              g,
+              life,
+              "A bolt of good cloth and a ham for the road.",
+              "good",
+            );
+          }
         },
       },
       {
