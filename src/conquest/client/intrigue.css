@@ -52,6 +52,15 @@
 .cq-intr .cq-seg.big > button > span:last-child {
   flex-basis: 100%;
 }
+/* The register's seg buttons set every span in them as a block: not the coin chip. */
+.cq-intr .cq-seg > button .cq-price {
+  display: inline-flex;
+  opacity: 1;
+}
+.cq-intr .cq-seg > button .cq-price .per {
+  display: inline;
+  font-size: inherit;
+}
 
 .cq-intr .cq-odds-panel {
   margin: 0.4rem 0 0.6rem;
@@ -411,7 +420,7 @@
 .cq-intr-paper-sign {
   margin: 0.4rem 0 0;
   text-align: right;
-  font-family: var(--script);
+  font-family: "Pinyon Script", "Snell Roundhand", "Apple Chancery", cursive;
   font-size: 1.55rem;
   line-height: 1.8rem;
   color: var(--nation-deep);
