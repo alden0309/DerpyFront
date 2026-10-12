@@ -18,6 +18,7 @@ import {
   storyLines,
   tableStory,
 } from "../../src/conquest/client/ui/DiceLog";
+import { ACHIEVEMENTS } from "../../src/conquest/engine/Achievements";
 import { presentAt } from "../../src/conquest/engine/Areas";
 import {
   dateOf,
@@ -26,16 +27,30 @@ import {
   pollDay,
 } from "../../src/conquest/engine/Calendar";
 import { kill } from "../../src/conquest/engine/Characters";
+import {
+  MEASURES,
+  seatCouncillor,
+  settleMatter,
+} from "../../src/conquest/engine/Council";
+import { cede } from "../../src/conquest/engine/Crown";
 import { sitAcceptance } from "../../src/conquest/engine/DiceAi";
 import { tablesOf } from "../../src/conquest/engine/DiceCore";
 import {
   doInteraction,
   interactionView,
 } from "../../src/conquest/engine/Interactions";
+import { LEAD_DEFS } from "../../src/conquest/engine/Leads";
 import { setTie } from "../../src/conquest/engine/LifeCore";
 import { meOf } from "../../src/conquest/engine/LifeQueries";
-import { ensureOffices } from "../../src/conquest/engine/Offices";
-import { charName } from "../../src/conquest/engine/Queries";
+import {
+  ensureOffices,
+  localOfficesOf,
+} from "../../src/conquest/engine/Offices";
+import {
+  charName,
+  provincesOf,
+  settlers,
+} from "../../src/conquest/engine/Queries";
 import type { Character } from "../../src/conquest/engine/Types";
 import { lifeOf, plan, prov, ticks, world } from "./LifeUtil";
 
@@ -448,5 +463,107 @@ describe("FIXES r15: the Liar's dice log keeps the whole table's story", () => {
         (l) => l.n <= mid,
       ),
     ).toBe(true);
+  });
+});
+
+describe("FIXES r15: what the political playthrough turned up", () => {
+  test("a fallen capital moves to the biggest town left, not the first on the list", () => {
+    const g = world({ start: 1700 });
+    const s = g.s;
+    const n = s.nations.findIndex((x) => x.key === "england");
+    const old = s.nations[n].capital;
+    const left = provincesOf(s, n).filter((q) => q !== old);
+    const biggest = left.reduce((a, b) =>
+      settlers(s.provinces[b]) > settlers(s.provinces[a]) ? b : a,
+    );
+    const enemy = s.nations.findIndex((x) => x.key === "france");
+    cede(g, old, enemy);
+    expect(s.nations[n].capital).toBe(biggest);
+    // Not a fishing station in Newfoundland: one of the larger towns.
+    const sizes = left
+      .map((q) => settlers(s.provinces[q]))
+      .sort((a, b) => b - a);
+    expect(settlers(s.provinces[s.nations[n].capital])).toBe(sizes[0]);
+  });
+
+  test("a county office lost to conquest is told to the player who held it", () => {
+    const g = world({ start: 1700 });
+    const life = lifeOf(g);
+    const list = ensureOffices(g, life.prov);
+    const o = list.find((x) => x.key === "warden" || x.key === "constable")!;
+    o.holder = life.c;
+    const enemy = g.s.nations.findIndex((x) => x.key === "france");
+    cede(g, life.prov, enemy);
+    ensureOffices(g, life.prov);
+    const adj = g.s.nations[enemy].adjective;
+    expect(
+      life.journal.some((j) =>
+        new RegExp(
+          `is in ${adj} hands now: your place as .* has lapsed\\.$`,
+        ).test(j.text),
+      ),
+    ).toBe(true);
+    expect(localOfficesOf(g.s, life.c).length).toBe(0);
+  });
+
+  test("council measures keep their proper names, and say when a carried one can't be done", () => {
+    const g = world({ start: 1700 });
+    const s = g.s;
+    const life = lifeOf(g);
+    const n = meOf(s, life)!.nation;
+    seatCouncillor(g, n, "spymaster", life.c, "test");
+    const o = s.nations.findIndex((x) => x.kind === "native" && x.alive);
+    const title = MEASURES.presents.title(g, n, o);
+    const matter = (id: number) => ({
+      id,
+      key: "presents",
+      title,
+      text: "",
+      by: s.nations[n].ruler,
+      arg: o,
+      day: s.day,
+      until: s.day,
+      votes: {},
+      status: "open" as const,
+    });
+    g.nation(n).gold = 0;
+    settleMatter(g, n, matter(1), true, 5, 1);
+    const undone = life.journal[life.journal.length - 1].text;
+    expect(undone).toBe(
+      `The council carries presents for the ${s.nations[o].name} (5 to 1), but it can't be done: the treasury can't spare it.`,
+    );
+    g.nation(n).gold = 100;
+    settleMatter(g, n, matter(2), true, 6, 0);
+    const done = life.journal[life.journal.length - 1].text;
+    expect(
+      done.startsWith(
+        `The council carries presents for the ${s.nations[o].name} (6 to 0).`,
+      ),
+    ).toBe(true);
+    // A proper name keeps its capital.
+    expect(s.nations[o].name.charAt(0)).toBe(
+      s.nations[o].name.charAt(0).toUpperCase(),
+    );
+  });
+
+  test("“Elected” is paid for winning a poll, not for an appointment to the council", () => {
+    const g = world({ start: 1700 });
+    const s = g.s;
+    const life = lifeOf(g);
+    const elected = ACHIEVEMENTS.find((a) => a.name === "Elected")!;
+    const n = meOf(s, life)!.nation;
+    seatCouncillor(g, n, "spymaster", life.c, "test");
+    expect(life.tally.topOffice).toBeGreaterThanOrEqual(1);
+    expect(elected.check(g, life)).toBe(false);
+    life.tally.elections = 1;
+    expect(elected.check(g, life)).toBe(true);
+  });
+
+  test("the Harpe brothers have robbed the post road (not has)", () => {
+    const says = LEAD_DEFS.outlaw.says[0];
+    expect(says("Hochelaga", "the Harpe brothers")).toMatch(
+      /^the Harpe brothers have robbed/,
+    );
+    expect(says("Hochelaga", "Molly Raike")).toMatch(/^Molly Raike has robbed/);
   });
 });

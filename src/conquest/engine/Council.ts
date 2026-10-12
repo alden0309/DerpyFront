@@ -298,7 +298,7 @@ export function seekSeat(
     journal(
       g,
       life,
-      `You ask ${charName(gov)} for the place of ${seatName(s, n, seat).toLowerCase()}. ${gov.female ? "She" : "He"} will let you know.`,
+      `You ask ${charName(gov)} for the place of ${lowerFirst(seatName(s, n, seat))}. ${gov.female ? "She" : "He"} will let you know.`,
     );
     return null;
   }
@@ -383,7 +383,7 @@ export function seatCouncillor(
   } else if (gov?.alive && gov.id !== c) {
     g.char(c).memories.push({
       of: -1,
-      why: `Made ${seatName(s, n, seat).toLowerCase()}`,
+      why: `Made ${lowerFirst(seatName(s, n, seat))}`,
       value: 15,
       until: s.day + 3 * DAYS_PER_YEAR,
     });
@@ -1611,6 +1611,9 @@ function decideMatters(g: ConquestGame, n: number): void {
   }
 }
 
+/** FIXES (r15): a title mid-sentence: only its first letter lowered. */
+const lowerFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+
 /** A matter carried (and done) or lost. */
 export function settleMatter(
   g: ConquestGame,
@@ -1622,13 +1625,17 @@ export function settleMatter(
 ): void {
   const s = g.s;
   let text = "";
+  let undone = false; // FIXES (r15): carried, but it couldn't be done
   if (carried) {
     const out = MEASURES[m.key].apply(g, n, m.arg);
     if (out.startsWith("!")) {
       carried = false;
+      undone = true;
       text = out.slice(1);
     } else text = out;
   }
+  // FIXES (r15): "presents for the Haudenosaunee", not "the haudenosaunee".
+  const title = lowerFirst(m.title);
   m.status = carried ? "carried" : "lost";
   powerChanged(g, `c${n}`);
   for (const { c } of councillors(s, n)) {
@@ -1638,8 +1645,10 @@ export function settleMatter(
       g,
       life,
       carried
-        ? `The council carries ${m.title.toLowerCase()} (${ayes} to ${noes}). ${text}`
-        : `The council throws out ${m.title.toLowerCase()} (${noes} against${ayes ? `, ${ayes} for` : ""}).${text ? ` ${text}` : ""}`,
+        ? `The council carries ${title} (${ayes} to ${noes}). ${text}`
+        : undone
+          ? `The council carries ${title} (${ayes} to ${noes}), but it can't be done: ${lowerFirst(text)}`
+          : `The council throws out ${title} (${noes} against${ayes ? `, ${ayes} for` : ""}).${text ? ` ${text}` : ""}`,
       carried ? "good" : "bad",
     );
   }
@@ -1649,8 +1658,10 @@ export function settleMatter(
       g,
       by,
       carried
-        ? `The council carries ${m.title.toLowerCase()}.`
-        : `The council throws out ${m.title.toLowerCase()}.`,
+        ? `The council carries ${title}.`
+        : undone
+          ? `The council carries ${title}, but it can't be done: ${lowerFirst(text)}`
+          : `The council throws out ${title}.`,
     );
   if (carried && m.by !== s.nations[n].ruler) setFavour(g, n, m.by, 3);
 }
@@ -1679,11 +1690,11 @@ export function signMatter(
   if (!yes2) {
     setFavour(g, n, m.by, -4);
     settleMatter(g, n, m, false, ayes, noes);
-    journal(g, life, `You refuse to sign ${m.title.toLowerCase()}.`);
+    journal(g, life, `You refuse to sign ${lowerFirst(m.title)}.`);
     return null;
   }
   settleMatter(g, n, m, true, ayes, noes);
-  journal(g, life, `You sign ${m.title.toLowerCase()}.`, "good");
+  journal(g, life, `You sign ${lowerFirst(m.title)}.`, "good");
   return null;
 }
 
@@ -2032,7 +2043,7 @@ export function govAppoint(
     journal(
       g,
       life,
-      `You offer ${charName(s.chars[c])} the place of ${seatName(s, n, seat).toLowerCase()}. They'll answer.`,
+      `You offer ${charName(s.chars[c])} the place of ${lowerFirst(seatName(s, n, seat))}. They'll answer.`,
     );
     return null;
   }
@@ -2041,7 +2052,7 @@ export function govAppoint(
   journal(
     g,
     life,
-    `You appoint ${charName(s.chars[c])} ${seatName(s, n, seat).toLowerCase()}.`,
+    `You appoint ${charName(s.chars[c])} ${lowerFirst(seatName(s, n, seat))}.`,
   );
   return null;
 }

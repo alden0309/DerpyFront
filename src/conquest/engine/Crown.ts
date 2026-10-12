@@ -16,6 +16,7 @@ import {
   pairKey,
   provincesOf,
   rulerOf,
+  settlers, // FIXES (r15)
   warBetween,
 } from "./Queries";
 import {
@@ -301,7 +302,14 @@ export function cede(g: ConquestGame, p: number, to: number): void {
     n.stats.provincesLost++;
     if (n.capital === p) {
       const left = provincesOf(s, from).filter((q) => q !== p);
-      n.capital = left.length > 0 ? left[0] : -1;
+      // FIXES (r15): the biggest town left, not the first on the list
+      // (England's capital went to a fishing station in Newfoundland).
+      n.capital =
+        left.length > 0
+          ? left.reduce((a, b) =>
+              settlers(s.provinces[b]) > settlers(s.provinces[a]) ? b : a,
+            )
+          : -1;
     }
   }
   pr.owner = to;

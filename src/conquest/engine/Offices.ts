@@ -683,6 +683,21 @@ export function ensureOffices(g: ConquestGame, p: number): LocalOffice[] {
   let list = soc.offices[p];
   // The land changed hands: the old offices lapse.
   if (list && list.length && list[0].nation !== owner) {
+    // FIXES (r15): a player who held one (or stood for one) is told.
+    for (const o of list) {
+      if (o.key === "founder" && o.nation === owner) continue;
+      const lost = [o.holder, ...o.candidates.map((x) => x.c)];
+      for (const c of lost) {
+        const l = lifeOfChar(s, c);
+        if (!l) continue;
+        journal(
+          g,
+          l,
+          `${g.map.provinces[p]?.name ?? "The county"} is in ${s.nations[owner]?.adjective ?? "other"} hands now: ${c === o.holder ? `your place as ${officeName(s, o)} has lapsed` : `the poll for ${officeName(s, o)} won't be held`}.`,
+          "bad",
+        );
+      }
+    }
     list = list.filter((o) => o.key === "founder" && o.nation === owner);
     soc.offices[p] = list;
     g.societyChanged(`o${p}`);
