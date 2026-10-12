@@ -1548,10 +1548,11 @@ for (const fam of [...new Set(VIGNETTES.map((v) => v.family))])
 export const VIGNETTE_CHANCE = 0.5;
 
 /**
- * A vignette for a player's next turn at a gathering: one that can happen
+ * A vignette for a guest's next turn at a gathering: one that can happen
  * with the people there, isn't resting, and comes the less the more it's been
- * seen. Not the evening's opening turn (the ceremony's own comes first), and
- * never at the couple's own wedding (their scenes are the day's).
+ * seen. Not the evening's opening turn (the ceremony's own comes first), not
+ * for the host (their turns are the gathering's own), and never at the
+ * couple's own wedding (their scenes are the day's).
  */
 export function pickVignette(
   g: ConquestGame,
@@ -1560,6 +1561,8 @@ export function pickVignette(
   here: Character[],
 ): { key: string; c: number } | undefined {
   if (gat.bet !== undefined && gat.about.includes(life.c)) return undefined;
+  // A guest's evening: the host has the gathering's own turns to see to.
+  if (gat.host === life.c) return undefined;
   if (
     !gat.played.some(
       (k) => GATHERINGS[gat.kind].pool.includes(k) || VIGNETTE_BY_KEY.has(k),
