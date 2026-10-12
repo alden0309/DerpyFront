@@ -448,7 +448,8 @@ export function hireCheck(s: GameState, life: Life, c: Character): Check {
   const pr = businessOf(life, life.prov);
   if (!pr)
     return no("You'd need a business of your own here to take on hands.");
-  if (handRoom(pr) <= 0)
+  // BUSINESS (r15): a hand taken on by name takes a town hand's place.
+  if ((BUSINESS_HANDS[pr.level] ?? 0) - pr.hands.length <= 0)
     return no(`Your ${pr.name} has all the hands it can use.`);
   if (ageOf(s, c) < 14) return no("A child.");
   if (handOf(s, c.id)) return no("They work for someone already.");
@@ -468,6 +469,11 @@ export function hireHand(
   const pr = businessOf(life, life.prov)!;
   touchLife(g, life);
   pr.hands.push(c.id);
+  // BUSINESS (r15): a hand from the town makes way for them, if it's full.
+  if (handCount(pr) > (BUSINESS_HANDS[pr.level] ?? 0) && pr.biz?.extra) {
+    pr.biz.extra--;
+    if (!pr.biz.extra) delete pr.biz.extra;
+  }
   remembers(g, life, g.char(c.id), "Gave me work", 10, 3);
   journal(
     g,

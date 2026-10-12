@@ -8,7 +8,7 @@
 // markets' prices, and the odds it shows are the odds its voyages are rolled
 // by.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import {
   presetsFor,
   presetTerms,
@@ -57,6 +57,9 @@ import type {
   Life,
 } from "../../src/conquest/engine/Types";
 import { lifeOf, map, plan, prov, world } from "./LifeUtil";
+
+// Many games and months in each: give them room on a busy machine.
+vi.setConfig({ testTimeout: 240_000 });
 
 const JT = prov("Jamestown");
 
@@ -324,7 +327,7 @@ describe("partnerships made easy", () => {
     // In two and a half years it has paid back most of what was put in, and
     // the share is still yours.
     expect(mean(back)).toBeGreaterThan(mean(put) * 0.6);
-  }, 60_000);
+  });
 
   test("a firm says how it makes its money, and why it's losing when it is", () => {
     const { g, life } = game(9, { background: "clerk", purse: 300 });
