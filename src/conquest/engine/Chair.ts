@@ -758,6 +758,8 @@ function startPetition(g: ConquestGame, n: number, by: number): RecallPetition {
     court: 0,
     defence: 0,
   };
+  // On the commission before anyone hears of it (a scene reads it as it's raised).
+  g.nation(n).chair!.petition = pet;
   rumour(
     g,
     nation.capital,

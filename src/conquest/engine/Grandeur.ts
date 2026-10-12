@@ -1,8 +1,8 @@
 // CHAIR (r16): marks of greatness. What a governor (or anyone with money
 // and a name) can buy to be remembered by: a great house with gardens and
 // his name over the gate, a coach and four in his livery, portraits by the
-// limners of the day, and endowments that carry his name (a free school, an
-// almshouse, a scholarship at the college, a ring of bells, a library for
+// limners of the day, and endowments that carry his name (a grammar school, a
+// charity for the poor, a scholarship at the college, a ring of bells, a library for
 // the colony). Each costs what's on its button, some cost a little a month
 // (a line in the month's figure), and each does something real: renown,
 // favour at home, the regard of the council and the governor, the colony's
@@ -50,11 +50,11 @@ export interface GreatDef {
   key: string;
   /** The kind of thing, for grouping on the page. */
   kind: "house" | "portrait" | "endowment";
-  /** What it is, for anyone ("A free school in your name"). */
+  /** What it is, for anyone ("A grammar school in your name"). */
   title: string;
   /** Its own price (a hall also wants a mansion, a coach a carriage). */
   base: number;
-  /** Its name, for you ("Lee Hall", "The Lee Free School"). */
+  /** Its name, for you ("Lee Hall", "The Lee Grammar School"). */
   name: (s: GameState, w: World, life: Life) => string;
   /** What it is, in a line. */
   text: string;
@@ -339,24 +339,24 @@ export const GREAT: GreatDef[] = [
   {
     key: "school",
     kind: "endowment",
-    title: "A free school in your name",
+    title: "A grammar school in your name",
     base: 180,
-    name: (s, w, life) => `The ${familyOf(s, life)} Free School`,
-    text: "A schoolhouse, a master's salary for ever, and your name over the door.",
+    name: (s, w, life) => `The ${familyOf(s, life)} Grammar School`,
+    text: "A schoolhouse, a master's salary for ever to teach Latin and Greek to the colony's sons, and your name over the door.",
     does: "The colony's administration +1 for 25 years.",
     cost: () => 180,
     renown: 10,
     favor: 3,
     needs: (s, w, life) => named(s, life),
     legacy: (s, w, life) =>
-      `Founded the ${familyOf(s, life)} Free School at ${homeName(w, life)}`,
+      `Founded the ${familyOf(s, life)} Grammar School at ${homeName(w, life)}`,
     apply: (g, life) => {
       const me = meOf(g.s, life)!;
       natMod(
         g,
         me.nation,
         `great:school:${me.id}`,
-        `The ${me.family} Free School`,
+        `The ${me.family} Grammar School`,
         25,
         { admin: 1 },
       );
@@ -365,24 +365,24 @@ export const GREAT: GreatDef[] = [
   {
     key: "almshouse",
     kind: "endowment",
-    title: "An almshouse in your name",
+    title: "A charity for the poor in your name",
     base: 200,
-    name: (s, w, life) => `The ${familyOf(s, life)} Almshouse`,
-    text: "Rooms, bread and firewood for the poor of the parish, kept by your endowment.",
+    name: (s, w, life) => `The ${familyOf(s, life)} Charity`,
+    text: "Bread, firewood and a physician for the poor of the parish every winter, for ever, paid from your endowment.",
     does: "Unrest in your county −3 for 25 years.",
     cost: () => 200,
     renown: 10,
     favor: 2,
     needs: (s, w, life) => named(s, life),
     legacy: (s, w, life) =>
-      `Endowed the ${familyOf(s, life)} Almshouse at ${homeName(w, life)}`,
+      `Endowed the ${familyOf(s, life)} Charity for the poor of ${homeName(w, life)}`,
     apply: (g, life) => {
       const me = meOf(g.s, life)!;
       provMod(
         g,
         life.home,
         `great:alms:${me.id}`,
-        `The ${me.family} Almshouse`,
+        `The ${me.family} Charity`,
         25,
         { unrest: -3 },
       );

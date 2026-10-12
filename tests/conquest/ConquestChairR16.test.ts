@@ -10,6 +10,7 @@ import http from "http";
 import { AddressInfo } from "net";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { WebSocket } from "ws";
+import { splitPrice } from "../../src/conquest/client/ui/Price";
 import { chooseSpeaker } from "../../src/conquest/engine/Assembly";
 import {
   answerRoll,
@@ -398,6 +399,10 @@ describe("CHAIR r16: a petition for the governor's recall", () => {
     expect(g.lifeCommand("pet", { k: "chair", act: "petition" })).toBeNull();
     const ev = govLife.events.find((e) => e.key === "chair-petition");
     expect(ev).toBeDefined();
+    // The scene reads the petition as it's raised: who, when, and the odds.
+    expect(ev!.body).toMatch(/Nathaniel Bacon has retained an agent/);
+    expect(ev!.body).toMatch(/would recall you/);
+    expect(ev!.choices.some((c) => /It's gone/.test(c.tip ?? ""))).toBe(false);
     // Nothing done to him yet: he governs, and answers it with letters.
     expect(england(g).ruler).toBe(gov.id);
     const pet = chairOf(s, n)!.petition!;
@@ -738,7 +743,8 @@ describe("CHAIR r16: marks of greatness", () => {
     expect(legacyOf(s, g.w, life).length).toBe(GREAT.length - 2);
     expect(
       life.milestones.some(
-        (m) => m.text === `Founded the ${me.family} Free School at Jamestown`,
+        (m) =>
+          m.text === `Founded the ${me.family} Grammar School at Jamestown`,
       ),
     ).toBe(true);
     expect(england(g).mods.some((m) => m.key === `great:school:${me.id}`)).toBe(
@@ -1175,5 +1181,26 @@ describe("CHAIR r16: at a commission's end the crown weighs you against a man of
         /governed here before/.test(p.label),
       ) || crownPickOdds(g.s, n, life).total === 0,
     ).toBe(true);
+  });
+});
+
+describe("CHAIR r16: a scene's price goes in its chip even with a skill check's odds after it", () => {
+  test("splitPrice", () => {
+    expect(
+      splitPrice(
+        "Answer it with letters of your own to London (4 coins) (Letters 53%)",
+      ),
+    ).toEqual({
+      text: "Answer it with letters of your own to London (Letters 53%)",
+      cost: 4,
+    });
+    expect(splitPrice("Buy ten acres (22)")).toEqual({
+      text: "Buy ten acres",
+      cost: 22,
+    });
+    expect(splitPrice("Send for them (Persuasion 39%)")).toEqual({
+      text: "Send for them (Persuasion 39%)",
+      cost: null,
+    });
   });
 });

@@ -678,7 +678,9 @@ export function greatSection(ui: GameUi): TemplateResult | typeof nothing {
     html`<p class="cq-muted small">
         What ${governs ? "a governor" : "anyone with money and a name"} can buy
         to be remembered by. Each is a line in the story of your life; some cost
-        a little a month to keep.
+        a little a month to keep. (Gifts to the town, and public works such as
+        an almshouse, a church or a college, are at the church and the
+        governor's house.)
       </p>
       ${GROUPS.map(
         ([kind, title]) =>

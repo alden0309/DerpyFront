@@ -1850,7 +1850,7 @@ const GOALS: Goal[] = [
     id: "chair-great",
     title: "Spend a governor's money: a hall, a coach, portraits, endowments",
     words:
-      "spend money rich mansion hall coach four portrait painting likeness endow endowment school almshouse college scholarship bells library legacy name remembered",
+      "spend money rich mansion hall coach four portrait painting likeness endow endowment grammar school charity poor college scholarship bells library legacy name remembered",
     group: "Money and home",
     where:
       "Estate › House & land › Marks of greatness: a great house with your name, a coach and four, portraits, and endowments that carry your name. Each is a line in your story.",
