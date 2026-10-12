@@ -452,6 +452,8 @@ export interface JournalEntry {
   c: number;
   /** LEDGER (r15): news of your own affairs (a boat home, a cargo sold), not the world's. */
   aff?: AffairKind;
+  /** INTRIGUE (r15): a secret (a plot, a private letter): only this life's own player is sent it. */
+  sec?: true;
 }
 
 export type MilestoneKind =
@@ -800,6 +802,8 @@ export interface Life {
   statements?: Statement[];
   /** EVENTS (r15): how often each event (and each trade's matter) has come to this line. */
   evSeen?: EventsSeen;
+  /** INTRIGUE (r15): on the way to a gathering you said yes to (and home after). */
+  attend?: Attendance | null;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1557,6 +1561,8 @@ export interface GameState {
   dice?: DiceState;
   /** SEA (r15): the hurricanes, cruises and voyages, and privateers fitting out. */
   sea?: SeaState;
+  /** INTRIGUE (r15): schemes, kept lovers, betrothals and guards. */
+  intrigue?: IntrigueState;
 }
 
 export type TravellerKind =
@@ -1852,7 +1858,9 @@ export type LifeCommand =
   // BUSINESS (r15): a business of your own, its hands and manager; a trading company.
   | BusinessCommand
   // SEA (r15): cruises, voyages, the privateering company.
-  | SeaCommand;
+  | SeaCommand
+  // INTRIGUE (r15): seduction, plots, betrothals and weddings, private letters.
+  | IntrigueCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1897,6 +1905,8 @@ export interface GameDelta {
   dice?: DiceState;
   /** SEA (r15): the hurricanes, cruises and voyages, when any changed. */
   sea?: SeaState;
+  /** INTRIGUE (r15): when any changed (each player's copy holds only their own schemes). */
+  intrigue?: IntrigueState;
 }
 
 // ---- WORLD (r11)
@@ -2299,7 +2309,9 @@ export type LetterKind =
   | "blackmail"
   | "news"
   // PARTNERS (r13): articles of copartnership, sent and answered by post.
-  | "articles";
+  | "articles"
+  // INTRIGUE (r15): a letter to another player in your own words.
+  | "personal";
 
 /** A letter written, carried and (perhaps) answered. */
 export interface Letter {
@@ -2333,6 +2345,8 @@ export interface Letter {
   read?: boolean;
   /** Its reader (a player) has answered, or let it lapse. */
   done?: boolean;
+  /** INTRIGUE (r15): a private letter's subject line, if it has one. */
+  subject?: string;
 }
 
 /** A love outside a marriage, and what's known of it. */
@@ -2444,6 +2458,10 @@ export interface Gathering {
   turns: Record<string, number>;
   /** What happened, for the record. */
   lines: string[];
+  /** INTRIGUE (r15): a wedding planned from a betrothal (its id), made at its vows. */
+  bet?: number;
+  /** INTRIGUE (r15): the turns the couple play on the day (else the host's by scale). */
+  turnsHost?: number;
 }
 
 /** A settlement being got up: where, under whose leave, who's coming. */
@@ -3702,4 +3720,151 @@ export interface SeaCommand {
   arg?: number;
   c?: number;
   name?: string;
+}
+
+// ---- INTRIGUE (r15)
+// Hearts and schemes: seduction (a lover, or someone kept), courting your own
+// husband or wife, plots to kill, betrothals with a wedding planned as a
+// gathering, the journey to a gathering you're asked to, and letters to other
+// players in your own words. Schemes are secret: each player's copy of the
+// game holds only their own (and any aimed at them that they've found out),
+// and nobody but its writer and its reader ever receives a private letter
+// (IntrigueCore.ts).
+
+/** How a plot is to be done. */
+export type PlotMethod =
+  | "poison"
+  | "cutthroat"
+  | "ambush"
+  | "accident"
+  | "duel";
+
+/** A scheme a player has going: winning someone, or having them killed. */
+export interface IntrigueScheme {
+  id: number;
+  kind: "seduce" | "plot";
+  /** The schemer: their seat and character. */
+  seat: string;
+  by: number;
+  /** Whom it's aimed at. */
+  target: number;
+  /** Where it's being worked (the target must be within reach there). */
+  p: number;
+  started: number;
+  /** Weeks gone, and weeks it needs before the moment comes. */
+  week: number;
+  weeks: number;
+  /** Seduction: a lover, or someone kept at a monthly cost. */
+  aim?: "lover" | "keep";
+  /** A plot: how. */
+  method?: PlotMethod;
+  /** Accomplices drawn in (character ids). */
+  helpers: number[];
+  /** People who said no to joining it, and might talk. */
+  leaks: number;
+  /** The odds it runs on (the same ones shown before it began; redrawn when an accomplice joins). */
+  odds: SchemeOdds;
+  /** Coins laid out on it so far. */
+  paid: number;
+  status: "on" | "strike" | "done" | "failed" | "foiled" | "found" | "dropped";
+  ended?: number;
+  /** A player target: warnings sent, and whether they know who it is. */
+  warned?: number;
+  knows?: boolean;
+  /** Weeks it has waited for its target to come back within reach. */
+  waited?: number;
+  /** What's happened, as the schemer knows it (newest last). */
+  lines: string[];
+}
+
+/** What a scheme runs on: its chance at the end, and of being found out each week on the way. */
+export interface SchemeOdds {
+  /** Chance it comes off when the moment comes. */
+  p: number;
+  /** Chance each week it's found out before then. */
+  d: number;
+  /** A plot that fails (or succeeds) at the moment: chance it's traced to you. */
+  f: number;
+}
+
+/** A lover kept at a monthly allowance: a mistress, or a kept man. */
+export interface KeptLover {
+  seat: string;
+  by: number;
+  c: number;
+  since: number;
+  /** Coins a month. */
+  cost: number;
+  /** Months the allowance has gone unpaid. */
+  owed: number;
+}
+
+/** How a wedding is made, by the customs of the couple's faith. */
+export type WeddingRite = "church" | "meeting" | "mass" | "home" | "fire";
+
+/** Promised to marry: the banns, the plans, the day. */
+export interface Betrothal {
+  id: number;
+  /** The one who asked, and the one who said yes. */
+  a: number;
+  b: number;
+  since: number;
+  status: "promised" | "planned" | "wed" | "broken";
+  /** The wedding: its gathering, how, how grand (0 just the families), and whether by licence. */
+  gat?: number;
+  rite?: WeddingRite;
+  tier?: number;
+  licence?: boolean;
+  /** The day set, and what was paid for it. */
+  day?: number;
+  paid?: number;
+  /** Who broke it off, and when it ended. */
+  by?: number;
+  ended?: number;
+  /** The vows said (the couple are married), and the dowry settled. */
+  vows?: boolean;
+  dowry?: boolean;
+}
+
+/** Everything of intrigue kept outside the lives. */
+export interface IntrigueState {
+  schemes: IntrigueScheme[];
+  kept: KeptLover[];
+  betrothals: Betrothal[];
+  /** Men hired to watch over someone, by character: the day they're paid to. */
+  guards: Record<number, number>;
+}
+
+/** A journey to a gathering you've said yes to: when to set out, and home after. */
+export interface Attendance {
+  /** The gathering. */
+  g: number;
+  /** Where you set out from (and come home to). */
+  from: number;
+  /** The day to set out by. */
+  leave: number;
+  /** Come home when it's over. */
+  back: boolean;
+  /** Set out, arrived, on the way home. */
+  stage: "wait" | "going" | "there" | "home";
+}
+
+/** A command for seduction, plots, betrothals, weddings, journeys to gatherings and private letters. */
+export interface IntrigueCommand {
+  k: "intrigue";
+  act: string;
+  c?: number;
+  id?: number;
+  aim?: "lover" | "keep";
+  method?: PlotMethod;
+  rite?: WeddingRite;
+  tier?: number;
+  licence?: boolean;
+  days?: number;
+  list?: number[];
+  back?: boolean;
+  /** A letter in your own words. */
+  subject?: string;
+  body?: string;
+  re?: number;
 }

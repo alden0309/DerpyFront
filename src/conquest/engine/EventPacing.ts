@@ -136,7 +136,10 @@ const FAMILY_OF = new Map<string, string>();
 for (const [f, keys] of Object.entries(FAMILIES))
   for (const k of keys) FAMILY_OF.set(k, f);
 
-/** SEA (r15): a family of events from another module, and its rest. */
+/**
+ * SEA and INTRIGUE (r15): another module's events join a family (or start
+ * one), with how long it rests (a gathering's vignettes rest by family too).
+ */
 export function registerFamily(
   family: string,
   keys: string[],

@@ -158,6 +158,38 @@ export const hooks = {
     s: import("./Types").GameState,
     f: import("./Types").Firm,
   ) => number)[],
+  // INTRIGUE (r15)
+  /**
+   * A player's next turn at a gathering: a scene of its own (a wedding's
+   * vows, a vignette of the evening), null for nothing more, or undefined to
+   * leave it to the gathering. `here` is the computer's people who came.
+   */
+  gatherTurn: [] as ((
+    g: ConquestGame,
+    life: Life,
+    gat: import("./Types").Gathering,
+    here: Character[],
+  ) => { key: string; c: number } | null | undefined)[],
+  /**
+   * A wedding's day has come: true to go ahead without marrying the couple
+   * yet (they're married at the vows), false to call it off, "wait" to put it
+   * off (the hook has set the new day), undefined if it isn't one of yours.
+   */
+  weddingBegins: [] as ((
+    g: ConquestGame,
+    gat: import("./Types").Gathering,
+  ) => boolean | "wait" | undefined)[],
+  /** A gathering is over (held). */
+  gatherHeld: [] as ((
+    g: ConquestGame,
+    gat: import("./Types").Gathering,
+  ) => void)[],
+  /** A married woman's chance of a child this year, as it's reckoned. */
+  birthChance: [] as ((
+    s: import("./Types").GameState,
+    c: Character,
+    e: import("./Explain").Explain,
+  ) => void)[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

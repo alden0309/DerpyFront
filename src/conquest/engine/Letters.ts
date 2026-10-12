@@ -143,6 +143,12 @@ export const LETTER_KINDS: Record<LetterKind, LetterKindDef> = {
   news: { label: "News", text: "", ask: false },
   // PARTNERS (r13): answered in a scene of its own (Partners.ts), not yes or no here.
   articles: { label: "Articles of copartnership", text: "", ask: false },
+  // INTRIGUE (r15): to another player, in your own words (Notes.ts).
+  personal: {
+    label: "A private letter",
+    text: "Whatever you want to say, in your own words, to another player. Only they will ever read it.",
+    ask: false,
+  },
 };
 
 /** What a player may write. */
@@ -616,12 +622,18 @@ export function letterCheck(
     case "love":
       if (c.female === me.female) return no("Not in this century.");
       if (ageOf(s, c) < 16) return no("They're a child.");
+      // INTRIGUE (r15): nothing of the heart under eighteen, on either side.
+      if (ageOf(s, c) < 18) return no("Not until they're eighteen.");
+      if (ageOf(s, me) < 18) return no("Not until you're eighteen.");
       break;
     case "marriage":
       if (me.spouse >= 0) return no("You're married.");
       if (c.spouse >= 0) return no("They're married.");
       if (c.female === me.female) return no("Not in this century.");
       if (ageOf(s, c) < 16) return no("They're a child.");
+      // INTRIGUE (r15): nothing of the heart under eighteen, on either side.
+      if (ageOf(s, c) < 18) return no("Not until they're eighteen.");
+      if (ageOf(s, me) < 18) return no("Not until you're eighteen.");
       if (
         [me.father, me.mother].includes(c.id) ||
         (c.father >= 0 && c.father === me.father) ||
@@ -690,7 +702,7 @@ export function letterCheck(
 
 // ---------------------------------------------------------------- sending
 
-function pushPost(g: ConquestGame, life: Life, l: Letter): void {
+export function pushPost(g: ConquestGame, life: Life, l: Letter): void {
   touchLife(g, life);
   life.post ??= [];
   life.post.push(l);

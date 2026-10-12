@@ -50,6 +50,7 @@ import { familyTreeSection } from "./FamilyTree"; // HOME (r12)
 import { pressPage } from "./Gazette"; // POWER (r12)
 import { verdictChip } from "./Here";
 import { housesSection } from "./Home"; // HOME (r12)
+import { intriguePage } from "./Intrigue"; // INTRIGUE (r15)
 import { journalTab } from "./Journal";
 import { acresSection, ledgerPage } from "./Ledger"; // LEDGER (r15)
 import {
@@ -780,6 +781,8 @@ function societyPage(ui: GameUi, sub: string): TemplateResult {
       return lettersPage(ui);
     case "gatherings":
       return gatheringsPage(ui);
+    case "intrigue": // INTRIGUE (r15)
+      return intriguePage(ui);
     case "causes":
       return html`${pageHead(
         "Causes",

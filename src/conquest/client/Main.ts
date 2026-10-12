@@ -30,6 +30,7 @@ import "./power.css"; // POWER (r12): offices, the council, the court, the press
 import "./business.css"; // BUSINESS (r15): a business of your own, and starting one
 import "./dice.css"; // DICE (r14): Liar's dice
 import "./home.css";
+import "./intrigue.css"; // INTRIGUE (r15): hearts and schemes
 import "./ledger.css"; // LEDGER (r15): money made plain
 import "./partners.css"; // PARTNERS (r13): partnerships
 import "./schooling.css"; // EDU (r13): school, apprenticeship, college

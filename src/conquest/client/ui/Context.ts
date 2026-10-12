@@ -82,7 +82,14 @@ export type Modal =
   // DICE (r14): a table of Liar's dice (or opening one; or asking more to it).
   | { k: "dice"; id?: number; ask?: boolean }
   // BUSINESS (r15): the "Start a business" window.
-  | { k: "startbiz" };
+  | { k: "startbiz" }
+  // INTRIGUE (r15): win someone, plot, an accomplice, a wedding, a letter in your own words.
+  | {
+      k: "intrigue";
+      what: "seduce" | "plot" | "recruit" | "wedding" | "letter" | "read";
+      c?: number;
+      id?: number;
+    };
 
 export interface GameUi {
   s: GameState;

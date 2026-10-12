@@ -450,7 +450,10 @@ export const MORE_EVENTS: LifeEventDef[] = [
     "propose",
     "A proposal",
     (g, life, ctx) =>
-      `${cap(name(g, ctx))} goes down on one knee, which in that coat is brave. "Marry me." If you say yes you'll go to live at ${g.map.provinces[g.s.lives.find((l) => l.c === ctx.c)?.home ?? -1]?.name ?? "their home"}.`,
+      // INTRIGUE (r15): asked for your hand, a betrothal and a wedding to plan.
+      ctx.bet
+        ? `${cap(name(g, ctx))} goes down on one knee, which in that coat is brave, and asks for your hand. Say yes and you're promised: the day, the place and the guests to be planned, and then you'll go to live at ${g.map.provinces[g.s.lives.find((l) => l.c === ctx.c)?.home ?? -1]?.name ?? "their home"}.`
+        : `${cap(name(g, ctx))} goes down on one knee, which in that coat is brave. "Marry me." If you say yes you'll go to live at ${g.map.provinces[g.s.lives.find((l) => l.c === ctx.c)?.home ?? -1]?.name ?? "their home"}.`,
     "Yes",
     "No",
     "Married: you move into their home.",

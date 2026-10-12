@@ -581,7 +581,13 @@ describe("money over a lifetime", () => {
     // frugal for good, and puts by 450 or so by 68. Not rich, and a small
     // fraction of what the spender has.
     expect(peak("passive")).toBeLessThan(600);
-    expect(peak("passive") * 4).toBeLessThan(peak("spender"));
+    // INTRIGUE (r15): nobody under eighteen is anyone's sweetheart now (the
+    // courting events used to offer sixteen- and seventeen-year-olds), which
+    // moves the world's dice again: the tenant dies at 61, and her heir is
+    // appointed to the council at 41 and saves its salary (about 420 by the
+    // end), while the spender peaks at about 1,200 at 45 before governing in
+    // grand style. Still not rich, and well under half of the spender's best.
+    expect(peak("passive") * 2.5).toBeLessThan(peak("spender"));
     // The spender has things to show for it: land, a house, a business.
     const owns = rows.spender.map((r) => r.owns).join(" ");
     expect(owns).toMatch(/h\d/);

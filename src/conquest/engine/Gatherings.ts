@@ -13,6 +13,7 @@ import { marry } from "./Characters";
 import { Explain } from "./Explain";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
+import { hooks } from "./Hooks"; // INTRIGUE (r15)
 import { homeWelcome } from "./HouseRules"; // HOME (r12)
 import { wed } from "./Interactions";
 import { addressOf, npcWrite, postRoute, sendInvitation } from "./Letters";
@@ -584,7 +585,7 @@ export function rsvpBreakdown(
   return e.done(0);
 }
 
-function pushGathering(g: ConquestGame, gat: Gathering): void {
+export function pushGathering(g: ConquestGame, gat: Gathering): void {
   const soc = society(g);
   soc.gatherings.push(gat);
   // Keep the last few held, for the record.
@@ -599,7 +600,7 @@ function pushGathering(g: ConquestGame, gat: Gathering): void {
 }
 
 /** Invite someone: at once if they're here, by letter if not. */
-function invite(
+export function invite(
   g: ConquestGame,
   life: Life | undefined,
   gat: Gathering,
@@ -952,6 +953,11 @@ function nextTurn(
     return gat.played.includes("empty") || came.length
       ? null
       : { key: "empty", c: -1 };
+  // INTRIGUE (r15): a wedding being made (the vows, the dowry...), or a vignette of the evening.
+  for (const h of hooks.gatherTurn) {
+    const t = h(g, life, gat, here);
+    if (t !== undefined) return t;
+  }
   const r = dice(g);
   const pool = GATHERINGS[gat.kind].pool.filter((k) => !gat.played.includes(k));
   // The ceremony's own turn first.
@@ -1006,11 +1012,14 @@ function guestFor(
         ),
       );
     case "romance":
+      // INTRIGUE (r15): nothing of the heart under eighteen, on either side.
+      if (ageOf(s, me) < 18) return null;
       return any(
         adult.filter(
           (c) =>
             c.female !== me.female &&
             c.id !== me.spouse &&
+            ageOf(s, c) >= 18 &&
             ageOf(s, c) <= ageOf(s, me) + 20,
         ),
       );
@@ -1135,7 +1144,11 @@ function begin(g: ConquestGame, gat: Gathering): void {
     }
     return;
   }
-  if (gat.kind === "wedding" && !marryAtWedding(g, gat)) {
+  // INTRIGUE (r15): a wedding planned from a betrothal is made at its vows.
+  let made: boolean | "wait" | undefined;
+  for (const h of hooks.weddingBegins) made ??= h(g, gat);
+  if (made === "wait") return;
+  if (gat.kind === "wedding" && !(made ?? marryAtWedding(g, gat))) {
     gat.status = "cancelled";
     g.societyChanged("g");
     if (hostLife) journal(g, hostLife, "The wedding can't go ahead.", "bad");
@@ -1151,7 +1164,13 @@ function begin(g: ConquestGame, gat: Gathering): void {
     if (l && l !== hostLife && !l.watching) players.push(l);
   }
   for (const l of players) {
-    gat.turns[l.seat] = l === hostLife ? hostTurns : GUEST_TURNS;
+    gat.turns[l.seat] =
+      // INTRIGUE (r15): a couple marrying play the day's scenes.
+      gat.turnsHost !== undefined && gat.about.includes(l.c)
+        ? gat.turnsHost
+        : l === hostLife
+          ? hostTurns
+          : GUEST_TURNS;
     for (const c of attendees(s, gat)) if (c.id !== l.c) meet(g, l, c.id);
     if (!raiseTurn(g, l, gat)) delete gat.turns[l.seat];
   }
@@ -1272,6 +1291,7 @@ function conclude(g: ConquestGame, gat: Gathering): void {
     );
   }
   gat.lines.push(`It was ${verdict}.`);
+  for (const h of hooks.gatherHeld) h(g, gat); // INTRIGUE (r15)
 }
 
 /** Each day: gatherings whose day has come begin; ones left hanging end. */
