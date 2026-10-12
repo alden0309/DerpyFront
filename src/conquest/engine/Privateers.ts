@@ -63,7 +63,7 @@ import {
   partners,
   partnersChanged,
 } from "./PartnersCore";
-import { householdsOf } from "./Folk";
+import { householdsOf, seedLocals } from "./Folk";
 import { charName } from "./Queries";
 import { ROLES } from "./LifeRules";
 import { aRig, seaChanged, seaOf, seaState } from "./SeaCore";
@@ -139,7 +139,8 @@ export function subNeeded(s: GameState, w: World, sub: Subscription): number {
   const nation = commissionAt(s, w, sub.prov);
   const best = bestGround(s, w, sub.kind, sub.prov, nation);
   const near = groundsFrom(s, w.map, sub.prov, sub.kind).find((x) => x.g.key === best);
-  const outfit = ownOutfit(sub.kind, false, CRUISE.hunt.short, near?.days ?? 5);
+  // Victuals enough for a long first cruise, so she can sail as soon as she's signed.
+  const outfit = ownOutfit(sub.kind, false, CRUISE.hunt.long, near?.days ?? 5);
   return r2((sub.boat === undefined ? sub.price : 0) + fee + outfit);
 }
 
@@ -449,7 +450,7 @@ export function askToJoin(g: ConquestGame, life: Life, id: number, c: number): s
   return null;
 }
 
-/** The richest merchant of the town nobody plays, who'd take up a share. */
+/** The richest merchant (or other person of means) of the town nobody plays, who'd take up a share. */
 export function townMerchant(s: GameState, sub: Subscription): Character | undefined {
   return householdsOf(s, sub.prov)
     .filter(
@@ -458,7 +459,7 @@ export function townMerchant(s: GameState, sub: Subscription): Character | undef
         !lifeOfChar(s, c.id) &&
         !sub.stakes.some((x) => x.c === c.id) &&
         !!c.role &&
-        ROLES[c.role].wealth >= 30 &&
+        ROLES[c.role].wealth >= 25 &&
         firmsWith(s, c.id).length < NPC_MAX_FIRMS,
     )
     .sort((a, b) => ROLES[b.role!].wealth - ROLES[a.role!].wealth || a.id - b.id)[0];
@@ -473,12 +474,13 @@ export function merchantsTakeUp(g: ConquestGame, life: Life, id: number): string
   if (sub.stakes.length >= MAX_PARTNERS) return `${MAX_PARTNERS} owners is as many as it can hold.`;
   const want = r2(subNeeded(s, g.w, sub) - subCash(sub));
   if (want <= 0) return "It has what it needs.";
+  seedLocals(g, sub.prov); // the town's people, as when anyone comes looking
   const m = townMerchant(s, sub);
   if (!m) return "No merchant here has money for it.";
   const coins = Math.max(COMPANY.minStake, Math.ceil(want));
   sub.stakes.push({ c: m.id, coins });
   seaChanged(g);
-  journal(g, life, `${charName(m)}, merchant, takes up the rest: ${coins} coins, for a silent share.`);
+  journal(g, life, `${charName(m)} (${ROLES[m.role!].title.toLowerCase()}) takes up the rest: ${coins} coins, for a silent share.`);
   return null;
 }
 
