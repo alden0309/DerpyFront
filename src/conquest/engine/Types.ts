@@ -808,6 +808,8 @@ export interface Life {
   attend?: Attendance | null;
   /** LABOUR (r15): those held in bondage or bound by indenture, and how they're kept. */
   bondage?: Bondage;
+  /** CHAIR (r16): the road to the chair (steps reached), the house, following the government, marks of greatness. */
+  chair?: LifeChair;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1243,6 +1245,8 @@ export interface Nation {
   stats: NationStats;
   /** Victory points, updated monthly. */
   score: number;
+  /** CHAIR (r16): the governor's commission and its term, the lieutenant governor, a petition for his recall, the house's address. */
+  chair?: ChairState;
 }
 
 // ---------------------------------------------------------------- armies
@@ -1866,7 +1870,10 @@ export type LifeCommand =
   // INTRIGUE (r15): seduction, plots, betrothals and weddings, private letters.
   | IntrigueCommand
   // LABOUR (r15): bondage, treated as history.
-  | LabourCommand;
+  | LabourCommand
+  // CHAIR (r16): the governor's chair: a petition for his recall, the house's
+  // address, the lieutenancy, following the government, marks of greatness.
+  | ChairCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -4041,4 +4048,120 @@ export interface LabourCommand {
   /** A policy's name, or a kind of work. */
   kind?: string;
   arg?: number;
+}
+
+// ---- CHAIR (r16)
+// The road to the governor's chair: the crown's commission and its term, the
+// lieutenant governor, a petition to the crown for the governor's recall, the
+// house's address against him (his salary withheld, supply refused), the
+// capital's fall and following the government, and what a governor (or
+// anyone rich) can buy to make a name that lasts.
+
+/** A petition to the crown for the governor's recall, got up over months. */
+export interface RecallPetition {
+  id: number;
+  /** Who got it up (a player's character or one of the computer's people). */
+  by: number;
+  since: number;
+  /** The day it sails for London, and the day the crown's answer comes back. */
+  sails: number;
+  answer: number;
+  stage: "gathering" | "sent";
+  /** Councillors and members of the house who've put their names to it. */
+  names: number[];
+  /** Asked, and wouldn't (they aren't asked again). */
+  refused: number[];
+  /** Friends at court who'll speak for it (letters that landed). */
+  court: number;
+  /** The governor's own answer to it: how much his letters take off its chance. */
+  defence: number;
+}
+
+/** The house's address against the governor: his salary, supply, or both. */
+export interface Address {
+  id: number;
+  /** Who moved it (the speaker, or one of the computer's members). */
+  by: number;
+  day: number;
+  salary: boolean;
+  supply: boolean;
+  /** The house divides on this day; carried, it stands until `until`. */
+  divide: number;
+  until: number;
+  stage: "moved" | "carried" | "lost" | "yielded" | "dissolved" | "ended";
+  ayes: number;
+  noes: number;
+  /** Players in the house besides its mover, and how they voted (1, -1, 0). */
+  votes?: Record<number, number>;
+  /** How the governor answered a carried address. */
+  answer?: "yield" | "dissolve" | "hold";
+}
+
+/** A colony's governorship: the commission, its lieutenant, and what's moving against him. */
+export interface ChairState {
+  /** Whose commission this is (a new governor gets a new one). */
+  gov: number;
+  /** The day it began, and the day it runs out (the crown renews it, or names another). */
+  since: number;
+  ends: number;
+  /** Terms he's served in this chair (a renewal adds one). */
+  terms: number;
+  /** The lieutenant governor (a character id), or -1, and since when. */
+  lt: number;
+  ltSince: number;
+  /** The lieutenant governor acts in his place until this day (laid up, or away). */
+  acting?: number;
+  /** A computer governor laid up (the gout, a fever) until this day. */
+  laidUp?: number;
+  /** A player governor out of his colony since this day. */
+  away?: number;
+  /** Grievances the crown has heard against him (an address carried, a petition near-run). */
+  grievances: number;
+  /** Towns his colony lost while he governed. */
+  lost: number;
+  /** A petition for his recall, gathering names or at sea. */
+  petition?: RecallPetition | null;
+  /** The house's address against him, moved or in force. */
+  address?: Address | null;
+  /** The last petition and address, for the record and their rests. */
+  lastPetition?: { day: number; by: number; won: boolean } | null;
+  lastAddress?: number;
+  /** A player governor asked the crown for another term: how far it helps. */
+  renewAsk?: number;
+  /** The lieutenancy was offered to this player, until this day. */
+  ltOffer?: { c: number; until: number } | null;
+}
+
+/** A life's part in the road to the chair. */
+export interface LifeChair {
+  /** The first day each step of the road was reached: name, county, court, house, council, lt, governor. */
+  steps?: Record<string, number>;
+  /** In the house since this day (the speaker's chair wants two years of it under 25). */
+  houseSince?: number;
+  /** Following the government: the new capital you're making for. */
+  follow?: number;
+  /** Living outside your colony since this day (its seats lapse after three months). */
+  outside?: number;
+  /** Marks of greatness, by key: the day each was had. */
+  great?: Record<string, number>;
+  /** Governor here lately: until this day the crown looks elsewhere for the chair. */
+  lately?: number;
+  /** The lieutenancy declined: not offered again until this day. */
+  ltDeclined?: number;
+  /** Petitions you got up that the crown threw out: the last day (a rest before another). */
+  refused?: number;
+}
+
+/** A command about the governorship (Chair.ts) or marks of greatness (Grandeur.ts). */
+export interface ChairCommand {
+  k: "chair";
+  /** petition, names, court, withdraw, address, vote, follow, great, lt. */
+  act: string;
+  /** A mark of greatness's key. */
+  key?: string;
+  c?: number;
+  salary?: boolean;
+  supply?: boolean;
+  yes?: boolean;
+  side?: number;
 }

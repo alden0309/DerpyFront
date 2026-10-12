@@ -3640,6 +3640,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
 // ---------------------------------------------------------------- a few calls out
 
 import { BOND_EVENTS } from "./BondEvents"; // LABOUR (r15)
+import { chairEvents, chairQuiet } from "./ChairEvents"; // CHAIR (r16)
 import { DICE_EVENTS } from "./DiceEvents"; // DICE (r14)
 import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
 import { EDU_EVENTS } from "./EduEvents"; // EDU (r13)
@@ -3705,6 +3706,12 @@ function byKey(key: string): LifeEventDef | undefined {
       }
     // SEA (r15): the scenes of the sea (cruises, hurricanes, voyages), raised only.
     for (const d of seaEvents())
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // CHAIR (r16): the governorship's scenes (the lieutenancy, a petition, an address...).
+    for (const d of chairEvents())
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
@@ -3967,7 +3974,8 @@ function firstAllowed(
   const def = byKey(ev.key);
   if (!def) return 0;
   // POWER (r12): a trial, council or press scene left unanswered takes its quiet course.
-  const quiet = POWER_DEFAULTS[ev.key] ?? seaQuiet()[ev.key]; // SEA (r15)
+  const quiet =
+    POWER_DEFAULTS[ev.key] ?? seaQuiet()[ev.key] ?? chairQuiet()[ev.key]; // SEA (r15), CHAIR (r16)
   if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
     return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.

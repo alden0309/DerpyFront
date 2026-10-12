@@ -4,6 +4,7 @@
 // assent; and a newspaper's attack (sue, answer, or let it pass).
 
 import { answerBill, billTitle } from "./Assembly";
+import { seatPresents } from "./ChairRules"; // CHAIR (r16)
 import {
   acceptSeat,
   answerSeatAsk,
@@ -589,8 +590,21 @@ export const COUNCIL_EVENTS: LifeEventDef[] = [
     },
     choices: [
       {
-        label: "Accept the seat",
-        tip: "Take your place at the council table.",
+        // CHAIR (r16): the presents his friends expect, on the button.
+        label: (g, life, ctx) => {
+          const gifts = seatPresents(g.s, ctx.n, seatOf(ctx));
+          return gifts ? `Accept the seat (${gifts} coins)` : "Accept the seat";
+        },
+        tip: (g, life, ctx) =>
+          seatPresents(g.s, ctx.n, seatOf(ctx))
+            ? "Take your place at the council table; the governor's friends expect presents."
+            : "Take your place at the council table.",
+        blocked: (g, life, ctx) => {
+          const gifts = seatPresents(g.s, ctx.n, seatOf(ctx));
+          return gifts && life.purse < gifts
+            ? `The presents his friends expect: ${gifts} coins`
+            : null;
+        },
         apply: (g, life, ctx) => acceptSeat(g, life, ctx.n, seatOf(ctx)),
       },
       {

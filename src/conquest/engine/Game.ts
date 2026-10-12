@@ -33,7 +33,9 @@ import { World, worldOf } from "./Map";
 // WORLD r11: fog of war, province markets, leads, and fitting old saves to the map.
 import "./Achievements"; // MAP (r12): achievements watch every life
 import "./Bondage"; // LABOUR (r15): bondage, treated as history
+import "./Chair"; // CHAIR (r16): the governor's commission, the lieutenancy, recall, the address
 import { fogDaily } from "./Fog";
+import "./Grandeur"; // CHAIR (r16): marks of greatness: a hall, a coach, portraits, endowments
 import "./Household"; // HOME (r12): the household's commands register themselves
 import "./Intrigue"; // INTRIGUE (r15): seduction, plots, weddings, private letters
 import { leadsDaily, leadsMonthly } from "./Leads";
@@ -151,6 +153,7 @@ export class ConquestGame {
     );
     makePolities(g);
     for (const seat of seats) beginLife(g, seat.seat, seat.name, seat.plan);
+    for (const h of hooks.created) h(g); // CHAIR (r16): the colony's own seats filled
     g.takeDelta();
     return g;
   }

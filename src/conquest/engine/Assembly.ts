@@ -6,6 +6,7 @@
 // speaker sits on the governor's council. The governor can dissolve the
 // house (a new election) or prorogue it (send it home for half a year).
 
+import { speakerOk } from "./ChairRules"; // CHAIR (r16)
 import type { ConquestGame } from "./Game";
 import {
   addRenown,
@@ -544,6 +545,8 @@ export function chooseSpeaker(g: ConquestGame, n: number): void {
   for (const id of pol.assembly) {
     const ch = s.chars[id];
     if (!ch?.alive) continue;
+    // CHAIR (r16): 21 at the least, and two years in the house first under 25.
+    if (!speakerOk(s, id).ok) continue;
     const life = lifeOfChar(s, id);
     let v = life
       ? life.renown / 4 +
@@ -591,6 +594,9 @@ export function bidForSpeaker(g: ConquestGame, life: Life): string | null {
   const c = cab(g, me.nation);
   if (c.speaker === me.id) return "You're in the chair.";
   if (c.speakerBid?.includes(me.id)) return "Your name is down already.";
+  // CHAIR (r16): the chair's own rule of age and years in the house.
+  const fit = speakerOk(s, me.id);
+  if (!fit.ok) return fit.why;
   (c.speakerBid ??= []).push(me.id);
   powerChanged(g, `c${me.nation}`);
   journal(

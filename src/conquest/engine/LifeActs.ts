@@ -6,6 +6,7 @@
 
 import { homeHere, presentAt } from "./Areas";
 import { dateOf, formatDate } from "./Calendar";
+import { courtNeeds } from "./ChairCore"; // CHAIR (r16)
 import { eligibleHere } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { afterHearing } from "./Leads"; // WORLD r11
@@ -457,7 +458,9 @@ export const ACTS: ActDef[] = [
         ? no("Not until you're sixteen.")
         : life.renown < 5 &&
             life.background !== "gentry" &&
-            (life.job?.rank ?? 0) < 2
+            (life.job?.rank ?? 0) < 2 &&
+            // CHAIR (r16): a clerk who works in the governor's house attends.
+            !(life.job?.place === "governor" && life.job.prov === life.prov)
           ? no("They don't let just anyone in (renown 5).")
           : yes,
   },
@@ -467,7 +470,11 @@ export const ACTS: ActDef[] = [
     label: "Seek a place at court",
     text: "Ask to be counted among the governor's (or the leader's) people: those the council is chosen from.",
     cooldown: 180,
-    when: adult,
+    // CHAIR (r16): what it needs (checked before when it may be asked again).
+    when: (s, w, life) =>
+      isChildLife(s, life)
+        ? no("Not until you're sixteen.")
+        : courtNeeds(s, life),
   },
   {
     key: "crown",
@@ -785,6 +792,11 @@ export function actCheck(
   if (!there) return no("There's no such place here.");
   if (isChildLife(s, life) && !def.child)
     return no("Not until you're sixteen.");
+  // CHAIR (r16): a place at court says what it needs before when.
+  if (key === "court") {
+    const need = courtNeeds(s, life);
+    if (!need.ok) return need;
+  }
   const left = Math.max(0, (life.cooldowns[`act:${key}`] ?? 0) - s.day);
   if (left > 0) return no(`Again in ${left} day${left === 1 ? "" : "s"}.`);
   if (def.cost && life.purse < def.cost)

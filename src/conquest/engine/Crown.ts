@@ -7,6 +7,7 @@ import { dateOf, dayOf } from "./Calendar";
 import { kill } from "./Characters";
 import { mainPort } from "./Economy";
 import type { ConquestGame } from "./Game";
+import { hooks } from "./Hooks"; // CHAIR (r16)
 import {
   atWar,
   autonomyTarget,
@@ -16,6 +17,7 @@ import {
   pairKey,
   provincesOf,
   rulerOf,
+  settlers, // CHAIR (r16)
   warBetween,
 } from "./Queries";
 import {
@@ -296,12 +298,22 @@ export function cede(g: ConquestGame, p: number, to: number): void {
   const s = g.s;
   const pr = g.prov(p);
   const from = pr.owner;
+  let moved = false; // CHAIR (r16)
   if (from >= 0) {
     const n = g.nation(from);
     n.stats.provincesLost++;
     if (n.capital === p) {
       const left = provincesOf(s, from).filter((q) => q !== p);
-      n.capital = left.length > 0 ? left[0] : -1;
+      // CHAIR (r16): the government goes to the biggest town left (it took
+      // the first on the list: England's went to a Newfoundland fishing
+      // station when Jamestown fell).
+      n.capital =
+        left.length > 0
+          ? left.reduce((a, b) =>
+              settlers(s.provinces[b]) > settlers(s.provinces[a]) ? b : a,
+            )
+          : -1;
+      moved = true;
     }
   }
   pr.owner = to;
@@ -311,6 +323,9 @@ export function cede(g: ConquestGame, p: number, to: number): void {
   pr.build = null;
   pr.recruits = [];
   g.nation(to).stats.provincesConquered++;
+  // CHAIR (r16): say where the government has gone, and what of the seats.
+  if (moved)
+    for (const h of hooks.capitalMoved) h(g, from, p, s.nations[from].capital);
   if (from >= 0 && provincesOf(s, from).length === 0) fall(g, from, to);
 }
 
