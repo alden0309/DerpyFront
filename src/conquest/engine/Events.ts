@@ -9,7 +9,8 @@ import { dateOf } from "./Calendar";
 import { remember, succession } from "./Characters";
 import { merge } from "./Economy";
 import type { ConquestGame } from "./Game";
-import { isFeverSeason, isHurricaneSeason, isWinter } from "./Map";
+import { isFeverSeason, isWinter } from "./Map";
+import { struckLately } from "./Storms"; // SEA (r15)
 import {
   ageOf,
   charName,
@@ -462,21 +463,14 @@ export const EVENTS: EventDef[] = [
     key: "hurricane",
     who: "power",
     cooldown: 300,
+    // SEA (r15): only where a real storm struck (Storms.ts), not by chance.
     when: (g, n) => {
-      const s = g.s;
-      const month = dateOf(s.day).month;
-      const coast = provincesOf(s, n).filter((p) => {
-        const d = g.map.provinces[p];
-        return d.coastal && isHurricaneSeason(d.lat, d.lon, month);
-      });
-      if (coast.length === 0) return null;
-      // Hurricane season: about one strike in four months on these coasts.
-      if (!check(g, 0.25)) return null;
-      return { p: coast[g.rng.int(0, coast.length - 1)] };
+      const p = struckLately(g.s, n);
+      return p >= 0 ? { p } : null;
     },
     title: (g, _n, c) => `A hurricane hits ${name(g, c.p)}`,
     body: (g, _n, c) =>
-      `It's hurricane season (August to October), when about one month in four brings a storm to the Caribbean and Gulf coasts. This one tore through ${name(g, c.p)}: roofs gone, fields flattened, ships wrecked in the harbour.`,
+      `In hurricane season (June to November, most in August and September) the great storms come out of the tropical sea. This one tore through ${name(g, c.p)}: roofs gone, fields flattened, ships wrecked in the harbour.`,
     choices: [
       {
         label: () => "Rebuild at once",

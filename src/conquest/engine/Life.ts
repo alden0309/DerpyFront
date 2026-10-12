@@ -610,7 +610,16 @@ function hop(g: ConquestGame, life: Life): void {
     1,
     own > 0
       ? own
-      : hopDaysFor(g.map, next, t.path[0], t.sea[0], paceOf(s, life), s.day),
+      : hopDaysFor(
+          g.map,
+          next,
+          t.path[0],
+          t.sea[0],
+          paceOf(s, life),
+          s.day,
+          wasSea, // SEA (r15): a day at a port of call
+          t.sea[0] && lifeIsNative(s, life),
+        ),
   );
   t.depart = s.day;
   t.arrive = s.day + days;
@@ -642,6 +651,9 @@ function raiseOrSend(
   ctx: Record<string, number>,
 ): void {
   const from = g.s.chars[ctx.c];
+  // SEA (r15): at sea, letters from afar wait for you in port.
+  if (LETTER_KEYS.includes(key) && hooks.holdLetter.some((h) => h(g, life, key, ctx)))
+    return;
   if (LETTER_KEYS.includes(key) && from?.alive)
     sendLetter(g, life, key, from, () => raiseLifeEvent(g, life, key, ctx));
   else raiseLifeEvent(g, life, key, ctx);
@@ -656,8 +668,10 @@ export function livesDaily(g: ConquestGame): void {
     life.tally.days++;
     followArmy(g, life);
     if (life.travel) {
-      if (g.s.day >= life.travel.arrive) hop(g, life);
-      else roadRisk(g, life);
+      // SEA (r15): aboard a cruise or a voyage, the ship carries you (Cruises.ts, Voyages.ts).
+      if (life.travel.ship === undefined && g.s.day >= life.travel.arrive)
+        hop(g, life);
+      else if (life.travel.path.length) roadRisk(g, life);
     }
     workDaily(g, life, (key, ctx) => raiseOrSend(g, life, key, ctx));
     if (!life.watching && life.c >= 0) lifeEventsDaily(g, life);

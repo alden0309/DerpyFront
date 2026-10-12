@@ -46,6 +46,8 @@ import { popsMonthly } from "./Pops";
 import { powerDaily, powerMonthly } from "./Power"; // POWER (r12)
 import { takePowerDelta } from "./PowerCore"; // POWER (r12)
 import { scoreOf } from "./Queries";
+import "./Sea"; // SEA (r15): hurricanes, cruises, voyages, privateers
+import { takeSeaDelta } from "./SeaCore"; // SEA (r15)
 import { Rng } from "./Rng";
 import { END_YEAR } from "./Rules";
 import { newGameState } from "./Setup";
@@ -339,6 +341,8 @@ export class ConquestGame {
     if (firms) d.partners = firms;
     const dice = takeDiceDelta(this); // DICE (r14)
     if (dice) d.dice = dice;
+    const sea = takeSeaDelta(this); // SEA (r15)
+    if (sea) d.sea = sea;
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)
@@ -389,6 +393,7 @@ export class ConquestGame {
     powerDaily(this); // POWER (r12)
     partnersDaily(this); // PARTNERS (r13)
     diceDaily(this); // DICE (r14)
+    for (const h of hooks.daily) h(this); // SEA (r15): hurricanes, ships at sea
     if (isMonthStart(s.day)) this.month();
     if (s.day >= s.endDay) this.finish();
   }

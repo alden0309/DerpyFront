@@ -39,6 +39,7 @@ import { isWinter, type World } from "./Map";
 import { wake } from "./Pace";
 import { charName } from "./Queries";
 import { Rng } from "./Rng";
+import { ownBoatHopDays } from "./SeaSpeed"; // SEA (r15)
 import type {
   Boat,
   BoatKind,
@@ -569,7 +570,7 @@ export function boatHopDays(
 ): number {
   const lane = map.provinces[from].sea.find(([q]) => q === to);
   if (!lane) return -1;
-  return 1 + Math.ceil(lane[1] / (110 * BOATS[kind].speed));
+  return ownBoatHopDays(lane[1], BOATS[kind].speed); // SEA (r15): 160 km a day
 }
 
 export interface BoatRoute {
@@ -605,7 +606,7 @@ export function boatRoute(
     for (const [q, km] of map.provinces[u].sea) {
       if (km > reach) break;
       if (done[q]) continue;
-      const d = best + 1 + Math.ceil(km / (110 * BOATS[kind].speed));
+      const d = best + ownBoatHopDays(km, BOATS[kind].speed); // SEA (r15)
       if (d < days[q]) {
         days[q] = d;
         prev[q] = u;
