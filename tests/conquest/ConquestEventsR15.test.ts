@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { WebSocket } from "ws";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import {
+  FAMILIES,
   FAMILY_REST,
   familyOf,
   MATTER_REST,
@@ -152,6 +153,12 @@ describe("the pace of events", () => {
       g.s.day + ROAD_REST,
     );
     expect(ROAD_REST).toBeGreaterThanOrEqual(330);
+  });
+
+  test("every family names events that exist", () => {
+    const keys = new Set(LIFE_EVENTS.map((e) => e.key));
+    for (const [f, list] of Object.entries(FAMILIES))
+      for (const k of list) expect(keys.has(k), `${f}: ${k}`).toBe(true);
   });
 
   test("what's been seen comes less readily: its weight divided by one more than its showings", () => {

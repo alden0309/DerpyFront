@@ -123,6 +123,17 @@ import {
   SCHOOLS,
   type Gains,
 } from "../../engine/EduData";
+// EVENTS (r15): the pace of events, for their chapter.
+import {
+  FAMILIES,
+  FAMILY_REST,
+  FAMILY_REST_DEFAULT,
+  MATTER_REST,
+  ROAD_REST,
+} from "../../engine/EventPacing";
+import { EVENT_CHANCE } from "../../engine/LifeEvents";
+import { KIND_REST, VARIANTS } from "../../engine/Matters";
+import { DRAWN_R15 } from "../../engine/R15Events";
 // DICE (r14): Liar's dice, for its chapter.
 import { BIG_POT, XP_MAX, XP_ROUND, XP_TABLE } from "../../engine/Dice";
 import {
@@ -493,6 +504,34 @@ function missionsList(): string {
     .join("\n");
 }
 
+// EVENTS (r15): the families of events and their rests, from the rules.
+const FAMILY_WORDS: Record<string, string> = {
+  sickness: "Sickness (a fever, the smallpox, gout, a chill, the ague)",
+  money: "Money asked of you (a friend's debt, a loan, kin, a subscription)",
+  calamity: "Fire, flood and storm",
+  windfall: "Windfalls (a legacy, a lottery, a purse found)",
+  quarrels: "Quarrels (an insult, a challenge, slander, a brawl)",
+  hearth: "Husband and wife",
+  children: "The children",
+  pulpit: "The pulpit (sermons, revivals, the tithingman)",
+  "sea-weather": "Weather at sea",
+  robbers: "Robbers on the road",
+};
+
+function familyTable(): string {
+  return `| Family | Rests | Events |\n|---|---|---|\n${Object.keys(
+    FAMILY_WORDS,
+  )
+    .map(
+      (f) =>
+        `| ${FAMILY_WORDS[f]} | ${FAMILY_REST[f]} days | ${FAMILIES[f].length} |`,
+    )
+    .join("\n")}`;
+}
+
+const MATTER_COUNT = VARIANTS.length;
+const DRAWN_COUNT = DRAWN_R15.length;
+
 export const CHAPTERS: Chapter[] = [
   // ================================================================ getting started
   {
@@ -779,7 +818,7 @@ ${effortTable()}
 Working hard brings promotion sooner; shirking puts it off, and your master may catch you at it. In crooked work, harder work also draws more of the law's heat.
 
 ## Matters at work
-About once a month (more if you work hard) a matter comes to you as a letter: a task to take on (a skill check, for coins, renown and a good word from your master) or trouble to handle (a fault in the work, a quarrel, a theft). Each trade has its own.
+Every month or two (sooner if you work hard) a matter comes to you as a letter: a task to take on (a skill check, for coins, renown and a good word from your master) or trouble to handle (a fault in the work, a quarrel, a theft). Each trade has several of its own (the fur trader's lines can be robbed by a rival, raided by a wolverine, soured by a thaw or snared across by a neighbour), each with its own choices and what they come to, and each rests ${MATTER_REST} days after it comes: you won't see the same one twice in a year. When every one is resting, it's a quiet month. See [[events|Things that happen]].
 
 ## Climbing
 Work › Your work shows the ladder and what the next rung needs: months at your rung, your skills, sometimes renown, your master's good opinion, or coins. When everything's ticked, promotion comes with a good month's work, or ask for it (your master's card, or the button at your workplace).
@@ -792,6 +831,73 @@ Hand in your notice (your master's card, or Work › Your work). Leaving soon af
 
 > Tip: Work hard in your first years, then ease to steady when stress climbs past 50.`,
   },
+  // ---- EVENTS (r15): things that happen, and the pace of them
+  {
+    id: "events",
+    part: "living",
+    title: "Things that happen",
+    line: "What comes to you unasked (at home, at work, on the road and at sea), how often, and why the same thing doesn't keep coming round.",
+    where:
+      "The letters waiting at the top of the screen (alone, the game waits for you to answer); Journal › Diary for what came of them.",
+    body: `Things happen to you as you live: a knock at the door, a matter at work, a storm at sea. Each comes as a letter with two or three choices, the odds of any that test a skill, and what each comes to. What can happen depends on who you are (your age, your people, your trade, your family, what you own, any office you hold), where you are (a town, a port, the frontier, a native village, the road, the sea), the season and the year, and whether there's a war.
+
+## Where they come from
+- **At home**: on any day you're not travelling there's about a 1 in ${Math.round(1 / EVENT_CHANCE)} chance something happens, drawn from everything that could happen to you then.
+- **At work**: a matter every month or two (see [[work|Work]]); rogues get tip-offs for a big job, and the watch and the thief-takers their rounds.
+- **On the road and at sea**: a few a journey, more in the wilds, at war or at sea (see [[travel|The road and the sea]]).
+- **From the world**: letters from family, friends and your master, your people and your boats, the law, the council, the press.
+
+## They don't keep coming round
+- **Each rests after it comes**: four years for what happens at home; at least ${ROAD_REST} days for anything on the road or at sea; ${MATTER_REST} days for each matter at work, each big job and each round.
+- **What you've seen comes less readily**: each showing divides an event's chance of being drawn again (twice seen, a third as likely as one you haven't had), so what hasn't happened yet comes first. This is kept through your heirs.
+- **A trouble doesn't follow a trouble** at work within ${KIND_REST.trouble} days. When everything is resting, nothing comes: a quiet month.
+
+## Families of events
+Events that tell much the same story rest together: after one of them, none of the others comes for a while.
+
+${familyTable()}
+
+Besides these, events at home that begin the same way (a farmer's drought, hogs and prices; the town's goings-on; the family's) rest together for ${FAMILY_REST_DEFAULT} days or so.
+
+## What can happen
+${MATTER_COUNT} matters at work, big jobs and rounds (at least three to every trade), and ${DRAWN_COUNT} more things besides:
+- **The times of life**: a child's dares and the dame's birch; first wages, the dancing assembly, a foolish wager, an old hand who'll teach you; forty; the rheumatism, spectacles, your memoirs, your will.
+- **The family**: twenty years married, first steps, a child's question, a black eye, a daughter's suitor, the in-laws, a cousin's scheme, the ague in the house, a brother at the door with a parrot, a grandchild for the day, a sampler; among the peoples, a child's naming and the grandmothers' word.
+- **The town**: the fire bell, a purse in the gutter, a subscription, slander, the stocks, the candidate's punch, the tooth-drawer, a ballad about you, a runaway horse, a vendue, your turn on the watch, the hog-reeve, short weight, a lecture on the heavens.
+- **The port**: news off the ship, a parrot for sale, wreckage on the beach, the yellow flag, a ship for home.
+- **Your station**: a petitioner or a present when you hold office; a tenant behind with the rent; weed on your boat's bottom; your people wanting a holiday; an admirer; beggars at the gate when you're rich; hard times when you're not; a rival across the street; a quarter race; soldiers billeted on you in a war.
+- **The frontier**: a cabin raising, a panther, a land jobber, a rumour of raiders, neighbours from over the line, a salt lick.
+- **The peoples' own life**: a name earned, winter stories, a dream to fulfil, a new kinsman, the trader's heavy weights, the plum-stone game, rum in the village, the giveaway, the clan mother's question, the snow-snake.
+- **The weather**: the river in the street, the dog days, first snow, the frozen pond, a thunderstorm (and, from 1752, a lightning rod), a golden autumn, the mosquitoes.
+- **The road and the sea**: a bedfellow at the ordinary, a tinker, a wagon in the mire, a silent meeting, strangers at your fire; flying fish, a sea serpent, a stowaway, the ship's cat.
+
+## Other players
+- **Another player is never put into an event.** No event you're drawn names them, stands them opposite you, or puts words in their mouth: they appear only as what they really did (a proposal, a challenge, a vote, a letter they wrote, an arrest they made).
+- **Nobody asks for money they don't need.** A friend in debt, a cousin's letter home, a brother with a debt: only someone really short of it asks, and never another player (they ask for themselves). A merchant with sixty to his name doesn't beg eight.
+- **Working for another player**, your master in matters at work is "the foreman", and their face isn't in the scene; you're warned of days away and promoted by the rules, not in their name.
+
+> Tip: The rarer an event, the more it's worth reading: many choices lead to a trait, a friend, a mentor or an enemy that lasts.
+
+! Pitfall: In company a letter left unanswered for ${LETTER_SECONDS} seconds of running time decides itself, and it takes the first choice it can, which isn't always the one you'd want.`,
+    glossary: [
+      [
+        "Matter (at work)",
+        "A task or a trouble of your trade's own, every month or two; each rests a year after it comes.",
+        "events",
+      ],
+      [
+        "Rest (of an event)",
+        "How long before an event can come to you again: four years at home, about a year on the road, at sea and at work.",
+        "events",
+      ],
+      [
+        "Family (of events)",
+        "Events that tell much the same story (a sickness, a friend in money trouble, a quarrel) and rest together.",
+        "events",
+      ],
+    ],
+  },
+  // ---- end EVENTS (r15)
   {
     id: "trades",
     part: "living",
