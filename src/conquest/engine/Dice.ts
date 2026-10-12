@@ -67,6 +67,7 @@ import {
   lifeOfSeat,
   meOf,
 } from "./LifeQueries";
+import type { World } from "./Map";
 import { wake } from "./Pace";
 import { charName, hasTrait } from "./Queries";
 import { rumour } from "./Rumours";
@@ -75,6 +76,7 @@ import type {
   DiceCommand,
   DiceSeat,
   DiceTable,
+  GameState,
   Life,
   LifeCommand,
 } from "./Types";
@@ -106,23 +108,22 @@ function lifeAt(g: ConquestGame, x: DiceSeat): Life | undefined {
 }
 
 /** Why someone can't sit down to dice here just now, or null. */
-export function diceHere(g: ConquestGame, life: Life): string | null {
-  const s = g.s;
+export function diceHere(s: GameState, w: World, life: Life): string | null {
   if (life.c < 0 || life.watching) return "You're watching.";
   if (isChildLife(s, life)) return "Not until you're sixteen.";
   if (life.travel) return "You're on the road.";
-  if (!hasPlace(s, g.w, life.prov, "tavern")) return "There's no tavern here.";
+  if (!hasPlace(s, w, life.prov, "tavern")) return "There's no tavern here.";
   return null;
 }
 
 /** Whether a purse runs to a stake (a drunkard may play on tick, into debt). */
 export function stakeProblem(
-  g: ConquestGame,
+  s: GameState,
   life: Life,
   stake: number,
 ): string | null {
   if (life.purse >= stake) return null;
-  const me = meOf(g.s, life);
+  const me = meOf(s, life);
   if (life.purse < 0)
     return "Nobody dices with a debtor: pay what you owe first.";
   if (me && hasTrait(me, "drunkard")) return null;
@@ -131,20 +132,39 @@ export function stakeProblem(
 
 /** Why a player can't sit down at a table, or null. */
 export function joinProblem(
-  g: ConquestGame,
+  s: GameState,
+  w: World,
   life: Life,
   t: DiceTable | undefined,
 ): string | null {
   if (!t || t.status === "done") return "That table has broken up.";
   if (t.status === "playing")
     return "The dice are rolling already: wait for the next game.";
-  const why = diceHere(g, life);
+  const why = diceHere(s, w, life);
   if (why) return why;
   if (life.prov !== t.prov) return "That table is in another town.";
   if (seatOf(t, life.c)?.state === "in") return "You're at the table already.";
-  if (seatedAt(g.s, life.c)) return "You're at another table.";
+  if (seatedAt(s, life.c)) return "You're at another table.";
   if (stillIn(t).length >= MAX_SEATS) return "The table is full.";
-  return stakeProblem(g, life, t.stake);
+  return stakeProblem(s, life, t.stake);
+}
+
+/** Why a player can't open a table here at a stake, or null. */
+export function openProblem(
+  s: GameState,
+  w: World,
+  life: Life,
+  stake: number,
+): string | null {
+  const why = diceHere(s, w, life);
+  if (why) return why;
+  if (seatedAt(s, life.c)) return "You're at a table already.";
+  const other = tableAt(s, life.prov);
+  if (other)
+    return other.status === "open"
+      ? "There's a table gathering already: sit down at it."
+      : "There's a game going already: watch, or wait for the next.";
+  return stakeProblem(s, life, stake);
 }
 
 /** The people in this tavern today. */
@@ -247,17 +267,9 @@ export function openTable(
   known?: Set<number>,
 ): string | null {
   const s = g.s;
-  const why = diceHere(g, life);
-  if (why) return why;
   if (!STAKES.includes(stake)) return "Choose a stake.";
-  if (seatedAt(s, life.c)) return "You're at a table already.";
-  const other = tableAt(s, life.prov);
-  if (other)
-    return other.status === "open"
-      ? "There's a table gathering already: sit down at it."
-      : "There's a game going already: watch, or wait for the next.";
-  const pc = stakeProblem(g, life, stake);
-  if (pc) return pc;
+  const why = openProblem(s, g.w, life, stake);
+  if (why) return why;
   if (ask.length > MAX_SEATS - 1) return "Six at a table at most.";
   const ds = diceState(g);
   // Your last game's table is cleared away.
@@ -305,7 +317,7 @@ export function joinTable(
   life: Life,
   t: DiceTable | undefined,
 ): string | null {
-  const why = joinProblem(g, life, t);
+  const why = joinProblem(g.s, g.w, life, t);
   if (why) return why;
   const tb = t!;
   sitDown(g, tb, life.c, life);

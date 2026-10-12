@@ -263,7 +263,12 @@ export function eventScene(
                 @click=${async () => {
                   if (await ui.cmd({ k: "event", id, choice: i })) {
                     play("seal");
-                    ui.modal({ k: "outcome" });
+                    // DICE (r14): a seat taken at the dice goes to the table.
+                    ui.modal(
+                      ev.key === "p2p-dice" && i === 0
+                        ? { k: "dice", id: ev.ctx.t }
+                        : { k: "outcome" },
+                    );
                   }
                 }}
               >

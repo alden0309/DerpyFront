@@ -123,6 +123,17 @@ import {
   SCHOOLS,
   type Gains,
 } from "../../engine/EduData";
+// DICE (r14): Liar's dice, for its chapter.
+import { BIG_POT, XP_MAX, XP_ROUND, XP_TABLE } from "../../engine/Dice";
+import {
+  DICE_EACH,
+  MAX_SEATS as DICE_MAX,
+  MIN_SEATS as DICE_MIN,
+  numberWord,
+  OPEN_DAYS,
+  STAKES,
+  STALL_SECONDS,
+} from "../../engine/DiceCore";
 // PARTNERS (r13): partnerships, for their chapter.
 import { DECISIONS, MAX_DEBT } from "../../engine/Firms";
 import { BAILIFFS_AT } from "../../engine/Money";
@@ -170,6 +181,7 @@ const n = (v: number) => String(Math.round(v * 100) / 100);
 /** "+1", "−1", "0". */
 const sg = (v: number) => (v > 0 ? `+${n(v)}` : v < 0 ? `−${n(-v)}` : "0");
 const lower = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+const cap1 = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const placeName = (p: string) =>
   ({ gaol: "the watch-house", den: "the den" })[p] ??
   lower(PLACES[p as keyof typeof PLACES]?.name ?? p);
@@ -1553,6 +1565,75 @@ Others give gatherings too, and invite you (by letter if you're away): your neig
 
 > Tip: Invite people who like each other. A quarrel at your table costs you more than it costs them.`,
   },
+  // ---- DICE (r14): Liar's dice in the tavern
+  {
+    id: "dice",
+    part: "people",
+    title: "Liar's dice",
+    line: 'The tavern\'s game of nerve: five dice under a cup, bids on what lies under all the cups, and a call of "Liar!".',
+    where:
+      "The tavern: Things to do › Liar's dice… (or sit down at a table that's gathering there). A table you're sitting at waits at the top of the screen while you step away from it.",
+    body: `## The game
+- ${cap1(numberWord(DICE_MIN))} to ${numberWord(DICE_MAX)} at a table. Each puts in the **stake** (${STAKES.join(", ")} coins a seat), and together they make the [[dice|pot]].
+- Everyone shakes **${numberWord(DICE_EACH)} dice** under a cup and looks only at their own.
+- In turn round the table, each **bids** on how many dice of one face lie under *all* the cups, theirs and everyone else's: "four fives". Each bid must beat the last: **more dice** ("five twos" beats "four fives"), or **as many of a higher face** ("four sixes" beats "four fives").
+- Instead of raising, call the last bid a lie: **Liar!** Every cup comes up and the dice are counted.
+  - At least as many as the bid: it **stands**, and the one who called loses a die.
+  - Fewer: it was a **lie**, and the one who bid it loses a die.
+- The loser of the call **opens the next round**, and everyone shakes again.
+- With no dice left, you're **out**. The **last with dice takes the pot**.
+
+## Ones are wild
+A one counts as **any face**: when "four fives" is called, every five and every one under the cups is counted. So nobody bids on ones, and your own ones count for whatever you bid.
+
+## An example
+Three at the table: fifteen dice. You hold five, five, one, two, six: two fives and a one, so **three that count as fives**. Ten dice are hidden from you, and about a third of any face's worth show among them: three or so more. So "four fives" is likely, "six fives" a stretch, "nine fives" a long shot.
+Hal opens with "three fours". You raise: "four fives". Bea says "five fives". Hal looks hard at you both and says "Liar!" The cups come up: your three, Bea's five and one, Hal's single five: six that count. Five fives stands, so Hal loses a die, and opens the next round.
+
+## Who sits down
+Open a table: choose the stake, and ask up to five of the people in the tavern. Each of the town's people decides at once, with their reasons, as anyone does: their **means** (a labourer won't stake 25), **what they think of you**, their nature (a drunkard never says no; the greedy like a pot; the craven and the diligent hold back; a zealot calls dice the devil's bones) and their calling (a minister doesn't dice). Roll as soon as one has sat down. A table nobody rolls breaks up after ${OPEN_DAYS} days, every stake given back.
+- **Getting up**: before the first roll, your stake comes back. In a game, between rounds you get up at once; mid-round you go when the cups are next lifted. Either way your stake stays in the pot.
+- Setting out on the road, dying or becoming someone else takes you from the table; mid-round, that round is thrown in and rolled again.
+- Nobody dices with a debtor. A drunkard plays on tick, into [[money|debt]].
+
+## Playing with other players
+Other players in the same tavern see the table on its tile ("Dice: 3 at the table") and among the people there. Ask them from the list and they get an invitation to accept or decline (left unanswered, it's a no); or they sit down on their own until the first roll.
+- **Your dice are yours alone**: nobody else's game is ever sent your dice, nor theirs to you, until the cups are lifted.
+- **Nobody can hold up the table.** Turns go by the dice, not the clock. In company each player has ${STALL_SECONDS} seconds to bid; then (or at once, if they've gone from the game) the table makes **the smallest raise** for them, or calls if that would be a long shot. The host's pace still rules the world, and the table plays on whether the world is running or paused.
+- Alone, the world holds still while you sit at the table, as it does for a scene.
+
+## Tips
+- Bid what your own dice make likely: your matches and wild ones, and a third of the dice you can't see. The picker says how likely your bid is from what you can see: **certain**, **likely**, **a stretch** or **a long shot**.
+- A bid that needs more dice than the table could hold for it is a lie: call it.
+- Others' bids say something: whoever raises fives twice probably holds some.
+- Bluff now and then; the town's people do. The deceitful, the ambitious and the bold bluff more, the honest and the craven less; the shrewd call more readily; and a sharp intrigue (their Stealth) makes any of them better at it.
+- **Tells**: sometimes, as one of the town's people bids, you read their face ("Hal's hand strays to his cup: he isn't sure of it"). Whether you catch it, and whether you read it right, goes by your **Stealth** against theirs (a drunkard is an open book). More often right than not; never certain. Other players show no tells.
+
+## What it comes to
+- The winner takes the pot. A pot of ${BIG_POT} or more is talked about in town, and worth a little [[standing|renown]] (+1; +2 for 100 or more).
+- An evening at the dice eases the mind (the winner −8 stress, −12 for a big pot; a small loss −3), but losing a big stake smarts (+6).
+- It teaches **Stealth** (a straight face and a quick eye): ${XP_TABLE} experience, and ${XP_ROUND} more for each round you sit through, up to ${XP_MAX}; a third as much for any more tables that week.
+- The town's people at the table remember it: "+5 A good night at the dice", or, if you took their money at a stake of 5 or more, "−5 Took my money at the dice".
+- Two [[coins|achievements]]: **Down to the last die** (win with one die left under your cup) and **The whole table** (win against five others).
+- Now and then in the tavern: a stranger winning too often with loaded dice (a sharp eye catches him), and, after a big pot, a sore loser.
+
+> Tip: Open at the face you hold most, a little under what you'd expect; raise on your own faces; and call when a bid needs more than half the dice you can't see.
+
+! Pitfall: Every die you lose makes your bids weaker and everyone else's harder to judge. Don't call a bid that your own dice already nearly make.`,
+    glossary: [
+      [
+        "Liar's dice",
+        "A tavern game of bluff: bid on how many of a face lie under all the cups, or call the last bid a lie.",
+        "dice",
+      ],
+      [
+        "Wild (dice)",
+        "At Liar's dice a one counts as any face; nobody bids on ones.",
+        "dice",
+      ],
+    ],
+  },
+  // ---- end DICE (r14)
   // ================================================================ standing and power
   {
     id: "standing",

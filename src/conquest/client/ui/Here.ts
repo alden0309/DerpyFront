@@ -72,6 +72,7 @@ import {
   section,
   token,
 } from "./Context";
+import { diceAct, dicePart, diceTag } from "./DiceTable"; // DICE (r14)
 import { homeBanner, homePlace, homeTileName, homeTileSub } from "./Home"; // HOME (r12)
 import {
   boatsHere,
@@ -635,7 +636,7 @@ function areasView(ui: GameUi, p: number): TemplateResult {
                 : "nobody"}</span
           >
           ${work ? html`<span class="cq-area-work">your work</span>` : nothing}
-          ${firmTag(ui, p, a)}
+          ${firmTag(ui, p, a)} ${diceTag(ui, p, a)}
         </button>`;
       })}
     </nav>
@@ -1254,6 +1255,20 @@ function actsBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
         run: () => ui.modal({ k: "trade" }),
       }),
     );
+  // DICE (r14): Liar's dice at the tavern: open a table, sit down, or go back to it.
+  if (area === "tavern" && !isChildLife(s, life))
+    buttons.set("~dice", () => {
+      const d = diceAct(ui, p);
+      return actButton({
+        label: d.label,
+        ok: d.ok,
+        cls: d.lit ? "lit" : "",
+        why: d.why,
+        title:
+          "Liar's dice: five dice each under a cup, bid on what's under all the cups, call a lie, and the last with dice takes the pot",
+        run: d.run,
+      });
+    });
   if (stand) buttons.set("~stand", () => standButton(ui));
   if (europe) buttons.set("~europe", () => europeButton(ui));
   const now = [
@@ -1319,6 +1334,8 @@ function extrasParts(ui: GameUi, p: number, area: PlaceKind): PlacePart[] {
   const out: PlacePart[] = [...powerParts(ui, p, area)]; // POWER (r12)
   const firms = partnerPart(ui, p, area); // PARTNERS (r13)
   if (firms) out.push(firms);
+  const dice = dicePart(ui, p, area); // DICE (r14)
+  if (dice) out.unshift(dice);
   if (movements.length)
     out.push({
       key: "causes",

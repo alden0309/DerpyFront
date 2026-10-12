@@ -47,7 +47,8 @@ export const DICE_EVENTS: LifeEventDef[] = [
       {
         label: (_g, _l, ctx) => `Take a seat (${ctx.stake} coins)`,
         tip: "You go over to the tavern and sit down.",
-        blocked: (g, life, ctx) => joinProblem(g, life, tableById(g.s, ctx.t)),
+        blocked: (g, life, ctx) =>
+          joinProblem(g.s, g.w, life, tableById(g.s, ctx.t)),
         apply: (g, life, ctx) => {
           const err = joinTable(g, life, tableById(g.s, ctx.t));
           if (err) journal(g, life, err, "bad");
