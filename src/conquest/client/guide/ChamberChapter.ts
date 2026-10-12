@@ -86,21 +86,19 @@ function factionsTable(): string {
 ${rows.join("\n")}`;
 }
 
-/** The session's great questions, each with its choices and what they do. */
+/** The session's great questions: a row for each choice, with what it does and whom it pleases. */
 function sessionTable(): string {
-  const rows = QUESTIONS.map((q) => {
-    const choices = q.choices
-      .map((c, i) => {
-        const glad = (Object.entries(c.marks) as [FactionKey, number][])
-          .filter(([, v]) => v >= 2)
-          .map(([f]) => EN[f]);
-        return `${i + 1}. ${c.label}: ${c.tip}${glad.length ? ` (Pleases ${glad.join(", ")}.)` : ""}`;
-      })
-      .join("<br>");
-    return `| **${q.name}** | ${q.due} | ${choices.replace(/\|/g, "/")} |`;
-  });
-  return `| The question | When | The choices, and what each does if the house carries it |
-|---|---|---|
+  const rows = QUESTIONS.flatMap((q) =>
+    q.choices.map((c, i) => {
+      const glad = (Object.entries(c.marks) as [FactionKey, number][])
+        .filter(([, v]) => v >= 2)
+        .map(([f]) => EN[f]);
+      const first = i === 0;
+      return `| ${first ? `**${q.name}**` : ""} | ${first ? q.due : ""} | ${c.label} | ${c.tip.replace(/\|/g, "/")} | ${glad.length ? glad.join(", ") : "–"} |`;
+    }),
+  );
+  return `| The question | When | The choice | If the house carries it | Speaking for it pleases |
+|---|---|---|---|---|
 ${rows.join("\n")}`;
 }
 
