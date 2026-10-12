@@ -20,6 +20,7 @@
 // Nothing here rolls dice: a business's month is as its forecast says.
 
 import { dateOf } from "./Calendar";
+import { followerSkill } from "./Followers";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
 import { withFlow } from "./LedgerCore";
@@ -32,7 +33,6 @@ import {
   touchLife,
 } from "./LifeCore";
 import {
-  charSkill,
   Check,
   hasPlace,
   isChildLife,
@@ -61,6 +61,7 @@ import type { World } from "./Map";
 import { bizCost, bizJobs, firmsOf } from "./PartnersCore";
 import { charName, people } from "./Queries";
 import type {
+  AffairItem,
   BizMonth,
   BizState,
   Character,
@@ -539,10 +540,12 @@ export function managerOf(life: Life, pr: Property): Follower | undefined {
   );
 }
 
-/** A manager's skill in a trade (their own, as one of your people). */
+/**
+ * A manager's skill in a trade, as one of your people (a clerk knows trade
+ * better than they would alone, a mate the sea, a hand the craft).
+ */
 export function managerSkill(s: GameState, f: Follower, job: JobKind): number {
-  const c = s.chars[f.c];
-  return c ? charSkill(s, c, JOBS[job].main) : 0;
+  return s.chars[f.c] ? followerSkill(s, f, JOBS[job].main) : 0;
 }
 
 /**
@@ -1065,7 +1068,8 @@ export function letHandGo(
  */
 export function autoHands(g: ConquestGame, life: Life, pr: Property): void {
   const st = pr.biz;
-  if (!st?.auto) return;
+  // On unless you've turned it off (a business from before r15 too).
+  if (!st || st.auto === false) return;
   const i = { ...propertyInput(g.s, life, pr), month: -1 };
   const mg = marginal(i);
   if (mg.more > 0.05 && life.purse >= HAND_WAGE * 2 && handRoomOf(pr) > 0) {
@@ -1135,6 +1139,137 @@ export function foundBusiness(
   milestone(g, life, "job", `Set up a ${pr.name} at ${here}`, life.prov);
   addRenown(g, life, 1);
   return null;
+}
+
+// ---------------------------------------------------------------- the start-a-business flow
+
+const MONTH_NAMES = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+
+/** Everything the "Start a business" window shows for a trade and size here. */
+export interface StartView {
+  job: JobKind;
+  level: number;
+  cost: number;
+  check: Check;
+  input: BizInput;
+  plan: BizPlan;
+  town: TownCustom;
+  /** What drives its takings, in plain words. */
+  drivers: string[];
+  /** What could go wrong. */
+  risks: string[];
+  /** Why it would lose money, if it would (the worst first). */
+  advice: Advice[];
+}
+
+/** The months a trade is busiest and quietest ("August to October"). */
+function busiest(job: JobKind): { high: string; low: string } {
+  const v = SEASONS[customOf(job).season];
+  const top = Math.max(...v);
+  const bottom = Math.min(...v);
+  const names = (want: number) =>
+    v
+      .map((x, i) => (Math.abs(x - want) < 0.06 ? MONTH_NAMES[i] : ""))
+      .filter(Boolean);
+  const say = (list: string[]) =>
+    list.length > 2
+      ? `${list[0]} to ${list[list.length - 1]}`
+      : list.join(" and ");
+  return { high: say(names(top)), low: say(names(bottom)) };
+}
+
+/** A business of a trade and size you could set up here: its plan, drivers and risks. */
+export function startView(
+  s: GameState,
+  w: World,
+  life: Life,
+  job: JobKind,
+  level: number,
+): StartView {
+  const cost = bizCost(job, level);
+  const input = startInput(s, w, life, job, level);
+  const plan = bizPlan(s, input, cost);
+  const town = townCustom(s, life.prov, job, {}, w);
+  const def = JOBS[job];
+  const sk = SKILL_NAMES[def.main].toLowerCase();
+  const g = plan.going;
+  const drivers: string[] = [];
+  drivers.push(
+    `Your skill: ${sk} ${input.skill}. Each hand brings in about ${r1(HAND_TAKINGS * skillFactor(input.skill))} a month at full custom (${r1(HAND_TAKINGS * skillFactor(10))} for a master of 10), against a wage of ${HAND_WAGE}.`,
+  );
+  drivers.push(
+    input.minded
+      ? input.master === "work"
+        ? `Being there: you'd mind it yourself, and your own work at it brings in about ${r1(masterWork(input.skill))} a month more.`
+        : "Being there: you'd mind it yourself, at your own trade."
+      : `Being there: nobody would mind it (${input.away}), so it would take ${UNMINDED} of its takings. Mind it yourself, or put one of your people in to manage it.`,
+  );
+  drivers.push(
+    `The hands: it takes on ${plan.startHands} from the town at first and about ${plan.goingHands} once its custom is built, as many as pay. A hand past the custom brings in ${Math.round(OVERFLOW * 100)} in a hundred of a hand's takings.`,
+  );
+  drivers.push(
+    `The town: ${town.why.join(", ")}: custom for about ${town.room} hands' worth of ${def.business ?? "business"}${
+      town.rivals.length
+        ? `; rivals take ${r1(town.rivals.reduce((m, x) => m + x.hands, 0))} of it (${town.rivals
+            .map((x) => x.name)
+            .slice(0, 3)
+            .join(", ")})`
+        : ", and no rivals"
+    }. What's free for you: about ${town.free}.`,
+  );
+  const sb = busiest(job);
+  drivers.push(
+    `The season: busiest ${sb.high}, quietest ${sb.low}${input.north ? "" : " (less so in the south)"}.`,
+  );
+  drivers.push(
+    `Custom builds: ${RAMP.map((x) => `${Math.round(x * 100)}`).join(", ")} in a hundred of it in its first ${RAMP.length} months, then all of it.`,
+  );
+  const risks: string[] = [
+    `Leave the town or take other work and nobody minds it: it takes ${UNMINDED} of its takings, and the hands may not pay their wages. A manager (one of your people) can mind it for you.`,
+    "A rival opening in the town takes some of its custom.",
+    "In a war the enemy may take the town: nothing comes in, and the wages and keep are still due.",
+    "Fire, thieves, bad debts and lucky orders come now and then as events.",
+  ];
+  if (job === "sailor" || job === "fisherman")
+    risks.push("The sea: little freight or fish in a northern winter.");
+  if (job === "farmer")
+    risks.push(
+      "The harvest is most of a farm's year: the winter months bring in little.",
+    );
+  if (level >= 2)
+    risks.push(
+      `A bigger place costs more to keep (${placeUpkeep(job, level)} a month) whether or not the town has the custom for it.`,
+    );
+  const advice = bizAdvice(s, g, {
+    owner: true,
+    rivals: town.rivals,
+    room: town.room,
+  });
+  return {
+    job,
+    level,
+    cost,
+    check: foundCheck(s, w, life, job, level),
+    input,
+    plan,
+    town,
+    drivers,
+    risks,
+    advice,
+  };
 }
 
 // ---------------------------------------------------------------- a manager
@@ -1239,6 +1374,53 @@ function businessCommand(
   return undefined;
 }
 hooks.command.push(businessCommand);
+
+// ---------------------------------------------------------------- your affairs
+
+/** "Your store at Jamestown". */
+export function bizTitle(
+  map: { provinces: { name: string }[] },
+  pr: Property,
+): string {
+  return `Your ${pr.name} at ${map.provinces[pr.prov]?.name ?? "the town"}`;
+}
+
+/** Who minds a business, in a few words ("you mind it", "nobody minds it"). */
+export function mindWords(v: BizView): string {
+  const i = v.input;
+  if (!i.minded) return `nobody minds it (${i.away ?? "nobody to run it"})`;
+  return i.who === "you" ? "you mind it" : `${i.who ?? "a manager"} minds it`;
+}
+
+/** Each business of yours, for the tracker (Estate › Ledger, "Out working"). */
+function bizAffairs(s: GameState, w: World, life: Life): AffairItem[] {
+  const out: AffairItem[] = [];
+  for (const pr of life.property ?? []) {
+    if (pr.kind !== "business" || !pr.job) continue;
+    const v = propertyView(s, life, pr);
+    const net = r2(v.profit - v.mgr);
+    const bad = bizAdvice(s, v, { owner: true }).find((x) => x.tone === "bad");
+    const hands = handCount(pr);
+    out.push({
+      kind: "property",
+      id: `biz:${pr.id}`,
+      title: bizTitle(w.map, pr),
+      what: `${hands} hand${hands === 1 ? "" : "s"}; ${mindWords(v)}`,
+      status: v.input.held
+        ? "the enemy holds the town"
+        : net >= 0
+          ? "paying"
+          : "losing money",
+      ...(bad ? { warn: bad.text.replace(/^Losing money: /, "") } : {}),
+      p: pr.prov,
+      cost: -r2(v.wages + v.upkeep + v.excise + v.mgr),
+      expected: { value: net, lo: net, hi: net, per: "month" },
+      go: { tab: "estate", sub: "business" },
+    });
+  }
+  return out;
+}
+hooks.affairs.push(bizAffairs);
 
 /** The rest of a business's rules, for other modules that sell or buy one. */
 export { bizCost, EXPAND_COST };

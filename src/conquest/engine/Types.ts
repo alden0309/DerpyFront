@@ -3423,6 +3423,8 @@ export interface CompanyState {
   /** Voyages made, and those lost (wrecked, taken or seized). */
   made: number;
   lost: number;
+  /** The day its factors last held a cargo back because prices wouldn't pay. */
+  held?: number;
   /** This month so far: sales, the cost of the cargoes that came home (or didn't), and what happened. */
   sales?: number;
   closed?: number;

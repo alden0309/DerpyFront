@@ -147,8 +147,13 @@ export function sideOf(s: GameState, p: number): MarketSide {
   return { native: true, key: tribe?.culture ?? "local", nation: -1 };
 }
 
-/** What a province makes of the ten goods, and of the wares. */
-function makes(s: GameState, w: World, p: number, item: TradeItem): boolean {
+/** What a province makes of the ten goods, and of the wares. BUSINESS (r15): exported. */
+export function makes(
+  s: GameState,
+  w: World,
+  p: number,
+  item: TradeItem,
+): boolean {
   if (isWare(item))
     return waresMadeIn(s, w, p).includes(item) || openMade(s, p, item);
   const pr = s.provinces[p];
@@ -473,6 +478,8 @@ export function quoteCut(
   qty: number,
   cut: number,
   day = s.day,
+  /** How much of each load moves the price here (a factor buys up and down the country). */
+  weight = 1,
 ): Quote {
   const v = priceView(s, w, p, item, day);
   const base = basePrice(s, w, p, item);
@@ -480,9 +487,9 @@ export function quoteCut(
   const dir = qty > 0 ? -1 : 1;
   let total = 0;
   for (let k = 0; k < n; k++)
-    total += priceAt(base, v.depth, v.net + dir * (k + 0.5), v.mul);
+    total += priceAt(base, v.depth, v.net + dir * (k + 0.5) * weight, v.mul);
   total *= qty > 0 ? 1 + cut : 1 - cut;
-  const after = priceAt(base, v.depth, v.net + dir * n, v.mul);
+  const after = priceAt(base, v.depth, v.net + dir * n * weight, v.mul);
   return {
     total: round2(total),
     before: v.price,
@@ -497,9 +504,10 @@ export function marketMove(
   p: number,
   item: TradeItem,
   qty: number,
+  weight = 1,
 ): void {
   const m = marketAt(g, p);
-  m.net[item] = round2((m.net[item] ?? 0) - qty);
+  m.net[item] = round2((m.net[item] ?? 0) - qty * weight);
 }
 
 /** One load's buying and selling price for you here (for lists). */

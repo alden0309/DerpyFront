@@ -55,6 +55,7 @@ import {
   VENTURE_LUCK,
   VENTURE_STAKES,
   VENTURE_WAR_LOSS,
+  VENTURE_WAR_PRICE, // BUSINESS (r15)
   WORKS,
 } from "./LifeRules";
 import { landOf, propertyBudget, sellProperty } from "./Property";
@@ -383,7 +384,10 @@ function venturesMonthly(g: ConquestGame, life: Life): void {
         }
       }
     }
-    const back = Math.round(v.stake * luck.x * 100) / 100;
+    const back =
+      Math.round(
+        v.stake * luck.x * (war ? VENTURE_WAR_PRICE : 1) * 100, // BUSINESS (r15)
+      ) / 100;
     if (back > 0) earn(g, life, back);
     const gain = back - v.stake;
     journal(

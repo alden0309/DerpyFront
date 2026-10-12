@@ -338,10 +338,10 @@ export function contributions(
 
 /**
  * BUSINESS (r15): what a business brought into a firm is worth: what it'd
- * cost to set up again (less wear), or ten months of what it makes once it's
+ * cost to set up again (less wear), or twenty months of what it makes once it's
  * going, whichever is more. A going concern is worth what it earns.
  */
-export const BROUGHT_MONTHS = 10;
+export const BROUGHT_MONTHS = 20;
 export function bizBrought(s: GameState, t: FirmTerms): number {
   if (t.hold !== "biz" || !t.job || t.holder < 0) return 0;
   const set = Math.round(bizCost(t.job, t.level ?? 1) * 0.6);

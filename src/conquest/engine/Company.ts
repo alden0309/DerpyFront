@@ -29,7 +29,17 @@ import {
   yes,
 } from "./LifeQueries";
 import type { World } from "./Map";
-import { hasMarket, marketMove, quoteCut, soldHere } from "./Markets";
+import {
+  depthOf,
+  hasMarket,
+  makes,
+  MARKET_ALPHA,
+  MARKET_EASE_DAYS,
+  marketMove,
+  netNow,
+  quoteCut,
+  soldHere,
+} from "./Markets";
 import type { OddsOutcome, OddsView } from "./Odds";
 import { chanceWords } from "./Odds";
 import {
@@ -65,23 +75,41 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /** Setting a company up: the counting room, its books and its seal. */
 export const CO_SETUP = 15;
-/** A factor's wage a month, at each port of the Americas the company uses. */
-export const CO_FACTOR = 1.5;
+/**
+ * A factor's retainer a month, at each port of the Americas the company uses
+ * (they live mostly by their commission on what they buy and sell).
+ */
+export const CO_FACTOR = 0.5;
 /** Loads a cargo, and months between sailings, to choose from. */
 export const CO_LOADS = [5, 10, 20, 40];
 export const CO_EVERY = [1, 2, 3, 6];
 /** Its factors' commission on each side of a trade (a stranger pays the merchants 12 in 100). */
-export const CO_CUT = 0.04;
+export const CO_CUT = 0.02;
+/**
+ * How much of each load moves a port's price: a company's factors buy up and
+ * down the country and sell to many shops, not all at the market's stalls.
+ */
+export const CO_MOVE = 0.5;
+/**
+ * Where the country makes the goods, its factors buy from the planters, the
+ * trappers and the millers at their landings, for goods and credit, ahead of
+ * the market: this much of the market's price.
+ */
+export const CO_LANDING = 0.8;
 /** A correspondent's commission in Europe. */
 export const CO_EUROPE_CUT = 0.025;
-/** Freight and port charges a load: lading at each end, and a day at sea. */
-export const CO_FREIGHT = { port: 0.15, perDay: 0.012 };
+/**
+ * Freight and port charges a load: lading at each end, and a day at sea
+ * (an Atlantic crossing comes to about half a coin a load, a company's own
+ * charter a little under the 0.7 a load the colonies' merchants reckon on).
+ */
+export const CO_FREIGHT = { port: 0.1, perDay: 0.0045 };
 /** Freight and insurance in wartime, against peace. */
 export const CO_WAR_FREIGHT = 1.5;
 /** What can befall a cargo at sea (each a chance a voyage). */
 export const CO_RISK = {
-  /** Wrecked: a little for any voyage, more for every day at sea. */
-  wreck: { base: 0.015, perDay: 0.0012 },
+  /** Wrecked: a little for any voyage, more for every day at sea (1 in 25 across the Atlantic). */
+  wreck: { base: 0.01, perDay: 0.0004 },
   /** Taken by a privateer, when either end's nation is at war with a sea power. */
   privateer: 0.14,
   /** Seized by the customs, where the laws of trade forbid the voyage. */
@@ -109,6 +137,8 @@ export const CO_SPOIL: Partial<Record<TradeItem, number>> = {
   gin: 0.03,
 };
 const SPOIL_ELSE = 0.02;
+/** A cargo sails only if it's expected to make this much of its cost, risks and all. */
+export const CO_MARGIN = 0.04;
 /** The Company of the Indies' licence on Louisiana's trade (1719 to 1731), of a cargo's cost. */
 export const CO_LICENCE = 0.05;
 
@@ -416,15 +446,10 @@ export function companyQuote(
   day = s.day,
 ): CompanyQuote {
   const days = voyageDays(s, w, plan, day);
-  const buy = quoteCut(
-    s,
-    w,
-    plan.from,
-    plan.item,
-    plan.loads,
-    CO_CUT,
-    day,
-  ).total;
+  const buy = r2(
+    quoteCut(s, w, plan.from, plan.item, plan.loads, CO_CUT, day, CO_MOVE)
+      .total * landing(s, w, plan),
+  );
   const war = warAtSea(s, plan);
   const freight = r2(
     plan.loads *
@@ -434,7 +459,8 @@ export function companyQuote(
   const licence = indiesLicence(s, w, plan, day) ? r2(buy * CO_LICENCE) : 0;
   const sale =
     plan.to >= 0
-      ? quoteCut(s, w, plan.to, plan.item, -plan.loads, CO_CUT, day).total
+      ? quoteCut(s, w, plan.to, plan.item, -plan.loads, CO_CUT, day, CO_MOVE)
+          .total
       : europeSale(s, plan.item, plan.loads);
   return {
     buy,
@@ -446,6 +472,15 @@ export function companyQuote(
   };
 }
 
+/** What its factors pay of the market's price: less where the country makes the goods. */
+export function landing(
+  s: GameState,
+  w: World,
+  plan: Pick<CompanyPlan, "from" | "item">,
+): number {
+  return makes(s, w, plan.from, plan.item) ? CO_LANDING : 1;
+}
+
 /** Factors the company keeps (one at each port of the Americas it uses). */
 export function factorsOf(plan: Pick<CompanyPlan, "to">): number {
   return plan.to >= 0 ? 2 : 1;
@@ -454,6 +489,53 @@ export function factorsOf(plan: Pick<CompanyPlan, "to">): number {
 /** Its factors' wages a month. */
 export function companyWages(plan: Pick<CompanyPlan, "to">): number {
   return r2(factorsOf(plan) * CO_FACTOR);
+}
+
+// ---------------------------------------------------------------- the pace
+
+/**
+ * Once it's going, how much its own buying and selling at this pace keep the
+ * prices against it, beyond what they are today (a market takes about three
+ * months to ease back): fractions dearer to buy, and cheaper to sell.
+ */
+export function paceDrag(
+  s: GameState,
+  w: World,
+  plan: CompanyPlan,
+  day = s.day,
+): { buy: number; sell: number } {
+  const keep = Math.exp(-(plan.every * 30.4) / MARKET_EASE_DAYS);
+  // Loads' worth of its own trade still in each market when the next cargo comes.
+  const left = (CO_MOVE * plan.loads * keep) / (1 - keep);
+  const now = (p: number) => netNow(s.markets?.[p], plan.item, day);
+  const extraBuy = Math.max(0, left - Math.max(0, -now(plan.from)));
+  const buy =
+    Math.exp((MARKET_ALPHA * extraBuy) / depthOf(s, w, plan.from, plan.item)) -
+    1;
+  let sell = 0;
+  if (plan.to >= 0) {
+    const extraSell = Math.max(0, left - Math.max(0, now(plan.to)));
+    sell =
+      1 -
+      Math.exp((-MARKET_ALPHA * extraSell) / depthOf(s, w, plan.to, plan.item));
+  }
+  return { buy: r2(buy), sell: r2(sell) };
+}
+
+/** A cargo's expected gain once the company is going at its pace (prices settled against it). */
+export function steadyGain(
+  s: GameState,
+  w: World,
+  plan: CompanyPlan,
+  day = s.day,
+): number {
+  const q = companyQuote(s, w, plan, day);
+  const k = voyageRisks(s, w, plan, day);
+  const d = paceDrag(s, w, plan, day);
+  const home = 1 - k.lost - k.taken - k.seized - k.spoil;
+  const back = home + k.spoil * (1 - CO_RISK.spoilPart);
+  const cost = q.buy * (1 + d.buy) + q.freight + q.licence;
+  return r2(q.sale * (1 - d.sell) * back - cost);
 }
 
 // ---------------------------------------------------------------- the odds
@@ -514,7 +596,10 @@ export function companyOdds(
     });
   const ev = outcomes.reduce((m, o) => m + o.p * o.lo, 0);
   const wages = companyWages(plan);
-  const net = r1((ev - q.cost) / plan.every - wages);
+  // A month all told, once it's going at its pace.
+  const steady = steadyGain(s, w, plan, day);
+  const drag = paceDrag(s, w, plan, day);
+  const net = r1(steady / plan.every - wages);
   const factors = [
     `Prices: bought at ${placeName(s, w, plan.from, plan.from, day)} for ${r1(q.buy)} (its buying dears the price there), sold at ${placeName(s, w, plan.to, plan.from, day)} for about ${r1(q.sale)} (its selling cheapens it). Prices move with the season, war and other traders.`,
     `The voyage: about ${q.days} days at sea; freight and port charges ${r1(q.freight)}${k.war ? " (dearer in wartime)" : ""}.`,
@@ -525,7 +610,11 @@ export function companyOdds(
     k.laws
       ? `The laws of trade: ${k.laws}. The customs may seize it.`
       : "The laws of trade allow it.",
-    `Its factors: ${factorsOf(plan)} at ${CO_FACTOR} a month each.`,
+    `Its factors: ${factorsOf(plan)} at ${CO_FACTOR} a month each${landing(s, w, plan) < 1 ? `; where the country makes the goods they buy at the landings, ${Math.round((1 - CO_LANDING) * 100)} in a hundred under the market` : ""}.`,
+    drag.buy + drag.sell >= 0.02
+      ? `The pace: ${plan.loads} loads every ${plan.every === 1 ? "month" : `${plan.every} months`}. Its own buying keeps ${placeName(s, w, plan.from, plan.from, day)}'s price about ${Math.round(drag.buy * 100)} in a hundred dearer${plan.to >= 0 ? `, and its selling ${placeName(s, w, plan.to, plan.from, day)}'s ${Math.round(drag.sell * 100)} cheaper` : ""}, once it's going (a market takes about three months to ease back): about ${steady >= 0 ? "+" : ""}${r1(steady)} a voyage then. Smaller cargoes, or less often, spare the markets.`
+      : `The pace: ${plan.loads} loads every ${plan.every === 1 ? "month" : `${plan.every} months`} hardly moves the prices.`,
+    `Its factors hold a cargo back while prices wouldn't pay (it costs only their wages).`,
     ...(q.licence
       ? [
           `The Company of the Indies holds Louisiana's trade: its licence is ${r1(q.licence)} a cargo.`,
@@ -800,8 +889,22 @@ export function companyDaily(g: ConquestGame, f: Firm): void {
     partnersChanged(g, "f");
     return;
   }
+  // A sensible factor holds a cargo that wouldn't pay at today's prices
+  // (their own buying and selling may have moved them), and tries again.
+  const gain = companyOdds(s, g.w, plan).expected;
+  if (gain < q.cost * CO_MARGIN) {
+    co.next = s.day + 15;
+    if ((co.held ?? -1e9) + 60 <= s.day) {
+      co.held = s.day;
+      const text = `no cargo sails just now: at today's prices ${plan.loads} loads of ${goodsName(plan.item).toLowerCase()} would fetch about ${Math.round(q.cost + gain)} for the ${Math.round(q.cost)} they'd cost, risks and all. The factors wait for prices to mend; smaller cargoes, less often, or another market would pay.`;
+      firmLine(g, f, text[0].toUpperCase() + text.slice(1));
+      news(g, f, text, "bad");
+    }
+    partnersChanged(g, "f");
+    return;
+  }
   // Bought at the port (the price there rises), and away.
-  marketMove(g, plan.from, plan.item, plan.loads);
+  marketMove(g, plan.from, plan.item, plan.loads, CO_MOVE);
   f.chest = r2(f.chest - q.cost);
   const v: CompanyVoyage = {
     id: g.nextId(),
@@ -847,8 +950,17 @@ function arrive(g: ConquestGame, f: Firm, v: CompanyVoyage): void {
         ? Math.max(1, Math.round(v.loads * (1 - CO_RISK.spoilPart)))
         : v.loads;
     if (v.to >= 0) {
-      sale = quoteCut(s, g.w, v.to, v.item, -loads, CO_CUT).total;
-      marketMove(g, v.to, v.item, -loads);
+      sale = quoteCut(
+        s,
+        g.w,
+        v.to,
+        v.item,
+        -loads,
+        CO_CUT,
+        s.day,
+        CO_MOVE,
+      ).total;
+      marketMove(g, v.to, v.item, -loads, CO_MOVE);
     } else {
       sale = europeSale(s, v.item, loads);
       if (!isWare(v.item)) {
@@ -936,7 +1048,8 @@ export function companyForecast(
   const fixed = -r2(companyWages(co.plan) + f.debt * LOAN_RATE);
   return {
     fixed,
-    expected: r2(o.expected / co.plan.every),
+    // Once it's going at its pace (its own trade settled into the prices).
+    expected: r2(Math.max(0, steadyGain(s, w, co.plan)) / co.plan.every),
     lo: r2(fixed + o.lo),
     hi: r2(fixed + o.hi),
   };
@@ -1013,25 +1126,61 @@ export function defaultPlan(
   w: World,
   p: number,
 ): CompanyPlan | null {
+  const key = `${s.day}:${p}`;
+  let memo = PLANS.get(s);
+  if (!memo || memo.day !== s.day)
+    PLANS.set(s, (memo = { day: s.day, m: new Map() }));
+  if (memo.m.has(key)) return memo.m.get(key) ?? null;
+  const plan = bestPlan(s, w, p);
+  memo.m.set(key, plan);
+  return plan;
+}
+
+const PLANS = new WeakMap<
+  GameState,
+  { day: number; m: Map<string, CompanyPlan | null> }
+>();
+
+/** The ports a company could sell to from a port: Europe, and the nearest few of the Americas. */
+export function companyDests(w: World, s: GameState, p: number): number[] {
+  return w.map.provinces
+    .map((_, q) => q)
+    .filter((q) => q !== p && companyPort(s, w, q))
+    .sort((a, b) => km(w, p, a) - km(w, p, b))
+    .slice(0, 8);
+}
+
+/**
+ * The line of trade that pays best from a port once it's going (lawful
+ * before smuggling), at a size and pace its markets can bear.
+ */
+function bestPlan(s: GameState, w: World, p: number): CompanyPlan | null {
   if (!companyPort(s, w, p)) return null;
   let best: { plan: CompanyPlan; gain: number } | null = null;
-  const items = Object.keys(CO_GOODS) as TradeItem[];
-  for (const item of items) {
+  // If nothing pays from here just now, the least bad (its odds will say so).
+  let least: { plan: CompanyPlan; gain: number } | null = null;
+  const near = companyDests(w, s, p);
+  for (const item of Object.keys(CO_GOODS) as TradeItem[]) {
     if (!soldHere(s, w, p, item)) continue;
-    const dests: number[] = isWare(item) ? [] : [-1];
-    // The nearest few ports of the Americas, too.
-    const near = w.map.provinces
-      .map((_, q) => q)
-      .filter((q) => q !== p && companyPort(s, w, q))
-      .sort((a, b) => km(w, p, a) - km(w, p, b))
-      .slice(0, 6);
-    dests.push(...near);
+    const dests = [...(isWare(item) ? [] : [-1]), ...near];
     for (const to of dests) {
-      const plan: CompanyPlan = { item, from: p, to, loads: 10, every: 2 };
-      if (!planCheck(s, w, plan).ok) continue;
-      const o = companyOdds(s, w, plan);
-      if (!best || o.net > best.gain) best = { plan, gain: o.net };
+      for (const loads of [5, 10, 20])
+        for (const every of [2, 3]) {
+          const plan: CompanyPlan = { item, from: p, to, loads, every };
+          if (!planCheck(s, w, plan).ok) continue;
+          const steady = steadyGain(s, w, plan);
+          const q = companyQuote(s, w, plan);
+          const net = steady / every - companyWages(plan);
+          if (!least || net > least.gain) least = { plan, gain: net };
+          // The first cargo must sail, and the smuggler's risk counts against it.
+          const now = companyOdds(s, w, plan).expected;
+          if (now < q.cost * CO_MARGIN) continue;
+          const lawful = againstTheLaws(s, plan) ? 0.5 : 1;
+          const gain =
+            (steady / every - companyWages(plan)) * (steady > 0 ? lawful : 1);
+          if (!best || gain > best.gain + 0.05) best = { plan, gain };
+        }
     }
   }
-  return best?.plan ?? null;
+  return best?.plan ?? least?.plan ?? null;
 }

@@ -1725,6 +1725,12 @@ export const VENTURE_LUCK: { p: number; x: number; text: string }[] = [
 ];
 /** In wartime privateers take more ships. */
 export const VENTURE_WAR_LOSS = 0.26;
+/**
+ * BUSINESS (r15): a cargo that gets through in wartime fetches war prices
+ * (it used to lose 15 in 100 on average in a war: now it about pays, as a
+ * merchant who ventures in wartime expects).
+ */
+export const VENTURE_WAR_PRICE = 1.25;
 /** Shares in a company: the stake by station (none for labouring folk). */
 export const SHARE_STAKES = [0, 25, 50, 100, 200];
 /** A month: dividends, how far the price swings, and the chance of a crash. */

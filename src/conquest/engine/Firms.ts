@@ -14,12 +14,15 @@
 
 import {
   bestHands,
+  bizAdvice,
   bizMonth,
   freshCustom,
   marginal,
   northern,
   RAMP,
   townCustom,
+  UNMINDED,
+  type Advice,
   type BizInput,
   type BizView,
 } from "./Business"; // BUSINESS (r15)
@@ -53,7 +56,9 @@ import {
   VENTURE_DAYS,
   VENTURE_LUCK,
   VENTURE_WAR_LOSS,
+  VENTURE_WAR_PRICE, // BUSINESS (r15)
 } from "./LifeRules";
+import type { World } from "./Map"; // BUSINESS (r15)
 import { BAILIFFS_AT } from "./Money";
 import { wake } from "./Pace";
 import { askNewcomer } from "./Partners";
@@ -372,7 +377,7 @@ function cargoHome(g: ConquestGame, f: Firm): { back: number; text: string } {
       }
     }
   }
-  const back = r2(cargo.stake * luck.x);
+  const back = r2(cargo.stake * luck.x * (war ? VENTURE_WAR_PRICE : 1)); // BUSINESS (r15): war prices
   const text =
     luck.x === 0
       ? `the cargo of ${cargo.name} is ${war ? "taken by a privateer" : "lost at sea"}`
@@ -558,9 +563,85 @@ export function firmMonth(g: ConquestGame, f: Firm): number {
       chars: f.partners.map((x) => x.c),
     });
     st.north = northern(g.w, f.prov);
+    firmWarn(g, f);
   }
   partnersChanged(g, "f");
   return profit;
+}
+
+/**
+ * BUSINESS (r15): a firm's business that has lost money two months running,
+ * and would lose again as it stands, warns its partners, with why.
+ */
+function firmWarn(g: ConquestGame, f: Firm): void {
+  const st = f.biz?.st;
+  if (!st) return;
+  const [a, b] = f.books.slice(-2);
+  if (!a || !b || a.profit >= 0 || b.profit >= 0) return;
+  if ((st.warned ?? -1e9) + 90 > g.s.day) return;
+  if (firmMonthView(g.s, f).profit >= 0) return;
+  st.warned = g.s.day;
+  const why = firmAdvice(g.s, g.w, f).find((x) => x.tone === "bad");
+  for (const p of f.partners)
+    tell(
+      g,
+      p.c,
+      `${f.name} has lost money two months running (${r1(a.profit)}, ${r1(b.profit)}).${why ? ` ${why.text}` : ""}`,
+      "bad",
+    );
+}
+
+/** BUSINESS (r15): why a firm's business makes or loses money, in plain words. */
+export function firmAdvice(
+  s: GameState,
+  w: World | undefined,
+  f: Pick<Firm, "biz" | "prov" | "partners" | "debt"> & { id?: number },
+): Advice[] {
+  if (!f.biz) return [];
+  const v = firmMonthView(s, f);
+  if (!v.biz) return [];
+  const tc = townCustom(
+    s,
+    f.prov,
+    f.biz.job,
+    { firm: f.id, chars: f.partners.map((x) => x.c) },
+    w,
+  );
+  return bizAdvice(s, v.biz, { rivals: tc.rivals, room: tc.room });
+}
+
+/** BUSINESS (r15): how a firm makes its money, in a few plain lines. */
+export function firmHowItPays(s: GameState, w: World, f: Firm): string[] {
+  const town = w.map.provinces[f.prov]?.name ?? "the town";
+  const split =
+    "What's left each month is divided among the partners by share; a loss comes out of the chest, and when the chest is bare it's called from the partners by share.";
+  if (f.hold === "paper")
+    return [
+      "Its readers pay for it; its writers and the printing are paid out of that. The paper's owner keeps it and its books.",
+      split,
+    ];
+  if (f.hold === "venture")
+    return [
+      `It sends cargoes out of ${town}. Each comes home in 4 to 10 months: lost 1 in 7 (1 in 4 in a war), sold into a glut for 0.6 of its stake, at a fair price for 1.35, or for a fortune, 2.1 (war prices are a quarter higher). Its manager's trade tips the odds a little.`,
+      "The month a cargo comes home, what it gained or lost is in the division; its stake goes back into the chest.",
+      split,
+    ];
+  if (f.hold === "company")
+    return [
+      "It buys its goods at its port at the market's price (its buying dears the price there), ships them, and sells them where it trades to (its selling cheapens them there). Its factors are paid every month.",
+      "A cargo may be wrecked, taken by a privateer in a war, seized where the laws of trade forbid the voyage, or spoil in part. The month a cargo comes home, what it fetched less what it cost is in the books.",
+      split,
+    ];
+  const v = firmMonthView(s, f);
+  const b = v.biz;
+  const mgr = managerOf(f);
+  const who = mgr ? (s.chars[mgr.c]?.first ?? "its manager") : "its manager";
+  return [
+    `It makes its money from the ${f.biz?.name ?? "business"}'s takings: ${v.hands} hand${v.hands === 1 ? "" : "s"} at about ${b?.perHand ?? 0} each this month${b?.master ? `, and ${who}'s own work there (${b.master})` : ""}, as far as the town's custom goes.`,
+    `Out of the takings come the hands' wages (${HAND_WAGE} each), the place's keep (${v.upkeep}), the excise (8 in a hundred of the takings) and any interest.`,
+    `${who} must be in ${town} and free to work it, or it takes ${UNMINDED} of what it should.`,
+    split,
+  ];
 }
 
 /** A newspaper held in partnership: its owner shares out last month's profit. */
