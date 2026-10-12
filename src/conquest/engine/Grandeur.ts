@@ -475,7 +475,7 @@ export const GREAT_BY_KEY = new Map(GREAT.map((x) => [x.key, x]));
 
 /** Whether a mark you have still stands (a hall still yours, a coach still kept). */
 export function greatStands(s: GameState, life: Life, key: string): boolean {
-  if (!life.chair?.great?.[key]) return false;
+  if (life.chair?.great?.[key] === undefined) return false;
   if (key === "hall") return ownedHouse(life, life.home)?.level === 4;
   if (key === "coach") return hasKit(s, life, "carriage");
   return true;
@@ -496,7 +496,7 @@ export function greatCheck(
     return no("Not until you're grown.");
   if (life.travel) return no("Not from the road.");
   if (greatStands(s, life, key)) return no("You have it.");
-  if (life.chair?.great?.[key] && def.kind !== "house")
+  if (life.chair?.great?.[key] !== undefined && def.kind !== "house")
     return no("You've done it.");
   const why = def.needs?.(s, w, life);
   if (why) return no(why);

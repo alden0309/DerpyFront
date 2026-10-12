@@ -662,7 +662,7 @@ export function greatSection(ui: GameUi): TemplateResult | typeof nothing {
                 const check = greatCheck(s, ui.w, life, d.key);
                 const has =
                   greatStands(s, life, d.key) ||
-                  (d.kind !== "house" && !!got[d.key]);
+                  (d.kind !== "house" && got[d.key] !== undefined);
                 const cost = d.cost(s, life);
                 return html`<li class=${has ? "has" : ""}>
                   <div>

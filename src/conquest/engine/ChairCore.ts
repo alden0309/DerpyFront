@@ -783,14 +783,11 @@ export function whereabouts(
   const name = w.map.provinces[p]?.name ?? "somewhere";
   const capital = nation?.capital === p ? ", the capital" : "";
   if (p === life.prov) return { p, days: 0, text: `here at ${name}${capital}` };
-  const route = travelRoute(
-    s,
-    w.map,
-    life.prov,
-    p,
-    false,
-    lifeIsNative(s, life),
-  );
+  const native = lifeIsNative(s, life);
+  // Overland if there's a way; else by sea (an island, a coast).
+  const route =
+    travelRoute(s, w.map, life.prov, p, false, native) ??
+    travelRoute(s, w.map, life.prov, p, true, native);
   const days = route ? Math.round(route.days) : -1;
   return {
     p,
@@ -833,7 +830,10 @@ export function roadView(s: GameState, w: World, life: Life): RoadStep[] {
   const court = !!nation?.court.includes(me.id) || council || governs;
   const county = localOfficesOf(s, me.id).length > 0;
   const name =
-    life.renown >= 20 || life.purse >= 40 || offices.length > 0 || !!steps.name;
+    life.renown >= 20 ||
+    life.purse >= 40 ||
+    offices.length > 0 ||
+    steps.name !== undefined;
   const pol = s.polities[n];
   const ruler = s.chars[nation?.ruler ?? -1];
   const score = Math.round(governorScore(s, life));
@@ -852,7 +852,7 @@ export function roadView(s: GameState, w: World, life: Life): RoadStep[] {
   push({
     key: "county",
     title: "A county or town office",
-    done: county || !!steps.county,
+    done: county || steps.county !== undefined,
     day: steps.county,
     optional: true,
     text: county
@@ -863,7 +863,7 @@ export function roadView(s: GameState, w: World, life: Life): RoadStep[] {
   push({
     key: "court",
     title: "Received at court",
-    done: court || !!steps.court,
+    done: court || steps.court !== undefined,
     day: steps.court,
     text: court
       ? "You're among those the council is chosen from."
@@ -872,7 +872,7 @@ export function roadView(s: GameState, w: World, life: Life): RoadStep[] {
   push({
     key: "house",
     title: `A seat in ${pol?.name ?? "the assembly"}`,
-    done: house || !!steps.house,
+    done: house || steps.house !== undefined,
     day: steps.house,
     text: house
       ? cabinetOf(s, n)?.speaker === me.id
@@ -883,7 +883,7 @@ export function roadView(s: GameState, w: World, life: Life): RoadStep[] {
   push({
     key: "council",
     title: "A seat on the council",
-    done: council || !!steps.council,
+    done: council || steps.council !== undefined,
     day: steps.council,
     text: council
       ? "You sit at the council table."
@@ -894,7 +894,7 @@ export function roadView(s: GameState, w: World, life: Life): RoadStep[] {
   push({
     key: "lt",
     title: "The lieutenant governorship",
-    done: lt || !!steps.lt,
+    done: lt || steps.lt !== undefined,
     day: steps.lt,
     optional: true,
     text: lt
@@ -908,7 +908,7 @@ export function roadView(s: GameState, w: World, life: Life): RoadStep[] {
   push({
     key: "governor",
     title: "The governor's chair",
-    done: governs || !!steps.governor,
+    done: governs || steps.governor !== undefined,
     day: steps.governor,
     text: governs
       ? ch

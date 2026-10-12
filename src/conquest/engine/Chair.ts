@@ -225,14 +225,44 @@ function keepCommissions(g: ConquestGame): void {
   }
 }
 
+/** The crown's decision at a commission's end: renew it (true), by renewOdds exactly. */
+export function renewRoll(s: GameState, n: number): boolean {
+  const ch = s.nations[n].chair!;
+  const gov = s.nations[n].ruler;
+  return cdice(s, 1, n, gov, ch.terms).next() < renewOdds(s, n).total;
+}
+
+/** The crown's answer to a petition: recalled (true), by recallOdds exactly. */
+export function recallRoll(
+  s: GameState,
+  n: number,
+  pet: RecallPetition,
+): boolean {
+  return cdice(s, 2, n, pet.id).next() < recallOdds(s, n, pet, pet.by).total;
+}
+
+/** How a governor the computer plays answers an address carried against him, by addressAnswerOdds exactly. */
+export function answerRoll(
+  s: GameState,
+  n: number,
+  a: Address,
+): "yield" | "dissolve" | "hold" {
+  const o = addressAnswerOdds(s, n);
+  const roll = cdice(s, 9, n, a.id).next();
+  return roll < o.yield
+    ? "yield"
+    : roll < o.yield + o.dissolve
+      ? "dissolve"
+      : "hold";
+}
+
 /** The commission has run its course: the crown renews it, or names another. */
 function termEnds(g: ConquestGame, n: number): void {
   const s = g.s;
   const nation = g.nation(n);
   const ch = nation.chair!;
   const gov = s.chars[nation.ruler];
-  const p = renewOdds(s, n).total;
-  const renewed = cdice(s, 1, n, gov?.id ?? 0, ch.terms).next() < p;
+  const renewed = renewRoll(s, n);
   const life = gov ? lifeOfChar(s, gov.id) : undefined;
   if (renewed) {
     const yrs = againYears(s, n, nation.ruler, ch.terms);
@@ -977,7 +1007,7 @@ function petitionVerdict(g: ConquestGame, n: number): void {
   const ch = nation.chair!;
   const pet = ch.petition!;
   const p = recallOdds(s, n, pet, pet.by).total;
-  const won = cdice(s, 2, n, pet.id).next() < p;
+  const won = recallRoll(s, n, pet);
   ch.petition = null;
   ch.lastPetition = { day: s.day, by: pet.by, won };
   const by = s.chars[pet.by];
@@ -1301,17 +1331,7 @@ function divideAddress(g: ConquestGame, n: number): void {
       5,
     );
   // The computer's governor answers, by the odds the page shows.
-  const o = addressAnswerOdds(s, n);
-  const roll = cdice(s, 9, n, a.id).next();
-  answerAddress(
-    g,
-    n,
-    roll < o.yield
-      ? "yield"
-      : roll < o.yield + o.dissolve
-        ? "dissolve"
-        : "hold",
-  );
+  answerAddress(g, n, answerRoll(s, n, a));
 }
 
 /** The governor's answer to a carried address. */
@@ -1494,6 +1514,8 @@ function capitalMoved(
           : `Your home at ${g.map.provinces[life.home]?.name ?? fromName} is under another flag now. You can follow the government to ${toName} (Society › Standing).`,
       );
     journal(g, life, lines.join(" "), "bad");
+    if (homeLost && seats && life.chair?.outside === undefined)
+      lifeChair(g, life).outside = s.day;
     if (life.home !== to) raiseEvent(g, life, "chair-capital", { n, from, to });
   }
 }
@@ -1507,7 +1529,8 @@ export function followGovernment(g: ConquestGame, life: Life): string | null {
   const to = s.nations[me.nation].capital;
   const cost = followCost(s, life);
   if (life.prov !== to) {
-    const err = travelTo(g, life, to, false);
+    // Overland if there's a way, else by sea.
+    const err = travelTo(g, life, to, false) && travelTo(g, life, to, true);
     if (err) return err;
   }
   withFlow(g, { key: "chair:follow", label: "Moving the household" }, () =>
@@ -1558,43 +1581,34 @@ function chairLifeMonthly(g: ConquestGame, life: Life): void {
     }
   } else if (life.chair?.houseSince !== undefined)
     lifeChair(g, life).houseSince = undefined;
-  // Seats in a colony you no longer live in lapse after three months.
+  // Seats in a colony you no longer live in lapse three months after you're
+  // told (chairLifeDaily lapses them on the day).
   if (s.nations[n]?.kind !== "power") return;
-  const seats = postsOf(s, me.id).filter(
-    (p) => p.kind === "assembly" || p.kind === "council",
-  );
-  const lt = lieutenantOf(s, n) === me.id;
   if (livesInColony(s, life) || isChildLife(s, life)) {
     if (life.chair?.outside !== undefined)
       lifeChair(g, life).outside = undefined;
     return;
   }
-  if (!seats.length && !lt) return;
-  const lc = lifeChair(g, life);
-  if (lc.outside === undefined) {
-    lc.outside = s.day;
-    journal(
-      g,
-      life,
-      `You live outside ${shortName(s.nations[n])} now: your seats lapse on ${formatDate(s.day + LAPSE_DAYS)} unless your household lives in the colony again.`,
-      "bad",
-    );
-    return;
-  }
-  if (s.day - lc.outside < LAPSE_DAYS) return;
-  for (const p of seats)
-    resignPost(g, me.id, p, "you no longer live in the colony");
-  if (lt) {
-    const ch = g.nation(n).chair!;
-    ch.lt = -1;
-    ch.ltSince = -1;
-    journal(
-      g,
-      life,
-      "Your commission as lieutenant governor lapses: you no longer live in the colony.",
-      "bad",
-    );
-  }
+  noteOutside(g, life);
+}
+
+/** Living outside your colony with a seat in it: you're told when it lapses. */
+function noteOutside(g: ConquestGame, life: Life): void {
+  const s = g.s;
+  const me = meOf(s, life);
+  if (!me || life.chair?.outside !== undefined) return;
+  const n = me.nation;
+  const seats = postsOf(s, me.id).some(
+    (p) => p.kind === "assembly" || p.kind === "council",
+  );
+  if (!seats && lieutenantOf(s, n) !== me.id) return;
+  lifeChair(g, life).outside = s.day;
+  journal(
+    g,
+    life,
+    `You live outside ${shortName(s.nations[n])} now: your seats lapse on ${formatDate(s.day + LAPSE_DAYS)} unless your household lives in the colony again.`,
+    "bad",
+  );
 }
 
 /** The road's steps: the first day each was reached. */
@@ -1635,8 +1649,40 @@ function noteSteps(g: ConquestGame, life: Life): void {
 
 function chairLifeDaily(g: ConquestGame, life: Life): void {
   const f = life.chair?.follow;
-  if (f === undefined || life.travel) return;
-  if (life.prov === f) settleFollow(g, life);
+  if (f !== undefined && !life.travel && life.prov === f) settleFollow(g, life);
+  // Seats in a colony you no longer live in lapse on the day you were told.
+  const out = life.chair?.outside;
+  if (out !== undefined && g.s.day - out >= LAPSE_DAYS) lapseSeats(g, life);
+}
+
+/** Your seats lapse: you no longer live in the colony. */
+function lapseSeats(g: ConquestGame, life: Life): void {
+  const s = g.s;
+  const me = meOf(s, life);
+  if (!me?.alive || life.watching) return;
+  const lc = lifeChair(g, life);
+  if (livesInColony(s, life)) {
+    lc.outside = undefined;
+    return;
+  }
+  const n = me.nation;
+  const seats = postsOf(s, me.id).filter(
+    (p) => p.kind === "assembly" || p.kind === "council",
+  );
+  for (const p of seats)
+    resignPost(g, me.id, p, "you no longer live in the colony");
+  if (lieutenantOf(s, n) === me.id) {
+    const ch = g.nation(n).chair!;
+    ch.lt = -1;
+    ch.ltSince = -1;
+    journal(
+      g,
+      life,
+      "Your commission as lieutenant governor lapses: you no longer live in the colony.",
+      "bad",
+    );
+  }
+  lc.outside = undefined;
 }
 
 /** The lieutenant governor's fees (and his pay while he acts); an agent's retainer. */
