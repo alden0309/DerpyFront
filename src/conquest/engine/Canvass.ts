@@ -784,27 +784,36 @@ function week(g: ConquestGame, life: Life, ref: PollRef, cv: Canvass): void {
     Object.fromEntries(st.lines.map((l) => [l.k, l.v]));
   const meK = byKey(me);
   const themK = byKey(them);
-  if (cv.weeks.length && rival?.c === cv.rival) {
+  if (cv.weeks.length) {
     const moved: { label: string; v: number }[] = [];
     const keys = new Set([...Object.keys(meK), ...Object.keys(cv.lastMe)]);
     for (const k of keys) {
       const d = (meK[k] ?? 0) - (cv.lastMe[k] ?? 0);
-      if (Math.abs(d) >= 0.5)
+      if (Math.abs(d) >= 0.25)
         moved.push({
           label: me.lines.find((l) => l.k === k)?.label ?? LINE_NAMES[k] ?? k,
           v: r1(d),
         });
     }
-    const tkeys = new Set([...Object.keys(themK), ...Object.keys(cv.lastThem)]);
-    const rn = s.chars[rival.c]?.first ?? "the rival";
-    for (const k of tkeys) {
-      const d = (themK[k] ?? 0) - (cv.lastThem[k] ?? 0);
-      if (Math.abs(d) >= 0.5)
-        moved.push({
-          label: `${rn}: ${(them.lines.find((l) => l.k === k)?.label ?? LINE_NAMES[k] ?? k).replace(/^(His|Name on the list)/, (m) => m.toLowerCase())}`,
-          v: r1(-d),
-        });
-    }
+    if (rival && rival.c === cv.rival) {
+      const tkeys = new Set([
+        ...Object.keys(themK),
+        ...Object.keys(cv.lastThem),
+      ]);
+      const rn = s.chars[rival.c]?.first ?? "the rival";
+      for (const k of tkeys) {
+        const d = (themK[k] ?? 0) - (cv.lastThem[k] ?? 0);
+        if (Math.abs(d) >= 0.25)
+          moved.push({
+            label: `${rn}: ${(them.lines.find((l) => l.k === k)?.label ?? LINE_NAMES[k] ?? k).replace(/^(His|Name on the list)/, (m) => m.toLowerCase())}`,
+            v: r1(-d),
+          });
+      }
+    } else if (rival && s.chars[rival.c])
+      moved.push({
+        label: `${charName(s.chars[rival.c])} is the one to beat now`,
+        v: r1((cv.weeks[cv.weeks.length - 1]?.them ?? 0) - them.total),
+      });
     cv.moved = moved.sort((a, b) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 4);
   } else cv.moved = [];
   cv.rival = rival?.c ?? -1;
