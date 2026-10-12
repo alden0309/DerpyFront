@@ -1787,10 +1787,10 @@ const GOALS: Goal[] = [
     id: "polls-treat",
     title: "Treat the voters, or buy the sheriff's goodwill",
     words:
-      "treat treating punch voters sheriff bribe goodwill present patron interest great man price money election",
+      "treat treating punch voters sheriff bribe goodwill present patron interest great man price money election broadside canvass canvassing",
     group: "Society",
     where:
-      "Society › Office, the canvass's Money for the poll: treat the voters (once a week, in the county), a present for the sheriff, a great man's interest. Each says on its button what it costs and what it does to your standing.",
+      "Society › Office, the canvass's Money for the poll: canvass the voters (free), print a broadside, treat the voters (once a week, in the county), a present for the sheriff, a great man's interest. Each says on its button what it costs and what it would do to your standing now.",
     needs: (ui) => {
       const v = treatView(ui.s, ui.life!);
       return [
