@@ -363,6 +363,19 @@ export function infirmity(
   return null;
 }
 
+/** How the governor is, without his age: "well", "growing old", "gouty", "laid up with the gout". */
+export function healthNote(
+  s: GameState,
+  w: World,
+  c: Character | undefined,
+  ch?: ChairState,
+): string {
+  if (!c?.alive) return "gone";
+  const why = infirmity(s, w, c, ch);
+  if (!why) return "well";
+  return /^old/.test(why) ? "growing old" : why;
+}
+
 /** "39 and well", "64 and gouty", "71, laid up with the gout". */
 export function healthWords(
   s: GameState,
@@ -1122,29 +1135,32 @@ export function nearerWords(s: GameState, w: World, life: Life): string[] {
   if (!ch || nation.ruler === me.id) return [];
   const out: string[] = [];
   const ruler = s.chars[nation.ruler];
+  const his = ruler?.female ? "her" : "his";
+  const he = ruler?.female ? "she" : "he";
+  const He = ruler?.female ? "She" : "He";
   const p = petitionCheck(s, life);
   if (ch.petition)
     out.push(
       ch.petition.by === me.id
-        ? `Your petition for his recall is ${ch.petition.stage === "gathering" ? "gathering names" : "at sea"}: the crown's answer about ${formatDate(ch.petition.answer)}.`
-        : `${charName(s.chars[ch.petition.by])} is getting up a petition for his recall.`,
+        ? `Your petition for ${his} recall is ${ch.petition.stage === "gathering" ? "gathering names" : "at sea"}: the crown's answer about ${formatDate(ch.petition.answer)}.`
+        : `${charName(s.chars[ch.petition.by])} is getting up a petition for ${his} recall.`,
     );
   else if (p.ok)
     out.push(
-      `Petition the crown for his recall: as things stand it would land ${Math.round(recallOdds(s, n, null, me.id).total * 100)} times in a hundred, before names and friends at court.`,
+      `Petition the crown for ${his} recall: as things stand it would land ${Math.round(recallOdds(s, n, null, me.id).total * 100)} times in a hundred, before names and friends at court.`,
     );
-  else out.push(`A petition for his recall: ${p.why}`);
+  else out.push(`A petition for ${his} recall: ${p.why}`);
   const cab = cabinetOf(s, n);
   if (cab?.speaker === me.id)
     out.push(
-      "From the speaker's chair, the house's address: withhold his salary, or refuse supply.",
+      `From the speaker's chair, the house's address: withhold ${his} salary, or refuse supply.`,
     );
   const ill = infirmity(s, w, ruler, ch);
   if (lieutenantOf(s, n) < 0)
     out.push(
       ill
-        ? `He is ${ill}: the crown will name a lieutenant governor, and the best case is offered it.`
-        : "When he grows old or ill, the crown names a lieutenant governor.",
+        ? `${He} is ${ill}: the crown will name a lieutenant governor, and the best case is offered it.`
+        : `When ${he} grows old or ill, the crown names a lieutenant governor.`,
     );
   return out;
 }

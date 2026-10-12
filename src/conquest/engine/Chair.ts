@@ -532,7 +532,7 @@ function ltMonthly(g: ConquestGame, n: number): void {
     const life = c ? lifeOfChar(s, c.id) : undefined;
     const gone =
       !c?.alive ||
-      c.abroad ||
+      c.abroad === true ||
       c.nation !== n ||
       c.id === nation.ruler ||
       (life &&

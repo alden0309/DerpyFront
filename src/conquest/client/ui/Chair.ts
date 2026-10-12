@@ -25,7 +25,7 @@ import {
   followCheck,
   followCost,
   grievancesOf,
-  healthWords,
+  healthNote,
   infirmity,
   lieutenantOf,
   livesInColony,
@@ -161,8 +161,8 @@ export function chairSection(ui: GameUi): TemplateResult | typeof nothing {
     html`The governor's chair`,
     html`<div class="cq-chair-gov">
         <p>
-          ${charLink(ui, gov)}, ${healthWords(s, ui.w, gov, ch)}. ${p.His}
-          ${term("commission")} runs to
+          ${charLink(ui, gov)} is ${healthNote(s, ui.w, gov, ch)}. ${p.His}
+          ${term("commission", "commission")} runs to
           <b>${formatDate(ch.ends)}</b>${ch.terms > 1
             ? html` (${p.his} ${ch.terms === 2 ? "second" : `${ch.terms}th`}
               term)`
@@ -566,7 +566,8 @@ export function commissionBlock(
   const months = Math.max(0, Math.round((ch.ends - s.day) / 30.4));
   return html`<div class="cq-chair-mine">
     <p>
-      Your ${term("commission")} runs to <b>${formatDate(ch.ends)}</b>
+      Your ${term("commission", "commission")} runs to
+      <b>${formatDate(ch.ends)}</b>
       (${months}
       month${months === 1 ? "" : "s"}${ch.terms > 1
         ? `; your ${ch.terms === 2 ? "second" : `${ch.terms}th`} term`
