@@ -12,6 +12,7 @@ import {
   TOKEN_KEY,
   USER_KEY,
 } from "../client/derpy/DerpySession";
+import type { RenameError } from "./Names";
 
 export { DERPY_ACCOUNT_EVENT, derpyToken, derpyUsername };
 
@@ -39,6 +40,8 @@ export class ApiError extends Error {
   constructor(
     readonly code: string,
     readonly status: number,
+    /** NAMES (r20): a change of name refused as too soon: when it may be. */
+    readonly nextChangeAt?: string,
   ) {
     super(code);
   }
@@ -61,12 +64,18 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (res.status === 401 && token !== null) forget();
   if (!res.ok) {
     let code = "server_error";
+    let next: string | undefined;
     try {
-      code = ((await res.json()) as { error?: string }).error ?? code;
+      const body = (await res.json()) as {
+        error?: string;
+        nextChangeAt?: string;
+      };
+      code = body.error ?? code;
+      next = body.nextChangeAt;
     } catch {
       // not JSON
     }
-    throw new ApiError(code, res.status);
+    throw new ApiError(code, res.status, next);
   }
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
@@ -137,10 +146,102 @@ export async function me(): Promise<Me | null> {
       account: { username: string; coins: number };
       owned: string[];
     }>("/me");
+    keepUsername(r.account.username);
     return { ...r.account, owned: r.owned ?? [] };
   } catch {
     return null;
   }
+}
+
+/**
+ * NAMES (r20): the name this browser keeps for the signed-in account, put
+ * right when the account says otherwise (it was changed here, in another
+ * tab, or on another device), and every page told.
+ */
+function keepUsername(username: string): void {
+  const st = derpyStorage();
+  if (derpyToken() === null || !st || st.getItem(USER_KEY) === username) return;
+  st.setItem(USER_KEY, username);
+  announce();
+}
+
+// ---- NAMES (r20): changing your username ----
+
+/** Where the account stands on changing its name. */
+export interface NameStatus {
+  username: string;
+  /** When it last changed (ISO), or null: never. */
+  changedAt: string | null;
+  /** When it may change next (ISO), or null: now. */
+  nextChangeAt: string | null;
+  canChange: boolean;
+  /** The name given up last, while nobody else may take it. */
+  heldName: string | null;
+  heldUntil: string | null;
+}
+
+export interface NameCheck {
+  username: string;
+  ok: boolean;
+  reason?: RenameError;
+  caseOnly?: boolean;
+}
+
+export const RENAME_ERROR_TEXT: Record<RenameError, string> = {
+  invalid_username: "Usernames are 3 to 20 letters, numbers or underscores.",
+  username_taken: "That username is taken.",
+  username_held:
+    "Someone gave that name up in the last 7 days. It's kept for them until then.",
+  username_reserved: "That name is reserved.",
+  same_name: "That's your name already.",
+  too_soon: "You've changed your username in the last 7 days.",
+  accounts_unavailable: "Accounts aren't available right now.",
+  server_error: "Something went wrong. Try again.",
+};
+
+function renameError(err: unknown): RenameError {
+  return err instanceof ApiError && err.code in RENAME_ERROR_TEXT
+    ? (err.code as RenameError)
+    : "server_error";
+}
+
+export function nameStatus(): Promise<NameStatus> {
+  return api<NameStatus>("/username");
+}
+
+/** The live check as a name is typed: may this account change to it? */
+export async function checkName(
+  username: string,
+  signal?: AbortSignal,
+): Promise<NameCheck> {
+  return api<NameCheck>(
+    `/username/check?name=${encodeURIComponent(username)}`,
+    { signal },
+  );
+}
+
+/**
+ * Change the signed-in account's username. The session stays (it holds no
+ * name); this browser keeps the new name and every page hears of it.
+ */
+export async function changeUsername(
+  username: string,
+): Promise<NameStatus | { error: RenameError; nextChangeAt?: string }> {
+  try {
+    const r = await api<NameStatus>("/username", {
+      method: "POST",
+      body: JSON.stringify({ username: username.trim() }),
+    });
+    if (derpyToken() !== null) derpyStorage()?.setItem(USER_KEY, r.username);
+    announce();
+    return r;
+  } catch (err) {
+    return { error: renameError(err), nextChangeAt: nextOf(err) };
+  }
+}
+
+function nextOf(err: unknown): string | undefined {
+  return err instanceof ApiError ? err.nextChangeAt : undefined;
 }
 
 export interface Skin {

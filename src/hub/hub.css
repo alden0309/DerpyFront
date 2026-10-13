@@ -1074,7 +1074,10 @@
   .dl-player .dl-h1 {
     overflow-wrap: anywhere;
   }
-  .dl-signout {
+  .dl-player-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-left: auto;
   }
   .dl-statgroups {
@@ -1380,5 +1383,254 @@
     font-size: 12px;
     font-weight: 700;
     color: var(--peel);
+  }
+}
+
+/* NAMES (r20): changing your username, in a dialog over your account page. */
+@layer components {
+  .dl-dialog {
+    width: min(460px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
+    padding: 0;
+    overflow: auto;
+    border: 1px solid var(--line-2);
+    border-radius: 14px;
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 15.5px;
+    line-height: 1.5;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  }
+  .dl-dialog::backdrop {
+    background: rgba(9, 9, 11, 0.72);
+    backdrop-filter: blur(2px);
+  }
+  .dl-dialog-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 20px 22px 0;
+  }
+  .dl-dialog-title {
+    font-weight: 760;
+    font-stretch: 108%;
+    font-size: 22px;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    overflow-wrap: anywhere;
+  }
+  .dl-dialog-x {
+    flex: none;
+    margin: -4px -8px 0 0;
+    padding: 6px;
+    border: 0;
+    border-radius: 7px;
+    background: none;
+    color: var(--text-2);
+    cursor: pointer;
+  }
+  .dl-dialog-x:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .dl-dialog-body {
+    display: grid;
+    gap: 16px;
+    padding: 16px 22px 22px;
+  }
+  .dl-dialog-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+  }
+
+  .dl-name-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface-2);
+  }
+  .dl-name-facts > div {
+    min-width: 0;
+    padding: 10px 12px;
+  }
+  /* The name across the top; when it last changed and when it next may below. */
+  .dl-name-facts > div:first-child {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--line);
+  }
+  .dl-name-facts > div:nth-child(3) {
+    border-left: 1px solid var(--line);
+  }
+  .dl-name-facts dt {
+    font-size: 12.5px;
+    font-weight: 550;
+    color: var(--text-2);
+  }
+  .dl-name-facts dd {
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.35;
+    font-variant-numeric: tabular-nums;
+  }
+  .dl-name-facts .dl-name-now {
+    font-size: 18px;
+    font-weight: 720;
+    overflow-wrap: anywhere;
+  }
+  .dl-name-wait {
+    padding: 10px 12px;
+    border-radius: 9px;
+    background: rgba(245, 204, 60, 0.1);
+    box-shadow: inset 3px 0 0 var(--peel);
+    color: var(--cream);
+  }
+  .dl-field label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-2);
+  }
+  .dl-field input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 9px;
+    background: #141417;
+    font-size: 17px;
+    font-weight: 600;
+  }
+  .dl-field input:focus-visible {
+    outline: 2px solid var(--peel);
+    outline-offset: 0;
+    border-color: transparent;
+  }
+  .dl-field input[aria-invalid="true"] {
+    border-color: rgba(248, 113, 113, 0.55);
+  }
+  .dl-field input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .dl-name-check {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 22px;
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-3);
+  }
+  .dl-name-check .dl-i {
+    width: 16px;
+    height: 16px;
+  }
+  .dl-name-check.ok {
+    color: var(--good);
+  }
+  .dl-name-check.bad {
+    color: var(--bad);
+  }
+  .dl-name-rules {
+    display: grid;
+    gap: 3px;
+    font-size: 13.5px;
+    color: var(--text-2);
+  }
+  .dl-name-rules li {
+    position: relative;
+    padding-left: 14px;
+  }
+  .dl-name-rules li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 0.62em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--text-3);
+  }
+  .dl-name-note {
+    font-size: 13.5px;
+    color: var(--text-2);
+  }
+  .dl-name-error {
+    padding: 9px 12px;
+    border-radius: 9px;
+    background: rgba(248, 113, 113, 0.12);
+    color: #fecaca;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .dl-name-swap {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    font-weight: 700;
+    font-size: 18px;
+    overflow-wrap: anywhere;
+  }
+  .dl-name-old {
+    color: var(--text-2);
+    text-decoration: line-through;
+    text-decoration-color: rgba(161, 161, 170, 0.6);
+  }
+  .dl-name-arrow {
+    color: var(--text-3);
+  }
+  .dl-name-new {
+    color: var(--peel);
+  }
+  .dl-name-points {
+    display: grid;
+    gap: 8px;
+    color: var(--text-2);
+  }
+  .dl-name-points li {
+    position: relative;
+    padding-left: 16px;
+  }
+  .dl-name-points li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 0.6em;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--peel);
+  }
+  .dl-name-points .dl-name-strong {
+    color: var(--text);
+    font-weight: 650;
+  }
+
+  @media (max-width: 560px) {
+    .dl-player-actions {
+      margin-left: 0;
+    }
+    .dl-name-facts {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .dl-name-facts > div:nth-child(3) {
+      border-left: 0;
+      border-top: 1px solid var(--line);
+    }
+    .dl-dialog-actions .dl-btn {
+      flex: 1;
+    }
   }
 }

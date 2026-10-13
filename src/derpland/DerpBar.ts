@@ -26,6 +26,7 @@ import {
   closeIcon,
   coinIcon,
   pawnIcon,
+  penIcon,
   podiumIcon,
   signOutIcon,
   stallIcon,
@@ -57,6 +58,8 @@ export interface BarLabels {
   yourAccount: string;
   yourStats: string;
   yourSkins: string;
+  /** NAMES (r20) */
+  changeUsername: string;
   yourCoins: string;
   derpCoins: string;
   frontBlurb: string;
@@ -82,6 +85,7 @@ export const BAR_LABELS: BarLabels = {
   yourAccount: "Your account",
   yourStats: "Your stats and replays",
   yourSkins: "Your skins",
+  changeUsername: "Change username",
   yourCoins: "Your Derp Coins",
   derpCoins: "Derp Coins",
   frontBlurb: "Paint the map your color in real time, then betray your allies.",
@@ -358,6 +362,14 @@ export class DerpBar extends LitElement {
               >
               <a class="item" role="menuitem" href="/inventory"
                 >${chestIcon()} ${t.yourSkins}</a
+              >
+              <!-- NAMES (r20): the form is on your account page -->
+              <a
+                class="item"
+                role="menuitem"
+                href="/account#username"
+                @click=${() => (this.menu = null)}
+                >${penIcon()} ${t.changeUsername}</a
               >
               <button
                 class="item"

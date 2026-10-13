@@ -7,6 +7,7 @@
 
 import pg from "pg";
 import { logger } from "../Logger";
+import { grantBasedByName } from "./BasedAccess"; // NAMES (r20)
 
 const log = logger.child({ component: "DerpyDb" });
 
@@ -219,6 +220,25 @@ CREATE TABLE IF NOT EXISTS derpy_based_notes (
 );
 CREATE INDEX IF NOT EXISTS derpy_based_notes_scene
   ON derpy_based_notes (chapter, scene);
+
+-- NAMES (r20): changing your username. When it last changed (once in 7 days),
+-- and the name given up then, which stays with this account for 7 days so
+-- nobody else can take it and pass as them.
+ALTER TABLE derpy_accounts
+  ADD COLUMN IF NOT EXISTS username_changed_at TIMESTAMPTZ;
+ALTER TABLE derpy_accounts ADD COLUMN IF NOT EXISTS old_username TEXT;
+ALTER TABLE derpy_accounts ADD COLUMN IF NOT EXISTS old_username_key TEXT;
+CREATE INDEX IF NOT EXISTS derpy_accounts_old_username_key
+  ON derpy_accounts (old_username_key) WHERE old_username_key IS NOT NULL;
+-- A DerpyFront player row's username is the name it shows, which follows a
+-- rename when it was the account's own; played_as keeps the name in the
+-- game's replay when that's different (null: the same).
+ALTER TABLE derpy_game_players ADD COLUMN IF NOT EXISTS played_as TEXT;
+-- Mr. Based goes by account: the mark, and the BASED_PLAYERS name it was
+-- first given under (each name marks one account, once).
+ALTER TABLE derpy_accounts
+  ADD COLUMN IF NOT EXISTS based_access BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE derpy_accounts ADD COLUMN IF NOT EXISTS based_granted_as TEXT;
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two
@@ -230,6 +250,10 @@ async function migrate(p: pg.Pool): Promise<void> {
   try {
     await client.query("SELECT pg_advisory_lock($1)", [MIGRATION_LOCK]);
     await client.query(SCHEMA);
+    // NAMES (r20): Mr. Based's players marked by account, from their names
+    // in BASED_PLAYERS, once each (the owner's "Alden" on the first start).
+    const marked = await grantBasedByName(client);
+    if (marked.length > 0) log.info("Mr. Based: accounts marked", { marked });
   } finally {
     await client
       .query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK])

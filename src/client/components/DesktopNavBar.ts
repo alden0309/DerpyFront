@@ -23,6 +23,7 @@ function barLabels(): Partial<BarLabels> {
     yourAccount: t("derpy.account_title"),
     yourStats: t("derp_bar.your_stats"),
     yourSkins: t("derp_bar.your_skins"),
+    changeUsername: t("derp_bar.change_username"), // NAMES (r20)
     yourCoins: t("derp_bar.your_coins"),
     derpCoins: t("derpy.derp_coins"),
     frontBlurb: t("derp_bar.front_blurb"),

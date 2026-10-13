@@ -9,6 +9,7 @@ import {
 import { logger } from "../Logger";
 import { achievementsOf } from "./DerpyAchievements"; // MAP (r12)
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
+import { namesOf } from "./DerpyNames"; // NAMES (r20)
 
 const log = logger.child({ component: "DerpyConquest" });
 
@@ -52,6 +53,24 @@ export async function recordConquestGame(
   if (credited.length === 0) return false;
   try {
     return await inTransaction(async (c) => {
+      // NAMES (r20): a signed-in seat plays under its account's name, so
+      // the result carries the account's name now (renamed while playing:
+      // the new one). Character names are never touched.
+      const names = await namesOf(
+        c,
+        credited.map((p) => p.accountId!),
+      );
+      const nameOf = (p: ConquestPlayerResult) =>
+        p.accountId === null
+          ? p.name
+          : (names.get(p.accountId)?.username ?? p.name);
+      const first = g.players.find((p) => p.rank === 1);
+      let winner = g.winner;
+      if (winner && first && nameOf(first) !== first.name) {
+        const tail = `(${first.name})`;
+        if (winner.endsWith(tail))
+          winner = `${winner.slice(0, -tail.length)}(${nameOf(first)})`;
+      }
       const inserted = await c.query(
         `INSERT INTO derpy_conquest_games (game_id, started_at, ended_at,
            duration_s, end_year, final_year, difficulty, num_players, winner,
@@ -69,14 +88,14 @@ export async function recordConquestGame(
           g.finalYear,
           g.difficulty,
           g.players.length,
-          g.winner,
+          winner,
           JSON.stringify(
-            g.players.map(({ name, nation, rank, score, won }) => ({
-              name,
-              nation,
-              rank,
-              score,
-              won,
+            g.players.map((p) => ({
+              name: nameOf(p),
+              nation: p.nation,
+              rank: p.rank,
+              score: p.score,
+              won: p.won,
             })),
           ),
         ],
@@ -94,7 +113,7 @@ export async function recordConquestGame(
           [
             g.gameId,
             p.accountId,
-            p.name,
+            nameOf(p),
             p.nation,
             p.won,
             p.rank,

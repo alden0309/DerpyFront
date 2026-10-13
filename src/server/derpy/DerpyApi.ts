@@ -7,6 +7,7 @@ import { PartialGameRecordSchema } from "@openfront/shared/WireSchemas";
 import express, { NextFunction, Request, Response } from "express";
 import rateLimit from "express-rate-limit";
 import { z } from "zod";
+import type { RenameError } from "../../derpland/Names"; // NAMES (r20)
 import { finalizeGameRecord } from "../Archive";
 import { logger } from "../Logger";
 import { setNoStoreHeaders } from "../NoStoreHeaders";
@@ -37,6 +38,7 @@ import {
   recordDerpyGame,
   savedGameRecord,
 } from "./DerpyGames";
+import { checkName, nameStatus, renameAccount } from "./DerpyNames"; // NAMES (r20)
 import { liveGames } from "./LiveGames"; // SITE (r19)
 
 const log = logger.child({ component: "DerpyApi" });
@@ -53,6 +55,18 @@ const AUTH_ERROR_STATUS: Record<AuthError, number> = {
   invalid_password: 400,
   username_taken: 409,
   wrong_password: 401,
+};
+
+// NAMES (r20)
+const RENAME_ERROR_STATUS: Record<RenameError, number> = {
+  invalid_username: 400,
+  same_name: 400,
+  username_taken: 409,
+  username_held: 409,
+  username_reserved: 409,
+  too_soon: 429,
+  accounts_unavailable: 503,
+  server_error: 500,
 };
 
 function bearer(req: Request): string {
@@ -173,6 +187,64 @@ export function derpyApiRouter(): express.Router {
       res.json({
         account: { username: account.username, coins: account.coins },
         owned: await ownedItems(account.id),
+      });
+    }),
+  );
+
+  // NAMES (r20): changing your username. Where you stand (when you last
+  // changed it, when you next may), the form's live check, and the change.
+  // The session token holds no name, so it stays good through a change.
+  const renameLimiter = rateLimit({ windowMs: 60_000, limit: 10 });
+  const checkLimiter = rateLimit({ windowMs: 60_000, limit: 90 });
+
+  router.get(
+    "/username",
+    requireAccount(async (req, res) => {
+      res.json(await nameStatus(req.derpy!.account.id));
+    }),
+  );
+
+  router.get(
+    "/username/check",
+    checkLimiter,
+    requireAccount(async (req, res) => {
+      const name = String(req.query.name ?? "").slice(0, 100);
+      res.json(await checkName(name, req.derpy!.account.id));
+    }),
+  );
+
+  router.post(
+    "/username",
+    renameLimiter,
+    json,
+    requireAccount(async (req, res) => {
+      const body = z
+        .object({ username: z.string().max(100) })
+        .safeParse(req.body);
+      if (!body.success) {
+        res.status(400).json({ error: "invalid_username" });
+        return;
+      }
+      const result = await renameAccount(
+        req.derpy!.account.id,
+        body.data.username,
+      );
+      if (!result.ok) {
+        const { error, nextChangeAt } = result;
+        res
+          .status(RENAME_ERROR_STATUS[error])
+          .json(nextChangeAt ? { error, nextChangeAt } : { error });
+        return;
+      }
+      log.info("username changed", { account: req.derpy!.account.id });
+      res.json({
+        account: { username: result.username, coins: result.coins },
+        username: result.username,
+        changedAt: result.changedAt,
+        nextChangeAt: result.nextChangeAt,
+        canChange: result.canChange,
+        heldName: result.heldName,
+        heldUntil: result.heldUntil,
       });
     }),
   );

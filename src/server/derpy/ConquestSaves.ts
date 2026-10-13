@@ -85,6 +85,19 @@ export async function saveConquest(
   );
 }
 
+/**
+ * NAMES (r20): the seats with each signed-in player's name as their account
+ * is called now, read live by id (a renamed player's saved games show the
+ * new name, however the copy in the row was last written).
+ */
+const LIVE_SEATS = `COALESCE((
+  SELECT jsonb_agg(CASE WHEN a.username IS NULL THEN t.e
+                   ELSE jsonb_set(t.e, '{name}', to_jsonb(a.username)) END
+                   ORDER BY t.i)
+  FROM jsonb_array_elements(derpy_conquest_saves.seats) WITH ORDINALITY AS t(e, i)
+  LEFT JOIN derpy_accounts a ON a.id = (t.e->>'accountId')::bigint
+), '[]'::jsonb) AS seats`;
+
 function rowOf(r: Record<string, unknown>): SaveRow {
   return {
     id: r.game_id as string,
@@ -109,7 +122,7 @@ export async function savesFor(
   const res = await (
     await db()
   ).query(
-    `SELECT game_id, title, year, seats, updated_at, owner, over, version
+    `SELECT game_id, title, year, ${LIVE_SEATS}, updated_at, owner, over, version
      FROM derpy_conquest_saves
      WHERE $1 = ANY(accounts) AND NOT ($1 = ANY(hidden)) AND NOT over AND version = $2
      ORDER BY updated_at DESC LIMIT 20`,
@@ -129,7 +142,7 @@ export async function finishedFor(
   const res = await (
     await db()
   ).query(
-    `SELECT game_id, title, year, seats, updated_at, owner, over, version
+    `SELECT game_id, title, year, ${LIVE_SEATS}, updated_at, owner, over, version
      FROM derpy_conquest_saves
      WHERE $1 = ANY(accounts) AND NOT ($1 = ANY(hidden)) AND (over OR version <> $2)
      ORDER BY updated_at DESC LIMIT 40`,
@@ -145,7 +158,7 @@ export async function saveInfo(
   const res = await (
     await db()
   ).query(
-    `SELECT game_id, title, year, seats, updated_at, owner, over, version, accounts
+    `SELECT game_id, title, year, ${LIVE_SEATS}, updated_at, owner, over, version, accounts
      FROM derpy_conquest_saves WHERE game_id = $1`,
     [id],
   );
@@ -206,7 +219,7 @@ export async function loadConquest(id: string): Promise<{
   const res = await (
     await db()
   ).query(
-    `SELECT title, seats, state, over, owner FROM derpy_conquest_saves WHERE game_id = $1`,
+    `SELECT title, ${LIVE_SEATS}, state, over, owner FROM derpy_conquest_saves WHERE game_id = $1`,
     [id],
   );
   const r = res.rows[0];
@@ -214,9 +227,19 @@ export async function loadConquest(id: string): Promise<{
   const state = JSON.parse(
     gunzipSync(r.state as Buffer).toString(),
   ) as GameState;
+  const seats = r.seats as SavedSeat[];
+  // NAMES (r20): each signed-in player's life carries their name as it is
+  // now (the players' list, the story at the end). Only the player's name:
+  // the characters they play keep theirs.
+  for (const life of state.lives ?? []) {
+    const seat = seats.find(
+      (s) => s.seat === life.seat && s.accountId !== null,
+    );
+    if (seat && life.name !== seat.name) life.name = seat.name;
+  }
   return {
     title: r.title,
-    seats: r.seats as SavedSeat[],
+    seats,
     state,
     over: r.over,
     owner: r.owner === null || r.owner === undefined ? null : Number(r.owner),
