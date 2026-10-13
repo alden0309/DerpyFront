@@ -20,7 +20,12 @@ import {
   takenHow,
 } from "../../src/conquest/engine/Hooks";
 import { endRising, rise } from "../../src/conquest/engine/Movements";
-import { atWar, warBetween } from "../../src/conquest/engine/Queries";
+import {
+  atWar,
+  provincesOf,
+  warBetween,
+  warScore,
+} from "../../src/conquest/engine/Queries";
 import {
   formPlot,
   INFORM,
@@ -369,6 +374,21 @@ describe("reconquest", () => {
     // The Muscogee held it three years among Spanish townsfolk: a weak claim at most.
     const theirs = claimOf(g.s, muscogee, SA);
     expect(theirs ? claimLive(g.s, theirs).total : 0).toBeLessThan(CLAIM.war);
+  });
+
+  test("a winner holding a capital they won't give up makes peace without it, rather than fight on for ever", () => {
+    const { g, england, muscogee } = augustine();
+    const cap = g.s.nations[muscogee].capital;
+    expect(provincesOf(g.s, muscogee).length).toBeGreaterThan(1);
+    startWar(g, england, muscogee, "test", false);
+    const war = warBetween(g.s, england, muscogee)!;
+    war.start = g.s.day - 40 * 30;
+    war.won[war.a === england ? 0 : 1] = 10;
+    g.prov(cap).occupier = england;
+    expect(warScore(g.s, war, england).total).toBeGreaterThanOrEqual(25);
+    runAi(g, england);
+    expect(atWar(g.s, england, muscogee)).toBe(false);
+    expect(g.s.provinces[cap].owner).toBe(muscogee);
   });
 });
 
