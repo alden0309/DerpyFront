@@ -230,6 +230,17 @@ export function loanState(g: ConquestGame): LoanState {
   return s.loans;
 }
 
+/**
+ * A new bond's number. Bonds keep their own count (not the game's ids), so
+ * a bond made changes no one else's number, and the world's luck runs on.
+ */
+export function newLoanId(g: ConquestGame): number {
+  const st = loanState(g);
+  const id = st.next ?? 1 + st.list.reduce((m, l) => Math.max(m, l.id), 0);
+  st.next = id + 1;
+  return id;
+}
+
 /** Read-only, for queries (and the browser). */
 export function loansOf(s: GameState): Loan[] {
   return s.loans?.list ?? [];

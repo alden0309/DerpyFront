@@ -4489,6 +4489,8 @@ export interface Loan {
 /** Every bond in the game (players' own; the computer's people's between themselves aren't kept). */
 export interface LoanState {
   list: Loan[];
+  /** The next bond's number: bonds count on their own, so making one moves nothing else's. */
+  next?: number;
 }
 
 /** Leave from your work, or a county office. */

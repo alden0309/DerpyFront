@@ -51,6 +51,11 @@ function oddsChip(
   >`;
 }
 
+/** On leave from your place, or over it: the leave's line says how it stands, not the days away. */
+export function leaveCounts(ui: GameUi): boolean {
+  return !!ui.life && !!leaveFor(ui.s, ui.life, "job");
+}
+
 /** Work › Your work: leave from your place. */
 export function leaveBlock(ui: GameUi): TemplateResult | typeof nothing {
   const s = ui.s;

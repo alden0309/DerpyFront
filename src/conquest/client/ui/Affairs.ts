@@ -123,7 +123,7 @@ import {
   provLink,
   section,
 } from "./Context";
-import { leaveBlock } from "./LeaveUi"; // ECON (r17)
+import { leaveBlock, leaveCounts } from "./LeaveUi"; // ECON (r17)
 import { forecastBlock } from "./Ledger"; // LEDGER (r15)
 import { tradesLink, workNotes } from "./Livelihood";
 import { price } from "./Price"; // LEDGER (r15)
@@ -205,14 +205,16 @@ export function workSection(ui: GameUi): TemplateResult {
         </div>
         ${workNotes(ui)}
         <p class="cq-work-note small">
-          ${!here && job.army < 0
-            ? html`<span class="cq-warn"
-                >Away from your post: ${job.awayDays ?? 0} of ${AWAY_DAYS} days
-                before you're let go.</span
-              >`
-            : job.army >= 0
-              ? "With the army: your post goes where it goes."
-              : "At your post."}
+          ${!here && job.army < 0 && leaveCounts(ui) /* ECON (r17) */
+            ? "Away from your post."
+            : !here && job.army < 0
+              ? html`<span class="cq-warn"
+                  >Away from your post: ${job.awayDays ?? 0} of ${AWAY_DAYS}
+                  days before you're let go.</span
+                >`
+              : job.army >= 0
+                ? "With the army: your post goes where it goes."
+                : "At your post."}
         </p>
         ${leaveBlock(ui) /* ECON (r17): leave from your place */}
         ${servant

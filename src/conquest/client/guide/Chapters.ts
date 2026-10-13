@@ -1429,7 +1429,7 @@ Their card lists what you could do, each with its verdict before you try: **will
 | Friendly | Talk; flatter; give a gift; offer friendship; ask them to teach you their trade; take lessons in their tongue |
 | Romance | Court (in secret, if either of you is married); propose marriage; meet in secret (lovers) |
 | Work | Ask for work; ask for promotion; hand in your notice; offer them work at your business; seek an appointment to an office in their gift |
-| Favours | Borrow money (a fifth again within the year); ask for patronage; grease their palm |
+| Favours | Borrow money (on bond, at the lawful rate); ask for patronage; grease their palm |
 | Causes | Recruit them to your cause; join theirs; ask them to come to your settlement |
 | Hostile | Insult; spread a rumour; challenge to a duel; pry into their affairs; blackmail |
 
@@ -1954,7 +1954,7 @@ ${billsTable()}
     body: `## Who comes to trial
 - **You**, for a crime: taken up by the watch, you wait in the gaol for the sessions ([[crime|Crime and the law]]).
 - **Someone you accuse**: a constable brings people before the justices, a churchwarden presents sinners, the attorney general prosecutes for the crown, and anyone who knows another's secret (a crime, adultery, a child out of wedlock) can bring them to court (Society › Office).
-- **A debtor**: a debt left unpaid twice over (six months) brings the lender's suit: the debtors' prison and your goods seized.
+- **A debtor**: a bond that can't be paid, when the lender sues for it ([[econ|Bonds]]): judgment for what can be had, the debtors' prison, and what's left stands six months more.
 - **A duel's survivor**: a death at dawn may bring a trial for manslaughter.
 - **A printer**, for libel (a person attacked in print sues) or seditious libel (the governor prosecutes) ([[press|Newspapers]]).
 - **A councillor** in disgrace, for corruption.

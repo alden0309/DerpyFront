@@ -389,12 +389,14 @@ const GOALS: Goal[] = [
   {
     id: "debts",
     title: "Borrow or repay money",
-    words: "loan debt borrow repay owe lend",
+    // ECON (r17): a loan is a bond now, kept in the ledger.
+    words: "loan debt borrow repay owe lend bond credit interest lender",
     group: "Money and home",
     where:
-      "Borrow from someone who likes you (their card: Borrow money). What you owe, and Repay, are on Estate › Goods.",
-    go: tab({ k: "tab", tab: "estate", sub: "goods" }),
-    guide: "money",
+      "Anyone's card › Money between you › Borrow money… (the window says whether they'd lend it, and why), or by letter: Society › Letters, Ask a favour. What you owe, and Repay, are on Estate › Ledger › Bonds.",
+    go: tab({ k: "tab", tab: "estate", sub: "ledger" }),
+    goLabel: "Estate › Ledger",
+    guide: "econ",
   },
   {
     id: "endow",
@@ -2030,18 +2032,6 @@ const GOALS: Goal[] = [
     ],
     go: tab({ k: "tab", tab: "estate", sub: "ledger" }),
     goLabel: "Estate › Ledger",
-    guide: "econ",
-  },
-  {
-    id: "econ-borrow",
-    title: "Borrow money",
-    words: "borrow loan money bond credit debt owe interest lender",
-    group: "Money and home",
-    where:
-      "Anyone's card › Money between you › Borrow money… (the window says whether they'd lend it, and why), or by letter: Society › Letters, Ask a favour. A bond at the lawful rate, repaid by its day or sooner.",
-    needs: (ui) => [adult(ui)],
-    go: tab({ k: "tab", tab: "people" }),
-    goLabel: "People",
     guide: "econ",
   },
   {

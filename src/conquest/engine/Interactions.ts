@@ -82,7 +82,7 @@ import {
   wouldBeAffair,
 } from "./Liaisons";
 import { bondBetween, owing } from "./LoanCore"; // ECON (r17)
-import { bondMade, note as bondNote, bondWords } from "./Loans"; // ECON (r17)
+import { bondMade, note as bondNote, bondTerms } from "./Loans"; // ECON (r17)
 import {
   appointerOf,
   eligible,
@@ -1344,7 +1344,7 @@ export function doInteraction(
       bondNote(
         g,
         life,
-        `${name} lends you ${amount} coins on ${bondWords(bond)}.`,
+        `${name} lends you ${amount} coins on ${bondTerms(bond)}.`,
       );
       return null;
     }

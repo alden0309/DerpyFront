@@ -588,6 +588,45 @@ describe("ECON r17: bonds", () => {
     const g3 = new ConquestGame(map, JSON.parse(JSON.stringify(g2.s)));
     expect(loansOf(g3.s).find((x) => x.id === l2!.id)?.owed).toBe(20);
   });
+
+  test("bonds count on their own: making one moves nobody else's number, nor the world's dice", () => {
+    const { g, life } = game(7);
+    const c = townsman(g, life, (x) => x.role !== undefined);
+    const next = g.s.nextId;
+    const rng = g.s.rng;
+    const a = makeLoan(g, {
+      lender: life.c,
+      borrower: c.id,
+      sum: 10,
+      months: 12,
+      rate: 0.06,
+      how: "bond",
+    });
+    const b = makeLoan(g, {
+      lender: c.id,
+      borrower: life.c,
+      sum: 5,
+      months: 6,
+      rate: 0.06,
+      how: "bond",
+    });
+    expect(g.s.nextId).toBe(next);
+    expect(g.s.rng).toBe(rng);
+    expect(b.id).toBe(a.id + 1);
+    // A save from before the count was kept goes on from its highest bond.
+    const saved = JSON.parse(JSON.stringify(g.s)) as GameState;
+    delete saved.loans!.next;
+    const g2 = new ConquestGame(map, saved);
+    const c2 = makeLoan(g2, {
+      lender: life.c,
+      borrower: c.id,
+      sum: 5,
+      months: 6,
+      rate: 0,
+      how: "friend",
+    });
+    expect(c2.id).toBe(b.id + 1);
+  });
 });
 
 // ---------------------------------------------------------------- leave

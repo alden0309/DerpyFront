@@ -1527,6 +1527,9 @@ export const TALES: LifeEventDef[] = [
           spend(g, life, 10);
           like(g, life, ctx, "Made me sign a note", -5);
           lendNote(g, life, ctx.c, 10);
+          // The roll that once said whether it came back, kept so the
+          // world's dice fall as they did before.
+          g.rng.next();
         },
       },
       {

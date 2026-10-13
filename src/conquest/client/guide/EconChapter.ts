@@ -41,10 +41,10 @@ function usuryTable(): string {
     u.from === 1607 && u.to === 1776
       ? "always"
       : u.from === 1607
-        ? `to ${u.to}`
+        ? `to\u00a0${u.to}`
         : u.to === 1776
-          ? `from ${u.from}`
-          : `${u.from} to ${u.to}`;
+          ? `from\u00a0${u.from}`
+          : `${u.from} to\u00a0${u.to}`;
   const rows = USURY.map(
     (u) =>
       `| ${u.where} | ${when(u)} | ${Math.round(u.rate * 100)} in 100 a year | ${u.text.replace(/:.*$/, "")} |`,

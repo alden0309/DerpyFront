@@ -50,6 +50,7 @@ import {
   loansOf,
   loanState,
   monthInterest,
+  newLoanId,
   owedNow,
   owing,
   rateWords,
@@ -84,6 +85,11 @@ const MONTH = 30.4;
 /** "a bond for 20 coins at 6 in 100 a year, due 12 May 1701". */
 export function bondWords(l: Loan): string {
   return `${l.how === "note" ? "a note of hand" : "a bond"} for ${r1(l.sum)} coins at ${rateWords(l.rate)}, due ${formatDate(l.due)}`;
+}
+
+/** "bond at 6 in 100 a year, due 1 January 1703": after a sum already named. */
+export function bondTerms(l: Loan): string {
+  return `${l.how === "note" ? "a note of hand" : "bond"} at ${rateWords(l.rate)}, due ${formatDate(l.due)}`;
 }
 
 /** Who someone is, by name. */
@@ -506,7 +512,7 @@ export function makeLoan(
   const bl = lifeOfChar(s, o.borrower);
   const made = o.made ?? s.day;
   const l: Loan = {
-    id: g.nextId(),
+    id: newLoanId(g),
     lender: o.lender,
     borrower: o.borrower,
     ...(ll ? { ls: ll.seat } : {}),
@@ -563,12 +569,12 @@ function begin(g: ConquestGame, l: Loan): string | null {
   note(
     g,
     ll,
-    `You lend ${nameOf(s, l.borrower)} ${r1(l.sum)} coins: ${bondWords(l)}.`,
+    `You lend ${nameOf(s, l.borrower)} ${r1(l.sum)} coins on ${bondTerms(l)}.`,
   );
   note(
     g,
     bl,
-    `${nameOf(s, l.lender)} lends you ${r1(l.sum)} coins: ${bondWords(l)}.`,
+    `${nameOf(s, l.lender)} lends you ${r1(l.sum)} coins on ${bondTerms(l)}.`,
     "good",
   );
   // They remember it was a kindness, and more so without interest.
@@ -720,7 +726,7 @@ export function lendFriend(
   note(
     g,
     life,
-    `You lend ${nameOf(g.s, c)} ${r1(sum)} coins: ${bondWords(l)}.`,
+    `You lend ${nameOf(g.s, c)} ${r1(sum)} coins on ${bondTerms(l)}.`,
   );
   return l;
 }
@@ -737,7 +743,7 @@ export function lendNote(
   note(
     g,
     life,
-    `${nameOf(g.s, c)} signs a note of hand for ${r1(sum)} coins: ${bondWords(l)}.`,
+    `${nameOf(g.s, c)} signs a note of hand for ${r1(sum)} coins, at ${rateWords(l.rate)}, due ${formatDate(l.due)}.`,
   );
   return l;
 }
@@ -807,6 +813,8 @@ function settle(
   l: Loan,
   pay: number,
   how: "paid" | "kind" | "judgment",
+  /** The lender has been told already, in the caller's own words. */
+  told = false,
 ): void {
   const s = g.s;
   const ll = lenderLife(s, l);
@@ -851,12 +859,13 @@ function settle(
         `You repay ${nameOf(s, l.lender)} the last of your bond: ${r1(pay)} coins.`,
         "good",
       );
-      note(
-        g,
-        ll,
-        `${nameOf(s, l.borrower)} repays ${bl ? "" : "you "}the bond${early ? " before its day" : ""}: ${r1(pay)} coins.`,
-        "good",
-      );
+      if (!told)
+        note(
+          g,
+          ll,
+          `${nameOf(s, l.borrower)} repays ${bl ? "" : "you "}the bond${early ? " before its day" : ""}: ${r1(pay)} coins.`,
+          "good",
+        );
       minds(
         g,
         bl,
@@ -928,7 +937,7 @@ function fallsDue(g: ConquestGame, l: Loan): void {
         `${nameOf(s, l.borrower)} comes to pay the bond on its day: ${r1(owedNow(l))} coins.`,
         "good",
       );
-      settle(g, l, owedNow(l), "paid");
+      settle(g, l, owedNow(l), "paid", true);
       return;
     }
   }
@@ -1004,7 +1013,7 @@ export function callIn(
       `You call in ${nameOf(s, l.borrower)}'s bond, and ${s.chars[l.borrower]?.female ? "she" : "he"} pays: ${r1(owedNow(l))} coins.`,
       "good",
     );
-    settle(g, l, owedNow(l), "paid");
+    settle(g, l, owedNow(l), "paid", true);
     return null;
   }
   if (u < o.pay + o.time) {
@@ -1173,7 +1182,7 @@ export function answerTime(
       `${nameOf(s, l.borrower)} finds the money after all: ${r1(owedNow(l))} coins.`,
       "good",
     );
-    settle(g, l, owedNow(l), "paid");
+    settle(g, l, owedNow(l), "paid", true);
   } else {
     note(g, life, `${nameOf(s, l.borrower)} can't pay.`, "bad");
     defaults(g, l);
@@ -1602,7 +1611,7 @@ function loansMonthly(g: ConquestGame, life: Life): void {
           `${nameOf(s, l.borrower)} comes to repay the bond${s.day < l.due ? " before its day" : ""}: ${r1(owedNow(l))} coins.`,
           "good",
         );
-        settle(g, l, owedNow(l), "paid");
+        settle(g, l, owedNow(l), "paid", true);
       }
     }
   }

@@ -845,6 +845,9 @@ export function planPicker(
     soldHere(s, w, from, g),
   );
   const dests = [-1, ...companyDests(w, s, from)];
+  // ECON (r17): a line already running to a farther port keeps it in the list.
+  if (plan.to >= 0 && from === plan.from && !dests.includes(plan.to))
+    dests.push(plan.to);
   return html`<div class="cq-co-plan">
     <label class="cq-field"
       ><span>The goods</span>

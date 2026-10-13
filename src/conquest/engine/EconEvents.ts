@@ -24,7 +24,7 @@ import {
   answerOffer,
   answerTime,
   askTime,
-  bondWords,
+  bondTerms,
   callIn,
   cantPay,
   courtFor,
@@ -81,7 +81,7 @@ const LOAN_SCENES: LifeEventDef[] = [
     body: (g, _life, ctx) => {
       const l = loanOf(g, ctx);
       if (!l) return "The offer has lapsed.";
-      return `${nm(g.s, l.lender)} offers to lend you ${r1(l.sum)} coins on ${bondWords(l)}: interest of ${monthInterest(l)} a month, and the sum repaid at its day (or before, whenever you like).`;
+      return `${nm(g.s, l.lender)} offers to lend you ${r1(l.sum)} coins on ${bondTerms(l)}: interest of ${monthInterest(l)} a month, and the sum repaid at its day (or before, whenever you like).`;
     },
     choices: [
       {
@@ -111,7 +111,7 @@ const LOAN_SCENES: LifeEventDef[] = [
     body: (g, _life, ctx) => {
       const l = loanOf(g, ctx);
       if (!l) return "The request has lapsed.";
-      return `${nm(g.s, l.borrower)} asks you to lend ${him(g.s, l.borrower)} ${r1(l.sum)} coins on ${bondWords(l)}. You'd have ${monthInterest(l)} a month in interest, and the sum at its day; ${he(g.s, l.borrower)} may repay sooner.`;
+      return `${nm(g.s, l.borrower)} asks you to lend ${him(g.s, l.borrower)} ${r1(l.sum)} coins on ${bondTerms(l)}. You'd have ${monthInterest(l)} a month in interest, and the sum at its day; ${he(g.s, l.borrower)} may repay sooner.`;
     },
     choices: [
       {
