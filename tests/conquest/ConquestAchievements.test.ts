@@ -26,7 +26,8 @@ describe("achievements (MAP r12)", () => {
     );
     for (const a of ACHIEVEMENTS) {
       expect(a.coins).toBeGreaterThanOrEqual(1);
-      expect(a.coins).toBeLessThanOrEqual(5);
+      // SITE (r19): a fifth more than before (5 became 6).
+      expect(a.coins).toBeLessThanOrEqual(6);
       expect(a.how).toMatch(/\.$/);
     }
     for (const g of ACHIEVEMENT_GROUPS)

@@ -17,18 +17,23 @@ import {
 /** Games shorter than this pay nothing, so quitting straight away isn't a farm. */
 export const DERP_COINS_MIN_GAME_SECONDS = 120;
 
+// SITE (r19): every part raised by about a fifth (a little more, not a lot).
+// Fixed amounts of 3 or more went up by at least 1; rates went up 20% and
+// their products are rounded down. Before: played 5, 0.5 a percent of land
+// (up to 50), 3 a conquest and 1 a bot (up to 30), a coin per 500k gold (up
+// to 20), MVP 25, other awards 10, a win 50.
 export const DERP_COINS = {
-  played: 5,
-  perTerritoryPercent: 0.5,
-  maxTerritory: 50,
-  perConquest: 3,
-  perBotConquest: 1,
-  maxConquests: 30,
-  goldPerCoin: 500_000n,
-  maxGold: 20,
-  mvp: 25,
-  otherAward: 10,
-  win: 50,
+  played: 6,
+  perTerritoryPercent: 0.6,
+  maxTerritory: 60,
+  perConquest: 4,
+  perBotConquest: 1.2,
+  maxConquests: 36,
+  goldPerCoin: 420_000n,
+  maxGold: 24,
+  mvp: 30,
+  otherAward: 12,
+  win: 60,
 } as const;
 
 export type DerpCoinLine =
@@ -71,8 +76,10 @@ export function derpCoinsForGame(g: DerpCoinGame): DerpCoinResult {
   );
   const conquests = Math.min(
     DERP_COINS.maxConquests,
-    g.humansAndNationsConquered * DERP_COINS.perConquest +
-      g.botsConquered * DERP_COINS.perBotConquest,
+    Math.floor(
+      g.humansAndNationsConquered * DERP_COINS.perConquest +
+        g.botsConquered * DERP_COINS.perBotConquest,
+    ),
   );
   const gold = Math.min(
     DERP_COINS.maxGold,

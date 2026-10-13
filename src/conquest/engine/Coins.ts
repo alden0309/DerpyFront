@@ -1,7 +1,8 @@
 // Derp Coins for a line of lives in Derpy Conquest. The server pays this and
 // the end screen shows it, so it's the whole rulebook. Totals land where the
 // old governor's game did (it was deliberately tuned down): a short life
-// pays a handful, a dynasty that rose high pays a few dozen.
+// pays a handful, a dynasty that rose high pays a few dozen. SITE (r19): a
+// fifth more on every line (LIFE_COINS), each line rounded down.
 
 import { LIFE_COINS } from "./LifeRules";
 import type { Life } from "./Types";
@@ -24,7 +25,7 @@ export function lifeCoins(life: Life, reached1776: boolean): CoinResult {
     },
     {
       line: "Rose in a trade",
-      coins: Math.min(c.maxRank, t.topRank * c.perRank),
+      coins: Math.min(c.maxRank, Math.floor(t.topRank * c.perRank)),
     },
     {
       line:
@@ -52,7 +53,7 @@ export function lifeCoins(life: Life, reached1776: boolean): CoinResult {
     },
     {
       line: "Battles won",
-      coins: Math.min(c.maxBattles, t.battlesWon * c.perBattleWon),
+      coins: Math.min(c.maxBattles, Math.floor(t.battlesWon * c.perBattleWon)),
     },
     { line: "A rising that won", coins: t.risingsWon > 0 ? c.risingWon : 0 },
     { line: "Went to Europe", coins: t.europe ? c.europe : 0 },

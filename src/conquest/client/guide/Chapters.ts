@@ -2269,6 +2269,8 @@ Reaching ${END_YEAR} with a character still living is worth coins of its own.`,
 | Going to Europe | ${LIFE_COINS.europe} |
 | Living to see ${END_YEAR} | ${LIFE_COINS.reached1776} |
 
+Each line is rounded down to a whole coin.
+
 ## Achievements
 Besides what a line earns at the end, there are ${ACHIEVEMENTS.length} **achievements**, marks of a life across everything in the game (your first job to living to see ${END_YEAR}, the native peoples' own paths, the seasons). Each pays a few Derp Coins (${ACHIEVEMENT_COINS} for all of them) **the first time your account earns it, and never again**: earning it in another game, or the same game played again, pays nothing. They're paid the moment they're earned, with a scene to say so, if you're signed in to Derp Land; a guest is told, but not paid. **Journal › Achievements** has them all: on your account (and when), earned in this game, and how to earn the rest. Your Derp Land profile shows the ones you've earned.
 

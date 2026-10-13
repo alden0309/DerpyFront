@@ -2020,25 +2020,32 @@ export function clanName(clan: string): string {
 
 // ---------------------------------------------------------------- coins
 
-/** Derp Coins for a seat's line. Tuned to land where the old game did. */
+/**
+ * Derp Coins for a seat's line. Tuned to land where the old game did, then
+ * (SITE r19) raised by about a fifth: amounts of 3 or more by at least 1,
+ * rates by 20% (each line rounded down). Before: played 5, 2 per ten years
+ * (up to 12), 2 a rung (up to 14), office 4/8/15, 1 per ten renown (up to
+ * 12), 3 a generation (up to 12), 0.5 a child (up to 5), 1 a battle (up to
+ * 10), a rising 8, Europe 6, 1776 5.
+ */
 export const LIFE_COINS = {
   /** Game days a seat must have played for coins at all. */
   minDays: 730,
-  played: 5,
-  perTenYears: 2,
-  maxYears: 12,
-  perRank: 2,
-  maxRank: 14,
-  office: [0, 4, 8, 15] as readonly number[],
-  perTenRenown: 1,
-  maxRenown: 12,
-  perGeneration: 3,
-  maxGenerations: 12,
-  perChild: 0.5,
-  maxChildren: 5,
-  perBattleWon: 1,
-  maxBattles: 10,
-  risingWon: 8,
-  europe: 6,
-  reached1776: 5,
+  played: 6,
+  perTenYears: 2.4,
+  maxYears: 14,
+  perRank: 2.4,
+  maxRank: 17,
+  office: [0, 5, 10, 18] as readonly number[],
+  perTenRenown: 1.2,
+  maxRenown: 14,
+  perGeneration: 4,
+  maxGenerations: 14,
+  perChild: 0.6,
+  maxChildren: 6,
+  perBattleWon: 1.2,
+  maxBattles: 12,
+  risingWon: 10,
+  europe: 7,
+  reached1776: 6,
 } as const;
