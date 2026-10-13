@@ -18,9 +18,9 @@ export type Expr =
     };
 
 export interface CastMember {
-  /** As written in the script: BASED, ANSELME... */
+  /** As written in the script: BASED, BARMAN... */
   id: string;
-  /** As shown: "Mr. Based", "Anselme". */
+  /** As shown: "Mr. Based", "The barman". */
   name: string;
   /** Art key of their framed portrait, if they have one. */
   portrait?: string;

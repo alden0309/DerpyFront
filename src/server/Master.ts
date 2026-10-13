@@ -48,7 +48,8 @@ app.use("/derpy/api", derpyApiRouter());
 app.use(express.json());
 
 // Derp Land's pages: the hub at the root (and its Store, Inventory,
-// Leaderboard, account and player pages), Derpy Conquest at /conquest.
+// Leaderboard, account and player pages), Derpy Conquest at /conquest, and
+// Mr. Based at /based.
 // DerpyFront is the app shell every other path falls back to (below), so
 // /derpyfront and its game links (/game/<id>) keep working.
 const PAGES: Record<string, string> = {
@@ -59,6 +60,10 @@ const PAGES: Record<string, string> = {
   "/account": "derpland.html",
   "/conquest": "conquest.html",
   "/conquest/": "conquest.html",
+  // BASED (r19): Mr. Based. The page is the same for everyone; its story
+  // only comes from /derpy/api/based, to the accounts allowed to play.
+  "/based": "based.html",
+  "/based/": "based.html",
 };
 app.use(async (req, res, next) => {
   const page =

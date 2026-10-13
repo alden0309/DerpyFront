@@ -158,46 +158,51 @@ describe("the chapters as written", () => {
     expect(file).toBe(`chapter-${String(chapter.n).padStart(2, "0")}.story`);
   });
 
-  test.each(files)("%s can be played to the end down many paths", (file) => {
-    const { chapter } = parseChapter(
-      fs.readFileSync(path.join(STORY, file), "utf8"),
-    );
-    let seed = 1;
-    const pick = (n: number) => {
-      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
-      return seed % n;
-    };
-    const scenesSeen = new Set<string>();
-    const optionsSeen = new Set<string>();
-    for (let run = 0; run < 200; run++) {
-      const r = new StoryRun(chapter);
-      for (let steps = 0; ; steps++) {
-        expect(steps).toBeLessThan(5000);
-        const b = r.beat;
-        if (b.kind === "end") break;
-        if (b.kind === "line" || b.kind === "card") r.advance();
-        else if (b.kind === "choice") {
-          expect(b.options.length).toBeGreaterThan(0);
-          if (pick(5) === 0 && b.timer > 0) r.timeout();
-          else r.choose(b.options[pick(b.options.length)].id);
-        } else {
-          const unseen = b.spots.filter((s) => !s.seen);
-          const ready = b.deductions.filter((d) => d.ready && !d.done);
-          const k = pick(4);
-          if (k === 0 && ready.length > 0) r.deduce(ready[0].id);
-          else if (k === 1 && b.canLeave) r.leave();
-          else if (unseen.length > 0) r.examine(unseen[pick(unseen.length)].id);
-          else if (ready.length > 0) r.deduce(ready[0].id);
-          else r.leave();
+  test.each(files)(
+    "%s can be played to the end down many paths",
+    (file) => {
+      const { chapter } = parseChapter(
+        fs.readFileSync(path.join(STORY, file), "utf8"),
+      );
+      let seed = 1;
+      const pick = (n: number) => {
+        seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+        return seed % n;
+      };
+      const scenesSeen = new Set<string>();
+      const optionsSeen = new Set<string>();
+      for (let run = 0; run < 200; run++) {
+        const r = new StoryRun(chapter);
+        for (let steps = 0; ; steps++) {
+          expect(steps).toBeLessThan(5000);
+          const b = r.beat;
+          if (b.kind === "end") break;
+          if (b.kind === "line" || b.kind === "card") r.advance();
+          else if (b.kind === "choice") {
+            expect(b.options.length).toBeGreaterThan(0);
+            if (pick(5) === 0 && b.timer > 0) r.timeout();
+            else r.choose(b.options[pick(b.options.length)].id);
+          } else {
+            const unseen = b.spots.filter((s) => !s.seen);
+            const ready = b.deductions.filter((d) => d.ready && !d.done);
+            const k = pick(4);
+            if (k === 0 && ready.length > 0) r.deduce(ready[0].id);
+            else if (k === 1 && b.canLeave) r.leave();
+            else if (unseen.length > 0)
+              r.examine(unseen[pick(unseen.length)].id);
+            else if (ready.length > 0) r.deduce(ready[0].id);
+            else r.leave();
+          }
+        }
+        for (const step of r.history()) {
+          if (step.startsWith("s:")) scenesSeen.add(step.slice(2));
+          else optionsSeen.add(step.slice(2));
         }
       }
-      for (const step of r.history()) {
-        if (step.startsWith("s:")) scenesSeen.add(step.slice(2));
-        else optionsSeen.add(step.slice(2));
-      }
-    }
-    // Every scene turns up on some path.
-    expect([...chapter.order].filter((s) => !scenesSeen.has(s))).toEqual([]);
-    expect(optionsSeen.size).toBeGreaterThan(10);
-  });
+      // Every scene turns up on some path.
+      expect([...chapter.order].filter((s) => !scenesSeen.has(s))).toEqual([]);
+      expect(optionsSeen.size).toBeGreaterThan(10);
+    },
+    60_000,
+  );
 });

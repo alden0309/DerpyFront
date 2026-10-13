@@ -1,6 +1,6 @@
 // Derp Land's database: accounts, sessions, saved DerpyFront games (for
 // stats and replays), Derpy Conquest results, saved campaigns and
-// achievements, and store purchases, in the
+// achievements, store purchases, and Mr. Based's saves and notes, in the
 // Postgres that DATABASE_URL points at
 // (a free Neon database on the hosted site). Without DATABASE_URL the game
 // still runs; accounts and the store just say they aren't set up.
@@ -189,6 +189,36 @@ CREATE TABLE IF NOT EXISTS derpy_conquest_achievements (
   earned_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (account_id, key)
 );
+
+-- BASED (r19): Mr. Based, the story game. Each player's save (where to
+-- continue, checkpoints, what they've seen of each chapter), the option they
+-- last picked at each choice (for the flowchart's shares), and notes left
+-- for the writer on a scene.
+CREATE TABLE IF NOT EXISTS derpy_based_saves (
+  account_id BIGINT PRIMARY KEY REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  save JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS derpy_based_picks (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  chapter INTEGER NOT NULL,
+  choice TEXT NOT NULL,
+  option TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, chapter, choice)
+);
+CREATE TABLE IF NOT EXISTS derpy_based_notes (
+  id BIGSERIAL PRIMARY KEY,
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  chapter INTEGER NOT NULL,
+  scene TEXT NOT NULL,
+  line TEXT NOT NULL DEFAULT '',
+  path JSONB NOT NULL DEFAULT '[]',
+  note TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS derpy_based_notes_scene
+  ON derpy_based_notes (chapter, scene);
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two

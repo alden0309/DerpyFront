@@ -1,0 +1,148 @@
+/* BASED (r19): Mr. Based's card on the Derp Land home: a strip of film
+   under the two game boxes. */
+
+.dl-based {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  min-height: 300px;
+  margin: -24px 0 48px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: #07090d;
+  color: #ece6da;
+  text-decoration: none;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+.dl-based:hover {
+  border-color: rgba(224, 164, 88, 0.45);
+  transform: translateY(-2px);
+}
+.dl-based:focus-visible {
+  outline: 2px solid #f5cc3c;
+  outline-offset: 4px;
+}
+.dl-based-art {
+  position: relative;
+  display: block;
+  overflow: hidden;
+}
+.dl-based-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 65% 40%;
+  transition: transform 0.6s ease;
+}
+.dl-based:hover .dl-based-art img {
+  transform: scale(1.03);
+}
+.dl-based-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 55%, #07090d 100%);
+}
+.dl-based-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 28px 30px 28px 12px;
+}
+.dl-based-stamp {
+  align-self: flex-start;
+  padding: 5px 11px 4px;
+  border: 2px solid #e0a458;
+  color: #f4c27c;
+  font-weight: 800;
+  font-stretch: 125%;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  transform: rotate(-2deg);
+}
+.dl-based.open .dl-based-stamp {
+  border-color: #8db4dc;
+  color: #b9d2ec;
+}
+.dl-based-title {
+  margin-top: 6px;
+  font-weight: 820;
+  font-stretch: 125%;
+  font-size: clamp(2rem, 3.6vw, 2.8rem);
+  line-height: 1;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.dl-based-tag {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-style: italic;
+  font-size: 17px;
+  color: #f4c27c;
+}
+.dl-based-pitch {
+  max-width: 48ch;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  font-size: 16px;
+  line-height: 1.55;
+  color: rgba(236, 230, 218, 0.78);
+}
+.dl-based-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(236, 230, 218, 0.6);
+}
+.dl-based-facts span::before {
+  content: "◆";
+  margin-right: 7px;
+  font-size: 8px;
+  color: #e0a458;
+  vertical-align: 2px;
+}
+.dl-based-cta {
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 9px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(236, 230, 218, 0.25);
+  font-weight: 620;
+  font-size: 15px;
+  color: rgba(236, 230, 218, 0.7);
+}
+.dl-based.open .dl-based-cta {
+  border-color: #e0a458;
+  background: #e0a458;
+  color: #150d04;
+}
+@media (max-width: 860px) {
+  .dl-based {
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: -4px;
+  }
+  .dl-based-art {
+    aspect-ratio: 16 / 9;
+  }
+  .dl-based-art::after {
+    background: linear-gradient(180deg, transparent 50%, #07090d 100%);
+  }
+  .dl-based-body {
+    padding: 4px 22px 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dl-based,
+  .dl-based:hover,
+  .dl-based:hover .dl-based-art img {
+    transition: none;
+    transform: none;
+  }
+}

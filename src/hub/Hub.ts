@@ -15,6 +15,7 @@ import {
   peopleIcon,
   scrollIcon,
 } from "../derpland/Icons";
+import "./BasedCard"; // BASED (r19): Mr. Based, coming soon
 import { nationName, nf, timeAgo } from "./format";
 import { HubPage } from "./HubPage";
 import "./Leaderboard";
@@ -210,6 +211,9 @@ export class DerpHome extends HubPage {
           sticker: "New",
         })}
       </section>
+
+      <!-- BASED (r19): Mr. Based, under the two games -->
+      <dl-based-card></dl-based-card>
 
       <section class="dl-below">
         <div class="dl-panel dl-feed">

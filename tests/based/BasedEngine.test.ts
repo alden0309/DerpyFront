@@ -287,7 +287,7 @@ describe("playing a chapter", () => {
     run.choose("get-lost");
     while (run.beat.kind !== "choice") run.advance();
     run.choose("look-around");
-    let look = run.beat;
+    let look: Beat = run.beat;
     expect(look.kind).toBe("investigate");
     if (look.kind !== "investigate") return;
     expect(look.canLeave).toBe(false);
@@ -315,7 +315,8 @@ describe("playing a chapter", () => {
 
     expect(run.leave()).toMatchObject({ kind: "card", title: "THE END" });
     expect(run.advance()).toEqual({ kind: "end" });
-    expect(run.drain().at(-1)).toEqual({ type: "end" });
+    const last = run.drain();
+    expect(last[last.length - 1]).toEqual({ type: "end" });
   });
 
   test("saves at the start of each scene and loads back there", () => {

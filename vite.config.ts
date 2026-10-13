@@ -419,6 +419,8 @@ export default defineConfig(({ mode }) => {
           main: path.resolve(__dirname, "index.html"),
           derpland: path.resolve(__dirname, "derpland.html"),
           conquest: path.resolve(__dirname, "conquest.html"),
+          // BASED (r19): Mr. Based (no story inside; that comes from the API).
+          based: path.resolve(__dirname, "based.html"),
         },
         output: {
           manualChunks: (id) => {
