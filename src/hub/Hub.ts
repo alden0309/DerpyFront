@@ -18,6 +18,8 @@ import {
 import { nationName, nf, timeAgo } from "./format";
 import { HubPage } from "./HubPage";
 import "./Leaderboard";
+// SITE (r19): games being played now, with Watch buttons.
+import "./Live";
 import "./Profile";
 import "./Store";
 
@@ -210,6 +212,10 @@ export class DerpHome extends HubPage {
           sticker: "New",
         })}
       </section>
+
+      <!-- SITE (r19): games being played now, to watch -->
+      <dl-live></dl-live>
+      <!-- /SITE (r19) -->
 
       <section class="dl-below">
         <div class="dl-panel dl-feed">

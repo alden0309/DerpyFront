@@ -59,6 +59,8 @@ export class Net {
   name = "Traveller";
   /** The room to rejoin after a reconnect. */
   ticket: { code: string; secret: string } | null = null;
+  /** SITE (r19): the game being watched (its watch id), to watch again after a reconnect. */
+  watchId: string | null = null;
   onStatus: (online: boolean) => void = () => {};
 
   connect(): void {
@@ -74,7 +76,8 @@ export class Net {
         name: this.name,
         token: derpyToken() ?? undefined,
       });
-      if (this.ticket) this.raw({ t: "rejoin", ...this.ticket });
+      if (this.watchId) this.raw({ t: "watch", id: this.watchId });
+      else if (this.ticket) this.raw({ t: "rejoin", ...this.ticket });
       for (const m of this.queue.splice(0)) this.raw(m);
     };
     ws.onmessage = (e) => {
@@ -88,10 +91,14 @@ export class Net {
         this.pending.get(m.id)?.(m.err);
         this.pending.delete(m.id);
       }
-      if (m.t === "lobby" || m.t === "game") {
+      if (m.t === "game" && m.watcher) {
+        // SITE (r19): watching holds no seat, so there's nothing to rejoin.
+        this.watchId = m.code;
+      } else if (m.t === "lobby" || m.t === "game") {
+        this.watchId = null;
         this.ticket = { code: m.code, secret: m.secret };
         saveRejoin(m.code, m.secret);
-      }
+      } else if (m.t === "watchend") this.watchId = null;
       for (const l of this.listeners) l(m);
     };
     ws.onclose = () => {
@@ -122,8 +129,20 @@ export class Net {
   /** Leaves the current room for good (no rejoining it after a reconnect). */
   leave(): void {
     this.send({ t: "leave" });
+    // SITE (r19): a watcher leaves no seat behind, and keeps any ticket to
+    // a game of their own.
+    if (this.watchId) {
+      this.watchId = null;
+      return;
+    }
     this.ticket = null;
     clearRejoin();
+  }
+
+  /** SITE (r19): watch a game being played (by its watch id). */
+  watch(id: string): void {
+    this.watchId = id;
+    this.send({ t: "watch", id });
   }
 
   private raw(m: ClientMessage): void {
@@ -151,6 +170,7 @@ export class Net {
       name: this.name,
       token: derpyToken() ?? undefined,
     });
-    if (this.ticket) this.send({ t: "rejoin", ...this.ticket });
+    if (this.watchId) this.send({ t: "watch", id: this.watchId });
+    else if (this.ticket) this.send({ t: "rejoin", ...this.ticket });
   }
 }

@@ -687,6 +687,8 @@ export class ConquestRooms {
         settings: r.settings,
         started: r.game !== null,
         year: r.game ? dateOf(r.game.state.day).year : null,
+        // SITE (r19): a game begun can be watched as well as dropped into.
+        ...(r.game ? { watchId: r.watchId, watchers: r.watchers.size } : {}),
       });
     }
     let saved: SavedGame[] = [];

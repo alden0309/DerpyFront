@@ -46,7 +46,7 @@ import type {
 } from "../engine/Types";
 import type { ResultLine, SeatInfo, ServerMessage } from "../Protocol";
 import { CameraKeys } from "./CameraKeys"; // FIXES (r15)
-import { FindIcon, LetterIcon } from "./Icons";
+import { EyeIcon, FindIcon, LetterIcon } from "./Icons";
 import {
   LifeMark,
   loadGeo,
@@ -269,6 +269,15 @@ export class GameView extends LitElement {
   private skipAsked: string[] = [];
   private seats: SeatInfo[] = [];
   private dayAt = 0;
+  /**
+   * SITE (r19): watching from Derp Land: no seat, no say, and nobody's
+   * secrets. And how many are watching (everyone sees "2 watching"), and
+   * whether the host of a private game lets them.
+   */
+  private watcher = false;
+  @state() private watchers = 0;
+  private allowWatchers = false;
+  private openRoom = false;
 
   private view: MapView | null = null;
   /** FIXES (r15): W A S D and the arrows move the camera. */
@@ -468,6 +477,11 @@ export class GameView extends LitElement {
     this.paused = m.paused;
     this.seats = m.seats;
     this.dayAt = performance.now();
+    // SITE (r19)
+    this.watcher = m.watcher === true;
+    this.watchers = m.watchers ?? 0;
+    this.allowWatchers = m.allowWatchers === true;
+    this.openRoom = m.open === true;
     this.setMood();
     const life = this.life;
     if (fresh) {
@@ -478,7 +492,9 @@ export class GameView extends LitElement {
       this.stack =
         life && !life.watching && window.innerWidth > 820
           ? [{ k: "tab", tab: "here" }]
-          : [];
+          : this.watcher && window.innerWidth > 820
+            ? [{ k: "tab", tab: "world" }] // SITE (r19): the players and the wars
+            : [];
       this.modalView = null;
       this.seenEvents = new Set(life?.events.map((e) => e.id) ?? []);
       this.journalMark = this.markOf(life);
@@ -487,8 +503,10 @@ export class GameView extends LitElement {
       void this.updateComplete.then(() => this.attachMap(true));
       const first = life?.events[0];
       if (first && this.solo) this.modalView = { k: "event", id: first.id };
-      // Joined a running world without a character: make one.
-      if (!life && !m.state.over) this.modalView = { k: "maker" };
+      // Joined a running world without a character: make one (a watcher
+      // only watches: SITE r19).
+      if (!life && !m.state.over && !this.watcher)
+        this.modalView = { k: "maker" };
     }
     if (this.s.over) this.modalView = { k: "end" };
   }
@@ -612,6 +630,12 @@ export class GameView extends LitElement {
       case "seats":
         this.seats = m.seats;
         this.host = m.host;
+        this.requestRender();
+        return;
+      // SITE (r19): how many are watching, and whether the host lets them.
+      case "watchers":
+        this.watchers = m.n;
+        this.allowWatchers = m.allow;
         this.requestRender();
         return;
       case "chat":
@@ -904,6 +928,11 @@ export class GameView extends LitElement {
   }
 
   private async cmd(c: LifeCommand): Promise<boolean> {
+    // SITE (r19): a watcher has no say (the server would refuse it anyway).
+    if (this.watcher) {
+      this.toast("You're watching this game, not playing it.", "bad");
+      return false;
+    }
     const err = await this.net.command(c);
     if (err) this.toast(err, "bad");
     this.requestRender();
@@ -920,7 +949,9 @@ export class GameView extends LitElement {
       t.tagName === "SELECT"
     )
       return;
-    if (e.key === " ") {
+    if (this.watcher && /^[ 1-5]$/.test(e.key)) {
+      // SITE (r19): the players keep the clock.
+    } else if (e.key === " ") {
       e.preventDefault();
       this.setPaused(!this.paused);
     } else if (/^[1-4]$/.test(e.key)) {
@@ -961,7 +992,7 @@ export class GameView extends LitElement {
   }
 
   private setPaused(p: boolean): void {
-    if (this.s.over) return;
+    if (this.s.over || this.watcher) return;
     this.autoPaused = false;
     if (!p && !this.canSetSpeed) {
       this.toast("The host sets the clock going again.");
@@ -972,13 +1003,13 @@ export class GameView extends LitElement {
 
   /** LIFE (r11): skip ahead until something needs you (or ask the others to). */
   private toggleSkip(): void {
-    if (this.s.over) return;
+    if (this.s.over || this.watcher) return;
     const asked = this.skipAsked.includes(this.you);
     this.net.send({ t: "skip", on: !(this.skipOn || asked) });
   }
 
   private setSpeed(sp: number): void {
-    if (this.s.over || sp < 1 || sp > MAX_SPEED) return;
+    if (this.s.over || this.watcher || sp < 1 || sp > MAX_SPEED) return;
     if (!this.canSetSpeed) {
       this.toast("The host sets the speed.");
       return;
@@ -1535,6 +1566,7 @@ export class GameView extends LitElement {
       },
       toast: (text, tone) => this.toast(text, tone ?? ""),
       redraw: () => this.requestRender(),
+      watcher: this.watcher, // SITE (r19)
     };
   }
 
@@ -1557,6 +1589,12 @@ export class GameView extends LitElement {
       results: this.results,
       letterLeft: (id) => this.secondsLeft(id),
       paused: this.paused,
+      // SITE (r19): watching, and letting people watch.
+      watcher: this.watcher,
+      watchers: this.watchers,
+      allowWatchers: this.allowWatchers,
+      openRoom: this.openRoom,
+      setAllowWatchers: (allow) => this.net.send({ t: "allowwatch", allow }),
     };
   }
 
@@ -1760,9 +1798,13 @@ export class GameView extends LitElement {
               >
             </span>
           </button>`
-        : html`<span class="cq-who watching">
-            ${life?.ended ? "Watching the world" : "Not yet born"}
-          </span>`}
+        : this.watcher
+          ? html`<span class="cq-who watching cq-watcher-who">
+              ${EyeIcon()} Watching
+            </span>`
+          : html`<span class="cq-who watching">
+              ${life?.ended ? "Watching the world" : "Not yet born"}
+            </span>`}
       <div class="cq-clock ${this.skipOn ? "skipping" : ""}">
         <div class="cq-dateline">
           <span class="cq-date">${formatDate(s.day)}</span>
@@ -1771,9 +1813,11 @@ export class GameView extends LitElement {
         <div class="cq-speed" role="group" aria-label="Game speed">
           <button
             class="cq-pause ${this.paused ? "on" : ""}"
-            ?disabled=${s.over}
+            ?disabled=${s.over || this.watcher}
             aria-pressed=${this.paused}
-            title="Pause (space)"
+            title=${this.watcher
+              ? "The players keep the clock"
+              : "Pause (space)"}
             @click=${() => this.setPaused(!this.paused)}
           >
             ${this.paused
@@ -1788,10 +1832,12 @@ export class GameView extends LitElement {
                 class="cq-speed-btn ${!this.paused && this.speed === sp
                   ? "on"
                   : ""}"
-                ?disabled=${s.over || !this.canSetSpeed}
-                title=${this.canSetSpeed
-                  ? `Speed ${SPEED_LABELS[sp]} (key ${sp})`
-                  : "The host sets the speed"}
+                ?disabled=${s.over || !this.canSetSpeed || this.watcher}
+                title=${this.watcher
+                  ? "The players keep the clock"
+                  : this.canSetSpeed
+                    ? `Speed ${SPEED_LABELS[sp]} (key ${sp})`
+                    : "The host sets the speed"}
                 aria-label="Speed ${SPEED_LABELS[sp]}"
                 aria-pressed=${!this.paused && this.speed === sp}
                 @click=${() => this.setSpeed(sp)}
@@ -1841,6 +1887,7 @@ export class GameView extends LitElement {
           </div>`
         : html`<div class="cq-chips-bar"></div>`}
       <div class="cq-banner-end">
+        ${this.watchersChip() /* SITE (r19) */}
         ${life && !life.watching && me
           ? html`<button
               class="cq-find-btn banner"
@@ -1878,6 +1925,18 @@ export class GameView extends LitElement {
     </header>`;
   }
 
+  /** SITE (r19): "2 watching", for players and watchers alike. */
+  private watchersChip(): TemplateResult | typeof nothing {
+    const n = this.watchers;
+    if (n <= 0) return nothing;
+    return html`<span
+      class="cq-watchers"
+      title=${`${n} ${n === 1 ? "person is" : "people are"} watching this game from Derp Land. They see the world as anyone may: nothing of yours that's private.`}
+      >${EyeIcon()}<span class="cq-watchers-n">${n}</span
+      ><span class="cq-watchers-word">watching</span></span
+    >`;
+  }
+
   /** LIFE (r11): skip ahead through the quiet days, until something needs you. */
   private skipButton(): TemplateResult {
     const s = this.s;
@@ -1896,7 +1955,7 @@ export class GameView extends LitElement {
       class="cq-skip-btn ${this.skipOn ? "on" : ""} ${asked && !this.skipOn
         ? "asked"
         : ""}"
-      ?disabled=${s.over}
+      ?disabled=${s.over || this.watcher}
       title=${title}
       aria-label=${this.skipOn ? "Stop skipping ahead" : "Skip ahead"}
       aria-pressed=${this.skipOn || asked}
@@ -1991,7 +2050,11 @@ export class GameView extends LitElement {
   private tabs(cur: DrawerView | undefined, ui: GameUi): TemplateResult {
     const marks = badges(ui);
     return html`<nav class="cq-tabs" aria-label="Your life">
-      ${TAB_DEFS.map((t) => {
+      ${TAB_DEFS.filter(
+        // SITE (r19): a watcher has no life of their own: where they look,
+        // and the world.
+        (t) => !this.watcher || t.id === "here" || t.id === "world",
+      ).map((t) => {
         const on = cur?.k === "tab" && cur.tab === t.id;
         const n = marks.get(t.id) ?? 0;
         return html`<button
@@ -2173,7 +2236,7 @@ export class GameView extends LitElement {
                   </li>`,
               )}
             </ol>
-            ${!this.solo
+            ${!this.solo && !this.watcher
               ? html`<form
                   class="cq-chat"
                   @submit=${(e: Event) => {

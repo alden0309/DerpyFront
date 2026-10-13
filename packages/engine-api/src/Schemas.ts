@@ -357,6 +357,10 @@ export const GameConfigSchema = z.object({
   // Stripped from gameStartInfo and from the advertised lobby config: sibling
   // ids are private lobby ids, which are join secrets.
   pool: PoolConfigSchema.optional(),
+  // Derp Land (SITE r19): the host of a private game lets people watch it
+  // from the site once it has begun (public games can always be watched).
+  // Off by default. Server-side only: nothing in the simulation reads it.
+  allowWatchers: z.boolean().optional(),
 });
 
 export const TeamSchema = z.string();

@@ -885,6 +885,11 @@ export async function startWorker() {
             workerId,
           });
           ws.close(CloseCode.LobbyFull, CloseReason.LobbyFull);
+        } else if (joinResult === "watch_closed") {
+          // Derp Land (SITE r19)
+          ws.close(CloseCode.Forbidden, CloseReason.WatchersClosed);
+        } else if (joinResult === "watch_full") {
+          ws.close(CloseCode.LobbyFull, CloseReason.WatchersFull);
         } else if (joinResult === "started") {
           log.info(`client joined game ${clientMsg.gameID} after it started`, {
             gameID: clientMsg.gameID,

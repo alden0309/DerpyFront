@@ -183,8 +183,13 @@ describe("GameServer - spectators", () => {
 
   it("seats a player arriving well after the start as a spectator", () => {
     // Past the grace window the game is no longer joinable from the lobby
-    // browser; whoever arrives followed a shared link to watch.
-    const game = makeGame();
+    // browser; whoever arrives followed a shared link to watch. (SITE r19: a
+    // private game takes watchers only if its host allows them.)
+    const game = harnessGame({
+      log: logger,
+      config: { gameType: GameType.Private, allowWatchers: true },
+      deps: { archive },
+    });
     startGame(game);
     vi.advanceTimersByTime(5_000);
     const late = makeClient("late");
@@ -378,9 +383,21 @@ describe("GameServer - spectators", () => {
 
   it("may join after the game has started", () => {
     // A caster arriving mid-game is the normal case. Only a player landing
-    // just after the start is turned away; asking to watch must keep working.
-    const game = makeGame();
+    // just after the start is turned away; asking to watch must keep working
+    // (SITE r19: in a private game, when its host allows watchers).
+    const game = harnessGame({
+      log: logger,
+      config: { gameType: GameType.Private, allowWatchers: true },
+      deps: { archive },
+    });
     startGame(game);
     expect(game.joinClient(makeClient("cast", true))).toBe("joined");
+  });
+
+  it("is turned away from a private game whose host hasn't allowed watchers", () => {
+    // SITE r19: "Allow watchers" is off by default for a private game.
+    const game = makeGame();
+    startGame(game);
+    expect(game.joinClient(makeClient("cast", true))).toBe("watch_closed");
   });
 });

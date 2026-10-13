@@ -27,6 +27,7 @@ import {
   token,
 } from "./Context";
 import { crownWorldSection, nationCrown } from "./Crown"; // CROWN (r18)
+import { frontPage } from "./Gazette"; // SITE (r19): the gazettes, for watchers
 import { personRow } from "./Here";
 import { playersSection } from "./Players"; // HOME (r12)
 import { claimsWorldSection, nationClaims } from "./Reclaim"; // WAR (r17)
@@ -135,6 +136,28 @@ export function peopleTab(ui: GameUi): TemplateResult {
 
 // ---------------------------------------------------------------- the world
 
+/**
+ * SITE (r19): the colonies' papers, for someone watching from Derp Land (a
+ * player reads them in Society › Press, as far as they reach).
+ */
+function gazettes(ui: GameUi): TemplateResult | typeof nothing {
+  const papers = (ui.s.power?.papers ?? [])
+    .filter((x) => x.printed.length > 0)
+    .sort(
+      (a, b) =>
+        (b.printed[b.printed.length - 1]?.day ?? 0) -
+        (a.printed[a.printed.length - 1]?.day ?? 0),
+    )
+    .slice(0, 4);
+  if (!papers.length) return nothing;
+  return section(
+    "The gazettes",
+    html`<ul class="cq-papers">
+      ${papers.map((x) => html`<li>${frontPage(ui, x, 3)}</li>`)}
+    </ul>`,
+  );
+}
+
 export function worldTab(ui: GameUi): TemplateResult {
   const s = ui.s;
   const year = dateOf(s.day).year;
@@ -157,7 +180,7 @@ export function worldTab(ui: GameUi): TemplateResult {
     </header>
     ${others.length
       ? section(
-          "The other players",
+          ui.watcher ? "The players" : "The other players",
           html`<ul class="cq-folk">
             ${others.map((l) => {
               const c = meOf(s, l);
@@ -182,6 +205,7 @@ export function worldTab(ui: GameUi): TemplateResult {
           </ul>`,
         )
       : nothing}
+    ${ui.watcher ? gazettes(ui) : nothing /* SITE (r19) */}
     ${section(
       "Wars",
       s.wars.length

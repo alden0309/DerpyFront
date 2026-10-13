@@ -4,7 +4,7 @@
 import { html, LitElement, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { DERPY_ACCOUNT_EVENT, derpyUsername } from "../../derpland/Account";
-import type { OpenRoom, SavedGame, ServerMessage } from "../Protocol";
+import type { LiveRoom, OpenRoom, SavedGame, ServerMessage } from "../Protocol";
 import "./GameView";
 import { GameStart, loadGeo } from "./GameView";
 import "./Lobby";
@@ -33,6 +33,8 @@ export class ConquestApp extends LitElement {
   @state() private saved: SavedGame[] = [];
   /** STORY (r17): finished games, and those saved by an older version. */
   @state() private finished: SavedGame[] = [];
+  /** SITE (r19): games being played now that anyone may watch. */
+  @state() private live: LiveRoom[] = [];
   @state() private lobby: LobbyState | null = null;
   @state() private game: GameStart | null = null;
   @state() private joinCode = "";
@@ -58,12 +60,19 @@ export class ConquestApp extends LitElement {
     this.net.on(this.onMessage);
     this.net.onStatus = (online) => {
       this.online = online;
-      if (online && this.screen === "connecting") this.screen = "lobby";
+      // SITE (r19): come to watch, the game itself comes next.
+      if (online && this.screen === "connecting" && !this.net.watchId)
+        this.screen = "lobby";
     };
     const params = new URLSearchParams(location.search);
     const join = params.get("join");
+    // SITE (r19): a Watch button on Derp Land (or the lobby) comes here with ?watch=.
+    const watch = params.get("watch");
     const ticket = savedRejoin();
-    if (join) this.joinCode = join.toUpperCase().slice(0, 4);
+    if (watch && /^[A-Za-z0-9_-]{1,40}$/.test(watch)) {
+      this.net.watchId = watch;
+      history.replaceState(null, "", location.pathname);
+    } else if (join) this.joinCode = join.toUpperCase().slice(0, 4);
     else if (ticket)
       this.net.ticket = { code: ticket.code, secret: ticket.secret };
     this.net.connect();
@@ -95,13 +104,22 @@ export class ConquestApp extends LitElement {
       case "welcome":
         this.name = m.name;
         this.account = m.account;
-        if (this.screen === "connecting") this.screen = "lobby";
+        if (this.screen === "connecting" && !this.net.watchId)
+          this.screen = "lobby";
         if (this.screen === "lobby") this.net.send({ t: "list" });
         return;
       case "rooms":
         this.open = m.open;
         this.saved = m.saved;
         this.finished = m.finished ?? []; // STORY (r17)
+        this.live = m.live ?? []; // SITE (r19)
+        return;
+      // SITE (r19): watching's over (the game closed, the host shut watchers
+      // out, or it couldn't begin): say why, and back to the lobby.
+      case "watchend":
+        this.notice(m.why);
+        if (this.screen === "game" || this.screen === "connecting")
+          this.toLobby();
         return;
       case "forgot": // STORY (r17): saved games deleted or taken off your list
         this.notice(m.text, "good");
@@ -170,6 +188,7 @@ export class ConquestApp extends LitElement {
           .open=${this.open}
           .saved=${this.saved}
           .finished=${this.finished}
+          .live=${this.live}
           .account=${this.account}
           .name=${this.name}
           .online=${this.online}

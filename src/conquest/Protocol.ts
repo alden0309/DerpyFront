@@ -50,6 +50,9 @@ export interface OpenRoom {
   started: boolean;
   /** In-game year, once it's started. */
   year: number | null;
+  /** SITE (r19): once it's begun, the id to watch it by, and how many do. */
+  watchId?: string;
+  watchers?: number;
 }
 
 /** SITE (r19): watchers a game may have at once. */

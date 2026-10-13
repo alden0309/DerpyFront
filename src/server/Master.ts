@@ -16,6 +16,7 @@ import {
 } from "./ClusterCheckin";
 import { attachConquest } from "./conquest/ConquestRooms";
 import { derpyApiRouter } from "./derpy/DerpyApi";
+import { setLiveSources } from "./derpy/LiveGames";
 import { getDescriptor } from "./DesktopRelease";
 import {
   coordinatorUrl,
@@ -186,6 +187,8 @@ export async function startMaster() {
   // mistyped letter must not mint lobbies under a letter routed elsewhere.
   const registers = checkinBody(0) !== null;
   lobbyService = new MasterLobbyService(playlist, log, registers);
+  // Derp Land (SITE r19): DerpyFront's games being played, for the front page.
+  setLiveSources({ derpyfront: () => lobbyService.runningGames() });
 
   const INSTANCE_ID =
     ServerEnv.env() === GameEnv.Dev
@@ -262,7 +265,8 @@ export async function startMaster() {
   });
 
   // Derpy Conquest games run here in the master.
-  attachConquest(server);
+  const conquestRooms = attachConquest(server);
+  setLiveSources({ conquest: () => conquestRooms.live() }); // SITE (r19)
 
   const PORT = 3000;
   server.listen(PORT, () => {

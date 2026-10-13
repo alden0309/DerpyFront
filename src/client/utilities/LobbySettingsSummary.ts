@@ -114,6 +114,12 @@ export function notableLobbySettings(
       label: translateText("host_modal.anonymous_players"),
       value: enabled,
     });
+  // Derp Land (SITE r19): players know people may watch from the site.
+  if (c.allowWatchers)
+    items.push({
+      label: translateText("host_modal.allow_watchers"),
+      value: enabled,
+    });
   if ((isTeam && !c.donateGold) || (!isTeam && c.donateGold))
     items.push({
       label: translateText("host_modal.donate_gold"),

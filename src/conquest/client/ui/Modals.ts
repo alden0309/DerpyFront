@@ -56,6 +56,13 @@ export interface ModalHooks {
   /** Seconds of play an event has before it decides itself, if known. */
   letterLeft(id: number): number | null;
   paused: boolean;
+  /** SITE (r19): watching (no seat), how many watch, and letting them. */
+  watcher?: boolean;
+  watchers?: number;
+  allowWatchers?: boolean;
+  /** Open to anyone (so anyone may watch it too). */
+  openRoom?: boolean;
+  setAllowWatchers?(allow: boolean): void;
 }
 
 export function renderModal(
@@ -431,7 +438,72 @@ function takeoverPage(ui: GameUi): TemplateResult {
 
 // ---------------------------------------------------------------- menu, help, end
 
+/** SITE (r19): the menu for someone watching: no seat, nothing to save or end. */
+function watcherMenu(ui: GameUi, hooks: ModalHooks): TemplateResult {
+  const n = hooks.watchers ?? 0;
+  return html`
+    <h2 class="cq-h1">Watching</h2>
+    <p>
+      You're watching this game from Derp Land: the map, the armies, the news
+      and the players as anyone may see them. You can't change anything, and
+      nothing a player keeps to themselves reaches you.
+    </p>
+    <p class="cq-muted small">
+      ${n === 1
+        ? "You're the only one watching."
+        : `${n} people are watching, you among them.`}
+      The players see how many watch.
+    </p>
+    <div class="cq-menu">
+      <div class="cq-menu-help">
+        <button
+          class="cq-btn primary"
+          @click=${() => ui.modal({ k: "guide", ch: "start" })}
+        >
+          How to play
+        </button>
+      </div>
+      ${settingsBlock(ui)}
+      <button class="cq-btn" @click=${() => hooks.leave()}>
+        Stop watching
+      </button>
+    </div>
+  `;
+}
+
+/** SITE (r19): letting people watch from Derp Land (the host's say, in a private game). */
+function watchersPart(hooks: ModalHooks): TemplateResult | typeof nothing {
+  const n = hooks.watchers ?? 0;
+  const many = n
+    ? ` ${n} ${n === 1 ? "person is" : "people are"} watching now.`
+    : "";
+  if (hooks.openRoom)
+    return html`<p class="cq-muted small">
+      Anyone can watch this game from Derp Land: it's open to all.${many}
+    </p>`;
+  if (!hooks.isHost)
+    return html`<p class="cq-muted small">
+      ${hooks.allowWatchers
+        ? `The host lets people watch this game from Derp Land.${many}`
+        : "Nobody can watch this game but its players."}
+    </p>`;
+  return html`<label class="cq-check">
+      <input
+        type="checkbox"
+        .checked=${hooks.allowWatchers === true}
+        @change=${(e: Event) =>
+          hooks.setAllowWatchers?.((e.target as HTMLInputElement).checked)}
+      />
+      Let people watch from Derp Land
+    </label>
+    <p class="cq-muted small">
+      Watchers see the map, the armies, the news and the players as anyone may,
+      never what's private to you.${many}
+    </p>`;
+}
+
 function menu(ui: GameUi, hooks: ModalHooks): TemplateResult {
+  if (hooks.watcher) return watcherMenu(ui, hooks); // SITE (r19)
   return html`
     <h2 class="cq-h1">The game</h2>
     ${!ui.solo
@@ -485,7 +557,7 @@ function menu(ui: GameUi, hooks: ModalHooks): TemplateResult {
             Your story so far
           </button>`
         : nothing}
-      ${settingsBlock(ui)}
+      ${settingsBlock(ui)} ${watchersPart(hooks) /* SITE (r19) */}
       ${hooks.isHost && !ui.s.over
         ? html`<button
             class="cq-btn danger"

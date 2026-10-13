@@ -36,6 +36,7 @@ import {
   recordDerpyGame,
   savedGameRecord,
 } from "./DerpyGames";
+import { liveGames } from "./LiveGames"; // SITE (r19)
 
 const log = logger.child({ component: "DerpyApi" });
 
@@ -98,7 +99,12 @@ export function derpyApiRouter(): express.Router {
 
   router.use((req, res, next) => {
     setNoStoreHeaders(res);
-    if (!derpyDbConfigured() && req.path !== "/cosmetics.json") {
+    // The games being played (SITE r19) need no accounts either.
+    if (
+      !derpyDbConfigured() &&
+      req.path !== "/cosmetics.json" &&
+      req.path !== "/live"
+    ) {
       res.status(503).json({ error: "accounts_unavailable" });
       return;
     }
@@ -221,6 +227,13 @@ export function derpyApiRouter(): express.Router {
       res.json(record);
     }),
   );
+
+  // SITE (r19): the games being played right now that anyone may watch (no
+  // account needed), for the front page and each game's page. Made at most
+  // every couple of seconds, however many ask.
+  router.get("/live", (_req, res) => {
+    res.json(liveGames());
+  });
 
   // The skins, in the shape the game's cosmetics code reads. Served even
   // without a database, so skins people own still draw for everyone.

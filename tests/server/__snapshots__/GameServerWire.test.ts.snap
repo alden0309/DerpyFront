@@ -337,6 +337,10 @@ exports[`GameServer wire transcript > matches the golden transcript for a script
         "type": "start",
       },
       {
+        "count": 1,
+        "type": "watchers",
+      },
+      {
         "turn": {
           "intents": [
             {
@@ -728,6 +732,10 @@ exports[`GameServer wire transcript > matches the golden transcript for a script
         "type": "start",
       },
       {
+        "count": 1,
+        "type": "watchers",
+      },
+      {
         "turn": {
           "intents": [
             {
@@ -1091,6 +1099,10 @@ exports[`GameServer wire transcript > matches the golden transcript for a script
         "type": "start",
       },
       {
+        "count": 1,
+        "type": "watchers",
+      },
+      {
         "turn": {
           "intents": [
             {
@@ -1448,6 +1460,10 @@ exports[`GameServer wire transcript > matches the golden transcript for a script
         "type": "start",
       },
       {
+        "count": 1,
+        "type": "watchers",
+      },
+      {
         "turn": {
           "intents": [
             {
@@ -1761,6 +1777,10 @@ exports[`GameServer wire transcript > matches the golden transcript for a script
           },
         ],
         "type": "start",
+      },
+      {
+        "count": 1,
+        "type": "watchers",
       },
     ],
   },
