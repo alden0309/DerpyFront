@@ -78,6 +78,8 @@ export class NationNukeBehavior {
     private player: Player,
     private attackBehavior: AiAttackBehavior,
     private emojiBehavior: NationEmojiBehavior,
+    /** Derpy Front (rules 4+): gold held for a Dome, if any. */
+    private domeSavings: () => Gold | null = () => null,
   ) {}
 
   snapshot(w: SnapshotWriter): Versioned {
@@ -105,6 +107,7 @@ export class NationNukeBehavior {
     player: Player,
     attackBehavior: AiAttackBehavior,
     emojiBehavior: NationEmojiBehavior,
+    domeSavings: () => Gold | null = () => null,
   ): void {
     const s = readVersioned(NationNukeBehaviorSnapshot, raw);
     this.random = random;
@@ -112,6 +115,7 @@ export class NationNukeBehavior {
     this.player = player;
     this.attackBehavior = attackBehavior;
     this.emojiBehavior = emojiBehavior;
+    this.domeSavings = domeSavings;
     this.recentlySentNukes = s.recentlySentNukes.map(([tick, tile, type]) => [
       tick,
       tile,
@@ -194,7 +198,8 @@ export class NationNukeBehavior {
     const types: NukeType[] = [];
     if (
       !config.isUnitDisabled(UnitType.HydrogenBomb) &&
-      this.player.gold() >= this.getPerceivedNukeCost(UnitType.HydrogenBomb)
+      this.player.gold() >= this.getPerceivedNukeCost(UnitType.HydrogenBomb) &&
+      this.canSpare(this.cost(UnitType.HydrogenBomb))
     ) {
       types.push(UnitType.HydrogenBomb);
     }
@@ -204,11 +209,23 @@ export class NationNukeBehavior {
         difficulty === Difficulty.Impossible) &&
       !config.isUnitDisabled(UnitType.AtomBomb) &&
       (!this.isHydroNation || this.isUnderHeavyAttack()) &&
-      this.player.gold() >= this.getPerceivedNukeCost(UnitType.AtomBomb)
+      this.player.gold() >= this.getPerceivedNukeCost(UnitType.AtomBomb) &&
+      this.canSpare(this.cost(UnitType.AtomBomb))
     ) {
       types.push(UnitType.AtomBomb);
     }
     return types;
+  }
+
+  /**
+   * Derpy Front (rules 4+): whether we can spend `gold` on bombs while
+   * saving for a Dome. Only from what is over the Dome's price, unless we
+   * are being overrun.
+   */
+  private canSpare(gold: Gold): boolean {
+    const held = this.domeSavings();
+    if (held === null) return true;
+    return this.player.gold() - gold >= held || this.isUnderHeavyAttack();
   }
 
   private findBestNukeTile(
@@ -1133,7 +1150,7 @@ export class NationNukeBehavior {
 
       // Check gold for all fired bombs (including wasted ones)
       const totalCost = atomCost * BigInt(bombsToFire);
-      if (this.player.gold() < totalCost) {
+      if (this.player.gold() < totalCost || !this.canSpare(totalCost)) {
         continue;
       }
 

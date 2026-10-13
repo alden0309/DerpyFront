@@ -13,17 +13,21 @@ import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import { readVersioned } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { ConstructionExecution } from "@openfront/engine/execution/ConstructionExecution";
+import { NationAllianceBehavior } from "@openfront/engine/execution/nation/NationAllianceBehavior";
 import {
   landFrontDepth,
   NukeThreat,
   threatPercent,
 } from "@openfront/engine/execution/nation/NationDomes";
+import { NationEmojiBehavior } from "@openfront/engine/execution/nation/NationEmojiBehavior";
+import { NationNukeBehavior } from "@openfront/engine/execution/nation/NationNukeBehavior";
 import {
   NationStructureBehavior,
   NationStructureBehaviorSnapshot,
 } from "@openfront/engine/execution/nation/NationStructureBehavior";
 import { NationExecution } from "@openfront/engine/execution/NationExecution";
 import { NukeExecution } from "@openfront/engine/execution/NukeExecution";
+import { AiAttackBehavior } from "@openfront/engine/execution/utils/AiAttackBehavior";
 import { Game, Player } from "@openfront/engine/game/Game";
 import { vi } from "vitest";
 import { setup } from "./util/Setup";
@@ -346,6 +350,106 @@ describe("Nations raise Domes before the bombs fall (rules 4)", () => {
     expect(domes()).toHaveLength(3);
     run(1200);
     expect(domes()).toHaveLength(3);
+  });
+});
+
+describe("Saving for a Dome (rules 4)", () => {
+  /** The nation's nuke behavior, told what the structure behavior holds. */
+  function nukes(game: Game, me: Player, behavior: NationStructureBehavior) {
+    const emoji = new NationEmojiBehavior(new PseudoRandom(1), game, me);
+    const alliance = new NationAllianceBehavior(
+      new PseudoRandom(1),
+      game,
+      me,
+      emoji,
+    );
+    const attack = new AiAttackBehavior(
+      new PseudoRandom(1),
+      game,
+      me,
+      0.5,
+      0.3,
+      0.2,
+      alliance,
+      emoji,
+    );
+    return new NationNukeBehavior(
+      new PseudoRandom(2),
+      game,
+      me,
+      attack,
+      emoji,
+      () => behavior.savingForDome(),
+    );
+  }
+
+  test("a nation with most of the price saves the rest and holds its bombs", async () => {
+    const { game, me, behavior, domes } = await aiGame();
+    capitalCluster(game, me);
+    me.removeGold(me.gold() - 50_000_000n);
+    const bombs = nukes(game, me, behavior);
+    expect(bombs["nukeTypesToTry"]()).not.toEqual([]);
+
+    expect(behavior["tryBuildSmartDome"]()).toBe(false);
+    expect(behavior.savingForDome()).toBe(62_500_000n);
+    expect(behavior["getSaveUpTarget"]()).toBe(62_500_000n);
+    // A hydrogen bomb would cut into the Dome's price
+    expect(bombs["nukeTypesToTry"]()).toEqual([]);
+
+    // Once it holds the price, it builds the Dome and stops saving
+    me.addGold(13_000_000n);
+    expect(behavior["tryBuildSmartDome"]()).toBe(true);
+    expect(domes()).toHaveLength(1);
+    expect(behavior.savingForDome()).toBeNull();
+  });
+
+  test("decides again every 30 seconds", async () => {
+    const { game, me, behavior } = await aiGame();
+    capitalCluster(game, me);
+    me.removeGold(me.gold() - 50_000_000n);
+    behavior["tryBuildSmartDome"]();
+    expect(behavior.savingForDome()).not.toBeNull();
+    executeTicks(game, 300);
+    expect(behavior.savingForDome()).toBeNull();
+  });
+
+  test("not with under 70% of the price, on Easy, or under a land attack", async () => {
+    const poor = await aiGame();
+    capitalCluster(poor.game, poor.me);
+    poor.me.removeGold(poor.me.gold() - 40_000_000n);
+    poor.behavior["tryBuildSmartDome"]();
+    expect(poor.behavior.savingForDome()).toBeNull();
+
+    const easy = await aiGame({ difficulty: Difficulty.Easy });
+    capitalCluster(easy.game, easy.me);
+    easy.me.removeGold(easy.me.gold() - 45_000_000n);
+    // Nuked, so Easy would build one at $50M, but doesn't save for it
+    const silo = easy.silo!.tile();
+    incoming(easy.game, easy.game.player("foe"), silo, 40, 40);
+    easy.behavior.handleStructures();
+    expect(easy.behavior.savingForDome()).toBeNull();
+
+    const { game, me, foe, behavior } = await aiGame({
+      foeType: PlayerType.Nation,
+      foeRows: [130, 199],
+    });
+    capitalCluster(game, me);
+    me.removeGold(me.gold() - 55_000_000n);
+    me.removeTroops(me.troops());
+    me.addTroops(100_000);
+    foe.addTroops(1_000_000);
+    game.addExecution(new AttackExecution(80_000, foe, me.id()));
+    executeTicks(game, 2);
+    behavior["tryBuildSmartDome"]();
+    expect(behavior.savingForDome()).toBeNull();
+  });
+
+  test("rules 3 nations never save for one", async () => {
+    const { game, me, behavior } = await aiGame({ derpyRules: 3 });
+    capitalCluster(game, me);
+    me.removeGold(me.gold() - 50_000_000n);
+    behavior.handleStructures();
+    expect(behavior.savingForDome()).toBeNull();
   });
 });
 

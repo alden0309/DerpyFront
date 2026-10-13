@@ -196,6 +196,11 @@ const MAX_PREEMPTIVE_DOMES = 3;
 const DOME_COOLDOWN_TICKS = 600;
 /** Ticks before looking again when no spot was worth a Dome. */
 const DOME_RETRY_TICKS = 300;
+/**
+ * A nation holding this many tenths of a worthwhile Dome's price saves the
+ * rest (Medium and up).
+ */
+const DOME_SAVE_FROM_TENTHS = 7n;
 /** Structures a nation prefers to put under its Domes when threatened. */
 const SHELTERED_TYPES: ReadonlySet<UnitType> = new Set([
   UnitType.City,
@@ -234,6 +239,8 @@ export class NationStructureBehavior {
   private lastDomeTick: number | null = null;
   /** Derpy Front (rules 4+): no Dome search before this tick. */
   private domeRetryTick: number | null = null;
+  /** Derpy Front (rules 4+): saving for a Dome until this tick. */
+  private domeSavingUntil: number | null = null;
 
   constructor(
     private random: PseudoRandom,
@@ -258,6 +265,7 @@ export class NationStructureBehavior {
       ),
       lastDomeTick: this.lastDomeTick,
       domeRetryTick: this.domeRetryTick,
+      domeSavingUntil: this.domeSavingUntil,
     });
   }
 
@@ -283,6 +291,7 @@ export class NationStructureBehavior {
     this.nukeImpacts = s.nukeImpacts.map(([tick, tile]) => [tick, tile]);
     this.lastDomeTick = s.lastDomeTick;
     this.domeRetryTick = s.domeRetryTick;
+    this.domeSavingUntil = s.domeSavingUntil;
   }
 
   handleStructures(): boolean {
@@ -465,6 +474,8 @@ export class NationStructureBehavior {
    * enough, at the bare price. Under a heavy land attack a Dome waits until
    * the nation could pay for it twice, so its land defence comes first.
    * One at a time, a minute apart before we are nuked, at most three then.
+   * A nation already holding most of the price saves the rest (see
+   * savingForDome).
    */
   private tryBuildSmartDome(): boolean {
     const config = this.game.config();
@@ -488,28 +499,84 @@ export class NationStructureBehavior {
         return false;
       }
     }
-    const cost = this.cost(UnitType.Dome);
-    let needed = nuked ? cost : (cost * 5n) / 4n;
-    if (this.underLandPressure()) needed += cost;
-    if (this.player.gold() < needed) return false;
+    const pressed = this.underLandPressure();
+    const needed = this.domePrice(pressed);
+    const gold = this.player.gold();
+    if (gold < needed) {
+      if (
+        pressed ||
+        config.gameConfig().difficulty === Difficulty.Easy ||
+        gold * 10n < needed * DOME_SAVE_FROM_TENTHS ||
+        this.savingForDome() !== null
+      ) {
+        return false;
+      }
+      // Most of the way there: save the rest if a Dome is worth it
+      if (this.worthyDomeSpot(nuked) !== null) {
+        this.domeSavingUntil = ticks + DOME_RETRY_TICKS;
+      }
+      return false;
+    }
 
+    const spot = this.worthyDomeSpot(nuked);
+    if (spot === null) return false;
+    this.game.addExecution(
+      new ConstructionExecution(this.player, UnitType.Dome, spot),
+    );
+    this.lastDomeTick = ticks;
+    this.domeRetryTick = null;
+    this.domeSavingUntil = null;
+    return true;
+  }
+
+  /**
+   * Gold a nation wants in hand to build a Dome: the price after a nuke has
+   * come at it, a quarter more before, and the price again on top while a
+   * land attack presses it.
+   */
+  private domePrice(pressed: boolean): Gold {
+    const cost = this.cost(UnitType.Dome);
+    const price = this.nukedTick !== null ? cost : (cost * 5n) / 4n;
+    return pressed ? price + cost : price;
+  }
+
+  /**
+   * Where a Dome would be worth building now (it newly covers enough of
+   * what a foe could nuke), or null; when nothing is, we look again in 30
+   * seconds.
+   */
+  private worthyDomeSpot(nuked: boolean): TileRef | null {
     const threat = this.nukeThreat();
-    if (!threatIsReal(threat)) return false;
+    if (!threatIsReal(threat)) return null;
     const spot = bestDomeSpot(this.game, this.player, threat);
     const minPoints = nuked
       ? DOME_MIN_POINTS_NUKED
       : DOME_MIN_POINTS_PREEMPTIVE;
     // Scores are points times the threat percent
     if (spot === null || spot.score < minPoints * 100) {
-      this.domeRetryTick = ticks + DOME_RETRY_TICKS;
-      return false;
+      this.domeRetryTick = this.game.ticks() + DOME_RETRY_TICKS;
+      return null;
     }
-    this.game.addExecution(
-      new ConstructionExecution(this.player, UnitType.Dome, spot.tile),
-    );
-    this.lastDomeTick = ticks;
-    this.domeRetryTick = null;
-    return true;
+    return spot.tile;
+  }
+
+  /**
+   * Derpy Front (rules 4+): the gold we are holding for a Dome, or null if
+   * we aren't saving for one. A nation of Medium or up that holds 70% of a
+   * worthwhile Dome's price, and no land attack presses, saves the rest: it
+   * holds out for its save-up target before building more (as it does for a
+   * MIRV), and holds the bombs that would cut into it (NationNukeBehavior).
+   * The decision lasts 30 seconds and is then looked at again.
+   */
+  savingForDome(): Gold | null {
+    if (
+      this.domeSavingUntil === null ||
+      this.game.ticks() >= this.domeSavingUntil ||
+      this.game.config().derpyRules() < 4
+    ) {
+      return null;
+    }
+    return this.domePrice(false);
   }
 
   /** Whether anyone in this game could build a silo and fire a nuke. */
@@ -1259,10 +1326,20 @@ export class NationStructureBehavior {
   }
 
   /**
+   * The gold we save up for: for nukes (see nukeSaveUpTarget), or for a
+   * Dome while we are saving for one (rules 4+), whichever is more.
+   */
+  private getSaveUpTarget(): Gold {
+    const target = this.nukeSaveUpTarget();
+    const dome = this.savingForDome();
+    return dome !== null && dome > target ? dome : target;
+  }
+
+  /**
    * Determines the gold target we want to save up for based on which nukes are enabled.
    * Returns 0 if no saving is needed.
    */
-  private getSaveUpTarget(): Gold {
+  private nukeSaveUpTarget(): Gold {
     const config = this.game.config();
 
     // Just save up for SAMs if missile silos are disabled
@@ -2110,6 +2187,7 @@ export const NationStructureBehaviorSnapshot = snapshotType({
     nukeImpacts: z.array(z.tuple([zInt(), zTile()])),
     lastDomeTick: zInt().nullable(),
     domeRetryTick: zInt().nullable(),
+    domeSavingUntil: zInt().nullable(),
   }),
   migrations: {
     // v1 nations kept no Dome memory (rules 4 adds it)
@@ -2118,6 +2196,7 @@ export const NationStructureBehaviorSnapshot = snapshotType({
       nukeImpacts: [],
       lastDomeTick: null,
       domeRetryTick: null,
+      domeSavingUntil: null,
     }),
   },
 });
