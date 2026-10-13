@@ -628,6 +628,12 @@ describe("CROWN r18: a petition for an expedition", () => {
     g.lifeCommand("s1", { k: "crown", act: "court" });
     const others = lifeForOthers(gov);
     expect(others.journal.some((j) => /court/.test(j.text))).toBe(false);
+    expect(
+      Object.keys(others.cooldowns).some((k) => k.startsWith("crown:")),
+    ).toBe(false);
+    expect(Object.keys(gov.cooldowns).some((k) => k.startsWith("crown:"))).toBe(
+      true,
+    );
     // Granted: it sails, and the English governor of the town would hear.
     s.truces = [];
     grantAsk(g, a);
