@@ -1065,9 +1065,20 @@ function fieldMonthly(g: ConquestGame, a: CrownAsk): void {
   }
   const army = s.armies.find((x) => x.id === a.army);
   if (held) {
-    // Held, waiting on the peace to make it theirs.
-    if ((a.until ?? 0) < s.day + 120) {
-      a.until = s.day + 120;
+    // Held, waiting on the peace to make it theirs (but not for ever: the
+    // crown recalls its men three years after they landed, held or not).
+    const last = (a.lands ?? s.day) + EXPEDITION.recallDays;
+    if (s.day > last) {
+      failed(
+        g,
+        a,
+        "The crown recalled it before the peace gave it the town",
+        false,
+      );
+      return;
+    }
+    if ((a.until ?? 0) < Math.min(last, s.day + 120)) {
+      a.until = Math.min(last, s.day + 120);
       crownChanged(g);
     }
     return;

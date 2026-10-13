@@ -759,6 +759,8 @@ export const EXPEDITION = {
   offerGold: 300,
   /** Granted: the crown's general gives up a year and a half after landing if the town isn't taken. */
   campaignDays: 540,
+  /** Held, it waits on the peace; but the crown recalls it this long after it landed, held or not. */
+  recallDays: 3 * DAYS_PER_YEAR,
   /** Taken back: renown and favour; failed: favour lost (and the claim halved); refused: a little, or a little gained. */
   wonRenown: 10,
   wonFavour: 6,
