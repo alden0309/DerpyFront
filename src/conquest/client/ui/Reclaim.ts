@@ -94,10 +94,10 @@ function claimRow(ui: GameUi, c: Claim, withTown: boolean): TemplateResult {
         c.by,
       )}
       <span class="cq-muted small"
-        >wants it back from ${nationLink(ui, c.from)}; lost
+        >wants it back: lost to ${nameOf(ui, c.from)}
         ${HOW[c.how] ?? "at a peace"} in
         ${yr(c.day)}${c.war !== undefined
-          ? html`; <b class="bad">at war for it</b>`
+          ? html`, <b class="bad">at war for it now</b>`
           : nothing}</span
       >
     </span>
@@ -116,23 +116,13 @@ function nightPanel(ui: GameUi, m: Movement): TemplateResult {
   const o = risingOdds(ui.s, ui.w, m);
   const R = ui.s.nations[m.against];
   const rows: { label: string; p: number; bad?: boolean; note?: string }[] = [
-    {
-      label: "Found out before it begins",
-      p: o.found,
-      bad: true,
-      note: "its ringleaders taken",
-    },
+    { label: "Found out before it begins", p: o.found, bad: true },
     {
       label: "Takes the town",
       p: o.seize,
       note: `${o.men} men against ${o.garrison ? `a garrison of ${o.garrison}` : "no garrison"}`,
     },
-    {
-      label: "Beaten in the streets",
-      p: o.beaten,
-      bad: true,
-      note: "its ringleaders taken",
-    },
+    { label: "Beaten in the streets", p: o.beaten, bad: true },
   ];
   const max = Math.max(...rows.map((r) => r.p), 0.01);
   return html`<div class="cq-odds-panel cq-war-odds">
@@ -155,8 +145,9 @@ function nightPanel(ui: GameUi, m: Movement): TemplateResult {
       )}
     </ul>
     <p class="cq-muted small">
-      Taking the town is half of it: it must hold it ${RISING.holdMonths} months
-      against the
+      Found out or beaten, its ringleaders are taken and the town is cowed for
+      ${FERMENT.cowedYears} years. Taking the town is half of it: it must hold
+      it ${RISING.holdMonths} months against the
       ${R.adjective}${o.relief
         ? html`, and <b>${o.relief}</b> of their soldiers are within reach`
         : ", who have no soldiers near"}.
@@ -339,9 +330,8 @@ export function townRuleBlock(
               <span class="cq-meter-label">${term("ferment")}</span>${bar(
                 y.ferment / 100,
                 y.ferment >= FERMENT.plot ? "" : "invert",
-              )}${num(
-                Math.round(y.ferment),
-                () =>
+              )}<span class="cq-meter-n"
+                >${num(Math.round(y.ferment), () =>
                   breakdownTip(
                     `Where ${ui.map.provinces[p].name}'s ferment is heading`,
                     { total: y.target, parts: y.parts },
@@ -351,8 +341,8 @@ export function townRuleBlock(
                       `A plot can form from ${FERMENT.plot}: a chance a month of 1 in 40 for each point above ${FERMENT.plotFrom}.`,
                     ],
                   ),
-                "cq-meter-n",
-              )}
+                )}</span
+              >
             </div>
             <p class="cq-muted small">
               Heading for ${Math.round(y.target)}

@@ -85,19 +85,19 @@ export function rdice(g: ConquestGame, salt: number): Rng {
 
 /** How much a lost town is wanted back, and how it fades. */
 export const CLAIM = {
-  /** Its size: 10 points for each doubling past this many people, up to 30. */
+  /** Its size: 13 points for each doubling past this many people, up to 40. */
   sizeStep: 250,
-  sizePer: 10,
-  sizeMax: 30,
+  sizePer: 13,
+  sizeMax: 40,
   /** Their capital (counts whoever lives there now). */
-  capital: 25,
-  /** Each year it was theirs, up to 20 points (a town held since before the game counts in full). */
-  perYear: 0.5,
-  yearsMax: 20,
+  capital: 33,
+  /** Each year it was theirs, up to 28 points (a town held since before the game counts in full). */
+  perYear: 0.7,
+  yearsMax: 28,
   /** Its people: size and years count in full when all of them are the claimant's own, a quarter when none are. */
   strangers: 0.25,
-  /** The points come to at most 75; a claim is on a scale of 100. */
-  scale: 100 / 75,
+  /** The points come to at most 100 (a scale kept for the tables). */
+  scale: 1,
   /** Held less than this many years: no claim at all (a town taken back is no grievance). */
   minYears: 3,
   /** Smaller than this, not worth a claim. */

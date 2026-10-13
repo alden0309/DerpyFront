@@ -24,7 +24,7 @@
 }
 .cq-claim-v {
   display: grid;
-  grid-template-columns: 4.5rem 2.2rem auto;
+  grid-template-columns: 4.5rem 2.2rem 6.2rem;
   align-items: center;
   gap: 0.4rem;
   justify-items: start;
@@ -37,6 +37,8 @@
   justify-self: end;
 }
 .cq-claim-v .cq-chip {
+  justify-self: stretch;
+  text-align: center;
   white-space: nowrap;
 }
 .cq-war-ferment {
@@ -59,7 +61,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .cq-claim-v {
-    grid-template-columns: minmax(0, 1fr) 2.2rem auto;
+    grid-template-columns: minmax(0, 1fr) 2.2rem 6.2rem;
     width: 100%;
   }
 }
