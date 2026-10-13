@@ -182,9 +182,10 @@ describe("WinModal end-of-game awards", () => {
     for (const line of ["played", "territory", "gold", "awards", "win"]) {
       expect(text).toContain(`derpy.coin_line_${line}`);
     }
-    // 5 played + 20 territory + 2 gold + 25 MVP + 50 win.
-    expect(text).toContain("+20");
-    expect(text).toContain("+50");
+    // 6 played + 24 territory + 2 gold + 30 MVP + 60 win (SITE r19: a fifth more).
+    expect(text).toContain("+24");
+    expect(text).toContain("+30");
+    expect(text).toContain("+60");
   });
 
   it("says awards come at the end when you die before the game is decided", async () => {
