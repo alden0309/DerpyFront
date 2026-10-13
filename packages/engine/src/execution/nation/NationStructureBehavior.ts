@@ -200,7 +200,7 @@ const DOME_RETRY_TICKS = 300;
  * A nation holding this many tenths of a worthwhile first Dome's price saves
  * the rest (Medium and up)...
  */
-const DOME_SAVE_FROM_TENTHS = 5n;
+const DOME_SAVE_FROM_TENTHS = 6n;
 /** ...for at most this many ticks out of twice as many. */
 const DOME_SAVE_MAX_TICKS = 3000; // 5 minutes
 /** Structures a nation prefers to put under its Domes when threatened. */
@@ -213,7 +213,10 @@ const SHELTERED_TYPES: ReadonlySet<UnitType> = new Set([
 ]);
 /** Extra spots sampled under our Domes when placing a structure. */
 const SHELTER_SAMPLES = 10;
-/** A Dome stops sweetening a spot once it covers this many of the type. */
+/**
+ * The bonus for a spot under a Dome halves once the Dome covers this many
+ * of the type, and keeps fading after.
+ */
 const SHELTER_CROWD = 4;
 /** Upgrade score for a structure under one of our Domes (a SAM gives 10). */
 const SHELTERED_UPGRADE_SCORE = 20;
@@ -340,6 +343,10 @@ export class NationStructureBehavior {
       return false;
     }
     if (this.isInPostSaveUpBlockedPhase()) {
+      return false;
+    }
+    // Derpy Front (rules 4+): nothing new while saving for a Dome
+    if (this.savingForDome() !== null) {
       return false;
     }
     const built = this.doHandleStructures();
@@ -480,7 +487,7 @@ export class NationStructureBehavior {
    * enough, at the bare price. Under a heavy land attack a Dome waits until
    * the nation could pay for it twice, so its land defence comes first.
    * One at a time, a minute apart before we are nuked, at most three then.
-   * A nation already holding half the price of its first saves the rest
+   * A nation already holding 60% of the price of its first saves the rest
    * (see savingForDome).
    */
   private tryBuildSmartDome(): boolean {
@@ -519,7 +526,7 @@ export class NationStructureBehavior {
       ) {
         return false;
       }
-      // Half way there: save the rest if a Dome is worth it
+      // Most of the way there: save the rest if a Dome is worth it
       if (this.worthyDomeSpot(nuked) !== null) {
         this.domeSavingUntil = ticks + DOME_RETRY_TICKS;
         this.domeSaveStartTick ??= ticks;
@@ -585,10 +592,10 @@ export class NationStructureBehavior {
   /**
    * Derpy Front (rules 4+): the gold we are holding for a Dome, or null if
    * we aren't saving for one. A nation of Medium or up with no Dome yet
-   * that holds half of a worthwhile Dome's price, and no land attack
-   * presses, saves the rest: it holds out for its save-up target before
-   * building more (as it does for a MIRV), and holds the bombs that would
-   * cut into it unless it is being overrun (NationNukeBehavior). The
+   * that holds 60% of a worthwhile Dome's price, and no land attack
+   * presses, saves the rest: it starts no new buildings (defense posts and
+   * its Capital's SAMs still go up), and holds the bombs that would cut
+   * into the price unless it is being overrun (NationNukeBehavior). The
    * decision lasts 30 seconds and is then looked at again, for at most five
    * minutes out of ten.
    */
@@ -1350,20 +1357,10 @@ export class NationStructureBehavior {
   }
 
   /**
-   * The gold we save up for: for nukes (see nukeSaveUpTarget), or for a
-   * Dome while we are saving for one (rules 4+), whichever is more.
-   */
-  private getSaveUpTarget(): Gold {
-    const target = this.nukeSaveUpTarget();
-    const dome = this.savingForDome();
-    return dome !== null && dome > target ? dome : target;
-  }
-
-  /**
    * Determines the gold target we want to save up for based on which nukes are enabled.
    * Returns 0 if no saving is needed.
    */
-  private nukeSaveUpTarget(): Gold {
+  private getSaveUpTarget(): Gold {
     const config = this.game.config();
 
     // Just save up for SAMs if missile silos are disabled
@@ -1613,8 +1610,10 @@ export class NationStructureBehavior {
    * Derpy Front (rules 4+): when a foe can nuke us and we have finished
    * Domes, where to also look for a new city, port, factory, silo or SAM:
    * spots well inside our Domes (shore spots for a port), and a bonus for a
-   * spot under one that fades with each building of the type it already
-   * covers, so the type spreads over our Domes instead of piling up.
+   * spot under one, worth a structure spacing, that fades with each
+   * building of the type the Dome already covers (to half at four), so the
+   * type spreads over our Domes instead of piling up. The usual spacing
+   * from buildings of the same type still counts.
    * Null when none of that applies.
    */
   private shelter(
@@ -1673,8 +1672,10 @@ export class NationStructureBehavior {
         if (game.euclideanDistSquared(domes[i], t) > range2) continue;
         fewest = Math.min(fewest, crowd[i]);
       }
-      if (fewest >= SHELTER_CROWD) return 0;
-      return Math.floor(structureSpacing / (1 + fewest));
+      if (fewest === Infinity) return 0;
+      return Math.floor(
+        (structureSpacing * SHELTER_CROWD) / (SHELTER_CROWD + fewest),
+      );
     };
     return { tiles, bonus };
   }

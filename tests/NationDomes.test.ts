@@ -392,9 +392,11 @@ describe("Saving for a Dome (rules 4)", () => {
 
     expect(behavior["tryBuildSmartDome"]()).toBe(false);
     expect(behavior.savingForDome()).toBe(62_500_000n);
-    expect(behavior["getSaveUpTarget"]()).toBe(62_500_000n);
     // A hydrogen bomb would cut into the Dome's price
     expect(bombs["nukeTypesToTry"]()).toEqual([]);
+    // And it starts no new building meanwhile
+    expect(behavior.handleStructures()).toBe(false);
+    expect(me.gold()).toBe(50_000_000n);
 
     // Once it holds the price, it builds the Dome and stops saving
     me.addGold(13_000_000n);
@@ -443,10 +445,10 @@ describe("Saving for a Dome (rules 4)", () => {
     expect(behavior.savingForDome()).toBeNull();
   });
 
-  test("not with under half the price, on Easy, or under a land attack", async () => {
+  test("not with under 60% of the price, on Easy, or under a land attack", async () => {
     const poor = await aiGame();
     capitalCluster(poor.game, poor.me);
-    poor.me.removeGold(poor.me.gold() - 30_000_000n);
+    poor.me.removeGold(poor.me.gold() - 37_000_000n);
     poor.behavior["tryBuildSmartDome"]();
     expect(poor.behavior.savingForDome()).toBeNull();
 
@@ -615,9 +617,25 @@ describe("Building under a Dome (rules 4)", () => {
     expect(await shelteredShare({ derpyRules: 3 })).toBeLessThan(0.4);
   });
 
-  test("and less once the Dome already covers a few", async () => {
-    const crowded = await shelteredShare({}, 4);
-    expect(crowded).toBeLessThan(await shelteredShare({}));
+  test("and less the more of the type the Dome already covers", async () => {
+    const { game, me, behavior } = await aiGame({ config: SmallDomeConfig });
+    buildDome(game, me, 40, 40);
+    const spot = game.ref(40, 70);
+    const bonus = () => behavior["shelter"](UnitType.City, [])!.bonus(spot);
+    // A structure spacing (60) at first, half that over four cities
+    expect(bonus()).toBe(60);
+    for (const x of [20, 40, 60, 80]) {
+      me.buildUnit(UnitType.City, game.ref(x, 25), {});
+    }
+    expect(bonus()).toBe(30);
+    for (const x of [20, 30, 50, 60]) {
+      me.buildUnit(UnitType.City, game.ref(x, 55), {});
+    }
+    expect(bonus()).toBe(20);
+    // Nothing for a spot outside every Dome
+    expect(
+      behavior["shelter"](UnitType.City, [])!.bonus(game.ref(150, 100)),
+    ).toBe(0);
   });
 
   test("silos and SAMs too", async () => {
