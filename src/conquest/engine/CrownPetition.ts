@@ -687,8 +687,9 @@ function crownGeneral(g: ConquestGame, a: CrownAsk): number {
     age: dice.int(40, 58),
     stats: randomStats(dice, "mar"),
     traits: [dice.pick(["brave", "ambitious", "cruel", "just"] as const)!],
-    title: "General",
   });
+  // "General Hugh Mackay": the crown's man, by his rank.
+  c.title = `General ${c.first} ${c.family}`;
   g.touchChar(c);
   return c.id;
 }

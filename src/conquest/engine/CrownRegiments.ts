@@ -396,7 +396,7 @@ function landDraft(g: ConquestGame, sl: CrownSailing): void {
 }
 
 /** The fortresses, each month: held, renewed with the fleet; lost, their garrison gone. */
-function fortsMonthly(g: ConquestGame, first = false): void {
+function fortsMonthly(g: ConquestGame): void {
   const s = g.s;
   const st = crownState(g);
   const d = dateOf(s.day);
@@ -433,12 +433,11 @@ function fortsMonthly(g: ConquestGame, first = false): void {
     }
     if (pr.occupier >= 0) continue;
     if (!f) {
-      // On the books from the start (or since an old save's first month).
+      // On the books from the first month's turn (a new game's, or an old save's).
       st.forts[p] = { p, n, renewed: s.day };
       fillGarrison(g, p, n, def.men);
       continue;
     }
-    if (first) continue;
     const a = garrisonArmy(s, p);
     if (a && a.prov !== p) delete f.army;
     // The yearly draft sails with the fleet.
@@ -472,7 +471,5 @@ export function crownMonthly(g: ConquestGame): void {
 
 hooks.daily.push(crownDaily);
 hooks.monthEnd.push(crownMonthly);
-// The fortresses' garrisons stand from the first day of a new game.
-hooks.created.push((g) => fortsMonthly(g, true));
 
 export { crownMen, inWords, regimentsWords };

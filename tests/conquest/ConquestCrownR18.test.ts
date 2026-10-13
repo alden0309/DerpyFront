@@ -94,6 +94,8 @@ function quiet(
         : undefined;
   const g = world({ start: o.start ?? 1700, seed: o.seed ?? 7, plans });
   g.aiEnabled = false;
+  // The garrisons stand from the first month's turn.
+  crownMonthly(g);
   return {
     g,
     spain: nationKey(g, "spain"),
@@ -267,7 +269,9 @@ describe("CROWN r18: regiments from Europe in wartime", () => {
 });
 
 describe("CROWN r18: fortress garrisons", () => {
-  test("Spain's fortresses (and France's marine posts) have their garrisons from the start", () => {
+  test("Spain's fortresses (and France's marine posts) have their garrisons from the first month", () => {
+    const fresh = world({ start: 1700, seed: 7 });
+    expect(garrisonArmy(fresh.s, HAVANA)).toBeUndefined();
     const { g, spain } = quiet();
     const s = g.s;
     const hav = garrisonArmy(s, HAVANA)!;
