@@ -17,6 +17,7 @@ import {
   travelRoute,
 } from "../../src/conquest/engine/LifeQueries";
 import { LOCALS_CAP, PLACES } from "../../src/conquest/engine/LifeRules";
+import { courtableHere } from "../../src/conquest/engine/Newcomers";
 import { ensureOffices } from "../../src/conquest/engine/Offices";
 import { Rng } from "../../src/conquest/engine/Rng";
 import {
@@ -190,6 +191,33 @@ describe("newcomers with the settlers", () => {
     // It came as news (a grown child of the town keeps house without it).
     const came = t.came[STA] ?? [];
     expect(came.length).toBeGreaterThanOrEqual(before);
+  }, 120_000);
+
+  test("a player at home with nobody of their own to court: someone comes within a year or two", () => {
+    const g = spanish(1700, 7, true);
+    toNextMonth(g);
+    const s = g.s;
+    const life = lifeOf(g);
+    const me = s.chars[life.c];
+    // Every man here she could court is spoken for, again and again.
+    const spoken = () => {
+      for (const c of householdsOf(s, STA))
+        if (!c.female && marriageable(s, c)) c.spouse = 999999;
+    };
+    spoken();
+    expect(courtableHere(g, life, me)).toHaveLength(0);
+    let came = false;
+    for (let m = 0; m < 26 && !came; m++) {
+      toNextMonth(g);
+      life.travel = null;
+      life.prov = STA;
+      came = courtableHere(g, life, me).length > 0;
+      if (!came) spoken();
+    }
+    expect(came).toBe(true);
+    // Of her own people (a newcomer, or a son of the town come of age), and she can court him.
+    const him = courtableHere(g, life, me)[0];
+    expect(him.culture).toBe(me.culture);
   }, 120_000);
 
   test("a native town takes in kin from the nation's other towns", () => {

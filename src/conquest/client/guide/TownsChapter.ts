@@ -173,7 +173,7 @@ ${voteTable()}
 - When it's subscribed in full, **work begins**. Society › Town shows its progress and when it should be done. Nothing is built while the town is held by an enemy.
 
 ## When it stands
-A wharf brings the docks back (passages by sea, ships' work, boats); a church, a fort or a court-house its place; a market house, a road and bridge or a warehouse the town's trade; a lighthouse its customs; a schoolhouse lets a town of any size keep its school (the Latin school too); a council house calms a native town. Whoever brought it has renown, and a line in their story; for an office holder it's something **delivered** (their favour holds).
+A wharf brings the docks back (passages by sea, ships' work, boats); a church, a fort or a court-house its place; a market house, a road and bridge or a warehouse the town's trade; a lighthouse more ships; a schoolhouse lets a town of any size keep its school (the Latin school too); a council house calms a native town. Whoever brought it has renown, and a line in their story; for an office holder it's something **delivered** (their favour holds).
 
 ## When nobody brings it
 The town's own members bring a ruin's repair themselves (about ${Math.round(NPC_BRINGS.ruin * 100)} times in 100 a month, so within a year or so), and now and then a wharf or a church a town of 300 lacks. Only in towns someone has lived in.`,

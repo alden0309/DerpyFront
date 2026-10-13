@@ -662,7 +662,7 @@ function arrivals(g: ConquestGame, p: number, r: Rng): void {
   const have = headsOf(s, p).length;
   const per = native ? HOUSEHOLDS.nativePer : HOUSEHOLDS.per;
   const owed = t.owed[p] ?? 0;
-  let come = false;
+  let come: boolean;
   if (have >= room) {
     // Full: the town still sees comings and goings (one moves on in its turn).
     t.owed[p] = Math.min(owed, per);
@@ -817,13 +817,13 @@ export function leave(
   ) {
     s.locals[to].push(head.id);
     g.localsChanged(to);
+    const was = post ? `once the ${post} at ${g.map.provinces[p].name}` : "";
+    const as = head.came?.as;
     head.came = {
       day: s.day,
       how: "road",
       from: g.map.provinces[p].name,
-      as:
-        head.came?.as ||
-        (post ? `once the ${post} at ${g.map.provinces[p].name}` : ""),
+      as: as !== undefined && as !== "" ? as : was,
     };
   }
 }

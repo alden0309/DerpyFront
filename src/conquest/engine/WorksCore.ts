@@ -152,10 +152,10 @@ export const TOWN_WORKS: Record<TownWorkKey, TownWorkDef> = {
     months: 6,
     folk: 800,
     coast: true,
-    fx: { tax: 0.03 },
+    fx: { production: 0.03 },
     pro: ["merchants"],
     con: ["planters"],
-    does: "the town's customs and taxes +3%",
+    does: "more ships call, fewer are wrecked: the town's trade +3%",
   },
   courthouse: {
     key: "courthouse",
