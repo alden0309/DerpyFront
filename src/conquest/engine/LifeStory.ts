@@ -9,7 +9,7 @@
 
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
-import { milestone } from "./LifeCore";
+import { milestone, touchLife } from "./LifeCore";
 import { meOf } from "./LifeQueries";
 import { charName } from "./Queries";
 import type { Army, Character, GameEvent, Life, Nation } from "./Types";
@@ -98,6 +98,22 @@ function warAtHome(g: ConquestGame, e: GameEvent): void {
     if (life.home !== e.p) continue;
     const by = s.nations[e.n];
     const ours = me.nation === e.n;
+    // Taken and burned the same day: one moment.
+    const taken =
+      e.k === "razed" &&
+      life.milestones.find(
+        (m) =>
+          m.kind === "home" &&
+          m.day === s.day &&
+          m.p === e.p &&
+          / was taken by /.test(m.text),
+      );
+    if (taken) {
+      taken.text = `${place}, your home, was taken and burned by ${nationWord(by)}`;
+      taken.big = true;
+      touchLife(g, life);
+      continue;
+    }
     const text =
       e.k === "freed"
         ? `${place}, your home, was free of its occupiers again`
