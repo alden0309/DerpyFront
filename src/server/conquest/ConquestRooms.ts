@@ -863,6 +863,14 @@ export class ConquestRooms {
     if (conn.accountId !== null) {
       seat.accountId = conn.accountId;
       seat.name = conn.name;
+      // NAMES (r20): a player who changed their username since they sat
+      // down shows the new one from their return (their character keeps
+      // its own name).
+      const life = room.game ? lifeOfSeat(room.game.state, seat.id) : null;
+      if (life && life.name !== seat.name) {
+        life.name = seat.name;
+        room.game!.lifeChanged(seat.id);
+      }
     }
     conn.room = room;
     conn.seat = seat;

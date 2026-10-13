@@ -21,6 +21,7 @@ import {
 import { replacer } from "@openfront/shared/SharedUtil";
 import { GameRecord, PlayerRecord } from "@openfront/shared/WireSchemas";
 import { gunzipSync, gzipSync } from "zlib";
+import { NAME_HOLD_MS } from "../../derpland/Names"; // NAMES (r20)
 import { logger } from "../Logger";
 import { getMapLandTilesForSize } from "../MapLandTiles";
 import { accountsForPlayIds } from "./DerpyAuth";
@@ -31,6 +32,7 @@ import {
   type ProfileAchievement, // MAP (r12)
 } from "./DerpyConquest";
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
+import { labelFor, namesOf } from "./DerpyNames"; // NAMES (r20)
 
 const log = logger.child({ component: "DerpyGames" });
 
@@ -100,13 +102,15 @@ export function playerLine(
   };
 }
 
-function winnerText(record: GameRecord): string | null {
+function winnerText(
+  record: GameRecord,
+  labels: Map<string, string> = new Map(),
+): string | null {
   const w = record.info.winner;
   if (!w) return null;
   if (w[0] === "player") {
-    return (
-      record.info.players.find((p) => p.clientID === w[1])?.username ?? null
-    );
+    const p = record.info.players.find((x) => x.clientID === w[1]);
+    return p ? (labels.get(p.clientID) ?? p.username) : null;
   }
   if (w[0] === "team") return `Team ${w[1]}`;
   return w[1];
@@ -175,6 +179,21 @@ export async function recordDerpyGame(
     );
 
     await inTransaction(async (c) => {
+      // NAMES (r20): an account renamed while it played, under the name it
+      // gave up, shows its new name (the replay keeps the one played under).
+      const names = await namesOf(
+        c,
+        credited.map((x) => x.accountId),
+      );
+      const labels = new Map<string, string>();
+      for (const { player, accountId } of credited) {
+        const label = labelFor(
+          player.username,
+          names.get(accountId),
+          record.info.start,
+        );
+        if (label !== player.username) labels.set(player.clientID, label);
+      }
       const inserted = await c.query(
         `INSERT INTO derpy_games (game_id, map, mode, game_type, started_at,
            ended_at, duration_s, winner, num_players, awards, record)
@@ -190,9 +209,15 @@ export async function recordDerpyGame(
           record.info.start,
           record.info.end,
           record.info.duration,
-          winnerText(record),
+          winnerText(record, labels),
           record.info.players.length,
-          JSON.stringify(awards),
+          JSON.stringify(
+            awards.map((a) =>
+              a.clientID !== null && labels.has(a.clientID)
+                ? { ...a, name: labels.get(a.clientID)! }
+                : a,
+            ),
+          ),
           blob,
         ],
       );
@@ -200,15 +225,16 @@ export async function recordDerpyGame(
       for (const { player, accountId } of credited) {
         const line = playerLine(record, player, awards, numLandTiles);
         lines.set(accountId, line);
+        const label = labels.get(player.clientID);
         await c.query(
           `INSERT INTO derpy_game_players (game_id, account_id, username, won,
              peak_territory_pct, gold_earned, conquests, ships, betrayals,
-             nukes, awards, coins)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+             nukes, awards, coins, played_as)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
           [
             record.info.gameID,
             accountId,
-            player.username,
+            label ?? player.username,
             line.won,
             line.peakTerritoryPct,
             line.goldEarned.toString(),
@@ -218,6 +244,7 @@ export async function recordDerpyGame(
             line.nukes,
             line.awards,
             line.coins,
+            label === undefined ? null : player.username,
           ],
         );
         await c.query(
@@ -239,14 +266,36 @@ export async function recordDerpyGame(
 
 /** A saved game's record for the replay viewer, or null. */
 export async function savedGameRecord(gameId: string): Promise<unknown> {
-  const res = await (
-    await db()
-  ).query("SELECT record FROM derpy_games WHERE game_id = $1", [gameId]);
+  const pool = await db();
+  const res = await pool.query(
+    "SELECT record FROM derpy_games WHERE game_id = $1",
+    [gameId],
+  );
   const row = res.rows[0];
   if (!row) return null;
-  return withRulesEdition(
+  const record = withRulesEdition(
     JSON.parse(gunzipSync(row.record as Buffer).toString("utf8")),
   );
+  // NAMES (r20): players who played under their account's name show the
+  // account's name now. Only names; nothing the game plays by changes.
+  const renamed = await pool.query(
+    `SELECT played_as, username FROM derpy_game_players
+     WHERE game_id = $1 AND played_as IS NOT NULL AND played_as <> username`,
+    [gameId],
+  );
+  if (renamed.rows.length > 0) {
+    const now = new Map<string, string>(
+      renamed.rows.map((r) => [r.played_as as string, r.username as string]),
+    );
+    const players = (
+      record as { info?: { players?: { username?: unknown }[] } }
+    )?.info?.players;
+    for (const p of players ?? []) {
+      if (typeof p.username === "string" && now.has(p.username))
+        p.username = now.get(p.username);
+    }
+  }
+  return record;
 }
 
 /**
@@ -361,16 +410,25 @@ export interface Profile {
   };
 }
 
-/** A player's stats and their saved games (newest first), or null. */
+/**
+ * A player's stats and their saved games (newest first), or null. NAMES
+ * (r20): a name given up in the last 7 days still finds its account (old
+ * links keep working while nobody else can have the name); the profile
+ * carries the account's name now.
+ */
 export async function profile(username: string): Promise<Profile | null> {
   const pool = await db();
   const acc = await pool.query(
     `SELECT a.id, a.username, a.coins, a.created_at, ${STATS_COLUMNS}
      FROM derpy_accounts a
      LEFT JOIN derpy_game_players gp ON gp.account_id = a.id
-     WHERE a.username_key = $1
+     WHERE a.id = COALESCE(
+       (SELECT id FROM derpy_accounts WHERE username_key = $1),
+       (SELECT id FROM derpy_accounts
+        WHERE old_username_key = $1 AND username_changed_at > $2
+        ORDER BY username_changed_at DESC LIMIT 1))
      GROUP BY a.id`,
-    [username.toLowerCase()],
+    [username.toLowerCase(), new Date(Date.now() - NAME_HOLD_MS)],
   );
   const row = acc.rows[0];
   if (!row) return null;
