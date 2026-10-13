@@ -2607,6 +2607,40 @@ export class MapView {
           ship(ctx, x, y, figure * 0.8, heading, n.color, now);
       }
     }
+    // CROWN (r18): the crown's regiments coming in from Europe, a ship or a
+    // little fleet (an expedition's squadron) on the last of the crossing.
+    for (const sl of s.crown?.sailing ?? []) {
+      const n = s.nations[sl.n];
+      if (!n) continue;
+      if (fog && sl.n !== o.me && !fog.seen.has(sl.port)) continue;
+      const span = Math.max(1, sl.arrive - sl.departed);
+      const t = (day - sl.departed) / span;
+      const onMap = (t - 0.7) / 0.3;
+      if (onMap < 0 || onMap > 1) continue;
+      const route = this.sea
+        ? this.sea.toEurope(sl.port)
+        : this.routeFrom(sl.port);
+      if (route.length < 2) continue;
+      const [mx, my, ang] = this.along(route, 1 - onMap);
+      const heading = ang + Math.PI;
+      const ships = Math.min(
+        4,
+        Math.max(1, Math.ceil((sl.foot + sl.guns) / 3) + (sl.ships ? 1 : 0)),
+      );
+      for (let i = 0; i < ships; i++) {
+        // A fleet sails in a loose line astern, each a little to one side,
+        // far enough apart to tell (a ship is drawn about a figure and a
+        // quarter long).
+        const back = i * figure * 1.5;
+        const side = i ? (i % 2 ? 1 : -1) * figure * 0.7 : 0;
+        const x = sx(mx) - Math.cos(heading) * back - Math.sin(heading) * side;
+        const y = sy(my) - Math.sin(heading) * back + Math.cos(heading) * side;
+        if (!onScreen(x, y, 40)) continue;
+        this.movers++;
+        if (!this.drawShip(ctx, x, y, figure * 1.25, heading, n.color, now))
+          ship(ctx, x, y, figure * 0.8, heading, n.color, now);
+      }
+    }
 
     // Parties out in the wilds (yours): their way over country you know,
     // and the party itself only where you can see it (wave 2, r11).

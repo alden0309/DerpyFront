@@ -1320,6 +1320,8 @@ export interface Regiment {
   morale: number;
   /** The province the men were drafted from (they go home when disbanded). */
   home: number;
+  /** CROWN (r18): the crown's own from Europe: "war" go home at the peace; "fort" keep a fortress. */
+  crown?: "war" | "fort";
 }
 
 export interface Army {
@@ -1631,6 +1633,8 @@ export interface GameState {
   towns?: TownsState;
   /** WAR (r17): claims on lost towns, and towns in a ferment under foreign rule. */
   reclaim?: ReclaimState;
+  /** CROWN (r18): regiments from Europe, fortress garrisons, petitions for an expedition. */
+  crown?: CrownState;
 }
 
 export type TravellerKind =
@@ -1942,7 +1946,9 @@ export type LifeCommand =
   // TOWNS (r17): the town's public works: propose, petition, vote, subscribe.
   | TownsCommand
   // WAR (r17): a town under foreign rule: stirring it up, its plot.
-  | ReclaimCommand;
+  | ReclaimCommand
+  // CROWN (r18): a petition to the crown for an expedition to retake a town.
+  | CrownCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1995,6 +2001,8 @@ export interface GameDelta {
   towns?: TownsDelta;
   /** WAR (r17): claims and towns in a ferment, when any changed (nothing in it is secret). */
   reclaim?: ReclaimState;
+  /** CROWN (r18): when any changed (a petition is its colony's secret until it sails). */
+  crown?: CrownState;
 }
 
 // ---- WORLD (r11)
@@ -3406,7 +3414,9 @@ export type AffairKind =
   | "statement"
   | "statement"
   // WAR (r17): a rising you're sworn to (its plot, its night, its end).
-  | "cause";
+  | "cause"
+  // CROWN (r18): a petition to the crown for an expedition, and the expedition.
+  | "expedition";
 
 /** One line of a month's books: coins in (+) or out (−) from one source. */
 export interface BookLine {
@@ -4853,4 +4863,143 @@ export interface ReclaimCommand {
   /** stir, join, lead, inform, aim. */
   act: string;
   aim?: "restore" | "free";
+}
+
+// ---- CROWN (r18)
+
+/** CROWN (r18): the crown's regiments at sea, bound for a port (shown on the map as they come in). */
+export interface CrownSailing {
+  id: number;
+  /** The colony they're sent to. */
+  n: number;
+  /** Where they land: the colony's port, or a coast it means to take. */
+  port: number;
+  /** A landing in force on a coast the colony doesn't hold. */
+  force?: boolean;
+  departed: number;
+  arrive: number;
+  /** Aboard: regiments of foot and of guns (a hundred men each, or fewer for a garrison's draft). */
+  foot: number;
+  guns: number;
+  /** Men aboard (a garrison's draft may be less than a regiment). */
+  men: number;
+  /** Ships of the line with them (an expedition's squadron). */
+  ships?: number;
+  /** "war": the crown at war sends them; "fort": a garrison's yearly draft; "exp": an expedition. */
+  why: "war" | "fort" | "exp";
+  /** An expedition's id, or a fortress's province. */
+  ask?: number;
+  fort?: number;
+}
+
+/** CROWN (r18): what a crown has sent its colony. */
+export interface CrownSent {
+  /** Regiments landed in all, and in the war under way (since `since`). */
+  total: number;
+  war: number;
+  since: number;
+  /** Landings in all. */
+  landings: number;
+  /** Regiments gone home at a peace. */
+  home: number;
+  /** The colony's gold spent on their passage. */
+  gold: number;
+  /** The last landing. */
+  last?: { day: number; p: number; regs: number; force?: boolean };
+  /** The wars it has answered already (keys "a-b-start"), and the year of the last season's draft. */
+  wars: string[];
+  season?: number;
+}
+
+/** CROWN (r18): a fortress port's garrison from Europe. */
+export interface CrownFort {
+  p: number;
+  /** The colony that keeps it (Spain's). */
+  n: number;
+  /** The garrison's army, while it stands. */
+  army?: number;
+  /** The day it was last renewed (a draft landed). */
+  renewed: number;
+}
+
+/** CROWN (r18): a petition to the crown for an expedition to retake a town, and the expedition it brings. */
+export interface CrownAsk {
+  id: number;
+  /** The colony asking. */
+  n: number;
+  p: number;
+  /** Who held the town when the petition began (and since, if it changed). */
+  holder: number;
+  /** The governor who got it up. */
+  by: number;
+  /** Got up by the computer's governor. */
+  npc?: boolean;
+  begun: number;
+  sails: number;
+  answer: number;
+  stage:
+    | "gathering"
+    | "sent"
+    | "granted"
+    | "landed"
+    | "won"
+    | "failed"
+    | "refused"
+    | "dropped";
+  /** The colony's offer: regiments it raises, gold from its treasury (voted by the house). */
+  men: number;
+  gold: number;
+  /** The house has voted the offer (the day), or turned one down (the day, so it isn't put again at once). */
+  voted?: number;
+  balked?: number;
+  /** Coins paid in by players (by seat): handed back if it never sails. */
+  paid: Record<string, number>;
+  /** Letters of support: councillors and members (character ids), those who wouldn't, and friends at court. */
+  council: number[];
+  house: number[];
+  refused: number[];
+  court: number;
+  /** Players who asked the governor for it (seats). */
+  asked: string[];
+  /** The odds when the answer came (for the record). */
+  odds?: number;
+  /** Granted: the crown's regiments, guns and ships; the day they land; the army; who commands it. */
+  regs?: number;
+  guns?: number;
+  ships?: number;
+  lands?: number;
+  army?: number;
+  general?: number;
+  /** The governor (a player) means to command it himself. */
+  lead?: boolean;
+  /** The crown went to war for it. */
+  war?: boolean;
+  /** It gives up by this day if the town isn't taken. */
+  until?: number;
+  /** Players riding with it (seats). */
+  riders: string[];
+  /** When it ended, and why (in words). */
+  ended?: number;
+  why?: string;
+}
+
+export interface CrownState {
+  sailing: CrownSailing[];
+  sent: Record<number, CrownSent>;
+  forts: Record<number, CrownFort>;
+  /** Petitions and expeditions under way. */
+  asks: CrownAsk[];
+  /** Done (the last few). */
+  past: CrownAsk[];
+}
+
+/** CROWN (r18): a player's part in a petition for an expedition, and the expedition. */
+export interface CrownCommand {
+  k: "crown";
+  /** begin, letters, court, offer, pay, drop, ask, pledge, write, ride, leave. */
+  act: string;
+  p?: number;
+  men?: number;
+  gold?: number;
+  coins?: number;
 }

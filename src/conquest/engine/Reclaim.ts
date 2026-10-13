@@ -53,7 +53,6 @@ import { kmBetween } from "./Map";
 import { endRising, joinCheck, joinMovement } from "./Movements";
 import { makePolities } from "./Politics";
 import {
-  armyMen,
   atWar,
   charName,
   enemiesOf,
@@ -329,7 +328,9 @@ function claimsMonthly(g: ConquestGame): void {
 function mightOf(g: ConquestGame, n: number): number {
   const s = g.s;
   let men = 0;
-  for (const a of s.armies) if (a.owner === n) men += armyMen(a);
+  for (const a of s.armies)
+    if (a.owner === n)
+      for (const r of a.regs) if (r.crown !== "fort") men += r.men; // CROWN (r18): a fortress's garrison can't take the field
   if (s.nations[n]?.kind === "native")
     for (const p of provincesOf(s, n))
       men += tribesfolk(s.provinces[p]) * WARRIOR_SHARE * 0.3;

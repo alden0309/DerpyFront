@@ -158,6 +158,7 @@ const KIND_NAMES: Record<AffairKind, string> = {
   loan: "A bond", // ECON (r17): money lent or owed on bond
   statement: "The month's accounts",
   cause: "Your cause", // WAR (r17): a rising you're sworn to
+  expedition: "Your expedition", // CROWN (r18): a petition to the crown, and the expedition
 };
 
 /** What a notice of your own affairs is headed with. */
@@ -272,6 +273,11 @@ function affairIcon(kind: AffairKind): TemplateResult {
     case "cause":
       return ico(
         svg`<path d="M9 28V4"/><path d="M9 5q5-2 9 0t8 0v10q-4 2-8 0t-9 0"/><path d="M6 28h6"/>`,
+      );
+    // CROWN (r18): an expedition: a ship of the line under sail, its pennant flying.
+    case "expedition":
+      return ico(
+        svg`<path d="M16 4v18"/><path d="M16 5l7 2-7 2"/><path d="M16 11q-6 3-7 9h7"/><path d="M16 12q5 3 6 8h-6"/><path d="M5 23h22l-3 4H8z"/>`,
       );
     default:
       return ico(

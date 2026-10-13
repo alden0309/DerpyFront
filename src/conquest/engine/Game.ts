@@ -36,6 +36,9 @@ import "./Achievements"; // MAP (r12): achievements watch every life
 import "./Bondage"; // LABOUR (r15): bondage, treated as history
 import "./Chair"; // CHAIR (r16): the governor's commission, the lieutenancy, recall, the address
 import "./Chamber"; // CHAMBER (r16): the council's business, factions, the session
+import { takeCrownDelta } from "./CrownCore"; // CROWN (r18)
+import "./CrownPetition"; // CROWN (r18): a governor's petition for an expedition to retake a town
+import "./CrownRegiments"; // CROWN (r18): regiments from Europe in wartime, fortress garrisons
 import { fogDaily } from "./Fog";
 import "./Grandeur"; // CHAIR (r16): marks of greatness: a hall, a coach, portraits, endowments
 import "./Household"; // HOME (r12): the household's commands register themselves
@@ -367,6 +370,8 @@ export class ConquestGame {
     if (towns) d.towns = towns;
     const reclaim = takeReclaimDelta(this); // WAR (r17)
     if (reclaim) d.reclaim = reclaim;
+    const crown = takeCrownDelta(this); // CROWN (r18)
+    if (crown) d.crown = crown;
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)

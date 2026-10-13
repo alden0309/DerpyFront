@@ -1,0 +1,75 @@
+/* CROWN (r18): regiments from Europe, a petition for an expedition, riding with it. */
+
+.cq-crown-towns {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+}
+.cq-crown-towns > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.25rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-crown-towns > li:last-child {
+  border-bottom: 0;
+}
+.cq-crown-town b {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1rem;
+  margin-right: 0.3rem;
+}
+.cq-crown-town .cq-muted {
+  display: block;
+}
+.cq-crown-chance {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cq-crown-mine {
+  margin: 0.2rem 0 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--nation);
+  background: rgba(255, 250, 235, 0.45);
+}
+.cq-crown-mine p {
+  margin: 0.15rem 0;
+}
+.cq-crown-odds .cq-odds-head b {
+  font-size: 0.92rem;
+}
+/* The drawer is narrow: what it brings beside the chance, its effect beneath. */
+.cq-crown-odds .cq-odds-rows li {
+  grid-template-columns: 4.6rem minmax(0, 1fr);
+}
+.cq-crown-odds .cq-odds-chance {
+  white-space: normal;
+  line-height: 1.2;
+}
+.cq-crown-odds .cq-odds-amt {
+  grid-column: 2;
+  font-size: 0.8rem;
+  text-align: left;
+  white-space: normal;
+}
+.cq-crown-offer {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.8rem;
+}
+.cq-crown-offer > .cq-h4,
+.cq-crown-offer > .cq-btnrow {
+  flex-basis: 100%;
+}
+.cq-crown-offer select {
+  margin-left: 0.3rem;
+}
+.cq-crown-sent > li .cq-crown-forts {
+  display: block;
+  margin-top: 0.1rem;
+}

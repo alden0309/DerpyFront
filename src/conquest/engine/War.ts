@@ -231,7 +231,12 @@ export function addRegiment(
   const s = g.s;
   const reg = { type, men: REGIMENTS[type].men, morale: 0.75, home: p };
   const here = s.armies.find(
-    (a) => a.owner === n && a.prov === p && a.depart < 0 && !a.retreating,
+    (a) =>
+      a.owner === n &&
+      a.prov === p &&
+      a.depart < 0 &&
+      !a.retreating &&
+      s.crown?.forts?.[p]?.army !== a.id, // CROWN (r18): not into a fortress's garrison
   );
   if (here) {
     g.touch(here).regs.push(reg);

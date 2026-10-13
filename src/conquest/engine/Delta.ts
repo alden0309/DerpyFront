@@ -1,5 +1,6 @@
 // Applies the server's deltas to a player's copy of the game state.
 
+import { applyCrownDelta } from "./CrownCore"; // CROWN (r18)
 import { applyDiceDelta } from "./DiceCore"; // DICE (r14)
 import { applyIntrigueDelta } from "./IntrigueCore"; // INTRIGUE (r15)
 import { applyLoanDelta } from "./LoanCore"; // ECON (r17)
@@ -70,6 +71,9 @@ export function applyDelta(s: GameState, d: GameDelta): void {
   if (d.intrigue) applyIntrigueDelta(s, d.intrigue); // INTRIGUE (r15)
   if (d.loans) applyLoanDelta(s, d.loans); // ECON (r17)
   if (d.towns) applyTownsDelta(s, d.towns); // TOWNS (r17)
+  // CROWN (r18): before the claims, as the server makes them (its month's
+  // turn runs first), so a copy's keys come in the server's order.
+  if (d.crown) applyCrownDelta(s, d.crown);
   if (d.reclaim) applyReclaimDelta(s, d.reclaim); // WAR (r17)
   if (d.polities) {
     for (const [n, pol] of Object.entries(d.polities))

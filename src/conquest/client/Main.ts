@@ -30,6 +30,7 @@ import "./power.css"; // POWER (r12): offices, the council, the court, the press
 import "./business.css"; // BUSINESS (r15): a business of your own, and starting one
 import "./chair.css"; // CHAIR (r16): the road to the governor's chair
 import "./chamber.css"; // CHAMBER (r16): the factions, the session, a seat's work later
+import "./crown.css"; // CROWN (r18): regiments from Europe, an expedition's petition
 import "./dice.css"; // DICE (r14): Liar's dice
 import "./econ.css"; // ECON (r17): bonds, leave, a company's two legs
 import "./home.css";

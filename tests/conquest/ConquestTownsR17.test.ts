@@ -269,6 +269,9 @@ describe("a town taken: ruins, a landing, and its people", () => {
           (w.b === muscogee && w.a === pr.owner),
       ),
     ).toBe(true);
+    // CROWN (r18): they'd have beaten its Spanish garrison first.
+    for (const a of [...s.armies])
+      if (a.prov === STA && a.owner === pr.owner) g.removeArmy(a);
     pr.occupier = muscogee;
     pr.b.port = 0;
     pr.devastation = 0.7;

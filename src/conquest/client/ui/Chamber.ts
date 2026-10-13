@@ -66,6 +66,7 @@ import {
   section,
   token,
 } from "./Context";
+import { crownSection } from "./Crown"; // CROWN (r18)
 import { howTo, pageHead } from "./Nav";
 import { price } from "./Price"; // LEDGER (r15)
 import { termMark } from "./Terms"; // CHAMBER (r16)
@@ -818,6 +819,11 @@ export function councilPage(ui: GameUi): TemplateResult {
   ${laterSection(ui, n)} ${matters(ui, n)} ${sessionSection(ui, n)}
   ${factionsSection(ui, n)}
   ${governs ? governorHand(ui, n) : !seat ? reach(ui, n) : nothing}
+  ${
+    native
+      ? nothing
+      : crownSection(ui) /* CROWN (r18): an expedition to take back a town */
+  }
   ${assembly(ui, n)}
   ${more(
     "What each seat does",

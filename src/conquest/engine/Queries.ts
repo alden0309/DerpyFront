@@ -1330,6 +1330,15 @@ export function peaceWillingness(
   if (terms.gold < 0)
     e.add(`Getting ${-terms.gold} gold`, Math.min(30, (-terms.gold / 50) * 5));
   if (terms.subjugate) e.add("Paying you tribute from now on", -35);
+  // CROWN (r18): the crown's expedition in the field for a town: no peace without it.
+  const exp = s.crown?.asks?.find(
+    (a) =>
+      a.n === to &&
+      a.holder === from &&
+      (a.stage === "landed" || a.stage === "granted"),
+  );
+  if (exp && !terms.give.includes(exp.p))
+    e.add("The crown's expedition is in the field for its town", -50);
   if (
     war.europe &&
     nation.kind === "power" &&

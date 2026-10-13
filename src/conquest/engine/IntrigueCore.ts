@@ -197,7 +197,8 @@ export function secretKey(key: string): boolean {
   return (
     key.startsWith("intr-") ||
     key.startsWith("p2p-intr-") ||
-    key.startsWith("loan-") // ECON (r17): a bond's scenes, its parties' business only
+    key.startsWith("loan-") || // ECON (r17): a bond's scenes, its parties' business only
+    key.startsWith("crown:") // CROWN (r18): a petition's marks (asked for a town, letters, court)
   );
 }
 

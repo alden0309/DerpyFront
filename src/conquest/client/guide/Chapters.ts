@@ -168,6 +168,7 @@ import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
 // BUSINESS (r15): starting a business, and a trading company.
 import { BUSINESS_CHAPTER } from "./BusinessChapter";
 import { CHAIR_CHAPTER } from "./ChairChapter"; // CHAIR (r16)
+import { CROWN_CHAPTER } from "./CrownChapter"; // CROWN (r18)
 import { ECON_CHAPTER } from "./EconChapter"; // ECON (r17)
 import { POLLS_CHAPTER } from "./PollsChapter"; // POLLS (r16)
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
@@ -2066,6 +2067,9 @@ At **${RISE_SUPPORT} support** and **${RISE_MEMBERS} sworn** (the leader among t
   // ---- WAR (r17): lost towns, claims and risings (guide/WarChapter.ts)
   WAR_CHAPTER,
   // ---- end WAR (r17)
+  // ---- CROWN (r18): regiments from Europe, and expeditions (guide/CrownChapter.ts)
+  CROWN_CHAPTER,
+  // ---- end CROWN (r18)
   {
     id: "founding",
     part: "power",
