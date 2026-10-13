@@ -241,6 +241,7 @@ function secretMark(k: string): boolean {
 /** Whether anything in this (whole or patched) life is another player's secret. */
 function lifeHasSecrets(l: Partial<Life>): boolean {
   if (l.journal?.some((j) => j.sec)) return true;
+  if (l.milestones?.some((m) => m.sec)) return true; // STORY (r17): a plot in the story
   if (l.events?.some((e) => secretKey(e.key))) return true;
   if (l.post?.some((x) => x.kind === "personal")) return true;
   if (l.outcome && secretKey(l.outcome.key)) return true;
@@ -255,6 +256,7 @@ export function lifeForOthers<T extends Partial<Life>>(l: T): T {
   if (!lifeHasSecrets(l)) return l;
   const out: T = { ...l };
   if (l.journal) out.journal = l.journal.filter((j) => !j.sec);
+  if (l.milestones) out.milestones = l.milestones.filter((m) => !m.sec); // STORY (r17)
   if (l.events) out.events = l.events.filter((e) => !secretKey(e.key));
   if (l.post) out.post = l.post.filter((x) => x.kind !== "personal");
   if (l.outcome && secretKey(l.outcome.key)) out.outcome = null;

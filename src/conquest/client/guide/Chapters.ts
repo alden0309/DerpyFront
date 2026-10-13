@@ -170,6 +170,7 @@ import { BUSINESS_CHAPTER } from "./BusinessChapter";
 import { CHAIR_CHAPTER } from "./ChairChapter"; // CHAIR (r16)
 import { POLLS_CHAPTER } from "./PollsChapter"; // POLLS (r16)
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
+import { SAVES_CHAPTER, STORY_CHAPTER } from "./StoryChapter"; // STORY (r17)
 // INTRIGUE (r15): hearts and schemes.
 import { CHAMBER_CHAPTER } from "./ChamberChapter"; // CHAMBER (r16)
 import { INTRIGUE_CHAPTER } from "./IntrigueChapter";
@@ -2170,9 +2171,13 @@ The **News** panel on the map has the colonies' news as it reaches you: wars, ba
     where: "Journal.",
     body: `- **Diary**: everything that happened to you, newest first, across the generations. Show everything, or only the good or the bad. At the top, anything **waiting on you**: letters and events with choices, and when each decides itself.
 - **Leads**: stories worth chasing ([[leads|Leads]]).
-- **The story**: the moments that made your line (births, marriages, promotions, offices, battles, deaths), and **Your story, told**, as it will be told in ${END_YEAR}.
+- **The story**: everything worth the telling in your line, year by year and generation by generation (fights and duels, voyages and prizes, businesses, offices and polls, trials, your children's schooling, and the rest), as it will be told in ${END_YEAR} ([[story|Your story]]).
 - **Achievements**: every achievement, earned and not, and the Derp Coins each pays once ([[coins|Derp Coins]]).`,
   },
+  // ---- STORY (r17): your story, and your saved games (guide/StoryChapter.ts)
+  STORY_CHAPTER,
+  SAVES_CHAPTER,
+  // ---- end STORY (r17)
   {
     id: "multiplayer",
     part: "world",
@@ -2195,7 +2200,7 @@ The host sets the speed. Anyone may pause; only the host starts the clock again.
 - Chat goes in the News panel.
 
 ## Leaving and saving
-Leaving keeps your character; the world goes on without you, and you can come back. Signed-in players' games save every few minutes and whenever the game is paused (and with Save now, in the menu).`,
+Leaving keeps your character; the world goes on without you, and you can come back. Signed-in players' games save every few minutes and whenever the game is paused (and with Save now, in the menu). Whoever began a game can delete it from the lobby; anyone else can take it off their own list ([[saves|Your saved games]]).`,
   },
   {
     id: "death",
@@ -2214,7 +2219,7 @@ With no heir, your story ends and you **watch the world**: the whole map, withou
 - **Begin a new life**: make a new character in the register, and set out into the world as it is now.
 
 ## Your story
-The menu's **Your story so far** tells the tale of your line: the roads you travelled and the moments that mattered.`,
+The menu's **Your story so far** tells the tale of your line: the roads you travelled and everything worth the telling ([[story|Your story]]).`,
   },
   {
     id: "end",

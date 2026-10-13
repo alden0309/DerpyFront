@@ -19,6 +19,8 @@ type Screen = "connecting" | "lobby" | "room" | "game";
 interface Notice {
   id: number;
   text: string;
+  /** STORY (r17): good news (a save deleted), else a refusal. */
+  tone?: "good" | "bad";
 }
 
 @customElement("conquest-app")
@@ -29,6 +31,8 @@ export class ConquestApp extends LitElement {
   @state() private account: string | null = derpyUsername();
   @state() private open: OpenRoom[] = [];
   @state() private saved: SavedGame[] = [];
+  /** STORY (r17): finished games, and those saved by an older version. */
+  @state() private finished: SavedGame[] = [];
   @state() private lobby: LobbyState | null = null;
   @state() private game: GameStart | null = null;
   @state() private joinCode = "";
@@ -97,6 +101,10 @@ export class ConquestApp extends LitElement {
       case "rooms":
         this.open = m.open;
         this.saved = m.saved;
+        this.finished = m.finished ?? []; // STORY (r17)
+        return;
+      case "forgot": // STORY (r17): saved games deleted or taken off your list
+        this.notice(m.text, "good");
         return;
       case "lobby":
         this.lobby = m;
@@ -119,9 +127,9 @@ export class ConquestApp extends LitElement {
     }
   };
 
-  private notice(text: string): void {
+  private notice(text: string, tone: "good" | "bad" = "bad"): void {
     const id = ++this.noticeId;
-    this.notices = [...this.notices.slice(-2), { id, text }];
+    this.notices = [...this.notices.slice(-2), { id, text, tone }];
     setTimeout(
       () => (this.notices = this.notices.filter((n) => n.id !== id)),
       6000,
@@ -161,6 +169,7 @@ export class ConquestApp extends LitElement {
           .net=${this.net}
           .open=${this.open}
           .saved=${this.saved}
+          .finished=${this.finished}
           .account=${this.account}
           .name=${this.name}
           .online=${this.online}
@@ -187,7 +196,7 @@ export class ConquestApp extends LitElement {
     return html`${body}
       <div class="cq-notices" aria-live="assertive">
         ${this.notices.map(
-          (n) => html`<div class="cq-toast bad">${n.text}</div>`,
+          (n) => html`<div class="cq-toast ${n.tone ?? "bad"}">${n.text}</div>`,
         )}
       </div>
       ${!this.online && this.screen !== "connecting"

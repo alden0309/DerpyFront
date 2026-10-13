@@ -63,6 +63,14 @@ export interface SavedGame {
   players: string[];
   /** Running right now (join it), or waiting to be loaded. */
   live: string | null;
+  /** STORY (r17): you began it, so you may delete it (others may only take it off their list). */
+  mine?: boolean;
+  /** STORY (r17): who began it (whose it is to delete). */
+  by?: string;
+  /** STORY (r17): the game has ended (it can't be picked up again). */
+  over?: boolean;
+  /** STORY (r17): saved by an older version of the game (it can't be loaded). */
+  old?: boolean;
 }
 
 export interface ResultLine {
@@ -102,11 +110,22 @@ export type ClientMessage =
   | { t: "chat"; text: string }
   | { t: "save" }
   | { t: "end" }
-  | { t: "leave" };
+  | { t: "leave" }
+  // STORY (r17): your saved games: delete one you began, take one off your
+  // own list, or clear away every finished (and old) game at once.
+  | { t: "delsave"; id: string }
+  | { t: "hidesave"; id: string }
+  | { t: "clearsaves" };
 
 export type ServerMessage =
   | { t: "welcome"; name: string; account: string | null }
-  | { t: "rooms"; open: OpenRoom[]; saved: SavedGame[] }
+  | {
+      t: "rooms";
+      open: OpenRoom[];
+      saved: SavedGame[];
+      /** STORY (r17): finished games, and those saved by an older version. */
+      finished?: SavedGame[];
+    }
   | {
       t: "lobby";
       code: string;
@@ -147,6 +166,8 @@ export type ServerMessage =
   | { t: "ack"; id: number; err: string | null }
   | { t: "chat"; from: string; text: string }
   | { t: "saved"; at: string }
+  /** STORY (r17): saved games deleted or taken off your list, and what to tell you. */
+  | { t: "forgot"; ids: string[]; text: string }
   /** Your waiting events: seconds of unpaused play each has left. */
   | { t: "letters"; left: Record<number, number>; paused: boolean }
   | { t: "end"; results: ResultLine[] }

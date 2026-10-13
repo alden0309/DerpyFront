@@ -905,6 +905,10 @@ function crushed(g: ConquestGame, m: Movement): void {
     const life = lifeOfChar(s, c);
     if (life) {
       journal(g, life, `${m.name} is crushed.`, "bad");
+      milestone(g, life, "rising", `${m.name} was crushed`, life.prov, {
+        quiet: true,
+        tone: "bad",
+      }); // STORY (r17)
       addRenown(g, life, -5);
       raiseLifeEvent(
         g,

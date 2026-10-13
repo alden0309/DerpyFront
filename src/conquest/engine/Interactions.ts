@@ -1733,10 +1733,14 @@ export function duel(
         "good",
       );
     }
-    milestone(g, life, "renown", `Won a duel against ${name}`);
+    milestone(g, life, "duel", `Won a duel against ${name}`); // STORY (r17): was "renown" (still talked of)
   } else {
     addRenown(g, life, 1);
     journal(g, life, `${opener} You lost.`, "bad");
+    milestone(g, life, "duel", `Lost a duel to ${name}`, life.prov, {
+      quiet: true,
+      tone: "bad",
+    }); // STORY (r17)
     if (other) addRenown(g, other, 4);
     hurt(g, life, g.rng.int(15, 55), `a duel with ${name}`);
   }

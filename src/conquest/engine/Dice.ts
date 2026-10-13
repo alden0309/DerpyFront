@@ -56,6 +56,7 @@ import {
   gainXp,
   journal,
   meet,
+  milestone,
   remembers,
   spend,
   touchLife,
@@ -715,6 +716,20 @@ function aftermath(
         l,
         `You won at Liar's dice: the pot of ${t.pot} coins is yours.`,
         "good",
+      );
+      // STORY (r17): a table won (a big pot always; a small one now and then).
+      milestone(
+        g,
+        l,
+        "dice",
+        `Won a pot of ${t.pot} coins at Liar's dice at ${here}, ${t.seats.length} at the table`,
+        t.prov,
+        {
+          quiet: true,
+          tone: "good",
+          big: t.pot >= 100,
+          ...(big ? {} : { every: 60 }),
+        },
       );
       const ach = (touchLife(g, l).achCount ??= {});
       if (x.n === 1) ach["dice-last"] = (ach["dice-last"] ?? 0) + 1;

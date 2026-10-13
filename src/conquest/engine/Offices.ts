@@ -707,6 +707,16 @@ export function ensureOffices(g: ConquestGame, p: number): LocalOffice[] {
           `${g.map.provinces[p]?.name ?? "The county"} is in ${s.nations[owner]?.adjective ?? "other"} hands now: ${c === o.holder ? `your place as ${officeName(s, o)} has lapsed` : `the poll for ${officeName(s, o)} won't be held`}.`,
           "bad",
         );
+        // STORY (r17): an office lost with the county is in the story.
+        if (c === o.holder && l.c === c)
+          milestone(
+            g,
+            l,
+            "office",
+            `No longer ${officeName(s, o)}: ${g.map.provinces[p]?.name ?? "the county"} fell into ${s.nations[owner]?.adjective ?? "other"} hands`,
+            p,
+            { quiet: true, tone: "bad" },
+          );
       }
     }
     list = list.filter((o) => o.key === "founder" && o.nation === owner);
@@ -986,6 +996,16 @@ export function vacate(g: ConquestGame, o: LocalOffice, why: string): void {
       `You are no longer ${officeTitle(s, g.w, o)}: ${why}.`,
       "bad",
     );
+  // STORY (r17): an office lost (or given up) is in the story.
+  if (life && c?.alive && life.c === c.id)
+    milestone(
+      g,
+      life,
+      "office",
+      `No longer ${officeTitle(s, g.w, o)}: ${why}`,
+      o.prov,
+      { quiet: true, tone: "bad" },
+    );
 }
 
 /** Fill an empty appointed office from the county's people (or leave it for a player appointer). */
@@ -1184,6 +1204,11 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
   else {
     const life = lifeOfChar(s, win.c);
     if (life) journal(g, life, `Returned as ${name}.`, "good");
+    if (life)
+      milestone(g, life, "election", `Returned as ${name}`, o.prov, {
+        quiet: true,
+        tone: "good",
+      }); // STORY (r17)
   }
   for (const c of players) {
     if (c === win.c) continue;
@@ -1196,6 +1221,15 @@ function holdPoll(g: ConquestGame, o: LocalOffice): void {
         "bad",
       );
       addStress(g, life, 4);
+      // STORY (r17)
+      milestone(
+        g,
+        life,
+        "election",
+        `Lost the poll for ${name} to ${charName(s.chars[win.c])}`,
+        o.prov,
+        { quiet: true, tone: "bad" },
+      );
     }
   }
   if (o.key === "burgess") seatBurgess(g, o);

@@ -1076,6 +1076,15 @@ function petitionVerdict(g: ConquestGame, n: number): void {
       `The Board of Trade throws out your petition against ${charName(gov)}. ${cap(he(gov))} knows whose it was, and won't forget it.`,
       "bad",
     );
+    // STORY (r17)
+    milestone(
+      g,
+      byLife,
+      "petition",
+      `Petitioned the crown for ${charName(gov)}'s recall: thrown out`,
+      nation.capital,
+      { quiet: true, tone: "bad" },
+    );
     if (gov?.alive && !govLife) {
       remembers(
         g,
@@ -1294,6 +1303,15 @@ function divideAddress(g: ConquestGame, n: number): void {
         `The house throws out your address, ${d.noes} to ${d.ayes}.`,
         "bad",
       );
+      // STORY (r17)
+      milestone(
+        g,
+        byLife,
+        "petition",
+        `Moved the house's address against ${charName(gov)}: thrown out, ${d.noes} to ${d.ayes}`,
+        nation.capital,
+        { quiet: true, tone: "bad" },
+      );
     }
     if (gov?.alive && byLife && !govLife)
       remembers(
@@ -1354,6 +1372,15 @@ function carryAddress(g: ConquestGame, n: number, a: Address): void {
       byLife,
       `The house carries your address against ${charName(gov)}, ${a.ayes} to ${a.noes}: ${asksWords(a.salary, a.supply)}, and the crown hears of it.`,
       "good",
+    );
+    // STORY (r17)
+    milestone(
+      g,
+      byLife,
+      "petition",
+      `Carried the house's address against ${charName(gov)}, ${a.ayes} to ${a.noes}: ${asksWords(a.salary, a.supply)}`,
+      nation.capital,
+      { quiet: true, tone: "good" },
     );
   }
   // (The session tells the house and the town its own way.)

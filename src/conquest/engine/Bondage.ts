@@ -76,6 +76,7 @@ import {
   heal,
   hurt,
   journal,
+  milestone,
   remembers,
   spend,
   touchLife,
@@ -422,6 +423,12 @@ export function setFree(
   (b.freed ??= []).push(c.id);
   note(b, { day: s.day, k: "freed", c: c.id });
   remembers(g, life, ch, "Freed me", 40, 0);
+  // STORY (r17): someone freed is in the story.
+  if (life.c >= 0)
+    milestone(g, life, "freed", freedText(bondName(ch), ch.female, how), home, {
+      quiet: true,
+      tone: "good",
+    });
   // Their family still held hope for it too.
   for (const f of people(g, life))
     if (
@@ -435,6 +442,22 @@ export function setFree(
         ...f.bond!,
         mood: Math.min(100, f.bond!.mood + 8),
       };
+}
+
+/** STORY (r17): how someone's freedom is told in the story. */
+function freedText(name: string, female: boolean, how: string): string {
+  const his = female ? "her" : "his";
+  if (how === "the indenture served")
+    return `${name}'s indenture was served: ${female ? "she" : "he"} went free`;
+  if (how === "released from the indenture")
+    return `Released ${name} from an indenture`;
+  if (how === "by buying their own freedom")
+    return `${name} bought ${his} freedom`;
+  if (how.startsWith("by will")) return `${name} was freed, as the will asked`;
+  if (how === "the master's death")
+    return `${name} went free at the master's death`;
+  if (how === "by petition") return `Freed ${name}: the petition was granted`;
+  return `Freed ${name}, ${how}`;
 }
 
 /** A free person lives somewhere: a townsman (or woman) of that place. */
@@ -1760,6 +1783,16 @@ export function answerDoor(
       `You hid ${bondName(c)} in the loft until the hue and cry died down. ${c.female ? "She" : "He"} lives free at ${g.map.provinces[at.home].name} now.`,
       "good",
     );
+    // STORY (r17): your own secret, like the door itself.
+    if (at.c >= 0)
+      milestone(
+        g,
+        at,
+        "freed",
+        `Hid ${bondName(c)}, fleeing bondage, until the hue and cry died down: ${c.female ? "she" : "he"} lives free`,
+        at.home,
+        { sec: true, tone: "good" },
+      );
     // Word may get out.
     if (bdice(s, hashOf(c.id, 0x7a1e)).chance(0.2)) {
       const fine = 10;

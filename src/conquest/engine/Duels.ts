@@ -300,6 +300,8 @@ function endDuel(g: ConquestGame, life: Life, ctx: LCtx, how: string): void {
     if (other) hurt(g, other, 200, cause);
     else kill(g, g.char(foe.id), cause);
   } else if (ctx.fw > 0 && other) hurt(g, other, ctx.fw, cause);
+  // STORY (r17): every duel is in the story (the one fought with you too, if you're played).
+  duelStory(g, life, other, me, foe, how, res, dead, weapon);
   // Honour and renown.
   if (how === "delope") {
     addRenown(g, life, 3);
@@ -322,7 +324,6 @@ function endDuel(g: ConquestGame, life: Life, ctx: LCtx, how: string): void {
   } else if (res > 0) {
     addRenown(g, life, dead >= 0 ? 4 : 6);
     remembers(g, life, g.char(foe.id), "Beat me in a duel", -30, 10);
-    milestone(g, life, "renown", `Won a duel against ${name}`);
     if (dead >= 0) {
       addStress(g, life, 15);
       journal(g, life, `${name} died of it on the grass.`, "bad");
@@ -384,6 +385,94 @@ function endDuel(g: ConquestGame, life: Life, ctx: LCtx, how: string): void {
     dead: dead >= 0 ? 1 : 0,
     law: colonial && fought ? 1 : 0,
     how: HOWS.indexOf(how),
+  });
+}
+
+/**
+ * STORY (r17): the duel in the story, as it went (a win is talked of in the
+ * town, as it always was; the rest are quiet). A played foe's story has it
+ * too, from their side: what happened, never what they said.
+ */
+function duelStory(
+  g: ConquestGame,
+  life: Life,
+  other: Life | undefined,
+  me: Character,
+  foe: Character,
+  how: string,
+  res: number,
+  dead: number,
+  weapon: string,
+): void {
+  const name = charName(foe);
+  const quiet = { quiet: true } as const;
+  if (how === "delope")
+    milestone(
+      g,
+      life,
+      "duel",
+      `Met ${name} on the field: you both fired into the air`,
+      life.prov,
+      { ...quiet, tone: "good" },
+    );
+  else if (how === "reconciled")
+    milestone(
+      g,
+      life,
+      "duel",
+      `Met ${name} on the field, and made it up`,
+      life.prov,
+      { ...quiet, tone: "good" },
+    );
+  else if (res > 0)
+    // The win is talked of in the town, as it was when it went under "renown".
+    milestone(
+      g,
+      life,
+      "duel",
+      dead >= 0
+        ? `Won a duel against ${name} with ${weapon}: ${name} died of it`
+        : `Won a duel against ${name} with ${weapon}`,
+      life.prov,
+      { tone: "good", big: dead >= 0 },
+    );
+  else if (res < 0)
+    milestone(
+      g,
+      life,
+      "duel",
+      how === "yield"
+        ? `Yielded to ${name} in a duel with ${weapon}`
+        : `Lost a duel to ${name}, with ${weapon}`,
+      life.prov,
+      { ...quiet, tone: "bad" },
+    );
+  else
+    milestone(
+      g,
+      life,
+      "duel",
+      `Fought ${name} with ${weapon}: neither had the better of it`,
+      life.prov,
+      quiet,
+    );
+  if (!other || other === life) return;
+  const mine = charName(me);
+  const theirs =
+    how === "delope"
+      ? `Met ${mine} on the field: you both fired into the air`
+      : how === "reconciled"
+        ? `Met ${mine} on the field, and made it up`
+        : res > 0
+          ? `Lost a duel to ${mine}, with ${weapon}`
+          : res < 0
+            ? `Won a duel against ${mine} with ${weapon}`
+            : `Fought ${mine} with ${weapon}: neither had the better of it`;
+  milestone(g, other, "duel", theirs, other.prov, {
+    quiet: true,
+    ...(res !== 0 && how !== "delope" && how !== "reconciled"
+      ? { tone: res > 0 ? ("bad" as const) : ("good" as const) }
+      : {}),
   });
 }
 

@@ -1173,7 +1173,7 @@ export function foundBusiness(
     `You set up a ${pr.name} at ${here} for ${cost} coins${start ? `, and take on ${start === 1 ? "a hand" : `${start} hands`} from the town at ${HAND_WAGE} a month` : ""}. Custom takes a few months to build.`,
     "good",
   );
-  milestone(g, life, "job", `Set up a ${pr.name} at ${here}`, life.prov);
+  milestone(g, life, "business", `Set up a ${pr.name} at ${here}`, life.prov); // STORY (r17): was "job"
   addRenown(g, life, 1);
   return null;
 }

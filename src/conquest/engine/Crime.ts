@@ -233,6 +233,15 @@ export function jail(
   );
   addStress(g, life, 12);
   wake(g, life, `You're in the gaol, charged with ${charge}.`);
+  // STORY (r17)
+  milestone(
+    g,
+    life,
+    "arrest",
+    `Taken up for ${charge} at ${g.map.provinces[life.prov].name}`,
+    life.prov,
+    { quiet: true },
+  );
 }
 
 export interface Sentence {
@@ -932,6 +941,15 @@ function escape(g: ConquestGame, life: Life, how: string): string | null {
   addNotoriety(g, life, 5);
   journal(g, life, `${how} You're out, and you're wanted.`, "good");
   wake(g, life, "You've broken out of the gaol.");
+  // STORY (r17)
+  milestone(
+    g,
+    life,
+    "escape",
+    `Broke out of the gaol at ${g.map.provinces[j.p]?.name ?? "the town"}, held for ${j.charge}`,
+    j.p,
+    { quiet: true },
+  );
   return null;
 }
 

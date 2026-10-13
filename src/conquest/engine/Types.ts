@@ -480,7 +480,30 @@ export type MilestoneKind =
   | "watching"
   | "end"
   // LIFE (r11): a conviction at the quarter sessions.
-  | "convicted";
+  | "convicted"
+  // STORY (r17): the rest of what a life is remembered for. Any kind not
+  // listed in StoryCore's table is still shown, with a plain seal and its text.
+  | "fight"
+  | "duel"
+  | "crime"
+  | "arrest"
+  | "trial"
+  | "escape"
+  | "prize"
+  | "storm"
+  | "wreck"
+  | "business"
+  | "company"
+  | "election"
+  | "petition"
+  | "plot"
+  | "school"
+  | "freed"
+  | "dice"
+  | "achievement"
+  | "find"
+  | "loss"
+  | "home";
 
 export interface LifeMilestone {
   day: number;
@@ -489,6 +512,12 @@ export interface LifeMilestone {
   text: string;
   /** Where it happened. */
   p?: number;
+  /** STORY (r17): how it went, when the kind alone doesn't say (a duel lost). */
+  tone?: "good" | "bad";
+  /** STORY (r17): one of the great moments of a life, drawn larger in the story. */
+  big?: true;
+  /** STORY (r17): known only to this life's own player (a plot of yours): never sent to others. */
+  sec?: true;
 }
 
 /** Someone you owe, and by when. */
@@ -544,6 +573,8 @@ export interface LifeTally {
   ambitions?: number;
   /** Went to Europe, and why. */
   europe: EuropeWhy | null;
+  /** STORY (r17): the story's moments of each kind, all told (the story keeps the greatest of them). */
+  kinds?: Record<string, number>;
 }
 
 export type Tincture =

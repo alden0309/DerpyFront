@@ -11,6 +11,7 @@ import { achievementsPage } from "./Achievements"; // MAP (r12)
 import { GameUi, section } from "./Context";
 import { takeJournalAffairs } from "./Ledger"; // LEDGER (r15)
 import { pageHead } from "./Nav";
+import "./Story"; // STORY (r17): the story so far is the story told
 import { leadsSection } from "./WorldUi";
 
 // LEDGER (r15): your own affairs (boats, cargoes, traders, firms), or the rest.
@@ -33,31 +34,19 @@ export function journalTab(ui: GameUi, sub = "diary"): TemplateResult {
     )}
     ${leadsSection(ui)}`;
   if (sub === "story") {
-    const milestones = life.milestones;
+    // STORY (r17): the very story the end tells (the same element, the same
+    // reckoning), year by year, with its engravings and the map's trail.
     return html`${pageHead(
-      "The story so far",
-      life.line.length > 1
-        ? `${life.line.length} generations of the ${s.chars[life.line[0]]?.family ?? ""} line: the moments that made it.`
-        : "The moments that made your life, as they'll be told in 1776.",
-      html`<div class="cq-btnrow">
-        <button class="cq-btn small" @click=${() => ui.modal({ k: "end" })}>
-          Your story, told
-        </button>
-      </div>`,
-    )}
-    ${milestones.length
-      ? html`<ol class="cq-timeline compact">
-          ${milestones
-            .slice()
-            .reverse()
-            .map(
-              (m) =>
-                html`<li class=${m.kind === "died" ? "bad" : ""}>
-                  <time>${formatDate(m.day)}</time><span>${m.text}</span>
-                </li>`,
-            )}
-        </ol>`
-      : html`<p class="cq-empty">Nothing worth the telling yet.</p>`}`;
+        "The story so far",
+        life.line.length > 1
+          ? `${life.line.length} generations of the ${s.chars[life.line[0]]?.family ?? ""} line: everything worth the telling, as it will be told in 1776.`
+          : "Everything worth the telling in your life, as it will be told in 1776.",
+        html`<div class="cq-btnrow">
+          <button class="cq-btn small" @click=${() => ui.modal({ k: "end" })}>
+            Your story, told
+          </button>
+        </div>`,
+      )} <cq-life-story .ui=${ui} .life=${life}></cq-life-story>`;
   }
   if (takeJournalAffairs()) filter = "mine"; // LEDGER (r15)
   const entries = life.journal

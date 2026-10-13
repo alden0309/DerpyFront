@@ -1386,7 +1386,7 @@ function sign(g: ConquestGame, o: FirmOffer): string | null {
         `You and ${charName(other)} sign articles of copartnership: ${t.name}, in ${what}. Your share is ${x.share} in a hundred${x.cap ? `, for ${x.cap} coins of capital` : ""}; you are the ${x.role === "managing" ? "managing" : "silent"} partner.`,
         "good",
       );
-      milestone(g, l, "job", `Went into partnership: ${t.name}`, t.prov);
+      milestone(g, l, "business", `Went into partnership: ${t.name}`, t.prov); // STORY (r17): was "job"
     } else {
       const al = lifeOfChar(s, (x.c === a.id ? b : a).id);
       if (al) remembers(g, al, g.char(x.c), "Went into business with me", 8, 4);

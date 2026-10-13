@@ -16,7 +16,7 @@
 
 import { seatTitleOf } from "./CouncilTitles";
 import type { ConquestGame } from "./Game";
-import { journal } from "./LifeCore";
+import { journal, milestone } from "./LifeCore";
 import { lifeOfChar } from "./LifeQueries";
 import type { World } from "./Map";
 import { OFFICES, officeName, officeTitle, vacate } from "./Offices";
@@ -197,6 +197,12 @@ export function resignPost(
       return;
   }
   if (life) journal(g, life, `You resign as ${label}: ${why}.`, "bad");
+  // STORY (r17)
+  if (life && life.c === c && s.chars[c]?.alive)
+    milestone(g, life, "office", `No longer ${label}: ${why}`, life.prov, {
+      quiet: true,
+      tone: "bad",
+    });
 }
 
 function leaveAssembly(g: ConquestGame, c: number, n: number): void {

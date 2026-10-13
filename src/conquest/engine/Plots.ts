@@ -43,6 +43,7 @@ import {
   hurt,
   journal,
   meet,
+  milestone,
   remembers,
   setTie,
   spend,
@@ -620,6 +621,27 @@ function close(
   if (life) secretNote(g, life, line, tone);
 }
 
+/**
+ * STORY (r17): a plot in the story, as far as this life knows it. Secret
+ * (only its own player is ever sent it) until it comes out.
+ */
+function plotStory(
+  g: ConquestGame,
+  life: Life,
+  text: string,
+  secret: boolean,
+  tone?: "good" | "bad",
+  big?: boolean,
+): void {
+  if (life.c < 0) return;
+  milestone(g, life, "plot", text, life.prov, {
+    quiet: true,
+    sec: secret,
+    ...(tone ? { tone } : {}),
+    big,
+  });
+}
+
 // ---------------------------------------------------------------- the weeks
 
 /** A week of a plot: found out, a warning to a player target, or on towards the moment. */
@@ -724,6 +746,13 @@ function strike(
         "The men you hired earned their money: they caught someone where nobody should have been, and he ran. Someone wants you dead.",
         "bad",
       );
+      plotStory(
+        g,
+        tl,
+        "Your guards foiled an attempt on your life",
+        false,
+        "good",
+      ); // STORY (r17)
       return foiled(g, life, x, c, 1.5);
     }
     x.status = "strike";
@@ -758,6 +787,12 @@ function done(
     "good",
   );
   addStress(g, life, 10);
+  plotStory(
+    g,
+    life,
+    `Plotted the death of ${charName(c)}, and it was done: ${def.cause}`,
+    true,
+  ); // STORY (r17)
   kill(g, g.char(c.id), def.cause);
   rumour(
     g,
@@ -790,6 +825,12 @@ function foiled(
   );
   x.knows = true;
   addStress(g, life, 8);
+  plotStory(
+    g,
+    life,
+    `Plotted the death of ${charName(c)}, and it failed: ${c.first} lives`,
+    true,
+  ); // STORY (r17)
   setTie(g, life, c.id, "nemesis");
   remembers(g, life, g.char(c.id), "Tried to have me killed", -80, 0);
   const tl = lifeOfChar(s, c.id);
@@ -837,6 +878,12 @@ export function discovered(
   intrigueChanged(g);
   if (!life || !me?.alive || life.c !== me.id) return;
   // Now it's public.
+  plotStory(
+    g,
+    life,
+    `The plot against ${charName(c)} came out: everyone knows it was yours`,
+    false,
+  ); // STORY (r17)
   addRenown(g, life, -5);
   addStress(g, life, 15);
   if (c?.alive) {
@@ -1030,6 +1077,14 @@ export function strikeMet(
   const c = me;
   if (pass) {
     journal(g, tl, MET[method][choice] ?? "You live.", "good");
+    plotStory(
+      g,
+      tl,
+      `Survived an attempt on your life: ${PLOT_METHODS[method].cause}`,
+      false,
+      "good",
+      true,
+    ); // STORY (r17)
     addRenown(g, tl, 1);
     // Turning the poison back, or a cry that brings the watch, names who sent it.
     const traced =
@@ -1061,6 +1116,12 @@ export function strikeMet(
         "good",
       );
       addStress(g, life, 10);
+      plotStory(
+        g,
+        life,
+        `Plotted the death of ${charName(c)}, and it was done: ${def.cause}`,
+        true,
+      ); // STORY (r17)
     }
     rumour(
       g,
@@ -1073,8 +1134,17 @@ export function strikeMet(
     if (life && idice(g).chance(x.odds.f / 2)) discovered(g, x, true);
     return;
   }
-  hurt(g, tl, 35, PLOT_METHODS[method].cause);
+  const died = hurt(g, tl, 35, PLOT_METHODS[method].cause);
   journal(g, tl, "You live, barely. Someone wanted you dead.", "bad");
+  if (!died)
+    plotStory(
+      g,
+      tl,
+      `Survived an attempt on your life, barely: ${PLOT_METHODS[method].cause}`,
+      false,
+      "bad",
+      true,
+    ); // STORY (r17)
   if (life) foiled(g, life, x, c);
 }
 
@@ -1150,6 +1220,7 @@ export function findOut(
   x.lines.push(`${s.chars[x.target]?.first ?? "They"} know it's you.`);
   intrigueChanged(g);
   journal(g, tl, `It's ${charName(by)}. You're sure of it.`, "bad");
+  plotStory(g, tl, `Found out that ${charName(by)} wanted you dead`, true); // STORY (r17)
   raiseEvent(g, tl, "intr-known", { s: x.id, c: by.id });
 }
 

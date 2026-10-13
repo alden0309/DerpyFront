@@ -915,6 +915,15 @@ export function whaleNow(
         `Your iron went home first time. A whale alongside: about ${value} coins of oil and bone.`,
         "good",
       );
+      // STORY (r17)
+      milestone(
+        g,
+        life,
+        "voyage",
+        `Struck a whale with your own iron off ${g.map.provinces[v.to]?.name ?? "the coast"}`,
+        v.to,
+        { quiet: true, tone: "good", every: 300 },
+      );
     } else {
       hurt(g, life, 10 + r.int(0, 10), "a whale's flukes");
       journal(

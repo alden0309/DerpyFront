@@ -187,6 +187,15 @@ export const TERMS: Record<string, Term> = {
       "Count your own ones with the face you bid. Four of five dice hidden? Expect about a third of them to count.",
     ch: "dice",
   },
+  // STORY (r17): StoryCore.ts, StoryBook.ts
+  greatmoment: {
+    name: "A great moment",
+    what: "One of the moments a life is remembered for above the rest: drawn larger in your story, ringed in gilt, with a gilt pin on its map.",
+    good: "The story keeps them however long your line runs (the small things go first).",
+    raise:
+      "Marry, win a battle in command, take the governor's chair, a galleon or a degree, find a fortune, ride out a great storm. A birth and a death are great moments too.",
+    ch: "story",
+  },
   // CHAIR (r16): ChairCore.ts, Chair.ts
   commission: {
     name: "Commission",

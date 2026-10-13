@@ -1938,6 +1938,19 @@ export function prizeNow(
     gainXp(g, life, "seamanship", 4);
     if (cr.flag === "privateer")
       addRenown(g, life, h.role === "captain" ? 1 : 0.3);
+    // STORY (r17): a prize in the story (a galleon is one of its great moments).
+    milestone(
+      g,
+      life,
+      "prize",
+      `The ${cr.ship}${cr.flag === "pirate" ? ", on the account," : ""} took ${who} off ${where}${prize.status === "retaken" ? " (retaken on the way in)" : ""}`,
+      cr.way?.prov ?? cr.port,
+      {
+        quiet: true,
+        tone: prize.status === "retaken" ? "bad" : "good",
+        big: e.kind === "galleon",
+      },
+    );
   }
 }
 
@@ -2043,6 +2056,15 @@ function captured(g: ConquestGame, cr: Cruise, e: Encounter): void {
     life.prov = port;
     life.area = "docks";
     reveal(g, life, [port]);
+    // STORY (r17)
+    milestone(
+      g,
+      life,
+      "wreck",
+      `The ${cr.ship} was taken by ${e.name}${cr.flag === "pirate" ? ": carried to " + g.map.provinces[port].name + " in irons" : ""}`,
+      at,
+      { quiet: true, tone: "bad", big: true },
+    );
     if (cr.flag === "pirate") {
       jail(g, life, "piracy", 3, navy >= 0 ? navy : lawAt(s, port));
       affairNews(
@@ -2356,6 +2378,19 @@ export function settle(g: ConquestGame, cr: Cruise): void {
       `The ${cr.ship}'s cruise is paid off. ${cap(lines.join("; "))}.`,
       mine + own > 0 ? "good" : undefined,
     );
+    // STORY (r17)
+    milestone(
+      g,
+      life,
+      "voyage",
+      `The ${cr.ship}'s cruise paid off: ${home.length} prize${home.length === 1 ? "" : "s"}, ${r2(mine + own)} coins to you`,
+      cr.port,
+      {
+        quiet: true,
+        tone: mine + own > 0 ? "good" : undefined,
+        big: mine + own >= 100,
+      },
+    );
     if (cr.flag === "pirate" && mine > 0)
       rumour(
         g,
@@ -2472,6 +2507,18 @@ export function stormNow(
     ); // MAP (r12): the achievement
     gainXp(g, life, "seamanship", 8);
     if (!pass && r.chance(0.4)) hurt(g, life, 6 + r.int(0, 10), "a hurricane");
+    // STORY (r17)
+    if (life.c === h.c)
+      milestone(
+        g,
+        life,
+        "storm",
+        pass
+          ? `Rode out a hurricane aboard the ${cr.ship}`
+          : `Mauled by a hurricane aboard the ${cr.ship}`,
+        cr.way?.prov ?? cr.port,
+        { quiet: true, tone: pass ? "good" : "bad" },
+      );
   }
   if (cr.hull <= 0) foundered(g, cr);
   else if (cr.hull < 30 && (cr.phase === "hunting" || cr.phase === "out"))
@@ -2495,6 +2542,15 @@ function foundered(g: ConquestGame, cr: Cruise): void {
     const life = lifeOfSeat(s, h.seat);
     if (!life || life.c !== h.c || life.watching) continue;
     if (hurt(g, life, 25, "shipwreck")) continue;
+    // STORY (r17)
+    milestone(
+      g,
+      life,
+      "wreck",
+      `The ${cr.ship} foundered in a hurricane: you came ashore on a spar at ${g.map.provinces[at].name}`,
+      at,
+      { quiet: true, tone: "bad", big: true },
+    );
     touchLife(g, life);
     life.travel = null;
     life.prov = at;

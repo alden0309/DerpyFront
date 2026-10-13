@@ -217,6 +217,12 @@ export const hooks = {
   ) => void)[],
   /** A new game is made: every polity and life in place, before the first delta. */
   created: [] as ((g: ConquestGame) => void)[],
+  // STORY (r17)
+  /** Something happened in the world (a siege carried, a town taken): after it's recorded. */
+  gameEvent: [] as ((
+    g: ConquestGame,
+    e: import("./Types").GameEvent,
+  ) => void)[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

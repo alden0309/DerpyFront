@@ -11,6 +11,7 @@ import { charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR, TRAITS } from "./Rules";
 import { rumour } from "./Rumours";
 import { afterGain, RENOWN_CURVE } from "./StandingCurve"; // POLLS (r16)
+import { trimMoments } from "./StoryCore"; // STORY (r17)
 import type {
   Character,
   Life,
@@ -22,7 +23,8 @@ import type {
 } from "./Types";
 
 const MAX_JOURNAL = 400;
-const MAX_MILESTONES = 200;
+/** STORY (r17): 400 (it was 200, and the oldest went first, birth and all). */
+export const MAX_MILESTONES = 400;
 
 export function touchLife(g: ConquestGame, life: Life): Life {
   g.lifeChanged(life.seat);
@@ -52,18 +54,57 @@ export function journal(
     life.journal.splice(0, life.journal.length - MAX_JOURNAL);
 }
 
+/** STORY (r17): how a moment is kept. */
+export interface MilestoneOpts {
+  /** How it went, when the kind doesn't say (a duel lost, an office lost). */
+  tone?: "good" | "bad";
+  /** One of the great moments of a life, drawn larger in the story. */
+  big?: boolean;
+  /** Known only to this life's own player (a plot of yours): never told abroad. */
+  sec?: boolean;
+  /** Not talked about in the town (the world's luck stays as it was). */
+  quiet?: boolean;
+  /**
+   * A small thing that happens often (a brawl, a table at dice): kept at most
+   * once in this many days (it's still counted every time).
+   */
+  every?: number;
+}
+
 export function milestone(
   g: ConquestGame,
   life: Life,
   kind: MilestoneKind,
   text: string,
   p: number = life.prov,
+  o: MilestoneOpts = {}, // STORY (r17)
 ): void {
   touchLife(g, life);
-  life.milestones.push({ day: g.s.day, kind, c: life.c, text, p });
+  // STORY (r17): counted (a secret isn't), and a small thing kept once in a while.
+  if (!o.sec)
+    (life.tally.kinds ??= {})[kind] = (life.tally.kinds[kind] ?? 0) + 1;
+  if (
+    o.every &&
+    life.milestones.some(
+      (m) => m.kind === kind && m.c === life.c && g.s.day - m.day < o.every!,
+    )
+  )
+    return;
+  life.milestones.push({
+    day: g.s.day,
+    kind,
+    c: life.c,
+    text,
+    p,
+    ...(o.tone ? { tone: o.tone } : {}),
+    ...(o.big ? { big: true as const } : {}),
+    ...(o.sec ? { sec: true as const } : {}),
+  });
+  // STORY (r17): the least of the oldest go first, never a beginning or an end.
   if (life.milestones.length > MAX_MILESTONES)
-    life.milestones.splice(0, life.milestones.length - MAX_MILESTONES);
+    trimMoments(life.milestones, MAX_MILESTONES);
   // People talk about it.
+  if (o.quiet || o.sec) return; // STORY (r17)
   if (TALKED_ABOUT.includes(kind) && life.c >= 0) {
     const name = charName(meOf(g.s, life));
     const said = text.startsWith(name)
@@ -85,6 +126,8 @@ const TALKED_ABOUT: MilestoneKind[] = [
   "europe",
   // LIFE (r11): the whole town hears about a conviction.
   "convicted",
+  // STORY (r17): a duel won (it was told under "renown"; the others are quiet).
+  "duel",
 ];
 
 /** Learn by doing; levels come as the experience adds up. */
