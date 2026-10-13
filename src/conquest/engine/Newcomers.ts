@@ -35,7 +35,7 @@ import {
   townFolk,
   townsChanged,
   townsState,
-  TURNOVER,
+  turnoverOf,
   type ArrivalKind,
 } from "./TownsCore";
 import type {
@@ -346,28 +346,54 @@ function whence(
   f: Folk,
 ): { how: TownCameHow; from: string } {
   const s = g.s;
-  const near = townsOfNation(g, f.nation, p).slice(0, 5);
+  // Down the road: a town of the nation within a few days' walk (over land).
+  const road = overland(g, f.nation, p);
   if (f.native) {
-    const q = r.pick(near);
+    const q = r.pick(
+      road.length ? road : townsOfNation(g, f.nation, p).slice(0, 4),
+    );
     return {
       how: "visit",
       from:
         q !== undefined ? g.map.provinces[q].name : "the nation's other towns",
     };
   }
-  const coastal =
-    g.map.provinces[p].coastal && (s.provinces[p].b.port ?? 0) > 0;
-  if (coastal && (near.length === 0 || r.chance(0.65))) {
-    const ports = SHIP_PORTS[f.culture] ?? SHIP_PORTS.english;
-    return { how: "ship", from: r.pick(ports)! };
+  const port = g.map.provinces[p].coastal && (s.provinces[p].b.port ?? 0) > 0;
+  if (road.length && (!port || r.chance(0.35)))
+    return { how: "road", from: g.map.provinces[r.pick(road)!].name };
+  // By sea: from home, or now and then from another of the colony's ports.
+  const ports = townsOfNation(g, f.nation, p).filter(
+    (q) => g.map.provinces[q].coastal && (s.provinces[q].b.port ?? 0) > 0,
+  );
+  if (ports.length && r.chance(0.25))
+    return {
+      how: "ship",
+      from: g.map.provinces[r.pick(ports.slice(0, 4))!].name,
+    };
+  return {
+    how: "ship",
+    from: r.pick(SHIP_PORTS[f.culture] ?? SHIP_PORTS.english)!,
+  };
+}
+
+/** Towns of a nation within four hops over land (nearest first). */
+function overland(g: ConquestGame, n: number, p: number): number[] {
+  const s = g.s;
+  const out: number[] = [];
+  const seen = new Set([p]);
+  let ring = [p];
+  for (let hop = 0; hop < 4 && ring.length; hop++) {
+    const next: number[] = [];
+    for (const q of ring)
+      for (const [x] of g.map.provinces[q].nb) {
+        if (seen.has(x)) continue;
+        seen.add(x);
+        next.push(x);
+        if (s.provinces[x]?.owner === n && townFolk(s, x) >= 100) out.push(x);
+      }
+    ring = next;
   }
-  const q = r.pick(near);
-  return q !== undefined
-    ? { how: "road", from: g.map.provinces[q].name }
-    : {
-        how: "ship",
-        from: r.pick(SHIP_PORTS[f.culture] ?? SHIP_PORTS.english)!,
-      };
+  return out.slice(0, 5);
 }
 
 // ---------------------------------------------------------------- the news
@@ -640,7 +666,7 @@ function arrivals(g: ConquestGame, p: number, r: Rng): void {
   if (have >= room) {
     // Full: the town still sees comings and goings (one moves on in its turn).
     t.owed[p] = Math.min(owed, per);
-    come = r.chance(TURNOVER);
+    come = r.chance(turnoverOf(room));
   } else if (owed >= per) {
     t.owed[p] = owed - per;
     come = true;

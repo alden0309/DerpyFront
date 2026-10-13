@@ -250,7 +250,12 @@ export const ARRIVALS: Record<
  */
 export const DRIFT_IN = 0.04;
 /** A town that has all the households it holds still sees one come, a month, this often. */
-export const TURNOVER = 0.03;
+export const TURNOVER = { base: 0.015, each: 0.004 } as const;
+
+/** The chance a month a full town sees a household come: more, the bigger it is. */
+export function turnoverOf(room: number): number {
+  return TURNOVER.base + TURNOVER.each * room;
+}
 /** A town with nobody of a sex free to marry sees households that bring one this much oftener. */
 export const SHORT_BOOST = 3;
 /** A native town's young people marry into another town of the nation: a year. */

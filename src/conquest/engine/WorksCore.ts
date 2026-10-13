@@ -60,7 +60,7 @@ export const TOWN_WORKS: Record<TownWorkKey, TownWorkDef> = {
   wharf: {
     key: "wharf",
     name: "A wharf",
-    names: { spanish: "A wharf (muelle)", french: "A quay" },
+    names: { french: "A quay" },
     text: "Pilings, planking and a crane: ships tie up at the town, and passages, cargoes and the boatyard come back with them.",
     native: false,
     cost: 60,
@@ -275,7 +275,7 @@ export function bodyOf(s: GameState, p: number, key?: TownWorkKey): BodyView {
       return {
         name: "the cabildo",
         who: "the alcaldes, the regidores and the alguacil",
-        levy: "a derrama (a town levy)",
+        levy: "a derrama",
       };
     case "portuguese":
       return {

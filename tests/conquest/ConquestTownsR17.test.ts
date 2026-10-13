@@ -242,12 +242,12 @@ describe("a town taken: ruins, a landing, and its people", () => {
     const g2 = spanish();
     toNextMonth(g2);
     const s2 = g2.s;
-    const timucua = nationKey(g2, "timucua");
+    const native = nationKey(g2, "muscogee");
     s2.provinces[STA].b = {}; // the settlers flee and leave it all (War.ts's giveProvince)
     s2.provinces[STA].pops = s2.provinces[STA].pops.filter(
       (x) => x.cls === "tribe",
     );
-    cede(g2, STA, timucua);
+    cede(g2, STA, native);
     expect(s2.provinces[STA].b.port).toBe(1);
     expect(placesIn(s2, g2.w, STA)).toContain("docks");
     expect(PLACES.docks.nativeName).toBe("The landing");
@@ -263,7 +263,7 @@ describe("a town taken: ruins, a landing, and its people", () => {
     const g = spanish();
     toNextMonth(g);
     const s = g.s;
-    const timucua = nationKey(g, "timucua");
+    const native = nationKey(g, "muscogee");
     const spain = s.provinces[STA].owner;
     const life = lifeOf(g);
     const colonists = (s.locals[STA] ?? []).filter(
@@ -274,9 +274,9 @@ describe("a town taken: ruins, a landing, and its people", () => {
       (x) => x.cls === "tribe",
     );
     s.provinces[STA].b = {};
-    cede(g, STA, timucua);
+    cede(g, STA, native);
     const after = [...(s.locals[STA] ?? [])];
-    for (const h of hooks.provinceTaken) h(g, STA, spain, timucua);
+    for (const h of hooks.provinceTaken) h(g, STA, spain, native);
     expect(s.locals[STA]).toEqual(after);
     // The colonists (save any of the player's own) have gone; the nation's people hold the posts.
     const left = (s.locals[STA] ?? []).filter(

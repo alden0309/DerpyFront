@@ -13,7 +13,7 @@ import {
   LEAVE_UNDER,
   MARRYING_AGES,
   SHORT_BOOST,
-  TURNOVER,
+  turnoverOf,
 } from "../../engine/TownsCore";
 import {
   LOST_REST,
@@ -71,7 +71,7 @@ function worksTable(): string {
       d.coast ? "on the coast" : "",
       d.folk ? `${d.folk} settlers` : "",
       k === "lighthouse" ? "docks" : "",
-      k === "school" ? "a church, or 400 settlers" : "",
+      k === "school" ? "and a church (or 400 settlers)" : "",
     ]
       .filter(Boolean)
       .join(", ");
@@ -113,7 +113,7 @@ export const TOWNS_CHAPTER: Chapter = {
   body: `## A town's people grow with it
 A town has its posts (the innkeeper, the minister, the merchant, the sergeant...), and now its other households too: families, single men and women, widows and widowers, servants, tradesmen, and now and then a person of note. They're the people you meet, hire, befriend and marry.
 - **How many**: a colonial town has room for one household for each **${HOUSEHOLDS.per} settlers** (at least ${HOUSEHOLDS.min}, at most ${HOUSEHOLDS.max}); a native town one for each **${HOUSEHOLDS.nativePer}** of its people (at most ${HOUSEHOLDS.nativeMax}). The posts are fourteen at most, as before.
-- **When they come**: one household for each ${HOUSEHOLDS.per} settlers a town grows by (immigrant ships land at the colony's main port); a town short of households sees one come about ${pct(DRIFT_IN)} times in 100 a month for each it's short; a full town still sees comings and goings (${pct(TURNOVER)} in 100 a month), and when it has ${HOUSEHOLDS.over} more than it holds, one that's been there ${Math.round(HOUSEHOLDS.stay / 365)} years or more moves on.
+- **When they come**: one household for each ${HOUSEHOLDS.per} settlers a town grows by (immigrant ships land at the colony's main port); a town short of households sees one come about ${pct(DRIFT_IN)} times in 100 a month for each it's short; a full town still sees comings and goings (a household a month ${pct(turnoverOf(3))} times in 100 in a town of 300, ${pct(turnoverOf(HOUSEHOLDS.max))} in a great town), and when it has ${HOUSEHOLDS.over} more than it holds, one that's been there ${Math.round(HOUSEHOLDS.stay / 365)} years or more moves on.
 - **From where**: a port's ships (Bristol, London, Plymouth; Cádiz, Seville, the Canaries; La Rochelle, Rouen; Amsterdam, the Texel; Gothenburg; Lisbon), or down the road from another town of the colony. A native town takes in kin from the nation's other towns.
 - **Who comes**:
 

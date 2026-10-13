@@ -18,6 +18,7 @@ import {
   arrivalsAt,
   headsOf,
   householdRoom,
+  townFolk,
   townsOf,
 } from "../../engine/TownsCore";
 import type {
@@ -152,7 +153,6 @@ function oddsBlock(
 ): TemplateResult {
   const s = ui.s;
   const body = bodyOf(s, p, key);
-  const name = lc(workName(s, p, key));
   return html`<div class="cq-odds-panel cq-town-odds">
     <p class="cq-odds-head">
       <b>When ${body.name} sits</b
@@ -164,12 +164,11 @@ function oddsBlock(
           >${chanceWords(odds)}</span
         >
         <span class="cq-odds-what"
-          >Carried: ${levy} by ${body.levy} (the town grows a little restless),
-          the rest by
+          >Carried: ${coins(levy)} by ${body.levy}, the rest by
           ${term("subscription", "subscription")}${coinsDown
-            ? html`, your ${coins(coinsDown)} paid then`
+            ? html` (your ${coins(coinsDown)} among it)`
             : nothing};
-          then ${name} is built.</span
+          then it's built.</span
         >
       </li>
       <li class="bad">
@@ -319,7 +318,11 @@ function proposeSection(ui: GameUi, life: Life): TemplateResult {
   const p = life.prov;
   const mine = isMember(s, p, life);
   const body = bodyOf(s, p, chosen ?? undefined);
-  const list = worksFor(s, ui.w, p);
+  // Each row says why it can't be put now (built already, before the town, thrown out lately).
+  const list = worksFor(s, ui.w, p).map((x) => ({
+    key: x.key,
+    check: x.check.ok ? proposeCheck(s, ui.w, life, x.key, 0) : x.check,
+  }));
   if (chosen && !list.some((x) => x.key === chosen)) chosen = null;
   const row = (key: TownWorkKey, ok: boolean, why: string) => {
     const def = TOWN_WORKS[key];
@@ -572,16 +575,19 @@ function placesSection(ui: GameUi, p: number): TemplateResult {
 
 function cameSection(ui: GameUi, p: number): TemplateResult {
   const s = ui.s;
+  const native = s.nations[s.provinces[p].owner]?.kind === "native";
   const list = arrivalsAt(s, p);
   const room = householdRoom(s, p);
   const heads = headsOf(s, p).length;
   return section(
     html`Lately come ${termMark("newcomers")}`,
     html`<p class="cq-muted small cq-pad">
-        ${Math.round(settlers(s.provinces[p]))} settlers; ${heads}
-        household${heads === 1 ? "" : "s"} besides the town's posts (room for
-        ${room} as it stands). Newcomers come by ship and road as the town
-        grows.
+        ${native
+          ? `${Math.round(townFolk(s, p))} of the town's people`
+          : `${Math.round(settlers(s.provinces[p]))} settlers`};
+        ${heads} household${heads === 1 ? "" : "s"} besides the town's posts
+        (room for ${room} as it stands). Newcomers come by ship and road as the
+        town grows.
       </p>
       ${list.length
         ? html`<ul class="cq-town-came">
@@ -592,7 +598,16 @@ function cameSection(ui: GameUi, p: number): TemplateResult {
                   <span
                     >${a.text}
                     ${!a.gone && s.chars[a.c]?.alive
-                      ? charLink(ui, s.chars[a.c], true)
+                      ? html`<button
+                          class="cq-link small"
+                          @click=${() => ui.open({ k: "char", c: a.c })}
+                        >
+                          ${a.folk.length > 1
+                            ? "their card"
+                            : s.chars[a.c]!.female
+                              ? "her card"
+                              : "his card"}
+                        </button>`
                       : nothing}</span
                   >
                 </li>`,
@@ -629,10 +644,14 @@ function recordSection(ui: GameUi, p: number): TemplateResult {
               ? `, ${w.ayes} to ${w.noes}`
               : ""}${w.stage === "lost" && w.votes
               ? html`<span class="cq-muted small">
-                  (${w.votes
-                    .filter((v) => v.v < 0 && v.why)
+                  (${[
+                    ...new Set(
+                      w.votes
+                        .filter((v) => v.v < 0 && v.why)
+                        .map((v) => lc(v.why)),
+                    ),
+                  ]
                     .slice(0, 2)
-                    .map((v) => lc(v.why))
                     .join("; ")})</span
                 >`
               : nothing}

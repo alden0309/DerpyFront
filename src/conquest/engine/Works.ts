@@ -112,8 +112,10 @@ function tellTown(
   text: string,
   tone?: "good" | "bad",
   also: number[] = [],
+  except = -1,
 ): void {
-  for (const l of townLives(g, p, also)) journal(g, l, text, tone, false);
+  for (const l of townLives(g, p, also))
+    if (l.c !== except) journal(g, l, text, tone, false);
 }
 
 /** Put a work to the town's body, or petition for it. */
@@ -137,12 +139,15 @@ export function propose(
   journal(
     g,
     life,
-    `${member ? "You put" : "You petition"} ${body.name} for ${lc(workName(s, p, key))}${work.repair ? " (a repair)" : ""}: ${work.cost} coins, ${work.levy} of it by ${body.levy}${coins ? `, and ${coins} you'll put down yourself if it carries` : ""}. It sits on ${formatDate(work.sits)}; as it stands, ${chanceWords(odds)} it carries.`,
+    `${member ? `You put ${lc(workName(s, p, key))} to ${body.name}` : `You petition ${body.name} for ${lc(workName(s, p, key))}`}${work.repair ? " (a repair)" : ""}: ${work.cost} coins, ${work.levy} of it by ${body.levy}${coins ? `, and ${coins} you'll put down yourself if it carries` : ""}. It sits on ${formatDate(work.sits)}; as it stands, the chance it carries is ${chanceWords(odds)}.`,
   );
   tellTown(
     g,
     p,
     `Before ${body.name} on ${formatDate(work.sits)}: ${lc(workName(s, p, key))}${work.repair ? " to repair what was ruined" : ""}, ${member ? "brought" : "petitioned for"} by ${memberName(s, life.c)}.`,
+    undefined,
+    [],
+    life.c,
   );
   return null;
 }
