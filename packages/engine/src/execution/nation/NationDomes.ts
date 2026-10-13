@@ -213,13 +213,14 @@ const AROUND: readonly (readonly [number, number])[] = [
 
 /**
  * The best spot for a new Dome of Alden: our land where it covers the most
- * threatened value no Dome of ours covers yet. Around each of the most
- * valuable buildings it takes the value-weighted middle of the buildings in
- * range (a mean-shift step toward the densest cluster) and spots a little
- * way off it, each snapped to a tile we can build on. A spot within range of one of our Domes is refused, so
- * shields don't pile up, and one near land a foe holds is marked down (and
- * refused right on the front), since a Dome is taken with its land.
- * Returns null if nothing is left to cover.
+ * threatened value that no Dome of ours or a teammate's covers yet. Around
+ * each of the most valuable buildings it takes the value-weighted middle of
+ * the buildings in range (a mean-shift step toward the densest cluster) and
+ * spots a little way off it, each snapped to a tile we can build on. A spot
+ * within range of one of those Domes is refused, so shields don't pile up,
+ * and one near land a foe holds is marked down (and refused right on the
+ * front), since a Dome is taken with its land. Returns null if nothing is
+ * left to cover.
  */
 export function bestDomeSpot(
   game: Game,
@@ -229,9 +230,13 @@ export function bestDomeSpot(
   const config = game.config();
   const range = config.domeRange();
   const range2 = range * range;
-  const ownDomes = player.units(UnitType.Dome).map((d) => d.tile());
+  // Our Domes and our teammates' (built or building) already shield us
+  const shields = game
+    .units(UnitType.Dome)
+    .filter((d) => d.owner() === player || player.isOnSameTeam(d.owner()))
+    .map((d) => d.tile());
   const covered = (t: TileRef) =>
-    ownDomes.some((d) => game.euclideanDistSquared(d, t) <= range2);
+    shields.some((d) => game.euclideanDistSquared(d, t) <= range2);
 
   // Uncovered buildings and their threat-weighted value
   const assets: { tile: TileRef; value: number }[] = [];

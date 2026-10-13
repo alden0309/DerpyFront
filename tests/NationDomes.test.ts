@@ -1,6 +1,8 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
+  Cell,
   Difficulty,
+  Nation,
   PlayerInfo,
   PlayerType,
   UnitType,
@@ -11,15 +13,21 @@ import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import { readVersioned } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { ConstructionExecution } from "@openfront/engine/execution/ConstructionExecution";
-import { landFrontDepth } from "@openfront/engine/execution/nation/NationDomes";
+import {
+  landFrontDepth,
+  NukeThreat,
+  threatPercent,
+} from "@openfront/engine/execution/nation/NationDomes";
 import {
   NationStructureBehavior,
   NationStructureBehaviorSnapshot,
 } from "@openfront/engine/execution/nation/NationStructureBehavior";
+import { NationExecution } from "@openfront/engine/execution/NationExecution";
 import { NukeExecution } from "@openfront/engine/execution/NukeExecution";
 import { Game, Player } from "@openfront/engine/game/Game";
 import { vi } from "vitest";
 import { setup } from "./util/Setup";
+import { expectSnapshotRoundTrip } from "./util/Snapshot";
 import { TestConfig } from "./util/TestConfig";
 import { executeTicks } from "./util/utils";
 
@@ -404,6 +412,32 @@ describe("Where nations put a Dome (rules 4)", () => {
     expect(landFrontDepth(game, me, dome, 33)).toBeGreaterThanOrEqual(10);
   });
 
+  test("weighs a building by the nukes, silos and front around it", async () => {
+    // Range 50: nukes within 50, silos within 150 or 300, front within 25
+    const { game, foe } = await aiGame({
+      config: SmallDomeConfig,
+      foeType: PlayerType.Nation,
+      foeRows: [130, 199],
+    });
+    const calm: NukeThreat = {
+      nuked: false,
+      armed: true,
+      foeSilos: [],
+      foeIDs: new Set(),
+      impacts: [],
+    };
+    const at = (x: number, y: number, t: NukeThreat) =>
+      threatPercent(game, game.ref(x, y), t);
+    expect(at(20, 20, calm)).toBe(100);
+    expect(at(20, 20, { ...calm, impacts: [game.ref(60, 40)] })).toBe(200);
+    expect(at(20, 20, { ...calm, impacts: [game.ref(80, 40)] })).toBe(100);
+    expect(at(20, 20, { ...calm, foeSilos: [game.ref(20, 160)] })).toBe(150);
+    expect(at(20, 20, { ...calm, foeSilos: [game.ref(190, 190)] })).toBe(125);
+    const front = { ...calm, foeIDs: new Set([foe.smallID()]) };
+    expect(at(50, 110, front)).toBe(125);
+    expect(at(20, 20, front)).toBe(100);
+  });
+
   test("measures how far the land front is", async () => {
     const { game, me } = await aiGame({
       foeType: PlayerType.Nation,
@@ -531,6 +565,50 @@ describe("Guarding a Dome (rules 4)", () => {
 });
 
 describe("Nation Dome memory in snapshots", () => {
+  test("round-trips while a nation shields itself under fire", async () => {
+    const game = await setup(
+      "big_plains",
+      { instantBuild: true, difficulty: Difficulty.Hard },
+      [new PlayerInfo("Foe", PlayerType.Human, null, "foe")],
+      undefined,
+      AtomConfig,
+      false,
+      [
+        new Nation(
+          new Cell(60, 40),
+          new PlayerInfo("Me", PlayerType.Nation, null, "me"),
+        ),
+      ],
+    );
+    const exec = new NationExecution("dome_snapshot", game.nations()[0]);
+    game.addExecution(exec);
+    executeTicks(game, 10);
+    game.endSpawnPhase();
+    executeTicks(game, 3);
+    const me = game.player("me");
+    const foe = game.player("foe");
+    for (let x = 1; x < 199; x++) {
+      for (let y = 1; y <= 129; y++) me.conquer(game.ref(x, y));
+      for (let y = 170; y <= 198; y++) foe.conquer(game.ref(x, y));
+    }
+    me.addGold(1_000_000_000n);
+    foe.addGold(1_000_000_000n);
+    capitalCluster(game, me, 60, 40);
+    cityCluster(game, me, 150, 60);
+    const silo = foe.buildUnit(UnitType.MissileSilo, game.ref(100, 185), {});
+    for (let i = 0; i < 600 && me.units(UnitType.Dome).length === 0; i++) {
+      game.executeNextTick();
+    }
+    expect(me.units(UnitType.Dome).length).toBeGreaterThan(0);
+    incoming(game, foe, silo.tile(), 150, 60);
+    executeTicks(game, 30);
+    // The nation has noted where the nuke was aimed
+    expect(exec["structureBehavior"]["nukeImpacts"]).toEqual([
+      [expect.any(Number), game.ref(150, 60)],
+    ]);
+    await expectSnapshotRoundTrip(game, "big_plains", 40);
+  }, 60_000);
+
   test("a version 1 record reads with no Dome memory", () => {
     const v1 = {
       v: 1,
