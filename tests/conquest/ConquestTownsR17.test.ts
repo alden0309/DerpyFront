@@ -28,6 +28,7 @@ import {
   townsState,
 } from "../../src/conquest/engine/TownsCore";
 import type { GameState, Life } from "../../src/conquest/engine/Types";
+import { declareWar } from "../../src/conquest/engine/War";
 import {
   bodyOf,
   carryChance,
@@ -258,7 +259,16 @@ describe("a town taken: ruins, a landing, and its people", () => {
     const pr = s.provinces[STA];
     expect(pr.b.port).toBeGreaterThan(0);
     const muscogee = nationKey(g, "muscogee");
-    // Warriors take it and burn it (as War.ts's raze does).
+    // Warriors take it and burn it (as War.ts's raze does), in a war: WAR
+    // (r17) sends home an occupier with no war behind it.
+    declareWar(g, muscogee, pr.owner);
+    expect(
+      s.wars.some(
+        (w) =>
+          (w.a === muscogee && w.b === pr.owner) ||
+          (w.b === muscogee && w.a === pr.owner),
+      ),
+    ).toBe(true);
     pr.occupier = muscogee;
     pr.b.port = 0;
     pr.devastation = 0.7;
