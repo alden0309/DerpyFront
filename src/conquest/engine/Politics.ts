@@ -342,8 +342,24 @@ function holdElection(g: ConquestGame, pol: Polity): void {
       );
       if (!before.has(life.c))
         milestone(g, life, "office", `Elected to ${pol.name}`);
+      else
+        milestone(g, life, "election", `Returned to ${pol.name}`, life.prov, {
+          quiet: true,
+          tone: "good",
+        }); // STORY (r17)
     } else {
       journal(g, life, `You lost the election to ${pol.name}.`, "bad");
+      // STORY (r17)
+      milestone(
+        g,
+        life,
+        "election",
+        before.has(life.c)
+          ? `Lost your seat in ${pol.name}`
+          : `Lost the election to ${pol.name}`,
+        life.prov,
+        { quiet: true, tone: "bad" },
+      );
     }
   }
   tellResults(g, why); // POLLS (r16)

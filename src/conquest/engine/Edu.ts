@@ -52,6 +52,7 @@ import {
   endOutcome,
   journal,
   meet,
+  milestone,
   outcomeMeta,
   remembers,
   setTie,
@@ -1086,6 +1087,14 @@ function begin(
         `The indenture is signed and sealed: ${kid.first} is bound apprentice to ${charName(by)} at ${provName(map, o.at)}, to learn ${def.art}, for ${def.years} years${o.once ? `, with a premium of ${o.once} coins` : ""}. ${cap(he(kid))} goes to live in ${his(by ?? kid)} house.`,
         "good",
       );
+      schoolStory(
+        g,
+        life,
+        kid,
+        "bound apprentice",
+        `to ${charName(by)} at ${provName(map, o.at)}, to learn ${def.art}`,
+        o.at,
+      ); // STORY (r17)
       break;
     }
     case "college": {
@@ -1099,6 +1108,14 @@ function begin(
         `${kid.first} is admitted to ${c.name} by ${c.head}, entered ${lower(COLLEGE_RANKS[o.rank ?? 1].name)} to read ${lower(COURSES[o.course ?? "arts"].name)}${c.prov ? "" : `. The passage costs ${o.once} coins`}: ${o.fee} coins a month for chamber, commons and tuition.`,
         "good",
       );
+      schoolStory(
+        g,
+        life,
+        kid,
+        "entered",
+        `${c.name}, to read ${lower(COURSES[o.course ?? "arts"].name)}`,
+        o.at,
+      ); // STORY (r17)
       outcomeMeta(g, life, { c: kid.id, scene: "letter" });
       break;
     }
@@ -1117,6 +1134,28 @@ function begin(
 }
 
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/**
+ * STORY (r17): a step in a child's schooling (or your own) in the story:
+ * "Thomas entered Harvard College, to read divinity".
+ */
+function schoolStory(
+  g: ConquestGame,
+  life: Life,
+  kid: Character,
+  did: string,
+  rest: string,
+  p: number,
+  big = false,
+): void {
+  if (life.c < 0) return;
+  const self = kid.id === life.c;
+  const text = `${self ? cap(did) : `${kid.first} ${did}`} ${rest}`;
+  milestone(g, life, "school", text, p >= 0 ? p : life.prov, {
+    quiet: true,
+    big,
+  });
+}
 
 /** Classmates: students already there, and young gentlemen of the colony to make up the year. */
 function pickMates(
@@ -1263,6 +1302,15 @@ export function complete(
           `${kid.first} has served ${his(kid)} time with ${charName(by)}${early ? " (released early)" : ""}: out of ${his(kid)} indenture with ${his(kid)} freedom dues, a new suit of clothes, and ${def?.job ? `fit to be taken on as ${lower(JOBS[def.job].ranks[1]?.title ?? "a journeyman")}` : "able to keep a house of her own"}.`,
           "good",
         );
+      if (life)
+        schoolStory(
+          g,
+          life,
+          kid,
+          "served out an apprenticeship",
+          `with ${charName(by)}${def?.art ? `, learning ${def.art}` : ""}`,
+          now.at,
+        ); // STORY (r17)
       break;
     }
     case "path": {
@@ -1275,6 +1323,15 @@ export function complete(
           `${kid.first} has learned what ${by ? charName(by) : "the elders"} had to teach: ${lower(def?.name ?? "the people's ways")}.`,
           "good",
         );
+      if (life)
+        schoolStory(
+          g,
+          life,
+          kid,
+          "learned",
+          `${lower(def?.name ?? "the people's ways")} from ${by ? charName(by) : "the elders"}`,
+          now.at,
+        ); // STORY (r17)
       break;
     }
     case "college": {
@@ -1291,6 +1348,15 @@ export function complete(
           `${kid.first} takes ${his(kid)} degree at ${c?.name ?? "college"}${early ? ", granted early" : " at Commencement"}: ${COURSES[(now.course as Course) ?? "arts"].degree}. The family has a scholar.`,
           "good",
         );
+        schoolStory(
+          g,
+          life,
+          kid,
+          "took a degree",
+          `at ${c?.name ?? "college"}: ${COURSES[(now.course as Course) ?? "arts"].degree}`,
+          now.at,
+          true,
+        ); // STORY (r17)
       }
       break;
     }
@@ -1303,6 +1369,8 @@ export function complete(
           `${kid.first} has finished at ${lower(eduName(now))}${now.key === "grammar" || now.key === "jesuit" ? ": Latin enough for college" : ""}.`,
           "good",
         );
+      if (life && (now.key === "grammar" || now.key === "jesuit"))
+        schoolStory(g, life, kid, "finished at", lower(eduName(now)), now.at); // STORY (r17)
       break;
     }
   }

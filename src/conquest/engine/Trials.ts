@@ -650,6 +650,17 @@ function conclude(g: ConquestGame, t: Trial): void {
   // The accuser and the judge, win or lose.
   const acc = lifeOfChar(s, t.accuser);
   if (acc) {
+    // STORY (r17): a case you brought, won or lost.
+    milestone(
+      g,
+      acc,
+      "trial",
+      t.verdict === "guilty"
+        ? `Brought ${charName(d)} to court for ${t.charge}, and won: ${t.sentence}`
+        : `Brought ${charName(d)} to court for ${t.charge}, and lost`,
+      t.p,
+      { quiet: true, tone: t.verdict === "guilty" ? "good" : "bad" },
+    );
     if (t.verdict === "guilty") addRenown(g, acc, 1 + (t.grade >= 3 ? 1 : 0));
     else {
       addRenown(g, acc, -1);
@@ -721,6 +732,15 @@ function carryOut(g: ConquestGame, t: Trial): void {
         life,
         `Acquitted of ${t.charge}. You walk out of the court-house into the daylight.`,
         "good",
+      );
+      // STORY (r17)
+      milestone(
+        g,
+        life,
+        "trial",
+        `Tried for ${t.charge} at ${here}, and acquitted`,
+        t.p,
+        { quiet: true, tone: "good" },
       );
       addStress(g, life, -5);
       if (t.kind === "debt") {

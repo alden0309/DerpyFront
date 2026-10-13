@@ -41,6 +41,7 @@ import "./Household"; // HOME (r12): the household's commands register themselve
 import "./Intrigue"; // INTRIGUE (r15): seduction, plots, weddings, private letters
 import { leadsDaily, leadsMonthly } from "./Leads";
 import "./Ledger"; // LEDGER (r15): the month's books, statements and forecast
+import "./LifeStory"; // STORY (r17): what a life is remembered for
 import { fitStateToMap } from "./MapFix";
 import { marketsMonthly } from "./Markets";
 import { missionCommand, missionsDaily, outpostsDaily } from "./Missions";
@@ -282,6 +283,7 @@ export class ConquestGame {
   event(e: GameEvent): void {
     this.events.push(e);
     recordMilestone(this, e);
+    for (const h of hooks.gameEvent) h(this, e); // STORY (r17): a life's part in it
   }
 
   nextId(): number {

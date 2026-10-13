@@ -266,6 +266,9 @@ export function moveHousehold(g: ConquestGame, life: Life): void {
       g.touchChar(c).home = life.prov;
   }
   journal(g, life, `Your household moves to ${here}.`);
+  milestone(g, life, "moved", `Made a new home at ${here}`, life.prov, {
+    quiet: true,
+  }); // STORY (r17)
 }
 
 /** HOME (r12): rent a house here by the month, rather than buy one. */
@@ -554,6 +557,19 @@ export function sellProperty(
       ? `You give up the lease on the ${pr.name.toLowerCase()}.`
       : `You sell the ${pr.name.toLowerCase()} for ${worth} coins.`,
   );
+  // STORY (r17): a business (or a great house) sold is in the story.
+  if (
+    !pr.leased &&
+    (pr.kind === "business" || (pr.kind === "house" && pr.level >= 3))
+  )
+    milestone(
+      g,
+      life,
+      pr.kind === "business" ? "business" : "moved",
+      `Sold the ${pr.name.toLowerCase()} at ${g.map.provinces[pr.prov]?.name ?? "home"} for ${worth} coins`,
+      pr.prov,
+      { quiet: true },
+    );
   return null;
 }
 

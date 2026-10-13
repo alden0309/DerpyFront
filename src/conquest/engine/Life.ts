@@ -93,6 +93,7 @@ import {
   STRESS_HIGH,
   TINCTURES,
 } from "./LifeRules";
+import { nationWord } from "./LifeStory"; // STORY (r17)
 import { isWinter } from "./Map";
 import { marketTrade, present } from "./Markets"; // WORLD r11
 import { cashVenture, moneyMonthly, sellKit } from "./Money";
@@ -1058,12 +1059,15 @@ function lifeBattle(
     wound = Math.max(0.03, wound - fight);
     const headline = `The battle of ${place}: ${won ? "we carried the day" : "we were beaten"}${commanding ? " under your command" : ""}.`;
     journal(g, life, headline, won ? "good" : "bad");
+    // STORY (r17): who it was against, and whether you commanded (a victory in command is one of the great moments).
+    const foe = s.nations[(side === 0 ? defenders : attackers)[0]?.owner ?? -1];
     milestone(
       g,
       life,
       "battle",
-      `${won ? "Won" : "Lost"} the battle of ${place}`,
+      `${won ? "Won" : "Lost"} the battle of ${place}${foe ? ` against ${nationWord(foe)}` : ""}${commanding ? ", in command" : ""}`,
       r.prov,
+      { big: won && commanding },
     );
     if (g.rng.chance(death)) {
       kill(g, me, `battle at ${place}`);

@@ -22,6 +22,7 @@ import {
   heal,
   hurt,
   journal,
+  milestone,
   spend,
   touchLife,
 } from "./LifeCore";
@@ -857,6 +858,17 @@ function dryNote(lead: WorldLead): string {
   }
 }
 
+/** STORY (r17): a find in the story. */
+function findStory(
+  g: ConquestGame,
+  life: Life,
+  text: string,
+  p: number,
+  big = false,
+): void {
+  milestone(g, life, "find", text, p, { quiet: true, tone: "good", big });
+}
+
 /** Coins, goods, renown, and (for a strike) the choice of what to do about it. */
 function reward(
   g: ConquestGame,
@@ -904,6 +916,12 @@ function reward(
         `You brought the outlaw in at ${place}. The reward, ${got} coins, and your name in the gazette.`,
         "good",
       );
+      findStory(
+        g,
+        life,
+        `Brought in the outlaw who haunted ${place}: ${got} coins' reward`,
+        lead.p,
+      ); // STORY (r17)
       rumour(
         g,
         lead.p,
@@ -933,6 +951,7 @@ function reward(
       ll.note =
         "Found: warm, clear and tasting of iron. You feel ten years younger.";
       journal(g, life, `At ${place}: the spring is real. ${ll.note}`, "good");
+      findStory(g, life, `Found the healing spring at ${place}`, lead.p); // STORY (r17)
       g.prov(lead.p).mods.push({
         key: "spa",
         label: "The mineral springs",
@@ -974,6 +993,12 @@ function reward(
       ll.status = "found";
       ll.note = `Beaver everywhere: ${loads} loads of furs${rest > 0 ? ` and ${rest} coins` : ""}. There's more for the taking.`;
       journal(g, life, `At ${place}: ${ll.note}`, "good");
+      findStory(
+        g,
+        life,
+        `Found a valley thick with beaver at ${place}`,
+        lead.p,
+      ); // STORY (r17)
       return;
     }
     default:
@@ -986,6 +1011,13 @@ function reward(
     ll.status = "found";
     ll.note = `A strike: ${got} coins' worth, and more in the hill.`;
     addRenown(g, life, 2);
+    findStory(
+      g,
+      life,
+      `${def.title} at ${place}: a strike, ${got} coins' worth and more in the hill`,
+      lead.p,
+      true,
+    ); // STORY (r17)
     raiseLifeEvent(g, life, "lead-strike", { lead: lead.id, got });
     return;
   }
@@ -1002,6 +1034,14 @@ function reward(
     : `Something: ${got} coins. There may be more.`;
   if (big) addRenown(g, life, 3);
   journal(g, life, `${def.title} at ${place}: ${ll.note}`, "good");
+  if (big)
+    findStory(
+      g,
+      life,
+      `${def.title} at ${place}: a fortune, ${got} coins`,
+      lead.p,
+      true,
+    ); // STORY (r17)
 }
 
 // ---------------------------------------------------------------- rushes

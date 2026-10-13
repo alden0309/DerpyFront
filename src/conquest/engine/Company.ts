@@ -790,7 +790,7 @@ export function foundCompany(
     `You set up ${f.name} (${CO_SETUP} for the counting room and its books), with ${capital} in its chest: ${goodsName(plan.item).toLowerCase()} from ${placeName(s, g.w, plan.from, plan.from)} to ${placeName(s, g.w, plan.to, plan.from)}, a cargo every ${plan.every === 1 ? "month" : `${plan.every} months`}.`,
     "good",
   );
-  milestone(g, life, "job", `Set up ${f.name}`, plan.from);
+  milestone(g, life, "business", `Set up ${f.name}`, plan.from); // STORY (r17): was "job"
   rumour(
     g,
     plan.from,
@@ -989,6 +989,17 @@ function arrive(g: ConquestGame, f: Firm, v: CompanyVoyage): void {
   (co.notes ??= []).push(text);
   firmLine(g, f, `${text[0].toUpperCase()}${text.slice(1)}.`);
   news(g, f, `${text}.`, sale > v.cost ? "good" : "bad");
+  // STORY (r17): a great voyage, or a great cargo lost, is in each partner's story.
+  if (sale >= v.cost * 1.6 || (sale === 0 && v.cost >= 40))
+    for (const pt of f.partners) {
+      const l = lifeOfChar(s, pt.c);
+      if (!l || l.watching || l.c < 0) continue;
+      milestone(g, l, "company", `${f.name}: ${text}`, v.from, {
+        quiet: true,
+        tone: sale > v.cost ? "good" : "bad",
+        big: sale >= v.cost * 2.5 && sale >= 150,
+      });
+    }
   if (sale >= v.cost * 1.6)
     rumour(
       g,

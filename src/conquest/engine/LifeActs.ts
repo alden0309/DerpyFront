@@ -1091,8 +1091,25 @@ export function doAct(
           "You knocked a loudmouth flat. The tavern bought you a drink.",
           "good",
         );
+        // STORY (r17): a brawl in the story (one a season, all of them counted).
+        milestone(
+          g,
+          life,
+          "fight",
+          `Knocked a loudmouth flat in the tavern at ${here}`,
+          life.prov,
+          { quiet: true, tone: "good", every: 90 },
+        );
       } else {
         journal(g, life, "You came off second best in a tavern brawl.", "bad");
+        milestone(
+          g,
+          life,
+          "fight",
+          `Came off second best in a tavern brawl at ${here}`,
+          life.prov,
+          { quiet: true, tone: "bad", every: 90 },
+        ); // STORY (r17)
         hurt(g, life, g.rng.int(5, 14), "a tavern brawl that went badly");
       }
       return null;

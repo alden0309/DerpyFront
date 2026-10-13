@@ -505,6 +505,15 @@ export function buyRank(g: ConquestGame, life: Life): string | null {
     job.own = true;
     job.employer = -1;
     openBusiness(g, life, job);
+    // STORY (r17)
+    milestone(
+      g,
+      life,
+      "business",
+      `Bought ${next.buy.what}: your own master at ${g.map.provinces[job.prov]?.name ?? "home"}`,
+      job.prov,
+      { quiet: true, tone: "good" },
+    );
     if (boss?.alive)
       journal(
         g,

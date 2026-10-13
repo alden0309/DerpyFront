@@ -22,6 +22,7 @@ import {
   gainXp,
   hurt,
   journal,
+  milestone,
   remembers,
   spend,
   touchLife,
@@ -406,6 +407,15 @@ export const CRIME_EVENTS: LifeEventDef[] = [
               `It came off: ${got} coins, and they'll be talking about it in every tavern.`,
               "good",
             );
+            // STORY (r17)
+            milestone(
+              g,
+              life,
+              "crime",
+              `${scoreOf(life).title} at ${here(g, life)}: it came off, ${got} coins`,
+              life.prov,
+              { quiet: true, tone: "good" },
+            );
           } else {
             addHeat(g, life, ctx.n ?? -1, 18);
             addStress(g, life, 5);
@@ -600,6 +610,16 @@ function acquit(g: ConquestGame, life: Life, text: string): void {
   if (j) addHeat(g, life, j.nation, -15);
   touchLife(g, life);
   journal(g, life, text, "good");
+  // STORY (r17)
+  if (j)
+    milestone(
+      g,
+      life,
+      "trial",
+      `Acquitted of ${j.charge} at the quarter sessions at ${g.map.provinces[j.p]?.name ?? "the court-house"}`,
+      j.p,
+      { quiet: true, tone: "good" },
+    );
 }
 
 /** The court's sentence, with the governor's mercy for the rope. */

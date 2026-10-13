@@ -24,6 +24,7 @@ import {
   heal,
   hurt,
   journal,
+  milestone,
   remembers,
   spend,
   touchLife,
@@ -97,6 +98,18 @@ function npcBoss(g: ConquestGame, life: Life) {
   const b = g.s.chars[job.employer];
   return b?.alive && !played(g.s, b.id) ? b : undefined;
 }
+
+/** STORY (r17): a matter's outcome in a few words for the story: its first sentence. */
+function firstWords(text: string): string {
+  const one = text.split(/(?<=[.!?])\s/)[0].replace(/[.!]$/, "");
+  const word = /^[A-Za-z]+/.exec(one)?.[0] ?? "";
+  return COMMON_FIRST.test(word)
+    ? one.charAt(0).toLowerCase() + one.slice(1)
+    : one;
+}
+/** Words a sentence starts with that aren't names (a name keeps its capital). */
+const COMMON_FIRST =
+  /^(The|A|An|You|Your|It|Its|He|She|They|Their|His|Her|We|Our|One|Two|Three|Four|Five|Six|Seven|Eight|Nine|Ten|Eleven|Twelve|No|Nothing|Nobody|Every|All|Some|Half|In|On|At|By|Over|Under|Through|Out|Down|Up|Into|Not|Both|Each|This|That|There|Then|Now|Well|Clean|Gone)$/;
 
 function fill(g: ConquestGame, life: Life, text: string): string {
   const job = life.job;
@@ -244,6 +257,16 @@ function reckon(
         ? "good"
         : undefined;
   journal(g, life, fill(g, life, f.say), tone);
+  // STORY (r17): a rogue's big job that came off goes in the story.
+  if (v.kind === "score" && f === c.win && (coins > 0 || (f.name ?? 0) >= 2))
+    milestone(
+      g,
+      life,
+      "crime",
+      `${v.title} at ${here(g, life)}: ${firstWords(fill(g, life, f.say))}`,
+      life.prov,
+      { quiet: true, tone: "good" },
+    );
   if (f.health) {
     if (f.health > 0) heal(g, life, f.health);
     else hurt(g, life, -f.health, v.title.toLowerCase());

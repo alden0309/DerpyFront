@@ -19,7 +19,7 @@
 import { dateOf } from "./Calendar";
 import type { ConquestGame } from "./Game";
 import { hooks, raiseEvent } from "./Hooks";
-import { journal, touchLife } from "./LifeCore";
+import { journal, milestone, touchLife } from "./LifeCore";
 import { shockMarket } from "./Markets";
 import { wake } from "./Pace";
 import { rumour } from "./Rumours";
@@ -467,11 +467,21 @@ function strikeTown(g: ConquestGame, st: Storm, p: number, km: number): void {
       !st.warned.includes(`w:${life.seat}`)
     )
       st.warned.push(`w:${life.seat}`);
-    if (life.prov === p && !life.travel && sev >= 1)
+    if (life.prov === p && !life.travel && sev >= 1) {
       raiseEvent(g, life, "sea-storm-town", {
         st: st.id,
         f: Math.round(sev * 10) / 10,
       });
+      // STORY (r17)
+      milestone(
+        g,
+        life,
+        "storm",
+        `Rode out ${stormName(st)} at ${town}${sev >= 3.5 ? ": a great storm" : ""}`,
+        p,
+        { quiet: true, big: sev >= 3.5 },
+      );
+    }
   }
 }
 
@@ -614,6 +624,15 @@ later(() =>
       return true;
     }
     raiseEvent(g, life, "trv-hurricane", { st: st.id });
+    // STORY (r17)
+    milestone(
+      g,
+      life,
+      "storm",
+      `Caught at sea by ${stormName(st)}`,
+      life.prov,
+      { quiet: true, tone: "bad" },
+    );
     return true;
   }),
 );

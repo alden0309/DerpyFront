@@ -10,11 +10,12 @@
 import { dateOf } from "./Calendar";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
-import { journal, touchLife } from "./LifeCore";
+import { journal, milestone, touchLife } from "./LifeCore";
 import { lifeIsNative, meOf, officesOf } from "./LifeQueries";
 import { isWinter } from "./Map";
 import { ageOf } from "./Queries";
 import { isNorth } from "./Seasons";
+import { achievementText } from "./StoryCore"; // STORY (r17)
 import { LEVEL_POINTS, lifeTonguePoints, motherTongue } from "./Tongues";
 import type { Life } from "./Types";
 
@@ -637,6 +638,10 @@ export function checkAchievements(
     (life.achieved ??= {})[def.key] = g.s.day;
     got.push(def.key);
     journal(g, life, `${ACHIEVEMENT_NOTE}${def.name}. ${def.how}`, "good");
+    milestone(g, life, "achievement", achievementText(def.name), life.prov, {
+      quiet: true,
+      tone: "good",
+    }); // STORY (r17)
   }
   return got;
 }

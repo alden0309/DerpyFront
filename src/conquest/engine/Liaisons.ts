@@ -327,6 +327,14 @@ export function acknowledge(g: ConquestGame, life: Life, kidId: number): void {
   g.touchChar(kid).father = me.id;
   if (!me.children.includes(kid.id)) g.touchChar(me).children.push(kid.id);
   touchLife(g, life).tally.children++;
+  milestone(
+    g,
+    life,
+    "child",
+    `Acknowledged ${kid.first} as your own`,
+    life.prov,
+    { quiet: true, tone: "good" },
+  ); // STORY (r17)
 }
 
 export function startBlackmail(g: ConquestGame, life: Life, a: Affair): void {
