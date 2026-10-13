@@ -5,6 +5,7 @@ import { applyIntrigueDelta } from "./IntrigueCore"; // INTRIGUE (r15)
 import { applyLoanDelta } from "./LoanCore"; // ECON (r17)
 import { applyPartnersDelta } from "./PartnersCore"; // PARTNERS (r13)
 import { applyPowerDelta } from "./PowerCore"; // POWER (r12)
+import { applyReclaimDelta } from "./ReclaimCore"; // WAR (r17)
 import { applySeaDelta } from "./SeaCore"; // SEA (r15)
 import { applySocietyDelta } from "./SocietyCore"; // SOCIETY (r11)
 import { applyTownsDelta } from "./TownsCore"; // TOWNS (r17)
@@ -69,6 +70,7 @@ export function applyDelta(s: GameState, d: GameDelta): void {
   if (d.intrigue) applyIntrigueDelta(s, d.intrigue); // INTRIGUE (r15)
   if (d.loans) applyLoanDelta(s, d.loans); // ECON (r17)
   if (d.towns) applyTownsDelta(s, d.towns); // TOWNS (r17)
+  if (d.reclaim) applyReclaimDelta(s, d.reclaim); // WAR (r17)
   if (d.polities) {
     for (const [n, pol] of Object.entries(d.polities))
       s.polities[Number(n)] = pol;

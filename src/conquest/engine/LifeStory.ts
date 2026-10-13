@@ -96,6 +96,14 @@ function warAtHome(g: ConquestGame, e: GameEvent): void {
     }
     // Your own town, taken, freed or burned.
     if (life.home !== e.p) continue;
+    // WAR (r17) told the same day's change of hands already: one moment.
+    if (
+      e.k !== "razed" &&
+      life.milestones.some(
+        (m) => m.kind === "taken" && m.day === s.day && m.p === e.p,
+      )
+    )
+      continue;
     const by = s.nations[e.n];
     const ours = me.nation === e.n;
     // Taken and burned the same day: one moment.

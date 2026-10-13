@@ -28,6 +28,7 @@ import {
 } from "./Context";
 import { personRow } from "./Here";
 import { playersSection } from "./Players"; // HOME (r12)
+import { claimsWorldSection, nationClaims } from "./Reclaim"; // WAR (r17)
 import { steady } from "./Steady";
 import { cultureChips } from "./WorldUi";
 
@@ -206,6 +207,11 @@ export function worldTab(ui: GameUi): TemplateResult {
             Nobody is plotting anything (that you know of).
           </p>`,
     )}
+    ${
+      claimsWorldSection(
+        ui,
+      ) /* WAR (r17): lost towns, claims, towns in a ferment */
+    }
     ${section(
       "The colonies",
       html`<ul class="cq-nations">
@@ -351,5 +357,6 @@ export function nationPage(ui: GameUi, id: number): TemplateResult {
           "Causes against it",
           html`${causes.map((m) => movementCard(ui, m, false))}`,
         )
-      : nothing}`;
+      : nothing}
+    ${nationClaims(ui, id) /* WAR (r17) */}`;
 }

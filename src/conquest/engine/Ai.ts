@@ -34,6 +34,7 @@ import {
   holder,
   nationSettlers,
   nationsBorder,
+  peaceCheck, // WAR (r17)
   peaceWillingness,
   provinceValue,
   provincesOf,
@@ -51,6 +52,7 @@ import {
   warMonths,
   warScore,
 } from "./Queries";
+import { CLAIM, claimMuster, claimPull } from "./ReclaimCore"; // WAR (r17)
 import { DIFFICULTY, REGIMENTS, WARRIOR_SHARE } from "./Rules";
 import { orderQuote } from "./Trade";
 import {
@@ -363,7 +365,11 @@ function military(g: ConquestGame, n: number): void {
     (m, p) => m + settlers(s.provinces[p]),
     0,
   );
-  const want = Math.floor(folk / 1800) + 1 + (enemies.length > 0 ? 3 : 0);
+  const want =
+    Math.floor(folk / 1800) +
+    1 +
+    (enemies.length > 0 ? 3 : 0) +
+    claimMuster(s, n); // WAR (r17): strong enough to take its towns back
   const have =
     armiesOf(s, n).reduce((m, a) => m + a.regs.length, 0) +
     provincesOf(s, n).reduce((m, p) => m + s.provinces[p].recruits.length, 0);
@@ -461,6 +467,8 @@ function pickTarget(
       score = provinceValue(s, p) * (1 + (pr.b.fort ?? 0) * -0.25);
     else if (enemyMen > 0) score = 2;
     if (score <= 0) continue;
+    // WAR (r17): a town it lost and wants back draws its armies.
+    score *= 1 + claimPull(s, n, p);
     if (enemyMen > men * (0.6 + 0.4 / aggression)) continue;
     score = score / (1 + days / 20);
     if (score > bestScore) {
@@ -535,13 +543,27 @@ function peace(g: ConquestGame, n: number): void {
     if (europeWar && score > -40) continue;
     const held = s.provinces
       .map((pr, p) => (pr.owner === enemy && pr.occupier === n ? p : -1))
-      .filter((p) => p >= 0);
+      .filter((p) => p >= 0)
+      // WAR (r17): never a capital they won't give up (a peace asking for
+      // it is refused, and such wars ran on for decades).
+      .filter(
+        (p) => peaceCheck(s, n, enemy, { take: [p], give: [], gold: 0 }).ok,
+      );
+    // WAR (r17): towns it lost and wants back come first, and are asked for
+    // as soon as the war is going its way.
+    held.sort((a, b) => claimPull(s, n, b) - claimPull(s, n, a));
+    const claimed = held.filter((p) => claimPull(s, n, p) > 0);
     let terms: PeaceTerms = { take: [], give: [], gold: 0 };
     if (score >= 25 && held.length > 0) {
       terms = { take: held.slice(0, 2), give: [], gold: 0 };
       if (peaceWillingness(s, n, enemy, terms).total < 0)
         terms = { take: held.slice(0, 1), give: [], gold: 0 };
     }
+    // WAR (r17): a claimed town, asked for early; refused, the usual terms.
+    const ask: PeaceTerms | null =
+      score >= CLAIM.peaceScore && score < 25 && claimed.length > 0
+        ? { take: claimed.slice(0, 1), give: [], gold: 0 }
+        : null;
     // A beaten native nation is made to pay tribute.
     const foe = s.nations[enemy];
     if (
@@ -554,6 +576,12 @@ function peace(g: ConquestGame, n: number): void {
       if (peaceWillingness(s, n, enemy, harsh).total >= 0) terms = harsh;
     }
     if (
+      ask && // WAR (r17)
+      (peaceWillingness(s, n, enemy, ask).total >= 0 ||
+        s.nations[enemy].player !== null)
+    )
+      g.command(n, { k: "peace", n: enemy, terms: ask });
+    else if (
       score >= 25 ||
       score <= -15 ||
       nation.warExhaustion > 20 ||
@@ -641,17 +669,30 @@ function nativeAi(g: ConquestGame, n: number): void {
     // WORLD r11: a native nation takes back its own country, not new land.
     const held = s.provinces
       .map((pr, p) => (pr.owner === enemy && pr.occupier === n ? p : -1))
-      .filter((p) => p >= 0 && g.w.startOwner[p] === nation.key);
+      .filter(
+        (p) =>
+          p >= 0 &&
+          (g.w.startOwner[p] === nation.key || claimPull(s, n, p) > 0) && // WAR (r17): or a town it claims
+          peaceCheck(s, n, enemy, { take: [p], give: [], gold: 0 }).ok, // WAR (r17): and one it can be given
+      );
     const terms: PeaceTerms =
       score >= 30 && held.length > 0
         ? { take: held.slice(0, 1), give: [], gold: 0 }
         : { take: [], give: [], gold: 0 };
     if (score >= 30 || score <= -20 || nation.warExhaustion > 15) {
+      const none: PeaceTerms = { take: [], give: [], gold: 0 };
       if (
         peaceWillingness(s, n, enemy, terms).total >= 0 ||
         s.nations[enemy].player !== null
       )
         g.command(n, { k: "peace", n: enemy, terms });
+      // WAR (r17): a claimed town refused, it makes peace without it.
+      else if (
+        terms.take.length > 0 &&
+        g.w.startOwner[terms.take[0]] !== nation.key &&
+        peaceWillingness(s, n, enemy, none).total >= 0
+      )
+        g.command(n, { k: "peace", n: enemy, terms: none });
     }
   }
   for (const o of s.offers.filter((x) => x.to === n)) {

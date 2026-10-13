@@ -56,6 +56,8 @@ import { popsMonthly } from "./Pops";
 import { powerDaily, powerMonthly } from "./Power"; // POWER (r12)
 import { takePowerDelta } from "./PowerCore"; // POWER (r12)
 import { scoreOf } from "./Queries";
+import "./Reclaim"; // WAR (r17): claims on lost towns, reconquest, risings against occupiers
+import { takeReclaimDelta } from "./ReclaimCore"; // WAR (r17)
 import { Rng } from "./Rng";
 import { END_YEAR } from "./Rules";
 import "./Sea"; // SEA (r15): hurricanes, cruises, voyages, privateers
@@ -363,6 +365,8 @@ export class ConquestGame {
     if (loans) d.loans = loans;
     const towns = takeTownsDelta(this); // TOWNS (r17)
     if (towns) d.towns = towns;
+    const reclaim = takeReclaimDelta(this); // WAR (r17)
+    if (reclaim) d.reclaim = reclaim;
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)

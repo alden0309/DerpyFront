@@ -3663,6 +3663,7 @@ import { PARTNER_EVENTS } from "./PartnerEvents"; // PARTNERS (r13)
 import { POWER_DEFAULTS, POWER_EVENTS } from "./PowerEvents"; // POWER (r12)
 import { R11_EVENTS } from "./R11Events";
 import { R15_EVENTS } from "./R15Events"; // EVENTS (r15)
+import { reclaimEvents, reclaimQuiet } from "./ReclaimEvents"; // WAR (r17)
 import { seaEvents, seaQuiet } from "./SeaEvents"; // SEA (r15)
 import { SEASON_EVENTS } from "./SeasonLife"; // MAP (r12)
 import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
@@ -3727,6 +3728,12 @@ function byKey(key: string): LifeEventDef | undefined {
       }
     // ECON (r17): bonds, leave, a venture for home.
     for (const d of econEvents())
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // WAR (r17): a plot in a town under foreign rule.
+    for (const d of reclaimEvents())
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
@@ -3993,7 +4000,8 @@ function firstAllowed(
     POWER_DEFAULTS[ev.key] ??
     seaQuiet()[ev.key] ??
     chairQuiet()[ev.key] ??
-    econQuiet()[ev.key]; // SEA (r15), CHAIR (r16), ECON (r17)
+    econQuiet()[ev.key] ??
+    reclaimQuiet()[ev.key]; // SEA (r15), CHAIR (r16), ECON and WAR (r17)
   if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
     return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.

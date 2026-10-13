@@ -328,6 +328,13 @@ export const STORY_KINDS: Record<string, StoryKindDef> = {
     many: n("town lost", "towns lost"),
     weight: 2,
   },
+  // WAR (r17): the town you live in changed hands (a peace, a sale, a rising).
+  taken: {
+    icon: "flag",
+    name: "Your town changed hands",
+    many: n("change of rulers", "changes of rulers"),
+    weight: 2,
+  },
 };
 
 /** How an achievement is told in the story. */

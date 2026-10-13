@@ -6,6 +6,7 @@
 import { dateOf } from "./Calendar";
 import { mainPort, merge } from "./Economy";
 import type { ConquestGame } from "./Game";
+import { provinceTaken } from "./Hooks"; // WAR (r17)
 import { isFeverSeason, kmBetween } from "./Map";
 import {
   armyMen,
@@ -288,13 +289,19 @@ function revolt(g: ConquestGame, p: number): void {
     months >= 18 &&
     far &&
     pr.unrest >= 90 &&
-    overextension(s, g.w, pr.owner) > 0.25
+    overextension(s, g.w, pr.owner) > 0.25 &&
+    // WAR (r17): not while an enemy holds it (the quarrel is with them). A
+    // town that broke away under occupation kept its occupier with no owner
+    // and no war, and nobody could ever besiege it again.
+    pr.occupier < 0
   ) {
     const from = pr.owner;
     g.nation(from).stats.provincesLost++;
     pr.owner = -1;
+    pr.siege = null; // WAR (r17)
     pr.mods = pr.mods.filter((m) => m.key !== "revolt");
     pr.b = {};
+    provinceTaken(g, p, from, -1); // WAR (r17)
     g.event({
       k: "story",
       day: s.day,
