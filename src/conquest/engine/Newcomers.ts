@@ -610,7 +610,13 @@ function tidyHeads(g: ConquestGame, p: number): void {
 }
 
 /** A child of the town, married with children, keeps house of their own. */
-function ownHouseholds(g: ConquestGame, p: number, wantSex?: boolean): boolean {
+function ownHouseholds(
+  g: ConquestGame,
+  p: number,
+  wantSex?: boolean,
+  /** For one who must be of a people (a remedy for someone of theirs). */
+  of?: Folk,
+): boolean {
   const s = g.s;
   const list = s.locals[p] ?? [];
   if (wantSex === undefined && headsOf(s, p).length >= householdRoom(s, p))
@@ -630,7 +636,12 @@ function ownHouseholds(g: ConquestGame, p: number, wantSex?: boolean): boolean {
     if (!kids.length) continue;
     if (
       wantSex !== undefined &&
-      !kids.some((k) => k.female === wantSex && marriageable(s, k))
+      !kids.some(
+        (k) =>
+          k.female === wantSex &&
+          marriageable(s, k) &&
+          (!of || sameFolk(s, k, of)),
+      )
     )
       continue;
     const as = parent.role
@@ -985,7 +996,7 @@ function remedy(
   female: boolean,
   f: Folk,
 ): void {
-  if (ownHouseholds(g, p, female)) return;
+  if (ownHouseholds(g, p, female, f)) return;
   if (fromKin(g, p, female, f)) return;
   const kinds: ArrivalKind[] = female
     ? ["daughters", "woman", "widow"]
