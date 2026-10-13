@@ -223,6 +223,13 @@ export const hooks = {
     g: ConquestGame,
     e: import("./Types").GameEvent,
   ) => void)[],
+  // WAR/TOWNS (r17): a province changed hands (conquest, cession, a rising).
+  provinceTaken: [] as ((
+    g: ConquestGame,
+    p: number,
+    from: number,
+    to: number,
+  ) => void)[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

@@ -456,6 +456,47 @@ export const TERMS: Record<string, Term> = {
       "Time in quarters drills them (officers among your people speed it); every month's pay lifts their spirits.",
     ch: "followers",
   },
+  // ---- TOWNS (r17): engine/WorksCore.ts, Works.ts, Newcomers.ts
+  townbody: {
+    name: "The town's body",
+    what: "Whoever sits on a town's public business: the county court or the vestry (Virginia and Maryland), the town meeting (New England), the cabildo (a Spanish town), the habitants' assembly (a French one), the council fire (a native town). Its members are the county's office holders, and enough of the town's chief householders to make it up.",
+    good: "It votes the town's public works: a wharf, a church or meeting house, a market house, a fort, a schoolhouse, a road and bridge, a warehouse, a lighthouse, a court-house; in a native town a landing, a palisade, a council house, a cleared trail. It repairs what was ruined for half the cost.",
+    raise:
+      "Hold a county office (Society › Office) and you sit on it: you propose works and vote. Anyone else of the town petitions it (Society › Town).",
+    ch: "towns",
+  },
+  levy: {
+    name: "The levy",
+    what: "What a town raises from its own people toward a work it has voted: a county levy, a town rate, a derrama, the town's own labour. Up to half the work's cost, as the town can bear it.",
+    good: "Pays part of a work without anyone's purse. The rest is the subscription.",
+    raise:
+      "It makes the town a little more restless for a year (1 to 5 unrest, by the levy on each hundred of its people). A subscription not filled in six months is made up by a second levy.",
+    ch: "towns",
+  },
+  subscription: {
+    name: "The subscription",
+    what: "What the town's people of means, and any player, pay toward a work the town has voted, on top of the levy.",
+    good: "When it's subscribed in full the work begins. Members who voted for it put down a quarter of their means, others a little; the mover's pledge counts in it.",
+    raise:
+      "Subscribe on Society › Town (the sum is on the button). The members think the better of you for it, and it brings a little renown.",
+    ch: "towns",
+  },
+  newcomers: {
+    name: "Newcomers",
+    what: "Families, single men and women, widows, servants, tradesmen and now and then a person of note, come to a town by ship or down the road as it grows; in a native town, kin from the nation's other towns.",
+    good: "A town's people grow with it, so there's someone to marry, to hire, to befriend. A newcomer isn't married off by the town's own for a year.",
+    raise:
+      "They come in proportion to the settlers who arrive, and to keep a town filled to what its size holds. A town with nobody of a sex free to marry for a year or two draws someone.",
+    ch: "towns",
+  },
+  ruins: {
+    name: "Ruins",
+    what: "What stood in a town and was burned when it was taken, or left to rot when its settlers fled: a wharf, a church, a fort, a court-house, a work of the town's own.",
+    good: "A ruin can be repaired by the town's vote for half the cost of building new, and in three fifths of the time.",
+    raise:
+      "Propose the repair (or petition for it) on Society › Town. If nobody does, the town's own members bring it in a year or so.",
+    ch: "towns",
+  },
 };
 
 /** A term's explanation, as a tooltip. */

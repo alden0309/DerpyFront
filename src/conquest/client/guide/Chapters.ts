@@ -172,6 +172,7 @@ import { ECON_CHAPTER } from "./EconChapter"; // ECON (r17)
 import { POLLS_CHAPTER } from "./PollsChapter"; // POLLS (r16)
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
 import { SAVES_CHAPTER, STORY_CHAPTER } from "./StoryChapter"; // STORY (r17)
+import { TOWNS_CHAPTER } from "./TownsChapter"; // TOWNS (r17)
 // INTRIGUE (r15): hearts and schemes.
 import { CHAMBER_CHAPTER } from "./ChamberChapter"; // CHAMBER (r16)
 import { INTRIGUE_CHAPTER } from "./IntrigueChapter";
@@ -1898,6 +1899,9 @@ A governor's decisions are on Society › Office: taxes, how much of the revenue
   // ---- POLLS (r16): polls and the canvass, renown and favour's curve (guide/PollsChapter.ts)
   POLLS_CHAPTER,
   // ---- end POLLS (r16)
+  // ---- TOWNS (r17): the town, its people and its works (guide/TownsChapter.ts)
+  TOWNS_CHAPTER,
+  // ---- end TOWNS (r17)
   // ---- POWER (r12): the council, trials, the press
   {
     id: "council",

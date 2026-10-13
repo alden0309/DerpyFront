@@ -1354,6 +1354,8 @@ export const PLACES: Record<PlaceKind, PlaceDef> = {
   },
   docks: {
     name: "The docks",
+    // TOWNS (r17): a native town's: the beach and trading place where canoes put in.
+    nativeName: "The landing",
     text: "Ships in from Europe and the islands, passage to anywhere, and work hauling cargo.",
   },
   fort: {

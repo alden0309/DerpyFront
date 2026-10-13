@@ -4,6 +4,7 @@
 import { goodsMoved, tally } from "./Economy";
 import { proposeTreaty } from "./Events";
 import type { ConquestGame } from "./Game";
+import { hooks } from "./Hooks"; // WAR/TOWNS (r17)
 import {
   buyCheck,
   giftCheck,
@@ -200,6 +201,8 @@ export function diplomacyCommand(
       pr.owner = n;
       pr.occupier = -1;
       pr.integrate = s.day + INTEGRATE_DAYS;
+      // WAR/TOWNS (r17): the town changed hands (each handler does nothing on a second call).
+      for (const h of hooks.provinceTaken) h(g, c.p, seller, n);
       const buyer = g.nation(n);
       buyer.stats.landBought++;
       (sellerNation.relations[n] ??= []).push({

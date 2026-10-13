@@ -248,6 +248,8 @@ export function placesIn(s: GameState, w: World, p: number): PlaceKind[] {
   } else if (owner?.kind === "native") {
     out.push("village", "councilfire", "fields");
     if (def.coastal || owner.capital === p) out.push("market");
+    // TOWNS (r17): a port the nation holds keeps its landing, where traders' ships call.
+    if (def.coastal && (pr.b.port ?? 0) > 0) out.push("docks");
     out.push("woods");
   } else {
     if (tribesfolk(pr) >= 150) out.push("village");

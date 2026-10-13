@@ -580,7 +580,12 @@ describe("money over a lifetime", () => {
     // dice: in this run the tenant falls into debt once, is cut back to
     // frugal for good, and puts by 450 or so by 68. Not rich, and a small
     // fraction of what the spender has.
-    expect(peak("passive")).toBeLessThan(600);
+    // TOWNS (r17): Jamestown's people now grow with it (newcomers by ship and
+    // road, widows who keep house), which moves the world's dice again: the
+    // tenant dies at 45, and her heir, a lieutenant at 29, lives frugally on
+    // his pay for sixteen years and has about 730 put by at 45 (the spender
+    // peaks near 5,800). Still not rich, and an eighth of the spender's best.
+    expect(peak("passive")).toBeLessThan(800);
     // INTRIGUE (r15): nobody under eighteen is anyone's sweetheart now (the
     // courting events used to offer sixteen- and seventeen-year-olds), which
     // moves the world's dice again: the tenant dies at 61, and her heir is

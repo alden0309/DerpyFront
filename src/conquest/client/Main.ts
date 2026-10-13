@@ -41,5 +41,6 @@ import "./polls.css"; // POLLS (r16): the canvass
 import "./schooling.css"; // EDU (r13): school, apprenticeship, college
 import "./sea.css"; // SEA (r15): at sea, the privateering company, hurricanes
 import "./story.css"; // STORY (r17): the story of a life, year by year
+import "./towns.css"; // TOWNS (r17): the town, its newcomers and its public works
 
 document.body.appendChild(document.createElement("conquest-app"));

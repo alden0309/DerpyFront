@@ -326,6 +326,8 @@ export function cede(g: ConquestGame, p: number, to: number): void {
   // CHAIR (r16): say where the government has gone, and what of the seats.
   if (moved)
     for (const h of hooks.capitalMoved) h(g, from, p, s.nations[from].capital);
+  // WAR/TOWNS (r17): the town changed hands (each handler does nothing on a second call).
+  if (from !== to) for (const h of hooks.provinceTaken) h(g, p, from, to);
   if (from >= 0 && provincesOf(s, from).length === 0) fall(g, from, to);
 }
 

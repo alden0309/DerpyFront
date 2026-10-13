@@ -236,6 +236,8 @@ export interface Character {
   edu?: Schooling;
   /** LABOUR (r15): held in bondage, bound by indenture, fled, or freed. */
   bond?: BondMark;
+  /** TOWNS (r17): lately come to the town (or set up house there): when, from where, as what. */
+  came?: TownCame;
 }
 
 // ---------------------------------------------------------------- lives
@@ -1615,6 +1617,8 @@ export interface GameState {
   intrigue?: IntrigueState;
   /** ECON (r17): bonds between people (each player is sent only their own). */
   loans?: LoanState;
+  /** TOWNS (r17): newcomers, what was ruined, and the towns' public works. */
+  towns?: TownsState;
 }
 
 export type TravellerKind =
@@ -1922,7 +1926,9 @@ export type LifeCommand =
   | ChairCommand
   // ECON (r17): bonds (lending and borrowing on terms), leave from work,
   // a merchant's venture for home.
-  | EconCommand;
+  | EconCommand
+  // TOWNS (r17): the town's public works: propose, petition, vote, subscribe.
+  | TownsCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1971,6 +1977,8 @@ export interface GameDelta {
   intrigue?: IntrigueState;
   /** ECON (r17): bonds, when any changed (each player's copy holds only their own). */
   loans?: LoanState;
+  /** TOWNS (r17): newcomers, ruins and public works, when any of them changed. */
+  towns?: TownsDelta;
 }
 
 // ---- WORLD (r11)
@@ -4575,4 +4583,179 @@ export interface EconCommand {
   of?: number;
   /** A venture for home: the goods. */
   item?: TradeItem;
+}
+
+// ---- TOWNS (r17)
+// A town's people grow with it (newcomers by ship and road, households of
+// their own, widows who keep house), and a town that's had nobody to marry
+// for a year or two draws someone. When a town is taken its places are
+// damaged or ruined, not wiped, and its own government (the county court,
+// the town meeting, the cabildo, the council fire) builds, repairs and
+// rebuilds its public works by vote, paid by a levy and a subscription.
+
+/** How someone came to be among a town's households. */
+export type TownCameHow =
+  /** By ship: an immigrant family, a servant come out under indenture. */
+  | "ship"
+  /** Down the road from another town of the colony. */
+  | "road"
+  /** To kin here: a widow to her sister's, a niece to her uncle's. */
+  | "kin"
+  /** A child of the town, grown and married, with a household of their own. */
+  | "grown"
+  /** A widow or widower keeping house after the holder of a post died. */
+  | "widow"
+  /** The town's families already settled there when it was first known. */
+  | "settled"
+  /** A native town: kin from another town of the nation, or come to marry. */
+  | "visit"
+  | "marry";
+
+export interface TownCame {
+  day: number;
+  how: TownCameHow;
+  /** Where from, in words ("Bristol", "Jamestown", "the town of Coweta"). */
+  from: string;
+  /** What they are, for their card ("a cooper", "a widow", "in service"). */
+  as: string;
+}
+
+/** An arrival, as the town heard of it. */
+export interface TownArrival {
+  day: number;
+  /** The household's head, and everyone who came with them. */
+  c: number;
+  folk: number[];
+  how: TownCameHow;
+  text: string;
+  /** A household that left the town, not one that came. */
+  gone?: boolean;
+}
+
+/** The public works a town's government can build, repair or rebuild. */
+export type TownWorkKey =
+  | "wharf"
+  | "church"
+  | "markethouse"
+  | "fort"
+  | "school"
+  | "road"
+  | "warehouse"
+  | "lighthouse"
+  | "courthouse"
+  | "landing"
+  | "palisade"
+  | "councilhouse"
+  | "trail";
+
+/** Something of a town's that was damaged or ruined. */
+export interface TownRuin {
+  key: TownWorkKey;
+  /** Levels lost (of a building), or 1 for a work of the town's own. */
+  lvl: number;
+  day: number;
+  /** The nation that did it, or -1. */
+  by: number;
+  how: "burned" | "abandoned";
+}
+
+export type TownWorkStage =
+  | "proposed"
+  | "carried"
+  | "lost"
+  | "building"
+  | "done"
+  | "lapsed";
+
+export interface TownVote {
+  c: number;
+  /** 1 aye, -1 no, 0 stood aside (a player who didn't vote). */
+  v: number;
+  why: string;
+}
+
+/** A public work before a town's government, carried, building, or done. */
+export interface TownWork {
+  id: number;
+  p: number;
+  key: TownWorkKey;
+  /** Repairing what was ruined (for half the cost), not building new. */
+  repair: boolean;
+  /** Who brought it (a member), or petitioned for it (anyone else). */
+  by: number;
+  petition: boolean;
+  /** The nation that held the town when it was put. */
+  nation: number;
+  stage: TownWorkStage;
+  day: number;
+  /** The day the body sits on it. */
+  sits: number;
+  cost: number;
+  /** What the levy raises (the rest is the subscription). */
+  levy: number;
+  /** Pledged by its mover with the proposal (paid when it carries). */
+  pledge: number;
+  /** Subscribed so far, by character id. */
+  subs: Record<number, number>;
+  /** Players' own votes, cast before the sitting (character id → 1 or -1). */
+  cast: Record<number, number>;
+  /** How the body voted, member by member, with their reasons. */
+  votes?: TownVote[];
+  ayes?: number;
+  noes?: number;
+  /** The chance it carried with, as it stood at the sitting. */
+  odds?: number;
+  /** The subscription stays open until this day (then a second levy). */
+  until?: number;
+  begun?: number;
+  done?: number;
+}
+
+export interface TownsState {
+  /** The town's people at the last month's turn (settlers, or a native town's). */
+  seen: Record<number, number>;
+  /** Grown since a household last came (arrivals come in proportion). */
+  owed: Record<number, number>;
+  /** Since when a town has had nobody to marry of each sex. */
+  dry: Record<number, { w?: number; m?: number }>;
+  /** Since when a player has had nobody here they could court, by seat. */
+  lonely: Record<string, number>;
+  /** Lately come, oldest first (the last few of each town). */
+  came: Record<number, TownArrival[]>;
+  /** What stood in each town (building levels), remembered. */
+  built: Record<number, Partial<Record<BuildingKind, number>>>;
+  /** Who held each town at the last look (a change is handled once). */
+  held: Record<number, number>;
+  ruins: Record<number, TownRuin[]>;
+  /** Works before a town's government, carried, or building. */
+  works: TownWork[];
+  /** Works done, lost or lapsed, for the record (the last few of each town). */
+  past: TownWork[];
+  /** Works a town keeps of its own (not a building's level), and since when. */
+  kept: Record<number, Partial<Record<TownWorkKey, number>>>;
+}
+
+/**
+ * What the players are sent of it: the whole of it when any of it moved, as
+ * the sea's is, so a player's copy is the server's to the last figure.
+ */
+export type TownsDelta = TownsState;
+
+/** What the pages read of it. */
+export type TownsView = Pick<
+  TownsState,
+  "came" | "ruins" | "works" | "past" | "kept"
+>;
+
+/** A command about a town's public works (Works.ts). */
+export interface TownsCommand {
+  k: "towns";
+  /** propose, vote, subscribe, withdraw. */
+  act: string;
+  key?: TownWorkKey;
+  id?: number;
+  /** A vote: 1 aye, -1 no. */
+  v?: number;
+  /** Coins: a pledge with a proposal, or a subscription. */
+  coins?: number;
 }

@@ -2112,6 +2112,69 @@ const GOALS: Goal[] = [
     guide: "econ",
   },
   // ---- end ECON (r17)
+  // ---- TOWNS (r17): the town, its people and its public works
+  {
+    id: "towns-marry",
+    title: "Find someone to marry when there's nobody here",
+    words:
+      "marry wife husband single women men nobody stuck lonely bride groom newcomers ship arrive widow match",
+    group: "People",
+    where:
+      "Here › the tavern or the church: Find a match. A town's people now grow with it: ships and the road bring families with grown daughters and sons, single men and women, widows. A town with nobody free to marry for a year or two draws someone, and so does yours if you live there with nobody of your own people to court. Society › Town lists who's lately come.",
+    go: tab({ k: "tab", tab: "society", sub: "town" }),
+    goLabel: "Society › Town",
+    guide: "towns",
+  },
+  {
+    id: "towns-newcomers",
+    title: "See who's lately come to town",
+    words:
+      "newcomers arrivals settlers immigrants ship road family came new people town",
+    group: "People",
+    where:
+      "Society › Town › Lately come: each household that came (by ship, down the road, to kin) or went, with the date; their card says where they came from.",
+    go: tab({ k: "tab", tab: "society", sub: "town" }),
+    goLabel: "Society › Town",
+    guide: "towns",
+  },
+  {
+    id: "towns-build",
+    title:
+      "Get the town to build something (a wharf, a church, a fort, a school)",
+    words:
+      "build town public works wharf dock docks church meeting house market fort blockhouse school road bridge warehouse lighthouse courthouse gaol jail vote county court town meeting cabildo council fire propose petition",
+    group: "Society",
+    where:
+      "Society › Town › Put a work (if you hold a county office, you sit on the town's body) or Petition: choose a work, see the odds as they'd stand and pledge money of your own if you like. The body sits on the first of the month; carried, a levy and a subscription pay for it, and it's built over some months.",
+    go: tab({ k: "tab", tab: "society", sub: "town" }),
+    goLabel: "Society › Town",
+    guide: "towns",
+  },
+  {
+    id: "towns-repair",
+    title: "Rebuild a ruined dock (or church, or fort)",
+    words:
+      "ruin ruins ruined burned destroyed rebuild repair dock docks wharf landing disappeared gone taken occupied",
+    group: "Society",
+    where:
+      "Society › Town › What stands, and what's in ruins: what was burned or left to rot when the town was taken. Put its repair to the town's body (half the cost of building new), or petition for it; if nobody does, the town's own members bring it in a year or so. A native town can clear a landing.",
+    go: tab({ k: "tab", tab: "society", sub: "town" }),
+    goLabel: "Society › Town",
+    guide: "towns",
+  },
+  {
+    id: "towns-subscribe",
+    title: "Pay toward a public work",
+    words:
+      "subscribe subscription pay contribute donate public work levy town fund",
+    group: "Society",
+    where:
+      "Society › Town › Carried, and building: subscribe 5, 10, 25 or the rest (the sum is on the button). The members think the better of you for it.",
+    go: tab({ k: "tab", tab: "society", sub: "town" }),
+    goLabel: "Society › Town",
+    guide: "towns",
+  },
+  // ---- end TOWNS (r17)
   // ---- LABOUR (r15): bondage in the colonies, as history
   {
     id: "bond-law",

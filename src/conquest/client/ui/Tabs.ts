@@ -91,6 +91,7 @@ import {
   tonguesSection,
 } from "./Society";
 import { term, termMark } from "./Terms";
+import { townPage } from "./Towns"; // TOWNS (r17)
 import { peopleTab } from "./World";
 import { fogOfUi } from "./WorldUi";
 
@@ -779,6 +780,8 @@ function societyPage(ui: GameUi, sub: string): TemplateResult {
           on Society › Council; the road to them on Society › Standing.
         </p>`;
     }
+    case "town": // TOWNS (r17)
+      return townPage(ui);
     case "council": // POWER (r12)
       return councilPage(ui);
     case "press": // POWER (r12)
