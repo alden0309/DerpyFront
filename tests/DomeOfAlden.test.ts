@@ -205,10 +205,12 @@ describe("Dome of Alden", () => {
   });
 });
 
-describe("Nations and the Dome of Alden", () => {
-  async function nationGame(derpyRules?: number) {
+// Rules 3's nations, which replays of those games still play. Rules 4's
+// are in NationDomes.test.ts.
+describe("Nations and the Dome of Alden (rules 3)", () => {
+  async function nationGame(derpyRules = 3) {
     const { game, me, foe, silo } = await domeGame(
-      derpyRules === undefined ? {} : { derpyRules },
+      { derpyRules },
       PlayerType.Nation,
     );
     for (const x of [40, 60, 80]) {
