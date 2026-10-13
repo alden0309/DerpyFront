@@ -1131,6 +1131,9 @@ export class GameServer {
       this.zbinCtx,
     );
     this.clients.active().forEach((c) => {
+      // Derp Land (SITE r19): a watcher who came from the site was never one
+      // of this lobby's group, and the successor's id is its join secret.
+      if (c.watcher) return;
       if (c.ws.readyState === WebSocket.OPEN) {
         c.ws.send(msg);
       }

@@ -174,6 +174,25 @@ describe("watching a DerpyFront game (SITE r19)", () => {
     );
   });
 
+  it("a watcher isn't handed the id of the host's next lobby", () => {
+    // The successor of a private game is a lobby whose id lets you in; the
+    // group gets it, a watcher from the site doesn't.
+    const game = privateGame(true);
+    const p = player("pg");
+    game.joinClient(p);
+    startGame(game);
+    vi.advanceTimersByTime(10_000);
+    const w = player("w6");
+    game.joinClient(w);
+    game.setSuccessorLobby(cid("next1"));
+    const got = (c: ReturnType<typeof makeClient>) =>
+      mockWsOf(c)
+        .sent(createGameWireContext([{ clientID: cid("pg") }]))
+        .some((m) => m.type === "new_lobby");
+    expect(got(p)).toBe(true);
+    expect(got(w)).toBe(false);
+  });
+
   it("a watcher never keeps a game nobody plays going", async () => {
     const game = publicGame();
     const p = player("p9");
