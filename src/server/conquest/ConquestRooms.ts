@@ -985,7 +985,7 @@ export class ConquestRooms {
         log.info("room closed: its save was deleted", { code: r.code });
       }
     }
-    let gone = false;
+    let gone: boolean;
     try {
       gone = await deleteSave(id, acc);
     } catch (err) {
@@ -1010,7 +1010,7 @@ export class ConquestRooms {
   private async hideSaved(conn: Conn, id: string): Promise<void> {
     const off = this.savesOff(conn);
     if (off) return this.send(conn, { t: "err", msg: off });
-    let ok = false;
+    let ok: boolean;
     let title = "That game";
     try {
       const row = await saveInfo(id);

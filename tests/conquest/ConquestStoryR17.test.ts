@@ -750,7 +750,7 @@ class Client {
   }
 }
 
-let clock = 1_800_000_000_000;
+const clock = 1_800_000_000_000;
 
 function startServer() {
   const rooms = new ConquestRooms(() => clock);
