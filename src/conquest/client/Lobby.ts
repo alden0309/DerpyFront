@@ -1,7 +1,7 @@
 // Derpy Conquest's front page: begin a life (alone or with friends), join
 // one of the worlds running now, or pick up a saved one.
 
-import { html, LitElement, nothing, TemplateResult } from "lit";
+import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import "../../derpland/DerpBar";
 import { openSignIn } from "../../derpland/DerpBar";
@@ -59,6 +59,8 @@ export class Lobby extends LitElement {
   @property({ attribute: false }) net!: Net;
   @property({ attribute: false }) open: OpenRoom[] = [];
   @property({ attribute: false }) saved: SavedGame[] = [];
+  /** STORY (r17): finished games, and those saved by an older version. */
+  @property({ attribute: false }) finished: SavedGame[] = [];
   @property({ attribute: false }) account: string | null = null;
   @property({ attribute: false }) name = "";
   @property({ attribute: false }) online = false;
@@ -73,6 +75,13 @@ export class Lobby extends LitElement {
   @state() private code = "";
   /** How to Play, open over the lobby (r11 wave 2). */
   @state() private guide = false;
+  /** STORY (r17): what we're asking you to confirm: deleting a game, taking it off your list, or clearing the finished ones. */
+  @state() private asking: {
+    what: "delete" | "hide" | "clear";
+    g?: SavedGame;
+  } | null = null;
+  /** STORY (r17): saved games on their way out (greyed until the server's list comes back). */
+  @state() private going = new Set<string>();
 
   private refresh = 0;
 
@@ -90,6 +99,45 @@ export class Lobby extends LitElement {
   disconnectedCallback(): void {
     super.disconnectedCallback();
     clearInterval(this.refresh);
+    window.removeEventListener("keydown", this.onKey);
+  }
+
+  // STORY (r17): the server's list is the truth: whatever was going is gone (or back).
+  protected willUpdate(changed: PropertyValues<this>): void {
+    if ((changed.has("saved") || changed.has("finished")) && this.going.size)
+      this.going = new Set();
+  }
+
+  protected updated(changed: PropertyValues): void {
+    if (changed.has("asking") && this.asking)
+      this.querySelector<HTMLButtonElement>(".cq-ask .cq-ask-keep")?.focus();
+  }
+
+  private onKey = (e: KeyboardEvent): void => {
+    if (e.key === "Escape" && this.asking) this.asking = null;
+  };
+
+  private ask(what: "delete" | "hide" | "clear", g?: SavedGame): void {
+    this.asking = { what, g };
+    window.addEventListener("keydown", this.onKey);
+  }
+
+  private answer(yes: boolean): void {
+    const a = this.asking;
+    this.asking = null;
+    window.removeEventListener("keydown", this.onKey);
+    if (!yes || !a) return;
+    if (a.what === "clear") {
+      this.going = new Set([...this.going, ...this.finished.map((g) => g.id)]);
+      this.net.send({ t: "clearsaves" });
+      return;
+    }
+    if (!a.g) return;
+    this.going = new Set([...this.going, a.g.id]);
+    this.net.send({
+      t: a.what === "delete" ? "delsave" : "hidesave",
+      id: a.g.id,
+    });
   }
 
   private create(): void {
@@ -288,6 +336,7 @@ export class Lobby extends LitElement {
                 : html`<ul class="cq-rooms">
                     ${this.saved.map((g) => this.savedRow(g))}
                   </ul>`}
+            ${this.account ? this.finishedPart() : nothing}
           </section>
         </div>
         <footer class="cq-foot">
@@ -308,6 +357,7 @@ export class Lobby extends LitElement {
       ${this.guide
         ? guideOverlay("start", () => (this.guide = false))
         : nothing}
+      ${this.asking ? this.askDialog() : nothing}
     </div>`;
   }
 
@@ -339,27 +389,125 @@ export class Lobby extends LitElement {
   }
 
   private savedRow(g: SavedGame): TemplateResult {
-    return html`<li class="cq-room-row">
+    const going = this.going.has(g.id);
+    const ended = g.over || g.old;
+    return html`<li class="cq-room-row cq-save-row ${going ? "going" : ""}">
       <div class="cq-room-flags">
         ${g.power ? originFlag(g.power) : nothing}
       </div>
       <div class="cq-room-info">
         <b>${g.title}</b>
         <span class="cq-muted small"
-          >${PEOPLE_NAME[g.power] ?? ""}, now ${g.year}.</span
+          >${PEOPLE_NAME[g.power] ?? ""}${g.over
+            ? `, ended in ${g.year}.`
+            : g.old
+              ? `, ${g.year}: saved by an older version, and can't be loaded.`
+              : `, now ${g.year}.`}</span
         >
         <span class="cq-muted small"
           >${g.players.length > 1 ? `With ${g.players.join(", ")}. ` : ""}Saved
           ${ago(g.savedAt)}.</span
         >
       </div>
-      <button
-        class="cq-btn small ${g.live ? "" : "primary"}"
-        @click=${() => this.net.send({ t: "resume", id: g.id })}
-      >
-        ${g.live ? "Rejoin" : "Resume"}
-      </button>
+      <div class="cq-save-acts">
+        ${ended
+          ? nothing
+          : html`<button
+              class="cq-btn small ${g.live ? "" : "primary"}"
+              ?disabled=${going}
+              @click=${() => this.net.send({ t: "resume", id: g.id })}
+            >
+              ${g.live ? "Rejoin" : "Resume"}
+            </button>`}
+        <button
+          class="cq-link small cq-save-forget"
+          ?disabled=${going}
+          title=${g.mine
+            ? "Delete this saved game for good"
+            : `It's ${g.by ?? "another player"}'s game: take it off your own list`}
+          @click=${() => this.ask(g.mine ? "delete" : "hide", g)}
+        >
+          ${going ? "Going…" : g.mine ? "Delete…" : "Remove from my list"}
+        </button>
+      </div>
     </li>`;
+  }
+
+  /** STORY (r17): finished games, and those saved by an older version: to look back on, or clear away. */
+  private finishedPart(): TemplateResult {
+    const list = this.finished;
+    if (!list.length) return html``;
+    return html`<details class="cq-finished" ?open=${this.saved.length === 0}>
+      <summary>
+        Finished and old games <span class="cq-chip">${list.length}</span>
+      </summary>
+      <ul class="cq-rooms">
+        ${list.map((g) => this.savedRow(g))}
+      </ul>
+      <div class="cq-btnrow">
+        <button
+          class="cq-btn small danger"
+          ?disabled=${list.every((g) => this.going.has(g.id))}
+          @click=${() => this.ask("clear")}
+        >
+          Delete all finished games
+        </button>
+      </div>
+    </details>`;
+  }
+
+  /** STORY (r17): "Delete A Virginia life? This can't be undone." */
+  private askDialog(): TemplateResult {
+    const a = this.asking!;
+    const g = a.g;
+    let head: TemplateResult;
+    let body: string;
+    let yes: string;
+    if (a.what === "clear") {
+      const mine = this.finished.filter((x) => x.mine).length;
+      const theirs = this.finished.length - mine;
+      head = html`Delete all finished games?`;
+      body = `${mine ? `${mine} game${mine === 1 ? "" : "s"} you began will be deleted` : "Nothing of yours will be deleted"}${theirs ? `; ${theirs} you only joined will be taken off your list` : ""}. Results already counted stay on the leaderboards. This can't be undone.`;
+      yes = mine ? "Delete them" : "Take them off my list";
+    } else if (a.what === "hide") {
+      head = html`Take <i>${g!.title}</i> off your list?`;
+      body = `It stays saved for ${g!.by ?? "whoever began it"} and the others who played in it. It comes back to your list if you play in it again.`;
+      yes = "Take it off my list";
+    } else {
+      const others = g!.players.filter((p) => p !== this.account);
+      head = html`Delete <i>${g!.title}</i>?`;
+      body = `This can't be undone.${others.length ? ` It's gone for ${others.join(" and ")} too.` : ""}${g!.over ? " Its results stay on the leaderboards." : ""}${g!.live ? " It's open now with nobody in it: it will be closed." : ""}`;
+      yes = "Delete it";
+    }
+    return html`<div
+      class="cq-ask-back"
+      @click=${(e: Event) => {
+        if (e.target === e.currentTarget) this.answer(false);
+      }}
+    >
+      <div
+        class="cq-ask cq-sheet"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="cq-ask-head"
+        aria-describedby="cq-ask-body"
+      >
+        <h2 class="cq-h2" id="cq-ask-head">${head}</h2>
+        <p id="cq-ask-body">${body}</p>
+        <div class="cq-btnrow end">
+          <button class="cq-btn cq-ask-keep" @click=${() => this.answer(false)}>
+            ${a.what === "clear"
+              ? "Keep them"
+              : a.what === "hide"
+                ? "Keep it on my list"
+                : "Keep it"}
+          </button>
+          <button class="cq-btn danger" @click=${() => this.answer(true)}>
+            ${yes}
+          </button>
+        </div>
+      </div>
+    </div>`;
   }
 }
 

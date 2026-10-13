@@ -74,7 +74,17 @@ import {
   SeatInfo,
   ServerMessage,
 } from "../../conquest/Protocol";
-import { loadConquest, saveConquest, savesFor } from "../derpy/ConquestSaves";
+import {
+  deleteSave,
+  finishedFor,
+  hideSave,
+  loadConquest,
+  ownerOf,
+  saveConquest,
+  saveInfo,
+  savesFor,
+  type SaveRow,
+} from "../derpy/ConquestSaves";
 import { achievementsOf, awardAchievement } from "../derpy/DerpyAchievements"; // MAP (r12)
 import { accountForToken } from "../derpy/DerpyAuth";
 import { recordConquestGame } from "../derpy/DerpyConquest";
@@ -249,6 +259,10 @@ const Message = z.discriminatedUnion("t", [
   z.object({ t: z.literal("save") }),
   z.object({ t: z.literal("end") }),
   z.object({ t: z.literal("leave") }),
+  // STORY (r17): your saved games.
+  z.object({ t: z.literal("delsave"), id: z.string().max(60) }),
+  z.object({ t: z.literal("hidesave"), id: z.string().max(60) }),
+  z.object({ t: z.literal("clearsaves") }),
 ]);
 
 export function cleanName(raw: string): string {
@@ -297,6 +311,8 @@ interface Room {
   code: string;
   /** The campaign's id in the saved games (set when it starts). */
   saveId: string | null;
+  /** STORY (r17): the account that began it (only it may delete the save). */
+  owner: number | null;
   solo: boolean;
   open: boolean;
   settings: RoomSettings;
@@ -341,6 +357,8 @@ function randomToken(bytes: number): string {
 
 export class ConquestRooms {
   readonly rooms = new Map<string, Room>();
+  /** STORY (r17): saves deleted while this server runs: never written again, never loaded. */
+  private readonly deleted = new Set<string>();
   private timer: ReturnType<typeof setInterval> | null = null;
   private last = Date.now();
 
@@ -491,6 +509,13 @@ export class ConquestRooms {
         return this.resume(conn, m.id);
       case "leave":
         return this.disconnect(conn);
+      // STORY (r17): your saved games, from the lobby.
+      case "delsave":
+        return this.deleteSaved(conn, m.id);
+      case "hidesave":
+        return this.hideSaved(conn, m.id);
+      case "clearsaves":
+        return this.clearFinished(conn);
     }
     const room = conn.room;
     const seat = conn.seat;
@@ -624,27 +649,41 @@ export class ConquestRooms {
       });
     }
     let saved: SavedGame[] = [];
+    let finished: SavedGame[] = [];
     if (conn.accountId !== null && derpyDbConfigured()) {
+      const acc = conn.accountId;
+      // STORY (r17): whether it's yours to delete, and the finished and old ones apart.
+      const asSaved = (r: SaveRow): SavedGame => {
+        const mine = r.seats.find((s) => s.accountId === acc);
+        const live = [...this.rooms.values()].find(
+          (x) => x.saveId === r.id && x.overAt === null,
+        );
+        return {
+          id: r.id,
+          title: r.title,
+          power: mine?.power ?? "",
+          year: r.year,
+          savedAt: r.updatedAt,
+          players: r.seats.map((s) => s.name),
+          live: live && !r.over ? live.code : null,
+          mine: ownerOf(r) === acc,
+          by: r.seats.find((x) => x.accountId === ownerOf(r))?.name,
+          ...(r.over ? { over: true } : {}),
+          ...(r.version !== STATE_VERSION ? { old: true } : {}),
+        };
+      };
       try {
-        const rows = await savesFor(conn.accountId, STATE_VERSION);
-        saved = rows.map((r) => {
-          const mine = r.seats.find((s) => s.accountId === conn.accountId);
-          const live = [...this.rooms.values()].find((x) => x.saveId === r.id);
-          return {
-            id: r.id,
-            title: r.title,
-            power: mine?.power ?? "",
-            year: r.year,
-            savedAt: r.updatedAt,
-            players: r.seats.map((s) => s.name),
-            live: live ? live.code : null,
-          };
-        });
+        saved = (await savesFor(acc, STATE_VERSION))
+          .filter((r) => !this.deleted.has(r.id))
+          .map(asSaved);
+        finished = (await finishedFor(acc, STATE_VERSION))
+          .filter((r) => !this.deleted.has(r.id))
+          .map(asSaved);
       } catch (err) {
         log.warn(`couldn't list saves: ${err}`);
       }
     }
-    this.send(conn, { t: "rooms", open, saved });
+    this.send(conn, { t: "rooms", open, saved, finished });
   }
 
   private newCode(): string {
@@ -681,6 +720,7 @@ export class ConquestRooms {
     const room: Room = {
       code: this.newCode(),
       saveId: null,
+      owner: null, // STORY (r17)
       solo,
       open: open && !solo,
       settings,
@@ -820,6 +860,8 @@ export class ConquestRooms {
       return this.join(conn, room.code);
     };
     if (running()) return rejoinRunning(running()!);
+    if (this.deleted.has(id))
+      return this.send(conn, { t: "err", msg: "That game has been deleted." }); // STORY (r17)
     let saved: Awaited<ReturnType<typeof loadConquest>>;
     try {
       saved = await loadConquest(id);
@@ -842,14 +884,17 @@ export class ConquestRooms {
         t: "err",
         msg: "That game was saved by an older version and can't be loaded.",
       });
-    // Someone else loaded it while we waited.
+    // Someone else loaded it while we waited (or deleted it: STORY r17).
     if (running()) return rejoinRunning(running()!);
+    if (this.deleted.has(id))
+      return this.send(conn, { t: "err", msg: "That game has been deleted." });
     this.leaveCurrent(conn);
     const room = this.newRoom(null, saved.seats.length <= 1, false, {
       difficulty: saved.state.settings.difficulty,
       start: saved.state.settings.start,
     });
     room.saveId = id;
+    room.owner = ownerOf(saved); // STORY (r17)
     room.paused = true;
     room.startedAt = this.now();
     room.game = new ConquestGame(AMERICAS, saved.state);
@@ -866,6 +911,186 @@ export class ConquestRooms {
     room.host = mine.id;
     log.info("campaign loaded", { code: room.code, id });
     this.takeSeat(room, mine, conn);
+  }
+
+  // ---------------------------------------------------------------- saved games (STORY r17)
+
+  /** Why saved games can't be managed here and now, or null. */
+  private savesOff(conn: Conn): string | null {
+    if (conn.accountId === null) return "Sign in to manage your saved games.";
+    if (!derpyDbConfigured()) return "Games aren't saved on this server.";
+    return null;
+  }
+
+  /** A running game's room for a save, unless it's over (a finished room only shows its results). */
+  private liveRoom(id: string): Room | undefined {
+    return [...this.rooms.values()].find(
+      (r) => r.saveId === id && r.overAt === null,
+    );
+  }
+
+  /**
+   * Delete a saved game: only the account that began it may, and not while
+   * anyone is playing in it. A room with nobody in it is closed first (and
+   * never saved again), so the save can't come back.
+   */
+  private async deleteSaved(conn: Conn, id: string): Promise<void> {
+    const off = this.savesOff(conn);
+    if (off) return this.send(conn, { t: "err", msg: off });
+    const acc = conn.accountId!;
+    let row: Awaited<ReturnType<typeof saveInfo>>;
+    try {
+      row = await saveInfo(id);
+    } catch (err) {
+      log.warn(`couldn't read save ${id}: ${err}`);
+      return this.send(conn, {
+        t: "err",
+        msg: "Couldn't reach the saved games. Try again in a moment.",
+      });
+    }
+    if (!row || !row.accounts.includes(acc) || this.deleted.has(id)) {
+      void this.list(conn);
+      return this.send(conn, {
+        t: "err",
+        msg: "That saved game isn't on your list.",
+      });
+    }
+    const owner = ownerOf(row);
+    if (owner !== acc) {
+      const who = row.seats.find((x) => x.accountId === owner)?.name;
+      return this.send(conn, {
+        t: "err",
+        msg: `Only ${who ?? "whoever began it"} can delete "${row.title}". You can take it off your own list instead.`,
+      });
+    }
+    const room = this.liveRoom(id);
+    const here = room?.seats.filter((x) => x.conn) ?? [];
+    if (here.length) {
+      const names = here.map((x) =>
+        x.accountId === acc ? "you (somewhere else)" : x.name,
+      );
+      return this.send(conn, {
+        t: "err",
+        msg: `"${row.title}" is being played right now, by ${names.join(" and ")}. It can be deleted once everyone has left it.`,
+      });
+    }
+    this.deleted.add(id);
+    // The room (if it's still open, empty or showing its results) never saves again.
+    for (const r of this.rooms.values()) {
+      if (r.saveId !== id) continue;
+      if (r.saving) await r.saving.catch(() => undefined);
+      r.saveId = null;
+      if (r.overAt === null) {
+        this.rooms.delete(r.code);
+        log.info("room closed: its save was deleted", { code: r.code });
+      }
+    }
+    let gone = false;
+    try {
+      gone = await deleteSave(id, acc);
+    } catch (err) {
+      log.warn(`couldn't delete save ${id}: ${err}`);
+      this.deleted.delete(id);
+      return this.send(conn, {
+        t: "err",
+        msg: "Couldn't delete it just now. Try again in a moment.",
+      });
+    }
+    if (!gone) this.deleted.delete(id);
+    log.info("save deleted", { id, gone });
+    this.send(conn, {
+      t: "forgot",
+      ids: gone ? [id] : [],
+      text: gone ? `"${row.title}" is deleted.` : "Nothing was deleted.",
+    });
+    await this.list(conn);
+  }
+
+  /** Take a saved game off your own list (it stays for the others who played in it). */
+  private async hideSaved(conn: Conn, id: string): Promise<void> {
+    const off = this.savesOff(conn);
+    if (off) return this.send(conn, { t: "err", msg: off });
+    let ok = false;
+    let title = "That game";
+    try {
+      const row = await saveInfo(id);
+      if (row) title = `"${row.title}"`;
+      ok = await hideSave(id, conn.accountId!);
+    } catch (err) {
+      log.warn(`couldn't hide save ${id}: ${err}`);
+      return this.send(conn, {
+        t: "err",
+        msg: "Couldn't reach the saved games. Try again in a moment.",
+      });
+    }
+    if (!ok) {
+      void this.list(conn);
+      return this.send(conn, {
+        t: "err",
+        msg: "That saved game isn't on your list.",
+      });
+    }
+    this.send(conn, {
+      t: "forgot",
+      ids: [id],
+      text: `${title} is off your list. It comes back if you play in it again.`,
+    });
+    await this.list(conn);
+  }
+
+  /** Every finished (or old) game on your list: those you began deleted, the rest taken off your list. */
+  private async clearFinished(conn: Conn): Promise<void> {
+    const off = this.savesOff(conn);
+    if (off) return this.send(conn, { t: "err", msg: off });
+    const acc = conn.accountId!;
+    let rows: SaveRow[];
+    try {
+      rows = await finishedFor(acc, STATE_VERSION);
+    } catch (err) {
+      log.warn(`couldn't list finished saves: ${err}`);
+      return this.send(conn, {
+        t: "err",
+        msg: "Couldn't reach the saved games. Try again in a moment.",
+      });
+    }
+    const ids: string[] = [];
+    let deleted = 0;
+    let hidden = 0;
+    for (const r of rows) {
+      // An old version's game can't be running; a finished one only shows its results.
+      if (this.liveRoom(r.id)) continue;
+      try {
+        if (ownerOf(r) === acc) {
+          this.deleted.add(r.id);
+          for (const room of this.rooms.values())
+            if (room.saveId === r.id) {
+              if (room.saving) await room.saving.catch(() => undefined);
+              room.saveId = null;
+            }
+          if (await deleteSave(r.id, acc)) {
+            deleted++;
+            ids.push(r.id);
+          } else this.deleted.delete(r.id);
+        } else if (await hideSave(r.id, acc)) {
+          hidden++;
+          ids.push(r.id);
+        }
+      } catch (err) {
+        log.warn(`couldn't clear save ${r.id}: ${err}`);
+      }
+    }
+    const said = [
+      deleted
+        ? `${deleted} finished game${deleted === 1 ? "" : "s"} deleted`
+        : "",
+      hidden ? `${hidden} you only joined taken off your list` : "",
+    ].filter(Boolean);
+    this.send(conn, {
+      t: "forgot",
+      ids,
+      text: said.length ? `${cap(said.join("; "))}.` : "Nothing to clear away.",
+    });
+    await this.list(conn);
   }
 
   private sendLobby(room: Room): void {
@@ -1038,6 +1263,11 @@ export class ConquestRooms {
     );
     room.startedAt = this.now();
     room.saveId = `${room.code}-${room.startedAt}`;
+    // STORY (r17): the save is the host's to delete (or the first signed-in player's).
+    room.owner =
+      host.accountId ??
+      players.find((x) => x.accountId !== null)?.accountId ??
+      null;
     room.paused = room.solo;
     room.speed = DEFAULT_SPEED;
     room.owed = 0;
@@ -1210,6 +1440,7 @@ export class ConquestRooms {
   private save(room: Room, fresh = false): Promise<void> {
     if (!room.game || !room.saveId || !derpyDbConfigured())
       return Promise.resolve();
+    if (this.deleted.has(room.saveId)) return Promise.resolve(); // STORY (r17)
     const game = room.game;
     const lives = room.seats.filter((s) => lifeOfSeat(game.state, s.id));
     if (!lives.some((s) => s.accountId !== null)) return Promise.resolve();
@@ -1229,6 +1460,11 @@ export class ConquestRooms {
       seats,
       game.state,
       game.state.over,
+      // STORY (r17): who began it, and who's playing (it's back on their lists).
+      room.owner,
+      room.seats
+        .filter((x) => x.conn && x.accountId !== null)
+        .map((x) => x.accountId!),
     )
       .then(() =>
         this.broadcast(room, {
@@ -1531,6 +1767,11 @@ export class ConquestRooms {
     log.info("game over", { code: room.code, lines: lines.length });
     return room.results;
   }
+}
+
+/** STORY (r17) */
+function cap(t: string): string {
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 function titleOf(room: Room): string {

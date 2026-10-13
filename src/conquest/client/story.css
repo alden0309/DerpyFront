@@ -291,3 +291,73 @@
     font-size: 1.04rem;
   }
 }
+
+/* ---------------------------------------------------------------- saved games (STORY r17) */
+
+.cq-save-acts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.3rem;
+  min-width: 6.4rem;
+}
+.cq-save-forget {
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.cq-save-forget:hover:not(:disabled) {
+  color: var(--seal);
+}
+.cq-save-forget:disabled {
+  cursor: default;
+  text-decoration: none;
+}
+.cq-save-row.going {
+  opacity: 0.55;
+}
+.cq-saved .cq-finished {
+  padding-left: 1.6rem;
+}
+.cq-finished > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0;
+  cursor: pointer;
+  font-family: var(--fell-sc);
+  font-size: 1.02rem;
+  color: var(--ink-soft);
+}
+.cq-finished .cq-btnrow {
+  margin-top: 0.6rem;
+}
+.cq-ask-back {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(18, 30, 36, 0.55);
+}
+.cq-ask {
+  width: min(460px, 100%);
+  animation: cq-in 0.18s ease-out;
+}
+.cq-ask p {
+  margin: 0.6rem 0 0;
+}
+.cq-ask .cq-btnrow {
+  margin-top: 1rem;
+}
+@media (max-width: 560px) {
+  .cq-save-acts {
+    min-width: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cq-ask {
+    animation: none;
+  }
+}

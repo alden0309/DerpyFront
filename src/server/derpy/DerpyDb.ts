@@ -173,6 +173,12 @@ CREATE INDEX IF NOT EXISTS derpy_conquest_saves_accounts
 -- they aren't offered. Saves from before this column existed were version 2.
 ALTER TABLE derpy_conquest_saves
   ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 2;
+-- STORY (r17): who began a game (only they may delete it; before this column,
+-- the first signed-in seat), and the players who took it off their own list.
+ALTER TABLE derpy_conquest_saves
+  ADD COLUMN IF NOT EXISTS owner BIGINT;
+ALTER TABLE derpy_conquest_saves
+  ADD COLUMN IF NOT EXISTS hidden BIGINT[] NOT NULL DEFAULT '{}';
 
 -- Derpy Conquest achievements (MAP r12): each paid once per account.
 CREATE TABLE IF NOT EXISTS derpy_conquest_achievements (
