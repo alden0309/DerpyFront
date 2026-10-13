@@ -15,13 +15,14 @@ import type {
   TownArrival,
   TownsDelta,
   TownsState,
+  TownsView,
 } from "./Types";
 
 // ---------------------------------------------------------------- the state
 
 const CHANGED = new WeakSet<ConquestGame>();
 
-/** Something players can see changed: it goes out with the next delta. */
+/** Something changed: the towns' state goes out with the next delta. */
 export function townsChanged(g: ConquestGame): void {
   CHANGED.add(g);
 }
@@ -65,7 +66,7 @@ function blank(): TownsState {
 }
 
 /** Read-only: as it is (empty for an old save, or on a player's copy before any came). */
-export function townsOf(s: GameState): TownsDelta {
+export function townsOf(s: GameState): TownsView {
   return {
     came: s.towns?.came ?? {},
     ruins: s.towns?.ruins ?? {},
@@ -79,18 +80,11 @@ export function townsOf(s: GameState): TownsDelta {
 export function takeTownsDelta(g: ConquestGame): TownsDelta | undefined {
   if (!CHANGED.has(g) || !g.s.towns) return undefined;
   CHANGED.delete(g);
-  const t = g.s.towns;
-  return {
-    came: t.came,
-    ruins: t.ruins,
-    works: t.works,
-    past: t.past,
-    kept: t.kept,
-  };
+  return g.s.towns;
 }
 
 export function applyTownsDelta(s: GameState, d: TownsDelta): void {
-  s.towns = { ...(s.towns ?? blank()), ...d };
+  s.towns = d;
 }
 
 // ---------------------------------------------------------------- the track's dice

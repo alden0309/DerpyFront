@@ -4526,8 +4526,14 @@ export interface TownsState {
   kept: Record<number, Partial<Record<TownWorkKey, number>>>;
 }
 
-/** What the players are sent of it (the bookkeeping stays on the server). */
-export type TownsDelta = Pick<
+/**
+ * What the players are sent of it: the whole of it when any of it moved, as
+ * the sea's is, so a player's copy is the server's to the last figure.
+ */
+export type TownsDelta = TownsState;
+
+/** What the pages read of it. */
+export type TownsView = Pick<
   TownsState,
   "came" | "ruins" | "works" | "past" | "kept"
 >;

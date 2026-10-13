@@ -572,8 +572,7 @@ describe("saves and the delta", () => {
       toNextMonth(g);
       applyDelta(copy, g.takeDelta());
     }
-    expect(copy.towns?.came).toEqual(g.s.towns?.came);
-    expect(copy.towns?.works).toEqual(g.s.towns?.works);
+    expect(copy.towns).toEqual(g.s.towns);
     expect(copy.locals[STA]).toEqual(g.s.locals[STA]);
     // The same seed runs the same.
     const a = spanish(1700, 9);

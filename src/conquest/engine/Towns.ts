@@ -145,6 +145,7 @@ export function townTaken(
 ): void {
   const s = g.s;
   const t = townsState(g);
+  townsChanged(g);
   if (t.held[p] === to || from === to) {
     t.held[p] = to;
     return;
@@ -354,6 +355,9 @@ export function townsMonthly(g: ConquestGame): void {
   watchPlaces(g);
   newcomersMonthly(g);
   worksMonthly(g);
+  // The bookkeeping (who held what, what stood, how much a town has grown)
+  // moves most months: the players' copies get it with the month.
+  townsChanged(g);
 }
 
 /** A new world: what stands everywhere, and who holds it, from the first day. */
@@ -366,6 +370,7 @@ function remember(g: ConquestGame): void {
     for (const b of PUBLIC)
       if ((pr.b[b] ?? 0) > 0) (t.built[p] ??= {})[b] = pr.b[b];
   }
+  townsChanged(g);
 }
 
 /** Households of a town (for tests and the page): the town's people. */
