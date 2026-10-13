@@ -3653,10 +3653,10 @@ import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
 import { econEvents, econQuiet } from "./EconEvents"; // ECON (r17)
 import { EDU_EVENTS } from "./EduEvents"; // EDU (r13)
 import { needyFriend } from "./EventPacing"; // EVENTS (r15)
-import { lendFriend } from "./Loans"; // ECON (r17)
 import { INTRIGUE_EVENTS } from "./IntrigueEvents"; // INTRIGUE (r15)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
+import { lendFriend } from "./Loans"; // ECON (r17)
 import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";
 import { PARTNER_EVENTS } from "./PartnerEvents"; // PARTNERS (r13)

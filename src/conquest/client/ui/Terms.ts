@@ -408,6 +408,37 @@ export const TERMS: Record<string, Term> = {
       "Ask for their hand (Interactions on their card), or say yes when you're asked.",
     ch: "intrigue",
   },
+  // ECON (r17): LoanCore.ts, Loans.ts, Leave.ts, Company.ts
+  bond: {
+    name: "Bonds",
+    what: "Money lent or borrowed on terms: the sum, its day, and interest at the lawful rate of the place (6 in 100 a year in most English colonies; 5 in Virginia from 1748, in France's and Spain's colonies; none among the native nations).",
+    good: "Money lent earns its interest at every month's turn. On its day the lender may call it in, or let it run on; the borrower may repay sooner, half or all.",
+    raise:
+      "Anyone's card: Money between you. Called in and unpaid, the lender gives more time, forgives it, takes goods in kind, or sues at the court-house.",
+    ch: "econ",
+  },
+  lawful: {
+    name: "The lawful rate",
+    what: "The most interest the law against usury allows where a bond is made, by the colony and the year.",
+    good: "Every bond in the game is at the lawful rate, or at none (a friend's loan).",
+    raise: "The guide's chapter has the laws, colony by colony.",
+    ch: "econ",
+  },
+  leave: {
+    name: "Leave",
+    what: "Days away from your post your master has agreed to.",
+    good: "On leave you aren't counted as away, so your place is kept. You're paid nothing (an officer is on half pay). Be back by its last day: overstay it a week and a letter comes, three and your place is gone.",
+    raise:
+      "Work › Your work › Ask for leave, or Ask for leave first on the travel choices. Your master decides by what they think of you, your place, how long, and the work.",
+    ch: "econ",
+  },
+  returncargo: {
+    name: "Return cargo",
+    what: "Goods a trading company buys where its cargo is sold, and brings home.",
+    good: "The ship comes home laden, not in ballast, at a lower freight; its own odds are shown beside the outward leg's.",
+    raise: "A company's plan: Home with.",
+    ch: "econ",
+  },
   drill: {
     name: "Drill and spirits",
     what: "How trained your company is, and how glad they are to be in it.",

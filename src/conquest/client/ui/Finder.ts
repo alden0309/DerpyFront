@@ -35,6 +35,7 @@ import {
   LESSONS,
   PLACES,
 } from "../../engine/LifeRules";
+import { openLoans } from "../../engine/LoanCore"; // ECON (r17)
 import { grantCheck, kitCheck, ventureCheck } from "../../engine/Money";
 import {
   foundCheck as foundCauseCheck,
@@ -2014,6 +2015,87 @@ const GOALS: Goal[] = [
     guide: "chair",
   },
   // ---- end CHAIR (r16)
+  // ---- ECON (r17): two-way trade, bonds and leave
+  {
+    id: "econ-lend",
+    title: "Lend someone money on bond",
+    words:
+      "lend loan money bond interest credit note friend borrow owe debt lawful rate usury",
+    group: "Money and home",
+    where:
+      "Anyone's card › Money between you › Lend money…: the sum, the term, interest at the lawful rate (or none), the interest a month, and whether they'd take it. Estate › Ledger › Bonds keeps it.",
+    needs: (ui) => [
+      adult(ui),
+      { label: "Coins to lend", met: (ui.life?.purse ?? 0) >= 5 },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "ledger" }),
+    goLabel: "Estate › Ledger",
+    guide: "econ",
+  },
+  {
+    id: "econ-borrow",
+    title: "Borrow money",
+    words: "borrow loan money bond credit debt owe interest lender",
+    group: "Money and home",
+    where:
+      "Anyone's card › Money between you › Borrow money… (the window says whether they'd lend it, and why), or by letter: Society › Letters, Ask a favour. A bond at the lawful rate, repaid by its day or sooner.",
+    needs: (ui) => [adult(ui)],
+    go: tab({ k: "tab", tab: "people" }),
+    goLabel: "People",
+    guide: "econ",
+  },
+  {
+    id: "econ-call",
+    title: "Call in a loan, or repay one early",
+    words:
+      "call in loan bond due repay early pay back owe debt default sue forgive kind more time",
+    group: "Money and home",
+    where:
+      "Estate › Ledger › Bonds: each bond, lent or owed, its day and how it stands. Repay half or all whenever you like; call one in on its day; give or ask for more time; forgive, take in kind or sue for one that can't be paid.",
+    needs: (ui) => [
+      {
+        label: "A bond, lent or owed",
+        met: openLoans(ui.s, ui.life?.c ?? -1).length > 0,
+      },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "ledger" }),
+    goLabel: "Estate › Ledger",
+    guide: "econ",
+  },
+  {
+    id: "econ-leave",
+    title: "Ask for leave from my work",
+    words:
+      "leave holiday away travel journey absent fired dismissed sacked keep my job master permission furlough",
+    group: "Work",
+    where:
+      "Work › Your work › Ask for leave (your master's likely answer, with its reasons), or Ask for leave first on the travel choices when a journey is longer than your place allows. On leave you aren't counted away.",
+    needs: (ui) => [
+      ui.life?.job
+        ? ui.life.job.own
+          ? { label: "Your own master: put a manager in instead", met: false }
+          : { label: "A place to leave", met: true }
+        : { label: "You have no work", met: false },
+    ],
+    go: tab({ k: "tab", tab: "work", sub: "job" }),
+    goLabel: "Work › Your work",
+    guide: "econ",
+  },
+  {
+    id: "econ-back",
+    title: "Bring goods home on my company's ships",
+    words:
+      "return cargo home goods back two way both ways trading company cochineal havana sugar molasses woollens london",
+    group: "Money and home",
+    where:
+      "Start a business… › A trading company (or its card on Estate › Business › Change its trade): Home with. Each leg's odds are shown; either leg may carry nothing.",
+    go: (ui) => {
+      ui.modal({ k: "startbiz" });
+    },
+    goLabel: "Start a business…",
+    guide: "econ",
+  },
+  // ---- end ECON (r17)
   // ---- LABOUR (r15): bondage in the colonies, as history
   {
     id: "bond-law",

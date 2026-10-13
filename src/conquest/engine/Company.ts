@@ -752,9 +752,16 @@ export function companyCheck(
     return no("Set it up at one of its ports.");
   if (!Number.isFinite(capital) || capital < 0 || capital > 9999)
     return no("How much does it start with?");
-  const q = companyQuote(s, w, plan);
-  if (capital < q.cost)
-    return no(`Its chest must hold a first cargo: ${Math.ceil(q.cost)}.`);
+  // ECON (r17): with nothing outward, the first cargo is the one bought for home.
+  const bp = backPlan(plan);
+  const first =
+    plan.loads > 0
+      ? companyQuote(s, w, plan).cost
+      : bp
+        ? companyQuote(s, w, bp).cost
+        : 0;
+  if (capital < first)
+    return no(`Its chest must hold a first cargo: ${Math.ceil(first)}.`);
   if (life.purse < capital + CO_SETUP)
     return no(`Setting it up and its chest: ${Math.ceil(capital + CO_SETUP)}.`);
   return yes;
@@ -969,7 +976,9 @@ export function backShare(
 ): number {
   const bp = backPlan(plan);
   if (!bp || !backCheck(s, w, plan, day).ok) return 0;
-  return r2(shipThere(s, w, plan, day) * Math.max(0, steadyGain(s, w, bp, day)));
+  return r2(
+    shipThere(s, w, plan, day) * Math.max(0, steadyGain(s, w, bp, day)),
+  );
 }
 
 /** Risk and reward of the homeward leg, before you commit (the same table it's rolled from). */
@@ -989,7 +998,7 @@ export function backOdds(
     ...o,
     title: `Home: ${goodsName(bp.item).toLowerCase()} from ${far} to ${placeName(s, w, plan.from, plan.from, day)}`,
     costMonth: 0,
-    net: r1(Math.max(0, steady) * there / plan.every),
+    net: r1((Math.max(0, steady) * there) / plan.every),
     factors: [
       plan.loads > 0
         ? `Bought at ${far} with what the outward cargo fetched there, when she gets there (${chanceWords(there)} voyages), and shipped home ${CO_LAY_DAYS} days later.`
@@ -1101,7 +1110,9 @@ function loadBack(g: ConquestGame, f: Firm, from: number, home: number): void {
     news(g, f, text, tone);
   };
   if (plan.to !== from || plan.from !== home) {
-    say(`no return cargo from ${where}: its trade has changed since she sailed.`);
+    say(
+      `no return cargo from ${where}: its trade has changed since she sailed.`,
+    );
     return;
   }
   const check = backCheck(s, g.w, plan);

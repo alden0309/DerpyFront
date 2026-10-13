@@ -1329,8 +1329,7 @@ function replied(
   switch (orig.kind) {
     case "favour":
       // ECON (r17): a loan by letter is a bond, at the lawful rate, for a year.
-      if (yesA)
-        bondMade(g, from.id, me.id, orig.arg ?? 0, { how: "letter" });
+      if (yesA) bondMade(g, from.id, me.id, orig.arg ?? 0, { how: "letter" });
       break;
     case "love":
       if (

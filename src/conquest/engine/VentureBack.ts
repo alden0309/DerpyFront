@@ -11,6 +11,7 @@
 // where the laws of trade forbid it, spoiled in part). The odds are on the
 // choice before you buy.
 
+import { formatDate } from "./Calendar";
 import {
   CO_RISK,
   goodsName,
@@ -19,7 +20,6 @@ import {
   voyageRisks,
   type VoyageRisks,
 } from "./Company";
-import { formatDate } from "./Calendar";
 import type { ConquestGame } from "./Game";
 import { raiseEvent } from "./Hooks";
 import { withFlow } from "./LedgerCore";
@@ -80,7 +80,13 @@ export function backVentures(
     const loads = Math.min(VENTURE_BACK_MAX_LOADS, Math.floor(stake / one));
     const cost = quote(s, w, life, far, item, loads).total;
     const sale = quote(s, w, life, home, item, -loads).total;
-    const risks = voyageRisks(s, w, { item, from: far, to: home, loads, every: 1 });
+    const risks = voyageRisks(s, w, {
+      item,
+      from: far,
+      to: home,
+      loads,
+      every: 1,
+    });
     const expected = r1(expectedBack(sale, risks) - cost);
     if (expected <= 0) continue;
     out.push({ item, loads, cost, sale, expected, risks });
@@ -102,15 +108,13 @@ export function backOddsWords(o: BackOption): string {
     "overboard in a blow",
     ...(k.taken ? ["privateers"] : []),
     ...(k.seized ? ["the customs"] : []),
-  ].join(", ")}); spoiled in part ${chanceWords(k.spoil)}. Prices may move before she's home.`;
+  ].join(
+    ", ",
+  )}); spoiled in part ${chanceWords(k.spoil)}. Prices may move before she's home.`;
 }
 
 /** At the far port: the scene, if a venture would pay. */
-export function offerVentureBack(
-  g: ConquestGame,
-  life: Life,
-  v: Voyage,
-): void {
+export function offerVentureBack(g: ConquestGame, life: Life, v: Voyage): void {
   if (v.kind !== "merchant" || life.watching) return;
   if (life.events.some((e) => e.key === "econ-venture")) return;
   if (!backVentures(g.s, g.w, life, v).length) return;

@@ -9,7 +9,10 @@ import { formatDate } from "./Calendar";
 import { goodsName } from "./Company";
 import { registerFamily } from "./EventPacing";
 import type { ConquestGame } from "./Game";
+import { answerLeave, askMore, leaveOdds } from "./Leave";
 import { journal } from "./LifeCore";
+import type { LCtx, LifeEventDef } from "./LifeEvents";
+import { lifeOfChar } from "./LifeQueries";
 import {
   LOAN_MORE,
   loansOf,
@@ -35,18 +38,11 @@ import {
   takeInKind,
   timeChance,
 } from "./Loans";
-import { askMore, answerLeave, leaveOdds } from "./Leave";
-import type { LCtx, LifeEventDef } from "./LifeEvents";
-import { lifeOfChar } from "./LifeQueries";
 import { chanceWords } from "./Odds";
 import { charName } from "./Queries";
 import { seaOf } from "./SeaCore";
 import type { GameState, Life, Loan } from "./Types";
-import {
-  backOddsWords,
-  backVentures,
-  buyVentureBack,
-} from "./VentureBack";
+import { backOddsWords, backVentures, buyVentureBack } from "./VentureBack";
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -61,7 +57,11 @@ const unless =
   (ok: (l: Loan) => boolean) =>
   (g: ConquestGame, _life: Life, ctx: LCtx): string | null => {
     const l = loanOf(g, ctx);
-    return !l || l.status === "closed" ? "It's settled" : ok(l) ? null : "Not now";
+    return !l || l.status === "closed"
+      ? "It's settled"
+      : ok(l)
+        ? null
+        : "Not now";
   };
 
 /** Report a command's refusal in the journal (a scene can't show an error). */
@@ -88,14 +88,16 @@ const LOAN_SCENES: LifeEventDef[] = [
         label: "Take it",
         tip: "The money's yours now; the bond is in your ledger, with its interest a month and its day.",
         blocked: unless((l) => l.status === "offered"),
-        apply: (g, life, ctx) => said(g, life, answerOffer(g, life, ctx.l, true)),
+        apply: (g, life, ctx) =>
+          said(g, life, answerOffer(g, life, ctx.l, true)),
       },
       {
         label: "Thank them, and decline",
         tip: "Nothing changes.",
         apply: (g, life, ctx) => {
           const l = loanOf(g, ctx);
-          if (l?.status === "offered") said(g, life, answerOffer(g, life, ctx.l, false));
+          if (l?.status === "offered")
+            said(g, life, answerOffer(g, life, ctx.l, false));
         },
       },
     ],
@@ -113,21 +115,24 @@ const LOAN_SCENES: LifeEventDef[] = [
     },
     choices: [
       {
-        label: (g, _life, ctx) => `Lend it (${r1(loanOf(g, ctx)?.sum ?? 0)} coins)`,
+        label: (g, _life, ctx) =>
+          `Lend it (${r1(loanOf(g, ctx)?.sum ?? 0)} coins)`,
         tip: "The bond goes in your ledger: call it in when it falls due, or let it run on at interest.",
         blocked: (g, life, ctx) => {
           const l = loanOf(g, ctx);
           if (!l || l.status !== "offered") return "It's settled";
           return life.purse < l.sum ? `Needs ${r1(l.sum)} coins` : null;
         },
-        apply: (g, life, ctx) => said(g, life, answerOffer(g, life, ctx.l, true)),
+        apply: (g, life, ctx) =>
+          said(g, life, answerOffer(g, life, ctx.l, true)),
       },
       {
         label: "Decline",
         tip: "Nothing changes between you, but they'll know you wouldn't.",
         apply: (g, life, ctx) => {
           const l = loanOf(g, ctx);
-          if (l?.status === "offered") said(g, life, answerOffer(g, life, ctx.l, false));
+          if (l?.status === "offered")
+            said(g, life, answerOffer(g, life, ctx.l, false));
         },
       },
     ],
@@ -146,12 +151,15 @@ const LOAN_SCENES: LifeEventDef[] = [
     },
     choices: [
       {
-        label: (g, _life, ctx) => `Repay it now (${r1(owedNow(loanOf(g, ctx) ?? { owed: 0, arrears: 0 }))} coins)`,
+        label: (g, _life, ctx) =>
+          `Repay it now (${r1(owedNow(loanOf(g, ctx) ?? { owed: 0, arrears: 0 }))} coins)`,
         tip: "Clear of it, before its day: the lender thinks the better of you.",
         blocked: (g, life, ctx) => {
           const l = loanOf(g, ctx);
           if (!l || l.status === "closed") return "It's settled";
-          return life.purse < owedNow(l) ? `Needs ${r1(owedNow(l))} coins` : null;
+          return life.purse < owedNow(l)
+            ? `Needs ${r1(owedNow(l))} coins`
+            : null;
         },
         apply: (g, life, ctx) => said(g, life, repay(g, life, ctx.l)),
       },
@@ -163,7 +171,8 @@ const LOAN_SCENES: LifeEventDef[] = [
         },
         tip: "The lender decides: by what they think of you, and how often they've put it off before.",
         blocked: unless((l) => l.ask === undefined),
-        apply: (g, life, ctx) => said(g, life, askTime(g, life, ctx.l, LOAN_MORE[0])),
+        apply: (g, life, ctx) =>
+          said(g, life, askTime(g, life, ctx.l, LOAN_MORE[0])),
       },
       {
         label: "It will be ready",
@@ -216,12 +225,15 @@ const LOAN_SCENES: LifeEventDef[] = [
     },
     choices: [
       {
-        label: (g, _life, ctx) => `Pay it (${r1(owedNow(loanOf(g, ctx) ?? { owed: 0, arrears: 0 }))} coins)`,
+        label: (g, _life, ctx) =>
+          `Pay it (${r1(owedNow(loanOf(g, ctx) ?? { owed: 0, arrears: 0 }))} coins)`,
         tip: "Clear of it.",
         blocked: (g, life, ctx) => {
           const l = loanOf(g, ctx);
           if (!l || l.status === "closed") return "It's settled";
-          return life.purse < owedNow(l) ? `Needs ${r1(owedNow(l))} coins` : null;
+          return life.purse < owedNow(l)
+            ? `Needs ${r1(owedNow(l))} coins`
+            : null;
         },
         apply: (g, life, ctx) => said(g, life, repay(g, life, ctx.l)),
       },
@@ -244,7 +256,8 @@ const LOAN_SCENES: LifeEventDef[] = [
         },
         tip: "The lender decides.",
         blocked: unless((l) => l.ask === undefined),
-        apply: (g, life, ctx) => said(g, life, askTime(g, life, ctx.l, LOAN_MORE[0])),
+        apply: (g, life, ctx) =>
+          said(g, life, askTime(g, life, ctx.l, LOAN_MORE[0])),
       },
     ],
   },
@@ -264,13 +277,15 @@ const LOAN_SCENES: LifeEventDef[] = [
         label: (_g, _life, ctx) => `Give ${ctx.m} months more`,
         tip: "They think the better of you; the bond runs on at interest.",
         blocked: unless((l) => (l.ask ?? 0) > 0),
-        apply: (g, life, ctx) => said(g, life, answerTime(g, life, ctx.l, true)),
+        apply: (g, life, ctx) =>
+          said(g, life, answerTime(g, life, ctx.l, true)),
       },
       {
         label: "Refuse",
         tip: "They must pay now, or say they can't.",
         blocked: unless((l) => (l.ask ?? 0) > 0),
-        apply: (g, life, ctx) => said(g, life, answerTime(g, life, ctx.l, false)),
+        apply: (g, life, ctx) =>
+          said(g, life, answerTime(g, life, ctx.l, false)),
       },
     ],
   },
@@ -290,7 +305,8 @@ const LOAN_SCENES: LifeEventDef[] = [
         label: `Give ${LOAN_MORE[0]} months more`,
         tip: "The bond runs on at interest, and they think the better of you.",
         blocked: unless((l) => l.status === "default"),
-        apply: (g, life, ctx) => said(g, life, moreTime(g, life, ctx.l, LOAN_MORE[0])),
+        apply: (g, life, ctx) =>
+          said(g, life, moreTime(g, life, ctx.l, LOAN_MORE[0])),
       },
       {
         label: "Forgive the debt",
@@ -320,7 +336,9 @@ const LOAN_SCENES: LifeEventDef[] = [
         blocked: (g, _life, ctx) => {
           const l = loanOf(g, ctx);
           if (!l || l.status !== "default") return "It's settled";
-          return courtFor(g.s, l) < 0 ? "No court of a crown where they live" : null;
+          return courtFor(g.s, l) < 0
+            ? "No court of a crown where they live"
+            : null;
         },
         apply: (g, life, ctx) => said(g, life, sue(g, life, ctx.l)),
       },
@@ -343,14 +361,16 @@ const LEAVE_SCENES: LifeEventDef[] = [
       {
         label: "Give the leave",
         tip: "They're back by its last day, or overstay it.",
-        apply: (g, life, ctx) => said(g, life, answerLeave(g, life, ctx.c, true)),
+        apply: (g, life, ctx) =>
+          said(g, life, answerLeave(g, life, ctx.c, true)),
       },
       {
         label: "Refuse",
         tip: "They may go anyway, and be away from their post.",
         apply: (g, life, ctx) => {
           const other = lifeOfChar(g.s, ctx.c);
-          if (other?.leave?.asked) said(g, life, answerLeave(g, life, ctx.c, false));
+          if (other?.leave?.asked)
+            said(g, life, answerLeave(g, life, ctx.c, false));
         },
       },
     ],
@@ -428,11 +448,16 @@ const VENTURE_SCENES: LifeEventDef[] = [
       const home = g.map.provinces[v.from]?.name ?? "home";
       return `The ${v.ship} takes on her cargo at ${far} for home, sailing ${formatDate(v.sails)}. A sailor's privilege runs both ways: a venture of your own in her hold, bought here at ${far}'s market and sold at ${home}'s. You have ${Math.floor(life.purse)} coins.`;
     },
-    choices: [ventureChoice(0), ventureChoice(1), ventureChoice(2), {
-      label: "Bring nothing home",
-      tip: "Keep your money in your pocket.",
-      apply: () => {},
-    }],
+    choices: [
+      ventureChoice(0),
+      ventureChoice(1),
+      ventureChoice(2),
+      {
+        label: "Bring nothing home",
+        tip: "Keep your money in your pocket.",
+        apply: () => {},
+      },
+    ],
   },
 ];
 

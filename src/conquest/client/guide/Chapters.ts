@@ -168,6 +168,7 @@ import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
 // BUSINESS (r15): starting a business, and a trading company.
 import { BUSINESS_CHAPTER } from "./BusinessChapter";
 import { CHAIR_CHAPTER } from "./ChairChapter"; // CHAIR (r16)
+import { ECON_CHAPTER } from "./EconChapter"; // ECON (r17)
 import { POLLS_CHAPTER } from "./PollsChapter"; // POLLS (r16)
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
 // INTRIGUE (r15): hearts and schemes.
@@ -958,15 +959,18 @@ Live beneath your station while you could afford better (twice the expected livi
 ## Money at work
 - **Venture a cargo** (the docks): your stake rides on the next ship out and comes home months later: lost at sea, sold at a loss, at a fair price, or for a fortune. More are lost in wartime.
 - **Shares in a company** (the market): a small dividend every month, a price that rises and falls, and now and then a bubble that bursts. Sell on Estate › Purse.
-- **Borrow** from someone who likes you (their card): repaid with a fifth again within the year.
+- **Borrow** from someone who likes you (their card, Money between you): a bond at the lawful rate, repaid within its term or sooner (see [[econ|Bonds]]).
 
 An officer keeps himself out of his commission's pay (mess bills, uniforms, horses and servants): about a fifth of it.
 
-! Pitfall: Debts come due, and are paid from your purse on the day. If you can't pay, the lender holds it against you for three years, you lose a little renown and gain stress, and the debt comes due again in three months.`,
+! Pitfall: A bond's interest is paid at each month's turn, and on its day the lender may call it in. If you can't pay, they may give you time, take what you carry in kind, or sue you for it ([[econ|Bonds]]).`,
   },
   // ---- LEDGER (r15): money made plain (guide/LedgerChapter.ts)
   LEDGER_CHAPTER,
   // ---- end LEDGER (r15)
+  // ---- ECON (r17): two-way trade, bonds and leave (guide/EconChapter.ts)
+  ECON_CHAPTER,
+  // ---- end ECON (r17)
   // ---- HOME (r12): house and property
   {
     id: "property",

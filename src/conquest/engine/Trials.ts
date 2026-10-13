@@ -40,9 +40,9 @@ import {
   skillLevel,
 } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
+import { loanJudged, loanSettled } from "./Loans"; // ECON (r17)
 import { postsOf, resignPost } from "./OneOffice";
 import { wake } from "./Pace";
-import { loanJudged, loanSettled } from "./Loans"; // ECON (r17)
 import { pdice, power, powerChanged } from "./PowerCore";
 import { ageOf, charName, stat } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";

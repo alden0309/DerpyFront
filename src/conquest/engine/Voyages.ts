@@ -971,7 +971,8 @@ function sailHome(g: ConquestGame, v: Voyage, life: Life): void {
     // A venture left aboard comes home without you, at a discount.
     if (v.stake) settleStake(g, v, life, 0.8);
     // ECON (r17): and a venture for home bought there.
-    if (v.back) affairNews(g, life, "sea", `${settleVentureBack(g, v, life, 0.8)}.`);
+    if (v.back)
+      affairNews(g, life, "sea", `${settleVentureBack(g, v, life, 0.8)}.`);
     const boss = s.chars[v.master];
     if (boss?.alive && !s.lives.some((l) => l.c === boss.id))
       remembers(g, life, g.char(boss.id), "Missed the ship", -10, 2);

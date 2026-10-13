@@ -26,26 +26,6 @@ import { hooks, raiseEvent } from "./Hooks";
 import { withFlow } from "./LedgerCore";
 import { earn, journal, remembers, spend, touchLife } from "./LifeCore";
 import {
-  borrowerLife,
-  edice,
-  lawfulRate,
-  lenderLife,
-  LOAN_MORE,
-  LOAN_OFFER_DAYS,
-  LOAN_REMIND_DAYS,
-  LOAN_SUMS,
-  LOAN_TERMS,
-  loanState,
-  loansChanged,
-  loansOf,
-  monthInterest,
-  owedNow,
-  owing,
-  rateWords,
-  tidyLoans,
-  bondBetween,
-} from "./LoanCore";
-import {
   Check,
   isChildLife,
   lifeOfChar,
@@ -55,6 +35,26 @@ import {
   yes,
 } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
+import {
+  bondBetween,
+  borrowerLife,
+  edice,
+  lawfulRate,
+  lenderLife,
+  LOAN_MORE,
+  LOAN_OFFER_DAYS,
+  LOAN_REMIND_DAYS,
+  LOAN_SUMS,
+  LOAN_TERMS,
+  loansChanged,
+  loansOf,
+  loanState,
+  monthInterest,
+  owedNow,
+  owing,
+  rateWords,
+  tidyLoans,
+} from "./LoanCore";
 import type { World } from "./Map";
 import { quote } from "./Markets";
 import { ageOf, charName, hasTrait, stat } from "./Queries";
@@ -221,33 +221,64 @@ export interface RepayOdds {
   why: Breakdown;
 }
 
+/**
+ * What a computer borrower weighs when a bond is called in (the guide's
+ * table is made from it): their means against what's owed, their nature,
+ * what they think of the lender; the chance they pay is 1 in 2 and a point
+ * in 100. Of the rest, those who could find half ask for time.
+ */
+export const REPAY_WEIGHTS = {
+  means: [
+    { ratio: 2, v: 35, label: "Well able to pay" },
+    { ratio: 1, v: 15, label: "Able to pay" },
+    { ratio: 0.5, v: -10, label: "It would pinch" },
+    { ratio: 0, v: -40, label: "Can't find the money" },
+  ],
+  honest: 20,
+  deceitful: -25,
+  greedy: -10,
+  generous: 5,
+  opinion: { per: 4, cap: 20 },
+  behind: -10,
+  kept: 5,
+  putOff: -8,
+  scale: 100,
+  min: 0.03,
+  max: 0.97,
+  /** Of those who don't pay, who ask for time: with half the means, and with less. */
+  timeShare: { able: 0.7, short: 0.35 },
+};
+
 /** By their means and their honesty (and what they think of the lender): the odds a bond is rolled by. */
 export function repayOdds(s: GameState, l: Loan): RepayOdds {
+  const W = REPAY_WEIGHTS;
   const c = s.chars[l.borrower];
   const e = new Explain();
   const owed = Math.max(1, owedNow(l));
   const means = meansFor(s, c);
   const ratio = means / owed;
-  if (ratio >= 2) e.add("Well able to pay", 35);
-  else if (ratio >= 1) e.add("Able to pay", 15);
-  else if (ratio >= 0.5) e.add("It would pinch", -10);
-  else e.add("Can't find the money", -40);
-  if (c && hasTrait(c, "honest")) e.add("Honest", 20);
-  if (c && hasTrait(c, "deceitful")) e.add("Slippery", -25);
-  if (c && hasTrait(c, "greedy")) e.add("Tight-fisted", -10);
-  if (c && hasTrait(c, "generous")) e.add("Open-handed", 5);
+  const m =
+    W.means.find((x) => ratio >= x.ratio) ?? W.means[W.means.length - 1];
+  e.add(m.label, m.v);
+  if (c && hasTrait(c, "honest")) e.add("Honest", W.honest);
+  if (c && hasTrait(c, "deceitful")) e.add("Slippery", W.deceitful);
+  if (c && hasTrait(c, "greedy")) e.add("Tight-fisted", W.greedy);
+  if (c && hasTrait(c, "generous")) e.add("Open-handed", W.generous);
   const lender = lenderLife(s, l);
   if (lender && c) {
     const op = opinionOf(s, c, lender).total;
-    e.add(`What they think of you (${op})`, Math.max(-20, Math.min(20, op / 4)));
+    e.add(
+      `What they think of you (${op})`,
+      Math.max(-W.opinion.cap, Math.min(W.opinion.cap, op / W.opinion.per)),
+    );
   }
-  if (l.arrears > 0) e.add("Behind with the interest", -10);
-  else if (l.paid > 0) e.add("Has kept up the interest", 5);
-  if (l.grace) e.add(`Put off before (${l.grace})`, -8 * l.grace);
+  if (l.arrears > 0) e.add("Behind with the interest", W.behind);
+  else if (l.paid > 0) e.add("Has kept up the interest", W.kept);
+  if (l.grace) e.add(`Put off before (${l.grace})`, W.putOff * l.grace);
   const why = e.done(0);
-  const pay = Math.max(0.03, Math.min(0.97, 0.5 + why.total / 100));
+  const pay = Math.max(W.min, Math.min(W.max, 0.5 + why.total / W.scale));
   const rest = 1 - pay;
-  const timeShare = ratio >= 0.5 ? 0.7 : 0.35;
+  const timeShare = ratio >= 0.5 ? W.timeShare.able : W.timeShare.short;
   return {
     pay: r2(pay),
     time: r2(rest * timeShare),
@@ -279,7 +310,9 @@ export function timeChance(s: GameState, l: Loan): number {
   const b = borrowerLife(s, l);
   const op = c && b ? opinionOf(s, c, b).total : 0;
   const rich = meansFor(s, c) >= owedNow(l) * 3 ? 0.1 : 0;
-  return r2(Math.max(0.05, Math.min(0.95, 0.55 + op / 100 - 0.2 * l.grace + rich)));
+  return r2(
+    Math.max(0.05, Math.min(0.95, 0.55 + op / 100 - 0.2 * l.grace + rich)),
+  );
 }
 
 /** What a computer lender does when a bond falls due: let it run on, or call it in. */
@@ -308,7 +341,11 @@ export function lenderOnDefault(
 // ---------------------------------------------------------------- where, and the court
 
 /** Where a bond is made, and sued on: the borrower's town. */
-export function placeOf(s: GameState, lender: number, borrower: number): number {
+export function placeOf(
+  s: GameState,
+  lender: number,
+  borrower: number,
+): number {
   const bl = lifeOfChar(s, borrower);
   if (bl) return bl.travel ? bl.home : bl.prov;
   const c = s.chars[borrower];
@@ -516,10 +553,8 @@ function begin(g: ConquestGame, l: Loan): string | null {
       spend(g, ll, l.sum),
     );
   if (bl)
-    withFlow(
-      g,
-      { key: `loan:${l.id}`, label: "Money borrowed on bond" },
-      () => earn(g, bl, l.sum),
+    withFlow(g, { key: `loan:${l.id}`, label: "Money borrowed on bond" }, () =>
+      earn(g, bl, l.sum),
     );
   l.status = "running";
   l.made = s.day;
@@ -682,7 +717,11 @@ export function lendFriend(
 ): Loan | undefined {
   if (!g.s.chars[c] || c === life.c) return undefined;
   const l = bondMade(g, life.c, c, sum, { how: "friend", free: true });
-  note(g, life, `You lend ${nameOf(g.s, c)} ${r1(sum)} coins: ${bondWords(l)}.`);
+  note(
+    g,
+    life,
+    `You lend ${nameOf(g.s, c)} ${r1(sum)} coins: ${bondWords(l)}.`,
+  );
   return l;
 }
 
@@ -695,7 +734,11 @@ export function lendNote(
 ): Loan | undefined {
   if (!g.s.chars[c] || c === life.c) return undefined;
   const l = bondMade(g, life.c, c, sum, { how: "note" });
-  note(g, life, `${nameOf(g.s, c)} signs a note of hand for ${r1(sum)} coins: ${bondWords(l)}.`);
+  note(
+    g,
+    life,
+    `${nameOf(g.s, c)} signs a note of hand for ${r1(sum)} coins: ${bondWords(l)}.`,
+  );
   return l;
 }
 
@@ -742,10 +785,14 @@ export function repay(
 ): string | null {
   const s = g.s;
   const l = loansOf(s).find((x) => x.id === id);
-  if (!l || l.borrower !== life.c || l.status === "closed" || l.status === "offered")
+  if (
+    !l ||
+    l.borrower !== life.c ||
+    l.status === "closed" ||
+    l.status === "offered"
+  )
     return "You owe nothing on that bond.";
-  if (l.status === "court")
-    return "It's before the court: settle it there.";
+  if (l.status === "court") return "It's before the court: settle it there.";
   const all = owedNow(l);
   const pay = r2(Math.min(all, sum === undefined ? all : Math.max(0, sum)));
   if (pay <= 0) return "How much?";
@@ -810,11 +857,21 @@ function settle(
         `${nameOf(s, l.borrower)} repays ${bl ? "" : "you "}the bond${early ? " before its day" : ""}: ${r1(pay)} coins.`,
         "good",
       );
-      minds(g, bl, l.lender, early ? "Paid me back early" : "Paid me back", early ? 8 : 5);
+      minds(
+        g,
+        bl,
+        l.lender,
+        early ? "Paid me back early" : "Paid me back",
+        early ? 8 : 5,
+      );
     }
     return;
   }
-  log(g, l, `${r1(pay)} ${how === "kind" ? "in kind" : how === "judgment" ? "by judgment" : "paid"}; ${r1(owedNow(l))} still owed.`);
+  log(
+    g,
+    l,
+    `${r1(pay)} ${how === "kind" ? "in kind" : how === "judgment" ? "by judgment" : "paid"}; ${r1(owedNow(l))} still owed.`,
+  );
   if (how !== "paid") return;
   note(
     g,
@@ -913,7 +970,9 @@ export function callIn(
   if (l.status === "running" && s.day < l.due)
     return `It isn't due until ${formatDate(l.due)}.`;
   if (!["running", "due", "time"].includes(l.status))
-    return l.status === "called" ? "You've called it in already." : "It can't be called in now.";
+    return l.status === "called"
+      ? "You've called it in already."
+      : "It can't be called in now.";
   const ll = lenderLife(s, l);
   const bl = borrowerLife(s, l);
   l.status = "called";
@@ -957,7 +1016,8 @@ export function callIn(
       ll,
       `You call in ${nameOf(s, l.borrower)}'s bond. ${s.chars[l.borrower]?.female ? "She" : "He"} asks for ${months} months more to find the money.`,
     );
-    if (ll) raiseEvent(g, ll, "loan-time", { l: l.id, c: l.borrower, m: months });
+    if (ll)
+      raiseEvent(g, ll, "loan-time", { l: l.id, c: l.borrower, m: months });
     else grantTime(g, l, months);
     return null;
   }
@@ -1043,7 +1103,11 @@ export function askTime(
   if (ll) {
     l.ask = months;
     log(g, l, `Asked ${months} months more.`);
-    note(g, life, `You ask ${nameOf(s, l.lender)} for ${months} months more on your bond.`);
+    note(
+      g,
+      life,
+      `You ask ${nameOf(s, l.lender)} for ${months} months more on your bond.`,
+    );
     raiseEvent(g, ll, "loan-time", { l: l.id, c: l.borrower, m: months });
     return null;
   }
@@ -1090,7 +1154,12 @@ export function answerTime(
   note(g, life, `You refuse ${nameOf(s, l.borrower)} more time.`);
   minds(g, life, l.borrower, "Wouldn't give me time", -8);
   if (bl) {
-    note(g, bl, `${nameOf(s, l.lender)} won't give you more time: the bond is to be paid.`, "bad");
+    note(
+      g,
+      bl,
+      `${nameOf(s, l.lender)} won't give you more time: the bond is to be paid.`,
+      "bad",
+    );
     if (l.status !== "called") l.status = "called";
     raiseEvent(g, bl, "loan-called", { l: l.id, c: l.lender });
     return null;
@@ -1098,7 +1167,12 @@ export function answerTime(
   // One of the computer's people: pay, or can't.
   const o = repayOdds(s, l);
   if (edice(g).chance(o.pay / Math.max(0.01, o.pay + o.cannot))) {
-    note(g, life, `${nameOf(s, l.borrower)} finds the money after all: ${r1(owedNow(l))} coins.`, "good");
+    note(
+      g,
+      life,
+      `${nameOf(s, l.borrower)} finds the money after all: ${r1(owedNow(l))} coins.`,
+      "good",
+    );
     settle(g, l, owedNow(l), "paid");
   } else {
     note(g, life, `${nameOf(s, l.borrower)} can't pay.`, "bad");
@@ -1108,18 +1182,37 @@ export function answerTime(
 }
 
 /** A player borrower pays a bond that's been called in. */
-export function payCalled(g: ConquestGame, life: Life, id: number): string | null {
+export function payCalled(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+): string | null {
   return repay(g, life, id);
 }
 
 /** A player borrower says they can't pay. */
-export function cantPay(g: ConquestGame, life: Life, id: number): string | null {
+export function cantPay(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+): string | null {
   const s = g.s;
   const l = loansOf(s).find((x) => x.id === id);
   if (!l || l.borrower !== life.c) return "You owe nothing on that bond.";
-  if (!["called", "due", "time"].includes(l.status)) return "It isn't called in.";
-  note(g, life, `You tell ${nameOf(s, l.lender)} you can't pay the bond.`, "bad");
-  note(g, lenderLife(s, l), `${nameOf(s, l.borrower)} can't pay the bond.`, "bad");
+  if (!["called", "due", "time"].includes(l.status))
+    return "It isn't called in.";
+  note(
+    g,
+    life,
+    `You tell ${nameOf(s, l.lender)} you can't pay the bond.`,
+    "bad",
+  );
+  note(
+    g,
+    lenderLife(s, l),
+    `${nameOf(s, l.borrower)} can't pay the bond.`,
+    "bad",
+  );
   defaults(g, l);
   return null;
 }
@@ -1144,7 +1237,12 @@ function forgiven(g: ConquestGame, l: Loan, grudge = false): void {
     return;
   }
   note(g, ll, `You forgive ${nameOf(s, l.borrower)} the bond: ${what} coins.`);
-  note(g, bl, `${nameOf(s, l.lender)} forgives you the bond: ${what} coins.`, "good");
+  note(
+    g,
+    bl,
+    `${nameOf(s, l.lender)} forgives you the bond: ${what} coins.`,
+    "good",
+  );
   if (ll) {
     const c = s.chars[l.borrower];
     if (c?.alive) remembers(g, ll, c, "Forgave my debt", 30, 10);
@@ -1152,9 +1250,18 @@ function forgiven(g: ConquestGame, l: Loan, grudge = false): void {
 }
 
 /** The lender forgives the debt (a player). */
-export function forgive(g: ConquestGame, life: Life, id: number): string | null {
+export function forgive(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+): string | null {
   const l = loansOf(g.s).find((x) => x.id === id);
-  if (!l || l.lender !== life.c || l.status === "closed" || l.status === "offered")
+  if (
+    !l ||
+    l.lender !== life.c ||
+    l.status === "closed" ||
+    l.status === "offered"
+  )
     return "There's nothing owed you on that bond.";
   if (l.status === "court") return "It's before the court.";
   forgiven(g, l);
@@ -1184,11 +1291,21 @@ function inKind(g: ConquestGame, l: Loan): void {
       touchLife(g, bl);
       if ((bl.goods as Record<string, number>)[x.item] !== undefined)
         (bl.goods as Record<string, number>)[x.item] -= qty;
-      else if (bl.wares) bl.wares[x.item as WareId] = (bl.wares[x.item as WareId] ?? 0) - qty;
+      else if (bl.wares)
+        bl.wares[x.item as WareId] = (bl.wares[x.item as WareId] ?? 0) - qty;
     }
     got = r1(Math.min(owedNow(l), got));
-    note(g, bl, `${nameOf(s, l.lender)} takes ${took.join(", ")} in kind for your bond, worth ${got}.`, "bad");
-    note(g, ll, `You take ${nameOf(s, l.borrower)}'s goods in kind for the bond: ${took.join(", ")}, worth ${got}.`);
+    note(
+      g,
+      bl,
+      `${nameOf(s, l.lender)} takes ${took.join(", ")} in kind for your bond, worth ${got}.`,
+      "bad",
+    );
+    note(
+      g,
+      ll,
+      `You take ${nameOf(s, l.borrower)}'s goods in kind for the bond: ${took.join(", ")}, worth ${got}.`,
+    );
     if (ll) remembersOf(g, ll, l.borrower, "Took my goods for a debt", -12);
     const left = r2(owedNow(l) - got);
     settle(g, l, got, "kind");
@@ -1219,7 +1336,11 @@ function remembersOf(
 }
 
 /** The lender takes it in kind (a player). */
-export function takeInKind(g: ConquestGame, life: Life, id: number): string | null {
+export function takeInKind(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+): string | null {
   const l = loansOf(g.s).find((x) => x.id === id);
   if (!l || l.lender !== life.c || l.status !== "default")
     return "Only a bond its borrower can't pay.";
@@ -1250,8 +1371,17 @@ function sueOn(g: ConquestGame, l: Loan): string | null {
   l.status = "court";
   l.trial = t.id;
   log(g, l, "Sued for at the court-house.");
-  note(g, ll, `You sue ${nameOf(s, l.borrower)} on the bond: ${Math.round(sum)} coins.`);
-  note(g, bl, `${nameOf(s, l.lender)} sues you on your bond: ${Math.round(sum)} coins.`, "bad");
+  note(
+    g,
+    ll,
+    `You sue ${nameOf(s, l.borrower)} on the bond: ${Math.round(sum)} coins.`,
+  );
+  note(
+    g,
+    bl,
+    `${nameOf(s, l.lender)} sues you on your bond: ${Math.round(sum)} coins.`,
+    "bad",
+  );
   if (ll) remembersOf(g, ll, l.borrower, "Took me to law over a debt", -25);
   return null;
 }
@@ -1265,10 +1395,16 @@ export function sue(g: ConquestGame, life: Life, id: number): string | null {
 }
 
 /** The lender gives more time after a default (a player). */
-export function moreTime(g: ConquestGame, life: Life, id: number, months: number): string | null {
+export function moreTime(
+  g: ConquestGame,
+  life: Life,
+  id: number,
+  months: number,
+): string | null {
   const l = loansOf(g.s).find((x) => x.id === id);
   if (!l || l.lender !== life.c) return "It isn't yours.";
-  if (!["default", "called", "due"].includes(l.status)) return "It isn't owed now.";
+  if (!["default", "called", "due"].includes(l.status))
+    return "It isn't owed now.";
   if (!LOAN_MORE.includes(months)) return "How long?";
   remembersOf(g, life, l.borrower, "Gave me more time", 8);
   grantTime(g, l, months);
@@ -1289,9 +1425,23 @@ export function loanJudged(g: ConquestGame, t: Trial): void {
     l.due = s.day + Math.round(12 * MONTH);
     l.told = 0;
     delete l.trial;
-    log(g, l, `The court found for the borrower: it stands over to ${formatDate(l.due)}.`);
-    note(g, ll, `The court finds against your suit on ${nameOf(s, l.borrower)}'s bond: it stands over a year.`, "bad");
-    note(g, bl, `The court finds for you against ${nameOf(s, l.lender)}: your bond stands over a year.`, "good");
+    log(
+      g,
+      l,
+      `The court found for the borrower: it stands over to ${formatDate(l.due)}.`,
+    );
+    note(
+      g,
+      ll,
+      `The court finds against your suit on ${nameOf(s, l.borrower)}'s bond: it stands over a year.`,
+      "bad",
+    );
+    note(
+      g,
+      bl,
+      `The court finds for you against ${nameOf(s, l.lender)}: your bond stands over a year.`,
+      "good",
+    );
     return;
   }
   // The court gives judgment for what can be had: a player's purse, or the computer's person's goods.
@@ -1301,8 +1451,18 @@ export function loanJudged(g: ConquestGame, t: Trial): void {
       : Math.min(owedNow(l), meansFor(s, s.chars[l.borrower]) * 0.8),
   );
   log(g, l, `Judgment for the lender: ${r1(take)} seized.`);
-  note(g, ll, `Judgment for you on ${nameOf(s, l.borrower)}'s bond: ${r1(take)} coins seized for it.`, take > 0 ? "good" : undefined);
-  note(g, bl, `Judgment against you on your bond to ${nameOf(s, l.lender)}: ${r1(take)} coins seized.`, "bad");
+  note(
+    g,
+    ll,
+    `Judgment for you on ${nameOf(s, l.borrower)}'s bond: ${r1(take)} coins seized for it.`,
+    take > 0 ? "good" : undefined,
+  );
+  note(
+    g,
+    bl,
+    `Judgment against you on your bond to ${nameOf(s, l.lender)}: ${r1(take)} coins seized.`,
+    "bad",
+  );
   delete l.trial;
   l.status = "default";
   if (take > 0) settle(g, l, take, "judgment");
@@ -1329,7 +1489,12 @@ export function loanSettled(g: ConquestGame, t: Trial, fee: number): void {
   delete l.trial;
   close(g, l, "paid");
   log(g, l, `Settled out of court: ${r1(pay)}.`);
-  note(g, ll, `${nameOf(s, l.borrower)} settles your suit on the bond: ${r1(pay)} coins.`, "good");
+  note(
+    g,
+    ll,
+    `${nameOf(s, l.borrower)} settles your suit on the bond: ${r1(pay)} coins.`,
+    "good",
+  );
 }
 
 // ---------------------------------------------------------------- the days and the months
@@ -1358,7 +1523,11 @@ export function loansDaily(g: ConquestGame): void {
       }
       continue;
     }
-    if (l.status === "running" && l.told < 1 && s.day >= l.due - LOAN_REMIND_DAYS) {
+    if (
+      l.status === "running" &&
+      l.told < 1 &&
+      s.day >= l.due - LOAN_REMIND_DAYS
+    ) {
       l.told = 1;
       loansChanged(g);
       const bl = borrowerLife(s, l);
@@ -1455,7 +1624,11 @@ function loansForecast(s: GameState, life: Life): Part[] {
         });
     } else if (l.lender === life.c) {
       const bl = borrowerLife(s, l);
-      if (bl ? bl.purse >= interest : l.status !== "default" && l.status !== "court")
+      if (
+        bl
+          ? bl.purse >= interest
+          : l.status !== "default" && l.status !== "court"
+      )
         out.push({
           key: `loan:${l.id}`,
           label: `Interest on ${nameOf(s, l.borrower)}'s bond`,
@@ -1490,10 +1663,21 @@ function loansAffairs(s: GameState, _w: World, life: Life): AffairItem[] {
                 : l.status === "court"
                   ? "at law"
                   : "can't pay",
-      ...(l.status === "default" ? { warn: `${nameOf(s, l.borrower)} can't pay: forgive it, take it in kind, or sue.` } : {}),
+      ...(l.status === "default"
+        ? {
+            warn: `${nameOf(s, l.borrower)} can't pay: forgive it, take it in kind, or sue.`,
+          }
+        : {}),
       due: l.due,
       ...(interest > 0
-        ? { expected: { value: interest, lo: interest, hi: interest, per: "month" as const } }
+        ? {
+            expected: {
+              value: interest,
+              lo: interest,
+              hi: interest,
+              per: "month" as const,
+            },
+          }
         : {}),
       go: { tab: "estate", sub: "ledger" },
     });
@@ -1526,23 +1710,40 @@ function loansOnDeath(g: ConquestGame, c: Character): void {
     if (l.lender === c.id && !l.ls) {
       const heir = c.children
         .map((id) => s.chars[id])
-        .filter((x): x is Character => !!x?.alive && !x.abroad && ageOf(s, x) >= 16)
+        .filter(
+          (x): x is Character => !!x?.alive && !x.abroad && ageOf(s, x) >= 16,
+        )
         .sort((a, b) => ageOf(s, b) - ageOf(s, a))[0];
       if (heir && !lifeOfChar(s, heir.id)) {
         l.lender = heir.id;
         log(g, l, `${charName(c)} is dead: owed now to ${charName(heir)}.`);
-        note(g, borrowerLife(s, l), `${charName(c)} is dead; your bond is owed now to ${charName(heir)}, ${c.female ? "her" : "his"} heir.`);
+        note(
+          g,
+          borrowerLife(s, l),
+          `${charName(c)} is dead; your bond is owed now to ${charName(heir)}, ${c.female ? "her" : "his"} heir.`,
+        );
       } else {
         log(g, l, `${charName(c)} is dead, and nobody claims it.`);
-        note(g, borrowerLife(s, l), `${charName(c)} is dead, and nobody claims your bond: it dies with ${c.female ? "her" : "him"}.`, "good");
+        note(
+          g,
+          borrowerLife(s, l),
+          `${charName(c)} is dead, and nobody claims your bond: it dies with ${c.female ? "her" : "him"}.`,
+          "good",
+        );
         close(g, l, "lapsed");
       }
     } else if (l.borrower === c.id && !l.bs) {
       const ll = lenderLife(s, l);
       const pay = r2(Math.min(owedNow(l), meansOf(s, c)));
       if (ll && pay > 0)
-        withFlow(g, { key: `loan:${l.id}`, label: "A bond paid by an estate", chance: true }, () =>
-          earn(g, ll, pay),
+        withFlow(
+          g,
+          {
+            key: `loan:${l.id}`,
+            label: "A bond paid by an estate",
+            chance: true,
+          },
+          () => earn(g, ll, pay),
         );
       log(g, l, `${charName(c)} is dead: the estate pays ${r1(pay)}.`);
       note(
@@ -1578,7 +1779,11 @@ function oldDebts(g: ConquestGame, life: Life): void {
     });
     if (s.day >= d.due) l.status = "due";
     l.told = s.day >= d.due - LOAN_REMIND_DAYS ? 1 : 0;
-    log(g, l, `A debt of ${r1(d.amount)} coins (a fifth again within the year), kept as a bond.`);
+    log(
+      g,
+      l,
+      `A debt of ${r1(d.amount)} coins (a fifth again within the year), kept as a bond.`,
+    );
   }
   touchLife(g, life).debts = [];
 }
@@ -1592,12 +1797,20 @@ function loanCommand(
 ): string | null | undefined {
   if (c.k !== "econ") return undefined;
   const x = c as EconCommand;
-  const l = x.id !== undefined ? loansOf(g.s).find((y) => y.id === x.id) : undefined;
+  const l =
+    x.id !== undefined ? loansOf(g.s).find((y) => y.id === x.id) : undefined;
   switch (x.act) {
     case "lend":
       return lendTo(g, life, x.c ?? -1, x.sum ?? 0, x.months ?? 12, !!x.free);
     case "borrow":
-      return borrowFrom(g, life, x.c ?? -1, x.sum ?? 0, x.months ?? 12, !!x.free);
+      return borrowFrom(
+        g,
+        life,
+        x.c ?? -1,
+        x.sum ?? 0,
+        x.months ?? 12,
+        !!x.free,
+      );
     case "accept":
     case "decline":
       return answerOffer(g, life, x.id ?? -1, x.act === "accept");

@@ -62,6 +62,45 @@ export const LEAVE_REST = 30;
 /** Leave kept on the record (for the duty's reckoning and "leave already this year"). */
 const LEAVE_KEEP = 400;
 
+/**
+ * What a master weighs, giving leave (the guide's table is made from it):
+ * points for and against, and the chance is 1 in 2 plus a point in 60.
+ */
+export const LEAVE_WEIGHTS = {
+  fair: 10,
+  /** What they think of you: a point in 2, to 30 either way. */
+  opinion: { per: 2, cap: 30 },
+  /** By how long: up to so many days, so many points. */
+  length: [
+    { days: 14, v: 5, label: "A short while" },
+    { days: 30, v: 0, label: "A month" },
+    { days: 60, v: -10, label: "Two months is long" },
+    { days: 90, v: -20, label: "Three months is long" },
+    { days: 120, v: -30, label: "Four months and more" },
+  ],
+  /** Past four months, a point more against for every six days. */
+  beyond: 6,
+  rank: 4,
+  war: -40,
+  harvest: -15,
+  planting: -10,
+  newHand: -15,
+  oftenAway: -15,
+  neverMisses: 5,
+  shirk: -15,
+  hard: 5,
+  diligent: 5,
+  lazy: -10,
+  drunkard: -5,
+  lately: -15,
+  dutyDone: 5,
+  dutyNeglected: -15,
+  /** The chance: 1 in 2, and a point in this many. */
+  scale: 60,
+  min: 0.03,
+  max: 0.97,
+};
+
 // ---------------------------------------------------------------- the state
 
 /** A life's leave, made the first time it's needed. */
@@ -202,7 +241,8 @@ export function leaveOdds(
 ): LeaveOdds {
   const by = leaveGiver(s, life, of);
   const me = meOf(s, life);
-  const e = new Explain().add("A fair request", 10);
+  const W = LEAVE_WEIGHTS;
+  const e = new Explain().add("A fair request", W.fair);
   const half = of === "job" && halfPayRank(life);
   if (!by || !me)
     return {
@@ -213,52 +253,66 @@ export function leaveOdds(
       half,
     };
   const op = opinionOf(s, by, life).total;
-  e.add(`What they think of you (${op})`, Math.max(-30, Math.min(30, op / 2)));
-  if (days <= 14) e.add("A short while", 5);
-  else if (days <= 30) e.add("A month", 0);
-  else if (days <= 60) e.add("Two months is long", -10);
-  else if (days <= 90) e.add("Three months is long", -20);
-  else e.add("Four months and more", -30 - Math.round((days - 120) / 6));
+  e.add(
+    `What they think of you (${op})`,
+    Math.max(-W.opinion.cap, Math.min(W.opinion.cap, op / W.opinion.per)),
+  );
+  const len =
+    W.length.find((x) => days <= x.days) ?? W.length[W.length.length - 1];
+  const longer = days > 120 ? Math.round((days - 120) / W.beyond) : 0;
+  e.add(len.label, len.v - longer);
   const month = dateOf(s.day).month; // 0, January
   if (of === "job") {
     const job = life.job!;
     const rank = JOBS[job.kind].ranks[job.rank];
-    if (job.rank > 0) e.add(`Your place: ${rank?.title.toLowerCase()}`, 4 * job.rank);
+    if (job.rank > 0)
+      e.add(`Your place: ${rank?.title.toLowerCase()}`, W.rank * job.rank);
     const war = s.wars.some((x) => x.a === job.nation || x.b === job.nation);
     if (
       war &&
-      (job.kind === "soldier" || job.kind === "militia" || job.kind === "warrior")
+      (job.kind === "soldier" ||
+        job.kind === "militia" ||
+        job.kind === "warrior")
     )
-      e.add("In wartime every man is needed", -40);
+      e.add("In wartime every man is needed", W.war);
     if (
-      (job.kind === "farmer" || job.kind === "grower" || job.kind === "millhand") &&
+      (job.kind === "farmer" ||
+        job.kind === "grower" ||
+        job.kind === "millhand") &&
       [7, 8, 9].includes(month)
     )
-      e.add("At the harvest", -15);
-    if ((job.kind === "farmer" || job.kind === "grower") && [3, 4].includes(month))
-      e.add("At the planting", -10);
-    if (job.months < 3 && s.day - job.since < 90) e.add("New to the place", -15);
-    if ((job.awayDays ?? 0) > 7) e.add("Often away from your post", -15);
-    else if ((job.lastWorked ?? 0) >= 20) e.add("Never misses a day", 5);
-    if (effortOf(life) === "shirk") e.add("Known to shirk", -15);
+      e.add("At the harvest", W.harvest);
+    if (
+      (job.kind === "farmer" || job.kind === "grower") &&
+      [3, 4].includes(month)
+    )
+      e.add("At the planting", W.planting);
+    if (job.months < 3 && s.day - job.since < 90)
+      e.add("New to the place", W.newHand);
+    if ((job.awayDays ?? 0) > 7)
+      e.add("Often away from your post", W.oftenAway);
+    else if ((job.lastWorked ?? 0) >= 20)
+      e.add("Never misses a day", W.neverMisses);
+    if (effortOf(life) === "shirk") e.add("Known to shirk", W.shirk);
     else if (effortOf(life) === "hard" || effortOf(life) === "overtime")
-      e.add("Works harder than anyone", 5);
+      e.add("Works harder than anyone", W.hard);
   } else {
     const o = officeById(s, of as number);
-    if (o && s.day - o.duty <= 45) e.add("Your duty done lately", 5);
-    else if (o && s.day - o.duty > 120) e.add("Your duty neglected", -15);
+    if (o && s.day - o.duty <= 45) e.add("Your duty done lately", W.dutyDone);
+    else if (o && s.day - o.duty > 120)
+      e.add("Your duty neglected", W.dutyNeglected);
   }
-  if (hasTrait(me, "diligent")) e.add("Hard-working", 5);
-  if (hasTrait(me, "lazy")) e.add("Idle", -10);
-  if (hasTrait(me, "drunkard")) e.add("Fond of the bottle", -5);
+  if (hasTrait(me, "diligent")) e.add("Hard-working", W.diligent);
+  if (hasTrait(me, "lazy")) e.add("Idle", W.lazy);
+  if (hasTrait(me, "drunkard")) e.add("Fond of the bottle", W.drunkard);
   const lately = (life.leave?.list ?? []).some(
     (lv) => lv.of === of && s.day - lv.from < DAYS_PER_YEAR,
   );
-  if (lately) e.add("Leave already this year", -15);
+  if (lately) e.add("Leave already this year", W.lately);
   const why = e.done(0);
   const player = !!lifeOfChar(s, by.id);
   return {
-    p: r2(Math.max(0.03, Math.min(0.97, 0.5 + why.total / 60))),
+    p: r2(Math.max(W.min, Math.min(W.max, 0.5 + why.total / W.scale))),
     why,
     by,
     player,
@@ -366,8 +420,19 @@ export function answerLeave(
   if (!life || !asked || asked.to !== boss.c) return "Nobody's asking.";
   leaveState(g, life).asked = null;
   if (yesA) {
-    grant(g, life, asked.days, asked.of, boss.c, asked.of === "job" && halfPayRank(life));
-    journal(g, boss, `You give ${charName(meOf(s, life))} ${asked.days} days' leave.`);
+    grant(
+      g,
+      life,
+      asked.days,
+      asked.of,
+      boss.c,
+      asked.of === "job" && halfPayRank(life),
+    );
+    journal(
+      g,
+      boss,
+      `You give ${charName(meOf(s, life))} ${asked.days} days' leave.`,
+    );
     return null;
   }
   const st = leaveState(g, life);
@@ -378,7 +443,11 @@ export function answerLeave(
 }
 
 /** A few weeks more, asked by letter when you've overstayed (the same odds, less for overstaying). */
-export function askMore(g: ConquestGame, life: Life, days: number): string | null {
+export function askMore(
+  g: ConquestGame,
+  life: Life,
+  days: number,
+): string | null {
   const s = g.s;
   const lv = leaveFor(s, life, "job");
   if (!lv || s.day <= lv.until) return "You're not overstaying.";
@@ -398,7 +467,12 @@ export function askMore(g: ConquestGame, life: Life, days: number): string | nul
     if (life.job) life.job.awayDays = 0;
     return null;
   }
-  journal(g, life, `${charName(o.by)} writes back: be at your post, or lose it.`, "bad");
+  journal(
+    g,
+    life,
+    `${charName(o.by)} writes back: be at your post, or lose it.`,
+    "bad",
+  );
   return null;
 }
 
@@ -509,7 +583,10 @@ function halfDays(life: Life, a: number, b: number): number {
   let n = 0;
   for (const lv of life.leave?.list ?? []) {
     if (lv.of !== "job" || !lv.half) continue;
-    const end = Math.min(lv.until, lv.ended !== undefined ? lv.ended - 1 : lv.until);
+    const end = Math.min(
+      lv.until,
+      lv.ended !== undefined ? lv.ended - 1 : lv.until,
+    );
     const x = Math.max(a, lv.from);
     const y = Math.min(b, end);
     if (y >= x) n += y - x + 1;
@@ -544,7 +621,9 @@ function leaveForecast(s: GameState, life: Life): Part[] {
   let b = s.day + 1;
   for (let i = 0; i < 32 && !isMonthStart(b); i++) b++;
   const pay = halfPay(life, a, b - 1);
-  return pay > 0 ? [{ key: "leave:half", label: "Half pay on leave", value: pay }] : [];
+  return pay > 0
+    ? [{ key: "leave:half", label: "Half pay on leave", value: pay }]
+    : [];
 }
 
 // ---------------------------------------------------------------- a journey, and your place
@@ -574,7 +653,10 @@ export function tripLeave(
   const need = Math.ceil((days * 2 + 3) / 7) * 7;
   if (job.own) {
     const idle = (life.property ?? []).filter(
-      (p) => p.kind === "business" && p.prov === job.prov && p.biz?.mgr === undefined,
+      (p) =>
+        p.kind === "business" &&
+        p.prov === job.prov &&
+        p.biz?.mgr === undefined,
     );
     if (!idle.length) return null;
     return {
@@ -585,7 +667,8 @@ export function tripLeave(
   }
   if (job.army >= 0 || job.kind === "servant") return null;
   const post = JOBS[job.kind].post;
-  if (post === "anywhere" || (job.kind === "clerk" && job.rank >= 2)) return null;
+  if (post === "anywhere" || (job.kind === "clerk" && job.rank >= 2))
+    return null;
   const lv = onLeave(s, life, "job");
   if (lv && lv.until >= s.day + days * 2) return null;
   if (need + (job.awayDays ?? 0) < AWAY_WARN_DAYS) return null;

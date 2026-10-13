@@ -19,6 +19,7 @@ import {
   startRank,
 } from "../../engine/LifeQueries";
 import { JOBS, LAND_GRANT, LAND_LOT } from "../../engine/LifeRules";
+import { owing } from "../../engine/LoanCore"; // ECON (r17)
 import { localOfficesOf, officeTitle } from "../../engine/Offices";
 import { charName } from "../../engine/Queries";
 import { takeUpCheck, takeUpLabel, takeUpsAt } from "../../engine/Trades";
@@ -602,7 +603,7 @@ function estatePage(ui: GameUi, sub: string): TemplateResult {
       ${goodsSection(ui)}
       ${Object.values(life.goods).some((v) => (v ?? 0) > 0) ||
       Object.values(life.wares ?? {}).some((v) => (v ?? 0) > 0) ||
-      life.debts.some((d) => d.amount > 0)
+      owing(ui.s, life).length > 0 // ECON (r17): bonds owed
         ? nothing
         : html`<p class="cq-empty">
             You carry nothing to sell, and owe nobody.

@@ -14,8 +14,6 @@ import { hooks } from "./Hooks";
 import { doInteraction, workOffered } from "./Interactions";
 import { leadCommand } from "./Leads"; // WORLD r11
 import { budgetFlow, withFlow } from "./LedgerCore"; // LEDGER (r15)
-import { owing } from "./LoanCore"; // ECON (r17)
-import { repay as repayBond } from "./Loans"; // ECON (r17)
 import { doAct } from "./LifeActs";
 import {
   addRenown,
@@ -95,6 +93,8 @@ import {
   STRESS_HIGH,
   TINCTURES,
 } from "./LifeRules";
+import { owing } from "./LoanCore"; // ECON (r17)
+import { repay as repayBond } from "./Loans"; // ECON (r17)
 import { isWinter } from "./Map";
 import { marketTrade, present } from "./Markets"; // WORLD r11
 import { cashVenture, moneyMonthly, sellKit } from "./Money";

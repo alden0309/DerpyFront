@@ -25,7 +25,6 @@ import {
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { lifeForOthers } from "../../src/conquest/engine/IntrigueCore";
-import { affairsOf, ledgerForecast } from "../../src/conquest/engine/Ledger";
 import {
   askLeave,
   leaveOdds,
@@ -35,11 +34,12 @@ import {
   OVERSTAY_WARN,
   tripLeave,
 } from "../../src/conquest/engine/Leave";
+import { affairsOf, ledgerForecast } from "../../src/conquest/engine/Ledger";
 import { lifeOfChar } from "../../src/conquest/engine/LifeQueries";
 import {
   lawfulRate,
-  loanStateForSeat,
   loansOf,
+  loanStateForSeat,
   monthInterest,
   owedNow,
 } from "../../src/conquest/engine/LoanCore";
@@ -53,8 +53,6 @@ import { priceView } from "../../src/conquest/engine/Markets";
 import { firmsWith, partnerIn } from "../../src/conquest/engine/PartnersCore";
 import { Rng } from "../../src/conquest/engine/Rng";
 import { seaOf } from "../../src/conquest/engine/SeaCore";
-import { goVoyage } from "../../src/conquest/engine/Voyages";
-import { startJob } from "../../src/conquest/engine/Work";
 import type {
   Character,
   CompanyPlan,
@@ -62,6 +60,8 @@ import type {
   GameState,
   Life,
 } from "../../src/conquest/engine/Types";
+import { goVoyage } from "../../src/conquest/engine/Voyages";
+import { startJob } from "../../src/conquest/engine/Work";
 import type { ServerMessage } from "../../src/conquest/Protocol";
 import { lifeOf, map, plan, prov, world } from "./LifeUtil";
 
@@ -88,7 +88,10 @@ function game(
       {
         seat: "s1",
         name: "Alden",
-        plan: plan({ home: JT, background: (o.background ?? "clerk") as never }),
+        plan: plan({
+          home: JT,
+          background: (o.background ?? "clerk") as never,
+        }),
       },
     ],
   });
@@ -104,7 +107,11 @@ function month(g: ConquestGame): void {
 }
 
 /** Answer whatever's waiting with its quiet course (or a chosen one). */
-function answerAll(g: ConquestGame, life: Life, pick?: (key: string) => number | undefined): void {
+function answerAll(
+  g: ConquestGame,
+  life: Life,
+  pick?: (key: string) => number | undefined,
+): void {
   for (const ev of [...life.events]) {
     const choice = pick?.(ev.key);
     if (choice !== undefined)
@@ -113,10 +120,21 @@ function answerAll(g: ConquestGame, life: Life, pick?: (key: string) => number |
 }
 
 /** Someone of the town, grown and not played. */
-function townsman(g: ConquestGame, life: Life, f: (c: Character) => boolean = () => true): Character {
+function townsman(
+  g: ConquestGame,
+  life: Life,
+  f: (c: Character) => boolean = () => true,
+): Character {
   const c = (g.s.locals[life.prov] ?? [])
     .map((id) => g.s.chars[id])
-    .find((c) => c?.alive && !c.abroad && !lifeOfChar(g.s, c.id) && g.s.day - c.born > 20 * 365 && f(c));
+    .find(
+      (c) =>
+        c?.alive &&
+        !c.abroad &&
+        !lifeOfChar(g.s, c.id) &&
+        g.s.day - c.born > 20 * 365 &&
+        f(c),
+    );
   if (!c) throw new Error("nobody in town");
   return c;
 }
@@ -147,7 +165,15 @@ describe("ECON r17: a trading company's return cargo", () => {
     expect(planCheck(g.s, g.w, { ...ballast, back: undefined }).ok).toBe(false);
     // Havana doesn't sell what it doesn't stock; London ships woollens out, and buys none.
     expect(planCheck(g.s, g.w, { ...twoWay(), back: "furs" }).ok).toBe(false);
-    const london: CompanyPlan = { item: "tobacco", from: JT, to: -1, loads: 20, every: 3, back: "woollens", backLoads: 5 };
+    const london: CompanyPlan = {
+      item: "tobacco",
+      from: JT,
+      to: -1,
+      loads: 20,
+      every: 3,
+      back: "woollens",
+      backLoads: 5,
+    };
     expect(planCheck(g.s, g.w, london).ok).toBe(true);
     expect(planCheck(g.s, g.w, { ...london, back: "tobacco" }).ok).toBe(false);
     const bp = backPlan(london)!;
@@ -157,14 +183,24 @@ describe("ECON r17: a trading company's return cargo", () => {
     // Each leg has its own odds, from the same table each is rolled from.
     const o = backOdds(g.s, g.w, twoWay())!;
     expect(o.title).toMatch(/Home: cochineal from Havana to Jamestown/);
-    expect(o.outcomes.some((x) => x.label === "seized by the customs")).toBe(true);
+    expect(o.outcomes.some((x) => x.label === "seized by the customs")).toBe(
+      true,
+    );
   });
 
   test("each leg's odds are the odds it's rolled by", () => {
     const { g } = game(5);
     for (const plan of [
       twoWay(),
-      { item: "tobacco", from: JT, to: -1, loads: 20, every: 3, back: "woollens", backLoads: 5 } as CompanyPlan,
+      {
+        item: "tobacco",
+        from: JT,
+        to: -1,
+        loads: 20,
+        every: 3,
+        back: "woollens",
+        backLoads: 5,
+      } as CompanyPlan,
     ]) {
       const bp = backPlan(plan)!;
       const o = backOdds(g.s, g.w, plan)!;
@@ -193,7 +229,9 @@ describe("ECON r17: a trading company's return cargo", () => {
   test("its books reconcile, both legs are in the ledger, and its prices move at both ends", () => {
     const { g, life } = game(7);
     const p = twoWay();
-    expect(g.lifeCommand("s1", { k: "business", act: "company", plan: p, cap: 300 })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "business", act: "company", plan: p, cap: 300 }),
+    ).toBeNull();
     const f = firmsWith(g.s, life.c).find((x) => x.hold === "company")!;
     const me = partnerIn(f, life.c)!;
     let boughtAt: { before: number; after: number } | null = null;
@@ -207,10 +245,17 @@ describe("ECON r17: a trading company's return cargo", () => {
       g.tick();
       const now = f.co!.voyages.filter((v) => v.leg === "back").length;
       if (!boughtAt && now > backs)
-        boughtAt = { before: havana, after: priceView(g.s, g.w, HAVANA, "cochineal").price };
+        boughtAt = {
+          before: havana,
+          after: priceView(g.s, g.w, HAVANA, "cochineal").price,
+        };
       if (!soldAt && (f.co!.legs?.back.sale ?? 0) > arrivedBefore)
-        soldAt = { before: home, after: priceView(g.s, g.w, JT, "cochineal").price };
-      if (affairsOf(g.s, g.w, life).some((a) => a.status === "homeward")) sawHomeward = true;
+        soldAt = {
+          before: home,
+          after: priceView(g.s, g.w, JT, "cochineal").price,
+        };
+      if (affairsOf(g.s, g.w, life).some((a) => a.status === "homeward"))
+        sawHomeward = true;
     }
     // The books are reckoned at the month's turn.
     month(g);
@@ -229,15 +274,21 @@ describe("ECON r17: a trading company's return cargo", () => {
     const takings = f.books.reduce((m, b) => m + b.takings, 0);
     expect(legs.out.sale + legs.back.sale).toBeCloseTo(takings, 0);
     // Each leg in your own news and the tracker.
-    expect(life.journal.some((j) => j.aff === "firm" && /homeward: /.test(j.text))).toBe(true);
-    expect(life.journal.some((j) => j.aff === "firm" && /outward: /.test(j.text))).toBe(true);
+    expect(
+      life.journal.some((j) => j.aff === "firm" && /homeward: /.test(j.text)),
+    ).toBe(true);
+    expect(
+      life.journal.some((j) => j.aff === "firm" && /outward: /.test(j.text)),
+    ).toBe(true);
     expect(sawHomeward).toBe(true);
   });
 
   test("with nothing outward, only the return cargo sails", () => {
     const { g, life } = game(11);
     const p = { ...twoWay(), loads: 0 };
-    expect(g.lifeCommand("s1", { k: "business", act: "company", plan: p, cap: 300 })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "business", act: "company", plan: p, cap: 300 }),
+    ).toBeNull();
     const f = firmsWith(g.s, life.c).find((x) => x.hold === "company")!;
     for (let m = 0; m < 8; m++) month(g);
     expect(f.co!.legs!.out.n).toBe(0);
@@ -255,7 +306,9 @@ describe("ECON r17: a trading company's return cargo", () => {
     const ev = life.events.find((e) => e.key === "econ-venture");
     expect(ev).toBeDefined();
     const purse = life.purse;
-    expect(g.lifeCommand("s1", { k: "event", id: ev!.id, choice: 0 })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "event", id: ev!.id, choice: 0 }),
+    ).toBeNull();
     expect(v.back).toBeDefined();
     expect(life.purse).toBeLessThan(purse);
     for (let d = 0; d < 120 && v.phase !== "done"; d++) {
@@ -286,14 +339,27 @@ describe("ECON r17: bonds", () => {
 
   test("lending to one of the computer's people: the interest a month in the figure and the books, a reminder, its day", () => {
     const { g, life } = game(7);
-    const c = townsman(g, life, (x) => x.role === "merchant" || x.role === "planter" || x.role === "innkeeper");
+    const c = townsman(
+      g,
+      life,
+      (x) =>
+        x.role === "merchant" || x.role === "planter" || x.role === "innkeeper",
+    );
     // They'd take it (and the window says why).
     const b = willBorrow(g.s, life, c, 40, 12, false, 0.06);
     expect(b.parts.length).toBeGreaterThan(0);
     const purse = life.purse;
-    const err = g.lifeCommand("s1", { k: "econ", act: "lend", c: c.id, sum: 40, months: 12 });
+    const err = g.lifeCommand("s1", {
+      k: "econ",
+      act: "lend",
+      c: c.id,
+      sum: 40,
+      months: 12,
+    });
     expect(err).toBeNull();
-    const l = loansOf(g.s).find((x) => x.lender === life.c && x.borrower === c.id);
+    const l = loansOf(g.s).find(
+      (x) => x.lender === life.c && x.borrower === c.id,
+    );
     if (!l) {
       // They wouldn't take it: the journal says why, and nothing was spent.
       expect(life.purse).toBe(purse);
@@ -304,7 +370,9 @@ describe("ECON r17: bonds", () => {
     expect(monthInterest(l)).toBe(0.2);
     // The month's figure has the interest; the month's turn pays it, in the books.
     const fc = ledgerForecast(g.s, g.w, life);
-    expect(fc.lines.some((x) => x.key === `loan:${l.id}` && x.value === 0.2)).toBe(true);
+    expect(
+      fc.lines.some((x) => x.key === `loan:${l.id}` && x.value === 0.2),
+    ).toBe(true);
     month(g);
     month(g);
     const st = life.statements![life.statements!.length - 1];
@@ -312,10 +380,13 @@ describe("ECON r17: bonds", () => {
     expect(affairsOf(g.s, g.w, life).some((a) => a.kind === "loan")).toBe(true);
     // The month before its day, you're told; on its day it falls due (or they come to pay).
     while (g.s.day < l.due - 29) g.tick();
-    expect(life.journal.some((j) => /falls due on/.test(j.text) && j.sec)).toBe(true);
+    expect(life.journal.some((j) => /falls due on/.test(j.text) && j.sec)).toBe(
+      true,
+    );
     while (g.s.day <= l.due) g.tick();
     expect(["due", "closed"]).toContain(l.status);
-    if (l.status === "due") expect(life.events.some((e) => e.key === "loan-falls")).toBe(true);
+    if (l.status === "due")
+      expect(life.events.some((e) => e.key === "loan-falls")).toBe(true);
   });
 
   test("called in, the computer's people pay, ask for time or can't, at the odds shown", () => {
@@ -325,7 +396,15 @@ describe("ECON r17: bonds", () => {
     let shown: ReturnType<typeof repayOdds> | null = null;
     const n = 600;
     for (let i = 0; i < n; i++) {
-      const l = makeLoan(g, { lender: life.c, borrower: c.id, sum: 20, months: 12, rate: 0.06, how: "bond", due: g.s.day });
+      const l = makeLoan(g, {
+        lender: life.c,
+        borrower: c.id,
+        sum: 20,
+        months: 12,
+        rate: 0.06,
+        how: "bond",
+        due: g.s.day,
+      });
       l.status = "due";
       shown = repayOdds(g.s, l);
       callIn(g, life, l);
@@ -347,34 +426,74 @@ describe("ECON r17: bonds", () => {
 
   test("a player borrower repays early, in part and in whole, and the lender thinks the better of it", () => {
     const { g, life } = game(7);
-    const c = townsman(g, life, (x) => x.role === "merchant" || x.role === "planter");
-    const l = makeLoan(g, { lender: c.id, borrower: life.c, sum: 20, months: 12, rate: 0.06, how: "bond" });
-    expect(g.lifeCommand("s1", { k: "econ", act: "repay", id: l.id, sum: 5 })).toBeNull();
+    const c = townsman(
+      g,
+      life,
+      (x) => x.role === "merchant" || x.role === "planter",
+    );
+    const l = makeLoan(g, {
+      lender: c.id,
+      borrower: life.c,
+      sum: 20,
+      months: 12,
+      rate: 0.06,
+      how: "bond",
+    });
+    expect(
+      g.lifeCommand("s1", { k: "econ", act: "repay", id: l.id, sum: 5 }),
+    ).toBeNull();
     expect(l.owed).toBe(15);
     expect(l.status).toBe("running");
-    expect(g.lifeCommand("s1", { k: "econ", act: "repay", id: l.id })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "econ", act: "repay", id: l.id }),
+    ).toBeNull();
     expect(l.status).toBe("closed");
     expect(l.end).toBe("paid");
-    expect(c.memories.some((m) => m.of === life.c && /Paid me back early/.test(m.why))).toBe(true);
+    expect(
+      c.memories.some(
+        (m) => m.of === life.c && /Paid me back early/.test(m.why),
+      ),
+    ).toBe(true);
   });
 
   test("a player borrower is reminded, called in, can't pay, and is sued at the court-house", () => {
     const { g, life } = game(7);
-    const c = townsman(g, life, (x) => x.role === "merchant" || x.role === "planter");
-    c.memories.push({ of: life.c, why: "Never liked them", value: -60, until: 0 });
-    const l = makeLoan(g, { lender: c.id, borrower: life.c, sum: 40, months: 6, rate: 0.06, how: "bond" });
+    const c = townsman(
+      g,
+      life,
+      (x) => x.role === "merchant" || x.role === "planter",
+    );
+    c.memories.push({
+      of: life.c,
+      why: "Never liked them",
+      value: -60,
+      until: 0,
+    });
+    const l = makeLoan(g, {
+      lender: c.id,
+      borrower: life.c,
+      sum: 40,
+      months: 6,
+      rate: 0.06,
+      how: "bond",
+    });
     while (g.s.day < l.due - 29) g.tick();
     const due = life.events.find((e) => e.key === "loan-due");
     expect(due).toBeDefined();
-    expect(g.lifeCommand("s1", { k: "event", id: due!.id, choice: 2 })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "event", id: due!.id, choice: 2 }),
+    ).toBeNull();
     while (g.s.day <= l.due) g.tick();
     // He doesn't think well enough of you to let it run on: he calls it in.
     expect(l.status).toBe("called");
     const called = life.events.find((e) => e.key === "loan-called");
     expect(called).toBeDefined();
     life.purse = 0;
-    for (const k of Object.keys(life.goods)) delete (life.goods as Record<string, number>)[k];
-    expect(g.lifeCommand("s1", { k: "event", id: called!.id, choice: 1 })).toBeNull();
+    for (const k of Object.keys(life.goods))
+      delete (life.goods as Record<string, number>)[k];
+    expect(
+      g.lifeCommand("s1", { k: "event", id: called!.id, choice: 1 }),
+    ).toBeNull();
     // Nothing to take in kind, and a court here: he sues.
     expect(l.status).toBe("court");
     const t = g.s.power!.trials.find((x) => x.id === l.trial)!;
@@ -383,7 +502,11 @@ describe("ECON r17: bonds", () => {
     for (let d = 0; d < 120 && l.status === "court"; d++) {
       g.tick();
       for (const ev of [...life.events])
-        g.lifeCommand("s1", { k: "event", id: ev.id, choice: ev.key === "trial-plea" ? 0 : 0 });
+        g.lifeCommand("s1", {
+          k: "event",
+          id: ev.id,
+          choice: ev.key === "trial-plea" ? 0 : 0,
+        });
     }
     expect(l.status).not.toBe("court");
     expect(l.log.some((x) => /court|Judgment/.test(x.text))).toBe(true);
@@ -393,15 +516,37 @@ describe("ECON r17: bonds", () => {
     const { g, life } = game(7);
     const a = townsman(g, life);
     const b = townsman(g, life, (x) => x.id !== a.id);
-    const l1 = makeLoan(g, { lender: life.c, borrower: a.id, sum: 20, months: 12, rate: 0.06, how: "bond" });
+    const l1 = makeLoan(g, {
+      lender: life.c,
+      borrower: a.id,
+      sum: 20,
+      months: 12,
+      rate: 0.06,
+      how: "bond",
+    });
     l1.status = "default";
-    expect(g.lifeCommand("s1", { k: "econ", act: "forgive", id: l1.id })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "econ", act: "forgive", id: l1.id }),
+    ).toBeNull();
     expect(l1.end).toBe("forgiven");
-    expect(a.memories.some((m) => m.of === life.c && m.why === "Forgave my debt" && m.value > 0)).toBe(true);
-    const l2 = makeLoan(g, { lender: life.c, borrower: b.id, sum: 20, months: 12, rate: 0.06, how: "bond" });
+    expect(
+      a.memories.some(
+        (m) => m.of === life.c && m.why === "Forgave my debt" && m.value > 0,
+      ),
+    ).toBe(true);
+    const l2 = makeLoan(g, {
+      lender: life.c,
+      borrower: b.id,
+      sum: 20,
+      months: 12,
+      rate: 0.06,
+      how: "bond",
+    });
     l2.status = "default";
     const purse = life.purse;
-    expect(g.lifeCommand("s1", { k: "econ", act: "kind", id: l2.id })).toBeNull();
+    expect(
+      g.lifeCommand("s1", { k: "econ", act: "kind", id: l2.id }),
+    ).toBeNull();
     expect(l2.status).toBe("closed");
     expect(life.purse).toBeGreaterThan(purse);
     expect(life.purse - purse).toBeLessThan(20);
@@ -409,11 +554,19 @@ describe("ECON r17: bonds", () => {
 
   test("the old ways of lending and borrowing make bonds, and an old save's debts become bonds", () => {
     const { g, life } = game(7);
-    const c = townsman(g, life, (x) => x.role === "merchant" || x.role === "planter");
+    const c = townsman(
+      g,
+      life,
+      (x) => x.role === "merchant" || x.role === "planter",
+    );
     c.memories.push({ of: life.c, why: "Old friends", value: 80, until: 0 });
     const purse = life.purse;
-    expect(g.lifeCommand("s1", { k: "person", c: c.id, act: "borrow" })).toBeNull();
-    const l = loansOf(g.s).find((x) => x.lender === c.id && x.borrower === life.c);
+    expect(
+      g.lifeCommand("s1", { k: "person", c: c.id, act: "borrow" }),
+    ).toBeNull();
+    const l = loansOf(g.s).find(
+      (x) => x.lender === c.id && x.borrower === life.c,
+    );
     expect(l).toBeDefined();
     expect(life.purse).toBeGreaterThan(purse);
     expect(l!.rate).toBe(0.06);
@@ -432,7 +585,9 @@ describe("ECON r17: bonds", () => {
     // Saves, loads and the delta carry the bonds.
     const client = JSON.parse(JSON.stringify(g2.s)) as GameState;
     g2.takeDelta();
-    expect(g2.lifeCommand("s1", { k: "econ", act: "repay", id: l2!.id, sum: 4 })).toBeNull();
+    expect(
+      g2.lifeCommand("s1", { k: "econ", act: "repay", id: l2!.id, sum: 4 }),
+    ).toBeNull();
     applyDelta(client, g2.takeDelta());
     expect(client.loans).toEqual(g2.s.loans);
     const g3 = new ConquestGame(map, JSON.parse(JSON.stringify(g2.s)));
@@ -470,13 +625,17 @@ describe("ECON r17: leave from work", () => {
     expect(Math.abs(yes - expected) / n).toBeLessThan(0.08);
     // Refused, you can't ask again at once.
     life.leave = { list: [], refused: { job: g.s.day + 10 } };
-    expect(g.lifeCommand("s1", { k: "econ", act: "leave", days: 30 })).toMatch(/Refused lately/);
+    expect(g.lifeCommand("s1", { k: "econ", act: "leave", days: 30 })).toMatch(
+      /Refused lately/,
+    );
   });
 
   test("on leave you aren't counted away; overstay it and a letter comes, then the sack", () => {
     const { g, life, boss } = clerk(7);
     const job = life.job!;
-    life.leave = { list: [{ of: "job", from: g.s.day, until: g.s.day + 29, by: boss!.id }] };
+    life.leave = {
+      list: [{ of: "job", from: g.s.day, until: g.s.day + 29, by: boss!.id }],
+    };
     // Gone to Boston for a while.
     life.prov = prov("Massachusetts Bay");
     for (let d = 0; d < 29; d++) g.tick();
@@ -487,7 +646,9 @@ describe("ECON r17: leave from work", () => {
     expect(life.events.some((e) => e.key === "leave-over")).toBe(true);
     for (let d = OVERSTAY_WARN; d < OVERSTAY_SACK; d++) g.tick();
     expect(life.job).toBeNull();
-    expect(life.journal.some((j) => /overstayed your leave/.test(j.text))).toBe(true);
+    expect(life.journal.some((j) => /overstayed your leave/.test(j.text))).toBe(
+      true,
+    );
   });
 
   test("without leave, the same journey costs your place", () => {
@@ -509,8 +670,20 @@ describe("ECON r17: leave from work", () => {
 
   test("leave from a county office keeps its duty from counting as neglected", () => {
     const { g, life } = clerk(7);
-    const o = { id: 1, key: "churchwarden", prov: JT, nation: 0, holder: life.c, since: 0, election: -1, candidates: [], duty: g.s.day - 10 } as never;
-    life.leave = { list: [{ of: 1, from: g.s.day - 5, until: g.s.day + 30, by: -1 }] };
+    const o = {
+      id: 1,
+      key: "churchwarden",
+      prov: JT,
+      nation: 0,
+      holder: life.c,
+      since: 0,
+      election: -1,
+      candidates: [],
+      duty: g.s.day - 10,
+    } as never;
+    life.leave = {
+      list: [{ of: 1, from: g.s.day - 5, until: g.s.day + 30, by: -1 }],
+    };
     expect(officeLeaveDays(g.s, life, o)).toBe(6);
   });
 });
@@ -523,9 +696,32 @@ describe("ECON r17: a bond is its two parties' business", () => {
       start: 1700,
       seed: 7,
       plans: [
-        { seat: "s1", name: "Alden", plan: plan({ home: JT, background: "clerk" }) },
-        { seat: "s2", name: "Bea", plan: plan({ home: JT, first: "Beatrice", family: "Cole", female: true, background: "clerk" }) },
-        { seat: "s3", name: "Cato", plan: plan({ home: JT, first: "Cato", family: "Hale", background: "clerk" }) },
+        {
+          seat: "s1",
+          name: "Alden",
+          plan: plan({ home: JT, background: "clerk" }),
+        },
+        {
+          seat: "s2",
+          name: "Bea",
+          plan: plan({
+            home: JT,
+            first: "Beatrice",
+            family: "Cole",
+            female: true,
+            background: "clerk",
+          }),
+        },
+        {
+          seat: "s3",
+          name: "Cato",
+          plan: plan({
+            home: JT,
+            first: "Cato",
+            family: "Hale",
+            background: "clerk",
+          }),
+        },
       ],
     });
     g.aiEnabled = false;
@@ -533,13 +729,23 @@ describe("ECON r17: a bond is its two parties' business", () => {
     const b = lifeOf(g, "s2");
     a.purse = 100;
     b.purse = 5;
-    expect(g.lifeCommand("s1", { k: "econ", act: "lend", c: b.c, sum: 20, months: 12 })).toBeNull();
+    expect(
+      g.lifeCommand("s1", {
+        k: "econ",
+        act: "lend",
+        c: b.c,
+        sum: 20,
+        months: 12,
+      }),
+    ).toBeNull();
     const l = loansOf(g.s)[0];
     expect(l.status).toBe("offered");
     expect(a.purse).toBe(100);
     const ev = b.events.find((e) => e.key === "loan-offer")!;
     expect(ev).toBeDefined();
-    expect(g.lifeCommand("s2", { k: "event", id: ev.id, choice: 0 })).toBeNull();
+    expect(
+      g.lifeCommand("s2", { k: "event", id: ev.id, choice: 0 }),
+    ).toBeNull();
     expect(l.status).toBe("running");
     expect(a.purse).toBe(80);
     expect(b.purse).toBe(25);
@@ -550,13 +756,17 @@ describe("ECON r17: a bond is its two parties' business", () => {
     const seenB = lifeForOthers(b);
     expect(seenB.journal.some((j) => /lends you/.test(j.text))).toBe(false);
     b.events.push({ ...ev, id: 999, key: "loan-called" });
-    expect(lifeForOthers(b).events.some((e) => e.key.startsWith("loan-"))).toBe(false);
+    expect(lifeForOthers(b).events.some((e) => e.key.startsWith("loan-"))).toBe(
+      false,
+    );
     b.events.pop();
     // Interest at the month's turn goes from one purse to the other, in each one's books.
     month(g);
     month(g);
     const line = (x: Life) =>
-      x.statements![x.statements!.length - 1].lines.find((y) => y.k === `loan:${l.id}`)?.v;
+      x.statements![x.statements!.length - 1].lines.find(
+        (y) => y.k === `loan:${l.id}`,
+      )?.v;
     expect(line(a)).toBeCloseTo(0.1, 2);
     expect(line(b)).toBeCloseTo(-0.1, 2);
     expect(l.paid).toBeCloseTo(0.2, 2);
@@ -571,7 +781,10 @@ let tick: () => void = () => {};
 class Client {
   readonly messages: ServerMessage[] = [];
   readonly raw: string[] = [];
-  private waiters: { test: (m: ServerMessage) => boolean; resolve: (m: ServerMessage) => void }[] = [];
+  private waiters: {
+    test: (m: ServerMessage) => boolean;
+    resolve: (m: ServerMessage) => void;
+  }[] = [];
   readonly ws: WebSocket;
   readonly open: Promise<void>;
   constructor(url: string) {
@@ -592,9 +805,15 @@ class Client {
   send(m: unknown) {
     this.ws.send(JSON.stringify(m));
   }
-  next<T extends ServerMessage["t"]>(t: T, test: (m: Extract<ServerMessage, { t: T }>) => boolean = () => true) {
+  next<T extends ServerMessage["t"]>(
+    t: T,
+    test: (m: Extract<ServerMessage, { t: T }>) => boolean = () => true,
+  ) {
     return new Promise<Extract<ServerMessage, { t: T }>>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`timed out waiting for ${t}`)), 4000);
+      const timer = setTimeout(
+        () => reject(new Error(`timed out waiting for ${t}`)),
+        4000,
+      );
       this.waiters.push({
         test: (m) => m.t === t && test(m as Extract<ServerMessage, { t: T }>),
         resolve: (m) => {
@@ -632,7 +851,8 @@ describe("ECON r17: through the rooms server, a bond is sent only to its parties
   let rooms: import("../../src/server/conquest/ConquestRooms").ConquestRooms;
   const clients: Client[] = [];
   beforeAll(async () => {
-    const { attachConquest, ConquestRooms } = await import("../../src/server/conquest/ConquestRooms");
+    const { attachConquest, ConquestRooms } =
+      await import("../../src/server/conquest/ConquestRooms");
     rooms = new ConquestRooms(() => clock);
     tick = () => (clock += 60);
     server = http.createServer();
@@ -656,7 +876,12 @@ describe("ECON r17: through the rooms server, a bond is sent only to its parties
   test("Alden lends Beatrice money on bond; Cato is sent none of it", async () => {
     const host = await client("Alden");
     const lobby = host.next("lobby");
-    host.send({ t: "create", solo: false, open: true, settings: { difficulty: "normal", start: 1700 } });
+    host.send({
+      t: "create",
+      solo: false,
+      open: true,
+      settings: { difficulty: "normal", start: 1700 },
+    });
     const l = await lobby;
     const bea = await client("Bea");
     const cato = await client("Cato");
@@ -665,8 +890,25 @@ describe("ECON r17: through the rooms server, a bond is sent only to its parties
     cato.send({ t: "join", code: l.code });
     await joined;
     host.send({ t: "plan", plan: plan({ home: JT, background: "clerk" }) });
-    bea.send({ t: "plan", plan: plan({ home: JT, first: "Beatrice", family: "Cole", female: true, background: "clerk" }) });
-    cato.send({ t: "plan", plan: plan({ home: JT, first: "Cato", family: "Hale", background: "clerk" }) });
+    bea.send({
+      t: "plan",
+      plan: plan({
+        home: JT,
+        first: "Beatrice",
+        family: "Cole",
+        female: true,
+        background: "clerk",
+      }),
+    });
+    cato.send({
+      t: "plan",
+      plan: plan({
+        home: JT,
+        first: "Cato",
+        family: "Hale",
+        background: "clerk",
+      }),
+    });
     await host.next("lobby", (m) => m.seats.every((s) => s.made));
     bea.send({ t: "ready", ready: true });
     cato.send({ t: "ready", ready: true });
@@ -682,7 +924,9 @@ describe("ECON r17: through the rooms server, a bond is sent only to its parties
     const B = game.s.lives.find((x) => x.seat === bg.you)!;
     A.purse = 300;
     B.purse = 10;
-    expect(await host.cmd({ k: "econ", act: "lend", c: B.c, sum: 40, months: 24 })).toBeNull();
+    expect(
+      await host.cmd({ k: "econ", act: "lend", c: B.c, sum: 40, months: 24 }),
+    ).toBeNull();
     await settle();
     const ev = B.events.find((e) => e.key === "loan-offer")!;
     expect(ev).toBeDefined();

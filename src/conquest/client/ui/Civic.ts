@@ -74,6 +74,7 @@ import {
   token,
 } from "./Context";
 import { verdictChip } from "./Here";
+import { officeLeave } from "./LeaveUi"; // ECON (r17)
 import { price, splitPrice } from "./Price"; // LEDGER (r15)
 import { steadyOrder } from "./Steady";
 
@@ -201,7 +202,8 @@ function officeRow(ui: GameUi, o: LocalOffice): TemplateResult {
             : "you'll be dismissed"}.
           ${o.duty ? html`Last done ${formatDate(o.duty)}.` : nothing}
         </p>
-        ${billRow} ${powersBlock(ui, o)}`;
+        ${officeLeave(ui, o) /* ECON (r17): leave from the office */} ${billRow}
+        ${powersBlock(ui, o)}`;
     } else if (def.how === "elected") {
       const check = standing
         ? { ok: false as const, why: "You're standing." }

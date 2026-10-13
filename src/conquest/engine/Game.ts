@@ -22,7 +22,6 @@ import { folkMonthly } from "./Folk";
 import { recordMilestone, yearlyMarks } from "./History";
 import { hooks } from "./Hooks"; // MAP (r12)
 import { takeIntrigueDelta } from "./IntrigueCore"; // INTRIGUE (r15)
-import { takeLoanDelta } from "./LoanCore"; // ECON (r17)
 import {
   beginLife,
   lifeCommand,
@@ -30,6 +29,7 @@ import {
   livesDaily,
   livesMonthly,
 } from "./Life";
+import { takeLoanDelta } from "./LoanCore"; // ECON (r17)
 import { World, worldOf } from "./Map";
 // WORLD r11: fog of war, province markets, leads, and fitting old saves to the map.
 import "./Achievements"; // MAP (r12): achievements watch every life
@@ -41,8 +41,8 @@ import "./Grandeur"; // CHAIR (r16): marks of greatness: a hall, a coach, portra
 import "./Household"; // HOME (r12): the household's commands register themselves
 import "./Intrigue"; // INTRIGUE (r15): seduction, plots, weddings, private letters
 import { leadsDaily, leadsMonthly } from "./Leads";
-import "./Ledger"; // LEDGER (r15): the month's books, statements and forecast
 import "./Leave"; // ECON (r17): leave from your work
+import "./Ledger"; // LEDGER (r15): the month's books, statements and forecast
 import "./Loans"; // ECON (r17): bonds: loans on terms
 import { fitStateToMap } from "./MapFix";
 import { marketsMonthly } from "./Markets";

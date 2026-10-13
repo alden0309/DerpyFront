@@ -11,6 +11,7 @@ import { formatDate, pollDay } from "./Calendar"; // FIXES (r15)
 import { Explain } from "./Explain";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
+import { officeLeaveDays } from "./Leave"; // ECON (r17)
 import {
   addRenown,
   addStress,
@@ -43,7 +44,6 @@ import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
 import { dice, hash01, officesIn, society } from "./SocietyCore";
 import { addFavor, delivered } from "./Standing"; // POLLS (r16)
-import { officeLeaveDays } from "./Leave"; // ECON (r17)
 import type {
   Breakdown,
   Character,

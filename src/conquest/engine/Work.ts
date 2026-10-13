@@ -10,6 +10,7 @@ import { crimeWorkDay, lawWorkDay } from "./Crime";
 import { npc, played } from "./EventPacing"; // EVENTS (r15)
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
+import { leaveDay } from "./Leave"; // ECON (r17)
 import { addRenown, gainXp, journal, milestone, touchLife } from "./LifeCore";
 import {
   atPost,
@@ -65,7 +66,6 @@ import type {
   PlaceKind,
   Skill,
 } from "./Types";
-import { leaveDay } from "./Leave"; // ECON (r17)
 import { workMatter } from "./WorkEvents";
 
 function provName(g: ConquestGame, p: number): string {

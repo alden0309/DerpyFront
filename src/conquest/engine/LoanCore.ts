@@ -22,7 +22,7 @@
 // - Among the native nations nobody takes interest: a loan is repaid in
 //   kind and in goodwill.
 
-import { lawOf, colonyOf } from "./BondLaw";
+import { colonyOf, lawOf, type Colony, type LawOf } from "./BondLaw";
 import { dateOf } from "./Calendar";
 import type { ConquestGame } from "./Game";
 import { lifeOfChar, lifeOfSeat } from "./LifeQueries";
@@ -60,6 +60,115 @@ export interface LawfulRate {
   law: string;
 }
 
+/** One law against usury: where it ran, from when to when, and its rate. */
+export interface UsuryLaw {
+  /** In words, for the guide. */
+  where: string;
+  /** English colonies by name, or the whole of a crown's law. */
+  colonies?: Colony[];
+  law?: LawOf;
+  from: number;
+  to: number;
+  rate: number;
+  text: string;
+}
+
+/**
+ * The laws against usury the game follows (the guide's table is made from
+ * these): an English colony's own act first, then England's; then each
+ * crown's law.
+ */
+export const USURY: UsuryLaw[] = [
+  {
+    where: "Massachusetts (and Maine)",
+    colonies: ["massachusetts", "maine"],
+    from: 1607,
+    to: 1692,
+    rate: 0.08,
+    text: "Massachusetts' law of 1641: 8 in 100 a year",
+  },
+  {
+    where: "Massachusetts (and Maine)",
+    colonies: ["massachusetts", "maine"],
+    from: 1693,
+    to: 1776,
+    rate: 0.06,
+    text: "Massachusetts' act of 1693: 6 in 100 a year",
+  },
+  {
+    where: "Virginia",
+    colonies: ["virginia"],
+    from: 1748,
+    to: 1776,
+    rate: 0.05,
+    text: "Virginia's act to restrain the taking of excessive usury (1748): 5 in 100 a year",
+  },
+  {
+    where: "Pennsylvania",
+    colonies: ["pennsylvania"],
+    from: 1607,
+    to: 1722,
+    rate: 0.08,
+    text: "Pennsylvania's law before 1722: 8 in 100 a year",
+  },
+  {
+    where: "Pennsylvania",
+    colonies: ["pennsylvania"],
+    from: 1723,
+    to: 1776,
+    rate: 0.06,
+    text: "Pennsylvania's act of 1722, from eight in a hundred to six",
+  },
+  {
+    where: "England's other colonies",
+    law: "english",
+    from: 1607,
+    to: 1659,
+    rate: 0.08,
+    text: "The act against usury of 1624: 8 in 100 a year",
+  },
+  {
+    where: "England's other colonies",
+    law: "english",
+    from: 1660,
+    to: 1776,
+    rate: 0.06,
+    text: "The act against excessive usury of 1660: 6 in 100 a year",
+  },
+  {
+    where: "France's colonies",
+    law: "french",
+    from: 1607,
+    to: 1776,
+    rate: 0.05,
+    text: "The king's rate, the denier vingt: 5 in 100 a year",
+  },
+  {
+    where: "Spain's colonies",
+    law: "spanish",
+    from: 1607,
+    to: 1776,
+    rate: 0.05,
+    text: "The pragmática of 1608: censos at no less than 20,000 maravedís the thousand, 5 in 100 a year",
+  },
+  {
+    where: "The Dutch and Swedish colonies",
+    law: "dutch",
+    from: 1607,
+    to: 1776,
+    rate: 0.06,
+    text: "The colonies' common rate: 6 in 100 a year",
+  },
+  {
+    where: "The Dutch and Swedish colonies",
+    law: "swedish",
+    from: 1607,
+    to: 1776,
+    rate: 0.06,
+    text: "The colonies' common rate: 6 in 100 a year",
+  },
+];
+
 /** The lawful rate of interest in a province, by its law and the year. */
 export function lawfulRate(
   s: GameState,
@@ -68,50 +177,22 @@ export function lawfulRate(
   day = s.day,
 ): LawfulRate {
   const y = dateOf(day).year;
-  const { law, adjective } = lawOf(s, p);
-  switch (law) {
-    case "native":
-      return {
-        rate: 0,
-        law: `Among the ${adjective} nobody takes interest: a loan is repaid in kind and in goodwill`,
-      };
-    case "french":
-      return {
-        rate: 0.05,
-        law: "The king's rate, the denier vingt: 5 in 100 a year",
-      };
-    case "spanish":
-      return {
-        rate: 0.05,
-        law: "The pragmática of 1608: censos at no less than 20,000 maravedís the thousand, 5 in 100 a year",
-      };
-    case "dutch":
-    case "swedish":
-      return { rate: 0.06, law: "The colonies' common rate: 6 in 100 a year" };
-  }
-  const col = colonyOf(map, p);
-  if (col === "massachusetts" || col === "maine")
-    return y < 1693
-      ? { rate: 0.08, law: "Massachusetts' law of 1641: 8 in 100 a year" }
-      : { rate: 0.06, law: "Massachusetts' act of 1693: 6 in 100 a year" };
-  if (col === "virginia" && y >= 1748)
+  const { law: l, adjective } = lawOf(s, p);
+  if (l === "native")
     return {
-      rate: 0.05,
-      law: "Virginia's act to restrain the taking of excessive usury (1748): 5 in 100 a year",
+      rate: 0,
+      law: `Among the ${adjective} nobody takes interest: a loan is repaid in kind and in goodwill`,
     };
-  if (col === "pennsylvania")
-    return y < 1723
-      ? { rate: 0.08, law: "Pennsylvania's law before 1722: 8 in 100 a year" }
-      : {
-          rate: 0.06,
-          law: "Pennsylvania's act of 1722, from eight in a hundred to six",
-        };
-  return y < 1660
-    ? { rate: 0.08, law: "The act against usury of 1624: 8 in 100 a year" }
-    : {
-        rate: 0.06,
-        law: "The act against excessive usury of 1660: 6 in 100 a year",
-      };
+  const law = l === "none" ? "english" : l;
+  const col = colonyOf(map, p);
+  const inYear = (u: UsuryLaw) => y >= u.from && y <= u.to;
+  const rule =
+    (law === "english"
+      ? USURY.find((u) => u.colonies?.includes(col) && inYear(u))
+      : undefined) ?? USURY.find((u) => u.law === law && inYear(u));
+  return rule
+    ? { rate: rule.rate, law: rule.text }
+    : { rate: 0.06, law: "The colonies' common rate: 6 in 100 a year" };
 }
 
 /** "6 in 100 a year", "no interest". */
@@ -298,11 +379,19 @@ export function booksHaveLoans(l: Partial<Life>): boolean {
 
 /** A life's books as anyone else is sent them: a bond's lines taken out. */
 export function booksForOthers<T extends Partial<Life>>(l: T, out: T): void {
-  const strip = <B extends { lines: { k: string }[]; exp?: Record<string, number> }>(b: B): B => ({
+  const strip = <
+    B extends { lines: { k: string }[]; exp?: Record<string, number> },
+  >(
+    b: B,
+  ): B => ({
     ...b,
     lines: b.lines.filter((x) => !loanLine(x.k)),
     ...(b.exp
-      ? { exp: Object.fromEntries(Object.entries(b.exp).filter(([k]) => !loanLine(k))) }
+      ? {
+          exp: Object.fromEntries(
+            Object.entries(b.exp).filter(([k]) => !loanLine(k)),
+          ),
+        }
       : {}),
   });
   if (l.books) out.books = strip(l.books);

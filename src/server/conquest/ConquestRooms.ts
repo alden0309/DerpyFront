@@ -37,14 +37,14 @@ import {
   deltaHasSecrets,
   stateForIntrigue,
 } from "../../conquest/engine/IntrigueCore"; // INTRIGUE (r15)
+import { planProblem } from "../../conquest/engine/Life";
+import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
+import { lifeOfSeat, lifeScore } from "../../conquest/engine/LifeQueries";
 import {
   loanDeltaForSeat,
   loanDeltaSecret,
   loanStateForSeat,
 } from "../../conquest/engine/LoanCore"; // ECON (r17)
-import { planProblem } from "../../conquest/engine/Life";
-import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
-import { lifeOfSeat, lifeScore } from "../../conquest/engine/LifeQueries";
 import { AMERICAS } from "../../conquest/engine/Map";
 import { NOTE_MAX } from "../../conquest/engine/Notes"; // INTRIGUE (r15)
 import {
