@@ -23,6 +23,10 @@ import {
 } from "../../conquest/engine/BondCore"; // LABOUR (r15)
 import { dateOf } from "../../conquest/engine/Calendar";
 import { lifeCoins } from "../../conquest/engine/Coins";
+import {
+  crownDeltaForSeat,
+  crownStateForSeat,
+} from "../../conquest/engine/CrownCore"; // CROWN (r18)
 import { dropFromTable } from "../../conquest/engine/Dice"; // DICE (r14)
 import {
   diceView,
@@ -1218,9 +1222,13 @@ export class ConquestRooms {
       // INTRIGUE (r15): and everyone's schemes and private letters but your own.
       // LABOUR (r15): and another household's door, opened to someone fleeing.
       // ECON (r17): and bonds, but your own.
-      state: loanStateForSeat(
-        labourStateForSeat(
-          stateForIntrigue(stateForSeat(room.game.state, seat.id), seat.id),
+      // CROWN (r18): and another colony's petition to its crown, until it sails.
+      state: crownStateForSeat(
+        loanStateForSeat(
+          labourStateForSeat(
+            stateForIntrigue(stateForSeat(room.game.state, seat.id), seat.id),
+            seat.id,
+          ),
           seat.id,
         ),
         seat.id,
@@ -1353,13 +1361,15 @@ export class ConquestRooms {
     const secret = deltaHasSecrets(d);
     const bond = labourDeltaSecret(d);
     const loans = loanDeltaSecret(d); // ECON (r17): bonds, each player's own
-    if (d.dice || secret || bond || loans)
+    const crown = !!d.crown; // CROWN (r18): a petition is its colony's until it sails
+    if (d.dice || secret || bond || loans || crown)
       for (const seat of room.seats) {
         if (!seat.conn) continue;
         let mine = d.dice ? { ...d, dice: diceView(d.dice, seat.id) } : d;
         if (secret) mine = deltaForSeat(room.game.state, mine, seat.id);
         if (bond) mine = labourDeltaForSeat(mine, seat.id);
         if (loans) mine = loanDeltaForSeat(mine, seat.id);
+        if (crown) mine = crownDeltaForSeat(room.game.state, mine, seat.id);
         this.send(seat.conn, { t: "d", d: mine });
       }
     else this.broadcast(room, { t: "d", d });

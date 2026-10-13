@@ -415,12 +415,18 @@ function powerEconomy(g: ConquestGame, n: number): void {
       value: gross * nation.remit,
     });
   let upkeep = 0;
+  let crownPay = 0; // CROWN (r18): the crown's regiments from Europe, on a line of their own
   for (const a of s.armies) {
     if (a.owner !== n) continue;
-    for (const r of a.regs)
-      upkeep += REGIMENTS[r.type].upkeep * (r.men / REGIMENTS[r.type].men);
+    for (const r of a.regs) {
+      const pay = REGIMENTS[r.type].upkeep * (r.men / REGIMENTS[r.type].men);
+      if (r.crown) crownPay += pay;
+      else upkeep += pay;
+    }
   }
   if (upkeep > 0) spending.push({ label: "Soldiers' pay", value: upkeep });
+  if (crownPay > 0)
+    spending.push({ label: "The crown's regiments", value: crownPay });
   let buildingUpkeep = 0;
   for (const p of provs) {
     for (const [k, lvl] of Object.entries(s.provinces[p].b) as [

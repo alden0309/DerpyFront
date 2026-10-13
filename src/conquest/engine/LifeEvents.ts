@@ -3648,6 +3648,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
 
 import { BOND_EVENTS } from "./BondEvents"; // LABOUR (r15)
 import { chairEvents, chairQuiet } from "./ChairEvents"; // CHAIR (r16)
+import { crownEvents, crownQuiet } from "./CrownEvents"; // CROWN (r18)
 import { DICE_EVENTS } from "./DiceEvents"; // DICE (r14)
 import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
 import { econEvents, econQuiet } from "./EconEvents"; // ECON (r17)
@@ -3734,6 +3735,12 @@ function byKey(key: string): LifeEventDef | undefined {
       }
     // WAR (r17): a plot in a town under foreign rule.
     for (const d of reclaimEvents())
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // CROWN (r18): a petition granted: who leads the expedition.
+    for (const d of crownEvents())
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
@@ -4001,7 +4008,8 @@ function firstAllowed(
     seaQuiet()[ev.key] ??
     chairQuiet()[ev.key] ??
     econQuiet()[ev.key] ??
-    reclaimQuiet()[ev.key]; // SEA (r15), CHAIR (r16), ECON and WAR (r17)
+    reclaimQuiet()[ev.key] ?? // SEA (r15), CHAIR (r16), ECON and WAR (r17)
+    crownQuiet()[ev.key]; // CROWN (r18)
   if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
     return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.

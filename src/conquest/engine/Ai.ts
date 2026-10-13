@@ -3,6 +3,13 @@
 // How they lean depends on their ruler's traits and the difficulty.
 
 import { seatCandidates } from "./Characters";
+import {
+  crownAim,
+  crownArmy,
+  crownRegs,
+  expeditionOfArmy,
+  isGarrison,
+} from "./CrownCore"; // CROWN (r18)
 import { mainPort } from "./Economy";
 import type { ConquestGame } from "./Game";
 import { skipped } from "./Hooks";
@@ -372,7 +379,9 @@ function military(g: ConquestGame, n: number): void {
     claimMuster(s, n); // WAR (r17): strong enough to take its towns back
   const have =
     armiesOf(s, n).reduce((m, a) => m + a.regs.length, 0) +
-    provincesOf(s, n).reduce((m, p) => m + s.provinces[p].recruits.length, 0);
+    provincesOf(s, n).reduce((m, p) => m + s.provinces[p].recruits.length, 0) -
+    crownRegs(s, n); // CROWN (r18): the crown's own from Europe don't stand for the colony's
+
   const batches = Math.min(want - have, nation.gold > 300 ? 3 : 1);
   for (let i = 0; i < batches && s.nations[n].gold > 40; i++) {
     const rich = s.nations[n].gold > 120;
@@ -398,7 +407,9 @@ function military(g: ConquestGame, n: number): void {
 function commanders(g: ConquestGame, n: number): void {
   const s = g.s;
   const nation = s.nations[n];
-  const armies = armiesOf(s, n).sort((a, b) => armyMen(b) - armyMen(a));
+  const armies = armiesOf(s, n)
+    .filter((a) => !isGarrison(s, a)) // CROWN (r18): a fortress's garrison keeps its walls
+    .sort((a, b) => armyMen(b) - armyMen(a));
   const marshal = s.chars[nation.council.marshal];
   if (
     marshal?.alive &&
@@ -416,10 +427,12 @@ function gather(g: ConquestGame, n: number): void {
   if (home < 0) return;
   for (const a of armiesOf(s, n)) {
     if (a.depart >= 0 || a.retreating || playerArmy(g, a)) continue;
+    if (isGarrison(s, a)) continue; // CROWN (r18): a fortress's garrison stays
     if (a.prov !== home) g.command(n, { k: "move", a: a.id, to: home });
   }
   const here = armiesOf(s, n).filter(
-    (a) => a.prov === home && a.depart < 0 && !playerArmy(g, a),
+    (a) =>
+      a.prov === home && a.depart < 0 && !playerArmy(g, a) && !isGarrison(s, a), // CROWN (r18)
   );
   for (let i = 1; i < here.length; i++)
     g.command(n, { k: "merge", a: here[0].id, b: here[i].id });
@@ -435,6 +448,21 @@ function campaign(g: ConquestGame, n: number): void {
     // Busy besieging? keep at it.
     const pr = s.provinces[a.prov];
     if (pr.siege?.by === n) continue;
+    // CROWN (r18): a fortress's garrison holds its walls; the crown's
+    // regiments from Europe (and an expedition) go first for the war's aims.
+    if (isGarrison(s, a)) continue;
+    const exp = expeditionOfArmy(s, a);
+    let aim = exp ? exp.p : crownArmy(a) ? crownAim(s, n) : -1;
+    if (aim >= 0 && !exp) {
+      // Not against odds of three to two: the war's other aims, then.
+      const foes = s.armies
+        .filter((x) => x.prov === aim && atWar(s, x.owner, n))
+        .reduce((m, x) => m + armyMen(x), 0);
+      if (foes > armyMen(a) * 1.5) aim = -1;
+    }
+    if (aim === a.prov) continue;
+    if (aim >= 0 && g.command(n, { k: "move", a: a.id, to: aim }) === null)
+      continue;
     const target = pickTarget(g, n, a, l.aggression);
     if (target >= 0 && target !== a.prov)
       g.command(n, { k: "move", a: a.id, to: target });
