@@ -749,6 +749,17 @@ hooks.risingWon.push((g, m) => {
   endRising(g, m);
   if (s.provinces[p].owner !== ruler)
     return `${m.name} has carried the day at ${town(g, p)}.`;
+  // Its rulers let it be for some years, as after a peace: no taking it
+  // straight back (and no taking it back again after that).
+  const settled = (to: number): void => {
+    if (to === ruler || to < 0 || atWar(s, ruler, to)) return;
+    s.truces.push({
+      a: ruler,
+      b: to,
+      until: s.day + RISING.truceYears * DAYS_PER_YEAR,
+    });
+    g.trucesChanged();
+  };
   const O = s.nations[tr.old];
   let aim = tr.aim;
   if (aim === "restore" && !O?.alive) aim = "free";
@@ -774,15 +785,18 @@ hooks.risingWon.push((g, m) => {
     takenHow.how = "rising";
     cede(g, p, tr.old);
     takenHow.how = "";
+    settled(tr.old);
     return `${m.name} has driven the ${R.adjective} out of ${town(g, p)}; it is ${O.name.replace(/^the /, "the ")}'s again.`;
   }
   if (aim === "restore") {
     takenHow.how = "rising";
     cede(g, p, tr.old);
     takenHow.how = "";
+    settled(tr.old);
     return `${town(g, p)} has risen and given itself back to ${O.name}: the ${R.adjective} garrison is gone.`;
   }
   const free = freeTown(g, m, p);
+  settled(free);
   return `${town(g, p)} has risen and stands alone: ${s.nations[free].name}, under ${charName(s.chars[m.leader])}.`;
 });
 

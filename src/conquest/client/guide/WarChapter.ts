@@ -100,7 +100,7 @@ ${nightTable()}
 
 If it isn't found out, it fights the garrison in the streets: its men (a hundred for every 20 of support, every two sworn and every 10 arms put by, 200 to 1,000) against the garrison, man for man counting ${RISING.garrisonEdge} times as many. Win, and the garrison marches out; lose, and the ringleaders are taken. Either way, found out or beaten, the town is cowed for ${FERMENT.cowedYears} years.
 
-Having taken its town, the rising is a war like any other ([[movements|Causes and risings]]): its host is a nation of its own, and its rulers come to take the town back. **Held ${RISING.holdMonths} months, it wins:** the town goes back to the nation it was taken from (or, with nobody left to go back to, it's a free town). A native town's people drive the colonists out; the colonists go to their own people's nearest town.
+Having taken its town, the rising is a war like any other ([[movements|Causes and risings]]): its host is a nation of its own, and its rulers come to take the town back. **Held ${RISING.holdMonths} months, it wins:** the town goes back to the nation it was taken from (or, with nobody left to go back to, it's a free town). A native town's people drive the colonists out; the colonists go to their own people's nearest town. Its old rulers then keep a truce of ${RISING.truceYears} years with its new, as after a peace (unless they're already at war).
 
 ## Stirring a town up
 In a town under foreign rule, its page has **Stir up the town**: a test of Persuasion (the odds on the button), +${FERMENT.stir} ferment (+${FERMENT.stirPoor} on a poor showing), once in ${STIR.days} days. Talk travels: ${STIR_RISK.pass * 100} in 100 you're informed upon, ${STIR_RISK.fail * 100} in 100 if it goes badly.

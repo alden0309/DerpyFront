@@ -23,7 +23,9 @@ import { endRising, rise } from "../../src/conquest/engine/Movements";
 import {
   atWar,
   provincesOf,
+  truceUntil,
   warBetween,
+  warCheck,
   warScore,
 } from "../../src/conquest/engine/Queries";
 import {
@@ -514,6 +516,11 @@ describe("a town's rising", () => {
     expect(g.s.provinces[SA].owner).toBe(spain);
     expect(claimOf(g.s, spain, SA)).toBeUndefined();
     expect(atWar(g.s, m.rebels, england)).toBe(false);
+    // England lets it be for some years: no taking it straight back.
+    expect(truceUntil(g.s, england, spain)).toBeGreaterThan(
+      g.s.day + (RISING.truceYears - 1) * DAYS_PER_YEAR,
+    );
+    expect(warCheck(g.s, england, spain).ok).toBe(false);
     expect(
       life.milestones.some(
         (x) => x.kind === "taken" && /St. Augustine went back to/.test(x.text),

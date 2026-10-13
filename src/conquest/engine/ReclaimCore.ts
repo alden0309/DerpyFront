@@ -493,6 +493,8 @@ export const RISING = {
   holdMonths: 6,
   /** Reach of the rulers' armies that could come to retake it (km). */
   reliefKm: 400,
+  /** Won, its old rulers and its new keep a truce this many years (as after a peace). */
+  truceYears: 5,
 };
 
 /** Regiments of a hundred a rising puts in the field: from its support, sworn members and arms. */
