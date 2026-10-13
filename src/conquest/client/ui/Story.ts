@@ -24,6 +24,7 @@ import { Geo, loadGeo, provincePaths } from "../MapView";
 import type { GameUi } from "./Context";
 import { token } from "./Context";
 import { storyIcon } from "./StoryIcons";
+import { term } from "./Terms";
 
 /** A colour for each generation's road. */
 const ROADS = [
@@ -342,8 +343,8 @@ export class LifeStory extends LitElement {
           ></cq-life-map>
           <p class="cq-muted small">
             Dashed: the roads travelled, a colour for each generation. The house
-            is home; the numbers are the moments told beside it (gilt: the great
-            ones).
+            is home; the numbers are the moments told beside it (gilt:
+            ${term("greatmoment", "the great ones")}).
           </p>
         </div>
         ${this.saga(story, life)}

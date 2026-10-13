@@ -2014,6 +2014,32 @@ const GOALS: Goal[] = [
     guide: "chair",
   },
   // ---- end CHAIR (r16)
+  // ---- STORY (r17): the story of your life, and your saved games
+  {
+    id: "story",
+    title: "See the story of my life so far",
+    words:
+      "story so far life tale timeline history memoir what happened epic deeds battles duels fights voyages prizes trials offices elections children degrees achievements legacy line generations",
+    group: "Body and mind",
+    where:
+      "Journal › The story: everything worth the telling, year by year and generation by generation, with an engraving for each kind, the great moments drawn larger, and the map of the roads travelled. The menu's Your story so far shows the same.",
+    go: tab({ k: "tab", tab: "journal", sub: "story" }),
+    goLabel: "Journal › The story",
+    guide: "story",
+  },
+  {
+    id: "saves-delete",
+    title: "Delete an old saved game",
+    words:
+      "delete saved game save remove erase old finished clear list lobby forget get rid of",
+    group: "Travel and the world",
+    where:
+      "The lobby (menu › Leave to the lobby): Your saved games › Delete… under a game you began (it asks first), or Remove from my list under one somebody else began. Finished and old games are folded under them, with Delete all finished games.",
+    go: (ui) => ui.modal({ k: "menu" }),
+    goLabel: "The menu",
+    guide: "saves",
+  },
+  // ---- end STORY (r17)
   // ---- LABOUR (r15): bondage in the colonies, as history
   {
     id: "bond-law",

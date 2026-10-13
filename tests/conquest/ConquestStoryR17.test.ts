@@ -576,7 +576,7 @@ describe("how the story is told", () => {
     const told = storyOf(g.s, life).entries;
     // Everything up to that day is told the same at the end (and in order).
     expect(told.filter((e) => e.day <= day).map((e) => e.key)).toEqual(sofar);
-    expect(told.at(-1)!.day).toBeGreaterThan(day);
+    expect(told[told.length - 1].day).toBeGreaterThan(day);
     // Journal › The story is the very element the end shows.
     const div = document.createElement("div");
     render(
@@ -611,7 +611,7 @@ describe("how the story is told", () => {
     expect(life.milestones.some((m) => /governor/.test(m.text))).toBe(true);
     // The newest small things are kept; the oldest went.
     expect(life.milestones.some((m) => m.text === "Won a pot 0")).toBe(false);
-    expect(life.milestones.at(-1)!.text).toBe(
+    expect(life.milestones[life.milestones.length - 1].text).toBe(
       `Won a pot ${MAX_MILESTONES + 49}`,
     );
     expect(life.tally.kinds?.dice).toBe(MAX_MILESTONES + 50);
@@ -693,7 +693,8 @@ describe("how the story is told", () => {
     // It plays on, and the story keeps going.
     ticks(back, 30);
     milestone(back, bl, "fight", "A brawl", bl.prov, { quiet: true });
-    expect(storyOf(back.s, bl).entries.at(-1)!.kind).toBe("fight");
+    const after = storyOf(back.s, bl).entries;
+    expect(after[after.length - 1].kind).toBe("fight");
   });
 });
 
