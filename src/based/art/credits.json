@@ -1,0 +1,187 @@
+{
+  "note": "Every picture is graded (cool shadows, amber highlights), cropped to 16:9 or 4:5 and compressed to WebP. The sound is looped, and muffled for the inside of the bar. Adaptations of CC BY-SA works are shared under the same licence.",
+  "items": [
+    {
+      "keys": ["paris_rain"],
+      "what": "Picture",
+      "title": "Paris in the pouring rain",
+      "author": "David Blaikie",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/12568962@N00/6041333180"
+    },
+    {
+      "keys": ["vauban_window"],
+      "what": "Picture",
+      "title": "Dark Night",
+      "author": "Clem Onojeghuo",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://stocksnap.io/photo/dark-night-5RAXHC62OY"
+    },
+    {
+      "keys": ["bar_wide"],
+      "what": "Picture",
+      "title": "The Whisky Bar",
+      "author": "Bernt Rostad",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/67975030@N00/8571376142",
+      "changes": "Two beer-tap logos softened."
+    },
+    {
+      "keys": ["bar_counter", "photo_print"],
+      "what": "Picture",
+      "title": "At The Whisky Bar",
+      "author": "Bernt Rostad",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/67975030@N00/4789610042"
+    },
+    {
+      "keys": ["two_glasses"],
+      "what": "Picture",
+      "title": "Bartender serving whiskey",
+      "author": "rawpixel.com",
+      "license": "CC0 1.0 (public domain)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://www.rawpixel.com/image/6039359"
+    },
+    {
+      "keys": ["glass"],
+      "what": "Picture",
+      "title": "Whiskey glass",
+      "author": "rawpixel.com",
+      "license": "CC0 1.0 (public domain)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://www.rawpixel.com/image/5911843"
+    },
+    {
+      "keys": ["london"],
+      "what": "Picture",
+      "title": "The Thames at night",
+      "author": "Mark Towning",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/84489880@N06/22437421326"
+    },
+    {
+      "keys": ["vienna_bridge"],
+      "what": "Picture",
+      "title": "U4 Brücke über die Wien",
+      "author": "Andreas Perhab (bigbear3001)",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "source": "https://www.flickr.com/photos/27618206@N05/4201542330"
+    },
+    {
+      "keys": ["rain_window"],
+      "what": "Picture",
+      "title": "Randomness.",
+      "author": "Tiomax80",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/69062568@N02/10978353766"
+    },
+    {
+      "keys": ["stools"],
+      "what": "Picture",
+      "title": "Stools Bar",
+      "author": "Daria Nepriakhina",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://stocksnap.io/photo/stools-bar-U03HNOSR4L"
+    },
+    {
+      "keys": ["stranger", "stranger_wide"],
+      "what": "Picture",
+      "title": "Suit Tie",
+      "author": "Ben Rosett",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://stocksnap.io/photo/suit-tie-RJQ5YA1291"
+    },
+    {
+      "keys": ["candle_corner"],
+      "what": "Picture",
+      "title": "Covent Garden Pub Night Light",
+      "author": "Pavlina Jane",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "source": "https://www.flickr.com/photos/60291025@N05/11038847483"
+    },
+    {
+      "keys": ["photo_print"],
+      "what": "Picture",
+      "title": "Man slowly walking through thick snow",
+      "author": "Horia Varlan",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/10361931@N06/4270031180",
+      "changes": "Made into a print lying on the bar."
+    },
+    {
+      "keys": ["invalides"],
+      "what": "Picture",
+      "title": "Pont Alexandre III and the Invalides, 30 December 2012",
+      "author": "Guillaume Baviere (Giåm)",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/84554176@N00/8441219233"
+    },
+    {
+      "keys": ["street_exit"],
+      "what": "Picture",
+      "title": "Rainy night",
+      "author": "Francisco Anzola",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/10345599@N03/49625218668"
+    },
+    {
+      "keys": ["epilogue"],
+      "what": "Picture",
+      "title": "Zurich Street #05",
+      "author": "Alexandros Plakidas",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/99489540@N02/18821425410"
+    },
+    {
+      "keys": ["based", "based_portrait"],
+      "what": "Picture",
+      "title": "Deep in Thought",
+      "author": "Kreg Steppe",
+      "license": "CC BY-SA 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+      "source": "https://www.flickr.com/photos/44124421278@N01/2884915815"
+    },
+    {
+      "keys": ["anselme"],
+      "what": "Picture",
+      "title": "The artistic barman of Su Nuraghe @ Pula",
+      "author": "Pietro Zanarini (zipckr)",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/7363465@N08/950418651"
+    },
+    {
+      "keys": ["penhallow"],
+      "what": "Picture",
+      "title": "Reading in Nero's Picadilly Gardens",
+      "author": "Steve Garry (Waka Jawaka)",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+      "source": "https://www.flickr.com/photos/84165176@N00/1262025340"
+    },
+    {
+      "keys": ["rain", "rain_in"],
+      "what": "Sound",
+      "title": "Heavy Rain in Summer",
+      "author": "Fiver, der Hellseher",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "source": "https://commons.wikimedia.org/wiki/File:Heavy_Rain_in_Summer.ogg"
+    }
+  ]
+}
