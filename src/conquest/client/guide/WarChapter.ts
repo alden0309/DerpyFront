@@ -33,6 +33,7 @@ function fermentTable(): string {
 | Its people of another tongue than their rulers | ${signed(F.tongue)} (all of them; less for fewer) |
 | Of another faith | ${signed(F.faith)} (half again under a zealous ruler, half under a tolerant one) |
 | Its old owner's own people, loyal to them | ${signed(F.loyal)} (all of them) |
+| Colonists under a native nation, cut off from their own courts, church and trade | ${signed(F.nativeRule)} (all of them) |
 | No soldiers of its rulers in the town | ${signed(F.noGarrison)} |
 | A garrison: one soldier in ${F.garrisonPer} of its people (at least ${F.garrisonMin}) | ${signed(F.garrison)}, down to ${signed(F.garrison * 2)} at twice that |
 | High taxes · a cruel ruler · a greedy one · a just one | ${signed(F.highTax)} · ${signed(F.cruel)} · ${signed(F.greedy)} · ${signed(F.just)} |

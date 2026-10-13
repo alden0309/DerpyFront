@@ -224,8 +224,8 @@ export function mendOccupations(g: ConquestGame): void {
     if (pr.owner < 0 && isRealm(O) && O!.alive) {
       // Theirs, as it has been in all but name.
       const people0 = kinNation(g, p, occ);
+      // Theirs in law from today: the town takes it as newly taken.
       cede(g, p, occ);
-      delete reclaimState(g).held[p];
       g.event({
         k: "news",
         day: s.day,
@@ -233,7 +233,7 @@ export function mendOccupations(g: ConquestGame): void {
         p,
         text: `${town(g, p)}, held by ${named(g, occ)} with nobody's leave, is theirs now in law.`,
       });
-      if (people0 >= 0) {
+      if (people0 >= 0 && !claimOf(s, people0, p)) {
         const { base, parts } = claimParts(s, p, people0, undefined, false);
         if (base >= CLAIM.minBase) {
           reclaimState(g).claims.push({

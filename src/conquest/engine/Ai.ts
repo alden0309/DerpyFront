@@ -51,7 +51,7 @@ import {
   warMonths,
   warScore,
 } from "./Queries";
-import { CLAIM, claimPull } from "./ReclaimCore"; // WAR (r17)
+import { CLAIM, claimMuster, claimPull } from "./ReclaimCore"; // WAR (r17)
 import { DIFFICULTY, REGIMENTS, WARRIOR_SHARE } from "./Rules";
 import { orderQuote } from "./Trade";
 import {
@@ -364,7 +364,11 @@ function military(g: ConquestGame, n: number): void {
     (m, p) => m + settlers(s.provinces[p]),
     0,
   );
-  const want = Math.floor(folk / 1800) + 1 + (enemies.length > 0 ? 3 : 0);
+  const want =
+    Math.floor(folk / 1800) +
+    1 +
+    (enemies.length > 0 ? 3 : 0) +
+    claimMuster(s, n); // WAR (r17): strong enough to take its towns back
   const have =
     armiesOf(s, n).reduce((m, a) => m + a.regs.length, 0) +
     provincesOf(s, n).reduce((m, p) => m + s.provinces[p].recruits.length, 0);

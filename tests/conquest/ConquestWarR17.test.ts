@@ -154,6 +154,19 @@ describe("occupations nobody could end are mended", () => {
     const c = claimOf(g.s, spain, SA);
     expect(c?.how).toBe("mended");
     expect(c!.base).toBeGreaterThan(CLAIM.war);
+    // Once only, however many months it's mended.
+    mendOccupations(g);
+    expect(
+      reclaimOf(g.s).claims.filter((x) => x.p === SA && x.by === spain),
+    ).toHaveLength(1);
+    // Its Spanish townsfolk, under the Muscogee, cut off from their own, stir.
+    month(g);
+    const y = yokeOf(g.s, SA)!;
+    expect(y.old).toBe(spain);
+    expect(
+      y.parts.some((p) => /colonists under the Muscogee/.test(p.label)),
+    ).toBe(true);
+    expect(y.target).toBeGreaterThan(60);
   });
 
   test("an occupation in a real war is left alone", () => {

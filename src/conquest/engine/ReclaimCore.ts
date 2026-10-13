@@ -123,6 +123,8 @@ export const CLAIM = {
   pull: 40,
   /** At the peace it asks for a claimed town it holds once the war is going this well. */
   peaceScore: 10,
+  /** Regiments more it keeps under arms while it has a claim worth a war: it means to be strong enough. */
+  muster: 3,
 };
 
 /** The people of a nation in a town: their share of everyone there. */
@@ -236,6 +238,18 @@ export function claimOf(s: GameState, n: number, p: number): Claim | undefined {
   return reclaimOf(s).claims.find((c) => c.by === n && c.p === p);
 }
 
+/** Regiments more a colony keeps under arms for its claims: some, while it has one worth a war. */
+export function claimMuster(s: GameState, n: number): number {
+  for (const c of reclaimOf(s).claims) {
+    if (c.by !== n) continue;
+    const h = s.provinces[c.p]?.owner ?? -1;
+    if (h < 0 || h === n) continue;
+    const need = s.nations[h]?.kind === "power" ? CLAIM.warPower : CLAIM.war;
+    if (claimLive(s, c).total >= need) return CLAIM.muster;
+  }
+  return 0;
+}
+
 /**
  * How much a nation's armies are drawn to a town it claims, and how much
  * sooner it asks for it at the peace: its claim ÷ 40 (0 if it has none
@@ -260,6 +274,8 @@ export const FERMENT = {
   faith: 15,
   /** All of them the old owner's own people, still loyal to it. */
   loyal: 15,
+  /** Colonists under a native nation, cut off from their own courts, church and trade (all of them). */
+  nativeRule: 10,
   /** The faith counts this much more under a zealous ruler, this much less under a tolerant one. */
   zealous: 1.5,
   tolerant: 0.5,
@@ -344,14 +360,17 @@ export function fermentTarget(
   let tongue = 0;
   let faith = 0;
   let unfed = 0;
+  let colonists = 0;
   for (const pop of pr.pops) {
     if (pop.culture !== R.culture) tongue += pop.size;
     if (pop.religion !== R.religion) faith += pop.size;
+    if (pop.cls !== "tribe") colonists += pop.size;
     unfed += (1 - (pop.met?.[0] ?? 1)) * pop.size;
   }
   tongue /= all;
   faith /= all;
   unfed /= all;
+  colonists /= all;
   const gov = rulerOf(s, ruler);
   add(
     `${Math.round(tongue * 100)} in 100 of another tongue than the ${R.adjective}`,
@@ -367,6 +386,11 @@ export function fermentTarget(
     faith * FERMENT.faith * faithMul,
   );
   if (hasTrait(gov, "tolerant")) add("A tolerant ruler", FERMENT.tolerance);
+  if (R.kind === "native" && colonists > 0)
+    add(
+      `${Math.round(colonists * 100)} in 100 colonists under the ${R.name.replace(/^the /, "")}, cut off from their own`,
+      colonists * FERMENT.nativeRule,
+    );
   const men = garrisonOf(s, p, ruler);
   const need = garrisonNeed(pr);
   const ratio = men / need;
