@@ -465,17 +465,35 @@ describe("CROWN r18: a petition for an expedition", () => {
     expect(c ? claimLive(s, c).total : 0).toBeLessThanOrEqual(c0 / 2 + 0.1);
   });
 
-  test("refused in a truce: the answer comes, the colony's favour moves a little", () => {
+  test("a truce made meanwhile makes it moot; refused outright, the colony's favour moves a little", () => {
     const { g, spain, england } = quiet();
     const s = g.s;
     cede(g, SA, england);
-    s.truces.push({ a: spain, b: england, until: s.day + 5 * DAYS_PER_YEAR });
+    s.truces = s.truces.filter(
+      (t) =>
+        !(
+          (t.a === spain && t.b === england) ||
+          (t.b === spain && t.a === england)
+        ),
+    );
     const a = beginAsk(g, spain, SA, s.nations[spain].ruler, true);
-    s.day = a.answer;
-    answerAsk(g, a);
-    const done = crownOf(s).past.find((x) => x.id === a.id)!;
+    s.truces.push({ a: spain, b: england, until: s.day + 5 * DAYS_PER_YEAR });
+    g.tick();
+    const moot = crownOf(s).past.find((x) => x.id === a.id)!;
+    expect(moot.stage).toBe("dropped");
+    expect(s.nations[spain].mods.some((m) => m.key === "crown-refused")).toBe(
+      false,
+    );
+    // Refused at its odds: a roll that goes against it.
+    s.truces = [];
+    const b = beginAsk(g, spain, SA, s.nations[spain].ruler, true);
+    let id = b.id;
+    while (grantRoll(s, map, { ...b, id })) id += 1;
+    b.id = id;
+    answerAsk(g, b);
+    const done = crownOf(s).past.find((x) => x.id === id)!;
     expect(done.stage).toBe("refused");
-    expect(done.odds).toBe(0);
+    expect(done.odds).toBeGreaterThan(0);
     expect(s.nations[spain].mods.some((m) => m.key === "crown-refused")).toBe(
       true,
     );

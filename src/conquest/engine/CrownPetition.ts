@@ -235,10 +235,10 @@ function npcOffer(g: ConquestGame, n: number): { men: number; gold: number } {
   let own = 0;
   for (const a of s.armies)
     if (a.owner === n) for (const r of a.regs) if (!r.crown) own++;
-  const men = Math.min(2, Math.floor(own / 4));
+  const men = own >= 2 ? Math.min(2, Math.max(1, Math.floor(own / 3))) : 0;
   const gold = Math.max(
     0,
-    Math.min(EXPEDITION.offerGold, Math.floor(s.nations[n].gold * 0.08)),
+    Math.min(EXPEDITION.offerGold, Math.floor(s.nations[n].gold * 0.1)),
   );
   return { men, gold: Math.floor(gold / 25) * 25 };
 }
@@ -1102,7 +1102,13 @@ function npcGathers(g: ConquestGame, a: CrownAsk): void {
 }
 
 /** The odds a computer governor wants before he petitions (lower when a player has asked him). */
-export const NPC_ASK = { min: 0.3, asked: 0.2, chance: 0.2 };
+export const NPC_ASK = {
+  min: 0.3,
+  asked: 0.2,
+  chance: 0.2,
+  /** The support he reckons on gathering in the four months (two letters from each, a friend at court). */
+  expect: { council: [-1, -2], house: [-1, -2], court: 1 },
+};
 
 /** The computer's governors petition for a town where it's sensible. */
 function npcPetitions(g: ConquestGame): void {
@@ -1136,9 +1142,10 @@ function npcPetitions(g: ConquestGame): void {
           men: o.men,
           gold: o.gold,
           paid: {},
-          council: [],
-          house: [],
-          court: 1,
+          // What he can count on gathering as it goes (NPC_ASK.expect).
+          council: NPC_ASK.expect.council,
+          house: NPC_ASK.expect.house,
+          court: NPC_ASK.expect.court,
         },
         gov.id,
       ).total;
@@ -1264,4 +1271,3 @@ hooks.daily.push(askDaily);
 hooks.monthEnd.push(petitionsMonthly);
 hooks.lifeDaily.push(riderDaily);
 hooks.lifeMonthly.push(retainer);
-
