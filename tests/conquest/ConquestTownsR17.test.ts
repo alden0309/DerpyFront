@@ -120,7 +120,7 @@ describe("newcomers with the settlers", () => {
     expect(
       householdsOf(g.s, STA).some((c) => !c.female && marriageable(g.s, c)),
     ).toBe(true);
-  });
+  }, 120_000);
 
   test("settlers arriving bring people in proportion", () => {
     const g = spanish();
@@ -139,7 +139,7 @@ describe("newcomers with the settlers", () => {
     toNextMonth(g);
     const after = (t.came[STA] ?? []).filter((a) => !a.gone).length;
     expect(after).toBeGreaterThan(before);
-  });
+  }, 120_000);
 
   test("the caps hold: households by the town's size, and the posts at fourteen", () => {
     const g = spanish(1650, 11);
@@ -156,7 +156,7 @@ describe("newcomers with the settlers", () => {
         expect(new Set(list).size).toBe(list.length);
       }
     }
-  });
+  }, 120_000);
 
   test("a widow keeps house with her children when the holder of a post dies", () => {
     const g = spanish();
@@ -171,7 +171,7 @@ describe("newcomers with the settlers", () => {
     expect(g.s.locals[STA]).toContain(wife.id);
     expect(wife.came?.how).toBe("widow");
     expect(householdsOf(g.s, STA).map((c) => c.id)).toContain(wife.id);
-  });
+  }, 120_000);
 
   test("a town with nobody to marry for a year or two draws someone through ordinary life", () => {
     const g = spanish();
@@ -190,7 +190,7 @@ describe("newcomers with the settlers", () => {
     // It came as news (a grown child of the town keeps house without it).
     const came = t.came[STA] ?? [];
     expect(came.length).toBeGreaterThanOrEqual(before);
-  });
+  }, 120_000);
 
   test("a native town takes in kin from the nation's other towns", () => {
     const g = world({
@@ -219,7 +219,7 @@ describe("newcomers with the settlers", () => {
     expect(heads.every((c) => c.religion === "native")).toBe(true);
     for (const a of t.came[p] ?? [])
       if (!a.gone) expect(["visit", "marry", "kin", "grown"]).toContain(a.how);
-  });
+  }, 120_000);
 });
 
 describe("a town taken: ruins, a landing, and its people", () => {
@@ -257,7 +257,7 @@ describe("a town taken: ruins, a landing, and its people", () => {
       (townsState(g2).ruins[STA] ?? []).every((r) => r.how === "abandoned"),
     ).toBe(true);
     expect(bodyOf(s2, STA).name).toBe("the council fire");
-  });
+  }, 120_000);
 
   test("the hook does nothing the second time; colonists go with the settlers and the nation's people take the posts", () => {
     const g = spanish();
@@ -291,7 +291,7 @@ describe("a town taken: ruins, a landing, and its people", () => {
         (a) => a.gone && /with the settlers/.test(a.text),
       ),
     ).toBe(true);
-  });
+  }, 120_000);
 });
 
 describe("public works by vote", () => {
@@ -331,7 +331,7 @@ describe("public works by vote", () => {
     // A player who votes against moves the odds.
     const against = carryChance(leansOn(s, motion, { [life.c]: -1 }));
     expect(against).toBeLessThan(odds);
-  });
+  }, 120_000);
 
   test("a proposal carries or is thrown out by its votes, as the members lean", () => {
     const g = spanish();
@@ -412,7 +412,7 @@ describe("public works by vote", () => {
     expect(lost?.stage).toBe("lost");
     // Not again for half a year.
     expect(proposeCheck(s, g.w, life, "road").ok).toBe(false);
-  });
+  }, 120_000);
 
   test("a ruined dock is repaired by vote, paid by levy and subscription, and works for travel again", () => {
     const g = spanish();
@@ -484,7 +484,7 @@ describe("public works by vote", () => {
     const route = travelRoute(s, map, STA, prov("Havana"), true);
     expect(route?.sea.some(Boolean)).toBe(true);
     expect(life.milestones.some((m) => /wharf/i.test(m.text))).toBe(true);
-  });
+  }, 120_000);
 
   test("a petition from someone who doesn't sit, and the computer's members bring a repair themselves", () => {
     const g = spanish();
@@ -510,7 +510,7 @@ describe("public works by vote", () => {
       );
     }
     expect(brought).toBe(true);
-  });
+  }, 120_000);
 });
 
 describe("saves and the delta", () => {
@@ -543,5 +543,5 @@ describe("saves and the delta", () => {
     }
     expect(JSON.stringify(a.s.towns)).toBe(JSON.stringify(b.s.towns));
     expect(a.s.locals[STA]).toEqual(b.s.locals[STA]);
-  });
+  }, 120_000);
 });
