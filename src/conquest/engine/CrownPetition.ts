@@ -42,6 +42,7 @@ import {
   lettersCheck,
   meansOf,
   nm,
+  NPC_ASK,
   offerCheck,
   offerOdds,
   onCouncil,
@@ -1100,15 +1101,6 @@ function npcGathers(g: ConquestGame, a: CrownAsk): void {
   if (a.court < EXPEDITION.maxCourt && dice.chance(0.3)) a.court++;
   crownChanged(g);
 }
-
-/** The odds a computer governor wants before he petitions (lower when a player has asked him). */
-export const NPC_ASK = {
-  min: 0.3,
-  asked: 0.2,
-  chance: 0.2,
-  /** The support he reckons on gathering in the four months (two letters from each, a friend at court). */
-  expect: { council: [-1, -2], house: [-1, -2], court: 1 },
-};
 
 /** The computer's governors petition for a town where it's sensible. */
 function npcPetitions(g: ConquestGame): void {

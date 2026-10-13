@@ -772,6 +772,15 @@ export const EXPEDITION = {
   colonyFailed: -8,
 };
 
+/** The odds a computer governor wants before he petitions (lower when a player has asked him). */
+export const NPC_ASK = {
+  min: 0.3,
+  asked: 0.2,
+  chance: 0.2,
+  /** The support he reckons on gathering in the four months (two letters from each, a friend at court). */
+  expect: { council: [-1, -2], house: [-1, -2], court: 1 },
+};
+
 /** The house's mind on the colony's offer (offerOdds reads every figure here). */
 export const OFFER = {
   /** A house votes men and money for its own towns as often as not. */

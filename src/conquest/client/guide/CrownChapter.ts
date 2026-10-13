@@ -10,6 +10,7 @@ import {
   EXPEDITION,
   FORTS,
   MEANS,
+  NPC_ASK,
   OFFER,
   PASSAGE,
   STAKE,
@@ -95,7 +96,7 @@ function oddsTable(): string {
 | In peace with another crown's colony: it would mean war between the crowns | ${signed(X.peacePower)}, less a point for each ${Math.round(1 / X.tensionPer / 100)} of tension between them (in Europe) |
 | In peace with a native nation | nothing either way |
 | A truce with them, or an alliance | the crown won't (none in 100) |
-| Their men within ${X.reach} km of the town (a native nation's warriors near, in part) against what would sail | from ${Math.round(X.oddsFrom * 100)} in 100 of it, ${Math.round(X.oddsPer * 100)} for each whole as many again, to ${signed(-X.oddsMax)} |
+| Their men within ${X.reach} km of the town (with the warriors a native nation's towns near would call up), against those who'd sail | nothing to ${Math.round(X.oddsFrom * 10)} in 10 of them; then ${Math.round(X.oddsPer * 10)} in 100 for each tenth more, to ${signed(-X.oddsMax)} |
 | The crown busy with other wars in Europe | ${signed(X.busy)} each, to ${signed(X.busyMax)} |
 | The colony's favour with the crown: ${X.trustMid} counts for nothing | a point in ${Math.round(1 / X.trustPer / 100)}, up to ${signed(X.trustMax)} either way |
 | Your own favour at home (the computer's governor: his friends at home) | a point in ${Math.round(1 / X.favorPer / 100)}, up to ${signed(X.favorMax)} (${signed(X.npcMax)}) |
@@ -154,7 +155,7 @@ ${oddsTable()}
 You can **ask the governor to petition** for a town your colony claims (once in six months). The computer's governor weighs it at the month's turn, and goes on shorter odds than he would on his own; a player governor is told. Once it's under way you can **pay into the colony's share** (handed back if it never sails), **write to friends at court** for it (renown ${EXPEDITION.courtRenown}), and, if you sit on the council or in the house, put **your own letter** to it. When it lands, **ride with it**.
 
 ## The computer's governors
-They petition too, for a town worth a war, when it would be granted ${in100(0.3)} or better (${in100(0.2)} when a player of the colony has asked), so towns are retaken where nobody plays.
+They petition too, for a town worth a war, when it would be granted ${in100(NPC_ASK.min)} or better (${in100(NPC_ASK.asked)} when a player of the colony has asked him), reckoning on the letters and the friend at court they'd gather, and offering what the colony can spare (a regiment or two, and a tenth of the treasury, to ${EXPEDITION.offerGold} gold). So towns are retaken where nobody plays.
 
 ## Secrecy
 A petition is its colony's business. The town's holder, and the rest of the world, hear of the expedition when it sails, not before.
