@@ -407,6 +407,11 @@ export function claimWar(
         fx: { favor: -10 },
       });
   }
+  // Every town it claims from them is fought for in this war (and each one
+  // not won back at the peace is the weaker for it): two lost wars and the
+  // lot are given up, so neighbours don't fight for ever.
+  for (const x of reclaimState(g).claims)
+    if (x.by === n && s.provinces[x.p].owner === h) x.war = s.day;
   c.war = s.day;
   reclaimChanged(g);
   rumour(g, c.p, `${nm(A.name)} has gone to war to take back ${town(g, c.p)}.`);
@@ -449,6 +454,7 @@ function yokesMonthly(g: ConquestGame): void {
     };
     y.ruler = ruler;
     y.old = old;
+    settlePlot(g, y);
     const t = fermentTarget(s, g.w, p, ruler, old, y.cowed ?? 0);
     if (!was) y.ferment = Math.min(30, t.total);
     y.target = t.total;
@@ -473,32 +479,36 @@ function liveMovement(g: ConquestGame, id: number): Movement | undefined {
   );
 }
 
+/** A plot that's over: crushed or found out, the town is cowed; faded or won, it rests. */
+function settlePlot(g: ConquestGame, y: Yoke): void {
+  const s = g.s;
+  if (y.m === undefined || liveMovement(g, y.m)) return;
+  const m = s.movements.find((x) => x.id === y.m);
+  if (m && m.status === "crushed") {
+    y.cowed = s.day + FERMENT.cowedYears * DAYS_PER_YEAR;
+    y.rest = y.cowed;
+    y.ferment = Math.min(y.ferment, 15);
+  } else y.rest = s.day + 2 * DAYS_PER_YEAR;
+  delete y.m;
+}
+
 /** A plot forming, or one under way kept in step with the town. */
 function plotMonthly(g: ConquestGame, y: Yoke): void {
   const s = g.s;
   if (y.m !== undefined) {
-    const m = s.movements.find((x) => x.id === y.m);
-    if (m && (m.status === "brewing" || m.status === "risen")) {
-      // A computer's plot grows with the town's temper (a player's with their work).
-      if (m.status === "brewing" && !lifeOfChar(s, m.leader)) {
-        const want = Math.max(25, y.ferment - 30);
-        m.support =
-          Math.round(
-            (m.support < want
-              ? m.support + (want - m.support) * 0.3
-              : m.support - Math.min(1, m.support - want)) * 10,
-          ) / 10;
-        g.movementsChanged();
-      }
-      return;
+    const m = liveMovement(g, y.m);
+    // A computer's plot grows with the town's temper (a player's with their work).
+    if (m && m.status === "brewing" && !lifeOfChar(s, m.leader)) {
+      const want = Math.max(25, y.ferment - 30);
+      m.support =
+        Math.round(
+          (m.support < want
+            ? m.support + (want - m.support) * 0.3
+            : m.support - Math.min(1, m.support - want)) * 10,
+        ) / 10;
+      g.movementsChanged();
     }
-    // It's over: crushed or found out, the town is cowed; faded, it rests.
-    if (m && m.status === "crushed") {
-      y.cowed = s.day + FERMENT.cowedYears * DAYS_PER_YEAR;
-      y.rest = y.cowed;
-      y.ferment = Math.min(y.ferment, 15);
-    } else y.rest = s.day + 2 * DAYS_PER_YEAR;
-    delete y.m;
+    return;
   }
   if ((y.rest ?? 0) > s.day) return;
   const chance = plotChance(y.ferment);

@@ -51,6 +51,8 @@ import {
   landCheck,
 } from "../../engine/Property";
 import { ageOf } from "../../engine/Queries"; // EDU (r13)
+import { plotOf } from "../../engine/Reclaim"; // WAR (r17)
+import { yokeOf } from "../../engine/ReclaimCore"; // WAR (r17)
 import { isHarvest } from "../../engine/Seasons"; // MAP (r12)
 import type { PlaceKind } from "../../engine/Types";
 import { FindIcon } from "../Icons";
@@ -2014,6 +2016,81 @@ const GOALS: Goal[] = [
     guide: "chair",
   },
   // ---- end CHAIR (r16)
+  // ---- WAR (r17): lost towns, claims, and risings against foreign rulers
+  {
+    id: "war-claims",
+    title: "Know who wants a town back",
+    words:
+      "claim claims lost town taken conquered reconquest retake take back occupied occupation who holds war aims",
+    group: "Travel and the world",
+    where:
+      "World › Lost towns and claims: every claim on a lost town, how strong it is and when it fades. A town's own page (click it on the map) says who holds it, since when, and who claims it; a nation's page, the towns it wants back.",
+    go: tab({ k: "tab", tab: "world" }),
+    goLabel: "World",
+    guide: "claims",
+  },
+  {
+    id: "war-ferment",
+    title: "Know how near a town is to rising against its rulers",
+    words:
+      "ferment unrest rising revolt rebel occupied foreign rule occupiers resistance people rise up",
+    group: "Travel and the world",
+    where:
+      "A town under foreign rule: its page (Here, or click it on the map) › Under foreign rule: its ferment, where it's heading and why (point at the number), and the chance a month of a plot.",
+    go: tab({ k: "tab", tab: "here" }),
+    goLabel: "Here",
+    guide: "claims",
+  },
+  {
+    id: "war-stir",
+    title: "Stir up a town against its foreign rulers",
+    words:
+      "stir up agitate incite rouse town people rise occupiers foreign rule ferment rebellion",
+    group: "Society",
+    where:
+      "In a town under foreign rule: Here › Under foreign rule › Stir up the town (a test of Persuasion, once a month; talk may reach the magistrate).",
+    needs: (ui) => {
+      const life = ui.life!;
+      const y = life.travel ? undefined : yokeOf(ui.s, life.prov);
+      return [
+        adult(ui),
+        {
+          label: y
+            ? `${ui.map.provinces[life.prov].name} is under foreign rule`
+            : `${ui.map.provinces[life.prov].name} isn't under foreign rule`,
+          met: !!y,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "here" }),
+    goLabel: "Here",
+    guide: "claims",
+  },
+  {
+    id: "war-plot",
+    title: "Join, lead or inform on a plot to rise",
+    words:
+      "plot rising rise join lead inform informer betray conspiracy town occupiers restore free town",
+    group: "Society",
+    where:
+      "When a plot forms in your town you're asked in a scene; after that, the town's page (Here › Under foreign rule) shows it, with the odds of its first night, and Swear yourself to it, Lead it and Inform on it.",
+    needs: (ui) => {
+      const life = ui.life!;
+      const y = life.travel ? undefined : yokeOf(ui.s, life.prov);
+      const m = y ? plotOf(ui, y) : undefined;
+      return [
+        adult(ui),
+        {
+          label: m ? `${m.name} is afoot here` : "No plot here now",
+          met: !!m,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "here" }),
+    goLabel: "Here",
+    guide: "claims",
+  },
+  // ---- end WAR (r17)
   // ---- LABOUR (r15): bondage in the colonies, as history
   {
     id: "bond-law",

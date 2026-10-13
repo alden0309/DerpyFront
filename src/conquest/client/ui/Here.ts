@@ -93,6 +93,7 @@ import { firmTag, partnerPart } from "./Partners"; // PARTNERS (r13)
 import { playersHere, playerTag } from "./Players"; // HOME (r12)
 import { powerParts } from "./PowerParts"; // POWER (r12)
 import { price, splitPrice } from "./Price"; // LEDGER (r15)
+import { townRuleBlock } from "./Reclaim"; // WAR (r17)
 import { seaCallout } from "./SeaPage"; // SEA (r15)
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
@@ -341,6 +342,11 @@ export function herePanel(ui: GameUi): TemplateResult {
       </div>`
     : nothing}
   ${leadsHereBlock(ui)}
+  ${
+    t
+      ? nothing
+      : townRuleBlock(ui, p) /* WAR (r17): foreign rule, claims, a plot */
+  }
   ${t
     ? html`<p class="cq-muted small cq-pad">
         Places and people open up when you arrive.
@@ -547,6 +553,7 @@ export function provincePage(ui: GameUi, p: number): TemplateResult {
           </p>`}`,
   )}
   ${officesLink(ui, p)}
+  ${sight === "known" ? nothing : townRuleBlock(ui, p) /* WAR (r17) */}
   ${armies.length
     ? section(
         "Armies",

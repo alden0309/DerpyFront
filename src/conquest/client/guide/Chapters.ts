@@ -170,6 +170,7 @@ import { BUSINESS_CHAPTER } from "./BusinessChapter";
 import { CHAIR_CHAPTER } from "./ChairChapter"; // CHAIR (r16)
 import { POLLS_CHAPTER } from "./PollsChapter"; // POLLS (r16)
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
+import { WAR_CHAPTER } from "./WarChapter"; // WAR (r17)
 // INTRIGUE (r15): hearts and schemes.
 import { CHAMBER_CHAPTER } from "./ChamberChapter"; // CHAMBER (r16)
 import { INTRIGUE_CHAPTER } from "./IntrigueChapter";
@@ -2053,6 +2054,9 @@ Join at a tavern or council fire where its people are (the place lists the cause
 ## The rising
 At **${RISE_SUPPORT} support** and **${RISE_MEMBERS} sworn** (the leader among them), the leader may call the rising, where the enemy holds the land. There's no going back: a rising is a real war, with its own army in the field. Command it and march on the enemy's capital: hold out and win, or hang. If it wins, the map changes: an overthrow puts its leader in the governor's chair; independence frees the colony from the crown, with its leader at its head. Either way the leader frames the new government ([[founding|A colony of your own]]), and everyone sworn to it wins renown (the leader most).`,
   },
+  // ---- WAR (r17): lost towns, claims and risings (guide/WarChapter.ts)
+  WAR_CHAPTER,
+  // ---- end WAR (r17)
   {
     id: "founding",
     part: "power",

@@ -39,5 +39,6 @@ import "./partners.css"; // PARTNERS (r13): partnerships
 import "./polls.css"; // POLLS (r16): the canvass
 import "./schooling.css"; // EDU (r13): school, apprenticeship, college
 import "./sea.css"; // SEA (r15): at sea, the privateering company, hurricanes
+import "./war.css"; // WAR (r17): lost towns, claims, a town's ferment and its plot
 
 document.body.appendChild(document.createElement("conquest-app"));

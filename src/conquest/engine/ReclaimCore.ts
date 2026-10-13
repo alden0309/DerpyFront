@@ -109,7 +109,7 @@ export const CLAIM = {
   maxTries: 2,
   /** Worth a war at this, against a native nation (or by one); against another crown's colony, this. */
   war: 35,
-  warPower: 50,
+  warPower: 40,
   /** Below this it's forgotten. */
   minLive: 5,
   /** A war's chance a month at a claim of 50 (against another power: this). */
@@ -258,6 +258,8 @@ export const FERMENT = {
   tongue: 20,
   /** All of them of another faith. */
   faith: 15,
+  /** All of them the old owner's own people, still loyal to it. */
+  loyal: 15,
   /** The faith counts this much more under a zealous ruler, this much less under a tolerant one. */
   zealous: 1.5,
   tolerant: 0.5,
@@ -283,7 +285,7 @@ export const FERMENT = {
   usedFrom: 5,
   usedPerYear: -1,
   usedMax: -20,
-  /** An army of the old owner within this many km. */
+  /** An army of the old owner within this many km, in a war with its rulers. */
   oldArmy: 15,
   oldArmyKm: 300,
   /** The old owner at war with its rulers. */
@@ -395,18 +397,26 @@ export function fermentTarget(
       ),
     );
   const O = s.nations[old];
-  if (O?.alive && old !== ruler) {
-    const near = s.armies.some(
-      (a) =>
-        a.owner === old && kmBetween(w.map, a.prov, p) <= FERMENT.oldArmyKm,
+  if (O && old !== ruler) {
+    const kin = kinShare(s, pr, old);
+    add(
+      `${Math.round(kin * 100)} in 100 ${O.adjective}, loyal to ${O.name.replace(/^the /, "the ")}`,
+      kin * FERMENT.loyal,
     );
-    if (near) add(`A ${O.adjective} army near`, FERMENT.oldArmy);
-    if (
-      s.wars.some(
-        (x) => (x.a === old && x.b === ruler) || (x.b === old && x.a === ruler),
-      )
-    )
+  }
+  if (O?.alive && old !== ruler) {
+    const war = s.wars.some(
+      (x) => (x.a === old && x.b === ruler) || (x.b === old && x.a === ruler),
+    );
+    if (war) {
       add(`${nm(O.name)} at war with them`, FERMENT.oldAtWar);
+      // An army of theirs near counts only in a war: it's come to free them.
+      const near = s.armies.some(
+        (a) =>
+          a.owner === old && kmBetween(w.map, a.prov, p) <= FERMENT.oldArmyKm,
+      );
+      if (near) add(`A ${O.adjective} army near`, FERMENT.oldArmy);
+    }
   }
   if (rest > s.day) add("Cowed after the last rising", FERMENT.cowed);
   const total = Math.max(

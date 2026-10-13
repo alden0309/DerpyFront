@@ -22,6 +22,24 @@ export interface Term {
 }
 
 export const TERMS: Record<string, Term> = {
+  // ---- WAR (r17): ReclaimCore.ts (CLAIM, FERMENT)
+  ferment: {
+    name: "Ferment",
+    what: "How near a town under foreign rule is to rising against its rulers, from 0 to 100. Each month it moves about an eighth of the way to where it's heading.",
+    good: "From 70 a plot may form among its people (a chance a month, more the higher it stands). On its day the plot rises: found out, beaten in the streets, or the town taken, and then held six months to win it back for its old owner.",
+    raise:
+      "Its people of another tongue and faith than their rulers, still loyal to their old owner; no garrison; high taxes, a cruel or greedy ruler; hunger; the first years; the old owner's army near, or at war with its rulers. A player can stir it up (Persuasion). It falls with a garrison, a tolerant or just ruler, and the years, as people get used to it; a rising crushed cows the town for five years.",
+    ch: "claims",
+  },
+  claim: {
+    name: "Claim",
+    what: "A nation's wish to have back a town it lost, from 0 to 100: its size, whether it was their capital, how long it was theirs, and whether its people are still theirs.",
+    good: "A claim of 35 or more (40 against another crown's colony) makes the computer's nations go to war for the town when they're stronger in the field; in any war their armies are drawn to it, and at the peace they ask for it first.",
+    raise:
+      "It's set when the town is lost. It holds ten years, then fades to nothing by thirty; a war for it that ends without it halves it, and after two it's given up. A town sold leaves no claim.",
+    ch: "claims",
+  },
+  // ---- end WAR (r17)
   // Life.ts (monthly purse), Money.ts
   purse: {
     name: "Purse",
