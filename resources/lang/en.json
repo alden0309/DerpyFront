@@ -1478,7 +1478,7 @@
     "hours_in": "{hours} h {minutes} min in",
     "minutes_in": "{minutes} min in",
     "none": "No games are being played right now. Start one, and others can watch it here.",
-    "players_left": "{left} of {total} players left",
+    "players_left": "{left} of {total, plural, one {# player} other {# players}} left",
     "private": "Private",
     "subtitle": "Watch a game in progress: no seat, and no say.",
     "title": "Being played now",

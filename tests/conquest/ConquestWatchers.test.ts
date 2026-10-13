@@ -121,4 +121,20 @@ describe("a watcher's view of a Conquest game (SITE r19)", () => {
     }
     expect(mine.day).toBe(g.s.day);
   });
+
+  test("and it stays the same world as the server's (just without the secrets)", () => {
+    const g = twoPlayers();
+    const mine = clone(stateForWatcher(g.s));
+    for (let day = 0; day < 120; day++) {
+      g.tick();
+      applyDelta(mine, deltaForWatcher(g.s, g.takeDelta()));
+    }
+    const truth = clone(stateForWatcher(g.s));
+    expect(mine.lives.map((l) => [l.seat, l.c, l.watching])).toEqual(
+      truth.lives.map((l) => [l.seat, l.c, l.watching]),
+    );
+    expect(clone(mine.lives)).toEqual(truth.lives);
+    expect(clone(mine.armies)).toEqual(truth.armies);
+    expect(clone(mine.nations)).toEqual(truth.nations);
+  });
 });

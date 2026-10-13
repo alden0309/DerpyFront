@@ -4,8 +4,30 @@
 // from its rooms here in the master. The master plugs both in at startup;
 // until it does (or without them, in tests) the lists are empty.
 
+import {
+  type AssetManifest,
+  buildAssetUrl,
+} from "@openfront/engine-lib/AssetPaths";
 import type { LiveRoom } from "../../conquest/Protocol";
 import type { LiveFrontGame, LiveGames } from "../../derpland/LiveTypes";
+import { getRuntimeAssetManifest } from "../RuntimeAssetManifest";
+import { ServerEnv } from "../ServerEnv";
+
+// The built site's asset names (hashed), so a map's thumbnail can be linked
+// from pages that don't carry the manifest themselves.
+let manifest: AssetManifest = {};
+void getRuntimeAssetManifest().then((m) => (manifest = m));
+
+function withThumb(g: LiveFrontGame): LiveFrontGame {
+  return {
+    ...g,
+    thumb: buildAssetUrl(
+      `maps/${g.mapKey}/thumbnail.webp`,
+      manifest,
+      ServerEnv.cdnBase(),
+    ),
+  };
+}
 
 let front: () => LiveFrontGame[] = () => [];
 let conquest: () => LiveRoom[] = () => [];
@@ -32,7 +54,7 @@ export function liveGames(now: number = Date.now()): LiveGames {
   if (cached && now - cached.at < LIVE_CACHE_MS) return cached.games;
   const games: LiveGames = {
     serverTime: now,
-    derpyfront: front(),
+    derpyfront: front().map(withThumb),
     conquest: conquest(),
   };
   cached = { at: now, games };

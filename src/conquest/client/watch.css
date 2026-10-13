@@ -37,14 +37,17 @@
 .cq-watch-note {
   margin: 0.2rem 0 0.6rem;
 }
-.cq-room-row .cq-save-acts {
+.cq-open-acts {
   display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
   justify-content: flex-end;
 }
 
 @media (max-width: 820px) {
+  .cq-watcher-word {
+    display: none;
+  }
   .cq-watchers {
     height: 30px;
     padding: 0 0.5rem;

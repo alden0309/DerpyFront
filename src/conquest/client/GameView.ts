@@ -1800,7 +1800,7 @@ export class GameView extends LitElement {
           </button>`
         : this.watcher
           ? html`<span class="cq-who watching cq-watcher-who">
-              ${EyeIcon()} Watching
+              ${EyeIcon()}<span class="cq-watcher-word">Watching</span>
             </span>`
           : html`<span class="cq-who watching">
               ${life?.ended ? "Watching the world" : "Not yet born"}
@@ -2097,10 +2097,15 @@ export class GameView extends LitElement {
   private legend(): TemplateResult {
     switch (this.mode) {
       case "nation":
-        return html`<p>
-          Each realm's name runs across its land. Click a province to see it and
-          the road there; right-click (or hold) to set out.
-        </p>`;
+        return this.watcher
+          ? html`<p>
+              Each realm's name runs across its land. Click a province, a person
+              or an army to see them.
+            </p>`
+          : html`<p>
+              Each realm's name runs across its land. Click a province to see it
+              and the road there; right-click (or hold) to set out.
+            </p>`;
       case "terrain":
         return html`<ul class="cq-swatches">
           ${(Object.keys(TERRAIN_TINT) as Terrain[]).map(

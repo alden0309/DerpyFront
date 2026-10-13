@@ -126,7 +126,8 @@ export class DerpLive extends LitElement {
     return html`<li class="dl-live-card derpyfront">
       <span class="dl-live-thumb">
         <img
-          src=${`/maps/${encodeURIComponent(x.mapKey)}/thumbnail.webp`}
+          src=${x.thumb ??
+          `/maps/${encodeURIComponent(x.mapKey)}/thumbnail.webp`}
           alt=""
           loading="lazy"
           @error=${(e: Event) =>

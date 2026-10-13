@@ -383,7 +383,7 @@ export class Lobby extends LitElement {
             : html`<span class="cq-chip good">Making characters</span>`}
         </span>
       </div>
-      <div class="cq-save-acts">
+      <div class="cq-open-acts">
         ${r.watchId /* SITE (r19): a game begun can be watched too */
           ? html`<button
               class="cq-btn quiet small"

@@ -86,7 +86,9 @@ describe("the games being played now (SITE r19)", () => {
     const res = await fetch(`${base}/live`);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.derpyfront).toEqual([front]);
+    expect(body.derpyfront).toEqual([
+      { ...front, thumb: expect.stringContaining("maps/world/thumbnail") },
+    ]);
     expect(body.conquest).toEqual([room]);
     expect(typeof body.serverTime).toBe("number");
     // The rest of the API still needs its database.

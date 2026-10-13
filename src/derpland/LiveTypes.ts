@@ -12,6 +12,8 @@ export interface LiveFrontGame {
   map: string;
   /** Its folder under /maps/, for the thumbnail ("world", "orlandodetailed"). */
   mapKey: string;
+  /** The map's thumbnail, as the site serves it (Derp Land's /live adds it). */
+  thumb?: string;
   /** "Free For All" or "Team". */
   mode: string;
   /** A private game its host opened to watchers (else a public one). */
