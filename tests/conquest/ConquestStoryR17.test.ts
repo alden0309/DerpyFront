@@ -554,10 +554,11 @@ describe("how the story is told", () => {
     expect(plain.icon).toBe("seal");
     expect(plain.text).toBe("Took back St. Augustine for the crown");
     expect(plain.weight).toBe(2);
-    // Counts: every kind as it came.
+    // Counts: every kind as it came (one nobody drew is told, not counted).
     expect(story.counts.find((k) => k.kind === "fight")!.label).toBe(
       "2 brawls",
     );
+    expect(story.counts.some((k) => k.kind === "reconquest")).toBe(false);
   });
 
   test("the story so far is the start of the story told at the end, and both pages show the one story", () => {

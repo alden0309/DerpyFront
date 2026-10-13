@@ -259,11 +259,15 @@ function countsOf(life: Life, moments: LifeMilestone[]): StoryCount[] {
     const i = COUNT_ORDER.indexOf(k);
     return i < 0 ? COUNT_ORDER.length : i;
   };
-  return [...all.entries()]
-    .filter(([k, v]) => v > 0 && !NOT_COUNTED.has(k))
-    .sort((a, b) => order(a[0]) - order(b[0]) || a[0].localeCompare(b[0]))
-    .map(([kind, v]) => {
-      const def = kindDef(kind);
-      return { kind, icon: def.icon, n: v, label: def.many(v) };
-    });
+  return (
+    [...all.entries()]
+      // A kind the table doesn't know is told in the story, but not counted:
+      // "3 moments" would say nothing (give it a line in STORY_KINDS for that).
+      .filter(([k, v]) => v > 0 && !NOT_COUNTED.has(k) && !!STORY_KINDS[k])
+      .sort((a, b) => order(a[0]) - order(b[0]) || a[0].localeCompare(b[0]))
+      .map(([kind, v]) => {
+        const def = kindDef(kind);
+        return { kind, icon: def.icon, n: v, label: def.many(v) };
+      })
+  );
 }
