@@ -32,3 +32,14 @@ export function derpyUsername(): string | null {
 export function isDerpySignedIn(): boolean {
   return derpyToken() !== null;
 }
+
+// NAMES (r20): a username changed in another tab (the browser shares its
+// storage between tabs, and tells the others): this tab's pages hear it as
+// an account change, and show the new name.
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === USER_KEY && e.oldValue !== null && e.newValue !== null) {
+      window.dispatchEvent(new CustomEvent(DERPY_ACCOUNT_EVENT));
+    }
+  });
+}

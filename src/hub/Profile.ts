@@ -8,6 +8,7 @@ import { openSignIn } from "../derpland/DerpBar";
 import {
   coinIcon,
   crownIcon,
+  penIcon,
   replayIcon,
   signOutIcon,
   tokenColor,
@@ -22,6 +23,8 @@ import {
   shortDate,
 } from "./format";
 import { HubPage } from "./HubPage";
+import "./Rename"; // NAMES (r20)
+import type { DerpRename } from "./Rename";
 
 interface FrontStats {
   games: number;
@@ -113,6 +116,44 @@ export class DerpProfile extends HubPage {
     return this.self ? this.username : this.name;
   }
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    window.addEventListener("hashchange", this.onHash);
+  }
+
+  disconnectedCallback(): void {
+    window.removeEventListener("hashchange", this.onHash);
+    super.disconnectedCallback();
+  }
+
+  /** NAMES (r20): the account menu's "Change username" (#username) opens the form. */
+  private renameAsked = location.hash === "#username";
+  private onHash = () => {
+    if (location.hash === "#username") {
+      this.renameAsked = true;
+      this.requestUpdate();
+    }
+  };
+
+  private openRename(): void {
+    void this.querySelector<DerpRename>("dl-rename")?.open();
+  }
+
+  protected updated(): void {
+    if (!this.renameAsked || !this.profile) return;
+    if (this.isMine(this.profile)) {
+      this.renameAsked = false;
+      this.openRename();
+    }
+  }
+
+  private isMine(p: Profile): boolean {
+    return (
+      this.username !== null &&
+      p.username.toLowerCase() === this.username.toLowerCase()
+    );
+  }
+
   protected async load(): Promise<void> {
     const who = this.who();
     this.error = null;
@@ -125,6 +166,16 @@ export class DerpProfile extends HubPage {
       if (this.who() === who) {
         this.profile = p;
         document.title = `${p.username} · Derp Land`;
+        // NAMES (r20): a name given up lately still finds its player; the
+        // address takes the name they have now.
+        if (!this.self && p.username.toLowerCase() !== who.toLowerCase()) {
+          this.name = p.username;
+          history.replaceState(
+            null,
+            "",
+            `/player/${encodeURIComponent(p.username)}`,
+          );
+        }
       }
     } catch (e) {
       this.profile = null;
@@ -160,9 +211,7 @@ export class DerpProfile extends HubPage {
     if (this.error) return html`<p class="dl-panel dl-quiet">${this.error}</p>`;
     const p = this.profile;
     if (!p) return html`<p class="dl-quiet">Loading…</p>`;
-    const mine =
-      this.username !== null &&
-      p.username.toLowerCase() === this.username.toLowerCase();
+    const mine = this.isMine(p);
     return html`
       <header class="dl-player">
         <span class="dl-token huge" style="--token:${tokenColor(p.username)}"
@@ -179,16 +228,26 @@ export class DerpProfile extends HubPage {
           </p>
         </div>
         ${mine
-          ? html`<button
-              class="dl-btn ghost dl-signout"
-              @click=${() => {
-                void signOut().then(() => location.assign("/"));
-              }}
-            >
-              ${signOutIcon()} Sign out
-            </button>`
+          ? html`<div class="dl-player-actions">
+              <!-- NAMES (r20) -->
+              <button class="dl-btn ghost" @click=${() => this.openRename()}>
+                ${penIcon()} Change username
+              </button>
+              <button
+                class="dl-btn ghost"
+                @click=${() => {
+                  void signOut().then(() => location.assign("/"));
+                }}
+              >
+                ${signOutIcon()} Sign out
+              </button>
+            </div>`
           : nothing}
       </header>
+      ${this.username
+        ? // NAMES (r20): kept while the page reloads under the new name.
+          html`<dl-rename></dl-rename>`
+        : nothing}
 
       <div class="dl-statgroups">
         ${this.frontStats(p.stats)} ${this.conquestStats(p.conquest.stats)}

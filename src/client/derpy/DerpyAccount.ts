@@ -210,6 +210,17 @@ export async function derpyMe(): Promise<DerpyMe | null> {
       account: { username: string; coins: number };
       owned: string[];
     }>("/me");
+    // NAMES (r20): the account's name changed (here, in another tab or on
+    // another device): keep the new one, and tell every page.
+    const st = derpyStorage();
+    if (
+      st &&
+      isDerpySignedIn() &&
+      st.getItem(USER_KEY) !== me.account.username
+    ) {
+      st.setItem(USER_KEY, me.account.username);
+      announce();
+    }
     return { ...me.account, owned: me.owned };
   } catch {
     return null;

@@ -228,6 +228,40 @@ export function signOutIcon(cls = "dl-i"): TemplateResult {
   </svg>`;
 }
 
+/** NAMES (r20): a pencil on a line: Change username. */
+export function penIcon(cls = "dl-i"): TemplateResult {
+  return html`<svg
+    class=${cls}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M4 20h4L18.6 9.4a2.1 2.1 0 0 0-3-3L5 17z" />
+    <path d="m14 8 3 3" />
+    <path d="M13 20h7" />
+  </svg>`;
+}
+
+/** NAMES (r20): a tick, for a name that's free. */
+export function tickIcon(cls = "dl-i"): TemplateResult {
+  return html`<svg
+    class=${cls}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.6"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </svg>`;
+}
+
 export function closeIcon(cls = "dl-i"): TemplateResult {
   return html`<svg
     class=${cls}
