@@ -278,14 +278,8 @@ export function ledgerParts(s: GameState, life: Life, w?: World): Part[] {
   const keep = officerKeep(s, life);
   if (keep > 0)
     out.push({ key: "ok", label: "Keeping up your rank", value: -keep });
-  // Debts that fall due by the month's turn.
-  for (const d of life.debts)
-    if (d.amount > 0 && d.due <= turn && s.chars[d.to]?.alive)
-      out.push({
-        key: `debt:${d.to}`,
-        label: `A debt due to ${charName(s.chars[d.to])}`,
-        value: -d.amount,
-      });
+  // ECON (r17): a bond's interest is in the figure (Loans.ts); the sum
+  // itself is paid when the bond is called in, not at the month's turn.
   // Money at work: dividends, and cargoes due home.
   const me = meOf(s, life);
   const war =

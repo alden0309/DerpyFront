@@ -37,6 +37,11 @@ import {
   deltaHasSecrets,
   stateForIntrigue,
 } from "../../conquest/engine/IntrigueCore"; // INTRIGUE (r15)
+import {
+  loanDeltaForSeat,
+  loanDeltaSecret,
+  loanStateForSeat,
+} from "../../conquest/engine/LoanCore"; // ECON (r17)
 import { planProblem } from "../../conquest/engine/Life";
 import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
 import { lifeOfSeat, lifeScore } from "../../conquest/engine/LifeQueries";
@@ -987,8 +992,12 @@ export class ConquestRooms {
       // DICE (r14): everyone's dice but your own stay under their cups.
       // INTRIGUE (r15): and everyone's schemes and private letters but your own.
       // LABOUR (r15): and another household's door, opened to someone fleeing.
-      state: labourStateForSeat(
-        stateForIntrigue(stateForSeat(room.game.state, seat.id), seat.id),
+      // ECON (r17): and bonds, but your own.
+      state: loanStateForSeat(
+        labourStateForSeat(
+          stateForIntrigue(stateForSeat(room.game.state, seat.id), seat.id),
+          seat.id,
+        ),
         seat.id,
       ),
       speed: room.speed,
@@ -1113,12 +1122,14 @@ export class ConquestRooms {
     // LABOUR (r15): so too a household's door opened to someone fleeing.
     const secret = deltaHasSecrets(d);
     const bond = labourDeltaSecret(d);
-    if (d.dice || secret || bond)
+    const loans = loanDeltaSecret(d); // ECON (r17): bonds, each player's own
+    if (d.dice || secret || bond || loans)
       for (const seat of room.seats) {
         if (!seat.conn) continue;
         let mine = d.dice ? { ...d, dice: diceView(d.dice, seat.id) } : d;
         if (secret) mine = deltaForSeat(room.game.state, mine, seat.id);
         if (bond) mine = labourDeltaForSeat(mine, seat.id);
+        if (loans) mine = loanDeltaForSeat(mine, seat.id);
         this.send(seat.conn, { t: "d", d: mine });
       }
     else this.broadcast(room, { t: "d", d });

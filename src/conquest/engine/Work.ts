@@ -65,6 +65,7 @@ import type {
   PlaceKind,
   Skill,
 } from "./Types";
+import { leaveDay } from "./Leave"; // ECON (r17)
 import { workMatter } from "./WorkEvents";
 
 function provName(g: ConquestGame, p: number): string {
@@ -529,6 +530,8 @@ export function workDaily(
   const s = g.s;
   const job = life.job;
   if (!job) return;
+  // ECON (r17): on leave, away isn't absent; overstaying it is (Leave.ts).
+  if (leaveDay(g, life, raise)) return;
   if (atPost(s, g.w, life)) {
     if (job.awayDays) {
       job.awayDays = 0;

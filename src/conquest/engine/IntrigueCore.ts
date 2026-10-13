@@ -193,7 +193,11 @@ export function secretNote(
 
 /** Keys of the scenes and cooldowns that are a player's own secret business. */
 export function secretKey(key: string): boolean {
-  return key.startsWith("intr-") || key.startsWith("p2p-intr-");
+  return (
+    key.startsWith("intr-") ||
+    key.startsWith("p2p-intr-") ||
+    key.startsWith("loan-") // ECON (r17): a bond's scenes, its parties' business only
+  );
 }
 
 /** A scheme a seat may know of: its own, or one aimed at it that it's found out. */

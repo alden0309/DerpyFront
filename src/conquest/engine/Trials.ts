@@ -42,6 +42,7 @@ import {
 import { ROLES } from "./LifeRules";
 import { postsOf, resignPost } from "./OneOffice";
 import { wake } from "./Pace";
+import { loanJudged, loanSettled } from "./Loans"; // ECON (r17)
 import { pdice, power, powerChanged } from "./PowerCore";
 import { ageOf, charName, stat } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
@@ -706,6 +707,8 @@ function carryOut(g: ConquestGame, t: Trial): void {
   if (t.done) return;
   t.done = true;
   powerChanged(g, "t");
+  // ECON (r17): a suit on a bond: judgment for what can be had, or it stands over.
+  if (t.kind === "debt") loanJudged(g, t);
   const d = s.chars[t.defendant];
   const life = lifeOfChar(s, t.defendant);
   const here = g.map.provinces[t.p]?.name ?? "the court-house";
@@ -723,10 +726,6 @@ function carryOut(g: ConquestGame, t: Trial): void {
         "good",
       );
       addStress(g, life, -5);
-      if (t.kind === "debt") {
-        const debt = life.debts.find((x) => x.to === t.accuser);
-        if (debt) debt.due = s.day + DAYS_PER_YEAR;
-      }
     }
     return;
   }
@@ -809,17 +808,7 @@ function punishLife(g: ConquestGame, life: Life, t: Trial, doom: Doom): void {
       "bad",
     );
   }
-  if (doom.seize) {
-    const debt = life.debts.find((x) => x.to === t.accuser);
-    if (debt) {
-      const take = Math.min(Math.max(0, life.purse), debt.amount);
-      if (take > 0) spend(g, life, take);
-      debt.amount -= take;
-      if (debt.amount <= 0.01)
-        life.debts = life.debts.filter((x) => x !== debt);
-      else debt.due = s.day + 180;
-    }
-  }
+  // ECON (r17): goods seized for a bond are taken in loanJudged (carryOut).
   if (doom.dismiss)
     for (const p of postsOf(s, life.c))
       resignPost(g, life.c, p, "dismissed on conviction");
@@ -939,10 +928,7 @@ export function trialMove(
     case "settle": {
       const fee = settleFee(t);
       spend(g, life, fee);
-      if (t.kind === "debt") {
-        const debt = life.debts.find((x) => x.to === t.accuser);
-        if (debt) life.debts = life.debts.filter((x) => x !== debt);
-      }
+      if (t.kind === "debt") loanSettled(g, t, fee); // ECON (r17): the bond is paid
       t.verdict = "acquitted";
       t.lines.push(`Settled out of court for ${fee} coins.`);
       journal(
@@ -1195,7 +1181,11 @@ function dropCase(g: ConquestGame, t: Trial): void {
 }
 
 export const counselFee = (t: Trial) => 4 + t.grade * 3;
-export const settleFee = (t: Trial) => 6 + t.grade * 4;
+// ECON (r17): settling a suit on a bond pays the bond, and the costs.
+export const settleFee = (t: Trial) =>
+  t.kind === "debt" && t.sum !== undefined
+    ? Math.ceil(t.sum) + 2
+    : 6 + t.grade * 4;
 export const witnessFee = (t: Trial) => 5 + t.grade * 2;
 export const courtFee = (t: Trial) => 15 + t.grade * 12;
 

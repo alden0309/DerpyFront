@@ -71,6 +71,8 @@ import {
 } from "./Chatter"; // CHAMBER (r16)
 import { addSettler, settleAcceptance, settleCheck } from "./Founding";
 import { ADULT_AGE, betrothalOf } from "./IntrigueCore"; // INTRIGUE (r15)
+import { bondBetween, owing } from "./LoanCore"; // ECON (r17)
+import { bondMade, bondWords } from "./Loans"; // ECON (r17)
 import {
   affairWith,
   exposeBy,
@@ -260,7 +262,7 @@ export const INTERACTIONS: Record<PersonAct, InteractionDef> = {
   borrow: {
     label: "Borrow money",
     group: "favours",
-    text: "A loan, repaid with a fifth again within the year.",
+    text: "A loan on bond: interest at the lawful rate, repaid within the year (or sooner).", // ECON (r17)
     cooldown: 180,
     mode: "accept",
     player: "no",
@@ -663,8 +665,7 @@ function gates(
     case "borrow": {
       const role = c.role ? ROLES[c.role] : undefined;
       if (!role || role.wealth < 10) return no("They've nothing to lend.");
-      if (life.debts.some((d) => d.to === c.id))
-        return no("You owe them already.");
+      if (bondBetween(s, life.c, c.id)) return no("You owe them already."); // ECON (r17)
       return yes;
     }
     case "patron": {
@@ -850,7 +851,7 @@ function acceptanceOf(
           Math.min(10, Math.floor(role.wealth / 6)),
         );
       if ((life.property ?? []).length) e.add("You own property", 10);
-      if (life.debts.length) e.add("You owe others already", -15);
+      if (owing(s, life).length) e.add("You owe others already", -15); // ECON (r17)
       if (hasTrait(c, "greedy")) e.add("Tight-fisted", -10);
       if (hasTrait(c, "generous")) e.add("Open-handed", 5);
       return e.done(0);
@@ -1337,16 +1338,13 @@ export function doInteraction(
         3,
         Math.round(role.wealth * Math.min(0.8, 0.2 + op / 100)),
       );
+      // ECON (r17): a bond at the lawful rate, for a year (Loans.ts).
       earn(g, life, amount);
-      life.debts.push({
-        to: cId,
-        amount: Math.round(amount * 1.2),
-        due: s.day + DAYS_PER_YEAR,
-      });
+      const bond = bondMade(g, cId, life.c, amount, { how: "bond" });
       journal(
         g,
         life,
-        `${name} lends you ${amount} coins, to be repaid with ${Math.round(amount * 0.2)} more within the year.`,
+        `${name} lends you ${amount} coins on ${bondWords(bond)}.`,
       );
       return null;
     }

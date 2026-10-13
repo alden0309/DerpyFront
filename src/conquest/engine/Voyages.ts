@@ -68,6 +68,7 @@ import type {
   Voyage,
   VoyageKind,
 } from "./Types";
+import { offerVentureBack, settleVentureBack } from "./VentureBack"; // ECON (r17)
 import { bossOf } from "./Work";
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -821,6 +822,7 @@ function atFarEnd(g: ConquestGame, v: Voyage, life: Life): void {
           : `You're at ${where}: running the lines takes some days; you start back on ${formatDate(v.sails)}.`,
     );
     wake(g, life, `You've reached ${where}.`);
+    offerVentureBack(g, life, v); // ECON (r17): a venture for home, bought here
   }
   logV(g, v, `Reached ${where}.`);
   seaChanged(g);
@@ -968,6 +970,8 @@ function sailHome(g: ConquestGame, v: Voyage, life: Life): void {
     );
     // A venture left aboard comes home without you, at a discount.
     if (v.stake) settleStake(g, v, life, 0.8);
+    // ECON (r17): and a venture for home bought there.
+    if (v.back) affairNews(g, life, "sea", `${settleVentureBack(g, v, life, 0.8)}.`);
     const boss = s.chars[v.master];
     if (boss?.alive && !s.lives.some((l) => l.c === boss.id))
       remembers(g, life, g.char(boss.id), "Missed the ship", -10, 2);
@@ -1048,6 +1052,7 @@ function homeAgain(g: ConquestGame, v: Voyage, life: Life): void {
     lines.push(`the plat is drawn and the fee paid: ${fee} coins`);
   }
   if (v.stake) lines.push(settleStake(g, v, life, 1));
+  if (v.back) lines.push(settleVentureBack(g, v, life, 1)); // ECON (r17)
   v.end = lines.join("; ") || "Home.";
   logV(g, v, `Home: ${v.end}.`);
   affairNews(g, life, "sea", `Home at ${home}: ${v.end}.`, "good");

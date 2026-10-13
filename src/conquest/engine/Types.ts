@@ -814,6 +814,8 @@ export interface Life {
   polls?: PollsLife;
   /** CHAIR (r16): the road to the chair (steps reached), the house, following the government, marks of greatness. */
   chair?: LifeChair;
+  /** ECON (r17): leave from your work (or a county office): granted, overstayed, asked. */
+  leave?: LeaveState;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1580,6 +1582,8 @@ export interface GameState {
   sea?: SeaState;
   /** INTRIGUE (r15): schemes, kept lovers, betrothals and guards. */
   intrigue?: IntrigueState;
+  /** ECON (r17): bonds between people (each player is sent only their own). */
+  loans?: LoanState;
 }
 
 export type TravellerKind =
@@ -1884,7 +1888,10 @@ export type LifeCommand =
   | PollsCommand
   // CHAIR (r16): the governor's chair: a petition for his recall, the house's
   // address, the lieutenancy, following the government, marks of greatness.
-  | ChairCommand;
+  | ChairCommand
+  // ECON (r17): bonds (lending and borrowing on terms), leave from work,
+  // a merchant's venture for home.
+  | EconCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1931,6 +1938,8 @@ export interface GameDelta {
   sea?: SeaState;
   /** INTRIGUE (r15): when any changed (each player's copy holds only their own schemes). */
   intrigue?: IntrigueState;
+  /** ECON (r17): bonds, when any changed (each player's copy holds only their own). */
+  loans?: LoanState;
 }
 
 // ---- WORLD (r11)
@@ -2698,6 +2707,8 @@ export interface Trial {
   /** What happened, in order, for the record. */
   lines: string[];
   day: number;
+  /** ECON (r17): a suit on a bond: the sum at issue (settling it pays this, and costs). */
+  sum?: number;
 }
 
 /** What a paper prints about someone or something. */
@@ -3336,6 +3347,7 @@ export type AffairKind =
   | "paper"
   | "property"
   | "contract"
+  | "loan" // ECON (r17): money lent on bond
   | "statement";
 
 /** One line of a month's books: coins in (+) or out (−) from one source. */
@@ -3462,10 +3474,16 @@ export interface CompanyPlan {
   from: number;
   /** Where it sells: a port, or -1 for Europe (London, Amsterdam, La Rochelle...). */
   to: number;
-  /** Loads a cargo. */
+  /** Loads a cargo (ECON r17: 0 sends nothing out, when it brings goods home). */
   loads: number;
   /** Months between sailings. */
   every: number;
+  /** ECON (r17): goods bought at the far port and brought home (none if absent). */
+  back?: TradeItem;
+  /** ECON (r17): loads of them (the outward loads if absent). */
+  backLoads?: number;
+  /** ECON (r17): a homeward leg in the ship chartered for the round voyage (its freight is less). */
+  round?: boolean;
 }
 
 /** A company's cargo at sea. */
@@ -3479,6 +3497,8 @@ export interface CompanyVoyage {
   to: number;
   sailed: number;
   due: number;
+  /** ECON (r17): the leg: outward from its port, or homeward with the return cargo. */
+  leg?: "out" | "back";
 }
 
 /** A trading company: its line of trade, its voyages, its record. */
@@ -3496,6 +3516,8 @@ export interface CompanyState {
   sales?: number;
   closed?: number;
   notes?: string[];
+  /** ECON (r17): each leg's record, outward and homeward. */
+  legs?: CompanyLegs;
 }
 
 /** A command for a business of your own, or a trading company (Business.ts, Company.ts). */
@@ -3690,6 +3712,8 @@ export interface Voyage {
   mail?: { key: string; ctx: Record<string, number> }[];
   /** Goods sent with the brigade while you stayed at home: it comes back on `sails`. */
   sent?: boolean;
+  /** ECON (r17): a venture bought at the far port to sell at home. */
+  back?: VoyageBack;
 }
 
 /** A privateering company's ship and her commission. */
@@ -4366,4 +4390,156 @@ export interface ChairCommand {
   supply?: boolean;
   yes?: boolean;
   side?: number;
+}
+
+// ---- ECON (r17)
+// Two-way trade (a company's return cargo, a sailor's venture for home),
+// loans on terms (a bond: the sum, its term, interest at the lawful rate,
+// reminders, calling it in, more time, default, forgiving it, taking it in
+// kind, suing), and leave from your work.
+
+/** One leg of a company's trade, all told: cargoes sent, what they cost and sold for. */
+export interface CompanyLeg {
+  n: number;
+  cost: number;
+  sale: number;
+  /** Lost on the way (wrecked, taken or seized). */
+  lost: number;
+}
+
+/** A company's two legs: outward from its port, and home with the return cargo. */
+export interface CompanyLegs {
+  out: CompanyLeg;
+  back: CompanyLeg;
+}
+
+/** A merchant sailor's venture bought at the far port, to sell at home. */
+export interface VoyageBack {
+  item: TradeItem;
+  /** Coins laid out, and the loads they bought there. */
+  stake: number;
+  loads: number;
+  /** Where it was bought (the far port), and the day she sailed with it. */
+  from: number;
+  sailed: number;
+}
+
+/** Where a bond stands. */
+export type LoanStatus =
+  /** Offered or asked, waiting on the other player's answer. */
+  | "offered"
+  /** Running at interest until its day. */
+  | "running"
+  /** Fallen due: payable on demand (it runs on at interest until called). */
+  | "due"
+  /** Called in: the borrower must pay, ask for time, or say they can't. */
+  | "called"
+  /** More time granted, until `due`. */
+  | "time"
+  /** The borrower can't pay: the lender decides (forgive, in kind, sue, more time). */
+  | "default"
+  /** Before the court (a suit for debt). */
+  | "court"
+  | "closed";
+
+/** A bond: money lent on terms, between two people. */
+export interface Loan {
+  id: number;
+  /** Who lent, and who owes (characters). */
+  lender: number;
+  borrower: number;
+  /** Players' seats among them (the bond follows the line through an heir). */
+  ls?: string;
+  bs?: string;
+  /** The sum lent, and what's still owed of it. */
+  sum: number;
+  owed: number;
+  /** Interest a year (0.06 for six in a hundred; 0, a friend's loan). */
+  rate: number;
+  /** Interest the borrower couldn't pay at a month's turn, owed with the rest. */
+  arrears: number;
+  /** Interest paid, all told. */
+  paid: number;
+  /** The day it was made, its term in months, and the day it falls due. */
+  made: number;
+  term: number;
+  due: number;
+  /** Where it was made (whose law it runs under). */
+  p: number;
+  status: LoanStatus;
+  /** How it came about: a bond drawn up, by letter, a note of hand, a friend's loan, an old debt. */
+  how: "bond" | "letter" | "note" | "friend" | "old";
+  /** Who asked: the borrower (a loan sought) or the lender (a loan offered). */
+  asked?: "borrower" | "lender";
+  /** Times more time was granted. */
+  grace: number;
+  /** Reminders sent: 1 the month before it falls due, 2 on the day. */
+  told: number;
+  /** More time asked for (months), waiting on the lender. */
+  ask?: number;
+  /** A suit for debt (its trial). */
+  trial?: number;
+  /** How it ended, and when. */
+  end?: "paid" | "forgiven" | "kind" | "judgment" | "lapsed" | "declined";
+  ended?: number;
+  /** Its history, oldest first (a few lines). */
+  log: { day: number; text: string }[];
+}
+
+/** Every bond in the game (players' own; the computer's people's between themselves aren't kept). */
+export interface LoanState {
+  list: Loan[];
+}
+
+/** Leave from your work, or a county office. */
+export interface Leave {
+  /** The job, or a county office (its id). */
+  of: "job" | number;
+  from: number;
+  /** The last day of it: be back at your post the day after. */
+  until: number;
+  /** Who gave it (a character), or -1. */
+  by: number;
+  /** On half pay (an officer's), or none. */
+  half?: boolean;
+  /** Overstayed: the day the warning came. */
+  warned?: number;
+  /** Gone from the post on it (so being back there ends it). */
+  gone?: boolean;
+  /** Over (back at the post, or the place lost). */
+  ended?: number;
+}
+
+/** A life's leave: granted, and any request waiting on another player. */
+export interface LeaveState {
+  list: Leave[];
+  /** Asked of a player master, who hasn't answered yet. */
+  asked?: { of: "job" | number; days: number; day: number; to: number } | null;
+  /** Refused: not asked again until this day (by what it was for). */
+  refused?: Record<string, number>;
+}
+
+/** Bonds, leave, a venture for home (Loans.ts, Leave.ts, Company.ts, Voyages.ts). */
+export interface EconCommand {
+  k: "econ";
+  /**
+   * lend, borrow, accept, decline, repay, call, time, grant, refuse,
+   * forgive, kind, sue, leave, back.
+   */
+  act: string;
+  /** The other party (a character). */
+  c?: number;
+  /** A bond, or a voyage (a venture for home). */
+  id?: number;
+  sum?: number;
+  /** A bond's term, or the months more asked or granted. */
+  months?: number;
+  /** Without interest (a friend's loan). */
+  free?: boolean;
+  /** Days of leave. */
+  days?: number;
+  /** Leave from a county office (its id); the job if absent. */
+  of?: number;
+  /** A venture for home: the goods. */
+  item?: TradeItem;
 }

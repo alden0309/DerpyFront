@@ -154,6 +154,7 @@ const KIND_NAMES: Record<AffairKind, string> = {
   paper: "Your newspaper",
   property: "Your property",
   contract: "A contract",
+  loan: "A bond", // ECON (r17): money lent or owed on bond
   statement: "The month's accounts",
 };
 

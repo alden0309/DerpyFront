@@ -1442,7 +1442,8 @@ const BASE_EVENTS: LifeEventDef[] = [
     choices: [
       {
         label: "Lend it",
-        tip: "−8 coins. A friend for life.",
+        // ECON (r17): a friend's loan on bond, without interest, for a year.
+        tip: "−8 coins, lent without interest for a year (a bond in your ledger). A friend for life.",
         apply: (g, life, ctx) => {
           spend(g, life, 8);
           remembers(
@@ -1453,7 +1454,12 @@ const BASE_EVENTS: LifeEventDef[] = [
             30,
             0,
           );
-          say(g, life, "They swore to pay you back. Some of them do.");
+          lendFriend(g, life, ctx.c, 8);
+          say(
+            g,
+            life,
+            "They swore to pay you back within the year. Some of them do.",
+          );
         },
       },
       {
@@ -3644,8 +3650,10 @@ import { BOND_EVENTS } from "./BondEvents"; // LABOUR (r15)
 import { chairEvents, chairQuiet } from "./ChairEvents"; // CHAIR (r16)
 import { DICE_EVENTS } from "./DiceEvents"; // DICE (r14)
 import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
+import { econEvents, econQuiet } from "./EconEvents"; // ECON (r17)
 import { EDU_EVENTS } from "./EduEvents"; // EDU (r13)
 import { needyFriend } from "./EventPacing"; // EVENTS (r15)
+import { lendFriend } from "./Loans"; // ECON (r17)
 import { INTRIGUE_EVENTS } from "./IntrigueEvents"; // INTRIGUE (r15)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
@@ -3713,6 +3721,12 @@ function byKey(key: string): LifeEventDef | undefined {
       }
     // CHAIR (r16): the governorship's scenes (the lieutenancy, a petition, an address...).
     for (const d of chairEvents())
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // ECON (r17): bonds, leave, a venture for home.
+    for (const d of econEvents())
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
@@ -3976,7 +3990,10 @@ function firstAllowed(
   if (!def) return 0;
   // POWER (r12): a trial, council or press scene left unanswered takes its quiet course.
   const quiet =
-    POWER_DEFAULTS[ev.key] ?? seaQuiet()[ev.key] ?? chairQuiet()[ev.key]; // SEA (r15), CHAIR (r16)
+    POWER_DEFAULTS[ev.key] ??
+    seaQuiet()[ev.key] ??
+    chairQuiet()[ev.key] ??
+    econQuiet()[ev.key]; // SEA (r15), CHAIR (r16), ECON (r17)
   if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
     return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.
