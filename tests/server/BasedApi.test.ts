@@ -1,5 +1,6 @@
 // BASED (r19): Mr. Based's gate and API. Only the account named Alden may
-// play; another account and a signed-out visitor get Coming Soon and are
+// play (NAMES r20: the account marked for it, found by that name when it
+// signs up); another account and a signed-out visitor get Coming Soon and are
 // refused the story, its pictures and its sound. Also saves, picks for the
 // flowchart, and notes for the writer (and the script that prints them).
 //
@@ -18,24 +19,25 @@ vi.mock("../../src/server/Logger", () => ({
 
 const TEST_DB = process.env.DERPY_TEST_DATABASE_URL;
 
+// NAMES (r20): access is a mark on the account, by id; BASED_PLAYERS only
+// names the accounts to mark, once each (DerpyRename.test.ts covers renames).
 describe("who may play", async () => {
   const { canPlayBased, basedPlayers } =
     await import("../../src/server/derpy/DerpyBased");
 
-  test("the owner's account, in any case, and nobody else", () => {
+  test("the owner's name, in any case, is the one to mark", () => {
     delete process.env.BASED_PLAYERS;
     expect([...basedPlayers()]).toEqual(["alden"]);
-    expect(canPlayBased({ username: "Alden" })).toBe(true);
-    expect(canPlayBased({ username: "alden" })).toBe(true);
-    expect(canPlayBased({ username: "Tester_Pat" })).toBe(false);
-    expect(canPlayBased({ username: "Alden2" })).toBe(false);
-    expect(canPlayBased(null)).toBe(false);
   });
 
   test("BASED_PLAYERS can widen it later", () => {
     process.env.BASED_PLAYERS = "Alden, Tester_Pat";
-    expect(canPlayBased({ username: "tester_pat" })).toBe(true);
+    expect([...basedPlayers()]).toEqual(["alden", "tester_pat"]);
     delete process.env.BASED_PLAYERS;
+  });
+
+  test("nobody signed out may play", async () => {
+    expect(await canPlayBased(null)).toBe(false);
   });
 });
 
@@ -81,6 +83,13 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     await c
       .query(
         "DELETE FROM derpy_accounts WHERE username_key IN ('alden', 'based_tester')",
+      )
+      .catch(() => {});
+    // NAMES (r20): no account left marked by another test, so the Alden
+    // signed up below is the one the name marks.
+    await c
+      .query(
+        "UPDATE derpy_accounts SET based_access = false, based_granted_as = NULL",
       )
       .catch(() => {});
     await c.end();

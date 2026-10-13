@@ -12,7 +12,10 @@ import {
   timingSafeEqual,
 } from "crypto";
 import { promisify } from "util";
+import { USERNAME_RE } from "../../derpland/Names";
+import { grantBasedByName } from "./BasedAccess";
 import { db, inTransaction } from "./DerpyDb";
+import { lockNames, nameProblem } from "./DerpyNames";
 
 const scryptAsync = promisify(scrypt) as (
   password: string,
@@ -20,7 +23,8 @@ const scryptAsync = promisify(scrypt) as (
   keylen: number,
 ) => Promise<Buffer>;
 
-export const USERNAME_RE = /^[A-Za-z0-9_]{3,20}$/;
+// NAMES (r20): the same rules when a name is changed (src/derpland/Names.ts).
+export { USERNAME_RE };
 export const PASSWORD_MIN = 6;
 export const PASSWORD_MAX = 200;
 
@@ -100,6 +104,9 @@ export async function register(
   }
   const passwordHash = await hashPassword(password);
   const row = await inTransaction(async (c) => {
+    // NAMES (r20): a name someone gave up in the last 7 days is still theirs.
+    await lockNames(c);
+    if (await nameProblem(c, username, null, Date.now(), false)) return null;
     const res = await c.query(
       `INSERT INTO derpy_accounts (username, username_key, password_hash)
        VALUES ($1, $2, $3)
@@ -107,7 +114,11 @@ export async function register(
        RETURNING id, username, coins`,
       [username, username.toLowerCase(), passwordHash],
     );
-    return res.rows[0] ?? null;
+    const made = res.rows[0] ?? null;
+    // NAMES (r20): a name BASED_PLAYERS is waiting for marks the account
+    // that signs up with it, as it would at the next start.
+    if (made) await grantBasedByName(c, Number(made.id));
+    return made;
   });
   if (row === null) return "username_taken";
   const account = rowToAccount(row);

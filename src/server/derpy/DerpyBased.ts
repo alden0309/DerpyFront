@@ -1,5 +1,7 @@
 // BASED (r19): Mr. Based, the story game, served to the accounts allowed to
-// play it (only the owner's, "Alden", for now). Everyone else gets Coming
+// play it (only the owner's for now: NAMES r20 marks it by account, first
+// found by the name "Alden", so it follows him through renames and nobody
+// gains it by renaming to "Alden"). Everyone else gets Coming
 // Soon. The story's text, its pictures and its sound live in src/based/ on
 // the server and are only ever sent through this API, to those accounts:
 // none of it is in the site's public JavaScript.
@@ -15,6 +17,7 @@ import { flowOf } from "../../based/engine/Flow";
 import { parseChapter } from "../../based/engine/Script";
 import { Chapter } from "../../based/engine/Types";
 import { formatProblem, validateChapter } from "../../based/engine/Validate";
+import { hasBasedAccess } from "./BasedAccess";
 import { Account, accountForToken } from "./DerpyAuth";
 import { db } from "./DerpyDb";
 
@@ -24,24 +27,18 @@ const STORY_DIR = path.join(BASED_DIR, "story");
 const ART_DIR = path.join(BASED_DIR, "art");
 const AUDIO_DIR = path.join(BASED_DIR, "audio");
 
-/**
- * Who may play, by username (any case). BASED_PLAYERS (comma-separated)
- * overrides it; the default is the owner alone.
- */
-export function basedPlayers(): Set<string> {
-  const raw = process.env.BASED_PLAYERS ?? "Alden";
-  return new Set(
-    raw
-      .split(",")
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean),
-  );
-}
+// NAMES (r20): BASED_PLAYERS (comma-separated, default the owner) only names
+// the accounts to mark, once each (BasedAccess.ts).
+export { basedPlayers } from "./BasedAccess";
 
-export function canPlayBased(
-  account: Pick<Account, "username"> | null,
-): boolean {
-  return account !== null && basedPlayers().has(account.username.toLowerCase());
+/**
+ * Who may play: accounts marked for it, by id, whatever they're called now.
+ * Renaming never gains it or loses it.
+ */
+export async function canPlayBased(
+  account: Pick<Account, "id"> | null,
+): Promise<boolean> {
+  return account !== null && hasBasedAccess(await db(), account.id);
 }
 
 // --- Chapters -------------------------------------------------------------
@@ -224,7 +221,7 @@ export function basedRouter({ handle }: BasedRouterDeps): express.Router {
         res.status(401).json({ error: "signed_out" });
         return;
       }
-      if (!canPlayBased(found.account)) {
+      if (!(await canPlayBased(found.account))) {
         res.status(403).json({ error: "coming_soon" });
         return;
       }
@@ -241,7 +238,7 @@ export function basedRouter({ handle }: BasedRouterDeps): express.Router {
       const found = token ? await accountForToken(token) : null;
       res.json({
         signedIn: found !== null,
-        play: canPlayBased(found?.account ?? null),
+        play: await canPlayBased(found?.account ?? null),
       });
     }),
   );
