@@ -33,9 +33,23 @@ export type RenameError =
   | "accounts_unavailable"
   | "server_error";
 
-/** When an account last changed its name allows the next change, or null (any time). */
-export function nextNameChange(changedAt: number | null): number | null {
-  return changedAt === null ? null : changedAt + NAME_CHANGE_MS;
+/**
+ * The 7 days run from the minute of a change, so the times shown agree to
+ * the minute: changed at 5:20 pm, it may change again at 5:20 pm a week on,
+ * and the old name is kept until then.
+ */
+export function minuteOf(t: number): number {
+  return Math.floor(t / 60_000) * 60_000;
+}
+
+/** When a name changed at `changedAt` may change again. */
+export function nextNameChange(changedAt: number): number {
+  return minuteOf(changedAt) + NAME_CHANGE_MS;
+}
+
+/** Until when the name given up at `changedAt` is kept for its account. */
+export function nameHeldUntil(changedAt: number): number {
+  return minuteOf(changedAt) + NAME_HOLD_MS;
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];

@@ -21,7 +21,6 @@ import {
 import { replacer } from "@openfront/shared/SharedUtil";
 import { GameRecord, PlayerRecord } from "@openfront/shared/WireSchemas";
 import { gunzipSync, gzipSync } from "zlib";
-import { NAME_HOLD_MS } from "../../derpland/Names"; // NAMES (r20)
 import { logger } from "../Logger";
 import { getMapLandTilesForSize } from "../MapLandTiles";
 import { accountsForPlayIds } from "./DerpyAuth";
@@ -32,7 +31,7 @@ import {
   type ProfileAchievement, // MAP (r12)
 } from "./DerpyConquest";
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
-import { labelFor, namesOf } from "./DerpyNames"; // NAMES (r20)
+import { heldSince, labelFor, namesOf } from "./DerpyNames"; // NAMES (r20)
 
 const log = logger.child({ component: "DerpyGames" });
 
@@ -425,10 +424,10 @@ export async function profile(username: string): Promise<Profile | null> {
      WHERE a.id = COALESCE(
        (SELECT id FROM derpy_accounts WHERE username_key = $1),
        (SELECT id FROM derpy_accounts
-        WHERE old_username_key = $1 AND username_changed_at > $2
+        WHERE old_username_key = $1 AND username_changed_at >= $2
         ORDER BY username_changed_at DESC LIMIT 1))
      GROUP BY a.id`,
-    [username.toLowerCase(), new Date(Date.now() - NAME_HOLD_MS)],
+    [username.toLowerCase(), heldSince(Date.now())],
   );
   const row = acc.rows[0];
   if (!row) return null;

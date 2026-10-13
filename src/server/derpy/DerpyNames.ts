@@ -16,9 +16,11 @@
 
 import pg from "pg";
 import {
-  NAME_CHANGE_MS,
+  minuteOf,
   NAME_HOLD_MS,
+  nameHeldUntil,
   NameProblem,
+  nextNameChange,
   RenameError,
   USERNAME_RE,
 } from "../../derpland/Names";
@@ -32,6 +34,14 @@ export const NAME_LOCK = 7_317_020;
 
 export async function lockNames(c: pg.PoolClient): Promise<void> {
   await c.query("SELECT pg_advisory_xact_lock($1)", [NAME_LOCK]);
+}
+
+/**
+ * A name given up is still kept at `now` if it changed at or after this
+ * (the 7 days run from the minute of the change: see nameHeldUntil).
+ */
+export function heldSince(now: number): Date {
+  return new Date(minuteOf(now - NAME_HOLD_MS) + 60_000);
 }
 
 /**
@@ -55,10 +65,10 @@ export async function nameProblem(
                WHERE username_key = $1 AND id IS DISTINCT FROM $2::bigint) AS taken,
        EXISTS (SELECT 1 FROM derpy_accounts
                WHERE old_username_key = $1 AND id IS DISTINCT FROM $2::bigint
-                 AND username_changed_at > $3) AS held,
+                 AND username_changed_at >= $3) AS held,
        EXISTS (SELECT 1 FROM derpy_accounts
                WHERE id = $2::bigint AND username_key = $1) AS own`,
-    [key, accountId, new Date(now - NAME_HOLD_MS)],
+    [key, accountId, heldSince(now)],
   );
   const row = r.rows[0];
   if (row.taken) return "username_taken";
@@ -94,8 +104,8 @@ function statusOf(
     row.username_changed_at === null
       ? null
       : new Date(row.username_changed_at).getTime();
-  const next = last === null ? null : last + NAME_CHANGE_MS;
-  const heldUntil = last === null ? null : last + NAME_HOLD_MS;
+  const next = last === null ? null : nextNameChange(last);
+  const heldUntil = last === null ? null : nameHeldUntil(last);
   const held =
     heldUntil !== null &&
     now < heldUntil &&
@@ -184,8 +194,9 @@ export async function renameAccount(
       if (!acc) throw new Error(`no account ${accountId}`);
       if (acc.username === name) return { ok: false, error: "same_name" };
       if (acc.username_changed_at !== null) {
-        const next =
-          new Date(acc.username_changed_at).getTime() + NAME_CHANGE_MS;
+        const next = nextNameChange(
+          new Date(acc.username_changed_at).getTime(),
+        );
         if (now < next)
           return { ok: false, error: "too_soon", nextChangeAt: iso(next) };
       }
