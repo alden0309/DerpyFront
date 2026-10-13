@@ -125,7 +125,7 @@ A glass touched the oak in front of him, not quite hard enough to be rude.
 @checkpoint "The bartender"
 @backdrop bar_wide
 @figure ANSELME
-@news "EN DIRECT · Le président Montclar annonce une « révision constitutionnelle de salut public »"
+@news "Le président Montclar annonce une « révision constitutionnelle de salut public » · L'Assemblée suspendue « le temps que la nation reprenne son souffle »"
 Anselme had been behind this bar since before the euro, and smiled at everyone. It was how he kept them from noticing that he listened.
 ANSELME: Monsieur Based. You are looking at that glass as if it owes you money.
 He said the name the French way, *Bah-ZAY*, which made it sound like a wine region instead of something a man had to write on forms.
@@ -599,7 +599,7 @@ He turned up his collar and walked towards the river.
 @backdrop epilogue
 @ambient none
 @card "PALAIS DE L'ÉLYSÉE" "The same night"
-Two men at a tall window, with the lights of the city below them and no lights on in the room.
+Two men at a tall window. Low cloud over the city, lit from underneath, and no lights on in the room.
 PRESIDENT: Brest?
 COLONEL: Ready when you say.
 PRESIDENT: Then I'll say it when the English are looking the other way.

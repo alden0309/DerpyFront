@@ -3,7 +3,7 @@
 // portraits, choices against the clock, rooms to read, and the small
 // reminders that people will remember what he said.
 
-import { html, LitElement, nothing, TemplateResult } from "lit";
+import { html, LitElement, nothing, svg as svgPart, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
   Beat,
@@ -440,6 +440,12 @@ export class BasedPlayer extends LitElement {
     const narrow = this.size.w / this.size.h < 1.05;
     return html`<div
       class="mb-stage ${looking ? "looking" : ""} ${narrow ? "narrow" : ""}"
+      @scroll=${(e: Event) => {
+        // Focus or find-in-page must never slide the film off the screen.
+        const el = e.currentTarget as HTMLElement;
+        el.scrollTop = 0;
+        el.scrollLeft = 0;
+      }}
       @click=${(e: MouseEvent) => {
         if (
           (e.target as HTMLElement).closest(
@@ -632,7 +638,7 @@ export class BasedPlayer extends LitElement {
     const seen = b.spots.filter((s) => s.seen).length;
     const need = Math.min(b.min, b.spots.length);
     const narrow = w / h < 1.05;
-    const panelW = narrow ? 0 : 320;
+    const panelW = narrow ? 0 : 340;
     return html`<div class="mb-look">
       <div
         class="mb-look-frame"
@@ -650,8 +656,9 @@ export class BasedPlayer extends LitElement {
           Math.max(f.top + (s.y / 100) * f.height, 70),
           narrow ? f.top + f.height - 18 : h - 40,
         );
+        const flip = !narrow && x > (w - panelW) * 0.6;
         return html`<button
-          class="mb-spot ${s.seen ? "seen" : ""}"
+          class="mb-spot ${s.seen ? "seen" : ""} ${flip ? "flip" : ""}"
           style="left:${x}px;top:${y}px"
           @click=${() => this.examine(s.id)}
           aria-label=${s.label}
@@ -780,7 +787,7 @@ export class BasedPlayer extends LitElement {
                       <div class="mb-note-when">
                         ${new Date(n.createdAt).toLocaleString()}
                       </div>
-                      <div>${n.note}</div>
+                      <div class="mb-note-text">${n.note}</div>
                     </div>`,
                 )}
               </div>`
@@ -968,7 +975,7 @@ export function creditsBody(credits: Credit[]): TemplateResult {
     </ul>`;
 }
 
-function svg(d: TemplateResult): TemplateResult {
+function svg(d: ReturnType<typeof svgPart>): TemplateResult {
   return html`<svg
     viewBox="0 0 24 24"
     width="20"
@@ -985,26 +992,22 @@ function svg(d: TemplateResult): TemplateResult {
 }
 function penIcon() {
   return svg(
-    html`<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" /><path
-        d="M13.5 6.5l4 4"
-      />`,
+    svgPart`<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" /><path d="M13.5 6.5l4 4" />`,
   );
 }
 function soundIcon() {
   return svg(
-    html`<path d="M4 10v4h4l5 4V6L8 10z" /><path
-        d="M16.5 9a4 4 0 0 1 0 6"
-      /><path d="M19 6.5a7.5 7.5 0 0 1 0 11" />`,
+    svgPart`<path d="M4 10v4h4l5 4V6L8 10z" /><path d="M16.5 9a4 4 0 0 1 0 6" /><path d="M19 6.5a7.5 7.5 0 0 1 0 11" />`,
   );
 }
 function muteIcon() {
   return svg(
-    html`<path d="M4 10v4h4l5 4V6L8 10z" /><path d="M17 10l4 4M21 10l-4 4" />`,
+    svgPart`<path d="M4 10v4h4l5 4V6L8 10z" /><path d="M17 10l4 4M21 10l-4 4" />`,
   );
 }
 function menuIcon() {
-  return svg(html`<path d="M4 7h16M4 12h16M4 17h10" />`);
+  return svg(svgPart`<path d="M4 7h16M4 12h16M4 17h10" />`);
 }
 export function closeIcon() {
-  return svg(html`<path d="M6 6l12 12M18 6L6 18" />`);
+  return svg(svgPart`<path d="M6 6l12 12M18 6L6 18" />`);
 }

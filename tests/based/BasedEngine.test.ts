@@ -145,6 +145,26 @@ describe("the script format", () => {
     });
   });
 
+  test("an option can keep a fixed id when its label changes", () => {
+    const { chapter, errors } = parseChapter(`@chapter 1 "T"
+@cast HERO "Hero"
+== a
+choose "Well?"
+  * [Perhaps, then] {it-might} "Perhaps." -> END
+  * [No] -> END
+end
+`);
+    expect(errors).toEqual([]);
+    const op = chapter.scenes.a.ops[0];
+    if (op.op !== "choose") throw new Error("expected a choice");
+    expect(op.options.map((o) => o.id)).toEqual(["it-might", "no"]);
+    expect(chapter.scenes.a.ops[op.options[0].at]).toMatchObject({
+      op: "line",
+      who: "HERO",
+      text: "Perhaps.",
+    });
+  });
+
   test("reports mistakes with line numbers", () => {
     const { errors } = parseChapter(`@chapter 1 "Broken"
 @cast HERO "Hero"
@@ -261,7 +281,7 @@ describe("playing a chapter", () => {
     run.choose("hello");
     run.advance(); // "Hello there." -> "Likewise."
     run.advance();
-    let menu = run.beat;
+    let menu = run.beat as Beat;
     expect(menu.kind).toBe("choice");
     if (menu.kind !== "choice") return;
     expect(menu.options.map((o) => o.id)).toEqual([
@@ -287,7 +307,7 @@ describe("playing a chapter", () => {
     run.choose("get-lost");
     while (run.beat.kind !== "choice") run.advance();
     run.choose("look-around");
-    let look: Beat = run.beat;
+    let look = run.beat as Beat;
     expect(look.kind).toBe("investigate");
     if (look.kind !== "investigate") return;
     expect(look.canLeave).toBe(false);

@@ -131,6 +131,7 @@ based-player {
   position: fixed;
   inset: 0;
   overflow: hidden;
+  overflow: clip;
   background: var(--mb-ink);
   user-select: none;
   -webkit-user-select: none;
@@ -274,7 +275,7 @@ based-player {
 .mb-toasts {
   position: absolute;
   z-index: 19;
-  top: calc(78px + env(safe-area-inset-top));
+  top: calc(104px + env(safe-area-inset-top));
   left: 18px;
   display: flex;
   flex-direction: column;
@@ -757,6 +758,10 @@ based-player {
   color: var(--mb-paper);
   pointer-events: none;
 }
+.mb-spot.flip .mb-spot-label {
+  left: auto;
+  right: 34px;
+}
 .mb-spot.seen .mb-spot-label {
   color: var(--mb-paper-3);
 }
@@ -775,6 +780,7 @@ based-player {
   right: 18px;
   bottom: 24px;
   width: 300px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1044,6 +1050,8 @@ based-player {
   font-family: var(--mb-serif);
   font-size: 15px;
   line-height: 1.5;
+}
+.mb-note-text {
   white-space: pre-wrap;
 }
 .mb-note-when {
@@ -1750,8 +1758,20 @@ kbd {
       0 12px 30px rgba(0, 0, 0, 0.6);
   }
   .mb-toasts {
-    top: auto;
-    bottom: calc(36vh + env(safe-area-inset-bottom));
+    top: calc(64px + env(safe-area-inset-top));
+    left: 124px;
+    right: 14px;
+    max-width: none;
+  }
+  .mb-toast {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  .mb-toast.remember {
+    font-size: 14px;
+  }
+  .mb-figure figcaption {
+    letter-spacing: 0.14em;
   }
   .mb-text,
   .mb-choices {
@@ -1793,6 +1813,32 @@ kbd {
   .mb-chapter {
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
+  }
+}
+/* Phones: the key art shows above the words on the title and Coming Soon. */
+@media (max-width: 760px) {
+  .mb-title,
+  .mb-soon {
+    align-items: flex-end;
+  }
+  .mb-title-art img,
+  .mb-soon-art img {
+    height: 62%;
+    object-position: 72% 20%;
+  }
+  .mb-title-art::after,
+  .mb-soon-art::after {
+    background: linear-gradient(
+      0deg,
+      var(--mb-ink) 40%,
+      rgba(6, 8, 11, 0.6) 62%,
+      rgba(6, 8, 11, 0.05) 100%
+    );
+  }
+  .mb-title-body,
+  .mb-soon-body {
+    padding-top: 34vh;
+    padding-bottom: 40px;
   }
 }
 /* Phones while reading a room: the whole picture on top, the list below. */
