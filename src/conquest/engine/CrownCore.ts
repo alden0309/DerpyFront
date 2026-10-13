@@ -24,9 +24,12 @@ import {
   meOf,
   no,
   officesOf,
+  skillLevel,
   yes,
 } from "./LifeQueries";
+import { checkChance } from "./LifeRules";
 import { kmBetween, type World } from "./Map";
+import { findPath } from "./Paths";
 import {
   ageOf,
   armyMen,
@@ -38,11 +41,12 @@ import {
   provincesOf,
   stat,
   treatyBetween,
+  tribesfolk,
   truceUntil,
 } from "./Queries";
 import { CLAIM, claimLive, claimOf, reclaimOf } from "./ReclaimCore";
 import type { Rng } from "./Rng";
-import { DAYS_PER_YEAR } from "./Rules";
+import { DAYS_PER_YEAR, WARRIOR_SHARE } from "./Rules";
 import type {
   Army,
   Breakdown,
@@ -445,11 +449,13 @@ export function sendOdds(
 // ---------------------------------------------------------------- the fortress garrisons
 
 /**
- * Spain's fortress ports, each with its garrison from Europe, renewed every
- * year with the fleet (the situado paid it) while Spain holds the town. Men
- * by the town's own scale in the game (St. Augustine has some 850 settlers
- * here, 1,500 to 1,700 in life, and kept 200 to 750 soldiers). Cartagena,
- * the greatest of them, lies off this map.
+ * The crowns' standing garrisons, renewed from Europe every year while the
+ * crown holds the town: Spain's fortress ports (the situado from Mexico paid
+ * them, and the fleet brought the men), and France's troupes de la marine,
+ * sent to Canada from 1683 and kept there all along. Men by the town's own
+ * scale in the game (St. Augustine has some 850 settlers here, 1,500 to
+ * 1,700 in life, and kept 200 to 750 soldiers). Cartagena, the greatest of
+ * Spain's, lies off this map.
  */
 export const FORTS: {
   name: string;
@@ -513,6 +519,34 @@ export const FORTS: {
     men: 50,
     from: 1698,
     note: "Santa María de Galve (1698): two companies.",
+  },
+  {
+    name: "Quebec",
+    key: "france",
+    men: 100,
+    from: 1683,
+    note: "The troupes de la marine: 35 companies sent 1683–88, 1,418 soldiers in Canada in 1688, 28 companies kept until the Seven Years' War.",
+  },
+  {
+    name: "Hochelaga",
+    key: "france",
+    men: 50,
+    from: 1683,
+    note: "Montreal's companies of the marine, at the head of the fur trade.",
+  },
+  {
+    name: "Île Royale",
+    key: "france",
+    men: 100,
+    from: 1720,
+    note: "Louisbourg, built from 1720: twenty companies of the marine in the Seven Years' War.",
+  },
+  {
+    name: "Mobile",
+    key: "france",
+    men: 50,
+    from: 1702,
+    note: "Louisiana's companies of the marine, at Mobile from 1702.",
   },
 ];
 
@@ -616,9 +650,10 @@ export function crownAim(s: GameState, n: number): number {
 }
 
 /**
- * Where regiments sent to a colony land: its own port nearest the aim (or
- * its main port), or, holding no port, a landing in force on the coast
- * nearest the aim.
+ * Where regiments sent to a colony land: its own port nearest the aim from
+ * which they can march there (or its main port, with no aim), or, holding
+ * no such port, a landing in force on the coast nearest the aim that has a
+ * way to it (the aim itself, if it's on the coast).
  */
 export function landingFor(
   s: GameState,
@@ -632,25 +667,24 @@ export function landingFor(
       (s.provinces[p].b.port ?? 0) > 0 &&
       map.provinces[p].coastal,
   );
-  if (own.length) {
-    const at = aim >= 0 ? aim : s.nations[n].capital;
-    if (at < 0) return { port: own[0], force: false };
-    own.sort((a, b) => kmBetween(map, a, at) - kmBetween(map, b, at) || a - b);
-    return { port: own[0], force: false };
-  }
-  if (aim < 0) return null;
+  const at = aim >= 0 ? aim : s.nations[n].capital;
+  const near = (a: number, b: number) =>
+    kmBetween(map, a, at) - kmBetween(map, b, at) || a - b;
+  if (at < 0) return own.length ? { port: own[0], force: false } : null;
+  own.sort(near);
+  if (aim < 0) return own.length ? { port: own[0], force: false } : null;
+  // A port within a march of the aim (an island's port won't do for the mainland).
+  for (const p of own.slice(0, 4))
+    if (p === aim || findPath(s, map, n, p, aim, 1))
+      return { port: p, force: false };
   if (map.provinces[aim].coastal) return { port: aim, force: true };
-  let best = -1;
-  let km = Infinity;
-  for (let p = 0; p < map.provinces.length; p++) {
-    if (!map.provinces[p].coastal) continue;
-    const d = kmBetween(map, p, aim);
-    if (d < km) {
-      km = d;
-      best = p;
-    }
-  }
-  return best >= 0 ? { port: best, force: true } : null;
+  const coast: number[] = [];
+  for (let p = 0; p < map.provinces.length; p++)
+    if (map.provinces[p].coastal) coast.push(p);
+  coast.sort(near);
+  for (const p of coast.slice(0, 6))
+    if (findPath(s, map, n, p, aim, 1)) return { port: p, force: true };
+  return own.length ? { port: own[0], force: false } : null;
 }
 
 // ---------------------------------------------------------------- a petition for an expedition
@@ -712,6 +746,11 @@ export const EXPEDITION = {
   house: 0.02,
   houseMax: 0.08,
   court: 0.04,
+  /** The holder's men within this reach of the town (km), against what would sail: past this share, a point in 100 for each... */
+  reach: 500,
+  oddsFrom: 0.7,
+  oddsPer: 0.3,
+  oddsMax: 0.4,
   /** Never likelier than this, nor less likely than 3 in 100. */
   min: 0.03,
   max: 0.8,
@@ -804,6 +843,7 @@ function governorOf(s: GameState, n: number) {
  */
 export function expeditionOdds(
   s: GameState,
+  map: MapDef,
   n: number,
   p: number,
   ask: Pick<
@@ -836,6 +876,17 @@ export function expeditionOdds(
   const c = claimOf(s, n, p);
   const claim = c ? claimLive(s, c).total : 0;
   e.add(`The claim (${Math.round(claim)})`, pct(claim * X.claimPer));
+  // Whether it could be done: the holder's men near the town against what would sail.
+  const near = menNear(s, map, h, p);
+  const size = expeditionSize(s, map, n, p);
+  const force =
+    (size.regs + size.guns + squadronGuns(size.ships) + (ask?.men ?? 0)) * 100;
+  const ratio = near / Math.max(100, force);
+  if (ratio > X.oddsFrom)
+    e.add(
+      `${Math.round(near)} of theirs near ${map.provinces[p].name}, against ${force} who'd sail`,
+      pct(-Math.min(X.oddsMax, (ratio - X.oddsFrom) * X.oddsPer)),
+    );
   if (war) {
     e.add(`At war with ${H.name.replace(/^the /, "the ")} already`, X.atWar);
     if (s.europe.wars[pairKey(n, h)] !== undefined)
@@ -991,14 +1042,37 @@ export function expeditionSize(
   if (!m) return { regs: 0, guns: 0, ships: 0 };
   // Enough, with the colony's share, to outnumber the holder's men near the town by half again.
   const h = s.provinces[p]?.owner ?? -1;
-  let near = 0;
-  for (const a of s.armies)
-    if (a.owner === h && kmBetween(map, a.prov, p) <= 300) near += armyMen(a);
-  const want = Math.ceil((near * 1.5) / 100);
+  const want = Math.ceil((menNear(s, map, h, p) * 1.5) / 100);
   const regs = Math.max(m.exp, Math.min(m.exp * 2, want));
   const guns = Math.max(1, Math.round(regs / 4));
   const ships = map.provinces[p]?.coastal ? m.ships : 0;
   return { regs, guns, ships };
+}
+
+/** A native nation at war calls up this share of its warriors (as its own council does: Ai.ts). */
+export const NATIVE_CALL = 0.7;
+
+/**
+ * The holder's men who could stand against an expedition at a town: its
+ * armies within reach, and for a native nation the warriors its towns near
+ * would call up at war.
+ */
+export function menNear(
+  s: GameState,
+  map: MapDef,
+  h: number,
+  p: number,
+): number {
+  if (h < 0) return 0;
+  let men = 0;
+  for (const a of s.armies)
+    if (a.owner === h && kmBetween(map, a.prov, p) <= EXPEDITION.reach)
+      men += armyMen(a);
+  if (s.nations[h]?.kind === "native")
+    for (const q of provincesOf(s, h))
+      if (kmBetween(map, q, p) <= EXPEDITION.reach)
+        men += tribesfolk(s.provinces[q]) * WARRIOR_SHARE * NATIVE_CALL;
+  return Math.round(men);
 }
 
 /** The squadron's guns, landed for the siege: a regiment of guns for every three ships. */
@@ -1224,6 +1298,50 @@ export function onCouncil(s: GameState, n: number, c: number): boolean {
 export function playerGoverns(s: GameState, n: number): Life | undefined {
   const gov = governorOf(s, n);
   return gov ? lifeOfChar(s, gov.id) : undefined;
+}
+
+// ---------------------------------------------------------------- words
+
+const WORDS = [
+  "No",
+  "One",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+  "Eleven",
+  "Twelve",
+];
+/** "Two", "Fourteen" (a number in words, capitalised, for the news). */
+export const inWords = (k: number): string => WORDS[k] ?? String(k);
+
+/** "Two regiments of English foot and one of guns". */
+export function regimentsWords(
+  adjective: string,
+  foot: number,
+  guns: number,
+): string {
+  const f = `${inWords(foot)} regiment${foot === 1 ? "" : "s"} of ${adjective} foot`;
+  return guns > 0
+    ? `${f} and ${inWords(guns).toLowerCase()} of guns`
+    : foot > 0
+      ? f
+      : `${inWords(guns)} regiment${guns === 1 ? "" : "s"} of ${adjective} guns`;
+}
+
+/** The odds of a skill check, as the track rolls it (the same formula every act shows). */
+export function skillOdds(
+  s: GameState,
+  life: Life,
+  sk: "persuasion" | "letters",
+  dc: number,
+): number {
+  return checkChance(skillLevel(s, life, sk), dc);
 }
 
 // ---------------------------------------------------------------- small things

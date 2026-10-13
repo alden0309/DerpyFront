@@ -40,6 +40,32 @@ export const TERMS: Record<string, Term> = {
     ch: "claims",
   },
   // ---- end WAR (r17)
+  // ---- CROWN (r18): CrownCore.ts (MEANS, FORTS, EXPEDITION)
+  regiments: {
+    name: "Regiments from Europe",
+    what: "The crown's own soldiers, sent across when its colony goes to war in America: some when the war begins, a reinforcement each spring, by the crown's means in its age and what the war is to it.",
+    good: "They land at the colony's port and join its armies; the computer sends them first against the war's aims (a town of its own the enemy holds, or one it lost and claims).",
+    raise:
+      "Britain sent few before the 1750s and many after; France its troupes de la marine all along and line battalions from 1755; Spain fleets of relief; the Dutch few. The colony pays their passage and pay; they suffer the fevers, and go home at the peace.",
+    ch: "crown",
+  },
+  expedition: {
+    name: "Expedition",
+    what: "Regiments, guns and (for a town on the coast) a squadron, sent by the crown on a governor's petition to take back a town his colony lost.",
+    good: "Taken back: renown and favour for the governor who asked, and for those who rode with it. If the colony isn't at war with the town's holder, the crown makes war for it.",
+    raise:
+      "The governor petitions (four months of letters, friends at court and the colony's offer, then the answer two months later, at the odds shown). Anyone of the colony can ask him for it, pay in, write to court for it, and ride with it when it lands.",
+    ch: "crown",
+  },
+  garrison: {
+    name: "Garrison",
+    what: "A fortress port's soldiers of the crown's own: Spain's (Havana, St. Augustine, Veracruz and the rest) and France's troupes de la marine (Quebec, Montreal, Louisbourg, Mobile).",
+    good: "It holds the town: an enemy must beat it in the field before a siege can begin. The computer never marches it off.",
+    raise:
+      "Renewed every year with the fleet while the crown holds the town; when the town is lost, it sails for home.",
+    ch: "crown",
+  },
+  // ---- end CROWN (r18)
   // Life.ts (monthly purse), Money.ts
   purse: {
     name: "Purse",

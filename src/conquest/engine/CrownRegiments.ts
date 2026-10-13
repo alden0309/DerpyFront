@@ -31,10 +31,12 @@ import {
   FORT_MONTH,
   fortPorts,
   garrisonArmy,
+  inWords,
   kdice,
   landingFor,
   meansOf,
   PASSAGE,
+  regimentsWords,
   SEASON_MONTH,
   sendOdds,
   sentRecord,
@@ -49,38 +51,6 @@ import type { Army, CrownSailing, Regiment } from "./Types";
 
 const town = (g: ConquestGame, p: number) =>
   g.map.provinces[p]?.name ?? "the coast";
-
-const WORDS = [
-  "No",
-  "One",
-  "Two",
-  "Three",
-  "Four",
-  "Five",
-  "Six",
-  "Seven",
-  "Eight",
-  "Nine",
-  "Ten",
-  "Eleven",
-  "Twelve",
-];
-/** "Two", "Fourteen" (a number in words, capitalised, for the news). */
-export const inWords = (k: number): string => WORDS[k] ?? String(k);
-
-/** "Two regiments of English foot and one of guns". */
-export function regimentsWords(
-  adjective: string,
-  foot: number,
-  guns: number,
-): string {
-  const f = `${inWords(foot)} regiment${foot === 1 ? "" : "s"} of ${adjective} foot`;
-  return guns > 0
-    ? `${f} and ${inWords(guns).toLowerCase()} of guns`
-    : foot > 0
-      ? f
-      : `${inWords(guns)} regiment${guns === 1 ? "" : "s"} of ${adjective} guns`;
-}
 
 // ---------------------------------------------------------------- making regiments
 
@@ -439,7 +409,7 @@ function fortsMonthly(g: ConquestGame, first = false): void {
       !!meansOf(s, n) &&
       d.year >= def.from &&
       s.nations[n].alive;
-    let f = st.forts[p];
+    const f = st.forts[p];
     if (!holds) {
       const a = f ? garrisonArmy(s, p) : undefined;
       if (f && a) {
@@ -464,7 +434,7 @@ function fortsMonthly(g: ConquestGame, first = false): void {
     if (pr.occupier >= 0) continue;
     if (!f) {
       // On the books from the start (or since an old save's first month).
-      f = st.forts[p] = { p, n, renewed: s.day };
+      st.forts[p] = { p, n, renewed: s.day };
       fillGarrison(g, p, n, def.men);
       continue;
     }
@@ -505,4 +475,4 @@ hooks.monthEnd.push(crownMonthly);
 // The fortresses' garrisons stand from the first day of a new game.
 hooks.created.push((g) => fortsMonthly(g, true));
 
-export { crownMen };
+export { crownMen, inWords, regimentsWords };

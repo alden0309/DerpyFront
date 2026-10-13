@@ -13,6 +13,7 @@ import { dateOf } from "../../engine/Calendar"; // MAP (r12)
 import { pollOf, treatView } from "../../engine/Canvass"; // POLLS (r16)
 import { followCheck, LT, petitionCheck } from "../../engine/ChairCore"; // CHAIR (r16)
 import { knowsDen } from "../../engine/CrimeQueries";
+import { askOf, claimedTowns, meansOf } from "../../engine/CrownCore"; // CROWN (r18)
 import { cruiseOffers, pardonCheck } from "../../engine/Cruises"; // SEA (r15)
 import { STALL_SECONDS, tableAt } from "../../engine/DiceCore"; // DICE (r14)
 import { schoolable } from "../../engine/Edu"; // EDU (r13)
@@ -2252,6 +2253,77 @@ const GOALS: Goal[] = [
     guide: "claims",
   },
   // ---- end WAR (r17)
+  // ---- CROWN (r18): regiments from Europe, and an expedition to take back a town
+  {
+    id: "crown-ask",
+    title: "Ask the crown to retake a town",
+    words:
+      "crown petition expedition retake take back lost town regiments king army fleet squadron reconquest siege St. Augustine claim governor",
+    group: "Society",
+    where:
+      "Society › Standing (or Society › Council) › An expedition to take back a town. The governor petitions the crown, with its odds shown before he begins; anyone else of the colony asks the governor for it, pays into the colony's share, writes to court for it, and rides with it when it lands.",
+    who: "colonist",
+    needs: (ui) => {
+      const me = ui.me;
+      if (!me) return [];
+      const n = me.nation;
+      const towns = claimedTowns(ui.s, n);
+      const a = askOf(ui.s, n);
+      return [
+        adult(ui),
+        {
+          label: meansOf(ui.s, n)
+            ? "Your colony answers to a crown"
+            : "Your colony answers to no crown",
+          met: !!meansOf(ui.s, n),
+        },
+        {
+          label: a
+            ? `A petition for ${ui.map.provinces[a.p].name} is under way`
+            : towns.length
+              ? `Your colony claims ${towns.length} town${towns.length === 1 ? "" : "s"} another holds`
+              : "Your colony claims no town another holds",
+          met: !!a || towns.length > 0,
+        },
+        {
+          label:
+            ui.s.nations[n]?.ruler === me.id
+              ? "You govern: you petition"
+              : "Only the governor petitions: you ask him",
+          met: true,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "society", sub: "standing" }),
+    goLabel: "Standing",
+    guide: "crown",
+  },
+  {
+    id: "crown-sent",
+    title: "See what troops the crown has sent",
+    words:
+      "regiments redcoats regulars troops soldiers crown king europe sent landed garrison fortress marines reinforcements army war",
+    group: "Travel and the world",
+    where:
+      "World › Regiments from Europe: for each colony, the crown's men in the field, the regiments landed in this war and in all, those at sea, and the garrisons of the fortress ports; a nation's page, its own. Landings are in the news and the gazette, and the ships show on the map as they come in.",
+    go: tab({ k: "tab", tab: "world" }),
+    goLabel: "World",
+    guide: "crown",
+  },
+  {
+    id: "crown-ride",
+    title: "Ride with an expedition",
+    words:
+      "ride join expedition army march campaign volunteer go with soldiers siege",
+    group: "Society",
+    where:
+      "When the crown's expedition for your colony has landed: Society › Standing › An expedition to take back a town › Ride with it, from where its army stands. Your character goes with the army until it's over, or until you set off alone.",
+    who: "colonist",
+    go: tab({ k: "tab", tab: "society", sub: "standing" }),
+    goLabel: "Standing",
+    guide: "crown",
+  },
+  // ---- end CROWN (r18)
   // ---- LABOUR (r15): bondage in the colonies, as history
   {
     id: "bond-law",

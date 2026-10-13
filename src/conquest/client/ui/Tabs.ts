@@ -50,6 +50,7 @@ import {
   subordinatesSection,
 } from "./Civic";
 import { GameUi, section, token, type Tab } from "./Context";
+import { crownSection } from "./Crown"; // CROWN (r18)
 import { familyTreeSection } from "./FamilyTree"; // HOME (r12)
 import { pressPage } from "./Gazette"; // POWER (r12)
 import { verdictChip } from "./Here";
@@ -814,6 +815,7 @@ function societyPage(ui: GameUi, sub: string): TemplateResult {
       )}
       ${standingSection(ui)}
       ${chairSection(ui) /* CHAIR (r16): the governor's chair as it stands */}
+      ${crownSection(ui) /* CROWN (r18): an expedition to take back a town */}
       ${section(
         html`Winning favour ${termMark("favour")}`,
         html`<ul class="cq-where-list small">

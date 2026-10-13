@@ -592,6 +592,31 @@ function peace(g: ConquestGame, n: number): void {
       score >= CLAIM.peaceScore && score < 25 && claimed.length > 0
         ? { take: claimed.slice(0, 1), give: [], gold: 0 }
         : null;
+    // CROWN (r18): the crown's expedition in the field for a town of theirs:
+    // no peace without it, unless the war is lost.
+    const exp = s.crown?.asks?.find(
+      (x) =>
+        x.n === n &&
+        x.holder === enemy &&
+        (x.stage === "landed" || x.stage === "granted"),
+    );
+    if (exp && s.provinces[exp.p].occupier === n) {
+      // It holds the town: it asks for it, whatever else the war has done.
+      const t: PeaceTerms = { take: [exp.p], give: [], gold: 0 };
+      if (
+        peaceCheck(s, n, enemy, t).ok &&
+        (peaceWillingness(s, n, enemy, t).total >= 0 ||
+          s.nations[enemy].player !== null)
+      )
+        g.command(n, { k: "peace", n: enemy, terms: t });
+      if (score > -15) continue;
+    } else if (
+      exp &&
+      score > -15 &&
+      !ask?.take.includes(exp.p) &&
+      !terms.take.includes(exp.p)
+    )
+      continue;
     // A beaten native nation is made to pay tribute.
     const foe = s.nations[enemy];
     if (

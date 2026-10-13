@@ -26,6 +26,7 @@ import {
   section,
   token,
 } from "./Context";
+import { crownWorldSection, nationCrown } from "./Crown"; // CROWN (r18)
 import { personRow } from "./Here";
 import { playersSection } from "./Players"; // HOME (r12)
 import { claimsWorldSection, nationClaims } from "./Reclaim"; // WAR (r17)
@@ -199,6 +200,7 @@ export function worldTab(ui: GameUi): TemplateResult {
           </ul>`
         : html`<p class="cq-muted">The Americas are at peace, for now.</p>`,
     )}
+    ${crownWorldSection(ui) /* CROWN (r18): what each crown has sent */}
     ${section(
       "Causes and risings",
       causes.length
@@ -358,5 +360,6 @@ export function nationPage(ui: GameUi, id: number): TemplateResult {
           html`${causes.map((m) => movementCard(ui, m, false))}`,
         )
       : nothing}
-    ${nationClaims(ui, id) /* WAR (r17) */}`;
+    ${nationClaims(ui, id) /* WAR (r17) */}
+    ${nationCrown(ui, id) /* CROWN (r18) */}`;
 }

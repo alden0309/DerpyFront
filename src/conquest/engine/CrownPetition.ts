@@ -33,7 +33,6 @@ import {
   crownState,
   EXPEDITION,
   expeditionOdds,
-  expeditionOfArmy,
   expeditionSize,
   helpable,
   kdice,
@@ -74,7 +73,7 @@ import {
   spend,
   touchLife,
 } from "./LifeCore";
-import { isPlayed, lifeOfChar, meOf, skillLevel } from "./LifeQueries";
+import { lifeOfChar, meOf, skillLevel } from "./LifeQueries";
 import { checkChance } from "./LifeRules";
 import {
   ageOf,
@@ -84,6 +83,8 @@ import {
   pairKey,
   provincesOf,
   stat,
+  treatyBetween,
+  truceUntil,
 } from "./Queries";
 import { CLAIM, claimOf, reclaimChanged, reclaimState } from "./ReclaimCore";
 import { DAYS_PER_YEAR, REGIMENTS } from "./Rules";
@@ -167,16 +168,6 @@ function check(
 ): boolean {
   const p = checkChance(skillLevel(g.s, life, sk), dc);
   return kdice(g.s, 0x40 + salt, life.c, g.s.day).next() < p;
-}
-
-/** The odds of a skill check, as rolled (for the page's chips). */
-export function skillOdds(
-  s: import("./Types").GameState,
-  life: Life,
-  sk: "persuasion" | "letters",
-  dc: number,
-): number {
-  return checkChance(skillLevel(s, life, sk), dc);
 }
 
 // ---------------------------------------------------------------- the petition
@@ -492,14 +483,25 @@ function leave(g: ConquestGame, life: Life, quiet = false): string | null {
 
 // ---------------------------------------------------------------- the crown's answer
 
+/** The crown's answer to a petition: granted (true), at exactly the odds the page shows. */
+export function grantRoll(
+  s: import("./Types").GameState,
+  map: import("./Types").MapDef,
+  a: CrownAsk,
+): boolean {
+  return (
+    kdice(s, 0x30, a.id).next() <
+    expeditionOdds(s, map, a.n, a.p, a, a.by).total
+  );
+}
+
 /** The answer comes: granted or refused, rolled at exactly the odds the page shows. */
 export function answerAsk(g: ConquestGame, a: CrownAsk): void {
   const s = g.s;
-  const o = expeditionOdds(s, a.n, a.p, a, a.by).total;
-  a.odds = o;
-  const granted = kdice(s, 0x30, a.id).next() < o;
+  a.odds = expeditionOdds(s, g.map, a.n, a.p, a, a.by).total;
+  const granted = grantRoll(s, g.map, a);
   crownChanged(g);
-  if (granted) grant(g, a);
+  if (granted) grantAsk(g, a);
   else refuse(g, a);
 }
 
@@ -507,12 +509,27 @@ export function answerAsk(g: ConquestGame, a: CrownAsk): void {
 const petitioner = (g: ConquestGame, a: CrownAsk) => lifeOfChar(g.s, a.by);
 
 function refuse(g: ConquestGame, a: CrownAsk): void {
-  const s = g.s;
   // A modest, sensible request: the colony offered a good share, and it stood a fair chance.
   const share = a.men + (a.gold + paidIn(a)) / 50;
   const modest = (a.odds ?? 0) >= 0.35 && share >= 2;
   const by = petitioner(g, a);
-  const dv = modest ? EXPEDITION.modestFavour : EXPEDITION.refusedFavour;
+  // Out of the crown's hands (a truce, an alliance): nobody's the worse for asking.
+  const dv =
+    (a.odds ?? 0) <= 0
+      ? 0
+      : modest
+        ? EXPEDITION.modestFavour
+        : EXPEDITION.refusedFavour;
+  if (!dv) {
+    if (by)
+      quietNews(
+        g,
+        by,
+        `The crown can't send an expedition to ${town(g, a.p)} now: a truce or a treaty stands in the way.`,
+      );
+    endAsk(g, a, "refused", "Not while the truce holds");
+    return;
+  }
   if (by) {
     addFavor(g, by, dv);
     quietNews(
@@ -543,7 +560,7 @@ function refuse(g: ConquestGame, a: CrownAsk): void {
 }
 
 /** Granted: the crown goes to war for it if it must, and the expedition sails. */
-function grant(g: ConquestGame, a: CrownAsk): void {
+export function grantAsk(g: ConquestGame, a: CrownAsk): void {
   const s = g.s;
   const n = a.n;
   const h = s.provinces[a.p].owner;
@@ -942,6 +959,25 @@ function askDaily(g: ConquestGame): void {
       endAsk(g, a, "dropped", "The colony answers to no crown now");
       continue;
     }
+    // A truce or an alliance made with the town's holder meanwhile: the crown
+    // won't break it, so the petition is moot (and no one's the worse for it).
+    const h = s.provinces[a.p].owner;
+    if (
+      (a.stage === "gathering" || a.stage === "sent") &&
+      h >= 0 &&
+      !atWar(s, a.n, h) &&
+      (truceUntil(s, a.n, h) > s.day || treatyBetween(s, a.n, h, "alliance"))
+    ) {
+      const by = petitioner(g, a);
+      if (by)
+        quietNews(
+          g,
+          by,
+          `A truce with ${thename(g, h)}: the crown won't break it, and your petition for ${town(g, a.p)} is moot. What was paid in is handed back.`,
+        );
+      endAsk(g, a, "dropped", "A truce was made with them");
+      continue;
+    }
     if (a.stage === "gathering" && s.day >= a.sails) {
       a.stage = "sent";
       crownChanged(g);
@@ -1000,7 +1036,7 @@ hooks.battle.push((g, r, attackers, defenders) => {
 });
 
 /** The month's turn: expeditions in the field reckoned, the computer's governors and their petitions. */
-function askMonthly(g: ConquestGame): void {
+export function petitionsMonthly(g: ConquestGame): void {
   const s = g.s;
   const st = s.crown;
   if (st?.asks?.length)
@@ -1093,6 +1129,7 @@ function npcPetitions(g: ConquestGame): void {
       );
       const p = expeditionOdds(
         s,
+        g.map,
         n,
         t.p,
         {
@@ -1224,8 +1261,7 @@ function crownCommand(
 
 hooks.command.push(crownCommand);
 hooks.daily.push(askDaily);
-hooks.monthEnd.push(askMonthly);
+hooks.monthEnd.push(petitionsMonthly);
 hooks.lifeDaily.push(riderDaily);
 hooks.lifeMonthly.push(retainer);
 
-export { expeditionOfArmy, isPlayed };
