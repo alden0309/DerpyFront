@@ -16,39 +16,18 @@ import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 import { checkAchievements } from "../../conquest/engine/Achievements"; // MAP (r12)
 import { validateLook } from "../../conquest/engine/Appearance";
-import {
-  labourDeltaForSeat,
-  labourDeltaSecret,
-  labourStateForSeat,
-} from "../../conquest/engine/BondCore"; // LABOUR (r15)
-import { dateOf } from "../../conquest/engine/Calendar";
+import { dateOf, formatDate } from "../../conquest/engine/Calendar";
 import { lifeCoins } from "../../conquest/engine/Coins";
-import {
-  crownDeltaForSeat,
-  crownStateForSeat,
-} from "../../conquest/engine/CrownCore"; // CROWN (r18)
 import { dropFromTable } from "../../conquest/engine/Dice"; // DICE (r14)
 import {
-  diceView,
   seatOf,
   STALL_SECONDS,
-  stateForSeat,
   tablesOf,
 } from "../../conquest/engine/DiceCore"; // DICE (r14)
 import { ConquestGame, STATE_VERSION } from "../../conquest/engine/Game";
-import {
-  deltaForSeat,
-  deltaHasSecrets,
-  stateForIntrigue,
-} from "../../conquest/engine/IntrigueCore"; // INTRIGUE (r15)
 import { planProblem } from "../../conquest/engine/Life";
 import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
 import { lifeOfSeat, lifeScore } from "../../conquest/engine/LifeQueries";
-import {
-  loanDeltaForSeat,
-  loanDeltaSecret,
-  loanStateForSeat,
-} from "../../conquest/engine/LoanCore"; // ECON (r17)
 import { AMERICAS } from "../../conquest/engine/Map";
 import { NOTE_MAX } from "../../conquest/engine/Notes"; // INTRIGUE (r15)
 import {
@@ -70,12 +49,24 @@ import type {
   LifePlan,
   StartYear,
 } from "../../conquest/engine/Types";
+// DICE (r14), INTRIGUE and LABOUR (r15), POLLS (r16), ECON (r17), CROWN (r18):
+// what each seat may be sent, composed in one place (SITE r19), and the most
+// redacted view of them all for a watcher.
+import {
+  deltaForViewer,
+  deltaForWatcher,
+  deltaIsPerViewer,
+  stateForViewer,
+  stateForWatcher,
+} from "../../conquest/engine/Viewers";
 import {
   ClientMessage,
   CONQUEST_WS_PATH,
   DIFFICULTIES,
   END_YEAR,
+  LiveRoom,
   MAX_NAME_LENGTH,
+  MAX_WATCHERS,
   OpenRoom,
   ResultLine,
   RoomSettings,
@@ -272,6 +263,9 @@ const Message = z.discriminatedUnion("t", [
   z.object({ t: z.literal("delsave"), id: z.string().max(60) }),
   z.object({ t: z.literal("hidesave"), id: z.string().max(60) }),
   z.object({ t: z.literal("clearsaves") }),
+  // SITE (r19): watching a game being played, and the host letting watchers in.
+  z.object({ t: z.literal("watch"), id: z.string().max(40) }),
+  z.object({ t: z.literal("allowwatch"), allow: z.boolean() }),
 ]);
 
 export function cleanName(raw: string): string {
@@ -299,6 +293,8 @@ interface Conn {
   username: string | null;
   room: Room | null;
   seat: Seat | null;
+  /** SITE (r19): the room this connection watches (it holds no seat there). */
+  watching: Room | null;
   hello: Promise<void> | null;
   recent: number[];
 }
@@ -358,6 +354,16 @@ interface Room {
     from: number;
     wasPaused: boolean;
   };
+  /**
+   * SITE (r19): watchers. They hold no seat, never pause, never count toward
+   * the room being empty, and are sent nobody's secrets. A room open to
+   * anyone can be watched; a private (or solo) one only if its host allows.
+   * Watchers come by `watchId`, never the room's code, so watching a private
+   * game is no way into it.
+   */
+  watchers: Set<Conn>;
+  allowWatchers: boolean;
+  watchId: string;
 }
 
 function randomToken(bytes: number): string {
@@ -400,6 +406,7 @@ export class ConquestRooms {
       username: null,
       room: null,
       seat: null,
+      watching: null,
       hello: null,
       recent: [],
     };
@@ -435,15 +442,27 @@ export class ConquestRooms {
       conn.ws.send(JSON.stringify(msg));
   }
 
-  private broadcast(room: Room, msg: ServerMessage): void {
+  /**
+   * To everyone in the room: the players and (SITE r19) its watchers, unless
+   * `toWatchers` is false (the players' chat, a save).
+   */
+  private broadcast(room: Room, msg: ServerMessage, toWatchers = true): void {
     const json = JSON.stringify(msg);
     for (const seat of room.seats) {
       if (seat.conn && seat.conn.ws.readyState === WebSocket.OPEN)
         seat.conn.ws.send(json);
     }
+    if (toWatchers) this.toWatchers(room, json);
+  }
+
+  /** SITE (r19): one message, written once, to every watcher (none: nothing done). */
+  private toWatchers(room: Room, json: string): void {
+    for (const w of room.watchers)
+      if (w.ws.readyState === WebSocket.OPEN) w.ws.send(json);
   }
 
   private disconnect(conn: Conn): void {
+    this.stopWatching(conn); // SITE (r19)
     const room = conn.room;
     const seat = conn.seat;
     conn.room = null;
@@ -454,7 +473,7 @@ export class ConquestRooms {
       // In the lobby a leaver gives up their seat.
       room.seats = room.seats.filter((s) => s !== seat);
       if (room.seats.length === 0) {
-        this.rooms.delete(room.code);
+        this.closeRoom(room);
         return;
       }
       if (room.host === seat.id) room.host = room.seats[0].id;
@@ -525,6 +544,9 @@ export class ConquestRooms {
         return this.hideSaved(conn, m.id);
       case "clearsaves":
         return this.clearFinished(conn);
+      // SITE (r19): watch a game being played (no seat, nobody's secrets).
+      case "watch":
+        return this.watch(conn, m.id);
     }
     const room = conn.room;
     const seat = conn.seat;
@@ -605,12 +627,22 @@ export class ConquestRooms {
         if (room.paused) void this.save(room);
         return;
       case "chat":
-        this.broadcast(room, {
-          t: "chat",
-          from: seat.name,
-          text: m.text.slice(0, 300),
-        });
+        // The players' table talk: not for watchers (SITE r19).
+        this.broadcast(
+          room,
+          {
+            t: "chat",
+            from: seat.name,
+            text: m.text.slice(0, 300),
+          },
+          false,
+        );
         return;
+      // SITE (r19): the host lets watchers into a private (or solo) game, or
+      // shuts them out, before it starts or while it runs.
+      case "allowwatch":
+        if (room.host !== seat.id) return;
+        return this.setAllowWatchers(room, m.allow);
       case "save":
         await this.save(room);
         return;
@@ -692,7 +724,8 @@ export class ConquestRooms {
         log.warn(`couldn't list saves: ${err}`);
       }
     }
-    this.send(conn, { t: "rooms", open, saved, finished });
+    // SITE (r19): the games anyone may watch right now.
+    this.send(conn, { t: "rooms", open, saved, finished, live: this.live() });
   }
 
   private newCode(): string {
@@ -717,7 +750,7 @@ export class ConquestRooms {
   }
 
   private leaveCurrent(conn: Conn): void {
-    if (conn.room) this.disconnect(conn);
+    if (conn.room || conn.watching) this.disconnect(conn);
   }
 
   private newRoom(
@@ -755,6 +788,10 @@ export class ConquestRooms {
         from: 0,
         wasPaused: false,
       },
+      // SITE (r19): off for a private game until its host allows them.
+      watchers: new Set(),
+      allowWatchers: false,
+      watchId: randomToken(9),
     };
     if (conn) {
       const seat = this.seatFor(conn);
@@ -922,6 +959,148 @@ export class ConquestRooms {
     this.takeSeat(room, mine, conn);
   }
 
+  // ---------------------------------------------------------------- watchers (SITE r19)
+
+  /** Whether anyone may watch a room: one open to all, or one its host opened to watchers. */
+  private watchable(room: Room): boolean {
+    return (room.open && !room.solo) || room.allowWatchers;
+  }
+
+  /**
+   * The games being played now that anyone may watch, for the lobby and Derp
+   * Land's front page. A game nobody's at (they've all stepped away) isn't
+   * being played, so it isn't offered.
+   */
+  live(): LiveRoom[] {
+    const out: LiveRoom[] = [];
+    for (const r of this.rooms.values()) {
+      const g = r.game;
+      if (!g || g.state.over || r.overAt !== null || !this.watchable(r))
+        continue;
+      if (!r.seats.some((x) => x.conn)) continue;
+      out.push({
+        watchId: r.watchId,
+        title: titleOf(r),
+        open: r.open && !r.solo,
+        solo: r.solo,
+        year: dateOf(g.state.day).year,
+        date: formatDate(g.state.day),
+        difficulty: r.settings.difficulty,
+        startedAt: r.startedAt,
+        paused: r.paused,
+        players: seatInfo(r)
+          .filter((x) => x.made)
+          .map((x) => ({
+            name: x.name,
+            character: x.character,
+            origin: x.origin,
+            online: x.online,
+          })),
+        watchers: r.watchers.size,
+        full: r.watchers.size >= MAX_WATCHERS,
+      });
+    }
+    return out.sort(
+      (a, b) =>
+        b.players.length - a.players.length || a.startedAt - b.startedAt,
+    );
+  }
+
+  /** Watch a game being played: no seat, no say, and nobody's secrets. */
+  private watch(conn: Conn, id: string): void {
+    const room = [...this.rooms.values()].find((r) => r.watchId === id);
+    const refuse = (why: string) => this.send(conn, { t: "watchend", why });
+    if (!room || !room.game || room.overAt !== null)
+      return refuse("That game isn't being played any more.");
+    if (!this.watchable(room))
+      return refuse("That game's host hasn't opened it to watchers.");
+    if (conn.watching !== room) {
+      if (room.watchers.size >= MAX_WATCHERS)
+        return refuse(
+          `${MAX_WATCHERS} people are watching that game already. Try again in a while.`,
+        );
+      this.leaveCurrent(conn);
+      // Everyone else's copy brought up to date first, so the state sent
+      // now and the changes that follow it line up.
+      this.flush(room);
+      room.watchers.add(conn);
+      conn.watching = room;
+    }
+    const game = room.game;
+    this.send(conn, {
+      t: "game",
+      code: room.watchId,
+      you: "",
+      secret: "",
+      host: room.host,
+      solo: room.solo,
+      state: stateForWatcher(game.state),
+      speed: room.speed,
+      paused: room.paused,
+      seats: seatInfo(room),
+      watcher: true,
+      watchers: room.watchers.size,
+      allowWatchers: room.allowWatchers,
+      open: room.open,
+    });
+    this.sendDiceClocks(room, conn);
+    if (room.skip.on || room.skip.asked.size)
+      this.send(conn, {
+        t: "skip",
+        on: room.skip.on,
+        asked: [...room.skip.asked],
+        by: null,
+        why: null,
+      });
+    this.watchersChanged(room);
+  }
+
+  /** A watcher goes (closing the page, leaving, or going to play). */
+  private stopWatching(conn: Conn): void {
+    const room = conn.watching;
+    if (!room) return;
+    conn.watching = null;
+    room.watchers.delete(conn);
+    this.watchersChanged(room);
+  }
+
+  /** Everyone in a running game hears how many are watching ("2 watching"). */
+  private watchersChanged(room: Room): void {
+    if (!room.game) return;
+    this.broadcast(room, {
+      t: "watchers",
+      n: room.watchers.size,
+      allow: room.allowWatchers,
+    });
+  }
+
+  /** The host opens a private game to watchers, or closes it (they're sent away). */
+  private setAllowWatchers(room: Room, allow: boolean): void {
+    if (room.allowWatchers === allow) return;
+    room.allowWatchers = allow;
+    if (!this.watchable(room))
+      for (const w of [...room.watchers]) {
+        room.watchers.delete(w);
+        w.watching = null;
+        this.send(w, {
+          t: "watchend",
+          why: "The host has closed that game to watchers.",
+        });
+      }
+    if (room.game) this.watchersChanged(room);
+    else this.sendLobby(room);
+  }
+
+  /** A room closes: its watchers are told, and go back to the lobby. */
+  private closeRoom(room: Room, why = "That game has closed."): void {
+    this.rooms.delete(room.code);
+    for (const w of room.watchers) {
+      w.watching = null;
+      this.send(w, { t: "watchend", why });
+    }
+    room.watchers.clear();
+  }
+
   // ---------------------------------------------------------------- saved games (STORY r17)
 
   /** Why saved games can't be managed here and now, or null. */
@@ -990,7 +1169,7 @@ export class ConquestRooms {
       if (r.saving) await r.saving.catch(() => undefined);
       r.saveId = null;
       if (r.overAt === null) {
-        this.rooms.delete(r.code);
+        this.closeRoom(r, "That game has been deleted.");
         log.info("room closed: its save was deleted", { code: r.code });
       }
     }
@@ -1115,6 +1294,7 @@ export class ConquestRooms {
         open: room.open,
         settings: room.settings,
         seats: seatInfo(room),
+        allowWatchers: room.allowWatchers, // SITE (r19)
       });
     }
   }
@@ -1223,22 +1403,18 @@ export class ConquestRooms {
       // LABOUR (r15): and another household's door, opened to someone fleeing.
       // ECON (r17): and bonds, but your own.
       // CROWN (r18): and another colony's petition to its crown, until it sails.
-      state: crownStateForSeat(
-        loanStateForSeat(
-          labourStateForSeat(
-            stateForIntrigue(stateForSeat(room.game.state, seat.id), seat.id),
-            seat.id,
-          ),
-          seat.id,
-        ),
-        seat.id,
-      ),
+      // (All composed in Viewers.ts: SITE r19.)
+      state: stateForViewer(room.game.state, seat.id),
       speed: room.speed,
       paused: room.paused,
       seats: seatInfo(room),
+      // SITE (r19): who's watching, and whether they may.
+      watchers: room.watchers.size,
+      allowWatchers: room.allowWatchers,
+      open: room.open,
     });
     this.sendLetters(room, seat);
-    this.sendDiceClocks(room, seat); // DICE (r14)
+    this.sendDiceClocks(room, seat.conn); // DICE (r14)
     void this.sendAchievements(seat); // MAP (r12)
     if (room.skip.on || room.skip.asked.size)
       this.send(seat.conn, {
@@ -1358,21 +1534,23 @@ export class ConquestRooms {
     // INTRIGUE (r15): so too schemes, and secrets in a life (a plot's lines,
     // a private letter): each player is sent only their own.
     // LABOUR (r15): so too a household's door opened to someone fleeing.
-    const secret = deltaHasSecrets(d);
-    const bond = labourDeltaSecret(d);
-    const loans = loanDeltaSecret(d); // ECON (r17): bonds, each player's own
-    const crown = !!d.crown; // CROWN (r18): a petition is its colony's until it sails
-    if (d.dice || secret || bond || loans || crown)
+    // ECON (r17): bonds, each player's own. CROWN (r18): a petition is its
+    // colony's until it sails. SITE (r19): composed in Viewers.ts; watchers
+    // get the view of nobody's seat, worked out only when anyone watches.
+    if (deltaIsPerViewer(d)) {
       for (const seat of room.seats) {
         if (!seat.conn) continue;
-        let mine = d.dice ? { ...d, dice: diceView(d.dice, seat.id) } : d;
-        if (secret) mine = deltaForSeat(room.game.state, mine, seat.id);
-        if (bond) mine = labourDeltaForSeat(mine, seat.id);
-        if (loans) mine = loanDeltaForSeat(mine, seat.id);
-        if (crown) mine = crownDeltaForSeat(room.game.state, mine, seat.id);
-        this.send(seat.conn, { t: "d", d: mine });
+        this.send(seat.conn, {
+          t: "d",
+          d: deltaForViewer(room.game.state, d, seat.id),
+        });
       }
-    else this.broadcast(room, { t: "d", d });
+      if (room.watchers.size)
+        this.toWatchers(
+          room,
+          JSON.stringify({ t: "d", d: deltaForWatcher(room.game.state, d) }),
+        );
+    } else this.broadcast(room, { t: "d", d });
     void this.achievements(room);
   }
 
@@ -1488,10 +1666,14 @@ export class ConquestRooms {
         .map((x) => x.accountId!),
     )
       .then(() =>
-        this.broadcast(room, {
-          t: "saved",
-          at: new Date(this.now()).toISOString(),
-        }),
+        this.broadcast(
+          room,
+          {
+            t: "saved",
+            at: new Date(this.now()).toISOString(),
+          },
+          false, // SITE (r19): the players' business
+        ),
       )
       .catch((err) => {
         log.warn(`couldn't save ${room.code}: ${err}`);
@@ -1514,7 +1696,7 @@ export class ConquestRooms {
         this.stepRoom(room, dt, t);
       } catch (err) {
         log.error(`room ${room.code} failed: ${err}`);
-        this.rooms.delete(room.code);
+        this.closeRoom(room);
       }
     }
   }
@@ -1522,12 +1704,12 @@ export class ConquestRooms {
   private stepRoom(room: Room, dt: number, t: number): void {
     const game = room.game;
     if (room.overAt !== null && t - room.overAt > OVER_CLOSE_MS) {
-      this.rooms.delete(room.code);
+      this.closeRoom(room);
       return;
     }
     if (room.emptySince !== null && t - room.emptySince > IDLE_CLOSE_MS) {
       void this.save(room);
-      this.rooms.delete(room.code);
+      this.closeRoom(room, "Everyone left that game, and it has closed.");
       return;
     }
     if (!game || game.state.over) return;
@@ -1689,15 +1871,15 @@ export class ConquestRooms {
       if (!live.has(id)) room.dice.delete(id);
   }
 
-  /** DICE (r14): the clocks running at dice tables, for someone just come in. */
-  private sendDiceClocks(room: Room, seat: Seat): void {
-    if (!seat.conn || !room.game) return;
+  /** DICE (r14): the clocks running at dice tables, for someone just come in (a player, or a watcher: SITE r19). */
+  private sendDiceClocks(room: Room, conn: Conn | null): void {
+    if (!conn || !room.game) return;
     const now = this.now();
     for (const [id, c] of room.dice) {
       const t = tablesOf(room.game.state).find((x) => x.id === id);
       const x = t?.seats[t.turn];
       if (!t || !x) continue;
-      this.send(seat.conn, {
+      this.send(conn, {
         t: "diceclock",
         id,
         c: x.c,
