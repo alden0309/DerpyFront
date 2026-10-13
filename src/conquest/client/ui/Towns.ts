@@ -59,6 +59,9 @@ import { term, termMark } from "./Terms";
 const lc = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 const pct = (p: number) => `${Math.round(p * 100)}%`;
+/** A tick that always keeps its room, so a button doesn't grow when it's lit. */
+const tick = (on: boolean) =>
+  html`<span class="cq-town-tick" aria-hidden=${!on}> ✓</span>`;
 
 /** The work chosen to put, and the pledge with it (this page only). */
 let chosen: TownWorkKey | null = null;
@@ -285,13 +288,13 @@ function proposalCard(ui: GameUi, life: Life, work: TownWork): TemplateResult {
     <div class="cq-btnrow">
       ${mine
         ? html`${action(
-            html`Vote aye${cast > 0 ? " ✓" : ""}`,
+            html`Vote aye${tick(cast > 0)}`,
             vote,
             () => void ui.cmd({ k: "towns", act: "vote", id: work.id, v: 1 }),
             `small ${cast > 0 ? "primary" : ""}`,
           )}
           ${action(
-            html`Vote no${cast < 0 ? " ✓" : ""}`,
+            html`Vote no${tick(cast < 0)}`,
             vote,
             () => void ui.cmd({ k: "towns", act: "vote", id: work.id, v: -1 }),
             `small ${cast < 0 ? "primary" : ""}`,
