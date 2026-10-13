@@ -1,8 +1,12 @@
 # Mr. Based
 
-A story game in chapters, written as it's played. Only the account `Alden` can
-play it for now (set `BASED_PLAYERS=Alden,Someone` on the server to add
-people); everyone else sees Coming Soon at `/based` and on the Derp Land home.
+A story game in chapters, written as it's played. Only the owner's account can
+play it for now; everyone else sees Coming Soon at `/based` and on the Derp
+Land home. Access is a mark on the account (`derpy_accounts.based_access`), so
+it stays through a change of username and nobody gets it by renaming to
+"Alden". `BASED_PLAYERS=Alden,Someone` on the server names accounts to mark:
+each name marks the account holding it once (at the next start, or when it
+signs up), and is never read again.
 
 ## Where things are
 
