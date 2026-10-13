@@ -38,6 +38,7 @@
 }
 .cq-claim-v .cq-chip {
   justify-self: stretch;
+  justify-content: center;
   text-align: center;
   white-space: nowrap;
 }
