@@ -36,6 +36,7 @@ import {
   opinionOf,
   peopleHere,
 } from "../../src/conquest/engine/LifeQueries";
+import { loansOf } from "../../src/conquest/engine/LoanCore"; // ECON (r17)
 import {
   ensureOffices,
   leverTargets,
@@ -457,7 +458,13 @@ describe("letters", () => {
     expect(l.bySea).toBe(false);
     expect(l.answer?.yes).toBe(true);
     expect(life.purse).toBeGreaterThan(purse + 5);
-    expect(life.debts.some((d) => d.to === friend.id)).toBe(true);
+    // ECON (r17): a loan by letter is a bond now (at the lawful rate, for a year).
+    expect(
+      loansOf(g.s).some(
+        (l) =>
+          l.lender === friend.id && l.borrower === life.c && l.how === "letter",
+      ),
+    ).toBe(true);
   });
 
   test("players write to each other, and the world writes to you", () => {
