@@ -707,6 +707,16 @@ export function ensureOffices(g: ConquestGame, p: number): LocalOffice[] {
           `${g.map.provinces[p]?.name ?? "The county"} is in ${s.nations[owner]?.adjective ?? "other"} hands now: ${c === o.holder ? `your place as ${officeName(s, o)} has lapsed` : `the poll for ${officeName(s, o)} won't be held`}.`,
           "bad",
         );
+        // STORY (r17): an office lost with the county is in the story.
+        if (c === o.holder && l.c === c)
+          milestone(
+            g,
+            l,
+            "office",
+            `No longer ${officeName(s, o)}: ${g.map.provinces[p]?.name ?? "the county"} fell into ${s.nations[owner]?.adjective ?? "other"} hands`,
+            p,
+            { quiet: true, tone: "bad" },
+          );
       }
     }
     list = list.filter((o) => o.key === "founder" && o.nation === owner);
