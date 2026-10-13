@@ -6,6 +6,7 @@ import { seatCandidates } from "./Characters";
 import {
   crownAim,
   crownArmy,
+  crownMen,
   crownRegs,
   expeditionOfArmy,
   isGarrison,
@@ -110,7 +111,10 @@ function leans(g: ConquestGame, n: number) {
 
 /** Men under arms and fighting value, near enough to matter. */
 function strength(g: ConquestGame, n: number): number {
-  return armiesOf(g.s, n).reduce((m, a) => m + armyMen(a), 0);
+  return (
+    armiesOf(g.s, n).reduce((m, a) => m + armyMen(a), 0) -
+    crownMen(g.s, n, "fort") // CROWN (r18): a fortress's garrison can't take the field
+  );
 }
 
 // ---------------------------------------------------------------- powers
