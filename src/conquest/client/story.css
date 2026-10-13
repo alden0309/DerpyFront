@@ -1,0 +1,293 @@
+/* STORY (r17): the story of a life, year by year. Each moment hangs on a
+   ruled line with its engraving in a little roundel; the great moments are
+   drawn larger, gilt-ringed, in the Fell hand; the small things of a year
+   fold into one line. The chart of the roads stays beside it. */
+
+.cq-story {
+  container-type: inline-size;
+}
+/* The chart and the story side by side, the story a little the wider. */
+.cq-story .cq-story-cols {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+}
+
+/* How many of each, with their engravings: the story's key. */
+.cq-story-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.4rem;
+  margin: 0 0 0.6rem;
+  padding: 0;
+  list-style: none;
+}
+.cq-story-counts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 1.6rem;
+  padding: 0.1rem 0.6rem 0.1rem 0.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: rgba(242, 230, 198, 0.7);
+  font-size: 0.84rem;
+  line-height: 1.2;
+  color: var(--ink-soft);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.cq-story-counts .cq-story-icon {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  color: var(--nation-deep);
+}
+
+/* The story itself. */
+.cq-saga {
+  max-height: 640px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 0.35rem 0.4rem 0;
+  scrollbar-gutter: stable;
+}
+.cq-saga-gen {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0.6rem 0 0.2rem;
+  padding: 0.25rem 0 0.2rem;
+  background: var(--vellum) var(--paper);
+  border-bottom: 2px solid var(--road, var(--sepia));
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 1.12rem;
+  color: var(--road, var(--nation-deep));
+}
+.cq-saga-gen:first-child {
+  margin-top: 0;
+}
+.cq-saga-gen small {
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+.cq-saga-years,
+.cq-saga-moments {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cq-saga-year {
+  display: grid;
+  grid-template-columns: 2.9rem minmax(0, 1fr);
+  column-gap: 0.5rem;
+}
+.cq-saga-yr {
+  padding-top: 0.42rem;
+  text-align: right;
+  font-family: var(--fell);
+  font-size: 1.02rem;
+  color: var(--road, var(--sepia));
+  font-variant-numeric: lining-nums;
+}
+.cq-saga-moments {
+  position: relative;
+  padding-bottom: 0.35rem;
+  border-left: 2px solid var(--rule);
+}
+
+/* A moment: its roundel on the rule, its day, its words. */
+.cq-saga-m {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.9rem minmax(0, 1fr);
+  column-gap: 0.5rem;
+  align-items: start;
+  margin-left: -1rem;
+  padding: 0.22rem 0.35rem 0.26rem 0;
+  border-radius: 0 6px 6px 0;
+}
+.cq-saga-node {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1.5px solid var(--sepia);
+  border-radius: 50%;
+  background: var(--vellum);
+  color: var(--ink-soft);
+}
+.cq-saga-node .cq-story-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.cq-saga-m.good .cq-saga-node {
+  border-color: var(--verdigris);
+  color: var(--verdigris);
+}
+.cq-saga-m.bad .cq-saga-node {
+  border-color: var(--seal);
+  color: var(--seal);
+}
+.cq-saga-body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.05rem 0.45rem;
+  min-width: 0;
+  padding-top: 0.28rem;
+  font-size: 0.93rem;
+  line-height: 1.35;
+}
+.cq-saga-body time {
+  flex: none;
+  min-width: 3.6rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+.cq-saga-text {
+  flex: 1 1 11rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cq-saga-body .cq-pin {
+  flex: none;
+}
+
+/* The small things: a smaller roundel, quieter words. */
+.cq-saga-m.w1 .cq-saga-node {
+  width: 1.45rem;
+  height: 1.45rem;
+  margin: 0.22rem;
+}
+.cq-saga-m.w1 .cq-saga-node .cq-story-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.cq-saga-m.w1 .cq-saga-body {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+/* The great moments: larger, gilt-ringed, in the Fell hand. */
+.cq-saga-m.w3 {
+  grid-template-columns: 2.6rem minmax(0, 1fr);
+  margin: 0.3rem 0 0.4rem -1.3rem;
+  padding: 0.4rem 0.5rem 0.45rem 0;
+  background: linear-gradient(
+    90deg,
+    rgba(201, 155, 58, 0.2),
+    rgba(201, 155, 58, 0.05) 70%,
+    transparent
+  );
+}
+.cq-saga-m.w3 .cq-saga-node {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-width: 2px;
+  box-shadow:
+    0 0 0 2px var(--vellum),
+    0 0 0 3.5px var(--brass);
+}
+.cq-saga-m.w3:not(.good):not(.bad) .cq-saga-node {
+  color: var(--nation-deep);
+}
+.cq-saga-m.w3 .cq-saga-node .cq-story-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+.cq-saga-m.w3 .cq-saga-body {
+  padding-top: 0.35rem;
+}
+.cq-saga-m.w3 .cq-saga-text {
+  font-family: var(--fell);
+  font-size: 1.12rem;
+  line-height: 1.28;
+  color: var(--ink);
+}
+.cq-saga-m.lit {
+  background-color: rgba(201, 155, 58, 0.22);
+}
+
+/* Several small things of a year, folded into one line. */
+.cq-saga-many {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.cq-saga-many summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.05rem 0.45rem;
+  cursor: pointer;
+  list-style: none;
+}
+.cq-saga-many summary::-webkit-details-marker {
+  display: none;
+}
+.cq-saga-many summary .cq-saga-text::after {
+  content: " ▸";
+  color: var(--sepia);
+}
+.cq-saga-many[open] summary .cq-saga-text::after {
+  content: " ▾";
+}
+.cq-saga-many summary time {
+  order: -1;
+}
+.cq-saga-many ul {
+  margin: 0.2rem 0 0.1rem;
+  padding: 0 0 0 0.2rem;
+  list-style: none;
+  font-size: 0.86rem;
+}
+.cq-saga-many li {
+  padding: 0.1rem 0 0.1rem 0.5rem;
+  border-left: 2px solid var(--rule);
+}
+.cq-saga-many li.good {
+  border-left-color: var(--verdigris);
+}
+.cq-saga-many li.bad {
+  border-left-color: var(--seal);
+}
+.cq-saga-many li time {
+  display: inline-block;
+  min-width: 3.4rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+/* Narrow: the chart above, the story under it, all of it. */
+@container (max-width: 760px) {
+  .cq-story .cq-story-cols {
+    grid-template-columns: 1fr;
+  }
+  .cq-saga {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+  .cq-saga-gen {
+    position: static;
+  }
+}
+@container (max-width: 420px) {
+  .cq-saga-year {
+    grid-template-columns: 2.4rem minmax(0, 1fr);
+    column-gap: 0.4rem;
+  }
+  .cq-saga-yr {
+    font-size: 0.92rem;
+  }
+  .cq-saga-m.w3 .cq-saga-text {
+    font-size: 1.04rem;
+  }
+}

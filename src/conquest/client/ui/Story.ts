@@ -1,52 +1,29 @@
 // The story of a life (or a line of them): the roads they travelled drawn on
 // a small chart with the places that mattered pinned on it, what they came
-// to, and the timeline of their big moments, generation by generation.
+// to, and every moment worth the telling, generation by generation and year
+// by year, each with its engraving (STORY r17). The story so far (Journal ›
+// The story) and the story told at the end are this one element, made from
+// the one reckoning (engine/StoryBook.ts), so they always agree.
 
 import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { repeat } from "lit/directives/repeat.js";
 import { dateOf, formatDate } from "../../engine/Calendar";
 import { lifeIsNative, lifeScore } from "../../engine/LifeQueries";
 import { JOBS } from "../../engine/LifeRules";
 import { charName } from "../../engine/Queries";
-import type { Character, Life, LifeMilestone } from "../../engine/Types";
+import {
+  storyOf,
+  type Story,
+  type StoryEntry,
+  type StoryGeneration,
+} from "../../engine/StoryBook";
+import type { Character, Life } from "../../engine/Types";
 import { arms } from "../Arms";
 import { Geo, loadGeo, provincePaths } from "../MapView";
 import type { GameUi } from "./Context";
 import { token } from "./Context";
-
-type Tone = "good" | "bad" | "";
-
-function toneOf(m: LifeMilestone): Tone {
-  if (m.kind === "died" || m.kind === "wounded" || m.kind === "convicted")
-    return "bad";
-  if (m.kind === "battle") return m.text.startsWith("Lost") ? "bad" : "good";
-  if (m.kind === "rising")
-    return /crushed|hanged|failed/i.test(m.text) ? "bad" : "good";
-  if (
-    m.kind === "promoted" ||
-    m.kind === "married" ||
-    m.kind === "child" ||
-    m.kind === "office" ||
-    m.kind === "renown"
-  )
-    return "good";
-  return "";
-}
-
-interface Moment {
-  m: LifeMilestone;
-  tone: Tone;
-  pin: number | null;
-}
-
-function momentsOf(life: Life): Moment[] {
-  let pin = 0;
-  return life.milestones.map((m) => ({
-    m,
-    tone: toneOf(m),
-    pin: m.p !== undefined ? ++pin : null,
-  }));
-}
+import { storyIcon } from "./StoryIcons";
 
 /** A colour for each generation's road. */
 const ROADS = [
@@ -64,7 +41,8 @@ const ROADS = [
 export class LifeMap extends LitElement {
   @property({ attribute: false }) ui!: GameUi;
   @property({ attribute: false }) life!: Life;
-  @property({ attribute: false }) moments: Moment[] = [];
+  /** The story's moments (those with a pin are drawn). */
+  @property({ attribute: false }) moments: StoryEntry[] = [];
   @property({ type: Number }) lit: number | null = null;
   @state() private geo: Geo | null = null;
   private paths: Path2D[] = [];
@@ -93,14 +71,19 @@ export class LifeMap extends LitElement {
     this.draw();
   }
 
+  private pinned(): StoryEntry[] {
+    return this.moments.filter((m) => m.pin !== null && m.p !== undefined);
+  }
+
   private frame(): [number, number, number, number] {
     const ui = this.ui;
     const geo = this.geo!;
     const ps = new Set<number>(this.life.trail.map((t) => t.p));
-    for (const m of this.moments) if (m.m.p !== undefined) ps.add(m.m.p);
-    if (ps.size === 0) return [0, 0, geo.width, geo.height];
-    const xs = [...ps].map((p) => ui.map.provinces[p].x);
-    const ys = [...ps].map((p) => ui.map.provinces[p].y);
+    for (const m of this.pinned()) ps.add(m.p!);
+    const known = [...ps].filter((p) => ui.map.provinces[p]);
+    if (known.length === 0) return [0, 0, geo.width, geo.height];
+    const xs = known.map((p) => ui.map.provinces[p].x);
+    const ys = known.map((p) => ui.map.provinces[p].y);
     const x0 = Math.min(...xs);
     const x1 = Math.max(...xs);
     const y0 = Math.min(...ys);
@@ -167,7 +150,8 @@ export class LifeMap extends LitElement {
     for (let i = 1; i < life.trail.length; i++) {
       const a = life.trail[i - 1];
       const b = life.trail[i];
-      if (a.p === b.p) continue;
+      if (a.p === b.p || !ui.map.provinces[a.p] || !ui.map.provinces[b.p])
+        continue;
       const gen = Math.max(0, gens.indexOf(b.c));
       c.strokeStyle = ROADS[gen % ROADS.length];
       c.lineWidth = 2.2;
@@ -200,11 +184,11 @@ export class LifeMap extends LitElement {
       c.stroke();
     }
 
-    // Pins for the moments; several at one place share it.
-    const byPlace = new Map<number, Moment[]>();
-    for (const m of this.moments)
-      if (m.m.p !== undefined)
-        byPlace.set(m.m.p, [...(byPlace.get(m.m.p) ?? []), m]);
+    // Pins for the moments; several at one place share it. The great
+    // moments' pins are gilt and a little larger.
+    const byPlace = new Map<number, StoryEntry[]>();
+    for (const m of this.pinned())
+      byPlace.set(m.p!, [...(byPlace.get(m.p!) ?? []), m]);
     c.font = "600 10px system-ui, sans-serif";
     c.textAlign = "center";
     c.textBaseline = "middle";
@@ -213,8 +197,9 @@ export class LifeMap extends LitElement {
       const [x, y] = at(p);
       const lit = list.some((m) => m.pin === this.lit);
       const last = list[list.length - 1];
+      const great = list.some((m) => m.weight === 3);
       const label = list.length === 1 ? String(last.pin) : `${list[0].pin}+`;
-      const r = lit ? 10 : 8;
+      const r = (lit ? 10 : 8) + (great ? 1.5 : 0);
       c.beginPath();
       c.arc(x, y, r, 0, Math.PI * 2);
       c.fillStyle =
@@ -224,8 +209,8 @@ export class LifeMap extends LitElement {
             ? "#2f5a2a"
             : "#4a3b28";
       c.fill();
-      c.lineWidth = lit ? 2.5 : 1.5;
-      c.strokeStyle = lit ? "#f6d77a" : "#f4ead0";
+      c.lineWidth = lit ? 2.5 : great ? 2 : 1.5;
+      c.strokeStyle = lit || great ? "#f6d77a" : "#f4ead0";
       c.stroke();
       c.fillStyle = "#fbf4e1";
       c.fillText(label, x, y + 0.5);
@@ -243,6 +228,34 @@ function fade(hex: string, amount: number): string {
 
 // ---------------------------------------------------------------- the story
 
+/** The facts of a line, in a sentence (the header). */
+function factsOf(ui: GameUi, life: Life): string[] {
+  const t = life.tally;
+  const facts: string[] = [];
+  const plural = (n: number, one: string, many = `${one}s`) =>
+    `${n} ${n === 1 ? one : many}`;
+  if (t.generations > 1) facts.push(`${t.generations} generations`);
+  const years = Math.round(t.days / 365);
+  if (years > 0) facts.push(`${plural(years, "year")} lived`);
+  if (t.provinces) facts.push(`${plural(t.provinces, "place")} seen`);
+  if (t.jobs)
+    facts.push(
+      `${plural(t.jobs, "trade")}, ${plural(t.promotions, "promotion")}`,
+    );
+  if (t.marriages)
+    facts.push(
+      `${plural(t.marriages, "marriage")}, ${plural(t.children, "child", "children")}`,
+    );
+  if (t.battles)
+    facts.push(`${plural(t.battles, "battle")} (${t.battlesWon} won)`);
+  if (t.elections) facts.push(`${plural(t.elections, "election")} won`);
+  if (t.risings) facts.push(plural(t.risings, "rising"));
+  facts.push(`renown at its height ${Math.round(t.peakRenown)}`);
+  facts.push(`${Math.round(t.earned)} coins earned`);
+  void ui;
+  return facts;
+}
+
 @customElement("cq-life-story")
 export class LifeStory extends LitElement {
   @property({ attribute: false }) ui!: GameUi;
@@ -258,12 +271,11 @@ export class LifeStory extends LitElement {
     const life = this.life;
     if (!ui || !life) return html``;
     const s = ui.s;
-    const moments = momentsOf(life);
+    const story = storyOf(s, life);
     const people = life.line
       .map((id) => s.chars[id])
       .filter((c): c is Character => !!c);
     const first = people[0];
-    const last = people[people.length - 1];
     const from = first
       ? dateOf(Math.max(first.born, life.joined)).year
       : dateOf(life.joined).year;
@@ -271,30 +283,6 @@ export class LifeStory extends LitElement {
     const t = life.tally;
     const native = lifeIsNative(s, life);
     const family = first?.family ?? life.name;
-    const facts: string[] = [];
-    if (t.generations > 1) facts.push(`${t.generations} generations`);
-    const years = Math.round(t.days / 365);
-    if (years > 0) facts.push(`${years} year${years === 1 ? "" : "s"} lived`);
-    if (t.provinces)
-      facts.push(`${t.provinces} place${t.provinces === 1 ? "" : "s"} seen`);
-    if (t.jobs)
-      facts.push(
-        `${t.jobs} trade${t.jobs === 1 ? "" : "s"}, ${t.promotions} promotion${t.promotions === 1 ? "" : "s"}`,
-      );
-    if (t.marriages)
-      facts.push(
-        `${t.marriages} marriage${t.marriages === 1 ? "" : "s"}, ${t.children} child${t.children === 1 ? "" : "ren"}`,
-      );
-    if (t.battles)
-      facts.push(
-        `${t.battles} battle${t.battles === 1 ? "" : "s"} (${t.battlesWon} won)`,
-      );
-    if (t.elections)
-      facts.push(`${t.elections} election${t.elections === 1 ? "" : "s"} won`);
-    if (t.risings)
-      facts.push(`${t.risings} rising${t.risings === 1 ? "" : "s"}`);
-    facts.push(`renown at its height ${Math.round(t.peakRenown)}`);
-    facts.push(`${Math.round(t.earned)} coins earned`);
     const OFFICE = [
       "",
       "sat in an assembly",
@@ -315,7 +303,7 @@ export class LifeStory extends LitElement {
             ? html`<p class="cq-motto">“${life.motto}”</p>`
             : nothing}
           <p class="cq-muted small">
-            ${facts.join("; ")}.
+            ${factsOf(ui, life).join("; ")}.
             ${t.topOffice > 0
               ? html`At the height of it, they <b>${OFFICE[t.topOffice]}</b>.`
               : nothing}
@@ -324,6 +312,7 @@ export class LifeStory extends LitElement {
           </p>
         </div>
       </header>
+      ${countsRow(story)}
       <ol class="cq-generations" aria-label="The generations">
         ${people.map(
           (c, i) =>
@@ -348,46 +337,18 @@ export class LifeStory extends LitElement {
           <cq-life-map
             .ui=${ui}
             .life=${life}
-            .moments=${moments}
+            .moments=${story.entries}
             .lit=${this.lit}
           ></cq-life-map>
           <p class="cq-muted small">
             Dashed: the roads travelled, a colour for each generation. The house
-            is home; the pins are the moments listed beside it.
+            is home; the numbers are the moments told beside it (gilt: the great
+            ones).
           </p>
         </div>
-        <ol class="cq-timeline" aria-label="The big moments">
-          ${moments.length === 0
-            ? html`<li class="cq-muted">A quiet life.</li>`
-            : moments.map((m, i) => {
-                const prev = moments[i - 1];
-                const head =
-                  people.length > 1 &&
-                  (!prev || prev.m.c !== m.m.c) &&
-                  s.chars[m.m.c]
-                    ? html`<li class="cq-journal-who">
-                        ${charName(s.chars[m.m.c])}
-                      </li>`
-                    : nothing;
-                return html`${head}
-                  <li
-                    class="${m.tone} ${m.pin !== null && m.pin === this.lit
-                      ? "lit"
-                      : ""}"
-                    @mouseenter=${() => (this.lit = m.pin)}
-                    @mouseleave=${() => (this.lit = null)}
-                    @focusin=${() => (this.lit = m.pin)}
-                  >
-                    <time>${formatDate(m.m.day)}</time>
-                    ${m.pin !== null
-                      ? html`<span class="cq-pin ${m.tone}">${m.pin}</span>`
-                      : nothing}
-                    <span>${m.m.text}</span>
-                  </li>`;
-              })}
-        </ol>
+        ${this.saga(story, life)}
       </div>
-      ${last && life.job && !life.watching
+      ${life.job && !life.watching
         ? html`<p class="cq-muted small">
             Last seen as
             ${JOBS[life.job.kind].ranks[life.job.rank].title.toLowerCase()}.
@@ -395,6 +356,111 @@ export class LifeStory extends LitElement {
         : nothing}
     </section>`;
   }
+
+  /** The story itself: each generation, each year, each moment. */
+  private saga(story: Story, life: Life): TemplateResult {
+    if (!story.entries.length)
+      return html`<div class="cq-saga">
+        <p class="cq-muted">A quiet life, so far.</p>
+      </div>`;
+    const many = story.generations.length > 1 || life.line.length > 1;
+    return html`<div class="cq-saga" aria-label="The story, year by year">
+      ${story.generations.map((gen, i) =>
+        this.generation(gen, life, many, i === 0),
+      )}
+    </div>`;
+  }
+
+  private generation(
+    gen: StoryGeneration,
+    life: Life,
+    many: boolean,
+    first: boolean,
+  ): TemplateResult {
+    const s = this.ui.s;
+    const c = s.chars[gen.c];
+    const at = Math.max(0, life.line.indexOf(gen.c));
+    const road = ROADS[at % ROADS.length];
+    return html`${many && (c || !first)
+        ? html`<h4 class="cq-saga-gen" style="--road:${road}">
+            <span>${c ? charName(c) : "Before"}</span>
+            ${c
+              ? html`<small
+                  >${dateOf(c.born).year}–${c.alive
+                    ? ""
+                    : dateOf(c.died?.day ?? s.day).year}</small
+                >`
+              : nothing}
+          </h4>`
+        : nothing}
+      <ol class="cq-saga-years">
+        ${repeat(
+          gen.years,
+          (y) => `${gen.c}|${y.year}`,
+          (y) =>
+            html`<li class="cq-saga-year">
+              <span class="cq-saga-yr" style="--road:${road}">${y.year}</span>
+              <ol class="cq-saga-moments">
+                ${repeat(
+                  y.entries,
+                  (e) => e.key,
+                  (e) => this.moment(e),
+                )}
+              </ol>
+            </li>`,
+        )}
+      </ol>`;
+  }
+
+  private moment(e: StoryEntry): TemplateResult {
+    const lit = e.pin !== null && e.pin === this.lit;
+    const day = formatDate(e.day).replace(/,? \d{4}$/, "");
+    return html`<li
+      class="cq-saga-m w${e.weight} ${e.tone} ${lit ? "lit" : ""}"
+      data-kind=${e.kind}
+      @mouseenter=${() => (this.lit = e.pin)}
+      @mouseleave=${() => (this.lit = null)}
+      @focusin=${() => (this.lit = e.pin)}
+    >
+      <span class="cq-saga-node" title=${e.kind}>${storyIcon(e.icon)}</span>
+      <div class="cq-saga-body">
+        ${e.many
+          ? html`<details class="cq-saga-many">
+              <summary>
+                <span class="cq-saga-text">${e.text}</span>
+                <time>${day}…</time>
+              </summary>
+              <ul>
+                ${e.many.map(
+                  (x) =>
+                    html`<li class=${x.tone}>
+                      <time>${formatDate(x.day).replace(/,? \d{4}$/, "")}</time>
+                      ${x.text}
+                    </li>`,
+                )}
+              </ul>
+            </details>`
+          : html`<time>${day}</time>
+              <span class="cq-saga-text">${e.text}</span>
+              ${e.pin !== null
+                ? html`<span class="cq-pin ${e.tone}">${e.pin}</span>`
+                : nothing}`}
+      </div>
+    </li>`;
+  }
+}
+
+/** How many of each kind, with their engravings: the story's key. */
+function countsRow(story: Story): TemplateResult {
+  if (!story.counts.length) return html``;
+  return html`<ul class="cq-story-counts" aria-label="All told">
+    ${story.counts.map(
+      (k) =>
+        html`<li title=${k.label}>
+          ${storyIcon(k.icon)}<span>${k.label}</span>
+        </li>`,
+    )}
+  </ul>`;
 }
 
 declare global {
