@@ -10,7 +10,10 @@
 // colony's secret until it sails; old saves load; the delta carries it; the
 // same seed runs the same.
 
-import { describe, expect, test } from "vitest";
+import http from "http";
+import { AddressInfo } from "net";
+import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { WebSocket } from "ws";
 import { runAi } from "../../src/conquest/engine/Ai";
 import { dateOf, dayOf } from "../../src/conquest/engine/Calendar";
 import { cede } from "../../src/conquest/engine/Crown";
@@ -44,11 +47,17 @@ import { crownMonthly } from "../../src/conquest/engine/CrownRegiments";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { lifeForOthers } from "../../src/conquest/engine/IntrigueCore";
+import { lifeOfSeat } from "../../src/conquest/engine/LifeQueries";
 import { atWar, warBetween } from "../../src/conquest/engine/Queries";
 import { claimLive, claimOf } from "../../src/conquest/engine/ReclaimCore";
 import { DAYS_PER_YEAR } from "../../src/conquest/engine/Rules";
-import type { CrownAsk, GameState } from "../../src/conquest/engine/Types";
+import type {
+  CrownAsk,
+  GameDelta,
+  GameState,
+} from "../../src/conquest/engine/Types";
 import { endWar, startWar } from "../../src/conquest/engine/War";
+import type { ServerMessage } from "../../src/conquest/Protocol";
 import { lifeOf, map, plan, prov, ticks, world } from "./LifeUtil";
 
 const SA = prov("St. Augustine");
@@ -689,4 +698,172 @@ describe("CROWN r18: saves, the delta and the dice", () => {
     };
     expect(run()).toBe(run());
   }, 60_000);
+});
+
+// ---------------------------------------------------------------- through the rooms server
+
+class Client {
+  readonly messages: ServerMessage[] = [];
+  private waiters: {
+    test: (m: ServerMessage) => boolean;
+    resolve: (m: ServerMessage) => void;
+  }[] = [];
+  readonly ws: WebSocket;
+  readonly open: Promise<void>;
+  constructor(url: string) {
+    this.ws = new WebSocket(url);
+    this.open = new Promise((r) => this.ws.on("open", () => r()));
+    this.ws.on("message", (data) => {
+      const m = JSON.parse(String(data)) as ServerMessage;
+      this.messages.push(m);
+      this.waiters = this.waiters.filter((w) => {
+        if (!w.test(m)) return true;
+        w.resolve(m);
+        return false;
+      });
+    });
+  }
+  send(m: unknown) {
+    this.ws.send(JSON.stringify(m));
+  }
+  next<T extends ServerMessage["t"]>(
+    t: T,
+    test: (m: Extract<ServerMessage, { t: T }>) => boolean = () => true,
+  ) {
+    return new Promise<Extract<ServerMessage, { t: T }>>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`timed out waiting for ${t}`)),
+        4000,
+      );
+      this.waiters.push({
+        test: (m) => m.t === t && test(m as Extract<ServerMessage, { t: T }>),
+        resolve: (m) => {
+          clearTimeout(timer);
+          resolve(m as Extract<ServerMessage, { t: T }>);
+        },
+      });
+    });
+  }
+  private id = 100;
+  async cmd(c: object): Promise<string | null> {
+    const id = this.id++;
+    const ack = this.next("ack", (m) => m.id === id);
+    this.send({ t: "cmd", id, c });
+    return (await ack).err;
+  }
+  state(): GameState {
+    let s: GameState | null = null;
+    for (const m of this.messages) {
+      if (m.t === "game") s = JSON.parse(JSON.stringify(m.state));
+      else if (m.t === "d" && s) applyDelta(s, m.d as GameDelta);
+    }
+    return s!;
+  }
+  close() {
+    this.ws.close();
+  }
+}
+
+describe("CROWN r18 through the rooms server: a petition is its colony's secret until it sails", () => {
+  let server: http.Server;
+  let url = "";
+  const clock = 1_800_000_000_000;
+  let rooms: import("../../src/server/conquest/ConquestRooms").ConquestRooms;
+  const clients: Client[] = [];
+  beforeAll(async () => {
+    const { attachConquest, ConquestRooms } =
+      await import("../../src/server/conquest/ConquestRooms");
+    rooms = new ConquestRooms(() => clock);
+    server = http.createServer();
+    attachConquest(server, rooms);
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}/conquest/ws`;
+  });
+  afterAll(async () => {
+    for (const c of clients) c.close();
+    await new Promise((r) => server.close(r));
+  });
+  const client = async (name: string) => {
+    const c = new Client(url);
+    clients.push(c);
+    await c.open;
+    c.send({ t: "hello", name });
+    await c.next("welcome");
+    return c;
+  };
+
+  test("Alden, who governs Spain, petitions for St. Augustine; Bea, of the English who hold it, sees nothing until the expedition sails", async () => {
+    const host = await client("Alden");
+    const lobby = host.next("lobby");
+    host.send({
+      t: "create",
+      solo: false,
+      open: true,
+      settings: { difficulty: "normal", start: 1700 },
+    });
+    const l = await lobby;
+    const bea = await client("Bea");
+    const joined = host.next("lobby", (m) => m.seats.length === 2);
+    bea.send({ t: "join", code: l.code });
+    await joined;
+    host.send({
+      t: "plan",
+      plan: plan({
+        origin: "spain",
+        home: HAVANA,
+        religion: "catholic",
+        first: "Diego",
+        family: "Ortiz",
+        age: 40,
+      }),
+    });
+    bea.send({
+      t: "plan",
+      plan: plan({
+        home: prov("Charles Town"),
+        first: "Beatrice",
+        family: "Cole",
+        female: true,
+        age: 32,
+      }),
+    });
+    await host.next("lobby", (m) => m.seats.every((s) => s.made));
+    bea.send({ t: "ready", ready: true });
+    await host.next("lobby", (m) => m.seats.filter((s) => s.ready).length >= 1);
+    const games = [host.next("game"), bea.next("game")];
+    host.send({ t: "start" });
+    const [hg, bg] = await Promise.all(games);
+    const paused = host.next("clock", (m) => m.paused);
+    host.send({ t: "pause", p: true });
+    await paused;
+    const game = rooms.rooms.get(l.code)!.game!;
+    const s = game.s;
+    const A = lifeOfSeat(s, hg.you)!;
+    const spain = s.chars[A.c].nation;
+    const england = s.nations.findIndex((n) => n.key === "england");
+    expect(s.chars[lifeOfSeat(s, bg.you)!.c].nation).toBe(england);
+    cede(game, SA, england);
+    s.truces = [];
+    game.nation(spain).ruler = A.c;
+    A.purse = 60;
+    expect(await host.cmd({ k: "crown", act: "begin", p: SA })).toBeNull();
+    expect(await host.cmd({ k: "crown", act: "court" })).toBeNull();
+    // His copy has it; hers doesn't, nor his journal's lines about it.
+    expect(host.state().crown?.asks.length).toBe(1);
+    const theirs = bea.state();
+    expect(theirs.crown?.asks.length ?? 0).toBe(0);
+    const hisLife = theirs.lives.find((x) => x.seat === hg.you)!;
+    expect(hisLife.journal.some((j) => /petition/.test(j.text))).toBe(false);
+    // She governs the English now: granted, it sails, and she hears.
+    game.nation(england).ruler = lifeOfSeat(s, bg.you)!.c;
+    grantAsk(game, askOf(s, spain)!);
+    await bea.cmd({ k: "crown", act: "ride" });
+    const after = bea.state();
+    expect(after.crown?.asks.length).toBe(1);
+    expect(after.crown?.asks[0].stage).toBe("granted");
+    const hers = after.lives.find((x) => x.seat === bg.you)!;
+    expect(hers.journal.some((j) => /Word from the sea/.test(j.text))).toBe(
+      true,
+    );
+  });
 });
