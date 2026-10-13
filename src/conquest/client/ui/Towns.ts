@@ -522,7 +522,7 @@ function buildingCard(ui: GameUi, work: TownWork): TemplateResult {
     </header>
     ${bar(f, "cq-town-bar")}
     <p class="cq-muted small">
-      ${Math.round(f * 100)}% done. ${TOWN_WORKS[work.key].does}.
+      ${Math.round(f * 100)}% done. ${cap(TOWN_WORKS[work.key].does)}.
     </p>
   </article>`;
 }
@@ -605,11 +605,7 @@ function cameSection(ui: GameUi, p: number): TemplateResult {
                           class="cq-link small"
                           @click=${() => ui.open({ k: "char", c: a.c })}
                         >
-                          ${a.folk.length > 1
-                            ? "their card"
-                            : s.chars[a.c]!.female
-                              ? "her card"
-                              : "his card"}
+                          ${s.chars[a.c]!.female ? "her card" : "his card"}
                         </button>`
                       : nothing}</span
                   >

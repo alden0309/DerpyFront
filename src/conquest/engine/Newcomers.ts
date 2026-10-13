@@ -398,7 +398,12 @@ function overland(g: ConquestGame, n: number, p: number): number[] {
 
 // ---------------------------------------------------------------- the news
 
-function nameList(names: string[]): string {
+/** "the Hales", "the Méndezes", "the de Toledos". */
+export function familyName(family: string): string {
+  return /(s|x|z|ch|sh)$/.test(family) ? `${family}es` : `${family}s`;
+}
+
+export function nameList(names: string[]): string {
   if (names.length <= 1) return names.join("");
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
@@ -456,7 +461,7 @@ export function arrivalText(
   if (spouse) {
     const family = native
       ? `${head.first} and ${spouse.first}`
-      : `the ${head.family}${head.family.endsWith("s") ? "es" : "s"}`;
+      : `the ${familyName(head.family)}`;
     const what = as && !native ? `, ${as}'s family` : "";
     return `${opener}: ${family}${what}${tail ? `, with ${tail}` : ""}.`;
   }
@@ -792,6 +797,8 @@ export function leave(
   fam: Character[],
   to: number | undefined,
   why = "",
+  /** Written in the town's list of comings and goings (a flight is written once, for all). */
+  record = true,
 ): void {
   const s = g.s;
   s.locals[p] = (s.locals[p] ?? []).filter((id) => id !== head.id);
@@ -805,20 +812,23 @@ export function leave(
   const who = native
     ? head.first
     : fam.length > 1
-      ? `The ${head.family}${head.family.endsWith("s") ? "es" : "s"}`
+      ? `The ${familyName(head.family)}`
       : charName(head);
   const text = `${who}${post ? ` (the ${post})` : ""} ${fam.length > 1 ? "have" : "has"} gone to ${where}${why}.`;
   const t = townsState(g);
-  const kept = (t.came[p] ??= []);
-  kept.push({
-    day: s.day,
-    c: head.id,
-    folk: fam.map((c) => c.id),
-    how: head.came?.how ?? "road",
-    text,
-    gone: true,
-  });
-  if (kept.length > KEPT_ARRIVALS) kept.splice(0, kept.length - KEPT_ARRIVALS);
+  if (record) {
+    const kept = (t.came[p] ??= []);
+    kept.push({
+      day: s.day,
+      c: head.id,
+      folk: fam.map((c) => c.id),
+      how: head.came?.how ?? "road",
+      text,
+      gone: true,
+    });
+    if (kept.length > KEPT_ARRIVALS)
+      kept.splice(0, kept.length - KEPT_ARRIVALS);
+  }
   townsChanged(g);
   // A town of theirs that's known takes them in, if it has room.
   if (

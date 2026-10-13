@@ -15,12 +15,19 @@
 import { householdsOf, makeLocal, postsIn, rolesFor } from "./Folk";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
+import { journal } from "./LifeCore";
 import { isNativeChar } from "./LifeQueries";
 import { LOCALS_CAP } from "./LifeRules";
 import { kmBetween } from "./Map";
-import { leave, newcomersMonthly } from "./Newcomers";
-import { provincesOf, settlers } from "./Queries";
-import { LEAVE_UNDER, tdice, townsChanged, townsState } from "./TownsCore";
+import { familyName, leave, nameList, newcomersMonthly } from "./Newcomers";
+import { charName, provincesOf, settlers } from "./Queries";
+import {
+  KEPT_ARRIVALS,
+  LEAVE_UNDER,
+  tdice,
+  townsChanged,
+  townsState,
+} from "./TownsCore";
 import type { BuildingKind, Character, TownRuin } from "./Types";
 import { lapseWorks, townsCommand, worksMonthly } from "./Works";
 import { RUIN_WORK, TOWN_WORKS } from "./WorksCore";
@@ -238,6 +245,7 @@ function peopleTaken(
       : 0;
   if (share > 0) {
     const refuge = nearestOf(g, from, p);
+    const gone: Character[] = [];
     for (const id of [...list]) {
       const c = s.chars[id];
       if (!c?.alive) continue;
@@ -248,20 +256,54 @@ function peopleTaken(
       if (playersOwn(g, c)) continue;
       if (!fled && !r.chance(share)) continue;
       const fam = familyAt(g, c, p).filter((x) => !playersOwn(g, x));
-      leave(
-        g,
-        p,
-        c,
-        fam,
-        refuge,
-        fled
-          ? " with the settlers"
-          : ` rather than live under the ${toN.adjective}`,
-      );
+      leave(g, p, c, fam, refuge, "", false);
+      gone.push(c);
     }
+    if (gone.length) goneTogether(g, p, gone, refuge, fled, toN.adjective);
   }
   // The new holders' own people take up the town's posts.
   fillPosts(g, p, fled ? LOCALS_CAP : 3);
+}
+
+/** One line for a town's families who left together. */
+function goneTogether(
+  g: ConquestGame,
+  p: number,
+  gone: Character[],
+  to: number | undefined,
+  fled: boolean,
+  under: string,
+): void {
+  const s = g.s;
+  const t = townsState(g);
+  const names = gone
+    .slice(0, 3)
+    .map((c) =>
+      c.spouse >= 0 || c.children.length
+        ? `the ${familyName(c.family)}`
+        : charName(c),
+    );
+  const more = gone.length - names.length;
+  const where = to !== undefined ? g.map.provinces[to].name : "parts unknown";
+  const text = `${fled ? "With the settlers, " : ""}${nameList(
+    more > 0
+      ? [...names, `${more} more household${more === 1 ? "" : "s"}`]
+      : names,
+  )} ${gone.length === 1 && names[0] && !names[0].startsWith("the ") ? "has" : "have"} gone to ${where}${fled ? "" : ` rather than live under the ${under}`}.`;
+  const kept = (t.came[p] ??= []);
+  kept.push({
+    day: s.day,
+    c: gone[0].id,
+    folk: gone.map((c) => c.id),
+    how: "road",
+    text: text.charAt(0).toUpperCase() + text.slice(1),
+    gone: true,
+  });
+  if (kept.length > KEPT_ARRIVALS) kept.splice(0, kept.length - KEPT_ARRIVALS);
+  townsChanged(g);
+  for (const life of s.lives)
+    if (life.c >= 0 && life.home === p && s.chars[life.c]?.alive)
+      journal(g, life, kept[kept.length - 1].text, undefined, false);
 }
 
 /** The posts a town has room for and nobody holds: filled now, on the towns' own dice. */

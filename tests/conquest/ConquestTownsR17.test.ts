@@ -329,7 +329,7 @@ describe("a town taken: ruins, a landing, and its people", () => {
     ).toBe(true);
     expect(
       (townsState(g).came[STA] ?? []).some(
-        (a) => a.gone && /with the settlers/.test(a.text),
+        (a) => a.gone && /with the settlers/i.test(a.text),
       ),
     ).toBe(true);
   }, 120_000);
