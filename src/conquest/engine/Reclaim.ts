@@ -735,6 +735,17 @@ hooks.risingWon.push((g, m) => {
   const p = tr.p;
   const ruler = m.against;
   const R = s.nations[ruler];
+  for (const c of [m.leader, ...m.members]) {
+    const life = lifeOfChar(s, c);
+    if (life)
+      affairNews(
+        g,
+        life,
+        "cause",
+        `${m.name} has held ${town(g, p)} ${RISING.holdMonths} months: it's won.`,
+        "good",
+      );
+  }
   endRising(g, m);
   if (s.provinces[p].owner !== ruler)
     return `${m.name} has carried the day at ${town(g, p)}.`;

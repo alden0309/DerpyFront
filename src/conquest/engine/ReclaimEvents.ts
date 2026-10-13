@@ -31,6 +31,24 @@ function tell(g: ConquestGame, life: Life, err: string | null): void {
   if (err) journal(g, life, `It couldn't be done: ${err}`);
 }
 
+/** Answered from afar: you must be in the town to have a hand in it. */
+function there(
+  g: ConquestGame,
+  life: Life,
+  p: number,
+  then: () => string | null,
+): void {
+  if (life.travel || life.prov !== p) {
+    tell(
+      g,
+      life,
+      `you're away from ${g.map.provinces[p]?.name ?? "the town"}: go back to have a hand in it.`,
+    );
+    return;
+  }
+  tell(g, life, then());
+}
+
 /** The odds of a plot's first night, in words: what the scene and the town's page show. */
 export function nightWords(g: ConquestGame, m: Movement): string {
   const s = g.s;
@@ -67,7 +85,7 @@ const RECLAIM_EVENTS: LifeEventDef[] = [
           : tr.aim === "free"
             ? `make ${place} a free town`
             : `give ${place} back to ${O.name}`;
-      return `${O.adjective} townsfolk have been meeting at night in the back rooms of ${place}. They mean to rise against the ${R.adjective} and ${aim}. Its leader is ${charName(leader)}${lifeOfChar(s, m.leader) ? "" : ""}; ${m.members.length} ${m.members.length === 1 ? "is" : "are"} sworn besides, and they say the day is about ${formatDate(m.due)}.${y ? ` The town's ferment stands at ${Math.round(y.ferment)}.` : ""}\n\n${nightWords(g, m)}`;
+      return `${O.adjective} townsfolk have been meeting at night in the back rooms of ${place}. They mean to rise against the ${R.adjective} and ${aim}. Its leader is ${charName(leader)}; ${m.members.length} ${m.members.length === 1 ? "is" : "are"} sworn besides, and they say the day is about ${formatDate(m.due)}.${y ? ` The town's ferment stands at ${Math.round(y.ferment)}.` : ""}\n\n${nightWords(g, m)}`;
     },
     choices: [
       {
@@ -80,7 +98,7 @@ const RECLAIM_EVENTS: LifeEventDef[] = [
             return "You're sworn to it";
           return null;
         },
-        apply: (g, life) => tell(g, life, plotJoin(g, life)),
+        apply: (g, life, ctx) => there(g, life, ctx.p, () => plotJoin(g, life)),
       },
       {
         label: "Lead it",
@@ -93,7 +111,7 @@ const RECLAIM_EVENTS: LifeEventDef[] = [
             return "They won't follow an unknown (renown 10)";
           return null;
         },
-        apply: (g, life) => tell(g, life, plotLead(g, life)),
+        apply: (g, life, ctx) => there(g, life, ctx.p, () => plotLead(g, life)),
       },
       {
         label: "Inform on it",
@@ -105,7 +123,8 @@ const RECLAIM_EVENTS: LifeEventDef[] = [
             return "You're sworn to it";
           return null;
         },
-        apply: (g, life) => tell(g, life, plotInform(g, life)),
+        apply: (g, life, ctx) =>
+          there(g, life, ctx.p, () => plotInform(g, life)),
       },
       {
         // Unanswered, you keep out of it.
