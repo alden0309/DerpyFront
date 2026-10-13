@@ -413,10 +413,40 @@ describe("Saving for a Dome (rules 4)", () => {
     expect(behavior.savingForDome()).toBeNull();
   });
 
-  test("not with under 70% of the price, on Easy, or under a land attack", async () => {
+  test("saves five minutes out of ten at most", async () => {
+    const { game, me, behavior } = await aiGame();
+    capitalCluster(game, me);
+    const saving = () => {
+      me.removeGold(me.gold() - 40_000_000n);
+      behavior["tryBuildSmartDome"]();
+      return behavior.savingForDome() !== null;
+    };
+    expect(saving()).toBe(true);
+    for (let i = 0; i < 9; i++) {
+      executeTicks(game, 300);
+      expect(saving()).toBe(true);
+    }
+    executeTicks(game, 300);
+    expect(saving()).toBe(false);
+    executeTicks(game, 2700);
+    expect(saving()).toBe(false);
+    executeTicks(game, 300);
+    expect(saving()).toBe(true);
+  });
+
+  test("only for its first Dome", async () => {
+    const { game, me, behavior } = await aiGame();
+    capitalCluster(game, me);
+    buildDome(game, me, 170, 110);
+    me.removeGold(me.gold() - 50_000_000n);
+    behavior["tryBuildSmartDome"]();
+    expect(behavior.savingForDome()).toBeNull();
+  });
+
+  test("not with under half the price, on Easy, or under a land attack", async () => {
     const poor = await aiGame();
     capitalCluster(poor.game, poor.me);
-    poor.me.removeGold(poor.me.gold() - 40_000_000n);
+    poor.me.removeGold(poor.me.gold() - 30_000_000n);
     poor.behavior["tryBuildSmartDome"]();
     expect(poor.behavior.savingForDome()).toBeNull();
 

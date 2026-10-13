@@ -197,10 +197,12 @@ const DOME_COOLDOWN_TICKS = 600;
 /** Ticks before looking again when no spot was worth a Dome. */
 const DOME_RETRY_TICKS = 300;
 /**
- * A nation holding this many tenths of a worthwhile Dome's price saves the
- * rest (Medium and up).
+ * A nation holding this many tenths of a worthwhile first Dome's price saves
+ * the rest (Medium and up)...
  */
-const DOME_SAVE_FROM_TENTHS = 7n;
+const DOME_SAVE_FROM_TENTHS = 5n;
+/** ...for at most this many ticks out of twice as many. */
+const DOME_SAVE_MAX_TICKS = 3000; // 5 minutes
 /** Structures a nation prefers to put under its Domes when threatened. */
 const SHELTERED_TYPES: ReadonlySet<UnitType> = new Set([
   UnitType.City,
@@ -241,6 +243,8 @@ export class NationStructureBehavior {
   private domeRetryTick: number | null = null;
   /** Derpy Front (rules 4+): saving for a Dome until this tick. */
   private domeSavingUntil: number | null = null;
+  /** Derpy Front (rules 4+): when this spell of saving for a Dome began. */
+  private domeSaveStartTick: number | null = null;
 
   constructor(
     private random: PseudoRandom,
@@ -266,6 +270,7 @@ export class NationStructureBehavior {
       lastDomeTick: this.lastDomeTick,
       domeRetryTick: this.domeRetryTick,
       domeSavingUntil: this.domeSavingUntil,
+      domeSaveStartTick: this.domeSaveStartTick,
     });
   }
 
@@ -292,6 +297,7 @@ export class NationStructureBehavior {
     this.lastDomeTick = s.lastDomeTick;
     this.domeRetryTick = s.domeRetryTick;
     this.domeSavingUntil = s.domeSavingUntil;
+    this.domeSaveStartTick = s.domeSaveStartTick;
   }
 
   handleStructures(): boolean {
@@ -474,8 +480,8 @@ export class NationStructureBehavior {
    * enough, at the bare price. Under a heavy land attack a Dome waits until
    * the nation could pay for it twice, so its land defence comes first.
    * One at a time, a minute apart before we are nuked, at most three then.
-   * A nation already holding most of the price saves the rest (see
-   * savingForDome).
+   * A nation already holding half the price of its first saves the rest
+   * (see savingForDome).
    */
   private tryBuildSmartDome(): boolean {
     const config = this.game.config();
@@ -505,15 +511,18 @@ export class NationStructureBehavior {
     if (gold < needed) {
       if (
         pressed ||
+        domes.length > 0 ||
         config.gameConfig().difficulty === Difficulty.Easy ||
         gold * 10n < needed * DOME_SAVE_FROM_TENTHS ||
-        this.savingForDome() !== null
+        this.savingForDome() !== null ||
+        !this.mayStartSaving(ticks)
       ) {
         return false;
       }
-      // Most of the way there: save the rest if a Dome is worth it
+      // Half way there: save the rest if a Dome is worth it
       if (this.worthyDomeSpot(nuked) !== null) {
         this.domeSavingUntil = ticks + DOME_RETRY_TICKS;
+        this.domeSaveStartTick ??= ticks;
       }
       return false;
     }
@@ -526,6 +535,19 @@ export class NationStructureBehavior {
     this.lastDomeTick = ticks;
     this.domeRetryTick = null;
     this.domeSavingUntil = null;
+    this.domeSaveStartTick = null;
+    return true;
+  }
+
+  /**
+   * Saving for a Dome goes on for at most five minutes, then rests as long,
+   * so a nation whose income can't get it there doesn't sit on its gold.
+   */
+  private mayStartSaving(ticks: number): boolean {
+    const start = this.domeSaveStartTick;
+    if (start === null || ticks - start < DOME_SAVE_MAX_TICKS) return true;
+    if (ticks - start < 2 * DOME_SAVE_MAX_TICKS) return false;
+    this.domeSaveStartTick = null;
     return true;
   }
 
@@ -562,11 +584,13 @@ export class NationStructureBehavior {
 
   /**
    * Derpy Front (rules 4+): the gold we are holding for a Dome, or null if
-   * we aren't saving for one. A nation of Medium or up that holds 70% of a
-   * worthwhile Dome's price, and no land attack presses, saves the rest: it
-   * holds out for its save-up target before building more (as it does for a
-   * MIRV), and holds the bombs that would cut into it (NationNukeBehavior).
-   * The decision lasts 30 seconds and is then looked at again.
+   * we aren't saving for one. A nation of Medium or up with no Dome yet
+   * that holds half of a worthwhile Dome's price, and no land attack
+   * presses, saves the rest: it holds out for its save-up target before
+   * building more (as it does for a MIRV), and holds the bombs that would
+   * cut into it unless it is being overrun (NationNukeBehavior). The
+   * decision lasts 30 seconds and is then looked at again, for at most five
+   * minutes out of ten.
    */
   savingForDome(): Gold | null {
     if (
@@ -2188,6 +2212,7 @@ export const NationStructureBehaviorSnapshot = snapshotType({
     lastDomeTick: zInt().nullable(),
     domeRetryTick: zInt().nullable(),
     domeSavingUntil: zInt().nullable(),
+    domeSaveStartTick: zInt().nullable(),
   }),
   migrations: {
     // v1 nations kept no Dome memory (rules 4 adds it)
@@ -2197,6 +2222,7 @@ export const NationStructureBehaviorSnapshot = snapshotType({
       lastDomeTick: null,
       domeRetryTick: null,
       domeSavingUntil: null,
+      domeSaveStartTick: null,
     }),
   },
 });

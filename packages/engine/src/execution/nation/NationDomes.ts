@@ -285,7 +285,8 @@ export function bestDomeSpot(
   let best: DomeSpot | null = null;
   for (const point of points) {
     if (game.owner(point) !== player) continue;
-    const tile = player.canBuild(UnitType.Dome, point);
+    // Where a Dome could stand, whether or not we hold its price yet
+    const tile = player.landBasedStructureSpawn(point);
     if (tile === false || seen.has(tile)) continue;
     seen.add(tile);
     if (covered(tile)) continue;
