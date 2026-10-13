@@ -263,7 +263,8 @@ export function eventScene(
       <ol class="cq-scene-choices">
         ${ev.choices.map(
           (c, i) =>
-            html`<li>
+            // ECON (r17): a slot with nothing in it (an empty label) isn't shown.
+            html`<li ?hidden=${!c.label}>
               <button
                 class="cq-choice"
                 @click=${async () => {

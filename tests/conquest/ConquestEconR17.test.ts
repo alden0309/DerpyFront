@@ -24,6 +24,7 @@ import {
 } from "../../src/conquest/engine/Company";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
+import { raiseEvent } from "../../src/conquest/engine/Hooks";
 import { lifeForOthers } from "../../src/conquest/engine/IntrigueCore";
 import {
   askLeave,
@@ -47,6 +48,7 @@ import {
   callIn,
   makeLoan,
   repayOdds,
+  timeChance,
   willBorrow,
 } from "../../src/conquest/engine/Loans";
 import { priceView } from "../../src/conquest/engine/Markets";
@@ -305,6 +307,9 @@ describe("ECON r17: a trading company's return cargo", () => {
     expect(v.phase).toBe("there");
     const ev = life.events.find((e) => e.key === "econ-venture");
     expect(ev).toBeDefined();
+    // A slot with nothing to buy has no label (the scene leaves it out).
+    for (const c of ev!.choices.slice(0, 3))
+      expect(c.label === "" || /load/.test(c.label)).toBe(true);
     const purse = life.purse;
     expect(
       g.lifeCommand("s1", { k: "event", id: ev!.id, choice: 0 }),
@@ -545,6 +550,40 @@ describe("ECON r17: bonds", () => {
     expect(l2.status).toBe("closed");
     expect(life.purse).toBeGreaterThan(purse);
     expect(life.purse - purse).toBeLessThan(20);
+  });
+
+  test("more time is given on a bond at most twice; left unanswered after that, it's forgiven", () => {
+    const { g, life } = game(7);
+    const a = townsman(g, life);
+    const l = makeLoan(g, {
+      lender: life.c,
+      borrower: a.id,
+      sum: 8,
+      months: 6,
+      rate: 0,
+      how: "friend",
+    });
+    for (let i = 0; i < 2; i++) {
+      l.status = "default";
+      expect(
+        g.lifeCommand("s1", { k: "econ", act: "grant", id: l.id, months: 3 }),
+      ).toBeNull();
+    }
+    l.status = "default";
+    expect(
+      g.lifeCommand("s1", { k: "econ", act: "grant", id: l.id, months: 3 }),
+    ).toMatch(/twice/);
+    // Nor do the computer's people ask for it, nor give it.
+    expect(repayOdds(g.s, l).time).toBe(0);
+    expect(timeChance(g.s, l)).toBe(0);
+    // The scene's first course is spent: unanswered, the debt is forgiven.
+    raiseEvent(g, life, "loan-default", { l: l.id, c: a.id });
+    const ev = life.events.find((e) => e.key === "loan-default")!;
+    expect(ev).toBeDefined();
+    ev.expires = g.s.day + 1;
+    for (let d = 0; d < 5 && life.events.some((e) => e.id === ev.id); d++)
+      g.tick();
+    expect(l.end).toBe("forgiven");
   });
 
   test("the old ways of lending and borrowing make bonds, and an old save's debts become bonds", () => {

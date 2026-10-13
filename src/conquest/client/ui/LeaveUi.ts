@@ -6,6 +6,7 @@
 // a business of your own, the way to a manager.
 
 import { html, nothing, TemplateResult } from "lit";
+import { UNMINDED } from "../../engine/Business";
 import { formatDate } from "../../engine/Calendar";
 import {
   LEAVE_DAYS,
@@ -72,8 +73,8 @@ export function leaveBlock(ui: GameUi): TemplateResult | typeof nothing {
     return idle.length
       ? html`<p class="cq-leave small">
           You're your own master: no leave to ask. While you're away nobody
-          minds your ${idle[0].name.toLowerCase()} (it takes 6 in 10 of its
-          takings):
+          minds your ${idle[0].name.toLowerCase()} (it takes
+          ${Math.round(UNMINDED * 10)} in 10 of its takings):
           <button
             class="cq-link"
             @click=${() =>

@@ -14,6 +14,7 @@ import { journal } from "./LifeCore";
 import type { LCtx, LifeEventDef } from "./LifeEvents";
 import { lifeOfChar } from "./LifeQueries";
 import {
+  graceSpent,
   LOAN_MORE,
   loansOf,
   monthInterest,
@@ -170,7 +171,11 @@ const LOAN_SCENES: LifeEventDef[] = [
           return `Ask for ${LOAN_MORE[0]} months more${p !== null ? ` (likely ${chanceWords(p)})` : ""}`;
         },
         tip: "The lender decides: by what they think of you, and how often they've put it off before.",
-        blocked: unless((l) => l.ask === undefined),
+        blocked: (g, _life, ctx) => {
+          const l = loanOf(g, ctx);
+          if (!l || l.status === "closed") return "It's settled";
+          return l.ask !== undefined ? "Not now" : graceSpent(l);
+        },
         apply: (g, life, ctx) =>
           said(g, life, askTime(g, life, ctx.l, LOAN_MORE[0])),
       },
@@ -255,7 +260,11 @@ const LOAN_SCENES: LifeEventDef[] = [
           return `Ask for ${LOAN_MORE[0]} months more${p !== null ? ` (likely ${chanceWords(p)})` : ""}`;
         },
         tip: "The lender decides.",
-        blocked: unless((l) => l.ask === undefined),
+        blocked: (g, _life, ctx) => {
+          const l = loanOf(g, ctx);
+          if (!l || l.status === "closed") return "It's settled";
+          return l.ask !== undefined ? "Not now" : graceSpent(l);
+        },
         apply: (g, life, ctx) =>
           said(g, life, askTime(g, life, ctx.l, LOAN_MORE[0])),
       },
@@ -276,7 +285,11 @@ const LOAN_SCENES: LifeEventDef[] = [
       {
         label: (_g, _life, ctx) => `Give ${ctx.m} months more`,
         tip: "They think the better of you; the bond runs on at interest.",
-        blocked: unless((l) => (l.ask ?? 0) > 0),
+        blocked: (g, _life, ctx) => {
+          const l = loanOf(g, ctx);
+          if (!l || l.status === "closed") return "It's settled";
+          return (l.ask ?? 0) > 0 ? graceSpent(l) : "Not now";
+        },
         apply: (g, life, ctx) =>
           said(g, life, answerTime(g, life, ctx.l, true)),
       },
@@ -304,7 +317,11 @@ const LOAN_SCENES: LifeEventDef[] = [
       {
         label: `Give ${LOAN_MORE[0]} months more`,
         tip: "The bond runs on at interest, and they think the better of you.",
-        blocked: unless((l) => l.status === "default"),
+        blocked: (g, _life, ctx) => {
+          const l = loanOf(g, ctx);
+          if (!l || l.status === "closed") return "It's settled";
+          return l.status === "default" ? graceSpent(l) : "Not now";
+        },
         apply: (g, life, ctx) =>
           said(g, life, moreTime(g, life, ctx.l, LOAN_MORE[0])),
       },
@@ -414,9 +431,10 @@ function ventureChoice(i: number): LifeEventDef["choices"][number] {
   return {
     label: (g, life, ctx) => {
       const o = option(g, life, ctx);
+      // An empty slot has no label, and the scene leaves it out.
       return o
         ? `${goodsName(o.item)}, ${o.loads} load${o.loads === 1 ? "" : "s"} (${r1(o.cost)} coins)`
-        : "Nothing more that pays";
+        : "";
     },
     tip: (g, life, ctx) => {
       const o = option(g, life, ctx);

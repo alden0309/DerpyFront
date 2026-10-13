@@ -21,6 +21,7 @@ import {
 } from "../../engine/Leave";
 import { AWAY_DAYS } from "../../engine/LifeRules";
 import {
+  LOAN_GRACE_MAX,
   LOAN_MORE,
   LOAN_OFFER_DAYS,
   LOAN_REMIND_DAYS,
@@ -140,7 +141,7 @@ Money lent or borrowed makes a **bond**: the sum, a term (a year unless you choo
 - **The interest** is paid at each month's turn, and is in the month's figure. A borrower who can't pay it falls behind, and owes it with the rest.
 - **Repaying:** the borrower may repay at any time, half or all of it, from Estate › Ledger.
 - **Its day:** ${LOAN_REMIND_DAYS} days before, the borrower is reminded. On the day, the lender may **call it in**, or let it run on at interest and call it in when they like.
-- **Called in**, the borrower pays, asks for ${LOAN_MORE.join(" or ")} months more (the lender decides), or can't. Then the lender **forgives** it, takes it **in kind** (goods to the value, at less than they'd fetch), or **sues** for it at the court-house (the suit for debt: judgment for what can be had, the debtors' prison, and what's left stands six months more).
+- **Called in**, the borrower pays, asks for ${LOAN_MORE.join(" or ")} months more (the lender decides; more time is given on a bond at most ${LOAN_GRACE_MAX === 2 ? "twice" : `${LOAN_GRACE_MAX} times`}), or can't. Then the lender **forgives** it, takes it **in kind** (goods to the value, at less than they'd fetch), or **sues** for it at the court-house (the suit for debt: judgment for what can be had, the debtors' prison, and what's left stands six months more).
 
 ${usuryTable()}
 

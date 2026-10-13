@@ -47,6 +47,15 @@ export const LOAN_SUMS = [5, 10, 20, 40, 80, 150];
 export const LOAN_REMIND_DAYS = 30;
 /** More time to choose from, in months. */
 export const LOAN_MORE = [3, 6];
+/**
+ * More time is given on one bond at most this many times; then it's paid,
+ * or forgiven, taken in kind or sued for.
+ */
+export const LOAN_GRACE_MAX = 2;
+/** Why no more time can be had on a bond, or null if it can. */
+export function graceSpent(l: Loan): string | null {
+  return l.grace >= LOAN_GRACE_MAX ? "More time given twice already" : null;
+}
 /** An offer between two players lapses after this many days unanswered. */
 export const LOAN_OFFER_DAYS = 30;
 /** Bonds settled longer ago than this are dropped from the record. */

@@ -11,6 +11,7 @@ import { formatDate } from "../../engine/Calendar";
 import { lifeOfChar } from "../../engine/LifeQueries";
 import {
   bondBetween,
+  graceSpent,
   lawfulRate,
   LOAN_MORE,
   LOAN_REMIND_DAYS,
@@ -246,7 +247,9 @@ function bondActs(ui: GameUi, l: Loan, mine: "lent" | "owed"): TemplateResult {
             ? not("Refused already")
             : (l.ask ?? 0) > 0
               ? not("Asked already")
-              : ok,
+              : graceSpent(l)
+                ? not(graceSpent(l)!)
+                : ok,
           () =>
             void cmd({ act: "time", id: l.id, months: LOAN_MORE[0] }, "paper"),
           "small",
@@ -289,7 +292,7 @@ function bondActs(ui: GameUi, l: Loan, mine: "lent" | "owed"): TemplateResult {
       acts.push(
         action(
           `Give ${months(l.ask!)} more`,
-          ok,
+          graceSpent(l) ? not(graceSpent(l)!) : ok,
           () => void cmd({ act: "grant", id: l.id }, "paper"),
           "small",
         ),
@@ -305,7 +308,7 @@ function bondActs(ui: GameUi, l: Loan, mine: "lent" | "owed"): TemplateResult {
       acts.push(
         action(
           `Give ${months(LOAN_MORE[0])} more`,
-          ok,
+          graceSpent(l) ? not(graceSpent(l)!) : ok,
           () =>
             void cmd({ act: "grant", id: l.id, months: LOAN_MORE[0] }, "paper"),
           "small",

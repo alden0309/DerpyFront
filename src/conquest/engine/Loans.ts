@@ -39,6 +39,7 @@ import {
   bondBetween,
   borrowerLife,
   edice,
+  graceSpent,
   lawfulRate,
   lenderLife,
   LOAN_MORE,
@@ -284,7 +285,12 @@ export function repayOdds(s: GameState, l: Loan): RepayOdds {
   const why = e.done(0);
   const pay = Math.max(W.min, Math.min(W.max, 0.5 + why.total / W.scale));
   const rest = 1 - pay;
-  const timeShare = ratio >= 0.5 ? W.timeShare.able : W.timeShare.short;
+  // Put off twice, there's no more time to ask for: they pay, or can't.
+  const timeShare = graceSpent(l)
+    ? 0
+    : ratio >= 0.5
+      ? W.timeShare.able
+      : W.timeShare.short;
   return {
     pay: r2(pay),
     time: r2(rest * timeShare),
@@ -312,6 +318,7 @@ export function earlyChance(s: GameState, l: Loan): number {
 
 /** The chance a computer lender grants more time (by what they think of you, and how often they have). */
 export function timeChance(s: GameState, l: Loan): number {
+  if (graceSpent(l)) return 0;
   const c = s.chars[l.lender];
   const b = borrowerLife(s, l);
   const op = c && b ? opinionOf(s, c, b).total : 0;
@@ -1108,6 +1115,7 @@ export function askTime(
     return `It isn't due until ${formatDate(l.due)}.`;
   if (l.ask === -1) return `${nameOf(s, l.lender)} has refused more time.`;
   if (l.ask !== undefined && l.ask > 0) return "You've asked already.";
+  if (graceSpent(l)) return "You've had more time twice: it's to be paid.";
   const ll = lenderLife(s, l);
   if (ll) {
     l.ask = months;
@@ -1154,6 +1162,8 @@ export function answerTime(
   if (!l.ask || l.ask < 0) return "Nobody has asked.";
   const bl = borrowerLife(s, l);
   if (grant) {
+    if (graceSpent(l))
+      return "You've given time twice already: refuse, and it's paid or it isn't.";
     minds(g, life, l.borrower, "Gave me more time", 8);
     grantTime(g, l, l.ask);
     return null;
@@ -1415,6 +1425,8 @@ export function moreTime(
   if (!["default", "called", "due"].includes(l.status))
     return "It isn't owed now.";
   if (!LOAN_MORE.includes(months)) return "How long?";
+  if (graceSpent(l))
+    return "You've given time twice already: forgive it, take it in kind, or sue.";
   remembersOf(g, life, l.borrower, "Gave me more time", 8);
   grantTime(g, l, months);
   return null;

@@ -9,6 +9,7 @@
 // neglected while they're away. A business of your own needs no leave, but
 // someone to mind it: a manager.
 
+import { UNMINDED } from "./Business";
 import { dateOf, formatDate, isMonthStart } from "./Calendar";
 import { npc } from "./EventPacing";
 import { Explain } from "./Explain";
@@ -662,7 +663,7 @@ export function tripLeave(
     return {
       kind: "own",
       days: need,
-      text: `Nobody minds your ${idle[0].name.toLowerCase()} while you're away (it takes ${Math.round(0.6 * 100)} in a hundred of its takings): put one of your people in as its manager (Estate › Business).`,
+      text: `Nobody minds your ${idle[0].name.toLowerCase()} while you're away (it takes ${Math.round(UNMINDED * 100)} in a hundred of its takings): put one of your people in as its manager (Estate › Business).`,
     };
   }
   if (job.army >= 0 || job.kind === "servant") return null;
