@@ -19,6 +19,7 @@ import {
   ownedItems,
   register,
 } from "./DerpyAuth";
+import { basedRouter } from "./DerpyBased"; // BASED (r19)
 import { DERPY_PACKS, derpyCosmeticsCatalog, findPack } from "./DerpyCatalog";
 import {
   conquestLeaderboard,
@@ -320,6 +321,10 @@ export function derpyApiRouter(): express.Router {
       res.json({ coins: line?.coins ?? 0 });
     }),
   );
+
+  // BASED (r19): Mr. Based. Only the accounts allowed to play get its story,
+  // pictures and sound; everyone else gets Coming Soon.
+  router.use("/based", basedRouter({ handle }));
 
   router.use((_req, res) => {
     res.status(404).json({ error: "not_found" });
