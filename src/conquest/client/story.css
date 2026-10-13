@@ -80,22 +80,31 @@
   padding: 0;
   list-style: none;
 }
+/* Each year a cartouche on the rule, its moments hung beneath it. */
+.cq-saga-years {
+  padding-left: 1.35rem;
+}
 .cq-saga-year {
-  display: grid;
-  grid-template-columns: 2.9rem minmax(0, 1fr);
-  column-gap: 0.5rem;
+  position: relative;
 }
 .cq-saga-yr {
-  padding-top: 0.42rem;
-  text-align: right;
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  margin: 0.4rem 0 0.15rem -1.35rem;
+  padding: 0.05rem 0.6rem 0.08rem;
+  border: 1px solid var(--road, var(--sepia));
+  border-radius: 999px;
+  background: var(--vellum);
   font-family: var(--fell);
-  font-size: 1.02rem;
+  font-size: 1rem;
+  line-height: 1.3;
   color: var(--road, var(--sepia));
   font-variant-numeric: lining-nums;
 }
 .cq-saga-moments {
   position: relative;
-  padding-bottom: 0.35rem;
+  padding-bottom: 0.25rem;
   border-left: 2px solid var(--rule);
 }
 
@@ -247,7 +256,10 @@
   font-size: 0.86rem;
 }
 .cq-saga-many li {
-  padding: 0.1rem 0 0.1rem 0.5rem;
+  display: grid;
+  grid-template-columns: 3.4rem minmax(0, 1fr);
+  column-gap: 0.45rem;
+  padding: 0.12rem 0 0.12rem 0.5rem;
   border-left: 2px solid var(--rule);
 }
 .cq-saga-many li.good {
@@ -257,8 +269,7 @@
   border-left-color: var(--seal);
 }
 .cq-saga-many li time {
-  display: inline-block;
-  min-width: 3.4rem;
+  padding-top: 0.08rem;
   font-family: var(--fell);
   font-style: italic;
   font-size: 0.8rem;
@@ -280,13 +291,6 @@
   }
 }
 @container (max-width: 420px) {
-  .cq-saga-year {
-    grid-template-columns: 2.4rem minmax(0, 1fr);
-    column-gap: 0.4rem;
-  }
-  .cq-saga-yr {
-    font-size: 0.92rem;
-  }
   .cq-saga-m.w3 .cq-saga-text {
     font-size: 1.04rem;
   }

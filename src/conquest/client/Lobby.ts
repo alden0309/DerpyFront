@@ -390,7 +390,7 @@ export class Lobby extends LitElement {
 
   private savedRow(g: SavedGame): TemplateResult {
     const going = this.going.has(g.id);
-    const ended = g.over || g.old;
+    const ended = g.over === true || g.old === true;
     return html`<li class="cq-room-row cq-save-row ${going ? "going" : ""}">
       <div class="cq-room-flags">
         ${g.power ? originFlag(g.power) : nothing}

@@ -126,7 +126,7 @@ export const STORY_KINDS: Record<string, StoryKindDef> = {
   battle: {
     icon: "muskets",
     name: "Battles and sieges",
-    many: n("battle", "battles"),
+    many: n("battle or siege", "battles and sieges"),
     weight: 2,
   },
   wounded: {
