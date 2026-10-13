@@ -74,6 +74,7 @@ A claim is on a scale of 100. A capital, a big town and a town whose people are 
 
 ## Wanting it back
 - **A claim worth a war** (${CLAIM.war}; against another crown's colony ${CLAIM.warPower}) makes the computer's nations go to war for it, but only when they're stronger in the field than whoever holds it (by ${CLAIM.edge} times, or at all while the town's own people hold it in a rising). The chance a month is ${in100(CLAIM.warChance)} at a claim of 50 (${in100(CLAIM.warChancePower)} against another crown's colony), more for a stronger claim.
+- **They make ready.** While a nation holds a claim worth a war, it keeps ${CLAIM.muster} regiments more under arms than it otherwise would.
 - **In any war** their armies are drawn to the towns they claim, the more the stronger the claim.
 - **At the peace** they ask for a claimed town they hold as soon as the war is going their way (a war score of ${CLAIM.peaceScore}), before anything else.
 - **Claims fade.** One holds its strength ${CLAIM.holdYears} years and fades to nothing by ${CLAIM.fadeYears}. A war for it that ends without it halves every claim on that rival's towns; after ${CLAIM.maxTries} such wars they're given up. So nobody fights the same neighbour for ever.
