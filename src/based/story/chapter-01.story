@@ -33,8 +33,9 @@
 @ambient rain
 @card "PARIS" "Eleven days after the election"
 It had rained every day since the results, as if the city were trying to wash something off and hadn't found the right soap.
-On the boulevards the posters were coming away from the walls in long wet strips. The same face on all of them, most of it gone now, and under it the same two words: TENIR PAROLE.
+On the boulevards the posters were coming away from the walls in long wet strips. The same face on all of them, most of it gone now; the same small bronze oak leaf in the corner; and under it the same two words: TENIR PAROLE.
 Keep your word.
+The party was called Le Serment, the Oath, and the slogan was the only promise it had ever made in plain words.
 ~ Everybody in this city keeps their word. It's just never the one you heard.
 At the corner of the rue de Grenelle a police van idled with its lights off and nobody in it. That was new, too.
 -> vauban
@@ -45,7 +46,7 @@ At the corner of the rue de Grenelle a police van idled with its lights off and 
 Le Vauban had been a hotel bar for a hundred and four years and a good one for about thirty of them.
 @backdrop bar_wide
 @ambient rain_in
-Oak to the ceiling, brass to the knee, green lamps that made everyone look like a better version of a worse idea. Eleven stools. He had the one at the end, nearest the wall, with the room in the mirror.
+Oak to the ceiling, brass to the knee, low lamps that made everyone look like a better version of a worse idea. Eleven stools. He had the one at the end, nearest the wall, with the room in the mirror.
 @backdrop two_glasses
 There were two glasses in front of him.
 The second was in his hand. The first sat an inch to his left, two fingers of an Islay malt nobody had touched in forty minutes, going slowly warm in the lamplight.
@@ -115,9 +116,9 @@ add thoughts 1
 -> reverie
 
 
-== interrupted "Anselme"
+== interrupted "A glass on the oak"
 @backdrop bar_wide
-A glass touched the oak in front of him, not quite hard enough to be rude.
+A glass of water touched the oak in front of him, not quite hard enough to be rude.
 -> anselme
 
 
@@ -201,8 +202,12 @@ investigate "Read the room" min=3 leave="That'll do"
     Three coats. His, wet. A woman's grey raincoat, wet. And a camel overcoat, good cloth, perfectly dry, belonging to nobody in the room.
     ~ A dry coat on a wet night. Its owner has been in the hotel all evening, and he isn't in here. Yet.
   spot room_tv 86 16 "The television"
-    The new President of the Republic, on mute. He had a good face for television: handsome in a way that didn't frighten anyone, and serious in a way that did.
-    The ticker crawled underneath him like a confession nobody was reading.
+    if tv_off
+      Dark now. In the black glass he could see the room behind him, and himself in it, which was somehow worse than the President.
+    else
+      The new President of the Republic, on mute. He had a good face for television: handsome in a way that didn't frighten anyone, and serious in a way that did.
+      The ticker crawled underneath him like a confession nobody was reading.
+    end
   deduce expected "Someone was expecting him" needs=door,coats
     Nobody else had come in out of the rain, and somebody's dry coat was waiting on the stand.
     ~ Someone in this hotel knew I'd be here tonight. Someone other than the people who sent me.
@@ -223,7 +228,7 @@ STRANGER: The same as monsieur, please.
 He said it to Anselme without looking at the bottles, or at the glass, or at the man whose drink he was ordering. He sat close enough that their elbows almost touched on the oak. Close enough to be rude, or friendly, or neither.
 choose "He's too close." timer=8
   * [Move a stool along] "Plenty of room tonight."
-    He moved one stool to the right, taking both glasses with him.
+    He moved one stool along, taking both glasses with him.
     STRANGER (amused): Americans. You need so much space. It's the size of your country. It gets into you.
     set moved_away
   * [Stay where you are]
@@ -256,7 +261,7 @@ investigate "Read the man in grey" min=3 leave="Enough"
     if knows_oak
       ~ Anselme's grandson wears one of those. Le Serment's Volunteers. On the inside, so nobody's grandmother sees.
     else
-      ~ Worn where only somebody looking for it would find it. Which means it's meant for people who know to look.
+      ~ The oak leaf from the posters, worn where only somebody looking for it would find it. Which means it's meant for people who know to look.
     end
   spot order 22 62 "His drink"
     He had ordered the same as monsieur without looking at monsieur's glass. Anselme had poured an Islay malt without being told which.
@@ -304,16 +309,18 @@ choose "He smiles at the mirror, not at him." timer=12
     He drank, and said nothing, and let the man in grey fill the silence. People nearly always did. This one took nearly a minute, which was a kind of compliment.
     STRANGER: You're not a talker. Good. Neither is the man I work for.
 end
-STRANGER: Tell me, monsieur. Do you like France?
-choose "He seems to want an answer." timer=10
-  * [I like Paris] "I like Paris. I'm still making up my mind about France."
-    STRANGER: So is France. That's what elections are for.
-  * [The wine is good] "The wine's very good."
-    STRANGER: The wine is the only thing in this country that has never needed reforming.
-  * [Not tonight] "Not tonight."
-    STRANGER: Nobody likes their country on a night like this. Give it a year. Countries are like marriages, monsieur. You learn to love what you're stuck with.
-  * silent [Say nothing]
-    STRANGER: Wise. It's a trick question this week.
+if not called_out
+  STRANGER: Tell me, monsieur. Do you like France?
+  choose "He seems to want an answer." timer=10
+    * [I like Paris] "I like Paris. I'm still making up my mind about France."
+      STRANGER: So is France. That's what elections are for.
+    * [The wine is good] "The wine's very good."
+      STRANGER: The wine is the only thing in this country that has never needed reforming.
+    * [Not tonight] "Not tonight."
+      STRANGER: Nobody likes their country on a night like this. Give it a year. Countries are like marriages, monsieur. You learn to love what you're stuck with.
+    * silent [Say nothing]
+      STRANGER: Wise. It's a trick question this week.
+  end
 end
 STRANGER: My President thinks France has spent fifty years apologising. To the Germans, to the English, to Brussels, to everyone. He thinks it's time we stopped.
 STRANGER: I happen to agree with him. Most people do, though they would never say so in a bar like this one.

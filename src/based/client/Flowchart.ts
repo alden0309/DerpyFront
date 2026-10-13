@@ -42,12 +42,13 @@ export function renderFlowchart(f: FlowInput): TemplateResult {
     0,
   );
   const share = (choice: string, option: string): string | null => {
+    // Alone, every path you've lit is simply yours.
+    if (f.players <= 1) return "You";
     const counts = f.picks[choice];
     if (!counts) return null;
     const n = counts[option] ?? 0;
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    if (total === 0 || n === 0) return f.players > 1 ? "0%" : null;
-    if (f.players <= 1) return "You";
+    if (total === 0 || n === 0) return "0%";
     return `${Math.round((100 * n) / total)}%`;
   };
 
