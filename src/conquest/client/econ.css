@@ -1,0 +1,202 @@
+/* ECON (r17): bonds (lent and owed, on the ledger and a person's card, and the
+   window to lend or borrow), leave from your work (the work page, a county
+   office, the travel choices), and a company's two legs. */
+
+/* ---------------------------------------------------------------- bonds */
+
+.cq-bonds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.cq-bond {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.3rem 0.6rem;
+  align-items: start;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--brass);
+  background: rgba(255, 250, 235, 0.5);
+}
+.cq-bond.owed {
+  border-left-color: var(--sepia);
+}
+.cq-bond.default,
+.cq-bond.called {
+  border-left-color: var(--seal);
+}
+.cq-bond.closed {
+  opacity: 0.75;
+  border-left-color: var(--rule);
+}
+.cq-bond-card .cq-bond {
+  grid-template-columns: 1fr;
+}
+.cq-bond-body {
+  min-width: 0;
+}
+.cq-bond-body > b {
+  font-family: var(--fell);
+  font-size: 1rem;
+  font-weight: 400;
+}
+.cq-bond-body p {
+  margin: 0.1rem 0 0;
+  overflow-wrap: anywhere;
+}
+.cq-bond-likely {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.cq-bond-likely .cq-num {
+  font-style: normal;
+}
+.cq-bond-acts {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+.cq-bond-acts .cq-why {
+  font-size: 0.78rem;
+}
+
+/* The window to lend or borrow. */
+.cq-modal.bond {
+  width: min(560px, 100%);
+}
+.cq-bondwin {
+  display: grid;
+  gap: 0.6rem;
+}
+.cq-bondwin-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.cq-bondwin-head h2 {
+  margin: 0;
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1.35rem;
+}
+.cq-bondwin-law {
+  margin: 0;
+  padding: 0.35rem 0.55rem;
+  border-left: 3px solid var(--brass);
+  background: rgba(201, 155, 58, 0.1);
+}
+.cq-bondwin-terms {
+  display: grid;
+  gap: 0.45rem;
+}
+.cq-bondwin-terms .cq-field {
+  display: grid;
+  gap: 0.2rem;
+}
+.cq-bondwin-terms .cq-seg {
+  flex-wrap: wrap;
+}
+.cq-bondwin-sum {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.cq-bondwin-answer {
+  margin: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+.cq-bondwin-answer.good .cq-verdict {
+  color: var(--verdigris);
+  font-weight: 700;
+}
+.cq-bondwin-answer.bad .cq-verdict {
+  color: var(--seal);
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- leave */
+
+.cq-leave {
+  margin: 0.35rem 0;
+}
+.cq-leave.on {
+  padding: 0.3rem 0.5rem;
+  border-left: 3px solid var(--verdigris);
+  background: rgba(44, 106, 76, 0.08);
+}
+.cq-leave.over {
+  padding: 0.3rem 0.5rem;
+  border-left: 3px solid var(--seal);
+  background: rgba(158, 42, 30, 0.07);
+}
+.cq-leave.ask {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px dashed var(--rule);
+}
+.cq-leave.ask .cq-field {
+  display: grid;
+  gap: 0.2rem;
+}
+.cq-leave.ask .cq-seg {
+  flex-wrap: wrap;
+}
+.cq-leave.ask p {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.5rem;
+}
+.cq-leave.trip {
+  margin: 0.2rem 0 0.4rem;
+  padding: 0.3rem 0.45rem;
+  border-left: 3px solid var(--brass);
+  background: rgba(201, 155, 58, 0.1);
+}
+.cq-leave.trip p {
+  margin: 0 0 0.25rem;
+}
+.cq-leave.office {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.5rem;
+}
+.cq-march-ask .cq-leave.trip {
+  max-width: 270px;
+}
+
+/* ---------------------------------------------------------------- a company's two legs */
+
+.cq-co-legs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.9rem;
+  margin: 0.15rem 0 0.3rem;
+}
+.cq-co-round {
+  margin: 0.3rem 0 0;
+}
+.cq-co-plan .cq-seg button:disabled {
+  opacity: 0.45;
+}
+
+@media (max-width: 560px) {
+  .cq-bond {
+    grid-template-columns: 1fr;
+  }
+  .cq-bond > .cq-token {
+    display: none;
+  }
+}
+
+/* A scene's empty choice slot (a venture for home with fewer goods than slots). */
+.cq-scene-choices > li[hidden] {
+  display: none;
+}

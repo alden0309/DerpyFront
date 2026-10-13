@@ -89,7 +89,9 @@ export type Modal =
       what: "seduce" | "plot" | "recruit" | "wedding" | "letter" | "read";
       c?: number;
       id?: number;
-    };
+    }
+  // ECON (r17): lend someone money on bond, or borrow from them.
+  | { k: "bond"; c: number; side: "lend" | "borrow" };
 
 export interface GameUi {
   s: GameState;

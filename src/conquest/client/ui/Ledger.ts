@@ -25,6 +25,7 @@ import type {
   Statement,
 } from "../../engine/Types";
 import { num } from "../Tip";
+import { bondsSection } from "./Bonds"; // ECON (r17)
 import { breakdownTip, GameUi, section } from "./Context";
 import { howTo, pageHead } from "./Nav";
 import { coins } from "./Price";
@@ -154,6 +155,7 @@ const KIND_NAMES: Record<AffairKind, string> = {
   paper: "Your newspaper",
   property: "Your property",
   contract: "A contract",
+  loan: "A bond", // ECON (r17): money lent or owed on bond
   statement: "The month's accounts",
 };
 
@@ -255,6 +257,11 @@ function affairIcon(kind: AffairKind): TemplateResult {
     case "paper":
       return ico(
         svg`<rect x="5" y="6" width="22" height="20" rx="1"/><path d="M9 10h14M9 14h6M9 18h6M9 22h6M18 14h5v8h-5z"/>`,
+      );
+    // ECON (r17): a bond: a folded deed, tied, with its seal.
+    case "loan":
+      return ico(
+        svg`<path d="M6 7h17l3 3v15H6z"/><path d="M10 12h12M10 16h12M10 20h6"/><circle cx="21" cy="22" r="3.2"/><path d="M19.6 24.8l-.8 3 2.2-1.2 2.2 1.2-.8-3"/>`,
       );
     case "contract":
       return ico(
@@ -507,6 +514,7 @@ export function ledgerPage(ui: GameUi): TemplateResult {
           "A partnership (anyone's card, or Estate › Partnerships).",
         ]),
   )}
+  ${bondsSection(ui) /* ECON (r17): bonds lent and owed */}
   ${section(
     "News of your affairs",
     news.length

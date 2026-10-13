@@ -23,6 +23,7 @@ import {
   reasonList,
   strengthBars,
 } from "./Battle";
+import { bondModal } from "./Bonds"; // ECON (r17)
 import { startBizModal } from "./Business"; // BUSINESS (r15)
 import { GameUi, Modal, token } from "./Context";
 import { diceModal } from "./DiceTable"; // DICE (r14)
@@ -162,6 +163,11 @@ export function renderModal(
     case "intrigue":
       body = intrigueModal(ui, m);
       cls = `intrigue ${m.what === "wedding" || m.what === "plot" ? "wide" : ""}`;
+      break;
+    // ECON (r17)
+    case "bond":
+      body = bondModal(ui, m);
+      cls = "bond";
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);

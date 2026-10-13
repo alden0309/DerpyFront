@@ -76,6 +76,7 @@ import {
 } from "./Context";
 import { diceAct, dicePart, diceTag } from "./DiceTable"; // DICE (r14)
 import { homeBanner, homePlace, homeTileName, homeTileSub } from "./Home"; // HOME (r12)
+import { tripLeaveLine } from "./LeaveUi"; // ECON (r17)
 import {
   boatsHere,
   boatyardPart,
@@ -170,11 +171,16 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
     if (await ui.cmd({ k: "travel", to: p, bySea }))
       ui.open({ k: "tab", tab: "here" });
   };
+  // ECON (r17): a long way there and back, and your place.
+  const way = seaBetter ? sea : (land ?? sea);
   return section(
     "The road there",
     html`<div class="cq-travel">
       ${!land && !sea
         ? html`<p class="cq-muted">There's no way there from where you are.</p>`
+        : nothing}
+      ${way && !life.travel
+        ? tripLeaveLine(ui, p, Math.ceil(way.days))
         : nothing}
       ${land
         ? html`<div class="cq-travel-way">

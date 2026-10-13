@@ -94,6 +94,7 @@ import { tabPage } from "./ui/Tabs";
 import { term } from "./ui/Terms";
 import { nationPage, worldTab } from "./ui/World";
 // SOCIETY (r11)
+import { tripLeave } from "../engine/Leave"; // ECON (r17)
 import {
   achievementToasts,
   onAchieved,
@@ -101,6 +102,7 @@ import {
   type AchievementToast,
 } from "./ui/Achievements"; // MAP (r12)
 import { officesPage } from "./ui/Civic";
+import { tripLeaveLine } from "./ui/LeaveUi"; // ECON (r17)
 import { affairKindName } from "./ui/Ledger"; // LEDGER (r15)
 import { seasonChip } from "./ui/SeasonChip"; // MAP (r12)
 import { postButton } from "./ui/Society";
@@ -1289,7 +1291,12 @@ export class GameView extends LitElement {
     if (!m || !life) return nothing;
     const place = map.provinces[m.to].name;
     const left = Math.max(8, Math.min(m.x + 8, window.innerWidth - 288));
-    const top = Math.max(70, Math.min(m.y + 8, window.innerHeight - 190));
+    // ECON (r17): room for a line about your place, when it's there.
+    const tall = !m.march && !!tripLeave(this.s, world, life, m.to, 30);
+    const top = Math.max(
+      70,
+      Math.min(m.y + 8, window.innerHeight - (tall ? 300 : 190)),
+    );
     let body: TemplateResult;
     if (m.march) {
       const a = this.commanded();
@@ -1347,9 +1354,14 @@ export class GameView extends LitElement {
       );
       const seaBetter =
         sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1);
+      // ECON (r17): a long way there and back, and your place.
+      const way = seaBetter ? sea : land;
       body = html`<p>Go to <b>${place}</b>?</p>
         ${!land && !seaBetter
           ? html`<p class="cq-muted small">There's no way there from here.</p>`
+          : nothing}
+        ${way && !life.travel
+          ? tripLeaveLine(this.ui, m.to, Math.ceil(way.days))
           : nothing}
         <div class="cq-btnrow">
           ${land

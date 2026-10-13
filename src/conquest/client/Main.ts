@@ -31,6 +31,7 @@ import "./business.css"; // BUSINESS (r15): a business of your own, and starting
 import "./chair.css"; // CHAIR (r16): the road to the governor's chair
 import "./chamber.css"; // CHAMBER (r16): the factions, the session, a seat's work later
 import "./dice.css"; // DICE (r14): Liar's dice
+import "./econ.css"; // ECON (r17): bonds, leave, a company's two legs
 import "./home.css";
 import "./intrigue.css"; // INTRIGUE (r15): hearts and schemes
 import "./labour.css"; // LABOUR (r15): those held in bondage

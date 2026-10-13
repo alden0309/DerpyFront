@@ -29,6 +29,7 @@ import {
   livesDaily,
   livesMonthly,
 } from "./Life";
+import { takeLoanDelta } from "./LoanCore"; // ECON (r17)
 import { World, worldOf } from "./Map";
 // WORLD r11: fog of war, province markets, leads, and fitting old saves to the map.
 import "./Achievements"; // MAP (r12): achievements watch every life
@@ -40,8 +41,10 @@ import "./Grandeur"; // CHAIR (r16): marks of greatness: a hall, a coach, portra
 import "./Household"; // HOME (r12): the household's commands register themselves
 import "./Intrigue"; // INTRIGUE (r15): seduction, plots, weddings, private letters
 import { leadsDaily, leadsMonthly } from "./Leads";
+import "./Leave"; // ECON (r17): leave from your work
 import "./Ledger"; // LEDGER (r15): the month's books, statements and forecast
 import "./LifeStory"; // STORY (r17): what a life is remembered for
+import "./Loans"; // ECON (r17): bonds: loans on terms
 import { fitStateToMap } from "./MapFix";
 import { marketsMonthly } from "./Markets";
 import { missionCommand, missionsDaily, outpostsDaily } from "./Missions";
@@ -354,6 +357,8 @@ export class ConquestGame {
     if (sea) d.sea = sea;
     const intr = takeIntrigueDelta(this); // INTRIGUE (r15)
     if (intr) d.intrigue = intr;
+    const loans = takeLoanDelta(this); // ECON (r17)
+    if (loans) d.loans = loans;
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)

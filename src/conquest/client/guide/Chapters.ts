@@ -168,6 +168,7 @@ import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
 // BUSINESS (r15): starting a business, and a trading company.
 import { BUSINESS_CHAPTER } from "./BusinessChapter";
 import { CHAIR_CHAPTER } from "./ChairChapter"; // CHAIR (r16)
+import { ECON_CHAPTER } from "./EconChapter"; // ECON (r17)
 import { POLLS_CHAPTER } from "./PollsChapter"; // POLLS (r16)
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
 import { SAVES_CHAPTER, STORY_CHAPTER } from "./StoryChapter"; // STORY (r17)
@@ -959,15 +960,18 @@ Live beneath your station while you could afford better (twice the expected livi
 ## Money at work
 - **Venture a cargo** (the docks): your stake rides on the next ship out and comes home months later: lost at sea, sold at a loss, at a fair price, or for a fortune. More are lost in wartime.
 - **Shares in a company** (the market): a small dividend every month, a price that rises and falls, and now and then a bubble that bursts. Sell on Estate › Purse.
-- **Borrow** from someone who likes you (their card): repaid with a fifth again within the year.
+- **Borrow** from someone who likes you (their card, Money between you): a bond at the lawful rate, repaid within its term or sooner (see [[econ|Bonds]]).
 
 An officer keeps himself out of his commission's pay (mess bills, uniforms, horses and servants): about a fifth of it.
 
-! Pitfall: Debts come due, and are paid from your purse on the day. If you can't pay, the lender holds it against you for three years, you lose a little renown and gain stress, and the debt comes due again in three months.`,
+! Pitfall: A bond's interest is paid at each month's turn, and on its day the lender may call it in. If you can't pay, they may give you time, take what you carry in kind, or sue you for it ([[econ|Bonds]]).`,
   },
   // ---- LEDGER (r15): money made plain (guide/LedgerChapter.ts)
   LEDGER_CHAPTER,
   // ---- end LEDGER (r15)
+  // ---- ECON (r17): two-way trade, bonds and leave (guide/EconChapter.ts)
+  ECON_CHAPTER,
+  // ---- end ECON (r17)
   // ---- HOME (r12): house and property
   {
     id: "property",
@@ -1426,7 +1430,7 @@ Their card lists what you could do, each with its verdict before you try: **will
 | Friendly | Talk; flatter; give a gift; offer friendship; ask them to teach you their trade; take lessons in their tongue |
 | Romance | Court (in secret, if either of you is married); propose marriage; meet in secret (lovers) |
 | Work | Ask for work; ask for promotion; hand in your notice; offer them work at your business; seek an appointment to an office in their gift |
-| Favours | Borrow money (a fifth again within the year); ask for patronage; grease their palm |
+| Favours | Borrow money (on bond, at the lawful rate); ask for patronage; grease their palm |
 | Causes | Recruit them to your cause; join theirs; ask them to come to your settlement |
 | Hostile | Insult; spread a rumour; challenge to a duel; pry into their affairs; blackmail |
 
@@ -1951,7 +1955,7 @@ ${billsTable()}
     body: `## Who comes to trial
 - **You**, for a crime: taken up by the watch, you wait in the gaol for the sessions ([[crime|Crime and the law]]).
 - **Someone you accuse**: a constable brings people before the justices, a churchwarden presents sinners, the attorney general prosecutes for the crown, and anyone who knows another's secret (a crime, adultery, a child out of wedlock) can bring them to court (Society › Office).
-- **A debtor**: a debt left unpaid twice over (six months) brings the lender's suit: the debtors' prison and your goods seized.
+- **A debtor**: a bond that can't be paid, when the lender sues for it ([[econ|Bonds]]): judgment for what can be had, the debtors' prison, and what's left stands six months more.
 - **A duel's survivor**: a death at dawn may bring a trial for manslaughter.
 - **A printer**, for libel (a person attacked in print sues) or seditious libel (the governor prosecutes) ([[press|Newspapers]]).
 - **A councillor** in disgrace, for corruption.

@@ -41,6 +41,7 @@ import {
   WORK_DAYS,
   xpToNext,
 } from "../../engine/LifeRules";
+import { owing } from "../../engine/LoanCore"; // ECON (r17)
 import { movementOf } from "../../engine/Movements";
 import { houseDefs, propertyOf } from "../../engine/Property";
 import { ageOf, charName, statOf } from "../../engine/Queries";
@@ -51,9 +52,9 @@ import { WARES } from "../../engine/Wares";
 import { arms } from "../Arms";
 import { GOOD_NAMES } from "../Text";
 import { num, plain } from "../Tip";
+import { moneyBetween, owedList } from "./Bonds"; // ECON (r17)
 import { curveNotes } from "./Canvass"; // POLLS (r16)
 import {
-  action,
   bar,
   breakdownTip,
   charLink,
@@ -512,7 +513,8 @@ export function goodsSection(ui: GameUi): TemplateResult {
   const wares = Object.entries(life.wares ?? {}).filter(
     ([, v]) => (v ?? 0) > 0,
   ) as [WareId, number][];
-  const debts = life.debts.filter((d) => d.amount > 0);
+  // ECON (r17): what you owe is on bond now.
+  const debts = owing(ui.s, life);
   if (goods.length === 0 && wares.length === 0 && debts.length === 0)
     return html``;
   return section(
@@ -532,27 +534,7 @@ export function goodsSection(ui: GameUi): TemplateResult {
           </button>
         </p>`
       : nothing}
-    ${debts.length
-      ? html`<ul class="cq-list">
-          ${debts.map(
-            (d) =>
-              html`<li>
-                You owe ${charLink(ui, ui.s.chars[d.to], false)} ${d.amount}
-                coins by ${formatDate(d.due)}.
-                ${action(
-                  "Repay",
-                  life.purse >= d.amount
-                    ? { ok: true }
-                    : { ok: false, why: "Not enough coins" },
-                  () => ui.cmd({ k: "repay", to: d.to }),
-                  "small",
-                  undefined,
-                  false,
-                )}
-              </li>`,
-          )}
-        </ul>`
-      : nothing}`,
+    ${debts.length ? owedList(ui) : nothing}`,
   );
 }
 
@@ -632,6 +614,11 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
     ${mine && c.alive && !c.abroad ? actsSection(ui, c) : nothing}
     ${mine && c.alive && !c.abroad ? personR11(ui, c) : nothing}
     ${mine && c.alive && !c.abroad ? partnerCard(ui, c) : nothing}
+    ${
+      mine && c.alive && !c.abroad
+        ? moneyBetween(ui, c)
+        : nothing /* ECON (r17) */
+    }
     ${mine && c.alive && !c.abroad ? intrigueCard(ui, c) : nothing}
     ${section(
       "Their family",
@@ -746,7 +733,12 @@ function actsSection(ui: GameUi, c: Character): TemplateResult {
                     : ""} ${view.check.ok ? "" : "has-why"}"
                   ?disabled=${!view.check.ok}
                   title=${view.check.ok ? def.text : `${view.check.why}`}
-                  @click=${() => ui.modal({ k: "interact", c: c.id, act, arg })}
+                  @click=${() =>
+                    ui.modal(
+                      act === "borrow" // ECON (r17): borrowing is on bond: its window
+                        ? { k: "bond", c: c.id, side: "borrow" }
+                        : { k: "interact", c: c.id, act, arg },
+                    )}
                 >
                   <span class="cq-int-label">${said.text}</span>
                   ${cost ? price(cost, { have: life.purse }) : nothing}

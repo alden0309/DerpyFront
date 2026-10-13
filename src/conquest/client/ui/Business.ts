@@ -30,10 +30,14 @@ import {
 } from "../../engine/Business";
 import { formatDate, formatMonth } from "../../engine/Calendar";
 import {
+  backChoices, // ECON (r17)
+  backLoadsOf, // ECON (r17)
+  backOdds, // ECON (r17)
+  backPlan,
   CO_EVERY,
   CO_GOODS,
   CO_LOADS,
-  CO_SETUP,
+  CO_SETUP, // ECON (r17)
   companyCheck,
   companyDests,
   companyOdds,
@@ -732,10 +736,8 @@ export function companyCard(
       ? html`<header>
           <b class="cq-biz-mini-name">${f.name}</b>
           <span class="cq-muted small"
-            >${goodsName(plan.item)} from
-            ${placeName(s, ui.w, plan.from, plan.from)} to
-            ${placeName(s, ui.w, plan.to, plan.from)} · ${plan.loads} loads
-            every ${plan.every === 1 ? "month" : `${plan.every} months`} ·
+            >${tradeWords(ui, plan)} · every
+            ${plan.every === 1 ? "month" : `${plan.every} months`} ·
             ${me ? `${me.share}% yours` : ""}</span
           >
         </header>`
@@ -752,22 +754,32 @@ export function companyCard(
         >${last ? signed(last.profit) : "–"}</b
       >.
     </p>
+    ${legsLine(co) /* ECON (r17): each leg's record */}
     ${co.voyages.length
       ? html`<ul class="cq-co-voyages small">
           ${co.voyages.map(
             (v) =>
               html`<li>
-                <span class="cq-chip">At sea</span> ${v.loads} loads of
-                ${goodsName(v.item).toLowerCase()} for
-                ${placeName(s, ui.w, v.to, v.from, v.sailed)}, ${coins(v.cost)}
-                laid out; due about ${formatDate(v.due)}
+                <span class="cq-chip"
+                  >${v.leg === "back" ? "Homeward" : "At sea"}</span
+                >
+                ${v.loads} loads of ${goodsName(v.item).toLowerCase()}
+                ${v.leg === "back"
+                  ? html`home from ${placeName(s, ui.w, v.from, v.to, v.sailed)}`
+                  : html`for ${placeName(s, ui.w, v.to, v.from, v.sailed)}`},
+                ${coins(v.cost)} laid out; due about ${formatDate(v.due)}
               </li>`,
           )}
         </ul>`
       : html`<p class="cq-muted small">
           No cargo at sea. The next sails about ${formatDate(co.next)}.
         </p>`}
-    ${more("The odds of a voyage, and what changes them", oddsPanel(o))}
+    ${more(
+      plan.back
+        ? "The odds of each leg, and what changes them"
+        : "The odds of a voyage, and what changes them",
+      legPanels(ui, plan),
+    )}
     ${managing ? planEditor(ui, f) : nothing}
     ${onBusiness
       ? html`<div class="cq-btnrow">
@@ -799,9 +811,7 @@ function planEditor(ui: GameUi, f: Firm): TemplateResult {
   return more(
     "Change its trade",
     html`${planPicker(ui, plan, set, cur.from)}
-      ${!same
-        ? oddsPanel(companyOdds(s, ui.w, plan), { factors: false })
-        : nothing}
+      ${!same ? legPanels(ui, plan, false) : nothing}
       <div class="cq-btnrow">
         ${action(
           "Set its course",
@@ -835,19 +845,30 @@ export function planPicker(
     soldHere(s, w, from, g),
   );
   const dests = [-1, ...companyDests(w, s, from)];
+  // ECON (r17): a line already running to a farther port keeps it in the list.
+  if (plan.to >= 0 && from === plan.from && !dests.includes(plan.to))
+    dests.push(plan.to);
   return html`<div class="cq-co-plan">
     <label class="cq-field"
       ><span>The goods</span>
       <select
-        @change=${(e: Event) =>
-          set({
-            ...plan,
-            item: (e.target as HTMLSelectElement).value as TradeItem,
-          })}
+        @change=${(e: Event) => {
+          const v = (e.target as HTMLSelectElement).value;
+          // ECON (r17): nothing outward, when it brings goods home.
+          if (!v)
+            set({ ...plan, loads: 0, back: plan.back ?? bestBack(ui, plan) });
+          else set({ ...plan, item: v as TradeItem, loads: plan.loads || 10 });
+        }}
       >
+        <option value="" ?selected=${plan.loads === 0}>
+          Nothing (in ballast)
+        </option>
         ${goods.map(
           (g) =>
-            html`<option value=${g} ?selected=${g === plan.item}>
+            html`<option
+              value=${g}
+              ?selected=${plan.loads > 0 && g === plan.item}
+            >
               ${goodsName(g)}
             </option>`,
         )}
@@ -877,6 +898,7 @@ export function planPicker(
             html`<button
               role="radio"
               aria-checked=${plan.loads === n}
+              ?disabled=${plan.loads === 0}
               @click=${() => set({ ...plan, loads: n })}
             >
               ${n}
@@ -884,6 +906,7 @@ export function planPicker(
         )}
       </span></span
     >
+    ${backPicker(ui, plan, set) /* ECON (r17): the return cargo */}
     <span class="cq-field"
       ><span>A cargo every</span>
       <span class="cq-seg small" role="radiogroup" aria-label="How often">
@@ -900,6 +923,126 @@ export function planPicker(
       </span></span
     >
   </div>`;
+}
+
+// ---------------------------------------------------------------- ECON (r17): the return cargo
+
+/** "Tobacco from Jamestown to Havana, home with cochineal". */
+function tradeWords(ui: GameUi, plan: CompanyPlan): string {
+  const s = ui.s;
+  const far = placeName(s, ui.w, plan.to, plan.from);
+  const home = placeName(s, ui.w, plan.from, plan.from);
+  const back = plan.back
+    ? `${goodsName(plan.back).toLowerCase()} home (${backLoadsOf(plan)} loads)`
+    : "";
+  return plan.loads > 0
+    ? `${goodsName(plan.item)} from ${home} to ${far} (${plan.loads} loads)${back ? `, ${back}` : ""}`
+    : `Nothing out; ${back} from ${far} to ${home}`;
+}
+
+/** Each leg's record: cargoes, what they cost and fetched, lost. */
+function legsLine(
+  co: NonNullable<Firm["co"]>,
+): TemplateResult | typeof nothing {
+  const l = co.legs;
+  if (!l || !co.plan.back || (!l.out.n && !l.back.n)) return nothing;
+  const leg = (name: string, x: typeof l.out) =>
+    x.n
+      ? html`<span
+          >${name}: <b>${x.n}</b> cargo${x.n === 1 ? "" : "es"},
+          ${coins(x.cost)} laid out, ${coins(x.sale)}
+          fetched${x.lost
+            ? html`, <b class="bad">${x.lost} lost</b>`
+            : nothing}</span
+        >`
+      : html`<span class="cq-muted">${name}: none yet</span>`;
+  return html`<p class="cq-co-legs small">
+    ${leg("Outward", l.out)} ${leg("Homeward", l.back)}
+  </p>`;
+}
+
+/** The odds of the outward leg and of the homeward leg, each its own. */
+function legPanels(
+  ui: GameUi,
+  plan: CompanyPlan,
+  factors = true,
+): TemplateResult {
+  const o = companyOdds(ui.s, ui.w, plan);
+  const bo = backOdds(ui.s, ui.w, plan);
+  return html`${plan.loads > 0
+    ? oddsPanel(o, {
+        factors,
+        ...(bo ? { title: `Out: ${o.title.toLowerCase()}` } : {}),
+      })
+    : html`<p class="cq-muted small">${o.factors[0]}</p>`}
+  ${bo ? oddsPanel(bo, { factors }) : nothing}
+  ${bo
+    ? html`<p class="cq-co-round small">
+        The round voyage, once it's going:
+        <b class=${o.net >= 0 ? "good" : "bad"}>${signed(o.net)} a month</b>
+        after its factors.
+      </p>`
+    : nothing}`;
+}
+
+/** The best goods home on this line, if any pays. */
+function bestBack(ui: GameUi, plan: CompanyPlan): TradeItem | undefined {
+  const c = backChoices(ui.s, ui.w, plan);
+  return (c.find((x) => x.gain > 0) ?? c[0])?.item;
+}
+
+/** What it brings home: nothing, or goods the far end sells, each with what it'd make a voyage. */
+function backPicker(
+  ui: GameUi,
+  plan: CompanyPlan,
+  set: (p: CompanyPlan) => void,
+): TemplateResult {
+  const choices = backChoices(ui.s, ui.w, plan);
+  const loads = backLoadsOf(plan);
+  return html`<label class="cq-field"
+      ><span>Home with</span>
+      <select
+        @change=${(e: Event) => {
+          const v = (e.target as HTMLSelectElement).value as TradeItem | "";
+          set(
+            v
+              ? { ...plan, back: v, backLoads: plan.backLoads ?? 5 }
+              : {
+                  ...plan,
+                  back: undefined,
+                  backLoads: undefined,
+                  loads: plan.loads || 10,
+                },
+          );
+        }}
+      >
+        <option value="" ?selected=${!plan.back}>
+          Nothing (home in ballast)
+        </option>
+        ${choices.map(
+          (c) =>
+            html`<option value=${c.item} ?selected=${c.item === plan.back}>
+              ${goodsName(c.item)} (${signed(c.gain)} a voyage)
+            </option>`,
+        )}
+      </select></label
+    >
+    <span class="cq-field"
+      ><span>Loads home</span>
+      <span class="cq-seg small" role="radiogroup" aria-label="Loads home">
+        ${CO_LOADS.map(
+          (n) =>
+            html`<button
+              role="radio"
+              aria-checked=${!!plan.back && loads === n}
+              ?disabled=${!plan.back}
+              @click=${() => set({ ...plan, backLoads: n })}
+            >
+              ${n}
+            </button>`,
+        )}
+      </span></span
+    >`;
 }
 
 // ---------------------------------------------------------------- the "Start a business" window
@@ -1298,7 +1441,11 @@ function startCompanyTab(ui: GameUi): TemplateResult {
   const plan = draft.plan;
   const q = companyQuote(s, ui.w, plan);
   const o = companyOdds(s, ui.w, plan);
-  const want = Math.ceil(q.cost * 2);
+  // ECON (r17): a chest for both legs' cargoes.
+  const bp = backPlan(plan);
+  const want = Math.ceil(
+    (q.cost + (bp ? companyQuote(s, ui.w, bp).cost : 0)) * 2,
+  );
   const chest = draft.cap || want;
   const check = companyCheck(s, ui.w, life, plan, chest);
   const set = (p: CompanyPlan) => {
@@ -1320,8 +1467,11 @@ function startCompanyTab(ui: GameUi): TemplateResult {
         </p>
       </section>
       <section class="cq-sb-step">
-        <h4><span>II.</span> Risk and reward of a voyage</h4>
-        ${oddsPanel(o)}
+        <h4>
+          <span>II.</span> Risk and
+          reward${plan.back ? " of each leg" : " of a voyage"}
+        </h4>
+        ${legPanels(ui, plan)}
       </section>
     </div>
     <aside class="cq-articles-panel cq-sb-panel">
@@ -1353,9 +1503,14 @@ function startCompanyTab(ui: GameUi): TemplateResult {
         />
       </label>
       <p class="cq-muted small">
-        A cargo costs about ${coins(q.cost)}; a chest of two keeps it sailing
-        while the first is at sea. Its profit is yours each month; a loss comes
-        out of the chest.
+        ${plan.loads > 0
+          ? html`A cargo costs about ${coins(q.cost)}`
+          : html`Nothing goes out`}${bp
+          ? html`${plan.loads > 0 ? "; " : ": "}the return cargo about
+            ${coins(companyQuote(s, ui.w, bp).cost)}`
+          : nothing};
+        a chest of two keeps it sailing while the first is at sea. Its profit is
+        yours each month; a loss comes out of the chest.
       </p>
       <h4 class="cq-int-group">Alone</h4>
       <div class="cq-articles-actions">

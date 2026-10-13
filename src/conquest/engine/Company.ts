@@ -12,6 +12,13 @@
 // written in the firm's books and told in the partners' own news; the odds
 // before you commit come from the same tables the voyage is rolled from.
 // No trade in people: that's not this company's business.
+//
+// ECON (r17): a return cargo. A company can also buy goods where its cargo
+// is sold and bring them home (Jamestown's tobacco to Havana, Havana's
+// cochineal back to Jamestown; or London's woollens for Virginia), and
+// either leg may carry nothing. Each leg is priced from the markets at its
+// two ends, rolled on its own dice from the same table its odds are shown
+// from, written in the books and told in the partners' news.
 
 import { dateOf } from "./Calendar";
 import { book, callIn, divide, tell } from "./Firms";
@@ -56,6 +63,7 @@ import { Rng } from "./Rng";
 import { rumour } from "./Rumours";
 import type {
   AffairItem,
+  CompanyLegs, // ECON (r17)
   CompanyPlan,
   CompanyState,
   CompanyVoyage,
@@ -265,6 +273,7 @@ export function voyageDays(
   day = s.day,
 ): number {
   if (plan.to < 0) return crossing(s, w, plan.from, day).total;
+  if (plan.from < 0) return crossing(s, w, plan.to, day).total; // ECON (r17): home from Europe
   return seaHopDays(km(w, plan.from, plan.to) * 1.3);
 }
 
@@ -293,6 +302,8 @@ export function againstTheLaws(
   plan: Pick<CompanyPlan, "from" | "to" | "item">,
   day = s.day,
 ): string | null {
+  // ECON (r17): from its own nation's port in Europe to its colony: the law's own way.
+  if (plan.from < 0) return null;
   const a = keyAt(s, plan.from);
   const b = plan.to >= 0 ? keyAt(s, plan.to) : a;
   const native = (k: string) =>
@@ -447,14 +458,17 @@ export function companyQuote(
 ): CompanyQuote {
   const days = voyageDays(s, w, plan, day);
   const buy = r2(
-    quoteCut(s, w, plan.from, plan.item, plan.loads, CO_CUT, day, CO_MOVE)
-      .total * landing(s, w, plan),
+    plan.from < 0
+      ? europeBuy(s, keyAt(s, plan.to), plan.item, plan.loads) // ECON (r17)
+      : quoteCut(s, w, plan.from, plan.item, plan.loads, CO_CUT, day, CO_MOVE)
+          .total * landing(s, w, plan),
   );
   const war = warAtSea(s, plan);
   const freight = r2(
     plan.loads *
       (CO_FREIGHT.port * 2 + CO_FREIGHT.perDay * days) *
-      (war ? CO_WAR_FREIGHT : 1),
+      (war ? CO_WAR_FREIGHT : 1) *
+      (plan.round ? CO_BACK_FREIGHT : 1), // ECON (r17): the round voyage's ship comes home with it
   );
   const licence = indiesLicence(s, w, plan, day) ? r2(buy * CO_LICENCE) : 0;
   const sale =
@@ -478,6 +492,7 @@ export function landing(
   w: World,
   plan: Pick<CompanyPlan, "from" | "item">,
 ): number {
+  if (plan.from < 0) return 1; // ECON (r17): bought in Europe
   return makes(s, w, plan.from, plan.item) ? CO_LANDING : 1;
 }
 
@@ -510,8 +525,11 @@ export function paceDrag(
   const now = (p: number) => netNow(s.markets?.[p], plan.item, day);
   const extraBuy = Math.max(0, left - Math.max(0, -now(plan.from)));
   const buy =
-    Math.exp((MARKET_ALPHA * extraBuy) / depthOf(s, w, plan.from, plan.item)) -
-    1;
+    plan.from < 0
+      ? 0 // ECON (r17): Europe's merchants are many; a company hardly moves them
+      : Math.exp(
+          (MARKET_ALPHA * extraBuy) / depthOf(s, w, plan.from, plan.item),
+        ) - 1;
   let sell = 0;
   if (plan.to >= 0) {
     const extraSell = Math.max(0, left - Math.max(0, now(plan.to)));
@@ -547,6 +565,9 @@ export function companyOdds(
   plan: CompanyPlan,
   day = s.day,
 ): OddsView {
+  // ECON (r17): nothing outward (the ship fetches a return cargo), and a leg home from Europe.
+  if (plan.loads === 0) return ballastOdds(s, w, plan, day);
+  const ref = plan.from >= 0 ? plan.from : plan.to;
   const q = companyQuote(s, w, plan, day);
   const k = voyageRisks(s, w, plan, day);
   const spoiled = r1(q.sale * (1 - CO_RISK.spoilPart));
@@ -599,9 +620,11 @@ export function companyOdds(
   // A month all told, once it's going at its pace.
   const steady = steadyGain(s, w, plan, day);
   const drag = paceDrag(s, w, plan, day);
-  const net = r1(steady / plan.every - wages);
+  // ECON (r17): with a return cargo, the round voyage's month.
+  const back = plan.back ? backShare(s, w, plan, day) : 0;
+  const net = r1((steady + back) / plan.every - wages);
   const factors = [
-    `Prices: bought at ${placeName(s, w, plan.from, plan.from, day)} for ${r1(q.buy)} (its buying dears the price there), sold at ${placeName(s, w, plan.to, plan.from, day)} for about ${r1(q.sale)} (its selling cheapens it). Prices move with the season, war and other traders.`,
+    `Prices: bought at ${placeName(s, w, plan.from, ref, day)} for ${r1(q.buy)} (its buying dears the price there), sold at ${placeName(s, w, plan.to, ref, day)} for about ${r1(q.sale)} (its selling cheapens it). Prices move with the season, war and other traders.`,
     `The voyage: about ${q.days} days at sea; freight and port charges ${r1(q.freight)}${k.war ? " (dearer in wartime)" : ""}.`,
     `The goods: ${goodsName(plan.item).toLowerCase()} spoil ${chanceWords(k.spoil)} voyages${k.spoil >= 0.1 ? " (salt fish and grain go off at sea)" : ""}.`,
     k.war
@@ -612,9 +635,15 @@ export function companyOdds(
       : "The laws of trade allow it.",
     `Its factors: ${factorsOf(plan)} at ${CO_FACTOR} a month each${landing(s, w, plan) < 1 ? `; where the country makes the goods they buy at the landings, ${Math.round((1 - CO_LANDING) * 100)} in a hundred under the market` : ""}.`,
     drag.buy + drag.sell >= 0.02
-      ? `The pace: ${plan.loads} loads every ${plan.every === 1 ? "month" : `${plan.every} months`}. Its own buying keeps ${placeName(s, w, plan.from, plan.from, day)}'s price about ${Math.round(drag.buy * 100)} in a hundred dearer${plan.to >= 0 ? `, and its selling ${placeName(s, w, plan.to, plan.from, day)}'s ${Math.round(drag.sell * 100)} cheaper` : ""}, once it's going (a market takes about three months to ease back): about ${steady >= 0 ? "+" : ""}${r1(steady)} a voyage then. Smaller cargoes, or less often, spare the markets.`
+      ? `The pace: ${plan.loads} loads every ${plan.every === 1 ? "month" : `${plan.every} months`}. Its own buying keeps ${placeName(s, w, plan.from, ref, day)}'s price about ${Math.round(drag.buy * 100)} in a hundred dearer${plan.to >= 0 ? `, and its selling ${placeName(s, w, plan.to, ref, day)}'s ${Math.round(drag.sell * 100)} cheaper` : ""}, once it's going (a market takes about three months to ease back): about ${steady >= 0 ? "+" : ""}${r1(steady)} a voyage then. Smaller cargoes, or less often, spare the markets.`
       : `The pace: ${plan.loads} loads every ${plan.every === 1 ? "month" : `${plan.every} months`} hardly moves the prices.`,
     `Its factors hold a cargo back while prices wouldn't pay (it costs only their wages).`,
+    // ECON (r17): the return cargo's part in the month.
+    ...(plan.back
+      ? [
+          `Home with ${goodsName(plan.back).toLowerCase()} from ${placeName(s, w, plan.to, ref, day)}: about ${back >= 0 ? "+" : ""}${r1(back)} a voyage once it's going, risks and all (the homeward leg's own odds are shown apart).`,
+        ]
+      : []),
     ...(q.licence
       ? [
           `The Company of the Indies holds Louisiana's trade: its licence is ${r1(q.licence)} a cargo.`,
@@ -622,7 +651,7 @@ export function companyOdds(
       : []),
   ];
   return {
-    title: `${goodsName(plan.item)} from ${placeName(s, w, plan.from, plan.from, day)} to ${placeName(s, w, plan.to, plan.from, day)}`,
+    title: `${goodsName(plan.item)} from ${placeName(s, w, plan.from, ref, day)} to ${placeName(s, w, plan.to, ref, day)}`,
     ok: true,
     costNow: r1(q.cost),
     costMonth: wages,
@@ -662,11 +691,15 @@ export function planCheck(
   day = s.day,
 ): Check {
   if (!plan || !CO_GOODS[plan.item]) return no("Choose the goods it trades.");
-  if (!CO_LOADS.includes(plan.loads)) return no("Choose a cargo's size.");
+  // ECON (r17): nothing outward is a plan only with something to bring home.
+  if (plan.loads === 0 && !plan.back)
+    return no("Send something out, or bring something home.");
+  if (!CO_LOADS.includes(plan.loads) && plan.loads !== 0)
+    return no("Choose a cargo's size.");
   if (!CO_EVERY.includes(plan.every)) return no("Choose how often it sails.");
   if (!companyPort(s, w, plan.from))
     return no("It buys at a port with a market and docks.");
-  if (!soldHere(s, w, plan.from, plan.item))
+  if (plan.loads > 0 && !soldHere(s, w, plan.from, plan.item))
     return no(
       `${w.map.provinces[plan.from]?.name ?? "That port"} doesn't sell ${goodsName(plan.item).toLowerCase()}.`,
     );
@@ -689,12 +722,14 @@ export function planCheck(
       s.wars.some((x) => (x.a === a && x.b === b) || (x.a === b && x.b === a))
     )
       return no("An embargo: no ship sails between enemies.");
-  } else if (isWare(plan.item))
+  } else if (plan.loads > 0 && isWare(plan.item))
     return no(
       `Europe sends ${goodsName(plan.item).toLowerCase()} out; it doesn't buy it back.`,
     );
-  else if (!(GOODS as readonly string[]).includes(plan.item))
+  else if (plan.loads > 0 && !(GOODS as readonly string[]).includes(plan.item))
     return no("Europe doesn't buy that.");
+  // ECON (r17): the return cargo.
+  if (plan.back) return backCheck(s, w, plan, day);
   return yes;
 }
 
@@ -717,9 +752,16 @@ export function companyCheck(
     return no("Set it up at one of its ports.");
   if (!Number.isFinite(capital) || capital < 0 || capital > 9999)
     return no("How much does it start with?");
-  const q = companyQuote(s, w, plan);
-  if (capital < q.cost)
-    return no(`Its chest must hold a first cargo: ${Math.ceil(q.cost)}.`);
+  // ECON (r17): with nothing outward, the first cargo is the one bought for home.
+  const bp = backPlan(plan);
+  const first =
+    plan.loads > 0
+      ? companyQuote(s, w, plan).cost
+      : bp
+        ? companyQuote(s, w, bp).cost
+        : 0;
+  if (capital < first)
+    return no(`Its chest must hold a first cargo: ${Math.ceil(first)}.`);
   if (life.purse < capital + CO_SETUP)
     return no(`Setting it up and its chest: ${Math.ceil(capital + CO_SETUP)}.`);
   return yes;
@@ -827,6 +869,297 @@ export function changePlan(
   return null;
 }
 
+// ---------------------------------------------------------------- ECON (r17): the return cargo
+
+/** Days a homeward cargo waits in the far port while the ship unloads and takes it on. */
+export const CO_LAY_DAYS = 10;
+/** What Europe's merchants ask for their own wares, against a ware's price where it's neither made nor wanted. */
+export const CO_EUROPE_WARE = 0.6;
+/** What a correspondent pays for ironmongery, arms and cloth at prime cost, against Europe's price. */
+export const CO_EUROPE_PRIME = 0.85;
+/**
+ * The return cargo's freight in the ship chartered for the round voyage,
+ * against a cargo's own (she'd come home in ballast otherwise).
+ */
+export const CO_BACK_FREIGHT = 0.5;
+/** What each nation's merchants in Europe ship to its colonies (besides ironmongery, arms and cloth). */
+const EUROPE_WARES: Record<string, TradeItem[]> = {
+  england: ["woollens"],
+  france: ["brandy", "wine"],
+  spain: ["wine"],
+  netherlands: ["finecloth", "spices", "gin"],
+  portugal: ["wine"],
+  sweden: ["iron"],
+};
+
+/** The goods a nation's merchants in Europe ship out to its colonies. */
+export function europeSends(key: string): TradeItem[] {
+  return ["tools", "guns", "cloth", ...(EUROPE_WARES[key] ?? [])];
+}
+
+/** What a company's correspondent pays in Europe for its nation's goods, with his commission. */
+export function europeBuy(
+  s: GameState,
+  key: string,
+  item: TradeItem,
+  loads: number,
+): number {
+  const each = isWare(item)
+    ? WARES[item].base * CO_EUROPE_WARE
+    : europePrice(s, item as Good).total * CO_EUROPE_PRIME;
+  void key;
+  return r2(each * loads * (1 + CO_EUROPE_CUT));
+}
+
+/** Loads of the return cargo. */
+export function backLoadsOf(plan: CompanyPlan): number {
+  return plan.backLoads ?? (plan.loads || 10);
+}
+
+/** The homeward leg of a plan: its return goods, from where the outward cargo is sold, home. */
+export function backPlan(plan: CompanyPlan): CompanyPlan | null {
+  if (!plan.back) return null;
+  return {
+    item: plan.back,
+    from: plan.to,
+    to: plan.from,
+    loads: backLoadsOf(plan),
+    every: plan.every,
+    ...(plan.loads > 0 ? { round: true } : {}),
+  };
+}
+
+/** Whether a plan's return cargo can be had: sold at the far end, and allowed home. */
+export function backCheck(
+  s: GameState,
+  w: World,
+  plan: CompanyPlan,
+  day = s.day,
+): Check {
+  const item = plan.back;
+  if (!item) return yes;
+  if (!CO_GOODS[item]) return no("Choose the goods it brings home.");
+  if (!CO_LOADS.includes(backLoadsOf(plan)))
+    return no("Choose the return cargo's size.");
+  if (plan.to < 0) {
+    const key = keyAt(s, plan.from);
+    if (!europeSends(key).includes(item))
+      return no(
+        `${europePort(key, day)} doesn't ship ${goodsName(item).toLowerCase()} to the colonies.`,
+      );
+    return yes;
+  }
+  if (!soldHere(s, w, plan.to, item))
+    return no(
+      `${w.map.provinces[plan.to]?.name ?? "That port"} doesn't sell ${goodsName(item).toLowerCase()}.`,
+    );
+  return yes;
+}
+
+/** The chance the outward ship gets to the far port at all (spoiled or not): a return cargo waits on her. */
+function shipThere(s: GameState, w: World, plan: CompanyPlan, day: number) {
+  if (plan.loads === 0) return 1;
+  const k = voyageRisks(s, w, plan, day);
+  return Math.max(0, 1 - k.lost - k.taken - k.seized);
+}
+
+/**
+ * What the return cargo adds to a round voyage once it's going, risks and
+ * all: its own expected gain (only if it would pay, as its factors buy it
+ * only then), as often as the outward ship gets there.
+ */
+export function backShare(
+  s: GameState,
+  w: World,
+  plan: CompanyPlan,
+  day = s.day,
+): number {
+  const bp = backPlan(plan);
+  if (!bp || !backCheck(s, w, plan, day).ok) return 0;
+  return r2(
+    shipThere(s, w, plan, day) * Math.max(0, steadyGain(s, w, bp, day)),
+  );
+}
+
+/** Risk and reward of the homeward leg, before you commit (the same table it's rolled from). */
+export function backOdds(
+  s: GameState,
+  w: World,
+  plan: CompanyPlan,
+  day = s.day,
+): OddsView | null {
+  const bp = backPlan(plan);
+  if (!bp) return null;
+  const o = companyOdds(s, w, bp, day);
+  const there = shipThere(s, w, plan, day);
+  const far = placeName(s, w, plan.to, plan.from, day);
+  const steady = steadyGain(s, w, bp, day);
+  return {
+    ...o,
+    title: `Home: ${goodsName(bp.item).toLowerCase()} from ${far} to ${placeName(s, w, plan.from, plan.from, day)}`,
+    costMonth: 0,
+    net: r1((Math.max(0, steady) * there) / plan.every),
+    factors: [
+      plan.loads > 0
+        ? `Bought at ${far} with what the outward cargo fetched there, when she gets there (${chanceWords(there)} voyages), and shipped home ${CO_LAY_DAYS} days later.`
+        : `Nothing goes out: the factor at ${far} buys on the company's bills and ships it home.`,
+      ...o.factors.filter((f) => !/^Its factors: /.test(f)),
+    ],
+  };
+}
+
+/** The outward leg when nothing goes out: no cargo, no risk to it. */
+function ballastOdds(
+  s: GameState,
+  w: World,
+  plan: CompanyPlan,
+  day: number,
+): OddsView {
+  const bp = backPlan(plan);
+  const q = bp ? companyQuote(s, w, bp, day) : null;
+  const wages = companyWages(plan);
+  const back = backShare(s, w, plan, day);
+  return {
+    title: `Nothing out from ${placeName(s, w, plan.from, plan.from, day)}`,
+    ok: true,
+    costNow: r1(q?.cost ?? 0),
+    costMonth: wages,
+    per: "trip",
+    days: q ? [q.days, q.days] : undefined,
+    outcomes: [
+      {
+        label: "nothing sent out",
+        p: 1,
+        lo: 0,
+        hi: 0,
+        note: "its factor at the far port buys the return cargo on the company's bills",
+      },
+    ],
+    expected: 0,
+    lo: 0,
+    hi: 0,
+    net: r1(back / plan.every - wages),
+    risks: [],
+    factors: [
+      `Nothing goes out from ${placeName(s, w, plan.from, plan.from, day)}: the company only brings goods home.`,
+      `Its factors: ${factorsOf(plan)} at ${CO_FACTOR} a month each.`,
+    ],
+  };
+}
+
+/** The best goods to bring home on a line of trade, if any pays (for the window's suggestion). */
+export function backChoices(
+  s: GameState,
+  w: World,
+  plan: CompanyPlan,
+  day = s.day,
+): { item: TradeItem; gain: number }[] {
+  const out: { item: TradeItem; gain: number }[] = [];
+  const items =
+    plan.to < 0
+      ? europeSends(keyAt(s, plan.from))
+      : (Object.keys(CO_GOODS) as TradeItem[]).filter((g) =>
+          soldHere(s, w, plan.to, g),
+        );
+  for (const item of items) {
+    if (!CO_GOODS[item]) continue;
+    const p = { ...plan, back: item };
+    if (!backCheck(s, w, p, day).ok) continue;
+    const bp = backPlan(p)!;
+    out.push({ item, gain: r1(steadyGain(s, w, bp, day)) });
+  }
+  return out.sort((a, b) => b.gain - a.gain);
+}
+
+/** The return cargo's expected gain at today's prices, as often as the ship gets there (0 if it wouldn't pay). */
+export function backNow(
+  s: GameState,
+  w: World,
+  plan: CompanyPlan,
+  day = s.day,
+): number {
+  const bp = backPlan(plan);
+  if (!bp || !backCheck(s, w, plan, day).ok) return 0;
+  const o = companyOdds(s, w, bp, day);
+  if (o.expected < o.costNow * CO_MARGIN) return 0;
+  return r2(shipThere(s, w, plan, day) * o.expected);
+}
+
+/** Each leg's record, made the first time it's needed. */
+function legsOf(co: CompanyState): CompanyLegs {
+  return (co.legs ??= {
+    out: { n: 0, cost: 0, sale: 0, lost: 0 },
+    back: { n: 0, cost: 0, sale: 0, lost: 0 },
+  });
+}
+
+/**
+ * The return cargo: bought where the outward cargo was sold (or, with nothing
+ * outward, by the factor there on the company's bills), and shipped home. Its
+ * factors buy only if it would pay, risks and all, and only what the chest
+ * can pay for.
+ */
+function loadBack(g: ConquestGame, f: Firm, from: number, home: number): void {
+  const s = g.s;
+  const co = f.co!;
+  const plan = co.plan;
+  if (!plan.back) return;
+  const where = placeName(s, g.w, from, home);
+  const say = (text: string, tone?: "good" | "bad") => {
+    firmLine(g, f, text[0].toUpperCase() + text.slice(1));
+    news(g, f, text, tone);
+  };
+  if (plan.to !== from || plan.from !== home) {
+    say(
+      `no return cargo from ${where}: its trade has changed since she sailed.`,
+    );
+    return;
+  }
+  const check = backCheck(s, g.w, plan);
+  if (!check.ok) {
+    say(`no return cargo from ${where}: ${check.why}`, "bad");
+    return;
+  }
+  const bp = backPlan(plan)!;
+  const q = companyQuote(s, g.w, bp);
+  if (f.chest < q.cost) {
+    say(
+      `no return cargo from ${where}: it costs ${Math.ceil(q.cost)}, and the chest has ${Math.floor(f.chest)}.`,
+      "bad",
+    );
+    return;
+  }
+  const gain = companyOdds(s, g.w, bp).expected;
+  if (gain < q.cost * CO_MARGIN) {
+    say(
+      `no return cargo from ${where}: at today's prices ${bp.loads} loads of ${goodsName(bp.item).toLowerCase()} would fetch about ${Math.round(q.cost + gain)} at home for the ${Math.round(q.cost)} they'd cost, risks and all. The ship comes home in ballast.`,
+      "bad",
+    );
+    return;
+  }
+  if (bp.from >= 0) marketMove(g, bp.from, bp.item, bp.loads, CO_MOVE);
+  f.chest = r2(f.chest - q.cost);
+  const v: CompanyVoyage = {
+    id: g.nextId(),
+    item: bp.item,
+    loads: bp.loads,
+    cost: q.cost,
+    from: bp.from,
+    to: bp.to,
+    sailed: s.day,
+    due: s.day + CO_LAY_DAYS + q.days,
+    leg: "back",
+  };
+  co.voyages.push(v);
+  const leg = legsOf(co).back;
+  leg.n++;
+  leg.cost = r2(leg.cost + q.cost);
+  say(
+    `homeward: a return cargo of ${bp.loads} loads of ${goodsName(bp.item).toLowerCase()} bought at ${where} for ${Math.round(q.cost)}, for ${placeName(s, g.w, home, home)}.`,
+  );
+  partnersChanged(g, "f");
+}
+
 // ---------------------------------------------------------------- the days and the months
 
 /** A partner's own news of the company. */
@@ -872,6 +1205,15 @@ export function companyDaily(g: ConquestGame, f: Firm): void {
     partnersChanged(g, "f");
     return;
   }
+  // ECON (r17): nothing outward: the factor at the far port buys the return cargo.
+  if (plan.loads === 0) {
+    co.next = s.day + Math.round(plan.every * 30.4);
+    const n = co.voyages.length;
+    loadBack(g, f, plan.to, plan.from);
+    if (co.voyages.length > n) co.made++;
+    partnersChanged(g, "f");
+    return;
+  }
   const q = companyQuote(s, g.w, plan);
   if (f.chest < q.cost) {
     co.next = s.day + 30;
@@ -891,7 +1233,8 @@ export function companyDaily(g: ConquestGame, f: Firm): void {
   }
   // A sensible factor holds a cargo that wouldn't pay at today's prices
   // (their own buying and selling may have moved them), and tries again.
-  const gain = companyOdds(s, g.w, plan).expected;
+  // ECON (r17): with a return cargo, the round voyage is what must pay.
+  const gain = companyOdds(s, g.w, plan).expected + backNow(s, g.w, plan);
   if (gain < q.cost * CO_MARGIN) {
     co.next = s.day + 15;
     if ((co.held ?? -1e9) + 60 <= s.day) {
@@ -915,9 +1258,14 @@ export function companyDaily(g: ConquestGame, f: Firm): void {
     to: plan.to,
     sailed: s.day,
     due: s.day + q.days,
+    leg: "out", // ECON (r17)
   };
   co.voyages.push(v);
   co.made++;
+  // ECON (r17): the outward leg's record.
+  const out = legsOf(co).out;
+  out.n++;
+  out.cost = r2(out.cost + q.cost);
   co.next = s.day + Math.round(plan.every * 30.4);
   firmLine(
     g,
@@ -941,7 +1289,11 @@ function arrive(g: ConquestGame, f: Firm, v: CompanyVoyage): void {
   const k = voyageRisks(s, g.w, plan, v.sailed);
   const end = rollVoyage(voyageDice(s, v.id), k);
   const where = placeName(s, g.w, v.to, v.from, v.sailed);
-  const what = `${v.loads} loads of ${goodsName(v.item).toLowerCase()} for ${where}`;
+  // ECON (r17): a homeward cargo says so (and where it came from).
+  const homeward = v.leg === "back";
+  const what = homeward
+    ? `${v.loads} loads of ${goodsName(v.item).toLowerCase()} home from ${placeName(s, g.w, v.from, v.to, v.sailed)}`
+    : `${v.loads} loads of ${goodsName(v.item).toLowerCase()} for ${where}`;
   let sale = 0;
   let text: string;
   if (end === "home" || end === "spoiled") {
@@ -986,28 +1338,44 @@ function arrive(g: ConquestGame, f: Firm, v: CompanyVoyage): void {
   f.chest = r2(f.chest + sale);
   co.sales = r2((co.sales ?? 0) + sale);
   co.closed = r2((co.closed ?? 0) + v.cost);
-  (co.notes ??= []).push(text);
-  firmLine(g, f, `${text[0].toUpperCase()}${text.slice(1)}.`);
-  news(g, f, `${text}.`, sale > v.cost ? "good" : "bad");
+  // ECON (r17): each leg's record, and its own words in the news.
+  const leg = legsOf(co)[homeward ? "back" : "out"];
+  leg.sale = r2(leg.sale + sale);
+  if (end !== "home" && end !== "spoiled") leg.lost++;
+  const said = `${homeward ? "homeward" : "outward"}: ${text}`;
+  (co.notes ??= []).push(said);
+  firmLine(g, f, `${said[0].toUpperCase()}${said.slice(1)}.`);
+  news(g, f, `${said}.`, sale > v.cost ? "good" : "bad");
   // STORY (r17): a great voyage, or a great cargo lost, is in each partner's story.
   if (sale >= v.cost * 1.6 || (sale === 0 && v.cost >= 40))
     for (const pt of f.partners) {
       const l = lifeOfChar(s, pt.c);
       if (!l || l.watching || l.c < 0) continue;
-      milestone(g, l, "company", `${f.name}: ${text}`, v.from, {
-        quiet: true,
-        tone: sale > v.cost ? "good" : "bad",
-        big: sale >= v.cost * 2.5 && sale >= 150,
-      });
+      milestone(
+        g,
+        l,
+        "company",
+        `${f.name}: ${said}`,
+        homeward ? v.to : v.from,
+        {
+          quiet: true,
+          tone: sale > v.cost ? "good" : "bad",
+          big: sale >= v.cost * 2.5 && sale >= 150,
+        },
+      );
     }
-  if (sale >= v.cost * 1.6)
+  if (sale >= v.cost * 1.6) {
     rumour(
       g,
-      v.from,
+      homeward ? v.to : v.from,
       `${f.name} have done handsomely by a cargo of ${goodsName(v.item).toLowerCase()}.`,
       -1,
       "good",
     );
+  }
+  // ECON (r17): the return cargo, bought where this one was sold.
+  if (!homeward && (end === "home" || end === "spoiled"))
+    loadBack(g, f, v.to, v.from);
 }
 
 /**
@@ -1056,13 +1424,20 @@ export function companyForecast(
   const co = f.co;
   if (!co) return { fixed: 0, expected: 0, lo: 0, hi: 0 };
   const o = companyOdds(s, w, co.plan);
+  const bo = backOdds(s, w, co.plan); // ECON (r17)
   const fixed = -r2(companyWages(co.plan) + f.debt * LOAN_RATE);
   return {
     fixed,
     // Once it's going at its pace (its own trade settled into the prices).
-    expected: r2(Math.max(0, steadyGain(s, w, co.plan)) / co.plan.every),
-    lo: r2(fixed + o.lo),
-    hi: r2(fixed + o.hi),
+    // ECON (r17): the return cargo too, on average.
+    expected: r2(
+      (Math.max(0, steadyGain(s, w, co.plan)) +
+        (co.plan.back ? backShare(s, w, co.plan) : 0)) /
+        co.plan.every,
+    ),
+    // ECON (r17): a month may bring both legs home, or lose both.
+    lo: r2(fixed + o.lo + (bo ? bo.lo : 0)),
+    hi: r2(fixed + o.hi + (bo ? bo.hi : 0)),
   };
 }
 
@@ -1085,8 +1460,9 @@ function companyAffairs(s: GameState, w: World, life: Life): AffairItem[] {
         kind: "cargo",
         id: `cv:${v.id}`,
         title: `${f.name}: ${v.loads} loads of ${goodsName(v.item).toLowerCase()}`,
-        what: `from ${placeName(s, w, v.from, v.from, v.sailed)} to ${placeName(s, w, v.to, v.from, v.sailed)}, ${Math.round(v.cost)} laid out (${share}% yours)`,
-        status: "at sea",
+        // ECON (r17): which leg it is.
+        what: `${v.leg === "back" ? "homeward, " : f.co.plan.back ? "outward, " : ""}from ${placeName(s, w, v.from, v.leg === "back" ? v.to : v.from, v.sailed)} to ${placeName(s, w, v.to, v.from, v.sailed)}, ${Math.round(v.cost)} laid out (${share}% yours)`,
+        status: v.leg === "back" ? "homeward" : "at sea",
         ...(k.taken ? { warn: "Privateers are out in this war" } : {}),
         p: v.from,
         due: v.due,

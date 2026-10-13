@@ -31,6 +31,7 @@ import {
   opinionOf,
   weddingCost,
 } from "./LifeQueries";
+import { lendNote } from "./Loans"; // ECON (r17)
 import { joinMovement, movementOf } from "./Movements";
 import { businessOf, houseOf, landOf } from "./Property";
 import { ageOf, charName } from "./Queries";
@@ -1519,12 +1520,16 @@ export const TALES: LifeEventDef[] = [
       },
       {
         label: "Lend it, with a note",
-        tip: "Business is business: they're hurt (−5); you'll likely see it again.",
+        // ECON (r17): a note of hand at the lawful rate, for a year (a bond in your ledger).
+        tip: "Business is business: they're hurt (−5); a note of hand at the lawful rate, due in a year.",
         blocked: (g, life) => poor(life, 10),
         apply: (g, life, ctx) => {
           spend(g, life, 10);
           like(g, life, ctx, "Made me sign a note", -5);
-          if (g.rng.chance(0.7)) earn(g, life, 10);
+          lendNote(g, life, ctx.c, 10);
+          // The roll that once said whether it came back, kept so the
+          // world's dice fall as they did before.
+          g.rng.next();
         },
       },
       {

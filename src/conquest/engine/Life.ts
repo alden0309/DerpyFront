@@ -13,7 +13,7 @@ import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
 import { doInteraction, workOffered } from "./Interactions";
 import { leadCommand } from "./Leads"; // WORLD r11
-import { budgetFlow, debtFlow, withFlow } from "./LedgerCore"; // LEDGER (r15)
+import { budgetFlow, withFlow } from "./LedgerCore"; // LEDGER (r15)
 import { doAct } from "./LifeActs";
 import {
   addRenown,
@@ -94,6 +94,8 @@ import {
   TINCTURES,
 } from "./LifeRules";
 import { nationWord } from "./LifeStory"; // STORY (r17)
+import { owing } from "./LoanCore"; // ECON (r17)
+import { repay as repayBond } from "./Loans"; // ECON (r17)
 import { isWinter } from "./Map";
 import { marketTrade, present } from "./Markets"; // WORLD r11
 import { cashVenture, moneyMonthly, sellKit } from "./Money";
@@ -845,40 +847,8 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
   // Fame fades unless it's fed; the crown forgets. POLLS (r16): faster the
   // higher they stand (the same as ever below 60).
   standingMonth(life);
-  // Debts come due.
-  for (const d of life.debts) {
-    if (d.due > s.day) continue;
-    const lender = s.chars[d.to];
-    if (life.purse >= d.amount) {
-      withFlow(g, debtFlow(d.to, charName(lender)), () =>
-        spend(g, life, d.amount),
-      ); // LEDGER (r15)
-      journal(
-        g,
-        life,
-        `You paid ${charName(lender)} the ${d.amount} coins you owed.`,
-      );
-      d.amount = 0;
-    } else {
-      if (lender?.alive)
-        g.char(lender.id).memories.push({
-          of: me.id,
-          why: "Owes me money",
-          value: -15,
-          until: s.day + 3 * DAYS_PER_YEAR,
-        });
-      addRenown(g, life, -1);
-      addStress(g, life, 3);
-      d.due = s.day + 90;
-      journal(
-        g,
-        life,
-        `You couldn't pay ${charName(lender)}; they'll be back in three months.`,
-        "bad",
-      );
-    }
-  }
-  life.debts = life.debts.filter((d) => d.amount > 0 && s.chars[d.to]?.alive);
+  // ECON (r17): debts are bonds now (Loans.ts): reminded, called in, paid,
+  // put off or sued for there; an old save's debts become bonds on loading.
   // An estate held in trust passes to a child heir at sixteen.
   const estate = life.cooldowns.estateKind;
   if (estate !== undefined && age >= 16 && !life.job) {
@@ -1818,21 +1788,10 @@ export function lifeCommand(
       if (child) return "Not until you're sixteen.";
       return withOutcome(g, life, "act", () => present(g, life, c.item));
     case "repay": {
-      const d = life.debts.find((x) => x.to === c.to);
-      if (!d) return "You owe them nothing.";
-      if (life.purse < d.amount) return `You need ${d.amount} coins.`;
-      spend(g, life, d.amount);
-      life.debts = life.debts.filter((x) => x !== d);
-      const lender = s.chars[c.to];
-      if (lender?.alive)
-        g.char(lender.id).memories.push({
-          of: me.id,
-          why: "Paid me back",
-          value: 10,
-          until: s.day + 2 * DAYS_PER_YEAR,
-        });
-      journal(g, life, `You paid back ${charName(lender)}.`);
-      return null;
+      // ECON (r17): repaying someone is repaying your bond to them.
+      const bond = owing(s, life).find((x) => x.lender === c.to);
+      if (!bond) return "You owe them nothing.";
+      return repayBond(g, life, bond.id);
     }
     case "command":
       if (child) return "Not as a child.";

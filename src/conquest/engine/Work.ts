@@ -10,6 +10,7 @@ import { crimeWorkDay, lawWorkDay } from "./Crime";
 import { npc, played } from "./EventPacing"; // EVENTS (r15)
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
+import { leaveDay } from "./Leave"; // ECON (r17)
 import { addRenown, gainXp, journal, milestone, touchLife } from "./LifeCore";
 import {
   atPost,
@@ -538,6 +539,8 @@ export function workDaily(
   const s = g.s;
   const job = life.job;
   if (!job) return;
+  // ECON (r17): on leave, away isn't absent; overstaying it is (Leave.ts).
+  if (leaveDay(g, life, raise)) return;
   if (atPost(s, g.w, life)) {
     if (job.awayDays) {
       job.awayDays = 0;

@@ -11,6 +11,7 @@ import { formatDate, pollDay } from "./Calendar"; // FIXES (r15)
 import { Explain } from "./Explain";
 import { householdsOf } from "./Folk";
 import type { ConquestGame } from "./Game";
+import { officeLeaveDays } from "./Leave"; // ECON (r17)
 import {
   addRenown,
   addStress,
@@ -1302,7 +1303,8 @@ export function officesMonthly(g: ConquestGame): void {
       const life = lifeOfChar(s, o.holder);
       if (!life) continue;
       // Duty: neglect it long enough and you're out.
-      const idle = s.day - o.duty;
+      // ECON (r17): days on leave from it don't count.
+      const idle = s.day - o.duty - officeLeaveDays(s, life, o);
       if (idle >= 240) {
         if (def.how === "elected") {
           addRenown(g, life, -3);

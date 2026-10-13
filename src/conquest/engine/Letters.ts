@@ -48,6 +48,8 @@ import {
   yes,
 } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
+import { owing } from "./LoanCore"; // ECON (r17)
+import { bondMade } from "./Loans"; // ECON (r17)
 import { isHurricaneSeason, kmBetween, type World } from "./Map";
 import {
   appointerOf,
@@ -92,7 +94,7 @@ export const LETTER_KINDS: Record<LetterKind, LetterKindDef> = {
   },
   favour: {
     label: "Ask a favour (a loan)",
-    text: "A loan, to be repaid with a fifth again within the year. Friends and family say yes more often.",
+    text: "A loan on bond, at the lawful rate of interest, to be repaid within the year. Friends and family say yes more often.", // ECON (r17)
     ask: true,
     coins: [5, 10, 20, 40],
   },
@@ -352,7 +354,7 @@ export function letterText(
         ? `${hi}, permit me to make known to you ${charName(other)}, a person of good character whom I am proud to call my acquaintance.`
         : `${hi}, though we have not met, your name is known to me, and I take the liberty of making mine known to you: ${charName(me)}, of ${here}, at your service.`;
     case "favour":
-      return `${hi}, I find myself pressed, and must ask a kindness: the loan of ${arg} coins, which I would repay with a fifth again within the year.`;
+      return `${hi}, I find myself pressed, and must ask a kindness: the loan of ${arg} coins on my bond, which I would repay within the year, with interest at the lawful rate.`; // ECON (r17)
     case "business":
       return `${hi}, I have a venture in mind: a cargo, well chosen, for the islands. Will you go halves with me, ${arg} coins apiece? My bill for my share is enclosed.`;
     case "love":
@@ -458,7 +460,7 @@ export function letterAcceptance(
       )
         e.add("Family", 20);
       if ((life.property ?? []).length) e.add("You own property", 6);
-      if (life.debts.length) e.add("You owe others already", -15);
+      if (owing(s, life).length) e.add("You owe others already", -15); // ECON (r17)
       if (hasTrait(c, "greedy")) e.add("Tight-fisted", -10);
       if (hasTrait(c, "generous")) e.add("Open-handed", 6);
       return e.done(0);
@@ -1326,12 +1328,8 @@ function replied(
   const yesA = !!reply.answer?.yes;
   switch (orig.kind) {
     case "favour":
-      if (yesA)
-        life.debts.push({
-          to: from.id,
-          amount: Math.round((orig.arg ?? 0) * 1.2),
-          due: s.day + DAYS_PER_YEAR,
-        });
+      // ECON (r17): a loan by letter is a bond, at the lawful rate, for a year.
+      if (yesA) bondMade(g, from.id, me.id, orig.arg ?? 0, { how: "letter" });
       break;
     case "love":
       if (
@@ -1570,17 +1568,10 @@ function npcAnswered(
         yesA ? 20 : -8,
         4,
       );
-      if (yesA && !hasTrait(c, "deceitful") && r.chance(0.8)) {
-        const back = Math.round((l.arg ?? 0) * 1.15);
-        npcWrite(
-          g,
-          life,
-          c,
-          "friendly",
-          `${salutationBack(s, c, life)}, with my thanks, and a little over for your kindness, I return what you lent me: ${back} coins. ${signOff(c)}`,
-          { arg: back, delay: r.int(150, 330) },
-        );
-      }
+      // ECON (r17): a friend's loan, without interest: a bond, repaid by
+      // their means and their honesty (Loans.ts), not a letter on a whim.
+      if (yesA)
+        bondMade(g, life.c, c.id, l.arg ?? 0, { how: "letter", free: true });
       break;
     case "business":
       if (yesA) venture(g, life, c, l.arg ?? 10);
