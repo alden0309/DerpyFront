@@ -365,6 +365,21 @@ export function herePanel(ui: GameUi): TemplateResult {
 
 function watchingHere(ui: GameUi): TemplateResult {
   const life = ui.life;
+  // SITE (r19): watching from Derp Land, with no seat in the game.
+  if (ui.watcher)
+    return html`<header class="cq-panel-head">
+        <h2 class="cq-h1">Watching</h2>
+      </header>
+      <p class="cq-lede small">
+        You're watching this game from Derp Land. The world is all here: the map
+        and its armies, the news as it comes, and the players' lives as anyone
+        may see them. What a player keeps to themselves stays theirs.
+      </p>
+      <p class="cq-muted small cq-pad">
+        Click a province to see it and who lives there, a person to see them, an
+        army to follow it. The World tab has the players, the wars and the
+        nations. The players keep the clock.
+      </p>`;
   return html`<header class="cq-panel-head">
       <h2 class="cq-h1">Watching the world</h2>
     </header>

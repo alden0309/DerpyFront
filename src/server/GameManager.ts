@@ -12,6 +12,7 @@ import {
 } from "@openfront/shared/WireSchemas";
 import { Logger } from "winston";
 import WebSocket from "ws";
+import type { LiveFrontGame } from "../derpland/LiveTypes";
 import { Client } from "./Client";
 import { GamePhase, GameServer, JoinResult } from "./GameServer";
 import {
@@ -118,6 +119,16 @@ export class GameManager {
 
   activeGames(): number {
     return this.games.size;
+  }
+
+  // Derp Land (SITE r19): the games being played here that may be watched.
+  liveGames(): LiveFrontGame[] {
+    const out: LiveFrontGame[] = [];
+    for (const game of this.games.values()) {
+      const info = game.liveInfo();
+      if (info !== null) out.push(info);
+    }
+    return out;
   }
 
   activeClients(): number {

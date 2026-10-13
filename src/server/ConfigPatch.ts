@@ -30,6 +30,7 @@ const COPIED_KEYS = [
   "anonymizeNames",
   "nameReveals",
   "nameRevealPublicIds",
+  "allowWatchers", // Derp Land (SITE r19)
 ] as const satisfies readonly (keyof GameConfig)[];
 
 // `.nullable().optional()` in the schema: the wire says null to clear a

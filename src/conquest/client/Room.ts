@@ -139,6 +139,40 @@ export class Room extends LitElement {
     </div>`;
   }
 
+  /**
+   * SITE (r19): watching from Derp Land once the game begins. A game open to
+   * all can always be watched; a private (or solo) one if its host allows.
+   */
+  private watchersPart(): TemplateResult {
+    const L = this.lobby;
+    const host = L.host === L.you;
+    if (L.open && !L.solo)
+      return html`<p class="cq-muted small cq-watch-note">
+        Once it begins, anyone can watch it from Derp Land.
+      </p>`;
+    if (!host)
+      return html`<p class="cq-muted small cq-watch-note">
+        ${L.allowWatchers
+          ? "The host lets people watch it from Derp Land once it begins."
+          : "Only its players will see this game."}
+      </p>`;
+    return html`<label class="cq-check">
+        <input
+          type="checkbox"
+          .checked=${L.allowWatchers === true}
+          @change=${(e: Event) =>
+            this.net.send({
+              t: "allowwatch",
+              allow: (e.target as HTMLInputElement).checked,
+            })}
+        />
+        Let people watch from Derp Land
+      </label>
+      <p class="cq-muted small cq-watch-note">
+        Watchers see the world as anyone may, never what's private to a player.
+      </p>`;
+  }
+
   private side(): TemplateResult {
     const L = this.lobby;
     const me = this.me;
@@ -196,6 +230,7 @@ export class Room extends LitElement {
             Listed under open games
           </label>`
         : nothing}
+      ${this.watchersPart() /* SITE (r19) */}
       <div class="cq-start">
         ${host
           ? html`<button

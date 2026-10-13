@@ -56,6 +56,10 @@ export const CloseReason = {
   // Rendered in one case only: a second redirect from the same lobby, which
   // the client refuses rather than following. The redirect itself is silent.
   PoolRedirect: "close_reason.pool_redirect",
+  // Derp Land (SITE r19): come to watch a private game whose host hasn't
+  // allowed watchers, or one as many watch as may.
+  WatchersClosed: "close_reason.watchers_closed",
+  WatchersFull: "close_reason.watchers_full",
   // Shown for a terminal close whose reason is not one of ours.
   Unknown: "close_reason.unknown",
 } as const;

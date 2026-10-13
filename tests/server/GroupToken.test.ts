@@ -117,7 +117,9 @@ describe("GameServer group token", () => {
   // A late joiner never sees a lobby_info — the broadcast stopped before they
   // connected — so the start message is their only chance at the token.
   it("gives a late joiner the token in its catch-up start message", () => {
-    const game = makeGame({ id: cid("late") });
+    // SITE (r19): a private game takes a latecomer (a watcher) only when its
+    // host allows watchers.
+    const game = makeGame({ id: cid("late"), config: { allowWatchers: true } });
     const player = makeClient({ clientID: cid("p1") });
     game.joinClient(player);
     vi.advanceTimersByTime(1000);

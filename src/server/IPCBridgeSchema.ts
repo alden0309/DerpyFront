@@ -54,6 +54,25 @@ const WorkerLobbyListSchema = z.object({
   // when a draining server is empty. Optional for a worker build that
   // predates it; absent counts as zero.
   liveGames: z.number().int().min(0).optional(),
+  // Derp Land (SITE r19): this worker's games being played that may be
+  // watched, sent only when they changed (absent: as last sent). Entries are
+  // checked one by one, like lobbies (LiveFrontGameSchema).
+  running: z.array(z.unknown()).optional(),
+});
+
+// Derp Land (SITE r19): one game being played, as the front page lists it.
+export const LiveFrontGameSchema = z.object({
+  game: z.literal("derpyfront"),
+  id: z.string().max(20),
+  map: z.string().max(100),
+  mapKey: z.string().max(100),
+  mode: z.string().max(40),
+  private: z.boolean(),
+  startedAt: z.number(),
+  players: z.number().int().min(0),
+  playersLeft: z.number().int().min(0),
+  watchers: z.number().int().min(0),
+  full: z.boolean(),
 });
 
 const WorkerReadySchema = z.object({

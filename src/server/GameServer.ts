@@ -50,6 +50,7 @@ import {
   ServerRedirectMessage,
   ServerStartGameMessage,
   ServerTurnMessage,
+  ServerWatchersMessage,
   WireGameStartInfo,
   WireGameStartInfoSchema,
 } from "@openfront/shared/WireSchemas";
@@ -63,6 +64,7 @@ import ipAnonymize from "ip-anonymize";
 import { Logger } from "winston";
 import WebSocket from "ws";
 import { z } from "zod";
+import type { LiveFrontGame } from "../derpland/LiveTypes"; // SITE (r19)
 import { archive, finalizeGameRecord } from "./Archive";
 import { Client } from "./Client";
 import { applyGameConfigPatch, hostCheatsEnabled } from "./ConfigPatch";
@@ -102,7 +104,16 @@ export type JoinResult =
   | "not_trusted"
   | "started"
   // Not a refusal: the client was told which sibling lobby to go to instead.
-  | "redirected";
+  | "redirected"
+  // Derp Land (SITE r19): someone come to watch a game that has begun, when
+  // its host hasn't allowed watchers, or as many watch it as may.
+  | "watch_closed"
+  | "watch_full";
+
+// Derp Land (SITE r19): people watching a game that has begun (from the
+// site's Watch buttons, or a shared link) a game may have at once. Each is
+// sent every turn, like a player, so there's a cap.
+export const MAX_WATCHERS = 50;
 
 export enum GamePhase {
   Lobby = "LOBBY",
@@ -598,7 +609,24 @@ export class GameServer {
         );
         return "started";
       }
+      // Derp Land (SITE r19): whoever comes now comes to watch. Public games
+      // (and listed lobbies) can be watched; a private game only if its host
+      // allows watchers. A watcher takes no seat and has no say, and there's
+      // a cap on how many watch at once.
+      if (!this.isWatchable() && !isAdminRole(client.role)) {
+        this.log.info("refusing a watcher: the host hasn't allowed them", {
+          clientID: client.clientID,
+        });
+        return "watch_closed";
+      }
+      if (this.lateWatchers() >= MAX_WATCHERS) {
+        this.log.info("refusing a watcher: as many watch as may", {
+          clientID: client.clientID,
+        });
+        return "watch_full";
+      }
       client.spectator = true;
+      client.watcher = true;
     }
 
     // Spectators take no slot: they never spawn, so a full lobby is still
@@ -710,6 +738,7 @@ export class GameServer {
     if (this.stage === "started") {
       this.sendStartGameMsg(client.ws, 0);
     }
+    this.syncWatchers(client); // SITE (r19)
 
     return "joined";
   }
@@ -758,6 +787,7 @@ export class GameServer {
     if (this.stage === "started") {
       this.sendStartGameMsg(client.ws, lastTurn);
     }
+    this.syncWatchers(client); // SITE (r19)
     return true;
   }
 
@@ -802,7 +832,9 @@ export class GameServer {
       case "ping": {
         // Only a roster member reaches here, so this is also the game-wide
         // "someone is still out there" clock the empty-game reap waits on.
-        this.lastPingUpdate = Date.now();
+        // A watcher's pings don't count (SITE r19): watching never keeps a
+        // game nobody plays running.
+        if (!client.watcher) this.lastPingUpdate = Date.now();
         client.lastPing = Date.now();
         client.ws.send(
           encodeServerMessage(
@@ -851,6 +883,7 @@ export class GameServer {
   private handleClientDisconnect(client: Client) {
     this.clients.markLeft(client);
     this.checkWinnerAfterElectorateShrink();
+    this.syncWatchers(); // SITE (r19)
 
     // hasStarted() includes prestart: during the lobby -> game transition
     // clients reconnect, and a host socket closing then must not tear the
@@ -1098,6 +1131,9 @@ export class GameServer {
       this.zbinCtx,
     );
     this.clients.active().forEach((c) => {
+      // Derp Land (SITE r19): a watcher who came from the site was never one
+      // of this lobby's group, and the successor's id is its join secret.
+      if (c.watcher) return;
       if (c.ws.readyState === WebSocket.OPEN) {
         c.ws.send(msg);
       }
@@ -1125,6 +1161,9 @@ export class GameServer {
     const config = configWithoutPool(this.gameConfig);
     delete config.allowedPublicIds;
     delete config.nameRevealPublicIds;
+    // Derp Land (SITE r19): enforced here at join, never read by the
+    // simulation, so the game and its record stay as they were.
+    delete config.allowWatchers;
 
     const result = WireGameStartInfoSchema.safeParse({
       gameID: this.id,
@@ -1186,6 +1225,7 @@ export class GameServer {
       });
       this.sendStartGameMsg(c.ws, 0);
     });
+    this.syncWatchers(); // SITE (r19): spectators from the lobby are watching
   }
 
   // Connected clients who will actually play. Spectators are excluded
@@ -1362,6 +1402,7 @@ export class GameServer {
     // The lobby list is derived from this flag, so everyone's view of who is
     // playing has to be refreshed rather than waiting out the next tick.
     this.broadcastLobbyInfo();
+    this.syncWatchers(); // SITE (r19)
   }
 
   // Pin a publicId to a team slot after the lobby exists, so a lobby that fills
@@ -1592,14 +1633,15 @@ export class GameServer {
     // ping prune, so re-check the winner vote here too.
     if (stale.length > 0) {
       this.checkWinnerAfterElectorateShrink();
+      this.syncWatchers(); // SITE (r19)
     }
     // Since when has nobody been connected? Tracked here rather than in
     // phase() so phase() stays a pure read, and so emptiness accrues on the
-    // tick loop instead of on however often the lobby browser asks.
-    this.emptySince =
-      this.clients.active().length === 0
-        ? (this.emptySince ?? Date.now())
-        : null;
+    // tick loop instead of on however often the lobby browser asks. Watchers
+    // who came after the start don't count (SITE r19).
+    this.emptySince = !this.clients.active().some((c) => !c.watcher)
+      ? (this.emptySince ?? Date.now())
+      : null;
   }
 
   // The 3 hour cap every game ends at, however it is going. Exposed so
@@ -1633,9 +1675,10 @@ export class GameServer {
       return GamePhase.Lobby;
     }
 
-    // Anyone still on the roster keeps the game running. Everything below is
-    // about reaping a game nobody is connected to.
-    if (this.clients.active().length > 0) {
+    // Anyone still on the roster keeps the game running, except watchers who
+    // came after the start (SITE r19): they never keep a game nobody plays
+    // going. Everything below is about reaping a game nobody is connected to.
+    if (this.clients.active().some((c) => !c.watcher)) {
       return GamePhase.Active;
     }
 
@@ -1773,6 +1816,81 @@ export class GameServer {
     return this.playerCount();
   }
 
+  // ---------------------------------------------------------------- watchers (Derp Land, SITE r19)
+
+  // Whether people may watch this game once it has begun: a public game, a
+  // lobby listed in the public browser, or a private game whose host allows
+  // watchers ("Allow watchers", off by default).
+  public isWatchable(): boolean {
+    return (
+      this.isPublic() ||
+      this.isListed() ||
+      this.gameConfig.allowWatchers === true
+    );
+  }
+
+  // Watchers who came after the start (each is sent every turn).
+  private lateWatchers(): number {
+    return this.clients.active().filter((c) => c.watcher).length;
+  }
+
+  // Everyone in a running game hears how many are watching ("2 watching"):
+  // whoever spectates, from the lobby or since. Sent only when the count
+  // changes, so a game nobody watches never sends it at all; `also` (someone
+  // just arrived) is told the count as it stands.
+  private watchersSent = 0;
+  private syncWatchers(also?: Client): void {
+    if (this.stage !== "started" || this.ended) return;
+    const count = this.clients.active().filter((c) => c.spectator).length;
+    const changed = count !== this.watchersSent;
+    if (!changed && (also === undefined || count === 0)) return;
+    this.watchersSent = count;
+    const msg = encodeServerMessage(
+      { type: "watchers", count } satisfies ServerWatchersMessage,
+      this.zbinCtx,
+    );
+    for (const c of changed ? this.clients.active() : [also!]) {
+      if (c.ws.readyState === WebSocket.OPEN) c.ws.send(msg);
+    }
+  }
+
+  // What Derp Land's front page shows of this game while it's played: its
+  // map, how long it's been going, and the players left. Null for a game
+  // that hasn't begun, has ended, nobody is playing, or may not be watched
+  // (a matchmade game is never advertised, as in the lobby browser).
+  public liveInfo(): LiveFrontGame | null {
+    if (this.stage !== "started" || this.ended || !this.isWatchable()) {
+      return null;
+    }
+    if (this.isPublic() && this.publicGameType === undefined) return null;
+    const playing = this.clients.players();
+    if (playing.length === 0) return null;
+    // The players' own agreed count of who's still alive, when the game
+    // reports one; otherwise those still connected.
+    const latest = this.liveStatsVote.latest();
+    const left =
+      latest !== null
+        ? latest.players.filter((p) => p.isAlive).length
+        : playing.length;
+    const watchers = this.lateWatchers();
+    const map = this.gameConfig.gameMap;
+    // As the client finds a map's pictures (normaliseMapKey).
+    const mapId = maps.find((m) => m.type === map)?.id ?? map;
+    return {
+      game: "derpyfront",
+      id: this.id,
+      map,
+      mapKey: mapId.toLowerCase().replace(/[\s.]+/g, ""),
+      mode: this.gameConfig.gameMode,
+      private: !this.isPublic() && !this.isListed(),
+      startedAt: this._startTime ?? Date.now(),
+      players: this.gameStartInfo.players.length,
+      playersLeft: left,
+      watchers,
+      full: watchers >= MAX_WATCHERS,
+    };
+  }
+
   public autoStartAt(): number | undefined {
     return this.listing.autoStartAt() ?? this.poolAutoStartAt;
   }
@@ -1887,6 +2005,7 @@ export class GameServer {
         );
         client.ws.close(CloseCode.Normal, reasonKey);
       }
+      this.syncWatchers(); // SITE (r19)
     } else {
       this.log.warn(`cannot kick client, not found in game`, {
         clientID,

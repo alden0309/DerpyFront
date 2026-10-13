@@ -55,7 +55,8 @@ export type ServerMessage =
   | ServerNewLobbyMessage
   | ServerPongMessage
   | ServerRedirectMessage
-  | ServerChatMessage;
+  | ServerChatMessage
+  | ServerWatchersMessage; // Derp Land (SITE r19)
 
 export type ServerTurnMessage = z.infer<typeof ServerTurnMessageSchema>;
 
@@ -82,6 +83,8 @@ export type ServerNewLobbyMessage = z.infer<typeof ServerNewLobbyMessageSchema>;
 export type ServerRedirectMessage = z.infer<typeof ServerRedirectMessageSchema>;
 
 export type ServerChatMessage = z.infer<typeof ServerChatMessageSchema>;
+// Derp Land (SITE r19)
+export type ServerWatchersMessage = z.infer<typeof ServerWatchersMessageSchema>;
 
 export type ClientChatMessage = z.infer<typeof ClientChatMessageSchema>;
 
@@ -589,6 +592,14 @@ export const ServerChatMessageSchema = z.object({
   seq: zb.uint(),
 });
 
+// Derp Land (SITE r19): how many are watching a game that has begun (its
+// spectators, from the lobby or since), sent when the count changes, so the
+// players see "2 watching".
+export const ServerWatchersMessageSchema = z.object({
+  type: z.literal("watchers"),
+  count: zb.uint(),
+});
+
 export const ServerMessageSchema = zb.discriminatedUnion("type", [
   ServerTurnMessageSchema,
   ServerPrestartMessageSchema,
@@ -602,6 +613,7 @@ export const ServerMessageSchema = zb.discriminatedUnion("type", [
   // Appended, never inserted: variant order is the wire tag (zbin/README.md).
   ServerRedirectMessageSchema,
   ServerChatMessageSchema,
+  ServerWatchersMessageSchema, // SITE (r19)
 ]);
 
 //

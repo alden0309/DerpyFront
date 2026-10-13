@@ -5,9 +5,11 @@ import {
 } from "@openfront/shared/WireSchemas";
 import { Worker } from "cluster";
 import winston from "winston";
+import type { LiveFrontGame } from "../derpland/LiveTypes";
 import {
   InternalGameInfo,
   InternalGameInfoSchema,
+  LiveFrontGameSchema,
   MasterCreateGame,
   MasterLobbiesBroadcast,
   MasterUpdateGame,
@@ -43,6 +45,9 @@ export class MasterLobbyService {
   private readonly workerLobbies = new Map<number, InternalGameInfo[]>();
   // Worker id => games it last reported running (lobbies included).
   private readonly workerLiveGames = new Map<number, number>();
+  // Worker id => its games being played that may be watched (Derp Land,
+  // SITE r19), as it last reported them.
+  private readonly workerRunning = new Map<number, LiveFrontGame[]>();
   private readonly readyWorkers = new Set<number>();
   // gameID => consecutive broadcast cycles a hosted lobby has lost the
   // per-creator dedup or overflowed the cluster-wide cap. Losing once can be
@@ -110,6 +115,8 @@ export class MasterLobbyService {
         case "lobbyList":
           this.workerLobbies.set(workerId, this.validLobbies(msg.lobbies));
           this.workerLiveGames.set(workerId, msg.liveGames ?? 0);
+          if (msg.running !== undefined)
+            this.workerRunning.set(workerId, this.validRunning(msg.running));
           // The client coalesces: at most one report a second, plus a
           // heartbeat. Every change is offered so a numClients-only change
           // still reaches the site roster within a second.
@@ -137,10 +144,32 @@ export class MasterLobbyService {
     return valid;
   }
 
+  // Derp Land (SITE r19): each game checked on its own, like lobbies.
+  private validRunning(games: unknown[]): LiveFrontGame[] {
+    const valid: LiveFrontGame[] = [];
+    for (const g of games) {
+      const result = LiveFrontGameSchema.safeParse(g);
+      if (result.success) valid.push(result.data);
+      else this.log.error("Dropping invalid running game in worker report:", g);
+    }
+    return valid;
+  }
+
+  // Derp Land (SITE r19): every game being played on this server that may
+  // be watched, the fullest first.
+  runningGames(): LiveFrontGame[] {
+    return [...this.workerRunning.values()]
+      .flat()
+      .sort(
+        (a, b) => b.playersLeft - a.playersLeft || a.startedAt - b.startedAt,
+      );
+  }
+
   removeWorker(workerId: number) {
     this.workers.delete(workerId);
     this.workerLobbies.delete(workerId);
     this.workerLiveGames.delete(workerId);
+    this.workerRunning.delete(workerId);
     this.readyWorkers.delete(workerId);
   }
 

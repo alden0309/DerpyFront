@@ -120,6 +120,8 @@ export interface GameUi {
   pickMarch(): void;
   toast(text: string, tone?: "bad" | "good"): void;
   redraw(): void;
+  /** SITE (r19): watching from Derp Land (no seat: nothing can be done). */
+  watcher?: boolean;
 }
 
 /** Someone's portrait, framed, sized by `cls` (xl, banner-token, or small). */

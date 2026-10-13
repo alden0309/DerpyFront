@@ -50,6 +50,43 @@ export interface OpenRoom {
   started: boolean;
   /** In-game year, once it's started. */
   year: number | null;
+  /** SITE (r19): once it's begun, the id to watch it by, and how many do. */
+  watchId?: string;
+  watchers?: number;
+}
+
+/** SITE (r19): watchers a game may have at once. */
+export const MAX_WATCHERS = 25;
+
+/**
+ * SITE (r19): a game being played now that anyone may watch: one open to
+ * all, or a private one whose host allows watchers. Watched by `watchId`
+ * (never the room's code, which would let anyone into a private game).
+ */
+export interface LiveRoom {
+  watchId: string;
+  /** "The Drackleys and the Coles, from 1650". */
+  title: string;
+  /** Open to anyone to join (else a private game whose host lets watchers in). */
+  open: boolean;
+  solo: boolean;
+  /** The world's year, and its date ("4 March 1689"). */
+  year: number;
+  date: string;
+  difficulty: Difficulty;
+  /** When this sitting began (ms). */
+  startedAt: number;
+  paused: boolean;
+  /** The players living lives in it, with their characters and peoples. */
+  players: {
+    name: string;
+    character: string | null;
+    origin: string | null;
+    online: boolean;
+  }[];
+  watchers: number;
+  /** As many watching as may. */
+  full: boolean;
 }
 
 /** A saved game you played in, for picking up later. */
@@ -115,7 +152,11 @@ export type ClientMessage =
   // own list, or clear away every finished (and old) game at once.
   | { t: "delsave"; id: string }
   | { t: "hidesave"; id: string }
-  | { t: "clearsaves" };
+  | { t: "clearsaves" }
+  // SITE (r19): watch a game (by its watch id), and the host letting
+  // watchers into a private (or solo) game, or shutting them out.
+  | { t: "watch"; id: string }
+  | { t: "allowwatch"; allow: boolean };
 
 export type ServerMessage =
   | { t: "welcome"; name: string; account: string | null }
@@ -125,6 +166,8 @@ export type ServerMessage =
       saved: SavedGame[];
       /** STORY (r17): finished games, and those saved by an older version. */
       finished?: SavedGame[];
+      /** SITE (r19): games being played now that anyone may watch. */
+      live?: LiveRoom[];
     }
   | {
       t: "lobby";
@@ -136,6 +179,8 @@ export type ServerMessage =
       open: boolean;
       settings: RoomSettings;
       seats: SeatInfo[];
+      /** SITE (r19): the host lets watchers into this private (or solo) game. */
+      allowWatchers?: boolean;
     }
   | {
       t: "game";
@@ -148,6 +193,15 @@ export type ServerMessage =
       speed: number;
       paused: boolean;
       seats: SeatInfo[];
+      /**
+       * SITE (r19): you're watching (no seat: `you` and `secret` are empty,
+       * `code` is the watch id, and the state holds nobody's secrets).
+       */
+      watcher?: true;
+      /** SITE (r19): how many are watching, and whether a private game lets them. */
+      watchers?: number;
+      allowWatchers?: boolean;
+      open?: boolean;
     }
   | { t: "d"; d: GameDelta }
   | { t: "clock"; speed: number; paused: boolean; by: string | null }
@@ -183,4 +237,9 @@ export type ServerMessage =
   | { t: "achieved"; key: string; coins: number | null; first: boolean }
   // DICE (r14): whose turn it is at a dice table, and the seconds they have
   // before the table bids for them (only at a table with two players or more).
-  | { t: "diceclock"; id: number; c: number; left: number };
+  | { t: "diceclock"; id: number; c: number; left: number }
+  // SITE (r19): how many are watching (players see "2 watching"), and
+  // whether the host lets them; and a watcher's watching over (the game
+  // closed, the host shut watchers out, or it couldn't begin), and why.
+  | { t: "watchers"; n: number; allow: boolean }
+  | { t: "watchend"; why: string };

@@ -98,6 +98,8 @@ export class HostLobbyModal extends BaseModal {
   @state() private overtime: boolean = false;
   @state() private overtimeStartMinutes: number | undefined = undefined;
   @state() private anonymizeNames: boolean = false;
+  // Derp Land (SITE r19): people may watch this private game once it begins.
+  @state() private allowWatchers: boolean = false;
   @state() private nameReveals: string[] = [];
   @state() private whitelistEnabled: boolean = false;
   @state() private allowedPublicIds: string = "";
@@ -666,6 +668,11 @@ export class HostLobbyModal extends BaseModal {
                     labelKey: "host_modal.anonymous_players",
                     checked: this.anonymizeNames,
                   },
+                  // Derp Land (SITE r19)
+                  {
+                    labelKey: "host_modal.allow_watchers",
+                    checked: this.allowWatchers,
+                  },
                   {
                     labelKey: "game_settings.water_nukes",
                     checked: this.waterNukes,
@@ -998,6 +1005,7 @@ export class HostLobbyModal extends BaseModal {
     this.overtime = false;
     this.overtimeStartMinutes = undefined;
     this.anonymizeNames = false;
+    this.allowWatchers = false; // Derp Land (SITE r19)
     this.nameReveals = [];
     this.whitelistEnabled = false;
     this.allowedPublicIds = "";
@@ -1099,6 +1107,10 @@ export class HostLobbyModal extends BaseModal {
         break;
       case "host_modal.anonymous_players":
         this.anonymizeNames = checked;
+        this.putGameConfig();
+        break;
+      case "host_modal.allow_watchers": // Derp Land (SITE r19)
+        this.allowWatchers = checked;
         this.putGameConfig();
         break;
       case "game_settings.water_nukes":
@@ -1596,6 +1608,7 @@ export class HostLobbyModal extends BaseModal {
               : { enabled: false },
             anonymizeNames: this.anonymizeNames,
             nameReveals: this.nameReveals,
+            allowWatchers: this.allowWatchers, // Derp Land (SITE r19)
             allowedPublicIds: this.whitelistEnabled
               ? (this.parseAllowedPublicIds() ?? [])
               : [],

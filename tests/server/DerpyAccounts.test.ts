@@ -78,7 +78,8 @@ describe("Derp Coins", () => {
   };
 
   test("everyone who finishes a game gets something", () => {
-    expect(derpCoinsForGame(base).total).toBe(5);
+    // SITE (r19): 6, a fifth more than the 5 it was.
+    expect(derpCoinsForGame(base).total).toBe(6);
   });
 
   test("winning, land, conquests, gold and awards all pay", () => {
@@ -91,8 +92,9 @@ describe("Derp Coins", () => {
       botsConquered: 4,
       awards: ["mvp", "ships"],
     });
-    // 5 + 31 + (9 + 4) + 20 (capped) + 35 + 50
-    expect(r.total).toBe(154);
+    // SITE (r19): 6 + 38 + floor(12 + 4.8) + 24 (capped) + 42 + 60
+    // (it was 5 + 31 + (9 + 4) + 20 + 35 + 50 = 154).
+    expect(r.total).toBe(186);
     expect(r.lines.map((l) => l.line)).toEqual([
       "played",
       "territory",
@@ -154,8 +156,8 @@ describe("playerLine", () => {
       nukes: 3, // warheads aren't launches
       awards: ["mvp"],
     });
-    // 5 + 12 + (9 + 3) + 3 + 25 + 50
-    expect(line.coins).toBe(107);
+    // SITE (r19): 6 + 15 + floor(12 + 3.6) + 3 + 30 + 60 (it was 107).
+    expect(line.coins).toBe(129);
   });
 
   test("team wins count for every listed member", () => {
@@ -290,14 +292,14 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
       { kind: "mvp", name: "name_AAAAAAAA", clientID: "AAAAAAAA", value: 900 },
     ];
     const lines = await recordGame(r, awards);
-    // 10 + 40 + 10 + 8 + 50 + 100
-    expect([...lines.values()].map((l) => l.coins)).toEqual([110]);
+    // SITE (r19): 6 + 24 + 8 + 4 + 30 + 60 (it was 110).
+    expect([...lines.values()].map((l) => l.coins)).toEqual([132]);
 
     // Saving it again (a second vote, say) changes nothing.
     expect((await recordGame(r, awards)).size).toBe(0);
 
     const me = await call("/me", { token: alden.token });
-    expect(me.json.account.coins).toBe(110);
+    expect(me.json.account.coins).toBe(132);
 
     const board = await call("/leaderboard");
     expect(board.json.players[0]).toMatchObject({
@@ -307,7 +309,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
       bestTerritoryPct: 40,
       goldEarned: "2000000",
       mvps: 1,
-      coins: 110,
+      coins: 132,
     });
 
     const profile = await call("/players/alden");
@@ -317,7 +319,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
       map: "Orlando - Detailed",
       won: true,
       awards: ["mvp"],
-      coins: 110,
+      coins: 132,
     });
 
     // The front page's latest games name the account, not the in-game name.
@@ -352,14 +354,14 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     const r = record([quit], undefined, 300, "GAME0003");
     const lines = await recordGame(r, [], () => 1);
     expect([...lines.values()]).toEqual([
-      expect.objectContaining({ won: false, peakTerritoryPct: 0, coins: 5 }),
+      expect.objectContaining({ won: false, peakTerritoryPct: 0, coins: 6 }),
     ]);
     expect((await call("/game/GAME0003")).status).toBe(200);
     // Put Alden's balance back where the later tests expect it.
     const pg = await import("pg");
     const c = new pg.default.Client({ connectionString: TEST_DB });
     await c.connect();
-    await c.query("UPDATE derpy_accounts SET coins = coins - 5 WHERE id = 1");
+    await c.query("UPDATE derpy_accounts SET coins = coins - 6 WHERE id = 1");
     await c.end();
   });
 
@@ -370,7 +372,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     );
     expect(classics.price).toBe(1500);
 
-    // 110 coins isn't enough yet.
+    // 132 coins isn't enough yet.
     const poor = await call("/store/buy", {
       body: { pack: "classics" },
       token: alden.token,

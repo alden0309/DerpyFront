@@ -15,6 +15,7 @@ import { TogglePauseIntentEvent } from "../../InputHandler";
 import { PauseGameIntentEvent, SendWinnerEvent } from "../../Transport";
 import { homeHref, showToast, translateText } from "../../Utils";
 import { GameView } from "../../view";
+import { WatchersChangedEvent } from "../../WatchEvents"; // SITE (r19)
 import { ImmunityBarVisibleEvent } from "./ImmunityTimer";
 import { ShowReplayPanelEvent } from "./ReplayPanel";
 import { ShowSettingsModalEvent } from "./SettingsModal";
@@ -55,6 +56,10 @@ export class GameRightSidebar extends LitElement implements Controller {
 
   @state()
   private timer: number = 0;
+
+  // Derp Land (SITE r19): how many are watching ("2 watching").
+  @state()
+  private watchers: number = 0;
 
   // CrazyGames provides its own fullscreen control in the game frame, and the
   // desktop shell owns its window mode from the settings Display tab, so hide
@@ -102,6 +107,10 @@ export class GameRightSidebar extends LitElement implements Controller {
     this.eventBus.on(SendWinnerEvent, () => {
       this.hasWinner = true;
       this.requestUpdate();
+    });
+
+    this.eventBus.on(WatchersChangedEvent, (e) => {
+      this.watchers = e.count;
     });
 
     this.eventBus.on(TogglePauseIntentEvent, () => {
@@ -371,6 +380,38 @@ export class GameRightSidebar extends LitElement implements Controller {
         <div data-game-timer class=${timerClass}>
           ${this.secondsToHms(this.timer)}
         </div>
+
+        <!-- Derp Land (SITE r19): how many are watching -->
+        ${this.watchers > 0
+          ? html`<div
+              data-watchers
+              class="flex items-center gap-1 text-sm text-white/80 whitespace-nowrap"
+              title=${translateText("live_games.watching_title", {
+                count: this.watchers,
+              })}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path
+                  d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"
+                />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <span class="tabular-nums">${this.watchers}</span>
+              <span class="hidden sm:inline"
+                >${translateText("live_games.watching_word")}</span
+              >
+            </div>`
+          : ""}
 
         <!-- Buttons -->
         ${this.maybeRenderReplayButtons()}

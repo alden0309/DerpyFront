@@ -1,6 +1,7 @@
 import { LitElement, html } from "lit";
 import { customElement } from "lit/decorators.js";
 import "./CosmeticBackground";
+import "./LiveGames"; // Derp Land (SITE r19)
 
 @customElement("play-page")
 export class PlayPage extends LitElement {
@@ -41,6 +42,8 @@ export class PlayPage extends LitElement {
         </div>
 
         <game-mode-selector></game-mode-selector>
+        <!-- Derp Land (SITE r19): games being played now, to watch. -->
+        <derpy-live-games></derpy-live-games>
       </div>
     `;
   }

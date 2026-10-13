@@ -57,6 +57,9 @@ export class WorkerLobbyService {
   // ranked check-in loop so a draining server stops offering matches too
   // (RankedCheckin.ts, OPE-469).
   private deploymentActive = true;
+  // Derp Land (SITE r19): the watchable games last reported to the master,
+  // so they're sent again only when something about them changed.
+  private lastRunning: string | null = null;
 
   constructor(
     private readonly server: http.Server,
@@ -221,10 +224,17 @@ export class WorkerLobbyService {
         custom: g.isFeatured() ? undefined : true,
       } satisfies InternalGameInfo;
     });
+    // Derp Land (SITE r19): games being played that may be watched, when
+    // they've changed since the last report.
+    const running = this.gm.liveGames();
+    const runningJson = JSON.stringify(running);
+    const runningChanged = runningJson !== this.lastRunning;
+    this.lastRunning = runningJson;
     this.sendToMaster({
       type: "lobbyList",
       lobbies: [...publicLobbies, ...hostedLobbies],
       liveGames: this.gm.activeGames(),
+      ...(runningChanged ? { running } : {}),
     } satisfies WorkerLobbyList);
   }
 

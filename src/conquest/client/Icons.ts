@@ -59,6 +59,12 @@ export const LetterIcon = () =>
     svg`<rect x="3" y="6" width="18" height="13" rx="1" /><path d="M3 7l9 6 9-6" /><circle cx="12" cy="14" r="2.2" fill="currentColor" stroke="none" />`,
   );
 
+/** SITE (r19): an eye: someone watching the game from Derp Land. */
+export const EyeIcon = () =>
+  icon(
+    svg`<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" /><circle cx="12" cy="12" r="3" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" />`,
+  );
+
 // ---------------------------------------------------------------- a life's tabs and places
 
 /** A hat on a peg: where you are. */

@@ -11,6 +11,7 @@ import type { Difficulty, StartYear } from "../engine/Types";
 import {
   DIFFICULTIES,
   END_YEAR,
+  LiveRoom,
   OpenRoom,
   RoomSettings,
   SavedGame,
@@ -61,6 +62,8 @@ export class Lobby extends LitElement {
   @property({ attribute: false }) saved: SavedGame[] = [];
   /** STORY (r17): finished games, and those saved by an older version. */
   @property({ attribute: false }) finished: SavedGame[] = [];
+  /** SITE (r19): games being played now that anyone may watch. */
+  @property({ attribute: false }) live: LiveRoom[] = [];
   @property({ attribute: false }) account: string | null = null;
   @property({ attribute: false }) name = "";
   @property({ attribute: false }) online = false;
@@ -289,6 +292,7 @@ export class Lobby extends LitElement {
               : html`<ul class="cq-rooms">
                   ${this.open.map((r) => this.roomRow(r))}
                 </ul>`}
+            ${this.watchPart() /* SITE (r19) */}
             <form
               class="cq-join"
               @submit=${(e: Event) => {
@@ -379,13 +383,61 @@ export class Lobby extends LitElement {
             : html`<span class="cq-chip good">Making characters</span>`}
         </span>
       </div>
-      <button
-        class="cq-btn small"
-        @click=${() => this.net.send({ t: "join", code: r.code })}
-      >
-        ${r.started ? "Drop in" : "Join"}
-      </button>
+      <div class="cq-open-acts">
+        ${r.watchId /* SITE (r19): a game begun can be watched too */
+          ? html`<button
+              class="cq-btn quiet small"
+              title="Watch it without joining: no character, no say"
+              @click=${() => this.net.watch(r.watchId!)}
+            >
+              Watch
+            </button>`
+          : nothing}
+        <button
+          class="cq-btn small"
+          @click=${() => this.net.send({ t: "join", code: r.code })}
+        >
+          ${r.started ? "Drop in" : "Join"}
+        </button>
+      </div>
     </li>`;
+  }
+
+  /**
+   * SITE (r19): games being played that anyone may watch, but not join: a
+   * private game (or someone's solo one) whose host lets people watch.
+   */
+  private watchPart(): TemplateResult | typeof nothing {
+    const rooms = this.live.filter((r) => !r.open);
+    if (!rooms.length) return nothing;
+    return html`<h3 class="cq-h3 cq-watch-head">Games you can watch</h3>
+      <ul class="cq-rooms">
+        ${rooms.map((r) => {
+          const made = r.players.filter((p) => p.origin);
+          return html`<li class="cq-room-row">
+            <div class="cq-room-flags">
+              ${made.map((p) => originFlag(p.origin!))}
+            </div>
+            <div class="cq-room-info">
+              <b>${r.title}</b>
+              <span class="cq-muted small">
+                ${r.date}. ${r.players.map((p) => p.name).join(", ")}
+                ${r.solo ? "alone" : ""}${r.watchers
+                  ? `; ${r.watchers} watching`
+                  : ""}
+              </span>
+            </div>
+            <button
+              class="cq-btn small"
+              ?disabled=${r.full}
+              title=${r.full ? "As many are watching as may" : "Watch it"}
+              @click=${() => this.net.watch(r.watchId)}
+            >
+              ${r.full ? "Full" : "Watch"}
+            </button>
+          </li>`;
+        })}
+      </ul>`;
   }
 
   private savedRow(g: SavedGame): TemplateResult {

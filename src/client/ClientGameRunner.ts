@@ -72,6 +72,7 @@ import {
   UserSettings,
 } from "./UserSettings";
 import { createCanvas } from "./Utils";
+import { WatchersChangedEvent } from "./WatchEvents"; // SITE (r19)
 import { WebGLFrameBuilder } from "./WebGLFrameBuilder";
 import { WorkerClient } from "./WorkerClient";
 import { ChatReceivedEvent } from "./chat/ChatEvents";
@@ -1138,6 +1139,10 @@ export class ClientGameRunner {
       }
       if (message.type === "chat") {
         this.eventBus.emit(new ChatReceivedEvent(message));
+      }
+      // Derp Land (SITE r19): how many are watching.
+      if (message.type === "watchers") {
+        this.eventBus.emit(new WatchersChangedEvent(message.count));
       }
       if (message.type === "new_lobby") {
         // The host reused this private lobby: surface the successor id so the

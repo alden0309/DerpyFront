@@ -11,6 +11,11 @@ export class Client {
 
   public reportedWinner: Winner | null = null;
 
+  // Derp Land (SITE r19): came to watch a game that had already begun (from
+  // the site's Watch button or a shared link). Always a spectator too; the
+  // watcher cap counts these, and they never keep a game nobody plays going.
+  public watcher = false;
+
   constructor(
     public readonly clientID: ClientID,
     public readonly persistentID: string,
