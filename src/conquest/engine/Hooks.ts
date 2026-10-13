@@ -217,7 +217,69 @@ export const hooks = {
   ) => void)[],
   /** A new game is made: every polity and life in place, before the first delta. */
   created: [] as ((g: ConquestGame) => void)[],
+  // WAR/TOWNS (r17): a province changed hands (conquest, cession, a rising).
+  provinceTaken: [] as ((
+    g: ConquestGame,
+    p: number,
+    from: number,
+    to: number,
+  ) => void)[],
+  // WAR (r17)
+  /**
+   * A rising of a town against its foreign rulers (Reclaim.ts): whether it
+   * has won (undefined if the rising isn't one of these), and what winning
+   * does (the news, or undefined if not one of these).
+   */
+  risingWin: [] as ((
+    g: ConquestGame,
+    m: import("./Types").Movement,
+    held: number[],
+    months: number,
+  ) => boolean | undefined)[],
+  risingWon: [] as ((
+    g: ConquestGame,
+    m: import("./Types").Movement,
+  ) => string | undefined)[],
+  /**
+   * A rising is about to take the field: false stops it (found out before it
+   * began, or beaten in the streets), anything else lets it go ahead.
+   */
+  risingBegins: [] as ((
+    g: ConquestGame,
+    m: import("./Types").Movement,
+  ) => boolean | void)[],
 };
+
+/**
+ * WAR (r17): how the change being told came about, for listeners that care:
+ * "bought", "rising", or "" (a treaty, a peace, anything else). A caller sets
+ * it around its call and puts it back.
+ */
+export const takenHow = { how: "" };
+
+// WAR (r17): each change of hands is told once, however many places call it.
+const TOLD = new WeakMap<ConquestGame, { day: number; keys: Set<string> }>();
+
+/**
+ * WAR (r17): tell everyone listening that province `p` went from `from` to
+ * `to` (-1: nobody). Idempotent: a second call for the same change on the
+ * same day does nothing, so two call sites in one change are harmless.
+ */
+export function provinceTaken(
+  g: ConquestGame,
+  p: number,
+  from: number,
+  to: number,
+): void {
+  if (from === to) return;
+  let t = TOLD.get(g);
+  if (!t || t.day !== g.s.day)
+    TOLD.set(g, (t = { day: g.s.day, keys: new Set() }));
+  const key = `${p}:${from}:${to}`;
+  if (t.keys.has(key)) return;
+  t.keys.add(key);
+  for (const h of hooks.provinceTaken) h(g, p, from, to);
+}
 
 /** LIFE (r11): put an event to a life through the registered raiser. */
 export function raiseEvent(

@@ -491,6 +491,12 @@ function sieges(g: ConquestGame): void {
     if (by === pr.owner) {
       x.occupier = -1;
       g.event({ k: "freed", day: s.day, n: by, p });
+    } else if (pr.occupier >= 0 && !atWar(s, by, pr.owner)) {
+      // WAR (r17): a third nation that storms a town someone else was
+      // occupying, and isn't at war with its owner, hands it back to its
+      // owner. It used to keep it, at peace with the owner, and no peace
+      // ever ended that (the Lenape held New Amsterdam for 46 years).
+      relieved(g, p, by);
     } else {
       x.occupier = by;
       x.recruits = [];
@@ -504,6 +510,21 @@ function sieges(g: ConquestGame): void {
         raze(g, p, by);
     }
   }
+}
+
+/** WAR (r17): a town taken from its occupiers by a friend of its owner goes back to the owner. */
+function relieved(g: ConquestGame, p: number, by: number): void {
+  const s = g.s;
+  const x = g.prov(p);
+  const was = x.occupier;
+  x.occupier = -1;
+  g.event({
+    k: "news",
+    day: s.day,
+    n: x.owner,
+    p,
+    text: `${s.nations[by].name.replace(/^the /, "The ")} drove ${s.nations[was]?.name ?? "the occupiers"} out of ${g.map.provinces[p].name}, and left it to ${s.nations[x.owner].name}.`,
+  });
 }
 
 /** Warriors burn a colony they take: people die or flee, buildings burn. */

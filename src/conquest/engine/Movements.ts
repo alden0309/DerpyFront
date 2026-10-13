@@ -11,7 +11,7 @@ import { cede, declareIndependence } from "./Crown";
 import { merge } from "./Economy";
 import { risingWon } from "./Founding"; // SOCIETY (r11)
 import type { ConquestGame } from "./Game";
-import { hooks } from "./Hooks";
+import { hooks, takenHow } from "./Hooks"; // WAR (r17): takenHow
 import {
   addRenown,
   addStress,
@@ -43,6 +43,7 @@ import {
   settlers,
   tribesfolk,
 } from "./Queries";
+import { hostRegiments } from "./ReclaimCore"; // WAR (r17)
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
 import { blankNation } from "./Setup";
@@ -63,6 +64,9 @@ export const GOAL_NAMES: Record<MovementGoal, string> = {
   overthrow: "Overthrow the governor",
   independence: "Independence from the crown",
   expel: "Drive the colonists out",
+  // WAR (r17): a town's rising against its foreign rulers.
+  restore: "Give the town back to its own",
+  free: "A free town",
 };
 
 export const GOAL_TEXT: Record<MovementGoal, string> = {
@@ -74,6 +78,10 @@ export const GOAL_TEXT: Record<MovementGoal, string> = {
     "Win, and the colony declares itself free; the crown will send armies to say otherwise.",
   expel:
     "Win, and the land the rising holds goes back to the people it was taken from.",
+  // WAR (r17)
+  restore:
+    "Hold the town six months, and it goes back to the nation it was taken from.",
+  free: "Hold the town six months, and it governs itself, a free town.",
 };
 
 /** Support needed to rise, and members (leader included). */
@@ -577,6 +585,8 @@ export function rise(g: ConquestGame, m: Movement): void {
             (settlers(s.provinces[a]) + tribesfolk(s.provinces[a])),
         )[0] ?? -1;
   if (p < 0) return fade(g, m, "There was nowhere left to rise");
+  // WAR (r17): a town's rising may be found out, or beaten in the streets.
+  for (const h of hooks.risingBegins) if (h(g, m) === false) return;
   const id = s.nations.length;
   const native = m.people >= 0;
   const rebels = blankNation(
@@ -600,16 +610,8 @@ export function rise(g: ConquestGame, m: Movement): void {
   rebels.ruler = m.leader;
   s.nations.push(rebels);
   g.nation(id);
-  const count = Math.max(
-    2,
-    Math.min(
-      10,
-      2 +
-        Math.floor(m.support / 20) +
-        Math.floor(m.members.length / 2) +
-        Math.floor(m.arms / 10),
-    ),
-  );
+  // WAR (r17): the reckoning moved to ReclaimCore, so the odds shown use it too.
+  const count = hostRegiments(m);
   const regs: Regiment[] = [];
   for (let i = 0; i < count; i++)
     regs.push({
@@ -729,7 +731,12 @@ function risen(g: ConquestGame, m: Movement): void {
   );
   const months = (s.day - m.rose) / 30;
   let win: boolean;
-  if (m.goal === "expel") {
+  // WAR (r17): a town's rising against its foreign rulers decides for itself.
+  const town = hooks.risingWin
+    .map((h) => h(g, m, held, months))
+    .find((x) => x !== undefined);
+  if (town !== undefined) win = town;
+  else if (m.goal === "expel") {
     const theirs = m.region.filter((p) => s.provinces[p].owner === m.against);
     const mine = theirs.filter((p) => held.includes(p));
     win = theirs.length > 0 && mine.length >= Math.ceil(theirs.length / 2);
@@ -743,7 +750,8 @@ function risen(g: ConquestGame, m: Movement): void {
   if (months >= 30) return disperse(g, m);
 }
 
-function endRising(g: ConquestGame, m: Movement): void {
+/** WAR (r17): exported, for a town's rising won elsewhere (Reclaim.ts). */
+export function endRising(g: ConquestGame, m: Movement): void {
   const s = g.s;
   for (const a of [...s.armies]) if (a.owner === m.rebels) g.removeArmy(a);
   for (let p = 0; p < s.provinces.length; p++) {
@@ -755,6 +763,11 @@ function endRising(g: ConquestGame, m: Movement): void {
     } else if (pr.siege?.by === m.rebels) g.prov(p).siege = null;
   }
   endWar(g, m.rebels, m.against, true);
+  // WAR (r17): and the wars of those who took the government's side
+  // ("Defending England"), which used to run on against a host that was no
+  // more, for ever (war weariness, armies kept under arms).
+  for (const w of [...s.wars])
+    if (w.a === m.rebels || w.b === m.rebels) endWar(g, w.a, w.b, true);
   g.nation(m.rebels).alive = false;
   m.ended = s.day;
   g.movementsChanged();
@@ -768,7 +781,11 @@ function won(g: ConquestGame, m: Movement): void {
     pr.occupier === m.rebels ? [p] : [],
   );
   let text: string;
-  if (m.goal === "expel") {
+  // WAR (r17): a town's rising against its foreign rulers: back to its old
+  // owner, or a free town (Reclaim.ts says which, and does it).
+  const town = hooks.risingWon.map((h) => h(g, m)).find((x) => x !== undefined);
+  if (town !== undefined) text = town;
+  else if (m.goal === "expel") {
     const people = g.nation(m.people);
     const taken = held.filter((p) => s.provinces[p].owner === m.against);
     endRising(g, m);
@@ -789,7 +806,9 @@ function won(g: ConquestGame, m: Movement): void {
         people.alive = true;
         people.capital = p;
       }
+      takenHow.how = "rising"; // WAR (r17)
       cede(g, p, m.people);
+      takenHow.how = ""; // WAR (r17)
     }
     if (leader?.alive && !lifeOfChar(s, leader.id))
       people.council.marshal = leader.id;
@@ -1015,6 +1034,8 @@ function foundMovement(
     overthrow: `The Friends of ${here}`,
     independence: `The Sons of Liberty of ${here}`,
     expel: `The ${s.nations[me.nation].name} Alliance`,
+    restore: `The ${here} Loyalists`, // WAR (r17): never founded this way
+    free: `The Free Men of ${here}`, // WAR (r17)
   };
   const clean = (name ?? "").replace(/[<>]/g, "").trim().slice(0, 48);
   const m = newMovement(g, {

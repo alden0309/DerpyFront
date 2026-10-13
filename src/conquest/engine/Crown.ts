@@ -7,7 +7,7 @@ import { dateOf, dayOf } from "./Calendar";
 import { kill } from "./Characters";
 import { mainPort } from "./Economy";
 import type { ConquestGame } from "./Game";
-import { hooks } from "./Hooks"; // CHAIR (r16)
+import { hooks, provinceTaken } from "./Hooks"; // CHAIR (r16), WAR (r17)
 import {
   atWar,
   autonomyTarget,
@@ -326,6 +326,7 @@ export function cede(g: ConquestGame, p: number, to: number): void {
   // CHAIR (r16): say where the government has gone, and what of the seats.
   if (moved)
     for (const h of hooks.capitalMoved) h(g, from, p, s.nations[from].capital);
+  provinceTaken(g, p, from, to); // WAR (r17): claims, risings, the town's places
   if (from >= 0 && provincesOf(s, from).length === 0) fall(g, from, to);
 }
 

@@ -480,7 +480,9 @@ export type MilestoneKind =
   | "watching"
   | "end"
   // LIFE (r11): a conviction at the quarter sessions.
-  | "convicted";
+  | "convicted"
+  // WAR (r17): the town you live in changed hands (taken, ceded, retaken).
+  | "taken";
 
 export interface LifeMilestone {
   day: number;
@@ -844,7 +846,15 @@ export interface LifePlan {
 
 // ---------------------------------------------------------------- movements and politics
 
-export type MovementGoal = "reform" | "overthrow" | "independence" | "expel";
+export type MovementGoal =
+  | "reform"
+  | "overthrow"
+  | "independence"
+  | "expel"
+  // WAR (r17): a town's rising against its foreign rulers: back to its old
+  // owner, or a free town of its own.
+  | "restore"
+  | "free";
 
 export interface Movement {
   id: number;
@@ -1580,6 +1590,8 @@ export interface GameState {
   sea?: SeaState;
   /** INTRIGUE (r15): schemes, kept lovers, betrothals and guards. */
   intrigue?: IntrigueState;
+  /** WAR (r17): claims on lost towns, and towns in a ferment under foreign rule. */
+  reclaim?: ReclaimState;
 }
 
 export type TravellerKind =
@@ -1884,7 +1896,9 @@ export type LifeCommand =
   | PollsCommand
   // CHAIR (r16): the governor's chair: a petition for his recall, the house's
   // address, the lieutenancy, following the government, marks of greatness.
-  | ChairCommand;
+  | ChairCommand
+  // WAR (r17): a town under foreign rule: stirring it up, its plot.
+  | ReclaimCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -1931,6 +1945,8 @@ export interface GameDelta {
   sea?: SeaState;
   /** INTRIGUE (r15): when any changed (each player's copy holds only their own schemes). */
   intrigue?: IntrigueState;
+  /** WAR (r17): claims and towns in a ferment, when any changed (nothing in it is secret). */
+  reclaim?: ReclaimState;
 }
 
 // ---- WORLD (r11)
@@ -3336,7 +3352,9 @@ export type AffairKind =
   | "paper"
   | "property"
   | "contract"
-  | "statement";
+  | "statement"
+  // WAR (r17): a rising you're sworn to (its plot, its night, its end).
+  | "cause";
 
 /** One line of a month's books: coins in (+) or out (−) from one source. */
 export interface BookLine {
@@ -4366,4 +4384,80 @@ export interface ChairCommand {
   supply?: boolean;
   yes?: boolean;
   side?: number;
+}
+
+// ---- WAR (r17)
+
+/** WAR (r17): a part of a reckoning, for the page and its tooltips. */
+export interface ReclaimPart {
+  label: string;
+  value: number;
+}
+
+/** WAR (r17): a nation's claim on a town it lost: it wants it back. */
+export interface Claim {
+  p: number;
+  /** The nation that lost it. */
+  by: number;
+  /** Who took it from them. */
+  from: number;
+  /** The day it was lost. */
+  day: number;
+  /** How: "treaty" (a peace), "rising" (its people rose), "mended" (an old save's stuck occupation). */
+  how: string;
+  /** How much they wanted it back when they lost it (0 to 100), and why. */
+  base: number;
+  parts: ReclaimPart[];
+  /** Wars fought for it that didn't win it back (each halves it). */
+  tries: number;
+  /** A war for it under way: the day it began. */
+  war?: number;
+}
+
+/** WAR (r17): a town held by rulers who aren't its people's own, and how near it is to rising. */
+export interface Yoke {
+  p: number;
+  /** Who rules it now. */
+  ruler: number;
+  /** Whose people they are, who has a claim on it (or -1: nobody's). */
+  old: number;
+  /** 0 to 100: a plot can form from 70; at its day it rises. */
+  ferment: number;
+  /** Where it's heading, and why (this month's reckoning). */
+  target: number;
+  parts: ReclaimPart[];
+  /** A plot or rising of its people: the movement's id. */
+  m?: number;
+  /** No new plot before this day (after one is crushed, found out, or fades). */
+  rest?: number;
+  /** Cowed until this day (after one is crushed or found out). */
+  cowed?: number;
+}
+
+/** WAR (r17): what a town's rising means to do if it wins. */
+export interface TownRising {
+  /** The movement. */
+  m: number;
+  p: number;
+  /** The nation it would hand the town back to (-1: a free town). */
+  old: number;
+  aim: "restore" | "free" | "expel";
+  /** What its first night came to: "found", "beaten", "seized" (once it's tried). */
+  night?: string;
+}
+
+export interface ReclaimState {
+  claims: Claim[];
+  yokes: Yoke[];
+  /** The day each province's present owner took it (missing: since before the game began). */
+  held: Record<number, number>;
+  risings: TownRising[];
+}
+
+/** WAR (r17): a player's part in a town under foreign rule. */
+export interface ReclaimCommand {
+  k: "reclaim";
+  /** stir, join, lead, inform, aim. */
+  act: string;
+  aim?: "restore" | "free";
 }

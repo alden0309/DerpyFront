@@ -4,6 +4,7 @@
 import { goodsMoved, tally } from "./Economy";
 import { proposeTreaty } from "./Events";
 import type { ConquestGame } from "./Game";
+import { provinceTaken, takenHow } from "./Hooks"; // WAR (r17)
 import {
   buyCheck,
   giftCheck,
@@ -216,6 +217,10 @@ export function diplomacyCommand(
         from: seller,
         gold: price,
       });
+      // WAR (r17): a sale is a change of hands, but no grievance (no claim).
+      takenHow.how = "bought";
+      provinceTaken(g, c.p, seller, n);
+      takenHow.how = "";
       return null;
     }
     case "tribute": {

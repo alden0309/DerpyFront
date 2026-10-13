@@ -155,6 +155,7 @@ const KIND_NAMES: Record<AffairKind, string> = {
   property: "Your property",
   contract: "A contract",
   statement: "The month's accounts",
+  cause: "Your cause", // WAR (r17): a rising you're sworn to
 };
 
 /** What a notice of your own affairs is headed with. */
@@ -259,6 +260,11 @@ function affairIcon(kind: AffairKind): TemplateResult {
     case "contract":
       return ico(
         svg`<path d="M7 4h14l4 4v12"/><path d="M7 4v22h10"/><circle cx="22" cy="24" r="4"/><path d="M20 27.5l-1 3 3-1.5 3 1.5-1-3"/>`,
+      );
+    // WAR (r17): a rising you're sworn to: a standard on its pole.
+    case "cause":
+      return ico(
+        svg`<path d="M9 28V4"/><path d="M9 5q5-2 9 0t8 0v10q-4 2-8 0t-9 0"/><path d="M6 28h6"/>`,
       );
     default:
       return ico(

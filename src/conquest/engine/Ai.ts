@@ -51,6 +51,7 @@ import {
   warMonths,
   warScore,
 } from "./Queries";
+import { CLAIM, claimPull } from "./ReclaimCore"; // WAR (r17)
 import { DIFFICULTY, REGIMENTS, WARRIOR_SHARE } from "./Rules";
 import { orderQuote } from "./Trade";
 import {
@@ -461,6 +462,8 @@ function pickTarget(
       score = provinceValue(s, p) * (1 + (pr.b.fort ?? 0) * -0.25);
     else if (enemyMen > 0) score = 2;
     if (score <= 0) continue;
+    // WAR (r17): a town it lost and wants back draws its armies.
+    score *= 1 + claimPull(s, n, p);
     if (enemyMen > men * (0.6 + 0.4 / aggression)) continue;
     score = score / (1 + days / 20);
     if (score > bestScore) {
@@ -536,12 +539,17 @@ function peace(g: ConquestGame, n: number): void {
     const held = s.provinces
       .map((pr, p) => (pr.owner === enemy && pr.occupier === n ? p : -1))
       .filter((p) => p >= 0);
+    // WAR (r17): towns it lost and wants back come first, and are asked for
+    // as soon as the war is going its way.
+    held.sort((a, b) => claimPull(s, n, b) - claimPull(s, n, a));
+    const claimed = held.filter((p) => claimPull(s, n, p) > 0);
     let terms: PeaceTerms = { take: [], give: [], gold: 0 };
     if (score >= 25 && held.length > 0) {
       terms = { take: held.slice(0, 2), give: [], gold: 0 };
       if (peaceWillingness(s, n, enemy, terms).total < 0)
         terms = { take: held.slice(0, 1), give: [], gold: 0 };
-    }
+    } else if (score >= CLAIM.peaceScore && claimed.length > 0)
+      terms = { take: claimed.slice(0, 1), give: [], gold: 0 }; // WAR (r17)
     // A beaten native nation is made to pay tribute.
     const foe = s.nations[enemy];
     if (
@@ -557,7 +565,8 @@ function peace(g: ConquestGame, n: number): void {
       score >= 25 ||
       score <= -15 ||
       nation.warExhaustion > 20 ||
-      warMonths(s, war) > 36
+      warMonths(s, war) > 36 ||
+      (score >= CLAIM.peaceScore && claimed.length > 0) // WAR (r17)
     ) {
       if (
         peaceWillingness(s, n, enemy, terms).total >= 0 ||
@@ -641,7 +650,11 @@ function nativeAi(g: ConquestGame, n: number): void {
     // WORLD r11: a native nation takes back its own country, not new land.
     const held = s.provinces
       .map((pr, p) => (pr.owner === enemy && pr.occupier === n ? p : -1))
-      .filter((p) => p >= 0 && g.w.startOwner[p] === nation.key);
+      .filter(
+        (p) =>
+          p >= 0 &&
+          (g.w.startOwner[p] === nation.key || claimPull(s, n, p) > 0), // WAR (r17): or a town it claims
+      );
     const terms: PeaceTerms =
       score >= 30 && held.length > 0
         ? { take: held.slice(0, 1), give: [], gold: 0 }
