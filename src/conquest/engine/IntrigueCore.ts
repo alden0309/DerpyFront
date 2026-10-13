@@ -9,6 +9,7 @@
 import type { ConquestGame } from "./Game";
 import { journal, touchLife } from "./LifeCore";
 import { ROLES } from "./LifeRules";
+import { booksForOthers, booksHaveLoans } from "./LoanCore"; // ECON (r17)
 import { pollsForOthers, pollsHaveSecrets } from "./PollsSecret"; // POLLS (r16)
 import { ageOf } from "./Queries";
 import { Rng } from "./Rng";
@@ -251,6 +252,7 @@ function lifeHasSecrets(l: Partial<Life>): boolean {
   if (l.cooldowns && Object.keys(l.cooldowns).some(secretMark)) return true;
   if (l.evSeen && Object.keys(l.evSeen).some(secretMark)) return true;
   if (pollsHaveSecrets(l.polls)) return true; // POLLS (r16): the sheriff's present, the canvass's book
+  if (booksHaveLoans(l)) return true; // ECON (r17): a bond's money in the books
   return false;
 }
 
@@ -271,6 +273,7 @@ export function lifeForOthers<T extends Partial<Life>>(l: T): T {
       Object.entries(l.evSeen).filter(([k]) => !secretMark(k)),
     );
   if (l.polls) out.polls = pollsForOthers(l.polls); // POLLS (r16)
+  booksForOthers(l, out); // ECON (r17)
   return out;
 }
 

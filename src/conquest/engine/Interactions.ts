@@ -72,7 +72,7 @@ import {
 import { addSettler, settleAcceptance, settleCheck } from "./Founding";
 import { ADULT_AGE, betrothalOf } from "./IntrigueCore"; // INTRIGUE (r15)
 import { bondBetween, owing } from "./LoanCore"; // ECON (r17)
-import { bondMade, bondWords } from "./Loans"; // ECON (r17)
+import { bondMade, bondWords, note as bondNote } from "./Loans"; // ECON (r17)
 import {
   affairWith,
   exposeBy,
@@ -1341,11 +1341,7 @@ export function doInteraction(
       // ECON (r17): a bond at the lawful rate, for a year (Loans.ts).
       earn(g, life, amount);
       const bond = bondMade(g, cId, life.c, amount, { how: "bond" });
-      journal(
-        g,
-        life,
-        `${name} lends you ${amount} coins on ${bondWords(bond)}.`,
-      );
+      bondNote(g, life, `${name} lends you ${amount} coins on ${bondWords(bond)}.`);
       return null;
     }
     case "patron":

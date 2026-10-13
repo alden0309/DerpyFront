@@ -95,7 +95,7 @@ function nameOf(s: GameState, c: number): string {
  * A line in a party's journal about a bond: their own affairs, and secret
  * (another player is never sent it).
  */
-function note(
+export function note(
   g: ConquestGame,
   life: Life | undefined,
   text: string,
@@ -565,7 +565,7 @@ export function lendTo(
   if (!other) {
     const b = willBorrow(s, life, c, sum, months, free, rate);
     if (b.total <= 0) {
-      journal(
+      note(
         g,
         life,
         `${charName(c)} thanks you, and won't take it: ${b.parts
@@ -618,7 +618,7 @@ export function borrowFrom(
   if (!other) {
     const b = willLend(s, life, c, sum, months, free);
     if (b.total <= 0) {
-      journal(
+      note(
         g,
         life,
         `${charName(c)} won't lend it: ${b.parts

@@ -287,3 +287,24 @@ export function loanStateForSeat(s: GameState, seat: string | null): GameState {
 export function loanKey(key: string): boolean {
   return key.startsWith("loan-");
 }
+
+const loanLine = (k: string) => k.startsWith("loan:");
+
+/** Whether a life's books carry a bond's money (lent, borrowed, interest, repaid). */
+export function booksHaveLoans(l: Partial<Life>): boolean {
+  if (l.books?.lines.some((x) => loanLine(x.k))) return true;
+  return !!l.statements?.some((st) => st.lines.some((x) => loanLine(x.k)));
+}
+
+/** A life's books as anyone else is sent them: a bond's lines taken out. */
+export function booksForOthers<T extends Partial<Life>>(l: T, out: T): void {
+  const strip = <B extends { lines: { k: string }[]; exp?: Record<string, number> }>(b: B): B => ({
+    ...b,
+    lines: b.lines.filter((x) => !loanLine(x.k)),
+    ...(b.exp
+      ? { exp: Object.fromEntries(Object.entries(b.exp).filter(([k]) => !loanLine(k))) }
+      : {}),
+  });
+  if (l.books) out.books = strip(l.books);
+  if (l.statements) out.statements = l.statements.map(strip);
+}
