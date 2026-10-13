@@ -469,9 +469,7 @@ describe("public works by vote", () => {
           coins: want,
         }),
       ).toBeNull();
-      expect(
-        life.books?.lines.some((l) => /Subscribed/.test(l.label)) ?? true,
-      ).toBe(true);
+      expect(life.books?.lines.some((l) => /Subscribed/.test(l.l))).toBe(true);
     }
     expect(work.stage).toBe("building");
     ticks(g, (work.done ?? g.s.day) - g.s.day + 1);

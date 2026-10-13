@@ -31,6 +31,7 @@ import { affairsUnseen } from "./Ledger"; // LEDGER (r15)
 import { partnerMarks } from "./Partners"; // PARTNERS (r13)
 import { seaMarks } from "./SeaPage"; // SEA (r15)
 import { postCounts } from "./Society";
+import { townMarks } from "./Towns"; // TOWNS (r17)
 
 export interface SubDef {
   id: string;
@@ -119,11 +120,12 @@ export const TAB_DEFS: TabDef[] = [
     id: "society",
     label: "Society",
     blurb:
-      "Standing and favour, office, the council, the press, letters, gatherings, intrigue, causes, a colony",
+      "Standing and favour, office, the town and its works, the council, the press, letters, gatherings, intrigue, causes, a colony",
     icon: SocietyIcon,
     subs: [
       { id: "standing", label: "Standing", guide: "favour" },
       { id: "office", label: "Office", guide: "office" },
+      { id: "town", label: "Town", guide: "towns" }, // TOWNS (r17)
       { id: "council", label: "Council", guide: "council" }, // POWER (r12)
       { id: "press", label: "Press", guide: "press" }, // POWER (r12)
       { id: "letters", label: "Letters", guide: "letters" },
@@ -270,6 +272,7 @@ export function badges(ui: GameUi): Map<string, number> {
     add("society", "gatherings", asked);
   }
   add("society", "intrigue", intrigueMarks(ui)); // INTRIGUE (r15): a wedding to plan
+  add("society", "town", townMarks(ui)); // TOWNS (r17): a vote of yours waiting
   if (life.invite) add("society", "standing", 1);
   if (life.constitute && life.constitute.until > s.day)
     add("society", "colony", 1);

@@ -49,8 +49,10 @@ import {
   tribesfolk,
 } from "../../engine/Queries";
 import { heardHere } from "../../engine/Rumours";
+import { townsOf } from "../../engine/TownsCore"; // TOWNS (r17)
 import type { Character, PlaceKind } from "../../engine/Types";
 import { employersIn } from "../../engine/Work";
+import { workName } from "../../engine/WorksCore"; // TOWNS (r17)
 import { flagFor } from "../Flags";
 import { placeIcon } from "../Icons";
 import { placeThumb, sceneArt } from "../SceneArt";
@@ -97,6 +99,7 @@ import { seaCallout } from "./SeaPage"; // SEA (r15)
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 import { TERMS } from "./Terms";
+import { cameWords, townRuinsNote } from "./Towns"; // TOWNS (r17)
 import {
   cultureChips,
   lastSeenNote,
@@ -340,7 +343,7 @@ export function herePanel(ui: GameUi): TemplateResult {
         </button>
       </div>`
     : nothing}
-  ${leadsHereBlock(ui)}
+  ${leadsHereBlock(ui)} ${townRuinsNote(ui) /* TOWNS (r17) */}
   ${t
     ? html`<p class="cq-muted small cq-pad">
         Places and people open up when you arrive.
@@ -467,6 +470,9 @@ export function roleOf(ui: GameUi, c: Character): string {
     return bond !== "freed" && c.bond?.seat && c.bond.seat === ui.life?.seat
       ? `${bond.charAt(0).toUpperCase()}${bond.slice(1)} in your household`
       : `${bond.charAt(0).toUpperCase()}${bond.slice(1)}`;
+  // TOWNS (r17): a newcomer, a widow who keeps house, their family.
+  const came = cameWords(ui, c);
+  if (came) return came;
   return isNativeChar(s, c) ? "Of the village" : "Of the town";
 }
 
@@ -539,6 +545,14 @@ export function provincePage(ui: GameUi, p: number): TemplateResult {
                 : PLACES[pl].name.replace(/^The /, "")}</span
             >`,
         )}
+        ${
+          (townsOf(s).ruins[p] ?? []).map(
+            (r) =>
+              html`<span class="cq-chip cq-place-chip bad"
+                >${workName(s, p, r.key)}, in ruins</span
+              >`,
+          ) /* TOWNS (r17) */
+        }
       </p>
       ${life?.visited.includes(p)
         ? html`<p class="cq-muted small">You've been here.</p>`

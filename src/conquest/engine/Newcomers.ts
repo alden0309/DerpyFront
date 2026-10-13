@@ -20,18 +20,23 @@ import { kmBetween } from "./Map";
 import { NAMES } from "./Names";
 import { ageOf, charName, provincesOf } from "./Queries";
 import type { Rng } from "./Rng";
-import { DAYS_PER_YEAR } from "./Rules";
 import {
+  ARRIVALS,
+  DRIFT_IN,
+  dryDays,
   headsOf,
   householdRoom,
   HOUSEHOLDS,
   KEPT_ARRIVALS,
   marriageable,
+  MARRY_BETWEEN,
+  SHORT_BOOST,
   tdice,
-  thash,
   townFolk,
   townsChanged,
   townsState,
+  TURNOVER,
+  type ArrivalKind,
 } from "./TownsCore";
 import type {
   Character,
@@ -43,58 +48,6 @@ import type {
 } from "./Types";
 
 // ---------------------------------------------------------------- the tables
-
-/** What kind of household comes, and how often (out of the weights' sum). */
-export type ArrivalKind =
-  | "family"
-  | "daughters"
-  | "sons"
-  | "couple"
-  | "man"
-  | "woman"
-  | "widow"
-  | "widower"
-  | "note";
-
-export const ARRIVALS: Record<
-  "colony" | "native",
-  Partial<Record<ArrivalKind, number>>
-> = {
-  colony: {
-    family: 28,
-    daughters: 10,
-    sons: 6,
-    couple: 7,
-    man: 16,
-    woman: 14,
-    widow: 9,
-    widower: 6,
-    note: 4,
-  },
-  native: {
-    family: 26,
-    daughters: 8,
-    sons: 6,
-    couple: 14,
-    man: 16,
-    woman: 16,
-    widow: 9,
-    widower: 5,
-  },
-};
-
-/**
- * A town below what its size holds sees a household come, a month, this
- * often for each household it's short (the road brings people), besides one
- * for each 150 settlers it grows by (300 of a native town's people).
- */
-export const DRIFT_IN = 0.04;
-/** A town that has all the households it holds still sees one come, a month, this often. */
-export const TURNOVER = 0.03;
-/** A town with nobody of a sex free to marry sees households that bring one this much oftener. */
-export const SHORT_BOOST = 3;
-/** A native town's young people marry into another town of the nation: a year. */
-export const MARRY_BETWEEN = 0.12;
 
 /** The ports a people's ships come from (by culture). */
 const SHIP_PORTS: Record<string, string[]> = {
@@ -904,13 +857,6 @@ function marriesBetween(g: ConquestGame, p: number, r: Rng): void {
 }
 
 // ---------------------------------------------------------------- nobody stuck
-
-/** How long a town goes with nobody to marry before someone comes: a year or two. */
-export function dryDays(key: number, female: boolean): number {
-  return (
-    DAYS_PER_YEAR + Math.round(thash(key, female ? 17 : 29) * DAYS_PER_YEAR)
-  );
-}
 
 function dryMarket(g: ConquestGame, p: number, r: Rng): void {
   const s = g.s;

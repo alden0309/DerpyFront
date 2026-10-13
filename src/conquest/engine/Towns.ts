@@ -20,7 +20,7 @@ import { LOCALS_CAP } from "./LifeRules";
 import { kmBetween } from "./Map";
 import { leave, newcomersMonthly } from "./Newcomers";
 import { provincesOf, settlers } from "./Queries";
-import { tdice, townsChanged, townsState } from "./TownsCore";
+import { LEAVE_UNDER, tdice, townsChanged, townsState } from "./TownsCore";
 import type { BuildingKind, Character, TownRuin } from "./Types";
 import { lapseWorks, townsCommand, worksMonthly } from "./Works";
 import { RUIN_WORK, TOWN_WORKS } from "./WorksCore";
@@ -203,9 +203,6 @@ function nearestOf(g: ConquestGame, n: number, p: number): number | undefined {
       (a, b) => kmBetween(g.map, p, a) - kmBetween(g.map, p, b) || a - b,
     )[0];
 }
-
-/** Under new rule, a share of the old families leave: all of them, if the settlers have fled. */
-export const LEAVE_UNDER = { fled: 1, crown: 0.3 } as const;
 
 function peopleTaken(
   g: ConquestGame,

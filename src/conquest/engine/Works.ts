@@ -25,6 +25,7 @@ import {
 } from "./LifeCore";
 import { meOf } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
+import { chanceWords } from "./Odds";
 import { BUILDINGS, DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
 import { delivered } from "./Standing";
@@ -48,11 +49,13 @@ import {
   memberName,
   membersOf,
   nextSitting,
+  NPC_BRINGS,
   proposeCheck,
   REPAIR,
   RUIN_WORK,
   ruinOf,
   stillWanted,
+  SUBS,
   subscribeCheck,
   subscribed,
   TOWN_WORKS,
@@ -64,21 +67,6 @@ import {
 } from "./WorksCore";
 
 // ---------------------------------------------------------------- the rules
-
-/** The town's people of means subscribe this share of their wealth (an aye a little more). */
-export const SUBS = {
-  /** Of a member who voted aye. */
-  aye: 0.25,
-  /** Of a member who voted no, or any other householder of means. */
-  other: 0.08,
-  /** Each month after, until it's subscribed, they add a tenth of what they gave. */
-  drip: 0.1,
-  /** Then the subscription closes and a second levy raises the rest. */
-  days: 180,
-} as const;
-
-/** A computer member brings the repair of a ruin, a month (and a wharf or a church where a town lacks one). */
-export const NPC_BRINGS = { ruin: 1 / 8, want: 1 / 36 } as const;
 
 /** Renown for the mover: carried, and done. */
 const RENOWN = { carried: 2, done: 3, sub: 0.1, subCap: 3 } as const;
@@ -149,7 +137,7 @@ export function propose(
   journal(
     g,
     life,
-    `${member ? "You put" : "You petition"} ${body.name} for ${lc(workName(s, p, key))}${work.repair ? " (a repair)" : ""}: ${work.cost} coins, ${work.levy} of it by ${body.levy}${coins ? `, and ${coins} you'll put down yourself if it carries` : ""}. It sits on ${formatDate(work.sits)}; as it stands, ${oddsWords(odds)} it carries.`,
+    `${member ? "You put" : "You petition"} ${body.name} for ${lc(workName(s, p, key))}${work.repair ? " (a repair)" : ""}: ${work.cost} coins, ${work.levy} of it by ${body.levy}${coins ? `, and ${coins} you'll put down yourself if it carries` : ""}. It sits on ${formatDate(work.sits)}; as it stands, ${chanceWords(odds)} it carries.`,
   );
   tellTown(
     g,
@@ -190,33 +178,6 @@ function putWork(
   t.works.push(work);
   townsChanged(g);
   return work;
-}
-
-/** "3 in 4", "1 in 3", "9 in 10". */
-export function oddsWords(p: number): string {
-  if (p >= 0.995) return "it's sure";
-  if (p <= 0.005) return "there's no chance";
-  const fr: [number, number][] = [
-    [1, 20],
-    [1, 10],
-    [1, 6],
-    [1, 5],
-    [1, 4],
-    [1, 3],
-    [2, 5],
-    [1, 2],
-    [3, 5],
-    [2, 3],
-    [3, 4],
-    [4, 5],
-    [5, 6],
-    [9, 10],
-    [19, 20],
-  ];
-  let best = fr[0];
-  for (const f of fr)
-    if (Math.abs(f[0] / f[1] - p) < Math.abs(best[0] / best[1] - p)) best = f;
-  return `${best[0]} in ${best[1]}`;
 }
 
 /** A member votes, before the sitting. */

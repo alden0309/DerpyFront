@@ -1,0 +1,177 @@
+/* TOWNS (r17): Society › Town. The town's body and what's before it, the
+   works it could put, what's carried and building, what stands and what's
+   in ruins, who's lately come, and its record. Built from the register's
+   own pieces (the odds panel, chips, bars, cards); only what's new is here. */
+
+.cq-town-cards {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.3rem 0 0.2rem;
+}
+.cq-town-card {
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--brass);
+  background: rgba(255, 250, 235, 0.45);
+}
+.cq-town-card > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.45rem;
+  margin-bottom: 0.2rem;
+}
+.cq-town-card > header b {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1.05rem;
+}
+.cq-town-card > p {
+  margin: 0.2rem 0;
+}
+.cq-town-odds {
+  margin: 0.35rem 0;
+}
+
+.cq-town-members {
+  list-style: none;
+  margin: 0.2rem 0;
+  padding: 0;
+}
+.cq-town-member {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.1rem 0.5rem;
+  align-items: baseline;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.cq-town-member:last-child {
+  border-bottom: 0;
+}
+.cq-town-member-who {
+  min-width: 0;
+}
+.cq-town-member-who .cq-muted {
+  margin-left: 0.3rem;
+}
+.cq-town-why {
+  grid-column: 1 / -1;
+}
+
+/* The works a town could put: one row each, the chosen one lit. A row never
+   changes size when it's chosen, so nothing moves under the pointer. */
+.cq-town-works {
+  list-style: none;
+  margin: 0.2rem 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.35rem;
+}
+.cq-town-pick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.05rem 0.5rem;
+  width: 100%;
+  min-height: 3.6rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--rule);
+  background: rgba(255, 250, 235, 0.4);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cq-town-pick:hover:not(:disabled) {
+  border-color: var(--brass);
+}
+.cq-town-pick:disabled {
+  cursor: default;
+  color: var(--ink-soft);
+  background: transparent;
+}
+.cq-town-work.on .cq-town-pick {
+  border-color: var(--brass);
+  box-shadow: inset 3px 0 0 var(--brass);
+  background: rgba(201, 155, 58, 0.1);
+}
+.cq-town-work-name {
+  font-family: var(--fell);
+  font-size: 1rem;
+}
+.cq-town-work-cost {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.cq-town-work-does {
+  grid-column: 1 / -1;
+}
+.cq-town-panel {
+  margin: 0.5rem 0 0.2rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--brass);
+  background: rgba(201, 155, 58, 0.07);
+}
+.cq-town-panel > p {
+  margin: 0.15rem 0 0.3rem;
+}
+.cq-town-pledges .cq-btn {
+  min-width: 4.6rem;
+}
+
+.cq-town-bar {
+  display: block;
+  margin: 0.25rem 0;
+}
+
+.cq-town-ruins,
+.cq-town-came,
+.cq-town-record {
+  list-style: none;
+  margin: 0.2rem 0;
+  padding: 0;
+}
+.cq-town-ruins > li,
+.cq-town-came > li,
+.cq-town-record > li {
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.92rem;
+}
+.cq-town-ruins > li:last-child,
+.cq-town-came > li:last-child,
+.cq-town-record > li:last-child {
+  border-bottom: 0;
+}
+.cq-town-ruins b {
+  font-family: var(--fell);
+  font-weight: 400;
+}
+.cq-town-came > li {
+  display: grid;
+  grid-template-columns: 6.6rem minmax(0, 1fr);
+  gap: 0.4rem;
+}
+.cq-town-came > li.gone {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.cq-town-came .cq-link {
+  font-size: 0.85rem;
+}
+.cq-town-note {
+  margin: 0.4rem 0;
+}
+
+@media (max-width: 560px) {
+  .cq-town-works {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cq-town-came > li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}

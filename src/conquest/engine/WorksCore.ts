@@ -843,3 +843,20 @@ export function subscribeCheck(
   if (coins > life.purse) return not(`You haven't ${coins} coins.`);
   return ok;
 }
+
+// ---------------------------------------------------------------- paying, and the town's own
+
+/** The town's people of means subscribe this share of their wealth (an aye a little more). */
+export const SUBS = {
+  /** Of a member who voted aye. */
+  aye: 0.25,
+  /** Of a member who voted no, or any other householder of means. */
+  other: 0.08,
+  /** Each month after, until it's subscribed, they add a tenth of what they gave. */
+  drip: 0.1,
+  /** Then the subscription closes and a second levy raises the rest. */
+  days: 180,
+} as const;
+
+/** A computer member brings the repair of a ruin, a month (and a wharf or a church where a town lacks one). */
+export const NPC_BRINGS = { ruin: 1 / 8, want: 1 / 36 } as const;
