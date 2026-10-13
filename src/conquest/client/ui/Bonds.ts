@@ -56,7 +56,6 @@ import { howTo } from "./Nav";
 import { coins, price } from "./Price";
 import { term } from "./Terms";
 
-const r1 = (v: number) => Math.round(v * 10) / 10;
 const ok = { ok: true } as const;
 const not = (why: string) => ({ ok: false as const, why });
 

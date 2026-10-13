@@ -339,13 +339,12 @@ describe("ECON r17: bonds", () => {
 
   test("lending to one of the computer's people: the interest a month in the figure and the books, a reminder, its day", () => {
     const { g, life } = game(7);
+    // Someone who'd take it (the window says why, and the same reckoning decides).
     const c = townsman(
       g,
       life,
-      (x) =>
-        x.role === "merchant" || x.role === "planter" || x.role === "innkeeper",
+      (x) => willBorrow(g.s, life, x, 40, 12, false, 0.06).total > 0,
     );
-    // They'd take it (and the window says why).
     const b = willBorrow(g.s, life, c, 40, 12, false, 0.06);
     expect(b.parts.length).toBeGreaterThan(0);
     const purse = life.purse;
@@ -359,12 +358,8 @@ describe("ECON r17: bonds", () => {
     expect(err).toBeNull();
     const l = loansOf(g.s).find(
       (x) => x.lender === life.c && x.borrower === c.id,
-    );
-    if (!l) {
-      // They wouldn't take it: the journal says why, and nothing was spent.
-      expect(life.purse).toBe(purse);
-      return;
-    }
+    )!;
+    expect(l).toBeDefined();
     expect(life.purse).toBe(purse - 40);
     expect(l.rate).toBe(0.06);
     expect(monthInterest(l)).toBe(0.2);
@@ -943,5 +938,67 @@ describe("ECON r17: through the rooms server, a bond is sent only to its parties
     expect(host.state().loans?.list.length).toBe(1);
     expect(bea.state().loans!.list[0].sum).toBe(40);
     void cg;
+  });
+});
+
+// ---------------------------------------------------------------- more of a bond's life, and half pay
+
+describe("ECON r17: a computer lender who thinks well of you, and an officer's half pay", () => {
+  test("a lender who thinks well of you lets the bond run on at its day", () => {
+    const { g, life } = game(7);
+    const c = townsman(
+      g,
+      life,
+      (x) => x.role === "merchant" || x.role === "planter",
+    );
+    c.memories.push({ of: life.c, why: "Old friends", value: 90, until: 0 });
+    const l = makeLoan(g, {
+      lender: c.id,
+      borrower: life.c,
+      sum: 20,
+      months: 6,
+      rate: 0.06,
+      how: "bond",
+    });
+    const due = l.due;
+    // Interest kept up, and the day comes.
+    while (g.s.day <= due) g.tick();
+    expect(l.status).toBe("running");
+    expect(l.due).toBeGreaterThan(due + 150);
+    expect(life.journal.some((j) => /let your bond run on/.test(j.text))).toBe(
+      true,
+    );
+  });
+
+  test("an officer on leave is on half pay, in the month's figure and at its turn", () => {
+    const { g, life } = game(7, { background: "soldier" });
+    month(g);
+    startJob(g, life, "soldier", "fort", 3);
+    life.job!.employer = -1;
+    life.leave = {
+      list: [
+        {
+          of: "job",
+          from: g.s.day,
+          until: g.s.day + 59,
+          by: -1,
+          half: true,
+        },
+      ],
+    };
+    life.prov = prov("Massachusetts Bay");
+    for (let d = 0; d < 10; d++) g.tick();
+    const fc = ledgerForecast(g.s, g.w, life);
+    // A lieutenant's 8 a month, halved, for the month's days on leave (28 to 30).
+    const line = fc.lines.find((x) => x.key === "leave:half");
+    expect(line!.value).toBeGreaterThan(3.7);
+    expect(line!.value).toBeLessThanOrEqual(4);
+    month(g);
+    const st = life.statements![life.statements!.length - 1];
+    expect(st.lines.find((x) => x.k === "leave:half")?.v).toBeCloseTo(
+      line!.value,
+      2,
+    );
+    expect(life.job).toBeTruthy();
   });
 });
