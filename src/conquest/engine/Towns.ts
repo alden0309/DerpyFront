@@ -64,6 +64,25 @@ function notePlaces(g: ConquestGame, p: number, by: number): void {
     else delete had[b];
   }
   if (!Object.keys(had).length) delete t.built[p];
+  keepLanding(g, p);
+}
+
+/**
+ * A native nation keeps the landing of a port it holds, unless the wharf was
+ * burned: the wharf left to rot today (the settlers gone) is a landing still.
+ */
+function keepLanding(g: ConquestGame, p: number): void {
+  const s = g.s;
+  const t = townsState(g);
+  const pr = s.provinces[p];
+  if (s.nations[pr.owner]?.kind !== "native" || !g.map.provinces[p]?.coastal)
+    return;
+  if ((pr.b.port ?? 0) > 0) return;
+  const wharf = (t.ruins[p] ?? []).find((r) => r.key === "wharf");
+  if (!wharf || wharf.how === "burned" || wharf.day !== s.day) return;
+  g.prov(p).b.port = 1;
+  mendRuin(g, p, "port", 1);
+  (t.built[p] ??= {}).port = 1;
 }
 
 function addRuin(
@@ -131,16 +150,7 @@ export function townTaken(
   // What stood is remembered: anything gone now is a ruin (burned if the
   // town was laid waste, left to rot if the settlers fled).
   notePlaces(g, p, pr.devastation >= 0.3 ? to : -1);
-  const ruins = t.ruins[p] ?? [];
-  // A native nation keeps the landing of a port it takes, unless it was burned.
-  if (toN?.kind === "native" && g.map.provinces[p]?.coastal) {
-    const wharf = ruins.find((r) => r.key === "wharf");
-    if (wharf && wharf.how !== "burned" && !(pr.b.port ?? 0)) {
-      g.prov(p).b.port = 1;
-      mendRuin(g, p, "port", 1);
-      (t.built[p] ??= {}).port = 1;
-    }
-  }
+  // (A native nation keeps the landing of a port it takes: notePlaces.)
   // The town's own works: what the settlers left rots.
   if (toN?.kind === "native" && fromN?.kind === "power") {
     const kept = t.kept[p] ?? {};

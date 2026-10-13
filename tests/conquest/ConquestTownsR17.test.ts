@@ -285,6 +285,19 @@ describe("a town taken: ruins, a landing, and its people", () => {
       (townsState(g2).ruins[STA] ?? []).every((r) => r.how === "abandoned"),
     ).toBe(true);
     expect(bodyOf(s2, STA).name).toBe("the council fire");
+    // The same if the hook is told before the buildings are swept away (the
+    // order WAR's code may call it in): the month's look keeps the landing.
+    const g3 = spanish();
+    toNextMonth(g3);
+    const s3 = g3.s;
+    const n3 = nationKey(g3, "muscogee");
+    const spain = s3.provinces[STA].owner;
+    s3.provinces[STA].owner = n3;
+    for (const h of hooks.provinceTaken) h(g3, STA, spain, n3);
+    s3.provinces[STA].b = {};
+    toNextMonth(g3);
+    expect(s3.provinces[STA].b.port).toBe(1);
+    expect(placesIn(s3, g3.w, STA)).toContain("docks");
   }, 120_000);
 
   test("the hook does nothing the second time; colonists go with the settlers and the nation's people take the posts", () => {
