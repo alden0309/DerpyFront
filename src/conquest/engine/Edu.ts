@@ -42,7 +42,7 @@ import {
   SCHOOLS,
   type Sex,
 } from "./EduData";
-import { householdsOf } from "./Folk";
+import { householdsOf, postsIn } from "./Folk"; // TOWNS (r17): postsIn
 import type { ConquestGame } from "./Game";
 import { hooks, raiseEvent } from "./Hooks";
 import { npcWrite } from "./Letters";
@@ -417,7 +417,12 @@ function townKeeps(s: GameState, w: World, def: SchoolDef, p: number): boolean {
   }
   const owner = s.nations[pr.owner];
   const folk = settlers(pr);
-  if (folk < (def.folk ?? 0) && owner?.capital !== p) return false;
+  if (
+    folk < (def.folk ?? 0) &&
+    owner?.capital !== p &&
+    s.towns?.kept[p]?.school === undefined // TOWNS (r17): a schoolhouse voted by the town
+  )
+    return false;
   if (def.key !== "dame" && !placesIn(s, w, p).includes("church")) return false;
   return folk >= 50;
 }
@@ -1929,12 +1934,12 @@ function graduatePost(g: ConquestGame, c: Character): void {
   const p = c.home;
   if (!role || p === undefined || c.role || !s.locals[p]) return;
   const list = s.locals[p];
-  if (list.length >= LOCALS_CAP) return;
+  if (postsIn(s, list) >= LOCALS_CAP) return; // TOWNS (r17): the posts, not every household
   if (list.some((id) => s.chars[id]?.alive && s.chars[id]?.role === role))
     return;
   if (!hasPlace(s, g.w, p, ROLES[role].place)) return;
   g.char(c.id).role = role;
-  s.locals[p] = [...list, c.id];
+  if (!list.includes(c.id)) s.locals[p] = [...list, c.id]; // TOWNS (r17): a head already
   g.localsChanged(p);
 }
 

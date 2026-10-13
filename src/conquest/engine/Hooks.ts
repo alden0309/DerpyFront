@@ -217,6 +217,13 @@ export const hooks = {
   ) => void)[],
   /** A new game is made: every polity and life in place, before the first delta. */
   created: [] as ((g: ConquestGame) => void)[],
+  // WAR/TOWNS (r17): a province changed hands (conquest, cession, a rising).
+  provinceTaken: [] as ((
+    g: ConquestGame,
+    p: number,
+    from: number,
+    to: number,
+  ) => void)[],
 };
 
 /** LIFE (r11): put an event to a life through the registered raiser. */

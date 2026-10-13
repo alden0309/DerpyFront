@@ -6,6 +6,7 @@ import { applyPartnersDelta } from "./PartnersCore"; // PARTNERS (r13)
 import { applyPowerDelta } from "./PowerCore"; // POWER (r12)
 import { applySeaDelta } from "./SeaCore"; // SEA (r15)
 import { applySocietyDelta } from "./SocietyCore"; // SOCIETY (r11)
+import { applyTownsDelta } from "./TownsCore"; // TOWNS (r17)
 import { GameDelta, GameState } from "./Types";
 
 const MAX_BATTLES_KEPT = 40;
@@ -65,6 +66,7 @@ export function applyDelta(s: GameState, d: GameDelta): void {
   if (d.dice) applyDiceDelta(s, d.dice); // DICE (r14)
   if (d.sea) applySeaDelta(s, d.sea); // SEA (r15)
   if (d.intrigue) applyIntrigueDelta(s, d.intrigue); // INTRIGUE (r15)
+  if (d.towns) applyTownsDelta(s, d.towns); // TOWNS (r17)
   if (d.polities) {
     for (const [n, pol] of Object.entries(d.polities))
       s.polities[Number(n)] = pol;

@@ -16,6 +16,7 @@ import { hooks, skipped } from "./Hooks";
 import { placesIn } from "./LifeQueries";
 import { LOCALS_CAP, ROLES } from "./LifeRules";
 import { ageOf, birthChance, deathRisk, hasTrait, settlers } from "./Queries";
+import type { Rng } from "./Rng"; // TOWNS (r17)
 import type { Character, GameState, RoleId, Stat } from "./Types";
 
 /** The roles a province has room for, in the order they're filled. */
@@ -115,9 +116,9 @@ export function makeLocal(
   p: number,
   role: RoleId,
   withFamily = true,
+  rng: Rng = g.rng, // TOWNS (r17): a town filled on its own dice
 ): Character {
   const s = g.s;
-  const rng = g.rng;
   const n = folkNation(g, p);
   const nation = s.nations[Math.max(0, n)];
   const native = ROLES[role].native || nation.kind === "native";
@@ -283,7 +284,8 @@ export function folkMonthly(g: ConquestGame): void {
         ageOf(s, c) >= 18 &&
         ageOf(s, c) <= 40 &&
         !skipped(g, c.id) &&
-        !court.has(c.id),
+        !court.has(c.id) &&
+        !lately(s, c), // TOWNS (r17): a newcomer is a stranger for a year
     );
     const a = singles[0];
     const b = singles.find(
@@ -311,6 +313,7 @@ function refillPosts(g: ConquestGame): void {
         continue;
       }
       changed = true;
+      keepHouse(g, p, c, list, next); // TOWNS (r17): the widow keeps house
       const role = c?.role;
       if (!role) continue;
       // The eldest grown child at home takes it on.
@@ -328,7 +331,8 @@ function refillPosts(g: ConquestGame): void {
         .sort((a, b) => a.born - b.born)[0];
       if (heir) {
         g.touchChar(heir).role = role;
-        next.push(heir.id);
+        // TOWNS (r17): a grown child may head a household here already.
+        if (!next.includes(heir.id)) next.push(heir.id);
       } else if (g.rng.chance(0.8)) {
         next.push(makeLocal(g, p, role).id);
       }
@@ -338,7 +342,8 @@ function refillPosts(g: ConquestGame): void {
       const want = rolesFor(g, p);
       const have = new Set(next.map((id) => s.chars[id]?.role));
       const missing = want.find((r) => !have.has(r));
-      if (missing && next.length < LOCALS_CAP) {
+      // TOWNS (r17): the cap counts the posts, not the town's other households.
+      if (missing && postsIn(s, next) < LOCALS_CAP) {
         next.push(makeLocal(g, p, missing).id);
         changed = true;
       }
@@ -348,6 +353,56 @@ function refillPosts(g: ConquestGame): void {
       g.localsChanged(p);
     }
   }
+}
+
+// TOWNS (r17): the town's other households sit in its list beside the posts.
+
+/** Lately come by ship or road (a year): not yet one the town's own marry off. */
+function lately(s: GameState, c: Character): boolean {
+  const k = c.came;
+  return (
+    !!k &&
+    k.how !== "settled" &&
+    k.how !== "widow" &&
+    k.how !== "grown" &&
+    s.day - k.day < 365
+  );
+}
+
+/** How many of a town's list hold a post (the other households don't count). */
+export function postsIn(s: GameState, list: readonly number[]): number {
+  let n = 0;
+  for (const id of list) if (s.chars[id]?.role) n++;
+  return n;
+}
+
+/**
+ * A head of a household has died: the widow (or widower) at home keeps
+ * house there, with the children, rather than vanishing with them.
+ */
+function keepHouse(
+  g: ConquestGame,
+  p: number,
+  c: Character | undefined,
+  list: readonly number[],
+  next: number[],
+): void {
+  const s = g.s;
+  if (!c || c.alive) return;
+  const sp = s.chars[c.spouse];
+  if (!sp?.alive || sp.abroad || skipped(g, sp.id)) return;
+  if (sp.home !== undefined && sp.home !== p) return;
+  if (sp.spouse >= 0 && sp.spouse !== c.id) return;
+  if (list.includes(sp.id) || next.includes(sp.id)) return;
+  const x = g.touchChar(sp);
+  x.home = p;
+  x.came ??= {
+    day: s.day,
+    how: "widow",
+    from: g.map.provinces[p]?.name ?? "",
+    as: sp.female ? "a widow" : "a widower",
+  };
+  next.push(sp.id);
 }
 
 /** Grown children of the house: who a player might court. */

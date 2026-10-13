@@ -59,6 +59,8 @@ import { takeSeaDelta } from "./SeaCore"; // SEA (r15)
 import { newGameState } from "./Setup";
 import { societyDaily, societyMonthly } from "./Society"; // SOCIETY (r11)
 import { societyDelta } from "./SocietyCore"; // SOCIETY (r11)
+import "./Towns"; // TOWNS (r17): newcomers, ruins, the towns' public works
+import { takeTownsDelta } from "./TownsCore"; // TOWNS (r17)
 import { dealsMonthly, tradeCommand } from "./Trade";
 import {
   Army,
@@ -352,6 +354,8 @@ export class ConquestGame {
     if (sea) d.sea = sea;
     const intr = takeIntrigueDelta(this); // INTRIGUE (r15)
     if (intr) d.intrigue = intr;
+    const towns = takeTownsDelta(this); // TOWNS (r17)
+    if (towns) d.towns = towns;
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)
