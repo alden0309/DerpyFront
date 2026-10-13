@@ -7,7 +7,6 @@ import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { DERPY_ACCOUNT_EVENT } from "../../derpland/Account";
 import "../../derpland/DerpBar";
-import { openSignIn } from "../../derpland/DerpBar";
 import { evalExpr } from "../engine/Expr";
 import { Snapshot, StoryRun } from "../engine/Runtime";
 import { BasedSave, emptySave, noteSeen } from "../engine/Save";
@@ -18,13 +17,7 @@ import "./Player";
 import { creditsBody, PlayerHost, settingsBody } from "./Player";
 import { loadPrefs, Prefs, savePrefs, TextSpeed } from "./Prefs";
 import { Ambience } from "./Sound";
-import {
-  BASED_COVER,
-  BASED_COVER_CREDIT,
-  BASED_FACTS,
-  BASED_TAGLINE,
-  BASED_TEASER,
-} from "./Teaser";
+import { BASED_COVER, BASED_COVER_CREDIT, BASED_TAGLINE } from "./Teaser";
 
 type Screen =
   | "loading"
@@ -330,23 +323,6 @@ export class BasedApp extends LitElement {
         <div class="mb-soon-body">
           <div class="mb-stamp">Coming soon</div>
           <h1 class="mb-wordmark">Mr. Based</h1>
-          <p class="mb-tagline">${BASED_TAGLINE}</p>
-          ${BASED_TEASER.map((p) => html`<p class="mb-teaser">${p}</p>`)}
-          <ul class="mb-facts">
-            ${BASED_FACTS.map((f) => html`<li>${f}</li>`)}
-          </ul>
-          <p class="mb-soon-note">
-            ${this.access.signedIn
-              ? "It isn't open yet. When it is, it'll be right here."
-              : html`It isn't open yet. Have an account?
-                  <button
-                    class="mb-linkbtn"
-                    @click=${() => openSignIn("signin")}
-                  >
-                    Sign in
-                  </button>
-                  and you'll be the first to know when it is.`}
-          </p>
           <p class="mb-cover-credit">${BASED_COVER_CREDIT}</p>
         </div>
       </main>`;

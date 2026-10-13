@@ -7,6 +7,7 @@
 vi.mock("../../src/derpland/Account", () => ({
   DERPY_ACCOUNT_EVENT: "derpy-account",
   derpyUsername: () => null,
+  derpyToken: () => null, // BASED (r19): the Mr. Based card asks who's signed in
   me: async () => null,
   api: async () => {
     throw new Error("offline");

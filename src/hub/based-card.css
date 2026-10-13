@@ -50,6 +50,7 @@
 .dl-based-body {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 10px;
   padding: 28px 30px 28px 12px;
 }
@@ -78,39 +79,9 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
-.dl-based-tag {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  font-style: italic;
-  font-size: 17px;
-  color: #f4c27c;
-}
-.dl-based-pitch {
-  max-width: 48ch;
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
-  font-size: 16px;
-  line-height: 1.55;
-  color: rgba(236, 230, 218, 0.78);
-}
-.dl-based-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(236, 230, 218, 0.6);
-}
-.dl-based-facts span::before {
-  content: "◆";
-  margin-right: 7px;
-  font-size: 8px;
-  color: #e0a458;
-  vertical-align: 2px;
-}
 .dl-based-cta {
   align-self: flex-start;
-  margin-top: auto;
+  margin-top: 14px;
   padding: 9px 16px;
   border-radius: 8px;
   border: 1px solid rgba(236, 230, 218, 0.25);
