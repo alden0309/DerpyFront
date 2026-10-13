@@ -337,6 +337,11 @@ function myAsk(ui: GameUi, a: CrownAsk): TemplateResult {
   const life = ui.life!;
   const me = ui.me!;
   const o = expeditionOdds(s, ui.map, a.n, a.p, a, me.id);
+  // Only what the treasury holds (the first offer, 50, may be more).
+  const golds = [0, 25, 50, 100, 150, 200, 300].filter(
+    (k) => k <= Math.max(0, s.nations[a.n].gold),
+  );
+  if (!golds.includes(draft.gold)) draft.gold = golds[golds.length - 1];
   const house = offerOdds(s, a.n, a.p, draft.men, draft.gold);
   const offerOk = offerCheck(s, life, draft.men, draft.gold);
   return html`<div class="cq-crown-mine">
@@ -407,7 +412,7 @@ function myAsk(ui: GameUi, a: CrownAsk): TemplateResult {
                   ui.redraw();
                 }}
               >
-                ${[0, 25, 50, 100, 150, 200, 300].map(
+                ${golds.map(
                   (k) =>
                     html`<option value=${k} ?selected=${k === draft.gold}>
                       ${k}

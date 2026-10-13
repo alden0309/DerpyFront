@@ -2628,10 +2628,13 @@ export class MapView {
         Math.max(1, Math.ceil((sl.foot + sl.guns) / 3) + (sl.ships ? 1 : 0)),
       );
       for (let i = 0; i < ships; i++) {
-        // A fleet sails in a loose line astern.
-        const back = i * figure * 0.9;
-        const x = sx(mx) - Math.cos(heading) * back + (i % 2 ? 1 : -1) * i * 3;
-        const y = sy(my) - Math.sin(heading) * back + (i % 2 ? -1 : 1) * i * 2;
+        // A fleet sails in a loose line astern, each a little to one side,
+        // far enough apart to tell (a ship is drawn about a figure and a
+        // quarter long).
+        const back = i * figure * 1.5;
+        const side = i ? (i % 2 ? 1 : -1) * figure * 0.7 : 0;
+        const x = sx(mx) - Math.cos(heading) * back - Math.sin(heading) * side;
+        const y = sy(my) - Math.sin(heading) * back + Math.cos(heading) * side;
         if (!onScreen(x, y, 40)) continue;
         this.movers++;
         if (!this.drawShip(ctx, x, y, figure * 1.25, heading, n.color, now))

@@ -604,10 +604,17 @@ export function grantAsk(g: ConquestGame, a: CrownAsk): void {
   // The crown's charges: what the colony's money, and the treasury, can meet.
   const covered = Math.floor((a.gold + paidIn(a)) / 15);
   if (covered < size.regs + guns) payPassage(g, n, size.regs + guns - covered);
-  // Who leads it: a computer governor who's a soldier, or the crown's general.
+  // Who leads it: a computer governor who's a soldier (the crown gives its
+  // regiments to a man), or the crown's general.
   const gov = s.chars[nation.ruler];
   const govLife = gov ? lifeOfChar(s, gov.id) : undefined;
-  if (!govLife && gov?.alive && stat(s, gov, "mar") >= 7 && ageOf(s, gov) < 60)
+  if (
+    !govLife &&
+    gov?.alive &&
+    !gov.female &&
+    stat(s, gov, "mar") >= 7 &&
+    ageOf(s, gov) < 60
+  )
     a.lead = true;
   // It sails: to the town itself if it's on the coast (a landing in force),
   // or the colony's port nearest it.

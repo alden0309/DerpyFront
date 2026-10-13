@@ -45,7 +45,7 @@ function meansTable(): string {
         `| ${CROWNS[key] ?? key}, ${when} | ${in100(m.chance)} | ${m.first} | ${m.season || "none"} | ${m.max} | ${m.exp}${m.ships ? `, ${m.ships} ships` : ""} |`,
       );
     });
-  return `| The crown, the age | Sends at all, a war begun (at a full stake) | Regiments then | Each spring after | At most in America | An expedition granted |
+  return `| The crown, the age | Sends, a war begun | Regiments | Each spring | At most | An expedition |
 |---|---|---|---|---|---|
 ${rows.join("\n")}
 | Sweden | never | | | | |`;
@@ -117,6 +117,8 @@ export const CROWN_CHAPTER: Chapter = {
     "World › Regiments from Europe; a nation's page; Society › Standing or Society › Council › An expedition to take back a town.",
   body: `## Regiments from Europe
 When a colony goes to war in America, its crown may send regiments across: some when the war begins, then a reinforcement each spring while it lasts. How many, and how likely, is by the crown's means in its age and the war's **stake** to it. A regiment in the game (a hundred men) stands for a battalion of the period: the game's colonies keep five to twenty regiments where the real ones mustered thousands, about a tenth.
+
+In the table, "Sends" is the chance the crown sends any when a war begins, at a full stake; "Regiments" how many it sends then; "Each spring" the reinforcement while the war lasts; "At most" the most it keeps in America at once; and "An expedition" what it sends on a petition granted.
 
 ${meansTable()}
 
