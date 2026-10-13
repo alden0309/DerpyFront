@@ -732,6 +732,17 @@ function landExpedition(g: ConquestGame, sl: CrownSailing): boolean {
     endAsk(g, a, "won", "The town was the colony's again before it landed");
     return true;
   }
+  if (h !== a.holder && !atWar(s, a.n, h)) {
+    // A third took the town while it was at sea: it puts about, no blame.
+    endAsk(
+      g,
+      a,
+      "dropped",
+      `${nm(s.nations[h])} took the town from ${s.nations[a.holder]?.name ?? "its holder"} before it landed`,
+      true,
+    );
+    return true;
+  }
   if (!atWar(s, a.n, h)) {
     // The peace came while it was at sea: it puts about.
     endAsk(g, a, "failed", "A peace was made before it landed", true);

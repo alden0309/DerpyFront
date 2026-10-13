@@ -478,6 +478,33 @@ describe("CROWN r18: a petition for an expedition", () => {
     expect(c ? claimLive(s, c).total : 0).toBeLessThanOrEqual(c0 / 2 + 0.1);
   });
 
+  test("another power takes the town while it's at sea: it puts about, moot, and nobody is blamed", () => {
+    const { g, spain, england } = muscogeeAugustine();
+    const s = g.s;
+    const a = beginAsk(g, spain, SA, s.nations[spain].ruler, true);
+    grantAsk(g, a);
+    const sl = crownOf(s).sailing.find((x) => x.ask === a.id)!;
+    // England, at peace with Spain, has it from the Muscogee meanwhile.
+    s.wars = s.wars.filter(
+      (w) =>
+        !(
+          (w.a === spain || w.b === spain) &&
+          (w.a === england || w.b === england)
+        ),
+    );
+    cede(g, SA, england);
+    s.day = sl.arrive - 1;
+    g.tick();
+    const done = crownOf(s).past.find((x) => x.id === a.id)!;
+    expect(done.stage).toBe("dropped");
+    expect(done.why).toMatch(/^England took the town from (the )?Muscogee/);
+    expect(s.nations[spain].mods.some((m) => m.key === "crown-failed")).toBe(
+      false,
+    );
+    // It never landed.
+    expect(done.army).toBeUndefined();
+  });
+
   test("a truce made meanwhile makes it moot; refused outright, the colony's favour moves a little", () => {
     const { g, spain, england } = quiet();
     const s = g.s;
