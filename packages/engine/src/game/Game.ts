@@ -412,6 +412,14 @@ export interface Player extends PlayerLike {
     validTiles?: TileRef[] | null,
   ): TileRef | false;
   /**
+   * Where a land structure near `tile` could stand (our land, clear of
+   * other buildings), whatever it costs; false if nowhere.
+   */
+  landBasedStructureSpawn(
+    tile: TileRef,
+    validTiles?: TileRef[] | null,
+  ): TileRef | false;
+  /**
    * Creates the unit and charges its cost, unless `free` (for a unit that was
    * already paid for some other way, e.g. a Derpy Front escort's warships).
    */

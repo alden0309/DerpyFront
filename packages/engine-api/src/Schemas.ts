@@ -269,8 +269,11 @@ export type PoolConfig = z.infer<typeof PoolConfigSchema>;
  * 3: trains pay double at your own cities and a quarter more at allies';
  *    ports and factories are priced apart; factories cut building and
  *    warship prices; AI nations build Domes of Alden and send escorts.
+ * 4: AI nations raise Domes of Alden before the bombs fall, over their most
+ *    threatened buildings and away from the front, build under them, and
+ *    guard them with defense posts.
  */
-export const DERPY_RULES = 3;
+export const DERPY_RULES = 4;
 
 export const GameConfigSchema = z.object({
   gameMap: z.enum(GameMapType),

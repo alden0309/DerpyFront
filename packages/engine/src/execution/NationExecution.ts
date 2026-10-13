@@ -272,6 +272,7 @@ export class NationExecution implements Execution {
       this.player,
       this.attackBehavior,
       this.emojiBehavior,
+      () => this.structureBehavior.savingForDome(),
     );
     this.structureBehavior = new NationStructureBehavior(
       this.random,
@@ -474,7 +475,9 @@ export class NationExecution implements Execution {
       emoji,
       warship,
     );
-    nuke.restoreSnapshot(b.nuke, r, random, player, attack, emoji);
+    nuke.restoreSnapshot(b.nuke, r, random, player, attack, emoji, () =>
+      structure.savingForDome(),
+    );
     structure.restoreSnapshot(b.structure, r, random, player);
     this.emojiBehavior = emoji;
     this.mirvBehavior = mirv;

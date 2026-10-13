@@ -13,6 +13,7 @@ import {
   snapshotType,
   Versioned,
   zInt,
+  zTile,
 } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { assertNever } from "@openfront/engine-lib/Util";
 import { z } from "zod";
@@ -25,6 +26,14 @@ import type {
 import { ConstructionExecution } from "../ConstructionExecution";
 import { UpgradeStructureExecution } from "../UpgradeStructureExecution";
 import { nearestTileDist, nearestTileDistCapped } from "../Util";
+import {
+  bestDomeSpot,
+  NUKE_IMPACT_MEMORY,
+  NUKE_IMPACT_MEMORY_TICKS,
+  NukeThreat,
+  readNukeThreat,
+  threatIsReal,
+} from "./NationDomes";
 import { randTerritoryTileArray } from "./NationUtils";
 
 /**
@@ -174,6 +183,44 @@ const UNDER_ATTACK_THREAT_RATIO = 0.35;
  */
 const DEFENSE_POST_RATIO_PER_POST = 0.4;
 
+/**
+ * Derpy Front (rules 4+): a Dome built before any nuke has come at us must
+ * newly cover at least this many points of buildings (see domeWorth: the
+ * Capital is 20, a city 5 a level), and one built after at least this.
+ */
+const DOME_MIN_POINTS_PREEMPTIVE = 40;
+const DOME_MIN_POINTS_NUKED = 10;
+/** Domes a nation builds before any nuke has come at it. */
+const MAX_PREEMPTIVE_DOMES = 3;
+/** Ticks between ordering one Dome and the next, before being nuked. */
+const DOME_COOLDOWN_TICKS = 600;
+/** Ticks before looking again when no spot was worth a Dome. */
+const DOME_RETRY_TICKS = 300;
+/**
+ * A nation holding this many tenths of a worthwhile first Dome's price saves
+ * the rest (Medium and up)...
+ */
+const DOME_SAVE_FROM_TENTHS = 6n;
+/** ...for at most this many ticks out of twice as many. */
+const DOME_SAVE_MAX_TICKS = 3000; // 5 minutes
+/** Structures a nation prefers to put under its Domes when threatened. */
+const SHELTERED_TYPES: ReadonlySet<UnitType> = new Set([
+  UnitType.City,
+  UnitType.Port,
+  UnitType.Factory,
+  UnitType.MissileSilo,
+  UnitType.SAMLauncher,
+]);
+/** Extra spots sampled under our Domes when placing a structure. */
+const SHELTER_SAMPLES = 10;
+/**
+ * The bonus for a spot under a Dome halves once the Dome covers this many
+ * of the type, and keeps fading after.
+ */
+const SHELTER_CROWD = 4;
+/** Upgrade score for a structure under one of our Domes (a SAM gives 10). */
+const SHELTERED_UPGRADE_SCORE = 20;
+
 // Reusable neighbor buffer for hot loops; the simulation is single-threaded.
 const NEIGHBOR_SCRATCH: TileRef[] = [0, 0, 0, 0];
 
@@ -191,6 +238,16 @@ export class NationStructureBehavior {
   private _postSaveUpStartTick: number | null = null;
   /** Derpy Front: when we last saw an enemy nuke heading for our land. */
   private nukedTick: number | null = null;
+  /** Derpy Front (rules 4+): recent [tick, target] of nukes sent at us. */
+  private nukeImpacts: [number, TileRef][] = [];
+  /** Derpy Front (rules 4+): when we last ordered a Dome. */
+  private lastDomeTick: number | null = null;
+  /** Derpy Front (rules 4+): no Dome search before this tick. */
+  private domeRetryTick: number | null = null;
+  /** Derpy Front (rules 4+): saving for a Dome until this tick. */
+  private domeSavingUntil: number | null = null;
+  /** Derpy Front (rules 4+): when this spell of saving for a Dome began. */
+  private domeSaveStartTick: number | null = null;
 
   constructor(
     private random: PseudoRandom,
@@ -210,6 +267,13 @@ export class NationStructureBehavior {
       hasHighStartingGold: this._hasHighStartingGold,
       postSaveUpStartTick: this._postSaveUpStartTick,
       nukedTick: this.nukedTick,
+      nukeImpacts: this.nukeImpacts.map(
+        ([tick, tile]) => [tick, tile] as [number, number],
+      ),
+      lastDomeTick: this.lastDomeTick,
+      domeRetryTick: this.domeRetryTick,
+      domeSavingUntil: this.domeSavingUntil,
+      domeSaveStartTick: this.domeSaveStartTick,
     });
   }
 
@@ -232,16 +296,29 @@ export class NationStructureBehavior {
     this._hasHighStartingGold = s.hasHighStartingGold;
     this._postSaveUpStartTick = s.postSaveUpStartTick;
     this.nukedTick = s.nukedTick ?? null;
+    this.nukeImpacts = s.nukeImpacts.map(([tick, tile]) => [tick, tile]);
+    this.lastDomeTick = s.lastDomeTick;
+    this.domeRetryTick = s.domeRetryTick;
+    this.domeSavingUntil = s.domeSavingUntil;
+    this.domeSaveStartTick = s.domeSaveStartTick;
   }
 
   handleStructures(): boolean {
+    // Derpy Front (rules 4+): whatever we build, note the nukes at us.
+    if (this.game.config().derpyRules() >= 4) this.noteNukesAtUs();
     // Derpy Front: guarding the Capital comes first, outside the normal
     // pacing (like defense posts below).
     if (this.tryProtectCapital()) {
       return true;
     }
-    // Derpy Front: once nuked, a rich nation shields what it has with a Dome.
-    if (this.tryBuildDome()) {
+    if (this.game.config().derpyRules() >= 4) {
+      // Derpy Front (rules 4+): guard our Domes' land, and raise a Dome
+      // over what matters once a foe can nuke us.
+      if (this.tryGuardDomes() || this.tryBuildSmartDome()) {
+        return true;
+      }
+    } else if (this.tryBuildDome()) {
+      // Derpy Front: once nuked, a rich nation shields what it has with a Dome.
       return true;
     }
 
@@ -266,6 +343,10 @@ export class NationStructureBehavior {
       return false;
     }
     if (this.isInPostSaveUpBlockedPhase()) {
+      return false;
+    }
+    // Derpy Front (rules 4+): nothing new while saving for a Dome
+    if (this.savingForDome() !== null) {
       return false;
     }
     const built = this.doHandleStructures();
@@ -396,6 +477,232 @@ export class NationStructureBehavior {
     return scored.slice(0, 5).map((s) => s.tile);
   }
 
+  /**
+   * Derpy Front (rules 4+): raises a Dome of Alden before the bombs fall.
+   * Once a foe can nuke us (it has a silo and a bomb's price, and a reason:
+   * it borders us, we fight, we hate each other, or it is a human), Medium
+   * and up build one over the most threatened value no Dome of ours covers,
+   * if that is worth it and they keep a quarter of the price in hand. Once
+   * a nuke has come at us, every difficulty builds one wherever it covers
+   * enough, at the bare price. Under a heavy land attack a Dome waits until
+   * the nation could pay for it twice, so its land defence comes first.
+   * One at a time, a minute apart before we are nuked, at most three then.
+   * A nation already holding 60% of the price of its first saves the rest
+   * (see savingForDome).
+   */
+  private tryBuildSmartDome(): boolean {
+    const config = this.game.config();
+    if (config.isUnitDisabled(UnitType.Dome)) return false;
+    const domes = this.player.units(UnitType.Dome);
+    if (domes.length >= config.domeLimit()) return false;
+    if (domes.some((d) => d.isUnderConstruction())) return false;
+    const ticks = this.game.ticks();
+    if (this.domeRetryTick !== null && ticks < this.domeRetryTick) {
+      return false;
+    }
+    const nuked = this.nukedTick !== null;
+    if (!nuked) {
+      if (config.gameConfig().difficulty === Difficulty.Easy) return false;
+      if (!this.nukesPossible()) return false;
+      if (domes.length >= MAX_PREEMPTIVE_DOMES) return false;
+      if (
+        this.lastDomeTick !== null &&
+        ticks - this.lastDomeTick < DOME_COOLDOWN_TICKS
+      ) {
+        return false;
+      }
+    }
+    const pressed = this.underLandPressure();
+    const needed = this.domePrice(pressed);
+    const gold = this.player.gold();
+    if (gold < needed) {
+      if (
+        pressed ||
+        domes.length > 0 ||
+        config.gameConfig().difficulty === Difficulty.Easy ||
+        gold * 10n < needed * DOME_SAVE_FROM_TENTHS ||
+        this.savingForDome() !== null ||
+        !this.mayStartSaving(ticks)
+      ) {
+        return false;
+      }
+      // Most of the way there: save the rest if a Dome is worth it
+      if (this.worthyDomeSpot(nuked) !== null) {
+        this.domeSavingUntil = ticks + DOME_RETRY_TICKS;
+        this.domeSaveStartTick ??= ticks;
+      }
+      return false;
+    }
+
+    const spot = this.worthyDomeSpot(nuked);
+    if (spot === null) return false;
+    this.game.addExecution(
+      new ConstructionExecution(this.player, UnitType.Dome, spot),
+    );
+    this.lastDomeTick = ticks;
+    this.domeRetryTick = null;
+    this.domeSavingUntil = null;
+    this.domeSaveStartTick = null;
+    return true;
+  }
+
+  /**
+   * Saving for a Dome goes on for at most five minutes, then rests as long,
+   * so a nation whose income can't get it there doesn't sit on its gold.
+   */
+  private mayStartSaving(ticks: number): boolean {
+    const start = this.domeSaveStartTick;
+    if (start === null || ticks - start < DOME_SAVE_MAX_TICKS) return true;
+    if (ticks - start < 2 * DOME_SAVE_MAX_TICKS) return false;
+    this.domeSaveStartTick = null;
+    return true;
+  }
+
+  /**
+   * Gold a nation wants in hand to build a Dome: the price after a nuke has
+   * come at it, a quarter more before, and the price again on top while a
+   * land attack presses it.
+   */
+  private domePrice(pressed: boolean): Gold {
+    const cost = this.cost(UnitType.Dome);
+    const price = this.nukedTick !== null ? cost : (cost * 5n) / 4n;
+    return pressed ? price + cost : price;
+  }
+
+  /**
+   * Where a Dome would be worth building now (it newly covers enough of
+   * what a foe could nuke), or null; when nothing is, we look again in 30
+   * seconds.
+   */
+  private worthyDomeSpot(nuked: boolean): TileRef | null {
+    const threat = this.nukeThreat();
+    if (!threatIsReal(threat)) return null;
+    const spot = bestDomeSpot(this.game, this.player, threat);
+    const minPoints = nuked
+      ? DOME_MIN_POINTS_NUKED
+      : DOME_MIN_POINTS_PREEMPTIVE;
+    // Scores are points times the threat percent
+    if (spot === null || spot.score < minPoints * 100) {
+      this.domeRetryTick = this.game.ticks() + DOME_RETRY_TICKS;
+      return null;
+    }
+    return spot.tile;
+  }
+
+  /**
+   * Derpy Front (rules 4+): the gold we are holding for a Dome, or null if
+   * we aren't saving for one. A nation of Medium or up with no Dome yet
+   * that holds 60% of a worthwhile Dome's price, and no land attack
+   * presses, saves the rest: it starts no new buildings (defense posts and
+   * its Capital's SAMs still go up), and holds the bombs that would cut
+   * into the price unless it is being overrun (NationNukeBehavior). The
+   * decision lasts 30 seconds and is then looked at again, for at most five
+   * minutes out of ten.
+   */
+  savingForDome(): Gold | null {
+    if (
+      this.domeSavingUntil === null ||
+      this.game.ticks() >= this.domeSavingUntil ||
+      this.game.config().derpyRules() < 4
+    ) {
+      return null;
+    }
+    return this.domePrice(false);
+  }
+
+  /** Whether anyone in this game could build a silo and fire a nuke. */
+  private nukesPossible(): boolean {
+    const config = this.game.config();
+    return (
+      !config.isUnitDisabled(UnitType.MissileSilo) &&
+      (!config.isUnitDisabled(UnitType.AtomBomb) ||
+        !config.isUnitDisabled(UnitType.HydrogenBomb) ||
+        !config.isUnitDisabled(UnitType.MIRV))
+    );
+  }
+
+  /**
+   * Derpy Front (rules 4+): remembers every foe's nuke flying at our land,
+   * and where it was aimed, for a few minutes.
+   */
+  private noteNukesAtUs(): void {
+    const ticks = this.game.ticks();
+    this.nukeImpacts = this.nukeImpacts.filter(
+      ([tick]) => ticks - tick <= NUKE_IMPACT_MEMORY_TICKS,
+    );
+    const nukes = this.game.units([
+      UnitType.AtomBomb,
+      UnitType.HydrogenBomb,
+      UnitType.MIRV,
+      UnitType.MIRVWarhead,
+    ]);
+    for (const nuke of nukes) {
+      if (nuke.owner() === this.player) continue;
+      const target = nuke.targetTile();
+      if (target === undefined || this.game.owner(target) !== this.player) {
+        continue;
+      }
+      this.nukedTick = ticks;
+      if (this.nukeImpacts.some(([, t]) => t === target)) continue;
+      this.nukeImpacts.push([ticks, target]);
+      if (this.nukeImpacts.length > NUKE_IMPACT_MEMORY) {
+        this.nukeImpacts.shift();
+      }
+    }
+  }
+
+  /** Derpy Front (rules 4+): the nuclear threat to us right now. */
+  private nukeThreat(): NukeThreat {
+    return readNukeThreat(
+      this.game,
+      this.player,
+      this.nukedTick !== null,
+      this.nukeImpacts.map(([, tile]) => tile),
+    );
+  }
+
+  /** Incoming land attacks at least this share of our troops. */
+  private underLandPressure(): boolean {
+    const ourTroops = this.player.troops();
+    if (ourTroops <= 0) return false;
+    let incoming = 0;
+    for (const a of this.player.incomingAttacks()) {
+      if (a.sourceTile() === null) incoming += a.troops();
+    }
+    return incoming / ourTroops >= UNDER_ATTACK_THREAT_RATIO;
+  }
+
+  /**
+   * Derpy Front (rules 4+): a Dome is taken with its land, so on Hard and
+   * up a land attack that gets within half its range of one of our Domes
+   * meets a defense post (stacked on Impossible), as at the Capital.
+   */
+  private tryGuardDomes(): boolean {
+    const config = this.game.config();
+    const { difficulty } = config.gameConfig();
+    if (
+      difficulty !== Difficulty.Hard &&
+      difficulty !== Difficulty.Impossible
+    ) {
+      return false;
+    }
+    if (config.isUnitDisabled(UnitType.DefensePost)) return false;
+    const domes = this.player
+      .units(UnitType.Dome)
+      .filter((d) => !d.isUnderConstruction());
+    if (domes.length === 0) return false;
+    const landAttacks = this.player
+      .incomingAttacks()
+      .filter((a) => a.sourceTile() === null);
+    if (landAttacks.length === 0) return false;
+    const front = this.getAttackFrontTiles(landAttacks);
+    const guard = Math.floor(config.domeRange() / 2);
+    for (const dome of domes) {
+      if (this.guardFront(dome.tile(), guard, front, difficulty)) return true;
+    }
+    return false;
+  }
+
   private tryCoverCapitalWithSams(capital: Unit, difficulty: Difficulty) {
     const wanted = CAPITAL_GUARD_SAMS[difficulty];
     const config = this.game.config();
@@ -456,15 +763,33 @@ export class NationStructureBehavior {
       .filter((a) => a.sourceTile() === null);
     if (landAttacks.length === 0) return false;
 
+    return this.guardFront(
+      capital.tile(),
+      config.capitalDefenseRange() + 40,
+      this.getAttackFrontTiles(landAttacks),
+      difficulty,
+    );
+  }
+
+  /**
+   * Puts a defense post on the part of an attack front within `guard` of
+   * `center`, or on Impossible upgrades the one already there.
+   */
+  private guardFront(
+    center: TileRef,
+    guard: number,
+    attackFront: TileRef[],
+    difficulty: Difficulty,
+  ): boolean {
+    const config = this.game.config();
     const game = this.game;
-    const guard = config.capitalDefenseRange() + 40;
-    const front = this.getAttackFrontTiles(landAttacks).filter(
-      (t) => game.euclideanDistSquared(t, capital.tile()) <= guard * guard,
+    const front = attackFront.filter(
+      (t) => game.euclideanDistSquared(t, center) <= guard * guard,
     );
     if (front.length === 0) return false;
 
     if (this.countDefensePostsNearFront(front, 1) >= 1) {
-      // Impossible stacks the post guarding the Capital's front.
+      // Impossible stacks the post guarding this front.
       if (difficulty !== Difficulty.Impossible) return false;
       const { borderSpacing } = this.spacingConstants();
       const near = (borderSpacing * 3) / 2;
@@ -1143,6 +1468,9 @@ export class NationStructureBehavior {
     }
 
     const samLaunchers = this.player.units(UnitType.SAMLauncher);
+    // Derpy Front (rules 4+): under a real nuclear threat, prefer to grow
+    // what our Domes shield.
+    const shelters = this.upgradeShelters();
 
     // Score each structure based on SAM protection
     const scored: { structure: Unit; score: number }[] = [];
@@ -1165,6 +1493,14 @@ export class NationStructureBehavior {
             score += (sam.level() - 1) * 7.5;
           }
         }
+      }
+
+      if (
+        shelters.some(
+          (d) => game.euclideanDistSquared(d, structure.tile()) <= shelters.r2,
+        )
+      ) {
+        score += SHELTERED_UPGRADE_SCORE;
       }
 
       // Add small random factor to break ties
@@ -1192,21 +1528,46 @@ export class NationStructureBehavior {
     return scored[0].structure;
   }
 
+  /**
+   * Derpy Front (rules 4+): our finished Domes' tiles when a foe can nuke us
+   * (none otherwise), with their range squared.
+   */
+  private upgradeShelters(): TileRef[] & { r2: number } {
+    const config = this.game.config();
+    const none = Object.assign([] as TileRef[], { r2: 0 });
+    if (config.derpyRules() < 4) return none;
+    const domes = this.player
+      .units(UnitType.Dome)
+      .filter((d) => !d.isUnderConstruction())
+      .map((d) => d.tile());
+    if (domes.length === 0 || !threatIsReal(this.nukeThreat())) return none;
+    return Object.assign(domes, { r2: config.domeRange() ** 2 });
+  }
+
   private structureSpawnTile(type: UnitType): TileRef | null {
     // Derpy Front: a strategic Capital looks at more spots and scores them
     // for safety instead of like a city.
     const strategicCapital =
       type === UnitType.Capital && this.placesCapitalStrategically();
     const samples = strategicCapital ? CAPITAL_STRATEGIC_SAMPLES : 25;
-    const tiles =
+    const coastal = type === UnitType.Port ? this.coastalTiles() : [];
+    let tiles =
       type === UnitType.Port
-        ? this.randCoastalTileArray(samples)
+        ? Array.from(this.arraySampler(coastal, samples))
         : randTerritoryTileArray(this.random, this.game, this.player, samples);
+    // Derpy Front (rules 4+): under a real nuclear threat, also look under
+    // our Domes, first, so a tie goes to the sheltered spot.
+    const shelter = this.shelter(type, coastal);
+    if (shelter !== null) tiles = shelter.tiles.concat(tiles);
     if (tiles.length === 0) return null;
-    const valueFunction = strategicCapital
+    const baseValue = strategicCapital
       ? this.strategicCapitalValue()
       : this.structureSpawnTileValue(type);
-    if (valueFunction === null) return null;
+    if (baseValue === null) return null;
+    const valueFunction =
+      shelter === null
+        ? baseValue
+        : (t: TileRef) => baseValue(t) + shelter.bonus(t);
     let bestTile: TileRef | null = null;
     let bestValue = 0;
     for (const t of tiles) {
@@ -1220,10 +1581,10 @@ export class NationStructureBehavior {
     return bestTile;
   }
 
-  /** Samples shore tiles adjacent to water reachable by another player (=> trading possible) */
-  private randCoastalTileArray(numTiles: number): TileRef[] {
+  /** Shore tiles adjacent to water reachable by another player (=> trading possible) */
+  private coastalTiles(): TileRef[] {
     const shared = this._sharedWaterComponents;
-    const tiles = Array.from(this.player.borderTiles()).filter((t) => {
+    return Array.from(this.player.borderTiles()).filter((t) => {
       if (!this.game.isShore(t)) return false;
       if (shared === null) return false;
       for (const neighbor of this.game.neighbors(t)) {
@@ -1243,7 +1604,80 @@ export class NationStructureBehavior {
       }
       return false;
     });
-    return Array.from(this.arraySampler(tiles, numTiles));
+  }
+
+  /**
+   * Derpy Front (rules 4+): when a foe can nuke us and we have finished
+   * Domes, where to also look for a new city, port, factory, silo or SAM:
+   * spots well inside our Domes (shore spots for a port), and a bonus for a
+   * spot under one, worth a structure spacing, that fades with each
+   * building of the type the Dome already covers (to half at four), so the
+   * type spreads over our Domes instead of piling up. The usual spacing
+   * from buildings of the same type still counts.
+   * Null when none of that applies.
+   */
+  private shelter(
+    type: UnitType,
+    coastal: readonly TileRef[],
+  ): { tiles: TileRef[]; bonus: (t: TileRef) => number } | null {
+    const game = this.game;
+    if (game.config().derpyRules() < 4 || !SHELTERED_TYPES.has(type)) {
+      return null;
+    }
+    const domes = this.player
+      .units(UnitType.Dome)
+      .filter((d) => !d.isUnderConstruction())
+      .map((d) => d.tile());
+    if (domes.length === 0) return null;
+    if (!threatIsReal(this.nukeThreat())) return null;
+
+    const range = game.config().domeRange();
+    const range2 = range * range;
+    const inside = (t: TileRef) =>
+      domes.some((d) => game.euclideanDistSquared(d, t) <= range2);
+    // How many of this type each Dome already covers
+    const crowd = domes.map(
+      (d) =>
+        this.player
+          .units(type)
+          .filter((u) => game.euclideanDistSquared(d, u.tile()) <= range2)
+          .length,
+    );
+
+    let tiles: TileRef[];
+    if (type === UnitType.Port) {
+      tiles = Array.from(
+        this.arraySampler(coastal.filter(inside), SHELTER_SAMPLES),
+      );
+    } else {
+      // Well inside, so the build spot a few tiles off still falls under it
+      const r = Math.floor((range * 4) / 5);
+      tiles = [];
+      for (let i = 0; i < SHELTER_SAMPLES; i++) {
+        const d = this.random.randElement(domes);
+        const x = game.x(d) + this.random.nextInt(-r, r + 1);
+        const y = game.y(d) + this.random.nextInt(-r, r + 1);
+        if (!game.isValidCoord(x, y)) continue;
+        const t = game.ref(x, y);
+        if (game.euclideanDistSquared(d, t) > r * r) continue;
+        if (game.owner(t) !== this.player) continue;
+        tiles.push(t);
+      }
+    }
+
+    const { structureSpacing } = this.spacingConstants();
+    const bonus = (t: TileRef): number => {
+      let fewest = Infinity;
+      for (let i = 0; i < domes.length; i++) {
+        if (game.euclideanDistSquared(domes[i], t) > range2) continue;
+        fewest = Math.min(fewest, crowd[i]);
+      }
+      if (fewest === Infinity) return 0;
+      return Math.floor(
+        (structureSpacing * SHELTER_CROWD) / (SHELTER_CROWD + fewest),
+      );
+    };
+    return { tiles, bonus };
   }
 
   private *arraySampler<T>(a: T[], sampleSize: number): Generator<T> {
@@ -1767,7 +2201,7 @@ export class NationStructureBehavior {
 
 export const NationStructureBehaviorSnapshot = snapshotType({
   name: "NationStructureBehavior",
-  version: 1,
+  version: 2,
   schema: z.object({
     lastStructureTick: zInt().nullable(),
     placementsCount: zInt(),
@@ -1775,5 +2209,21 @@ export const NationStructureBehaviorSnapshot = snapshotType({
     hasHighStartingGold: z.boolean().nullable(),
     postSaveUpStartTick: zInt().nullable(),
     nukedTick: zInt().nullable().optional(),
+    nukeImpacts: z.array(z.tuple([zInt(), zTile()])),
+    lastDomeTick: zInt().nullable(),
+    domeRetryTick: zInt().nullable(),
+    domeSavingUntil: zInt().nullable(),
+    domeSaveStartTick: zInt().nullable(),
   }),
+  migrations: {
+    // v1 nations kept no Dome memory (rules 4 adds it)
+    1: (d) => ({
+      ...d,
+      nukeImpacts: [],
+      lastDomeTick: null,
+      domeRetryTick: null,
+      domeSavingUntil: null,
+      domeSaveStartTick: null,
+    }),
+  },
 });
