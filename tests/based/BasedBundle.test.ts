@@ -73,6 +73,19 @@ function graph(entry: string): { files: Set<string>; specs: string[] } {
 const story = parseChapter(
   fs.readFileSync(path.join(ROOT, "src/based/story/chapter-01.story"), "utf8"),
 ).chapter;
+// r21: words the places put on signs and posters, and the skills' words.
+const placeWords = fs
+  .readdirSync(path.join(ROOT, "src/based/places"))
+  .filter((f) => f.endsWith(".json"))
+  .flatMap((f) =>
+    (
+      JSON.parse(
+        fs.readFileSync(path.join(ROOT, "src/based/places", f), "utf8"),
+      ) as { items: { kind: string; text?: string }[] }
+    ).items
+      .filter((i) => (i.kind === "sign" || i.kind === "poster") && i.text)
+      .map((i) => i.text!),
+  );
 
 // Lines only the story has: names of its people, and some of its words.
 const SENTINELS = [
@@ -81,6 +94,9 @@ const SENTINELS = [
   "TENIR PAROLE",
   "Le Serment",
   "CLOVIS",
+  ...new Set(placeWords.filter((w) => w.length > 5)),
+  ...story.archetypes.map((a) => a.about),
+  ...story.skills.map((s) => s.about),
 ];
 
 describe.each(["src/based/client/Main.ts", "src/hub/Main.ts"])(
@@ -91,7 +107,9 @@ describe.each(["src/based/client/Main.ts", "src/hub/Main.ts"])(
 
     test("no chapter, picture, sound or server code", () => {
       expect(
-        rel.filter((f) => /^src\/based\/(story|art|audio)\//.test(f)),
+        rel.filter((f) =>
+          /^src\/based\/(story|art|audio|places|models)\//.test(f),
+        ),
       ).toEqual([]);
       expect(rel.filter((f) => f.startsWith("src/server/"))).toEqual([]);
       expect(

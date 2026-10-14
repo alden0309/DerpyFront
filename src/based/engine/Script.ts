@@ -201,7 +201,8 @@ export function parseChapter(text: string): ParseResult {
   for (let idx = 0; idx < lines.length; idx++) {
     const n = idx + 1;
     const raw = lines[idx];
-    const line = raw.trim();
+    // A comment can also end a line, after a space: "text  // note".
+    const line = raw.replace(/\s\/\/\s.*$/, "").trim();
     if (line === "" || line.startsWith("//")) continue;
 
     // A new scene.
@@ -250,6 +251,12 @@ export function parseChapter(text: string): ParseResult {
           const member: CastMember = { id, name: pos[1] ?? id };
           if (kv.portrait) member.portrait = kv.portrait;
           if (kv.look) member.look = kv.look;
+          if (kv.body) {
+            if (!castIds.has(kv.body)) {
+              err(n, `@cast ${id}: body=${kv.body} must be cast above it`);
+            }
+            member.body = kv.body;
+          }
           chapter.cast.push(member);
           castIds.add(id);
           break;
@@ -439,7 +446,10 @@ export function parseChapter(text: string): ParseResult {
       }
       if (opt.check) {
         if (m[5]) {
-          err(n, `a check option can't jump with "->": put the jump in its text`);
+          err(
+            n,
+            `a check option can't jump with "->": put the jump in its text`,
+          );
         }
         f.check = emit({
           op: "check",
@@ -473,6 +483,15 @@ export function parseChapter(text: string): ParseResult {
           | "focus"
           | "vignette";
         emit({ op: kind, key, src: n });
+        continue;
+      }
+      case "@gesture": {
+        const ws = words(rest);
+        if (!castIds.has(ws[0] ?? "")) {
+          err(n, `@gesture: "${ws[0] ?? ""}" isn't in the cast`);
+        }
+        if (!/^[a-z_]+$/.test(ws[1] ?? "")) err(n, "@gesture WHO name");
+        emit({ op: "gesture", who: ws[0] ?? "", name: ws[1] ?? "", src: n });
         continue;
       }
       case "@show":
@@ -553,8 +572,9 @@ export function parseChapter(text: string): ParseResult {
       }
       case "bonus": {
         // A modifier on the open option's check or deduction.
-        const m =
-          /^([+-]\d+)\s+(?:if\s+(.+?)\s+)?"((?:[^"\\]|\\.)*)"$/.exec(rest);
+        const m = /^([+-]\d+)\s+(?:if\s+(.+?)\s+)?"((?:[^"\\]|\\.)*)"$/.exec(
+          rest,
+        );
         const spec: CheckSpec | undefined =
           f?.kind === "choose" && f.check >= 0
             ? (scene.ops[f.check] as Extract<Op, { op: "check" }>).spec

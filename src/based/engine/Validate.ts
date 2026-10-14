@@ -446,7 +446,8 @@ function checkPlaces(
       const where = `${op.src}:${now}`;
       const once = !checked.has(`${id}@${where}`);
       checked.add(`${id}@${where}`);
-      const names = now !== null && places?.[now] ? placeNames(places[now]) : null;
+      const names =
+        now !== null && places?.[now] ? placeNames(places[now]) : null;
       const need = (
         what: "marks" | "hotspots" | "shots" | "props",
         key: string,
@@ -454,7 +455,12 @@ function checkPlaces(
       ) => {
         if (!once || names === null) return;
         if (!names[what].has(key)) {
-          add("error", id, op.src, `${label} "${key}" isn't in the place "${now}"`);
+          add(
+            "error",
+            id,
+            op.src,
+            `${label} "${key}" isn't in the place "${now}"`,
+          );
         }
       };
       switch (op.op) {
@@ -482,7 +488,12 @@ function checkPlaces(
           for (const s of op.spots) {
             if (s.anchor !== undefined) {
               if (now === null && once) {
-                add("error", id, op.src, `spot ${s.id} is on a hotspot, but there's no @place`);
+                add(
+                  "error",
+                  id,
+                  op.src,
+                  `spot ${s.id} is on a hotspot, but there's no @place`,
+                );
               }
               need("hotspots", s.anchor, "hotspot");
             }

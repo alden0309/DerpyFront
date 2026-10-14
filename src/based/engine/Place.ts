@@ -106,8 +106,6 @@ export function placeNames(p: PlaceDef): {
     marks: new Set(Object.keys(p.marks)),
     hotspots: new Set(Object.keys(p.hotspots)),
     shots: new Set(Object.keys(p.shots)),
-    props: new Set(
-      p.items.map((i) => i.id).filter((x): x is string => !!x),
-    ),
+    props: new Set(p.items.map((i) => i.id).filter((x): x is string => !!x)),
   };
 }

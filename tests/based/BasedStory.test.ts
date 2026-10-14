@@ -6,6 +6,8 @@
 import fs from "fs";
 import path from "path";
 import { describe, expect, test } from "vitest";
+import { NavGrid } from "../../src/based/engine/Nav";
+import { PlaceDef } from "../../src/based/engine/Place";
 import { chapterStart, StoryRun } from "../../src/based/engine/Runtime";
 import { parseChapter } from "../../src/based/engine/Script";
 import { buildOf } from "../../src/based/engine/Skills";
@@ -28,6 +30,24 @@ const SOUNDS = new Set(
     .readdirSync(path.join(ROOT, "src/based/audio"))
     .filter((f) => f.endsWith(".mp3"))
     .map((f) => f.replace(/\.mp3$/, "")),
+);
+// r21: the 3D places and the models they're built from.
+const MODELS = new Set(
+  fs
+    .readdirSync(path.join(ROOT, "src/based/models"))
+    .filter((f) => f.endsWith(".glb"))
+    .map((f) => f.replace(/\.glb$/, "")),
+);
+const PLACES: Record<string, PlaceDef> = Object.fromEntries(
+  fs
+    .readdirSync(path.join(ROOT, "src/based/places"))
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => [
+      f.replace(/\.json$/, ""),
+      JSON.parse(
+        fs.readFileSync(path.join(ROOT, "src/based/places", f), "utf8"),
+      ) as PlaceDef,
+    ]),
 );
 
 function problems(src: string) {
@@ -123,12 +143,28 @@ describe("the art and sound", () => {
   };
   const credited = new Set(credits.items.flatMap((c) => c.keys));
 
-  test("every picture and sound is credited", () => {
-    expect([...ART, ...SOUNDS].filter((k) => !credited.has(k))).toEqual([]);
+  test("every picture, sound and model is credited", () => {
+    expect(
+      [...ART, ...SOUNDS, ...MODELS].filter((k) => !credited.has(k)),
+    ).toEqual([]);
     for (const c of credits.items) {
       expect(c.author.length).toBeGreaterThan(0);
       expect(c.license).toMatch(/^CC/);
       expect(c.source).toMatch(/^https:\/\//);
+    }
+  });
+
+  test("every model is a small, compressed glTF binary", () => {
+    expect([...MODELS].sort()).toEqual(["mannequin_f", "mannequin_m", "props"]);
+    for (const key of MODELS) {
+      const buf = fs.readFileSync(
+        path.join(ROOT, "src/based/models", `${key}.glb`),
+      );
+      expect(buf.subarray(0, 4).toString(), key).toBe("glTF");
+      expect(buf.length, key).toBeLessThanOrEqual(300_000);
+      // meshopt-compressed (the client decodes it).
+      const json = buf.subarray(20, 20 + buf.readUInt32LE(12)).toString();
+      expect(json, key).toContain("EXT_meshopt_compression");
     }
   });
 
@@ -144,6 +180,32 @@ describe("the art and sound", () => {
 
 const files = fs.readdirSync(STORY).filter((f) => f.endsWith(".story"));
 
+describe("the places (r21)", () => {
+  test.each(Object.keys(PLACES))("%s: every mark can be walked to", (key) => {
+    const p = PLACES[key];
+    expect(p.key).toBe(key);
+    const nav = new NavGrid(p.nav.bounds, p.nav.cell, p.nav.blocks);
+    const marks = Object.entries(p.marks);
+    expect(marks.length).toBeGreaterThan(0);
+    // From the first mark, every other mark has a path (the last step may
+    // be onto a stool, which is in the way of walking but not of sitting).
+    const [, from] = marks[0];
+    for (const [name, m] of marks) {
+      const path = nav.path(from.at, m.at);
+      expect(path, `${key}: no way to ${name}`).not.toBeNull();
+    }
+    // Hotspots that send him somewhere send him to a mark.
+    for (const [name, h] of Object.entries(p.hotspots)) {
+      if (h.stand) expect(p.marks, `${key}.${name}`).toHaveProperty(h.stand);
+    }
+    // Every room that can be cut away is inside the walkable plan.
+    for (const a of p.areas) {
+      expect(a.rect[0]).toBeGreaterThanOrEqual(p.nav.bounds[0]);
+      expect(a.rect[2]).toBeLessThanOrEqual(p.nav.bounds[2]);
+    }
+  });
+});
+
 describe("the chapters as written", () => {
   test("there is at least chapter one", () => {
     expect(files).toContain("chapter-01.story");
@@ -154,7 +216,11 @@ describe("the chapters as written", () => {
       fs.readFileSync(path.join(STORY, file), "utf8"),
     );
     expect(errors.map((e) => `line ${e.line}: ${e.message}`)).toEqual([]);
-    const found = validateChapter(chapter, { art: ART, sounds: SOUNDS });
+    const found = validateChapter(chapter, {
+      art: ART,
+      sounds: SOUNDS,
+      places: PLACES,
+    });
     expect(errorsOf(found).map(formatProblem)).toEqual([]);
     expect(file).toBe(`chapter-${String(chapter.n).padStart(2, "0")}.story`);
   });

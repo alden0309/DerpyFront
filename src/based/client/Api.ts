@@ -5,6 +5,7 @@
 import { DERPY_API } from "../../client/derpy/DerpySession";
 import { api, derpyToken } from "../../derpland/Account";
 import { FlowScene } from "../engine/Flow";
+import { PlaceDef } from "../engine/Place";
 import { BasedSave } from "../engine/Save";
 import { Chapter } from "../engine/Types";
 
@@ -37,6 +38,8 @@ export interface LoadedChapter {
   flow: FlowScene[];
   warnings: string[];
   credits: { note: string; items: Credit[] };
+  /** r21: the 3D places the chapter uses, by key. */
+  places: Record<string, PlaceDef>;
 }
 
 export interface Stats {
@@ -132,8 +135,11 @@ export async function notesFor(
 
 const blobs = new Map<string, Promise<string>>();
 
-/** A picture or sound as a local object URL, fetched with the session. */
-export function media(kind: "art" | "audio", key: string): Promise<string> {
+/** A picture, sound or model as a local object URL, fetched with the session. */
+export function media(
+  kind: "art" | "audio" | "model",
+  key: string,
+): Promise<string> {
   const id = `${kind}/${key}`;
   let p = blobs.get(id);
   if (p === undefined) {

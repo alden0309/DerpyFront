@@ -1,0 +1,239 @@
+{
+  "key": "elysee",
+  "name": "A room in the palace",
+  "camera": {
+    "azimuth": 32,
+    "elevation": 22
+  },
+  "nav": {
+    "bounds": [-6, -4, 6, 4.5],
+    "cell": 0.25,
+    "blocks": [[-6.1, -4.1, 6.1, -3.85]]
+  },
+  "areas": [
+    {
+      "id": "room",
+      "rect": [-6, -4, 6, 4.5],
+      "span": 9,
+      "inside": true
+    }
+  ],
+  "marks": {
+    "window_left": {
+      "at": [-0.5, -3.1],
+      "face": 180
+    },
+    "window_right": {
+      "at": [0.55, -3.0],
+      "face": 190
+    },
+    "room": {
+      "at": [0, 1],
+      "face": 180
+    }
+  },
+  "hotspots": {},
+  "shots": {
+    "window": {
+      "at": [0, 1.9, -3.2],
+      "span": 5.6
+    },
+    "room": {
+      "at": [0, 1.4, -1.5],
+      "span": 9
+    }
+  },
+  "items": [
+    {
+      "kind": "floor",
+      "at": [0, 0, 0],
+      "size": [12, 9],
+      "surface": "oak_dark"
+    },
+    {
+      "kind": "skyline",
+      "at": [0, -1.0, -9.5],
+      "size": [34, 12]
+    },
+    {
+      "kind": "floor",
+      "at": [0, -0.05, -7],
+      "size": [40, 6],
+      "surface": "asphalt"
+    },
+    {
+      "kind": "wall",
+      "at": [0, 0, 0],
+      "from": [-6, -4],
+      "to": [6, -4],
+      "surface": "wallpaper",
+      "outer": "stone",
+      "h": 5.2,
+      "dado": {
+        "h": 1.0,
+        "surface": "oak_dark"
+      },
+      "holes": [
+        {
+          "at": 6.0,
+          "w": 2.0,
+          "h": 3.9,
+          "y": 0.15,
+          "kind": "window",
+          "glow": "#d9884a",
+          "strength": 0.55,
+          "opacity": 0.35
+        },
+        {
+          "at": 2.2,
+          "w": 1.6,
+          "h": 3.6,
+          "y": 0.3,
+          "kind": "window",
+          "glow": "#b8743e",
+          "strength": 0.35,
+          "opacity": 0.45
+        },
+        {
+          "at": 9.8,
+          "w": 1.6,
+          "h": 3.6,
+          "y": 0.3,
+          "kind": "window",
+          "glow": "#b8743e",
+          "strength": 0.35,
+          "opacity": 0.45
+        }
+      ]
+    },
+    {
+      "kind": "wall",
+      "at": [0, 0, 0],
+      "from": [-6, 4.5],
+      "to": [-6, -4],
+      "surface": "wallpaper",
+      "outer": "stone",
+      "h": 5.2,
+      "dado": {
+        "h": 1.0,
+        "surface": "oak_dark"
+      }
+    },
+    {
+      "kind": "wall",
+      "at": [0, 0, 0],
+      "from": [6, 4.5],
+      "to": [-6, 4.5],
+      "surface": "wallpaper",
+      "outer": "stone",
+      "h": 5.2,
+      "dado": {
+        "h": 1.0,
+        "surface": "oak_dark"
+      },
+      "cut": "room"
+    },
+    {
+      "kind": "wall",
+      "at": [0, 0, 0],
+      "from": [6, -4],
+      "to": [6, 4.5],
+      "surface": "wallpaper",
+      "outer": "stone",
+      "h": 5.2,
+      "dado": {
+        "h": 1.0,
+        "surface": "oak_dark"
+      },
+      "cut": "room"
+    },
+    {
+      "kind": "curtain",
+      "at": [-1.25, 0, -3.7],
+      "size": [0.8, 4.4],
+      "color": "#3a0d10"
+    },
+    {
+      "kind": "curtain",
+      "at": [1.25, 0, -3.7],
+      "size": [0.8, 4.4],
+      "color": "#3a0d10"
+    },
+    {
+      "kind": "box",
+      "at": [2.8, 0, -0.6],
+      "size": [2.0, 0.78, 1.0],
+      "mat": "oak_dark"
+    },
+    {
+      "kind": "lamp",
+      "at": [3.3, 0.78, -0.7],
+      "style": "banker",
+      "light": {
+        "color": "#ffb36a",
+        "intensity": 0.0,
+        "distance": 0.1
+      }
+    },
+    {
+      "kind": "model",
+      "at": [2.8, 0, 0.3],
+      "model": "chairCushion",
+      "height": 1.05,
+      "rot": 180,
+      "mats": {
+        "wood": "oak_dark",
+        "carpet": "leather"
+      }
+    },
+    {
+      "kind": "model",
+      "at": [-3.5, 0, 1.5],
+      "model": "loungeChair",
+      "height": 0.95,
+      "rot": 60,
+      "mats": {
+        "carpet": "leather_dark",
+        "wood": "oak_dark"
+      }
+    },
+    {
+      "kind": "box",
+      "at": [-5.5, 0, -2.0],
+      "size": [0.6, 2.4, 1.6],
+      "mat": "oak_dark"
+    }
+  ],
+  "lights": [
+    {
+      "kind": "spot",
+      "at": [0, 3.0, -9],
+      "to": [0, 0.8, -1.5],
+      "color": "#e08a46",
+      "intensity": 70,
+      "distance": 16,
+      "angle": 30,
+      "penumbra": 0.7,
+      "shadow": true
+    },
+    {
+      "kind": "point",
+      "at": [0, 1.6, -4.6],
+      "color": "#d9884a",
+      "intensity": 4,
+      "distance": 5
+    },
+    {
+      "kind": "hemi",
+      "color": "#1a2238",
+      "ground": "#050404",
+      "intensity": 0.25
+    }
+  ],
+  "env": {
+    "background": "#030406",
+    "fog": "#120c0a",
+    "fogDensity": 0.02,
+    "exposure": 1.15
+  }
+}

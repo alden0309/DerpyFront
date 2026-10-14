@@ -1,5 +1,6 @@
 // Mr. Based's settings, kept in this browser: timed choices on or off, how
-// fast text types in, and the sound.
+// fast text types in, the sound, whether the things he can look at are
+// marked, and how fine the pictures are.
 
 export type TextSpeed = "slow" | "normal" | "fast" | "instant";
 
@@ -8,6 +9,10 @@ export interface Prefs {
   speed: TextSpeed;
   sound: boolean;
   volume: number;
+  /** r21: mark every hotspot (otherwise only on hover, or holding Tab). */
+  marks: boolean;
+  /** r21: the 3D pictures' quality. */
+  quality: "auto" | "high" | "low";
 }
 
 const KEY = "based_prefs";
@@ -16,6 +21,8 @@ const DEFAULTS: Prefs = {
   speed: "normal",
   sound: true,
   volume: 0.7,
+  marks: false,
+  quality: "auto",
 };
 
 export function loadPrefs(): Prefs {

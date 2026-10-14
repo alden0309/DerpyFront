@@ -6,14 +6,7 @@
 // after the scene it's in has been rewritten. Pure and deterministic: no
 // clock, no Math.random. The dice come from a seed kept in the save (Dice.ts).
 
-import {
-  chance,
-  passes,
-  passive,
-  percent,
-  rollDice,
-  tierName,
-} from "./Dice";
+import { chance, passes, passive, percent, rollDice, tierName } from "./Dice";
 import { evalExpr, Values } from "./Expr";
 import { Boost, defaultBuild, skillValues } from "./Skills";
 import {
@@ -78,6 +71,7 @@ export type StoryEvent =
   | { type: "remember"; who: string }
   | { type: "actor"; who: string; state: ActorState | null; walk: boolean }
   | { type: "prop"; key: string; on: boolean }
+  | { type: "gesture"; who: string; name: string }
   | { type: "boost"; skill: string; delta: number; why: string }
   | { type: "end" };
 
@@ -447,9 +441,7 @@ export class StoryRun {
     const memo = this.checks[id];
     const locked =
       memo !== undefined &&
-      (memo.result === "pass" ||
-        spec.kind === "red" ||
-        bonus <= memo.bonus);
+      (memo.result === "pass" || spec.kind === "red" || bonus <= memo.bonus);
     return {
       skill: spec.skill,
       diff: spec.diff,
@@ -623,6 +615,10 @@ export class StoryRun {
             state: op.state ? { ...op.state } : null,
             walk: op.walk,
           });
+          this.ip++;
+          break;
+        case "gesture":
+          this.pending.push({ type: "gesture", who: op.who, name: op.name });
           this.ip++;
           break;
         case "prop":

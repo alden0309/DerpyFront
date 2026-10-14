@@ -160,9 +160,7 @@ describe("skills and builds", () => {
 -> END
 `);
     const m = errors.map((e) => `${e.line}: ${e.message}`);
-    expect(m.some((x) => x.startsWith('4: @skill MEMORY: "BRAWN"'))).toBe(
-      true,
-    );
+    expect(m.some((x) => x.startsWith('4: @skill MEMORY: "BRAWN"'))).toBe(true);
     expect(m.some((x) => x.includes("signature=NOPE"))).toBe(true);
     expect(m.some((x) => x.includes("add up to 3, not @points 4"))).toBe(true);
     expect(m.some((x) => x.startsWith('9: "GHOST" isn\'t a @skill'))).toBe(
@@ -501,7 +499,11 @@ end
       key: "bar",
       name: "Bar",
       camera: { azimuth: 45, elevation: 35 },
-      nav: { bounds: [0, 0, 1, 1] as [number, number, number, number], cell: 0.5, blocks: [] },
+      nav: {
+        bounds: [0, 0, 1, 1] as [number, number, number, number],
+        cell: 0.5,
+        blocks: [],
+      },
       areas: [],
       marks: { stool_end: { at: [0, 0] as [number, number] } },
       hotspots: {},

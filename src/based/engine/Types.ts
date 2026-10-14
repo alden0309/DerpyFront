@@ -27,6 +27,11 @@ export interface CastMember {
   portrait?: string;
   /** How they're dressed in the 3D scenes (a look the client knows). */
   look?: string;
+  /**
+   * Another cast member who is the same person in the 3D scenes (someone
+   * known first by a description, then by name): speaking moves that body.
+   */
+  body?: string;
 }
 
 // --- Skills (r21) ----------------------------------------------------------
@@ -176,6 +181,7 @@ export type Op =
       src: number;
     }
   | { op: "focus"; key: string | null; src: number }
+  | { op: "gesture"; who: string; name: string; src: number }
   | { op: "vignette"; key: string | null; src: number }
   | { op: "prop"; key: string; on: boolean; src: number }
   | { op: "boost"; skill: string; delta: number; why: string; src: number }
