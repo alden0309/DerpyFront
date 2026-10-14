@@ -17,6 +17,7 @@ import {
   notorietyOf,
   watchStrength,
 } from "./CrimeQueries";
+import { dutyHeat, heatHooks } from "./Duties"; // WORK (r21)
 import type { ConquestGame } from "./Game";
 import { raiseEvent } from "./Hooks";
 import {
@@ -144,7 +145,11 @@ export function crimeWorkDay(
   const e = EFFORTS[effortOf(life)];
   const nation = lawAt(s, life.prov);
   const stealth = skillLevel(s, life, "stealth");
-  const gain = def.crime.heat * e.heat * Math.max(0.35, 1 - stealth * 0.03);
+  const gain =
+    def.crime.heat *
+    e.heat *
+    Math.max(0.35, 1 - stealth * 0.03) *
+    dutyHeat(life); // WORK (r21): a low profile, or the big prizes
   addHeat(g, life, nation, gain);
   addNotoriety(g, life, 0.05 * e.heat);
   gainXp(g, life, "stealth", 0.2, true);
@@ -1037,3 +1042,6 @@ export function crimeGate(
       return "You're locked in the gaol.";
   }
 }
+
+// WORK (r21): a crooked duty's mishap draws the law's heat where you are.
+heatHooks().push((g, life, n) => addHeat(g, life, lawAt(g.s, life.prov), n));

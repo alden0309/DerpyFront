@@ -200,15 +200,20 @@ export interface HostKind {
   gone: string;
 }
 
-const KINDS = new Map<string, HostKind>();
+// WORK (r21): made on first use, by a hoisted function, so a module that
+// registers itself while this one is still loading (an import cycle) finds it.
+function kindsMap(): Map<string, HostKind> {
+  const f = kindsMap as unknown as { m?: Map<string, HostKind> };
+  return (f.m ??= new Map<string, HostKind>());
+}
 
 /** An outfit's module says how its outfits are found (Ships.ts: "ship"). */
 export function registerHost(kind: string, h: HostKind): void {
-  KINDS.set(kind, h);
+  kindsMap().set(kind, h);
 }
 
 export function hostKind(kind: string): HostKind | undefined {
-  return KINDS.get(kind);
+  return kindsMap().get(kind);
 }
 
 /** The outfit a player's place is in, if it's still there. */
@@ -216,13 +221,13 @@ export function hostOfBerth(
   s: GameState,
   b: Pick<Berth, "kind" | "seat" | "id">,
 ): HireHost | undefined {
-  return KINDS.get(b.kind)?.find(s, b.seat, b.id);
+  return kindsMap().get(b.kind)?.find(s, b.seat, b.id);
 }
 
 /** Every outfit of every kind (for finding someone's place or an offer). */
 export function allHosts(s: GameState): HireHost[] {
   const out: HireHost[] = [];
-  for (const k of KINDS.values()) out.push(...k.all(s));
+  for (const k of kindsMap().values()) out.push(...k.all(s));
   return out;
 }
 
@@ -1029,7 +1034,7 @@ export function hiresDaily(g: ConquestGame): void {
     const b = life.job?.berth;
     if (!b || life.c < 0) continue;
     const host = hostOfBerth(s, b);
-    const kind = KINDS.get(b.kind);
+    const kind = kindsMap().get(b.kind);
     const on = host?.roster.hires.some((h) => h.seat === life.seat);
     if (!host || !on) {
       journal(

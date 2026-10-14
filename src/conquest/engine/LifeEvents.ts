@@ -3671,6 +3671,7 @@ import { SEASON_EVENTS } from "./SeasonLife"; // MAP (r12)
 import { shipEvents, shipQuiet } from "./ShipEvents"; // SHIPS (r21)
 import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
+import { workR21Events, workR21Quiet } from "./WorkR21"; // WORK (r21)
 
 function joinM(g: ConquestGame, life: Life, id: number): string | null {
   return joinMovement(g, life, id);
@@ -3755,6 +3756,12 @@ function byKey(key: string): LifeEventDef | undefined {
       }
     // SHIPS (r21): a place aboard a player's ship; travelling together.
     for (const d of shipEvents())
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // WORK (r21): a place on a business's staff, partnership offers, the work itself.
+    for (const d of workR21Events())
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
@@ -4025,7 +4032,8 @@ function firstAllowed(
     reclaimQuiet()[ev.key] ?? // SEA (r15), CHAIR (r16), ECON and WAR (r17)
     crownQuiet()[ev.key] ?? // CROWN (r18)
     lifeR21Quiet()[ev.key] ??
-    shipQuiet()[ev.key]; // LIFE and SHIPS (r21)
+    shipQuiet()[ev.key] ?? // LIFE and SHIPS (r21)
+    workR21Quiet()[ev.key]; // WORK (r21)
   if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
     return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.

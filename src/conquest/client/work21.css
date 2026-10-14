@@ -1,0 +1,142 @@
+/* WORK (r21): leaving your work, a business's staff, a new business both
+   ways, a company and the markets. Keeps the established look: ruled paper,
+   iron-gall ink, small chips; nothing changes size as the days pass. */
+
+.cq-quit {
+  margin: 0.4rem 0 0.2rem;
+}
+.cq-quit > p {
+  margin: 0.15rem 0 0.35rem;
+}
+.cq-quit .cq-btnrow {
+  flex-wrap: wrap;
+}
+
+/* A business's staff by name: the ship's company's rows. */
+.cq-staff .cq-ship-roster > li.picked {
+  background: rgba(201, 155, 58, 0.12);
+  border-left: 3px solid var(--brass);
+  padding-left: 0.4rem;
+}
+
+/* A new business, both ways. */
+.cq-sb-ways {
+  margin-top: 0.6rem;
+}
+.cq-sb-ways h5 {
+  margin: 0 0 0.2rem;
+}
+.cq-sb-ways td:first-child {
+  text-align: left;
+  min-width: 9rem;
+}
+.cq-sb-ways td {
+  vertical-align: top;
+}
+.cq-sb-ways tr.now td:first-child b {
+  color: var(--ink);
+}
+.cq-sb-ways .cq-chip {
+  font-size: 0.7rem;
+}
+.cq-sb-way-note {
+  display: block;
+  font-size: 0.75rem;
+  line-height: 1.25;
+}
+@media (max-width: 560px) {
+  .cq-sb-way-note {
+    display: none;
+  }
+}
+
+/* A company's trade and the markets. */
+.cq-co-markets {
+  margin: 0.3rem 0;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--rule);
+}
+
+/* Partners' offers: buying out, selling, selling up. */
+.cq-bids .cq-chip.gold {
+  margin-left: 0.4rem;
+}
+.cq-bid-list {
+  list-style: none;
+  margin: 0.2rem 0 0.4rem;
+  padding: 0;
+}
+.cq-bid-list > li {
+  padding: 0.3rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-bid-list > li > p {
+  margin: 0 0 0.25rem;
+}
+.cq-bid-make {
+  margin-top: 0.3rem;
+}
+.cq-bid-make > .cq-seg {
+  margin-bottom: 0.3rem;
+}
+.cq-bid-row {
+  align-items: center;
+}
+.cq-bid-price input {
+  width: 5.5rem;
+}
+.cq-bid-guide {
+  margin: 0.2rem 0;
+  min-height: 1.3em;
+}
+.cq-bid-least {
+  font-weight: 600;
+}
+.cq-bid-past {
+  margin-top: 0.4rem;
+}
+
+/* Your duties at work: one row each, the same height whatever's chosen. */
+.cq-duties {
+  margin: 0.5rem 0 0.3rem;
+}
+.cq-duty-want {
+  margin: 0.15rem 0 0.3rem;
+}
+.cq-duty-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+.cq-duty-list > li > button {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+.cq-duty-list > li.on > button {
+  border-color: var(--brass);
+  background: rgba(201, 155, 58, 0.12);
+  box-shadow: inset 3px 0 0 var(--brass);
+}
+.cq-duty-list > li.locked > button {
+  cursor: default;
+  opacity: 0.6;
+}
+.cq-duty-fx {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+.cq-duty-mates {
+  margin: 0.4rem 0 0;
+}

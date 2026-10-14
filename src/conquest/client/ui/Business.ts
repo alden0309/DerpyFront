@@ -86,6 +86,7 @@ import { howTo, pageHead } from "./Nav";
 import { oddsPanel } from "./Odds";
 import { coins, price, priceWords } from "./Price";
 import { term } from "./Terms";
+import { companyMarkets, staffPart, waysBlock } from "./WorkR21"; // WORK (r21)
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 const signed = (v: number) =>
@@ -236,7 +237,7 @@ function monthsOf(ui: GameUi, pr: Property): { day: number; profit: number }[] {
   for (const st of ui.life!.statements ?? []) {
     if (st.to < pr.since) continue;
     const v = st.lines
-      .filter((l) => l.k === `p:${pr.id}`)
+      .filter((l) => l.k === `p:${pr.id}` || l.k === `ps:${pr.id}`) // WORK (r21): its staff's pay
       .reduce((m, l) => m + l.v, 0);
     out.push({ day: st.from, profit: r1(v) });
   }
@@ -351,6 +352,9 @@ function bizCard(ui: GameUi, pr: Property): TemplateResult {
                     ...(last.mgr
                       ? [{ label: "The manager's wage", value: -last.mgr }]
                       : []),
+                    ...(last.staff // WORK (r21)
+                      ? [{ label: "Its staff's pay", value: -last.staff }]
+                      : []),
                   ],
                 },
               }),
@@ -382,6 +386,9 @@ function bizCard(ui: GameUi, pr: Property): TemplateResult {
                   { label: "Excise and duties", value: -v.excise },
                   ...(v.mgr
                     ? [{ label: "The manager's wage", value: -v.mgr }]
+                    : []),
+                  ...(v.staff // WORK (r21)
+                    ? [{ label: "Its staff's pay", value: -v.staff }]
                     : []),
                 ],
               },
@@ -462,7 +469,7 @@ function bizCard(ui: GameUi, pr: Property): TemplateResult {
                         : nothing}
                     </td>
                     <td>${coins(a.takings)}</td>
-                    <td>${coins(a.wages + (a.mgr ?? 0))}</td>
+                    <td>${coins(a.wages + (a.mgr ?? 0) + (a.staff ?? 0))}</td>
                     <td>${coins(a.upkeep)}</td>
                     <td>${coins(a.excise)}</td>
                     <td class=${a.profit < 0 ? "bad" : ""}>
@@ -533,6 +540,7 @@ function bizCard(ui: GameUi, pr: Property): TemplateResult {
           )}
         </span>
       </div>
+      ${staffPart(ui, pr) /* WORK (r21): its staff by name */}
       <label class="cq-biz-auto small">
         <input
           type="checkbox"
@@ -755,6 +763,7 @@ export function companyCard(
       >.
     </p>
     ${legsLine(co) /* ECON (r17): each leg's record */}
+    ${companyMarkets(ui, plan) /* WORK (r21): its trade moves the prices */}
     ${co.voyages.length
       ? html`<ul class="cq-co-voyages small">
           ${co.voyages.map(
@@ -1333,6 +1342,7 @@ function startBizTab(ui: GameUi): TemplateResult {
           ${RAMP.length} months to build; the season comes and goes; hands are
           taken on as they pay.
         </p>
+        ${waysBlock(ui, v.job, v.level) /* WORK (r21): minded, or not */}
       </section>
       <section class="cq-sb-step cq-sb-two">
         <div>

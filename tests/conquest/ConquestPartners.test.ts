@@ -11,6 +11,7 @@ import { AddressInfo } from "net";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { WebSocket } from "ws";
 import { bizMonth, propertyView } from "../../src/conquest/engine/Business"; // BUSINESS (r15)
+import { leastToSell } from "../../src/conquest/engine/Buyouts"; // WORK (r21)
 import { kill, makeCharacter } from "../../src/conquest/engine/Characters";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import {
@@ -707,8 +708,7 @@ describe("matters put to the partners", () => {
     const f = innFirm(g, life);
     const npc = f.partners.find((p) => p.c !== life.c)!;
     life.purse = 999;
-    // Make the computer partner glad to sell.
-    g.char(npc.c).traits.push("greedy");
+    // WORK (r21): a buyout is by offer now, at the price you name (not a vote).
     const price = buyoutPrice(g.s, f, npc.c);
     const chest = f.chest;
     expect(price).toBeGreaterThan(npc.capital);
@@ -720,11 +720,23 @@ describe("matters put to the partners", () => {
         key: "buyout",
         c: npc.c,
       }),
+    ).toMatch(/offer/);
+    // The innkeeper runs it (it's his living), so he wants more than the fair price.
+    const want = leastToSell(g.s, f, g.s.chars[npc.c], life).least;
+    expect(want).toBeGreaterThan(price);
+    expect(
+      g.lifeCommand("s1", {
+        k: "bid",
+        act: "make",
+        id: f.id,
+        key: "buy",
+        c: npc.c,
+        price: want,
+      }),
     ).toBeNull();
-    const d = f.decisions[0];
-    expect(d.status).toBe("carried");
+    expect(f.bids![0].status).toBe("accepted");
     // The price paid, and the chest is the last partner's.
-    expect(life.purse).toBeCloseTo(999 - price + chest, 1);
+    expect(life.purse).toBeCloseTo(999 - want + chest, 1);
     expect(f.status).toBe("dissolved");
     expect(
       (life.property ?? []).some(
@@ -750,7 +762,8 @@ describe("matters put to the partners", () => {
       1,
     );
     const purse = life.purse;
-    // The innkeeper won't want to sell a paying inn; force it as the majority.
+    // WORK (r21): selling up needs every partner (no vote of the greater
+    // part); only the articles' buy-out clause lets the majority force it.
     me.share = 60;
     f.partners.find((p) => p !== me)!.share = 40;
     expect(
@@ -760,6 +773,10 @@ describe("matters put to the partners", () => {
         id: f.id,
         key: "sell",
       }),
+    ).toMatch(/every partner/);
+    f.clause = true;
+    expect(
+      g.lifeCommand("s1", { k: "bid", act: "make", id: f.id, key: "sellall" }),
     ).toBeNull();
     expect(f.status).toBe("dissolved");
     expect(life.purse).toBeGreaterThan(purse);

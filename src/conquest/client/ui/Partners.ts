@@ -63,7 +63,6 @@ import {
   firmsWith,
   LOANS,
   managerOf,
-  MAX_FIRMS,
   offerById,
   offersFrom,
   offersTo,
@@ -98,6 +97,7 @@ import { letterClock, ModalHooks } from "./Modals";
 import { howTo, pageHead } from "./Nav";
 import { price } from "./Price"; // LEDGER (r15)
 import { curly, reasons, shell, stage } from "./Scene";
+import { bidsBlock } from "./WorkR21"; // WORK (r21)
 
 const money = (v: number) =>
   `${v < 0 ? "−" : ""}${Math.abs(Math.round(v * 10) / 10)}`;
@@ -141,8 +141,8 @@ export function partnersPage(ui: GameUi): TemplateResult {
   return html`${pageHead(
     "Partnerships",
     html`Firms you're a partner in: who holds what share, the books month by
-    month, and what's put to the partners. You're in ${firms.length} of the
-    ${MAX_FIRMS} a person can manage at once.`,
+    month, and what's put to the partners. You're in ${firms.length} (there's no
+    limit to how many).`,
   )}
   ${incoming.length || outgoing.length
     ? section(
@@ -431,6 +431,12 @@ function firmCard(ui: GameUi, f: Firm): TemplateResult {
       </ul>`,
     )}
     ${booksBlock(ui, f, me.share)} ${mattersBlock(ui, f)} ${putBlock(ui, f)}
+    ${
+      bidsBlock(
+        ui,
+        f,
+      ) /* WORK (r21): buying out, selling, selling up, by offer */
+    }
     ${ownBlock(ui, f)}
     ${f.lines.length
       ? html`<details class="cq-more cq-firm-story">
@@ -658,7 +664,9 @@ function putBlock(ui: GameUi, f: Firm): TemplateResult {
   ].slice(0, 12);
   const keys = (Object.keys(DECISIONS) as FirmDecisionKey[]).filter(
     (k) =>
-      f.hold !== "paper" || k === "admit" || k === "buyout" || k === "sell",
+      k !== "buyout" && // WORK (r21): buying out and selling up are by offer (bidsBlock)
+      k !== "sell" &&
+      (f.hold !== "paper" || k === "admit"),
   );
   const arg = (k: FirmDecisionKey) =>
     ARG_CHOICES[k]
@@ -1347,6 +1355,20 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
                 All together
               </button>
             </span>
+            <label
+              class="cq-biz-auto small"
+              title="A partner holding more than half may buy another out at a fair price, or sell up the whole business, without their consent. Without it, buying out and selling up are by offer, and the other must agree."
+            >
+              <input
+                type="checkbox"
+                .checked=${!!t.clause}
+                @change=${(e: Event) => {
+                  t.clause = (e.target as HTMLInputElement).checked; // WORK (r21)
+                  redraw();
+                }}
+              />
+              A buy-out clause (the greater partner may buy out or sell up)
+            </label>
             <p class="cq-muted small">
               The managing partner does the work and keeps the books; their
               skill in the trade makes the takings.
@@ -1821,15 +1843,10 @@ export function partnerCard(ui: GameUi, c: Character): TemplateResult {
   const theirs = firmsWith(s, c.id).filter((f) => !partnerIn(f, life.c));
   const here =
     !life.travel && peopleHere(s, life.prov, life).some((x) => x.id === c.id);
-  const can =
-    firmsWith(s, life.c).length >= MAX_FIRMS
-      ? {
-          ok: false as const,
-          why: `You're in ${MAX_FIRMS} partnerships already.`,
-        }
-      : life.travel
-        ? { ok: false as const, why: "Not from the road." }
-        : { ok: true as const };
+  // WORK (r21): no cap on partnerships.
+  const can = life.travel
+    ? { ok: false as const, why: "Not from the road." }
+    : { ok: true as const };
   return html`<section class="cq-section cq-pa-card">
     <h3 class="cq-h3">In business</h3>
     <p class="cq-muted small">

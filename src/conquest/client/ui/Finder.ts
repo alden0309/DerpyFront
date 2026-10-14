@@ -43,7 +43,7 @@ import {
   movementOf,
 } from "../../engine/Movements";
 import { localOfficesOf } from "../../engine/Offices"; // POWER (r12)
-import { firmsWith, MAX_FIRMS } from "../../engine/PartnersCore"; // PARTNERS (r13)
+import { firmsWith } from "../../engine/PartnersCore"; // PARTNERS (r13)
 import { governorScore, standCheck } from "../../engine/Politics"; // CHAIR (r16): governorScore
 import { commissionAt } from "../../engine/Privateers"; // SEA (r15)
 import {
@@ -1186,13 +1186,7 @@ const GOALS: Goal[] = [
     group: "Money and home",
     where:
       "Anyone's card: In business › Propose a partnership (in person, or by post if they're far off). At the market: Partnerships lists who in town might go into business with you. Bring in a business, buy a share of theirs, found one together, or pool money for cargoes.",
-    needs: (ui) => [
-      adult(ui),
-      {
-        label: `In ${firmsWith(ui.s, ui.life!.c).length} of ${MAX_FIRMS} partnerships`,
-        met: firmsWith(ui.s, ui.life!.c).length < MAX_FIRMS,
-      },
-    ],
+    needs: (ui) => [adult(ui)], // WORK (r21): no cap on partnerships
     go: place("market"),
     goLabel: "Go to the market",
     guide: "partners",
@@ -1465,7 +1459,7 @@ const GOALS: Goal[] = [
       "manager mind business away travel run shop inn steward foreman clerk while I'm gone",
     group: "Money and home",
     where:
-      "Estate › Business, on the business's page: A manager. One of your people (People › Your people: a clerk, a hand, a mate...) minds it while you're away or busy, with their own skill in the trade. Unminded, a business takes 0.6 of its takings.",
+      "Estate › Business, on the business's page: A manager. One of your people (People › Your people: a clerk, a hand, a mate...) minds it while you're away or busy, with their own skill in the trade; or take on a manager on its staff (Its staff by name). Unminded, a business takes 0.6 of its takings.",
     needs: (ui) => [
       {
         label: (ui.life!.people ?? []).length
@@ -1870,6 +1864,115 @@ const GOALS: Goal[] = [
     guide: "ships",
   },
   // ---- end SHIPS (r21)
+  // ---- WORK (r21)
+  {
+    id: "quit-job",
+    title: "Leave my job (from anywhere, or with notice)",
+    words:
+      "quit leave job notice resign give up work letter away master boss player employer fortnight",
+    group: "Work",
+    where:
+      "Work › Your work: Hand in your notice, from anywhere, whoever your master is. Leave at once (in person, or by letter if your master's elsewhere), or give a fortnight's notice and work it out to part on good terms. Another player who employs you is told.",
+    needs: (ui) => {
+      const job = ui.life!.job;
+      return [
+        job
+          ? { label: "You have work to leave", met: true }
+          : { label: "You have no work", met: false },
+        job?.kind === "servant" && (job.until ?? 0) > ui.s.day
+          ? { label: "Bound by indenture until it's served", met: false }
+          : { label: "Free to leave", met: true },
+      ];
+    },
+    go: tab({ k: "tab", tab: "work", sub: "job" }),
+    goLabel: "Work › Your work",
+    guide: "workday",
+  },
+  {
+    id: "duties",
+    title: "Choose what I do at work (my duties)",
+    words:
+      "duties duty task work orders piece rate tips commission teach apprentices books aloft pickets rounds master wants rung",
+    group: "Work",
+    where:
+      "Work › Your work, under how hard you work: the usual work, or a duty your rung allows. Each says what it teaches, its chance of more money or of a mishap, and what else it does; your master's wish this month is marked.",
+    needs: (ui) => [
+      ui.life!.job
+        ? { label: "You have work", met: true }
+        : { label: "You have no work", met: false },
+    ],
+    go: tab({ k: "tab", tab: "work", sub: "job" }),
+    goLabel: "Work › Your work",
+    guide: "workday",
+  },
+  {
+    id: "biz-staff",
+    title: "Take on staff for my business (role and pay)",
+    words:
+      "hire staff hand journeyman skilled clerk foreman manager employee worker pay wage promote demote role business shop store farm inn",
+    group: "Money and home",
+    where:
+      "Estate › Business, on the business's card (Its staff by name), in its town: the town's people sign by the odds shown, at the role and pay you choose; offer another player a place from anywhere. Promote, demote or change the pay whenever you like. From anyone's card, Offer them work brings you there.",
+    needs: (ui) => [
+      {
+        label: (ui.life!.property ?? []).some((p) => p.kind === "business")
+          ? "A business of your own"
+          : "A business of your own (Start a business)",
+        met: (ui.life!.property ?? []).some((p) => p.kind === "business"),
+      },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "business" }),
+    goLabel: "Estate › Business",
+    guide: "staff",
+  },
+  {
+    id: "biz-serve",
+    title: "Work at another player's business",
+    words:
+      "work for player business staff place offer hired employee clerk hand manager",
+    group: "Work",
+    where:
+      "Its owner offers you a place (a role and a pay) from its card; you're asked in a scene. Taken, it's your work: paid from the owner's purse by the days you're in its town, and you leave from Work › Your work.",
+    go: tab({ k: "tab", tab: "work", sub: "job" }),
+    goLabel: "Work › Your work",
+    guide: "staff",
+  },
+  {
+    id: "biz-ways",
+    title:
+      "See what a business would make with a manager (while I work elsewhere)",
+    words:
+      "projection plan profit manager mind business other job unprofitable both ways start",
+    group: "Money and home",
+    where:
+      "The Start a business window (Estate › Business, or the market): under its months one by one, Both ways: with you minding it, with a manager on its staff (his pay in the figures), and with nobody minding it.",
+    go: (ui) => {
+      ui.modal({ k: "startbiz" });
+    },
+    goLabel: "Start a business…",
+    guide: "staff",
+  },
+  {
+    id: "buyout",
+    title: "Buy out my partner (or sell my share, or sell up)",
+    words:
+      "buy out buyout partner share sell sell up wind up offer price counter partnership firm clause",
+    group: "Money and home",
+    where:
+      "Estate › Partners, on the firm's page: Buying out, selling, selling up. Name a price; they accept, decline or counter. A computer partner's least (or most) is shown first. Selling up needs every partner.",
+    needs: (ui) => [
+      {
+        label: firmsWith(ui.s, ui.life!.c).length
+          ? "In a partnership"
+          : "In a partnership (Propose a partnership)",
+        met: firmsWith(ui.s, ui.life!.c).length > 0,
+      },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "partners" }),
+    goLabel: "Estate › Partners",
+    guide: "staff",
+  },
+  // ---- end WORK (r21)
   {
     id: "trade-voyage",
     title: "Go on a voyage with my trade",

@@ -141,11 +141,12 @@ import {
   lifeR11Succeeded,
   roadRiskFactor,
 } from "./LifeR11";
+import { quitJob } from "./Notice"; // WORK (r21)
 import { wake } from "./Pace";
 import { leaveCompany, strandEmbark } from "./Parties"; // SHIPS (r21)
 import { standingMonth } from "./Standing"; // POLLS (r16)
 import { crookedStart } from "./Trades";
-import { employerFor, leaveJob, takeJob, workDaily, workMonthly } from "./Work";
+import { employerFor, takeJob, workDaily, workMonthly } from "./Work";
 
 // ---------------------------------------------------------------- making a character
 
@@ -1766,8 +1767,8 @@ export function lifeCommand(
       if (!life.job) return "You have no work to leave.";
       if (life.job.kind === "servant" && (life.job.until ?? 0) > s.day)
         return "You're bound until your indenture is served. (You could run away.)";
-      leaveJob(g, life, "of your own accord");
-      return null;
+      // WORK (r21): from anywhere: in person, by letter, or with a fortnight's notice.
+      return quitJob(g, life, c.how ?? "now");
     case "person":
       return withOutcome(g, life, "person", () =>
         doInteraction(g, life, c.c, c.act, c.arg, { good: c.good, qty: c.qty }),

@@ -7,6 +7,7 @@
 // you've earned it, and you climb by buying into a business of your own.
 
 import { crimeWorkDay, lawWorkDay } from "./Crime";
+import { dutyMonth, dutyPromo, dutyXp } from "./Duties"; // WORK (r21)
 import { npc, played } from "./EventPacing"; // EVENTS (r15)
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
@@ -615,11 +616,14 @@ export function workMonthly(
   const learn = effortMonth(g, life) * Math.min(1, share);
   if (share >= 0.5) job.months++;
   if (share > 0) {
-    gainXp(g, life, def.main, Math.round(7 * learn * 10) / 10, true);
-    gainXp(g, life, def.second, Math.round(3 * learn * 10) / 10, true);
+    // WORK (r21): your duty turns what the month teaches (the usual: main 7, second 3).
+    for (const [sk, w] of dutyXp(life))
+      gainXp(g, life, sk, Math.round(w * learn * 10) / 10, true);
     const fame = (def.fame ?? 0) * Math.max(0, job.rank - 1) * share;
     if (fame > 0) addRenown(g, life, fame);
   }
+  dutyMonth(g, life, share); // WORK (r21): the duty's luck, your master's view
+  if (!life.job) return; // a mishap can end a life
   job.lastWorked = job.worked ?? 0; // LEDGER (r15): the month's business is minded by them
   job.worked = 0;
   job.away = job.awayDays ? Math.floor(job.awayDays / 30) : 0;
@@ -658,11 +662,11 @@ export function workMonthly(
   const me = meOf(s, life)!;
   // LIFE (r11): hard work brings the next rung sooner; shirking puts it off.
   const keen =
-    effortOf(life) === "hard" || effortOf(life) === "overtime"
+    (effortOf(life) === "hard" || effortOf(life) === "overtime"
       ? 1.3
       : effortOf(life) === "shirk"
         ? 0.5
-        : 1;
+        : 1) * dutyPromo(life); // WORK (r21): some duties bring the next rung sooner
   if (job.own) {
     let chance = PROMOTION_CHANCE * keen;
     if (hasTrait(me, "ambitious")) chance *= 1.3;

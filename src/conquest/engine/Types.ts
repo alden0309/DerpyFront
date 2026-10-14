@@ -434,6 +434,8 @@ export interface Job {
   lastWorked?: number;
   /** SHIPS (r21): a place in a player's outfit (a ship's company), whose role and pay they set. */
   berth?: Berth;
+  /** WORK (r21): notice given: the day you leave, and the working days done of it at your post. */
+  notice?: { until: number; done: number };
 }
 
 /** On the road (or at sea): the hops still to go, like an army's march. */
@@ -1827,7 +1829,7 @@ export type LifeCommand =
   | { k: "act"; place: PlaceKind; act: string; arg?: number }
   /** Take a job a place here offers. */
   | { k: "job"; place: PlaceKind; job: JobKind }
-  | { k: "quit" }
+  | { k: "quit"; how?: "now" | "notice" | "stay" } // WORK (r21): at once, with notice, or take it back
   | {
       k: "person";
       c: number;
@@ -1967,7 +1969,9 @@ export type LifeCommand =
   | LifeR21Command
   // SHIPS (r21): a ship's company, charters, refits, her stays; travelling parties.
   | ShipCommand
-  | PartyCommand;
+  | PartyCommand
+  // WORK (r21): a business's staff; partnership offers; the work itself.
+  | WorkR21Command;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -2217,6 +2221,8 @@ export interface WorkState {
   caught?: number;
   /** A task taken on: its key, the day it's due, and what it pays. */
   task?: { key: string; due: number; pay: number; skill: Skill } | null;
+  /** WORK (r21): the duty you've put yourself to at work (DutiesData.ts), or the usual. */
+  duty?: string;
 }
 
 /** Someone the law wants: a rogue with a price on their head. */
@@ -3192,6 +3198,8 @@ export interface FirmTerms {
   name: string;
   /** BUSINESS (r15): a trading company's line of trade. */
   co?: CompanyPlan;
+  /** WORK (r21): the buy-out clause: a partner holding more than half may buy another out at a fair price, or sell up, without their consent. */
+  clause?: boolean;
 }
 
 /** Articles put to someone: in person, or on their way by post. */
@@ -3255,6 +3263,10 @@ export interface Firm {
   co?: CompanyState;
   /** SEA (r15): a privateering company's ship, her commission and her cruises. */
   sea?: PrivateerFit | null;
+  /** WORK (r21): the articles' buy-out clause (FirmTerms.clause). */
+  clause?: boolean;
+  /** WORK (r21): offers between its partners: to buy a share, to sell one, to sell up. */
+  bids?: FirmBid[];
 }
 
 /** Everything of the PARTNERS track kept in the game. */
@@ -3559,6 +3571,8 @@ export interface BizState {
   acct?: BizMonth[];
   /** The day it last warned of losses. */
   warned?: number;
+  /** WORK (r21): its staff taken on by name (a role and pay each), as a ship's company (Hiring.ts). */
+  roster?: Roster;
 }
 
 /** One month of a business's account. */
@@ -3570,6 +3584,8 @@ export interface BizMonth {
   excise: number;
   /** A manager's wage. */
   mgr?: number;
+  /** WORK (r21): its staff's pay. */
+  staff?: number;
   profit: number;
   hands: number;
   /** Who minded it: 1 in person, 2 a manager, 0 nobody. */
@@ -5281,4 +5297,60 @@ export interface PartyCommand {
   act: string;
   /** The other player. */
   seat?: string;
+}
+
+// ---- WORK (r21): a business's staff by name, partnership buyouts and sales
+// by offer, and the work itself (duties by rung, colleagues, the master's
+// requests).
+
+/** WORK (r21): a business's staff (Staff.ts), partnership offers (Buyouts.ts), your duties (Duties.ts). */
+export interface WorkR21Command {
+  k: "staff" | "bid" | "duty";
+  /** staff: hire, offer, unoffer, role, pay, dismiss, answer. bid: make, accept, decline, counter, withdraw. duty: set. */
+  act: string;
+  /** A business (its property id), a firm, or an offer. */
+  id?: number;
+  /** A hire on its roster, or an offer. */
+  hire?: number;
+  /** A character. */
+  c?: number;
+  role?: string;
+  pay?: number;
+  /** A price. */
+  price?: number;
+  /** A duty's key, an offer's kind. */
+  key?: string;
+  arg?: number;
+}
+
+/**
+ * WORK (r21): an offer between partners (Buyouts.ts): to buy another's
+ * whole share at a price ("buy"), to sell them your own ("sell"), or to sell
+ * up the whole business ("sellall", every other partner must agree).
+ */
+export interface FirmBid {
+  id: number;
+  kind: "buy" | "sell" | "sellall";
+  /** Who made it. */
+  by: number;
+  /** Who answers it (the partner whose share it is, or who'd buy); -1 for selling up (everyone). */
+  to: number;
+  /** Coins (for selling up, what the partners' parts come to all told, as the town would pay). */
+  price: number;
+  day: number;
+  /** Answered by this day, or it lapses (as declined). */
+  until: number;
+  /** Counter-offers so far in these talks. */
+  round: number;
+  /** Selling up: each partner's answer (1 yes, -1 no). */
+  yes?: Record<number, number>;
+  status:
+    | "open"
+    | "accepted"
+    | "declined"
+    | "lapsed"
+    | "withdrawn"
+    | "countered";
+  /** A computer partner's reasons, in a line. */
+  why?: string;
 }

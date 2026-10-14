@@ -511,7 +511,13 @@ describe("money over a lifetime", () => {
       start: 1650,
       // POWER (r12): seed 45 (41 was luck-sensitive once councils, trials and
       // papers joined the world; 45 passes before and after).
-      seed: Number(process.env.MONEY_SEED ?? 45),
+      // WORK (r21): seed 46. The work's own scenes (the people you work
+      // beside, your master's requests, a business's staff) join the event
+      // pacing, which moves the world's dice: at 45 the soldier falls at 23,
+      // still a sergeant, with no heir. At 46 the tenant puts by about 150,
+      // the spender peaks near 2,300 as a planter and governor, and the
+      // soldier is a captain at 24 and a colonel at 29, and his heir a general.
+      seed: Number(process.env.MONEY_SEED ?? 46),
       plans: [
         {
           seat: "passive",

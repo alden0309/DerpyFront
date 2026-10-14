@@ -77,6 +77,7 @@ import { sittingPrompt } from "./Sitting";
 import { personSociety } from "./Society"; // SOCIETY (r11)
 import { steadySet } from "./Steady";
 import { term, termMark } from "./Terms";
+import { openStaffFor } from "./WorkR21"; // WORK (r21)
 
 export function traitChips(c: Character, life = false): TemplateResult {
   if (c.traits.length === 0)
@@ -721,11 +722,13 @@ function actsSection(ui: GameUi, c: Character): TemplateResult {
                   ?disabled=${!view.check.ok}
                   title=${view.check.ok ? def.text : `${view.check.why}`}
                   @click=${() =>
-                    ui.modal(
-                      act === "borrow" // ECON (r17): borrowing is on bond: its window
-                        ? { k: "bond", c: c.id, side: "borrow" }
-                        : { k: "interact", c: c.id, act, arg },
-                    )}
+                    act === "hire" // WORK (r21): a place on a business's staff, at the role and pay you choose
+                      ? openStaffFor(ui, c.id)
+                      : ui.modal(
+                          act === "borrow" // ECON (r17): borrowing is on bond: its window
+                            ? { k: "bond", c: c.id, side: "borrow" }
+                            : { k: "interact", c: c.id, act, arg },
+                        )}
                 >
                   <span class="cq-int-label">${said.text}</span>
                   ${cost ? price(cost, { have: life.purse }) : nothing}

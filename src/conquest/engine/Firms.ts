@@ -1047,11 +1047,8 @@ export function decisionCheck(
       return yes;
     }
     case "buyout": {
-      const them = partnerIn(f, c);
-      if (!them || c === life.c) return no("Choose a partner.");
-      const price = buyoutPrice(s, f, c);
-      if (life.purse < price) return no(`Their share's price is ${price}.`);
-      return yes;
+      // WORK (r21): by offer now (Buyouts.ts): you name a price, they answer.
+      return no("Make them an offer for their share instead.");
     }
     case "manager": {
       const them = partnerIn(f, c);
@@ -1064,7 +1061,8 @@ export function decisionCheck(
       return yes;
     }
     case "sell":
-      return yes;
+      // WORK (r21): by offer now (Buyouts.ts): every partner must agree.
+      return no("Propose selling up instead: every partner must agree.");
   }
   return no("Unknown.");
 }
