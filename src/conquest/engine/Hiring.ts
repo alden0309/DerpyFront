@@ -11,11 +11,12 @@
 //   against what they'd ask (by their skill for the role), what they think
 //   of you, the outfit's name, and whether the role is beneath them
 //   (`signOdds`, shown before you offer).
-// - A player is offered a place (`offerPlace`): a scene ("p2p-berth") to
-//   accept or decline. Accepted, it's their work (their Work page, a rung
-//   titled by the role, the pay you set); they're paid by the days they're
-//   at their post, from your purse, at their month's turn, and they leave
-//   from the usual job menu (`hooks.jobLeft`).
+// - A player is offered a place (`offerPlace`): a scene (the ladder's
+//   `scene`, a ship's "p2p-berth") to accept or decline. Accepted, it's
+//   their work (their Work page, a rung titled by the role, the pay you
+//   set); they're paid by the days they're at their post, from your purse,
+//   at their month's turn, and they leave from the usual job menu
+//   (`hooks.jobLeft`).
 // - Promote or demote (`setRole`), raise or cut the pay (`setPay`), let them
 //   go (`dismiss`), whenever you like. The computer's people remember it;
 //   a player is told.
@@ -24,6 +25,29 @@
 //
 // Rolls: none. Who signs is decided by the shown odds (above nothing, they
 // sign), so the world's dice are never touched.
+//
+// To add a kind of outfit (a business, say), as Ships.ts does for a ship:
+// 1. Keep a `Roster` on the outfit's own state (optional, so old saves load:
+//    `Boat.roster`), so it goes wherever the outfit goes in saves and deltas.
+// 2. Write a `Ladder`: its roles (`RoleDef`: rank, going pay, weighted
+//    skills, least fitness, the rung of `job.kind` a player stands on), the
+//    work a player taken on does (`job`), its `words` ("at", "its",
+//    "place", "walks out for good") and its offer `scene`.
+// 3. Write a function making a `HireHost` for one outfit (`hostOfBoat`):
+//    its name, owner, where it is, `room(role)`, `atPost`, `rep`, `own` (make
+//    the roster) and `flow` (its pay's key in the books, the same key as the
+//    owner's forecast line, and its `aff`).
+// 4. `registerHost(kind, { find, all, gone })` at load. The daily and
+//    monthly hooks here then cover its players' places by themselves.
+// 5. At the owner's month (`hooks.lifeMonthly`), call `payRoster(g, host)`
+//    for the computer's people (players are paid by `payBerth` at their own
+//    month), and put `-rosterPay(host)` in `hooks.forecast` under
+//    `flow.key` (a ship's "bh:<id>": "her company's pay").
+// 6. Its own commands call `hire`, `offerPlace`, `withdrawOffer`, `setRole`,
+//    `setPay` and `dismiss`, and the page shows `signOdds` and `askingPay`
+//    before the button; `disband` when the outfit's sold or lost.
+// 7. Its offer scene's choices call `takeGate` (blocked) and `answerOffer`;
+//    left unanswered it declines (register it with the event pacing).
 
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
@@ -46,6 +70,7 @@ import { JOBS, SKILL_MAX, SKILL_NAMES, WORK_DAYS } from "./LifeRules";
 import { wake } from "./Pace";
 import { ageOf, charName } from "./Queries";
 import type {
+  AffairKind,
   Berth,
   Breakdown,
   Character,
@@ -84,6 +109,30 @@ export interface RoleDef {
   text: string;
 }
 
+/**
+ * The words an outfit's messages use about itself. A ship's are the
+ * defaults; a business gives its own ("at", "its", "place", "walks out
+ * for good") so nothing about the sea creeps into a shop's news.
+ */
+export interface HireWords {
+  /** Where its people are: "aboard" ("They're not aboard the Swallow"), "at". */
+  at: string;
+  /** Its pronoun: "her" ("The Swallow has her mate already"), "its". */
+  her: string;
+  /** A place in it: "berth" ("A berth is a berth"; "Broke me to a lower berth"), "place". */
+  place: string;
+  /** One of the computer's people leaving for good: "goes ashore for good", "walks out for good". */
+  quits: string;
+}
+
+/** A ship's words: the defaults for any ladder that gives none. */
+export const SHIP_WORDS: HireWords = {
+  at: "aboard",
+  her: "her",
+  place: "berth",
+  quits: "goes ashore for good",
+};
+
 /** An outfit's roles, from the bottom up, and the work a player taken on does. */
 export interface Ladder {
   key: string;
@@ -91,6 +140,24 @@ export interface Ladder {
   noun: string;
   roles: RoleDef[];
   job: { kind: JobKind; place: PlaceKind };
+  /**
+   * The scene a player is offered a place in (a raised life event whose
+   * choices call `takeGate` and `answerOffer`, and whose quiet choice is
+   * to decline). Default "p2p-berth", the ship's (ShipEvents.ts).
+   */
+  scene?: string;
+  /** Its own words (default: a ship's, `SHIP_WORDS`). */
+  words?: Partial<HireWords>;
+}
+
+/** The words an outfit's messages use. */
+export function wordsOf(host: Pick<HireHost, "ladder">): HireWords {
+  return { ...SHIP_WORDS, ...host.ladder.words };
+}
+
+/** The scene a player is offered a place in this outfit. */
+export function offerScene(host: Pick<HireHost, "ladder">): string {
+  return host.ladder.scene ?? "p2p-berth";
 }
 
 /** An outfit people are taken on into, as its module describes it. */
@@ -115,8 +182,12 @@ export interface HireHost {
   room(role: string): number;
   /** Whether a player in this place is at their post now. */
   atPost(s: GameState, life: Life): boolean;
-  /** The month's pay, in the owner's books: its key and words. */
-  flow: { key: string; label: string };
+  /**
+   * The month's pay, in the owner's books: its key and words (the same key
+   * as the owner's forecast line), and the kind of the owner's affairs its
+   * news is shown under (default "boat").
+   */
+  flow: { key: string; label: string; aff?: AffairKind };
   /** Someone's just joined (a ship: a hand by name takes a hand-by-the-head's place). */
   joined?(g: ConquestGame, h: Hire): void;
 }
@@ -242,7 +313,8 @@ export function signOdds(
   pay: number,
 ): Breakdown {
   const e = new Explain();
-  e.add("A berth is a berth", 10);
+  const w = wordsOf(host);
+  e.add(`A ${w.place} is a ${w.place}`, 10);
   const fit = fitFor(p, role);
   if (fit < role.need)
     e.add(`Not up to it: ${roleSkillWords(role)} ${fit} of ${role.need}`, -100);
@@ -343,7 +415,7 @@ export function hireGate(
     );
   if (countOf(host, role.key) >= room)
     return no(
-      `${cap(host.name)} has her ${role.title.toLowerCase()}${room > 1 ? "s" : ""} already.`,
+      `${cap(host.name)} has ${wordsOf(host).her} ${role.title.toLowerCase()}${room > 1 ? "s" : ""} already.`,
     );
   if (p.c === owner.c) return no("You can't sign yourself on.");
   if (p.c >= 0) {
@@ -385,7 +457,7 @@ export function hire(
   roster.hires.push(h);
   touchLife(g, host.owner);
   host.joined?.(g, h);
-  remembers(g, host.owner, c, "Gave me a berth", 6, 3);
+  remembers(g, host.owner, c, `Gave me a ${wordsOf(host).place}`, 6, 3);
   journal(
     g,
     host.owner,
@@ -480,7 +552,7 @@ export function offerPlace(
     host.owner,
     `You offer ${charName(s.chars[them.c])} a place as ${role.title.toLowerCase()} of ${host.name}, at ${o.pay} a month.`,
   );
-  raiseEvent(g, them, "p2p-berth", { c: host.owner.c, o: o.id });
+  raiseEvent(g, them, offerScene(host), { c: host.owner.c, o: o.id });
   wake(g, them, `${charName(meOf(s, host.owner))} offers you a place.`);
   return null;
 }
@@ -498,8 +570,9 @@ export function withdrawOffer(
   touchLife(g, host.owner);
   const them = lifeOfSeat(g.s, o.seat);
   if (them) {
+    const scene = offerScene(host);
     touchLife(g, them).events = them.events.filter(
-      (e) => !(e.key === "p2p-berth" && e.ctx.o === id),
+      (e) => !(e.key === scene && e.ctx.o === id),
     );
   }
   return null;
@@ -520,7 +593,9 @@ export function takeGate(
   const role = roleOf(host.ladder, o.role);
   if (!role) return no("The offer's gone");
   if (countOf(host, o.role) >= host.room(o.role))
-    return no(`Her ${role.title.toLowerCase()}'s place is filled`);
+    return no(
+      `${cap(wordsOf(host).her)} ${role.title.toLowerCase()}'s place is filled`,
+    );
   return yes;
 }
 
@@ -540,7 +615,7 @@ export function answerOffer(
   if (!accept) {
     host.own(g).offers = (host.roster.offers ?? []).filter((x) => x !== offer);
     touchLife(g, owner);
-    journal(g, life, `You decline the place aboard ${host.name}.`);
+    journal(g, life, `You decline the place ${wordsOf(host).at} ${host.name}.`);
     journal(
       g,
       owner,
@@ -589,7 +664,7 @@ export function answerOffer(
   journal(
     g,
     life,
-    `You're ${role.title.toLowerCase()} of ${host.name} now, at ${h.pay} a month from her owner, paid by the days you're at your post. ${role.text}`,
+    `You're ${role.title.toLowerCase()} of ${host.name} now, at ${h.pay} a month from ${wordsOf(host).her} owner, paid by the days you're at your post. ${role.text}`,
     "good",
   );
   journal(
@@ -629,7 +704,7 @@ export function setRole(
 ): string | null {
   const s = g.s;
   const h = hireById(host, id);
-  if (!h) return "They're not aboard.";
+  if (!h) return `They're not ${wordsOf(host).at} ${host.name}.`;
   const role = roleOf(host.ladder, roleKey);
   const was = roleOf(host.ladder, h.role);
   if (!role || !was) return "No such place.";
@@ -638,7 +713,7 @@ export function setRole(
   if (host.room(role.key) <= 0)
     return `${cap(host.name)} has no place for a ${role.title.toLowerCase()}.`;
   if (countOf(host, role.key) >= host.room(role.key))
-    return `${cap(host.name)} has her ${role.title.toLowerCase()} already: move them first.`;
+    return `${cap(host.name)} has ${wordsOf(host).her} ${role.title.toLowerCase()} already: move them first.`;
   const up = role.rank > was.rank;
   const c = s.chars[h.c];
   touchLife(g, host.owner);
@@ -670,7 +745,14 @@ export function setRole(
     if (up)
       remembers(g, host.owner, c, `Made me ${role.title.toLowerCase()}`, 8, 3);
     else if (role.rank < was.rank)
-      remembers(g, host.owner, c, "Broke me to a lower berth", -12, 3);
+      remembers(
+        g,
+        host.owner,
+        c,
+        `Broke me to a lower ${wordsOf(host).place}`,
+        -12,
+        3,
+      );
   }
   return null;
 }
@@ -684,7 +766,7 @@ export function setPay(
 ): string | null {
   const s = g.s;
   const h = hireById(host, id);
-  if (!h) return "They're not aboard.";
+  if (!h) return `They're not ${wordsOf(host).at} ${host.name}.`;
   if (!Number.isFinite(pay) || pay < PAY_RANGE[0] || pay > PAY_RANGE[1])
     return `Pay is ${PAY_RANGE[0]} to ${PAY_RANGE[1]} a month.`;
   const now = r1(pay);
@@ -706,7 +788,7 @@ export function setPay(
       journal(
         g,
         life,
-        `${charName(meOf(s, host.owner))} ${up ? "raises" : "cuts"} your pay aboard ${host.name} from ${was} to ${now} a month.`,
+        `${charName(meOf(s, host.owner))} ${up ? "raises" : "cuts"} your pay ${wordsOf(host).at} ${host.name} from ${was} to ${now} a month.`,
         up ? "good" : "bad",
       );
       wake(g, life, `Your pay is ${now} a month now.`);
@@ -743,7 +825,7 @@ export function dismiss(
 ): string | null {
   const s = g.s;
   const h = hireById(host, id);
-  if (!h) return "They're not aboard.";
+  if (!h) return `They're not ${wordsOf(host).at} ${host.name}.`;
   const c = s.chars[h.c];
   removeHire(g, host, h);
   journal(g, host.owner, `You pay off ${charName(c)} from ${host.name}.`);
@@ -832,7 +914,11 @@ export function payRoster(g: ConquestGame, host: HireHost): void {
     if (owner.purse >= h.pay) {
       withFlow(
         g,
-        { key: host.flow.key, label: host.flow.label, aff: "boat" },
+        {
+          key: host.flow.key,
+          label: host.flow.label,
+          aff: host.flow.aff ?? "boat",
+        },
         () => spend(g, owner, h.pay),
       );
       h.owed = 0;
@@ -864,14 +950,14 @@ export function payRoster(g: ConquestGame, host: HireHost): void {
         g,
         owner,
         c,
-        (h.owed ?? 0) >= 2 ? "Never paid me" : "A poor berth",
+        (h.owed ?? 0) >= 2 ? "Never paid me" : `A poor ${wordsOf(host).place}`,
         -10,
         3,
       );
       journal(
         g,
         owner,
-        `${charName(c)} has had enough of ${host.name} and goes ashore for good${(h.owed ?? 0) >= 2 ? ", unpaid" : ""}.`,
+        `${charName(c)} has had enough of ${host.name} and ${wordsOf(host).quits}${(h.owed ?? 0) >= 2 ? ", unpaid" : ""}.`,
         "bad",
       );
       wake(g, owner, `${charName(c)} leaves ${host.name}.`);
@@ -900,7 +986,11 @@ export function payBerth(g: ConquestGame, life: Life): void {
   if (owner.purse >= due) {
     withFlow(
       g,
-      { key: host.flow.key, label: host.flow.label, aff: "boat" },
+      {
+        key: host.flow.key,
+        label: host.flow.label,
+        aff: host.flow.aff ?? "boat",
+      },
       () => spend(g, owner, due),
     );
     withFlow(
@@ -928,7 +1018,7 @@ export function payBerth(g: ConquestGame, life: Life): void {
       `${cap(host.name)}'s owner couldn't pay you this month: ${due} owed. You can leave from your Work page.`,
       "bad",
     );
-    wake(g, life, `Your pay aboard ${host.name} wasn't paid.`);
+    wake(g, life, `Your pay ${wordsOf(host).at} ${host.name} wasn't paid.`);
   }
 }
 

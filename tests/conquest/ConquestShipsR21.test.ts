@@ -17,19 +17,32 @@ import { dayOf } from "../../src/conquest/engine/Calendar";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import {
+  answerOffer,
   askingPay,
+  hire,
+  type HireHost,
+  type Ladder,
+  offerPlace,
+  offersTo,
+  payRoster,
   prospectOf,
+  registerHost,
   roleOf,
+  setPay,
+  setRole,
   signOdds,
 } from "../../src/conquest/engine/Hiring";
+import { touchLife } from "../../src/conquest/engine/LifeCore";
 import { autoAnswerLife } from "../../src/conquest/engine/LifeEvents";
 import {
   jobTitle,
+  lifeOfChar,
   lifeOfSeat,
   travelRoute,
 } from "../../src/conquest/engine/LifeQueries";
 import { WORK_DAYS } from "../../src/conquest/engine/LifeRules";
 import { strandEmbark } from "../../src/conquest/engine/Parties";
+import { ageOf } from "../../src/conquest/engine/Queries";
 import {
   charterOdds,
   chartersAt,
@@ -52,6 +65,7 @@ import type {
   GameDelta,
   GameState,
   Life,
+  Roster,
 } from "../../src/conquest/engine/Types";
 import type { ServerMessage } from "../../src/conquest/Protocol";
 import { lifeOf, map, plan, prov, world } from "./LifeUtil";
@@ -1135,3 +1149,165 @@ describe("saves, the delta, and old saves", { timeout: 120_000 }, () => {
     expect(run(true)).toBe(run(false));
   });
 });
+
+// ---------------------------------------------------------------- another kind of outfit
+
+// Hiring.ts isn't the ship's own: WORK (wave 2) plugs businesses into it.
+// A shop of Alden's, its roster kept on its own state, registered the way
+// Ships.ts registers a ship, with its own ladder, words, scene and books.
+const SHOP_LADDER: Ladder = {
+  key: "shop",
+  noun: "the staff",
+  roles: [
+    {
+      key: "porter",
+      title: "Porter",
+      rank: 0,
+      pay: 1.2,
+      skills: { trade: 1 },
+      need: 0,
+      jobRank: 0,
+      text: "Fetches, carries and minds the door.",
+    },
+    {
+      key: "clerk",
+      title: "Clerk",
+      rank: 1,
+      pay: 2.5,
+      skills: { trade: 0.5, letters: 0.5 },
+      need: 0,
+      jobRank: 0,
+      text: "Keeps the books and the counter.",
+    },
+  ],
+  job: { kind: "clerk", place: "market" },
+  scene: "p2p-test-shop",
+  words: { at: "at", her: "its", place: "place", quits: "walks out for good" },
+};
+const SHOP_ID = 777;
+const shops = new WeakMap<GameState, { roster?: Roster }>();
+
+function shopHost(s: GameState): HireHost | undefined {
+  const st = shops.get(s);
+  const owner = lifeOfSeat(s, "s1");
+  if (!st || !owner) return undefined;
+  return {
+    kind: "test-shop",
+    seat: "s1",
+    id: SHOP_ID,
+    name: "Alden's shop at Boston",
+    owner,
+    prov: BOS,
+    ladder: SHOP_LADDER,
+    roster: st.roster ?? { hires: [] },
+    own: (g) => {
+      touchLife(g, owner);
+      return (st.roster ??= { hires: [] });
+    },
+    rep: 50,
+    room: (role) => (role === "porter" ? 2 : 1),
+    atPost: (_s, l) => l.prov === BOS && !l.travel,
+    flow: {
+      key: `shop:${SHOP_ID}`,
+      label: "The shop: its staff's pay",
+      aff: "firm",
+    },
+  };
+}
+
+registerHost("test-shop", {
+  find: (s, seat, id) =>
+    seat === "s1" && id === SHOP_ID ? shopHost(s) : undefined,
+  all: (s) => {
+    const h = shopHost(s);
+    return h && (h.roster.hires.length || h.roster.offers?.length) ? [h] : [];
+  },
+  gone: "now the shop's shut",
+});
+
+describe(
+  "Hiring.ts for another kind of outfit (what WORK reuses)",
+  { timeout: 120_000 },
+  () => {
+    test("a shop's staff: its own ladder, words, scene and books; the computer's people and a player, promoted, paid and leaving", () => {
+      const { g, s, life } = atBoston({ seats: 2, seed: 61 });
+      const bea = lifeOfSeat(s, "s2")!;
+      shops.set(s, {});
+      const host = () => shopHost(s)!;
+      // One of the town's people, signed on at what they'd ask.
+      const c = Object.values(s.chars).find(
+        (x) =>
+          x.alive &&
+          !x.abroad &&
+          ageOf(s, x) >= 18 &&
+          ageOf(s, x) <= 50 &&
+          !lifeOfChar(s, x.id),
+      )!;
+      const porter = roleOf(SHOP_LADDER, "porter")!;
+      const p = prospectOf(s, life, c, SHOP_LADDER);
+      const ask = askingPay(p, porter);
+      const odds = signOdds(host(), p, porter, ask);
+      expect(odds.parts.map((x) => x.label)).toContain("A place is a place");
+      expect(odds.total).toBeGreaterThan(0);
+      expect(hire(g, host(), c, "porter", ask)).toBeNull();
+      const h = host().roster.hires[0];
+      expect(h).toMatchObject({ c: c.id, role: "porter", pay: ask });
+      expect(c.memories.some((m) => m.why === "Gave me a place")).toBe(true);
+      // Promoted, then broken back, in the shop's own words.
+      expect(setRole(g, host(), h.id, "clerk")).toBeNull();
+      expect(setRole(g, host(), h.id, "porter")).toBeNull();
+      expect(
+        c.memories.some((m) => m.why === "Broke me to a lower place"),
+      ).toBe(true);
+      // Bea is offered the clerk's place: the shop's scene, never the ship's.
+      expect(offerPlace(g, host(), bea, "clerk", 3)).toBeNull();
+      expect(bea.events.some((e) => e.key === "p2p-berth")).toBe(false);
+      const o = offersTo(s, "s2")[0].offer;
+      expect(answerOffer(g, bea, o.id, true)).toBeNull();
+      expect(bea.job?.kind).toBe("clerk");
+      expect(bea.job?.berth).toMatchObject({
+        kind: "test-shop",
+        seat: "s1",
+        id: SHOP_ID,
+        pay: 3,
+      });
+      expect(jobTitle(bea)).toBe("Clerk of Alden's shop at Boston");
+      // Its one clerk's place is filled.
+      expect(setRole(g, host(), h.id, "clerk")).toMatch(
+        /has its clerk already/,
+      );
+      expect(setPay(g, host(), host().roster.hires[1].id, 3.5)).toBeNull();
+      expect(bea.job?.berth?.pay).toBe(3.5);
+      expect(
+        bea.journal.some((j) => /raises your pay at Alden's shop/.test(j.text)),
+      ).toBe(true);
+      // Her month: paid by her days at her post, from Alden's purse, under the shop's key.
+      days(g, 40);
+      const due = (bea.statements ?? [])
+        .flatMap((x) => x.lines)
+        .filter((l) => /^m:Wage: clerk of alden's shop/.test(l.k))
+        .reduce((m, l) => m + l.v, 0);
+      expect(due).toBeGreaterThan(0);
+      const paid = (life.statements ?? [])
+        .flatMap((x) => x.lines)
+        .filter((l) => l.k === `shop:${SHOP_ID}`)
+        .reduce((m, l) => m + l.v, 0);
+      expect(paid).toBeCloseTo(-due, 1);
+      // The computer's porter unpaid twice: he walks out (not "ashore").
+      life.purse = 0;
+      payRoster(g, host());
+      payRoster(g, host());
+      expect(host().roster.hires.some((x) => x.c === c.id)).toBe(false);
+      expect(
+        life.journal.some((j) => /walks out for good, unpaid/.test(j.text)),
+      ).toBe(true);
+      // Bea leaves from the usual job menu: off the shop's books.
+      expect(cmd(g, { k: "quit" }, "s2")).toBeNull();
+      expect(bea.job).toBeNull();
+      expect(host().roster.hires.length).toBe(0);
+      expect(life.journal.some((j) => /leaves Alden's shop/.test(j.text))).toBe(
+        true,
+      );
+    });
+  },
+);
