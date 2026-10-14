@@ -6,10 +6,16 @@
 // come (EventPlaces.ts). A trade's new matters at work join the others in
 // Matters.ts (MattersR21.ts).
 
+import { registerFamily } from "./EventPacing";
 import "./EventPlaces";
 import { LAND_PLACE_EVENTS } from "./EventsR21Land";
 import { TOWN_PLACE_EVENTS } from "./EventsR21Town";
+import { VENTURE_REST } from "./Letters";
 import type { LifeEventDef } from "./LifeEvents";
+
+// The merchant's venture in person rests with the venture by letter: a share
+// at twenty coins comes at most once in three years, either way.
+registerFamily("share-venture", ["merchant-venture"], VENTURE_REST);
 
 export const R21_EVENTS: LifeEventDef[] = [
   ...TOWN_PLACE_EVENTS,

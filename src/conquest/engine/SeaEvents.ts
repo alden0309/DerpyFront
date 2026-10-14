@@ -896,18 +896,19 @@ function voyageBody(
   ctx: LCtx,
   kind: VoyageKind,
 ): string {
-  const def = VOYAGE_DEFS[kind];
   const to = g.map.provinces[ctx.to]?.name ?? "far off";
   const go = voyageOdds(g.s, g.w, life, kind, ctx.to, true);
+  // EVENTS (r21): one plain paragraph (it used to say the same thing twice),
+  // then the odds of going.
   const head =
     kind === "merchant"
-      ? `The ship you serve in loads for ${to}.`
+      ? `The ship you serve in is loading for ${to}. You can go with her (with a small venture of your own, as a sailor may), see the port, and come home in her; or stay ashore and work the quay at your wage.`
       : kind === "whaling"
-        ? `A whaler fits out for the grounds off ${to}, and wants hands on the lay.`
+        ? `A whaler is fitting out for the grounds off ${to} and wants hands. Whalemen get no wages: each has a "lay", a share of the oil by his rank. Or stay ashore and work alongshore.`
         : kind === "furs"
-          ? `The brigade loads its canoes for the posts at ${to}.`
-          : `A patent near ${to} wants its lines run.`;
-  return `${head} ${def.text}\nGoing (${go.days?.[0] ?? "?"} to ${go.days?.[1] ?? "?"} days, there and back):\n${oddsText(go)}`;
+          ? `The canoe brigade is loading for the posts at ${to}: trade goods up the rivers, furs back. Go with it, or send your goods with it and take a smaller part of what they fetch.`
+          : `A patent near ${to} needs its lines run with chain and compass, for a fee. Run them yourself, or send your deputy for half the fee.`;
+  return `${head}\nIf you go (${go.days?.[0] ?? "?"} to ${go.days?.[1] ?? "?"} days, there and back):\n${oddsText(go)}`;
 }
 
 function voyageDef(kind: VoyageKind): LifeEventDef {
@@ -1059,13 +1060,42 @@ function offerOf(g: ConquestGame, life: Life, ctx: LCtx) {
   return cruiseOffers(g.s, g.w, life.prov).find((o) => o.key === key);
 }
 
+/**
+ * EVENTS (r21): a ship fitting out, said plainly. Before, the scene began
+ * with "beating for men" and "on the account" and ended in a table of odds,
+ * without ever saying what the place was or how it paid.
+ */
+export function fittingBody(
+  g: ConquestGame,
+  life: Life,
+  o: NonNullable<ReturnType<typeof offerOf>>,
+): string {
+  const ground = GROUND_BY_KEY.get(o.ground)?.name ?? "the hunting grounds";
+  const ship = `The ${o.ship}, a ${BOATS[o.kind].name.toLowerCase()} of ${o.guns} guns`;
+  const days = o.hunt + o.passage * 2;
+  const v = offerOdds(g.s, g.w, life, o, "crew");
+  const nothing = v.outcomes.find((x) => x.label === "nothing taken")?.p ?? 0;
+  const taken = v.risks[0]?.p ?? 0;
+  const what =
+    o.flag === "pirate"
+      ? `${ship}, is taking on a pirate crew under ${o.cname}. There are no wages and no commission: whatever she takes is shared out by the articles every man signs, and the crew chooses its captain (and can vote him out). Pirates who are caught are hanged.`
+      : `${ship}, is a privateer: ${o.cname} holds a letter of marque from the ${g.s.nations[o.nation]?.adjective ?? ""} crown, a licence to capture enemy merchant ships in wartime. There are no wages. Whatever she takes is sold, and every man aboard gets a share: a hand one share, an officer more, the captain most.`;
+  return [
+    what,
+    `She sails on ${formatDate(o.sails)} for ${ground} and should be home in about ${days} days.`,
+    `For a hand: ${chanceWords(1 - nothing)} she takes a prize, and your share would come to about ${Math.round(v.expected)} coins on average. The danger: ${chanceWords(taken)} she's taken by an enemy warship${o.flag === "pirate" ? " (and you tried for piracy)" : " (and you held prisoner till exchanged)"}.`,
+  ].join("\n");
+}
+
 function signChoice(role: CruiseRole): LifeEventDef["choices"][number] {
   return {
+    // EVENTS (r21): plainer: the place, and what it's likely to bring.
     label: (g, life, ctx) => {
       const o = offerOf(g, life, ctx);
-      if (!o) return `Sign as ${role}`;
+      const name = o ? ROLE_NAMES[o.flag][role].toLowerCase() : role;
+      if (!o) return `Sign on as ${name}`;
       const v = offerOdds(g.s, g.w, life, o, role);
-      return `Sign as ${ROLE_NAMES[o.flag][role].toLowerCase()} (≈ ${v.expected} to you)`;
+      return `Sign on as ${name}: your share, about ${Math.round(v.expected)} coins`;
     },
     tip: (g, life, ctx) => {
       const o = offerOf(g, life, ctx);
@@ -1073,7 +1103,13 @@ function signChoice(role: CruiseRole): LifeEventDef["choices"][number] {
       const v = offerOdds(g.s, g.w, life, o, role);
       const nothing =
         v.outcomes.find((x) => x.label === "nothing taken")?.p ?? 0;
-      return `${chanceWords(1 - nothing)} of a prize; ${chanceWords(v.risks[0]?.p ?? 0)} of being taken. You sail with her, on the map, till she's home.`;
+      const what =
+        role === "captain"
+          ? "You command her and take the captain's shares"
+          : role === "officer"
+            ? `You're her ${ROLE_NAMES[o.flag].officer.toLowerCase()}: more shares than a hand, and a say in what she does`
+            : "You work her as one of the crew, for a hand's share";
+      return `${what}. ${cap(chanceWords(1 - nothing))} she takes a prize; ${chanceWords(v.risks[0]?.p ?? 0)} an enemy warship takes her. You go with her (she sails on the map) until she's home; your own work waits.`;
     },
     blocked: (g, life, ctx) => {
       const o = offerOf(g, life, ctx);
@@ -1096,20 +1132,19 @@ const QUAY = (): LifeEventDef[] => [
     pool: "raised",
     cooldown: 0,
     scene: "docks",
+    // EVENTS (r21): said plainly: who she is, what a privateer (or a pirate)
+    // is, how the crew is paid, how long, and what a hand can expect.
     title: (g, life, ctx) => {
       const o = offerOf(g, life, ctx);
-      return o ? `The ${o.ship} is fitting out` : "A ship fitting out";
+      if (!o) return "A ship wants hands";
+      return o.flag === "pirate"
+        ? `The ${o.ship} wants a pirate crew`
+        : `The ${o.ship} wants hands`;
     },
     body: (g, life, ctx) => {
       const o = offerOf(g, life, ctx);
       if (!o) return "She's sailed.";
-      const ground = GROUND_BY_KEY.get(o.ground)?.name ?? "the hunting grounds";
-      const who =
-        o.flag === "pirate"
-          ? `${o.cname} is getting up a company on the account: no commission, no questions, shares by the pirates' articles. Her captain's elected and can be voted out.`
-          : `${o.cname} has a ${g.s.nations[o.nation]?.adjective ?? ""} letter of marque and is beating for men: "all gentlemen seamen and able-bodied landsmen inclined to make their fortunes".`;
-      const v = offerOdds(g.s, g.w, life, o, "crew");
-      return `${who} The ${o.ship}, ${BOATS[o.kind].name.toLowerCase()} of ${o.guns} guns, sails on ${formatDate(o.sails)} for ${ground}: about ${o.hunt} days on the ground, ${o.passage} out and ${o.passage} home.\nAs a hand:\n${oddsText(v)}`;
+      return fittingBody(g, life, o);
     },
     choices: [
       signChoice("crew"),
@@ -1202,7 +1237,7 @@ const COMPANY_SCENES = (): LifeEventDef[] => [
       const sub = subById(g.s, ctx.sub);
       const who = g.s.chars[ctx.c];
       if (!sub) return "The subscription has closed.";
-      return `${who ? who.first : "A friend"} writes from ${g.map.provinces[sub.prov].name}: "I am getting up a company to fit out the ${sub.shipName}, ${BOATS[sub.kind].name.toLowerCase()} of ${BOATS[sub.kind].guns} guns, as a privateer under the governor's commission. ${subTotal(sub)} is put in so far, of ${subNeeded(g.s, g.w, sub)} wanted in coin. Will you take a share? The owners have half of every prize the court condemns, by what each put in."\nThe money goes by the same post; it's given back if she never signs.`;
+      return `${who ? who.first : "A friend"} writes from ${g.map.provinces[sub.prov].name}: "I am getting up a company to fit out the ${sub.shipName}, ${BOATS[sub.kind].name.toLowerCase()} of ${BOATS[sub.kind].guns} guns, as a privateer under the governor's commission. ${subTotal(sub)} coins are put in so far, of the ${subNeeded(g.s, g.w, sub)} she needs. Will you take a share? Half of every prize she brings in goes to us owners, divided by what each put in."\nYou'd send your money by return of post, and have it back if she never sails.`; // EVENTS (r21): plainer
     },
     choices: [
       inviteChoice(10),
