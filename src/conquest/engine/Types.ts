@@ -2031,7 +2031,7 @@ export interface GameDelta {
   reclaim?: ReclaimState;
   /** CROWN (r18): when any changed (a petition is its colony's secret until it sails). */
   crown?: CrownState;
-  /** GOV (r21): expeditions, when any changed (nothing in it is secret). */
+  /** GOV (r21): expeditions, when any changed (redacted per seat: `expedDeltaForSeat`). */
   exped?: ExpedState;
 }
 

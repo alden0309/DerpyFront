@@ -23,6 +23,7 @@ import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
 import { deskOf, deskView, governedBy } from "./GovDesk";
 import { hooks, raiseEvent } from "./Hooks";
+import { withFlow } from "./LedgerCore";
 import { addRenown, journal, milestone, spend, touchLife } from "./LifeCore";
 import { Check, lifeOfChar, meOf, no, skillLevel, yes } from "./LifeQueries";
 import { kmBetween, type World } from "./Map";
@@ -105,11 +106,11 @@ export const REV = {
 const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
 
-/** The track's own dice. */
+/** The track's own dice (0x2210000 up: EVENTS r21 has 0x21e0000). */
 function rdice(s: GameState, salt: number, ...xs: number[]) {
   let k = salt | 0;
   for (const x of xs) k = (Math.imul(k, 31) + (x | 0)) | 0;
-  return worldRng(s, 0x21e0000 + (k & 0xfffff));
+  return worldRng(s, 0x2210000 + (k & 0xfffff));
 }
 
 /** The crown that rules a colony (its nation index), or -1. */
@@ -459,10 +460,10 @@ export function warOdds(s: GameState, w: World, n: number): Breakdown {
       `The crown's own ${regs} men in the colony go over to it`,
       -Math.round(Math.min(0.15, regs / 2000) * 100) / 100,
     );
-  const expect = provincesOf(s, n).reduce(
-    (m, p) => m + holdOdds(s, w, n, p).total,
-    0,
-  );
+  // The capital never holds for the King (the declaration's roll leaves it out).
+  const expect = provincesOf(s, n)
+    .filter((p) => p !== nation.capital)
+    .reduce((m, p) => m + holdOdds(s, w, n, p).total, 0);
   if (expect >= 0.5)
     e.add(
       `Counties likely to hold for the King (about ${Math.round(expect)})`,
@@ -498,14 +499,17 @@ export function declareRev(
     return null;
   }
   const crown = crownFor(s, n);
+  // Each county's chance of holding for the King, as the page showed it:
+  // reckoned before the declaration, which sets the crown's favour to nothing.
+  const shown = provincesOf(s, n)
+    .filter((p) => p !== nation.capital)
+    .map((p) => ({ p, odds: holdOdds(s, g.w, n, p).total }));
   declareIndependence(g, n);
   // The crown's own regiments in the colony go over to it.
   if (crown >= 0) defect(g, n, crown);
   // Counties where the crown's friends are strong hold for the King.
   const holds: number[] = [];
-  for (const p of provincesOf(s, n)) {
-    if (p === nation.capital) continue;
-    const odds = holdOdds(s, g.w, n, p).total;
+  for (const { p, odds } of shown) {
     if (odds <= 0) continue;
     if (odds >= 1 || rdice(s, 0x90, p, n).chance(odds)) {
       holds.push(p);
@@ -705,7 +709,12 @@ hooks.gameEvent.push((g, e) => {
         );
       } else if (side === "loyal") {
         const lose = Math.floor(l.purse * REV.loyalLost);
-        if (lose > 0) spend(g, l, lose);
+        if (lose > 0)
+          withFlow(
+            g,
+            { key: "rev:confiscated", label: "Confiscated by the committee" },
+            () => spend(g, l, lose),
+          );
         addRenown(g, l, REV.loyalLostRenown);
         journal(
           g,

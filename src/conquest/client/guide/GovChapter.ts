@@ -78,7 +78,7 @@ function dcTable(): string {
 | Trade and missions: the nation's regard for your colony, a level for each ${DC.regardPer} | ±, by their regard |
 | A treaty of trade (trade) | −1 |
 | An outpost on a native nation's land; where people live | +${DC.nativeLand}; +1 |
-| A raid: the town's warriors against your men (a level for each half again) | ${DC.raidMin} to +${DC.raidMax} |
+| A raid: the town's warriors against your men (a level for each half again) | ${sg(DC.raidMin)} to ${sg(DC.raidMax)} |
 | A port on open coast (the town to make as well) | +${DC.openCoast} |`;
 }
 
@@ -166,8 +166,8 @@ A grant is the governor's **leave** too. What isn't spent goes back to the treas
 ## A raid, and its answer
 Raids on native towns were the frontier's oldest way of war, and the cause of most of its wars. Here they're told as history had them, without gore: the town falls at dawn, its people flee into the woods, its stores are carried off and its fields burned.
 - **The town**: ruined (war damage +${pct(RAID.townRuin)}), and ${pct(RAID.townFled)} of its people gone to their kin.
-- **The nation**: its regard for your colony ${RAID.regard} (${RAID.regardHalf} on a poor showing, ${RAID.regardFailed} if it's beaten off), for ${RAID.years} years. In peacetime, it **takes up the hatchet at once** ${pct(RAID.war)} of the time (+${pct(RAID.warStrong)} for a strong nation); otherwise, ${pct(RAID.reprisal)} of the time, **a war party falls on your frontier** ${RAID.reprisalDays[0]} to ${RAID.reprisalDays[1]} days later: the county nearest the town ruined (+${pct(RAID.ruin)}), its unrest +${RAID.unrest}, ${pct(RAID.settlersLost)} of its settlers lost, and everyone living there in a scene. Ranging companies meet and turn it (${pct(RAID.rangerTurns)} each, to ${pct(RAID.rangerMax)}).
-- **The colony**: the frontier fears the answer (unrest +${RAID.fear} for a year). In peacetime London asks why (favour −2 for a year); a **private raid** the governor never gave leave for costs everyone in it favour ${RAID.privateFavour} and the colony's law's heat +${RAID.privateHeat}, and the colony favour −3 more.
+- **The nation**: its regard for your colony ${sg(RAID.regard)} (${sg(RAID.regardHalf)} on a poor showing, ${sg(RAID.regardFailed)} if it's beaten off), for ${RAID.years} years. In peacetime, it **takes up the hatchet at once** ${pct(RAID.war)} of the time (+${pct(RAID.warStrong)} for a strong nation); otherwise, ${pct(RAID.reprisal)} of the time, **a war party falls on your frontier** ${RAID.reprisalDays[0]} to ${RAID.reprisalDays[1]} days later: the county nearest the town ruined (+${pct(RAID.ruin)}), its unrest +${RAID.unrest}, ${pct(RAID.settlersLost)} of its settlers lost, and everyone living there in a scene. Ranging companies meet and turn it (${pct(RAID.rangerTurns)} each, to ${pct(RAID.rangerMax)}).
+- **The colony**: the frontier fears the answer (unrest +${RAID.fear} for a year). In peacetime London asks why (favour −2 for a year); a **private raid** the governor never gave leave for costs everyone in it favour ${sg(RAID.privateFavour)} and the colony's law's heat +${RAID.privateHeat}, and the colony favour −3 more.
 - **People**: the tolerant and the just of the town think the worse of its leader; the cruel and the soldiers the better.
 
 **Demand tribute** instead (Persuasion): if they pay, half the plunder and less anger; refused, no fight but a grudge (and an answer, half as likely).
@@ -201,7 +201,7 @@ ${DUTIES.map((d) => `| **${d.name}** | ${fx(d.fx)} | ${d.merchants ? sg(d.mercha
 function progTable(): string {
   return `| Programme | Builds | Where | Years |
 |---|---|---|---|
-${PROGRAMMES.map((p) => `| **${p.name}** | ${p.b === "tradingpost" ? "a trading house" : p.b} | ${p.text.split(":")[0]} | ${p.years} |`).join("\n")}`;
+${PROGRAMMES.map((p) => `| **${p.name}** | ${p.b === "tradingpost" ? "a trading house" : p.b} | ${p.text.split(":")[0].replace(/\.$/, "")} | ${p.years} |`).join("\n")}`;
 }
 
 export const GOVERNING_CHAPTER: Chapter = {
@@ -228,7 +228,7 @@ ${progTable()}
 - **Truck houses**: the building programme above.
 
 ## The militia
-${MUSTERS.map((m) => `- **${m.name}**: ${m.gold} gold a month; militia raised come out ${Math.round(m.morale * 100)}% steadier; ${fx(m.fx)}.`).join("\n")}
+${MUSTERS.map((m) => (m.gold ? `- **${m.name}**: ${m.gold} gold a month; militia raised come out ${Math.round(m.morale * 100)}% steadier; ${fx(m.fx)}.` : `- **${m.name}**: nothing paid, and nothing changes.`)).join("\n")}
 - **Ranging companies** on the frontier (to ${RANGERS.max}, ${RANGERS.gold} gold a month each): a war party coming over the frontier is met and turned ${pct(RAID.rangerTurns)} of the time for each.
 
 ## Courts and pardons
@@ -274,7 +274,7 @@ The governor puts it to the house: *that this colony is, and of right ought to b
 | Content or honest; ambitious or brave; craven | ${sg(REV.loyal)}; ${sg(REV.bold)}; ${sg(REV.craven)} |
 | His own mind | ±${REV.noise} |
 
-The page shows how they'd divide today. **Lost**, London hears of it: the colony's favour ${REV.lostFavor} for ${REV.lostYears} years, and a grievance against the governor (a recall is likelier). **Carried** (more for than against), the governor has ${REV.declareWithin} days to declare it.
+The page shows how they'd divide today. **Lost**, London hears of it: the colony's favour ${sg(REV.lostFavor)} for ${REV.lostYears} years, and a grievance against the governor (a recall is likelier). **Carried** (more for than against), the governor has ${REV.declareWithin} days to declare it.
 
 ## Declared
 - **War with the crown.** It lands an army of regulars and guns about every ten months; the colony **wins** if it holds out eight years or beats three of them, and is **crushed** if the crown holds its capital half a year (the governor hangs).
@@ -286,8 +286,8 @@ The page shows how they'd divide today. **Lost**, London hears of it: the colony
 The war's chance is shown as an estimate (the colony's men, its settlers, what the crown can spare, a war in Europe keeping it busy, the regiments that go over, the counties likely to hold): the armies decide it. Tried 24 times from Virginia in 1700, it came out as often as shown (11 won, against 11.8 by the estimate).
 
 ## The end
-- **Won**: the colony is free and the governor frames its government (Society › Colony: [[founding|A colony of your own]]). Patriots renown +${REV.wonRenown}; the King's friends lose ${Math.round(REV.loyalLost * 100)}% of their purse to the committees, and renown ${REV.loyalLostRenown}.
-- **Crushed**: the governor hangs. Patriots: the law's heat +${REV.crushedHeat}, favour ${REV.crushedFavour}, renown ${REV.crushedRenown}. The King's friends: favour +${REV.loyalWonFavour}, renown +${REV.loyalWonRenown}.
+- **Won**: the colony is free and the governor frames its government (Society › Colony: [[founding|A colony of your own]]). Patriots renown +${REV.wonRenown}; the King's friends lose ${Math.round(REV.loyalLost * 100)}% of their purse to the committees, and renown ${sg(REV.loyalLostRenown)}.
+- **Crushed**: the governor hangs. Patriots: the law's heat +${REV.crushedHeat}, favour ${sg(REV.crushedFavour)}, renown ${sg(REV.crushedRenown)}. The King's friends: favour +${REV.loyalWonFavour}, renown +${REV.loyalWonRenown}.
 
 > Tip: Wait for a war in Europe, a colony that's grown its own mind, and a house that leans your way; raise the militia and drill it first.`,
   glossary: [
@@ -307,7 +307,7 @@ The war's chance is shown as an estimate (the colony's men, its settlers, what t
 /** Added to "A colony of your own": founding, widened. */
 export const FOUNDING_R21 = `
 
-## For whom (GOV r21)
+## For whom
 - **Your own crown**, with the governor's charter (renown +${PLANT.renown.charter}, favour +${PLANT.favour}) or as squatters (renown +${PLANT.renown.squatters}, and his anger).
 - **Another crown** (as Peter Minuit planted New Sweden for the Swedes in 1638): its governor grants the charter (in person at their capital, or by letter); a stranger asks harder, a small colony is glad of settlers. Planted, the settlement is theirs and so are you and your families (renown +${PLANT.renown.other}); your old colony thinks the worse of them, and your favour at home is halved.
 - **Your own colony**, answering to no crown (renown +${PLANT.renown.free}), and you frame its government.
@@ -316,7 +316,7 @@ export const FOUNDING_R21 = `
 You hold its land as its **proprietor** (seigneur, adelantado, patroon), name its officers and draw the proprietor's pay; and the new town has its **mayor's chair** from the start (maire, alcalde, burgomaster), yours for its first year by the town's charter if you hold no other office.
 
 ## The first year
-Before you set out, the page shows the odds of a **hard first year** (a starving time: ${Math.round(PLANT.hardLost * 100)}% of the settlers lost, renown ${PLANT.hardRenown}, stress +${PLANT.hardStress}): ${Math.round(SEASONING.base * 100)} in 100 to begin with; less with supplies beyond the need (to −${Math.round(SEASONING.spareMax * 100)}), arriving in time to plant (${in100(SEASONING.spring)}), your leadership and farming, and more households; more arriving with winter coming (${in100(SEASONING.winter)}), in fever country (${in100(SEASONING.fever)}) or where people live already (${in100(SEASONING.natives)}). Between ${Math.round(SEASONING.min * 100)} and ${Math.round(SEASONING.max * 100)}. And what's still to pay.`;
+Before you set out, the page shows the odds of a **hard first year** (a starving time: ${Math.round(PLANT.hardLost * 100)}% of the settlers lost, renown ${sg(PLANT.hardRenown)}, stress +${PLANT.hardStress}): ${Math.round(SEASONING.base * 100)} in 100 to begin with; less with supplies beyond the need (to −${Math.round(SEASONING.spareMax * 100)}), arriving in time to plant (${in100(SEASONING.spring)}), your leadership and farming, and more households; more arriving with winter coming (${in100(SEASONING.winter)}), in fever country (${in100(SEASONING.fever)}) or where people live already (${in100(SEASONING.natives)}). Between ${Math.round(SEASONING.min * 100)} and ${Math.round(SEASONING.max * 100)}. And what's still to pay.`;
 
 export const GOV_CHAPTERS = {
   EXPEDITIONS_CHAPTER,

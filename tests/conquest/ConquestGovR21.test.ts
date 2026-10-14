@@ -890,6 +890,34 @@ describe("GOV r21: breaking with the crown", () => {
     expect(a.constitute?.n).toBe(england);
   });
 
+  test("counties hold for the King at the odds the page showed (reckoned before the declaration sets the crown's favour to nothing)", () => {
+    const { g, s, a, england } = governor();
+    for (const c of s.polities[england].assembly)
+      ensureCabinet(g, england).faction[c] = "country";
+    g.nation(england).autonomy = 80;
+    g.nation(england).favor = 20;
+    expect(cmd(g, a, { k: "desk", act: "motion" })).toBeNull();
+    for (let i = 0; i < 15; i++) g.tick();
+    expect(deskView(s, england).motion!.result!.carried).toBe(true);
+    // The crown still well thought of: the King's friends are strong everywhere.
+    g.nation(england).favor = 100;
+    const capital = s.nations[england].capital;
+    const shown = provincesOf(s, england)
+      .filter((p) => p !== capital)
+      .map((p) => ({ p, o: holdOdds(s, g.w, england, p).total }));
+    const expected = shown.reduce((m, x) => m + x.o, 0);
+    expect(expected).toBeGreaterThan(8);
+    expect(cmd(g, a, { k: "desk", act: "declare", on: true })).toBeNull();
+    expect(s.nations[england].favor).toBe(0);
+    const holds = deskView(s, england).rev!.holds;
+    // Before the fix they were rolled at favour 0: about one county, not ten.
+    expect(holds.length).toBeGreaterThanOrEqual(expected / 2);
+    expect(holds.length).toBeLessThanOrEqual(expected * 2);
+    expect(holds).not.toContain(capital);
+    for (const p of holds)
+      expect(shown.find((x) => x.p === p)!.o).toBeGreaterThan(0);
+  });
+
   test("in the war, the colony's generals fight at home: at the crown's men when stronger, else the capital", () => {
     const { g, s, a, england } = governor();
     for (const c of s.polities[england].assembly)
