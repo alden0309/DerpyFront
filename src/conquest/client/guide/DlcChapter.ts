@@ -84,7 +84,7 @@ export const CAMPAIGN_CHAPTER: Chapter = {
   where:
     "The lobby: Begin in 1776 (its owner hosts; anyone can join). In the game: Society › The war.",
   body: `## Who can play it
-**1776: The Revolution** is in the Derp Store (Derpy Conquest › Campaigns). Only someone who owns it can **host** a game that begins in 1776, or load one that was saved; **anyone can join** their game for free and play their own character in it. The server checks the host's account, never the browser.
+**1776: The Revolution** is in the Derp Store (Derpy Conquest › Start Dates). Only someone who owns it can **host** a game that begins in 1776, or load one that was saved; **anyone can join** their game for free and play their own character in it. The server checks the host's account, never the browser.
 
 ## The world of 1776
 The game begins on 1 January 1776. Boston is under siege, the Americans lie before Quebec after their assault failed, and the Continental Congress at Philadelphia is at war with the King without having declared independence. On the map:
@@ -140,7 +140,7 @@ export const LEGENDS_CHAPTER: Chapter = {
   line: "In the Derp Store: old American legends to follow, for the bold and the learned, and the native nations' sacred places to learn and keep.",
   where: "Journal › Legends (for whoever owns Legends, in any game).",
   body: `## Who hears of them
-**Legends** is in the Derp Store (Derpy Conquest › Legends). It comes to the characters of whoever owns it, in any game, whoever hosts. Everything about your legends is your own: nobody else sees what you've heard or how far you've got.
+**Legends** is in the Derp Store (Derpy Conquest › Add-Ons). It comes to the characters of whoever owns it, in any game, whoever hosts. Everything about your legends is your own: nobody else sees what you've heard or how far you've got.
 
 ## Hearing of one
 Talk of a legend comes rarely: ${chanceWords(LEGEND_RULES.rumour)} a month (${chanceWords(Math.min(1, LEGEND_RULES.rumour * LEGEND_RULES.region))} in its own country), from ${LEGEND_RULES.age}. Or stand a round at a tavern, the docks or a native town and ask after old stories (${LEGEND_RULES.ask.cost} coin, once in ${LEGEND_RULES.ask.rest} days): ${SKILL_NAMES[LEGEND_RULES.ask.skill].toLowerCase()} against ${LEGEND_RULES.ask.dc}, then ${chanceWords(LEGEND_RULES.ask.then)} it's one worth following. Remember it, and it goes in Journal › Legends.
@@ -173,7 +173,7 @@ export const MAP_STYLES_CHAPTER: Chapter = {
   line: "Other looks for the map, from the Derp Store: only you see them, and they change nothing in the game.",
   where: "The menu › Settings › Map style (or the Derp Store's Inventory).",
   body: `## Choosing one
-Map styles are in the Derp Store (Derpy Conquest › Map styles). Once you own one, choose it in the menu's **Settings › Map style**, or in the store's Inventory; the usual chart is always there to go back to. The choice is kept in this browser, and only you see it.
+Map styles are in the Derp Store (Derpy Conquest › Map Styles). Once you own one, choose it in the menu's **Settings › Map style**, or in the store's Inventory; the usual chart is always there to go back to. The choice is kept in this browser, and only you see it.
 
 ## The styles
 ${MAP_STYLES.map((k) => `- **${MAP_STYLE_NAMES[k]}**`).join("\n")}

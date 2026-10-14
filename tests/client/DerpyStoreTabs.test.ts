@@ -59,8 +59,9 @@ describe("the store's tabs", () => {
     expect(forSale.get("derpyfront/personalities")).toBe(5);
     expect(forSale.get("derpyfront/effects")).toBe(6);
     expect(forSale.get("derpyfront/fanfares")).toBe(6);
-    expect(forSale.get("conquest/campaigns")).toBe(1); // DLC (r21)
+    expect(forSale.get("conquest/startdates")).toBe(1); // SITE (r22)
     expect(forSale.get("conquest/mapstyles")).toBe(5); // DLC (r21)
+    expect(forSale.get("conquest/addons")).toBe(1); // SITE (r22)
     const owned = ["pack:classics", "skin:classic_camo", "pack:fx_frost"];
     const mine = tabCounts(DERPY_ITEMS, tabs, owned);
     expect(mine.get("derpyfront/skins")).toBe(1);
@@ -77,9 +78,9 @@ describe("the store's tabs", () => {
 
   test("links name tabs, and anything else lands on the first", () => {
     expect(firstTab(tabs)).toEqual({ game: "derpyfront", category: "skins" });
-    expect(tabFromHash("#conquest/legends", tabs)).toEqual({
+    expect(tabFromHash("#conquest/addons", tabs)).toEqual({
       game: "conquest",
-      category: "legends",
+      category: "addons",
     });
     expect(tabFromHash("#effects", tabs)).toEqual({
       game: "derpyfront",
@@ -87,15 +88,75 @@ describe("the store's tabs", () => {
     });
     expect(tabFromHash("#conquest", tabs)).toEqual({
       game: "conquest",
-      category: "campaigns",
+      category: "startdates",
     });
     expect(tabFromHash("#conquest/nope", tabs)).toEqual({
       game: "conquest",
-      category: "campaigns",
+      category: "startdates",
     });
     expect(tabFromHash("", tabs)).toEqual(firstTab(tabs));
     expect(tabFromHash("#rubbish", tabs)).toEqual(firstTab(tabs));
     const t = { game: "derpyfront", category: "fanfares" };
     expect(tabFromHash(tabHash(t), tabs)).toEqual(t);
+  });
+});
+
+// SITE (r22): Derpy Conquest's tabs are Start Dates, Map Styles and Add-Ons.
+describe("Derpy Conquest's tabs", () => {
+  const conquest = tabs.find((t) => t.game === "conquest")!;
+
+  test("Start Dates, Map Styles, Add-Ons, in that order", () => {
+    expect(conquest.categories.map((c) => c.label)).toEqual([
+      "Start Dates",
+      "Map Styles",
+      "Add-Ons",
+    ]);
+  });
+
+  test("1776 is a start date, Legends an add-on, every item still for sale", () => {
+    const names = (category: string) =>
+      itemsInTab(DERPY_ITEMS, { game: "conquest", category }).map(
+        (i) => i.name,
+      );
+    expect(names("startdates")).toEqual(["campaign_1776"]);
+    expect(names("addons")).toEqual(["legends"]);
+    expect(names("mapstyles")).toHaveLength(5);
+    const shown = conquest.categories.flatMap((c) => names(c.id));
+    expect(shown.sort()).toEqual(
+      DERPY_ITEMS.filter((i) => i.game === "conquest")
+        .map((i) => i.name)
+        .sort(),
+    );
+  });
+
+  test("owned items show as owned under their new tabs", () => {
+    const owned = ["pack:legends", "pack:campaign_1776"];
+    const mine = tabCounts(DERPY_ITEMS, tabs, owned);
+    expect(mine.get("conquest/addons")).toBe(1);
+    expect(mine.get("conquest/startdates")).toBe(1);
+    expect(mine.get("conquest/mapstyles")).toBe(0);
+  });
+
+  test("old links (Campaigns, Legends) open the new tabs", () => {
+    expect(tabFromHash("#conquest/campaigns", tabs)).toEqual({
+      game: "conquest",
+      category: "startdates",
+    });
+    expect(tabFromHash("#conquest/legends", tabs)).toEqual({
+      game: "conquest",
+      category: "addons",
+    });
+    expect(tabFromHash("#legends", tabs)).toEqual({
+      game: "conquest",
+      category: "addons",
+    });
+    expect(tabFromHash("#campaigns", tabs)).toEqual({
+      game: "conquest",
+      category: "startdates",
+    });
+    expect(tabFromHash("#conquest/mapstyles", tabs)).toEqual({
+      game: "conquest",
+      category: "mapstyles",
+    });
   });
 });

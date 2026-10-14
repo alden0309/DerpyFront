@@ -3,8 +3,9 @@
 //  - DerpyFront: territory skin packs (images stamped over your territory,
 //    centred on where you spawned; a pack unlocks all of its skins), AI
 //    personality packs, Nuke & Dome effects, and victory fanfares;
-//  - Derpy Conquest: campaigns ("1776: The Revolution"), legends and map
-//    styles (DLC r21; the game server checks them: ConquestDlc.ts).
+//  - Derpy Conquest: start dates ("1776: The Revolution"), map styles and
+//    add-ons (Legends) (DLC r21; the game server checks them:
+//    ConquestDlc.ts). SITE (r22) gave Conquest these three tabs.
 //
 // Owning an item is a row in derpy_owned: "pack:<item>" for every item, plus
 // what it unlocks ("skin:<name>", "effect:<name>", "dome:<theme>").
@@ -181,9 +182,12 @@ export type DerpyCategory =
   | "personalities"
   | "effects"
   | "fanfares"
-  | "campaigns"
-  | "legends"
-  | "mapstyles";
+  // SITE (r22): Derpy Conquest's tabs. A start date ("1776: The
+  // Revolution") was a "campaigns" item and Legends a "legends" one; links
+  // naming those still land on the new tabs (StoreTabs.tabFromHash).
+  | "startdates"
+  | "mapstyles"
+  | "addons";
 
 export interface DerpyStoreTab {
   game: DerpyGame;
@@ -225,21 +229,24 @@ export const DERPY_STORE_TABS: readonly DerpyStoreTab[] = [
   {
     game: "conquest",
     label: "Derpy Conquest",
+    // SITE (r22): Start Dates, Map Styles, Add-Ons (Legends lives here).
     categories: [
       {
-        id: "campaigns",
-        label: "Campaigns",
-        blurb: "New starting dates with campaigns of their own.",
-      },
-      {
-        id: "legends",
-        label: "Legends",
-        blurb: "American legends to hunt down, for the bold and the learned.",
+        id: "startdates",
+        label: "Start Dates",
+        blurb:
+          "New years to begin a game in, each with a campaign of its own. 1607, 1650 and 1700 come with every game.",
       },
       {
         id: "mapstyles",
-        label: "Map styles",
-        blurb: "Other looks for Conquest's map.",
+        label: "Map Styles",
+        blurb: "Other looks for Conquest's map. Only you see them.",
+      },
+      {
+        id: "addons",
+        label: "Add-Ons",
+        blurb:
+          "More to find and do in any Derpy Conquest game, from any start date.",
       },
     ],
   },
@@ -374,7 +381,7 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
   {
     name: CAMPAIGN_1776,
     game: "conquest",
-    category: "campaigns",
+    category: "startdates", // SITE (r22)
     displayName: "1776: The Revolution",
     description:
       "A new start date: 1 January 1776, with Boston under siege and independence not yet declared. Live through the American Revolution to the Treaty of Paris, as a patriot, a loyalist or neither.",
@@ -394,7 +401,7 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
   {
     name: LEGENDS,
     game: "conquest",
-    category: "legends",
+    category: "addons", // SITE (r22)
     displayName: "Legends",
     description:
       "The Fountain of Youth, the Seven Cities of Cíbola, the fate of the Lost Colony, Norumbega, Blackbeard's hoard, a lost silver mine, and the sacred places of the native nations. Rumours rarely come, the clues need a master's skill, and the roads are long. Some of it is true, after a fashion.",

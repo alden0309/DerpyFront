@@ -1,7 +1,7 @@
 // The Derp Store and your Inventory. Since DFSTORE (r21) both are tabbed by
 // game (DerpyFront, Derpy Conquest) and then by category: skin packs, AI
 // personalities, Nuke & Dome effects and victory fanfares for DerpyFront;
-// campaigns, legends and map styles for Conquest (filled by later DLC).
+// start dates, map styles and add-ons for Conquest (SITE r22's tabs).
 
 import { DERPY_FX_THEMES } from "@openfront/shared/DerpyFx";
 import { html, nothing, TemplateResult } from "lit";
@@ -274,9 +274,9 @@ export class DerpStore extends HubPage {
         <div>
           <h1 class="dl-h1">Derp Store</h1>
           <p class="dl-lede">
-            Skins, AI personalities, effects and fanfares for DerpyFront; a
-            campaign, legends and map styles for Derpy Conquest. Paid for with
-            the Derp Coins you win in either game.
+            Skins, AI personalities, effects and fanfares for DerpyFront; start
+            dates, map styles and add-ons for Derpy Conquest. Paid for with the
+            Derp Coins you win in either game.
           </p>
         </div>
         ${this.account
@@ -327,8 +327,8 @@ export class DerpStore extends HubPage {
       action = html`<span class="dl-owned">Owned</span>
         <a class="dl-btn ghost" href=${`/inventory${tabHash(item)}`}
           >${item.category === "personalities" ||
-          item.category === "campaigns" ||
-          item.category === "legends" // DLC (r21)
+          item.category === "startdates" || // SITE (r22)
+          item.category === "addons"
             ? "See it"
             : "Use it"}</a
         >`;

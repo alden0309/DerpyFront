@@ -277,9 +277,10 @@ export type StoreCategory =
   | "personalities"
   | "effects"
   | "fanfares"
-  | "campaigns"
-  | "legends"
-  | "mapstyles";
+  // SITE (r22): Derpy Conquest's tabs (were campaigns, legends, mapstyles).
+  | "startdates"
+  | "mapstyles"
+  | "addons";
 
 export interface StoreTab {
   game: StoreGame;

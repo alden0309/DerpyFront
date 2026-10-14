@@ -84,21 +84,39 @@ export function firstTab(tabs: readonly TabSpec[]): StoreTabChoice {
 }
 
 /**
- * The tab a link names ("#conquest/legends", "#effects" for a DerpyFront
+ * SITE (r22): categories that were renamed, by their old name, so old links
+ * still open the right tab: Derpy Conquest's "Campaigns" became "Start
+ * Dates" and its "Legends" tab is now "Add-Ons".
+ */
+export const RENAMED_CATEGORIES: Readonly<Record<string, string>> = {
+  campaigns: "startdates",
+  legends: "addons",
+};
+
+const current = (category: string | undefined): string | undefined =>
+  category === undefined
+    ? undefined
+    : (RENAMED_CATEGORIES[category] ?? category);
+
+/**
+ * The tab a link names ("#conquest/addons", "#effects" for a DerpyFront
  * category, "#conquest" for a game's first category), or the first tab.
+ * Old category names (RENAMED_CATEGORIES) land on their new tabs.
  */
 export function tabFromHash(
   hash: string,
   tabs: readonly TabSpec[],
 ): StoreTabChoice {
-  const [a, b] = hash.replace(/^#/, "").split("/");
+  const [a, raw] = hash.replace(/^#/, "").split("/");
+  const b = current(raw);
   const game = tabs.find((t) => t.game === a);
   if (game) {
     const cat = game.categories.find((c) => c.id === b) ?? game.categories[0];
     if (cat) return { game: game.game, category: cat.id };
   }
+  const bare = current(a);
   for (const t of tabs) {
-    const cat = t.categories.find((c) => c.id === a);
+    const cat = t.categories.find((c) => c.id === bare);
     if (cat) return { game: t.game, category: cat.id };
   }
   return firstTab(tabs);
