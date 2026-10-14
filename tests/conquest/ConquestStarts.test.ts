@@ -33,9 +33,11 @@ describe("start dates", () => {
       ...map.natives.map((n) => n.id),
     ]);
     for (const era of Object.values(STARTS)) {
+      // DLC (r21): a start may bring powers of its own (1776's British America).
+      const extra = new Set((era!.extraPowers ?? []).map((x) => x.key));
       for (const [p, n] of Object.entries(era!.owners)) {
         expect(names.has(p), p).toBe(true);
-        expect(keys.has(n), n).toBe(true);
+        expect(keys.has(n) || extra.has(n), n).toBe(true);
       }
       for (const [n, p] of Object.entries(era!.capitals))
         expect(era!.owners[p], `${n} capital ${p}`).toBe(n);

@@ -1213,12 +1213,14 @@ hooks.daily.push((g) => {
 export function fireBeat(g: ConquestGame, b: Beat): void {
   const s = g.s;
   const us = usOf(s);
-  rec(g).beats[b.key] = s.day;
+  // Its own date (New Year's Day's news comes with the first morning).
+  const day = Math.min(s.day, beatDay(b));
+  rec(g).beats[b.key] = day;
   b.fx?.(g);
   const p = b.at ? provNamed(g.map, b.at) : undefined;
   g.event({
     k: "news",
-    day: s.day,
+    day,
     n: us,
     text: `${b.title}. ${b.text}`,
     ...(p !== undefined ? { p } : {}),
