@@ -44,7 +44,7 @@ import { importDuty } from "../../engine/TradeLaw";
 import { tradeStanding } from "../../engine/TradeRep";
 import type { Chapter } from "./Chapters";
 
-const pct = (v: number) => `${Math.round(v * 100)}%`;
+const pct = (v: number) => `${Math.round(v * 1000) / 10}%`;
 const sg = (v: number) => (v > 0 ? `+${v}` : v < 0 ? `−${-v}` : "0");
 
 /** An overseer's ways, from the game's own numbers. */
@@ -153,7 +153,7 @@ Most Africans brought to the mainland colonies came straight from Africa, but ma
 
 ${dutyTable()}
 
-South Carolina laid £50 more (in its own money) on anyone six months in another colony, from 1716 to the Revolution, and graded its duty by age (1722) and by height (1751), so its factors bought only new arrivals. Rhode Island and Connecticut forbade bringing anyone in from 1774, and the Continental Association stopped it everywhere from 1 December 1774. A house of the French crown traded only with French ports (Louisiana's trade was the Company of the Indies' alone from 1719 to 1731); Spain's ports took people only from the company holding the asiento.
+South Carolina laid far more on anyone six months in another colony (£30 against £3 from 1716, £50 against £10 from 1722, in its own money), and graded its duty by age (1722) and by height (1751), so its factors bought only new arrivals. Rhode Island and Connecticut forbade bringing anyone in from 1774, and the Continental Association stopped it everywhere from 1 December 1774. A house of the French crown traded only with French ports (Louisiana's trade was the Company of the Indies' alone from 1719 to 1731); Spain's ports took people only from the company holding the asiento.
 
 **In the game** (Estate › Bondage, A house in the trade; from 16): set up a house (${HOUSE_SETUP} coins), named for your family, and choose a route (a port to buy at, a port of your crown to sell at, both where the law then allowed it), how many a voyage (${SIZES.join(", ")}), how often (every ${EVERY.join(", ")} months), how they're fed, and whether families are always sold together. Before you set it up, the page shows who its factor would buy, by name, and what's likely to become of them, then the money.
 
