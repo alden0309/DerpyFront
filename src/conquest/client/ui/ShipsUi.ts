@@ -689,6 +689,19 @@ function chartersPart(
         </li>`;
       })}
     </ul>
+    ${BOATS[b.kind].uses.includes("privateering")
+      ? html`<p class="small cq-muted">
+          <b>Privateering</b> isn't chartered: set her standing work to
+          Privateering on this card (with a letter of marque in wartime; with no
+          war it's piracy), or take her on a cruise yourself from
+          <button
+            class="cq-link small"
+            @click=${() => ui.open({ k: "tab", tab: "work", sub: "sea" })}
+          >
+            Work › At sea</button
+          >.
+        </p>`
+      : nothing}
     ${venturePart(ui, owner, b)} ${sendPart(ui, owner, b)}
   </details>`;
 }

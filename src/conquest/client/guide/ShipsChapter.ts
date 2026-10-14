@@ -114,6 +114,8 @@ Each shows its **risk and reward before you take it**, from the same tables her 
 
 **A venture of your own** (cargo choice): choose a good sold here, how many loads, and a port with a market. You pay for it here (your buying makes it dearer here) and she sells it there when she's in (your selling makes it cheaper there); prices move while she sails.
 
+**Privateering** isn't chartered. A sloop or bigger can have it as her standing work (her card: a prize now and then, by her guns, in wartime under a letter of marque; with no war on it's piracy), going on without you like any standing work, or you can take her on a cruise yourself from Work › At sea (see To sea in person).
+
 **Send her** anywhere with no charter: home, or to where the charters are.
 
 **Her name on the waterfront** (0 to 100, ${REP.start} at first): +${REP.delivered} for a charter delivered in time, ${REP.late} late, ${REP.forfeit} given up or forfeit, ${REP.seized} seized, ${REP.unpaid} if her crew desert unpaid. A good name pays more (×${CHARTER.repPay} at nothing to ×1.15 at the top) and makes people readier to sign. **Her log** keeps her voyages.
