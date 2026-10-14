@@ -6,7 +6,7 @@ import { DERPY_API } from "../../client/derpy/DerpySession";
 import { api, derpyToken } from "../../derpland/Account";
 import { FlowScene } from "../engine/Flow";
 import { PlaceDef } from "../engine/Place";
-import { BasedSave } from "../engine/Save";
+import { Profile, SlotMeta, SlotSave } from "../engine/Save";
 import { Chapter } from "../engine/Types";
 
 export interface Access {
@@ -19,7 +19,13 @@ export interface ChapterInfo {
   title: string;
   summary: string;
   ok: boolean;
-  checkpoints: { scene: string; label: string }[];
+}
+
+/** r22: a save slot as the load screen lists it. */
+export interface SlotInfo {
+  slot: string;
+  meta: SlotMeta;
+  updatedAt: string;
 }
 
 export interface Credit {
@@ -91,12 +97,35 @@ export async function loadChapter(
   }
 }
 
-export async function loadSave(): Promise<BasedSave | null> {
-  return (await api<{ save: BasedSave | null }>("/based/save")).save;
+/** r22: the profile and the slots (a round-21 save is converted first). */
+export async function loadProfile(): Promise<{
+  save: Profile | null;
+  slots: SlotInfo[];
+}> {
+  return api<{ save: Profile | null; slots: SlotInfo[] }>("/based/save");
 }
 
-export async function storeSave(save: BasedSave): Promise<void> {
+export async function storeProfile(save: Profile): Promise<void> {
   await api("/based/save", { method: "PUT", body: JSON.stringify({ save }) });
+}
+
+export async function listSlots(): Promise<SlotInfo[]> {
+  return (await api<{ slots: SlotInfo[] }>("/based/slots")).slots;
+}
+
+export async function loadSlot(slot: string): Promise<SlotSave | null> {
+  return (await api<{ save: SlotSave | null }>(`/based/slot/${slot}`)).save;
+}
+
+export async function storeSlot(slot: string, save: SlotSave): Promise<void> {
+  await api(`/based/slot/${slot}`, {
+    method: "PUT",
+    body: JSON.stringify({ save }),
+  });
+}
+
+export async function eraseSlot(slot: string): Promise<void> {
+  await api(`/based/slot/${slot}`, { method: "DELETE" });
 }
 
 export async function eraseSave(): Promise<void> {

@@ -1,5 +1,6 @@
 // Mr. Based's "How to play" (r21): walking, looking, the column, his skills
-// and the checks. The skills' names come from the chapter (they're the
+// and the checks. r22: finding things by walking about, running, doors,
+// reading a room from a seat, thoughts, languages, the journal and saves. The skills' names come from the chapter (they're the
 // writer's, served through the gate), and the odds from the same dice the
 // story rolls.
 
@@ -25,34 +26,45 @@ export function helpBody(
   const example = chapter.skills[0]?.name ?? "Skill";
   return html`<h2>How to play</h2>
     <p class="mb-sheet-sub">
-      Walk him round the place, look at things, talk. His skills do the rest:
-      they notice, they speak up, and when it matters he rolls the dice.
+      Walk him round Paris, look at things, talk to people. Nobody tells you
+      what's there: you find it. His skills do the rest: they notice, they speak
+      up, and when it matters he rolls the dice.
     </p>
 
-    <div class="mb-panel-sub">Walking and looking</div>
+    <div class="mb-panel-sub">Walking and finding things</div>
     <ul class="mb-help">
       <li>
-        ${click} the floor and he walks
-        there${touch
+        ${click} the floor and he walks there;
+        ${touch ? "tap twice" : "double-click"} and he
+        runs.${touch
           ? nothing
-          : html`; the mouse wheel moves the camera in and out`}.
+          : html` The mouse wheel moves the camera in and out.`}
       </li>
       <li>
-        Diamonds mark what he can look at. ${click} one, or its line in the
-        column, and he walks over and looks.
+        What's worth a look glints when he's near enough to see it. The better
+        his Perception, the further off he notices things. ${click} something
+        he's noticed and he goes over and looks.
+      </li>
+      <li>
         ${touch
-          ? html`The eye button shows them all.`
-          : html`Hold <kbd>Tab</kbd>, or turn on the eye, to show them all.`}
+          ? html`The eye shows the names of what's near him.`
+          : html`Hold <kbd>Tab</kbd> (or turn on the eye) to see the names of
+              what's near him.`}
+        Only what he could see from where he stands; never the whole place.
       </li>
       <li>
-        Blue diamonds are ways out. When he has seen enough, the button at the
-        foot of the column moves the story on; some scenes only give him time
-        for a few looks.
+        ${click} a person to go up and talk. What they say depends on what
+        you've done.
       </li>
       <li>
-        Sometimes he doesn't move: reading a man beside him, he uses the mirror
-        and the corner of his eye, and the marks sit on what he can see from
-        where he is.
+        Doors lead to other places: the street, the bar, the hotel. Going
+        through one takes a moment's fade.
+      </li>
+      <li>
+        Sitting down, he reads the room from his seat:
+        ${touch ? "drag" : html`drag, or use the arrow keys,`} to look about,
+        and ${click.toLowerCase()} what he can see to look at it without getting
+        up.
       </li>
     </ul>
 
@@ -72,6 +84,22 @@ export function helpBody(
         A name in colour is one of his skills, talking in his head. The colour
         is the skill's attribute.
       </li>
+      <li>
+        When things add up, a thought comes to him and waits in the column:
+        ${click.toLowerCase()} it to think it through.
+      </li>
+      <li>
+        Someone speaking a language he doesn't know shows as they said it. Point
+        at the language's name to see what he made of it.
+      </li>
+    </ul>
+
+    <div class="mb-panel-sub">His journal</div>
+    <ul class="mb-help">
+      <li>
+        The book${touch ? nothing : html` (or <kbd>J</kbd>)`} keeps what he's
+        set out to do: only what he's learned, never a list of what's where.
+      </li>
     </ul>
 
     <div class="mb-panel-sub">His skills</div>
@@ -89,9 +117,8 @@ export function helpBody(
     </ul>
     <p class="mb-help-p">
       Each skill starts at its attribute; the one he's known for starts a step
-      higher. Some memories raise a skill for the rest of the chapter. His sheet
-      (the figure at the top${touch ? nothing : html`, or <kbd>C</kbd>`}) shows
-      where he stands.
+      higher. Some memories raise a skill for good. Your skills (the figure at
+      the top${touch ? nothing : html`, or <kbd>C</kbd>`}) show where he stands.
     </p>
 
     <div class="mb-panel-sub">Checks</div>
@@ -113,10 +140,10 @@ export function helpBody(
         enough: the skill plus six reaching the difficulty.
       </li>
       <li>
-        Under <i>What it means</i>, a deduction comes to him by itself when he's
-        noticed what it needs and the skill is good enough. If not, it becomes a
-        white check, one easier for every other thing he has noticed in the
-        room.
+        Reading a room or a man, what it adds up to comes to him by itself when
+        he's noticed what it needs and the skill is good enough. If not, it
+        waits in the column as a white check, one easier for every other thing
+        he has noticed there.
       </li>
     </ul>
     <table class="mb-odds">
@@ -153,10 +180,14 @@ export function helpBody(
     <div class="mb-panel-sub">Saving, and notes for the writer</div>
     <ul class="mb-help">
       <li>
-        The game saves as he goes. <i>Continue</i> picks up at the start of the
-        scene you were in; <i>Chapters and checkpoints</i> plays again from any
-        checkpoint you've reached. A throw is fixed when you load: going back
-        doesn't throw again.
+        The game saves by itself as he goes (the
+        autosave).${touch
+          ? nothing
+          : html` <kbd>F5</kbd> quicksaves and <kbd>F9</kbd> loads the
+              quicksave.`}
+        The menu saves to ten slots of your own and loads any of them. Saving in
+        the middle of a conversation keeps its start. A throw is fixed when you
+        load: going back doesn't throw again.
       </li>
       <li>
         The pen${touch ? nothing : html` (or <kbd>N</kbd>)`} leaves the writer a
@@ -167,7 +198,9 @@ export function helpBody(
       ? nothing
       : html`<p class="mb-help-p small">
           <kbd>Space</kbd> read on · <kbd>1</kbd>–<kbd>9</kbd> choose ·
-          <kbd>Tab</kbd> show marks · <kbd>C</kbd> his skills · <kbd>N</kbd> a
-          note · <kbd>H</kbd> this page · <kbd>Esc</kbd> the menu
+          <kbd>Tab</kbd> what's near · <kbd>C</kbd> your skills ·
+          <kbd>J</kbd> journal · <kbd>F5</kbd> quicksave ·
+          <kbd>F9</kbd> quickload · <kbd>N</kbd> a note · <kbd>H</kbd> this page
+          · <kbd>Esc</kbd> the menu
         </p>`}`;
 }

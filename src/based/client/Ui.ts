@@ -3,7 +3,9 @@
 // from the player so the title screen never loads the 3D world.
 
 import { html, nothing, svg as svgPart, TemplateResult } from "lit";
-import { Credit } from "./Api";
+import { clockText } from "../engine/Runtime";
+import { SLOTS } from "../engine/Save";
+import { Credit, SlotInfo } from "./Api";
 import { Prefs, TextSpeed } from "./Prefs";
 
 /** "*word*" becomes emphasis; returns [text, emphasised] runs. */
@@ -80,9 +82,9 @@ export function settingsBody(
     </div>
     <div class="mb-setting">
       <div>
-        <div class="mb-setting-name">Show what he can look at</div>
+        <div class="mb-setting-name">Show what's near him</div>
         <div class="mb-setting-note">
-          Marks over everything worth a look. (Or hold Tab.)
+          Names over what he's near and can see. (Or hold Tab.)
         </div>
       </div>
       <button
@@ -131,6 +133,85 @@ export function settingsBody(
       />
     </div>
   </div>`;
+}
+
+/** "1:05" hours and minutes played, or "12 min". */
+export function playedText(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
+}
+
+/** What a slot is called. */
+export function slotName(slot: string): string {
+  return slot === "auto"
+    ? "Autosave"
+    : slot === "quick"
+      ? "Quicksave"
+      : `Slot ${slot}`;
+}
+
+/**
+ * r22: the save slots, for saving into or loading from: each with the
+ * place, the time in the story, when it was saved and how long had been
+ * played. The autosave and the quicksave can be loaded, not saved over.
+ */
+export function slotsBody(opts: {
+  slots: SlotInfo[];
+  mode: "save" | "load";
+  busy: string | null;
+  pick: (slot: string) => void;
+}): TemplateResult {
+  const by = new Map(opts.slots.map((s) => [s.slot, s]));
+  const list =
+    opts.mode === "save" ? SLOTS.filter((s) => /^\d+$/.test(s)) : SLOTS;
+  return html`<ol class="mb-slots">
+    ${list.map((slot) => {
+      const s = by.get(slot);
+      const m = s?.meta;
+      const c = m ? clockText(m.clock) : null;
+      const empty = !m;
+      return html`<li>
+        <button
+          class="mb-slot ${empty ? "empty" : ""} ${opts.busy === slot
+            ? "busy"
+            : ""}"
+          ?disabled=${(opts.mode === "load" && empty) || opts.busy !== null}
+          @click=${() => {
+            if (
+              opts.mode === "save" &&
+              !empty &&
+              !window.confirm(`Save over ${slotName(slot)}?`)
+            ) {
+              return;
+            }
+            opts.pick(slot);
+          }}
+        >
+          <span class="mb-slot-name">${slotName(slot)}</span>
+          ${m
+            ? html`<span class="mb-slot-where"
+                  >${m.placeName || m.label}${c
+                    ? html` ·
+                        <b
+                          >${c.day > 0
+                            ? `night ${c.day + 1}, `
+                            : ""}${c.time}</b
+                        >`
+                    : nothing}</span
+                >
+                <span class="mb-slot-when"
+                  >${new Date(m.savedAt).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                  · played ${playedText(m.played)}</span
+                >`
+            : html`<span class="mb-slot-where">Empty</span>`}
+        </button>
+      </li>`;
+    })}
+  </ol>`;
 }
 
 export function creditsBody(credits: Credit[]): TemplateResult {
@@ -204,6 +285,11 @@ export function closeIcon() {
 export function personIcon() {
   return svg(
     svgPart`<circle cx="12" cy="8" r="3.5" /><path d="M5 20c1.2-4 4-6 7-6s5.8 2 7 6" />`,
+  );
+}
+export function bookIcon() {
+  return svg(
+    svgPart`<path d="M5 4.5h9.5a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z" /><path d="M5 17a3 3 0 0 1 3-3h9.5" /><path d="M9 8h5" />`,
   );
 }
 export function eyeIcon() {

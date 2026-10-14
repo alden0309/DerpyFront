@@ -1014,6 +1014,34 @@ export class World {
     if (!free || !this.walkHero(free[0], free[1], run, face)) face();
   }
 
+  /**
+   * r22: walks him up to someone (to talk), stopping an arm's length off,
+   * and turns him to them. False if they're not here.
+   */
+  walkUpTo(id: string, then: () => void): boolean {
+    const them = this.people.get(id);
+    const p = this.people.get(this.hero);
+    if (!them || !p || !them.root.visible || !p.root.visible || !this.place) {
+      return false;
+    }
+    const at = them.root.position;
+    const face = () => {
+      p.face(Math.atan2(at.x - p.root.position.x, at.z - p.root.position.z));
+      then();
+    };
+    const d = Math.hypot(at.x - p.root.position.x, at.z - p.root.position.z);
+    if (d < 1.7) {
+      face();
+      return true;
+    }
+    const k = 1.1 / d;
+    const gx = at.x + (p.root.position.x - at.x) * k;
+    const gz = at.z + (p.root.position.z - at.z) * k;
+    const free = this.place.nav.nearestFree(gx, gz);
+    if (!free || !this.walkHero(free[0], free[1], false, face)) face();
+    return true;
+  }
+
   /** Turns him (sitting or standing) to face a hotspot, and looks. */
   faceHotspot(id: string): void {
     const h = this.place?.def.hotspots[id];

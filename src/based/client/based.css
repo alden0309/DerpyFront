@@ -2859,3 +2859,310 @@ kbd {
   font-style: italic;
   color: #e8705f;
 }
+
+/* ==== r22: the open world ==================================================== */
+
+/* What he's noticed: invisible until he's near it, named on hover or Tab
+   (the eye); nothing in the place is listed. */
+.mb-mark.seen {
+  pointer-events: none;
+}
+.mb-mark.seen .mb-mark-dot,
+.mb-mark.seen .mb-mark-label {
+  display: none;
+}
+.mb-mark.near .mb-mark-dot::before {
+  inset: 6px;
+  border-color: rgba(244, 194, 124, 0.7);
+  background: transparent;
+  box-shadow: 0 0 8px rgba(244, 194, 124, 0.35);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.mb-mark.near:hover .mb-mark-dot::before,
+.mb-mark.near.hover .mb-mark-dot::before,
+.marks-on .mb-mark.near .mb-mark-dot::before {
+  opacity: 1;
+}
+.mb-play.narrow .mb-mark:not(.seen):not(.static) .mb-mark-label {
+  opacity: 0;
+}
+.mb-mark.near:hover .mb-mark-label,
+.mb-mark.near.hover .mb-mark-label,
+.marks-on .mb-mark.near .mb-mark-label,
+.mb-play.narrow.marks-on .mb-mark.near .mb-mark-label {
+  opacity: 1;
+  transform: none;
+}
+
+/* The place's name as he arrives. */
+.mb-placecard {
+  position: absolute;
+  z-index: 11;
+  top: 18%;
+  left: 0;
+  right: var(--col-w);
+  text-align: center;
+  pointer-events: none;
+  font-weight: 800;
+  font-stretch: 125%;
+  font-size: clamp(20px, 3vw, 34px);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--mb-paper);
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.9);
+  animation: mb-placecard 1.8s ease both;
+}
+@keyframes mb-placecard {
+  0% {
+    opacity: 0;
+    letter-spacing: 0.36em;
+  }
+  25%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.mb-clock {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+/* The clock on a choice runs as an animation, not a frame loop. */
+.mb-timer span {
+  animation-name: mb-timer;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+.mb-timer.paused span {
+  animation-play-state: paused;
+}
+@keyframes mb-timer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Thoughts waiting in the column, and what he's set out to do. */
+.mb-free {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mb-thoughts {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+}
+.mb-thoughts li {
+  font-size: 14.5px;
+  animation: mb-fade-in 0.5s ease both;
+}
+.mb-thoughts li.done {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  color: var(--mb-paper-2);
+  font-family: var(--mb-serif);
+  font-style: italic;
+}
+.mb-thoughts li.ready button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 4px;
+  border: 0;
+  background: none;
+  text-align: left;
+  line-height: 1.4;
+  font: inherit;
+  font-family: var(--mb-serif);
+  font-style: italic;
+  color: var(--mb-amber-2);
+  cursor: pointer;
+}
+.mb-thoughts li.ready button:hover:not(:disabled) {
+  background: rgba(224, 164, 88, 0.08);
+}
+.mb-thoughts li.locked button {
+  color: var(--mb-paper-3);
+  cursor: not-allowed;
+}
+.mb-free .mb-walk-hint,
+.mb-look-panel .mb-walk-hint {
+  font-family: var(--mb-serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--mb-paper-3);
+}
+.mb-free-task {
+  padding: 8px 10px;
+  border: 0;
+  border-left: 2px solid var(--mb-cold);
+  background: rgba(141, 180, 220, 0.06);
+  text-align: left;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--mb-paper-2);
+  cursor: pointer;
+}
+.mb-free-task:hover {
+  color: var(--mb-paper);
+}
+
+/* Words in another language. */
+.mb-e-lang {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 5px;
+  border: 1px solid var(--mb-line-2);
+  border-radius: 2px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+  color: var(--mb-paper-3);
+  cursor: help;
+}
+.mb-e-lang.lost {
+  border-style: dashed;
+}
+.mb-e.foreign .mb-live,
+.mb-e.foreign {
+  font-style: italic;
+}
+
+/* The journal. */
+.mb-journal {
+  margin: 8px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.mb-journal li {
+  position: relative;
+  padding: 8px 0 8px 22px;
+  border-bottom: 1px solid var(--mb-line);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.mb-journal li::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 15px;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--mb-amber);
+}
+.mb-journal.done li {
+  color: var(--mb-paper-3);
+  text-decoration: line-through;
+  text-decoration-color: rgba(236, 230, 218, 0.25);
+}
+.mb-journal.done li::before {
+  background: var(--mb-paper-3);
+}
+
+/* Save slots. */
+.mb-slots {
+  list-style: none;
+  margin: 8px 0 18px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.mb-slot {
+  display: grid;
+  grid-template-columns: 7.5em 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 14px;
+  align-items: baseline;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--mb-line);
+  border-radius: 3px;
+  background: rgba(236, 230, 218, 0.03);
+  text-align: left;
+  font: inherit;
+  color: var(--mb-paper);
+  cursor: pointer;
+}
+.mb-slot:hover:not(:disabled) {
+  border-color: var(--mb-amber);
+  background: rgba(224, 164, 88, 0.08);
+}
+.mb-slot:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.mb-slot.busy {
+  border-color: var(--mb-amber-2);
+}
+.mb-slot-name {
+  grid-row: span 2;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mb-amber-2);
+}
+.mb-slot.empty .mb-slot-name {
+  color: var(--mb-paper-3);
+}
+.mb-slot-where {
+  font-size: 15px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mb-slot-where b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.mb-slot-when {
+  font-size: 12.5px;
+  color: var(--mb-paper-3);
+}
+@media (max-width: 520px) {
+  .mb-slot {
+    grid-template-columns: 1fr;
+  }
+  .mb-slot-name {
+    grid-row: auto;
+  }
+}
+
+/* Languages on the setup screen and his sheet. */
+.mb-langs {
+  max-width: 1080px;
+  margin: 18px auto 0;
+  padding: 0 24px;
+}
+.mb-langs .mb-segs {
+  flex-wrap: wrap;
+}
+.mb-sheet-langs {
+  margin: 14px 0 0;
+  font-size: 14.5px;
+  color: var(--mb-paper-2);
+}
+.mb-sheet-langs b {
+  color: var(--mb-paper);
+  margin-right: 4px;
+}
+.mb-p.bad {
+  color: var(--mb-red);
+}

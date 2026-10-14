@@ -220,6 +220,17 @@ CREATE TABLE IF NOT EXISTS derpy_based_notes (
 );
 CREATE INDEX IF NOT EXISTS derpy_based_notes_scene
   ON derpy_based_notes (chapter, scene);
+-- BWORLD (r22): Mr. Based saves in slots (an autosave, a quicksave and ten
+-- of the player's own), one row each, so saving one never rewrites the
+-- rest; derpy_based_saves keeps the account's profile beside them.
+CREATE TABLE IF NOT EXISTS derpy_based_slots (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  slot TEXT NOT NULL,
+  meta JSONB NOT NULL,
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, slot)
+);
 
 -- NAMES (r20): changing your username. When it last changed (once in 7 days),
 -- and the name given up then, which stays with this account for 7 days so
