@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { gameAchievements } from "../../src/conquest/engine/Achievements"; // CQACH (r22)
 import { dayOf } from "../../src/conquest/engine/Calendar";
 import {
   birth,
@@ -6,7 +7,7 @@ import {
   makeCharacter,
   marry,
 } from "../../src/conquest/engine/Characters";
-import { lifeCoins } from "../../src/conquest/engine/Coins";
+import { GAME_ACH_LINE, lifeCoins } from "../../src/conquest/engine/Coins";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { homeChoices, planProblem } from "../../src/conquest/engine/Life";
@@ -484,8 +485,19 @@ describe("the end of the world", () => {
     const coins = lifeCoins(life, true);
     expect(coins.total).toBeGreaterThan(10);
     expect(coins.total).toBeLessThan(150);
+    // Under two years the line's marks pay nothing. CQACH (r22): this
+    // game's achievements still do (held to the time played).
+    const short = lifeCoins(
+      { ...life, tally: { ...life.tally, days: 100 } },
+      true,
+    );
+    expect(short.lines.map((l) => l.line)).toEqual([GAME_ACH_LINE]);
+    expect(short.total).toBe(gameAchievements(life).coins);
     expect(
-      lifeCoins({ ...life, tally: { ...life.tally, days: 100 } }, true).total,
+      lifeCoins(
+        { ...life, achieved: {}, tally: { ...life.tally, days: 100 } },
+        true,
+      ).total,
     ).toBe(0);
   });
 });
