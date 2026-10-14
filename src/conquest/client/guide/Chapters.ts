@@ -183,6 +183,7 @@ import { SHIPS_CHAPTER } from "./ShipsChapter"; // SHIPS (r21)
 import { SAVES_CHAPTER, STORY_CHAPTER } from "./StoryChapter"; // STORY (r17)
 import { TOWNS_CHAPTER } from "./TownsChapter"; // TOWNS (r17)
 import { WAR_CHAPTER } from "./WarChapter"; // WAR (r17)
+import { STAFF_CHAPTER, WORKDAY_CHAPTER } from "./WorkChapter"; // WORK (r21)
 // INTRIGUE (r15): hearts and schemes.
 import { CHAMBER_CHAPTER } from "./ChamberChapter"; // CHAMBER (r16)
 import { INTRIGUE_CHAPTER } from "./IntrigueChapter";
@@ -444,6 +445,7 @@ function decisionsTable(): string {
   return `| Matter | What it does | How much |
 |---|---|---|
 ${(Object.keys(DECISIONS) as FirmDecisionKey[])
+  .filter((k) => k !== "buyout" && k !== "sell") // WORK (r21): by offer now
   .map(
     (k) =>
       `| **${DECISIONS[k].label}** | ${DECISIONS[k].text} | ${extra[k] ?? ""} |`,
@@ -845,17 +847,23 @@ Working hard brings promotion sooner; shirking puts it off, and your master may 
 ## Matters at work
 Every month or two (sooner if you work hard) a matter comes to you as a letter: a task to take on (a skill check, for coins, renown and a good word from your master) or trouble to handle (a fault in the work, a quarrel, a theft). Each trade has several of its own (the fur trader's lines can be robbed by a rival, raided by a wolverine, soured by a thaw or snared across by a neighbour), each with its own choices and what they come to, and each rests ${MATTER_REST} days after it comes: you won't see the same one twice in a year. When every one is resting, it's a quiet month. See [[events|Things that happen]].
 
+## What you do at your post (WORK r21)
+Under how hard you work, **Your duties**: the usual work, or a duty your rung allows (an apprentice fetches and carries, a journeyman takes orders of his own, a master teaches and keeps the books). A duty turns what you learn, and may bring a little more money, a risk, renown or your master's good opinion; your master wants a particular one each month. The people you work beside, and your master, come to you now and then. See [[workday|The work itself]].
+
 ## Climbing
 Work › Your work shows the ladder and what the next rung needs: months at your rung, your skills, sometimes renown, your master's good opinion, or coins. When everything's ticked, promotion comes with a good month's work, or ask for it (your master's card, or the button at your workplace).
 - **Bought rungs**: a freehold, a shop, a press, a ship. Buy it at your workplace (Buy …) when the rest is ticked.
 - **Commissions** (officers): given by the marshal, the governor or a patron who thinks well enough of you; some can also be bought.
-- **Your own business**: at the top rungs of many trades you're your own master, with hands to hire (offer anyone work from their card): the business's takings come to you, less its upkeep and the hands' wages.
+- **Your own business**: at the top rungs of many trades you're your own master, with hands to hire and staff to take on by name, in the role and at the pay you choose ([[staff|Staff, partners' offers and companies]]): the business's takings come to you, less its upkeep and the wages.
 
 ## Leaving
-Hand in your notice (your master's card, or Work › Your work). Leaving soon after starting doesn't go down well. An indentured servant is bound until the indenture is served (or runs away from the fields).
+Hand in your notice on Work › Your work (or at your workplace), from anywhere: at once (in person, or by letter if your master's elsewhere), or with a fortnight's notice worked out, which leaves you on good terms. Leaving at once soon after starting doesn't go down well. Another player who employs you is told. An indentured servant is bound until the indenture is served (or runs away from the fields). See [[workday|The work itself]].
 
 > Tip: Work hard in your first years, then ease to steady when stress climbs past 50.`,
   },
+  // ---- WORK (r21): the work itself (guide/WorkChapter.ts)
+  WORKDAY_CHAPTER,
+  // ---- end WORK (r21)
   // ---- EVENTS (r15): things that happen, and the pace of them
   {
     id: "events",
@@ -1098,7 +1106,7 @@ ${partnersTable()}
 On anyone's card (or at the market, under Partnerships, or from the Start a business window): **Propose a partnership**. In person if they're here; by post if they're not (the articles go as a letter, and can be lost at sea).
 
 **Presets** fill the articles in at a click, with the fair split and who runs it, and say them in plain words ("You put in 30; Agnes puts in her inn. You get 15 in a hundred of what it makes (about +1.2 a month once it's going); Agnes runs it."): **put money into their business as a silent partner**, **found a business together** (whoever knows the trade and is free runs it), **take on a partner in mine**, **pool money for cargoes**, **a trading company together**. A business brought in is valued at the more of 0.6 of what it would cost to set up, or twenty months of what it makes. Change any clause after. The articles say:
-- **I.** what the firm holds; **II.** its name ("Drackley & Cole", or your own); **III.** the shares (with the fair split marked: what each brings, and a fifth more for the one who does the work); **IV.** the capital each puts in; **V.** who manages, and whether matters are decided **by the greater part** (shares over half) or **all together**; **VI.** who draws them up.
+- **I.** what the firm holds; **II.** its name ("Drackley & Cole", or your own); **III.** the shares (with the fair split marked: what each brings, and a fifth more for the one who does the work); **IV.** the capital each puts in; **V.** who manages, and whether matters are decided **by the greater part** (shares over half) or **all together**, and (WORK r21) whether there's **a buy-out clause** (a partner holding more than half may buy another out at a fair price, or sell up, without their consent); **VI.** who draws them up.
 - **A lawyer** (an attorney or a law clerk in town, ${LAWYER_FEE.attorney} or ${LAWYER_FEE.clerk} coins, or yourself if you're in the law) draws up articles that **lean your way when partners fall out**: at arbitration, and in court. Another player who's a lawyer is paid the fee.
 
 **A computer character** signs or refuses there and then, with every reason shown, as with any interaction: what they think of you, your name, whether it's their trade, what the business should make, whether the terms are fair to them (the strongest reason of all), whether they could afford their part, who'd run it, their nature, and how many partnerships they're in already. By post, their answer comes back by post.
@@ -1112,7 +1120,7 @@ Each month the firm's business is reckoned exactly as a business of your own wou
 - Estate › Partnerships shows the firm's sign, the partners and their shares, the chest and the debt, a year of months as a chart, the last few as a ledger, and what your share is worth.
 
 ## Putting things to the partners
-Any partner can put a matter to the others; computer partners vote by their own interests (with their reasons), players vote in a scene or on the page. Matters left unanswered for ${VOTE_DAYS} days count against.
+Any partner can put a matter to the others; computer partners vote by their own interests (with their reasons), players vote in a scene or on the page. Matters left unanswered for ${VOTE_DAYS} days count against. Buying a partner out, selling your share and selling up aren't put to the vote: they're **by offer** (WORK r21: [[staff|Staff, partners' offers and companies]]).
 
 ${decisionsTable()}
 
@@ -1121,10 +1129,10 @@ ${decisionsTable()}
 - **A quarrel over the accounts**, with a partner who's soured on you or after bad months: **give way and pay**, **go to arbitration** (two merchants hear you; your lawyer's articles help), **let them sue**, or **dissolve**.
 - **A partner fails** (a player's purse past ${-BAILIFFS_AT} in debt, or a computer partner's ruin): their creditors seize the share to sell for ${Math.round(FIRE_SALE * 100)} in a hundred of its worth. **Buy it yourself**, let **a creditor's man** take it (a silent stranger in the firm), or **wind up**.
 - **War and the sea**: a firm's ship can be wrecked, or taken by privateers in wartime (a good master loses fewer); cargoes are lost more often in war. A town in the enemy's hands takes nothing, and still pays its hands.
-- **A partner dies**: the share passes to their heir (a player's heir, or the eldest grown child, or the widow). You may **welcome the heir**, **buy them out** at a fair price, or put the **winding up** to the partners. With no heir, the share goes to the rest.
+- **A partner dies**: the share passes to their heir (a player's heir, or the eldest grown child, or the widow). You may **welcome the heir**, **buy them out** at a fair price, or **propose selling up** (every partner must agree). With no heir, the share goes to the rest.
 
 ## Winding up
-When a firm is wound up (sold up by vote, or forced): the business is sold, a cargo at sea is sold as it lies, **debts are paid first, then each partner's capital, then what's left is shared by share** (or a shortfall called by share). If buy-outs leave one partner, the partnership ends and **the business is theirs alone**.
+When a firm is wound up (sold up with every partner's agreement, under the articles' buy-out clause, or forced): the business is sold, a cargo at sea is sold as it lies, **debts are paid first, then each partner's capital, then what's left is shared by share** (or a shortfall called by share). If buy-outs leave one partner, the partnership ends and **the business is theirs alone**.
 
 > Tip: Pooling money is the point: two can set up a mill or a ship that neither could alone. Let the one who knows the trade manage it, and have a lawyer draw up the articles if you're the silent partner.
 
@@ -1153,6 +1161,9 @@ When a firm is wound up (sold up by vote, or forced): the business is sold, a ca
     ],
   },
   // ---- end PARTNERS (r13)
+  // ---- WORK (r21): staff, partners' offers, companies (guide/WorkChapter.ts)
+  STAFF_CHAPTER,
+  // ---- end WORK (r21)
   {
     id: "markets",
     part: "living",
@@ -1423,7 +1434,7 @@ Their card lists what you could do, each with its verdict before you try: **will
 |---|---|
 | Friendly | Talk; flatter; give a gift; offer friendship; ask them to teach you their trade; take lessons in their tongue |
 | Romance | Court (in secret, if either of you is married); propose marriage; meet in secret (lovers) |
-| Work | Ask for work; ask for promotion; hand in your notice; offer them work at your business; seek an appointment to an office in their gift |
+| Work | Ask for work; ask for promotion; hand in your notice; offer them work at your business (in the role and at the pay you choose); seek an appointment to an office in their gift |
 | Favours | Borrow money (on bond, at the lawful rate); ask for patronage; grease their palm |
 | Causes | Recruit them to your cause; join theirs; ask them to come to your settlement |
 | Hostile | Insult; spread a rumour; challenge to a duel; pry into their affairs; blackmail |
