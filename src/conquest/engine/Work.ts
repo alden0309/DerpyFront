@@ -6,6 +6,7 @@
 // asking (and they say yes or no, and why), promoted by your master when
 // you've earned it, and you climb by buying into a business of your own.
 
+import { servesHere } from "./Campaign1776Core"; // DLC (r21)
 import { crimeWorkDay, lawWorkDay } from "./Crime";
 import { dutyMonth, dutyPromo, dutyXp } from "./Duties"; // WORK (r21)
 import { npc, played } from "./EventPacing"; // EVENTS (r15)
@@ -205,7 +206,11 @@ export function hireAcceptance(
     e.add(`No ${SKILL_NAMES[def.main].toLowerCase()} to speak of`, -5);
   const pr = s.provinces[life.prov];
   const holder = pr.occupier >= 0 ? pr.occupier : pr.owner;
-  if (def.ownNation && holder !== me.nation)
+  if (
+    def.ownNation &&
+    holder !== me.nation &&
+    !(kind === "soldier" && servesHere(s, life, holder)) // DLC (r21): a Loyalist regiment
+  )
     e.add(
       `Only ${s.nations[holder]?.adjective ?? "local"} people serve here`,
       -100,

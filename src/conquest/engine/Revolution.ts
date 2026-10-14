@@ -15,6 +15,7 @@
 
 import { memberFaction } from "./Assembly";
 import { formatDate } from "./Calendar";
+import { campaignRising } from "./Campaign1776Core"; // DLC (r21)
 import { chairOf } from "./ChairCore";
 import { addHeat } from "./Crime";
 import { declareIndependence } from "./Crown";
@@ -368,6 +369,7 @@ export function risingAim(
   const s = g.s;
   const nation = s.nations[n];
   if (!nation?.rebelling || !nation.desk?.rev) return undefined;
+  if (campaignRising(s, n)) return undefined; // DLC (r21): the 1776 campaign's own (Campaign1776Core.ts)
   const crown = crownFor(s, n);
   const men = armyMen(a);
   let best = -1;

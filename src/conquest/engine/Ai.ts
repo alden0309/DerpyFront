@@ -2,6 +2,11 @@
 // decision goes through game.command(), with the same costs and checks.
 // How they lean depends on their ruler's traits and the difficulty.
 
+import {
+  campaignForbids,
+  campaignHoldsArmy,
+  campaignWar,
+} from "./Campaign1776Core"; // DLC (r21)
 import { seatCandidates } from "./Characters";
 import {
   crownAim,
@@ -450,6 +455,7 @@ function campaign(g: ConquestGame, n: number): void {
   for (const a of armiesOf(s, n)) {
     if (a.retreating || armyMen(a) <= 0 || playerArmy(g, a)) continue;
     if (a.depart >= 0) continue;
+    if (campaignHoldsArmy(s, n, a.id)) continue; // DLC (r21): the 1776 campaign moves the war's armies
     // GOV (r21): a rising the governor declared is fought at home.
     const home = risingAim(g, n, a);
     if (home !== undefined) {
@@ -495,6 +501,7 @@ function pickTarget(
   for (let p = 0; p < s.provinces.length; p++) {
     const days = tree.days[p];
     if (!Number.isFinite(days) || days > 90) continue;
+    if (campaignForbids(s, n, p)) continue; // DLC (r21)
     const pr = s.provinces[p];
     const h = pr.owner >= 0 ? holder(pr) : -1;
     const enemyMen = s.armies
@@ -575,6 +582,7 @@ function peace(g: ConquestGame, n: number): void {
     const war = warBetween(s, n, enemy)!;
     if (s.nations[enemy].kind === "crown" || s.nations[enemy].kind === "rebels")
       continue;
+    if (campaignWar(s, n, enemy)) continue; // DLC (r21): only the Treaty of Paris ends it
     if (warMonths(s, war) < 6) continue;
     const score = warScore(s, war, n).total;
     const europeWar =
@@ -788,6 +796,7 @@ function rebelsAi(g: ConquestGame, n: number): void {
 
 function crownAi(g: ConquestGame, n: number): void {
   const s = g.s;
+  if (campaignHoldsArmy(s, n)) return; // DLC (r21): the King's armies go where history sent them
   // Expeditions march on the rebel capital and take it.
   const colony = s.nations[n].colony;
   const target = s.nations[colony]?.capital ?? -1;

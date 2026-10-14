@@ -37,6 +37,7 @@ import { World, worldOf } from "./Map";
 // WORLD r11: fog of war, province markets, leads, and fitting old saves to the map.
 import "./Achievements"; // MAP (r12): achievements watch every life
 import "./Bondage"; // LABOUR (r15): bondage, treated as history
+import "./Campaign1776"; // DLC (r21): "1776: The Revolution"
 import "./Chair"; // CHAIR (r16): the governor's commission, the lieutenancy, recall, the address
 import "./Chamber"; // CHAMBER (r16): the council's business, factions, the session
 import { takeCrownDelta } from "./CrownCore"; // CROWN (r18)
@@ -54,6 +55,7 @@ import { leadsDaily, leadsMonthly } from "./Leads";
 import "./Leave"; // ECON (r17): leave from your work
 import "./Ledger"; // LEDGER (r15): the month's books, statements and forecast
 import "./Legacy"; // LEGACY (r21): every character a line was, kept as their part ends
+import "./Legends"; // DLC (r21): "Legends"
 import "./LifeStory"; // STORY (r17): what a life is remembered for
 import "./Loans"; // ECON (r17): bonds: loans on terms
 import { fitStateToMap } from "./MapFix";
@@ -78,6 +80,7 @@ import { takeSeaDelta } from "./SeaCore"; // SEA (r15)
 import { newGameState } from "./Setup";
 import { societyDaily, societyMonthly } from "./Society"; // SOCIETY (r11)
 import { societyDelta } from "./SocietyCore"; // SOCIETY (r11)
+import { endYearOf } from "./Starts"; // DLC (r21)
 import "./Towns"; // TOWNS (r17): newcomers, ruins, the towns' public works
 import { takeTownsDelta } from "./TownsCore"; // TOWNS (r17)
 import { dealsMonthly, tradeCommand } from "./Trade";
@@ -174,7 +177,11 @@ export class ConquestGame {
   ): ConquestGame {
     const g = new ConquestGame(
       map,
-      newGameState(map, { ...settings, endYear: END_YEAR }),
+      // DLC (r21): a game begun in 1776 runs to the end of 1783.
+      newGameState(map, {
+        ...settings,
+        endYear: endYearOf(settings.start, END_YEAR),
+      }),
     );
     makePolities(g);
     for (const seat of seats) beginLife(g, seat.seat, seat.name, seat.plan);

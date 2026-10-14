@@ -4,6 +4,7 @@
 // boats). The engine only keeps count of what woke each life; the server
 // runs the clock and decides when to stop.
 
+import { endWords } from "./Campaign1776Core"; // DLC (r21)
 import type { ConquestGame } from "./Game";
 import { touchLife } from "./LifeCore";
 import type { GameState, Life } from "./Types";
@@ -39,7 +40,7 @@ export function attentionMark(s: GameState): string {
 
 /** Why a skip can't start: letters already waiting, or nobody alive to play. */
 export function skipBlocker(s: GameState): string | null {
-  if (s.over) return "The world has reached 1776.";
+  if (s.over) return endWords(s).reached; // DLC (r21)
   const lives = living(s);
   if (!lives.length) return "Nobody is living a life to skip ahead with.";
   const waiting = lives.find((l) => l.events.length > 0);

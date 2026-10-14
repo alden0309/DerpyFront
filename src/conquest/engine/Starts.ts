@@ -5,6 +5,7 @@
 //
 // Owners and development are by province name; Setup maps them onto the map.
 
+import { START_1776 } from "./Start1776"; // DLC (r21)
 import type { StartYear } from "./Types";
 
 export interface StartDef {
@@ -20,9 +21,40 @@ export interface StartDef {
   development: Record<string, number>;
   /** A sentence or two per colony for the nation-pick screen. */
   powerNotes: Record<string, string>;
+  // ---- DLC (r21): what a start may add (1776: Start1776.ts)
+  /** Colonies this start adds to the map's own (1776: British America), each with a crown of its own. */
+  extraPowers?: ExtraPower[];
+  /** What the map's own colonies are called (and coloured) at this start, and their crowns. */
+  renames?: Record<
+    string,
+    {
+      name: string;
+      adjective: string;
+      color?: string;
+      crown?: string;
+      crownAdjective?: string;
+    }
+  >;
+  /** The game ends on 1 January of this year (END_YEAR when not given). */
+  endYear?: number;
+  /** The Derp Store item a game must have to begin here (the server checks it). */
+  dlc?: string;
+  // ---- end DLC (r21)
 }
 
-export const START_YEARS: StartYear[] = [1607, 1650, 1700];
+/** DLC (r21): a colony a start adds, made like the map's own. */
+export interface ExtraPower {
+  key: string;
+  name: string;
+  adjective: string;
+  color: string;
+  /** Whose rules (POWER_RULES) and culture it takes. */
+  rulesOf: string;
+  /** Its crown's name ("the British crown"). */
+  crown: string;
+}
+
+export const START_YEARS: StartYear[] = [1607, 1650, 1700, 1776]; // DLC (r21): 1776
 
 export const START_SUMMARY_1607 =
   "Jamestown has just been founded, Champlain is about to plant Quebec, and Spain guards the Caribbean alone. Most of the continent belongs to its native nations.";
@@ -35,9 +67,19 @@ export const START_GOLD_FACTOR: Record<StartYear, number> = {
   1607: 1,
   1650: 2,
   1700: 3.2,
+  1776: 4.5, // DLC (r21)
 };
 
+/** DLC (r21): the year a game that begins in `start` ends (1 January). */
+export function endYearOf(
+  start: StartYear | undefined,
+  fallback: number,
+): number {
+  return (start !== undefined ? STARTS[start]?.endYear : undefined) ?? fallback;
+}
+
 export const STARTS: Partial<Record<StartYear, StartDef>> = {
+  1776: START_1776, // DLC (r21): "1776: The Revolution"
   1650: {
     year: 1650,
     summary:

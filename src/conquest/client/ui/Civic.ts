@@ -963,6 +963,10 @@ const DIV_NAMES: Record<NationFlag["division"], string> = {
   canton: "A canton",
   triband: "Three bands",
   stripes: "Stripes",
+  // DLC (r21): the flags of 1776 (not offered to founders; named for completeness).
+  union: "The union of 1606",
+  continental: "The Continental Colours",
+  starsstripes: "The Stars and Stripes",
 };
 
 function swatches(

@@ -2,6 +2,7 @@
 // JSON over the /conquest/ws WebSocket. Each player is one character living
 // in a world the server runs; they send what their character does.
 
+import type { ConquestDlcOwned } from "./DlcIds"; // DLC (r21)
 import type { LineChar } from "./engine/Legacy"; // LEGACY (r21)
 import type {
   Difficulty,
@@ -17,7 +18,7 @@ export const MAX_NAME_LENGTH = 24;
 /** Every game ends on 1 January 1776. */
 export const END_YEAR = 1776;
 export const DIFFICULTIES: Difficulty[] = ["easy", "normal", "hard"];
-export const START_CHOICES: StartYear[] = [1607, 1650, 1700];
+export const START_CHOICES: StartYear[] = [1607, 1650, 1700, 1776]; // DLC (r21): 1776 for its owner
 
 export interface RoomSettings {
   difficulty: Difficulty;
@@ -261,7 +262,13 @@ export type ClientMessage =
   | { t: "allowwatch"; allow: boolean };
 
 export type ServerMessage =
-  | { t: "welcome"; name: string; account: string | null }
+  | {
+      t: "welcome";
+      name: string;
+      account: string | null;
+      /** DLC (r21): what the account owns of Conquest's DLC (the server checked). */
+      dlc?: ConquestDlcOwned;
+    }
   | {
       t: "rooms";
       open: OpenRoom[];

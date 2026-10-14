@@ -567,6 +567,7 @@ const START_TITLE: Record<StartYear, string> = {
   1607: "The first colonies",
   1650: "Colonies taking root",
   1700: "Empires at the brink",
+  1776: "The Revolution", // DLC (r21)
 };
 
 export function startSummary(start: StartYear): string {

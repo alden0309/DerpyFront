@@ -6,7 +6,9 @@
 // journal lines, its scenes, a private letter) are taken out of the copy of
 // that life everyone else is sent.
 
+import { r76Secret } from "./Campaign1776Events"; // DLC (r21)
 import type { ConquestGame } from "./Game";
+import { legendKey, legendsForOthers, legendsHaveSecrets } from "./Legends"; // DLC (r21)
 import { journal, touchLife } from "./LifeCore";
 import { r21ForOthers, r21HasSecrets } from "./LifeR21Core"; // LIFE (r21)
 import { ROLES } from "./LifeRules";
@@ -199,7 +201,9 @@ export function secretKey(key: string): boolean {
     key.startsWith("intr-") ||
     key.startsWith("p2p-intr-") ||
     key.startsWith("loan-") || // ECON (r17): a bond's scenes, its parties' business only
-    key.startsWith("crown:") // CROWN (r18): a petition's marks (asked for a town, letters, court)
+    key.startsWith("crown:") || // CROWN (r18): a petition's marks (asked for a town, letters, court)
+    legendKey(key) || // DLC (r21): a player's legends
+    r76Secret(key) // DLC (r21): a spy's capture
   );
 }
 
@@ -257,6 +261,8 @@ function lifeHasSecrets(l: Partial<Life>): boolean {
   if (pollsHaveSecrets(l.polls)) return true; // POLLS (r16): the sheriff's present, the canvass's book
   if (booksHaveLoans(l)) return true; // ECON (r17): a bond's money in the books
   if (r21HasSecrets(l)) return true; // LIFE (r21): an evening at the bawdy house
+  if (legendsHaveSecrets(l)) return true; // DLC (r21): legends heard and followed
+  if (l.r76?.spied !== undefined) return true; // DLC (r21): a spy's reports
   return false;
 }
 
@@ -280,6 +286,7 @@ export function lifeForOthers<T extends Partial<Life>>(l: T): T {
   if (l.polls) out.polls = pollsForOthers(l.polls); // POLLS (r16)
   booksForOthers(l, out); // ECON (r17)
   r21ForOthers(l, out); // LIFE (r21): the bawdy house's secrets
+  legendsForOthers(l, out); // DLC (r21): legends, and a spy's reports
   return out;
 }
 

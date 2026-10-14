@@ -871,6 +871,12 @@ export interface Life {
   lying?: Lying | null;
   /** LEGACY (r21): each character of the line as their part in it ended (Legacy.ts). */
   legacy?: LifeLegacy;
+  /** DLC (r21): what this seat's account owns of Conquest's DLC (set by the server). */
+  dlc?: LifeDlc;
+  /** DLC (r21): your part in the 1776 campaign: a commission, spying. */
+  r76?: LifeR76;
+  /** DLC (r21): the legends you've heard of and how far you've followed them (yours alone). */
+  legends?: LegendsState;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1224,7 +1230,8 @@ export interface TradeOffer {
   terms: TradeTerms;
 }
 
-export type StartYear = 1607 | 1650 | 1700;
+// DLC (r21): 1776, "1776: The Revolution" (Campaign1776.ts).
+export type StartYear = 1607 | 1650 | 1700 | 1776;
 
 export type NationKind = "power" | "native" | "crown" | "rebels";
 
@@ -1323,6 +1330,8 @@ export interface Nation {
   chair?: ChairState;
   /** GOV (r21): the governor's desk: duties, a building programme, native affairs, the militia, a motion to break with the crown. */
   desk?: GovDesk;
+  /** DLC (r21): the 1776 campaign's record, kept on the United Colonies. */
+  r76?: Campaign76;
 }
 
 // ---------------------------------------------------------------- armies
@@ -1986,7 +1995,9 @@ export type LifeCommand =
   | CardsCommand
   // GOV (r21): expeditions; the governor's desk and a motion to break with the crown.
   | ExpedCommand
-  | DeskCommand;
+  | DeskCommand
+  // DLC (r21): the 1776 campaign; Legends.
+  | DlcCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -2660,7 +2671,12 @@ export interface NationFlag {
     | "saltire"
     | "canton"
     | "triband"
-    | "stripes";
+    | "stripes"
+    // DLC (r21): the flags of 1776 (Campaign1776.ts): the British union of
+    // 1606, the Continental Colours, the Stars and Stripes of 1777.
+    | "union"
+    | "continental"
+    | "starsstripes";
   second: string;
   charge: Charge;
   chargeColor: string;
@@ -5789,4 +5805,86 @@ export interface LifeLegacy {
   came?: LineCame;
   t0?: TallyMark;
   peak?: number;
+}
+
+// ---------------------------------------------------------------- DLC (r21)
+
+/** What a seat's account owns of Conquest's DLC (the server sets it; Legends come only to an owner). */
+export interface LifeDlc {
+  legends?: boolean;
+}
+
+/** The 1776 campaign's record (Nation.r76, on the United Colonies). */
+export interface Campaign76 {
+  /** The war's events that have come, by key: the day. */
+  beats: Record<string, number>;
+  /** The war's armies the campaign moves, by name ("main": the Continental Army's; the King's by their posts): army ids. */
+  armies?: Record<string, number>;
+}
+
+/** Who gave a commission: the Continental Congress, or the King's commander. */
+export type R76Side = "congress" | "king";
+
+/** A player's part in the 1776 campaign (Life.r76). */
+export interface LifeR76 {
+  /** The day they were asked to choose a side. */
+  sides?: number;
+  /** How often they've changed sides (a turncoat is remembered). */
+  turned?: number;
+  /** The day they last changed sides. */
+  turnedAt?: number;
+  /** A commission sought: the day (one a season), and the last one given. */
+  asked?: number;
+  commission?: { by: R76Side; day: number; rank: number } | null;
+  /** Spying: the day of the last report, and how many reports. */
+  spied?: number;
+  reports?: number;
+  /** Held as a spy until this day (then exchanged). */
+  held?: number;
+  /** The war's battles they were at (beat keys). */
+  fought?: string[];
+}
+
+/** One legend as a life knows it. */
+export interface LegendProgress {
+  /** The legend (LegendsData.ts). */
+  key: string;
+  /** When the rumour came, and where it was heard ("the tavern at Havana"). */
+  heard: number;
+  from: string;
+  /** Steps of its trail done (0: only the rumour; the last step is the journey's end). */
+  step: number;
+  /** Failed tries at the current step (three and the trail goes cold). */
+  tries: number;
+  /** The day the current step may next be tried. */
+  next: number;
+  /** Found (the day) and how it came out (an outcome's key), or the trail gone cold. */
+  found?: number;
+  outcome?: string;
+  cold?: number;
+  /** A sacred place walked: the day someone will mean it harm (and you're asked to speak for it). */
+  keepDue?: number;
+}
+
+/** The legends a life has heard of (Life.legends: a player's own secret). */
+export interface LegendsState {
+  list: LegendProgress[];
+  /** The day you may next go asking after old stories. */
+  asked?: number;
+  /** DLC (r21): a lasting mark of the Fountain (the age the body's decline begins, put off). */
+  waters?: number;
+  /** Sacred places you've stood up for: the legend's key, the day. */
+  kept?: Record<string, number>;
+}
+
+/** The DLC's commands: the 1776 campaign ("r76") and Legends ("legend"). */
+export interface DlcCommand {
+  k: "r76" | "legend";
+  /**
+   * r76: side, commission, spy. legend: ask (after old stories), work (the
+   * trail's next step), drop (give it up).
+   */
+  act: string;
+  key?: string;
+  arg?: string;
 }

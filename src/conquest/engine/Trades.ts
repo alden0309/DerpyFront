@@ -8,6 +8,7 @@
 // in trades that need no master.
 
 import { strained } from "./Body"; // LIFE (r21)
+import { servesHere } from "./Campaign1776Core"; // DLC (r21)
 import { CRIME_BACKGROUNDS, knowsDen, underworldContact } from "./CrimeQueries";
 import { played } from "./EventPacing"; // EVENTS (r15)
 import type { ConquestGame } from "./Game";
@@ -270,7 +271,11 @@ export function takeUpCheck(
   }
   const pr = s.provinces[life.prov];
   const holder = pr.occupier >= 0 ? pr.occupier : pr.owner;
-  if (def.ownNation && holder !== me.nation)
+  if (
+    def.ownNation &&
+    holder !== me.nation &&
+    !(kind === "soldier" && servesHere(s, life, holder)) // DLC (r21): a Loyalist regiment
+  )
     return no(
       `Only ${s.nations[holder]?.adjective ?? "local"} people serve here.`,
     );
