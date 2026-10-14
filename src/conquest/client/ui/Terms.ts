@@ -662,7 +662,7 @@ export const TERMS: Record<string, Term> = {
     what: "A colony's war to be free of its crown: put to the assembly by the governor, carried by most of those voting, and declared.",
     good: "Won (eight years held, or three of the crown's armies beaten), the colony is its own nation and the governor frames its government. Crushed (the capital lost half a year), the governor hangs and the patriots are hunted.",
     raise:
-      "The house leans by its party (the country party for, the court party against), the colony's quarrel with the crown (its own mind, the crown's favour, demands defied) and the governor's weight. The crown's regiments in the colony go over to it; counties where its friends are strong may hold for the King.",
+      "The house leans by its party (the country party for, the court party against), the colony's quarrel with the crown (its own mind, the crown's favour, demands defied) and the governor's weight. The crown's regiments in the colony stand with the King; counties where its friends are strong may hold for the King.",
     ch: "independence",
   },
   proprietor: {

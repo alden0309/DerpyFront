@@ -478,8 +478,8 @@ function revSection(ui: GameUi, n: number): TemplateResult | typeof nothing {
             )}
             (an estimate: the armies decide it). Won: the colony is free and you
             frame its government. Crushed: you hang, and the patriots are
-            hunted. The crown's own regiments in the colony go over to it at
-            once.
+            hunted. The crown's own regiments in the colony stand with the King
+            at once.
           </p>
           ${holds.length
             ? html`<p class="small">Counties that may hold for the King:</p>

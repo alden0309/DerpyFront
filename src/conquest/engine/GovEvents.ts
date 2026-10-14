@@ -1143,7 +1143,7 @@ const REV_EVENTS: LifeEventDef[] = [
     choices: [
       {
         label: "Declare it",
-        tip: "War with the crown: its armies land within the year. The crown's regiments here go over to it; counties where its friends are strong may hold for the King. Won: the colony is free and you frame its government. Crushed: the hangman.",
+        tip: "War with the crown: its armies land within the year. The crown's regiments here stand with the King; counties where its friends are strong may hold for the King. Won: the colony is free and you frame its government. Crushed: the hangman.",
         apply: (g, life) => void declareRev(g, life, true),
       },
       {

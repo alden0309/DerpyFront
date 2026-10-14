@@ -458,7 +458,7 @@ export function warOdds(s: GameState, w: World, n: number): Breakdown {
   const regs = crownMen(s, n);
   if (regs > 0)
     e.add(
-      `The crown's own ${regs} men in the colony go over to it`,
+      `The crown's own ${regs} men in the colony stand with the King`,
       -Math.round(Math.min(0.15, regs / 2000) * 100) / 100,
     );
   // The capital never holds for the King (the declaration's roll leaves it out).
@@ -506,7 +506,7 @@ export function declareRev(
     .filter((p) => p !== nation.capital)
     .map((p) => ({ p, odds: holdOdds(s, g.w, n, p).total }));
   declareIndependence(g, n);
-  // The crown's own regiments in the colony go over to it.
+  // The crown's own regiments in the colony leave its ranks for the crown's.
   if (crown >= 0) defect(g, n, crown);
   // Counties where the crown's friends are strong hold for the King.
   const holds: number[] = [];

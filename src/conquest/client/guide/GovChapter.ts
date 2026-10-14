@@ -279,7 +279,7 @@ The page shows how they'd divide today. **Lost**, London hears of it: the colony
 ## Declared
 - **War with the crown.** It lands an army of regulars and guns about every ten months; the colony **wins** if it holds out eight years or beats three of them, and is **crushed** if the crown holds its capital half a year (the governor hangs).
 - **The colony's generals fight at home**: the computer's armies go at the crown's men on the colony's soil when they're the stronger (no more than ${REV.attackAt} of theirs to one), and otherwise hold the capital. The colony's other wars wait. (An army you command goes where you send it.)
-- **The crown's own regiments** already in the colony (its war drafts and fortress garrisons) go over to it at once.
+- **The crown's own regiments** already in the colony (its war drafts and fortress garrisons) stand with the King at once, and its fortress towns are his.
 - **Counties may hold for the King**: each has a chance (shown before), and one that holds is the crown's, with a company of its friends under arms, until the patriots take it back. A county with the crown's own fortress garrison holds; ${in100(REV.hold.base)} in 100 to begin with, more where the crown's favour is high (a point in ${1 / REV.hold.favourPer} above ${REV.hold.favourFrom}), among newcomers (${in100(REV.hold.newcomers)}) and in a port (${in100(REV.hold.port)}), less in the capital (${in100(REV.hold.capital)}); between ${Math.round(REV.hold.min * 100)} and ${Math.round(REV.hold.max * 100)}.
 - **Everyone of the colony chooses a side** in a scene (and on Society › Office): with the patriots (renown +3 now), with the King (favour +5 now), or neither.
 
