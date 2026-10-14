@@ -5,7 +5,8 @@
 import * as THREE from "three";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 import { GLTF, GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { gestureClips, Rig } from "./People";
+// BPEOPLE (r22): the people are built by People.ts from their own models.
+import { PEOPLE_MODELS, peopleAssets, Rig } from "./People";
 
 export interface WorldAssets {
   rigs: { m: Rig; f: Rig };
@@ -28,27 +29,28 @@ export async function loadWorldAssets(
   urlOf: (key: string) => Promise<string>,
   onProgress?: (done: number, total: number) => void,
 ): Promise<WorldAssets> {
-  const keys = ["mannequin_m", "mannequin_f", "props"] as const;
+  // BPEOPLE (r22): the bodies, their clips and the props.
+  const keys = ["props", ...PEOPLE_MODELS];
   let done = 0;
   onProgress?.(0, keys.length);
-  const [m, f, props] = await Promise.all(
+  const loaded = await Promise.all(
     keys.map(async (k) => {
       const g = await parse(await urlOf(k));
       onProgress?.(++done, keys.length);
       return g;
     }),
   );
-  const clips = m.animations;
+  const byKey = Object.fromEntries(keys.map((k, i) => [k, loaded[i]]));
+  const props = byKey.props;
   const byName = new Map<string, THREE.Object3D>();
   for (const child of props.scene.children) {
     byName.set(child.name, child);
   }
+  // A cast member's own model (model=key) is fetched when they first appear.
+  const people = peopleAssets(byKey, async (k) => parse(await urlOf(k)));
   return {
-    rigs: {
-      m: { scene: m.scene, clips },
-      f: { scene: f.scene, clips },
-    },
-    gestures: gestureClips(clips),
+    rigs: people.rigs,
+    gestures: people.gestures,
     props: byName,
   };
 }

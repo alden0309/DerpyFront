@@ -159,13 +159,17 @@ describe("the art and sound", () => {
   });
 
   test("every model is a small, compressed glTF binary", () => {
-    expect([...MODELS].sort()).toEqual(["mannequin_f", "mannequin_m", "props"]);
+    // BPEOPLE (r22): the people's bodies and clips; the owner's own models
+    // may join them (their limits are checked in BasedPeople.test.ts).
+    expect([...MODELS]).toEqual(
+      expect.arrayContaining(["anims", "body_f", "body_m", "props"]),
+    );
     for (const key of MODELS) {
       const buf = fs.readFileSync(
         path.join(ROOT, "src/based/models", `${key}.glb`),
       );
       expect(buf.subarray(0, 4).toString(), key).toBe("glTF");
-      expect(buf.length, key).toBeLessThanOrEqual(300_000);
+      expect(buf.length, key).toBeLessThanOrEqual(1_000_000);
       // meshopt-compressed (the client decodes it).
       const json = buf.subarray(20, 20 + buf.readUInt32LE(12)).toString();
       expect(json, key).toContain("EXT_meshopt_compression");

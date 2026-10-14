@@ -1,5 +1,5 @@
 {
-  "note": "Every picture is graded (cool shadows, amber highlights), cropped to 16:9 or 4:5 and compressed to WebP. The sound is looped, and muffled for the inside of the bar. Adaptations of CC BY-SA works are shared under the same licence. The 3D people and furniture are CC0 models, restyled and compressed (meshopt); the rooms, the street, the lamps and the rain are built in code.",
+  "note": "Every picture is graded (cool shadows, amber highlights), cropped to 16:9 or 4:5 and compressed to WebP. The sound is looped, and muffled for the inside of the bar. Adaptations of CC BY-SA works are shared under the same licence. The 3D people are Quaternius' CC0 base characters, dressed in code (the clothes, hats and glasses are cut from the body), and the furniture is Kenney's CC0 kit; all compressed (meshopt). The rooms, the street, the lamps and the rain are built in code.",
   "items": [
     {
       "keys": ["paris_rain"],
@@ -184,34 +184,34 @@
       "source": "https://commons.wikimedia.org/wiki/File:Heavy_Rain_in_Summer.ogg"
     },
     {
-      "keys": ["mannequin_m"],
+      "keys": ["body_m", "body_f"],
       "what": "Model",
-      "title": "Universal Animation Library (mannequin and clips: walking, sitting, talking, gestures)",
+      "title": "Universal Base Characters [Standard] (the male and female bodies, their faces, eyes and brows, and the parted, buzzed, long, buns and cropped haircuts and the beard)",
       "author": "Quaternius",
       "license": "CC0 1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "source": "https://opengameart.org/content/universal-animation-library",
-      "changes": "Clips chosen and renamed, finger tracks dropped, mesh simplified; dressed at runtime by painting the vertices."
+      "source": "https://quaternius.com/packs/universalbasecharacters.html",
+      "changes": "Merged onto one skeleton, simplified away from the face, textures packed into one small atlas; the clothes, hats and glasses are cut from the body in code."
     },
     {
-      "keys": ["mannequin_m"],
+      "keys": ["anims"],
       "what": "Model",
-      "title": "Universal Animation Library 2 (the male mannequin, and the drink, nod, lean and folded-arms clips)",
+      "title": "Universal Animation Library (clips: idle, walk, jog, sitting, talking, interact, pick up)",
       "author": "Quaternius",
       "license": "CC0 1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "source": "https://opengameart.org/content/universal-animation-library-2",
+      "source": "https://quaternius.com/packs/universalanimationlibrary.html",
+      "changes": "Clips chosen and renamed (the jog is the run), finger tracks dropped; retargeted onto each body at load."
+    },
+    {
+      "keys": ["anims"],
+      "what": "Model",
+      "title": "Universal Animation Library 2 (clips: drink, nod, lean on a rail, folded arms, shake the head)",
+      "author": "Quaternius",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://quaternius.com/packs/universalanimationlibrary2.html",
       "changes": "As above."
-    },
-    {
-      "keys": ["mannequin_f"],
-      "what": "Model",
-      "title": "Universal Animation Library 2: Female Mannequin",
-      "author": "Quaternius",
-      "license": "CC0 1.0",
-      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "source": "https://opengameart.org/content/universal-animation-library-2",
-      "changes": "Mesh simplified; dressed at runtime."
     },
     {
       "keys": ["props"],

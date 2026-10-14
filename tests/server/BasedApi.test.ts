@@ -132,7 +132,7 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     "/based/audio/rain",
     // BASED (r21): the 3D models are as private as the pictures.
     "/based/model/props",
-    "/based/model/mannequin_m",
+    "/based/model/body_m", // BPEOPLE (r22): the people's bodies
     "/based/save",
     "/based/stats/1",
     "/based/notes",
