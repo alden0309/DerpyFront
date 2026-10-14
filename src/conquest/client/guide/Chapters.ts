@@ -2242,7 +2242,7 @@ The menu's **Your story so far** tells the tale of your line: the roads you trav
     part: "world",
     title: "1776 and the end",
     line: "Where the story stops, and how it's told.",
-    body: `The world runs until **1 January ${END_YEAR}**. Then your story is told (the roads you travelled, the moments that mattered, the generations of your line) and paid in Derp Coins. In company, the lines are ranked by what they made of their lives.
+    body: `The world runs until **1 January ${END_YEAR}**. Then your story is told in chapters, a life to each (the roads you travelled, the moments that mattered, the people who mattered, the generations of your line: [[story|Your story]]), the end screen lists **every character each player was, with their stats**, and the rest of your Derp Coins is paid ([[coins|Derp Coins]]: most were paid as you played). In company, the lines are ranked by what they made of their lives. Derp Land keeps it all: each finished game has a page (your profile › the game's **Story**) with every line's characters and chapters.
 
 The host can end a game sooner from the menu (End the game here): stories and coins are counted as they stand.
 

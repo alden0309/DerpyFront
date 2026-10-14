@@ -165,7 +165,7 @@ function topSkills(
   return out;
 }
 
-hooks.milestone.push((g, life, m: LifeMilestone) => {
+function onMilestone(g: ConquestGame, life: Life, m: LifeMilestone): void {
   switch (m.kind) {
     case "born":
     case "begin":
@@ -179,13 +179,20 @@ hooks.milestone.push((g, life, m: LifeMilestone) => {
     case "watching":
       return close(g, life, "ended", m.text);
   }
-});
+}
 
-hooks.lifeMonthly.push((g, life) => {
+/** The best renown of the part played now, at each month. */
+function onMonth(g: ConquestGame, life: Life): void {
   const L = life.legacy;
   if (!L || life.c < 0 || life.renown <= (L.peak ?? 0)) return;
   touchLife(g, life).legacy!.peak = Math.round(life.renown);
-});
+}
+
+hooks.milestone.push(onMilestone);
+hooks.lifeMonthly.push(onMonth);
+
+/** For tests: the listeners, to take them out and show the world goes the same without them. */
+export const LEGACY_HOOKS = { milestone: onMilestone, month: onMonth };
 
 // ---------------------------------------------------------------- reading them
 

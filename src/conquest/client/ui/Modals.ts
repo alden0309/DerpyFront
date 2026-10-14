@@ -732,7 +732,7 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
               )}
             </tbody>
           </table>
-          ${coinBreakdown(results, ui)}`
+          ${coinBreakdown(results, ui)} ${everyCharacter(results, ui)}`
       : s.lives.length > 1
         ? html`<h3 class="cq-h3">The others</h3>
             <ul class="cq-list">
@@ -754,6 +754,80 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
       </button>
     </div>
   `;
+}
+
+/** LEGACY (r21): every character each player's line was, with their stats. */
+function everyCharacter(results: ResultLine[], ui: GameUi): TemplateResult {
+  const withChars = results.filter((r) => r.chars?.length);
+  if (!withChars.length) return html``;
+  return html`<h3 class="cq-h3">Every character they were</h3>
+    ${withChars.map(
+      (r) =>
+        html`<details
+          class="cq-end-chars"
+          ?open=${r.name === ui.life?.name || withChars.length === 1}
+        >
+          <summary>
+            <b>${r.name}</b>: ${r.chars!.length}
+            ${r.chars!.length === 1 ? "life" : "lives"}, the line of ${r.line}
+          </summary>
+          <div class="cq-table-wrap">
+            <table class="cq-table compact">
+              <thead>
+                <tr>
+                  <th>Character</th>
+                  <th>What they were</th>
+                  <th class="r">Renown</th>
+                  <th class="r">Purse</th>
+                  <th class="r">Children</th>
+                  <th class="r">Battles</th>
+                  <th class="r">Duels</th>
+                  <th>Best at</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${r.chars!.map(
+                  (c) =>
+                    html`<tr>
+                      <td>
+                        ${ui.s.chars[c.c]
+                          ? html`<button
+                              class="cq-link"
+                              @click=${() => ui.open({ k: "char", c: c.c })}
+                            >
+                              ${c.name}
+                            </button>`
+                          : c.name}
+                        <small
+                          >${c.born}–${c.ended === "living"
+                            ? ""
+                            : (c.to ?? "")};
+                          ${c.fate}</small
+                        >
+                      </td>
+                      <td>
+                        ${c.title || "Of no fixed trade"}${c.office
+                          ? html`<small>${c.office}</small>`
+                          : nothing}
+                        ${c.home ? html`<small>${c.home}</small>` : nothing}
+                      </td>
+                      <td class="r">${c.renown}</td>
+                      <td class="r">${c.purse}</td>
+                      <td class="r">${c.children}</td>
+                      <td class="r">
+                        ${c.battles ? `${c.battles} (${c.battlesWon})` : 0}
+                      </td>
+                      <td class="r">${c.duels}</td>
+                      <td>
+                        ${c.skills.map(([k, v]) => `${k} ${v}`).join(", ")}
+                      </td>
+                    </tr>`,
+                )}
+              </tbody>
+            </table>
+          </div>
+        </details>`,
+    )}`;
 }
 
 function coinBreakdown(results: ResultLine[], ui: GameUi): TemplateResult {

@@ -113,7 +113,7 @@ const PASSIVE = new Set(
 
 /** Moments that open sentences with their verb ("Married Mary Cole"). */
 const VERBS = new Set(
-  "Acknowledged Acquitted Bought Broke Brought Built Became Betrothed Came Carried Caught Chosen Commissioned Convicted Declared Divorced Elected Fought Found Founded Fulfilled Gave Granted Hid Informed Joined Killed Knocked Lost Made Married Met Moved Passed Petitioned Proclaimed Ran Recalled Retook Returned Rode Rose Sailed Sat Served Set Sold Struck Taken Took Tried Went Won Wounded Lived Left Raised Kept Led Opened Signed Paid Struck Stood Saved Freed Fled Named Endowed Hired Lent Sued Settled Paid".split(
+  "Acknowledged Acquitted Apprenticed Borrowed Bought Broke Brought Built Became Betrothed Came Captained Carried Caught Charted Chosen Closed Commanded Commissioned Convicted Crossed Declared Discovered Divorced Elected Endowed Escaped Explored Exposed Fled Foiled Forgave Fought Found Founded Freed Fulfilled Gave Governed Graduated Granted Hid Hired Informed Inherited Joined Kept Killed Knocked Learned Led Left Lent Lived Lost Made Mapped Married Met Moved Named Opened Paid Passed Petitioned Plotted Proclaimed Raided Raised Ran Reached Recalled Repaid Retook Returned Rode Rose Ruled Sailed Sat Saved Served Set Settled Signed Sold Spoke Stood Struck Studied Sued Survived Swore Taken Taught Took Traded Tried Uncovered Visited Went Won Wounded".split(
     " ",
   ),
 );
@@ -231,17 +231,27 @@ function yearSentences(
   let run = 0;
   const NEXT = ["The next year", "A year later", "The year after that"];
   const out = kept.map(([year, ms]) => {
-    const clauses = ms.slice(0, 3).map((m, i) => {
-      const c = clauseOf(m.text, who);
-      // "he married…, rose to…": the subject once a sentence.
-      const p = pron(who);
-      return i > 0 && c.startsWith(`${p.he} `) ? c.slice(p.he.length + 1) : c;
-    });
+    // A moment whose words aren't a clause (another track's, say) is told
+    // as it is, after a colon.
+    const p = pron(who);
+    const told = ms
+      .slice(0, 3)
+      .map((m) => ({ c: clauseOf(m.text, who), raw: m.text }));
+    const raws = told.filter((x) => x.c === x.raw && /^[A-Z]/.test(x.raw));
+    const clauses = told
+      .filter((x) => !raws.includes(x))
+      .map((x, i) =>
+        // "he married…, rose to…": the subject once a sentence.
+        i > 0 && x.c.startsWith(`${p.he} `) ? x.c.slice(p.he.length + 1) : x.c,
+      );
     run = year === last + 1 ? run + 1 : 0;
     const when = run > 0 ? NEXT[(run - 1) % NEXT.length] : `In ${year}`;
     last = year;
     const more = ms.length > 3 ? ", among other things" : "";
-    return `${when} ${list(clauses)}${more}.`;
+    const rawText = raws.map((x) => x.raw).join("; ");
+    return clauses.length
+      ? `${when} ${list(clauses)}${raws.length ? `; ${rawText}` : ""}${more}.`
+      : `${when}: ${rawText}${more}.`;
   });
   if (years.length > kept.length)
     out.push(

@@ -254,6 +254,15 @@ export const TERMS: Record<string, Term> = {
       "Under the clock it says who paused, and counts down the seconds; after that anyone may start it. The host still sets the speed (and a new speed waits for the clock to start).",
     ch: "multiplayer",
   },
+  // LEGACY (r21): Legacy.ts, Chronicle.ts
+  familyline: {
+    name: "The family's line",
+    what: "Each life of your line in order: who they married, their children, and the one who carried the line on (gilt). A life taken up from someone else's family is marked so.",
+    good: "Each of them has a chapter in your story: how they came into it, what they did, the people who mattered, their numbers and their roads. When the game ends, Derp Land keeps every character with their stats.",
+    raise:
+      "Marry and raise children: when you die, the eldest (or the heir you name) carries the line on. With no heir, the line ends; you can take up someone else's life, or begin again.",
+    ch: "story",
+  },
   // STORY (r17): StoryCore.ts, StoryBook.ts
   greatmoment: {
     name: "A great moment",

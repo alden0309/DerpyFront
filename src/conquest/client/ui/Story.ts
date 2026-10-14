@@ -9,6 +9,11 @@ import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
 import { dateOf, formatDate } from "../../engine/Calendar";
+import {
+  chronicleOf,
+  type ChronChapter,
+  type Chronicle,
+} from "../../engine/Chronicle"; // LEGACY (r21)
 import { lifeIsNative, lifeScore } from "../../engine/LifeQueries";
 import { JOBS } from "../../engine/LifeRules";
 import { charName } from "../../engine/Queries";
@@ -45,8 +50,12 @@ export class LifeMap extends LitElement {
   /** The story's moments (those with a pin are drawn). */
   @property({ attribute: false }) moments: StoryEntry[] = [];
   @property({ type: Number }) lit: number | null = null;
+  /** LEGACY (r21): only this character's roads (a chapter's map). */
+  @property({ type: Number }) c: number | null = null;
   @state() private geo: Geo | null = null;
   private paths: Path2D[] = [];
+  /** LEGACY (r21): what was last drawn, so a redraw that would change nothing is skipped. */
+  private drawn = "";
 
   createRenderRoot() {
     return this;
@@ -76,10 +85,17 @@ export class LifeMap extends LitElement {
     return this.moments.filter((m) => m.pin !== null && m.p !== undefined);
   }
 
+  /** LEGACY (r21): the trail drawn: the whole line's, or one character's. */
+  private trail(): Life["trail"] {
+    return this.c === null
+      ? this.life.trail
+      : this.life.trail.filter((t) => t.c === this.c);
+  }
+
   private frame(): [number, number, number, number] {
     const ui = this.ui;
     const geo = this.geo!;
-    const ps = new Set<number>(this.life.trail.map((t) => t.p));
+    const ps = new Set<number>(this.trail().map((t) => t.p));
     for (const m of this.pinned()) ps.add(m.p!);
     const known = [...ps].filter((p) => ui.map.provinces[p]);
     if (known.length === 0) return [0, 0, geo.width, geo.height];
@@ -104,6 +120,10 @@ export class LifeMap extends LitElement {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const W = Math.max(200, Math.round(rect.width));
     const H = Math.max(150, Math.round(rect.height));
+    // LEGACY (r21): nothing on it has changed (the world ticked): leave it be.
+    const key = `${W}x${H}@${dpr}|${life.trail.length}|${this.moments.length}|${this.lit}|${this.c}|${Math.floor(s.day / 30)}`;
+    if (key === this.drawn) return;
+    this.drawn = key;
     canvas.width = W * dpr;
     canvas.height = H * dpr;
     const c = canvas.getContext("2d")!;
@@ -145,12 +165,13 @@ export class LifeMap extends LitElement {
 
     // The roads, one colour per generation, dashed like a chart's track.
     const gens = life.line;
+    const trail = this.trail(); // LEGACY (r21)
     c.lineJoin = "round";
     c.lineCap = "round";
     c.setLineDash([6, 4]);
-    for (let i = 1; i < life.trail.length; i++) {
-      const a = life.trail[i - 1];
-      const b = life.trail[i];
+    for (let i = 1; i < trail.length; i++) {
+      const a = trail[i - 1];
+      const b = trail[i];
       if (a.p === b.p || !ui.map.provinces[a.p] || !ui.map.provinces[b.p])
         continue;
       const gen = Math.max(0, gens.indexOf(b.c));
@@ -168,9 +189,12 @@ export class LifeMap extends LitElement {
     }
     c.setLineDash([]);
 
-    // Home: a small house mark where the line lived.
-    if (life.home >= 0 && ui.map.provinces[life.home]) {
-      const [hx, hy] = at(life.home);
+    // Home: a small house mark where the line lived (a past character's
+    // chapter marks where their roads began instead: LEGACY r21).
+    const home =
+      this.c === null || this.c === life.c ? life.home : (trail[0]?.p ?? -1);
+    if (home >= 0 && ui.map.provinces[home]) {
+      const [hx, hy] = at(home);
       c.fillStyle = "#f6d77a";
       c.strokeStyle = "#3a2a14";
       c.lineWidth = 1.2;
@@ -257,11 +281,15 @@ function factsOf(ui: GameUi, life: Life): string[] {
   return facts;
 }
 
+/** LEGACY (r21): the story told in chapters (the chronicle), or year by year; remembered. */
+let storyView: "chapters" | "years" = "chapters";
+
 @customElement("cq-life-story")
 export class LifeStory extends LitElement {
   @property({ attribute: false }) ui!: GameUi;
   @property({ attribute: false }) life!: Life;
   @state() private lit: number | null = null;
+  @state() private view: "chapters" | "years" = storyView;
 
   createRenderRoot() {
     return this;
@@ -272,7 +300,6 @@ export class LifeStory extends LitElement {
     const life = this.life;
     if (!ui || !life) return html``;
     const s = ui.s;
-    const story = storyOf(s, life);
     const people = life.line
       .map((id) => s.chars[id])
       .filter((c): c is Character => !!c);
@@ -313,7 +340,57 @@ export class LifeStory extends LitElement {
           </p>
         </div>
       </header>
-      ${countsRow(story)}
+      ${this.viewSwitch()}
+      ${this.view === "chapters"
+        ? this.chronicle(ui, life)
+        : this.yearByYear(ui, life, people)}
+      ${life.job && !life.watching
+        ? html`<p class="cq-muted small">
+            Last seen as
+            ${JOBS[life.job.kind].ranks[life.job.rank].title.toLowerCase()}.
+          </p>`
+        : nothing}
+    </section>`;
+  }
+
+  /** LEGACY (r21): chapters (the chronicle) or year by year. */
+  private viewSwitch(): TemplateResult {
+    const set = (v: "chapters" | "years") => {
+      storyView = v;
+      this.view = v;
+    };
+    return html`<div
+      class="cq-seg small cq-story-view"
+      role="radiogroup"
+      aria-label="How the story is told"
+    >
+      ${(
+        [
+          ["chapters", "In chapters"],
+          ["years", "Year by year"],
+        ] as const
+      ).map(
+        ([k, label]) =>
+          html`<button
+            role="radio"
+            aria-checked=${this.view === k}
+            @click=${() => set(k)}
+          >
+            ${label}
+          </button>`,
+      )}
+    </div>`;
+  }
+
+  /** STORY (r17): the year-by-year story, its counts, the generations and the map. */
+  private yearByYear(
+    ui: GameUi,
+    life: Life,
+    people: Character[],
+  ): TemplateResult {
+    const s = ui.s;
+    const story = storyOf(s, life);
+    return html`${countsRow(story)}
       <ol class="cq-generations" aria-label="The generations">
         ${people.map(
           (c, i) =>
@@ -348,14 +425,161 @@ export class LifeStory extends LitElement {
           </p>
         </div>
         ${this.saga(story, life)}
-      </div>
-      ${life.job && !life.watching
-        ? html`<p class="cq-muted small">
-            Last seen as
-            ${JOBS[life.job.kind].ranks[life.job.rank].title.toLowerCase()}.
-          </p>`
+      </div>`;
+  }
+
+  // ---------------------------------------------------------------- LEGACY (r21): the chronicle
+
+  /** The story in chapters: the line's opening, its numbers, the family's line, a chapter for each life. */
+  private chronicle(ui: GameUi, life: Life): TemplateResult {
+    const ch = chronicleOf(ui.s, life, ui.map);
+    return html`<div class="cq-chron">
+      <p class="cq-chron-open">${ch.opening}</p>
+      ${numbersRow(ch.numbers, "cq-chron-numbers")}
+      ${ch.tree.length > 1 || (ch.tree[0]?.children.length ?? 0) > 0
+        ? this.tree(ui, ch)
         : nothing}
+      ${ch.chapters.map((c, i) => this.chapter(ui, life, c, i))}
+      <p class="cq-chron-close">${ch.closing}</p>
+    </div>`;
+  }
+
+  /** The family's line: each generation, who they married, their children, and who carried it on. */
+  private tree(ui: GameUi, ch: Chronicle): TemplateResult {
+    const s = ui.s;
+    const who = (c: number, label: string, cls = "") =>
+      s.chars[c]
+        ? html`<button
+            class="cq-link ${cls}"
+            @click=${() => ui.open({ k: "char", c })}
+          >
+            ${label}
+          </button>`
+        : html`<span class=${cls}>${label}</span>`;
+    return html`<section class="cq-chron-tree-wrap">
+      <h4 class="cq-chron-h4">${term("familyline")}</h4>
+      <ol class="cq-chron-tree">
+        ${ch.tree.map(
+          (t, i) =>
+            html`<li style="--road:${ROADS[i % ROADS.length]}">
+              <div class="cq-chron-tree-who">
+                ${who(t.c, t.name, "cq-chron-tree-name")}
+                <span class="cq-muted small">${t.years}</span>
+                ${t.came === "takeover"
+                  ? html`<span class="cq-muted small">(a life taken up)</span>`
+                  : nothing}
+                ${t.spouses.length
+                  ? html`<span class="cq-muted small"
+                      >· married ${t.spouses.join(", then ")}</span
+                    >`
+                  : nothing}
+              </div>
+              ${t.children.length
+                ? html`<ul class="cq-chron-kids" aria-label="Their children">
+                    ${t.children.map(
+                      (k) =>
+                        html`<li
+                          class="${k.heir ? "heir" : ""} ${k.young
+                            ? "young"
+                            : ""}"
+                          title=${k.heir
+                            ? "Carried the line on"
+                            : k.young
+                              ? "Died young"
+                              : `Born ${k.born}`}
+                        >
+                          ${who(k.c, k.name)}
+                          <small>${k.born}</small>
+                        </li>`,
+                    )}
+                  </ul>`
+                : nothing}
+            </li>`,
+        )}
+      </ol>
     </section>`;
+  }
+
+  private chapter(
+    ui: GameUi,
+    life: Life,
+    c: ChronChapter,
+    i: number,
+  ): TemplateResult {
+    const s = ui.s;
+    const char = s.chars[c.c];
+    const r = c.record;
+    return html`<article
+      class="cq-chron-ch"
+      style="--road:${ROADS[i % ROADS.length]}"
+      aria-label="Chapter ${c.roman}: ${c.name}"
+    >
+      <header class="cq-chron-ch-head">
+        <span class="cq-chron-roman">${c.roman}</span>
+        ${char ? token(ui, char, "small") : nothing}
+        <div>
+          <h4 class="cq-chron-ch-name">
+            ${char
+              ? html`<button
+                  class="cq-link"
+                  @click=${() => ui.open({ k: "char", c: c.c })}
+                >
+                  ${c.name}
+                </button>`
+              : c.name}
+          </h4>
+          <span class="cq-muted small"
+            >${c.years}${c.title ? `, ${c.title}` : ""}</span
+          >
+        </div>
+      </header>
+      <div class="cq-chron-ch-body">
+        <div class="cq-chron-text">
+          ${c.paras.map((t) => html`<p>${t}</p>`)}
+          ${c.people.length
+            ? html`<div class="cq-chron-people">
+                <h5>The people who mattered</h5>
+                <ul>
+                  ${c.people.map(
+                    (p) =>
+                      html`<li>
+                        <button
+                          class="cq-chron-person"
+                          @click=${() => ui.open({ k: "char", c: p.c })}
+                        >
+                          ${token(ui, s.chars[p.c], "small")}
+                          <span><b>${p.name}</b><small>${p.role}</small></span>
+                        </button>
+                      </li>`,
+                  )}
+                </ul>
+              </div>`
+            : nothing}
+        </div>
+        <aside class="cq-chron-side">
+          ${c.places.length > 1
+            ? html`<cq-life-map
+                class="cq-chron-map"
+                .ui=${ui}
+                .life=${life}
+                .moments=${NO_MOMENTS}
+                .c=${c.c}
+              ></cq-life-map>`
+            : nothing}
+          ${numbersRow(c.numbers, "cq-chron-numbers small")}
+          <p class="cq-chron-stats cq-muted small">
+            ${r.skills.length
+              ? html`Best at
+                ${r.skills.map(([k, v]) => `${k} ${v}`).join(", ")}.`
+              : nothing}
+            Health ${r.health}, fighting
+            ${r.fighting}${r.ended === "living"
+              ? ""
+              : `, ${r.purse} coins left`}.
+          </p>
+        </aside>
+      </div>
+    </article>`;
   }
 
   /** The story itself: each generation, each year, each moment. */
@@ -450,6 +674,25 @@ export class LifeStory extends LitElement {
     </li>`;
   }
 }
+
+/** LEGACY (r21): a row of big numbers. */
+function numbersRow(
+  nums: { label: string; value: string }[],
+  cls: string,
+): TemplateResult {
+  if (!nums.length) return html``;
+  return html`<dl class=${cls}>
+    ${nums.map(
+      (n) =>
+        html`<div>
+          <dt>${n.label}</dt>
+          <dd>${n.value}</dd>
+        </div>`,
+    )}
+  </dl>`;
+}
+
+const NO_MOMENTS: StoryEntry[] = [];
 
 /** How many of each kind, with their engravings: the story's key. */
 function countsRow(story: Story): TemplateResult {
