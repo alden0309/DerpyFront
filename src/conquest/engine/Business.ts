@@ -431,6 +431,45 @@ export function takeHooks(): ((
   return (f.l ??= []);
 }
 
+// LABOUR2 (r21): those of the household held in bondage who work at a
+// business (BondBiz.ts registers itself here): how many of its hands they
+// are, how much of a free hand's work they do between them, and their keep.
+
+/** What the household's bound people at a business come to in its month. */
+export interface BoundInput {
+  /** How many of its hands they are. */
+  n: number;
+  /** Their work between them, in free hands' worth (each 0.3 to 1.1). */
+  eff: number;
+  /** Their provisions and quarters a month (no wages). */
+  keep: number;
+}
+
+/** LABOUR2 (r21): the bound workers' part (a hoisted list, as staffHooks). */
+export function boundHooks(): ((
+  s: GameState,
+  life: Life,
+  pr: Property,
+) => BoundInput | undefined)[] {
+  const f = boundHooks as unknown as {
+    l?: ((s: GameState, life: Life, pr: Property) => BoundInput | undefined)[];
+  };
+  return (f.l ??= []);
+}
+
+/** LABOUR2 (r21): the bound workers' part, if it has any. */
+export function boundInputOf(
+  s: GameState,
+  life: Life,
+  pr: Property,
+): BoundInput | undefined {
+  for (const h of boundHooks()) {
+    const v = h(s, life, pr);
+    if (v) return v;
+  }
+  return undefined;
+}
+
 /** WORK (r21): the roles on a business's staff that are among its hands. */
 export const STAFF_HAND_ROLES = ["hand", "skilled"];
 
@@ -476,6 +515,8 @@ export interface BizInput {
   staff?: StaffInput;
   /** WORK (r21): × on its takings: its owner's duty at work there (Duties.ts). */
   boost?: number;
+  /** LABOUR2 (r21): the household's bound people among its hands. */
+  bound?: BoundInput;
 }
 
 /** A business's month, line by line. */
@@ -490,6 +531,8 @@ export interface BizView {
   mgr: number;
   /** WORK (r21): its staff by name's pay (in `profit`). */
   staff: number;
+  /** LABOUR2 (r21): the keep of the household's bound people who work there (in `profit`). */
+  bound: number;
   /** Takings less wages, upkeep and excise. */
   profit: number;
   /** A hand's takings at full custom this month. */
@@ -540,7 +583,13 @@ export function bizMonth(i: BizInput): BizView {
   const idle = i.hands - served;
   const staffX = i.staff?.handX ?? 1; // WORK (r21): named hands' skill, a foreman
   const perHand = HAND_TAKINGS * skillF * season * mind * staffX;
-  let takings = perHand * (served + idle * OVERFLOW);
+  // LABOUR2 (r21): the household's bound people do their share by their trade, health and spirits.
+  const bn = Math.min(i.bound?.n ?? 0, i.hands);
+  const boundX =
+    bn > 0 && i.bound
+      ? (i.hands - bn + (i.bound.eff * bn) / i.bound.n) / i.hands
+      : 1;
+  let takings = perHand * (served + idle * OVERFLOW) * boundX;
   let master = 0;
   if (i.master === "work" && i.minded)
     master =
@@ -558,6 +607,7 @@ export function bizMonth(i: BizInput): BizView {
   const upkeep = r2(placeUpkeep(i.job, i.level));
   const excise = i.native ? 0 : r2(takings * EXCISE);
   const staff = r2(i.staff?.pay ?? 0);
+  const bound = r2(i.bound?.keep ?? 0); // LABOUR2 (r21)
   return {
     takings,
     master,
@@ -566,7 +616,8 @@ export function bizMonth(i: BizInput): BizView {
     excise,
     mgr: i.mgrWage ?? 0,
     staff,
-    profit: r2(takings - wages - upkeep - excise - staff),
+    bound,
+    profit: r2(takings - wages - upkeep - excise - staff - bound),
     perHand: r2(HAND_TAKINGS * skillF * season * mind * staffX),
     custom: Number.isFinite(custom) ? r1(custom) : 99,
     served: r1(served),
@@ -615,7 +666,12 @@ export function bizStateOf(pr: Property): BizState {
 
 /** Hands at a business: people taken on by name, and hands from the town. */
 export function handCount(pr: Property): number {
-  return pr.hands.length + (pr.biz?.extra ?? 0) + staffHands(pr); // WORK (r21): staff by name
+  return (
+    pr.hands.length +
+    (pr.biz?.extra ?? 0) +
+    staffHands(pr) + // WORK (r21): staff by name
+    (pr.biz?.bound?.length ?? 0) // LABOUR2 (r21): the household's bound people
+  );
 }
 
 /** The manager put in to mind a business, if they're still minding it. */
@@ -719,7 +775,8 @@ export function propertyInput(
   const players = pr.hands.filter((h) => lifeOfChar(s, h)).length;
   // WORK (r21): staff by name are paid their own pay, not a hand's wage.
   const staff = staffInputOf(s, life, pr);
-  const unpaid = players + (staff?.hands ?? 0);
+  const bound = boundInputOf(s, life, pr); // LABOUR2 (r21): kept, not paid
+  const unpaid = players + (staff?.hands ?? 0) + (bound?.n ?? 0);
   let boost = 1;
   for (const h of takeHooks()) boost *= h(s, life, pr);
   return {
@@ -728,6 +785,7 @@ export function propertyInput(
     hands: handCount(pr),
     ...(unpaid ? { unpaid } : {}),
     ...(staff ? { staff } : {}),
+    ...(bound ? { bound } : {}),
     ...(boost !== 1 ? { boost } : {}),
     ...mind,
     custom: st?.custom ?? townCustom(s, pr.prov, pr.job!, { prop: pr.id }).free,
@@ -787,6 +845,7 @@ export function bizSettled(
     excise: v.excise,
     ...(v.mgr ? { mgr: v.mgr } : {}),
     ...(v.staff ? { staff: v.staff } : {}), // WORK (r21)
+    ...(v.bound ? { bound: v.bound } : {}), // LABOUR2 (r21)
     profit: r2(v.profit - v.mgr),
     hands,
     minded,

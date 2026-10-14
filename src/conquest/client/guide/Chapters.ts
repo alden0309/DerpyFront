@@ -193,6 +193,7 @@ import { CHAMBER_CHAPTER } from "./ChamberChapter"; // CHAMBER (r16)
 import { INTRIGUE_CHAPTER } from "./IntrigueChapter";
 // LABOUR (r15): bondage in the colonies, as history.
 import { BOND_CHAPTER } from "./BondChapter";
+import { LABOUR2_CHAPTER } from "./Labour2Chapter"; // LABOUR2 (r21)
 
 export interface Chapter {
   id: string;
@@ -2211,6 +2212,7 @@ The **News** panel on the map has the colonies' news as it reaches you: wars, ba
   // ---- LABOUR (r15): bondage in the colonies (guide/BondChapter.ts)
   BOND_CHAPTER,
   // ---- end LABOUR (r15)
+  LABOUR2_CHAPTER, // LABOUR2 (r21): an overseer, work in town, the trade between colonies
   {
     id: "journal",
     part: "world",

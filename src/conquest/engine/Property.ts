@@ -455,7 +455,13 @@ export function hireCheck(s: GameState, life: Life, c: Character): Check {
     return no("You'd need a business of your own here to take on hands.");
   // BUSINESS (r15): a hand taken on by name takes a town hand's place.
   // WORK (r21): and so do the hands on its staff.
-  if ((BUSINESS_HANDS[pr.level] ?? 0) - pr.hands.length - staffHands(pr) <= 0)
+  if (
+    (BUSINESS_HANDS[pr.level] ?? 0) -
+      pr.hands.length -
+      staffHands(pr) -
+      (pr.biz?.bound?.length ?? 0) <= // LABOUR2 (r21): the household's bound people too
+    0
+  )
     return no(`Your ${pr.name} has all the hands it can use.`);
   if (ageOf(s, c) < 14) return no("A child.");
   if (handOf(s, c.id)) return no("They work for someone already.");
@@ -653,6 +659,12 @@ export function propertyBudget(s: GameState, life: Life): Breakdown {
       // WORK (r21): staff by name are paid their own pay (below), not a hand's wage.
       const paid = v.input.paid ?? v.input.hands - (v.input.unpaid ?? 0);
       if (paid) e.add(`Wages: ${paid} hand${paid === 1 ? "" : "s"}`, -v.wages);
+      // LABOUR2 (r21): provisions and quarters for the household's bound people who work there.
+      if (v.bound)
+        e.add(
+          `Keep: ${v.input.bound?.n ?? 0} held in bondage at the ${pr.name}`,
+          -v.bound,
+        );
       if (v.takings || v.input.hands)
         e.add(
           `Takings: ${pr.name}${v.master ? " (your own work too)" : ""}`,
@@ -720,6 +732,7 @@ export function propertyMonthly(g: ConquestGame, life: Life): void {
       if (v.excise) spend(g, life, v.excise);
     }
     spend(g, life, v.upkeep);
+    if (v.bound) spend(g, life, v.bound); // LABOUR2 (r21): the bound workers' keep
     bizSettled(g, life, pr, v, handCount(pr)); // BUSINESS (r15)
   }
   for (const pr of list) {

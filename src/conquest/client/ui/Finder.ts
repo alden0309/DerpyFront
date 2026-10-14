@@ -2888,6 +2888,83 @@ const GOALS: Goal[] = [
     who: "colonist",
   },
   // ---- end LABOUR (r15)
+  // ---- LABOUR2 (r21): an overseer, work at a business, a house in the trade
+  {
+    id: "bond-overseer",
+    title: "Hire an overseer for my household",
+    words:
+      "overseer manager steward foreman driver plantation estate away absent minding wages shares crop",
+    group: "Money and home",
+    where:
+      "Estate › Bondage, An overseer: three men for hire at your home each month, each with his nature, skill and wages (or shares of the crop). He sets the work and minds the place while you're away; give him orders (restraint, and whether he sets the work). A hard man never pays.",
+    needs: (ui) => [
+      {
+        label:
+          (ui.life!.bondage?.people.length ?? 0)
+            ? "Someone held in your household"
+            : "Nobody held in your household",
+        met: (ui.life!.bondage?.people.length ?? 0) > 0,
+      },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "bondage" }),
+    goLabel: "Estate › Bondage",
+    guide: "bondage2",
+    who: "colonist",
+  },
+  {
+    id: "bond-biz",
+    title: "Set someone of my household to work at my business",
+    words:
+      "business shop smithy inn tavern workshop hands worker enslaved bondage keep no wages town craft trade",
+    group: "Money and home",
+    where:
+      "Estate › Bondage: on someone's card, Work at a business (fourteen and over); or a business's card, Held in bondage here. They live at the business and are counted among its hands, with no wage but their keep, and every risk; the card sets their net against a hired hand's.",
+    needs: (ui) => [
+      {
+        label:
+          (ui.life!.bondage?.people.length ?? 0)
+            ? "Someone held in your household"
+            : "Nobody held in your household",
+        met: (ui.life!.bondage?.people.length ?? 0) > 0,
+      },
+      {
+        label: (ui.life!.property ?? []).some((p) => p.kind === "business")
+          ? "A business of your own"
+          : "No business of your own",
+        met: (ui.life!.property ?? []).some((p) => p.kind === "business"),
+      },
+    ],
+    go: tab({ k: "tab", tab: "estate", sub: "bondage" }),
+    goLabel: "Estate › Bondage",
+    guide: "bondage2",
+    who: "colonist",
+  },
+  {
+    id: "bond-trade",
+    title: "Set up a house in the trade between the colonies",
+    words:
+      "slave trade trading company house merchant factor voyage sloop islands jamaica barbados charles town buy sell people intercolonial",
+    group: "Money and home",
+    where:
+      "Estate › Bondage, A house in the trade (sixteen and over): a route between two ports where the law allowed it, the people its factor would buy (by name), the odds on the passage and at the sale, and the duty at the far port, before any money. Most routes lose money most years.",
+    go: tab({ k: "tab", tab: "estate", sub: "bondage" }),
+    goLabel: "Estate › Bondage",
+    guide: "bondage2",
+    who: "colonist",
+  },
+  {
+    id: "bond-duties",
+    title: "Know each colony's duty on people brought in",
+    words:
+      "duty duties import tax impost prohibitive act law colony virginia carolina pennsylvania new york trade",
+    group: "Travel and the world",
+    where:
+      "The How to Play's chapter Overseers, work in town, and the trade between colonies has a table of each colony's duty, year by year; a house in the trade shows the duty at its far port, act by act.",
+    go: tab({ k: "tab", tab: "estate", sub: "bondage" }),
+    goLabel: "Estate › Bondage",
+    guide: "bondage2",
+  },
+  // ---- end LABOUR2 (r21)
   // ---------------------------------------------------------------- EDU (r13): school, a trade, college
   {
     id: "school",

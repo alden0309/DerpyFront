@@ -78,6 +78,13 @@ import { pageHead } from "./Nav";
 import { oddsPanel } from "./Odds";
 import { coins, price } from "./Price";
 import { term, TERMS } from "./Terms";
+// LABOUR2 (r21): an overseer, those at your businesses, a house in the trade.
+import {
+  bizPicker,
+  bizWorkSection,
+  overseerSection,
+  tradeSection,
+} from "./Labour2Ui";
 
 // ---------------------------------------------------------------- words explained
 
@@ -149,12 +156,15 @@ export function bondagePage(ui: GameUi): TemplateResult {
   return html`${head}
   ${people.length
     ? html`${householdSection(ui, people, fled)} ${keepingSection(ui)}
-      ${risksSection(ui)} ${workSection(ui)}`
+      ${risksSection(ui)} ${workSection(ui)}
+      ${overseerSection(ui) /* LABOUR2 (r21) */} ${bizWorkSection(ui)}`
     : html`<p class="cq-empty">
         Your household holds no one in bondage, and has no servants under
         indenture.${fled.length ? " Some who fled are still out." : ""}
       </p>`}
-  ${docksSection(ui)} ${freedomSection(ui)}
+  ${docksSection(ui)}
+  ${tradeSection(ui) /* LABOUR2 (r21): a house in the trade */}
+  ${freedomSection(ui)}
   ${lawSection(
     ui,
     homeFor(life),
@@ -229,6 +239,7 @@ const WORK_SHORT: Record<BondWork, string> = {
   house: "House",
   craft: "A trade",
   rest: "None",
+  biz: "A business", // LABOUR2 (r21)
 };
 
 function personCard(ui: GameUi, c: Character): TemplateResult {
@@ -366,6 +377,7 @@ function personCard(ui: GameUi, c: Character): TemplateResult {
             </button>`,
         )}
       </span>
+      ${bizPicker(ui, c) /* LABOUR2 (r21): at a business of yours */}
     </div>
     <div class="cq-btnrow cq-bond-acts">
       ${action(

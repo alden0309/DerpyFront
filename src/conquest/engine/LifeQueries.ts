@@ -74,6 +74,7 @@ import {
 } from "./Rules";
 import { societyOpinion } from "./SocietyOpinion";
 import { rulerTitle } from "./SocietyRules";
+import { tradeOpinion } from "./TradeRep"; // LABOUR2 (r21)
 import {
   Breakdown,
   Character,
@@ -1011,6 +1012,7 @@ export function opinionOf(s: GameState, c: Character, life: Life): Breakdown {
   r21Opinion(s, c, life, e); // LIFE (r21): a coward's name, the bawdy house's talk
   societyOpinion(s, c, life, e); // SOCIETY (r11)
   chamberOpinion(s, c, life, e); // CHAMBER (r16): what their factions remember of your votes
+  tradeOpinion(s, c, life, e); // LABOUR2 (r21): a house in the trade in people
   return e.done(0, -100, 100);
 }
 

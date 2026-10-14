@@ -62,6 +62,7 @@ import {
 } from "./Context";
 import { roleOf, verdictChip } from "./Here";
 import { intrigueCard } from "./Intrigue"; // INTRIGUE (r15)
+import { boundPersonPage, showBoundPage } from "./Labour2Ui"; // LABOUR2 (r21)
 import {
   healthMeter,
   marksChips,
@@ -559,6 +560,8 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
   );
   const isMe = mine?.c === c.id;
   if (isMe) return youTab(ui);
+  // LABOUR2 (r21): someone held in bondage: where they live and work, their family; no free person's dealings.
+  if (showBoundPage(c)) return boundPersonPage(ui, c);
   return html`<header class="cq-sheet-top">
       ${token(ui, c, "xl")}
       <div class="cq-sheet-who">

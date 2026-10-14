@@ -82,6 +82,7 @@ import type {
 import { play } from "../Sound";
 import { num } from "../Tip";
 import { action, breakdownTip, GameUi, more, section, token } from "./Context";
+import { boundBizPart } from "./Labour2Ui"; // LABOUR2 (r21)
 import { howTo, pageHead } from "./Nav";
 import { oddsPanel } from "./Odds";
 import { coins, price, priceWords } from "./Price";
@@ -355,6 +356,14 @@ function bizCard(ui: GameUi, pr: Property): TemplateResult {
                     ...(last.staff // WORK (r21)
                       ? [{ label: "Its staff's pay", value: -last.staff }]
                       : []),
+                    ...(last.bound // LABOUR2 (r21)
+                      ? [
+                          {
+                            label: "Keep of those held in bondage here",
+                            value: -last.bound,
+                          },
+                        ]
+                      : []),
                   ],
                 },
               }),
@@ -389,6 +398,14 @@ function bizCard(ui: GameUi, pr: Property): TemplateResult {
                     : []),
                   ...(v.staff // WORK (r21)
                     ? [{ label: "Its staff's pay", value: -v.staff }]
+                    : []),
+                  ...(v.bound // LABOUR2 (r21)
+                    ? [
+                        {
+                          label: "Keep of those held in bondage here",
+                          value: -v.bound,
+                        },
+                      ]
                     : []),
                 ],
               },
@@ -470,7 +487,13 @@ function bizCard(ui: GameUi, pr: Property): TemplateResult {
                     </td>
                     <td>${coins(a.takings)}</td>
                     <td>${coins(a.wages + (a.mgr ?? 0) + (a.staff ?? 0))}</td>
-                    <td>${coins(a.upkeep)}</td>
+                    <td>
+                      ${
+                        coins(
+                          a.upkeep + (a.bound ?? 0),
+                        ) /* LABOUR2 (r21): and the bound workers' keep */
+                      }
+                    </td>
                     <td>${coins(a.excise)}</td>
                     <td class=${a.profit < 0 ? "bad" : ""}>
                       ${signed(a.profit)}
@@ -541,6 +564,12 @@ function bizCard(ui: GameUi, pr: Property): TemplateResult {
         </span>
       </div>
       ${staffPart(ui, pr) /* WORK (r21): its staff by name */}
+      ${
+        boundBizPart(
+          ui,
+          pr,
+        ) /* LABOUR2 (r21): those of your household held here */
+      }
       <label class="cq-biz-auto small">
         <input
           type="checkbox"

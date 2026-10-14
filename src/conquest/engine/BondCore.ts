@@ -32,6 +32,16 @@ import {
 } from "./BondLaw";
 import { dateOf } from "./Calendar";
 import { Explain } from "./Explain";
+// LABOUR2 (r21): an overseer, and work at a business.
+import {
+  atBusiness,
+  BIZ_FLIGHT,
+  overseerMind,
+  overseerOf,
+  overseerParts,
+  overseerSkillX,
+  underOverseer,
+} from "./Labour2Rules";
 import {
   isChildLife,
   lifeIsNative,
@@ -532,7 +542,11 @@ export function keepOf(s: GameState, policy: BondPolicy, c: Character): number {
 export function householdKeep(s: GameState, life: Life): number {
   const b = life.bondage;
   if (!b) return 0;
-  return r2(boundOf(s, life).reduce((m, c) => m + keepOf(s, b.policy, c), 0));
+  return r2(
+    boundOf(s, life)
+      .filter((c) => !atBusiness(c)) // LABOUR2 (r21): a business keeps those who work there
+      .reduce((m, c) => m + keepOf(s, b.policy, c), 0),
+  );
 }
 
 // ---------------------------------------------------------------- the work
@@ -643,6 +657,17 @@ export function minding(life: Life): boolean {
   return !!b && !life.travel && life.prov === b.home;
 }
 
+/**
+ * LABOUR2 (r21): how much of the work gets done: all of it with you at home;
+ * with you away, what an overseer keeps going by his skill, or (with nobody)
+ * AWAY_FACTOR.
+ */
+export function mindFactor(s: GameState, life: Life): number {
+  if (minding(life)) return 1;
+  const o = overseerOf(s, life);
+  return o ? overseerMind(o.skill) : AWAY_FACTOR;
+}
+
 /** One worker's part of a month: before the season's luck and the duty. */
 export function workOf(
   s: GameState,
@@ -654,10 +679,13 @@ export function workOf(
   const b = life.bondage!;
   const m = c.bond!;
   const share = workShare(ageOf(s, c));
-  if (!share || as === "rest" || as === "house") return 0;
+  if (!share || as === "rest" || as === "house" || as === "biz") return 0; // LABOUR2 (r21): a business's work is the business's
   const skill = as === "fields" ? m.sk.field : m.sk.craft;
   const base =
     as === "fields" ? CROPS[cropAt(s, map, b.home)].value : HIRE_VALUE;
+  // LABOUR2 (r21): an overseer's drive and skill, and his minding while you're away.
+  const o = underOverseer(s, life, c);
+  const ov = o ? overseerParts(o).drive * overseerSkillX(o.skill) : 1;
   const v =
     base *
     share *
@@ -665,7 +693,8 @@ export function workOf(
     (0.4 + (0.6 * m.health) / 100) *
     (0.85 + (0.25 * m.mood) / 100) *
     (as === "fields" && b.policy.regime === "gang" ? 1.08 : 1) *
-    (minding(life) ? 1 : AWAY_FACTOR);
+    ov *
+    mindFactor(s, life);
   return v;
 }
 
@@ -840,6 +869,9 @@ export function moodTarget(
     (n) => n.k === "freed" && s.day - n.day < 2 * DAYS_PER_YEAR,
   );
   if (freed) e.add("Someone freed lately: hope", 4);
+  // LABOUR2 (r21): the overseer's nature, and how he's paid.
+  const o = underOverseer(s, life, c);
+  if (o) for (const [label, v] of overseerParts(o).mood) e.add(label, v);
   return e.done(0, 0, 100);
 }
 
@@ -865,6 +897,9 @@ export function healthTarget(
   const age = ageOf(s, c);
   if (age > 50) e.add("Age", -Math.round((age - 50) / 2));
   if (seasoning(s, c)) e.add("Seasoning: a strange country's fevers", -8);
+  // LABOUR2 (r21): the overseer's nature, and how he's paid.
+  const o = underOverseer(s, life, c);
+  if (o) for (const [label, v] of overseerParts(o).health) e.add(label, v);
   return e.done(0, 5, 100);
 }
 
@@ -927,8 +962,10 @@ export function flightChance(
   e.add("How they bear it", FLIGHT_DESPAIR * despair * despair);
   if ((m.grief ?? 0) > s.day)
     e.add("Grief: family taken from them", FLIGHT_GRIEF);
-  e.mul("Refuges near", refugePull(s, map, b.home));
-  const law = bondLaw(s, map, b.home);
+  // LABOUR2 (r21): those at a business in another town go from there.
+  const from = atBusiness(c) ? m.at : b.home;
+  e.mul("Refuges near", refugePull(s, map, from));
+  const law = bondLaw(s, map, from);
   if (law.patrols) e.mul("Patrols ride at night", 0.8);
   if (b.policy.passes) e.mul("Passes: more on the roads", 1.1);
   if (age >= 16 && age <= 35) e.mul("Young and strong", 1.3);
@@ -941,6 +978,8 @@ export function flightChance(
   )
     e.mul("Young children to think of", 0.6);
   if (m.status === "indenture") e.mul("A term that ends", 0.6);
+  // LABOUR2 (r21): working at a business in a town, among free people.
+  if (atBusiness(c)) e.mul("Works in town, among free people", BIZ_FLIGHT);
   return e.done(5);
 }
 
@@ -1127,7 +1166,7 @@ export function fieldsOdds(s: GameState, w: World, life: Life): OddsView {
       `Each worker needs ${ACRES_EACH} acres: land (Estate › House & land) or your farm at ${w.map.provinces[b.home]?.name ?? "home"}.`,
       "Their skill, their health and their spirits: a worker who is ill-fed, grieving or in despair does far less.",
       "Gangs under a driver get a little more from the day than the task system, and wear people down for it.",
-      `Away from home, nobody minds the place: ${Math.round(AWAY_FACTOR * 100)}% of the work.`,
+      `Away from home, nobody minds the place: ${Math.round(AWAY_FACTOR * 100)}% of the work${overseerOf(s, life) ? `; with your overseer, ${Math.round(overseerMind(overseerOf(s, life)!.skill) * 100)}%` : ""}.`, // LABOUR2 (r21)
       `What the fields bring pays the duty (${Math.round(CROP_EXCISE * 100)}%); land the household works isn't let, so its tenants' rent (${LAND_LOT.rent} a lot) no longer comes in.`,
     ],
   };
@@ -1224,7 +1263,7 @@ const ORIGIN_MIX: Record<string, [BondOrigin, number][]> = {
   ],
 };
 
-function mixFor(
+export function mixFor( // LABOUR2 (r21): exported for the trade's manifests
   col: Colony,
   law: string,
   year: number,
@@ -1251,7 +1290,8 @@ function mixFor(
     : north.filter(([o]) => o !== "malagasy");
 }
 
-function pickWeighted<T>(rng: Rng, list: [T, number][]): T {
+export function pickWeighted<T>(rng: Rng, list: [T, number][]): T {
+  // LABOUR2 (r21): exported
   const total = list.reduce((m, [, w]) => m + w, 0);
   let r = rng.next() * total;
   for (const [x, w] of list) {
@@ -1281,7 +1321,8 @@ export function nameFor(
   return { first: rng.pick(female ? given.f : given.m)!, born };
 }
 
-function faithFor(rng: Rng, origin: BondOrigin): BondMark["faith"] {
+export function faithFor(rng: Rng, origin: BondOrigin): BondMark["faith"] {
+  // LABOUR2 (r21): exported
   if (origin === "creole") return rng.chance(0.4) ? "christian" : "own";
   if (origin === "mande" || origin === "wolof")
     return rng.chance(0.55) ? "islam" : "own";
@@ -1289,7 +1330,12 @@ function faithFor(rng: Rng, origin: BondOrigin): BondMark["faith"] {
   return "own";
 }
 
-function skillsFor(rng: Rng, origin: BondOrigin, age: number): BondMark["sk"] {
+export function skillsFor(
+  rng: Rng,
+  origin: BondOrigin,
+  age: number,
+): BondMark["sk"] {
+  // LABOUR2 (r21): exported
   const grown = age >= 16 ? 1 : 0.4;
   const sk = {
     field: Math.round((2 + rng.int(0, 4)) * grown),
@@ -1735,6 +1781,7 @@ export const WORK_NAMES: Record<BondWork, string> = {
   house: "the house",
   craft: "a trade, hired out",
   rest: "no work",
+  biz: "a business of yours", // LABOUR2 (r21)
 };
 
 /** "Cato (born Kwaku)". */
@@ -1772,14 +1819,19 @@ export function oddsWords(p: number): string {
 
 /** The month's forecast lines (LEDGER's conventions: the same keys as the flows). */
 export function bondForecast(s: GameState, life: Life, w?: World): Part[] {
+  // LABOUR2 (r21): the ledger's forecast asks with a bare copy of the life
+  // (no property, so property lines aren't counted twice); the fields are
+  // reckoned on the land the household really has.
+  life = landed(s, life);
   const b = life.bondage;
   if (!b || life.c < 0) return [];
   const people = boundOf(s, life);
   const out: Part[] = [];
-  if (people.length)
+  const kept = people.filter((c) => !atBusiness(c)).length; // LABOUR2 (r21): a business keeps its own
+  if (kept)
     out.push({
       key: "bond:keep",
-      label: `Provisions and quarters: ${people.length} in your household`,
+      label: `Provisions and quarters: ${kept} in your household`,
       value: -householdKeep(s, life),
     });
   for (const id of b.allowance ?? []) {
@@ -1824,6 +1876,12 @@ export function bondForecast(s: GameState, life: Life, w?: World): Part[] {
     }
   }
   return out;
+}
+
+/** LABOUR2 (r21): the life as stored (with its property), for a bare copy the ledger made. */
+export function landed(s: GameState, life: Life): Life {
+  if (life.property?.length) return life;
+  return s.lives.find((l) => l.seat === life.seat) ?? life;
 }
 
 /** The yearly allowance to someone freed under New York's act of 1712, a month. */

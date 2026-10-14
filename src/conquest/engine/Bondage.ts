@@ -68,6 +68,14 @@ import { dateOf } from "./Calendar";
 import { kill, makeCharacter } from "./Characters";
 import type { ConquestGame } from "./Game";
 import { hooks, raiseEvent } from "./Hooks";
+// LABOUR2 (r21): an overseer's shares; those who work at a business.
+import {
+  atBusiness,
+  BIZ_SAVE,
+  leaveBusiness,
+  overseerOf,
+  shareOf,
+} from "./Labour2Rules";
 import { withFlow } from "./LedgerCore";
 import {
   addRenown,
@@ -383,6 +391,7 @@ function setWork(
   const w = kind as BondWork;
   if (!["fields", "house", "craft", "rest"].includes(w)) return "No such work.";
   if (w !== "rest" && ageOf(s, c) < 12) return "A child: no work.";
+  leaveBusiness(g, life, c); // LABOUR2 (r21): taken from a business, they come home
   g.touchChar(c).bond = { ...c.bond!, work: w };
   touchLife(g, life);
   return null;
@@ -924,6 +933,23 @@ function work(g: ConquestGame, life: Life, salt: number): void {
         if (rent) spend(g, life, rent);
       },
     );
+    // LABOUR2 (r21): an overseer paid by shares takes his part of the crop.
+    const ov = overseerOf(s, life);
+    if (ov?.pay === "share") {
+      const cut = r2(
+        take * (1 - CROP_EXCISE) * shareOf(ov.shares, f.workers.length),
+      );
+      if (cut > 0)
+        withFlow(
+          g,
+          {
+            key: "bond:overseer",
+            label: "The overseer's shares of the crop",
+            chance: true,
+          },
+          () => spend(g, life, cut),
+        );
+    }
   }
   const hired = hiredOf(s, life);
   if (hired.length) {
@@ -997,7 +1023,7 @@ function personMonth(
         ? "field"
         : m.work === "house"
           ? "house"
-          : m.work === "craft"
+          : m.work === "craft" || m.work === "biz" // LABOUR2 (r21): a business's trade
             ? "craft"
             : null;
     if (k && sk[k] < 8 && rng.chance(0.06)) sk[k] += 1;
@@ -1008,7 +1034,8 @@ function personMonth(
     const pol = life.bondage!.policy;
     saved +=
       (pol.regime === "task" ? 0.08 : 0.02) +
-      (m.work === "craft" && hiredOf(s, life).includes(c) ? 0.15 : 0);
+      (m.work === "craft" && hiredOf(s, life).includes(c) ? 0.15 : 0) +
+      (atBusiness(c) ? BIZ_SAVE : 0); // LABOUR2 (r21): odd jobs and Sundays in town
   }
   // Letters, where they're taught and the law allows.
   let lit = m.lit ?? 0;
@@ -1040,6 +1067,7 @@ function followHome(g: ConquestGame, life: Life): void {
   b.home = life.home;
   const parted: Character[] = [];
   for (const c of people(g, life)) {
+    if (atBusiness(c)) continue; // LABOUR2 (r21): they stay at the business they work at
     const away = familyAway(s, c).filter(
       (f) => f.bond?.at === from || f.home === from,
     );

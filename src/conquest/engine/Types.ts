@@ -871,6 +871,8 @@ export interface Life {
   lying?: Lying | null;
   /** LEGACY (r21): each character of the line as their part in it ended (Legacy.ts). */
   legacy?: LifeLegacy;
+  /** LABOUR2 (r21): a house in the intercolonial trade in people (BondTrade.ts). */
+  bondTrade?: TradeHouse | null;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1986,7 +1988,9 @@ export type LifeCommand =
   | CardsCommand
   // GOV (r21): expeditions; the governor's desk and a motion to break with the crown.
   | ExpedCommand
-  | DeskCommand;
+  | DeskCommand
+  // LABOUR2 (r21): an overseer; those held at your businesses; a house in the trade.
+  | Labour2Command;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -3603,6 +3607,8 @@ export interface BizState {
   warned?: number;
   /** WORK (r21): its staff taken on by name (a role and pay each), as a ship's company (Hiring.ts). */
   roster?: Roster;
+  /** LABOUR2 (r21): those of the household held in bondage (or bound by indenture) who work here, by character. */
+  bound?: number[];
 }
 
 /** One month of a business's account. */
@@ -3616,6 +3622,8 @@ export interface BizMonth {
   mgr?: number;
   /** WORK (r21): its staff's pay. */
   staff?: number;
+  /** LABOUR2 (r21): the keep of those of your household held in bondage who work there. */
+  bound?: number;
   profit: number;
   hands: number;
   /** Who minded it: 1 in person, 2 a manager, 0 nobody. */
@@ -4107,7 +4115,13 @@ export type BondOrigin =
 export type BondStatus = "held" | "indenture" | "free" | "fled";
 
 /** What someone is set to: the fields, the house, a trade in town, or nothing (a child, the old, the sick). */
-export type BondWork = "fields" | "house" | "craft" | "rest";
+export type BondWork =
+  | "fields"
+  | "house"
+  | "craft"
+  | "rest"
+  // LABOUR2 (r21): at a business of the household's (BondMark.biz says which).
+  | "biz";
 
 /** Where a freedom seeker makes for (BondLaw.ts). */
 export type BondRefuge =
@@ -4171,6 +4185,8 @@ export interface BondMark {
   freed?: { day: number; how: string };
   /** The name they were given at birth, before an enslaver gave them another. */
   born?: string;
+  /** LABOUR2 (r21): the business of the household's they work at (a property's id), with `work: "biz"`. */
+  biz?: number;
 }
 
 /** How a household keeps those it holds: a few plain choices, each with its consequences. */
@@ -4235,6 +4251,8 @@ export interface Bondage {
   bought?: string[];
   /** Freed by this household. */
   freed?: number[];
+  /** LABOUR2 (r21): the overseer who manages the household for you (Overseer.ts). */
+  overseer?: Overseer | null;
 }
 
 /** A command about those held in bondage or bound by indenture (Bondage.ts). */
@@ -5789,4 +5807,177 @@ export interface LifeLegacy {
   came?: LineCame;
   t0?: TallyMark;
   peak?: number;
+}
+
+// ---------------------------------------------------------------- LABOUR2 (r21)
+// Bondage in businesses and in trade, told as history: an overseer who
+// manages a household's bound people for its holder (Overseer.ts); those
+// held set to work at a business of the household's (BondBiz.ts); and a
+// house in the intercolonial trade in people, between ports where it was
+// lawful, under the colonies' own duties and bans (TradeLaw.ts, TradeCore.ts,
+// BondTrade.ts), with its manifests of named people and the period's voices
+// (Labour2Events.ts).
+
+/** How an overseer goes about the work, by his own nature. */
+export type OverseerManner = "hard" | "steady" | "fair";
+
+/** What a holder tells the overseer. */
+export interface OverseerOrders {
+  /** He sets each to the work that suits them ("assign"), or leaves it as you set it ("keep"). */
+  work: "assign" | "keep";
+  /** Restraint whatever his nature, or as he sees fit. */
+  rule: "restraint" | "his";
+  /** Whether he sends word each season while you're away. */
+  report: boolean;
+}
+
+/** A household's overseer: a man of the town, paid wages or a share of the crop. */
+export interface Overseer {
+  c: number;
+  manner: OverseerManner;
+  /** His skill at the work (the crop, the season, the people under him), 0 to 20. */
+  skill: number;
+  /** Wages a month, or shares of the crop (as Virginia's planters often paid). */
+  pay: "wage" | "share";
+  wage: number;
+  shares: number;
+  since: number;
+  orders: OverseerOrders;
+  /** Months unpaid. */
+  owed?: number;
+  /** The day he last sent word. */
+  told?: number;
+}
+
+/** Kin aboard a voyage: how one on a manifest is related to another on it. */
+export type TradeKin =
+  | "mother"
+  | "child"
+  | "wife"
+  | "husband"
+  | "sister"
+  | "brother"
+  | "shipmate";
+
+/** Someone a house in the trade carried, as its manifest names them. */
+export interface TradePerson {
+  /** The name on the manifest; their own, if they gave it and it differs. */
+  n: string;
+  born?: string;
+  f: boolean;
+  a: number;
+  o: BondOrigin;
+  /** Kin aboard (the index of the other on this manifest), and what they are to this one. */
+  kin?: number;
+  rel?: TradeKin;
+  /** Health when they were put aboard, 0 to 100. */
+  h: number;
+  /** Their skill at a trade, 0 to 10 (a smith, a weaver, a cooper fetched more). */
+  cr: number;
+  /** Lately come from Africa (not six months ashore in America): the colonies' duties told them apart. */
+  fresh: boolean;
+  /** What the house paid for them. */
+  paid: number;
+  /** What became of them: died on the passage, sold, got free in a rising, taken by a privateer, kept in your own household. */
+  fate?: "died" | "sold" | "free" | "taken" | "kept";
+  /** Who bought them (in words), for how much; whether the sale parted them from their kin aboard. */
+  to?: string;
+  got?: number;
+  parted?: boolean;
+  /** What they said (an index into the voices, TradeCore.ts). */
+  said?: number;
+}
+
+/** A voyage of a house in the trade: bought at one port, carried, sold at another. */
+export interface TradeVoyage {
+  id: number;
+  from: number;
+  to: number;
+  sailed: number;
+  due: number;
+  /** Landed (the sale under way) on this day; sold out by this one. */
+  landed?: number;
+  sells?: number;
+  people: TradePerson[];
+  /** What buying them and fitting out the passage cost. */
+  cost: number;
+  /** The colony's duty paid at the far port, and what the sales brought (less the factor's commission). */
+  duty?: number;
+  got?: number;
+  /** How they were kept on the passage: scant, customary, ample. */
+  food: 0 | 1 | 2;
+  /** Families sold together (the house's rule), or to whoever bid most. */
+  together: boolean;
+  /** A rising aboard: put down, or they got away. */
+  rose?: "down" | "away";
+  /** What happened, day by day, in plain words. */
+  log: { day: number; t: string }[];
+}
+
+/** What a house in the trade has done, all told. */
+export interface TradeTotals {
+  voyages: number;
+  carried: number;
+  died: number;
+  sold: number;
+  parted: number;
+  free: number;
+  rose: number;
+  /** Carried off by an enemy's privateer in wartime. */
+  taken: number;
+  /** Coins made (or lost), all told. */
+  net: number;
+}
+
+/** A house in the intercolonial trade in people (BondTrade.ts). */
+export interface TradeHouse {
+  name: string;
+  founded: number;
+  /** Whose ports it trades between (its crown's law). */
+  law: "english" | "french" | "spanish";
+  /** The colony of its counting room (for the town's view of the trade). */
+  col: string;
+  /** The route: bought at, sold at; how many a voyage; months between voyages. */
+  from: number;
+  to: number;
+  size: number;
+  every: number;
+  /** How they're kept on the passage; whether families are sold together. */
+  food: 0 | 1 | 2;
+  together: boolean;
+  /** Sending voyages, or stopped. */
+  on: boolean;
+  /** The day the next voyage may sail. */
+  next: number;
+  voyage?: TradeVoyage | null;
+  /** The last voyages, newest last. */
+  past: TradeVoyage[];
+  totals: TradeTotals;
+  /** People this house sold lately at a port (it eases month by month): fewer buyers, lower prices. */
+  glut?: Record<number, number>;
+  /** Wound up on this day. */
+  closed?: number;
+  /** To be wound up when the voyage at sea is done (the words why, for the journal). */
+  ending?: string;
+}
+
+/** A command about the household's overseer, those held at your businesses, or a house in the trade. */
+export interface Labour2Command {
+  k: "bond2";
+  /** hire, dismiss, orders, biz, found, route, on, off, close. */
+  act: string;
+  /** A person (someone held; a candidate's slot). */
+  c?: number;
+  /** A property (a business), or -1. */
+  id?: number;
+  pay?: "wage" | "share";
+  orders?: Partial<OverseerOrders>;
+  route?: {
+    from: number;
+    to: number;
+    size: number;
+    every: number;
+    food: 0 | 1 | 2;
+    together: boolean;
+  };
 }

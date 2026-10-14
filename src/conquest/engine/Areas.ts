@@ -35,7 +35,9 @@ export type PresentKind =
   | "traveller"
   | "player"
   | "family"
-  | "hand";
+  | "hand"
+  // LABOUR2 (r21): held in bondage (or bound by indenture), where they live and work.
+  | "bound";
 
 /** Someone in an area, and what they're doing there. */
 export interface Present {
@@ -328,7 +330,8 @@ interface Resident {
     | "traveller"
     | "player"
     | "mine"
-    | "hand";
+    | "hand"
+    | "bound"; // LABOUR2 (r21)
   /** Their place of work (role holders, hands), if any. */
   workAt?: PlaceKind;
   traveller?: Traveller;
@@ -393,6 +396,20 @@ function residents(
       if (pr.prov === p && pr.kind === "business")
         for (const id of pr.hands)
           add(s.chars[id], { base: "hand", workAt: pr.place ?? "workshop" });
+  // LABOUR2 (r21): those held in bondage, where they live and work: the
+  // fields, the house, a trade in town, a business of the household's.
+  for (const l of s.lives) {
+    const b = l.bondage;
+    if (!b?.people.length) continue;
+    for (const id of b.people) {
+      const c = s.chars[id];
+      const m = c?.bond;
+      if (!m || m.seat !== l.seat || m.at !== p) continue;
+      if (m.status !== "held" && m.status !== "indenture") continue;
+      if (ageOf(s, c) < 4) continue;
+      add(c, { base: "bound", workAt: boundPlace(l, c), life: l });
+    }
+  }
   // The court at a capital.
   for (const n of s.nations) {
     if (!n.alive || n.capital !== p || n.kind === "crown") continue;
@@ -583,6 +600,19 @@ function spotFor(
     }
     case "family":
       return localRoutine(s, have, c, null, undefined, day, native);
+    case "bound": {
+      // LABOUR2 (r21): at their work; on Sundays, at church where the household allows it.
+      const pol = r.life?.bondage?.policy;
+      if (sunday && pol?.church && have.has("church") && d1 < 0.6)
+        return {
+          area: "church",
+          doing: "in the gallery at service",
+          kind: "bound",
+        };
+      const at = r.workAt && have.has(r.workAt) ? r.workAt : null;
+      if (!at) return null;
+      return { area: at, doing: boundDoing(s, r.life, c, at), kind: "bound" };
+    }
   }
   void p;
   return null;
@@ -595,10 +625,48 @@ const KIND_ORDER: Record<PresentKind, number> = {
   visitor: 3,
   traveller: 4,
   hand: 5,
+  bound: 5, // LABOUR2 (r21)
   family: 6,
   worship: 7,
   leisure: 8,
 };
+
+// LABOUR2 (r21): where someone held in bondage is, by what they're set to.
+function boundPlace(l: Life, c: Character): PlaceKind {
+  const m = c.bond!;
+  switch (m.work) {
+    case "biz":
+      return (
+        (l.property ?? []).find((x) => x.id === m.biz)?.place ?? "workshop"
+      );
+    case "fields":
+      return "fields";
+    case "craft":
+      return "market";
+    default:
+      return "home";
+  }
+}
+
+/** LABOUR2 (r21): what someone held in bondage is doing, in a few words. */
+function boundDoing(
+  s: GameState,
+  l: Life | undefined,
+  c: Character,
+  at: PlaceKind,
+): string {
+  const m = c.bond!;
+  const age = ageOf(s, c);
+  if (m.work === "biz") {
+    const pr = (l?.property ?? []).find((x) => x.id === m.biz);
+    return `at work at the ${pr?.name.toLowerCase() ?? "business"}`;
+  }
+  if (m.work === "fields") return "at work in the fields";
+  if (m.work === "craft") return "at work, hired out";
+  if (m.work === "house")
+    return at === "home" ? "at work in the house" : "on an errand";
+  return age < 12 ? "with the other children" : "by the quarters";
+}
 
 /** Everyone in each area of a province today. */
 export function presence(

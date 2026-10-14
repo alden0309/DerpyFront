@@ -549,6 +549,15 @@ function gates(
   if (!me) return no("You're watching.");
   if (!c?.alive || c.abroad) return no("They're gone.");
   if (c.id === me.id) return no("That's you.");
+  // LABOUR2 (r21): someone held in bondage (or bound by indenture) isn't free
+  // to be courted, hired, challenged or bargained with: their page shows their
+  // place, and their own household hears them on Estate › Bondage.
+  if (isBound(c))
+    return no(
+      c.bond!.seat === life.seat
+        ? "In your household: hear them out on Estate › Bondage."
+        : `Not free: ${c.bond!.status === "indenture" ? "bound by indenture" : "held in bondage"} in another's household.`,
+    );
   const def = INTERACTIONS[act];
   if (!def) return no("Unknown.");
   if (life.travel) return no("You're on the road.");
