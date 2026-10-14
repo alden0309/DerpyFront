@@ -1,4 +1,4 @@
-import { PlayerType } from "@openfront/engine-api/game/GameTypes";
+import { PlayerType, UnitType } from "@openfront/engine-api/game/GameTypes";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import {
   type EffectAttributesFor,
@@ -8,6 +8,11 @@ import {
   type NukeExplosionAttributes,
   type NukeExplosionType,
 } from "@openfront/shared/CosmeticSchemas";
+import {
+  DERPY_DOME_STYLES,
+  domeBurstAttributes,
+  domeStyleIndex,
+} from "@openfront/shared/DerpyFx";
 import { colord } from "colord";
 import { getCachedCosmetics } from "./Cosmetics";
 import { buildTerrainRowSpans } from "./render/frame/derive/TerrainRowSpans";
@@ -257,6 +262,7 @@ export class WebGLFrameBuilder {
   private resolveDeadUnitExplosions(gameView: GameView): void {
     const deadUnits = gameView.frameData().events.deadUnits;
     if (deadUnits.length === 0) return;
+    this.resolveDomeBursts(gameView, deadUnits);
     const override = this.effectOverrides.get("nukeExplosion") as
       | NukeExplosionAttributes
       | undefined;
@@ -290,6 +296,51 @@ export class WebGLFrameBuilder {
       const effect = findEffectForSlot(catalog, nukeType, name);
       if (!effect || !isNukeExplosionEffect(effect)) continue;
       du.explosion = attributesToExplosionParams(effect.attributes);
+    }
+  }
+
+  /**
+   * DFSTORE (r21): a nuke that died short of its target inside a Dome of
+   * Alden that isn't its owner's was stopped by that Dome. When the Dome's
+   * owner wears a Derp Store Dome style, its burst plays over the spot (on
+   * top of the usual interception puff).
+   */
+  private resolveDomeBursts(
+    gameView: GameView,
+    deadUnits: ReturnType<GameView["frameData"]>["events"]["deadUnits"],
+  ): void {
+    let domes: { x: number; y: number; ownerID: number }[] | null = null;
+    const range = gameView.config().domeRange();
+    for (const du of deadUnits) {
+      if (du.reachedTarget || !UNIT_TYPE_TO_NUKE_TYPE[du.unitType]) continue;
+      domes ??= gameView
+        .units(UnitType.Dome)
+        .filter((u) => u.isActive() && !u.isUnderConstruction())
+        .map((u) => ({
+          x: gameView.x(u.tile()),
+          y: gameView.y(u.tile()),
+          ownerID: u.owner().smallID(),
+        }));
+      if (domes.length === 0) return;
+      const x = gameView.x(du.pos);
+      const y = gameView.y(du.pos);
+      const range2 = range * range;
+      const keeper = domes.find(
+        (d) =>
+          d.ownerID !== du.ownerSmallID &&
+          (d.x - x) ** 2 + (d.y - y) ** 2 <= range2,
+      );
+      if (keeper === undefined) continue;
+      let owner: ReturnType<GameView["playerBySmallID"]>;
+      try {
+        owner = gameView.playerBySmallID(keeper.ownerID);
+      } catch {
+        continue;
+      }
+      if (!owner.isPlayer()) continue;
+      const style = DERPY_DOME_STYLES.get(owner.cosmetics.derpyDome ?? "");
+      if (style === undefined) continue;
+      du.explosion = attributesToExplosionParams(domeBurstAttributes(style));
     }
   }
 
@@ -544,6 +595,12 @@ export class WebGLFrameBuilder {
       const skinUrl = p.cosmetics.skin?.url;
       this.view.setPlayerSkin(smallID, skinUrl ? assetUrl(skinUrl) : null);
     }
+
+    // DFSTORE (r21): the Derp Store Dome style, unless it's hidden.
+    this.view.setPlayerDomeStyle(
+      smallID,
+      domeStyleIndex(p.cosmetics.derpyDome),
+    );
 
     writePatternEntry(
       this.patternMeta,

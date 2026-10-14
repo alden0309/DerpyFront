@@ -43,6 +43,11 @@ export interface DomeShieldCircle {
   kind: DomeShieldKind;
   /** Still being built: drawn as a faint dashed ring, no fill. */
   building: boolean;
+  /**
+   * DFSTORE (r21): the owner's Derp Store Dome style (domeStyleIndex), or 0
+   * for the plain shield.
+   */
+  style: number;
   /** Circles merge only with others of the same group. */
   group: number;
   /**
@@ -67,7 +72,15 @@ export interface DomeShieldOptions {
    * neighbours: the most the drawn ring and its soft edge reach past a circle.
    */
   margin: number;
+  /**
+   * DFSTORE (r21): each owner's Dome style (smallID → domeStyleIndex). Shields
+   * merge only with others of the same style.
+   */
+  styles?: ReadonlyMap<number, number>;
 }
+
+/** Styles a group key can tell apart (domeStyleIndex is far below this). */
+const STYLE_SLOTS = 64;
 
 /** Which kind of shield a Dome owned by `ownerID` is for this viewer. */
 export function domeShieldKind(
@@ -105,8 +118,11 @@ export function buildDomeShieldCircles(
       opts.allies,
       opts.nukeAiming && !building,
     );
+    const style = opts.styles?.get(u.ownerID) ?? 0;
     const base =
-      kind === "owner" ? KIND_GROUP.owner + u.ownerID : KIND_GROUP[kind];
+      (kind === "owner" ? KIND_GROUP.owner + u.ownerID : KIND_GROUP[kind]) *
+        STYLE_SLOTS +
+      (style % STYLE_SLOTS);
     const x = u.pos % opts.mapWidth;
     const y = (u.pos - x) / opts.mapWidth;
     circles.push({
@@ -116,6 +132,7 @@ export function buildDomeShieldCircles(
       ownerID: u.ownerID,
       kind,
       building,
+      style,
       // Even groups are finished shields, odd ones unfinished.
       group: base * 2 + (building ? 1 : 0),
       neighbors: [],

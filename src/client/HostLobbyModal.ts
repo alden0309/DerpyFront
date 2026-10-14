@@ -46,6 +46,7 @@ import { inviteFriendsButton } from "./components/ui/InviteFriendsButton";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { fetchCosmetics, InsufficientCurrency } from "./Cosmetics";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
+import "./derpy/AiPersonalityPicker"; // DFSTORE (r21)
 import { JoinLobbyEvent } from "./Main";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import { UserSettings } from "./UserSettings";
@@ -100,6 +101,8 @@ export class HostLobbyModal extends BaseModal {
   @state() private anonymizeNames: boolean = false;
   // Derp Land (SITE r19): people may watch this private game once it begins.
   @state() private allowWatchers: boolean = false;
+  // DFSTORE (r21): AI personality packs (the server keeps only owned ones).
+  @state() private aiPersonalities: string[] = [];
   @state() private nameReveals: string[] = [];
   @state() private whitelistEnabled: boolean = false;
   @state() private allowedPublicIds: string = "";
@@ -172,7 +175,14 @@ export class HostLobbyModal extends BaseModal {
     }
     this.autoStartAt = lobby.autoStartAt ?? null;
     this.queued = lobby.queued ?? false;
+    // DFSTORE (r21): AI personalities chosen before the lobby existed go to
+    // the server once it answers (the first lobby info).
+    if (this.aiPersonalitiesSentFor !== this.lobbyId) {
+      this.aiPersonalitiesSentFor = this.lobbyId;
+      if (this.aiPersonalities.length > 0) void this.putGameConfig();
+    }
   };
+  private aiPersonalitiesSentFor = "";
 
   private getRandomString(): string {
     const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -730,6 +740,17 @@ export class HostLobbyModal extends BaseModal {
               .handleConfigHostCheatToggleChanged}
             @unit-toggle-changed=${this.handleConfigUnitToggleChanged}
           ></game-config-settings>
+
+          <!-- DFSTORE (r21): the AI personality packs the host owns. -->
+          <ai-personality-picker
+            ?noNations=${this.nations === 0}
+            @personalities-changed=${(e: CustomEvent<string[]>) => {
+              this.aiPersonalities = e.detail;
+              // The picker also speaks up when it loads: only a lobby that
+              // is open and made hears about it.
+              if (this.isModalOpen && this.lobbyId) void this.putGameConfig();
+            }}
+          ></ai-personality-picker>
 
           <lobby-player-view
             class="mt-10"
@@ -1609,6 +1630,7 @@ export class HostLobbyModal extends BaseModal {
             anonymizeNames: this.anonymizeNames,
             nameReveals: this.nameReveals,
             allowWatchers: this.allowWatchers, // Derp Land (SITE r19)
+            aiPersonalities: this.aiPersonalities, // DFSTORE (r21)
             allowedPublicIds: this.whitelistEnabled
               ? (this.parseAllowedPublicIds() ?? [])
               : [],

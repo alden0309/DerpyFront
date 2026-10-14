@@ -20,6 +20,7 @@ import { homeHref, translateText } from "../../../client/Utils";
 import { Controller } from "../../Controller";
 import { crazyGamesSDK } from "../../CrazyGamesSDK";
 import { isDerpySignedIn } from "../../derpy/DerpySession";
+import { playVictoryFanfare } from "../../derpy/VictoryFanfare";
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
 import { SendWinnerEvent } from "../../Transport";
 import { GameView } from "../../view";
@@ -64,6 +65,10 @@ export class WinModal extends LitElement implements Controller {
 
   @state()
   private coins: DerpCoinResult | null = null;
+
+  // DFSTORE (r21): your fanfare played, so the win screen offers it again.
+  @state()
+  private fanfarePlayed = false;
 
   private _title: string;
 
@@ -128,7 +133,21 @@ export class WinModal extends LitElement implements Controller {
         ${translateText("derpy.awards_at_end")}
       </p>`;
     }
-    return html`${this.awardsPanel()}${this.coinsPanel()}`;
+    return html`${this.fanfareButton()}${this.awardsPanel()}${this.coinsPanel()}`;
+  }
+
+  /** DFSTORE (r21): hear your victory fanfare again. */
+  private fanfareButton(): TemplateResult | string {
+    if (!this.isWin || !this.fanfarePlayed) return "";
+    return html`<div class="mb-3 flex justify-center">
+      <button
+        class="flex items-center gap-1.5 rounded-full border border-cyber-yellow/40 bg-cyber-yellow/10 px-3 py-1 text-sm font-bold text-cyber-yellow hover:bg-cyber-yellow/20"
+        @click=${() => void playVictoryFanfare()}
+      >
+        <span aria-hidden="true">♪</span>
+        ${translateText("derpy.fanfare_play_again")}
+      </button>
+    </div>`;
   }
 
   /** The end-of-game awards: MVP, most betrayals, most money, most ships. */
@@ -373,7 +392,12 @@ export class WinModal extends LitElement implements Controller {
 
   private playEndOfGameSound(): void {
     if (this.isWin) {
-      this.eventBus.emit(new PlaySoundEffectEvent("victory"));
+      // DFSTORE (r21): your victory fanfare, if you chose and own one (and
+      // music isn't muted); the usual victory sound otherwise.
+      void playVictoryFanfare().then((played) => {
+        this.fanfarePlayed = played;
+        if (!played) this.eventBus.emit(new PlaySoundEffectEvent("victory"));
+      });
     } else if (!this.hasShownDeathModal && this.game.myPlayer()?.hasSpawned()) {
       // Spawned check: spectators and replay viewers shouldn't get a
       // personal defeat sting. The cue also already played if the player

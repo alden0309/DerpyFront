@@ -588,6 +588,8 @@ export class HelpModal extends BaseModal {
                   </p>
                   <ul class="space-y-2 list-disc ps-4 text-white/60">
                     <li>${translateText("help_modal.ui_gold")}</li>
+                    <!-- DFSTORE (r21) -->
+                    <li>${translateText("help_modal.ui_gold_per_10s")}</li>
                     <li>${translateText("help_modal.ui_attack_ratio")}</li>
                   </ul>
                 </div>

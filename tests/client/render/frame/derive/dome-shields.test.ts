@@ -233,3 +233,44 @@ describe("domeStopsNukeAt", () => {
     expect(domeStopsNukeAt(domes, 2, 400, 400, RANGE)).toBe(true);
   });
 });
+
+// DFSTORE (r21): Derp Store Dome styles.
+describe("Dome styles", () => {
+  it("each circle carries its owner's style, 0 for the plain shield", () => {
+    const circles = buildDomeShieldCircles(
+      [dome(100, 100, { ownerID: 3 }), dome(400, 100, { ownerID: 4 })],
+      opts({ styles: new Map([[3, 2]]) }),
+    );
+    expect(circles.map((c) => c.style)).toEqual([2, 0]);
+  });
+
+  it("shields of different styles don't merge, even of the same kind", () => {
+    const styles = new Map([
+      [3, 2],
+      [4, 5],
+      [5, 2],
+    ]);
+    // Three enemies' Domes, close enough to touch.
+    const circles = buildDomeShieldCircles(
+      [
+        dome(100, 100, { ownerID: 3 }),
+        dome(250, 100, { ownerID: 4 }),
+        dome(180, 160, { ownerID: 5 }),
+      ],
+      opts({ styles }),
+    );
+    expect(circles.every((c) => c.kind === "enemy")).toBe(true);
+    expect(circles[0].neighbors).toEqual([2]);
+    expect(circles[1].neighbors).toEqual([]);
+    expect(circles[2].neighbors).toEqual([0]);
+  });
+
+  it("without styles nothing changes", () => {
+    const plain = buildDomeShieldCircles(
+      [dome(100, 100, { ownerID: 3 }), dome(250, 100, { ownerID: 4 })],
+      opts(),
+    );
+    expect(plain.map((c) => c.style)).toEqual([0, 0]);
+    expect(plain[0].neighbors).toEqual([1]);
+  });
+});

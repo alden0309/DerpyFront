@@ -219,6 +219,10 @@ export class MapRenderer {
   setPlayerSkin(smallID: number, url: string | null): void {
     this.renderer?.setPlayerSkin(smallID, url);
   }
+  /** DFSTORE (r21): a player's Derp Store Dome style (domeStyleIndex). */
+  setPlayerDomeStyle(smallID: number, style: number): void {
+    this.renderer?.setPlayerDomeStyle(smallID, style);
+  }
   initSkinAtlas(urls: readonly string[]): void {
     this.renderer?.initSkinAtlas(urls);
   }

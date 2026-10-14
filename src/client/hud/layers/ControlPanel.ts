@@ -18,6 +18,7 @@ import { GameView } from "../../view";
 import { PlayerView } from "../../view/PlayerView";
 import { goldCoinIcon, soldierIcon } from "../HotbarIcons";
 import { TutorialHighlight, TutorialHighlightEvent } from "../Tutorial";
+import { GoldPer10s } from "./lib/GoldPer10s";
 const swordIcon = assetUrl("images/SwordIcon.svg");
 
 @customElement("control-panel")
@@ -54,6 +55,10 @@ export class ControlPanel extends LitElement implements Controller {
 
   @state()
   private _goldGain: bigint | null = null;
+  // DFSTORE (r21): gold received per 10 seconds, averaged over a minute.
+  private readonly goldRate = new GoldPer10s();
+  @state()
+  private _goldPer10s: number | null = null;
   @state()
   private _goldGainPulseId: number = 0;
   private _goldGainTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -129,6 +134,9 @@ export class ControlPanel extends LitElement implements Controller {
     const config = this.game.config();
     this._maxTroops = config.maxTroops(player);
     this._gold = player.gold();
+    // DFSTORE (r21): average income per 10 seconds over the last minute.
+    this.goldRate.record(this.game.ticks(), player.goldEarned());
+    this._goldPer10s = this.goldRate.per10s();
     this._troops = player.troops();
     this._attackingTroops = player
       .outgoingAttacks()
@@ -498,6 +506,22 @@ export class ControlPanel extends LitElement implements Controller {
     `;
   }
 
+  /**
+   * DFSTORE (r21): "+1.2K/10s", your average income per 10 seconds over the
+   * last minute; nothing until there are a few seconds to average.
+   */
+  private renderGoldRate(extra: string) {
+    if (this._goldPer10s === null) return "";
+    return html`<span
+      class="tabular-nums font-semibold text-green-400/90 whitespace-nowrap ${extra}"
+      title=${translateText("control_panel.gold_per_10s_title")}
+      data-gold-per-10s
+      >${translateText("control_panel.gold_per_10s", {
+        amount: renderNumber(Math.round(this._goldPer10s)),
+      })}</span
+    >`;
+  }
+
   private renderDesktop() {
     return html`
       ${this.renderNotification()}
@@ -552,6 +576,7 @@ export class ControlPanel extends LitElement implements Controller {
             : ""}
           <img src=${goldCoinIcon} width="13" height="13" class="shrink-0" />
           <span class="tabular-nums">${renderNumber(this._gold)}</span>
+          ${this.renderGoldRate("text-[11px] ml-0.5")}
         </div>
       </div>
       <!-- Row 2: attack ratio | slider -->
@@ -612,8 +637,13 @@ export class ControlPanel extends LitElement implements Controller {
                 >`,
               )
             : ""}
-          <img src=${goldCoinIcon} width="13" height="13" />
-          <span class="px-0.5">${renderNumber(this._gold)}</span>
+          <div class="flex flex-col items-center leading-none">
+            <span class="flex items-center gap-0.5">
+              <img src=${goldCoinIcon} width="13" height="13" />
+              <span class="px-0.5">${renderNumber(this._gold)}</span>
+            </span>
+            ${this.renderGoldRate("text-[9px] mt-0.5")}
+          </div>
         </div>
         <!-- Troop bar -->
         <div

@@ -30,7 +30,7 @@ import { z } from "zod";
 import { registerAdminBotRoutes } from "./AdminBotRoutes";
 import { censorPlayer } from "./Censor";
 import { Client } from "./Client";
-import { derpySkinForPlayer } from "./derpy/DerpySkins";
+import { derpyLooksForPlayer } from "./derpy/DerpySkins";
 import { gameApiCors } from "./GameApiCors";
 import { GameManager } from "./GameManager";
 import { registerGamePreviewRoute } from "./GamePreviewRoute";
@@ -189,6 +189,9 @@ export async function startWorker() {
       return res.status(400).json({ error: z.prettifyError(parsed.error) });
     }
     const gc = parsed.data;
+    // DFSTORE (r21): AI personality packs come only through the lobby's
+    // update_game_config, which checks the host owns them.
+    if (gc) delete gc.aiPersonalities;
     // Public games are scheduled by the master over IPC, never created here.
     if (gc?.gameType === GameType.Public) {
       return res
@@ -788,14 +791,22 @@ export async function startWorker() {
           return;
         }
 
-        // Derpy Front: territory skins come from the Derp Store and are owned
-        // per account, so they're checked against the player's account.
-        if (cosmeticResult.cosmetics.skin === undefined) {
-          const skin = await derpySkinForPlayer(
+        // Derpy Front: territory skins, nuke effects and Dome styles come
+        // from the Derp Store and are owned per account, so they're checked
+        // against the player's account (DFSTORE r21 added the effects).
+        {
+          const looks = await derpyLooksForPlayer(
             persistentId,
-            clientMsg.cosmetics?.skinName,
+            clientMsg.cosmetics,
           );
-          if (skin !== null) cosmeticResult.cosmetics.skin = skin;
+          const resolved = cosmeticResult.cosmetics;
+          if (resolved.skin === undefined && looks.skin) {
+            resolved.skin = looks.skin;
+          }
+          if (looks.effects) {
+            resolved.effects = { ...looks.effects, ...resolved.effects };
+          }
+          if (looks.derpyDome) resolved.derpyDome = looks.derpyDome;
         }
 
         // Verified intent, not a claim to verify: the check stays only when

@@ -18,6 +18,7 @@ import {
   Tribe,
   Turn,
 } from "@openfront/engine-api/Schemas";
+import { isAiPersonalityPack } from "@openfront/engine-lib/game/AiPersonalities";
 import {
   assignTeamsLobbyPreview,
   resolveTeamsList,
@@ -72,6 +73,7 @@ import { LiveStatsVote, WinnerVote } from "./Consensus";
 import { fetchCustomTribes } from "./CustomTribes";
 import { derpyDbConfigured } from "./derpy/DerpyDb";
 import { recordDerpyGame } from "./derpy/DerpyGames";
+import { ownedAiPersonalities } from "./derpy/DerpySkins";
 import { DesyncDetector } from "./DesyncDetector";
 import {
   authorizeIntent,
@@ -177,6 +179,12 @@ export interface GameServerDeps {
   // so a test can pin a value it can assert on; production always takes the
   // random default.
   mintGroupToken: () => string;
+  // DFSTORE (r21): the AI personality packs, of those asked for, owned by
+  // the account playing under a persistent ID.
+  ownedAiPersonalities: (
+    persistentID: string,
+    asked: readonly string[],
+  ) => Promise<string[]>;
 }
 
 // 16 URL-safe characters of CSPRNG output — 12 bytes is exactly 16 base64url
@@ -206,6 +214,7 @@ export function defaultGameServerDeps(): GameServerDeps {
     telemetry: noopMatchTelemetryEmitter,
     telemetryBuildHash: "DEV",
     mintGroupToken,
+    ownedAiPersonalities,
   };
 }
 
@@ -383,6 +392,34 @@ export class GameServer {
     applyGameConfigPatch(this.gameConfig, gameConfig);
   }
 
+  // DFSTORE (r21): the latest request wins, however the lookups finish.
+  private aiPersonalitiesRequest = 0;
+
+  /**
+   * The lobby's AI personality packs: those asked for that the host's
+   * account owns (the admin bot's are taken as asked). Ignored once the game
+   * has started.
+   */
+  private async setAiPersonalities(
+    asked: readonly string[],
+    actor: IntentActor,
+  ): Promise<void> {
+    const request = ++this.aiPersonalitiesRequest;
+    const known = [...new Set(asked)].filter(isAiPersonalityPack);
+    let packs = known;
+    if (!actor.isAdminBot && known.length > 0) {
+      const client = this.clients.get(actor.clientID);
+      packs =
+        client === undefined
+          ? []
+          : await this.deps
+              .ownedAiPersonalities(client.persistentID, known)
+              .catch(() => []);
+    }
+    if (request !== this.aiPersonalitiesRequest || this.hasStarted()) return;
+    this.gameConfig.aiPersonalities = packs.length > 0 ? packs : undefined;
+  }
+
   // Dispatch a control/gameplay intent from either a websocket client or the
   // trusted admin-bot HTTP API. `actor` carries the authority; the guards are
   // authorizeIntent, the per-intent actions live here. Returns an HTTP-style
@@ -458,7 +495,13 @@ export class GameServer {
       }
 
       case "update_game_config": {
-        this.updateGameConfig(stamped.config);
+        // DFSTORE (r21): AI personality packs only stick if the host owns
+        // them, which takes a look at their account.
+        const { aiPersonalities, ...config } = stamped.config;
+        this.updateGameConfig(config);
+        if (aiPersonalities !== undefined) {
+          void this.setAiPersonalities(aiPersonalities, actor);
+        }
         return finish({ status: 200 });
       }
 

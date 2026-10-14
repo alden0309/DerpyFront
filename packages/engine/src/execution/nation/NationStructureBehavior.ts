@@ -7,6 +7,7 @@ import {
   Structures,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
+import { NO_TEMPERAMENT } from "@openfront/engine-lib/game/AiPersonalities";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   readVersioned,
@@ -18,6 +19,7 @@ import {
 import { assertNever } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Attack, Game, Player, Unit } from "../../game/Game";
+import { nationTemperament } from "../../game/NationPersonas";
 import { Cluster } from "../../game/TrainStation";
 import type {
   SnapshotReader,
@@ -853,7 +855,7 @@ export class NationStructureBehavior {
 
     const incomingTroops = landAttacks.reduce((sum, a) => sum + a.troops(), 0);
     const ratio = incomingTroops / ourTroops;
-    if (ratio < UNDER_ATTACK_THREAT_RATIO) return false;
+    if (ratio < this.defenseThreatRatio()) return false;
 
     let allowed: number;
     if (difficulty === Difficulty.Medium) {
@@ -894,7 +896,18 @@ export class NationStructureBehavior {
     const ourTroops = this.player.troops();
     if (ourTroops <= 0) return false;
     const incomingTroops = landAttacks.reduce((sum, a) => sum + a.troops(), 0);
-    return incomingTroops / ourTroops >= UNDER_ATTACK_THREAT_RATIO;
+    return incomingTroops / ourTroops >= this.defenseThreatRatio();
+  }
+
+  /**
+   * DFSTORE (r21): the incoming-troops share that calls for defense posts,
+   * lower for a turtle persona (rules 5+).
+   */
+  private defenseThreatRatio(): number {
+    return (
+      UNDER_ATTACK_THREAT_RATIO *
+      nationTemperament(this.game, this.player).defenseThreat
+    );
   }
 
   /**
@@ -1247,7 +1260,9 @@ export class NationStructureBehavior {
       return false;
     }
 
-    let ratio = config.ratioPerCity;
+    // DFSTORE (r21): a persona's temperament leans what it builds (rules 5+).
+    const tuning = nationTemperament(this.game, this.player);
+    let ratio = config.ratioPerCity * (tuning.structures[type] ?? 1);
 
     // Heavily reduce factory spawning if we have coastal tiles
     if (
@@ -1261,13 +1276,18 @@ export class NationStructureBehavior {
     const owned = this.player.unitsOwned(type);
 
     // Hard cap on missile silos
-    if (type === UnitType.MissileSilo && owned >= MAX_MISSILE_SILOS) {
+    const maxSilos =
+      tuning === NO_TEMPERAMENT ? MAX_MISSILE_SILOS : tuning.maxSilos;
+    if (type === UnitType.MissileSilo && owned >= maxSilos) {
       return false;
     }
 
     // First missile silo uses a higher ratio so nations can start nuking earlier
     if (type === UnitType.MissileSilo && owned === 0) {
-      ratio = FIRST_MISSILE_SILO_RATIO;
+      ratio =
+        tuning === NO_TEMPERAMENT
+          ? FIRST_MISSILE_SILO_RATIO
+          : tuning.firstSiloRatio;
     }
 
     const targetCount = Math.floor(cityCount * ratio);

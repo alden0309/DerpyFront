@@ -74,6 +74,16 @@ export class FxPass {
         // SAM interception: sprite pass handles the SAM explosion sprite
         this.spritePass.spawnFxForUnit(unit, now);
         this.shockwavePass.pushSAMShockwave(x, y);
+        // DFSTORE (r21): stopped by a Dome whose owner wears a Derp Store
+        // style: its burst plays too (WebGLFrameBuilder.resolveDomeBursts).
+        if (unit.explosion) {
+          this.shockwavePass.pushNukeShockwave(
+            x,
+            y,
+            nukeRadius,
+            unit.explosion,
+          );
+        }
       }
       return;
     }

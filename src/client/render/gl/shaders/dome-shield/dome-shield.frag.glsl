@@ -17,6 +17,8 @@ flat in vec3 vN2;
 flat in vec3 vN3;
 flat in vec3 vN4;
 flat in vec3 vN5;
+flat in vec4 vStyle;   // DFSTORE (r21): style fill rgb, shimmer code
+flat in vec4 vAccent;  // accent rgb, shimmer speed
 
 uniform float uPad;        // world units the ring reaches past a circle
 uniform float uRingHalf;   // ring half-width, world units
@@ -49,6 +51,51 @@ void addNeighbor(vec3 n) {
     unionDist = sd;
     nearestEdge = vec3(n.xy, r);
   }
+}
+
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+// DFSTORE (r21): the style's shimmer at this pixel, 0..1. Cheap patterns in
+// world space, so they hold still under the camera.
+float shimmer(float code, float speed) {
+  float t = uTime * speed;
+  vec2 rel = vWorld - vCircle.xy;
+  if (code < 1.5) {
+    // hex: a honeycomb whose cells light up as a sweep passes.
+    vec2 q = vWorld / 4.0;
+    vec2 a = mod(q, vec2(1.0, 1.732)) - vec2(0.5, 0.866);
+    vec2 b = mod(q - vec2(0.5, 0.866), vec2(1.0, 1.732)) - vec2(0.5, 0.866);
+    vec2 g = dot(a, a) < dot(b, b) ? a : b;
+    float edge = smoothstep(0.38, 0.48, max(abs(g.x) * 0.866 + abs(g.y) * 0.5, abs(g.y)));
+    float sweep = 0.5 + 0.5 * sin(rel.x * 0.08 + rel.y * 0.05 - t * 1.6);
+    return edge * (0.35 + 0.65 * sweep);
+  }
+  if (code < 2.5) {
+    // ripple: rings spreading out from the Dome.
+    float d = length(rel);
+    return pow(0.5 + 0.5 * sin(d * 0.45 - t * 2.5), 3.0);
+  }
+  if (code < 3.5) {
+    // sparkle: cells that twinkle in their own time.
+    vec2 cell = floor(vWorld / 3.0);
+    float h = hash21(cell);
+    float tw = 0.5 + 0.5 * sin(t * (2.0 + 3.0 * h) + h * 40.0);
+    return step(0.82, h) * pow(tw, 4.0);
+  }
+  if (code < 4.5) {
+    // aurora: soft bands drifting across the shield.
+    float band = sin(rel.x * 0.07 + 2.0 * sin(rel.y * 0.04 + t * 0.7) + t);
+    return smoothstep(0.2, 1.0, band) * 0.8;
+  }
+  // scan: a bright line gleaming slowly across, like polished metal.
+  float span = vCircle.z * 2.0;
+  float pos = mod(t * vCircle.z * 0.6, span * 1.6) - span * 0.8;
+  float gleam = exp(-pow((rel.x + rel.y * 0.5 - pos) / 3.0, 2.0));
+  return gleam;
 }
 
 void main() {
@@ -89,7 +136,21 @@ void main() {
   float pulse = 1.0 + uBlockedPulse * blocked * sin(uTime * 3.0);
   float fillA = fill * mix(1.0, uBlockedFill, blocked) * pulse;
   float ringA = min(1.0, ring * ringAlpha * mix(1.0, uBlockedRing, blocked));
+
+  // DFSTORE (r21): a Derp Store Dome style colours the fill and adds its
+  // shimmer; the ring keeps the shield's meaning (yours, an ally's, a foe's,
+  // or the one stopping your aim). A shield that stops your aim stays plain.
+  vec3 fillRGB = vColor.rgb;
+  float shimmerCode = vStyle.w;
+  if (shimmerCode > 0.5 && building < 0.5 && blocked < 0.5) {
+    float sh = shimmer(shimmerCode, vAccent.w);
+    fillRGB = mix(vStyle.rgb, vAccent.rgb, sh);
+    fillA = min(1.0, fillA * (1.15 + 0.9 * sh));
+  }
+
   float alpha = (ringA + fillA * (1.0 - ringA)) * vColor.a;
   if (alpha < 0.003) discard;
-  fragColor = vec4(vColor.rgb, min(alpha, 1.0));
+  vec3 rgb = (vColor.rgb * ringA + fillRGB * fillA * (1.0 - ringA)) /
+             max(ringA + fillA * (1.0 - ringA), 1e-4);
+  fragColor = vec4(rgb, min(alpha, 1.0));
 }

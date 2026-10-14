@@ -11,6 +11,11 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { GameID } from "@openfront/engine-api/Schemas";
 import { EMBARGO_RELATION } from "@openfront/engine-lib/execution/RelationRules";
+import {
+  NO_TEMPERAMENT,
+  temperedAttackRate,
+  temperedRatios,
+} from "@openfront/engine-lib/game/AiPersonalities";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   VersionedSchema,
@@ -21,6 +26,7 @@ import {
 import { assertNever, simpleHash } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Execution, Game, Player } from "../game/Game";
+import { nationTemperament, temperamentForFlag } from "../game/NationPersonas";
 import {
   NationSchema,
   nationData,
@@ -80,6 +86,20 @@ export class NationExecution implements Execution {
   init(mg: Game) {
     this.mg = mg;
     this.attackRate = this.getAttackRate();
+    // DFSTORE (r21): a persona's temperament leans the nation's pace and
+    // how much it keeps home (rules 5+, persona nations only).
+    const tuning = temperamentForFlag(mg, this.nation.playerInfo.nationFlag);
+    if (tuning !== NO_TEMPERAMENT) {
+      this.attackRate = temperedAttackRate(tuning, this.attackRate);
+      const r = temperedRatios(tuning, {
+        trigger: this.triggerRatio,
+        reserve: this.reserveRatio,
+        expand: this.expandRatio,
+      });
+      this.triggerRatio = r.trigger;
+      this.reserveRatio = r.reserve;
+      this.expandRatio = r.expand;
+    }
     this.attackTick = this.random.nextInt(0, this.attackRate);
 
     if (!this.mg.hasPlayer(this.nation.playerInfo.id)) {
@@ -344,6 +364,8 @@ export class NationExecution implements Execution {
     const isHigherDifficulty =
       difficulty === Difficulty.Hard || difficulty === Difficulty.Impossible;
     const teamGame = this.mg.config().gameConfig().gameMode === GameMode.Team;
+    // DFSTORE (r21): traders (rules 5+) don't start embargoes outside teams.
+    const embargoes = nationTemperament(this.mg, player).embargoes;
 
     others.forEach((other: Player) => {
       // In team games on higher difficulties, refuse to trade with anyone
@@ -366,6 +388,7 @@ export class NationExecution implements Execution {
         !player.hasEmbargoAgainst(other) &&
         !player.isOnSameTeam(other)
       ) {
+        if (!embargoes) return;
         player.addEmbargo(other, false);
       } else if (
         player.relation(other) >= Relation.Neutral &&

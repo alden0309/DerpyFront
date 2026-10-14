@@ -272,8 +272,10 @@ export type PoolConfig = z.infer<typeof PoolConfigSchema>;
  * 4: AI nations raise Domes of Alden before the bombs fall, over their most
  *    threatened buildings and away from the front, build under them, and
  *    guard them with defense posts.
+ * 5: AI nations may play a persona from the host's AI personality packs
+ *    (GameConfig.aiPersonalities), its temperament leaning their play.
  */
-export const DERPY_RULES = 4;
+export const DERPY_RULES = 5;
 
 export const GameConfigSchema = z.object({
   gameMap: z.enum(GameMapType),
@@ -364,6 +366,19 @@ export const GameConfigSchema = z.object({
   // from the site once it has begun (public games can always be watched).
   // Off by default. Server-side only: nothing in the simulation reads it.
   allowWatchers: z.boolean().optional(),
+  // DFSTORE (r21): the AI personality packs (Derp Store items) whose personas
+  // the AI nations play: names, emblems, chat voices and temperaments
+  // (engine-lib/game/AiPersonalities.ts). Rules 5+; the server keeps only
+  // packs the host owns.
+  aiPersonalities: z
+    .array(
+      z
+        .string()
+        .regex(/^[a-z0-9_]+$/)
+        .max(32),
+    )
+    .max(16)
+    .optional(),
 });
 
 export const TeamSchema = z.string();

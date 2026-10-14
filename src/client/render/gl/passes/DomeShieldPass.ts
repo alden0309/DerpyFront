@@ -13,6 +13,7 @@
  * the shader draws their union, each pixel once. One instanced draw call.
  */
 
+import { DERPY_FX_THEMES, DOME_SHIMMER_CODE } from "@openfront/shared/DerpyFx";
 import {
   buildDomeShieldCircles,
   DOME_MAX_NEIGHBORS,
@@ -27,8 +28,36 @@ import { createProgram } from "../utils/GlUtils";
 import fragSrc from "../shaders/dome-shield/dome-shield.frag.glsl?raw";
 import vertSrc from "../shaders/dome-shield/dome-shield.vert.glsl?raw";
 
-// Per instance: circle (3), color (4), params (4), neighbours (3 each).
-const FLOATS_PER_INSTANCE = 3 + 4 + 4 + 3 * DOME_MAX_NEIGHBORS;
+// Per instance: circle (3), color (4), params (4), neighbours (3 each), and
+// (DFSTORE r21) the Dome style's fill (4) and accent (4).
+const NEIGHBOR_FLOATS = 3 * DOME_MAX_NEIGHBORS;
+const FLOATS_PER_INSTANCE = 3 + 4 + 4 + NEIGHBOR_FLOATS + 4 + 4;
+const STYLE_OFFSET = 11 + NEIGHBOR_FLOATS;
+
+/** #rrggbb to rgb 0–1. */
+function rgb01(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+
+/**
+ * DFSTORE (r21): the Derp Store Dome styles as the shader reads them, by
+ * domeStyleIndex (index 0 is the plain shield).
+ */
+const STYLE_DATA: readonly {
+  fill: [number, number, number];
+  accent: [number, number, number];
+  shimmer: number;
+  speed: number;
+}[] = [
+  { fill: [0, 0, 0], accent: [0, 0, 0], shimmer: 0, speed: 0 },
+  ...DERPY_FX_THEMES.map((t) => ({
+    fill: rgb01(t.dome.color),
+    accent: rgb01(t.dome.accent),
+    shimmer: DOME_SHIMMER_CODE[t.dome.shimmer],
+    speed: t.dome.speed,
+  })),
+];
 
 /**
  * The most the ring and its soft edge may reach past a circle, in world
@@ -55,6 +84,8 @@ export class DomeShieldPass {
   private nukeAiming = false;
   private paletteData: Float32Array | null = null;
   private lastStructures: Map<number, UnitState> | null = null;
+  /** DFSTORE (r21): owners' Dome styles (smallID → domeStyleIndex). */
+  private styles = new Map<number, number>();
 
   private uCamera: WebGLUniformLocation;
   private uPad: WebGLUniformLocation;
@@ -145,8 +176,18 @@ export class DomeShieldPass {
     for (let n = 0; n < DOME_MAX_NEIGHBORS; n++) {
       attrib(4 + n, 3, 11 + n * 3);
     }
+    attrib(4 + DOME_MAX_NEIGHBORS, 4, STYLE_OFFSET); // style fill + shimmer
+    attrib(5 + DOME_MAX_NEIGHBORS, 4, STYLE_OFFSET + 4); // accent + speed
 
     gl.bindVertexArray(null);
+  }
+
+  /** DFSTORE (r21): a player's Dome style (0 for the plain shield). */
+  setPlayerStyle(smallID: number, style: number): void {
+    if ((this.styles.get(smallID) ?? 0) === style) return;
+    if (style === 0) this.styles.delete(smallID);
+    else this.styles.set(smallID, style);
+    this.rebuild();
   }
 
   setLocalPlayer(id: number): void {
@@ -189,6 +230,7 @@ export class DomeShieldPass {
       allies: this.allies,
       nukeAiming: this.nukeAiming,
       margin: MAX_PAD,
+      styles: this.styles,
     });
     this.upload(circles);
   }
@@ -245,6 +287,16 @@ export class DomeShieldPass {
         // Earlier circles own the pixels they reach (positive radius).
         data[o + 2] = j < i ? nb.radius : -nb.radius;
       }
+      const st = STYLE_DATA[c.style] ?? STYLE_DATA[0];
+      const so = off + STYLE_OFFSET;
+      data[so + 0] = st.fill[0];
+      data[so + 1] = st.fill[1];
+      data[so + 2] = st.fill[2];
+      data[so + 3] = st.shimmer;
+      data[so + 4] = st.accent[0];
+      data[so + 5] = st.accent[1];
+      data[so + 6] = st.accent[2];
+      data[so + 7] = st.speed;
     }
     this.instanceCount = circles.length;
     if (circles.length > 0) {

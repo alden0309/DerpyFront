@@ -2970,3 +2970,213 @@ export const VOICES: Record<string, VoiceKit> = {
     },
   },
 };
+
+// DFSTORE (r21): the voices of the Derp Store's AI personality packs. A
+// persona nation (flag "persona_<pack>_<name>", see NationCulture.voiceFor)
+// speaks with its pack's voice. Fun, no real people.
+VOICES.persona_pirates = {
+  ...VOICES.pirate,
+  lines: {
+    greeting: [
+      "Ahoy, ye landlubbers! Hide yer gold, and yer ports.",
+      "{hello}! Fly a flag of truce and we'll see how long it lasts.",
+    ],
+    idle: [
+      ...(VOICES.pirate.lines?.idle ?? []),
+      "The code is more what ye'd call guidelines than actual rules. Mostly.",
+      "I've buried a chest somewhere on this map. I've forgotten where. Again.",
+      "Parrot says we should attack. I always listen to the parrot.",
+    ],
+    attacked: [
+      "{name}, you'll walk the plank for that!",
+      "All hands! {name} has boarded us!",
+    ],
+    attacking: [
+      "Run out the guns! {name}'s coast looks undefended.",
+      "Yer land or yer life, {name}. Actually, both.",
+    ],
+    allianceAccepted: ["Ye're in the crew now, {name}. Share and share alike."],
+    betrayed: ["{name} turned their coat! Mutiny, I call it!"],
+    nukeLaunch: ["Fire in the hold! Well. Fire in YOUR hold, {name}."],
+    victory: ["The seas are ours! Break out the grog, the whole barrel!"],
+    eliminated: ["Davy Jones' locker it is. Fair winds, ye scallywags."],
+  },
+};
+
+VOICES.persona_empires = {
+  hello: ["Greetings", "Hail", "We bid you welcome"],
+  yes: ["It is decreed", "So be it", "Indeed"],
+  no: ["Denied", "We think not", "Absolutely not"],
+  wow: ["Magnificent!", "Glorious!", "Splendid!"],
+  ugh: ["Insolence!", "Outrageous!", "How vulgar!"],
+  thanks: ["We are gratified", "Our thanks"],
+  bye: ["Farewell", "You are dismissed"],
+  friend: ["our loyal subject", "noble friend"],
+  food: [
+    "roast swan",
+    "candied figs",
+    "honeyed wine",
+    "a seven-course banquet",
+  ],
+  place: [
+    "the throne room",
+    "the old capital",
+    "the marble halls",
+    "our ancestral seat",
+  ],
+  lines: {
+    greeting: [
+      "We, the realm, greet you. Yes, we speak for all of us.",
+      "{hello}. Kneel, or don't. It's early yet.",
+    ],
+    idle: [
+      "Our empire has stood a thousand years. This game will be over by teatime.",
+      "The court historians are taking notes. Do try to be memorable.",
+      "We have commissioned a statue of ourselves. A larger one.",
+    ],
+    attacked: [
+      "{name} dares lay siege to us? Summon the legions!",
+      "Our walls have outlasted bigger fools than you, {name}.",
+    ],
+    attacking: [
+      "{name}, your lands are hereby annexed. The paperwork follows.",
+      "The empire expands, {name}. It is simply what empires do.",
+    ],
+    allianceAccepted: ["We accept your fealty, {name}. Er, friendship."],
+    betrayed: ["Treachery! {name}, the chroniclers will remember this."],
+    victory: ["Long may we reign! Which is to say: for ever."],
+    eliminated: ["Even empires fall. Ours just did it with style."],
+  },
+};
+
+VOICES.persona_merchants = {
+  hello: ["Welcome, valued customer", "Good day", "Greetings, friend"],
+  yes: ["Deal", "Agreed", "Sign here"],
+  no: ["Not at that price", "No sale", "I'll pass"],
+  wow: ["Profitable!", "What a bargain!", "Excellent margins!"],
+  ugh: ["Bad for business!", "My ledgers!", "Ruinous!"],
+  thanks: ["A pleasure doing business", "Much obliged"],
+  bye: ["Come again", "Do call again soon"],
+  friend: ["valued partner", "my best customer"],
+  food: ["saffron rice", "spiced tea", "candied ginger", "pepper biscuits"],
+  place: [
+    "the counting house",
+    "the harbour market",
+    "the silk exchange",
+    "the old warehouse",
+  ],
+  lines: {
+    greeting: [
+      "{hello}! Ports open, prices fair, embargoes never.",
+      "Everyone's welcome to trade with us. Even you. Especially you.",
+    ],
+    idle: [
+      "Business is booming. Well, not booming. Nobody here likes booming.",
+      "Ledger says we're up four percent. Ledger is never wrong.",
+      "Buy low, sell high, and never, ever nuke a customer.",
+    ],
+    attacked: [
+      "{name}, attacking your suppliers is very bad business.",
+      "This is a hostile takeover, {name}, and we do not accept it!",
+    ],
+    attacking: [
+      "Think of it as a merger, {name}.",
+      "{name}, we're acquiring your land. The price is non-negotiable.",
+    ],
+    allianceAccepted: ["A partnership, {name}! I'll draw up the contract."],
+    betrayed: [
+      "{name} broke the contract! I'm calling my lawyers. All of them.",
+    ],
+    nuked: ["Who's paying for this?! {name}, expect an invoice."],
+    victory: ["Every coin counted, every port ours. Drinks on the house!"],
+    eliminated: [
+      "Closing down sale! Everything must go. Apparently including us.",
+    ],
+  },
+};
+
+VOICES.persona_scientists = {
+  hello: ["Greetings, test subjects", "Salutations", "Ah, visitors"],
+  yes: ["Hypothesis confirmed", "Affirmative", "Precisely"],
+  no: ["Hypothesis rejected", "Inconclusive. So, no.", "Negative"],
+  wow: ["Eureka!", "Fascinating!", "It works! It actually works!"],
+  ugh: ["Back to the drawing board!", "The data is ruined!", "Not again!"],
+  thanks: ["Your contribution to science is noted", "Thank you kindly"],
+  bye: ["Experiment concluded", "Until the next trial"],
+  friend: ["my lab partner", "esteemed colleague"],
+  food: [
+    "beaker coffee",
+    "bunsen-burner toast",
+    "lab-grown sandwiches",
+    "suspicious soup",
+  ],
+  place: [
+    "the laboratory",
+    "the tower lab",
+    "the zeppelin hangar",
+    "the secret bunker",
+  ],
+  lines: {
+    greeting: [
+      "{hello}. Please ignore the bubbling. It's perfectly safe. Probably.",
+      "Welcome to the experiment! You are the control group.",
+    ],
+    idle: [
+      "I've built a machine that predicts the winner. It keeps saying me.",
+      "The silo is for science. Mostly science.",
+      "Note to self: label the big red buttons.",
+    ],
+    attacked: [
+      "{name}, you've contaminated my sample!",
+      "An attack? Excellent. I needed data on this.",
+    ],
+    attacking: [
+      "Phase two of the experiment, {name}. You're in it.",
+      "For science, {name}! Nothing personal, it's peer-reviewed.",
+    ],
+    nukeLaunch: ["Ignition! {name}, you may want to step back. Way back."],
+    allianceAccepted: [
+      "A collaboration, {name}! We'll share the credit. Mostly.",
+    ],
+    betrayed: ["{name}, your results will not be replicated. By anyone."],
+    victory: ["Conclusion: I win. Publish it!"],
+    eliminated: ["The experiment failed. Note to future self: more shielding."],
+  },
+};
+
+VOICES.persona_warlords = {
+  hello: ["Howdy", "Well met", "Evening, stranger"],
+  yes: ["Sure thing", "You got it", "Reckon so"],
+  no: ["Not a chance", "Nope", "Don't push your luck"],
+  wow: ["Yeehaw!", "Hot dang!", "Now that's a ride!"],
+  ugh: ["Dagnabbit!", "Well, shoot!", "Tarnation!"],
+  thanks: ["Much obliged", "Thank ye kindly"],
+  bye: ["Happy trails", "Ride safe"],
+  friend: ["partner", "pardner"],
+  food: ["campfire beans", "jerky", "cornbread", "trail coffee"],
+  place: ["the canyon", "the badlands", "the railhead", "the open range"],
+  lines: {
+    greeting: [
+      "{hello}. This map ain't big enough for all of us. We'll fix that.",
+      "Ride hard, rest never. {hello}, partner.",
+    ],
+    idle: [
+      "Horses are rested. Riders are restless. Somebody's border is next.",
+      "Out here the only law is the one with the most troops.",
+      "Dust storm coming. Or that's my army. Hard to tell.",
+    ],
+    attacked: [
+      "{name}, you just picked a fight with the wrong horde.",
+      "Saddle up, boys! {name} came looking for trouble.",
+    ],
+    attacking: [
+      "Here we come, {name}! Hold onto your hat.",
+      "{name}, we'll be taking that land. Thanks kindly.",
+    ],
+    allianceAccepted: ["Ride with us, {name}. Just don't slow us down."],
+    betrayed: ["{name}, I'll be seeing you at sundown."],
+    nukeLaunch: ["Fire in the hole! Dynamite never did me wrong."],
+    victory: ["The whole frontier's ours! Yeehaw!"],
+    eliminated: ["Well, that's the end of the trail. Ride on without me."],
+  },
+};

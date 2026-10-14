@@ -10,6 +10,7 @@
  */
 
 import { assetUrl } from "@openfront/shared/AssetUrls";
+import { domeStyleIndex } from "@openfront/shared/DerpyFx";
 import type {
   PlayerCosmetics,
   WireGameStartInfo,
@@ -138,9 +139,15 @@ export class ReplayAppearance {
   private applySkins(): void {
     const view = this.view!;
     for (const p of this.players) {
-      if (p.clientID === null || !this.equipped.get(p.clientID)?.skin?.url) {
-        continue;
+      if (p.clientID === null) continue;
+      // DFSTORE (r21): Derp Store Dome styles, unless the settings hide them.
+      if (this.equipped.get(p.clientID)?.derpyDome) {
+        view.setPlayerDomeStyle(
+          p.smallID,
+          domeStyleIndex(this.cosmetics.get(p.clientID)?.derpyDome),
+        );
       }
+      if (!this.equipped.get(p.clientID)?.skin?.url) continue;
       view.setPlayerSkin(p.smallID, this._palette.skins.get(p.smallID) ?? null);
     }
   }

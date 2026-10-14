@@ -237,16 +237,52 @@ export function derpyProfile(username: string): Promise<DerpyProfile> {
   return api(`/players/${encodeURIComponent(username)}`);
 }
 
-export function derpyStore(): Promise<{ packs: DerpyPack[] }> {
+export function derpyStore(): Promise<{
+  packs: DerpyPack[];
+  items?: DerpyStoreItem[];
+  tabs?: DerpyStoreTab[];
+}> {
   return api("/store");
 }
 
+// DFSTORE (r21): every item in the store, and its tabs (game, category).
+export interface DerpyStoreTab {
+  game: string;
+  label: string;
+  categories: { id: string; label: string; blurb: string }[];
+}
+
+export interface DerpyStoreItem {
+  name: string;
+  game: string;
+  category: string;
+  displayName: string;
+  description: string;
+  price: number;
+  skins?: DerpySkin[];
+  personas?: {
+    id: string;
+    name: string;
+    temperament: string;
+    emblem: string;
+  }[];
+  fx?: {
+    trail: string[];
+    burst: string[];
+    dome: string;
+    accent: string;
+    shimmer: string;
+  };
+  fanfare?: { instruments: string; seconds: number };
+}
+
+/** Buy anything in the store (a skin pack, or since r21 any item). */
 export async function derpyBuyPack(
   pack: string,
 ): Promise<{ coins: number; owned: string[] }> {
   const result = await api<{ coins: number; owned: string[] }>("/store/buy", {
     method: "POST",
-    body: JSON.stringify({ pack }),
+    body: JSON.stringify({ item: pack }),
   });
   announce();
   return result;

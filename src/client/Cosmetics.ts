@@ -19,6 +19,7 @@ import {
   Skin,
   Subscription,
 } from "@openfront/shared/CosmeticSchemas";
+import { DERPY_DOME_STYLES } from "@openfront/shared/DerpyFx";
 import {
   PlayerCosmeticRefs,
   PlayerCosmetics,
@@ -33,6 +34,7 @@ import {
   purchaseCosmeticPack,
   purchaseWithCurrency,
 } from "./Api";
+import { wornDomeStyle } from "./derpy/DerpyLooks";
 import { DERPY_API } from "./derpy/DerpySession";
 import { isDesktopShell } from "./DesktopShell";
 import { showInGameAlert, showInGameConfirm } from "./InGameModal";
@@ -1554,6 +1556,8 @@ export async function getPlayerCosmeticsRefs(
     crownName,
     effects: Object.keys(effects).length > 0 ? effects : undefined,
     verified: opts.verified ? true : undefined,
+    // DFSTORE (r21): the Derp Store Dome style (the server checks ownership).
+    derpyDome: wornDomeStyle() ?? undefined,
   };
 }
 
@@ -1622,6 +1626,12 @@ export async function getPlayerCosmetics(
 
   if (refs.verified) {
     result.verified = true;
+  }
+
+  // DFSTORE (r21): singleplayer has no server to check it; the store only
+  // lets you choose styles you own.
+  if (refs.derpyDome && DERPY_DOME_STYLES.has(refs.derpyDome)) {
+    result.derpyDome = refs.derpyDome;
   }
 
   return result;

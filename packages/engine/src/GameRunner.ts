@@ -34,6 +34,7 @@ import { Game, Player } from "./game/Game";
 import { createGame } from "./game/GameImpl";
 import { placeName, placeSpawnName } from "./game/NameBoxCalculator";
 import { createNationsForGame } from "./game/NationCreation";
+import { applyNationPersonas } from "./game/NationPersonas";
 import {
   readSnapshotHeader,
   restoreGame,
@@ -69,12 +70,18 @@ export async function createGameRunner(
     );
   });
 
-  const nations = createNationsForGame(
-    gameStart,
-    gameMap.nations,
-    gameMap.additionalNations,
-    humans.length,
-    random,
+  // DFSTORE (r21): the host's AI personality packs (rules 5+).
+  const nations = applyNationPersonas(
+    createNationsForGame(
+      gameStart,
+      gameMap.nations,
+      gameMap.additionalNations,
+      humans.length,
+      random,
+    ),
+    gameStart.config,
+    config.derpyRules(),
+    gameStart.gameID,
   );
 
   const game: Game = createGame(

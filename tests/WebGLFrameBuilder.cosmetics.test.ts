@@ -1,3 +1,4 @@
+import { domeStyleIndex } from "@openfront/shared/DerpyFx";
 import type { PlayerCosmetics } from "@openfront/shared/WireSchemas";
 import { colord } from "colord";
 import { describe, expect, it } from "vitest";
@@ -12,10 +13,12 @@ const EQUIPPED = {
   flag: "https://cdn.example.com/flags/custom.svg",
   skin: { name: "lava", url: "https://cdn.example.com/skins/lava.png" },
   crown: { name: "gold", url: "https://cdn.example.com/crowns/gold.png" },
+  derpyDome: "fx_frost", // DFSTORE (r21)
 } as PlayerCosmetics;
 
 function setup(visibility: CosmeticVisibility = {}) {
   const skinCalls: Array<[number, string | null]> = [];
+  const domeCalls: Array<[number, number]> = [];
   const cosmeticUploads: PlayerStatic[][] = [];
   const effectUploads: Float32Array[] = [];
   const view = {
@@ -25,6 +28,8 @@ function setup(visibility: CosmeticVisibility = {}) {
     setLocalRailColor: () => {},
     setPlayerSkin: (sid: number, url: string | null) =>
       skinCalls.push([sid, url]),
+    setPlayerDomeStyle: (sid: number, style: number) =>
+      domeCalls.push([sid, style]),
     updatePlayerCosmetics: (players: PlayerStatic[]) =>
       cosmeticUploads.push(players),
     updateEffectPalette: (palette: Float32Array) => effectUploads.push(palette),
@@ -57,19 +62,30 @@ function setup(visibility: CosmeticVisibility = {}) {
     setNukeTrailSpiral: () => {},
     clearNukeTrailSpiral: () => {},
   };
-  return { builder, gameView, skinCalls, cosmeticUploads, effectUploads };
+  return {
+    builder,
+    gameView,
+    skinCalls,
+    domeCalls,
+    cosmeticUploads,
+    effectUploads,
+  };
 }
 
 describe("WebGLFrameBuilder cosmetics refresh", () => {
   it("clears hidden cosmetics from already-registered players", () => {
-    const { builder, gameView, skinCalls, cosmeticUploads } = setup();
+    const { builder, gameView, skinCalls, domeCalls, cosmeticUploads } =
+      setup();
     builder.syncPlayers(gameView);
     expect(skinCalls).toEqual([[SID, EQUIPPED.skin!.url]]);
+    // DFSTORE (r21): the Dome style goes to the renderer, and comes off too.
+    expect(domeCalls).toEqual([[SID, domeStyleIndex("fx_frost")]]);
     builder.effectResolved.add(SID);
 
     builder.refreshCosmetics(gameView);
 
     expect(skinCalls[1]).toEqual([SID, null]);
+    expect(domeCalls[1]).toEqual([SID, 0]);
     expect(cosmeticUploads).toHaveLength(1);
     expect(cosmeticUploads[0][0].flag).toBeUndefined();
     expect(cosmeticUploads[0][0].crown).toBeUndefined();
