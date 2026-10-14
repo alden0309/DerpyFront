@@ -632,6 +632,47 @@ export const TERMS: Record<string, Term> = {
       "Here, under In town: ask to travel with a player, or ask them along. They're asked, and may agree.",
     ch: "ships",
   },
+  // ---- GOV (r21): ExpedCore.ts, ExpedGrant.ts, GovDesk.ts, Revolution.ts, FoundingR21.ts
+  hands: {
+    name: "Hands",
+    what: "Woodsmen, porters and boatmen hired for an expedition's trip (rangers for a raid): paid once when it sets out, fed there and back.",
+    good: "Men carry the stores and paddle the canoes; for a raid, an outpost or a port more men make the work likelier (a level for each six beyond six). A big armed party puts a native town off trade or a mission.",
+    raise:
+      "Work › Expeditions, The party: 1.5 coins a hand (2 a ranger), and food (0.04 a day each). Losses on the way thin them.",
+    ch: "expeditions",
+  },
+  grant: {
+    name: "Grant",
+    what: "Gold from the colony's treasury toward an expedition you're getting up, given by the governor; it's his leave as well (a raid with a grant is a raid by his commission).",
+    good: "It pays the cost (all of it, or part); what isn't spent goes back to the treasury.",
+    raise:
+      "Ask in person at the capital (an answer in days) or by letter (two or three weeks, a little less likely). He weighs the treasury, what the kind is worth to the colony, what he thinks of you, your renown and favour, and the party's odds. A player who governs answers for himself.",
+    ch: "expeditions",
+  },
+  duties: {
+    name: "Customs duties",
+    what: "What the colony's ports charge on goods coming in and going out: a free port, light, the customary, or heavy duties.",
+    good: "Heavy duties fill the treasury and please London; light ones, or none, bring trade and the merchants' goodwill.",
+    raise:
+      "The governor sets them (Society › Office, the governor's desk), once in six months.",
+    ch: "governing",
+  },
+  independence: {
+    name: "Breaking with the crown",
+    what: "A colony's war to be free of its crown: put to the assembly by the governor, carried by most of those voting, and declared.",
+    good: "Won (eight years held, or three of the crown's armies beaten), the colony is its own nation and the governor frames its government. Crushed (the capital lost half a year), the governor hangs and the patriots are hunted.",
+    raise:
+      "The house leans by its party (the country party for, the court party against), the colony's quarrel with the crown (its own mind, the crown's favour, demands defied) and the governor's weight. The crown's regiments in the colony go over to it; counties where its friends are strong may hold for the King.",
+    ch: "independence",
+  },
+  proprietor: {
+    name: "Proprietor",
+    what: "The founder of a settlement, who holds its land and names its officers (a seigneur among the French, an adelantado among the Spanish, a patroon among the Dutch).",
+    good: "Pay and renown as the settlement grows; and its first mayor's chair, for a year, by the town's charter.",
+    raise: "Plant a settlement (Society › Colony).",
+    ch: "founding",
+  },
+  // ---- end GOV (r21)
 };
 
 /** A term's explanation, as a tooltip. */

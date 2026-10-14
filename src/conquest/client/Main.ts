@@ -33,6 +33,7 @@ import "./chamber.css"; // CHAMBER (r16): the factions, the session, a seat's wo
 import "./crown.css"; // CROWN (r18): regiments from Europe, an expedition's petition
 import "./dice.css"; // DICE (r14): Liar's dice
 import "./econ.css"; // ECON (r17): bonds, leave, a company's two legs
+import "./gov.css"; // GOV (r21): expeditions, the governor's desk, independence
 import "./home.css";
 import "./intrigue.css"; // INTRIGUE (r15): hearts and schemes
 import "./labour.css"; // LABOUR (r15): those held in bondage

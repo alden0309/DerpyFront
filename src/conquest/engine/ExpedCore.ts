@@ -639,7 +639,7 @@ export function hirelings(
     const age = ageOf(s, c);
     if (age < 20 || age > 58) continue;
     if (c.nation !== me.nation) continue;
-    if (busyLeading(s, id)) continue;
+    if (busyLeading(s, id, myForming(s, life.seat)?.id)) continue;
     seen.add(id);
     out.push({
       c,
@@ -651,10 +651,11 @@ export function hirelings(
   return out.sort((a, b) => b.skill - a.skill || a.c.id - b.c.id).slice(0, max);
 }
 
-/** Someone already leading (or with) a party. */
-export function busyLeading(s: GameState, c: number): boolean {
+/** Someone already leading (or with) a party (other than the one excepted: yours, being got up). */
+export function busyLeading(s: GameState, c: number, except = -1): boolean {
   return expedOf(s).list.some(
-    (x) => x.leader === c || x.members.some((m) => m.c === c),
+    (x) =>
+      x.id !== except && (x.leader === c || x.members.some((m) => m.c === c)),
   );
 }
 

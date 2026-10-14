@@ -1,0 +1,114 @@
+/* GOV (r21): expeditions (Work › Expeditions), the governor's desk and the
+   question of independence (Society › Office), founding widened. Keeps the
+   ledger's look: ruled vellum, iron-gall ink, small chips; nothing changes
+   size on hover. */
+
+.cq-exp-kinds {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+  gap: 0.4rem;
+  margin: 0.3rem 0;
+}
+.cq-exp-kind {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--rule);
+  background: rgba(255, 250, 235, 0.45);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cq-exp-kind b {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1.02rem;
+}
+.cq-exp-kind .small {
+  color: var(--ink-soft);
+  line-height: 1.25;
+}
+.cq-exp-kind.on {
+  border-color: var(--sepia);
+  box-shadow: inset 0 0 0 1px var(--sepia);
+  background: rgba(201, 155, 58, 0.14);
+}
+.cq-exp-kind:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 1px;
+}
+
+.cq-exp-sites {
+  list-style: none;
+  margin: 0.25rem 0;
+  padding: 0;
+}
+.cq-exp-sites > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.35rem;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-exp-sites > li.on {
+  background: rgba(201, 155, 58, 0.12);
+}
+.cq-exp-site {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.45rem;
+  min-width: 0;
+  cursor: pointer;
+}
+.cq-exp-site input {
+  margin: 0;
+  align-self: center;
+}
+.cq-exp-site b {
+  font-family: var(--fell);
+  font-weight: 400;
+}
+.cq-exp-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.9rem;
+  margin: 0.2rem 0;
+}
+.cq-exp-card .cq-btnrow {
+  margin-top: 0.3rem;
+}
+.cq-link-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem 0.8rem;
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cq-exp-kind-text {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .cq-exp-kinds {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .cq-exp-kind .small,
+  .cq-exp-kind .cq-chip {
+    display: none;
+  }
+  .cq-exp-kind-text {
+    display: block;
+  }
+}

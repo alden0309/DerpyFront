@@ -2664,6 +2664,38 @@ export class MapView {
           fog,
         );
     }
+    // GOV (r21): your colony's expeditions (and players' parties) travel on the map the same way.
+    if (o.me >= 0)
+      for (const x of s.exped?.list ?? []) {
+        if (x.n !== o.me || x.stage === "forming" || !x.route?.length) continue;
+        const total = x.legs.reduce((a, b) => a + b, 0);
+        const ms: Mission = {
+          id: x.id,
+          kind: "explore",
+          leader: x.leader,
+          from: x.from,
+          target: x.target,
+          start: x.start,
+          arrive: x.stage === "back" ? x.home - total : x.arrive,
+          home: x.home,
+          stage: x.stage === "back" ? "back" : "out",
+          men: x.men,
+          incident: false,
+          route: x.route,
+          sea: x.sea,
+          legs: x.legs,
+        };
+        this.drawMission(
+          ms,
+          day,
+          figure,
+          now,
+          s.nations[x.n].color,
+          sx,
+          sy,
+          fog,
+        );
+      }
 
     // Path of the selected army, and the preview of a move.
     const sel =

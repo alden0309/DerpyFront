@@ -601,7 +601,7 @@ export function goExped(g: ConquestGame, life: Life): string | null {
   x.arrive = s.day + days;
   x.home = x.arrive + KINDS[x.kind].work + days;
   x.stage = "out";
-  x.men = menOf(draftOf(x));
+  x.men = menOf({ ...draftOf(x), men: undefined });
   x.next = s.day + Math.max(1, Math.floor(days / 2));
   x.scenes = [];
   x.asked = [];

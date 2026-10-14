@@ -14,7 +14,14 @@ import {
   supplyCost,
   TERMS,
 } from "../../engine/Founding";
+import {
+  foundingCosts,
+  otherCrowns,
+  PLANT,
+  seasoningOdds,
+} from "../../engine/FoundingR21"; // GOV (r21)
 import { interactionView } from "../../engine/Interactions";
+import { chanceWords } from "../../engine/Odds"; // GOV (r21)
 // POWER (r12): office powers, one office at a time, bills, the court roll.
 import { BILL_KEYS, billCheck, BILLS } from "../../engine/Assembly";
 import {
@@ -61,11 +68,13 @@ import { SEATS } from "../../engine/Types";
 import { customFlag, flagFor } from "../Flags";
 import { play } from "../Sound";
 import { GOOD_NAMES, nationName, TERRAIN_NAMES } from "../Text";
+import { num } from "../Tip"; // GOV (r21)
 import { pollChip } from "./Canvass"; // POLLS (r16)
 import { appointerWhere } from "./Chair"; // CHAIR (r16)
 import {
   action,
   bar,
+  breakdownTip, // GOV (r21)
   charLink,
   GameUi,
   nationLink,
@@ -77,6 +86,7 @@ import { verdictChip } from "./Here";
 import { officeLeave } from "./LeaveUi"; // ECON (r17)
 import { price, splitPrice } from "./Price"; // LEDGER (r15)
 import { steadyOrder } from "./Steady";
+import { term } from "./Terms"; // GOV (r21)
 
 // ---------------------------------------------------------------- offices
 
@@ -611,7 +621,7 @@ export function officesPage(ui: GameUi, p: number): TemplateResult {
 
 // ---------------------------------------------------------------- a settlement
 
-const foundDraft = { terms: 1, free: false, supply: 10 };
+const foundDraft = { terms: 1, free: false, supply: 10, under: -1 }; // GOV (r21): under, another crown
 
 export function foundingPage(ui: GameUi): TemplateResult {
   const s = ui.s;
@@ -670,18 +680,11 @@ export function foundingPage(ui: GameUi): TemplateResult {
                   )}
                 </select>
               </label>
-              <label class="cq-check">
-                <input
-                  type="checkbox"
-                  .checked=${foundDraft.free}
-                  @change=${() => {
-                    foundDraft.free = !foundDraft.free;
-                    ui.redraw();
-                  }}
-                />
-                Your own colony, answering to no crown (the old colony won't
-                like it)
-              </label>
+              ${
+                allegiancePicker(
+                  ui,
+                ) /* GOV (r21): your crown, another crown, or none */
+              }
             </div>
             <ul class="cq-sites">
               ${sites.map((x) => {
@@ -713,6 +716,9 @@ export function foundingPage(ui: GameUi): TemplateResult {
                         p: x.p,
                         free: foundDraft.free,
                         arg: foundDraft.terms,
+                        ...(foundDraft.under >= 0
+                          ? { crown: foundDraft.under }
+                          : {}), // GOV (r21)
                       })}
                   >
                     Plant it here${price(FOUND.start, { have: life.purse })}
@@ -735,15 +741,22 @@ export function foundingPage(ui: GameUi): TemplateResult {
     .map((c) => ({ c, v: interactionView(s, ui.w, life, c.id, "settle") }))
     .filter((x) => x.v.check.ok)
     .slice(0, 12);
-  const gov = s.chars[s.nations[me.nation]?.ruler ?? -1];
-  const atCapital = s.nations[me.nation]?.capital === life.prov;
+  // GOV (r21): planted for another crown, its governor grants the charter.
+  const forN = f.under ?? me.nation;
+  const gov = s.chars[s.nations[forN]?.ruler ?? -1];
+  const atCapital = s.nations[forN]?.capital === life.prov;
   return html`${head}
     <div class="cq-callout ${f.stage === "underway" ? "lit" : ""}">
       <p>
         ${f.stage === "underway"
           ? "On the way to"
           : "Getting up a settlement at"}
-        <b>${target.name}</b>${f.independent ? ", your own colony" : ""}.
+        <b>${target.name}</b>${f.independent
+          ? ", your own colony"
+          : f.under !== undefined
+            ? html`, for
+              ${nationName(s.nations[f.under]?.name ?? "another crown")}`
+            : ""}.
         ${tribesfolk(s.provinces[f.target]) > 0
           ? html`<span class="cq-chip bad">natives live there</span>`
           : nothing}
@@ -858,6 +871,11 @@ export function foundingPage(ui: GameUi): TemplateResult {
             </div>`
           : nothing}`,
     )}
+    ${
+      foundingOutlook(
+        ui,
+      ) /* GOV (r21): the costs, the first year's odds, what the founder gets */
+    }
     ${f.stage === "planning"
       ? html`<div class="cq-btnrow end">
           ${action(
@@ -1223,4 +1241,98 @@ export function constituteModal(ui: GameUi): TemplateResult {
       <button class="cq-btn quiet" @click=${() => ui.modal(null)}>Later</button>
     </div>
   </div>`;
+}
+
+// ---------------------------------------------------------------- GOV (r21): founding, widened
+
+/** Under your crown, for another crown, or your own colony. */
+function allegiancePicker(ui: GameUi): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const others = otherCrowns(s, life);
+  const value = foundDraft.free
+    ? "free"
+    : foundDraft.under >= 0
+      ? String(foundDraft.under)
+      : "own";
+  return html`<label class="cq-field">
+      <span>For whom</span>
+      <select
+        @change=${(e: Event) => {
+          const v = (e.target as HTMLSelectElement).value;
+          foundDraft.free = v === "free";
+          foundDraft.under = v === "free" || v === "own" ? -1 : Number(v);
+          ui.redraw();
+        }}
+      >
+        <option value="own" ?selected=${value === "own"}>Your own crown</option>
+        ${others.map(
+          (n) =>
+            html`<option value=${n} ?selected=${value === String(n)}>
+              For another crown: ${nationName(s.nations[n].name)}
+            </option>`,
+        )}
+        <option value="free" ?selected=${value === "free"}>
+          Your own colony, answering to no crown
+        </option>
+      </select>
+    </label>
+    <p class="cq-muted small">
+      ${foundDraft.free
+        ? `Your own colony: renown +${PLANT.renown.free}, and you frame its government. The old colony won't like it.`
+        : foundDraft.under >= 0
+          ? `For another crown (as Peter Minuit planted New Sweden for the Swedes): their governor grants the charter, you and your families become theirs, renown +${PLANT.renown.other}; your old colony thinks the worse of them, and your favour at home is halved.`
+          : `Under your crown: with the governor's charter, renown +${PLANT.renown.charter} and favour +${PLANT.favour}; as squatters, +${PLANT.renown.squatters} and the governor's anger.`}
+    </p>`;
+}
+
+/** What the venture comes to: the costs left, the first year's odds, and the founder's place. */
+function foundingOutlook(ui: GameUi): TemplateResult | typeof nothing {
+  const s = ui.s;
+  const life = ui.life!;
+  const f = life.founding;
+  if (!f) return nothing;
+  const c = foundingCosts(f);
+  const hard = seasoningOdds(s, ui.w, life);
+  const how = f.independent
+    ? "free"
+    : f.under !== undefined
+      ? "other"
+      : f.charter === "granted"
+        ? "charter"
+        : "squatters";
+  return section(
+    "What it comes to",
+    html`<p class="small">
+        Still to pay: <b>${c.left} coins</b> (supplies
+        ${Math.max(0, c.supplies - Math.floor(f.supplies))}, the families'
+        passage ${c.passage}).
+      </p>
+      <p class="small">
+        A hard first year (a starving time: a quarter of the settlers lost,
+        renown ${PLANT.hardRenown}):
+        ${num(chanceWords(hard.total), () =>
+          breakdownTip(
+            "The odds of a hard first year",
+            hard,
+            (v) => `${v > 0 ? "+" : ""}${Math.round(v * 100)} in 100`,
+            [`In all: ${Math.round(hard.total * 100)}%.`],
+          ),
+        )}.
+        More supplies than you need, arriving in spring and your own leadership
+        and farming make it likelier to go well.
+      </p>
+      <p class="small">
+        Planted: renown
+        +${PLANT.renown[how]}${how === "charter"
+          ? `, favour +${PLANT.favour}`
+          : ""};
+        ${f.independent
+          ? "you lead the new colony, and frame its government."
+          : html`you hold its land as its ${term("proprietor", "proprietor")}
+            (seigneur, adelantado, patroon, as your people say), and sit as the
+            town's first mayor (maire, alcalde, burgomaster) for its first year,
+            if you hold no other office.`}
+      </p>`,
+  );
 }

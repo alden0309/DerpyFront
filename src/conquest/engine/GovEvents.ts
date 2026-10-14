@@ -1066,7 +1066,7 @@ export function matterFor(
     w: hash01(s.day, n, i, 0x7b),
   })).sort((a, b) => a.w - b.w);
   for (const { m } of order) {
-    if ((life.cooldowns[`ev:${m.def.key}`] ?? 0) > s.day) continue;
+    if ((life.cooldowns[`gov:${m.def.key}`] ?? 0) > s.day) continue;
     const ctx = m.when(g, n, r);
     if (ctx) return { key: m.def.key, ctx };
   }
@@ -1090,7 +1090,7 @@ hooks.lifeMonthly.push((g, life) => {
   d.nextMatter =
     s.day + DESK.gap[0] + Math.floor(r.next() * (DESK.gap[1] - DESK.gap[0]));
   if (!m) return;
-  touchLife(g, life).cooldowns[`ev:${m.key}`] = s.day + DESK.rest;
+  touchLife(g, life).cooldowns[`gov:${m.key}`] = s.day + DESK.rest;
   raiseEvent(g, life, m.key, m.ctx);
 });
 
