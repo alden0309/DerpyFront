@@ -1,6 +1,7 @@
 import { GameAwards } from "@openfront/engine-api/game/Awards";
 import { DERPY_RULES } from "@openfront/engine-api/Schemas";
 import {
+  DERP_COINS,
   DERP_COINS_MIN_GAME_SECONDS,
   derpCoinsForGame,
 } from "@openfront/shared/DerpCoins";
@@ -78,8 +79,8 @@ describe("Derp Coins", () => {
   };
 
   test("everyone who finishes a game gets something", () => {
-    // SITE (r19): 6, a fifth more than the 5 it was.
-    expect(derpCoinsForGame(base).total).toBe(6);
+    // SITE (r22): 7, a sixth more than the 6 it was (5 before r19).
+    expect(derpCoinsForGame(base).total).toBe(7);
   });
 
   test("winning, land, conquests, gold and awards all pay", () => {
@@ -92,9 +93,9 @@ describe("Derp Coins", () => {
       botsConquered: 4,
       awards: ["mvp", "ships"],
     });
-    // SITE (r19): 6 + 38 + floor(12 + 4.8) + 24 (capped) + 42 + 60
-    // (it was 5 + 31 + (9 + 4) + 20 + 35 + 50 = 154).
-    expect(r.total).toBe(186);
+    // SITE (r22): 7 + floor(44.59) + floor(14.1 + 5.6) + 28 (capped) + 49
+    // + 70 (r19 paid 6 + 38 + 16 + 24 + 42 + 60 = 186; before it, 154).
+    expect(r.total).toBe(217);
     expect(r.lines.map((l) => l.line)).toEqual([
       "played",
       "territory",
@@ -121,6 +122,54 @@ describe("Derp Coins", () => {
         durationSeconds: DERP_COINS_MIN_GAME_SECONDS - 1,
       }).total,
     ).toBe(0);
+  });
+
+  // SITE (r22): DerpyFront pays about a sixth more, every way a game pays.
+  test("every way a game pays is up by 15 to 20 percent on r19", () => {
+    const r19 = {
+      played: 6,
+      perTerritoryPercent: 0.6,
+      maxTerritory: 60,
+      perConquest: 4,
+      perBotConquest: 1.2,
+      maxConquests: 36,
+      coinsPerMillionGold: 1_000_000 / 420_000,
+      maxGold: 24,
+      mvp: 30,
+      otherAward: 12,
+      win: 60,
+    };
+    const now = {
+      ...DERP_COINS,
+      coinsPerMillionGold: 1_000_000 / Number(DERP_COINS.goldPerCoin),
+    };
+    for (const [k, before] of Object.entries(r19)) {
+      const after = now[k as keyof typeof now] as number;
+      expect(after / before, k).toBeGreaterThanOrEqual(1.15);
+      expect(after / before, k).toBeLessThanOrEqual(1.2);
+    }
+    // A middling game: some land, a conquest, a little gold, no win.
+    const middling = {
+      ...base,
+      peakTerritoryPercent: 22,
+      goldEarned: 3_000_000n,
+      humansAndNationsConquered: 1,
+      botsConquered: 5,
+    };
+    // 7 + 15 + floor(4.7 + 7) + 8 = 41 (r19 paid 6 + 13 + 10 + 7 = 36).
+    expect(derpCoinsForGame(middling).total).toBe(41);
+  });
+
+  test("whole percents of land pay whole coins (no float slips)", () => {
+    // 90 × 0.7 is 62.99999999999999 in floating point.
+    const r = derpCoinsForGame({ ...base, peakTerritoryPercent: 90 });
+    expect(r.lines.find((l) => l.line === "territory")?.coins).toBe(63);
+    const c = derpCoinsForGame({
+      ...base,
+      humansAndNationsConquered: 2,
+      botsConquered: 24,
+    });
+    expect(c.lines.find((l) => l.line === "conquests")?.coins).toBe(42);
   });
 });
 
@@ -156,8 +205,9 @@ describe("playerLine", () => {
       nukes: 3, // warheads aren't launches
       awards: ["mvp"],
     });
-    // SITE (r19): 6 + 15 + floor(12 + 3.6) + 3 + 30 + 60 (it was 107).
-    expect(line.coins).toBe(129);
+    // SITE (r22): 7 + floor(17.5) + floor(14.1 + 4.2) + 4 + 35 + 70 (r19
+    // paid 129; before it, 107).
+    expect(line.coins).toBe(151);
   });
 
   test("team wins count for every listed member", () => {
@@ -292,14 +342,15 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
       { kind: "mvp", name: "name_AAAAAAAA", clientID: "AAAAAAAA", value: 900 },
     ];
     const lines = await recordGame(r, awards);
-    // SITE (r19): 6 + 24 + 8 + 4 + 30 + 60 (it was 110).
-    expect([...lines.values()].map((l) => l.coins)).toEqual([132]);
+    // SITE (r22): 7 + 28 + floor(9.4) + 5 + 35 + 70 (r19 paid 132; before
+    // it, 110).
+    expect([...lines.values()].map((l) => l.coins)).toEqual([154]);
 
     // Saving it again (a second vote, say) changes nothing.
     expect((await recordGame(r, awards)).size).toBe(0);
 
     const me = await call("/me", { token: alden.token });
-    expect(me.json.account.coins).toBe(132);
+    expect(me.json.account.coins).toBe(154);
 
     const board = await call("/leaderboard");
     expect(board.json.players[0]).toMatchObject({
@@ -309,7 +360,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
       bestTerritoryPct: 40,
       goldEarned: "2000000",
       mvps: 1,
-      coins: 132,
+      coins: 154,
     });
 
     const profile = await call("/players/alden");
@@ -319,7 +370,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
       map: "Orlando - Detailed",
       won: true,
       awards: ["mvp"],
-      coins: 132,
+      coins: 154,
     });
 
     // The front page's latest games name the account, not the in-game name.
@@ -354,14 +405,14 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     const r = record([quit], undefined, 300, "GAME0003");
     const lines = await recordGame(r, [], () => 1);
     expect([...lines.values()]).toEqual([
-      expect.objectContaining({ won: false, peakTerritoryPct: 0, coins: 6 }),
+      expect.objectContaining({ won: false, peakTerritoryPct: 0, coins: 7 }),
     ]);
     expect((await call("/game/GAME0003")).status).toBe(200);
     // Put Alden's balance back where the later tests expect it.
     const pg = await import("pg");
     const c = new pg.default.Client({ connectionString: TEST_DB });
     await c.connect();
-    await c.query("UPDATE derpy_accounts SET coins = coins - 6 WHERE id = 1");
+    await c.query("UPDATE derpy_accounts SET coins = coins - 7 WHERE id = 1");
     await c.end();
   });
 
@@ -372,7 +423,7 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     );
     expect(classics.price).toBe(1500);
 
-    // 132 coins isn't enough yet.
+    // 154 coins isn't enough yet.
     const poor = await call("/store/buy", {
       body: { pack: "classics" },
       token: alden.token,
