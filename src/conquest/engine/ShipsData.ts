@@ -155,14 +155,16 @@ export const CHARTER = {
   offers: [2, 3, 4],
   /** A good name brings more: above this, one more offer. */
   repMore: 70,
+  /** A great port's great lading each month: this many loads, to a port at least this far. */
+  great: { loads: [150, 200, 250, 300], minKm: 800 },
   /** Freight: coins a load, and a load per 100 km of the passage. */
-  freight: { perLoad: 0.02, per100: 0.013, minKm: 80, maxKm: 2600 },
+  freight: { perLoad: 0.03, per100: 0.018, minKm: 80, maxKm: 2600 },
   /** Passengers: coins a head, and a head per 100 km. */
-  passengers: { perHead: 0.25, per100: 0.05 },
-  /** The packet: a month's pay by her kind, for this many months, between ports at most this far apart. */
+  passengers: { perHead: 0.4, per100: 0.08 },
+  /** The packet: a month's pay by her kind (about her keep and crew, and a third more), for this many months, between ports at most this far apart. */
   packet: {
     months: 3,
-    pay: { canoe: 0, shallop: 3, sloop: 6, schooner: 8, brig: 9, ship: 0 } as Record<
+    pay: { canoe: 0, shallop: 3.5, sloop: 8, schooner: 15, brig: 28, ship: 0 } as Record<
       BoatKind,
       number
     >,
@@ -197,9 +199,9 @@ export const PASSAGE_RISK = {
   late: 0.18,
   lateShare: [0.3, 0.8] as [number, number],
   /** Battered by the sea: the chance on a passage, and the damage. */
-  damage: { p: 0.15, hull: [4, 12] as [number, number] },
+  damage: { p: 0.06, hull: [3, 8] as [number, number] },
   /** Wear per 500 km at sea. */
-  wear: 1.5,
+  wear: 0.5,
 };
 
 /** Her name on the waterfront: what moves it. */

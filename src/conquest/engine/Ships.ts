@@ -560,6 +560,8 @@ export function chartersAt(s: GameState, w: World, p: number): Charter[] {
     list.length
       ? list[Math.min(list.length - 1, Math.floor(rng.next() * rng.next() * list.length))]
       : undefined;
+  // A great port has a great lading every month, for a far port: work for a brig or a ship.
+  const far = lanes.filter(([, km]) => km >= CHARTER.great.minKm);
   for (let slot = 0; slot < n; slot++) {
     let roll = rng.next() * total;
     let kind: CharterKind = "freight";
@@ -570,13 +572,17 @@ export function chartersAt(s: GameState, w: World, p: number): Charter[] {
         break;
       }
     }
+    const great = slot === 0 && level >= 2 && far.length > 0;
+    if (great) kind = "freight";
     const key = `${p}:${month}:${slot}`;
     const by = shipper(s, rng, p);
     if (kind === "freight" || kind === "smuggling") {
-      const lane = near(lanes)!;
+      const lane = great ? far[rng.int(0, far.length - 1)] : near(lanes)!;
       const goods = kind === "smuggling" ? (["sugar", "cloth", "tools", "guns"] as Good[]) : freightGoods(w, p);
       const good = goods[rng.int(0, goods.length - 1)];
-      const loads = LOADS[Math.min(LOADS.length - 1, rng.int(0, 3 + level * 2))];
+      const loads = great
+        ? CHARTER.great.loads[rng.int(0, CHARTER.great.loads.length - 1)]
+        : LOADS[Math.min(LOADS.length - 1, rng.int(0, 4 + level * 2))];
       const base = loads * (F.perLoad + (F.per100 * lane[1]) / 100);
       out.push({
         key,
@@ -591,7 +597,7 @@ export function chartersAt(s: GameState, w: World, p: number): Charter[] {
       });
     } else if (kind === "passengers") {
       const lane = near(lanes)!;
-      const heads = rng.int(2, 6 + level * 3);
+      const heads = rng.int(2, 6 + level * 5);
       const P = CHARTER.passengers;
       out.push({
         key,
