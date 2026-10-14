@@ -11,7 +11,7 @@
 //   against what they'd ask (by their skill for the role), what they think
 //   of you, the outfit's name, and whether the role is beneath them
 //   (`signOdds`, shown before you offer).
-// - A player is offered a place (`offerPlace`): a scene ("p2p-hire") to
+// - A player is offered a place (`offerPlace`): a scene ("p2p-berth") to
 //   accept or decline. Accepted, it's their work (their Work page, a rung
 //   titled by the role, the pay you set); they're paid by the days they're
 //   at their post, from your purse, at their month's turn, and they leave
@@ -467,7 +467,7 @@ export function offerPlace(
     host.owner,
     `You offer ${charName(s.chars[them.c])} a place as ${role.title.toLowerCase()} of ${host.name}, at ${o.pay} a month.`,
   );
-  raiseEvent(g, them, "p2p-hire", { c: host.owner.c, o: o.id });
+  raiseEvent(g, them, "p2p-berth", { c: host.owner.c, o: o.id });
   wake(g, them, `${charName(meOf(s, host.owner))} offers you a place.`);
   return null;
 }
@@ -486,7 +486,7 @@ export function withdrawOffer(
   const them = lifeOfSeat(g.s, o.seat);
   if (them) {
     touchLife(g, them).events = them.events.filter(
-      (e) => !(e.key === "p2p-hire" && e.ctx.o === id),
+      (e) => !(e.key === "p2p-berth" && e.ctx.o === id),
     );
   }
   return null;

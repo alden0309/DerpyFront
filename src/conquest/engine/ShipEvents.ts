@@ -26,7 +26,7 @@ function offerOf(g: ConquestGame, ctx: LCtx) {
 
 const SCENES = (): LifeEventDef[] => [
   {
-    key: "p2p-hire",
+    key: "p2p-berth",
     pool: "raised",
     cooldown: 0,
     scene: "docks",
@@ -153,5 +153,5 @@ export function shipEvents(): LifeEventDef[] {
 
 /** Left unanswered, each is declined (its last choice). */
 export function shipQuiet(): Record<string, number> {
-  return { "p2p-hire": 1, "p2p-party-ask": 1, "p2p-party-invite": 1 };
+  return { "p2p-berth": 1, "p2p-party-ask": 1, "p2p-party-invite": 1 };
 }

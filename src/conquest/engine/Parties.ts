@@ -140,7 +140,8 @@ export function leaveCompany(g: ConquestGame, life: Life): void {
   touchLife(g, life);
   const next = t.path[0];
   const where = next !== undefined ? ` at ${g.map.provinces[next]?.name ?? "the next stop"}` : "";
-  if (t.with.boat === undefined && life.party) leaveParty(g, life, `You'll leave the party${where}.`);
+  if (life.party && (t.with.boat === undefined || t.with.seat === life.party.lead))
+    leaveParty(g, life, `You'll leave the party${where}.`);
   else journal(g, life, `You'll go ashore${where}.`);
   delete t.with;
   if (next !== undefined) {
