@@ -8,6 +8,7 @@ import {
   fxPreview,
   mapStylePreview,
   personaCard,
+  skinArt,
 } from "../../derpland/StorePreviews";
 import {
   itemsInTab,
@@ -421,12 +422,11 @@ export class DerpyStorePage extends BaseModal {
             skins.map((s) => ({
               name: s.name,
               label: skinName(s),
-              art: html`<img
-                src=${s.url}
-                alt=""
-                loading="lazy"
-                class="aspect-square w-full rounded-lg bg-black/30 object-cover"
-              />`,
+              art: skinArt(s, {
+                cls: "aspect-square w-full rounded-lg bg-black/30 object-cover",
+                moves: translateText("derpy.skin_moves"),
+                hint: (m) => translateText(`derpy.skin_motion_${m}`),
+              }),
             })),
           )}
         </section>`;
@@ -578,13 +578,13 @@ export class DerpyStorePage extends BaseModal {
       return html`<div class="grid grid-cols-3 gap-3 sm:grid-cols-5">
         ${i.skins.map(
           (s) =>
-            html`<figure class="m-0 flex flex-col items-center gap-1.5">
-              <img
-                src=${s.url}
-                alt=${skinName(s)}
-                loading="lazy"
-                class="aspect-square w-full rounded-lg bg-black/30 object-cover"
-              />
+            html`<figure class="m-0 flex w-full flex-col items-center gap-1.5">
+              ${skinArt(s, {
+                alt: skinName(s),
+                cls: "aspect-square w-full rounded-lg bg-black/30 object-cover",
+                moves: translateText("derpy.skin_moves"),
+                hint: (m) => translateText(`derpy.skin_motion_${m}`),
+              })}
               <figcaption
                 class="text-center text-xs leading-tight text-white/65"
               >

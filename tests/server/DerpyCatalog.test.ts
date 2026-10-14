@@ -1,3 +1,9 @@
+import {
+  DERPY_SKIN_MOTION,
+  SKIN_MOTIONS,
+  skinMotionCode,
+  skinNameFromUrl,
+} from "@openfront/shared/DerpySkinMotion";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -124,6 +130,10 @@ describe("the Derp Store catalog", () => {
       politics: 3000,
       space: 3500,
       armada: 5000,
+      // SITE (r22)
+      sweets: 2000,
+      tiles: 2500,
+      motion: 4500,
     });
   });
 
@@ -165,25 +175,107 @@ describe("the Derp Store catalog", () => {
     }
   });
 
-  test.each(DERPY_PACKS.find((p) => p.name === "armada")!.skins)(
-    "$name is a 1024×1024 opaque PNG that tiles seamlessly",
-    (skin) => {
-      const png = decodePng(path.join(SKINS, skin.url));
-      expect([png.width, png.height]).toEqual([1024, 1024]);
-      for (let i = 3; i < png.rgba.length; i += 4 * 997) {
-        expect(png.rgba[i]).toBe(255);
+  test.each(
+    ["armada", "sweets", "tiles", "motion"].flatMap(
+      (name) => DERPY_PACKS.find((p) => p.name === name)!.skins,
+    ),
+  )("$name is a 1024×1024 opaque PNG that tiles seamlessly", (skin) => {
+    const png = decodePng(path.join(SKINS, skin.url));
+    expect([png.width, png.height]).toEqual([1024, 1024]);
+    for (let i = 3; i < png.rgba.length; i += 4 * 997) {
+      expect(png.rgba[i]).toBe(255);
+    }
+    // Across the wrap (last column to first, last row to first) the image
+    // must change no more than it does between neighbours inside it.
+    for (const vertical of [true, false]) {
+      const seam = lineDiff(png, 1023, 0, vertical);
+      let inside = 0;
+      for (const at of [255, 511, 767]) {
+        inside += lineDiff(png, at, at + 1, vertical);
       }
-      // Across the wrap (last column to first, last row to first) the image
-      // must change no more than it does between neighbours inside it.
-      for (const vertical of [true, false]) {
-        const seam = lineDiff(png, 1023, 0, vertical);
-        let inside = 0;
-        for (const at of [255, 511, 767]) {
-          inside += lineDiff(png, at, at + 1, vertical);
-        }
-        inside /= 3;
-        expect(seam).toBeLessThan(inside * 1.6 + 3);
+      inside /= 3;
+      expect(seam).toBeLessThan(inside * 1.6 + 3);
+    }
+  });
+});
+
+// SITE (r22): three new packs (15 skins), and skins that move.
+describe("the r22 skin packs", () => {
+  const NEW = ["sweets", "tiles", "motion"];
+
+  test("three new five-skin packs, priced like the others", () => {
+    const prices = DERPY_PACKS.filter((p) => !NEW.includes(p.name)).map(
+      (p) => p.price,
+    );
+    for (const name of NEW) {
+      const pack = findPack(name)!;
+      expect(pack.skins).toHaveLength(5);
+      expect(pack.price).toBeGreaterThanOrEqual(Math.min(...prices));
+      expect(pack.price).toBeLessThanOrEqual(Math.max(...prices));
+      expect(pack.price % 500).toBe(0);
+      for (const s of pack.skins) {
+        expect(s.name.startsWith(`${name}_`)).toBe(true);
+        expect(s.url).toBe(`/derpy-skins/${s.name}.png`);
       }
-    },
-  );
+    }
+    expect(NEW.flatMap((n) => findPack(n)!.skins)).toHaveLength(15);
+  });
+
+  test("nothing borrows a brand's or a franchise's name", () => {
+    const text = NEW.map((n) => findPack(n)!)
+      .flatMap((p) => [
+        p.displayName,
+        p.description,
+        ...p.skins.map((s) => s.displayName),
+      ])
+      .join(" ")
+      .toLowerCase();
+    for (const word of [
+      "haribo",
+      "skittles",
+      "m&m",
+      "krispy",
+      "dunkin",
+      "baskin",
+      "ben & jerry",
+      "tiffany",
+      "pez",
+      "disney",
+      "pokemon",
+      "minecraft",
+      "frozen",
+    ]) {
+      expect(text).not.toContain(word);
+    }
+  });
+
+  test("the moving skins are the Nature in Motion pack, one motion each", () => {
+    const moving = allDerpySkins().filter((s) => s.motion);
+    expect(moving.map((s) => s.name).sort()).toEqual(
+      Object.keys(DERPY_SKIN_MOTION).sort(),
+    );
+    expect(findPack("motion")!.skins.every((s) => s.motion)).toBe(true);
+    for (const s of moving) {
+      expect(SKIN_MOTIONS).toContain(s.motion);
+      expect(s.motion).toBe(DERPY_SKIN_MOTION[s.name]);
+    }
+    // Every kind of motion is used.
+    expect(new Set(moving.map((s) => s.motion)).size).toBe(SKIN_MOTIONS.length);
+  });
+
+  test("the shader's motion code from a skin's URL, on a CDN or hashed", () => {
+    expect(skinMotionCode("/derpy-skins/motion_clouds.png")).toBe(
+      SKIN_MOTIONS.indexOf("drift") + 1,
+    );
+    expect(
+      skinMotionCode("https://cdn.example.com/derpy-skins/motion_honey.png"),
+    ).toBe(SKIN_MOTIONS.indexOf("shimmer") + 1);
+    expect(skinMotionCode("/derpy-skins/motion_lava.abc123.png")).toBe(
+      SKIN_MOTIONS.indexOf("ripple") + 1,
+    );
+    expect(skinMotionCode("/derpy-skins/classic_camo.png")).toBe(0);
+    expect(skinMotionCode("/flags/motion_lava.png")).toBe(0);
+    expect(skinMotionCode(null)).toBe(0);
+    expect(skinNameFromUrl("/derpy-skins/tiles_quilt.png")).toBe("tiles_quilt");
+  });
 });

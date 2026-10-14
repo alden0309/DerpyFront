@@ -55,7 +55,7 @@ describe("the store's tabs", () => {
 
   test("counts per tab, for sale and owned", () => {
     const forSale = tabCounts(DERPY_ITEMS, tabs);
-    expect(forSale.get("derpyfront/skins")).toBe(8);
+    expect(forSale.get("derpyfront/skins")).toBe(11); // SITE (r22): 8 + 3
     expect(forSale.get("derpyfront/personalities")).toBe(5);
     expect(forSale.get("derpyfront/effects")).toBe(6);
     expect(forSale.get("derpyfront/fanfares")).toBe(6);

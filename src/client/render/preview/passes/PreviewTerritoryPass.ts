@@ -8,6 +8,7 @@
  * passes and stays owned by CosmeticPreviewRenderer.
  */
 
+import { skinMotionCode } from "@openfront/shared/DerpySkinMotion";
 import { decodePatternData } from "@openfront/shared/PatternDecoder";
 import { base64url } from "jose";
 import { SkinAtlasArray } from "../../gl/passes/SkinAtlasArray";
@@ -180,6 +181,7 @@ export class PreviewTerritoryPass {
     this.skinUrl = url;
     this.skinLayer[PREVIEW_OWNER_ID] = 0;
     this.uploadSkinLayer();
+    this.pass.setSkinMotion(PREVIEW_OWNER_ID, skinMotionCode(url)); // SITE (r22)
     const atlas = new SkinAtlasArray(this.gl, [url], (_url, layer) => {
       if (this.isDisposed || atlas !== this.skinAtlas) return;
       this.skinLayer[PREVIEW_OWNER_ID] = layer + 1;
@@ -197,6 +199,7 @@ export class PreviewTerritoryPass {
     this.pass.setSkinAtlas(this.skinAtlas.texture);
     this.skinLayer[PREVIEW_OWNER_ID] = 0;
     this.uploadSkinLayer();
+    this.pass.setSkinMotion(PREVIEW_OWNER_ID, 0); // SITE (r22)
   }
 
   private loadPattern(patternData: string): void {

@@ -248,6 +248,8 @@ export interface Skin {
   name: string;
   displayName: string;
   url: string;
+  /** SITE (r22): how it moves on the map, if it does. */
+  motion?: "drift" | "ripple" | "shimmer" | "twinkle";
 }
 
 export interface Pack {

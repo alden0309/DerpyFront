@@ -1,0 +1,661 @@
+<!doctype html>
+<!--
+  The Tile & Mosaic skin pack for the Derp Store (SITE r22): five 1024×1024
+  territory skins drawn with the canvas 2D API. Open this file in a browser
+  and save each skin from its link, or call window.renderSkins(), which
+  returns { name: dataURL }; the committed PNGs were then cut to a 256-colour
+  palette as the Astral Armada's were (see astral-armada.html).
+
+  Every skin tiles seamlessly: the stained glass is a Voronoi pattern on the
+  torus, the fans and the stars sit on grids that divide 1024. All original
+  patterns in old, common styles.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Tile &amp; Mosaic skins</title>
+    <style>
+      body {
+        background: #111;
+        color: #eee;
+        font:
+          14px system-ui,
+          sans-serif;
+        margin: 16px;
+      }
+      figure {
+        display: inline-block;
+        margin: 8px;
+      }
+      canvas {
+        width: 256px;
+        height: 256px;
+        display: block;
+      }
+      a {
+        color: #9cf;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="out"></div>
+    <script>
+      // The drawing kit the three r22 packs share (each page has its own
+      // copy): every skin is a 1024×1024 tile that repeats across a
+      // territory, so whatever crosses an edge is drawn again on the far side
+      // (wrapped), and noise and scatter are periodic on the 1024 torus.
+      const S = 1024;
+
+      /** A seeded random stream in [0, 1). */
+      function rng(seed) {
+        return () => {
+          seed = (seed + 0x6d2b79f5) >>> 0;
+          let t = seed;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      /** Draw `fn` at (x, y), and again at every copy across an edge. */
+      function wrapped(ctx, x, y, r, fn) {
+        for (const dx of [-S, 0, S]) {
+          for (const dy of [-S, 0, S]) {
+            const cx = x + dx;
+            const cy = y + dy;
+            if (cx + r < 0 || cx - r > S || cy + r < 0 || cy - r > S) continue;
+            ctx.save();
+            ctx.translate(cx, cy);
+            fn(ctx);
+            ctx.restore();
+          }
+        }
+      }
+
+      /** Points spread over the torus, no two closer than `min` (dart throwing). */
+      function scatter(rand, count, min, tries = 60) {
+        const pts = [];
+        for (let i = 0; i < count; i++) {
+          for (let k = 0; k < tries; k++) {
+            const x = rand() * S;
+            const y = rand() * S;
+            if (pts.every((p) => torusDist(p.x, p.y, x, y) >= min)) {
+              pts.push({ x, y });
+              break;
+            }
+          }
+        }
+        return pts;
+      }
+
+      function torusDist(ax, ay, bx, by) {
+        let dx = Math.abs(ax - bx);
+        let dy = Math.abs(ay - by);
+        if (dx > S / 2) dx = S - dx;
+        if (dy > S / 2) dy = S - dy;
+        return Math.hypot(dx, dy);
+      }
+
+      /** Periodic value noise on the torus, several octaves (cells per side each). */
+      function tileNoise(rand, octaves, falloff = 0.55) {
+        const layers = octaves.map((cells) => {
+          const v = new Float32Array(cells * cells);
+          for (let i = 0; i < v.length; i++) v[i] = rand();
+          return { cells, v };
+        });
+        const smooth = (t) => t * t * t * (t * (t * 6 - 15) + 10);
+        return (x, y) => {
+          let sum = 0;
+          let amp = 1;
+          let norm = 0;
+          for (const { cells, v } of layers) {
+            const gx = (x / S) * cells;
+            const gy = (y / S) * cells;
+            const ix = Math.floor(gx);
+            const iy = Math.floor(gy);
+            const fx = smooth(gx - ix);
+            const fy = smooth(gy - iy);
+            const x0 = ((ix % cells) + cells) % cells;
+            const y0 = ((iy % cells) + cells) % cells;
+            const x1 = (x0 + 1) % cells;
+            const y1 = (y0 + 1) % cells;
+            const a = v[y0 * cells + x0];
+            const b = v[y0 * cells + x1];
+            const c = v[y1 * cells + x0];
+            const d = v[y1 * cells + x1];
+            const top = a + (b - a) * fx;
+            const bot = c + (d - c) * fx;
+            sum += (top + (bot - top) * fy) * amp;
+            norm += amp;
+            amp *= falloff;
+          }
+          return sum / norm;
+        };
+      }
+
+      function hex(c) {
+        return [
+          parseInt(c.slice(1, 3), 16),
+          parseInt(c.slice(3, 5), 16),
+          parseInt(c.slice(5, 7), 16),
+        ];
+      }
+
+      function mix3(a, b, t) {
+        return [
+          a[0] + (b[0] - a[0]) * t,
+          a[1] + (b[1] - a[1]) * t,
+          a[2] + (b[2] - a[2]) * t,
+        ];
+      }
+
+      /** A colour ramp: stops [[t, "#rrggbb"], ...] → (t) => [r, g, b]. */
+      function ramp(stops) {
+        const s = stops.map(([t, c]) => [t, hex(c)]);
+        return (t) => {
+          if (t <= s[0][0]) return s[0][1];
+          for (let i = 1; i < s.length; i++) {
+            if (t <= s[i][0]) {
+              const k = (t - s[i - 1][0]) / (s[i][0] - s[i - 1][0]);
+              return mix3(s[i - 1][1], s[i][1], k);
+            }
+          }
+          return s[s.length - 1][1];
+        };
+      }
+
+      /** Paint every pixel from `fn(x, y) → [r, g, b]`. */
+      function paintPixels(ctx, fn) {
+        const img = ctx.createImageData(S, S);
+        const d = img.data;
+        for (let y = 0; y < S; y++) {
+          for (let x = 0; x < S; x++) {
+            const c = fn(x, y);
+            const p = (y * S + x) * 4;
+            d[p] = c[0];
+            d[p + 1] = c[1];
+            d[p + 2] = c[2];
+            d[p + 3] = 255;
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+      }
+
+      /** A soft radial glow. */
+      function glow(ctx, x, y, r, color, alpha = 1) {
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, color);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      function stroke(ctx, color, w) {
+        ctx.lineWidth = w;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.strokeStyle = color;
+        ctx.stroke();
+      }
+
+      /** Renders every skin in `skins` ({ name: paint(ctx) }), shows them, returns data URLs. */
+      function renderAll(skins) {
+        const out = {};
+        const host = document.getElementById("out");
+        host.innerHTML = "";
+        for (const [name, paint] of Object.entries(skins)) {
+          const canvas = document.createElement("canvas");
+          canvas.width = S;
+          canvas.height = S;
+          const ctx = canvas.getContext("2d");
+          paint(ctx);
+          out[name] = canvas.toDataURL("image/png");
+          const fig = document.createElement("figure");
+          const a = document.createElement("a");
+          a.href = out[name];
+          a.download = `${name}.png`;
+          a.textContent = `${name}.png`;
+          fig.append(canvas, a);
+          host.append(fig);
+        }
+        return out;
+      }
+    </script>
+    <script>
+      // --------------------------------------------------------- stained glass
+
+      const JEWELS = [
+        "#b3123d",
+        "#1f4fb3",
+        "#0f8a5f",
+        "#f0a202",
+        "#7a3fb0",
+        "#138a8a",
+        "#e06c9f",
+        "#2e7bd6",
+        "#e4572e",
+      ];
+
+      function paintStainedGlass(ctx) {
+        const rand = rng(401);
+        const seeds = scatter(rand, 120, 62).map((p) => ({
+          ...p,
+          col: hex(JEWELS[Math.floor(rand() * JEWELS.length)]),
+        }));
+        const grain = tileNoise(rng(402), [8, 16, 32, 64]);
+        const lead = [32, 26, 28];
+        paintPixels(ctx, (x, y) => {
+          let d1 = 1e9;
+          let d2 = 1e9;
+          let best = seeds[0];
+          for (const s of seeds) {
+            let dx = Math.abs(x - s.x);
+            let dy = Math.abs(y - s.y);
+            if (dx > S / 2) dx = S - dx;
+            if (dy > S / 2) dy = S - dy;
+            const d = dx * dx + dy * dy;
+            if (d < d1) {
+              d2 = d1;
+              d1 = d;
+              best = s;
+            } else if (d < d2) {
+              d2 = d;
+            }
+          }
+          const edge = Math.sqrt(d2) - Math.sqrt(d1);
+          if (edge < 7) {
+            // The lead came, with a bright ridge down its middle.
+            const ridge = Math.max(0, 1 - Math.abs(edge - 3.5) / 2.2);
+            return mix3(lead, [92, 84, 86], ridge * 0.6);
+          }
+          // Light through the glass: brighter at the heart of each pane.
+          const heart = Math.max(0, 1 - Math.sqrt(d1) / 70);
+          const g = grain(x, y);
+          let c = mix3(
+            best.col,
+            [255, 255, 255],
+            heart * 0.32 + (g - 0.5) * 0.18,
+          );
+          c = mix3(c, [0, 0, 0], Math.max(0, 0.18 - edge / 60));
+          return c;
+        });
+      }
+
+      // ------------------------------------------------------------- terrazzo
+
+      const CHIPS = [
+        "#d9734e",
+        "#8fb39a",
+        "#3b3b3b",
+        "#e0b14a",
+        "#e8a7a0",
+        "#ffffff",
+        "#6d8299",
+        "#b5523b",
+      ];
+
+      function paintTerrazzo(ctx) {
+        const n = tileNoise(rng(410), [16, 64, 128]);
+        const base = ramp([
+          [0, "#e9e1d3"],
+          [1, "#f6f1e8"],
+        ]);
+        paintPixels(ctx, (x, y) => base(n(x, y)));
+        const rand = rng(411);
+        // Fine grit first, then chips, the big ones last.
+        for (let i = 0; i < 4200; i++) {
+          const x = rand() * S;
+          const y = rand() * S;
+          const col = CHIPS[Math.floor(rand() * CHIPS.length)];
+          const r = 1 + rand() * 2;
+          wrapped(ctx, x, y, r, (c) => {
+            c.globalAlpha = 0.7;
+            c.fillStyle = col;
+            c.fillRect(-r / 2, -r / 2, r, r);
+            c.globalAlpha = 1;
+          });
+        }
+        const chips = [];
+        for (let i = 0; i < 620; i++) {
+          chips.push({
+            x: rand() * S,
+            y: rand() * S,
+            r: rand() < 0.08 ? 22 + rand() * 18 : 5 + Math.pow(rand(), 2) * 16,
+            col: CHIPS[Math.floor(rand() * CHIPS.length)],
+            sides: 5 + Math.floor(rand() * 4),
+            spin: rand() * Math.PI * 2,
+            jag: Array.from({ length: 9 }, () => 0.6 + rand() * 0.5),
+          });
+        }
+        chips.sort((a, b) => a.r - b.r);
+        for (const ch of chips) {
+          wrapped(ctx, ch.x, ch.y, ch.r * 1.2, (c) => {
+            c.rotate(ch.spin);
+            c.beginPath();
+            for (let k = 0; k < ch.sides; k++) {
+              const a = (k / ch.sides) * Math.PI * 2;
+              const rr = ch.r * ch.jag[k];
+              if (k === 0) c.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+              else c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+            }
+            c.closePath();
+            c.fillStyle = ch.col;
+            c.fill();
+            if (ch.r > 12) {
+              c.strokeStyle = "rgba(0,0,0,0.12)";
+              c.lineWidth = 1.5;
+              c.stroke();
+            }
+          });
+        }
+      }
+
+      // ------------------------------------------------------- art deco fans
+
+      function fan(c, R, fill) {
+        c.beginPath();
+        c.arc(0, 0, R, 0, Math.PI * 2);
+        c.fillStyle = fill;
+        c.fill();
+        // Rays from the hub, and rings.
+        c.save();
+        c.beginPath();
+        c.arc(0, 0, R - 9, 0, Math.PI * 2);
+        c.clip();
+        c.strokeStyle = "#d9b45a";
+        c.lineWidth = 2;
+        for (let k = 0; k <= 12; k++) {
+          const a = Math.PI + (k / 12) * Math.PI;
+          c.beginPath();
+          c.moveTo(Math.cos(a) * 12, Math.sin(a) * 12);
+          c.lineTo(Math.cos(a) * R, Math.sin(a) * R);
+          c.stroke();
+        }
+        c.beginPath();
+        c.arc(0, 0, R * 0.55, Math.PI, 0);
+        c.lineWidth = 2.5;
+        c.stroke();
+        c.restore();
+        // A sunburst hub.
+        c.beginPath();
+        c.arc(0, 0, 12, Math.PI, 0);
+        c.fillStyle = "#f1d58a";
+        c.fill();
+        // Double gold rim.
+        c.beginPath();
+        c.arc(0, 0, R - 2, 0, Math.PI * 2);
+        stroke(c, "#d9b45a", 4);
+        c.beginPath();
+        c.arc(0, 0, R - 9, 0, Math.PI * 2);
+        stroke(c, "#8f7330", 1.5);
+      }
+
+      function paintDecoFans(ctx) {
+        // Rows of 8 fans, 16 rows; each row overlaps the one above. Drawn in
+        // order from just above the top to just below the bottom, so the
+        // overlaps run on across the seams.
+        const R = 64;
+        const fills = ["#13223f", "#0f3b3f", "#13223f", "#2a1840"];
+        for (let j = -1; j <= 17; j++) {
+          for (let i = -1; i <= 8; i++) {
+            const x = i * 128 + (((j % 2) + 2) % 2) * 64;
+            const y = j * 64;
+            const jj = ((j % 16) + 16) % 16;
+            const ii = ((i % 8) + 8) % 8;
+            ctx.save();
+            ctx.translate(x, y);
+            fan(ctx, R, fills[(ii + jj) % fills.length]);
+            ctx.restore();
+          }
+        }
+      }
+
+      // ------------------------------------------------------ patchwork quilt
+
+      const QUILT = [
+        "#b23a48",
+        "#3d5a80",
+        "#e0a526",
+        "#8aa67a",
+        "#d98e8e",
+        "#3a7d7c",
+        "#7b4b94",
+        "#c8553d",
+      ];
+
+      const FABRICS = [
+        // Gingham.
+        (c, col) => {
+          c.fillStyle = "#f4ead5";
+          c.fillRect(0, 0, 128, 128);
+          c.globalAlpha = 0.55;
+          c.fillStyle = col;
+          for (let i = 0; i < 8; i += 2) c.fillRect(i * 16, 0, 16, 128);
+          for (let j = 0; j < 8; j += 2) c.fillRect(0, j * 16, 128, 16);
+          c.globalAlpha = 1;
+        },
+        // Polka dots.
+        (c, col) => {
+          c.fillStyle = col;
+          c.fillRect(0, 0, 128, 128);
+          c.fillStyle = "#f4ead5";
+          for (let j = 0; j < 4; j++) {
+            for (let i = 0; i < 4; i++) {
+              c.beginPath();
+              c.arc(
+                16 + i * 32 + (j % 2) * 16,
+                16 + j * 32,
+                5.5,
+                0,
+                Math.PI * 2,
+              );
+              c.fill();
+            }
+          }
+        },
+        // Stripes.
+        (c, col) => {
+          c.fillStyle = "#f4ead5";
+          c.fillRect(0, 0, 128, 128);
+          c.strokeStyle = col;
+          c.lineWidth = 9;
+          for (let k = -8; k < 16; k++) {
+            c.beginPath();
+            c.moveTo(k * 22, 0);
+            c.lineTo(k * 22 + 128, 128);
+            c.stroke();
+          }
+        },
+        // Little flowers.
+        (c, col) => {
+          c.fillStyle = col;
+          c.fillRect(0, 0, 128, 128);
+          for (const [x, y] of [
+            [30, 28],
+            [92, 40],
+            [52, 86],
+            [104, 104],
+            [14, 112],
+          ]) {
+            c.fillStyle = "#f4ead5";
+            for (let k = 0; k < 5; k++) {
+              const a = (k / 5) * Math.PI * 2;
+              c.beginPath();
+              c.arc(
+                x + Math.cos(a) * 7,
+                y + Math.sin(a) * 7,
+                5.5,
+                0,
+                Math.PI * 2,
+              );
+              c.fill();
+            }
+            c.fillStyle = "#e0a526";
+            c.beginPath();
+            c.arc(x, y, 4, 0, Math.PI * 2);
+            c.fill();
+          }
+        },
+        // A star block.
+        (c, col) => {
+          c.fillStyle = "#f4ead5";
+          c.fillRect(0, 0, 128, 128);
+          c.fillStyle = col;
+          c.beginPath();
+          for (let k = 0; k < 16; k++) {
+            const a = (k / 16) * Math.PI * 2 - Math.PI / 2;
+            const r = k % 2 ? 22 : 50;
+            const x = 64 + Math.cos(a) * r;
+            const y = 64 + Math.sin(a) * r;
+            if (k === 0) c.moveTo(x, y);
+            else c.lineTo(x, y);
+          }
+          c.closePath();
+          c.fill();
+        },
+        // Calico speckle.
+        (c, col, rand) => {
+          c.fillStyle = col;
+          c.fillRect(0, 0, 128, 128);
+          c.fillStyle = "rgba(244,234,213,0.7)";
+          for (let k = 0; k < 90; k++) {
+            c.beginPath();
+            c.arc(
+              rand() * 128,
+              rand() * 128,
+              1.2 + rand() * 1.6,
+              0,
+              Math.PI * 2,
+            );
+            c.fill();
+          }
+        },
+      ];
+
+      function paintQuilt(ctx) {
+        const rand = rng(431);
+        for (let j = 0; j < 8; j++) {
+          for (let i = 0; i < 8; i++) {
+            ctx.save();
+            ctx.translate(i * 128, j * 128);
+            ctx.beginPath();
+            ctx.rect(0, 0, 128, 128);
+            ctx.clip();
+            const fabric =
+              FABRICS[
+                (i * 5 + j * 3 + Math.floor(rand() * 2)) % FABRICS.length
+              ];
+            fabric(ctx, QUILT[Math.floor(rand() * QUILT.length)], rand);
+            // Soft shading where the batting puffs up.
+            const g = ctx.createRadialGradient(64, 64, 10, 64, 64, 96);
+            g.addColorStop(0, "rgba(255,255,255,0.08)");
+            g.addColorStop(1, "rgba(60,30,20,0.22)");
+            ctx.fillStyle = g;
+            ctx.fillRect(0, 0, 128, 128);
+            // Stitches just inside the seam.
+            ctx.setLineDash([7, 6]);
+            ctx.strokeStyle = "rgba(255,248,230,0.9)";
+            ctx.lineWidth = 2.2;
+            ctx.strokeRect(8, 8, 112, 112);
+            ctx.setLineDash([]);
+            // The seam.
+            ctx.strokeStyle = "#3a2a2a";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, 128, 128);
+            ctx.restore();
+          }
+        }
+      }
+
+      // ---------------------------------------------------------- star mosaic
+
+      function star8(c, R, inner) {
+        c.beginPath();
+        for (let k = 0; k < 16; k++) {
+          const a = (k / 16) * Math.PI * 2;
+          const r = k % 2 ? R * inner : R;
+          if (k === 0) c.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+          else c.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+        }
+        c.closePath();
+      }
+
+      function paintStarMosaic(ctx) {
+        const GROUT = "#efe7d6";
+        ctx.fillStyle = "#f4f1de";
+        ctx.fillRect(0, 0, S, S);
+        const rand = rng(441);
+        const glaze = (base) => {
+          const b = hex(base);
+          const k = (rand() - 0.5) * 0.16;
+          const c = mix3(b, k > 0 ? [255, 255, 255] : [0, 0, 0], Math.abs(k));
+          return `rgb(${c.map(Math.round).join(",")})`;
+        };
+        // Small diamonds between the stars, on the 128 grid's edges.
+        for (let j = 0; j < 8; j++) {
+          for (let i = 0; i < 8; i++) {
+            for (const [x, y] of [
+              [i * 128 + 64, j * 128],
+              [i * 128, j * 128 + 64],
+            ]) {
+              const col = glaze("#e07a5f");
+              wrapped(ctx, x, y, 30, (c) => {
+                c.beginPath();
+                c.moveTo(0, -24);
+                c.lineTo(24, 0);
+                c.lineTo(0, 24);
+                c.lineTo(-24, 0);
+                c.closePath();
+                c.fillStyle = col;
+                c.fill();
+                stroke(c, GROUT, 5);
+              });
+            }
+          }
+        }
+        // Eight-pointed stars, cobalt and turquoise, tip to tip.
+        for (let j = 0; j < 8; j++) {
+          for (let i = 0; i < 8; i++) {
+            for (const [x, y, base] of [
+              [i * 128, j * 128, "#1d4e89"],
+              [i * 128 + 64, j * 128 + 64, "#2a9d8f"],
+            ]) {
+              const col = glaze(base);
+              const spin = Math.PI / 8;
+              wrapped(ctx, x, y, 50, (c) => {
+                c.rotate(spin);
+                star8(c, 46, 0.62);
+                c.fillStyle = col;
+                c.fill();
+                stroke(c, GROUT, 5);
+                // A small ochre heart to each star, and a glaze shine.
+                star8(c, 14, 0.6);
+                c.fillStyle = "#f2cc8f";
+                c.fill();
+                c.beginPath();
+                c.ellipse(-12, -16, 10, 4, -0.7, 0, Math.PI * 2);
+                c.fillStyle = "rgba(255,255,255,0.28)";
+                c.fill();
+              });
+            }
+          }
+        }
+      }
+
+      const SKINS = {
+        tiles_stainedglass: paintStainedGlass,
+        tiles_terrazzo: paintTerrazzo,
+        tiles_deco: paintDecoFans,
+        tiles_quilt: paintQuilt,
+        tiles_stars: paintStarMosaic,
+      };
+
+      window.renderSkins = () => renderAll(SKINS);
+      window.renderSkins();
+    </script>
+  </body>
+</html>

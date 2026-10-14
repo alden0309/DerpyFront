@@ -23,6 +23,10 @@ import {
   fxExplosionAttributes,
 } from "@openfront/shared/DerpyFx";
 import {
+  DERPY_SKIN_MOTION,
+  type SkinMotion,
+} from "@openfront/shared/DerpySkinMotion";
+import {
   CAMPAIGN_1776,
   LEGENDS,
   MAP_STYLES,
@@ -37,6 +41,8 @@ export interface DerpySkin {
   name: string;
   displayName: string;
   url: string;
+  /** SITE (r22): how it moves on the map, if it does (DerpySkinMotion.ts). */
+  motion?: SkinMotion;
 }
 
 export interface DerpyPack {
@@ -49,7 +55,13 @@ export interface DerpyPack {
 }
 
 function skin(name: string, displayName: string): DerpySkin {
-  return { name, displayName, url: `/derpy-skins/${name}.png` };
+  const motion = DERPY_SKIN_MOTION[name];
+  return {
+    name,
+    displayName,
+    url: `/derpy-skins/${name}.png`,
+    ...(motion ? { motion } : {}),
+  };
 }
 
 export const DERPY_PACKS: readonly DerpyPack[] = [
@@ -162,6 +174,52 @@ export const DERPY_PACKS: readonly DerpyPack[] = [
       skin("armada_nebula", "Nebula Drift"),
       skin("armada_insignia", "Armada Insignia"),
       skin("armada_robots", "Bot Brigade"),
+    ],
+  },
+  // SITE (r22): three more packs, drawn by scripts/derpy-skins/sweet-shop.html,
+  // tile-mosaic.html and nature-in-motion.html. All original.
+  {
+    name: "sweets",
+    displayName: "Sweet Shop",
+    description:
+      "Peppermint swirls, rainbow sprinkles, a dozen donuts, gummy critters and an ice cream social.",
+    price: 2000,
+    skins: [
+      skin("sweets_peppermint", "Peppermint Swirls"),
+      skin("sweets_sprinkles", "Rainbow Sprinkles"),
+      skin("sweets_donuts", "Donut Dozen"),
+      skin("sweets_gummies", "Gummy Critters"),
+      skin("sweets_icecream", "Ice Cream Social"),
+    ],
+  },
+  {
+    name: "tiles",
+    displayName: "Tile & Mosaic",
+    description:
+      "Stained glass, terrazzo chips, Art Deco fans, a patchwork quilt and a mosaic of eight-pointed stars.",
+    price: 2500,
+    skins: [
+      skin("tiles_stainedglass", "Stained Glass"),
+      skin("tiles_terrazzo", "Terrazzo"),
+      skin("tiles_deco", "Art Deco Fans"),
+      skin("tiles_quilt", "Patchwork Quilt"),
+      skin("tiles_stars", "Star Mosaic"),
+    ],
+  },
+  {
+    // The first skins that move: the territory shader plays each one's
+    // motion over its picture (DerpySkinMotion.ts).
+    name: "motion",
+    displayName: "Nature in Motion",
+    description:
+      "Skins that move: lava that seethes, northern lights that ripple, fireflies that twinkle, clouds that drift across your land, and a honeycomb with a golden gleam.",
+    price: 4500,
+    skins: [
+      skin("motion_lava", "Lava Flow"),
+      skin("motion_aurora", "Northern Lights"),
+      skin("motion_fireflies", "Firefly Meadow"),
+      skin("motion_clouds", "Drifting Clouds"),
+      skin("motion_honey", "Golden Honeycomb"),
     ],
   },
 ];

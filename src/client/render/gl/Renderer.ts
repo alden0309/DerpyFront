@@ -12,6 +12,7 @@
 
 import type { MapLayer } from "@openfront/engine-api/game/GameMapLoader";
 import type { Config } from "@openfront/engine-lib/configuration/Config";
+import { skinMotionCode } from "@openfront/shared/DerpySkinMotion";
 import { translateText } from "../../Utils";
 import type { SpiralRibbon } from "../frame/SpiralTrails";
 import type {
@@ -904,6 +905,8 @@ export class GPURenderer {
     }
     this.skinLayerCpu[smallID] = layer + 1;
     this.uploadSkinLayerTex();
+    // SITE (r22): a Derp Store skin that moves (looks only).
+    this.territoryPass.setSkinMotion(smallID, skinMotionCode(url));
   }
 
   private uploadSkinLayerTex(): void {

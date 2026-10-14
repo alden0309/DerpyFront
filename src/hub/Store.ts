@@ -40,6 +40,7 @@ import {
   fxPreview,
   mapStylePreview,
   personaCard,
+  skinArt,
   TEMPERAMENT_TEXT,
 } from "../derpland/StorePreviews";
 // SITE (r22): what the AI personality packs do, side by side.
@@ -167,7 +168,7 @@ function itemBody(
       ${item.skins.map(
         (s) =>
           html`<li>
-            <img src=${s.url} alt="" loading="lazy" />
+            ${skinArt(s)}
             <span>${s.displayName}</span>
           </li>`,
       )}
@@ -722,14 +723,7 @@ export class DerpInventory extends HubPage {
         "Your plain color",
         html`<span class="dl-skin-none" aria-hidden="true"></span>`,
       )}
-      ${owned.map((s) =>
-        tile(
-          s.name,
-          s.displayName,
-          s.pack,
-          html`<img src=${s.url} alt="" loading="lazy" />`,
-        ),
-      )}
+      ${owned.map((s) => tile(s.name, s.displayName, s.pack, skinArt(s)))}
     </ul>`;
   }
 }

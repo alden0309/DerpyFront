@@ -213,7 +213,7 @@ describe("the cosmetics catalog the game reads", () => {
 
   test("still parses as OpenFront's cosmetics, skins and effects alike", () => {
     const parsed = CosmeticsSchema.parse(catalog);
-    expect(Object.keys(parsed.skins ?? {})).toHaveLength(40);
+    expect(Object.keys(parsed.skins ?? {})).toHaveLength(55); // SITE (r22): 11 packs of 5
     expect(Object.keys(parsed.effects?.nukeTrail ?? {})).toHaveLength(
       DERPY_FX_THEMES.length,
     );
