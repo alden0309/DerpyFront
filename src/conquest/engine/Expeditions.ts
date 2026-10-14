@@ -541,7 +541,6 @@ export function goExped(g: ConquestGame, life: Life): string | null {
   if (!x) return "You're not getting one up.";
   const ok = goCheck(s, g.w, life, x);
   if (!ok.ok) return ok.why;
-  const me = meOf(s, life)!;
   // Players asked along who aren't here are left behind.
   for (const m of [...x.members]) {
     const l = lifeOfSeat(s, m.seat);
@@ -1247,7 +1246,7 @@ function raidDone(
   if (!nat || nat.kind !== "native")
     return `${place} was empty when they got there.`;
   const atPeace = !atWar(s, owner, x.n);
-  let text = "";
+  let text: string;
   if (band === "turned") {
     relate(g, owner, x.n, `Armed men came to ${place}`, -8, 5);
     return `They looked at ${place} from the tree line, and turned for home. The town saw them go.`;

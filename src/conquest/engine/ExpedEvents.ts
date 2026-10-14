@@ -42,7 +42,7 @@ import { raiseEvent } from "./Hooks";
 import { addRenown, addStress, gainXp, hurt, journal } from "./LifeCore";
 import type { LifeEventDef } from "./LifeEvents";
 import { lifeOfSeat, skillLevel } from "./LifeQueries";
-import { checkChance, SKILL_NAMES } from "./LifeRules";
+import { checkChance } from "./LifeRules";
 import { isFeverSeason, isWinter } from "./Map";
 import { atWar, charName, monthOf, relationOf } from "./Queries";
 import type { Expedition, ExpedKind, Life, Skill } from "./Types";
@@ -80,7 +80,6 @@ export interface XScene {
 const name = (g: ConquestGame, p: number) =>
   g.map.provinces[p]?.name ?? "somewhere";
 const lead = (g: ConquestGame, x: Expedition) => charName(g.s.chars[x.leader]);
-const pct = (p: number) => `${Math.round(p * 100)}%`;
 
 /** Where the party is now (the province it's in or making for). */
 function hereOf(g: ConquestGame, x: Expedition): number {
@@ -133,11 +132,6 @@ function band(
   if (pass) return "won";
   return edice(g.s, 0x71, x.id).chance(0.5) ? "half" : "failed";
 }
-
-const odds = (g: ConquestGame, x: Expedition, c: XChoice) => {
-  const p = choiceChance(g, x, c);
-  return p === null ? "" : ` (${SKILL_NAMES[c.skill!]} ${pct(p)})`;
-};
 
 // ---------------------------------------------------------------- on the way
 
