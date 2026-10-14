@@ -148,6 +148,11 @@ export interface LifeEventDef {
   choices: LifeChoice[];
   /** The backdrop of its scene (a place, "road", "deck", "letter"...). */
   scene?: string | ((g: ConquestGame, life: Life, ctx: LCtx) => string);
+  /**
+   * EVENTS (r21): where it can happen (home or abroad, a colonial or native
+   * town, which places). Every new event says so; EventPlaces.ts has the rest.
+   */
+  where?: Where;
 }
 
 /** Chance a day that something happens to a settled life. */
@@ -3642,6 +3647,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   ...SEASON_EVENTS, // MAP (r12)
   ...R15_EVENTS, // EVENTS (r15)
   ...BOND_EVENTS, // LABOUR (r15): bondage, treated as history
+  ...R21_EVENTS, // EVENTS (r21): what happens where you are, and more of it
 ];
 
 // ---------------------------------------------------------------- a few calls out
@@ -3665,12 +3671,23 @@ import { PARTNER_EVENTS } from "./PartnerEvents"; // PARTNERS (r13)
 import { POWER_DEFAULTS, POWER_EVENTS } from "./PowerEvents"; // POWER (r12)
 import { R11_EVENTS } from "./R11Events";
 import { R15_EVENTS } from "./R15Events"; // EVENTS (r15)
+// EVENTS (r21): where things happen, and the new events.
+import {
+  ENTER_REST,
+  enterDraw,
+  eventList,
+  fitScene,
+  placeEventsAt,
+  type Where,
+} from "./EventPlaces";
+import { R21_EVENTS } from "./EventsR21";
 import { reclaimEvents, reclaimQuiet } from "./ReclaimEvents"; // WAR (r17)
 import { seaEvents, seaQuiet } from "./SeaEvents"; // SEA (r15)
 import { SEASON_EVENTS } from "./SeasonLife"; // MAP (r12)
 import { shipEvents, shipQuiet } from "./ShipEvents"; // SHIPS (r21)
 import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
+import { worldRng } from "./WorldRng";
 
 function joinM(g: ConquestGame, life: Life, id: number): string | null {
   return joinMovement(g, life, id);
@@ -3832,6 +3849,16 @@ function render(
 
 /** Where an event happens, for its scene. */
 function sceneOf(
+  g: ConquestGame,
+  life: Life,
+  def: LifeEventDef,
+  ctx: LCtx,
+): string {
+  // EVENTS (r21): set in a place that's really here.
+  return fitScene(g, life, def.key, def.pool, rawScene(g, life, def, ctx));
+}
+
+function rawScene(
   g: ConquestGame,
   life: Life,
   def: LifeEventDef,
@@ -4008,6 +4035,36 @@ export function lifeEventsDaily(
     }
   }
 }
+
+eventList.fn = () => LIFE_EVENTS; // EVENTS (r21)
+
+// EVENTS (r21): going into a place, something of the place's own may happen
+// there (the tavern's goings-on in the tavern), on its own dice.
+enterDraw.fn = (g, life, place) => {
+  const s = g.s;
+  if (life.events.length >= MAX_PENDING) return;
+  const options: { def: LifeEventDef; ctx: LCtx; w: number }[] = [];
+  for (const o of placeEventsAt(g, life, place, LIFE_EVENTS)) {
+    if ((life.cooldowns[`ev:${o.def.key}`] ?? 0) > s.day) continue;
+    const ctx = o.def.when ? o.def.when(g, life) : {};
+    if (!ctx) continue;
+    let w = o.w;
+    for (const h of hooks.eventWeight)
+      w = h(g, life, o.def.key, o.def.pool, ctx, w);
+    if (w > 0) options.push({ def: o.def, ctx, w });
+  }
+  const total = options.reduce((m, o) => m + o.w, 0);
+  if (total <= 0) return;
+  let roll = worldRng(s, 0x21e1000 + life.c * 17).next() * total;
+  for (const o of options) {
+    roll -= o.w;
+    if (roll <= 0) {
+      touchLife(g, life).cooldowns["pl:enter"] = s.day + ENTER_REST;
+      fire(g, life, o.def, o.ctx);
+      return;
+    }
+  }
+};
 
 function firstAllowed(
   g: ConquestGame,
