@@ -35,10 +35,18 @@ import {
 import { openSignIn } from "../derpland/DerpBar";
 import { bananaMark, chestIcon, coinIcon, stallIcon } from "../derpland/Icons";
 import {
+  conquestFeatures,
   ensurePreviewStyles,
   fxPreview,
+  mapStylePreview,
   personaCard,
 } from "../derpland/StorePreviews";
+// DLC (r21): the map style you use in Derpy Conquest, chosen here too.
+import {
+  chooseMapStyle,
+  chosenMapStyle,
+} from "../conquest/client/MapStylePref";
+import { MAP_STYLES, type MapStyleKey } from "../conquest/DlcIds";
 import {
   itemsInTab,
   ownedInTab,
@@ -169,6 +177,20 @@ function itemBody(item: StoreItem): TemplateResult | typeof nothing {
       >
     </div>`;
   }
+  // DLC (r21): a Derpy Conquest item: a corner of the map in its style, or what it adds.
+  if (item.conquest) {
+    return html`<div class="dl-itembody">
+      ${item.conquest.palette
+        ? mapStylePreview(
+            item.name,
+            item.name.replace(/^map_/, ""),
+            item.conquest.palette,
+          )
+        : nothing}
+      ${conquestFeatures(item.conquest.features)}
+      <p class="dl-quiet dl-howto">${item.conquest.howTo}</p>
+    </div>`;
+  }
   return nothing;
 }
 
@@ -252,8 +274,9 @@ export class DerpStore extends HubPage {
         <div>
           <h1 class="dl-h1">Derp Store</h1>
           <p class="dl-lede">
-            Skins, AI personalities, effects and fanfares, paid for with the
-            Derp Coins you win in either game.
+            Skins, AI personalities, effects and fanfares for DerpyFront; a
+            campaign, legends and map styles for Derpy Conquest. Paid for with
+            the Derp Coins you win in either game.
           </p>
         </div>
         ${this.account
@@ -303,7 +326,11 @@ export class DerpStore extends HubPage {
     if (owned) {
       action = html`<span class="dl-owned">Owned</span>
         <a class="dl-btn ghost" href=${`/inventory${tabHash(item)}`}
-          >${item.category === "personalities" ? "See it" : "Use it"}</a
+          >${item.category === "personalities" ||
+          item.category === "campaigns" ||
+          item.category === "legends" // DLC (r21)
+            ? "See it"
+            : "Use it"}</a
         >`;
     } else if (!this.username) {
       action = html`<button class="dl-btn" @click=${() => openSignIn()}>
@@ -373,6 +400,10 @@ export class DerpInventory extends HubPage {
   @state() private nukeStyle: string | null = nukeStyleIn(storedEffectSlots());
   @state() private domeStyle: string | null = wornDomeStyle();
   @state() private fanfare: FanfareName | null = chosenFanfare();
+  /** DLC (r21): Derpy Conquest's map style (kept in this browser). */
+  @state() private mapStyle: string | null = chosenMapStyle()
+    ? `map_${chosenMapStyle()}`
+    : null;
   @state() private error = false;
 
   protected async load(): Promise<void> {
@@ -404,6 +435,17 @@ export class DerpInventory extends HubPage {
   private setDomeStyle(name: string | null): void {
     wearDomeStyle(name);
     this.domeStyle = wornDomeStyle();
+  }
+
+  /** DLC (r21): the map style Derpy Conquest draws (if your account owns it). */
+  private setMapStyle(name: string | null): void {
+    const key = name?.replace(/^map_/, "") ?? null;
+    chooseMapStyle(
+      key && (MAP_STYLES as readonly string[]).includes(key)
+        ? (key as MapStyleKey)
+        : null,
+    );
+    this.mapStyle = chosenMapStyle() ? `map_${chosenMapStyle()}` : null;
   }
 
   private setFanfare(name: FanfareName | null): void {
@@ -521,13 +563,36 @@ export class DerpInventory extends HubPage {
           "The usual victory sound",
           true,
         );
+      // DLC (r21): Derpy Conquest's map styles, chosen here or in the game.
+      case "mapstyles":
+        return html`<h2 class="dl-h2 dl-pickhead">
+            Your map in Derpy Conquest
+          </h2>
+          ${this.picker(
+            mine,
+            this.mapStyle,
+            (n) => this.setMapStyle(n),
+            "The usual chart",
+          )}
+          <p class="dl-quiet dl-howto">
+            Only you see your map style. You can change it in Derpy Conquest too
+            (menu › Settings › Map style).
+          </p>`;
       default:
         return html`<div class="dl-packs">
           ${mine.map(
             (i) =>
-              html`<article class="dl-pack">
+              html`<article class="dl-pack" data-item=${i.name}>
                 <h2 class="dl-pack-name">${i.displayName}</h2>
                 <p class="dl-pack-desc">${i.description}</p>
+                ${i.conquest
+                  ? html`<p class="dl-howto">
+                        <b>How to use it:</b> ${i.conquest.howTo}
+                      </p>
+                      <a class="dl-btn ghost" href="/conquest"
+                        >Play Derpy Conquest</a
+                      >`
+                  : nothing}
               </article>`,
           )}
         </div>`;
@@ -561,7 +626,11 @@ export class DerpInventory extends HubPage {
           null,
           noneLabel,
           html`<span
-            class="dl-skin-none ${items.some((i) => i.fx) ? "wide" : ""}"
+            class="dl-skin-none ${items.some(
+              (i) => !!i.fx || !!i.conquest?.palette,
+            )
+              ? "wide"
+              : ""}"
             aria-hidden="true"
           ></span>`,
         )}
@@ -573,9 +642,17 @@ export class DerpInventory extends HubPage {
               ? html`<span class="dl-pickart"
                   >${fxPreview(`inv_${i.name}`, i.fx)}</span
                 >`
-              : html`<span class="dl-skin-none dl-music" aria-hidden="true"
-                  >♪</span
-                >`,
+              : i.conquest?.palette // DLC (r21): a map style's corner of the chart
+                ? html`<span class="dl-pickart"
+                    >${mapStylePreview(
+                      `inv_${i.name}`,
+                      i.name.replace(/^map_/, ""),
+                      i.conquest.palette,
+                    )}</span
+                  >`
+                : html`<span class="dl-skin-none dl-music" aria-hidden="true"
+                    >♪</span
+                  >`,
           ),
         )}
       </ul>

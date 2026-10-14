@@ -171,6 +171,7 @@ import { boatWorkTable, LEDGER_CHAPTER } from "./LedgerChapter";
 import { BUSINESS_CHAPTER } from "./BusinessChapter";
 import { CHAIR_CHAPTER } from "./ChairChapter"; // CHAIR (r16)
 import { CROWN_CHAPTER } from "./CrownChapter"; // CROWN (r18)
+import { DLC_CHAPTERS } from "./DlcChapter"; // DLC (r21)
 import { ECON_CHAPTER } from "./EconChapter"; // ECON (r17)
 import { FOUNDING_R21, GOV_CHAPTERS } from "./GovChapter"; // GOV (r21)
 import {
@@ -2103,6 +2104,9 @@ At **${RISE_SUPPORT} support** and **${RISE_MEMBERS} sworn** (the leader among t
   GOV_CHAPTERS.GOVERNING_CHAPTER,
   GOV_CHAPTERS.INDEPENDENCE_CHAPTER,
   // ---- end GOV (r21)
+  // ---- DLC (r21): the 1776 campaign, Legends, map styles (guide/DlcChapter.ts)
+  ...DLC_CHAPTERS,
+  // ---- end DLC (r21)
   {
     id: "founding",
     part: "power",

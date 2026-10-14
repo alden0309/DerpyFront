@@ -4,6 +4,7 @@ import { customElement, state } from "lit/decorators.js";
 import {
   ensurePreviewStyles,
   fxPreview,
+  mapStylePreview,
   personaCard,
 } from "../../derpland/StorePreviews";
 import {
@@ -590,6 +591,29 @@ export class DerpyStorePage extends BaseModal {
             seconds: i.fanfare.seconds,
           })}</span
         >
+      </div>`;
+    }
+    // DLC (r21): Derpy Conquest's items: a map style's corner of the chart,
+    // and the way to the game they're for.
+    if (i.conquest) {
+      return html`<div class="flex flex-col gap-3">
+        ${i.conquest.palette
+          ? mapStylePreview(
+              i.name,
+              i.name.replace(/^map_/, ""),
+              i.conquest.palette,
+            )
+          : nothing}
+        <div class="flex flex-wrap items-center gap-3">
+          <span class="text-sm text-white/55"
+            >${translateText("derpy.conquest_item_note")}</span
+          >
+          <a
+            class="rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white no-underline hover:bg-white/20"
+            href="/conquest"
+            >${translateText("derpy.conquest_item_play")}</a
+          >
+        </div>
       </div>`;
     }
     return nothing;

@@ -8,6 +8,7 @@ import { asLook, sitForLikeness, validateLook } from "./Appearance";
 import { areasOf } from "./Areas";
 import { maxHealth } from "./Body"; // LIFE (r21)
 import { dateOf, formatDate } from "./Calendar";
+import { endWords } from "./Campaign1776Core"; // DLC (r21)
 import { kill, makeCharacter, succession } from "./Characters";
 import { seedLocals } from "./Folk";
 import type { ConquestGame } from "./Game";
@@ -352,7 +353,7 @@ export function beginLife(
   plan: LifePlan,
 ): string | null {
   const s = g.s;
-  if (s.over) return "The world has reached 1776.";
+  if (s.over) return endWords(s).reached; // DLC (r21)
   const problem = planProblem(s, plan);
   if (problem) return problem;
   const existing = lifeOfSeat(s, seat);
@@ -1327,7 +1328,7 @@ export function takeOver(
 ): string | null {
   const s = g.s;
   if (!life.watching) return "You're living a life already.";
-  if (s.over) return "The world has reached 1776.";
+  if (s.over) return endWords(s).reached; // DLC (r21)
   const c = s.chars[cId];
   if (!c?.alive || c.abroad) return "They're not among the living here.";
   if (ageOf(s, c) < 16) return "Too young to take over.";
@@ -1723,7 +1724,7 @@ export function lifeCommand(
   c: LifeCommand,
 ): string | null {
   const s = g.s;
-  if (s.over) return "The world has reached 1776.";
+  if (s.over) return endWords(s).reached; // DLC (r21)
   if (!c || typeof c !== "object" || typeof c.k !== "string")
     return "Bad command.";
   const life = lifeOfSeat(s, seat);
@@ -1881,13 +1882,9 @@ export function livesAtEnd(g: ConquestGame): void {
   for (const life of g.s.lives) {
     const me = meOf(g.s, life);
     if (!me) continue;
-    milestone(g, life, "end", `${charName(me)} lived to see 1776`);
-    journal(
-      g,
-      life,
-      "It is 1776. Whatever comes next, your story ends here.",
-      "good",
-    );
+    // DLC (r21): the 1776 campaign ends with the peace, in 1784.
+    milestone(g, life, "end", `${charName(me)} ${endWords(g.s).lived}`);
+    journal(g, life, endWords(g.s).told, "good");
   }
 }
 

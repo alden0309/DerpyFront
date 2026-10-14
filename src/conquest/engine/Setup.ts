@@ -173,6 +173,60 @@ export function newGameState(map: MapDef, settings: GameSettings): GameState {
     n.colony = keyIndex.get(def.id)!;
     state.nations.push(n);
   }
+  // DLC (r21): a start's own colonies (1776: British America) and their
+  // crowns, and what the map's own are called then (the United Colonies).
+  for (const x of era?.extraPowers ?? []) {
+    const rules = POWER_RULES[x.key] ?? POWER_RULES[x.rulesOf];
+    const id = state.nations.length;
+    keyIndex.set(x.key, id);
+    const own = startProvinces(x.key);
+    const n = blankNation(id, x.key, "power", x.name, x.adjective, x.color, {
+      culture: rules.culture,
+      religion: rules.religion,
+      capital: byName.get(era?.capitals[x.key] ?? "") ?? own[0] ?? -1,
+      gold: Math.round(
+        rules.startGold *
+          START_GOLD_FACTOR[start] *
+          DIFFICULTY[settings.difficulty].aiGold,
+      ),
+      player: null,
+      playerName: null,
+    });
+    if (own.length === 0) n.alive = false;
+    state.nations.push(n);
+    const crown = blankNation(
+      id + 1,
+      `crown-${x.key}`,
+      "crown",
+      x.crown,
+      x.adjective,
+      darken(x.color),
+      {
+        culture: rules.culture,
+        religion: rules.religion,
+        capital: -1,
+        gold: 0,
+        player: null,
+        playerName: null,
+      },
+    );
+    crown.colony = id;
+    state.nations.push(crown);
+  }
+  for (const [key, r] of Object.entries(era?.renames ?? {})) {
+    const n = state.nations.find((x) => x.key === key);
+    const crown = state.nations.find((x) => x.key === `crown-${key}`);
+    if (n) {
+      n.name = r.name;
+      n.adjective = r.adjective;
+      if (r.color) n.color = r.color;
+    }
+    if (crown && r.crown) {
+      crown.name = r.crown;
+      crown.adjective = r.crownAdjective ?? crown.adjective;
+    }
+  }
+  // ---- end DLC (r21)
 
   // Who's nearest to each wild province, to name the people living there.
   const nearest = nearestNative(map, keyIndex);
@@ -195,7 +249,9 @@ export function newGameState(map: MapDef, settings: GameSettings): GameState {
       pops.push(tribe(n.culture, size));
     } else if (n?.kind === "power") {
       const rules = POWER_RULES[n.key];
-      const at = map.powers.find((x) => x.id === n.key)!.provinces.indexOf(p);
+      // DLC (r21): a start's own colony isn't among the map's powers.
+      const at =
+        map.powers.find((x) => x.id === n.key)?.provinces.indexOf(p) ?? -1;
       const settlersHere = era
         ? Math.round(DEVELOPMENT_SETTLERS[development(p) || 1] * wobble)
         : (rules.startPop[at] ?? 100);

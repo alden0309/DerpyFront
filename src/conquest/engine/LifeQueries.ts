@@ -5,6 +5,7 @@
 
 import { bawdyIn } from "./Bawdy"; // LIFE (r21)
 import { dateOf } from "./Calendar"; // MAP (r12)
+import { servesHere } from "./Campaign1776Core"; // DLC (r21)
 import { eduStartRank } from "./EduData"; // EDU (r13)
 import { Explain } from "./Explain";
 import { hooks } from "./Hooks"; // EDU (r13)
@@ -365,7 +366,11 @@ export function jobCheck(
     return no("You already do this work here.");
   const pr = s.provinces[life.prov];
   const holder = pr.occupier >= 0 ? pr.occupier : pr.owner;
-  if (def.ownNation && holder !== me.nation)
+  if (
+    def.ownNation &&
+    holder !== me.nation &&
+    !(kind === "soldier" && servesHere(s, life, holder)) // DLC (r21): a Loyalist regiment
+  )
     return no(
       `Only ${s.nations[holder]?.adjective ?? "local"} people are taken on here.`,
     );

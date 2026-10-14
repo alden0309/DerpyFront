@@ -4,6 +4,7 @@
 // independence.
 
 import { dateOf, dayOf } from "./Calendar";
+import { campaignEurope, campaignRising } from "./Campaign1776Core"; // DLC (r21)
 import { kill } from "./Characters";
 import { mainPort } from "./Economy";
 import type { ConquestGame } from "./Game";
@@ -155,6 +156,30 @@ export const HISTORY: {
     to: [1713, 3],
     name: "The War of the Spanish Succession",
   },
+  // DLC (r21): the 1776 campaign's wars with Britain (British America: only
+  // a game that begins in 1776 has it). They end with the Treaty of Paris
+  // (Campaign1776.ts), before these dates come.
+  {
+    a: "france",
+    b: "britain",
+    from: [1778, 5],
+    to: [1783, 9],
+    name: "The Anglo-French War",
+  },
+  {
+    a: "spain",
+    b: "britain",
+    from: [1779, 6],
+    to: [1783, 9],
+    name: "The Anglo-Spanish War",
+  },
+  {
+    a: "netherlands",
+    b: "britain",
+    from: [1781, 0],
+    to: [1783, 9],
+    name: "The Fourth Anglo-Dutch War",
+  },
 ];
 
 // ---------------------------------------------------------------- europe
@@ -199,7 +224,7 @@ export function europeMonthly(g: ConquestGame): void {
       else t += rivalry + (atWarHere ? 1 : 0) - 0.3;
       t = Math.max(0, Math.min(100, Math.round(t * 10) / 10));
       s.europe.tension[k] = t;
-      if (scripted.has(k)) continue;
+      if (scripted.has(k) || campaignEurope(s)) continue; // DLC (r21): history's wars only
       const started = s.europe.wars[k];
       if (started === undefined && t >= 100)
         europeWar(g, a, b, `War between ${a.name} and ${b.name}`);
@@ -503,6 +528,7 @@ export function declareIndependence(g: ConquestGame, n: number): void {
 
 function rebellionMonthly(g: ConquestGame, n: number): void {
   const s = g.s;
+  if (campaignRising(s, n)) return; // DLC (r21): the 1776 campaign's beats decide its war
   const nation = g.nation(n);
   const r = nation.rebellion!;
   const crown = crownOf(g, n);
@@ -579,6 +605,11 @@ function sendExpedition(g: ConquestGame, n: number): void {
     title: "The crown's army lands",
     text: `${regs.length} regiments of the crown's soldiers have landed at ${g.map.provinces[land].name} to end the rebellion.`,
   });
+}
+
+// DLC (r21): exported, for the 1776 campaign's Treaty of Paris (Campaign1776.ts).
+export function rebellionWon(g: ConquestGame, n: number): void {
+  won(g, n);
 }
 
 function won(g: ConquestGame, n: number): void {

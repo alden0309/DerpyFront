@@ -274,6 +274,12 @@ export interface DerpyStoreItem {
     shimmer: string;
   };
   fanfare?: { instruments: string; seconds: number };
+  /** DLC (r21): a Derpy Conquest item (map styles carry their colours). */
+  conquest?: {
+    features: string[];
+    howTo: string;
+    palette?: { sea: string; land: string; ink: string; accent: string };
+  };
 }
 
 /** Buy anything in the store (a skin pack, or since r21 any item). */

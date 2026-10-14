@@ -3,7 +3,14 @@
 // someone, the menu, the rules and the end of the story.
 
 import { html, nothing, TemplateResult } from "lit";
+import {
+  MAP_STYLE_NAMES,
+  MAP_STYLE_PALETTES,
+  MAP_STYLES,
+  type MapStyleKey,
+} from "../../DlcIds"; // DLC (r21)
 import { formatDate } from "../../engine/Calendar";
+import { endWords } from "../../engine/Campaign1776Core"; // DLC (r21)
 import { lifeTitle, takeoverCandidates } from "../../engine/LifeQueries";
 import { PLAY_PAY } from "../../engine/LifeRules"; // LEGACY (r21)
 import { ageOf, charName } from "../../engine/Queries";
@@ -11,9 +18,11 @@ import { REG_NAMES } from "../../engine/Rules";
 import type { BattleSide, LifePlan, RegType } from "../../engine/Types";
 import type { ResultLine } from "../../Protocol";
 import { creditsList } from "../Credits";
+import { dlcOwned, STORE_MAP_STYLES } from "../Dlc"; // DLC (r21)
 import { flagFor } from "../Flags";
 import { guideOverlay } from "../guide/Guide";
 import "../Maker";
+import { chooseMapStyle, mapStyleToDraw } from "../MapStylePref"; // DLC (r21)
 import { confirmMarch, setConfirmMarch } from "../Prefs";
 import "../Range";
 import { music, play, setSoundSettings, soundSettings } from "../Sound";
@@ -657,10 +666,72 @@ function settingsBlock(ui: GameUi): TemplateResult {
       />
       Ask before travelling (or marching) when I click a province
     </label>
+    ${mapStylePicker(ui) /* DLC (r21) */}
     <button class="cq-link small" @click=${() => ui.modal({ k: "credits" })}>
       Credits for the art, sounds and music
     </button>
   </fieldset>`;
+}
+
+/**
+ * DLC (r21): the map's style. The usual chart, and each style of the Derp
+ * Store: the ones the account owns can be chosen (only you see it), the
+ * others show where they're sold.
+ */
+function mapStylePicker(ui: GameUi): TemplateResult {
+  const owned = dlcOwned().styles;
+  const now = mapStyleToDraw(owned);
+  const pick = (key: MapStyleKey | null) => {
+    chooseMapStyle(key);
+    ui.redraw();
+  };
+  const swatch = (bg: string) =>
+    html`<span class="cq-mapstyle-swatch" style="background:${bg}"></span>`;
+  return html`<div class="cq-field">
+    <span class="cq-field-label" id="cq-mapstyle-label">Map style</span>
+    <div
+      class="cq-mapstyles"
+      role="radiogroup"
+      aria-labelledby="cq-mapstyle-label"
+    >
+      <button
+        class="cq-mapstyle"
+        role="radio"
+        aria-checked=${now === null}
+        @click=${() => pick(null)}
+      >
+        ${swatch("linear-gradient(135deg, #2f6577 0 50%, #ece0b4 50% 100%)")}
+        The usual chart
+      </button>
+      ${MAP_STYLES.map((key) => {
+        const p = MAP_STYLE_PALETTES[key];
+        const has = owned.includes(key);
+        return html`<button
+          class="cq-mapstyle"
+          role="radio"
+          aria-checked=${now === key}
+          ?disabled=${!has}
+          title=${has ? "" : "In the Derp Store"}
+          @click=${() => has && pick(key)}
+        >
+          ${swatch(
+            `linear-gradient(135deg, ${p.sea} 0 50%, ${p.land} 50% 100%); border-color:${p.ink}`,
+          )}
+          ${MAP_STYLE_NAMES[key]}
+          ${has
+            ? nothing
+            : html`<span class="cq-mapstyle-lock">In the Derp Store</span>`}
+        </button>`;
+      })}
+    </div>
+    <p class="cq-muted small">
+      Only you see it; it changes nothing in the game.
+      ${owned.length < MAP_STYLES.length
+        ? html`More in the
+            <a href=${STORE_MAP_STYLES} target="_blank">Derp Store</a>.`
+        : nothing}
+    </p>
+  </div>`;
 }
 
 function creditsPage(ui: GameUi): TemplateResult {
@@ -694,7 +765,7 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
   return html`
     <h2 class="cq-h1">
       ${s.over
-        ? "1776: the story is told"
+        ? `${endWords(s).year}: the story is told`
         : life?.watching
           ? "The story so far"
           : "Your story so far"}

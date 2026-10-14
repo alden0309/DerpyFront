@@ -10,6 +10,7 @@
 
 import { html, nothing, TemplateResult } from "lit";
 import { formatDate } from "../../engine/Calendar";
+import { isCampaign } from "../../engine/Campaign1776Core"; // DLC (r21)
 import { expedOf } from "../../engine/ExpedCore";
 import { rangersTurn } from "../../engine/Expeditions";
 import {
@@ -371,6 +372,16 @@ function revSection(ui: GameUi, n: number): TemplateResult | typeof nothing {
   const nation = s.nations[n];
   if (nation.independent) return nothing;
   const d = deskView(s, n);
+  // DLC (r21): the 1776 campaign's war follows history to the peace.
+  if (nation.rebelling && isCampaign(s))
+    return section(
+      html`${term("independence", "The war with the crown")}`,
+      html`<p class="small">
+        The war follows its history: the battles, the alliances and the peace
+        signed at Paris on 3 September 1783. Society › The war follows it, and
+        your side in it.
+      </p>`,
+    );
   if (nation.rebelling)
     return section(
       html`${term("independence", "The war with the crown")}`,
@@ -527,6 +538,7 @@ export function revSideSection(ui: GameUi): TemplateResult | typeof nothing {
   const rev = nation?.desk?.rev;
   if (!nation?.rebelling || !rev || governedBy(s, life) === me.nation)
     return nothing;
+  if (isCampaign(s)) return nothing; // DLC (r21): 1776 has Society › The war
   const side = rev.sides[life.seat];
   return section(
     "The colony breaks with the crown",

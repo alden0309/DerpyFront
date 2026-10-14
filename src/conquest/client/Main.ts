@@ -33,6 +33,7 @@ import "./chair.css"; // CHAIR (r16): the road to the governor's chair
 import "./chamber.css"; // CHAMBER (r16): the factions, the session, a seat's work later
 import "./crown.css"; // CROWN (r18): regiments from Europe, an expedition's petition
 import "./dice.css"; // DICE (r14): Liar's dice
+import "./dlc.css"; // DLC (r21): the 1776 start, the war's page, Legends, map styles
 import "./econ.css"; // ECON (r17): bonds, leave, a company's two legs
 import "./gov.css"; // GOV (r21): expeditions, the governor's desk, independence
 import "./home.css";

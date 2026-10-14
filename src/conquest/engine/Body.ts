@@ -10,6 +10,7 @@
 //
 // The tables here are the ones the engine applies and the tooltips show.
 
+import { watersYears } from "./LegendsCore"; // DLC (r21)
 import { meOf } from "./LifeQueries";
 import { ageOf, hasTrait } from "./Queries";
 import type { Character, GameState, Life, Part } from "./Types";
@@ -61,11 +62,16 @@ export function maxHealthOf(
   if (!c) return { total: 100, parts: [] };
   const age = ageOf(s, c);
   const parts: Part[] = [];
-  const base = ageHealth(age);
+  // DLC (r21): the Fountain's water (Legends): the decline put off, unexplained.
+  const waters = watersYears(life, c);
+  const plain = ageHealth(age);
+  const base = ageHealth(Math.max(0, age - waters));
   parts.push({
     label: age > HEALTH_AGE[0][0] ? `Your years (${age})` : "In your prime",
-    value: base,
+    value: plain,
   });
+  if (base > plain)
+    parts.push({ label: "Hale for your years", value: base - plain });
   let total = base;
   for (const m of HEALTH_MARKS) {
     const has =

@@ -111,8 +111,18 @@ describe("the catalog", () => {
     expect(Math.max(...prices)).toBe(6000);
   });
 
-  test("Conquest's tabs are empty until its DLC comes", () => {
-    expect(DERPY_ITEMS.filter((i) => i.game === "conquest")).toEqual([]);
+  // DLC (r21): Conquest's tabs are filled now (tests/server/ConquestDlc.test.ts has the rest).
+  test("Conquest's tabs hold its DLC", () => {
+    const conquest = DERPY_ITEMS.filter((i) => i.game === "conquest");
+    expect(conquest.map((i) => i.category).sort()).toEqual([
+      "campaigns",
+      "legends",
+      "mapstyles",
+      "mapstyles",
+      "mapstyles",
+      "mapstyles",
+      "mapstyles",
+    ]);
   });
 
   test("every AI personality pack is sold, with its personas and emblems", () => {

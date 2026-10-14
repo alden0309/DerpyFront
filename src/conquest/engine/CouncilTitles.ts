@@ -6,6 +6,7 @@
 // secrets), and three seats of the colony's own join them: the attorney
 // general, the surveyor-general and the speaker of the assembly.
 
+import { CONGRESS_TITLES } from "./Campaign1776Core"; // DLC (r21)
 import { NATIVE_SEAT_NAMES } from "./Rules";
 import type { CouncilSeat, GameState, Nation, Seat } from "./Types";
 
@@ -113,6 +114,8 @@ export function seatTitleOf(
     return seat === "attorney" || seat === "surveyor" || seat === "speaker"
       ? "Elder"
       : NATIVE_SEAT_NAMES[seat as Seat];
+  // DLC (r21): the United States of the 1776 campaign: Congress's offices.
+  if (nation?.r76 && CONGRESS_TITLES[seat]) return CONGRESS_TITLES[seat];
   if (nation?.religion === "puritan" && seat === "chaplain")
     return "Teacher of the church";
   if (nation?.religion === "puritan" && seat === "speaker")

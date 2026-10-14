@@ -13,6 +13,7 @@
 // canvas, as often as the device can comfortably manage, and only where
 // you can see them.
 
+import type { MapStyleKey } from "../DlcIds"; // DLC (r21)
 import { dateOf } from "../engine/Calendar";
 import { isFeverSeason, isWinter, type World } from "../engine/Map";
 import { armyMen, countRegs, people, settlers } from "../engine/Queries";
@@ -65,6 +66,14 @@ import {
   unknownMark,
   whiteFlag,
 } from "./MapArt";
+import {
+  gradeChart,
+  lookOf,
+  type MapLook,
+  paintLamps,
+  paintMarks,
+  paintSea,
+} from "./MapStyles"; // DLC (r21)
 import { drawStorm } from "./SeasonArt";
 import {
   drawSprite,
@@ -478,11 +487,28 @@ export class MapView {
     this.needsDraw = true;
   }
 
+  /** DLC (r21): the map style drawn (one the player owns and chose), or null for the usual chart. */
+  private look: MapLook | null = null;
+  private host: HTMLElement | null = null;
+
+  /** DLC (r21): draw the chart in a map style (null: the usual chart). */
+  setStyle(key: MapStyleKey | null): void {
+    if ((this.look?.key ?? null) === key) return;
+    this.look = lookOf(key);
+    if (key) this.host?.setAttribute("data-mapstyle", key);
+    else this.host?.removeAttribute("data-mapstyle");
+    this.markDirty();
+  }
+
   /** WORLD r11: put both canvases (the chart under, the moving things over) into `host`. */
   mount(host: HTMLElement): void {
     if (this.chartCanvas.parentElement !== host)
       host.appendChild(this.chartCanvas);
     if (this.canvas.parentElement !== host) host.appendChild(this.canvas);
+    // DLC (r21): the style's edges are the frame's (CSS), not the canvas's.
+    this.host = host;
+    if (this.look) host.setAttribute("data-mapstyle", this.look.key);
+    else host.removeAttribute("data-mapstyle");
   }
 
   /**
@@ -1414,8 +1440,8 @@ export class MapView {
   private fillFor(s: GameState, p: number, o: Overlay): string {
     const prov = s.provinces[p];
     const def = this.map.provinces[p];
-    if (def.closed) return CLOSED_FILL;
-    if (o.fog && !o.fog.known.has(p)) return FOG_FILL;
+    if (def.closed) return this.look?.closed ?? CLOSED_FILL; // DLC (r21)
+    if (o.fog && !o.fog.known.has(p)) return this.look?.fog ?? FOG_FILL;
     switch (o.mode) {
       case "terrain":
         return TERRAIN_TINT[def.terrain];
@@ -1445,7 +1471,10 @@ export class MapView {
           return TERRAIN_TINT[def.terrain];
         }
         const n = s.nations[owner];
-        return mix(n.color, n.kind === "native" ? 0.42 : 0.14);
+        const toPaper = n.kind === "native" ? 0.42 : 0.14;
+        // DLC (r21): a map style may tint the realms lighter, by hand.
+        const lm = this.look?.landMix ?? 0;
+        return mix(n.color, 1 - (1 - toPaper) * (1 - lm));
       }
     }
   }
@@ -1648,21 +1677,33 @@ export class MapView {
     // WORLD r11: the sea is painted into the chart (it used to be painted
     // over the whole screen every frame).
     screenT();
+    const look = this.look; // DLC (r21): a map style, if one's chosen
     const grad = c.createLinearGradient(0, -m, 0, this.cssHeight + m);
-    grad.addColorStop(0, OCEAN_TOP);
-    grad.addColorStop(1, OCEAN_BOTTOM);
+    grad.addColorStop(0, look?.seaTop ?? OCEAN_TOP);
+    grad.addColorStop(1, look?.seaBottom ?? OCEAN_BOTTOM);
     c.fillStyle = grad;
     c.fillRect(-m, -m, this.cssWidth + 2 * m, this.cssHeight + 2 * m);
     const swell = this.pattern("sea", c);
-    if (swell) {
+    if (swell && (look?.swell ?? 0.16) > 0) {
       swell.setTransform(
         new DOMMatrix().translateSelf(v.tx, v.ty).scaleSelf(0.45, 0.45),
       );
-      c.globalAlpha = 0.16;
+      c.globalAlpha = look?.swell ?? 0.16;
       c.fillStyle = swell;
       c.fillRect(-m, -m, this.cssWidth + 2 * m, this.cssHeight + 2 * m);
       c.globalAlpha = 1;
     }
+    if (look)
+      paintSea(
+        c,
+        look,
+        v,
+        { x: -m, y: -m, w: this.cssWidth + 2 * m, h: this.cssHeight + 2 * m },
+        this.geo.width,
+        this.geo.height,
+        mapT,
+        screenT,
+      );
     const fog = o.fog ?? null;
     const closed = (p: number) => !!this.map.provinces[p].closed;
     /** Land you know (and that's on the board). */
@@ -1721,9 +1762,19 @@ export class MapView {
       }
     }
     // Paper grain over the land, and the lie of the country drawn on it.
-    this.texture(c, "paper", v.scale, 0.5, 0.55, knownLand, () => true);
+    if ((look?.paper ?? 1) > 0)
+      this.texture(
+        c,
+        "paper",
+        v.scale,
+        0.5,
+        0.55 * (look?.paper ?? 1),
+        knownLand,
+        () => true,
+      );
     const terrainAlpha =
-      o.mode === "terrain" ? 0.6 : o.mode === "nation" ? 0.24 : 0;
+      (o.mode === "terrain" ? 0.6 : o.mode === "nation" ? 0.24 : 0) *
+      (look?.terrain ?? 1); // DLC (r21)
     if (terrainAlpha > 0) {
       for (const kind of ["forest", "hills", "mountains", "marsh"] as const) {
         this.texture(c, kind, v.scale, 0.42, terrainAlpha, knownLand, (p) => {
@@ -1733,17 +1784,20 @@ export class MapView {
       }
     }
     // The season: snow lies over winter country; the woods turn in autumn.
-    const month = dateOf(Math.floor(o.dayNow)).month;
-    this.seasonMonth = month;
-    this.seasonSeen = seasonLook(month);
+    const realMonth = dateOf(Math.floor(o.dayNow)).month;
+    this.seasonMonth = realMonth;
+    this.seasonSeen = seasonLook(realMonth);
+    // DLC (r21): Hard Winter draws January's snow and ice all year.
+    const month = look?.winter ? 0 : realMonth;
     const seasonal = o.mode === "nation" || o.mode === "terrain";
     if (seasonal) this.paintSeason(c, s, v, month, knownLand);
-    c.strokeStyle = "rgba(70, 55, 35, 0.22)";
+    c.strokeStyle = look?.borderInk ?? "rgba(70, 55, 35, 0.22)";
     c.lineWidth = Math.max(0.5, 0.8 / v.scale);
     c.stroke(this.borders);
-    c.strokeStyle = "rgba(82, 130, 160, 0.75)";
+    c.strokeStyle = look?.riverInk ?? "rgba(82, 130, 160, 0.75)";
     c.lineWidth = Math.min(1.2, 1.1 / v.scale);
-    if (!seasonal) c.stroke(this.rivers);
+    if (!seasonal || look)
+      c.stroke(this.rivers); // DLC (r21): a style's own rivers
     else
       for (const r of this.riverLines) {
         // MAP (r12): frozen white in the northern winter, brown and swollen in the thaw.
@@ -1760,17 +1814,18 @@ export class MapView {
         c.stroke(r.path);
       }
     if (o.mode === "nation") {
-      c.strokeStyle = "rgba(45, 32, 20, 0.8)";
-      c.lineWidth = 1.9 / v.scale;
+      c.strokeStyle = look?.nationInk ?? "rgba(45, 32, 20, 0.8)";
+      c.lineWidth = (look?.nationWidth ?? 1.9) / v.scale;
       c.stroke(this.nationBorders);
     }
     // WORLD r11: land off the board, darkened; country nobody's told you of, fogged.
     this.paintClosed(c, v, visible);
     if (fog) this.paintFog(c, v, fog, visible, now);
-    c.strokeStyle = "rgba(25, 45, 55, 0.9)";
-    c.lineWidth = 1.2 / v.scale;
+    c.strokeStyle = look?.coastInk ?? "rgba(25, 45, 55, 0.9)";
+    c.lineWidth = (look?.coastWidth ?? 1.2) / v.scale;
     c.stroke(this.coast);
     c.stroke(this.backdrop);
+    if (look) paintMarks(c, look, v, this.geo.width, this.geo.height); // DLC (r21)
 
     // ---- the chart-maker's marks, in map units
     const W = this.geo.width;
@@ -1784,7 +1839,9 @@ export class MapView {
       const size = l.kind === "land" ? 20 : 16;
       c.font = `italic ${size}px "IM Fell English", Georgia, serif`;
       c.fillStyle =
-        l.kind === "land" ? "rgba(90,70,45,0.55)" : "rgba(225,238,240,0.42)";
+        l.kind === "land"
+          ? (look?.landLabel ?? "rgba(90,70,45,0.55)")
+          : (look?.seaLabel ?? "rgba(225,238,240,0.42)");
       c.textAlign = "center";
       c.textBaseline = "middle";
       const letters = [...l.text];
@@ -1802,11 +1859,34 @@ export class MapView {
 
     // ---- names and marks, in screen pixels
     screenT();
+    // DLC (r21): the style's colour over the finished chart, then the lamps.
+    if (look) {
+      gradeChart(c, look, bw, bh);
+      if (look.key === "night") {
+        const lamps: { x: number; y: number; big: boolean }[] = [];
+        for (let p = 0; p < s.provinces.length; p++) {
+          const def = this.map.provinces[p];
+          const owner = fog ? (fog.owner(p) ?? -1) : s.provinces[p].owner;
+          if (owner < 0 || def.closed || (fog && !fog.known.has(p))) continue;
+          const x = sx(def.x);
+          const y = sy(def.y);
+          if (!onScreen(x, y)) continue;
+          lamps.push({
+            x,
+            y,
+            big:
+              s.nations[owner]?.capital === p ||
+              settlers(s.provinces[p]) >= 2500,
+          });
+        }
+        paintLamps(c, look, lamps);
+      }
+    }
     if (o.mode === "nation") this.drawNationLabels(c, v, m);
     c.textAlign = "center";
     c.textBaseline = "middle";
     if (v.scale >= 1.1 || o.mode !== "nation") {
-      c.font = `${v.scale > 3 ? 13 : 11}px "IM Fell English", Georgia, serif`;
+      c.font = `${look?.nameItalic ? "italic " : ""}${v.scale > 3 ? 13 : 11}px "IM Fell English", Georgia, serif`;
       for (let p = 0; p < this.provPaths.length; p++) {
         const def = this.map.provinces[p];
         const b = this.provBox[p];
@@ -1815,7 +1895,7 @@ export class MapView {
         if (!onScreen(x, y, 80)) continue;
         if (def.closed || (fog && !fog.known.has(p))) continue;
         if ((b[2] - b[0]) * v.scale < def.name.length * 6) continue;
-        c.fillStyle = "rgba(45,32,20,0.82)";
+        c.fillStyle = look?.nameInk ?? "rgba(45,32,20,0.82)";
         c.fillText(def.name, x, y + 14);
       }
     }
@@ -2125,7 +2205,7 @@ export class MapView {
     if (!this.closedAt) return;
     if (!this.map.provinces.some((d, p) => d.closed && visible(p))) return;
     // Over its rivers and borders too: there's nothing there for you.
-    c.fillStyle = CLOSED_FILL;
+    c.fillStyle = this.look?.closed ?? CLOSED_FILL; // DLC (r21)
     c.fill(this.closedPath, "evenodd");
     const closedHatch = this.hatch(c, v, 6, 1, 1.2, "rgba(15,10,6,0.35)");
     if (closedHatch) {
@@ -2140,7 +2220,7 @@ export class MapView {
       ly,
       22,
       -8,
-      "rgba(222,206,170,0.62)",
+      this.look?.fogInk ?? "rgba(222,206,170,0.62)", // DLC (r21)
     );
   }
 
@@ -2207,7 +2287,7 @@ export class MapView {
     if (!unknown.length) return;
     const path = new Path2D();
     for (const p of unknown) path.addPath(this.provPaths[p]);
-    c.fillStyle = FOG_FILL;
+    c.fillStyle = this.look?.fog ?? FOG_FILL; // DLC (r21)
     c.fill(path, "evenodd");
     // A wash of cloud and stain, painted once into a tile and laid over
     // the whole fog in one go; then a fine hatch (wave 2, r11: both as
@@ -2277,7 +2357,7 @@ export class MapView {
         y / wsum,
         px / v.scale,
         -6,
-        "rgba(232,216,180,0.42)",
+        this.look?.fogInk ?? "rgba(232,216,180,0.42)", // DLC (r21)
       );
     }
   }

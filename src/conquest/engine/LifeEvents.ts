@@ -3654,6 +3654,7 @@ export const LIFE_EVENTS: LifeEventDef[] = [
 // ---------------------------------------------------------------- a few calls out
 
 import { BOND_EVENTS } from "./BondEvents"; // LABOUR (r15)
+import { r76Events, r76Quiet } from "./Campaign1776Events"; // DLC (r21)
 import { chairEvents, chairQuiet } from "./ChairEvents"; // CHAIR (r16)
 import { crownEvents, crownQuiet } from "./CrownEvents"; // CROWN (r18)
 import { DICE_EVENTS } from "./DiceEvents"; // DICE (r14)
@@ -3666,6 +3667,7 @@ import { govEvents, govQuiet } from "./GovEvents"; // GOV (r21)
 import { INTRIGUE_EVENTS } from "./IntrigueEvents"; // INTRIGUE (r15)
 import { LABOUR2_EVENTS, labour2Quiet } from "./Labour2Events"; // LABOUR2 (r21)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
+import { legendEvents, legendQuiet } from "./LegendEvents"; // DLC (r21)
 import { leaveForEurope, takeJob } from "./Life";
 import { lifeR21Events, lifeR21Quiet } from "./LifeR21Events"; // LIFE (r21)
 import { lendFriend } from "./Loans"; // ECON (r17)
@@ -3790,6 +3792,12 @@ function byKey(key: string): LifeEventDef | undefined {
     // GOV (r21): expeditions on the way and at the far end; an invitation, a
     // grant, a war party; the governor's desk and the question of independence.
     for (const d of [...expedEvents(), ...govEvents()])
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // DLC (r21): the 1776 campaign's scenes; Legends' rumours and trails.
+    for (const d of [...r76Events(), ...legendEvents()])
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
@@ -4104,7 +4112,9 @@ function firstAllowed(
     workR21Quiet()[ev.key] ?? // WORK (r21)
     expedQuiet()[ev.key] ??
     govQuiet()[ev.key] ?? // GOV (r21)
-    labour2Quiet()[ev.key]; // LABOUR2 (r21)
+    labour2Quiet()[ev.key] ?? // LABOUR2 (r21)
+    r76Quiet()[ev.key] ??
+    legendQuiet()[ev.key]; // DLC (r21)
   if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
     return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.

@@ -10,6 +10,7 @@
 // costs, on the page; every number here is the one the engine uses.
 
 import { dateOf } from "./Calendar";
+import { isCampaign } from "./Campaign1776Core"; // DLC (r21)
 import { relate } from "./Council";
 import { economyCommand, tally } from "./Economy";
 import type { ConquestGame } from "./Game";
@@ -714,8 +715,13 @@ export function deskCommand(
     case "vote":
       return voteMotion(g, life, c.vote ?? 0);
     case "declare":
+      // DLC (r21): in the 1776 campaign the war is history's, start to end.
+      if (isCampaign(g.s))
+        return "In 1776 the break with the crown is history's: the Congress won't go back on it.";
       return declareRev(g, life, !!c.on);
     case "side":
+      // DLC (r21): in the 1776 campaign sides are chosen on Society › The war.
+      if (isCampaign(g.s)) return "Choose your side on Society › The war.";
       return revSide(g, life, c.arg ?? "neutral");
     default:
       return "Unknown order.";

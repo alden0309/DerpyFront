@@ -969,6 +969,22 @@ export const POWER_RULES: Record<string, PowerRules> = {
   },
 };
 
+// DLC (r21): British America, the colonies that stayed loyal in 1776
+// (Start1776.ts): England's rules, its own words.
+POWER_RULES.britain = {
+  ...POWER_RULES.england,
+  pros: [
+    "Halifax and New York are the King's harbours, and his navy rules the sea",
+    "Loyalists come north in their thousands as the war goes on",
+  ],
+  cons: [
+    "Quebec is newly British and still largely French",
+    "France and Spain are waiting for their chance at the sugar islands",
+  ],
+  history:
+    "Quebec, Nova Scotia, the Floridas and the West Indies stay with the King while the Thirteen Colonies take up arms.",
+};
+
 /** Days a crossing to Europe takes from each region, before the season. */
 export function crossingDays(lat: number, lon: number): number {
   // Brazil and the Caribbean ride the trade winds; the north fights them.

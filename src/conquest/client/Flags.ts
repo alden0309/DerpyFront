@@ -97,11 +97,60 @@ export function flag(key: string, cls = "cq-flag"): TemplateResult {
         <rect x="17" width="8" height="40" fill="#f2c230" />
         <rect y="16" width="60" height="8" fill="#f2c230" />
       </svg>`;
+    // DLC (r21): British America (the 1776 campaign) flies the union of 1606.
+    case "britain":
+      return html`<svg class=${cls} viewBox="0 0 60 40" aria-hidden="true">
+        ${unionOf1606(60, 40)}
+      </svg>`;
     default:
       return html`<svg class=${cls} viewBox="0 0 60 40" aria-hidden="true">
         <rect width="60" height="40" fill="#e9dcc0" />
       </svg>`;
   }
+}
+
+/**
+ * DLC (r21): the union of 1606 (St George's cross on St Andrew's saltire,
+ * before Ireland's was added in 1801), drawn into a `w`×`h` box: the King's
+ * Colours, and the canton of the Continental Colours.
+ */
+function unionOf1606(w: number, h: number) {
+  return svg`<svg width=${w} height=${h} viewBox="0 0 60 40" preserveAspectRatio="none">
+    <rect width="60" height="40" fill="#1f3f8f" />
+    <path d="M0 0 60 40M60 0 0 40" stroke="#f6f1e3" stroke-width="8" />
+    <rect x="24" width="12" height="40" fill="#f6f1e3" />
+    <rect y="14" width="60" height="12" fill="#f6f1e3" />
+    <rect x="26.5" width="7" height="40" fill="#c8102e" />
+    <rect y="16.5" width="60" height="7" fill="#c8102e" />
+  </svg>`;
+}
+
+/** DLC (r21): thirteen stripes, red and white, red at the top and bottom. */
+function thirteenStripes() {
+  return svg`${Array.from({ length: 13 }, (_, i) =>
+    i % 2 === 1
+      ? svg`<rect y=${(i * 40) / 13} width="60" height=${40 / 13 + 0.05} fill="#f6f1e3" />`
+      : svg``,
+  )}`;
+}
+
+/**
+ * DLC (r21): the Stars and Stripes of 14 June 1777: "thirteen stars, white
+ * in a blue field, representing a new constellation". The resolution set no
+ * pattern; rows of 3-2-3-2-3 were among the ways it was sewn.
+ */
+function thirteenStars() {
+  const rows = [3, 2, 3, 2, 3];
+  const out = [];
+  for (let r = 0; r < rows.length; r++)
+    for (let c = 0; c < rows[r]; c++) {
+      const x = rows[r] === 3 ? 4.5 + c * 9 : 9 + c * 9;
+      const y = 2.6 + r * 4.15;
+      out.push(
+        svg`<path transform="translate(${x} ${y}) scale(1.35)" d="M0-1 .29-.31 1-.31.43.12.62.81 0 .38-.62.81-.43.12-1-.31-.29-.31z" fill="#f6f1e3" />`,
+      );
+    }
+  return svg`<rect width="27" height=${(40 / 13) * 7} fill="#2a3d7a" />${out}`;
 }
 
 /** A native nation's emblem: their colour, with a feathered disc. */
@@ -189,6 +238,21 @@ export function customFlag(f: NationFlag, cls = "cq-flag"): TemplateResult {
     case "triband":
       div = svg`<rect x="20" width="20" height="40" fill=${b} /><rect width="60" height="40" fill="none" />`;
       break;
+    // DLC (r21): the flags of the 1776 campaign.
+    case "union":
+      return html`<svg class=${cls} viewBox="0 0 60 40" aria-hidden="true">
+        ${unionOf1606(60, 40)}
+      </svg>`;
+    case "continental":
+      return html`<svg class=${cls} viewBox="0 0 60 40" aria-hidden="true">
+        <rect width="60" height="40" fill="#b22234" />
+        ${thirteenStripes()} ${unionOf1606(27, (40 / 13) * 7)}
+      </svg>`;
+    case "starsstripes":
+      return html`<svg class=${cls} viewBox="0 0 60 40" aria-hidden="true">
+        <rect width="60" height="40" fill="#b22234" />
+        ${thirteenStripes()} ${thirteenStars()}
+      </svg>`;
     case "stripes":
       div = svg`${[0, 1, 2, 3, 4, 5, 6, 7, 8]
         .filter((i) => i % 2 === 1)

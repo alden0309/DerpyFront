@@ -550,6 +550,8 @@ export const FAITHS: Record<string, Religion[]> = {
   netherlands: ["reformed", "lutheran"],
   sweden: ["lutheran"],
   native: ["native", "catholic"],
+  // DLC (r21): British America in 1776 (Quebec's people are Catholic).
+  britain: ["anglican", "catholic", "puritan"],
 };
 
 export function faithsFor(origin: string, native: boolean): Religion[] {

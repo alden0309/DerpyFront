@@ -4,11 +4,13 @@
 import { html, nothing, TemplateResult } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { formatDate } from "../../engine/Calendar";
+import { endWords } from "../../engine/Campaign1776Core"; // DLC (r21)
 import { charName } from "../../engine/Queries";
 import type { JournalEntry } from "../../engine/Types";
 import { LetterIcon } from "../Icons";
 import { achievementsPage } from "./Achievements"; // MAP (r12)
 import { GameUi, section } from "./Context";
+import { legendsPage } from "./DlcPages"; // DLC (r21)
 import { takeJournalAffairs } from "./Ledger"; // LEDGER (r15)
 import { pageHead } from "./Nav";
 import "./Story"; // STORY (r17): the story so far is the story told
@@ -27,6 +29,7 @@ export function journalTab(ui: GameUi, sub = "diary"): TemplateResult {
       Nothing written yet. Make a character, or take over someone.
     </p>`;
   if (sub === "achievements") return achievementsPage(ui); // MAP (r12)
+  if (sub === "legends") return legendsPage(ui); // DLC (r21)
   if (sub === "leads")
     return html`${pageHead(
       "Leads",
@@ -39,8 +42,8 @@ export function journalTab(ui: GameUi, sub = "diary"): TemplateResult {
     return html`${pageHead(
         "The story so far",
         life.line.length > 1
-          ? `${life.line.length} generations of the ${s.chars[life.line[0]]?.family ?? ""} line: everything worth the telling, as it will be told in 1776.`
-          : "Everything worth the telling in your life, as it will be told in 1776.",
+          ? `${life.line.length} generations of the ${s.chars[life.line[0]]?.family ?? ""} line: everything worth the telling, as it will be told in ${endWords(s).year}.`
+          : `Everything worth the telling in your life, as it will be told in ${endWords(s).year}.`,
         html`<div class="cq-btnrow">
           <button class="cq-btn small" @click=${() => ui.modal({ k: "end" })}>
             Your story, told

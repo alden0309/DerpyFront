@@ -99,6 +99,17 @@ import { recordConquestGame } from "../derpy/DerpyConquest";
 import { derpyDbConfigured } from "../derpy/DerpyDb";
 import { logger } from "../Logger";
 import { TablePay, type SeatPay } from "./ConquestPay"; // LEGACY (r21)
+// DLC (r21): Conquest's store items, checked here from the account's rows.
+import { NO_DLC, type ConquestDlcOwned } from "../../conquest/DlcIds";
+import { setLegendsOwned } from "../../conquest/engine/Legends";
+import { endYearOf } from "../../conquest/engine/Starts";
+import {
+  dlcOf,
+  hostProblem,
+  loadProblem,
+  ownedFromDb,
+  type OwnedLookup,
+} from "./ConquestDlc";
 
 /**
  * For browser tests only: the clock runs this many times faster
@@ -147,7 +158,12 @@ function previewWorld(start: StartYear): GameState {
 const Settings = z.object({
   difficulty: z.enum(DIFFICULTIES as [string, ...string[]]),
   start: z
-    .union([z.literal(1607), z.literal(1650), z.literal(1700)])
+    .union([
+      z.literal(1607),
+      z.literal(1650),
+      z.literal(1700),
+      z.literal(1776), // DLC (r21): its owner may host it (ConquestDlc.ts)
+    ])
     .optional(),
 });
 
@@ -306,6 +322,8 @@ interface Conn {
   watching: Room | null;
   hello: Promise<void> | null;
   recent: number[];
+  /** DLC (r21): what the account owns of Conquest's DLC (checked on the server). */
+  dlc: ConquestDlcOwned;
 }
 
 interface Seat {
@@ -321,6 +339,8 @@ interface Seat {
   achSeen?: Set<string>;
   /** LEGACY (r21): Derp Coins as they play (ConquestPay). */
   pay?: SeatPay;
+  /** DLC (r21): what the seat's account owns of Conquest's DLC, when it last sat down. */
+  dlc?: ConquestDlcOwned;
 }
 
 interface Room {
@@ -402,7 +422,11 @@ export class ConquestRooms {
   /** LEGACY (r21): Derp Coins as you play. */
   readonly pay: TablePay;
 
-  constructor(private readonly now: () => number = Date.now) {
+  constructor(
+    private readonly now: () => number = Date.now,
+    /** DLC (r21): an account's owned store items (the database; tests pass their own). */
+    private readonly owned: OwnedLookup = ownedFromDb,
+  ) {
     this.pay = new TablePay(
       now,
       (seat, note) => {
@@ -447,6 +471,7 @@ export class ConquestRooms {
       watching: null,
       hello: null,
       recent: [],
+      dlc: NO_DLC, // DLC (r21)
     };
     ws.on("message", (data) => {
       const t = this.now();
@@ -568,7 +593,7 @@ export class ConquestRooms {
       case "list":
         return this.list(conn);
       case "create":
-        return this.create(conn, m.solo, m.open, m.settings);
+        return this.create(conn, m.solo, m.open, m.settings as RoomSettings);
       case "join":
         return this.join(conn, m.code);
       case "rejoin":
@@ -609,6 +634,7 @@ export class ConquestRooms {
         if (!game) return;
         const err = game.beginLife(seat.id, seat.name, m.plan as LifePlan);
         if (err) return this.send(conn, { t: "err", msg: err });
+        setLegendsOwned(game, seat.id, !!seat.dlc?.legends); // DLC (r21)
         this.pay.choice(room, seat); // LEGACY (r21)
         this.flush(room);
         this.onSeatsChanged(room);
@@ -619,9 +645,19 @@ export class ConquestRooms {
         if (room.game) return;
         seat.ready = m.ready && seat.plan !== null;
         return this.sendLobby(room);
-      case "settings":
+      case "settings": {
         if (room.game || room.host !== seat.id) return;
-        room.settings = m.settings as RoomSettings;
+        // DLC (r21): a start date that needs a store item needs its owner as host.
+        const want = m.settings as RoomSettings;
+        if (want.start !== room.settings.start) {
+          conn.dlc = await dlcOf(conn.accountId, this.owned);
+          const why = hostProblem(want.start, conn.dlc);
+          if (why) {
+            this.send(conn, { t: "err", msg: why });
+            return this.sendLobby(room);
+          }
+        }
+        room.settings = want;
         room.open = m.open && !room.solo;
         // A character whose home doesn't exist in the new start year must be remade.
         for (const x of room.seats)
@@ -633,6 +669,7 @@ export class ConquestRooms {
             x.ready = false;
           }
         return this.sendLobby(room);
+      }
       case "start":
         if (room.game || room.host !== seat.id) return;
         return this.startGame(room);
@@ -735,7 +772,13 @@ export class ConquestRooms {
         log.warn(`couldn't check a sign-in: ${err}`);
       }
     }
-    this.send(conn, { t: "welcome", name: conn.name, account: conn.username });
+    conn.dlc = await dlcOf(conn.accountId, this.owned); // DLC (r21)
+    this.send(conn, {
+      t: "welcome",
+      name: conn.name,
+      account: conn.username,
+      dlc: conn.dlc,
+    });
   }
 
   private async list(conn: Conn): Promise<void> {
@@ -813,6 +856,7 @@ export class ConquestRooms {
       plan: null,
       ready: false,
       conn,
+      dlc: conn.dlc, // DLC (r21)
     };
   }
 
@@ -876,12 +920,18 @@ export class ConquestRooms {
     return room;
   }
 
-  private create(
+  private async create(
     conn: Conn,
     solo: boolean,
     open: boolean,
     settings: RoomSettings,
-  ): void {
+  ): Promise<void> {
+    // DLC (r21): a start date that needs a store item needs its owner as host.
+    if (settings.start !== undefined && hostProblem(settings.start, NO_DLC)) {
+      conn.dlc = await dlcOf(conn.accountId, this.owned);
+      const why = hostProblem(settings.start, conn.dlc);
+      if (why) return this.send(conn, { t: "err", msg: why });
+    }
     this.leaveCurrent(conn);
     if (this.rooms.size >= MAX_ROOMS) {
       return this.send(conn, {
@@ -930,6 +980,8 @@ export class ConquestRooms {
       old.ws.close();
     }
     seat.conn = conn;
+    seat.dlc = conn.dlc; // DLC (r21)
+    if (room.game) setLegendsOwned(room.game, seat.id, !!conn.dlc.legends);
     if (conn.accountId !== null) {
       seat.accountId = conn.accountId;
       seat.name = conn.name;
@@ -1010,6 +1062,10 @@ export class ConquestRooms {
         t: "err",
         msg: "That game was saved by an older version and can't be loaded.",
       });
+    // DLC (r21): loading a game is hosting it.
+    conn.dlc = await dlcOf(conn.accountId, this.owned);
+    const cannot = loadProblem(saved.state.settings.start, conn.dlc);
+    if (cannot) return this.send(conn, { t: "err", msg: cannot });
     // Someone else loaded it while we waited (or deleted it: STORY r17).
     if (running()) return rejoinRunning(running()!);
     if (this.deleted.has(id))
@@ -1520,13 +1576,22 @@ export class ConquestRooms {
       });
   }
 
-  private startGame(room: Room): void {
+  private async startGame(room: Room): Promise<void> {
     const host = room.seats.find((s) => s.id === room.host);
     const players = room.seats.filter((s) => s.plan);
     const tell = (msg: string) => {
       if (host?.conn) this.send(host.conn, { t: "err", msg });
     };
     if (!host?.plan) return tell("Make your character first.");
+    // DLC (r21): the host must own a start date's store item (checked again now).
+    if (hostProblem(room.settings.start, NO_DLC)) {
+      const dlc = await dlcOf(host.accountId, this.owned);
+      if (host.conn) host.conn.dlc = dlc;
+      host.dlc = dlc;
+      const why = hostProblem(room.settings.start, dlc);
+      if (why) return tell(why);
+      if (room.game) return;
+    }
     if (!room.solo) {
       const waiting = room.seats.find(
         (s) => s.id !== room.host && (!s.plan || !s.ready),
@@ -1541,13 +1606,17 @@ export class ConquestRooms {
     room.game = ConquestGame.create(
       AMERICAS,
       {
-        endYear: END_YEAR,
+        endYear: endYearOf(room.settings.start, END_YEAR), // DLC (r21)
         difficulty: room.settings.difficulty,
         seed: randomBytes(4).readInt32LE(0),
         start: room.settings.start ?? 1607,
       },
       players.map((s) => ({ seat: s.id, name: s.name, plan: s.plan! })),
     );
+    // DLC (r21): Legends come to the seats whose accounts own them.
+    for (const x of room.seats)
+      setLegendsOwned(room.game, x.id, !!x.dlc?.legends);
+    room.game.takeDelta();
     room.startedAt = this.now();
     room.saveId = `${room.code}-${room.startedAt}`;
     // STORY (r17): the save is the host's to delete (or the first signed-in player's).
@@ -2192,7 +2261,7 @@ export class ConquestRooms {
       gameId: room.saveId ?? `${room.code}-${room.startedAt}`,
       startedAt: room.startedAt,
       endedAt: this.now(),
-      endYear: END_YEAR,
+      endYear: s.settings.endYear, // DLC (r21): 1784 for the 1776 campaign
       finalYear: dateOf(s.day).year,
       difficulty: room.settings.difficulty,
       winner: winner ? `${winner.lineName} (${winner.seat.name})` : null,

@@ -59,7 +59,8 @@ describe("the store's tabs", () => {
     expect(forSale.get("derpyfront/personalities")).toBe(5);
     expect(forSale.get("derpyfront/effects")).toBe(6);
     expect(forSale.get("derpyfront/fanfares")).toBe(6);
-    expect(forSale.get("conquest/campaigns")).toBe(0);
+    expect(forSale.get("conquest/campaigns")).toBe(1); // DLC (r21)
+    expect(forSale.get("conquest/mapstyles")).toBe(5); // DLC (r21)
     const owned = ["pack:classics", "skin:classic_camo", "pack:fx_frost"];
     const mine = tabCounts(DERPY_ITEMS, tabs, owned);
     expect(mine.get("derpyfront/skins")).toBe(1);

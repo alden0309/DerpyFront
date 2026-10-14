@@ -2,6 +2,7 @@
 // and what each game event means for the player reading the log.
 
 import { formatDate } from "../engine/Calendar";
+import { endWords } from "../engine/Campaign1776Core"; // DLC (r21)
 import { charName } from "../engine/Queries";
 import { REG_NAMES, TITLE_NAMES } from "../engine/Rules";
 import type {
@@ -241,10 +242,14 @@ export function describeEvent(
       return us(e.n) ? `${e.title}: ${e.text}` : null;
     case "crown":
       return us(e.n) ? e.text : null;
-    case "europe":
+    case "europe": {
+      // DLC (r21): in the 1776 campaign, British America's wars are Britain's.
+      const E = (i: number) =>
+        s.nations[i]?.key === "britain" ? "Britain" : N(i);
       return e.war
-        ? `War in Europe: ${N(e.a)} and ${N(e.b)}.`
-        : `Peace in Europe between ${N(e.a)} and ${N(e.b)}.`;
+        ? `War in Europe: ${E(e.a)} and ${E(e.b)}.`
+        : `Peace in Europe between ${E(e.a)} and ${E(e.b)}.`;
+    }
     case "independence":
       if (e.won === null)
         return us(e.n)
@@ -254,7 +259,7 @@ export function describeEvent(
         ? `${N(e.n)} has won its independence!`
         : `${N(e.n)}'s rebellion was crushed.`;
     case "over":
-      return "It is 1776. The story ends here.";
+      return endWords(s).over; // DLC (r21): 1784 in the 1776 campaign
     case "news":
       return e.local && !us(e.n) ? null : e.text;
     case "mission":
