@@ -8,16 +8,21 @@ import { customElement, state } from "lit/decorators.js";
 import { DERPY_ACCOUNT_EVENT } from "../../derpland/Account";
 import "../../derpland/DerpBar";
 import { evalExpr } from "../engine/Expr";
-import { Snapshot, StoryRun } from "../engine/Runtime";
+import { Snapshot, StoryRun, upgradeSnapshot } from "../engine/Runtime";
 import { BasedSave, emptySave, noteSeen } from "../engine/Save";
-import { Chapter } from "../engine/Types";
+import { Boost } from "../engine/Skills";
+import { Build, Chapter } from "../engine/Types";
 import * as Api from "./Api";
 import { renderFlowchart } from "./Flowchart";
-import "./Player";
-import { creditsBody, PlayerHost, settingsBody } from "./Player";
+// r21: the player and its 3D world load only when a chapter starts, so the
+// Coming Soon page never downloads them.
+import type { PlayerHost } from "./Player";
 import { loadPrefs, Prefs, savePrefs, TextSpeed } from "./Prefs";
+import "./Setup";
 import { Ambience } from "./Sound";
 import { BASED_COVER, BASED_COVER_CREDIT, BASED_TAGLINE } from "./Teaser";
+import { creditsBody, settingsBody } from "./Ui";
+import type { WorldAssets } from "./world/Assets";
 
 type Screen =
   | "loading"
@@ -27,6 +32,7 @@ type Screen =
   | "flow"
   | "settings"
   | "credits"
+  | "setup"
   | "preparing"
   | "play"
   | "end"
@@ -62,7 +68,12 @@ export class BasedApp extends LitElement {
   @state() private carried: {
     flags: Record<string, number>;
     rels: Record<string, number>;
+    build?: Build | null;
+    boosts?: Boost[];
   } | null = null;
+  @state() private build: Build | null = null;
+  @state() private assets: WorldAssets | null = null;
+  private setupFor: { n: number; from: Snapshot | null } | null = null;
   @state() private ended: {
     path: string[];
     values: { flags: Record<string, number>; rels: Record<string, number> };
@@ -184,6 +195,8 @@ export class BasedApp extends LitElement {
       flags: values.flags,
       rels: values.rels,
       path,
+      build: run.build,
+      boosts: run.boosts,
     };
     this.save.current = null;
     noteSeen(this.save, n, path);
@@ -217,7 +230,9 @@ export class BasedApp extends LitElement {
     const keys = new Set<string>();
     for (const id of c.order) {
       for (const op of c.scenes[id].ops) {
-        if (op.op === "backdrop" && op.key) keys.add(op.key);
+        if ((op.op === "backdrop" || op.op === "vignette") && op.key) {
+          keys.add(op.key);
+        }
       }
     }
     for (const m of c.cast) if (m.portrait) keys.add(m.portrait);
@@ -226,17 +241,68 @@ export class BasedApp extends LitElement {
 
   private async play(n: number, from: Snapshot | null): Promise<void> {
     this.ambience.unlock();
+    const c = await this.chapter(n);
+    if (c === null) return;
+    const prev = this.save.finished[String(n - 1)];
+    this.carried = prev
+      ? {
+          flags: prev.flags,
+          rels: prev.rels,
+          build: prev.build ?? null,
+          boosts: prev.boosts ?? [],
+        }
+      : null;
+    // r21: a chapter with skills asks who he was, unless he's been decided.
+    const decided = from?.build ?? this.carried?.build ?? null;
+    if (c.chapter.skills.length > 0 && !decided) {
+      this.loaded = c;
+      this.setupFor = { n, from };
+      this.screen = "setup";
+      return;
+    }
+    await this.start3d(n, from, decided);
+  }
+
+  private async start3d(
+    n: number,
+    from: Snapshot | null,
+    build: Build | null,
+  ): Promise<void> {
     this.screen = "preparing";
     this.progress = { done: 0, total: 1 };
     const c = await this.chapter(n);
     if (c === null) return;
-    await Api.preload(this.artKeys(c.chapter), (done, total) => {
-      this.progress = { done, total };
-    });
+    const art = this.artKeys(c.chapter);
+    const total = art.length + 3;
+    let artDone = 0;
+    let modelsDone = 0;
+    const tick = () => (this.progress = { done: artDone + modelsDone, total });
+    const [, assets] = await Promise.all([
+      Api.preload(art, (done) => {
+        artDone = done;
+        tick();
+      }),
+      Object.keys(c.places ?? {}).length > 0
+        ? (async () => {
+            const [{ loadWorldAssets }] = await Promise.all([
+              import("./world/Assets"),
+              import("./Player"),
+            ]);
+            return loadWorldAssets(
+              (key) => Api.media("model", key),
+              (done) => {
+                modelsDone = done;
+                tick();
+              },
+            ).catch(() => null);
+          })()
+        : import("./Player").then(() => null),
+    ]);
+    this.assets = assets;
     this.loaded = c;
-    this.from = from;
-    const prev = this.save.finished[String(n - 1)];
-    this.carried = prev ? { flags: prev.flags, rels: prev.rels } : null;
+    // A save from before the 3D places: rebuild where everyone stands.
+    this.from = from ? upgradeSnapshot(c.chapter, from) : null;
+    this.build = build;
     this.playKey++;
     this.screen = "play";
   }
@@ -283,10 +349,20 @@ export class BasedApp extends LitElement {
         return this.renderSettings();
       case "credits":
         return this.renderCredits();
+      case "setup":
+        return html`<derp-bar page="home"></derp-bar>
+          <based-setup
+            .chapter=${this.loaded!.chapter}
+            .done=${(b: Build) => {
+              const s = this.setupFor;
+              if (s) void this.start3d(s.n, s.from, b);
+            }}
+            .back=${() => (this.screen = "title")}
+          ></based-setup>`;
       case "preparing":
         return html`<div class="mb-preparing">
           <div class="mb-wordmark small">Mr. Based</div>
-          <div class="mb-developing">Developing the photographs…</div>
+          <div class="mb-developing">Setting the scene…</div>
           <div class="mb-progress">
             <span
               style="transform: scaleX(${(
@@ -532,10 +608,13 @@ export class BasedApp extends LitElement {
           .chapter=${c.chapter}
           .from=${this.from}
           .carried=${this.carried}
+          .build=${this.build}
           .host=${this.host(c.chapter.n)}
           .prefs=${this.prefs}
           .ambience=${this.ambience}
           .credits=${c.credits.items}
+          .assets=${this.assets}
+          .places=${c.places ?? {}}
         ></based-player>`,
     )}`;
   }

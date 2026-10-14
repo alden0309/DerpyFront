@@ -6,8 +6,15 @@
 import fs from "fs";
 import path from "path";
 import { describe, expect, test } from "vitest";
-import { StoryRun } from "../../src/based/engine/Runtime";
+import { NavGrid } from "../../src/based/engine/Nav";
+import { PlaceDef } from "../../src/based/engine/Place";
+import {
+  chapterStart,
+  StoryRun,
+  upgradeSnapshot,
+} from "../../src/based/engine/Runtime";
 import { parseChapter } from "../../src/based/engine/Script";
+import { buildOf } from "../../src/based/engine/Skills";
 import {
   errorsOf,
   formatProblem,
@@ -27,6 +34,24 @@ const SOUNDS = new Set(
     .readdirSync(path.join(ROOT, "src/based/audio"))
     .filter((f) => f.endsWith(".mp3"))
     .map((f) => f.replace(/\.mp3$/, "")),
+);
+// r21: the 3D places and the models they're built from.
+const MODELS = new Set(
+  fs
+    .readdirSync(path.join(ROOT, "src/based/models"))
+    .filter((f) => f.endsWith(".glb"))
+    .map((f) => f.replace(/\.glb$/, "")),
+);
+const PLACES: Record<string, PlaceDef> = Object.fromEntries(
+  fs
+    .readdirSync(path.join(ROOT, "src/based/places"))
+    .filter((f) => f.endsWith(".json"))
+    .map((f) => [
+      f.replace(/\.json$/, ""),
+      JSON.parse(
+        fs.readFileSync(path.join(ROOT, "src/based/places", f), "utf8"),
+      ) as PlaceDef,
+    ]),
 );
 
 function problems(src: string) {
@@ -122,12 +147,28 @@ describe("the art and sound", () => {
   };
   const credited = new Set(credits.items.flatMap((c) => c.keys));
 
-  test("every picture and sound is credited", () => {
-    expect([...ART, ...SOUNDS].filter((k) => !credited.has(k))).toEqual([]);
+  test("every picture, sound and model is credited", () => {
+    expect(
+      [...ART, ...SOUNDS, ...MODELS].filter((k) => !credited.has(k)),
+    ).toEqual([]);
     for (const c of credits.items) {
       expect(c.author.length).toBeGreaterThan(0);
       expect(c.license).toMatch(/^CC/);
       expect(c.source).toMatch(/^https:\/\//);
+    }
+  });
+
+  test("every model is a small, compressed glTF binary", () => {
+    expect([...MODELS].sort()).toEqual(["mannequin_f", "mannequin_m", "props"]);
+    for (const key of MODELS) {
+      const buf = fs.readFileSync(
+        path.join(ROOT, "src/based/models", `${key}.glb`),
+      );
+      expect(buf.subarray(0, 4).toString(), key).toBe("glTF");
+      expect(buf.length, key).toBeLessThanOrEqual(300_000);
+      // meshopt-compressed (the client decodes it).
+      const json = buf.subarray(20, 20 + buf.readUInt32LE(12)).toString();
+      expect(json, key).toContain("EXT_meshopt_compression");
     }
   });
 
@@ -143,6 +184,32 @@ describe("the art and sound", () => {
 
 const files = fs.readdirSync(STORY).filter((f) => f.endsWith(".story"));
 
+describe("the places (r21)", () => {
+  test.each(Object.keys(PLACES))("%s: every mark can be walked to", (key) => {
+    const p = PLACES[key];
+    expect(p.key).toBe(key);
+    const nav = new NavGrid(p.nav.bounds, p.nav.cell, p.nav.blocks);
+    const marks = Object.entries(p.marks);
+    expect(marks.length).toBeGreaterThan(0);
+    // From the first mark, every other mark has a path (the last step may
+    // be onto a stool, which is in the way of walking but not of sitting).
+    const [, from] = marks[0];
+    for (const [name, m] of marks) {
+      const path = nav.path(from.at, m.at);
+      expect(path, `${key}: no way to ${name}`).not.toBeNull();
+    }
+    // Hotspots that send him somewhere send him to a mark.
+    for (const [name, h] of Object.entries(p.hotspots)) {
+      if (h.stand) expect(p.marks, `${key}.${name}`).toHaveProperty(h.stand);
+    }
+    // Every room that can be cut away is inside the walkable plan.
+    for (const a of p.areas) {
+      expect(a.rect[0]).toBeGreaterThanOrEqual(p.nav.bounds[0]);
+      expect(a.rect[2]).toBeLessThanOrEqual(p.nav.bounds[2]);
+    }
+  });
+});
+
 describe("the chapters as written", () => {
   test("there is at least chapter one", () => {
     expect(files).toContain("chapter-01.story");
@@ -153,7 +220,11 @@ describe("the chapters as written", () => {
       fs.readFileSync(path.join(STORY, file), "utf8"),
     );
     expect(errors.map((e) => `line ${e.line}: ${e.message}`)).toEqual([]);
-    const found = validateChapter(chapter, { art: ART, sounds: SOUNDS });
+    const found = validateChapter(chapter, {
+      art: ART,
+      sounds: SOUNDS,
+      places: PLACES,
+    });
     expect(errorsOf(found).map(formatProblem)).toEqual([]);
     expect(file).toBe(`chapter-${String(chapter.n).padStart(2, "0")}.story`);
   });
@@ -172,19 +243,31 @@ describe("the chapters as written", () => {
       const scenesSeen = new Set<string>();
       const optionsSeen = new Set<string>();
       for (let run = 0; run < 200; run++) {
-        const r = new StoryRun(chapter);
+        // Every archetype, and a different throw of the dice each time.
+        const builds = chapter.archetypes.map(buildOf);
+        const r = new StoryRun(
+          chapter,
+          chapterStart(chapter, undefined, {
+            build: builds.length > 0 ? builds[run % builds.length] : null,
+            seed: run + 1,
+          }),
+        );
         for (let steps = 0; ; steps++) {
           expect(steps).toBeLessThan(5000);
           const b = r.beat;
           if (b.kind === "end") break;
-          if (b.kind === "line" || b.kind === "card") r.advance();
-          else if (b.kind === "choice") {
-            expect(b.options.length).toBeGreaterThan(0);
+          if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
+            r.advance();
+          } else if (b.kind === "choice") {
+            const open = b.options.filter((o) => !o.check?.locked);
+            expect(open.length).toBeGreaterThan(0);
             if (pick(5) === 0 && b.timer > 0) r.timeout();
-            else r.choose(b.options[pick(b.options.length)].id);
+            else r.choose(open[pick(open.length)].id);
           } else {
             const unseen = b.spots.filter((s) => !s.seen);
-            const ready = b.deductions.filter((d) => d.ready && !d.done);
+            const ready = b.deductions.filter(
+              (d) => d.ready && !d.done && !d.check?.locked,
+            );
             const k = pick(4);
             if (k === 0 && ready.length > 0) r.deduce(ready[0].id);
             else if (k === 1 && b.canLeave) r.leave();
@@ -205,4 +288,63 @@ describe("the chapters as written", () => {
     },
     60_000,
   );
+});
+
+describe("saves from before the 3D chapter (r21)", () => {
+  const { chapter } = parseChapter(
+    fs.readFileSync(path.join(STORY, "chapter-01.story"), "utf8"),
+  );
+
+  test("an old save in the bar gets its place and its people back", () => {
+    // As round 19 saved it, at the start of "anselme".
+    const old = {
+      chapter: 1,
+      scene: "anselme",
+      flags: {
+        thoughts: 2,
+        thought_glass: 1,
+        thought_scar: 1,
+        posters: 1,
+        van: 1,
+      },
+      rels: {},
+      stage: {
+        backdrop: "glass",
+        figure: null,
+        ambient: "rain_in",
+        news: null,
+      },
+      path: [
+        "s:open",
+        "s:vauban",
+        "s:reverie",
+        "c:reverie#1=the-first-glass",
+        "s:t_glass",
+        "s:reverie",
+        "c:reverie#1=his-left-hand",
+        "s:t_scar",
+        "s:reverie",
+        "s:interrupted",
+      ],
+      taken: ["reverie#1/the-first-glass", "reverie#1/his-left-hand"],
+    };
+    const up = upgradeSnapshot(chapter, old as never);
+    expect(up.stage.place).toBe("grenelle");
+    expect(up.stage.actors.BASED).toMatchObject({
+      at: "stool_end",
+      pose: "sit",
+    });
+    expect(up.stage.actors.ANSELME).toMatchObject({ at: "behind_bar_based" });
+    // The save's own state is kept.
+    expect(up.flags).toEqual(old.flags);
+    expect(up.path).toEqual(old.path);
+    expect(up.scene).toBe("anselme");
+    const r = new StoryRun(chapter, up);
+    expect(r.stage.place).toBe("grenelle");
+  });
+
+  test("a new save is left alone", () => {
+    const snap = new StoryRun(chapter).snapshot();
+    expect(upgradeSnapshot(chapter, snap)).toBe(snap);
+  });
 });

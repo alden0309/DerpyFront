@@ -14,6 +14,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { z } from "zod";
 import { flowOf } from "../../based/engine/Flow";
+import { PlaceDef } from "../../based/engine/Place";
 import { parseChapter } from "../../based/engine/Script";
 import { Chapter } from "../../based/engine/Types";
 import { formatProblem, validateChapter } from "../../based/engine/Validate";
@@ -26,6 +27,9 @@ export const BASED_DIR = path.resolve(HERE, "../../based");
 const STORY_DIR = path.join(BASED_DIR, "story");
 const ART_DIR = path.join(BASED_DIR, "art");
 const AUDIO_DIR = path.join(BASED_DIR, "audio");
+// BASED (r21): the 3D places (data) and the models they're built from.
+const PLACES_DIR = path.join(BASED_DIR, "places");
+const MODEL_DIR = path.join(BASED_DIR, "models");
 
 // NAMES (r20): BASED_PLAYERS (comma-separated, default the owner) only names
 // the accounts to mark, once each (BasedAccess.ts).
@@ -48,6 +52,49 @@ export interface LoadedChapter {
   /** Errors stop the chapter loading; warnings don't. */
   errors: string[];
   warnings: string[];
+  /** r21: the 3D places it uses, by key. */
+  places: Record<string, PlaceDef>;
+}
+
+/** Every place written so far, by key (re-read when a file changes). */
+const placeCache = new Map<string, { mtimeMs: number; def: PlaceDef }>();
+export function loadPlaces(): Record<string, PlaceDef> {
+  const out: Record<string, PlaceDef> = {};
+  let files: string[];
+  try {
+    files = fs.readdirSync(PLACES_DIR).filter((f) => f.endsWith(".json"));
+  } catch {
+    return out;
+  }
+  for (const f of files) {
+    const key = f.slice(0, -".json".length);
+    const file = path.join(PLACES_DIR, f);
+    try {
+      const mtimeMs = fs.statSync(file).mtimeMs;
+      const hit = placeCache.get(key);
+      if (hit && hit.mtimeMs === mtimeMs) {
+        out[key] = hit.def;
+        continue;
+      }
+      const def = JSON.parse(fs.readFileSync(file, "utf8")) as PlaceDef;
+      placeCache.set(key, { mtimeMs, def });
+      out[key] = def;
+    } catch {
+      // a place mid-edit that won't parse: the chapter's check reports it
+    }
+  }
+  return out;
+}
+
+/** The places a chapter names with @place. */
+function placesOf(chapter: Chapter): Set<string> {
+  const keys = new Set<string>();
+  for (const id of chapter.order) {
+    for (const op of chapter.scenes[id].ops) {
+      if (op.op === "place" && op.key) keys.add(op.key);
+    }
+  }
+  return keys;
 }
 
 const cache = new Map<number, { mtimeMs: number; loaded: LoadedChapter }>();
@@ -94,13 +141,20 @@ export function loadChapter(n: number): LoadedChapter | null {
   } catch {
     return null;
   }
+  const all = loadPlaces();
+  // A place edited since: load the chapter again too.
+  const stamp =
+    stat.mtimeMs + [...placeCache.values()].reduce((a, p) => a + p.mtimeMs, 0);
   const hit = cache.get(n);
-  if (hit && hit.mtimeMs === stat.mtimeMs) return hit.loaded;
+  if (hit && hit.mtimeMs === stamp) return hit.loaded;
   const { chapter, errors } = parseChapter(fs.readFileSync(file, "utf8"));
   const problems = validateChapter(chapter, {
     art: keysIn(ART_DIR, ".webp"),
     sounds: keysIn(AUDIO_DIR, ".mp3"),
+    places: all,
   });
+  const places: Record<string, PlaceDef> = {};
+  for (const key of placesOf(chapter)) if (all[key]) places[key] = all[key];
   const loaded: LoadedChapter = {
     chapter,
     errors: [
@@ -108,8 +162,9 @@ export function loadChapter(n: number): LoadedChapter | null {
       ...problems.filter((p) => p.level === "error").map(formatProblem),
     ],
     warnings: problems.filter((p) => p.level === "warning").map(formatProblem),
+    places,
   };
-  cache.set(n, { mtimeMs: stat.mtimeMs, loaded });
+  cache.set(n, { mtimeMs: stamp, loaded });
   return loaded;
 }
 
@@ -131,6 +186,25 @@ const StageSchema = z.object({
   figure: Key.nullable(),
   ambient: Key.nullable(),
   news: z.string().max(400).nullable(),
+  // r21: the 3D place and who's where in it (absent in older saves).
+  place: Key.nullable().optional(),
+  actors: z
+    .record(Key, z.object({ at: Key, pose: Key, wear: Key.optional() }))
+    .optional(),
+  focus: Key.nullable().optional(),
+  vignette: Key.nullable().optional(),
+  props: z.record(Key, z.boolean()).optional(),
+});
+// r21: who he is (the setup screen), what's boosted his skills, the dice.
+const BuildSchema = z.object({
+  attrs: z.record(Key, z.number().int().min(0).max(20)),
+  signature: Key,
+  archetype: Key.optional(),
+});
+const BoostSchema = z.object({
+  skill: Key,
+  delta: z.number().int().min(-10).max(10),
+  why: z.string().max(200),
 });
 const SnapSchema = z.object({
   chapter: z.number().int().min(1).max(99),
@@ -140,6 +214,19 @@ const SnapSchema = z.object({
   stage: StageSchema,
   path: z.array(z.string().max(160)).max(3000),
   taken: z.array(z.string().max(160)).max(500),
+  build: BuildSchema.nullable().optional(),
+  boosts: z.array(BoostSchema).max(100).optional(),
+  seed: z.number().int().min(0).max(4294967295).optional(),
+  checks: z
+    .record(
+      z.string().max(160),
+      z.object({
+        tries: z.number().int().min(0).max(1000),
+        result: z.enum(["pass", "fail"]),
+        bonus: z.number().int().min(-50).max(50),
+      }),
+    )
+    .optional(),
 });
 export const SaveSchema = z.object({
   v: z.literal(1),
@@ -170,6 +257,8 @@ export const SaveSchema = z.object({
       flags: z.record(Key, z.number()),
       rels: z.record(Key, z.number()),
       path: z.array(z.string().max(160)).max(3000),
+      build: BuildSchema.optional(),
+      boosts: z.array(BoostSchema).max(100).optional(),
     }),
   ),
 });
@@ -284,6 +373,7 @@ export function basedRouter({ handle }: BasedRouterDeps): express.Router {
         flow: flowOf(loaded.chapter),
         warnings: loaded.warnings,
         credits: credits(),
+        places: loaded.places,
       });
     }),
   );
@@ -307,6 +397,8 @@ export function basedRouter({ handle }: BasedRouterDeps): express.Router {
     });
   router.get("/art/:key", media(ART_DIR, ".webp", "image/webp"));
   router.get("/audio/:key", media(AUDIO_DIR, ".mp3", "audio/mpeg"));
+  // BASED (r21): the 3D models, as gated as the pictures.
+  router.get("/model/:key", media(MODEL_DIR, ".glb", "model/gltf-binary"));
 
   router.get(
     "/save",

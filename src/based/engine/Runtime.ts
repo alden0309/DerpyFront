@@ -1,13 +1,24 @@
 // Plays a compiled Mr. Based chapter: steps through a scene's ops until
-// something needs the player (a line to read, a choice, a room to read),
-// and remembers where it is so the game can be saved.
+// something needs the player (a line to read, a choice, a room to read, a
+// roll of the dice), and remembers where it is so the game can be saved.
 //
 // Saves are taken as each scene begins, not mid-scene, so a save still loads
 // after the scene it's in has been rewritten. Pure and deterministic: no
-// clock, no randomness, no DOM.
+// clock, no Math.random. The dice come from a seed kept in the save (Dice.ts).
 
-import { evalExpr } from "./Expr";
-import { Chapter, END, LineKind, Op } from "./Types";
+import { chance, passes, passive, percent, rollDice, tierName } from "./Dice";
+import { evalExpr, Values } from "./Expr";
+import { Boost, defaultBuild, skillValues } from "./Skills";
+import {
+  ActorState,
+  Build,
+  Chapter,
+  CheckSpec,
+  Deduction,
+  END,
+  LineKind,
+  Op,
+} from "./Types";
 
 export interface Stage {
   backdrop: string | null;
@@ -16,6 +27,24 @@ export interface Stage {
   ambient: string | null;
   /** The TV's crawl, while it's on. */
   news: string | null;
+  /** r21: the 3D place, or null for a flat picture. */
+  place: string | null;
+  /** Who stands where in the place, and how. */
+  actors: Record<string, ActorState>;
+  /** A camera shot of the place, or null to follow him. */
+  focus: string | null;
+  /** A painted memory shown in the dialogue column. */
+  vignette: string | null;
+  /** The place's props switched on (true) or off (false) by the story. */
+  props: Record<string, boolean>;
+}
+
+/** What's known of a check after it's been tried. */
+export interface CheckMemo {
+  tries: number;
+  result: "pass" | "fail";
+  /** The bonus it was last tried with: a white check opens again above it. */
+  bonus: number;
 }
 
 /** Everything needed to start a scene over: what a save holds. */
@@ -29,13 +58,42 @@ export interface Snapshot {
   path: string[];
   /** "<choice>/<option>" for options marked once that were taken. */
   taken: string[];
+  /** r21: his build (null until the setup screen), boosts, dice, checks. */
+  build?: Build | null;
+  boosts?: Boost[];
+  seed?: number;
+  checks?: Record<string, CheckMemo>;
 }
 
 export type StoryEvent =
   | { type: "scene"; scene: string; label: string; checkpoint?: string }
   | { type: "rel"; who: string; delta: number }
   | { type: "remember"; who: string }
+  | { type: "actor"; who: string; state: ActorState | null; walk: boolean }
+  | { type: "prop"; key: string; on: boolean }
+  | { type: "gesture"; who: string; name: string }
+  | { type: "boost"; skill: string; delta: number; why: string }
   | { type: "end" };
+
+/** A check as the column shows it, before it's rolled. */
+export interface CheckView {
+  skill: string;
+  diff: number;
+  tier: string;
+  kind: "white" | "red";
+  /** The skill's value. */
+  base: number;
+  /** Modifiers that apply now. */
+  mods: { delta: number; why: string }[];
+  /** base + mods: what's added to the dice. */
+  bonus: number;
+  /** 0 to 1, and as a whole percent. */
+  chance: number;
+  percent: number;
+  tries: number;
+  /** A failed white check waits for something to change; red ones are gone. */
+  locked: boolean;
+}
 
 export interface LineBeat {
   kind: "line";
@@ -43,6 +101,8 @@ export interface LineBeat {
   who?: string;
   how?: string;
   text: string;
+  /** r21: spoken by one of his skills; `diff` when it was a passive check. */
+  voice?: { skill: string; diff?: number; tier?: string };
   src: number;
 }
 
@@ -51,7 +111,12 @@ export interface ChoiceBeat {
   id: string;
   prompt: string;
   timer: number;
-  options: { id: string; label: string; silent: boolean }[];
+  options: {
+    id: string;
+    label: string;
+    silent: boolean;
+    check?: CheckView;
+  }[];
   src: number;
 }
 
@@ -60,10 +125,48 @@ export interface InvestigateBeat {
   id: string;
   title: string;
   min: number;
-  spots: { id: string; label: string; x: number; y: number; seen: boolean }[];
-  deductions: { id: string; label: string; ready: boolean; done: boolean }[];
+  spots: {
+    id: string;
+    label: string;
+    x: number;
+    y: number;
+    anchor?: string;
+    seen: boolean;
+  }[];
+  deductions: {
+    id: string;
+    label: string;
+    ready: boolean;
+    done: boolean;
+    check?: CheckView;
+  }[];
   canLeave: boolean;
   leave: string;
+  still: boolean;
+  exit?: string;
+  src: number;
+}
+
+/** The dice, or a passive check's verdict, before its outcome plays. */
+export interface RollBeat {
+  kind: "roll";
+  id: string;
+  /** What was tried: the option's or the deduction's label. */
+  label: string;
+  skill: string;
+  diff: number;
+  tier: string;
+  kind2: "white" | "red";
+  /** Null for a passive check (no dice). */
+  dice: [number, number] | null;
+  base: number;
+  mods: { delta: number; why: string }[];
+  bonus: number;
+  total: number;
+  pass: boolean;
+  /** Double six or double one. */
+  crit: "six" | "one" | null;
+  chance: number;
   src: number;
 }
 
@@ -72,6 +175,7 @@ export type Beat =
   | { kind: "card"; title: string; sub?: string; src: number }
   | ChoiceBeat
   | InvestigateBeat
+  | RollBeat
   | { kind: "end" };
 
 const MAX_STEPS = 20_000;
@@ -81,13 +185,29 @@ function copy<T>(v: T): T {
 }
 
 export function emptyStage(): Stage {
-  return { backdrop: null, figure: null, ambient: null, news: null };
+  return {
+    backdrop: null,
+    figure: null,
+    ambient: null,
+    news: null,
+    place: null,
+    actors: {},
+    focus: null,
+    vignette: null,
+    props: {},
+  };
 }
 
 /** A snapshot for the very start of a chapter, carrying flags forward. */
 export function chapterStart(
   chapter: Chapter,
-  carried?: { flags: Record<string, number>; rels: Record<string, number> },
+  carried?: {
+    flags: Record<string, number>;
+    rels: Record<string, number>;
+    build?: Build | null;
+    boosts?: Boost[];
+  },
+  opts: { build?: Build | null; seed?: number } = {},
 ): Snapshot {
   return {
     chapter: chapter.n,
@@ -97,6 +217,10 @@ export function chapterStart(
     stage: emptyStage(),
     path: [],
     taken: [],
+    build: opts.build ?? carried?.build ?? null,
+    boosts: [...(carried?.boosts ?? [])],
+    seed: opts.seed ?? 1,
+    checks: {},
   };
 }
 
@@ -105,11 +229,17 @@ export class StoryRun {
   private ip = 0;
   /** The investigation a spot's text returns to. */
   private ret = -1;
+  /** Where a roll goes on to, once the player has seen the dice. */
+  private afterRoll = -1;
   private flags: Record<string, number>;
   private rels: Record<string, number>;
   private stageNow: Stage;
   private path: string[];
   private taken: string[];
+  private buildNow: Build | null;
+  private boostList: Boost[];
+  private seed: number;
+  private checks: Record<string, CheckMemo>;
   private entry: Snapshot;
   private beatNow: Beat;
   private pending: StoryEvent[] = [];
@@ -119,11 +249,21 @@ export class StoryRun {
     from: Snapshot = chapterStart(chapter),
   ) {
     const s = copy(from);
+    // Saves from before r21 have none of these.
+    s.stage = { ...emptyStage(), ...s.stage };
+    s.build ??= null;
+    s.boosts ??= [];
+    s.seed ??= 1;
+    s.checks ??= {};
     this.flags = s.flags;
     this.rels = s.rels;
     this.stageNow = s.stage;
     this.path = s.path;
     this.taken = s.taken;
+    this.buildNow = s.build;
+    this.boostList = s.boosts;
+    this.seed = s.seed;
+    this.checks = s.checks;
     this.entry = s;
     if (!chapter.scenes[s.scene]) {
       throw new Error(`no scene "${s.scene}" in chapter ${chapter.n}`);
@@ -137,7 +277,7 @@ export class StoryRun {
   }
 
   get stage(): Stage {
-    return { ...this.stageNow };
+    return copy(this.stageNow);
   }
 
   get sceneId(): string {
@@ -162,6 +302,20 @@ export class StoryRun {
     return this.rels[who] ?? 0;
   }
 
+  /** His build (the chapter's first archetype until one is chosen). */
+  get build(): Build {
+    return this.buildNow ?? defaultBuild(this.chapter);
+  }
+
+  get boosts(): Boost[] {
+    return copy(this.boostList);
+  }
+
+  /** Every skill's value now, boosts included. */
+  skills(): Record<string, number> {
+    return skillValues(this.chapter, this.buildNow, this.boostList);
+  }
+
   values(): { flags: Record<string, number>; rels: Record<string, number> } {
     return { flags: { ...this.flags }, rels: { ...this.rels } };
   }
@@ -173,9 +327,14 @@ export class StoryRun {
     return out;
   }
 
-  /** Past a line or a title card. */
+  /** Past a line, a title card or the dice. */
   advance(): Beat {
     const b = this.beatNow;
+    if (b.kind === "roll") {
+      this.ip = this.afterRoll;
+      this.afterRoll = -1;
+      return (this.beatNow = this.run());
+    }
     if (b.kind !== "line" && b.kind !== "card") return b;
     this.ip++;
     return (this.beatNow = this.run());
@@ -186,9 +345,11 @@ export class StoryRun {
     if (op.op !== "choose" || this.beatNow.kind !== "choice") {
       throw new Error("not at a choice");
     }
-    if (!this.beatNow.options.some((o) => o.id === optionId)) {
+    const shown = this.beatNow.options.find((o) => o.id === optionId);
+    if (shown === undefined) {
       throw new Error(`"${optionId}" isn't one of the options`);
     }
+    if (shown.check?.locked) throw new Error(`"${optionId}" is locked`);
     const opt = op.options.find((o) => o.id === optionId)!;
     this.path.push(`c:${op.id}=${opt.id}`);
     if (opt.once) this.taken.push(`${op.id}/${opt.id}`);
@@ -196,11 +357,12 @@ export class StoryRun {
     return (this.beatNow = this.run());
   }
 
-  /** The clock ran out: say nothing, or take the first option. */
+  /** The clock ran out: say nothing, or take the first open option. */
   timeout(): Beat {
     const b = this.beatNow;
     if (b.kind !== "choice") return b;
-    const pick = b.options.find((o) => o.silent) ?? b.options[0];
+    const open = b.options.filter((o) => !o.check?.locked);
+    const pick = open.find((o) => o.silent) ?? open[0];
     return this.choose(pick.id);
   }
 
@@ -223,8 +385,23 @@ export class StoryRun {
     if (!d.needs.every((n) => this.flags[n])) {
       throw new Error(`"${id}" isn't ready yet`);
     }
-    this.flags[d.id] = 1;
+    if (this.flags[d.id]) throw new Error(`"${id}" is already worked out`);
     this.ret = this.ip;
+    if (d.check) {
+      const view = this.dedView(op, d);
+      if (view.locked) throw new Error(`"${id}" is locked`);
+      return (this.beatNow = this.roll(
+        `${op.id}:${d.id}`,
+        d.label,
+        d.check,
+        view,
+        d.at,
+        d.failAt ?? -1,
+        () => (this.flags[d.id] = 1),
+        op.src,
+      ));
+    }
+    this.flags[d.id] = 1;
     this.ip = d.at;
     return (this.beatNow = this.run());
   }
@@ -238,6 +415,102 @@ export class StoryRun {
     if (!b.canLeave) throw new Error("look at more first");
     this.ip = op.after;
     return (this.beatNow = this.run());
+  }
+
+  // --- checks ---------------------------------------------------------------
+
+  private vals(): Values {
+    return { flags: this.flags, rels: this.rels, skills: this.skills() };
+  }
+
+  /** A check's odds now, with `extra` modifiers on top of its own. */
+  checkView(
+    id: string,
+    spec: CheckSpec,
+    extra: { delta: number; why: string }[] = [],
+  ): CheckView {
+    const v = this.vals();
+    const base = v.skills![spec.skill] ?? 0;
+    const mods = [
+      ...spec.mods
+        .filter((m) => m.cond === undefined || evalExpr(m.cond, v))
+        .map((m) => ({ delta: m.delta, why: m.why })),
+      ...extra,
+    ];
+    const bonus = base + mods.reduce((a, m) => a + m.delta, 0);
+    const memo = this.checks[id];
+    const locked =
+      memo !== undefined &&
+      (memo.result === "pass" || spec.kind === "red" || bonus <= memo.bonus);
+    return {
+      skill: spec.skill,
+      diff: spec.diff,
+      tier: tierName(spec.diff),
+      kind: spec.kind,
+      base,
+      mods,
+      bonus,
+      chance: chance(bonus, spec.diff),
+      percent: percent(bonus, spec.diff),
+      tries: memo?.tries ?? 0,
+      locked,
+    };
+  }
+
+  /** A deduction's odds: a step easier for each other thing noticed. */
+  private dedView(
+    op: Extract<Op, { op: "investigate" }>,
+    d: Deduction,
+  ): CheckView {
+    const others = op.spots.filter(
+      (s) => this.flags[s.id] && !d.needs.includes(s.id),
+    ).length;
+    const extra =
+      others > 0
+        ? [{ delta: others, why: "Everything else you've noticed" }]
+        : [];
+    return this.checkView(`${op.id}:${d.id}`, d.check!, extra);
+  }
+
+  /** Rolls a check now; the outcome plays once the dice have been seen. */
+  private roll(
+    id: string,
+    label: string,
+    spec: CheckSpec,
+    view: CheckView,
+    passAt: number,
+    failAt: number,
+    onPass: () => void,
+    src: number,
+  ): RollBeat {
+    const attempt = this.checks[id]?.tries ?? 0;
+    const [a, b] = rollDice(this.seed, id, attempt);
+    const pass = passes(a, b, view.bonus, spec.diff);
+    this.checks[id] = {
+      tries: attempt + 1,
+      result: pass ? "pass" : "fail",
+      bonus: view.bonus,
+    };
+    if (pass) onPass();
+    this.afterRoll = pass ? passAt : failAt;
+    return {
+      kind: "roll",
+      id,
+      label,
+      skill: spec.skill,
+      diff: spec.diff,
+      tier: view.tier,
+      kind2: spec.kind,
+      dice: [a, b],
+      base: view.base,
+      mods: view.mods,
+      bonus: view.bonus,
+      total: a + b + view.bonus,
+      pass,
+      crit: a === 6 && b === 6 ? "six" : a === 1 && b === 1 ? "one" : null,
+      chance: view.chance,
+      src,
+    };
   }
 
   private op(): Op {
@@ -254,6 +527,10 @@ export class StoryRun {
       stage: copy(this.stageNow),
       path: [...this.path],
       taken: [...this.taken],
+      build: copy(this.buildNow),
+      boosts: copy(this.boostList),
+      seed: this.seed,
+      checks: copy(this.checks),
     };
     this.scene = id;
     this.ip = 0;
@@ -268,15 +545,21 @@ export class StoryRun {
   }
 
   private run(): Beat {
-    const vals = () => ({ flags: this.flags, rels: this.rels });
     for (let steps = 0; steps < MAX_STEPS; steps++) {
       const op = this.op();
       if (op === undefined) {
         throw new Error(`scene "${this.scene}" ran out of ops`);
       }
       switch (op.op) {
-        case "line":
-          return {
+        case "line": {
+          if (op.skill !== undefined && op.diff !== undefined) {
+            // A passive check: the voice speaks only if the skill is up to it.
+            if (!passive(this.skills()[op.skill] ?? 0, op.diff)) {
+              this.ip++;
+              break;
+            }
+          }
+          const beat: LineBeat = {
             kind: "line",
             line: op.kind,
             who: op.who,
@@ -284,6 +567,15 @@ export class StoryRun {
             text: op.text,
             src: op.src,
           };
+          if (op.skill !== undefined) {
+            beat.voice = { skill: op.skill };
+            if (op.diff !== undefined) {
+              beat.voice.diff = op.diff;
+              beat.voice.tier = tierName(op.diff);
+            }
+          }
+          return beat;
+        }
         case "card":
           return { kind: "card", title: op.title, sub: op.sub, src: op.src };
         case "news":
@@ -300,6 +592,52 @@ export class StoryRun {
           break;
         case "ambient":
           this.stageNow.ambient = op.key;
+          this.ip++;
+          break;
+        case "place":
+          this.stageNow.place = op.key;
+          this.ip++;
+          break;
+        case "focus":
+          this.stageNow.focus = op.key;
+          this.ip++;
+          break;
+        case "vignette":
+          this.stageNow.vignette = op.key;
+          this.ip++;
+          break;
+        case "actor":
+          if (op.state === null) delete this.stageNow.actors[op.who];
+          else this.stageNow.actors[op.who] = { ...op.state };
+          this.pending.push({
+            type: "actor",
+            who: op.who,
+            state: op.state ? { ...op.state } : null,
+            walk: op.walk,
+          });
+          this.ip++;
+          break;
+        case "gesture":
+          this.pending.push({ type: "gesture", who: op.who, name: op.name });
+          this.ip++;
+          break;
+        case "prop":
+          this.stageNow.props[op.key] = op.on;
+          this.pending.push({ type: "prop", key: op.key, on: op.on });
+          this.ip++;
+          break;
+        case "boost":
+          this.boostList.push({
+            skill: op.skill,
+            delta: op.delta,
+            why: op.why,
+          });
+          this.pending.push({
+            type: "boost",
+            skill: op.skill,
+            delta: op.delta,
+            why: op.why,
+          });
           this.ip++;
           break;
         case "set":
@@ -319,7 +657,7 @@ export class StoryRun {
           this.ip++;
           break;
         case "if":
-          this.ip = evalExpr(op.cond, vals()) ? this.ip + 1 : op.else;
+          this.ip = evalExpr(op.cond, this.vals()) ? this.ip + 1 : op.else;
           break;
         case "jump":
           this.ip = op.to;
@@ -331,14 +669,43 @@ export class StoryRun {
           }
           this.enter(op.scene);
           break;
+        case "check": {
+          const view = this.checkView(op.id, op.spec);
+          return this.roll(
+            op.id,
+            op.label,
+            op.spec,
+            view,
+            this.ip + 1,
+            op.fail,
+            () => {},
+            op.src,
+          );
+        }
         case "choose": {
-          const options = op.options
-            .filter(
-              (o) =>
-                (!o.once || !this.taken.includes(`${op.id}/${o.id}`)) &&
-                (o.cond === undefined || evalExpr(o.cond, vals())),
-            )
-            .map((o) => ({ id: o.id, label: o.label, silent: o.silent }));
+          const v = this.vals();
+          const options: ChoiceBeat["options"] = [];
+          for (const o of op.options) {
+            if (o.once && this.taken.includes(`${op.id}/${o.id}`)) continue;
+            if (o.cond !== undefined && !evalExpr(o.cond, v)) continue;
+            const shown: ChoiceBeat["options"][number] = {
+              id: o.id,
+              label: o.label,
+              silent: o.silent,
+            };
+            if (o.check) {
+              const id = `${op.id}/${o.id}`;
+              const view = this.checkView(id, o.check);
+              const memo = this.checks[id];
+              // Passed, or a red check tried: gone. A failed white check
+              // stays, locked, until something changes.
+              if (memo && (memo.result === "pass" || o.check.kind === "red")) {
+                continue;
+              }
+              shown.check = view;
+            }
+            options.push(shown);
+          }
           return {
             kind: "choice",
             id: op.id,
@@ -349,11 +716,51 @@ export class StoryRun {
           };
         }
         case "investigate": {
+          // A deduction his skill sees at once speaks up by itself.
+          for (const d of op.deductions) {
+            if (
+              d.check &&
+              !this.flags[d.id] &&
+              this.checks[`${op.id}:${d.id}`] === undefined &&
+              d.needs.every((n) => this.flags[n])
+            ) {
+              const view = this.dedView(op, d);
+              if (passive(view.bonus, d.check.diff)) {
+                this.flags[d.id] = 1;
+                this.checks[`${op.id}:${d.id}`] = {
+                  tries: 0,
+                  result: "pass",
+                  bonus: view.bonus,
+                };
+                this.ret = this.ip;
+                this.afterRoll = d.at;
+                return {
+                  kind: "roll",
+                  id: `${op.id}:${d.id}`,
+                  label: d.label,
+                  skill: d.check.skill,
+                  diff: d.check.diff,
+                  tier: view.tier,
+                  kind2: d.check.kind,
+                  dice: null,
+                  base: view.base,
+                  mods: view.mods,
+                  bonus: view.bonus,
+                  total: view.bonus + 6,
+                  pass: true,
+                  crit: null,
+                  chance: 1,
+                  src: op.src,
+                };
+              }
+            }
+          }
           const spots = op.spots.map((s) => ({
             id: s.id,
             label: s.label,
             x: s.x,
             y: s.y,
+            anchor: s.anchor,
             seen: !!this.flags[s.id],
           }));
           const seen = spots.filter((s) => s.seen).length;
@@ -368,9 +775,12 @@ export class StoryRun {
               label: d.label,
               ready: d.needs.every((n) => !!this.flags[n]),
               done: !!this.flags[d.id],
+              check: d.check ? this.dedView(op, d) : undefined,
             })),
             canLeave: seen >= Math.min(op.min, spots.length),
             leave: op.leave,
+            still: op.still,
+            exit: op.exit,
             src: op.src,
           };
         }
@@ -384,4 +794,57 @@ export class StoryRun {
     }
     throw new Error(`scene "${this.scene}" loops without stopping`);
   }
+}
+
+/**
+ * r21: a save from before the 3D places (its stage has no `place`) restarts
+ * its scene with no one anywhere. This rebuilds the stage by playing the
+ * chapter from the start down the saved path (the same picks, the spots and
+ * deductions its flags say were found) to the saved scene, and keeps the
+ * save's own flags, relationships and path. Deterministic; falls back to the
+ * save as it was if the path can't be followed.
+ */
+export function upgradeSnapshot(chapter: Chapter, snap: Snapshot): Snapshot {
+  if (snap.stage.place !== undefined || !chapter.scenes[snap.scene]) {
+    return snap;
+  }
+  const picks = snap.path
+    .filter((p) => p.startsWith("c:"))
+    .map((p) => p.slice(2).split("="));
+  const r = new StoryRun(
+    chapter,
+    chapterStart(chapter, undefined, { build: snap.build ?? null, seed: 1 }),
+  );
+  const want = snap.path.length;
+  for (let steps = 0; steps < 20_000; steps++) {
+    const h = r.history();
+    if (h.length > want && r.sceneId === snap.scene) {
+      return { ...snap, stage: r.snapshot().stage };
+    }
+    if (h.length > want + 1) break;
+    const b = r.beat;
+    if (b.kind === "end") break;
+    if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
+      r.advance();
+    } else if (b.kind === "choice") {
+      const open = b.options.filter((o) => !o.check?.locked);
+      const next = picks[0];
+      let pick = open[0];
+      if (next && next[0] === b.id) {
+        picks.shift();
+        pick = open.find((o) => o.id === next[1]) ?? pick;
+      }
+      r.choose(pick.id);
+    } else {
+      const spot = b.spots.find((s) => !s.seen && snap.flags[s.id]);
+      const ded = b.deductions.find(
+        (d) => d.ready && !d.done && !d.check?.locked && snap.flags[d.id],
+      );
+      if (ded) r.deduce(ded.id);
+      else if (spot) r.examine(spot.id);
+      else if (b.canLeave) r.leave();
+      else r.examine(b.spots.find((s) => !s.seen)?.id ?? b.spots[0].id);
+    }
+  }
+  return snap;
 }

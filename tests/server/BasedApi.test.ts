@@ -130,6 +130,9 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     "/based/chapter/1",
     "/based/art/bar_wide",
     "/based/audio/rain",
+    // BASED (r21): the 3D models are as private as the pictures.
+    "/based/model/props",
+    "/based/model/mannequin_m",
     "/based/save",
     "/based/stats/1",
     "/based/notes",
@@ -168,8 +171,12 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
       chapter: { title: string; scenes: Record<string, unknown> };
       flow: unknown[];
       credits: { items: unknown[] };
+      places: Record<string, { marks: Record<string, unknown> }>;
     };
     expect(body.chapter.title).toBe("The First Glass");
+    // r21: the places it's played in come with it.
+    expect(Object.keys(body.places).sort()).toEqual(["elysee", "grenelle"]);
+    expect(body.places.grenelle.marks).toHaveProperty("stool_end");
     expect(Object.keys(body.chapter.scenes)).toContain("anselme");
     expect(body.flow.length).toBe(Object.keys(body.chapter.scenes).length);
     expect(body.credits.items.length).toBeGreaterThan(10);
@@ -180,6 +187,16 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     expect(art.headers.get("cache-control")).toBe("private, max-age=86400");
     const sound = await call("/based/audio/rain", alden);
     expect(sound.headers.get("content-type")).toBe("audio/mpeg");
+    const model = await call("/based/model/props", alden);
+    expect(model.status).toBe(200);
+    expect(model.headers.get("content-type")).toBe("model/gltf-binary");
+    expect(model.headers.get("cache-control")).toBe("private, max-age=86400");
+    expect(
+      Buffer.from(await model.arrayBuffer())
+        .subarray(0, 4)
+        .toString(),
+    ).toBe("glTF");
+    expect((await call("/based/model/nope", alden)).status).toBe(404);
 
     expect((await call("/based/chapter/99", alden)).status).toBe(404);
     expect(
@@ -237,6 +254,56 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
       save: typeof save;
     };
     expect(back.save).toEqual(save);
+    // r21: a save from the 3D chapter keeps who he is, his boosts, the
+    // dice and the stage.
+    const snap3d = {
+      ...snap,
+      stage: {
+        ...snap.stage,
+        place: "grenelle",
+        actors: {
+          BASED: { at: "stool_end", pose: "sit" },
+          ANSELME: { at: "behind_bar", pose: "lean", wear: "barman" },
+        },
+        focus: "glasses",
+        vignette: null,
+        props: { glass_first: true },
+      },
+      build: {
+        attrs: { WITS: 4, NERVE: 2, HEART: 3 },
+        signature: "MEMORY",
+        archetype: "ANALYST",
+      },
+      boosts: [{ skill: "COMPOSURE", delta: 1, why: "Vienna, looked at" }],
+      seed: 123456789,
+      checks: { "room@1:expected": { tries: 1, result: "fail", bonus: 3 } },
+    };
+    const save3d = {
+      ...save,
+      current: snap3d,
+      finished: {
+        "1": {
+          at: "2026-10-14T12:00:00Z",
+          flags: { drank_first: 1 },
+          rels: {},
+          path: ["s:open"],
+          build: snap3d.build,
+          boosts: snap3d.boosts,
+        },
+      },
+    };
+    expect(
+      (
+        await call("/based/save", alden, {
+          method: "PUT",
+          body: JSON.stringify({ save: save3d }),
+        })
+      ).status,
+    ).toBe(204);
+    expect(
+      ((await (await call("/based/save", alden)).json()) as { save: unknown })
+        .save,
+    ).toEqual(save3d);
     // Another account can't write one.
     const theirs = await call("/based/save", tester, {
       method: "PUT",

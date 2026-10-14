@@ -7,6 +7,7 @@
 export type Expr =
   | { k: "flag"; name: string }
   | { k: "rel"; who: string }
+  | { k: "skill"; id: string }
   | { k: "num"; v: number }
   | { k: "not"; e: Expr }
   | { k: "and" | "or"; a: Expr; b: Expr }
@@ -24,7 +25,75 @@ export interface CastMember {
   name: string;
   /** Art key of their framed portrait, if they have one. */
   portrait?: string;
+  /** How they're dressed in the 3D scenes (a look the client knows). */
+  look?: string;
+  /**
+   * Another cast member who is the same person in the 3D scenes (someone
+   * known first by a description, then by name): speaking moves that body.
+   */
+  body?: string;
 }
+
+// --- Skills (r21) ----------------------------------------------------------
+
+/** One of the three or four things his skills grow out of. */
+export interface Attribute {
+  id: string;
+  name: string;
+  about: string;
+}
+
+export interface SkillDef {
+  id: string;
+  name: string;
+  /** The attribute it belongs to; it starts at that attribute's value. */
+  attr: string;
+  about: string;
+}
+
+/** A ready-made build for the setup screen. */
+export interface Archetype {
+  id: string;
+  name: string;
+  about: string;
+  attrs: Record<string, number>;
+  /** One skill a step above its attribute. */
+  signature: string;
+}
+
+/** How the setup screen shares out attribute points. */
+export interface PointRules {
+  /** Points across all attributes. */
+  total: number;
+  min: number;
+  max: number;
+}
+
+/** The player's build: what the setup screen produces. */
+export interface Build {
+  attrs: Record<string, number>;
+  signature: string;
+  /** The archetype it started from, if any. */
+  archetype?: string;
+}
+
+/** A modifier on a check: "+2 if came_down 'You saw his shoes'". */
+export interface Mod {
+  delta: number;
+  cond?: Expr;
+  why: string;
+}
+
+/** A skill check: 2d6 + skill + modifiers against a difficulty. */
+export interface CheckSpec {
+  skill: string;
+  diff: number;
+  /** White checks can be tried again once something changes; red can't. */
+  kind: "white" | "red";
+  mods: Mod[];
+}
+
+// --- Scenes ----------------------------------------------------------------
 
 export interface ChoiceOption {
   id: string;
@@ -36,14 +105,22 @@ export interface ChoiceOption {
   silent: boolean;
   /** Where its body starts in the scene's ops. */
   at: number;
+  /** A skill check: the option's body is the check op and what follows. */
+  check?: CheckSpec;
 }
 
 export interface Spot {
   id: string;
   label: string;
-  /** Where on the backdrop, in percent of the picture's width and height. */
+  /**
+   * On a flat picture: where, in percent of its width and height. In a 3D
+   * place the spot is a hotspot of the place instead (`anchor`), and x/y are
+   * -1.
+   */
   x: number;
   y: number;
+  /** The place's hotspot this spot is (r21); defaults to the spot's id. */
+  anchor?: string;
   at: number;
 }
 
@@ -53,9 +130,27 @@ export interface Deduction {
   /** Spots or deductions noticed first. */
   needs: string[];
   at: number;
+  /**
+   * r21: a skill works it out. A passive pass (skill + 6 >= difficulty)
+   * makes it at once, in that skill's voice; otherwise it's a white check,
+   * a step easier for each other thing noticed in the room.
+   */
+  check?: CheckSpec;
+  /** Where its failure text starts (a `return` if it has none). */
+  failAt?: number;
 }
 
 export type LineKind = "narr" | "say" | "think";
+
+/** Where someone stands in a 3D place, and how. */
+export interface ActorState {
+  /** A mark in the place. */
+  at: string;
+  /** stand, sit, lean... (the client knows the poses). */
+  pose: string;
+  /** Their outfit, if not their usual one. */
+  wear?: string;
+}
 
 /** `src` is the line in the script file, for error messages and notes. */
 export type Op =
@@ -65,6 +160,9 @@ export type Op =
       who?: string;
       how?: string;
       text: string;
+      /** r21: a skill's voice ("~ TRADECRAFT 9: ..."), passive if `diff`. */
+      skill?: string;
+      diff?: number;
       src: number;
     }
   | { op: "card"; title: string; sub?: string; src: number }
@@ -72,6 +170,21 @@ export type Op =
   | { op: "backdrop"; key: string | null; src: number }
   | { op: "figure"; who: string | null; src: number }
   | { op: "ambient"; key: string | null; src: number }
+  | { op: "place"; key: string | null; src: number }
+  | {
+      op: "actor";
+      who: string;
+      /** null: off the stage. */
+      state: ActorState | null;
+      /** Walk there rather than appear. */
+      walk: boolean;
+      src: number;
+    }
+  | { op: "focus"; key: string | null; src: number }
+  | { op: "gesture"; who: string; name: string; src: number }
+  | { op: "vignette"; key: string | null; src: number }
+  | { op: "prop"; key: string; on: boolean; src: number }
+  | { op: "boost"; skill: string; delta: number; why: string; src: number }
   | { op: "set"; flag: string; value: number; add: boolean; src: number }
   | { op: "rel"; who: string; delta: number; src: number }
   | { op: "remember"; who: string; src: number }
@@ -88,6 +201,15 @@ export type Op =
       src: number;
     }
   | {
+      /** r21: roll an option's check; on to the next op, or to `fail`. */
+      op: "check";
+      id: string;
+      label: string;
+      spec: CheckSpec;
+      fail: number;
+      src: number;
+    }
+  | {
       op: "investigate";
       id: string;
       title: string;
@@ -96,6 +218,10 @@ export type Op =
       spots: Spot[];
       deductions: Deduction[];
       leave: string;
+      /** r21: he stays put and looks (no walking about). */
+      still: boolean;
+      /** r21: the place's hotspot that also leaves (a door). */
+      exit?: string;
       after: number;
       src: number;
     }
@@ -128,6 +254,11 @@ export interface Chapter {
   order: string[];
   /** What the chapter's end screen says you carry forward. */
   carry: Carry[];
+  /** r21: the skills, what they grow from, and the ready-made builds. */
+  attributes: Attribute[];
+  skills: SkillDef[];
+  archetypes: Archetype[];
+  points: PointRules;
 }
 
 /** The goto target that ends the chapter. */

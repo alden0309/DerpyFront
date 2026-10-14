@@ -228,6 +228,11 @@ describe("playing a chapter", () => {
       figure: "BARMAN",
       ambient: "rain_in",
       news: null,
+      place: null,
+      actors: {},
+      focus: null,
+      vignette: null,
+      props: {},
     });
     const first = run.drain();
     expect(first).toEqual([

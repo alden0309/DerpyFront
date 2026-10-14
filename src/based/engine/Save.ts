@@ -4,6 +4,8 @@
 // next).
 
 import { Snapshot } from "./Runtime";
+import { Boost } from "./Skills";
+import { Build } from "./Types";
 
 export interface CheckpointSave {
   label: string;
@@ -26,6 +28,9 @@ export interface Finished {
   rels: Record<string, number>;
   /** The path that ended it. */
   path: string[];
+  /** r21: who he was, and what he'd been through, carried on. */
+  build?: Build;
+  boosts?: Boost[];
 }
 
 export interface BasedSave {

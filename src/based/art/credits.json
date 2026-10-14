@@ -1,5 +1,5 @@
 {
-  "note": "Every picture is graded (cool shadows, amber highlights), cropped to 16:9 or 4:5 and compressed to WebP. The sound is looped, and muffled for the inside of the bar. Adaptations of CC BY-SA works are shared under the same licence.",
+  "note": "Every picture is graded (cool shadows, amber highlights), cropped to 16:9 or 4:5 and compressed to WebP. The sound is looped, and muffled for the inside of the bar. Adaptations of CC BY-SA works are shared under the same licence. The 3D people and furniture are CC0 models, restyled and compressed (meshopt); the rooms, the street, the lamps and the rain are built in code.",
   "items": [
     {
       "keys": ["paris_rain"],
@@ -182,6 +182,56 @@
       "license": "CC BY-SA 3.0",
       "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
       "source": "https://commons.wikimedia.org/wiki/File:Heavy_Rain_in_Summer.ogg"
+    },
+    {
+      "keys": ["mannequin_m"],
+      "what": "Model",
+      "title": "Universal Animation Library (mannequin and clips: walking, sitting, talking, gestures)",
+      "author": "Quaternius",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://opengameart.org/content/universal-animation-library",
+      "changes": "Clips chosen and renamed, finger tracks dropped, mesh simplified; dressed at runtime by painting the vertices."
+    },
+    {
+      "keys": ["mannequin_m"],
+      "what": "Model",
+      "title": "Universal Animation Library 2 (the male mannequin, and the drink, nod, lean and folded-arms clips)",
+      "author": "Quaternius",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://opengameart.org/content/universal-animation-library-2",
+      "changes": "As above."
+    },
+    {
+      "keys": ["mannequin_f"],
+      "what": "Model",
+      "title": "Universal Animation Library 2: Female Mannequin",
+      "author": "Quaternius",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://opengameart.org/content/universal-animation-library-2",
+      "changes": "Mesh simplified; dressed at runtime."
+    },
+    {
+      "keys": ["props"],
+      "what": "Model",
+      "title": "Furniture Kit (bar stools, tables, chairs, coat stand, lamps, plants, bench, bin)",
+      "author": "Kenney",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://kenney.nl/assets/furniture-kit",
+      "changes": "Recoloured at runtime (oak, brass, leather)."
+    },
+    {
+      "keys": ["props"],
+      "what": "Model",
+      "title": "Car Kit (the police van, the parked cars)",
+      "author": "Kenney",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://kenney.nl/assets/car-kit",
+      "changes": "Tinted at runtime; a light bar added to the van."
     }
   ]
 }
