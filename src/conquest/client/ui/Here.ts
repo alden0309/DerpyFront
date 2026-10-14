@@ -110,6 +110,7 @@ import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 import { TERMS } from "./Terms";
 import { cameWords, townRuinsNote } from "./Towns"; // TOWNS (r17)
+import { openQuit } from "./WorkR21"; // WORK (r21)
 import {
   cultureChips,
   lastSeenNote,
@@ -1154,8 +1155,9 @@ function workBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
         ok: true,
         cls: "rough",
         run: () =>
-          boss?.alive && !job.own && !job.berth // SHIPS (r21): a ship's company: just leave
-            ? ui.modal({ k: "interact", c: boss.id, act: "quit" })
+          // WORK (r21): from anywhere, by letter or with notice (Work › Your work).
+          !job.own
+            ? openQuit(ui)
             : confirm(
                 `Give up your work as ${jobTitle(life).toLowerCase()}?`,
               ) && void ui.cmd({ k: "quit" }),

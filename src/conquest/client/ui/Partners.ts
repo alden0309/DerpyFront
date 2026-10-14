@@ -63,7 +63,6 @@ import {
   firmsWith,
   LOANS,
   managerOf,
-  MAX_FIRMS,
   offerById,
   offersFrom,
   offersTo,
@@ -141,8 +140,8 @@ export function partnersPage(ui: GameUi): TemplateResult {
   return html`${pageHead(
     "Partnerships",
     html`Firms you're a partner in: who holds what share, the books month by
-    month, and what's put to the partners. You're in ${firms.length} of the
-    ${MAX_FIRMS} a person can manage at once.`,
+    month, and what's put to the partners. You're in ${firms.length} (there's no
+    limit to how many).`,
   )}
   ${incoming.length || outgoing.length
     ? section(
@@ -1821,15 +1820,10 @@ export function partnerCard(ui: GameUi, c: Character): TemplateResult {
   const theirs = firmsWith(s, c.id).filter((f) => !partnerIn(f, life.c));
   const here =
     !life.travel && peopleHere(s, life.prov, life).some((x) => x.id === c.id);
-  const can =
-    firmsWith(s, life.c).length >= MAX_FIRMS
-      ? {
-          ok: false as const,
-          why: `You're in ${MAX_FIRMS} partnerships already.`,
-        }
-      : life.travel
-        ? { ok: false as const, why: "Not from the road." }
-        : { ok: true as const };
+  // WORK (r21): no cap on partnerships.
+  const can = life.travel
+    ? { ok: false as const, why: "Not from the road." }
+    : { ok: true as const };
   return html`<section class="cq-section cq-pa-card">
     <h3 class="cq-h3">In business</h3>
     <p class="cq-muted small">

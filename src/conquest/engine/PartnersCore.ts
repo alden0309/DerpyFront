@@ -19,8 +19,8 @@ import type {
 
 // ---------------------------------------------------------------- the rules' numbers
 
-/** Firms a player may be a partner in at once. */
-export const MAX_FIRMS = 3;
+/** Firms a player may be a partner in at once. WORK (r21): no cap (it was 3). */
+export const MAX_FIRMS = Infinity;
 /** Firms a computer character will be a partner in at once. */
 export const NPC_MAX_FIRMS = 2;
 /** Partners a firm may have. */

@@ -43,7 +43,7 @@ import {
   movementOf,
 } from "../../engine/Movements";
 import { localOfficesOf } from "../../engine/Offices"; // POWER (r12)
-import { firmsWith, MAX_FIRMS } from "../../engine/PartnersCore"; // PARTNERS (r13)
+import { firmsWith } from "../../engine/PartnersCore"; // PARTNERS (r13)
 import { governorScore, standCheck } from "../../engine/Politics"; // CHAIR (r16): governorScore
 import { commissionAt } from "../../engine/Privateers"; // SEA (r15)
 import {
@@ -1186,13 +1186,7 @@ const GOALS: Goal[] = [
     group: "Money and home",
     where:
       "Anyone's card: In business › Propose a partnership (in person, or by post if they're far off). At the market: Partnerships lists who in town might go into business with you. Bring in a business, buy a share of theirs, found one together, or pool money for cargoes.",
-    needs: (ui) => [
-      adult(ui),
-      {
-        label: `In ${firmsWith(ui.s, ui.life!.c).length} of ${MAX_FIRMS} partnerships`,
-        met: firmsWith(ui.s, ui.life!.c).length < MAX_FIRMS,
-      },
-    ],
+    needs: (ui) => [adult(ui)], // WORK (r21): no cap on partnerships
     go: place("market"),
     goLabel: "Go to the market",
     guide: "partners",

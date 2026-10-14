@@ -434,6 +434,8 @@ export interface Job {
   lastWorked?: number;
   /** SHIPS (r21): a place in a player's outfit (a ship's company), whose role and pay they set. */
   berth?: Berth;
+  /** WORK (r21): notice given: the day you leave, and the working days done of it at your post. */
+  notice?: { until: number; done: number };
 }
 
 /** On the road (or at sea): the hops still to go, like an army's march. */
@@ -1827,7 +1829,7 @@ export type LifeCommand =
   | { k: "act"; place: PlaceKind; act: string; arg?: number }
   /** Take a job a place here offers. */
   | { k: "job"; place: PlaceKind; job: JobKind }
-  | { k: "quit" }
+  | { k: "quit"; how?: "now" | "notice" | "stay" } // WORK (r21): at once, with notice, or take it back
   | {
       k: "person";
       c: number;

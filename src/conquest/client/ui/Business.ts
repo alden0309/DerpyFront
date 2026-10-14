@@ -86,6 +86,7 @@ import { howTo, pageHead } from "./Nav";
 import { oddsPanel } from "./Odds";
 import { coins, price, priceWords } from "./Price";
 import { term } from "./Terms";
+import { companyMarkets } from "./WorkR21"; // WORK (r21)
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 const signed = (v: number) =>
@@ -755,6 +756,7 @@ export function companyCard(
       >.
     </p>
     ${legsLine(co) /* ECON (r17): each leg's record */}
+    ${companyMarkets(ui, plan) /* WORK (r21): its trade moves the prices */}
     ${co.voyages.length
       ? html`<ul class="cq-co-voyages small">
           ${co.voyages.map(

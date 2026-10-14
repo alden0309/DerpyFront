@@ -1029,8 +1029,7 @@ export function foundCheck(
   const mine = (life.property ?? []).filter((x) => x.kind === "business");
   if (mine.some((x) => x.prov === life.prov && x.job === job))
     return no("You have one here already: grow it instead.");
-  if (mine.length >= 3)
-    return no("Three businesses are as many as one can run.");
+  // WORK (r21): no cap on businesses owned (it was three).
   const cost = bizCost(job, level);
   if (life.purse < cost) return no(`Setting it up costs ${cost}.`);
   return yes;

@@ -157,7 +157,6 @@ import {
   FIRE_SALE,
   LAWYER_FEE,
   LOANS,
-  MAX_FIRMS,
   MAX_PARTNERS,
   MAX_ROUNDS,
   OFFER_DAYS,
@@ -1083,7 +1082,7 @@ ${Object.values(WORKS)
     line: "Going into business with someone: articles of copartnership, shares and capital, the books, votes, and what goes wrong.",
     where:
       "Estate › Partnerships; anyone's card (In business › Propose a partnership); the market (Partnerships); a firm's name on its place's tile (Here).",
-    body: `Two (or up to ${MAX_PARTNERS}) people go into business as one **firm**, under articles of copartnership, in the period's way: "Ashby & Cole". Each **partner** holds a **share** of the profit and loss (shares make a hundred), has a **capital account** (what they brought in), and is either the **managing partner** (who does the work and keeps the books) or a **silent partner** (who only puts in money). You can be in ${MAX_FIRMS} partnerships at a time.
+    body: `Two (or up to ${MAX_PARTNERS}) people go into business as one **firm**, under articles of copartnership, in the period's way: "Ashby & Cole". Each **partner** holds a **share** of the profit and loss (shares make a hundred), has a **capital account** (what they brought in), and is either the **managing partner** (who does the work and keeps the books) or a **silent partner** (who only puts in money). There's no limit to how many partnerships you can be in.
 
 ## What a firm can hold
 - **A business one of you brings in**: your own (the shop, the inn, the farm, the mill, the press, the ship that came with your trade's top rungs), or theirs. A computer character with a trade of their own (an innkeeper, a merchant, a planter, a ship's captain, a master craftsman, a printer, a trader) brings their business, and wants to go on running it.

@@ -94,10 +94,12 @@ export const CO_EVERY = [1, 2, 3, 6];
 /** Its factors' commission on each side of a trade (a stranger pays the merchants 12 in 100). */
 export const CO_CUT = 0.02;
 /**
- * How much of each load moves a port's price: a company's factors buy up and
- * down the country and sell to many shops, not all at the market's stalls.
+ * How much of each load moves a port's price. WORK (r21): every load, as a
+ * person's buying and selling does (it was half: the factors were reckoned to
+ * buy up and down the country, so a company's cargo hardly showed in the
+ * port's price, unlike buying the same loads yourself).
  */
-export const CO_MOVE = 0.5;
+export const CO_MOVE = 1;
 /**
  * Where the country makes the goods, its factors buy from the planters, the
  * trappers and the millers at their landings, for goods and credit, ahead of
@@ -1137,6 +1139,7 @@ function loadBack(g: ConquestGame, f: Firm, from: number, home: number): void {
     );
     return;
   }
+  const moved = priceMove(s, g.w, bp.from, bp.item, bp.loads); // WORK (r21)
   if (bp.from >= 0) marketMove(g, bp.from, bp.item, bp.loads, CO_MOVE);
   f.chest = r2(f.chest - q.cost);
   const v: CompanyVoyage = {
@@ -1155,7 +1158,7 @@ function loadBack(g: ConquestGame, f: Firm, from: number, home: number): void {
   leg.n++;
   leg.cost = r2(leg.cost + q.cost);
   say(
-    `homeward: a return cargo of ${bp.loads} loads of ${goodsName(bp.item).toLowerCase()} bought at ${where} for ${Math.round(q.cost)}, for ${placeName(s, g.w, home, home)}.`,
+    `homeward: a return cargo of ${bp.loads} loads of ${goodsName(bp.item).toLowerCase()} bought at ${where} for ${Math.round(q.cost)}, for ${placeName(s, g.w, home, home)}.${moved}`,
   );
   partnersChanged(g, "f");
 }
@@ -1247,6 +1250,7 @@ export function companyDaily(g: ConquestGame, f: Firm): void {
     return;
   }
   // Bought at the port (the price there rises), and away.
+  const moved = priceMove(s, g.w, plan.from, plan.item, plan.loads); // WORK (r21)
   marketMove(g, plan.from, plan.item, plan.loads, CO_MOVE);
   f.chest = r2(f.chest - q.cost);
   const v: CompanyVoyage = {
@@ -1270,9 +1274,27 @@ export function companyDaily(g: ConquestGame, f: Firm): void {
   firmLine(
     g,
     f,
-    `A cargo of ${plan.loads} loads of ${goodsName(plan.item).toLowerCase()} sails for ${placeName(s, g.w, plan.to, plan.from)}: ${Math.round(q.cost)} laid out.`,
+    `A cargo of ${plan.loads} loads of ${goodsName(plan.item).toLowerCase()} sails for ${placeName(s, g.w, plan.to, plan.from)}: ${Math.round(q.cost)} laid out.${moved}`,
   );
   partnersChanged(g, "f");
+}
+
+/**
+ * WORK (r21): what a company's own buying (loads > 0) or selling (< 0) does
+ * to a port's price, in words for its books and news: " Its buying put the
+ * price of tobacco at Jamestown up from 1.2 to 1.5 a load."
+ */
+export function priceMove(
+  s: GameState,
+  w: World,
+  p: number,
+  item: TradeItem,
+  loads: number,
+): string {
+  if (p < 0 || !loads) return "";
+  const q = quoteCut(s, w, p, item, loads, CO_CUT, s.day, CO_MOVE);
+  if (Math.abs(q.after - q.before) < 0.01) return "";
+  return ` Its ${loads > 0 ? "buying put" : "selling brought"} the price of ${goodsName(item).toLowerCase()} at ${w.map.provinces[p]?.name ?? "the port"} ${loads > 0 ? "up" : "down"} from ${q.before} to ${q.after} a load.`;
 }
 
 /** A cargo arrives (or doesn't): sold where it's going, its proceeds into the chest. */
@@ -1295,6 +1317,7 @@ function arrive(g: ConquestGame, f: Firm, v: CompanyVoyage): void {
     ? `${v.loads} loads of ${goodsName(v.item).toLowerCase()} home from ${placeName(s, g.w, v.from, v.to, v.sailed)}`
     : `${v.loads} loads of ${goodsName(v.item).toLowerCase()} for ${where}`;
   let sale = 0;
+  let moved = ""; // WORK (r21): what its selling did to the port's price
   let text: string;
   if (end === "home" || end === "spoiled") {
     const loads =
@@ -1312,6 +1335,7 @@ function arrive(g: ConquestGame, f: Firm, v: CompanyVoyage): void {
         s.day,
         CO_MOVE,
       ).total;
+      moved = priceMove(s, g.w, v.to, v.item, -loads); // WORK (r21)
       marketMove(g, v.to, v.item, -loads, CO_MOVE);
     } else {
       sale = europeSale(s, v.item, loads);
@@ -1344,8 +1368,8 @@ function arrive(g: ConquestGame, f: Firm, v: CompanyVoyage): void {
   if (end !== "home" && end !== "spoiled") leg.lost++;
   const said = `${homeward ? "homeward" : "outward"}: ${text}`;
   (co.notes ??= []).push(said);
-  firmLine(g, f, `${said[0].toUpperCase()}${said.slice(1)}.`);
-  news(g, f, `${said}.`, sale > v.cost ? "good" : "bad");
+  firmLine(g, f, `${said[0].toUpperCase()}${said.slice(1)}.${moved}`);
+  news(g, f, `${said}.${moved}`, sale > v.cost ? "good" : "bad");
   // STORY (r17): a great voyage, or a great cargo lost, is in each partner's story.
   if (sale >= v.cost * 1.6 || (sale === 0 && v.cost >= 40))
     for (const pt of f.partners) {

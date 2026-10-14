@@ -129,6 +129,7 @@ import { tradesLink, workNotes } from "./Livelihood";
 import { price } from "./Price"; // LEDGER (r15)
 import { berthLine } from "./ShipsUi"; // SHIPS (r21)
 import { term } from "./Terms";
+import { quitBlock } from "./WorkR21"; // WORK (r21)
 
 // ---------------------------------------------------------------- work
 
@@ -289,26 +290,25 @@ export function workSection(ui: GameUi): TemplateResult {
               >
                 The road back
               </button>`}
-          ${action(
-            job.own ? "Give up the trade" : "Hand in your notice",
-            servant
-              ? {
+          ${servant
+            ? action(
+                "Hand in your notice",
+                {
                   ok: false,
                   why: "Bound by indenture (you could run away from the farm)",
-                }
-              : { ok: true },
-            () => {
-              // SHIPS (r21): a place in a player's ship's company is left without asking.
-              if (boss?.alive && !job.own && !job.berth)
-                ui.modal({ k: "interact", c: boss.id, act: "quit" });
-              else if (
-                confirm(`Leave your place as ${jobTitle(life).toLowerCase()}?`)
+                },
+                () => undefined,
+                "small quiet",
               )
-                void ui.cmd({ k: "quit" });
-            },
-            "small quiet",
-          )}
+            : nothing}
         </div>
+        ${
+          servant
+            ? nothing
+            : quitBlock(
+                ui,
+              ) /* WORK (r21): from anywhere, by letter, or with notice */
+        }
       </div>
       <p class="cq-muted small">${def.text}</p>
       ${tradesLink(ui)}`,
