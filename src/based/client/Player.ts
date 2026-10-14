@@ -914,6 +914,8 @@ export class BasedPlayer extends LitElement {
     this.busy = false;
     this.run.enterPlace(place, mark);
     this.afterStep();
+    // Through a door is a good moment for the autosave.
+    this.autosaveSoon();
   }
 
   /** Keeps the labels over what he's noticed as the camera moves. */
@@ -1365,6 +1367,9 @@ export class BasedPlayer extends LitElement {
         ${this.entries.map((e, i) =>
           this.renderEntry(e, i === this.entries.length - 1),
         )}
+        ${this.entries.length === 0 && b.kind === "free"
+          ? this.renderResume()
+          : nothing}
       </div>
       <div class="mb-col-act">${this.renderAction(b)}</div>
     </aside>`;
@@ -1653,6 +1658,16 @@ export class BasedPlayer extends LitElement {
   }
 
   /** Free: thoughts he can follow, and a word on what to do. */
+  /** A loaded game starts with an empty column: where he is, and when. */
+  private renderResume(): TemplateResult {
+    const place = this.stage.place ? this.places[this.stage.place] : undefined;
+    const clock = clockText(this.run.clock);
+    return html`<p class="mb-resume">
+      ${place ? `${place.name}, ${clock.time}.` : `${clock.time}.`} Where he
+      left off.
+    </p>`;
+  }
+
   private renderFree(): TemplateResult {
     const t = this.avail.think;
     const journal = this.run.tasks.filter((x) => !x.done);

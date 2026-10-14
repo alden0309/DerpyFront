@@ -3164,3 +3164,13 @@ kbd {
 .mb-p.bad {
   color: var(--mb-red);
 }
+
+/* r22: a loaded game's empty column says where he is. */
+.mb-resume {
+  margin: 8px 0 0;
+  color: var(--mb-paper-2);
+  font-family: var(--mb-serif);
+  font-style: italic;
+  font-size: 16px;
+  animation: mb-fade-in 0.5s ease both;
+}
