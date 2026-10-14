@@ -86,9 +86,8 @@ function temperament(t: string): { label: string; hint: string } {
  */
 const guideWords: GuideWords = {
   t: (key, params) => {
-    const full = `ai_personalities.guide.${key}`;
-    const v = translateText(full, params);
-    return v === full ? guideEn(key, params) : v;
+    const v = translateText(`ai_personalities.guide.${key}`, params);
+    return v === `ai_personalities.guide.${key}` ? guideEn(key, params) : v;
   },
   temperament: (t) => temperament(t),
   packName: (id) => tr(`derpy.item_${id}`, id),
