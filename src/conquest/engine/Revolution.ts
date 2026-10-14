@@ -171,7 +171,8 @@ export function revLean(
   if (hasTrait(ch, "content") || hasTrait(ch, "honest")) v += REV.loyal;
   if (hasTrait(ch, "ambitious") || hasTrait(ch, "brave")) v += REV.bold;
   if (hasTrait(ch, "craven")) v += REV.craven;
-  v += hash01(c, n, salt, 0x76) * REV.noise * 2 - REV.noise;
+  v +=
+    hash01(s.settings.seed | 0, c, n, salt, 0x76) * REV.noise * 2 - REV.noise;
   return v;
 }
 

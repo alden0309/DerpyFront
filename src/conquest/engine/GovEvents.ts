@@ -1056,14 +1056,16 @@ export function matterFor(
   n: number,
 ): { key: string; ctx: LCtx } | null {
   const s = g.s;
+  // The game's own seed too, so every game's governor isn't sent the same matters in the same order.
+  const game = s.settings.seed | 0;
   let seed = 1;
   const r = () => {
     seed++;
-    return hash01(s.day, n, seed, 0x7a);
+    return hash01(game, s.day, n, seed, 0x7a);
   };
   const order = MATTERS.map((m, i) => ({
     m,
-    w: hash01(s.day, n, i, 0x7b),
+    w: hash01(game, s.day, n, i, 0x7b),
   })).sort((a, b) => a.w - b.w);
   for (const { m } of order) {
     if ((life.cooldowns[`gov:${m.def.key}`] ?? 0) > s.day) continue;

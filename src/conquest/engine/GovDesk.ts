@@ -27,7 +27,6 @@ import {
 } from "./Queries";
 import { declareRev, moveMotion, revSide, voteMotion } from "./Revolution";
 import { DAYS_PER_YEAR } from "./Rules";
-import { hash01 } from "./SocietyCore";
 import type {
   BuildingKind,
   DeskCommand,
@@ -735,12 +734,6 @@ export function nativeTowns(s: GameState, o: number): number[] {
 /** Whether a nation is at war with the colony (for the page). */
 export function warWith(s: GameState, n: number, o: number): boolean {
   return atWar(s, n, o);
-}
-
-/** A steady pick from a list for a salt (the desk's matters). */
-export function pick<T>(xs: T[], ...salt: number[]): T | undefined {
-  if (!xs.length) return undefined;
-  return xs[Math.floor(hash01(...salt) * xs.length) % xs.length];
 }
 
 export type { Nation };
