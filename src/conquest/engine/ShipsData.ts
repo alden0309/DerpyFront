@@ -158,9 +158,9 @@ export const CHARTER = {
   /** A great port's great lading each month: this many loads, to a port at least this far. */
   great: { loads: [150, 200, 250, 300], minKm: 800 },
   /** Freight: coins a load, and a load per 100 km of the passage. */
-  freight: { perLoad: 0.03, per100: 0.018, minKm: 80, maxKm: 2600 },
+  freight: { perLoad: 0.035, per100: 0.022, minKm: 80, maxKm: 2600 },
   /** Passengers: coins a head, and a head per 100 km. */
-  passengers: { perHead: 0.4, per100: 0.08 },
+  passengers: { perHead: 0.4, per100: 0.1 },
   /** The packet: a month's pay by her kind (about her keep and crew, and a third more), for this many months, between ports at most this far apart. */
   packet: {
     months: 3,
