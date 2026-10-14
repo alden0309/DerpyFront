@@ -251,7 +251,7 @@ function yearSentences(
     const rawText = raws.map((x) => x.raw).join("; ");
     return clauses.length
       ? `${when} ${list(clauses)}${raws.length ? `; ${rawText}` : ""}${more}.`
-      : `${when}: ${rawText}${more}.`;
+      : `${when}, ${rawText}${more}.`;
   });
   if (years.length > kept.length)
     out.push(
@@ -403,10 +403,21 @@ function chapter(
   const famRest = fam.filter((m) => m.kind !== "child");
   const famText: string[] = yearSentences(famRest, who, 5);
   if (births.length) {
+    // Each child's year as the family's line (and their age) has it.
+    const kids = (who?.children ?? [])
+      .map((k) => s.chars[k])
+      .filter((k): k is Character => !!k);
+    const used = new Set<number>();
     const names = births
       .map((m) => {
         const k = /, (\w+), was born/.exec(m.text)?.[1];
-        return k ? `${k} (${dateOf(m.day).year})` : null;
+        if (!k) return null;
+        const kid = kids.find(
+          (x) =>
+            x.first === k && !used.has(x.id) && Math.abs(x.born - m.day) <= 366,
+        );
+        if (kid) used.add(kid.id);
+        return `${k} (${dateOf(kid?.born ?? m.day).year})`;
       })
       .filter((x): x is string => !!x);
     famText.push(
@@ -543,6 +554,15 @@ function titleWords(rec: LineChar): string {
       : "";
   if (!t) return rec.home ? `of ${rec.home}` : "";
   return rec.home && !/ (of|for|at) /.test(t) ? `${t} at ${rec.home}` : t;
+}
+
+/** "merchant's clerk at Massachusetts Bay": what a character was when they came into the story, from that moment's words (or null). */
+function startWords(life: Life, c: number): string | null {
+  const m = life.milestones.find(
+    (x) => x.c === c && (x.kind === "born" || x.kind === "begin"),
+  );
+  const b = m ? /^(.+?), (.+?), (\d+), at (.+)$/.exec(m.text) : null;
+  return b ? `${b[2]} at ${b[4]}` : null;
 }
 
 /** "a tenant farmer", "an attorney", "of Jamestown". */
@@ -706,11 +726,24 @@ export function chronicleOf(
     deeds.push(`raised ${plural(t.children, "child", "children")}`);
   if (t.battles)
     deeds.push(
-      `fought ${plural(t.battles, "battle")} and won ${nf(t.battlesWon)}`,
+      t.battlesWon === 0
+        ? `fought ${plural(t.battles, "battle")}`
+        : t.battlesWon >= t.battles
+          ? t.battles === 1
+            ? "won the one battle they fought"
+            : `won all ${nf(t.battles)} battles they fought`
+          : `won ${nf(t.battlesWon)} of the ${nf(t.battles)} battles they fought`,
     );
   if (t.earned) deeds.push(`earned ${plural(t.earned, "coin")}`);
+  // What the first of them was when the story began (not what they rose to).
+  const start = first ? startWords(life, first.c) : null;
+  const firstWas = start
+    ? `, ${withArticle(start)}`
+    : first && (first.title || first.home)
+      ? `, ${withArticle(titleWords(first))}`
+      : "";
   const opening = first
-    ? `${cap(kin)} began with ${first.name}${first.title || first.home ? `, ${withArticle(titleWords(first))}` : ""}, in ${first.from}. Over ${plural(years, "year")} and ${plural(Math.max(1, recs.length), "life", "lives")} they ${deeds.length ? list(deeds) : "lived quietly"}${heights.length ? `, and rose to ${list(heights)}` : ""}.`
+    ? `${cap(kin)} began with ${first.name}${firstWas}, in ${first.from}. Over ${plural(years, "year")} and ${plural(Math.max(1, recs.length), "life", "lives")} they ${deeds.length ? list(deeds) : "lived quietly"}${heights.length ? `, and rose to ${list(heights)}` : ""}.`
     : "A story yet to be told.";
   const closing = life.watching
     ? `The line ended in ${dateOf(life.ended?.day ?? s.day).year}: ${life.ended?.why ?? "the story is told"}. Score ${lifeScore(s, life)}.`

@@ -211,6 +211,38 @@ describe("every character a line was (LEGACY r21)", () => {
     );
   });
 
+  test("the opening says what the first of them was at the start; a child's year is the family line's; battles and others' moments in plain words", () => {
+    const g = world({ start: 1700, seed: 8 });
+    g.aiEnabled = false;
+    const life = lifeOf(g);
+    milestone(g, life, "promoted", "Rose to master", life.prov, q);
+    const baby = child(g, life, 0, true);
+    milestone(
+      g,
+      life,
+      "child",
+      `A daughter, ${baby.first}, was born`,
+      life.prov,
+      q,
+    );
+    g.s.day += 2 * DAYS_PER_YEAR;
+    milestone(g, life, "married", "Mary married John Cole", life.prov, q);
+    life.tally.battles = 3;
+    life.tally.battlesWon = 2;
+    const ch = chronicleOf(g.s, life, map);
+    // A farmer when the story began, whatever he rose to after.
+    expect(ch.opening).toMatch(
+      /^The Drackleys began with Alden Drackley, a farmer at Jamestown, in 1700\. Over .* won 2 of the 3 battles they fought/,
+    );
+    const text = ch.chapters[0].paras.join(" ");
+    const year = dateOf(baby.born).year;
+    expect(text).toContain(`${baby.first} (${year})`);
+    expect(ch.tree[0].children.find((k) => k.c === baby.id)?.born).toBe(year);
+    expect(text).toContain(
+      `In ${dateOf(g.s.day).year}, Mary married John Cole.`,
+    );
+  });
+
   test("a moment's words become a sentence: he or she, his or her, done or done to", () => {
     const he = { first: "Amos", family: "Fell", female: false } as Character;
     const she = { first: "Fay", family: "Penn", female: true } as Character;
