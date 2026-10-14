@@ -921,7 +921,10 @@ function voyageDef(kind: VoyageKind): LifeEventDef {
         `${kind === "furs" ? "Go with the brigade, with trade goods" : "Go aboard, with a venture"} (${stakeFor(life, kind)} coins)`,
       tip: (g, life, ctx) => {
         const o = voyageOdds(g.s, g.w, life, kind, ctx.to, true);
-        return `Your ${kind === "furs" ? "goods" : "venture"} comes home with you: about ${o.expected} back for ${o.costNow}. You travel with it, on the map.`;
+        // EVENTS (r21): "goods comes" read wrongly; furs are what come back.
+        return kind === "furs"
+          ? `Your goods go up with you and come back as furs: about ${o.expected} back for ${o.costNow}. You travel with them, on the map.`
+          : `Your venture comes home with you: about ${o.expected} back for ${o.costNow}. You travel with it, on the map.`;
       },
       blocked: (_g, life) => {
         const n = stakeFor(life, kind);
@@ -1061,6 +1064,20 @@ function offerOf(g: ConquestGame, life: Life, ctx: LCtx) {
 }
 
 /**
+ * EVENTS (r21): below this chance of a prize (a privateer's offer that has
+ * outlived its war), the scene says there's nothing to take rather than
+ * "1 in 9007199254740992".
+ */
+const PRIZE_HOPE = 0.01;
+
+/** EVENTS (r21): the chance of a prize, in words (see PRIZE_HOPE). */
+function prizeWords(p: number): string {
+  return p < PRIZE_HOPE
+    ? "there's next to nothing for her to take just now"
+    : `${chanceWords(p)} she takes a prize`;
+}
+
+/**
  * EVENTS (r21): a ship fitting out, said plainly. Before, the scene began
  * with "beating for men" and "on the account" and ended in a table of odds,
  * without ever saying what the place was or how it paid.
@@ -1083,7 +1100,11 @@ export function fittingBody(
   return [
     what,
     `She sails on ${formatDate(o.sails)} for ${ground} and should be home in about ${days} days.`,
-    `For a hand: ${chanceWords(1 - nothing)} she takes a prize, and your share would come to about ${Math.round(v.expected)} coins on average. The danger: ${chanceWords(taken)} she's taken by an enemy warship${o.flag === "pirate" ? " (and you tried for piracy)" : " (and you held prisoner till exchanged)"}.`,
+    `For a hand: ${prizeWords(1 - nothing)}${
+      1 - nothing < PRIZE_HOPE
+        ? ", so expect no share"
+        : `, and your share would come to about ${Math.round(v.expected)} coins on average`
+    }. The danger: ${chanceWords(taken)} she's taken by an enemy warship${o.flag === "pirate" ? " (and you tried for piracy)" : " (and you held prisoner till exchanged)"}.`,
   ].join("\n");
 }
 
@@ -1109,7 +1130,7 @@ function signChoice(role: CruiseRole): LifeEventDef["choices"][number] {
           : role === "officer"
             ? `You're her ${ROLE_NAMES[o.flag].officer.toLowerCase()}: more shares than a hand, and a say in what she does`
             : "You work her as one of the crew, for a hand's share";
-      return `${what}. ${cap(chanceWords(1 - nothing))} she takes a prize; ${chanceWords(v.risks[0]?.p ?? 0)} an enemy warship takes her. You go with her (she sails on the map) until she's home; your own work waits.`;
+      return `${what}. ${cap(prizeWords(1 - nothing))}; ${chanceWords(v.risks[0]?.p ?? 0)} an enemy warship takes her. You go with her (she sails on the map) until she's home; your own work waits.`;
     },
     blocked: (g, life, ctx) => {
       const o = offerOf(g, life, ctx);

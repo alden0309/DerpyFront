@@ -158,7 +158,7 @@ Open a table: choose the stake and ask anyone in the tavern. The town's people d
 - What you win or lose, hand by hand (the table shows each punter up or down).
 - A little **Trade** experience (reckoning the odds): ${XP_HAND} a hand, ${XP_WEEK} a week at most. A hand won eases the mind; a stake that's a fifth of your purse, lost, doesn't.
 - The innkeeper remembers a winner who broke his bank (twenty or more up), and a good customer.
-- The house has a small edge: punters act first, and a punter who goes over loses even if the banker goes over afterwards.
+- The house has a small edge: punters act first, and a punter who goes over loses even if the banker goes over afterwards. Played by the odds shown, the bank keeps about 3 coins in every 100 staked over many hands (measured over 200,000 hands); any single evening can go either way.
 
 > Tip: On twelve to sixteen, look at the two odds side by side: if going over is less likely than the banker beating you, take a card.`,
   glossary: [

@@ -464,7 +464,8 @@ const VENTURE_SCENES: LifeEventDef[] = [
       if (!v) return "She's sailed.";
       const far = g.map.provinces[v.to]?.name ?? "the far port";
       const home = g.map.provinces[v.from]?.name ?? "home";
-      return `The ${v.ship} takes on her cargo at ${far} for home, sailing ${formatDate(v.sails)}. A sailor's privilege runs both ways: a venture of your own in her hold, bought here at ${far}'s market and sold at ${home}'s. You have ${Math.floor(life.purse)} coins.`;
+      // EVENTS (r21): plainer ("a sailor's privilege runs both ways" didn't say what it was).
+      return `The ${v.ship} is loading at ${far} for home, and sails ${formatDate(v.sails)}. As one of her crew you may carry a little cargo of your own in her hold: buy it here at ${far}'s market, and sell it at ${home} when she's in. You have ${Math.floor(life.purse)} coins.`;
     },
     choices: [
       ventureChoice(0),

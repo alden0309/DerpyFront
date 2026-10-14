@@ -430,11 +430,30 @@ describe("plainer words", () => {
       sails: g.s.day + 10,
       aboard: [],
     };
-    const text = fittingBody(g, life, o as never);
+    // With no war on, a privateer has nothing to take: said so plainly, not
+    // as "1 in 9007199254740992" (an offer can outlive its war).
+    const peace = fittingBody(g, life, o as never);
+    expect(peace).toMatch(/next to nothing for her to take just now/);
+    expect(peace).not.toMatch(/1 in \d{4,}/);
+    // Privateers are offered in wartime: England at war with France and Spain.
+    const eng = g.s.nations.findIndex((n) => n.key === "england");
+    for (const k of ["france", "spain"])
+      g.s.wars.push({
+        a: eng,
+        b: g.s.nations.findIndex((n) => n.key === k),
+        by: eng,
+        start: g.s.day,
+        why: "War in Europe",
+        won: [0, 0],
+        lost: [0, 0],
+        europe: true,
+      });
+    const text = fittingBody(g, life, { ...o, nation: eng } as never);
     expect(text).toMatch(/letter of marque/);
     expect(text).toMatch(/licence to capture enemy merchant ships/);
     expect(text).toMatch(/no wages/);
     expect(text).toMatch(/home in about 54 days/);
+    expect(text).toMatch(/\d+ in \d+ she takes a prize/);
     expect(text).toMatch(/your share would come to about \d+ coins/);
     expect(text).not.toMatch(/beating for men|on the account/);
     const pirate = fittingBody(g, life, { ...o, flag: "pirate" } as never);
