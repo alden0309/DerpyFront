@@ -151,6 +151,8 @@ export interface DutyOn {
   price: number;
   /** Lately from Africa (not six months ashore in America). */
   fresh: boolean;
+  /** Their age (South Carolina graded its duty by age, then by height). */
+  age?: number;
 }
 
 const ym = (y: number, m = 1) => y * 12 + (m - 1);
@@ -217,6 +219,11 @@ export function importDuty(
     }
     case "southcarolina": {
       const america = !on.fresh;
+      const age = on.age ?? 25;
+      // 1722: half (£5) under ten, nothing for sucking children; 1751: by
+      // height (4 ft 2 in and up £10, to 3 ft 2 in £5, under it 50s.).
+      const young = age < 2 ? 0 : age < 10 ? 0.5 : 1;
+      const tall = age < 2 ? 0 : age < 8 ? 0.25 : age < 14 ? 0.5 : 1;
       if (inForce(now, ym(1703, 5), ym(1716, 6)))
         add(
           "South Carolina's act of 1703 (10s. on Africans, 20s. on others)",
@@ -240,9 +247,9 @@ export function importDuty(
       )
         add(
           america
-            ? "the act of 1722 (£50 on any who've been six months in another colony: they might be sent off for 'ill behaviour')"
-            : "the act of 1722 (£10 a head)",
-          L(america ? 50 : 10),
+            ? "the act of 1722 (£50 on any who've been six months in another colony, £5 under ten: they might have been sent off for 'ill behaviour')"
+            : "the act of 1722 (£10 a head, £5 under ten)",
+          young === 1 ? L(america ? 50 : 10) : L(5 * young * 2),
         );
       if (inForce(now, ym(1740, 4), ym(1745, 4))) {
         add(
@@ -252,7 +259,10 @@ export function importDuty(
         prohibitive = true;
       }
       if (inForce(now, ym(1751, 6), ym(1775))) {
-        add("the act of 1751 (£10 a head, for settling white Protestants)", L(10));
+        add(
+          "the act of 1751 (£10 a head by height, for settling white Protestants)",
+          L(10 * tall),
+        );
         if (america)
           add("the act of 1751 (£50 more on any six months in another colony)", L(50));
       }
@@ -480,4 +490,20 @@ export function houseLawOf(law: LawOf): HouseLaw | null {
   return law === "english" || law === "french" || law === "spanish"
     ? law
     : null;
+}
+
+/**
+ * Whether a port's law taxes those six months in another colony far more than
+ * those lately come from Africa (South Carolina from 1716): a factor buying
+ * for it buys only new arrivals, with a notary's certificate to show it.
+ */
+export function newOnly(
+  s: GameState,
+  map: MapDef,
+  p: number,
+  day: number = s.day,
+): boolean {
+  const fresh = dutyAt(s, map, p, { price: 50, fresh: true, age: 25 }, day);
+  const old = dutyAt(s, map, p, { price: 50, fresh: false, age: 25 }, day);
+  return old.coins > fresh.coins + 4;
 }

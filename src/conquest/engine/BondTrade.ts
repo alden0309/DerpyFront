@@ -57,7 +57,7 @@ import {
   voyageOutlook,
   type TradeRoute,
 } from "./TradeCore";
-import { houseLawOf, housePorts, sellAt } from "./TradeLaw";
+import { houseLawOf, housePorts, newOnly, sellAt } from "./TradeLaw";
 import type {
   AffairItem,
   GameState,
@@ -107,7 +107,15 @@ export function nextManifest(
 ): TradePerson[] {
   const h = houseOf(life);
   const day = Math.max(s.day, h?.next ?? s.day);
-  return manifestFor(s, w.map, r.from, day, r.size, seatSalt(life.seat));
+  return manifestFor(
+    s,
+    w.map,
+    r.from,
+    day,
+    r.size,
+    seatSalt(life.seat),
+    newOnly(s, w.map, r.to, day),
+  );
 }
 
 /** The odds of the house's next voyage as things stand. */

@@ -65,10 +65,10 @@ export const HOUSE_SETUP = 15;
 /** People a voyage, and months between voyages, to choose from. */
 export const SIZES = [6, 12, 24, 40];
 export const EVERY = [2, 3, 6];
-/** A ship's people bought by the lot from her factor: a little under what a planter pays. */
-export const LOT_PRICE = 0.92;
+/** A ship's people bought by the lot from her factor, as the re-export merchants bought: under what a planter pays. */
+export const LOT_PRICE = 0.85;
 /** The factor's commission buying, and selling (10 in 100 on people, as at Charles Town). */
-export const BUY_CUT = 0.05;
+export const BUY_CUT = 0.025;
 export const SELL_CUT = 0.1;
 /** How they're kept on the passage: provisions a person a day, and what it does. */
 export const FOOD = [
@@ -78,8 +78,8 @@ export const FOOD = [
 ] as const;
 /** The vessel chartered for a passage: a sloop or a schooner, her master and crew. */
 export const CHARTER = { fixed: 4, perDay: 0.3, perHeadDay: 0.004 };
-/** The chance a day at sea of dying: about 1 in 20 over a three-week passage. */
-export const DEATH_DAY = 0.0025;
+/** The chance a day at sea of dying: about 1 in 20 over a month's passage (O'Malley's average), more for the weak. */
+export const DEATH_DAY = 0.0013;
 /** A rising aboard, a voyage, at twelve aboard and three weeks out (most are put down). */
 export const RISE_BASE = 0.03;
 export const RISE_MOST = 0.12;
@@ -108,7 +108,7 @@ export const PART: Record<TradeKin, number> = {
 /** An older child is parted from a mother this often. */
 export const PART_OLDER = 0.6;
 /** Too many sold at one port lowers the price there; it eases month by month. */
-export const GLUT_K = 0.012;
+export const GLUT_K = 0.006;
 export const GLUT_EASE = 0.85;
 
 // ---------------------------------------------------------------- who is bought
@@ -121,6 +121,8 @@ export function manifestFor(
   day: number,
   size: number,
   salt: number,
+  /** Only those lately come from Africa (the far port taxes the seasoned heavily). */
+  freshOnly = false,
 ): TradePerson[] {
   const rng = new Rng({
     rng: hashOf(s.settings.seed, from, day, size, salt, 0x7ade),
@@ -166,7 +168,7 @@ export function manifestFor(
     out[b].rel = rb;
   };
   while (out.length < size) {
-    const estate = rng.chance(0.18);
+    const estate = rng.chance(0.18) && !freshOnly;
     const origin: BondOrigin = estate ? "creole" : pickWeighted(rng, mix);
     const fresh = !estate;
     const two = out.length + 2 <= size;
@@ -370,7 +372,7 @@ export function saleModel(
       glut *
       (r.together && p.kin !== undefined ? TOGETHER_PRICE : 1);
     price.push(r2(v));
-    const d = dutyAt(s, map, r.to, { price: v, fresh: p.fresh }, day);
+    const d = dutyAt(s, map, r.to, { price: v, fresh: p.fresh, age: p.a }, day);
     duty.push(d.coins);
     for (const x of d.parts) laws.add(x.law);
     if (d.prohibitive) prohibitive = true;
