@@ -52,7 +52,7 @@ import { peopleOf } from "../../engine/Followers";
 import { tripLeave } from "../../engine/Leave";
 import { lifeOfSeat, meOf } from "../../engine/LifeQueries";
 import { SKILL_NAMES } from "../../engine/LifeRules";
-import { chanceWords } from "../../engine/Odds";
+import { chanceWords, type OddsView } from "../../engine/Odds";
 import { charName } from "../../engine/Queries";
 import type { Expedition, ExpedKind, Life } from "../../engine/Types";
 import { nationName, TERRAIN_NAMES } from "../Text";
@@ -67,8 +67,7 @@ import {
   section,
 } from "./Context";
 import { howTo, pageHead } from "./Nav";
-import { oddsPanel } from "./Odds";
-import { price } from "./Price";
+import { coins, price } from "./Price";
 import { term } from "./Terms";
 
 /** The planner's choices, kept while you look about. */
@@ -449,7 +448,7 @@ function goPanel(ui: GameUi, d: ExpedDraft, hired: boolean): TemplateResult {
   };
   return section(
     "5. The odds, and the cost",
-    html`${oddsPanel(v)} ${costLine(ui, cost)}
+    html`${tripPanel(v)} ${costLine(ui, cost)}
       ${leave
         ? html`<p class="cq-callout small">
             ${leave.text}${leave.kind === "job"
@@ -480,6 +479,81 @@ function goPanel(ui: GameUi, d: ExpedDraft, hired: boolean): TemplateResult {
         )}
       </div>`,
   );
+}
+
+const signed = (v: number) =>
+  `${v > 0 ? "+" : v < 0 ? "−" : ""}${coins(Math.abs(v))}`;
+
+/**
+ * The odds of one expedition, reckoned once (not by the month, as a boat's
+ * work is): each way the far end can go with its chance and what it brings
+ * back, then what's expected back against what it costs, the dangers, and
+ * what changes the odds. The same classes as the ledger's odds panel.
+ */
+function tripPanel(v: OddsView): TemplateResult {
+  const max = Math.max(0.0001, ...v.outcomes.map((x) => x.p));
+  const coinsBack = v.outcomes.some((x) => x.hi > 0);
+  const days = v.days
+    ? v.days[0] === v.days[1]
+      ? `${v.days[0]} days`
+      : `${v.days[0]} to ${v.days[1]} days`
+    : "";
+  const head = coinsBack
+    ? html`≈${coins(v.expected)} back against ${coins(v.costNow)} spent:
+        <b class="cq-odds-net ${v.net >= 0 ? "good" : "bad"}"
+          >${signed(v.net)} on the whole trip</b
+        >, and the renown (${days}).`
+    : html`No coins back: renown, favour and what it does there, for
+      ${coins(v.costNow)} spent (${days}).`;
+  return html`<div class="cq-odds-panel">
+    <p class="cq-odds-head"><b>${v.title}</b><span>${head}</span></p>
+    <ul class="cq-odds-rows">
+      ${v.outcomes
+        .filter((x) => x.p > 0)
+        .map(
+          (x) =>
+            html`<li class=${x.bad ? "bad" : ""}>
+              <span class="cq-odds-chance" title=${pct(x.p)}
+                >${chanceWords(x.p)}</span
+              >
+              <span class="cq-odds-what"
+                >${x.label}
+                <span class="cq-odds-bar"
+                  ><span style="width:${Math.round((x.p / max) * 100)}%"></span
+                ></span>
+              </span>
+              <span class="cq-odds-amt"
+                >${coinsBack
+                  ? x.hi > 0
+                    ? `${coins(x.lo)} back`
+                    : "nothing back"
+                  : nothing}</span
+              >
+            </li>`,
+        )}
+    </ul>
+    ${v.risks.some((r) => r.p > 0)
+      ? html`<ul class="cq-odds-risks">
+          ${v.risks
+            .filter((r) => r.p > 0)
+            .map(
+              (r) =>
+                html`<li title=${r.note ?? ""}>
+                  <b>${chanceWords(r.p)}</b>: ${r.label}
+                </li>`,
+            )}
+        </ul>`
+      : nothing}
+    ${v.factors.length
+      ? html`<details class="cq-more">
+          <summary>What changes the odds</summary>
+          <ul class="cq-odds-factors">
+            ${v.factors.map((f) => html`<li>${f}</li>`)}
+          </ul>
+        </details>`
+      : nothing}
+    ${!v.ok && v.why ? html`<p class="cq-odds-why">${v.why}</p>` : nothing}
+  </div>`;
 }
 
 function costLine(ui: GameUi, c: ReturnType<typeof costOf>): TemplateResult {
@@ -581,7 +655,7 @@ function formingCard(ui: GameUi, x: Expedition): TemplateResult {
     ${grantSection(ui, x)}
     ${section(
       "The odds, and the cost",
-      html`${oddsPanel(v)} ${costLine(ui, costOf(s, ui.map, d, hired))}`,
+      html`${tripPanel(v)} ${costLine(ui, costOf(s, ui.map, d, hired))}`,
     )}
     <div class="cq-btnrow end">
       ${action(

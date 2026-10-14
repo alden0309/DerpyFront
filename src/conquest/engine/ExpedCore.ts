@@ -324,7 +324,7 @@ export const REWARD: Record<
 };
 
 /** Trade: what the goods fetch back, a multiple of the stake. */
-export const TRADE_BACK = { won: 2.2, half: 1.3, failed: 0.4 };
+export const TRADE_BACK = { won: 2.5, half: 1.4, failed: 0.4 };
 
 /** A raid's plunder: a coin for so many of the town's people (and its limits). */
 export const PLUNDER = { per: 40, min: 8, max: 60, half: 0.4 };
@@ -925,7 +925,6 @@ export function expedOdds(
       (b.half * (half[0] + half[1])) / 2 +
       (b.failed * (failed[0] + failed[1])) / 2,
   );
-  const months = Math.max(1, (cost.days * 2 + def.work) / 30);
   const hurt = d.kind === "raid" ? LOSS.hurt.raid : LOSS.hurt.other;
   const risks = [
     {
@@ -934,12 +933,26 @@ export function expedOdds(
       note: `${LOSS.hurtBy[0]} to ${LOSS.hurtBy[1]} health (more under strain); one of the computer's leaders may die of it.`,
     },
   ];
-  if (d.kind === "raid")
-    risks.push({
-      label: "The nation's answer",
-      p: RAID.war,
-      note: "Whatever comes of it, they won't forget: war at once, or a war party on your frontier.",
-    });
+  if (d.kind === "raid") {
+    // The far end's answer to a town fallen on (Expeditions.queueAnswer).
+    const owner = s.provinces[d.target]?.owner ?? -1;
+    const nat = s.nations[owner];
+    if (nat && !atWar(s, owner, d.n)) {
+      const pWar = Math.min(0.9, RAID.war + (nat.strong ? RAID.warStrong : 0));
+      risks.push(
+        {
+          label: `War with the ${nat.name} at once`,
+          p: Math.round(pWar * 1000) / 1000,
+          note: "Revenge: they take up the hatchet against the colony.",
+        },
+        {
+          label: "Else a war party on your frontier, months after",
+          p: Math.round((1 - pWar) * RAID.reprisal * 1000) / 1000,
+          note: "Farms burned and families fled in the county nearest; rangers may turn it.",
+        },
+      );
+    }
+  }
   const factors = [
     ...ch.skill.parts.map(
       (x) =>
@@ -960,7 +973,9 @@ export function expedOdds(
     expected,
     lo: Math.min(...outcomes.map((o) => o.lo)),
     hi: Math.max(...outcomes.map((o) => o.hi)),
-    net: Math.round(((expected - cost.total) / months) * 10) / 10,
+    // An expedition is reckoned once, not by the month: what's expected back
+    // less what it costs, for the whole trip (the planner shows it so).
+    net: expected - cost.total,
     risks,
     factors,
   };

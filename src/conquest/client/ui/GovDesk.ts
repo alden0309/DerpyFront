@@ -234,11 +234,13 @@ function nativesBlock(ui: GameUi, n: number): TemplateResult | typeof nothing {
         const last = d.councils?.[o];
         return html`<li>
           ${nationLink(ui, o)}:
-          ${num(String(rel.total), () =>
-            breakdownTip(
-              `What the ${nationName(s.nations[o].name)} think of the colony`,
-              rel,
-            ),
+          ${num(
+            `${rel.total > 0 ? "+" : rel.total < 0 ? "−" : ""}${Math.abs(rel.total)}`,
+            () =>
+              breakdownTip(
+                `What the ${nationName(s.nations[o].name)} think of the colony`,
+                rel,
+              ),
           )}
           ${atWar(s, n, o)
             ? html`<span class="cq-chip bad">at war</span>`
