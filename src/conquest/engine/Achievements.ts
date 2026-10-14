@@ -1461,7 +1461,8 @@ function noteWork(g: ConquestGame, life: Life): void {
 function noteExpeditions(g: ConquestGame, life: Life): void {
   const past = g.s.exped?.past;
   if (!past?.length) return;
-  const seen = achCount(life, "exped:day");
+  // The last day looked at (days may be 0 or less: a game begun in 1607).
+  const seen = life.achCount?.["exped:day"] ?? -Infinity;
   let last = seen;
   for (const x of past) {
     if (x.end <= seen || x.end >= g.s.day) continue;
@@ -1471,7 +1472,7 @@ function noteExpeditions(g: ConquestGame, life: Life): void {
     countAch(g, life, "exped-won");
     if (x.kind === "outpost") countAch(g, life, "exped-outpost");
   }
-  if (last > seen) countAch(g, life, "exped:day", last - seen);
+  if (last > seen) (touchLife(g, life).achCount ??= {})["exped:day"] = last;
 }
 
 /**
