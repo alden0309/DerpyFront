@@ -72,8 +72,8 @@ quickload, Esc the menu (save and load slots).
 ## Saves (r22)
 
 No chapters to pick and no checkpoints: the game saves in **slots**, an
-autosave (kept by the game: as each scene begins, when he's free again, and
-every couple of minutes), a quicksave (F5, loaded with F9) and ten of the
+autosave (kept by the game: as each scene begins, when he's free again,
+after each door, and every couple of minutes), a quicksave (F5, loaded with F9) and ten of the
 player's own (the menu). Each slot lists the place, the time in the story,
 when it was saved and how long had been played. They live on the server
 with the account, one row each (`derpy_based_slots`), beside a profile
