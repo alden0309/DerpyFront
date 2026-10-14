@@ -122,11 +122,14 @@ describe("Derp Coins for a Conquest life (SITE r19, LEGACY r21)", () => {
   });
 
   test("achievements: 3 or more went up by one; all together 187 (they were 160)", () => {
+    // CQACH (r22): the sixty from before keep their coins; the new ones
+    // follow them.
+    const old = ACHIEVEMENTS.slice(0, 60);
     const counts = new Map<number, number>();
-    for (const a of ACHIEVEMENTS)
-      counts.set(a.coins, (counts.get(a.coins) ?? 0) + 1);
+    for (const a of old) counts.set(a.coins, (counts.get(a.coins) ?? 0) + 1);
     expect([...counts.keys()].sort()).toEqual([1, 2, 4, 5, 6]);
-    expect(ACHIEVEMENT_COINS).toBe(187);
+    expect(old.reduce((n, a) => n + a.coins, 0)).toBe(187);
+    expect(ACHIEVEMENT_COINS).toBe(485);
   });
 });
 

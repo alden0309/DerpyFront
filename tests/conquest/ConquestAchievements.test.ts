@@ -18,24 +18,24 @@ import { meOf } from "../../src/conquest/engine/LifeQueries";
 import { lifeOf, plan, prov, ticks, world } from "./LifeUtil";
 
 describe("achievements (MAP r12)", () => {
-  test("fifty-odd, across every kind, each a few coins", () => {
-    expect(ACHIEVEMENTS.length).toBeGreaterThanOrEqual(40);
-    expect(ACHIEVEMENTS.length).toBeLessThanOrEqual(60);
+  // CQACH (r22): over a hundred now (60, and 64 more), each a few coins
+  // (the hard and rare up to 10).
+  test("over a hundred, across every kind, each a few coins", () => {
+    expect(ACHIEVEMENTS.length).toBeGreaterThanOrEqual(100);
     expect(new Set(ACHIEVEMENTS.map((a) => a.key)).size).toBe(
       ACHIEVEMENTS.length,
     );
     for (const a of ACHIEVEMENTS) {
       expect(a.coins).toBeGreaterThanOrEqual(1);
-      // SITE (r19): a fifth more than before (5 became 6).
-      expect(a.coins).toBeLessThanOrEqual(6);
+      expect(a.coins).toBeLessThanOrEqual(a.tier ? 10 : 6);
       expect(a.how).toMatch(/\.$/);
     }
     for (const g of ACHIEVEMENT_GROUPS)
       expect(ACHIEVEMENTS.some((a) => a.group === g.id)).toBe(true);
     // In keeping with a life's coins: all of them together are worth a few
     // good lives, not a fortune.
-    expect(ACHIEVEMENT_COINS).toBeGreaterThan(80);
-    expect(ACHIEVEMENT_COINS).toBeLessThan(200);
+    expect(ACHIEVEMENT_COINS).toBeGreaterThan(300);
+    expect(ACHIEVEMENT_COINS).toBeLessThan(600);
     for (const key of [
       "first-job",
       "promoted",

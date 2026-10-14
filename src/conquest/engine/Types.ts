@@ -6003,6 +6003,8 @@ export interface Labour2Command {
 /** What a seat's account owns of Conquest's DLC (the server sets it; Legends come only to an owner). */
 export interface LifeDlc {
   legends?: boolean;
+  /** CQACH (r22): the account owns 1776: The Revolution (its achievements are for owners). */
+  campaign1776?: boolean;
 }
 
 /** The 1776 campaign's record (Nation.r76, on the United Colonies). */

@@ -815,6 +815,8 @@ function aftermath(
       if (x.n === 1) ach["dice-last"] = (ach["dice-last"] ?? 0) + 1;
       if (t.seats.length >= MAX_SEATS)
         ach["dice-full"] = (ach["dice-full"] ?? 0) + 1;
+      // CQACH (r22): the big pot.
+      if (t.pot >= 100) ach["dice-big"] = (ach["dice-big"] ?? 0) + 1;
       if (big)
         rumour(
           g,

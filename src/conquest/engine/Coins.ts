@@ -10,7 +10,13 @@
 // counted in real minutes, so pausing, skipping ahead or starting game
 // after game earns nothing extra. The server keeps the clock
 // (server/conquest/ConquestPay.ts); these are the rules it reads.
+//
+// CQACH (r22): time at the table pays 200 an hour (it was 150), and this
+// game's achievements are paid with the line's coins (on any difficulty),
+// so they're held to the same hourly cap and can't be farmed by starting
+// game after game.
 
+import { gameAchievements } from "./Achievements"; // CQACH (r22)
 import { LIFE_COINS, PLAY_PAY } from "./LifeRules";
 import type { Life } from "./Types";
 
@@ -19,11 +25,21 @@ export interface CoinResult {
   lines: { line: string; coins: number }[];
 }
 
-/** What a seat's line earned. `reached1776`: a character still living at the end. */
+/** CQACH (r22): the line for this game's achievements (paid on any difficulty). */
+export const GAME_ACH_LINE = "This game's achievements";
+
+/**
+ * What a seat's line earned. `reached1776`: a character still living at the
+ * end. CQACH (r22): with this game's achievements (gameCoins each), from the
+ * first day, held to the time played with the rest.
+ */
 export function lifeCoins(life: Life, reached1776: boolean): CoinResult {
   const c = LIFE_COINS;
   const t = life.tally;
-  if (t.days < c.minDays) return { total: 0, lines: [] };
+  // CQACH (r22)
+  const ach = gameAchievements(life).coins;
+  const achLine = ach > 0 ? [{ line: GAME_ACH_LINE, coins: ach }] : [];
+  if (t.days < c.minDays) return { total: ach, lines: achLine };
   const lines = [
     { line: "Lived a life", coins: c.played },
     {
@@ -65,6 +81,7 @@ export function lifeCoins(life: Life, reached1776: boolean): CoinResult {
     { line: "A rising that won", coins: t.risingsWon > 0 ? c.risingWon : 0 },
     { line: "Went to Europe", coins: t.europe ? c.europe : 0 },
     { line: "Lived to see 1776", coins: reached1776 ? c.reached1776 : 0 },
+    ...achLine, // CQACH (r22)
   ].filter((l) => l.coins > 0);
   return { total: lines.reduce((n, l) => n + l.coins, 0), lines };
 }
