@@ -26,6 +26,7 @@ import "./components/ToggleInputCard";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { getPlayerCosmetics, prewarmCosmetics } from "./Cosmetics";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
+import "./derpy/AiPersonalityPicker"; // DFSTORE (r21)
 import { GameStartingModal } from "./GameStartingModal";
 import { showInGameAlert } from "./InGameModal";
 import { JoinLobbyEvent } from "./Main";
@@ -172,6 +173,8 @@ export class SinglePlayerModal extends BaseModal {
   @state() private selectedDifficulty: Difficulty =
     DEFAULT_OPTIONS.selectedDifficulty;
   @state() private nations: number = 0;
+  // DFSTORE (r21): AI personality packs for the nations (owned ones only).
+  @state() private aiPersonalities: string[] = [];
   @state() private defaultNationCount: number = 0;
   @state() private bots: number = DEFAULT_OPTIONS.bots;
   @state() private infiniteGold: boolean = DEFAULT_OPTIONS.infiniteGold;
@@ -567,6 +570,13 @@ export class SinglePlayerModal extends BaseModal {
             @option-toggle-changed=${this.handleConfigOptionToggleChanged}
             @unit-toggle-changed=${this.handleConfigUnitToggleChanged}
           ></game-config-settings>
+          <!-- DFSTORE (r21): the AI personality packs you own. -->
+          <ai-personality-picker
+            ?noNations=${this.nations === 0}
+            @personalities-changed=${(e: CustomEvent<string[]>) => {
+              this.aiPersonalities = e.detail;
+            }}
+          ></ai-personality-picker>
         </div>
 
         <!-- Footer Action -->
@@ -1170,6 +1180,10 @@ export class SinglePlayerModal extends BaseModal {
                   ? { customAllianceDuration: this.customAllianceMinutes ?? 0 }
                   : {}),
                 ...(this.waterNukes ? { waterNukes: true } : {}),
+                // DFSTORE (r21)
+                ...(this.aiPersonalities.length > 0
+                  ? { aiPersonalities: this.aiPersonalities }
+                  : {}),
                 ...(this.doomsdayClock
                   ? {
                       doomsdayClock: {

@@ -21,7 +21,14 @@ import {
   register,
 } from "./DerpyAuth";
 import { basedRouter } from "./DerpyBased"; // BASED (r19)
-import { DERPY_PACKS, derpyCosmeticsCatalog, findPack } from "./DerpyCatalog";
+import {
+  DERPY_ITEMS,
+  DERPY_PACKS,
+  DERPY_STORE_TABS,
+  derpyCosmeticsCatalog,
+  findItem,
+  itemGrants,
+} from "./DerpyCatalog";
 import {
   conquestLeaderboard,
   overallLeaderboard,
@@ -314,10 +321,16 @@ export function derpyApiRouter(): express.Router {
     res.json(derpyCosmeticsCatalog());
   });
 
+  // The skin packs (`packs`, as before r21) and, since DFSTORE (r21), every
+  // item with its game and category, and the tabs to show them under.
   router.get(
     "/store",
     handle(async (_req, res) => {
-      res.json({ packs: DERPY_PACKS });
+      res.json({
+        packs: DERPY_PACKS,
+        items: DERPY_ITEMS,
+        tabs: DERPY_STORE_TABS,
+      });
     }),
   );
 
@@ -325,7 +338,8 @@ export function derpyApiRouter(): express.Router {
     "/store/buy",
     json,
     requireAccount(async (req, res) => {
-      const pack = findPack(String(req.body?.pack ?? ""));
+      // `pack` from before r21; `item` names anything in the store.
+      const pack = findItem(String(req.body?.item ?? req.body?.pack ?? ""));
       if (pack === undefined) {
         res.status(404).json({ error: "no_such_pack" });
         return;
@@ -343,10 +357,7 @@ export function derpyApiRouter(): express.Router {
           [account.id, pack.price],
         );
         if (paid.rowCount === 0) return "not_enough_coins" as const;
-        const items = [
-          `pack:${pack.name}`,
-          ...pack.skins.map((s) => `skin:${s.name}`),
-        ];
+        const items = itemGrants(pack);
         await c.query(
           `INSERT INTO derpy_owned (account_id, item)
            SELECT $1, unnest($2::text[]) ON CONFLICT DO NOTHING`,

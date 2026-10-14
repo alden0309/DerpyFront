@@ -323,7 +323,7 @@ describe("temperaments in the simulation", () => {
     const human = g.player("human");
     for (const id of ["trader", "plain"]) {
       const p = g.player(id);
-      p.updateRelation(human, -1000, "test");
+      p.updateRelation(human, -1000, "other");
       const exec = new NationExecution(
         "GAME0001",
         new Nation(new Cell(5, 5), p.info()),

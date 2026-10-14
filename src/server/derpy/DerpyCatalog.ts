@@ -1,8 +1,26 @@
-// What the Derp Store sells. Every pack is a set of territory skins (images
-// stamped over your territory, centred on where you spawned); buying a pack
-// unlocks all of its skins.
+// What the Derp Store sells, game by game and category by category (DFSTORE
+// r21 added the tabs):
+//  - DerpyFront: territory skin packs (images stamped over your territory,
+//    centred on where you spawned; a pack unlocks all of its skins), AI
+//    personality packs, Nuke & Dome effects, and victory fanfares;
+//  - Derpy Conquest: campaigns, legends and map styles (the DLC track fills
+//    these in a later round; the tabs are ready for them).
+//
+// Owning an item is a row in derpy_owned: "pack:<item>" for every item, plus
+// what it unlocks ("skin:<name>", "effect:<name>", "dome:<theme>").
 
+import {
+  AI_PERSONALITY_PACKS,
+  Temperament,
+} from "@openfront/engine-lib/game/AiPersonalities";
 import { Cosmetics } from "@openfront/shared/CosmeticSchemas";
+import {
+  DERPY_FX_THEMES,
+  DerpyFxTheme,
+  DomeShimmer,
+  fxEffectNames,
+  fxExplosionAttributes,
+} from "@openfront/shared/DerpyFx";
 
 export interface DerpySkin {
   /** Cosmetic name: lowercase letters, digits and underscores. */
@@ -146,9 +164,344 @@ export function allDerpySkins(): DerpySkin[] {
   return DERPY_PACKS.flatMap((p) => p.skins);
 }
 
+// ---- DFSTORE (r21): every item, by game and category ----
+
+export type DerpyGame = "derpyfront" | "conquest";
+export type DerpyCategory =
+  | "skins"
+  | "personalities"
+  | "effects"
+  | "fanfares"
+  | "campaigns"
+  | "legends"
+  | "mapstyles";
+
+export interface DerpyStoreTab {
+  game: DerpyGame;
+  label: string;
+  categories: { id: DerpyCategory; label: string; blurb: string }[];
+}
+
+/** The store's tabs: a game, then its categories, in this order. */
+export const DERPY_STORE_TABS: readonly DerpyStoreTab[] = [
+  {
+    game: "derpyfront",
+    label: "DerpyFront",
+    categories: [
+      {
+        id: "skins",
+        label: "Skins",
+        blurb:
+          "Pictures stamped over your territory. Everyone in the game sees them.",
+      },
+      {
+        id: "personalities",
+        label: "AI personalities",
+        blurb:
+          "Themed AI nations for the games you host or play alone: names, emblems, chat and a temperament that leans how they play.",
+      },
+      {
+        id: "effects",
+        label: "Nuke & Dome effects",
+        blurb:
+          "How your nukes fly and burst, and how your Domes of Alden shimmer and stop a strike. Looks only: they change nothing in the game.",
+      },
+      {
+        id: "fanfares",
+        label: "Victory fanfares",
+        blurb: "The music that plays when you win.",
+      },
+    ],
+  },
+  {
+    game: "conquest",
+    label: "Derpy Conquest",
+    categories: [
+      {
+        id: "campaigns",
+        label: "Campaigns",
+        blurb: "New starting dates with campaigns of their own.",
+      },
+      {
+        id: "legends",
+        label: "Legends",
+        blurb: "American legends to hunt down, for the bold and the learned.",
+      },
+      {
+        id: "mapstyles",
+        label: "Map styles",
+        blurb: "Other looks for Conquest's map.",
+      },
+    ],
+  },
+];
+
+export interface DerpyPersonaInfo {
+  id: string;
+  name: string;
+  temperament: Temperament;
+  /** The emblem the nation flies. */
+  emblem: string;
+}
+
+export interface DerpyFxPreview {
+  trail: string[];
+  burst: string[];
+  dome: string;
+  accent: string;
+  shimmer: DomeShimmer;
+}
+
+/** Anything the store sells. */
+export interface DerpyItem {
+  /** Unique across the store: lowercase letters, digits, underscores. */
+  name: string;
+  game: DerpyGame;
+  category: DerpyCategory;
+  displayName: string;
+  description: string;
+  /** Price in Derp Coins. */
+  price: number;
+  /** Skins: what the pack holds. */
+  skins?: DerpySkin[];
+  /** AI personalities: the nations it brings. */
+  personas?: DerpyPersonaInfo[];
+  /** Nuke & Dome effects: the colours, for the store's preview. */
+  fx?: DerpyFxPreview;
+  /** Victory fanfares: the instruments, and how long it plays. */
+  fanfare?: { instruments: string; seconds: number };
+  /** Owned rows it adds besides "pack:<name>" (for later DLC). */
+  grants?: string[];
+}
+
+const PERSONALITY_TEXT: Record<
+  string,
+  { displayName: string; description: string; price: number }
+> = {
+  ai_pirates: {
+    displayName: "Pirate Lords",
+    description:
+      "Six crews under the black flag: raiders who strike early, a salt queen who waits for her moment, a captain who'd rather trade, and one who keeps the powder dry for a very big bang.",
+    price: 2500,
+  },
+  ai_empires: {
+    displayName: "Old Empires",
+    description:
+      "Crowns, thrones and citadels that measure time in centuries: stubborn walls, gilded trade and an iron crown that never stops marching.",
+    price: 2500,
+  },
+  ai_merchants: {
+    displayName: "Merchant Princes",
+    description:
+      "Trading houses that build ports before barracks, never embargo a customer, and only bring out the big guns for a hostile takeover.",
+    price: 2000,
+  },
+  ai_scientists: {
+    displayName: "Mad Scientists",
+    description:
+      "Laboratories with a taste for silos. Expect early missiles, bubbling defences and the occasional zeppelin full of trade goods.",
+    price: 3000,
+  },
+  ai_warlords: {
+    displayName: "Frontier Warlords",
+    description:
+      "Riders, raiders and railroad barons from the edge of the map. Fast, hungry and not much for alliances.",
+    price: 2500,
+  },
+};
+
+const FX_TEXT: Record<
+  string,
+  { displayName: string; description: string; price: number }
+> = {
+  fx_solar: {
+    displayName: "Solar Flare",
+    description:
+      "Nukes trail sunfire and burst in a ring of flame; your Domes glow amber with slow heat ripples.",
+    price: 1500,
+  },
+  fx_toxic: {
+    displayName: "Toxic Sludge",
+    description:
+      "Acid-green trails and a splatter of glowing embers; your Domes bubble like a vat in a cartoon laboratory.",
+    price: 1800,
+  },
+  fx_frost: {
+    displayName: "Frostbite",
+    description:
+      "Icy trails and a burst of snowflake glints; your Domes freeze into a shimmering lattice of hexagons.",
+    price: 2000,
+  },
+  fx_banana: {
+    displayName: "Banana Split",
+    description:
+      "The Derp Land special: banana-yellow trails, sprinkles for fallout, and Domes that twinkle pink and gold.",
+    price: 2500,
+  },
+  fx_cosmic: {
+    displayName: "Cosmic Rift",
+    description:
+      "Nukes spiral in on violet and cyan strands and burst like a nebula; your Domes ripple with aurora light.",
+    price: 3500,
+  },
+  fx_golden: {
+    displayName: "Golden Age",
+    description:
+      "The grandest look in the store: twin golden spirals, a shower of gilded sparks, and Domes with a slow gleam of polished gold.",
+    price: 6000,
+  },
+};
+
+/** The victory fanfares (their music is made in the browser: Fanfares.ts). */
+export const DERPY_FANFARES: readonly DerpyItem[] = [
+  {
+    name: "fanfare_chiptune",
+    displayName: "8-Bit Victory",
+    description:
+      "A bleepy little level-clear jingle, straight out of the arcade.",
+    instruments: "square waves and a noise drum",
+    seconds: 4,
+    price: 600,
+  },
+  {
+    name: "fanfare_bagpipes",
+    displayName: "Highland Pipes",
+    description:
+      "A skirl of pipes over a steady drone. Heard three hills away.",
+    instruments: "bagpipes and drone",
+    seconds: 6,
+    price: 700,
+  },
+  {
+    name: "fanfare_brass",
+    displayName: "Brass Band",
+    description: "Trumpets and a big bass drum: the classic hometown parade.",
+    instruments: "trumpets, trombone and bass drum",
+    seconds: 5,
+    price: 800,
+  },
+  {
+    name: "fanfare_steeldrum",
+    displayName: "Island Steel",
+    description: "Sunny steel pans and a shaker, for wins with a sea breeze.",
+    instruments: "steel pans and shaker",
+    seconds: 5,
+    price: 800,
+  },
+  {
+    name: "fanfare_shanty",
+    displayName: "Sea Shanty Chorus",
+    description:
+      "A crew of voices hauling on the line, with a stamp on every beat.",
+    instruments: "a chorus of voices and stamping feet",
+    seconds: 7,
+    price: 900,
+  },
+  {
+    name: "fanfare_orchestral",
+    displayName: "Orchestral Triumph",
+    description:
+      "Strings swell, horns call, timpani roll: the end credits of an epic.",
+    instruments: "strings, horns and timpani",
+    seconds: 8,
+    price: 1200,
+  },
+].map(({ instruments, seconds, ...f }) => ({
+  ...f,
+  game: "derpyfront" as const,
+  category: "fanfares" as const,
+  fanfare: { instruments, seconds },
+}));
+
+function personalityItems(): DerpyItem[] {
+  return AI_PERSONALITY_PACKS.map((pack) => {
+    const text = PERSONALITY_TEXT[pack.id];
+    return {
+      name: pack.id,
+      game: "derpyfront",
+      category: "personalities",
+      displayName: text.displayName,
+      description: text.description,
+      price: text.price,
+      personas: pack.personas.map((p) => ({
+        id: p.id,
+        name: p.name,
+        temperament: p.temperament,
+        emblem: `/flags/persona_${p.id}.svg`,
+      })),
+    };
+  });
+}
+
+function fxItem(theme: DerpyFxTheme): DerpyItem {
+  const text = FX_TEXT[theme.name];
+  return {
+    name: theme.name,
+    game: "derpyfront",
+    category: "effects",
+    displayName: text.displayName,
+    description: text.description,
+    price: text.price,
+    fx: {
+      trail: theme.trail.colors,
+      burst: theme.explosion.colors,
+      dome: theme.dome.color,
+      accent: theme.dome.accent,
+      shimmer: theme.dome.shimmer,
+    },
+  };
+}
+
+/** Everything for sale, skin packs first (their old order), then the rest. */
+export const DERPY_ITEMS: readonly DerpyItem[] = [
+  ...DERPY_PACKS.map(
+    (p): DerpyItem => ({
+      name: p.name,
+      game: "derpyfront",
+      category: "skins",
+      displayName: p.displayName,
+      description: p.description,
+      price: p.price,
+      skins: p.skins,
+    }),
+  ),
+  ...personalityItems(),
+  ...DERPY_FX_THEMES.map(fxItem),
+  ...DERPY_FANFARES,
+];
+
+export function findItem(name: string): DerpyItem | undefined {
+  return DERPY_ITEMS.find((i) => i.name === name);
+}
+
+/** The derpy_owned rows buying `item` adds. */
+export function itemGrants(item: DerpyItem): string[] {
+  const rows = [`pack:${item.name}`];
+  for (const s of item.skins ?? []) rows.push(`skin:${s.name}`);
+  if (item.category === "effects") {
+    const theme = DERPY_FX_THEMES.find((t) => t.name === item.name);
+    if (theme) {
+      for (const n of Object.values(fxEffectNames(theme))) {
+        rows.push(`effect:${n}`);
+      }
+      rows.push(`dome:${theme.name}`);
+    }
+  }
+  rows.push(...(item.grants ?? []));
+  return rows;
+}
+
+/** The AI personality packs an owner of `owned` may use. */
+export function ownedPersonalityPacks(owned: readonly string[]): string[] {
+  return AI_PERSONALITY_PACKS.filter((p) => owned.includes(`pack:${p.id}`)).map(
+    (p) => p.id,
+  );
+}
+
 /**
- * The store as an OpenFront cosmetics catalog, so the game's own skin
- * pipeline (join checks, rendering, the skin picker) can use it unchanged.
+ * The store as an OpenFront cosmetics catalog, so the game's own pipelines
+ * (join checks, rendering, the skin picker, the effects grid) can use it
+ * unchanged: the skins, and the nuke trails and bursts of the effect packs.
  */
 export function derpyCosmeticsCatalog(): Cosmetics {
   const skins: NonNullable<Cosmetics["skins"]> = {};
@@ -160,5 +513,31 @@ export function derpyCosmeticsCatalog(): Cosmetics {
       rarity: "common",
     };
   }
-  return { patterns: {}, flags: {}, skins };
+  const nukeTrail: Record<string, unknown> = {};
+  const nukeExplosion: Record<string, unknown> = {};
+  for (const theme of DERPY_FX_THEMES) {
+    const names = fxEffectNames(theme);
+    nukeTrail[names.nukeTrail] = {
+      name: names.nukeTrail,
+      product: null,
+      rarity: "rare",
+      effectType: "nukeTrail",
+      attributes: theme.trail,
+    };
+    for (const nukeType of ["atom", "hydro", "mirvWarhead"] as const) {
+      nukeExplosion[names[nukeType]] = {
+        name: names[nukeType],
+        product: null,
+        rarity: "rare",
+        effectType: "nukeExplosion",
+        attributes: fxExplosionAttributes(theme, nukeType),
+      };
+    }
+  }
+  return {
+    patterns: {},
+    flags: {},
+    skins,
+    effects: { nukeTrail, nukeExplosion } as Cosmetics["effects"],
+  };
 }

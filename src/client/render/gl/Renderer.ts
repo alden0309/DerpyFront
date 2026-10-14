@@ -891,6 +891,11 @@ export class GPURenderer {
    * still decoding the layer renders transparent (zero-init) until decode
    * completes.
    */
+  /** DFSTORE (r21): a player's Derp Store Dome style (0 for plain). */
+  setPlayerDomeStyle(smallID: number, style: number): void {
+    this.domeShieldPass.setPlayerStyle(smallID, style);
+  }
+
   setPlayerSkin(smallID: number, url: string | null): void {
     let layer = -1;
     if (url !== null) {

@@ -266,9 +266,72 @@ export async function storePacks(): Promise<Pack[]> {
 export async function buyPack(
   pack: string,
 ): Promise<{ coins: number; owned: string[] }> {
+  return buyItem(pack);
+}
+
+// ---- DFSTORE (r21): every item, under tabs by game and category ----
+
+export type StoreGame = "derpyfront" | "conquest";
+export type StoreCategory =
+  | "skins"
+  | "personalities"
+  | "effects"
+  | "fanfares"
+  | "campaigns"
+  | "legends"
+  | "mapstyles";
+
+export interface StoreTab {
+  game: StoreGame;
+  label: string;
+  categories: { id: StoreCategory; label: string; blurb: string }[];
+}
+
+export interface StoreItem {
+  name: string;
+  game: StoreGame;
+  category: StoreCategory;
+  displayName: string;
+  description: string;
+  price: number;
+  skins?: Skin[];
+  personas?: {
+    id: string;
+    name: string;
+    temperament: string;
+    emblem: string;
+  }[];
+  fx?: {
+    trail: string[];
+    burst: string[];
+    dome: string;
+    accent: string;
+    shimmer: string;
+  };
+  fanfare?: { instruments: string; seconds: number };
+}
+
+export interface StoreCatalog {
+  items: StoreItem[];
+  tabs: StoreTab[];
+}
+
+export async function storeCatalog(): Promise<StoreCatalog> {
+  const r = await api<{
+    packs: Pack[];
+    items?: StoreItem[];
+    tabs?: StoreTab[];
+  }>("/store");
+  return { items: r.items ?? [], tabs: r.tabs ?? [] };
+}
+
+/** Buy anything in the store; resolves to your coins and items afterwards. */
+export async function buyItem(
+  item: string,
+): Promise<{ coins: number; owned: string[] }> {
   const r = await api<{ coins: number; owned: string[] }>("/store/buy", {
     method: "POST",
-    body: JSON.stringify({ pack }),
+    body: JSON.stringify({ item }),
   });
   announce();
   return r;

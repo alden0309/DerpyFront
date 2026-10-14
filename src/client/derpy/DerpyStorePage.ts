@@ -1,5 +1,19 @@
-import { html, TemplateResult } from "lit";
+import { DERPY_FX_THEMES } from "@openfront/shared/DerpyFx";
+import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import {
+  ensurePreviewStyles,
+  fxPreview,
+  personaCard,
+} from "../../derpland/StorePreviews";
+import {
+  itemsInTab,
+  ownedInTab,
+  ownsItem,
+  StoreTabChoice,
+  tabCounts,
+  tabKey,
+} from "../../derpland/StoreTabs";
 import { BaseModal } from "../components/BaseModal";
 import { modalHeader } from "../components/ui/ModalHeader";
 import { UserSettings } from "../UserSettings";
@@ -10,33 +24,91 @@ import {
   derpyBuyPack,
   DerpyMe,
   derpyMe,
-  DerpyPack,
   DerpySkin,
   derpyStore,
+  DerpyStoreItem,
+  DerpyStoreTab,
   isDerpySignedIn,
 } from "./DerpyAccount";
+import {
+  nukeStyleIn,
+  wearDomeStyle,
+  withNukeStyle,
+  wornDomeStyle,
+} from "./DerpyLooks";
 import { coinAmount, derpCoinIcon } from "./DerpyUi";
+import {
+  chooseFanfare,
+  chosenFanfare,
+  FanfareName,
+  FanfarePlayback,
+  isFanfare,
+  playFanfare,
+} from "./Fanfares";
 
-function packName(p: DerpyPack): string {
-  return translateText(`derpy.pack_${p.name}`);
+/** A translation, or the catalog's own English when there's no key for it. */
+function tr(key: string, fallback: string): string {
+  const t = translateText(key);
+  return t === key || t.startsWith("derpy.") ? fallback : t;
+}
+
+function itemName(i: DerpyStoreItem): string {
+  return i.category === "skins"
+    ? tr(`derpy.pack_${i.name}`, i.displayName)
+    : tr(`derpy.item_${i.name}`, i.displayName);
+}
+
+function itemDesc(i: DerpyStoreItem): string {
+  return i.category === "skins"
+    ? tr(`derpy.pack_desc_${i.name}`, i.description)
+    : tr(`derpy.item_desc_${i.name}`, i.description);
 }
 
 function skinName(s: DerpySkin): string {
   // The inventory names skins from the same keys.
-  return translateText(`territory_patterns.pattern.${s.name}`);
+  return tr(`territory_patterns.pattern.${s.name}`, s.displayName);
 }
 
+function temperament(t: string): { label: string; hint: string } {
+  return {
+    label: translateText(`derpy.temperament_${t}`),
+    hint: translateText(`derpy.temperament_hint_${t}`),
+  };
+}
+
+let preview: FanfarePlayback | null = null;
+function listen(name: string): void {
+  if (!isFanfare(name)) return;
+  preview?.stop();
+  const s = new UserSettings();
+  // Store previews follow the music slider (and master), like the fanfare.
+  const v = s.audioVolume("master") ** 2 * s.audioVolume("music") ** 2;
+  preview = playFanfare(name, { volume: Math.max(0.15, v) });
+}
+
+const CHIP_ON = "border-cyber-yellow bg-cyber-yellow/10 text-white" as const;
+const CHIP_OFF =
+  "border-white/10 bg-white/5 text-white/70 hover:border-white/30" as const;
+
 /**
- * The Derp Store: skin packs bought with Derp Coins, and the skins you own,
- * ready to wear.
+ * The Derp Store: everything bought with Derp Coins, under tabs by game and
+ * category (DFSTORE r21), and what you own of each, ready to use.
  */
 @customElement("derpy-store-page")
 export class DerpyStorePage extends BaseModal {
   protected routerName = "store";
 
-  @state() private packs: DerpyPack[] | null = null;
+  @state() private items: DerpyStoreItem[] | null = null;
+  @state() private tabs: DerpyStoreTab[] = [];
+  @state() private tab: StoreTabChoice = {
+    game: "derpyfront",
+    category: "skins",
+  };
   @state() private me: DerpyMe | null = null;
   @state() private equipped: string | null = null;
+  @state() private nukeStyle: string | null = null;
+  @state() private domeStyle: string | null = null;
+  @state() private fanfare: FanfareName | null = null;
   @state() private buying: string | null = null;
   @state() private message: string | null = null;
   @state() private error: string | null = null;
@@ -56,8 +128,12 @@ export class DerpyStorePage extends BaseModal {
   }
 
   protected onOpen(): void {
+    ensurePreviewStyles();
     this.message = null;
     this.equipped = this.settings.getSelectedSkinName();
+    this.nukeStyle = nukeStyleIn(this.settings.getSelectedEffects());
+    this.domeStyle = wornDomeStyle();
+    this.fanfare = chosenFanfare();
     void this.load();
   }
 
@@ -69,7 +145,22 @@ export class DerpyStorePage extends BaseModal {
   private async load(): Promise<void> {
     this.error = null;
     try {
-      this.packs = (await derpyStore()).packs;
+      const store = await derpyStore();
+      // A server from before r21 sends only the skin packs.
+      this.items =
+        store.items ??
+        store.packs.map((p) => ({
+          ...p,
+          game: "derpyfront",
+          category: "skins",
+        }));
+      this.tabs = store.tabs ?? [
+        {
+          game: "derpyfront",
+          label: "DerpyFront",
+          categories: [{ id: "skins", label: "Skins", blurb: "" }],
+        },
+      ];
     } catch (err) {
       this.error =
         err instanceof DerpyApiError && err.code === "accounts_unavailable"
@@ -82,13 +173,16 @@ export class DerpyStorePage extends BaseModal {
   private async refreshMe(): Promise<void> {
     this.me = await derpyMe();
     // A skin you no longer own (signed out, another account) comes off.
-    if (this.equipped !== null && !this.owns(`skin:${this.equipped}`)) {
+    if (
+      this.equipped !== null &&
+      !this.owned().includes(`skin:${this.equipped}`)
+    ) {
       this.equip(null);
     }
   }
 
-  private owns(item: string): boolean {
-    return this.me?.owned.includes(item) ?? false;
+  private owned(): string[] {
+    return this.me?.owned ?? [];
   }
 
   private equip(name: string | null): void {
@@ -98,19 +192,55 @@ export class DerpyStorePage extends BaseModal {
     this.equipped = name;
   }
 
-  private async buy(pack: DerpyPack): Promise<void> {
-    this.buying = pack.name;
+  private setNukeStyle(name: string | null): void {
+    const theme = DERPY_FX_THEMES.find((t) => t.name === name) ?? null;
+    const before = this.settings.getSelectedEffects();
+    const after = withNukeStyle(before, theme);
+    for (const slot of new Set([
+      ...Object.keys(before),
+      ...Object.keys(after),
+    ])) {
+      if (before[slot] !== after[slot]) {
+        this.settings.setSelectedEffectName(slot, after[slot]);
+      }
+    }
+    this.nukeStyle = nukeStyleIn(this.settings.getSelectedEffects());
+  }
+
+  private setDomeStyle(name: string | null): void {
+    wearDomeStyle(name);
+    this.domeStyle = wornDomeStyle();
+  }
+
+  private setFanfare(name: string | null): void {
+    const f = name !== null && isFanfare(name) ? name : null;
+    chooseFanfare(f);
+    this.fanfare = chosenFanfare();
+    if (f !== null) listen(f);
+  }
+
+  private async buy(item: DerpyStoreItem): Promise<void> {
+    this.buying = item.name;
     this.message = null;
     try {
-      const result = await derpyBuyPack(pack.name);
+      const result = await derpyBuyPack(item.name);
       this.me = this.me
         ? { ...this.me, coins: result.coins, owned: result.owned }
         : null;
-      this.message = translateText("derpy.bought_pack", {
-        pack: packName(pack),
+      this.message = translateText("derpy.bought_item", {
+        item: itemName(item),
       });
-      if (this.equipped === null && pack.skins.length > 0) {
-        this.equip(pack.skins[0].name);
+      // Something new to use straight away, if nothing of its kind is on.
+      if (item.skins && this.equipped === null && item.skins.length > 0) {
+        this.equip(item.skins[0].name);
+      }
+      if (item.fx) {
+        if (this.nukeStyle === null) this.setNukeStyle(item.name);
+        if (this.domeStyle === null) this.setDomeStyle(item.name);
+      }
+      if (item.fanfare && this.fanfare === null) {
+        chooseFanfare(isFanfare(item.name) ? item.name : null);
+        this.fanfare = chosenFanfare();
       }
     } catch (err) {
       this.message =
@@ -135,16 +265,15 @@ export class DerpyStorePage extends BaseModal {
     if (this.error) {
       return html`<p class="p-6 text-center text-white/60">${this.error}</p>`;
     }
-    if (this.packs === null) {
+    if (this.items === null) {
       return html`<p class="p-6 text-center text-white/50">
         ${translateText("derpy.loading")}
       </p>`;
     }
-    const ownedSkins = this.packs
-      .flatMap((p) => p.skins)
-      .filter((s) => this.owns(`skin:${s.name}`));
+    const items = itemsInTab(this.items, this.tab);
+    const mine = ownedInTab(this.items, this.owned(), this.tab);
     return html`
-      <div class="flex flex-col gap-6 p-4 lg:p-6">
+      <div class="flex flex-col gap-5 p-4 lg:p-6">
         <div
           class="flex items-start gap-3 rounded-xl border border-cyber-yellow/25 bg-cyber-yellow/10 p-4"
         >
@@ -161,6 +290,10 @@ export class DerpyStorePage extends BaseModal {
                 </button>`}
           </p>
         </div>
+        ${this.renderTabs()}
+        <p class="m-0 -mt-2 text-sm text-white/55">
+          ${translateText(`derpy.store_blurb_${this.tab.category}`)}
+        </p>
         ${this.message
           ? html`<p
               role="status"
@@ -169,68 +302,207 @@ export class DerpyStorePage extends BaseModal {
               ${this.message}
             </p>`
           : ""}
-        ${ownedSkins.length > 0 ? this.renderLocker(ownedSkins) : ""}
-        <div class="flex flex-col gap-4">
-          ${this.packs.map((p) => this.renderPack(p))}
-        </div>
+        ${mine.length > 0 ? this.renderYours(mine) : ""}
+        ${items.length === 0
+          ? html`<p
+              class="m-0 rounded-xl border border-dashed border-white/15 p-6 text-center text-white/55"
+            >
+              ${translateText("derpy.store_nothing_yet")}
+            </p>`
+          : html`<div class="flex flex-col gap-4">
+              ${items.map((i) => this.renderItem(i))}
+            </div>`}
       </div>
     `;
   }
 
-  private renderLocker(skins: DerpySkin[]): TemplateResult {
-    return html`<section class="flex flex-col gap-3">
-      <h3 class="m-0 text-lg font-bold text-white">
-        ${translateText("derpy.your_skins")}
-      </h3>
-      <p class="m-0 text-sm text-white/55">
-        ${translateText("derpy.your_skins_blurb")}
-      </p>
-      <div class="flex flex-wrap gap-3">
-        <button
-          class="flex w-28 flex-col items-center gap-2 rounded-xl border p-2 text-xs font-semibold transition-colors ${this
-            .equipped === null
-            ? "border-cyber-yellow bg-cyber-yellow/10 text-white"
-            : "border-white/10 bg-white/5 text-white/70 hover:border-white/30"}"
-          @click=${() => this.equip(null)}
-        >
-          <span
-            class="flex aspect-square w-full items-center justify-center rounded-lg bg-black/30 text-2xl text-white/30"
-            >∅</span
-          >
-          ${translateText("derpy.no_skin")}
-        </button>
-        ${skins.map(
-          (s) =>
+  private renderTabs(): TemplateResult {
+    const counts = tabCounts(this.items ?? [], this.tabs);
+    const game =
+      this.tabs.find((t) => t.game === this.tab.game) ?? this.tabs[0];
+    return html`<nav class="flex min-w-0 flex-col gap-3">
+      <div class="flex gap-2" role="tablist">
+        ${this.tabs.map(
+          (t) =>
             html`<button
-              class="flex w-28 flex-col items-center gap-2 rounded-xl border p-2 text-xs font-semibold transition-colors ${this
-                .equipped === s.name
-                ? "border-cyber-yellow bg-cyber-yellow/10 text-white"
-                : "border-white/10 bg-white/5 text-white/70 hover:border-white/30"}"
-              @click=${() => this.equip(s.name)}
-              aria-pressed=${this.equipped === s.name}
+              role="tab"
+              aria-selected=${t.game === this.tab.game}
+              class="rounded-lg px-4 py-2 text-sm font-black uppercase tracking-wide transition-colors ${t.game ===
+              this.tab.game
+                ? "bg-white text-zinc-900"
+                : "bg-white/5 text-white/70 hover:bg-white/10"}"
+              @click=${() => {
+                this.tab = {
+                  game: t.game,
+                  category: t.categories[0]?.id ?? "",
+                };
+              }}
             >
-              <img
+              ${translateText(`derpy.store_game_${t.game}`)}
+            </button>`,
+        )}
+      </div>
+      <div
+        class="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]"
+        role="tablist"
+      >
+        ${game?.categories.map((c) => {
+          const on = c.id === this.tab.category;
+          const n =
+            counts.get(tabKey({ game: game.game, category: c.id })) ?? 0;
+          return html`<button
+            role="tab"
+            aria-selected=${on}
+            class="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-bold transition-colors ${on
+              ? CHIP_ON
+              : CHIP_OFF}"
+            @click=${() => {
+              this.tab = { game: game.game, category: c.id };
+            }}
+          >
+            ${translateText(`derpy.store_cat_${c.id}`)}
+            <span
+              class="rounded-full px-1.5 text-[11px] tabular-nums ${on
+                ? "bg-cyber-yellow text-zinc-900"
+                : "bg-white/10 text-white/50"}"
+              >${n}</span
+            >
+          </button>`;
+        })}
+      </div>
+    </nav>`;
+  }
+
+  /** What you own under this tab, and which one you use. */
+  private renderYours(mine: DerpyStoreItem[]): TemplateResult {
+    const head = (key: string, blurb?: string) =>
+      html`<h3 class="m-0 text-lg font-bold text-white">
+          ${translateText(key)}
+        </h3>
+        ${blurb
+          ? html`<p class="m-0 text-sm text-white/55">
+              ${translateText(blurb)}
+            </p>`
+          : ""}`;
+    switch (this.tab.category) {
+      case "skins": {
+        const skins = mine
+          .flatMap((p) => p.skins ?? [])
+          .filter((s) => this.owned().includes(`skin:${s.name}`));
+        return html`<section class="flex flex-col gap-3">
+          ${head("derpy.your_skins", "derpy.your_skins_blurb")}
+          ${this.choices(
+            this.equipped,
+            (n) => this.equip(n),
+            translateText("derpy.no_skin"),
+            skins.map((s) => ({
+              name: s.name,
+              label: skinName(s),
+              art: html`<img
                 src=${s.url}
                 alt=""
                 loading="lazy"
                 class="aspect-square w-full rounded-lg bg-black/30 object-cover"
-              />
-              ${skinName(s)}
-              <span class="text-[10px] uppercase tracking-wide text-white/40"
-                >${this.equipped === s.name
-                  ? translateText("derpy.equipped")
-                  : translateText("derpy.equip")}</span
-              >
-            </button>`,
-        )}
-      </div>
-    </section>`;
+              />`,
+            })),
+          )}
+        </section>`;
+      }
+      case "effects": {
+        const fx = mine.map((i) => ({
+          name: i.name,
+          label: itemName(i),
+          art: i.fx ? fxPreview(`mine_${i.name}`, i.fx) : html``,
+        }));
+        return html`<section class="flex flex-col gap-3">
+          ${head("derpy.your_nukes")}
+          ${this.choices(
+            this.nukeStyle,
+            (n) => this.setNukeStyle(n),
+            translateText("derpy.usual_nukes"),
+            fx,
+            "w-36",
+          )}
+          ${head("derpy.your_domes")}
+          ${this.choices(
+            this.domeStyle,
+            (n) => this.setDomeStyle(n),
+            translateText("derpy.usual_domes"),
+            fx,
+            "w-36",
+          )}
+        </section>`;
+      }
+      case "fanfares":
+        return html`<section class="flex flex-col gap-3">
+          ${head("derpy.your_fanfare", "derpy.your_fanfare_blurb")}
+          ${this.choices(
+            this.fanfare,
+            (n) => this.setFanfare(n),
+            translateText("derpy.usual_victory"),
+            mine.map((i) => ({
+              name: i.name,
+              label: itemName(i),
+              art: html`<span
+                class="flex aspect-square w-full items-center justify-center rounded-lg bg-black/30 text-3xl text-cyber-yellow"
+                >♪</span
+              >`,
+            })),
+          )}
+        </section>`;
+      case "personalities":
+        return html`<p
+          class="m-0 rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-3 text-sm text-emerald-100"
+        >
+          ${translateText("derpy.personalities_owned_howto")}
+        </p>`;
+      default:
+        return html``;
+    }
   }
 
-  private renderPack(p: DerpyPack): TemplateResult {
-    const owned = this.owns(`pack:${p.name}`);
+  /** One-of tiles: "none" first, then each choice; the chosen one lit. */
+  private choices(
+    current: string | null,
+    choose: (name: string | null) => void,
+    noneLabel: string,
+    options: { name: string; label: string; art: TemplateResult }[],
+    width = "w-28",
+  ): TemplateResult {
+    const tile = (name: string | null, label: string, art: TemplateResult) => {
+      const on = current === name;
+      return html`<button
+        class="flex ${width} flex-col items-center gap-2 rounded-xl border p-2 text-xs font-semibold transition-colors ${on
+          ? CHIP_ON
+          : CHIP_OFF}"
+        aria-pressed=${on}
+        @click=${() => choose(name)}
+      >
+        ${art} ${label}
+        <span class="text-[10px] uppercase tracking-wide text-white/40"
+          >${on
+            ? translateText("derpy.equipped")
+            : translateText("derpy.equip")}</span
+        >
+      </button>`;
+    };
+    return html`<div class="flex flex-wrap gap-3">
+      ${tile(
+        null,
+        noneLabel,
+        html`<span
+          class="flex aspect-square w-full items-center justify-center rounded-lg bg-black/30 text-2xl text-white/30"
+          >∅</span
+        >`,
+      )}
+      ${options.map((o) => tile(o.name, o.label, o.art))}
+    </div>`;
+  }
+
+  private renderItem(i: DerpyStoreItem): TemplateResult {
+    const owned = ownsItem(this.owned(), i);
     const signedIn = this.me !== null;
-    const short = signedIn ? Math.max(0, p.price - this.me!.coins) : 0;
+    const short = signedIn ? Math.max(0, i.price - this.me!.coins) : 0;
     let button: TemplateResult;
     if (owned) {
       button = html`<span
@@ -248,31 +520,36 @@ export class DerpyStorePage extends BaseModal {
       button = html`<button
         class="flex items-center justify-center gap-2 rounded-xl bg-cyber-yellow px-4 py-2.5 text-sm font-black text-zinc-900 disabled:cursor-not-allowed disabled:opacity-40"
         ?disabled=${short > 0 || this.buying !== null}
-        @click=${() => this.buy(p)}
+        @click=${() => this.buy(i)}
       >
         ${short > 0
           ? translateText("derpy.need_more", { coins: short.toLocaleString() })
           : translateText("derpy.buy_for", {
-              coins: p.price.toLocaleString(),
+              coins: i.price.toLocaleString(),
             })}
       </button>`;
     }
     return html`<article
       class="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5"
+      data-item=${i.name}
     >
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex min-w-0 flex-1 flex-col">
-          <h3 class="m-0 text-xl font-black text-white">${packName(p)}</h3>
-          <p class="m-0 text-sm text-white/55">
-            ${translateText(`derpy.pack_desc_${p.name}`)}
-          </p>
+          <h3 class="m-0 text-xl font-black text-white">${itemName(i)}</h3>
+          <p class="m-0 text-sm text-white/55">${itemDesc(i)}</p>
         </div>
         <div class="flex items-center gap-3">
-          ${owned ? "" : coinAmount(p.price, "text-lg")} ${button}
+          ${owned ? "" : coinAmount(i.price, "text-lg")} ${button}
         </div>
       </header>
-      <div class="grid grid-cols-3 gap-3 sm:grid-cols-5">
-        ${p.skins.map(
+      ${this.renderItemBody(i)}
+    </article>`;
+  }
+
+  private renderItemBody(i: DerpyStoreItem): TemplateResult | typeof nothing {
+    if (i.skins) {
+      return html`<div class="grid grid-cols-3 gap-3 sm:grid-cols-5">
+        ${i.skins.map(
           (s) =>
             html`<figure class="m-0 flex flex-col items-center gap-1.5">
               <img
@@ -288,7 +565,29 @@ export class DerpyStorePage extends BaseModal {
               </figcaption>
             </figure>`,
         )}
-      </div>
-    </article>`;
+      </div>`;
+    }
+    if (i.personas) {
+      return html`<ul class="dfx-personas text-white">
+        ${i.personas.map((p) => personaCard(p, temperament(p.temperament)))}
+      </ul>`;
+    }
+    if (i.fx) return fxPreview(i.name, i.fx);
+    if (i.fanfare) {
+      return html`<div class="flex flex-wrap items-center gap-3">
+        <button
+          class="flex items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/20"
+          @click=${() => listen(i.name)}
+        >
+          <span aria-hidden="true">▶</span> ${translateText("derpy.listen")}
+        </button>
+        <span class="text-sm text-white/50"
+          >${translateText("derpy.fanfare_seconds", {
+            seconds: i.fanfare.seconds,
+          })}</span
+        >
+      </div>`;
+    }
+    return nothing;
   }
 }

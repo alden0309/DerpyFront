@@ -46,6 +46,7 @@ import { inviteFriendsButton } from "./components/ui/InviteFriendsButton";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { fetchCosmetics, InsufficientCurrency } from "./Cosmetics";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
+import "./derpy/AiPersonalityPicker"; // DFSTORE (r21)
 import { JoinLobbyEvent } from "./Main";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import { UserSettings } from "./UserSettings";
@@ -100,6 +101,8 @@ export class HostLobbyModal extends BaseModal {
   @state() private anonymizeNames: boolean = false;
   // Derp Land (SITE r19): people may watch this private game once it begins.
   @state() private allowWatchers: boolean = false;
+  // DFSTORE (r21): AI personality packs (the server keeps only owned ones).
+  @state() private aiPersonalities: string[] = [];
   @state() private nameReveals: string[] = [];
   @state() private whitelistEnabled: boolean = false;
   @state() private allowedPublicIds: string = "";
@@ -730,6 +733,15 @@ export class HostLobbyModal extends BaseModal {
               .handleConfigHostCheatToggleChanged}
             @unit-toggle-changed=${this.handleConfigUnitToggleChanged}
           ></game-config-settings>
+
+          <!-- DFSTORE (r21): the AI personality packs the host owns. -->
+          <ai-personality-picker
+            ?noNations=${this.nations === 0}
+            @personalities-changed=${(e: CustomEvent<string[]>) => {
+              this.aiPersonalities = e.detail;
+              void this.putGameConfig();
+            }}
+          ></ai-personality-picker>
 
           <lobby-player-view
             class="mt-10"
@@ -1609,6 +1621,7 @@ export class HostLobbyModal extends BaseModal {
             anonymizeNames: this.anonymizeNames,
             nameReveals: this.nameReveals,
             allowWatchers: this.allowWatchers, // Derp Land (SITE r19)
+            aiPersonalities: this.aiPersonalities, // DFSTORE (r21)
             allowedPublicIds: this.whitelistEnabled
               ? (this.parseAllowedPublicIds() ?? [])
               : [],

@@ -406,6 +406,9 @@ export const PlayerCosmeticRefsSchema = z.object({
   // (resolveVerifiedJoin in src/server/Privilege.ts); the name is never
   // replaced and nothing sent here can mint a badge.
   verified: z.boolean().optional(),
+  // DFSTORE (r21): the Derp Store Dome style asked for (a Nuke & Dome effect
+  // pack's name); the server keeps it only if the account owns it.
+  derpyDome: CosmeticNameSchema.optional(),
 });
 
 export const FlagSchema = z.string();
@@ -451,6 +454,8 @@ export const PlayerCosmeticsSchema = z.object({
   effects: z.record(z.string(), PlayerEffectSchema).optional(),
   // Plays under the verified account username — renders the blue check.
   verified: z.boolean().optional(),
+  // DFSTORE (r21): the owner's Dome style (DerpyFx.ts), drawn for everyone.
+  derpyDome: CosmeticNameSchema.optional(),
 });
 
 // A player as the server sends and records it: what the engine reads

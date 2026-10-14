@@ -840,6 +840,9 @@ export function voiceFor(
   map: GameMapType | string,
 ): string {
   const f = (flag ?? "").toLowerCase();
+  // DFSTORE (r21): an AI persona speaks with its pack's voice.
+  const persona = /^persona_([a-z]+)_/.exec(f);
+  if (persona) return `persona_${persona[1]}`;
   if (FLAG_VOICES.get(f) === "native") return "native";
   // Apopka is Apopka on any map.
   if (/apopka/i.test(name) || f === "apopka") return "apopka";

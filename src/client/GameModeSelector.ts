@@ -709,6 +709,48 @@ export class GameModeSelector extends LitElement {
           >
         </figure>
 
+        <!-- DFSTORE (r21): what's next, out of the way of the buttons. -->
+        <aside
+          class="mx-auto mt-1 flex w-full max-w-md items-center gap-3 rounded-xl border border-dashed border-white/15 bg-black/25 px-4 py-2.5"
+          data-coming-soon="campaigns"
+        >
+          <svg
+            viewBox="0 0 32 32"
+            class="h-9 w-9 shrink-0 text-cyber-yellow"
+            aria-hidden="true"
+          >
+            <path
+              d="M4 26c5-1 7-6 12-6s7 4 12 3"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-dasharray="3 3"
+              stroke-linecap="round"
+              opacity="0.6"
+            />
+            <path
+              d="M22 22V6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+            <path d="M22 6l7 3-7 3z" fill="currentColor" />
+            <circle cx="5" cy="26" r="2" fill="currentColor" />
+          </svg>
+          <div class="flex min-w-0 flex-col">
+            <span
+              class="text-[10px] font-bold uppercase tracking-[0.2em] text-cyber-yellow/90"
+              >${translateText("main.coming_soon")}</span
+            >
+            <span class="text-base font-bold leading-tight text-white"
+              >${translateText("main.campaigns")}</span
+            >
+            <span class="text-xs leading-snug text-white/60"
+              >${translateText("main.campaigns_blurb")}</span
+            >
+          </div>
+        </aside>
+
         ${this.showTrustRequired
           ? trustRequiredDialog(
               this.viewerSignedIn,

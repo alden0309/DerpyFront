@@ -790,6 +790,119 @@
     color: var(--bad);
   }
 
+  /* ---- DFSTORE (r21): tabs by game, then category ---- */
+  .dl-storetabs {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 10px;
+    min-width: 0;
+  }
+  .dl-gametabs {
+    display: flex;
+    gap: 6px;
+    border-bottom: 1px solid var(--line-2);
+  }
+  .dl-gametab {
+    position: relative;
+    padding: 10px 16px 12px;
+    border: 0;
+    background: none;
+    color: var(--text-2);
+    font-weight: 720;
+    font-stretch: 110%;
+    font-size: 17px;
+    cursor: pointer;
+  }
+  .dl-gametab:hover {
+    color: var(--text);
+  }
+  .dl-gametab[aria-selected="true"] {
+    color: var(--text);
+  }
+  .dl-gametab[aria-selected="true"]::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: -1px;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: var(--front);
+  }
+  .dl-gametab[data-game="conquest"][aria-selected="true"]::after {
+    background: var(--vellum);
+  }
+  .dl-cattabs {
+    margin: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+    align-self: flex-start;
+    scrollbar-width: none;
+  }
+  .dl-cattabs::-webkit-scrollbar {
+    display: none;
+  }
+  .dl-cattabs button {
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .dl-tabcount {
+    min-width: 20px;
+    padding: 0 6px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-3);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .dl-cattabs button[aria-selected="true"] .dl-tabcount {
+    background: var(--peel);
+    color: var(--peel-ink);
+  }
+  .dl-tabblurb {
+    margin: 0 0 22px;
+    color: var(--text-2);
+    max-width: 640px;
+  }
+  .dl-itembody {
+    margin-top: 18px;
+  }
+  .dl-fanfare {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+  }
+  .dl-pickhead {
+    margin: 8px 0 14px;
+  }
+  .dl-pickhead ~ .dl-pickhead {
+    margin-top: 30px;
+  }
+  .dl-pickart {
+    display: block;
+    margin-bottom: 9px;
+  }
+  .dl-pickart .dfx-preview {
+    margin: 0;
+  }
+  .dl-music {
+    display: grid;
+    place-items: center;
+    font-size: 40px;
+    color: var(--peel);
+  }
+  .dl-howto {
+    margin: 0 0 18px;
+  }
+
   /* ---- inventory ---- */
   .dl-locker {
     display: grid;

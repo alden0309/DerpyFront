@@ -18,6 +18,10 @@ layout(location = 6) in vec3 aN2;
 layout(location = 7) in vec3 aN3;
 layout(location = 8) in vec3 aN4;
 layout(location = 9) in vec3 aN5;
+// DFSTORE (r21): the Derp Store Dome style: fill rgb + shimmer code (0 for
+// the plain shield), and the accent rgb + shimmer speed.
+layout(location = 10) in vec4 aStyle;
+layout(location = 11) in vec4 aAccent;
 
 uniform mat3 uCamera;
 uniform float uPad; // how far the ring and its soft edge reach past the circle
@@ -32,6 +36,8 @@ flat out vec3 vN2;
 flat out vec3 vN3;
 flat out vec3 vN4;
 flat out vec3 vN5;
+flat out vec4 vStyle;
+flat out vec4 vAccent;
 
 void main() {
   vCircle = aCircle;
@@ -43,6 +49,8 @@ void main() {
   vN3 = aN3;
   vN4 = aN4;
   vN5 = aN5;
+  vStyle = aStyle;
+  vAccent = aAccent;
 
   float extent = aCircle.z + uPad;
   vec2 world = aCircle.xy + (aPos * 2.0 - 1.0) * extent;
