@@ -8,7 +8,7 @@ import { customElement, state } from "lit/decorators.js";
 import { DERPY_ACCOUNT_EVENT } from "../../derpland/Account";
 import "../../derpland/DerpBar";
 import { evalExpr } from "../engine/Expr";
-import { Snapshot, StoryRun } from "../engine/Runtime";
+import { Snapshot, StoryRun, upgradeSnapshot } from "../engine/Runtime";
 import { BasedSave, emptySave, noteSeen } from "../engine/Save";
 import { Boost } from "../engine/Skills";
 import { Build, Chapter } from "../engine/Types";
@@ -300,7 +300,8 @@ export class BasedApp extends LitElement {
     ]);
     this.assets = assets;
     this.loaded = c;
-    this.from = from;
+    // A save from before the 3D places: rebuild where everyone stands.
+    this.from = from ? upgradeSnapshot(c.chapter, from) : null;
     this.build = build;
     this.playKey++;
     this.screen = "play";

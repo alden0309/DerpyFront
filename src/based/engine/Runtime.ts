@@ -795,3 +795,56 @@ export class StoryRun {
     throw new Error(`scene "${this.scene}" loops without stopping`);
   }
 }
+
+/**
+ * r21: a save from before the 3D places (its stage has no `place`) restarts
+ * its scene with no one anywhere. This rebuilds the stage by playing the
+ * chapter from the start down the saved path (the same picks, the spots and
+ * deductions its flags say were found) to the saved scene, and keeps the
+ * save's own flags, relationships and path. Deterministic; falls back to the
+ * save as it was if the path can't be followed.
+ */
+export function upgradeSnapshot(chapter: Chapter, snap: Snapshot): Snapshot {
+  if (snap.stage.place !== undefined || !chapter.scenes[snap.scene]) {
+    return snap;
+  }
+  const picks = snap.path
+    .filter((p) => p.startsWith("c:"))
+    .map((p) => p.slice(2).split("="));
+  const r = new StoryRun(
+    chapter,
+    chapterStart(chapter, undefined, { build: snap.build ?? null, seed: 1 }),
+  );
+  const want = snap.path.length;
+  for (let steps = 0; steps < 20_000; steps++) {
+    const h = r.history();
+    if (h.length > want && r.sceneId === snap.scene) {
+      return { ...snap, stage: r.snapshot().stage };
+    }
+    if (h.length > want + 1) break;
+    const b = r.beat;
+    if (b.kind === "end") break;
+    if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
+      r.advance();
+    } else if (b.kind === "choice") {
+      const open = b.options.filter((o) => !o.check?.locked);
+      const next = picks[0];
+      let pick = open[0];
+      if (next && next[0] === b.id) {
+        picks.shift();
+        pick = open.find((o) => o.id === next[1]) ?? pick;
+      }
+      r.choose(pick.id);
+    } else {
+      const spot = b.spots.find((s) => !s.seen && snap.flags[s.id]);
+      const ded = b.deductions.find(
+        (d) => d.ready && !d.done && !d.check?.locked && snap.flags[d.id],
+      );
+      if (ded) r.deduce(ded.id);
+      else if (spot) r.examine(spot.id);
+      else if (b.canLeave) r.leave();
+      else r.examine(b.spots.find((s) => !s.seen)?.id ?? b.spots[0].id);
+    }
+  }
+  return snap;
+}

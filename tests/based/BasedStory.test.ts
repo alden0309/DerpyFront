@@ -8,7 +8,11 @@ import path from "path";
 import { describe, expect, test } from "vitest";
 import { NavGrid } from "../../src/based/engine/Nav";
 import { PlaceDef } from "../../src/based/engine/Place";
-import { chapterStart, StoryRun } from "../../src/based/engine/Runtime";
+import {
+  chapterStart,
+  StoryRun,
+  upgradeSnapshot,
+} from "../../src/based/engine/Runtime";
 import { parseChapter } from "../../src/based/engine/Script";
 import { buildOf } from "../../src/based/engine/Skills";
 import {
@@ -284,4 +288,63 @@ describe("the chapters as written", () => {
     },
     60_000,
   );
+});
+
+describe("saves from before the 3D chapter (r21)", () => {
+  const { chapter } = parseChapter(
+    fs.readFileSync(path.join(STORY, "chapter-01.story"), "utf8"),
+  );
+
+  test("an old save in the bar gets its place and its people back", () => {
+    // As round 19 saved it, at the start of "anselme".
+    const old = {
+      chapter: 1,
+      scene: "anselme",
+      flags: {
+        thoughts: 2,
+        thought_glass: 1,
+        thought_scar: 1,
+        posters: 1,
+        van: 1,
+      },
+      rels: {},
+      stage: {
+        backdrop: "glass",
+        figure: null,
+        ambient: "rain_in",
+        news: null,
+      },
+      path: [
+        "s:open",
+        "s:vauban",
+        "s:reverie",
+        "c:reverie#1=the-first-glass",
+        "s:t_glass",
+        "s:reverie",
+        "c:reverie#1=his-left-hand",
+        "s:t_scar",
+        "s:reverie",
+        "s:interrupted",
+      ],
+      taken: ["reverie#1/the-first-glass", "reverie#1/his-left-hand"],
+    };
+    const up = upgradeSnapshot(chapter, old as never);
+    expect(up.stage.place).toBe("grenelle");
+    expect(up.stage.actors.BASED).toMatchObject({
+      at: "stool_end",
+      pose: "sit",
+    });
+    expect(up.stage.actors.ANSELME).toMatchObject({ at: "behind_bar_based" });
+    // The save's own state is kept.
+    expect(up.flags).toEqual(old.flags);
+    expect(up.path).toEqual(old.path);
+    expect(up.scene).toBe("anselme");
+    const r = new StoryRun(chapter, up);
+    expect(r.stage.place).toBe("grenelle");
+  });
+
+  test("a new save is left alone", () => {
+    const snap = new StoryRun(chapter).snapshot();
+    expect(upgradeSnapshot(chapter, snap)).toBe(snap);
+  });
 });

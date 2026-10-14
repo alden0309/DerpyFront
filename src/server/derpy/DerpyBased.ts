@@ -60,7 +60,7 @@ export interface LoadedChapter {
 const placeCache = new Map<string, { mtimeMs: number; def: PlaceDef }>();
 export function loadPlaces(): Record<string, PlaceDef> {
   const out: Record<string, PlaceDef> = {};
-  let files: string[] = [];
+  let files: string[];
   try {
     files = fs.readdirSync(PLACES_DIR).filter((f) => f.endsWith(".json"));
   } catch {
