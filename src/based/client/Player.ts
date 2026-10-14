@@ -186,7 +186,10 @@ export class BasedPlayer extends LitElement {
   private rollTimer = 0;
   private talkTimer = 0;
   private placeTimer = 0;
+  /** Going through a door (the fade): clicks wait. */
   private busy = false;
+  /** Each click on the world gets a ticket; a walk acts only if it's the latest. */
+  private walkTicket = 0;
   private marks = new Map<string, HTMLElement>();
   private lastSave = 0;
   private playClock = 0;
@@ -777,18 +780,17 @@ export class BasedPlayer extends LitElement {
     const here = this.stage.place ? this.places[this.stage.place] : undefined;
     const h = here?.hotspots[id];
     if (b.kind === "free") {
+      // A click while he's walking somewhere else changes his mind.
       if (h?.to) {
         const to = h.to;
-        this.busy = true;
         w.walkToHotspot(
           id,
-          () => {
-            this.busy = false;
-            if (!this.run.free) return;
+          this.walkThen(() => {
+            if (!this.run.free || this.busy) return;
             // The story may stop him at the door; otherwise, through it.
             if (this.run.look(id)) this.afterStep();
             else void this.travel(to.place, to.mark);
-          },
+          }),
           run,
         );
         return;
@@ -796,17 +798,14 @@ export class BasedPlayer extends LitElement {
       if (!w.things.has(id)) return;
       if (seated || w.heroSeated) {
         // Read from his seat: turn, and look.
+        this.walkTicket++;
         w.faceHotspot(id);
         this.lookAt(id);
         return;
       }
-      this.busy = true;
       w.walkToHotspot(
         id,
-        () => {
-          this.busy = false;
-          this.lookAt(id);
-        },
+        this.walkThen(() => this.lookAt(id)),
         run,
       );
       return;
@@ -820,13 +819,11 @@ export class BasedPlayer extends LitElement {
         this.toast(`Not yet: there's more to notice (${need}).`, "rel");
         return;
       }
-      this.busy = true;
       w.walkToHotspot(
         id,
-        () => {
-          this.busy = false;
-          this.leave();
-        },
+        this.walkThen(() => {
+          if (this.beat.kind === "investigate") this.leave();
+        }),
         run,
       );
       return;
@@ -834,19 +831,26 @@ export class BasedPlayer extends LitElement {
     const spot = this.spotFor(id);
     if (!spot) return;
     if (b.still || seated || spot.anchor === undefined) {
+      this.walkTicket++;
       w.faceHotspot(id);
       this.examine(spot.id);
       return;
     }
-    this.busy = true;
     w.walkToHotspot(
       spot.anchor,
-      () => {
-        this.busy = false;
+      this.walkThen(() => {
         if (this.beat.kind === "investigate") this.examine(spot.id);
-      },
+      }),
       run,
     );
+  }
+
+  /** What to do on arriving, unless another click has sent him elsewhere. */
+  private walkThen(fn: () => void): () => void {
+    const ticket = ++this.walkTicket;
+    return () => {
+      if (ticket === this.walkTicket) fn();
+    };
   }
 
   private lookAt(id: string): void {
@@ -870,16 +874,14 @@ export class BasedPlayer extends LitElement {
       this.toast("Nothing to say to them just now.", "rel");
       return;
     }
-    const start = () => {
-      this.busy = false;
-      if (!this.run.free) return;
+    const start = this.walkThen(() => {
+      if (!this.run.free || this.busy) return;
       if (this.run.talk(who)) this.afterStep();
-    };
+    });
     if (w.heroSeated) {
       start();
       return;
     }
-    this.busy = true;
     if (!w.walkUpTo(id, start)) start();
   }
 
@@ -887,7 +889,8 @@ export class BasedPlayer extends LitElement {
     const b = this.beat;
     if (this.overlay) return;
     if (this.world?.walkable) {
-      this.busy = false;
+      if (this.busy) return;
+      this.walkTicket++;
       this.world.walkHero(x, z, run);
       return;
     }
