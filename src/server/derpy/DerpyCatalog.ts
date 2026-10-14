@@ -3,8 +3,8 @@
 //  - DerpyFront: territory skin packs (images stamped over your territory,
 //    centred on where you spawned; a pack unlocks all of its skins), AI
 //    personality packs, Nuke & Dome effects, and victory fanfares;
-//  - Derpy Conquest: campaigns, legends and map styles (the DLC track fills
-//    these in a later round; the tabs are ready for them).
+//  - Derpy Conquest: campaigns ("1776: The Revolution"), legends and map
+//    styles (DLC r21; the game server checks them: ConquestDlc.ts).
 //
 // Owning an item is a row in derpy_owned: "pack:<item>" for every item, plus
 // what it unlocks ("skin:<name>", "effect:<name>", "dome:<theme>").
@@ -21,6 +21,13 @@ import {
   fxEffectNames,
   fxExplosionAttributes,
 } from "@openfront/shared/DerpyFx";
+import {
+  CAMPAIGN_1776,
+  LEGENDS,
+  MAP_STYLES,
+  mapStyleItem,
+  type MapStyleKey,
+} from "../../conquest/DlcIds"; // DLC (r21)
 
 export interface DerpySkin {
   /** Cosmetic name: lowercase letters, digits and underscores. */
@@ -272,7 +279,179 @@ export interface DerpyItem {
   fanfare?: { instruments: string; seconds: number };
   /** Owned rows it adds besides "pack:<name>" (for later DLC). */
   grants?: string[];
+  /** DLC (r21): Derpy Conquest's items: what they add, and how to use them. */
+  conquest?: ConquestItemInfo;
 }
+
+// ---- DLC (r21): Derpy Conquest's campaigns, legends and map styles ----
+
+/** What a Derpy Conquest item adds, for the store and the Inventory. */
+export interface ConquestItemInfo {
+  /** What it brings, a line each. */
+  features: string[];
+  /** How to use it once it's yours. */
+  howTo: string;
+  /** Map styles: the colours of the style, for the store's little chart. */
+  palette?: { sea: string; land: string; ink: string; accent: string };
+}
+
+const MAP_STYLE_TEXT: Record<
+  MapStyleKey,
+  {
+    displayName: string;
+    description: string;
+    price: number;
+    features: string[];
+    palette: NonNullable<ConquestItemInfo["palette"]>;
+  }
+> = {
+  antique: {
+    displayName: "Antique Engraving",
+    description:
+      "The map as a London engraver would have cut it in copper: sepia ink on cream paper, hatched seas, and each colony's border tinted by hand.",
+    price: 1000,
+    features: [
+      "Sepia ink and cream paper, the seas hatched with the engraver's lines",
+      "Colonies tinted along their borders by hand, as the old map-sellers did",
+      "Names in an engraver's italic",
+    ],
+    palette: {
+      sea: "#c9b48a",
+      land: "#efe2c2",
+      ink: "#4a3520",
+      accent: "#a8573a",
+    },
+  },
+  winter: {
+    displayName: "Hard Winter",
+    description:
+      "The map in the depths of a hard winter, whatever the month: snow on every province, ice along the coasts, and a cold grey-blue sea.",
+    price: 700,
+    features: [
+      "Snow lies on the land all year, deeper in the north",
+      "Ice along the coasts and a slate-grey sea",
+      "The colonies' colours as if seen through falling snow",
+    ],
+    palette: {
+      sea: "#5d7686",
+      land: "#eef2f4",
+      ink: "#2c3a44",
+      accent: "#8fb3c9",
+    },
+  },
+  night: {
+    displayName: "By Candlelight",
+    description:
+      "The map at night: a dark sea under the stars, the land in shadow, lamplight in every town, and the names picked out in gold.",
+    price: 800,
+    features: [
+      "A night sea and shadowed land, the colonies' colours dimmed",
+      "Every town and village lit by its lamps and fires",
+      "Names and borders picked out in gold leaf",
+    ],
+    palette: {
+      sea: "#0e1a2b",
+      land: "#2b2a33",
+      ink: "#e7c66a",
+      accent: "#f3b04a",
+    },
+  },
+  pirate: {
+    displayName: "Pirate Chart",
+    description:
+      "A buccaneer's chart, yellowed, stained and burned at the edges: rhumb lines from the compass rose, a sea serpent or two, and the borders in red ink.",
+    price: 1200,
+    features: [
+      "Yellowed, stained parchment with scorched edges",
+      "Rhumb lines across the seas from the compass rose",
+      "Borders in red ink, and sea serpents in the deep water",
+    ],
+    palette: {
+      sea: "#c8b27a",
+      land: "#e4cd94",
+      ink: "#5a2e14",
+      accent: "#a8261c",
+    },
+  },
+  woodcut: {
+    displayName: "Woodcut",
+    description:
+      "Bold black lines and flat colour, as if cut from a block of pear wood for a broadside: a printer's map for a printer's age.",
+    price: 900,
+    features: [
+      "Heavy black outlines and flat, few colours",
+      "Seas cut in bold wave strokes",
+      "The look of a broadside or an almanac's map",
+    ],
+    palette: {
+      sea: "#e9e1cc",
+      land: "#f4ecd6",
+      ink: "#141210",
+      accent: "#b0302a",
+    },
+  },
+};
+
+/** Derpy Conquest's items: the 1776 campaign, Legends, the map styles. */
+export const CONQUEST_ITEMS: readonly DerpyItem[] = [
+  {
+    name: CAMPAIGN_1776,
+    game: "conquest",
+    category: "campaigns",
+    displayName: "1776: The Revolution",
+    description:
+      "A new start date: 1 January 1776, with Boston under siege and independence not yet declared. Live through the American Revolution to the Treaty of Paris, as a patriot, a loyalist or neither.",
+    price: 4000,
+    conquest: {
+      features: [
+        "Begin on 1 January 1776: the Thirteen Colonies in arms as the United Colonies, while Quebec, Nova Scotia, the Floridas and the West Indies stay with the King as British America",
+        "The war's great events as they happened: the Declaration, the fall of New York, Trenton, Saratoga, the French alliance, Valley Forge, Charleston, Yorktown and the peace",
+        "Choose your side, and see what each side costs and pays when the war is over",
+        "A commission in the Continental Army or a Loyalist regiment, a letter of marque from Congress, spying in a town held by the other side, a seat in Congress",
+        "The world runs to the end of 1783",
+      ],
+      howTo:
+        "In Derpy Conquest, host a game and choose 1776 under Begin in. Only the host needs to own it: friends join for free.",
+    },
+  },
+  {
+    name: LEGENDS,
+    game: "conquest",
+    category: "legends",
+    displayName: "Legends",
+    description:
+      "The Fountain of Youth, the Seven Cities of Cíbola, the fate of the Lost Colony, Norumbega, Blackbeard's hoard, a lost silver mine, and the sacred places of the native nations. Rumours rarely come, the clues need a master's skill, and the roads are long. Some of it is true, after a fashion.",
+    price: 3000,
+    conquest: {
+      features: [
+        "Eight legends of the Americas, each a chain of rumour, clues and a journey",
+        "Very hard: the clues need high skills (letters, woodcraft, persuasion, seamanship and more), and each step costs time and money",
+        "Rewards that fit, and some that are bittersweet; the Fountain of Youth is the rarest of all",
+        "The native nations' sacred places are learned about and protected, never plundered",
+      ],
+      howTo:
+        "Rumours of the legends come to your characters in any Derpy Conquest game you play, from any start date. What you've heard and found is in Journal › Legends.",
+    },
+  },
+  ...MAP_STYLES.map((key): DerpyItem => {
+    const t = MAP_STYLE_TEXT[key];
+    return {
+      name: mapStyleItem(key),
+      game: "conquest",
+      category: "mapstyles",
+      displayName: t.displayName,
+      description: t.description,
+      price: t.price,
+      conquest: {
+        features: t.features,
+        howTo:
+          "Choose it in Derpy Conquest's menu › Settings › Map style, or here in the Inventory. Only you see it; it changes nothing in the game.",
+        palette: t.palette,
+      },
+    };
+  }),
+];
+// ---- end DLC (r21)
 
 const PERSONALITY_TEXT: Record<
   string,
@@ -468,6 +647,7 @@ export const DERPY_ITEMS: readonly DerpyItem[] = [
   ...personalityItems(),
   ...DERPY_FX_THEMES.map(fxItem),
   ...DERPY_FANFARES,
+  ...CONQUEST_ITEMS, // DLC (r21)
 ];
 
 export function findItem(name: string): DerpyItem | undefined {

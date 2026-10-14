@@ -128,6 +128,143 @@ export function personaCard(
   </li>`;
 }
 
+// ---- DLC (r21): Derpy Conquest's items ----
+
+export interface MapStylePalette {
+  sea: string;
+  land: string;
+  ink: string;
+  accent: string;
+}
+
+/** The same coast for every style, so the styles compare side by side. */
+const COAST =
+  "M0 22 C30 18 52 30 70 26 C96 20 104 40 128 44 C150 48 160 34 182 38 C204 42 210 62 236 66 C258 70 270 58 292 64 C304 67 312 74 320 76 V120 H0Z";
+const BORDER = "M92 120 C98 96 112 84 128 74 C142 66 150 58 156 44";
+const BORDER2 = "M228 120 C224 100 230 84 236 66";
+
+/**
+ * A corner of Conquest's map in a style's colours, with what's particular
+ * to it (hatched seas, snow, lamplit towns, rhumb lines and a serpent, a
+ * woodcut's heavy lines). Drawn, not loaded, and still.
+ */
+export function mapStylePreview(
+  name: string,
+  style: string,
+  p: MapStylePalette,
+): TemplateResult {
+  const id = safeId(name);
+  const towns: [number, number][] = [
+    [112, 92],
+    [196, 96],
+    [268, 102],
+  ];
+  const extra = (() => {
+    switch (style) {
+      case "antique":
+        return svg`${Array.from(
+          { length: 7 },
+          (_, i) =>
+            svg`<path d=${`M${10 + i * 6} ${8 + i * 2} C70 ${2 + i * 2} 140 ${18 + i * 2} 210 ${8 + i * 2} S300 ${4 + i * 2} 316 ${10 + i * 2}`} fill="none" stroke=${p.ink} stroke-width=".6" opacity=".35" />`,
+        )}`;
+      case "winter":
+        return svg`${Array.from({ length: 34 }, (_, i) => {
+          const x = (i * 97) % 316;
+          const y = 50 + ((i * 37) % 66);
+          return svg`<circle cx=${x} cy=${y} r=${i % 3 ? 1.2 : 1.8} fill="#ffffff" opacity=".9" />`;
+        })}<path d=${COAST} fill="none" stroke="#ffffff" stroke-width="5" opacity=".55" />`;
+      case "night":
+        return svg`${Array.from(
+          { length: 22 },
+          (_, i) =>
+            svg`<circle cx=${(i * 53) % 318} cy=${4 + ((i * 29) % 30)} r=${i % 4 ? 0.8 : 1.4} fill="#f4ecc8" opacity=".8" />`,
+        )}${towns.map(
+          ([x, y]) =>
+            svg`<circle cx=${x} cy=${y} r="11" fill=${`url(#glow_${id})`} />`,
+        )}`;
+      case "pirate":
+        return svg`<g stroke=${p.ink} stroke-width=".7" opacity=".45">${Array.from(
+          { length: 10 },
+          (_, i) => {
+            const a = (i / 10) * Math.PI;
+            return svg`<path d=${`M${40 - Math.cos(a) * 120} ${30 - Math.sin(a) * 120} L${40 + Math.cos(a) * 300} ${30 + Math.sin(a) * 300}`} />`;
+          },
+        )}</g><path d="M190 14 c8 -10 16 6 24 -2 s16 8 24 0 s10 -8 16 -2" fill="none" stroke=${p.ink} stroke-width="2.2" stroke-linecap="round" /><circle cx="258" cy="11" r="1.4" fill=${p.ink} /><rect width="320" height="120" fill=${`url(#burn_${id})`} />`;
+      case "woodcut":
+        return svg`${Array.from(
+          { length: 4 },
+          (_, i) =>
+            svg`<path d=${`M${18 + i * 70} ${12 + (i % 2) * 6} q10 -8 20 0 t20 0`} fill="none" stroke=${p.ink} stroke-width="2.6" stroke-linecap="round" />`,
+        )}`;
+      default:
+        return svg``;
+    }
+  })();
+  return html`<svg
+    class="dfx-preview dl-mapstyle"
+    viewBox="0 0 320 120"
+    role="img"
+    aria-hidden="true"
+    data-style=${style}
+  >
+    <defs>
+      <radialGradient id=${`glow_${id}`}>
+        <stop offset="0%" stop-color=${p.accent} stop-opacity=".95" />
+        <stop offset="100%" stop-color=${p.accent} stop-opacity="0" />
+      </radialGradient>
+      <radialGradient id=${`burn_${id}`} cx="50%" cy="50%" r="75%">
+        <stop offset="70%" stop-color="#000" stop-opacity="0" />
+        <stop offset="100%" stop-color="#3a1a08" stop-opacity=".75" />
+      </radialGradient>
+    </defs>
+    <rect width="320" height="120" rx="10" fill=${p.sea} />
+    <path
+      d=${COAST}
+      fill=${p.land}
+      stroke=${p.ink}
+      stroke-width=${style === "woodcut" ? 3.2 : 1.4}
+    />
+    <path
+      d=${BORDER}
+      fill="none"
+      stroke=${p.accent}
+      stroke-width=${style === "antique" ? 5 : 2}
+      opacity=${style === "antique" ? 0.45 : 0.9}
+      stroke-dasharray=${style === "pirate" ? "4 3" : "none"}
+    />
+    <path
+      d=${BORDER2}
+      fill="none"
+      stroke=${p.accent}
+      stroke-width=${style === "antique" ? 5 : 2}
+      opacity=${style === "antique" ? 0.45 : 0.9}
+      stroke-dasharray=${style === "pirate" ? "4 3" : "none"}
+    />
+    ${extra}
+    ${towns.map(
+      ([x, y]) =>
+        svg`<rect x=${x - 3} y=${y - 3} width="6" height="6" fill=${style === "night" ? "#ffd27a" : p.ink} />`,
+    )}
+    <g transform="translate(40 30)" stroke=${p.ink} fill=${p.ink}>
+      <circle r="10" fill="none" stroke-width="1" />
+      <path d="M0 -15 L3 0 L0 15 L-3 0Z M-15 0 L0 -3 L15 0 L0 3Z" />
+    </g>
+  </svg>`;
+}
+
+/** What a Derpy Conquest item brings, a line each. */
+export function conquestFeatures(features: string[]): TemplateResult {
+  return html`<ul class="dl-features">
+    ${features.map((f) => html`<li>${f}</li>`)}
+  </ul>`;
+}
+// ---- end DLC (r21)
+
+/** DLC (r21): Conquest items' feature lists and map style charts. */
+const DLC_PREVIEW_CSS = `
+.dl-features{margin:6px 0 0;padding-left:18px;display:grid;gap:4px;font-size:13.5px;line-height:1.4}
+.dl-mapstyle{max-width:360px}`;
+
 /** Styles for the previews; every page that shows them adds them once. */
 export const STORE_PREVIEW_CSS = `
 .dfx-preview{display:block;width:100%;height:auto;max-width:420px;border-radius:10px}
@@ -157,6 +294,6 @@ export function ensurePreviewStyles(): void {
   injected = true;
   const style = document.createElement("style");
   style.dataset.storePreviews = "";
-  style.textContent = STORE_PREVIEW_CSS;
+  style.textContent = STORE_PREVIEW_CSS + DLC_PREVIEW_CSS; // DLC (r21)
   document.head.appendChild(style);
 }

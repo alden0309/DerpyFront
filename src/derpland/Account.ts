@@ -309,6 +309,12 @@ export interface StoreItem {
     shimmer: string;
   };
   fanfare?: { instruments: string; seconds: number };
+  /** DLC (r21): a Derpy Conquest item: what it adds, how to use it. */
+  conquest?: {
+    features: string[];
+    howTo: string;
+    palette?: { sea: string; land: string; ink: string; accent: string };
+  };
 }
 
 export interface StoreCatalog {
