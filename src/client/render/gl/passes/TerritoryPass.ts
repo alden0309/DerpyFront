@@ -12,9 +12,15 @@
  * uploads across render frames.
  */
 
+import { SKIN_TIME_WRAP } from "@openfront/shared/DerpySkinMotion";
 import type { RenderSettings } from "../RenderSettings";
 import { getPaletteSize } from "../utils/ColorUtils";
-import { createMapQuad, createProgram, shaderSrc } from "../utils/GlUtils";
+import {
+  createMapQuad,
+  createProgram,
+  createTexture2D,
+  shaderSrc,
+} from "../utils/GlUtils";
 import { FALLOUT_BIT, OWNER_MASK, TILE_DEFINES } from "../utils/TileCodec";
 
 import overlayVertSrc from "../shaders/map-overlay/overlay.vert.glsl?raw";
@@ -43,6 +49,12 @@ export class TerritoryPass {
   private uSaturation: WebGLUniformLocation;
   private uTerritoryAlpha: WebGLUniformLocation;
   private uAltFillAlpha: WebGLUniformLocation;
+  /** SITE (r22): skins that move: a motion code per owner, and the clock. */
+  private uSkinTime: WebGLUniformLocation;
+  private skinMotionTex: WebGLTexture;
+  private readonly skinMotionCpu: Uint8Array;
+  private skinMotionDirty = false;
+  private readonly skinClockStart = performance.now();
   private highlightOwner = 0;
   private isTeamMode = false;
 
@@ -183,6 +195,16 @@ export class TerritoryPass {
       "uTerritoryAlpha",
     )!;
     this.uAltFillAlpha = gl.getUniformLocation(this.program, "uAltFillAlpha")!;
+    this.uSkinTime = gl.getUniformLocation(this.program, "uSkinTime")!;
+    this.skinMotionCpu = new Uint8Array(getPaletteSize());
+    this.skinMotionTex = createTexture2D(gl, {
+      width: getPaletteSize(),
+      height: 1,
+      internalFormat: gl.R8UI,
+      format: gl.RED_INTEGER,
+      type: gl.UNSIGNED_BYTE,
+      data: this.skinMotionCpu,
+    });
 
     gl.useProgram(this.program);
     gl.uniform1i(gl.getUniformLocation(this.program, "uTileTex"), 0);
@@ -195,6 +217,7 @@ export class TerritoryPass {
     gl.uniform1i(gl.getUniformLocation(this.program, "uDefenseCoverageTex"), 7);
     gl.uniform1i(gl.getUniformLocation(this.program, "uBorderTex"), 8);
     gl.uniform1i(gl.getUniformLocation(this.program, "uAffiliation"), 9);
+    gl.uniform1i(gl.getUniformLocation(this.program, "uSkinMotion"), 10);
 
     this.vao = createMapQuad(gl, mapW, mapH);
 
@@ -412,6 +435,23 @@ export class TerritoryPass {
     this.borderTex = tex;
   }
 
+  /**
+   * SITE (r22): how an owner's skin moves (DerpySkinMotion's code; 0 holds
+   * still). Uploaded on the next draw.
+   */
+  setSkinMotion(smallID: number, code: number): void {
+    if (smallID < 0 || smallID >= this.skinMotionCpu.length) return;
+    if (this.skinMotionCpu[smallID] === code) return;
+    this.skinMotionCpu[smallID] = code;
+    this.skinMotionDirty = true;
+  }
+
+  /** The skins' clock in seconds, held at 0 for players who reduce motion. */
+  private skinTime(): number {
+    if (reducedMotion()) return 0;
+    return ((performance.now() - this.skinClockStart) / 1000) % SKIN_TIME_WRAP;
+  }
+
   /** Affiliation palette (row 0 = border/relation colors) for the alt-view fill. */
   setAffiliationTex(tex: WebGLTexture): void {
     this.affiliationTex = tex;
@@ -448,6 +488,7 @@ export class TerritoryPass {
     gl.uniform1f(this.uSaturation, mo.territorySaturation);
     gl.uniform1f(this.uTerritoryAlpha, mo.territoryAlpha);
     gl.uniform1f(this.uAltFillAlpha, this.settings.altView.fillAlpha);
+    gl.uniform1f(this.uSkinTime, this.skinTime());
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.tileTex);
@@ -475,6 +516,22 @@ export class TerritoryPass {
       gl.activeTexture(gl.TEXTURE9);
       gl.bindTexture(gl.TEXTURE_2D, this.affiliationTex);
     }
+    gl.activeTexture(gl.TEXTURE10);
+    gl.bindTexture(gl.TEXTURE_2D, this.skinMotionTex);
+    if (this.skinMotionDirty) {
+      this.skinMotionDirty = false;
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        this.skinMotionCpu.length,
+        1,
+        gl.RED_INTEGER,
+        gl.UNSIGNED_BYTE,
+        this.skinMotionCpu,
+      );
+    }
 
     gl.bindVertexArray(this.vao);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -484,7 +541,20 @@ export class TerritoryPass {
     const gl = this.gl;
     gl.deleteProgram(this.program);
     gl.deleteVertexArray(this.vao);
+    gl.deleteTexture(this.skinMotionTex);
     this.scatter.dispose();
     // tileTex, paletteTex, patternMetaTex, patternDataTex owned by GPUResources / renderer
   }
+}
+
+/** SITE (r22): whether the player asked their system for less motion. */
+let reducedMotionQuery: MediaQueryList | null | undefined;
+function reducedMotion(): boolean {
+  if (reducedMotionQuery === undefined) {
+    reducedMotionQuery =
+      typeof matchMedia === "function"
+        ? matchMedia("(prefers-reduced-motion: reduce)")
+        : null;
+  }
+  return reducedMotionQuery?.matches ?? false;
 }

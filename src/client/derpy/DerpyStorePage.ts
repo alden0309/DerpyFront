@@ -1,11 +1,14 @@
 import { DERPY_FX_THEMES } from "@openfront/shared/DerpyFx";
 import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { guideEn } from "../../derpland/AiGuide";
+import { aiCompare, GuideWords, packPlays } from "../../derpland/AiGuideView";
 import {
   ensurePreviewStyles,
   fxPreview,
   mapStylePreview,
   personaCard,
+  skinArt,
 } from "../../derpland/StorePreviews";
 import {
   itemsInTab,
@@ -76,6 +79,19 @@ function temperament(t: string): { label: string; hint: string } {
     hint: translateText(`derpy.temperament_hint_${t}`),
   };
 }
+
+/**
+ * SITE (r22): the AI personality guide's words, from en.json's
+ * ai_personalities.guide (AiGuide.ts's English if a key is missing).
+ */
+const guideWords: GuideWords = {
+  t: (key, params) => {
+    const v = translateText(`ai_personalities.guide.${key}`, params);
+    return v === `ai_personalities.guide.${key}` ? guideEn(key, params) : v;
+  },
+  temperament: (t) => temperament(t),
+  packName: (id) => tr(`derpy.item_${id}`, id),
+};
 
 let preview: FanfarePlayback | null = null;
 function listen(name: string): void {
@@ -304,6 +320,12 @@ export class DerpyStorePage extends BaseModal {
             </p>`
           : ""}
         ${mine.length > 0 ? this.renderYours(mine) : ""}
+        ${this.tab.category === "personalities" && items.length > 0
+          ? aiCompare(
+              guideWords,
+              items.map((i) => i.name),
+            )
+          : ""}
         ${items.length === 0
           ? html`<p
               class="m-0 rounded-xl border border-dashed border-white/15 p-6 text-center text-white/55"
@@ -399,12 +421,11 @@ export class DerpyStorePage extends BaseModal {
             skins.map((s) => ({
               name: s.name,
               label: skinName(s),
-              art: html`<img
-                src=${s.url}
-                alt=""
-                loading="lazy"
-                class="aspect-square w-full rounded-lg bg-black/30 object-cover"
-              />`,
+              art: skinArt(s, {
+                cls: "aspect-square w-full rounded-lg bg-black/30 object-cover",
+                moves: translateText("derpy.skin_moves"),
+                hint: (m) => translateText(`derpy.skin_motion_${m}`),
+              }),
             })),
           )}
         </section>`;
@@ -539,7 +560,7 @@ export class DerpyStorePage extends BaseModal {
       data-item=${i.name}
     >
       <header class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex min-w-0 flex-1 flex-col">
+        <div class="flex min-w-0 flex-[1_1_16rem] flex-col">
           <h3 class="m-0 text-xl font-black text-white">${itemName(i)}</h3>
           <p class="m-0 text-sm text-white/55">${itemDesc(i)}</p>
         </div>
@@ -556,13 +577,13 @@ export class DerpyStorePage extends BaseModal {
       return html`<div class="grid grid-cols-3 gap-3 sm:grid-cols-5">
         ${i.skins.map(
           (s) =>
-            html`<figure class="m-0 flex flex-col items-center gap-1.5">
-              <img
-                src=${s.url}
-                alt=${skinName(s)}
-                loading="lazy"
-                class="aspect-square w-full rounded-lg bg-black/30 object-cover"
-              />
+            html`<figure class="m-0 flex w-full flex-col items-center gap-1.5">
+              ${skinArt(s, {
+                alt: skinName(s),
+                cls: "aspect-square w-full rounded-lg bg-black/30 object-cover",
+                moves: translateText("derpy.skin_moves"),
+                hint: (m) => translateText(`derpy.skin_motion_${m}`),
+              })}
               <figcaption
                 class="text-center text-xs leading-tight text-white/65"
               >
@@ -573,9 +594,12 @@ export class DerpyStorePage extends BaseModal {
       </div>`;
     }
     if (i.personas) {
-      return html`<ul class="dfx-personas text-white">
-        ${i.personas.map((p) => personaCard(p, temperament(p.temperament)))}
-      </ul>`;
+      return html`<div class="flex min-w-0 flex-col gap-3 text-white">
+        ${packPlays(guideWords, i.name)}
+        <ul class="dfx-personas">
+          ${i.personas.map((p) => personaCard(p, temperament(p.temperament)))}
+        </ul>
+      </div>`;
     }
     if (i.fx) return fxPreview(i.name, i.fx);
     if (i.fanfare) {

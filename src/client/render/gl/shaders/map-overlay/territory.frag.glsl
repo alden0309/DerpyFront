@@ -10,9 +10,12 @@ uniform usampler2D uPatternData;  // R8UI    — 2D buffer, row per owner, bytes
 uniform sampler2DArray uSkinAtlas; // RGBA8 — per-skin PNG layer, tiled via REPEAT wrap
 uniform usampler2D uSkinLayer;    // R8UI — 1D buffer, 1 px per owner. 0=no skin, otherwise layer+1
 uniform usampler2D uSkinAnchor;   // RG16UI — 1D buffer, anchor tile (cx, cy) per owner. (0,0) = world origin
+uniform usampler2D uSkinMotion;   // R8UI — 1 px per owner: 0 = still, else a DerpySkinMotion code (SITE r22)
+uniform float uSkinTime;          // seconds, wrapping every 1440 s; held at 0 with reduced motion
 uniform int uShowPatterns;
 uniform int uIsTeamMode;          // 1 = teams (tint skin by team color), 0 = FFA (raw skin colors)
 const float SKIN_DIM = 1024.0;    // atlas cell size in tiles — must match SkinAtlasArray.SKIN_DIM
+const float TAU = 6.28318530718;
 
 uniform vec2 uMapSize;
 uniform int uAltView;
@@ -84,7 +87,37 @@ void main() {
     // tiling, which keeps the UV continuous across copies. fract() here would
     // jump at every seam and pick the wrong mip level along it.
     vec2 skinUV = (vec2(tc) - anchorOffset) / vec2(SKIN_DIM) + vec2(0.5);
+
+    // SITE (r22): skins that move (DerpySkinMotion.ts). Every period here
+    // divides the clock's 1440 s wrap, so the wrap can't be seen.
+    uint motion = texelFetch(uSkinMotion, ivec2(int(owner), 0), 0).r;
+    if (motion == 1u) {
+      // Drift: the picture slides east (a whole copy every 240 s) and a
+      // little south (720 s). REPEAT wrap keeps it seamless.
+      skinUV += vec2(uSkinTime / 240.0, uSkinTime / 720.0);
+    } else if (motion == 2u) {
+      // Ripple: slow waves bend the picture by a few tiles, like heat
+      // shimmer over lava or light through water.
+      vec2 wave = vec2(tc) * (TAU / 96.0);
+      skinUV += (4.0 / SKIN_DIM) * vec2(
+        sin(wave.y + uSkinTime * (TAU / 8.0)),
+        cos(wave.x + uSkinTime * (TAU / 10.0)));
+    }
     vec4 skin = texture(uSkinAtlas, vec3(skinUV, float(skinLayerPlus1) - 1.0));
+    if (motion == 3u) {
+      // Shimmer: a narrow band of light sweeps diagonally across, every 9 s.
+      float band = fract((float(tc.x) + float(tc.y)) / 640.0 - uSkinTime / 9.0);
+      float gleam = smoothstep(0.0, 0.035, band) * (1.0 - smoothstep(0.035, 0.09, band));
+      skin.rgb = min(vec3(1.0), skin.rgb + gleam * 0.5);
+    } else if (motion == 4u) {
+      // Twinkle: the picture's brightest specks pulse, each patch of the
+      // map in its own time (3 s a pulse).
+      float lum = dot(skin.rgb, vec3(0.299, 0.587, 0.114));
+      vec2 cell = floor(vec2(tc) / 20.0);
+      float phase = fract(sin(dot(cell, vec2(12.9898, 78.233))) * 43758.5453);
+      float pulse = 0.5 + 0.5 * sin(uSkinTime * (TAU / 3.0) + phase * TAU);
+      skin.rgb *= mix(1.0, 0.3 + 0.95 * pulse, smoothstep(0.5, 0.8, lum));
+    }
     // Transparent pixels of the image fall through to the player color;
     // opaque pixels show the skin (tinted by team color in team games).
     vec3 skinColor = (uIsTeamMode == 1) ? color.rgb * skin.rgb : skin.rgb;

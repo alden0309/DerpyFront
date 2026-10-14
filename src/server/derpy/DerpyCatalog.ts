@@ -3,8 +3,9 @@
 //  - DerpyFront: territory skin packs (images stamped over your territory,
 //    centred on where you spawned; a pack unlocks all of its skins), AI
 //    personality packs, Nuke & Dome effects, and victory fanfares;
-//  - Derpy Conquest: campaigns ("1776: The Revolution"), legends and map
-//    styles (DLC r21; the game server checks them: ConquestDlc.ts).
+//  - Derpy Conquest: start dates ("1776: The Revolution"), map styles and
+//    add-ons (Legends) (DLC r21; the game server checks them:
+//    ConquestDlc.ts). SITE (r22) gave Conquest these three tabs.
 //
 // Owning an item is a row in derpy_owned: "pack:<item>" for every item, plus
 // what it unlocks ("skin:<name>", "effect:<name>", "dome:<theme>").
@@ -22,6 +23,10 @@ import {
   fxExplosionAttributes,
 } from "@openfront/shared/DerpyFx";
 import {
+  DERPY_SKIN_MOTION,
+  type SkinMotion,
+} from "@openfront/shared/DerpySkinMotion";
+import {
   CAMPAIGN_1776,
   LEGENDS,
   MAP_STYLES,
@@ -36,6 +41,8 @@ export interface DerpySkin {
   name: string;
   displayName: string;
   url: string;
+  /** SITE (r22): how it moves on the map, if it does (DerpySkinMotion.ts). */
+  motion?: SkinMotion;
 }
 
 export interface DerpyPack {
@@ -48,7 +55,13 @@ export interface DerpyPack {
 }
 
 function skin(name: string, displayName: string): DerpySkin {
-  return { name, displayName, url: `/derpy-skins/${name}.png` };
+  const motion = DERPY_SKIN_MOTION[name];
+  return {
+    name,
+    displayName,
+    url: `/derpy-skins/${name}.png`,
+    ...(motion ? { motion } : {}),
+  };
 }
 
 export const DERPY_PACKS: readonly DerpyPack[] = [
@@ -163,6 +176,52 @@ export const DERPY_PACKS: readonly DerpyPack[] = [
       skin("armada_robots", "Bot Brigade"),
     ],
   },
+  // SITE (r22): three more packs, drawn by scripts/derpy-skins/sweet-shop.html,
+  // tile-mosaic.html and nature-in-motion.html. All original.
+  {
+    name: "sweets",
+    displayName: "Sweet Shop",
+    description:
+      "Peppermint swirls, rainbow sprinkles, a dozen donuts, gummy critters and an ice cream social.",
+    price: 2000,
+    skins: [
+      skin("sweets_peppermint", "Peppermint Swirls"),
+      skin("sweets_sprinkles", "Rainbow Sprinkles"),
+      skin("sweets_donuts", "Donut Dozen"),
+      skin("sweets_gummies", "Gummy Critters"),
+      skin("sweets_icecream", "Ice Cream Social"),
+    ],
+  },
+  {
+    name: "tiles",
+    displayName: "Tile & Mosaic",
+    description:
+      "Stained glass, terrazzo chips, Art Deco fans, a patchwork quilt and a mosaic of eight-pointed stars.",
+    price: 2500,
+    skins: [
+      skin("tiles_stainedglass", "Stained Glass"),
+      skin("tiles_terrazzo", "Terrazzo"),
+      skin("tiles_deco", "Art Deco Fans"),
+      skin("tiles_quilt", "Patchwork Quilt"),
+      skin("tiles_stars", "Star Mosaic"),
+    ],
+  },
+  {
+    // The first skins that move: the territory shader plays each one's
+    // motion over its picture (DerpySkinMotion.ts).
+    name: "motion",
+    displayName: "Nature in Motion",
+    description:
+      "Skins that move: lava that seethes, northern lights that ripple, fireflies that twinkle, clouds that drift across your land, and a honeycomb with a golden gleam.",
+    price: 4500,
+    skins: [
+      skin("motion_lava", "Lava Flow"),
+      skin("motion_aurora", "Northern Lights"),
+      skin("motion_fireflies", "Firefly Meadow"),
+      skin("motion_clouds", "Drifting Clouds"),
+      skin("motion_honey", "Golden Honeycomb"),
+    ],
+  },
 ];
 
 export function findPack(name: string): DerpyPack | undefined {
@@ -181,9 +240,12 @@ export type DerpyCategory =
   | "personalities"
   | "effects"
   | "fanfares"
-  | "campaigns"
-  | "legends"
-  | "mapstyles";
+  // SITE (r22): Derpy Conquest's tabs. A start date ("1776: The
+  // Revolution") was a "campaigns" item and Legends a "legends" one; links
+  // naming those still land on the new tabs (StoreTabs.tabFromHash).
+  | "startdates"
+  | "mapstyles"
+  | "addons";
 
 export interface DerpyStoreTab {
   game: DerpyGame;
@@ -225,21 +287,24 @@ export const DERPY_STORE_TABS: readonly DerpyStoreTab[] = [
   {
     game: "conquest",
     label: "Derpy Conquest",
+    // SITE (r22): Start Dates, Map Styles, Add-Ons (Legends lives here).
     categories: [
       {
-        id: "campaigns",
-        label: "Campaigns",
-        blurb: "New starting dates with campaigns of their own.",
-      },
-      {
-        id: "legends",
-        label: "Legends",
-        blurb: "American legends to hunt down, for the bold and the learned.",
+        id: "startdates",
+        label: "Start Dates",
+        blurb:
+          "New years to begin a game in, each with a campaign of its own. 1607, 1650 and 1700 come with every game.",
       },
       {
         id: "mapstyles",
-        label: "Map styles",
-        blurb: "Other looks for Conquest's map.",
+        label: "Map Styles",
+        blurb: "Other looks for Conquest's map. Only you see them.",
+      },
+      {
+        id: "addons",
+        label: "Add-Ons",
+        blurb:
+          "More to find and do in any Derpy Conquest game, from any start date.",
       },
     ],
   },
@@ -374,7 +439,7 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
   {
     name: CAMPAIGN_1776,
     game: "conquest",
-    category: "campaigns",
+    category: "startdates", // SITE (r22)
     displayName: "1776: The Revolution",
     description:
       "A new start date: 1 January 1776, with Boston under siege and independence not yet declared. Live through the American Revolution to the Treaty of Paris, as a patriot, a loyalist or neither.",
@@ -394,7 +459,7 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
   {
     name: LEGENDS,
     game: "conquest",
-    category: "legends",
+    category: "addons", // SITE (r22)
     displayName: "Legends",
     description:
       "The Fountain of Youth, the Seven Cities of Cíbola, the fate of the Lost Colony, Norumbega, Blackbeard's hoard, a lost silver mine, and the sacred places of the native nations. Rumours rarely come, the clues need a master's skill, and the roads are long. Some of it is true, after a fashion.",
@@ -430,6 +495,9 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
 ];
 // ---- end DLC (r21)
 
+// SITE (r22): each pack's words say what its personas really do (read from
+// the engine's temperaments); the store's "How it plays" and the side by
+// side comparison are in src/derpland/AiGuide.ts.
 const PERSONALITY_TEXT: Record<
   string,
   { displayName: string; description: string; price: number }
@@ -437,31 +505,31 @@ const PERSONALITY_TEXT: Record<
   ai_pirates: {
     displayName: "Pirate Lords",
     description:
-      "Six crews under the black flag: raiders who strike early, a salt queen who waits for her moment, a captain who'd rather trade, and one who keeps the powder dry for a very big bang.",
+      "Six crews under the black flag: two raiders who strike early, a salt queen who pounces on an opening, a captain who'd rather trade, an old cove that digs in, and a powder keg with silos to spare.",
     price: 2500,
   },
   ai_empires: {
     displayName: "Old Empires",
     description:
-      "Crowns, thrones and citadels that measure time in centuries: stubborn walls, gilded trade and an iron crown that never stops marching.",
+      "Crowns, thrones and citadels that measure time in centuries: two that wall themselves in, a gilded dynasty that trades, an eagle that pounces, an iron crown that never stops marching, and a wildfire with silos.",
     price: 2500,
   },
   ai_merchants: {
     displayName: "Merchant Princes",
     description:
-      "Trading houses that build ports before barracks, never embargo a customer, and only bring out the big guns for a hostile takeover.",
+      "Trading houses that build ports before barracks: three that never start an embargo, a counting house that digs in, toll barons who pounce, and Monopolia, which wants it all.",
     price: 2000,
   },
   ai_scientists: {
     displayName: "Mad Scientists",
     description:
-      "Laboratories with a taste for silos. Expect early missiles, bubbling defences and the occasional zeppelin full of trade goods.",
+      "Laboratories with a taste for silos: two nuclear labs, a bubbling bunker, a clockwork army, a professor who seizes his chance, and a zeppelin academy full of trade goods.",
     price: 3000,
   },
   ai_warlords: {
     displayName: "Frontier Warlords",
     description:
-      "Riders, raiders and railroad barons from the edge of the map. Fast, hungry and not much for alliances.",
+      "Riders, raiders and railroad barons from the edge of the map: two hordes that ride early, canyon kings who dig in, a wolf clan that pounces, barons who trade, and a gang with dynamite to spare.",
     price: 2500,
   },
 };

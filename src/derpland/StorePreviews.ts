@@ -3,7 +3,12 @@
 // a Nuke & Dome effect pack drawn as a nuke streaking into a burst beside a
 // shimmering Dome, and an AI persona's emblem card.
 
+import {
+  SKIN_MOTION_TEXT,
+  type SkinMotion,
+} from "@openfront/shared/DerpySkinMotion";
 import { html, svg, TemplateResult } from "lit";
+import { AI_GUIDE_CSS } from "./AiGuideView"; // SITE (r22)
 
 export interface FxColours {
   trail: string[];
@@ -88,27 +93,29 @@ export function fxPreview(name: string, fx: FxColours): TemplateResult {
   </svg>`;
 }
 
+// SITE (r22): the hints say what the engine's temperaments really do (the
+// same words as en.json's derpy.temperament_hint_*; AiGuide.ts has more).
 export const TEMPERAMENT_TEXT: Record<string, { label: string; hint: string }> =
   {
     aggressive: {
       label: "Aggressive",
-      hint: "Attacks early and often, keeps little at home.",
+      hint: "Attacks early and often, keeps little at home, builds few SAMs.",
     },
     trader: {
       label: "Trader",
-      hint: "Ports and factories first; never embargoes; nukes only in answer.",
+      hint: "Ports and factories first, slow to fight, never starts an embargo, nukes only attackers.",
     },
     turtle: {
       label: "Turtle",
-      hint: "Twice the SAMs, defense posts at the first sign of trouble.",
+      hint: "Twice the SAMs, early defense posts, a big army at home; nukes only attackers.",
     },
     nuker: {
       label: "Nuker",
-      hint: "Silos early and many.",
+      hint: "First silo sooner, up to 6 silos, extra SAMs.",
     },
     opportunist: {
       label: "Opportunist",
-      hint: "Grabs empty land fast and pounces when it can.",
+      hint: "Moves faster and attacks sooner; more ports; smaller pushes into empty land.",
     },
   };
 
@@ -127,6 +134,67 @@ export function personaCard(
     >
   </li>`;
 }
+
+// ---- SITE (r22): skins that move ----
+
+/**
+ * A skin's picture for the store. One that moves (DerpySkinMotion.ts) plays
+ * a little of its motion here too, in CSS (drifting, rippling, a gleam or a
+ * twinkle; still with reduced motion), with a "Moves" badge.
+ */
+export function skinArt(
+  s: { url: string; motion?: string },
+  opts: {
+    alt?: string;
+    cls?: string;
+    moves?: string;
+    hint?: (motion: SkinMotion) => string;
+  } = {},
+): TemplateResult {
+  const motion = s.motion as SkinMotion | undefined;
+  if (!motion || !(motion in SKIN_MOTION_TEXT)) {
+    return html`<img
+      src=${s.url}
+      alt=${opts.alt ?? ""}
+      loading="lazy"
+      class=${opts.cls ?? ""}
+    />`;
+  }
+  const hint = (opts.hint ?? ((m) => SKIN_MOTION_TEXT[m]))(motion);
+  return html`<span
+    class="dsk-move ${opts.cls ?? ""}"
+    data-motion=${motion}
+    role="img"
+    aria-label=${[opts.alt, hint].filter(Boolean).join(": ")}
+    title=${hint}
+    ><span class="dsk-strip"
+      ><img src=${s.url} alt="" loading="lazy" /><img
+        src=${s.url}
+        alt=""
+        loading="lazy" /></span
+    ><span class="dsk-badge">${opts.moves ?? "Moves"}</span></span
+  >`;
+}
+
+/** SITE (r22): the moving skins' thumbnails (unlayered, so they win over the pages' own skin rules). */
+const SKIN_MOTION_CSS = `
+.dsk-move{position:relative;display:block;overflow:hidden;width:100%;aspect-ratio:1;margin:0;padding:0;border-radius:8px;background:#0003}
+.dsk-strip{display:flex;width:200%;height:100%;margin:0}
+.dsk-strip img{flex:none;display:block;width:50%;height:100%;aspect-ratio:auto;object-fit:cover;margin:0;border-radius:0;background:none}
+.dsk-move:not([data-motion=drift]) .dsk-strip{width:100%}
+.dsk-move:not([data-motion=drift]) .dsk-strip img{width:100%}
+.dsk-move:not([data-motion=drift]) .dsk-strip img+img{display:none}
+.dsk-move[data-motion=drift] .dsk-strip{animation:dsk-drift 14s linear infinite}
+.dsk-move[data-motion=ripple] img{animation:dsk-ripple 5s ease-in-out infinite}
+.dsk-move[data-motion=twinkle] img{animation:dsk-twinkle 1.8s ease-in-out infinite}
+.dsk-move[data-motion=shimmer]::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.6) 50%,transparent 58%);background-size:300% 100%;animation:dsk-gleam 3.2s linear infinite;pointer-events:none}
+.dsk-badge{position:absolute;top:5px;right:5px;z-index:1;display:block;margin:0;padding:1px 7px;border-radius:99px;background:#000000b3;color:#fde68a;font-size:10px;font-weight:800;letter-spacing:.05em;line-height:1.6;text-transform:uppercase;text-align:center}
+@keyframes dsk-drift{to{transform:translateX(-50%)}}
+@keyframes dsk-ripple{0%,100%{transform:scale(1.06)}33%{transform:scale(1.08) skew(1.2deg,-.6deg)}66%{transform:scale(1.05) skew(-.8deg,.9deg)}}
+@keyframes dsk-twinkle{0%,100%{filter:brightness(.85)}50%{filter:brightness(1.4)}}
+@keyframes dsk-gleam{from{background-position:0 0}to{background-position:100% 0}}
+@media (prefers-reduced-motion:reduce){.dsk-move *,.dsk-move::after{animation:none!important}}
+`;
 
 // ---- DLC (r21): Derpy Conquest's items ----
 
@@ -294,6 +362,7 @@ export function ensurePreviewStyles(): void {
   injected = true;
   const style = document.createElement("style");
   style.dataset.storePreviews = "";
-  style.textContent = STORE_PREVIEW_CSS + DLC_PREVIEW_CSS; // DLC (r21)
+  style.textContent =
+    STORE_PREVIEW_CSS + DLC_PREVIEW_CSS + AI_GUIDE_CSS + SKIN_MOTION_CSS; // DLC (r21), SITE (r22)
   document.head.appendChild(style);
 }

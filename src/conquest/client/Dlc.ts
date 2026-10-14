@@ -19,7 +19,7 @@ export function dlcOwned(): ConquestDlcOwned {
   return owned;
 }
 
-/** Where the store keeps an item's tab. */
-export const STORE_CAMPAIGNS = "/store#conquest/campaigns";
-export const STORE_LEGENDS = "/store#conquest/legends";
+/** Where the store keeps an item's tab (SITE r22: Start Dates, Add-Ons). */
+export const STORE_CAMPAIGNS = "/store#conquest/startdates";
+export const STORE_LEGENDS = "/store#conquest/addons";
 export const STORE_MAP_STYLES = "/store#conquest/mapstyles";

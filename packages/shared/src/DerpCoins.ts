@@ -22,19 +22,32 @@ export const DERP_COINS_MIN_GAME_SECONDS = 120;
 // their products are rounded down. Before: played 5, 0.5 a percent of land
 // (up to 50), 3 a conquest and 1 a bot (up to 30), a coin per 500k gold (up
 // to 20), MVP 25, other awards 10, a win 50.
+//
+// SITE (r22): every part raised again by about a sixth (16.7%, 17.5% for a
+// conquest). Before: played 6, 0.6 a percent of land (up to 60), 4 a
+// conquest and 1.2 a bot (up to 36), a coin per 420k gold (up to 24), MVP
+// 30, other awards 12, a win 60.
 export const DERP_COINS = {
-  played: 6,
-  perTerritoryPercent: 0.6,
-  maxTerritory: 60,
-  perConquest: 4,
-  perBotConquest: 1.2,
-  maxConquests: 36,
-  goldPerCoin: 420_000n,
-  maxGold: 24,
-  mvp: 30,
-  otherAward: 12,
-  win: 60,
+  played: 7,
+  perTerritoryPercent: 0.7,
+  maxTerritory: 70,
+  perConquest: 4.7,
+  perBotConquest: 1.4,
+  maxConquests: 42,
+  goldPerCoin: 360_000n,
+  maxGold: 28,
+  mvp: 35,
+  otherAward: 14,
+  win: 70,
 } as const;
+
+/**
+ * Rounds a pay line down, forgiving the float's last-digit slips (90% of the
+ * land at 0.7 a percent is 62.99999999999999 in floating point, not 63).
+ */
+function coinsDown(x: number): number {
+  return Math.floor(x + 1e-9);
+}
 
 export type DerpCoinLine =
   | "played"
@@ -70,13 +83,13 @@ export function derpCoinsForGame(g: DerpCoinGame): DerpCoinResult {
   }
   const territory = Math.min(
     DERP_COINS.maxTerritory,
-    Math.floor(
+    coinsDown(
       Math.max(0, g.peakTerritoryPercent) * DERP_COINS.perTerritoryPercent,
     ),
   );
   const conquests = Math.min(
     DERP_COINS.maxConquests,
-    Math.floor(
+    coinsDown(
       g.humansAndNationsConquered * DERP_COINS.perConquest +
         g.botsConquered * DERP_COINS.perBotConquest,
     ),

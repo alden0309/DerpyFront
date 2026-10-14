@@ -1,7 +1,7 @@
 // The Derp Store and your Inventory. Since DFSTORE (r21) both are tabbed by
 // game (DerpyFront, Derpy Conquest) and then by category: skin packs, AI
 // personalities, Nuke & Dome effects and victory fanfares for DerpyFront;
-// campaigns, legends and map styles for Conquest (filled by later DLC).
+// start dates, map styles and add-ons for Conquest (SITE r22's tabs).
 
 import { DERPY_FX_THEMES } from "@openfront/shared/DerpyFx";
 import { html, nothing, TemplateResult } from "lit";
@@ -40,7 +40,12 @@ import {
   fxPreview,
   mapStylePreview,
   personaCard,
+  skinArt,
+  TEMPERAMENT_TEXT,
 } from "../derpland/StorePreviews";
+// SITE (r22): what the AI personality packs do, side by side.
+import { guideEn } from "../derpland/AiGuide";
+import { aiCompare, GuideWords, packPlays } from "../derpland/AiGuideView";
 // DLC (r21): the map style you use in Derpy Conquest, chosen here too.
 import {
   chooseMapStyle,
@@ -144,23 +149,36 @@ function writeTab(tab: StoreTabChoice): void {
   );
 }
 
+/** SITE (r22): the AI guide's words in English, pack names from the catalog. */
+function guideWords(items: readonly StoreItem[]): GuideWords {
+  return {
+    t: guideEn,
+    temperament: (t) => TEMPERAMENT_TEXT[t] ?? { label: t, hint: "" },
+    packName: (id) => items.find((i) => i.name === id)?.displayName ?? id,
+  };
+}
+
 /** What an item holds, under its name: skins, personas, the effect, music. */
-function itemBody(item: StoreItem): TemplateResult | typeof nothing {
+function itemBody(
+  item: StoreItem,
+  words?: GuideWords,
+): TemplateResult | typeof nothing {
   if (item.skins) {
     return html`<ul class="dl-skins">
       ${item.skins.map(
         (s) =>
           html`<li>
-            <img src=${s.url} alt="" loading="lazy" />
+            ${skinArt(s)}
             <span>${s.displayName}</span>
           </li>`,
       )}
     </ul>`;
   }
   if (item.personas) {
-    return html`<ul class="dfx-personas dl-itembody">
-      ${item.personas.map((p) => personaCard(p))}
-    </ul>`;
+    return html`${words ? packPlays(words, item.name) : nothing}
+      <ul class="dfx-personas dl-itembody">
+        ${item.personas.map((p) => personaCard(p))}
+      </ul>`;
   }
   if (item.fx) {
     return html`<div class="dl-itembody">
@@ -274,9 +292,9 @@ export class DerpStore extends HubPage {
         <div>
           <h1 class="dl-h1">Derp Store</h1>
           <p class="dl-lede">
-            Skins, AI personalities, effects and fanfares for DerpyFront; a
-            campaign, legends and map styles for Derpy Conquest. Paid for with
-            the Derp Coins you win in either game.
+            Skins, AI personalities, effects and fanfares for DerpyFront; start
+            dates, map styles and add-ons for Derpy Conquest. Paid for with the
+            Derp Coins you win in either game.
           </p>
         </div>
         ${this.account
@@ -296,11 +314,18 @@ export class DerpStore extends HubPage {
 
   private renderTab(cat: StoreCatalog, tab: StoreTabChoice): TemplateResult {
     const items = itemsInTab(cat.items, tab);
+    const words = guideWords(cat.items);
     return html`
       ${tabBar(cat.tabs, tab, tabCounts(cat.items, cat.tabs), (t) =>
         this.pick(t),
       )}
       <p class="dl-tabblurb">${blurbOf(cat.tabs, tab)}</p>
+      ${tab.category === "personalities" && items.length > 0
+        ? aiCompare(
+            words,
+            items.map((i) => i.name),
+          )
+        : nothing}
       ${items.length === 0
         ? html`<div class="dl-panel dl-empty with-mascot">
             ${bananaMark("dl-banana mid")}
@@ -313,12 +338,12 @@ export class DerpStore extends HubPage {
             </div>
           </div>`
         : html`<div class="dl-packs">
-            ${items.map((i) => this.renderItem(i))}
+            ${items.map((i) => this.renderItem(i, words))}
           </div>`}
     `;
   }
 
-  private renderItem(item: StoreItem): TemplateResult {
+  private renderItem(item: StoreItem, words?: GuideWords): TemplateResult {
     const owned = this.owns(item);
     const coins = this.account?.coins ?? 0;
     const short = Math.max(0, item.price - coins);
@@ -327,8 +352,8 @@ export class DerpStore extends HubPage {
       action = html`<span class="dl-owned">Owned</span>
         <a class="dl-btn ghost" href=${`/inventory${tabHash(item)}`}
           >${item.category === "personalities" ||
-          item.category === "campaigns" ||
-          item.category === "legends" // DLC (r21)
+          item.category === "startdates" || // SITE (r22)
+          item.category === "addons"
             ? "See it"
             : "Use it"}</a
         >`;
@@ -379,7 +404,7 @@ export class DerpStore extends HubPage {
             >
           </div>`
         : nothing}
-      ${itemBody(item)}
+      ${itemBody(item, words)}
       <div class="dl-pack-foot">
         ${note
           ? html`<p class="dl-note ${note.ok ? "ok" : "bad"}" role="status">
@@ -532,6 +557,7 @@ export class DerpInventory extends HubPage {
               (i) =>
                 html`<article class="dl-pack" data-item=${i.name}>
                   <h2 class="dl-pack-name">${i.displayName}</h2>
+                  ${packPlays(guideWords(this.catalog?.items ?? []), i.name)}
                   <ul class="dfx-personas dl-itembody">
                     ${(i.personas ?? []).map((p) => personaCard(p))}
                   </ul>
@@ -697,14 +723,7 @@ export class DerpInventory extends HubPage {
         "Your plain color",
         html`<span class="dl-skin-none" aria-hidden="true"></span>`,
       )}
-      ${owned.map((s) =>
-        tile(
-          s.name,
-          s.displayName,
-          s.pack,
-          html`<img src=${s.url} alt="" loading="lazy" />`,
-        ),
-      )}
+      ${owned.map((s) => tile(s.name, s.displayName, s.pack, skinArt(s)))}
     </ul>`;
   }
 }

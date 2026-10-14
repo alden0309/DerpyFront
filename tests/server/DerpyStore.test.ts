@@ -61,7 +61,8 @@ describe("the catalog", () => {
       DERPY_STORE_TABS.map((t) => [t.game, t.categories.map((c) => c.id)]),
     ).toEqual([
       ["derpyfront", ["skins", "personalities", "effects", "fanfares"]],
-      ["conquest", ["campaigns", "legends", "mapstyles"]],
+      // SITE (r22): Start Dates, Map Styles, Add-Ons.
+      ["conquest", ["startdates", "mapstyles", "addons"]],
     ]);
   });
 
@@ -115,13 +116,13 @@ describe("the catalog", () => {
   test("Conquest's tabs hold its DLC", () => {
     const conquest = DERPY_ITEMS.filter((i) => i.game === "conquest");
     expect(conquest.map((i) => i.category).sort()).toEqual([
-      "campaigns",
-      "legends",
+      "addons", // SITE (r22): Legends
       "mapstyles",
       "mapstyles",
       "mapstyles",
       "mapstyles",
       "mapstyles",
+      "startdates", // SITE (r22): 1776: The Revolution
     ]);
   });
 
@@ -212,7 +213,7 @@ describe("the cosmetics catalog the game reads", () => {
 
   test("still parses as OpenFront's cosmetics, skins and effects alike", () => {
     const parsed = CosmeticsSchema.parse(catalog);
-    expect(Object.keys(parsed.skins ?? {})).toHaveLength(40);
+    expect(Object.keys(parsed.skins ?? {})).toHaveLength(55); // SITE (r22): 11 packs of 5
     expect(Object.keys(parsed.effects?.nukeTrail ?? {})).toHaveLength(
       DERPY_FX_THEMES.length,
     );

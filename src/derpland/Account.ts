@@ -248,6 +248,8 @@ export interface Skin {
   name: string;
   displayName: string;
   url: string;
+  /** SITE (r22): how it moves on the map, if it does. */
+  motion?: "drift" | "ripple" | "shimmer" | "twinkle";
 }
 
 export interface Pack {
@@ -277,9 +279,10 @@ export type StoreCategory =
   | "personalities"
   | "effects"
   | "fanfares"
-  | "campaigns"
-  | "legends"
-  | "mapstyles";
+  // SITE (r22): Derpy Conquest's tabs (were campaigns, legends, mapstyles).
+  | "startdates"
+  | "mapstyles"
+  | "addons";
 
 export interface StoreTab {
   game: StoreGame;
