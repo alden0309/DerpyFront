@@ -6,6 +6,7 @@
 // a dead duellist's kin, and save, load and the delta.
 
 import { describe, expect, test } from "vitest";
+import { splitPrice } from "../../src/conquest/client/ui/Price";
 import { knowOf, statsView } from "../../src/conquest/engine/Acquaint";
 import {
   BAWDY,
@@ -775,6 +776,14 @@ describe("the bawdy house", () => {
     const ev = life.events.find((e) => e.key === "bawdy-evening")!;
     expect(ev.body).toMatch(/grown and free/);
     expect(ev.choices[1].label).toMatch(/the pox.*\(\d coins\)$/);
+    // Both costs go in the price chip ("(1 coin)" as well as "(3 coins)").
+    expect(splitPrice(ev.choices[0].label)).toEqual({
+      text: expect.stringMatching(
+        /^Punch, cards and a song \(.+ you're seen\)$/,
+      ),
+      cost: BAWDY.parlour.cost,
+    });
+    expect(splitPrice(ev.choices[1].label).cost).toBeGreaterThan(1);
     const purse = life.purse;
     answer(g, life, "bawdy-evening", 1);
     expect(life.stress).toBeLessThan(50);
