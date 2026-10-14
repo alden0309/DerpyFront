@@ -865,6 +865,8 @@ export interface Life {
   party?: Party | null;
   /** SHIPS (r21): landed on a shore with no port; the ship that brought you lies off it a while. */
   lying?: Lying | null;
+  /** LEGACY (r21): each character of the line as their part in it ended (Legacy.ts). */
+  legacy?: LifeLegacy;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -5281,4 +5283,67 @@ export interface PartyCommand {
   act: string;
   /** The other player. */
   seat?: string;
+}
+
+// ---------------------------------------------------------------- LEGACY (r21)
+
+/** How a character came to a line, and how their part in it ended. */
+export type LineCame = "born" | "begin" | "heir" | "takeover";
+export type LineEnded = "died" | "europe" | "ended";
+
+/** The line's running counts at a moment, to tell one character's part from the rest. */
+export interface TallyMark {
+  days: number;
+  jobs: number;
+  promotions: number;
+  children: number;
+  marriages: number;
+  battles: number;
+  battlesWon: number;
+  wounds: number;
+  provinces: number;
+  earned: number;
+  elections: number;
+  duels: number;
+}
+
+/**
+ * One character of a line, as their part in it ended: what they were, what
+ * they had, and the line's counts when their part began and ended. Nothing
+ * secret (no lovers, no plots).
+ */
+export interface LineRecord {
+  c: number;
+  /** The days their part began and ended. */
+  from: number;
+  to: number;
+  came: LineCame;
+  ended: LineEnded;
+  /** The moment that ended it ("Amos Fell died, a fever at 52"). */
+  why: string;
+  /** What they were at the end ("Master cooper", "Burgess for Jamestown"). */
+  title: string;
+  home: number;
+  /** Their best renown, and the purse they left. */
+  renown: number;
+  purse: number;
+  health: number;
+  /** Their skills at the end. */
+  skills: Partial<Record<Skill, number>>;
+  /** Their husband or wife at the end (-1: none), patron, and friends, rivals, mentor and sworn enemy. */
+  spouse: number;
+  patron: number;
+  ties: { c: number; tie: Tie }[];
+  t0: TallyMark;
+  t1: TallyMark;
+}
+
+/** A line's characters whose parts are done, and the part being played now. */
+export interface LifeLegacy {
+  recs: LineRecord[];
+  /** The part played now: when it began, how, the line's counts then, and its best renown so far. */
+  since?: number;
+  came?: LineCame;
+  t0?: TallyMark;
+  peak?: number;
 }

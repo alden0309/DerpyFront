@@ -16,6 +16,7 @@ import {
   scrollIcon,
 } from "../derpland/Icons";
 import "./BasedCard"; // BASED (r19): Mr. Based, coming soon
+import "./ConquestGame"; // LEGACY (r21): a finished Conquest game's page
 import { nationName, nf, timeAgo } from "./format";
 import { HubPage } from "./HubPage";
 import "./Leaderboard";
@@ -47,12 +48,16 @@ export const NAZARIO_IMAGE = "https://i.ytimg.com/vi/VGVhzZqAziY/hqdefault.jpg";
 
 type Route =
   | { page: "home" | "store" | "inventory" | "leaderboard" | "account" }
-  | { page: "player"; name: string };
+  | { page: "player"; name: string }
+  // LEGACY (r21): a finished Derpy Conquest game: its lines and their chronicles.
+  | { page: "chronicle"; id: string };
 
 export function routeFor(path: string): Route {
   const p = path.replace(/\/+$/, "") || "/";
   const player = /^\/player\/([A-Za-z0-9_]{1,20})$/.exec(p);
   if (player) return { page: "player", name: player[1] };
+  const chron = /^\/chronicle\/([A-Za-z0-9-]{1,60})$/.exec(p); // LEGACY (r21)
+  if (chron) return { page: "chronicle", id: chron[1] };
   switch (p) {
     case "/store":
       return { page: "store" };
@@ -74,6 +79,7 @@ const TITLES: Record<Route["page"], string> = {
   leaderboard: "Leaderboard · Derp Land",
   account: "Your account · Derp Land",
   player: "Player · Derp Land",
+  chronicle: "Derpy Conquest · Derp Land", // LEGACY (r21)
 };
 
 @customElement("derp-land")
@@ -94,7 +100,8 @@ export class DerpLand extends LitElement {
 
   render(): TemplateResult {
     const r = this.route;
-    const bar: BarPage = r.page === "player" ? "leaderboard" : r.page;
+    const bar: BarPage =
+      r.page === "player" || r.page === "chronicle" ? "leaderboard" : r.page;
     return html`
       <derp-bar page=${bar}></derp-bar>
       <main class="dl-main">${this.renderPage(r)}</main>
@@ -114,6 +121,8 @@ export class DerpLand extends LitElement {
         return html`<dl-profile self></dl-profile>`;
       case "player":
         return html`<dl-profile name=${r.name}></dl-profile>`;
+      case "chronicle": // LEGACY (r21)
+        return html`<dl-conquest-game .gameId=${r.id}></dl-conquest-game>`;
       default:
         return html`<dl-home></dl-home>`;
     }
@@ -281,7 +290,12 @@ export class DerpHome extends HubPage {
               ${r.won ? "won" : "played"}
               ${r.game === "derpyfront"
                 ? html`DerpyFront on <b>${r.where}</b>`
-                : html`Derpy Conquest as <b>${nationName(r.where)}</b>`}
+                : html`<a
+                      class="dl-feed-game"
+                      href="/chronicle/${encodeURIComponent(r.gameId)}"
+                      >Derpy Conquest</a
+                    >
+                    as <b>${nationName(r.where)}</b>`}
               ${r.won ? crownIcon("dl-i dl-crown") : nothing}
             </span>
             <span class="dl-feed-coins"

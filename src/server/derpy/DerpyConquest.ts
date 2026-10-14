@@ -7,6 +7,11 @@ import {
   ACHIEVEMENTS,
 } from "../../conquest/engine/Achievements"; // MAP (r12)
 import { PLAY_PAY } from "../../conquest/engine/LifeRules"; // LEGACY (r21)
+import type {
+  ConquestGamePage,
+  LineCharacter,
+  StoredChronicle,
+} from "../../conquest/Protocol"; // LEGACY (r21)
 import { logger } from "../Logger";
 import { achievementsOf } from "./DerpyAchievements"; // MAP (r12)
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
@@ -27,7 +32,15 @@ export interface ConquestPlayerResult {
   battlesWon: number;
   conquests: number;
   goldEarned: number;
+  /** Paid now, at the end (LEGACY r21: the rest was paid as they played). */
   coins: number;
+  // LEGACY (r21): for the game's page.
+  /** All the game paid them (null: a guest). */
+  total?: number | null;
+  /** The family (or the last character's name). */
+  line?: string;
+  chars?: LineCharacter[];
+  chronicle?: StoredChronicle;
 }
 
 export interface ConquestGameResult {
@@ -97,6 +110,12 @@ export async function recordConquestGame(
               rank: p.rank,
               score: p.score,
               won: p.won,
+              // LEGACY (r21): the line, its characters and its chronicle.
+              account: p.accountId !== null,
+              ...(p.line !== undefined ? { line: p.line } : {}),
+              ...(p.total !== undefined ? { coins: p.total } : {}),
+              ...(p.chars ? { chars: p.chars } : {}),
+              ...(p.chronicle ? { chronicle: p.chronicle } : {}),
             })),
           ),
         ],
@@ -410,6 +429,8 @@ export interface ConquestGameSummary {
   score: number;
   provinces: number;
   coins: number;
+  /** LEGACY (r21): the characters their line was, in order (games before r21: none). */
+  chars?: string[];
 }
 
 /** MAP (r12): an achievement on a player's profile. */
@@ -441,7 +462,11 @@ export async function conquestProfile(accountId: number): Promise<{
   const games = await pool.query(
     `SELECT g.game_id, g.ended_at, g.duration_s, g.final_year, g.difficulty,
        g.num_players, g.winner, cp.nation, cp.won, cp.rank, cp.score,
-       cp.provinces, (cp.coins + coalesce(pl.play + pl.lines, 0))::int AS coins
+       cp.provinces, (cp.coins + coalesce(pl.play + pl.lines, 0))::int AS coins,
+       (SELECT jsonb_agg(ch->>'name')
+          FROM jsonb_array_elements(g.summary) e,
+               jsonb_array_elements(coalesce(e->'chars', '[]'::jsonb)) ch
+          WHERE (e->>'rank')::int = cp.rank) AS chars
      FROM derpy_conquest_players cp
      JOIN derpy_conquest_games g ON g.game_id = cp.game_id
      LEFT JOIN derpy_conquest_play pl
@@ -484,7 +509,77 @@ export async function conquestProfile(accountId: number): Promise<{
       score: g.score,
       provinces: g.provinces,
       coins: g.coins,
+      ...(Array.isArray(g.chars) && g.chars.length ? { chars: g.chars } : {}),
     })),
+  };
+}
+
+/**
+ * LEGACY (r21): a finished game for its page: every player (their account's
+ * name now, for a link), every character their line was with their stats,
+ * and each line's chronicle. Null if there's no such game.
+ */
+export async function conquestGamePage(
+  gameId: string,
+): Promise<ConquestGamePage | null> {
+  const pool = await db();
+  const g = (
+    await pool.query(
+      `SELECT game_id, ended_at, duration_s, end_year, final_year, difficulty,
+         num_players, winner, summary
+       FROM derpy_conquest_games WHERE game_id = $1`,
+      [gameId],
+    )
+  ).rows[0];
+  if (!g) return null;
+  const accounts = await pool.query(
+    `SELECT cp.rank, a.username,
+       (cp.coins + coalesce(pl.play + pl.lines, 0))::int AS coins
+     FROM derpy_conquest_players cp
+     JOIN derpy_accounts a ON a.id = cp.account_id
+     LEFT JOIN derpy_conquest_play pl
+       ON pl.game_id = cp.game_id AND pl.account_id = cp.account_id
+     WHERE cp.game_id = $1`,
+    [gameId],
+  );
+  const byRank = new Map(
+    accounts.rows.map((r) => [
+      Number(r.rank),
+      { username: String(r.username), coins: Number(r.coins) },
+    ]),
+  );
+  type Stored = ConquestGamePage["players"][number] & { account?: boolean };
+  const summary: Stored[] = Array.isArray(g.summary) ? g.summary : [];
+  return {
+    gameId: g.game_id,
+    endedAt: new Date(g.ended_at).toISOString(),
+    durationS: Number(g.duration_s),
+    endYear: Number(g.end_year),
+    finalYear: Number(g.final_year),
+    difficulty: g.difficulty,
+    numPlayers: Number(g.num_players),
+    winner: g.winner,
+    players: summary
+      .map((p) => {
+        const acc = byRank.get(Number(p.rank));
+        return {
+          name: p.name,
+          username: acc?.username ?? null,
+          nation: p.nation,
+          rank: Number(p.rank),
+          score: Number(p.score),
+          won: !!p.won,
+          ...(p.line ? { line: p.line } : {}),
+          coins: acc
+            ? acc.coins
+            : p.account === false
+              ? null
+              : (p.coins ?? null),
+          ...(p.chars ? { chars: p.chars } : {}),
+          ...(p.chronicle ? { chronicle: p.chronicle } : {}),
+        };
+      })
+      .sort((a, b) => a.rank - b.rank),
   };
 }
 

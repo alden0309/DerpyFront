@@ -17,6 +17,7 @@ import { z } from "zod";
 import { checkAchievements } from "../../conquest/engine/Achievements"; // MAP (r12)
 import { validateLook } from "../../conquest/engine/Appearance";
 import { dateOf, formatDate } from "../../conquest/engine/Calendar";
+import { chronicleOf, type Chronicle } from "../../conquest/engine/Chronicle"; // LEGACY (r21)
 import { lifeCoins, linesDue } from "../../conquest/engine/Coins"; // LEGACY (r21): linesDue
 import { dropFromTable } from "../../conquest/engine/Dice"; // DICE (r14)
 import {
@@ -25,6 +26,7 @@ import {
   tablesOf,
 } from "../../conquest/engine/DiceCore"; // DICE (r14)
 import { ConquestGame, STATE_VERSION } from "../../conquest/engine/Game";
+import { lineCharacters } from "../../conquest/engine/Legacy"; // LEGACY (r21)
 import { planProblem } from "../../conquest/engine/Life";
 import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
 import { lifeOfSeat, lifeScore } from "../../conquest/engine/LifeQueries";
@@ -73,6 +75,7 @@ import {
   SavedGame,
   SeatInfo,
   ServerMessage,
+  StoredChronicle,
 } from "../../conquest/Protocol";
 import {
   deleteSave,
@@ -2068,6 +2071,12 @@ export class ConquestRooms {
           coins,
           pay: p && end ? { p, end } : null,
           lineName: last ? `${last.first} ${last.family}` : seat.name,
+          // LEGACY (r21): every character the line was, and its chronicle
+          // as anyone may read it (nothing secret).
+          chars: lineCharacters(s, life, AMERICAS),
+          chronicle: storedChronicle(
+            chronicleOf(s, life, AMERICAS, { secrets: false }),
+          ),
         };
       })
       .sort((a, b) => b.score - a.score);
@@ -2098,6 +2107,7 @@ export class ConquestRooms {
             minutes: Math.floor(x.pay.p.secs / 60),
           }
         : {}),
+      chars: x.chars,
     }));
     const winner = lines[0];
     await this.save(room, true);
@@ -2122,14 +2132,50 @@ export class ConquestRooms {
         battlesWon: x.life.tally.battlesWon,
         conquests: x.life.tally.generations,
         goldEarned: x.life.tally.earned,
-        // LEGACY (r21): what's paid now (the rest was paid as they played).
+        // LEGACY (r21): what's paid now (the rest was paid as they played),
+        // all the game paid them, every character they were, and their chronicle.
         coins: x.pay ? x.pay.end.due : x.coins.total,
+        total: room.results![i].coins,
+        line: x.lineName,
+        chars: x.chars,
+        chronicle: x.chronicle,
       })),
     });
     this.broadcast(room, { t: "end", results: room.results });
     log.info("game over", { code: room.code, lines: lines.length });
     return room.results;
   }
+}
+
+/** LEGACY (r21): a chronicle as the site keeps it: people by name, no ids, no maps. */
+function storedChronicle(ch: Chronicle): StoredChronicle {
+  return {
+    title: ch.title,
+    opening: ch.opening,
+    numbers: ch.numbers,
+    chapters: ch.chapters.map((c) => ({
+      roman: c.roman,
+      name: c.name,
+      years: c.years,
+      title: c.title,
+      paras: c.paras,
+      people: c.people.map((p) => ({ name: p.name, role: p.role })),
+      numbers: c.numbers,
+    })),
+    closing: ch.closing,
+    tree: ch.tree.map((t) => ({
+      name: t.name,
+      years: t.years,
+      came: t.came,
+      spouses: t.spouses,
+      children: t.children.map((k) => ({
+        name: k.name,
+        born: k.born,
+        heir: k.heir,
+        young: k.young,
+      })),
+    })),
+  };
 }
 
 /** STORY (r17) */

@@ -5,6 +5,7 @@
 import { maxHealth, strained } from "./Body"; // LIFE (r21)
 import { kill } from "./Characters";
 import type { ConquestGame } from "./Game";
+import { hooks } from "./Hooks"; // LEGACY (r21)
 import { flowAff, noteFlow } from "./LedgerCore"; // LEDGER (r15)
 import { meOf } from "./LifeQueries";
 import { SKILL_MAX, SKILL_NAMES, SKILL_TIERS, xpToNext } from "./LifeRules"; // LIFE (r21): SKILL_TIERS
@@ -101,6 +102,9 @@ export function milestone(
     ...(o.big ? { big: true as const } : {}),
     ...(o.sec ? { sec: true as const } : {}),
   });
+  // LEGACY (r21): a life begun or ended is kept as a chapter (Legacy.ts).
+  for (const h of hooks.milestone)
+    h(g, life, life.milestones[life.milestones.length - 1]);
   // STORY (r17): the least of the oldest go first, never a beginning or an end.
   if (life.milestones.length > MAX_MILESTONES)
     trimMoments(life.milestones, MAX_MILESTONES);

@@ -1,0 +1,285 @@
+/* LEGACY (r21): a finished Derpy Conquest game's page (/chronicle/<id>):
+   the lines ranked, every character with their stats, the family's line,
+   and each line's chronicle. Conquest's vellum and Fell type, on Derp
+   Land's graphite. */
+
+@layer components {
+  .dl-chron-head {
+    margin-bottom: 24px;
+  }
+  .dl-chron-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-family: var(--fell);
+    font-size: 18px;
+    color: var(--vellum);
+  }
+  .dl-chron-kicker .dl-i {
+    width: 18px;
+    height: 18px;
+  }
+  .dl-chron-title {
+    font-family: var(--fell);
+    font-weight: 400;
+    font-stretch: 100%;
+    letter-spacing: 0;
+    color: var(--vellum);
+  }
+  .dl-chron-results {
+    margin-bottom: 20px;
+  }
+  .dl-chron-ranks li {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) 70px 100px 90px;
+    gap: 6px 14px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .dl-chron-ranks li:last-child {
+    border-bottom: 0;
+  }
+  .dl-chron-rank-who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .dl-chron-rank-who a {
+    font-weight: 650;
+  }
+  .dl-chron-score {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-2);
+  }
+  .dl-chron {
+    margin-bottom: 20px;
+    box-shadow: inset 3px 0 0 var(--conquest);
+  }
+  .dl-chron-h2 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 10px;
+    font-family: var(--fell);
+    font-weight: 400;
+    font-size: 24px;
+    color: var(--vellum);
+  }
+  .dl-chron-h2 small {
+    font-family: var(--body);
+    font-size: 14px;
+  }
+  .dl-chron-rank {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--conquest);
+    color: var(--cream);
+    font-size: 17px;
+  }
+  .dl-chron-open,
+  .dl-chron-close {
+    max-width: 72ch;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .dl-chron-close {
+    margin-top: 14px;
+    font-style: italic;
+    color: var(--text-2);
+  }
+  .dl-chron-numbers {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 6px;
+    margin: 14px 0 6px;
+  }
+  .dl-chron-numbers div,
+  .dl-chron-facts div {
+    padding: 6px 9px;
+    border-radius: 8px;
+    background: var(--surface-2);
+  }
+  .dl-chron-numbers dt,
+  .dl-chron-facts dt {
+    font-size: 12px;
+    color: var(--text-2);
+  }
+  .dl-chron-numbers dd {
+    font-size: 19px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .dl-chron-h3 {
+    margin: 20px 0 10px;
+    font-family: var(--fell);
+    font-weight: 400;
+    font-size: 19px;
+    color: var(--vellum);
+  }
+  .dl-chron-chars {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 12px;
+  }
+  .dl-chron-char {
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: rgba(234, 216, 174, 0.04);
+  }
+  .dl-chron-char.living {
+    border-color: rgba(234, 216, 174, 0.35);
+  }
+  .dl-chron-char-head {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .dl-chron-char-head > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .dl-chron-char-head b {
+    font-size: 16.5px;
+  }
+  .dl-chron-char-head .dl-quiet {
+    font-size: 13px;
+  }
+  .dl-chron-gen {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--vellum);
+    font-family: var(--fell);
+  }
+  .dl-chron-fate {
+    font-size: 14px;
+    color: var(--text);
+  }
+  .dl-chron-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .dl-chron-facts dd {
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+  }
+  .dl-chron-skills {
+    margin-top: 8px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text-2);
+  }
+  .dl-chron-skills b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .dl-chron-tree {
+    position: relative;
+    padding-left: 18px;
+    border-left: 2px solid rgba(234, 216, 174, 0.3);
+  }
+  .dl-chron-tree > li {
+    position: relative;
+    padding: 4px 0 12px;
+  }
+  .dl-chron-tree > li::before {
+    content: "";
+    position: absolute;
+    left: -24px;
+    top: 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--vellum);
+  }
+  .dl-chron-kids {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin-top: 5px;
+  }
+  .dl-chron-kids li {
+    padding: 1px 8px;
+    border-radius: 6px;
+    background: var(--surface-2);
+    font-size: 13px;
+  }
+  .dl-chron-kids li.heir {
+    background: rgba(234, 216, 174, 0.2);
+    color: var(--vellum);
+    font-weight: 650;
+  }
+  .dl-chron-kids li.young {
+    opacity: 0.6;
+  }
+  .dl-chron-chapter {
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+  }
+  .dl-chron-chapter summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+    cursor: pointer;
+  }
+  .dl-chron-roman {
+    font-family: var(--fell);
+    font-size: 20px;
+    color: var(--vellum);
+    min-width: 2.2em;
+  }
+  .dl-chron-ch-name {
+    font-weight: 650;
+    font-size: 16.5px;
+  }
+  .dl-chron-chapter p {
+    max-width: 72ch;
+    margin-top: 8px;
+    line-height: 1.6;
+  }
+  .dl-chron-people {
+    font-size: 14px;
+    color: var(--text-2);
+  }
+  .dl-chron-people b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  /* The profile's Conquest games: the characters a line was. */
+  .dl-game-chars {
+    display: block;
+    font-size: 13px;
+    color: var(--vellum);
+  }
+
+  @media (max-width: 640px) {
+    .dl-chron-ranks li {
+      grid-template-columns: 28px minmax(0, 1fr) auto;
+    }
+    .dl-chron-ranks li .dl-chron-score {
+      grid-column: 2;
+    }
+    .dl-chron-chars {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .dl-chron-facts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+}

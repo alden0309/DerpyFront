@@ -2,6 +2,7 @@
 // JSON over the /conquest/ws WebSocket. Each player is one character living
 // in a world the server runs; they send what their character does.
 
+import type { LineChar } from "./engine/Legacy"; // LEGACY (r21)
 import type {
   Difficulty,
   GameDelta,
@@ -162,46 +163,59 @@ export interface PayNote {
 
 /**
  * One character of a line, as their part in it ended (or stands): for the
- * end screen, the site's game page and players' profiles. Built by the
+ * end screen, the site's game page and players' profiles. Made by the
  * engine's Legacy.ts from what the game knows; nothing secret.
  */
-export interface LineCharacter {
-  name: string;
-  female: boolean;
-  /** Years born, and their part in the line (from, to: null while still played). */
-  born: number;
-  from: number;
-  to: number | null;
-  /** How they came to the line, and how their part in it ended. */
-  came: "born" | "begin" | "heir" | "takeover";
-  ended: "died" | "europe" | "ended" | "living";
-  /** "died of a fever at 52", "sailed for Europe", "living in 1776". */
-  fate: string;
-  age: number;
-  /** What they were at the height of it ("Master cooper", "Governor"). */
+export type LineCharacter = LineChar;
+
+/** LEGACY (r21): a line's chronicle as the site keeps it (nothing secret; people by name). */
+export interface StoredChronicle {
   title: string;
-  /** The highest office, if any ("Burgess for Jamestown"). */
-  office: string | null;
-  /** Where they lived. */
-  home: string;
-  renown: number;
-  /** Coins in hand at the end of their part, and earned in it. */
-  purse: number;
-  earned: number;
-  spouse: string | null;
-  children: number;
-  battles: number;
-  battlesWon: number;
-  duels: number;
-  wounds: number;
-  places: number;
-  /** Fighting skill, health at the end, and their best skills ([name, level]). */
-  fighting: number;
-  health: number;
-  skills: [string, number][];
-  /** Attributes: diplomacy, martial, stewardship, intrigue, learning. */
-  stats: { dip: number; mar: number; ste: number; int: number; lea: number };
-  traits: string[];
+  opening: string;
+  numbers: { label: string; value: string }[];
+  chapters: {
+    roman: string;
+    name: string;
+    years: string;
+    title: string;
+    paras: string[];
+    people: { name: string; role: string }[];
+    numbers: { label: string; value: string }[];
+  }[];
+  closing: string;
+  tree: {
+    name: string;
+    years: string;
+    came: string;
+    spouses: string[];
+    children: { name: string; born: number; heir: boolean; young: boolean }[];
+  }[];
+}
+
+/** LEGACY (r21): a finished game as the site shows it (GET /derpy/api/conquest/game/:id). */
+export interface ConquestGamePage {
+  gameId: string;
+  endedAt: string;
+  durationS: number;
+  endYear: number;
+  finalYear: number;
+  difficulty: string;
+  numPlayers: number;
+  winner: string | null;
+  players: {
+    name: string;
+    /** Their Derp Land account's name now (a link to their page), or null for a guest. */
+    username: string | null;
+    nation: string;
+    rank: number;
+    score: number;
+    won: boolean;
+    /** The family (or the last character's name). */
+    line?: string;
+    coins?: number | null;
+    chars?: LineCharacter[];
+    chronicle?: StoredChronicle;
+  }[];
 }
 
 /** LEGACY (r21): the pause in company: who stopped the clock, and how long only they may start it. */

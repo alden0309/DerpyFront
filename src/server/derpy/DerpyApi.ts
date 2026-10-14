@@ -30,6 +30,7 @@ import {
   itemGrants,
 } from "./DerpyCatalog";
 import {
+  conquestGamePage, // LEGACY (r21)
   conquestLeaderboard,
   overallLeaderboard,
   recentResults,
@@ -305,6 +306,25 @@ export function derpyApiRouter(): express.Router {
         return;
       }
       res.json(record);
+    }),
+  );
+
+  // LEGACY (r21): a finished Derpy Conquest game: every player, every
+  // character their line was (with their stats), and each line's chronicle.
+  router.get(
+    "/conquest/game/:id",
+    handle(async (req, res) => {
+      const id = String(req.params.id);
+      if (!/^[A-Za-z0-9-]{1,60}$/.test(id)) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      const page = await conquestGamePage(id);
+      if (page === null) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      res.json(page);
     }),
   );
 
