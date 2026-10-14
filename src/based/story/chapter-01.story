@@ -935,6 +935,14 @@ set worked_out_watch
 -> FREE
 
 
+// She left by the street door; out there she's already gone.
+== street_after "Rue de Grenelle"
+@on enter street once if met_contact
+@actor WOMAN none
+The rue de Grenelle again, and the rain still at it. No sign of the woman with The Times. The pavement had kept nothing of her, which was how she would have wanted it.
+-> FREE
+
+
 // --- Calling it a night ----------------------------------------------------------
 
 == street_end "Rue de Grenelle"
