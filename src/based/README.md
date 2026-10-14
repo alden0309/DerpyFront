@@ -19,7 +19,8 @@ signs up), and is never read again.
 | `audio/*.mp3`                    | Ambient loops.                                                                     |
 | `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart, saves, weather.  |
 | `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.        |
-| `client/world/`                  | The 3D world: the kit places are built from, the people, rain, the look.           |
+| `client/world/`                  | The 3D world: the kit places are built from, the people, the weather, the look.    |
+| `client/world/PeopleHooks.ts`    | What the world asks of a person: getting wet, running (People.ts implements them). |
 | `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                   |
 | `scripts/based-notes.ts`         | Prints the notes Alden leaves for the writer.                                      |
 

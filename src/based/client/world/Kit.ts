@@ -6,6 +6,7 @@
 // knows how to build each kind; it knows nothing of the story.
 
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Item } from "../../engine/Place";
 import {
   facadeWindows,
@@ -1360,36 +1361,46 @@ function small(item: Item): Built {
       break;
     }
     case "footprints": {
-      // Wet prints from one point to another, drying as they go.
+      // Wet prints from one point to another, drying as they go: one mesh
+      // (r22), each print fainter by its alpha.
       const from = item.from as [number, number];
       const to = item.to as [number, number];
       const n = num(item.count, 8);
-      const pm = new THREE.MeshStandardMaterial({
-        color: "#000",
-        transparent: true,
-        opacity: 0.3,
-        roughness: 0.05,
-        depthWrite: false,
-      });
+      const ang = Math.atan2(to[0] - from[0], to[1] - from[1]);
+      const prints: THREE.BufferGeometry[] = [];
       for (let i = 0; i < n; i++) {
         const t = (i + 0.5) / n;
-        const fp = new THREE.Mesh(
-          new THREE.CircleGeometry(0.06, 8),
-          pm.clone(),
-        );
-        fp.scale.set(0.6, 1.6, 1);
-        fp.rotation.x = -Math.PI / 2;
-        const ang = Math.atan2(to[0] - from[0], to[1] - from[1]);
-        fp.rotation.z = -ang;
         const side = i % 2 ? 0.08 : -0.08;
-        fp.position.set(
+        const fp = new THREE.CircleGeometry(0.06, 8).toNonIndexed();
+        fp.scale(0.6, 1.6, 1);
+        fp.rotateZ(-ang);
+        fp.rotateX(-Math.PI / 2);
+        fp.translate(
           from[0] + (to[0] - from[0]) * t + Math.cos(ang) * side,
           0.004,
           from[1] + (to[1] - from[1]) * t - Math.sin(ang) * side,
         );
-        (fp.material as THREE.MeshStandardMaterial).opacity =
-          0.35 * (1 - t * 0.6);
-        g.add(fp);
+        const a = 0.35 * (1 - t * 0.6);
+        const count = fp.getAttribute("position").count;
+        const rgba = new Float32Array(count * 4);
+        for (let v = 0; v < count; v++) rgba[v * 4 + 3] = a;
+        fp.setAttribute("color", new THREE.BufferAttribute(rgba, 4));
+        prints.push(fp);
+      }
+      const merged = mergeGeometries(prints, false);
+      for (const fp of prints) fp.dispose();
+      if (merged) {
+        const m = new THREE.Mesh(
+          merged,
+          new THREE.MeshStandardMaterial({
+            color: "#ffffff",
+            vertexColors: true,
+            transparent: true,
+            roughness: 0.05,
+            depthWrite: false,
+          }),
+        );
+        g.add(m);
       }
       break;
     }

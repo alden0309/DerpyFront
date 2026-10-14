@@ -182,6 +182,7 @@ function glintTexture(): THREE.Texture {
   g.fill();
   glintTex = new THREE.CanvasTexture(c);
   glintTex.colorSpace = THREE.SRGBColorSpace;
+  glintTex.userData.shared = true;
   return glintTex;
 }
 
@@ -525,6 +526,11 @@ export class World {
       b.drips = new Drips(drips);
       scene.add(b.drips.lines);
     }
+    // A glint no one sees, so its shader is compiled with the place's.
+    const warm = new THREE.Sprite(this.glintMaterial());
+    warm.material.opacity = 0;
+    warm.position.set(0, -50, 0);
+    scene.add(warm);
     // Invisible targets for the hotspots, for the pointer to find.
     for (const [id, h] of Object.entries(def.hotspots)) {
       const proxy = new THREE.Mesh(
@@ -627,43 +633,92 @@ export class World {
       }
       return false;
     };
-    const sets = new Map<string, THREE.Mesh[]>();
+    interface Piece {
+      mat: THREE.Material;
+      geo: THREE.BufferGeometry;
+      mesh: THREE.Mesh;
+    }
+    const sets = new Map<string, Piece[]>();
+    const meshes: THREE.Mesh[] = [];
+    const add = (
+      mesh: THREE.Mesh,
+      mat: THREE.Material,
+      geo: THREE.BufferGeometry,
+    ) => {
+      if (mat.transparent) return false;
+      const sig = `${Object.keys(geo.attributes).sort().join(",")}|${geo.index ? 1 : 0}`;
+      const key = `${mat.uuid}|${sig}|${mesh.castShadow ? 1 : 0}${mesh.receiveShadow ? 1 : 0}|${mesh.renderOrder}`;
+      const list = sets.get(key) ?? [];
+      list.push({ mat, geo, mesh });
+      sets.set(key, list);
+      return true;
+    };
     b.group.traverse((o) => {
       const m = o as THREE.Mesh;
-      if (!m.isMesh || Array.isArray(m.material)) return;
+      if (!m.isMesh) return;
       if (
         (m as unknown as THREE.SkinnedMesh).isSkinnedMesh ||
-        (m as unknown as THREE.InstancedMesh).isInstancedMesh
+        (m as unknown as THREE.InstancedMesh).isInstancedMesh ||
+        kept(m)
       ) {
         return;
       }
-      const mat = m.material as THREE.Material;
-      if (mat.transparent || kept(m)) return;
       const g = m.geometry;
-      const sig = `${Object.keys(g.attributes).sort().join(",")}|${g.index ? 1 : 0}`;
-      const key = `${mat.uuid}|${sig}|${m.castShadow ? 1 : 0}${m.receiveShadow ? 1 : 0}|${m.renderOrder}`;
-      const list = sets.get(key) ?? [];
-      list.push(m);
-      sets.set(key, list);
+      if (!Array.isArray(m.material)) {
+        if (add(m, m.material, g)) meshes.push(m);
+        return;
+      }
+      // A box with a material per face (a wall, inside and out): each
+      // face goes with the rest of its material, so a wall is a couple of
+      // draws, not six per piece.
+      const mats = m.material;
+      if (!g.index || g.groups.length === 0) return;
+      if (mats.some((x) => x.transparent)) return;
+      for (const grp of g.groups) {
+        const sub = new THREE.BufferGeometry();
+        for (const [name, attr] of Object.entries(g.attributes)) {
+          sub.setAttribute(name, attr);
+        }
+        sub.setIndex(
+          new THREE.BufferAttribute(
+            (g.index.array as Uint16Array | Uint32Array).slice(
+              grp.start,
+              grp.start + grp.count,
+            ),
+            1,
+          ),
+        );
+        add(m, mats[grp.materialIndex ?? 0], sub);
+      }
+      meshes.push(m);
     });
+    const merged = new Set<THREE.Mesh>();
     for (const list of sets.values()) {
-      if (list.length < 2) continue;
-      const geos = list.map((m) =>
-        m.geometry.clone().applyMatrix4(m.matrixWorld),
+      // One piece alone stays as it is (unless it's a face of a box).
+      if (list.length < 2 && !Array.isArray(list[0].mesh.material)) continue;
+      const geos = list.map((p) =>
+        p.geo.clone().applyMatrix4(p.mesh.matrixWorld),
       );
-      const merged = mergeGeometries(geos, false);
+      const geo = mergeGeometries(geos, false);
       for (const g of geos) g.dispose();
-      if (!merged) continue;
-      const first = list[0];
-      const mesh = new THREE.Mesh(merged, first.material);
+      if (!geo) continue;
+      const first = list[0].mesh;
+      const mesh = new THREE.Mesh(geo, list[0].mat);
       mesh.castShadow = first.castShadow;
       mesh.receiveShadow = first.receiveShadow;
       mesh.renderOrder = first.renderOrder;
       b.group.add(mesh);
-      for (const m of list) {
-        m.removeFromParent();
-        if (!m.geometry.userData.shared) m.geometry.dispose();
+      for (const p of list) merged.add(p.mesh);
+    }
+    for (const m of meshes) {
+      if (!merged.has(m)) continue;
+      // A box's faces must all have gone to be removed.
+      if (Array.isArray(m.material)) {
+        const all = (m.geometry.groups ?? []).length > 0;
+        if (!all) continue;
       }
+      m.removeFromParent();
+      if (!m.geometry.userData.shared) m.geometry.dispose();
     }
   }
 
@@ -686,6 +741,13 @@ export class World {
           // compiles; anything else compiles when first seen.
           try {
             await this.renderer.compileAsync(b.scene, this.camera);
+            // The people too, lit as they'll be there (their shaders depend
+            // on the place's lights): the hero stands for everyone, whose
+            // clothes are the same kind of material.
+            const hero = this.people.get(this.hero);
+            if (hero?.root.visible) {
+              await this.renderer.compileAsync(hero.root, this.camera, b.scene);
+            }
           } catch {
             // compiled on first draw instead
           }
@@ -1131,6 +1193,18 @@ export class World {
 
   // --- noticing things (r22) -----------------------------------------------
 
+  private glintMaterial(): THREE.SpriteMaterial {
+    return new THREE.SpriteMaterial({
+      map: glintTexture(),
+      color: "#ffd9a0",
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+      blending: THREE.AdditiveBlending,
+      opacity: 0,
+    });
+  }
+
   /** Which things are near and in sight; glints on them. A few times a second. */
   private scanThings(dt: number): void {
     const b = this.place;
@@ -1187,17 +1261,7 @@ export class World {
       const want = this.near.has(id) ? (this.hovered === id ? 1.6 : 1) : 0;
       if (!g) {
         if (want === 0) continue;
-        const sprite = new THREE.Sprite(
-          new THREE.SpriteMaterial({
-            map: glintTexture(),
-            color: "#ffd9a0",
-            transparent: true,
-            depthWrite: false,
-            depthTest: false,
-            blending: THREE.AdditiveBlending,
-            opacity: 0,
-          }),
-        );
+        const sprite = new THREE.Sprite(this.glintMaterial());
         sprite.renderOrder = 9;
         b.scene.add(sprite);
         g = { sprite, k: 0 };
