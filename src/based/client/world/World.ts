@@ -368,6 +368,7 @@ export class World {
       // A change of clothes: a new body in the same place.
       const at = p.root.position.clone();
       const h = p.heading;
+      const shown = p.root.visible;
       this.scene.remove(p.root);
       p.dispose();
       p = new Person(
@@ -378,6 +379,7 @@ export class World {
       );
       p.root.position.copy(at);
       p.heading = h;
+      p.root.visible = shown;
       this.people.set(key, p);
       this.scene.add(p.root);
     }
@@ -388,6 +390,8 @@ export class World {
         look,
         this.assets.gestures,
       );
+      // Unseen until someone puts them on a mark.
+      p.root.visible = false;
       this.people.set(key, p);
       this.scene.add(p.root);
     }
@@ -409,8 +413,14 @@ export class World {
     }
     for (const [id, st] of Object.entries(actors)) {
       const m = this.mark(st.at);
+      if (!m) {
+        // Left behind in another place (the stage keeps them): not here.
+        const gone = this.people.get(id);
+        if (gone) gone.root.visible = false;
+        continue;
+      }
       const p = this.person(id, st.wear);
-      if (!m || !p) continue;
+      if (!p) continue;
       p.root.visible = true;
       p.place(this.markPos(m), deg(m.face ?? 0), st.pose as Pose, m.seat ?? 0);
     }
@@ -425,8 +435,13 @@ export class World {
       return;
     }
     const m = this.mark(st.at);
+    if (!m) {
+      const gone = this.people.get(id);
+      if (gone) gone.root.visible = false;
+      return;
+    }
     const p = this.person(id, st.wear);
-    if (!m || !p) return;
+    if (!p) return;
     const target = this.markPos(m);
     const face = deg(m.face ?? 0);
     const finish = () => {
@@ -600,6 +615,15 @@ export class World {
       const b = def.nav.bounds;
       target = new THREE.Vector3((b[0] + b[2]) / 2, 0, (b[1] + b[3]) / 2);
       this.wantSpan = 16 * this.zoom;
+    }
+    // A phone held upright (or a narrow window) would see a sliver of the
+    // place: widen the shot until the part the column leaves free shows at
+    // least three quarters of what it's meant to, side to side.
+    {
+      const cw = this.canvas.clientWidth || 1;
+      const ch = this.canvas.clientHeight || 1;
+      const freeW = Math.max(1, cw - this.inset.right);
+      this.wantSpan *= Math.max(1, 0.75 / (freeW / ch));
     }
     const snap = this.snapCamera;
     const k = snap ? 1 : 1 - Math.exp(-dt * 3);

@@ -10,18 +10,18 @@ signs up), and is never read again.
 
 ## Where things are
 
-| Path                             | What                                                                                 |
-| -------------------------------- | ------------------------------------------------------------------------------------ |
-| `story/chapter-NN.story`         | One file per chapter, in the format below. **Server only.**                          |
-| `places/<key>.json`              | The 3D places (the rue de Grenelle and Le Vauban, the Élysée). **Server only.**      |
-| `models/*.glb`                   | The CC0 mannequins and furniture, compressed. **Server only.**                       |
-| `art/*.webp`, `art/credits.json` | The graded pictures (portraits, memories, the photograph) and who made everything.   |
-| `audio/*.mp3`                    | Ambient loops.                                                                       |
-| `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart shape, saves.      |
-| `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.          |
-| `client/world/`                  | The 3D world: the kit places are built from, the people, rain, the look.            |
-| `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                     |
-| `scripts/based-notes.ts`         | Prints the notes Alden leaves for the writer.                                        |
+| Path                             | What                                                                               |
+| -------------------------------- | ---------------------------------------------------------------------------------- |
+| `story/chapter-NN.story`         | One file per chapter, in the format below. **Server only.**                        |
+| `places/<key>.json`              | The 3D places (the rue de Grenelle and Le Vauban, the Élysée). **Server only.**    |
+| `models/*.glb`                   | The CC0 mannequins and furniture, compressed. **Server only.**                     |
+| `art/*.webp`, `art/credits.json` | The graded pictures (portraits, memories, the photograph) and who made everything. |
+| `audio/*.mp3`                    | Ambient loops.                                                                     |
+| `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart shape, saves.     |
+| `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.        |
+| `client/world/`                  | The 3D world: the kit places are built from, the people, rain, the look.           |
+| `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                   |
+| `scripts/based-notes.ts`         | Prints the notes Alden leaves for the writer.                                      |
 
 The story, the places, the models, the pictures and the sound are never
 bundled into the site's JavaScript. The server reads them from this folder and sends them only to an
@@ -290,6 +290,13 @@ he can look at (on someone: `"on": {"who": "STRANGER", "bone": "hand_l"}`),
 camera shots, rooms (`inside` rooms have their near walls cut away while
 he's in them) and the floor plan for walking (`nav`). Words on signs and
 posters live here, not in the code. Distances are in metres.
+
+A few switches worth knowing: a window in a wall can leave out the café
+curtain (`"cafe": false`, as in the palace); a `skyline` (the city seen through
+a window) takes `horizon`, `tower` and `towerAt`, where its roofs, the tip of
+the tower and the tower stand, as shares of its height and width. The camera
+has no perspective, so a city "far off" is painted at the size it should
+look, not the size it is.
 
 ### Art and sound
 

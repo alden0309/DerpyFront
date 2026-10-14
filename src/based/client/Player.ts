@@ -243,8 +243,12 @@ export class BasedPlayer extends LitElement {
     const n = this.narrow;
     const colW = n ? 0 : Math.min(460, Math.max(360, this.size.w * 0.32));
     const sheetH = n ? this.size.h * 0.44 : 0;
+    this.inset = { right: colW, bottom: sheetH };
     this.world.setInset(colW, sheetH);
   }
+
+  /** How much of the world the column covers (right, or bottom on phones). */
+  private inset = { right: 0, bottom: 0 };
 
   // --- stepping ------------------------------------------------------------
 
@@ -651,6 +655,12 @@ export class BasedPlayer extends LitElement {
     const LH = 27;
     const hits = (a: Box, b: Box) =>
       a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    // Clear of the column and of the buttons along the top.
+    const inView = (b: Box) =>
+      b.x0 >= 6 &&
+      b.x1 <= this.size.w - this.inset.right - 6 &&
+      b.y0 >= 64 &&
+      b.y1 <= this.size.h - this.inset.bottom - 6;
     const shown: { h: HotspotOnScreen; el: HTMLElement }[] = [];
     for (const h of list) {
       let el = this.marks.get(h.id);
@@ -700,15 +710,12 @@ export class BasedPlayer extends LitElement {
         };
         const own = shown.findIndex((s) => s.h.id === h.id);
         const free = (b: Box) =>
+          inView(b) &&
           !placed.some((p) => hits(p, b)) &&
           !dots.some((d, i) => i !== own && hits(d, b));
         let pick = tries.find((t) => free(boxOf(t)));
-        if (!pick) {
-          // Crowded: step down on the right until there's room.
-          let dy = 0;
-          while (dy < 10 * LH && !free(boxOf([1, dy]))) dy += LH;
-          pick = [1, dy];
-        }
+        // Crowded: whichever side stays in view, on its own line.
+        pick ??= inView(boxOf([1, 0])) ? [1, 0] : [-1, 0];
         // A seen mark's label shows only on hover: it takes no room.
         if (!el.classList.contains("seen")) placed.push(boxOf(pick));
         // A data attribute, not a class: lit owns the class list.
