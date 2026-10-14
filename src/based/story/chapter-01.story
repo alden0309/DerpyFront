@@ -17,7 +17,10 @@
 @start open
 @time 21:40
 
-@cast BASED "Mr. Based" portrait=based_portrait look=overcoat_charcoal
+// He wears what the owner's own model wears (BPEOPLE r22): a black zip field
+// jacket with a stand collar over a dark olive tee, black cargo trousers,
+// black boots and a wristwatch. It is one mesh: nothing comes off.
+@cast BASED "Mr. Based" portrait=based_portrait look=field_jacket
 @cast BARMAN "The barman" portrait=anselme look=barman
 @cast ANSELME "Anselme" portrait=anselme body=BARMAN
 @cast STRANGER "The man in grey" portrait=stranger look=suit_grey
@@ -411,7 +414,7 @@ if thoughts >= 2
   -> stranger
 end
 choose "Ten o'clock came and went. Where does his mind go?"
-  * once [The phone in his coat] -> t_phone
+  * once [The phone in his jacket] -> t_phone
   * once [His left hand] -> t_scar
   * once [The rain] -> t_rain
   * [Back to the room] -> stranger
@@ -420,7 +423,7 @@ end
 
 == t_phone "The British"
 @vignette london
-The phone in his coat had one number in it, and the number started with a London code.
+The phone in his jacket had one number in it, and the number started with a London code.
 Four days ago a man with a good tie and a bad cold had bought him lunch at a club off Pall Mall and spent an hour not asking him anything.
 "We'd like to know what our neighbours are planning," he'd said at last, over the cheese. "And we would very much prefer it not to be us who asks."
 ~ Deniable. The most British word there is. If it goes wrong, you were never here. If it goes right, neither were you.
@@ -971,7 +974,7 @@ if knows_car
 end
 ~ Eleven days. A new government, an old bar, and a man in grey who knows my face now, if not my name.
 @actor BASED street_exit walk
-He turned up his collar and walked towards the river.
+He zipped the jacket up to its collar and walked towards the river.
 task night done
 -> epilogue
 

@@ -130,7 +130,11 @@ one too: `A line.   // r21: new`.
   forward too, and so do his build and boosts.)
 - `@cast ... look=suit_charcoal`: how they're dressed in 3D (the looks are in
   `client/world/People.ts`: suit_charcoal, overcoat_charcoal, suit_grey,
-  barman, wool_woman, coat_dark, suit_dark, uniform_navy). `body=STRANGER`
+  barman, wool_woman, coat_dark, suit_dark, uniform_navy). Mr. Based is
+  `look=field_jacket`: he wears what the owner's own model wears (a black
+  zip field jacket over an olive tee, cargo trousers, boots, a watch), one
+  mesh, so nothing comes off: no coat to hang up, and the story never
+  dresses him in a suit or an overcoat. `body=STRANGER`
   says this name is the same person as another cast member (Delorme is the
   man in grey), so speaking moves that body.
 
@@ -385,7 +389,7 @@ end
 @actor ANSELME behind_bar lean     // someone at a mark, in a pose (stand, sit, lean, fold)
 @actor ANSELME behind_bar in=vauban // r22: at a mark in another place
 @actor BASED stool_end sit walk    // ...walking there first
-@actor BASED vauban_door_out walk wear=overcoat_charcoal
+@actor ANSELME behind_bar wear=suit_dark // a change of clothes
 @actor STRANGER none               // off the stage
 @focus glasses                     // hold a camera shot, or none to follow him
 @vignette london                   // a memory, painted at the top of the column
