@@ -415,6 +415,56 @@ describe.skipIf(!TEST_DB)("Derpy accounts against Postgres", () => {
     ).toBeNull();
   });
 
+  // DFSTORE (r21): anything in the store, by `item`; the join check reads it.
+  test("buy a Nuke & Dome effects pack, then wear it into a game", async () => {
+    const store = await call("/store");
+    expect(store.json.tabs.map((t: { game: string }) => t.game)).toEqual([
+      "derpyfront",
+      "conquest",
+    ]);
+    const frost = store.json.items.find(
+      (i: { name: string }) => i.name === "fx_frost",
+    );
+    expect(frost).toMatchObject({ category: "effects", price: 2000 });
+
+    const pg = await import("pg");
+    const c = new pg.default.Client({ connectionString: TEST_DB });
+    await c.connect();
+    await c.query("UPDATE derpy_accounts SET coins = 2600");
+    await c.end();
+
+    const bought = await call("/store/buy", {
+      body: { item: "fx_frost" },
+      token: alden.token,
+    });
+    expect(bought.status).toBe(200);
+    expect(bought.json.coins).toBe(600);
+    expect(bought.json.owned).toEqual(
+      expect.arrayContaining([
+        "pack:fx_frost",
+        "effect:fx_frost_trail",
+        "effect:fx_frost_atom",
+        "dome:fx_frost",
+      ]),
+    );
+    const nope = await call("/store/buy", {
+      body: { item: "no_such_thing" },
+      token: alden.token,
+    });
+    expect(nope.status).toBe(404);
+
+    const { derpyLooksForPlayer } =
+      await import("../../src/server/derpy/DerpySkins");
+    const looks = await derpyLooksForPlayer(alden.playId, {
+      effects: { nukeTrail: "fx_frost_trail", hydro: "fx_solar_hydro" },
+      derpyDome: "fx_frost",
+    });
+    expect(looks.effects).toEqual({
+      nukeTrail: { name: "fx_frost_trail", effectType: "nukeTrail" },
+    });
+    expect(looks.derpyDome).toBe("fx_frost");
+  });
+
   test("signing out ends the session", async () => {
     expect(
       (await call("/logout", { method: "POST", token: alden.token })).status,
