@@ -239,6 +239,31 @@ ALTER TABLE derpy_game_players ADD COLUMN IF NOT EXISTS played_as TEXT;
 ALTER TABLE derpy_accounts
   ADD COLUMN IF NOT EXISTS based_access BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE derpy_accounts ADD COLUMN IF NOT EXISTS based_granted_as TEXT;
+
+-- LEGACY (r21): Derp Coins paid while a Derpy Conquest game is played, per
+-- game and account: for time at the table (play), the line's coins as they
+-- were reached (lines), and the seconds at the table that counted (secs:
+-- the line's coins are held to an hour's worth for each hour). The end of a
+-- game pays the rest (derpy_conquest_players.coins).
+CREATE TABLE IF NOT EXISTS derpy_conquest_play (
+  game_id TEXT NOT NULL,
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  play INTEGER NOT NULL DEFAULT 0,
+  lines INTEGER NOT NULL DEFAULT 0,
+  secs INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (game_id, account_id)
+);
+CREATE INDEX IF NOT EXISTS derpy_conquest_play_account
+  ON derpy_conquest_play (account_id);
+-- LEGACY (r21): seconds at the table an account was paid for each day (UTC),
+-- all games together (PLAY_PAY.dailyHours at most).
+CREATE TABLE IF NOT EXISTS derpy_conquest_days (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  day DATE NOT NULL,
+  secs INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (account_id, day)
+);
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two

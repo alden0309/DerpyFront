@@ -99,10 +99,13 @@ import { nationPage, worldTab } from "./ui/World";
 import { tripLeave } from "../engine/Leave"; // ECON (r17)
 import {
   achievementToasts,
+  grewWords,
   onAchieved,
   onAchievementList,
+  onPaid,
+  payStore,
   type AchievementToast,
-} from "./ui/Achievements"; // MAP (r12)
+} from "./ui/Achievements"; // MAP (r12); LEGACY (r21): grewWords, onPaid, payStore
 import { officesPage } from "./ui/Civic";
 import { tripLeaveLine } from "./ui/LeaveUi"; // ECON (r17)
 import { affairKindName } from "./ui/Ledger"; // LEDGER (r15)
@@ -266,6 +269,8 @@ export class GameView extends LitElement {
   private code = "";
   private speed = 1;
   private paused = false;
+  /** LEGACY (r21): paused in company: by whom, and until when (performance.now()) only they may start it. */
+  private lock: { seat: string; name: string; until: number } | null = null;
   /** LIFE (r11): skipping ahead, and who has asked to (seat ids). */
   private skipOn = false;
   private skipAsked: string[] = [];
@@ -354,6 +359,13 @@ export class GameView extends LitElement {
     music.start();
     this.letterTimer = window.setInterval(() => {
       if (this.letterLeft.size && !this.paused) this.tick++;
+      // LEGACY (r21): the pause's countdown.
+      else if (
+        this.paused &&
+        this.lock &&
+        this.lock.until > performance.now() - 1000
+      )
+        this.tick++;
     }, 1000);
     const loop = (t: number) => {
       this.frame = requestAnimationFrame(loop);
@@ -477,6 +489,7 @@ export class GameView extends LitElement {
     this.code = m.code;
     this.speed = m.speed;
     this.paused = m.paused;
+    this.lock = null; // LEGACY (r21): a clock message follows if anyone holds it
     this.seats = m.seats;
     this.dayAt = performance.now();
     // SITE (r19)
@@ -488,6 +501,7 @@ export class GameView extends LitElement {
     const life = this.life;
     if (fresh) {
       forgetSteady();
+      payStore.last = null; // LEGACY (r21): the last game's pay isn't this one's
       this.log = [];
       this.results = null;
       this.logOpen = window.innerWidth > 820;
@@ -592,16 +606,35 @@ export class GameView extends LitElement {
         this.requestRender();
         return;
       }
-      case "clock":
+      case "clock": {
+        const wasPaused = this.paused; // LEGACY (r21)
         this.speed = m.speed;
         this.paused = m.paused;
         this.dayAt = performance.now();
+        // LEGACY (r21): who paused, and how long only they may start the clock.
+        this.lock =
+          m.paused && m.lock
+            ? {
+                seat: m.lock.seat,
+                name: m.lock.name,
+                until: performance.now() + m.lock.left,
+              }
+            : null;
         if (m.by && m.by !== this.myName() && !this.solo)
           this.toast(
-            `${m.by} ${m.paused ? "paused the game" : `set the speed to ${SPEED_LABELS[m.speed]}`}.`,
+            `${m.by} ${
+              m.paused
+                ? wasPaused
+                  ? `set the speed to ${SPEED_LABELS[m.speed]}`
+                  : "paused the game"
+                : wasPaused
+                  ? `started the clock (${SPEED_LABELS[m.speed]})`
+                  : `set the speed to ${SPEED_LABELS[m.speed]}`
+            }.`,
           );
         this.requestRender();
         return;
+      }
       case "skip": {
         const was = this.skipOn;
         this.skipOn = m.on;
@@ -666,6 +699,17 @@ export class GameView extends LitElement {
         this.requestRender();
         return;
       }
+      // LEGACY (r21): Derp Coins paid as you play.
+      case "paid":
+        onPaid(m);
+        if (m.lines > 0)
+          this.toast(
+            `+${m.lines} Derp Coin${m.lines === 1 ? "" : "s"} for your line${m.grew.length ? `: ${grewWords(m.grew)}` : ""}.`,
+            "good",
+            { k: "tab", tab: "journal", sub: "achievements" },
+          );
+        this.requestRender();
+        return;
       // DICE (r14): how long the player whose turn it is has to bid.
       case "diceclock":
         onDiceClock(m);
@@ -1002,11 +1046,49 @@ export class GameView extends LitElement {
   private setPaused(p: boolean): void {
     if (this.s.over || this.watcher) return;
     this.autoPaused = false;
-    if (!p && !this.canSetSpeed) {
-      this.toast("The host sets the clock going again.");
+    // LEGACY (r21): anyone may start the clock, but not in the seconds after
+    // someone else paused it.
+    const held = this.lockLeft();
+    if (!p && held > 0) {
+      this.toast(
+        `${this.lock!.name} paused the game: only they can start the clock for ${held} more second${held === 1 ? "" : "s"}.`,
+      );
       return;
     }
     this.net.send({ t: "pause", p });
+  }
+
+  /** LEGACY (r21): whole seconds in which only whoever paused may start the clock (0: anyone may). */
+  private lockLeft(): number {
+    const l = this.lock;
+    if (!l || !this.paused || this.solo || l.seat === this.you) return 0;
+    return Math.max(0, Math.ceil((l.until - performance.now()) / 1000));
+  }
+
+  /** LEGACY (r21): "Paused by Beatrice · 7", under the clock in company. */
+  private pausedNote(): TemplateResult | typeof nothing {
+    if (!this.paused || this.solo || this.s.over) return nothing;
+    const l = this.lock;
+    const mine = l?.seat === this.you;
+    const left = l
+      ? Math.max(0, Math.ceil((l.until - performance.now()) / 1000))
+      : 0;
+    const who = l ? (mine ? "You paused" : `Paused by ${l.name}`) : "Paused";
+    const tip =
+      l && left > 0
+        ? mine
+          ? `Only you can start the clock for ${left} more second${left === 1 ? "" : "s"}; then anyone can.`
+          : `Only ${l.name} can start the clock for ${left} more second${left === 1 ? "" : "s"}; then anyone can.`
+        : "Anyone can start the clock.";
+    return html`<span
+      class="cq-paused-by ${left > 0 ? "held" : ""}"
+      title=${tip}
+      >${who}${left > 0
+        ? html` <span class="cq-paused-left" aria-label="${left} seconds"
+            >${left}</span
+          >`
+        : nothing}</span
+    >`;
   }
 
   /** LIFE (r11): skip ahead until something needs you (or ask the others to). */
@@ -1851,12 +1933,18 @@ export class GameView extends LitElement {
         </div>
         <div class="cq-speed" role="group" aria-label="Game speed">
           <button
-            class="cq-pause ${this.paused ? "on" : ""}"
+            class="cq-pause ${this.paused ? "on" : ""} ${this.lockLeft() > 0
+              ? "held"
+              : ""}"
             ?disabled=${s.over || this.watcher}
             aria-pressed=${this.paused}
             title=${this.watcher
               ? "The players keep the clock"
-              : "Pause (space)"}
+              : this.lockLeft() > 0
+                ? `${this.lock!.name} paused: only they can start the clock for ${this.lockLeft()} more seconds`
+                : this.paused
+                  ? "Start the clock (space)"
+                  : "Pause (space)"}
             @click=${() => this.setPaused(!this.paused)}
           >
             ${this.paused
@@ -1886,6 +1974,7 @@ export class GameView extends LitElement {
           )}
           ${this.skipButton()}
         </div>
+        ${this.pausedNote() /* LEGACY (r21) */}
       </div>
       ${life && me && budget
         ? html`<div class="cq-chips-bar">

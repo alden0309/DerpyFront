@@ -69,7 +69,8 @@ const PAGES: Record<string, string> = {
 app.use(async (req, res, next) => {
   const page =
     PAGES[req.path] ??
-    (/^\/player\/[A-Za-z0-9_]{1,20}$/.test(req.path)
+    (/^\/player\/[A-Za-z0-9_]{1,20}$/.test(req.path) ||
+    /^\/chronicle\/[A-Za-z0-9-]{1,60}$/.test(req.path) // LEGACY (r21)
       ? "derpland.html"
       : undefined);
   if (page === undefined) {

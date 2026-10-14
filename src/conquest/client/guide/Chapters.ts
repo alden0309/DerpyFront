@@ -51,6 +51,7 @@ import {
   LIFESTYLE,
   LODGES,
   PLACES,
+  PLAY_PAY, // LEGACY (r21)
   ROAD_COST_PER_DAY,
   ROLES,
   SEA_FARE_BASE,
@@ -771,7 +772,7 @@ Your days at your post are worked for you; wages come at the month's end. You do
 What happens to you comes as a letter with choices, and the odds of each. Alone, the game pauses when one arrives. In company, a letter waits ${LETTER_SECONDS} seconds of running time for your answer; then it decides itself (the countdown shows on it).
 
 ## In company
-The host sets the speed. Anyone may pause, but only the host starts the clock again. To skip ahead, everyone living a life must agree: the first click asks, and the others click the same button to agree.
+The host sets the speed. Anyone may pause or start the clock again, but for 10 seconds after someone pauses only they may start it ([[multiplayer|Playing with friends]]). To skip ahead, everyone living a life must agree: the first click asks, and the others click the same button to agree.
 
 > Tip: Use skip ahead for long quiet stretches (a voyage, a winter at your post). It always stops when something needs you.`,
   },
@@ -2236,7 +2237,7 @@ The **News** panel on the map has the colonies' news as it reaches you: wars, ba
 Choose **With friends** in the lobby and open a game room. List it under open games for anyone to join, or keep it private and share the code (or the invite link). Everyone makes a character in the room; when all are ready, the host sets out. Friends can also join a world already running: they make a character and drop into the world as it is.
 
 ## The clock
-The host sets the speed. Anyone may pause; only the host starts the clock again. Skipping ahead needs everyone living a life to agree (click ⏩ to ask; the others click it to agree), and it stops for anyone's letters or news. A letter waits ${LETTER_SECONDS} seconds of running time for an answer before it decides itself.
+The host sets the speed. **Anyone may pause, and anyone may start the clock again**, but for **10 seconds after someone pauses, only they may start it** (under the clock it says who paused, and counts down the seconds; a new speed from the host waits for the clock to start). Skipping ahead needs everyone living a life to agree (click ⏩ to ask; the others click it to agree), and it stops for anyone's letters or news. A letter waits ${LETTER_SECONDS} seconds of running time for an answer before it decides itself.
 
 ## Other players
 - **In your town** they stand in its places like anyone else (Here), marked **player** (or **rival player**, in red), and the top of Here says who's in town and where: click them to go to them. At their own home they're indoors, out of the town's places.
@@ -2273,7 +2274,7 @@ The menu's **Your story so far** tells the tale of your line: the roads you trav
     part: "world",
     title: "1776 and the end",
     line: "Where the story stops, and how it's told.",
-    body: `The world runs until **1 January ${END_YEAR}**. Then your story is told (the roads you travelled, the moments that mattered, the generations of your line) and paid in Derp Coins. In company, the lines are ranked by what they made of their lives.
+    body: `The world runs until **1 January ${END_YEAR}**. Then your story is told in chapters, a life to each (the roads you travelled, the moments that mattered, the people who mattered, the generations of your line: [[story|Your story]]), the end screen lists **every character each player was, with their stats**, and the rest of your Derp Coins is paid ([[coins|Derp Coins]]: most were paid as you played). In company, the lines are ranked by what they made of their lives. Derp Land keeps it all: each finished game has a page (your profile › the game's **Story**) with every line's characters and chapters.
 
 The host can end a game sooner from the menu (End the game here): stories and coins are counted as they stand.
 
@@ -2283,12 +2284,24 @@ Reaching ${END_YEAR} with a character still living is worth coins of its own.`,
     id: "coins",
     part: "world",
     title: "Derp Coins",
-    line: "What a line of lives earns at the end, and achievements as you go.",
-    body: `When the game ends (in ${END_YEAR}, or when the host ends it), each player's line is paid in Derp Coins, if they're signed in to Derp Land and their line played at least two years. The end screen shows every line of the sum.
+    line: "Paid as you play: time at the table, your line's marks, the end, and achievements.",
+    // LEGACY (r21): paid as you play, held to real time.
+    body: `Derpy Conquest pays **Derp Coins as you play**, about what DerpyFront pays for an hour, if you're signed in to Derp Land (a guest is told, but not paid). **Journal › Achievements** shows what this game has paid you, and what's waiting.
+
+## Time at the table
+**${PLAY_PAY.perMinute} coins for every minute at the table** (${PLAY_PAY.perMinute * 60} an hour), paid about once a minute while the world goes on. They're real minutes, counted by the server:
+- a minute counts when you've made a choice of your own in the last ${PLAY_PAY.idleMinutes} minutes: anything you do, a letter answered. Step away, and it stops counting;
+- with the clock stopped, the first ${PLAY_PAY.pausedMinutes} minutes of each stop count (reading the ledger, making plans); the rest don't, and nothing is paid until the world moves on again;
+- the speed makes no difference: a year at 8×, or skipped through in eighteen seconds, is paid by the minute like any other;
+- playing two games at once, you're paid for one: wherever you last made a choice;
+- at most ${PLAY_PAY.dailyHours} hours a day are paid, all games together.
+
+## Your line's marks
+Your line earns the coins below as it goes, and they're **paid as it reaches them**, so a game you never finish still pays. In each game they're held to **${PLAY_PAY.linesPerHour} for every hour you've played it**: whatever waits is paid as you play on, or at the end. (So starting game after game pays only for the time played.)
 
 | For | Coins |
 |---|---|
-| Living a life | ${LIFE_COINS.played} |
+| Living a life (two years or more) | ${LIFE_COINS.played} |
 | Years lived | ${LIFE_COINS.perTenYears} for every ten years (up to ${LIFE_COINS.maxYears}) |
 | Rising in a trade | ${LIFE_COINS.perRank} for each rung of the highest reached (up to ${LIFE_COINS.maxRank}) |
 | Office | ${LIFE_COINS.office[1]} for an assembly seat, ${LIFE_COINS.office[2]} for a council seat, ${LIFE_COINS.office[3]} for governing |
@@ -2298,16 +2311,19 @@ Reaching ${END_YEAR} with a character still living is worth coins of its own.`,
 | Battles won | ${LIFE_COINS.perBattleWon} each (up to ${LIFE_COINS.maxBattles}) |
 | A rising that won | ${LIFE_COINS.risingWon} |
 | Going to Europe | ${LIFE_COINS.europe} |
-| Living to see ${END_YEAR} | ${LIFE_COINS.reached1776} |
+| Living to see ${END_YEAR} (at the end) | ${LIFE_COINS.reached1776} |
 
 Each line is rounded down to a whole coin.
 
+## At the end
+When the game ends (in ${END_YEAR}, or when the host ends it), the rest of your line's marks are paid (still held to the time you played), with ${LIFE_COINS.reached1776} for living to see ${END_YEAR}. The end screen shows it all: the minutes at the table, the marks paid as you went, what the end paid, and each line of the sum.
+
 ## Achievements
-Besides what a line earns at the end, there are ${ACHIEVEMENTS.length} **achievements**, marks of a life across everything in the game (your first job to living to see ${END_YEAR}, the native peoples' own paths, the seasons). Each pays a few Derp Coins (${ACHIEVEMENT_COINS} for all of them) **the first time your account earns it, and never again**: earning it in another game, or the same game played again, pays nothing. They're paid the moment they're earned, with a scene to say so, if you're signed in to Derp Land; a guest is told, but not paid. **Journal › Achievements** has them all: on your account (and when), earned in this game, and how to earn the rest. Your Derp Land profile shows the ones you've earned.
+Besides what time and your line earn, there are ${ACHIEVEMENTS.length} **achievements**, marks of a life across everything in the game (your first job to living to see ${END_YEAR}, the native peoples' own paths, the seasons). Each pays a few Derp Coins (${ACHIEVEMENT_COINS} for all of them) **the first time your account earns it, and never again**: earning it in another game, or the same game played again, pays nothing. They're paid the moment they're earned, with a scene to say so, if you're signed in to Derp Land; a guest is told, but not paid. **Journal › Achievements** has them all: on your account (and when), earned in this game, and how to earn the rest. Your Derp Land profile shows the ones you've earned.
 
 ${achievementsTable()}
 
-> Tip: A dynasty that rose high pays a few dozen; a short life, a handful. Achievements are a one-time bonus on top: the easy ones come in your first years.`,
+> Tip: Most of a game's coins come from time at the table: an evening's play pays about the same at any speed. A line that rises high adds a hundred or two; achievements are a one-time bonus on top, the easy ones in your first years.`,
   },
   // ================================================================ reference
   {

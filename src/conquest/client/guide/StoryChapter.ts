@@ -1,3 +1,4 @@
+// LEGACY (r21): the story in chapters, and every character kept on Derp Land.
 // STORY (r17): the How to Play's chapters on the story of a life (what goes
 // into it, and how it's told) and on your saved games (deleting them, taking
 // one off your list, clearing the finished ones). The table of what's told is
@@ -68,7 +69,7 @@ export const STORY_CHAPTER: Chapter = {
   id: "story",
   part: "world",
   title: "Your story: what a life is remembered for",
-  line: "Everything memorable your character did or went through, year by year and generation by generation, with the map of the roads travelled.",
+  line: "Everything memorable your line did or went through: told in chapters, a life to each, or year by year, with the maps of the roads travelled.",
   where:
     "Journal › The story (the story so far); the menu › Your story so far; and at the end, in 1776.",
   body: `## What goes into it
@@ -84,7 +85,20 @@ Everything worth the telling, as it happens:
 
 ${kindsTable()}
 
-## How it's told
+## In chapters
+The story opens **in chapters**: a chapter for each life of your line (the first, each heir, a life taken up), written from its moments:
+- **how they came into the story** (where, when, as what), their **work and fortune** (every rung they rose to, what they earned and left), their **family** (marriages, children by name, the ones lost), their **wars and quarrels** (battles, sieges, brawls, the law, their home in the wars), their **public life** (offices, polls, portraits, renown), **the sea and the road**, and **how their part ended** (and who carried the family on);
+- **the people who mattered**: husband or wife, father or mother, children (the heir marked), friends, rivals, a mentor, a sworn enemy, a patron. Click one to see them;
+- **their numbers**: years in the story, age at the end, children, battles, duels, places seen, coins earned, renown at its height; their best skills, health and what they left;
+- **a map of their own roads**.
+
+Above the chapters: the line's opening, **its big numbers** (years, lives, places, children, marriages, battles, coins earned, the richest it was, its renown at the height, its score), and **the family's line**: each generation, who they married, their children, and the one who carried it on (gilt). The end, in 1776, tells it in the same chapters.
+
+When a game ends, every player's characters and chronicle are kept on Derp Land: your profile's Derpy Conquest games each have a **Story** page with every character of every line, their stats and their chapters (what only you know of your line stays out of it).
+
+**Year by year** (the button above the story) tells it the other way:
+
+## Year by year
 - **Year by year, generation by generation**: each of your line under their own name, in the colour of their road on the map, and each year with its moments in order.
 - **An engraving for each kind**, in green for what went well and red for what went badly. A kind of moment the game adds later is told plainly, with a seal and its own words.
 - **The great moments are drawn larger**, ringed in gilt: a birth and a marriage, a battle won in command, the governor's chair, a duel to the death, a degree, a galleon taken, a fortune found, a great storm, a ship lost under you, the end.

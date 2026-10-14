@@ -24,7 +24,7 @@ vi.mock("../../src/server/Logger", () => ({
   },
 }));
 
-const { attachConquest, ConquestRooms, cleanName } =
+const { attachConquest, ConquestRooms, cleanName, PAUSE_LOCK_MS } =
   await import("../../src/server/conquest/ConquestRooms");
 
 type Msg = ServerMessage;
@@ -276,17 +276,37 @@ describe("Derpy Conquest server", () => {
     expect(lifeOfSeat(fg.state, fg.you)?.origin).toBe("france");
     expect(hg.paused).toBe(false);
 
-    // Only the host sets the speed; anyone may pause.
+    // Only the host sets the speed. LEGACY (r21): anyone may pause or start
+    // the clock, but for ten seconds after someone pauses only they may
+    // start it again (the host's new speed is set; the clock stays stopped).
     friend.send({ t: "speed", s: 4 });
     const clock1 = host.next("clock");
     friend.send({ t: "pause", p: true });
-    expect(await clock1).toMatchObject({ paused: true, by: "Michael" });
+    expect(await clock1).toMatchObject({
+      paused: true,
+      by: "Michael",
+      lock: { name: "Michael", left: PAUSE_LOCK_MS },
+    });
     const clock2 = friend.next("clock", (m) => m.speed === 4);
     host.send({ t: "speed", s: 4 });
     expect(await clock2).toMatchObject({
       speed: 4,
+      paused: true,
+      by: "Alden",
+    });
+    const held = host.next("err");
+    host.send({ t: "pause", p: false });
+    expect((await held).msg).toMatch(
+      /Michael paused the game: only they can start the clock for 10 more seconds/,
+    );
+    clock += PAUSE_LOCK_MS;
+    const clock3 = friend.next("clock", (m) => !m.paused);
+    host.send({ t: "pause", p: false });
+    expect(await clock3).toMatchObject({
+      speed: 4,
       paused: false,
       by: "Alden",
+      lock: null,
     });
 
     // Someone new drops into the running world with a character of their own.
@@ -394,7 +414,7 @@ describe.skipIf(!TEST_DB)(
       const c = new pg.default.Client({ connectionString: TEST_DB });
       await c.connect();
       await c.query(
-        "DROP TABLE IF EXISTS derpy_conquest_achievements, derpy_conquest_saves, derpy_conquest_players, derpy_conquest_games, derpy_owned, derpy_game_players, derpy_games, derpy_sessions, derpy_accounts CASCADE",
+        "DROP TABLE IF EXISTS derpy_conquest_days, derpy_conquest_play, derpy_conquest_achievements, derpy_conquest_saves, derpy_conquest_players, derpy_conquest_games, derpy_owned, derpy_game_players, derpy_games, derpy_sessions, derpy_accounts CASCADE",
       );
       await c.end();
       ({ closeDerpyDb: closeDb } =
@@ -478,6 +498,9 @@ describe.skipIf(!TEST_DB)(
       a.send({ t: "speed", s: 4 });
       await a.next("clock", (m) => !m.paused);
       const room = env.rooms.rooms.get(b.code)!;
+      // LEGACY (r21): pay counts time at the table: a choice of the player's own.
+      a.send({ t: "cmd", id: 99, c: { k: "will", share: true } });
+      await a.next("ack", (m) => m.id === 99);
       // 8×: two and two-thirds days a second.
       runFor(env.rooms, 300);
       expect(room.game!.state.day).toBeGreaterThan(730);
@@ -511,6 +534,6 @@ describe.skipIf(!TEST_DB)(
       a.send({ t: "list" });
       expect((await after).saved).toHaveLength(0);
       a.close();
-    });
+    }, 30_000); // 800 game days, and the machine is shared
   },
 );

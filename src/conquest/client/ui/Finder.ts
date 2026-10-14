@@ -1731,6 +1731,42 @@ const GOALS: Goal[] = [
     go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
     guide: "coins",
   },
+  // ---- LEGACY (r21): Derp Coins as you play, and the pause in company
+  {
+    id: "coins-this-game",
+    title: "See the Derp Coins this game has paid me",
+    words:
+      "derp coins money earned paid pay per hour time table minutes line marks rewards how much earn store",
+    group: "Travel and the world",
+    where:
+      "Journal › Achievements, at the top: what this game has paid you for time at the table and for your line's marks, and what's waiting. 2.5 coins a minute you play (150 an hour), whatever the speed.",
+    go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
+    guide: "coins",
+  },
+  {
+    id: "pause-company",
+    title: "Pause the game (or start it again) in company",
+    words:
+      "pause unpause stop clock start resume wait hold time speed friends company host",
+    group: "Travel and the world",
+    where:
+      "The pause button by the date (or Space). Anyone may pause or start the clock; for 10 seconds after someone pauses, only they may start it (under the clock: who paused, and the seconds left).",
+    go: (ui) => ui.modal({ k: "guide", ch: "multiplayer" }),
+    goLabel: "How it works",
+    guide: "multiplayer",
+  },
+  {
+    id: "line-characters",
+    title: "See every character my line has been, and their stats",
+    words:
+      "characters heirs generations line family tree old characters stats past lives ancestors chapters chronicle",
+    group: "Travel and the world",
+    where:
+      "Journal › The story, in chapters: a chapter for each of them with their numbers, skills and the people who mattered, and the family's line above. At the end (and on Derp Land, your profile › Story), every character of every line with their stats.",
+    go: tab({ k: "tab", tab: "journal", sub: "story" }),
+    guide: "story",
+  },
+  // ---- end LEGACY (r21)
   // ---- SEA (r15): to sea in person
   {
     id: "go-privateering",
@@ -2392,7 +2428,7 @@ const GOALS: Goal[] = [
       "story so far life tale timeline history memoir what happened epic deeds battles duels fights voyages prizes trials offices elections children degrees achievements legacy line generations",
     group: "Body and mind",
     where:
-      "Journal › The story: everything worth the telling, year by year and generation by generation, with an engraving for each kind, the great moments drawn larger, and the map of the roads travelled. The menu's Your story so far shows the same.",
+      "Journal › The story: in chapters, a life to each (who, where, what came of it, the people who mattered, their numbers and their roads), with the family's line; or year by year, with an engraving for each kind and the map of the roads travelled. The menu's Your story so far shows the same.",
     go: tab({ k: "tab", tab: "journal", sub: "story" }),
     goLabel: "Journal › The story",
     guide: "story",

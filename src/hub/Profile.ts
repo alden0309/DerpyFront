@@ -10,6 +10,7 @@ import {
   crownIcon,
   penIcon,
   replayIcon,
+  scrollIcon, // LEGACY (r21)
   signOutIcon,
   tokenColor,
 } from "../derpland/Icons";
@@ -64,6 +65,8 @@ interface ConquestStats {
   coinsEarned: number;
 }
 interface ConquestGame {
+  /** LEGACY (r21): the characters the line was. */
+  chars?: string[];
   gameId: string;
   endedAt: string;
   durationS: number;
@@ -429,6 +432,10 @@ function conquestRow(g: ConquestGame): TemplateResult {
   return html`<li class="dl-game conquest">
     <div class="dl-game-main">
       <span class="dl-game-title">As ${nationName(g.nation)}</span>
+      ${g.chars?.length
+        ? // LEGACY (r21): every character the line was.
+          html`<span class="dl-game-chars">${g.chars.join(" → ")}</span>`
+        : nothing}
       <span class="dl-game-meta"
         >Derpy Conquest, ${shortDate(g.endedAt)}, played to ${g.finalYear},
         ${DIFFICULTY_NAMES[g.difficulty] ?? g.difficulty}</span
@@ -442,7 +449,12 @@ function conquestRow(g: ConquestGame): TemplateResult {
       ></span
     >
     <span class="dl-game-coins">+${nf(g.coins)} ${coinIcon("dl-coin sm")}</span>
-    <span class="dl-game-spacer"></span>
+    <!-- LEGACY (r21): the game's page: every character, every chronicle. -->
+    <a
+      class="dl-btn small ghost"
+      href="/chronicle/${encodeURIComponent(g.gameId)}"
+      >${scrollIcon()} Story</a
+    >
   </li>`;
 }
 

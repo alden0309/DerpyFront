@@ -21,7 +21,8 @@ import {
   CARD_STALL_SECONDS,
   cardTables,
 } from "../../conquest/engine/CardsCore"; // EVENTS (r21)
-import { lifeCoins } from "../../conquest/engine/Coins";
+import { chronicleOf, type Chronicle } from "../../conquest/engine/Chronicle"; // LEGACY (r21)
+import { lifeCoins, linesDue } from "../../conquest/engine/Coins"; // LEGACY (r21): linesDue
 import { dropFromTable } from "../../conquest/engine/Dice"; // DICE (r14)
 import {
   seatOf,
@@ -29,6 +30,7 @@ import {
   tablesOf,
 } from "../../conquest/engine/DiceCore"; // DICE (r14)
 import { ConquestGame, STATE_VERSION } from "../../conquest/engine/Game";
+import { lineCharacters } from "../../conquest/engine/Legacy"; // LEGACY (r21)
 import { planProblem } from "../../conquest/engine/Life";
 import { autoAnswerLife } from "../../conquest/engine/LifeEvents";
 import { lifeOfSeat, lifeScore } from "../../conquest/engine/LifeQueries";
@@ -78,6 +80,7 @@ import {
   SavedGame,
   SeatInfo,
   ServerMessage,
+  StoredChronicle,
 } from "../../conquest/Protocol";
 import {
   deleteSave,
@@ -95,6 +98,7 @@ import { accountForToken } from "../derpy/DerpyAuth";
 import { recordConquestGame } from "../derpy/DerpyConquest";
 import { derpyDbConfigured } from "../derpy/DerpyDb";
 import { logger } from "../Logger";
+import { TablePay, type SeatPay } from "./ConquestPay"; // LEGACY (r21)
 
 /**
  * For browser tests only: the clock runs this many times faster
@@ -315,6 +319,8 @@ interface Seat {
   conn: Conn | null;
   /** MAP (r12): achievements already told (and paid for) in this game. */
   achSeen?: Set<string>;
+  /** LEGACY (r21): Derp Coins as they play (ConquestPay). */
+  pay?: SeatPay;
 }
 
 interface Room {
@@ -371,7 +377,17 @@ interface Room {
   watchers: Set<Conn>;
   allowWatchers: boolean;
   watchId: string;
+  // LEGACY (r21)
+  /** When the clock last stopped (real ms), or null while it runs: pay counts only a stop's first minutes. */
+  pausedAt: number | null;
+  /** Paused in company: who did, and until when only they may start the clock (PAUSE_LOCK_MS). */
+  lock: { seat: string; name: string; until: number } | null;
+  /** The end being worked out (once). */
+  finishing: Promise<ResultLine[]> | null;
 }
+
+/** LEGACY (r21): after someone pauses in company, only they may start the clock for this long. */
+export const PAUSE_LOCK_MS = 10_000;
 
 function randomToken(bytes: number): string {
   return randomBytes(bytes).toString("base64url");
@@ -383,8 +399,19 @@ export class ConquestRooms {
   private readonly deleted = new Set<string>();
   private timer: ReturnType<typeof setInterval> | null = null;
   private last = Date.now();
+  /** LEGACY (r21): Derp Coins as you play. */
+  readonly pay: TablePay;
 
-  constructor(private readonly now: () => number = Date.now) {}
+  constructor(private readonly now: () => number = Date.now) {
+    this.pay = new TablePay(
+      now,
+      (seat, note) => {
+        const conn = (seat as Seat).conn;
+        if (conn) this.send(conn, note);
+      },
+      (msg) => log.warn(msg),
+    );
+  }
 
   start(): void {
     if (this.timer) return;
@@ -398,9 +425,13 @@ export class ConquestRooms {
     this.timer = null;
   }
 
-  /** Save every running campaign (on shutdown). */
+  /** Save every running campaign (on shutdown), and pay what's owed (LEGACY r21). */
   async saveAll(): Promise<void> {
-    await Promise.all([...this.rooms.values()].map((r) => this.save(r)));
+    await Promise.all(
+      [...this.rooms.values()].map((r) =>
+        Promise.all([this.save(r), this.pay.settleAll(r)]),
+      ),
+    );
   }
 
   // ---------------------------------------------------------------- sockets
@@ -476,6 +507,7 @@ export class ConquestRooms {
     conn.seat = null;
     if (!room || !seat || seat.conn !== conn) return;
     seat.conn = null;
+    void this.pay.settle(room, seat, true); // LEGACY (r21): what they're owed
     if (!room.game) {
       // In the lobby a leaver gives up their seat.
       room.seats = room.seats.filter((s) => s !== seat);
@@ -505,6 +537,7 @@ export class ConquestRooms {
     }
     if (!playing && room.game && !room.game.state.over && !room.paused) {
       room.paused = true;
+      room.lock = null; // LEGACY (r21)
       this.broadcast(room, {
         t: "clock",
         speed: room.speed,
@@ -576,6 +609,7 @@ export class ConquestRooms {
         if (!game) return;
         const err = game.beginLife(seat.id, seat.name, m.plan as LifePlan);
         if (err) return this.send(conn, { t: "err", msg: err });
+        this.pay.choice(room, seat); // LEGACY (r21)
         this.flush(room);
         this.onSeatsChanged(room);
         void this.save(room);
@@ -615,20 +649,44 @@ export class ConquestRooms {
           room.skip.asked.clear();
           this.skipMsg(room, seat.name, `${seat.name} stopped skipping ahead.`);
         }
-        // The host sets the pace in company (anyone may pause).
+        // The host sets the pace in company. LEGACY (r21): anyone may pause
+        // or start the clock, but after someone pauses, only they may start
+        // it for PAUSE_LOCK_MS (the host's speed is set, the clock stays).
         if (m.t === "speed") {
           if (!room.solo && room.host !== seat.id) return;
           room.speed = m.s;
-          room.paused = false;
+          if (!this.lockedFor(room, seat)) {
+            room.paused = false;
+            room.lock = null;
+          }
+        } else if (m.p) {
+          if (room.paused) return;
+          room.paused = true;
+          room.lock = room.solo
+            ? null
+            : {
+                seat: seat.id,
+                name: seat.name,
+                until: this.now() + PAUSE_LOCK_MS,
+              };
         } else {
-          if (!m.p && !room.solo && room.host !== seat.id) return;
-          room.paused = m.p;
+          const locked = this.lockedFor(room, seat);
+          if (locked) {
+            const secs = Math.ceil((locked.until - this.now()) / 1000);
+            return this.send(conn, {
+              t: "err",
+              msg: `${locked.name} paused the game: only they can start the clock for ${secs} more second${secs === 1 ? "" : "s"}.`,
+            });
+          }
+          room.paused = false;
+          room.lock = null;
         }
         this.broadcast(room, {
           t: "clock",
           speed: room.speed,
           paused: room.paused,
           by: seat.name,
+          lock: this.lockInfo(room), // LEGACY (r21)
         });
         for (const x of room.seats) this.sendLetters(room, x);
         if (room.paused) void this.save(room);
@@ -802,6 +860,10 @@ export class ConquestRooms {
       watchers: new Set(),
       allowWatchers: false,
       watchId: randomToken(9),
+      // LEGACY (r21)
+      pausedAt: null,
+      lock: null,
+      finishing: null,
     };
     if (conn) {
       const seat = this.seatFor(conn);
@@ -1375,6 +1437,7 @@ export class ConquestRooms {
     room.skip.mark = attentionMark(game.state);
     room.skip.from = game.state.day;
     room.paused = false;
+    room.lock = null; // LEGACY (r21)
     room.owed = 0;
     this.broadcast(room, {
       t: "clock",
@@ -1434,6 +1497,19 @@ export class ConquestRooms {
     this.sendLetters(room, seat);
     this.sendDiceClocks(room, seat.conn); // DICE (r14)
     void this.sendAchievements(seat); // MAP (r12)
+    // LEGACY (r21): who paused (and how long only they may start the clock),
+    // and the Derp Coins this game has paid them so far.
+    const lock = this.lockInfo(room);
+    if (lock)
+      this.send(seat.conn, {
+        t: "clock",
+        speed: room.speed,
+        paused: room.paused,
+        by: null,
+        lock,
+      });
+    if (seat.accountId === null) this.send(seat.conn, TablePay.guestNote());
+    else this.pay.greet(room, seat);
     if (room.skip.on || room.skip.asked.size)
       this.send(seat.conn, {
         t: "skip",
@@ -1490,6 +1566,7 @@ export class ConquestRooms {
   private command(room: Room, seat: Seat, id: number, c: unknown): void {
     const game = room.game;
     if (!game || !seat.conn) return;
+    this.pay.choice(room, seat); // LEGACY (r21): a choice of their own
     // INTRIGUE (r15): a letter in your own words, checked here as well as by
     // the game: its length, and how many a seat may send a minute.
     const why = this.noteLimit(seat, c);
@@ -1731,6 +1808,10 @@ export class ConquestRooms {
       return;
     }
     if (!game || game.state.over) return;
+    // LEGACY (r21): time at the table, counted on the real clock.
+    if (room.paused) room.pausedAt ??= t;
+    else room.pausedAt = null;
+    this.pay.count(room, dt);
     if (t - room.lastSaved > SAVE_EVERY_MS && !room.paused)
       void this.save(room);
     this.letterClock(room, room.paused ? 0 : dt);
@@ -1770,6 +1851,39 @@ export class ConquestRooms {
       return;
     }
     if (ticks > 0 && t - room.lastSent >= SEND_EVERY_MS) this.flush(room);
+    // LEGACY (r21): paid about once a minute, once the world has moved on.
+    if (ticks > 0)
+      for (const seat of room.seats) void this.pay.settle(room, seat);
+  }
+
+  // ---------------------------------------------------------------- the pause in company (LEGACY r21)
+
+  /** Someone else's pause that `seat` may not undo yet, or null. */
+  private lockedFor(
+    room: Room,
+    seat: Seat,
+  ): { seat: string; name: string; until: number } | null {
+    const l = room.lock;
+    if (!l || room.solo || !room.paused || l.seat === seat.id) return null;
+    if (this.now() >= l.until) return null;
+    // A pauser who has left can't hold the clock.
+    if (!room.seats.some((x) => x.id === l.seat && x.conn)) return null;
+    return l;
+  }
+
+  /** The pause's lock as players are told it (null when nobody holds the clock). */
+  private lockInfo(room: Room): {
+    seat: string;
+    name: string;
+    left: number;
+  } | null {
+    const l = room.lock;
+    if (!l || !room.paused || room.solo) return null;
+    return {
+      seat: l.seat,
+      name: l.name,
+      left: Math.max(0, l.until - this.now()),
+    };
   }
 
   /**
@@ -1987,16 +2101,27 @@ export class ConquestRooms {
     this.send(seat.conn, { t: "letters", left, paused: room.paused });
   }
 
-  /** Works out results and coins, saves them, and tells everyone. */
-  async finishRoom(room: Room): Promise<ResultLine[]> {
+  /** Works out results and coins, saves them, and tells everyone (once: LEGACY r21). */
+  finishRoom(room: Room): Promise<ResultLine[]> {
+    if (room.results) return Promise.resolve(room.results);
+    room.finishing ??= this.finish(room);
+    return room.finishing;
+  }
+
+  private async finish(room: Room): Promise<ResultLine[]> {
     const game = room.game!;
-    if (room.results) return room.results;
     room.overAt = this.now();
     const s = game.state;
     // MAP (r12): the last day's achievements (alive in 1776), paid before the results.
     for (const life of s.lives) checkAchievements(game, life);
     await this.achievements(room);
+    // LEGACY (r21): what time at the table and the line earned while it was
+    // played is paid first; the end pays the rest of the line's coins (still
+    // held to the time played) and living to see 1776.
+    for (const seat of room.seats) this.pay.ready(room, seat);
+    await this.pay.settleAll(room);
     const reachedEnd = s.day >= s.endDay;
+    const paying = derpyDbConfigured() && room.saveId !== null;
     const lines = room.seats
       .map((seat) => ({ seat, life: lifeOfSeat(s, seat.id) }))
       .filter(
@@ -2005,12 +2130,30 @@ export class ConquestRooms {
       .map(({ seat, life }) => {
         const coins = lifeCoins(life, reachedEnd && life.c >= 0);
         const last = s.chars[life.line[life.line.length - 1]];
+        // Signed in with the games saved, the end is held to the time
+        // played as well (pay that couldn't be read counts no time at all).
+        const p =
+          seat.accountId === null || !paying
+            ? null
+            : seat.pay?.ready
+              ? seat.pay
+              : { secs: 0, play: 0, lines: 0 };
+        const end = p
+          ? linesDue(life, p.secs, p.lines, reachedEnd && life.c >= 0)
+          : null;
         return {
           seat,
           life,
           score: lifeScore(s, life),
           coins,
+          pay: p && end ? { p, end } : null,
           lineName: last ? `${last.first} ${last.family}` : seat.name,
+          // LEGACY (r21): every character the line was, and its chronicle
+          // as anyone may read it (nothing secret).
+          chars: lineCharacters(s, life, AMERICAS),
+          chronicle: storedChronicle(
+            chronicleOf(s, life, AMERICAS, { secrets: false }),
+          ),
         };
       })
       .sort((a, b) => b.score - a.score);
@@ -2024,8 +2167,24 @@ export class ConquestRooms {
       won: many
         ? i === 0
         : x.life.tally.topOffice >= 3 || x.life.tally.risingsWon > 0,
-      coins: x.seat.accountId !== null ? x.coins.total : null,
+      coins:
+        x.seat.accountId === null
+          ? null
+          : x.pay
+            ? x.pay.p.play + x.pay.p.lines + x.pay.end.due
+            : x.coins.total,
       coinLines: x.coins.lines,
+      // LEGACY (r21)
+      ...(x.pay
+        ? {
+            timeCoins: x.pay.p.play,
+            linesInPlay: x.pay.p.lines,
+            atEnd: x.pay.end.due,
+            held: x.pay.end.held,
+            minutes: Math.floor(x.pay.p.secs / 60),
+          }
+        : {}),
+      chars: x.chars,
     }));
     const winner = lines[0];
     await this.save(room, true);
@@ -2050,13 +2209,50 @@ export class ConquestRooms {
         battlesWon: x.life.tally.battlesWon,
         conquests: x.life.tally.generations,
         goldEarned: x.life.tally.earned,
-        coins: x.coins.total,
+        // LEGACY (r21): what's paid now (the rest was paid as they played),
+        // all the game paid them, every character they were, and their chronicle.
+        coins: x.pay ? x.pay.end.due : x.coins.total,
+        total: room.results![i].coins,
+        line: x.lineName,
+        chars: x.chars,
+        chronicle: x.chronicle,
       })),
     });
     this.broadcast(room, { t: "end", results: room.results });
     log.info("game over", { code: room.code, lines: lines.length });
     return room.results;
   }
+}
+
+/** LEGACY (r21): a chronicle as the site keeps it: people by name, no ids, no maps. */
+function storedChronicle(ch: Chronicle): StoredChronicle {
+  return {
+    title: ch.title,
+    opening: ch.opening,
+    numbers: ch.numbers,
+    chapters: ch.chapters.map((c) => ({
+      roman: c.roman,
+      name: c.name,
+      years: c.years,
+      title: c.title,
+      paras: c.paras,
+      people: c.people.map((p) => ({ name: p.name, role: p.role })),
+      numbers: c.numbers,
+    })),
+    closing: ch.closing,
+    tree: ch.tree.map((t) => ({
+      name: t.name,
+      years: t.years,
+      came: t.came,
+      spouses: t.spouses,
+      children: t.children.map((k) => ({
+        name: k.name,
+        born: k.born,
+        heir: k.heir,
+        young: k.young,
+      })),
+    })),
+  };
 }
 
 /** STORY (r17) */

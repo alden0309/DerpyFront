@@ -272,6 +272,13 @@ export const hooks = {
     sea: boolean,
     boat: number | undefined,
   ) => void)[],
+  // LEGACY (r21)
+  /** A moment has just gone into a life's story (LifeCore's milestone): a life begun or ended among them. */
+  milestone: [] as ((
+    g: ConquestGame,
+    life: Life,
+    m: import("./Types").LifeMilestone,
+  ) => void)[],
 };
 
 /**

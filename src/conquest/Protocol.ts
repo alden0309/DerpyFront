@@ -2,6 +2,7 @@
 // JSON over the /conquest/ws WebSocket. Each player is one character living
 // in a world the server runs; they send what their character does.
 
+import type { LineChar } from "./engine/Legacy"; // LEGACY (r21)
 import type {
   Difficulty,
   GameDelta,
@@ -119,10 +120,111 @@ export interface ResultLine {
   rank: number;
   score: number;
   won: boolean;
-  /** Derp Coins paid, or null if they weren't signed in. */
+  /**
+   * Derp Coins paid, or null if they weren't signed in. LEGACY (r21): all
+   * this game paid, while it was played and at the end.
+   */
   coins: number | null;
   /** The coins, line by line. */
   coinLines: { line: string; coins: number }[];
+  // LEGACY (r21): pay as you play.
+  /** Paid for time at the table, and the line's coins paid as they were reached. */
+  timeCoins?: number;
+  linesInPlay?: number;
+  /** Paid at the end (the rest of the line's coins, living to see 1776). */
+  atEnd?: number;
+  /** The line's coins that waited on more time at the table, and never came. */
+  held?: number;
+  /** Minutes at the table that counted. */
+  minutes?: number;
+  /** LEGACY (r21): every character the player's line was, with their stats. */
+  chars?: LineCharacter[];
+}
+
+// ---------------------------------------------------------------- LEGACY (r21)
+
+/** Derp Coins paid while you play (and where you stand in this game), or that a guest would be. */
+export interface PayNote {
+  t: "paid";
+  signedIn: boolean;
+  /** Just paid: for time at the table, and the line's coins (and which lines grew). */
+  time: number;
+  lines: number;
+  grew: string[];
+  /** This game so far: coins for time, the line's coins, minutes at the table. */
+  play: number;
+  linePaid: number;
+  minutes: number;
+  /** The line's coins earned but waiting on more time at the table. */
+  held: number;
+  /** Time at the table has paid all it may today (PLAY_PAY.dailyHours). */
+  capped?: boolean;
+}
+
+/**
+ * One character of a line, as their part in it ended (or stands): for the
+ * end screen, the site's game page and players' profiles. Made by the
+ * engine's Legacy.ts from what the game knows; nothing secret.
+ */
+export type LineCharacter = LineChar;
+
+/** LEGACY (r21): a line's chronicle as the site keeps it (nothing secret; people by name). */
+export interface StoredChronicle {
+  title: string;
+  opening: string;
+  numbers: { label: string; value: string }[];
+  chapters: {
+    roman: string;
+    name: string;
+    years: string;
+    title: string;
+    paras: string[];
+    people: { name: string; role: string }[];
+    numbers: { label: string; value: string }[];
+  }[];
+  closing: string;
+  tree: {
+    name: string;
+    years: string;
+    came: string;
+    spouses: string[];
+    children: { name: string; born: number; heir: boolean; young: boolean }[];
+  }[];
+}
+
+/** LEGACY (r21): a finished game as the site shows it (GET /derpy/api/conquest/game/:id). */
+export interface ConquestGamePage {
+  gameId: string;
+  endedAt: string;
+  durationS: number;
+  endYear: number;
+  finalYear: number;
+  difficulty: string;
+  numPlayers: number;
+  winner: string | null;
+  players: {
+    name: string;
+    /** Their Derp Land account's name now (a link to their page), or null for a guest. */
+    username: string | null;
+    nation: string;
+    rank: number;
+    score: number;
+    won: boolean;
+    /** The family (or the last character's name). */
+    line?: string;
+    coins?: number | null;
+    chars?: LineCharacter[];
+    chronicle?: StoredChronicle;
+  }[];
+}
+
+/** LEGACY (r21): the pause in company: who stopped the clock, and how long only they may start it. */
+export interface PauseLock {
+  /** The seat that paused, and their name. */
+  seat: string;
+  name: string;
+  /** Milliseconds left in which only they may start the clock again. */
+  left: number;
 }
 
 export type ClientMessage =
@@ -204,7 +306,14 @@ export type ServerMessage =
       open?: boolean;
     }
   | { t: "d"; d: GameDelta }
-  | { t: "clock"; speed: number; paused: boolean; by: string | null }
+  | {
+      t: "clock";
+      speed: number;
+      paused: boolean;
+      by: string | null;
+      /** LEGACY (r21): paused in company: by whom, and how long only they may start it. */
+      lock?: PauseLock | null;
+    }
   /**
    * LIFE (r11): skipping ahead (on), or who has asked to (seat ids); when a
    * skip stops, why (what needed someone).
@@ -244,4 +353,6 @@ export type ServerMessage =
   // whether the host lets them; and a watcher's watching over (the game
   // closed, the host shut watchers out, or it couldn't begin), and why.
   | { t: "watchers"; n: number; allow: boolean }
-  | { t: "watchend"; why: string };
+  | { t: "watchend"; why: string }
+  // LEGACY (r21): Derp Coins paid as you play, and where you stand in this game.
+  | PayNote;

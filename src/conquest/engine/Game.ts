@@ -53,6 +53,7 @@ import "./Intrigue"; // INTRIGUE (r15): seduction, plots, weddings, private lett
 import { leadsDaily, leadsMonthly } from "./Leads";
 import "./Leave"; // ECON (r17): leave from your work
 import "./Ledger"; // LEDGER (r15): the month's books, statements and forecast
+import "./Legacy"; // LEGACY (r21): every character a line was, kept as their part ends
 import "./LifeStory"; // STORY (r17): what a life is remembered for
 import "./Loans"; // ECON (r17): bonds: loans on terms
 import { fitStateToMap } from "./MapFix";

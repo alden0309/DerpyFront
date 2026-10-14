@@ -5,6 +5,7 @@
 import { html, nothing, TemplateResult } from "lit";
 import { formatDate } from "../../engine/Calendar";
 import { lifeTitle, takeoverCandidates } from "../../engine/LifeQueries";
+import { PLAY_PAY } from "../../engine/LifeRules"; // LEGACY (r21)
 import { ageOf, charName } from "../../engine/Queries";
 import { REG_NAMES } from "../../engine/Rules";
 import type { BattleSide, LifePlan, RegType } from "../../engine/Types";
@@ -737,7 +738,7 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
               )}
             </tbody>
           </table>
-          ${coinBreakdown(results, ui)}`
+          ${coinBreakdown(results, ui)} ${everyCharacter(results, ui)}`
       : s.lives.length > 1
         ? html`<h3 class="cq-h3">The others</h3>
             <ul class="cq-list">
@@ -761,13 +762,118 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
   `;
 }
 
+/** LEGACY (r21): every character each player's line was, with their stats. */
+function everyCharacter(results: ResultLine[], ui: GameUi): TemplateResult {
+  const withChars = results.filter((r) => r.chars?.length);
+  if (!withChars.length) return html``;
+  return html`<h3 class="cq-h3">Every character they were</h3>
+    ${withChars.map(
+      (r) =>
+        html`<details
+          class="cq-end-chars"
+          ?open=${r.name === ui.life?.name || withChars.length === 1}
+        >
+          <summary>
+            <b>${r.name}</b>: ${r.chars!.length}
+            ${r.chars!.length === 1 ? "life" : "lives"}, the line of ${r.line}
+          </summary>
+          <div class="cq-table-wrap">
+            <table class="cq-table compact">
+              <thead>
+                <tr>
+                  <th>Character</th>
+                  <th>What they were</th>
+                  <th class="r">Renown</th>
+                  <th class="r">Purse</th>
+                  <th class="r">Children</th>
+                  <th class="r">Battles</th>
+                  <th class="r">Duels</th>
+                  <th>Best at</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${r.chars!.map(
+                  (c) =>
+                    html`<tr>
+                      <td>
+                        ${ui.s.chars[c.c]
+                          ? html`<button
+                              class="cq-link"
+                              @click=${() => ui.open({ k: "char", c: c.c })}
+                            >
+                              ${c.name}
+                            </button>`
+                          : c.name}
+                        <small
+                          >${c.born}–${c.ended === "living"
+                            ? ""
+                            : (c.to ?? "")};
+                          ${c.fate}</small
+                        >
+                      </td>
+                      <td>
+                        ${c.title || "Of no fixed trade"}${c.office
+                          ? html`<small>${c.office}</small>`
+                          : nothing}
+                        ${c.home ? html`<small>${c.home}</small>` : nothing}
+                      </td>
+                      <td class="r">${c.renown}</td>
+                      <td class="r">${c.purse}</td>
+                      <td class="r">${c.children}</td>
+                      <td class="r">
+                        ${c.battles ? `${c.battles} (${c.battlesWon})` : 0}
+                      </td>
+                      <td class="r">${c.duels}</td>
+                      <td>
+                        ${c.skills.map(([k, v]) => `${k} ${v}`).join(", ")}
+                      </td>
+                    </tr>`,
+                )}
+              </tbody>
+            </table>
+          </div>
+        </details>`,
+    )}`;
+}
+
 function coinBreakdown(results: ResultLine[], ui: GameUi): TemplateResult {
   const mine = results.find((r) => r.name === ui.life?.name);
-  if (!mine?.coinLines.length) return html``;
-  return html`<details class="cq-more">
+  // LEGACY (r21): what was paid as you played, and at the end.
+  const asPlayed = mine?.timeCoins !== undefined;
+  if (!mine || (!mine.coinLines.length && !asPlayed)) return html``;
+  return html`<details class="cq-more" ?open=${asPlayed}>
     <summary>Your coins, line by line</summary>
     <table class="cq-table compact">
       <tbody>
+        ${asPlayed
+          ? html`<tr>
+                <td>
+                  ${mine.minutes} minute${mine.minutes === 1 ? "" : "s"} at the
+                  table (paid as you played)
+                </td>
+                <td class="r">${mine.timeCoins}</td>
+              </tr>
+              <tr>
+                <td>Your line's marks, paid as they were reached</td>
+                <td class="r">${mine.linesInPlay}</td>
+              </tr>
+              <tr>
+                <td>Paid at the end</td>
+                <td class="r">${mine.atEnd}</td>
+              </tr>
+              ${mine.held
+                ? html`<tr class="cq-muted">
+                    <td>
+                      Earned, but more than the time played allows
+                      (${PLAY_PAY.linesPerHour} an hour)
+                    </td>
+                    <td class="r">${mine.held}</td>
+                  </tr>`
+                : nothing}
+              <tr>
+                <th colspan="2">The line's marks</th>
+              </tr>`
+          : nothing}
         ${mine.coinLines.map(
           (l) =>
             html`<tr>
