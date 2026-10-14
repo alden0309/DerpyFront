@@ -25,6 +25,7 @@ import { TerrainMapData } from "@openfront/engine-lib/game/TerrainMapLoader";
 import { TerraNulliusImpl } from "@openfront/engine-lib/game/TerraNulliusImpl";
 import { UnitGrid } from "@openfront/engine-lib/game/UnitGrid";
 import { PlayerCosmetics, WirePlayer } from "@openfront/shared/WireSchemas";
+import { nationFlagPath } from "../derpy/PersonaEmblems";
 import { computeAllianceClusters } from "../render/frame/derive/AllianceClusters";
 import { extractAttackRings } from "../render/frame/derive/AttackRings";
 import { extractNukeTelegraphs } from "../render/frame/derive/NukeTelegraphs";
@@ -346,7 +347,7 @@ export class GameView implements GameLike {
           this._cosmetics.get(pu.clientID ?? "") ??
             (pu.playerType === PlayerType.Nation && pu.nationFlag
               ? ({
-                  flag: `/flags/${pu.nationFlag}.svg`,
+                  flag: nationFlagPath(pu.nationFlag), // DFSTORE (r21)
                 } satisfies PlayerCosmetics)
               : undefined) ??
             {},

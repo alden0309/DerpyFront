@@ -1,5 +1,6 @@
 # Draws the AI persona emblems (DFSTORE r21) as small 3:2 SVG flags into
-# resources/flags/persona_<id>.svg. Each pack has its own charge; each persona
+# resources/public/derpy-emblems/persona_<id>.svg:
+#   python3 scripts/derpy-emblems/emblems.py resources/public/derpy-emblems Each pack has its own charge; each persona
 # its own colours and layout.
 import os, sys
 

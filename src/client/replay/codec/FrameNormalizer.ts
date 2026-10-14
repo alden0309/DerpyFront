@@ -25,6 +25,7 @@ import {
   unpackMotionPlans,
   type MotionPlanRecord,
 } from "@openfront/engine-lib/game/MotionPlans";
+import { nationFlagPath } from "../../derpy/PersonaEmblems";
 import type {
   NameEntry,
   PlayerState,
@@ -166,7 +167,7 @@ export class FrameNormalizer {
         const info = playerStaticFromUpdate(pu);
         // A nation's flag comes on its first update. Players' own
         // cosmetics are in the game start info.
-        if (pu.nationFlag) info.flag = `/flags/${pu.nationFlag}.svg`;
+        if (pu.nationFlag) info.flag = nationFlagPath(pu.nationFlag); // DFSTORE (r21)
         newPlayers.push(info);
         touched.add(state.smallID);
       } else {

@@ -123,8 +123,8 @@ describe("the catalog", () => {
         pack.personas.map((p) => p.id),
       );
       for (const p of item.personas ?? []) {
-        expect(p.emblem).toBe(`/flags/persona_${p.id}.svg`);
-        const file = path.join(ROOT, "resources", p.emblem);
+        expect(p.emblem).toBe(`/derpy-emblems/persona_${p.id}.svg`);
+        const file = path.join(ROOT, "resources/public", p.emblem);
         expect(fs.existsSync(file)).toBe(true);
         expect(fs.readFileSync(file, "utf8")).toMatch(/^<svg [^>]*viewBox/);
       }

@@ -560,7 +560,10 @@ export class DerpInventory extends HubPage {
         ${tile(
           null,
           noneLabel,
-          html`<span class="dl-skin-none" aria-hidden="true"></span>`,
+          html`<span
+            class="dl-skin-none ${items.some((i) => i.fx) ? "wide" : ""}"
+            aria-hidden="true"
+          ></span>`,
         )}
         ${items.map((i) =>
           tile(

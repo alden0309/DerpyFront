@@ -480,18 +480,22 @@ export class DerpyStorePage extends BaseModal {
       >
         ${art} ${label}
         <span class="text-[10px] uppercase tracking-wide text-white/40"
-          >${on
-            ? translateText("derpy.equipped")
-            : translateText("derpy.equip")}</span
+          >${this.tab.category === "skins"
+            ? translateText(on ? "derpy.equipped" : "derpy.equip")
+            : translateText(on ? "derpy.in_use" : "derpy.use")}</span
         >
       </button>`;
     };
+    // The "none" tile takes the shape of the others' pictures.
+    const wide = width !== "w-28";
     return html`<div class="flex flex-wrap gap-3">
       ${tile(
         null,
         noneLabel,
         html`<span
-          class="flex aspect-square w-full items-center justify-center rounded-lg bg-black/30 text-2xl text-white/30"
+          class="flex ${wide
+            ? "aspect-[8/3]"
+            : "aspect-square"} w-full items-center justify-center rounded-lg bg-black/30 text-2xl text-white/30"
           >∅</span
         >`,
       )}

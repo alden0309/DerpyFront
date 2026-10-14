@@ -833,7 +833,7 @@
   .dl-gametab[data-game="conquest"][aria-selected="true"]::after {
     background: var(--vellum);
   }
-  .dl-cattabs {
+  .dl-seg.dl-cattabs {
     margin: 0;
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -892,6 +892,9 @@
   }
   .dl-pickart .dfx-preview {
     margin: 0;
+  }
+  .dl-skin-none.wide {
+    aspect-ratio: 8 / 3;
   }
   .dl-music {
     display: grid;
@@ -1385,6 +1388,21 @@
   @media (max-width: 560px) {
     .dl-main {
       padding-top: 28px;
+    }
+    /* DFSTORE (r21): the store's categories, two to a row. */
+    .dl-seg.dl-cattabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-self: stretch;
+    }
+    .dl-cattabs button {
+      justify-content: space-between;
+      white-space: normal;
+      text-align: left;
+    }
+    .dl-gametab {
+      font-size: 16px;
+      padding: 10px 12px 12px;
     }
     .dl-empty.with-mascot {
       flex-direction: column;

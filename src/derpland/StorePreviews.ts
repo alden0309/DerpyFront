@@ -138,7 +138,7 @@ export const STORE_PREVIEW_CSS = `
 @keyframes dfx-burst{0%,50%{transform:scale(.1);opacity:0}62%{opacity:1}100%{transform:scale(1);opacity:0}}
 @keyframes dfx-shim{0%,100%{transform:scale(.55);opacity:.15}50%{transform:scale(1.25);opacity:.7}}
 @media (prefers-reduced-motion:reduce){.dfx-trail,.dfx-burst,.dfx-shimmer{animation:none;stroke-dashoffset:0;opacity:1;transform:none}}
-.dfx-personas{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:0;padding:0;list-style:none}
+.dfx-personas{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;padding:0;list-style:none}
 .dfx-persona{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
 .dfx-persona img{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:6px;background:#0003;margin:0}
 .dfx-persona-name{font-weight:650;font-size:13px;line-height:1.25;overflow-wrap:anywhere}

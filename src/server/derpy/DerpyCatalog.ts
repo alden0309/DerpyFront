@@ -427,7 +427,7 @@ function personalityItems(): DerpyItem[] {
         id: p.id,
         name: p.name,
         temperament: p.temperament,
-        emblem: `/flags/persona_${p.id}.svg`,
+        emblem: `/derpy-emblems/persona_${p.id}.svg`,
       })),
     };
   });
