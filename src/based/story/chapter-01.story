@@ -858,8 +858,10 @@ end
 
 
 
+// She can only be found before he orders: after that she comes to him, and
+// then she's gone (out of the bar, and off the street).
 == woman_early "The woman in the corner"
-@on talk WOMAN if not ordered
+@on talk WOMAN
 She didn't look up from her crossword.
 choose "The Times, open at the crossword."
   * [Ask about seven down] "Is seven down 'tenterhooks'?"
@@ -871,12 +873,6 @@ choose "The Times, open at the crossword."
     He left her to her crossword.
 end
 -> FREE
-
-== woman_gone "The woman in the corner"
-@on talk WOMAN
-She was gone; there was nobody to talk to.
--> FREE
-
 
 == porter "The night porter"
 @on talk PORTER once
