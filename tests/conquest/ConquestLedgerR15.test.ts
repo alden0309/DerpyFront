@@ -465,7 +465,7 @@ describe(
       expect(chanceWords(1)).toBe("certain");
     });
 
-    test("no whales in the south, and nobody to command her while you're away", () => {
+    test("no whales in the south, and (SHIPS r21) her senior hand commands her while you're away", () => {
       const g = world({
         start: 1700,
         seed: 4,
@@ -481,9 +481,11 @@ describe(
       const b = schoonerAt(g, life, "whaling");
       expect(boatJobOdds(g.s, g.w, life, b, "whaling").ok).toBe(false);
       life.prov = NORTH;
+      // SHIPS (r21): a ship keeps at her work when you leave port: with
+      // nobody of yours aboard, her senior hand commands her.
       const away = boatJobOdds(g.s, g.w, life, b, "fishing");
-      expect(away.ok).toBe(false);
-      expect(away.why).toMatch(/skipper/);
+      expect(away.ok).toBe(true);
+      expect(away.factors[0]).toMatch(/senior hand/);
       // With a full crew to come, the cost of signing them shows.
       b.crew = 0;
       const hire = boatJobOdds(g.s, g.w, life, b, "fishing", {

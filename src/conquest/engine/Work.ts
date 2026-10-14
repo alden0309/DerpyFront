@@ -10,6 +10,7 @@ import { crimeWorkDay, lawWorkDay } from "./Crime";
 import { npc, played } from "./EventPacing"; // EVENTS (r15)
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
+import { hooks } from "./Hooks"; // SHIPS (r21)
 import { leaveDay } from "./Leave"; // ECON (r17)
 import { addRenown, gainXp, journal, milestone, touchLife } from "./LifeCore";
 import {
@@ -380,6 +381,7 @@ export function leaveJob(g: ConquestGame, life: Life, why: string): void {
         pr.hands = pr.hands.filter((x) => x !== life.c);
       }
   touchLife(g, life).job = null;
+  for (const h of hooks.jobLeft) h(g, life, job); // SHIPS (r21): off a company's books
 }
 
 // ---------------------------------------------------------------- climbing
@@ -621,6 +623,8 @@ export function workMonthly(
   job.lastWorked = job.worked ?? 0; // LEDGER (r15): the month's business is minded by them
   job.worked = 0;
   job.away = job.awayDays ? Math.floor(job.awayDays / 30) : 0;
+  // SHIPS (r21): a place in a player's company: they keep you on, and promote you (Hiring.ts).
+  if (job.berth) return;
   // The master's post passes on: whoever holds it now keeps you on.
   if (!job.own && job.employer >= 0 && !s.chars[job.employer]?.alive) {
     const role = s.chars[job.employer]?.role;

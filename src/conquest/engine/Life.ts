@@ -130,6 +130,7 @@ import {
 import { militaryCommand } from "./War";
 // LIFE (r11): the pace (skip ahead), boats, and the round-11 life's hooks.
 import { landBoat, nextLegDays } from "./Boats";
+import { leaveCompany, strandEmbark } from "./Parties"; // SHIPS (r21)
 import {
   carryLimit,
   lifeR11Ended,
@@ -493,8 +494,8 @@ function formatPlace(g: ConquestGame, p: number): string {
   return g.map.provinces[p]?.name ?? "somewhere";
 }
 
-/** Arriving somewhere: it goes on the trail, and its people come to be. */
-function visit(g: ConquestGame, life: Life, p: number): void {
+/** Arriving somewhere: it goes on the trail, and its people come to be. SHIPS (r21): exported (a party arrives). */
+export function visit(g: ConquestGame, life: Life, p: number): void {
   touchLife(g, life);
   life.trail.push({ day: g.s.day, p, c: life.c });
   // In at the door: your work if it's here, else the tavern (or the village).
@@ -538,6 +539,9 @@ export function travelTo(
   if (life.job?.kind === "servant" && (life.job.until ?? 0) > s.day)
     return "Servants don't come and go as they please. (Running away is an act at the fields.)";
   if (to === life.prov && !life.travel) return "You're already here.";
+  // SHIPS (r21): aboard someone's ship, or with a party: get off first.
+  if (life.travel?.with)
+    return "You're travelling with others: get off at the next stop first.";
   const from = life.travel ? life.travel.path[0] : life.prov;
   if (from === to) {
     // Turning round mid-hop: carry on to the next stop and stop there.
@@ -557,6 +561,8 @@ export function travelTo(
     native,
     sailor,
     paceOf(s, life),
+    false,
+    life.travel ? undefined : strandEmbark(s, g.map, life), // SHIPS (r21): a shore with no port
   );
   if (!route) return "There's no way there from here.";
   // LIFE (r11): a boat's hold of goods won't go overland on your back.
@@ -606,6 +612,8 @@ function hop(g: ConquestGame, life: Life): void {
     wake(g, life, `You arrive at ${formatPlace(g, next)}.`);
     if (t.boat !== undefined) landBoat(g, life, t.boat, next);
     if (next !== life.home && g.rng.chance(0.15)) addRenown(g, life, 0.5);
+    // SHIPS (r21): beached or at anchor where there's no port; a passage's ship lies off.
+    for (const h of hooks.landed) h(g, life, next, wasSea, t.boat);
     return;
   }
   // LIFE (r11): in your own boat, at her speed.
@@ -677,7 +685,11 @@ export function livesDaily(g: ConquestGame): void {
     followArmy(g, life);
     if (life.travel) {
       // SEA (r15): aboard a cruise or a voyage, the ship carries you (Cruises.ts, Voyages.ts).
-      if (life.travel.ship === undefined && g.s.day >= life.travel.arrive)
+      if (
+        life.travel.ship === undefined &&
+        life.travel.with === undefined && // SHIPS (r21): those aboard go where she goes (Parties.ts)
+        g.s.day >= life.travel.arrive
+      )
         hop(g, life);
       else if (life.travel.path.length) roadRisk(g, life);
     }
@@ -1704,6 +1716,8 @@ export function lifeCommand(
     case "halt": {
       if (!life.travel) return "You're not on the road.";
       touchLife(g, life);
+      // SHIPS (r21): off the ship (or out of the party) at the next stop.
+      if (life.travel.with) leaveCompany(g, life);
       life.travel.path = [life.travel.path[0]];
       life.travel.sea = [life.travel.sea[0]];
       life.travel.dest = life.travel.path[0];

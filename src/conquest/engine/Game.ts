@@ -64,6 +64,7 @@ import { takeReclaimDelta } from "./ReclaimCore"; // WAR (r17)
 import { Rng } from "./Rng";
 import { END_YEAR } from "./Rules";
 import "./Sea"; // SEA (r15): hurricanes, cruises, voyages, privateers
+import "./Parties"; // SHIPS (r21): ships' companies, charters, stays (Ships.ts); travelling parties
 import { takeSeaDelta } from "./SeaCore"; // SEA (r15)
 import { newGameState } from "./Setup";
 import { societyDaily, societyMonthly } from "./Society"; // SOCIETY (r11)
