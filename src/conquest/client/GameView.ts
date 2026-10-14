@@ -25,6 +25,7 @@ import {
   travelRoute,
 } from "../engine/LifeQueries";
 import { AMERICAS, worldOf } from "../engine/Map";
+import { strandEmbark } from "../engine/Parties"; // SHIPS (r21)
 import { SKIP_DAYS_PER_SECOND } from "../engine/Pace";
 import { findPath } from "../engine/Paths";
 import { armySpeed, charName } from "../engine/Queries";
@@ -1104,7 +1105,25 @@ export class GameView extends LitElement {
         mounted: hasKit(s, l, "horse") || hasKit(s, l, "carriage"),
         boats: (l.boats ?? [])
           .filter((b) => l.travel?.boat !== b.id)
-          .map((b) => ({ p: b.prov, kind: b.kind, name: b.name })),
+          .map((b) => ({
+            p: b.way ? b.way.prov : b.prov,
+            kind: b.kind,
+            name: b.name,
+            // SHIPS (r21): at sea under her own master: drawn between ports.
+            ...(b.way && b.way.path.length
+              ? {
+                  to: b.way.path[0],
+                  t: Math.max(
+                    0,
+                    Math.min(
+                      1,
+                      (s.day - b.way.depart) /
+                        Math.max(1, b.way.arrive - b.way.depart),
+                    ),
+                  ),
+                }
+              : {}),
+          })),
         // Wave 2 (r11): your people away on their own work.
         away:
           l.seat === this.you
@@ -1143,7 +1162,18 @@ export class GameView extends LitElement {
     const sailor = life.job?.kind === "sailor";
     const pace = paceOf(this.s, life);
     const land = travelRoute(this.s, map, from, p, false, native, sailor, pace);
-    const sea = travelRoute(this.s, map, from, p, true, native, sailor, pace);
+    const sea = travelRoute(
+      this.s,
+      map,
+      from,
+      p,
+      true,
+      native,
+      sailor,
+      pace,
+      false,
+      life.travel ? undefined : strandEmbark(this.s, map, life), // SHIPS (r21)
+    );
     const best =
       sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1)
         ? sea
@@ -1382,6 +1412,8 @@ export class GameView extends LitElement {
         native,
         sailor,
         pace,
+        false,
+        life.travel ? undefined : strandEmbark(this.s, map, life), // SHIPS (r21)
       );
       const seaBetter =
         sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1);

@@ -303,7 +303,14 @@ export interface LifeMark {
   /** Riding (a horse of their own, or their coach). */
   mounted?: boolean;
   /** LIFE (r11): their boats, each where it lies (not the one they're sailing in). */
-  boats?: { p: number; kind: string; name: string }[];
+  boats?: {
+    p: number;
+    kind: string;
+    name: string;
+    /** SHIPS (r21): at sea under her own master, making for `to`, `t` of the way there. */
+    to?: number;
+    t?: number;
+  }[];
   /** Wave 2 (r11): your people off on work of their own, where they are (yours only). */
   away?: { p: number; c: number; kind: string; name: string; title: string }[];
 }
@@ -3799,10 +3806,15 @@ export class MapView {
         const def = this.map.provinces[b.p];
         if (!def) continue;
         if (!m.you && o.fog && !o.fog.seen.has(b.p)) continue;
-        const k = moored.get(b.p) ?? 0;
-        moored.set(b.p, k + 1);
+        const k = b.to === undefined ? (moored.get(b.p) ?? 0) : 0;
+        if (b.to === undefined) moored.set(b.p, k + 1);
         // MAP (r12): at the moorings off the town, on the water.
-        const spot = this.sea?.mooring(b.p, k);
+        // SHIPS (r21): at sea under her own master, along the sea lane.
+        const under =
+          b.to !== undefined
+            ? alongWay(this.hopWay(b.p, b.to, true), b.t ?? 0)
+            : null;
+        const spot = under ? [under[0], under[1]] : this.sea?.mooring(b.p, k);
         const bx = spot ? sx(spot[0]) : sx(def.x) + 16 + k * 13;
         const by = spot ? sy(spot[1]) : sy(def.y) + 10 + k * 3;
         if (!onScreen(bx, by, 30)) continue;

@@ -65,6 +65,7 @@ import { JOB_GROUPS, type JobGroup } from "../../engine/JobsData";
 import { isChildLife, lifeOfChar } from "../../engine/LifeQueries";
 import { JOBS, SKILL_NAMES } from "../../engine/LifeRules";
 import { boatChoices, clerkOdds, tradeOdds } from "../../engine/Odds"; // LEDGER (r15)
+import { menWithHer, moorWords, shipParts } from "./ShipsUi"; // SHIPS (r21)
 import { charName } from "../../engine/Queries";
 import {
   EFFORT_ORDER,
@@ -828,14 +829,18 @@ export function boatCard(
     (f) => f.task?.kind === "boat" && f.task.boat === b.id,
   );
   const monthly = Math.round((def.upkeep + b.crew * CREW_WAGE) * 10) / 10;
+  // SHIPS (r21): her company by name who are with her count among her men.
+  const men = menWithHer(s, life, b);
   return html`<div class="cq-lv-boatcard">
     <div class="cq-lv-boathead">
       ${boatGlyph(b.kind)}
       <div>
         <b>The ${b.name}</b>
         <span class="cq-muted small">
-          ${def.name.toLowerCase()} at
-          ${here ? "this port" : provLink(ui, b.prov)}${b.quirk
+          ${def.name.toLowerCase()}
+          ${b.way || b.moor
+            ? moorWords(ui, b) /* SHIPS (r21) */
+            : html`at ${here ? "this port" : provLink(ui, b.prov)}`}${b.quirk
             ? `, ${b.quirk}`
             : ""}</span
         >
@@ -847,8 +852,8 @@ export function boatCard(
     <div class="cq-lv-gauges small">
       <span>Sound ${bar(b.condition / 100)} ${Math.round(b.condition)}%</span>
       <span
-        >Crew ${b.crew} of
-        ${def.crew}${b.crew < def.crew
+        >Crew ${men} of
+        ${def.crew}${men < def.crew
           ? html` <b class="bad">short-handed</b>`
           : nothing}</span
       >
@@ -859,12 +864,12 @@ export function boatCard(
       ? html`<div class="cq-btnrow">
           ${def.crew
             ? html`${action(
-                b.crew < def.crew
-                  ? html`Sign on ${def.crew - b.crew}
-                    hand${def.crew - b.crew === 1 ? "" : "s"}${price(
-                      (def.crew - b.crew) * CREW_BOUNTY,
+                men < def.crew
+                  ? html`Sign on ${def.crew - men}
+                    hand${def.crew - men === 1 ? "" : "s"}${price(
+                      (def.crew - men) * CREW_BOUNTY,
                       { have: life.purse },
-                    )}${price((def.crew - b.crew) * CREW_WAGE, {
+                    )}${price((def.crew - men) * CREW_WAGE, {
                       per: "month",
                     })}`
                   : html`Sign on one
@@ -872,18 +877,18 @@ export function boatCard(
                       have: life.purse,
                     })}${price(CREW_WAGE, { per: "month" })}`,
                 life.purse >=
-                  (b.crew < def.crew ? def.crew - b.crew : 1) * CREW_BOUNTY
+                  (men < def.crew ? def.crew - men : 1) * CREW_BOUNTY
                   ? { ok: true }
                   : {
                       ok: false,
-                      why: `Signing them costs ${priceWords((b.crew < def.crew ? def.crew - b.crew : 1) * CREW_BOUNTY)}`,
+                      why: `Signing them costs ${priceWords((men < def.crew ? def.crew - men : 1) * CREW_BOUNTY)}`,
                     },
                 () =>
                   void ui.cmd({
                     k: "boat",
                     act: "crew",
                     id: b.id,
-                    arg: b.crew < def.crew ? def.crew : b.crew + 1,
+                    arg: men < def.crew ? b.crew + def.crew - men : b.crew + 1,
                   }),
                 "small",
                 `${CREW_BOUNTY} a hand to sign, then ${CREW_WAGE} a month each`,
@@ -947,11 +952,12 @@ export function boatCard(
         ? skipper
           ? html`${charLink(ui, s.chars[skipper.c], false)} skippers her while
             you're elsewhere.`
-          : "She only works while you're in port with her, unless a mate of yours skippers her."
+          : "She keeps at her work when you leave port: her captain, her mate, or her senior hand has her." /* SHIPS (r21) */
         : ""}
       She stays where she lies: sail in her from here (the road there, from any
       coastal province's page or the map).
     </p>
+    ${shipParts(ui, b) /* SHIPS (r21): her company, charters, voyage, refits, log */}
     ${atHand && mates.length && b.use !== "idle"
       ? html`<div class="cq-btnrow">
           ${skipper
@@ -987,7 +993,8 @@ export function boatCard(
  */
 function boatWorth(ui: GameUi, b: Boat): TemplateResult {
   const def = BOATS[b.kind];
-  const crew = Math.max(b.crew, def.crew);
+  // SHIPS (r21): her company by name who are with her are among the men she needs.
+  const crew = Math.max(b.crew, def.crew - (menWithHer(ui.s, ui.life!, b) - b.crew));
   const now = boatChoices(ui.s, ui.w, ui.life!, b, { crew }).find(
     (x) => x.use === b.use,
   )?.view;

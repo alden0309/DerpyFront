@@ -117,6 +117,8 @@ export interface HireHost {
   atPost(s: GameState, life: Life): boolean;
   /** The month's pay, in the owner's books: its key and words. */
   flow: { key: string; label: string };
+  /** Someone's just joined (a ship: a hand by name takes a hand-by-the-head's place). */
+  joined?(g: ConquestGame, h: Hire): void;
 }
 
 /** How each kind of outfit is found: by its owner's seat and its id, and all of them. */
@@ -374,6 +376,7 @@ export function hire(
   };
   roster.hires.push(h);
   touchLife(g, host.owner);
+  host.joined?.(g, h);
   remembers(g, host.owner, c, "Gave me a berth", 6, 3);
   journal(
     g,
@@ -551,6 +554,7 @@ export function answerOffer(
   };
   host.own(g).hires.push(h);
   touchLife(g, owner);
+  host.joined?.(g, h);
   const job = startJob(
     g,
     life,

@@ -211,6 +211,7 @@ export const REP = {
   late: -3,
   forfeit: -10,
   seized: -15,
+  /** Her crew deserted, unpaid (Boats.ts). */
   unpaid: -5,
 };
 

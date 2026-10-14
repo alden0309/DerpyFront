@@ -34,6 +34,7 @@ import {
   BOATS,
   boatsOf,
   boatWinter,
+  CREW_WAGE,
   loseBoat,
   repairCost,
   sail,
@@ -191,6 +192,13 @@ export function hostOfBoat(s: GameState, owner: Life, b: Boat): HireHost {
         : (ROLE_ROOM[b.kind][role] ?? 0),
     atPost: (st, l) => aboardShip(l, owner.seat, b) || alongsideShip(l, b),
     flow: { key: `bh:${b.id}`, label: `The ${b.name}: her company's pay` },
+    // A hand by name takes the place of one of her hands by the head, if she has her full crew.
+    joined: (g, h) => {
+      if (h.role !== "hand" || b.crew <= 0) return;
+      if (b.crew + namedHands(b) - 1 < BOATS[b.kind].crew) return;
+      b.crew--;
+      logShip(g, owner, b, `${charName(g.s.chars[h.c])} takes the place of one of her hands, who's paid off.`);
+    },
   };
 }
 
@@ -877,7 +885,7 @@ export function charterOdds(
   const km = route?.km ?? 0;
   const ch = passageChances(s, owner, b, km);
   const pay = charterPay(b, c);
-  const costMonth = r1(def.upkeep + b.crew * 1.5 + hiresAboard(b).reduce((m, h) => m + h.pay, 0));
+  const costMonth = r1(def.upkeep + b.crew * CREW_WAGE + hiresAboard(b).reduce((m, h) => m + h.pay, 0));
   const view: OddsView = {
     title: `${CHARTER_NAMES[c.kind]}: ${ladingWords(w.map, c)}`,
     ok: check.ok,
@@ -1004,7 +1012,11 @@ export function charterOdds(
       break;
     }
   }
-  view.net = r1(view.expected - (view.per === "month" ? costMonth : view.costNow));
+  // A month's worth, all told: a trip's takings spread over its days (and two in port), less her keep.
+  view.net =
+    view.per === "month"
+      ? r1(view.expected - costMonth)
+      : r1(((view.expected - view.costNow) * 30) / Math.max(1, (route?.days ?? 1) + 2) - costMonth);
   return view;
 }
 

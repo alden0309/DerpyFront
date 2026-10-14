@@ -851,6 +851,7 @@ export function boatsMonthly(g: ConquestGame, life: Life): void {
           "bad",
         );
         wake(g, life, `The ${b.name}'s crew have deserted.`);
+        b.rep = Math.max(0, (b.rep ?? 50) - 5); // SHIPS (r21): word gets round the waterfront
         b.crew = 0;
         b.use = "idle";
         setSkipper(g, life, b.id, -1);
