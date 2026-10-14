@@ -823,7 +823,7 @@ export function tailor(a: Anatomy, look: Look): Cut {
   const vW = cut === "closed" ? 0.03 : male ? 0.085 : 0.075;
   const shirtCuff = a.wristX - 0.006;
   const hemY = a.ankleY + 0.035;
-  const shoeTop = a.ankleY + 0.05;
+  const shoeTop = a.ankleY + 0.04;
   const jHem = a.crotchY + 0.012;
   const jCuff = a.wristX - 0.024;
   const coatCuff = a.wristX - 0.014;
@@ -848,7 +848,7 @@ export function tailor(a: Anatomy, look: Look): Cut {
   shells.push({
     name: "shoes",
     field: below(shoeTop),
-    thick: (p) => (p.y < 0.02 ? 0.005 : 0.011),
+    thick: (p) => (p.y < 0.02 ? 0.004 : 0.008),
     passes: 10,
     color: look.shoes,
     swatch: "leather",
@@ -885,7 +885,7 @@ export function tailor(a: Anatomy, look: Look): Cut {
       thick: 0.009,
       passes: 6,
       color: look.waistcoat,
-      swatch: "satin",
+      swatch: "wool",
       layer: 4,
     });
   }
@@ -1071,7 +1071,18 @@ export function tailor(a: Anatomy, look: Look): Cut {
             smooth(a.eyeY - 0.03, a.eyeY - 0.012, p.y) *
             (1 - smooth(a.eyeY - 0.012, a.eyeY - 0.004, p.y)) *
             (1 - smooth(0.045, 0.06, Math.abs(p.x)));
-          c.multiplyScalar(1 - 0.12 * age * under);
+          // And the lines from the nose to the mouth.
+          const fold =
+            smooth(a.mouthY - 0.006, a.mouthY + 0.008, p.y) *
+            (1 - smooth(a.mouthY + 0.02, a.mouthY + 0.034, p.y)) *
+            Math.max(
+              0,
+              1 -
+                Math.abs(Math.abs(p.x) - (0.024 - (p.y - a.mouthY) * 0.25)) /
+                  0.005,
+            ) *
+            smooth(a.eyeZ - 0.05, a.eyeZ - 0.02, p.z);
+          c.multiplyScalar(1 - 0.2 * age * under - 0.16 * age * fold);
           const l = (c.r + c.g + c.b) / 3;
           c.lerp(new THREE.Color(l, l, l), 0.12 * age);
         }
@@ -1574,7 +1585,7 @@ class Pieces {
         wz += w * this.work[k * 3 + 2];
         ws += w;
       }
-      z = ws > 1e-6 ? wz / ws : a.spineZ + 0.12;
+      z = ws > 1e-6 ? wz / ws : a.spineZ + 0.08;
       this.fits.set(key, z);
     }
     return z + thick;
@@ -1649,13 +1660,14 @@ class Pieces {
         let w = width * Math.min(1, 0.15 + 1.1 * Math.pow(u, 0.7));
         if (peak) {
           if (u > 0.82)
-            w *= 1 + 0.5 * smooth(0.82, 0.9, u) - 0.9 * smooth(0.9, 1, u);
+            w *= 1 + 0.2 * smooth(0.82, 0.9, u) - 0.6 * smooth(0.9, 1, u);
         } else if (u > 0.8) {
           w *= 1 - 0.55 * smooth(0.8, 0.86, u) - 0.25 * smooth(0.9, 1, u);
         }
         const row: V[] = [];
         for (let j = 0; j <= 3; j++) {
-          const x = s * (inner + (w * j) / 3);
+          // Never out past the chest.
+          const x = s * Math.min(0.15, inner + (w * j) / 3);
           // Raised at the fold, lying flatter at the edge.
           const z = this.frontZ(on, x, y) + lift * [1.0, 0.85, 0.6, 0.35][j];
           row.push(v3(x, y - 0.006 * (j / 3) * u, z));
@@ -2060,18 +2072,18 @@ class Pieces {
       ],
       cap: [
         [R0 + 0.004, 0.0],
-        [R0 + 0.006, 0.045],
-        [0.112, 0.07],
-        [0.11, 0.08],
-        [0.06, 0.082],
-        [0, 0.082],
+        [R0 + 0.005, 0.03],
+        [0.106, 0.048],
+        [0.104, 0.056],
+        [0.05, 0.059],
+        [0, 0.059],
       ],
       flatcap: [
         [R0 + 0.006, 0.0],
-        [R0 + 0.012, 0.03],
-        [0.1, 0.045],
-        [0.06, 0.052],
-        [0, 0.05],
+        [R0 + 0.01, 0.018],
+        [0.098, 0.03],
+        [0.07, 0.038],
+        [0, 0.04],
       ],
       beret: [
         [R0 + 0.002, 0.0],
@@ -2098,9 +2110,13 @@ class Pieces {
           x *= 1 - 0.18 * fr * smooth(0.06, 0.09, hy);
           y -= 0.012 * fr;
         }
-        // A flat cap's peak runs forward.
-        if (h.kind === "flatcap" && hy < 0.035)
-          zz += 0.035 * Math.max(0, Math.cos(ang)) ** 3;
+        // A flat cap's crown slopes forward over its peak.
+        if (h.kind === "flatcap") {
+          const fr = Math.max(0, Math.cos(ang));
+          zz +=
+            (hy > 0.015 ? 0.02 : 0) + 0.03 * fr * fr * (hy < 0.02 ? 1 : 0.6);
+          y -= 0.012 * fr * (hy > 0.015 ? 1 : 0);
+        }
         // A beret sits to one side; the rest tip back a little.
         if (h.kind === "beret") y -= Math.sin(ang) * 0.18 * r * 0.4;
         else y -= zz * 0.016;

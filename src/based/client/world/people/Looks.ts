@@ -125,7 +125,7 @@ export const LOOKS: Record<string, Look> = {
     shoes: "#18120e",
     eyes: "#5a6470",
   },
-  // Delorme, the man in grey: younger, sleek, a narrow tie.
+  // The man in grey: younger, sleek, a narrow tie.
   suit_grey: {
     body: "m",
     skin: "#caa085",
@@ -141,7 +141,7 @@ export const LOOKS: Record<string, Look> = {
     build: -0.5,
     height: 1.02,
   },
-  // Anselme: the barman. Sixties, a white moustache, black waistcoat,
+  // The barman: sixties, a white moustache, black waistcoat,
   // shirt sleeves and a long white apron.
   barman: {
     body: "m",
@@ -160,7 +160,7 @@ export const LOOKS: Record<string, Look> = {
     build: 0.6,
     height: 0.97,
   },
-  // Penhallow: grey wool suit and skirt, glasses, hair pinned up.
+  // The woman in grey wool: jacket and skirt, glasses, hair pinned up.
   wool_woman: {
     body: "f",
     skin: "#dcb39c",
@@ -177,7 +177,7 @@ export const LOOKS: Record<string, Look> = {
     shoes: "#1c1714",
     glasses: "round",
   },
-  // The man under the awning: dark coat, collar up, a hat, smoking.
+  // A watcher: dark coat, collar up, a hat, smoking.
   coat_dark: {
     body: "m",
     skin: "#a87e64",
@@ -195,7 +195,7 @@ export const LOOKS: Record<string, Look> = {
     hat: { kind: "fedora", color: "#1d1d20", band: "#0c0c0d" },
     cigarette: true,
   },
-  // The President: a dark suit, seen from behind.
+  // A politician: a dark suit.
   suit_dark: {
     body: "m",
     skin: "#b48c72",
@@ -210,7 +210,7 @@ export const LOOKS: Record<string, Look> = {
     trousers: "#16171b",
     shoes: "#0b0b0c",
   },
-  // The Colonel: navy uniform, gold buttons and boards, a peaked cap.
+  // An officer: navy uniform, gold buttons and boards, a peaked cap.
   uniform_navy: {
     body: "m",
     skin: "#b08a70",

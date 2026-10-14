@@ -326,7 +326,7 @@ export function prepareCustom(
   // Facing: the feet point forward (toes ahead of the ankles); else the
   // left hand is on the +x side when facing +z.
   const at = (c: Canon) => map.get(c)!.getWorldPosition(new THREE.Vector3());
-  let forward = new THREE.Vector3(0, 0, 1);
+  let forward: THREE.Vector3;
   if (map.has("ball_l") && map.has("foot_l")) {
     forward = at("ball_l").sub(at("foot_l")).setY(0);
   } else {
@@ -401,7 +401,7 @@ export function peopleAssets(
 /** A cast member's look, with their own model if they have one. */
 const withModel = new Map<string, Look>();
 export function lookFor(name: string | undefined, model?: string): Look {
-  const look = (name && LOOKS[name]) || LOOKS.suit_dark;
+  const look = (name ? LOOKS[name] : undefined) ?? LOOKS.suit_dark;
   if (!model) return look;
   // The same object each time (the world compares looks to see a change).
   const key = `${name}|${model}`;
@@ -425,6 +425,17 @@ export function warmCast(
     kit.dress(look);
     if (look.model) void kit.custom(look.model);
   }
+  // The rest of the wardrobe (a change of clothes: wear=...) a look at a
+  // time while the player reads, so it's ready when it's needed.
+  if (typeof window === "undefined") return;
+  const rest = Object.values(LOOKS);
+  const next = () => {
+    const look = rest.shift();
+    if (!look) return;
+    (look.body === "f" ? rigs.f : rigs.m).kit?.dress(look);
+    window.setTimeout(next, 120);
+  };
+  window.setTimeout(next, 2000);
 }
 
 // --- people ------------------------------------------------------------------
