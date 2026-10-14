@@ -8,7 +8,7 @@
 // good opinion, renown, or the next rung sooner. The odds are the ones the
 // month is rolled from, shown on the Work page.
 
-import type { JobGroup } from "./JobsData";
+import { type JobGroup, JOB_GROUPS } from "./JobsData";
 import type { JobKind, Skill } from "./Types";
 
 /** A skill a duty teaches: by name, or the trade's own main or second skill. */
@@ -56,6 +56,18 @@ export interface DutyDef {
 
 /** The usual work: the old monthly learning, the wage and nothing else. */
 export const USUAL = "usual";
+
+/**
+ * Whether a duty is for a trade: of its family, or the trade named. A name
+ * that is also a family's means the family: "law" is the watch's family, not
+ * the lawyer's trade (whose family is the learned), so a lawyer doesn't walk
+ * the watch's rounds.
+ */
+export function dutyFor(d: DutyDef, kind: JobKind, group: string): boolean {
+  if (d.not?.includes(kind)) return false;
+  if (d.for.some((x) => x === group)) return true;
+  return d.for.includes(kind) && !JOB_GROUPS.some((g) => g.id === kind);
+}
 
 export const DUTIES: DutyDef[] = [
   // ---------------------------------------------------------------- the land

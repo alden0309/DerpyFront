@@ -8,7 +8,7 @@
 // world's dice don't move, and the odds shown are the ones it's rolled from.
 
 import { takeHooks } from "./Business";
-import { DUTIES, type DutyDef, USUAL } from "./DutiesData";
+import { DUTIES, type DutyDef, dutyFor, USUAL } from "./DutiesData";
 import { npc, played } from "./EventPacing";
 import type { ConquestGame } from "./Game";
 import { hooks } from "./Hooks";
@@ -57,9 +57,7 @@ export function wdice(s: GameState, salt: number, ...xs: number[]): Rng {
 function forTrade(d: DutyDef, life: Life): boolean {
   const job = life.job;
   if (!job) return false;
-  if (d.not?.includes(job.kind)) return false;
-  const group = jobGroupOf(job.kind, JOBS[job.kind]);
-  return d.for.includes(job.kind) || d.for.includes(group);
+  return dutyFor(d, job.kind, jobGroupOf(job.kind, JOBS[job.kind]));
 }
 
 /** Every duty of your trade, and whether your rung allows it now (and why not). */

@@ -26,12 +26,18 @@ import type { Chapter } from "./Chapters";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-/** Whether a duty is one of a family's (by the family, or one of its trades). */
+/**
+ * Whether a duty is one of a family's (by the family, or one of its trades).
+ * A name that's also a family's means the family ("law": the watch's, not
+ * the lawyer's trade), as the engine reads it (`dutyFor`).
+ */
 function inFamily(d: (typeof DUTIES)[number], group: string): boolean {
   return d.for.some(
     (x) =>
       x === group ||
-      (x in JOBS && jobGroupOf(x as JobKind, JOBS[x as JobKind]) === group),
+      (!JOB_GROUPS.some((g) => g.id === x) &&
+        x in JOBS &&
+        jobGroupOf(x as JobKind, JOBS[x as JobKind]) === group),
   );
 }
 

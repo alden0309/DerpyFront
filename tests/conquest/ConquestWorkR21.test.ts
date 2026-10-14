@@ -798,6 +798,15 @@ describe("the work itself: duties by rung, your master's wish, the people you wo
         `${kind} (${jobGroupOf(kind, JOBS[kind])})`,
       ).toBeGreaterThanOrEqual(2);
     }
+    // "law" names the watch's family, not the lawyer's trade (the learned
+    // family's): a lawyer doesn't walk the watch's rounds.
+    const watchs = (kind: keyof typeof JOBS) => {
+      life.job = { ...life.job!, kind, rank: 3 };
+      return dutiesFor(life).filter((x) => x.def.for.includes("law")).length;
+    };
+    expect(jobGroupOf("law", JOBS.law)).toBe("learned");
+    expect(watchs("law")).toBe(0);
+    expect(watchs("watch")).toBeGreaterThanOrEqual(2);
   });
 
   test("rungs change what you do: an apprentice fetches and watches, a journeyman takes orders", () => {
