@@ -852,7 +852,7 @@ Working hard brings promotion sooner; shirking puts it off, and your master may 
 ## Matters at work
 Every month or two (sooner if you work hard) a matter comes to you as a letter: a task to take on (a skill check, for coins, renown and a good word from your master) or trouble to handle (a fault in the work, a quarrel, a theft). Each trade has several of its own (the fur trader's lines can be robbed by a rival, raided by a wolverine, soured by a thaw or snared across by a neighbour), each with its own choices and what they come to, and each rests ${MATTER_REST} days after it comes: you won't see the same one twice in a year. When every one is resting, it's a quiet month. See [[events|Things that happen]].
 
-## What you do at your post (WORK r21)
+## What you do at your post
 Under how hard you work, **Your duties**: the usual work, or a duty your rung allows (an apprentice fetches and carries, a journeyman takes orders of his own, a master teaches and keeps the books). A duty turns what you learn, and may bring a little more money, a risk, renown or your master's good opinion; your master wants a particular one each month. The people you work beside, and your master, come to you now and then. See [[workday|The work itself]].
 
 ## Climbing
@@ -910,7 +910,7 @@ ${MATTER_COUNT} matters at work, big jobs and rounds (at least three to every tr
 - **The peoples' own life**: a name earned, winter stories, a dream to fulfil, a new kinsman, the trader's heavy weights, the plum-stone game, rum in the village, the giveaway, the clan mother's question, the snow-snake.
 - **The weather**: the river in the street, the dog days, first snow, the frozen pond, a thunderstorm (and, from 1752, a lightning rod), a golden autumn, the mosquitoes.
 - **The road and the sea**: a bedfellow at the ordinary, a tinker, a wagon in the mire, a silent meeting, strangers at your fire; flying fish, a sea serpent, a stowaway, the ship's cat.
-- **The places themselves** (EVENTS r21): the tavern, home, the docks, the church, the market, the fields, the woods, the governor's house, the workshops, the printing house, the apothecary, the fort, a native town and its council fire, open country, and being a stranger abroad (see the table above).
+- **The places themselves**: the tavern, home, the docks, the church, the market, the fields, the woods, the governor's house, the workshops, the printing house, the apothecary, the fort, a native town and its council fire, open country, and being a stranger abroad (see the table above).
 
 ## Other players
 - **Another player is never put into an event.** No event you're drawn names them, stands them opposite you, or puts words in their mouth: they appear only as what they really did (a proposal, a challenge, a vote, a letter they wrote, an arrest they made).
@@ -1114,7 +1114,7 @@ ${partnersTable()}
 On anyone's card (or at the market, under Partnerships, or from the Start a business window): **Propose a partnership**. In person if they're here; by post if they're not (the articles go as a letter, and can be lost at sea).
 
 **Presets** fill the articles in at a click, with the fair split and who runs it, and say them in plain words ("You put in 30; Agnes puts in her inn. You get 15 in a hundred of what it makes (about +1.2 a month once it's going); Agnes runs it."): **put money into their business as a silent partner**, **found a business together** (whoever knows the trade and is free runs it), **take on a partner in mine**, **pool money for cargoes**, **a trading company together**. A business brought in is valued at the more of 0.6 of what it would cost to set up, or twenty months of what it makes. Change any clause after. The articles say:
-- **I.** what the firm holds; **II.** its name ("Drackley & Cole", or your own); **III.** the shares (with the fair split marked: what each brings, and a fifth more for the one who does the work); **IV.** the capital each puts in; **V.** who manages, and whether matters are decided **by the greater part** (shares over half) or **all together**, and (WORK r21) whether there's **a buy-out clause** (a partner holding more than half may buy another out at a fair price, or sell up, without their consent); **VI.** who draws them up.
+- **I.** what the firm holds; **II.** its name ("Drackley & Cole", or your own); **III.** the shares (with the fair split marked: what each brings, and a fifth more for the one who does the work); **IV.** the capital each puts in; **V.** who manages, and whether matters are decided **by the greater part** (shares over half) or **all together**, and whether there's **a buy-out clause** (a partner holding more than half may buy another out at a fair price, or sell up, without their consent); **VI.** who draws them up.
 - **A lawyer** (an attorney or a law clerk in town, ${LAWYER_FEE.attorney} or ${LAWYER_FEE.clerk} coins, or yourself if you're in the law) draws up articles that **lean your way when partners fall out**: at arbitration, and in court. Another player who's a lawyer is paid the fee.
 
 **A computer character** signs or refuses there and then, with every reason shown, as with any interaction: what they think of you, your name, whether it's their trade, what the business should make, whether the terms are fair to them (the strongest reason of all), whether they could afford their part, who'd run it, their nature, and how many partnerships they're in already. By post, their answer comes back by post.
@@ -1275,7 +1275,7 @@ Whether the story was ever true is settled the first time anyone works it. False
       "Estate › Boats; a port's docks (The boatyard); canoes also at native villages on the shore.",
     body: `${boatsTable()}
 
-Second-hand boats are cheaper, each with a condition and a quirk ("leaks a little", "quick off the wind", "crank in a blow"). Shipwrights build their own a quarter cheaper; native peoples pay ${"1.5"} for a canoe. There's no limit to how many you own (SHIPS r21).
+Second-hand boats are cheaper, each with a condition and a quirk ("leaks a little", "quick off the wind", "crank in a blow"). Shipwrights build their own a quarter cheaper; native peoples pay ${"1.5"} for a canoe. There's no limit to how many you own.
 
 ## She stays where you leave her
 A boat never follows you on her own: she lies at the port you last sailed her to, shown on the map with her name when you zoom in.
@@ -1287,7 +1287,7 @@ Sign hands (${"1"} coin each) up to what she needs; they're paid ${CREW_WAGE} a 
 From the travel choices on the map, or any coastal province's **The road there**: "In the *Name*, so many days". No fare (only the wages you already pay), your goods in her hold as well as your own carry, and your people with you. She stays at the port you sail to.
 
 ## Putting her to work
-She keeps at it whether you're there or not (SHIPS r21): you command her when you're with her; otherwise her captain, a **mate** of yours as skipper, her mate, or her senior hand ([[ships|Ships and their companies]]):
+She keeps at it whether you're there or not: you command her when you're with her; otherwise her captain, a **mate** of yours as skipper, her mate, or her senior hand ([[ships|Ships and their companies]]):
 - **Fishing**: steady, best where the fish are thick, poor in winter.
 - **Whaling** (sloop and up, the northern ports): rich voyages and stove boats.
 - **Coasting trade**: profit by the size of her hold and her skipper's skill.
@@ -1296,7 +1296,7 @@ She keeps at it whether you're there or not (SHIPS r21): you command her when yo
 
 She can be damaged, wrecked, captured or seized.
 
-## What each kind of work brings (LEDGER r15)
+## What each kind of work brings
 ${boatWorkTable()}
 
 Each boat's card shows the same for her, with her own master, crew and port: [[ledger|Your ledger]].
@@ -1317,7 +1317,7 @@ Each boat's card shows the same for her, with her own master, crew and port: [[l
 - **Overland**: on foot, ${ROAD_COST_PER_DAY} coins a day for food and lodging. A horse makes journeys take two thirds the time; a carriage, half. A guide in your service makes them quicker and safer.
 - **By sea**, from a port: a passage costs ${SEA_FARE_BASE} coins and ${SEA_FARE_PER_100KM} for every hundred kilometres. Sailors travel free while they sail; the native peoples go by canoe.
 - **In your own boat**: no fare at all ([[boats|Boats]]).
-- **How long by sea** (SEA r15): two days in port to find a ship, then about 160 km a day, and a day at each port of call; a short crossing is a day or two. Your own boat gets away in a day and sails faster. Boston to New York: 19 days on foot, 14 on horseback, 6 by passage, 4 in your own sloop. The whole table: [[sea|To sea in person]].
+- **How long by sea**: two days in port to find a ship, then about 160 km a day, and a day at each port of call; a short crossing is a day or two. Your own boat gets away in a day and sails faster. Boston to New York: 19 days on foot, 14 on horseback, 6 by passage, 4 in your own sloop. The whole table: [[sea|To sea in person]].
 
 The road's page gives the days and the cost of each before you go. On the way, **Stop at the next place** (Here) halts you there. Places and people open up when you arrive.
 
