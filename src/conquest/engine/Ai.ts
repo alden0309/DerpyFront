@@ -61,6 +61,7 @@ import {
   warScore,
 } from "./Queries";
 import { CLAIM, claimMuster, claimPull } from "./ReclaimCore"; // WAR (r17)
+import { risingAim } from "./Revolution"; // GOV (r21)
 import { DIFFICULTY, REGIMENTS, WARRIOR_SHARE } from "./Rules";
 import { orderQuote } from "./Trade";
 import {
@@ -449,6 +450,13 @@ function campaign(g: ConquestGame, n: number): void {
   for (const a of armiesOf(s, n)) {
     if (a.retreating || armyMen(a) <= 0 || playerArmy(g, a)) continue;
     if (a.depart >= 0) continue;
+    // GOV (r21): a rising the governor declared is fought at home.
+    const home = risingAim(g, n, a);
+    if (home !== undefined) {
+      if (home >= 0 && home !== a.prov)
+        g.command(n, { k: "move", a: a.id, to: home });
+      continue;
+    }
     // Busy besieging? keep at it.
     const pr = s.provinces[a.prov];
     if (pr.siege?.by === n) continue;

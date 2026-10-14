@@ -519,17 +519,20 @@ const w = (
   shift = 0,
   how: Parameters<typeof workDone>[3] = {},
   aiW = 1,
+  /** Another skill for the work (Letters to chart a river): the leader's own, at the same difficulty. */
+  alt?: Skill,
 ): XChoice => ({
   label,
-  skill: KINDS[kind].skill,
+  skill: alt ?? KINDS[kind].skill,
   work: true,
   dc: (g, x) => workFor(g, x, shift),
   tip: () => tip,
   apply: (g, x, pass) => workDone(g, x, band(g, x, pass), how),
+  // The computer's leader weighs it at its true chance, in the skill it tests.
   ai: (g, x) =>
     aiW *
     checkChance(
-      leaderLevel(g.s, g.s.chars[x.leader], KINDS[x.kind].skill),
+      leaderLevel(g.s, g.s.chars[x.leader], alt ?? KINDS[x.kind].skill),
       workFor(g, x, shift),
     ),
 });
@@ -581,15 +584,15 @@ const FAR: Record<ExpedKind, XScene> = {
         "The work as planned: at the odds you were shown.",
         0,
       ),
-      {
-        ...w(
-          "river",
-          "Chart it carefully, a stretch at a time",
-          "Slower and surer: Letters instead of woodcraft.",
-          0,
-        ),
-        skill: "letters",
-      },
+      w(
+        "river",
+        "Chart it carefully, a stretch at a time",
+        "Slower and surer: Letters instead of woodcraft.",
+        0,
+        {},
+        1,
+        "letters",
+      ),
       turnBack,
     ],
   },
@@ -641,15 +644,15 @@ const FAR: Record<ExpedKind, XScene> = {
         "The work as planned: at the odds you were shown.",
         0,
       ),
-      {
-        ...w(
-          "outpost",
-          "By the landing, where the canoes come in",
-          "Easier work (Craft, −1).",
-          -1,
-        ),
-        skill: "craft",
-      },
+      w(
+        "outpost",
+        "By the landing, where the canoes come in",
+        "Easier work (Craft, −1).",
+        -1,
+        {},
+        1,
+        "craft",
+      ),
       {
         label: "Treat with the people here first",
         skill: "persuasion",
@@ -665,7 +668,12 @@ const FAR: Record<ExpedKind, XScene> = {
           "Persuasion, harder (+1): if it goes well they take it less ill (−5, not −15).",
         apply: (g, x, pass) =>
           workDone(g, x, band(g, x, pass), { regard: pass ? -5 : -15 }),
-        ai: () => 0.6,
+        ai: (g, x) =>
+          0.9 *
+          checkChance(
+            leaderLevel(g.s, g.s.chars[x.leader], "persuasion"),
+            workFor(g, x, 1),
+          ),
       },
     ],
   },
@@ -683,15 +691,15 @@ const FAR: Record<ExpedKind, XScene> = {
         "The work as planned: at the odds you were shown.",
         0,
       ),
-      {
-        ...w(
-          "mission",
-          "Begin with the sick",
-          "Medicine instead of faith, a little easier (−1): healers are welcome.",
-          -1,
-        ),
-        skill: "medicine",
-      },
+      w(
+        "mission",
+        "Begin with the sick",
+        "Medicine instead of faith, a little easier (−1): healers are welcome.",
+        -1,
+        {},
+        1,
+        "medicine",
+      ),
       turnBack,
     ],
   },
@@ -722,12 +730,17 @@ const FAR: Record<ExpedKind, XScene> = {
           `Persuasion, a little harder (+1): if they pay, half the plunder (about ${Math.round(plunderOf(g.s, x.target) / 2)}) and less anger (−15); if they refuse, no fight but a grudge.`,
         apply: (g, x, pass) =>
           workDone(g, x, pass ? "won" : "failed", { tribute: true }),
+        // A just or tolerant leader leans to it; anyone weighs his chance.
         ai: (g, x) =>
-          g.s.chars[x.leader]?.traits.some(
+          (g.s.chars[x.leader]?.traits.some(
             (t) => t === "just" || t === "tolerant",
           )
-            ? 2
-            : 0.6,
+            ? 1.5
+            : 0.6) *
+          checkChance(
+            leaderLevel(g.s, g.s.chars[x.leader], "persuasion"),
+            workFor(g, x, 1),
+          ),
       },
       {
         label: "Turn back",

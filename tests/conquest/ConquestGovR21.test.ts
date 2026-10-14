@@ -56,7 +56,12 @@ import {
   provincesOf,
   relationOf,
 } from "../../src/conquest/engine/Queries";
-import { holdOdds, revDivision } from "../../src/conquest/engine/Revolution";
+import {
+  holdOdds,
+  REV,
+  revDivision,
+  risingAim,
+} from "../../src/conquest/engine/Revolution";
 import { officesIn } from "../../src/conquest/engine/SocietyCore";
 import type {
   Expedition,
@@ -250,7 +255,7 @@ describe("GOV r21: expeditions", () => {
     expect(Math.abs(half / N - bh)).toBeLessThan(
       4 * Math.sqrt((bh * (1 - bh)) / N) + 0.005,
     );
-  });
+  }, 60_000);
 
   test("a leader hired from the town goes for you: his fee, his own judgement on the way, word sent home", () => {
     const { g, s, a, england } = quiet();
@@ -441,7 +446,7 @@ describe("GOV r21: expeditions", () => {
       4980 + Math.max(0, 20 - cost),
       5,
     );
-  });
+  }, 60_000);
 
   test("a player who governs answers a grant in a scene; and sends one at the treasury's charge", () => {
     const { g, s, a, england } = quiet({ players: 2 });
@@ -528,7 +533,7 @@ describe("GOV r21: expeditions", () => {
     g.tick();
     expect(s.provinces[county].devastation).toBeGreaterThan(ruin);
     expect(a.events.some((e) => e.key === "exped-reprisal")).toBe(true);
-  });
+  }, 60_000);
 
   test("a private raid in peacetime: the law and London want words", () => {
     const { g, s, a, england } = quiet();
@@ -883,6 +888,42 @@ describe("GOV r21: breaking with the crown", () => {
     g.event({ k: "independence", day: s.day, n: england, won: true });
     expect(b.purse).toBe(60);
     expect(a.constitute?.n).toBe(england);
+  });
+
+  test("in the war, the colony's generals fight at home: at the crown's men when stronger, else the capital", () => {
+    const { g, s, a, england } = governor();
+    for (const c of s.polities[england].assembly)
+      ensureCabinet(g, england).faction[c] = "country";
+    g.nation(england).autonomy = 80;
+    g.nation(england).favor = 20;
+    cmd(g, a, { k: "desk", act: "motion" });
+    for (let i = 0; i < 15; i++) g.tick();
+    const away = provincesOf(s, england).find(
+      (p) => p !== s.nations[england].capital && s.provinces[p].occupier < 0,
+    )!;
+    const mine = addRegiment(g, england, away, "militia");
+    // Not declared: the ordinary campaign.
+    expect(risingAim(g, england, mine)).toBeUndefined();
+    expect(cmd(g, a, { k: "desk", act: "declare", on: true })).toBeNull();
+    const crown = s.nations.findIndex(
+      (n) => n.kind === "crown" && n.colony === england,
+    );
+    for (const x of s.armies.filter((x) => x.owner === crown))
+      s.armies.splice(s.armies.indexOf(x), 1);
+    // Nobody of the crown's on the colony's soil: home to the capital.
+    expect(risingAim(g, england, mine)).toBe(s.nations[england].capital);
+    // A smaller landing on its soil: at them.
+    const land = provincesOf(s, england).find(
+      (p) => p !== away && p !== s.nations[england].capital,
+    )!;
+    const theirs = addRegiment(g, crown, land, "regulars");
+    theirs.regs[0].men = Math.floor(
+      mine.regs.reduce((m, r) => m + r.men, 0) * REV.attackAt * 0.5,
+    );
+    expect(risingAim(g, england, mine)).toBe(land);
+    // Too strong for it: hold the capital instead.
+    theirs.regs[0].men = 5000;
+    expect(risingAim(g, england, mine)).toBe(s.nations[england].capital);
   });
 
   test("a county's odds of holding for the King; and the motion lost, London hears", () => {

@@ -544,6 +544,11 @@ function tripPanel(v: OddsView): TemplateResult {
             )}
         </ul>`
       : nothing}
+    <p class="cq-muted small">
+      As things stand when it sets out. Men or days lost on the way (into
+      winter) make the far end harder; there, whoever leads may find an easier
+      way at it, or a harder one that pays more.
+    </p>
     ${v.factors.length
       ? html`<details class="cq-more">
           <summary>What changes the odds</summary>

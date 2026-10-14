@@ -1163,7 +1163,8 @@ export function workDone(
       text = raidDone(g, x, band, how);
       break;
   }
-  if (band === "failed") {
+  // A tribute refused is no fight: the party withdraws whole.
+  if (band === "failed" && !how.tribute) {
     const share =
       LOSS.men[0] + edice(s, 0x53, x.id).next() * (LOSS.men[1] - LOSS.men[0]);
     const lost = loseMen(g, x, share);

@@ -25,7 +25,7 @@ import { deskOf, deskView, governedBy } from "./GovDesk";
 import { hooks, raiseEvent } from "./Hooks";
 import { addRenown, journal, milestone, spend, touchLife } from "./LifeCore";
 import { Check, lifeOfChar, meOf, no, skillLevel, yes } from "./LifeQueries";
-import type { World } from "./Map";
+import { kmBetween, type World } from "./Map";
 import { cabinetOf } from "./PowerCore";
 import {
   armiesOf,
@@ -53,6 +53,8 @@ import { worldRng } from "./WorldRng";
 export const REV = {
   /** The house debates this long before it divides; a motion lost can't be moved again for a year. */
   debate: 14,
+  /** In the war: the colony's generals go at the crown's men on its soil when they're no more than this many to one of theirs. */
+  attackAt: 1.1,
   rest: DAYS_PER_YEAR,
   /** Carried: the governor has this long to declare it. */
   declareWithin: 60,
@@ -345,6 +347,42 @@ function divide(g: ConquestGame, n: number): void {
         "bad",
       );
   }
+}
+
+// ---------------------------------------------------------------- the war at home
+
+/**
+ * In a rising the governor declared, where one of the colony's armies goes
+ * (the computer's generals): at the crown's men on the colony's own soil
+ * when it's the stronger, the nearest first; else home to the capital,
+ * which is never left empty for the crown to walk into. Its other wars wait.
+ * Undefined when there's no such rising (the ordinary campaign, then).
+ */
+export function risingAim(
+  g: ConquestGame,
+  n: number,
+  a: Army,
+): number | undefined {
+  const s = g.s;
+  const nation = s.nations[n];
+  if (!nation?.rebelling || !nation.desk?.rev) return undefined;
+  const crown = crownFor(s, n);
+  const men = armyMen(a);
+  let best = -1;
+  let bestKm = Infinity;
+  for (const x of s.armies) {
+    if (x.owner !== crown || s.provinces[x.prov]?.owner !== n) continue;
+    const foes = s.armies
+      .filter((y) => y.prov === x.prov && y.owner === crown)
+      .reduce((m, y) => m + armyMen(y), 0);
+    if (foes > men * REV.attackAt) continue;
+    const km = kmBetween(g.map, a.prov, x.prov);
+    if (km < bestKm) {
+      bestKm = km;
+      best = x.prov;
+    }
+  }
+  return best >= 0 ? best : nation.capital;
 }
 
 // ---------------------------------------------------------------- declared
