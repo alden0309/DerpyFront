@@ -7,8 +7,9 @@
 // - doing it again while they still remember the last time adds less each
 //   time: 3 in 5 of what the last one added (`REGARD.again`), so a gift a
 //   month comes to 4, then 6.4, 7.8... and never past its most;
-// - everything kind someone remembers of you, all together, counts in full to
-//   25 and half beyond (`REGARD.soft`): "kindnesses only go so far".
+// - these kindnesses, all together, count in full to 25 and half beyond
+//   (`REGARD.soft`): "kindnesses only go so far". What else they remember of
+//   you (a life saved, a second stood, a wrong) counts as it always did.
 //
 // Friendship asks more too: they must know you (a few conversations), and it
 // takes time. Unkindness isn't softened: an insult, a lie, a bribe refused
@@ -155,9 +156,14 @@ export function talksWith(c: Character, me: number, day: number): number {
   return m ? (m.n ?? 1) : 0;
 }
 
+/** Whether a remembered reason is one of the kindnesses above (`WARMTH`). */
+export function isKindness(why: string): boolean {
+  return Object.prototype.hasOwnProperty.call(WARMTH, why);
+}
+
 /**
- * Kindnesses only go so far: everything kind they remember of you counts in
- * full to 25, and half beyond. Adds the line that takes the rest away.
+ * Kindnesses only go so far: the kindnesses they remember of you (`WARMTH`'s)
+ * count in full to 25, and half beyond. Adds the line that takes the rest away.
  */
 export function softenKindness(e: Explain, kind: number): void {
   if (kind <= REGARD.soft) return;

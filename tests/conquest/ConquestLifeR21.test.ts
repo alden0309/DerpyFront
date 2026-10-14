@@ -61,7 +61,7 @@ import {
 } from "../../src/conquest/engine/LifeRules";
 import { ordinal, ordinalWord } from "../../src/conquest/engine/Ordinal";
 import { ageOf, settlers } from "../../src/conquest/engine/Queries";
-import { REGARD } from "../../src/conquest/engine/Regard";
+import { isKindness, REGARD } from "../../src/conquest/engine/Regard";
 import {
   bodyguardPlot,
   physicianDeath,
@@ -199,7 +199,7 @@ describe("skills on thirty levels", () => {
 // ---------------------------------------------------------------- opinion
 
 describe("opinion has to be earned", () => {
-  test("a gift again adds less each time, up to its most; kindnesses together count half past 25", () => {
+  test("a gift again adds less each time, up to its most; the kindnesses together count half past 25", () => {
     const g = world({ start: 1700 });
     const life = lifeOf(g);
     life.purse = 500;
@@ -219,18 +219,25 @@ describe("opinion has to be earned", () => {
       expect(adds[i]).toBeLessThan(adds[i - 1] + 0.001);
     expect(gift()!.n).toBe(5);
     expect(gives[4]).toBeLessThanOrEqual(12);
-    // Everything kind together: in full to 25, half beyond.
+    // The kindnesses together: in full to 25, half beyond.
     c.memories.push(
-      { of: life.c, why: "Stood second for me", value: 20, until: 0 },
-      { of: life.c, why: "Shook hands after", value: 15, until: 0 },
+      { of: life.c, why: "Courted me", value: 20, until: 0 },
+      { of: life.c, why: "Generous to the poor", value: 10, until: 0 },
     );
     const op = opinionOf(g.s, c, life);
     const soft = op.parts.find((p) => p.label === "Kindnesses only go so far");
     expect(soft).toBeDefined();
     const kind = c.memories
-      .filter((m) => m.of === life.c && m.value > 0)
+      .filter((m) => m.of === life.c && m.value > 0 && isKindness(m.why))
       .reduce((a, m) => a + m.value, 0);
     expect(soft!.value).toBeCloseTo(-(kind - REGARD.soft) * REGARD.softRate, 0);
+    // Anything else they remember counts in full (a life saved isn't a kindness worn thin).
+    c.memories.push({ of: life.c, why: "Saved my life", value: 40, until: 0 });
+    expect(
+      opinionOf(g.s, c, life).parts.find(
+        (p) => p.label === "Kindnesses only go so far",
+      )!.value,
+    ).toBe(soft!.value);
   });
 
   test("friendship needs a few conversations first", () => {
@@ -282,19 +289,19 @@ describe("health with age and strain", () => {
 
   test("strain makes every hurt worse, by tiers", () => {
     expect(stressTier(10).mult).toBe(1);
-    expect(stressTier(20).mult).toBe(1.15);
-    expect(stressTier(45).mult).toBe(1.3);
-    expect(stressTier(65).mult).toBe(1.5);
-    expect(stressTier(90).mult).toBe(1.75);
-    expect(strained(10, 85)).toBe(18);
+    expect(stressTier(20).mult).toBe(1.1);
+    expect(stressTier(45).mult).toBe(1.25);
+    expect(stressTier(65).mult).toBe(1.4);
+    expect(stressTier(90).mult).toBe(1.6);
+    expect(strained(10, 85)).toBe(16);
     const g = world({ start: 1700 });
     const life = lifeOf(g);
     for (const [stress, took] of [
       [0, 10],
-      [25, 12],
+      [25, 11],
       [45, 13],
-      [65, 15],
-      [85, 18],
+      [65, 14],
+      [85, 16],
     ]) {
       life.health = 80;
       life.stress = stress;

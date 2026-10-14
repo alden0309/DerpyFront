@@ -244,7 +244,7 @@ const EVENTS: LifeEventDef[] = [
       },
       {
         label: "Brazen it out",
-        tip: "Many a husband did. They won't forget it (−35), and the town thinks less of you (−1 renown).",
+        tip: "Plenty have. They won't forget it (−35), and the town thinks less of you (−1 renown).",
         apply: (g, life, ctx) => {
           const sp = who(g, ctx);
           if (!sp?.alive) return;
@@ -354,14 +354,7 @@ const EVENTS: LifeEventDef[] = [
         apply: (g, life, ctx) => {
           const min = who(g, ctx);
           if (min?.alive)
-            remembers(
-              g,
-              life,
-              g.char(min.id),
-              "Promised to mend his ways",
-              10,
-              2,
-            );
+            remembers(g, life, g.char(min.id), "Promised to do better", 10, 2);
           gainXp(g, life, "faith", 5);
           addStress(g, life, -2);
         },

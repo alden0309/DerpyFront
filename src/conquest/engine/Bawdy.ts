@@ -63,7 +63,7 @@ export function bawdyCheck(s: GameState, life: Life): Check {
   if (!me) return no("You're watching.");
   if (ageOf(s, me) < BAWDY.minAge) return no("Not until you're eighteen.");
   if (isBound(me) || life.job?.kind === "servant")
-    return no("A bound servant has no evenings of his own.");
+    return no("A bound servant has no evenings of their own.");
   return yes;
 }
 

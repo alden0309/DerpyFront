@@ -6,7 +6,13 @@
 // from is named beside it).
 
 import { html, TemplateResult } from "lit";
+import { STRESS_TIERS } from "../../engine/Body"; // LIFE (r21)
 import { num, type TipContent } from "../Tip";
+
+/** LIFE (r21): "×1.1 from 20, ×1.25 from 40, …", from the table the engine applies. */
+const STRAIN = STRESS_TIERS.slice(1)
+  .map((t) => `×${t.mult} from ${t.from}`)
+  .join(", ");
 
 export interface Term {
   /** The word as shown. */
@@ -101,14 +107,13 @@ export const TERMS: Record<string, Term> = {
     name: "Health",
     what: "Your body, from 0 to the most it can be now (100 to 45, then less with the years: 95 at 50, 80 at 60, 60 at 70; less for the sickly, the gouty, an old wound, the pox). At 0 you die.",
     good: "Keeps you alive. Below 45 the risk of dying in any month rises; below 25 it triples.",
-    raise:
-      "It mends a little each month by itself (faster when low). Rest at home, buy physic at the apothecary (3), visit a village healer (0.5), live comfortably, keep a physician. Age, tropical summers, frugal winters, wounds, overtime and stress wear it down, and stress makes every hurt take more (×1.15 from 20, ×1.3 from 40, ×1.5 from 60, ×1.75 from 80).",
+    raise: `It mends a little each month by itself (faster when low). Rest at home, buy physic at the apothecary (3), visit a village healer (0.5), live comfortably, keep a physician. Age, tropical summers, frugal winters, wounds, overtime and stress wear it down, and stress makes every hurt take more (${STRAIN}).`,
     ch: "health",
   },
   stress: {
     name: "Stress",
     what: "Worry and strain, from 0 to 100.",
-    good: "Keep it low: every hurt takes more under strain (×1.15 from 20, ×1.3 from 40, ×1.5 from 60, ×1.75 from 80); at 70 or more it costs you health every month, and at 95 strain can hurt you outright.", // LIFE (r21)
+    good: `Keep it low: every hurt takes more under strain (${STRAIN}); at 70 or more it costs you health every month, and at 95 strain can hurt you outright.`, // LIFE (r21)
     raise:
       "To bring it down: rest at home, take a room at the tavern (1), pray, drink and listen, an evening with your family, a gift to the town, shirking at work. Hard work, overtime, debt, grief, scandal and living beneath your station push it up.",
     ch: "health",
@@ -128,7 +133,7 @@ export const TERMS: Record<string, Term> = {
     what: "What someone thinks of you, from −100 to +100. Point at the number to see every reason.",
     good: "Decides whether they'll agree: hire you, promote you, lend, marry, appoint, come to your gatherings, follow you.",
     raise:
-      "Talk with them, flatter, give gifts, do them favours, invite them to gatherings, share their faith, people and tongue. Each kindness again adds less than the last, and all of them together count half past 25: it takes time. Insults, threats, rivals and scandal lower it in full.", // LIFE (r21)
+      "Talk with them, flatter, give gifts, do them favours, invite them to gatherings, share their faith, people and tongue. Talk, flattery, gifts, courting, a round and alms each add less again than the last time, and together count half past 25: it takes time. Insults, threats, rivals and scandal lower it in full.", // LIFE (r21)
     ch: "people",
   },
   ties: {
@@ -545,7 +550,11 @@ export const TERMS: Record<string, Term> = {
   // ---- LIFE (r21)
   strain: {
     name: "Strain",
-    what: "How much worse stress makes a hurt: at ease (under 20) a wound takes what it says; strained ×1.15, stressed ×1.3, overwrought ×1.5, at breaking point (80) ×1.75.",
+    what: `How much worse stress makes a hurt: at ease (under ${STRESS_TIERS[1].from}) a wound takes what it says; ${STRESS_TIERS.slice(
+      1,
+    )
+      .map((t) => `${t.name.toLowerCase()} (${t.from}) ×${t.mult}`)
+      .join(", ")}.`,
     good: "Low stress keeps wounds, fevers and the month's wear from costing more than they should.",
     raise: "Ease your stress: rest, prayer, family, a chaplain, a quiet month.",
     ch: "health",

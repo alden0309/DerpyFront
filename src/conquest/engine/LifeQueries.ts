@@ -48,7 +48,7 @@ import {
 import type { World } from "./Map";
 import { landHopDays, landHopDaysIn, seaHopDays } from "./Paths";
 import { propertyBudget } from "./Property";
-import { softenKindness } from "./Regard"; // LIFE (r21)
+import { isKindness, softenKindness } from "./Regard"; // LIFE (r21)
 import { postSkillParts } from "./Retinue"; // LIFE (r21)
 import { iceBound, seasonPay } from "./Seasons"; // MAP (r12)
 import { canoeHopDays, passageHopDays } from "./SeaSpeed"; // SEA (r15)
@@ -994,12 +994,12 @@ export function opinionOf(s: GameState, c: Character, life: Life): Breakdown {
     else if (mine && s.nations[m.against]?.ruler === c.id)
       e.add(`You stir up ${m.name}`, -20);
   }
-  let kind = 0; // LIFE (r21): kindnesses, all together, count less past 20
+  let kind = 0; // LIFE (r21): kindnesses, all together, count half past 25
   for (const m of c.memories) {
     if (m.of !== me.id) continue;
     if (m.until !== 0 && m.until <= s.day) continue;
     e.add(m.why, m.value);
-    if (m.value > 0) kind += m.value;
+    if (m.value > 0 && isKindness(m.why)) kind += m.value;
   }
   softenKindness(e, kind); // LIFE (r21)
   r21Opinion(s, c, life, e); // LIFE (r21): a coward's name, the bawdy house's talk

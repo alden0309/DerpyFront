@@ -149,9 +149,9 @@ Liking takes time. Each kindness is remembered, and **doing it again while they 
 
 ${warmthTable()}
 
-A gift's first worth goes by its size against their standing (a townsman: 5 coins is +4, 20 coins +11; the great want more). **Everything kind someone remembers of you, all together, counts in full to ${REGARD.soft} and half beyond** ("Kindnesses only go so far" in their opinion's reasons). Unkindness isn't softened.
+A gift's first worth goes by its size against their standing (a townsman: 5 coins is +4, 20 coins +11; the great want more). **These kindnesses, all together, count in full to ${REGARD.soft} and half beyond** ("Kindnesses only go so far" in their opinion's reasons). What else they remember of you (a life saved, a second stood, a favour done) counts in full, and unkindness isn't softened.
 
-**Friendship** asks more: "Friendship takes time" (${REGARD.friendTime}), and until you've talked ${REGARD.knowTalks} times "You hardly know each other" (${REGARD.stranger}); talk ${REGARD.manyTalks} times or more and "You've passed many an hour" (+5). In practice: a few months of talk, a gift or two and a kind word, and someone who already thinks fairly well of you.
+**Friendship** asks more: "Friendship takes time" (${REGARD.friendTime}), and until you've talked ${REGARD.knowTalks} times "You hardly know each other" (${REGARD.stranger}); talk ${REGARD.manyTalks} times or more and "You've passed many an hour" (+${REGARD.manyHours}). In practice: a few months of talk, a gift or two and a kind word, and someone who already thinks fairly well of you.
 
 ## Their stats
 Anyone's card has **Their stats**: in a fight (their fighting, their health or how they look, the traits that tell in a duel, your odds against them with swords and pistols and to the death), their attributes and skills, and what they think of you. You see what you'd know: your family, friends, lovers, a rival, your teacher, your own people and your master exactly; those you've talked with often within 1; those you've met within 3; a stranger only their trade's skill, roughly. A sharp eye (Intrigue 9 or more) reads people a step better. Where you're guessing, the odds are rounded.`;
