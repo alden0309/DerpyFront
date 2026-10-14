@@ -13,6 +13,8 @@ const METADATA_FILE = path.join(LANGUAGE_DIR, "metadata.json");
  * This keeps dynamic handling explicit and reviewable.
  */
 const DYNAMIC_KEY_PATTERNS: RegExp[] = [
+  // The Derp Store names skin packs through its own fallback helper (DerpyStorePage's tr).
+  /^derpy\.pack_.+$/,
   /^difficulty\.[^.]+$/,
   /^map\.[^.]+$/,
   /^map_categories\.[^.]+$/,

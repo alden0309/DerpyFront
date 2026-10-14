@@ -343,6 +343,7 @@ describe("NationStructureBehavior.tryBuildDefensePost", () => {
         gameConfig: () => ({ difficulty }),
         isUnitDisabled: () => false,
         nukeMagnitudes: () => ({ outer: 50 }),
+        derpyRules: () => 4, // DFSTORE (r21): personas only from rules 5
       }),
       unitInfo: () => ({ cost: () => 0n }),
       euclideanDistSquared: () => Number.MAX_VALUE,
@@ -355,6 +356,8 @@ describe("NationStructureBehavior.tryBuildDefensePost", () => {
       incomingAttacks: () => attacks,
       gold: () => 1_000_000n,
       units: () => [],
+      type: () => PlayerType.Nation,
+      info: () => ({ nationFlag: null }),
     };
   }
 
@@ -536,7 +539,10 @@ describe("NationStructureBehavior.defensePostNeeded", () => {
 
   function makeGame(difficulty: Difficulty): any {
     return {
-      config: () => ({ gameConfig: () => ({ difficulty }) }),
+      config: () => ({
+        gameConfig: () => ({ difficulty }),
+        derpyRules: () => 4, // DFSTORE (r21): personas only from rules 5
+      }),
     };
   }
 
@@ -544,6 +550,8 @@ describe("NationStructureBehavior.defensePostNeeded", () => {
     return {
       troops: () => troops,
       incomingAttacks: () => attacks,
+      type: () => PlayerType.Nation,
+      info: () => ({ nationFlag: null }),
     };
   }
 
@@ -877,6 +885,7 @@ describe("NationStructureBehavior.doHandleStructures — crowded-map exception",
           difficulty: opts.difficulty ?? Difficulty.Medium,
         }),
         startingGold: () => 0n,
+        derpyRules: () => 4, // DFSTORE (r21): personas only from rules 5
       }),
       sharedWaterComponents: () => null, // landlocked -> Factory preferred
       nations: () => Array(400).fill({}),
@@ -888,7 +897,8 @@ describe("NationStructureBehavior.doHandleStructures — crowded-map exception",
     return {
       unitsOwned: () => 0, // never owns a city
       numTilesOwned: () => 100_000,
-      info: () => ({}),
+      info: () => ({ nationFlag: null }),
+      type: () => PlayerType.Nation,
     };
   }
 

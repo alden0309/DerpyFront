@@ -10,7 +10,7 @@ import {
   fxEffectNames,
 } from "@openfront/shared/DerpyFx";
 
-export const DOME_STYLE_KEY = "derpy.domeStyle";
+export const DOME_STYLE_KEY = "derpyDomeStyle";
 /** The same key UserSettings keeps effect selections under (EFFECTS_KEY). */
 export const EFFECT_SLOTS_KEY = "settings.effects";
 

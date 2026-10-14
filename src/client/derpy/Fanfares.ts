@@ -628,7 +628,7 @@ let sharedContext: AudioContext | null = null;
 
 // ---- The fanfare you've chosen (kept in this browser, like your skin) ----
 
-export const FANFARE_KEY = "derpy.fanfare";
+export const FANFARE_KEY = "derpyFanfare";
 
 export function chosenFanfare(): FanfareName | null {
   try {

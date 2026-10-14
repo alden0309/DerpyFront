@@ -14,7 +14,7 @@ import {
   DerpyStoreItem,
 } from "./DerpyAccount";
 
-const CHOICE_KEY = "derpy.aiPersonalities";
+const CHOICE_KEY = "derpyAiPersonalities";
 
 /** The packs chosen last time (whatever is owned is checked again). */
 export function rememberedPersonalities(): string[] {

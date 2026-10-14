@@ -93,9 +93,9 @@ describe("the fanfares", () => {
     expect(chosenFanfare()).toBeNull();
     chooseFanfare("fanfare_shanty");
     expect(chosenFanfare()).toBe("fanfare_shanty");
-    localStorage.setItem("derpy.fanfare", "fanfare_kazoo");
+    localStorage.setItem("derpyFanfare", "fanfare_kazoo");
     expect(chosenFanfare()).toBeNull();
     chooseFanfare(null);
-    expect(localStorage.getItem("derpy.fanfare")).toBeNull();
+    expect(localStorage.getItem("derpyFanfare")).toBeNull();
   });
 });
