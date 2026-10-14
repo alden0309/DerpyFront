@@ -38,6 +38,7 @@ import "./gov.css"; // GOV (r21): expeditions, the governor's desk, independence
 import "./home.css";
 import "./intrigue.css"; // INTRIGUE (r15): hearts and schemes
 import "./labour.css"; // LABOUR (r15): those held in bondage
+import "./labour2.css"; // LABOUR2 (r21): an overseer, those at your businesses, a house in the trade
 import "./ledger.css"; // LEDGER (r15): money made plain
 import "./legacy.css"; // LEGACY (r21): the pause in company, coins as you play, the chronicle
 import "./life21.css"; // LIFE (r21): health and skills, someone's stats, teaching, posts

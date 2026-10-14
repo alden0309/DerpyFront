@@ -3648,11 +3648,13 @@ export const LIFE_EVENTS: LifeEventDef[] = [
   ...R15_EVENTS, // EVENTS (r15)
   ...BOND_EVENTS, // LABOUR (r15): bondage, treated as history
   ...R21_EVENTS, // EVENTS (r21): what happens where you are, and more of it
+  ...LABOUR2_EVENTS, // LABOUR2 (r21): an overseer, work at a business, the trade
 ];
 
 // ---------------------------------------------------------------- a few calls out
 
 import { BOND_EVENTS } from "./BondEvents"; // LABOUR (r15)
+import { LABOUR2_EVENTS, labour2Quiet } from "./Labour2Events"; // LABOUR2 (r21)
 import { chairEvents, chairQuiet } from "./ChairEvents"; // CHAIR (r16)
 import { crownEvents, crownQuiet } from "./CrownEvents"; // CROWN (r18)
 import { DICE_EVENTS } from "./DiceEvents"; // DICE (r14)
@@ -4101,7 +4103,8 @@ function firstAllowed(
     shipQuiet()[ev.key] ?? // LIFE and SHIPS (r21)
     workR21Quiet()[ev.key] ?? // WORK (r21)
     expedQuiet()[ev.key] ??
-    govQuiet()[ev.key]; // GOV (r21)
+    govQuiet()[ev.key] ?? // GOV (r21)
+    labour2Quiet()[ev.key]; // LABOUR2 (r21)
   if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
     return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.

@@ -50,6 +50,7 @@ import "./GovEvents"; // GOV (r21): the desk's matters, a treaty council, the qu
 import "./Grandeur"; // CHAIR (r16): marks of greatness: a hall, a coach, portraits, endowments
 import "./Household"; // HOME (r12): the household's commands register themselves
 import "./Intrigue"; // INTRIGUE (r15): seduction, plots, weddings, private letters
+import "./Labour2"; // LABOUR2 (r21): an overseer, those held at your businesses, a house in the trade
 import { leadsDaily, leadsMonthly } from "./Leads";
 import "./Leave"; // ECON (r17): leave from your work
 import "./Ledger"; // LEDGER (r15): the month's books, statements and forecast
