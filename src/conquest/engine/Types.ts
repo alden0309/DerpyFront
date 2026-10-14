@@ -1639,6 +1639,8 @@ export interface GameState {
   partners?: PartnersState;
   /** DICE (r14): the tables of Liar's dice in the taverns. */
   dice?: DiceState;
+  /** EVENTS (r21): the tables of vingt-et-un in the taverns. */
+  cards?: CardsState;
   /** SEA (r15): the hurricanes, cruises and voyages, and privateers fitting out. */
   sea?: SeaState;
   /** INTRIGUE (r15): schemes, kept lovers, betrothals and guards. */
@@ -1971,7 +1973,9 @@ export type LifeCommand =
   | ShipCommand
   | PartyCommand
   // WORK (r21): a business's staff; partnership offers; the work itself.
-  | WorkR21Command;
+  | WorkR21Command
+  // EVENTS (r21): vingt-et-un at the tavern.
+  | CardsCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -2014,6 +2018,8 @@ export interface GameDelta {
   partners?: PartnersDelta;
   /** DICE (r14): the tables, when any changed (each player's copy hides the others' dice). */
   dice?: DiceState;
+  /** EVENTS (r21): the card tables, when any changed (each player's copy hides the others' cards). */
+  cards?: CardsState;
   /** SEA (r15): the hurricanes, cruises and voyages, when any changed. */
   sea?: SeaState;
   /** INTRIGUE (r15): when any changed (each player's copy holds only their own schemes). */
@@ -3374,6 +3380,13 @@ export interface DiceAct {
   turn?: number;
   /** refuse: why (a computer character's reasons, in brief). */
   why?: string;
+  /**
+   * EVENTS (r21): "Spot on!": a call that the bid is exactly right (on the
+   * call, k "liar", and on its reveal). Exact, the caller wins back a die
+   * (`gain`, up to five); wrong, the caller loses one (`loser`).
+   */
+  spot?: true;
+  gain?: number;
 }
 
 /** A computer player's face read by a player at the table (only that player sees it). */
@@ -3434,7 +3447,7 @@ export interface DiceState {
 /** A command for Liar's dice (Dice.ts). */
 export interface DiceCommand {
   k: "dice";
-  /** open, ask, join, start, bid, liar, leave, auto, again. */
+  /** open, ask, join, start, bid, liar, spot (EVENTS r21), leave, auto, again. */
   act: string;
   /** The table. */
   id?: number;
@@ -5353,4 +5366,133 @@ export interface FirmBid {
     | "countered";
   /** A computer partner's reasons, in a line. */
   why?: string;
+}
+
+// ---- EVENTS (r21): vingt-et-un at the tavern
+// The innkeeper keeps the bank; up to five punters (players and the town's
+// people) each stake on their own hand against it. Two cards each, face
+// down; aces one or eleven, court cards ten; draw or stand; over twenty-one
+// and the stake is the bank's; the banker turns his cards up and draws to
+// seventeen. Every player's copy of the game holds only their own cards
+// until they're shown (CardsCore.ts), and never the deck.
+
+/**
+ * A playing card, 0 to 51: suit × 13 + rank. Ranks 0 (the ace), 1 to 9 (the
+ * two to the ten), 10 the knave, 11 the queen, 12 the king. Suits 0 hearts,
+ * 1 diamonds, 2 spades, 3 clubs.
+ */
+export type Card = number;
+
+/** Someone at a card table. */
+export interface CardSeat {
+  c: number;
+  /** A player's seat in the room; absent for a computer character. */
+  seat?: string;
+  /** This hand's cards: hidden from everyone else until they're shown. */
+  cards: Card[];
+  /** How many cards they hold this hand (anyone can see that much). */
+  n: number;
+  /**
+   * In the next hand (in), deciding (play), content (stood), over twenty-one
+   * (bust), a natural, sitting this one out (out), or gone from the table.
+   */
+  state: "in" | "play" | "stood" | "bust" | "natural" | "out" | "gone";
+  /** The stake on this hand (0 sitting out). */
+  stake: number;
+  /** A player's word on the next hand: in (true), sitting out (false), or not said yet. */
+  ready?: boolean;
+  /** Won (+) or lost (−) at this table so far, all hands together. */
+  net: number;
+  hands: number;
+  /** A computer punter's money for the evening, and the hands they mean to stay for. */
+  purse?: number;
+  stay?: number;
+  /** Got up mid-hand: they go when it's settled. */
+  quitting?: boolean;
+  /** Hands a player has been sat out of for not answering (twice, and they're stood up). */
+  idle?: number;
+  /** What went on tick (a drunkard's credit at the bank). */
+  tick?: number;
+}
+
+/** What happened at a card table, in order, for the browser to play back. */
+export interface CardAct {
+  /** Counts up through the table's life. */
+  n: number;
+  k:
+    | "sit"
+    | "refuse"
+    | "deal"
+    | "natural"
+    | "draw"
+    | "stand"
+    | "bust"
+    | "bank"
+    | "settle"
+    | "gone"
+    | "close";
+  /** Who (the banker's acts: the bank's character, or -1 for the house). */
+  c: number;
+  hand: number;
+  /** Cards shown: a natural, a bust, the banker's hand as he plays it. */
+  cards?: Card[];
+  /** draw: how many cards they hold now. */
+  count?: number;
+  /** settle: every hand shown, and what each came to (+ won, − lost, 0 a stand-off). */
+  hands?: Record<number, Card[]>;
+  pay?: Record<number, number>;
+  /** deal: who was dealt in, and their stakes. */
+  stakes?: Record<number, number>;
+  /** What a computer punter said. */
+  say?: string;
+  /** Made for them (a player who stalled or went away). */
+  auto?: boolean;
+  /** refuse, gone: why. */
+  why?: string;
+}
+
+/** A table of vingt-et-un in a tavern. */
+export interface CardTable {
+  id: number;
+  prov: number;
+  /** Who opened it (a player's character). */
+  host: number;
+  /** Who keeps the bank: the innkeeper (a character), or -1 for the house. */
+  bank: number;
+  /** The stake on each hand. */
+  stake: number;
+  /** Gathering; a hand being played; between hands; or broken up. */
+  status: "open" | "hand" | "between" | "done";
+  seats: CardSeat[];
+  /** Players asked who haven't answered yet (characters). */
+  asked: number[];
+  hand: number;
+  /** The banker's cards this hand: hidden from everyone until he turns them up. */
+  bankCards: Card[];
+  /** What's left of the deck this hand (top last). Never sent. */
+  deck: Card[];
+  acts: CardAct[];
+  /** Counts every move: the server's clock for a stalling player goes by it. */
+  seq: number;
+  opened: number;
+  /** The day of the last move (a table left idle breaks up). */
+  last: number;
+  ended?: number;
+  /** The table's own dice (seeded when it opens). Never sent. */
+  rng: number;
+}
+
+/** Everything of the card tables kept in the game. */
+export interface CardsState {
+  tables: CardTable[];
+}
+
+/** A command at the card table (VingtEtUn.ts). */
+export interface CardsCommand {
+  k: "cards";
+  /** open, ask, join, deal, sitout, draw, stand, leave, auto. */
+  act: string;
+  id?: number;
+  stake?: number;
+  ask?: number[];
 }

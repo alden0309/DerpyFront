@@ -611,7 +611,11 @@ describe("courting and outcomes", () => {
     life.purse = 20;
     raiseLifeEvent(g, life, "sweetheart-asks", ctx);
     const q = life.events.find((e) => e.key === "sweetheart-asks")!;
-    expect(q.scene).toBe("church");
+    // EVENTS (r21): set at the church where there is one. Jamestown in 1607
+    // has none yet (in play this event is only drawn where there is), so
+    // it's set where you are.
+    const church = areasOf(g.s, g.w, life.prov, life).includes("church");
+    expect(q.scene).toBe(church ? "church" : life.area);
     expect(g.lifeCommand("s1", { k: "event", id: q.id, choice: 0 })).toBeNull();
     expect(me.spouse).toBe(her.id);
     expect(life.ties[her.id]).toBeUndefined();

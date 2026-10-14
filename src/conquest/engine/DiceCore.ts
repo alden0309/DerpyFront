@@ -258,6 +258,21 @@ export function bidChance(
   return atLeast(hidden, b.q - countFace(own, b.f));
 }
 
+/**
+ * EVENTS (r21): how likely a bid is to be exactly right ("Spot on!") from
+ * what one player sees: the dice they can't see must make up the rest
+ * exactly, a third of them counting for any face.
+ */
+export function exactChance(
+  own: readonly number[],
+  hidden: number,
+  b: DiceBid,
+): number {
+  const k = b.q - countFace(own, b.f);
+  if (k < 0 || k > hidden) return 0;
+  return choose(hidden, k) * (1 / 3) ** k * (2 / 3) ** (hidden - k);
+}
+
 /** "certain", "likely", "a stretch", "a long shot". */
 export function chanceWord(p: number): string {
   // Certain only when your own dice make the bid already.

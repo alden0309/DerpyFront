@@ -14,6 +14,7 @@ import {
   labourDeltaSecret,
   labourStateForSeat,
 } from "./BondCore";
+import { cardsStateForSeat, cardsView } from "./CardsCore"; // EVENTS (r21)
 import { crownDeltaForSeat, crownStateForSeat } from "./CrownCore";
 import { diceView, stateForSeat } from "./DiceCore";
 import {
@@ -30,6 +31,11 @@ import type { GameDelta, GameState } from "./Types";
 
 /** The whole game as `seat` may see it (null: a watcher, who holds no seat). */
 export function stateForViewer(s: GameState, seat: string | null): GameState {
+  // EVENTS (r21): and the cards in each hand at the card tables.
+  return cardsStateForSeat(stateForViewerR19(s, seat), seat);
+}
+
+function stateForViewerR19(s: GameState, seat: string | null): GameState {
   return crownStateForSeat(
     loanStateForSeat(
       labourStateForSeat(stateForIntrigue(stateForSeat(s, seat), seat), seat),
@@ -46,7 +52,8 @@ export function deltaIsPerViewer(d: GameDelta): boolean {
     deltaHasSecrets(d) ||
     labourDeltaSecret(d) ||
     loanDeltaSecret(d) ||
-    !!d.crown
+    !!d.crown ||
+    !!d.cards // EVENTS (r21)
   );
 }
 
@@ -64,6 +71,7 @@ export function deltaForViewer(
   if (bond) out = labourDeltaForSeat(out, seat);
   if (loans) out = loanDeltaForSeat(out, seat);
   if (d.crown) out = crownDeltaForSeat(s, out, seat);
+  if (d.cards) out = { ...out, cards: cardsView(d.cards, seat) }; // EVENTS (r21)
   return out;
 }
 

@@ -17,6 +17,10 @@ import { z } from "zod";
 import { checkAchievements } from "../../conquest/engine/Achievements"; // MAP (r12)
 import { validateLook } from "../../conquest/engine/Appearance";
 import { dateOf, formatDate } from "../../conquest/engine/Calendar";
+import {
+  CARD_STALL_SECONDS,
+  cardTables,
+} from "../../conquest/engine/CardsCore"; // EVENTS (r21)
 import { lifeCoins } from "../../conquest/engine/Coins";
 import { dropFromTable } from "../../conquest/engine/Dice"; // DICE (r14)
 import {
@@ -49,6 +53,7 @@ import type {
   LifePlan,
   StartYear,
 } from "../../conquest/engine/Types";
+import { dropFromCards } from "../../conquest/engine/VingtEtUn"; // EVENTS (r21)
 // DICE (r14), INTRIGUE and LABOUR (r15), POLLS (r16), ECON (r17), CROWN (r18):
 // what each seat may be sent, composed in one place (SITE r19), and the most
 // redacted view of them all for a watcher.
@@ -342,6 +347,8 @@ interface Room {
    * for (the table's count of moves), and when the table moves for them.
    */
   dice: Map<number, { seq: number; due: number; away: boolean }>;
+  /** EVENTS (r21): a card table held up by a player, by table: its count of moves, and when it decides for them. */
+  cards: Map<number, { seq: number; due: number; away: boolean }>;
   /**
    * LIFE (r11): skipping ahead. Alone it starts when asked; in company when
    * every player living a life has asked. It stops when anything needs anyone
@@ -783,6 +790,7 @@ export class ConquestRooms {
       results: null,
       letters: new Map(),
       dice: new Map(), // DICE (r14)
+      cards: new Map(), // EVENTS (r21)
       skip: {
         on: false,
         asked: new Set(),
@@ -1728,6 +1736,7 @@ export class ConquestRooms {
     this.letterClock(room, room.paused ? 0 : dt);
     // DICE (r14): the dice go on whether the world runs or not.
     this.diceClock(room, t);
+    this.cardsClock(room, t); // EVENTS (r21): and the cards
     if (room.paused) return;
     const skipping = room.skip.on;
     room.owed +=
@@ -1879,6 +1888,74 @@ export class ConquestRooms {
     }
     for (const id of [...room.dice.keys()])
       if (!live.has(id)) room.dice.delete(id);
+  }
+
+  /**
+   * EVENTS (r21): at vingt-et-un, players decide at once and at their own
+   * pace; one who stalls can't hold up a table they share with another
+   * player. A player still deciding their hand, or (between hands) not yet
+   * saying whether they're in the next while another is waiting, has
+   * CARD_STALL_SECONDS of real time (a moment, if they've gone from the
+   * game). Then the table decides for them, with an ordinary command: their
+   * hand played by the town's sense, or sitting the next one out. Alone with
+   * the town's people, the table waits.
+   */
+  private cardsClock(room: Room, now: number): void {
+    const game = room.game!;
+    const live = new Set<number>();
+    for (const t of cardTables(game.state)) {
+      if (t.status !== "hand" && t.status !== "between") continue;
+      const players = t.seats.filter(
+        (y) => y.seat !== undefined && y.state !== "gone",
+      );
+      if (players.length < 2) continue;
+      const waiting =
+        t.status === "between" && players.some((y) => y.ready === true);
+      const holding = players.filter((y) =>
+        t.status === "hand"
+          ? y.state === "play"
+          : waiting && y.ready === undefined,
+      );
+      if (!holding.length) continue;
+      live.add(t.id);
+      const away = holding.every(
+        (y) => !room.seats.find((z) => z.id === y.seat)?.conn,
+      );
+      let c = room.cards.get(t.id);
+      if (!c || c.seq !== t.seq) {
+        // The town's people's draws and the banker's, played back first.
+        const pace = t.acts.some((a) => a.k === "settle" && a.hand === t.hand)
+          ? 3500
+          : 1200;
+        c = {
+          seq: t.seq,
+          due: now + pace + (away ? 1500 : CARD_STALL_SECONDS * 1000),
+          away,
+        };
+        room.cards.set(t.id, c);
+        this.broadcast(room, {
+          t: "cardsclock",
+          id: t.id,
+          left: Math.ceil((c.due - now) / 1000),
+        });
+      } else if (away && !c.away) {
+        c.away = true;
+        c.due = Math.min(c.due, now + 1500);
+      }
+      if (now < c.due) continue;
+      room.cards.delete(t.id);
+      for (const y of holding) {
+        const err = game.lifeCommand(y.seat!, {
+          k: "cards",
+          act: "auto",
+          id: t.id,
+        });
+        if (err) dropFromCards(game, t.id, y.c);
+      }
+      this.flush(room);
+    }
+    for (const id of [...room.cards.keys()])
+      if (!live.has(id)) room.cards.delete(id);
   }
 
   /** DICE (r14): the clocks running at dice tables, for someone just come in (a player, or a watcher: SITE r19). */

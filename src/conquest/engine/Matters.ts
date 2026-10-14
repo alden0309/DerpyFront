@@ -43,6 +43,7 @@ import {
   winterHere,
 } from "./MatterKit";
 import { HONEST_MATTERS } from "./MattersHonest";
+import { R21_MATTERS } from "./MattersR21"; // EVENTS (r21)
 import { ROGUE_MATTERS } from "./MattersRogues";
 import { charName } from "./Queries";
 import { TRAITS } from "./Rules";
@@ -51,7 +52,11 @@ import { MATTERS } from "./WorkEvents";
 import { worldRng } from "./WorldRng";
 
 /** Every new variant, honest and crooked. */
-export const VARIANTS: Variant[] = [...HONEST_MATTERS, ...ROGUE_MATTERS];
+export const VARIANTS: Variant[] = [
+  ...HONEST_MATTERS,
+  ...ROGUE_MATTERS,
+  ...R21_MATTERS, // EVENTS (r21): six more to every trade
+];
 
 /** How long after a matter of a kind before another of that kind. */
 export const KIND_REST: Record<MatterKind, number> = {

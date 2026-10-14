@@ -624,6 +624,31 @@ export const TERMS: Record<string, Term> = {
       "On the road (Here): Lie over at the next port; then Sail on. After two months the voyage is over, and a charter's forfeit.",
     ch: "ships",
   },
+  // EVENTS (r21): VingtEtUn.ts, CardsCore.ts (the rules), Dice.ts (Spot on), EventPlaces.ts.
+  vingtetun: {
+    name: "Vingt-et-un",
+    what: "Cards against the innkeeper's bank: two cards each, draw or stand, the nearest to twenty-one without going over beats the bank. The ancestor of blackjack.",
+    good: "Even money on a hand won, double on a natural; an evening's play eases the mind, and reckoning the odds teaches a little Trade.",
+    raise:
+      "At the tavern: Things to do › Vingt-et-un…. Draw on eleven or less, stand on seventeen or more; between, the odds shown say which.",
+    ch: "vingtetun",
+  },
+  spoton: {
+    name: "Spot on!",
+    what: "At Liar's dice, instead of raising or calling a lie: saying the bid is exactly right.",
+    good: "Exactly right, you win back a die (up to five).",
+    raise:
+      "Wrong (more or fewer) and you lose a die. Worth it when the bid looks about right and a raise looks risky.",
+    ch: "dice",
+  },
+  eventplace: {
+    name: "Where things happen",
+    what: "Every event says where it can come: home or abroad, a colonial or native town or open country, and which places (the tavern, home, the docks...).",
+    good: "What belongs to a place comes three times as readily while you're in it; away from home, you meet a stranger's lot, not your family's news.",
+    raise:
+      "Go into a place (Here) for its goings-on; now and then something happens as you go in.",
+    ch: "events",
+  },
   party: {
     name: "Travelling together",
     what: "Players who've agreed to go where one of them goes.",

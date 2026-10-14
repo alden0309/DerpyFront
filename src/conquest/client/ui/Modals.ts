@@ -25,6 +25,7 @@ import {
 } from "./Battle";
 import { bondModal } from "./Bonds"; // ECON (r17)
 import { startBizModal } from "./Business"; // BUSINESS (r15)
+import { cardsModal } from "./CardsTable"; // EVENTS (r21)
 import { GameUi, Modal, token } from "./Context";
 import { diceModal } from "./DiceTable"; // DICE (r14)
 import { familyTreeModal } from "./FamilyTree"; // HOME (r12)
@@ -160,6 +161,11 @@ export function renderModal(
     case "dice":
       body = diceModal(ui, m);
       cls = "scene dice";
+      break;
+    // EVENTS (r21)
+    case "cards":
+      body = cardsModal(ui, m);
+      cls = "scene cards";
       break;
     // BUSINESS (r15)
     case "startbiz":

@@ -131,9 +131,11 @@ import {
   MATTER_REST,
   ROAD_REST,
 } from "../../engine/EventPacing";
+import { R21_EVENTS } from "../../engine/EventsR21"; // EVENTS (r21)
 import { EVENT_CHANCE } from "../../engine/LifeEvents";
 import { KIND_REST, VARIANTS } from "../../engine/Matters";
 import { DRAWN_R15 } from "../../engine/R15Events";
+import { placesSection, SPOT_SECTION, VINGT_CHAPTER } from "./EventsR21Chapter"; // EVENTS (r21)
 // DICE (r14): Liar's dice, for its chapter.
 import { BIG_POT, XP_MAX, XP_ROUND, XP_TABLE } from "../../engine/Dice";
 import {
@@ -557,7 +559,9 @@ function familyTable(): string {
 }
 
 const MATTER_COUNT = VARIANTS.length;
-const DRAWN_COUNT = DRAWN_R15.length;
+// EVENTS (r21): and the round's events of place.
+const DRAWN_COUNT =
+  DRAWN_R15.length + R21_EVENTS.filter((e) => e.pool === "any").length;
 
 export const CHAPTERS: Chapter[] = [
   // ================================================================ getting started
@@ -880,6 +884,8 @@ Hand in your notice on Work › Your work (or at your workplace), from anywhere:
 - **On the road and at sea**: a few a journey, more in the wilds, at war or at sea (see [[travel|The road and the sea]]).
 - **From the world**: letters from family, friends and your master, your people and your boats, the law, the council, the press.
 
+${placesSection() /* EVENTS (r21) */}
+
 ## They don't keep coming round
 - **Each rests after it comes**: four years for what happens at home; at least ${ROAD_REST} days for anything on the road or at sea; ${MATTER_REST} days for each matter at work, each big job and each round.
 - **What you've seen comes less readily**: each showing divides an event's chance of being drawn again (twice seen, a third as likely as one you haven't had), so what hasn't happened yet comes first. This is kept through your heirs.
@@ -903,6 +909,7 @@ ${MATTER_COUNT} matters at work, big jobs and rounds (at least three to every tr
 - **The peoples' own life**: a name earned, winter stories, a dream to fulfil, a new kinsman, the trader's heavy weights, the plum-stone game, rum in the village, the giveaway, the clan mother's question, the snow-snake.
 - **The weather**: the river in the street, the dog days, first snow, the frozen pond, a thunderstorm (and, from 1752, a lightning rod), a golden autumn, the mosquitoes.
 - **The road and the sea**: a bedfellow at the ordinary, a tinker, a wagon in the mire, a silent meeting, strangers at your fire; flying fish, a sea serpent, a stowaway, the ship's cat.
+- **The places themselves** (EVENTS r21): the tavern, home, the docks, the church, the market, the fields, the woods, the governor's house, the workshops, the printing house, the apothecary, the fort, a native town and its council fire, open country, and being a stranger abroad (see the table above).
 
 ## Other players
 - **Another player is never put into an event.** No event you're drawn names them, stands them opposite you, or puts words in their mouth: they appear only as what they really did (a proposal, a challenge, a vote, a letter they wrote, an arrest they made).
@@ -1747,6 +1754,8 @@ Others give gatherings too, and invite you (by letter if you're away): your neig
 ## Ones are wild
 A one counts as **any face**: when "four fives" is called, every five and every one under the cups is counted. So nobody bids on ones, and your own ones count for whatever you bid.
 
+${SPOT_SECTION /* EVENTS (r21) */}
+
 ## An example
 Three at the table: fifteen dice. You hold five, five, one, two, six: two fives and a one, so **three that count as fives**. Ten dice are hidden from you, and about a third of any face's worth show among them: three or so more. So "four fives" is likely, "six fives" a stretch, "nine fives" a long shot.
 Hal opens with "three fours". You raise: "four fives". Bea says "five fives". Hal looks hard at you both and says "Liar!" The cups come up: your three, Bea's five and one, Hal's single five: six that count. Five fives stands, so Hal loses a die, and opens the next round.
@@ -1792,9 +1801,16 @@ Other players in the same tavern see the table on its tile ("Dice: 3 at the tabl
         "At Liar's dice a one counts as any face; nobody bids on ones.",
         "dice",
       ],
+      // EVENTS (r21)
+      [
+        "Spot on!",
+        "At Liar's dice, saying the bid is exactly right: right, you win back a die; wrong, you lose one.",
+        "dice",
+      ],
     ],
   },
   // ---- end DICE (r14)
+  VINGT_CHAPTER, // EVENTS (r21): vingt-et-un
   // ================================================================ standing and power
   {
     id: "standing",

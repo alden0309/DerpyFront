@@ -1,5 +1,6 @@
 // Applies the server's deltas to a player's copy of the game state.
 
+import { applyCardsDelta } from "./CardsCore"; // EVENTS (r21)
 import { applyCrownDelta } from "./CrownCore"; // CROWN (r18)
 import { applyDiceDelta } from "./DiceCore"; // DICE (r14)
 import { applyIntrigueDelta } from "./IntrigueCore"; // INTRIGUE (r15)
@@ -67,6 +68,7 @@ export function applyDelta(s: GameState, d: GameDelta): void {
   if (d.power) applyPowerDelta(s, d.power); // POWER (r12)
   if (d.partners) applyPartnersDelta(s, d.partners); // PARTNERS (r13)
   if (d.dice) applyDiceDelta(s, d.dice); // DICE (r14)
+  if (d.cards) applyCardsDelta(s, d.cards); // EVENTS (r21)
   if (d.sea) applySeaDelta(s, d.sea); // SEA (r15)
   if (d.intrigue) applyIntrigueDelta(s, d.intrigue); // INTRIGUE (r15)
   if (d.loans) applyLoanDelta(s, d.loans); // ECON (r17)

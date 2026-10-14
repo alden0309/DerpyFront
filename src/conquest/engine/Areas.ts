@@ -10,6 +10,7 @@
 // the day, so the server and every browser agree without being told.
 
 import { dateOf } from "./Calendar";
+import { cardsSeatedIn } from "./CardsCore"; // EVENTS (r21)
 import { knowsDen } from "./CrimeQueries";
 import { diceSeatedIn } from "./DiceCore"; // DICE (r14)
 import {
@@ -618,6 +619,10 @@ export function presence(
   }
   // DICE (r14): whoever sits at a dice table here is in the tavern.
   const seated = have.has("tavern") ? diceSeatedIn(s, p) : null;
+  // EVENTS (r21): and whoever's at the card table (the innkeeper keeping the bank).
+  if (seated)
+    for (const [c, doing] of cardsSeatedIn(s, p))
+      if (!seated.has(c)) seated.set(c, doing);
   if (seated?.size) {
     const kinds = new Map<number, PresentKind>();
     for (const [, v] of out)

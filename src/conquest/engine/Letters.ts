@@ -8,6 +8,7 @@
 
 import { dateOf } from "./Calendar";
 import { wouldBeg } from "./EventPacing"; // EVENTS (r15)
+import { VENTURE_LETTER_CHANCE, VENTURE_REST } from "./EventPlaces"; // EVENTS (r21)
 import { Explain } from "./Explain";
 import { charterAcceptance, grantCharter } from "./Founding";
 import type { ConquestGame } from "./Game";
@@ -1787,8 +1788,18 @@ export function postMonthly(g: ConquestGame): void {
             c.role === "planter") &&
           opinionOf(s, c, life).total >= 10,
       );
-    if (merchant && life.purse >= 20)
-      options.push(() =>
+    // EVENTS (r21): a venture by letter is a rare thing: once in three years
+    // at most (with a merchant's venture in person), and not every time a
+    // merchant you know could write.
+    if (
+      merchant &&
+      life.purse >= 20 &&
+      (life.cooldowns["fam:share-venture"] ?? 0) <= s.day &&
+      r.chance(VENTURE_LETTER_CHANCE)
+    )
+      options.push(() => {
+        touchLife(g, life).cooldowns["fam:share-venture"] =
+          s.day + VENTURE_REST;
         npcWrite(
           g,
           life,
@@ -1796,8 +1807,8 @@ export function postMonthly(g: ConquestGame): void {
           "business",
           `${me.female ? "Madam" : "Sir"}, a cargo of flour and staves for Barbados wants one more partner at 20 coins a share. I would rather it were you. ${charName(merchant)}.`,
           { ask: true, arg: 20 },
-        ),
-      );
+        );
+      });
     // An officer gets petitions.
     const office = Object.values(s.society?.offices ?? {})
       .flat()

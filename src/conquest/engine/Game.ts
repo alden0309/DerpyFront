@@ -5,6 +5,7 @@
 import { runAi } from "./Ai";
 import { migrateLooks } from "./Appearance";
 import { dateOf, isMonthStart } from "./Calendar";
+import { takeCardsDelta } from "./CardsCore"; // EVENTS (r21)
 import { characterCommand, charactersMonthly } from "./Characters";
 import { crownCommand, crownMonthly, europeMonthly } from "./Crown";
 import { diceDaily } from "./Dice"; // DICE (r14): Liar's dice in the tavern
@@ -366,6 +367,8 @@ export class ConquestGame {
     if (firms) d.partners = firms;
     const dice = takeDiceDelta(this); // DICE (r14)
     if (dice) d.dice = dice;
+    const cards = takeCardsDelta(this); // EVENTS (r21): vingt-et-un
+    if (cards) d.cards = cards;
     const sea = takeSeaDelta(this); // SEA (r15)
     if (sea) d.sea = sea;
     const intr = takeIntrigueDelta(this); // INTRIGUE (r15)

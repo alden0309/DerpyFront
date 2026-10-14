@@ -638,7 +638,8 @@
 }
 .cq-dice-acts {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  /* EVENTS (r21): Raise, Liar! and Spot on! */
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.55rem;
   margin-top: 0.75rem;
 }
@@ -660,6 +661,32 @@
 }
 .cq-dice-liar:not(:disabled):hover {
   background: linear-gradient(#b53a24, #8a2716);
+}
+/* EVENTS (r21): "Spot on!" */
+.cq-dice-spot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--fell-sc);
+  font-size: 1.1rem;
+  letter-spacing: 0.02em;
+  color: #fbf1dc;
+  background: linear-gradient(#2f6a57, #1f4a3c);
+  border-color: #163529;
+}
+.cq-dice-spot:not(:disabled):hover {
+  background: linear-gradient(#387a64, #245446);
+}
+.cq-dice-exact {
+  font-style: italic;
+}
+@media (max-width: 420px) {
+  .cq-dice-acts {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .cq-dice-acts .cq-dice-raise {
+    grid-column: 1 / -1;
+  }
 }
 .cq-dice-status {
   min-height: 1.5em;

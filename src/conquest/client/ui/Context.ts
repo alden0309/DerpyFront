@@ -81,6 +81,8 @@ export type Modal =
   | { k: "articles"; c: number }
   // DICE (r14): a table of Liar's dice (or opening one; or asking more to it).
   | { k: "dice"; id?: number; ask?: boolean }
+  // EVENTS (r21): a table of vingt-et-un (or opening one).
+  | { k: "cards"; id?: number }
   // BUSINESS (r15): the "Start a business" window.
   | { k: "startbiz" }
   // INTRIGUE (r15): win someone, plot, an accomplice, a wedding, a letter in your own words.

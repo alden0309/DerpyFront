@@ -28,6 +28,7 @@ import "./nav.css";
 import "./power.css"; // POWER (r12): offices, the council, the court, the press
 // HOME (r12): the household, the family tree, duels.
 import "./business.css"; // BUSINESS (r15): a business of your own, and starting one
+import "./cards.css"; // EVENTS (r21): vingt-et-un
 import "./chair.css"; // CHAIR (r16): the road to the governor's chair
 import "./chamber.css"; // CHAMBER (r16): the factions, the session, a seat's work later
 import "./crown.css"; // CROWN (r18): regiments from Europe, an expedition's petition

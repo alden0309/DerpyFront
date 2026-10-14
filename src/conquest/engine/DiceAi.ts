@@ -9,6 +9,8 @@ import {
   atLeast,
   bidWords,
   countFace,
+  DICE_EACH,
+  exactChance,
   FACES,
   raisesOver,
   totalDice,
@@ -104,6 +106,8 @@ interface Temper {
   callAt: number;
   /** They take others' bids as telling something. */
   reads: boolean;
+  /** EVENTS (r21): how sure they must be the bid is exact to say "Spot on!". */
+  spotAt: number;
 }
 
 function temperOf(s: GameState, c: Character): Temper {
@@ -129,11 +133,18 @@ function temperOf(s: GameState, c: Character): Temper {
     bluff: Math.max(0.02, Math.min(0.42, bluff)),
     callAt: Math.max(0.25, Math.min(0.5, callAt)),
     reads: skill >= 6,
+    spotAt:
+      0.3 +
+      (t("craven") ? 0.06 : 0) -
+      (t("brave") ? 0.03 : 0) -
+      (t("shrewd") ? 0.03 : 0),
   };
 }
 
 export interface ComputerMove {
   liar?: true;
+  /** EVENTS (r21): "Spot on!" */
+  spot?: true;
   bid?: DiceBid;
   say: string;
   mood: Mood;
@@ -160,6 +171,12 @@ const RAISE: ((b: DiceBid) => string)[] = [
 const JUMP: ((b: DiceBid) => string)[] = [
   (b) => `Let's not dither: ${bidWords(b)}!`,
   (b) => `${cap(bidWords(b))}! Beat that.`,
+];
+const SPOT = [
+  "Spot on!",
+  "Exactly that many, I'd swear to it.",
+  "Not one more, not one fewer. Spot on!",
+  "That's the very number. Lift them!",
 ];
 const LIAR = [
   "Liar!",
@@ -246,6 +263,20 @@ export function computerMove(
     x.p - 0.035 * x.step > a.p - 0.035 * a.step ? x : a,
   );
   const believe = noisy(est(cur));
+  // EVENTS (r21): "Spot on!" when the bid looks to be just about exactly
+  // right, a raise looks risky, and there's a die to win back: worth it when
+  // being exact is likelier than half the chance the bid is a lie (a wrong
+  // spot costs a die, as a wrong "Liar!" does, but a right one wins one).
+  if (me.n < DICE_EACH) {
+    const pe = exactChance(own, hidden, cur);
+    if (pe >= tm.spotAt && best.p < 0.5 && pe > (1 - believe) / 2 + 0.05)
+      return {
+        spot: true,
+        say: pick(SPOT),
+        mood: r.chance(0.5) ? "smile" : "neutral",
+        sure: true,
+      };
+  }
   if (believe < tm.callAt) return liar();
   if (best.p < 0.3 && believe < 0.62) return liar();
   let bid = best.b;

@@ -238,6 +238,8 @@ export type ServerMessage =
   // DICE (r14): whose turn it is at a dice table, and the seconds they have
   // before the table bids for them (only at a table with two players or more).
   | { t: "diceclock"; id: number; c: number; left: number }
+  // EVENTS (r21): how long the players holding up a card table have to decide.
+  | { t: "cardsclock"; id: number; left: number }
   // SITE (r19): how many are watching (players see "2 watching"), and
   // whether the host lets them; and a watcher's watching over (the game
   // closed, the host shut watchers out, or it couldn't begin), and why.
