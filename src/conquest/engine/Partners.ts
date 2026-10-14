@@ -563,6 +563,14 @@ export function articlesAcceptance(
       t.rule === "unanimous" ? "A say in everything" : "You'd outvote them",
       t.rule === "unanimous" ? 4 : -4,
     );
+  // WORK (r21): the buy-out clause favours whoever holds more than half.
+  if (t.clause && mine.share !== 50)
+    e.add(
+      mine.share < 50
+        ? "The buy-out clause: you could force them out"
+        : "The buy-out clause: they could buy you out",
+      mine.share < 50 ? -8 : 4,
+    );
   const n = firmsWith(s, npc.id).length;
   if (n) e.add(`In ${n} partnership${n > 1 ? "s" : ""} already`, -10 * n);
   if (npc.home !== undefined && npc.home !== t.prov && mine.role === "managing")
@@ -657,7 +665,7 @@ export function articlesText(
   };
   const mgr = t.sides.find((x) => x.role === "managing");
   const lawyer = t.lawyer >= 0 ? s.chars[t.lawyer] : undefined;
-  return `Articles of Agreement, made the ${nth(d.day)} day of ${months[d.month]} ${d.year}, between ${charName(a)} and ${charName(b)}: that they shall be copartners in ${holdWords(s, map, t)}, under the name and firm of ${t.name}${t.name.endsWith(".") ? "" : "."} ${a?.first ?? "The one"} to bring in ${brings(0)}; ${b?.first ?? "the other"} ${brings(1)}. The profit and loss to be divided, ${a?.family ?? "the one"} ${parts(t.sides[0].share)} and ${b?.family ?? "the other"} ${parts(t.sides[1].share)}. ${mgr ? `${charName(s.chars[mgr.c])} to manage the business and keep the books.` : ""} Nothing of moment to be done without the consent of ${t.rule === "unanimous" ? "all the partners" : "the greater part in interest"}.${lawyer ? ` Drawn up by ${charName(lawyer)}.` : ""}`;
+  return `Articles of Agreement, made the ${nth(d.day)} day of ${months[d.month]} ${d.year}, between ${charName(a)} and ${charName(b)}: that they shall be copartners in ${holdWords(s, map, t)}, under the name and firm of ${t.name}${t.name.endsWith(".") ? "" : "."} ${a?.first ?? "The one"} to bring in ${brings(0)}; ${b?.first ?? "the other"} ${brings(1)}. The profit and loss to be divided, ${a?.family ?? "the one"} ${parts(t.sides[0].share)} and ${b?.family ?? "the other"} ${parts(t.sides[1].share)}. ${mgr ? `${charName(s.chars[mgr.c])} to manage the business and keep the books.` : ""} Nothing of moment to be done without the consent of ${t.rule === "unanimous" ? "all the partners" : "the greater part in interest"}.${t.clause ? " A partner holding more than half may buy out another at a fair valuation, or sell up the whole, without their consent." : ""}${lawyer ? ` Drawn up by ${charName(lawyer)}.` : ""}`;
 }
 
 /** The post to someone: days, postage, the chance it's lost. */
@@ -1355,6 +1363,7 @@ function sign(g: ConquestGame, o: FirmOffer): string | null {
     chest: r2(t.sides[0].cap + t.sides[1].cap - cost),
     debt: 0,
     rule: t.rule,
+    ...(t.clause ? { clause: true } : {}), // WORK (r21): the buy-out clause
     lawyer: t.lawyer,
     drafted: o.drafted ?? -1,
     founded: s.day,

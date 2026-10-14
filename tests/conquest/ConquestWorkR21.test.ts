@@ -10,6 +10,11 @@ import {
   propertyInput,
   propertyView,
 } from "../../src/conquest/engine/Business";
+import {
+  fairPrice,
+  leastToSell,
+  mostToBuy,
+} from "../../src/conquest/engine/Buyouts";
 import { isMonthStart } from "../../src/conquest/engine/Calendar";
 import {
   CO_MOVE,
@@ -17,6 +22,7 @@ import {
   defaultPlan,
 } from "../../src/conquest/engine/Company";
 import { applyDelta } from "../../src/conquest/engine/Delta";
+import { buyoutPrice } from "../../src/conquest/engine/Firms";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import {
   askingPay,
@@ -31,7 +37,8 @@ import { jobTitle, lifeOfSeat } from "../../src/conquest/engine/LifeQueries";
 import { BUSINESS_HANDS, HAND_WAGE } from "../../src/conquest/engine/LifeRules";
 import { marketTrade, netNow } from "../../src/conquest/engine/Markets";
 import { NOTICE_DAYS, quitView } from "../../src/conquest/engine/Notice";
-import { firmsWith } from "../../src/conquest/engine/PartnersCore";
+import { holdChoices, suggestTerms } from "../../src/conquest/engine/Partners";
+import { firmsWith, partnerIn } from "../../src/conquest/engine/PartnersCore";
 import {
   bizHost,
   clerkWorth,
@@ -42,6 +49,7 @@ import {
 } from "../../src/conquest/engine/Staff";
 import type {
   Character,
+  Firm,
   GameState,
   Life,
   Property,
@@ -557,5 +565,196 @@ describe("a new business's plan both ways", () => {
     life.job = null;
     const free = startWays(g.s, g.w, life, "shopkeeper", 1);
     expect(free.find((w) => w.now)?.key).toBe("you");
+  });
+});
+
+// ---------------------------------------------------------------- partnership buyouts and sales by offer
+
+/** Alden buys into the innkeeper's inn on fair terms (the innkeeper manages it). */
+function inn(
+  seed: number,
+  seats = 1,
+): { g: ConquestGame; life: Life; f: Firm } {
+  const { g, life } = game(seed, { background: "clerk", purse: 300, seats });
+  const c = peopleHereWithRole(g, life, "innkeeper");
+  g.char(c.id).memories.push({ of: life.c, why: "Test", value: 40, until: 0 });
+  const ch = holdChoices(g.s, g.w, life, c).find((x) =>
+    x.key.startsWith("theirs"),
+  )!;
+  const t = suggestTerms(g.s, g.w, life, c, ch);
+  expect(cmd(g, { k: "partners", act: "propose", terms: t })).toBeNull();
+  const f = firmsWith(g.s, life.c)[0];
+  expect(f).toBeTruthy();
+  return { g, life, f };
+}
+
+function peopleHereWithRole(g: ConquestGame, life: Life, role: string) {
+  const c = Object.values(g.s.chars).find(
+    (x) =>
+      x.alive &&
+      !x.abroad &&
+      x.role === role &&
+      (g.s.locals[life.prov] ?? []).includes(x.id),
+  );
+  if (!c) throw new Error(`no ${role} here`);
+  return c as Character;
+}
+
+describe("partnership buyouts and sales by offer", () => {
+  test("a computer partner sells only at their price: refused far under it, a counter near it, and the business is yours", () => {
+    const { g, life, f } = inn(41);
+    life.purse = 2000;
+    const npc = f.partners.find((p) => p.c !== life.c)!;
+    const ch = g.s.chars[npc.c];
+    const { least, b } = leastToSell(g.s, f, ch, life);
+    // The reckoning shown is the one they decide by.
+    expect(b.parts.map((x) => x.label).join(" ")).toMatch(
+      /fair price.*their living/,
+    );
+    expect(least).toBeGreaterThan(fairPrice(g.s, f, npc.c));
+    // Far under it: no.
+    expect(
+      cmd(g, {
+        k: "bid",
+        act: "make",
+        id: f.id,
+        key: "buy",
+        c: npc.c,
+        price: Math.round(least * 0.5),
+      }),
+    ).toBeNull();
+    expect(f.bids![0].status).toBe("declined");
+    expect(f.partners.length).toBe(2);
+    // Near it: they name their price, and Alden is asked.
+    expect(
+      cmd(g, {
+        k: "bid",
+        act: "make",
+        id: f.id,
+        key: "buy",
+        c: npc.c,
+        price: Math.round(least * 0.85),
+      }),
+    ).toBeNull();
+    const counter = f.bids!.find((x) => x.status === "open")!;
+    expect(counter).toMatchObject({
+      kind: "sell",
+      by: npc.c,
+      to: life.c,
+      price: least,
+    });
+    const ev = life.events.find((e) => e.key === "p2p-bid")!;
+    expect(ev).toBeTruthy();
+    const purse = life.purse;
+    const chest = f.chest;
+    expect(cmd(g, { k: "event", id: ev.id, choice: 0 })).toBeNull();
+    expect(counter.status).toBe("accepted");
+    expect(f.status).toBe("dissolved");
+    expect(life.purse).toBeCloseTo(purse - least + chest, 1);
+    expect(
+      life.property!.some(
+        (p) => p.kind === "business" && p.job === "innkeeper",
+      ),
+    ).toBe(true);
+  });
+
+  test("your share sold to a computer partner at what they'd pay", () => {
+    const { g, life, f } = inn(42);
+    const npc = f.partners.find((p) => p.c !== life.c)!;
+    const { most } = mostToBuy(g.s, f, g.s.chars[npc.c], life);
+    expect(most).toBeGreaterThan(0);
+    const purse = life.purse;
+    expect(
+      cmd(g, {
+        k: "bid",
+        act: "make",
+        id: f.id,
+        key: "sell",
+        c: npc.c,
+        price: most,
+      }),
+    ).toBeNull();
+    expect(partnerIn(f, life.c)).toBeUndefined();
+    expect(life.purse).toBeCloseTo(purse + most, 1);
+  });
+
+  test("between players: an offer, a counter, accepted; and a minority partner can't force it even with the clause", () => {
+    const { g, life, f } = inn(43, 2);
+    const bea = lifeOfSeat(g.s, "s2")!;
+    // Bea takes the innkeeper's place in the firm (as an heir would).
+    const other = f.partners.find((p) => p.c !== life.c)!;
+    other.c = bea.c;
+    life.purse = 1000;
+    bea.purse = 50;
+    const me = partnerIn(f, life.c)!;
+    f.clause = true;
+    expect(me.share).toBeLessThan(50);
+    const fair = buyoutPrice(g.s, f, bea.c);
+    expect(
+      cmd(g, {
+        k: "bid",
+        act: "make",
+        id: f.id,
+        key: "buy",
+        c: bea.c,
+        price: fair,
+      }),
+    ).toBeNull();
+    // Not forced: Bea is asked in a scene.
+    expect(f.bids![0].status).toBe("open");
+    const ev = bea.events.find((e) => e.key === "p2p-bid")!;
+    expect(ev.title).toMatch(/offers to buy your share/);
+    // She names her own price from the partnership's page.
+    expect(
+      cmd(
+        g,
+        {
+          k: "bid",
+          act: "counter",
+          id: f.id,
+          hire: f.bids![0].id,
+          price: fair + 30,
+        },
+        "s2",
+      ),
+    ).toBeNull();
+    expect(bea.events.some((e) => e.key === "p2p-bid")).toBe(false);
+    const nb = f.bids!.find((x) => x.status === "open")!;
+    expect(nb).toMatchObject({
+      kind: "sell",
+      by: bea.c,
+      to: life.c,
+      price: fair + 30,
+    });
+    const ev2 = life.events.find((e) => e.key === "p2p-bid")!;
+    expect(cmd(g, { k: "event", id: ev2.id, choice: 0 })).toBeNull();
+    expect(bea.purse).toBeCloseTo(50 + fair + 30, 1);
+    expect(f.status).toBe("dissolved");
+  });
+
+  test("selling up needs every partner; a computer partner of a paying business refuses (and may offer to buy you out instead)", () => {
+    const { g, life, f } = inn(44);
+    life.purse = 900;
+    f.books.push({ day: g.s.day, takings: 40, costs: 10, profit: 30 });
+    expect(
+      cmd(g, { k: "bid", act: "make", id: f.id, key: "sellall" }),
+    ).toBeNull();
+    const b = f.bids![0];
+    expect(b.status).toBe("declined");
+    expect(f.status).toBe("trading");
+    const instead = f.bids!.find((x) => x.status === "open");
+    if (instead) {
+      expect(instead).toMatchObject({ kind: "buy", to: life.c });
+      expect(life.events.some((e) => e.key === "p2p-bid")).toBe(true);
+    }
+    // A losing business: they're glad to sell.
+    f.books = [{ day: g.s.day, takings: 5, costs: 20, profit: -15 }];
+    for (const x of f.bids!)
+      x.status = x.status === "open" ? "withdrawn" : x.status;
+    life.events = life.events.filter((e) => e.key !== "p2p-bid");
+    expect(
+      cmd(g, { k: "bid", act: "make", id: f.id, key: "sellall" }),
+    ).toBeNull();
+    expect(f.status).toBe("dissolved");
   });
 });

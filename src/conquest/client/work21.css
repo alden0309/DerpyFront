@@ -56,3 +56,42 @@
   padding-left: 0.5rem;
   border-left: 2px solid var(--rule);
 }
+
+/* Partners' offers: buying out, selling, selling up. */
+.cq-bids .cq-chip.gold {
+  margin-left: 0.4rem;
+}
+.cq-bid-list {
+  list-style: none;
+  margin: 0.2rem 0 0.4rem;
+  padding: 0;
+}
+.cq-bid-list > li {
+  padding: 0.3rem 0;
+  border-bottom: 1px dotted var(--rule);
+}
+.cq-bid-list > li > p {
+  margin: 0 0 0.25rem;
+}
+.cq-bid-make {
+  margin-top: 0.3rem;
+}
+.cq-bid-make > .cq-seg {
+  margin-bottom: 0.3rem;
+}
+.cq-bid-row {
+  align-items: center;
+}
+.cq-bid-price input {
+  width: 5.5rem;
+}
+.cq-bid-guide {
+  margin: 0.2rem 0;
+  min-height: 1.3em;
+}
+.cq-bid-least {
+  font-weight: 600;
+}
+.cq-bid-past {
+  margin-top: 0.4rem;
+}

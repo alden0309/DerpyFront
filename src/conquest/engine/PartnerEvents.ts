@@ -6,6 +6,7 @@
 // creditors at the door, a cargo or a ship lost, the town in the enemy's
 // hands, and a partner's death.
 
+import { makeBid } from "./Buyouts"; // WORK (r21)
 import {
   buyoutPrice,
   castVote,
@@ -60,7 +61,11 @@ function put(
   arg = 0,
 ): void {
   if (!trading(f)) return;
-  const err = putDecision(g, life, f, key, arg);
+  // WORK (r21): selling up is by offer now: every partner must agree.
+  const err =
+    key === "sell"
+      ? makeBid(g, life, f, "sellall", -1, 0)
+      : putDecision(g, life, f, key, arg);
   if (err) journal(g, life, `${f.name}: ${err}`, "bad");
 }
 
@@ -531,7 +536,7 @@ export const PARTNER_EVENTS: LifeEventDef[] = [
         apply: (g, life, ctx) => put(g, life, firmOf(g, ctx), "expand"),
       },
       {
-        label: "Wind up (put to the partners)",
+        label: "Propose selling up (every partner must agree)", // WORK (r21)
         tip: "Sell what's left and share it out.",
         apply: (g, life, ctx) => put(g, life, firmOf(g, ctx), "sell"),
       },
@@ -554,7 +559,7 @@ export const PARTNER_EVENTS: LifeEventDef[] = [
         apply: () => undefined,
       },
       {
-        label: "Wind up (put to the partners)",
+        label: "Propose selling up (every partner must agree)", // WORK (r21)
         tip: "Sell up while there's something to sell.",
         apply: (g, life, ctx) => put(g, life, firmOf(g, ctx), "sell"),
       },
@@ -600,7 +605,7 @@ export const PARTNER_EVENTS: LifeEventDef[] = [
         },
       },
       {
-        label: "Wind up (put to the partners)",
+        label: "Propose selling up (every partner must agree)", // WORK (r21)
         tip: "Sell up and share it out.",
         apply: (g, life, ctx) => put(g, life, firmOf(g, ctx), "sell"),
       },

@@ -5,6 +5,19 @@
 // trade and the markets.
 
 import { html, nothing, TemplateResult } from "lit";
+import {
+  answerCheck,
+  bidCheck,
+  bidsOf,
+  bidWords,
+  clauseFor,
+  fairPrice,
+  leastToSell,
+  mostToBuy,
+  sellUpPart,
+  sellUpTotal,
+  wouldSellUp,
+} from "../../engine/Buyouts";
 import { formatDate } from "../../engine/Calendar";
 import {
   CO_CUT,
@@ -27,6 +40,7 @@ import {
 import { lifeOfChar, lifeOfSeat, meOf } from "../../engine/LifeQueries";
 import { quoteCut } from "../../engine/Markets";
 import { NOTICE_DAYS, NOTICE_WORKED, quitView } from "../../engine/Notice";
+import { MAX_ROUNDS } from "../../engine/PartnersCore";
 import { charName } from "../../engine/Queries";
 import {
   bizHost,
@@ -43,11 +57,21 @@ import {
 import type {
   Character,
   CompanyPlan,
+  Firm,
+  FirmBid,
   Hire,
   JobKind,
   Property,
 } from "../../engine/Types";
-import { action, bar, charLink, type GameUi, provLink } from "./Context";
+import { num } from "../Tip";
+import {
+  action,
+  bar,
+  breakdownTip,
+  charLink,
+  type GameUi,
+  provLink,
+} from "./Context";
 import { coins, price } from "./Price";
 import { term } from "./Terms";
 
@@ -711,5 +735,362 @@ export function waysBlock(
       page (Estate › Business, Its staff by name), or put one of your own people
       in to mind it.
     </p>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- partners' offers
+
+/** Prices typed in the forms here, by firm and kind (kept while the page is open). */
+const prices = new Map<string, number>();
+const priceOf = (key: string, d: number) => prices.get(key) ?? d;
+
+/** A price box: the number, and − / + by a tenth. */
+function priceBox(
+  ui: GameUi,
+  key: string,
+  value: number,
+  label: string,
+): TemplateResult {
+  const set = (v: number) => {
+    prices.set(key, Math.max(1, Math.round(v)));
+    ui.redraw();
+  };
+  return html`<label class="cq-firm-num cq-bid-price"
+    >${label}
+    <input
+      type="number"
+      min="1"
+      max="99999"
+      step="1"
+      .value=${String(value)}
+      @change=${(e: Event) =>
+        set(Number((e.target as HTMLInputElement).value) || value)}
+  /></label>`;
+}
+
+/**
+ * On a partnership's card: offers between partners. Those waiting on you
+ * (accept, decline, or your own price), yours waiting on others, and making
+ * one: buying a partner out, selling them your share, or selling up, with the
+ * least they'd take (or the most they'd pay) shown from the reckoning a
+ * computer partner decides by.
+ */
+export function bidsBlock(ui: GameUi, f: Firm): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  if (f.status !== "trading") return html``;
+  const bids = bidsOf(f);
+  const mine = bids.filter(
+    (b) =>
+      b.status === "open" &&
+      answerCheck(s, life, f, b).ok &&
+      (b.to === life.c || b.kind === "sellall"),
+  );
+  const waiting = bids.filter((b) => b.status === "open" && b.by === life.c);
+  const past = bids
+    .filter((b) => b.status !== "open" && (b.by === life.c || b.to === life.c))
+    .slice(-3)
+    .reverse();
+  const others = f.partners.filter((p) => p.c !== life.c);
+  return html`<details
+    class="cq-more cq-firm-putmore cq-bids"
+    ?open=${mine.length > 0}
+  >
+    <summary>
+      ${term("bid", "Buying out, selling, selling up")}
+      ${mine.length
+        ? html`<span class="cq-chip gold"
+            >${mine.length} for you to answer</span
+          >`
+        : nothing}
+    </summary>
+    <div class="cq-more-body">
+      ${mine.length
+        ? html`<ul class="cq-bid-list">
+            ${mine.map((b) => incoming(ui, f, b))}
+          </ul>`
+        : nothing}
+      ${waiting.length
+        ? html`<ul class="cq-bid-list">
+            ${waiting.map(
+              (b) =>
+                html`<li>
+                  <span
+                    >${bidWords(s, f, b)}: waiting on them, till
+                    ${formatDate(b.until)}.</span
+                  >
+                  ${action(
+                    "Take it back",
+                    { ok: true },
+                    () =>
+                      void ui.cmd({
+                        k: "bid",
+                        act: "withdraw",
+                        id: f.id,
+                        hire: b.id,
+                      }),
+                    "small quiet",
+                  )}
+                </li>`,
+            )}
+          </ul>`
+        : nothing}
+      ${others.length ? makeBlock(ui, f) : nothing}
+      ${past.length
+        ? html`<p class="cq-muted small cq-bid-past">
+            Lately:
+            ${past.map(
+              (b, i) =>
+                html`${i ? "; " : ""}${bidWords(s, f, b)}:
+                ${b.status === "accepted" ? "done" : b.status}${b.why
+                  ? ` (${b.why})`
+                  : ""}`,
+            )}.
+          </p>`
+        : nothing}
+    </div>
+  </details>`;
+}
+
+/** An offer waiting on you. */
+function incoming(ui: GameUi, f: Firm, b: FirmBid): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const key = `ans:${b.id}`;
+  if (b.kind === "sellall") {
+    const part = Math.round(sellUpPart(s, f, life.c));
+    const fair = fairPrice(s, f, life.c);
+    const theirs = fairPrice(s, f, b.by);
+    return html`<li>
+      <p>
+        <b>${bidWords(s, f, b)}.</b> Your part would come to about
+        ${coins(part)}; your share is worth about ${coins(fair)} going on.
+      </p>
+      <div class="cq-btnrow">
+        ${action(
+          "Agree to sell up",
+          { ok: true },
+          () => void ui.cmd({ k: "bid", act: "accept", id: f.id, hire: b.id }),
+          "small risky",
+        )}
+        ${action(
+          html`Buy them out instead${price(theirs, { have: life.purse })}`,
+          life.purse >= theirs
+            ? { ok: true }
+            : { ok: false, why: `You'd need ${theirs} coins` },
+          () =>
+            void ui.cmd({
+              k: "bid",
+              act: "buyinstead",
+              id: f.id,
+              hire: b.id,
+            }),
+          "small",
+        )}
+        ${action(
+          "Refuse",
+          { ok: true },
+          () => void ui.cmd({ k: "bid", act: "decline", id: f.id, hire: b.id }),
+          "small quiet",
+        )}
+      </div>
+    </li>`;
+  }
+  const selling = b.kind === "buy"; // they'd buy your share
+  const fair = fairPrice(s, f, selling ? life.c : b.by);
+  const counter = priceOf(
+    key,
+    selling ? Math.round(b.price * 1.25) : Math.round(b.price * 0.8),
+  );
+  const canPay = selling || life.purse >= b.price;
+  return html`<li>
+    <p>
+      <b>${bidWords(s, f, b)}.</b> A fair price would be about ${coins(fair)}.
+      Answer by ${formatDate(b.until)}.
+    </p>
+    <div class="cq-btnrow">
+      ${action(
+        selling
+          ? html`Accept${price(b.price, { gain: true })}`
+          : html`Buy it${price(b.price, { have: life.purse })}`,
+        canPay ? { ok: true } : { ok: false, why: `You'd need ${b.price}` },
+        () => void ui.cmd({ k: "bid", act: "accept", id: f.id, hire: b.id }),
+        "small primary",
+      )}
+      ${priceBox(ui, key, counter, selling ? "ask" : "offer")}
+      ${action(
+        "Counter",
+        b.round >= MAX_ROUNDS
+          ? { ok: false, why: "Back and forth enough: accept or decline" }
+          : !selling && life.purse < counter
+            ? { ok: false, why: `You'd need ${counter}` }
+            : { ok: true },
+        () =>
+          void ui.cmd({
+            k: "bid",
+            act: "counter",
+            id: f.id,
+            hire: b.id,
+            price: counter,
+          }),
+        "small",
+      )}
+      ${action(
+        "Decline",
+        { ok: true },
+        () => void ui.cmd({ k: "bid", act: "decline", id: f.id, hire: b.id }),
+        "small quiet",
+      )}
+    </div>
+  </li>`;
+}
+
+/** Which partner and kind the "make an offer" form is on, by firm. */
+const makePick = new Map<number, { kind: FirmBid["kind"]; c: number }>();
+
+/** Making an offer: buy a partner out, sell them your share, or sell up. */
+function makeBlock(ui: GameUi, f: Firm): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const others = f.partners.filter((p) => p.c !== life.c);
+  const cur = makePick.get(f.id);
+  const kind = cur?.kind ?? "buy";
+  const c = others.some((p) => p.c === cur?.c) ? cur!.c : others[0].c;
+  const set = (patch: Partial<{ kind: FirmBid["kind"]; c: number }>) => {
+    makePick.set(f.id, { kind, c, ...patch });
+    ui.redraw();
+  };
+  const them = s.chars[c];
+  const npc = !!them && !lifeOfChar(s, c);
+  const key = `make:${f.id}:${kind}:${c}`;
+  let guide: TemplateResult | typeof nothing = nothing;
+  let start = 0;
+  if (kind === "buy") {
+    const fair = fairPrice(s, f, c);
+    start = fair;
+    if (npc && them) {
+      const v = leastToSell(s, f, them, life);
+      start = v.least;
+      guide = html`<span class="small"
+        >The least ${them.first} would take:
+        ${num(
+          coins(v.least),
+          () => breakdownTip("What they'd want for their share", v.b, coins),
+          "cq-bid-least",
+        )}
+        (a fair price: ${coins(fair)}). Under three quarters of it they won't
+        haggle.</span
+      >`;
+    } else
+      guide = html`<span class="small"
+        >A fair price for their share: ${coins(fair)}. They answer for
+        themselves.</span
+      >`;
+  } else if (kind === "sell") {
+    const fair = fairPrice(s, f, life.c);
+    start = fair;
+    if (npc && them) {
+      const v = mostToBuy(s, f, them, life);
+      start = Math.max(1, v.most);
+      guide = html`<span class="small"
+        >The most ${them.first} would pay:
+        ${num(
+          coins(v.most),
+          () => breakdownTip("What they'd give for your share", v.b, coins),
+          "cq-bid-least",
+        )}
+        (a fair price: ${coins(fair)}).</span
+      >`;
+    } else
+      guide = html`<span class="small"
+        >A fair price for your share: ${coins(fair)}. They answer for
+        themselves.</span
+      >`;
+  }
+  const p = priceOf(key, start);
+  const check = bidCheck(s, life, f, kind, c, kind === "sellall" ? 1 : p);
+  const forced =
+    clauseFor(f, life.c) &&
+    (kind === "sellall" || (kind === "buy" && p >= fairPrice(s, f, c)));
+  const total = sellUpTotal(s, f);
+  const part = Math.round(sellUpPart(s, f, life.c));
+  return html`<div class="cq-bid-make">
+    <span class="cq-seg small" role="radiogroup" aria-label="What to offer">
+      ${(["buy", "sell", "sellall"] as const).map(
+        (k) =>
+          html`<button
+            role="radio"
+            aria-checked=${kind === k}
+            @click=${() => set({ kind: k })}
+          >
+            ${k === "buy"
+              ? "Buy them out"
+              : k === "sell"
+                ? "Sell them your share"
+                : "Sell up"}
+          </button>`,
+      )}
+    </span>
+    ${kind === "sellall"
+      ? html`<p class="small">
+          The business sold to the town and the partnership wound up: about
+          ${coins(total)} all told, your part about ${coins(part)}. Every
+          partner must agree:
+          ${others.map((x) => {
+            const ch = s.chars[x.c];
+            if (!ch) return nothing;
+            if (lifeOfChar(s, x.c))
+              return html`${charName(ch)} (a player: they'll answer); `;
+            const v = wouldSellUp(s, f, ch, life);
+            return html`${charName(ch)}
+              <b class=${v.yes ? "good" : "bad"}
+                >${v.yes ? "would" : "wouldn't"}</b
+              >
+              (${v.why.toLowerCase()}); `;
+          })}
+        </p>`
+      : html`<div class="cq-btnrow cq-bid-row">
+            <select
+              class="cq-firm-pick"
+              aria-label="Which partner"
+              @change=${(e: Event) =>
+                set({ c: Number((e.target as HTMLSelectElement).value) })}
+            >
+              ${others.map(
+                (x) =>
+                  html`<option value=${x.c} ?selected=${x.c === c}>
+                    ${charName(s.chars[x.c])} (${x.share}%)
+                  </option>`,
+              )}
+            </select>
+            ${priceBox(ui, key, p, kind === "buy" ? "for" : "asking")}
+          </div>
+          <p class="cq-bid-guide">${guide}</p>`}
+    ${forced
+      ? html`<p class="small cq-warn">
+          The articles have the buy-out clause and you hold more than half: this
+          is done without their consent.
+        </p>`
+      : nothing}
+    <div class="cq-btnrow">
+      ${action(
+        kind === "buy"
+          ? html`Offer to buy them out${price(p, { have: life.purse })}`
+          : kind === "sell"
+            ? html`Offer them your share${price(p, { gain: true })}`
+            : "Propose selling up",
+        check,
+        () =>
+          void ui.cmd({
+            k: "bid",
+            act: "make",
+            id: f.id,
+            key: kind,
+            c: kind === "sellall" ? -1 : c,
+            price: p,
+          }),
+        `small ${kind === "sellall" ? "risky" : "primary"}`,
+      )}
+    </div>
   </div>`;
 }

@@ -649,6 +649,14 @@ export const TERMS: Record<string, Term> = {
       "Work › Your work, Hand in your notice: from anywhere, whoever your master is (another player is told). Notice can be taken back while it runs.",
     ch: "workday",
   },
+  bid: {
+    name: "Buying out, selling, selling up",
+    what: "Offers between partners: to buy another's whole share at a price you name, to sell them yours, or to sell up the whole business.",
+    good: "The other side accepts, declines, or names their own price, as often as it takes (up to four rounds). Selling up needs every partner to agree; one who won't may offer to buy you out instead.",
+    raise:
+      "On the partnership's page (Estate › Partners). A computer partner's least (or most) is shown before you offer, from the same reckoning they decide by. Only the articles' buy-out clause lets a partner holding more than half force it, at a fair price or more.",
+    ch: "staff",
+  },
   // ---- end WORK (r21)
 };
 

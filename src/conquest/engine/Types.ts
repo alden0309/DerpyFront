@@ -3196,6 +3196,8 @@ export interface FirmTerms {
   name: string;
   /** BUSINESS (r15): a trading company's line of trade. */
   co?: CompanyPlan;
+  /** WORK (r21): the buy-out clause: a partner holding more than half may buy another out at a fair price, or sell up, without their consent. */
+  clause?: boolean;
 }
 
 /** Articles put to someone: in person, or on their way by post. */
@@ -3259,6 +3261,10 @@ export interface Firm {
   co?: CompanyState;
   /** SEA (r15): a privateering company's ship, her commission and her cruises. */
   sea?: PrivateerFit | null;
+  /** WORK (r21): the articles' buy-out clause (FirmTerms.clause). */
+  clause?: boolean;
+  /** WORK (r21): offers between its partners: to buy a share, to sell one, to sell up. */
+  bids?: FirmBid[];
 }
 
 /** Everything of the PARTNERS track kept in the game. */
@@ -5313,4 +5319,36 @@ export interface WorkR21Command {
   /** A duty's key, an offer's kind. */
   key?: string;
   arg?: number;
+}
+
+/**
+ * WORK (r21): an offer between partners (Buyouts.ts): to buy another's
+ * whole share at a price ("buy"), to sell them your own ("sell"), or to sell
+ * up the whole business ("sellall", every other partner must agree).
+ */
+export interface FirmBid {
+  id: number;
+  kind: "buy" | "sell" | "sellall";
+  /** Who made it. */
+  by: number;
+  /** Who answers it (the partner whose share it is, or who'd buy); -1 for selling up (everyone). */
+  to: number;
+  /** Coins (for selling up, what the partners' parts come to all told, as the town would pay). */
+  price: number;
+  day: number;
+  /** Answered by this day, or it lapses (as declined). */
+  until: number;
+  /** Counter-offers so far in these talks. */
+  round: number;
+  /** Selling up: each partner's answer (1 yes, -1 no). */
+  yes?: Record<number, number>;
+  status:
+    | "open"
+    | "accepted"
+    | "declined"
+    | "lapsed"
+    | "withdrawn"
+    | "countered";
+  /** A computer partner's reasons, in a line. */
+  why?: string;
 }

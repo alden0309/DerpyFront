@@ -5,16 +5,17 @@
 // each registers its commands, hooks and outfits; LifeEvents asks it for the
 // scenes.
 
+import { bidEvents, bidQuiet } from "./Buyouts";
 import type { LifeEventDef } from "./LifeEvents";
 import "./Notice";
 import { staffEvents, staffQuiet } from "./Staff";
 
 /** Every scene of the round's work (each module's own, added once). */
 export function workR21Events(): LifeEventDef[] {
-  return [...staffEvents()];
+  return [...staffEvents(), ...bidEvents()];
 }
 
 /** What each scene does left unanswered (its quiet choice). */
 export function workR21Quiet(): Record<string, number> {
-  return { ...staffQuiet() };
+  return { ...staffQuiet(), ...bidQuiet() };
 }

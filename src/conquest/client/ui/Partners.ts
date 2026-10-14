@@ -97,6 +97,7 @@ import { letterClock, ModalHooks } from "./Modals";
 import { howTo, pageHead } from "./Nav";
 import { price } from "./Price"; // LEDGER (r15)
 import { curly, reasons, shell, stage } from "./Scene";
+import { bidsBlock } from "./WorkR21"; // WORK (r21)
 
 const money = (v: number) =>
   `${v < 0 ? "−" : ""}${Math.abs(Math.round(v * 10) / 10)}`;
@@ -430,6 +431,12 @@ function firmCard(ui: GameUi, f: Firm): TemplateResult {
       </ul>`,
     )}
     ${booksBlock(ui, f, me.share)} ${mattersBlock(ui, f)} ${putBlock(ui, f)}
+    ${
+      bidsBlock(
+        ui,
+        f,
+      ) /* WORK (r21): buying out, selling, selling up, by offer */
+    }
     ${ownBlock(ui, f)}
     ${f.lines.length
       ? html`<details class="cq-more cq-firm-story">
@@ -657,7 +664,9 @@ function putBlock(ui: GameUi, f: Firm): TemplateResult {
   ].slice(0, 12);
   const keys = (Object.keys(DECISIONS) as FirmDecisionKey[]).filter(
     (k) =>
-      f.hold !== "paper" || k === "admit" || k === "buyout" || k === "sell",
+      k !== "buyout" && // WORK (r21): buying out and selling up are by offer (bidsBlock)
+      k !== "sell" &&
+      (f.hold !== "paper" || k === "admit"),
   );
   const arg = (k: FirmDecisionKey) =>
     ARG_CHOICES[k]
@@ -1346,6 +1355,20 @@ export function articlesModal(ui: GameUi, m: { c: number }): TemplateResult {
                 All together
               </button>
             </span>
+            <label
+              class="cq-biz-auto small"
+              title="A partner holding more than half may buy another out at a fair price, or sell up the whole business, without their consent. Without it, buying out and selling up are by offer, and the other must agree."
+            >
+              <input
+                type="checkbox"
+                .checked=${!!t.clause}
+                @change=${(e: Event) => {
+                  t.clause = (e.target as HTMLInputElement).checked; // WORK (r21)
+                  redraw();
+                }}
+              />
+              A buy-out clause (the greater partner may buy out or sell up)
+            </label>
             <p class="cq-muted small">
               The managing partner does the work and keeps the books; their
               skill in the trade makes the takings.
