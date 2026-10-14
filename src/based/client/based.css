@@ -949,8 +949,11 @@ based-player {
 }
 .mb-sheet {
   position: relative;
-  width: min(520px, 100%);
+  /* The padding inside the size, so a long sheet fits the screen. */
+  box-sizing: border-box;
+  width: min(572px, 100%);
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow: auto;
   padding: 26px 26px 22px;
   background: linear-gradient(180deg, #10151d, #0b0f15);
@@ -958,7 +961,7 @@ based-player {
   box-shadow: 0 40px 120px rgba(0, 0, 0, 0.6);
 }
 .mb-sheet.tall {
-  width: min(680px, 100%);
+  width: min(732px, 100%);
 }
 .mb-sheet h2,
 .mb-page h2.mb-credits-h {
