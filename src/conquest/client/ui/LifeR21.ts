@@ -181,8 +181,11 @@ export function statsSection(ui: GameUi, c: Character): TemplateResult {
   const v = statsView(s, life, c);
   const kw = KNOW_WORDS[v.know];
   const exact = v.know >= 3;
+  // A guess is rounded to tens, but never to a certainty either way.
   const odds = (p: number) =>
-    exact ? pc(p) : `about ${Math.round(p * 10) * 10}%`;
+    exact
+      ? pc(p)
+      : `about ${Math.min(95, Math.max(5, Math.round(p * 10) * 10))}%`;
   const d = v.duel;
   const traitLines = (xs: { label: string; value: number }[]) =>
     xs.length

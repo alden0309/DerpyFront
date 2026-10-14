@@ -52,11 +52,12 @@
   margin: 0.35rem 0 0;
 }
 
-/* Someone's stats: the fight on one side, attributes and skills on the other. */
+/* Someone's stats: the fight, then attributes and skills (one column: a
+   person's page is in the side panel, or a sheet on phones). */
 .cq-stats21 {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0.4rem 1.2rem;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.4rem;
 }
 .cq-stats21 .cq-int-group {
   margin-top: 0.2rem;
@@ -116,10 +117,4 @@
 .cq-post21-fx {
   flex: 1 1 14rem;
   min-width: 0;
-}
-
-@media (max-width: 640px) {
-  .cq-stats21 {
-    grid-template-columns: 1fr;
-  }
 }
