@@ -612,6 +612,7 @@ function bottleGeometry(): THREE.BufferGeometry {
     [0, 0.33],
   ].map(([x, y]) => new THREE.Vector2(x, y));
   bottleGeo = new THREE.LatheGeometry(pts, 10);
+  bottleGeo.userData.shared = true;
   return bottleGeo;
 }
 
@@ -1505,6 +1506,12 @@ function small(item: Item): Built {
   return { object: g, lights: [], lamps: [] };
 }
 
+/**
+ * Restyled materials, shared by every copy of a model with the same styling
+ * (r22: eleven stools are one material, and the world draws them as one).
+ */
+const swapCache = new Map<string, THREE.Material>();
+
 /** One of Kenney's models, scaled to a height and restyled. */
 function model(item: Item, k: KitContext): Built {
   const src = k.models.get(str(item.model, ""));
@@ -1522,21 +1529,29 @@ function model(item: Item, k: KitContext): Built {
       const name = old.name;
       const want = recolor[name];
       if (want) return mat(want);
+      const key = `${old.uuid}|${tint?.getHexString() ?? ""}`;
+      const hit = swapCache.get(key);
+      if (hit) return hit;
       const o2 = old as THREE.MeshStandardMaterial;
+      let n: THREE.MeshStandardMaterial;
       if (o2.map) {
-        const n = new THREE.MeshStandardMaterial({
+        n = new THREE.MeshStandardMaterial({
           map: o2.map,
           roughness: 0.45,
           metalness: 0.2,
           color: tint ?? new THREE.Color("#ffffff"),
         });
-        return n;
+      } else {
+        // Kenney's flat colours, darkened and given a little gloss.
+        const c = (o2.color ?? new THREE.Color("#888"))
+          .clone()
+          .multiplyScalar(0.55);
+        n = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
       }
-      // Kenney's flat colours, darkened and given a little gloss.
-      const c = (o2.color ?? new THREE.Color("#888"))
-        .clone()
-        .multiplyScalar(0.55);
-      return new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
+      n.userData.shared = true;
+      if (n.map) n.map.userData.shared = true;
+      swapCache.set(key, n);
+      return n;
     };
     m.material = Array.isArray(m.material)
       ? m.material.map(swap)
@@ -1620,7 +1635,11 @@ export function buildItem(item: Item, k: KitContext): Built {
     b.object.position.set(x, y, z);
     b.object.rotation.y = THREE.MathUtils.degToRad(item.rot ?? 0);
   }
-  if (item.id) b.object.name = item.id;
+  if (item.id) {
+    b.object.name = item.id;
+    // r22: a prop the story shows and hides stays a piece of its own.
+    b.object.userData.keep = true;
+  }
   b.object.visible = item.hidden !== true;
   return b;
 }

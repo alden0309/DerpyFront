@@ -238,7 +238,7 @@ export function fromV1(
   const finishedOne = !!old.finished?.[String(ch.n)];
   const oldBuild = cur?.build ?? old.finished?.[String(ch.n)]?.build ?? null;
   if (!cur && !finishedOne) {
-    profile.migrated = "An empty round-21 save: nothing to carry over.";
+    profile.migrated = "Your earlier save was empty: nothing to carry over.";
     return { profile, auto: null };
   }
   const build = buildFromV1(ch, oldBuild) ?? null;
@@ -257,7 +257,7 @@ export function fromV1(
       where = "the moment the world opens, after the meeting";
     }
   }
-  profile.migrated = `Your round-21 save (chapter one${
+  profile.migrated = `Your earlier save (chapter one${
     cur ? `, scene "${cur.scene}"` : ", finished"
   }) became the autosave at ${where}. Chapter one was rewritten, so its old checkpoints and flowchart were dropped.`;
   const auto = slotOf(run, {

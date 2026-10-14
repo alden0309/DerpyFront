@@ -1,6 +1,6 @@
 # Mr. Based
 
-A story game in chapters, written as it's played. Only the owner's account can
+A story game in an open world, written as it's played. Only the owner's account can
 play it for now; everyone else sees Coming Soon at `/based` and on the Derp
 Land home. Access is a mark on the account (`derpy_accounts.based_access`), so
 it stays through a change of username and nobody gets it by renaming to
@@ -13,11 +13,11 @@ signs up), and is never read again.
 | Path                             | What                                                                               |
 | -------------------------------- | ---------------------------------------------------------------------------------- |
 | `story/chapter-NN.story`         | One file per chapter, in the format below. **Server only.**                        |
-| `places/<key>.json`              | The 3D places (the rue de Grenelle and Le Vauban, the Élysée). **Server only.**    |
+| `places/<key>.json`              | The 3D places: the street, Le Vauban (bar and lobby), the Élysée. **Server only.** |
 | `models/*.glb`                   | The CC0 mannequins and furniture, compressed. **Server only.**                     |
 | `art/*.webp`, `art/credits.json` | The graded pictures (portraits, memories, the photograph) and who made everything. |
 | `audio/*.mp3`                    | Ambient loops.                                                                     |
-| `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart shape, saves.     |
+| `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart, saves, weather.  |
 | `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.        |
 | `client/world/`                  | The 3D world: the kit places are built from, the people, rain, the look.           |
 | `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                   |
@@ -44,16 +44,64 @@ when it changes, so an edit shows up on the next load without a restart.
 If a chapter has mistakes while it's being edited, the game shows Alden the
 list instead of the chapter.
 
-## How it plays (r21)
+## How it plays (r22)
 
 Like Disco Elysium: the place in 3D, seen from above at an angle, where he
-walks where you click (tap on a phone), and the dialogue column on the right
-(a bottom sheet on a phone) where the story scrolls up. Before chapter one
-you choose what he was at the Agency (an archetype, or your own share of the
-points). His skills speak up in the column when they're good enough, every
-check shows its dice, and the walls between the camera and the room he's in
-come down. Press Tab (or the eye) to mark everything he can look at, C for
-his skills, N for a note to the writer.
+walks where you click (tap on a phone) and runs where you double-click, and
+the dialogue column on the right (a bottom sheet on a phone) where the story
+scrolls up. Before the story you choose what he was at the Agency (an
+archetype, or your own share of the points) and which languages he speaks.
+
+After a short opening he's free: the story waits for the player to start
+something. Nothing lists what's in a place. What's worth a look glints when
+he's near enough to see it (his Perception widens how near); Tab (or the eye)
+names only what's near him and in sight. Clicking a person walks him up to
+them and they talk; clicking a thing he's noticed walks him over and he
+looks. Doors lead to other places, each its own area: a short fade and the
+place's name. Seated, he reads the room from his seat (drag or the arrow
+keys to look about, click what he can see). Thoughts that come to him wait
+in the column. The journal (J) keeps what he's set out to do, only as he
+learns it. It rains, drizzles, clears and fogs; puddles spread and dry,
+the stone darkens when wet, people caught in the rain get wet and dry
+indoors.
+
+C for your skills, J the journal, N a note to the writer, F5 quicksave, F9
+quickload, Esc the menu (save and load slots).
+
+## Saves (r22)
+
+No chapters to pick and no checkpoints: the game saves in **slots**, an
+autosave (kept by the game: as each scene begins, when he's free again, and
+every couple of minutes), a quicksave (F5, loaded with F9) and ten of the
+player's own (the menu). Each slot lists the place, the time in the story,
+when it was saved and how long had been played. They live on the server
+with the account, one row each (`derpy_based_slots`), beside a profile
+(`derpy_based_saves`: what's been seen, for the flowchart, and time played).
+A save holds the story's state at the start of the scene he's in, or, while
+he's free, as it is, plus where he stood and how wet he was; only the latest
+300 steps of the path are kept, so a save stays a few kilobytes however long
+the game. A round-21 save (one per account, chapters and checkpoints) is
+turned into an autosave of the rewritten chapter one the first time it's
+read: at its start, or, if it was past the meeting with London's contact,
+where the world opens after it. Its old flowchart is dropped.
+
+## Why it was laggy, and what changed (r22)
+
+The street and the bar were drawn as one scene, all the time: about 580
+things to draw (660 with shadows), 190,000 triangles and 22 real lights (17
+lamps and bulbs, 5 spotlights) that every surface worked out, plus two
+shadows, a Kuwahara paint filter, bloom and 4× multisampling at up to twice
+the screen's pixels. The TV redrew its picture and sent it to the graphics
+card every frame, and the column re-drew itself every frame while text
+typed in. Now each place is its own scene (only the one he's in is drawn),
+a place keeps to 8 real lights on a laptop and 4 on a phone (the street
+lamps share a pool of 4 lent to the nearest), one shadow drawn every other
+frame, the picture's resolution is capped at 1.5× and falls when the device
+can't keep up, the TV redraws 12 times a second, and the column only redraws
+what changes. The building on the right flickered because the lit windows
+were painted exactly level with the dark glass behind them: as the camera
+moved, the two fought pixel by pixel and the windows flashed. They no longer
+touch, and from inside the bar that building isn't drawn at all.
 
 ## The script format
 
@@ -67,9 +115,11 @@ one too: `A line.   // r21: new`.
 @chapter 1 "The First Glass"
 @summary "One line for chapter select."
 @start open                      // the first scene (default: the first written)
+@time 21:40                      // the clock when it starts (r22)
 @cast BASED "Mr. Based" portrait=based_portrait
 @cast ANSELME "Anselme" portrait=anselme
 @carry "You kept Delorme's card." if took_card
+@language fr "French"            // a language he can be given (r22)
 ```
 
 - `@cast ID "Name" [portrait=art_key]`: everyone who speaks. The **first**
@@ -83,26 +133,32 @@ one too: `A line.   // r21: new`.
   says this name is the same person as another cast member (Delorme is the
   man in grey), so speaking moves that body.
 
-### Skills (r21)
+### Skills (r21, r22)
 
 ```
-@attribute WITS "Wits" "The trained mind: files, faces, languages, the craft."
-@skill MEMORY WITS "Memory" "Faces, files, names and dates."
-@archetype ANALYST "The Analyst" WITS=4 NERVE=2 HEART=3 signature=MEMORY "What he was."
+@attribute INTELLIGENCE "Intelligence" "The trained mind: files, faces, tongues, the craft."
+@skill MEMORY INTELLIGENCE "Memory" "Faces, files, names and dates."
+@archetype ANALYST "The Analyst" SOCIAL=2 INTELLIGENCE=4 PHYSICAL=3 signature=MEMORY "What he was."
 @points 9 min=1 max=5
 ```
+
+Three attributes of four skills each: Social (Charisma, Intimidation,
+Empathy, Deception), Intelligence (Memory, Instinct, Languages, Focus) and
+Physical (Strength, Endurance, Dexterity, Perception). Perception widens how
+far off he notices things; Languages decides how many of the `@language`s
+he speaks (one at Languages 2 or less, then one more a point) and how well.
 
 - Each skill starts at its attribute's value; the signature skill is one
   higher. The setup screen offers the archetypes, or `@points` to share out.
 - `boost SKILL +1 "Why"` raises a skill for the rest of the game (the
   memories do this); it shows as a reminder and on his sheet.
-- Conditions can read skills: `if skill.composure >= 4`.
+- Conditions can read skills: `if skill.focus >= 4`; and languages:
+  `if speaks.fr`.
 
 ### Scenes
 
 ```
 == anselme "Anselme"            // id (lower_case) and the label shown
-@checkpoint "The bartender"      // replayable from chapter select
 @backdrop bar_wide               // full-screen picture (art key), crossfades
 @figure ANSELME                  // framed portrait on screen (or none)
 @ambient rain_in                 // looping sound (or none)
@@ -110,10 +166,66 @@ one too: `A line.   // r21: new`.
 @card "PARIS" "Eleven days after the election"   // a title card
 ```
 
-A scene must end every path with `-> scene_id` or `-> END` (the end of the
-chapter). A save is taken as each scene begins, so keep scenes short enough
-that starting one over isn't a chore, and a save still loads after the scene
-it's in has been rewritten.
+A scene must end every path with `-> scene_id`, `-> FREE` (he's free to go
+where he likes: see the open world below) or `-> END` (the end of the
+chapter). A save in the middle of a scene starts it over, so keep scenes
+short enough that starting one over isn't a chore; a save still loads after
+the scene it's in has been rewritten.
+
+### The open world (r22)
+
+```
+== posters "The posters"
+@on look posters once            // the first look at the posters
+...
+-> FREE
+
+== posters_again "The posters"
+@on look posters                 // every look after
+...
+-> FREE
+
+== order "The barman"
+@on talk BARMAN once             // going up to him the first time
+== watcher "The man under the awning"
+@on talk WATCHER if met_contact and not watcher_gone
+== vauban "Le Vauban"
+@on enter vauban once            // walking into a place
+== idea "Who was he watching?"
+@on think "Who was the man in grey watching?" if corner and delorme_gone
+== later "Later"
+@on auto if knows_car            // starts by itself, as soon as it's true
+```
+
+- `@on` goes at the top of a scene and says what starts it once he's free:
+  `talk WHO` (clicking that person; either of their names), `look THING` (a
+  hotspot of the place he's in; `in=place` to say which), `enter PLACE`,
+  `think "Label"` (a thought that waits in the column until clicked) or
+  `auto`. Then `once`, `in=place` and `if condition`. Think and auto scenes
+  play once.
+- Each person and thing answers with the **first** scene, in the order
+  they're written, whose condition holds: put the particular ones first and
+  a plain one (no `if`, no `once`) last, so people always have something to
+  say.
+- `-> FREE` ends a scene and hands him back to the player. Something must
+  lead to `-> END` from the open world (the validator checks).
+- A door is a hotspot with `"to"` in the place's data; an `@on look` scene
+  on a door can stop him going through.
+
+```
+task contact "Meet London's contact at Le Vauban at ten."   // his journal
+task contact done
+@weather rain                    // rain, drizzle, clear, fog, changing, none
+@time 23:15                      // the clock (earlier than now: next day)
+@actor BARMAN behind_bar lean in=vauban   // someone in another place
+WOMAN [fr]: Bonsoir. | Good evening.      // in another language
+DELORME [fr medium]: L'Américain. | The American.   // gist with Languages
+```
+
+A line in another language shows its meaning if he speaks the language,
+and the words as said if he doesn't; with a difficulty, his Languages skill
+(plus six) can get the gist without it (a speaker gets two more). The clock
+moves twenty seconds a line and ten a choice.
 
 ### Lines
 
@@ -257,17 +369,20 @@ end
   spot's own id). Spots with X and Y are still looked at on a flat picture
   (the photograph), held up close over the world.
 - `investigate ... still`: he stays put and looks (reading a man beside
-  him); `exit=hotspot`: walking to that hotspot (a door) also leaves.
+  him, or the room from his seat); `exit=hotspot`: walking to that hotspot
+  (a door) also leaves. In 3D nothing is listed: the spots glint as he
+  notices them, and what they add up to waits in the column.
 - `deduce ... skill=SKILL diff=D`: his skill works it out. If it's good
   enough (skill + 6 against D) it speaks up at once; otherwise it's a white
   check, one easier for each other thing he's noticed in the room. `bonus`
   and `fail` work as in choices.
 
-### Places and people (r21)
+### Places and people (r21, r22)
 
 ```
 @place grenelle                    // the 3D place (places/grenelle.json), or none
 @actor ANSELME behind_bar lean     // someone at a mark, in a pose (stand, sit, lean, fold)
+@actor ANSELME behind_bar in=vauban // r22: at a mark in another place
 @actor BASED stool_end sit walk    // ...walking there first
 @actor BASED vauban_door_out walk wear=overcoat_charcoal
 @actor STRANGER none               // off the stage
@@ -290,6 +405,17 @@ he can look at (on someone: `"on": {"who": "STRANGER", "bone": "hand_l"}`),
 camera shots, rooms (`inside` rooms have their near walls cut away while
 he's in them) and the floor plan for walking (`nav`). Words on signs and
 posters live here, not in the code. Distances are in metres.
+
+r22: each place is an area of its own: only the one he's in is drawn, and
+the places its doors lead to are built in the background, so going
+through a door is a short fade. A hotspot with `"to": {"place": "vauban",
+"mark": "vauban_door_in"}` is a door; `"label"` names it (or anything) on
+screen; `"near"` is how many metres off it's noticed before his Perception
+widens it (2.5 by default; doors 7). `"outdoor": true` puts the weather on
+a place. Each place keeps to a budget of real lights (8 on a computer, 4 on
+a phone): give a light `"prio"` (3 the most) in the data, or the kit ranks
+its pieces (a lamp's bulb over a back bar's glow); the street lamps share
+four real lights lent to the nearest, and one light keeps its shadow.
 
 A few switches worth knowing: a window in a wall can leave out the café
 curtain (`"cafe": false`, as in the palace); a `skyline` (the city seen through

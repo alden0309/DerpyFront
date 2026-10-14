@@ -792,6 +792,7 @@ The door's bell rang once behind her. In the mirror he watched her cross the str
 task clovis "Find out what CLOVIS is. A word in a cable from the Élysée to the Ministry of the Armed Forces, and then nowhere."
 task delorme "Find out what the man in grey is watching, and for whom. The hotel knows where to find him."
 task night "When he's seen enough, call it a night. The river is west, at the end of the rue de Grenelle."
+@weather changing
 @focus none
 ~ Le Vauban, the hotel, the street. The night isn't over just because London has gone home.
 -> FREE

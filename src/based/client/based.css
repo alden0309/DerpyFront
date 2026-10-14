@@ -3147,9 +3147,7 @@ kbd {
 
 /* Languages on the setup screen and his sheet. */
 .mb-langs {
-  max-width: 1080px;
-  margin: 18px auto 0;
-  padding: 0 24px;
+  margin: 22px 0 0;
 }
 .mb-langs .mb-segs {
   flex-wrap: wrap;

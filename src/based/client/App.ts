@@ -280,12 +280,7 @@ export class BasedApp extends LitElement {
   private async loadSlot(slot: string): Promise<void> {
     this.ambience.unlock();
     this.loadError = "";
-    let save: SlotSave | null = null;
-    try {
-      save = await Api.loadSlot(slot);
-    } catch {
-      save = null;
-    }
+    const save: SlotSave | null = await Api.loadSlot(slot).catch(() => null);
     if (!save) {
       this.loadError = `${slotName(slot)} couldn't be loaded.`;
       return;

@@ -163,7 +163,12 @@ export class BasedPlayer extends LitElement {
   @state() private tab = false;
   @state() private noWorld = false;
   @state() private avail: Available = { talk: [], look: [], think: [] };
-  @state() private onScreen: ThingOnScreen[] = [];
+  /**
+   * What he's noticed, as the labels need it. The labels are drawn when the
+   * set changes (`marksKey`); as the camera moves they're only moved.
+   */
+  private onScreen: ThingOnScreen[] = [];
+  @state() private marksKey = "";
   @state() private seated = false;
   @state() private saving: string | null = null;
   @state() private typingNow = false;
@@ -291,6 +296,14 @@ export class BasedPlayer extends LitElement {
     const logEl = this.querySelector(".mb-col-log");
     if (logEl) logEl.scrollTop = logEl.scrollHeight;
     if (this.typingNow) this.drawLive();
+    // Labels just drawn: put them where they belong.
+    if (this.onScreen.length > 0 && this.marks.size === 0) {
+      const list = this.onScreen;
+      this.marksKey = list
+        .map((h) => `${h.id}:${h.near ? 1 : 0}${h.door ? 1 : 0}`)
+        .join("|");
+      this.placeMarks(list);
+    }
   }
 
   private get narrow(): boolean {
@@ -903,6 +916,19 @@ export class BasedPlayer extends LitElement {
   /** Keeps the labels over what he's noticed as the camera moves. */
   private moveMarks(list: ThingOnScreen[]): void {
     this.onScreen = list;
+    const key = list
+      .map((h) => `${h.id}:${h.near ? 1 : 0}${h.door ? 1 : 0}`)
+      .join("|");
+    if (key !== this.marksKey) {
+      // Something noticed, or near, or gone: draw the labels again.
+      this.marksKey = key;
+      this.marks.clear();
+      return;
+    }
+    this.placeMarks(list);
+  }
+
+  private placeMarks(list: ThingOnScreen[]): void {
     for (const h of list) {
       let el = this.marks.get(h.id);
       if (!el || !el.isConnected) {
@@ -1380,8 +1406,10 @@ export class BasedPlayer extends LitElement {
 
   private renderEntry(e: Entry, last: boolean): TemplateResult {
     const live = last && this.beat.kind === "line" && this.typingNow;
+    // The live line's words are drawn into its span by drawLive(), so the
+    // column isn't drawn again for every letter.
     const text = live
-      ? html`<span class="mb-live">${typed(e.text, this.shown)}</span>`
+      ? html`<span class="mb-live"></span>`
       : html`${typed(e.text, 1e9)}`;
     const hero = this.chapter.cast[0]?.id;
     switch (e.kind) {

@@ -94,6 +94,11 @@ export interface Snapshot {
   tasks?: Record<string, TaskState>;
   /** r22: the in-game clock, in seconds from midnight on the first night. */
   clock?: number;
+  /**
+   * r22: what he carries, by item id and how many. Nothing fills it yet:
+   * it's here so saves already have a place for an inventory.
+   */
+  inv?: Record<string, number>;
 }
 
 export type StoryEvent =
@@ -379,6 +384,7 @@ export class StoryRun {
   private doneSet: Set<string>;
   private taskList: Record<string, TaskState>;
   private clockNow: number;
+  private inv: Record<string, number>;
   private entry: Snapshot;
   /** Steps of the path dropped from its front (MAX_PATH), and where it stood. */
   private trimmed = 0;
@@ -402,6 +408,7 @@ export class StoryRun {
     s.done ??= [];
     s.tasks ??= {};
     s.clock ??= chapter.clock * 60;
+    s.inv ??= {};
     this.flags = s.flags;
     this.rels = s.rels;
     this.stageNow = s.stage;
@@ -415,6 +422,7 @@ export class StoryRun {
     this.doneSet = new Set(s.done);
     this.taskList = s.tasks;
     this.clockNow = s.clock;
+    this.inv = s.inv;
     this.entry = s;
     this.entryPath = s.path.length;
     this.idx = triggerIndex(chapter);
@@ -490,6 +498,11 @@ export class StoryRun {
   /** r22: the in-game clock, in seconds. */
   get clock(): number {
     return this.clockNow;
+  }
+
+  /** r22: what he carries (empty until the story gives him things). */
+  get items(): Record<string, number> {
+    return { ...this.inv };
   }
 
   /** Every skill's value now, boosts included. */
@@ -883,6 +896,7 @@ export class StoryRun {
       done: [...this.doneList],
       tasks: copy(this.taskList),
       clock: this.clockNow,
+      inv: { ...this.inv },
     };
   }
 

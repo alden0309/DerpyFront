@@ -280,6 +280,8 @@ const SnapSchema = z.object({
     .record(Key, z.object({ text: z.string().max(400), done: z.boolean() }))
     .optional(),
   clock: z.number().int().min(0).max(1e9).optional(),
+  // r22: room for what he carries, when the story gives him things.
+  inv: z.record(Key, z.number().int().min(0).max(9999)).optional(),
 });
 const SeenSchema = z.record(
   z.string().max(4),

@@ -20,6 +20,7 @@
 
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { NavGrid, P } from "../../engine/Nav";
 import { Area, Hotspot, Mark, PlaceDef } from "../../engine/Place";
 import { areaAt, canSee, noticeRange } from "../../engine/Sight";
@@ -398,6 +399,8 @@ export class World {
     const pooled: { pl: PieceLight; at: THREE.Vector3 }[] = [];
     const drips: [THREE.Vector3, THREE.Vector3][] = [];
     let order = 0;
+    // Clipped copies of a material, one per material and set of rooms.
+    const clips = new Map<string, THREE.Material>();
     for (const item of def.items) {
       yield;
       const built = buildItem(item, kit);
@@ -432,18 +435,22 @@ export class World {
       }
       const list = (v: unknown): string[] =>
         typeof v === "string" ? [v] : Array.isArray(v) ? (v as string[]) : [];
-      const planes = list(item.cut)
-        .filter((a) => cuts.has(a))
-        .map((a) => cuts.get(a)!.plane);
+      const rooms = list(item.cut).filter((a) => cuts.has(a));
+      const planes = rooms.map((a) => cuts.get(a)!.plane);
       if (planes.length > 0) {
         built.object.traverse((o) => {
           const m = o as THREE.Mesh;
           if (!m.isMesh || !m.material) return;
           const clip = (x: THREE.Material) => {
-            const c = x.clone();
-            c.clippingPlanes = planes;
-            c.clipShadows = false;
-            c.userData = { ...x.userData, shared: false };
+            const key = `${x.uuid}|${rooms.join(",")}`;
+            let c = clips.get(key);
+            if (!c) {
+              c = x.clone();
+              c.clippingPlanes = planes;
+              c.clipShadows = false;
+              c.userData = { ...x.userData, shared: false };
+              clips.set(key, c);
+            }
             return c;
           };
           m.material = Array.isArray(m.material)
@@ -512,6 +519,8 @@ export class World {
       else b.lights.push(lv);
     }
     this.applyBudget(b, wanted, pooled);
+    yield;
+    this.mergeStatic(b);
     if (drips.length > 0 && outdoor) {
       b.drips = new Drips(drips);
       scene.add(b.drips.lines);
@@ -597,6 +606,64 @@ export class World {
         lights.push(l);
       }
       b.pool = { lights, lamps: pooled.map((p) => p.at), base: src.base };
+    }
+  }
+
+  /**
+   * r22: what never moves is drawn together. Pieces that share a material
+   * (the stools, the panelling, the brass, the façade's dark panes) are
+   * baked into one mesh each, so the graphics card is asked a few dozen
+   * times a frame instead of hundreds. Props the story shows and hides, and
+   * anything turned to the camera, stay pieces of their own.
+   */
+  private mergeStatic(b: BuiltPlace): void {
+    b.group.updateMatrixWorld(true);
+    const kept = (o: THREE.Object3D): boolean => {
+      for (let x: THREE.Object3D | null = o; x && x !== b.group; x = x.parent) {
+        const u = x.userData;
+        if (u.keep || u.frontOnly || u.streak || u.puddle || !x.visible) {
+          return true;
+        }
+      }
+      return false;
+    };
+    const sets = new Map<string, THREE.Mesh[]>();
+    b.group.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || Array.isArray(m.material)) return;
+      if (
+        (m as unknown as THREE.SkinnedMesh).isSkinnedMesh ||
+        (m as unknown as THREE.InstancedMesh).isInstancedMesh
+      ) {
+        return;
+      }
+      const mat = m.material as THREE.Material;
+      if (mat.transparent || kept(m)) return;
+      const g = m.geometry;
+      const sig = `${Object.keys(g.attributes).sort().join(",")}|${g.index ? 1 : 0}`;
+      const key = `${mat.uuid}|${sig}|${m.castShadow ? 1 : 0}${m.receiveShadow ? 1 : 0}|${m.renderOrder}`;
+      const list = sets.get(key) ?? [];
+      list.push(m);
+      sets.set(key, list);
+    });
+    for (const list of sets.values()) {
+      if (list.length < 2) continue;
+      const geos = list.map((m) =>
+        m.geometry.clone().applyMatrix4(m.matrixWorld),
+      );
+      const merged = mergeGeometries(geos, false);
+      for (const g of geos) g.dispose();
+      if (!merged) continue;
+      const first = list[0];
+      const mesh = new THREE.Mesh(merged, first.material);
+      mesh.castShadow = first.castShadow;
+      mesh.receiveShadow = first.receiveShadow;
+      mesh.renderOrder = first.renderOrder;
+      b.group.add(mesh);
+      for (const m of list) {
+        m.removeFromParent();
+        if (!m.geometry.userData.shared) m.geometry.dispose();
+      }
     }
   }
 
