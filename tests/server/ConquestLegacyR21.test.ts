@@ -79,7 +79,7 @@ class Client {
   }
 }
 
-let clock = 1_950_000_000_000;
+const clock = 1_950_000_000_000;
 const plan = {
   origin: "england",
   home: AMERICAS.provinces.findIndex((p) => p.name === "Jamestown"),

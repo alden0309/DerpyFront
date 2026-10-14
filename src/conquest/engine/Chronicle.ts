@@ -182,7 +182,7 @@ function times(n: number): string {
 /** A moment's words as a clause with its subject: "he married Mary Cole". */
 export function clauseOf(text: string, who: Character | undefined): string {
   const p = pron(who);
-  let t = text
+  const t = text
     .replace(/\bto you\b/g, `to ${p.him}`)
     .replace(/\byou both\b/g, "they both")
     .replace(/\byou came\b/g, `${p.he} came`)
@@ -339,7 +339,7 @@ function chapter(
     ["born", "begin", "heir", "takeover"].includes(m.kind),
   );
   const prev = i > 0 ? all[i - 1] : null;
-  let open = "";
+  let open: string;
   if (opener?.kind === "born" || opener?.kind === "begin") {
     const b = /^(.+?), (.+?), (\d+), at (.+)$/.exec(opener.text);
     open = b
@@ -491,7 +491,7 @@ function chapter(
         ? "daughter"
         : "son"
       : null;
-  let end = "";
+  let end: string;
   if (rec.ended === "died") {
     const died = mine.find((m) => m.kind === "died");
     const where = place(died?.p);
