@@ -17,6 +17,7 @@ import { applyDelta } from "../../src/conquest/engine/Delta";
 import {
   costOf,
   draftOf,
+  expedChanged as expedChangedFor,
   expedOdds,
   expedOf,
   expedState,
@@ -63,6 +64,11 @@ import type {
   GameState,
   Life,
 } from "../../src/conquest/engine/Types";
+import {
+  deltaForViewer,
+  deltaIsPerViewer,
+  stateForViewer,
+} from "../../src/conquest/engine/Viewers";
 import { addRegiment } from "../../src/conquest/engine/War";
 import type { ServerMessage } from "../../src/conquest/Protocol";
 import { lifeOf, map, plan, prov, world } from "./LifeUtil";
@@ -648,6 +654,65 @@ describe("GOV r21: expeditions", () => {
       });
     };
     expect(run()).toBe(run());
+  });
+
+  test("what each seat is sent: a raid getting up is its colony's secret, a war party coming is nobody's to know", () => {
+    const { g, s, a, england } = quiet({ players: 2 });
+    const b = lifeOf(g, "s2");
+    const { o, p } = nativeNear(g, england);
+    s.wars = s.wars.filter((w) => !(w.a === o || w.b === o));
+    cmd(g, a, { k: "exped", act: "plan", kind: "raid", p, hands: 10 });
+    const raid = myExped(s, a.seat)!;
+    expect(raid.kind).toBe("raid");
+    const disc = partyAt(g, "discover", p, a.c, 7_000_000);
+    disc.stage = "out";
+    expedState(g).list.push(disc);
+    expedState(g).reprisals.push({
+      n: o,
+      against: england,
+      p: a.prov,
+      day: s.day + 30,
+      from: p,
+    });
+    expedState(g).asks.push({
+      id: 1,
+      seat: a.seat,
+      c: a.c,
+      n: england,
+      x: raid.id,
+      kind: "raid",
+      target: p,
+      gold: 20,
+      day: s.day,
+      answer: s.day + 20,
+      stage: "asked",
+    });
+    const ids = (seat: string | null) =>
+      stateForViewer(s, seat).exped!.list.map((x) => x.id);
+    // Of the colony: everything but the war party coming.
+    expect(ids("s2")).toEqual([raid.id, disc.id]);
+    expect(stateForViewer(s, "s2").exped!.asks.length).toBe(1);
+    expect(stateForViewer(s, "s1").exped!.reprisals).toEqual([]);
+    // Another colony's player, and a watcher: only the party on the roads.
+    const other = s.nations.findIndex(
+      (n, i) => i !== england && n.kind === "power",
+    );
+    const mine = s.chars[b.c].nation;
+    s.chars[b.c].nation = other;
+    expect(ids("s2")).toEqual([disc.id]);
+    expect(stateForViewer(s, "s2").exped!.asks).toEqual([]);
+    expect(ids(null)).toEqual([disc.id]);
+    // The same in the deltas.
+    expedChangedFor(g);
+    const d = g.takeDelta();
+    expect(deltaIsPerViewer(d)).toBe(true);
+    expect(deltaForViewer(s, d, "s2").exped!.list.map((x) => x.id)).toEqual([
+      disc.id,
+    ]);
+    expect(deltaForViewer(s, d, null).exped!.reprisals).toEqual([]);
+    s.chars[b.c].nation = mine;
+    // The game's own state is untouched.
+    expect(expedOf(s).reprisals.length).toBe(1);
   });
 });
 

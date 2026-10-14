@@ -50,6 +50,7 @@ import type {
   ExpedKind,
   ExpedState,
   Expedition,
+  GameDelta,
   GameState,
   Life,
   MapDef,
@@ -111,6 +112,73 @@ export function takeExpedDelta(g: ConquestGame): ExpedState | undefined {
 
 export function applyExpedDelta(s: GameState, d: ExpedState): void {
   s.exped = d;
+}
+
+// ---------------------------------------------------------------- what each seat sees
+
+/** The colony (or nation) a seat's player is of; −1 for a watcher. */
+function seatNation(s: GameState, seat: string | null): number {
+  if (seat === null) return -1;
+  const life = s.lives.find((l) => l.seat === seat);
+  return life && life.c >= 0 ? (s.chars[life.c]?.nation ?? -1) : -1;
+}
+
+/**
+ * Whether a seat may see an expedition. One getting up is its colony's
+ * business (and theirs who are asked along or in it) until it sets out;
+ * then it's on the roads for anyone to see, except a raid, which nobody
+ * outside its colony knows of until it falls on the town (and the news
+ * carries that).
+ */
+export function seesExped(
+  s: GameState,
+  x: Expedition,
+  seat: string | null,
+): boolean {
+  if (seat === null) return x.stage !== "forming" && x.kind !== "raid";
+  if (seatNation(s, seat) === x.n) return true;
+  if (x.lseat === seat || x.by === seat) return true;
+  if (x.asked.includes(seat) || x.members.some((m) => m.seat === seat))
+    return true;
+  return x.stage !== "forming" && x.kind !== "raid";
+}
+
+/**
+ * The expeditions as one seat may see them: others' plans left out (above),
+ * grants asked of another colony's governor left out, and the war parties a
+ * nation means to send left out for everyone (they come without warning).
+ */
+export function expedView(
+  s: GameState,
+  st: ExpedState,
+  seat: string | null,
+): ExpedState {
+  const me = seatNation(s, seat);
+  return {
+    ...st,
+    list: (st.list ?? []).filter((x) => seesExped(s, x, seat)),
+    asks: (st.asks ?? []).filter(
+      (a) => seat !== null && (a.seat === seat || a.n === me),
+    ),
+    reprisals: [],
+  };
+}
+
+/** A delta as one seat may see it (composed in Viewers.ts). */
+export function expedDeltaForSeat(
+  s: GameState,
+  d: GameDelta,
+  seat: string | null,
+): GameDelta {
+  return d.exped ? { ...d, exped: expedView(s, d.exped, seat) } : d;
+}
+
+/** The whole game as one seat may see it (on joining, and on a resync). */
+export function expedStateForSeat(
+  s: GameState,
+  seat: string | null,
+): GameState {
+  return s.exped ? { ...s, exped: expedView(s, s.exped, seat) } : s;
 }
 
 /**

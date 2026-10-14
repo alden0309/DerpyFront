@@ -16,6 +16,7 @@ import {
 } from "./BondCore";
 import { crownDeltaForSeat, crownStateForSeat } from "./CrownCore";
 import { diceView, stateForSeat } from "./DiceCore";
+import { expedDeltaForSeat, expedStateForSeat } from "./ExpedCore"; // GOV (r21)
 import {
   deltaForSeat,
   deltaHasSecrets,
@@ -30,9 +31,13 @@ import type { GameDelta, GameState } from "./Types";
 
 /** The whole game as `seat` may see it (null: a watcher, who holds no seat). */
 export function stateForViewer(s: GameState, seat: string | null): GameState {
-  return crownStateForSeat(
-    loanStateForSeat(
-      labourStateForSeat(stateForIntrigue(stateForSeat(s, seat), seat), seat),
+  // GOV (r21): an expedition getting up, a raid, a grant asked, a war party coming.
+  return expedStateForSeat(
+    crownStateForSeat(
+      loanStateForSeat(
+        labourStateForSeat(stateForIntrigue(stateForSeat(s, seat), seat), seat),
+        seat,
+      ),
       seat,
     ),
     seat,
@@ -46,7 +51,8 @@ export function deltaIsPerViewer(d: GameDelta): boolean {
     deltaHasSecrets(d) ||
     labourDeltaSecret(d) ||
     loanDeltaSecret(d) ||
-    !!d.crown
+    !!d.crown ||
+    !!d.exped // GOV (r21)
   );
 }
 
@@ -64,6 +70,7 @@ export function deltaForViewer(
   if (bond) out = labourDeltaForSeat(out, seat);
   if (loans) out = loanDeltaForSeat(out, seat);
   if (d.crown) out = crownDeltaForSeat(s, out, seat);
+  if (d.exped) out = expedDeltaForSeat(s, out, seat); // GOV (r21)
   return out;
 }
 
