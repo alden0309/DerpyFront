@@ -8,8 +8,8 @@
 
 import type { ConquestGame } from "./Game";
 import { journal, touchLife } from "./LifeCore";
-import { ROLES } from "./LifeRules";
 import { r21ForOthers, r21HasSecrets } from "./LifeR21Core"; // LIFE (r21)
+import { ROLES } from "./LifeRules";
 import { booksForOthers, booksHaveLoans } from "./LoanCore"; // ECON (r17)
 import { pollsForOthers, pollsHaveSecrets } from "./PollsSecret"; // POLLS (r16)
 import { ageOf } from "./Queries";

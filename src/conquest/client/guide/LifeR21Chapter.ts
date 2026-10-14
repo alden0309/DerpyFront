@@ -117,14 +117,14 @@ What you carry lowers it further: ${HEALTH_MARKS.map((m) => `${m.label.toLowerCa
 From 0 to 100. At 70 or more it costs you a point of health a month; at 95 strain can hurt you outright.
 
 ### Strain makes every hurt worse
-Whatever takes health (a wound, a fever, a brawl, a month's wear) takes more of it the more stressed you are. A 10-point wound at ease takes 10; at breaking point, 20.
+Whatever takes health (a wound, a fever, a brawl, a month's wear) takes more of it the more stressed you are. A 10-point wound at ease takes 10; at breaking point, 18.
 
 ${stressTable()}
 
 - **Raises it**: hard work and overtime, debt, grief, scandal, threats, living beneath your station.
 - **Eases it**: rest at home, a room at the tavern (1 coin), prayer, drink and listen, an evening with your family, shirking at work, a gift to the town, living comfortably, a house of your own, reaching an ambition, a chaplain, an evening at the bawdy house.
 
-> Tip: When stress passes 40, every wound costs half as much again: ease to steady work and spend a week at home before you fight anyone.`;
+> Tip: When stress passes 40, every wound costs nearly a third more: ease to steady work and spend a week at home before you fight anyone.`;
 
 function warmthTable(): string {
   const rows = Object.entries(WARMTH).map(([why, w]) => {

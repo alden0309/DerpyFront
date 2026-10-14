@@ -88,10 +88,10 @@ export function maxHealth(s: GameState, life: Life): number {
 /** How much worse strain makes a hurt: by tiers of stress. */
 export const STRESS_TIERS: { from: number; name: string; mult: number }[] = [
   { from: 0, name: "At ease", mult: 1 },
-  { from: 20, name: "Strained", mult: 1.2 },
-  { from: 40, name: "Stressed", mult: 1.4 },
-  { from: 60, name: "Overwrought", mult: 1.7 },
-  { from: 80, name: "At breaking point", mult: 2 },
+  { from: 20, name: "Strained", mult: 1.15 },
+  { from: 40, name: "Stressed", mult: 1.3 },
+  { from: 60, name: "Overwrought", mult: 1.5 },
+  { from: 80, name: "At breaking point", mult: 1.75 },
 ];
 
 /** The tier a stress falls in. */

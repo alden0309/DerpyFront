@@ -210,7 +210,10 @@ export function r21HasSecrets(l: Partial<Life>): boolean {
   const r = l.r21;
   if (r && (r.bawdy?.length || r.poxDue || r.marks?.some((m) => m.k === "pox")))
     return true;
-  if (l.cooldowns && Object.keys(l.cooldowns).some((k) => bawdyKey(k.replace(/^ev:/, ""))))
+  if (
+    l.cooldowns &&
+    Object.keys(l.cooldowns).some((k) => bawdyKey(k.replace(/^(ev|fam):/, "")))
+  )
     return true;
   if (l.events?.some((e) => bawdyKey(e.key))) return true;
   if (l.outcome && bawdyKey(l.outcome.key)) return true;
@@ -232,7 +235,7 @@ export function r21ForOthers<T extends Partial<Life>>(l: T, out: T): void {
   if (out.cooldowns)
     out.cooldowns = Object.fromEntries(
       Object.entries(out.cooldowns).filter(
-        ([k]) => !bawdyKey(k.replace(/^ev:/, "")),
+        ([k]) => !bawdyKey(k.replace(/^(ev|fam):/, "")),
       ),
     );
   if (out.events) out.events = out.events.filter((e) => !bawdyKey(e.key));

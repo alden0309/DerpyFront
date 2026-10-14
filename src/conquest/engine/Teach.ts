@@ -106,7 +106,7 @@ function project(
     while (lvl < SKILL_MAX && x >= xpToNext(lvl)) {
       x -= xpToNext(lvl);
       lvl++;
-      if (first === null) first = m;
+      first ??= m;
     }
   }
   return { level: lvl, first };

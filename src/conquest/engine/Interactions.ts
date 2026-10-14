@@ -805,7 +805,7 @@ function acceptanceOf(
           REGARD.stranger,
         );
       else if (talks >= REGARD.manyTalks)
-        e.add("You've passed many an hour", 5);
+        e.add("You've passed many an hour", REGARD.manyHours);
       if (hasTrait(c, "generous")) e.add("Warm-hearted", 5);
       if (life.ties[c.id] === "lover") e.add("Sweethearts already", 15);
       const friends = Object.values(life.ties).filter(

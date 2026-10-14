@@ -118,7 +118,7 @@ const EVENTS: LifeEventDef[] = [
   {
     key: "bawdy-evening",
     pool: "raised",
-    cooldown: 0,
+    cooldown: BAWDY.rest,
     scene: "bawdy",
     title: "The house by the water",
     body: (g, life) => {
@@ -270,7 +270,7 @@ const EVENTS: LifeEventDef[] = [
   {
     key: "bawdy-told",
     pool: "raised",
-    cooldown: 0,
+    cooldown: 120,
     scene: "home",
     title: "What the town is saying",
     body: (g, _life, ctx) => {
@@ -307,7 +307,7 @@ const EVENTS: LifeEventDef[] = [
   {
     key: "bawdy-pox",
     pool: "raised",
-    cooldown: 0,
+    cooldown: 365,
     scene: "apothecary",
     title: "The French pox",
     body: () =>
@@ -518,9 +518,16 @@ let paced = false;
 export function lifeR21Events(): LifeEventDef[] {
   if (!paced) {
     paced = true;
+    // Every scene of the house rests as a family (they're raised, never drawn).
     registerFamily(
       "bawdy",
-      ["bawdy-wife", "bawdy-told", "bawdy-sermon", "bawdy-pox"],
+      [
+        "bawdy-evening",
+        "bawdy-wife",
+        "bawdy-told",
+        "bawdy-sermon",
+        "bawdy-pox",
+      ],
       120,
     );
     registerFamily("vengeance", ["duel-kin"], 365);

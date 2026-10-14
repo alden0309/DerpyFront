@@ -36,7 +36,7 @@ import { inviteText } from "../../src/conquest/engine/Gatherings";
 import { interactionView } from "../../src/conquest/engine/Interactions";
 import { lifeForOthers } from "../../src/conquest/engine/IntrigueCore";
 import { actCheck, actLabel, ACTS } from "../../src/conquest/engine/LifeActs";
-import { gainXp, hurt, heal } from "../../src/conquest/engine/LifeCore";
+import { gainXp, heal, hurt } from "../../src/conquest/engine/LifeCore";
 import {
   meOf,
   monthlyBudget,
@@ -158,7 +158,7 @@ describe("skills on thirty levels", () => {
     life.xp.trade = 0;
     gainXp(g, life, "trade", xpToNext(19));
     expect(life.skills.trade).toBe(20);
-    expect(life.journal.at(-1)!.text).toMatch(/Master/);
+    expect(life.journal[life.journal.length - 1].text).toMatch(/Master/);
     gainXp(g, life, "trade", 1e6);
     expect(life.skills.trade).toBe(30);
     expect(life.xp.trade).toBe(0);
@@ -218,7 +218,7 @@ describe("opinion has to be earned", () => {
     for (let i = 1; i < adds.length; i++)
       expect(adds[i]).toBeLessThan(adds[i - 1] + 0.001);
     expect(gift()!.n).toBe(5);
-    expect(gives[4]).toBeLessThanOrEqual(15);
+    expect(gives[4]).toBeLessThanOrEqual(12);
     // Everything kind together: in full to 25, half beyond.
     c.memories.push(
       { of: life.c, why: "Stood second for me", value: 20, until: 0 },
@@ -282,19 +282,19 @@ describe("health with age and strain", () => {
 
   test("strain makes every hurt worse, by tiers", () => {
     expect(stressTier(10).mult).toBe(1);
-    expect(stressTier(20).mult).toBe(1.2);
-    expect(stressTier(45).mult).toBe(1.4);
-    expect(stressTier(65).mult).toBe(1.7);
-    expect(stressTier(90).mult).toBe(2);
-    expect(strained(10, 85)).toBe(20);
+    expect(stressTier(20).mult).toBe(1.15);
+    expect(stressTier(45).mult).toBe(1.3);
+    expect(stressTier(65).mult).toBe(1.5);
+    expect(stressTier(90).mult).toBe(1.75);
+    expect(strained(10, 85)).toBe(18);
     const g = world({ start: 1700 });
     const life = lifeOf(g);
     for (const [stress, took] of [
       [0, 10],
       [25, 12],
-      [45, 14],
-      [65, 17],
-      [85, 20],
+      [45, 13],
+      [65, 15],
+      [85, 18],
     ]) {
       life.health = 80;
       life.stress = stress;
@@ -430,9 +430,9 @@ describe("duels to the death", () => {
     answer(g, life, "duel-call", 1); // to the field without a second
     answer(g, life, "duel-weapons", 0); // smallswords
     const dawn = life.events.find((e) => e.key === "duel-dawn")!;
-    expect(
-      g.lifeCommand("s1", { k: "event", id: dawn.id, choice: 2 }),
-    ).toMatch(/to the death/i); // no first blood
+    expect(g.lifeCommand("s1", { k: "event", id: dawn.id, choice: 2 })).toMatch(
+      /to the death/i,
+    ); // no first blood
     answer(g, life, "duel-dawn", 0);
     life.renown = 30;
     const renown = life.renown;
@@ -457,7 +457,9 @@ describe("duels to the death", () => {
       expect(markOn(g.s, life, "coward")).toBeDefined();
       expect(life.renown).toBeLessThanOrEqual(renown + DEATH.runRenown + 0.5);
       expect(
-        life.milestones.some((m) => /Ran from a duel to the death/.test(m.text)),
+        life.milestones.some((m) =>
+          /Ran from a duel to the death/.test(m.text),
+        ),
       ).toBe(true);
       expect(
         opinionOf(g.s, townsfolk(g, life)[1], life).parts.some(
@@ -485,7 +487,7 @@ describe("duels to the death", () => {
     for (let i = 0; i < 30; i++)
       if (!answer(g, life, "duel-exchange", 1)) break;
     const me = meOf(g.s, life);
-    expect(me || !foe.alive).toBeTruthy();
+    expect(!!me || !foe.alive).toBe(true);
     if (me) {
       expect(foe.alive).toBe(false);
       expect(
@@ -551,7 +553,8 @@ describe("ordinals", () => {
       113: "113th",
       0: "0th",
     };
-    for (const [k, v] of Object.entries(want)) expect(ordinal(Number(k))).toBe(v);
+    for (const [k, v] of Object.entries(want))
+      expect(ordinal(Number(k))).toBe(v);
     expect(ordinalWord(1)).toBe("first");
     expect(ordinalWord(2)).toBe("second");
     expect(ordinalWord(12)).toBe("twelfth");
@@ -560,7 +563,7 @@ describe("ordinals", () => {
     expect(ordinalWord(33)).toBe("thirty-third");
   });
 
-  test("an invitation for the 2nd of the month says so (it said \"2th\")", () => {
+  test('an invitation for the 2nd of the month says so (it said "2th")', () => {
     const g = world({ start: 1700 });
     const life = lifeOf(g);
     const host = townsfolk(g, life)[0];
@@ -627,8 +630,12 @@ describe("posts for your own people", () => {
     expect(physicianDeath(g.s, life)).toBeLessThan(1);
     expect(bodyguardPlot(g.s, life)).toBeLessThan(1);
     const lines = postBudget(g.s, life);
-    expect(lines.find((l) => /^Posts in your household/.test(l.label))!.value).toBeCloseTo(-3, 5);
-    expect(lines.some((l) => l.label === "Your steward's economies")).toBe(true);
+    expect(
+      lines.find((l) => /^Posts in your household/.test(l.label))!.value,
+    ).toBeCloseTo(-3, 5);
+    expect(lines.some((l) => l.label === "Your steward's economies")).toBe(
+      true,
+    );
     // The month's figure has them, and the month's turn pays them.
     const forecast = monthlyBudget(g.s, g.w, life);
     expect(
@@ -816,7 +823,11 @@ describe("the bawdy house", () => {
     she.spouse = he.id;
     a.purse = 100;
     // Seen, and she hears: make the dice say so by trying evenings until it happens.
-    for (let i = 0; i < 400 && !b.events.some((e) => e.key === "bawdy-told"); i++) {
+    for (
+      let i = 0;
+      i < 400 && !b.events.some((e) => e.key === "bawdy-told");
+      i++
+    ) {
       g.s.day++;
       delete a.cooldowns["act:bawdy"];
       a.events = a.events.filter((e) => e.key !== "bawdy-evening");
@@ -863,7 +874,9 @@ describe("a dead man's kin, saves and the delta", () => {
     setPost(g, life, f.id, "secretary");
     g.takeDelta();
     const client = JSON.parse(JSON.stringify(g.s));
-    life.r21!.marks = [{ k: "coward", c: life.c, day: g.s.day, until: g.s.day + 100 }];
+    life.r21!.marks = [
+      { k: "coward", c: life.c, day: g.s.day, until: g.s.day + 100 },
+    ];
     g.lifeChanged("s1");
     applyDelta(client, g.takeDelta());
     expect(client.lives[0].r21.marks[0].k).toBe("coward");

@@ -102,13 +102,13 @@ export const TERMS: Record<string, Term> = {
     what: "Your body, from 0 to the most it can be now (100 to 45, then less with the years: 95 at 50, 80 at 60, 60 at 70; less for the sickly, the gouty, an old wound, the pox). At 0 you die.",
     good: "Keeps you alive. Below 45 the risk of dying in any month rises; below 25 it triples.",
     raise:
-      "It mends a little each month by itself (faster when low). Rest at home, buy physic at the apothecary (3), visit a village healer (0.5), live comfortably, keep a physician. Age, tropical summers, frugal winters, wounds, overtime and stress wear it down, and stress makes every hurt take more (×1.2 from 20, ×1.4 from 40, ×1.7 from 60, ×2 from 80).",
+      "It mends a little each month by itself (faster when low). Rest at home, buy physic at the apothecary (3), visit a village healer (0.5), live comfortably, keep a physician. Age, tropical summers, frugal winters, wounds, overtime and stress wear it down, and stress makes every hurt take more (×1.15 from 20, ×1.3 from 40, ×1.5 from 60, ×1.75 from 80).",
     ch: "health",
   },
   stress: {
     name: "Stress",
     what: "Worry and strain, from 0 to 100.",
-    good: "Keep it low: every hurt takes more under strain (×1.2 from 20, ×1.4 from 40, ×1.7 from 60, ×2 from 80); at 70 or more it costs you health every month, and at 95 strain can hurt you outright.", // LIFE (r21)
+    good: "Keep it low: every hurt takes more under strain (×1.15 from 20, ×1.3 from 40, ×1.5 from 60, ×1.75 from 80); at 70 or more it costs you health every month, and at 95 strain can hurt you outright.", // LIFE (r21)
     raise:
       "To bring it down: rest at home, take a room at the tavern (1), pray, drink and listen, an evening with your family, a gift to the town, shirking at work. Hard work, overtime, debt, grief, scandal and living beneath your station push it up.",
     ch: "health",
@@ -545,7 +545,7 @@ export const TERMS: Record<string, Term> = {
   // ---- LIFE (r21)
   strain: {
     name: "Strain",
-    what: "How much worse stress makes a hurt: at ease (under 20) a wound takes what it says; strained ×1.2, stressed ×1.4, overwrought ×1.7, at breaking point (80) ×2.",
+    what: "How much worse stress makes a hurt: at ease (under 20) a wound takes what it says; strained ×1.15, stressed ×1.3, overwrought ×1.5, at breaking point (80) ×1.75.",
     good: "Low stress keeps wounds, fevers and the month's wear from costing more than they should.",
     raise: "Ease your stress: rest, prayer, family, a chaplain, a quiet month.",
     ch: "health",

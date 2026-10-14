@@ -27,13 +27,14 @@ export const REGARD = {
   /** ...and this share of each point past it. */
   softRate: 0.5,
   /** Friendship: what it takes (for the acceptance). */
-  friendTime: -25,
+  friendTime: -20,
   /** Conversations before they feel they know you. */
   knowTalks: 3,
   /** Not knowing you yet. */
   stranger: -15,
-  /** Conversations after which "you've passed many an hour". */
+  /** Conversations after which "you've passed many an hour" (and what it's worth). */
   manyTalks: 6,
+  manyHours: 8,
 };
 
 /** Each kindness: what the first time is worth, the most it comes to, and how long it's remembered. */
@@ -44,21 +45,21 @@ export const WARMTH: Record<
   "Good company": {
     act: "Talk",
     base: 1.5,
-    cap: 6,
+    cap: 5,
     years: 1,
     was: "+3 each time, at most 3",
   },
   "Flattered me": {
     act: "Flatter (when it lands)",
     base: 6,
-    cap: 10,
+    cap: 8,
     years: 2,
     was: "+10, at most 10",
   },
   "A generous gift": {
     act: "A gift (5 coins to a townsman)",
     base: 4,
-    cap: 15,
+    cap: 12,
     years: 2,
     was: "+7 (up to +30 for a big one), at most 30",
   },

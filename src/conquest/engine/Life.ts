@@ -6,7 +6,7 @@
 import { ambitionsMonthly, setAmbition } from "./Ambitions";
 import { asLook, sitForLikeness, validateLook } from "./Appearance";
 import { areasOf } from "./Areas";
-import { maxHealth, strained } from "./Body"; // LIFE (r21)
+import { maxHealth } from "./Body"; // LIFE (r21)
 import { dateOf, formatDate } from "./Calendar";
 import { kill, makeCharacter, succession } from "./Characters";
 import { seedLocals } from "./Folk";
@@ -831,8 +831,7 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
     life.lifestyle === "frugal"
   )
     dh -= 1;
-  // LIFE (r21): a month that takes health takes more under strain.
-  heal(g, life, dh < 0 ? -strained(-dh, life.stress) : Math.round(dh));
+  heal(g, life, Math.round(dh));
   let ds = ls.stress - 6;
   if (age < 16) ds = -8;
   else {
