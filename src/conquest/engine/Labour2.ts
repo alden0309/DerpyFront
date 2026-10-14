@@ -46,7 +46,7 @@ import type {
   Part,
 } from "./Types";
 import type { World } from "./Map";
-import { bondForecast, fieldsOf } from "./BondCore";
+import { bondForecast, fieldsOf, rentForgone } from "./BondCore";
 
 /** LABOUR2's own dice (salted apart from LABOUR r15's and every other track's). */
 export function l2dice(s: GameState, salt: number) {
@@ -79,7 +79,7 @@ function hireOverseer(
 ): string | null {
   const s = g.s;
   const cand = overseerCandidates(s, g.map, life).find((x) => x.slot === slot);
-  const check = hireOverseerCheck(s, life, cand);
+  const check = hireOverseerCheck(s, life, cand, pay);
   if (!check.ok) return check.why;
   const b = life.bondage!;
   const key = `bond2:ov:${b.home}:${Math.floor(s.day / 30)}:${slot}`;
@@ -166,6 +166,8 @@ function setPay(
   if (!o) return "You have no overseer.";
   if (pay !== "wage" && pay !== "share") return "Wages, or shares?";
   if (o.pay === pay) return null;
+  if (pay === "share" && !o.shares)
+    return "The fields make too small a crop to pay him by shares.";
   const key = "bond2:ovpay";
   if ((life.cooldowns[key] ?? 0) > g.s.day)
     return `A new bargain in ${(life.cooldowns[key] ?? 0) - g.s.day} days.`;
@@ -441,17 +443,25 @@ hooks.forecast.push((s: GameState, life: Life, w?: World): Part[] => {
   if (o.pay === "wage")
     return [{ key: "bond:overseer", label: `${who}: his wages`, value: -o.wage }];
   if (!w) return [];
-  // His shares of the crop: the fields' line's own odds, his part of each.
+  // His shares of the crop: the fields' line's own odds, his part of each
+  // (of the crop after the duty, before the tenants' rent forgone).
   const fields = bondForecast(s, life, w).find((x) => x.key === "bond:fields");
-  const k = shareOf(o.shares, fieldsOf(s, w.map, life).workers.length);
+  const f = fieldsOf(s, w.map, life);
+  const k = shareOf(o.shares, f.workers.length);
   if (!fields || !k) return [];
+  const rent = rentForgone(life, f.workers.length);
   return [
     {
       key: "bond:overseer",
       label: `${who}: his shares of the crop`,
-      value: -r2(fields.value * k),
+      value: -r2((fields.value + rent) * k),
       ...(fields.chance
-        ? { chance: [-r2(fields.chance[1] * k), -r2(fields.chance[0] * k)] as [number, number] }
+        ? {
+            chance: [
+              -r2((fields.chance[1] + rent) * k),
+              -r2((fields.chance[0] + rent) * k),
+            ] as [number, number],
+          }
         : {}),
     },
   ];

@@ -22,6 +22,7 @@ import {
   isBound,
   moodWord,
   ORIGIN_NAMES,
+  rentForgone,
 } from "../../engine/BondCore";
 import { colonyOf, COLONY_NAMES } from "../../engine/BondLaw";
 import {
@@ -164,7 +165,10 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
           ${list.map((x) => {
             const m = MANNERS[x.manner];
             const check = hireOverseerCheck(s, life, x);
-            const share = fields ? fields.value * shareOf(x.shares, workers) : 0;
+            const rent = rentForgone(life, workers);
+            const share = fields
+              ? (fields.value + rent) * shareOf(x.shares, workers)
+              : 0;
             return html`<li class="cq-l2-cand">
               <div>
                 <b>${x.first} ${x.family}</b>
@@ -185,9 +189,11 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
                   "small",
                 )}
                 ${action(
-                  html`For ${x.shares === 1 ? "a share" : `${x.shares} shares`}
-                  of the crop${share > 0 ? price(r1(share), { per: "month", approx: true }) : nothing}`,
-                  check,
+                  x.shares
+                    ? html`For ${x.shares === 1 ? "a share" : `${x.shares} shares`}
+                        of the crop${share > 0 ? price(r1(share), { per: "month", approx: true }) : nothing}`
+                    : html`For shares of the crop`,
+                  hireOverseerCheck(s, life, x, "share"),
                   () =>
                     void ui.cmd({ k: "bond2", act: "hire", c: x.slot, pay: "share" }),
                   "small ghost",
@@ -203,7 +209,9 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
   const m = MANNERS[o.manner];
   const parts = overseerParts(o);
   const fields = bondForecast(s, life, ui.w).find((x) => x.key === "bond:fields");
-  const k = shareOf(o.shares, fieldsOf(s, ui.map, life).workers.length);
+  const nFields = fieldsOf(s, ui.map, life).workers.length;
+  const k = shareOf(o.shares, nFields);
+  const shareNow = fields ? (fields.value + rentForgone(life, nFields)) * k : 0;
   const plan = o.orders.work === "assign" ? overseerPlan(s, ui.map, life) : [];
   const changes = plan.filter((x) => {
     const p = s.chars[x.c];
@@ -256,7 +264,7 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
             ${o.pay === "wage"
               ? html`wages ${price(o.wage, { per: "month" })}`
               : html`${o.shares === 1 ? "a share" : `${o.shares} shares`} of the
-                crop${fields && k ? price(r1(fields.value * k), { per: "month", approx: true }) : nothing}`}${o.owed
+                crop${shareNow > 0 ? price(r1(shareNow), { per: "month", approx: true }) : nothing}`}${o.owed
               ? html` · <b class="bad">${o.owed} month unpaid</b>`
               : nothing}</span
           >
@@ -502,7 +510,13 @@ export function boundBizPart(ui: GameUi, pr: Property): TemplateResult | typeof 
               ${signed(ways.bound.net)} after their keep
               (${coins(ways.bound.cost)}), their price spread over twelve years
               with the interest it would earn (${coins(ways.bound.capital)}),
-              and the risk of flight and death (${coins(ways.bound.risk)}).`
+              and the risk of flight and death (${coins(ways.bound.risk)}).
+              <i
+                >Franklin set out the same sum in 1751 ("Reckon then the
+                Interest of the first Purchase ... the Insurance or Risque on
+                his Life, his Cloathing and Diet ... Loss by his Neglect of
+                Business") and found hired labour the cheaper.</i
+              >`
           : nothing}
         Set someone of your household to work here from Estate › Bondage.</span
       ></span

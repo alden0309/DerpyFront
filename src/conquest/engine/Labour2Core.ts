@@ -16,7 +16,9 @@ import {
   acresAt,
   AWAY_FACTOR,
   boundOf,
+  CROP_EXCISE,
   deathChance,
+  fieldsOf,
   flightChance,
   freedomChance,
   hashOf,
@@ -26,6 +28,7 @@ import {
   priceOf,
   r1,
   r2,
+  workExpected,
   workShare,
 } from "./BondCore";
 import { colonyOf, holdingLawful, lawOf } from "./BondLaw";
@@ -39,7 +42,7 @@ import {
   MANNERS,
   overseerMind,
   overseerOf,
-  sharesFor,
+  sharesAsked,
 } from "./Labour2Rules";
 import { BUSINESS_HANDS, EXCISE, HAND_WAGE } from "./LifeRules";
 import type { World } from "./Map";
@@ -70,7 +73,7 @@ export interface OverseerCandidate {
   skill: number;
   /** What he asks a month, in wages. */
   wage: number;
-  /** Or the shares of the crop he'd take. */
+  /** Or the shares of the crop he'd take (0: the crop's too small for shares). */
   shares: number;
   /** A line about him. */
   note: string;
@@ -123,13 +126,15 @@ export function overseerCandidates(
   });
   const names = NAMES[owner.culture] ?? NAMES.english;
   const low = lowcountry(map, home);
-  const workers = boundOf(s, life).filter((c) => workShare(ageOf(s, c)) > 0)
-    .length;
+  // The fields as they stand, and what they're expected to make (after the duty).
+  const workers = fieldsOf(s, map, life).workers.length;
+  const crop = workExpected(s, map, life).fields * (1 - CROP_EXCISE);
   const out: OverseerCandidate[] = [];
   for (let slot = 0; slot < 3; slot++) {
     const r = rng.next();
     const manner: OverseerManner = r < 0.4 ? "hard" : r < 0.8 ? "steady" : "fair";
     const skill = Math.min(16, 3 + rng.int(0, 8) + (rng.chance(0.2) ? 4 : 0));
+    const wage = overseerWage(skill, low);
     out.push({
       slot,
       first: rng.pick(names.male)!,
@@ -137,8 +142,8 @@ export function overseerCandidates(
       age: 24 + rng.int(0, 28),
       manner,
       skill,
-      wage: overseerWage(skill, low),
-      shares: sharesFor(workers),
+      wage,
+      shares: sharesAsked(wage, workers, crop),
       note: rng.pick(NOTES[manner])!,
     });
   }
@@ -150,6 +155,7 @@ export function hireOverseerCheck(
   s: GameState,
   life: Life,
   cand: OverseerCandidate | undefined,
+  pay: "wage" | "share" = "wage",
 ): Check {
   const me = meOf(s, life);
   if (!me || life.watching) return no("You're watching.");
@@ -160,6 +166,8 @@ export function hireOverseerCheck(
     return no("Your household holds no one to oversee.");
   if (overseerOf(s, life)) return no("You have an overseer already.");
   if (!cand) return no("He's taken another place.");
+  if (pay === "share" && !cand.shares)
+    return no("The fields make too small a crop to pay him by shares.");
   if (life.purse < cand.wage) return no(`His first month: ${cand.wage} coins.`);
   return yes;
 }
@@ -355,6 +363,8 @@ export interface HandWay {
 export const CAPITAL_RATE = 0.06;
 /** Years a price is spread over (as LABOUR r15 reckoned it). */
 export const CAPITAL_YEARS = 12;
+/** The health a price is reckoned at, for the comparison. */
+export const PRICE_HEALTH = 70;
 
 /**
  * A place at a business, a month: a hired hand against someone of the
@@ -380,10 +390,12 @@ export function handWays(
     net: r2(net(perHand) - HAND_WAGE),
   };
   if (!c || !life.bondage) return { hired };
+  // Their price as someone of their age and trade in ordinary health (so how
+  // they're kept shows in the work and the risk, not in a price).
   const price = priceOf(s, map, pr.prov, {
     age: ageOf(s, c),
     female: c.female,
-    health: c.bond!.health,
+    health: PRICE_HEALTH,
     craft: c.bond!.sk.craft,
   });
   const takings = net(perHand * bizEff(c.bond!));

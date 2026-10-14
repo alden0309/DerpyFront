@@ -1,5 +1,5 @@
 // LABOUR2 (r21): the numbers an overseer and work at a business go by. Read
-// by the household's model (BondCore.ts), the month (Overseer.ts, BondBiz.ts)
+// by the household's model (BondCore.ts), the month (Labour2.ts, Labour2Core.ts)
 // and the page, so what's shown is what happens. Nothing here imports the
 // rest of the game, so the household's model can read it without a cycle.
 //
@@ -9,6 +9,15 @@
 // crop, who drives people for this year's crop (as planters complained of
 // their own overseers). Your orders of restraint halve what his nature does.
 // What an overseer is worth is minding the place while you're away.
+//
+// At a business: Franklin set out the reckoning in 1751 ("Reckon then the
+// Interest of the first Purchase of a Slave, the Insurance or Risque on his
+// Life, his Cloathing and Diet, Expences in his Sickness and Loss of Time,
+// Loss by his Neglect of Business ... compare the whole Amount with the
+// Wages" of a hired man), and answered why colonists bought people all the
+// same: they "may be kept as long as a Man pleases ... while hired Men are
+// continually leaving their Master" (Observations Concerning the Increase of
+// Mankind, §12, founders.archives.gov). The page sets out the same sum.
 //
 // Pay by shares: Washington's agreement of 5 August 1762 with Edward Violet
 // gave his overseer at Bullskin "two clear Shares of all the Tobacco corn and
@@ -71,9 +80,20 @@ export const RESTRAINT = 0.5;
 /** Paid by shares of the crop, he pushes for this year's crop. */
 export const SHARE_PAY = { mood: -4, health: -3, drive: 1.04 };
 
-/** An overseer's shares, by how many work the fields (one, or two for ten or more). */
-export function sharesFor(workers: number): number {
-  return workers >= 10 ? 2 : 1;
+/** The most shares an overseer takes (past that, the crop's too small to pay him by shares). */
+export const MOST_SHARES = 6;
+
+/**
+ * The shares an overseer asks: enough that, by the crop the fields are
+ * expected to make, they come to his wages at least (he takes the season's
+ * risk, so he asks for a good year's worth); none if no number would.
+ * Shares are never the cheap way: what they save in wages, his driving
+ * for the crop costs in the people.
+ */
+export function sharesAsked(wage: number, workers: number, crop: number): number {
+  if (workers <= 0 || crop <= wage) return 0;
+  const n = Math.max(1, Math.ceil((wage * workers) / (crop - wage) - 1e-9));
+  return n > MOST_SHARES ? 0 : n;
 }
 
 /** The part of the crop his shares come to: his shares, of the hands' shares and his. */
@@ -135,9 +155,17 @@ export function underOverseer(
 
 // ---------------------------------------------------------------- work at a business
 
+/**
+ * Work for nothing is work without a stake in it: what Franklin's reckoning
+ * of 1751 called "Loss by his Neglect of Business" (Observations Concerning
+ * the Increase of Mankind, §12). Against a hired hand who's paid for it.
+ */
+export const BIZ_WILL = 0.85;
+
 /** How much of a free hand's work someone held does at a business: by their trade, health and spirits. */
 export function bizEff(m: Pick<BondMark, "sk" | "health" | "mood">): number {
   return (
+    BIZ_WILL *
     (0.8 + m.sk.craft / 25) *
     (0.4 + (0.6 * m.health) / 100) *
     (0.85 + (0.25 * m.mood) / 100)
