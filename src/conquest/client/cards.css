@@ -219,6 +219,17 @@
 .cq-cards-chance.bad {
   color: #a3321f;
 }
+.cq-cards-settled {
+  margin: 0.4rem 0 0;
+  font-family: var(--fell);
+  font-style: italic;
+}
+.cq-cards-settled.good b {
+  color: var(--verdigris);
+}
+.cq-cards-settled.bad b {
+  color: #a3321f;
+}
 .cq-cards-acts {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

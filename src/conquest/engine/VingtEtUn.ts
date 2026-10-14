@@ -90,8 +90,6 @@ import type {
 export const XP_HAND = 1;
 export const XP_WEEK = 10;
 
-const firstOf = (g: ConquestGame, c: number) =>
-  c < 0 ? "the landlord" : (g.s.chars[c]?.first ?? "someone");
 const townOf = (g: ConquestGame, p: number) => g.map.provinces[p]?.name ?? "";
 
 /** Money at the card table, in the books under one name. */

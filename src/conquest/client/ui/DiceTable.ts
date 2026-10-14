@@ -1068,7 +1068,7 @@ function pickerView(
             >
             from where you sit;
             ${num(
-              `exactly ${cur.q}: ${chanceWords(pe ?? 0)}`,
+              `exactly ${bidWords(cur)}: ${chanceWords(pe ?? 0)}`,
               () => ({
                 title: "Spot on: exactly that many",
                 notes: [

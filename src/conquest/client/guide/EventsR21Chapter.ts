@@ -14,6 +14,8 @@ import {
   ENTER_CHANCE,
   ENTER_REST,
   PLACE_BOOST,
+  ROAD_KEYS,
+  SEA_KEYS,
   WHERE,
 } from "../../engine/EventPlaces";
 import { R21_EVENTS } from "../../engine/EventsR21";
@@ -92,7 +94,7 @@ export function placesSection(): string {
     ([f, place, what]) => `| ${place} | ${what} | ${count(f)} |`,
   ).join("\n");
   return `## Where things happen
-Every event says where it can come, and comes only there (${Object.keys(WHERE).length} of the older ones were read and tagged one by one):
+Every event says where it can come, and comes only there (the ${Object.keys(WHERE).length + ROAD_KEYS.length + SEA_KEYS.length} drawn before this round were each read and tagged):
 - **At home or abroad.** What happens with your family, your house and your own town's affairs (a sick child, a quarrel at home, your turn on the watch, the vestry's pews) comes only in your home province. Away from home, you get what happens to a stranger instead.
 - **What kind of place.** A colonial town (fifty settlers or more: a tavern and a market), a native town, open country, the road, the sea. A tavern's goings-on need a tavern; a cabin raising needs settlers; the green corn needs a native town.
 - **Which places are here.** The docks need a port; home needs a house of yours; the governor's ball needs a governor's house. A scene is always set somewhere that's really there.

@@ -664,6 +664,9 @@
 }
 /* EVENTS (r21): "Spot on!" */
 .cq-dice-spot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-family: var(--fell-sc);
   font-size: 1.1rem;
   letter-spacing: 0.02em;

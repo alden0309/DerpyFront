@@ -53,7 +53,6 @@ import { price } from "./Price";
 import { reasons } from "./Scene";
 import { term } from "./Terms";
 
-const cap = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
 const pct = (p: number) => `${Math.round(p * 100)} in 100`;
 
 // ---------------------------------------------------------------- playing back
@@ -368,7 +367,9 @@ function handView(
           <p>
             <b>A card:</b>
             ${num(
-              `${chanceWords(bust)} you go over`,
+              bust > 0
+                ? `${chanceWords(bust)} you go over`
+                : "you can't go over",
               () => ({
                 title: "Drawing a card",
                 notes: [
@@ -382,7 +383,7 @@ function handView(
           <p>
             <b>Content at ${total}:</b>
             ${num(
-              `you win ${chanceWords(so.win)}, a stand-off ${chanceWords(so.tie)}, the bank wins ${chanceWords(so.lose)}`,
+              `you win ${chanceWords(so.win)}${so.tie > 0 ? `, a stand-off ${chanceWords(so.tie)}` : ""}, the bank wins ${chanceWords(so.lose)}`,
               () => ({
                 title: "Standing on what you hold",
                 notes: [
@@ -395,6 +396,7 @@ function handView(
           </p>
         </div>`
       : nothing}
+    ${settledLine(t, v, me, cards)}
     <div class="cq-cards-acts">
       <button class="cq-btn primary" ?disabled=${!playing} @click=${draw}>
         A card
@@ -404,6 +406,40 @@ function handView(
       </button>
     </div>
   </section>`;
+}
+
+/** What your last hand came to, once it's settled: "The bank's 20 beats your 13: −2". */
+function settledLine(
+  t: CardTable,
+  v: View,
+  me: number,
+  cards: Card[],
+): TemplateResult | typeof nothing {
+  const pay = v.settle?.pay?.[me];
+  if (pay === undefined || !cards.length) return nothing;
+  const bank = v.settle?.hands?.[t.bank] ?? [];
+  const mine = handTotal(cards).total;
+  const b = handTotal(bank).total;
+  const text =
+    mine > 21
+      ? `Over at ${mine}`
+      : isNatural(cards) && pay > 0
+        ? "A natural, paid double"
+        : isNatural(bank)
+          ? "The bank's natural"
+          : b > 21
+            ? `The bank went over (${b}) against your ${mine}`
+            : mine > b
+              ? `Your ${mine} beats the bank's ${b}`
+              : mine < b
+                ? `The bank's ${b} beats your ${mine}`
+                : `${mine} each: a stand-off`;
+  return html`<p
+    class="cq-cards-settled ${pay > 0 ? "good" : pay < 0 ? "bad" : ""}"
+  >
+    ${text}:
+    <b>${pay > 0 ? `+${pay}` : pay < 0 ? `−${-pay}` : "your stake back"}</b>
+  </p>`;
 }
 
 /** Between hands: deal, sit out, get up; and what the last hand came to. */
