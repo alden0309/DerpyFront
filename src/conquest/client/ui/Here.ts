@@ -38,6 +38,7 @@ import {
 } from "../../engine/LifeRules";
 import { joinCheck, movementOf, movementsHere } from "../../engine/Movements";
 import { giveUpWarning, postTitle } from "../../engine/OneOffice"; // POWER (r12)
+import { strandEmbark } from "../../engine/Parties"; // SHIPS (r21)
 import { standCheck } from "../../engine/Politics";
 import { businessOf, expandCheck, handRoom } from "../../engine/Property";
 import {
@@ -98,6 +99,13 @@ import { powerParts } from "./PowerParts"; // POWER (r12)
 import { price, splitPrice } from "./Price"; // LEDGER (r15)
 import { townRuleBlock } from "./Reclaim"; // WAR (r17)
 import { seaCallout } from "./SeaPage"; // SEA (r15)
+import {
+  aboardCallout,
+  captainLine,
+  partyStrip,
+  stayCallout,
+  strandLine,
+} from "./ShipsUi"; // SHIPS (r21)
 import { hostAt } from "./Society"; // SOCIETY (r11)
 import { holdList, isHeld, steady, steadySet, SteadyState } from "./Steady";
 import { TERMS } from "./Terms";
@@ -161,7 +169,20 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
   const sailor = life.job?.kind === "sailor";
   const pace = paceOf(ui.s, life);
   const land = travelRoute(ui.s, ui.map, from, p, false, native, sailor, pace);
-  const sea = travelRoute(ui.s, ui.map, from, p, true, native, sailor, pace);
+  // SHIPS (r21): from a shore with no port, a coaster hailed or the ship that landed you.
+  const embark = life.travel ? undefined : strandEmbark(ui.s, ui.map, life);
+  const sea = travelRoute(
+    ui.s,
+    ui.map,
+    from,
+    p,
+    true,
+    native,
+    sailor,
+    pace,
+    false,
+    embark,
+  );
   const seaBetter =
     sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1);
   const marching = life.job && life.job.army >= 0;
@@ -170,7 +191,9 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
     ? "You march with your army. Stay behind in garrison (at a fort) to travel alone."
     : leads
       ? "You command an army: march it instead (Work › Your work)."
-      : null;
+      : life.travel?.with // SHIPS (r21)
+        ? "You're travelling with others: get off at the next stop first."
+        : null;
   const go = async (bySea: boolean) => {
     if (await ui.cmd({ k: "travel", to: p, bySea }))
       ui.open({ k: "tab", tab: "here" });
@@ -222,6 +245,7 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
             )}
           </div>`
         : nothing}
+      ${seaBetter && embark ? strandLine(ui) : nothing /* SHIPS (r21) */}
       ${ownBoatWays(ui, p)}
     </div>`,
   );
@@ -316,7 +340,7 @@ export function herePanel(ui: GameUi): TemplateResult {
   return html`${provHeader(ui, p)} ${playersHere(ui)} ${jailCallout(ui)}
   ${welcome(ui)}
   ${t && t.ship !== undefined ? seaCallout(ui) : nothing /* SEA (r15) */}
-  ${t && t.ship === undefined
+  ${t && t.ship === undefined && !t.with
     ? html`<div class="cq-callout road">
         <p>
           On the road to <b>${ui.map.provinces[t.dest].name}</b>. Next:
@@ -324,15 +348,24 @@ export function herePanel(ui: GameUi): TemplateResult {
           ${formatDate(t.arrive)}.
         </p>
         ${t.path.length > 1
-          ? html`<button
-              class="cq-btn small"
-              @click=${() => ui.cmd({ k: "halt" })}
-            >
-              Stop at the next place
-            </button>`
+          ? html`<div class="cq-btnrow">
+              <button
+                class="cq-btn small"
+                @click=${() => ui.cmd({ k: "halt" })}
+              >
+                Stop at the next place
+              </button>
+              ${
+                captainLine(
+                  ui,
+                ) /* SHIPS (r21): lie over, and resume within two months */
+              }
+            </div>`
           : nothing}
       </div>`
     : nothing}
+  ${aboardCallout(ui) /* SHIPS (r21): aboard a ship, or with a party */}
+  ${stayCallout(ui)} ${partyStrip(ui)}
   ${marching || leading
     ? html`<div class="cq-callout">
         <p>
@@ -1121,7 +1154,7 @@ function workBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
         ok: true,
         cls: "rough",
         run: () =>
-          boss?.alive && !job.own
+          boss?.alive && !job.own && !job.berth // SHIPS (r21): a ship's company: just leave
             ? ui.modal({ k: "interact", c: boss.id, act: "quit" })
             : confirm(
                 `Give up your work as ${jobTitle(life).toLowerCase()}?`,

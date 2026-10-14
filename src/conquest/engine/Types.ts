@@ -432,6 +432,8 @@ export interface Job {
   awayDays?: number;
   /** LEDGER (r15): days worked in the month just reckoned (a business is minded by them). */
   lastWorked?: number;
+  /** SHIPS (r21): a place in a player's outfit (a ship's company), whose role and pay they set. */
+  berth?: Berth;
 }
 
 /** On the road (or at sea): the hops still to go, like an army's march. */
@@ -450,6 +452,8 @@ export interface Travel {
   boat?: number;
   /** SEA (r15): aboard a cruise or a voyage (its id): the ship carries you, not your own feet. */
   ship?: number;
+  /** SHIPS (r21): going with someone (a travelling party's leader, or a ship of a player's): you go where they go. */
+  with?: { seat: string; boat?: number };
 }
 
 export interface JournalEntry {
@@ -857,6 +861,10 @@ export interface Life {
   leave?: LeaveState;
   /** LIFE (r21): the skill scale, study, marks (a coward, the pox), the bawdy house. */
   r21?: LifeR21;
+  /** SHIPS (r21): travelling with another player (their seat): you go where they go. */
+  party?: Party | null;
+  /** SHIPS (r21): landed on a shore with no port; the ship that brought you lies off it a while. */
+  lying?: Lying | null;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1956,7 +1964,10 @@ export type LifeCommand =
   // CROWN (r18): a petition to the crown for an expedition to retake a town.
   | CrownCommand
   // LIFE (r21): positions for your own people, the bawdy house.
-  | LifeR21Command;
+  | LifeR21Command
+  // SHIPS (r21): a ship's company, charters, refits, her stays; travelling parties.
+  | ShipCommand
+  | PartyCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -2391,6 +2402,24 @@ export interface Boat {
   away?: { back: number; skipper: number; p: number } | null;
   /** SEA (r15): a letter of marque for her (a governor's commission): whose, and from when. */
   marque?: { nation: number; day: number } | null;
+  /** SHIPS (r21): her company taken on by name (a role and pay each). */
+  roster?: Roster;
+  /** SHIPS (r21): the charter she's on. */
+  charter?: ShipJob | null;
+  /** SHIPS (r21): under way with her own master (nobody of yours need be aboard). */
+  way?: ShipWay | null;
+  /** SHIPS (r21): stopped at a port on the way (the voyage resumes if it's under two months). */
+  stay?: ShipStay | null;
+  /** SHIPS (r21): her log, newest last. */
+  log?: { day: number; text: string }[];
+  /** SHIPS (r21): her name on the waterfront, 0 to 100 (50: nobody knows her yet). */
+  rep?: number;
+  /** SHIPS (r21): refits done to her (copper, sails, guns, cabins). */
+  refits?: RefitKey[];
+  /** SHIPS (r21): lying where there's no port: at anchor offshore, or beached. */
+  moor?: "anchor" | "beach";
+  /** SHIPS (r21): voyages and charters made, all told. */
+  voyages?: number;
 }
 
 // ---- SOCIETY (r11)
@@ -5071,4 +5100,185 @@ export interface LifeR21Command {
   act: "post" | "bawdy";
   id?: number;
   post?: PostKey | "";
+}
+
+// ---- SHIPS (r21)
+// Ships worth owning. Her company taken on by name, each with a role and pay,
+// promoted or demoted whenever her owner likes (Hiring.ts: WORK reuses it for
+// businesses); charters at the quay (freight, passengers, the coastal packet,
+// the fishing grounds, a whaling season, a smuggling run, a venture of your
+// own cargo); her refits, her log and her name on the waterfront; no cap on
+// how many you own; ships that keep at their work, and sail, without you;
+// anchoring or beaching where there's no port; travelling parties; and a
+// captain's stay at a port on the way.
+
+/** Someone taken on by name, with a role and pay: a computer character, or a player. */
+export interface Hire {
+  id: number;
+  c: number;
+  /** A player's seat (they serve as their job), or absent for the computer's people. */
+  seat?: string;
+  /** Their role on the outfit's ladder ("hand", "mate", "captain"). */
+  role: string;
+  /** Coins a month. */
+  pay: number;
+  since: number;
+  /** In this role since (taken on, promoted or demoted). */
+  roleSince: number;
+  /** 0 to 100: low, and they leave. */
+  loyalty: number;
+  /** Months unpaid. */
+  owed?: number;
+}
+
+/** A place offered to a player, waiting on their answer. */
+export interface HireOffer {
+  id: number;
+  c: number;
+  seat: string;
+  role: string;
+  pay: number;
+  day: number;
+  until: number;
+}
+
+/** The people an outfit has taken on by name (a ship's company; a business's staff). */
+export interface Roster {
+  hires: Hire[];
+  offers?: HireOffer[];
+}
+
+/** Where a player's place is: the outfit's kind ("ship"), its owner's seat, and its id. */
+export interface Berth {
+  kind: string;
+  seat: string;
+  id: number;
+  /** The player's own copy of what their place is ("Mate of the Swallow") and pays a month. */
+  title: string;
+  pay: number;
+}
+
+/** What a charter at the quay is. */
+export type CharterKind =
+  | "freight"
+  | "passengers"
+  | "packet"
+  | "fishing"
+  | "whaling"
+  | "smuggling"
+  | "venture";
+
+/** A charter offered at a quay (the same for everyone that month), or a venture of your own. */
+export interface Charter {
+  /** "port:month:slot" for one at the quay; "own:<good>:<to>" for a venture. */
+  key: string;
+  kind: CharterKind;
+  from: number;
+  /** Where it goes (the far port, the grounds). */
+  to: number;
+  /** Her lading: a good and its loads, or passengers. */
+  good?: string;
+  loads?: number;
+  heads?: number;
+  /** Coins on delivery; a month for the packet and the seasons (an expected month's catch). */
+  pay: number;
+  /** Days allowed to deliver. */
+  days: number;
+  /** Months a packet or a season runs. */
+  months?: number;
+  /** Who's shipping. */
+  by: string;
+}
+
+/** A charter she's on. */
+export interface ShipJob {
+  c: Charter;
+  taken: number;
+  /** Deliver by this day (a quarter's docked after); a season or a packet ends on it. */
+  due: number;
+  /** "out" making for the far end; "there" at work (a season, the packet's runs); "home" back to her port. */
+  phase: "out" | "there" | "home";
+  /** Her home port (where a season or a packet comes back to). */
+  home: number;
+  /** What it's brought so far, and (a venture) what it cost. */
+  earned: number;
+  cost?: number;
+  /** The packet's runs and the season's months, so far. */
+  runs: number;
+  /** The packet: the day she came in at one end (she sails again after her turn in port). */
+  inAt?: number;
+}
+
+/** A ship under way with her own master. */
+export interface ShipWay {
+  prov: number;
+  path: number[];
+  sea: boolean[];
+  depart: number;
+  arrive: number;
+  dest: number;
+  /** Her luck, rolled on her own dice when she sailed: lost on this hop (its index), days lost to weather, damage. */
+  lost?: number;
+  late?: number;
+  dmg?: number;
+  /** Hops made so far; km of the whole passage. */
+  hop: number;
+  km: number;
+  /** Who sails her: her owner aboard, commanding (else her own master). */
+  owner?: boolean;
+}
+
+/** A stop at a port on the way: where she was going, where she is, since when. */
+export interface ShipStay {
+  dest: number;
+  at: number;
+  /** The day she came in there (-1: she's still making for it). */
+  since: number;
+  /** Her owner was sailing her himself (no charter): resuming sails her on with him. */
+  own?: boolean;
+}
+
+/** A refit to a ship. */
+export type RefitKey = "copper" | "sails" | "guns" | "cabins";
+
+/** Travelling with another player. */
+export interface Party {
+  lead: string;
+  since: number;
+}
+
+/** Landed on a shore with no port: the ship lies off it until a day. */
+export interface Lying {
+  ship: string;
+  kind: BoatKind;
+  p: number;
+  until: number;
+}
+
+/** SHIPS (r21): a ship's company, charters, refits and stays (Ships.ts). */
+export interface ShipCommand {
+  k: "ship";
+  /** hire, offer, role, pay, dismiss, charter, venture, send, recall, refit, careen, stay, resume, unoffer. */
+  act: string;
+  /** The boat. */
+  id?: number;
+  /** A hire on her roster, or an offer. */
+  hire?: number;
+  /** A character (to take on). */
+  c?: number;
+  role?: string;
+  pay?: number;
+  /** A charter's key, a refit's, a good. */
+  key?: string;
+  to?: number;
+  arg?: number;
+}
+
+/** SHIPS (r21): travelling parties (Parties.ts). */
+export interface PartyCommand {
+  k: "party";
+  /** ask, invite, leave, part, alight. */
+  act: string;
+  /** The other player. */
+  seat?: string;
 }

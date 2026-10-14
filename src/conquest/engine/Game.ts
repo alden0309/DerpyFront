@@ -54,6 +54,7 @@ import { fitStateToMap } from "./MapFix";
 import { marketsMonthly } from "./Markets";
 import { missionCommand, missionsDaily, outpostsDaily } from "./Missions";
 import { movementsMonthly } from "./Movements";
+import "./Parties"; // SHIPS (r21): ships' companies, charters, stays (Ships.ts); travelling parties
 import { partnersDaily, partnersMonthly } from "./Partners"; // PARTNERS (r13)
 import { takePartnersDelta } from "./PartnersCore"; // PARTNERS (r13)
 import { makePolities, politicsMonthly } from "./Politics";

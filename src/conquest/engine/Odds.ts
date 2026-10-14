@@ -9,7 +9,6 @@ import {
   BOAT_WEAR,
   BOAT_WORK,
   boatKnack,
-  boatMaster,
   BOATS,
   boatWinter,
   CREW_BOUNTY,
@@ -28,6 +27,7 @@ import {
 } from "./Followers";
 import { meOf, skillLevel } from "./LifeQueries";
 import type { World } from "./Map";
+import { gunsOf, hiresAboard, hireWithHer, shipFx } from "./Ships"; // SHIPS (r21)
 import type { Boat, BoatUse, Follower, GameState, Life } from "./Types";
 
 /** One way it can go. */
@@ -139,38 +139,41 @@ export function boatJobOdds(
   const map = w.map;
   const prov = map.provinces[b.prov];
   const crew = o.crew ?? b.crew;
-  const m = boatMaster(s, life, b);
-  // Her skipper's wages are part of what she costs a month.
+  // SHIPS (r21): who commands her and what her people do for her (Ships.ts).
+  const fx = shipFx(s, life, b);
+  const m = fx.master;
+  const mine = o.skill === undefined;
+  const named = hiresAboard(b).filter((h) => hireWithHer(s, life, b, h)).length;
+  // Her skipper's wages, and her company's by name, are part of what she costs a month.
   const skipper = peopleOf(life).find(
     (f) => f.task?.kind === "boat" && f.task.boat === b.id,
   );
+  const company = hiresAboard(b).reduce((v, h) => v + h.pay, 0);
   const costMonth = r1(
-    def.upkeep +
-      crew * CREW_WAGE +
-      (o.skill === undefined ? (skipper?.wage ?? 0) : 0),
+    def.upkeep + crew * CREW_WAGE + (mine ? (skipper?.wage ?? 0) + company : 0),
   );
   const hire = Math.max(0, crew - b.crew) * CREW_BOUNTY;
-  const skill = o.skill ?? m?.skill ?? skillLevel(s, life, "seamanship");
-  const knack = boatKnack(skill);
+  const skill = o.skill ?? m.skill ?? skillLevel(s, life, "seamanship");
+  const knack = mine ? fx.knack : boatKnack(skill);
   const day = o.day ?? nextTurn(s.day);
   const winter = boatWinter(map, b.prov, day);
-  const wear =
-    (use === "idle" ? BOAT_WEAR.idle : BOAT_WEAR.work) +
-    (b.quirk === "leaks a little" ? BOAT_WEAR.leak : 0);
+  const wear = r1(
+    (use === "idle" ? BOAT_WEAR.idle : BOAT_WEAR.work) * (mine ? fx.wear : 1) +
+      (b.quirk === "leaks a little" ? BOAT_WEAR.leak : 0),
+  );
   const repairs = r1((wear * def.price) / 250);
-  const who =
-    o.skill !== undefined
-      ? `her master's seamanship ${skill}`
-      : m?.you
-        ? `your seamanship ${skill} (you command her)`
-        : m
-          ? `her skipper's seamanship ${skill}`
-          : `your seamanship ${skill}`;
+  const who = mine
+    ? `${m.who}, seamanship ${skill}`
+    : `her master's seamanship ${skill}`;
   const factors = [
     `Her master: ${who}, ×${r2(knack)} on what she brings in (×0.7 with none, ×1.5 at 20).`,
-    ...(skipper && o.skill === undefined
+    ...(skipper && mine
       ? [`Her skipper's wages, ${skipper.wage} a month, are in what she costs.`]
       : []),
+    ...(mine && company
+      ? [`Her company by name: ${r1(company)} a month, in what she costs.`]
+      : []),
+    ...(mine ? fx.lines.slice(1) : []),
   ];
   const risks: OddsView["risks"] = [
     {
@@ -197,13 +200,15 @@ export function boatJobOdds(
     view.why = `A ${def.name.toLowerCase()} can't be used for that.`;
     return view;
   }
-  if (crew < def.crew) {
+  if (crew + (mine ? named : 0) < def.crew) {
     view.ok = false;
-    view.why = `She needs ${def.crew} hands to sail (she has ${crew}).`;
-  } else if (use !== "idle" && !m && o.skill === undefined) {
+    view.why = `She needs ${def.crew} hands to sail (she has ${crew + (mine ? named : 0)}).`;
+  } else if (mine && use !== "idle" && (b.charter || b.way || b.stay)) {
+    // SHIPS (r21): on a charter (or at sea, or lying over) her standing work waits.
     view.ok = false;
-    view.why =
-      "She only works with you aboard in port, or a mate of yours as her skipper.";
+    view.why = b.charter
+      ? "She's on a charter: her standing work waits till it's done."
+      : "She's away on a voyage: her standing work waits till she's back.";
   }
   const done = (exp: number, lo: number, hi: number) => {
     view.expected = r1(exp);
@@ -264,7 +269,7 @@ export function boatJobOdds(
         ]),
       ];
       risks.push({
-        label: `A boat stove in by a whale: −${W.stove.damage} to her soundness, and a man lost`,
+        label: `A boat stove in by a whale: −${W.stove.damage} to her soundness${Math.round(W.stove.men * (mine ? fx.men : 1)) ? ", and a man lost" : " (her surgeon saves the man)"}`,
         p: W.stove.p,
       });
       factors.push(
@@ -281,26 +286,31 @@ export function boatJobOdds(
       const T = BOAT_WORK.trading;
       const a = def.loads * T.perLoad * knack;
       view.outcomes = [
-        ...thirds(a, T.spread, 1 - T.lost, [
+        ...thirds(a, T.spread, 1 - T.lost * (mine ? fx.loss : 1), [
           "a poor run",
           "a fair run",
           "a good run",
         ]),
         {
           label: "lost with her cargo",
-          p: T.lost,
+          p: T.lost * (mine ? fx.loss : 1), // SHIPS (r21): her navigator
           lo: 0,
           hi: 0,
           note: "she's gone",
           bad: true,
         },
       ];
-      risks.push({ label: "Lost at sea with her cargo", p: T.lost });
+      risks.push({
+        label: "Lost at sea with her cargo",
+        p: T.lost * (mine ? fx.loss : 1),
+      });
       factors.push(
         `Her hold: ${def.loads} loads (the bigger the hold, the more she carries).`,
       );
       return done(
-        (1 - T.lost) * a * (T.spread[0] + T.spread[1] / 2),
+        (1 - T.lost * (mine ? fx.loss : 1)) *
+          a *
+          (T.spread[0] + T.spread[1] / 2),
         0,
         a * (T.spread[0] + T.spread[1]),
       );
@@ -345,7 +355,8 @@ export function boatJobOdds(
       const me = meOf(s, life);
       const war =
         !!me && s.wars.some((x) => x.a === me.nation || x.b === me.nation);
-      const a = def.guns * P.perGun * knack;
+      const guns = gunsOf(b); // SHIPS (r21): more guns refitted
+      const a = guns * P.perGun * knack;
       const kept = 1 - P.taken;
       view.outcomes = [
         {
@@ -384,7 +395,7 @@ export function boatJobOdds(
         war
           ? "War: your nation is at war, so her prizes are lawful (and +1 renown each)."
           : "War: there's no war on, so it's piracy (the law's heat, no renown).",
-        `Her guns: ${def.guns} (a prize is worth ${P.perGun} a gun at the start).`,
+        `Her guns: ${guns} (a prize is worth ${P.perGun} a gun at the start).`,
       );
       return done(
         P.prize * kept * a * (P.spread[0] + P.spread[1] / 2),

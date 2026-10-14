@@ -279,7 +279,11 @@ export function hasPlace(
 
 export function rankOf(life: Life): RankDef | null {
   if (!life.job) return null;
-  return JOBS[life.job.kind].ranks[life.job.rank] ?? null;
+  const r = JOBS[life.job.kind].ranks[life.job.rank] ?? null;
+  // SHIPS (r21): a place in a player's ship's company: its title, and the pay her owner set.
+  const berth = life.job.berth;
+  if (r && berth) return { ...r, title: berth.title, wage: berth.pay };
+  return r;
 }
 
 export function jobTitle(life: Life): string {
@@ -506,6 +510,8 @@ export function wageOf(
 ): number {
   const r = rankOf(life);
   if (!r || !life.job) return 0;
+  // SHIPS (r21): a place in a player's company is paid by her owner (Hiring.ts), not here.
+  if (actual && life.job.berth) return 0;
   if (!actual && worked === undefined) return atPost(s, w, life) ? r.wage : 0;
   // LIFE (r11): overtime earns up to 1.4 of a month's wage.
   const cap = life.work?.effort === "overtime" ? 1.4 : 1;
@@ -1146,6 +1152,12 @@ export function travelRoute(
   pace = 1,
   /** SEA (r15): the post's way, at its old pace (Letters.ts); passages are quicker. */
   post = false,
+  /**
+   * SHIPS (r21): a shore with no port where this traveller can still take
+   * ship (a coaster hailed, the ship that landed them lying off), and the
+   * days it takes.
+   */
+  embark?: { p: number; wait: number },
 ): Route | null {
   if (from === to) return null;
   const count = map.provinces.length;
@@ -1177,9 +1189,10 @@ export function travelRoute(
       }
     }
     // MAP (r12): no ships out of (or into) a harbour the ice has shut.
+    const hail = !!embark && u === embark.p && !canEmbark(s, map, u, native); // SHIPS (r21)
     if (
       sea &&
-      canEmbark(s, map, u, native) &&
+      (canEmbark(s, map, u, native) || hail) &&
       !iceBound(map.provinces[u], month)
     ) {
       const reach = native ? 400 : SEA_PASSAGE_KM;
@@ -1189,6 +1202,7 @@ export function travelRoute(
         // SEA (r15): two days to find a ship, a day at each port of call after.
         const d =
           best +
+          (hail ? embark!.wait : 0) + // SHIPS (r21): waiting on a coaster
           (post
             ? seaHopDays(km) + (native ? 1 : 0)
             : native
@@ -1215,18 +1229,23 @@ export function travelRoute(
   let cost = 0;
   let at = from;
   path.forEach((q, i) => {
-    const d = hopDaysFor(
-      map,
-      at,
-      q,
-      seaHops[i],
-      pace,
-      s.day, // MAP (r12)
-      i > 0 && seaHops[i - 1], // SEA (r15): a port of call
-      native && seaHops[i],
-      !seaHops[i + 1], // SEA (r15): the voyage ends here
-      post,
-    );
+    const d =
+      hopDaysFor(
+        map,
+        at,
+        q,
+        seaHops[i],
+        pace,
+        s.day, // MAP (r12)
+        i > 0 && seaHops[i - 1], // SEA (r15): a port of call
+        native && seaHops[i],
+        !seaHops[i + 1], // SEA (r15): the voyage ends here
+        post,
+      ) +
+      // SHIPS (r21): waiting on a coaster where there's no port.
+      (seaHops[i] && embark && at === embark.p && !canEmbark(s, map, at, native)
+        ? embark.wait
+        : 0);
     legs.push(d);
     if (seaHops[i]) {
       if (!sailor && !native) {

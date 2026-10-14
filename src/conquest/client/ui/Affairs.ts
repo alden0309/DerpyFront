@@ -127,6 +127,7 @@ import { leaveBlock, leaveCounts } from "./LeaveUi"; // ECON (r17)
 import { forecastBlock } from "./Ledger"; // LEDGER (r15)
 import { tradesLink, workNotes } from "./Livelihood";
 import { price } from "./Price"; // LEDGER (r15)
+import { berthLine } from "./ShipsUi"; // SHIPS (r21)
 import { term } from "./Terms";
 
 // ---------------------------------------------------------------- work
@@ -217,14 +218,15 @@ export function workSection(ui: GameUi): TemplateResult {
                 : "At your post."}
         </p>
         ${leaveBlock(ui) /* ECON (r17): leave from your place */}
+        ${berthLine(ui) /* SHIPS (r21): a place in a player's ship's company */}
         ${servant
           ? html`<p class="cq-muted small">
               Bound by indenture until ${formatDate(job.until!)}: no wages but
               keep, and freedom dues at the end.
             </p>`
           : nothing}
-        <ol class="cq-ladder" aria-label="The ladder">
-          ${def.ranks.map(
+        <ol class="cq-ladder" aria-label="The ladder" ?hidden=${!!job.berth}>
+          ${(job.berth ? [] : def.ranks).map(
             (r, i) =>
               html`<li
                 class="${i < job.rank ? "past" : ""} ${i === job.rank
@@ -240,7 +242,7 @@ export function workSection(ui: GameUi): TemplateResult {
               </li>`,
           )}
         </ol>
-        ${v.next
+        ${v.next && !job.berth
           ? html`<div class="cq-next">
               <p>
                 Next: <b>${v.next.title}</b>.
@@ -266,7 +268,9 @@ export function workSection(ui: GameUi): TemplateResult {
                 )}
               </ul>
             </div>`
-          : html`<p class="cq-muted small">The top of this ladder.</p>`}
+          : job.berth
+            ? nothing /* SHIPS (r21): her owner promotes you */
+            : html`<p class="cq-muted small">The top of this ladder.</p>`}
         <div class="cq-btnrow">
           ${job.prov === life.prov
             ? html`<button
@@ -294,7 +298,8 @@ export function workSection(ui: GameUi): TemplateResult {
                 }
               : { ok: true },
             () => {
-              if (boss?.alive && !job.own)
+              // SHIPS (r21): a place in a player's ship's company is left without asking.
+              if (boss?.alive && !job.own && !job.berth)
                 ui.modal({ k: "interact", c: boss.id, act: "quit" });
               else if (
                 confirm(`Leave your place as ${jobTitle(life).toLowerCase()}?`)

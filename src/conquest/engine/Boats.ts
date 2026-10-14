@@ -10,7 +10,7 @@
 
 import { addHeat } from "./Crime";
 import { lawAt } from "./CrimeQueries";
-import { followerSkill, peopleOf } from "./Followers";
+import { peopleOf } from "./Followers";
 import type { ConquestGame } from "./Game";
 import { setFlow, type FlowTag } from "./LedgerCore"; // LEDGER (r15)
 import {
@@ -32,7 +32,6 @@ import {
   meOf,
   no,
   purseWords,
-  skillLevel,
   yes,
 } from "./LifeQueries";
 import { skillWeight } from "./LifeRules"; // LIFE (r21)
@@ -41,6 +40,18 @@ import { wake } from "./Pace";
 import { charName } from "./Queries";
 import { Rng } from "./Rng";
 import { ownBoatHopDays } from "./SeaSpeed"; // SEA (r15)
+// SHIPS (r21): her company by name, who commands her, her own dice, beaching.
+import {
+  boardCrew,
+  disbandShip,
+  gunsOf,
+  menWithHer,
+  namedHands,
+  passageOf,
+  shipDice,
+  shipFx,
+  speedOf,
+} from "./Ships";
 import type {
   Boat,
   BoatKind,
@@ -205,7 +216,7 @@ export function boatsOf(life: Life): Boat[] {
 
 export function boatAt(life: Life, p: number): Boat[] {
   return boatsOf(life).filter(
-    (b) => b.prov === p && !b.away && life.travel?.boat !== b.id,
+    (b) => b.prov === p && !b.away && life.travel?.boat !== b.id && !b.way, // SHIPS (r21): not at sea
   );
 }
 
@@ -329,8 +340,7 @@ export function buyCheck(
   if (life.travel) return no("You're on the road.");
   if (!boatyard(s, w, life.prov).includes(kind))
     return no("None to be had here.");
-  if (boatsOf(life).length >= 4)
-    return no("Four boats are as many as one family can see to.");
+  // SHIPS (r21): no cap on how many boats and ships you own.
   if (life.purse < price)
     return no(`Costs ${price} coins (${purseWords(life.purse)}).`);
   return yes;
@@ -400,6 +410,7 @@ function mine(life: Life, id: number | undefined): Boat | undefined {
 function alongside(life: Life, b: Boat): string | null {
   if (life.travel) return "You're on the road.";
   if (b.away) return "She's away with her skipper.";
+  if (b.way) return "She's at sea."; // SHIPS (r21)
   if (b.prov !== life.prov) return "She's not here: go to where she lies.";
   return null;
 }
@@ -417,7 +428,9 @@ export function setCrew(
   if (why) return why;
   const def = BOATS[b.kind];
   if (!def.crew) return "She needs no crew.";
-  const want = Math.max(0, Math.min(Math.ceil(def.crew * 1.5), Math.round(n)));
+  // SHIPS (r21): hands by name take the place of hands by the head.
+  const room = Math.max(0, Math.ceil(def.crew * 1.5) - namedHands(b));
+  const want = Math.max(0, Math.min(room, Math.round(n)));
   if (want > b.crew) {
     const cost = (want - b.crew) * CREW_BOUNTY;
     if (life.purse < cost)
@@ -486,6 +499,7 @@ export function sellBoat(
   const why = alongside(life, b);
   if (why) return why;
   const price = sellPrice(b);
+  disbandShip(g, life, b, "is sold"); // SHIPS (r21): her company paid off
   earn(g, life, price);
   touchLife(g, life);
   life.boats = boatsOf(life).filter((x) => x !== b);
@@ -568,10 +582,12 @@ export function boatHopDays(
   from: number,
   to: number,
   kind: BoatKind,
+  /** SHIPS (r21): her own speed (a navigator, new sails, copper), else her kind's. */
+  speed = BOATS[kind].speed,
 ): number {
   const lane = map.provinces[from].sea.find(([q]) => q === to);
   if (!lane) return -1;
-  return ownBoatHopDays(lane[1], BOATS[kind].speed); // SEA (r15): 160 km a day
+  return ownBoatHopDays(lane[1], speed); // SEA (r15): 160 km a day
 }
 
 export interface BoatRoute {
@@ -641,6 +657,12 @@ export function sailCheck(
   if (life.crime?.jail) return no("Not from a cell.");
   if (life.travel) return no("You're on the road already.");
   if (b.away) return no("She's away with her skipper.");
+  // SHIPS (r21): at sea under her own master, or on a charter.
+  if (b.way) return no("She's at sea.");
+  if (b.charter)
+    return no(
+      "She's on a charter: it's her work till it's done (or given up).",
+    );
   if (b.prov !== life.prov)
     return no(`She lies at ${map.provinces[b.prov].name}.`);
   if ((life.job?.army ?? -1) >= 0) return no("You march with your army.");
@@ -648,8 +670,10 @@ export function sailCheck(
     return no("You command an army.");
   if (life.job?.kind === "servant" && (life.job.until ?? 0) > s.day)
     return no("Servants don't come and go as they please.");
-  if (b.crew < BOATS[b.kind].crew)
-    return no(`She needs ${BOATS[b.kind].crew} hands (she has ${b.crew}).`);
+  // SHIPS (r21): her company by name who are with her count among her men.
+  const men = menWithHer(s, life, b);
+  if (men < BOATS[b.kind].crew)
+    return no(`She needs ${BOATS[b.kind].crew} hands (she has ${men}).`);
   if (b.condition < 25) return no("She's not fit for sea: repair her first.");
   if (!map.provinces[to]?.coastal)
     return no("She can only take you to the coast.");
@@ -672,7 +696,12 @@ export function sail(
   const b = mine(life, boatId);
   const check = sailCheck(s, g.map, life, b, to);
   if (!check.ok) return check.why;
-  const route = boatRoute(g.map, life.prov, to, b!.kind)!;
+  // SHIPS (r21): at her own speed, a day more to float her off a beach.
+  const route =
+    passageOf(s, g.map, life, b!, to) ??
+    boatRoute(g.map, life.prov, to, b!.kind)!;
+  b!.stay = null;
+  delete b!.moor;
   touchLife(g, life).travel = {
     dest: to,
     path: route.path,
@@ -687,6 +716,7 @@ export function sail(
     life,
     `You sail in the ${b!.name} for ${g.map.provinces[to].name}: about ${Math.ceil(route.days)} days, no fare to pay.`,
   );
+  boardCrew(g, life, b!); // SHIPS (r21): her company at the quay come with her
   return null;
 }
 
@@ -715,7 +745,10 @@ export function nextLegDays(
   const t = life.travel;
   const b = t?.boat !== undefined ? mine(life, t.boat) : undefined;
   if (!b) return -1;
-  return Math.max(1, boatHopDays(g.map, from, to, b.kind));
+  return Math.max(
+    1,
+    boatHopDays(g.map, from, to, b.kind, speedOf(g.s, life, b)), // SHIPS (r21)
+  );
 }
 
 /** Goods you can carry: on your back (20), your hands' backs, and your boat's hold where she lies. */
@@ -822,6 +855,7 @@ export function boatsMonthly(g: ConquestGame, life: Life): void {
           "bad",
         );
         wake(g, life, `The ${b.name}'s crew have deserted.`);
+        b.rep = Math.max(0, (b.rep ?? 50) - 5); // SHIPS (r21): word gets round the waterfront
         b.crew = 0;
         b.use = "idle";
         setSkipper(g, life, b.id, -1);
@@ -833,10 +867,14 @@ export function boatsMonthly(g: ConquestGame, life: Life): void {
           "bad",
         );
     }
+    // SHIPS (r21): a bosun and copper save her wear; at sea on a charter her
+    // passages wear her (Ships.ts), and her standing work waits.
+    const busy = !!b.charter || !!b.way || !!b.stay;
     b.condition = Math.max(
       0,
       b.condition -
-        (b.use === "idle" ? BOAT_WEAR.idle : BOAT_WEAR.work) -
+        (b.use === "idle" || busy ? BOAT_WEAR.idle : BOAT_WEAR.work) *
+          shipFx(g.s, life, b).wear -
         (b.quirk === "leaks a little" ? BOAT_WEAR.leak : 0),
     );
     if (b.condition <= 0) {
@@ -844,7 +882,7 @@ export function boatsMonthly(g: ConquestGame, life: Life): void {
       continue;
     }
     setFlow(g, boatFlow(b, true)); // LEDGER (r15): what her work brings
-    if (b.use !== "idle") work(g, life, b);
+    if (b.use !== "idle" && !busy) work(g, life, b);
   }
   setFlow(g, was);
 }
@@ -867,6 +905,7 @@ export function boatFlow(b: Boat, job: boolean): FlowTag {
 
 function lose(g: ConquestGame, life: Life, b: Boat, text: string): void {
   touchLife(g, life);
+  disbandShip(g, life, b, "is lost"); // SHIPS (r21): her company paid off
   life.boats = boatsOf(life).filter((x) => x !== b);
   for (const f of peopleOf(life))
     if (f.task?.kind === "boat" && f.task.boat === b.id) f.task = null;
@@ -876,34 +915,44 @@ function lose(g: ConquestGame, life: Life, b: Boat, text: string): void {
 }
 
 /**
- * Who's in command of her this month: her skipper, or you if you're aboard
- * in port. LEDGER (r15): exported, for the odds.
+ * Who's in command of her this month. LEDGER (r15): exported, for the odds.
+ * SHIPS (r21): her captain, you if you're with her, your mate as her skipper,
+ * her mate, or (with nobody of yours) her senior hand: she always works.
  */
 export function boatMaster(
   s: GameState,
   life: Life,
   b: Boat,
-): { skill: number; you: boolean; c?: number } | null {
-  const skipper = peopleOf(life).find(
-    (f) => f.task?.kind === "boat" && f.task.boat === b.id,
-  );
-  if (skipper)
-    return { skill: followerSkill(s, skipper), you: false, c: skipper.c };
-  if (!life.travel && life.prov === b.prov)
-    return { skill: skillLevel(s, life, "seamanship"), you: true };
-  return null;
+): { skill: number; you: boolean; c?: number; who: string; kind: string } {
+  const m = shipFx(s, life, b).master;
+  return {
+    skill: m.skill,
+    you: m.kind === "you",
+    c: m.c,
+    who: m.who,
+    kind: m.kind,
+  };
 }
+
+/** Exported for SHIPS (r21): a boat is gone (lost, seized, taken). */
+export const loseBoat = (g: ConquestGame, life: Life, b: Boat, text: string) =>
+  lose(g, life, b, text);
 
 function work(g: ConquestGame, life: Life, b: Boat): void {
   const s = g.s;
   const def = BOATS[b.kind];
-  const m = boatMaster(s, life, b);
-  if (!m) return;
-  if (b.crew < def.crew) return;
+  // SHIPS (r21): who commands her and what her people do for her. With you
+  // or your skipper aboard she works as she always did (the world's dice);
+  // without (her captain, her mate, her senior hand), on her own dice.
+  const fx = shipFx(s, life, b);
+  const m = fx.master;
+  if (menWithHer(s, life, b) < def.crew) return;
+  const rng =
+    m.kind === "you" || m.kind === "skipper" ? g.rng : shipDice(g, b.id, 3);
   const p = b.prov;
   const map = g.map.provinces[p];
   const winter = boatWinter(g.map, p, s.day);
-  const knack = boatKnack(m.skill);
+  const knack = fx.knack;
   const name = b.name;
   let got = 0;
   switch (b.use) {
@@ -916,8 +965,8 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
         fishy *
         knack *
         (winter ? F.winter : 1) *
-        (F.spread[0] + g.rng.next() * F.spread[1]);
-      if (g.rng.chance(F.squall.p)) {
+        (F.spread[0] + rng.next() * F.spread[1]);
+      if (rng.chance(F.squall.p)) {
         b.condition = Math.max(0, b.condition - F.squall.damage);
         journal(
           g,
@@ -937,11 +986,11 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
       }
       const base = W.base[b.kind];
       const luck =
-        g.rng.next() < W.empty ? 0 : W.luck[0] + g.rng.next() * W.luck[1];
+        rng.next() < W.empty ? 0 : W.luck[0] + rng.next() * W.luck[1];
       got = base * luck * knack;
-      if (g.rng.chance(W.stove.p)) {
+      if (rng.chance(W.stove.p)) {
         b.condition = Math.max(0, b.condition - W.stove.damage);
-        b.crew = Math.max(0, b.crew - W.stove.men);
+        b.crew = Math.max(0, b.crew - Math.round(W.stove.men * fx.men)); // SHIPS (r21): her surgeon
         journal(
           g,
           life,
@@ -957,8 +1006,8 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
         def.loads *
         T.perLoad *
         knack *
-        (T.spread[0] + g.rng.next() * T.spread[1]);
-      if (g.rng.chance(T.lost)) {
+        (T.spread[0] + rng.next() * T.spread[1]);
+      if (rng.chance(T.lost * fx.loss)) {
         lose(
           g,
           life,
@@ -975,10 +1024,10 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
         def.loads *
         S.perLoad *
         knack *
-        (S.spread[0] + g.rng.next() * S.spread[1]);
+        (S.spread[0] + rng.next() * S.spread[1]);
       const nation = lawAt(s, p);
       addHeat(g, life, nation, S.heat);
-      if (g.rng.chance(S.seized)) {
+      if (rng.chance(S.seized)) {
         lose(
           g,
           life,
@@ -997,11 +1046,11 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
         ? s.wars.filter((w) => w.a === me.nation || w.b === me.nation)
         : [];
       const pirate = !at.length;
-      if (g.rng.chance(P.prize)) {
+      if (rng.chance(P.prize)) {
         got =
-          def.guns *
+          gunsOf(b) * // SHIPS (r21): more guns refitted
           P.perGun *
-          (P.spread[0] + g.rng.next() * P.spread[1]) *
+          (P.spread[0] + rng.next() * P.spread[1]) *
           knack;
         journal(
           g,
@@ -1012,9 +1061,12 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
         addRenown(g, life, pirate ? 0 : 1);
       }
       if (pirate) addHeat(g, life, lawAt(s, p), P.pirateHeat);
-      if (g.rng.chance(P.fight.p)) {
+      if (rng.chance(P.fight.p)) {
         b.condition = Math.max(0, b.condition - P.fight.damage);
-        b.crew = Math.max(0, b.crew - Math.ceil(b.crew * P.fight.crew));
+        b.crew = Math.max(
+          0,
+          b.crew - Math.ceil(b.crew * P.fight.crew * fx.men),
+        ); // SHIPS (r21)
         journal(
           g,
           life,
@@ -1022,7 +1074,7 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
           "bad",
         );
       }
-      if (g.rng.chance(P.taken)) {
+      if (rng.chance(P.taken)) {
         lose(
           g,
           life,
@@ -1044,7 +1096,7 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
     );
   } else if (got > 0) earn(g, life, got);
   if (got > 0) b.morale = Math.min(100, b.morale + 4);
-  if (m.you) gainXp(g, life, "seamanship", 4);
+  if (m.kind === "you") gainXp(g, life, "seamanship", 4);
 }
 
 // ---------------------------------------------------------------- at sea in your own boat

@@ -254,6 +254,24 @@ export const hooks = {
     g: ConquestGame,
     m: import("./Types").Movement,
   ) => boolean | void)[],
+  // SHIPS (r21)
+  /** A life has just left its work (quit, dismissed, taken other work): after the job is gone. */
+  jobLeft: [] as ((
+    g: ConquestGame,
+    life: Life,
+    job: import("./Types").Job,
+  ) => void)[],
+  /**
+   * A life's journey has ended at `p` (Life.ts's hop): `sea` if the last leg
+   * was by sea, `boat` the id of their own boat if they sailed in her.
+   */
+  landed: [] as ((
+    g: ConquestGame,
+    life: Life,
+    p: number,
+    sea: boolean,
+    boat: number | undefined,
+  ) => void)[],
 };
 
 /**
