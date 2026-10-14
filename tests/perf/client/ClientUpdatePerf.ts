@@ -164,6 +164,7 @@ function createGlStub() {
     addPlayers: (players: unknown[]) => bump("addPlayers", players.length),
     updatePalette: noop("updatePalette"),
     setPlayerSkin: noop("setPlayerSkin"),
+    setPlayerDomeStyle: noop("setPlayerDomeStyle"), // DFSTORE (r21)
     setPlayerSpawn: noop("setPlayerSpawn"),
     setLocalPlayerID: noop("setLocalPlayerID"),
     setLocalRailColor: noop("setLocalRailColor"),

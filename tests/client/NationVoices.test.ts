@@ -1,4 +1,8 @@
 import { GameMapType } from "@openfront/engine-api/game/Maps.gen";
+import {
+  AI_PERSONALITY_PACKS,
+  personaFlag,
+} from "@openfront/engine-lib/game/AiPersonalities";
 import { censorChatText } from "@openfront/shared/Profanity";
 import fs from "fs";
 import path from "path";
@@ -284,5 +288,32 @@ describe("what the nations say", () => {
     expect(mentionKind("thanks Japan")).toBe("mentionThanks");
     expect(mentionKind("sorry Brazil, my bad")).toBe("mentionSorry");
     expect(mentionKind("Brazil what are you doing")).toBe("mention");
+  });
+});
+
+// DFSTORE (r21): AI personas speak with their pack's voice.
+describe("AI personas", () => {
+  test("a persona speaks with its pack's voice, on any map", () => {
+    for (const pack of AI_PERSONALITY_PACKS) {
+      for (const p of pack.personas) {
+        const v = voiceFor(p.name, personaFlag(p), GameMapType.World);
+        expect(v).toBe(`persona_${pack.id.replace(/^ai_/, "")}`);
+        expect(VOICES[v]).toBeDefined();
+      }
+    }
+  });
+
+  test("every persona voice has lines for the big moments", () => {
+    for (const pack of AI_PERSONALITY_PACKS) {
+      const kit = VOICES[`persona_${pack.id.replace(/^ai_/, "")}`];
+      for (const event of [
+        "greeting",
+        "idle",
+        "attacked",
+        "victory",
+      ] as const) {
+        expect(kit.lines?.[event]?.length ?? 0).toBeGreaterThan(0);
+      }
+    }
   });
 });
