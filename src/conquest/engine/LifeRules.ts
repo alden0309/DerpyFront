@@ -2139,6 +2139,7 @@ export const LIFE_COINS = {
 } as const;
 
 // LEGACY (r21): Derp Coins as you play.
+// CQACH (r22): 200 an hour (it was 150), and this game's achievements.
 /**
  * Pay for time at the table, and the line's coins as they're reached, so a
  * game nobody finishes still pays. Both are measured in real time, never in
@@ -2146,8 +2147,12 @@ export const LIFE_COINS = {
  * keeps the clock: ConquestRooms and ConquestPay).
  */
 export const PLAY_PAY = {
-  /** Coins for each minute at the table (150 an hour). */
-  perMinute: 2.5,
+  /**
+   * CQACH (r22): coins for each hour at the table, paid by the second (it
+   * was 150 an hour, 2.5 a minute; seconds counted before the change keep
+   * what they were paid).
+   */
+  perHour: 200,
   /**
    * A minute counts while you're playing: you've made a choice of your own
    * (anything you do, a letter answered) in the last this many minutes.
@@ -2159,4 +2164,12 @@ export const PLAY_PAY = {
   linesPerHour: 60,
   /** Time at the table pays for at most this many hours an account a day (UTC), all games together. */
   dailyHours: 6,
+  /**
+   * CQACH (r22): an achievement earned in a game pays this many times its
+   * account coins in that game, on any difficulty. It's paid with the line's
+   * coins, so it's held to linesPerHour for each hour at the table in that
+   * game: starting game after game pays no more than playing on.
+   */
+  achievementTimes: 3,
 } as const;
+// CQACH (r22): /pay

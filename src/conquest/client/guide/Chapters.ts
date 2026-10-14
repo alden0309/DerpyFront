@@ -105,6 +105,7 @@ import {
   ACHIEVEMENT_GROUPS,
   ACHIEVEMENTS,
 } from "../../engine/Achievements";
+import { perMinuteWords } from "../../engine/Coins"; // CQACH (r22)
 import { HARVEST_BONUS } from "../../engine/Seasons";
 import type { FirmDecisionKey, JobKind, Nation } from "../../engine/Types";
 // EDU (r13): schools, apprenticeships, colleges and the peoples' own ways.
@@ -2295,7 +2296,7 @@ Reaching ${END_YEAR} with a character still living is worth coins of its own.`,
     body: `Derpy Conquest pays **Derp Coins as you play**, about what DerpyFront pays for an hour, if you're signed in to Derp Land (a guest is told, but not paid). **Journal › Achievements** shows what this game has paid you, and what's waiting.
 
 ## Time at the table
-**${PLAY_PAY.perMinute} coins for every minute at the table** (${PLAY_PAY.perMinute * 60} an hour), paid about once a minute while the world goes on. They're real minutes, counted by the server:
+**${PLAY_PAY.perHour} coins for every hour at the table** (paid by the second, about ${perMinuteWords()} a minute), paid about once a minute while the world goes on. They're real minutes, counted by the server:
 - a minute counts when you've made a choice of your own in the last ${PLAY_PAY.idleMinutes} minutes: anything you do, a letter answered. Step away, and it stops counting;
 - with the clock stopped, the first ${PLAY_PAY.pausedMinutes} minutes of each stop count (reading the ledger, making plans); the rest don't, and nothing is paid until the world moves on again;
 - the speed makes no difference: a year at 8×, or skipped through in eighteen seconds, is paid by the minute like any other;

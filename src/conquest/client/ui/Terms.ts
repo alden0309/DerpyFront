@@ -8,7 +8,9 @@
 import { html, TemplateResult } from "lit";
 import { STRESS_TIERS } from "../../engine/Body"; // LIFE (r21)
 import { TURNCOAT } from "../../engine/Campaign1776Core"; // DLC (r21)
+import { perMinuteWords } from "../../engine/Coins"; // CQACH (r22)
 import { LEGEND_RULES } from "../../engine/LegendsData"; // DLC (r21)
+import { PLAY_PAY } from "../../engine/LifeRules"; // CQACH (r22)
 import { num, type TipContent } from "../Tip";
 
 /** LIFE (r21): "×1.1 from 20, ×1.25 from 40, …", from the table the engine applies. */
@@ -242,8 +244,9 @@ export const TERMS: Record<string, Term> = {
   // LEGACY (r21): server/conquest/ConquestPay.ts, Coins.ts (PLAY_PAY), ConquestRooms.ts (PAUSE_LOCK_MS)
   tabletime: {
     name: "Time at the table",
-    what: "Real minutes you spend playing a game, counted by the server: each pays 2.5 Derp Coins (150 an hour), about once a minute while the world goes on.",
-    good: "Most of what a game pays you. It also lets your line's marks be paid as they're reached: 60 coins of them for every hour you've played this game.",
+    // CQACH (r22): 200 an hour (it was 150); this game's achievements ride with the line's marks.
+    what: `Real minutes you spend playing a game, counted by the server: ${PLAY_PAY.perHour} Derp Coins an hour (about ${perMinuteWords()} a minute), paid about once a minute while the world goes on.`,
+    good: `Most of what a game pays you. It also lets your line's marks and this game's achievements be paid as they're reached: ${PLAY_PAY.linesPerHour} coins of them for every hour you've played this game.`,
     raise:
       "Play: a minute counts when you've made a choice of your own in the last 5 minutes (anything you do, a letter answered). With the clock stopped, only the first 10 minutes of each stop count; the speed (or skipping ahead) makes no difference; at most 6 hours a day are paid.",
     ch: "coins",

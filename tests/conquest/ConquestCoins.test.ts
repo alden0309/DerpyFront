@@ -15,6 +15,8 @@ import {
   lifeCoins,
   lineCap,
   linesDue,
+  perMinuteWords,
+  playCoinsAfter,
   timeCoins,
 } from "../../src/conquest/engine/Coins";
 import { LIFE_COINS, PLAY_PAY } from "../../src/conquest/engine/LifeRules";
@@ -130,11 +132,33 @@ describe("Derp Coins for a Conquest life (SITE r19, LEGACY r21)", () => {
 
 // LEGACY (r21): pay as you play, counted in real time.
 describe("Derp Coins as you play (LEGACY r21)", () => {
-  test("time at the table: 2.5 coins a minute, 150 an hour; never negative", () => {
-    expect(PLAY_PAY.perMinute).toBe(2.5);
-    expect(timeCoins(60)).toBe(2.5);
-    expect(timeCoins(3600)).toBe(150);
+  // CQACH (r22): 200 an hour (it was 150, 2.5 a minute).
+  test("time at the table: 200 coins an hour, about 3⅓ a minute; never negative", () => {
+    expect(PLAY_PAY.perHour).toBe(200);
+    expect(timeCoins(3600)).toBe(200);
+    expect(timeCoins(60)).toBeCloseTo(10 / 3, 10);
     expect(timeCoins(-30)).toBe(0);
+    expect(perMinuteWords()).toBe("3⅓");
+    expect(perMinuteWords(150)).toBe("2½");
+    expect(perMinuteWords(240)).toBe("4");
+  });
+
+  test("paid by the second in whole coins: in pieces as all at once; a game begun at the old rate keeps what it had", () => {
+    expect(playCoinsAfter(0, 0, 3600)).toBe(200);
+    expect(playCoinsAfter(0, 0, 1800)).toBe(100);
+    expect(playCoinsAfter(0, 0, 17)).toBe(0);
+    let paid = 0;
+    let secs = 0;
+    for (const more of [17, 61, 300, 7, 1215, 1, 0, 59]) {
+      paid = playCoinsAfter(paid, secs, secs + more);
+      secs += more;
+    }
+    expect(paid).toBe(Math.floor((secs * 200) / 3600));
+    // An hour at the old rate (150 paid), then an hour more: 200 for it,
+    // and nothing again for the first.
+    expect(playCoinsAfter(150, 3600, 7200)).toBe(350);
+    // Nothing more counted: nothing more paid.
+    expect(playCoinsAfter(150, 3600, 3600)).toBe(150);
   });
 
   test("the line's coins are held to 60 for each hour at the table", () => {

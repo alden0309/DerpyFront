@@ -14,7 +14,7 @@ import {
   type AchievementGroup,
 } from "../../engine/Achievements";
 import { formatDate } from "../../engine/Calendar";
-import { lifeCoins, lineCap } from "../../engine/Coins"; // LEGACY (r21)
+import { lifeCoins, lineCap, perMinuteWords } from "../../engine/Coins"; // LEGACY (r21); CQACH (r22)
 import { LIFE_COINS, PLAY_PAY } from "../../engine/LifeRules"; // LEGACY (r21)
 import type { PayNote } from "../../Protocol"; // LEGACY (r21)
 import type { GameUi } from "./Context";
@@ -42,16 +42,15 @@ export function grewWords(grew: string[]): string {
 function coinsPanel(ui: GameUi): TemplateResult {
   const life = ui.life;
   const p = payStore.last;
-  const rate = `${PLAY_PAY.perMinute} coins a minute`;
   const rules = html`<ul class="cq-coin-rules">
     <li>
-      <b>Time at the table:</b> ${rate} (${PLAY_PAY.perMinute * 60} an hour),
-      paid about once a minute while the world goes on. A minute counts when
-      you've made a choice of your own in the last ${PLAY_PAY.idleMinutes}
-      minutes (anything you do, a letter answered). With the clock stopped, the
-      first ${PLAY_PAY.pausedMinutes} minutes of each stop count; skipping ahead
-      counts by the minute like any other. At most ${PLAY_PAY.dailyHours} hours
-      a day are paid, all games together.
+      <b>Time at the table:</b> ${PLAY_PAY.perHour} coins an hour (about
+      ${perMinuteWords()} a minute), paid about once a minute while the world
+      goes on. A minute counts when you've made a choice of your own in the last
+      ${PLAY_PAY.idleMinutes} minutes (anything you do, a letter answered). With
+      the clock stopped, the first ${PLAY_PAY.pausedMinutes} minutes of each
+      stop count; skipping ahead counts by the minute like any other. At most
+      ${PLAY_PAY.dailyHours} hours a day are paid, all games together.
     </li>
     <li>
       <b>Your line's marks:</b> the coins below are paid as your line reaches

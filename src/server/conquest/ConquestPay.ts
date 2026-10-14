@@ -1,7 +1,8 @@
 // LEGACY (r21): Derp Coins as you play Derpy Conquest.
 //
-// Time at the table pays PLAY_PAY.perMinute, and the line's coins (Coins.ts)
-// are paid as each is reached, up to PLAY_PAY.linesPerHour for every hour at
+// Time at the table pays PLAY_PAY.perHour (CQACH r22: 200, it was 150), and
+// the line's coins (Coins.ts: with this game's achievements, CQACH r22) are
+// paid as each is reached, up to PLAY_PAY.linesPerHour for every hour at
 // the table, so a game nobody finishes still pays. Both run on the server's
 // real clock, never the game's, which is what keeps them from being farmed:
 // - pausing: only the first PLAY_PAY.pausedMinutes of each stop count, and
@@ -22,7 +23,6 @@ import {
   countsAtTable,
   lifeCoins,
   linesDue,
-  timeCoins,
 } from "../../conquest/engine/Coins";
 import { lifeOfSeat } from "../../conquest/engine/LifeQueries";
 import type { GameState } from "../../conquest/engine/Types";
@@ -195,12 +195,10 @@ export class TablePay {
     const lineTotal = life ? lifeCoins(life, false).total : 0;
     const day = g.state.day;
     // Nothing to pay (the database works it out to the coin, and holds the
-    // day's ceiling): no time owed, and no line coins waiting.
-    if (
-      owed < 1 &&
-      Math.floor(timeCoins(secs)) <= p.play &&
-      (!life || linesDue(life, secs, p.lines).due === 0)
-    ) {
+    // day's ceiling): no time owed, and no line coins waiting. CQACH (r22):
+    // a second's worth owed or more always goes to the database, since a
+    // game begun at the old rate was paid less than its time is worth now.
+    if (owed < 1 && (!life || linesDue(life, secs, p.lines).due === 0)) {
       p.at = t;
       p.day = day;
       return Promise.resolve();

@@ -235,7 +235,7 @@ describe.skipIf(!TEST_DB)(
           ).rows[0].n,
         );
 
-      // Ten minutes at 1×, a choice every four: 25 coins (2½ a minute).
+      // Ten minutes at 1×, a choice every four: 33 coins (200 an hour).
       a.send({ t: "pause", p: false });
       await a.next("clock", (m) => !m.paused);
       await play(600, { choose: [a], every: 240 });
@@ -243,7 +243,8 @@ describe.skipIf(!TEST_DB)(
       let row = (await playOf(s.account.id))[0];
       expect(row.secs).toBeGreaterThanOrEqual(600);
       expect(row.secs).toBeLessThanOrEqual(661);
-      expect(row.play).toBe(Math.floor((row.secs / 60) * PLAY_PAY.perMinute));
+      // CQACH (r22): 200 an hour, by the second.
+      expect(row.play).toBe(Math.floor((row.secs * PLAY_PAY.perHour) / 3600));
       expect(await coinsOf(s.account.id)).toBe(
         row.play + row.lines + (await ach()),
       );
@@ -292,7 +293,7 @@ describe.skipIf(!TEST_DB)(
       expect(room.game!.state.day - day0).toBeGreaterThan(400); // ~ a year and a half
       expect(fastAfter.secs - fast.secs).toBeLessThanOrEqual(181 + 1);
       expect(fastAfter.play - fast.play).toBeLessThanOrEqual(
-        Math.ceil((181 / 60) * PLAY_PAY.perMinute) + 1,
+        Math.ceil((181 * PLAY_PAY.perHour) / 3600) + 1,
       );
 
       // Skipping ahead (twenty days a second): half a minute counts as half a minute.
@@ -381,7 +382,8 @@ describe.skipIf(!TEST_DB)(
         const end = a.next("end");
         a.send({ t: "end" });
         const r = (await end).results[0];
-        // Two minutes: 5 coins for the time, and the line's marks held to 2.
+        // Two minutes: 6 coins for the time, and the line's marks (with this
+        // game's achievements, CQACH r22) held to 2.
         expect((r.linesInPlay ?? 0) + (r.atEnd ?? 0)).toBeLessThanOrEqual(2);
         total += r.coins ?? 0;
         a.send({ t: "leave" });
@@ -389,7 +391,7 @@ describe.skipIf(!TEST_DB)(
       }
       // Three games of two minutes: about 6 minutes' pay, not three lives' worth.
       expect(total).toBeLessThanOrEqual(
-        Math.ceil(6.1 * PLAY_PAY.perMinute) + 3 * 2,
+        Math.ceil((6.1 * PLAY_PAY.perHour) / 60) + 3 * 2,
       );
       expect(
         lifeCoins(
@@ -433,7 +435,7 @@ describe.skipIf(!TEST_DB)(
       await play(61, { choose: [a], every: 60 });
       const rows = await playOf(s.account.id);
       expect(rows[0].secs).toBe(60);
-      expect(rows[0].play).toBe(Math.floor(PLAY_PAY.perMinute));
+      expect(rows[0].play).toBe(Math.floor(PLAY_PAY.perHour / 60));
       const capped = a.messages.filter(
         (m): m is Extract<Msg, { t: "paid" }> => m.t === "paid" && !!m.capped,
       );
