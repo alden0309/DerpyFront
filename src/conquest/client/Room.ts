@@ -5,8 +5,10 @@
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import "../../derpland/DerpBar";
+import { type ConquestDlcOwned, NO_DLC } from "../DlcIds"; // DLC (r21)
 import { AMERICAS } from "../engine/Map";
 import { newGameState } from "../engine/Setup";
+import { endYearOf } from "../engine/Starts"; // DLC (r21)
 import type { GameState, LifePlan, StartYear } from "../engine/Types";
 import { END_YEAR, ServerMessage } from "../Protocol";
 import { flag } from "./Flags";
@@ -38,6 +40,8 @@ export function previewWorld(start: StartYear): GameState {
 export class Room extends LitElement {
   @property({ attribute: false }) net!: Net;
   @property({ attribute: false }) lobby!: LobbyState;
+  /** DLC (r21): what the account owns (the server's word, from its welcome). */
+  @property({ attribute: false }) dlc: ConquestDlcOwned = NO_DLC;
 
   @state() private sent: string | null = null;
   @state() private copied = false;
@@ -78,7 +82,7 @@ export class Room extends LitElement {
             </h1>
             <p class="cq-muted">
               ${L.solo
-                ? `The Americas from ${start} to ${END_YEAR}. Make the person you'll be.`
+                ? `The Americas from ${start} to ${endYearOf(start, END_YEAR)}. Make the person you'll be.`
                 : html`Each of you makes a character; you'll live in the same
                   world.
                   ${L.open
@@ -214,6 +218,7 @@ export class Room extends LitElement {
         L.settings,
         (settings) => this.net.send({ t: "settings", settings, open: L.open }),
         host,
+        this.dlc,
       )}
       ${host && !L.solo
         ? html`<label class="cq-check">

@@ -6,9 +6,9 @@
 // journal lines, its scenes, a private letter) are taken out of the copy of
 // that life everyone else is sent.
 
-import { r76Secret } from "./Campaign1776Events"; // DLC (r21)
+import { r76Secret } from "./Campaign1776Core"; // DLC (r21)
 import type { ConquestGame } from "./Game";
-import { legendKey, legendsForOthers, legendsHaveSecrets } from "./Legends"; // DLC (r21)
+import { legendKey, legendsForOthers, legendsHaveSecrets } from "./LegendsCore"; // DLC (r21)
 import { journal, touchLife } from "./LifeCore";
 import { r21ForOthers, r21HasSecrets } from "./LifeR21Core"; // LIFE (r21)
 import { ROLES } from "./LifeRules";

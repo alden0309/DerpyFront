@@ -145,22 +145,55 @@ export function servesHere(s: GameState, life: Life, holderN: number): boolean {
   );
 }
 
-/** The army a soldier serves in, by name (the Continental Army, a Loyalist regiment). */
-export function armyName(s: GameState, n: number): string | null {
-  if (!isCampaign(s)) return null;
-  if (n === usOf(s)) return "the Continental Army";
-  if (n === kingOf(s)) return "a Loyalist regiment";
-  return null;
-}
-
-/** The Continental Congress's committees and boards, for the colony's council seats. */
+/** The Continental Congress's officers, for the United States' council seats (CouncilTitles.ts). */
 export const CONGRESS_TITLES: Record<string, string> = {
   spymaster: "Secretary of Congress",
-  treasurer: "Board of Treasury",
-  attorney: "Judge advocate",
-  surveyor: "Geographer of the army",
-  marshal: "Board of War",
-  envoy: "Committee for Foreign Affairs",
+  treasurer: "Treasurer of the United States",
+  attorney: "Judge advocate general",
+  surveyor: "Geographer to the army",
+  marshal: "President of the Board of War",
+  envoy: "Secretary for Foreign Affairs",
   chaplain: "Chaplain to Congress",
-  speaker: "Speaker of the house",
+  speaker: "Chairman of the Committee of the Whole",
+};
+
+/** A scene that's a player's own secret (a spy's capture). */
+export function r76Secret(key: string): boolean {
+  return key.startsWith("r76-spy");
+}
+
+// ---------------------------------------------------------------- the war's tables
+// (here, with nothing heavy imported, so the scenes and the pages can read
+// them at any point in loading)
+
+/** Changing sides once you've chosen one: a turncoat is remembered. */
+export const TURNCOAT = { renown: -6, rest: 365 };
+
+/** What a commission takes, and where it's given. */
+export const COMMISSION = {
+  /** An officer's coat, sword and kit. */
+  cost: 10,
+  /** A season between asks. */
+  rest: 90,
+  /** The reckoning, against 0 (as a skill check's DC). */
+  leadershipDc: 10,
+  captain: { leadership: 12, renown: 30 },
+};
+
+/** Spying: the check, the pay and what being taken means. */
+export const SPY = {
+  dc: 13,
+  /** A season between reports. */
+  rest: 60,
+  /** Paid a report: by the committee's secret service, or by the British. */
+  pay: { patriot: 4, loyal: 6 },
+  renown: 2,
+  /** Failed: the chance you're taken. */
+  caught: 0.5,
+  /** Taken and tried: the chance of the rope (otherwise held till exchanged). */
+  hanged: 0.2,
+  heldDays: 120,
+  bribe: 8,
+  bribeWorks: 0.75,
+  bluffDc: 13,
 };

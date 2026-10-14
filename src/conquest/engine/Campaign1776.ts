@@ -36,9 +36,12 @@ import { dateOf, dayOf, formatDate } from "./Calendar";
 import {
   britainOf,
   campaignOf,
+  COMMISSION,
   isCampaign,
   kingOf,
   sideOf,
+  SPY,
+  TURNCOAT,
   usOf,
 } from "./Campaign1776Core";
 import { kill } from "./Characters";
@@ -1311,9 +1314,6 @@ function disbanded(s: GameState, life: Life): boolean {
 
 // ---------------------------------------------------------------- sides
 
-/** Changing sides once you've chosen one: a turncoat is remembered. */
-export const TURNCOAT = { renown: -6, rest: 365 };
-
 export function sideCheck(s: GameState, life: Life, side: string): Check {
   const us = usOf(s);
   const me = meOf(s, life);
@@ -1355,17 +1355,6 @@ function chooseSide(g: ConquestGame, life: Life, side: string): string | null {
 }
 
 // ---------------------------------------------------------------- a commission
-
-/** What a commission takes, and where it's given. */
-export const COMMISSION = {
-  /** An officer's coat, sword and kit. */
-  cost: 10,
-  /** A season between asks. */
-  rest: 90,
-  /** The reckoning, against 0 (as a skill check's DC). */
-  leadershipDc: 10,
-  captain: { leadership: 12, renown: 30 },
-};
 
 /** Where a player could be commissioned: the patriots by Congress (or the army), the King's friends by his commander in a town he holds. */
 export function commissionWhere(
@@ -1509,23 +1498,6 @@ function seekCommission(g: ConquestGame, life: Life): string | null {
 }
 
 // ---------------------------------------------------------------- spying
-
-export const SPY = {
-  dc: 13,
-  /** A season between reports. */
-  rest: 60,
-  /** Paid a report: by the committee's secret service, or by the British. */
-  pay: { patriot: 4, loyal: 6 },
-  renown: 2,
-  /** Failed: the chance you're taken. */
-  caught: 0.5,
-  /** Taken and tried: the chance of the rope (otherwise held till exchanged). */
-  hanged: 0.2,
-  heldDays: 120,
-  bribe: 8,
-  bribeWorks: 0.75,
-  bluffDc: 13,
-};
 
 /** Whether a player could spy here: a patriot where the King holds the town, a loyalist where the Americans do. */
 export function spyCheck(s: GameState, life: Life): Check {

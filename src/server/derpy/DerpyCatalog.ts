@@ -25,6 +25,8 @@ import {
   CAMPAIGN_1776,
   LEGENDS,
   MAP_STYLES,
+  MAP_STYLE_NAMES,
+  MAP_STYLE_PALETTES,
   mapStyleItem,
   type MapStyleKey,
 } from "../../conquest/DlcIds"; // DLC (r21)
@@ -306,7 +308,7 @@ const MAP_STYLE_TEXT: Record<
   }
 > = {
   antique: {
-    displayName: "Antique Engraving",
+    displayName: MAP_STYLE_NAMES.antique,
     description:
       "The map as a London engraver would have cut it in copper: sepia ink on cream paper, hatched seas, and each colony's border tinted by hand.",
     price: 1000,
@@ -315,15 +317,10 @@ const MAP_STYLE_TEXT: Record<
       "Colonies tinted along their borders by hand, as the old map-sellers did",
       "Names in an engraver's italic",
     ],
-    palette: {
-      sea: "#c9b48a",
-      land: "#efe2c2",
-      ink: "#4a3520",
-      accent: "#a8573a",
-    },
+    palette: MAP_STYLE_PALETTES.antique,
   },
   winter: {
-    displayName: "Hard Winter",
+    displayName: MAP_STYLE_NAMES.winter,
     description:
       "The map in the depths of a hard winter, whatever the month: snow on every province, ice along the coasts, and a cold grey-blue sea.",
     price: 700,
@@ -332,15 +329,10 @@ const MAP_STYLE_TEXT: Record<
       "Ice along the coasts and a slate-grey sea",
       "The colonies' colours as if seen through falling snow",
     ],
-    palette: {
-      sea: "#5d7686",
-      land: "#eef2f4",
-      ink: "#2c3a44",
-      accent: "#8fb3c9",
-    },
+    palette: MAP_STYLE_PALETTES.winter,
   },
   night: {
-    displayName: "By Candlelight",
+    displayName: MAP_STYLE_NAMES.night,
     description:
       "The map at night: a dark sea under the stars, the land in shadow, lamplight in every town, and the names picked out in gold.",
     price: 800,
@@ -349,15 +341,10 @@ const MAP_STYLE_TEXT: Record<
       "Every town and village lit by its lamps and fires",
       "Names and borders picked out in gold leaf",
     ],
-    palette: {
-      sea: "#0e1a2b",
-      land: "#2b2a33",
-      ink: "#e7c66a",
-      accent: "#f3b04a",
-    },
+    palette: MAP_STYLE_PALETTES.night,
   },
   pirate: {
-    displayName: "Pirate Chart",
+    displayName: MAP_STYLE_NAMES.pirate,
     description:
       "A buccaneer's chart, yellowed, stained and burned at the edges: rhumb lines from the compass rose, a sea serpent or two, and the borders in red ink.",
     price: 1200,
@@ -366,15 +353,10 @@ const MAP_STYLE_TEXT: Record<
       "Rhumb lines across the seas from the compass rose",
       "Borders in red ink, and sea serpents in the deep water",
     ],
-    palette: {
-      sea: "#c8b27a",
-      land: "#e4cd94",
-      ink: "#5a2e14",
-      accent: "#a8261c",
-    },
+    palette: MAP_STYLE_PALETTES.pirate,
   },
   woodcut: {
-    displayName: "Woodcut",
+    displayName: MAP_STYLE_NAMES.woodcut,
     description:
       "Bold black lines and flat colour, as if cut from a block of pear wood for a broadside: a printer's map for a printer's age.",
     price: 900,
@@ -383,12 +365,7 @@ const MAP_STYLE_TEXT: Record<
       "Seas cut in bold wave strokes",
       "The look of a broadside or an almanac's map",
     ],
-    palette: {
-      sea: "#e9e1cc",
-      land: "#f4ecd6",
-      ink: "#141210",
-      accent: "#b0302a",
-    },
+    palette: MAP_STYLE_PALETTES.woodcut,
   },
 };
 

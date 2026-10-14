@@ -10,6 +10,7 @@ import { areasOf, homeHere } from "../../engine/Areas"; // HOME (r12)
 import { BOATS } from "../../engine/Boats";
 import { bizTradesAt } from "../../engine/Business"; // BUSINESS (r15)
 import { dateOf } from "../../engine/Calendar"; // MAP (r12)
+import { isCampaign } from "../../engine/Campaign1776Core"; // DLC (r21)
 import { pollOf, treatView } from "../../engine/Canvass"; // POLLS (r16)
 import { cardTableAt } from "../../engine/CardsCore"; // EVENTS (r21)
 import { followCheck, LT, petitionCheck } from "../../engine/ChairCore"; // CHAIR (r16)
@@ -24,6 +25,7 @@ import { followerCap, peopleOf, raiseCheck } from "../../engine/Followers";
 import { foundCheck as foundColonyCheck } from "../../engine/Founding";
 import { ADULT_AGE, betrothalOf } from "../../engine/IntrigueCore"; // INTRIGUE (r15)
 import { affairsOf } from "../../engine/Ledger"; // LEDGER (r15)
+import { legendsOn } from "../../engine/Legends"; // DLC (r21)
 import {
   hasPlace,
   isChildLife,
@@ -2942,6 +2944,105 @@ const GOALS: Goal[] = [
     goLabel: "Read the keys",
     guide: "keys",
   },
+  // ---- DLC (r21): the 1776 campaign, Legends, map styles
+  {
+    id: "r76-side",
+    title: "Take a side in the Revolution",
+    words:
+      "1776 revolution patriot loyalist tory whig king congress independence side war of independence continental",
+    group: "Society",
+    where:
+      "Society › The war, in a game that begins in 1776 (1776: The Revolution, in the Derp Store; its owner hosts, anyone joins): with the patriots, with the King, or neither. Changing sides makes you a turncoat.",
+    needs: (ui) => [
+      isCampaign(ui.s)
+        ? { label: "A game that begins in 1776", met: true }
+        : { label: "Only in a game that begins in 1776", met: false },
+    ],
+    go: tab({ k: "tab", tab: "society", sub: "war" }),
+    goLabel: "Society › The war",
+    guide: "campaign1776",
+  },
+  {
+    id: "r76-commission",
+    title: "Get a commission in the Continental Army (or a Loyalist regiment)",
+    words:
+      "commission officer lieutenant captain continental army loyalist regiment congress enlist serve 1776 revolution",
+    group: "Work",
+    where:
+      "Society › The war › Ask for a commission: a patriot from Congress where it sits or at the army's headquarters, a loyalist from the King's commander in a town his army holds. The odds and the kit's price are shown first.",
+    needs: (ui) => [
+      isCampaign(ui.s)
+        ? { label: "A game that begins in 1776", met: true }
+        : { label: "Only in a game that begins in 1776", met: false },
+    ],
+    go: tab({ k: "tab", tab: "society", sub: "war" }),
+    goLabel: "Society › The war",
+    guide: "campaign1776",
+  },
+  {
+    id: "r76-spy",
+    title: "Spy for my side in the Revolution",
+    words:
+      "spy spying intelligence report sentry british american secret service 1776 revolution culper",
+    group: "Society",
+    where:
+      "Society › The war › Spy here, in a town the other side holds: stealth, with the odds of a report, of being taken and of the rope shown first.",
+    needs: (ui) => [
+      isCampaign(ui.s)
+        ? { label: "A game that begins in 1776", met: true }
+        : { label: "Only in a game that begins in 1776", met: false },
+    ],
+    go: tab({ k: "tab", tab: "society", sub: "war" }),
+    goLabel: "Society › The war",
+    guide: "campaign1776",
+  },
+  {
+    id: "legend-follow",
+    title: "Follow a legend (the Fountain of Youth, El Dorado, a lost colony…)",
+    words:
+      "legend legends fountain youth el dorado cibola seven cities roanoke lost colony norumbega blackbeard treasure hoard mine madoc rumour trail clue",
+    group: "Travel and the world",
+    where:
+      "Journal › Legends (Legends, in the Derp Store): ask after old stories at a tavern, the docks or a native town, or wait for talk of one; then each step of its trail, with where it's worked, its odds and its price.",
+    needs: (ui) => [
+      ui.life && legendsOn(ui.life)
+        ? { label: "You own Legends", met: true }
+        : { label: "Legends is in the Derp Store", met: false },
+    ],
+    go: tab({ k: "tab", tab: "journal", sub: "legends" }),
+    goLabel: "Journal › Legends",
+    guide: "legends",
+  },
+  {
+    id: "legend-sacred",
+    title: "Learn of a native nation's sacred place",
+    words:
+      "sacred place mound serpent black hills kituwah cahokia bdote elder trust protect keep native",
+    group: "People",
+    where:
+      "Journal › Legends: earn the people's trust, listen through a winter and walk the place with an elder. You take nothing; later you may be asked to speak for it.",
+    needs: (ui) => [
+      ui.life && legendsOn(ui.life)
+        ? { label: "You own Legends", met: true }
+        : { label: "Legends is in the Derp Store", met: false },
+    ],
+    go: tab({ k: "tab", tab: "journal", sub: "legends" }),
+    goLabel: "Journal › Legends",
+    guide: "legends",
+  },
+  {
+    id: "map-style",
+    title: "Change how the map looks",
+    words:
+      "map style look antique engraving winter night candlelight pirate chart woodcut theme skin",
+    group: "Travel and the world",
+    where:
+      "The menu › Settings › Map style: the usual chart, or a style of your own from the Derp Store. Only you see it.",
+    go: (ui) => ui.modal({ k: "menu" }),
+    goLabel: "Open the menu's Settings",
+    guide: "mapstyles",
+  },
+  // ---- end DLC (r21)
 ];
 
 /** EDU (r13): a child of yours of an age for it (a son, for college). */

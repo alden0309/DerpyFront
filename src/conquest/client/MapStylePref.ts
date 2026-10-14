@@ -20,6 +20,9 @@ export function chosenMapStyle(): MapStyleKey | null {
   }
 }
 
+/** Fired on window when the choice changes, so an open map redraws in it. */
+export const MAP_STYLE_EVENT = "cq-mapstyle";
+
 export function chooseMapStyle(key: MapStyleKey | null): void {
   try {
     if (key) localStorage.setItem(KEY, key);
@@ -27,6 +30,8 @@ export function chooseMapStyle(key: MapStyleKey | null): void {
   } catch {
     // ignore: the usual look holds
   }
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new Event(MAP_STYLE_EVENT));
 }
 
 /** The style to draw: the one chosen, if it's among those owned. */

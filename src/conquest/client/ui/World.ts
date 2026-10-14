@@ -3,6 +3,7 @@
 
 import { html, nothing, TemplateResult } from "lit";
 import { dateOf, formatDate, pollDay } from "../../engine/Calendar"; // FIXES (r15): pollDay
+import { endWords } from "../../engine/Campaign1776Core"; // DLC (r21)
 import { seatHolderId, seatsOf, seatTitle } from "../../engine/CouncilTitles"; // FIXES (r15)
 import { lifeTitle, meOf, opinionOf } from "../../engine/LifeQueries";
 import { activeMovements } from "../../engine/Movements";
@@ -12,7 +13,6 @@ import {
   provincesOf,
   strengthOf,
 } from "../../engine/Queries";
-import { END_YEAR } from "../../engine/Rules";
 import type { Character, Nation } from "../../engine/Types";
 import { flagFor } from "../Flags";
 import { nationName, people } from "../Text";
@@ -161,7 +161,8 @@ function gazettes(ui: GameUi): TemplateResult | typeof nothing {
 export function worldTab(ui: GameUi): TemplateResult {
   const s = ui.s;
   const year = dateOf(s.day).year;
-  const left = END_YEAR - year;
+  const endYear = endWords(s).year; // DLC (r21): 1784 in the 1776 campaign
+  const left = endYear - year;
   const powers = s.nations.filter((n) => n.alive && n.kind === "power");
   const natives = s.nations
     .filter((n) => n.alive && n.kind === "native")
@@ -174,8 +175,8 @@ export function worldTab(ui: GameUi): TemplateResult {
       <p class="cq-muted small">
         ${formatDate(s.day)}.
         ${left > 0
-          ? `${left} year${left === 1 ? "" : "s"} until 1776.`
-          : "1776."}
+          ? `${left} year${left === 1 ? "" : "s"} until ${endYear}.`
+          : `${endYear}.`}
       </p>
     </header>
     ${others.length

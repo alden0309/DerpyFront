@@ -5,8 +5,14 @@ import { html, LitElement, nothing, PropertyValues, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import "../../derpland/DerpBar";
 import { openSignIn } from "../../derpland/DerpBar";
+import { type ConquestDlcOwned, NO_DLC } from "../DlcIds"; // DLC (r21)
 import { AMERICAS } from "../engine/Map";
-import { START_SUMMARY_1607, START_YEARS, STARTS } from "../engine/Starts";
+import {
+  endYearOf,
+  START_SUMMARY_1607,
+  START_YEARS,
+  STARTS,
+} from "../engine/Starts";
 import type { Difficulty, StartYear } from "../engine/Types";
 import {
   DIFFICULTIES,
@@ -18,6 +24,7 @@ import {
 } from "../Protocol";
 import deskMap from "./art/desk_map.webp?url";
 import { creditsList } from "./Credits";
+import { STORE_CAMPAIGNS } from "./Dlc"; // DLC (r21)
 import { emblem, flag } from "./Flags";
 import { guideOverlay } from "./guide/Guide";
 import { Net } from "./Net";
@@ -68,6 +75,8 @@ export class Lobby extends LitElement {
   @property({ attribute: false }) name = "";
   @property({ attribute: false }) online = false;
   @property({ attribute: false }) joinCode = "";
+  /** DLC (r21): what the account owns (the server's word, from its welcome). */
+  @property({ attribute: false }) dlc: ConquestDlcOwned = NO_DLC;
 
   @state() private together = false;
   @state() private isPublic = true;
@@ -264,7 +273,12 @@ export class Lobby extends LitElement {
                   List it under open games so anyone can join
                 </label>`
               : nothing}
-            ${settingsFields(this.settings, (s) => (this.settings = s), true)}
+            ${settingsFields(
+              this.settings,
+              (s) => (this.settings = s),
+              true,
+              this.dlc,
+            )}
             <button
               class="cq-btn primary big"
               ?disabled=${!this.online}
@@ -579,8 +593,14 @@ export function settingsFields(
   s: RoomSettings,
   set: (s: RoomSettings) => void,
   editable: boolean,
+  dlc: ConquestDlcOwned = NO_DLC, // DLC (r21)
 ): TemplateResult {
   const start = s.start ?? 1607;
+  // DLC (r21): a start that's a store item shows locked to a host who
+  // doesn't own it (the server refuses it anyway); anyone can join one.
+  const locked = (y: StartYear) =>
+    STARTS[y]?.dlc === "campaign_1776" && !dlc.campaign1776;
+  const end = endYearOf(start, END_YEAR);
   return html`<div class="cq-settings">
     <div class="cq-field">
       <span class="cq-field-label" id="cq-start-label">Begin in</span>
@@ -589,18 +609,35 @@ export function settingsFields(
           (y) =>
             html`<button
               role="radio"
+              class=${editable && locked(y) && y !== start
+                ? "cq-start-locked"
+                : ""}
               aria-checked=${y === start}
-              ?disabled=${!editable && y !== start}
+              ?disabled=${(!editable || locked(y)) && y !== start}
+              title=${editable && locked(y)
+                ? "1776: The Revolution is in the Derp Store. Its owner can host a game that begins in 1776; anyone can join one."
+                : ""}
               @click=${() => editable && y !== start && set({ ...s, start: y })}
             >
               <b>${y}</b><span>${START_TITLE[y]}</span>
+              ${editable && locked(y)
+                ? html`<em class="cq-start-lock">In the Derp Store</em>`
+                : nothing}
             </button>`,
         )}
       </div>
       <p class="cq-muted small cq-start-summary">${startSummary(start)}</p>
+      ${editable && START_YEARS.some(locked)
+        ? html`<p class="cq-muted small cq-dlc-note">
+            1776, the Revolution, is a campaign in the
+            <a href=${STORE_CAMPAIGNS}>Derp Store</a>. Its owner can host it,
+            and anyone can join their game.
+          </p>`
+        : nothing}
       <p class="cq-muted small">
-        The world runs until 1 January ${END_YEAR}: ${END_YEAR - start} years,
-        several lifetimes.
+        ${end === END_YEAR
+          ? `The world runs until 1 January ${END_YEAR}: ${END_YEAR - start} years, several lifetimes.`
+          : `The campaign runs until 1 January ${end}: the war and the peace, ${end - start} years. Then the story ends.`}
       </p>
     </div>
     <label class="cq-field">

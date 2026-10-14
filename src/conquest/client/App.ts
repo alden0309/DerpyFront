@@ -4,7 +4,9 @@
 import { html, LitElement, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { DERPY_ACCOUNT_EVENT, derpyUsername } from "../../derpland/Account";
+import { type ConquestDlcOwned, NO_DLC } from "../DlcIds"; // DLC (r21)
 import type { LiveRoom, OpenRoom, SavedGame, ServerMessage } from "../Protocol";
+import { setDlcOwned } from "./Dlc"; // DLC (r21)
 import "./GameView";
 import { GameStart, loadGeo } from "./GameView";
 import "./Lobby";
@@ -29,6 +31,8 @@ export class ConquestApp extends LitElement {
   @state() private online = false;
   @state() private name = "";
   @state() private account: string | null = derpyUsername();
+  /** DLC (r21): what the account owns of Conquest's store items. */
+  @state() private dlc: ConquestDlcOwned = NO_DLC;
   @state() private open: OpenRoom[] = [];
   @state() private saved: SavedGame[] = [];
   /** STORY (r17): finished games, and those saved by an older version. */
@@ -104,6 +108,8 @@ export class ConquestApp extends LitElement {
       case "welcome":
         this.name = m.name;
         this.account = m.account;
+        this.dlc = m.dlc ?? NO_DLC; // DLC (r21)
+        setDlcOwned(this.dlc);
         if (this.screen === "connecting" && !this.net.watchId)
           this.screen = "lobby";
         if (this.screen === "lobby") this.net.send({ t: "list" });
@@ -193,6 +199,7 @@ export class ConquestApp extends LitElement {
           .name=${this.name}
           .online=${this.online}
           .joinCode=${this.joinCode}
+          .dlc=${this.dlc}
           @cq-name=${(e: CustomEvent<string>) => this.setName(e.detail)}
         ></cq-lobby>`;
         break;
@@ -200,6 +207,7 @@ export class ConquestApp extends LitElement {
         body = html`<cq-room
           .net=${this.net}
           .lobby=${this.lobby!}
+          .dlc=${this.dlc}
           @cq-leave=${() => this.toLobby()}
         ></cq-room>`;
         break;

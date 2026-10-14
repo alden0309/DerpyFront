@@ -19,6 +19,51 @@ export const MAP_STYLES = [
 ] as const;
 export type MapStyleKey = (typeof MAP_STYLES)[number];
 
+/** A map style's name, as the store sells it and the settings list it. */
+export const MAP_STYLE_NAMES: Record<MapStyleKey, string> = {
+  antique: "Antique Engraving",
+  winter: "Hard Winter",
+  night: "By Candlelight",
+  pirate: "Pirate Chart",
+  woodcut: "Woodcut",
+};
+
+/** A map style's colours: the store's preview and the map drawn in it share them. */
+export interface MapStylePalette {
+  sea: string;
+  land: string;
+  ink: string;
+  accent: string;
+}
+
+export const MAP_STYLE_PALETTES: Record<MapStyleKey, MapStylePalette> = {
+  antique: {
+    sea: "#c9b48a",
+    land: "#efe2c2",
+    ink: "#4a3520",
+    accent: "#a8573a",
+  },
+  winter: {
+    sea: "#5d7686",
+    land: "#eef2f4",
+    ink: "#2c3a44",
+    accent: "#8fb3c9",
+  },
+  night: { sea: "#0e1a2b", land: "#2b2a33", ink: "#e7c66a", accent: "#f3b04a" },
+  pirate: {
+    sea: "#c8b27a",
+    land: "#e4cd94",
+    ink: "#5a2e14",
+    accent: "#a8261c",
+  },
+  woodcut: {
+    sea: "#e9e1cc",
+    land: "#f4ecd6",
+    ink: "#141210",
+    accent: "#b0302a",
+  },
+};
+
 /** A map style's store item ("map_antique"). */
 export function mapStyleItem(key: MapStyleKey): string {
   return `map_${key}`;

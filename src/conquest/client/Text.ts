@@ -2,6 +2,7 @@
 // and what each game event means for the player reading the log.
 
 import { formatDate } from "../engine/Calendar";
+import { endWords } from "../engine/Campaign1776Core"; // DLC (r21)
 import { charName } from "../engine/Queries";
 import { REG_NAMES, TITLE_NAMES } from "../engine/Rules";
 import type {
@@ -254,7 +255,7 @@ export function describeEvent(
         ? `${N(e.n)} has won its independence!`
         : `${N(e.n)}'s rebellion was crushed.`;
     case "over":
-      return "It is 1776. The story ends here.";
+      return endWords(s).over; // DLC (r21): 1784 in the 1776 campaign
     case "news":
       return e.local && !us(e.n) ? null : e.text;
     case "mission":

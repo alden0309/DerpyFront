@@ -582,23 +582,7 @@ hooks.command.push((g, life, c: LifeCommand) => {
 
 export { watersYears } from "./LegendsCore";
 
-// ---------------------------------------------------------------- secrets
-
-/** Legends are a player's own: what they've heard and how far they've got. */
-export function legendKey(key: string): boolean {
-  return key.startsWith("legend-") || key.startsWith("legend:");
-}
-
-export function legendsHaveSecrets(l: Partial<Life>): boolean {
-  return !!l.legends;
-}
-
-/** Another player's life, with their legends taken out. */
-export function legendsForOthers<T extends Partial<Life>>(l: T, out: T): void {
-  if (l.legends) out.legends = undefined;
-  if (out.r76 && (out.r76.spied !== undefined || out.r76.reports !== undefined))
-    out.r76 = { ...out.r76, spied: undefined, reports: undefined };
-}
+export { legendKey, legendsForOthers, legendsHaveSecrets } from "./LegendsCore";
 
 /** The words of a step's skill, for the page. */
 export function skillWord(def: LegendDef, step: number): string {

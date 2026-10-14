@@ -12,7 +12,9 @@
 //   World    wars, causes, the colonies and nations, the other players
 
 import { html, nothing, TemplateResult } from "lit";
+import { isCampaign } from "../../engine/Campaign1776Core"; // DLC (r21)
 import { myGatherings } from "../../engine/Gatherings";
+import { legendsOn, workCheck } from "../../engine/Legends"; // DLC (r21)
 import { promotionView } from "../../engine/LifeQueries";
 import type { Life } from "../../engine/Types";
 import {
@@ -38,6 +40,8 @@ export interface SubDef {
   label: string;
   /** The guide's chapter for this page. */
   guide: string;
+  /** DLC (r21): a page only some games have (the same all game long, so nothing jumps). */
+  shown?: (ui: GameUi) => boolean;
 }
 
 export interface TabDef {
@@ -134,6 +138,13 @@ export const TAB_DEFS: TabDef[] = [
       { id: "intrigue", label: "Intrigue", guide: "intrigue" }, // INTRIGUE (r15)
       { id: "causes", label: "Causes", guide: "movements" },
       { id: "colony", label: "Colony", guide: "founding" },
+      // DLC (r21): the War of Independence, in a game that begins in 1776
+      {
+        id: "war",
+        label: "The war",
+        guide: "campaign1776",
+        shown: (ui) => isCampaign(ui.s),
+      },
     ],
     guide: "standing",
   },
@@ -148,6 +159,13 @@ export const TAB_DEFS: TabDef[] = [
       { id: "leads", label: "Leads", guide: "leads" },
       { id: "story", label: "The story", guide: "end" },
       { id: "achievements", label: "Achievements", guide: "coins" }, // MAP (r12)
+      // DLC (r21): legends, for a seat whose account owns them
+      {
+        id: "legends",
+        label: "Legends",
+        guide: "legends",
+        shown: (ui) => !!ui.life && legendsOn(ui.life),
+      },
     ],
     guide: "journal",
   },
@@ -288,6 +306,18 @@ export function badges(ui: GameUi): Map<string, number> {
       ).length,
     );
   add("journal", "diary", life.events.length);
+  // DLC (r21): a legend's next step you could try here and now.
+  if (legendsOn(life))
+    add(
+      "journal",
+      "legends",
+      (life.legends?.list ?? []).filter(
+        (x) =>
+          x.found === undefined &&
+          x.cold === undefined &&
+          workCheck(s, ui.w, life, x.key).ok,
+      ).length,
+    );
   return out;
 }
 
@@ -311,18 +341,20 @@ export function tabHead(
     </p>
     ${def.subs.length
       ? html`<nav class="cq-subtabs" aria-label=${`${def.label}: pages`}>
-          ${def.subs.map((x) => {
-            const n = marks.get(`${tab}.${x.id}`) ?? 0;
-            return html`<button
-              class="cq-subtab ${x.id === sub ? "on" : ""}"
-              aria-current=${x.id === sub ? "page" : "false"}
-              @click=${() => ui.open({ k: "tab", tab, sub: x.id })}
-            >
-              ${x.label}${n
-                ? html`<i class="cq-subtab-n" aria-label="needs you">${n}</i>`
-                : nothing}
-            </button>`;
-          })}
+          ${def.subs
+            .filter((x) => !x.shown || x.shown(ui) /* DLC (r21) */)
+            .map((x) => {
+              const n = marks.get(`${tab}.${x.id}`) ?? 0;
+              return html`<button
+                class="cq-subtab ${x.id === sub ? "on" : ""}"
+                aria-current=${x.id === sub ? "page" : "false"}
+                @click=${() => ui.open({ k: "tab", tab, sub: x.id })}
+              >
+                ${x.label}${n
+                  ? html`<i class="cq-subtab-n" aria-label="needs you">${n}</i>`
+                  : nothing}
+              </button>`;
+            })}
         </nav>`
       : nothing}
   </div>`;

@@ -51,6 +51,7 @@ import {
 } from "./Civic";
 import { GameUi, section, token, type Tab } from "./Context";
 import { crownSection } from "./Crown"; // CROWN (r18)
+import { warPage } from "./DlcPages"; // DLC (r21)
 import { expeditionsPage } from "./Expeditions"; // GOV (r21)
 import { familyTreeSection } from "./FamilyTree"; // HOME (r12)
 import { pressPage } from "./Gazette"; // POWER (r12)
@@ -814,6 +815,8 @@ function societyPage(ui: GameUi, sub: string): TemplateResult {
       ${causeSection(ui)}`;
     case "colony":
       return html`${constituteCallout(ui)} ${foundingPage(ui)}`;
+    case "war": // DLC (r21): the War of Independence (a game begun in 1776)
+      return warPage(ui);
     default: {
       const eu = europeSection(ui);
       return html`${pageHead(

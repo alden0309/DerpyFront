@@ -9,15 +9,8 @@
 // real person's: the generals are named as the news named them. The odds on
 // every button come from the tables the choices roll.
 
-import {
-  beatDay,
-  BEATS,
-  cdice,
-  courtMartial,
-  provNamed,
-  SPY,
-} from "./Campaign1776";
-import { britainOf, sideOf, usOf } from "./Campaign1776Core";
+import { beatDay, BEATS, cdice, courtMartial, provNamed } from "./Campaign1776";
+import { britainOf, sideOf, SPY, usOf } from "./Campaign1776Core";
 import { registerFamily } from "./EventPacing";
 import { tag } from "./EventPlaces";
 import type { ConquestGame } from "./Game";
@@ -777,7 +770,4 @@ export function r76Quiet(): Record<string, number> {
   };
 }
 
-/** A scene that's a player's own secret (a spy's capture). */
-export function r76Secret(key: string): boolean {
-  return key.startsWith("r76-spy");
-}
+export { r76Secret } from "./Campaign1776Core";

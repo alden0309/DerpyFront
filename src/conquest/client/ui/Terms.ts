@@ -7,6 +7,8 @@
 
 import { html, TemplateResult } from "lit";
 import { STRESS_TIERS } from "../../engine/Body"; // LIFE (r21)
+import { TURNCOAT } from "../../engine/Campaign1776Core"; // DLC (r21)
+import { LEGEND_RULES } from "../../engine/LegendsData"; // DLC (r21)
 import { num, type TipContent } from "../Tip";
 
 /** LIFE (r21): "×1.1 from 20, ×1.25 from 40, …", from the table the engine applies. */
@@ -758,6 +760,31 @@ export const TERMS: Record<string, Term> = {
     ch: "founding",
   },
   // ---- end GOV (r21)
+  // ---- DLC (r21): Campaign1776.ts, LegendsData.ts
+  turncoat: {
+    name: "Turncoat",
+    what: "In the 1776 campaign, someone who went over from one side of the war to the other.",
+    good: `Nothing: renown ${TURNCOAT.renown} each time, a worse chance of a commission, and no changing again within a year.`,
+    raise:
+      "Choose with the patriots, then with the King (or the other way) on Society › The war. Going to neither costs nothing.",
+    ch: "campaign1776",
+  },
+  legend: {
+    name: "Legend",
+    what: "An old story worth following (the Fountain of Youth, the Seven Cities, the Lost Colony…): a trail of clues that need a master's skill, then a journey to its end. Legends is in the Derp Store.",
+    good: "Renown and learning at its end, sometimes a little fortune, and once in a while something nobody can explain. Most legends were never what they promised.",
+    raise: `Talk of one comes rarely; or ask after old stories at a tavern, the docks or a native town. Fail one step ${LEGEND_RULES.tries} times and the trail goes cold (Journal › Legends).`,
+    ch: "legends",
+  },
+  sacredplace: {
+    name: "A sacred place",
+    what: "A native nation's sacred place (Kituwah, Cahokia's mounds, the Great Serpent, the Black Hills, Bdote): a place to learn about and keep, never to take from.",
+    good: "Renown, and the people's trust; later you may be asked to speak for the place when someone means it harm.",
+    raise:
+      "Earn the people's trust in their towns (their tongue helps), listen through a winter, walk the place with an elder (Journal › Legends).",
+    ch: "legends",
+  },
+  // ---- end DLC (r21)
 };
 
 /** A term's explanation, as a tooltip. */

@@ -47,7 +47,9 @@ import type {
 } from "../engine/Types";
 import type { ResultLine, SeatInfo, ServerMessage } from "../Protocol";
 import { CameraKeys } from "./CameraKeys"; // FIXES (r15)
+import { DLC_EVENT, dlcOwned } from "./Dlc"; // DLC (r21)
 import { EyeIcon, FindIcon, LetterIcon } from "./Icons";
+import { MAP_STYLE_EVENT, mapStyleToDraw } from "./MapStylePref"; // DLC (r21)
 import {
   LifeMark,
   loadGeo,
@@ -345,6 +347,9 @@ export class GameView extends LitElement {
     super.connectedCallback();
     this.net.on(this.onNet);
     window.addEventListener("keydown", this.onKey);
+    // DLC (r21): the map style: what's owned (the server's word) and chosen.
+    window.addEventListener(DLC_EVENT, this.onMapStyle);
+    window.addEventListener(MAP_STYLE_EVENT, this.onMapStyle);
     this.camKeys.attach(); // FIXES (r15)
     window.addEventListener("pointermove", trackPointer, { passive: true });
     window.addEventListener("pointerdown", trackPointer, { passive: true });
@@ -383,6 +388,8 @@ export class GameView extends LitElement {
     super.disconnectedCallback();
     this.net.off(this.onNet);
     window.removeEventListener("keydown", this.onKey);
+    window.removeEventListener(DLC_EVENT, this.onMapStyle); // DLC (r21)
+    window.removeEventListener(MAP_STYLE_EVENT, this.onMapStyle);
     this.camKeys.detach(); // FIXES (r15)
     window.removeEventListener("pointermove", trackPointer);
     window.removeEventListener("pointerdown", trackPointer);
@@ -527,6 +534,11 @@ export class GameView extends LitElement {
     if (this.s.over) this.modalView = { k: "end" };
   }
 
+  /** DLC (r21): draw the map in the style chosen, if the account owns it. */
+  private onMapStyle = (): void => {
+    this.view?.setStyle(mapStyleToDraw(dlcOwned().styles));
+  };
+
   private async attachMap(focus: boolean): Promise<void> {
     const geo = await loadGeo();
     const host = this.querySelector<HTMLElement>(".cq-map-host");
@@ -537,6 +549,7 @@ export class GameView extends LitElement {
       hover: (p) => this.onHover(p),
     });
     this.view.mount(host);
+    this.onMapStyle(); // DLC (r21)
     this.view.resize(host.clientWidth, host.clientHeight);
     this.resizeObs?.disconnect();
     this.resizeObs = new ResizeObserver(() =>
