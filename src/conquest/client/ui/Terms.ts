@@ -251,6 +251,23 @@ export const TERMS: Record<string, Term> = {
       "Play: a minute counts when you've made a choice of your own in the last 5 minutes (anything you do, a letter answered). With the clock stopped, only the first 10 minutes of each stop count; the speed (or skipping ahead) makes no difference; at most 6 hours a day are paid.",
     ch: "coins",
   },
+  // CQACH (r22): the two kinds of achievement.
+  gameach: {
+    name: "This game's achievements",
+    what: `Achievements earned in the game you're playing. Each pays ${PLAY_PAY.achievementTimes} times its coins in this game, on any difficulty.`,
+    good: "Extra Derp Coins for what your line does, paid with your line's marks as you play (held to the time at the table, so a new game pays no faster than playing on).",
+    raise:
+      "Journal › Achievements, This game: how to earn the rest. The secret ones say nothing until they're earned.",
+    ch: "coins",
+  },
+  overallach: {
+    name: "Overall achievements",
+    what: "Your account's achievements, across all your games. Each pays its coins once, the first time the account earns it.",
+    good: "They stay on your account (and your Derp Land profile) for good, and pay once each.",
+    raise:
+      "Earned only in games on Hard (in company, the game's difficulty); any earned before stay yours.",
+    ch: "coins",
+  },
   pauselock: {
     name: "The pause in company",
     what: "In a game with others, anyone may stop the clock or start it again; but for 10 seconds after someone stops it, only they may start it.",

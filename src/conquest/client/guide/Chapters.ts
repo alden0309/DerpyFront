@@ -101,9 +101,9 @@ import { EFFORT_ORDER, EFFORTS } from "../../engine/Trades";
 import { STAGE_DAYS } from "../../engine/Trials";
 // MAP (r12): seasons and achievements, for their chapters.
 import {
-  ACHIEVEMENT_COINS,
   ACHIEVEMENT_GROUPS,
   ACHIEVEMENTS,
+  gameCoins, // CQACH (r22)
 } from "../../engine/Achievements";
 import { perMinuteWords } from "../../engine/Coins"; // CQACH (r22)
 import { HARVEST_BONUS } from "../../engine/Seasons";
@@ -461,14 +461,18 @@ ${(Object.keys(DECISIONS) as FirmDecisionKey[])
 }
 
 function achievementsTable(): string {
-  return ACHIEVEMENT_GROUPS.map(
-    (g) =>
-      `**${g.name}**\n\n| Achievement | How | Coins |\n|---|---|---|\n${ACHIEVEMENTS.filter(
-        (a) => a.group === g.id,
-      )
-        .map((a) => `| ${a.name} | ${a.how} | ${a.coins} |`)
-        .join("\n")}`,
-  ).join("\n\n");
+  // CQACH (r22): both kinds' coins; a secret stays a secret; the hard and rare marked.
+  return ACHIEVEMENT_GROUPS.map((g) => {
+    const defs = ACHIEVEMENTS.filter((a) => a.group === g.id);
+    const secrets = defs.filter((a) => a.secret).length;
+    const rows = defs
+      .filter((a) => !a.secret)
+      .map(
+        (a) =>
+          `| ${a.name}${a.tier ? ` *(${a.tier})*` : ""} | ${a.how} | ${gameCoins(a)} | ${a.coins} |`,
+      );
+    return `**${g.name}**${g.id === "campaign" || g.id === "legends" ? " (for the add-on's owners)" : ""}\n\n| Achievement | How | In a game | Overall (Hard) |\n|---|---|---|---|\n${rows.join("\n")}${secrets ? `\n\n*And ${secrets} secret${secrets === 1 ? "" : "s"}.*` : ""}`;
+  }).join("\n\n");
 }
 
 // ---------------------------------------------------------------- EDU (r13): tables
@@ -2319,6 +2323,7 @@ Your line earns the coins below as it goes, and they're **paid as it reaches the
 | A rising that won | ${LIFE_COINS.risingWon} |
 | Going to Europe | ${LIFE_COINS.europe} |
 | Living to see ${END_YEAR} (at the end) | ${LIFE_COINS.reached1776} |
+| This game's achievements (from the first day) | ${PLAY_PAY.achievementTimes} times each one's coins (below) |
 
 Each line is rounded down to a whole coin.
 
@@ -2326,11 +2331,15 @@ Each line is rounded down to a whole coin.
 When the game ends (in ${END_YEAR}, or when the host ends it), the rest of your line's marks are paid (still held to the time you played), with ${LIFE_COINS.reached1776} for living to see ${END_YEAR}. The end screen shows it all: the minutes at the table, the marks paid as you went, what the end paid, and each line of the sum.
 
 ## Achievements
-Besides what time and your line earn, there are ${ACHIEVEMENTS.length} **achievements**, marks of a life across everything in the game (your first job to living to see ${END_YEAR}, the native peoples' own paths, the seasons). Each pays a few Derp Coins (${ACHIEVEMENT_COINS} for all of them) **the first time your account earns it, and never again**: earning it in another game, or the same game played again, pays nothing. They're paid the moment they're earned, with a scene to say so, if you're signed in to Derp Land; a guest is told, but not paid. **Journal › Achievements** has them all: on your account (and when), earned in this game, and how to earn the rest. Your Derp Land profile shows the ones you've earned.
+Besides what time and your line earn, there are ${ACHIEVEMENTS.length} **achievements**, marks of a life across everything in the game: work and trades, businesses and partnerships, ships and crews, expeditions and new nations, the road to the governor's chair, breaking with the crown, duels, the tavern's dice and cards, travel, family, the native peoples' own paths, the seasons, and the store's add-ons (1776: The Revolution and Legends, whose achievements come only to their owners). Some are **hard**, some **rare**, and a few are **secret**: their name and how stay hidden until you earn them. Each comes in two kinds:
+- **This game's achievements** are earned in the game you're playing and shown in it. Each pays **${PLAY_PAY.achievementTimes} times its coins in this game, on any difficulty**, paid with your line's marks as you play: so they're held to the same ${PLAY_PAY.linesPerHour} an hour of time played, and starting game after game pays no more than playing on.
+- **Overall achievements** are your account's, across all your games. Each pays its coins **once, the first time your account earns it**, and from now on they're earned **only in games on Hard** (in company, the game's difficulty). Any you earned before stay yours. Your Derp Land profile shows them.
+
+They're told the moment they're earned, with a scene saying what each paid. **Journal › Achievements** has them all, with a switch between **This game** and **Overall**; the end screen lists both. A guest is told, but not paid. The coins below are each one's overall coins; in a game it pays ${PLAY_PAY.achievementTimes} times as much.
 
 ${achievementsTable()}
 
-> Tip: Most of a game's coins come from time at the table: an evening's play pays about the same at any speed. A line that rises high adds a hundred or two; achievements are a one-time bonus on top, the easy ones in your first years.`,
+> Tip: Most of a game's coins come from time at the table: an evening's play pays about the same at any speed. A line that rises high adds a hundred or two, and this game's achievements more as you go; play on Hard and each also goes onto your account once.`,
   },
   // ================================================================ reference
   {

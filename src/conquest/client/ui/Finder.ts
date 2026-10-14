@@ -1727,10 +1727,12 @@ const GOALS: Goal[] = [
   {
     id: "achievements",
     title: "See my achievements",
-    words: "achievements medals derp coins rewards trophies goals",
+    // CQACH (r22): this game's and overall.
+    words:
+      "achievements medals derp coins rewards trophies goals overall account this game hard secret rare",
     group: "Travel and the world",
     where:
-      "Journal › Achievements: each pays a few Derp Coins the first time your account earns it.",
+      "Journal › Achievements, with a switch between This game (each pays Derp Coins in this game, on any difficulty) and Overall (your account's, earned only on Hard, each paid once).",
     go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
     guide: "coins",
   },

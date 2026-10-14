@@ -1515,6 +1515,30 @@
     font-weight: 700;
     color: var(--peel);
   }
+  /* CQACH (r22): the rule (overall: Hard only), and the hard and rare ones. */
+  .dl-ach-rule {
+    margin: -6px 0 14px;
+    max-width: 62ch;
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--text-2);
+  }
+  .dl-ach.hard {
+    border-color: rgba(214, 166, 64, 0.55);
+  }
+  .dl-ach.rare {
+    border-color: rgba(214, 166, 64, 0.85);
+    background: linear-gradient(
+      100deg,
+      rgba(214, 166, 64, 0.16),
+      var(--surface-2) 60%
+    );
+  }
+  .dl-ach.rare .dl-ach-medal {
+    box-shadow:
+      0 0 0 2px rgba(80, 103, 122, 0.95),
+      inset 0 -1px 2px rgba(0, 0, 0, 0.35);
+  }
 }
 
 /* NAMES (r20): changing your username, in a dialog over your account page. */

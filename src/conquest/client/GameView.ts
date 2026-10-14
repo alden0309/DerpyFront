@@ -705,7 +705,8 @@ export class GameView extends LitElement {
       case "achieved": {
         const t = onAchieved(m, this.nextId++);
         this.achToasts = [...this.achToasts.slice(-1), t];
-        if (t.first && t.coins) play("honour");
+        // CQACH (r22): paid in this game on any difficulty (when signed in).
+        if (t.coins !== null) play("honour");
         setTimeout(() => {
           this.achToasts = this.achToasts.filter((x) => x.id !== t.id);
         }, 8000);
