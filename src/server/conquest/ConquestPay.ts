@@ -143,6 +143,16 @@ export class TablePay {
     return p;
   }
 
+  /**
+   * A seat sits down (or comes back): it's told where it stands in this
+   * game, at once if its pay is already read, or once it has been.
+   */
+  greet(room: PayRoom, seat: PaySeat): void {
+    const had = seat.pay;
+    const p = this.ready(room, seat);
+    if (p && p === had && p.ready) this.note(room, seat, p, 0, 0, []);
+  }
+
   /** `dt` real milliseconds in a room: counted for every seat they count for. */
   count(room: PayRoom, dt: number): void {
     const g = room.game;

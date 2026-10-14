@@ -451,6 +451,33 @@ describe.skipIf(!TEST_DB)(
       g.close();
     }, 60_000);
 
+    test("coming back to a game, you're told at once what it has paid you", async () => {
+      const s = await account("Returner");
+      const a = await signedIn(s.token);
+      const { game } = await soloGame(a);
+      a.send({ t: "pause", p: false });
+      await a.next("clock", (m) => !m.paused);
+      await play(120, { choose: [a], every: 30 });
+      await play(61, { choose: [a], every: 30 });
+      a.close();
+      await settle();
+      const row = (await playOf(s.account.id))[0];
+      expect(row.play).toBeGreaterThan(0);
+      const b = await signedIn(s.token);
+      const back = b.next("game");
+      const told = b.next("paid");
+      b.send({ t: "rejoin", code: game.code, secret: game.secret });
+      await back;
+      expect(await told).toMatchObject({
+        signedIn: true,
+        time: 0,
+        lines: 0,
+        play: row.play,
+        linePaid: row.lines,
+      });
+      b.close();
+    }, 60_000);
+
     test("in-play coins count on the profile, the leaderboards and the latest games", async () => {
       const { profile } = await import("../../src/server/derpy/DerpyGames");
       const { conquestLeaderboard, overallLeaderboard, recentResults } =

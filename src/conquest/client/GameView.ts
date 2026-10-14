@@ -102,8 +102,9 @@ import {
   onAchieved,
   onAchievementList,
   onPaid,
+  payStore,
   type AchievementToast,
-} from "./ui/Achievements"; // MAP (r12); LEGACY (r21): grewWords, onPaid
+} from "./ui/Achievements"; // MAP (r12); LEGACY (r21): grewWords, onPaid, payStore
 import { officesPage } from "./ui/Civic";
 import { tripLeaveLine } from "./ui/LeaveUi"; // ECON (r17)
 import { affairKindName } from "./ui/Ledger"; // LEDGER (r15)
@@ -499,6 +500,7 @@ export class GameView extends LitElement {
     const life = this.life;
     if (fresh) {
       forgetSteady();
+      payStore.last = null; // LEGACY (r21): the last game's pay isn't this one's
       this.log = [];
       this.results = null;
       this.logOpen = window.innerWidth > 820;

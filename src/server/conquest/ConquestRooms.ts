@@ -1501,7 +1501,7 @@ export class ConquestRooms {
         lock,
       });
     if (seat.accountId === null) this.send(seat.conn, TablePay.guestNote());
-    else this.pay.ready(room, seat);
+    else this.pay.greet(room, seat);
     if (room.skip.on || room.skip.asked.size)
       this.send(seat.conn, {
         t: "skip",
