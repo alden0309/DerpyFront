@@ -15,7 +15,8 @@ import { Area, Hotspot, Mark, PlaceDef } from "../../engine/Place";
 import { ActorState } from "../../engine/Types";
 import { WorldAssets } from "./Assets";
 import { buildItem, KitContext, PieceLight } from "./Kit";
-import { LOOKS, Person, Pose } from "./People";
+// BPEOPLE (r22): lookFor (a look, with the cast member's own model) and warmCast.
+import { lookFor, Person, Pose, warmCast } from "./People";
 import { Post } from "./Post";
 import { SurfaceBook } from "./Textures";
 import { Rain, weatherTime } from "./Weather";
@@ -25,6 +26,8 @@ export type Tier = "high" | "low";
 export interface CastLook {
   id: string;
   look: string;
+  /** BPEOPLE (r22): their own model (models/<key>.glb), if any. */
+  model?: string;
 }
 
 export interface HotspotOnScreen {
@@ -145,6 +148,8 @@ export class World {
       bloom: true,
       paint: tier === "high",
     });
+    // BPEOPLE (r22): cut the cast's clothes now, not when they first appear.
+    warmCast(assets.rigs, cast);
     this.resize();
     canvas.addEventListener("pointerdown", this.onDown);
     canvas.addEventListener("pointerup", this.onUp);
@@ -361,7 +366,7 @@ export class World {
     const c = this.cast.find((x) => x.id === id);
     const lookName = wear ?? c?.look;
     if (!lookName) return null;
-    const look = LOOKS[lookName] ?? LOOKS.suit_dark;
+    const look = lookFor(lookName, c?.model); // BPEOPLE (r22)
     const key = `${id}`;
     let p = this.people.get(key);
     if (p && p.look !== look) {

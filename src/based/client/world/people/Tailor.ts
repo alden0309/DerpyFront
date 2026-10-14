@@ -990,26 +990,29 @@ export function tailor(a: Anatomy, look: Look): Cut {
     loftFields.push({ layer: l.layer, field: makeLoft(a, work, l, out) });
   note("lofts");
 
-  /** How far inside any layer above `layer` a point is. */
-  const coveredBy = (layer: number): Field => {
-    const fs = [
-      ...shells.filter((s) => s.layer > layer).map((s) => s.field),
-      ...loftFields.filter((l) => l.layer > layer).map((l) => l.field),
-    ];
-    return (p, r) => {
-      let m = -Infinity;
-      for (const f of fs) m = Math.max(m, f(p, r));
-      return m;
-    };
-  };
-  const fieldAt = (m: Cloth, f: Field) => {
-    const vals = new Float32Array(m.reg.length);
-    const p = v3();
-    for (let i = 0; i < vals.length; i++) {
-      p.set(m.pos[i * 3], m.pos[i * 3 + 1], m.pos[i * 3 + 2]);
-      vals[i] = f(p, m.reg[i] as R);
+  // Every layer's field at every (welded) body vertex, worked out once.
+  const layers = [
+    ...shells.map((s) => ({ layer: s.layer, field: s.field })),
+    ...loftFields,
+  ];
+  const values = layers.map((l) => {
+    const vals = new Float32Array(a.n);
+    const pp = v3();
+    for (let k = 0; k < a.n; k++) {
+      pp.set(work[k * 3], work[k * 3 + 1], work[k * 3 + 2]);
+      vals[k] = l.field(pp, a.reg[k] as R);
     }
     return vals;
+  });
+  /** How far inside any layer above `layer` each body vertex is. */
+  const coveredBy = (layer: number): Float32Array => {
+    const out = new Float32Array(a.n).fill(-Infinity);
+    layers.forEach((l, i) => {
+      if (l.layer <= layer) return;
+      const v = values[i];
+      for (let k = 0; k < a.n; k++) if (v[k] > out[k]) out[k] = v[k];
+    });
+    return out;
   };
 
   // --- the body: what isn't covered ---------------------------------------
@@ -1032,10 +1035,9 @@ export function tailor(a: Anatomy, look: Look): Cut {
     bodyCloth.reg[i] = a.reg[k];
   }
   const allCover = coveredBy(0);
-  const shown = clip(
-    bodyCloth,
-    fieldAt(bodyCloth, (p, r) => OVERLAP - allCover(p, r)),
-  );
+  const bodyF = new Float32Array(nb);
+  for (let i = 0; i < nb; i++) bodyF[i] = OVERLAP - allCover[a.weld[i]];
+  const shown = clip(bodyCloth, bodyF);
   {
     const skin = tintOf(atlas, look.skin);
     const hands = tintOf(atlas, look.skin, 0.78);
@@ -1099,9 +1101,9 @@ export function tailor(a: Anatomy, look: Look): Cut {
   };
   const p = v3();
   const nrm = v3();
-  for (const s of shells) {
-    const own = fieldAt(whole, s.field);
-    const hidden = fieldAt(whole, coveredBy(s.layer));
+  for (const [si, s] of shells.entries()) {
+    const own = values[si];
+    const hidden = coveredBy(s.layer);
     const f = new Float32Array(own.length);
     for (let i = 0; i < f.length; i++)
       f[i] = Math.min(own[i], OVERLAP - hidden[i]);

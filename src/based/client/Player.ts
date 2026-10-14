@@ -171,7 +171,12 @@ export class BasedPlayer extends LitElement {
         this.world = new World(
           canvas,
           this.assets,
-          this.chapter.cast.map((c) => ({ id: c.id, look: c.look ?? "" })),
+          // BPEOPLE (r22): and their own model, if they have one.
+          this.chapter.cast.map((c) => ({
+            id: c.id,
+            look: c.look ?? (c.model ? "suit_dark" : ""),
+            model: c.model,
+          })),
           tier,
           {
             hotspot: (id) => this.clickHotspot(id),

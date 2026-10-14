@@ -282,7 +282,12 @@ export function retargetClip(
         continue;
       }
     }
-    // An end (the head, a hand): turned as whatever it hangs from.
+    // The head keeps its own rest (the face looks ahead whatever the rig
+    // did with the neck); a hand or a foot turns as what it hangs from.
+    if (c === "Head") {
+      align.set(c, new THREE.Quaternion());
+      continue;
+    }
     let p = PARENT[c];
     while (p && !align.has(p)) p = PARENT[p];
     align.set(c, p ? align.get(p)!.clone() : new THREE.Quaternion());
@@ -313,6 +318,10 @@ export function retargetClip(
   );
   const mixer = new THREE.AnimationMixer(src.root);
   const action = mixer.clipAction(clip);
+  // Played once and held: the last frame is the clip's end, not its start
+  // come round again.
+  action.setLoop(THREE.LoopOnce, 1);
+  action.clampWhenFinished = true;
   action.play();
   const frames = Math.max(2, Math.round(clip.duration * fps) + 1);
   const times = new Float32Array(frames);

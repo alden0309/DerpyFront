@@ -399,9 +399,32 @@ export function peopleAssets(
 }
 
 /** A cast member's look, with their own model if they have one. */
+const withModel = new Map<string, Look>();
 export function lookFor(name: string | undefined, model?: string): Look {
   const look = (name && LOOKS[name]) || LOOKS.suit_dark;
-  return model ? { ...look, model } : look;
+  if (!model) return look;
+  // The same object each time (the world compares looks to see a change).
+  const key = `${name}|${model}`;
+  let l = withModel.get(key);
+  if (!l) withModel.set(key, (l = { ...look, model }));
+  return l;
+}
+
+/**
+ * Cuts the cast's clothes ahead of time (and starts fetching their own
+ * models), so nobody's first appearance makes the game stutter.
+ */
+export function warmCast(
+  rigs: { m: Rig; f: Rig },
+  cast: { look: string; model?: string }[],
+): void {
+  for (const c of cast) {
+    const look = lookFor(c.look, c.model);
+    const kit = (look.body === "f" ? rigs.f : rigs.m).kit;
+    if (!kit) continue;
+    kit.dress(look);
+    if (look.model) void kit.custom(look.model);
+  }
 }
 
 // --- people ------------------------------------------------------------------

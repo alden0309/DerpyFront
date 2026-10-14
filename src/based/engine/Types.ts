@@ -27,6 +27,8 @@ export interface CastMember {
   portrait?: string;
   /** How they're dressed in the 3D scenes (a look the client knows). */
   look?: string;
+  // BPEOPLE (r22): their own rigged model (models/<key>.glb), if they have one.
+  model?: string;
   /**
    * Another cast member who is the same person in the 3D scenes (someone
    * known first by a description, then by name): speaking moves that body.
