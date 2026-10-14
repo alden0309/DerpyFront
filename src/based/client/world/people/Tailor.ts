@@ -743,6 +743,10 @@ export function tailor(a: Anatomy, look: Look): Cut {
         (1 - smooth(a.waistY + 0.05, a.shoulderY - 0.1, q.y)) *
         smooth(a.spineZ, a.spineZ + 0.1, q.z);
       q.z += 0.045 * belly;
+      // A seat, not a superhero's.
+      if (q.z < a.spineZ - 0.04 && q.y < a.waistY && q.y > a.crotchY - 0.08) {
+        q.z = a.spineZ - 0.04 + (q.z - a.spineZ + 0.04) * (male ? 0.85 : 0.75);
+      }
       // Nothing to see between the legs.
       if (q.y < a.crotchY + 0.1 && ax < 0.09 && q.z > a.spineZ) {
         const zf = hipL.z + 0.01 + legR(q.y) * 0.8;
@@ -824,7 +828,8 @@ export function tailor(a: Anatomy, look: Look): Cut {
   const shirtCuff = a.wristX - 0.006;
   const hemY = a.ankleY + 0.035;
   const shoeTop = a.ankleY + 0.04;
-  const jHem = a.crotchY + 0.012;
+  // A man's jacket to the seat; a woman's to the hip.
+  const jHem = male ? a.crotchY + 0.012 : lerp(a.crotchY, a.waistY, 0.45);
   const jCuff = a.wristX - 0.024;
   const coatCuff = a.wristX - 0.014;
   const coatHem = a.kneeY - (look.coatCut === "trench" ? 0.12 : 0.08);
@@ -864,7 +869,7 @@ export function tailor(a: Anatomy, look: Look): Cut {
       above(look.skirt ? a.crotchY - 0.03 : hemY),
     ),
     thick: 0.007,
-    passes: 7,
+    passes: look.skirt ? 12 : 7,
     color: look.skirt ?? look.trousers,
     swatch: "wool",
     layer: 2,
@@ -949,7 +954,7 @@ export function tailor(a: Anatomy, look: Look): Cut {
       thick: 0.034,
       color: look.coat,
       swatch: look.coatCut === "trench" ? "cotton" : "wool",
-      follow: 0.45,
+      follow: 0.6,
       layer: 8,
     });
   }
@@ -959,12 +964,13 @@ export function tailor(a: Anatomy, look: Look): Cut {
       top: a.waistY - 0.04,
       bottom: a.kneeY - 0.05,
       open: () => 0,
-      flare: 0,
-      taper: 0.25,
-      thick: 0.012,
+      // A little A-line, following the legs: the clips stand wide. Under a
+      // coat, no wider than the coat.
+      flare: look.coat ? 0 : 0.12,
+      thick: look.coat ? 0.012 : 0.02,
       color: look.skirt,
       swatch: "wool",
-      follow: 0.55,
+      follow: look.coat ? 0.6 : 0.85,
       layer: 3,
     });
   }
@@ -984,17 +990,14 @@ export function tailor(a: Anatomy, look: Look): Cut {
     });
   }
 
-  // The lofts first: their fields are needed to cut away what's under them.
-  const loftFields: { layer: number; field: Field }[] = [];
-  for (const l of lofts)
-    loftFields.push({ layer: l.layer, field: makeLoft(a, work, l, out) });
+  // What hangs (a coat's skirts, a skirt) covers the legs only while he
+  // stands: sitting or running, the legs come out from under it. So it
+  // cuts nothing away; only what clings does.
+  for (const l of lofts) makeLoft(a, work, l, out);
   note("lofts");
 
   // Every layer's field at every (welded) body vertex, worked out once.
-  const layers = [
-    ...shells.map((s) => ({ layer: s.layer, field: s.field })),
-    ...loftFields,
-  ];
+  const layers = shells.map((s) => ({ layer: s.layer, field: s.field }));
   const values = layers.map((l) => {
     const vals = new Float32Array(a.n);
     const pp = v3();
@@ -1244,7 +1247,11 @@ export function tailor(a: Anatomy, look: Look): Cut {
     pieces.mesh(t.pieces[hair.piece], hairTint, (hp) => {
       shape?.(hp);
       face(hp);
-      return hair.keep(hp, a) && hp.y < hatY + 0.02;
+      // Under a hat: only what the hat doesn't hide (and nothing poking
+      // through its crown).
+      const out =
+        hp.y > hatY + 0.015 && Math.hypot(hp.x * 1.08, hp.z - a.headZ) > 0.07;
+      return hair.keep(hp, a) && !out;
     });
   }
   const facialHair = look.facial ?? (look.moustache ? "moustache" : undefined);
@@ -1344,13 +1351,8 @@ function sampleRing(r: number[], ang: number): number {
   return lerp(r[i], r[(i + 1) % K], u - i);
 }
 
-/** Builds a loft into `out`; returns its field (to cut away what it covers). */
-function makeLoft(
-  a: Anatomy,
-  work: Float32Array,
-  s: LoftSpec,
-  out: Out,
-): Field {
+/** Builds a loft (what hangs from the hips) into `out`. */
+function makeLoft(a: Anatomy, work: Float32Array, s: LoftSpec, out: Out): void {
   let zmin = Infinity;
   let zmax = -Infinity;
   for (let k = 0; k < a.n; k++) {
@@ -1396,7 +1398,7 @@ function makeLoft(
       const rr = sampleRing(rings[i], ang) * (1 + s.flare * u * u) + s.thick;
       p.set(Math.sin(ang) * rr, y, cz + Math.cos(ang) * rr);
       n.set(Math.sin(ang), 0.15, Math.cos(ang)).normalize();
-      const follow = s.follow * smooth(0, 1, u);
+      const follow = s.follow * smooth(-0.2, 0.8, u);
       const side = smooth(-0.05, 0.05, p.x);
       out.vert(
         p,
@@ -1416,16 +1418,6 @@ function makeLoft(
       out.tri(a0 + 1, b0, b0 + 1);
     }
   }
-  return (q) => {
-    const u = clamp((s.top - q.y) / (s.top - s.bottom), 0, 1);
-    const ang = Math.abs(Math.atan2(q.x, q.z - cz));
-    const open = s.arc ? Math.PI - s.arc : s.open(u);
-    return Math.min(
-      s.top - 0.02 - q.y,
-      q.y - s.bottom,
-      (ang - open - 0.12) * 0.15,
-    );
-  };
 }
 
 /** Which of the kit's hair meshes a haircut is, and how it's cut. */
@@ -2047,8 +2039,26 @@ class Pieces {
   hat(h: { kind: string; color: string; band?: string }, y0: number): void {
     const a = this.a;
     const head = this.rigid("Head");
-    const cz = a.headZ - 0.004;
-    const R0 = 0.084;
+    // Sized to the head where it sits.
+    let cz = 0;
+    let n = 0;
+    for (let k = 0; k < a.n; k++) {
+      if (a.reg[k] !== R.Head || Math.abs(this.work[k * 3 + 1] - y0) > 0.012)
+        continue;
+      cz += this.work[k * 3 + 2];
+      n++;
+    }
+    cz = n ? cz / n : a.headZ;
+    let R0 = 0.07;
+    for (let k = 0; k < a.n; k++) {
+      if (a.reg[k] !== R.Head || Math.abs(this.work[k * 3 + 1] - y0) > 0.012)
+        continue;
+      R0 = Math.max(
+        R0,
+        Math.hypot(this.work[k * 3] / 0.92, this.work[k * 3 + 2] - cz),
+      );
+    }
+    R0 += 0.004;
     // Profiles: [radius, height] from the brim's edge to the crown's top.
     const prof: Record<string, [number, number][]> = {
       fedora: [
