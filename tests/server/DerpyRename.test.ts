@@ -355,7 +355,15 @@ describe.skipIf(!TEST_DB)("changing your username, against Postgres", () => {
     const { ACHIEVEMENTS } =
       await import("../../src/conquest/engine/Achievements");
     expect(
-      (await awardAchievement(alden.id, ACHIEVEMENTS[0].key, "RENAMEC1")).first,
+      // CQACH (r22): overall achievements come from games on Hard.
+      (
+        await awardAchievement(
+          alden.id,
+          ACHIEVEMENTS[0].key,
+          "RENAMEC1",
+          "hard",
+        )
+      ).first,
     ).toBe(true);
 
     await pool.query("UPDATE derpy_accounts SET coins = 2000 WHERE id = $1", [

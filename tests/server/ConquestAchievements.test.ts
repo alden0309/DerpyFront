@@ -4,6 +4,10 @@
 // replayed) pays nothing; a guest is told but not paid; the account's list
 // comes when you join a game, and shows on your Derp Land profile.
 //
+// CQACH (r22): onto the account (overall) only in a game on Hard; on any
+// difficulty each is told with what it pays in this game, and the end
+// screen has both.
+//
 // Needs a throwaway Postgres: DERPY_TEST_DATABASE_URL=postgres://... (every
 // derpy_ table in it is dropped first).
 
@@ -11,7 +15,13 @@ import http from "http";
 import { AddressInfo } from "net";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { WebSocket } from "ws";
-import { ACHIEVEMENT_BY_KEY } from "../../src/conquest/engine/Achievements";
+import {
+  ACHIEVEMENT_BY_KEY,
+  ACHIEVEMENTS,
+  gameAchievements,
+  gameCoins,
+} from "../../src/conquest/engine/Achievements";
+import { GAME_ACH_LINE } from "../../src/conquest/engine/Coins"; // CQACH (r22)
 import { lifeOfSeat } from "../../src/conquest/engine/LifeQueries";
 import { FRAME_COLORS } from "../../src/conquest/engine/LifeRules";
 import { AMERICAS } from "../../src/conquest/engine/Map";
@@ -129,12 +139,12 @@ function runFor(rooms: InstanceType<typeof ConquestRooms>, seconds: number) {
   }
 }
 
-async function soloGame(c: Client) {
+async function soloGame(c: Client, difficulty = "hard") {
   c.send({
     t: "create",
     solo: true,
     open: false,
-    settings: { difficulty: "normal" },
+    settings: { difficulty },
   });
   await c.next("lobby");
   c.send({ t: "plan", plan });
@@ -209,6 +219,8 @@ describe.skipIf(!TEST_DB)("Derpy Conquest achievements pay Derp Coins", () => {
       key: "first-job",
       coins: worth,
       first: true,
+      game: gameCoins(ACHIEVEMENT_BY_KEY.get("first-job")!),
+      overall: true,
     });
     await new Promise((r) => setTimeout(r, 50));
     expect(await coinsNow()).toBe(worth);
@@ -243,6 +255,51 @@ describe.skipIf(!TEST_DB)("Derpy Conquest achievements pay Derp Coins", () => {
     expect(await again).toMatchObject({ coins: 0, first: false });
     await new Promise((r) => setTimeout(r, 50));
     expect(await coinsNow()).toBe(paid);
+    a.send({ t: "leave" });
+    await a.next("rooms").catch(() => undefined);
+
+    // CQACH (r22): a game on Normal: each is told with what it pays in this
+    // game, and none goes onto the account (a new one included).
+    const third = await soloGame(a, "normal");
+    const room3 = env.rooms.rooms.get(third.game.code)!;
+    const life3 = lifeOfSeat(room3.game!.state, third.game.you)!;
+    const job3 = a.next("achieved", (m) => m.key === "first-job");
+    a.send({ t: "pause", p: false });
+    await a.next("clock", (m) => !m.paused);
+    runFor(env.rooms, 4);
+    expect(await job3).toMatchObject({
+      coins: 0,
+      first: false,
+      overall: false,
+      game: gameCoins(ACHIEVEMENT_BY_KEY.get("first-job")!),
+    });
+    a.send({ t: "pause", p: true });
+    await a.next("clock", (m) => m.paused);
+    life3.tally.peakPurse = 150;
+    const purse = a.next("achieved", (m) => m.key === "purse");
+    a.send({ t: "cmd", id: 2, c: { k: "will", share: true } });
+    expect(await purse).toMatchObject({
+      coins: 0,
+      first: false,
+      overall: false,
+      game: gameCoins(ACHIEVEMENT_BY_KEY.get("purse")!),
+    });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(await coinsNow()).toBe(paid);
+    // The end screen: this game's, with their coins, and nothing overall.
+    const end = a.next("end");
+    a.send({ t: "end" });
+    const mine = (await end).results[0];
+    expect(mine.ach?.hard).toBe(false);
+    expect(mine.ach?.overall).toEqual([]);
+    expect(mine.ach?.game.map((x) => x.key)).toEqual(
+      expect.arrayContaining(["first-job", "purse"]),
+    );
+    for (const x of mine.ach!.game)
+      expect(x.coins).toBe(gameCoins(ACHIEVEMENT_BY_KEY.get(x.key)!));
+    expect(mine.coinLines.find((l) => l.line === GAME_ACH_LINE)?.coins).toBe(
+      gameAchievements(life3).coins,
+    );
     a.close();
 
     // On the Derp Land profile.
@@ -252,7 +309,10 @@ describe.skipIf(!TEST_DB)("Derpy Conquest achievements pay Derp Coins", () => {
       "house",
     ]);
     expect(p.conquest.achievements![0].name).toBeTruthy();
-    expect(p.conquest.achievementCount).toBeGreaterThanOrEqual(40);
+    // CQACH (r22): of all but the add-ons' (this account owns none).
+    expect(p.conquest.achievementCount).toBe(
+      ACHIEVEMENTS.filter((x) => !x.dlc).length,
+    );
 
     // A guest is told, but not paid.
     const g = new Client(env.url);
@@ -269,7 +329,11 @@ describe.skipIf(!TEST_DB)("Derpy Conquest achievements pay Derp Coins", () => {
     g.send({ t: "pause", p: false });
     await g.next("clock", (m) => !m.paused);
     runFor(env.rooms, 4);
-    expect(await gjob).toMatchObject({ coins: null, first: false });
+    expect(await gjob).toMatchObject({
+      coins: null,
+      first: false,
+      overall: true,
+    });
     g.close();
     expect(
       Number(
