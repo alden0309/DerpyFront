@@ -37,6 +37,7 @@ import "./home.css";
 import "./intrigue.css"; // INTRIGUE (r15): hearts and schemes
 import "./labour.css"; // LABOUR (r15): those held in bondage
 import "./ledger.css"; // LEDGER (r15): money made plain
+import "./life21.css"; // LIFE (r21): health and skills, someone's stats, teaching, posts
 import "./partners.css"; // PARTNERS (r13): partnerships
 import "./polls.css"; // POLLS (r16): the canvass
 import "./schooling.css"; // EDU (r13): school, apprenticeship, college

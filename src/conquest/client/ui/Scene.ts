@@ -37,6 +37,7 @@ import { GOOD_NAMES } from "../Text";
 import type { GameUi } from "./Context";
 import { duelScene } from "./DuelScene"; // HOME (r12)
 import { roleOf } from "./Here";
+import { deathPanel, teachPanel } from "./LifeR21"; // LIFE (r21)
 import { letterClock, ModalHooks } from "./Modals";
 import { articlesScene } from "./Partners"; // PARTNERS (r13)
 import { price, splitPrice } from "./Price"; // LEDGER (r15)
@@ -516,6 +517,10 @@ export function interactScene(
       <div class="cq-scene-text">
         <p>${def.text}</p>
         ${talkLine(ui, c)}
+        ${
+          teachPanel(ui, c, v) /* LIFE (r21): the skill, the rate, a forecast */
+        }
+        ${deathPanel(ui, c, m, v.player) /* LIFE (r21): to the death */}
       </div>
       ${verdict}
       <div class="cq-scene-actions">${action}</div>`,

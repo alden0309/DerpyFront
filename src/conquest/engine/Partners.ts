@@ -78,6 +78,7 @@ import {
 } from "./LifeQueries";
 import { JOBS, roleJobs, ROLES, SKILL_NAMES } from "./LifeRules";
 import type { World } from "./Map";
+import { ordinal } from "./Ordinal"; // LIFE (r21)
 import { wake } from "./Pace";
 import {
   bizCost,
@@ -641,8 +642,7 @@ export function articlesText(
     "November",
     "December",
   ];
-  const nth = (n: number) =>
-    `${n}${n % 10 === 1 && n !== 11 ? "st" : n % 10 === 2 && n !== 12 ? "nd" : n % 10 === 3 && n !== 13 ? "rd" : "th"}`;
+  const nth = ordinal; // LIFE (r21): the one ordinal (Ordinal.ts)
   const brings = (i: 0 | 1) => {
     const side = t.sides[i];
     const what: string[] = [];

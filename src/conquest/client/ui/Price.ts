@@ -90,13 +90,14 @@ export function splitPrice(label: string): {
   text: string;
   cost: number | null;
 } {
-  const m = /^(.*?)\s*\((\d+(?:\.\d+)?)(?: coins)?\)$/.exec(label);
+  // LIFE (r21): "(1 coin)" too, not only "(N coins)".
+  const m = /^(.*?)\s*\((\d+(?:\.\d+)?)(?: coins?)?\)$/.exec(label);
   if (m) return { text: m[1], cost: Number(m[2]) };
   // CHAIR (r16): a price followed by the skill check's odds the engine
   // appends ("Bribe them (5 coins) (Persuasion 62%)"): the odds stay in the
   // words, the price goes in the chip.
   const k =
-    /^(.*?)\s*\((\d+(?:\.\d+)?)(?: coins)?\)(\s*\([A-Z][a-z]+ \d+%\))$/.exec(
+    /^(.*?)\s*\((\d+(?:\.\d+)?)(?: coins?)?\)(\s*\([A-Z][a-z]+ \d+%\))$/.exec(
       label,
     );
   return k

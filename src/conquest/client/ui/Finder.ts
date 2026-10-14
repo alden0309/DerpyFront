@@ -2324,6 +2324,108 @@ const GOALS: Goal[] = [
     guide: "crown",
   },
   // ---- end CROWN (r18)
+  // ---- LIFE (r21): skills and teachers, the body, winning people over, posts, duels to the death, the bawdy house
+  {
+    id: "r21-skill",
+    title: "Get better at a skill (and master one)",
+    words:
+      "skill level xp experience master train grind learn improve tier expert legend thirty progress next level",
+    group: "Learning",
+    where:
+      "You › Yourself: each skill's bar shows how far you are to the next level and what it costs. Work at it, study, practise, and find someone well above you to teach you. Each level costs more than the last; 20 is a master's, 30 a lifetime's.",
+    go: tab({ k: "tab", tab: "you", sub: "" }),
+    goLabel: "Yourself",
+    guide: "you",
+  },
+  {
+    id: "r21-teacher",
+    title: "Find someone to teach me",
+    words:
+      "teach teacher mentor tutor learn lessons master apprentice ask them to teach you rate",
+    group: "People",
+    where:
+      "Their card › Ask them to teach you: before you ask it shows the skill they'd teach, their level against yours, the rate (×0.75 to ×2.5: the further above you, the more) and where a year with them would leave you.",
+    needs: (ui) => [adult(ui)],
+    go: tab({ k: "tab", tab: "people", sub: "known" }),
+    goLabel: "People",
+    guide: "you",
+  },
+  {
+    id: "r21-learning",
+    title: "Raise my learning (or my letters)",
+    words:
+      "learning attribute letters read write study minister priest dominie church school educated",
+    group: "Learning",
+    where:
+      "The church › Study with the minister: letters, learning, faith. Half a coin a week; every 25 lessons your Learning grows a point, three at most.",
+    needs: (ui) => [inTown(ui, "church", "church")],
+    go: place("church"),
+    goLabel: "The church",
+    guide: "you",
+  },
+  {
+    id: "r21-health",
+    title: "Keep my health as I grow old",
+    words:
+      "health age old maximum max cap stress strain wound hurt physician doctor die death",
+    group: "Body and mind",
+    where:
+      "The banner's health bar marks the most it can be now (falling from 45). Stress makes every hurt worse: keep it under 20 if you can. A physician of your own (a post) mends a little each month.",
+    go: tab({ k: "tab", tab: "you", sub: "" }),
+    goLabel: "Yourself",
+    guide: "health",
+  },
+  {
+    id: "r21-stats",
+    title: "See someone's stats (and how they'd fight)",
+    words:
+      "stats stat skills attributes fighting combat duel odds strength health see check inspect character",
+    group: "People",
+    where:
+      "Anyone's card › Their stats: their fighting, health and the traits that tell in a fight, your odds in a duel with them (and to the death), and the attributes and skills you'd know of them.",
+    go: tab({ k: "tab", tab: "people", sub: "known" }),
+    goLabel: "People",
+    guide: "people",
+  },
+  {
+    id: "r21-posts",
+    title: "Give my people posts (a bodyguard, a steward, a physician...)",
+    words:
+      "post position court bodyguard steward physician doctor tutor secretary clerk accounts scout chaplain household people hired servants",
+    group: "People",
+    where:
+      "People › Your people: the post picker under each. What they do goes by their skill; each post pays a little over their wages. Hire physicians at the apothecary and tutors at the church or the press.",
+    go: tab({ k: "tab", tab: "people", sub: "yours" }),
+    goLabel: "Your people",
+    guide: "followers",
+  },
+  {
+    id: "r21-death",
+    title: "Fight a duel to the death (or run from one)",
+    words:
+      "duel death to the death kill fight honour challenge run flee coward satisfaction",
+    group: "People",
+    where:
+      "Their card › Challenge to the death (with the chance they'd take your terms). It goes on until one of you is down; losing, you may run for it, and be called a coward for three years.",
+    needs: (ui) => [adult(ui)],
+    go: tab({ k: "tab", tab: "people", sub: "known" }),
+    goLabel: "People",
+    guide: "duels",
+  },
+  {
+    id: "r21-bawdy",
+    title: "Spend an evening at the bawdy house",
+    words:
+      "bawdy house brothel stews evening company parlour cards punch stress pox",
+    group: "Body and mind",
+    where:
+      "In a great port or a capital: The bawdy house › Spend an evening at the house. Eighteen and over. It eases stress; the odds of being seen, of the pox and of your husband or wife hearing are in the scene.",
+    needs: (ui) => [grown(ui), inTown(ui, "bawdy", "bawdy house")],
+    go: place("bawdy"),
+    goLabel: "The bawdy house",
+    guide: "bawdy",
+  },
+  // ---- end LIFE (r21)
   // ---- LABOUR (r15): bondage in the colonies, as history
   {
     id: "bond-law",

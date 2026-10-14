@@ -135,6 +135,8 @@ const PLACE_PATHS: Record<string, SVGTemplateResult> = {
   village: svg`<path d="M3 20c0-6 4-10 9-10s9 4 9 10z" /><path d="M12 10V4M10 6l2-2 2 2" /><path d="M10 20v-4h4v4" />`,
   woods: svg`<path d="M8 21v-4M8 17L3 17l5-7-3 0 3-6 3 6-3 0 5 7z" /><path d="M16 21v-3M16 18h-4l4-6-2 0 2-4 2 4-2 0 4 6z" />`,
   apothecary: svg`<path d="M9 3h6M10 3v5l-4 9a2 2 0 0 0 2 3h8a2 2 0 0 0 2-3l-4-9V3" /><path d="M8 14h8" />`,
+  // LIFE (r21): the bawdy house: a shuttered house with a lantern at the door.
+  bawdy: svg`<path d="M4 21V10l7-5 7 5v11z" /><path d="M8 12h2v3H8zM12 12h2v3h-2z" /><path d="M10 21v-3h2v3" /><path d="M19 9v3M18 12h2v3h-2z" />`,
 };
 
 export const placeIcon = (kind: string) =>

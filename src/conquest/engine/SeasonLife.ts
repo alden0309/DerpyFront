@@ -27,7 +27,7 @@ import {
 } from "./LifeCore";
 import type { LifeChoice, LifeEventDef } from "./LifeEvents";
 import { isChildLife, lifeIsNative, meOf, skillLevel } from "./LifeQueries";
-import { checkChance } from "./LifeRules";
+import { checkChance, skillWeight } from "./LifeRules"; // LIFE (r21): skillWeight
 import { isWinter } from "./Map";
 import { ageOf, hasTrait } from "./Queries";
 import {
@@ -125,7 +125,9 @@ export function harvestStintPay(g: ConquestGame, life: Life): number {
   const def = place(g, life.prov);
   const h = harvestNow(def.lat, def.lon, g.s.day);
   const farming = skillLevel(g.s, life, "farming");
-  return Math.round((1.4 + farming * 0.12) * HARVEST_PAY[h] * 10) / 10;
+  return (
+    Math.round((1.4 + skillWeight(farming) * 0.12) * HARVEST_PAY[h] * 10) / 10 // LIFE (r21): past 20, half
+  );
 }
 
 /**
@@ -619,7 +621,7 @@ export const SEASON_EVENTS: LifeEventDef[] = [
           const h = harvestNow(def.lat, def.lon, g.s.day);
           const pay =
             Math.round(
-              (1.2 + skillLevel(g.s, life, "farming") * 0.1) *
+              (1.2 + skillWeight(skillLevel(g.s, life, "farming")) * 0.1) * // LIFE (r21)
                 HARVEST_PAY[h] *
                 10,
             ) / 10;

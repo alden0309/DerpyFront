@@ -32,7 +32,11 @@ import {
 
 // ---------------------------------------------------------------- skills
 
-export const SKILL_MAX = 20;
+/**
+ * LIFE (r21): thirty levels (it was twenty). The old top, 20, is a master's;
+ * the ten above it are a lifetime's devotion (`SKILL_TIERS`).
+ */
+export const SKILL_MAX = 30;
 
 export const SKILL_NAMES: Record<Skill, string> = {
   fighting: "Fighting",
@@ -98,10 +102,81 @@ export const ATTRIBUTE_HELP: Record<Stat, string> = {
   lea: "Book learning and judgement. Helps letters, faith and medicine.",
 };
 
-/** XP to go from `level` to `level + 1`. */
+/**
+ * XP to go from `level` to `level + 1`. LIFE (r21): the first ten levels cost
+ * what they always did (40, 52, 64...); from 10 each costs more again, by the
+ * square of how far past 9 it is (10: 166, 15: 436, 19: 868, 25: 1,876, 29:
+ * 2,788). From nothing to 20 is 5,390 (it was 3,080), to 30 is 23,640.
+ */
 export function xpToNext(level: number): number {
+  const past = Math.max(0, level - 9);
+  return 40 + 12 * level + SKILL_STEEP * past * past;
+}
+
+/** LIFE (r21): how much faster the cost rises past level 9. */
+export const SKILL_STEEP = 6;
+
+/** LIFE (r21): what a level cost before round 21 (to carry an old save's progress over). */
+export function oldXpToNext(level: number): number {
   return 40 + 12 * level;
 }
+
+/** LIFE (r21): XP from nothing to a level. */
+export function xpToReach(level: number): number {
+  let t = 0;
+  for (let l = 0; l < Math.min(level, SKILL_MAX); l++) t += xpToNext(l);
+  return t;
+}
+
+/** LIFE (r21): what each stretch of the thirty levels is called. */
+export const SKILL_TIERS: { from: number; name: string; text: string }[] = [
+  { from: 0, name: "Untried", text: "Hardly a beginning." },
+  { from: 4, name: "Novice", text: "Knows the rudiments." },
+  { from: 8, name: "Able", text: "Can earn a living by it." },
+  {
+    from: 12,
+    name: "Skilled",
+    text: "Better than most who do it for a trade.",
+  },
+  { from: 16, name: "Expert", text: "Known for it in the county." },
+  {
+    from: 20,
+    name: "Master",
+    text: "Few in the colony are better. Each level past here is years of devotion.",
+  },
+  {
+    from: 25,
+    name: "Grand master",
+    text: "A name spoken of in the colonies.",
+  },
+  {
+    from: 30,
+    name: "Legend",
+    text: "Nobody alive does it better: a lifetime's work.",
+  },
+];
+
+/** LIFE (r21): the tier a level falls in. */
+export function skillTier(level: number): { name: string; text: string } {
+  let t = SKILL_TIERS[0];
+  for (const x of SKILL_TIERS) if (level >= x.from) t = x;
+  return t;
+}
+
+/**
+ * LIFE (r21): a skill's weight in a sum that has no ceiling of its own (a
+ * hand's takings, a fee): in full to 20, half as much for each level above,
+ * so a master of 30 counts as 25. Checks (`checkChance`) need nothing: they
+ * stop at 95 in 100.
+ */
+export function skillWeight(level: number): number {
+  return level <= SKILL_MASTER
+    ? level
+    : SKILL_MASTER + (level - SKILL_MASTER) / 2;
+}
+
+/** LIFE (r21): the old top of the scale, a master's level. */
+export const SKILL_MASTER = 20;
 
 /** Skill bonuses from traits, on top of their attribute changes. */
 export const TRAIT_SKILLS: Partial<Record<TraitId, Partial<Skills>>> = {
@@ -1396,6 +1471,11 @@ export const PLACES: Record<PlaceKind, PlaceDef> = {
     text: "Your own fire, your own people, and nobody's business but yours.",
   },
   ...MORE_PLACES,
+  // LIFE (r21): only in a great port or a capital (Bawdy.ts says where).
+  bawdy: {
+    name: "The bawdy house",
+    text: "A house down by the water with its shutters closed by day: music, punch, cards, and company for the evening, for a price. The minister preaches against it; half his congregation knows the way.",
+  },
 };
 
 // ---------------------------------------------------------------- property

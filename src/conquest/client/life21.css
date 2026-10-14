@@ -1,0 +1,120 @@
+/* LIFE (r21): the sheet's health and skills, someone's stats, teaching,
+   a challenge to the death, and your people's posts. */
+
+/* Health: the most it can be, marked on the bar. */
+.cq-health21 .cq-capbar {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.cq-health21 .cq-capbar .cq-bar {
+  display: block;
+}
+.cq-health21 .cq-cap {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--seal);
+  border-radius: 1px;
+}
+.cq-health21 .cq-strain {
+  grid-column: 1 / -1;
+  color: var(--seal);
+}
+
+/* Skills: the tier, and the XP to the next level under the bar. */
+.cq-skills21 li {
+  grid-template-rows: auto auto auto;
+}
+.cq-skill-tier {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+  margin-left: 0.25rem;
+}
+.cq-skills21 .cq-skill-next {
+  grid-row: 3;
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  line-height: 1.1rem;
+  height: 1.1rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cq-study21 {
+  margin: 0.35rem 0 0;
+}
+
+/* Someone's stats: the fight, then attributes and skills (one column: a
+   person's page is in the side panel, or a sheet on phones). */
+.cq-stats21 {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.4rem;
+}
+.cq-stats21 .cq-int-group {
+  margin-top: 0.2rem;
+}
+.cq-stats21-cells {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.15rem 0.8rem;
+}
+.cq-stats21-cell {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.4rem;
+  border-bottom: 1px solid var(--rule);
+  padding: 0.1rem 0;
+  font-size: 0.92rem;
+}
+.cq-stats21-cell b {
+  font-variant-numeric: tabular-nums;
+}
+.cq-stats21-cell.fog b {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.cq-stats21-cell.trade span {
+  text-decoration: underline dotted var(--sepia);
+}
+
+/* Teaching, and a challenge to the death: a ruled note in the scene's text. */
+.cq-teach21 {
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-left: 3px solid var(--brass);
+  background: rgba(201, 155, 58, 0.08);
+}
+.cq-teach21 p {
+  margin: 0.15rem 0;
+}
+.cq-death21 {
+  border-left-color: var(--seal);
+  background: rgba(158, 42, 30, 0.06);
+}
+
+/* Your people's posts. */
+.cq-post21 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.6rem;
+  margin: 0.25rem 0 0.15rem;
+}
+.cq-post21 select {
+  max-width: 100%;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.cq-post21-fx {
+  flex: 1 1 14rem;
+  min-width: 0;
+}

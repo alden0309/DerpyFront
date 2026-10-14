@@ -29,6 +29,8 @@ import {
   livesDaily,
   livesMonthly,
 } from "./Life";
+import "./LifeR21"; // LIFE (r21): positions, the bawdy house, study, the body
+import { carryAllSkills } from "./LifeR21Core"; // LIFE (r21)
 import { takeLoanDelta } from "./LoanCore"; // ECON (r17)
 import { World, worldOf } from "./Map";
 // WORLD r11: fog of war, province markets, leads, and fitting old saves to the map.
@@ -141,6 +143,8 @@ export class ConquestGame {
     this.rng = new Rng(state);
     // ART (r11): a game saved before the portrait gallery keeps its faces.
     migrateLooks(state);
+    // LIFE (r21): an old save's skill progress carried onto the longer road.
+    carryAllSkills(state);
     this.seenId = state.nextId;
     // Players start from the whole state as it is now: later changes to
     // anything in it go out as just the fields that changed.

@@ -5,6 +5,7 @@
 // and effects that last: opinions, renown, money, health and skills.
 
 import { homeHere, presentAt } from "./Areas";
+import { BAWDY, bawdyCheck } from "./Bawdy"; // LIFE (r21)
 import { dateOf, formatDate } from "./Calendar";
 import { CANVASS_POINTS, canvassingSeat } from "./Canvass"; // POLLS (r16)
 import { courtNeeds } from "./ChairCore"; // CHAIR (r16)
@@ -51,6 +52,8 @@ import {
   startRank,
   yes,
 } from "./LifeQueries";
+import { studyLearning } from "./LifeR21Core"; // LIFE (r21)
+import { bawdyVisit } from "./LifeR21Events"; // LIFE (r21)
 import {
   checkChance,
   ENDOWMENTS,
@@ -60,6 +63,7 @@ import {
   LAND_LOT,
   LESSONS,
   SKILL_NAMES,
+  skillWeight,
   WORKS,
 } from "./LifeRules";
 import type { World } from "./Map";
@@ -101,7 +105,8 @@ import {
   landCheck,
   openBusiness,
 } from "./Property";
-import { ageOf, charName, hasTrait } from "./Queries";
+import { ageOf, charName, hasTrait, stat } from "./Queries"; // LIFE (r21): stat
+import { warm } from "./Regard"; // LIFE (r21)
 import { DAYS_PER_YEAR } from "./Rules";
 import { heardHere } from "./Rumours";
 import { harvestStint } from "./SeasonLife"; // MAP (r12)
@@ -112,6 +117,13 @@ import { SEATS } from "./Types";
 import { buyRank, selfStartCheck, startJob } from "./Work";
 
 // ---------------------------------------------------------------- place acts
+
+/** LIFE (r21): who teaches at the church, by its faith. */
+export function clergyWord(religion: string | undefined): string {
+  if (religion === "catholic") return "priest";
+  if (religion === "reformed" || religion === "lutheran") return "dominie";
+  return "minister";
+}
 
 export interface ActDef {
   key: string;
@@ -280,11 +292,21 @@ export const ACTS: ActDef[] = [
     cooldown: 60,
     when: adult,
   },
+  // LIFE (r21): the bawdy house (Bawdy.ts): an evening there is a scene of its own.
+  {
+    key: "bawdy",
+    places: ["bawdy"],
+    label: "Spend an evening at the house",
+    text: "Punch, cards and a fiddler in the parlour, or company upstairs behind a door that closes. It eases the mind. People talk, the pox is about, and a husband or wife may hear of it: the odds are in the scene.",
+    cooldown: BAWDY.rest,
+    when: (s, _w, life) => bawdyCheck(s, life),
+  },
   {
     key: "study",
     places: ["church"],
-    label: "Study with the minister",
-    text: "Reading, writing and scripture, for half a coin.",
+    // LIFE (r21): it teaches letters and faith, and in time grows your learning.
+    label: "Study with the minister: letters, learning, faith",
+    text: "Reading, writing and scripture, for half a coin. Your letters grow (10 a lesson) and your faith (3); every 25 lessons your Learning grows a point, three at most.",
     cooldown: 7,
     cost: 0.5,
     skill: "letters",
@@ -844,6 +866,9 @@ export function actsAt(place: PlaceKind): ActDef[] {
 
 /** What an act's button says for this character. */
 export function actLabel(s: GameState, life: Life, def: ActDef): string {
+  // LIFE (r21): the priest, the minister, the dominie: by your church.
+  if (def.key === "study")
+    return `Study with the ${clergyWord(meOf(s, life)?.religion)}: letters, learning, faith`;
   if (def.key === "house") {
     const v = houseCheck(s, life);
     return v.next
@@ -1075,7 +1100,7 @@ export function doAct(
       addRenown(g, life, 1);
       for (const c of peopleHere(s, life.prov, life).slice(0, 10)) {
         meet(g, life, c.id);
-        remembers(g, life, g.char(c.id), "Stood us a round", 6, 1);
+        warm(g, life, g.char(c.id), "Stood us a round"); // LIFE (r21)
       }
       campaignBoost(g, life, CANVASS_POINTS.round, "a round for the house"); // POLLS (r16): one table
       roundLine(g, life, here); // CHAMBER (r16)
@@ -1127,7 +1152,9 @@ export function doAct(
       gainXp(g, life, "trade", 6);
       if (pass) {
         const got =
-          Math.round((0.8 + skillLevel(s, life, "trade") * 0.1) * 10) / 10;
+          Math.round(
+            (0.8 + skillWeight(skillLevel(s, life, "trade")) * 0.1) * 10, // LIFE (r21): past 20, half
+          ) / 10;
         earn(g, life, got);
         journal(g, life, `A good day's peddling: +${got} coins.`, "good");
       } else journal(g, life, "Nobody wanted what you were selling.");
@@ -1154,8 +1181,7 @@ export function doAct(
       const minister = peopleHere(s, life.prov, life).find(
         (c) => c.role === "preacher",
       );
-      if (minister)
-        remembers(g, life, g.char(minister.id), "Generous to the poor", 8, 2);
+      if (minister) warm(g, life, g.char(minister.id), "Generous to the poor"); // LIFE (r21)
       almsLine(g, life); // CHAMBER (r16)
       return null;
     }
@@ -1185,10 +1211,21 @@ export function doAct(
       );
       return null;
     }
-    case "study":
+    case "bawdy":
+      return bawdyVisit(g, life); // LIFE (r21)
+    case "study": {
       gainXp(g, life, "letters", 10);
       gainXp(g, life, "faith", 3);
+      // LIFE (r21): and, lesson by lesson, your learning (written when it grows).
+      if (studyLearning(g, life))
+        journal(
+          g,
+          life,
+          `Lessons over the Psalter and the copybook with the ${clergyWord(me.religion)}: your learning has grown to ${stat(s, me, "lea")}.`,
+          "good",
+        );
       return null;
+    }
     case "council":
       gainXp(g, life, "persuasion", 6);
       gainXp(g, life, "leadership", 3);
@@ -1223,14 +1260,7 @@ export function doAct(
           c.role === "warleader" ||
           s.nations[c.nation]?.ruler === c.id
         )
-          remembers(
-            g,
-            life,
-            g.char(c.id),
-            "Brought gifts to the council",
-            8,
-            2,
-          );
+          warm(g, life, g.char(c.id), "Brought gifts to the council"); // LIFE (r21)
       }
       addFavor(g, life, 2); // POLLS (r16): on the curve
       journal(
@@ -1414,7 +1444,9 @@ export function doAct(
       gainXp(g, life, "medicine", 8);
       if (pass) {
         const fee =
-          1 + Math.round(skillLevel(s, life, "medicine") * 0.1 * 10) / 10;
+          1 +
+          Math.round(skillWeight(skillLevel(s, life, "medicine")) * 0.1 * 10) / // LIFE (r21)
+            10;
         earn(g, life, fee);
         addRenown(g, life, 0.5);
         journal(

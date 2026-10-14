@@ -28,6 +28,7 @@ import { CARRY, lifeOfChar } from "./LifeQueries";
 import { JOBS } from "./LifeRules";
 import { wake } from "./Pace";
 import { charName } from "./Queries";
+import { scoutRoad } from "./Retinue"; // LIFE (r21)
 import { setEffort, takeUp, takeUpLabel } from "./Trades";
 import type {
   Effort,
@@ -49,6 +50,7 @@ export function roadRiskFactor(g: ConquestGame, life: Life): number {
   const t = life.travel;
   if (t && !t.sea[0] && guideWithYou(g.s, life)) f *= 0.6;
   if (life.job?.kind === "guide" && t && !t.sea[0]) f *= 0.7;
+  if (t && !t.sea[0]) f *= scoutRoad(g.s, life); // LIFE (r21): a scout rides ahead
   return f;
 }
 

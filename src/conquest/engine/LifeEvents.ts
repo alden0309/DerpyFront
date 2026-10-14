@@ -3657,6 +3657,7 @@ import { needyFriend } from "./EventPacing"; // EVENTS (r15)
 import { INTRIGUE_EVENTS } from "./IntrigueEvents"; // INTRIGUE (r15)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
+import { lifeR21Events, lifeR21Quiet } from "./LifeR21Events"; // LIFE (r21)
 import { lendFriend } from "./Loans"; // ECON (r17)
 import { MORE_EVENTS } from "./MoreEvents";
 import { joinMovement, riseFor } from "./Movements";
@@ -3741,6 +3742,12 @@ function byKey(key: string): LifeEventDef | undefined {
       }
     // CROWN (r18): a petition granted: who leads the expedition.
     for (const d of crownEvents())
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // LIFE (r21): the bawdy house, the pox, a dead duellist's kin.
+    for (const d of lifeR21Events())
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
@@ -4009,7 +4016,8 @@ function firstAllowed(
     chairQuiet()[ev.key] ??
     econQuiet()[ev.key] ??
     reclaimQuiet()[ev.key] ?? // SEA (r15), CHAIR (r16), ECON and WAR (r17)
-    crownQuiet()[ev.key]; // CROWN (r18)
+    crownQuiet()[ev.key] ?? // CROWN (r18)
+    lifeR21Quiet()[ev.key]; // LIFE (r21)
   if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
     return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.

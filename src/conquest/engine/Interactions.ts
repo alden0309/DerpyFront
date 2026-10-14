@@ -7,7 +7,12 @@
 
 import { findIn } from "./Areas";
 import { kill, marry } from "./Characters";
-import { duelOn, duelReport, startDuel } from "./Duels"; // HOME (r12)
+import {
+  deathAgree, // LIFE (r21)
+  duelOn,
+  duelReport,
+  startDuel,
+} from "./Duels"; // HOME (r12)
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
 import {
@@ -59,6 +64,8 @@ import {
 import { AMERICAS, World, worldOf } from "./Map";
 import { joinMovement, movementOf, recruitInto } from "./Movements";
 import { handOf, hireCheck, hireHand } from "./Property";
+import { giftWorth, REGARD, talksWith, warm } from "./Regard"; // LIFE (r21)
+import { TEACH, teachRate, teachView, teachXp, type TeachView } from "./Teach"; // LIFE (r21)
 // SOCIETY (r11)
 import { isBound } from "./BondCore"; // LABOUR (r15)
 import {
@@ -487,6 +494,8 @@ export interface InteractionView {
   label?: string;
   /** SOCIETY (r11): how well you can talk, and through whom. */
   tongue?: TalkView;
+  /** LIFE (r21): what they'd teach you, how well, and where it would take you. */
+  teach?: TeachView;
 }
 
 function relation(a: Character, b: Character): boolean {
@@ -591,7 +600,8 @@ function gates(
     case "mentor": {
       if (life.ties[c.id] === "mentor") return no("They teach you already.");
       const [sk, lvl] = bestSkill(s, c);
-      if (lvl < skillLevel(s, life, sk) + 3)
+      if (lvl < skillLevel(s, life, sk) + TEACH.gap)
+        // LIFE (r21): Teach.ts's gap
         return no(
           `They've nothing to teach you (their ${SKILL_NAMES[sk].toLowerCase()} ${lvl}).`,
         );
@@ -783,12 +793,19 @@ function acceptanceOf(
     case "promote":
       return promotionAcceptance(s, life, c);
     case "befriend": {
-      const e = new Explain().add("Friendship takes time", -15);
+      // LIFE (r21): friendship takes longer, and they must know you first.
+      const e = new Explain().add("Friendship takes time", REGARD.friendTime);
       opinion(e);
       const shared = me.traits.filter((t) => c.traits.includes(t)).length;
       if (shared) e.add("Kindred spirits", Math.min(10, shared * 5));
-      if (c.memories.some((m) => m.of === me.id && m.why === "Good company"))
-        e.add("You've passed many an hour", 5);
+      const talks = talksWith(c, me.id, s.day);
+      if (talks < REGARD.knowTalks)
+        e.add(
+          `You hardly know each other (${talks} of ${REGARD.knowTalks} talks)`,
+          REGARD.stranger,
+        );
+      else if (talks >= REGARD.manyTalks)
+        e.add("You've passed many an hour", REGARD.manyHours);
       if (hasTrait(c, "generous")) e.add("Warm-hearted", 5);
       if (life.ties[c.id] === "lover") e.add("Sweethearts already", 15);
       const friends = Object.values(life.ties).filter(
@@ -1038,6 +1055,18 @@ export function interactionView(
   }
   if (act === "tongue" && c)
     view.label = `Lessons in ${tongueName(motherTongue(c.culture))} (${LESSON_FEE})`;
+  // LIFE (r21): a challenge to the death says how likely they'd take it.
+  if (act === "duel" && arg === 1 && c && meOf(s, life)) {
+    const agree = other ? null : deathAgree(s, life, c);
+    view.label = agree
+      ? `Challenge to the death (they'd take it ${Math.round(agree.chance * 100)}%)`
+      : "Challenge to the death";
+  }
+  // LIFE (r21): the skill they'd teach, and how well, before you ask.
+  if (act === "mentor" && c && meOf(s, life)) {
+    view.teach = teachView(s, life, c);
+    view.label = `Ask them to teach you ${SKILL_NAMES[view.teach.skill].toLowerCase()} (×${view.teach.rate})`;
+  }
   if (!c || !meOf(s, life) || view.player) return view;
   if (def.mode === "accept") {
     view.accept = acceptance(s, w, life, c, act, arg);
@@ -1168,11 +1197,11 @@ export function doInteraction(
             : playerTalkLine(g, life, c)
           : t;
       if (view.tongue && view.tongue.level === 0) {
-        remembers(g, life, c, "Good company", 1, 1);
+        warm(g, life, c, "Good company", 0.5); // LIFE (r21): less each time
         sayTalk(g, life, c, said(signTalk(g, c)), first); // CHAMBER (r16)
         return null;
       }
-      remembers(g, life, c, "Good company", 3, 1);
+      warm(g, life, c, "Good company"); // LIFE (r21): less each time
       // CHAMBER (r16): news first, larger pools; small talk with the same
       // person goes in the journal only the first few times a year.
       sayTalk(g, life, c, said(smallTalk(g, life, c, first)), first);
@@ -1183,7 +1212,7 @@ export function doInteraction(
       // CHAMBER (r16): lines from larger pools; praise that landed is
       // written down the first few times a year, praise that didn't always.
       if (pass) {
-        remembers(g, life, c, "Flattered me", 10, 2);
+        warm(g, life, c, "Flattered me"); // LIFE (r21): less each time
         sayOrWrite(
           g,
           life,
@@ -1212,11 +1241,9 @@ export function doInteraction(
       spend(g, life, amount);
       const status = statusOf(s, c);
       const mult = hasTrait(me, "generous") ? 1.5 : 1;
-      const v = Math.min(
-        30,
-        Math.round(((amount * 3) / (status + 1)) * mult) + 2,
-      );
-      remembers(g, life, c, "A generous gift", v, 3);
+      // LIFE (r21): worth less, and less again each time (Regard.ts).
+      const v = giftWorth(amount, status, mult);
+      warm(g, life, c, "A generous gift", v);
       const player = lifeOfChar(s, cId);
       if (player) {
         earn(g, player, amount);
@@ -1230,7 +1257,7 @@ export function doInteraction(
         g,
         life,
         `gift:${cId}`,
-        `You gave ${name} ${amount} coins. ${giftThanks(g, life, c, v >= 15)}`.trim(),
+        `You gave ${name} ${amount} coins. ${giftThanks(g, life, c, v >= 8)}`.trim(),
         !!player,
       );
       return null;
@@ -1263,7 +1290,7 @@ export function doInteraction(
       journal(
         g,
         life,
-        `${name} agrees to teach you ${SKILL_NAMES[sk].toLowerCase()}. Every month with them is worth two alone.`,
+        `${name} agrees to teach you ${SKILL_NAMES[sk].toLowerCase()}: about ${teachXp(s, life, c)} a month at ×${teachRate(charSkill(s, c, sk), skillLevel(s, life, sk))}, while they stand above you.`, // LIFE (r21)
         "good",
       );
       return null;
@@ -1277,7 +1304,7 @@ export function doInteraction(
         if (a) exposeBy(g, life, a, pass ? 3 : 8);
       }
       if (pass) {
-        remembers(g, life, c, "Courted me", 12, 2);
+        warm(g, life, c, "Courted me"); // LIFE (r21): it builds, more slowly
         if (opinionOf(s, c, life).total >= 60) {
           setTie(g, life, cId, "lover");
           if (wouldBeAffair(s, life, c)) {
@@ -1473,7 +1500,7 @@ export function doInteraction(
       return null;
     }
     case "duel":
-      return duel(g, life, c, false, pass);
+      return duel(g, life, c, false, pass, arg === 1); // LIFE (r21): arg 1, to the death
     case "trade":
       return "Only with another player.";
     // SOCIETY (r11)
@@ -1688,6 +1715,8 @@ export function duel(
   c: Character,
   challenged: boolean,
   pass?: boolean,
+  /** LIFE (r21): you asked it be to the death. */
+  death = false,
 ): string | null {
   const s = g.s;
   const me = meOf(s, life)!;
@@ -1695,7 +1724,7 @@ export function duel(
   // weapons, the field at dawn, the exchanges. Only a second challenge while
   // one is being fought is settled at once, as before.
   if (me && !life.watching && !duelOn(life)) {
-    startDuel(g, life, c, challenged);
+    startDuel(g, life, c, challenged, death ? { death: "ask" } : {}); // LIFE (r21)
     return null;
   }
   const name = charName(c);
@@ -1770,6 +1799,7 @@ function propose(
   }
   if (act === "hire") ctx.wage = 3;
   if (act === "propose" && arg === 1) ctx.bet = 1; // INTRIGUE (r15): a betrothal
+  if (act === "duel" && arg === 1) ctx.dd = 1; // LIFE (r21): to the death
   raiseLifeEvent(g, other, `p2p-${act}`, ctx);
   journal(
     g,
@@ -1901,6 +1931,19 @@ export function answerProposal(
       journal(g, winner, `At dawn you met, and you won.`, "good");
       journal(g, loser, `At dawn you met ${wName}, and lost.`, "bad");
       const wound = g.rng.int(10, 40);
+      // LIFE (r21): to the death, as both agreed: the loser doesn't get up.
+      if (ctx.dd) {
+        milestone(
+          g,
+          winner,
+          "duel",
+          `Killed ${charName(meOf(s, loser))} in a duel to the death`,
+          winner.prov,
+          { tone: "good", big: true },
+        );
+        hurt(g, loser, 200, `a duel to the death with ${wName}`);
+        break;
+      }
       hurt(g, loser, wound, `a duel with ${wName}`);
       // HOME (r12): each of you sees it played out, and the law hears of it.
       if (winner.c >= 0 && loser.c >= 0) duelReport(g, winner, loser, wound);
@@ -2036,6 +2079,14 @@ export function interactionMenu(
       continue;
     }
     if (act === "settle" && !life.founding) continue;
+    // LIFE (r21): a challenge to the death, beside the ordinary one.
+    if (act === "duel")
+      out.push({
+        group: def.group,
+        act,
+        arg: 1,
+        view: interactionView(s, w, life, cId, act, 1),
+      });
     // INTRIGUE (r15): ask for their hand (a betrothal), or a quiet wedding now.
     if (act === "propose")
       out.push({

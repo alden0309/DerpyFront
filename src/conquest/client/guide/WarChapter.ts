@@ -4,6 +4,7 @@
 // people. Its tables are made from the engine's own (ReclaimCore's CLAIM,
 // FERMENT and RISING), so they can't drift from what the game rolls.
 
+import { ordinal } from "../../engine/Ordinal"; // LIFE (r21)
 import { INFORM, STIR, STIR_RISK } from "../../engine/Reclaim";
 import { CLAIM, FERMENT, RISING } from "../../engine/ReclaimCore";
 import type { Chapter } from "./Chapters";
@@ -40,7 +41,7 @@ function fermentTable(): string {
 | A tolerant ruler | ${signed(F.tolerance)} |
 | Hunger | up to ${signed(F.hunger)} (all of its food wanting) |
 | Newly taken (the first ${F.freshYears} years) | ${signed(F.fresh)} |
-| Used to it | ${signed(F.usedPerYear)} a year from the ${F.usedFrom}th, to ${signed(F.usedMax)} |
+| Used to it | ${signed(F.usedPerYear)} a year from the ${ordinal(F.usedFrom)}, to ${signed(F.usedMax)} |
 | An army of its old owner within ${F.oldArmyKm} km, in a war with its rulers | ${signed(F.oldArmy)} |
 | Its old owner at war with its rulers | ${signed(F.oldAtWar)} |
 | A rising crushed or found out (for ${F.cowedYears} years) | ${signed(F.cowed)} |`;

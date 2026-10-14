@@ -14,6 +14,7 @@ import { knowsDen } from "./CrimeQueries";
 import { diceSeatedIn } from "./DiceCore"; // DICE (r14)
 import {
   familyAtHome,
+  isChildLife, // LIFE (r21)
   isNativeChar,
   lifeOfChar,
   placesIn,
@@ -51,7 +52,10 @@ export function areasOf(
 ): PlaceKind[] {
   // LIFE (r11): the den is only there for those who know it.
   const out = placesIn(s, w, p).filter(
-    (pl) => pl !== "den" || (!!life && knowsDen(life, p)),
+    (pl) =>
+      (pl !== "den" || (!!life && knowsDen(life, p))) &&
+      // LIFE (r21): the bawdy house isn't on a child's map of the town.
+      (pl !== "bawdy" || !life || !isChildLife(s, life)),
   );
   if (life && life.c >= 0 && !life.watching && homeHere(life, p))
     out.push("home");

@@ -8,6 +8,7 @@
 
 import type { ConquestGame } from "./Game";
 import { journal, touchLife } from "./LifeCore";
+import { r21ForOthers, r21HasSecrets } from "./LifeR21Core"; // LIFE (r21)
 import { ROLES } from "./LifeRules";
 import { booksForOthers, booksHaveLoans } from "./LoanCore"; // ECON (r17)
 import { pollsForOthers, pollsHaveSecrets } from "./PollsSecret"; // POLLS (r16)
@@ -255,6 +256,7 @@ function lifeHasSecrets(l: Partial<Life>): boolean {
   if (l.evSeen && Object.keys(l.evSeen).some(secretMark)) return true;
   if (pollsHaveSecrets(l.polls)) return true; // POLLS (r16): the sheriff's present, the canvass's book
   if (booksHaveLoans(l)) return true; // ECON (r17): a bond's money in the books
+  if (r21HasSecrets(l)) return true; // LIFE (r21): an evening at the bawdy house
   return false;
 }
 
@@ -277,6 +279,7 @@ export function lifeForOthers<T extends Partial<Life>>(l: T): T {
     );
   if (l.polls) out.polls = pollsForOthers(l.polls); // POLLS (r16)
   booksForOthers(l, out); // ECON (r17)
+  r21ForOthers(l, out); // LIFE (r21): the bawdy house's secrets
   return out;
 }
 

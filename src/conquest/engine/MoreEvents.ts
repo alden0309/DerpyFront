@@ -4,6 +4,7 @@
 // to you (friendship, courting, marriage, a duel, a job, a trade), each a
 // scene to answer.
 
+import { strained } from "./Body"; // LIFE (r21)
 import { played, wouldBeg } from "./EventPacing"; // EVENTS (r15)
 import type { ConquestGame } from "./Game";
 import { answerProposal } from "./Interactions";
@@ -267,7 +268,10 @@ export const MORE_EVENTS: LifeEventDef[] = [
               "good",
             );
           } else {
-            touchLife(g, life).health = Math.max(1, life.health - 18);
+            touchLife(g, life).health = Math.max(
+              1,
+              life.health - strained(18, life.stress), // LIFE (r21)
+            );
             journal(
               g,
               life,
@@ -283,7 +287,10 @@ export const MORE_EVENTS: LifeEventDef[] = [
         check: { skill: "stealth", dc: 8 },
         apply: (g, life, ctx, pass) => {
           if (!pass) {
-            touchLife(g, life).health = Math.max(1, life.health - 12);
+            touchLife(g, life).health = Math.max(
+              1,
+              life.health - strained(12, life.stress), // LIFE (r21)
+            );
             journal(g, life, "They found the doorway too.", "bad");
           } else journal(g, life, "They walked straight past you, swearing.");
         },
@@ -463,10 +470,12 @@ export const MORE_EVENTS: LifeEventDef[] = [
     "duel",
     "A challenge",
     (g, life, ctx) =>
-      `${cap(name(g, ctx))} has thrown down a glove: pistols at dawn, or swords, your choice. Refuse and the whole town will hear of it by noon.`,
+      ctx.dd // LIFE (r21): to the death
+        ? `${cap(name(g, ctx))} has thrown down a glove, and the terms with it: to the death. Pistols at dawn, or swords, your choice. Accept, and one of you won't walk off the field. Refuse and the whole town will hear of it by noon.`
+        : `${cap(name(g, ctx))} has thrown down a glove: pistols at dawn, or swords, your choice. Refuse and the whole town will hear of it by noon.`,
     "Accept the challenge",
     "Refuse",
-    "Fight: fighting against fighting. The loser is hurt; someone may die. Refusing costs renown.",
+    "Fight: fighting against fighting. The loser is hurt (to the death, killed); someone may die. Refusing costs renown.",
     "duel",
   ),
   p2p(

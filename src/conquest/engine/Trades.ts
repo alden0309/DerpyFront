@@ -7,6 +7,7 @@
 // underworld or among the native peoples), and lets you set up on your own
 // in trades that need no master.
 
+import { strained } from "./Body"; // LIFE (r21)
 import { CRIME_BACKGROUNDS, knowsDen, underworldContact } from "./CrimeQueries";
 import { played } from "./EventPacing"; // EVENTS (r15)
 import type { ConquestGame } from "./Game";
@@ -381,7 +382,7 @@ export function effortMonth(g: ConquestGame, life: Life): number {
   const stress = Math.round(e.stress * days);
   if (stress) addStress(g, life, stress);
   if (e.health) {
-    const hurtBy = Math.round(-e.health * days);
+    const hurtBy = strained(-e.health * days, life.stress); // LIFE (r21): worse under strain
     if (hurtBy) touchLife(g, life).health = Math.max(1, life.health - hurtBy);
   }
   const boss = job.own ? undefined : g.s.chars[job.employer];

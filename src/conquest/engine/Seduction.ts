@@ -558,7 +558,7 @@ function noticed(g: ConquestGame, life: Life, x: IntrigueScheme): void {
         `${charName(theirs)} has heard, and sends a friend to ask for satisfaction.`,
         "bad",
       );
-      startDuel(g, life, g.char(theirs.id), true);
+      startDuel(g, life, g.char(theirs.id), true, { grave: true }); // LIFE (r21): a wife's honour weighs
     }
   } else if (theirs?.alive) {
     const tl = lifeOfChar(s, theirs.id);
