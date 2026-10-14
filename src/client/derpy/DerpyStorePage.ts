@@ -1,6 +1,8 @@
 import { DERPY_FX_THEMES } from "@openfront/shared/DerpyFx";
 import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { guideEn } from "../../derpland/AiGuide";
+import { aiCompare, GuideWords, packPlays } from "../../derpland/AiGuideView";
 import {
   ensurePreviewStyles,
   fxPreview,
@@ -76,6 +78,20 @@ function temperament(t: string): { label: string; hint: string } {
     hint: translateText(`derpy.temperament_hint_${t}`),
   };
 }
+
+/**
+ * SITE (r22): the AI personality guide's words, from en.json's
+ * ai_personalities.guide (AiGuide.ts's English if a key is missing).
+ */
+const guideWords: GuideWords = {
+  t: (key, params) => {
+    const full = `ai_personalities.guide.${key}`;
+    const v = translateText(full, params);
+    return v === full ? guideEn(key, params) : v;
+  },
+  temperament: (t) => temperament(t),
+  packName: (id) => tr(`derpy.item_${id}`, id),
+};
 
 let preview: FanfarePlayback | null = null;
 function listen(name: string): void {
@@ -304,6 +320,12 @@ export class DerpyStorePage extends BaseModal {
             </p>`
           : ""}
         ${mine.length > 0 ? this.renderYours(mine) : ""}
+        ${this.tab.category === "personalities" && items.length > 0
+          ? aiCompare(
+              guideWords,
+              items.map((i) => i.name),
+            )
+          : ""}
         ${items.length === 0
           ? html`<p
               class="m-0 rounded-xl border border-dashed border-white/15 p-6 text-center text-white/55"
@@ -573,9 +595,12 @@ export class DerpyStorePage extends BaseModal {
       </div>`;
     }
     if (i.personas) {
-      return html`<ul class="dfx-personas text-white">
-        ${i.personas.map((p) => personaCard(p, temperament(p.temperament)))}
-      </ul>`;
+      return html`<div class="flex min-w-0 flex-col gap-3 text-white">
+        ${packPlays(guideWords, i.name)}
+        <ul class="dfx-personas">
+          ${i.personas.map((p) => personaCard(p, temperament(p.temperament)))}
+        </ul>
+      </div>`;
     }
     if (i.fx) return fxPreview(i.name, i.fx);
     if (i.fanfare) {

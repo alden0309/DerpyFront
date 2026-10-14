@@ -4,6 +4,7 @@
 // shimmering Dome, and an AI persona's emblem card.
 
 import { html, svg, TemplateResult } from "lit";
+import { AI_GUIDE_CSS } from "./AiGuideView"; // SITE (r22)
 
 export interface FxColours {
   trail: string[];
@@ -88,27 +89,29 @@ export function fxPreview(name: string, fx: FxColours): TemplateResult {
   </svg>`;
 }
 
+// SITE (r22): the hints say what the engine's temperaments really do (the
+// same words as en.json's derpy.temperament_hint_*; AiGuide.ts has more).
 export const TEMPERAMENT_TEXT: Record<string, { label: string; hint: string }> =
   {
     aggressive: {
       label: "Aggressive",
-      hint: "Attacks early and often, keeps little at home.",
+      hint: "Attacks early and often, keeps little at home, builds few SAMs.",
     },
     trader: {
       label: "Trader",
-      hint: "Ports and factories first; never embargoes; nukes only in answer.",
+      hint: "Ports and factories first, slow to fight, never starts an embargo, nukes only attackers.",
     },
     turtle: {
       label: "Turtle",
-      hint: "Twice the SAMs, defense posts at the first sign of trouble.",
+      hint: "Twice the SAMs, early defense posts, a big army at home; nukes only attackers.",
     },
     nuker: {
       label: "Nuker",
-      hint: "Silos early and many.",
+      hint: "First silo sooner, up to 6 silos, extra SAMs.",
     },
     opportunist: {
       label: "Opportunist",
-      hint: "Grabs empty land fast and pounces when it can.",
+      hint: "Moves faster and attacks sooner; more ports; smaller pushes into empty land.",
     },
   };
 
@@ -294,6 +297,6 @@ export function ensurePreviewStyles(): void {
   injected = true;
   const style = document.createElement("style");
   style.dataset.storePreviews = "";
-  style.textContent = STORE_PREVIEW_CSS + DLC_PREVIEW_CSS; // DLC (r21)
+  style.textContent = STORE_PREVIEW_CSS + DLC_PREVIEW_CSS + AI_GUIDE_CSS; // DLC (r21), SITE (r22)
   document.head.appendChild(style);
 }

@@ -437,6 +437,9 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
 ];
 // ---- end DLC (r21)
 
+// SITE (r22): each pack's words say what its personas really do (read from
+// the engine's temperaments); the store's "How it plays" and the side by
+// side comparison are in src/derpland/AiGuide.ts.
 const PERSONALITY_TEXT: Record<
   string,
   { displayName: string; description: string; price: number }
@@ -444,31 +447,31 @@ const PERSONALITY_TEXT: Record<
   ai_pirates: {
     displayName: "Pirate Lords",
     description:
-      "Six crews under the black flag: raiders who strike early, a salt queen who waits for her moment, a captain who'd rather trade, and one who keeps the powder dry for a very big bang.",
+      "Six crews under the black flag: two raiders who strike early, a salt queen who pounces on an opening, a captain who'd rather trade, an old cove that digs in, and a powder keg with silos to spare.",
     price: 2500,
   },
   ai_empires: {
     displayName: "Old Empires",
     description:
-      "Crowns, thrones and citadels that measure time in centuries: stubborn walls, gilded trade and an iron crown that never stops marching.",
+      "Crowns, thrones and citadels that measure time in centuries: two that wall themselves in, a gilded dynasty that trades, an eagle that pounces, an iron crown that never stops marching, and a wildfire with silos.",
     price: 2500,
   },
   ai_merchants: {
     displayName: "Merchant Princes",
     description:
-      "Trading houses that build ports before barracks, never embargo a customer, and only bring out the big guns for a hostile takeover.",
+      "Trading houses that build ports before barracks: three that never start an embargo, a counting house that digs in, toll barons who pounce, and Monopolia, which wants it all.",
     price: 2000,
   },
   ai_scientists: {
     displayName: "Mad Scientists",
     description:
-      "Laboratories with a taste for silos. Expect early missiles, bubbling defences and the occasional zeppelin full of trade goods.",
+      "Laboratories with a taste for silos: two nuclear labs, a bubbling bunker, a clockwork army, a professor who seizes his chance, and a zeppelin academy full of trade goods.",
     price: 3000,
   },
   ai_warlords: {
     displayName: "Frontier Warlords",
     description:
-      "Riders, raiders and railroad barons from the edge of the map. Fast, hungry and not much for alliances.",
+      "Riders, raiders and railroad barons from the edge of the map: two hordes that ride early, canyon kings who dig in, a wolf clan that pounces, barons who trade, and a gang with dynamite to spare.",
     price: 2500,
   },
 };
