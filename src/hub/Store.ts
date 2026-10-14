@@ -626,7 +626,9 @@ export class DerpInventory extends HubPage {
           null,
           noneLabel,
           html`<span
-            class="dl-skin-none ${items.some((i) => i.fx || i.conquest?.palette)
+            class="dl-skin-none ${items.some(
+              (i) => !!i.fx || !!i.conquest?.palette,
+            )
               ? "wide"
               : ""}"
             aria-hidden="true"
