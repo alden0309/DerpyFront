@@ -3362,6 +3362,13 @@ export interface DiceAct {
   turn?: number;
   /** refuse: why (a computer character's reasons, in brief). */
   why?: string;
+  /**
+   * EVENTS (r21): "Spot on!": a call that the bid is exactly right (on the
+   * call, k "liar", and on its reveal). Exact, the caller wins back a die
+   * (`gain`, up to five); wrong, the caller loses one (`loser`).
+   */
+  spot?: true;
+  gain?: number;
 }
 
 /** A computer player's face read by a player at the table (only that player sees it). */
@@ -3422,7 +3429,7 @@ export interface DiceState {
 /** A command for Liar's dice (Dice.ts). */
 export interface DiceCommand {
   k: "dice";
-  /** open, ask, join, start, bid, liar, leave, auto, again. */
+  /** open, ask, join, start, bid, liar, spot (EVENTS r21), leave, auto, again. */
   act: string;
   /** The table. */
   id?: number;

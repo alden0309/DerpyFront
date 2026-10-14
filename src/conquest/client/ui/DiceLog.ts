@@ -108,7 +108,7 @@ export function storyLines(
         if (a.bid) line("bid", bidWords(a.bid), Who(a.c));
         break;
       case "liar":
-        line("liar", "Liar!", Who(a.c));
+        line("liar", a.spot ? "Spot on!" : "Liar!", Who(a.c)); // EVENTS (r21)
         break;
       case "reveal": {
         if (!a.bid) break;
@@ -124,6 +124,21 @@ export function storyLines(
               ? "your "
               : `${first(a.bidder)}'s `;
         const loser = a.loser ?? -1;
+        // EVENTS (r21): "Spot on!": exactly, or not.
+        if (a.spot) {
+          const exact = count === a.bid.q;
+          line(
+            "reveal",
+            `${Who(a.c)} called ${whose}${bidWords(a.bid)} spot on: ${numberWord(count)} showing${wild ? `, ${numberWord(wild)} of them wild` : ""}. ${
+              exact
+                ? a.gain !== undefined
+                  ? `Exactly: ${who(a.gain)} ${verb(a.gain, "wins", "win")} back a die.`
+                  : "Exactly (with all five dice, there's none to win back)."
+                : `Not exact: ${who(loser)} ${verb(loser, "loses", "lose")} a die.`
+            }`,
+          );
+          break;
+        }
         line(
           "reveal",
           `${Who(a.c)} called Liar! on ${whose}${bidWords(a.bid)}: ${numberWord(count)} showing${wild ? `, ${numberWord(wild)} of them wild` : ""}. ${stands ? "The bid stands" : "A lie"}: ${who(loser)} ${verb(loser, "loses", "lose")} a die.`,

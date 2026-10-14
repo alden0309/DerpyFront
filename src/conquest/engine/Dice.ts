@@ -558,6 +558,86 @@ function callLiar(
   beginRound(g, t, loser.state === "in" ? li : nextIn(t, li));
 }
 
+/**
+ * EVENTS (r21): "Spot on!" (the calza): instead of raising or calling a lie,
+ * whoever's turn it is says the bid is exactly right. The cups come up. Exact,
+ * and the caller wins back a die (never more than the five they began with);
+ * not exact (more or fewer), and the caller loses one. Nobody else gains or
+ * loses. Either way the caller opens the next round.
+ */
+function callSpot(
+  g: ConquestGame,
+  t: DiceTable,
+  i: number,
+  o: MoveOpts = {},
+): void {
+  const x = t.seats[i];
+  const b = t.bid!;
+  pushAct(t, {
+    k: "liar",
+    spot: true,
+    c: x.c,
+    round: t.round,
+    bid: b,
+    say: o.say ?? "Spot on!",
+    ...(o.mood ? { mood: o.mood } : {}),
+    ...(o.auto ? { auto: true } : {}),
+  });
+  const cups: Record<number, number[]> = {};
+  let count = 0;
+  for (const y of t.seats)
+    if (y.state === "in") {
+      cups[y.c] = [...y.dice];
+      count += countFace(y.dice, b.f);
+    }
+  const exact = count === b.q;
+  const gained = exact && x.n < DICE_EACH;
+  if (gained) x.n++;
+  else if (!exact) x.n--;
+  const r = tableRng(t);
+  pushAct(t, {
+    k: "reveal",
+    spot: true,
+    c: x.c,
+    round: t.round,
+    bid: b,
+    bidder: t.by,
+    cups,
+    count,
+    ...(exact ? {} : { loser: x.c }),
+    ...(gained ? { gain: x.c } : {}),
+    // What a computer caller says as the cups come up.
+    ...(x.seat === undefined
+      ? exact
+        ? { say: revealLine(false, r), mood: "smile" as const }
+        : { say: revealLine(true, r), mood: "frown" as const }
+      : {}),
+  });
+  const l = lifeAt(g, x);
+  if (l) {
+    const there = `${count} ${count === 1 ? "was" : "were"} showing`;
+    journal(
+      g,
+      l,
+      exact
+        ? `At the dice you called ${firstOf(g, t.by)}'s ${bidWords(b)} spot on, and ${there}, exactly: ${gained ? "you win back a die" : "a fine call (with all five dice, there's none to win back)"}.`
+        : `At the dice you called ${firstOf(g, t.by)}'s ${bidWords(b)} spot on, but ${there}: you lose a die.`,
+      exact ? "good" : "bad",
+    );
+  }
+  if (x.n <= 0) {
+    x.state = "out";
+    x.dice = [];
+    pushAct(t, { k: "out", c: x.c, round: t.round });
+    if (l)
+      journal(g, l, "Your last die is gone: you're out of the game.", "bad");
+  }
+  for (const y of t.seats)
+    if (y.quitting && y.state === "in") standUp(g, t, y, "leaves the table");
+  if (stillIn(t).length <= 1) return finish(g, t);
+  beginRound(g, t, x.state === "in" ? i : nextIn(t, i));
+}
+
 /** Someone gets up from a game under way: their buy-in stays in the pot. */
 function standUp(
   g: ConquestGame,
@@ -820,7 +900,8 @@ function computersPlay(g: ConquestGame, t: DiceTable): void {
     if (!x || x.seat !== undefined || x.state !== "in") return;
     const i = t.turn;
     const m = computerMove(g.s, t, i, tableRng(t));
-    if (m.liar && t.bid) callLiar(g, t, i, { say: m.say, mood: m.mood });
+    if (m.spot && t.bid) callSpot(g, t, i, { say: m.say, mood: m.mood });
+    else if (m.liar && t.bid) callLiar(g, t, i, { say: m.say, mood: m.mood });
     else {
       let b = m.bid ?? smallestRaise(t.bid, totalDice(t));
       if (!b || bidProblem(t, b)) b = smallestRaise(t.bid, totalDice(t));
@@ -993,6 +1074,15 @@ export function diceCommand(
       if (why) return why;
       if (!t!.bid) return "There's no bid to call yet: you open the round.";
       callLiar(g, t!, t!.turn);
+      afterMove(g, t!);
+      return null;
+    }
+    // EVENTS (r21): "Spot on!"
+    case "spot": {
+      const why = myTurn(t, life);
+      if (why) return why;
+      if (!t!.bid) return "There's no bid to call yet: you open the round.";
+      callSpot(g, t!, t!.turn);
       afterMove(g, t!);
       return null;
     }

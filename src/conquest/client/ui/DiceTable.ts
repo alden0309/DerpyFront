@@ -22,6 +22,7 @@ import {
   chanceWord,
   countFace,
   DICE_EACH,
+  exactChance, // EVENTS (r21)
   faceName,
   FACES,
   MAX_SEATS,
@@ -36,6 +37,7 @@ import {
   totalDice,
 } from "../../engine/DiceCore";
 import { lifeOfChar } from "../../engine/LifeQueries";
+import { chanceWords } from "../../engine/Odds"; // EVENTS (r21)
 import { ageOf, charName } from "../../engine/Queries";
 import type {
   Character,
@@ -371,6 +373,9 @@ function viewAt(t: DiceTable, upTo: number): View {
       v.reveal = a;
       if (a.loser !== undefined)
         v.counts.set(a.loser, (v.counts.get(a.loser) ?? 1) - 1);
+      // EVENTS (r21): spot on, exactly: the caller wins back a die.
+      if (a.gain !== undefined)
+        v.counts.set(a.gain, (v.counts.get(a.gain) ?? 0) + 1);
     } else if (a.k === "win") v.won = a;
   }
   return v;
@@ -384,8 +389,10 @@ function viewAt(t: DiceTable, upTo: number): View {
  */
 function nextOpener(t: DiceTable, v: View): number {
   const r = v.reveal;
-  if (!r || r.loser === undefined) return -1;
-  const i = t.seats.findIndex((x) => x.c === r.loser);
+  // EVENTS (r21): after "Spot on!" the caller opens, right or wrong.
+  const from = r?.spot ? r.c : r?.loser;
+  if (!r || from === undefined) return -1;
+  const i = t.seats.findIndex((x) => x.c === from);
   if (i < 0) return -1;
   const live = (j: number) => {
     const x = t.seats[j];
@@ -426,7 +433,7 @@ function revealSpeaker(t: DiceTable, r: DiceAct): number {
 /** What someone said (a computer player's line, or a player's bid in words). */
 function sayOf(a: DiceAct): string {
   if (a.say) return a.say;
-  if (a.k === "liar") return "Liar!";
+  if (a.k === "liar") return a.spot ? "Spot on!" : "Liar!"; // EVENTS (r21)
   if (a.bid) return `${cap(bidWords(a.bid))}.`;
   return "";
 }
@@ -598,6 +605,29 @@ function boardView(
     </div>`;
   }
   const r = v.reveal;
+  // EVENTS (r21): "Spot on!": exactly, or not.
+  if (r && r.bid && r.spot) {
+    const opener = nextOpener(t, v);
+    const exact = (r.count ?? 0) === r.bid.q;
+    return html`<div
+      class="cq-dice-board-line reveal ${exact ? "stands" : "falls"}"
+    >
+      <span class="cq-dice-tally"
+        >${cap(bidWords(r.bid))}, spot on?
+        <b>${numberWord(r.count ?? 0)}</b> showing</span
+      >
+      <span class="cq-dice-sub"
+        >${exact
+          ? r.gain !== undefined
+            ? `exactly: ${r.gain === me ? "you win" : `${who(r.gain)} wins`} back a die`
+            : "exactly (all five dice already: none to win back)"
+          : `not exact: ${r.loser === me ? "you lose" : `${who(r.loser ?? -1)} loses`} a die`}${opener >=
+        0
+          ? ` · ${opener === me ? "you open" : `${who(opener)} opens`} the next round`
+          : ""}</span
+      >
+    </div>`;
+  }
   if (r && r.bid) {
     const opener = nextOpener(t, v); // FIXES (r15)
     const stands = (r.count ?? 0) >= r.bid.q;
@@ -875,7 +905,7 @@ function historyView(
               ? html`<li class="move ${l.kind}">
                   <span class="who">${l.who}</span>
                   <span class="what"
-                    >${l.kind === "liar" ? "Liar!" : l.text}${l.auto
+                    >${l.text}${l.auto
                       ? html` <i>(made for them)</i>`
                       : nothing}</span
                   >
@@ -948,6 +978,12 @@ function pickerView(
   const liar = async () => {
     await ui.cmd({ k: "dice", act: "liar", id: t.id });
   };
+  // EVENTS (r21): "Spot on!": the bid standing is exactly right.
+  const spot = async () => {
+    await ui.cmd({ k: "dice", act: "spot", id: t.id });
+  };
+  const pe = cur && dice.length ? exactChance(dice, hidden, cur) : null;
+  const full = (x?.n ?? 0) >= DICE_EACH;
   const turnC = v.turn;
   const left = clockLeft(t, turnC);
   const then = nextAfter(t, v, turnC); // FIXES (r15): who bids after them
@@ -961,7 +997,7 @@ function pickerView(
         ? "The cups are up."
         : myTurn
           ? cur
-            ? "Your turn: raise the bid, or call it a lie."
+            ? "Your turn: raise the bid, call it a lie, or say it's spot on."
             : "Your turn: open the round with any bid."
           : !caught
             ? "…"
@@ -1030,7 +1066,20 @@ function pickerView(
             <b class=${curP >= 0.55 ? "good" : curP < 0.25 ? "bad" : ""}
               >${chanceWord(curP)}</b
             >
-            from where you sit.`
+            from where you sit;
+            ${num(
+              `exactly ${cur.q}: ${chanceWords(pe ?? 0)}`,
+              () => ({
+                title: "Spot on: exactly that many",
+                notes: [
+                  `You hold ${countFace(dice, cur.f)} that count. For ${bidWords(cur)} exactly, the ${hidden} dice you can't see must hold ${Math.max(0, cur.q - countFace(dice, cur.f))}, no more and no fewer: ${Math.round((pe ?? 0) * 100)} in a hundred.`,
+                  full
+                    ? "You have all five dice: right, you win nothing back; wrong, you lose one."
+                    : "Right, you win back a die; wrong (more or fewer), you lose one.",
+                ],
+              }),
+              "cq-dice-exact",
+            )}`
         : html`&nbsp;`}
     </div>
     <div class="cq-dice-acts">
@@ -1051,6 +1100,16 @@ function pickerView(
           : "Nobody's bid yet"}
       >
         Liar!
+      </button>
+      <button
+        class="cq-btn cq-dice-spot"
+        ?disabled=${disabled || !cur}
+        @click=${spot}
+        title=${cur
+          ? `Say ${bidWords(cur)} is exactly right: the cups come up. Exact, you win back a die${full ? " (you have all five)" : ""}; not, you lose one`
+          : "Nobody's bid yet"}
+      >
+        Spot on!
       </button>
     </div>
     <p class="cq-dice-status ${myTurn ? "now" : ""}" aria-live="polite">
