@@ -170,6 +170,14 @@ import { BUSINESS_CHAPTER } from "./BusinessChapter";
 import { CHAIR_CHAPTER } from "./ChairChapter"; // CHAIR (r16)
 import { CROWN_CHAPTER } from "./CrownChapter"; // CROWN (r18)
 import { ECON_CHAPTER } from "./EconChapter"; // ECON (r17)
+import {
+  BAWDY_CHAPTER,
+  DUEL_DEATH_SECTION,
+  HEALTH_BODY,
+  OPINION_SECTION,
+  POSTS_SECTION,
+  SKILLS_BODY,
+} from "./LifeR21Chapter"; // LIFE (r21)
 import { POLLS_CHAPTER } from "./PollsChapter"; // POLLS (r16)
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
 import { SAVES_CHAPTER, STORY_CHAPTER } from "./StoryChapter"; // STORY (r17)
@@ -1326,6 +1334,8 @@ Or ask a friend, or anyone without a post, to join you (their card: **Ask them t
 
 Promote them, give a bonus, recall or let them go. Watch their loyalty: unpaid, they grumble, then leave; disloyal ones may betray you.
 
+${POSTS_SECTION}
+
 ## A company of your own
 A militia captain, an army captain, a war leader, or anyone with renown 40 can raise **twenty men** (${20 * COMPANY_BOUNTY} coins in bounties) among their own people, and twenty more at a time. Pay them every month: ${COMPANY_PAY.militia} a man for militia, ${COMPANY_PAY.rangers} for rangers, ${COMPANY_PAY.regulars} for regulars, ${COMPANY_PAY.warriors} for warriors.
 - **In quarters** they drill (officers help), and count toward your strength on contracts.
@@ -1380,19 +1390,7 @@ The watch (watchman up to high sheriff) and the thief-takers (fighting 4) work f
     title: "Skills, traits and ambitions",
     line: "What you're good at, what you're like, and what you've set your heart on.",
     where: "You › Yourself (skills, attributes and traits); You › Ambition.",
-    body: `## Skills
-Twelve: fighting, leadership, persuasion, trade, craft, farming, seamanship, woodcraft, letters, faith, medicine and stealth. Every check in the game leans on one (the odds are shown as a percentage), and trades need them to climb. Point at a skill for what makes it up.
-
-Skills grow by doing: your work (working hard teaches faster, overtime faster still), study (with the minister at the church, at the bench in the workshops, physic at the apothecary), a tutor (${LESSONS.cost} coins, every ${LESSONS.cooldown} days, at home or the church), someone who'll teach you (their card: Ask them to teach you), and the acts that practise them (drill, hunt, read the gazette, sit at the council fire). Diligent people learn faster at work; the educated learn letters faster.
-
-## Attributes
-Diplomacy, martial, stewardship, intrigue and learning add to the skills they govern: diplomacy to persuasion; martial to fighting, leadership and seamanship; stewardship to trade, craft and farming; intrigue to woodcraft and stealth; learning to letters, faith and medicine.
-
-## Traits
-What you're like: brave or craven, honest or deceitful, ambitious or content, robust or sickly and so on. They colour what people think of you and how things go. Some are earned along the way: scarred, famous, a drunkard, gouty (from comfortable living after 45).
-
-## Ambitions
-Set your heart on something (You › Ambition): rise in your trade, make a fortune, a fine house, marry well, raise a family, make a name, true friends, win office, glory in battle, see the country, master a skill, ruin your rival, lead a cause, and more. The page shows how far along you are. Getting there is worth renown (3 to 10) and peace of mind; giving one up stings.`,
+    body: SKILLS_BODY, // LIFE (r21): thirty levels, teaching, study (guide/LifeR21Chapter.ts)
   },
   {
     id: "health",
@@ -1400,17 +1398,7 @@ Set your heart on something (You › Ambition): rise in your trade, make a fortu
     title: "Health and stress",
     line: "Keeping body and mind together.",
     where: "The banner (point at health or stress), You › Yourself.",
-    body: `## Health
-From 0 to 100; at 0 you die, and low health makes a sudden death likelier (below 45 the risk rises, below 25 it triples). It mends a little each month by itself, faster when it's low.
-- **Wears it down**: age (from 45, more from 55 and 65), tropical summers, a frugal winter in the north, wounds and fevers, overtime, stress of 70 or more, and traits (sickly, a drunkard, gouty).
-- **Mends it**: rest at home (every 21 days), physic at the apothecary (3 coins), the healer in a village (0.5), living comfortably or better, a fine house.
-
-## Stress
-From 0 to 100. At 70 or more it costs you a point of health a month; at 95 strain can hurt you outright.
-- **Raises it**: hard work and overtime, debt, grief, scandal, threats, living beneath your station.
-- **Eases it**: rest at home, a room at the tavern (1 coin), prayer, drink and listen, an evening with your family, shirking at work, a gift to the town, living comfortably, a house of your own, reaching an ambition.
-
-> Tip: When stress passes 60, ease to steady work and spend a week at home. It's cheaper than physic.`,
+    body: HEALTH_BODY, // LIFE (r21): the most health by age, strain on every hurt
   },
   // ================================================================ people
   {
@@ -1440,6 +1428,8 @@ Their card lists what you could do, each with its verdict before you try: **will
 A duel is played out as a run of scenes, from the seconds to the field at dawn ([[duels|Duels]]).
 
 And on everyone's card: **Write a letter** (wherever they are), **Ask them to join you** (into your service), and for lawmen **Arrest them**.
+
+${OPINION_SECTION}
 
 ## Tongues
 Most of this needs words. With no tongue in common you can only talk by signs; with a few words most things are harder ([[languages|Languages]]).
@@ -1478,7 +1468,10 @@ A child may come of it; you can acknowledge them, or keep the secret. Your secre
 Divorce is possible where the church allows it (puritan, reformed and Lutheran colonies, and among the native peoples); elsewhere, a separation.
 
 ! Pitfall: Keep a secret lover far from your spouse's friends.`,
-  },
+  }, // ---- LIFE (r21): the bawdy house (guide/LifeR21Chapter.ts)
+  BAWDY_CHAPTER,
+  // ---- end LIFE (r21)
+
   // ---- HOME (r12): family and heirs, duels
   {
     id: "family",
@@ -1624,6 +1617,8 @@ Each choice shows your odds; point at them for why. They come from your **Fighti
 - If they live, you can offer them your hand: rivals no longer, if they'll take it.
 
 Duels between players: the one challenged accepts or refuses (refusing costs renown); both then see the duel played out as a scene.
+
+${DUEL_DEATH_SECTION}
 
 > Tip: Name a second, choose swords if you're the better fighter and pistols if you're not, and keep your guard until they're hurt.
 

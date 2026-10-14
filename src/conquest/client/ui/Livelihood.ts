@@ -95,6 +95,7 @@ import {
   provLink,
   section,
 } from "./Context";
+import { postRow } from "./LifeR21"; // LIFE (r21)
 import { boatUses, oddsLine, oddsPanel } from "./Odds"; // LEDGER (r15)
 import { price, priceWords } from "./Price"; // LEDGER (r15)
 import { term } from "./Terms";
@@ -1129,6 +1130,7 @@ export function peopleSection(ui: GameUi): TemplateResult {
                       ${oddsLine(clerkOdds(s, f, f.task.stake ?? 0))}
                     </p>`
                   : nothing}
+              ${postRow(ui, f) /* LIFE (r21): a post in your household */}
               <div class="cq-btnrow">
                 ${f.kind === "clerk" && !f.task ? stakePicker(ui, f) : nothing}
                 ${f.task &&

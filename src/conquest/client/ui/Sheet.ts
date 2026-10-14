@@ -26,7 +26,6 @@ import {
   officesOf,
   opinionOf,
   siblingsOf,
-  skillOf,
   stationOf,
   weddingCost, // LEDGER (r15)
 } from "../../engine/LifeQueries";
@@ -36,10 +35,7 @@ import {
   LIFE_TRAIT_TEXT,
   LIFESTYLES,
   livingOf,
-  SKILL_HELP,
-  SKILL_NAMES,
   WORK_DAYS,
-  xpToNext,
 } from "../../engine/LifeRules";
 import { owing } from "../../engine/LoanCore"; // ECON (r17)
 import { movementOf } from "../../engine/Movements";
@@ -47,7 +43,7 @@ import { houseDefs, propertyOf } from "../../engine/Property";
 import { ageOf, charName, statOf } from "../../engine/Queries";
 import { RELIGION_NAMES, TRAITS } from "../../engine/Rules";
 import type { Character, Good, WareId } from "../../engine/Types";
-import { SKILLS, STATS } from "../../engine/Types";
+import { STATS } from "../../engine/Types";
 import { WARES } from "../../engine/Wares";
 import { arms } from "../Arms";
 import { GOOD_NAMES } from "../Text";
@@ -66,6 +62,13 @@ import {
 } from "./Context";
 import { roleOf, verdictChip } from "./Here";
 import { intrigueCard } from "./Intrigue"; // INTRIGUE (r15)
+import {
+  healthMeter,
+  marksChips,
+  skillsList,
+  statsSection,
+  studyLine,
+} from "./LifeR21"; // LIFE (r21)
 import { personR11 } from "./Livelihood";
 import { partnerCard } from "./Partners"; // PARTNERS (r13)
 import { price, splitPrice } from "./Price"; // LEDGER (r15)
@@ -193,12 +196,7 @@ export function youTab(ui: GameUi): TemplateResult {
       >
     </header>
     <div class="cq-meters">
-      ${meter(
-        term("health"),
-        life.health,
-        100,
-        "0 is death. Rest, physic and good living mend it; age, fever and wounds wear it.",
-      )}
+      ${healthMeter(ui) /* LIFE (r21): the most it can be, and the strain */}
       ${meter(
         term("stress"),
         life.stress,
@@ -260,48 +258,32 @@ export function youTab(ui: GameUi): TemplateResult {
     ${section(
       "Attributes",
       html`<div class="cq-attrs">
-        ${STATS.map((st) => {
-          const b = statOf(s, me, st);
-          return html`<div class="cq-attr" title=${ATTRIBUTE_HELP[st]}>
-            <span class="cq-stat-label">${ATTRIBUTE_NAMES[st]}</span>
-            ${num(
-              String(b.total),
-              () =>
-                breakdownTip(ATTRIBUTE_NAMES[st], b, undefined, [
-                  ATTRIBUTE_HELP[st],
-                ]),
-              "cq-stat-value",
-            )}
-          </div>`;
-        })}
-      </div>`,
+          ${STATS.map((st) => {
+            const b = statOf(s, me, st);
+            return html`<div class="cq-attr" title=${ATTRIBUTE_HELP[st]}>
+              <span class="cq-stat-label">${ATTRIBUTE_NAMES[st]}</span>
+              ${num(
+                String(b.total),
+                () =>
+                  breakdownTip(ATTRIBUTE_NAMES[st], b, undefined, [
+                    ATTRIBUTE_HELP[st],
+                  ]),
+                "cq-stat-value",
+              )}
+            </div>`;
+          })}
+        </div>
+        ${studyLine(ui) /* LIFE (r21): learning grown by study */}`,
     )}
     ${section(
       html`Skills ${termMark("skills")}`,
-      html`<ul class="cq-skills">
-        ${SKILLS.map((sk) => {
-          const b = skillOf(s, life, sk);
-          const xp = life.xp[sk] ?? 0;
-          const need = xpToNext(life.skills[sk]);
-          return html`<li title=${SKILL_HELP[sk]}>
-            <span class="cq-skill-name">${SKILL_NAMES[sk]}</span>
-            ${bar(xp / need, "xp")}
-            ${num(
-              String(b.total),
-              () =>
-                breakdownTip(SKILL_NAMES[sk], b, undefined, [
-                  SKILL_HELP[sk],
-                  `${Math.floor(xp)} of ${need} toward the next level.`,
-                ]),
-              "cq-skill-n",
-            )}
-          </li>`;
-        })}
-      </ul>`,
+      skillsList(
+        ui,
+      ) /* LIFE (r21): thirty levels, each with its tier and its next */,
     )}
     ${section(
       "Traits",
-      html`${traitChips(me, true)}
+      html`${traitChips(me, true)} ${marksChips(ui) /* LIFE (r21) */}
         <ul class="cq-trait-notes">
           ${me.traits.map(
             (t) =>
@@ -610,6 +592,11 @@ export function personPage(ui: GameUi, cId: number): TemplateResult {
             : nothing}
         </div>`
       : nothing}
+    ${
+      mine && c.alive && !c.abroad
+        ? statsSection(ui, c)
+        : nothing /* LIFE (r21) */
+    }
     ${mine && c.alive && !c.abroad ? personSociety(ui, c) : nothing}
     ${mine && c.alive && !c.abroad ? actsSection(ui, c) : nothing}
     ${mine && c.alive && !c.abroad ? personR11(ui, c) : nothing}

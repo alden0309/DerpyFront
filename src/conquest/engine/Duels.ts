@@ -386,6 +386,58 @@ export function deathOdds(
   return { win, lose: 1 - win };
 }
 
+/**
+ * LIFE (r21): a duel with someone, before it's begun (their page): your
+ * chance at each pass with swords (keeping your guard), with a pistol, and
+ * to the death; and what in each of you counts in a fight.
+ */
+export function duelPreview(
+  s: GameState,
+  life: Life,
+  c: Character,
+): {
+  sword: number;
+  pistol: number;
+  theirPistol: number;
+  death: { win: number; lose: number };
+  deathPistols: { win: number; lose: number };
+  theirs: { label: string; value: number }[];
+  yours: { label: string; value: number }[];
+} {
+  const ctx: LCtx = {
+    c: c.id,
+    sec: secondFor(s, life, c.id),
+    mw: 0,
+    fw: 0,
+    r: 0,
+  };
+  const me = meOf(s, life)!;
+  const their = lifeOfChar(s, c.id);
+  const parts = (
+    who: Character,
+    l: Life | undefined,
+    w: number,
+    k: "You" | "They",
+  ) => sideOf(s, who, l, w, k).why.parts.slice(1);
+  const uniq = (xs: { label: string; value: number }[]) =>
+    xs.filter((x, i) => xs.findIndex((y) => y.label === x.label) === i);
+  return {
+    sword: duelOdds(s, life, { ...ctx, w: SWORDS }, "guard").chance,
+    pistol: pistolHit(mine(s, life, { ...ctx, w: PISTOLS }).score, false),
+    theirPistol: pistolHit(theirs(s, { ...ctx, w: PISTOLS }).score, false),
+    death: deathOdds(s, life, { ...ctx, w: SWORDS }),
+    deathPistols: deathOdds(s, life, { ...ctx, w: PISTOLS }, "aim"),
+    theirs: uniq([
+      ...parts(c, their, SWORDS, "They"),
+      ...parts(c, their, PISTOLS, "They"),
+    ]),
+    yours: uniq([
+      ...parts(me, life, SWORDS, "You"),
+      ...parts(me, life, PISTOLS, "You"),
+    ]),
+  };
+}
+
 /** In words: "about 3 in 5 you walk away, 2 in 5 you're carried". */
 export function deathWords(o: { win: number; lose: number }): string {
   return `if it goes on: ${pct(o.win)} you walk off the field, ${pct(o.lose)} you're carried off it${o.win + o.lose < 0.99 ? `, ${pct(1 - o.win - o.lose)} the seconds call it` : ""}`;

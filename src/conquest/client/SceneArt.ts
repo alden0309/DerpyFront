@@ -39,6 +39,8 @@ const ALIAS: Record<string, string> = {
   // LIFE (r11): new places and the road's own scenes, if their art is missing.
   den: "tavern",
   gaol: "fort",
+  // LIFE (r21): the bawdy house's parlour, by candlelight.
+  bawdy: "tavern",
   snow: "road",
   swamp: "woods",
   river: "road",
@@ -77,6 +79,7 @@ export function indoors(scene: string): boolean {
     "letter",
     "den",
     "gaol",
+    "bawdy", // LIFE (r21)
     "courtroom", // POWER (r12)
   ].includes(key(scene));
 }
