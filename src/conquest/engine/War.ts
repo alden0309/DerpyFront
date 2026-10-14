@@ -9,6 +9,7 @@ import { cede } from "./Crown";
 import { makeTributary } from "./Diplomacy";
 import { merge, takeSettlers } from "./Economy";
 import type { ConquestGame } from "./Game";
+import { musterMorale } from "./GovDesk"; // GOV (r21)
 import { hooks } from "./Hooks";
 import { findPath, hopDays } from "./Paths";
 import {
@@ -229,7 +230,13 @@ export function addRegiment(
   type: RegType,
 ): Army {
   const s = g.s;
-  const reg = { type, men: REGIMENTS[type].men, morale: 0.75, home: p };
+  const reg = {
+    type,
+    men: REGIMENTS[type].men,
+    // GOV (r21): militia that's been mustered and drilled comes out steadier.
+    morale: 0.75 + (type === "militia" ? musterMorale(s, n) : 0),
+    home: p,
+  };
   const here = s.armies.find(
     (a) =>
       a.owner === n &&

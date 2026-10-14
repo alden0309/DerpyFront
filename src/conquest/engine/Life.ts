@@ -135,6 +135,7 @@ import {
 import { militaryCommand } from "./War";
 // LIFE (r11): the pace (skip ahead), boats, and the round-11 life's hooks.
 import { landBoat, nextLegDays } from "./Boats";
+import { alightExped } from "./Expeditions"; // GOV (r21): out of an expedition at the next stop
 import {
   carryLimit,
   lifeR11Ended,
@@ -550,6 +551,9 @@ export function travelTo(
   // SHIPS (r21): aboard someone's ship, or with a party: get off first.
   if (life.travel?.with)
     return "You're travelling with others: get off at the next stop first.";
+  // GOV (r21): with an expedition, the party goes where it's going.
+  if (life.travel?.exped !== undefined)
+    return "You're with an expedition: leave it at the next stop first.";
   const from = life.travel ? life.travel.path[0] : life.prov;
   if (from === to) {
     // Turning round mid-hop: carry on to the next stop and stop there.
@@ -696,10 +700,13 @@ export function livesDaily(g: ConquestGame): void {
       if (
         life.travel.ship === undefined &&
         life.travel.with === undefined && // SHIPS (r21): those aboard go where she goes (Parties.ts)
+        life.travel.exped === undefined && // GOV (r21): the party carries you (Expeditions.ts)
         g.s.day >= life.travel.arrive
       )
         hop(g, life);
-      else if (life.travel.path.length) roadRisk(g, life);
+      // GOV (r21): an expedition has its own troubles (ExpedEvents.ts), not the road's.
+      else if (life.travel.path.length && life.travel.exped === undefined)
+        roadRisk(g, life);
     }
     workDaily(g, life, (key, ctx) => raiseOrSend(g, life, key, ctx));
     if (!life.watching && life.c >= 0) lifeEventsDaily(g, life);
@@ -1738,6 +1745,11 @@ export function lifeCommand(
       touchLife(g, life);
       // SHIPS (r21): off the ship (or out of the party) at the next stop.
       if (life.travel.with) leaveCompany(g, life);
+      // GOV (r21): out of an expedition at the next stop.
+      if (life.travel.exped !== undefined) {
+        const err = alightExped(g, life);
+        if (err) return err;
+      }
       life.travel.path = [life.travel.path[0]];
       life.travel.sea = [life.travel.sea[0]];
       life.travel.dest = life.travel.path[0];

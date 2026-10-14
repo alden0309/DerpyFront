@@ -285,7 +285,7 @@ export function societyCommand(
     case "study":
       return studyBook(g, life, c.kind ?? "");
     case "found":
-      return planSettlement(g, life, c.p ?? -1, !!c.free, c.arg ?? 1);
+      return planSettlement(g, life, c.p ?? -1, !!c.free, c.arg ?? 1, c.crown); // GOV (r21): or for another crown
     case "terms": {
       const f = life.founding;
       if (!f || f.stage !== "planning")

@@ -556,6 +556,9 @@ const COMMAND_FLOWS: Record<string, string> = {
   partners: "Partnerships",
   dice: "Liar's dice",
   likeness: "A likeness",
+  // GOV (r21)
+  exped: "Expeditions",
+  desk: "Governing",
 };
 
 /** The name a command's money goes under in the month's books. */

@@ -171,6 +171,7 @@ import { BUSINESS_CHAPTER } from "./BusinessChapter";
 import { CHAIR_CHAPTER } from "./ChairChapter"; // CHAIR (r16)
 import { CROWN_CHAPTER } from "./CrownChapter"; // CROWN (r18)
 import { ECON_CHAPTER } from "./EconChapter"; // ECON (r17)
+import { FOUNDING_R21, GOV_CHAPTERS } from "./GovChapter"; // GOV (r21)
 import {
   BAWDY_CHAPTER,
   DUEL_DEATH_SECTION,
@@ -2095,6 +2096,11 @@ At **${RISE_SUPPORT} support** and **${RISE_MEMBERS} sworn** (the leader among t
   // ---- CROWN (r18): regiments from Europe, and expeditions (guide/CrownChapter.ts)
   CROWN_CHAPTER,
   // ---- end CROWN (r18)
+  // ---- GOV (r21): expeditions, the governor's desk, breaking with the crown (guide/GovChapter.ts)
+  GOV_CHAPTERS.EXPEDITIONS_CHAPTER,
+  GOV_CHAPTERS.GOVERNING_CHAPTER,
+  GOV_CHAPTERS.INDEPENDENCE_CHAPTER,
+  // ---- end GOV (r21)
   {
     id: "founding",
     part: "power",
@@ -2114,7 +2120,7 @@ At **${RISE_SUPPORT} support** and **${RISE_MEMBERS} sworn** (the leader among t
 On arrival the site becomes a real province: you're its founder and governor under your crown, or an independent new nation if you went without a charter or broke with it.
 
 ## A new nation
-After a rising you led wins (an overthrow or independence), or when an independent colony is planted, you frame the government: its **name** and adjective, its **flag** (colours, a division, a charge), its colour on the map, its **form** (republic, commonwealth, confederacy, kingdom), its capital, and its first officers. The new nation appears on the map, and the computer runs it alongside you.`,
+After a rising you led wins (an overthrow or independence), or when an independent colony is planted, you frame the government: its **name** and adjective, its **flag** (colours, a division, a charge), its colour on the map, its **form** (republic, commonwealth, confederacy, kingdom), its capital, and its first officers. The new nation appears on the map, and the computer runs it alongside you.${FOUNDING_R21 /* GOV (r21) */}`,
   },
   {
     id: "europe",

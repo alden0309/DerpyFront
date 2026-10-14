@@ -79,6 +79,7 @@ import {
   token,
 } from "./Context";
 import { diceAct, dicePart, diceTag } from "./DiceTable"; // DICE (r14)
+import { expedCallout } from "./Expeditions"; // GOV (r21)
 import { homeBanner, homePlace, homeTileName, homeTileSub } from "./Home"; // HOME (r12)
 import { tripLeaveLine } from "./LeaveUi"; // ECON (r17)
 import {
@@ -367,6 +368,11 @@ export function herePanel(ui: GameUi): TemplateResult {
       </div>`
     : nothing}
   ${aboardCallout(ui) /* SHIPS (r21): aboard a ship, or with a party */}
+  ${
+    expedCallout(
+      ui,
+    ) /* GOV (r21): an expedition you're with, or asked along on */
+  }
   ${stayCallout(ui)} ${partyStrip(ui)}
   ${marching || leading
     ? html`<div class="cq-callout">

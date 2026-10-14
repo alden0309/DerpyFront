@@ -456,6 +456,8 @@ export interface Travel {
   ship?: number;
   /** SHIPS (r21): going with someone (a travelling party's leader, or a ship of a player's): you go where they go. */
   with?: { seat: string; boat?: number };
+  /** GOV (r21): with an expedition (its id): the party carries you (Expeditions.ts). */
+  exped?: number;
 }
 
 export interface JournalEntry {
@@ -1317,6 +1319,8 @@ export interface Nation {
   score: number;
   /** CHAIR (r16): the governor's commission and its term, the lieutenant governor, a petition for his recall, the house's address. */
   chair?: ChairState;
+  /** GOV (r21): the governor's desk: duties, a building programme, native affairs, the militia, a motion to break with the crown. */
+  desk?: GovDesk;
 }
 
 // ---------------------------------------------------------------- armies
@@ -1653,6 +1657,8 @@ export interface GameState {
   reclaim?: ReclaimState;
   /** CROWN (r18): regiments from Europe, fortress garrisons, petitions for an expedition. */
   crown?: CrownState;
+  /** GOV (r21): expeditions under way, past, and petitions for grants. */
+  exped?: ExpedState;
 }
 
 export type TravellerKind =
@@ -1975,7 +1981,10 @@ export type LifeCommand =
   // WORK (r21): a business's staff; partnership offers; the work itself.
   | WorkR21Command
   // EVENTS (r21): vingt-et-un at the tavern.
-  | CardsCommand;
+  | CardsCommand
+  // GOV (r21): expeditions; the governor's desk and a motion to break with the crown.
+  | ExpedCommand
+  | DeskCommand;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -2032,6 +2041,8 @@ export interface GameDelta {
   reclaim?: ReclaimState;
   /** CROWN (r18): when any changed (a petition is its colony's secret until it sails). */
   crown?: CrownState;
+  /** GOV (r21): expeditions, when any changed (redacted per seat: `expedDeltaForSeat`). */
+  exped?: ExpedState;
 }
 
 // ---- WORLD (r11)
@@ -2629,6 +2640,8 @@ export interface Founding {
   supplies: number;
   stage: "planning" | "underway";
   since: number;
+  /** GOV (r21): planted for another crown (that colony's index). */
+  under?: number;
 }
 
 export type GovForm = "republic" | "commonwealth" | "confederacy" | "kingdom";
@@ -2686,6 +2699,8 @@ export interface SocietyCommand {
   gov?: GovForm;
   offices?: Partial<Record<Seat, number>>;
   free?: boolean;
+  /** GOV (r21): plant it for another crown (that colony's index). */
+  crown?: number;
 }
 
 // ---- POWER (r12)
@@ -5495,4 +5510,218 @@ export interface CardsCommand {
   id?: number;
   stake?: number;
   ask?: number[];
+}
+
+// ---- GOV (r21): expeditions; the governor's desk; a motion to break with
+// the crown; founding under another crown.
+
+/** What an expedition goes to do. */
+export type ExpedKind =
+  | "discover"
+  | "river"
+  | "trade"
+  | "outpost"
+  | "mission"
+  | "raid"
+  | "port";
+
+/** A player who goes with an expedition they don't lead. */
+export interface ExpedMember {
+  seat: string;
+  c: number;
+  joined: number;
+}
+
+/** A party sent into the wilds: by a player, a governor, or both. */
+export interface Expedition {
+  id: number;
+  kind: ExpedKind;
+  /** The colony it goes for. */
+  n: number;
+  /** Who got it up: a player's seat ("" for a governor's own from the treasury with no player behind it). */
+  by: string;
+  /** Who leads it: a player's character, or someone hired (or of the court). */
+  leader: number;
+  /** The leader is a player: their seat. */
+  lseat?: string;
+  /** Other players with it, and players asked along who haven't answered. */
+  members: ExpedMember[];
+  asked: string[];
+  /** Hands hired for the trip (woodsmen, porters, boatmen; rangers for a raid), and the party's men now. */
+  hands: number;
+  men: number;
+  /** The organiser's own people who go (follower ids). */
+  people: number[];
+  from: number;
+  target: number;
+  /** The way, as a nation's party goes (Missions.ts): provinces, by boat or not, days a hop. */
+  route: number[];
+  sea: boolean[];
+  legs: number[];
+  /** Set out, at the far end, home again (days); while forming, the day it was planned. */
+  start: number;
+  arrive: number;
+  home: number;
+  stage: "forming" | "out" | "there" | "back";
+  /** Coins paid by the organiser (and members), and gold from the treasury. */
+  cost: number;
+  treasury: number;
+  /** Trade goods carried (a trading expedition). */
+  stake?: number;
+  /** Scenes had on the way; levels won or lost for the work at the far end by them. */
+  scenes: string[];
+  edge: number;
+  /** Days lost on the way. */
+  lost: number;
+  /** The governor's leave for a raid (a commission), or none (a private raid). */
+  leave?: boolean;
+  /** A grant from the treasury (the petition's id). */
+  grant?: number;
+  /** How the work at the far end went, and what it brought (shared at home). */
+  result?: "won" | "half" | "failed" | "turned";
+  haul?: number;
+  note?: string;
+  /** The day the next scene may come. */
+  next?: number;
+}
+
+/** An expedition that's over, for the record. */
+export interface ExpedPast {
+  id: number;
+  kind: ExpedKind;
+  n: number;
+  by: string;
+  leader: number;
+  target: number;
+  start: number;
+  end: number;
+  result: "won" | "half" | "failed" | "turned" | "lost" | "dropped";
+  note: string;
+  members: string[];
+}
+
+/** A player's petition to the governor for a grant toward an expedition. */
+export interface GrantAsk {
+  id: number;
+  seat: string;
+  c: number;
+  n: number;
+  /** The expedition it's for. */
+  x: number;
+  kind: ExpedKind;
+  target: number;
+  gold: number;
+  day: number;
+  /** When the computer's governor answers (a player governor answers in a scene). */
+  answer: number;
+  stage: "asked" | "granted" | "refused";
+  given?: number;
+  byLetter?: boolean;
+}
+
+/** A native nation's answer to a raid on one of its towns: a war party against a county. */
+export interface Reprisal {
+  /** The native nation, the colony, and the county it falls on. */
+  n: number;
+  against: number;
+  p: number;
+  day: number;
+  /** The town that was raided. */
+  from: number;
+}
+
+export interface ExpedState {
+  list: Expedition[];
+  past: ExpedPast[];
+  asks: GrantAsk[];
+  reprisals: Reprisal[];
+}
+
+/** A player's expedition commands. */
+export interface ExpedCommand {
+  k: "exped";
+  /** plan, go, cancel, invite, uninvite, answer, leave, ask, grant, fund, lead. */
+  act: string;
+  kind?: ExpedKind;
+  p?: number;
+  /** Who leads it (-1: you), hands to hire, your own people to take. */
+  leader?: number;
+  hands?: number;
+  people?: number[];
+  stake?: number;
+  /** Paid from the treasury (a governor's own expedition). */
+  treasury?: boolean;
+  seat?: string;
+  id?: number;
+  yes?: boolean;
+  gold?: number;
+  /** A grant's answer: "all", "half" or "none". */
+  give?: string;
+}
+
+/** A motion before the assembly to break with the crown. */
+export interface Motion {
+  /** Who moved it (the governor), the day, and the day the house divides. */
+  by: number;
+  day: number;
+  divides: number;
+  /** Players' votes (by character): 1 aye, -1 no, 0 abstain. */
+  votes: Record<number, number>;
+  salt: number;
+  /** How it divided. */
+  result?: { ayes: number; noes: number; abstain: number; carried: boolean };
+}
+
+/** Which side a player took when the colony broke with the crown. */
+export type RevSide = "patriot" | "loyal" | "neutral";
+
+/** The governor's own levers, kept on the colony (Nation.desk). */
+export interface GovDesk {
+  /** Customs duties (DUTIES' index) and when they were last changed. */
+  duty?: number;
+  dutyAt?: number;
+  /** A building programme: which, and the counties built so far. */
+  prog?: {
+    key: string;
+    from: number;
+    until: number;
+    built: number[];
+    next: number;
+  } | null;
+  /** Musters (0 none, 1 four a year, 2 monthly drill), and ranging companies on the frontier. */
+  musters?: number;
+  rangers?: number;
+  /** The Indian trade licensed and bonded. */
+  licence?: boolean;
+  /** Truck houses (public trading houses): by native nation, the county. */
+  truck?: Record<number, number>;
+  /** The last treaty council with each nation (the day). */
+  councils?: Record<number, number>;
+  /** A motion to break with the crown, and the last one's day. */
+  motion?: Motion | null;
+  lastMotion?: number;
+  /** Declared: the day, the governor who moved it, the counties that held for the crown, the players' sides. */
+  rev?: {
+    day: number;
+    by: number;
+    holds: number[];
+    sides: Record<string, RevSide>;
+  } | null;
+  /** The governor's desk: the day the next matter may come. */
+  nextMatter?: number;
+}
+
+/** The governor's desk commands. */
+export interface DeskCommand {
+  k: "desk";
+  /** duty, prog, musters, rangers, licence, truck, council, pardon, commute, motion, vote, declare, side. */
+  act: string;
+  level?: number;
+  key?: string;
+  n?: number;
+  p?: number;
+  on?: boolean;
+  seat?: string;
+  vote?: number;
+  arg?: string;
 }

@@ -17,6 +17,7 @@ import {
 import { cardsStateForSeat, cardsView } from "./CardsCore"; // EVENTS (r21)
 import { crownDeltaForSeat, crownStateForSeat } from "./CrownCore";
 import { diceView, stateForSeat } from "./DiceCore";
+import { expedDeltaForSeat, expedStateForSeat } from "./ExpedCore"; // GOV (r21)
 import {
   deltaForSeat,
   deltaHasSecrets,
@@ -36,9 +37,13 @@ export function stateForViewer(s: GameState, seat: string | null): GameState {
 }
 
 function stateForViewerR19(s: GameState, seat: string | null): GameState {
-  return crownStateForSeat(
-    loanStateForSeat(
-      labourStateForSeat(stateForIntrigue(stateForSeat(s, seat), seat), seat),
+  // GOV (r21): an expedition getting up, a raid, a grant asked, a war party coming.
+  return expedStateForSeat(
+    crownStateForSeat(
+      loanStateForSeat(
+        labourStateForSeat(stateForIntrigue(stateForSeat(s, seat), seat), seat),
+        seat,
+      ),
       seat,
     ),
     seat,
@@ -53,7 +58,8 @@ export function deltaIsPerViewer(d: GameDelta): boolean {
     labourDeltaSecret(d) ||
     loanDeltaSecret(d) ||
     !!d.crown ||
-    !!d.cards // EVENTS (r21)
+    !!d.cards || // EVENTS (r21)
+    !!d.exped // GOV (r21)
   );
 }
 
@@ -72,6 +78,7 @@ export function deltaForViewer(
   if (loans) out = loanDeltaForSeat(out, seat);
   if (d.crown) out = crownDeltaForSeat(s, out, seat);
   if (d.cards) out = { ...out, cards: cardsView(d.cards, seat) }; // EVENTS (r21)
+  if (d.exped) out = expedDeltaForSeat(s, out, seat); // GOV (r21)
   return out;
 }
 

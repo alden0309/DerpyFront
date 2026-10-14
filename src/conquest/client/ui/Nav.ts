@@ -87,7 +87,7 @@ export const TAB_DEFS: TabDef[] = [
     id: "work",
     label: "Work",
     blurb:
-      "Your work and its ladder, finding work, contracts, the law, and the sea",
+      "Your work and its ladder, finding work, contracts, the law, the sea, and expeditions",
     icon: WorkIcon,
     subs: [
       { id: "job", label: "Your work", guide: "work" },
@@ -95,6 +95,7 @@ export const TAB_DEFS: TabDef[] = [
       { id: "contracts", label: "Contracts", guide: "followers" },
       { id: "law", label: "The law", guide: "crime" },
       { id: "sea", label: "At sea", guide: "sea" }, // SEA (r15)
+      { id: "expeditions", label: "Expeditions", guide: "expeditions" }, // GOV (r21)
     ],
     guide: "work",
   },

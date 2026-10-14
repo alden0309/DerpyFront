@@ -18,6 +18,7 @@ import { askOf, claimedTowns, meansOf } from "../../engine/CrownCore"; // CROWN 
 import { cruiseOffers, pardonCheck } from "../../engine/Cruises"; // SEA (r15)
 import { STALL_SECONDS, tableAt } from "../../engine/DiceCore"; // DICE (r14)
 import { schoolable } from "../../engine/Edu"; // EDU (r13)
+import { canPlan } from "../../engine/ExpedCore"; // GOV (r21)
 import { buyoutPrice } from "../../engine/Firms"; // PARTNERS (r13)
 import { followerCap, peopleOf, raiseCheck } from "../../engine/Followers";
 import { foundCheck as foundColonyCheck } from "../../engine/Founding";
@@ -2023,6 +2024,119 @@ const GOALS: Goal[] = [
     guide: "staff",
   },
   // ---- end WORK (r21)
+  // ---- GOV (r21)
+  {
+    id: "exped-go",
+    title:
+      "Go on an expedition (discovery, a river, trade, an outpost, a mission)",
+    words:
+      "expedition explore discover discovery survey map river trade natives outpost fort mission missionary wilds frontier journey party canoe",
+    group: "Travel and the world",
+    where:
+      "Work › Expeditions, from any town of your colony: choose the kind, where, who leads, the hands and your people; the odds, the cost and the days are shown before you set out. The party travels on the map with you in it.",
+    needs: (ui) => [
+      { label: "Grown, and a colonist", met: canPlan(ui.s, ui.life!).ok },
+    ],
+    go: tab({ k: "tab", tab: "work", sub: "expeditions" }),
+    goLabel: "Work › Expeditions",
+    guide: "expeditions",
+  },
+  {
+    id: "exped-hire",
+    title: "Hire someone to lead an expedition for me",
+    words:
+      "hire leader guide hunter trader soldier minister expedition send someone for me pay fee stay home",
+    group: "Travel and the world",
+    where:
+      "Work › Expeditions, Who leads: one of your own people, or a man of the town who knows the country (a hunter, a trader, an old soldier, a minister for a mission), for a fee on the button. He goes, decides on the way, and you're told what came of it.",
+    go: tab({ k: "tab", tab: "work", sub: "expeditions" }),
+    goLabel: "Work › Expeditions",
+    guide: "expeditions",
+  },
+  {
+    id: "exped-together",
+    title: "Go on an expedition with another player",
+    words:
+      "together friend player companion invite ask along join expedition party share",
+    group: "Travel and the world",
+    where:
+      "Work › Expeditions: get one up first, then Ask … along (they're asked in a scene). Those who come must be at the town when it sets out; they share what it brings. Asked yourself: the scene, or Work › Expeditions, Asked along.",
+    go: tab({ k: "tab", tab: "work", sub: "expeditions" }),
+    goLabel: "Work › Expeditions",
+    guide: "expeditions",
+  },
+  {
+    id: "exped-grant",
+    title: "Ask the governor for an expedition grant",
+    words:
+      "grant governor treasury money petition fund expedition leave commission",
+    group: "Travel and the world",
+    where:
+      "Work › Expeditions: get one up first, then Ask for a grant (in person at the capital, or by letter); the odds are shown. A player who governs answers for himself.",
+    go: tab({ k: "tab", tab: "work", sub: "expeditions" }),
+    goLabel: "Work › Expeditions",
+    guide: "expeditions",
+  },
+  {
+    id: "exped-raid",
+    title: "Raid a native town (or fund a raid as governor)",
+    words: "raid attack native town burn plunder war party rangers punitive",
+    group: "Travel and the world",
+    where:
+      "Work › Expeditions, A raid: many men, the governor's leave (a grant) or none (the law and London will want words). The odds and the nation's likely answer are shown: war, or a war party on your frontier.",
+    go: tab({ k: "tab", tab: "work", sub: "expeditions" }),
+    goLabel: "Work › Expeditions",
+    guide: "expeditions",
+  },
+  {
+    id: "gov-desk",
+    title: "Govern: duties, building, the native nations, the militia, pardons",
+    words:
+      "governor govern duties customs programme building forts churches wharves truck house treaty council native militia musters rangers pardon commute desk matters",
+    group: "Society",
+    where:
+      "Society › Office, The governor's desk (when you govern): set the duties, begin a building programme, hold a treaty council, license the Indian trade, order musters and ranging companies, pardon the colony's prisoners. Matters come to the desk every month or two as scenes.",
+    go: tab({ k: "tab", tab: "society", sub: "office" }),
+    goLabel: "Society › Office",
+    guide: "governing",
+  },
+  {
+    id: "gov-fund",
+    title: "Send an expedition at the treasury's charge (as governor)",
+    words:
+      "governor treasury fund expedition outpost raid port discovery trade colony charge",
+    group: "Society",
+    where:
+      "Work › Expeditions, with At the treasury's charge ticked (when you govern): an outpost, a raid, discovery, opening trade, founding a port; led by you, someone of the court or a man of the town.",
+    go: tab({ k: "tab", tab: "work", sub: "expeditions" }),
+    goLabel: "Work › Expeditions",
+    guide: "expeditions",
+  },
+  {
+    id: "gov-independence",
+    title: "Break with the crown (as governor)",
+    words:
+      "independence revolution rebel rebellion declare free crown assembly house vote patriot loyalist",
+    group: "Society",
+    where:
+      "Society › Office, Breaking with the crown: how the house would divide, the war's estimate and the counties that may hold for the King; put the question to the house, and if it's carried, declare it.",
+    go: tab({ k: "tab", tab: "society", sub: "office" }),
+    goLabel: "Society › Office",
+    guide: "independence",
+  },
+  {
+    id: "found-other-crown",
+    title: "Found a settlement for another crown (or my own colony)",
+    words:
+      "found settlement colony plant another crown swedes dutch new nation mayor proprietor first year",
+    group: "Society",
+    where:
+      "Society › Colony: For whom (your own crown, another crown, or your own colony); the costs, the first year's odds and what the founder gets are shown before you set out.",
+    go: tab({ k: "tab", tab: "society", sub: "colony" }),
+    goLabel: "Society › Colony",
+    guide: "founding",
+  },
+  // ---- end GOV (r21)
   {
     id: "trade-voyage",
     title: "Go on a voyage with my trade",

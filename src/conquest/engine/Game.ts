@@ -42,7 +42,11 @@ import "./Chamber"; // CHAMBER (r16): the council's business, factions, the sess
 import { takeCrownDelta } from "./CrownCore"; // CROWN (r18)
 import "./CrownPetition"; // CROWN (r18): a governor's petition for an expedition to retake a town
 import "./CrownRegiments"; // CROWN (r18): regiments from Europe in wartime, fortress garrisons
+import { takeExpedDelta } from "./ExpedCore"; // GOV (r21)
+import "./Expeditions"; // GOV (r21): expeditions: solo, with companions, hired, together; grants
 import { fogDaily } from "./Fog";
+import "./GovDesk"; // GOV (r21): the governor's desk: duties, programmes, native affairs, the militia, pardons
+import "./GovEvents"; // GOV (r21): the desk's matters, a treaty council, the question of independence
 import "./Grandeur"; // CHAIR (r16): marks of greatness: a hall, a coach, portraits, endowments
 import "./Household"; // HOME (r12): the household's commands register themselves
 import "./Intrigue"; // INTRIGUE (r15): seduction, plots, weddings, private letters
@@ -65,6 +69,7 @@ import { takePowerDelta } from "./PowerCore"; // POWER (r12)
 import { scoreOf } from "./Queries";
 import "./Reclaim"; // WAR (r17): claims on lost towns, reconquest, risings against occupiers
 import { takeReclaimDelta } from "./ReclaimCore"; // WAR (r17)
+import "./Revolution"; // GOV (r21): a motion to break with the crown, declared, and its end
 import { Rng } from "./Rng";
 import { END_YEAR } from "./Rules";
 import "./Sea"; // SEA (r15): hurricanes, cruises, voyages, privateers
@@ -381,6 +386,8 @@ export class ConquestGame {
     if (reclaim) d.reclaim = reclaim;
     const crown = takeCrownDelta(this); // CROWN (r18)
     if (crown) d.crown = crown;
+    const exped = takeExpedDelta(this); // GOV (r21)
+    if (exped) d.exped = exped;
     if (this.politiesTouched.size > 0) {
       d.polities = {};
       for (const n of this.politiesTouched)

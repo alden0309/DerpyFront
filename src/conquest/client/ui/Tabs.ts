@@ -51,8 +51,10 @@ import {
 } from "./Civic";
 import { GameUi, section, token, type Tab } from "./Context";
 import { crownSection } from "./Crown"; // CROWN (r18)
+import { expeditionsPage } from "./Expeditions"; // GOV (r21)
 import { familyTreeSection } from "./FamilyTree"; // HOME (r12)
 import { pressPage } from "./Gazette"; // POWER (r12)
+import { deskSection, revSideSection } from "./GovDesk"; // GOV (r21)
 import { verdictChip } from "./Here";
 import { housesSection } from "./Home"; // HOME (r12)
 import { intriguePage } from "./Intrigue"; // INTRIGUE (r15)
@@ -299,6 +301,8 @@ function workPage(ui: GameUi, sub: string): TemplateResult {
       return lawPage(ui);
     case "sea": // SEA (r15)
       return seaPage(ui);
+    case "expeditions": // GOV (r21)
+      return expeditionsPage(ui);
     default: {
       const army = armySection(ui);
       return html`${pageHead(
@@ -746,7 +750,16 @@ function societyPage(ui: GameUi, sub: string): TemplateResult {
     case "office": {
       const held = localOfficesOf(s, me.id);
       const gov = governingSection(ui);
-      return html`${gov} ${canvassSection(ui) /* POLLS (r16) */}
+      return html`${gov}
+        ${
+          deskSection(ui) /* GOV (r21): the governor's desk, and independence */
+        }
+        ${
+          revSideSection(
+            ui,
+          ) /* GOV (r21): your side, if the colony breaks with its crown */
+        }
+        ${canvassSection(ui) /* POLLS (r16) */}
         ${held.length
           ? section(
               "Offices you hold",

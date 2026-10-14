@@ -684,6 +684,9 @@ export function officeKeysFor(s: GameState, w: World, p: number): OfficeKey[] {
   if (placesIn(s, w, p).includes("church")) out.push("warden");
   if (folk >= 400) out.push("selectman", "watch");
   if (folk >= 1500 || n.capital === p) out.push("mayor");
+  // GOV (r21): a town a player planted has its chair from the start (its founder its first mayor).
+  else if ((s.society?.offices[p] ?? []).some((o) => o.key === "founder"))
+    out.push("mayor");
   return out;
 }
 
