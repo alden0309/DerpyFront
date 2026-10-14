@@ -3654,6 +3654,8 @@ import { DUEL_EVENTS } from "./Duels"; // HOME (r12)
 import { econEvents, econQuiet } from "./EconEvents"; // ECON (r17)
 import { EDU_EVENTS } from "./EduEvents"; // EDU (r13)
 import { needyFriend } from "./EventPacing"; // EVENTS (r15)
+import { expedEvents, expedQuiet } from "./ExpedEvents"; // GOV (r21)
+import { govEvents, govQuiet } from "./GovEvents"; // GOV (r21)
 import { INTRIGUE_EVENTS } from "./IntrigueEvents"; // INTRIGUE (r15)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
@@ -3755,6 +3757,13 @@ function byKey(key: string): LifeEventDef | undefined {
       }
     // SHIPS (r21): a place aboard a player's ship; travelling together.
     for (const d of shipEvents())
+      if (!BY_KEY.has(d.key)) {
+        LIFE_EVENTS.push(d);
+        BY_KEY.set(d.key, d);
+      }
+    // GOV (r21): expeditions on the way and at the far end; an invitation, a
+    // grant, a war party; the governor's desk and the question of independence.
+    for (const d of [...expedEvents(), ...govEvents()])
       if (!BY_KEY.has(d.key)) {
         LIFE_EVENTS.push(d);
         BY_KEY.set(d.key, d);
@@ -4025,7 +4034,9 @@ function firstAllowed(
     reclaimQuiet()[ev.key] ?? // SEA (r15), CHAIR (r16), ECON and WAR (r17)
     crownQuiet()[ev.key] ?? // CROWN (r18)
     lifeR21Quiet()[ev.key] ??
-    shipQuiet()[ev.key]; // LIFE and SHIPS (r21)
+    shipQuiet()[ev.key] ?? // LIFE and SHIPS (r21)
+    expedQuiet()[ev.key] ??
+    govQuiet()[ev.key]; // GOV (r21)
   if (quiet !== undefined && !def.choices[quiet]?.blocked?.(g, life, ev.ctx))
     return quiet;
   // Raised events with a "wait" choice default to it; others to the first they can take.

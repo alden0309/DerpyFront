@@ -786,6 +786,12 @@ function crownAi(g: ConquestGame, n: number): void {
   for (const a of armiesOf(s, n)) {
     if (a.depart >= 0 || a.retreating) continue;
     if (s.provinces[a.prov].siege?.by === n) continue;
+    // GOV (r21): the King's friends who hold a county for him stay and hold it.
+    if (
+      s.nations[colony]?.desk?.rev?.holds.includes(a.prov) &&
+      a.regs.every((r) => r.type === "militia")
+    )
+      continue;
     if (target >= 0 && a.prov !== target)
       g.command(n, { k: "move", a: a.id, to: target });
   }

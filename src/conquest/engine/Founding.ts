@@ -12,6 +12,7 @@ import { characterCommand, nationCharacters } from "./Characters";
 import { declareIndependence } from "./Crown";
 import { merge } from "./Economy";
 import { Explain } from "./Explain";
+import { charterR21, planted, underCheck } from "./FoundingR21"; // GOV (r21)
 import type { ConquestGame } from "./Game";
 import {
   addRenown,
@@ -148,10 +149,18 @@ export function planSettlement(
   p: number,
   independent: boolean,
   terms: number,
+  under?: number, // GOV (r21): for another crown
 ): string | null {
   const s = g.s;
   const check = foundCheck(s, g.w, life);
   if (!check.ok) return check.why;
+  // GOV (r21): planted for another crown.
+  const own = meOf(s, life)!.nation;
+  if (under !== undefined && under !== null && under !== own) {
+    if (independent) return "Your own colony, or another crown's: not both.";
+    const ok = underCheck(s, life, under);
+    if (!ok.ok) return ok.why;
+  }
   if (!settlementSites(s, g.w, life).some((x) => x.p === p))
     return "Choose an empty place within reach.";
   if (!Number.isInteger(terms) || terms < 0 || terms >= TERMS.length)
@@ -167,6 +176,9 @@ export function planSettlement(
     stage: "planning",
     since: s.day,
   };
+  // GOV (r21): for another crown.
+  if (under !== undefined && under !== null && under !== own && !independent)
+    f.under = under;
   touchLife(g, life).founding = f;
   journal(
     g,
@@ -205,6 +217,7 @@ export function charterAcceptance(
     if (f.independent) e.add("Rumours of independent notions", -20);
   }
   if (byLetter) e.add("Asked by letter", -5);
+  charterR21(s, life, gov, e); // GOV (r21): only the right governor; a stranger asks harder
   void w;
   return e.done(0);
 }
@@ -232,7 +245,7 @@ export function askCharter(g: ConquestGame, life: Life): string | null {
   if (!f) return "You're not getting up a settlement.";
   if (f.charter === "granted") return "You have it.";
   const me = meOf(s, life)!;
-  const n = s.nations[me.nation];
+  const n = s.nations[f.under ?? me.nation]; // GOV (r21): or the other crown's governor
   const gov = s.chars[n?.ruler ?? -1];
   if (!gov?.alive) return "There's no governor to ask.";
   if (gov.id === me.id) {
@@ -443,6 +456,9 @@ export function completeSettlement(g: ConquestGame, life: Life): void {
   const oldNation = s.nations[old];
   let n = old;
   if (f.independent) n = newNation(g, life, p, oldNation);
+  // GOV (r21): planted for another crown: the settlement, and you, are theirs.
+  else if (f.under !== undefined && s.nations[f.under]?.alive) n = f.under;
+  const swapped = n !== old && !f.independent;
   const nation = s.nations[n];
   const pr = g.prov(p);
   pr.owner = n;
@@ -451,7 +467,7 @@ export function completeSettlement(g: ConquestGame, life: Life): void {
   pr.siege = null;
   pr.pops.push(
     ...settlerPops(
-      nation.culture,
+      swapped ? oldNation.culture : nation.culture, // GOV (r21): your own people, under their crown
       me.religion,
       50 + FOUND.people * f.settlers.length,
     ),
@@ -480,7 +496,7 @@ export function completeSettlement(g: ConquestGame, life: Life): void {
       until: s.day + 3 * DAYS_PER_YEAR,
       fx: { unrest: 6 },
     });
-    const gov = s.chars[oldNation.ruler];
+    const gov = s.chars[(swapped ? nation : oldNation).ruler]; // GOV (r21)
     if (gov?.alive && gov.id !== me.id)
       remembers(g, life, g.char(gov.id), "Settled without leave", -15, 3);
     touchLife(g, life).favor = Math.max(0, life.favor - 5);
@@ -510,7 +526,7 @@ export function completeSettlement(g: ConquestGame, life: Life): void {
   for (const id of moving) {
     const x = g.char(id);
     x.home = p;
-    if (f.independent) x.nation = n;
+    if (f.independent || swapped) x.nation = n; // GOV (r21): or another crown's
   }
   g.localsChanged(p);
   // And you: home is here now.
@@ -518,8 +534,9 @@ export function completeSettlement(g: ConquestGame, life: Life): void {
   g.touchChar(me).home = p;
   for (const c of familyAtHome(s, life)) {
     g.char(c.id).home = p;
-    if (f.independent) c.nation = n;
+    if (f.independent || swapped) c.nation = n; // GOV (r21)
   }
+  if (swapped) g.touchChar(me).nation = n; // GOV (r21): you're theirs now
   const name = g.map.provinces[p].name;
   if (!f.independent) {
     const list = ensureOffices(g, p);
@@ -539,7 +556,8 @@ export function completeSettlement(g: ConquestGame, life: Life): void {
     g.societyChanged(`o${p}`);
   }
   touchLife(g, life).founding = null;
-  addRenown(g, life, f.independent ? 15 : 10);
+  // GOV (r21): the founder's renown by how it was planted, the first year, favour, and the town's chair.
+  addRenown(g, life, planted(g, life, f, n, old));
   life.tally.topOffice = Math.max(life.tally.topOffice, f.independent ? 3 : 1);
   milestone(
     g,

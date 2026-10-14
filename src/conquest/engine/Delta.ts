@@ -2,6 +2,7 @@
 
 import { applyCrownDelta } from "./CrownCore"; // CROWN (r18)
 import { applyDiceDelta } from "./DiceCore"; // DICE (r14)
+import { applyExpedDelta } from "./ExpedCore"; // GOV (r21)
 import { applyIntrigueDelta } from "./IntrigueCore"; // INTRIGUE (r15)
 import { applyLoanDelta } from "./LoanCore"; // ECON (r17)
 import { applyPartnersDelta } from "./PartnersCore"; // PARTNERS (r13)
@@ -75,6 +76,7 @@ export function applyDelta(s: GameState, d: GameDelta): void {
   // turn runs first), so a copy's keys come in the server's order.
   if (d.crown) applyCrownDelta(s, d.crown);
   if (d.reclaim) applyReclaimDelta(s, d.reclaim); // WAR (r17)
+  if (d.exped) applyExpedDelta(s, d.exped); // GOV (r21)
   if (d.polities) {
     for (const [n, pol] of Object.entries(d.polities))
       s.polities[Number(n)] = pol;
