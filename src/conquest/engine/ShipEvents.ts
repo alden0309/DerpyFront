@@ -17,7 +17,8 @@ import { charName } from "./Queries";
 import { boatOf, shipProv } from "./Ships";
 
 const nameOf = (g: ConquestGame, ctx: LCtx) => charName(g.s.chars[ctx.c]);
-const firstOf = (g: ConquestGame, ctx: LCtx) => g.s.chars[ctx.c]?.first ?? "They";
+const firstOf = (g: ConquestGame, ctx: LCtx) =>
+  g.s.chars[ctx.c]?.first ?? "They";
 
 /** The offer of a scene, if it still stands. */
 function offerOf(g: ConquestGame, ctx: LCtx) {
@@ -33,7 +34,9 @@ const SCENES = (): LifeEventDef[] => [
     title: (g, life, ctx) => {
       const f = offerOf(g, ctx);
       const role = f ? roleOf(f.host.ladder, f.offer.role) : undefined;
-      return f && role ? `A place as ${role.title.toLowerCase()} of ${f.host.name}` : "A place aboard";
+      return f && role
+        ? `A place as ${role.title.toLowerCase()} of ${f.host.name}`
+        : "A place aboard";
     },
     body: (g, life, ctx) => {
       const f = offerOf(g, ctx);
@@ -42,11 +45,14 @@ const SCENES = (): LifeEventDef[] => [
       const role = roleOf(host.ladder, offer.role)!;
       const owner = host.owner;
       const b = boatOf(owner, host.id);
-      const where = g.map.provinces[b ? shipProv(b) : host.prov]?.name ?? "her port";
+      const where =
+        g.map.provinces[b ? shipProv(b) : host.prov]?.name ?? "her port";
       const apart = life.prov !== (b ? shipProv(b) : host.prov);
       const docks = JOBS.sailor.ranks[0].wage;
-      const now = life.job ? `You'd leave your work as ${JOBS[life.job.kind].ranks[life.job.rank]?.title.toLowerCase() ?? "you are"}.` : "";
-      return `${nameOf(g, ctx)} ${apart ? "writes" : "says"}: will you sign on the ${b ? BOATS[b.kind].name.toLowerCase() : "ship"} ${b?.name ?? ""}, lying at ${where}, as her ${role.title.toLowerCase()}, at ${offer.pay} a month?\n${role.text}\nYour pay comes from her owner, by the days you're at your post: aboard her, or where she lies. (A deckhand on the docks gets ${docks} a month.) She's yours to leave from your Work page whenever you like. ${now}`.trim();
+      const now = life.job
+        ? `You'd leave your work as ${JOBS[life.job.kind].ranks[life.job.rank]?.title.toLowerCase() ?? "you are"}.`
+        : "";
+      return `${nameOf(g, ctx)} ${apart ? "writes" : "says"}: will you sign on the ${b ? BOATS[b.kind].name.toLowerCase() : "ship"} ${b?.name ?? ""}, lying at ${where}, as her ${role.title.toLowerCase()}, at ${offer.pay} a month?\n${role.text}\nYour pay comes from her owner, by the days you're at your post: aboard her, or where she lies. (A deckhand on the docks gets ${docks} a month.) You can leave the place from your Work page whenever you like. ${now}`.trim();
     },
     choices: [
       {
@@ -100,7 +106,12 @@ const SCENES = (): LifeEventDef[] => [
         tip: "They'll hear you said no.",
         apply: (g, life, ctx) => {
           const them = lifeOfChar(g.s, ctx.c);
-          if (them) journal(g, them, `${charName(meOf(g.s, life))} would rather travel alone.`);
+          if (them)
+            journal(
+              g,
+              them,
+              `${charName(meOf(g.s, life))} would rather travel alone.`,
+            );
         },
       },
     ],
@@ -121,7 +132,9 @@ const SCENES = (): LifeEventDef[] => [
           const them = lifeOfChar(g.s, ctx.c);
           if (!them) return "They're gone";
           const c = partyCheck(g.s, life, them, false);
-          return c.ok || /asking already/.test(c.why) ? null : c.why.replace(/\.$/, "");
+          return c.ok || /asking already/.test(c.why)
+            ? null
+            : c.why.replace(/\.$/, "");
         },
         apply: (g, life, ctx) => {
           const them = lifeOfChar(g.s, ctx.c);
@@ -134,7 +147,12 @@ const SCENES = (): LifeEventDef[] => [
         tip: "They'll hear you said no.",
         apply: (g, life, ctx) => {
           const them = lifeOfChar(g.s, ctx.c);
-          if (them) journal(g, them, `${charName(meOf(g.s, life))} would rather go their own way.`);
+          if (them)
+            journal(
+              g,
+              them,
+              `${charName(meOf(g.s, life))} would rather go their own way.`,
+            );
         },
       },
     ],
@@ -147,7 +165,11 @@ let built: LifeEventDef[] | null = null;
 export function shipEvents(): LifeEventDef[] {
   if (built) return built;
   built = SCENES();
-  registerFamily("ships", built.map((d) => d.key), 30);
+  registerFamily(
+    "ships",
+    built.map((d) => d.key),
+    30,
+  );
   return built;
 }
 

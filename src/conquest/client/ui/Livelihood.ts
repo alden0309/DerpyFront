@@ -65,7 +65,6 @@ import { JOB_GROUPS, type JobGroup } from "../../engine/JobsData";
 import { isChildLife, lifeOfChar } from "../../engine/LifeQueries";
 import { JOBS, SKILL_NAMES } from "../../engine/LifeRules";
 import { boatChoices, clerkOdds, tradeOdds } from "../../engine/Odds"; // LEDGER (r15)
-import { menWithHer, moorWords, shipParts } from "./ShipsUi"; // SHIPS (r21)
 import { charName } from "../../engine/Queries";
 import {
   EFFORT_ORDER,
@@ -98,6 +97,7 @@ import {
 } from "./Context";
 import { boatUses, oddsLine, oddsPanel } from "./Odds"; // LEDGER (r15)
 import { price, priceWords } from "./Price"; // LEDGER (r15)
+import { menWithHer, moorWords, shipParts } from "./ShipsUi"; // SHIPS (r21)
 import { term } from "./Terms";
 
 /** Run a command that tells a story, then show the scene of it. */
@@ -819,7 +819,7 @@ export function boatCard(
   const b = boatsOf(life).find((x) => x.id === id);
   if (!b) return html``;
   const def = BOATS[b.kind];
-  const atHand = here && !life.travel && b.prov === life.prov;
+  const atHand = here && !life.travel && b.prov === life.prov && !b.way; // SHIPS (r21): not at sea
   const mates = peopleOf(life).filter(
     (f) =>
       f.kind === "mate" &&
@@ -957,7 +957,12 @@ export function boatCard(
       She stays where she lies: sail in her from here (the road there, from any
       coastal province's page or the map).
     </p>
-    ${shipParts(ui, b) /* SHIPS (r21): her company, charters, voyage, refits, log */}
+    ${
+      shipParts(
+        ui,
+        b,
+      ) /* SHIPS (r21): her company, charters, voyage, refits, log */
+    }
     ${atHand && mates.length && b.use !== "idle"
       ? html`<div class="cq-btnrow">
           ${skipper
@@ -994,7 +999,10 @@ export function boatCard(
 function boatWorth(ui: GameUi, b: Boat): TemplateResult {
   const def = BOATS[b.kind];
   // SHIPS (r21): her company by name who are with her are among the men she needs.
-  const crew = Math.max(b.crew, def.crew - (menWithHer(ui.s, ui.life!, b) - b.crew));
+  const crew = Math.max(
+    b.crew,
+    def.crew - (menWithHer(ui.s, ui.life!, b) - b.crew),
+  );
   const now = boatChoices(ui.s, ui.w, ui.life!, b, { crew }).find(
     (x) => x.use === b.use,
   )?.view;

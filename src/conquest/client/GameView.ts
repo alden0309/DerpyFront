@@ -25,8 +25,8 @@ import {
   travelRoute,
 } from "../engine/LifeQueries";
 import { AMERICAS, worldOf } from "../engine/Map";
-import { strandEmbark } from "../engine/Parties"; // SHIPS (r21)
 import { SKIP_DAYS_PER_SECOND } from "../engine/Pace";
+import { strandEmbark } from "../engine/Parties"; // SHIPS (r21)
 import { findPath } from "../engine/Paths";
 import { armySpeed, charName } from "../engine/Queries";
 import {

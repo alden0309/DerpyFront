@@ -10,7 +10,7 @@
 
 import { addHeat } from "./Crime";
 import { lawAt } from "./CrimeQueries";
-import { followerSkill, peopleOf } from "./Followers";
+import { peopleOf } from "./Followers";
 import type { ConquestGame } from "./Game";
 import { setFlow, type FlowTag } from "./LedgerCore"; // LEDGER (r15)
 import {
@@ -32,7 +32,6 @@ import {
   meOf,
   no,
   purseWords,
-  skillLevel,
   yes,
 } from "./LifeQueries";
 import { isWinter, type World } from "./Map";
@@ -660,7 +659,9 @@ export function sailCheck(
   // SHIPS (r21): at sea under her own master, or on a charter.
   if (b.way) return no("She's at sea.");
   if (b.charter)
-    return no("She's on a charter: it's her work till it's done (or given up).");
+    return no(
+      "She's on a charter: it's her work till it's done (or given up).",
+    );
   if (b.prov !== life.prov)
     return no(`She lies at ${map.provinces[b.prov].name}.`);
   if ((life.job?.army ?? -1) >= 0) return no("You march with your army.");
@@ -695,7 +696,9 @@ export function sail(
   const check = sailCheck(s, g.map, life, b, to);
   if (!check.ok) return check.why;
   // SHIPS (r21): at her own speed, a day more to float her off a beach.
-  const route = passageOf(s, g.map, life, b!, to) ?? boatRoute(g.map, life.prov, to, b!.kind)!;
+  const route =
+    passageOf(s, g.map, life, b!, to) ??
+    boatRoute(g.map, life.prov, to, b!.kind)!;
   b!.stay = null;
   delete b!.moor;
   touchLife(g, life).travel = {
@@ -865,7 +868,7 @@ export function boatsMonthly(g: ConquestGame, life: Life): void {
     }
     // SHIPS (r21): a bosun and copper save her wear; at sea on a charter her
     // passages wear her (Ships.ts), and her standing work waits.
-    const busy = !!(b.charter || b.way || b.stay);
+    const busy = !!b.charter || !!b.way || !!b.stay;
     b.condition = Math.max(
       0,
       b.condition -
@@ -921,7 +924,13 @@ export function boatMaster(
   b: Boat,
 ): { skill: number; you: boolean; c?: number; who: string; kind: string } {
   const m = shipFx(s, life, b).master;
-  return { skill: m.skill, you: m.kind === "you", c: m.c, who: m.who, kind: m.kind };
+  return {
+    skill: m.skill,
+    you: m.kind === "you",
+    c: m.c,
+    who: m.who,
+    kind: m.kind,
+  };
 }
 
 /** Exported for SHIPS (r21): a boat is gone (lost, seized, taken). */
@@ -1053,7 +1062,10 @@ function work(g: ConquestGame, life: Life, b: Boat): void {
       if (pirate) addHeat(g, life, lawAt(s, p), P.pirateHeat);
       if (rng.chance(P.fight.p)) {
         b.condition = Math.max(0, b.condition - P.fight.damage);
-        b.crew = Math.max(0, b.crew - Math.ceil(b.crew * P.fight.crew * fx.men)); // SHIPS (r21)
+        b.crew = Math.max(
+          0,
+          b.crew - Math.ceil(b.crew * P.fight.crew * fx.men),
+        ); // SHIPS (r21)
         journal(
           g,
           life,

@@ -38,6 +38,7 @@ import {
 } from "../../engine/LifeRules";
 import { joinCheck, movementOf, movementsHere } from "../../engine/Movements";
 import { giveUpWarning, postTitle } from "../../engine/OneOffice"; // POWER (r12)
+import { strandEmbark } from "../../engine/Parties"; // SHIPS (r21)
 import { standCheck } from "../../engine/Politics";
 import { businessOf, expandCheck, handRoom } from "../../engine/Property";
 import {
@@ -51,7 +52,6 @@ import {
 import { heardHere } from "../../engine/Rumours";
 import { townsOf } from "../../engine/TownsCore"; // TOWNS (r17)
 import type { Character, PlaceKind } from "../../engine/Types";
-import { strandEmbark } from "../../engine/Parties"; // SHIPS (r21)
 import { employersIn } from "../../engine/Work";
 import { workName } from "../../engine/WorksCore"; // TOWNS (r17)
 import { flagFor } from "../Flags";
@@ -171,7 +171,18 @@ export function travelBlock(ui: GameUi, p: number): TemplateResult {
   const land = travelRoute(ui.s, ui.map, from, p, false, native, sailor, pace);
   // SHIPS (r21): from a shore with no port, a coaster hailed or the ship that landed you.
   const embark = life.travel ? undefined : strandEmbark(ui.s, ui.map, life);
-  const sea = travelRoute(ui.s, ui.map, from, p, true, native, sailor, pace, false, embark);
+  const sea = travelRoute(
+    ui.s,
+    ui.map,
+    from,
+    p,
+    true,
+    native,
+    sailor,
+    pace,
+    false,
+    embark,
+  );
   const seaBetter =
     sea && sea.sea.some(Boolean) && (!land || sea.days < land.days - 1);
   const marching = life.job && life.job.army >= 0;
@@ -338,10 +349,17 @@ export function herePanel(ui: GameUi): TemplateResult {
         </p>
         ${t.path.length > 1
           ? html`<div class="cq-btnrow">
-              <button class="cq-btn small" @click=${() => ui.cmd({ k: "halt" })}>
+              <button
+                class="cq-btn small"
+                @click=${() => ui.cmd({ k: "halt" })}
+              >
                 Stop at the next place
               </button>
-              ${captainLine(ui) /* SHIPS (r21): lie over, and resume within two months */}
+              ${
+                captainLine(
+                  ui,
+                ) /* SHIPS (r21): lie over, and resume within two months */
+              }
             </div>`
           : nothing}
       </div>`

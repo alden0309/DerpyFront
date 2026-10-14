@@ -63,15 +63,7 @@ import {
 } from "./Hiring";
 import { hooks } from "./Hooks";
 import { withFlow } from "./LedgerCore";
-import {
-  addRenown,
-  earn,
-  gainXp,
-  hurt,
-  journal,
-  spend,
-  touchLife,
-} from "./LifeCore";
+import { earn, gainXp, hurt, journal, spend, touchLife } from "./LifeCore";
 import {
   type Check,
   hasPlace,
@@ -89,7 +81,7 @@ import { cutFor, hasMarket, marketMove, quoteCut, soldHere } from "./Markets";
 import { NAMES } from "./Names";
 import type { OddsOutcome, OddsView } from "./Odds";
 import { wake } from "./Pace";
-import { charName } from "./Queries";
+import { atWar, charName } from "./Queries";
 import { Rng } from "./Rng";
 import { ownBoatHopDays } from "./SeaSpeed";
 import {
@@ -127,7 +119,6 @@ import { GOODS } from "./Types";
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 const r2 = (v: number) => Math.round(v * 100) / 100;
-const cap = (t: string) => (t ? t[0].toUpperCase() + t.slice(1) : t);
 
 // ---------------------------------------------------------------- her own dice
 
@@ -197,7 +188,12 @@ export function hostOfBoat(s: GameState, owner: Life, b: Boat): HireHost {
       if (h.role !== "hand" || b.crew <= 0) return;
       if (b.crew + namedHands(b) - 1 < BOATS[b.kind].crew) return;
       b.crew--;
-      logShip(g, owner, b, `${charName(g.s.chars[h.c])} takes the place of one of her hands, who's paid off.`);
+      logShip(
+        g,
+        owner,
+        b,
+        `${charName(g.s.chars[h.c])} takes the place of one of her hands, who's paid off.`,
+      );
     },
   };
 }
@@ -253,7 +249,13 @@ export function namedHands(b: Boat): number {
 export function hireSkill(
   s: GameState,
   h: Hire,
-  sk: "seamanship" | "leadership" | "letters" | "medicine" | "trade" | "stealth",
+  sk:
+    | "seamanship"
+    | "leadership"
+    | "letters"
+    | "medicine"
+    | "trade"
+    | "stealth",
 ): number {
   const c = s.chars[h.c];
   if (!c) return 0;
@@ -270,7 +272,9 @@ export function officer(
 ): Hire | undefined {
   return hiresAboard(b)
     .filter((h) => h.role === role && hireWithHer(s, owner, b, h))
-    .sort((a, z) => hireSkill(s, z, "seamanship") - hireSkill(s, a, "seamanship"))[0];
+    .sort(
+      (a, z) => hireSkill(s, z, "seamanship") - hireSkill(s, a, "seamanship"),
+    )[0];
 }
 
 /** Fitness for a role (the role's weighted skills). */
@@ -381,19 +385,25 @@ export function shipFx(s: GameState, owner: Life, b: Boat): ShipFx {
     );
     if (x !== 1) {
       knack *= x;
-      lines.push(`Her hands by name: ×${r2(x)} (their seamanship against a common hand's).`);
+      lines.push(
+        `Her hands by name: ×${r2(x)} (their seamanship against a common hand's).`,
+      );
     }
   }
   if (b.morale < 30) {
     knack *= SHIP_FX.lowSpirits;
-    lines.push(`Low spirits (${Math.round(b.morale)}): ×${SHIP_FX.lowSpirits}.`);
+    lines.push(
+      `Low spirits (${Math.round(b.morale)}): ×${SHIP_FX.lowSpirits}.`,
+    );
   }
   let wear = 1;
   const bosun = officer(s, owner, b, "bosun");
   if (bosun) {
     const f = cap1(fitOf(s, bosun, "bosun"));
     wear *= 1 - SHIP_FX.bosunWear * f;
-    lines.push(`Her bosun: ${Math.round(SHIP_FX.bosunWear * f * 100)}% less wear.`);
+    lines.push(
+      `Her bosun: ${Math.round(SHIP_FX.bosunWear * f * 100)}% less wear.`,
+    );
   }
   if (b.refits?.includes("copper")) {
     wear *= REFIT_FX.copperWear;
@@ -419,13 +429,16 @@ export function shipFx(s: GameState, owner: Life, b: Boat): ShipFx {
   if (surgeon) {
     const f = cap1(fitOf(s, surgeon, "surgeon"));
     men *= 1 - SHIP_FX.surgeonMen * f;
-    lines.push(`Her surgeon: ${Math.round(SHIP_FX.surgeonMen * f * 100)}% fewer men lost.`);
+    lines.push(
+      `Her surgeon: ${Math.round(SHIP_FX.surgeonMen * f * 100)}% fewer men lost.`,
+    );
   }
   const leader = [captain, mate]
     .filter((h): h is Hire => !!h)
     .reduce((m, h) => Math.max(m, hireSkill(s, h, "leadership")), 0);
   const spirits = r1(SHIP_FX.spirits * cap1(leader));
-  if (spirits) lines.push(`Her officers' leadership: +${spirits} spirits a month.`);
+  if (spirits)
+    lines.push(`Her officers' leadership: +${spirits} spirits a month.`);
   return {
     master,
     knack: r2(knack),
@@ -460,7 +473,12 @@ export function speedOf(s: GameState, owner: Life, b: Boat): number {
 
 const LOG_MAX = 40;
 
-export function logShip(g: ConquestGame, owner: Life, b: Boat, text: string): void {
+export function logShip(
+  g: ConquestGame,
+  owner: Life,
+  b: Boat,
+  text: string,
+): void {
   touchLife(g, owner);
   (b.log ??= []).push({ day: g.s.day, text });
   if (b.log.length > LOG_MAX) b.log.splice(0, b.log.length - LOG_MAX);
@@ -502,12 +520,19 @@ function lanesTo(
   lo: number,
   hi: number,
 ): [number, number][] {
+  // Not to a port of an enemy in wartime.
+  const mine = s.provinces[p].owner;
   return w.map.provinces[p].sea.filter(
     ([q, km]) =>
       q !== p &&
       km >= lo &&
       km <= hi &&
-      hasPlace(s, w, q, "docks"),
+      hasPlace(s, w, q, "docks") &&
+      !(
+        mine >= 0 &&
+        s.provinces[q].owner >= 0 &&
+        atWar(s, mine, s.provinces[q].owner)
+      ),
   ) as [number, number][];
 }
 
@@ -527,7 +552,8 @@ function shipper(s: GameState, rng: Rng, p: number): string {
 function freightGoods(w: World, p: number): Good[] {
   const raw = w.raw[p] as string;
   const out: Good[] = ["grain", "timber", "tools", "cloth"];
-  if ((GOODS as readonly string[]).includes(raw)) out.unshift(raw as Good, raw as Good);
+  if ((GOODS as readonly string[]).includes(raw))
+    out.unshift(raw as Good, raw as Good);
   return out;
 }
 
@@ -542,9 +568,16 @@ export function chartersAt(s: GameState, w: World, p: number): Charter[] {
   const n = CHARTER.offers[level];
   const F = CHARTER.freight;
   const lanes = lanesTo(s, w, p, F.minKm, F.maxKm);
-  const packetLanes = lanesTo(s, w, p, CHARTER.packet.minKm, CHARTER.packet.maxKm);
+  const packetLanes = lanesTo(
+    s,
+    w,
+    p,
+    CHARTER.packet.minKm,
+    CHARTER.packet.maxKm,
+  );
   const grounds = (w.map.provinces[p].sea as [number, number][]).filter(
-    ([q, km]) => q !== p && km <= CHARTER.fishing.maxKm && (w.raw[q] as string) === "fish",
+    ([q, km]) =>
+      q !== p && km <= CHARTER.fishing.maxKm && (w.raw[q] as string) === "fish",
   );
   const whales = (w.map.provinces[p].sea as [number, number][]).filter(
     ([q, km]) =>
@@ -566,7 +599,12 @@ export function chartersAt(s: GameState, w: World, p: number): Charter[] {
   // Nearer ports come up more often.
   const near = (list: [number, number][]) =>
     list.length
-      ? list[Math.min(list.length - 1, Math.floor(rng.next() * rng.next() * list.length))]
+      ? list[
+          Math.min(
+            list.length - 1,
+            Math.floor(rng.next() * rng.next() * list.length),
+          )
+        ]
       : undefined;
   // A great port has a great lading every month, for a far port: work for a brig or a ship.
   const far = lanes.filter(([, km]) => km >= CHARTER.great.minKm);
@@ -581,12 +619,16 @@ export function chartersAt(s: GameState, w: World, p: number): Charter[] {
       }
     }
     const great = slot === 0 && level >= 2 && far.length > 0;
+    const before = out.length;
     if (great) kind = "freight";
     const key = `${p}:${month}:${slot}`;
     const by = shipper(s, rng, p);
     if (kind === "freight" || kind === "smuggling") {
       const lane = great ? far[rng.int(0, far.length - 1)] : near(lanes)!;
-      const goods = kind === "smuggling" ? (["sugar", "cloth", "tools", "guns"] as Good[]) : freightGoods(w, p);
+      const goods =
+        kind === "smuggling"
+          ? (["sugar", "cloth", "tools", "guns"] as Good[])
+          : freightGoods(w, p);
       const good = goods[rng.int(0, goods.length - 1)];
       const loads = great
         ? CHARTER.great.loads[rng.int(0, CHARTER.great.loads.length - 1)]
@@ -654,6 +696,18 @@ export function chartersAt(s: GameState, w: World, p: number): Charter[] {
         by: "Her own catch",
       });
     }
+    // The same thing twice in a month is one offer.
+    const last = out[out.length - 1];
+    if (
+      out.length > before &&
+      out
+        .slice(0, -1)
+        .some(
+          (x) =>
+            x.kind === last.kind && x.to === last.to && x.good === last.good,
+        )
+    )
+      out.pop();
   }
   return out;
 }
@@ -685,7 +739,9 @@ export function charterPay(b: Boat, c: Charter): number {
   if (c.kind === "venture" || c.kind === "fishing" || c.kind === "whaling")
     return c.pay;
   const cabins =
-    c.kind === "passengers" && b.refits?.includes("cabins") ? REFIT_FX.cabinsPay : 1;
+    c.kind === "passengers" && b.refits?.includes("cabins")
+      ? REFIT_FX.cabinsPay
+      : 1;
   return r1(c.pay * repPay(b) * cabins);
 }
 
@@ -704,22 +760,29 @@ export function charterCheck(
   if (isChildLife(s, owner)) return no("Not as a child.");
   if (b.way) return no("She's at sea.");
   if (b.charter) return no("She's on a charter already.");
-  if (b.stay) return no("She's lying over on a voyage: resume it, or end it, first.");
+  if (b.stay)
+    return no("She's lying over on a voyage: resume it, or end it, first.");
   if (b.prov !== c.from) return no("That's offered at another port.");
   if (owner.cooldowns[`ch:${c.key}`]) return no("You've taken it.");
   const def = BOATS[b.kind];
   const here = !owner.travel && owner.prov === b.prov;
-  const captain = officer(s, owner, b, "captain") ?? officer(s, owner, b, "mate");
+  const captain =
+    officer(s, owner, b, "captain") ?? officer(s, owner, b, "mate");
   if (!here && !captain)
-    return no("Be where she lies, or have a captain or mate of hers to send word to.");
+    return no(
+      "Be where she lies, or have a captain or mate of hers to send word to.",
+    );
   if (aboard) {
     if (!here) return no("You'd have to be where she lies to sail in her.");
     if (owner.crime?.jail) return no("Not from a cell.");
     if ((owner.job?.army ?? -1) >= 0) return no("You march with your army.");
   }
   if (menWithHer(s, owner, b) < def.crew)
-    return no(`She needs ${def.crew} men to sail (she has ${menWithHer(s, owner, b)}).`);
-  if (b.condition < 40) return no("She's not fit for a charter: repair her first.");
+    return no(
+      `She needs ${def.crew} men to sail (she has ${menWithHer(s, owner, b)}).`,
+    );
+  if (b.condition < 40)
+    return no("She's not fit for a charter: repair her first.");
   switch (c.kind) {
     case "freight":
     case "smuggling":
@@ -744,7 +807,9 @@ export function charterCheck(
       break;
   }
   if (!boatRoute(w.map, b.prov, c.to, b.kind))
-    return no(`Too far for a ${def.name.toLowerCase()} (${def.reach} km between landfalls).`);
+    return no(
+      `Too far for a ${def.name.toLowerCase()} (${def.reach} km between landfalls).`,
+    );
   if (c.kind === "venture" && owner.purse < ventureCost(s, w, owner, c))
     return no(`The cargo costs ${ventureCost(s, w, owner, c)} coins.`);
   return yes;
@@ -757,7 +822,8 @@ export function ventureCost(
   owner: Life,
   c: Charter,
 ): number {
-  return quoteCut(s, w, c.from, c.good as Good, c.loads ?? 0, cutFor(s, owner)).total;
+  return quoteCut(s, w, c.from, c.good as Good, c.loads ?? 0, cutFor(s, owner))
+    .total;
 }
 
 /** What a venture's cargo would fetch there today. */
@@ -767,7 +833,8 @@ export function ventureSale(
   owner: Life,
   c: Charter,
 ): number {
-  return quoteCut(s, w, c.to, c.good as Good, -(c.loads ?? 0), cutFor(s, owner)).total;
+  return quoteCut(s, w, c.to, c.good as Good, -(c.loads ?? 0), cutFor(s, owner))
+    .total;
 }
 
 /** A venture of your own: a good sold here, to a port with a market. */
@@ -885,7 +952,11 @@ export function charterOdds(
   const km = route?.km ?? 0;
   const ch = passageChances(s, owner, b, km);
   const pay = charterPay(b, c);
-  const costMonth = r1(def.upkeep + b.crew * CREW_WAGE + hiresAboard(b).reduce((m, h) => m + h.pay, 0));
+  const costMonth = r1(
+    def.upkeep +
+      b.crew * CREW_WAGE +
+      hiresAboard(b).reduce((m, h) => m + h.pay, 0),
+  );
   const view: OddsView = {
     title: `${CHARTER_NAMES[c.kind]}: ${ladingWords(w.map, c)}`,
     ok: check.ok,
@@ -893,7 +964,12 @@ export function charterOdds(
     costNow: 0,
     costMonth,
     per: "trip",
-    days: route ? [route.days, route.days + Math.ceil(route.days * PASSAGE_RISK.lateShare[1])] : undefined,
+    days: route
+      ? [
+          route.days,
+          route.days + Math.ceil(route.days * PASSAGE_RISK.lateShare[1]),
+        ]
+      : undefined,
     outcomes: [],
     expected: 0,
     lo: 0,
@@ -912,12 +988,18 @@ export function charterOdds(
     bad: true,
   };
   view.risks.push(
-    { label: `Lost at sea (${km} km of sea, her soundness ${Math.round(b.condition)}%)`, p: ch.lost },
+    {
+      label: `Lost at sea (${km} km of sea, her soundness ${Math.round(b.condition)}%)`,
+      p: ch.lost,
+    },
     {
       label: `Battered by the sea: −${PASSAGE_RISK.damage.hull[0]} to −${PASSAGE_RISK.damage.hull[1]} to her soundness`,
       p: ch.damage,
     },
-    { label: `Wear: −${r1((km / 500) * PASSAGE_RISK.wear)} to her soundness`, p: 1 },
+    {
+      label: `Wear: −${r1((km / 500) * PASSAGE_RISK.wear)} to her soundness`,
+      p: 1,
+    },
   );
   if (aboard)
     view.factors.push(
@@ -931,7 +1013,12 @@ export function charterOdds(
       const seized = c.kind === "smuggling" ? smuggleSeized(s, owner, b) : 0;
       const ok = kept * (1 - seized);
       view.outcomes = [
-        { label: "delivered in time", p: r2(ok * (1 - ch.late)), lo: pay, hi: pay },
+        {
+          label: "delivered in time",
+          p: r2(ok * (1 - ch.late)),
+          lo: pay,
+          hi: pay,
+        },
         {
           label: "delivered late (a quarter docked)",
           p: r2(ok * ch.late),
@@ -957,7 +1044,10 @@ export function charterOdds(
       view.lo = 0;
       view.hi = pay;
       if (c.kind === "smuggling")
-        view.risks.push({ label: `The law's heat: +${CHARTER.smuggling.heat} on landing`, p: 1 - seized });
+        view.risks.push({
+          label: `The law's heat: +${CHARTER.smuggling.heat} on landing`,
+          p: 1 - seized,
+        });
       view.factors.push(
         `Her name: ${repWords(repOf(b))} (×${repPay(b)} on the pay).`,
         `Time allowed: ${c.days} days; her passage about ${route?.days ?? "?"}.`,
@@ -969,7 +1059,12 @@ export function charterOdds(
       const sale = ventureSale(s, w, owner, c);
       view.costNow = cost;
       view.outcomes = [
-        { label: "sold there at today's prices", p: r2(kept), lo: sale, hi: sale },
+        {
+          label: "sold there at today's prices",
+          p: r2(kept),
+          lo: sale,
+          hi: sale,
+        },
         lostO,
       ];
       view.expected = r1(kept * sale);
@@ -999,7 +1094,12 @@ export function charterOdds(
       const m = seasonMonth(s, w, owner, b, c);
       view.per = "month";
       view.outcomes = [
-        { label: c.kind === "fishing" ? "a month's catch" : "a month's whaling", p: 1, lo: m.lo, hi: m.hi },
+        {
+          label: c.kind === "fishing" ? "a month's catch" : "a month's whaling",
+          p: 1,
+          lo: m.lo,
+          hi: m.hi,
+        },
       ];
       view.expected = m.exp;
       view.lo = m.lo;
@@ -1016,19 +1116,26 @@ export function charterOdds(
   view.net =
     view.per === "month"
       ? r1(view.expected - costMonth)
-      : r1(((view.expected - view.costNow) * 30) / Math.max(1, (route?.days ?? 1) + 2) - costMonth);
+      : r1(
+          ((view.expected - view.costNow) * 30) /
+            Math.max(1, (route?.days ?? 1) + 2) -
+            costMonth,
+        );
   return view;
 }
 
 /** The chance a smuggling run is seized at the far port: less with a sly master. */
 export function smuggleSeized(s: GameState, owner: Life, b: Boat): number {
   const fx = shipFx(s, owner, b);
-  const cap1 = fx.master.kind === "you"
-    ? skillLevel(s, owner, "stealth")
-    : fx.master.c !== undefined && s.chars[fx.master.c]
-      ? npcSkill(s, s.chars[fx.master.c], "stealth")
-      : 0;
-  return r2(CHARTER.smuggling.seized * (1 - 0.5 * Math.min(1, cap1 / SKILL_MAX)));
+  const cap1 =
+    fx.master.kind === "you"
+      ? skillLevel(s, owner, "stealth")
+      : fx.master.c !== undefined && s.chars[fx.master.c]
+        ? npcSkill(s, s.chars[fx.master.c], "stealth")
+        : 0;
+  return r2(
+    CHARTER.smuggling.seized * (1 - 0.5 * Math.min(1, cap1 / SKILL_MAX)),
+  );
 }
 
 // ---------------------------------------------------------------- sailing on her own
@@ -1057,7 +1164,11 @@ export function launch(
     km: route.km,
     ...(ownerAboard ? { owner: true } : {}),
   };
-  if (r.next() < ch.lost) way.lost = Math.min(route.path.length - 1, Math.floor(r.next() * route.path.length));
+  if (r.next() < ch.lost)
+    way.lost = Math.min(
+      route.path.length - 1,
+      Math.floor(r.next() * route.path.length),
+    );
   else r.next();
   if (r.next() < ch.late) {
     const [a, z] = PASSAGE_RISK.lateShare;
@@ -1074,7 +1185,12 @@ export function launch(
   // Her people at her port come aboard; her owner too, if he sails in her.
   for (const l of s.lives) {
     if (l.c < 0 || l.watching || l.travel || l.prov !== b.prov) continue;
-    const mine = l.seat === owner.seat ? ownerAboard : l.job?.berth?.kind === "ship" && l.job.berth.seat === owner.seat && l.job.berth.id === b.id;
+    const mine =
+      l.seat === owner.seat
+        ? ownerAboard
+        : l.job?.berth?.kind === "ship" &&
+          l.job.berth.seat === owner.seat &&
+          l.job.berth.id === b.id;
     if (!mine || l.crime?.jail) continue;
     board(g, l, owner, b);
   }
@@ -1095,7 +1211,11 @@ export function board(g: ConquestGame, l: Life, owner: Life, b: Boat): void {
     with: { seat: owner.seat, boat: b.id },
   };
   if (l !== owner)
-    journal(g, l, `You go aboard the ${b.name}, bound for ${g.map.provinces[wy.dest].name}.`);
+    journal(
+      g,
+      l,
+      `You go aboard the ${b.name}, bound for ${g.map.provinces[wy.dest].name}.`,
+    );
 }
 
 /** Her owner sails her himself: the players of her company at the quay go with her. */
@@ -1104,8 +1224,22 @@ export function boardCrew(g: ConquestGame, owner: Life, b: Boat): void {
   if (!t || t.boat !== b.id) return;
   for (const l of g.s.lives) {
     const bb = l.job?.berth;
-    if (l === owner || l.c < 0 || l.watching || l.travel || l.prov !== owner.prov) continue;
-    if (!bb || bb.kind !== "ship" || bb.seat !== owner.seat || bb.id !== b.id || l.crime?.jail) continue;
+    if (
+      l === owner ||
+      l.c < 0 ||
+      l.watching ||
+      l.travel ||
+      l.prov !== owner.prov
+    )
+      continue;
+    if (
+      !bb ||
+      bb.kind !== "ship" ||
+      bb.seat !== owner.seat ||
+      bb.id !== b.id ||
+      l.crime?.jail
+    )
+      continue;
     touchLife(g, l).travel = {
       dest: t.dest,
       path: [...t.path],
@@ -1115,12 +1249,21 @@ export function boardCrew(g: ConquestGame, owner: Life, b: Boat): void {
       cost: 0,
       with: { seat: owner.seat, boat: b.id },
     };
-    journal(g, l, `You go aboard the ${b.name} with her owner, bound for ${g.map.provinces[t.dest].name}.`);
+    journal(
+      g,
+      l,
+      `You go aboard the ${b.name} with her owner, bound for ${g.map.provinces[t.dest].name}.`,
+    );
   }
 }
 
 /** She's gone from her owner (sold, lost): her company paid off, her charter and stay ended, anyone aboard ashore. */
-export function disbandShip(g: ConquestGame, owner: Life, b: Boat, why: string): void {
+export function disbandShip(
+  g: ConquestGame,
+  owner: Life,
+  b: Boat,
+  why: string,
+): void {
   const s = g.s;
   if (b.roster && (b.roster.hires.length || b.roster.offers?.length))
     disband(g, hostOfBoat(s, owner, b), why);
@@ -1137,7 +1280,8 @@ export function disbandShip(g: ConquestGame, owner: Life, b: Boat, why: string):
 /** Each day: her passage on, a hop at a time; a stay that's run too long ends. */
 function stepShip(g: ConquestGame, owner: Life, b: Boat): void {
   const s = g.s;
-  if (b.stay && b.stay.since >= 0 && s.day - b.stay.since >= STAY_DAYS) endStay(g, owner, b);
+  if (b.stay && b.stay.since >= 0 && s.day - b.stay.since >= STAY_DAYS)
+    endStay(g, owner, b);
   const wy = b.way;
   if (wy) {
     if (s.day < wy.arrive) return;
@@ -1160,7 +1304,13 @@ function stepShip(g: ConquestGame, owner: Life, b: Boat): void {
   const job = b.charter;
   if (!job || job.phase !== "there") return;
   if (job.c.kind === "packet") {
-    if (s.day >= job.due) return endCharter(g, owner, b, `The packet's term is up: ${job.runs} runs.`);
+    if (s.day >= job.due)
+      return endCharter(
+        g,
+        owner,
+        b,
+        `The packet's term is up: ${job.runs} runs.`,
+      );
     if (s.day - (job.inAt ?? s.day) >= CHARTER.packet.turn) {
       const other = b.prov === job.c.to ? job.c.from : job.c.to;
       job.runs++;
@@ -1169,8 +1319,14 @@ function stepShip(g: ConquestGame, owner: Life, b: Boat): void {
     }
   } else if (s.day >= job.due) {
     job.phase = "home";
-    logShip(g, owner, b, `The season's done: ${r1(job.earned)} coins of it. She makes for home.`);
-    if (b.prov === job.home) return endCharter(g, owner, b, "Home from the grounds.");
+    logShip(
+      g,
+      owner,
+      b,
+      `The season's done: ${r1(job.earned)} coins of it. She makes for home.`,
+    );
+    if (b.prov === job.home)
+      return endCharter(g, owner, b, "Home from the grounds.");
     launch(g, owner, b, job.home, false);
   }
 }
@@ -1182,25 +1338,50 @@ function arrive(g: ConquestGame, owner: Life, b: Boat, p: number): void {
   b.way = null;
   b.prov = p;
   b.voyages = (b.voyages ?? 0) + 1;
-  b.condition = Math.max(1, r1(b.condition - (wy.km / 500) * PASSAGE_RISK.wear - (wy.dmg ?? 0)));
+  b.condition = Math.max(
+    1,
+    r1(b.condition - (wy.km / 500) * PASSAGE_RISK.wear - (wy.dmg ?? 0)),
+  );
   moorAt(g, owner, b, p);
   const name = g.map.provinces[p].name;
   if (b.stay && b.stay.since < 0 && b.stay.at === p) {
     b.stay.since = s.day;
-    logShip(g, owner, b, `In at ${name}, lying over on the way to ${g.map.provinces[b.stay.dest].name}${wy.dmg ? ` (battered by the sea, −${wy.dmg})` : ""}.`);
+    logShip(
+      g,
+      owner,
+      b,
+      `In at ${name}, lying over on the way to ${g.map.provinces[b.stay.dest].name}${wy.dmg ? ` (battered by the sea, −${wy.dmg})` : ""}.`,
+    );
     return;
   }
   const job = b.charter;
   if (!job) {
-    logShip(g, owner, b, `In at ${name}${wy.late ? `, ${wy.late} days lost to the weather` : ""}${wy.dmg ? `, battered by the sea (−${wy.dmg})` : ""}.`);
+    logShip(
+      g,
+      owner,
+      b,
+      `In at ${name}${wy.late ? `, ${wy.late} days lost to the weather` : ""}${wy.dmg ? `, battered by the sea (−${wy.dmg})` : ""}.`,
+    );
     journal(g, owner, `The ${b.name} is in at ${name}.`);
     return;
   }
   const c = job.c;
-  if (job.phase === "home" && p === job.home) return endCharter(g, owner, b, `Home from the ${c.kind === "whaling" ? "whaling grounds" : "fishing grounds"} with ${r1(job.earned)} coins of it.`);
+  if (job.phase === "home" && p === job.home)
+    return endCharter(
+      g,
+      owner,
+      b,
+      `Home from the ${c.kind === "whaling" ? "whaling grounds" : "fishing grounds"} with ${r1(job.earned)} coins of it.`,
+    );
   if (job.phase !== "out" || p !== c.to) {
     if (c.kind === "packet" && job.phase === "there") {
-      if (s.day >= job.due) return endCharter(g, owner, b, `The packet's term is up: ${job.runs} runs.`);
+      if (s.day >= job.due)
+        return endCharter(
+          g,
+          owner,
+          b,
+          `The packet's term is up: ${job.runs} runs.`,
+        );
       job.inAt = s.day; // she sails again after her turn in port
       logShip(g, owner, b, `The packet in at ${name}.`);
     } else logShip(g, owner, b, `In at ${name}.`);
@@ -1208,23 +1389,36 @@ function arrive(g: ConquestGame, owner: Life, b: Boat, p: number): void {
   }
   const late = s.day > job.due;
   const forfeit = s.day > job.due + CHARTER.forfeitDays;
-  const flow = { key: `bc:${b.id}`, label: `The ${b.name}: charters`, chance: true, aff: "boat" as const };
+  const flow = {
+    key: `bc:${b.id}`,
+    label: `The ${b.name}: charters`,
+    chance: true,
+    aff: "boat" as const,
+  };
   switch (c.kind) {
     case "freight":
     case "passengers":
     case "smuggling": {
       if (c.kind === "smuggling") {
-        const seized = shipDice(g, b.id, 11).next() < smuggleSeized(s, owner, b);
+        const seized =
+          shipDice(g, b.id, 11).next() < smuggleSeized(s, owner, b);
         const nation = lawAt(s, p);
         if (seized) {
           addHeat(g, owner, nation, CHARTER.smuggling.seizedHeat);
           addRep(b, REP.seized);
-          shipGone(g, owner, b, `The customs officers at ${name} seized the ${b.name}, cargo and all.`);
+          shipGone(
+            g,
+            owner,
+            b,
+            `The customs officers at ${name} seized the ${b.name}, cargo and all.`,
+          );
           return;
         }
         addHeat(g, owner, nation, CHARTER.smuggling.heat);
       }
-      const pay = forfeit ? 0 : r1(charterPay(b, c) * (late ? CHARTER.latePay : 1));
+      const pay = forfeit
+        ? 0
+        : r1(charterPay(b, c) * (late ? CHARTER.latePay : 1));
       if (pay) withFlow(g, flow, () => earn(g, owner, pay));
       addRep(b, forfeit ? REP.forfeit : late ? REP.late : REP.delivered);
       const what = ladingWords(g.map, c);
@@ -1232,19 +1426,30 @@ function arrive(g: ConquestGame, owner: Life, b: Boat, p: number): void {
         ? `The ${b.name} came in at ${name} so late the charter was void (${what}): nothing paid.`
         : `The ${b.name} delivered ${what}${late ? ", late: a quarter docked" : ""}: ${pay} coins.`;
       logShip(g, owner, b, text);
-      withFlow(g, flow, () => journal(g, owner, text, forfeit || late ? "bad" : "good"));
+      withFlow(g, flow, () =>
+        journal(g, owner, text, forfeit || late ? "bad" : "good"),
+      );
       b.charter = null;
       return;
     }
     case "venture": {
-      const sale = quoteCut(s, g.w, p, c.good as Good, -(c.loads ?? 0), cutFor(s, owner)).total;
+      const sale = quoteCut(
+        s,
+        g.w,
+        p,
+        c.good as Good,
+        -(c.loads ?? 0),
+        cutFor(s, owner),
+      ).total;
       marketMove(g, p, c.good as Good, -(c.loads ?? 0));
       withFlow(g, flow, () => earn(g, owner, sale));
       gainXp(g, owner, "trade", 4);
       const cost = job.cost ?? 0;
       const text = `The ${b.name} sold her ${c.loads} loads of ${c.good} at ${name} for ${sale} coins (they cost ${cost}): ${sale >= cost ? "+" : ""}${r1(sale - cost)}.`;
       logShip(g, owner, b, text);
-      withFlow(g, flow, () => journal(g, owner, text, sale >= cost ? "good" : "bad"));
+      withFlow(g, flow, () =>
+        journal(g, owner, text, sale >= cost ? "good" : "bad"),
+      );
       addRep(b, 1);
       b.charter = null;
       return;
@@ -1252,13 +1457,23 @@ function arrive(g: ConquestGame, owner: Life, b: Boat, p: number): void {
     case "packet":
       job.phase = "there";
       job.inAt = s.day;
-      logShip(g, owner, b, `On the packet between ${g.map.provinces[c.from].name} and ${name}.`);
+      logShip(
+        g,
+        owner,
+        b,
+        `On the packet between ${g.map.provinces[c.from].name} and ${name}.`,
+      );
       return;
     case "fishing":
     case "whaling":
       job.phase = "there";
       job.due = Math.max(job.due, s.day + (c.months ?? 3) * 30);
-      logShip(g, owner, b, `On the ${c.kind === "fishing" ? "fishing" : "whaling"} grounds off ${name}.`);
+      logShip(
+        g,
+        owner,
+        b,
+        `On the ${c.kind === "fishing" ? "fishing" : "whaling"} grounds off ${name}.`,
+      );
       return;
   }
 }
@@ -1274,10 +1489,21 @@ function endCharter(g: ConquestGame, owner: Life, b: Boat, text: string): void {
 }
 
 /** She's lost: those aboard come ashore on a spar; her company by name are lost or scatter. */
-function shipLost(g: ConquestGame, owner: Life, b: Boat, at: number, from: number): void {
+function shipLost(
+  g: ConquestGame,
+  owner: Life,
+  b: Boat,
+  at: number,
+  from: number,
+): void {
   const name = g.map.provinces[at]?.name ?? "the coast";
   void from;
-  shipGone(g, owner, b, `The ${b.name} was lost at sea off ${name}${b.charter ? " with her cargo" : ""}.`);
+  shipGone(
+    g,
+    owner,
+    b,
+    `The ${b.name} was lost at sea off ${name}${b.charter ? " with her cargo" : ""}.`,
+  );
 }
 
 /** She's gone (lost, seized): everyone aboard ashore where she went, and her owner told. */
@@ -1289,7 +1515,12 @@ function shipGone(g: ConquestGame, owner: Life, b: Boat, text: string): void {
     if (!aboardShip(l, owner.seat, b)) continue;
     touchLife(g, l).travel = null;
     l.prov = at;
-    journal(g, l, `${text} You came ashore at ${g.map.provinces[at].name} on a spar.`, "bad");
+    journal(
+      g,
+      l,
+      `${text} You came ashore at ${g.map.provinces[at].name} on a spar.`,
+      "bad",
+    );
     hurt(g, l, 8, "drowned");
     wake(g, l, text);
   }
@@ -1322,9 +1553,18 @@ export function moorAt(g: ConquestGame, owner: Life, b: Boat, p: number): void {
 // ---------------------------------------------------------------- a stay on the way
 
 /** Who can give her orders on a voyage: her owner (aboard, or where she lies), or a player who's her captain and with her. */
-export function canCommand(s: GameState, life: Life, owner: Life, b: Boat): boolean {
+export function canCommand(
+  s: GameState,
+  life: Life,
+  owner: Life,
+  b: Boat,
+): boolean {
   if (life.seat === owner.seat)
-    return aboardShip(owner, owner.seat, b) || owner.travel?.boat === b.id || alongsideShip(owner, b);
+    return (
+      aboardShip(owner, owner.seat, b) ||
+      owner.travel?.boat === b.id ||
+      alongsideShip(owner, b)
+    );
   const h = hiresAboard(b).find((x) => x.seat === life.seat);
   return !!h && h.role === "captain" && hireWithHer(s, owner, b, h);
 }
@@ -1338,9 +1578,15 @@ export function nextStop(owner: Life, b: Boat): number | undefined {
 }
 
 /** Lie over at the next port on her way, for as long as you like (the voyage resumes within two months). */
-export function stayAt(g: ConquestGame, life: Life, owner: Life, b: Boat): string | null {
+export function stayAt(
+  g: ConquestGame,
+  life: Life,
+  owner: Life,
+  b: Boat,
+): string | null {
   const s = g.s;
-  if (!canCommand(s, life, owner, b)) return "Only her commander can say where she stops.";
+  if (!canCommand(s, life, owner, b))
+    return "Only her commander can say where she stops.";
   const at = nextStop(owner, b);
   if (at === undefined) return "She's making for her last port.";
   touchLife(g, owner);
@@ -1358,25 +1604,39 @@ export function stayAt(g: ConquestGame, life: Life, owner: Life, b: Boat): strin
   }
   // Everyone aboard stops there too.
   for (const l of s.lives)
-    if (l.travel?.with?.seat === owner.seat && l.travel.with.boat === b.id && l.travel.path.length) {
+    if (
+      l.travel?.with?.seat === owner.seat &&
+      l.travel.with.boat === b.id &&
+      l.travel.path.length
+    ) {
       touchLife(g, l);
       l.travel.path = [at];
       l.travel.sea = [true];
       l.travel.dest = at;
     }
   const where = g.map.provinces[at].name;
-  journal(g, life, `The ${b.name} will lie over at ${where}. The voyage to ${g.map.provinces[b.stay.dest].name} can go on if she sails again within ${STAY_DAYS} days of coming in.`);
+  journal(
+    g,
+    life,
+    `The ${b.name} will lie over at ${where}. The voyage to ${g.map.provinces[b.stay.dest].name} can go on if she sails again within ${STAY_DAYS} days of coming in.`,
+  );
   return null;
 }
 
 /** Resume a voyage after a stay: on to where she was going. */
-export function resumeVoyage(g: ConquestGame, life: Life, owner: Life, b: Boat): string | null {
+export function resumeVoyage(
+  g: ConquestGame,
+  life: Life,
+  owner: Life,
+  b: Boat,
+): string | null {
   const s = g.s;
   const st = b.stay;
   if (!st) return "She isn't lying over.";
   if (st.since < 0) return "She hasn't come in yet.";
   if (s.day - st.since >= STAY_DAYS) return "Too long: the voyage is over.";
-  if (!canCommand(s, life, owner, b)) return "Only her commander can sail her on.";
+  if (!canCommand(s, life, owner, b))
+    return "Only her commander can sail her on.";
   if (b.prov !== st.at || b.way) return "She isn't where she lay over.";
   if (menWithHer(s, owner, b) < BOATS[b.kind].crew)
     return `She needs ${BOATS[b.kind].crew} men to sail.`;
@@ -1388,19 +1648,30 @@ export function resumeVoyage(g: ConquestGame, life: Life, owner: Life, b: Boat):
       b.stay = st;
       return err;
     }
-    journal(g, owner, `The ${b.name} sails on for ${g.map.provinces[dest].name}.`);
+    journal(
+      g,
+      owner,
+      `The ${b.name} sails on for ${g.map.provinces[dest].name}.`,
+    );
     return null;
   }
   b.stay = null;
-  const aboard = life.seat === owner.seat && !owner.travel && owner.prov === b.prov;
+  const aboard =
+    life.seat === owner.seat && !owner.travel && owner.prov === b.prov;
   const err = launch(g, owner, b, dest, aboard);
   if (err) {
     b.stay = st;
     return err;
   }
-  logShip(g, owner, b, `Sails on from ${g.map.provinces[b.prov].name} for ${g.map.provinces[dest].name}.`);
+  logShip(
+    g,
+    owner,
+    b,
+    `Sails on from ${g.map.provinces[b.prov].name} for ${g.map.provinces[dest].name}.`,
+  );
   // A player captain who isn't her owner sails with her.
-  if (life.seat !== owner.seat && !life.travel && life.prov === b.prov) board(g, life, owner, b);
+  if (life.seat !== owner.seat && !life.travel && life.prov === b.prov)
+    board(g, life, owner, b);
   return null;
 }
 
@@ -1451,8 +1722,15 @@ export function takeCharter(
   touchLife(g, owner);
   if (ch.kind === "venture") {
     const cost = ventureCost(s, g.w, owner, ch);
-    withFlow(g, { key: `bc:${ship.id}`, label: `The ${ship.name}: charters`, chance: true, aff: "boat" }, () =>
-      spend(g, owner, cost),
+    withFlow(
+      g,
+      {
+        key: `bc:${ship.id}`,
+        label: `The ${ship.name}: charters`,
+        chance: true,
+        aff: "boat",
+      },
+      () => spend(g, owner, cost),
     );
     marketMove(g, ch.from, ch.good as Good, ch.loads ?? 0);
     job.cost = cost;
@@ -1470,12 +1748,21 @@ export function takeCharter(
 }
 
 /** Give up a charter (forfeit; her name suffers); a venture's cargo stays aboard to sell where she is. */
-export function dropCharter(g: ConquestGame, owner: Life, b: Boat): string | null {
+export function dropCharter(
+  g: ConquestGame,
+  owner: Life,
+  b: Boat,
+): string | null {
   const job = b.charter;
   if (!job) return "She has no charter.";
   touchLife(g, owner);
   if (job.c.kind !== "venture" && job.phase === "out") addRep(b, REP.forfeit);
-  endCharter(g, owner, b, `Gave up the charter (${ladingWords(g.map, job.c)}).`);
+  endCharter(
+    g,
+    owner,
+    b,
+    `Gave up the charter (${ladingWords(g.map, job.c)}).`,
+  );
   return null;
 }
 
@@ -1492,7 +1779,11 @@ export function sendShip(
   if (to === b.prov) return "She's there.";
   if (!g.map.provinces[to]?.coastal) return "She can only sail to the coast.";
   const here = !owner.travel && owner.prov === b.prov;
-  if (!here && !officer(s, owner, b, "captain") && !officer(s, owner, b, "mate"))
+  if (
+    !here &&
+    !officer(s, owner, b, "captain") &&
+    !officer(s, owner, b, "mate")
+  )
     return "With nobody to command her, be where she lies (or hire her a captain or mate).";
   if (menWithHer(s, owner, b) < BOATS[b.kind].crew)
     return `She needs ${BOATS[b.kind].crew} men to sail.`;
@@ -1500,8 +1791,17 @@ export function sendShip(
   b.stay = null;
   const err = launch(g, owner, b, to, false);
   if (err) return err;
-  logShip(g, owner, b, `Sent to ${g.map.provinces[to].name} under her own master.`);
-  journal(g, owner, `You send the ${b.name} to ${g.map.provinces[to].name} under her own master.`);
+  logShip(
+    g,
+    owner,
+    b,
+    `Sent to ${g.map.provinces[to].name} under her own master.`,
+  );
+  journal(
+    g,
+    owner,
+    `You send the ${b.name} to ${g.map.provinces[to].name} under her own master.`,
+  );
   return null;
 }
 
@@ -1526,8 +1826,10 @@ export function refitCheck(
   if (def.since && worldYear(s) < def.since)
     return no(`Not before ${def.since}: nobody coppers a ship's bottom yet.`);
   if (!alongsideShip(owner, b)) return no("Be where she lies.");
-  if (!hasPlace(s, w, b.prov, "docks")) return no("A refit needs a port with a yard.");
-  if (owner.purse < refitCost(b, key)) return no(`Costs ${refitCost(b, key)} coins.`);
+  if (!hasPlace(s, w, b.prov, "docks"))
+    return no("A refit needs a port with a yard.");
+  if (owner.purse < refitCost(b, key))
+    return no(`Costs ${refitCost(b, key)} coins.`);
   return yes;
 }
 
@@ -1535,7 +1837,12 @@ function worldYear(s: GameState): number {
   return dateOf(s.day).year;
 }
 
-export function refit(g: ConquestGame, owner: Life, b: Boat, key: RefitKey): string | null {
+export function refit(
+  g: ConquestGame,
+  owner: Life,
+  b: Boat,
+  key: RefitKey,
+): string | null {
   const check = refitCheck(g.s, g.w, owner, b, key);
   if (!check.ok) return check.why;
   const cost = refitCost(b, key);
@@ -1543,7 +1850,11 @@ export function refit(g: ConquestGame, owner: Life, b: Boat, key: RefitKey): str
   touchLife(g, owner);
   (b.refits ??= []).push(key);
   logShip(g, owner, b, `Refitted: ${REFITS[key].name.toLowerCase()}.`);
-  journal(g, owner, `The ${b.name} is refitted: ${REFITS[key].name.toLowerCase()}, for ${cost} coins.`);
+  journal(
+    g,
+    owner,
+    `The ${b.name} is refitted: ${REFITS[key].name.toLowerCase()}, for ${cost} coins.`,
+  );
   return null;
 }
 
@@ -1555,7 +1866,8 @@ export function careenCost(b: Boat): number {
 export function careenCheck(s: GameState, owner: Life, b: Boat): Check {
   if (b.moor !== "beach") return no("Only on a beach.");
   if (!alongsideShip(owner, b)) return no("Be where she lies.");
-  if (b.condition >= MOOR.careenTo) return no(`A beach can't make her better than ${MOOR.careenTo}%.`);
+  if (b.condition >= MOOR.careenTo)
+    return no(`A beach can't make her better than ${MOOR.careenTo}%.`);
   if (owner.purse < careenCost(b)) return no(`Costs ${careenCost(b)} coins.`);
   return yes;
 }
@@ -1566,7 +1878,12 @@ export function careen(g: ConquestGame, owner: Life, b: Boat): string | null {
   spend(g, owner, careenCost(b));
   touchLife(g, owner);
   b.condition = MOOR.careenTo;
-  logShip(g, owner, b, `Careened on the beach: hove down, scraped and payed (${MOOR.careenTo}%).`);
+  logShip(
+    g,
+    owner,
+    b,
+    `Careened on the beach: hove down, scraped and payed (${MOOR.careenTo}%).`,
+  );
   gainXp(g, owner, "seamanship", 2);
   return null;
 }
@@ -1599,7 +1916,11 @@ const SEEKER_NOTES = {
     "sober, they say",
     "can work a lunar, he claims",
   ],
-  physician: ["a barber-surgeon", "lately surgeon of a slaver, and sick of it", "a surgeon's mate from the navy"],
+  physician: [
+    "a barber-surgeon",
+    "lately surgeon of a slaver, and sick of it",
+    "a surgeon's mate from the navy",
+  ],
 };
 
 /** The people looking for a berth at a quay this month. */
@@ -1626,7 +1947,11 @@ export function seekersAt(s: GameState, w: World, p: number): Seeker[] {
     };
     // Some are better than the common run: an old hand, a mate between ships.
     const better = rng.next();
-    if (trade === "sailor") stats.mar = Math.min(13, stats.mar + (better > 0.85 ? 5 : better > 0.6 ? 3 : 0));
+    if (trade === "sailor")
+      stats.mar = Math.min(
+        13,
+        stats.mar + (better > 0.85 ? 5 : better > 0.6 ? 3 : 0),
+      );
     if (better > 0.75) stats.lea = Math.min(12, stats.lea + 3);
     if (trade === "physician") stats.lea = Math.min(12, stats.lea + 2);
     out.push({
@@ -1681,7 +2006,10 @@ export function townSeamen(s: GameState, p: number): Character[] {
     .map((id) => s.chars[id])
     .filter(
       (c): c is Character =>
-        !!c?.alive && !c.abroad && c.role === "sailor" && !s.lives.some((l) => l.c === c.id),
+        !!c?.alive &&
+        !c.abroad &&
+        c.role === "sailor" &&
+        !s.lives.some((l) => l.c === c.id),
     )
     .slice(0, 6);
 }
@@ -1699,7 +2027,8 @@ function hireSeeker(
   const k = seekersAt(s, g.w, b.prov).find((x) => x.slot === slot);
   if (!k) return "They've found another berth.";
   const key = `seek:${b.prov}:${Math.floor(s.day / 30)}:${slot}`;
-  if (s.lives.some((l) => l.cooldowns[key])) return "They've found another berth.";
+  if (s.lives.some((l) => l.cooldowns[key]))
+    return "They've found another berth.";
   if (!alongsideShip(owner, b)) return "Be where she lies to sign them.";
   if (!roleOf(SHIP_LADDER, role)) return "No such place.";
   // Would they? Asked before they're made, so a refusal leaves nothing behind.
@@ -1726,7 +2055,8 @@ export function hireOdds(
 ): number {
   const def = roleOf(SHIP_LADDER, role);
   if (!def) return -100;
-  return signOdds(host, prospectOf(s, host.owner, c, SHIP_LADDER), def, pay).total;
+  return signOdds(host, prospectOf(s, host.owner, c, SHIP_LADDER), def, pay)
+    .total;
 }
 
 // ---------------------------------------------------------------- the month
@@ -1739,37 +2069,66 @@ export function shipsMonthly(g: ConquestGame, owner: Life): void {
     if (b.roster?.hires.length) payRoster(g, host);
     const fx = shipFx(s, owner, b);
     if (fx.spirits) b.morale = Math.min(100, b.morale + fx.spirits);
-    if (b.moor === "anchor") b.condition = Math.max(1, r1(b.condition - MOOR.anchorWear));
+    if (b.moor === "anchor")
+      b.condition = Math.max(1, r1(b.condition - MOOR.anchorWear));
     const job = b.charter;
     if (!job) continue;
     touchLife(g, owner);
-    const flow = { key: `bc:${b.id}`, label: `The ${b.name}: charters`, chance: true, aff: "boat" as const };
+    const flow = {
+      key: `bc:${b.id}`,
+      label: `The ${b.name}: charters`,
+      chance: true,
+      aff: "boat" as const,
+    };
     if (job.c.kind === "packet" && job.phase !== "home") {
       const pay = charterPay(b, job.c);
       withFlow(g, { ...flow, chance: false }, () => earn(g, owner, pay));
       job.earned = r1(job.earned + pay);
-    } else if ((job.c.kind === "fishing" || job.c.kind === "whaling") && job.phase === "there" && !b.way && b.prov === job.c.to) {
+    } else if (
+      (job.c.kind === "fishing" || job.c.kind === "whaling") &&
+      job.phase === "there" &&
+      !b.way &&
+      b.prov === job.c.to
+    ) {
       const got = seasonCatch(g, owner, b, job.c);
       job.runs++;
       if (got > 0) {
         withFlow(g, flow, () => earn(g, owner, got));
         job.earned = r1(job.earned + got);
       }
-      logShip(g, owner, b, got > 0 ? `A month on the grounds: ${got} coins.` : "A month on the grounds, and nothing to show.");
+      logShip(
+        g,
+        owner,
+        b,
+        got > 0
+          ? `A month on the grounds: ${got} coins.`
+          : "A month on the grounds, and nothing to show.",
+      );
     }
   }
 }
 
 /** A month's catch on the grounds, on her own dice, from BOAT_WORK's tables. */
-function seasonCatch(g: ConquestGame, owner: Life, b: Boat, c: Charter): number {
+function seasonCatch(
+  g: ConquestGame,
+  owner: Life,
+  b: Boat,
+  c: Charter,
+): number {
   const s = g.s;
   const r = shipDice(g, b.id, 23);
   const fx = shipFx(s, owner, b);
   if (c.kind === "fishing") {
     const F = BOAT_WORK.fishing;
     const winter = boatWinter(g.map, b.prov, s.day);
-    const got = F.base[b.kind] * CHARTER.fishing.grounds * fx.knack * (winter ? F.winter : 1) * (F.spread[0] + r.next() * F.spread[1]);
-    if (r.chance(F.squall.p)) b.condition = Math.max(1, b.condition - F.squall.damage);
+    const got =
+      F.base[b.kind] *
+      CHARTER.fishing.grounds *
+      fx.knack *
+      (winter ? F.winter : 1) *
+      (F.spread[0] + r.next() * F.spread[1]);
+    if (r.chance(F.squall.p))
+      b.condition = Math.max(1, b.condition - F.squall.damage);
     return r1(got);
   }
   const W = BOAT_WORK.whaling;
@@ -1800,7 +2159,12 @@ hooks.landed.push((g, life, p, sea, boat) => {
   if (b.stay && b.stay.own && b.stay.since < 0 && b.stay.at === p) {
     touchLife(g, life);
     b.stay.since = g.s.day;
-    logShip(g, life, b, `In at ${g.map.provinces[p].name}, lying over on the way to ${g.map.provinces[b.stay.dest].name}.`);
+    logShip(
+      g,
+      life,
+      b,
+      `In at ${g.map.provinces[p].name}, lying over on the way to ${g.map.provinces[b.stay.dest].name}.`,
+    );
   }
   void sea;
 });
@@ -1811,14 +2175,31 @@ hooks.forecast.push((s, life, w) => {
   if (life.c < 0 || life.watching) return out;
   for (const b of life.boats ?? []) {
     const pay = r1(hiresAboard(b).reduce((m, h) => m + h.pay, 0));
-    if (pay) out.push({ key: `bh:${b.id}`, label: `The ${b.name}: her company's pay`, value: -pay });
+    if (pay)
+      out.push({
+        key: `bh:${b.id}`,
+        label: `The ${b.name}: her company's pay`,
+        value: -pay,
+      });
     const job = b.charter;
     if (job && w) {
       if (job.c.kind === "packet" && job.phase !== "home")
-        out.push({ key: `bc:${b.id}`, label: `The ${b.name}: the packet`, value: charterPay(b, job.c) });
-      else if ((job.c.kind === "fishing" || job.c.kind === "whaling") && job.phase === "there") {
+        out.push({
+          key: `bc:${b.id}`,
+          label: `The ${b.name}: the packet`,
+          value: charterPay(b, job.c),
+        });
+      else if (
+        (job.c.kind === "fishing" || job.c.kind === "whaling") &&
+        job.phase === "there"
+      ) {
         const m = seasonMonth(s, w, life, b, job.c);
-        out.push({ key: `bc:${b.id}`, label: `The ${b.name}: on the grounds`, value: m.exp, chance: [m.lo, m.hi] });
+        out.push({
+          key: `bc:${b.id}`,
+          label: `The ${b.name}: on the grounds`,
+          value: m.exp,
+          chance: [m.lo, m.hi],
+        });
       }
     }
   }
@@ -1832,13 +2213,22 @@ hooks.affairs.push((s, w, life) => {
     const job = b.charter;
     if (!job && !b.way && !b.stay) continue;
     const where = w.map.provinces[shipProv(b)]?.name ?? "?";
-    const status = b.stay ? "lying over" : b.way ? "at sea" : job?.phase === "there" ? "at work" : "in port";
+    const status = b.stay
+      ? "lying over"
+      : b.way
+        ? "at sea"
+        : job?.phase === "there"
+          ? "at work"
+          : "in port";
     const what = job
       ? `${CHARTER_NAMES[job.c.kind].toLowerCase()}: ${ladingWords(w.map, job.c)}`
       : b.way
         ? `bound for ${w.map.provinces[b.way.dest].name}`
         : `lying over at ${where}`;
-    const pay = job && ["freight", "passengers", "smuggling"].includes(job.c.kind) ? charterPay(b, job.c) : 0;
+    const pay =
+      job && ["freight", "passengers", "smuggling"].includes(job.c.kind)
+        ? charterPay(b, job.c)
+        : 0;
     out.push({
       kind: "boat",
       id: `ship:${b.id}`,
@@ -1847,7 +2237,9 @@ hooks.affairs.push((s, w, life) => {
       status,
       p: shipProv(b),
       ...(b.way ? { due: b.way.arrive } : job ? { due: job.due } : {}),
-      ...(pay ? { expected: { value: pay, lo: 0, hi: pay, per: "trip" as const } } : {}),
+      ...(pay
+        ? { expected: { value: pay, lo: 0, hi: pay, per: "trip" as const } }
+        : {}),
       go: { tab: "estate", sub: "boats" },
     });
   }
@@ -1867,13 +2259,21 @@ export function shipCommand(
   if (isChildLife(s, life)) return "Not as a child.";
   // A player captain's orders on a voyage: her owner is named by her id among the lives.
   if (c.act === "stay" || c.act === "resume") {
-    const owner =
-      boatOf(life, c.id) ? life : s.lives.find((l) => boatOf(l, c.id) && hiresAboard(boatOf(l, c.id)!).some((h) => h.seat === life.seat));
+    const owner = boatOf(life, c.id)
+      ? life
+      : s.lives.find(
+          (l) =>
+            boatOf(l, c.id) &&
+            hiresAboard(boatOf(l, c.id)!).some((h) => h.seat === life.seat),
+        );
     const b = owner ? boatOf(owner, c.id) : undefined;
     if (!owner || !b) return "No such ship.";
-    return c.act === "stay" ? stayAt(g, life, owner, b) : resumeVoyage(g, life, owner, b);
+    return c.act === "stay"
+      ? stayAt(g, life, owner, b)
+      : resumeVoyage(g, life, owner, b);
   }
-  if (c.act === "answer") return answerOffer(g, life, c.hire ?? -1, (c.arg ?? 0) > 0);
+  if (c.act === "answer")
+    return answerOffer(g, life, c.hire ?? -1, (c.arg ?? 0) > 0);
   const b = boatOf(life, c.id);
   if (!b) return "Not your boat.";
   const host = hostOfBoat(s, life, b);
@@ -1885,7 +2285,10 @@ export function shipCommand(
       if (c.c !== undefined && c.c >= 0) {
         const who = s.chars[c.c];
         if (!who) return "No such person.";
-        if (!alongsideShip(life, b) || !(s.locals[b.prov] ?? []).includes(who.id))
+        if (
+          !alongsideShip(life, b) ||
+          !(s.locals[b.prov] ?? []).includes(who.id)
+        )
           return "Be where she lies, and they there.";
         return hire(g, host, who, role, pay);
       }
@@ -1910,7 +2313,8 @@ export function shipCommand(
     }
     case "venture": {
       const ch = ventureCharter(s, g.w, b, c.key ?? "", c.to ?? -1, c.pay ?? 0);
-      if (!ch) return "No such venture: a good sold here, for a port with a market she can reach.";
+      if (!ch)
+        return "No such venture: a good sold here, for a port with a market she can reach.";
       return takeCharter(g, life, b, ch, (c.arg ?? 0) > 0);
     }
     case "drop":

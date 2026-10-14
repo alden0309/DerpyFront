@@ -27,7 +27,7 @@ import {
 } from "./Followers";
 import { meOf, skillLevel } from "./LifeQueries";
 import type { World } from "./Map";
-import { gunsOf, hireWithHer, hiresAboard, shipFx } from "./Ships"; // SHIPS (r21)
+import { gunsOf, hiresAboard, hireWithHer, shipFx } from "./Ships"; // SHIPS (r21)
 import type { Boat, BoatUse, Follower, GameState, Life } from "./Types";
 
 /** One way it can go. */
@@ -150,9 +150,7 @@ export function boatJobOdds(
   );
   const company = hiresAboard(b).reduce((v, h) => v + h.pay, 0);
   const costMonth = r1(
-    def.upkeep +
-      crew * CREW_WAGE +
-      (mine ? (skipper?.wage ?? 0) + company : 0),
+    def.upkeep + crew * CREW_WAGE + (mine ? (skipper?.wage ?? 0) + company : 0),
   );
   const hire = Math.max(0, crew - b.crew) * CREW_BOUNTY;
   const skill = o.skill ?? m.skill ?? skillLevel(s, life, "seamanship");
@@ -302,12 +300,17 @@ export function boatJobOdds(
           bad: true,
         },
       ];
-      risks.push({ label: "Lost at sea with her cargo", p: T.lost * (mine ? fx.loss : 1) });
+      risks.push({
+        label: "Lost at sea with her cargo",
+        p: T.lost * (mine ? fx.loss : 1),
+      });
       factors.push(
         `Her hold: ${def.loads} loads (the bigger the hold, the more she carries).`,
       );
       return done(
-        (1 - T.lost * (mine ? fx.loss : 1)) * a * (T.spread[0] + T.spread[1] / 2),
+        (1 - T.lost * (mine ? fx.loss : 1)) *
+          a *
+          (T.spread[0] + T.spread[1] / 2),
         0,
         a * (T.spread[0] + T.spread[1]),
       );

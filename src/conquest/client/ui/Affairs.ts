@@ -242,9 +242,7 @@ export function workSection(ui: GameUi): TemplateResult {
               </li>`,
           )}
         </ol>
-        ${job.berth
-          ? nothing /* SHIPS (r21): her owner promotes you */
-          : v.next
+        ${v.next && !job.berth
           ? html`<div class="cq-next">
               <p>
                 Next: <b>${v.next.title}</b>.
@@ -270,7 +268,9 @@ export function workSection(ui: GameUi): TemplateResult {
                 )}
               </ul>
             </div>`
-          : html`<p class="cq-muted small">The top of this ladder.</p>`}
+          : job.berth
+            ? nothing /* SHIPS (r21): her owner promotes you */
+            : html`<p class="cq-muted small">The top of this ladder.</p>`}
         <div class="cq-btnrow">
           ${job.prov === life.prov
             ? html`<button

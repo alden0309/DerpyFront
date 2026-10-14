@@ -1177,8 +1177,7 @@ export function travelRoute(
       }
     }
     // MAP (r12): no ships out of (or into) a harbour the ice has shut.
-    const hail =
-      !!embark && u === embark.p && !canEmbark(s, map, u, native); // SHIPS (r21)
+    const hail = !!embark && u === embark.p && !canEmbark(s, map, u, native); // SHIPS (r21)
     if (
       sea &&
       (canEmbark(s, map, u, native) || hail) &&

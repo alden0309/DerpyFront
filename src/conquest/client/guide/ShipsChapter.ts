@@ -32,7 +32,10 @@ const KINDS: BoatKind[] = ["shallop", "sloop", "schooner", "brig", "ship"];
 function rolesTable(): string {
   const rows = SHIP_ROLES.map((r) => {
     const skills = Object.entries(r.skills)
-      .map(([k, w]) => `${k}${(w ?? 0) < 1 ? ` ${Math.round((w ?? 0) * 100)}%` : ""}`)
+      .map(
+        ([k, w]) =>
+          `${k}${(w ?? 0) < 1 ? ` ${Math.round((w ?? 0) * 100)}%` : ""}`,
+      )
       .join(", ");
     const where =
       r.key === "hand"
@@ -48,11 +51,21 @@ ${rows.join("\n")}`;
 }
 
 function chartersTable(): string {
-  const kinds: CharterKind[] = ["freight", "passengers", "packet", "fishing", "whaling", "smuggling", "venture"];
+  const kinds: CharterKind[] = [
+    "freight",
+    "passengers",
+    "packet",
+    "fishing",
+    "whaling",
+    "smuggling",
+    "venture",
+  ];
   const pay: Record<CharterKind, string> = {
     freight: `${CHARTER.freight.perLoad} a load and ${CHARTER.freight.per100} a load for every 100 km, on delivery`,
     passengers: `${CHARTER.passengers.perHead} a head and ${CHARTER.passengers.per100} a head for every 100 km, on landing them`,
-    packet: `a month by her kind (${KINDS.filter((k) => CHARTER.packet.pay[k]).map((k) => `${BOATS[k].name.toLowerCase()} ${CHARTER.packet.pay[k]}`).join(", ")}), ${CHARTER.packet.months} months`,
+    packet: `a month by her kind (${KINDS.filter((k) => CHARTER.packet.pay[k])
+      .map((k) => `${BOATS[k].name.toLowerCase()} ${CHARTER.packet.pay[k]}`)
+      .join(", ")}), ${CHARTER.packet.months} months`,
     fishing: `her own catch, ${CHARTER.fishing.grounds}× her fishing at home, ${CHARTER.fishing.months} months`,
     whaling: `her own catch, by the whaling table, ${CHARTER.whaling.months} months`,
     smuggling: `${CHARTER.smuggling.pay}× a freight's pay; +${CHARTER.smuggling.heat} heat; seized ${pct(CHARTER.smuggling.seized)} of the time at the far port (less with a sly master)`,
@@ -125,10 +138,30 @@ Sailing your own ship (or her captain aboard, if he's a player), you can **lie o
 
 > Tip: A captain earns his pay on a brig or a ship (her takings ride on his seamanship), less on a sloop. A navigator pays for himself on long passages; a bosun on a big ship that's always at sea. Look at a charter's odds before you take it: a smuggling run pays twice and more, and sometimes loses her.`,
   glossary: [
-    ["Bosun", "A ship's petty officer in charge of her rigging, hull and hands.", "ships"],
-    ["Careen", "To heave a ship down on a beach to scrape and pay her bottom.", "ships"],
-    ["Charter party", "The contract that hires a ship: a cargo, passengers, or a season's work.", "ships"],
-    ["Packet", "A ship running the post and passengers between two ports on a schedule.", "ships"],
-    ["Lying over", "A ship stopped at a port on the way; the voyage can go on within two months.", "ships"],
+    [
+      "Bosun",
+      "A ship's petty officer in charge of her rigging, hull and hands.",
+      "ships",
+    ],
+    [
+      "Careen",
+      "To heave a ship down on a beach to scrape and pay her bottom.",
+      "ships",
+    ],
+    [
+      "Charter party",
+      "The contract that hires a ship: a cargo, passengers, or a season's work.",
+      "ships",
+    ],
+    [
+      "Packet",
+      "A ship running the post and passengers between two ports on a schedule.",
+      "ships",
+    ],
+    [
+      "Lying over",
+      "A ship stopped at a port on the way; the voyage can go on within two months.",
+      "ships",
+    ],
   ],
 };

@@ -30,19 +30,28 @@
   padding: 0;
 }
 .cq-ship-roster > li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
-  align-items: center;
-  gap: 0.35rem 0.5rem;
-  padding: 0.2rem 0;
+  padding: 0.25rem 0;
   border-bottom: 1px dotted var(--rule);
 }
 .cq-ship-roster > li.away {
   opacity: 0.75;
 }
 .cq-ship-roster.offers > li,
-.cq-ship-roster.hire > li:has(> .cq-ship-who:only-child) {
-  grid-template-columns: minmax(0, 1fr) auto;
+.cq-ship-roster.refit > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.cq-ship-ctl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.5rem;
+  margin-top: 0.15rem;
+}
+.cq-ship-ctl .cq-why {
+  flex-basis: 100%;
 }
 .cq-ship-who {
   display: flex;
@@ -124,13 +133,4 @@
 }
 .cq-strand {
   margin: 0.25rem 0;
-}
-
-@media (max-width: 640px) {
-  .cq-ship-roster > li {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .cq-ship-roster > li > .cq-ship-who {
-    grid-column: 1 / -1;
-  }
 }

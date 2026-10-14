@@ -267,7 +267,10 @@ export function signOdds(
     );
   const want = expectedRole(p, host.ladder);
   if (want.rank > role.rank + 1)
-    e.add(`Beneath them: they'd look for a place as ${want.title.toLowerCase()}`, -15);
+    e.add(
+      `Beneath them: they'd look for a place as ${want.title.toLowerCase()}`,
+      -15,
+    );
   return e.done(0);
 }
 
@@ -334,9 +337,14 @@ export function hireGate(
   if (!Number.isFinite(pay) || pay < PAY_RANGE[0] || pay > PAY_RANGE[1])
     return no(`Pay is ${PAY_RANGE[0]} to ${PAY_RANGE[1]} a month.`);
   const room = host.room(role.key);
-  if (room <= 0) return no(`${cap(host.name)} has no place for a ${role.title.toLowerCase()}.`);
+  if (room <= 0)
+    return no(
+      `${cap(host.name)} has no place for a ${role.title.toLowerCase()}.`,
+    );
   if (countOf(host, role.key) >= room)
-    return no(`${cap(host.name)} has her ${role.title.toLowerCase()}${room > 1 ? "s" : ""} already.`);
+    return no(
+      `${cap(host.name)} has her ${role.title.toLowerCase()}${room > 1 ? "s" : ""} already.`,
+    );
   if (p.c === owner.c) return no("You can't sign yourself on.");
   if (p.c >= 0) {
     const c = s.chars[p.c];
@@ -389,7 +397,9 @@ export function hire(
 
 /** The part of a breakdown that weighs most against. */
 function worst(b: Breakdown): string {
-  const bad = [...b.parts].filter((x) => !x.mul).sort((a, z) => a.value - z.value)[0];
+  const bad = [...b.parts]
+    .filter((x) => !x.mul)
+    .sort((a, z) => a.value - z.value)[0];
   return bad?.label ?? "they'd rather not";
 }
 
@@ -541,7 +551,12 @@ export function answerOffer(
   const gate = takeGate(s, life, host, offer);
   if (!gate.ok) return `${gate.why}.`;
   host.own(g).offers = (host.roster.offers ?? []).filter((x) => x !== offer);
-  if (life.job) leaveJob(g, life, `for a place as ${role.title.toLowerCase()} of ${host.name}`);
+  if (life.job)
+    leaveJob(
+      g,
+      life,
+      `for a place as ${role.title.toLowerCase()} of ${host.name}`,
+    );
   const h: Hire = {
     id: g.nextId(),
     c: life.c,
@@ -618,7 +633,8 @@ export function setRole(
   const role = roleOf(host.ladder, roleKey);
   const was = roleOf(host.ladder, h.role);
   if (!role || !was) return "No such place.";
-  if (role.key === h.role) return `They're ${role.title.toLowerCase()} already.`;
+  if (role.key === h.role)
+    return `They're ${role.title.toLowerCase()} already.`;
   if (host.room(role.key) <= 0)
     return `${cap(host.name)} has no place for a ${role.title.toLowerCase()}.`;
   if (countOf(host, role.key) >= host.room(role.key))
@@ -647,8 +663,12 @@ export function setRole(
       wake(g, life, `You're ${role.title.toLowerCase()} of ${host.name} now.`);
     }
   } else if (c?.alive) {
-    h.loyalty = Math.max(0, Math.min(100, h.loyalty + (up ? 12 : role.rank < was.rank ? -20 : 0)));
-    if (up) remembers(g, host.owner, c, `Made me ${role.title.toLowerCase()}`, 8, 3);
+    h.loyalty = Math.max(
+      0,
+      Math.min(100, h.loyalty + (up ? 12 : role.rank < was.rank ? -20 : 0)),
+    );
+    if (up)
+      remembers(g, host.owner, c, `Made me ${role.title.toLowerCase()}`, 8, 3);
     else if (role.rank < was.rank)
       remembers(g, host.owner, c, "Broke me to a lower berth", -12, 3);
   }
@@ -693,7 +713,10 @@ export function setPay(
     }
   } else if (c?.alive) {
     const d = Math.round(((now - was) / Math.max(0.5, was)) * 30);
-    h.loyalty = Math.max(0, Math.min(100, h.loyalty + Math.max(-25, Math.min(15, d))));
+    h.loyalty = Math.max(
+      0,
+      Math.min(100, h.loyalty + Math.max(-25, Math.min(15, d))),
+    );
     remembers(
       g,
       host.owner,
@@ -740,7 +763,10 @@ export function dismiss(
   return null;
 }
 
-function sameBerth(b: Pick<Berth, "kind" | "seat" | "id">, host: HireHost): boolean {
+function sameBerth(
+  b: Pick<Berth, "kind" | "seat" | "id">,
+  host: HireHost,
+): boolean {
   return b.kind === host.kind && b.seat === host.seat && b.id === host.id;
 }
 
@@ -804,16 +830,23 @@ export function payRoster(g: ConquestGame, host: HireHost): void {
     }
     touchLife(g, owner);
     if (owner.purse >= h.pay) {
-      withFlow(g, { key: host.flow.key, label: host.flow.label, aff: "boat" }, () =>
-        spend(g, owner, h.pay),
+      withFlow(
+        g,
+        { key: host.flow.key, label: host.flow.label, aff: "boat" },
+        () => spend(g, owner, h.pay),
       );
       h.owed = 0;
       const role = roleOf(host.ladder, h.role);
-      const ask = role ? askingPay(prospectOf(s, owner, c, host.ladder), role) : h.pay;
+      const ask = role
+        ? askingPay(prospectOf(s, owner, c, host.ladder), role)
+        : h.pay;
       // Paid what they're worth, they settle in; paid well under it, they look about them.
       h.loyalty = Math.max(
         0,
-        Math.min(100, h.loyalty + (h.pay >= ask ? 2 : h.pay >= ask * 0.8 ? 0 : -4)),
+        Math.min(
+          100,
+          h.loyalty + (h.pay >= ask ? 2 : h.pay >= ask * 0.8 ? 0 : -4),
+        ),
       );
     } else {
       h.owed = (h.owed ?? 0) + 1;
@@ -827,7 +860,14 @@ export function payRoster(g: ConquestGame, host: HireHost): void {
     }
     if ((h.owed ?? 0) >= 2 || h.loyalty < 15) {
       removeHire(g, host, h);
-      remembers(g, owner, c, (h.owed ?? 0) >= 2 ? "Never paid me" : "A poor berth", -10, 3);
+      remembers(
+        g,
+        owner,
+        c,
+        (h.owed ?? 0) >= 2 ? "Never paid me" : "A poor berth",
+        -10,
+        3,
+      );
       journal(
         g,
         owner,
@@ -858,11 +898,18 @@ export function payBerth(g: ConquestGame, life: Life): void {
   if (due <= 0) return;
   const owner = host.owner;
   if (owner.purse >= due) {
-    withFlow(g, { key: host.flow.key, label: host.flow.label, aff: "boat" }, () =>
-      spend(g, owner, due),
+    withFlow(
+      g,
+      { key: host.flow.key, label: host.flow.label, aff: "boat" },
+      () => spend(g, owner, due),
     );
-    withFlow(g, { key: `m:Wage: ${b.title.toLowerCase()}`, label: `Pay: ${b.title.toLowerCase()}` }, () =>
-      earn(g, life, due),
+    withFlow(
+      g,
+      {
+        key: `m:Wage: ${b.title.toLowerCase()}`,
+        label: `Pay: ${b.title.toLowerCase()}`,
+      },
+      () => earn(g, life, due),
     );
     h.owed = 0;
     touchLife(g, owner);
@@ -895,7 +942,12 @@ export function hiresDaily(g: ConquestGame): void {
     const kind = KINDS.get(b.kind);
     const on = host?.roster.hires.some((h) => h.seat === life.seat);
     if (!host || !on) {
-      journal(g, life, `Your place is gone: ${b.title.toLowerCase()} no more${kind ? `, ${kind.gone}` : ""}.`, "bad");
+      journal(
+        g,
+        life,
+        `Your place is gone: ${b.title.toLowerCase()} no more${kind ? `, ${kind.gone}` : ""}.`,
+        "bad",
+      );
       leaveJob(g, life, kind ? kind.gone : "when the place went");
       continue;
     }
@@ -907,7 +959,8 @@ export function hiresDaily(g: ConquestGame): void {
   }
   for (const host of allHosts(s)) {
     for (const o of [...(host.roster.offers ?? [])])
-      if (o.until <= s.day || !lifeOfSeat(s, o.seat)) withdrawOffer(g, host, o.id);
+      if (o.until <= s.day || !lifeOfSeat(s, o.seat))
+        withdrawOffer(g, host, o.id);
     // A player's place whose life ended (or who took other work) is taken off.
     for (const h of [...host.roster.hires])
       if (h.seat) {

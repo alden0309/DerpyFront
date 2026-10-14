@@ -130,7 +130,6 @@ import {
 import { militaryCommand } from "./War";
 // LIFE (r11): the pace (skip ahead), boats, and the round-11 life's hooks.
 import { landBoat, nextLegDays } from "./Boats";
-import { leaveCompany, strandEmbark } from "./Parties"; // SHIPS (r21)
 import {
   carryLimit,
   lifeR11Ended,
@@ -138,6 +137,7 @@ import {
   roadRiskFactor,
 } from "./LifeR11";
 import { wake } from "./Pace";
+import { leaveCompany, strandEmbark } from "./Parties"; // SHIPS (r21)
 import { standingMonth } from "./Standing"; // POLLS (r16)
 import { crookedStart } from "./Trades";
 import { employerFor, leaveJob, takeJob, workDaily, workMonthly } from "./Work";

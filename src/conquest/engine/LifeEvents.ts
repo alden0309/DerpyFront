@@ -3666,8 +3666,8 @@ import { R11_EVENTS } from "./R11Events";
 import { R15_EVENTS } from "./R15Events"; // EVENTS (r15)
 import { reclaimEvents, reclaimQuiet } from "./ReclaimEvents"; // WAR (r17)
 import { seaEvents, seaQuiet } from "./SeaEvents"; // SEA (r15)
-import { shipEvents, shipQuiet } from "./ShipEvents"; // SHIPS (r21)
 import { SEASON_EVENTS } from "./SeasonLife"; // MAP (r12)
+import { shipEvents, shipQuiet } from "./ShipEvents"; // SHIPS (r21)
 import { SOCIETY_EVENTS } from "./SocietyEvents"; // SOCIETY (r11)
 import { TALES } from "./Tales";
 

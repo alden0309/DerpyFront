@@ -164,10 +164,14 @@ export const CHARTER = {
   /** The packet: a month's pay by her kind (about her keep and crew, and a third more), for this many months, between ports at most this far apart. */
   packet: {
     months: 3,
-    pay: { canoe: 0, shallop: 3.5, sloop: 8, schooner: 15, brig: 28, ship: 0 } as Record<
-      BoatKind,
-      number
-    >,
+    pay: {
+      canoe: 0,
+      shallop: 3.5,
+      sloop: 8,
+      schooner: 15,
+      brig: 28,
+      ship: 0,
+    } as Record<BoatKind, number>,
     minKm: 100,
     maxKm: 600,
     /** Days in port at each end before she sails again. */

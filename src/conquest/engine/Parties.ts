@@ -72,20 +72,38 @@ function free(s: GameState, l: Life): Check {
 }
 
 /** Whether you can ask (or invite) another player here to travel together. */
-export function partyCheck(s: GameState, life: Life, other: Life | undefined, invite: boolean): Check {
+export function partyCheck(
+  s: GameState,
+  life: Life,
+  other: Life | undefined,
+  invite: boolean,
+): Check {
   if (!other || other === life) return no("Nobody to travel with.");
   const a = free(s, life);
   if (!a.ok) return a;
   const b = free(s, other);
-  if (!b.ok) return no(`They can't: ${b.why.replace(/\.$/, "").toLowerCase()}.`);
-  if (life.travel || other.travel) return no("Not while either of you is on the road.");
-  if (life.prov !== other.prov) return no("You'd have to be in the same place.");
+  if (!b.ok)
+    return no(`They can't: ${b.why.replace(/\.$/, "").toLowerCase()}.`);
+  if (life.travel || other.travel)
+    return no("Not while either of you is on the road.");
+  if (life.prov !== other.prov)
+    return no("You'd have to be in the same place.");
   const lead = invite ? life : other;
   const member = invite ? other : life;
-  if (member.party?.lead === lead.seat) return no("You travel together already.");
+  if (member.party?.lead === lead.seat)
+    return no("You travel together already.");
   if (partyMembers(s, member).length)
-    return no(invite ? "They lead a party of their own." : "You lead a party of your own.");
-  if (lead.party) return no(invite ? "You travel with someone else." : "They travel with someone else.");
+    return no(
+      invite
+        ? "They lead a party of their own."
+        : "You lead a party of your own.",
+    );
+  if (lead.party)
+    return no(
+      invite
+        ? "You travel with someone else."
+        : "They travel with someone else.",
+    );
   const key = invite ? "p2p-party-invite" : "p2p-party-ask";
   if (other.events.some((e) => e.key === key && e.ctx.c === life.c))
     return no("They have your asking already.");
@@ -93,13 +111,24 @@ export function partyCheck(s: GameState, life: Life, other: Life | undefined, in
 }
 
 /** Ask to travel with another player (they lead), or ask them to travel with you (you lead). */
-export function askParty(g: ConquestGame, life: Life, seat: string, invite: boolean): string | null {
+export function askParty(
+  g: ConquestGame,
+  life: Life,
+  seat: string,
+  invite: boolean,
+): string | null {
   const s = g.s;
   const other = lifeOfSeat(s, seat);
   const check = partyCheck(s, life, other, invite);
   if (!check.ok) return check.why;
-  raiseEvent(g, other!, invite ? "p2p-party-invite" : "p2p-party-ask", { c: life.c });
-  wake(g, other!, `${charName(meOf(s, life))} ${invite ? "asks you to travel with them" : "asks to travel with you"}.`);
+  raiseEvent(g, other!, invite ? "p2p-party-invite" : "p2p-party-ask", {
+    c: life.c,
+  });
+  wake(
+    g,
+    other!,
+    `${charName(meOf(s, life))} ${invite ? "asks you to travel with them" : "asks to travel with you"}.`,
+  );
   journal(
     g,
     life,
@@ -111,16 +140,31 @@ export function askParty(g: ConquestGame, life: Life, seat: string, invite: bool
 }
 
 /** Agreed: `member` travels with `lead` from now on. */
-export function joinParty(g: ConquestGame, member: Life, lead: Life): string | null {
+export function joinParty(
+  g: ConquestGame,
+  member: Life,
+  lead: Life,
+): string | null {
   const s = g.s;
   if (member.prov !== lead.prov) return "You're no longer in the same place.";
   const a = free(s, member);
   if (!a.ok) return a.why;
-  if (partyMembers(s, member).length) return "They lead a party of their own now.";
+  if (partyMembers(s, member).length)
+    return "They lead a party of their own now.";
   touchLife(g, member).party = { lead: lead.seat, since: s.day };
   touchLife(g, lead);
-  journal(g, member, `You travel with ${charName(meOf(s, lead))} now: wherever they set out for from where you both are, you go too.`, "good");
-  journal(g, lead, `${charName(meOf(s, member))} travels with you now.`, "good");
+  journal(
+    g,
+    member,
+    `You travel with ${charName(meOf(s, lead))} now: wherever they set out for from where you both are, you go too.`,
+    "good",
+  );
+  journal(
+    g,
+    lead,
+    `${charName(meOf(s, member))} travels with you now.`,
+    "good",
+  );
   return null;
 }
 
@@ -129,8 +173,14 @@ export function leaveParty(g: ConquestGame, member: Life, why?: string): void {
   const s = g.s;
   const lead = partyLead(s, member);
   touchLife(g, member).party = null;
-  journal(g, member, why ?? `You go your own way${lead ? `, leaving ${charName(meOf(s, lead))}` : ""}.`);
-  if (lead) journal(g, lead, `${charName(meOf(s, member))} goes their own way.`);
+  journal(
+    g,
+    member,
+    why ??
+      `You go your own way${lead ? `, leaving ${charName(meOf(s, lead))}` : ""}.`,
+  );
+  if (lead)
+    journal(g, lead, `${charName(meOf(s, member))} goes their own way.`);
 }
 
 /** Get off at the next stop: off the ship, or out of the party, there. */
@@ -139,8 +189,14 @@ export function leaveCompany(g: ConquestGame, life: Life): void {
   if (!t?.with) return;
   touchLife(g, life);
   const next = t.path[0];
-  const where = next !== undefined ? ` at ${g.map.provinces[next]?.name ?? "the next stop"}` : "";
-  if (life.party && (t.with.boat === undefined || t.with.seat === life.party.lead))
+  const where =
+    next !== undefined
+      ? ` at ${g.map.provinces[next]?.name ?? "the next stop"}`
+      : "";
+  if (
+    life.party &&
+    (t.with.boat === undefined || t.with.seat === life.party.lead)
+  )
     leaveParty(g, life, `You'll leave the party${where}.`);
   else journal(g, life, `You'll go ashore${where}.`);
   delete t.with;
@@ -154,7 +210,13 @@ export function leaveCompany(g: ConquestGame, life: Life): void {
 // ---------------------------------------------------------------- setting out together
 
 /** What a member pays to go along: the road's costs and passages' fares (nothing in the leader's own boat). */
-export function fareAlong(s: GameState, map: MapDef, member: Life, from: number, t: Travel): number {
+export function fareAlong(
+  s: GameState,
+  map: MapDef,
+  member: Life,
+  from: number,
+  t: Travel,
+): number {
   if (t.boat !== undefined || t.with?.boat !== undefined) return 0;
   const sailor = member.job?.kind === "sailor";
   const native = lifeIsNative(s, member);
@@ -177,7 +239,9 @@ export function fareAlong(s: GameState, map: MapDef, member: Life, from: number,
 
 /** Players aboard a ship of a player's now (her company and guests). */
 export function aboardNow(s: GameState, seat: string, boat: number): Life[] {
-  return s.lives.filter((l) => l.travel?.with?.seat === seat && l.travel.with.boat === boat);
+  return s.lives.filter(
+    (l) => l.travel?.with?.seat === seat && l.travel.with.boat === boat,
+  );
 }
 
 /** The leader has just set out: those of the party with them go too. */
@@ -186,21 +250,33 @@ function setOutTogether(g: ConquestGame, lead: Life): void {
   const t = lead.travel;
   if (!t || t.ship !== undefined || t.depart !== s.day) return;
   // In their own boat (sailing her, or aboard her on a charter): her berths, for nothing.
-  const own = t.boat !== undefined ? t.boat : t.with?.boat !== undefined && t.with.seat === lead.seat ? t.with.boat : undefined;
+  const own = t.boat ?? (t.with?.seat === lead.seat ? t.with.boat : undefined);
   const b = own !== undefined ? boatOf(lead, own) : undefined;
   if (t.with && !b) return; // the leader follows someone else: the party isn't theirs to take
   for (const m of partyMembers(s, lead)) {
     if (m.travel || m.prov !== lead.prov || !free(s, m).ok) continue;
     if (b) {
-      const taken = aboardNow(s, lead.seat, b.id).filter((l) => !l.job?.berth).length - (t.with ? 1 : 0);
+      const taken =
+        aboardNow(s, lead.seat, b.id).filter((l) => !l.job?.berth).length -
+        (t.with ? 1 : 0);
       if (taken >= berthsOf(b)) {
-        journal(g, m, `The ${b.name} has no berth left for you: ${charName(meOf(s, lead))} sails without you.`, "bad");
+        journal(
+          g,
+          m,
+          `The ${b.name} has no berth left for you: ${charName(meOf(s, lead))} sails without you.`,
+          "bad",
+        );
         continue;
       }
     }
     const cost = fareAlong(s, g.map, m, lead.prov, t);
     if (m.purse < cost) {
-      journal(g, m, `You couldn't pay your way (${cost} coins; ${purseWords(m.purse)}): ${charName(meOf(s, lead))} goes without you.`, "bad");
+      journal(
+        g,
+        m,
+        `You couldn't pay your way (${cost} coins; ${purseWords(m.purse)}): ${charName(meOf(s, lead))} goes without you.`,
+        "bad",
+      );
       continue;
     }
     if (cost) spend(g, m, cost);
@@ -236,7 +312,11 @@ interface Where {
 }
 
 /** Where whoever (or whatever ship) someone travels with is now. */
-function whereIs(s: GameState, w: NonNullable<Travel["with"]>, depth = 0): Where | null {
+function whereIs(
+  s: GameState,
+  w: NonNullable<Travel["with"]>,
+  depth = 0,
+): Where | null {
   const lead = lifeOfSeat(s, w.seat);
   if (!lead || lead.c < 0) return null;
   if (w.boat !== undefined) {
@@ -244,7 +324,8 @@ function whereIs(s: GameState, w: NonNullable<Travel["with"]>, depth = 0): Where
     if (!b) return null;
     const name = `the ${b.name}`;
     if (b.way) return { prov: b.way.prov, way: b.way, name };
-    if (lead.travel?.boat === b.id) return { prov: lead.prov, way: lead.travel, name };
+    if (lead.travel?.boat === b.id)
+      return { prov: lead.prov, way: lead.travel, name };
     return { prov: b.prov, way: null, name };
   }
   const name = charName(meOf(s, lead));
@@ -318,7 +399,11 @@ export function strandEmbark(
   if (lifeIsNative(s, life)) return undefined;
   const ly = life.lying;
   if (ly && ly.p === p && ly.until > s.day)
-    return { p, wait: 0, why: `the ${ly.ship} lies off the shore until she sails` };
+    return {
+      p,
+      wait: 0,
+      why: `the ${ly.ship} lies off the shore until she sails`,
+    };
   const settled = (s.provinces[p]?.owner ?? -1) >= 0;
   return {
     p,
@@ -327,7 +412,16 @@ export function strandEmbark(
   };
 }
 
-const LYING_SHIPS = ["Hopewell", "Sea Flower", "Two Sisters", "Endeavour", "Dove", "Mary Ann", "Swift", "Prosperity"];
+const LYING_SHIPS = [
+  "Hopewell",
+  "Sea Flower",
+  "Two Sisters",
+  "Endeavour",
+  "Dove",
+  "Mary Ann",
+  "Swift",
+  "Prosperity",
+];
 
 // Landed by a passage where there's no port: her master runs her up on the
 // strand or anchors off, puts you ashore in her boat, and lies a while.
@@ -353,7 +447,11 @@ hooks.landed.push((g, life, p, sea, boat) => {
 
 // ---------------------------------------------------------------- commands
 
-export function partyCommand(g: ConquestGame, life: Life, c: LifeCommand): string | null | undefined {
+export function partyCommand(
+  g: ConquestGame,
+  life: Life,
+  c: LifeCommand,
+): string | null | undefined {
   if (c.k !== "party") return undefined;
   const s = g.s;
   switch (c.act) {
@@ -363,14 +461,17 @@ export function partyCommand(g: ConquestGame, life: Life, c: LifeCommand): strin
       return askParty(g, life, c.seat ?? "", true);
     case "leave":
       if (!life.party) return "You travel with nobody.";
-      if (life.travel?.with && life.travel.with.boat === undefined) leaveCompany(g, life);
+      if (life.travel?.with && life.travel.with.boat === undefined)
+        leaveCompany(g, life);
       else leaveParty(g, life);
       return null;
     case "part": {
       const m = lifeOfSeat(s, c.seat ?? "");
-      if (!m || m.party?.lead !== life.seat) return "They don't travel with you.";
+      if (!m || m.party?.lead !== life.seat)
+        return "They don't travel with you.";
       if (m.travel?.with?.seat === life.seat) leaveCompany(g, m);
-      if (m.party) leaveParty(g, m, `${charName(meOf(s, life))} parts company with you.`);
+      if (m.party)
+        leaveParty(g, m, `${charName(meOf(s, life))} parts company with you.`);
       return null;
     }
     case "alight":
