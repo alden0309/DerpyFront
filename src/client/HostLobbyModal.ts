@@ -175,7 +175,14 @@ export class HostLobbyModal extends BaseModal {
     }
     this.autoStartAt = lobby.autoStartAt ?? null;
     this.queued = lobby.queued ?? false;
+    // DFSTORE (r21): AI personalities chosen before the lobby existed go to
+    // the server once it answers (the first lobby info).
+    if (this.aiPersonalitiesSentFor !== this.lobbyId) {
+      this.aiPersonalitiesSentFor = this.lobbyId;
+      if (this.aiPersonalities.length > 0) void this.putGameConfig();
+    }
   };
+  private aiPersonalitiesSentFor = "";
 
   private getRandomString(): string {
     const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -739,7 +746,9 @@ export class HostLobbyModal extends BaseModal {
             ?noNations=${this.nations === 0}
             @personalities-changed=${(e: CustomEvent<string[]>) => {
               this.aiPersonalities = e.detail;
-              void this.putGameConfig();
+              // The picker also speaks up when it loads: only a lobby that
+              // is open and made hears about it.
+              if (this.isModalOpen && this.lobbyId) void this.putGameConfig();
             }}
           ></ai-personality-picker>
 
