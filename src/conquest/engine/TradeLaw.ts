@@ -187,13 +187,22 @@ export function importDuty(
       if (inForce(now, ym(1699, 4), ym(1723, 5)))
         add("Virginia's act of 1699 and its renewals (20s. a head)", L(1));
       if (inForce(now, ym(1732, 5), ym(1778)))
-        pct("Virginia's act of 1732 (5 in 100 of the price, from the buyer)", 0.05);
+        pct(
+          "Virginia's act of 1732 (5 in 100 of the price, from the buyer)",
+          0.05,
+        );
       if (inForce(now, ym(1740, 5), ym(1744, 7)))
         pct("the act of 1740 (5 in 100 more, for the war)", 0.05);
       if (inForce(now, ym(1754, 2), ym(1778)))
-        pct("the act of 1754 (5 in 100 more, for the settlers on the Mississippi's waters)", 0.05);
+        pct(
+          "the act of 1754 (5 in 100 more, for the settlers on the Mississippi's waters)",
+          0.05,
+        );
       if (inForce(now, ym(1755, 5), ym(1760, 5))) {
-        pct("the act of 1755 (10 in 100 more; repealed in 1760 because it stopped the trade)", 0.1);
+        pct(
+          "the act of 1755 (10 in 100 more; repealed in 1760 because it stopped the trade)",
+          0.1,
+        );
         prohibitive = true;
       }
       if (inForce(now, ym(1758, 7), ym(1761, 3)))
@@ -264,7 +273,10 @@ export function importDuty(
           L(10 * tall),
         );
         if (america)
-          add("the act of 1751 (£50 more on any six months in another colony)", L(50));
+          add(
+            "the act of 1751 (£50 more on any six months in another colony)",
+            L(50),
+          );
       }
       if (inForce(now, ym(1766, 1), ym(1769, 1))) {
         add(
@@ -416,9 +428,13 @@ export function buyAt(
       why: `${name} is under ${law === "spanish" ? "Spain's" : law === "french" ? "France's" : law === "dutch" ? "the Dutch" : "another crown's"} law: its sales are for its own crown's merchants.`,
     };
   if (!holdingLawful(s, map, p, day))
-    return { ok: false, why: `The law at ${name} doesn't allow anyone to be held.` };
+    return {
+      ok: false,
+      why: `The law at ${name} doesn't allow anyone to be held.`,
+    };
   const ban = importBan(s, map, p, day);
-  if (ban) return { ok: false, why: `No ships bring people to ${name} now. ${ban}` };
+  if (ban)
+    return { ok: false, why: `No ships bring people to ${name} now. ${ban}` };
   return { ok: true, why: "" };
 }
 
@@ -446,7 +462,10 @@ export function sellAt(
           : `${name} is under another crown's law: its colonies take people only in their own ships.`,
     };
   if (!holdingLawful(s, map, p, day))
-    return { ok: false, why: `The law at ${name} doesn't allow anyone to be held.` };
+    return {
+      ok: false,
+      why: `The law at ${name} doesn't allow anyone to be held.`,
+    };
   const ban = importBan(s, map, p, day);
   if (ban) return { ok: false, why: ban };
   const col = colonyOf(map, p);

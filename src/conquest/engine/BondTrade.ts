@@ -30,7 +30,14 @@ import {
   spend,
   touchLife,
 } from "./LifeCore";
-import { isChildLife, lifeIsNative, meOf, no, yes, type Check } from "./LifeQueries";
+import {
+  isChildLife,
+  lifeIsNative,
+  meOf,
+  no,
+  yes,
+  type Check,
+} from "./LifeQueries";
 import type { World } from "./Map";
 import { Rng } from "./Rng";
 import { DAYS_PER_YEAR } from "./Rules";
@@ -41,7 +48,6 @@ import {
   HOUSE_SETUP,
   manifestCost,
   manifestFor,
-  netOf,
   passageCost,
   passageDays,
   passageModel,
@@ -105,8 +111,10 @@ export function nextManifest(
   life: Life,
   r: TradeRoute = houseOf(life) ? routeOf(houseOf(life)!) : ({} as TradeRoute),
 ): TradePerson[] {
+  // The voyage's day: the people its factor buys for that sailing (a house's
+  // first, the day it's set up), so what's shown is who sails.
   const h = houseOf(life);
-  const day = Math.max(s.day, h?.next ?? s.day);
+  const day = h ? h.next : s.day;
   return manifestFor(
     s,
     w.map,
@@ -179,8 +187,10 @@ function foundHouse(
   if (!check.ok) return check.why;
   const me = meOf(s, life)!;
   const law = houseLawOf(lawOf(s, life.home).law)!;
-  withFlow(g, { key: "bond:trade", label: "A house in the trade: its counting room" }, () =>
-    spend(g, life, HOUSE_SETUP),
+  withFlow(
+    g,
+    { key: "bond:trade", label: "A house in the trade: its counting room" },
+    () => spend(g, life, HOUSE_SETUP),
   );
   const old = life.bondTrade;
   touchLife(g, life).bondTrade = {
@@ -212,12 +222,20 @@ function foundHouse(
     life,
     `You set up ${h.name}, a house in the trade in people: its factor is to buy ${h.size} at a time at ${g.map.provinces[h.from].name} and sell them at ${g.map.provinces[h.to].name}, a voyage every ${h.every} months.`,
   );
-  milestone(g, life, "business", `Set up ${h.name}, a house in the trade in people`, h.from);
+  milestone(
+    g,
+    life,
+    "business",
+    `Set up ${h.name}, a house in the trade in people`,
+    h.from,
+  );
   return null;
 }
 
 /** A route as the command gave it, made sane. */
-function normal(r: NonNullable<Labour2Command["route"]>): TradeRoute & { every: number } {
+function normal(
+  r: NonNullable<Labour2Command["route"]>,
+): TradeRoute & { every: number } {
   return {
     from: r.from | 0,
     to: r.to | 0,
@@ -249,19 +267,34 @@ function changeRoute(
 function setOn(g: ConquestGame, life: Life, on: boolean): string | null {
   const h = houseOf(life);
   if (!h) return "You have no house in the trade.";
+  if (on && h.ending !== undefined) return "It's being wound up.";
   touchLife(g, life);
   h.on = on;
   if (on && h.next < g.s.day) h.next = g.s.day;
   return null;
 }
 
-/** Wind the house up (once nobody's at sea or waiting to be sold). */
-export function closeHouse(g: ConquestGame, life: Life, why = ""): string | null {
+/** Wind the house up (now, or once the voyage at sea is done and its people sold). */
+export function closeHouse(
+  g: ConquestGame,
+  life: Life,
+  why = "",
+): string | null {
   const h = houseOf(life);
   if (!h) return "You have no house in the trade.";
-  if (h.voyage) return "Not while a voyage is at sea or its people unsold.";
   touchLife(g, life);
   h.on = false;
+  if (h.voyage) {
+    // Wound up when the voyage at sea is done.
+    h.ending = why;
+    journal(
+      g,
+      life,
+      `${h.name} will send no more voyages; it's wound up when the last is done.`,
+    );
+    return null;
+  }
+  delete h.ending;
   h.closed = g.s.day;
   journal(
     g,
@@ -284,7 +317,8 @@ function houseDaily(g: ConquestGame, life: Life): void {
     return;
   }
   if (v.landed === undefined && s.day >= v.due) arrive(g, life, h, v);
-  else if (v.landed !== undefined && s.day >= (v.sells ?? v.landed)) sell(g, life, h, v);
+  else if (v.landed !== undefined && s.day >= (v.sells ?? v.landed))
+    sell(g, life, h, v);
 }
 
 hooks.lifeDaily.push(houseDaily);
@@ -296,12 +330,20 @@ function sail(g: ConquestGame, life: Life, h: TradeHouse): void {
   if (!ok.ok) {
     touchLife(g, life);
     h.on = false;
-    affairNews(g, life, "company", `${h.name} sends no voyage: ${ok.why}`, "bad");
+    affairNews(
+      g,
+      life,
+      "company",
+      `${h.name} sends no voyage: ${ok.why}`,
+      "bad",
+    );
     return;
   }
   const people = nextManifest(s, g.w, life);
   const days = passageDays(s, g.w, h.from, h.to);
-  const cost = Math.round(manifestCost(people) + passageCost(days, people.length, h.food));
+  const cost = Math.round(
+    manifestCost(people) + passageCost(days, people.length, h.food),
+  );
   if (life.purse < cost) {
     touchLife(g, life);
     h.next = s.day + 30;
@@ -351,7 +393,9 @@ function sail(g: ConquestGame, life: Life, h: TradeHouse): void {
     `${h.name}'s sloop sails from ${map.provinces[h.from].name} for ${map.provinces[h.to].name} with ${people.length} people aboard, bought for ${cost} coins with the passage: ${people
       .slice(0, 5)
       .map((p) => p.n)
-      .join(", ")}${people.length > 5 ? `, and ${people.length - 5} more` : ""}.`,
+      .join(
+        ", ",
+      )}${people.length > 5 ? `, and ${people.length - 5} more` : ""}.`,
   );
 }
 
@@ -362,13 +406,23 @@ const CAUSES = [
   "a fever, on the eleventh day",
 ];
 
-function arrive(g: ConquestGame, life: Life, h: TradeHouse, v: TradeVoyage): void {
+function arrive(
+  g: ConquestGame,
+  life: Life,
+  h: TradeHouse,
+  v: TradeVoyage,
+): void {
   const s = g.s;
   const map = g.map;
   touchLife(g, life);
   const aboard = v.people.filter((p) => !p.fate);
   const idx = v.people.map((p, i) => (p.fate ? -1 : i)).filter((i) => i >= 0);
-  const pm = passageModel(s, g.w, { ...routeOf(h), from: v.from, to: v.to, food: v.food }, aboard);
+  const pm = passageModel(
+    s,
+    g.w,
+    { ...routeOf(h), from: v.from, to: v.to, food: v.food },
+    aboard,
+  );
   const rng = vdice(s, v, v.due);
   const roll = rollPassage(rng, pm);
   const to = map.provinces[v.to].name;
@@ -396,7 +450,10 @@ function arrive(g: ConquestGame, life: Life, h: TradeHouse, v: TradeVoyage): voi
     p.fate = "died";
     const cause = CAUSES[rng.int(0, CAUSES.length - 1)];
     died.push(p.n);
-    v.log.push({ day: s.day, t: `${tradeName(p)}, ${p.a}, died on the passage: ${cause}.` });
+    v.log.push({
+      day: s.day,
+      t: `${tradeName(p)}, ${p.a}, died on the passage: ${cause}.`,
+    });
   });
   h.totals.died += died.length;
   if (roll.rose) {
@@ -448,11 +505,15 @@ function arrive(g: ConquestGame, life: Life, h: TradeHouse, v: TradeVoyage): voi
     if (said !== undefined) p.said = said;
   }
   // A colony's ban may turn the cargo away (the Association, Rhode Island, Connecticut).
+  // (Twice at most: a third port takes them, as the islands always did.)
   const can = sellAt(s, map, h.law, v.to);
-  if (!can.ok) {
+  const turned = v.log.filter((x) => x.t.startsWith("Turned away")).length;
+  if (!can.ok && turned < 2) {
     const alt = housePorts(s, map, h.law, "sell")
       .filter((p) => p !== v.to)
-      .sort((a, b) => passageDays(s, g.w, v.to, a) - passageDays(s, g.w, v.to, b))[0];
+      .sort(
+        (a, b) => passageDays(s, g.w, v.to, a) - passageDays(s, g.w, v.to, b),
+      )[0];
     const next = alt ?? v.from;
     v.log.push({
       day: s.day,
@@ -491,22 +552,42 @@ function arrive(g: ConquestGame, life: Life, h: TradeHouse, v: TradeVoyage): voi
   // A family to be parted pleads with you first (unless the house sells families together).
   if (!v.together) {
     const i = v.people.findIndex(
-      (p) => !p.fate && p.kin !== undefined && !v.people[p.kin].fate && p.rel !== "shipmate",
+      (p) =>
+        !p.fate &&
+        p.kin !== undefined &&
+        !v.people[p.kin].fate &&
+        p.rel !== "shipmate",
     );
-    if (i >= 0) raiseEvent(g, life, "bond-tr-plea", { v: v.id, i, j: v.people[i].kin! });
+    if (i >= 0)
+      raiseEvent(g, life, "bond-tr-plea", { v: v.id, i, j: v.people[i].kin! });
   }
 }
 
-function sell(g: ConquestGame, life: Life, h: TradeHouse, v: TradeVoyage): void {
+function sell(
+  g: ConquestGame,
+  life: Life,
+  h: TradeHouse,
+  v: TradeVoyage,
+): void {
   const s = g.s;
   const map = g.map;
   touchLife(g, life);
   const rng = vdice(s, v, v.sells ?? s.day);
-  const left = v.people
-    .map((p, i) => ({ p, i }))
-    .filter((x) => !x.p.fate);
-  const route: TradeRoute = { ...routeOf(h), from: v.from, to: v.to, food: v.food, together: v.together };
-  const sm = saleModel(s, map, h, route, left.map((x) => x.p));
+  const left = v.people.map((p, i) => ({ p, i })).filter((x) => !x.p.fate);
+  const route: TradeRoute = {
+    ...routeOf(h),
+    from: v.from,
+    to: v.to,
+    food: v.food,
+    together: v.together,
+  };
+  const sm = saleModel(
+    s,
+    map,
+    h,
+    route,
+    left.map((x) => x.p),
+  );
   let gross = 0;
   let duty = 0;
   const buyerOf = new Map<number, string>();
@@ -526,7 +607,8 @@ function sell(g: ConquestGame, life: Life, h: TradeHouse, v: TradeVoyage): void 
           p.parted = true;
           kin.parted = true;
           let other = buyerAt(map, v.to, rng);
-          for (let t = 0; t < 4 && other === to; t++) other = buyerAt(map, v.to, rng);
+          for (let t = 0; t < 4 && other === to; t++)
+            other = buyerAt(map, v.to, rng);
           buyerOf.set(p.kin!, other === to ? `${other}, another` : other);
           h.totals.parted += 2;
         } else buyerOf.set(p.kin!, to);
@@ -594,6 +676,7 @@ function finish(
   h.past = [...h.past, v].slice(-PAST_KEPT);
   h.voyage = null;
   h.next = Math.max(v.sailed + h.every * 30, g.s.day + 1);
+  if (h.ending !== undefined) closeHouse(g, life, h.ending);
 }
 
 // ---------------------------------------------------------------- at the sale: a family's plea answered
@@ -611,14 +694,23 @@ export function sellTogether(g: ConquestGame, life: Life, id: number): void {
   touchLife(g, life);
   v.together = true;
   v.sells = (v.sells ?? g.s.day) + TOGETHER_DAYS;
-  v.log.push({ day: g.s.day, t: "You tell the factor: families are to be sold together, as one lot each." });
+  v.log.push({
+    day: g.s.day,
+    t: "You tell the factor: families are to be sold together, as one lot each.",
+  });
 }
 
 /** Whether a voyage's people could be taken into your own household instead of sold. */
-export function keepCheck(s: GameState, map: import("./Types").MapDef, life: Life): Check {
+export function keepCheck(
+  s: GameState,
+  map: import("./Types").MapDef,
+  life: Life,
+): Check {
   const home = life.bondage?.home ?? life.home;
   if (!holdingLawful(s, map, home))
-    return no(`The law at your home (${map.provinces[home]?.name ?? "home"}) doesn't allow anyone to be held.`);
+    return no(
+      `The law at your home (${map.provinces[home]?.name ?? "home"}) doesn't allow anyone to be held.`,
+    );
   return yes;
 }
 
@@ -687,7 +779,10 @@ export function keepPeople(
   }
   touchLife(g, life);
   const names = [...made.values()].map((c) => c.first).join(" and ");
-  v.log.push({ day: s.day, t: `${names}: not sold; taken into your own household, together.` });
+  v.log.push({
+    day: s.day,
+    t: `${names}: not sold; taken into your own household, together.`,
+  });
   journal(
     g,
     life,
@@ -744,8 +839,12 @@ hooks.forecast.push((s: GameState, life: Life, w?: World): Part[] => {
   if (!h?.on || !w || life.c < 0) return [];
   const o = houseOutlook(s, w, life);
   if (!o) return [];
-  const lo = Math.min(...o.view.outcomes.filter((x) => x.p > 0).map((x) => x.lo));
-  const hi = Math.max(...o.view.outcomes.filter((x) => x.p > 0).map((x) => x.hi));
+  const lo = Math.min(
+    ...o.view.outcomes.filter((x) => x.p > 0).map((x) => x.lo),
+  );
+  const hi = Math.max(
+    ...o.view.outcomes.filter((x) => x.p > 0).map((x) => x.hi),
+  );
   return [
     {
       key: "bond:trade",
@@ -777,7 +876,13 @@ hooks.affairs.push((s: GameState, w: World, life: Life): AffairItem[] => {
         : h.on
           ? `the next voyage from ${name(h.from)} to ${name(h.to)}, ${formatDate(h.next)}`
           : "sends no voyages",
-      status: v ? (v.landed !== undefined ? "selling" : "at sea") : h.on ? "in port" : "stopped",
+      status: v
+        ? v.landed !== undefined
+          ? "selling"
+          : "at sea"
+        : h.on
+          ? "in port"
+          : "stopped",
       p: v ? (v.landed !== undefined ? v.to : v.from) : h.from,
       ...(v ? { due: v.landed !== undefined ? v.sells : v.due } : {}),
       ...(o

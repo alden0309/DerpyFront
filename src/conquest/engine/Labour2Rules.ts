@@ -90,7 +90,11 @@ export const MOST_SHARES = 6;
  * Shares are never the cheap way: what they save in wages, his driving
  * for the crop costs in the people.
  */
-export function sharesAsked(wage: number, workers: number, crop: number): number {
+export function sharesAsked(
+  wage: number,
+  workers: number,
+  crop: number,
+): number {
   if (workers <= 0 || crop <= wage) return 0;
   const n = Math.max(1, Math.ceil((wage * workers) / (crop - wage) - 1e-9));
   return n > MOST_SHARES ? 0 : n;
@@ -119,8 +123,14 @@ export function overseerParts(o: Overseer): {
     : [];
   let drive = held ? 1 + (m.drive - 1) * RESTRAINT : m.drive;
   if (o.pay === "share") {
-    mood.push(["The overseer's paid by the crop, and drives them for it", SHARE_PAY.mood]);
-    health.push(["The overseer's paid by the crop, and drives them for it", SHARE_PAY.health]);
+    mood.push([
+      "The overseer's paid by the crop, and drives them for it",
+      SHARE_PAY.mood,
+    ]);
+    health.push([
+      "The overseer's paid by the crop, and drives them for it",
+      SHARE_PAY.health,
+    ]);
     drive *= SHARE_PAY.drive;
   }
   return { mood, health, drive };

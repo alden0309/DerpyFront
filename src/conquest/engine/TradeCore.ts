@@ -78,7 +78,7 @@ export const FOOD = [
 ] as const;
 /** The vessel chartered for a passage: a sloop or a schooner, her master and crew. */
 export const CHARTER = { fixed: 4, perDay: 0.3, perHeadDay: 0.004 };
-/** The chance a day at sea of dying: about 1 in 20 over a month's passage (O'Malley's average), more for the weak. */
+/** The chance a day at sea of dying: about 4 in 100 over a month's passage at the trade's provisions, more for the weak and the scantly fed (O'Malley's average, about 5). */
 export const DEATH_DAY = 0.0013;
 /** A rising aboard, a voyage, at twelve aboard and three weeks out (most are put down). */
 export const RISE_BASE = 0.03;
@@ -228,7 +228,11 @@ export function passageDays(
 }
 
 /** What fitting out a passage costs: the vessel chartered, and provisions. */
-export function passageCost(days: number, size: number, food: 0 | 1 | 2): number {
+export function passageCost(
+  days: number,
+  size: number,
+  food: 0 | 1 | 2,
+): number {
   return r2(
     CHARTER.fixed +
       days * CHARTER.perDay +
@@ -367,7 +371,13 @@ export function saleModel(
   let prohibitive = false;
   for (const p of people) {
     const v =
-      priceOf(s, map, r.to, { age: p.a, female: p.f, health: p.h, craft: p.cr }, day) *
+      priceOf(
+        s,
+        map,
+        r.to,
+        { age: p.a, female: p.f, health: p.h, craft: p.cr },
+        day,
+      ) *
       (p.fresh ? FRESH_PRICE : 1) *
       glut *
       (r.together && p.kin !== undefined ? TOGETHER_PRICE : 1);
@@ -421,7 +431,10 @@ const BUYERS: Partial<Record<Colony, string[]>> = {
     "a planter on the Santee",
   ],
   georgia: ["a rice planter on the Savannah", "a planter at Ebenezer"],
-  northcarolina: ["a naval-stores man on the Cape Fear", "a planter at Edenton"],
+  northcarolina: [
+    "a naval-stores man on the Cape Fear",
+    "a planter at Edenton",
+  ],
   islands: [
     "a sugar estate in St. Philip's parish",
     "an estate in the windward parishes",
@@ -436,11 +449,21 @@ const BUYERS: Partial<Record<Colony, string[]>> = {
     "a sugar estate on the plain of the Cap",
     "an indigo planter at Léogâne",
   ],
-  cuba: ["a sugar mill near the city", "the king's works at the fortifications"],
+  cuba: [
+    "a sugar mill near the city",
+    "the king's works at the fortifications",
+  ],
   newspain: ["a merchant of the city", "a hacienda inland"],
   mainland: ["a merchant of the town", "a hacienda inland"],
-  louisiana: ["an indigo planter below the town", "a planter at the German Coast"],
-  newyork: ["a merchant of the town", "a farmer up the North River", "a ship's carpenter"],
+  louisiana: [
+    "an indigo planter below the town",
+    "a planter at the German Coast",
+  ],
+  newyork: [
+    "a merchant of the town",
+    "a farmer up the North River",
+    "a ship's carpenter",
+  ],
   newjersey: ["a farmer of Bergen County", "a merchant at Perth Amboy"],
   pennsylvania: ["a merchant of the town", "an ironmaster up the Schuylkill"],
   massachusetts: ["a merchant of the town", "a minister's household"],
@@ -459,20 +482,69 @@ export function buyerAt(map: MapDef, p: number, rng: Rng): string {
  * What those carried said, in their own words: on the passage, and at the
  * sale. Restrained; the page shows each beside the name of who said it.
  */
-export const VOICES: { when: "aboard" | "sale"; rel?: TradeKin; text: string }[] = [
-  { when: "aboard", text: "asked where the ship was going, and whether it was far" },
-  { when: "aboard", rel: "child", text: "asked the mate for water for the child, and then for more" },
-  { when: "aboard", rel: "shipmate", text: "said nothing for days, then asked for a shipmate by name" },
-  { when: "aboard", text: "told the master, in a little English, that he was a smith at home and could work iron" },
+export const VOICES: {
+  when: "aboard" | "sale";
+  rel?: TradeKin;
+  text: string;
+}[] = [
+  {
+    when: "aboard",
+    text: "asked where the ship was going, and whether it was far",
+  },
+  {
+    when: "aboard",
+    rel: "child",
+    text: "asked the mate for water for the child, and then for more",
+  },
+  {
+    when: "aboard",
+    rel: "shipmate",
+    text: "said nothing for days, then asked for a shipmate by name",
+  },
+  {
+    when: "aboard",
+    text: "told the master, in a little English, that he was a smith at home and could work iron",
+  },
   { when: "aboard", text: "kept count of the days with knots in a string" },
-  { when: "aboard", text: "sang in the evenings, low, and the others answered" },
-  { when: "sale", rel: "child", text: "said to the factor, again and again: \"Not my child.\"" },
-  { when: "sale", rel: "wife", text: "told the buyer: \"We are married, in our own country and here.\"" },
-  { when: "sale", rel: "husband", text: "told the buyer: \"We are married, in our own country and here.\"" },
-  { when: "sale", rel: "sister", text: "said: \"She is my sister.\" It was all the English she had." },
-  { when: "sale", rel: "brother", text: "held on to his sister's sleeve until he was made to let go" },
-  { when: "sale", rel: "shipmate", text: "said: \"We crossed the sea together. He is my brother now.\"" },
-  { when: "sale", rel: "mother", text: "looked back for his mother all the way down the street" },
+  {
+    when: "aboard",
+    text: "sang in the evenings, low, and the others answered",
+  },
+  {
+    when: "sale",
+    rel: "child",
+    text: 'said to the factor, again and again: "Not my child."',
+  },
+  {
+    when: "sale",
+    rel: "wife",
+    text: 'told the buyer: "We are married, in our own country and here."',
+  },
+  {
+    when: "sale",
+    rel: "husband",
+    text: 'told the buyer: "We are married, in our own country and here."',
+  },
+  {
+    when: "sale",
+    rel: "sister",
+    text: 'said: "She is my sister." It was all the English she had.',
+  },
+  {
+    when: "sale",
+    rel: "brother",
+    text: "held on to his sister's sleeve until he was made to let go",
+  },
+  {
+    when: "sale",
+    rel: "shipmate",
+    text: 'said: "We crossed the sea together. He is my brother now."',
+  },
+  {
+    when: "sale",
+    rel: "mother",
+    text: "looked back for his mother all the way down the street",
+  },
 ];
 
 /** A voice fit for someone, at a moment (or none), chosen on the house's dice. */
@@ -541,17 +613,24 @@ export function voyageOutlook(
   const duty = r2(sm.duty.reduce((m, v) => m + v, 0));
   const alive = nets.reduce((m, v, i) => m + v * (1 - pm.q[i]), 0);
   const deaths = pm.q.reduce((m, q) => m + q, 0);
-  const avg = people.length ? alive / Math.max(0.01, people.length - deaths) : 0;
+  const avg = people.length
+    ? alive / Math.max(0.01, people.length - deaths)
+    : 0;
   const killed = (RISE_KILLED[0] + RISE_KILLED[1]) / 2;
   const ok = (1 - pm.taken) * (1 - pm.rise);
   const down = (1 - pm.taken) * pm.rise * (1 - pm.away);
   const away = (1 - pm.taken) * pm.rise * pm.away;
-  const expected = r2(ok * alive + down * Math.max(0, alive - killed * avg) - cost);
+  const expected = r2(
+    ok * alive + down * Math.max(0, alive - killed * avg) - cost,
+  );
   // Pairs likely parted: each pair counted once.
   let parted = 0;
   people.forEach((p, i) => {
     if (p.kin !== undefined && p.kin > i)
-      parted += Math.max(sm.part[i], sm.part[p.kin]) * (1 - pm.q[i]) * (1 - pm.q[p.kin]);
+      parted +=
+        Math.max(sm.part[i], sm.part[p.kin]) *
+        (1 - pm.q[i]) *
+        (1 - pm.q[p.kin]);
   });
   const none = pm.q.reduce((m, q) => m * (1 - q), 1);
   const sellDays: [number, number] = [
@@ -670,7 +749,8 @@ export function routeCheck(
   law: HouseLaw,
   r: Pick<TradeRoute, "from" | "to" | "size">,
 ): { ok: boolean; why: string } {
-  if (r.from === r.to) return { ok: false, why: "Buy at one port and sell at another." };
+  if (r.from === r.to)
+    return { ok: false, why: "Buy at one port and sell at another." };
   if (!SIZES.includes(r.size)) return { ok: false, why: "Choose how many." };
   const b = buyAt(s, map, law, r.from);
   if (!b.ok) return b;

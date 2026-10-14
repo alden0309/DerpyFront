@@ -3654,7 +3654,6 @@ export const LIFE_EVENTS: LifeEventDef[] = [
 // ---------------------------------------------------------------- a few calls out
 
 import { BOND_EVENTS } from "./BondEvents"; // LABOUR (r15)
-import { LABOUR2_EVENTS, labour2Quiet } from "./Labour2Events"; // LABOUR2 (r21)
 import { chairEvents, chairQuiet } from "./ChairEvents"; // CHAIR (r16)
 import { crownEvents, crownQuiet } from "./CrownEvents"; // CROWN (r18)
 import { DICE_EVENTS } from "./DiceEvents"; // DICE (r14)
@@ -3665,6 +3664,7 @@ import { needyFriend } from "./EventPacing"; // EVENTS (r15)
 import { expedEvents, expedQuiet } from "./ExpedEvents"; // GOV (r21)
 import { govEvents, govQuiet } from "./GovEvents"; // GOV (r21)
 import { INTRIGUE_EVENTS } from "./IntrigueEvents"; // INTRIGUE (r15)
+import { LABOUR2_EVENTS, labour2Quiet } from "./Labour2Events"; // LABOUR2 (r21)
 import { LEAD_EVENTS } from "./LeadEvents"; // WORLD r11
 import { leaveForEurope, takeJob } from "./Life";
 import { lifeR21Events, lifeR21Quiet } from "./LifeR21Events"; // LIFE (r21)

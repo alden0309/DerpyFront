@@ -49,7 +49,6 @@ import { arms } from "../Arms";
 import { GOOD_NAMES } from "../Text";
 import { num, plain } from "../Tip";
 import { moneyBetween, owedList } from "./Bonds"; // ECON (r17)
-import { boundPersonPage, showBoundPage } from "./Labour2Ui"; // LABOUR2 (r21)
 import { curveNotes } from "./Canvass"; // POLLS (r16)
 import {
   bar,
@@ -63,6 +62,7 @@ import {
 } from "./Context";
 import { roleOf, verdictChip } from "./Here";
 import { intrigueCard } from "./Intrigue"; // INTRIGUE (r15)
+import { boundPersonPage, showBoundPage } from "./Labour2Ui"; // LABOUR2 (r21)
 import {
   healthMeter,
   marksChips,

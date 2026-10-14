@@ -73,8 +73,8 @@ import {
   TITLE_NAMES,
 } from "./Rules";
 import { societyOpinion } from "./SocietyOpinion";
-import { tradeOpinion } from "./TradeRep"; // LABOUR2 (r21)
 import { rulerTitle } from "./SocietyRules";
+import { tradeOpinion } from "./TradeRep"; // LABOUR2 (r21)
 import {
   Breakdown,
   Character,

@@ -162,7 +162,8 @@ export function bondagePage(ui: GameUi): TemplateResult {
         Your household holds no one in bondage, and has no servants under
         indenture.${fled.length ? " Some who fled are still out." : ""}
       </p>`}
-  ${docksSection(ui)} ${tradeSection(ui) /* LABOUR2 (r21): a house in the trade */}
+  ${docksSection(ui)}
+  ${tradeSection(ui) /* LABOUR2 (r21): a house in the trade */}
   ${freedomSection(ui)}
   ${lawSection(
     ui,

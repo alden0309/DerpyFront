@@ -13,8 +13,8 @@
 import { html, nothing, TemplateResult } from "lit";
 import {
   AWAY_FACTOR,
-  bondFullName,
   bondForecast,
+  bondFullName,
   bondName,
   boundOf,
   fieldsOf,
@@ -24,7 +24,7 @@ import {
   ORIGIN_NAMES,
   rentForgone,
 } from "../../engine/BondCore";
-import { colonyOf, COLONY_NAMES } from "../../engine/BondLaw";
+import { COLONY_NAMES, colonyOf, lawOf } from "../../engine/BondLaw";
 import {
   foundCheck,
   houseOf,
@@ -68,7 +68,6 @@ import {
   type TradeRoute,
 } from "../../engine/TradeCore";
 import { houseLawOf, housePorts } from "../../engine/TradeLaw";
-import { lawOf } from "../../engine/BondLaw";
 import { tradeStanding } from "../../engine/TradeRep";
 import type {
   Character,
@@ -106,7 +105,7 @@ Object.assign(TERMS, {
     good: "Your fields keep going while you're away, and he sets each to the work that suits them.",
     raise:
       "A hard overseer, or one paid by the crop, gets a little more from the day and loses it again in spirits, health, flight and risings. Your orders of restraint halve what his nature does.",
-    ch: "labour2",
+    ch: "bondage2",
   },
   bondtrade: {
     name: "A house in the trade",
@@ -114,22 +113,23 @@ Object.assign(TERMS, {
     good: "Money, when the passage, the duty and the sale go well.",
     raise:
       "Each voyage is a list of names: deaths on the passage, families and shipmates parted at the sale, now and then a rising. Lawful only between ports of your own crown where people were sold, under each colony's duties and bans.",
-    ch: "labour2",
+    ch: "bondage2",
   },
   importduty: {
     name: "Duty on people brought in",
     what: "What a colony laid on each person brought in for sale: to raise money, to 'discourage' the trade, or (South Carolina, New York) to keep out people sold away from other colonies. Virginia's was a share of the price; most others' so much a head, in the colony's own money.",
-    good: "",
+    good: "A house in the trade sees the duty at its far port, act by act, before a voyage sails; it's paid on each person at the sale.",
     raise:
       "Some duties were meant to stop the trade: South Carolina's after the rising at Stono (1740 to 1745) and from 1766 to 1768, Pennsylvania's in 1712 and from 1773.",
-    ch: "labour2",
+    ch: "bondage2",
   },
   shipmates: {
     name: "Shipmates",
     what: "Those who crossed the Atlantic in the same ship, who often called each other brother and sister for the rest of their lives: the passage made them kin. Each sale onward parted more of them.",
-    good: "",
-    raise: "",
-    ch: "labour2",
+    good: "A voyage's list marks who is shipmate, kin or child to whom.",
+    raise:
+      "Sold together, or taken into your own household, they stay together; sold to whoever bids most, most are parted.",
+    ch: "bondage2",
   },
 });
 
@@ -148,7 +148,9 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
   const head = html`An overseer ${term("overseer", "?", "cq-term-mark")}`;
   if (!o) {
     const list = overseerCandidates(s, ui.map, life);
-    const fields = bondForecast(s, life, ui.w).find((x) => x.key === "bond:fields");
+    const fields = bondForecast(s, life, ui.w).find(
+      (x) => x.key === "bond:fields",
+    );
     const workers = fieldsOf(s, ui.map, life).workers.length;
     return section(
       head,
@@ -156,8 +158,8 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
           A hired man to manage the household for you: he sets each to the work
           that suits them (the fields while there are acres, a business of yours
           in the town, a trade hired out, the house) and keeps the place going
-          while you're away (nobody: ${Math.round(AWAY_FACTOR * 100)}% of the work; an overseer:
-          ${Math.round(overseerMind(4) * 100)}% to
+          while you're away (nobody: ${Math.round(AWAY_FACTOR * 100)}% of the
+          work; an overseer: ${Math.round(overseerMind(4) * 100)}% to
           ${Math.round(overseerMind(12) * 100)}% by his skill). What he's like
           matters more than what he costs.
         </p>
@@ -174,7 +176,12 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
                 <b>${x.first} ${x.family}</b>
                 <span class="cq-muted small">${x.age}, ${x.note}</span>
                 <span class="small"
-                  ><span class="cq-chip ${x.manner === "hard" ? "bad" : x.manner === "fair" ? "gold" : ""}"
+                  ><span
+                    class="cq-chip ${x.manner === "hard"
+                      ? "bad"
+                      : x.manner === "fair"
+                        ? "gold"
+                        : ""}"
                     >${m.name}</span
                   >
                   skill ${x.skill}: ${m.text}</span
@@ -182,20 +189,35 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
               </div>
               <div class="cq-btnrow">
                 ${action(
-                  html`Engage, for wages${price(x.wage, { per: "month", have: life.purse })}`,
+                  html`Engage, for
+                  wages${price(x.wage, { per: "month", have: life.purse })}`,
                   check,
                   () =>
-                    void ui.cmd({ k: "bond2", act: "hire", c: x.slot, pay: "wage" }),
+                    void ui.cmd({
+                      k: "bond2",
+                      act: "hire",
+                      c: x.slot,
+                      pay: "wage",
+                    }),
                   "small",
                 )}
                 ${action(
                   x.shares
-                    ? html`For ${x.shares === 1 ? "a share" : `${x.shares} shares`}
-                        of the crop${share > 0 ? price(r1(share), { per: "month", approx: true }) : nothing}`
+                    ? html`For
+                      ${x.shares === 1 ? "a share" : `${x.shares} shares`} of
+                      the
+                      crop${share > 0
+                        ? price(r1(share), { per: "month", approx: true })
+                        : nothing}`
                     : html`For shares of the crop`,
                   hireOverseerCheck(s, life, x, "share"),
                   () =>
-                    void ui.cmd({ k: "bond2", act: "hire", c: x.slot, pay: "share" }),
+                    void ui.cmd({
+                      k: "bond2",
+                      act: "hire",
+                      c: x.slot,
+                      pay: "share",
+                    }),
                   "small ghost",
                   "Paid by the crop, he drives them for it: spirits −4, health −3, the work ×1.04",
                 )}
@@ -208,14 +230,19 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
   const c = s.chars[o.c];
   const m = MANNERS[o.manner];
   const parts = overseerParts(o);
-  const fields = bondForecast(s, life, ui.w).find((x) => x.key === "bond:fields");
+  const fields = bondForecast(s, life, ui.w).find(
+    (x) => x.key === "bond:fields",
+  );
   const nFields = fieldsOf(s, ui.map, life).workers.length;
   const k = shareOf(o.shares, nFields);
   const shareNow = fields ? (fields.value + rentForgone(life, nFields)) * k : 0;
   const plan = o.orders.work === "assign" ? overseerPlan(s, ui.map, life) : [];
   const changes = plan.filter((x) => {
     const p = s.chars[x.c];
-    return p?.bond && (p.bond.work !== x.work || (x.work === "biz" && p.bond.biz !== x.biz));
+    return (
+      p?.bond &&
+      (p.bond.work !== x.work || (x.work === "biz" && p.bond.biz !== x.biz))
+    );
   });
   const seg = <T extends string>(
     label: string,
@@ -250,11 +277,16 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
         <div>
           <b>${c ? `${c.first} ${c.family}` : "Your overseer"}</b>
           <span class="cq-muted small"
-            >${c ? `${ageOf(s, c)}, ` : ""}since
-            ${formatDate(o.since)}; skill ${o.skill}</span
+            >${c ? `${ageOf(s, c)}, ` : ""}since ${formatDate(o.since)}; skill
+            ${o.skill}</span
           >
           <span class="small"
-            ><span class="cq-chip ${o.manner === "hard" ? "bad" : o.manner === "fair" ? "gold" : ""}"
+            ><span
+              class="cq-chip ${o.manner === "hard"
+                ? "bad"
+                : o.manner === "fair"
+                  ? "gold"
+                  : ""}"
               >${m.name}</span
             >
             ${m.text}</span
@@ -264,7 +296,9 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
             ${o.pay === "wage"
               ? html`wages ${price(o.wage, { per: "month" })}`
               : html`${o.shares === 1 ? "a share" : `${o.shares} shares`} of the
-                crop${shareNow > 0 ? price(r1(shareNow), { per: "month", approx: true }) : nothing}`}${o.owed
+                crop${shareNow > 0
+                  ? price(r1(shareNow), { per: "month", approx: true })
+                  : nothing}`}${o.owed
               ? html` · <b class="bad">${o.owed} month unpaid</b>`
               : nothing}</span
           >
@@ -272,21 +306,23 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
       </div>
       <p class="small">
         ${mindingWords(s, life)} The work under him:
-        ${num(
-          `×${Math.round(parts.drive * 100) / 100}`,
-          () => ({
-            title: "What he gets out of the day",
-            notes: [
-              `His nature: ×${m.drive}${o.orders.rule === "restraint" ? ", halved by your orders" : ""}.`,
-              o.pay === "share" ? "Paid by the crop: ×1.04." : "",
-              "What it costs in spirits and health is in each person's own figures (and so in the work).",
-            ].filter(Boolean),
-          }),
-        )};
+        ${num(`×${Math.round(parts.drive * 100) / 100}`, () => ({
+          title: "What he gets out of the day",
+          notes: [
+            `His nature: ×${m.drive}${o.orders.rule === "restraint" ? ", halved by your orders" : ""}.`,
+            o.pay === "share" ? "Paid by the crop: ×1.04." : "",
+            "What it costs in spirits and health is in each person's own figures (and so in the work).",
+          ].filter(Boolean),
+        }))};
         spirits
-        ${parts.mood.map(([l, v]) => html`<span title=${l}>${v > 0 ? "+" : ""}${v}</span> `)}${parts.health.length
+        ${parts.mood.map(
+          ([l, v]) => html`<span title=${l}>${v > 0 ? "+" : ""}${v}</span> `,
+        )}${parts.health.length
           ? html`, health
-            ${parts.health.map(([l, v]) => html`<span title=${l}>${v > 0 ? "+" : ""}${v}</span> `)}`
+            ${parts.health.map(
+              ([l, v]) =>
+                html`<span title=${l}>${v > 0 ? "+" : ""}${v}</span> `,
+            )}`
           : nothing}.
       </p>
       <div class="cq-bond-policies">
@@ -306,7 +342,10 @@ export function overseerSection(ui: GameUi): TemplateResult | typeof nothing {
           "His hand",
           o.orders.rule,
           RULE_ORDER,
-          { restraint: "Restraint, whatever his nature", his: "As he sees fit" },
+          {
+            restraint: "Restraint, whatever his nature",
+            his: "As he sees fit",
+          },
           {
             restraint: "Half his harshness, and half his drive",
             his: "His own way",
@@ -405,7 +444,10 @@ export function bizWorkSection(ui: GameUi): TemplateResult | typeof nothing {
 }
 
 /** On someone's card: set them to work at a business of yours, or bring them home. */
-export function bizPicker(ui: GameUi, c: Character): TemplateResult | typeof nothing {
+export function bizPicker(
+  ui: GameUi,
+  c: Character,
+): TemplateResult | typeof nothing {
   const s = ui.s;
   const life = ui.life!;
   const shops = bizChoices(life);
@@ -474,13 +516,22 @@ export function bizPicker(ui: GameUi, c: Character): TemplateResult | typeof not
 }
 
 /** On a business's card: those of the household who work there, and what a place comes to. */
-export function boundBizPart(ui: GameUi, pr: Property): TemplateResult | typeof nothing {
+export function boundBizPart(
+  ui: GameUi,
+  pr: Property,
+): TemplateResult | typeof nothing {
   const s = ui.s;
   const life = ui.life!;
-  if (!life.bondage || lifeIsNative(s, life) || pr.job === "sailor") return nothing;
+  if (!life.bondage || lifeIsNative(s, life) || pr.job === "sailor")
+    return nothing;
   const here = boundAt(s, life, pr);
   const could = boundOf(s, life).filter(
-    (c) => !here.includes(c) && bizWorkCheck(s, ui.map, life, c, { ...pr, biz: { ...pr.biz, extra: 0, bound: [] } }).ok,
+    (c) =>
+      !here.includes(c) &&
+      bizWorkCheck(s, ui.map, life, c, {
+        ...pr,
+        biz: { ...pr.biz, extra: 0, bound: [] },
+      }).ok,
   );
   if (!here.length && !could.length) return nothing;
   const v = propertyView(s, life, pr);
@@ -506,11 +557,12 @@ export function boundBizPart(ui: GameUi, pr: Property): TemplateResult | typeof 
           : "Nobody of your household works here."}
         ${ways.bound
           ? html`A place, a month: a hired hand nets ${signed(ways.hired.net)}
-              (wage ${coins(ways.hired.cost)}); ${ways.bound.label.split(",")[0]}
-              ${signed(ways.bound.net)} after their keep
-              (${coins(ways.bound.cost)}), their price spread over twelve years
-              with the interest it would earn (${coins(ways.bound.capital)}),
-              and the risk of flight and death (${coins(ways.bound.risk)}).
+              (wage ${coins(ways.hired.cost)});
+              ${ways.bound.label.split(",")[0]} ${signed(ways.bound.net)} after
+              their keep (${coins(ways.bound.cost)}), their price spread over
+              twelve years with the interest it would earn
+              (${coins(ways.bound.capital)}), and the risk of flight and death
+              (${coins(ways.bound.risk)}).
               <i
                 >Franklin set out the same sum in 1751 ("Reckon then the
                 Interest of the first Purchase ... the Insurance or Risque on
@@ -537,7 +589,10 @@ export function boundBizPart(ui: GameUi, pr: Property): TemplateResult | typeof 
 /** The route being planned, by seat (kept while the page is open). */
 const plans = new Map<string, TradeRoute & { every: number }>();
 
-function defaultRoute(ui: GameUi, law: "english" | "french" | "spanish"): TradeRoute & { every: number } {
+function defaultRoute(
+  ui: GameUi,
+  law: "english" | "french" | "spanish",
+): TradeRoute & { every: number } {
   const s = ui.s;
   const buys = housePorts(s, ui.map, law, "buy");
   const sells = housePorts(s, ui.map, law, "sell");
@@ -545,17 +600,29 @@ function defaultRoute(ui: GameUi, law: "english" | "french" | "spanish"): TradeR
   const homeCol = colonyOf(ui.map, life.home);
   const isle = (p: number) => {
     const c = colonyOf(ui.map, p);
-    return c === "islands" || c === "jamaica" || c === "hispaniola" || c === "cuba";
+    return (
+      c === "islands" || c === "jamaica" || c === "hispaniola" || c === "cuba"
+    );
   };
   const from = buys.find(isle) ?? buys[0] ?? -1;
   const to =
     sells.find((p) => p !== from && colonyOf(ui.map, p) === homeCol) ??
     sells.find((p) => p !== from) ??
     -1;
-  return { from, to, size: SIZES[1], every: EVERY[1], food: 1, together: false };
+  return {
+    from,
+    to,
+    size: SIZES[1],
+    every: EVERY[1],
+    food: 1,
+    together: false,
+  };
 }
 
-function planOf(ui: GameUi, law: "english" | "french" | "spanish"): TradeRoute & { every: number } {
+function planOf(
+  ui: GameUi,
+  law: "english" | "french" | "spanish",
+): TradeRoute & { every: number } {
   const seat = ui.life!.seat;
   let p = plans.get(seat);
   if (!p) {
@@ -588,7 +655,10 @@ function routePicker(
           set({ from: Number((e.target as HTMLSelectElement).value) })}
       >
         ${buys.map(
-          (p) => html`<option value=${p} ?selected=${p === r.from}>${name(p)}</option>`,
+          (p) =>
+            html`<option value=${p} ?selected=${p === r.from}>
+              ${name(p)}
+            </option>`,
         )}
       </select></label
     >
@@ -601,7 +671,10 @@ function routePicker(
         ${sells
           .filter((p) => p !== r.from)
           .map(
-            (p) => html`<option value=${p} ?selected=${p === r.to}>${name(p)}</option>`,
+            (p) =>
+              html`<option value=${p} ?selected=${p === r.to}>
+                ${name(p)}
+              </option>`,
           )}
       </select></label
     >
@@ -610,7 +683,11 @@ function routePicker(
       <span class="cq-seg small" role="radiogroup" aria-label="People a voyage">
         ${SIZES.map(
           (n) =>
-            html`<button role="radio" aria-checked=${r.size === n} @click=${() => set({ size: n })}>
+            html`<button
+              role="radio"
+              aria-checked=${r.size === n}
+              @click=${() => set({ size: n })}
+            >
               ${n}
             </button>`,
         )}
@@ -621,7 +698,11 @@ function routePicker(
       <span class="cq-seg small" role="radiogroup" aria-label="How often">
         ${EVERY.map(
           (n) =>
-            html`<button role="radio" aria-checked=${r.every === n} @click=${() => set({ every: n })}>
+            html`<button
+              role="radio"
+              aria-checked=${r.every === n}
+              @click=${() => set({ every: n })}
+            >
               ${n} months
             </button>`,
         )}
@@ -629,7 +710,11 @@ function routePicker(
     >
     <span class="cq-field"
       ><span>On the passage</span>
-      <span class="cq-seg small" role="radiogroup" aria-label="Provisions on the passage">
+      <span
+        class="cq-seg small"
+        role="radiogroup"
+        aria-label="Provisions on the passage"
+      >
         ${([0, 1, 2] as const).map(
           (f) =>
             html`<button
@@ -645,7 +730,11 @@ function routePicker(
     >
     <span class="cq-field"
       ><span>At the sale</span>
-      <span class="cq-seg small" role="radiogroup" aria-label="Families at the sale">
+      <span
+        class="cq-seg small"
+        role="radiogroup"
+        aria-label="Families at the sale"
+      >
         <button
           role="radio"
           aria-checked=${r.together}
@@ -683,7 +772,8 @@ function kinWords(
 ): TemplateResult | typeof nothing {
   if (p.kin === undefined || !p.rel) return nothing;
   const k = v.people[p.kin];
-  return html`; ${KIN_WORDS[p.rel]?.[p.f ? 1 : 0] ?? "kin"} <b>${k?.n ?? ""}</b>`;
+  return html`; ${KIN_WORDS[p.rel]?.[p.f ? 1 : 0] ?? "kin"}
+    <b>${k?.n ?? ""}</b>`;
 }
 
 const FATE_WORDS: Record<string, string> = {
@@ -702,15 +792,16 @@ function manifest(ui: GameUi, v: { people: TradePerson[] }): TemplateResult {
       return html`<li class=${p.fate ?? ""}>
         <b>${tradeName(p)}</b>
         <span class="cq-muted"
-          >${p.a}, ${ORIGIN_NAMES[p.o].split(",")[0]}${p.fresh
+          >${p.a},
+          ${ORIGIN_NAMES[p.o].split(",")[0]}${p.fresh
             ? ", lately from Africa"
             : ""}${kin}</span
         >
         ${p.fate
           ? html`<span class="cq-l2-fate ${p.fate}"
-              >${FATE_WORDS[p.fate]}${p.to && p.fate === "sold" ? html` to ${p.to}` : ""}${p.parted
-                ? html`, <b class="bad">parted</b>`
-                : ""}</span
+              >${FATE_WORDS[p.fate]}${p.to && p.fate === "sold"
+                ? html` to ${p.to}`
+                : ""}${p.parted ? html`, <b class="bad">parted</b>` : ""}</span
             >`
           : nothing}
         ${p.said !== undefined
@@ -743,19 +834,23 @@ export function tradeSection(ui: GameUi): TemplateResult | typeof nothing {
   if (!ui.me || lifeIsNative(s, life) || ageOf(s, ui.me) < 16) return nothing;
   const h = houseOf(life);
   const law = h?.law ?? houseLawOf(lawOf(s, life.home).law);
-  const head = html`A house in the trade ${term("bondtrade", "?", "cq-term-mark")}`;
+  const head = html`A house in the trade
+  ${term("bondtrade", "?", "cq-term-mark")}`;
   if (!law)
     return section(
       head,
       html`<p class="small cq-muted">
-        Only a subject of the English, French or Spanish crowns could keep such a
-        house where you live: the Dutch trade was the West India Company's.
+        Only a subject of the English, French or Spanish crowns could keep such
+        a house where you live: the Dutch trade was the West India Company's.
       </p>`,
     );
   if (h) return houseCard(ui, h);
   const past = life.bondTrade;
   const r = planOf(ui, law);
-  const out = r.from >= 0 && r.to >= 0 ? houseOutlook(s, ui.w, life, r, r.every) : undefined;
+  const out =
+    r.from >= 0 && r.to >= 0
+      ? houseOutlook(s, ui.w, life, r, r.every)
+      : undefined;
   const people = r.from >= 0 ? nextManifest(s, ui.w, life, r) : [];
   const check = foundCheck(s, ui.w, life, r);
   return section(
@@ -763,9 +858,9 @@ export function tradeSection(ui: GameUi): TemplateResult | typeof nothing {
     html`<p class="small">
         A merchant's house in the intercolonial trade in people: its factor buys
         at one port where people were sold, a chartered sloop carries them, and
-        they're sold again at another port of your crown. As many as a quarter of
-        the Africans brought to the Americas were shipped on again this way. Every
-        voyage is a list of names.
+        they're sold again at another port of your crown. As many as a quarter
+        of the Africans brought to the Americas were shipped on again this way.
+        Every voyage is a list of names.
       </p>
       ${past?.closed !== undefined
         ? html`<p class="small cq-muted">
@@ -776,13 +871,14 @@ export function tradeSection(ui: GameUi): TemplateResult | typeof nothing {
       ${more("Plan a route", routePicker(ui, law, r), true)}
       ${people.length
         ? html`<h4 class="cq-int-group">
-              Who its factor would buy at
-              ${ui.map.provinces[r.from]?.name} for the first voyage
+              Who its factor would buy at ${ui.map.provinces[r.from]?.name} for
+              the first voyage
             </h4>
             ${manifest(ui, { people })}`
         : nothing}
       ${out
-        ? html`${humanCost(out)} ${oddsPanel(out.view)} ${dutyLine(ui, out, r.to)}`
+        ? html`${humanCost(out)} ${oddsPanel(out.view)}
+          ${dutyLine(ui, out, r.to)}`
         : nothing}
       ${standingLine(ui, colonyOf(ui.map, life.home))}
       <div class="cq-btnrow">
@@ -804,12 +900,15 @@ export function tradeSection(ui: GameUi): TemplateResult | typeof nothing {
 }
 
 /** The human cost of a voyage, before its money. */
-function humanCost(o: NonNullable<ReturnType<typeof houseOutlook>>): TemplateResult {
+function humanCost(
+  o: NonNullable<ReturnType<typeof houseOutlook>>,
+): TemplateResult {
   return html`<p class="small cq-l2-cost">
     <b>What a voyage costs those it carries:</b> about ${o.deaths} of them would
-    die on the passage (${o.days} days at sea); ${o.parted
+    die on the passage (${o.days} days at sea);
+    ${o.parted
       ? html`about ${o.parted} of the families and shipmates aboard would be
-          parted at the sale`
+        parted at the sale`
       : "no family parted at the sale"};
     ${chanceWords(o.rise)} that they rise aboard.
   </p>`;
@@ -841,14 +940,20 @@ function houseCard(ui: GameUi, h: TradeHouse): TemplateResult {
   const t = h.totals;
   const r = planOf(ui, h.law);
   const changed =
-    r.from !== h.from || r.to !== h.to || r.size !== h.size || r.every !== h.every || r.food !== h.food || r.together !== h.together;
+    r.from !== h.from ||
+    r.to !== h.to ||
+    r.size !== h.size ||
+    r.every !== h.every ||
+    r.food !== h.food ||
+    r.together !== h.together;
   const out = !v && h.on ? houseOutlook(s, ui.w, life) : undefined;
   return section(
     html`${h.name} ${term("bondtrade", "?", "cq-term-mark")}`,
     html`<p class="small">
         Est. ${formatDate(h.founded)}. Buys ${h.size} at a time at
-        ${provLink(ui, h.from)} and sells at ${provLink(ui, h.to)}, a voyage every
-        ${h.every} months; ${FOOD[h.food].name.toLowerCase()} on the passage;
+        ${provLink(ui, h.from)} and sells at ${provLink(ui, h.to)}, a voyage
+        every ${h.every} months; ${FOOD[h.food].name.toLowerCase()} on the
+        passage;
         ${h.together ? "families sold together" : "sold to whoever bids most"}.
         ${h.on ? "" : html`<b class="bad">It sends no voyages now.</b>`}
       </p>
@@ -856,13 +961,15 @@ function houseCard(ui: GameUi, h: TradeHouse): TemplateResult {
         <b>All told:</b> ${t.voyages} voyages, ${t.carried} people carried;
         <span class="bad">${t.died} died on the passage</span>, ${t.sold} sold,
         <span class="bad">${t.parted} parted from their kin at the sale</span>,
-        ${t.free} got free${t.taken ? `, ${t.taken} carried off by privateers` : ""};
+        ${t.free} got
+        free${t.taken ? `, ${t.taken} carried off by privateers` : ""};
         ${t.rose} risings aboard. The house's money: ${signed(t.net)}.
       </p>
       ${v
         ? html`<h4 class="cq-int-group">
               ${v.landed !== undefined
-                ? html`At ${name(v.to)}: the sale, ${formatDate(v.sells ?? s.day)}`
+                ? html`At ${name(v.to)}: the sale,
+                  ${formatDate(v.sells ?? s.day)}`
                 : html`At sea, from ${name(v.from)} to ${name(v.to)}: due
                   ${formatDate(v.due)}`}
             </h4>
@@ -873,7 +980,10 @@ function houseCard(ui: GameUi, h: TradeHouse): TemplateResult {
                 factor would buy
               </h4>
               ${manifest(ui, { people: nextManifest(s, ui.w, life) })}
-              ${out ? html`${humanCost(out)} ${oddsPanel(out.view)} ${dutyLine(ui, out, h.to)}` : nothing}`
+              ${out
+                ? html`${humanCost(out)} ${oddsPanel(out.view)}
+                  ${dutyLine(ui, out, h.to)}`
+                : nothing}`
           : nothing}
       ${standingLine(ui, h.col)}
       ${more(
@@ -889,17 +999,34 @@ function houseCard(ui: GameUi, h: TradeHouse): TemplateResult {
           </div>`,
       )}
       <div class="cq-btnrow">
-        ${h.on
-          ? action("Send no more voyages", { ok: true }, () => void ui.cmd({ k: "bond2", act: "off" }), "small ghost")
-          : action("Send voyages again", { ok: true }, () => void ui.cmd({ k: "bond2", act: "on" }), "small ghost")}
-        ${action(
-          "Wind the house up",
-          v ? { ok: false, why: "Not while a voyage is at sea or its people unsold" } : { ok: true },
-          () => {
-            if (confirm(`Wind up ${h.name}?`)) void ui.cmd({ k: "bond2", act: "close" });
-          },
-          "small ghost",
-        )}
+        ${h.ending !== undefined
+          ? html`<span class="cq-muted small"
+              >To be wound up when this voyage is done.</span
+            >`
+          : html`${h.on
+              ? action(
+                  "Send no more voyages",
+                  { ok: true },
+                  () => void ui.cmd({ k: "bond2", act: "off" }),
+                  "small ghost",
+                )
+              : action(
+                  "Send voyages again",
+                  { ok: true },
+                  () => void ui.cmd({ k: "bond2", act: "on" }),
+                  "small ghost",
+                )}
+            ${action(
+              v
+                ? "Wind the house up, when this voyage is done"
+                : "Wind the house up",
+              { ok: true },
+              () => {
+                if (confirm(`Wind up ${h.name}?`))
+                  void ui.cmd({ k: "bond2", act: "close" });
+              },
+              "small ghost",
+            )}`}
       </div>
       ${h.past.length
         ? more(
@@ -909,8 +1036,10 @@ function houseCard(ui: GameUi, h: TradeHouse): TemplateResult {
                 html`<h4 class="cq-int-group">
                     ${formatDate(x.sailed)}: ${name(x.from)} to ${name(x.to)}
                     <span class="cq-muted small"
-                      >${x.people.length} aboard${x.got !== undefined
-                        ? html`, sold for ${coins(x.got)} less ${coins(x.duty ?? 0)} duty, against ${coins(x.cost)}`
+                      >${x.people.length}
+                      aboard${x.got !== undefined
+                        ? html`, sold for ${coins(x.got)} less
+                          ${coins(x.duty ?? 0)} duty, against ${coins(x.cost)}`
                         : html`, ${x.rose === "away" ? "they got away" : "lost"}`}</span
                     >
                   </h4>
@@ -926,7 +1055,10 @@ function logList(v: TradeVoyage): TemplateResult {
     html`<span class="small">The voyage, day by day (${v.log.length})</span>`,
     html`<ul class="small cq-bond-record">
       ${v.log.map(
-        (x) => html`<li><span class="cq-muted">${formatDate(x.day)}</span> ${x.t}</li>`,
+        (x) =>
+          html`<li>
+            <span class="cq-muted">${formatDate(x.day)}</span> ${x.t}
+          </li>`,
       )}
     </ul>`,
   );
@@ -943,7 +1075,10 @@ export function boundPersonPage(ui: GameUi, c: Character): TemplateResult {
   const mine = !!life && holder?.seat === life.seat;
   const op = mine && life!.c >= 0 ? opinionOf(s, c, life!) : null;
   const where = ui.map.provinces[m.at]?.name ?? "somewhere";
-  const shop = m.work === "biz" ? (holder?.property ?? []).find((x) => x.id === m.biz) : undefined;
+  const shop =
+    m.work === "biz"
+      ? (holder?.property ?? []).find((x) => x.id === m.biz)
+      : undefined;
   const fam = [c.spouse, c.mother, c.father, ...c.children]
     .map((id) => s.chars[id])
     .filter((x): x is Character => !!x);
@@ -973,7 +1108,9 @@ export function boundPersonPage(ui: GameUi, c: Character): TemplateResult {
       ${token(ui, c, "xl")}
       <div class="cq-sheet-who">
         <p class="cq-kicker">
-          ${m.status === "indenture" ? "Bound by indenture" : "Held in bondage"}${mine
+          ${m.status === "indenture"
+            ? "Bound by indenture"
+            : "Held in bondage"}${mine
             ? " in your household"
             : holder
               ? ` in ${holder.name}'s household`
@@ -981,7 +1118,8 @@ export function boundPersonPage(ui: GameUi, c: Character): TemplateResult {
         </p>
         <h2 class="cq-h1">${bondFullName(c)}</h2>
         <p class="cq-muted small">
-          ${ageOf(s, c)}; ${ORIGIN_NAMES[m.origin]}${m.faith === "islam"
+          ${ageOf(s, c)};
+          ${ORIGIN_NAMES[m.origin]}${m.faith === "islam"
             ? "; a Muslim"
             : m.faith === "christian"
               ? "; a Christian"
@@ -1005,14 +1143,16 @@ export function boundPersonPage(ui: GameUi, c: Character): TemplateResult {
     ${section(
       "Their life",
       html`<p class="small">
-          Health ${bar(m.health / 100)} ${healthWord(m.health)}${mine
+          Health ${bar(m.health / 100)}
+          ${healthWord(m.health)}${mine
             ? html`; how ${c.female ? "she bears" : "he bears"} it
-                ${bar(m.mood / 100)} ${moodWord(m.mood)}`
+              ${bar(m.mood / 100)} ${moodWord(m.mood)}`
             : nothing}.
-          Fieldwork ${m.sk.field}, housework ${m.sk.house}, a trade ${m.sk.craft}.
+          Fieldwork ${m.sk.field}, housework ${m.sk.house}, a trade
+          ${m.sk.craft}.
           ${m.status === "indenture" && m.until
-            ? html`${Math.max(0, Math.round((m.until - s.day) / 30))} months of the
-              indenture left.`
+            ? html`${Math.max(0, Math.round((m.until - s.day) / 30))} months of
+              the indenture left.`
             : nothing}
         </p>
         ${fam.length
@@ -1024,7 +1164,9 @@ export function boundPersonPage(ui: GameUi, c: Character): TemplateResult {
                       ? " †"
                       : f.bond?.at !== undefined && f.bond.at !== m.at
                         ? html` <span class="cq-muted"
-                            >(at ${ui.map.provinces[f.bond.at]?.name ?? "another estate"})</span
+                            >(at
+                            ${ui.map.provinces[f.bond.at]?.name ??
+                            "another estate"})</span
                           >`
                         : f.bond?.status === "free"
                           ? html` <span class="cq-muted">(free)</span>`

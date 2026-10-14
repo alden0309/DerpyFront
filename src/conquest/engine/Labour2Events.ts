@@ -16,7 +16,7 @@
 // or people at a business, so nobody else's luck changes; each says where it
 // happens (EventPlaces' tags) and rests with its family (EventPacing).
 
-import { boundOf, isBound } from "./BondCore";
+import { boundOf } from "./BondCore";
 import { colonyOf, type Colony } from "./BondLaw";
 import {
   closeHouse,
@@ -30,7 +30,7 @@ import { dateOf, formatDate } from "./Calendar";
 import { registerFamily } from "./EventPacing";
 import { tag } from "./EventPlaces";
 import type { ConquestGame } from "./Game";
-import { atBusiness, leaveBusiness, MANNERS, overseerOf } from "./Labour2Rules";
+import { atBusiness, leaveBusiness, overseerOf } from "./Labour2Rules";
 import {
   addRenown,
   addStress,
@@ -42,7 +42,7 @@ import {
 import type { LCtx, LifeEventDef } from "./LifeEvents";
 import { lifeIsNative } from "./LifeQueries";
 import { SIZES, tradeName } from "./TradeCore";
-import type { Character, Life, TradePerson } from "./Types";
+import type { Life, TradePerson } from "./Types";
 
 const REST = 1460;
 const yr = (g: ConquestGame) => dateOf(g.s.day).year;
@@ -69,8 +69,23 @@ const trading = (g: ConquestGame, life: Life) =>
 const touches = (g: ConquestGame, life: Life, ...cols: Colony[]) =>
   houseCols(g, life).some((c) => cols.includes(c));
 
-const say = (g: ConquestGame, life: Life, text: string, tone?: "good" | "bad") =>
-  journal(g, life, text, tone);
+const say = (
+  g: ConquestGame,
+  life: Life,
+  text: string,
+  tone?: "good" | "bad",
+) => journal(g, life, text, tone);
+
+/** Give the trade up: no more voyages, and the house wound up once nobody's at sea. */
+function giveUp(g: ConquestGame, life: Life, why: string): void {
+  const h = houseOf(life);
+  if (!h) return;
+  addStress(g, life, -2);
+  closeHouse(g, life, why);
+}
+
+const GIVE_UP_TIP =
+  "No more voyages; the house is wound up once nobody's at sea. A weight off you.";
 
 /** Spirits of the household's people at home, up or down. */
 function household(g: ConquestGame, life: Life, n: number): void {
@@ -109,11 +124,15 @@ const OV_WORD: LifeEventDef = {
         const o = overseerOf(g.s, life);
         if (o) {
           touchLife(g, life);
-          life.bondage!.overseer = { ...o, orders: { ...o.orders, rule: "restraint" } };
+          life.bondage!.overseer = {
+            ...o,
+            orders: { ...o.orders, rule: "restraint" },
+          };
         }
         household(g, life, 4);
         const c = g.s.chars[ctx.c];
-        if (c?.alive) remembers(g, life, c, "Spoke for us to the overseer", 8, 3);
+        if (c?.alive)
+          remembers(g, life, c, "Spoke for us to the overseer", 8, 3);
         say(g, life, "You order your overseer to restraint.");
       },
     },
@@ -155,7 +174,9 @@ const OV_GARDENS: LifeEventDef = {
   where: tag("land bond"),
   when: (g, life) => {
     const o = overseerOf(g.s, life);
-    return o && o.manner === "fair" && boundOf(g.s, life).length >= 2 ? {} : null;
+    return o && o.manner === "fair" && boundOf(g.s, life).length >= 2
+      ? {}
+      : null;
   },
   title: "Gardens of their own",
   body: (g, life) => {
@@ -171,8 +192,16 @@ const OV_GARDENS: LifeEventDef = {
         household(g, life, 4);
         for (const c of boundOf(g.s, life))
           if (c.bond!.status === "held")
-            g.touchChar(c).bond = { ...c.bond!, saved: (c.bond!.saved ?? 0) + 1 };
-        say(g, life, "The household has gardens of its own now, and Saturday afternoons.", "good");
+            g.touchChar(c).bond = {
+              ...c.bond!,
+              saved: (c.bond!.saved ?? 0) + 1,
+            };
+        say(
+          g,
+          life,
+          "The household has gardens of its own now, and Saturday afternoons.",
+          "good",
+        );
       },
     },
     {
@@ -204,13 +233,19 @@ const BIZ_TRADES: LifeEventDef = {
       label: "Bring them home from the business",
       tip: "Those at your businesses come back to the household; the places go to hired hands.",
       apply: (g, life) => {
-        for (const c of boundOf(g.s, life)) if (atBusiness(c)) leaveBusiness(g, life, c);
+        for (const c of boundOf(g.s, life))
+          if (atBusiness(c)) leaveBusiness(g, life, c);
         addRenown(g, life, 1);
-        say(g, life, "You bring those of your household home from your businesses.");
+        say(
+          g,
+          life,
+          "You bring those of your household home from your businesses.",
+        );
       },
     },
     {
-      label: "Let them have something of their own: a shilling a week (2 coins)",
+      label:
+        "Let them have something of their own: a shilling a week (2 coins)",
       tip: "A little money of their own for those at your businesses: spirits, and a little put by.",
       blocked: (_g, life) => (life.purse < 2 ? "Needs 2 coins" : null),
       apply: (g, life) => {
@@ -223,7 +258,11 @@ const BIZ_TRADES: LifeEventDef = {
               saved: (c.bond!.saved ?? 0) + 1,
             };
         addRenown(g, life, -1);
-        say(g, life, "Those at your businesses have a little money of their own now. The journeymen are no happier.");
+        say(
+          g,
+          life,
+          "Those at your businesses have a little money of their own now. The journeymen are no happier.",
+        );
       },
     },
     {
@@ -298,13 +337,19 @@ const PLEA: LifeEventDef = {
       tip: "Families stay together: a little less for each, and ten days longer to sell.",
       apply: (g, life, ctx) => {
         sellTogether(g, life, ctx.v);
-        say(g, life, "You write to the factor: the families on this voyage are to be sold together, as one lot each.");
+        say(
+          g,
+          life,
+          "You write to the factor: the families on this voyage are to be sold together, as one lot each.",
+        );
       },
     },
     {
       label: (_g, life, ctx) => {
         const p = pair(life, ctx);
-        return p ? `Take ${p.a.n} and ${p.b.n} into your own household` : "Take them into your own household";
+        return p
+          ? `Take ${p.a.n} and ${p.b.n} into your own household`
+          : "Take them into your own household";
       },
       tip: (g, life, ctx) => {
         const p = pair(life, ctx);
@@ -327,7 +372,8 @@ const PLEA: LifeEventDef = {
       tip: "Sold to whoever bids most: very likely parted.",
       apply: (g, life, ctx) => {
         const v = voyageById(life, ctx.v);
-        if (v) v.log.push({ day: g.s.day, t: "You leave the sale to the factor." });
+        if (v)
+          v.log.push({ day: g.s.day, t: "You leave the sale to the factor." });
         addStress(g, life, 2);
       },
     },
@@ -357,7 +403,11 @@ const RISING: LifeEventDef = {
         const i = SIZES.indexOf(h.size);
         h.size = SIZES[Math.max(0, i - 1)];
         h.food = 2;
-        say(g, life, `${h.name} will carry ${h.size} at a time from now on, with ample provisions.`);
+        say(
+          g,
+          life,
+          `${h.name} will carry ${h.size} at a time from now on, with ample provisions.`,
+        );
       },
     },
     {
@@ -366,10 +416,7 @@ const RISING: LifeEventDef = {
       apply: (g, life) => {
         const h = houseOf(life);
         if (!h) return;
-        touchLife(g, life);
-        h.on = false;
-        if (!h.voyage) closeHouse(g, life, " after the rising");
-        else say(g, life, `${h.name} will send no more voyages.`);
+        closeHouse(g, life, " after the rising");
       },
     },
     {
@@ -393,7 +440,15 @@ const SEWALL: LifeEventDef = {
     trading(g, life) &&
     yr(g) >= 1700 &&
     yr(g) <= 1706 &&
-    touches(g, life, "massachusetts", "newhampshire", "maine", "connecticut", "rhodeisland")
+    touches(
+      g,
+      life,
+      "massachusetts",
+      "newhampshire",
+      "maine",
+      "connecticut",
+      "rhodeisland",
+    )
       ? {}
       : null,
   title: "The Selling of Joseph",
@@ -403,16 +458,16 @@ const SEWALL: LifeEventDef = {
     {
       label: "Read it twice, and think on it",
       tip: "It stays with you.",
-      apply: (g, life) => addStress(g, life, 3),
+      apply: (g, life) => addStress(g, life, 2),
+    },
+    {
+      label: "Give the trade up",
+      tip: GIVE_UP_TIP,
+      apply: (g, life) => giveUp(g, life, " after reading the judge's sheet"),
     },
     {
       label: "Side with those who call the judge a meddler",
       tip: "Some of the town's merchants say so too.",
-      apply: (g, life) => addStress(g, life, -1),
-    },
-    {
-      label: "Put it in the fire",
-      tip: "The town has other copies.",
       apply: () => undefined,
     },
   ],
@@ -426,7 +481,10 @@ const PILLAR: LifeEventDef = {
   scene: "tavern",
   where: tag("town"),
   when: (g, life) =>
-    trading(g, life) && houseOf(life)!.law === "english" && yr(g) >= 1745 && yr(g) <= 1765
+    trading(g, life) &&
+    houseOf(life)!.law === "english" &&
+    yr(g) >= 1745 &&
+    yr(g) <= 1765
       ? {}
       : null,
   title: "The great pillar",
@@ -465,7 +523,15 @@ const FRIENDS: LifeEventDef = {
     trading(g, life) &&
     yr(g) >= 1758 &&
     yr(g) <= 1776 &&
-    touches(g, life, "pennsylvania", "newjersey", "delaware", "rhodeisland", "newyork")
+    touches(
+      g,
+      life,
+      "pennsylvania",
+      "newjersey",
+      "delaware",
+      "rhodeisland",
+      "newyork",
+    )
       ? {}
       : null,
   title: "A Friend's refusal",
@@ -480,7 +546,7 @@ const FRIENDS: LifeEventDef = {
     },
     {
       label: "Hear him out",
-      tip: "He has a good deal to say, and says it gently.",
+      tip: "He has a good deal to say, and says it gently. It stays with you.",
       apply: (g, life) => addStress(g, life, 2),
     },
     {
@@ -515,14 +581,14 @@ const LAURENS: LifeEventDef = {
       apply: (g, life) => addStress(g, life, 2),
     },
     {
+      label: "Do as he did",
+      tip: GIVE_UP_TIP,
+      apply: (g, life) => giveUp(g, life, ", as Laurens did"),
+    },
+    {
       label: "Write to his correspondents for their business",
       tip: "Business is business, the town says.",
       apply: () => undefined,
-    },
-    {
-      label: "Think on it",
-      tip: "It stays with you.",
-      apply: (g, life) => addStress(g, life, 1),
     },
   ],
 };
@@ -535,7 +601,10 @@ const BENEZET: LifeEventDef = {
   scene: "letter",
   where: tag("land"),
   when: (g, life) =>
-    trading(g, life) && houseOf(life)!.law === "english" && yr(g) >= 1766 && yr(g) <= 1776
+    trading(g, life) &&
+    houseOf(life)!.law === "english" &&
+    yr(g) >= 1766 &&
+    yr(g) <= 1776
       ? {}
       : null,
   title: "A pamphlet from Philadelphia",
@@ -545,17 +614,17 @@ const BENEZET: LifeEventDef = {
     {
       label: "Read it",
       tip: "It's hard to read, and harder to forget.",
-      apply: (g, life) => addStress(g, life, 3),
+      apply: (g, life) => addStress(g, life, 2),
+    },
+    {
+      label: "Read it, and give the trade up",
+      tip: GIVE_UP_TIP,
+      apply: (g, life) => giveUp(g, life, " after reading Benezet"),
     },
     {
       label: "Send it back with your compliments",
       tip: "He'll write again, he says.",
       apply: () => undefined,
-    },
-    {
-      label: "Pass it to the minister",
-      tip: "He reads it from the pulpit, without your name.",
-      apply: (g, life) => addStress(g, life, 1),
     },
   ],
 };
@@ -568,7 +637,10 @@ const HOPKINS: LifeEventDef = {
   scene: "church",
   where: tag("town"),
   when: (g, life) =>
-    trading(g, life) && yr(g) >= 1770 && yr(g) <= 1776 && touches(g, life, "rhodeisland")
+    trading(g, life) &&
+    yr(g) >= 1770 &&
+    yr(g) <= 1776 &&
+    touches(g, life, "rhodeisland")
       ? {}
       : null,
   title: "A sermon at Newport",
@@ -581,9 +653,9 @@ const HOPKINS: LifeEventDef = {
       apply: (g, life) => addStress(g, life, 2),
     },
     {
-      label: "Speak with him after",
-      tip: "He asks what you'll do. You don't know yet.",
-      apply: (g, life) => addStress(g, life, 1),
+      label: "Tell him after that your house will stop",
+      tip: GIVE_UP_TIP,
+      apply: (g, life) => giveUp(g, life, " after Hopkins's sermon"),
     },
     {
       label: "Leave before the end",
@@ -601,7 +673,10 @@ const BURGESSES: LifeEventDef = {
   scene: "tavern",
   where: tag("town"),
   when: (g, life) =>
-    trading(g, life) && yr(g) >= 1772 && yr(g) <= 1773 && touches(g, life, "virginia", "maryland")
+    trading(g, life) &&
+    yr(g) >= 1772 &&
+    yr(g) <= 1773 &&
+    touches(g, life, "virginia", "maryland")
       ? {}
       : null,
   title: "The burgesses' address",
@@ -609,9 +684,9 @@ const BURGESSES: LifeEventDef = {
     'Virginia\'s House of Burgesses has sent the King an address: "The importation of slaves into the colonies from the coast of Africa hath long been considered as a trade of great inhumanity", and they beg him to let his governors assent to laws to check "so very pernicious a commerce". Many who voted for it hold more people than you do, and some fear risings more than they fear God; but the words are read out at every table, and yours.',
   choices: [
     {
-      label: "Say they're right",
-      tip: "Some of the table agrees; some think you a fool, or a hypocrite.",
-      apply: (g, life) => addStress(g, life, 1),
+      label: "Say they're right, and stop your own house's voyages",
+      tip: `Some of the table agrees; some think you a fool. ${GIVE_UP_TIP}`,
+      apply: (g, life) => giveUp(g, life, " after the burgesses' address"),
     },
     {
       label: "Say it's fear of risings, not conscience",
@@ -634,7 +709,10 @@ const DEFENCE: LifeEventDef = {
   scene: "letter",
   where: tag("land"),
   when: (g, life) =>
-    trading(g, life) && houseOf(life)!.law === "english" && yr(g) >= 1772 && yr(g) <= 1775
+    trading(g, life) &&
+    houseOf(life)!.law === "english" &&
+    yr(g) >= 1772 &&
+    yr(g) <= 1775
       ? {}
       : null,
   title: "A defence of the trade",
@@ -644,7 +722,7 @@ const DEFENCE: LifeEventDef = {
     {
       label: "Keep it in the counting room",
       tip: "It's something to point to.",
-      apply: (g, life) => addStress(g, life, -1),
+      apply: () => undefined,
     },
     {
       label: "Have it read at the coffee house",
@@ -678,9 +756,9 @@ const RUSH: LifeEventDef = {
     "Benjamin Rush, a young physician of Philadelphia, has printed An Address to the Inhabitants of the British Settlements in America, upon Slave-Keeping, and asks for a duty high enough to stop the trade; a West India planter, Richard Nisbet, answers him with Slavery Not Forbidden by Scripture. The town takes sides at every table, and asks which side a man in the trade is on.",
   choices: [
     {
-      label: "Side with Rush",
-      tip: "Your fellow merchants think it a strange thing for you to say.",
-      apply: (g, life) => addStress(g, life, 2),
+      label: "Side with Rush, and give the trade up",
+      tip: `Your fellow merchants think it a strange thing to do. ${GIVE_UP_TIP}`,
+      apply: (g, life) => giveUp(g, life, " after Rush's Address"),
     },
     {
       label: "Side with Nisbet",
@@ -730,7 +808,7 @@ const COMMITTEE: LifeEventDef = {
       : null,
   title: "The committee of inspection",
   body: () =>
-    'The county\'s committee of inspection, chosen under the Continental Association, has an eye on every merchant. The Association\'s second article is read to you: "We will neither import nor purchase any slave imported after the first day of December next; after which time, we will wholly discontinue the slave trade." At Norfolk the committee has named a merchant, John Brown, who brought people from Jamaica, as an enemy of American liberty, and asked everyone to break off all dealings with him.',
+    "The county's committee of inspection, chosen under the Continental Association, has an eye on every merchant. The Association's second article is read to you: \"We will neither import nor purchase any slave imported after the first day of December next; after which time, we will wholly discontinue the slave trade.\" At Norfolk the committee has named a merchant, John Brown, who brought people from Jamaica, as an enemy of American liberty, and asked everyone to break off all dealings with him.",
   choices: [
     {
       label: "Tell the committee the house will send no more voyages",
@@ -741,7 +819,11 @@ const COMMITTEE: LifeEventDef = {
         touchLife(g, life);
         h.on = false;
         addRenown(g, life, 1);
-        say(g, life, `You tell the committee ${h.name} will send no more voyages.`);
+        say(
+          g,
+          life,
+          `You tell the committee ${h.name} will send no more voyages.`,
+        );
       },
     },
     {
@@ -750,10 +832,7 @@ const COMMITTEE: LifeEventDef = {
       apply: (g, life) => {
         const h = houseOf(life);
         if (!h) return;
-        touchLife(g, life);
-        h.on = false;
-        if (!h.voyage) closeHouse(g, life, " under the Association");
-        else say(g, life, `${h.name} will send no more voyages.`);
+        closeHouse(g, life, " under the Association");
       },
     },
     {
@@ -762,7 +841,12 @@ const COMMITTEE: LifeEventDef = {
       apply: (g, life) => {
         addRenown(g, life, -4);
         addStress(g, life, 3);
-        say(g, life, "The committee prints your name in the gazette as an enemy of American liberty.", "bad");
+        say(
+          g,
+          life,
+          "The committee prints your name in the gazette as an enemy of American liberty.",
+          "bad",
+        );
       },
     },
   ],
@@ -806,12 +890,13 @@ registerFamily(
   ],
   200,
 );
-registerFamily("labour2-scenes", ["bond-ov-word", "bond-tr-plea", "bond-tr-rising"], 30);
+registerFamily(
+  "labour2-scenes",
+  ["bond-ov-word", "bond-tr-plea", "bond-tr-rising"],
+  30,
+);
 
 /** Left unanswered: the overseer's restrained, a family is sold together, the house carries on. */
 export function labour2Quiet(): Record<string, number> {
   return { "bond-ov-word": 0, "bond-tr-plea": 0, "bond-tr-rising": 2 };
 }
-
-/** Whether someone is in a household in bondage (for the scenes' own checks). */
-export const boundNow = (c: Character | undefined) => isBound(c);

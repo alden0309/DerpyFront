@@ -5957,6 +5957,8 @@ export interface TradeHouse {
   glut?: Record<number, number>;
   /** Wound up on this day. */
   closed?: number;
+  /** To be wound up when the voyage at sea is done (the words why, for the journal). */
+  ending?: string;
 }
 
 /** A command about the household's overseer, those held at your businesses, or a house in the trade. */

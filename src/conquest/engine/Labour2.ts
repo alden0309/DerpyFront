@@ -9,9 +9,20 @@
 // Rolls are on LABOUR2's own dice (the overseer's word from the quarters);
 // a game where nobody holds anyone rolls and changes nothing new.
 
-import { bdice, boundOf, hashOf, isBound, r2, seatSalt } from "./BondCore";
-import { boundHooks } from "./Business";
+import {
+  bdice,
+  bondForecast,
+  boundOf,
+  fieldsOf,
+  hashOf,
+  isBound,
+  landed,
+  r2,
+  rentForgone,
+  seatSalt,
+} from "./BondCore";
 import "./BondTrade";
+import { boundHooks } from "./Business";
 import { makeCharacter } from "./Characters";
 import type { ConquestGame } from "./Game";
 import { hooks, raiseEvent } from "./Hooks";
@@ -36,6 +47,7 @@ import { affairNews } from "./Ledger";
 import { withFlow } from "./LedgerCore";
 import { journal, remembers, spend, touchLife } from "./LifeCore";
 import { lifeIsNative } from "./LifeQueries";
+import type { World } from "./Map";
 import type {
   Character,
   GameState,
@@ -45,8 +57,6 @@ import type {
   OverseerOrders,
   Part,
 } from "./Types";
-import type { World } from "./Map";
-import { bondForecast, fieldsOf, rentForgone } from "./BondCore";
 
 /** LABOUR2's own dice (salted apart from LABOUR r15's and every other track's). */
 export function l2dice(s: GameState, salt: number) {
@@ -64,7 +74,9 @@ const WORK_WORDS: Record<string, [string, string]> = {
 };
 
 /** "3 to the fields, 1 to the house". */
-export function overseerWorkWords(moved: { work: string; n: number }[]): string {
+export function overseerWorkWords(
+  moved: { work: string; n: number }[],
+): string {
   return moved
     .map((m) => `${m.n} ${WORK_WORDS[m.work]?.[m.n === 1 ? 0 : 1] ?? m.work}`)
     .join(", ");
@@ -148,8 +160,10 @@ function setOrders(
   const o = overseerOf(g.s, life);
   if (!o) return "You have no overseer.";
   const next: OverseerOrders = { ...o.orders };
-  if (orders.work === "assign" || orders.work === "keep") next.work = orders.work;
-  if (orders.rule === "restraint" || orders.rule === "his") next.rule = orders.rule;
+  if (orders.work === "assign" || orders.work === "keep")
+    next.work = orders.work;
+  if (orders.rule === "restraint" || orders.rule === "his")
+    next.rule = orders.rule;
   if (typeof orders.report === "boolean") next.report = orders.report;
   touchLife(g, life);
   life.bondage!.overseer = { ...o, orders: next };
@@ -229,7 +243,9 @@ export function setBiz(
     work: "biz",
     biz: pr!.id,
     at: pr!.prov,
-    ...(parted.length ? { grief: s.day + 180, mood: Math.max(0, ch.bond!.mood - 8) } : {}),
+    ...(parted.length
+      ? { grief: s.day + 180, mood: Math.max(0, ch.bond!.mood - 8) }
+      : {}),
   };
   for (const f of parted)
     g.touchChar(f).bond = {
@@ -242,16 +258,16 @@ export function setBiz(
   const town = g.map.provinces[pr!.prov]?.name ?? "the town";
   if (!quiet)
     journal(
-    g,
-    life,
-    `${c.first} is set to work at your ${pr!.name} at ${town}${parted.length ? `, and goes to live there, away from ${parted.map((x) => x.first).join(" and ")}` : ""}. ${c.female ? "She" : "He"} draws no wage; the business keeps ${c.female ? "her" : "him"}.`,
-    parted.length ? "bad" : undefined,
-  );
+      g,
+      life,
+      `${c.first} is set to work at your ${pr!.name} at ${town}${parted.length ? `, and goes to live there, away from ${parted.map((x) => x.first).join(" and ")}` : ""}. ${c.female ? "She" : "He"} draws no wage; the business keeps ${c.female ? "her" : "him"}.`,
+      parted.length ? "bad" : undefined,
+    );
   return null;
 }
 
 /** Take anyone no longer the household's (dead, fled, sold, freed) off a business's books. */
-function tidyBusinesses(g: ConquestGame, life: Life): void {
+export function tidyBusinesses(g: ConquestGame, life: Life): void {
   const s = g.s;
   for (const pr of life.property ?? []) {
     const list = pr.biz?.bound;
@@ -274,14 +290,17 @@ function tidyBusinesses(g: ConquestGame, life: Life): void {
   }
   // Someone whose business is gone (sold, lost) comes home.
   for (const c of boundOf(s, life))
-    if (atBusiness(c) && !(life.property ?? []).some((x) => x.id === c.bond!.biz))
+    if (
+      atBusiness(c) &&
+      !(life.property ?? []).some((x) => x.id === c.bond!.biz)
+    )
       leaveBusiness(g, life, c);
 }
 
 // ---------------------------------------------------------------- the month
 
 /** The overseer's month: his pay, the work he sets, his word while you're away. */
-function overseerMonth(g: ConquestGame, life: Life): void {
+export function overseerMonth(g: ConquestGame, life: Life): void {
   const s = g.s;
   const b = life.bondage;
   if (!b?.overseer) return;
@@ -299,7 +318,10 @@ function overseerMonth(g: ConquestGame, life: Life): void {
     if (life.purse >= o.wage) {
       withFlow(
         g,
-        { key: "bond:overseer", label: `${c.first} ${c.family}, overseer: his wages` },
+        {
+          key: "bond:overseer",
+          label: `${c.first} ${c.family}, overseer: his wages`,
+        },
         () => spend(g, life, o.wage),
       );
       if (o.owed) b.overseer = { ...o, owed: 0 };
@@ -355,7 +377,7 @@ function overseerMonth(g: ConquestGame, life: Life): void {
       );
   }
   // His word, each season, while you're away.
-  const away = life.travel || life.prov !== b.home;
+  const away = !!life.travel || life.prov !== b.home;
   if (now.orders.report && away && s.day - (now.told ?? 0) >= 90) {
     b.overseer = { ...b.overseer!, told: s.day };
     const people = boundOf(s, life);
@@ -399,7 +421,10 @@ hooks.lifeMonthly.push((g, life) => {
 
 hooks.lifeDaily.push((g, life) => {
   // Businesses keep the right names on their books between months.
-  if (life.bondage?.people.length && (life.property ?? []).some((x) => x.biz?.bound))
+  if (
+    life.bondage?.people.length &&
+    (life.property ?? []).some((x) => x.biz?.bound)
+  )
     tidyBusinesses(g, life);
 });
 
@@ -417,7 +442,12 @@ function labour2Command(
     return "Your people's ways have nothing to do with this.";
   switch (cmd.act) {
     case "hire":
-      return hireOverseer(g, life, cmd.c ?? -1, cmd.pay === "share" ? "share" : "wage");
+      return hireOverseer(
+        g,
+        life,
+        cmd.c ?? -1,
+        cmd.pay === "share" ? "share" : "wage",
+      );
     case "dismiss":
       return dismissOverseer(g, life);
     case "orders":
@@ -435,13 +465,16 @@ hooks.command.push(labour2Command);
 
 // ---------------------------------------------------------------- the ledger and the businesses
 
-hooks.forecast.push((s: GameState, life: Life, w?: World): Part[] => {
+hooks.forecast.push((s: GameState, bare: Life, w?: World): Part[] => {
+  const life = landed(s, bare);
   const o = overseerOf(s, life);
   if (!o || life.c < 0) return [];
   const c = s.chars[o.c];
   const who = c ? `${c.first} ${c.family}, overseer` : "Your overseer";
   if (o.pay === "wage")
-    return [{ key: "bond:overseer", label: `${who}: his wages`, value: -o.wage }];
+    return [
+      { key: "bond:overseer", label: `${who}: his wages`, value: -o.wage },
+    ];
   if (!w) return [];
   // His shares of the crop: the fields' line's own odds, his part of each
   // (of the crop after the duty, before the tenants' rent forgone).

@@ -604,7 +604,11 @@ function spotFor(
       // LABOUR2 (r21): at their work; on Sundays, at church where the household allows it.
       const pol = r.life?.bondage?.policy;
       if (sunday && pol?.church && have.has("church") && d1 < 0.6)
-        return { area: "church", doing: "in the gallery at service", kind: "bound" };
+        return {
+          area: "church",
+          doing: "in the gallery at service",
+          kind: "bound",
+        };
       const at = r.workAt && have.has(r.workAt) ? r.workAt : null;
       if (!at) return null;
       return { area: at, doing: boundDoing(s, r.life, c, at), kind: "bound" };
@@ -632,7 +636,9 @@ function boundPlace(l: Life, c: Character): PlaceKind {
   const m = c.bond!;
   switch (m.work) {
     case "biz":
-      return (l.property ?? []).find((x) => x.id === m.biz)?.place ?? "workshop";
+      return (
+        (l.property ?? []).find((x) => x.id === m.biz)?.place ?? "workshop"
+      );
     case "fields":
       return "fields";
     case "craft":
@@ -657,7 +663,8 @@ function boundDoing(
   }
   if (m.work === "fields") return "at work in the fields";
   if (m.work === "craft") return "at work, hired out";
-  if (m.work === "house") return at === "home" ? "at work in the house" : "on an errand";
+  if (m.work === "house")
+    return at === "home" ? "at work in the house" : "on an errand";
   return age < 12 ? "with the other children" : "by the quarters";
 }
 

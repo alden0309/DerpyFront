@@ -29,21 +29,20 @@ import {
   r1,
   r2,
   workExpected,
-  workShare,
 } from "./BondCore";
 import { colonyOf, holdingLawful, lawOf } from "./BondLaw";
 import { handCount } from "./Business";
 import { dateOf } from "./Calendar";
-import { lifeIsNative, meOf, no, yes, type Check } from "./LifeQueries";
 import {
   atBusiness,
-  bizEff,
   BIZ_AGE,
+  bizEff,
   MANNERS,
   overseerMind,
   overseerOf,
   sharesAsked,
 } from "./Labour2Rules";
+import { lifeIsNative, meOf, no, yes, type Check } from "./LifeQueries";
 import { BUSINESS_HANDS, EXCISE, HAND_WAGE } from "./LifeRules";
 import type { World } from "./Map";
 import { NAMES } from "./Names";
@@ -132,7 +131,8 @@ export function overseerCandidates(
   const out: OverseerCandidate[] = [];
   for (let slot = 0; slot < 3; slot++) {
     const r = rng.next();
-    const manner: OverseerManner = r < 0.4 ? "hard" : r < 0.8 ? "steady" : "fair";
+    const manner: OverseerManner =
+      r < 0.4 ? "hard" : r < 0.8 ? "steady" : "fair";
     const skill = Math.min(16, 3 + rng.int(0, 8) + (rng.chance(0.2) ? 4 : 0));
     const wage = overseerWage(skill, low);
     out.push({
@@ -245,7 +245,9 @@ export function overseerPlan(
       continue;
     }
     const shop =
-      age >= BIZ_AGE ? shops.find((pr) => (room.get(pr.id) ?? 0) > 0) : undefined;
+      age >= BIZ_AGE
+        ? shops.find((pr) => (room.get(pr.id) ?? 0) > 0)
+        : undefined;
     if (shop && c.bond!.sk.craft >= 3) {
       room.set(shop.id, (room.get(shop.id) ?? 0) - 1);
       out.push({ c: c.id, work: "biz", biz: shop.id });
@@ -437,7 +439,10 @@ export function mindingWords(s: GameState, life: Life): string {
 
 /** How long someone has been in the household, in years (for the page). */
 export function yearsWith(s: GameState, c: Character): number {
-  return Math.max(0, Math.floor((s.day - (c.bond?.since ?? s.day)) / DAYS_PER_YEAR));
+  return Math.max(
+    0,
+    Math.floor((s.day - (c.bond?.since ?? s.day)) / DAYS_PER_YEAR),
+  );
 }
 
 /** Manners' words, for the page. */

@@ -936,11 +936,17 @@ function work(g: ConquestGame, life: Life, salt: number): void {
     // LABOUR2 (r21): an overseer paid by shares takes his part of the crop.
     const ov = overseerOf(s, life);
     if (ov?.pay === "share") {
-      const cut = r2(take * (1 - CROP_EXCISE) * shareOf(ov.shares, f.workers.length));
+      const cut = r2(
+        take * (1 - CROP_EXCISE) * shareOf(ov.shares, f.workers.length),
+      );
       if (cut > 0)
         withFlow(
           g,
-          { key: "bond:overseer", label: "The overseer's shares of the crop", chance: true },
+          {
+            key: "bond:overseer",
+            label: "The overseer's shares of the crop",
+            chance: true,
+          },
           () => spend(g, life, cut),
         );
     }

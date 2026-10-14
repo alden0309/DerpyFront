@@ -962,8 +962,10 @@ export function flightChance(
   e.add("How they bear it", FLIGHT_DESPAIR * despair * despair);
   if ((m.grief ?? 0) > s.day)
     e.add("Grief: family taken from them", FLIGHT_GRIEF);
-  e.mul("Refuges near", refugePull(s, map, b.home));
-  const law = bondLaw(s, map, b.home);
+  // LABOUR2 (r21): those at a business in another town go from there.
+  const from = atBusiness(c) ? m.at : b.home;
+  e.mul("Refuges near", refugePull(s, map, from));
+  const law = bondLaw(s, map, from);
   if (law.patrols) e.mul("Patrols ride at night", 0.8);
   if (b.policy.passes) e.mul("Passes: more on the roads", 1.1);
   if (age >= 16 && age <= 35) e.mul("Young and strong", 1.3);
@@ -1288,7 +1290,8 @@ export function mixFor( // LABOUR2 (r21): exported for the trade's manifests
     : north.filter(([o]) => o !== "malagasy");
 }
 
-export function pickWeighted<T>(rng: Rng, list: [T, number][]): T { // LABOUR2 (r21): exported
+export function pickWeighted<T>(rng: Rng, list: [T, number][]): T {
+  // LABOUR2 (r21): exported
   const total = list.reduce((m, [, w]) => m + w, 0);
   let r = rng.next() * total;
   for (const [x, w] of list) {
@@ -1318,7 +1321,8 @@ export function nameFor(
   return { first: rng.pick(female ? given.f : given.m)!, born };
 }
 
-export function faithFor(rng: Rng, origin: BondOrigin): BondMark["faith"] { // LABOUR2 (r21): exported
+export function faithFor(rng: Rng, origin: BondOrigin): BondMark["faith"] {
+  // LABOUR2 (r21): exported
   if (origin === "creole") return rng.chance(0.4) ? "christian" : "own";
   if (origin === "mande" || origin === "wolof")
     return rng.chance(0.55) ? "islam" : "own";
@@ -1326,7 +1330,12 @@ export function faithFor(rng: Rng, origin: BondOrigin): BondMark["faith"] { // L
   return "own";
 }
 
-export function skillsFor(rng: Rng, origin: BondOrigin, age: number): BondMark["sk"] { // LABOUR2 (r21): exported
+export function skillsFor(
+  rng: Rng,
+  origin: BondOrigin,
+  age: number,
+): BondMark["sk"] {
+  // LABOUR2 (r21): exported
   const grown = age >= 16 ? 1 : 0.4;
   const sk = {
     field: Math.round((2 + rng.int(0, 4)) * grown),
@@ -1810,6 +1819,10 @@ export function oddsWords(p: number): string {
 
 /** The month's forecast lines (LEDGER's conventions: the same keys as the flows). */
 export function bondForecast(s: GameState, life: Life, w?: World): Part[] {
+  // LABOUR2 (r21): the ledger's forecast asks with a bare copy of the life
+  // (no property, so property lines aren't counted twice); the fields are
+  // reckoned on the land the household really has.
+  life = landed(s, life);
   const b = life.bondage;
   if (!b || life.c < 0) return [];
   const people = boundOf(s, life);
@@ -1863,6 +1876,12 @@ export function bondForecast(s: GameState, life: Life, w?: World): Part[] {
     }
   }
   return out;
+}
+
+/** LABOUR2 (r21): the life as stored (with its property), for a bare copy the ledger made. */
+export function landed(s: GameState, life: Life): Life {
+  if (life.property?.length) return life;
+  return s.lives.find((l) => l.seat === life.seat) ?? life;
 }
 
 /** The yearly allowance to someone freed under New York's act of 1712, a month. */

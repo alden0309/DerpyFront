@@ -22,7 +22,12 @@ import { hasTrait } from "./Queries";
 import type { Character, GameState, Life } from "./Types";
 
 /** The colonies where Friends were many and their meetings strong. */
-const FRIENDS = new Set(["pennsylvania", "newjersey", "delaware", "rhodeisland"]);
+const FRIENDS = new Set([
+  "pennsylvania",
+  "newjersey",
+  "delaware",
+  "rhodeisland",
+]);
 
 /** Years a house's name lingers after it's wound up (at half). */
 export const REP_LINGERS = 3;
@@ -105,5 +110,6 @@ export function tradeOpinion(
     e.add("A house in the trade: a man of business", Math.round(st.trade * k));
     return;
   }
-  if (st.others) e.add("Deals in people (the trade)", Math.round(st.others * k));
+  if (st.others)
+    e.add("Deals in people (the trade)", Math.round(st.others * k));
 }
