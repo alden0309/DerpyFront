@@ -27,6 +27,7 @@ import {
 import { Boost } from "../engine/Skills";
 import { Build, Chapter } from "../engine/Types";
 import { Credit, leaveNote, mediaNow, notesFor, WriterNote } from "./Api";
+import { helpBody } from "./Help";
 import { CPS, Prefs, savePrefs, TextSpeed } from "./Prefs";
 import { Ambience } from "./Sound";
 import {
@@ -61,7 +62,7 @@ export interface PlayerHost {
 interface Toast {
   id: number;
   text: string;
-  kind: "remember" | "rel" | "checkpoint" | "boost";
+  kind: "remember" | "rel" | "checkpoint" | "boost" | "help";
 }
 
 interface Entry {
@@ -83,7 +84,8 @@ type Overlay =
   | "settings"
   | "log"
   | "credits"
-  | "sheet";
+  | "sheet"
+  | "help";
 
 let nextId = 1;
 
@@ -189,6 +191,28 @@ export class BasedPlayer extends LitElement {
       this.noWorld = true;
     }
     this.afterStep(true);
+    if (!this.from && !this.carried) this.hintHelp();
+  }
+
+  /** Once per browser, at the start of a chapter: where the help is. */
+  private hintHelp(): void {
+    try {
+      if (localStorage.getItem("based_help_hint")) return;
+      localStorage.setItem("based_help_hint", "1");
+    } catch {
+      return;
+    }
+    const touch = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+    window.setTimeout(
+      () =>
+        this.toast(
+          touch
+            ? "New here? How to play is in the menu."
+            : "New here? Press H for how to play.",
+          "help",
+        ),
+      2500,
+    );
   }
 
   disconnectedCallback(): void {
@@ -381,7 +405,11 @@ export class BasedPlayer extends LitElement {
     this.toasts = [...this.toasts.filter((x) => x.kind !== kind), t];
     window.setTimeout(
       () => (this.toasts = this.toasts.filter((x) => x.id !== t.id)),
-      kind === "remember" || kind === "boost" ? 4200 : 3000,
+      kind === "help"
+        ? 7000
+        : kind === "remember" || kind === "boost"
+          ? 4200
+          : 3000,
     );
   }
 
@@ -725,6 +753,8 @@ export class BasedPlayer extends LitElement {
       this.openOverlay("note");
     } else if (e.key === "c" || e.key === "C") {
       this.openOverlay("sheet");
+    } else if (e.key === "h" || e.key === "H" || e.key === "?") {
+      this.openOverlay("help");
     }
   };
 
@@ -1395,6 +1425,16 @@ export class BasedPlayer extends LitElement {
       );
     }
     if (o === "sheet") return sheet(this.renderSheet(), "tall");
+    if (o === "help") {
+      const touch = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+      return sheet(
+        html`${helpBody(this.chapter, ATTR_COLORS, touch)}
+          <button class="mb-btn" @click=${() => (this.overlay = "menu")}>
+            Back
+          </button>`,
+        "tall",
+      );
+    }
     if (o === "settings") {
       const speed = (s: TextSpeed, label: string) =>
         html`<button
@@ -1455,6 +1495,9 @@ export class BasedPlayer extends LitElement {
           </button>
           <button class="mb-btn" @click=${() => (this.overlay = "sheet")}>
             His skills
+          </button>
+          <button class="mb-btn" @click=${() => (this.overlay = "help")}>
+            How to play
           </button>
           <button class="mb-btn" @click=${() => (this.overlay = "note")}>
             Note for the writer

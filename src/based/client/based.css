@@ -307,6 +307,10 @@ based-player {
   font-style: italic;
   color: var(--mb-paper-2);
 }
+.mb-toast.help {
+  border-left-color: var(--mb-cold);
+  color: var(--mb-paper-2);
+}
 .mb-toast.checkpoint {
   border-left-color: var(--mb-paper-3);
   font-size: 12px;
@@ -974,6 +978,114 @@ based-player {
   margin: 16px 0 0;
   font-size: 12.5px;
   color: var(--mb-paper-3);
+}
+
+/* ---- How to play (r21) ---- */
+.mb-help {
+  margin: 4px 0 14px;
+  padding-left: 18px;
+  font-family: var(--mb-serif);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--mb-paper-2);
+}
+.mb-help li {
+  margin: 0 0 6px;
+}
+.mb-help li::marker {
+  color: var(--mb-amber);
+}
+.mb-help b {
+  font-family: var(--mb-sans);
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--mb-paper);
+}
+.mb-help-skills {
+  list-style: none;
+  padding-left: 0;
+}
+.mb-help-skills li {
+  padding-left: 10px;
+  border-left: 2px solid var(--c);
+}
+.mb-help-skills b {
+  color: var(--c);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 11.5px;
+}
+.mb-help b.mb-help-white {
+  color: var(--mb-paper);
+}
+.mb-help b.mb-help-red {
+  color: #e0715a;
+}
+.mb-help-p {
+  margin: 0 0 14px;
+  font-family: var(--mb-serif);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--mb-paper-2);
+}
+.mb-help-p.small {
+  font-family: var(--mb-sans);
+  font-size: 12.5px;
+  color: var(--mb-paper-3);
+}
+.mb-sheet kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 1px 5px;
+  border: 1px solid var(--mb-line-2);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: var(--mb-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--mb-paper);
+}
+.mb-odds {
+  width: 100%;
+  margin: 2px 0 6px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.mb-odds caption {
+  caption-side: top;
+  text-align: left;
+  padding-bottom: 6px;
+  font-size: 12.5px;
+  color: var(--mb-paper-3);
+}
+.mb-odds th,
+.mb-odds td {
+  padding: 5px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--mb-line);
+}
+.mb-odds thead th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mb-paper-2);
+}
+.mb-odds thead th span {
+  color: var(--mb-paper-3);
+}
+.mb-odds tbody th {
+  color: var(--mb-amber);
+  font-weight: 700;
+}
+.mb-odds td {
+  color: var(--mb-paper-2);
+}
+.mb-odds td.sure {
+  color: var(--mb-paper);
+  text-decoration: underline;
+  text-decoration-color: var(--mb-amber);
+  text-underline-offset: 3px;
 }
 .mb-x {
   position: absolute;
