@@ -161,6 +161,150 @@ function box(
   return m;
 }
 
+/**
+ * Paris at night from a palace window: low cloud lit amber from the streets
+ * underneath, the tower far off with its beacon, then zinc mansard roofs
+ * with their chimney pots and a few windows still lit. `horizon` and
+ * `tower` are where the rooftops and the tower's tip stand, as shares of
+ * the height from the top; `towerAt` is how far across the tower stands.
+ * Painted once, with a fixed seed.
+ */
+function skylineCanvas(
+  horizon: number,
+  tower: number,
+  towerAt: number,
+): HTMLCanvasElement {
+  const W = 2048;
+  const H = 736;
+  const c = document.createElement("canvas");
+  c.width = W;
+  c.height = H;
+  const g = c.getContext("2d")!;
+  let seed = 20_240_611;
+  const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const hy = horizon * H;
+  // The sky: near black above, warming to the glow of the streets.
+  const sky = g.createLinearGradient(0, 0, 0, hy + 30);
+  sky.addColorStop(0, "#04050a");
+  sky.addColorStop(0.35, "#0d101c");
+  sky.addColorStop(0.62, "#4a2c20");
+  sky.addColorStop(1, "#d8843f");
+  g.fillStyle = sky;
+  g.fillRect(0, 0, W, H);
+  // Low cloud, lit from underneath: soft lobes, their bellies amber.
+  for (let i = 0; i < 260; i++) {
+    const x = r() * W;
+    const y = hy * (0.28 + r() * 0.55);
+    const rx = 60 + r() * 160;
+    const ry = 14 + r() * 26;
+    const lit = (y / hy - 0.28) / 0.55; // lower clouds catch more light
+    const grad = g.createRadialGradient(x, y + ry * 0.5, 0, x, y, rx);
+    const a = 0.07 + 0.13 * lit;
+    grad.addColorStop(0, `rgba(${200 + 40 * lit},${110 + 40 * lit},60,${a})`);
+    grad.addColorStop(1, "rgba(40,24,20,0)");
+    g.fillStyle = grad;
+    g.save();
+    g.translate(x, y);
+    g.scale(1, ry / rx);
+    g.translate(-x, -y);
+    g.beginPath();
+    g.arc(x, y, rx, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  }
+  // The far city: a hazy band of roofs.
+  g.fillStyle = "#2b1a14";
+  for (let x = 0; x < W; ) {
+    const bw = 10 + r() * 26;
+    const bh = 3 + r() * 8;
+    g.fillRect(x, hy - 2 - bh, bw + 1, bh + 40);
+    x += bw;
+  }
+  // The tower, far off to one side, and its beacon.
+  const tx = W * towerAt;
+  const top = tower * H;
+  const base = hy - 4;
+  const tH = base - top;
+  g.fillStyle = "#1c120f";
+  g.beginPath();
+  g.moveTo(tx - 1, top);
+  g.lineTo(tx + 1, top);
+  g.quadraticCurveTo(tx + 3, top + tH * 0.6, tx + tH * 0.26, base);
+  g.lineTo(tx + tH * 0.15, base);
+  g.quadraticCurveTo(tx, base - tH * 0.18, tx - tH * 0.15, base);
+  g.lineTo(tx - tH * 0.26, base);
+  g.quadraticCurveTo(tx - 3, top + tH * 0.6, tx - 1, top);
+  g.fill();
+  // Its platforms catch the light.
+  g.fillStyle = "rgba(230,150,80,0.55)";
+  for (const f of [0.42, 0.7]) {
+    const y = top + tH * f;
+    const half = 1.5 + (tH * 0.26 - 1.5) * Math.pow(f, 2.2);
+    g.fillRect(tx - half - 1, y, half * 2 + 2, 1);
+  }
+  const beacon = g.createRadialGradient(tx, top - 1, 0, tx, top - 1, 14);
+  beacon.addColorStop(0, "rgba(255,236,200,0.95)");
+  beacon.addColorStop(0.2, "rgba(255,200,140,0.35)");
+  beacon.addColorStop(1, "rgba(255,180,120,0)");
+  g.fillStyle = beacon;
+  g.fillRect(tx - 16, top - 17, 32, 32);
+  // A gold dome, far off.
+  g.fillStyle = "#4a3418";
+  g.beginPath();
+  g.ellipse(W * 0.53, hy - 4, 9, 11, 0, Math.PI, 0);
+  g.fill();
+  g.fillRect(W * 0.53 - 1, hy - 21, 2, 7);
+  // Near roofs: zinc mansards, chimney stacks with their pots, dormers.
+  for (let x = -20; x < W; ) {
+    const bw = 26 + r() * 40;
+    const wall = hy + 5 + r() * 7;
+    const roof = 4 + r() * 3;
+    g.fillStyle = "#08090d";
+    g.beginPath();
+    g.moveTo(x, H);
+    g.lineTo(x, wall);
+    g.lineTo(x + 10, wall - roof);
+    g.lineTo(x + bw - 10, wall - roof);
+    g.lineTo(x + bw, wall);
+    g.lineTo(x + bw, H);
+    g.fill();
+    // Chimney stacks and pots.
+    const stacks = 1 + Math.floor(r() * 3);
+    for (let s = 0; s < stacks; s++) {
+      const sx = x + 4 + r() * (bw - 12);
+      const sw = 3 + r() * 5;
+      const sh = 2 + r() * 3;
+      g.fillRect(sx, wall - roof - sh, sw, sh + 1);
+      for (let p = 0; p < Math.floor(sw / 2); p++) {
+        g.fillRect(sx + p * 2, wall - roof - sh - 2, 1, 2);
+      }
+    }
+    // Dormer windows in the roof, a few lit.
+    for (let d = x + 6; d < x + bw - 6; d += 7 + r() * 3) {
+      const lit = r() < 0.22;
+      g.fillStyle = lit ? (r() < 0.5 ? "#f0b060" : "#d98a48") : "#121318";
+      g.fillRect(d, wall - roof * 0.7, 2, 2);
+    }
+    // Rows of tall windows below the roof, most dark at this hour.
+    for (let row = 0; row < 14; row++) {
+      for (let wx = x + 4; wx < x + bw - 4; wx += 6) {
+        const lit = r() < 0.12;
+        g.fillStyle = lit ? (r() < 0.6 ? "#e8a458" : "#c9d0e0") : "#0d0e13";
+        g.fillRect(wx, wall + 4 + row * 9, 2, 4);
+      }
+    }
+    x += bw + 2;
+  }
+  // The streets' glow, rising between the roofs.
+  const haze = g.createLinearGradient(0, hy - 40, 0, H);
+  haze.addColorStop(0, "rgba(200,110,50,0)");
+  haze.addColorStop(0.5, "rgba(200,110,50,0.10)");
+  haze.addColorStop(1, "rgba(200,110,50,0.22)");
+  g.fillStyle = haze;
+  g.fillRect(0, hy - 40, W, H - hy + 40);
+  return c;
+}
+
 function num(v: unknown, d: number): number {
   return typeof v === "number" ? v : d;
 }
@@ -264,6 +408,8 @@ function wall(item: Item, k: KitContext): Built {
       strength: num(x.strength, 0.5),
       opacity: num(x.opacity, 0.82),
       leaf: x.leaf !== false,
+      // A café's half curtain on a brass rail (not in a palace).
+      cafe: x.cafe !== false,
     }))
     .sort((a, b) => a.at - b.at);
 
@@ -322,6 +468,7 @@ function wall(item: Item, k: KitContext): Built {
       const bar = box(0.03, hole.h - fw * 2, 0.05, frame, false);
       bar.position.set(hole.at, hole.y + hole.h / 2, 0);
       g.add(bar);
+      if (!hole.cafe) continue;
       // A brass rail for a café curtain, and the curtain itself.
       const rail = new THREE.Mesh(
         new THREE.CylinderGeometry(0.012, 0.012, hole.w - fw * 2, 6),
@@ -970,17 +1117,22 @@ function shopfront(item: Item, k: KitContext): Built {
     void a;
     cross.add(b, c);
     cross.position.set(w / 2 - 0.4, h + 0.2, 0.7);
-    g.add(cross);
+    // Seen only from the street it faces: from behind there's no building
+    // drawn for it to hang from, and it would float (the world hides it).
+    const front = new THREE.Group();
+    front.userData.frontOnly = true;
+    front.add(cross);
+    g.add(front);
     const hl = halo("#2bff8a", 2.2, 0.5);
     hl.position.copy(cross.position);
-    g.add(hl);
+    front.add(hl);
     const pl = pointLight("#38ff92", 4, 7, false);
     pl.position.set(w / 2 - 0.4, h, 1.2);
     g.add(pl);
     lights.push({ light: pl, base: 4, flicker: "neon" });
     const s = streak("#2bff8a", 0.6, 2.2, 0.5);
     s.position.set(w / 2 - 0.4, 0.02, 0.7);
-    g.add(s);
+    front.add(s);
   }
   const l = lightOf(item, { color: glowColor, intensity: 3, distance: 6 });
   const pl = pointLight(l.color, l.intensity, l.distance, false);
@@ -1263,46 +1415,21 @@ function small(item: Item): Built {
       break;
     }
     case "skyline": {
-      // A city at night, far off: rooftops against a lit sky.
+      // A city at night, far off: rooftops against low cloud lit from
+      // underneath. `horizon` is where the rooftops stand, as a share of
+      // the height from the top.
       const [w, h] = (item.size as [number, number]) ?? [30, 8];
-      const c = document.createElement("canvas");
-      c.width = 1024;
-      c.height = 256;
-      const cg = c.getContext("2d")!;
-      const sky = cg.createLinearGradient(0, 0, 0, 256);
-      sky.addColorStop(0, "#0b0e18");
-      sky.addColorStop(0.7, "#4a2e22");
-      sky.addColorStop(1, "#c7773a");
-      cg.fillStyle = sky;
-      cg.fillRect(0, 0, 1024, 256);
-      cg.fillStyle = "#07080c";
-      let x = 0;
-      let seed = 9;
-      const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-      while (x < 1024) {
-        const bw = 30 + r() * 70;
-        const bh = 60 + r() * 90;
-        cg.fillRect(x, 256 - bh, bw, bh);
-        if (r() < 0.3) cg.fillRect(x + bw * 0.3, 256 - bh - 20, 8, 20);
-        for (let k = 0; k < 6; k++) {
-          if (r() < 0.4) {
-            cg.fillStyle = "#e0a050";
-            cg.fillRect(x + r() * bw, 256 - bh + 10 + r() * (bh - 20), 3, 4);
-            cg.fillStyle = "#07080c";
-          }
-        }
-        x += bw;
-      }
-      // A dome, far off, gold.
-      cg.fillStyle = "#3a2a14";
-      cg.beginPath();
-      cg.arc(700, 140, 30, Math.PI, 0);
-      cg.fill();
-      const tex = new THREE.CanvasTexture(c);
+      const tex = new THREE.CanvasTexture(
+        skylineCanvas(
+          num(item.horizon, 0.6),
+          num(item.tower, 0.3),
+          num(item.towerAt, 0.42),
+        ),
+      );
       tex.colorSpace = THREE.SRGBColorSpace;
       const m = new THREE.Mesh(
         new THREE.PlaneGeometry(w, h),
-        new THREE.MeshBasicMaterial({ map: tex }),
+        new THREE.MeshBasicMaterial({ map: tex, fog: false }),
       );
       m.position.y = h / 2;
       g.add(m);

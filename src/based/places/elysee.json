@@ -51,9 +51,19 @@
       "surface": "oak_dark"
     },
     {
+      "kind": "glow",
+      "at": [0, 0, -2.6],
+      "size": [2.6, 2.4],
+      "color": "#d08a4a",
+      "k": 0.3
+    },
+    {
       "kind": "skyline",
       "at": [0, -6.5, -9.5],
-      "size": [36, 13]
+      "size": [36, 13],
+      "horizon": 0.63,
+      "tower": 0.565,
+      "towerAt": 0.42
     },
     {
       "kind": "wall",
@@ -74,9 +84,10 @@
           "h": 3.9,
           "y": 0.15,
           "kind": "window",
-          "glow": "#e09050",
-          "strength": 0.8,
-          "opacity": 0.3
+          "glow": "#c87a44",
+          "strength": 0.12,
+          "opacity": 0.16,
+          "cafe": false
         },
         {
           "at": 2.2,
@@ -85,8 +96,9 @@
           "y": 0.3,
           "kind": "window",
           "glow": "#b8743e",
-          "strength": 0.35,
-          "opacity": 0.45
+          "strength": 0.1,
+          "opacity": 0.24,
+          "cafe": false
         },
         {
           "at": 9.8,
@@ -95,8 +107,9 @@
           "y": 0.3,
           "kind": "window",
           "glow": "#b8743e",
-          "strength": 0.35,
-          "opacity": 0.45
+          "strength": 0.1,
+          "opacity": 0.24,
+          "cafe": false
         }
       ]
     },
@@ -217,7 +230,7 @@
   "env": {
     "background": "#030406",
     "fog": "#120c0a",
-    "fogDensity": 0.02,
-    "exposure": 1.35
+    "fogDensity": 0.006,
+    "exposure": 1.3
   }
 }

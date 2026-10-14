@@ -55,6 +55,8 @@ interface BuiltPlace {
   lamps: THREE.Vector3[];
   streaks: THREE.Object3D[];
   proxies: Map<string, THREE.Mesh>;
+  /** Pieces seen only from in front (their local +z faces the viewer). */
+  frontOnly: THREE.Object3D[];
 }
 
 const CUT_HEIGHT = 1.15;
@@ -194,6 +196,7 @@ export class World {
       lamps: [],
       streaks: [],
       proxies: new Map(),
+      frontOnly: [],
     };
     for (const item of def.items) {
       const b = buildItem(item, kit);
@@ -240,6 +243,7 @@ export class World {
         built.hideInside.push({ obj: b.object, areas: hide });
       b.object.traverse((o) => {
         if (o.userData.streak) built.streaks.push(o);
+        if (o.userData.frontOnly) built.frontOnly.push(o);
       });
     }
     for (const l of def.lights) {
@@ -559,6 +563,7 @@ export class World {
 
   private snapCamera = true;
   private rainLevel = 1;
+  private readonly facing = new THREE.Vector3();
 
   private areaOf(x: number, z: number): Area | null {
     if (!this.place) return null;
@@ -634,6 +639,10 @@ export class World {
     this.camera.updateProjectionMatrix();
     this.moon.position.copy(look).add(new THREE.Vector3(-8, 14, -6));
     this.moon.target.position.copy(look);
+    // Signs that face away from the camera, with nothing drawn behind them.
+    for (const o of this.place.frontOnly) {
+      o.visible = o.getWorldDirection(this.facing).dot(dir) > -0.15;
+    }
 
     // Walls between the camera and the room he's in come down.
     let indoors = false;

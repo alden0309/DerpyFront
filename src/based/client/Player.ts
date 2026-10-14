@@ -614,11 +614,17 @@ export class BasedPlayer extends LitElement {
     }
   }
 
+  /** Each label's width, measured once (its words don't change). */
+  private labelW = new Map<string, number>();
+
   /** Keeps the marks over their hotspots as the camera moves. */
   private moveMarks(list: HotspotOnScreen[]): void {
-    // Labels that would sit on top of each other step down a line.
-    const placed: { x: number; y: number }[] = [];
-    for (const h of [...list].sort((a, b) => a.y - b.y)) {
+    type Box = { x0: number; y0: number; x1: number; y1: number };
+    const LH = 27;
+    const hits = (a: Box, b: Box) =>
+      a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    const shown: { h: HotspotOnScreen; el: HTMLElement }[] = [];
+    for (const h of list) {
       let el = this.marks.get(h.id);
       if (!el) {
         el =
@@ -629,19 +635,58 @@ export class BasedPlayer extends LitElement {
       }
       el.style.transform = `translate(${h.x.toFixed(1)}px, ${h.y.toFixed(1)}px)`;
       el.style.visibility = h.visible ? "visible" : "hidden";
-      let dy = 0;
-      if (h.visible) {
-        while (
-          placed.some(
-            (p) => Math.abs(p.x - h.x) < 150 && Math.abs(p.y - (h.y + dy)) < 26,
-          )
-        ) {
-          dy += 26;
-        }
-        placed.push({ x: h.x, y: h.y + dy });
-      }
-      el.style.setProperty("--ly", `${dy}px`);
+      if (h.visible) shown.push({ h, el });
     }
+    // Every diamond is in the way of every other mark's label, and labels
+    // are in each other's way: each label takes the first place, right or
+    // left of its diamond and a line up or down, that covers nothing.
+    const dots: Box[] = shown.map(({ h }) => ({
+      x0: h.x - 10,
+      y0: h.y - 10,
+      x1: h.x + 10,
+      y1: h.y + 10,
+    }));
+    const placed: Box[] = [];
+    const tries: [1 | -1, number][] = [
+      [1, 0],
+      [-1, 0],
+      [1, LH],
+      [-1, LH],
+      [1, -LH],
+      [-1, -LH],
+      [1, 2 * LH],
+      [-1, 2 * LH],
+    ];
+    shown
+      .sort((a, b) => a.h.y - b.h.y || a.h.x - b.h.x)
+      .forEach(({ h, el }) => {
+        let w = this.labelW.get(h.id);
+        if (w === undefined || w === 0) {
+          w = el.querySelector<HTMLElement>(".mb-mark-label")?.offsetWidth ?? 0;
+          if (w > 0) this.labelW.set(h.id, w);
+        }
+        const width = w || 120;
+        const boxOf = ([side, dy]: [1 | -1, number]): Box => {
+          const x0 = side === 1 ? h.x + 14 : h.x - 14 - width;
+          return { x0, y0: h.y - 14 + dy, x1: x0 + width, y1: h.y + 13 + dy };
+        };
+        const own = shown.findIndex((s) => s.h.id === h.id);
+        const free = (b: Box) =>
+          !placed.some((p) => hits(p, b)) &&
+          !dots.some((d, i) => i !== own && hits(d, b));
+        let pick = tries.find((t) => free(boxOf(t)));
+        if (!pick) {
+          // Crowded: step down on the right until there's room.
+          let dy = 0;
+          while (dy < 10 * LH && !free(boxOf([1, dy]))) dy += LH;
+          pick = [1, dy];
+        }
+        // A seen mark's label shows only on hover: it takes no room.
+        if (!el.classList.contains("seen")) placed.push(boxOf(pick));
+        // A data attribute, not a class: lit owns the class list.
+        el.dataset.side = pick[0] === -1 ? "left" : "right";
+        el.style.setProperty("--ly", `${pick[1]}px`);
+      });
   }
 
   // --- input ---------------------------------------------------------------

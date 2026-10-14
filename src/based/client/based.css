@@ -1774,6 +1774,27 @@ kbd {
   .mb-where-scene {
     max-width: 46vw;
   }
+  /* Room for "Chapter 1" beside five buttons on a narrow phone. */
+  .mb-hud {
+    padding: calc(10px + env(safe-area-inset-top)) 12px 0;
+    gap: 8px;
+  }
+  .mb-where {
+    flex: 1 1 auto;
+  }
+  .mb-where-ch {
+    white-space: nowrap;
+    letter-spacing: 0.22em;
+    font-size: 10px;
+  }
+  .mb-hud-buttons {
+    gap: 6px;
+    flex: none;
+  }
+  .mb-icon {
+    width: 38px;
+    height: 38px;
+  }
   .mb-chapter {
     grid-template-columns: minmax(0, 1fr);
     gap: 6px;
@@ -1993,6 +2014,17 @@ kbd {
 }
 .mb-mark.exit .mb-mark-label {
   border-left-color: var(--mb-cold);
+}
+/* Where the right side is taken, the label sits to the left of its mark. */
+.mb-mark[data-side="left"] .mb-mark-label {
+  left: auto;
+  right: 14px;
+  border-left: 0;
+  border-right: 2px solid var(--mb-amber);
+  transform: translateX(4px);
+}
+.mb-mark.exit[data-side="left"] .mb-mark-label {
+  border-right-color: var(--mb-cold);
 }
 .mb-mark:hover .mb-mark-label,
 .mb-mark.hover .mb-mark-label,
