@@ -831,12 +831,12 @@ const HOWS = [
 
 // ---------------------------------------------------------------- the exchanges
 
-const SWORD_WOUND: Record<string, [number, number]> = {
+export const SWORD_WOUND: Record<string, [number, number]> = {
   press: [12, 28],
   guard: [6, 16],
   feint: [16, 36],
 };
-const SWORD_TAKEN: Record<string, [number, number]> = {
+export const SWORD_TAKEN: Record<string, [number, number]> = {
   press: [10, 24],
   guard: [5, 13],
   feint: [12, 26],

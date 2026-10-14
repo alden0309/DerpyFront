@@ -31,7 +31,14 @@ import {
 } from "./LifeCore";
 import type { LCtx, LifeEventDef } from "./LifeEvents";
 import { charSkill, lifeOfChar, meOf, stationOf } from "./LifeQueries";
-import { ldice, markOn, r21Of, RAKE_DAYS, setMark } from "./LifeR21Core";
+import {
+  ldice,
+  markOn,
+  privateNote,
+  r21Of,
+  RAKE_DAYS,
+  setMark,
+} from "./LifeR21Core";
 import { chanceWords } from "./Odds";
 import { ageOf, charName, hasTrait } from "./Queries";
 import { holderOf, postSkill } from "./Retinue";
@@ -74,7 +81,7 @@ function evening(g: ConquestGame, life: Life, upstairs: boolean): void {
     );
     const sp = s.chars[me.spouse];
     if (sp?.alive) scandalize(g, life, "Seen at the bawdy house", 120);
-    journal(
+    privateNote(
       g,
       life,
       "Someone saw you go in, or come out. By tomorrow the town will know.",
@@ -85,7 +92,7 @@ function evening(g: ConquestGame, life: Life, upstairs: boolean): void {
       if (theirs) {
         // Another player is told what really happened, and decides for themselves.
         raiseEvent(g, theirs, "bawdy-told", { c: me.id });
-        journal(
+        privateNote(
           g,
           life,
           `${sp.first} has heard where you spent the evening.`,
@@ -130,7 +137,7 @@ const EVENTS: LifeEventDef[] = [
         apply: (g, life) => {
           pay(g, life, BAWDY.parlour.cost);
           addStress(g, life, BAWDY.parlour.stress);
-          journal(
+          privateNote(
             g,
             life,
             "Punch, a hand of loo, a song you knew the words to. You walk home lighter.",
@@ -152,7 +159,7 @@ const EVENTS: LifeEventDef[] = [
         apply: (g, life) => {
           pay(g, life, companyCost(stationOf(g.s, life).level));
           addStress(g, life, BAWDY.company.stress);
-          journal(
+          privateNote(
             g,
             life,
             "You go upstairs. The door closes, and what's behind it is nobody's business. You come down near dawn.",
@@ -165,7 +172,7 @@ const EVENTS: LifeEventDef[] = [
         label: "Think better of it, and go home",
         tip: "Nothing spent, nothing risked.",
         apply: (g, life) =>
-          journal(g, life, "You think better of it, and walk home."),
+          privateNote(g, life, "You think better of it, and walk home."),
       },
     ],
   },
@@ -197,7 +204,7 @@ const EVENTS: LifeEventDef[] = [
             3,
           );
           addStress(g, life, pass ? 4 : 10);
-          journal(
+          privateNote(
             g,
             life,
             pass
@@ -225,7 +232,7 @@ const EVENTS: LifeEventDef[] = [
             pass ? 1 : 5,
           );
           addStress(g, life, pass ? 2 : 12);
-          journal(
+          privateNote(
             g,
             life,
             pass
@@ -250,7 +257,7 @@ const EVENTS: LifeEventDef[] = [
             5,
           );
           addRenown(g, life, -1);
-          journal(
+          privateNote(
             g,
             life,
             `You tell ${sp.first} what other men do, and that it's none of ${his(sp)} business. The house is very quiet after that.`,
@@ -282,7 +289,7 @@ const EVENTS: LifeEventDef[] = [
         apply: (g, life, ctx) => {
           addStress(g, life, 8);
           const sp = who(g, ctx);
-          journal(
+          privateNote(
             g,
             life,
             `You won't forget what ${sp?.first ?? "they"} did.`,
@@ -316,7 +323,7 @@ const EVENTS: LifeEventDef[] = [
           );
           heal(g, life, 5);
           addStress(g, life, -5);
-          journal(
+          privateNote(
             g,
             life,
             "Mercury, salivation, and a fortnight you'd rather forget. The worst of it passes.",

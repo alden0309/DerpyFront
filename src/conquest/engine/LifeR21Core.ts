@@ -6,7 +6,7 @@
 
 import type { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
-import { touchLife } from "./LifeCore";
+import { journal, touchLife } from "./LifeCore";
 import { meOf } from "./LifeQueries";
 import { oldXpToNext, SKILL_MAX, xpToNext } from "./LifeRules";
 import { hasTrait } from "./Queries";
@@ -189,4 +189,82 @@ export function ldice(s: GameState, salt: number, ...xs: number[]): Rng {
   let k = salt | 0;
   for (const x of xs) k = (Math.imul(k, 31) + (x | 0)) | 0;
   return worldRng(s, 0x21a0000 + (k & 0xffff));
+}
+
+// ---------------------------------------------------------------- secrets
+
+/**
+ * LIFE (r21): an evening at the bawdy house is its own player's business
+ * until someone sees them (then the town talks, and the rake's mark is
+ * public). Nobody else is sent: the visits, the pox (and when it will show),
+ * the house's scenes and their lines, its cooldown, or its money in the books.
+ */
+export function bawdyKey(key: string): boolean {
+  return key.startsWith("bawdy") || key === "act:bawdy";
+}
+
+const bawdyLine = (k: string) => k === "bawdy";
+
+/** Whether a (whole or patched) life carries a bawdy house secret. */
+export function r21HasSecrets(l: Partial<Life>): boolean {
+  const r = l.r21;
+  if (r && (r.bawdy?.length || r.poxDue || r.marks?.some((m) => m.k === "pox")))
+    return true;
+  if (l.cooldowns && Object.keys(l.cooldowns).some((k) => bawdyKey(k.replace(/^ev:/, ""))))
+    return true;
+  if (l.events?.some((e) => bawdyKey(e.key))) return true;
+  if (l.outcome && bawdyKey(l.outcome.key)) return true;
+  if (l.books?.lines.some((x) => bawdyLine(x.k))) return true;
+  return !!l.statements?.some((st) => st.lines.some((x) => bawdyLine(x.k)));
+}
+
+/** A life as anyone else is sent it: the bawdy house's secrets taken out. */
+export function r21ForOthers<T extends Partial<Life>>(l: T, out: T): void {
+  if (l.r21) {
+    const { bawdy: _b, poxDue: _p, ...rest } = l.r21;
+    void _b;
+    void _p;
+    out.r21 = {
+      ...rest,
+      ...(rest.marks ? { marks: rest.marks.filter((m) => m.k !== "pox") } : {}),
+    };
+  }
+  if (out.cooldowns)
+    out.cooldowns = Object.fromEntries(
+      Object.entries(out.cooldowns).filter(
+        ([k]) => !bawdyKey(k.replace(/^ev:/, "")),
+      ),
+    );
+  if (out.events) out.events = out.events.filter((e) => !bawdyKey(e.key));
+  if (out.outcome && bawdyKey(out.outcome.key)) out.outcome = null;
+  const strip = <
+    B extends { lines: { k: string }[]; exp?: Record<string, number> },
+  >(
+    b: B,
+  ): B => ({
+    ...b,
+    lines: b.lines.filter((x) => !bawdyLine(x.k)),
+    ...(b.exp
+      ? {
+          exp: Object.fromEntries(
+            Object.entries(b.exp).filter(([k]) => !bawdyLine(k)),
+          ),
+        }
+      : {}),
+  });
+  if (out.books) out.books = strip(out.books);
+  if (out.statements) out.statements = out.statements.map(strip);
+}
+
+/** A journal line only this life's own player is sent (the bawdy house's). */
+export function privateNote(
+  g: ConquestGame,
+  life: Life,
+  text: string,
+  tone?: "good" | "bad",
+): void {
+  journal(g, life, text, tone, false);
+  const last = life.journal[life.journal.length - 1];
+  if (last && last.text === text) last.sec = true;
+  touchLife(g, life);
 }
