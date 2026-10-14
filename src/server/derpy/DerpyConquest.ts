@@ -144,6 +144,81 @@ export async function recordConquestGame(
   }
 }
 
+// ---------------------------------------------------------------- LEGACY (r21): pay as you play
+
+/** What a game has paid an account while it was played. */
+export interface PlayRow {
+  /** Coins for time at the table. */
+  play: number;
+  /** The line's coins, paid as they were reached. */
+  lines: number;
+  /** Seconds at the table that counted. */
+  secs: number;
+}
+
+/** What an account has been paid so far in a game (nothing yet: zeros). */
+export async function playRow(
+  gameId: string,
+  accountId: number,
+): Promise<PlayRow> {
+  const res = await (
+    await db()
+  ).query(
+    `SELECT play, lines, secs FROM derpy_conquest_play
+     WHERE game_id = $1 AND account_id = $2`,
+    [gameId, accountId],
+  );
+  const r = res.rows[0];
+  return r
+    ? { play: Number(r.play), lines: Number(r.lines), secs: Number(r.secs) }
+    : { play: 0, lines: 0, secs: 0 };
+}
+
+/**
+ * Pays an account for play in a game: `add` coins for time and for the
+ * line, and seconds counted, all at once (the coins into the account, the
+ * sums onto the game's row). Returns the row as it now stands.
+ */
+export async function payInPlay(
+  gameId: string,
+  accountId: number,
+  add: PlayRow,
+): Promise<PlayRow> {
+  const play = Math.max(0, Math.floor(add.play));
+  const lines = Math.max(0, Math.floor(add.lines));
+  const secs = Math.max(0, Math.round(add.secs));
+  return inTransaction(async (c) => {
+    const res = await c.query(
+      `INSERT INTO derpy_conquest_play (game_id, account_id, play, lines, secs)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (game_id, account_id) DO UPDATE SET
+         play = derpy_conquest_play.play + EXCLUDED.play,
+         lines = derpy_conquest_play.lines + EXCLUDED.lines,
+         secs = derpy_conquest_play.secs + EXCLUDED.secs,
+         updated_at = now()
+       RETURNING play, lines, secs`,
+      [gameId, accountId, play, lines, secs],
+    );
+    if (play + lines > 0)
+      await c.query(
+        "UPDATE derpy_accounts SET coins = coins + $2 WHERE id = $1",
+        [accountId, play + lines],
+      );
+    const r = res.rows[0];
+    return {
+      play: Number(r.play),
+      lines: Number(r.lines),
+      secs: Number(r.secs),
+    };
+  });
+}
+
+/** Coins an account was paid while playing, all games together (a subquery on `a.id`). */
+const PLAY_COINS_OF = (account: string) =>
+  `(SELECT coalesce(sum(pl.play + pl.lines), 0) FROM derpy_conquest_play pl
+    WHERE pl.account_id = ${account})`;
+// ---------------------------------------------------------------- /LEGACY (r21)
+
 export interface ConquestStats {
   games: number;
   wins: number;
@@ -155,6 +230,7 @@ export interface ConquestStats {
   coinsEarned: number;
 }
 
+// LEGACY (r21): the coins earned count what was paid while playing, too.
 const CONQUEST_COLUMNS = `
   count(cp.game_id)::int AS c_games,
   count(cp.game_id) FILTER (WHERE cp.won)::int AS c_wins,
@@ -163,7 +239,11 @@ const CONQUEST_COLUMNS = `
   coalesce(sum(cp.colonies), 0)::int AS c_colonies,
   coalesce(sum(cp.battles_won), 0)::int AS c_battles_won,
   coalesce(sum(cp.conquests), 0)::int AS c_conquests,
-  coalesce(sum(cp.coins), 0)::int AS c_coins_earned`;
+  coalesce(sum(cp.coins), 0)::int AS c_end_coins`;
+
+/** LEGACY (r21): the coins earned, with what was paid while playing. */
+const conquestCoinsEarned = (row: Record<string, unknown>) =>
+  Number(row.c_end_coins ?? 0) + Number(row.c_play_coins ?? 0);
 
 function rowToConquest(row: Record<string, unknown>): ConquestStats {
   return {
@@ -174,7 +254,7 @@ function rowToConquest(row: Record<string, unknown>): ConquestStats {
     colonies: Number(row.c_colonies ?? 0),
     battlesWon: Number(row.c_battles_won ?? 0),
     conquests: Number(row.c_conquests ?? 0),
-    coinsEarned: Number(row.c_coins_earned ?? 0),
+    coinsEarned: conquestCoinsEarned(row), // LEGACY (r21)
   };
 }
 
@@ -188,7 +268,8 @@ export async function conquestLeaderboard(): Promise<ConquestLeaderboardRow[]> {
   const res = await (
     await db()
   ).query(
-    `SELECT a.username, a.coins, ${CONQUEST_COLUMNS}
+    `SELECT a.username, a.coins, ${CONQUEST_COLUMNS},
+       ${PLAY_COINS_OF("a.id")}::int AS c_play_coins
      FROM derpy_accounts a
      LEFT JOIN derpy_conquest_players cp ON cp.account_id = a.id
      GROUP BY a.id
@@ -222,7 +303,7 @@ export async function overallLeaderboard(): Promise<OverallLeaderboardRow[]> {
        coalesce(f.games, 0)::int AS f_games, coalesce(f.wins, 0)::int AS f_wins,
        coalesce(f.coins, 0)::int AS f_coins,
        coalesce(c.games, 0)::int AS c_games, coalesce(c.wins, 0)::int AS c_wins,
-       coalesce(c.coins, 0)::int AS c_coins
+       (coalesce(c.coins, 0) + ${PLAY_COINS_OF("a.id")})::int AS c_coins
      FROM derpy_accounts a
      LEFT JOIN (
        SELECT account_id, count(*) AS games, count(*) FILTER (WHERE won) AS wins,
@@ -291,16 +372,20 @@ export async function conquestProfile(accountId: number): Promise<{
   achievementCount: number;
 }> {
   const pool = await db();
+  // LEGACY (r21): with what each game paid while it was played.
   const stats = await pool.query(
-    `SELECT ${CONQUEST_COLUMNS} FROM derpy_conquest_players cp WHERE cp.account_id = $1`,
+    `SELECT ${CONQUEST_COLUMNS}, ${PLAY_COINS_OF("$1")}::int AS c_play_coins
+     FROM derpy_conquest_players cp WHERE cp.account_id = $1`,
     [accountId],
   );
   const games = await pool.query(
     `SELECT g.game_id, g.ended_at, g.duration_s, g.final_year, g.difficulty,
        g.num_players, g.winner, cp.nation, cp.won, cp.rank, cp.score,
-       cp.provinces, cp.coins
+       cp.provinces, (cp.coins + coalesce(pl.play + pl.lines, 0))::int AS coins
      FROM derpy_conquest_players cp
      JOIN derpy_conquest_games g ON g.game_id = cp.game_id
+     LEFT JOIN derpy_conquest_play pl
+       ON pl.game_id = cp.game_id AND pl.account_id = cp.account_id
      WHERE cp.account_id = $1
      ORDER BY g.ended_at DESC
      LIMIT 100`,
@@ -384,12 +469,16 @@ export async function recentResults(limit = 12): Promise<RecentResult[]> {
       [limit],
     ),
     pool.query(
+      // LEGACY (r21): a game's coins with what it paid while it was played.
       `SELECT g.game_id, g.ended_at, g.num_players,
          COALESCE(a.username, cp.username) AS username,
-         cp.username AS played_as, cp.nation, cp.won, cp.coins
+         cp.username AS played_as, cp.nation, cp.won,
+         (cp.coins + coalesce(pl.play + pl.lines, 0))::int AS coins
        FROM derpy_conquest_players cp
        JOIN derpy_conquest_games g ON g.game_id = cp.game_id
        LEFT JOIN derpy_accounts a ON a.id = cp.account_id
+       LEFT JOIN derpy_conquest_play pl
+         ON pl.game_id = cp.game_id AND pl.account_id = cp.account_id
        ORDER BY g.ended_at DESC, cp.won DESC
        LIMIT $1`,
       [limit],

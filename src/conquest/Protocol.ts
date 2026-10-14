@@ -119,10 +119,96 @@ export interface ResultLine {
   rank: number;
   score: number;
   won: boolean;
-  /** Derp Coins paid, or null if they weren't signed in. */
+  /**
+   * Derp Coins paid, or null if they weren't signed in. LEGACY (r21): all
+   * this game paid, while it was played and at the end.
+   */
   coins: number | null;
   /** The coins, line by line. */
   coinLines: { line: string; coins: number }[];
+  // LEGACY (r21): pay as you play.
+  /** Paid for time at the table, and the line's coins paid as they were reached. */
+  timeCoins?: number;
+  linesInPlay?: number;
+  /** Paid at the end (the rest of the line's coins, living to see 1776). */
+  atEnd?: number;
+  /** The line's coins that waited on more time at the table, and never came. */
+  held?: number;
+  /** Minutes at the table that counted. */
+  minutes?: number;
+  /** LEGACY (r21): every character the player's line was, with their stats. */
+  chars?: LineCharacter[];
+}
+
+// ---------------------------------------------------------------- LEGACY (r21)
+
+/** Derp Coins paid while you play (and where you stand in this game), or that a guest would be. */
+export interface PayNote {
+  t: "paid";
+  signedIn: boolean;
+  /** Just paid: for time at the table, and the line's coins (and which lines grew). */
+  time: number;
+  lines: number;
+  grew: string[];
+  /** This game so far: coins for time, the line's coins, minutes at the table. */
+  play: number;
+  linePaid: number;
+  minutes: number;
+  /** The line's coins earned but waiting on more time at the table. */
+  held: number;
+}
+
+/**
+ * One character of a line, as their part in it ended (or stands): for the
+ * end screen, the site's game page and players' profiles. Built by the
+ * engine's Legacy.ts from what the game knows; nothing secret.
+ */
+export interface LineCharacter {
+  name: string;
+  female: boolean;
+  /** Years born, and their part in the line (from, to: null while still played). */
+  born: number;
+  from: number;
+  to: number | null;
+  /** How they came to the line, and how their part in it ended. */
+  came: "born" | "begin" | "heir" | "takeover";
+  ended: "died" | "europe" | "ended" | "living";
+  /** "died of a fever at 52", "sailed for Europe", "living in 1776". */
+  fate: string;
+  age: number;
+  /** What they were at the height of it ("Master cooper", "Governor"). */
+  title: string;
+  /** The highest office, if any ("Burgess for Jamestown"). */
+  office: string | null;
+  /** Where they lived. */
+  home: string;
+  renown: number;
+  /** Coins in hand at the end of their part, and earned in it. */
+  purse: number;
+  earned: number;
+  spouse: string | null;
+  children: number;
+  battles: number;
+  battlesWon: number;
+  duels: number;
+  wounds: number;
+  places: number;
+  /** Fighting skill, health at the end, and their best skills ([name, level]). */
+  fighting: number;
+  health: number;
+  skills: [string, number][];
+  /** Attributes: diplomacy, martial, stewardship, intrigue, learning. */
+  stats: { dip: number; mar: number; ste: number; int: number; lea: number };
+  traits: string[];
+}
+
+/** LEGACY (r21): the pause in company: who stopped the clock, and how long only they may start it. */
+export interface PauseLock {
+  /** The seat that paused, and their name. */
+  seat: string;
+  name: string;
+  /** Milliseconds left in which only they may start the clock again. */
+  left: number;
 }
 
 export type ClientMessage =
@@ -204,7 +290,14 @@ export type ServerMessage =
       open?: boolean;
     }
   | { t: "d"; d: GameDelta }
-  | { t: "clock"; speed: number; paused: boolean; by: string | null }
+  | {
+      t: "clock";
+      speed: number;
+      paused: boolean;
+      by: string | null;
+      /** LEGACY (r21): paused in company: by whom, and how long only they may start it. */
+      lock?: PauseLock | null;
+    }
   /**
    * LIFE (r11): skipping ahead (on), or who has asked to (seat ids); when a
    * skip stops, why (what needed someone).
@@ -242,4 +335,6 @@ export type ServerMessage =
   // whether the host lets them; and a watcher's watching over (the game
   // closed, the host shut watchers out, or it couldn't begin), and why.
   | { t: "watchers"; n: number; allow: boolean }
-  | { t: "watchend"; why: string };
+  | { t: "watchend"; why: string }
+  // LEGACY (r21): Derp Coins paid as you play, and where you stand in this game.
+  | PayNote;

@@ -1,0 +1,74 @@
+/* LEGACY (r21): the pause in company, Derp Coins as you play, the chronicle
+   of a line (chapters, the people who mattered, the big numbers, the family's
+   line), and every character a player was, at the end. */
+
+/* ---------------------------------------------------------------- the pause in company */
+
+/* "Paused by Beatrice 7": a paper tab hanging under the clock, so the banner
+   never changes height. */
+.cq-clock {
+  position: relative;
+}
+.cq-paused-by {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1px 0.6rem 2px;
+  border-radius: 0 0 6px 6px;
+  background: var(--vellum);
+  color: var(--ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+.cq-paused-by.held {
+  background: #f6e3c1;
+}
+.cq-paused-left {
+  display: inline-block;
+  min-width: 1.45em;
+  padding: 0 0.3em;
+  border-radius: 999px;
+  background: var(--seal);
+  color: #fbf1dc;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.cq-pause.held {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ---------------------------------------------------------------- Derp Coins as you play */
+
+.cq-coins-panel {
+  margin-bottom: 0.8rem;
+}
+.cq-coin-lines {
+  max-width: 30rem;
+  margin: 0.5rem 0;
+}
+.cq-coin-lines tr.cq-muted td {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.cq-coin-rules {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  list-style: disc;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+.cq-coin-rules li + li {
+  margin-top: 0.2rem;
+}
+.cq-coin-rules b {
+  color: var(--ink);
+}

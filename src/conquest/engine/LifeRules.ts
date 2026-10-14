@@ -2107,25 +2107,52 @@ export function clanName(clan: string): string {
  * (up to 12), 2 a rung (up to 14), office 4/8/15, 1 per ten renown (up to
  * 12), 3 a generation (up to 12), 0.5 a child (up to 5), 1 a battle (up to
  * 10), a rising 8, Europe 6, 1776 5.
+ *
+ * LEGACY (r21): about twice r19's on every line, and paid as each is reached
+ * (PLAY_PAY.linesPerHour keeps it to the time played), the rest at the end.
+ * r19: played 6, 2.4 per ten years (up to 14), 2.4 a rung (up to 17), office
+ * 5/10/18, 1.2 per ten renown (up to 14), 4 a generation (up to 14), 0.6 a
+ * child (up to 6), 1.2 a battle (up to 12), a rising 10, Europe 7, 1776 6.
  */
 export const LIFE_COINS = {
   /** Game days a seat must have played for coins at all. */
   minDays: 730,
-  played: 6,
-  perTenYears: 2.4,
-  maxYears: 14,
-  perRank: 2.4,
-  maxRank: 17,
-  office: [0, 5, 10, 18] as readonly number[],
-  perTenRenown: 1.2,
-  maxRenown: 14,
-  perGeneration: 4,
-  maxGenerations: 14,
-  perChild: 0.6,
-  maxChildren: 6,
-  perBattleWon: 1.2,
-  maxBattles: 12,
-  risingWon: 10,
-  europe: 7,
-  reached1776: 6,
+  played: 12,
+  perTenYears: 5,
+  maxYears: 28,
+  perRank: 5,
+  maxRank: 35,
+  office: [0, 10, 20, 36] as readonly number[],
+  perTenRenown: 2.5,
+  maxRenown: 28,
+  perGeneration: 8,
+  maxGenerations: 28,
+  perChild: 1.2,
+  maxChildren: 12,
+  perBattleWon: 2.5,
+  maxBattles: 25,
+  risingWon: 20,
+  europe: 14,
+  reached1776: 12,
+} as const;
+
+// LEGACY (r21): Derp Coins as you play.
+/**
+ * Pay for time at the table, and the line's coins as they're reached, so a
+ * game nobody finishes still pays. Both are measured in real time, never in
+ * game time, so pausing and skipping ahead earn nothing extra (the server
+ * keeps the clock: ConquestRooms and ConquestPay).
+ */
+export const PLAY_PAY = {
+  /** Coins for each minute at the table (150 an hour). */
+  perMinute: 2.5,
+  /**
+   * A minute counts while you're playing: you've made a choice of your own
+   * (anything you do, a letter answered) in the last this many minutes.
+   */
+  idleMinutes: 5,
+  /** With the clock stopped, the first this many minutes of each stop count; the rest don't. */
+  pausedMinutes: 10,
+  /** The line's coins paid as you play: no more than this many for each hour at the table. */
+  linesPerHour: 60,
 } as const;

@@ -5,6 +5,7 @@
 import { html, nothing, TemplateResult } from "lit";
 import { formatDate } from "../../engine/Calendar";
 import { lifeTitle, takeoverCandidates } from "../../engine/LifeQueries";
+import { PLAY_PAY } from "../../engine/LifeRules"; // LEGACY (r21)
 import { ageOf, charName } from "../../engine/Queries";
 import { REG_NAMES } from "../../engine/Rules";
 import type { BattleSide, LifePlan, RegType } from "../../engine/Types";
@@ -757,11 +758,42 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
 
 function coinBreakdown(results: ResultLine[], ui: GameUi): TemplateResult {
   const mine = results.find((r) => r.name === ui.life?.name);
-  if (!mine?.coinLines.length) return html``;
-  return html`<details class="cq-more">
+  // LEGACY (r21): what was paid as you played, and at the end.
+  const asPlayed = mine?.timeCoins !== undefined;
+  if (!mine || (!mine.coinLines.length && !asPlayed)) return html``;
+  return html`<details class="cq-more" ?open=${asPlayed}>
     <summary>Your coins, line by line</summary>
     <table class="cq-table compact">
       <tbody>
+        ${asPlayed
+          ? html`<tr>
+                <td>
+                  ${mine.minutes} minute${mine.minutes === 1 ? "" : "s"} at the
+                  table (paid as you played)
+                </td>
+                <td class="r">${mine.timeCoins}</td>
+              </tr>
+              <tr>
+                <td>Your line's marks, paid as they were reached</td>
+                <td class="r">${mine.linesInPlay}</td>
+              </tr>
+              <tr>
+                <td>Paid at the end</td>
+                <td class="r">${mine.atEnd}</td>
+              </tr>
+              ${mine.held
+                ? html`<tr class="cq-muted">
+                    <td>
+                      Earned, but more than the time played allows
+                      (${PLAY_PAY.linesPerHour} an hour)
+                    </td>
+                    <td class="r">${mine.held}</td>
+                  </tr>`
+                : nothing}
+              <tr>
+                <th colspan="2">The line's marks</th>
+              </tr>`
+          : nothing}
         ${mine.coinLines.map(
           (l) =>
             html`<tr>

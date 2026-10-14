@@ -1,6 +1,8 @@
 // SITE (r19): a little more Derp Coins. Every line of a Conquest life's pay,
 // and every achievement, went up by about a fifth: amounts of 3 or more by at
 // least 1, rates by 20% with each line rounded down. These pin the amounts.
+// LEGACY (r21): the line's coins about doubled again (and are paid as they're
+// reached, held to the time played: ConquestCoinsR21 and ConquestPayR21).
 
 import { describe, expect, test } from "vitest";
 import {
@@ -39,26 +41,31 @@ function lifeWith(t: Partial<LifeTally>): Life {
   return { tally } as unknown as Life;
 }
 
-describe("Derp Coins for a Conquest life (SITE r19)", () => {
+describe("Derp Coins for a Conquest life (SITE r19, LEGACY r21)", () => {
   test("the rulebook's amounts", () => {
     expect(LIFE_COINS).toMatchObject({
       minDays: 730,
-      played: 6,
-      maxYears: 14,
-      maxRank: 17,
-      office: [0, 5, 10, 18],
-      maxRenown: 14,
-      perGeneration: 4,
-      maxGenerations: 14,
-      maxChildren: 6,
-      maxBattles: 12,
-      risingWon: 10,
-      europe: 7,
-      reached1776: 6,
+      played: 12,
+      perTenYears: 5,
+      maxYears: 28,
+      perRank: 5,
+      maxRank: 35,
+      office: [0, 10, 20, 36],
+      perTenRenown: 2.5,
+      maxRenown: 28,
+      perGeneration: 8,
+      maxGenerations: 28,
+      perChild: 1.2,
+      maxChildren: 12,
+      perBattleWon: 2.5,
+      maxBattles: 25,
+      risingWon: 20,
+      europe: 14,
+      reached1776: 12,
     });
   });
 
-  test("a dynasty that rose high: 98 (it was 83)", () => {
+  test("a dynasty that rose high: 202 (it was 83, then 98)", () => {
     const life = lifeWith({
       days: 60 * 365,
       topRank: 5,
@@ -72,24 +79,24 @@ describe("Derp Coins for a Conquest life (SITE r19)", () => {
     });
     const r = lifeCoins(life, true);
     expect(Object.fromEntries(r.lines.map((l) => [l.line, l.coins]))).toEqual({
-      "Lived a life": 6,
-      "60 years lived": 14,
-      "Rose in a trade": 12,
-      Governed: 18,
-      Renown: 10,
-      "3 generations": 8,
-      "6 children": 3,
-      "Battles won": 4,
-      "A rising that won": 10,
-      "Went to Europe": 7,
-      "Lived to see 1776": 6,
+      "Lived a life": 12,
+      "60 years lived": 28,
+      "Rose in a trade": 25,
+      Governed: 36,
+      Renown: 22,
+      "3 generations": 16,
+      "6 children": 7,
+      "Battles won": 10,
+      "A rising that won": 20,
+      "Went to Europe": 14,
+      "Lived to see 1776": 12,
     });
-    expect(r.total).toBe(98);
+    expect(r.total).toBe(202);
   });
 
-  test("a short life: 9 (it was 8); under two years, nothing", () => {
+  test("a short life: 21 (it was 8, then 9); under two years, nothing", () => {
     const short = lifeWith({ days: 3 * 365, topRank: 1, peakRenown: 15 });
-    expect(lifeCoins(short, false).total).toBe(9);
+    expect(lifeCoins(short, false).total).toBe(21);
     expect(lifeCoins(lifeWith({ days: 700 }), true).total).toBe(0);
   });
 

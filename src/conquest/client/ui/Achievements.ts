@@ -14,8 +14,108 @@ import {
   type AchievementGroup,
 } from "../../engine/Achievements";
 import { formatDate } from "../../engine/Calendar";
+import { lifeCoins, lineCap } from "../../engine/Coins"; // LEGACY (r21)
+import { LIFE_COINS, PLAY_PAY } from "../../engine/LifeRules"; // LEGACY (r21)
+import type { PayNote } from "../../Protocol"; // LEGACY (r21)
 import type { GameUi } from "./Context";
 import { pageHead } from "./Nav";
+
+// ---------------------------------------------------------------- LEGACY (r21): Derp Coins as you play
+
+/** What the server has told us of this game's pay (null until it has). */
+export const payStore: { last: PayNote | null } = { last: null };
+
+/** A payment (or where you stand, on sitting down). */
+export function onPaid(m: PayNote): void {
+  payStore.last = m;
+}
+
+/** "rose in a trade, renown and children": the lines that just paid, in words. */
+export function grewWords(grew: string[]): string {
+  const w = grew.map((g) => g.toLowerCase());
+  return w.length <= 1
+    ? (w[0] ?? "")
+    : `${w.slice(0, -1).join(", ")} and ${w[w.length - 1]}`;
+}
+
+/** Journal › Achievements: what this game has paid you, and how pay works. */
+function coinsPanel(ui: GameUi): TemplateResult {
+  const life = ui.life;
+  const p = payStore.last;
+  const rate = `${PLAY_PAY.perMinute} coins a minute`;
+  const rules = html`<ul class="cq-coin-rules">
+    <li>
+      <b>Time at the table:</b> ${rate} (${PLAY_PAY.perMinute * 60} an hour),
+      paid about once a minute while the world goes on. A minute counts when
+      you've made a choice of your own in the last ${PLAY_PAY.idleMinutes}
+      minutes (anything you do, a letter answered). With the clock stopped, the
+      first ${PLAY_PAY.pausedMinutes} minutes of each stop count; skipping ahead
+      counts by the minute like any other.
+    </li>
+    <li>
+      <b>Your line's marks:</b> the coins below are paid as your line reaches
+      them, up to ${PLAY_PAY.linesPerHour} for each hour at the table in this
+      game; the rest wait for more time, or the end.
+    </li>
+    <li>
+      <b>At the end:</b> whatever is left, and ${LIFE_COINS.reached1776} for
+      living to see 1776.
+    </li>
+  </ul>`;
+  if (!p || !p.signedIn || !life)
+    return html`<section class="cq-section cq-coins-panel">
+      <h3 class="cq-h3">Derp Coins in this game</h3>
+      <p class="cq-muted small">
+        ${p && !p.signedIn
+          ? "Playing as a guest: sign in to Derp Land to be paid Derp Coins as you play."
+          : "Nothing paid yet."}
+      </p>
+      ${rules}
+    </section>`;
+  const sofar = lifeCoins(life, false);
+  const cap = lineCap(p.minutes * 60);
+  return html`<section class="cq-section cq-coins-panel">
+    <h3 class="cq-h3">Derp Coins in this game</h3>
+    <div class="cq-ach-summary">
+      <span class="cq-ach-stat"><b>${p.play + p.linePaid}</b> paid so far</span>
+      <span class="cq-ach-stat"
+        ><b>${p.play}</b> for ${p.minutes} minute${p.minutes === 1 ? "" : "s"}
+        at the table</span
+      >
+      <span class="cq-ach-stat"
+        ><b>${p.linePaid}</b> for your line's marks</span
+      >
+      ${p.held > 0
+        ? html`<span
+            class="cq-ach-stat"
+            title="Your line has earned these, but they wait on more time at the table (${PLAY_PAY.linesPerHour} an hour; ${cap} so far)."
+            ><b>${p.held}</b> waiting on more time</span
+          >`
+        : nothing}
+    </div>
+    ${sofar.lines.length
+      ? html`<table class="cq-table compact cq-coin-lines">
+          <tbody>
+            ${sofar.lines.map(
+              (l) =>
+                html`<tr>
+                  <td>${l.line}</td>
+                  <td class="r">${l.coins}</td>
+                </tr>`,
+            )}
+            <tr class="cq-muted">
+              <td>Living to see 1776 (at the end)</td>
+              <td class="r">${LIFE_COINS.reached1776}</td>
+            </tr>
+          </tbody>
+        </table>`
+      : html`<p class="cq-muted small">
+          Your line's marks begin to pay once it has lived two years.
+        </p>`}
+    ${rules}
+  </section>`;
+}
+// ---------------------------------------------------------------- /LEGACY (r21)
 
 /** What the server has told us of the account's achievements. */
 export const achievementStore = {
@@ -171,9 +271,11 @@ export function achievementsPage(ui: GameUi): TemplateResult {
   );
   const thisGame = Object.keys(here).length;
   return html`${pageHead(
-      "Achievements",
-      `Marks of a life, from your first job to living to see 1776. Each pays a few Derp Coins the first time your account earns it, and never again.`,
+      "Derp Coins and achievements",
+      `What this game has paid you as you play, and the marks of a life, from your first job to living to see 1776. Each achievement pays a few Derp Coins the first time your account earns it, and never again.`,
     )}
+    ${coinsPanel(ui) /* LEGACY (r21) */}
+    <h3 class="cq-h3">Achievements</h3>
     <div class="cq-ach-summary">
       ${store.signedIn
         ? html`<span class="cq-ach-stat"
