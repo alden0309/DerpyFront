@@ -1440,8 +1440,8 @@ export class MapView {
   private fillFor(s: GameState, p: number, o: Overlay): string {
     const prov = s.provinces[p];
     const def = this.map.provinces[p];
-    if (def.closed) return CLOSED_FILL;
-    if (o.fog && !o.fog.known.has(p)) return FOG_FILL;
+    if (def.closed) return this.look?.closed ?? CLOSED_FILL; // DLC (r21)
+    if (o.fog && !o.fog.known.has(p)) return this.look?.fog ?? FOG_FILL;
     switch (o.mode) {
       case "terrain":
         return TERRAIN_TINT[def.terrain];
@@ -1471,7 +1471,10 @@ export class MapView {
           return TERRAIN_TINT[def.terrain];
         }
         const n = s.nations[owner];
-        return mix(n.color, n.kind === "native" ? 0.42 : 0.14);
+        const toPaper = n.kind === "native" ? 0.42 : 0.14;
+        // DLC (r21): a map style may tint the realms lighter, by hand.
+        const lm = this.look?.landMix ?? 0;
+        return mix(n.color, 1 - (1 - toPaper) * (1 - lm));
       }
     }
   }
@@ -2202,7 +2205,7 @@ export class MapView {
     if (!this.closedAt) return;
     if (!this.map.provinces.some((d, p) => d.closed && visible(p))) return;
     // Over its rivers and borders too: there's nothing there for you.
-    c.fillStyle = CLOSED_FILL;
+    c.fillStyle = this.look?.closed ?? CLOSED_FILL; // DLC (r21)
     c.fill(this.closedPath, "evenodd");
     const closedHatch = this.hatch(c, v, 6, 1, 1.2, "rgba(15,10,6,0.35)");
     if (closedHatch) {
@@ -2217,7 +2220,7 @@ export class MapView {
       ly,
       22,
       -8,
-      "rgba(222,206,170,0.62)",
+      this.look?.fogInk ?? "rgba(222,206,170,0.62)", // DLC (r21)
     );
   }
 
@@ -2284,7 +2287,7 @@ export class MapView {
     if (!unknown.length) return;
     const path = new Path2D();
     for (const p of unknown) path.addPath(this.provPaths[p]);
-    c.fillStyle = FOG_FILL;
+    c.fillStyle = this.look?.fog ?? FOG_FILL; // DLC (r21)
     c.fill(path, "evenodd");
     // A wash of cloud and stain, painted once into a tile and laid over
     // the whole fog in one go; then a fine hatch (wave 2, r11: both as
@@ -2354,7 +2357,7 @@ export class MapView {
         y / wsum,
         px / v.scale,
         -6,
-        "rgba(232,216,180,0.42)",
+        this.look?.fogInk ?? "rgba(232,216,180,0.42)", // DLC (r21)
       );
     }
   }

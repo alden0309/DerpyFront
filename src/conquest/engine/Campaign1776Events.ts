@@ -14,6 +14,7 @@ import { britainOf, sideOf, SPY, usOf } from "./Campaign1776Core";
 import { registerFamily } from "./EventPacing";
 import { tag } from "./EventPlaces";
 import type { ConquestGame } from "./Game";
+import { withFlow } from "./LedgerCore";
 import { leaveForEurope } from "./Life";
 import {
   addRenown,
@@ -564,7 +565,9 @@ const CAUGHT_EVENT: LifeEventDef = {
       tip: `${pct(SPY.bribeWorks)} he takes it and looks away. If not, a court martial: hanged ${pct(SPY.hanged)}, otherwise held until exchanged.`,
       blocked: (_g, life) => poor(life, SPY.bribe),
       apply: (g, life) => {
-        spend(g, life, SPY.bribe);
+        withFlow(g, { key: "r76:bribe", label: "A sentry's bribe" }, () =>
+          spend(g, life, SPY.bribe),
+        );
         if (cdice(g.s, 0x55, life.c, g.s.day).chance(SPY.bribeWorks))
           journal(
             g,
@@ -682,7 +685,9 @@ const DISBAND_EVENT: LifeEventDef = {
         `Coins now: ${DISBAND.warrant + DISBAND.perRank * (life.job?.rank ?? 0)}. You leave the army.`,
       apply: (g, life) => {
         const coins = DISBAND.warrant + DISBAND.perRank * (life.job?.rank ?? 0);
-        earn(g, life, coins);
+        withFlow(g, { key: "r76:warrant", label: "A land warrant, sold" }, () =>
+          earn(g, life, coins),
+        );
         leaveJob(g, life, "when the army was sent home");
         touchLife(g, life).job = null;
         journal(

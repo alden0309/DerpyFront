@@ -7,6 +7,7 @@
 import { registerFamily } from "./EventPacing";
 import { tag } from "./EventPlaces";
 import { secretNote } from "./IntrigueCore";
+import { withFlow } from "./LedgerCore";
 import { keepPlace, rememberRumour } from "./Legends";
 import { LEGENDS } from "./LegendsData";
 import { addRenown, addStress, gainXp, spend } from "./LifeCore";
@@ -115,7 +116,11 @@ const KEEP_EVENT: LifeEventDef = {
       blocked: (_g, life) =>
         life.purse < KEEP.pay ? `Needs ${KEEP.pay} coins` : null,
       apply: (g, life, ctx) => {
-        spend(g, life, KEEP.pay);
+        withFlow(
+          g,
+          { key: "legend:keep", label: "A treasure-seeker paid off" },
+          () => spend(g, life, KEEP.pay),
+        );
         keepPlace(g, life, ctx.i, true);
       },
     },

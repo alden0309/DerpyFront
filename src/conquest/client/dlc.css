@@ -158,3 +158,8 @@
 .cq-map-host[data-mapstyle="woodcut"]::after {
   box-shadow: inset 0 0 0 6px #141210;
 }
+
+/* A town and its name in 1776 stay on one line. */
+.cq-nowrap {
+  white-space: nowrap;
+}

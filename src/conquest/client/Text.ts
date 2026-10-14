@@ -242,10 +242,14 @@ export function describeEvent(
       return us(e.n) ? `${e.title}: ${e.text}` : null;
     case "crown":
       return us(e.n) ? e.text : null;
-    case "europe":
+    case "europe": {
+      // DLC (r21): in the 1776 campaign, British America's wars are Britain's.
+      const E = (i: number) =>
+        s.nations[i]?.key === "britain" ? "Britain" : N(i);
       return e.war
-        ? `War in Europe: ${N(e.a)} and ${N(e.b)}.`
-        : `Peace in Europe between ${N(e.a)} and ${N(e.b)}.`;
+        ? `War in Europe: ${E(e.a)} and ${E(e.b)}.`
+        : `Peace in Europe between ${E(e.a)} and ${E(e.b)}.`;
+    }
     case "independence":
       if (e.won === null)
         return us(e.n)

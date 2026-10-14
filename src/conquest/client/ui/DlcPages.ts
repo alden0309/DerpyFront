@@ -16,7 +16,6 @@ import {
   COMMISSION,
   commissionCheck,
   commissionOdds,
-  commissionWhere,
   isCampaign,
   kingOf,
   sideCheck,
@@ -62,13 +61,26 @@ import { term, termMark } from "./Terms";
 
 const pct = (p: number) => `${Math.round(p * 100)}%`;
 
-/** "1 in 3", with the percentage when pointed at. */
+/** "1 in 3", with the percentage when pointed at ("1 in 1,953" for a long shot). */
 function chance(p: number): TemplateResult {
-  return html`<b title=${pct(p)}>${chanceWords(p)}</b>`;
+  const words = chanceWords(p).replace(/\d{4,}/g, (n) =>
+    Number(n).toLocaleString("en-US"),
+  );
+  return html`<b title=${p < 0.01 ? "under 1%" : pct(p)}>${words}</b>`;
 }
 
 function provNamed(ui: GameUi, name: string): number {
   return ui.map.provinces.findIndex((p) => p.name === name);
+}
+
+/** A town on the map, with its name in 1776 where the map's is older ("Fort Christina (Philadelphia)"). */
+function placeLink(ui: GameUi, p: number): TemplateResult {
+  const then = isCampaign(ui.s)
+    ? PLACE_NAMES_1776[ui.map.provinces[p]?.name ?? ""]
+    : undefined;
+  return html`<span class="cq-nowrap"
+    >${provLink(ui, p)}${then ? html` (${then})` : nothing}</span
+  >`;
 }
 
 // ---------------------------------------------------------------- Society › The war
@@ -135,13 +147,13 @@ function standsSection(ui: GameUi): TemplateResult {
           : html`${nationLink(ui, us)} has been at war with the King since the
             fighting at Lexington and Concord (19 April 1775).
             ${nation.capital >= 0
-              ? html`Congress sits at ${provLink(ui, nation.capital)}.`
+              ? html`Congress sits at ${placeLink(ui, nation.capital)}.`
               : nothing}`}
       </p>
       ${held.length
         ? html`<p class="small">
             The King's army holds
-            ${held.map((p, i) => html`${i ? ", " : ""}${provLink(ui, p)}`)}.
+            ${held.map((p, i) => html`${i ? ", " : ""}${placeLink(ui, p)}`)}.
           </p>`
         : nothing}
       ${allies.length
@@ -231,7 +243,6 @@ function commissionSection(ui: GameUi): TemplateResult {
       : null;
   const check = commissionCheck(s, life);
   const { odds, rank } = commissionOdds(s, life);
-  const where = commissionWhere(s, life);
   const by =
     side === "patriot" ? "the Continental Army" : "a Loyalist regiment";
   return section(
@@ -265,9 +276,9 @@ function commissionSection(ui: GameUi): TemplateResult {
             )}
           </div>`}
       <p class="cq-muted small">
-        The kit is paid only if they say yes. Ask once a season.
-        ${!where.ok && !have ? where.why : ""} A soldier's battles come as
-        scenes, with their odds, wherever the army he serves with fights.
+        The kit is paid only if they say yes. Ask once a season. A soldier's
+        battles come as scenes, with their odds, wherever the army he serves
+        with fights.
       </p>`,
   );
 }
@@ -364,8 +375,8 @@ function soFarSection(ui: GameUi): TemplateResult {
                 <span class="cq-r76-day">${formatDate(day)}</span>
                 <b>${beat.title}</b>
                 ${beat.at && provNamed(ui, beat.at) >= 0
-                  ? html`<span class="cq-muted small">
-                      (${provLink(ui, provNamed(ui, beat.at))})</span
+                  ? html`<span class="cq-muted small"
+                      >${placeLink(ui, provNamed(ui, beat.at))}</span
                     >`
                   : nothing}
                 <p class="small">${beat.text}</p>
@@ -516,14 +527,20 @@ function trailCard(ui: GameUi, key: string): TemplateResult {
             <p class="small"><b>${step.title}.</b> ${step.doing}</p>
             <p class="small">
               Where:
-              ${where.length > 8
+              ${step.at.people && where.length > 6
                 ? html`any town of their people
                   (${where
                     .slice(0, 4)
-                    .map((p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`)}…)`
-                : where.map(
-                    (p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`,
-                  )}${step.at.place && !(def.kind === "sacred" && last)
+                    .map((p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`)},
+                  and others)`
+                : where.length > 8
+                  ? html`${where
+                      .slice(0, 6)
+                      .map((p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`)}
+                    and ${where.length - 6} other towns`
+                  : where.map(
+                      (p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`,
+                    )}${step.at.place && !(def.kind === "sacred" && last)
                 ? `, at the ${step.at.place === "governor" ? "governor's house (its archives)" : step.at.place}`
                 : ""}.
               ${skillWord(def, x.step)}

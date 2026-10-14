@@ -28,6 +28,13 @@ export interface MapLook {
   terrain: number;
   /** Hard Winter: January's snow and ice, whatever the month. */
   winter: boolean;
+  /** How far the realms' colours go toward the paper (0: as usual), "tinted by hand". */
+  landMix: number;
+  /** Country nobody's told you of, and land off the board (the usual: dark). */
+  fog: string;
+  closed: string;
+  /** "Terra Incognita" written over it. */
+  fogInk: string;
   coastInk: string;
   coastWidth: number;
   borderInk: string;
@@ -52,6 +59,10 @@ const LOOKS: Record<MapStyleKey, MapLook> = {
     paper: 1.3,
     terrain: 0.9,
     winter: false,
+    landMix: 0.6,
+    fog: "#dccba3",
+    closed: "#cdb98f",
+    fogInk: "rgba(74,53,32,0.55)",
     coastInk: "rgba(74,53,32,0.95)",
     coastWidth: 1.4,
     borderInk: "rgba(74,53,32,0.3)",
@@ -72,6 +83,10 @@ const LOOKS: Record<MapStyleKey, MapLook> = {
     paper: 0.7,
     terrain: 0.6,
     winter: true,
+    landMix: 0.3,
+    fog: "#b9c4cb",
+    closed: "#a3afb7",
+    fogInk: "rgba(44,58,68,0.55)",
     coastInk: "rgba(28,40,50,0.9)",
     coastWidth: 1.2,
     borderInk: "rgba(44,58,68,0.25)",
@@ -92,6 +107,10 @@ const LOOKS: Record<MapStyleKey, MapLook> = {
     paper: 0.4,
     terrain: 0.5,
     winter: false,
+    landMix: 0,
+    fog: "#1c1b22",
+    closed: "#121117",
+    fogInk: "rgba(231,198,106,0.45)",
     coastInk: "rgba(231,198,106,0.6)",
     coastWidth: 1.1,
     borderInk: "rgba(231,198,106,0.16)",
@@ -112,6 +131,10 @@ const LOOKS: Record<MapStyleKey, MapLook> = {
     paper: 1.5,
     terrain: 0.75,
     winter: false,
+    landMix: 0.5,
+    fog: "#c4a668",
+    closed: "#a98a52",
+    fogInk: "rgba(90,46,20,0.6)",
     coastInk: "rgba(90,46,20,0.95)",
     coastWidth: 1.5,
     borderInk: "rgba(90,46,20,0.25)",
@@ -132,6 +155,10 @@ const LOOKS: Record<MapStyleKey, MapLook> = {
     paper: 0,
     terrain: 0,
     winter: false,
+    landMix: 0.45,
+    fog: "#ddd3ba",
+    closed: "#cbbf9f",
+    fogInk: "rgba(20,18,16,0.6)",
     coastInk: "#141210",
     coastWidth: 2.6,
     borderInk: "rgba(20,18,16,0.5)",
@@ -315,8 +342,10 @@ export function paintSea(
         c.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len);
       }
       c.stroke();
-      serpent(c, W * 0.8, H * 0.43, W * 0.035, v.scale);
-      serpent(c, W * 0.6, H * 0.93, W * 0.028, v.scale);
+      // In the open Atlantic (off the Carolinas, and east of the islands),
+      // the same size on screen however far in you are.
+      serpent(c, W * 0.815, H * 0.525, 26 / v.scale, v.scale);
+      serpent(c, W * 0.935, H * 0.755, 22 / v.scale, v.scale);
       toScreen();
       return;
     }
@@ -330,7 +359,7 @@ function serpent(c: C, x: number, y: number, r: number, scale: number): void {
   c.save();
   c.translate(x, y);
   c.strokeStyle = "rgba(90,46,20,0.75)";
-  c.fillStyle = "rgba(168,38,28,0.35)";
+  c.fillStyle = "rgba(150,70,30,0.22)";
   c.lineWidth = Math.max(0.6, 1.4 / scale);
   c.lineCap = "round";
   // Three coils.
@@ -426,7 +455,7 @@ export function gradeChart(c: C, look: MapLook, w: number, h: number): void {
   };
   switch (look.key) {
     case "antique":
-      blend("saturation", "#808080", 0.5);
+      blend("saturation", "#808080", 0.45);
       blend("multiply", look.pal.land, 1);
       break;
     case "winter":
