@@ -91,6 +91,9 @@ describe("round 15: bondage and intrigue", () => {
           interactionView(s, g.w, life, her.id, act, 1).check.ok,
           act,
         ).toBe(false);
+      // LABOUR2 (r21): talking with them stays open.
+      const talk = interactionView(s, g.w, life, her.id, "talk").check;
+      expect(talk.ok ? "" : talk.why).not.toMatch(/Not free|Bondage/);
       for (const m of Object.keys(PLOT_METHODS) as PlotMethod[]) {
         const v = plotCheck(s, g.w, life, her, m);
         expect(v.ok ? "" : v.why, m).toMatch(/held or bound/);

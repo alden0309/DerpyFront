@@ -34,6 +34,7 @@ import {
 } from "../../engine/BondTrade";
 import { propertyView } from "../../engine/Business";
 import { dateOf, formatDate } from "../../engine/Calendar";
+import { interactionView } from "../../engine/Interactions";
 import {
   bizChoices,
   bizRoom,
@@ -1176,19 +1177,27 @@ export function boundPersonPage(ui: GameUi, c: Character): TemplateResult {
           : nothing}
         <p class="small cq-muted">
           ${mine
-            ? "Not someone to court, hire, challenge or bargain with: their place is yours to answer for. Estate › Bondage has their card: hear them out, how they're kept, their work, freedom."
-            : `Not free to be dealt with as a free person: ${where} holds them as the law there allows.`}
+            ? "Not someone to court, hire, challenge or bargain with: their place is yours to answer for. You can still talk with them. Estate › Bondage has their card: hear them out, how they're kept, their work, freedom."
+            : `Not free to be dealt with as a free person: ${where} holds them as the law there allows. You can still talk with them.`}
         </p>
-        ${mine
-          ? html`<div class="cq-btnrow">
-              ${action(
+        <div class="cq-btnrow">
+          ${life
+            ? action(
+                "Talk",
+                interactionView(s, ui.w, life, c.id, "talk").check,
+                () => ui.modal({ k: "interact", c: c.id, act: "talk" }),
+                "small",
+              )
+            : nothing}
+          ${mine
+            ? action(
                 "Estate › Bondage",
                 { ok: true },
                 () => ui.open({ k: "tab", tab: "estate", sub: "bondage" }),
                 "small",
-              )}
-            </div>`
-          : nothing}`,
+              )
+            : nothing}
+        </div>`,
     )}`;
 }
 

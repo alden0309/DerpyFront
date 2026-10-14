@@ -551,8 +551,9 @@ function gates(
   if (c.id === me.id) return no("That's you.");
   // LABOUR2 (r21): someone held in bondage (or bound by indenture) isn't free
   // to be courted, hired, challenged or bargained with: their page shows their
-  // place, and their own household hears them on Estate › Bondage.
-  if (isBound(c))
+  // place, and their own household hears them on Estate › Bondage. Passing the
+  // time of day is still open: they're people, and you can speak with them.
+  if (isBound(c) && act !== "talk")
     return no(
       c.bond!.seat === life.seat
         ? "In your household: hear them out on Estate › Bondage."
