@@ -8,6 +8,7 @@
 
 import { dateOf } from "./Calendar";
 import { wouldBeg } from "./EventPacing"; // EVENTS (r15)
+import { VENTURE_LETTER_CHANCE, VENTURE_REST } from "./EventPlaces"; // EVENTS (r21)
 import { Explain } from "./Explain";
 import { charterAcceptance, grantCharter } from "./Founding";
 import type { ConquestGame } from "./Game";
@@ -1709,9 +1710,6 @@ export function readLetters(
 // ---------------------------------------------------------------- the world writes
 
 const NPC_LETTER_CHANCE = 0.22;
-/** EVENTS (r21): how often a merchant's venture is among the letters that could come, and its rest. */
-export const VENTURE_LETTER_CHANCE = 0.3;
-export const VENTURE_REST = 1095;
 
 /** Each month: someone may write to a player. */
 export function postMonthly(g: ConquestGame): void {

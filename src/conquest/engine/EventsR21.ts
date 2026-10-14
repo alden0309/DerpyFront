@@ -8,10 +8,9 @@
 // others in Matters.ts (MattersR21.ts).
 
 import { registerFamily } from "./EventPacing";
-import "./EventPlaces";
+import { VENTURE_REST } from "./EventPlaces";
 import { LAND_PLACE_EVENTS } from "./EventsR21Land";
 import { TOWN_PLACE_EVENTS } from "./EventsR21Town";
-import { VENTURE_REST } from "./Letters";
 import type { LifeEventDef } from "./LifeEvents";
 import { CARDS_EVENTS } from "./VingtEtUn";
 

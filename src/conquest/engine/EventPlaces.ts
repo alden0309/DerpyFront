@@ -618,6 +618,16 @@ export function fitScene(
   return alt ?? at.area ?? scene;
 }
 
+// ---------------------------------------------------------------- the venture
+
+/**
+ * How often a merchant's venture at 20 coins a share is among the letters
+ * that could come in a month (Letters.ts), and how long it rests after it
+ * comes, by letter or in person (the merchant's venture rests with it).
+ */
+export const VENTURE_LETTER_CHANCE = 0.3;
+export const VENTURE_REST = 1095;
+
 // ---------------------------------------------------------------- going into a place
 
 /** Days after something happens on going in somewhere before it can again. */

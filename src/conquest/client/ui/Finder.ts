@@ -11,6 +11,7 @@ import { BOATS } from "../../engine/Boats";
 import { bizTradesAt } from "../../engine/Business"; // BUSINESS (r15)
 import { dateOf } from "../../engine/Calendar"; // MAP (r12)
 import { pollOf, treatView } from "../../engine/Canvass"; // POLLS (r16)
+import { cardTableAt } from "../../engine/CardsCore"; // EVENTS (r21)
 import { followCheck, LT, petitionCheck } from "../../engine/ChairCore"; // CHAIR (r16)
 import { knowsDen } from "../../engine/CrimeQueries";
 import { askOf, claimedTowns, meansOf } from "../../engine/CrownCore"; // CROWN (r18)
@@ -1566,6 +1567,55 @@ const GOALS: Goal[] = [
     guide: "events",
   },
   // ---- end EVENTS (r15)
+  // ---- EVENTS (r21): where things happen, Spot on!, vingt-et-un
+  {
+    id: "events-places",
+    title: "Have things happen where I am",
+    words:
+      "events place places tavern home docks church market fields woods abroad stranger happen happens where enter go into",
+    group: "Body and mind",
+    where:
+      "Go into a place (Here: the tavern, the market, the docks, the church, your home…). What belongs to a place comes three times as readily while you're in it, a few things come only there, and going in, now and then something of the place's own happens at once. Away from home you meet what happens to a stranger, not your family's news.",
+    go: tab({ k: "tab", tab: "here" }),
+    goLabel: "Here",
+    guide: "events",
+  },
+  {
+    id: "dice-spot",
+    title: "Call a bid spot on at Liar's dice",
+    words: "dice liar spot on exactly calza exact bid call die win back",
+    group: "People",
+    where:
+      "At the dice table, on your turn, when there's a bid: Spot on! Exactly that many under all the cups (wild ones counted) wins you back a die; more or fewer loses you one. The picker shows how likely 'exactly' is from what you see.",
+    needs: (ui) => [adult(ui), inTown(ui, "tavern", "tavern")],
+    go: (ui) => goDice(ui),
+    goLabel: "Go to the tavern's table",
+    guide: "dice",
+  },
+  {
+    id: "vingtetun",
+    title: "Play vingt-et-un (cards)",
+    words:
+      "cards card vingt un blackjack twenty one 21 bank banker gamble gambling bet stake tavern innkeeper play",
+    group: "People",
+    where:
+      "The tavern: Things to do › Vingt-et-un…. Choose the stake a hand (1, 2, 5 or 10) and ask the people there to sit in. The innkeeper keeps the bank: two cards each, draw or stand, the nearest to twenty-one without going over beats the bank; a natural is paid double. The odds of drawing and standing are shown. Other players can sit in too, each seeing only their own cards.",
+    needs: (ui) => [
+      adult(ui),
+      inTown(ui, "tavern", "tavern"),
+      {
+        label:
+          ui.life!.purse < 0
+            ? "The bank won't deal to a debtor: pay what you owe first"
+            : `1 coin at least for a stake (you have ${Math.floor(ui.life!.purse)})`,
+        met: ui.life!.purse >= 1,
+      },
+    ],
+    go: (ui) => goCards(ui),
+    goLabel: "Go to the tavern's card table",
+    guide: "vingtetun",
+  },
+  // ---- end EVENTS (r21)
   // ---- INTRIGUE (r15): hearts and schemes
   {
     id: "intr-seduce",
@@ -2688,6 +2738,26 @@ async function goDice(ui: GameUi): Promise<void> {
   ui.open({ k: "tab", tab: "here" });
   const t = tableAt(ui.s, life.prov);
   ui.modal({ k: "dice", id: t?.id });
+}
+
+/** EVENTS (r21): into the tavern, and to its card table (or opening one). */
+async function goCards(ui: GameUi): Promise<void> {
+  const life = ui.life!;
+  ui.modal(null);
+  const here = life.travel ? [] : areasOf(ui.s, ui.w, life.prov, life);
+  if (!here.includes("tavern")) {
+    ui.open({ k: "tab", tab: "here" });
+    ui.toast(
+      life.travel
+        ? "You're on the road: look when you arrive."
+        : `${ui.map.provinces[life.prov].name} has no tavern: a bigger town will.`,
+    );
+    return;
+  }
+  if (life.area !== "tavern") await ui.cmd({ k: "enter", area: "tavern" });
+  ui.open({ k: "tab", tab: "here" });
+  const t = cardTableAt(ui.s, life.prov);
+  ui.modal({ k: "cards", id: t?.id });
 }
 
 /** HOME (r12): step into your home here, or say where it is. */

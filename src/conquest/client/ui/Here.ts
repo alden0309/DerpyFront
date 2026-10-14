@@ -66,6 +66,7 @@ import {
 } from "../Text";
 import { num } from "../Tip";
 import { bondDocksButton, heldWord } from "./Bondage"; // LABOUR (r15)
+import { cardsAct, cardsPart, cardsTag } from "./CardsTable"; // EVENTS (r21)
 import {
   action,
   bar,
@@ -729,7 +730,7 @@ function areasView(ui: GameUi, p: number): TemplateResult {
                 : "nobody"}</span
           >
           ${work ? html`<span class="cq-area-work">your work</span>` : nothing}
-          ${firmTag(ui, p, a)} ${diceTag(ui, p, a)}
+          ${firmTag(ui, p, a)} ${diceTag(ui, p, a)} ${cardsTag(ui, p, a)}
         </button>`;
       })}
     </nav>
@@ -1383,6 +1384,23 @@ function actsBlock(ui: GameUi, p: number, area: PlaceKind): TemplateResult {
         run: d.run,
       });
     });
+  // EVENTS (r21): vingt-et-un at the tavern, against the bank.
+  if (area === "tavern" && !isChildLife(s, life))
+    buttons.set("~cards", () => {
+      const d = cardsAct(ui, p);
+      const dl = splitPrice(d.label);
+      return actButton({
+        label: dl.text,
+        cost: dl.cost ?? undefined,
+        have: life.purse,
+        ok: d.ok,
+        cls: d.lit ? "lit" : "",
+        why: d.why,
+        title:
+          "Vingt-et-un: two cards each against the innkeeper's bank; draw or stand; the nearest to twenty-one without going over wins",
+        run: d.run,
+      });
+    });
   // LABOUR (r15): a sale at the docks (people, or servants' indentures).
   const bond = area === "docks" ? bondDocksButton(ui, actButton) : null;
   if (bond) buttons.set("~bond", bond);
@@ -1453,6 +1471,8 @@ function extrasParts(ui: GameUi, p: number, area: PlaceKind): PlacePart[] {
   if (firms) out.push(firms);
   const dice = dicePart(ui, p, area); // DICE (r14)
   if (dice) out.unshift(dice);
+  const cards = cardsPart(ui, p, area); // EVENTS (r21)
+  if (cards) out.unshift(cards);
   if (movements.length)
     out.push({
       key: "causes",

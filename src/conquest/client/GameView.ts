@@ -73,6 +73,7 @@ import {
 import { armyPanel } from "./ui/ArmyPanel";
 import { battleDispatch, myBattleNation } from "./ui/Battle";
 import { curveNotes } from "./ui/Canvass"; // POLLS (r16)
+import { cardsTrayItem, onCardsClock } from "./ui/CardsTable"; // EVENTS (r21)
 import { breakdownTip, DrawerView, GameUi, Modal, token } from "./ui/Context";
 import { noteDiceActs } from "./ui/DiceLog"; // FIXES (r15)
 import { diceTrayItem, onDiceClock } from "./ui/DiceTable"; // DICE (r14)
@@ -417,7 +418,7 @@ export class GameView extends LitElement {
     // (as it does for a scene); it goes on when you step away.
     if (
       this.solo &&
-      this.modalView?.k === "dice" &&
+      (this.modalView?.k === "dice" || this.modalView?.k === "cards") && // EVENTS (r21): the cards too
       !this.paused &&
       !this.s.over
     ) {
@@ -670,6 +671,11 @@ export class GameView extends LitElement {
         onDiceClock(m);
         this.requestRender();
         return;
+      // EVENTS (r21): how long the players holding up a card table have.
+      case "cardsclock":
+        onCardsClock(m);
+        this.requestRender();
+        return;
       case "ack":
       case "err":
         return;
@@ -694,7 +700,8 @@ export class GameView extends LitElement {
       this.modalView?.k === "event" ||
       this.modalView?.k === "interact" ||
       this.modalView?.k === "outcome" ||
-      this.modalView?.k === "dice"; // DICE (r14): the table shows it
+      this.modalView?.k === "dice" || // DICE (r14): the table shows it
+      this.modalView?.k === "cards"; // EVENTS (r21)
     // Lines a scene is about to show aren't toasted as well.
     const o = life.outcome;
     const inScene =
@@ -2024,7 +2031,9 @@ export class GameView extends LitElement {
     const life = ui.life;
     // DICE (r14): a table you're sitting at, while you've stepped away from it.
     const dice = this.modalView?.k === "dice" ? null : diceTrayItem(ui);
-    if (!life || life.watching || (life.events.length === 0 && !dice))
+    // EVENTS (r21): your card table, while you've stepped away from it.
+    const cards = this.modalView?.k === "cards" ? null : cardsTrayItem(ui);
+    if (!life || life.watching || (life.events.length === 0 && !dice && !cards))
       return nothing;
     if (this.modalView?.k === "event") return nothing;
     return html`<div
@@ -2045,6 +2054,18 @@ export class GameView extends LitElement {
               <circle cx="50" cy="50" r="9" />
             </svg>
             <span class="cq-tray-title">${dice.label}</span>
+          </button>`
+        : nothing}
+      ${cards
+        ? html`<button
+            role="listitem"
+            class="cq-tray-letter cq-tray-dice ${cards.urgent ? "urgent" : ""}"
+            @click=${() => (this.modalView = { k: "cards", id: cards.id })}
+          >
+            <svg class="cq-tray-die" viewBox="0 0 100 100" aria-hidden="true">
+              <rect x="22" y="8" width="56" height="84" rx="5" />
+            </svg>
+            <span class="cq-tray-title">${cards.label}</span>
           </button>`
         : nothing}
       ${repeat(
