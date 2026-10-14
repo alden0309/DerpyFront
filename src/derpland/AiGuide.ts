@@ -166,6 +166,7 @@ export const AI_GUIDE_EN: Readonly<Record<string, string>> = {
   col_pack: "Pack",
   col_leans: "Leans",
   temperaments_title: "How each temperament plays",
+  swipe: "Slide the table sideways to see every temperament.",
   usual: "No pack",
   plays_title: "How it plays",
   same_play:

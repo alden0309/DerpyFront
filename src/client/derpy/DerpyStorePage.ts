@@ -561,7 +561,7 @@ export class DerpyStorePage extends BaseModal {
       data-item=${i.name}
     >
       <header class="flex flex-wrap items-center justify-between gap-3">
-        <div class="flex min-w-0 flex-1 flex-col">
+        <div class="flex min-w-0 flex-[1_1_16rem] flex-col">
           <h3 class="m-0 text-xl font-black text-white">${itemName(i)}</h3>
           <p class="m-0 text-sm text-white/55">${itemDesc(i)}</p>
         </div>

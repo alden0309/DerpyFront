@@ -116,6 +116,7 @@ export function aiCompare(
     <h3 class="dai-sub">${w.t("packs_title")}</h3>
     ${packsTable(w, packs)}
     <h3 class="dai-sub">${w.t("temperaments_title")}</h3>
+    <p class="dai-swipe">${w.t("swipe")}</p>
     ${temperamentsTable(w)}
   </section>`;
 }
@@ -164,12 +165,14 @@ export function packPlays(w: GuideWords, id: string): TemplateResult {
 
 /** Styles for the guide; StorePreviews.ensurePreviewStyles adds them. */
 export const AI_GUIDE_CSS = `
-.dai-compare{--dai-bg:#1b1b1f;margin:0 0 26px;padding:18px;border:1px solid #ffffff1f;border-radius:12px;background:var(--dai-bg);min-width:0}
+.dai-compare{--dai-bg:#1b1b1f;container-type:inline-size;margin:0 0 26px;padding:18px;border:1px solid #ffffff1f;border-radius:12px;background:var(--dai-bg);min-width:0}
 .dai-h{margin:0 0 6px;font-size:18px;font-weight:750;line-height:1.25}
 .dai-intro{margin:0 0 14px;font-size:14px;line-height:1.5;color:#a1a1aa;max-width:76ch}
 .dai-sub{margin:16px 0 8px;font-size:12px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;color:#a1a1aa}
 .dai-plays .dai-sub{margin-top:18px}
-.dai-scroll{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;border-radius:8px}
+.dai-swipe{margin:-4px 0 8px;font-size:12.5px;color:#a1a1aa}
+@container (min-width:1080px){.dai-swipe{display:none}}
+.dai-scroll{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;border-radius:8px;background:linear-gradient(to right,var(--dai-bg,#1b1b1f) 30%,transparent),linear-gradient(to left,var(--dai-bg,#1b1b1f) 30%,transparent) 100% 0,radial-gradient(farthest-side at 0 50%,#000a,transparent),radial-gradient(farthest-side at 100% 50%,#000a,transparent) 100% 0;background-repeat:no-repeat;background-size:40px 100%,40px 100%,16px 100%,16px 100%;background-attachment:local,local,scroll,scroll}
 .dai-scroll:focus-visible{outline:2px solid #f5cc3c;outline-offset:2px}
 .dai-table{border-collapse:collapse;font-size:13px;line-height:1.4}
 .dai-table th,.dai-table td{padding:8px 10px;border-bottom:1px solid #ffffff14;text-align:left;vertical-align:top}
@@ -186,8 +189,8 @@ export const AI_GUIDE_CSS = `
 .dai-temps td{width:15%;color:#d4d4d8}
 .dai-temps td.dai-usual{color:#a1a1aa;background:#ffffff08}
 .dai-temps tbody th,.dai-temps thead td{position:sticky;left:0;z-index:1;width:104px;background:var(--dai-bg,#1b1b1f)}
-.dai-mix{display:flex;gap:3px;margin:0 0 10px;max-width:560px}
-.dai-seg{flex:1 1 0;min-width:0;padding:4px 8px;border-radius:6px;font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#ffffff14;color:#d4d4d8}
+.dai-mix{display:flex;gap:3px;margin:0 0 10px;max-width:680px}
+.dai-seg{flex:1 1 auto;min-width:0;padding:4px 8px;border-radius:6px;font-size:11.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#ffffff14;color:#d4d4d8}
 .dai-seg[data-temperament=aggressive]{background:#ef444433;color:#fca5a5}
 .dai-seg[data-temperament=trader]{background:#eab30833;color:#fde047}
 .dai-seg[data-temperament=turtle]{background:#22c55e33;color:#86efac}
