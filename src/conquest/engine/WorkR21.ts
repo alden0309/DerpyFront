@@ -6,16 +6,18 @@
 // scenes.
 
 import { bidEvents, bidQuiet } from "./Buyouts";
+import "./Duties";
 import type { LifeEventDef } from "./LifeEvents";
 import "./Notice";
 import { staffEvents, staffQuiet } from "./Staff";
+import { workDayEvents, workDayQuiet } from "./WorkDay";
 
 /** Every scene of the round's work (each module's own, added once). */
 export function workR21Events(): LifeEventDef[] {
-  return [...staffEvents(), ...bidEvents()];
+  return [...staffEvents(), ...bidEvents(), ...workDayEvents()];
 }
 
 /** What each scene does left unanswered (its quiet choice). */
 export function workR21Quiet(): Record<string, number> {
-  return { ...staffQuiet(), ...bidQuiet() };
+  return { ...staffQuiet(), ...bidQuiet(), ...workDayQuiet() };
 }

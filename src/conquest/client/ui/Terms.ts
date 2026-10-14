@@ -649,6 +649,14 @@ export const TERMS: Record<string, Term> = {
       "Work › Your work, Hand in your notice: from anywhere, whoever your master is (another player is told). Notice can be taken back while it runs.",
     ch: "workday",
   },
+  duty: {
+    name: "Your duties",
+    what: "What you put yourself to at your post: the usual work, or a duty your rung allows (an apprentice fetches and carries, a journeyman takes orders of his own, a master teaches and keeps the books).",
+    good: "A duty turns what the month teaches towards other skills, and may bring a little more money (tips, a piece-rate, a commission, a prize), a risk, your master's good opinion, renown, the next rung sooner, or a better month for your own business there. A computer master also wants a particular duty each month: do it, and he remembers.",
+    raise:
+      "Work › Your work, under how hard you work. The odds are the ones the month is rolled by.",
+    ch: "workday",
+  },
   bid: {
     name: "Buying out, selling, selling up",
     what: "Offers between partners: to buy another's whole share at a price you name, to sell them yours, or to sell up the whole business.",

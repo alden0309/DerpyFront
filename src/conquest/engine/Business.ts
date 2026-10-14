@@ -390,12 +390,21 @@ export interface StaffInput {
   notes: string[];
 }
 
-/** WORK (r21): the staff's part in a business's month (Staff.ts pushes its reckoning). */
-export const staffHooks: ((
+/**
+ * WORK (r21): the staff's part in a business's month (Staff.ts pushes its
+ * reckoning). A hoisted function, so a module registering itself while this
+ * one is still loading (an import cycle) finds the list.
+ */
+export function staffHooks(): ((
   s: GameState,
   life: Life,
   pr: Property,
-) => StaffInput | undefined)[] = [];
+) => StaffInput | undefined)[] {
+  const f = staffHooks as unknown as {
+    l?: ((s: GameState, life: Life, pr: Property) => StaffInput | undefined)[];
+  };
+  return (f.l ??= []);
+}
 
 /** WORK (r21): the staff's part, if it has any. */
 export function staffInputOf(
@@ -403,11 +412,23 @@ export function staffInputOf(
   life: Life,
   pr: Property,
 ): StaffInput | undefined {
-  for (const h of staffHooks) {
+  for (const h of staffHooks()) {
     const v = h(s, life, pr);
     if (v) return v;
   }
   return undefined;
+}
+
+/** WORK (r21): × on a business's takings from its owner's duty at work there (Duties.ts). */
+export function takeHooks(): ((
+  s: GameState,
+  life: Life,
+  pr: Property,
+) => number)[] {
+  const f = takeHooks as unknown as {
+    l?: ((s: GameState, life: Life, pr: Property) => number)[];
+  };
+  return (f.l ??= []);
 }
 
 /** WORK (r21): the roles on a business's staff that are among its hands. */
@@ -453,6 +474,8 @@ export interface BizInput {
   unpaid?: number;
   /** WORK (r21): its staff by name. */
   staff?: StaffInput;
+  /** WORK (r21): × on its takings: its owner's duty at work there (Duties.ts). */
+  boost?: number;
 }
 
 /** A business's month, line by line. */
@@ -528,7 +551,7 @@ export function bizMonth(i: BizInput): BizView {
     takings = 0;
     master = 0;
   }
-  takings = r1((takings + master) * (i.staff?.takeX ?? 1)); // WORK (r21): a clerk
+  takings = r1((takings + master) * (i.staff?.takeX ?? 1) * (i.boost ?? 1)); // WORK (r21): a clerk; your duty
   master = r1(master);
   // WORK (r21): players and staff by name aren't paid a hand's wage here.
   const wages = (i.paid ?? i.hands - (i.unpaid ?? 0)) * HAND_WAGE;
@@ -697,12 +720,15 @@ export function propertyInput(
   // WORK (r21): staff by name are paid their own pay, not a hand's wage.
   const staff = staffInputOf(s, life, pr);
   const unpaid = players + (staff?.hands ?? 0);
+  let boost = 1;
+  for (const h of takeHooks()) boost *= h(s, life, pr);
   return {
     job: pr.job!,
     level: pr.level,
     hands: handCount(pr),
     ...(unpaid ? { unpaid } : {}),
     ...(staff ? { staff } : {}),
+    ...(boost !== 1 ? { boost } : {}),
     ...mind,
     custom: st?.custom ?? townCustom(s, pr.prov, pr.job!, { prop: pr.id }).free,
     month: dateOf(o.day ?? s.day).month,

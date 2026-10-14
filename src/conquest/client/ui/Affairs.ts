@@ -129,7 +129,7 @@ import { tradesLink, workNotes } from "./Livelihood";
 import { price } from "./Price"; // LEDGER (r15)
 import { berthLine } from "./ShipsUi"; // SHIPS (r21)
 import { term } from "./Terms";
-import { quitBlock, staffBerthLine } from "./WorkR21"; // WORK (r21)
+import { dutyBlock, quitBlock, staffBerthLine } from "./WorkR21"; // WORK (r21)
 
 // ---------------------------------------------------------------- work
 
@@ -206,6 +206,11 @@ export function workSection(ui: GameUi): TemplateResult {
           >
         </div>
         ${workNotes(ui)}
+        ${
+          dutyBlock(
+            ui,
+          ) /* WORK (r21): your duties, your master's wish, the people you work beside */
+        }
         <p class="cq-work-note small">
           ${!here && job.army < 0 && leaveCounts(ui) /* ECON (r17) */
             ? "Away from your post."

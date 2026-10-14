@@ -451,7 +451,7 @@ export function staffInput(
   };
 }
 
-staffHooks.push(staffInput);
+staffHooks().push(staffInput);
 
 // ---------------------------------------------------------------- who could be taken on
 

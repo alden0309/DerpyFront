@@ -22,6 +22,15 @@ import {
   defaultPlan,
 } from "../../src/conquest/engine/Company";
 import { applyDelta } from "../../src/conquest/engine/Delta";
+import {
+  dutiesFor,
+  dutyMonth,
+  dutyOdds,
+  dutyOf,
+  dutyXp,
+  masterWants,
+} from "../../src/conquest/engine/Duties";
+import { DUTIES } from "../../src/conquest/engine/DutiesData";
 import { buyoutPrice } from "../../src/conquest/engine/Firms";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import {
@@ -31,10 +40,16 @@ import {
   roleOf,
   signOdds,
 } from "../../src/conquest/engine/Hiring";
+import { raiseEvent } from "../../src/conquest/engine/Hooks";
+import { JOB_GROUPS, jobGroupOf } from "../../src/conquest/engine/JobsData";
 import { ledgerForecast } from "../../src/conquest/engine/Ledger";
 import { autoAnswerLife } from "../../src/conquest/engine/LifeEvents";
 import { jobTitle, lifeOfSeat } from "../../src/conquest/engine/LifeQueries";
-import { BUSINESS_HANDS, HAND_WAGE } from "../../src/conquest/engine/LifeRules";
+import {
+  BUSINESS_HANDS,
+  HAND_WAGE,
+  JOBS,
+} from "../../src/conquest/engine/LifeRules";
 import { marketTrade, netNow } from "../../src/conquest/engine/Markets";
 import { NOTICE_DAYS, quitView } from "../../src/conquest/engine/Notice";
 import { holdChoices, suggestTerms } from "../../src/conquest/engine/Partners";
@@ -54,6 +69,7 @@ import type {
   Life,
   Property,
 } from "../../src/conquest/engine/Types";
+import { colleaguesOf, WORKDAY } from "../../src/conquest/engine/WorkDay";
 import { lifeOf, map, plan, prov, world } from "./LifeUtil";
 
 vi.setConfig({ testTimeout: 240_000 });
@@ -756,5 +772,138 @@ describe("partnership buyouts and sales by offer", () => {
       cmd(g, { k: "bid", act: "make", id: f.id, key: "sellall" }),
     ).toBeNull();
     expect(f.status).toBe("dissolved");
+  });
+});
+
+// ---------------------------------------------------------------- the work itself
+
+describe("the work itself: duties by rung, your master's wish, the people you work beside", () => {
+  test("every family of work has duties, and every trade at least two", () => {
+    for (const g of JOB_GROUPS)
+      expect(
+        DUTIES.some((d) => d.for.includes(g.id)),
+        `${g.id} has duties`,
+      ).toBe(true);
+    const { life } = game(51);
+    for (const kind of Object.keys(JOBS) as (keyof typeof JOBS)[]) {
+      life.job = { ...life.job!, kind, rank: 0 };
+      const n = dutiesFor(life).length;
+      expect(
+        n,
+        `${kind} (${jobGroupOf(kind, JOBS[kind])})`,
+      ).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  test("rungs change what you do: an apprentice fetches and watches, a journeyman takes orders", () => {
+    const { g, life } = game(52, { background: "craftsman" });
+    expect(life.job?.kind).toBe("craftsman");
+    life.job!.rank = 0;
+    const open = (k: string) =>
+      dutiesFor(life).find((x) => x.def.key === k)!.check;
+    expect(open("craft-fetch").ok).toBe(true);
+    expect(open("craft-watch").ok).toBe(true);
+    expect(open("craft-orders")).toMatchObject({ ok: false });
+    expect(cmd(g, { k: "duty", act: "set", key: "craft-orders" })).toMatch(
+      /From journeyman/,
+    );
+    expect(cmd(g, { k: "duty", act: "set", key: "craft-watch" })).toBeNull();
+    expect(dutyOf(life)?.key).toBe("craft-watch");
+    // Watching the master teaches the trade faster than the usual.
+    const xp = Object.fromEntries(dutyXp(life));
+    expect(xp.craft).toBe(11);
+    life.job!.rank = 1;
+    expect(open("craft-fetch")).toMatchObject({ ok: false });
+    expect(open("craft-orders").ok).toBe(true);
+    life.job!.rank = 2;
+    // Past watching: back to the usual until another is chosen.
+    expect(dutyOf(life)).toBeUndefined();
+    expect(Object.fromEntries(dutyXp(life))).toEqual({ craft: 7, trade: 3 });
+  });
+
+  test("a duty's money comes as often as its odds say, on WORK's own dice (the world's dice don't move)", () => {
+    const { g, life } = game(53, { background: "craftsman" });
+    life.job!.rank = 1;
+    expect(cmd(g, { k: "duty", act: "set", key: "craft-orders" })).toBeNull();
+    const d = dutyOf(life)!;
+    const o = dutyOdds(life, d);
+    expect(o.outcomes[0].p).toBe(d.bonus!.p);
+    const n = 2000;
+    let hits = 0;
+    const rng = g.s.rng;
+    const day = g.s.day;
+    for (let i = 0; i < n; i++) {
+      g.s.day = day + i * 31;
+      const before = life.tally.earned;
+      dutyMonth(g, life, 1);
+      if (life.tally.earned > before) hits++;
+    }
+    g.s.day = day;
+    expect(g.s.rng).toBe(rng);
+    const p = d.bonus!.p;
+    const sd = Math.sqrt((p * (1 - p)) / n);
+    expect(Math.abs(hits / n - p)).toBeLessThan(3 * sd);
+    // And it's in the month's figure, at what it's expected to bring.
+    const line = ledgerForecast(g.s, g.w, life).lines.find(
+      (l) => l.key === "duty",
+    );
+    expect(line?.value).toBeCloseTo(o.expected, 2);
+    expect(line?.chance).toEqual([o.lo, o.hi]);
+  });
+
+  test("your master wants a duty this month; doing it, he remembers", () => {
+    const { g, life } = game(54, { background: "craftsman" });
+    life.job!.rank = 1;
+    const boss = life.job!.employer;
+    const want = masterWants(g.s, life)!;
+    expect(want).toBeTruthy();
+    expect(want.own).toBeFalsy();
+    expect(cmd(g, { k: "duty", act: "set", key: want.key })).toBeNull();
+    life.job!.worked = 24;
+    dutyMonth(g, life, 1);
+    expect(memoryOf(g, boss, life.c, "Did as I asked")).toBeTruthy();
+  });
+
+  test("the people you work beside are the computer's, and they (and your master) come to you now and then", () => {
+    const { g, life } = game(55, { background: "sailor", seats: 2 });
+    expect(WORKDAY.on).toBe(true);
+    const bea = lifeOfSeat(g.s, "s2")!;
+    const mates = colleaguesOf(g.s, g.w, life);
+    expect(mates.length).toBeGreaterThan(0);
+    for (const c of mates) {
+      expect(c.id).not.toBe(bea.c);
+      expect(c.id).not.toBe(life.c);
+    }
+    const seen: string[] = [];
+    for (let i = 0; i < 730; i++) {
+      g.tick();
+      for (const l of g.s.lives)
+        for (const e of [...l.events]) {
+          if (/^(cw|mw)-/.test(e.key)) {
+            seen.push(e.key);
+            // Nobody's played character is put into one.
+            expect(g.s.lives.some((x) => x.c === e.ctx.c)).toBe(false);
+          }
+          autoAnswerLife(g, l.seat, e.id);
+        }
+    }
+    expect(seen.length).toBeGreaterThanOrEqual(2);
+    // Never the same scene twice within its rest.
+    expect(new Set(seen).size).toBeGreaterThanOrEqual(Math.min(2, seen.length));
+  });
+
+  test("a request answered: mind the place, and your master remembers", () => {
+    const { g, life } = game(56, { background: "craftsman" });
+    life.job!.rank = 2;
+    life.skills.craft = 25;
+    const boss = life.job!.employer;
+    raiseEvent(g, life, "mw-mind", { c: boss });
+    const ev = life.events.find((e) => e.key === "mw-mind")!;
+    expect(ev).toBeTruthy();
+    expect(cmd(g, { k: "event", id: ev.id, choice: 0 })).toBeNull();
+    const m =
+      memoryOf(g, boss, life.c, "Minded the place for me") ??
+      memoryOf(g, boss, life.c, "Made a mess of it");
+    expect(m).toBeTruthy();
   });
 });

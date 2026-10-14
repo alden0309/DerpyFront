@@ -27,6 +27,14 @@ import {
   placeName,
 } from "../../engine/Company";
 import {
+  dutyOf,
+  dutyRows,
+  masterName,
+  masterWants,
+  npcMaster,
+} from "../../engine/Duties";
+import { USUAL, USUAL_TEXT } from "../../engine/DutiesData";
+import {
   askingPay,
   expectedRole,
   fitFor,
@@ -37,7 +45,14 @@ import {
   roleSkillWords,
   signOdds,
 } from "../../engine/Hiring";
-import { lifeOfChar, lifeOfSeat, meOf } from "../../engine/LifeQueries";
+import { jobGroupOf } from "../../engine/JobsData";
+import {
+  lifeOfChar,
+  lifeOfSeat,
+  meOf,
+  opinionOf,
+} from "../../engine/LifeQueries";
+import { JOBS, SKILL_NAMES } from "../../engine/LifeRules";
 import { quoteCut } from "../../engine/Markets";
 import { NOTICE_DAYS, NOTICE_WORKED, quitView } from "../../engine/Notice";
 import { MAX_ROUNDS } from "../../engine/PartnersCore";
@@ -63,6 +78,7 @@ import type {
   JobKind,
   Property,
 } from "../../engine/Types";
+import { colleaguesOf } from "../../engine/WorkDay";
 import { num } from "../Tip";
 import {
   action,
@@ -1092,5 +1108,103 @@ function makeBlock(ui: GameUi, f: Firm): TemplateResult {
         `small ${kind === "sellall" ? "risky" : "primary"}`,
       )}
     </div>
+  </div>`;
+}
+
+// ---------------------------------------------------------------- the work itself
+
+/**
+ * On Work › Your work: what you put yourself to at your post (the usual, or
+ * a duty your rung allows), with what each teaches, its odds and its risks;
+ * what your master wants this month; and the people you work beside.
+ */
+export function dutyBlock(ui: GameUi): TemplateResult {
+  const s = ui.s;
+  const life = ui.life!;
+  const job = life.job;
+  if (!job) return html``;
+  const def = JOBS[job.kind];
+  const rows = dutyRows(s, ui.w, life);
+  if (!rows.length) return html``;
+  const now = dutyOf(life)?.key ?? USUAL;
+  const want = masterWants(s, life);
+  const boss = masterName(s, life);
+  const he = npcMaster(s, life)?.female ? "she" : "he";
+  const group = jobGroupOf(job.kind, def);
+  const set = (key: string) =>
+    key !== now && void ui.cmd({ k: "duty", act: "set", key });
+  const mates = colleaguesOf(s, ui.w, life);
+  return html`<div class="cq-duties">
+    <h4 class="cq-int-group">${term("duty", "Your duties")}</h4>
+    ${want && boss
+      ? html`<p class="small cq-duty-want">
+          ${boss} wants you to <b>${want.name.toLowerCase()}</b> this month.
+          ${now === want.key
+            ? html`<span class="good">You are: ${he}'ll remember it.</span>`
+            : `Do it, and ${he}'ll remember it.`}
+        </p>`
+      : nothing}
+    <ul class="cq-duty-list" role="radiogroup" aria-label="Your duties">
+      <li class=${now === USUAL ? "on" : ""}>
+        <button
+          role="radio"
+          aria-checked=${now === USUAL}
+          @click=${() => set(USUAL)}
+        >
+          <b>The usual work</b>
+          <span class="cq-muted small"
+            >${USUAL_TEXT[group]} Learns ${SKILL_NAMES[def.main].toLowerCase()}
+            and ${SKILL_NAMES[def.second].toLowerCase()}.</span
+          >
+        </button>
+      </li>
+      ${rows.map(
+        (r) =>
+          html`<li
+            class="${now === r.def.key ? "on" : ""} ${r.check.ok
+              ? ""
+              : "locked"}"
+          >
+            <button
+              role="radio"
+              aria-checked=${now === r.def.key}
+              ?disabled=${!r.check.ok}
+              title=${r.check.ok ? r.def.text : r.check.why}
+              @click=${() => set(r.def.key)}
+            >
+              <b
+                >${r.def.name}${r.wanted && boss
+                  ? html` <span class="cq-chip gold">wanted</span>`
+                  : nothing}${r.check.ok
+                  ? nothing
+                  : html` <span class="cq-chip">${r.check.why}</span>`}</b
+              >
+              <span class="cq-muted small">${r.def.text}</span>
+              <span class="small cq-duty-fx">${r.words.join(" · ")}</span>
+            </button>
+          </li>`,
+      )}
+    </ul>
+    ${mates.length
+      ? html`<p class="small cq-duty-mates">
+          You work beside
+          ${mates.map(
+            (c, i) =>
+              html`${i
+                  ? i === mates.length - 1
+                    ? " and "
+                    : ", "
+                  : ""}${charLink(ui, c, false)}
+                <span class="cq-muted"
+                  >(${opinionOf(s, c, life).total >= 0 ? "+" : ""}${opinionOf(
+                    s,
+                    c,
+                    life,
+                  ).total})</span
+                >`,
+          )}.
+          Now and then one of them, or your master, comes to you with something.
+        </p>`
+      : nothing}
   </div>`;
 }

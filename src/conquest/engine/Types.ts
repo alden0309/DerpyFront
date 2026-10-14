@@ -2221,6 +2221,8 @@ export interface WorkState {
   caught?: number;
   /** A task taken on: its key, the day it's due, and what it pays. */
   task?: { key: string; due: number; pay: number; skill: Skill } | null;
+  /** WORK (r21): the duty you've put yourself to at work (DutiesData.ts), or the usual. */
+  duty?: string;
 }
 
 /** Someone the law wants: a rogue with a price on their head. */
