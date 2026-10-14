@@ -50,7 +50,7 @@ interface BuiltPlace {
   ticks: ((t: number) => void)[];
   /** One clipping plane per room that can be cut away. */
   cuts: Map<string, { plane: THREE.Plane; h: number; level: number }>;
-  hideInside: { obj: THREE.Object3D; areas: string[] }[];
+  hideInside: { obj: THREE.Object3D; areas: string[]; shown?: boolean }[];
   props: Map<string, THREE.Object3D>;
   lamps: THREE.Vector3[];
   streaks: THREE.Object3D[];
@@ -639,7 +639,7 @@ export class World {
     let indoors = false;
     for (const [id, cut] of this.place.cuts) {
       const inside =
-        (area?.id === id && area.inside) ||
+        (area?.id === id && area.inside === true) ||
         (shot !== undefined && this.shotInside(shot.at, id));
       const want = inside ? CUT_HEIGHT : 100;
       cut.level += (want - cut.level) * (snap ? 1 : 1 - Math.exp(-dt * 6));
@@ -653,9 +653,19 @@ export class World {
       (snap ? 1 : 1 - Math.exp(-dt * 3));
     this.rain.setStrength(this.rainLevel);
     for (const h2 of this.place.hideInside) {
-      h2.obj.visible = h2.areas.every((a) => {
+      const show = h2.areas.every((a) => {
         const cut = this.place!.cuts.get(a);
         return !cut || cut.level > 20;
+      });
+      if (h2.shown === show) continue;
+      h2.shown = show;
+      // Hide what's drawn but keep any light on, so nothing recompiles.
+      h2.obj.traverse((o) => {
+        if (!(o as THREE.Light).isLight && o !== h2.obj) {
+          if ((o as THREE.Mesh).isMesh || (o as THREE.Sprite).isSprite) {
+            o.visible = show;
+          }
+        }
       });
     }
   }
@@ -782,7 +792,11 @@ export class World {
     if (this.disposed) return;
     this.frame = requestAnimationFrame(this.loop);
     this.timer.update();
-    const dt = Math.min(0.05, this.timer.getDelta());
+    // Screenshot runs on a software renderer speed time up; players never.
+    const scale =
+      (window as unknown as { __basedTimeScale?: number }).__basedTimeScale ??
+      1;
+    const dt = Math.min(0.05, this.timer.getDelta()) * scale;
     this.time += dt;
     weatherTime.value = this.time;
     // Slow device? Drop the brushwork, then resolution.

@@ -616,7 +616,9 @@ export class BasedPlayer extends LitElement {
 
   /** Keeps the marks over their hotspots as the camera moves. */
   private moveMarks(list: HotspotOnScreen[]): void {
-    for (const h of list) {
+    // Labels that would sit on top of each other step down a line.
+    const placed: { x: number; y: number }[] = [];
+    for (const h of [...list].sort((a, b) => a.y - b.y)) {
       let el = this.marks.get(h.id);
       if (!el) {
         el =
@@ -627,6 +629,18 @@ export class BasedPlayer extends LitElement {
       }
       el.style.transform = `translate(${h.x.toFixed(1)}px, ${h.y.toFixed(1)}px)`;
       el.style.visibility = h.visible ? "visible" : "hidden";
+      let dy = 0;
+      if (h.visible) {
+        while (
+          placed.some(
+            (p) => Math.abs(p.x - h.x) < 150 && Math.abs(p.y - (h.y + dy)) < 26,
+          )
+        ) {
+          dy += 26;
+        }
+        placed.push({ x: h.x, y: h.y + dy });
+      }
+      el.style.setProperty("--ly", `${dy}px`);
     }
   }
 
@@ -1065,7 +1079,7 @@ export class BasedPlayer extends LitElement {
 
   private checkLabel(c: CheckView): TemplateResult {
     return html`<span
-      class="mb-check ${c.kind}"
+      class="mb-ck ${c.kind}"
       style="--c:${this.skillColor(c.skill)}"
       title=${[
         `${this.skillName(c.skill)} ${c.base}`,
@@ -1138,7 +1152,7 @@ export class BasedPlayer extends LitElement {
           : nothing}
       </div>
       ${!flat && !b.still
-        ? html`<div class="mb-hint">
+        ? html`<div class="mb-walk-hint">
             ${this.narrow ? "Tap" : "Click"} the floor to walk, a mark to look.
           </div>`
         : nothing}

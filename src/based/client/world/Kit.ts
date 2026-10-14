@@ -940,10 +940,13 @@ function shopfront(item: Item, k: KitContext): Built {
     g.add(m);
   }
   const glowColor = str(item.glow, "#ffcf8a");
-  const win = new THREE.Mesh(
-    new THREE.PlaneGeometry(w * 0.8, h * 0.55),
-    rainGlass({ glow: glowColor, strength: num(item.strength, 0.55) }),
-  );
+  const glass = rainGlass({
+    glow: glowColor,
+    strength: num(item.strength, 0.55),
+  });
+  // Seen only from the street it faces (from behind it would be a slab).
+  glass.side = THREE.FrontSide;
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.8, h * 0.55), glass);
   win.position.set(0, h * 0.42, 0.04);
   g.add(win);
   const lights: PieceLight[] = [];
@@ -1048,7 +1051,7 @@ function small(item: Item): Built {
       roughness: 0.1,
       transparent: true,
       opacity: op,
-      emissive: new THREE.Color(color).multiplyScalar(0.25),
+      emissive: new THREE.Color(color).multiplyScalar(0.12),
     });
   switch (kind) {
     case "tumbler": {
@@ -1059,7 +1062,7 @@ function small(item: Item): Built {
       glass.position.y = 0.045;
       const whisky = new THREE.Mesh(
         new THREE.CylinderGeometry(0.034, 0.032, 0.03, 14),
-        liquid("#b5651d"),
+        liquid("#d08a1c"),
       );
       whisky.position.y = 0.017;
       g.add(glass, whisky);

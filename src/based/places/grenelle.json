@@ -542,12 +542,14 @@
     {
       "kind": "lamppost",
       "at": [-2, 0, 5.1],
-      "h": 4.2
+      "h": 4.2,
+      "hideInside": ["bar", "lobby"]
     },
     {
       "kind": "lamppost",
       "at": [11, 0, 5.1],
-      "h": 4.2
+      "h": 4.2,
+      "hideInside": ["bar", "lobby"]
     },
     {
       "kind": "lamppost",

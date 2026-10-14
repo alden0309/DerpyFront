@@ -76,8 +76,8 @@ export const LOOKS: Record<string, Look> = {
   barman: {
     body: "m",
     skin: "#c9987a",
-    hair: "#bdb7ad",
-    hairStyle: "grey_short",
+    hair: "#7d776f",
+    hairStyle: "short",
     jacket: "#151517",
     sleeves: "#e8e4da",
     shirt: "#e8e4da",
@@ -248,7 +248,7 @@ function paint(
       const t = (v.y - hy0) / headH;
       const back = (v.z - j.head.z) * j.front < -0.02;
       const sides = Math.abs(v.x - j.head.x) > 0.065;
-      let hair = false;
+      let hair: boolean;
       switch (look.hairStyle) {
         case "bob":
           hair = t > 0.6 || (back && t > 0.12) || (sides && t > 0.22);
@@ -262,8 +262,10 @@ function paint(
         default:
           hair = t > 0.66 || (back && t > 0.3) || (sides && t > 0.55);
       }
-      if (v.y < j.neck.y + 0.03 && bone === "neck_01") s = look.shirt;
-      else if (hair) s = look.hair;
+      if (v.y < j.neck.y + 0.03 && bone === "neck_01") {
+        // A shirt collar in front; the jacket's (or coat's) at the back.
+        s = back ? (look.coat ?? look.jacket) : look.shirt;
+      } else if (hair) s = look.hair;
       else if (
         look.moustache &&
         !back &&

@@ -52,14 +52,8 @@
     },
     {
       "kind": "skyline",
-      "at": [0, -1.0, -9.5],
-      "size": [34, 12]
-    },
-    {
-      "kind": "floor",
-      "at": [0, -0.05, -7],
-      "size": [40, 6],
-      "surface": "asphalt"
+      "at": [0, -6.5, -9.5],
+      "size": [36, 13]
     },
     {
       "kind": "wall",
@@ -80,9 +74,9 @@
           "h": 3.9,
           "y": 0.15,
           "kind": "window",
-          "glow": "#d9884a",
-          "strength": 0.55,
-          "opacity": 0.35
+          "glow": "#e09050",
+          "strength": 0.8,
+          "opacity": 0.3
         },
         {
           "at": 2.2,
@@ -166,16 +160,6 @@
       "mat": "oak_dark"
     },
     {
-      "kind": "lamp",
-      "at": [3.3, 0.78, -0.7],
-      "style": "banker",
-      "light": {
-        "color": "#ffb36a",
-        "intensity": 0.0,
-        "distance": 0.1
-      }
-    },
-    {
       "kind": "model",
       "at": [2.8, 0, 0.3],
       "model": "chairCushion",
@@ -225,15 +209,15 @@
     },
     {
       "kind": "hemi",
-      "color": "#1a2238",
-      "ground": "#050404",
-      "intensity": 0.25
+      "color": "#26304a",
+      "ground": "#0a0706",
+      "intensity": 0.5
     }
   ],
   "env": {
     "background": "#030406",
     "fog": "#120c0a",
     "fogDensity": 0.02,
-    "exposure": 1.15
+    "exposure": 1.35
   }
 }
