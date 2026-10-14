@@ -40,7 +40,12 @@ import {
   skillLevel,
   yes,
 } from "./LifeQueries";
-import { clanName, NATIVE_CLANS, NATIVE_NAMES } from "./LifeRules";
+import {
+  clanName,
+  NATIVE_CLANS,
+  NATIVE_NAMES,
+  skillWeight, // LIFE (r21)
+} from "./LifeRules";
 import type { World } from "./Map";
 import { NAMES } from "./Names";
 import { wake } from "./Pace";
@@ -178,6 +183,31 @@ export const FOLLOWER_KINDS: Record<FollowerKind, FollowerKindDef> = {
     text: "Speaks your tongue and the country's: at your side, they carry your words where you share no tongue (a smaller penalty than a stranger's help), and put your letters into the reader's tongue.",
     fight: 0.5,
   },
+  // LIFE (r21): learned people for your household (Retinue.ts gives them their posts).
+  physician: {
+    name: "Physician",
+    plural: "Physicians",
+    ranks: ["Surgeon's mate", "Physician", "Doctor of physic"],
+    wage: [3, 4.5, 6],
+    skill: "medicine",
+    second: "letters",
+    stat: "lea",
+    where: ["apothecary"],
+    text: "A physician of your household: keeps you well (health each month, fewer deaths of sickness) as your physician, or anything else you set them to.",
+    fight: 0.3,
+  },
+  tutor: {
+    name: "Tutor",
+    plural: "Tutors and secretaries",
+    ranks: ["Tutor", "Master", "Learned master"],
+    wage: [2, 3, 4.5],
+    skill: "letters",
+    second: "faith",
+    stat: "lea",
+    where: ["church", "press"],
+    text: "A learned hand: teaches your children, keeps your letters as your secretary, or prays with you as your chaplain.",
+    fight: 0.3,
+  },
 };
 
 export const FOLLOWER_KIND_ORDER: FollowerKind[] = [
@@ -189,6 +219,8 @@ export const FOLLOWER_KIND_ORDER: FollowerKind[] = [
   "guide",
   "officer",
   "interpreter", // wave 2 (r11)
+  "physician", // LIFE (r21)
+  "tutor", // LIFE (r21)
 ];
 
 /** Signing money for someone new. */
@@ -267,8 +299,10 @@ export function fightOf(s: GameState, f: Follower): number {
 
 /** Your side's strength in a fight: you, those with you, and your company. */
 export function strengthOf(s: GameState, life: Life): number {
+  // LIFE (r21): past 20 a level counts half (thirty levels now).
   let v =
-    skillLevel(s, life, "fighting") * 3 + skillLevel(s, life, "leadership");
+    skillWeight(skillLevel(s, life, "fighting")) * 3 +
+    skillWeight(skillLevel(s, life, "leadership"));
   for (const f of peopleOf(life)) if (!f.task) v += fightOf(s, f);
   const co = life.company;
   if (co && co.army < 0 && co.men > 0)
@@ -364,6 +398,19 @@ const NOTES: Record<FollowerKind, string[]> = {
     "a trader's child, raised in the village",
     "a captive who came back",
   ],
+  // LIFE (r21)
+  physician: [
+    "trained at Leyden",
+    "lately surgeon to a regiment",
+    "bled half the county and kept most of it",
+    "learned physic in a ship's sick bay",
+  ],
+  tutor: [
+    "a Latin scholar down on his luck",
+    "lately a governess to a planter's daughters",
+    "a candidate for the ministry, waiting for a pulpit",
+    "writes a beautiful hand",
+  ],
 };
 
 /** The people for hire at a place this month (the same for everyone). */
@@ -417,12 +464,15 @@ export function candidatesAt(
       kind = "guide";
     const def = FOLLOWER_KINDS[kind];
     const female =
-      kind === "clerk" ||
-      kind === "guide" ||
-      kind === "rogue" ||
-      kind === "interpreter" // wave 2 (r11)
-        ? rng.chance(0.2)
-        : rng.chance(0.06);
+      kind === "tutor" // LIFE (r21): governesses
+        ? rng.chance(0.35)
+        : kind === "clerk" ||
+            kind === "guide" ||
+            kind === "rogue" ||
+            kind === "physician" || // LIFE (r21): physic and midwifery
+            kind === "interpreter" // wave 2 (r11)
+          ? rng.chance(0.2)
+          : rng.chance(0.06);
     const stats = {
       dip: rng.int(3, 8),
       mar: rng.int(3, 8),

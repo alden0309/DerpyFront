@@ -59,6 +59,7 @@ import {
 import { AMERICAS, World, worldOf } from "./Map";
 import { joinMovement, movementOf, recruitInto } from "./Movements";
 import { handOf, hireCheck, hireHand } from "./Property";
+import { giftWorth, REGARD, talksWith, warm } from "./Regard"; // LIFE (r21)
 // SOCIETY (r11)
 import { isBound } from "./BondCore"; // LABOUR (r15)
 import {
@@ -783,11 +784,18 @@ function acceptanceOf(
     case "promote":
       return promotionAcceptance(s, life, c);
     case "befriend": {
-      const e = new Explain().add("Friendship takes time", -15);
+      // LIFE (r21): friendship takes longer, and they must know you first.
+      const e = new Explain().add("Friendship takes time", REGARD.friendTime);
       opinion(e);
       const shared = me.traits.filter((t) => c.traits.includes(t)).length;
       if (shared) e.add("Kindred spirits", Math.min(10, shared * 5));
-      if (c.memories.some((m) => m.of === me.id && m.why === "Good company"))
+      const talks = talksWith(c, me.id, s.day);
+      if (talks < REGARD.knowTalks)
+        e.add(
+          `You hardly know each other (${talks} of ${REGARD.knowTalks} talks)`,
+          REGARD.stranger,
+        );
+      else if (talks >= REGARD.manyTalks)
         e.add("You've passed many an hour", 5);
       if (hasTrait(c, "generous")) e.add("Warm-hearted", 5);
       if (life.ties[c.id] === "lover") e.add("Sweethearts already", 15);
@@ -1168,11 +1176,11 @@ export function doInteraction(
             : playerTalkLine(g, life, c)
           : t;
       if (view.tongue && view.tongue.level === 0) {
-        remembers(g, life, c, "Good company", 1, 1);
+        warm(g, life, c, "Good company", 0.5); // LIFE (r21): less each time
         sayTalk(g, life, c, said(signTalk(g, c)), first); // CHAMBER (r16)
         return null;
       }
-      remembers(g, life, c, "Good company", 3, 1);
+      warm(g, life, c, "Good company"); // LIFE (r21): less each time
       // CHAMBER (r16): news first, larger pools; small talk with the same
       // person goes in the journal only the first few times a year.
       sayTalk(g, life, c, said(smallTalk(g, life, c, first)), first);
@@ -1183,7 +1191,7 @@ export function doInteraction(
       // CHAMBER (r16): lines from larger pools; praise that landed is
       // written down the first few times a year, praise that didn't always.
       if (pass) {
-        remembers(g, life, c, "Flattered me", 10, 2);
+        warm(g, life, c, "Flattered me"); // LIFE (r21): less each time
         sayOrWrite(
           g,
           life,
@@ -1212,11 +1220,9 @@ export function doInteraction(
       spend(g, life, amount);
       const status = statusOf(s, c);
       const mult = hasTrait(me, "generous") ? 1.5 : 1;
-      const v = Math.min(
-        30,
-        Math.round(((amount * 3) / (status + 1)) * mult) + 2,
-      );
-      remembers(g, life, c, "A generous gift", v, 3);
+      // LIFE (r21): worth less, and less again each time (Regard.ts).
+      const v = giftWorth(amount, status, mult);
+      warm(g, life, c, "A generous gift", v);
       const player = lifeOfChar(s, cId);
       if (player) {
         earn(g, player, amount);
@@ -1230,7 +1236,7 @@ export function doInteraction(
         g,
         life,
         `gift:${cId}`,
-        `You gave ${name} ${amount} coins. ${giftThanks(g, life, c, v >= 15)}`.trim(),
+        `You gave ${name} ${amount} coins. ${giftThanks(g, life, c, v >= 8)}`.trim(),
         !!player,
       );
       return null;
@@ -1277,7 +1283,7 @@ export function doInteraction(
         if (a) exposeBy(g, life, a, pass ? 3 : 8);
       }
       if (pass) {
-        remembers(g, life, c, "Courted me", 12, 2);
+        warm(g, life, c, "Courted me"); // LIFE (r21): it builds, more slowly
         if (opinionOf(s, c, life).total >= 60) {
           setTie(g, life, cId, "lover");
           if (wouldBeAffair(s, life, c)) {

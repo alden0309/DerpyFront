@@ -2,11 +2,12 @@
 // milestone, learn, grow famous, earn and spend, get hurt, be remembered by
 // someone. Kept here so jobs, events, movements and politics share them.
 
+import { maxHealth, strained } from "./Body"; // LIFE (r21)
 import { kill } from "./Characters";
 import type { ConquestGame } from "./Game";
 import { flowAff, noteFlow } from "./LedgerCore"; // LEDGER (r15)
 import { meOf } from "./LifeQueries";
-import { SKILL_MAX, SKILL_NAMES, xpToNext } from "./LifeRules";
+import { SKILL_MAX, SKILL_NAMES, SKILL_TIERS, xpToNext } from "./LifeRules"; // LIFE (r21): SKILL_TIERS
 import { charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR, TRAITS } from "./Rules";
 import { rumour } from "./Rumours";
@@ -156,13 +157,19 @@ export function gainXp(
       g,
       life,
       // FIXES (r15): "your letters have grown", not "has".
-      `Your ${SKILL_NAMES[sk].toLowerCase()} ${/s$/.test(SKILL_NAMES[sk]) ? "have" : "has"} grown to ${life.skills[sk]}.`,
+      `Your ${SKILL_NAMES[sk].toLowerCase()} ${/s$/.test(SKILL_NAMES[sk]) ? "have" : "has"} grown to ${life.skills[sk]}.${tierLine(life.skills[sk])}`,
       "good",
       false, // LEDGER (r15)
     );
   }
   if (life.skills[sk] >= SKILL_MAX) life.xp[sk] = 0;
   life.xp[sk] = Math.round(life.xp[sk] * 10) / 10;
+}
+
+/** LIFE (r21): reaching a new tier of the thirty levels says so. */
+function tierLine(level: number): string {
+  const t = SKILL_TIERS.find((x) => x.from === level && x.from >= 8);
+  return t ? ` ${t.name}: ${t.text.replace(/\.$/, "")}.` : "";
 }
 
 export function addRenown(g: ConquestGame, life: Life, n: number): void {
@@ -209,7 +216,12 @@ export function addStress(g: ConquestGame, life: Life, n: number): void {
 
 export function heal(g: ConquestGame, life: Life, n: number): void {
   touchLife(g, life);
-  life.health = Math.max(0, Math.min(100, Math.round(life.health + n)));
+  // LIFE (r21): never above the most the body can hold now (less with age).
+  const top = Math.max(life.health, maxHealth(g.s, life));
+  life.health = Math.max(
+    0,
+    Math.min(n > 0 ? maxHealth(g.s, life) : top, Math.round(life.health + n)),
+  );
 }
 
 /** Health lost; at nothing, death. Returns whether they died. */
@@ -219,7 +231,8 @@ export function hurt(
   n: number,
   cause: string,
 ): boolean {
-  heal(g, life, -n);
+  // LIFE (r21): strain makes every hurt worse (Body.ts's tiers).
+  heal(g, life, -strained(n, life.stress));
   if (life.health > 0) return false;
   const me = meOf(g.s, life);
   if (me?.alive) kill(g, me, cause);

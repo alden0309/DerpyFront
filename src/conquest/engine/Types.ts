@@ -190,6 +190,8 @@ export interface Memory {
   value: number;
   /** Day it's forgotten; 0 = never. */
   until: number;
+  /** LIFE (r21): how many times it's been earned while it lasted (each counts for less). */
+  n?: number;
 }
 
 export interface Character {
@@ -293,7 +295,9 @@ export type PlaceKind =
   | "home"
   // LIFE (r11): the watch-house and gaol; the thieves' den (found, not seen).
   | "gaol"
-  | "den";
+  | "den"
+  // LIFE (r21): the bawdy house, in a great port or a capital.
+  | "bawdy";
 
 /** A trade with a ladder to climb. */
 export type JobKind =
@@ -851,6 +855,8 @@ export interface Life {
   chair?: LifeChair;
   /** ECON (r17): leave from your work (or a county office): granted, overstayed, asked. */
   leave?: LeaveState;
+  /** LIFE (r21): the skill scale, study, marks (a coward, the pox), the bawdy house. */
+  r21?: LifeR21;
 }
 
 /** A character a player designs before they begin (or drop into a world). */
@@ -1948,7 +1954,9 @@ export type LifeCommand =
   // WAR (r17): a town under foreign rule: stirring it up, its plot.
   | ReclaimCommand
   // CROWN (r18): a petition to the crown for an expedition to retake a town.
-  | CrownCommand;
+  | CrownCommand
+  // LIFE (r21): positions for your own people, the bawdy house.
+  | LifeR21Command;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -2254,7 +2262,10 @@ export type FollowerKind =
   | "guide"
   | "officer"
   // Wave 2 (r11): speaks for you across a barrier.
-  | "interpreter";
+  | "interpreter"
+  // LIFE (r21): learned people for your household (a physician, a tutor).
+  | "physician"
+  | "tutor";
 
 /** What one of your people is doing while not at your side. */
 export interface FollowerTask {
@@ -2287,6 +2298,8 @@ export interface Follower {
   owed?: number;
   /** What they've done for you (trips, jobs, fights). */
   deeds?: number;
+  /** LIFE (r21): the position you've given them (a bodyguard, a steward...). */
+  post?: PostKey;
 }
 
 /** A company of your own under arms: raised, paid and led by you. */
@@ -5002,4 +5015,56 @@ export interface CrownCommand {
   men?: number;
   gold?: number;
   coins?: number;
+}
+
+// ---- LIFE (r21): skills on a longer road, learning grown by study, health
+// with age and strain, opinion that has to be earned, positions for your own
+// people, the bawdy house, duels to the death.
+
+/** LIFE (r21): a mark a character carries for a while (or for good). */
+export interface LifeMarkR21 {
+  /**
+   * coward: ran from a duel to the death; pox: caught at a bawdy house;
+   * rake: known to keep company at the bawdy house.
+   */
+  k: "coward" | "pox" | "rake";
+  /** The character who carries it (an heir doesn't). */
+  c: number;
+  day: number;
+  /** When it's forgotten (0: never). */
+  until: number;
+}
+
+/** LIFE (r21): what a life keeps for round 21's systems (optional: old saves have none). */
+export interface LifeR21 {
+  /**
+   * The skill scale the XP is reckoned on: 2 since round 21. An old save's
+   * progress toward each next level is carried over once, as a share.
+   */
+  sk?: number;
+  /** Study toward the next point of Learning, for this character (`c`). */
+  study?: { c: number; pts: number; grown: number };
+  marks?: LifeMarkR21[];
+  /** Days of visits to a bawdy house, the last year's (newest last). */
+  bawdy?: number[];
+}
+
+/** LIFE (r21): what one of your own people is set to do for you. */
+export type PostKey =
+  | "bookkeeper"
+  | "secretary"
+  | "steward"
+  | "bodyguard"
+  | "physician"
+  | "tutor"
+  | "scout"
+  | "chaplain";
+
+/** LIFE (r21): positions for your people; a visit to the bawdy house. */
+export interface LifeR21Command {
+  k: "r21";
+  /** post: put one of your people (`id`) to a position (`post`, "" for none); bawdy: an evening at the bawdy house. */
+  act: "post" | "bawdy";
+  id?: number;
+  post?: PostKey | "";
 }

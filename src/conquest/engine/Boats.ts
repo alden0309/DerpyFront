@@ -35,6 +35,7 @@ import {
   skillLevel,
   yes,
 } from "./LifeQueries";
+import { skillWeight } from "./LifeRules"; // LIFE (r21)
 import { isWinter, type World } from "./Map";
 import { wake } from "./Pace";
 import { charName } from "./Queries";
@@ -787,7 +788,7 @@ export const BOAT_WEAR = { idle: 0.5, work: 2, leak: 0.5 };
 
 /** LEDGER (r15): her master's skill, as a multiplier on what she brings in. */
 export function boatKnack(skill: number): number {
-  return 0.7 + Math.min(20, skill) * 0.04;
+  return 0.7 + Math.min(25, skillWeight(skill)) * 0.04; // LIFE (r21): to 30, past 20 half
 }
 
 /** LEDGER (r15): whether it's winter at her port (fishing's poor), on a day. */

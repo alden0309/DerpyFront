@@ -6,6 +6,7 @@
 import { ambitionsMonthly, setAmbition } from "./Ambitions";
 import { asLook, sitForLikeness, validateLook } from "./Appearance";
 import { areasOf } from "./Areas";
+import { maxHealth, strained } from "./Body"; // LIFE (r21)
 import { dateOf, formatDate } from "./Calendar";
 import { kill, makeCharacter, succession } from "./Characters";
 import { seedLocals } from "./Folk";
@@ -57,6 +58,7 @@ import {
   travelRoute,
   wageOf,
 } from "./LifeQueries";
+import { SKILL_SCALE } from "./LifeR21Core"; // LIFE (r21)
 import {
   BACKGROUNDS,
   BASE_SKILL,
@@ -386,6 +388,7 @@ export function beginLife(
     favor: 0,
     skills: zeroSkills(),
     xp: zeroSkills(),
+    r21: { sk: SKILL_SCALE }, // LIFE (r21): XP on the longer road from the start
     lifestyle: bg.lifestyle,
     goods: {},
     heir: -1,
@@ -431,6 +434,7 @@ export function beginLife(
     favor: 0,
     skills: planSkills(plan),
     xp: zeroSkills(),
+    r21: { sk: SKILL_SCALE }, // LIFE (r21): XP on the longer road from the start
     lifestyle: bg.lifestyle,
     goods: {},
     heir: -1,
@@ -824,7 +828,8 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
     life.lifestyle === "frugal"
   )
     dh -= 1;
-  heal(g, life, Math.round(dh));
+  // LIFE (r21): a month that takes health takes more under strain.
+  heal(g, life, dh < 0 ? -strained(-dh, life.stress) : Math.round(dh));
   let ds = ls.stress - 6;
   if (age < 16) ds = -8;
   else {
@@ -1213,6 +1218,7 @@ export function succeedTo(
   // LIFE (r11): the heir keeps the boats and (some of) the people; not the rest.
   lifeR11Succeeded(g, life);
   life.health = hasTrait(heir, "sickly") ? 70 : 82;
+  life.health = Math.min(life.health, maxHealth(s, life)); // LIFE (r21)
   life.stress = 20;
   heir.home ??= life.home;
   life.home = heir.home;
@@ -1318,6 +1324,7 @@ export function takeOver(
   );
   life.health = 80;
   life.stress = 20;
+  life.health = Math.min(life.health, maxHealth(s, life)); // LIFE (r21)
   life.renown =
     (role?.status ?? 2) * 4 +
     (nation.ruler === cId ? 30 : 0) +

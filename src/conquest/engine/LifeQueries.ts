@@ -7,6 +7,7 @@ import { dateOf } from "./Calendar"; // MAP (r12)
 import { eduStartRank } from "./EduData"; // EDU (r13)
 import { Explain } from "./Explain";
 import { hooks } from "./Hooks"; // EDU (r13)
+import { r21Opinion } from "./LifeR21Core"; // LIFE (r21)
 import {
   ALLOWANCE,
   ALLOWANCE_YEARS,
@@ -46,6 +47,7 @@ import {
 import type { World } from "./Map";
 import { landHopDays, landHopDaysIn, seaHopDays } from "./Paths";
 import { propertyBudget } from "./Property";
+import { softenKindness } from "./Regard"; // LIFE (r21)
 import { iceBound, seasonPay } from "./Seasons"; // MAP (r12)
 import { canoeHopDays, passageHopDays } from "./SeaSpeed"; // SEA (r15)
 // SOCIETY (r11)
@@ -986,11 +988,15 @@ export function opinionOf(s: GameState, c: Character, life: Life): Breakdown {
     else if (mine && s.nations[m.against]?.ruler === c.id)
       e.add(`You stir up ${m.name}`, -20);
   }
+  let kind = 0; // LIFE (r21): kindnesses, all together, count less past 20
   for (const m of c.memories) {
     if (m.of !== me.id) continue;
     if (m.until !== 0 && m.until <= s.day) continue;
     e.add(m.why, m.value);
+    if (m.value > 0) kind += m.value;
   }
+  softenKindness(e, kind); // LIFE (r21)
+  r21Opinion(s, c, life, e); // LIFE (r21): a coward's name, the bawdy house's talk
   societyOpinion(s, c, life, e); // SOCIETY (r11)
   chamberOpinion(s, c, life, e); // CHAMBER (r16): what their factions remember of your votes
   return e.done(0, -100, 100);

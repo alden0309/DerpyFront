@@ -55,6 +55,7 @@ import {
   ROLES,
   SHIP_UPKEEP_MULT,
   SKILL_NAMES,
+  skillWeight, // LIFE (r21)
   WORK_DAYS,
 } from "./LifeRules";
 import type { World } from "./Map";
@@ -430,7 +431,7 @@ export interface BizView {
  * (0) 0.6 of a hand's takings, a fair hand (8) all of it, a master (20) 1.6.
  */
 export function skillFactor(skill: number): number {
-  return 0.6 + Math.max(0, Math.min(20, skill)) / 20;
+  return 0.6 + Math.max(0, Math.min(25, skillWeight(skill))) / 20; // LIFE (r21): to 30, past 20 half
 }
 
 /** The master's own work a month, by their skill: little from a novice, much from a master. */

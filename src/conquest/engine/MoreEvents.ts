@@ -4,6 +4,7 @@
 // to you (friendship, courting, marriage, a duel, a job, a trade), each a
 // scene to answer.
 
+import { strained } from "./Body"; // LIFE (r21)
 import { played, wouldBeg } from "./EventPacing"; // EVENTS (r15)
 import type { ConquestGame } from "./Game";
 import { answerProposal } from "./Interactions";
@@ -267,7 +268,10 @@ export const MORE_EVENTS: LifeEventDef[] = [
               "good",
             );
           } else {
-            touchLife(g, life).health = Math.max(1, life.health - 18);
+            touchLife(g, life).health = Math.max(
+              1,
+              life.health - strained(18, life.stress), // LIFE (r21)
+            );
             journal(
               g,
               life,
@@ -283,7 +287,10 @@ export const MORE_EVENTS: LifeEventDef[] = [
         check: { skill: "stealth", dc: 8 },
         apply: (g, life, ctx, pass) => {
           if (!pass) {
-            touchLife(g, life).health = Math.max(1, life.health - 12);
+            touchLife(g, life).health = Math.max(
+              1,
+              life.health - strained(12, life.stress), // LIFE (r21)
+            );
             journal(g, life, "They found the doorway too.", "bad");
           } else journal(g, life, "They walked straight past you, swearing.");
         },
