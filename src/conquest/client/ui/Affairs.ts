@@ -129,7 +129,7 @@ import { tradesLink, workNotes } from "./Livelihood";
 import { price } from "./Price"; // LEDGER (r15)
 import { berthLine } from "./ShipsUi"; // SHIPS (r21)
 import { term } from "./Terms";
-import { quitBlock } from "./WorkR21"; // WORK (r21)
+import { quitBlock, staffBerthLine } from "./WorkR21"; // WORK (r21)
 
 // ---------------------------------------------------------------- work
 
@@ -220,6 +220,11 @@ export function workSection(ui: GameUi): TemplateResult {
         </p>
         ${leaveBlock(ui) /* ECON (r17): leave from your place */}
         ${berthLine(ui) /* SHIPS (r21): a place in a player's ship's company */}
+        ${
+          staffBerthLine(
+            ui,
+          ) /* WORK (r21): a place on a player's business's staff */
+        }
         ${servant
           ? html`<p class="cq-muted small">
               Bound by indenture until ${formatDate(job.until!)}: no wages but

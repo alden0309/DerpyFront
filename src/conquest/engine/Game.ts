@@ -91,6 +91,7 @@ import {
   Province,
 } from "./Types";
 import { militaryCommand, warDaily, warMonthly } from "./War";
+import "./WorkR21"; // WORK (r21): leaving from anywhere, a business's staff, buyouts by offer, the work itself
 
 export { STATE_VERSION } from "./Setup";
 

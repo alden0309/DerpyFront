@@ -1969,7 +1969,9 @@ export type LifeCommand =
   | LifeR21Command
   // SHIPS (r21): a ship's company, charters, refits, her stays; travelling parties.
   | ShipCommand
-  | PartyCommand;
+  | PartyCommand
+  // WORK (r21): a business's staff; partnership offers; the work itself.
+  | WorkR21Command;
 
 /** What changed since the last delta, for sending to players. */
 export interface GameDelta {
@@ -3561,6 +3563,8 @@ export interface BizState {
   acct?: BizMonth[];
   /** The day it last warned of losses. */
   warned?: number;
+  /** WORK (r21): its staff taken on by name (a role and pay each), as a ship's company (Hiring.ts). */
+  roster?: Roster;
 }
 
 /** One month of a business's account. */
@@ -3572,6 +3576,8 @@ export interface BizMonth {
   excise: number;
   /** A manager's wage. */
   mgr?: number;
+  /** WORK (r21): its staff's pay. */
+  staff?: number;
   profit: number;
   hands: number;
   /** Who minded it: 1 in person, 2 a manager, 0 nobody. */
@@ -5283,4 +5289,28 @@ export interface PartyCommand {
   act: string;
   /** The other player. */
   seat?: string;
+}
+
+// ---- WORK (r21): a business's staff by name, partnership buyouts and sales
+// by offer, and the work itself (duties by rung, colleagues, the master's
+// requests).
+
+/** WORK (r21): a business's staff (Staff.ts), partnership offers (Buyouts.ts), your duties (Duties.ts). */
+export interface WorkR21Command {
+  k: "staff" | "bid" | "duty";
+  /** staff: hire, offer, unoffer, role, pay, dismiss, answer. bid: make, accept, decline, counter, withdraw. duty: set. */
+  act: string;
+  /** A business (its property id), a firm, or an offer. */
+  id?: number;
+  /** A hire on its roster, or an offer. */
+  hire?: number;
+  /** A character. */
+  c?: number;
+  role?: string;
+  pay?: number;
+  /** A price. */
+  price?: number;
+  /** A duty's key, an offer's kind. */
+  key?: string;
+  arg?: number;
 }

@@ -253,7 +253,7 @@ export const INTERACTIONS: Record<PersonAct, InteractionDef> = {
   hire: {
     label: "Offer them work",
     group: "work",
-    text: "Take them on as a hand at your business: they cost wages, and bring in takings.",
+    text: "Take them on at a business of yours, in the role and at the pay you choose (a hand, a skilled hand, a clerk, a foreman, a manager): its page, Estate › Business.", // WORK (r21)
     cooldown: 30,
     mode: "accept",
     player: "ask",
@@ -661,8 +661,11 @@ function gates(
     }
     case "hire": {
       if (other) {
-        if (other.job) return no("They have work already.");
+        // WORK (r21): a player is offered a place on any business of yours, from anywhere.
         if (age < 16) return no("A child.");
+        return (life.property ?? []).some((x) => x.kind === "business" && x.job)
+          ? yes
+          : no("You'd need a business of your own to offer them a place.");
       }
       return hireCheck(s, life, c);
     }

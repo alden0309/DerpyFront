@@ -13,6 +13,7 @@ import {
   northern,
   propertyInput,
   propertyView,
+  staffHands, // WORK (r21)
 } from "./Business"; // BUSINESS (r15)
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
@@ -453,7 +454,8 @@ export function hireCheck(s: GameState, life: Life, c: Character): Check {
   if (!pr)
     return no("You'd need a business of your own here to take on hands.");
   // BUSINESS (r15): a hand taken on by name takes a town hand's place.
-  if ((BUSINESS_HANDS[pr.level] ?? 0) - pr.hands.length <= 0)
+  // WORK (r21): and so do the hands on its staff.
+  if ((BUSINESS_HANDS[pr.level] ?? 0) - pr.hands.length - staffHands(pr) <= 0)
     return no(`Your ${pr.name} has all the hands it can use.`);
   if (ageOf(s, c) < 14) return no("A child.");
   if (handOf(s, c.id)) return no("They work for someone already.");
@@ -648,7 +650,8 @@ export function propertyBudget(s: GameState, life: Life): Breakdown {
       // BUSINESS (r15): one reckoning for every business (Business.ts).
       const v = propertyView(s, life, pr);
       if (v.upkeep) e.add(`Upkeep: ${pr.name}`, -v.upkeep);
-      const paid = v.input.paid ?? v.input.hands;
+      // WORK (r21): staff by name are paid their own pay (below), not a hand's wage.
+      const paid = v.input.paid ?? v.input.hands - (v.input.unpaid ?? 0);
       if (paid) e.add(`Wages: ${paid} hand${paid === 1 ? "" : "s"}`, -v.wages);
       if (v.takings || v.input.hands)
         e.add(

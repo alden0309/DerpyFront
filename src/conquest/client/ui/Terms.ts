@@ -632,6 +632,24 @@ export const TERMS: Record<string, Term> = {
       "Here, under In town: ask to travel with a player, or ask them along. They're asked, and may agree.",
     ch: "ships",
   },
+  // ---- WORK (r21): Staff.ts, Notice.ts, Buyouts.ts, Duties.ts
+  staff: {
+    name: "Its staff by name",
+    what: "People taken on into a business of yours by name (the town's people, or another player), each in a role (a hand, a skilled hand, a clerk, a foreman, a manager) at the pay you set.",
+    good: "Hands on its staff are among its hands, worth more than a town hand if they're skilled; a clerk keeps the books (the takings up to 8 in a hundred more); a foreman keeps the hands at it (each up to 15 in a hundred more); a manager minds it when you don't.",
+    raise:
+      "On its card (Estate › Business), in its town: the town's people who'd take a place (whether they'd sign, and why), or an offer to another player from anywhere. Promote, demote or change anyone's pay whenever you like; unpaid, they walk out.",
+    ch: "staff",
+  },
+  notice: {
+    name: "Notice",
+    what: "Leaving your place: at once (in person, or by letter if your master's elsewhere), or with a fortnight's notice.",
+    good: "Notice worked out (most of its working days at your post) leaves your master thinking well of you; leaving at once in your first six months leaves him in the lurch, and he remembers it.",
+    raise:
+      "Work › Your work, Hand in your notice: from anywhere, whoever your master is (another player is told). Notice can be taken back while it runs.",
+    ch: "workday",
+  },
+  // ---- end WORK (r21)
 };
 
 /** A term's explanation, as a tooltip. */
