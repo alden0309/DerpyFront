@@ -4,7 +4,10 @@
 // buyouts and sales by offer, and a trading company whose cargoes move the
 // markets as a person's buying does.
 
-import { describe, expect, test, vi } from "vitest";
+import http from "http";
+import { AddressInfo } from "net";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { WebSocket } from "ws";
 import {
   handCount,
   propertyInput,
@@ -65,11 +68,13 @@ import {
 import type {
   Character,
   Firm,
+  GameDelta,
   GameState,
   Life,
   Property,
 } from "../../src/conquest/engine/Types";
 import { colleaguesOf, WORKDAY } from "../../src/conquest/engine/WorkDay";
+import type { ServerMessage } from "../../src/conquest/Protocol";
 import { lifeOf, map, plan, prov, world } from "./LifeUtil";
 
 vi.setConfig({ testTimeout: 240_000 });
@@ -905,5 +910,288 @@ describe("the work itself: duties by rung, your master's wish, the people you wo
       memoryOf(g, boss, life.c, "Minded the place for me") ??
       memoryOf(g, boss, life.c, "Made a mess of it");
     expect(m).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------- saves, the delta, old saves
+
+describe("saves, the delta and old saves (the work)", () => {
+  test("a duty, a notice, a partnership's offers: saved and loaded, sent in the delta, and old saves without them work", () => {
+    const { g, life, f } = inn(61, 2);
+    const bea = lifeOfSeat(g.s, "s2")!;
+    expect(
+      cmd(g, { k: "duty", act: "set", key: "trade-ledgers" }, "s1"),
+    ).toBeNull();
+    // Bea: a farmer's duty and notice given.
+    expect(
+      cmd(g, { k: "duty", act: "set", key: "land-rows" }, "s2"),
+    ).toBeNull();
+    expect(cmd(g, { k: "quit", how: "notice" }, "s2")).toBeNull();
+    // Alden: an offer to the innkeeper that he counters.
+    const npc = f.partners.find((p) => p.c !== life.c)!;
+    life.purse = 3000;
+    const { least } = leastToSell(g.s, f, g.s.chars[npc.c], life);
+    expect(
+      cmd(g, {
+        k: "bid",
+        act: "make",
+        id: f.id,
+        key: "buy",
+        c: npc.c,
+        price: Math.round(least * 0.85),
+      }),
+    ).toBeNull();
+    expect(f.bids!.some((b) => b.status === "open")).toBe(true);
+    const mine = JSON.parse(JSON.stringify(g.s)) as GameState;
+    g.takeDelta();
+    for (let i = 0; i < 5; i++) {
+      g.tick();
+      applyDelta(mine, g.takeDelta());
+    }
+    const mBea = mine.lives.find((x) => x.seat === "s2")!;
+    expect(mBea.work?.duty).toBe("land-rows");
+    expect(mBea.job?.notice).toEqual(bea.job?.notice);
+    expect(mine.partners!.firms.find((x) => x.id === f.id)!.bids).toEqual(
+      f.bids,
+    );
+    // Saved and loaded: the same days after.
+    const saved = JSON.parse(JSON.stringify(g.s)) as GameState;
+    const g2 = new ConquestGame(map, saved);
+    for (let i = 0; i < 20; i++) {
+      g.tick();
+      g2.tick();
+    }
+    expect(lifeOfSeat(g2.s, "s2")!.job).toEqual(bea.job);
+    expect(lifeOfSeat(g2.s, "s2")!.purse).toBeCloseTo(bea.purse, 6);
+    // An old save: no duties, notices, offers or clauses.
+    const old = JSON.parse(JSON.stringify(g.s)) as GameState;
+    for (const l of old.lives) {
+      if (l.work) delete l.work.duty;
+      if (l.job) delete l.job.notice;
+    }
+    for (const x of old.partners?.firms ?? []) {
+      delete x.bids;
+      delete x.clause;
+    }
+    const g3 = new ConquestGame(map, old);
+    for (let i = 0; i < 40; i++) g3.tick();
+    expect(lifeOfSeat(g3.s, "s1")).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------- two players, through the rooms server
+
+vi.mock("../../src/server/Logger", () => ({
+  logger: {
+    child: () => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() }),
+  },
+}));
+
+const settleNet = () => new Promise((r) => setTimeout(r, 60));
+let netTick: () => void = () => {};
+
+class Client {
+  readonly messages: ServerMessage[] = [];
+  private waiters: {
+    test: (m: ServerMessage) => boolean;
+    resolve: (m: ServerMessage) => void;
+  }[] = [];
+  readonly ws: WebSocket;
+  readonly open: Promise<void>;
+  constructor(url: string) {
+    this.ws = new WebSocket(url);
+    this.open = new Promise((r) => this.ws.on("open", () => r()));
+    this.ws.on("message", (data) => {
+      const m = JSON.parse(String(data)) as ServerMessage;
+      this.messages.push(m);
+      this.waiters = this.waiters.filter((w) => {
+        if (!w.test(m)) return true;
+        w.resolve(m);
+        return false;
+      });
+    });
+  }
+  send(m: unknown) {
+    this.ws.send(JSON.stringify(m));
+  }
+  next<T extends ServerMessage["t"]>(
+    t: T,
+    test: (m: Extract<ServerMessage, { t: T }>) => boolean = () => true,
+  ) {
+    return new Promise<Extract<ServerMessage, { t: T }>>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`timed out waiting for ${t}`)),
+        4000,
+      );
+      this.waiters.push({
+        test: (m) => m.t === t && test(m as Extract<ServerMessage, { t: T }>),
+        resolve: (m) => {
+          clearTimeout(timer);
+          resolve(m as Extract<ServerMessage, { t: T }>);
+        },
+      });
+    });
+  }
+  private id = 100;
+  async cmd(c: object): Promise<string | null> {
+    const id = this.id++;
+    netTick();
+    const ack = this.next("ack", (m) => m.id === id);
+    this.send({ t: "cmd", id, c });
+    return (await ack).err;
+  }
+  state(): GameState {
+    let st: GameState | null = null;
+    for (const m of this.messages) {
+      if (m.t === "game") st = JSON.parse(JSON.stringify(m.state));
+      else if (m.t === "d" && st) applyDelta(st, m.d as GameDelta);
+    }
+    return st!;
+  }
+  close() {
+    this.ws.close();
+  }
+}
+
+describe("a business's staff with two players, through the rooms server", () => {
+  let server: http.Server;
+  let url = "";
+  let clock = 1_800_000_000_000;
+  let rooms: import("../../src/server/conquest/ConquestRooms").ConquestRooms;
+  const clients: Client[] = [];
+  beforeAll(async () => {
+    const { attachConquest, ConquestRooms } =
+      await import("../../src/server/conquest/ConquestRooms");
+    rooms = new ConquestRooms(() => clock);
+    netTick = () => (clock += 60);
+    server = http.createServer();
+    attachConquest(server, rooms);
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    url = `ws://127.0.0.1:${(server.address() as AddressInfo).port}/conquest/ws`;
+  });
+  afterAll(async () => {
+    for (const c of clients) c.close();
+    await new Promise((r) => server.close(r));
+  });
+  const client = async (name: string) => {
+    const c = new Client(url);
+    clients.push(c);
+    await c.open;
+    c.send({ t: "hello", name });
+    await c.next("welcome");
+    return c;
+  };
+
+  test("Alden offers Beatrice a place as clerk at his store; she takes it, he makes her manager, and she gives notice from her Work page", async () => {
+    const host = await client("Alden");
+    const lobby = host.next("lobby");
+    host.send({
+      t: "create",
+      solo: false,
+      open: true,
+      settings: { difficulty: "normal", start: 1700 },
+    });
+    const l = await lobby;
+    const friend = await client("Bea");
+    const joined = host.next("lobby", (m) => m.seats.length === 2);
+    friend.send({ t: "join", code: l.code });
+    await joined;
+    host.send({ t: "plan", plan: plan({ home: JT, background: "clerk" }) });
+    friend.send({
+      t: "plan",
+      plan: plan({
+        home: JT,
+        first: "Beatrice",
+        family: "Cole",
+        female: true,
+        background: "clerk",
+      }),
+    });
+    await host.next("lobby", (m) => m.seats.every((x) => x.made));
+    friend.send({ t: "ready", ready: true });
+    await host.next("lobby", (m) => m.seats.some((x) => x.ready));
+    const games = [host.next("game"), friend.next("game")];
+    host.send({ t: "start" });
+    const [hg, fg] = await Promise.all(games);
+    const paused = host.next("clock", (m) => m.paused);
+    host.send({ t: "pause", p: true });
+    await paused;
+    const game = rooms.rooms.get(l.code)!.game!;
+    const s = game.s;
+    const A = lifeOfSeat(s, hg.you)!;
+    const B = lifeOfSeat(s, fg.you)!;
+    A.purse = 900;
+    for (const x of [A, B]) {
+      x.prov = JT;
+      x.travel = null;
+    }
+    expect(await host.cmd({ k: "quit" })).toBeNull();
+    expect(
+      await host.cmd({
+        k: "business",
+        act: "found",
+        job: "shopkeeper",
+        level: 2,
+      }),
+    ).toBeNull();
+    const pr = A.property!.find((p) => p.kind === "business")!;
+    expect(
+      await host.cmd({
+        k: "staff",
+        act: "offer",
+        id: pr.id,
+        c: B.c,
+        role: "clerk",
+        pay: 4,
+      }),
+    ).toBeNull();
+    const ev = B.events.find((e) => e.key === "p2p-staff")!;
+    expect(ev).toBeTruthy();
+    expect(await friend.cmd({ k: "event", id: ev.id, choice: 0 })).toBeNull();
+    expect(jobTitle(B)).toBe("Clerk of Alden's store at Jamestown");
+    // Her copy shows her place, and his store's staff.
+    await settleNet();
+    const fs = friend.state();
+    const herLife = fs.lives.find((x) => x.seat === B.seat)!;
+    expect(herLife.job?.berth?.title).toBe(
+      "Clerk of Alden's store at Jamestown",
+    );
+    const hisLife = fs.lives.find((x) => x.seat === A.seat)!;
+    expect(
+      hisLife
+        .property!.find((p) => p.id === pr.id)!
+        .biz!.roster!.hires.some((h) => h.seat === B.seat),
+    ).toBe(true);
+    const h = pr.biz!.roster!.hires.find((x) => x.seat === B.seat)!;
+    expect(
+      await host.cmd({
+        k: "staff",
+        act: "role",
+        id: pr.id,
+        hire: h.id,
+        role: "manager",
+      }),
+    ).toBeNull();
+    expect(jobTitle(B)).toBe("Manager of Alden's store at Jamestown");
+    // She gives a fortnight's notice from her Work page, and works it out.
+    expect(await friend.cmd({ k: "quit", how: "notice" })).toBeNull();
+    expect(A.journal.some((j) => /gives notice/.test(j.text))).toBe(true);
+    for (let i = 0; i < 16; i++) {
+      game.tick();
+      for (const x of [A, B])
+        for (const e of [...x.events]) autoAnswerLife(game, x.seat, e.id);
+    }
+    expect(B.job?.berth).toBeUndefined();
+    expect(pr.biz!.roster!.hires.some((x) => x.seat === B.seat)).toBe(false);
+    // A command of his sends the days' changes (the game was ticked by hand).
+    expect(await host.cmd({ k: "lifestyle", v: A.lifestyle })).toBeNull();
+    await settleNet();
+    const hs = host.state();
+    expect(
+      hs.lives
+        .find((x) => x.seat === A.seat)!
+        .property!.find((p) => p.id === pr.id)!
+        .biz!.roster!.hires.some((x) => x.seat === B.seat),
+    ).toBe(false);
   });
 });
