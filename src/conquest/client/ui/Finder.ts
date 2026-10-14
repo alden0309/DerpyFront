@@ -1773,6 +1773,96 @@ const GOALS: Goal[] = [
     goLabel: "Work › At sea",
     guide: "sea",
   },
+  // ---- SHIPS (r21)
+  {
+    id: "ship-company",
+    title: "Hire a crew and officers for my ship (and set their pay)",
+    words:
+      "hire crew sailor seaman hand bosun mate captain navigator surgeon officer pay wage promote demote role company ship boat",
+    group: "Work",
+    where:
+      "Estate › Boats, on her card (Her company by name), at the port where she lies: people looking for a berth at the quay and the town's seamen sign by the odds shown; offer other players a place. Choose the role and the pay; promote, demote or change it whenever you like.",
+    needs: (ui) => {
+      const b = ui.life!.boats ?? [];
+      return [
+        {
+          label: b.length ? `The ${b[0].name}` : "A boat of your own (a boatyard)",
+          met: b.length > 0,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "estate", sub: "boats" }),
+    goLabel: "Estate › Boats",
+    guide: "ships",
+  },
+  {
+    id: "ship-charter",
+    title: "Put my ship on charters (freight, passengers, the packet, the grounds)",
+    words:
+      "charter freight cargo passengers packet post fishing grounds whaling season smuggling run venture trade ship boat sail without me captain",
+    group: "Work",
+    where:
+      "Estate › Boats, on her card (Charters at the quay), where she lies at a port with a quay, or anywhere if she has a captain or mate: each shows its odds; send her under her own master, or sail in her yourself. Or load a venture of your own.",
+    needs: (ui) => {
+      const b = ui.life!.boats ?? [];
+      return [
+        {
+          label: b.length ? `The ${b[0].name}` : "A boat of your own (a boatyard)",
+          met: b.length > 0,
+        },
+      ];
+    },
+    go: tab({ k: "tab", tab: "estate", sub: "boats" }),
+    goLabel: "Estate › Boats",
+    guide: "ships",
+  },
+  {
+    id: "ship-serve",
+    title: "Serve aboard another player's ship",
+    words:
+      "serve crew sailor hand mate captain berth place aboard another player ship job work hired",
+    group: "Work",
+    where:
+      "Its owner offers you a place (a role and a pay) from her card; you're asked in a scene. Taken, it's your work: you're paid from the owner's purse by the days you're aboard or where she lies, and you leave from Work › Your work.",
+    go: tab({ k: "tab", tab: "work", sub: "job" }),
+    goLabel: "Work › Your work",
+    guide: "ships",
+  },
+  {
+    id: "travel-together",
+    title: "Travel with another player (or sail with them)",
+    words:
+      "travel together party sail with ask invite companion friend player boat passage road get off stop transit port",
+    group: "Travel and the world",
+    where:
+      "Here, under In town: ask to travel with them, or ask them along. Agreed, you go where the leader goes (in their own boat for nothing); get off at the next stop whenever you like.",
+    go: tab({ k: "tab", tab: "here" }),
+    goLabel: "Here",
+    guide: "ships",
+  },
+  {
+    id: "ship-layover",
+    title: "Lie over at a port on the way, and sail on later",
+    words: "stay stop transit port layover lie over resume voyage captain two months",
+    group: "Travel and the world",
+    where:
+      "On the road in your own ship (Here): Lie over at the next port. Within two months of coming in, Sail on: the voyage goes on to where she was going.",
+    go: tab({ k: "tab", tab: "here" }),
+    goLabel: "Here",
+    guide: "ships",
+  },
+  {
+    id: "no-port",
+    title: "Leave an island (or a shore) with no port",
+    words: "island stranded no port leave beach anchor coaster hail ship passage",
+    group: "Travel and the world",
+    where:
+      "The road there: the ship that landed you lies off the shore for a while (go back aboard her); after that, hail a passing coaster (a few days' wait). Your own boat is beached or anchored there, and takes you off again.",
+    go: tab({ k: "tab", tab: "here" }),
+    goLabel: "Here",
+    guide: "ships",
+  },
+  // ---- end SHIPS (r21)
   {
     id: "trade-voyage",
     title: "Go on a voyage with my trade",

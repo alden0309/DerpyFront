@@ -541,6 +541,39 @@ export const TERMS: Record<string, Term> = {
       "Propose the repair (or petition for it) on Society › Town. If nobody does, the town's own members bring it in a year or so.",
     ch: "towns",
   },
+  // ---- SHIPS (r21): ShipsData.ts, Hiring.ts, Parties.ts
+  shipcompany: {
+    name: "Her company by name",
+    what: "The people taken on into your ship by name (a computer's seaman, or another player), each with a role (hand, bosun, surgeon, navigator, mate, captain) and the pay you set.",
+    good: "Her captain commands her and her takings ride on his seamanship; a bosun saves her wear, a navigator quickens her passages and makes them safer, a surgeon saves her men, a mate commands when there's no captain. With a captain or mate she takes charters and sails without you.",
+    raise:
+      "On her card (Estate › Boats), at the port where she lies: people looking for a berth at the quay, the town's seamen, or an offer to another player. Promote, demote or change anyone's pay whenever you like.",
+    ch: "ships",
+  },
+  shiprep: {
+    name: "Her name",
+    what: "A ship's name on the waterfront, from 0 to 100 (50 when nobody knows her yet).",
+    good: "A good name pays more on her charters (up to 1.15×) and makes seamen readier to sign.",
+    raise:
+      "Charters delivered in time raise it; late, given up, forfeit or seized lower it, and so does a crew that deserts unpaid.",
+    ch: "ships",
+  },
+  layover: {
+    name: "Lying over",
+    what: "A ship stopped at a port on the way, by her commander's choice, for as long as he likes.",
+    good: "Within two months of coming in, the voyage goes on to where she was going, her charter and everyone aboard with her.",
+    raise:
+      "On the road (Here): Lie over at the next port; then Sail on. After two months the voyage is over, and a charter's forfeit.",
+    ch: "ships",
+  },
+  party: {
+    name: "Travelling together",
+    what: "Players who've agreed to go where one of them goes.",
+    good: "When the leader sets out from where you both are, you go too: in their own boat for nothing, on a passage or the road paying your way. Get off at any stop on the way.",
+    raise:
+      "Here, under In town: ask to travel with a player, or ask them along. They're asked, and may agree.",
+    ch: "ships",
+  },
 };
 
 /** A term's explanation, as a tooltip. */

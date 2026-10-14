@@ -69,6 +69,7 @@ import { GOODS } from "../../engine/Types";
 import { action, bar, charLink, type GameUi, provLink } from "./Context";
 import { oddsLine, oddsPanel } from "./Odds";
 import { coins, price } from "./Price";
+import { term } from "./Terms";
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -122,7 +123,7 @@ function voyagePart(ui: GameUi, owner: Life, b: Boat): TemplateResult | typeof n
     const left = b.stay.since >= 0 ? STAY_DAYS - (s.day - b.stay.since) : STAY_DAYS;
     lines.push(
       html`<p>
-        <b>Lying over</b> at ${map.provinces[b.stay.at]?.name} on the way to
+        <b>${term("layover", "Lying over")}</b> at ${map.provinces[b.stay.at]?.name} on the way to
         ${map.provinces[b.stay.dest]?.name}:
         ${b.stay.since < 0
           ? "she'll stop there."
@@ -197,7 +198,7 @@ function companyPart(ui: GameUi, owner: Life, b: Boat): TemplateResult {
   const fx = shipFx(s, owner, b);
   const pay = r1(hires.reduce((m, h) => m + h.pay, 0));
   const offers = b.roster?.offers ?? [];
-  const summary = html`Her company by name
+  const summary = html`${term("shipcompany", "Her company by name")}
     <span class="cq-muted small"
       >${hires.length
         ? html`${hires.length}, ${price(pay, { per: "month" })}`
@@ -568,7 +569,7 @@ function logPart(ui: GameUi, b: Boat): TemplateResult | typeof nothing {
       Her log and her name
       <span class="cq-muted small">${b.voyages ?? 0} voyage${(b.voyages ?? 0) === 1 ? "" : "s"}; ${repWords(rep)}</span>
     </summary>
-    <p class="small">Her name ${bar(rep / 100)} ${rep}: delivered in time it rises, late or given up it falls. A good name pays more (×${r1(0.85 + rep / 333)}) and brings people looking for a berth.</p>
+    <p class="small">${term("shiprep", "Her name")} ${bar(rep / 100)} ${rep}: delivered in time it rises, late or given up it falls. A good name pays more (×${r1(0.85 + rep / 333)}) and brings people looking for a berth.</p>
     ${log.length
       ? html`<ol class="cq-ship-logbook">
           ${[...log].reverse().slice(0, 20).map((l) => html`<li><span class="cq-muted small">${formatDate(l.day)}</span> ${l.text}</li>`)}
@@ -682,7 +683,7 @@ export function partyStrip(ui: GameUi): TemplateResult | typeof nothing {
   return html`<div class="cq-party">
     ${lead
       ? html`<p class="small">
-          You travel with <b>${charName(meOf(s, lead))}</b>: where they set out for from where you both are, you go too.
+          ${term("party", "You travel with")} <b>${charName(meOf(s, lead))}</b>: where they set out for from where you both are, you go too.
           <button class="cq-btn tiny quiet" @click=${() => ui.cmd({ k: "party", act: "leave" })}>Go your own way</button>
         </p>`
       : nothing}

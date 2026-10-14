@@ -172,6 +172,7 @@ import { CROWN_CHAPTER } from "./CrownChapter"; // CROWN (r18)
 import { ECON_CHAPTER } from "./EconChapter"; // ECON (r17)
 import { POLLS_CHAPTER } from "./PollsChapter"; // POLLS (r16)
 import { SEA_CHAPTER } from "./SeaChapter"; // SEA (r15)
+import { SHIPS_CHAPTER } from "./ShipsChapter"; // SHIPS (r21)
 import { SAVES_CHAPTER, STORY_CHAPTER } from "./StoryChapter"; // STORY (r17)
 import { TOWNS_CHAPTER } from "./TownsChapter"; // TOWNS (r17)
 import { WAR_CHAPTER } from "./WarChapter"; // WAR (r17)
@@ -1248,7 +1249,7 @@ Whether the story was ever true is settled the first time anyone works it. False
       "Estate › Boats; a port's docks (The boatyard); canoes also at native villages on the shore.",
     body: `${boatsTable()}
 
-Second-hand boats are cheaper, each with a condition and a quirk ("leaks a little", "quick off the wind", "crank in a blow"). Shipwrights build their own a quarter cheaper; native peoples pay ${"1.5"} for a canoe. A family can see to four boats at most.
+Second-hand boats are cheaper, each with a condition and a quirk ("leaks a little", "quick off the wind", "crank in a blow"). Shipwrights build their own a quarter cheaper; native peoples pay ${"1.5"} for a canoe. There's no limit to how many you own (SHIPS r21).
 
 ## She stays where you leave her
 A boat never follows you on her own: she lies at the port you last sailed her to, shown on the map with her name when you zoom in.
@@ -1260,7 +1261,7 @@ Sign hands (${"1"} coin each) up to what she needs; they're paid ${CREW_WAGE} a 
 From the travel choices on the map, or any coastal province's **The road there**: "In the *Name*, so many days". No fare (only the wages you already pay), your goods in her hold as well as your own carry, and your people with you. She stays at the port you sail to.
 
 ## Putting her to work
-While you're aboard in port, or with a **mate** of yours as skipper while you're away:
+She keeps at it whether you're there or not (SHIPS r21): you command her when you're with her; otherwise her captain, a **mate** of yours as skipper, her mate, or her senior hand ([[ships|Ships and their companies]]):
 - **Fishing**: steady, best where the fish are thick, poor in winter.
 - **Whaling** (sloop and up, the northern ports): rich voyages and stove boats.
 - **Coasting trade**: profit by the size of her hold and her skipper's skill.
@@ -1274,8 +1275,11 @@ ${boatWorkTable()}
 
 Each boat's card shows the same for her, with her own master, crew and port: [[ledger|Your ledger]].
 
-> Tip: A canoe or a shallop is the cheapest way along the coast. A mate lets your boat earn while you're elsewhere.`,
+> Tip: A canoe or a shallop is the cheapest way along the coast. A captain of her own lets your ship earn (and take charters) while you're elsewhere: [[ships|Ships and their companies]].`,
   },
+  // ---- SHIPS (r21): ships and their companies (guide/ShipsChapter.ts)
+  SHIPS_CHAPTER,
+  // ---- end SHIPS (r21)
   {
     id: "travel",
     part: "living",
