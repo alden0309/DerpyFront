@@ -21,6 +21,7 @@ import {
 import { assertNever, boundingBoxTiles } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Game, Player, Unit } from "../../game/Game";
+import { nationTemperament } from "../../game/NationPersonas";
 import { UniversalPathFinding } from "../../pathfinding/PathFinder";
 import type {
   SnapshotReader,
@@ -149,6 +150,15 @@ export class NationNukeBehavior {
       nukeTarget.type() === PlayerType.Bot || // Don't nuke tribes (as opposed to nations and humans)
       this.player.isOnSameTeam(nukeTarget) ||
       this.attackBehavior.shouldAttack(nukeTarget) === false
+    ) {
+      return;
+    }
+
+    // DFSTORE (r21): traders and turtles (rules 5+) nuke only in answer to
+    // an attack on them.
+    if (
+      nationTemperament(this.game, this.player).nukesOnlyAttackers &&
+      !nukeTarget.outgoingAttacks().some((a) => a.target() === this.player)
     ) {
       return;
     }
