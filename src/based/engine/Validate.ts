@@ -1,9 +1,13 @@
 // Checks a compiled chapter the way an editor would before a read-through:
 // every jump lands, no scene runs off its end, every flag that's read is set
 // somewhere, every scene can be reached, and the chapter can be finished.
+// r21: every skill named is a @skill, check options and checked deductions
+// are sound, and every mark, hotspot, shot and prop a scene names is in the
+// place it's in.
 // Run by the tests and by the server when it loads a chapter.
 
 import { exprReads } from "./Expr";
+import { PlaceDef, placeNames } from "./Place";
 import { Chapter, END, Expr, Op, Scene } from "./Types";
 
 export interface Problem {
@@ -19,6 +23,8 @@ export interface ValidateOptions {
   art?: Set<string>;
   /** Sound keys that exist. */
   sounds?: Set<string>;
+  /** r21: the 3D places that exist, by key. */
+  places?: Record<string, PlaceDef>;
 }
 
 /** Ops reachable from `from` inside one scene, stopping at gotos/returns. */
@@ -52,6 +58,9 @@ function walk(
       case "investigate":
         todo.push(op.after);
         break;
+      case "check":
+        todo.push(at + 1, op.fail);
+        break;
       default:
         todo.push(at + 1);
     }
@@ -75,14 +84,44 @@ export function validateChapter(
   /** Flags set with set/add (spots and deductions set their own). */
   const written = new Set<string>();
   const reads: { flag: string; scene: string; line: number }[] = [];
+  const skills = new Set(chapter.skills.map((x) => x.id));
   const readExpr = (e: Expr | undefined, scene: string, line: number) => {
     if (!e) return;
-    const r = exprReads(e, { flags: [], rels: [] });
+    const r = exprReads(e, { flags: [], rels: [], skills: [] });
     for (const f of r.flags) reads.push({ flag: f, scene, line });
     for (const w of r.rels) {
       if (!cast.has(w)) add("error", scene, line, `rel.${w}: not in the cast`);
     }
+    for (const k of r.skills ?? []) {
+      if (!skills.has(k)) {
+        add("error", scene, line, `skill.${k.toLowerCase()}: not a @skill`);
+      }
+    }
   };
+
+  // r21: skills, attributes and builds.
+  for (const a of chapter.attributes) {
+    if (!chapter.skills.some((x) => x.attr === a.id)) {
+      add("warning", undefined, 1, `@attribute ${a.id} has no skills`);
+    }
+  }
+  const usesSkills = chapter.order.some((id) =>
+    chapter.scenes[id].ops.some(
+      (op) =>
+        op.op === "check" ||
+        op.op === "boost" ||
+        (op.op === "line" && op.skill !== undefined) ||
+        (op.op === "investigate" && op.deductions.some((d) => d.check)),
+    ),
+  );
+  if (usesSkills && chapter.archetypes.length === 0) {
+    add(
+      "warning",
+      undefined,
+      1,
+      "the chapter has checks but no @archetype for the setup screen",
+    );
+  }
 
   for (const c of chapter.cast) {
     if (c.portrait && opts.art && !opts.art.has(c.portrait)) {
@@ -123,6 +162,16 @@ export function validateChapter(
             );
           }
           break;
+        case "vignette":
+          if (op.key && opts.art && !opts.art.has(op.key)) {
+            add(
+              "error",
+              id,
+              op.src,
+              `@vignette ${op.key}: no such picture in the art folder`,
+            );
+          }
+          break;
         case "ambient":
           if (op.key && opts.sounds && !opts.sounds.has(op.key)) {
             add("error", id, op.src, `@ambient ${op.key}: no such sound`);
@@ -142,19 +191,24 @@ export function validateChapter(
           }
           break;
         case "choose": {
-          for (const o of op.options) readExpr(o.cond, id, op.src);
-          const always = op.options.filter((o) => !o.cond && !o.once);
+          for (const o of op.options) {
+            readExpr(o.cond, id, op.src);
+            for (const m of o.check?.mods ?? []) readExpr(m.cond, id, op.src);
+          }
+          const always = op.options.filter(
+            (o) => !o.cond && !o.once && !o.check,
+          );
           if (always.length === 0) {
             add(
               "error",
               id,
               op.src,
-              `choice "${op.prompt || op.id}" could run out of options: give it one with no "if" or "once"`,
+              `choice "${op.prompt || op.id}" could run out of options: give it one with no "if", "once" or check`,
             );
           }
           if (
             op.timer > 0 &&
-            !op.options.some((o) => o.silent && !o.cond && !o.once)
+            !op.options.some((o) => o.silent && !o.cond && !o.once && !o.check)
           ) {
             add(
               "warning",
@@ -176,6 +230,7 @@ export function validateChapter(
             ids.add(d.id);
           }
           for (const d of op.deductions) {
+            for (const m of d.check?.mods ?? []) readExpr(m.cond, id, op.src);
             for (const need of d.needs) {
               reads.push({ flag: need, scene: id, line: op.src });
               if (!ids.has(need)) {
@@ -204,8 +259,16 @@ export function validateChapter(
               `min=${op.min}, but there are only ${op.spots.length} spots`,
             );
           }
-          // Spot and deduction texts must come back to the room.
-          for (const body of [...op.spots, ...op.deductions]) {
+          // Spot and deduction texts (and failures) must come back to the
+          // room.
+          const bodies = [
+            ...op.spots,
+            ...op.deductions,
+            ...op.deductions
+              .filter((d) => d.failAt !== undefined)
+              .map((d) => ({ id: `${d.id} (fail)`, at: d.failAt! })),
+          ];
+          for (const body of bodies) {
             walk(scene, body.at, (inner) => {
               if (inner.op === "goto") {
                 add(
@@ -240,6 +303,9 @@ export function validateChapter(
 
     // What the scene's own flow reaches.
     walk(scene, 0, (op) => {
+      if (op.op === "check" && op.fail < 0) {
+        add("error", id, op.src, `check "${op.label}" has nowhere to fail to`);
+      }
       if (op.op === "goto") {
         if (op.scene === END) ends = true;
         else if (!chapter.scenes[op.scene]) {
@@ -264,6 +330,8 @@ export function validateChapter(
   }
 
   for (const c of chapter.carry) readExpr(c.cond, "", 1);
+
+  checkPlaces(chapter, opts, add);
 
   for (const r of reads) {
     if (!flagsSet.has(r.flag)) {
@@ -341,6 +409,94 @@ export function validateChapter(
   }
 
   return out;
+}
+
+/**
+ * r21: what each scene can name in its place. Places carry from scene to
+ * scene, so this follows the jumps: a scene may be entered in more than one
+ * place, and every name it uses must exist in each.
+ */
+function checkPlaces(
+  chapter: Chapter,
+  opts: ValidateOptions,
+  add: (
+    level: Problem["level"],
+    scene: string | undefined,
+    line: number,
+    message: string,
+  ) => void,
+): void {
+  const places = opts.places;
+  const entry = new Map<string, Set<string | null>>();
+  const todo: [string, string | null][] = chapter.start
+    ? [[chapter.start, null]]
+    : [];
+  const checked = new Set<string>();
+  while (todo.length > 0) {
+    const [id, at] = todo.pop()!;
+    const scene = chapter.scenes[id];
+    if (!scene) continue;
+    const seen = entry.get(id) ?? new Set();
+    if (seen.has(at)) continue;
+    seen.add(at);
+    entry.set(id, seen);
+    // Walk the scene in order; a place op changes what's in effect after it.
+    let now: string | null = at;
+    for (const op of scene.ops) {
+      const where = `${op.src}:${now}`;
+      const once = !checked.has(`${id}@${where}`);
+      checked.add(`${id}@${where}`);
+      const names = now !== null && places?.[now] ? placeNames(places[now]) : null;
+      const need = (
+        what: "marks" | "hotspots" | "shots" | "props",
+        key: string,
+        label: string,
+      ) => {
+        if (!once || names === null) return;
+        if (!names[what].has(key)) {
+          add("error", id, op.src, `${label} "${key}" isn't in the place "${now}"`);
+        }
+      };
+      switch (op.op) {
+        case "place":
+          if (op.key !== null && places && !places[op.key]) {
+            add("error", id, op.src, `@place ${op.key}: no such place`);
+          }
+          now = op.key;
+          break;
+        case "actor":
+          if (op.state) {
+            if (now === null && once) {
+              add("error", id, op.src, `@actor ${op.who} needs a @place first`);
+            }
+            need("marks", op.state.at, "mark");
+          }
+          break;
+        case "focus":
+          if (op.key) need("shots", op.key, "shot");
+          break;
+        case "prop":
+          need("props", op.key, "prop");
+          break;
+        case "investigate":
+          for (const s of op.spots) {
+            if (s.anchor !== undefined) {
+              if (now === null && once) {
+                add("error", id, op.src, `spot ${s.id} is on a hotspot, but there's no @place`);
+              }
+              need("hotspots", s.anchor, "hotspot");
+            }
+          }
+          if (op.exit) need("hotspots", op.exit, "exit");
+          break;
+        case "goto":
+          if (op.scene !== END) todo.push([op.scene, now]);
+          break;
+        default:
+          break;
+      }
+    }
+  }
 }
 
 export function errorsOf(problems: Problem[]): Problem[] {

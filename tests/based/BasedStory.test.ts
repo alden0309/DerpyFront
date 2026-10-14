@@ -6,8 +6,9 @@
 import fs from "fs";
 import path from "path";
 import { describe, expect, test } from "vitest";
-import { StoryRun } from "../../src/based/engine/Runtime";
+import { chapterStart, StoryRun } from "../../src/based/engine/Runtime";
 import { parseChapter } from "../../src/based/engine/Script";
+import { buildOf } from "../../src/based/engine/Skills";
 import {
   errorsOf,
   formatProblem,
@@ -172,19 +173,31 @@ describe("the chapters as written", () => {
       const scenesSeen = new Set<string>();
       const optionsSeen = new Set<string>();
       for (let run = 0; run < 200; run++) {
-        const r = new StoryRun(chapter);
+        // Every archetype, and a different throw of the dice each time.
+        const builds = chapter.archetypes.map(buildOf);
+        const r = new StoryRun(
+          chapter,
+          chapterStart(chapter, undefined, {
+            build: builds.length > 0 ? builds[run % builds.length] : null,
+            seed: run + 1,
+          }),
+        );
         for (let steps = 0; ; steps++) {
           expect(steps).toBeLessThan(5000);
           const b = r.beat;
           if (b.kind === "end") break;
-          if (b.kind === "line" || b.kind === "card") r.advance();
-          else if (b.kind === "choice") {
-            expect(b.options.length).toBeGreaterThan(0);
+          if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
+            r.advance();
+          } else if (b.kind === "choice") {
+            const open = b.options.filter((o) => !o.check?.locked);
+            expect(open.length).toBeGreaterThan(0);
             if (pick(5) === 0 && b.timer > 0) r.timeout();
-            else r.choose(b.options[pick(b.options.length)].id);
+            else r.choose(open[pick(open.length)].id);
           } else {
             const unseen = b.spots.filter((s) => !s.seen);
-            const ready = b.deductions.filter((d) => d.ready && !d.done);
+            const ready = b.deductions.filter(
+              (d) => d.ready && !d.done && !d.check?.locked,
+            );
             const k = pick(4);
             if (k === 0 && ready.length > 0) r.deduce(ready[0].id);
             else if (k === 1 && b.canLeave) r.leave();

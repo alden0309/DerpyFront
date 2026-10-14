@@ -6,6 +6,8 @@ import { Chapter, END, Op } from "./Types";
 export interface FlowOption {
   id: string;
   label: string;
+  /** r21: a skill check, as "Composure" and its difficulty. */
+  check?: { skill: string; diff: number; kind: "white" | "red" };
   /** Scenes this option can lead to before the scene's own flow resumes. */
   leads: string[];
 }
@@ -49,6 +51,7 @@ function gotosFrom(ops: Op[], from: number, stopAt: number): string[] {
     }
     if (op.op === "return" || op.op === "fall") continue;
     if (op.op === "if") todo.push(at + 1, op.else);
+    else if (op.op === "check") todo.push(at + 1, op.fail);
     else if (op.op === "jump") todo.push(op.to);
     else if (op.op === "choose") op.options.forEach((o) => todo.push(o.at));
     else if (op.op === "investigate") todo.push(op.after);
@@ -75,6 +78,15 @@ export function flowOf(chapter: Chapter): FlowScene[] {
           options: op.options.map((o) => ({
             id: o.id,
             label: o.label,
+            ...(o.check
+              ? {
+                  check: {
+                    skill: o.check.skill,
+                    diff: o.check.diff,
+                    kind: o.check.kind,
+                  },
+                }
+              : {}),
             leads: gotosFrom(scene.ops, o.at, end),
           })),
         });

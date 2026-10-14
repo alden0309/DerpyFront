@@ -3,6 +3,7 @@
 //   met_penhallow
 //   not tv_off and rel.anselme >= 2
 //   (umbrella or coat) and count > 1
+//   skill.composure >= 4               (r21: his skill, with boosts)
 
 import { Expr } from "./Types";
 
@@ -88,6 +89,11 @@ export function parseExpr(src: string): Expr {
       if (!/^[A-Z][A-Z0-9_]*$/.test(who)) throw new Error(`bad name "${t}"`);
       return { k: "rel", who };
     }
+    if (t.startsWith("skill.")) {
+      const id = t.slice(6).toUpperCase();
+      if (!/^[A-Z][A-Z0-9_]*$/.test(id)) throw new Error(`bad skill "${t}"`);
+      return { k: "skill", id };
+    }
     if (!/^[a-z_][a-z0-9_]*$/.test(t)) {
       throw new Error(`flags are lower_case: "${t}"`);
     }
@@ -103,6 +109,8 @@ export function parseExpr(src: string): Expr {
 export interface Values {
   flags: Record<string, number>;
   rels: Record<string, number>;
+  /** Skill values, boosts included (r21). */
+  skills?: Record<string, number>;
 }
 
 export function evalExpr(e: Expr, v: Values): number {
@@ -113,6 +121,8 @@ export function evalExpr(e: Expr, v: Values): number {
       return v.flags[e.name] ?? 0;
     case "rel":
       return v.rels[e.who] ?? 0;
+    case "skill":
+      return v.skills?.[e.id] ?? 0;
     case "not":
       return evalExpr(e.e, v) ? 0 : 1;
     case "and":
@@ -141,13 +151,19 @@ export function evalExpr(e: Expr, v: Values): number {
 }
 
 /** Every flag and relationship a condition reads. */
-export function exprReads(e: Expr, out: { flags: string[]; rels: string[] }) {
+export function exprReads(
+  e: Expr,
+  out: { flags: string[]; rels: string[]; skills?: string[] },
+) {
   switch (e.k) {
     case "flag":
       out.flags.push(e.name);
       break;
     case "rel":
       out.rels.push(e.who);
+      break;
+    case "skill":
+      out.skills?.push(e.id);
       break;
     case "not":
       exprReads(e.e, out);
