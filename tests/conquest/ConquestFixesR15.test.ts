@@ -441,6 +441,17 @@ describe("FIXES r15: the Liar's dice log keeps the whole table's story", () => {
     expect(said.length).toBe(reveals.length);
     reveals.forEach((r, i) => {
       const caller = r.c === life.c ? "You" : charName(g.s.chars[r.c]);
+      // EVENTS (r21): the town's people may say "Spot on!" instead of Liar!.
+      if (r.spot) {
+        expect(said[i].text.startsWith(`${caller} called `)).toBe(true);
+        expect(said[i].text).toMatch(
+          /spot on: .* showing.*\. (Exactly|Not exact)[:(. ].*\.\)?$/,
+        );
+        expect(said[i].text.includes("Exactly")).toBe(
+          (r.count ?? 0) === r.bid!.q,
+        );
+        return;
+      }
       expect(said[i].text.startsWith(`${caller} called Liar! on `)).toBe(true);
       expect(said[i].text).toMatch(
         /showing.*\. (The bid stands|A lie): .* (loses|lose) a die\.$/,
