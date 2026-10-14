@@ -1327,7 +1327,15 @@ function stepShip(g: ConquestGame, owner: Life, b: Boat): void {
     );
     if (b.prov === job.home)
       return endCharter(g, owner, b, "Home from the grounds.");
-    launch(g, owner, b, job.home, false);
+    const err = launch(g, owner, b, job.home, false);
+    // She can't make it home from there: the season ends where she lies.
+    if (err)
+      endCharter(
+        g,
+        owner,
+        b,
+        `The season's done; she lies at the grounds (${err.replace(/\.$/, "").toLowerCase()}).`,
+      );
   }
 }
 
