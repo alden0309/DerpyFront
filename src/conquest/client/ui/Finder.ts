@@ -39,6 +39,7 @@ import {
   LAND_LOT,
   LESSONS,
   PLACES,
+  PLAY_PAY, // CQACH (r22)
 } from "../../engine/LifeRules";
 import { openLoans } from "../../engine/LoanCore"; // ECON (r17)
 import { grantCheck, kitCheck, ventureCheck } from "../../engine/Money";
@@ -1726,10 +1727,12 @@ const GOALS: Goal[] = [
   {
     id: "achievements",
     title: "See my achievements",
-    words: "achievements medals derp coins rewards trophies goals",
+    // CQACH (r22): this game's and overall.
+    words:
+      "achievements medals derp coins rewards trophies goals overall account this game hard secret rare",
     group: "Travel and the world",
     where:
-      "Journal › Achievements: each pays a few Derp Coins the first time your account earns it.",
+      "Journal › Achievements, with a switch between This game (each pays Derp Coins in this game, on any difficulty) and Overall (your account's, earned only on Hard, each paid once).",
     go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
     guide: "coins",
   },
@@ -1741,7 +1744,8 @@ const GOALS: Goal[] = [
       "derp coins money earned paid pay per hour time table minutes line marks rewards how much earn store",
     group: "Travel and the world",
     where:
-      "Journal › Achievements, at the top: what this game has paid you for time at the table and for your line's marks, and what's waiting. 2.5 coins a minute you play (150 an hour), whatever the speed.",
+      // CQACH (r22): 200 an hour, and this game's achievements.
+      `Journal › Achievements, at the top: what this game has paid you for time at the table, your line's marks and this game's achievements, and what's waiting. ${PLAY_PAY.perHour} coins an hour you play, whatever the speed.`,
     go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
     guide: "coins",
   },

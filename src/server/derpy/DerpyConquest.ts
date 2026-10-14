@@ -2,10 +2,12 @@
 // and the Derp Coins it paid. Read back for the Conquest and Overall
 // leaderboards and players' profiles.
 
+import { dlcFromOwned } from "../../conquest/DlcIds"; // CQACH (r22)
 import {
   ACHIEVEMENT_BY_KEY,
-  ACHIEVEMENTS,
-} from "../../conquest/engine/Achievements"; // MAP (r12)
+  achievementsFor,
+} from "../../conquest/engine/Achievements"; // MAP (r12); CQACH (r22): achievementsFor
+import { playCoinsAfter } from "../../conquest/engine/Coins"; // CQACH (r22)
 import { PLAY_PAY } from "../../conquest/engine/LifeRules"; // LEGACY (r21)
 import type {
   ConquestGamePage,
@@ -208,7 +210,7 @@ export interface PlayPaid {
 /**
  * Pays an account for play in a game, all in one transaction: `secs` more
  * seconds at the table (as far as the account's day allows,
- * PLAY_PAY.dailyHours), their coins (PLAY_PAY.perMinute, worked out on the
+ * PLAY_PAY.dailyHours), their coins (PLAY_PAY.perHour, worked out on the
  * game's whole time so nothing is lost to rounding), and the line's coins
  * up to `lineTotal`, held to PLAY_PAY.linesPerHour for each hour the game
  * has been played. The coins go into the account and onto the game's row.
@@ -254,10 +256,8 @@ export async function payInPlay(
       secs: Number(game.secs),
     };
     const total = was.secs + took;
-    const play = Math.max(
-      was.play,
-      Math.floor((total / 60) * PLAY_PAY.perMinute),
-    );
+    // CQACH (r22): 200 an hour from here on; what was paid before stands.
+    const play = playCoinsAfter(was.play, was.secs, total);
     const lines = Math.max(
       was.lines,
       Math.min(
@@ -442,6 +442,8 @@ export interface ProfileAchievement {
   coins: number;
   /** When the account first earned it (ISO). */
   at: string;
+  /** CQACH (r22): "hard" or "rare". */
+  tier?: string;
 }
 
 /** A player's Conquest stats and recent games, by account id. */
@@ -477,6 +479,14 @@ export async function conquestProfile(accountId: number): Promise<{
     [accountId],
   );
   const earned = await achievementsOf(accountId);
+  // CQACH (r22): of how many: the add-ons' achievements count for their owners.
+  const owned = dlcFromOwned(
+    (
+      await pool.query("SELECT item FROM derpy_owned WHERE account_id = $1", [
+        accountId,
+      ])
+    ).rows.map((r) => String(r.item)),
+  );
   return {
     stats: rowToConquest(stats.rows[0] ?? {}),
     achievements: earned.flatMap((a): ProfileAchievement[] => {
@@ -490,11 +500,12 @@ export async function conquestProfile(accountId: number): Promise<{
               group: def.group,
               coins: a.coins,
               at: a.at,
+              ...(def.tier ? { tier: def.tier } : {}), // CQACH (r22)
             },
           ]
         : [];
     }),
-    achievementCount: ACHIEVEMENTS.length,
+    achievementCount: achievementsFor(owned).length, // CQACH (r22)
     games: games.rows.map((g) => ({
       gameId: g.game_id,
       endedAt: new Date(g.ended_at).toISOString(),

@@ -9,6 +9,7 @@ import {
   MAP_STYLES,
   type MapStyleKey,
 } from "../../DlcIds"; // DLC (r21)
+import { ACHIEVEMENT_BY_KEY } from "../../engine/Achievements"; // CQACH (r22)
 import { formatDate } from "../../engine/Calendar";
 import { endWords } from "../../engine/Campaign1776Core"; // DLC (r21)
 import { lifeTitle, takeoverCandidates } from "../../engine/LifeQueries";
@@ -27,6 +28,7 @@ import { confirmMarch, setConfirmMarch } from "../Prefs";
 import "../Range";
 import { music, play, setSoundSettings, soundSettings } from "../Sound";
 import { nationName } from "../Text";
+import { medal } from "./Achievements"; // CQACH (r22)
 import {
   battleVerdict,
   myBattleNation,
@@ -809,7 +811,9 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
               )}
             </tbody>
           </table>
-          ${coinBreakdown(results, ui)} ${everyCharacter(results, ui)}`
+          ${coinBreakdown(results, ui)}
+          ${achievementsAtEnd(results, ui) /* CQACH (r22) */}
+          ${everyCharacter(results, ui)}`
       : s.lives.length > 1
         ? html`<h3 class="cq-h3">The others</h3>
             <ul class="cq-list">
@@ -832,6 +836,72 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
     </div>
   `;
 }
+
+// ---------------------------------------------------------------- CQACH (r22): achievements at the end
+
+/**
+ * The game's achievements at the end: yours, this game's (each with what it
+ * paid in the game) and the overall ones your account first earned in it
+ * (on Hard), and how many everyone else earned.
+ */
+function achievementsAtEnd(
+  results: ResultLine[],
+  ui: GameUi,
+): TemplateResult | typeof nothing {
+  const withAch = results.filter((r) => r.ach);
+  if (!withAch.length) return nothing;
+  const mine = results.find((r) => r.name === ui.life?.name)?.ach;
+  const others = withAch.filter((r) => r.name !== ui.life?.name);
+  const item = (key: string, coins: number, metal: "gold" | "silver") => {
+    const def = ACHIEVEMENT_BY_KEY.get(key);
+    return def
+      ? html`<li title=${def.how}>
+          ${medal(def, metal)}<span class="name">${def.name}</span
+          ><span class="cq-ach-coins">${coins}</span>
+        </li>`
+      : nothing;
+  };
+  const sum = (l: { coins: number }[]) => l.reduce((n, x) => n + x.coins, 0);
+  return html`<h3 class="cq-h3">Achievements</h3>
+    ${mine
+      ? html`<p class="cq-muted small">
+            <b>This game's:</b> ${mine.game.length}, worth ${sum(mine.game)}
+            Derp Coins in this game (paid with your line's marks, held to the
+            time played).
+          </p>
+          ${mine.game.length
+            ? html`<ul class="cq-end-ach">
+                ${mine.game.map((x) => item(x.key, x.coins, "silver"))}
+              </ul>`
+            : nothing}
+          <p class="cq-muted small">
+            <b>Overall:</b>
+            ${mine.overall === null
+              ? "playing as a guest, nothing goes onto an account."
+              : !mine.hard
+                ? "this game wasn't on Hard, so it didn't count for your account's achievements."
+                : mine.overall.length
+                  ? `${mine.overall.length} new on your account, ${sum(mine.overall)} Derp Coins.`
+                  : "nothing new on your account this time."}
+          </p>
+          ${mine.overall?.length
+            ? html`<ul class="cq-end-ach">
+                ${mine.overall.map((x) => item(x.key, x.coins, "gold"))}
+              </ul>`
+            : nothing}`
+      : nothing}
+    ${others.length
+      ? html`<p class="cq-muted small">
+          ${others
+            .map(
+              (r) =>
+                `${r.name}: ${r.ach!.game.length} in this game${r.ach!.overall?.length ? `, ${r.ach!.overall.length} new overall` : ""}`,
+            )
+            .join("; ")}.
+        </p>`
+      : nothing}`;
+}
+// ---------------------------------------------------------------- /CQACH (r22)
 
 /** LEGACY (r21): every character each player's line was, with their stats. */
 function everyCharacter(results: ResultLine[], ui: GameUi): TemplateResult {

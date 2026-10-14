@@ -6,6 +6,7 @@ import { customElement, property, state } from "lit/decorators.js";
 import "../../derpland/DerpBar";
 import { openSignIn } from "../../derpland/DerpBar";
 import { type ConquestDlcOwned, NO_DLC } from "../DlcIds"; // DLC (r21)
+import { countsOverall } from "../engine/Achievements"; // CQACH (r22)
 import { AMERICAS } from "../engine/Map";
 import {
   endYearOf,
@@ -660,6 +661,15 @@ export function settingsFields(
     </label>
     <p class="cq-muted small cq-settings-note">
       ${DIFFICULTY_TEXT[s.difficulty]}
+    </p>
+    <!-- CQACH (r22): the two kinds of achievement, and Hard's part in them. -->
+    <p class="cq-muted small cq-settings-note cq-ach-lobby">
+      ${countsOverall(s.difficulty)
+        ? html`<b>On Hard, achievements count twice:</b> each pays Derp Coins in
+            this game, and goes onto your account's overall achievements.`
+        : html`<b>Achievements:</b> each pays Derp Coins in this game on any
+            difficulty; your account's overall achievements are earned only on
+            Hard.`}
     </p>
   </div>`;
 }

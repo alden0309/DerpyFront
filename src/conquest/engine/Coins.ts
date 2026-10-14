@@ -5,12 +5,18 @@
 // fifth more on every line (LIFE_COINS), each line rounded down.
 //
 // LEGACY (r21): Conquest pays about what DerpyFront does for an hour's play.
-// Time at the table pays as you go (PLAY_PAY.perMinute), the line's coins
+// Time at the table pays as you go (PLAY_PAY.perHour), the line's coins
 // are paid as each is reached rather than only at the end, and both are
 // counted in real minutes, so pausing, skipping ahead or starting game
 // after game earns nothing extra. The server keeps the clock
 // (server/conquest/ConquestPay.ts); these are the rules it reads.
+//
+// CQACH (r22): time at the table pays 200 an hour (it was 150), and this
+// game's achievements are paid with the line's coins (on any difficulty),
+// so they're held to the same hourly cap and can't be farmed by starting
+// game after game.
 
+import { gameAchievements } from "./Achievements"; // CQACH (r22)
 import { LIFE_COINS, PLAY_PAY } from "./LifeRules";
 import type { Life } from "./Types";
 
@@ -19,11 +25,21 @@ export interface CoinResult {
   lines: { line: string; coins: number }[];
 }
 
-/** What a seat's line earned. `reached1776`: a character still living at the end. */
+/** CQACH (r22): the line for this game's achievements (paid on any difficulty). */
+export const GAME_ACH_LINE = "This game's achievements";
+
+/**
+ * What a seat's line earned. `reached1776`: a character still living at the
+ * end. CQACH (r22): with this game's achievements (gameCoins each), from the
+ * first day, held to the time played with the rest.
+ */
 export function lifeCoins(life: Life, reached1776: boolean): CoinResult {
   const c = LIFE_COINS;
   const t = life.tally;
-  if (t.days < c.minDays) return { total: 0, lines: [] };
+  // CQACH (r22)
+  const ach = gameAchievements(life).coins;
+  const achLine = ach > 0 ? [{ line: GAME_ACH_LINE, coins: ach }] : [];
+  if (t.days < c.minDays) return { total: ach, lines: achLine };
   const lines = [
     { line: "Lived a life", coins: c.played },
     {
@@ -65,6 +81,7 @@ export function lifeCoins(life: Life, reached1776: boolean): CoinResult {
     { line: "A rising that won", coins: t.risingsWon > 0 ? c.risingWon : 0 },
     { line: "Went to Europe", coins: t.europe ? c.europe : 0 },
     { line: "Lived to see 1776", coins: reached1776 ? c.reached1776 : 0 },
+    ...achLine, // CQACH (r22)
   ].filter((l) => l.coins > 0);
   return { total: lines.reduce((n, l) => n + l.coins, 0), lines };
 }
@@ -73,7 +90,41 @@ export function lifeCoins(life: Life, reached1776: boolean): CoinResult {
 
 /** Coins for time at the table (unrounded): `secs` seconds that counted. */
 export function timeCoins(secs: number): number {
-  return (Math.max(0, secs) / 60) * PLAY_PAY.perMinute;
+  return (Math.max(0, secs) / 3600) * PLAY_PAY.perHour; // CQACH (r22)
+}
+
+/** CQACH (r22): the time pay a minute, in words: "3⅓" (200 an hour). */
+export function perMinuteWords(perHour: number = PLAY_PAY.perHour): string {
+  const m = perHour / 60;
+  const whole = Math.floor(m);
+  const frac = m - whole;
+  if (frac < 0.001) return `${whole}`;
+  const part =
+    Math.abs(frac - 1 / 3) < 0.001
+      ? "⅓"
+      : Math.abs(frac - 2 / 3) < 0.001
+        ? "⅔"
+        : Math.abs(frac - 0.5) < 0.001
+          ? "½"
+          : null;
+  return part ? `${whole}${part}` : m.toFixed(1);
+}
+
+/**
+ * CQACH (r22): a game's coins for time at the table once `total` seconds
+ * have counted, `was` paid for its first `wasSecs`. Each second from
+ * `wasSecs` on pays at today's rate (whole coins, worked out on the game's
+ * whole time so nothing is lost to rounding); what was paid before stands,
+ * so a game begun at the old rate isn't paid again for its past.
+ */
+export function playCoinsAfter(
+  was: number,
+  wasSecs: number,
+  total: number,
+): number {
+  const whole = (secs: number) =>
+    Math.floor((Math.max(0, secs) * PLAY_PAY.perHour) / 3600);
+  return was + Math.max(0, whole(total) - whole(wasSecs));
 }
 
 /**

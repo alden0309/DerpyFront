@@ -88,6 +88,8 @@ interface ConquestAchievement {
   group: string;
   coins: number;
   at: string;
+  /** CQACH (r22): "hard" or "rare". */
+  tier?: string;
 }
 interface Profile {
   username: string;
@@ -346,15 +348,22 @@ export class DerpProfile extends HubPage {
           ${all}${coins ? html` · ${nf(coins)} coins` : ""}</span
         >
       </h2>
+      <!-- CQACH (r22): these are the account's (overall); the rule. -->
+      <p class="dl-ach-rule">
+        The account's overall achievements, across every game it plays: earned
+        only in games on Hard, each paying its coins once (any earned before
+        stay). Every game also has its own achievements, which pay Derp Coins in
+        that game on any difficulty.
+      </p>
       ${got.length
         ? html`<ul class="dl-ach-list">
             ${got.map(
               (a) =>
                 html`<li
-                  class="dl-ach"
+                  class="dl-ach ${a.tier ?? ""}"
                   title="${a.how} Earned ${shortDate(a.at)}${a.coins
                     ? `, ${a.coins} coins`
-                    : ""}."
+                    : ""}${a.tier ? ` (${a.tier})` : ""}."
                 >
                   <span class="dl-ach-medal" aria-hidden="true"></span>
                   <span class="dl-ach-name">${a.name}</span>
@@ -365,8 +374,8 @@ export class DerpProfile extends HubPage {
             )}
           </ul>`
         : html`<p class="dl-empty">
-            None yet. Each one pays a few Derp Coins the first time, from your
-            first job to living to see 1776.
+            None yet. Each one pays a few Derp Coins the first time it's earned
+            in a game on Hard, from your first job to living to see 1776.
           </p>`}
     </section>`;
   }

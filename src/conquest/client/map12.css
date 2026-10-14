@@ -313,3 +313,101 @@
     max-width: none;
   }
 }
+
+/* ---------------------------------------------------------------- CQACH (r22): this game's and overall */
+
+.cq-ach-view {
+  margin: 0.2rem 0 0.4rem;
+}
+.cq-ach-view button span {
+  margin-left: 0.25rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.cq-ach-rule {
+  margin: 0.3rem 0 0.2rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+.cq-ach-rule b {
+  color: var(--ink);
+}
+.cq-ach-tag {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0 0.3rem;
+  border-radius: 3px;
+  font-family: var(--fell-sc);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  line-height: 1.35;
+  vertical-align: 0.12em;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  background: rgba(255, 250, 235, 0.6);
+}
+.cq-ach-tag.hard {
+  border-color: rgba(107, 74, 20, 0.55);
+  color: #6b4a14;
+}
+.cq-ach-tag.rare {
+  border-color: rgba(80, 103, 122, 0.6);
+  color: #3f5568;
+  background: rgba(201, 198, 189, 0.35);
+}
+.cq-ach-tag.secret {
+  border-style: dashed;
+}
+.cq-ach-card.secret .cq-ach-how {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.cq-ach-overall {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.cq-ach-overall.on {
+  font-weight: 700;
+  color: #6b4a14;
+}
+.cq-ach-dlc {
+  margin-top: 0.6rem;
+}
+
+/* The end screen: this game's achievements and the overall ones. */
+.cq-end-ach {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+  gap: 0.35rem 0.6rem;
+  margin: 0.3rem 0 0.6rem;
+  padding: 0;
+  list-style: none;
+}
+.cq-end-ach li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+.cq-end-ach .cq-medal {
+  width: 1.6rem;
+  height: 1.95rem;
+}
+.cq-end-ach .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cq-end-ach .cq-ach-coins {
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 820px) {
+  .cq-end-ach {
+    grid-template-columns: 1fr;
+  }
+}
+/* ---------------------------------------------------------------- /CQACH (r22) */

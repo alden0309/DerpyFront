@@ -14,7 +14,13 @@ import type http from "http";
 import type { Duplex } from "stream";
 import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
-import { checkAchievements } from "../../conquest/engine/Achievements"; // MAP (r12)
+import {
+  ACHIEVEMENT_BY_KEY,
+  checkAchievements,
+  countsOverall,
+  gameCoins,
+  setCampaignOwned,
+} from "../../conquest/engine/Achievements"; // MAP (r12); CQACH (r22): this game's and overall
 import { validateLook } from "../../conquest/engine/Appearance";
 import { dateOf, formatDate } from "../../conquest/engine/Calendar";
 import {
@@ -75,6 +81,7 @@ import {
   MAX_NAME_LENGTH,
   MAX_WATCHERS,
   OpenRoom,
+  ResultAchievements, // CQACH (r22)
   ResultLine,
   RoomSettings,
   SavedGame,
@@ -93,7 +100,11 @@ import {
   savesFor,
   type SaveRow,
 } from "../derpy/ConquestSaves";
-import { achievementsOf, awardAchievement } from "../derpy/DerpyAchievements"; // MAP (r12)
+import {
+  achievementsInGame,
+  achievementsOf,
+  awardAchievement,
+} from "../derpy/DerpyAchievements"; // MAP (r12); CQACH (r22): achievementsInGame
 import { accountForToken } from "../derpy/DerpyAuth";
 import { recordConquestGame } from "../derpy/DerpyConquest";
 import { derpyDbConfigured } from "../derpy/DerpyDb";
@@ -635,6 +646,7 @@ export class ConquestRooms {
         const err = game.beginLife(seat.id, seat.name, m.plan as LifePlan);
         if (err) return this.send(conn, { t: "err", msg: err });
         setLegendsOwned(game, seat.id, !!seat.dlc?.legends); // DLC (r21)
+        setCampaignOwned(game, seat.id, !!seat.dlc?.campaign1776); // CQACH (r22)
         this.pay.choice(room, seat); // LEGACY (r21)
         this.flush(room);
         this.onSeatsChanged(room);
@@ -982,6 +994,9 @@ export class ConquestRooms {
     seat.conn = conn;
     seat.dlc = conn.dlc; // DLC (r21)
     if (room.game) setLegendsOwned(room.game, seat.id, !!conn.dlc.legends);
+    // CQACH (r22): the 1776 campaign's achievements come to its owners.
+    if (room.game)
+      setCampaignOwned(room.game, seat.id, !!conn.dlc.campaign1776);
     if (conn.accountId !== null) {
       seat.accountId = conn.accountId;
       seat.name = conn.name;
@@ -1614,8 +1629,10 @@ export class ConquestRooms {
       players.map((s) => ({ seat: s.id, name: s.name, plan: s.plan! })),
     );
     // DLC (r21): Legends come to the seats whose accounts own them.
-    for (const x of room.seats)
+    for (const x of room.seats) {
       setLegendsOwned(room.game, x.id, !!x.dlc?.legends);
+      setCampaignOwned(room.game, x.id, !!x.dlc?.campaign1776); // CQACH (r22)
+    }
     room.game.takeDelta();
     room.startedAt = this.now();
     room.saveId = `${room.code}-${room.startedAt}`;
@@ -1753,24 +1770,33 @@ export class ConquestRooms {
     key: string,
     tell: boolean,
   ): Promise<void> {
+    // CQACH (r22): onto the account (overall) only in a game on the hardest
+    // difficulty (in company, the game's); this game's own coins are paid
+    // with the line's (ConquestPay), on any difficulty.
+    const difficulty = room.game?.state.settings.difficulty ?? "";
+    const overall = countsOverall(difficulty);
     let paid: { first: boolean; coins: number } | null = null;
-    if (seat.accountId !== null && derpyDbConfigured()) {
+    if (seat.accountId !== null && derpyDbConfigured() && overall) {
       try {
         paid = await awardAchievement(
           seat.accountId,
           key,
           room.saveId ?? room.code,
+          difficulty,
         );
       } catch (err) {
         log.warn(`couldn't pay achievement ${key}: ${err}`);
       }
     }
+    const def = ACHIEVEMENT_BY_KEY.get(key);
     if (tell && seat.conn)
       this.send(seat.conn, {
         t: "achieved",
         key,
         coins: seat.accountId !== null ? (paid?.coins ?? 0) : null,
         first: paid?.first ?? false,
+        game: def ? gameCoins(def) : 0,
+        overall,
       });
   }
 
@@ -2227,6 +2253,34 @@ export class ConquestRooms {
       })
       .sort((a, b) => b.score - a.score);
     const many = lines.length >= 2;
+    // CQACH (r22): the overall achievements each account first earned in
+    // this game (on Hard), for the end screen beside this game's own.
+    const hard = countsOverall(s.settings.difficulty);
+    const overallIn = new Map<Seat, { key: string; coins: number }[]>();
+    if (paying && hard)
+      for (const x of lines)
+        if (x.seat.accountId !== null)
+          try {
+            overallIn.set(
+              x.seat,
+              await achievementsInGame(
+                x.seat.accountId,
+                room.saveId ?? room.code,
+              ),
+            );
+          } catch (err) {
+            log.warn(`couldn't read a game's achievements: ${err}`);
+          }
+    const achOf = (x: (typeof lines)[number]): ResultAchievements => ({
+      game: Object.entries(x.life.achieved ?? {})
+        .sort((a, b) => a[1] - b[1])
+        .flatMap(([key]) => {
+          const def = ACHIEVEMENT_BY_KEY.get(key);
+          return def ? [{ key, coins: gameCoins(def) }] : [];
+        }),
+      overall: x.seat.accountId === null ? null : (overallIn.get(x.seat) ?? []),
+      hard,
+    });
     room.results = lines.map((x, i) => ({
       name: x.seat.name,
       line: x.lineName,
@@ -2254,6 +2308,7 @@ export class ConquestRooms {
           }
         : {}),
       chars: x.chars,
+      ach: achOf(x), // CQACH (r22)
     }));
     const winner = lines[0];
     await this.save(room, true);

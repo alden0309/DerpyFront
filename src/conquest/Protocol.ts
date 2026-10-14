@@ -140,6 +140,18 @@ export interface ResultLine {
   minutes?: number;
   /** LEGACY (r21): every character the player's line was, with their stats. */
   chars?: LineCharacter[];
+  /** CQACH (r22): the achievements of the game. */
+  ach?: ResultAchievements;
+}
+
+/** CQACH (r22): a player's achievements at the end of a game. */
+export interface ResultAchievements {
+  /** This game's, each with what it paid in the game. */
+  game: { key: string; coins: number }[];
+  /** Overall ones the account first earned in this game, with their coins (null: a guest). */
+  overall: { key: string; coins: number }[] | null;
+  /** The game counted for overall achievements (it was on the hardest difficulty). */
+  hard: boolean;
 }
 
 // ---------------------------------------------------------------- LEGACY (r21)
@@ -350,7 +362,16 @@ export type ServerMessage =
       signedIn: boolean;
       have: { key: string; at: string; coins: number }[];
     }
-  | { t: "achieved"; key: string; coins: number | null; first: boolean }
+  | {
+      t: "achieved";
+      key: string;
+      coins: number | null;
+      first: boolean;
+      /** CQACH (r22): what it pays in this game (any difficulty; with the line's coins, held to the time played). */
+      game?: number;
+      /** CQACH (r22): the game's difficulty counts for overall (account) achievements. */
+      overall?: boolean;
+    }
   // DICE (r14): whose turn it is at a dice table, and the seconds they have
   // before the table bids for them (only at a table with two players or more).
   | { t: "diceclock"; id: number; c: number; left: number }

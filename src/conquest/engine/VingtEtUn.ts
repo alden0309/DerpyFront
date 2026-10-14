@@ -653,6 +653,13 @@ function afterHand(
   if (o > 0) addStress(g, l, -2);
   else if (o < 0 && x.stake * 5 > Math.max(0, l.purse) + x.stake)
     addStress(g, l, 3);
+  // CQACH (r22): hands won and naturals turned up, for the achievements.
+  if (o > 0 || x.state === "natural") {
+    const ach = (touchLife(g, l).achCount ??= {});
+    if (o > 0) ach["cards-won"] = (ach["cards-won"] ?? 0) + 1;
+    if (x.state === "natural")
+      ach["cards-natural"] = (ach["cards-natural"] ?? 0) + 1;
+  }
   const mine = handTotal(x.cards).total;
   const bank = handTotal(t.bankCards).total;
   journal(
@@ -701,6 +708,11 @@ function leaveNow(
         `${x.tick} of your stakes went on tick: you owe the bank.`,
         "bad",
       );
+    // CQACH (r22): up twenty or more on getting up: the bank broken.
+    if (x.hands && net >= 20) {
+      const ach = (touchLife(g, l).achCount ??= {});
+      ach["cards-broke"] = (ach["cards-broke"] ?? 0) + 1;
+    }
     // The innkeeper remembers a winner (and a good customer).
     const bank = t.bank >= 0 ? g.s.chars[t.bank] : undefined;
     if (bank?.alive && x.hands) {
