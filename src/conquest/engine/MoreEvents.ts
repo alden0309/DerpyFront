@@ -470,10 +470,12 @@ export const MORE_EVENTS: LifeEventDef[] = [
     "duel",
     "A challenge",
     (g, life, ctx) =>
-      `${cap(name(g, ctx))} has thrown down a glove: pistols at dawn, or swords, your choice. Refuse and the whole town will hear of it by noon.`,
+      ctx.dd // LIFE (r21): to the death
+        ? `${cap(name(g, ctx))} has thrown down a glove, and the terms with it: to the death. Pistols at dawn, or swords, your choice. Accept, and one of you won't walk off the field. Refuse and the whole town will hear of it by noon.`
+        : `${cap(name(g, ctx))} has thrown down a glove: pistols at dawn, or swords, your choice. Refuse and the whole town will hear of it by noon.`,
     "Accept the challenge",
     "Refuse",
-    "Fight: fighting against fighting. The loser is hurt; someone may die. Refusing costs renown.",
+    "Fight: fighting against fighting. The loser is hurt (to the death, killed); someone may die. Refusing costs renown.",
     "duel",
   ),
   p2p(

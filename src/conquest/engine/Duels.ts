@@ -37,8 +37,10 @@ import {
   opinionOf,
   skillLevel,
 } from "./LifeQueries";
+import { COWARD_DAYS, ldice, setMark } from "./LifeR21Core"; // LIFE (r21)
 import { checkChance } from "./LifeRules";
 import { ageOf, charName, hasTrait } from "./Queries";
+import { rumour } from "./Rumours"; // LIFE (r21): the town's talk of a run
 import type {
   Breakdown,
   Character,
@@ -220,6 +222,175 @@ function theirShot(g: ConquestGame, ctx: LCtx, quick: boolean): number {
 
 const pct = (p: number) => `${Math.round(p * 100)}%`;
 
+// ---------------------------------------------------------------- LIFE (r21): to the death
+
+/**
+ * A duel to the death: no first blood, no firing into the air, no yielding.
+ * It goes on until one of you is down (wounds of 35), and the one who's down
+ * dies of it; with pistols, the seconds load again for up to five exchanges.
+ * Losing, you may run from the field: you live, and the town calls you a
+ * coward for three years.
+ */
+export const DEATH = {
+  /** Pistols: exchanges before the seconds call it, hit or miss. */
+  pistolRounds: 5,
+  /** Running: renown lost, the coward's name, and a chance of a parting cut. */
+  runRenown: -12,
+  runCut: 0.25,
+  runCutWound: [8, 18] as [number, number],
+  /** They demand it to the death: a sworn enemy, or this much hatred (less for a grave insult). */
+  demand: -70,
+  demandGrave: -30,
+  /** A craven foe who's losing badly may run (each pass). */
+  theyRun: 0.5,
+};
+
+/** Whether a challenge made to you is to the death: the insult's weight. */
+export function deathDemanded(
+  s: GameState,
+  life: Life,
+  foe: Character,
+  grave = false,
+): boolean {
+  if (hasTrait(foe, "craven")) return false;
+  if (life.ties[foe.id] === "nemesis") return true;
+  const op = opinionOf(s, foe, life).total;
+  if (op <= DEATH.demand) return true;
+  if (grave && op <= DEATH.demandGrave) return true;
+  return hasTrait(foe, "cruel") && op <= -50;
+}
+
+/** Their chance of taking your terms, to the death, and why. */
+export function deathAgree(
+  s: GameState,
+  life: Life,
+  foe: Character,
+): { chance: number; why: Breakdown } {
+  const e = new Explain().add("Few will stake their life on a quarrel", 25);
+  if (hasTrait(foe, "brave")) e.add("Brave", 25);
+  if (hasTrait(foe, "cruel")) e.add("Means to hurt", 15);
+  if (hasTrait(foe, "craven")) e.add("Craven", -40);
+  if (hasTrait(foe, "content")) e.add("Content with life", -10);
+  if (life.ties[foe.id] === "nemesis") e.add("Your sworn enemy", 30);
+  const op = opinionOf(s, foe, life).total;
+  if (op < 0) e.add(`Their hatred (${op})`, Math.round(-op / 4));
+  if (ageOf(s, foe) >= 50) e.add("Getting on", -10);
+  // A man who'd likely lose holds back; one who'd likely win leans in.
+  const mine = deathOdds(s, life, { c: foe.id, w: SWORDS, sec: -1 }).win;
+  e.add(
+    `Their chance against you (${pct(1 - mine)})`,
+    Math.round((0.5 - mine) * 60),
+  );
+  const why = e.done(0);
+  return {
+    chance: Math.max(0.05, Math.min(0.9, why.total / 100)),
+    why,
+  };
+}
+
+/** A wound's spread as [wounds, chance], capped at "down". */
+function spread(
+  lo: number,
+  hi: number,
+  bonus = 0,
+  bonusP = 0,
+): [number, number][] {
+  const out = new Map<number, number>();
+  const n = hi - lo + 1;
+  for (let k = lo; k <= hi; k++) {
+    const add = (v: number, p: number) =>
+      out.set(Math.min(DOWN, v), (out.get(Math.min(DOWN, v)) ?? 0) + p);
+    add(k, ((1 - bonusP) * 1) / n);
+    if (bonusP) add(k + bonus, bonusP / n);
+  }
+  return [...out.entries()];
+}
+
+/**
+ * Your chance of coming off the field the winner of a duel to the death,
+ * from wounds as they stand, keeping to one move (the same tables the
+ * exchanges roll from). Swords: pass after pass until one is down.
+ * Pistols: exchange after exchange (five at most; then nobody wins).
+ */
+export function deathOdds(
+  s: GameState,
+  life: Life,
+  ctx: LCtx,
+  move?: DuelMove,
+): { win: number; lose: number } {
+  const mw = ctx.mw ?? 0;
+  const fw = ctx.fw ?? 0;
+  if ((ctx.w || SWORDS) === PISTOLS) {
+    const m = move === "snap" ? "snap" : "aim";
+    const p = duelOdds(s, life, { ...ctx, w: PISTOLS }, m).chance;
+    const q0 = pistolHit(theirs(s, { ...ctx, w: PISTOLS }).score, false);
+    const mine = spread(15, 50, 30, 0.2);
+    const yours = spread(15, 45, 25, 0.15);
+    const memo = new Map<string, [number, number]>();
+    const go = (a: number, b: number, r: number): [number, number] => {
+      if (b >= DOWN && a < DOWN) return [1, 0];
+      if (a >= DOWN) return [b >= DOWN ? 0 : 0, 1];
+      if (r >= DEATH.pistolRounds) return [0, 0];
+      const key = `${a},${b},${r}`;
+      const hit = memo.get(key);
+      if (hit) return hit;
+      let win = 0;
+      let lose = 0;
+      // I hit or not; they hit or not (half as likely if I fired first and hit).
+      for (const iHit of [true, false]) {
+        const pi = iHit ? p : 1 - p;
+        const q = iHit && m === "snap" ? q0 * 0.5 : q0;
+        for (const theyHit of [true, false]) {
+          const pq = theyHit ? q : 1 - q;
+          const w0 = pi * pq;
+          if (w0 <= 0) continue;
+          const fws = iHit ? mine : [[0, 1] as [number, number]];
+          const mws = theyHit ? yours : [[0, 1] as [number, number]];
+          for (const [df, pf] of fws)
+            for (const [dm, pm] of mws) {
+              const [wn, ls] = go(
+                Math.min(DOWN, a + dm),
+                Math.min(DOWN, b + df),
+                r + 1,
+              );
+              win += w0 * pf * pm * wn;
+              lose += w0 * pf * pm * ls;
+            }
+        }
+      }
+      const res: [number, number] = [win, lose];
+      memo.set(key, res);
+      return res;
+    };
+    const [win, lose] = go(mw, fw, ctx.r ?? 0);
+    return { win, lose };
+  }
+  const m = move && SWORD_WOUND[move] ? move : "guard";
+  const p = duelOdds(s, life, { ...ctx, w: SWORDS }, m).chance;
+  const hitThem = spread(...SWORD_WOUND[m]);
+  const hitMe = spread(...SWORD_TAKEN[m]);
+  const memo = new Map<number, number>();
+  const go = (a: number, b: number): number => {
+    if (b >= DOWN) return 1;
+    if (a >= DOWN) return 0;
+    const key = a * 64 + b;
+    const hit = memo.get(key);
+    if (hit !== undefined) return hit;
+    let v = 0;
+    for (const [d, pd] of hitThem) v += p * pd * go(a, b + d);
+    for (const [d, pd] of hitMe) v += (1 - p) * pd * go(a + d, b);
+    memo.set(key, v);
+    return v;
+  };
+  const win = go(mw, fw);
+  return { win, lose: 1 - win };
+}
+
+/** In words: "about 3 in 5 you walk away, 2 in 5 you're carried". */
+export function deathWords(o: { win: number; lose: number }): string {
+  return `if it goes on: ${pct(o.win)} you walk off the field, ${pct(o.lose)} you're carried off it${o.win + o.lose < 0.99 ? `, ${pct(1 - o.win - o.lose)} the seconds call it` : ""}`;
+}
+
 // ---------------------------------------------------------------- starting one
 
 function raise(g: ConquestGame, life: Life, key: string, ctx: LCtx): void {
@@ -237,6 +408,12 @@ export function startDuel(
   life: Life,
   foe: Character,
   challenged: boolean,
+  /**
+   * LIFE (r21): to the death. "ask": you asked it of them (they may agree);
+   * a challenge made to you is to the death when the insult weighs enough
+   * (`deathDemanded`), the more readily when it's `grave` (a wife's honour).
+   */
+  terms: { death?: "ask"; grave?: boolean } = {},
 ): void {
   const s = g.s;
   const me = meOf(s, life);
@@ -249,7 +426,23 @@ export function startDuel(
     (id) => id !== foe.id && id !== me.id && s.chars[id]?.alive,
   );
   const fsec = locals.length ? locals[g.rng.int(0, locals.length - 1)] : -1;
+  // LIFE (r21): to the death, if it's demanded of you or you asked and they'd have it.
+  let dd = 0;
+  if (challenged && deathDemanded(s, life, foe, !!terms.grave)) dd = 1;
+  else if (!challenged && terms.death === "ask") {
+    const agree = deathAgree(s, life, foe);
+    dd = ldice(s, 0x7d1, foe.id, life.c).chance(agree.chance) ? 1 : 0;
+    journal(
+      g,
+      life,
+      dd
+        ? `${charName(foe)} takes your terms: it will be to the death.`
+        : `${charName(foe)} won't stake ${foe.female ? "her" : "his"} life on it: the ordinary terms, or nothing.`,
+      dd ? "bad" : undefined,
+    );
+  }
   raise(g, life, "duel-call", {
+    dd, // LIFE (r21)
     c: foe.id,
     ch: challenged ? 0 : 1,
     sc: secondFor(s, life, foe.id),
@@ -289,13 +482,23 @@ function endDuel(g: ConquestGame, life: Life, ctx: LCtx, how: string): void {
   const weapon = ctx.w === PISTOLS ? "pistols" : "swords";
   // Who came off best.
   let res = 0;
-  if (how === "yield") res = -1;
-  else if (how === "theyyield") res = 1;
+  if (how === "yield" || how === "ran") res = -1;
+  else if (how === "theyyield" || how === "theyran") res = 1;
   else if (ctx.fw > ctx.mw) res = 1;
   else if (ctx.mw > ctx.fw) res = -1;
   // A death from the wounds.
   let dead = -1;
-  if (ctx.fw >= MORTAL && g.rng.chance(Math.min(0.85, (ctx.fw - 45) / 50))) {
+  // LIFE (r21): to the death, whoever is down dies of it.
+  if (how === "death" && ctx.fw >= DOWN) {
+    dead = foe.id;
+    if (other) hurt(g, other, 200, cause);
+    else kill(g, g.char(foe.id), cause);
+  } else if (how === "death") {
+    // You're down: nothing more for them.
+  } else if (
+    ctx.fw >= MORTAL &&
+    g.rng.chance(Math.min(0.85, (ctx.fw - 45) / 50))
+  ) {
     dead = foe.id;
     if (other) hurt(g, other, 200, cause);
     else kill(g, g.char(foe.id), cause);
@@ -303,7 +506,42 @@ function endDuel(g: ConquestGame, life: Life, ctx: LCtx, how: string): void {
   // STORY (r17): every duel is in the story (the one fought with you too, if you're played).
   duelStory(g, life, other, me, foe, how, res, dead, weapon);
   // Honour and renown.
-  if (how === "delope") {
+  if (how === "ran") {
+    // LIFE (r21): you ran from a duel to the death.
+    addRenown(g, life, DEATH.runRenown);
+    addStress(g, life, 10);
+    setMark(g, life, "coward", COWARD_DAYS);
+    remembers(
+      g,
+      life,
+      g.char(foe.id),
+      "Ran from me like a whipped dog",
+      -10,
+      5,
+    );
+    rumour(
+      g,
+      ctx.p,
+      `${charName(me)} ran from a duel to the death with ${name}, and was seen going over the wall of the churchyard.`,
+      me.id,
+      "bad",
+    );
+    journal(
+      g,
+      life,
+      `You ran. Behind you ${name}'s second is laughing, and by noon the whole town will be. They'll call you a coward for years.`,
+      "bad",
+    );
+  } else if (how === "theyran") {
+    addRenown(g, life, 7);
+    remembers(g, life, g.char(foe.id), "Ran from me on the field", -20, 10);
+    journal(
+      g,
+      life,
+      `${name} ran from the field. The day is yours, and so is the story.`,
+      "good",
+    );
+  } else if (how === "delope") {
     addRenown(g, life, 3);
     journal(
       g,
@@ -351,7 +589,13 @@ function endDuel(g: ConquestGame, life: Life, ctx: LCtx, how: string): void {
   let iDied = false;
   if (ctx.mw > 0) {
     life.tally.wounds++;
-    iDied = hurt(g, life, ctx.mw, `a duel with ${name}`);
+    iDied = hurt(
+      g,
+      life,
+      // LIFE (r21): to the death, the one who's down doesn't get up.
+      how === "death" && ctx.mw >= DOWN ? 200 : ctx.mw,
+      `a duel with ${name}`,
+    );
     if (ctx.mw >= DOWN && !iDied)
       milestone(g, life, "wounded", `Wounded in a duel with ${name}`);
   }
@@ -406,6 +650,49 @@ function duelStory(
 ): void {
   const name = charName(foe);
   const quiet = { quiet: true } as const;
+  // LIFE (r21): to the death, and running from it.
+  if (how === "ran") {
+    milestone(
+      g,
+      life,
+      "duel",
+      `Ran from a duel to the death with ${name}`,
+      life.prov,
+      { ...quiet, tone: "bad" },
+    );
+    if (other && other !== life)
+      milestone(
+        g,
+        other,
+        "duel",
+        `${charName(me)} ran from your duel to the death`,
+        other.prov,
+        { ...quiet, tone: "good" },
+      );
+    return;
+  }
+  if (how === "theyran") {
+    milestone(
+      g,
+      life,
+      "duel",
+      `${name} ran from your duel to the death`,
+      life.prov,
+      { tone: "good" },
+    );
+    return;
+  }
+  if (how === "death" && res > 0) {
+    milestone(
+      g,
+      life,
+      "duel",
+      `Killed ${name} in a duel to the death, with ${weapon}`,
+      life.prov,
+      { tone: "good", big: true },
+    );
+    return;
+  }
   if (how === "delope")
     milestone(
       g,
@@ -484,6 +771,10 @@ const HOWS = [
   "reconciled",
   "firstblood",
   "satisfied",
+  // LIFE (r21): to the death: one of you died of it; you ran; they ran.
+  "death",
+  "ran",
+  "theyran",
 ];
 
 // ---------------------------------------------------------------- the exchanges
@@ -576,6 +867,15 @@ function exchange(
     outcomeMeta(g, life, {
       ok: iHit && !theyHit ? true : theyHit ? false : null,
     });
+    // LIFE (r21): to the death, the seconds load again until one is down.
+    if (ctx.dd) {
+      if (next.fw >= DOWN || next.mw >= DOWN)
+        return endDuel(g, life, next, "death");
+      if (next.r >= DEATH.pistolRounds)
+        return endDuel(g, life, next, "satisfied");
+      raise(g, life, "duel-exchange", next);
+      return;
+    }
     if (move === "delope" && theyDelope)
       return endDuel(g, life, next, "delope");
     if (next.fw > 0 || next.mw > 0 || next.r >= 2 || move === "delope")
@@ -600,6 +900,27 @@ function exchange(
     journal(g, life, line(g, HIT_YOU, foe), "bad");
   }
   outcomeMeta(g, life, { ok: pass });
+  // LIFE (r21): to the death, pass after pass until one of you is down.
+  if (ctx.dd) {
+    if (next.fw >= DOWN || next.mw >= DOWN)
+      return endDuel(g, life, next, "death");
+    if (
+      next.fw >= 20 &&
+      next.fw > next.mw + 10 &&
+      hasTrait(foe, "craven") &&
+      ldice(g.s, 0x7d2, foe.id, next.r).chance(DEATH.theyRun)
+    ) {
+      journal(
+        g,
+        life,
+        `${cap(firstOf(g, ctx))} throws down ${his(foe)} sword and runs for the trees.`,
+        "good",
+      );
+      return endDuel(g, life, next, "theyran");
+    }
+    raise(g, life, "duel-exchange", next);
+    return;
+  }
   if (ctx.fb && (next.fw > 0 || next.mw > 0))
     return endDuel(g, life, next, "firstblood");
   if (next.fw >= DOWN) return endDuel(g, life, next, "fought");
@@ -636,12 +957,22 @@ export function duelChoicesShown(key: string, ctx: LCtx): number[] {
       return ctx.ch === 1 ? [0, 1, 2] : [0, 1, 2, 3];
     case "duel-exchange": {
       const out: number[] = [];
+      // LIFE (r21): to the death: no calling it, no air, no yielding; you may run.
+      if (ctx.dd) {
+        if (ctx.w === PISTOLS) out.push(4, 5);
+        else out.push(1, 2, 3);
+        if (ctx.r > 0) out.push(8);
+        return out;
+      }
       if (ctx.w === PISTOLS && ctx.r > 0) out.push(0);
       if (ctx.w === PISTOLS) out.push(...(ctx.dl ? [6] : [4, 5, 6]));
       else out.push(1, 2, 3, ...(ctx.r > 0 ? [7] : []));
       return out;
     }
+    case "duel-dawn":
+      return ctx.dd ? [0, 1] : [0, 1, 2]; // LIFE (r21)
     case "duel-outcome":
+      if (HOWS[ctx.how] === "ran") return [4]; // LIFE (r21)
       return ctx.dead && ctx.law ? [0, 1, 2] : ctx.dead ? [4] : [3, 4];
     default:
       return all(DUEL_EVENTS.find((d) => d.key === key)?.choices.length ?? 0);
@@ -758,9 +1089,13 @@ export const DUEL_EVENTS: LifeEventDef[] = [
       const seconds = fsec
         ? `${charName(fsec)} will stand second for ${him(foe)}.`
         : `${cap(he(foe))} will find a second.`;
+      // LIFE (r21): to the death, and the odds of it.
+      const death = ctx.dd
+        ? `\nIt is to be to the death: no first blood, no shots into the air, no yielding. ${cap(deathWords(deathOdds(g.s, life, { ...ctx, w: SWORDS })))} (with smallswords, keeping your guard).`
+        : "";
       return ctx.ch === 1
-        ? `The words are said and can't be unsaid: you have called ${nameOf(g, ctx)} out. By the code it falls to ${him(foe)} to choose the weapons; it falls to you to name a second, a friend to carry your terms and see fair play. ${seconds}\n${sc ? `${charName(sc)} would stand for you.` : "You have no friend here to stand for you."}`
-        : `${cap(nameOf(g, ctx))} draws off a glove and lays it on the table in front of you. "You'll give me satisfaction, sir, or the whole town will know you for what you are." ${seconds}\nThe choice of weapons is yours. ${sc ? `${charName(sc)} would stand second for you.` : "You have no friend here to stand second for you."}`;
+        ? `The words are said and can't be unsaid: you have called ${nameOf(g, ctx)} out. By the code it falls to ${him(foe)} to choose the weapons; it falls to you to name a second, a friend to carry your terms and see fair play. ${seconds}\n${sc ? `${charName(sc)} would stand for you.` : "You have no friend here to stand for you."}${death}`
+        : `${cap(nameOf(g, ctx))} draws off a glove and lays it on the table in front of you. "You'll give me satisfaction, sir, or the whole town will know you for what you are."${ctx.dd ? ` ${cap(he(foe))} looks at you a long moment. "To the death."` : ""} ${seconds}\nThe choice of weapons is yours. ${sc ? `${charName(sc)} would stand second for you.` : "You have no friend here to stand second for you."}${death}`;
     },
     choices: [
       {
@@ -958,6 +1293,7 @@ export const DUEL_EVENTS: LifeEventDef[] = [
           ctx.w === PISTOLS
             ? "You'll throw away your shot. If they do the same, honour is satisfied; if not, they fire at you at leisure."
             : "If they agree, the first wound ends it: nobody dies today.",
+        blocked: (_g, _l, ctx) => (ctx.dd ? "It's to the death" : null), // LIFE (r21)
         apply: (g, life, ctx) => {
           if (ctx.w === PISTOLS) {
             const fdl = willDelope(g, life, ctx) ? 1 : 0;
@@ -996,12 +1332,20 @@ export const DUEL_EVENTS: LifeEventDef[] = [
           : "A second exchange"
         : (["The first pass", "The second pass", "The third pass"][ctx.r] ??
           "Another pass"),
-    body: (g, _life, ctx) => {
+    body: (g, life, ctx) => {
       const foe = foeOf(g, ctx);
       const state =
         ctx.mw || ctx.fw
           ? ` ${ctx.fw ? `${cap(he(foe))} is bleeding${ctx.fw >= 20 ? " badly" : ""}.` : ""}${ctx.mw ? ` You are hurt${ctx.mw >= 20 ? ", and it's bad" : ""}.` : ""}`
           : "";
+      // LIFE (r21): to the death, the odds of the whole of it.
+      if (ctx.dd) {
+        const o = deathOdds(g.s, life, ctx);
+        const odds = `\nTo the death: ${deathWords(o)}.`;
+        if (ctx.w === PISTOLS)
+          return `${ctx.r === 0 ? `"Gentlemen, are you ready?" The second's handkerchief is raised.` : "The seconds load again. Nobody speaks."}${state}${odds}`;
+        return `${["Steel touches steel", "You circle each other on the wet grass", "Both of you are blowing now"][ctx.r] ?? "You go at it again, slower now"}. ${cap(nameOf(g, ctx))} ${hasTrait(foe!, "brave") ? "comes on boldly" : hasTrait(foe!, "craven") ? "gives ground at every feint" : "watches your point"}.${state}${odds}`;
+      }
       if (ctx.w === PISTOLS)
         return ctx.r === 0
           ? `"Gentlemen, are you ready?" The second's handkerchief is raised.${ctx.dl ? " You've resolved to fire into the air." : ""}${state}`
@@ -1014,7 +1358,11 @@ export const DUEL_EVENTS: LifeEventDef[] = [
         label: "Call honour satisfied",
         tip: "Shots have been exchanged: nobody can say you didn't stand.",
         blocked: (_g, _l, ctx) =>
-          ctx.w !== PISTOLS || ctx.r === 0 ? "Not yet" : null,
+          ctx.dd // LIFE (r21)
+            ? "It's to the death"
+            : ctx.w !== PISTOLS || ctx.r === 0
+              ? "Not yet"
+              : null,
         apply: (g, life, ctx) => endDuel(g, life, ctx, "satisfied"),
       },
       ...SWORD_MOVES.map(moveChoice),
@@ -1025,6 +1373,7 @@ export const DUEL_EVENTS: LifeEventDef[] = [
           ...c,
           blocked: (g: ConquestGame, l: Life, ctx: LCtx) =>
             blocked(g, l, ctx) ??
+            (ctx.dd && m[0] === "delope" ? "It's to the death" : null) ?? // LIFE (r21)
             (ctx.dl && m[0] !== "delope"
               ? "You resolved to fire into the air"
               : null),
@@ -1034,12 +1383,39 @@ export const DUEL_EVENTS: LifeEventDef[] = [
         label: "Lower your blade and yield",
         tip: "It ends now. You lose, and lose face (−3 renown), but you live.",
         blocked: (_g, _l, ctx) =>
-          ctx.w === PISTOLS
-            ? "Not with pistols"
+          ctx.dd // LIFE (r21): nobody yields in a duel to the death
+            ? "It's to the death"
+            : ctx.w === PISTOLS
+              ? "Not with pistols"
+              : ctx.r === 0
+                ? "Not before a pass"
+                : null,
+        apply: (g, life, ctx) => endDuel(g, life, ctx, "yield"),
+      },
+      // LIFE (r21): losing a duel to the death, you may run for it.
+      {
+        label: `Run for it (${DEATH.runRenown} renown, and a coward's name)`,
+        tip: "You'll live. The town will call you a coward for three years: the brave and the soldiers worst of all. 1 in 4 they cut you as you go.",
+        blocked: (_g, _l, ctx) =>
+          !ctx.dd
+            ? "Only in a duel to the death"
             : ctx.r === 0
               ? "Not before a pass"
               : null,
-        apply: (g, life, ctx) => endDuel(g, life, ctx, "yield"),
+        apply: (g, life, ctx) => {
+          const foe = foeOf(g, ctx);
+          const cut = ldice(g.s, 0x7d3, ctx.c, ctx.r).chance(DEATH.runCut)
+            ? ldice(g.s, 0x7d4, ctx.c, ctx.r).int(...DEATH.runCutWound)
+            : 0;
+          if (cut)
+            journal(
+              g,
+              life,
+              `${cap(he(foe))} catches you across the back as you turn.`,
+              "bad",
+            );
+          endDuel(g, life, { ...ctx, mw: ctx.mw + cut }, "ran");
+        },
       },
     ],
   },
@@ -1060,6 +1436,11 @@ export const DUEL_EVENTS: LifeEventDef[] = [
       const foe = foeOf(g, ctx);
       const how = HOWS[ctx.how] ?? "fought";
       const lines: string[] = [];
+      // LIFE (r21): a run from the field, theirs or yours.
+      if (how === "ran")
+        return `You ran from a duel to the death.${ctx.mw > 0 ? " You're cut, but you're alive." : ""} Behind you somebody is laughing. By noon the town will have a word for you, and it isn't a kind one.`;
+      if (how === "theyran")
+        return `${cap(nameOf(g, ctx))} ran from the field, sword in the grass behind ${him(foe)}. ${ctx.mw > 0 ? "You're hurt, but " : ""}the day is yours, and the town will tell it for years.`;
       if (how === "delope")
         lines.push(
           "Two shots into the air, and two gentlemen shaking hands in the mist.",

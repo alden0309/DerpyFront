@@ -3,6 +3,7 @@
 // offers, who's here and what they think of you, the road to somewhere,
 // what a promotion still needs. Numbers come as Breakdowns, like the rest.
 
+import { bawdyIn } from "./Bawdy"; // LIFE (r21)
 import { dateOf } from "./Calendar"; // MAP (r12)
 import { eduStartRank } from "./EduData"; // EDU (r13)
 import { Explain } from "./Explain";
@@ -48,6 +49,7 @@ import type { World } from "./Map";
 import { landHopDays, landHopDaysIn, seaHopDays } from "./Paths";
 import { propertyBudget } from "./Property";
 import { softenKindness } from "./Regard"; // LIFE (r21)
+import { postSkillParts } from "./Retinue"; // LIFE (r21)
 import { iceBound, seasonPay } from "./Seasons"; // MAP (r12)
 import { canoeHopDays, passageHopDays } from "./SeaSpeed"; // SEA (r15)
 // SOCIETY (r11)
@@ -174,6 +176,8 @@ export function skillOf(s: GameState, life: Life, sk: Skill): Breakdown {
     e.add("Under strain", -1);
   if (life.job && JOBS[life.job.kind].main === sk && hasKit(s, life, "tools"))
     e.add("Good tools", 1);
+  // LIFE (r21): your clerk of accounts and your secretary (Retinue.ts).
+  for (const p of postSkillParts(s, life, sk)) e.add(p.label, p.value);
   return e.done(0, 0, SKILL_MAX + 6);
 }
 
@@ -247,6 +251,8 @@ export function placesIn(s: GameState, w: World, p: number): PlaceKind[] {
       out.push("gaol");
     if (folk >= 900 || owner.capital === p || (def.coastal && folk >= 400))
       out.push("den");
+    // LIFE (r21): a bawdy house in a great port or a colony's capital.
+    if (bawdyIn(s, w, p)) out.push("bawdy");
   } else if (owner?.kind === "native") {
     out.push("village", "councilfire", "fields");
     if (def.coastal || owner.capital === p) out.push("market");

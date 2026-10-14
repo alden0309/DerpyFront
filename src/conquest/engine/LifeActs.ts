@@ -5,6 +5,7 @@
 // and effects that last: opinions, renown, money, health and skills.
 
 import { homeHere, presentAt } from "./Areas";
+import { BAWDY, bawdyCheck } from "./Bawdy"; // LIFE (r21)
 import { dateOf, formatDate } from "./Calendar";
 import { CANVASS_POINTS, canvassingSeat } from "./Canvass"; // POLLS (r16)
 import { courtNeeds } from "./ChairCore"; // CHAIR (r16)
@@ -52,6 +53,7 @@ import {
   yes,
 } from "./LifeQueries";
 import { studyLearning } from "./LifeR21Core"; // LIFE (r21)
+import { bawdyVisit } from "./LifeR21Events"; // LIFE (r21)
 import {
   checkChance,
   ENDOWMENTS,
@@ -289,6 +291,15 @@ export const ACTS: ActDef[] = [
     text: "Be introduced to the unmarried of the parish (or the village). Courting is up to you.",
     cooldown: 60,
     when: adult,
+  },
+  // LIFE (r21): the bawdy house (Bawdy.ts): an evening there is a scene of its own.
+  {
+    key: "bawdy",
+    places: ["bawdy"],
+    label: "Spend an evening at the house",
+    text: "Punch, cards and a fiddler in the parlour, or company upstairs behind a door that closes. It eases the mind. People talk, the pox is about, and a husband or wife may hear of it: the odds are in the scene.",
+    cooldown: BAWDY.rest,
+    when: (s, _w, life) => bawdyCheck(s, life),
   },
   {
     key: "study",
@@ -1200,6 +1211,8 @@ export function doAct(
       );
       return null;
     }
+    case "bawdy":
+      return bawdyVisit(g, life); // LIFE (r21)
     case "study": {
       gainXp(g, life, "letters", 10);
       gainXp(g, life, "faith", 3);

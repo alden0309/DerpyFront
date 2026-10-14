@@ -7,7 +7,12 @@
 
 import { findIn } from "./Areas";
 import { kill, marry } from "./Characters";
-import { duelOn, duelReport, startDuel } from "./Duels"; // HOME (r12)
+import {
+  deathAgree, // LIFE (r21)
+  duelOn,
+  duelReport,
+  startDuel,
+} from "./Duels"; // HOME (r12)
 import { Explain } from "./Explain";
 import type { ConquestGame } from "./Game";
 import {
@@ -60,6 +65,7 @@ import { AMERICAS, World, worldOf } from "./Map";
 import { joinMovement, movementOf, recruitInto } from "./Movements";
 import { handOf, hireCheck, hireHand } from "./Property";
 import { giftWorth, REGARD, talksWith, warm } from "./Regard"; // LIFE (r21)
+import { TEACH, teachRate, teachView, teachXp, type TeachView } from "./Teach"; // LIFE (r21)
 // SOCIETY (r11)
 import { isBound } from "./BondCore"; // LABOUR (r15)
 import {
@@ -488,6 +494,8 @@ export interface InteractionView {
   label?: string;
   /** SOCIETY (r11): how well you can talk, and through whom. */
   tongue?: TalkView;
+  /** LIFE (r21): what they'd teach you, how well, and where it would take you. */
+  teach?: TeachView;
 }
 
 function relation(a: Character, b: Character): boolean {
@@ -592,7 +600,8 @@ function gates(
     case "mentor": {
       if (life.ties[c.id] === "mentor") return no("They teach you already.");
       const [sk, lvl] = bestSkill(s, c);
-      if (lvl < skillLevel(s, life, sk) + 3)
+      if (lvl < skillLevel(s, life, sk) + TEACH.gap)
+        // LIFE (r21): Teach.ts's gap
         return no(
           `They've nothing to teach you (their ${SKILL_NAMES[sk].toLowerCase()} ${lvl}).`,
         );
@@ -1046,6 +1055,18 @@ export function interactionView(
   }
   if (act === "tongue" && c)
     view.label = `Lessons in ${tongueName(motherTongue(c.culture))} (${LESSON_FEE})`;
+  // LIFE (r21): a challenge to the death says how likely they'd take it.
+  if (act === "duel" && arg === 1 && c && meOf(s, life)) {
+    const agree = other ? null : deathAgree(s, life, c);
+    view.label = agree
+      ? `Challenge to the death (they'd take it ${Math.round(agree.chance * 100)}%)`
+      : "Challenge to the death";
+  }
+  // LIFE (r21): the skill they'd teach, and how well, before you ask.
+  if (act === "mentor" && c && meOf(s, life)) {
+    view.teach = teachView(s, life, c);
+    view.label = `Ask them to teach you ${SKILL_NAMES[view.teach.skill].toLowerCase()} (×${view.teach.rate})`;
+  }
   if (!c || !meOf(s, life) || view.player) return view;
   if (def.mode === "accept") {
     view.accept = acceptance(s, w, life, c, act, arg);
@@ -1269,7 +1290,7 @@ export function doInteraction(
       journal(
         g,
         life,
-        `${name} agrees to teach you ${SKILL_NAMES[sk].toLowerCase()}. Every month with them is worth two alone.`,
+        `${name} agrees to teach you ${SKILL_NAMES[sk].toLowerCase()}: about ${teachXp(s, life, c)} a month at ×${teachRate(charSkill(s, c, sk), skillLevel(s, life, sk))}, while they stand above you.`, // LIFE (r21)
         "good",
       );
       return null;
@@ -1479,7 +1500,7 @@ export function doInteraction(
       return null;
     }
     case "duel":
-      return duel(g, life, c, false, pass);
+      return duel(g, life, c, false, pass, arg === 1); // LIFE (r21): arg 1, to the death
     case "trade":
       return "Only with another player.";
     // SOCIETY (r11)
@@ -1694,6 +1715,8 @@ export function duel(
   c: Character,
   challenged: boolean,
   pass?: boolean,
+  /** LIFE (r21): you asked it be to the death. */
+  death = false,
 ): string | null {
   const s = g.s;
   const me = meOf(s, life)!;
@@ -1701,7 +1724,7 @@ export function duel(
   // weapons, the field at dawn, the exchanges. Only a second challenge while
   // one is being fought is settled at once, as before.
   if (me && !life.watching && !duelOn(life)) {
-    startDuel(g, life, c, challenged);
+    startDuel(g, life, c, challenged, death ? { death: "ask" } : {}); // LIFE (r21)
     return null;
   }
   const name = charName(c);
@@ -1776,6 +1799,7 @@ function propose(
   }
   if (act === "hire") ctx.wage = 3;
   if (act === "propose" && arg === 1) ctx.bet = 1; // INTRIGUE (r15): a betrothal
+  if (act === "duel" && arg === 1) ctx.dd = 1; // LIFE (r21): to the death
   raiseLifeEvent(g, other, `p2p-${act}`, ctx);
   journal(
     g,
@@ -1907,6 +1931,19 @@ export function answerProposal(
       journal(g, winner, `At dawn you met, and you won.`, "good");
       journal(g, loser, `At dawn you met ${wName}, and lost.`, "bad");
       const wound = g.rng.int(10, 40);
+      // LIFE (r21): to the death, as both agreed: the loser doesn't get up.
+      if (ctx.dd) {
+        milestone(
+          g,
+          winner,
+          "duel",
+          `Killed ${charName(meOf(s, loser))} in a duel to the death`,
+          winner.prov,
+          { tone: "good", big: true },
+        );
+        hurt(g, loser, 200, `a duel to the death with ${wName}`);
+        break;
+      }
       hurt(g, loser, wound, `a duel with ${wName}`);
       // HOME (r12): each of you sees it played out, and the law hears of it.
       if (winner.c >= 0 && loser.c >= 0) duelReport(g, winner, loser, wound);
@@ -2042,6 +2079,14 @@ export function interactionMenu(
       continue;
     }
     if (act === "settle" && !life.founding) continue;
+    // LIFE (r21): a challenge to the death, beside the ordinary one.
+    if (act === "duel")
+      out.push({
+        group: def.group,
+        act,
+        arg: 1,
+        view: interactionView(s, w, life, cId, act, 1),
+      });
     // INTRIGUE (r15): ask for their hand (a betrothal), or a quiet wedding now.
     if (act === "propose")
       out.push({

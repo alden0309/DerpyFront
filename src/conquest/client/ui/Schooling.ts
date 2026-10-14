@@ -40,6 +40,7 @@ import {
 } from "../../engine/EduData";
 import { isChildLife, isNativeChar, meOf } from "../../engine/LifeQueries";
 import { JOBS, SKILL_NAMES } from "../../engine/LifeRules";
+import { ordinalWord } from "../../engine/Ordinal"; // LIFE (r21)
 import { ageOf, charName, yearOf } from "../../engine/Queries";
 import type {
   Character,
@@ -464,28 +465,6 @@ function letterView(ui: GameUi, l: Letter, c: Character): TemplateResult {
 
 // ---------------------------------------------------------------- the indenture
 
-const ORDINALS = [
-  "first",
-  "second",
-  "third",
-  "fourth",
-  "fifth",
-  "sixth",
-  "seventh",
-  "eighth",
-  "ninth",
-  "tenth",
-  "eleventh",
-  "twelfth",
-  "thirteenth",
-  "fourteenth",
-  "fifteenth",
-  "sixteenth",
-  "seventeenth",
-  "eighteenth",
-  "nineteenth",
-  "twentieth",
-];
 const MONTHS = [
   "January",
   "February",
@@ -513,11 +492,8 @@ const NUMBERS = [
   "nine",
 ];
 
-function ordinal(n: number): string {
-  if (n <= 20) return ORDINALS[n - 1];
-  if (n === 30) return "thirtieth";
-  return `${n < 30 ? "twenty" : "thirty"}-${ORDINALS[(n % 10) - 1]}`;
-}
+/** LIFE (r21): the one ordinal in words (Ordinal.ts). */
+const ordinal = ordinalWord;
 
 /** What the master of a trade is called: "cooper", "attorney at law". */
 function masterWord(key: string): string {

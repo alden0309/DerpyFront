@@ -85,6 +85,7 @@ import {
   RECRUIT_COST,
   ROAD_RISK,
   ROLES,
+  SKILL_NAMES, // LIFE (r21)
   SKILL_STAT,
   skillPointsFor,
   skillStepCost,
@@ -113,8 +114,10 @@ import {
   sellProperty,
 } from "./Property";
 import { ageOf, atWar, charName, hasTrait, settlers, stat } from "./Queries";
+import { physicianDeath } from "./Retinue"; // LIFE (r21)
 import { DAYS_PER_YEAR, deathRiskByAge, STAT_START, TRAITS } from "./Rules";
 import { societyCommand } from "./Society"; // SOCIETY (r11)
+import { teacherSkill, teachXp } from "./Teach"; // LIFE (r21)
 import { sendLetter, travellersDaily, travellersMonthly } from "./Travellers";
 import {
   Army,
@@ -894,6 +897,7 @@ function lifeMonth(g: ConquestGame, life: Life, me: Character): void {
   if (life.health < 25) risk *= 3;
   else if (life.health < 45) risk *= 1.5;
   else if (life.health >= 75) risk *= 0.7;
+  risk *= physicianDeath(s, life); // LIFE (r21): a physician of your own
   if (job && atPost(s, w, life)) {
     const atWarNow = s.wars.some(
       (x) => x.a === job.nation || x.b === job.nation,
@@ -964,9 +968,18 @@ function tiesMonthly(g: ConquestGame, life: Life, me: Character): void {
     if (tie === "rival") foes++;
     if (tie === "nemesis") foes += 2;
     if (tie === "mentor") {
-      const sk = c.role ? ROLES[c.role].skill : "persuasion";
-      const near = c.home === life.prov || c.home === undefined;
-      gainXp(g, life, sk, near ? 6 : 2);
+      // LIFE (r21): what they teach goes by how far above you they stand (Teach.ts).
+      const xp = teachXp(s, life, c);
+      if (xp > 0) gainXp(g, life, teacherSkill(c), xp);
+      else {
+        delete life.ties[id];
+        journal(
+          g,
+          life,
+          `You've learned all ${charName(c)} can teach you of ${SKILL_NAMES[teacherSkill(c)].toLowerCase()}.`,
+          "good",
+        );
+      }
     }
   }
   if (friends) addStress(g, life, -Math.min(4, friends * 1.5));

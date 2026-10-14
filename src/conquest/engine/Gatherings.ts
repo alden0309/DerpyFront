@@ -43,6 +43,7 @@ import {
 } from "./LifeQueries";
 import { ROLES } from "./LifeRules";
 import type { World } from "./Map";
+import { ordinal } from "./Ordinal"; // LIFE (r21): it said "the 2th of May"
 import { ageOf, charName, hasTrait } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { rumour } from "./Rumours";
@@ -649,8 +650,8 @@ export function inviteText(g: ConquestGame, gat: Gathering): string {
   ];
   const where = g.map.provinces[gat.prov]?.name ?? "";
   if (gat.kind === "wedding" && gat.about.length === 2)
-    return `${charName(s.chars[gat.about[0]])} and ${charName(s.chars[gat.about[1]])} request the pleasure of your company at their wedding, at ${where}, on the ${when.day}th of ${months[when.month]}. ${charName(host)}.`;
-  return `${charName(host)} requests the pleasure of your company at ${def.a}, at ${where}, on the ${when.day}th of ${months[when.month]}, ${when.year}.`;
+    return `${charName(s.chars[gat.about[0]])} and ${charName(s.chars[gat.about[1]])} request the pleasure of your company at their wedding, at ${where}, on the ${ordinal(when.day)} of ${months[when.month]}. ${charName(host)}.`;
+  return `${charName(host)} requests the pleasure of your company at ${def.a}, at ${where}, on the ${ordinal(when.day)} of ${months[when.month]}, ${when.year}.`;
 }
 
 function topReason(b: Breakdown): string {

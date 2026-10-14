@@ -46,6 +46,7 @@ import {
 import { GREAT, greatCheck, greatHad } from "../../engine/Grandeur";
 import { isPlayed, lifeIsNative } from "../../engine/LifeQueries";
 import { chanceWords } from "../../engine/Odds";
+import { ordinalWord } from "../../engine/Ordinal"; // LIFE (r21)
 import { charName } from "../../engine/Queries";
 import type { Breakdown, Character, RecallPetition } from "../../engine/Types";
 import { num } from "../Tip";
@@ -164,8 +165,7 @@ export function chairSection(ui: GameUi): TemplateResult | typeof nothing {
           ${charLink(ui, gov)} is ${healthNote(s, ui.w, gov, ch)}. ${p.His}
           ${term("commission", "commission")} runs to
           <b>${formatDate(ch.ends)}</b>${ch.terms > 1
-            ? html` (${p.his} ${ch.terms === 2 ? "second" : `${ch.terms}th`}
-              term)`
+            ? html` (${p.his} ${ordinalWord(ch.terms)} term)`
             : nothing};
           then the crown renews it
           ${chanceTip(`Would the crown renew ${p.his} commission?`, renew)}, as
@@ -571,7 +571,7 @@ export function commissionBlock(
       <b>${formatDate(ch.ends)}</b>
       (${months}
       month${months === 1 ? "" : "s"}${ch.terms > 1
-        ? `; your ${ch.terms === 2 ? "second" : `${ch.terms}th`} term`
+        ? `; your ${ordinalWord(ch.terms)} term`
         : ""}).
       As things stand the crown would renew it
       ${chanceTip("Would the crown renew your commission?", renew)}.

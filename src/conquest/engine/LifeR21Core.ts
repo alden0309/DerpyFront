@@ -10,8 +10,10 @@ import { touchLife } from "./LifeCore";
 import { meOf } from "./LifeQueries";
 import { oldXpToNext, SKILL_MAX, xpToNext } from "./LifeRules";
 import { hasTrait } from "./Queries";
+import type { Rng } from "./Rng";
 import type { Character, GameState, Life, LifeMarkR21, LifeR21 } from "./Types";
 import { SKILLS } from "./Types";
+import { worldRng } from "./WorldRng";
 
 /** The skill scale every life's XP is reckoned on since round 21. */
 export const SKILL_SCALE = 2;
@@ -174,4 +176,17 @@ export function studyLearning(g: ConquestGame, life: Life): boolean {
   }
   r.study = st;
   return grew;
+}
+
+// ---------------------------------------------------------------- dice
+
+/**
+ * LIFE (r21): round 21's own side dice (a duel's terms, a run from the
+ * field, a dead man's kin, the bawdy house), from the seed, the day and a
+ * salt, so the world's own luck isn't moved by them.
+ */
+export function ldice(s: GameState, salt: number, ...xs: number[]): Rng {
+  let k = salt | 0;
+  for (const x of xs) k = (Math.imul(k, 31) + (x | 0)) | 0;
+  return worldRng(s, 0x21a0000 + (k & 0xffff));
 }

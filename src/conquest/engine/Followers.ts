@@ -50,6 +50,7 @@ import type { World } from "./Map";
 import { NAMES } from "./Names";
 import { wake } from "./Pace";
 import { ageOf, charName, enemiesOf, hasTrait } from "./Queries";
+import { bodyguardFight } from "./Retinue"; // LIFE (r21)
 import { Rng } from "./Rng";
 import type {
   Army, // LEDGER (r15)
@@ -304,6 +305,7 @@ export function strengthOf(s: GameState, life: Life): number {
     skillWeight(skillLevel(s, life, "fighting")) * 3 +
     skillWeight(skillLevel(s, life, "leadership"));
   for (const f of peopleOf(life)) if (!f.task) v += fightOf(s, f);
+  v += bodyguardFight(s, life); // LIFE (r21): a bodyguard counts half again
   const co = life.company;
   if (co && co.army < 0 && co.men > 0)
     v += co.men * (0.6 + co.drill) * (0.5 + co.morale / 2);

@@ -82,6 +82,7 @@ import {
   SKILL_NAMES,
 } from "./LifeRules";
 import { kmBetween, type World } from "./Map";
+import { ordinalWord } from "./Ordinal"; // LIFE (r21)
 import { ageOf, charName, hasTrait, settlers, yearOf } from "./Queries";
 import { DAYS_PER_YEAR } from "./Rules";
 import { motherTongue } from "./Tongues";
@@ -2079,18 +2080,6 @@ export interface EduStatus {
   tone: "good" | "bad" | "";
 }
 
-const ORD = [
-  "first",
-  "second",
-  "third",
-  "fourth",
-  "fifth",
-  "sixth",
-  "seventh",
-  "eighth",
-  "ninth",
-];
-
 /** How a child's schooling stands, for the family pages. */
 export function eduStatus(
   s: GameState,
@@ -2128,7 +2117,7 @@ export function eduStatus(
       : "";
   return {
     chip,
-    line: `${now.kind === "apprentice" ? `Apprentice ${lower(eduName(now))},` : cap(eduName(now))} ${eduWhere(s, map, now)}: the ${ORD[year - 1] ?? `${year}th`} year of ${years}${course}`,
+    line: `${now.kind === "apprentice" ? `Apprentice ${lower(eduName(now))},` : cap(eduName(now))} ${eduWhere(s, map, now)}: the ${ordinalWord(year)} year of ${years}${course}`,
     progress: progressOf(s, now),
     tone: now.mood <= -1 ? "bad" : now.mood >= 1 ? "good" : "",
   };

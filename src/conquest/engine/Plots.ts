@@ -64,6 +64,7 @@ import {
 import { SKILL_NAMES } from "./LifeRules";
 import type { World } from "./Map";
 import { charName, hasTrait, stat } from "./Queries";
+import { bodyguardPlot } from "./Retinue"; // LIFE (r21)
 import { rumour } from "./Rumours";
 import { mySchemes, schemeOn } from "./Seduction";
 import { openTrial } from "./Trials";
@@ -354,6 +355,9 @@ export function plotView(
     if (method === "duel" && hasTrait(c, "brave"))
       e.add("They'll stand and fight", 5);
     if (guarded) e.mul("Men watching over them", PLOT.guarded);
+    // LIFE (r21): a played target's bodyguard (Retinue.ts).
+    const guard = bodyguardPlot(s, c ? lifeOfChar(s, c.id) : undefined);
+    if (guard < 1) e.mul("A bodyguard at their side", guard);
     const stealth = skillLevel(s, life, "stealth");
     fe.add(`Your stealth (${stealth})`, -stealth * 0.001);
     if (helpers.length)

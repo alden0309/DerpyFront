@@ -5047,6 +5047,10 @@ export interface LifeR21 {
   marks?: LifeMarkR21[];
   /** Days of visits to a bawdy house, the last year's (newest last). */
   bawdy?: number[];
+  /** The French pox caught: the day it shows itself. */
+  poxDue?: number;
+  /** A dead duellist's kin, coming for you: who, for whom, and when. */
+  kin?: { c: number; dead: number; due: number }[];
 }
 
 /** LIFE (r21): what one of your own people is set to do for you. */
