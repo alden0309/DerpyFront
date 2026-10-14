@@ -156,6 +156,8 @@ export interface PayNote {
   minutes: number;
   /** The line's coins earned but waiting on more time at the table. */
   held: number;
+  /** Time at the table has paid all it may today (PLAY_PAY.dailyHours). */
+  capped?: boolean;
 }
 
 /**

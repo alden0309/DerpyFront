@@ -1686,6 +1686,31 @@ const GOALS: Goal[] = [
     go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
     guide: "coins",
   },
+  // ---- LEGACY (r21): Derp Coins as you play, and the pause in company
+  {
+    id: "coins-this-game",
+    title: "See the Derp Coins this game has paid me",
+    words:
+      "derp coins money earned paid pay per hour time table minutes line marks rewards how much earn store",
+    group: "Travel and the world",
+    where:
+      "Journal › Achievements, at the top: what this game has paid you for time at the table and for your line's marks, and what's waiting. 2.5 coins a minute you play (150 an hour), whatever the speed.",
+    go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
+    guide: "coins",
+  },
+  {
+    id: "pause-company",
+    title: "Pause the game (or start it again) in company",
+    words:
+      "pause unpause stop clock start resume wait hold time speed friends company host",
+    group: "Travel and the world",
+    where:
+      "The pause button by the date (or Space). Anyone may pause or start the clock; for 10 seconds after someone pauses, only they may start it (under the clock: who paused, and the seconds left).",
+    go: (ui) => ui.modal({ k: "guide", ch: "multiplayer" }),
+    goLabel: "How it works",
+    guide: "multiplayer",
+  },
+  // ---- end LEGACY (r21)
   // ---- SEA (r15): to sea in person
   {
     id: "go-privateering",

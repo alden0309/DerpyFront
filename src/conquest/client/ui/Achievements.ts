@@ -50,7 +50,8 @@ function coinsPanel(ui: GameUi): TemplateResult {
       you've made a choice of your own in the last ${PLAY_PAY.idleMinutes}
       minutes (anything you do, a letter answered). With the clock stopped, the
       first ${PLAY_PAY.pausedMinutes} minutes of each stop count; skipping ahead
-      counts by the minute like any other.
+      counts by the minute like any other. At most ${PLAY_PAY.dailyHours} hours
+      a day are paid, all games together.
     </li>
     <li>
       <b>Your line's marks:</b> the coins below are paid as your line reaches
@@ -93,6 +94,12 @@ function coinsPanel(ui: GameUi): TemplateResult {
           >`
         : nothing}
     </div>
+    ${p.capped
+      ? html`<p class="cq-muted small">
+          Time at the table has paid all it may today (${PLAY_PAY.dailyHours}
+          hours); it pays again tomorrow.
+        </p>`
+      : nothing}
     ${sofar.lines.length
       ? html`<table class="cq-table compact cq-coin-lines">
           <tbody>

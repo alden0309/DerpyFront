@@ -6,6 +6,7 @@ import {
   ACHIEVEMENT_BY_KEY,
   ACHIEVEMENTS,
 } from "../../conquest/engine/Achievements"; // MAP (r12)
+import { PLAY_PAY } from "../../conquest/engine/LifeRules"; // LEGACY (r21)
 import { logger } from "../Logger";
 import { achievementsOf } from "./DerpyAchievements"; // MAP (r12)
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
@@ -174,41 +175,100 @@ export async function playRow(
     : { play: 0, lines: 0, secs: 0 };
 }
 
+/** What a payment for play came to. */
+export interface PlayPaid {
+  /** The game's row as it now stands. */
+  row: PlayRow;
+  /** Paid now: for time at the table, and the line's coins. */
+  time: number;
+  lines: number;
+  /** Seconds offered that the day's ceiling turned away. */
+  refused: number;
+}
+
 /**
- * Pays an account for play in a game: `add` coins for time and for the
- * line, and seconds counted, all at once (the coins into the account, the
- * sums onto the game's row). Returns the row as it now stands.
+ * Pays an account for play in a game, all in one transaction: `secs` more
+ * seconds at the table (as far as the account's day allows,
+ * PLAY_PAY.dailyHours), their coins (PLAY_PAY.perMinute, worked out on the
+ * game's whole time so nothing is lost to rounding), and the line's coins
+ * up to `lineTotal`, held to PLAY_PAY.linesPerHour for each hour the game
+ * has been played. The coins go into the account and onto the game's row.
  */
 export async function payInPlay(
   gameId: string,
   accountId: number,
-  add: PlayRow,
-): Promise<PlayRow> {
-  const play = Math.max(0, Math.floor(add.play));
-  const lines = Math.max(0, Math.floor(add.lines));
-  const secs = Math.max(0, Math.round(add.secs));
+  secs: number,
+  lineTotal: number,
+): Promise<PlayPaid> {
+  const offered = Math.max(0, Math.round(secs));
   return inTransaction(async (c) => {
-    const res = await c.query(
-      `INSERT INTO derpy_conquest_play (game_id, account_id, play, lines, secs)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (game_id, account_id) DO UPDATE SET
-         play = derpy_conquest_play.play + EXCLUDED.play,
-         lines = derpy_conquest_play.lines + EXCLUDED.lines,
-         secs = derpy_conquest_play.secs + EXCLUDED.secs,
-         updated_at = now()
-       RETURNING play, lines, secs`,
-      [gameId, accountId, play, lines, secs],
+    await c.query(
+      `INSERT INTO derpy_conquest_play (game_id, account_id) VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [gameId, accountId],
     );
-    if (play + lines > 0)
+    const game = (
+      await c.query(
+        `SELECT play, lines, secs FROM derpy_conquest_play
+         WHERE game_id = $1 AND account_id = $2 FOR UPDATE`,
+        [gameId, accountId],
+      )
+    ).rows[0];
+    await c.query(
+      `INSERT INTO derpy_conquest_days (account_id, day)
+       VALUES ($1, (now() AT TIME ZONE 'UTC')::date) ON CONFLICT DO NOTHING`,
+      [accountId],
+    );
+    const day = (
+      await c.query(
+        `SELECT secs FROM derpy_conquest_days
+         WHERE account_id = $1 AND day = (now() AT TIME ZONE 'UTC')::date
+         FOR UPDATE`,
+        [accountId],
+      )
+    ).rows[0];
+    const room = Math.max(0, PLAY_PAY.dailyHours * 3600 - Number(day.secs));
+    const took = Math.min(offered, room);
+    const was = {
+      play: Number(game.play),
+      lines: Number(game.lines),
+      secs: Number(game.secs),
+    };
+    const total = was.secs + took;
+    const play = Math.max(
+      was.play,
+      Math.floor((total / 60) * PLAY_PAY.perMinute),
+    );
+    const lines = Math.max(
+      was.lines,
+      Math.min(
+        Math.max(0, Math.floor(lineTotal)),
+        Math.floor((total / 3600) * PLAY_PAY.linesPerHour),
+      ),
+    );
+    await c.query(
+      `UPDATE derpy_conquest_play SET play = $3, lines = $4, secs = $5,
+         updated_at = now()
+       WHERE game_id = $1 AND account_id = $2`,
+      [gameId, accountId, play, lines, total],
+    );
+    if (took > 0)
+      await c.query(
+        `UPDATE derpy_conquest_days SET secs = secs + $2
+         WHERE account_id = $1 AND day = (now() AT TIME ZONE 'UTC')::date`,
+        [accountId, took],
+      );
+    const paid = play - was.play + (lines - was.lines);
+    if (paid > 0)
       await c.query(
         "UPDATE derpy_accounts SET coins = coins + $2 WHERE id = $1",
-        [accountId, play + lines],
+        [accountId, paid],
       );
-    const r = res.rows[0];
     return {
-      play: Number(r.play),
-      lines: Number(r.lines),
-      secs: Number(r.secs),
+      row: { play, lines, secs: total },
+      time: play - was.play,
+      lines: lines - was.lines,
+      refused: offered - took,
     };
   });
 }

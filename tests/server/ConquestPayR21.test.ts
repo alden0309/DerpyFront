@@ -203,7 +203,7 @@ describe.skipIf(!TEST_DB)(
       const c = new pg.default.Client({ connectionString: TEST_DB });
       await c.connect();
       await c.query(
-        "DROP TABLE IF EXISTS derpy_conquest_play, derpy_conquest_achievements, derpy_conquest_saves, derpy_conquest_players, derpy_conquest_games, derpy_owned, derpy_game_players, derpy_games, derpy_sessions, derpy_accounts CASCADE",
+        "DROP TABLE IF EXISTS derpy_conquest_days, derpy_conquest_play, derpy_conquest_achievements, derpy_conquest_saves, derpy_conquest_players, derpy_conquest_games, derpy_owned, derpy_game_players, derpy_games, derpy_sessions, derpy_accounts CASCADE",
       );
       await c.end();
       const dbm = await import("../../src/server/derpy/DerpyDb");
@@ -417,6 +417,29 @@ describe.skipIf(!TEST_DB)(
       a.close();
       b.close();
     }, 120_000);
+
+    test("time at the table pays for six hours a day at most, all games together", async () => {
+      const s = await account("Allday");
+      // Six hours less one minute paid already today.
+      await pool.query(
+        `INSERT INTO derpy_conquest_days (account_id, day, secs)
+       VALUES ($1, (now() AT TIME ZONE 'UTC')::date, $2)`,
+        [s.account.id, PLAY_PAY.dailyHours * 3600 - 60],
+      );
+      const a = await signedIn(s.token);
+      await soloGame(a);
+      a.send({ t: "pause", p: false });
+      await play(5 * 60, { choose: [a], every: 60 });
+      await play(61, { choose: [a], every: 60 });
+      const rows = await playOf(s.account.id);
+      expect(rows[0].secs).toBe(60);
+      expect(rows[0].play).toBe(Math.floor(PLAY_PAY.perMinute));
+      const capped = a.messages.filter(
+        (m): m is Extract<Msg, { t: "paid" }> => m.t === "paid" && !!m.capped,
+      );
+      expect(capped.length).toBeGreaterThan(0);
+      a.close();
+    }, 60_000);
 
     test("a guest is told, and isn't paid", async () => {
       const g = await signedIn(null, "Guest");

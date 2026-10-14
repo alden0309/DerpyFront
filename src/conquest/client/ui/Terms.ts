@@ -237,6 +237,23 @@ export const TERMS: Record<string, Term> = {
       "Count your own ones with the face you bid. Four of five dice hidden? Expect about a third of them to count.",
     ch: "dice",
   },
+  // LEGACY (r21): server/conquest/ConquestPay.ts, Coins.ts (PLAY_PAY), ConquestRooms.ts (PAUSE_LOCK_MS)
+  tabletime: {
+    name: "Time at the table",
+    what: "Real minutes you spend playing a game, counted by the server: each pays 2.5 Derp Coins (150 an hour), about once a minute while the world goes on.",
+    good: "Most of what a game pays you. It also lets your line's marks be paid as they're reached: 60 coins of them for every hour you've played this game.",
+    raise:
+      "Play: a minute counts when you've made a choice of your own in the last 5 minutes (anything you do, a letter answered). With the clock stopped, only the first 10 minutes of each stop count; the speed (or skipping ahead) makes no difference; at most 6 hours a day are paid.",
+    ch: "coins",
+  },
+  pauselock: {
+    name: "The pause in company",
+    what: "In a game with others, anyone may stop the clock or start it again; but for 10 seconds after someone stops it, only they may start it.",
+    good: "Gives whoever paused a moment to read a letter or look at the map without someone else setting the clock going at once.",
+    raise:
+      "Under the clock it says who paused, and counts down the seconds; after that anyone may start it. The host still sets the speed (and a new speed waits for the clock to start).",
+    ch: "multiplayer",
+  },
   // STORY (r17): StoryCore.ts, StoryBook.ts
   greatmoment: {
     name: "A great moment",

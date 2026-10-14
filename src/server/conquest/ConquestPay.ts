@@ -50,6 +50,8 @@ export interface SeatPay {
   shown: Record<string, number>;
   /** Loaded from the database. */
   ready: boolean;
+  /** Time at the table has reached the account's ceiling for the day. */
+  capped?: boolean;
   busy: Promise<void> | null;
 }
 
@@ -180,29 +182,35 @@ export class TablePay {
     const life = lifeOfSeat(g.state, seat.id);
     const owed = p.owed;
     const secs = p.secs + owed;
-    const time = Math.max(0, Math.floor(timeCoins(secs)) - p.play);
-    const lines = life ? linesDue(life, secs, p.lines).due : 0;
+    const lineTotal = life ? lifeCoins(life, false).total : 0;
     const day = g.state.day;
-    if (time === 0 && lines === 0 && owed < 1) {
+    // Nothing to pay (the database works it out to the coin, and holds the
+    // day's ceiling): no time owed, and no line coins waiting.
+    if (
+      owed < 1 &&
+      Math.floor(timeCoins(secs)) <= p.play &&
+      (!life || linesDue(life, secs, p.lines).due === 0)
+    ) {
       p.at = t;
       p.day = day;
       return Promise.resolve();
     }
     const now = life ? linesNow(life) : p.shown;
-    const grew =
-      lines > 0
-        ? Object.keys(now).filter((k) => now[k] > (p.shown[k] ?? 0))
-        : [];
-    p.busy = payInPlay(p.gameId, p.accountId, { play: time, lines, secs: owed })
-      .then((row) => {
-        p.owed -= owed;
-        p.secs = row.secs;
-        p.play = row.play;
-        p.lines = row.lines;
+    p.busy = payInPlay(p.gameId, p.accountId, owed, lineTotal)
+      .then((r) => {
+        p.owed = Math.max(0, p.owed - owed);
+        p.secs = r.row.secs;
+        p.play = r.row.play;
+        p.lines = r.row.lines;
         p.at = t;
         p.day = day;
-        if (lines > 0) p.shown = now;
-        this.note(room, seat, p, time, lines, grew);
+        const grew =
+          r.lines > 0
+            ? Object.keys(now).filter((k) => now[k] > (p.shown[k] ?? 0))
+            : [];
+        if (r.lines > 0) p.shown = now;
+        if (r.refused > 0) p.capped = true;
+        this.note(room, seat, p, r.time, r.lines, grew);
       })
       .catch((err) => this.warn(`couldn't pay for ${p.gameId}: ${err}`))
       .finally(() => {
@@ -237,6 +245,7 @@ export class TablePay {
       linePaid: p.lines,
       minutes: Math.floor(p.secs / 60),
       held,
+      ...(p.capped ? { capped: true } : {}),
     });
   }
 

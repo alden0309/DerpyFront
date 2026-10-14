@@ -187,7 +187,7 @@ describe.skipIf(!TEST_DB)("changing your username, against Postgres", () => {
     const c = new pgm.default.Client({ connectionString: TEST_DB });
     await c.connect();
     await c.query(
-      "DROP TABLE IF EXISTS derpy_conquest_play, derpy_based_notes, derpy_based_picks, derpy_based_saves, derpy_conquest_achievements, derpy_conquest_saves, derpy_conquest_players, derpy_conquest_games, derpy_owned, derpy_game_players, derpy_games, derpy_sessions, derpy_accounts CASCADE",
+      "DROP TABLE IF EXISTS derpy_conquest_days, derpy_conquest_play, derpy_based_notes, derpy_based_picks, derpy_based_saves, derpy_conquest_achievements, derpy_conquest_saves, derpy_conquest_players, derpy_conquest_games, derpy_owned, derpy_game_players, derpy_games, derpy_sessions, derpy_accounts CASCADE",
     );
     await c.end();
     ({ db, closeDerpyDb: closeDb } =

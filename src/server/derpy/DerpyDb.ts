@@ -256,6 +256,14 @@ CREATE TABLE IF NOT EXISTS derpy_conquest_play (
 );
 CREATE INDEX IF NOT EXISTS derpy_conquest_play_account
   ON derpy_conquest_play (account_id);
+-- LEGACY (r21): seconds at the table an account was paid for each day (UTC),
+-- all games together (PLAY_PAY.dailyHours at most).
+CREATE TABLE IF NOT EXISTS derpy_conquest_days (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  day DATE NOT NULL,
+  secs INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (account_id, day)
+);
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two

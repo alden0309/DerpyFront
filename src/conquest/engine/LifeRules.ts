@@ -2155,4 +2155,6 @@ export const PLAY_PAY = {
   pausedMinutes: 10,
   /** The line's coins paid as you play: no more than this many for each hour at the table. */
   linesPerHour: 60,
+  /** Time at the table pays for at most this many hours an account a day (UTC), all games together. */
+  dailyHours: 6,
 } as const;
