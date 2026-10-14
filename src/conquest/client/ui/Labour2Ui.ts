@@ -110,7 +110,7 @@ Object.assign(TERMS, {
   bondtrade: {
     name: "A house in the trade",
     what: "A merchant's house in the intercolonial trade in people: its factor buys people at one port where they were sold and a chartered sloop carries them to another, to be sold again. As many as a quarter of the Africans brought to the Americas were shipped on again this way.",
-    good: "Money, when the passage, the duty and the sale go well.",
+    good: "Money now and then, when the passage, the duty and the sale all go well; on most routes, most years, a voyage loses it.",
     raise:
       "Each voyage is a list of names: deaths on the passage, families and shipmates parted at the sale, now and then a rising. Lawful only between ports of your own crown where people were sold, under each colony's duties and bans.",
     ch: "bondage2",
