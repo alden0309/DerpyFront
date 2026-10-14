@@ -106,7 +106,7 @@ export function deskSection(ui: GameUi): TemplateResult | typeof nothing {
       () => ({
         title: "The governor's desk",
         notes: [
-          "Levers that wait on your word month by month, besides the ones above: what each does is on it. A matter comes to the desk about once a month as a scene (in Journal › Diary, what waits on you).",
+          "Levers that wait on your word month by month, besides the ones above: what each does is on it. A matter comes to the desk every month or two as a scene (in Journal › Diary, what waits on you).",
         ],
       }),
       "cq-term-mark",
@@ -116,7 +116,7 @@ export function deskSection(ui: GameUi): TemplateResult | typeof nothing {
       <p class="cq-muted small">
         ${d.nextMatter && d.nextMatter > s.day
           ? `The next matter for the desk comes about ${formatDate(d.nextMatter)}.`
-          : "A matter for the desk comes about once a month."}
+          : "A matter for the desk comes every month or two."}
         Expeditions at the treasury's charge, and petitions for grants: Work ›
         Expeditions.
         ${expedOf(s).asks.filter((a) => a.n === n && a.stage === "asked").length

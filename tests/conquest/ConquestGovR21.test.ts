@@ -815,7 +815,7 @@ describe("GOV r21: the governor's desk", () => {
     expect(b.crime.heat[england]).toBeUndefined();
   });
 
-  test("matters come to a player's desk about once a month, each different", () => {
+  test("matters come to a player's desk every month or two, each different", () => {
     const { g, a } = governor();
     const seen: string[] = [];
     for (let i = 0; i < 365; i++) {

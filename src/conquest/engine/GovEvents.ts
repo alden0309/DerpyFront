@@ -1073,7 +1073,7 @@ export function matterFor(
   return null;
 }
 
-/** About a month apart: a matter comes to a player's desk. */
+/** A month or two apart (checked at the month's turn): a matter comes to a player's desk. */
 export const DESK = {
   gap: [30, 55] as [number, number],
   rest: 2 * DAYS_PER_YEAR,

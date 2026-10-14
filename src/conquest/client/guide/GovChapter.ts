@@ -210,7 +210,7 @@ export const GOVERNING_CHAPTER: Chapter = {
   title: "The governor's desk",
   line: "What a governor decides month by month: duties, building, the native nations, the militia, mercy, and the matters that come to the desk.",
   where: "Society › Office, The governor's desk (when you govern).",
-  body: `The old levers are still there (taxes, what goes home to the crown, a building, the militia called out, war and peace, the great laws, public works, the council). Below them, the desk:
+  body: `The old levers are still there (taxes, what goes home to the crown, a building, the militia called out, war and peace, the great laws, public works, the council, and the offices in your gift: the justices, the sheriff and the county lieutenant, to fill or dismiss). Below them, the desk:
 
 ## Customs duties
 ${dutiesTable()}
@@ -235,7 +235,7 @@ ${MUSTERS.map((m) => `- **${m.name}**: ${m.gold} gold a month; militia raised co
 Any player in the colony's gaols is listed: **pardon** (out at once, the slate with the colony's law wiped clean; the attorney general thinks you soft) or **commute** (half the time left). Pleas for the mercy of others come to the desk.
 
 ## The desk's matters
-About once a month a matter comes to the desk as a scene, each with its own weight to carry: a boundary between two planters, a sloop seized for smuggling, a plea for mercy, envoys with a complaint about the traders, the frontier asking for protection, the smallpox in a ship, a privateer's commission in wartime, a day of fasting, a fire in the town, a place for a councillor's son, squatters beyond the line, the college asking, the house's grievances, pirates off the coast. Left unanswered, each takes its quiet course.
+Every month or two (about six a year) a matter comes to the desk as a scene, each with its own weight to carry: a boundary between two planters, a sloop seized for smuggling, a plea for mercy, envoys with a complaint about the traders, the frontier asking for protection, the smallpox in a ship, a privateer's commission in wartime, a day of fasting, a fire in the town, a place for a councillor's son, squatters beyond the line, the college asking, the house's grievances, pirates off the coast. Left unanswered, each takes its quiet course.
 
 ## Expeditions
 A governor sends expeditions at the treasury's charge (Work › Expeditions: an outpost, a raid, discovery, opening trade, founding a port), led by himself, someone of the court, or a man of the town; and answers players' petitions for grants ([[expeditions|Expeditions]]).`,

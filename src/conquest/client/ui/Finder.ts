@@ -1942,7 +1942,7 @@ const GOALS: Goal[] = [
       "governor govern duties customs programme building forts churches wharves truck house treaty council native militia musters rangers pardon commute desk matters",
     group: "Society",
     where:
-      "Society › Office, The governor's desk (when you govern): set the duties, begin a building programme, hold a treaty council, license the Indian trade, order musters and ranging companies, pardon the colony's prisoners. Matters come to the desk about once a month as scenes.",
+      "Society › Office, The governor's desk (when you govern): set the duties, begin a building programme, hold a treaty council, license the Indian trade, order musters and ranging companies, pardon the colony's prisoners. Matters come to the desk every month or two as scenes.",
     go: tab({ k: "tab", tab: "society", sub: "office" }),
     goLabel: "Society › Office",
     guide: "governing",
