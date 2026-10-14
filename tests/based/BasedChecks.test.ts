@@ -469,7 +469,7 @@ Here.
     expect(ev).toContainEqual({
       type: "actor",
       who: "BARMAN",
-      state: { at: "behind_bar", pose: "lean", wear: "apron" },
+      state: { at: "behind_bar", pose: "lean", wear: "apron", place: "bar" },
       walk: true,
     });
     expect(ev).toContainEqual({

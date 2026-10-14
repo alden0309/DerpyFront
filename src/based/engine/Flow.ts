@@ -1,7 +1,8 @@
 // The shape of a chapter for its end-of-chapter flowchart: the scenes in the
-// order they're written, the choices in each, and where they lead.
+// order they're written, the choices in each, and where they lead. r22:
+// what starts a scene in the open world, and the scenes that set him free.
 
-import { Chapter, END, Op } from "./Types";
+import { Chapter, END, FREE, Op } from "./Types";
 
 export interface FlowOption {
   id: string;
@@ -28,12 +29,15 @@ export interface FlowLook {
 export interface FlowScene {
   id: string;
   label: string;
-  checkpoint?: string;
+  /** r22: what starts it in the open world ("talk ANSELME", "look tv"). */
+  on?: string;
   choices: FlowChoice[];
   looks: FlowLook[];
   /** Scenes this one can go on to. */
   next: string[];
   ends: boolean;
+  /** r22: it can end with him free to go where he likes. */
+  frees: boolean;
 }
 
 function gotosFrom(ops: Op[], from: number, stopAt: number): string[] {
@@ -100,14 +104,23 @@ export function flowOf(chapter: Chapter): FlowScene[] {
       }
     });
     const all = gotosFrom(scene.ops, 0, -1);
+    const t = scene.trigger;
     return {
       id,
       label: scene.label,
-      checkpoint: scene.checkpoint,
+      ...(t
+        ? {
+            on:
+              t.on === "think"
+                ? `think ${t.label ?? ""}`
+                : `${t.on} ${t.target ?? ""}`.trim(),
+          }
+        : {}),
       choices,
       looks,
-      next: all.filter((s) => s !== END),
+      next: all.filter((s) => s !== END && s !== FREE),
       ends: all.includes(END),
+      frees: all.includes(FREE),
     };
   });
 }

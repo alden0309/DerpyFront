@@ -1,25 +1,25 @@
 // Mr. Based's validator, and every chapter actually written: each must parse
 // cleanly, every jump must land, no scene may run off its end, every flag
 // that's read must be set somewhere, every scene must be reachable, and the
-// chapter must be finishable. Also plays each chapter down many random paths.
+// chapter must be finishable. Also plays each chapter down many random paths
+// (r22: wandering the open world, through its doors, as a player might).
 
 import fs from "fs";
 import path from "path";
 import { describe, expect, test } from "vitest";
 import { NavGrid } from "../../src/based/engine/Nav";
 import { PlaceDef } from "../../src/based/engine/Place";
-import {
-  chapterStart,
-  StoryRun,
-  upgradeSnapshot,
-} from "../../src/based/engine/Runtime";
+import { StoryRun } from "../../src/based/engine/Runtime";
 import { parseChapter } from "../../src/based/engine/Script";
 import { buildOf } from "../../src/based/engine/Skills";
+import { Chapter, FREE } from "../../src/based/engine/Types";
 import {
   errorsOf,
   formatProblem,
   validateChapter,
+  validatePlaces,
 } from "../../src/based/engine/Validate";
+import { playRandomly } from "./play";
 
 const ROOT = path.resolve(__dirname, "../..");
 const STORY = path.join(ROOT, "src/based/story");
@@ -184,7 +184,19 @@ describe("the art and sound", () => {
 
 const files = fs.readdirSync(STORY).filter((f) => f.endsWith(".story"));
 
-describe("the places (r21)", () => {
+describe("the places", () => {
+  test("the street, the bar and the palace, joined by doors", () => {
+    expect(Object.keys(PLACES).sort()).toEqual(["elysee", "street", "vauban"]);
+    expect(validatePlaces(PLACES)).toEqual([]);
+    // Each door has one back.
+    const doors = (k: string) =>
+      Object.values(PLACES[k].hotspots)
+        .filter((h) => h.to)
+        .map((h) => h.to!.place);
+    expect(doors("street")).toEqual(["vauban", "vauban"]);
+    expect(doors("vauban")).toEqual(["street", "street"]);
+  });
+
   test.each(Object.keys(PLACES))("%s: every mark can be walked to", (key) => {
     const p = PLACES[key];
     expect(p.key).toBe(key);
@@ -198,14 +210,26 @@ describe("the places (r21)", () => {
       const path = nav.path(from.at, m.at);
       expect(path, `${key}: no way to ${name}`).not.toBeNull();
     }
-    // Hotspots that send him somewhere send him to a mark.
-    for (const [name, h] of Object.entries(p.hotspots)) {
-      if (h.stand) expect(p.marks, `${key}.${name}`).toHaveProperty(h.stand);
-    }
     // Every room that can be cut away is inside the walkable plan.
     for (const a of p.areas) {
       expect(a.rect[0]).toBeGreaterThanOrEqual(p.nav.bounds[0]);
       expect(a.rect[2]).toBeLessThanOrEqual(p.nav.bounds[2]);
+    }
+  });
+
+  test("a place keeps to a few lights; the lamps share a pool", () => {
+    // What a place asks for before the world's budget (World.ts) trims it.
+    for (const p of Object.values(PLACES)) {
+      const placeLights = p.lights.filter(
+        (l) => l.kind === "point" || l.kind === "spot",
+      ).length;
+      expect(placeLights, p.key).toBeLessThanOrEqual(3);
+    }
+    // The bar is no longer drawn with the street: none of the street's
+    // lamps, cars or façades is in it.
+    const kinds = new Set(PLACES.vauban.items.map((i) => i.kind));
+    for (const k of ["lamppost", "facade", "shopfront", "puddle"]) {
+      expect(kinds.has(k), k).toBe(false);
     }
   });
 });
@@ -235,49 +259,18 @@ describe("the chapters as written", () => {
       const { chapter } = parseChapter(
         fs.readFileSync(path.join(STORY, file), "utf8"),
       );
-      let seed = 1;
-      const pick = (n: number) => {
-        seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
-        return seed % n;
-      };
       const scenesSeen = new Set<string>();
       const optionsSeen = new Set<string>();
+      const builds = chapter.archetypes.map(buildOf);
       for (let run = 0; run < 200; run++) {
         // Every archetype, and a different throw of the dice each time.
-        const builds = chapter.archetypes.map(buildOf);
-        const r = new StoryRun(
-          chapter,
-          chapterStart(chapter, undefined, {
-            build: builds.length > 0 ? builds[run % builds.length] : null,
-            seed: run + 1,
-          }),
-        );
-        for (let steps = 0; ; steps++) {
-          expect(steps).toBeLessThan(5000);
-          const b = r.beat;
-          if (b.kind === "end") break;
-          if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
-            r.advance();
-          } else if (b.kind === "choice") {
-            const open = b.options.filter((o) => !o.check?.locked);
-            expect(open.length).toBeGreaterThan(0);
-            if (pick(5) === 0 && b.timer > 0) r.timeout();
-            else r.choose(open[pick(open.length)].id);
-          } else {
-            const unseen = b.spots.filter((s) => !s.seen);
-            const ready = b.deductions.filter(
-              (d) => d.ready && !d.done && !d.check?.locked,
-            );
-            const k = pick(4);
-            if (k === 0 && ready.length > 0) r.deduce(ready[0].id);
-            else if (k === 1 && b.canLeave) r.leave();
-            else if (unseen.length > 0)
-              r.examine(unseen[pick(unseen.length)].id);
-            else if (ready.length > 0) r.deduce(ready[0].id);
-            else r.leave();
-          }
-        }
-        for (const step of r.history()) {
+        const p = playRandomly(chapter, PLACES, {
+          seed: run + 1,
+          build: builds.length > 0 ? builds[run % builds.length] : null,
+          max: 5000,
+        });
+        expect(p.ended, `run ${run} never ended`).toBe(true);
+        for (const step of p.run.history()) {
           if (step.startsWith("s:")) scenesSeen.add(step.slice(2));
           else optionsSeen.add(step.slice(2));
         }
@@ -290,61 +283,102 @@ describe("the chapters as written", () => {
   );
 });
 
-describe("saves from before the 3D chapter (r21)", () => {
-  const { chapter } = parseChapter(
-    fs.readFileSync(path.join(STORY, "chapter-01.story"), "utf8"),
-  );
+describe("chapter one's opening (r22)", () => {
+  const text = fs.readFileSync(path.join(STORY, "chapter-01.story"), "utf8");
+  const { chapter } = parseChapter(text);
 
-  test("an old save in the bar gets its place and its people back", () => {
-    // As round 19 saved it, at the start of "anselme".
-    const old = {
-      chapter: 1,
-      scene: "anselme",
-      flags: {
-        thoughts: 2,
-        thought_glass: 1,
-        thought_scar: 1,
-        posters: 1,
-        van: 1,
-      },
-      rels: {},
-      stage: {
-        backdrop: "glass",
-        figure: null,
-        ambient: "rain_in",
-        news: null,
-      },
-      path: [
-        "s:open",
-        "s:vauban",
-        "s:reverie",
-        "c:reverie#1=the-first-glass",
-        "s:t_glass",
-        "s:reverie",
-        "c:reverie#1=his-left-hand",
-        "s:t_scar",
-        "s:reverie",
-        "s:interrupted",
-      ],
-      taken: ["reverie#1/the-first-glass", "reverie#1/his-left-hand"],
-    };
-    const up = upgradeSnapshot(chapter, old as never);
-    expect(up.stage.place).toBe("grenelle");
-    expect(up.stage.actors.BASED).toMatchObject({
-      at: "stool_end",
-      pose: "sit",
+  /** Every line said or narrated in a scene, as written. */
+  const said = (c: Chapter, id: string) =>
+    c.scenes[id].ops.flatMap((o) =>
+      o.op === "line" ? [`${o.who ?? ""}: ${o.text} ${o.trans ?? ""}`] : [],
+    );
+
+  test("it starts on the street and lets him walk in himself", () => {
+    const open = chapter.scenes[chapter.start];
+    expect(open.ops.find((o) => o.op === "place")).toMatchObject({
+      key: "street",
     });
-    expect(up.stage.actors.ANSELME).toMatchObject({ at: "behind_bar_based" });
-    // The save's own state is kept.
-    expect(up.flags).toEqual(old.flags);
-    expect(up.path).toEqual(old.path);
-    expect(up.scene).toBe("anselme");
-    const r = new StoryRun(chapter, up);
-    expect(r.stage.place).toBe("grenelle");
+    const r = new StoryRun(chapter);
+    for (let i = 0; i < 50 && r.beat.kind !== "free"; i++) r.advance();
+    expect(r.beat).toEqual({ kind: "free" });
+    expect(r.stage.place).toBe("street");
+    // Nothing poured before he orders: no glass on the bar.
+    const bar = PLACES.vauban.items.filter((i) =>
+      ["glass_second", "his_beer", "water_glass"].includes(i.id ?? ""),
+    );
+    expect(bar.every((i) => i.hidden === true)).toBe(true);
+    // Walking in is his: the bar's scene starts when he enters.
+    expect(chapter.scenes.vauban.trigger).toMatchObject({
+      on: "enter",
+      target: "vauban",
+    });
+    // The TV and the posters are still there.
+    expect(open.ops.some((o) => o.op === "news" && o.text)).toBe(true);
+    expect(chapter.scenes.posters.trigger?.target).toBe("posters");
   });
 
-  test("a new save is left alone", () => {
-    const snap = new StoryRun(chapter).snapshot();
-    expect(upgradeSnapshot(chapter, snap)).toBe(snap);
+  test("nobody knows him: not the barman, not the man in grey", () => {
+    for (const id of [
+      "order",
+      "tv_talk",
+      "stranger",
+      "talk",
+      "read_stranger",
+    ]) {
+      for (const l of said(chapter, id)) {
+        if (/^(BARMAN|ANSELME|STRANGER|DELORME):/.test(l)) {
+          expect(l, id).not.toMatch(/Based|Bah-ZAY/);
+        }
+      }
+    }
+    // The man in grey learns a name only if he's given one.
+    expect(said(chapter, "name").join(" ")).toContain("Based");
+  });
+
+  test("the other woman is gone", () => {
+    expect(text).not.toMatch(/Kir Royale|first glass|CONSCIENCE|Her name/i);
+    expect(chapter.skills.map((s) => s.id).sort()).toEqual(
+      [
+        "CHARISMA",
+        "DECEPTION",
+        "DEXTERITY",
+        "EMPATHY",
+        "ENDURANCE",
+        "FOCUS",
+        "INSTINCT",
+        "INTIMIDATION",
+        "LANGUAGES",
+        "MEMORY",
+        "PERCEPTION",
+        "STRENGTH",
+      ].sort(),
+    );
+  });
+
+  test("the world opens after the meeting, and people always have something to say", () => {
+    const r = playRandomly(chapter, PLACES, { seed: 3, max: 5000 });
+    expect(r.ended).toBe(true);
+    const h = r.run.history();
+    const met = h.indexOf("s:contact");
+    expect(met).toBeGreaterThan(0);
+    // Every person the open world can find answers when spoken to.
+    const talkers = new Set(
+      chapter.order
+        .map((id) => chapter.scenes[id].trigger)
+        .filter((t) => t?.on === "talk")
+        .map((t) => t!.target),
+    );
+    for (const who of ["BARMAN", "WOMAN", "WATCHER", "PORTER"]) {
+      expect(talkers.has(who), who).toBe(true);
+      // ...with a scene that has no condition to fall back on.
+      expect(
+        chapter.order.some((id) => {
+          const t = chapter.scenes[id].trigger;
+          return t?.on === "talk" && t.target === who && !t.cond && !t.once;
+        }),
+        who,
+      ).toBe(true);
+    }
+    expect(FREE).toBe("FREE");
   });
 });

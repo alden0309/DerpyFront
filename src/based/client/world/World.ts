@@ -5,20 +5,46 @@
 // a room he's inside, follows him with the camera or holds a shot, and
 // renders it all with noir lighting, rain and a painterly finish.
 //
+// r22: an open world of places (areas), each its own scene, so only the
+// one he's in is drawn. The places next door are built and their shaders
+// compiled in the background, a little at a time, so a door is a short
+// fade; places further off are freed. Each place keeps to a light budget
+// (a few real lights, the street lamps sharing a pool of them; the rest are
+// painted glow), one shadow at most, and the picture's resolution follows
+// the device's speed. Things are found by walking about: what he's near
+// and can see glints; Tab shows what's near. Double-click runs. The rain
+// comes and goes, puddles spread, and people get wet.
+//
 // It knows nothing of the story: the player (Player.ts) tells it where
-// people are, what to show and where he may walk.
+// people are, what to show, what's worth a look and where he may walk.
 
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { NavGrid, P } from "../../engine/Nav";
 import { Area, Hotspot, Mark, PlaceDef } from "../../engine/Place";
+import { areaAt, canSee, noticeRange } from "../../engine/Sight";
 import { ActorState } from "../../engine/Types";
+import {
+  startWeather,
+  stepWeather,
+  stepWetness,
+  weatherAt,
+  WeatherKind,
+  WeatherState,
+} from "../../engine/Weather";
 import { WorldAssets } from "./Assets";
 import { buildItem, KitContext, PieceLight } from "./Kit";
 import { LOOKS, Person, Pose } from "./People";
+import { setGait, setWetness } from "./PeopleHooks";
 import { Post } from "./Post";
 import { SurfaceBook } from "./Textures";
-import { Rain, weatherTime } from "./Weather";
+import {
+  Drips,
+  Rain,
+  weatherGround,
+  weatherRain,
+  weatherTime,
+} from "./Weather";
 
 export type Tier = "high" | "low";
 
@@ -27,36 +53,80 @@ export interface CastLook {
   look: string;
 }
 
-export interface HotspotOnScreen {
+/** A thing worth a look, as the player's labels need it. */
+export interface ThingOnScreen {
   id: string;
   x: number;
   y: number;
   /** In front of the camera and inside the picture. */
   visible: boolean;
+  /** Near enough and in sight now. */
+  near: boolean;
+  door: boolean;
 }
 
 export interface WorldEvents {
-  hotspot(id: string): void;
-  floor(x: number, z: number): void;
+  /** A thing (or door) clicked; `seated` when he looks from his seat. */
+  hotspot(id: string, opts: { seated: boolean; run: boolean }): void;
+  floor(x: number, z: number, run: boolean): void;
   person(id: string): void;
   hover(id: string | null): void;
 }
 
+/** What the device can afford, per place. */
+const BUDGET: Record<Tier, { lights: number; pool: number; shadows: number }> =
+  {
+    high: { lights: 8, pool: 4, shadows: 1 },
+    low: { lights: 4, pool: 2, shadows: 0 },
+  };
+
+interface LiveLight {
+  obj: THREE.Light;
+  base: number;
+  flicker?: "tv" | "neon" | "candle";
+  area?: string;
+}
+
+/** A few real lights lent to whichever street lamps are nearest. */
+interface LampPool {
+  lights: THREE.PointLight[];
+  lamps: THREE.Vector3[];
+  base: number;
+}
+
+interface WetMat {
+  mat: THREE.MeshStandardMaterial;
+  color: THREE.Color;
+  rough: number;
+}
+
 interface BuiltPlace {
   def: PlaceDef;
+  scene: THREE.Scene;
   group: THREE.Group;
   nav: NavGrid;
-  lights: (PieceLight & { obj: THREE.Light })[];
+  lights: LiveLight[];
+  pool: LampPool | null;
   ticks: ((t: number) => void)[];
   /** One clipping plane per room that can be cut away. */
   cuts: Map<string, { plane: THREE.Plane; h: number; level: number }>;
-  hideInside: { obj: THREE.Object3D; areas: string[]; shown?: boolean }[];
   props: Map<string, THREE.Object3D>;
   lamps: THREE.Vector3[];
   streaks: THREE.Object3D[];
+  /** Invisible targets for the pointer, one per hotspot. */
   proxies: Map<string, THREE.Mesh>;
   /** Pieces seen only from in front (their local +z faces the viewer). */
   frontOnly: THREE.Object3D[];
+  wet: WetMat[];
+  drips: Drips | null;
+  outdoor: boolean;
+  /** Its shaders compiled (built in the background, then compiled). */
+  ready: Promise<void>;
+}
+
+interface Glint {
+  sprite: THREE.Sprite;
+  k: number;
 }
 
 const CUT_HEIGHT = 1.15;
@@ -72,21 +142,66 @@ export function pickTier(): Tier {
   return coarse && small ? "low" : "high";
 }
 
+/** Waits for the browser to be idle (or a frame, where there's no idle). */
+function idle(): Promise<void> {
+  return new Promise((r) => {
+    const w = window as unknown as {
+      requestIdleCallback?: (cb: () => void, o?: object) => number;
+    };
+    if (w.requestIdleCallback)
+      w.requestIdleCallback(() => r(), { timeout: 200 });
+    else window.setTimeout(r, 16);
+  });
+}
+
+let glintTex: THREE.Texture | null = null;
+function glintTexture(): THREE.Texture {
+  if (glintTex) return glintTex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d")!;
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, "rgba(255,240,210,1)");
+  grad.addColorStop(0.18, "rgba(255,220,170,0.6)");
+  grad.addColorStop(1, "rgba(255,200,140,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  // A four-pointed glint.
+  g.fillStyle = "rgba(255,245,225,0.9)";
+  g.beginPath();
+  g.moveTo(32, 2);
+  g.lineTo(35, 29);
+  g.lineTo(62, 32);
+  g.lineTo(35, 35);
+  g.lineTo(32, 62);
+  g.lineTo(29, 35);
+  g.lineTo(2, 32);
+  g.lineTo(29, 29);
+  g.closePath();
+  g.fill();
+  glintTex = new THREE.CanvasTexture(c);
+  glintTex.colorSpace = THREE.SRGBColorSpace;
+  return glintTex;
+}
+
 export class World {
   readonly renderer: THREE.WebGLRenderer;
-  readonly scene = new THREE.Scene();
   readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
   private readonly post: Post;
   private readonly surfaces: SurfaceBook;
   private readonly rain: Rain;
+  private readonly env: THREE.Texture;
   private readonly places = new Map<string, BuiltPlace>();
+  private building = new Map<string, Promise<BuiltPlace>>();
   private place: BuiltPlace | null = null;
   private readonly people = new Map<string, Person>();
-  private readonly hemi = new THREE.HemisphereLight("#33405e", "#14100c", 0.9);
-  private readonly moon = new THREE.DirectionalLight("#6f86b8", 0.35);
+  private readonly personProxy = new Map<string, THREE.Mesh>();
+  private readonly wet = new Map<string, number>();
   private readonly ray = new THREE.Raycaster();
   private readonly timer = new THREE.Timer();
+  private readonly budget: { lights: number; pool: number; shadows: number };
   private frame = 0;
+  private frameNo = 0;
   private time = 0;
   private news: string | null = null;
   private focusKey: string | null = null;
@@ -98,16 +213,56 @@ export class World {
   private hovered: string | null = null;
   private fade = 1;
   private fadeTo = 1;
-  private slow = 0;
-  private frames = 0;
+  private fadeWait: (() => void)[] = [];
   private down: { x: number; y: number; t: number } | null = null;
+  private drag: { x: number; y: number; ox: number; oz: number } | null = null;
+  private lastClick = { t: 0, x: 0, y: 0 };
   private disposed = false;
+  /** The resolution's share of the device's (dropped on a slow device). */
+  private scale = 1;
+  private frameEma = 16;
+  private fastFor = 0;
+  private weatherKind: WeatherKind | null = null;
+  private weather: WeatherState = startWeather("rain");
+  private heroGait = 1;
+  private lookOffset = new THREE.Vector3();
+  private readonly glints = new Map<string, Glint>();
+  private scanAt = 0;
+  private reported = "";
+  // Reused each frame, so a frame makes no garbage.
+  private readonly v1 = new THREE.Vector3();
+  private readonly v2 = new THREE.Vector3();
+  private readonly v3 = new THREE.Vector3();
+  private readonly v4 = new THREE.Vector3();
+  private readonly dir = new THREE.Vector3();
+  private readonly right = new THREE.Vector3();
+  private readonly camUp = new THREE.Vector3();
+  private readonly facing = new THREE.Vector3();
+  private readonly ptr = new THREE.Vector2();
+  private readonly floorPlane = new THREE.Plane(UP, 0);
   /** The hero's cast id (the first cast member). */
   hero = "";
-  /** Hotspots that can be clicked now, and whether walking is allowed. */
-  active = new Set<string>();
+  /**
+   * What's worth a look where he is (the story's things and the doors), and
+   * who will talk. The player sets these as the story moves.
+   */
+  things = new Map<string, { door: boolean }>();
+  talkers = new Set<string>();
+  /** Things he has noticed here (stay clickable while he's in the place). */
+  noticed = new Set<string>();
+  /** Things near enough and in sight now. */
+  near = new Set<string>();
+  /** His Perception: it widens how far off he notices things. */
+  perception = 2;
+  /** Walking is allowed (he's free, or looking round a room). */
   walkable = false;
-  onHotspots: ((h: HotspotOnScreen[]) => void) | null = null;
+  /** Show every label of what's near (Tab, or the eye). */
+  showAll = false;
+  /** Investigations that keep him put: he reads from where he is. */
+  still = false;
+  onThings: ((h: ThingOnScreen[]) => void) | null = null;
+  /** Called when a set of things noticed changes (for the column). */
+  onNoticed: ((ids: string[]) => void) | null = null;
 
   constructor(
     readonly canvas: HTMLCanvasElement,
@@ -116,6 +271,7 @@ export class World {
     readonly tier: Tier,
     private readonly events: WorldEvents,
   ) {
+    this.budget = BUDGET[tier];
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: false,
@@ -124,26 +280,23 @@ export class World {
     this.renderer.localClippingEnabled = true;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.15;
-    this.renderer.shadowMap.enabled = tier === "high";
+    this.renderer.shadowMap.enabled = this.budget.shadows > 0;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    // r22: shadows are drawn every other frame (see loop).
+    this.renderer.shadowMap.autoUpdate = false;
     this.surfaces = new SurfaceBook(
       tier === "high" ? 512 : 256,
       Math.min(8, this.renderer.capabilities.getMaxAnisotropy()),
     );
-    // A dim room for metal and glass to reflect.
+    // A dim room for metal and glass to reflect, shared by every place.
     const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(
-      new RoomEnvironment(),
-      0.04,
-    ).texture;
-    this.scene.environmentIntensity = 0.12;
+    this.env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     pmrem.dispose();
-    this.scene.add(this.hemi, this.moon, this.moon.target);
     this.rain = new Rain(tier === "high" ? 6000 : 2600);
-    this.scene.add(this.rain.group);
-    this.post = new Post(this.renderer, this.scene, this.camera, {
-      bloom: true,
+    this.post = new Post(this.renderer, new THREE.Scene(), this.camera, {
+      bloom: tier === "high",
       paint: tier === "high",
+      samples: tier === "high" ? 4 : 0,
     });
     this.resize();
     canvas.addEventListener("pointerdown", this.onDown);
@@ -161,15 +314,53 @@ export class World {
     return {
       surfaces: this.surfaces,
       models: this.assets.props,
-      shadows: this.tier === "high",
+      shadows: this.budget.shadows > 0,
       lightBudget: this.tier === "high" ? "full" : "few",
       news: () => this.news,
     };
   }
 
-  private build(def: PlaceDef): BuiltPlace {
+  /** Builds a place now, all at once (behind the fade). */
+  private buildNow(def: PlaceDef): BuiltPlace {
+    const g = this.builder(def);
+    let r = g.next();
+    while (!r.done) r = g.next();
+    return r.value;
+  }
+
+  /**
+   * Builds a place in the background: a few pieces at a time, between
+   * frames, so nothing stutters while he walks.
+   */
+  private async buildSlow(def: PlaceDef): Promise<BuiltPlace> {
+    const g = this.builder(def);
+    let t0 = performance.now();
+    for (;;) {
+      const r = g.next();
+      if (r.done) return r.value;
+      if (performance.now() - t0 > 8) {
+        await idle();
+        t0 = performance.now();
+      }
+    }
+  }
+
+  /** Builds a place piece by piece, pausing (yielding) between pieces. */
+  private *builder(def: PlaceDef): Generator<void, BuiltPlace> {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(def.env.background);
+    scene.fog = new THREE.FogExp2(def.env.fog, def.env.fogDensity);
+    scene.environment = this.env;
+    scene.environmentIntensity = 0.12;
     const group = new THREE.Group();
     group.name = def.key;
+    scene.add(group);
+    const outdoor = def.outdoor ?? def.areas.some((a) => a.rain);
+    // The night's own light, in every place.
+    scene.add(new THREE.HemisphereLight("#33405e", "#14100c", 0.9));
+    const moon = new THREE.DirectionalLight("#6f86b8", 0.35);
+    moon.position.set(-8, 14, -6);
+    scene.add(moon, moon.target);
     const kit = this.kit();
     const cuts = new Map<
       string,
@@ -184,38 +375,59 @@ export class World {
         });
       }
     }
-    const built: BuiltPlace = {
+    const b: BuiltPlace = {
       def,
+      scene,
       group,
       nav: new NavGrid(def.nav.bounds, def.nav.cell, def.nav.blocks),
       lights: [],
+      pool: null,
       ticks: [],
       cuts,
-      hideInside: [],
       props: new Map(),
       lamps: [],
       streaks: [],
       proxies: new Map(),
       frontOnly: [],
+      wet: [],
+      drips: null,
+      outdoor,
+      ready: Promise.resolve(),
     };
+    const wanted: (PieceLight & { obj: THREE.Light; order: number })[] = [];
+    const pooled: { pl: PieceLight; at: THREE.Vector3 }[] = [];
+    const drips: [THREE.Vector3, THREE.Vector3][] = [];
+    let order = 0;
     for (const item of def.items) {
-      const b = buildItem(item, kit);
-      group.add(b.object);
-      if (item.id) built.props.set(item.id, b.object);
-      if (b.tick) built.ticks.push(b.tick);
-      b.object.updateMatrixWorld(true);
-      for (const l of b.lamps) {
-        built.lamps.push(l.clone().applyMatrix4(b.object.matrixWorld));
+      yield;
+      const built = buildItem(item, kit);
+      group.add(built.object);
+      if (item.id) b.props.set(item.id, built.object);
+      if (built.tick) b.ticks.push(built.tick);
+      built.object.updateMatrixWorld(true);
+      for (const l of built.lamps) {
+        b.lamps.push(l.clone().applyMatrix4(built.object.matrixWorld));
       }
-      for (const pl of b.lights) {
-        if (this.tier === "low" && pl.minor) {
+      for (const e of built.drips ?? []) {
+        drips.push([
+          e[0].clone().applyMatrix4(built.object.matrixWorld),
+          e[1].clone().applyMatrix4(built.object.matrixWorld),
+        ]);
+      }
+      for (const pl of built.lights) {
+        if (pl.pool) {
+          pooled.push({
+            pl,
+            at: pl.light.getWorldPosition(new THREE.Vector3()),
+          });
           pl.light.parent?.remove(pl.light);
           continue;
         }
-        built.lights.push({
+        wanted.push({
           ...pl,
           obj: pl.light,
           area: (item.area as string) ?? pl.area,
+          order: order++,
         });
       }
       const list = (v: unknown): string[] =>
@@ -224,13 +436,14 @@ export class World {
         .filter((a) => cuts.has(a))
         .map((a) => cuts.get(a)!.plane);
       if (planes.length > 0) {
-        b.object.traverse((o) => {
+        built.object.traverse((o) => {
           const m = o as THREE.Mesh;
           if (!m.isMesh || !m.material) return;
           const clip = (x: THREE.Material) => {
             const c = x.clone();
             c.clippingPlanes = planes;
             c.clipShadows = false;
+            c.userData = { ...x.userData, shared: false };
             return c;
           };
           m.material = Array.isArray(m.material)
@@ -238,25 +451,27 @@ export class World {
             : clip(m.material);
         });
       }
-      const hide = list(item.hideInside);
-      if (hide.length > 0)
-        built.hideInside.push({ obj: b.object, areas: hide });
-      b.object.traverse((o) => {
-        if (o.userData.streak) built.streaks.push(o);
-        if (o.userData.frontOnly) built.frontOnly.push(o);
+      built.object.traverse((o) => {
+        if (o.userData.streak) b.streaks.push(o);
+        if (o.userData.frontOnly) b.frontOnly.push(o);
+        const m = (o as THREE.Mesh).material as
+          | THREE.MeshStandardMaterial
+          | undefined;
+        if (
+          outdoor &&
+          m?.isMeshStandardMaterial &&
+          m.userData.wettable &&
+          !m.userData.shared
+        ) {
+          b.wet.push({ mat: m, color: m.color.clone(), rough: m.roughness });
+        }
       });
     }
     for (const l of def.lights) {
       let light: THREE.Light;
       if (l.kind === "point") {
-        const p = new THREE.PointLight(
-          l.color,
-          l.intensity,
-          l.distance ?? 10,
-          2,
-        );
-        p.castShadow = !!l.shadow && this.tier === "high";
-        light = p;
+        light = new THREE.PointLight(l.color, l.intensity, l.distance ?? 10, 2);
+        light.castShadow = !!l.shadow;
       } else if (l.kind === "spot") {
         const s = new THREE.SpotLight(
           l.color,
@@ -266,12 +481,7 @@ export class World {
           l.penumbra ?? 0.6,
           1.8,
         );
-        s.castShadow = !!l.shadow && this.tier === "high";
-        if (s.castShadow) {
-          s.shadow.mapSize.set(1024, 1024);
-          s.shadow.bias = -0.0015;
-          s.shadow.radius = 4;
-        }
+        s.castShadow = !!l.shadow;
         if (l.to) s.target.position.set(...l.to);
         group.add(s.target);
         light = s;
@@ -289,13 +499,22 @@ export class World {
       }
       if (l.at) light.position.set(...l.at);
       group.add(light);
-      built.lights.push({
+      const lv: PieceLight & { obj: THREE.Light; order: number } = {
         light: light as THREE.PointLight,
         obj: light,
         base: l.intensity,
         flicker: l.flicker,
         area: l.area,
-      });
+        prio: (l as { prio?: number }).prio ?? 2,
+        order: order++,
+      };
+      if (l.kind === "point" || l.kind === "spot") wanted.push(lv);
+      else b.lights.push(lv);
+    }
+    this.applyBudget(b, wanted, pooled);
+    if (drips.length > 0 && outdoor) {
+      b.drips = new Drips(drips);
+      scene.add(b.drips.lines);
     }
     // Invisible targets for the hotspots, for the pointer to find.
     for (const [id, h] of Object.entries(def.hotspots)) {
@@ -306,17 +525,164 @@ export class World {
       proxy.position.set(...h.at);
       proxy.userData.hotspot = id;
       group.add(proxy);
-      built.proxies.set(id, proxy);
+      b.proxies.set(id, proxy);
     }
-    group.visible = false;
-    this.scene.add(group);
-    return built;
+    // Reflections run from the light towards the viewer.
+    const az = deg(def.camera.azimuth);
+    for (const s of b.streaks) {
+      s.updateWorldMatrix(true, false);
+      const q = new THREE.Quaternion();
+      s.parent!.getWorldQuaternion(q);
+      const parentYaw = new THREE.Euler().setFromQuaternion(q, "YXZ").y;
+      s.rotation.y = az - parentYaw;
+    }
+    return b;
   }
 
-  /** Shows a place (built on first use); the cast is cleared from it. */
+  /**
+   * r22: a place keeps to the device's light budget. Its lights are ranked
+   * by how much they matter (then the order they're written); the least
+   * are removed for good, so nothing is ever switched on or off while
+   * playing (which would make every material recompile). The street lamps
+   * share a pool of a few real lights, lent to whichever lamps are nearest
+   * the camera (moving a light recompiles nothing). One light at most keeps
+   * its shadow.
+   */
+  private applyBudget(
+    b: BuiltPlace,
+    wanted: (PieceLight & { obj: THREE.Light; order: number })[],
+    pooled: { pl: PieceLight; at: THREE.Vector3 }[],
+  ): void {
+    const pool =
+      pooled.length > 0 ? Math.min(this.budget.pool, pooled.length) : 0;
+    const room = Math.max(0, this.budget.lights - pool);
+    const ranked = [...wanted].sort(
+      (x, y) =>
+        (y.prio ?? (y.minor ? 0 : 1)) - (x.prio ?? (x.minor ? 0 : 1)) ||
+        x.order - y.order,
+    );
+    let shadows = this.budget.shadows;
+    ranked.forEach((l, i) => {
+      if (i >= room) {
+        l.obj.parent?.remove(l.obj);
+        return;
+      }
+      if (l.obj.castShadow) {
+        if (shadows > 0) {
+          shadows--;
+          const s = l.obj as THREE.SpotLight;
+          s.shadow.mapSize.set(1024, 1024);
+          s.shadow.bias = -0.0015;
+          s.shadow.radius = 4;
+        } else l.obj.castShadow = false;
+      }
+      b.lights.push({
+        obj: l.obj,
+        base: l.base,
+        flicker: l.flicker,
+        area: l.area,
+      });
+    });
+    if (pool > 0) {
+      const src = pooled[0].pl;
+      const lights: THREE.PointLight[] = [];
+      for (let i = 0; i < pool; i++) {
+        const l = new THREE.PointLight(
+          src.light.color,
+          0,
+          src.light.distance,
+          2,
+        );
+        b.group.add(l);
+        lights.push(l);
+      }
+      b.pool = { lights, lamps: pooled.map((p) => p.at), base: src.base };
+    }
+  }
+
+  /** Gets a place ready next door: built bit by bit, then compiled. */
+  prepare(def: PlaceDef): Promise<void> {
+    const have = this.places.get(def.key);
+    if (have) return have.ready;
+    let p = this.building.get(def.key);
+    if (!p) {
+      p = this.buildSlow(def).then((b) => {
+        const have = this.places.get(def.key);
+        if (have) {
+          // He walked in before it was done: the one built then stands.
+          this.disposePlace(b);
+          return have;
+        }
+        b.ready = (async () => {
+          if (this.disposed) return;
+          // The camera framed roughly where it'll be: what's in view
+          // compiles; anything else compiles when first seen.
+          try {
+            await this.renderer.compileAsync(b.scene, this.camera);
+          } catch {
+            // compiled on first draw instead
+          }
+        })();
+        this.places.set(def.key, b);
+        this.building.delete(def.key);
+        return b;
+      });
+      this.building.set(def.key, p);
+    }
+    return p.then((b) => b.ready);
+  }
+
+  /** Frees every place but these (and the one he's in). */
+  keepOnly(keys: string[]): void {
+    for (const [key, b] of this.places) {
+      if (key === this.place?.def.key || keys.includes(key)) continue;
+      this.disposePlace(b);
+      this.places.delete(key);
+    }
+  }
+
+  private disposePlace(b: BuiltPlace): void {
+    const textures = new Set<THREE.Texture>();
+    b.scene.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (this.isPerson(o)) return;
+      if (
+        m.isMesh ||
+        (o as THREE.Sprite).isSprite ||
+        (o as THREE.LineSegments).isLineSegments
+      ) {
+        if (m.geometry && !m.geometry.userData.shared) m.geometry.dispose();
+        const mats = Array.isArray(m.material) ? m.material : [m.material];
+        for (const mat of mats) {
+          if (!mat || mat.userData.shared) continue;
+          for (const v of Object.values(mat)) {
+            if ((v as THREE.Texture)?.isTexture)
+              textures.add(v as THREE.Texture);
+          }
+          mat.dispose();
+        }
+      }
+      const l = o as THREE.Light;
+      if (l.isLight) l.dispose?.();
+    });
+    for (const t of textures) {
+      if (!t.userData.shared && t !== this.env) t.dispose();
+    }
+    b.drips?.dispose();
+  }
+
+  private isPerson(o: THREE.Object3D): boolean {
+    let x: THREE.Object3D | null = o;
+    while (x) {
+      if (x.userData.person) return true;
+      x = x.parent;
+    }
+    return false;
+  }
+
+  /** Shows a place (building it now if it isn't ready); fades it in. */
   setPlace(def: PlaceDef | null): void {
     if (def === null) {
-      if (this.place) this.place.group.visible = false;
       this.place = null;
       for (const p of this.people.values()) p.root.visible = false;
       return;
@@ -324,35 +690,46 @@ export class World {
     if (this.place?.def.key === def.key) return;
     let b = this.places.get(def.key);
     if (!b) {
-      b = this.build(def);
+      // Not prepared: build it now, behind the fade.
+      b = this.buildNow(def);
       this.places.set(def.key, b);
+      this.building.delete(def.key);
     }
-    if (this.place) this.place.group.visible = false;
     this.place = b;
-    b.group.visible = true;
-    this.scene.background = new THREE.Color(def.env.background);
-    this.scene.fog = new THREE.FogExp2(def.env.fog, def.env.fogDensity);
+    this.post.setScene(b.scene);
     this.renderer.toneMappingExposure = def.env.exposure ?? 1.15;
-    this.rain.setDry(def.areas.filter((a) => !a.rain).map((a) => a.rect));
-    this.rain.group.visible = def.areas.some((a) => a.rain);
-    this.rain.setLamps(b.lamps.map((at) => ({ at, k: 1 })));
-    const az = deg(def.camera.azimuth);
-    for (const s of b.streaks) {
-      // Reflections run from the light towards the viewer.
-      s.updateWorldMatrix(true, false);
-      const q = new THREE.Quaternion();
-      s.parent!.getWorldQuaternion(q);
-      const parentYaw = new THREE.Euler().setFromQuaternion(q, "YXZ").y;
-      s.rotation.y = az - parentYaw;
+    for (const p of this.people.values()) {
+      b.scene.add(p.root);
+      p.root.visible = false;
     }
-    for (const p of this.people.values()) p.root.visible = false;
+    if (this.pingMesh) b.scene.add(this.pingMesh);
+    b.scene.add(this.rain.group);
+    this.rain.group.visible = b.outdoor;
+    this.rain.setDry(def.areas.filter((a) => !a.rain).map((a) => a.rect));
+    this.rain.setLamps(b.lamps.map((at) => ({ at, k: 1 })));
+    for (const g of this.glints.values()) g.sprite.removeFromParent();
+    this.glints.clear();
+    this.noticed.clear();
+    this.near.clear();
+    this.lookOffset.set(0, 0, 0);
     this.fade = 0;
     this.fadeTo = 1;
     this.snapCamera = true;
+    this.renderer.shadowMap.needsUpdate = true;
   }
 
   get placeKey(): string | null {
     return this.place?.def.key ?? null;
+  }
+
+  get placeDef(): PlaceDef | null {
+    return this.place?.def ?? null;
+  }
+
+  /** Fades to black; resolves when it's dark (for going through a door). */
+  fadeOut(): Promise<void> {
+    this.fadeTo = 0;
+    return new Promise((r) => this.fadeWait.push(r));
   }
 
   // --- people --------------------------------------------------------------
@@ -362,39 +739,47 @@ export class World {
     const lookName = wear ?? c?.look;
     if (!lookName) return null;
     const look = LOOKS[lookName] ?? LOOKS.suit_dark;
-    const key = `${id}`;
-    let p = this.people.get(key);
+    let p = this.people.get(id);
     if (p && p.look !== look) {
       // A change of clothes: a new body in the same place.
       const at = p.root.position.clone();
       const h = p.heading;
       const shown = p.root.visible;
-      this.scene.remove(p.root);
+      p.root.removeFromParent();
       p.dispose();
-      p = new Person(
-        id,
-        look.body === "f" ? this.assets.rigs.f : this.assets.rigs.m,
-        look,
-        this.assets.gestures,
-      );
+      p = this.makePerson(id, look);
       p.root.position.copy(at);
       p.heading = h;
       p.root.visible = shown;
-      this.people.set(key, p);
-      this.scene.add(p.root);
     }
     if (!p) {
-      p = new Person(
-        id,
-        look.body === "f" ? this.assets.rigs.f : this.assets.rigs.m,
-        look,
-        this.assets.gestures,
-      );
+      p = this.makePerson(id, look);
       // Unseen until someone puts them on a mark.
       p.root.visible = false;
-      this.people.set(key, p);
-      this.scene.add(p.root);
     }
+    return p;
+  }
+
+  private makePerson(id: string, look: (typeof LOOKS)[string]): Person {
+    const p = new Person(
+      id,
+      look.body === "f" ? this.assets.rigs.f : this.assets.rigs.m,
+      look,
+      this.assets.gestures,
+    );
+    p.root.userData.person = id;
+    // Something for the pointer to find: a body-sized column.
+    const proxy = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.32, 0.32, 1.75, 8),
+      new THREE.MeshBasicMaterial({ visible: false }),
+    );
+    proxy.position.y = 0.88;
+    proxy.userData.personId = id;
+    p.root.add(proxy);
+    this.personProxy.set(id, proxy);
+    this.people.set(id, p);
+    this.place?.scene.add(p.root);
+    setWetness(p, this.wet.get(id) ?? 0);
     return p;
   }
 
@@ -406,15 +791,22 @@ export class World {
     return new THREE.Vector3(m.at[0], 0, m.at[1]);
   }
 
+  /** Whether someone the stage puts somewhere is in this place. */
+  private here(st: ActorState): boolean {
+    if (!this.place) return false;
+    if (st.place !== undefined) return st.place === this.place.def.key;
+    return !!this.mark(st.at);
+  }
+
   /** Everyone where the stage says, at once (a scene starting, a load). */
   placeCast(actors: Record<string, ActorState>): void {
     for (const [id, p] of this.people) {
       if (!actors[id]) p.root.visible = false;
     }
     for (const [id, st] of Object.entries(actors)) {
-      const m = this.mark(st.at);
+      const m = this.here(st) ? this.mark(st.at) : null;
       if (!m) {
-        // Left behind in another place (the stage keeps them): not here.
+        // Elsewhere (the stage keeps them where they were left).
         const gone = this.people.get(id);
         if (gone) gone.root.visible = false;
         continue;
@@ -429,17 +821,29 @@ export class World {
 
   /** Someone moves: walks to their mark (or appears there), then poses. */
   moveActor(id: string, st: ActorState | null, walk: boolean): void {
-    if (st === null) {
-      const p = this.people.get(id);
-      if (p) p.root.visible = false;
+    const p0 = this.people.get(id);
+    if (st === null || !this.here(st)) {
+      if (!p0 || !p0.root.visible) return;
+      // Off to another place: out through its door, if there's one.
+      const door = st?.place ? this.doorTo(st.place) : null;
+      if (walk && door && this.place) {
+        const at = this.markPos(door);
+        const path = this.place.nav.path(
+          [p0.root.position.x, p0.root.position.z],
+          [at.x, at.z],
+        );
+        if (path) {
+          p0.walk(
+            path.slice(1).map(([x, z]) => new THREE.Vector3(x, 0, z)),
+            () => (p0.root.visible = false),
+          );
+          return;
+        }
+      }
+      p0.root.visible = false;
       return;
     }
-    const m = this.mark(st.at);
-    if (!m) {
-      const gone = this.people.get(id);
-      if (gone) gone.root.visible = false;
-      return;
-    }
+    const m = this.mark(st.at)!;
     const p = this.person(id, st.wear);
     if (!p) return;
     const target = this.markPos(m);
@@ -464,6 +868,15 @@ export class World {
     p.walk(pts, finish);
   }
 
+  /** The mark by the door that leads to a place, if this place has one. */
+  private doorTo(place: string): Mark | null {
+    if (!this.place) return null;
+    for (const h of Object.values(this.place.def.hotspots)) {
+      if (h.to?.place === place && h.stand) return this.mark(h.stand);
+    }
+    return null;
+  }
+
   setTalking(who: string | null): void {
     for (const [id, p] of this.people) p.setTalking(id === who);
   }
@@ -485,6 +898,11 @@ export class World {
     this.focusKey = key;
   }
 
+  /** r22: the weather the story wants (null: the place's own drift). */
+  setWeather(kind: string | null): void {
+    this.weatherKind = (kind as WeatherKind | null) ?? null;
+  }
+
   /** How much of the screen the dialogue column covers. */
   setInset(right: number, bottom: number): void {
     this.inset = { right, bottom };
@@ -495,12 +913,39 @@ export class World {
     return p && p.root.visible ? p.root.position.clone() : null;
   }
 
+  /** Where he stands, which way he faces and how wet he is: for a save. */
+  heroState(): { x: number; z: number; heading: number; wet: number } | null {
+    const p = this.people.get(this.hero);
+    if (!p || !p.root.visible) return null;
+    return {
+      x: Math.round(p.root.position.x * 100) / 100,
+      z: Math.round(p.root.position.z * 100) / 100,
+      heading: Math.round(p.heading * 1000) / 1000,
+      wet: Math.round((this.wet.get(this.hero) ?? 0) * 1000) / 1000,
+    };
+  }
+
+  /** Puts him back where a save had him (if he's standing in this place). */
+  restoreHero(s: { x: number; z: number; heading: number; wet: number }): void {
+    const p = this.people.get(this.hero);
+    this.wet.set(this.hero, s.wet);
+    if (p) setWetness(p, s.wet);
+    if (!p || !p.root.visible || p.pose === "sit" || !this.place) return;
+    if (!this.place.nav.walkable(s.x, s.z)) return;
+    p.place(new THREE.Vector3(s.x, 0, s.z), s.heading, "stand");
+    this.snapCamera = true;
+  }
+
   get heroBusy(): boolean {
     return this.people.get(this.hero)?.walking ?? false;
   }
 
-  /** Walks the hero to a point; false if he can't get there. */
-  walkHero(x: number, z: number, then?: () => void): boolean {
+  get heroSeated(): boolean {
+    return this.people.get(this.hero)?.pose === "sit";
+  }
+
+  /** Walks (or runs) the hero to a point; false if he can't get there. */
+  walkHero(x: number, z: number, run = false, then?: () => void): boolean {
     const p = this.people.get(this.hero);
     if (!p || !this.place || !p.root.visible) return false;
     const path = this.place.nav.path(
@@ -513,24 +958,28 @@ export class World {
       then?.();
       return true;
     }
-    p.walk(pts, then);
-    this.ping(pts[pts.length - 1]);
+    this.heroGait = setGait(p, run ? "run" : "walk");
+    p.walk(pts, () => {
+      this.heroGait = setGait(p, "walk");
+      then?.();
+    });
+    this.ping(pts[pts.length - 1], run);
     return true;
   }
 
   /** Walks the hero to look at a hotspot, then turns to it. */
-  walkToHotspot(id: string, then: () => void): void {
+  walkToHotspot(id: string, then: () => void, run = false): void {
     const h = this.place?.def.hotspots[id];
     const p = this.people.get(this.hero);
     if (!h || !p || !this.place) {
       then();
       return;
     }
-    const at = this.hotspotPos(id, h);
+    const at = this.hotspotPos(h, this.v4).clone();
     const face = () => {
       const d = at.clone().sub(p.root.position);
       if (p.pose !== "sit") p.face(Math.atan2(d.x, d.z));
-      p.gesture("interact");
+      if (!h.to) p.gesture("interact");
       then();
     };
     if (h.stand) {
@@ -541,7 +990,7 @@ export class World {
           face();
           return;
         }
-        this.walkHero(target.x, target.z, face);
+        if (!this.walkHero(target.x, target.z, run, face)) face();
         return;
       }
     }
@@ -562,69 +1011,161 @@ export class World {
       .normalize();
     const goal = flat.clone().addScaledVector(dir, 0.9);
     const free = this.place.nav.nearestFree(goal.x, goal.z);
-    if (!free || !this.walkHero(free[0], free[1], face)) face();
+    if (!free || !this.walkHero(free[0], free[1], run, face)) face();
   }
 
-  private hotspotPos(id: string, h: Hotspot): THREE.Vector3 {
+  /** Turns him (sitting or standing) to face a hotspot, and looks. */
+  faceHotspot(id: string): void {
+    const h = this.place?.def.hotspots[id];
+    const p = this.people.get(this.hero);
+    if (!h || !p) return;
+    const at = this.hotspotPos(h, this.v4);
+    if (p.pose !== "sit") {
+      p.face(Math.atan2(at.x - p.root.position.x, at.z - p.root.position.z));
+    }
+  }
+
+  private hotspotPos(h: Hotspot, out: THREE.Vector3): THREE.Vector3 {
     if (h.on) {
       const person = this.people.get(h.on.who);
-      const bone = person?.bone(h.on.bone);
-      if (bone) return bone.localToWorld(new THREE.Vector3(...h.at));
+      const bone = person?.root.visible ? person.bone(h.on.bone) : null;
+      if (bone) return bone.localToWorld(out.set(...h.at));
     }
-    return new THREE.Vector3(...h.at);
+    return out.set(...h.at);
+  }
+
+  // --- noticing things (r22) -----------------------------------------------
+
+  /** Which things are near and in sight; glints on them. A few times a second. */
+  private scanThings(dt: number): void {
+    const b = this.place;
+    const hero = this.people.get(this.hero);
+    if (!b) return;
+    this.scanAt -= dt;
+    const due = this.scanAt <= 0;
+    if (due) this.scanAt = 0.12;
+    const from = hero?.root.visible ? hero.root.position : null;
+    const seated = !!hero && hero.pose === "sit";
+    let changed = false;
+    if (due) {
+      const near = new Set<string>();
+      if (from) {
+        for (const [id, info] of this.things) {
+          const h = b.def.hotspots[id];
+          if (!h) continue;
+          const at = this.hotspotPos(h, this.v1);
+          const d = Math.hypot(at.x - from.x, at.z - from.z);
+          const range = noticeRange(h, {
+            perception: this.perception,
+            door: info.door,
+            seated: seated || this.still,
+            showAll: this.showAll,
+          });
+          const stand = h.stand ? b.def.marks[h.stand]?.at : undefined;
+          if (
+            d <= range &&
+            canSee(b.def.areas, [from.x, from.z], [at.x, at.z], stand)
+          ) {
+            near.add(id);
+          }
+        }
+      }
+      for (const id of near) {
+        if (!this.noticed.has(id)) {
+          this.noticed.add(id);
+          changed = true;
+        }
+      }
+      for (const id of [...this.noticed]) {
+        if (!this.things.has(id)) {
+          this.noticed.delete(id);
+          changed = true;
+        }
+      }
+      this.near = near;
+    }
+    // The glints: on what's near and worth a look (not doors).
+    for (const [id, info] of this.things) {
+      const h = b.def.hotspots[id];
+      if (!h || info.door) continue;
+      let g = this.glints.get(id);
+      const want = this.near.has(id) ? (this.hovered === id ? 1.6 : 1) : 0;
+      if (!g) {
+        if (want === 0) continue;
+        const sprite = new THREE.Sprite(
+          new THREE.SpriteMaterial({
+            map: glintTexture(),
+            color: "#ffd9a0",
+            transparent: true,
+            depthWrite: false,
+            depthTest: false,
+            blending: THREE.AdditiveBlending,
+            opacity: 0,
+          }),
+        );
+        sprite.renderOrder = 9;
+        b.scene.add(sprite);
+        g = { sprite, k: 0 };
+        this.glints.set(id, g);
+      }
+      g.k += (want - g.k) * (1 - Math.exp(-dt * 6));
+      const pulse = 0.75 + 0.25 * Math.sin(this.time * 3 + id.length);
+      const m = g.sprite.material as THREE.SpriteMaterial;
+      m.opacity = Math.min(1, g.k) * pulse;
+      g.sprite.visible = g.k > 0.01;
+      this.hotspotPos(h, g.sprite.position);
+      g.sprite.scale.setScalar((0.2 + 0.1 * g.k) * (this.camSpan / 10));
+    }
+    for (const [id, g] of this.glints) {
+      if (!this.things.has(id)) {
+        g.sprite.removeFromParent();
+        (g.sprite.material as THREE.Material).dispose();
+        this.glints.delete(id);
+      }
+    }
+    if (changed) this.onNoticed?.([...this.noticed]);
   }
 
   // --- the camera ----------------------------------------------------------
 
   private snapCamera = true;
   private rainLevel = 1;
-  private readonly facing = new THREE.Vector3();
 
   private areaOf(x: number, z: number): Area | null {
-    if (!this.place) return null;
     // Rooms before the street around them: the smallest that contains it.
-    let best: Area | null = null;
-    let bestSize = Infinity;
-    for (const a of this.place.def.areas) {
-      const [x0, z0, x1, z1] = a.rect;
-      if (x >= x0 && x <= x1 && z >= z0 && z <= z1) {
-        const size = (x1 - x0) * (z1 - z0);
-        if (size < bestSize) {
-          best = a;
-          bestSize = size;
-        }
-      }
-    }
-    return best;
+    return this.place ? areaAt(this.place.def.areas, x, z) : null;
   }
 
   private updateCamera(dt: number): void {
     if (!this.place) return;
     const def = this.place.def;
-    const hero = this.heroAt();
+    const heroP = this.people.get(this.hero);
+    const hero = heroP?.root.visible ? heroP.root.position : null;
     const shot = this.focusKey ? def.shots[this.focusKey] : undefined;
     const area = hero ? this.areaOf(hero.x, hero.z) : null;
-    let target: THREE.Vector3;
+    const target = this.v1;
     if (shot) {
-      target = new THREE.Vector3(...shot.at);
+      target.set(...shot.at);
       this.wantSpan = shot.span;
     } else if (hero) {
-      target = hero.clone().setY(1.0);
+      target.copy(hero).setY(1.0).add(this.lookOffset);
       this.wantSpan = (area?.span ?? 14) * this.zoom;
     } else {
       const b = def.nav.bounds;
-      target = new THREE.Vector3((b[0] + b[2]) / 2, 0, (b[1] + b[3]) / 2);
+      target.set((b[0] + b[2]) / 2, 0, (b[1] + b[3]) / 2);
       this.wantSpan = 16 * this.zoom;
+    }
+    // Seated, the view comes back to him by itself when he stands.
+    if (!this.heroSeated && !this.still && this.drag === null) {
+      this.lookOffset.multiplyScalar(Math.exp(-dt * 3));
     }
     // A phone held upright (or a narrow window) would see a sliver of the
     // place: widen the shot until the part the column leaves free shows at
     // least three quarters of what it's meant to, side to side.
-    {
-      const cw = this.canvas.clientWidth || 1;
-      const ch = this.canvas.clientHeight || 1;
-      const freeW = Math.max(1, cw - this.inset.right);
-      this.wantSpan *= Math.max(1, 0.75 / (freeW / ch));
-    }
+    const cw = this.canvas.clientWidth || 1;
+    const ch = this.canvas.clientHeight || 1;
+    const freeW = Math.max(1, cw - this.inset.right);
+    this.wantSpan *= Math.max(1, 0.75 / (freeW / ch));
     const snap = this.snapCamera;
     const k = snap ? 1 : 1 - Math.exp(-dt * 3);
     this.camTarget.lerp(target, k);
@@ -632,9 +1173,7 @@ export class World {
       (this.wantSpan - this.camSpan) * (snap ? 1 : 1 - Math.exp(-dt * 2.5));
     this.snapCamera = false;
 
-    const w = this.canvas.clientWidth || 1;
-    const h = this.canvas.clientHeight || 1;
-    const aspect = w / h;
+    const aspect = cw / ch;
     const halfH = this.camSpan / 2;
     const halfW = halfH * aspect;
     this.camera.left = -halfW;
@@ -643,33 +1182,31 @@ export class World {
     this.camera.bottom = -halfH;
     const az = deg(def.camera.azimuth);
     const el = deg(def.camera.elevation);
-    const dir = new THREE.Vector3(
+    const dir = this.dir.set(
       Math.sin(az) * Math.cos(el),
       Math.sin(el),
       Math.cos(az) * Math.cos(el),
     );
     // Keep what he's doing in the middle of the part the column leaves free.
-    const right = new THREE.Vector3().crossVectors(UP, dir).normalize();
-    const camUp = new THREE.Vector3().crossVectors(dir, right).normalize();
-    const shiftX = (this.inset.right / 2 / w) * (halfW * 2);
-    const shiftY = (this.inset.bottom / 2 / h) * (halfH * 2);
-    const look = this.camTarget
-      .clone()
+    const right = this.right.crossVectors(UP, dir).normalize();
+    const camUp = this.camUp.crossVectors(dir, right).normalize();
+    const shiftX = (this.inset.right / 2 / cw) * (halfW * 2);
+    const shiftY = (this.inset.bottom / 2 / ch) * (halfH * 2);
+    const look = this.v2
+      .copy(this.camTarget)
       .addScaledVector(right, shiftX)
       .addScaledVector(camUp, -shiftY);
     this.camera.position.copy(look).addScaledVector(dir, 80);
     this.camera.up.copy(UP);
     this.camera.lookAt(look);
     this.camera.updateProjectionMatrix();
-    this.moon.position.copy(look).add(new THREE.Vector3(-8, 14, -6));
-    this.moon.target.position.copy(look);
     // Signs that face away from the camera, with nothing drawn behind them.
     for (const o of this.place.frontOnly) {
       o.visible = o.getWorldDirection(this.facing).dot(dir) > -0.15;
     }
 
     // Walls between the camera and the room he's in come down.
-    let indoors = false;
+    let indoors = !this.place.outdoor;
     for (const [id, cut] of this.place.cuts) {
       const inside =
         (area?.id === id && area.inside === true) ||
@@ -684,23 +1221,7 @@ export class World {
     this.rainLevel +=
       ((indoors ? 0.3 : 1) - this.rainLevel) *
       (snap ? 1 : 1 - Math.exp(-dt * 3));
-    this.rain.setStrength(this.rainLevel);
-    for (const h2 of this.place.hideInside) {
-      const show = h2.areas.every((a) => {
-        const cut = this.place!.cuts.get(a);
-        return !cut || cut.level > 20;
-      });
-      if (h2.shown === show) continue;
-      h2.shown = show;
-      // Hide what's drawn but keep any light on, so nothing recompiles.
-      h2.obj.traverse((o) => {
-        if (!(o as THREE.Light).isLight && o !== h2.obj) {
-          if ((o as THREE.Mesh).isMesh || (o as THREE.Sprite).isSprite) {
-            o.visible = show;
-          }
-        }
-      });
-    }
+    this.rain.setStrength(this.rainLevel * this.weather.rain);
   }
 
   private shotInside(at: [number, number, number], areaId: string): boolean {
@@ -710,17 +1231,29 @@ export class World {
     return at[0] >= x0 && at[0] <= x1 && at[2] >= z0 && at[2] <= z1;
   }
 
+  /** r22: seated, the view pans about the room (arrow keys or a drag). */
+  pan(dx: number, dz: number): void {
+    if (!this.heroSeated && !this.still) return;
+    this.lookOffset.x = THREE.MathUtils.clamp(this.lookOffset.x + dx, -6, 6);
+    this.lookOffset.z = THREE.MathUtils.clamp(this.lookOffset.z + dz, -6, 6);
+  }
+
+  /** Back to looking at him. */
+  recentre(): void {
+    this.lookOffset.set(0, 0, 0);
+  }
+
   // --- input ---------------------------------------------------------------
 
-  private pointer(e: PointerEvent | MouseEvent): THREE.Vector2 {
+  private pointer(e: { clientX: number; clientY: number }): THREE.Vector2 {
     const r = this.canvas.getBoundingClientRect();
-    return new THREE.Vector2(
+    return this.ptr.set(
       ((e.clientX - r.left) / r.width) * 2 - 1,
       -((e.clientY - r.top) / r.height) * 2 + 1,
     );
   }
 
-  /** What's under the pointer: a hotspot, a person, or the floor. */
+  /** What's under the pointer: a thing, a person, or the floor. */
   private pick(
     e: PointerEvent | MouseEvent,
   ):
@@ -730,38 +1263,112 @@ export class World {
     | null {
     if (!this.place) return null;
     this.ray.setFromCamera(this.pointer(e), this.camera);
-    const proxies = [...this.place.proxies.entries()]
-      .filter(([id]) => this.active.has(id))
-      .map(([, m]) => m);
-    const hit = this.ray.intersectObjects(proxies, false)[0];
-    if (hit)
+    const targets: THREE.Object3D[] = [];
+    for (const [id, m] of this.place.proxies) {
+      // Only what he has noticed (doors: once he's near enough to see).
+      if (this.noticed.has(id) && this.things.has(id)) targets.push(m);
+    }
+    for (const [id, m] of this.personProxy) {
+      const p = this.people.get(id);
+      if (p?.root.visible && this.talkers.has(id) && id !== this.hero) {
+        targets.push(m);
+      }
+    }
+    const hit = this.ray.intersectObjects(targets, false)[0];
+    if (hit) {
+      if (hit.object.userData.personId) {
+        return { kind: "person", id: hit.object.userData.personId as string };
+      }
       return { kind: "hotspot", id: hit.object.userData.hotspot as string };
-    const floor = new THREE.Plane(UP, 0);
-    const at = this.ray.ray.intersectPlane(floor, new THREE.Vector3());
+    }
+    const at = this.ray.ray.intersectPlane(this.floorPlane, this.v3);
     if (at) return { kind: "floor", x: at.x, z: at.z };
     return null;
   }
 
   private onDown = (e: PointerEvent) => {
     this.down = { x: e.clientX, y: e.clientY, t: performance.now() };
+    if (this.heroSeated || this.still) {
+      this.drag = {
+        x: e.clientX,
+        y: e.clientY,
+        ox: this.lookOffset.x,
+        oz: this.lookOffset.z,
+      };
+    }
   };
 
   private onUp = (e: PointerEvent) => {
     const d = this.down;
     this.down = null;
+    const dragged = this.drag;
+    this.drag = null;
     if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 12) return;
+    if (dragged) {
+      // A tap, not a drag: put the view back as it was.
+      this.lookOffset.x = dragged.ox;
+      this.lookOffset.z = dragged.oz;
+    }
+    // Two clicks close together: run.
+    const now = performance.now();
+    const run =
+      now - this.lastClick.t < 380 &&
+      Math.hypot(e.clientX - this.lastClick.x, e.clientY - this.lastClick.y) <
+        40;
+    this.lastClick = { t: run ? 0 : now, x: e.clientX, y: e.clientY };
     const hit = this.pick(e);
     if (!hit) return;
-    if (hit.kind === "hotspot") this.events.hotspot(hit.id);
-    else if (hit.kind === "floor") this.events.floor(hit.x, hit.z);
+    if (hit.kind === "hotspot") {
+      this.events.hotspot(hit.id, {
+        seated:
+          (this.heroSeated || this.still) && !this.things.get(hit.id)?.door,
+        run,
+      });
+    } else if (hit.kind === "person") this.events.person(hit.id);
+    else this.events.floor(hit.x, hit.z, run);
   };
 
   private onMove = (e: PointerEvent) => {
+    if (this.drag && this.down) {
+      // Seated: drag the view about the room.
+      const dx = e.clientX - this.drag.x;
+      const dy = e.clientY - this.drag.y;
+      if (Math.hypot(dx, dy) > 12) {
+        const m = this.camSpan / (this.canvas.clientHeight || 1);
+        // Screen right and up, laid on the floor.
+        const rx = this.right.x;
+        const rz = this.right.z;
+        const ux = -this.dir.x;
+        const uz = -this.dir.z;
+        const ul = Math.hypot(ux, uz) || 1;
+        this.lookOffset.x = THREE.MathUtils.clamp(
+          this.drag.ox - (dx * rx - (dy * ux) / ul / Math.sin(deg(36))) * m,
+          -6,
+          6,
+        );
+        this.lookOffset.z = THREE.MathUtils.clamp(
+          this.drag.oz - (dx * rz - (dy * uz) / ul / Math.sin(deg(36))) * m,
+          -6,
+          6,
+        );
+      }
+      return;
+    }
     if (e.pointerType === "touch") return;
     const hit = this.pick(e);
-    const id = hit?.kind === "hotspot" ? hit.id : null;
+    const id =
+      hit?.kind === "hotspot"
+        ? hit.id
+        : hit?.kind === "person"
+          ? `person:${hit.id}`
+          : null;
     if (id !== this.hovered) {
+      const was = this.hovered;
       this.hovered = id;
+      if (was?.startsWith("person:")) {
+        this.highlight(was.slice(7), false);
+      }
+      if (id?.startsWith("person:")) this.highlight(id.slice(7), true);
       this.canvas.style.cursor = id
         ? "pointer"
         : this.walkable
@@ -771,8 +1378,18 @@ export class World {
     }
   };
 
+  private highlight(id: string, on: boolean): void {
+    const p = this.people.get(id) as
+      | (Person & { setHighlight?: (b: boolean) => void })
+      | undefined;
+    p?.setHighlight?.(on);
+  }
+
   private onLeave = () => {
     if (this.hovered) {
+      if (this.hovered.startsWith("person:")) {
+        this.highlight(this.hovered.slice(7), false);
+      }
       this.hovered = null;
       this.events.hover(null);
     }
@@ -790,7 +1407,7 @@ export class World {
   /** A ring where he's been told to walk. */
   private pingMesh: THREE.Mesh | null = null;
   private pingT = 0;
-  private ping(at: THREE.Vector3): void {
+  private ping(at: THREE.Vector3, run: boolean): void {
     if (!this.pingMesh) {
       this.pingMesh = new THREE.Mesh(
         new THREE.RingGeometry(0.18, 0.24, 24),
@@ -802,8 +1419,11 @@ export class World {
         }),
       );
       this.pingMesh.rotation.x = -Math.PI / 2;
-      this.scene.add(this.pingMesh);
+      this.place?.scene.add(this.pingMesh);
     }
+    (this.pingMesh.material as THREE.MeshBasicMaterial).color.set(
+      run ? "#f0d08a" : "#e8b36a",
+    );
     this.pingMesh.position.set(at.x, 0.02, at.z);
     this.pingT = 1;
   }
@@ -813,13 +1433,33 @@ export class World {
   resize = () => {
     const w = this.canvas.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || window.innerHeight;
+    // r22: a cap on the device's pixel ratio (the painted look needs no
+    // more), then whatever share of that the device keeps up with.
     const dpr =
-      Math.min(window.devicePixelRatio || 1, this.tier === "high" ? 2 : 1.5) *
-      (this.slow > 1 ? 0.75 : 1);
+      Math.min(window.devicePixelRatio || 1, this.tier === "high" ? 1.5 : 1) *
+      this.scale;
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
     this.post.setSize(w, h, dpr);
   };
+
+  /** The resolution follows the device's speed, slowly, both ways. */
+  private adapt(realDt: number): void {
+    this.frameEma += (realDt * 1000 - this.frameEma) * 0.05;
+    if (this.frameNo % 30 !== 0 || this.frameNo < 90) return;
+    if (this.frameEma > 22 && this.scale > 0.6) {
+      this.scale = Math.max(0.6, this.scale * 0.85);
+      this.fastFor = 0;
+      this.resize();
+      if (this.scale <= 0.6) this.post.setPaint(false);
+    } else if (this.frameEma < 13 && this.scale < 1) {
+      if (++this.fastFor >= 6) {
+        this.scale = Math.min(1, this.scale * 1.12);
+        this.fastFor = 0;
+        this.resize();
+      }
+    } else this.fastFor = 0;
+  }
 
   private loop = () => {
     if (this.disposed) return;
@@ -829,26 +1469,36 @@ export class World {
     const scale =
       (window as unknown as { __basedTimeScale?: number }).__basedTimeScale ??
       1;
-    const dt = Math.min(0.05, this.timer.getDelta()) * scale;
+    const realDt = Math.min(0.25, this.timer.getDelta());
+    const dt = Math.min(0.05, realDt) * scale;
+    this.frameNo++;
     this.time += dt;
     weatherTime.value = this.time;
-    // Slow device? Drop the brushwork, then resolution.
-    this.frames++;
-    if (
-      this.frames > 120 &&
-      this.frames % 60 === 0 &&
-      dt > 0.034 &&
-      this.slow < 2
-    ) {
-      this.slow++;
-      if (this.slow === 1) this.post.setPaint(false);
-      else this.resize();
-    }
-    for (const p of this.people.values()) {
-      if (p.root.visible) p.update(dt, this.time);
+    if (scale === 1) this.adapt(realDt);
+    const place = this.place;
+    // The weather.
+    this.weather = stepWeather(
+      this.weather,
+      weatherAt(this.weatherKind, this.time),
+      dt,
+    );
+    weatherRain.value = this.weather.rain;
+    weatherGround.value = this.weather.ground;
+    for (const [id, p] of this.people) {
+      if (!p.root.visible) continue;
+      p.update(id === this.hero ? dt * this.heroGait : dt, this.time);
+      // r22: caught in the rain, or drying.
+      const at = p.root.position;
+      const area = place ? this.areaOf(at.x, at.z) : null;
+      const out = !!place?.outdoor && area?.inside !== true;
+      const was = this.wet.get(id) ?? 0;
+      const now = stepWetness(was, out ? this.weather.rain : 0, !out, dt);
+      this.wet.set(id, now);
+      if (Math.abs(now - was) > 0 || this.frameNo % 60 === 0) {
+        if (Math.floor(now * 50) !== Math.floor(was * 50)) setWetness(p, now);
+      }
     }
     this.updateCamera(dt);
-    const place = this.place;
     if (place) {
       for (const t of place.ticks) t(this.time);
       const hero = this.heroAt();
@@ -870,6 +1520,21 @@ export class World {
         }
         (l.obj as THREE.PointLight).intensity = l.base * k;
       }
+      this.updatePool(place);
+      // Wet stone darkens and shines.
+      const g = this.weather.ground;
+      if (place.wet.length > 0 && this.frameNo % 10 === 0) {
+        for (const w of place.wet) {
+          w.mat.color.copy(w.color).multiplyScalar(1 - 0.3 * g);
+          w.mat.roughness = w.rough * (1 - 0.55 * g);
+        }
+      }
+      // Fog thickens with the weather, outdoors.
+      if (place.outdoor && place.scene.fog) {
+        (place.scene.fog as THREE.FogExp2).density =
+          place.def.env.fogDensity * (1 + 3 * this.weather.fog);
+      }
+      this.scanThings(dt);
     }
     this.rain.update(this.time, this.camTarget);
     if (this.pingMesh) {
@@ -879,41 +1544,94 @@ export class World {
       (this.pingMesh.material as THREE.MeshBasicMaterial).opacity =
         this.pingT * 0.8;
     }
-    this.fade += (this.fadeTo - this.fade) * (1 - Math.exp(-dt * 2.2));
+    this.fade += (this.fadeTo - this.fade) * (1 - Math.exp(-dt * 7));
+    if (this.fadeTo === 0 && this.fade < 0.03) {
+      this.fade = 0;
+      const w = this.fadeWait;
+      this.fadeWait = [];
+      for (const r of w) r();
+    }
     this.post.setFade(this.fade);
-    this.post.render(this.time);
-    this.reportHotspots();
+    // Shadows every other frame: half the cost, and nobody moves that fast.
+    if (this.frameNo % 2 === 0) this.renderer.shadowMap.needsUpdate = true;
+    if (place) this.post.render(this.time);
+    this.reportThings();
   };
 
-  private reportHotspots(): void {
-    if (!this.onHotspots || !this.place) return;
-    const w = this.canvas.clientWidth;
-    const h = this.canvas.clientHeight;
-    const out: HotspotOnScreen[] = [];
-    for (const id of this.active) {
-      const hs = this.place.def.hotspots[id];
-      if (!hs) continue;
-      const p = this.hotspotPos(id, hs);
-      const proxy = this.place.proxies.get(id);
-      proxy?.position.copy(p);
-      const v = p.clone().project(this.camera);
-      out.push({
-        id,
-        x: ((v.x + 1) / 2) * w,
-        y: ((1 - v.y) / 2) * h,
-        visible:
-          v.z < 1 && v.x > -1.05 && v.x < 1.05 && v.y > -1.05 && v.y < 1.05,
-      });
-    }
-    this.onHotspots(out);
+  /** The pooled lamps: the nearest to the camera get the real lights. */
+  private updatePool(b: BuiltPlace): void {
+    const pool = b.pool;
+    if (!pool) return;
+    const c = this.camTarget;
+    const reach = this.camSpan * 0.9 + 6;
+    const scored = pool.lamps
+      .map((at) => ({ at, d: Math.hypot(at.x - c.x, at.z - c.z) }))
+      .sort((x, y) => x.d - y.d);
+    pool.lights.forEach((l, i) => {
+      const s = scored[i];
+      if (!s) {
+        l.intensity = 0;
+        return;
+      }
+      l.position.copy(s.at).setY(s.at.y - 0.1);
+      const w = 1 - THREE.MathUtils.smoothstep(s.d, reach * 0.7, reach);
+      l.intensity = pool.base * w;
+    });
   }
 
-  /** Points on screen of hotspots, for tests and overlays. */
+  private reportThings(): void {
+    if (!this.onThings || !this.place) return;
+    const w = this.canvas.clientWidth;
+    const h = this.canvas.clientHeight;
+    const out: ThingOnScreen[] = [];
+    for (const [id, info] of this.things) {
+      if (!this.noticed.has(id)) continue;
+      const hs = this.place.def.hotspots[id];
+      if (!hs) continue;
+      const p = this.hotspotPos(hs, this.v1);
+      const proxy = this.place.proxies.get(id);
+      proxy?.position.copy(p);
+      const v = p.project(this.camera);
+      out.push({
+        id,
+        x: Math.round(((v.x + 1) / 2) * w),
+        y: Math.round(((1 - v.y) / 2) * h),
+        visible:
+          v.z < 1 && v.x > -1.05 && v.x < 1.05 && v.y > -1.05 && v.y < 1.05,
+        near: this.near.has(id),
+        door: info.door,
+      });
+    }
+    // Nothing moved on screen: no need to touch the page.
+    const key = out
+      .map((t) => `${t.id}:${t.x}:${t.y}:${t.visible ? 1 : 0}${t.near ? 1 : 0}`)
+      .join("|");
+    if (key === this.reported) return;
+    this.reported = key;
+    this.onThings(out);
+  }
+
+  /** Points on screen, for tests and overlays. */
   screenOf(x: number, y: number, z: number): { x: number; y: number } {
     const v = new THREE.Vector3(x, y, z).project(this.camera);
     return {
       x: ((v.x + 1) / 2) * this.canvas.clientWidth,
       y: ((1 - v.y) / 2) * this.canvas.clientHeight,
+    };
+  }
+
+  /** For the harness and the help: what the device is drawing. */
+  stats(): {
+    calls: number;
+    triangles: number;
+    programs: number;
+    scale: number;
+  } {
+    return {
+      calls: this.renderer.info.render.calls,
+      triangles: this.renderer.info.render.triangles,
+      programs: this.renderer.info.programs?.length ?? 0,
+      scale: this.scale,
     };
   }
 
@@ -927,12 +1645,10 @@ export class World {
     this.canvas.removeEventListener("wheel", this.onWheel);
     window.removeEventListener("resize", this.resize);
     for (const p of this.people.values()) p.dispose();
+    for (const b of this.places.values()) this.disposePlace(b);
     this.rain.dispose();
     this.post.dispose();
-    this.scene.traverse((o) => {
-      const m = o as THREE.Mesh;
-      if (m.isMesh) m.geometry?.dispose();
-    });
+    this.env.dispose();
     this.renderer.dispose();
   }
 }

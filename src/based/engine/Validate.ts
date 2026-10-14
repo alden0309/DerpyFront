@@ -4,11 +4,16 @@
 // r21: every skill named is a @skill, check options and checked deductions
 // are sound, and every mark, hotspot, shot and prop a scene names is in the
 // place it's in.
-// Run by the tests and by the server when it loads a chapter.
+// r22: the open world. Scenes started by `@on` are reached from `-> FREE`;
+// what they name (people, hotspots, places) must exist; from anywhere the
+// player can get to, the chapter must still be able to end; and the places'
+// doors must lead somewhere real.
+// Run by the tests and by the server when it loads a chapter. Linear in the
+// size of the chapter, so a long story stays quick to check.
 
 import { exprReads } from "./Expr";
 import { PlaceDef, placeNames } from "./Place";
-import { Chapter, END, Expr, Op, Scene } from "./Types";
+import { Chapter, END, Expr, FREE, Op, Scene } from "./Types";
 
 export interface Problem {
   scene?: string;
@@ -67,17 +72,20 @@ function walk(
   }
 }
 
+type Add = (
+  level: Problem["level"],
+  scene: string | undefined,
+  line: number,
+  message: string,
+) => void;
+
 export function validateChapter(
   chapter: Chapter,
   opts: ValidateOptions = {},
 ): Problem[] {
   const out: Problem[] = [];
-  const add = (
-    level: Problem["level"],
-    scene: string | undefined,
-    line: number,
-    message: string,
-  ) => out.push({ level, scene, line, message });
+  const add: Add = (level, scene, line, message) =>
+    out.push({ level, scene, line, message });
 
   const cast = new Set(chapter.cast.map((c) => c.id));
   const flagsSet = new Set<string>();
@@ -85,9 +93,10 @@ export function validateChapter(
   const written = new Set<string>();
   const reads: { flag: string; scene: string; line: number }[] = [];
   const skills = new Set(chapter.skills.map((x) => x.id));
+  const langs = new Set(chapter.languages.map((l) => l.code));
   const readExpr = (e: Expr | undefined, scene: string, line: number) => {
     if (!e) return;
-    const r = exprReads(e, { flags: [], rels: [], skills: [] });
+    const r = exprReads(e, { flags: [], rels: [], skills: [], langs: [] });
     for (const f of r.flags) reads.push({ flag: f, scene, line });
     for (const w of r.rels) {
       if (!cast.has(w)) add("error", scene, line, `rel.${w}: not in the cast`);
@@ -95,6 +104,11 @@ export function validateChapter(
     for (const k of r.skills ?? []) {
       if (!skills.has(k)) {
         add("error", scene, line, `skill.${k.toLowerCase()}: not a @skill`);
+      }
+    }
+    for (const c of r.langs ?? []) {
+      if (!langs.has(c)) {
+        add("error", scene, line, `speaks.${c}: not a @language`);
       }
     }
   };
@@ -134,8 +148,38 @@ export function validateChapter(
     }
   }
 
+  // r22: what starts each scene must exist.
+  const places = opts.places;
+  for (const id of chapter.order) {
+    const scene = chapter.scenes[id];
+    const t = scene.trigger;
+    if (!t) continue;
+    readExpr(t.cond, id, scene.src);
+    if (t.place !== undefined && places && !places[t.place]) {
+      add("error", id, scene.src, `@on ... in=${t.place}: no such place`);
+    }
+    if (t.on === "talk" && !cast.has(t.target!)) {
+      add("error", id, scene.src, `@on talk ${t.target}: not in the cast`);
+    } else if (t.on === "enter" && places && !places[t.target!]) {
+      add("error", id, scene.src, `@on enter ${t.target}: no such place`);
+    } else if (t.on === "look" && places) {
+      const where = t.place !== undefined ? [t.place] : Object.keys(places);
+      if (!where.some((p) => places[p]?.hotspots[t.target!])) {
+        add(
+          "error",
+          id,
+          scene.src,
+          `@on look ${t.target}: no hotspot "${t.target}" in ${
+            t.place !== undefined ? `the place "${t.place}"` : "any place"
+          }`,
+        );
+      }
+    }
+  }
+
   const edges = new Map<string, Set<string>>();
-  let ends = false;
+  const endsIn = new Set<string>();
+  const freeFrom = new Set<string>();
 
   for (const id of chapter.order) {
     const scene = chapter.scenes[id];
@@ -151,6 +195,16 @@ export function validateChapter(
           break;
         case "if":
           readExpr(op.cond, id, op.src);
+          break;
+        case "line":
+          if (op.lang !== undefined && !langs.has(op.lang)) {
+            add(
+              "warning",
+              id,
+              op.src,
+              `[${op.lang}] isn't a @language: nobody can be given it`,
+            );
+          }
           break;
         case "backdrop":
           if (op.key && opts.art && !opts.art.has(op.key)) {
@@ -307,7 +361,8 @@ export function validateChapter(
         add("error", id, op.src, `check "${op.label}" has nowhere to fail to`);
       }
       if (op.op === "goto") {
-        if (op.scene === END) ends = true;
+        if (op.scene === END) endsIn.add(id);
+        else if (op.scene === FREE) freeFrom.add(id);
         else if (!chapter.scenes[op.scene]) {
           add("error", id, op.src, `"-> ${op.scene}": there's no such scene`);
         } else targets.add(op.scene);
@@ -316,7 +371,7 @@ export function validateChapter(
           "error",
           id,
           scene.src,
-          `scene "${id}" can run off its end: finish every path with "-> scene" or "-> END"`,
+          `scene "${id}" can run off its end: finish every path with "-> scene", "-> FREE" or "-> END"`,
         );
       } else if (op.op === "return") {
         add(
@@ -355,45 +410,59 @@ export function validateChapter(
     }
   }
 
+  // The graph: scenes, and FREE, from which any scene with an @on can start.
+  const triggered = chapter.order.filter((id) => chapter.scenes[id].trigger);
+  const next = (id: string): Iterable<string> => {
+    if (id === FREE) return triggered;
+    const e = [...(edges.get(id) ?? [])];
+    if (freeFrom.has(id)) e.push(FREE);
+    return e;
+  };
+
   // Reachability from the start.
   const reached = new Set<string>();
   const todo = chapter.start ? [chapter.start] : [];
   while (todo.length > 0) {
     const id = todo.pop()!;
-    if (reached.has(id) || !chapter.scenes[id]) continue;
+    if (reached.has(id) || (id !== FREE && !chapter.scenes[id])) continue;
     reached.add(id);
-    for (const t of edges.get(id) ?? []) todo.push(t);
+    for (const t of next(id)) todo.push(t);
   }
+  const freeReached = reached.has(FREE);
   for (const id of chapter.order) {
     if (!reached.has(id)) {
+      const t = chapter.scenes[id].trigger;
       add(
         "error",
         id,
         chapter.scenes[id].src,
-        `scene "${id}" can't be reached from "${chapter.start}"`,
+        t && !freeReached
+          ? `scene "${id}" starts with @on, but nothing ever reaches "-> FREE"`
+          : `scene "${id}" can't be reached from "${chapter.start}"`,
       );
     }
   }
-  if (!ends) add("error", undefined, 1, `nothing ever reaches "-> END"`);
+  if (endsIn.size === 0) {
+    add("error", undefined, 1, `nothing ever reaches "-> END"`);
+  }
 
-  // A scene from which END can't be reached is a trap.
-  const reachesEnd = new Set<string>();
-  let grew = true;
-  const endsHere = (id: string) => {
-    let found = false;
-    walk(chapter.scenes[id], 0, (op) => {
-      if (op.op === "goto" && op.scene === END) found = true;
-    });
-    return found;
-  };
-  for (const id of chapter.order) if (endsHere(id)) reachesEnd.add(id);
-  while (grew) {
-    grew = false;
-    for (const id of chapter.order) {
-      if (reachesEnd.has(id)) continue;
-      if ([...(edges.get(id) ?? [])].some((t) => reachesEnd.has(t))) {
-        reachesEnd.add(id);
-        grew = true;
+  // A scene from which END can't be reached is a trap: walk back from END.
+  const back = new Map<string, string[]>();
+  for (const id of [...chapter.order, FREE]) {
+    for (const t of next(id)) {
+      const list = back.get(t) ?? [];
+      list.push(id);
+      back.set(t, list);
+    }
+  }
+  const reachesEnd = new Set<string>(endsIn);
+  const queue = [...endsIn];
+  while (queue.length > 0) {
+    const id = queue.pop()!;
+    for (const p of back.get(id) ?? []) {
+      if (!reachesEnd.has(p)) {
+        reachesEnd.add(p);
+        queue.push(p);
       }
     }
   }
@@ -401,10 +470,60 @@ export function validateChapter(
     if (!reachesEnd.has(id)) {
       add(
         "error",
-        id,
-        chapter.scenes[id].src,
-        `from "${id}" the chapter can never end`,
+        id === FREE ? undefined : id,
+        id === FREE ? 1 : chapter.scenes[id].src,
+        id === FREE
+          ? `once he's free, nothing he can start ever leads to "-> END"`
+          : `from "${id}" the chapter can never end`,
       );
+    }
+  }
+
+  // r22: someone on stage in the open world with nothing to say.
+  if (freeReached) {
+    const talkers = new Set<string>();
+    for (const id of triggered) {
+      const t = chapter.scenes[id].trigger!;
+      if (t.on === "talk") talkers.add(t.target!);
+    }
+    const bodyOf = (c: string) =>
+      chapter.cast.find((x) => x.id === c)?.body ?? c;
+    const speaks = new Set([...talkers].map(bodyOf));
+    const hero = chapter.cast[0]?.id;
+    // Only in places the open world reaches (a look or an arrival there).
+    const open = new Set<string>();
+    for (const id of triggered) {
+      const t = chapter.scenes[id].trigger!;
+      if (t.place) open.add(t.place);
+      else if (t.on === "enter") open.add(t.target!);
+      else if (t.on === "look") {
+        for (const [k, p] of Object.entries(opts.places ?? {})) {
+          if (p.hotspots[t.target!]) open.add(k);
+        }
+      }
+    }
+    const placed = new Set<string>();
+    for (const id of chapter.order) {
+      let now: string | null = null;
+      for (const op of chapter.scenes[id].ops) {
+        if (op.op === "place") now = op.key;
+        if (op.op === "actor" && op.state && op.who !== hero) {
+          const where = op.state.place ?? now;
+          if (where === null || open.has(where) || !opts.places) {
+            placed.add(op.who);
+          }
+        }
+      }
+    }
+    for (const who of placed) {
+      if (!speaks.has(who) && !talkers.has(who)) {
+        add(
+          "warning",
+          undefined,
+          1,
+          `${who} can be found in the world but has no "@on talk ${who}" scene`,
+        );
+      }
     }
   }
 
@@ -412,102 +531,213 @@ export function validateChapter(
 }
 
 /**
- * r21: what each scene can name in its place. Places carry from scene to
- * scene, so this follows the jumps: a scene may be entered in more than one
- * place, and every name it uses must exist in each.
+ * What each scene can name in its place. Places carry from scene to scene,
+ * so this follows the jumps: a scene may be entered in more than one place,
+ * and every name it uses must exist in each. r22: a scene started by `@on`
+ * is entered where its trigger fires (the place with its hotspot, the place
+ * walked into, where its person is put); a thought, or one that starts by
+ * itself, may come anywhere, so its names need only exist somewhere.
  */
-function checkPlaces(
-  chapter: Chapter,
-  opts: ValidateOptions,
-  add: (
-    level: Problem["level"],
-    scene: string | undefined,
-    line: number,
-    message: string,
-  ) => void,
-): void {
+function checkPlaces(chapter: Chapter, opts: ValidateOptions, add: Add): void {
   const places = opts.places;
+  const ANY = "*";
+  const namesOf = new Map<string, ReturnType<typeof placeNames>>();
+  const names = (key: string) => {
+    let n = namesOf.get(key);
+    if (!n && places?.[key]) {
+      n = placeNames(places[key]);
+      namesOf.set(key, n);
+    }
+    return n ?? null;
+  };
+  // Where each cast member is ever put, for scenes that start by talking.
+  const putIn = new Map<string, Set<string>>();
+  // Where the hotspot of each look is.
+  const hotspotIn = (h: string) =>
+    Object.keys(places ?? {}).filter((k) => places![k].hotspots[h]);
+
   const entry = new Map<string, Set<string | null>>();
   const todo: [string, string | null][] = chapter.start
     ? [[chapter.start, null]]
     : [];
-  const checked = new Set<string>();
-  while (todo.length > 0) {
-    const [id, at] = todo.pop()!;
-    const scene = chapter.scenes[id];
-    if (!scene) continue;
-    const seen = entry.get(id) ?? new Set();
-    if (seen.has(at)) continue;
-    seen.add(at);
-    entry.set(id, seen);
-    // Walk the scene in order; a place op changes what's in effect after it.
-    let now: string | null = at;
-    for (const op of scene.ops) {
-      const where = `${op.src}:${now}`;
-      const once = !checked.has(`${id}@${where}`);
-      checked.add(`${id}@${where}`);
-      const names =
-        now !== null && places?.[now] ? placeNames(places[now]) : null;
-      const need = (
-        what: "marks" | "hotspots" | "shots" | "props",
-        key: string,
-        label: string,
-      ) => {
-        if (!once || names === null) return;
-        if (!names[what].has(key)) {
-          add(
-            "error",
-            id,
-            op.src,
-            `${label} "${key}" isn't in the place "${now}"`,
-          );
-        }
-      };
-      switch (op.op) {
-        case "place":
-          if (op.key !== null && places && !places[op.key]) {
-            add("error", id, op.src, `@place ${op.key}: no such place`);
-          }
-          now = op.key;
-          break;
-        case "actor":
-          if (op.state) {
-            if (now === null && once) {
-              add("error", id, op.src, `@actor ${op.who} needs a @place first`);
+  const pass = (collect: boolean) => {
+    const checked = new Set<string>();
+    while (todo.length > 0) {
+      const [id, at] = todo.pop()!;
+      const scene = chapter.scenes[id];
+      if (!scene) continue;
+      const seen = entry.get(id) ?? new Set();
+      if (seen.has(at)) continue;
+      seen.add(at);
+      entry.set(id, seen);
+      // Walk the scene in order; a place op changes what's in effect after it.
+      let now: string | null = at;
+      for (const op of scene.ops) {
+        const where = `${op.src}:${now}`;
+        const once = !checked.has(`${id}@${where}`);
+        checked.add(`${id}@${where}`);
+        const need = (
+          what: "marks" | "hotspots" | "shots" | "props",
+          key: string,
+          label: string,
+          in_: string | null = now,
+        ) => {
+          if (!once || collect || in_ === null || !places) return;
+          if (in_ === ANY) {
+            if (!Object.keys(places).some((p) => names(p)?.[what].has(key))) {
+              add("error", id, op.src, `${label} "${key}" isn't in any place`);
             }
-            need("marks", op.state.at, "mark");
+            return;
           }
-          break;
-        case "focus":
-          if (op.key) need("shots", op.key, "shot");
-          break;
-        case "prop":
-          need("props", op.key, "prop");
-          break;
-        case "investigate":
-          for (const s of op.spots) {
-            if (s.anchor !== undefined) {
-              if (now === null && once) {
+          const n = names(in_);
+          if (n && !n[what].has(key)) {
+            add(
+              "error",
+              id,
+              op.src,
+              `${label} "${key}" isn't in the place "${in_}"`,
+            );
+          }
+        };
+        switch (op.op) {
+          case "place":
+            if (op.key !== null && places && !places[op.key] && !collect) {
+              add("error", id, op.src, `@place ${op.key}: no such place`);
+            }
+            now = op.key;
+            break;
+          case "actor":
+            if (op.state) {
+              const in_ = op.state.place ?? now;
+              if (op.state.place !== undefined && places && !places[in_!]) {
+                if (!collect) {
+                  add(
+                    "error",
+                    id,
+                    op.src,
+                    `@actor ... in=${in_}: no such place`,
+                  );
+                }
+              } else if (in_ === null && once && !collect) {
                 add(
                   "error",
                   id,
                   op.src,
-                  `spot ${s.id} is on a hotspot, but there's no @place`,
+                  `@actor ${op.who} needs a @place first`,
                 );
               }
-              need("hotspots", s.anchor, "hotspot");
+              if (collect && in_ !== null && in_ !== ANY) {
+                const s = putIn.get(op.who) ?? new Set();
+                s.add(in_);
+                putIn.set(op.who, s);
+              }
+              need("marks", op.state.at, "mark", in_);
             }
-          }
-          if (op.exit) need("hotspots", op.exit, "exit");
-          break;
-        case "goto":
-          if (op.scene !== END) todo.push([op.scene, now]);
-          break;
-        default:
-          break;
+            break;
+          case "focus":
+            if (op.key) need("shots", op.key, "shot");
+            break;
+          case "prop":
+            need("props", op.key, "prop");
+            break;
+          case "investigate":
+            for (const s of op.spots) {
+              if (s.anchor !== undefined) {
+                if (now === null && once && !collect) {
+                  add(
+                    "error",
+                    id,
+                    op.src,
+                    `spot ${s.id} is on a hotspot, but there's no @place`,
+                  );
+                }
+                need("hotspots", s.anchor, "hotspot");
+              }
+            }
+            if (op.exit) need("hotspots", op.exit, "exit");
+            break;
+          case "goto":
+            if (op.scene !== END && op.scene !== FREE) {
+              todo.push([op.scene, now]);
+            }
+            break;
+          default:
+            break;
+        }
+      }
+    }
+  };
+  // First, from the start and from every scene the open world starts where
+  // that's plain, to learn where people are put; then every scene the open
+  // world can start, from where it starts.
+  const seeds = (talk: boolean) => {
+    if (chapter.start) todo.push([chapter.start, null]);
+    for (const id of chapter.order) {
+      const t = chapter.scenes[id].trigger;
+      if (!t || (t.on === "talk" && t.place === undefined && talk)) continue;
+      if (t.place !== undefined) todo.push([id, t.place]);
+      else if (t.on === "enter") todo.push([id, t.target!]);
+      else if (t.on === "look") {
+        for (const p of hotspotIn(t.target!)) todo.push([id, p]);
+      }
+    }
+  };
+  seeds(true);
+  pass(true);
+  entry.clear();
+  if (chapter.start) todo.push([chapter.start, null]);
+  for (const id of chapter.order) {
+    const t = chapter.scenes[id].trigger;
+    if (!t) continue;
+    const at: string[] =
+      t.place !== undefined
+        ? [t.place]
+        : t.on === "enter"
+          ? [t.target!]
+          : t.on === "look"
+            ? hotspotIn(t.target!)
+            : t.on === "talk"
+              ? [
+                  ...new Set([
+                    ...(putIn.get(t.target!) ?? []),
+                    ...(putIn.get(
+                      chapter.cast.find((c) => c.id === t.target)?.body ?? "",
+                    ) ?? []),
+                  ]),
+                ]
+              : [];
+    if (at.length === 0) todo.push([id, ANY]);
+    for (const p of at) todo.push([id, p]);
+  }
+  pass(false);
+}
+
+/**
+ * r22: the places by themselves: every door leads to a place that exists and
+ * a mark in it, and every hotspot that sends him somewhere sends him to a
+ * mark of its own place.
+ */
+export function validatePlaces(places: Record<string, PlaceDef>): string[] {
+  const out: string[] = [];
+  for (const [key, p] of Object.entries(places)) {
+    if (p.key !== key) out.push(`${key}: its "key" says ${p.key}`);
+    for (const [id, h] of Object.entries(p.hotspots)) {
+      if (h.stand && !p.marks[h.stand]) {
+        out.push(`${key}.${id}: stands at "${h.stand}", which isn't a mark`);
+      }
+      if (h.to) {
+        const there = places[h.to.place];
+        if (!there)
+          out.push(`${key}.${id}: leads to "${h.to.place}", no such place`);
+        else if (!there.marks[h.to.mark]) {
+          out.push(
+            `${key}.${id}: arrives at "${h.to.mark}", not a mark in ${h.to.place}`,
+          );
+        }
       }
     }
   }
+  return out;
 }
 
 export function errorsOf(problems: Problem[]): Problem[] {

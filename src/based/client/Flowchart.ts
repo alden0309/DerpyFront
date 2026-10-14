@@ -73,8 +73,10 @@ export function renderFlowchart(f: FlowInput): TemplateResult {
           <div class="mb-flow-node">
             <span class="mb-flow-dot"></span>
             <span class="mb-flow-label">${known ? s.label : "?"}</span>
-            ${s.checkpoint && known
-              ? html`<span class="mb-flow-cp" title="Checkpoint">◆</span>`
+            ${s.on && known
+              ? html`<span class="mb-flow-cp" title="Found by exploring"
+                  >◇</span
+                >`
               : nothing}
           </div>
           ${known

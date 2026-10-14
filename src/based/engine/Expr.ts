@@ -3,7 +3,8 @@
 //   met_penhallow
 //   not tv_off and rel.anselme >= 2
 //   (umbrella or coat) and count > 1
-//   skill.composure >= 4               (r21: his skill, with boosts)
+//   skill.focus >= 4                   (r21: his skill, with boosts)
+//   speaks.fr                          (r22: he speaks French)
 
 import { Expr } from "./Types";
 
@@ -89,6 +90,11 @@ export function parseExpr(src: string): Expr {
       if (!/^[A-Z][A-Z0-9_]*$/.test(who)) throw new Error(`bad name "${t}"`);
       return { k: "rel", who };
     }
+    if (t.startsWith("speaks.")) {
+      const code = t.slice(7).toLowerCase();
+      if (!/^[a-z][a-z_]*$/.test(code)) throw new Error(`bad language "${t}"`);
+      return { k: "lang", code };
+    }
     if (t.startsWith("skill.")) {
       const id = t.slice(6).toUpperCase();
       if (!/^[A-Z][A-Z0-9_]*$/.test(id)) throw new Error(`bad skill "${t}"`);
@@ -111,6 +117,8 @@ export interface Values {
   rels: Record<string, number>;
   /** Skill values, boosts included (r21). */
   skills?: Record<string, number>;
+  /** r22: the languages he speaks. */
+  langs?: readonly string[];
 }
 
 export function evalExpr(e: Expr, v: Values): number {
@@ -123,6 +131,8 @@ export function evalExpr(e: Expr, v: Values): number {
       return v.rels[e.who] ?? 0;
     case "skill":
       return v.skills?.[e.id] ?? 0;
+    case "lang":
+      return v.langs?.includes(e.code) ? 1 : 0;
     case "not":
       return evalExpr(e.e, v) ? 0 : 1;
     case "and":
@@ -153,7 +163,7 @@ export function evalExpr(e: Expr, v: Values): number {
 /** Every flag and relationship a condition reads. */
 export function exprReads(
   e: Expr,
-  out: { flags: string[]; rels: string[]; skills?: string[] },
+  out: { flags: string[]; rels: string[]; skills?: string[]; langs?: string[] },
 ) {
   switch (e.k) {
     case "flag":
@@ -164,6 +174,9 @@ export function exprReads(
       break;
     case "skill":
       out.skills?.push(e.id);
+      break;
+    case "lang":
+      out.langs?.push(e.code);
       break;
     case "not":
       exprReads(e.e, out);

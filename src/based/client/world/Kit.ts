@@ -16,7 +16,7 @@ import {
   SurfaceName,
   textTexture,
 } from "./Textures";
-import { lightCone, rainGlass } from "./Weather";
+import { lightCone, puddleMaterial, rainGlass } from "./Weather";
 
 type V3 = [number, number, number];
 
@@ -27,6 +27,16 @@ export interface PieceLight {
   base: number;
   area?: string;
   minor?: boolean;
+  /**
+   * r22: how much it matters when a place has more lights than the device
+   * can afford (3 the most); the least go, their glow kept painted on.
+   */
+  prio?: number;
+  /**
+   * r22: one of many alike (street lamps): the world lends a few real
+   * lights to whichever are nearest the camera.
+   */
+  pool?: boolean;
 }
 
 export interface Built {
@@ -36,6 +46,8 @@ export interface Built {
   lamps: THREE.Vector3[];
   /** Things to tick each frame (a TV's picture). */
   tick?: (time: number) => void;
+  /** r22: edges rain drips from (an awning's front), in the piece's space. */
+  drips?: [THREE.Vector3, THREE.Vector3][];
 }
 
 export interface KitContext {
@@ -81,6 +93,8 @@ export function mat(name: string): THREE.MeshStandardMaterial {
       ? { color: p.color, roughness: p.roughness, metalness: p.metalness }
       : { color: name, roughness: 0.75 },
   );
+  // r22: kept for every place; a place left behind doesn't dispose it.
+  m.userData.shared = true;
   matCache.set(name, m);
   return m;
 }
@@ -92,6 +106,7 @@ function emissive(color: string, k = 1): THREE.MeshBasicMaterial {
     m = new THREE.MeshBasicMaterial({
       color: new THREE.Color(color).multiplyScalar(k),
     });
+    m.userData.shared = true;
     matCache.set(key, m);
   }
   return m;
@@ -101,8 +116,13 @@ let glowTex: THREE.Texture | null = null;
 let streakTex: THREE.Texture | null = null;
 
 /** A camera-facing glow round a bulb. */
+function sharedTex(t: THREE.Texture): THREE.Texture {
+  t.userData.shared = true;
+  return t;
+}
+
 export function halo(color: string, size: number, k = 1): THREE.Sprite {
-  glowTex ??= glowTexture();
+  glowTex ??= sharedTex(glowTexture());
   const s = new THREE.Sprite(
     new THREE.SpriteMaterial({
       map: glowTex,
@@ -128,7 +148,7 @@ export function streak(
   len: number,
   k = 1,
 ): THREE.Group {
-  streakTex ??= streakTexture();
+  streakTex ??= sharedTex(streakTexture());
   const m = new THREE.Mesh(
     new THREE.PlaneGeometry(w, len),
     new THREE.MeshBasicMaterial({
@@ -359,6 +379,8 @@ function floor(item: Item, k: KitContext): Built {
   );
   m.rotation.x = -Math.PI / 2;
   m.receiveShadow = true;
+  // r22: darker and glossier when the street is wet.
+  (m.material as THREE.Material).userData.wettable = true;
   return { object: m, lights: [], lamps: [] };
 }
 
@@ -367,6 +389,7 @@ function solid(item: Item, k: KitContext): Built {
   const material = item.surface
     ? k.surfaces.material(item.surface as SurfaceName, Math.max(w, d), h)
     : mat(str(item.mat, "#333"));
+  if (item.surface) material.userData.wettable = true;
   const m = box(w, h, d, material, item.shadow !== false);
   m.position.y = h / 2;
   return { object: m, lights: [], lamps: [] };
@@ -684,7 +707,7 @@ function backbar(item: Item, k: KitContext): Built {
     const l = pointLight(glow.color, glow.intensity, glow.distance, false);
     l.position.set(x, 1.3, 0.6);
     g.add(l);
-    lights.push({ light: l, base: glow.intensity, minor: true });
+    lights.push({ light: l, base: glow.intensity, minor: true, prio: 0 });
   }
   return { object: g, lights, lamps: [] };
 }
@@ -730,11 +753,18 @@ function tv(item: Item, k: KitContext): Built {
   const l = pointLight(glow.color, glow.intensity, glow.distance, false);
   l.position.set(0, -0.2, 0.8);
   g.add(l);
-  const pl: PieceLight = { light: l, base: glow.intensity, flicker: "tv" };
+  const pl: PieceLight = {
+    light: l,
+    base: glow.intensity,
+    flicker: "tv",
+    prio: 3,
+  };
   let last = "";
   const draw = (time: number) => {
     const news = k.news();
-    const key = news === null ? "off" : `${news}:${Math.floor(time * 30)}`;
+    // r22: twelve pictures a second is plenty for a crawl seen across a
+    // bar, and each one is a texture sent to the graphics card.
+    const key = news === null ? "off" : `${news}:${Math.floor(time * 12)}`;
     if (key === last) return;
     last = key;
     if (news === null) {
@@ -840,7 +870,7 @@ function pendant(item: Item, k: KitContext): Built {
   }
   return {
     object: g,
-    lights: [{ light: s, base: l.intensity }],
+    lights: [{ light: s, base: l.intensity, prio: 3 }],
     lamps: [],
   };
 }
@@ -903,6 +933,7 @@ function lamp(item: Item, k: KitContext): Built {
         base: l.intensity,
         flicker: item.flicker as PieceLight["flicker"],
         minor: item.minor === true,
+        prio: item.minor === true ? 0 : kind === "banker" ? 1 : 2,
       },
     ],
     lamps: [],
@@ -963,7 +994,7 @@ function lamppost(item: Item, k: KitContext): Built {
   g.add(reflect);
   return {
     object: g,
-    lights: [{ light: pl, base: l.intensity }],
+    lights: [{ light: pl, base: l.intensity, pool: true }],
     lamps: [new THREE.Vector3(0, h, 0)],
   };
 }
@@ -980,7 +1011,9 @@ function facade(item: Item, k: KitContext): Built {
   const d = num(item.depth, 0.6);
   const g = new THREE.Group();
   const height = floors * fh;
-  const front = box(w, height, d, k.surfaces.material("stone", w, height));
+  const stone = k.surfaces.material("stone", w, height);
+  stone.userData.wettable = true;
+  const front = box(w, height, d, stone);
   front.position.set(0, base + height / 2, -d / 2);
   g.add(front);
   // Windows.
@@ -1003,7 +1036,10 @@ function facade(item: Item, k: KitContext): Built {
       emissiveIntensity: 1.1,
     }),
   );
-  dark.position.set(0, base + height / 2, 0.012);
+  // r22: in front of the dark glass behind it (whose face is at 0.012), not
+  // level with it. Level, the two fought for every pixel as the camera
+  // moved, and the lit windows flashed on and off.
+  dark.position.set(0, base + height / 2, 0.03);
   g.add(dark);
   // Dark glass behind every window, lit or not, matching the texture's.
   const cellW = w / cols;
@@ -1097,6 +1133,7 @@ function shopfront(item: Item, k: KitContext): Built {
   win.position.set(0, h * 0.42, 0.04);
   g.add(win);
   const lights: PieceLight[] = [];
+  const drips: [THREE.Vector3, THREE.Vector3][] = [];
   if (item.awning) {
     const a = item.awning as Record<string, unknown>;
     const aw = box(w, 0.04, num(a.depth, 1.6), mat(str(a.color, "#1e3b2a")));
@@ -1106,6 +1143,13 @@ function shopfront(item: Item, k: KitContext): Built {
     const valance = box(w, 0.25, 0.02, mat(str(a.color, "#1e3b2a")));
     valance.position.set(0, h - 1.27, num(a.depth, 1.6) - 0.02);
     g.add(valance);
+    // r22: the rain runs off its front edge.
+    const y = h - 1.4;
+    const z = num(a.depth, 1.6) - 0.02;
+    drips.push([
+      new THREE.Vector3(-w / 2 + 0.1, y, z),
+      new THREE.Vector3(w / 2 - 0.1, y, z),
+    ]);
   }
   if (item.cross) {
     // A pharmacy's green cross on a bracket, standing out from the wall.
@@ -1129,7 +1173,7 @@ function shopfront(item: Item, k: KitContext): Built {
     const pl = pointLight("#38ff92", 4, 7, false);
     pl.position.set(w / 2 - 0.4, h, 1.2);
     g.add(pl);
-    lights.push({ light: pl, base: 4, flicker: "neon" });
+    lights.push({ light: pl, base: 4, flicker: "neon", prio: 2 });
     const s = streak("#2bff8a", 0.6, 2.2, 0.5);
     s.position.set(w / 2 - 0.4, 0.02, 0.7);
     front.add(s);
@@ -1138,8 +1182,8 @@ function shopfront(item: Item, k: KitContext): Built {
   const pl = pointLight(l.color, l.intensity, l.distance, false);
   pl.position.set(0, 1.2, 1.2);
   g.add(pl);
-  lights.push({ light: pl, base: l.intensity, minor: true });
-  return { object: g, lights, lamps: [] };
+  lights.push({ light: pl, base: l.intensity, minor: true, prio: 0 });
+  return { object: g, lights, lamps: [], drips };
 }
 
 /** Words on a board or a wall: a hotel's name, a café's. */
@@ -1266,7 +1310,8 @@ function small(item: Item): Built {
         coaster: [0.09, 0.09, "#d8cfbf"],
         newspaper: [0.32, 0.22, "#cfc8b8"],
       };
-      const [w, d, c] = size[kind];
+      const [w, d, c0] = size[kind];
+      const c = str(item.color, c0);
       const p =
         kind === "coaster"
           ? new THREE.Mesh(
@@ -1365,27 +1410,25 @@ function small(item: Item): Built {
       break;
     }
     case "puddle": {
+      // r22: it grows while it rains and shrinks after, and the rain rings
+      // it (Weather.ts).
       const [w, d] = (item.size as [number, number]) ?? [1.5, 1];
       const p = new THREE.Mesh(
-        new THREE.CircleGeometry(0.5, 20),
-        new THREE.MeshStandardMaterial({
-          color: "#05070a",
-          roughness: 0.02,
-          metalness: 0.4,
-          envMapIntensity: 2,
-        }),
+        new THREE.PlaneGeometry(1, 1),
+        puddleMaterial(num(item.seed, w * 7 + d * 3)),
       );
-      p.scale.set(w, d, 1);
+      p.scale.set(w * 1.15, d * 1.15, 1);
       p.rotation.x = -Math.PI / 2;
       p.position.y = 0.006;
-      p.receiveShadow = true;
+      p.renderOrder = 1;
+      p.userData.puddle = true;
       g.add(p);
       break;
     }
     case "glow": {
       // A soft patch of light (a window's spill on the floor).
       const [w, d] = (item.size as [number, number]) ?? [2, 1];
-      glowTex ??= glowTexture();
+      glowTex ??= sharedTex(glowTexture());
       const p = new THREE.Mesh(
         new THREE.PlaneGeometry(w, d),
         new THREE.MeshBasicMaterial({
