@@ -143,9 +143,6 @@
 .cq-map-host[data-mapstyle="antique"]::after {
   box-shadow: inset 0 0 90px rgba(74, 53, 32, 0.35);
 }
-.cq-map-host[data-mapstyle="winter"]::after {
-  box-shadow: inset 0 0 120px rgba(230, 240, 248, 0.55);
-}
 .cq-map-host[data-mapstyle="night"]::after {
   box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.75);
 }

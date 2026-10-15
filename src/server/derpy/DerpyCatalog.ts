@@ -379,18 +379,6 @@ const MAP_STYLE_TEXT: Record<
     ],
     palette: MAP_STYLE_PALETTES.antique,
   },
-  winter: {
-    displayName: MAP_STYLE_NAMES.winter,
-    description:
-      "The map in the depths of a hard winter, whatever the month: snow on every province, ice along the coasts, and a cold grey-blue sea.",
-    price: 700,
-    features: [
-      "Snow lies on the land all year, deeper in the north",
-      "Ice along the coasts and a slate-grey sea",
-      "The colonies' colours as if seen through falling snow",
-    ],
-    palette: MAP_STYLE_PALETTES.winter,
-  },
   night: {
     displayName: MAP_STYLE_NAMES.night,
     description:
@@ -464,7 +452,8 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
         "Eight legends of the Americas, each a chain of rumour, clues and a journey",
         "Very hard: the clues need high skills (letters, woodcraft, persuasion, seamanship and more), and each step costs time and money",
         "Rewards that fit, and some that are bittersweet; the Fountain of Youth is the rarest of all",
-        "The native nations' sacred places are learned about and protected, never plundered",
+        // CQ24 (r24): a sacred place may be plundered as well as kept.
+        "The native nations' sacred places: earn their people's trust and keep them, or plunder them for what's buried there, and live with what follows",
       ],
       howTo:
         "Rumours of the legends come to your characters in any Derpy Conquest game you play, from any start date. What you've heard and found is in Journal › Legends.",
@@ -489,6 +478,13 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
   }),
 ];
 // ---- end DLC (r21)
+
+// CQ24 (r24): items taken off sale, and the Derp Coins each buyer is given
+// back (once each, by a startup migration: RetiredRefunds.ts). Hard Winter
+// (700 since r21) became the base game's winter, for everyone.
+export const RETIRED_ITEM_REFUNDS: Readonly<Record<string, number>> = {
+  map_winter: 700,
+};
 
 // AIP (r23): the four AI personalities, sold one by one. r24: the owner
 // asked for one short line on what each will do, and 750 coins each. The

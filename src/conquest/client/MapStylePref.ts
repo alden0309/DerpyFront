@@ -4,7 +4,7 @@
 // Inventory sets the same choice. If the browser won't store it, the map
 // keeps its usual look.
 
-import { MAP_STYLES, type MapStyleKey } from "../DlcIds";
+import { MAP_STYLES, type MapStyleKey, RETIRED_MAP_STYLES } from "../DlcIds";
 
 const KEY = "derpy_conquest_map_style";
 
@@ -12,6 +12,8 @@ const KEY = "derpy_conquest_map_style";
 export function chosenMapStyle(): MapStyleKey | null {
   try {
     const v = localStorage.getItem(KEY);
+    // CQ24 (r24): a style no longer sold (Hard Winter) falls back to the usual chart.
+    if (v && RETIRED_MAP_STYLES.includes(v)) localStorage.removeItem(KEY);
     return v && (MAP_STYLES as readonly string[]).includes(v)
       ? (v as MapStyleKey)
       : null;

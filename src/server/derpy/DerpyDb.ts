@@ -9,6 +9,7 @@ import pg from "pg";
 import { logger } from "../Logger";
 import { grantBasedByName } from "./BasedAccess"; // NAMES (r20)
 import { grantPersonalitiesToPackOwners } from "./PersonalityGrants"; // AIP (r23)
+import { refundRetiredItems } from "./RetiredRefunds"; // CQ24 (r24)
 
 const log = logger.child({ component: "DerpyDb" });
 
@@ -276,6 +277,10 @@ CREATE TABLE IF NOT EXISTS derpy_conquest_days (
   secs INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (account_id, day)
 );
+-- CQ24 (r24): store items taken off sale whose price this account has been
+-- given back (RetiredRefunds.ts), so each is refunded once.
+ALTER TABLE derpy_accounts
+  ADD COLUMN IF NOT EXISTS refunded TEXT[] NOT NULL DEFAULT '{}';
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two
@@ -295,6 +300,9 @@ async function migrate(p: pg.Pool): Promise<void> {
     // personalities that replaced them, once (later starts add nothing).
     const granted = await grantPersonalitiesToPackOwners(client);
     if (granted > 0) log.info("AI personalities granted", { rows: granted });
+    // CQ24 (r24): Hard Winter's buyers get its price back, once.
+    for (const r of await refundRetiredItems(client))
+      log.info("retired item refunded", { ...r });
   } finally {
     await client
       .query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK])

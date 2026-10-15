@@ -1787,8 +1787,7 @@ export class MapView {
     const realMonth = dateOf(Math.floor(o.dayNow)).month;
     this.seasonMonth = realMonth;
     this.seasonSeen = seasonLook(realMonth);
-    // DLC (r21): Hard Winter draws January's snow and ice all year.
-    const month = look?.winter ? 0 : realMonth;
+    const month = realMonth;
     const seasonal = o.mode === "nation" || o.mode === "terrain";
     if (seasonal) this.paintSeason(c, s, v, month, knownLand);
     c.strokeStyle = look?.borderInk ?? "rgba(70, 55, 35, 0.22)";

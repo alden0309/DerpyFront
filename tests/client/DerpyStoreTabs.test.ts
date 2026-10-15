@@ -60,7 +60,7 @@ describe("the store's tabs", () => {
     expect(forSale.get("derpyfront/effects")).toBe(6);
     expect(forSale.get("derpyfront/fanfares")).toBe(6);
     expect(forSale.get("conquest/startdates")).toBe(1); // SITE (r22)
-    expect(forSale.get("conquest/mapstyles")).toBe(5); // DLC (r21)
+    expect(forSale.get("conquest/mapstyles")).toBe(4); // DLC (r21); CQ24 (r24): Hard Winter retired
     expect(forSale.get("conquest/addons")).toBe(1); // SITE (r22)
     const owned = ["pack:classics", "skin:classic_camo", "pack:fx_frost"];
     const mine = tabCounts(DERPY_ITEMS, tabs, owned);
@@ -120,7 +120,13 @@ describe("Derpy Conquest's tabs", () => {
       );
     expect(names("startdates")).toEqual(["campaign_1776"]);
     expect(names("addons")).toEqual(["legends"]);
-    expect(names("mapstyles")).toHaveLength(5);
+    // CQ24 (r24): Hard Winter left the store for everyone's winter.
+    expect(names("mapstyles").sort()).toEqual([
+      "map_antique",
+      "map_night",
+      "map_pirate",
+      "map_woodcut",
+    ]);
     const shown = conquest.categories.flatMap((c) => names(c.id));
     expect(shown.sort()).toEqual(
       DERPY_ITEMS.filter((i) => i.game === "conquest")
