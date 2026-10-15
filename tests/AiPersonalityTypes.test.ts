@@ -341,6 +341,16 @@ describe("how each one tunes a nation", () => {
     expect(
       AI_TUNING.mad_scientist.costRisePct[UnitType.MissileSilo],
     ).toBeLessThan(100);
+    // r24: their extras come once their economy is going; Mad Scientists
+    // and Protectors save for a Dome their income reaches in ten minutes
+    expect(NORMAL_TUNING.extrasFromCities).toBe(0);
+    expect(AI_TUNING.mad_scientist.extrasFromCities).toBe(4);
+    expect(AI_TUNING.protector.extrasFromCities).toBe(3);
+    expect(NORMAL_TUNING.domeReachMinutes).toBe(0);
+    expect(AI_TUNING.mad_scientist.domeReachMinutes).toBe(10);
+    expect(AI_TUNING.protector.domeReachMinutes).toBe(10);
+    // An Aggressive nation buys a city whenever it can pay for one
+    expect(AI_TUNING.aggressive.costRisePct[UnitType.City]).toBe(0);
   });
 
   test("fights, alliances, betrayal and nukes", () => {
@@ -364,6 +374,18 @@ describe("how each one tunes a nation", () => {
     for (const t of ["trader", "aggressive", "protector"] as const) {
       expect(AI_TUNING[t].nukeCostRisePct).toBe(100);
     }
+    // r24: it never holds its bombs back for a MIRV; everyone else does
+    expect(NORMAL_TUNING.holdsBombsForMirv).toBe(true);
+    expect(AI_TUNING.mad_scientist.holdsBombsForMirv).toBe(false);
+    for (const t of ["trader", "aggressive", "protector"] as const) {
+      expect(AI_TUNING[t].holdsBombsForMirv).toBe(true);
+    }
+    // r24: Traders and Protectors keep a bomb in hand to answer with
+    expect(NORMAL_TUNING.keepsBomb).toBe(false);
+    expect(AI_TUNING.trader.keepsBomb).toBe(true);
+    expect(AI_TUNING.protector.keepsBomb).toBe(true);
+    expect(AI_TUNING.mad_scientist.keepsBomb).toBe(false);
+    expect(AI_TUNING.aggressive.keepsBomb).toBe(false);
     expect(AI_TUNING.trader.nukes).toBe("answer");
     expect(AI_TUNING.protector.nukes).toBe("grudge");
     expect(AI_TUNING.trader.islander).toBe(true);

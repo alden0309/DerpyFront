@@ -302,13 +302,15 @@ describe("a Mad Scientist", () => {
       ];
     }
     expect(await rises("normal")).toEqual([150, 125]);
-    expect(await rises("mad_scientist")).toEqual([120, 110]);
+    // (r24: a tenth after an atom bomb, a twentieth after a hydrogen bomb)
+    expect(await rises("mad_scientist")).toEqual([110, 105]);
   });
 });
 
 describe("a Mad Scientist's targets", () => {
-  test("the ones a Normal nation picks first, then the strongest threat", async () => {
-    // A neutral raider, no war: a Normal nation picks nobody to nuke
+  test("the ones a Normal nation picks first, then a strong enemy", async () => {
+    // A neutral raider, no war: neither picks anyone to nuke (r24: nuking
+    // strong neighbours at peace only made enemies of them)
     const neutral = async (option: string) => {
       const s = await standoff(option);
       s.guard.updateRelation(s.raider, 100, "gift_gold");
@@ -316,9 +318,20 @@ describe("a Mad Scientist's targets", () => {
       return s;
     };
     expect((await neutral("normal")).nuke.findBestNukeTarget()).toBeNull();
-    const ms = await neutral("mad_scientist");
+    expect(
+      (await neutral("mad_scientist")).nuke.findBestNukeTarget(),
+    ).toBeNull();
+    // The raider hates it (it doesn't hate the raider back): a Normal nation
+    // still picks nobody, a Mad Scientist the raider
+    const hated = async (option: string) => {
+      const s = await neutral(option);
+      s.raider.updateRelation(s.guard, -100, "attacked");
+      return s;
+    };
+    expect((await hated("normal")).nuke.findBestNukeTarget()).toBeNull();
+    const ms = await hated("mad_scientist");
     expect(ms.nuke.findBestNukeTarget()).toBe(ms.raider);
-    // Hated, both pick the raider, and attacked, both pick the attacker
+    // Hating the raider itself, both pick it
     const hostile = await standoff("mad_scientist");
     expect(hostile.nuke.findBestNukeTarget()).toBe(hostile.raider);
   });
@@ -390,24 +403,41 @@ describe("noting bombers", () => {
 });
 
 describe("Traders and Protectors keep a bomb in hand", () => {
-  test("once they have a silo, their building leaves an atom bomb's price", async () => {
-    const builds = async (option: string, silo: boolean) => {
+  test("once they have a silo and three cities, their building leaves an atom bomb's price", async () => {
+    // What a city costs it now, and whether it builds one with `spare`
+    // gold over that
+    const builds = async (
+      option: string,
+      spare: bigint,
+      silo = true,
+      cities = 3,
+    ) => {
       const { g, guard, structure } = await standoff(option);
       if (!silo) {
         for (const s of guard.units(UnitType.MissileSilo)) s.delete(false);
       }
-      const cost = g.unitInfo(UnitType.City).cost(g, guard);
-      guard.removeGold(guard.gold() - cost - 100_000n);
-      return (
-        structure as unknown as { maybeSpawnStructure(t: UnitType): boolean }
-      ).maybeSpawnStructure(UnitType.City);
+      for (let i = 0; i < cities; i++) {
+        guard.buildUnit(UnitType.City, g.ref(20 + 20 * i, 40), {});
+      }
+      const b = structure as unknown as {
+        getPerceivedCost(t: UnitType): bigint;
+        maybeSpawnStructure(t: UnitType): boolean;
+      };
+      // (With little gold it saves up, so a city feels dearer than it is)
+      guard.removeGold(guard.gold());
+      guard.addGold(b.getPerceivedCost(UnitType.City) + spare);
+      return b.maybeSpawnStructure(UnitType.City);
     };
-    expect(await builds("normal", true)).toBe(true);
-    expect(await builds("mad_scientist", true)).toBe(true);
-    expect(await builds("trader", true)).toBe(false);
-    expect(await builds("protector", true)).toBe(false);
-    expect(await builds("trader", false)).toBe(true);
-    expect(await builds("protector", false)).toBe(true);
+    const bomb = 750_000n;
+    expect(await builds("normal", 1n)).toBe(true);
+    expect(await builds("mad_scientist", 1n)).toBe(true);
+    for (const option of ["trader", "protector"]) {
+      expect(await builds(option, bomb - 1n)).toBe(false);
+      expect(await builds(option, bomb)).toBe(true);
+      // Not before it has a silo, nor before its third city
+      expect(await builds(option, 1n, false)).toBe(true);
+      expect(await builds(option, 1n, true, 2)).toBe(true);
+    }
   });
 });
 
@@ -490,6 +520,30 @@ describe("Domes of Alden: Mad Scientists and Protectors raise more, sooner", () 
     expect(await domeAt("protector", 52_000_000n)).toBe(true);
     expect(await domeAt("mad_scientist", 52_000_000n)).toBe(true);
     expect(await domeAt("trader", 52_000_000n)).toBe(false);
+  });
+
+  test("once armed, they save for a Dome their income will reach (r24), long before Normal starts saving", async () => {
+    // A Capital and four cities, $15M in hand (under the 40% they'd save
+    // from otherwise) and plenty of income
+    const saves = async (option: string, armed: boolean) => {
+      const { g, me, behavior, tryDome } = await domeGame(option);
+      me.buildUnit(UnitType.Capital, g.ref(40, 40), {});
+      cities(g, me, 40, 40);
+      if (armed) {
+        for (let i = 0; i < 3; i++) {
+          me.buildUnit(UnitType.SAMLauncher, g.ref(80 + 10 * i, 80), {});
+          me.buildUnit(UnitType.MissileSilo, g.ref(80 + 10 * i, 100), {});
+        }
+      }
+      me.removeGold(me.gold() - 15_000_000n);
+      expect(tryDome()).toBe(false);
+      return behavior.savingForDome();
+    };
+    expect(await saves("normal", true)).toBeNull();
+    expect(await saves("mad_scientist", true)).toBe(50_000_000n);
+    expect(await saves("protector", true)).toBe(50_000_000n);
+    // Not while it still wants SAMs and silos
+    expect(await saves("mad_scientist", false)).toBeNull();
   });
 
   test("they find a smaller cluster worth shielding", async () => {

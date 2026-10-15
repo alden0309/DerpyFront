@@ -178,6 +178,12 @@ export interface AiTuning {
   preemptiveDomes: number;
   /** Percent of the usual worth a Dome's spot needs, and of the wait between Domes. */
   domeBarPct: number;
+  /**
+   * AIP r24: it saves up for a worthwhile Dome whenever its income would
+   * get it there within this many minutes, not only once it holds most of
+   * the price (0: as nations do).
+   */
+  domeReachMinutes: number;
   /** Percent chance, per decision, that it looks for a fight nobody started. */
   warPct: number;
   /** One time in this many it asks a bordering player to ally (30 usually). */
@@ -191,6 +197,11 @@ export interface AiTuning {
    * throwing bombs instead of saving.
    */
   nukeCostRisePct: number;
+  /**
+   * AIP r24: whether, on Hard and up, it holds its bombs (but those at
+   * whoever hits it) while saving up for a MIRV, as nations do.
+   */
+  holdsBombsForMirv: boolean;
   /**
    * AIP r24: once it has a silo, it keeps an atom bomb's price in hand
    * through its building, so it can answer a bomb or an attack.
@@ -226,11 +237,13 @@ export const NORMAL_TUNING: AiTuning = {
   defenseThreatPct: 100,
   preemptiveDomes: 3,
   domeBarPct: 100,
+  domeReachMinutes: 0,
   warPct: 100,
   allyAskOdds: 30,
   betrayal: "usual",
   nukes: "usual",
   nukeCostRisePct: 100,
+  holdsBombsForMirv: true,
   keepsBomb: false,
   answersAtOnce: false,
   islander: false,
@@ -238,8 +251,8 @@ export const NORMAL_TUNING: AiTuning = {
 };
 
 export const AI_TUNING: Record<AiType, AiTuning> = {
-  // Factories, and a lot more SAMs, silos and Domes; nukes more, at real
-  // enemies.
+  // Factories, and a lot more SAMs, silos and Domes; nukes its enemies far
+  // more often.
   mad_scientist: {
     ...NORMAL_TUNING,
     // SAMs are the dearest of these (up to $3M each), so they get the most
@@ -260,8 +273,12 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     },
     preemptiveDomes: 5,
     domeBarPct: 50,
+    // r24: once it has its SAMs and silos, it saves for a Dome its income
+    // reaches within ten minutes (it rarely held most of $50M at once)
+    domeReachMinutes: 10,
     nukes: "focused",
-    nukeCostRisePct: 40,
+    nukeCostRisePct: 20,
+    holdsBombsForMirv: false,
   },
   // Factories and ports; slow to start a fight but answers one, keeps a big
   // army home, rarely turns on an ally, and keeps to an island if it can.
@@ -290,7 +307,9 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     triggerPts: -12,
     reservePts: -8,
     structuresPct: { [UnitType.SAMLauncher]: 75 },
-    costRisePct: { [UnitType.City]: 50 },
+    // r24: a city whenever it can pay for one (nations now save hard for
+    // nukes), ports a little less held back too
+    costRisePct: { [UnitType.City]: 0, [UnitType.Port]: 50 },
     betrayal: "more",
   },
   // A little slower in the opening, then digs in: twice the SAMs, silos,
@@ -313,8 +332,8 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
       UnitType.Factory,
     ],
     maxSilos: 6,
-    // r24: its extras from its fourth city, so its economy gets going first
-    extrasFromCities: 4,
+    // r24: its extras from its third city, so its economy gets going first
+    extrasFromCities: 3,
     // Saves least against cities (measured: about a fifth more cities than
     // Normal, still two to three times its SAMs per city on Medium; at 0 it
     // would buy cities with everything and hardly any SAMs)
@@ -327,6 +346,7 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     defenseThreatPct: 60,
     preemptiveDomes: 5,
     domeBarPct: 50,
+    domeReachMinutes: 10,
     warPct: 10,
     allyAskOdds: 15,
     betrayal: "rarely",
