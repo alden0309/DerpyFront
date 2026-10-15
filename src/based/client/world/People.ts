@@ -20,6 +20,8 @@
 import * as THREE from "three";
 import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
+import type { P } from "../../engine/Nav";
+import { RUN, WALK, Walker } from "../../engine/Walk";
 import { Look, LOOKS } from "./people/Looks";
 import {
   Canon,
@@ -56,15 +58,152 @@ export interface Rig {
 /** Clips that play over the top of whatever the body is doing. */
 const GESTURES = new Set(["interact", "pick_up", "drink", "nod", "shake"]);
 
+/** BFIX (r23): the gait clips, blended over the pose by pace. */
+const GAITS = ["walk", "run"] as const;
+
 /** A faint glow so nobody goes fully black in the dark. */
 const BASE_GLOW = "#0d0b09";
 
-/** Seat height the sitting clip was made for. */
+/**
+ * Seat height the sitting clip was made for (r21). BFIX (r23): each person's
+ * own is measured on their body (`seatFit`); this is the fallback.
+ */
 const CHAIR = 0.46;
 
-/** Walking and running pace, metres a second. */
-export const WALK_SPEED = 1.15;
-export const RUN_SPEED = 2.6;
+/**
+ * BFIX (r23): where a person meets a seat in the sitting clip: the height
+ * of the lowest point under their hips (trousers, a skirt, an apron: what
+ * rests on the seat), and how far behind their feet's root the middle of
+ * the seat is. Measured once per body.
+ */
+export interface SeatFit {
+  y: number;
+  back: number;
+}
+
+const seatFits = new Map<string, SeatFit>();
+
+/** Measures a person's seat in the sitting clip (see SeatFit). */
+export function measureSeat(
+  model: THREE.Object3D,
+  clip: THREE.AnimationClip,
+  bone: (name: string) => THREE.Object3D | null,
+  frame: THREE.Object3D,
+): SeatFit | null {
+  const pelvis = bone("pelvis");
+  if (!pelvis) return null;
+  const mixer = new THREE.AnimationMixer(model);
+  const a = mixer.clipAction(clip);
+  a.play();
+  mixer.setTime(clip.duration * 0.5);
+  frame.updateMatrixWorld(true);
+  const inv = frame.matrixWorld.clone().invert();
+  const hip = pelvis.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+  let lo = Infinity;
+  const v = new THREE.Vector3();
+  model.traverse((o) => {
+    const m = o as THREE.SkinnedMesh;
+    if (!m.isSkinnedMesh) return;
+    const pos = m.geometry.getAttribute("position");
+    const stride = Math.max(1, Math.floor(pos.count / 12000));
+    for (let i = 0; i < pos.count; i += stride) {
+      m.getVertexPosition(i, v);
+      v.applyMatrix4(m.matrixWorld).applyMatrix4(inv);
+      if (v.y < hip.y && Math.hypot(v.x - hip.x, v.z - hip.z) < 0.14) {
+        lo = Math.min(lo, v.y);
+      }
+    }
+  });
+  a.stop();
+  mixer.uncacheRoot(model);
+  if (!Number.isFinite(lo)) return null;
+  // The seat's middle: under the buttocks, a little towards the knees.
+  return { y: lo, back: Math.max(0.1, -hip.z - 0.1) };
+}
+
+/**
+ * Walking and running pace, metres a second. BFIX (r23): a real run (r22's
+ * jog was 2.6 m/s while the clip's feet ran at nearly 6: he ran on the
+ * spot). How people move is engine/Walk.ts.
+ */
+export const WALK_SPEED = WALK.speed;
+export const RUN_SPEED = RUN.speed;
+
+/**
+ * BFIX (r23): a gait clip's stride, measured on each skeleton it plays on:
+ * how far one cycle carries the body (a planted foot's sweep back, at the
+ * clip's own pace, times its length), and where in the cycle the left foot
+ * is furthest forward (so a walk and a run blend in step).
+ */
+export interface Stride {
+  /** Metres a cycle, at the person's own height. */
+  length: number;
+  /** Seconds a cycle. */
+  duration: number;
+  /** The cycle's share where the left foot is furthest forward. */
+  lead: number;
+}
+
+/**
+ * Measures a gait clip on a model (in place, in the space of `frame`, the
+ * person, so in metres at their height): the planted foot's speed
+ * backwards times the cycle, and where the left foot leads. Null if the
+ * skeleton has no feet.
+ */
+export function measureStride(
+  model: THREE.Object3D,
+  clip: THREE.AnimationClip,
+  bone: (name: string) => THREE.Object3D | null,
+  frame: THREE.Object3D,
+): Stride | null {
+  const feet = [
+    bone("ball_l") ?? bone("foot_l"),
+    bone("ball_r") ?? bone("foot_r"),
+  ];
+  if (!feet[0] || !feet[1]) return null;
+  const mixer = new THREE.AnimationMixer(model);
+  const a = mixer.clipAction(clip);
+  a.play();
+  const N = 48;
+  const dt = clip.duration / N;
+  const v = new THREE.Vector3();
+  const inv = new THREE.Matrix4();
+  const ys: number[][] = [[], []];
+  const zs: number[][] = [[], []];
+  for (let i = 0; i < N; i++) {
+    mixer.setTime(i * dt);
+    frame.updateMatrixWorld(true);
+    inv.copy(frame.matrixWorld).invert();
+    feet.forEach((f, k) => {
+      f!.getWorldPosition(v).applyMatrix4(inv);
+      ys[k].push(v.y);
+      zs[k].push(v.z);
+    });
+  }
+  a.stop();
+  mixer.uncacheRoot(model);
+  // A planted foot: within 1.5 cm of its lowest; its speed backwards.
+  const speeds: number[] = [];
+  for (let k = 0; k < 2; k++) {
+    const lo = Math.min(...ys[k]);
+    for (let i = 0; i < N; i++) {
+      const j = (i + 1) % N;
+      if (ys[k][i] < lo + 0.015 && ys[k][j] < lo + 0.015) {
+        speeds.push((zs[k][i] - zs[k][j]) / dt);
+      }
+    }
+  }
+  if (speeds.length === 0) return null;
+  speeds.sort((x, y) => x - y);
+  const pace = speeds[Math.floor(speeds.length / 2)];
+  let lead = 0;
+  for (let i = 1; i < N; i++) if (zs[0][i] > zs[0][lead]) lead = i;
+  return {
+    length: Math.max(0.2, pace * clip.duration),
+    duration: clip.duration,
+    lead: lead / N,
+  };
+}
 
 /** The most a custom model may weigh (bytes), and an extra's. */
 export const MODEL_LIMIT = { hero: 1_000_000, other: 400_000 };
@@ -528,12 +667,59 @@ function swingCloth(c: Cloth): void {
     // A little slack while standing and walking (the cloth hangs clear of
     // the knee), none sitting (the thighs carry it).
     const k = Math.abs(pitch);
-    const slack = Math.min(k, 0.15) * (1 - THREE.MathUtils.smoothstep(k, 0.6, 1.2));
+    const slack =
+      Math.min(k, 0.15) * (1 - THREE.MathUtils.smoothstep(k, 0.6, 1.2));
     b.bone.quaternion.setFromAxisAngle(
       X_AXIS,
       -THREE.MathUtils.clamp(pitch - Math.sign(pitch) * slack, -1, 1.75),
     );
   }
+}
+
+/** A body's identity, for what's measured once per body: its meshes' geometry. */
+function modelKeyOf(model: THREE.Object3D): string {
+  const ids: string[] = [];
+  model.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh) ids.push(m.geometry.uuid);
+  });
+  return ids.join(",");
+}
+
+// --- held things (BFIX r23) ---------------------------------------------------
+
+const UP_V = new THREE.Vector3(0, 1, 0);
+const HELD_V = Array.from({ length: 12 }, () => new THREE.Vector3());
+const HELD_M = new THREE.Matrix4();
+const HELD_Q = new THREE.Quaternion();
+const HELD_Q2 = new THREE.Quaternion();
+const AIM_A = new THREE.Vector3();
+const AIM_B = new THREE.Vector3();
+const AIM_Q = new THREE.Quaternion();
+const AIM_P = new THREE.Quaternion();
+
+/**
+ * Turns a bone (in the world) so the way to its child runs along `dir`,
+ * keeping its parent where it is.
+ */
+function aim(
+  bone: THREE.Object3D,
+  child: THREE.Object3D,
+  dir: THREE.Vector3,
+): void {
+  bone.updateWorldMatrix(true, true);
+  const from = bone.getWorldPosition(AIM_A);
+  const to = child.getWorldPosition(AIM_B).sub(from).normalize();
+  AIM_Q.setFromUnitVectors(to, dir.clone().normalize());
+  // world' = AIM_Q * world; local' = parent^-1 * world'
+  bone.getWorldQuaternion(AIM_P);
+  AIM_P.premultiply(AIM_Q);
+  if (bone.parent) {
+    const pq = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+    AIM_P.premultiply(pq.invert());
+  }
+  bone.quaternion.copy(AIM_P);
+  bone.updateWorldMatrix(false, true);
 }
 
 // --- people ------------------------------------------------------------------
@@ -557,8 +743,17 @@ export class Person {
   private gestureSet = new Map<string, THREE.AnimationClip>();
   private base: THREE.AnimationAction | null = null;
   private baseName = "";
-  private path: THREE.Vector3[] = [];
+  /** BFIX (r23): where they're going, and how (engine/Walk.ts). */
+  private readonly walker = new Walker();
   private onArrive: (() => void) | null = null;
+  /** The gait clips' strides on this skeleton, and where in the cycle they are. */
+  private strides: { walk: Stride | null; run: Stride | null } = {
+    walk: null,
+    run: null,
+  };
+  private phase = 0;
+  /** How much of the walk and the run is showing over the pose. */
+  private gaitMix = { walk: 0, run: 0 };
   private turnTo: number | null = null;
   private seatLift = 0;
   private liftTarget = 0;
@@ -570,11 +765,15 @@ export class Person {
   pose: Pose = "stand";
   /** Facing, in radians. */
   heading = 0;
-  /** Pace now (walking or running). */
-  speed = WALK_SPEED;
+  /** Pace now, metres a second (0 standing). */
+  speed = 0;
   private glow: THREE.Mesh | null = null;
   private extras: THREE.Object3D[] = [];
+  /** BFIX (r23): what they hold (the world's prop), carried in the right hand. */
+  private held: THREE.Object3D | null = null;
   private cloth: Cloth | null = null;
+  private clips: THREE.AnimationClip[] = [];
+  private modelKey = "";
 
   constructor(
     readonly id: string,
@@ -717,6 +916,8 @@ export class Person {
       });
     }
     this.names = names;
+    this.clips = clips;
+    this.modelKey = modelKeyOf(model);
     this.cloth = clothOf(model, (n) => this.bone(n));
     this.gestureSet = gestures;
     this.mixer = new THREE.AnimationMixer(model);
@@ -735,8 +936,56 @@ export class Person {
       }
       this.actions.set(clip.name, action);
     }
+    // BFIX (r23): the walk and the run always play, at the weight their
+    // pace gives them, their time set by the stride (update), so the feet
+    // keep to the ground at any pace.
+    this.strides = { walk: null, run: null };
+    for (const name of GAITS) {
+      const clip = clips.find((c) => c.name === name);
+      if (!clip) continue;
+      this.strides[name] = measureStride(
+        model,
+        clip,
+        (n) => this.bone(n),
+        this.root,
+      );
+      const a = this.actions.get(name)!;
+      a.play();
+      a.timeScale = 0;
+      a.weight = 0;
+    }
+    this.gaitMix = { walk: 0, run: 0 };
     this.setWetness(this.wet);
     this.setHighlight(this.lit);
+  }
+
+  /**
+   * BFIX (r23): where this body meets a seat (measured the first time, for
+   * each body and height), so they sit on a stool or a chair, not in it or
+   * above it.
+   */
+  seatFit(): SeatFit {
+    const key = `${this.modelKey}|${this.look.height ?? 1}`;
+    let fit = seatFits.get(key);
+    if (!fit) {
+      const clip = this.clips.find((c) => c.name === "sit");
+      const measured = clip
+        ? measureSeat(this.model, clip, (n) => this.bone(n), this.root)
+        : null;
+      fit = measured ?? { y: CHAIR, back: 0.22 };
+      // The pose the measuring left behind is the mixer's again next frame.
+      seatFits.set(key, fit);
+    }
+    return fit;
+  }
+
+  /**
+   * How far to raise them to sit at a seat's height (a little lower than
+   * the floor, a couple of centimetres at most, for a seat just under what
+   * the clip was made for: the feet hide it, floating wouldn't).
+   */
+  private liftFor(seat: number): number {
+    return Math.max(-0.03, seat - this.seatFit().y);
   }
 
   /** A cigarette (lit) in the right hand. */
@@ -843,8 +1092,12 @@ export class Person {
   setGait(g: Gait): void {
     if (this.gait === g) return;
     this.gait = g;
-    this.speed = g === "run" ? RUN_SPEED : WALK_SPEED;
-    if (this.path.length > 0) this.settle();
+    this.walker.gait = g === "run" ? RUN : WALK;
+  }
+
+  /** BFIX (r23): the pace of their gait (walking or running). */
+  get pace(): number {
+    return this.gait === "run" ? RUN_SPEED : WALK_SPEED;
   }
 
   get running(): boolean {
@@ -853,6 +1106,8 @@ export class Person {
 
   private setBase(name: string, fade = 0.35): void {
     if (this.baseName === name) return;
+    // BFIX (r23): the gait clips are never the base; they're blended over it.
+    if ((GAITS as readonly string[]).includes(name)) name = "idle";
     const next = this.actions.get(name) ?? this.actions.get("idle");
     if (!next) return;
     next.reset();
@@ -865,13 +1120,11 @@ export class Person {
     this.baseName = name;
   }
 
-  /** The loop that fits what they're doing now. */
+  /**
+   * The loop that fits what they're doing now. BFIX (r23): walking, that's
+   * standing (or talking): the walk and the run blend over it by pace.
+   */
   private settle(fade = 0.35): void {
-    if (this.path.length > 0) {
-      const run = this.gait === "run" && this.actions.has("run");
-      this.setBase(run ? "run" : "walk", 0.25);
-      return;
-    }
     switch (this.pose) {
       case "sit":
         this.setBase(this.talking ? "sit_talk" : "sit", fade);
@@ -889,15 +1142,16 @@ export class Person {
 
   /** Puts them somewhere at once, in a pose. */
   place(at: THREE.Vector3, heading: number, pose: Pose, seat = 0): void {
-    this.path = [];
+    this.walker.stop();
+    this.speed = 0;
+    this.gaitMix = { walk: 0, run: 0 };
     this.onArrive = null;
     this.setGait("walk");
     this.root.position.copy(at);
     this.heading = heading;
     this.root.rotation.y = heading;
     this.pose = pose;
-    this.seatLift = this.liftTarget =
-      pose === "sit" ? Math.max(0, seat - CHAIR) : 0;
+    this.seatLift = this.liftTarget = pose === "sit" ? this.liftFor(seat) : 0;
     this.root.position.y = this.seatLift;
     this.root.visible = pose !== "hidden";
     this.baseName = "";
@@ -905,28 +1159,52 @@ export class Person {
     else this.settle(0);
   }
 
-  /** Walks (or runs) a path (world points on the floor), then does `then`. */
-  walk(points: THREE.Vector3[], then?: () => void): void {
+  /**
+   * Walks (or runs) a path (world points on the floor), then does `then`.
+   * BFIX (r23): easing up to pace and down to a stop, round the corners,
+   * ending turned to `face` (radians) if given. A new walk while walking
+   * changes course at the same pace.
+   */
+  walk(points: THREE.Vector3[], then?: () => void, face?: number): void {
     const go = () => {
       this.pose = "stand";
-      this.path = points.map((p) => p.clone());
+      const w = this.walker;
+      w.x = this.root.position.x;
+      w.z = this.root.position.z;
+      w.heading = this.heading;
+      w.go(
+        points.map((p): P => [p.x, p.z]),
+        this.gait === "run" ? RUN : WALK,
+        face ?? null,
+      );
       this.onArrive = then ?? null;
       this.turnTo = null;
       this.settle();
+      if (!w.moving) this.arrive();
     };
     if (this.pose === "sit") this.standUp(go);
     else go();
   }
 
   get walking(): boolean {
-    return this.path.length > 0;
+    return this.walker.moving;
   }
 
   stop(): void {
-    this.path = [];
+    this.walker.stop();
+    this.speed = 0;
     this.onArrive = null;
     this.setGait("walk");
     this.settle();
+  }
+
+  /** There: walking again (a run lasts until they arrive), and what's next. */
+  private arrive(): void {
+    const then = this.onArrive;
+    this.onArrive = null;
+    this.setGait("walk");
+    this.settle();
+    then?.();
   }
 
   /** Turns on the spot to face a heading. */
@@ -937,7 +1215,7 @@ export class Person {
   sitDown(seat: number, heading: number): void {
     this.turnTo = heading;
     this.pose = "sit";
-    this.liftTarget = Math.max(0, seat - CHAIR);
+    this.liftTarget = this.liftFor(seat);
     const a = this.actions.get("sit_down");
     if (!a) {
       this.settle();
@@ -1015,34 +1293,23 @@ export class Person {
   }
 
   update(dt: number, time: number): void {
-    // Walking (or running).
-    if (this.path.length > 0) {
-      const target = this.path[0];
-      const p = this.root.position;
-      const dx = target.x - p.x;
-      const dz = target.z - p.z;
-      const d = Math.hypot(dx, dz);
-      const step = this.speed * dt;
-      if (d <= step) {
-        p.x = target.x;
-        p.z = target.z;
-        this.path.shift();
-        if (this.path.length === 0) {
-          const then = this.onArrive;
-          this.onArrive = null;
-          this.gait = "walk";
-          this.speed = WALK_SPEED;
-          this.settle();
-          then?.();
-        }
-      } else {
-        p.x += (dx / d) * step;
-        p.z += (dz / d) * step;
-        this.turnTowards(Math.atan2(dx, dz), dt, this.gait === "run" ? 12 : 9);
+    // Walking (or running): BFIX (r23) the walker eases, rounds and turns.
+    const w = this.walker;
+    if (w.moving) {
+      const there = w.step(dt);
+      this.root.position.x = w.x;
+      this.root.position.z = w.z;
+      this.heading = w.heading;
+      this.root.rotation.y = w.heading;
+      this.speed = w.speed;
+      if (there) this.arrive();
+    } else {
+      this.speed = 0;
+      if (this.turnTo !== null && this.turnTowards(this.turnTo, dt, 3.5)) {
+        this.turnTo = null;
       }
-    } else if (this.turnTo !== null) {
-      if (this.turnTowards(this.turnTo, dt, 5)) this.turnTo = null;
     }
+    this.blendGait(dt);
     // Rising onto a bar stool, or down from one.
     if (this.seatLift !== this.liftTarget) {
       const k = Math.min(1, dt * 2.4);
@@ -1059,9 +1326,96 @@ export class Person {
     }
     this.mixer.update(dt);
     if (this.cloth) swingCloth(this.cloth);
+    if (this.held) this.carry(this.held);
   }
 
-  /** Turns towards a heading; true once facing it. */
+  /**
+   * BFIX (r23), the world's hook (PeopleHooks.setHeld): takes a prop in the
+   * right hand, or puts it down. The prop's grip is its origin and it runs
+   * down its -y (an umbrella's "open" part, if shown, runs up its +y).
+   */
+  setHeld(prop: object | null): boolean {
+    if (this.held && this.held !== prop) this.held.removeFromParent();
+    this.held = (prop as THREE.Object3D | null) ?? null;
+    if (this.held) this.root.add(this.held);
+    return true;
+  }
+
+  /**
+   * Puts the prop in the hand each frame, after the pose: its grip in the
+   * palm (past the wrist along the forearm), a baton or a furled umbrella
+   * along the line of the fist, a little forward; an open umbrella held up
+   * before the chest, the right forearm raised, the shaft straight up.
+   */
+  private carry(prop: THREE.Object3D): void {
+    const hand = this.bone("hand_r");
+    const fore = this.bone("lowerarm_r");
+    const upper = this.bone("upperarm_r");
+    const open = prop.getObjectByName("open");
+    const up = !!open?.visible && this.pose !== "sit";
+    const h = this.heading;
+    const fwd = HELD_V[0].set(Math.sin(h), 0, Math.cos(h));
+    const right = HELD_V[1].set(-Math.cos(h), 0, Math.sin(h));
+    if (up && upper && fore && hand) {
+      // The arm up: the upper arm down by his side, a little forward; the
+      // forearm across and up to the chest.
+      aim(
+        upper,
+        fore,
+        HELD_V[2]
+          .set(0, -1, 0)
+          .addScaledVector(fwd, 0.35)
+          .addScaledVector(right, 0.12),
+      );
+      aim(
+        fore,
+        hand,
+        HELD_V[2]
+          .copy(fwd)
+          .multiplyScalar(0.8)
+          .addScaledVector(UP_V, 0.55)
+          .addScaledVector(right, -0.3),
+      );
+    }
+    if (!hand || !fore) {
+      prop.position.set(0.2, 0.9, 0.1);
+      prop.quaternion.identity();
+      return;
+    }
+    const scale = this.look.height ?? 1;
+    const wrist = hand.getWorldPosition(HELD_V[3]);
+    const elbow = fore.getWorldPosition(HELD_V[4]);
+    const along = HELD_V[5].subVectors(wrist, elbow).normalize();
+    const grip = HELD_V[6].copy(wrist).addScaledVector(along, 0.08 * scale);
+    // Which way the prop's -y runs, in the world.
+    const axis = HELD_V[7];
+    if (up) axis.set(0, -1, 0);
+    else if (prop.name === "held:baton")
+      axis.copy(along).multiplyScalar(0.55).addScaledVector(fwd, 0.85);
+    else if (prop.name === "held:umbrella")
+      axis.copy(along).addScaledVector(fwd, 0.3);
+    else axis.copy(along);
+    axis.normalize();
+    // A frame with -y along the axis and z as near his forward as it goes.
+    const yAxis = HELD_V[8].copy(axis).negate();
+    const zAxis = HELD_V[9].copy(fwd).addScaledVector(yAxis, -fwd.dot(yAxis));
+    if (zAxis.lengthSq() < 1e-6) zAxis.copy(right);
+    zAxis.normalize();
+    const xAxis = HELD_V[10].crossVectors(yAxis, zAxis).normalize();
+    HELD_M.makeBasis(xAxis, yAxis, zAxis);
+    HELD_Q.setFromRotationMatrix(HELD_M);
+    // Into the person's own space.
+    this.root.updateMatrixWorld();
+    prop.position.copy(this.root.worldToLocal(grip));
+    this.root.getWorldQuaternion(HELD_Q2);
+    prop.quaternion.copy(HELD_Q2.invert().multiply(HELD_Q));
+    prop.scale.setScalar(scale);
+  }
+
+  /**
+   * Turns towards a heading (standing), at most `rate` radians a second and
+   * easing in at the end; true once facing it.
+   */
   private turnTowards(h: number, dt: number, rate: number): boolean {
     let diff = h - this.heading;
     diff = Math.atan2(Math.sin(diff), Math.cos(diff));
@@ -1070,9 +1424,47 @@ export class Person {
       this.root.rotation.y = h;
       return true;
     }
-    this.heading += diff * Math.min(1, dt * rate);
+    const step = Math.min(Math.abs(diff) * Math.min(1, dt * 8), rate * dt);
+    this.heading += Math.sign(diff) * step;
     this.root.rotation.y = this.heading;
     return false;
+  }
+
+  /**
+   * BFIX (r23): the walk and the run over the pose, by pace: none standing,
+   * the walk coming in as they set off, the run taking over above a brisk
+   * walk; both played to the stride (the cycle moves on as far as they've
+   * gone), so a planted foot stays where it's put at any pace, and the two
+   * keep in step while they blend.
+   */
+  private blendGait(dt: number): void {
+    const v = this.speed;
+    const walk = this.actions.get("walk");
+    const run = this.actions.get("run");
+    const sw = this.strides.walk;
+    const sr = run ? this.strides.run : null;
+    const on = THREE.MathUtils.smoothstep(v, 0.03, 0.45);
+    const runShare = sr ? THREE.MathUtils.smoothstep(v, 1.6, 3.4) : 0;
+    const k = 1 - Math.exp(-dt * 14);
+    this.gaitMix.walk += (on * (1 - runShare) - this.gaitMix.walk) * k;
+    this.gaitMix.run += (on * runShare - this.gaitMix.run) * k;
+    if (this.gaitMix.walk < 1e-3 && on === 0) this.gaitMix.walk = 0;
+    if (this.gaitMix.run < 1e-3 && runShare * on === 0) this.gaitMix.run = 0;
+    // The cycle moves on by the ground covered, over the stride.
+    const stride = sw
+      ? sw.length + ((sr?.length ?? sw.length) - sw.length) * runShare
+      : 1.2;
+    this.phase = (this.phase + (v * dt) / stride) % 1;
+    if (walk && sw) walk.time = ((this.phase + sw.lead) % 1) * sw.duration;
+    if (run && sr) run.time = ((this.phase + sr.lead) % 1) * sr.duration;
+    if (walk) walk.weight = this.gaitMix.walk;
+    if (run) run.weight = this.gaitMix.run;
+    // The pose underneath gives way.
+    const rest = Math.max(0, 1 - this.gaitMix.walk - this.gaitMix.run);
+    for (const [name, a] of this.actions) {
+      if (name === "walk" || name === "run" || GESTURES.has(name)) continue;
+      a.weight = rest;
+    }
   }
 
   dispose(): void {

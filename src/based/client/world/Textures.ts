@@ -591,6 +591,120 @@ export function posterTexture(
   return t;
 }
 
+/** BFIX (r23): a poster on a Morris column, from the place's data. */
+export interface MorrisPoster {
+  text: string;
+  /** "face": the party's poster (as on the walls); "bill": words alone. */
+  style?: "face" | "bill";
+  sub?: string;
+  seed?: number;
+  /** Paper and ink of a bill. */
+  paper?: string;
+  ink?: string;
+}
+
+/**
+ * BFIX (r23): the band of a Morris column, all the way round (u round it,
+ * v up it), pasted over and over: the posters in the order given, each
+ * pasted where the last left off and a little over it, oldest first, so
+ * where one is torn the one underneath shows. Old paste and grime between.
+ */
+export function morrisTexture(
+  posters: MorrisPoster[],
+  seed: number,
+): THREE.CanvasTexture {
+  const W = 1024;
+  const H = 640;
+  const [c, g] = canvas(W, H);
+  const r = rng(seed * 7919 + 13);
+  // The paste of years: a dun ground, scraps of old bills.
+  g.fillStyle = "#8c7f69";
+  g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 40; i++) {
+    g.fillStyle = ["#a89c84", "#6f6555", "#b9ab8e", "#7a5d48"][i % 4];
+    g.globalAlpha = 0.35 + r() * 0.4;
+    g.fillRect(r() * W, r() * H, 40 + r() * 160, 30 + r() * 120);
+  }
+  g.globalAlpha = 1;
+  // Posters round the band in two tiers, each the size of the ones on the
+  // walls (0.8 by 1.15 m: the band is 4 m round and 2.5 m tall), pasted a
+  // step round from the last and over its edge.
+  const per = Math.max(1, Math.ceil(posters.length / 2));
+  const step = W / per;
+  posters.forEach((p, i) => {
+    const tier = i % 2;
+    const ph = H * 0.46 * (0.94 + r() * 0.1);
+    const pw = ph * 0.7;
+    const x =
+      (Math.floor(i / 2) * step + tier * step * 0.5 + (r() - 0.5) * 24 + W) % W;
+    const y = H * (tier === 0 ? 0.03 : 0.5) + (r() - 0.5) * 14;
+    const tilt = (r() - 0.5) * 0.05;
+    let art: HTMLCanvasElement;
+    if (p.style === "bill") {
+      const [bc, bg] = canvas(256, 360);
+      bg.fillStyle = p.paper ?? "#d8cfb8";
+      bg.fillRect(0, 0, 256, 360);
+      bg.fillStyle = p.ink ?? "#1d1d1d";
+      bg.textAlign = "center";
+      const words = p.text.split(" ");
+      // As few lines as fit, as large as fits.
+      const lines: string[] = [];
+      let size = 46;
+      bg.font = `900 ${size}px Impact, 'Arial Black', sans-serif`;
+      for (const w of words) {
+        const last = lines[lines.length - 1];
+        if (last && bg.measureText(`${last} ${w}`).width < 230)
+          lines[lines.length - 1] = `${last} ${w}`;
+        else lines.push(w);
+      }
+      while (size > 14 && lines.some((l) => bg.measureText(l).width > 236)) {
+        size -= 2;
+        bg.font = `900 ${size}px Impact, 'Arial Black', sans-serif`;
+      }
+      lines.forEach((l, k) => bg.fillText(l, 128, 70 + k * (size + 6)));
+      if (p.sub) {
+        bg.font = "italic 20px Georgia, serif";
+        bg.fillText(p.sub, 128, 320);
+      }
+      // Torn at the edges, stained.
+      bg.globalCompositeOperation = "destination-out";
+      const rb = rng(p.seed ?? i + 1);
+      for (let k = 0; k < 3; k++) {
+        const tx = rb() * 256;
+        bg.beginPath();
+        bg.moveTo(tx, 360);
+        bg.lineTo(tx + 10 + rb() * 40, 220 + rb() * 120);
+        bg.lineTo(tx + 30 + rb() * 40, 360);
+        bg.closePath();
+        bg.fill();
+      }
+      bg.globalCompositeOperation = "source-over";
+      blotches(bg, 256, 360, rb, 6, "rgba(60,45,30,0.5)", 0.35, 50);
+      art = bc;
+    } else {
+      const t = posterTexture(p.text, p.seed ?? i + 1);
+      art = t.image as HTMLCanvasElement;
+      t.dispose();
+    }
+    // Pasted (and wrapped round the seam).
+    for (const ox of [0, -W]) {
+      g.save();
+      g.translate(x + ox + pw / 2, y + ph / 2);
+      g.rotate(tilt);
+      g.drawImage(art, -pw / 2, -ph / 2, pw, ph);
+      g.restore();
+    }
+  });
+  // Rain and grime over everything.
+  blotches(g, W, H, r, 18, "rgba(30,25,18,0.55)", 0.4, 90);
+  speckle(g, W, H, r, 1600, "#1a140e", 0.3, 2);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
+}
+
 /** A soft round glow, for lamp halos and their reflections. */
 export function glowTexture(): THREE.CanvasTexture {
   const [c, g] = canvas(128, 128);

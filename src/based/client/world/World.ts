@@ -21,10 +21,12 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { NavGrid, P } from "../../engine/Nav";
+import { navFor, NavGrid, P } from "../../engine/Nav";
 import { Area, Hotspot, Mark, PlaceDef } from "../../engine/Place";
 import { areaAt, canSee, noticeRange } from "../../engine/Sight";
+import { Seat, seats } from "../../engine/Solid";
 import { ActorState } from "../../engine/Types";
+import { roundCorners } from "../../engine/Walk";
 import {
   startWeather,
   stepWeather,
@@ -74,6 +76,8 @@ export interface WorldEvents {
   /** A thing (or door) clicked; `seated` when he looks from his seat. */
   hotspot(id: string, opts: { seated: boolean; run: boolean }): void;
   floor(x: number, z: number, run: boolean): void;
+  /** BFIX (r23): a seat clicked (a stool, a chair), by its index in the place. */
+  seat?(index: number, run: boolean): void;
   person(id: string): void;
   hover(id: string | null): void;
 }
@@ -120,6 +124,9 @@ interface BuiltPlace {
   streaks: THREE.Object3D[];
   /** Invisible targets for the pointer, one per hotspot. */
   proxies: Map<string, THREE.Mesh>;
+  /** BFIX (r23): the seats (from the pieces), and a target for each. */
+  seats: Seat[];
+  seatProxies: THREE.Mesh[];
   /** Pieces seen only from in front (their local +z faces the viewer). */
   frontOnly: THREE.Object3D[];
   wet: WetMat[];
@@ -396,7 +403,8 @@ export class World {
       def,
       scene,
       group,
-      nav: new NavGrid(def.nav.bounds, def.nav.cell, def.nav.blocks),
+      // BFIX (r23): the walls, and every solid piece where it stands.
+      nav: navFor(def),
       lights: [],
       pool: null,
       ticks: [],
@@ -405,6 +413,8 @@ export class World {
       lamps: [],
       streaks: [],
       proxies: new Map(),
+      seats: seats(def),
+      seatProxies: [],
       frontOnly: [],
       wet: [],
       drips: null,
@@ -568,6 +578,19 @@ export class World {
       group.add(proxy);
       b.proxies.set(id, proxy);
     }
+    // BFIX (r23): a target for each seat, the size of it, for a click to
+    // sit him there.
+    b.seats.forEach((st, i) => {
+      const proxy = new THREE.Mesh(
+        new THREE.BoxGeometry(st.w * 0.9, st.y, st.d * 0.9),
+        new THREE.MeshBasicMaterial({ visible: false }),
+      );
+      proxy.position.set(st.x, st.y / 2, st.z);
+      if (st.facing !== null) proxy.rotation.y = st.facing;
+      proxy.userData.seat = i;
+      group.add(proxy);
+      b.seatProxies.push(proxy);
+    });
     // Reflections run from the light towards the viewer.
     const az = deg(def.camera.azimuth);
     for (const s of b.streaks) {
@@ -858,6 +881,7 @@ export class World {
       p.root.visible = false;
     }
     if (this.pingMesh) b.scene.add(this.pingMesh);
+    if (this.runMark) b.scene.add(this.runMark);
     b.scene.add(this.rain.group);
     this.rain.group.visible = b.outdoor;
     this.rain.setDry(def.areas.filter((a) => !a.rain).map((a) => a.rect));
@@ -972,9 +996,130 @@ export class World {
       const p = this.person(id, st.wear);
       if (!p) continue;
       p.root.visible = true;
-      p.place(this.markPos(m), deg(m.face ?? 0), st.pose as Pose, m.seat ?? 0);
+      if (st.pose === "sit") {
+        const spot = this.sitSpot(p, m);
+        p.place(spot.at, spot.face, "sit", spot.seat);
+      } else {
+        p.place(
+          this.markPos(m),
+          deg(m.face ?? 0),
+          st.pose as Pose,
+          m.seat ?? 0,
+        );
+      }
     }
     this.snapCamera = true;
+  }
+
+  /**
+   * BFIX (r23): where someone sits for a mark: on the seat beside it (a
+   * stool, a chair), their hips over its middle and at its height, facing
+   * the way a chair faces (or the mark's way, on a stool); otherwise at the
+   * mark, at its `seat` height.
+   */
+  private sitSpot(
+    p: Person,
+    m: Mark,
+  ): { at: THREE.Vector3; seat: number; face: number } {
+    const face = deg(m.face ?? 0);
+    const st = this.seatNear(m.at[0], m.at[1], 0.6);
+    if (!st) {
+      return { at: this.markPos(m), seat: m.seat ?? 0.46, face };
+    }
+    return this.onSeat(p, st, face);
+  }
+
+  private onSeat(
+    p: Person,
+    st: Seat,
+    face: number,
+  ): { at: THREE.Vector3; seat: number; face: number } {
+    const h = st.facing ?? face;
+    const back = p.seatFit().back;
+    return {
+      at: new THREE.Vector3(
+        st.x + Math.sin(h) * back,
+        0,
+        st.z + Math.cos(h) * back,
+      ),
+      seat: st.y,
+      face: h,
+    };
+  }
+
+  /** The seat nearest a point, within `within` metres. */
+  private seatNear(x: number, z: number, within: number): Seat | null {
+    let best: Seat | null = null;
+    let bd = within;
+    for (const st of this.place?.seats ?? []) {
+      const d = Math.hypot(st.x - x, st.z - z);
+      if (d < bd) {
+        bd = d;
+        best = st;
+      }
+    }
+    return best;
+  }
+
+  /** Whether someone (but `but`) is on or at a seat. */
+  private seatTaken(st: Seat, but: string): boolean {
+    for (const [id, p] of this.people) {
+      if (id === but || !p.root.visible) continue;
+      const at = p.root.position;
+      if (Math.hypot(at.x - st.x, at.z - st.z) < 0.5) return true;
+    }
+    return false;
+  }
+
+  /**
+   * BFIX (r23): walks him to a seat (as near as he can get, then onto it)
+   * and sits him down. False if it's taken or he can't.
+   */
+  sitHero(index: number, run = false): boolean {
+    const st = this.place?.seats[index];
+    const p = this.people.get(this.hero);
+    if (!st || !p || !p.root.visible || this.seatTaken(st, this.hero)) {
+      return false;
+    }
+    const face = st.facing ?? this.stoolFacing(st, p);
+    const spot = this.onSeat(p, st, face);
+    const pts = this.route(p, spot.at.x, spot.at.z) ?? [];
+    pts.push(spot.at);
+    this.heroGait = setGait(p, run ? "run" : "walk");
+    p.walk(
+      pts,
+      () => {
+        this.heroGait = setGait(p, "walk");
+        p.sitDown(spot.seat, spot.face);
+      },
+      spot.face,
+    );
+    this.ping(spot.at, run);
+    return true;
+  }
+
+  /**
+   * A stool faces whatever's beside it: the bar (the nearest solid thing's
+   * side), or, failing that, away from him.
+   */
+  private stoolFacing(st: Seat, p: Person): number {
+    const nav = this.place!.nav;
+    let best = Math.atan2(st.x - p.root.position.x, st.z - p.root.position.z);
+    let bd = Infinity;
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      for (let r = 0.3; r < 0.9; r += 0.1) {
+        if (!nav.walkable(st.x + Math.sin(a) * r, st.z + Math.cos(a) * r)) {
+          // Blocked by the stool itself near; count only beyond it.
+          if (r > 0.35 && r < bd) {
+            bd = r;
+            best = a;
+          }
+          break;
+        }
+      }
+    }
+    return best;
   }
 
   /** Someone moves: walks to their mark (or appears there), then poses. */
@@ -986,15 +1131,9 @@ export class World {
       const door = st?.place ? this.doorTo(st.place) : null;
       if (walk && door && this.place) {
         const at = this.markPos(door);
-        const path = this.place.nav.path(
-          [p0.root.position.x, p0.root.position.z],
-          [at.x, at.z],
-        );
-        if (path) {
-          p0.walk(
-            path.slice(1).map(([x, z]) => new THREE.Vector3(x, 0, z)),
-            () => (p0.root.visible = false),
-          );
+        const pts = this.route(p0, at.x, at.z);
+        if (pts) {
+          p0.walk(pts, () => (p0.root.visible = false));
           return;
         }
       }
@@ -1004,26 +1143,45 @@ export class World {
     const m = this.mark(st.at)!;
     const p = this.person(id, st.wear);
     if (!p) return;
-    const target = this.markPos(m);
-    const face = deg(m.face ?? 0);
+    // BFIX (r23): sitting, on the seat by the mark, at its height.
+    const spot =
+      st.pose === "sit"
+        ? this.sitSpot(p, m)
+        : { at: this.markPos(m), seat: m.seat ?? 0, face: deg(m.face ?? 0) };
+    const target = spot.at;
+    const face = spot.face;
     const finish = () => {
-      if (st.pose === "sit") p.sitDown(m.seat ?? 0.75, face);
+      if (st.pose === "sit") p.sitDown(spot.seat, face);
       else p.setPose(st.pose as Pose, 0, face);
     };
     if (!walk || !p.root.visible || !this.place) {
       p.root.visible = true;
-      p.place(target, face, st.pose as Pose, m.seat ?? 0);
+      p.place(target, face, st.pose as Pose, spot.seat);
       return;
     }
-    const from: P = [p.root.position.x, p.root.position.z];
-    const path = this.place.nav.path(from, [target.x, target.z]);
-    const pts = (path ?? [from, [target.x, target.z]]).map(
-      ([x, z]) => new THREE.Vector3(x, 0, z),
-    );
-    pts.shift();
-    // The last step is to the mark itself, even beside a stool.
+    const pts = this.route(p, target.x, target.z) ?? [];
+    // The last step is to the mark itself, even onto a stool.
     pts.push(target);
-    p.walk(pts, finish);
+    p.walk(pts, finish, face);
+  }
+
+  /**
+   * BFIX (r23): the way for someone to a point: round what's in the way,
+   * ending where he can get nearest it, its corners rounded where the floor
+   * allows; from a step off whatever he's in, if he's in something (just
+   * up from a stool). Null if he can go nowhere.
+   */
+  private route(p: Person, x: number, z: number): THREE.Vector3[] | null {
+    if (!this.place) return null;
+    const nav = this.place.nav;
+    const from: P = [p.root.position.x, p.root.position.z];
+    const path = nav.path(from, [x, z]);
+    if (!path) return null;
+    const moved = Math.hypot(path[0][0] - from[0], path[0][1] - from[1]) > 1e-6;
+    const pts = roundCorners(moved ? [from, ...path] : path, (a, b) =>
+      nav.clear(a, b),
+    );
+    return pts.slice(1).map(([px, pz]) => new THREE.Vector3(px, 0, pz));
   }
 
   /** The mark by the door that leads to a place, if this place has one. */
@@ -1115,20 +1273,16 @@ export class World {
     this.held = { kind, prop, own };
   }
 
-  /** Keeps a held prop at his hand (when the person doesn't carry it). */
+  /**
+   * Keeps a held prop at his hand (when the person doesn't carry it), and
+   * opens the umbrella over him outdoors (it hangs closed indoors).
+   * BFIX (r23): the people carry it themselves now (People.ts, setHeld),
+   * set right in the hand; a person rebuilt in another look takes it again.
+   */
   private carryHeld(): void {
     const h = this.held;
     const p = this.people.get(this.hero);
-    if (!h || h.own || !p || !this.place) return;
-    if (h.prop.parent !== this.place.scene) this.place.scene.add(h.prop);
-    h.prop.visible = p.root.visible;
-    if (!p.root.visible) return;
-    const hand = p.bone("hand_r");
-    if (hand) hand.getWorldPosition(this.v3);
-    else this.v3.copy(p.root.position).setY(0.95);
-    h.prop.position.copy(this.v3);
-    h.prop.rotation.set(0, p.heading, 0);
-    // The umbrella opens over him outdoors and hangs closed indoors.
+    if (!h || !p || !this.place) return;
     const open = h.prop.getObjectByName("open");
     const shut = h.prop.getObjectByName("shut");
     if (open && shut) {
@@ -1137,6 +1291,18 @@ export class World {
       open.visible = out && p.pose !== "sit";
       shut.visible = !open.visible;
     }
+    if (h.own) {
+      if (h.prop.parent !== p.root) h.own = holdProp(p, h.prop);
+      return;
+    }
+    if (h.prop.parent !== this.place.scene) this.place.scene.add(h.prop);
+    h.prop.visible = p.root.visible;
+    if (!p.root.visible) return;
+    const hand = p.bone("hand_r");
+    if (hand) hand.getWorldPosition(this.v3);
+    else this.v3.copy(p.root.position).setY(0.95);
+    h.prop.position.copy(this.v3);
+    h.prop.rotation.set(0, p.heading, 0);
   }
 
   /** Where he stands, which way he faces and how wet he is: for a save. */
@@ -1170,26 +1336,40 @@ export class World {
     return this.people.get(this.hero)?.pose === "sit";
   }
 
-  /** Walks (or runs) the hero to a point; false if he can't get there. */
-  walkHero(x: number, z: number, run = false, then?: () => void): boolean {
+  /**
+   * Walks (or runs) the hero to a point (or the nearest he can reach, if
+   * it's in something); false if he can go nowhere. BFIX (r23): `face`, a
+   * point he turns to as he arrives.
+   */
+  walkHero(
+    x: number,
+    z: number,
+    run = false,
+    then?: () => void,
+    face?: THREE.Vector3,
+  ): boolean {
     const p = this.people.get(this.hero);
     if (!p || !this.place || !p.root.visible) return false;
-    const path = this.place.nav.path(
-      [p.root.position.x, p.root.position.z],
-      [x, z],
-    );
-    if (!path) return false;
-    const pts = path.slice(1).map(([px, pz]) => new THREE.Vector3(px, 0, pz));
+    const pts = this.route(p, x, z);
+    if (!pts) return false;
     if (pts.length === 0) {
       then?.();
       return true;
     }
+    const end = pts[pts.length - 1];
+    const heading = face
+      ? Math.atan2(face.x - end.x, face.z - end.z)
+      : undefined;
     this.heroGait = setGait(p, run ? "run" : "walk");
-    p.walk(pts, () => {
-      this.heroGait = setGait(p, "walk");
-      then?.();
-    });
-    this.ping(pts[pts.length - 1], run);
+    p.walk(
+      pts,
+      () => {
+        this.heroGait = setGait(p, "walk");
+        then?.();
+      },
+      heading,
+    );
+    this.ping(end, run);
     return true;
   }
 
@@ -1216,7 +1396,7 @@ export class World {
           face();
           return;
         }
-        if (!this.walkHero(target.x, target.z, run, face)) face();
+        if (!this.walkHero(target.x, target.z, run, face, at)) face();
         return;
       }
     }
@@ -1237,7 +1417,7 @@ export class World {
       .normalize();
     const goal = flat.clone().addScaledVector(dir, 0.9);
     const free = this.place.nav.nearestFree(goal.x, goal.z);
-    if (!free || !this.walkHero(free[0], free[1], run, face)) face();
+    if (!free || !this.walkHero(free[0], free[1], run, face, at)) face();
   }
 
   /**
@@ -1264,7 +1444,7 @@ export class World {
     const gx = at.x + (p.root.position.x - at.x) * k;
     const gz = at.z + (p.root.position.z - at.z) * k;
     const free = this.place.nav.nearestFree(gx, gz);
-    if (!free || !this.walkHero(free[0], free[1], false, face)) face();
+    if (!free || !this.walkHero(free[0], free[1], false, face, at)) face();
     return true;
   }
 
@@ -1400,6 +1580,7 @@ export class World {
 
   private snapCamera = true;
   private rainLevel = 1;
+  private readonly camVel = new THREE.Vector3();
 
   private areaOf(x: number, z: number): Area | null {
     // Rooms before the street around them: the smallest that contains it.
@@ -1437,8 +1618,14 @@ export class World {
     const freeW = Math.max(1, cw - this.inset.right);
     this.wantSpan *= Math.max(1, 0.75 / (freeW / ch));
     const snap = this.snapCamera;
-    const k = snap ? 1 : 1 - Math.exp(-dt * 3);
-    this.camTarget.lerp(target, k);
+    // BFIX (r23): a critically damped follow (no overshoot, no jolt when
+    // he sets off or stops): r22's first-order lag jumped in acceleration.
+    if (snap) {
+      this.camTarget.copy(target);
+      this.camVel.set(0, 0, 0);
+    } else {
+      smoothDamp(this.camTarget, target, this.camVel, shot ? 0.6 : 0.32, dt);
+    }
     this.camSpan +=
       (this.wantSpan - this.camSpan) * (snap ? 1 : 1 - Math.exp(-dt * 2.5));
     this.snapCamera = false;
@@ -1530,6 +1717,7 @@ export class World {
     | { kind: "hotspot"; id: string }
     | { kind: "person"; id: string }
     | { kind: "floor"; x: number; z: number }
+    | { kind: "seat"; index: number }
     | null {
     if (!this.place) return null;
     this.ray.setFromCamera(this.pointer(e), this.camera);
@@ -1550,6 +1738,16 @@ export class World {
         return { kind: "person", id: hit.object.userData.personId as string };
       }
       return { kind: "hotspot", id: hit.object.userData.hotspot as string };
+    }
+    // BFIX (r23): a seat he could sit on (while he's free to walk).
+    if (this.walkable && this.events.seat) {
+      const seat = this.ray.intersectObjects(this.place.seatProxies, false)[0];
+      if (seat) {
+        const i = seat.object.userData.seat as number;
+        const st = this.place.seats[i];
+        if (st && !this.seatTaken(st, this.hero))
+          return { kind: "seat", index: i };
+      }
     }
     const at = this.ray.ray.intersectPlane(this.floorPlane, this.v3);
     if (at) return { kind: "floor", x: at.x, z: at.z };
@@ -1595,6 +1793,7 @@ export class World {
         run,
       });
     } else if (hit.kind === "person") this.events.person(hit.id);
+    else if (hit.kind === "seat") this.events.seat?.(hit.index, run);
     else this.events.floor(hit.x, hit.z, run);
   };
 
@@ -1631,7 +1830,9 @@ export class World {
         ? hit.id
         : hit?.kind === "person"
           ? `person:${hit.id}`
-          : null;
+          : hit?.kind === "seat"
+            ? `seat:${hit.index}`
+            : null;
     if (id !== this.hovered) {
       const was = this.hovered;
       this.hovered = id;
@@ -1674,26 +1875,47 @@ export class World {
     );
   };
 
-  /** A ring where he's been told to walk. */
+  /**
+   * A ring where he's been told to walk. BFIX (r23): running, a double ring,
+   * brighter, that beats until he gets there: the cue that he's running.
+   */
   private pingMesh: THREE.Mesh | null = null;
+  private pingRun: THREE.Mesh | null = null;
   private pingT = 0;
+  private pinging: "walk" | "run" = "walk";
+  private runMark: THREE.Mesh | null = null;
   private ping(at: THREE.Vector3, run: boolean): void {
     if (!this.pingMesh) {
-      this.pingMesh = new THREE.Mesh(
-        new THREE.RingGeometry(0.18, 0.24, 24),
-        new THREE.MeshBasicMaterial({
-          color: "#e8b36a",
-          transparent: true,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-        }),
-      );
-      this.pingMesh.rotation.x = -Math.PI / 2;
+      const ring = (r0: number, r1: number) => {
+        const m = new THREE.Mesh(
+          new THREE.RingGeometry(r0, r1, 32),
+          new THREE.MeshBasicMaterial({
+            color: "#e8b36a",
+            transparent: true,
+            depthWrite: false,
+            blending: THREE.AdditiveBlending,
+          }),
+        );
+        m.rotation.x = -Math.PI / 2;
+        return m;
+      };
+      this.pingMesh = ring(0.18, 0.24);
+      this.pingRun = ring(0.38, 0.44);
+      this.pingRun.rotation.x = 0;
+      this.pingRun.position.z = 0.001;
+      this.pingMesh.add(this.pingRun);
       this.place?.scene.add(this.pingMesh);
+      // Running, a warm ring at his feet that beats with his stride.
+      this.runMark = ring(0.32, 0.5);
+      (this.runMark.material as THREE.MeshBasicMaterial).color.set("#ffd28a");
+      this.runMark.visible = false;
+      this.place?.scene.add(this.runMark);
     }
     (this.pingMesh.material as THREE.MeshBasicMaterial).color.set(
-      run ? "#f0d08a" : "#e8b36a",
+      run ? "#ffdc96" : "#e8b36a",
     );
+    this.pingRun!.visible = run;
+    this.pinging = run ? "run" : "walk";
     this.pingMesh.position.set(at.x, 0.02, at.z);
     this.pingT = 1;
   }
@@ -1819,11 +2041,39 @@ export class World {
     }
     this.rain.update(this.time, this.camTarget);
     if (this.pingMesh) {
-      this.pingT = Math.max(0, this.pingT - dt * 1.4);
-      this.pingMesh.visible = this.pingT > 0;
-      this.pingMesh.scale.setScalar(1 + (1 - this.pingT) * 0.8);
-      (this.pingMesh.material as THREE.MeshBasicMaterial).opacity =
-        this.pingT * 0.8;
+      const hero = this.people.get(this.hero);
+      const running = !!hero?.walking && !!hero.running && hero.root.visible;
+      if (this.runMark) {
+        this.runMark.visible = running && hero!.speed > 0.5;
+        if (this.runMark.visible) {
+          const at = hero!.root.position;
+          this.runMark.position.set(at.x, 0.025, at.z);
+          const k = Math.min(1, hero!.speed / 3);
+          const beat = 0.5 + 0.5 * Math.sin(this.time * 14);
+          this.runMark.scale.setScalar(0.9 + 0.15 * beat);
+          (this.runMark.material as THREE.MeshBasicMaterial).opacity =
+            k * (0.22 + 0.18 * beat);
+        }
+      }
+      if (this.pinging === "run" && running) {
+        // Running: the double ring beats where he's going.
+        this.pingT = 1;
+        const beat = 0.5 + 0.5 * Math.sin(this.time * 9);
+        this.pingMesh.visible = true;
+        this.pingMesh.scale.setScalar(1 + 0.12 * beat);
+        (this.pingMesh.material as THREE.MeshBasicMaterial).opacity =
+          0.6 + 0.3 * beat;
+        (this.pingRun!.material as THREE.MeshBasicMaterial).opacity =
+          0.35 + 0.4 * (1 - beat);
+      } else {
+        this.pingT = Math.max(0, this.pingT - dt * 1.4);
+        this.pingMesh.visible = this.pingT > 0;
+        this.pingMesh.scale.setScalar(1 + (1 - this.pingT) * 0.8);
+        (this.pingMesh.material as THREE.MeshBasicMaterial).opacity =
+          this.pingT * 0.8;
+        (this.pingRun!.material as THREE.MeshBasicMaterial).opacity =
+          this.pingT * 0.6;
+      }
     }
     this.fade += (this.fadeTo - this.fade) * (1 - Math.exp(-dt * 7));
     if (this.fadeTo === 0 && this.fade < 0.03) {
@@ -1935,9 +2185,33 @@ export class World {
 }
 
 /**
- * BPLAY (r22): a prop for his right hand. Its origin is the hand; it faces
- * the way he does. The umbrella has two states, "open" (over his head) and
- * "shut" (hanging from his hand).
+ * BFIX (r23): moves `cur` towards `target` as a critically damped spring
+ * (`time` about how long it takes to catch up), keeping its velocity in
+ * `vel`: smooth to start, smooth to stop, never past.
+ */
+export function smoothDamp(
+  cur: THREE.Vector3,
+  target: THREE.Vector3,
+  vel: THREE.Vector3,
+  time: number,
+  dt: number,
+): void {
+  const omega = 2 / Math.max(1e-4, time);
+  const x = omega * dt;
+  const e = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x);
+  for (const k of ["x", "y", "z"] as const) {
+    const change = cur[k] - target[k];
+    const temp = (vel[k] + omega * change) * dt;
+    vel[k] = (vel[k] - omega * temp) * e;
+    cur[k] = target[k] + (change + temp) * e;
+  }
+}
+
+/**
+ * BPLAY (r22): a prop for his right hand. BFIX (r23): its grip (where the
+ * fist closes) is its origin, and it runs down its -y from there: a baton,
+ * a furled umbrella; the umbrella's "open" part runs up its +y, shaft and
+ * canopy over his head. The umbrella has two states, "open" and "shut".
  */
 function heldProp(kind: string): THREE.Group {
   const g = new THREE.Group();
@@ -1954,10 +2228,12 @@ function heldProp(kind: string): THREE.Group {
     const open = new THREE.Group();
     open.name = "open";
     const shaft = cast(
-      new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.0, 6), black),
+      new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.95, 6), black),
     );
-    shaft.position.set(-0.08, 0.5, 0.02);
-    shaft.rotation.z = 0.08;
+    shaft.position.y = 0.4;
+    const handle = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.12, 8), black),
+    );
     const canopy = cast(
       new THREE.Mesh(
         new THREE.ConeGeometry(0.62, 0.26, 10, 1, true),
@@ -1968,23 +2244,36 @@ function heldProp(kind: string): THREE.Group {
         }),
       ),
     );
-    canopy.position.set(-0.12, 1.08, 0.02);
-    open.add(shaft, canopy);
+    canopy.position.y = 0.86;
+    open.add(shaft, handle, canopy);
     const shut = new THREE.Group();
     shut.name = "shut";
-    const furled = cast(
-      new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.01, 0.85, 8), black),
+    // A crook handle in the fist, the furled length below it.
+    const crook = cast(
+      new THREE.Mesh(
+        new THREE.TorusGeometry(0.035, 0.009, 6, 12, Math.PI),
+        black,
+      ),
     );
-    furled.position.y = -0.42;
-    shut.add(furled);
+    crook.position.set(0.035, 0.0, 0);
+    crook.rotation.z = Math.PI;
+    const furled = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.008, 0.72, 8), black),
+    );
+    furled.position.y = -0.36;
+    shut.add(crook, furled);
     g.add(open, shut);
   } else if (kind === "baton") {
-    const b = cast(
-      new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.32, 8), black),
+    // The grip in the fist, the shaft out past the thumb.
+    const grip = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.12, 8), black),
     );
-    b.position.set(0, -0.12, 0.04);
-    b.rotation.x = 0.35;
-    g.add(b);
+    grip.position.y = 0.02;
+    const shaft = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.013, 0.26, 8), black),
+    );
+    shaft.position.y = -0.17;
+    g.add(grip, shaft);
   } else {
     // Something small in his hand: a dark shape the size of a paperback.
     const m = cast(
@@ -1993,7 +2282,7 @@ function heldProp(kind: string): THREE.Group {
         new THREE.MeshStandardMaterial({ color: "#2a2826", roughness: 0.7 }),
       ),
     );
-    m.position.set(0, -0.06, 0.03);
+    m.position.set(0, -0.05, 0.02);
     g.add(m);
   }
   return g;

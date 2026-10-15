@@ -8,7 +8,7 @@ import fs from "fs";
 import path from "path";
 import { describe, expect, test } from "vitest";
 import { ITEM_DRAWINGS } from "../../src/based/client/ItemArt";
-import { NavGrid } from "../../src/based/engine/Nav";
+import { navFor } from "../../src/based/engine/Nav";
 import { PlaceDef } from "../../src/based/engine/Place";
 import { chapterStart, StoryRun } from "../../src/based/engine/Runtime";
 import { parseChapter } from "../../src/based/engine/Script";
@@ -150,6 +150,7 @@ describe("the art and sound", () => {
       author: string;
       license: string;
       source: string;
+      changes?: string;
     }[];
   };
   const credited = new Set(credits.items.flatMap((c) => c.keys));
@@ -160,8 +161,15 @@ describe("the art and sound", () => {
     ).toEqual([]);
     for (const c of credits.items) {
       expect(c.author.length).toBeGreaterThan(0);
-      // BPEOPLE (r22): the owner's own models have no licence or link.
+      // BPEOPLE (r22): the owner's own models have no licence or link;
+      // BFIX (r23): nor have the props modelled for the game in Fusion.
       if (c.license === "Model supplied by the owner") continue;
+      if (c.license === "Original work") {
+        expect(c.changes).toContain(
+          "Modelled for Mr. Based in Autodesk Fusion",
+        );
+        continue;
+      }
       // BPLAY (r22): the typefaces are under font licences.
       expect(c.license).toMatch(
         c.what === "Typeface" ? /^(SIL Open Font|Apache)/ : /^CC/,
@@ -216,15 +224,21 @@ describe("the places", () => {
   test.each(Object.keys(PLACES))("%s: every mark can be walked to", (key) => {
     const p = PLACES[key];
     expect(p.key).toBe(key);
-    const nav = new NavGrid(p.nav.bounds, p.nav.cell, p.nav.blocks);
+    // BFIX (r23): the grid knows the furniture (Solid.ts), so a path ends
+    // at the mark itself, or (for a seat's mark, whose last step is onto
+    // the stool) beside it.
+    const nav = navFor(p);
     const marks = Object.entries(p.marks);
     expect(marks.length).toBeGreaterThan(0);
-    // From the first mark, every other mark has a path (the last step may
-    // be onto a stool, which is in the way of walking but not of sitting).
     const [, from] = marks[0];
     for (const [name, m] of marks) {
       const path = nav.path(from.at, m.at);
       expect(path, `${key}: no way to ${name}`).not.toBeNull();
+      const end = path![path!.length - 1];
+      const off = Math.hypot(end[0] - m.at[0], end[1] - m.at[1]);
+      expect(off, `${key}: ${name} is in something`).toBeLessThan(
+        m.seat ? 0.75 : 0.01,
+      );
     }
     // Every room that can be cut away is inside the walkable plan.
     for (const a of p.areas) {
@@ -463,7 +477,7 @@ describe("things to examine (r22 BPLAY)", () => {
   test("every one can be walked to", () => {
     for (const [place, ids] of looks) {
       const p = PLACES[place];
-      const nav = new NavGrid(p.nav.bounds, p.nav.cell, p.nav.blocks);
+      const nav = navFor(p);
       // From where he comes in at each door.
       const entries = Object.values(PLACES)
         .flatMap((o) => Object.values(o.hotspots))
@@ -484,10 +498,14 @@ describe("things to examine (r22 BPLAY)", () => {
           ).toBe(true);
         }
         for (const from of entries) {
+          // BFIX (r23): all the way there, not just as near as he can get.
+          const path = nav.path([from[0], from[1]], [goal[0], goal[1]]);
+          expect(path, `${place}.${id} from ${from}`).not.toBeNull();
+          const end = path![path!.length - 1];
           expect(
-            nav.path([from[0], from[1]], [goal[0], goal[1]]),
-            `${place}.${id} from ${from}`,
-          ).not.toBeNull();
+            Math.hypot(end[0] - goal[0], end[1] - goal[1]),
+            `${place}.${id} from ${from}: stops short`,
+          ).toBeLessThan(0.01);
         }
       }
     }

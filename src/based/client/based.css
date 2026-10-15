@@ -2469,6 +2469,8 @@ label.mb-skill {
 }
 .mb-lang-name {
   font-weight: 600;
+  /* BFIX (r23): "English (British)" on one line, even on a narrow phone. */
+  white-space: nowrap;
 }
 .mb-lang-level {
   font-family: var(--mb-type);
@@ -2506,6 +2508,27 @@ label.mb-skill {
   cursor: default;
   border-color: rgba(29, 30, 35, 0.35);
   color: var(--mb-ink);
+}
+@media (max-width: 400px) {
+  .mb-lang-row,
+  .mb-sheet-langs > li {
+    gap: 2px 8px;
+    font-size: 14px;
+  }
+  .mb-lang-pts,
+  .mb-sheet-langs {
+    padding-left: 8px;
+  }
+  .mb-stepper.small {
+    gap: 5px;
+  }
+  .mb-stepper.small button {
+    width: 22px;
+    height: 22px;
+  }
+  .mb-lang-pips {
+    gap: 3px;
+  }
 }
 .mb-sheet-langs .mb-skill-from {
   grid-column: 1 / -1;

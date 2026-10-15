@@ -15,9 +15,13 @@ signs up), and is never read again.
 | `story/chapter-NN.story`         | One file per chapter, in the format below. **Server only.**                                         |
 | `places/<key>.json`              | The 3D places: the street, Le Vauban (bar and lobby), the Élysée. **Server only.**                  |
 | `models/*.glb`                   | The people (the owner's own models and CC0 bodies), their clips and the furniture. **Server only.** |
+| `models/fusion_props.glb`        | r23: the furniture, the street's furniture and the cars, modelled for the game in Fusion.           |
 | `art/*.webp`, `art/credits.json` | The graded pictures (portraits, memories, the photograph) and who made everything.                  |
 | `audio/*.mp3`                    | Ambient loops.                                                                                      |
 | `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart, saves, weather.                   |
+| `engine/Solid.ts`, `Props.ts`    | r23: what's solid in a place (from its pieces) and the props' footprints and seats.                 |
+| `engine/Walk.ts`                 | r23: how people move along a path (easing, rounded corners, turning).                               |
+| `client/world/Palette.ts`        | r23: the named materials of the Fusion props.                                                       |
 | `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.                         |
 | `client/world/`                  | The 3D world: the kit places are built from, the people, the weather, the look.                     |
 | `client/world/PeopleHooks.ts`    | What the world asks of a person: getting wet, running, a look, a prop in hand (r22 BPLAY).          |
@@ -606,7 +610,7 @@ each scene is in.
 
 `places/<key>.json` lists a place's pieces (floors, walls with windows and
 doors, the bar, the back bar, lamps, façades, signs, posters, furniture from
-`models/props.glb`...), its lights, the marks people stand at, the hotspots
+`models/fusion_props.glb` and `models/props.glb`...), its lights, the marks people stand at, the hotspots
 he can look at (on someone: `"on": {"who": "STRANGER", "bone": "hand_l"}`),
 camera shots, rooms (`inside` rooms have their near walls cut away while
 he's in them) and the floor plan for walking (`nav`). Words on signs and
@@ -668,8 +672,10 @@ The moped, the helmet on its mirror...
   chalkboard: `text`, `sub`), bollard, mitten, grate, bowl, postbox,
   litter, jar, matchbowl, frame, standjar, keyboard, machine, liftdoor,
   vase, clock, book, bell, tray (`size`, `color`), radio; and `box`,
-  `sign` and the props models. Put them in the floor plan's `blocks` if he
-  shouldn't walk through them.
+  `sign`, `morris` (r23) and the props models. Whatever stands on the
+  floor is solid by itself (r23, below); `"solid": false` lets him walk
+  through a piece, `"solid": true` makes one the kit doesn't know solid
+  (a box of its `size`).
 - They cost next to nothing to draw: a small piece's colours are painted
   into its shape and every small piece in a place shares two materials
   (matte and metal), so the place's static merge draws them all in two
@@ -684,8 +690,11 @@ Pictures go in `art/` as WebP (≤ 250 KB, graded to match: cool shadows, amber
 highlights), backdrops 1600×900, portraits 720×900, and every one is listed in
 `art/credits.json` with its author, licence and source. So is every model in
 `models/` (CC0: Quaternius' base characters and animations, Kenney's
-furniture and cars), compressed with meshopt and under 400 KB each (a
-character's own model, up to 1 MB: see People and models). Only CC0, public
+furniture still used: the plants, the doormat, the palace's chair),
+compressed with meshopt and under 400 KB each (a character's own model, up
+to 1 MB: see People and models). r23: the rest of the furniture, the
+street's and the cars were modelled for the game in Autodesk Fusion
+(`fusion_props.glb`, credited as original work). Only CC0, public
 domain, CC BY or CC BY-SA (credited), or the Unsplash or Pexels licence. Never
 a real public figure, and never a real person's face for a villain or a
 politician: those are shown from behind, in shadow or in silhouette. Every
@@ -867,7 +876,8 @@ On each person, `setWetness(k)` (0 dry to 1 soaked: clothes and hair
 darker and glossier, cheaply, on the person's own material; on a model
 with a wetness mask, by the mask) and
 `setGait("walk" | "run")` (running lasts until they next arrive; walking
-is 1.15 m/s, running 2.6 m/s, with the jog clip).
+is 1.15 m/s, running 5.2 m/s since r23, with the jog clip). r23: people
+implement `setHeld` too: the prop sits in their right hand (below).
 
 ### Where the people come from
 
@@ -883,3 +893,85 @@ skeleton, simplifying everything but the face (about 5,300 triangles a
 body), and packing every texture into one 1024 × 512 atlas (skin, hair,
 eyes, and plain swatches whose roughness makes wool, cotton, silk, leather,
 felt or metal), then meshopt. They are 146 KB and 164 KB; the clips 185 KB.
+
+## The furniture and the street, modelled in Fusion (r23)
+
+The bar stools, the bentwood chairs, the marble bistro tables, the club
+armchair, the coat stand, the Paris bench, the street bin, the street
+lamps, the Morris column, the parked cars and the police van were modelled
+for Mr. Based in the owner's Autodesk Fusion (OBJ, centimetres, a group
+per material), then made small for the game in Node: each material's part
+welded, simplified with meshoptimizer to an error found so the prop keeps
+to its budget (1,300 triangles for a table to 5,200 for the van; sub-
+millimetre to 3 mm off the original), given creased normals (hard edges
+crisp, curves round), the Morris column's poster band cylindrical UVs;
+then glTF-Transform (dedup, quantize, meshopt): `models/fusion_props.glb`,
+276 KB, 27,000 triangles in all. They take Kenney's names (`stoolBar`,
+`chair`, `tableRound`, `loungeChair`, `coatRackStanding`, `bench`,
+`trashcan`, `sedan`, `van`; new: `lamppost`, `morrisColumn`), so a place
+names them as before; made to size, so a place gives no `height`.
+
+- **Materials** come from the meshes' names: the palette in
+  `client/world/Palette.ts` (leather, wood, iron, brass, marble, rattan,
+  green iron, oak slats, the bin's bag, car paint, the van's white and its
+  stripes and light bar, glass, tyres, hubs, trim, lamps). One material
+  per name for every prop and place, so the static merge bakes eleven
+  stools into four draws. A place can recolour one (`"mats": { "paint":
+"#4a2e2c" }`, or `"tint"` for the paint): it keeps the palette's finish.
+- **The street lamps** (`lamppost`) are the Fusion post, its panes and
+  bulb lit, with the light, halo, cone and reflection hung at its lantern.
+- **The Morris column** (`morris`): `posters`, oldest first, pasted round
+  its band in two tiers, each `{ "text", "seed" }` (the party's poster,
+  as on the walls) or `{ "text", "style": "bill", "sub", "paper", "ink" }`
+  (words alone). Words live in the place's data, as on any sign.
+
+## Nothing walks through anything (r23)
+
+The walking grid is blocked wherever a piece stands (`engine/Solid.ts`):
+each props model by its footprint (`engine/Props.ts`, the hull of what a
+body could walk into, from the floor to head height, generated from the
+models; a test checks it against them), and the kit's own pieces by their
+size (the bar's counter and the back bar, boxes, the kiosk, the moped, the
+post box, the chalkboard, the cigarette machine, the umbrella stand, the
+coats on their stand, the lamp posts, the Morris column...). A cell is
+blocked if it comes within the piece's margin of it: 15 cm, or 10 cm for
+seats and tables (he slips between two stools to reach the bar). Flat
+things (rugs, puddles, footprints, glows, a drain) and anything up on a
+counter or a wall are walked over or under. The place's own `nav.blocks`
+are only its walls.
+
+- A click on something solid (or on a place walled off) walks him to the
+  nearest point he can reach.
+- A click on a free stool or chair walks him to it and sits him down;
+  seated, he reads the room as on the story's stools; a click on the
+  floor gets him up.
+- People sit on a seat at its height: each body's own seat height is
+  measured in the sitting clip (what rests on the seat: trousers, a skirt,
+  an apron), and a mark beside a seat puts them on it, hips over its
+  middle, facing the way a chair faces.
+
+## Walking and running (r23)
+
+- **The pace**: walking 1.15 m/s, running 5.2 m/s (`engine/Walk.ts`).
+- **The legs**: the walk and the jog are blended over the standing pose by
+  pace, and their cycle moves on by the ground covered over the stride
+  measured on each body, so a planted foot stays put at any pace (on the
+  owner's model the walk slid 11 per cent of the pace in r22, the run 137
+  per cent; now 2 to 4).
+- **The path**: corners rounded where the floor allows; the walker eases
+  up to pace and down to a stop exactly at the end, turns at most 5.5
+  radians a second (7 running), slows to a shuffle while turned away (so
+  he steps round instead of sliding sideways), and turns to what he came
+  to as he arrives.
+- **The camera** follows as a critically damped spring (no jolt starting
+  or stopping, never past him).
+- **Double-click** runs; a beating double ring where he's going says so.
+
+## Held things (r23)
+
+What he holds (the world's prop: the umbrella, the baton, a small thing)
+the person carries in the right hand: its grip in the palm (past the wrist
+along the forearm), a baton or a furled umbrella along the line of the
+fist and a little forward; under an open umbrella his forearm comes up
+before his chest and the shaft stands straight over his head. A prop's
+grip is its origin and it runs down its -y (`heldProp` in `World.ts`).

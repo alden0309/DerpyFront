@@ -11,23 +11,7 @@
     "cell": 0.25,
     "blocks": [
       [-24, 2.9, 24, 3.16],
-      [-24, 14.75, 24, 15.6],
-      [-21.4, 6.5, -16.6, 8.7],
-      [11.8, 5.75, 16.2, 7.45],
-      [-8.2, 10.6, -3.8, 12.2],
-      [11.2, 13.35, 12.8, 13.95],
-      [-3.3, 13.2, -2.7, 13.8],
-      [-15.18, 4.92, -14.82, 5.279999999999999],
-      [-2.18, 4.92, -1.82, 5.279999999999999],
-      [10.82, 4.92, 11.18, 5.279999999999999],
-      [-8.18, 12.72, -7.82, 13.08],
-      [5.82, 12.72, 6.18, 13.08],
-      [18.82, 12.72, 19.18, 13.08],
-      [-0.95, 3.5, -0.25, 4.1],
-      [16.25, 4.75, 16.75, 5.15],
-      [-15.45, 13.05, -13.55, 14.35],
-      [5.85, 4.95, 7.35, 5.4],
-      [-11.12, 12.53, -10.88, 12.77]
+      [-24, 14.75, 24, 15.6]
     ]
   },
   "areas": [
@@ -60,15 +44,15 @@
       "face": 180
     },
     "see_van": {
-      "at": [-15.8, 5.2],
-      "face": 270
+      "at": [-17.6, 8.6],
+      "face": 180
     },
     "watcher_spot": {
       "at": [2.4, 14.15],
       "face": 180
     },
     "watcher_gone": {
-      "at": [-14, 13.6],
+      "at": [-12.9, 13.6],
       "face": 270
     },
     "street_cross": {
@@ -124,10 +108,15 @@
       "at": [-3, 12.8]
     },
     "see_car": {
-      "at": [14, 8.05]
+      "at": [15.1, 8.05],
+      "face": 180
     },
     "see_window": {
       "at": [17.6, 4.55]
+    },
+    "see_morris": {
+      "at": [16.4, 12.35],
+      "face": 0
     }
   },
   "hotspots": {
@@ -138,8 +127,8 @@
       "near": 4
     },
     "van": {
-      "at": [-19, 1.1, 7.6],
-      "r": 1.6,
+      "at": [-17.6, 1.45, 7.95],
+      "r": 1.2,
       "stand": "see_van",
       "near": 4.5
     },
@@ -247,7 +236,7 @@
       "stand": "see_bin"
     },
     "press_car": {
-      "at": [14, 1.2, 6.6],
+      "at": [15.0, 1.25, 6.72],
       "r": 0.6,
       "stand": "see_car"
     },
@@ -256,6 +245,12 @@
       "r": 0.6,
       "stand": "see_window",
       "near": 5
+    },
+    "morris": {
+      "at": [16.4, 1.6, 12.95],
+      "r": 0.85,
+      "stand": "see_morris",
+      "near": 4.5
     }
   },
   "shots": {
@@ -475,48 +470,38 @@
     },
     {
       "kind": "model",
-      "at": [-19.0, 0, 7.6],
+      "at": [-19.0, 0, 6.8],
       "model": "van",
-      "height": 2.3,
-      "rot": 90,
-      "tint": "#3a4a78",
-      "lightbar": true
+      "rot": 90
     },
     {
       "kind": "model",
-      "at": [14.0, 0, 6.6],
+      "at": [14.0, 0, 6.72],
       "model": "sedan",
-      "height": 1.45,
       "rot": 90,
-      "tint": "#7a7068"
-    },
-    {
-      "kind": "model",
-      "at": [-6.0, 0, 11.4],
-      "model": "sedan",
-      "height": 1.45,
-      "rot": -90,
-      "tint": "#4a3a3a"
-    },
-    {
-      "kind": "model",
-      "at": [12.0, 0, 13.7],
-      "model": "bench",
-      "height": 0.85,
-      "rot": 0,
       "mats": {
-        "wood": "#2b2018",
-        "metal": "iron"
+        "paint": "#6d665e"
       }
+    },
+    {
+      "kind": "model",
+      "at": [-6.0, 0, 11.28],
+      "model": "sedan",
+      "rot": 90,
+      "mats": {
+        "paint": "#4a2e2c"
+      }
+    },
+    {
+      "kind": "model",
+      "at": [12.0, 0, 13.75],
+      "model": "bench",
+      "rot": 180
     },
     {
       "kind": "model",
       "at": [-3.0, 0, 13.5],
-      "model": "trashcan",
-      "height": 0.9,
-      "mats": {
-        "metal": "#1d2a22"
-      }
+      "model": "trashcan"
     },
     {
       "kind": "shopfront",
@@ -750,6 +735,71 @@
     {
       "kind": "litter",
       "at": [1.7, 0, 14.45]
+    },
+    {
+      "kind": "morris",
+      "id": "morris",
+      "at": [16.4, 0, 13.6],
+      "rot": 200,
+      "seed": 5,
+      "posters": [
+        {
+          "text": "MARCHAL",
+          "seed": 21
+        },
+        {
+          "text": "THÉÂTRE DES QUATRE-VENTS RELÂCHE",
+          "style": "bill",
+          "sub": "jusqu’à nouvel ordre",
+          "seed": 22,
+          "paper": "#d9c9a2",
+          "ink": "#5a1414"
+        },
+        {
+          "text": "MARCHAL",
+          "seed": 23
+        },
+        {
+          "text": "TENIR PAROLE",
+          "seed": 24
+        },
+        {
+          "text": "TENIR PAROLE",
+          "seed": 25
+        },
+        {
+          "text": "LES VOLONTAIRES DU SERMENT RECRUTENT",
+          "style": "bill",
+          "sub": "Ils ont tenu parole. Et vous ?",
+          "seed": 26,
+          "paper": "#e3dccb",
+          "ink": "#1b2a48"
+        },
+        {
+          "text": "TENIR PAROLE",
+          "seed": 27
+        },
+        {
+          "text": "RÉCITAL DU 14 ANNULÉ",
+          "style": "bill",
+          "sub": "remboursement au guichet",
+          "seed": 28,
+          "paper": "#c9d3cf",
+          "ink": "#202020"
+        },
+        {
+          "text": "TENIR PAROLE",
+          "seed": 29
+        },
+        {
+          "text": "LE SERMENT",
+          "style": "bill",
+          "sub": "Tenir parole",
+          "seed": 30,
+          "paper": "#1b2a48",
+          "ink": "#d9c9a2"
+        }
+      ]
     }
   ],
   "lights": [

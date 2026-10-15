@@ -274,6 +274,8 @@ export class BasedPlayer extends LitElement {
           {
             hotspot: (id, o) => this.clickThing(id, o.seated, o.run),
             floor: (x, z, run) => this.clickFloor(x, z, run),
+            // BFIX (r23): a stool or a chair: he goes and sits on it.
+            seat: (i, run) => this.clickSeat(i, run),
             person: (id) => this.clickPerson(id),
             hover: (id) => (this.hover = id),
           },
@@ -1296,6 +1298,25 @@ export class BasedPlayer extends LitElement {
       return;
     }
     // Anywhere else, a click on the world moves the story on.
+    if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
+      this.advance();
+    }
+  }
+
+  /**
+   * BFIX (r23): a seat clicked while he's free: he walks over and sits
+   * (and reads the room from it, as on the story's stools). Otherwise as
+   * a click on the floor.
+   */
+  private clickSeat(index: number, run: boolean): void {
+    const w = this.world;
+    if (!w || this.overlay) return;
+    if (w.walkable && !this.busy) {
+      this.walkTicket++;
+      w.sitHero(index, run);
+      return;
+    }
+    const b = this.beat;
     if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
       this.advance();
     }

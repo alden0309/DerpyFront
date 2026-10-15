@@ -8,9 +8,12 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Item } from "../../engine/Place";
+import { PALETTE, paletteMaterial, paletteName } from "./Palette";
 import {
   facadeWindows,
   glowTexture,
+  MorrisPoster,
+  morrisTexture,
   posterTexture,
   streakTexture,
   SurfaceBook,
@@ -942,37 +945,60 @@ function lamp(item: Item, k: KitContext): Built {
   };
 }
 
-/** A Paris street lamp: a green-black post, a lantern, a pool of sodium. */
+/**
+ * A Paris street lamp: a green-black post, a lantern, a pool of sodium.
+ * BFIX (r23): the post and lantern are the Fusion model (its panes and bulb
+ * lit), the light, the halo, the cone in the rain and the reflection hung
+ * at its lantern; without the model, the old procedural post at `h`.
+ */
 function lamppost(item: Item, k: KitContext): Built {
-  const h = num(item.h, 4.2);
+  let h = num(item.h, 4.2);
   const g = new THREE.Group();
-  const post = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.05, 0.09, h, 10),
-    mat("#16201b"),
-  );
-  post.position.y = h / 2;
-  post.castShadow = true;
-  g.add(post);
-  const foot = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.14, 0.17, 0.5, 10),
-    mat("#16201b"),
-  );
-  foot.position.y = 0.25;
-  g.add(foot);
-  const lantern = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.16, 0.1, 0.4, 6),
-    emissive("#ffcf8a", 2.4),
-  );
-  lantern.position.y = h + 0.12;
-  g.add(lantern);
-  const cap = new THREE.Mesh(
-    new THREE.ConeGeometry(0.22, 0.2, 6),
-    mat("#16201b"),
-  );
-  cap.position.y = h + 0.42;
-  g.add(cap);
+  const src = k.models.get("lamppost");
+  if (src) {
+    const o = styled(src, item);
+    g.add(o);
+    // The lantern: where its lit panes are.
+    o.updateMatrixWorld(true);
+    const lantern = new THREE.Box3();
+    o.traverse((x) => {
+      const m = x as THREE.Mesh;
+      const name = (m.material as THREE.Material | undefined)?.name;
+      if (m.isMesh && (name === "glass_lamp" || name === "lamp_bulb")) {
+        lantern.expandByObject(m);
+      }
+    });
+    if (!lantern.isEmpty()) h = lantern.getCenter(new THREE.Vector3()).y;
+  } else {
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.09, h, 10),
+      mat("#16201b"),
+    );
+    post.position.y = h / 2;
+    post.castShadow = true;
+    g.add(post);
+    const foot = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.17, 0.5, 10),
+      mat("#16201b"),
+    );
+    foot.position.y = 0.25;
+    g.add(foot);
+    const lantern = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.16, 0.1, 0.4, 6),
+      emissive("#ffcf8a", 2.4),
+    );
+    lantern.position.y = h + 0.12;
+    g.add(lantern);
+    const cap = new THREE.Mesh(
+      new THREE.ConeGeometry(0.22, 0.2, 6),
+      mat("#16201b"),
+    );
+    cap.position.y = h + 0.42;
+    g.add(cap);
+    h += 0.1;
+  }
   const hl = halo("#ffb35c", 2.6, 0.9);
-  hl.position.y = h + 0.1;
+  hl.position.y = h;
   g.add(hl);
   // A cone of light in the rain.
   const cone = new THREE.Mesh(
@@ -989,7 +1015,7 @@ function lamppost(item: Item, k: KitContext): Built {
     l.distance,
     l.shadow && k.shadows,
   );
-  pl.position.y = h - 0.1;
+  pl.position.y = h - 0.2;
   g.add(pl);
   const reflect = streak("#ffb35c", 0.9, 3.2, 0.55);
   reflect.position.set(0, 0.02, 0);
@@ -1968,51 +1994,80 @@ function bplaySmall(item: Item, g: THREE.Group): void {
  */
 const swapCache = new Map<string, THREE.Material>();
 
-/** One of Kenney's models, scaled to a height and restyled. */
-function model(item: Item, k: KitContext): Built {
-  const src = k.models.get(str(item.model, ""));
-  if (!src) return { object: new THREE.Group(), lights: [], lamps: [] };
+/**
+ * A model's material, restyled for the night. BFIX (r23): the props modelled
+ * in Fusion name their materials (leather, brass, glass...) and take the
+ * palette's (Palette.ts), recoloured if the place says so (`mats`, or
+ * `tint` for a car's paint); Kenney's few that are left are darkened as
+ * before.
+ */
+function restyle(
+  old: THREE.Material,
+  recolor: Record<string, string>,
+  tint: string | null,
+): THREE.Material {
+  const name = paletteName(old.name);
+  if (name) {
+    const want = recolor[name] ?? (name === "paint" ? tint : null);
+    if (!want) return paletteMaterial(name);
+    if (PALETTE[want]) return paletteMaterial(want);
+    // A named colour ("oak_dark") or a CSS one, in this material's finish.
+    return paletteMaterial(name, COLORS[want]?.color ?? want);
+  }
+  const want = recolor[old.name];
+  if (want) return mat(want);
+  const t = tint ? new THREE.Color(tint) : null;
+  const key = `${old.uuid}|${t?.getHexString() ?? ""}`;
+  const hit = swapCache.get(key);
+  if (hit) return hit;
+  const o2 = old as THREE.MeshStandardMaterial;
+  let n: THREE.MeshStandardMaterial;
+  if (o2.map) {
+    n = new THREE.MeshStandardMaterial({
+      map: o2.map,
+      roughness: 0.45,
+      metalness: 0.2,
+      color: t ?? new THREE.Color("#ffffff"),
+    });
+  } else {
+    // Kenney's flat colours, darkened and given a little gloss.
+    const c = (o2.color ?? new THREE.Color("#888"))
+      .clone()
+      .multiplyScalar(0.55);
+    n = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
+  }
+  n.userData.shared = true;
+  if (n.map) n.map.userData.shared = true;
+  swapCache.set(key, n);
+  return n;
+}
+
+/** A copy of a props model, every mesh restyled, casting shadows. */
+function styled(src: THREE.Object3D, item: Item): THREE.Object3D {
   const o = src.clone(true);
   const recolor = (item.mats ?? {}) as Record<string, string>;
-  const tint =
-    typeof item.tint === "string" ? new THREE.Color(item.tint) : null;
+  const tint = typeof item.tint === "string" ? item.tint : null;
   o.traverse((x) => {
     const m = x as THREE.Mesh;
     if (!m.isMesh) return;
     m.castShadow = item.shadow !== false;
     m.receiveShadow = true;
-    const swap = (old: THREE.Material): THREE.Material => {
-      const name = old.name;
-      const want = recolor[name];
-      if (want) return mat(want);
-      const key = `${old.uuid}|${tint?.getHexString() ?? ""}`;
-      const hit = swapCache.get(key);
-      if (hit) return hit;
-      const o2 = old as THREE.MeshStandardMaterial;
-      let n: THREE.MeshStandardMaterial;
-      if (o2.map) {
-        n = new THREE.MeshStandardMaterial({
-          map: o2.map,
-          roughness: 0.45,
-          metalness: 0.2,
-          color: tint ?? new THREE.Color("#ffffff"),
-        });
-      } else {
-        // Kenney's flat colours, darkened and given a little gloss.
-        const c = (o2.color ?? new THREE.Color("#888"))
-          .clone()
-          .multiplyScalar(0.55);
-        n = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
-      }
-      n.userData.shared = true;
-      if (n.map) n.map.userData.shared = true;
-      swapCache.set(key, n);
-      return n;
-    };
     m.material = Array.isArray(m.material)
-      ? m.material.map(swap)
-      : swap(m.material);
+      ? m.material.map((y) => restyle(y, recolor, tint))
+      : restyle(m.material, recolor, tint);
   });
+  return o;
+}
+
+/**
+ * A props model, stood on the floor and centred. BFIX (r23): the Fusion
+ * props are made to size (metres), so they're drawn as they are unless the
+ * place gives a `height` (or a `scale`); Kenney's are scaled to `height`.
+ */
+function model(item: Item, k: KitContext): Built {
+  const src = k.models.get(str(item.model, ""));
+  if (!src) return { object: new THREE.Group(), lights: [], lamps: [] };
+  const o = styled(src, item);
   const bbox = new THREE.Box3().setFromObject(o);
   const size = bbox.getSize(new THREE.Vector3());
   const want = num(item.height, 0);
@@ -2023,14 +2078,46 @@ function model(item: Item, k: KitContext): Built {
   o.position.set(-c2.x, -bbox.min.y * sc, -c2.z);
   const g = new THREE.Group();
   g.add(o);
-  const lights: PieceLight[] = [];
-  if (item.lightbar) {
-    // A police van's lights, off: just the bar on the roof.
-    const lb = box(size.x * sc * 0.5, 0.08, 0.25, mat("#1b2f6e"), false);
-    lb.position.set(0, size.y * sc + 0.04, 0);
-    g.add(lb);
+  return { object: g, lights: [], lamps: [] };
+}
+
+/**
+ * BFIX (r23): a Morris column (the Fusion model), its band pasted with the
+ * place's posters, layer over layer (`posters`, oldest first: each a
+ * `text`, a `seed`, and `style` "face" for the party's poster or "bill" for
+ * words alone, with `sub`). Without the model, a plain drum.
+ */
+function morris(item: Item, k: KitContext): Built {
+  const src = k.models.get("morrisColumn");
+  const posters = Array.isArray(item.posters)
+    ? (item.posters as MorrisPoster[])
+    : [];
+  const tex = morrisTexture(posters, num(item.seed, 1));
+  const band = new THREE.MeshStandardMaterial({
+    map: tex,
+    roughness: 0.75,
+    metalness: 0,
+  });
+  band.name = "poster";
+  const g = new THREE.Group();
+  if (!src) {
+    const drum = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.6, 0.6, 2.4, 24, 1, true),
+      band,
+    );
+    drum.position.y = 1.5;
+    g.add(drum);
+    return { object: g, lights: [], lamps: [] };
   }
-  return { object: g, lights, lamps: [] };
+  const o = styled(src, item);
+  o.traverse((x) => {
+    const m = x as THREE.Mesh;
+    if (m.isMesh && (m.material as THREE.Material).name === "poster") {
+      m.material = band;
+    }
+  });
+  g.add(o);
+  return { object: g, lights: [], lamps: [] };
 }
 
 /** Builds one piece of a place. */
@@ -2081,6 +2168,9 @@ export function buildItem(item: Item, k: KitContext): Built {
       break;
     case "model":
       b = model(item, k);
+      break;
+    case "morris":
+      b = morris(item, k);
       break;
     default:
       b = small(item);

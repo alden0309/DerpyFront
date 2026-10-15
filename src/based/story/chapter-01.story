@@ -217,6 +217,23 @@ The leaflet was turning to pulp. The young man's hand was still on his heart.
 // Nothing lists them: they glint when he's near enough to notice. Some
 // change with the weather or the hour; some give him something.
 
+== morris "A Morris column"
+@on look morris once
+A Morris column on the far pavement, green iron and a little dome, the kind that has stood on Paris corners since there were theatres to advertise. Nobody was advertising theatres on it now.
+The top tier was the party's: the face, the bronze oak leaf, TENIR PAROLE, pasted all the way round so it could watch the street from any side. Under it, where the rain had lifted a corner, a theatre's bill said RELÂCHE, closed until further notice. Under that, a woman's smile and half a name.
+if knows_marchal
+  ~ Marchal again, under everything, the way a fact sits under the morning's paper.
+end
+~ PERCEPTION medium: The paste under the TENIR PAROLE sheets is still tacky at the edges. Last night's. And the Volunteers' bill sits exactly over Marchal's mouth. A brush doesn't do that by accident.
+~ MEMORY easy: Her posters went up the week of the first round. Somebody has been round every column in the arrondissement since, covering her a layer at a time.
+-> FREE
+
+== morris_again "A Morris column"
+@on look morris
+The Morris column in the party's paper. The rain had worked another corner loose, and one of Marchal's eyes looked out from under it.
+-> FREE
+
+
 == old_poster "An older poster"
 @on look old_poster once
 Where the TENIR PAROLE posters had peeled, an older one showed underneath: a woman of sixty in a plain jacket, smiling as if she'd been told to, and half a name. MARCHAL.
@@ -378,7 +395,7 @@ The bundle of leaflets in the bin had begun to swell with the wet, the band stil
 
 == press_car "A parked car"
 @on look press_car once
-A grey hatchback parked half on the kerb, a parking ticket under the wiper and a laminated card on the dashboard: PRESSE.
+A grey saloon parked half on the kerb, a parking ticket under the wiper and a laminated card on the dashboard: PRESSE.
 choose "The card has a name on it, under the photo."
   * white PERCEPTION medium [Read the card through the glass]
     bonus +1 if wears.reading_glasses "Reading glasses"
@@ -398,7 +415,7 @@ end
 if knows_vidal
   Claire Vidal's car, the ticket going soft under the wiper. No sign of Claire Vidal.
 else
-  The grey hatchback, the PRESSE card, the ticket. The rain on the glass.
+  The grey saloon, the PRESSE card, the ticket. The rain on the glass.
 end
 -> FREE
 
