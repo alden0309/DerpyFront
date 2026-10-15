@@ -13,14 +13,18 @@
 // republic's own beats wait for the peace (and the federal government's
 // for the Constitution), so a war that ran long, or a Constitution voted
 // down, shifts them rather than skipping them; and none of them comes if
-// the rising was put down. Three are divisions in Congress (the Constitution,
-// Jay's Treaty), where players in the house vote for themselves.
+// the rising was put down. Two are divisions in Congress (the Constitution
+// and Jay's Treaty, as the Declaration was in the war), where players in the
+// house vote for themselves.
 //
 // The two wars of these years are the course's to steer, as the King's war
 // was: the war in the Northwest (the Ohio country's nations, 1790 to 1795)
 // and the Quasi-War with France (at sea, 1798 to 1800). The computer's
 // armies don't fight them for history (Campaign1776Core's campaignForbids
-// and campaignHoldsArmy); players' armies can, and the course follows.
+// and campaignHoldsArmy); players' armies can, and the course follows. No
+// other war comes between the republic and a power unless players make it:
+// an ally's call draws neither in (Campaign1776Core's campaignNoCall), and
+// the powers' claim wars wait on history (Reclaim.ts).
 //
 // Dates are from the standard references: the Library of Congress's
 // "Primary Documents in American History" and its Journals of the

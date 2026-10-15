@@ -26,6 +26,7 @@ import {
   TURNCOAT,
   usOf,
 } from "../../engine/Campaign1776";
+import { courseOf } from "../../engine/Campaign1776Core"; // CQ24 (r24)
 import { came } from "../../engine/Campaign1776Course"; // CQ24 (r24)
 import "../../engine/Campaign1776Later"; // CQ24 (r24): the years after the peace, in BEATS
 import {
@@ -112,7 +113,9 @@ export function warPage(ui: GameUi): TemplateResult {
   const nation = s.nations[us];
   return html`${pageHead(
     "The war",
-    "The War of Independence as it comes: where it stands, your side in it, and what you can do for it.",
+    nation?.independent // CQ24 (r24): the years after it
+      ? "The War of Independence, and the republic's years after it: where it stands, how history has gone, and your part in it."
+      : "The War of Independence as it comes: where it stands, your side in it, and what you can do for it.",
   )}
   ${standsSection(ui)} ${turnsSection(ui)} ${sideSection(ui)}
   ${nation?.rebelling && sideOf(s, life) !== undefined
@@ -131,18 +134,23 @@ function standsSection(ui: GameUi): TemplateResult {
   const held = s.provinces.flatMap((pr, p) =>
     pr.occupier === king && pr.owner === us ? [p] : [],
   );
-  const allies = s.nations
-    .map((n, i) => ({ n, i }))
-    .filter(
-      ({ n, i }) =>
-        n.alive &&
-        n.kind === "power" &&
-        i !== us &&
-        i !== br &&
-        s.wars.some(
-          (w) => (w.a === i && w.b === br) || (w.b === i && w.a === br),
-        ),
-    );
+  const allies = nation.independent
+    ? [] // CQ24 (r24): after the peace, the republic's own wars instead
+    : s.nations
+        .map((n, i) => ({ n, i }))
+        .filter(
+          ({ n, i }) =>
+            n.alive &&
+            n.kind === "power" &&
+            i !== us &&
+            i !== br &&
+            s.wars.some(
+              (w) => (w.a === i && w.b === br) || (w.b === i && w.a === br),
+            ),
+        );
+  const wars = nation.independent
+    ? s.wars.flatMap((w) => (w.a === us ? [w.b] : w.b === us ? [w.a] : []))
+    : [];
   return section(
     "Where it stands",
     html`<p class="small">
@@ -159,6 +167,12 @@ function standsSection(ui: GameUi): TemplateResult {
         ? html`<p class="small">
             The King's army holds
             ${held.map((p, i) => html`${i ? ", " : ""}${placeLink(ui, p)}`)}.
+          </p>`
+        : nothing}
+      ${wars.length
+        ? html`<p class="small">
+            At war with
+            ${wars.map((i, k) => html`${k ? ", " : ""}${nationLink(ui, i)}`)}.
           </p>`
         : nothing}
       ${allies.length
@@ -316,12 +330,20 @@ function spySection(ui: GameUi): TemplateResult {
   );
 }
 
-function seaSection(ui: GameUi): TemplateResult {
+function seaSection(ui: GameUi): TemplateResult | typeof nothing {
+  // CQ24 (r24): after the peace, only in the Quasi-War.
+  const later = !!ui.s.nations[usOf(ui.s)]?.independent;
+  if (later && !courseOf(ui.s)?.quasi) return nothing;
   return section(
     "Privateers",
     html`<p class="small">
-        Congress and the states give letters of marque, and the King's colonies
-        give theirs: a privateer takes the other side's merchantmen as prizes.
+        ${later
+          ? html`Congress lets American ships arm and take French armed ships as
+            prizes (the act of 9 July 1798), and France's privateers take
+            American merchantmen.`
+          : html`Congress and the states give letters of marque, and the King's
+            colonies give theirs: a privateer takes the other side's merchantmen
+            as prizes.`}
         Sign aboard one, or fit out your own, at a port at war.
       </p>
       <div class="cq-btnrow">
