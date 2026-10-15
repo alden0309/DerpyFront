@@ -4,10 +4,15 @@
    The night is wet slate under sodium lamps; the story runs down a
    transcript with the time in its margin; everything he keeps (what he
    carries, his skills, his journal, the story so far, the menus) is typed on
-   onionskin paper; checks come back as carbon slips with a rubber stamp in
-   administrative violet. Spectral (Production Type, Paris) to read; Courier
-   Prime for what's typed. The skills speak in the city's own lights: the
-   pharmacy's green cross, carbon-paper violet, sodium amber. */
+   pelure paper (the thin grey-green of a préfecture's copies); checks come
+   back as carbon slips with a rubber stamp in administrative violet.
+   Spectral (Production Type, Paris) to read; Courier Prime for what's
+   typed; Special Elite, a worn ribbon, for the headings on his forms;
+   Stardos Stencil for the name on the file. Places are named on their own
+   signs: the street's blue enamel plaque, the bar's brass plate. The skills
+   speak in the city's own lights: the pharmacy's green cross, carbon-paper
+   violet, sodium amber. No eyebrow labels, no letter-spaced capitals: what
+   is in capitals is a stamp or a stencil, as it would be on paper. */
 
 @font-face {
   font-family: "Spectral";
@@ -36,6 +41,52 @@
   font-weight: 600;
   font-display: swap;
   src: url("./fonts/spectral-latin-600-italic.woff2") format("woff2");
+}
+/* r22 BPLAY: Cyrillic, for what's said in Russian. */
+@font-face {
+  font-family: "Spectral";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/spectral-cyrillic-400-normal.woff2") format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Spectral";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/spectral-cyrillic-400-italic.woff2") format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Spectral";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("./fonts/spectral-cyrillic-600-normal.woff2") format("woff2");
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Special Elite";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/special-elite-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Stardos Stencil";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/stardos-stencil-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Stardos Stencil";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("./fonts/stardos-stencil-latin-700-normal.woff2") format("woff2");
 }
 @font-face {
   font-family: "Courier Prime";
@@ -67,9 +118,9 @@
   --mb-sodium: #efa54a;
   --mb-sodium-2: #f6c27d;
   /* Paper. */
-  --mb-onion: #e3e1d4;
-  --mb-onion-2: #d6d3c4;
-  --mb-onion-3: #c8c4b2;
+  --mb-onion: #dde2dc;
+  --mb-onion-2: #cfd6d0;
+  --mb-onion-3: #bcc5bf;
   --mb-ink: #1d1e23;
   --mb-ink-2: #4a4b52;
   --mb-ink-3: #77766f;
@@ -77,10 +128,17 @@
   --mb-violet: #6b3e9c;
   --mb-violet-night: #b998ec;
   --mb-paper-rule: rgba(29, 30, 35, 0.16);
-  --mb-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .32 0 0 0 0 .3 0 0 0 0 .25 0 0 0 .1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  --mb-paper: var(--mb-grain), linear-gradient(170deg, #e6e4d8, #dcd9cb);
+  --mb-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .24 0 0 0 0 .29 0 0 0 0 .3 0 0 0 .1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  /* Pelure: the thin grey-green copy paper of an office that keeps files. */
+  --mb-paper: var(--mb-grain), linear-gradient(170deg, #dfe3dc, #d2d8d1);
   --mb-serif: "Spectral", "Iowan Old Style", Georgia, serif;
   --mb-type: "Courier Prime", "Courier New", ui-monospace, monospace;
+  --mb-worn: "Special Elite", "Courier Prime", "Courier New", monospace;
+  --mb-stencil: "Stardos Stencil", "Courier Prime", monospace;
+  /* The street's enamel plaque, the bar's brass plate. */
+  --mb-enamel: #1d3b70;
+  --mb-enamel-frame: #2c5a3d;
+  --mb-enamel-white: #eef0ea;
   --mb-sans: "Archivo Variable", "Archivo", system-ui, sans-serif;
 }
 
@@ -162,7 +220,7 @@ kbd {
   color: var(--mb-ink);
 }
 .mb-btn.primary:hover:not(:disabled) {
-  background: var(--mb-grain), #efede2;
+  background: var(--mb-grain), #e8ece6;
   color: var(--mb-ink);
 }
 .mb-btn.quiet {
@@ -219,11 +277,10 @@ kbd {
 }
 .mb-h1 {
   margin: 0 0 10px;
-  font-family: var(--mb-serif);
-  font-weight: 600;
-  font-size: clamp(26px, 4vw, 36px);
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+  font-family: var(--mb-worn);
+  font-weight: 400;
+  font-size: clamp(25px, 3.6vw, 34px);
+  line-height: 1.2;
 }
 .mb-p {
   margin: 0 0 14px;
@@ -289,10 +346,11 @@ kbd {
   padding: 4px 10px 3px;
   border: 3px double var(--mb-violet);
   border-radius: 3px;
-  font-family: var(--mb-type);
+  /* A rubber stamp: capitals, because that's how stamps are cut. */
+  font-family: var(--mb-stencil);
   font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.14em;
+  font-size: 15px;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   color: var(--mb-violet);
   opacity: 0.9;
@@ -361,12 +419,15 @@ kbd {
 /* ---- the title and Coming Soon ----------------------------------------------- */
 .mb-wordmark {
   margin: 0;
-  font-family: var(--mb-serif);
-  font-weight: 600;
-  font-size: clamp(52px, 7vw, 92px);
-  line-height: 0.95;
-  letter-spacing: -0.02em;
+  font-family: var(--mb-stencil);
+  font-weight: 700;
+  font-size: clamp(56px, 7.6vw, 100px);
+  line-height: 0.92;
   color: var(--mb-light);
+  /* Sprayed through a stencil: a little paint past the edges. */
+  text-shadow:
+    0 0 1px rgba(232, 229, 217, 0.6),
+    0 0 18px rgba(239, 165, 74, 0.12);
 }
 .mb-wordmark.small {
   font-size: clamp(32px, 4vw, 48px);
@@ -422,10 +483,16 @@ kbd {
   padding: 40px 0;
 }
 .mb-early {
-  margin-bottom: 14px;
+  display: inline-block;
+  margin-bottom: 16px;
+  padding: 3px 9px 2px;
+  border: 2px solid currentColor;
   font-family: var(--mb-type);
+  font-weight: 700;
   font-size: 14px;
-  color: var(--mb-zinc);
+  color: var(--mb-violet-night);
+  transform: rotate(-3deg);
+  opacity: 0.88;
 }
 .mb-tagline {
   margin: 14px 0 28px;
@@ -635,23 +702,46 @@ kbd {
   gap: 6px;
 }
 .mb-seg {
-  padding: 7px 12px;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px 6px 2px;
+  border: 0;
   background: none;
   font-family: var(--mb-type);
   font-size: 14.5px;
   color: inherit;
-  opacity: 0.75;
+  opacity: 0.78;
+}
+/* A box to tick on a form; the one chosen is crossed, as by hand. */
+.mb-seg::before {
+  content: "";
+  flex: none;
+  width: 13px;
+  height: 13px;
+  border: 1.5px solid currentColor;
 }
 .mb-seg:hover {
   opacity: 1;
 }
-/* The one chosen is circled, as on a form. */
 .mb-seg.on {
-  border-color: currentColor;
   opacity: 1;
   font-weight: 700;
+}
+.mb-seg.on::before {
+  background:
+    linear-gradient(
+      45deg,
+      transparent 44%,
+      currentColor 44% 56%,
+      transparent 56%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 44%,
+      currentColor 44% 56%,
+      transparent 56%
+    );
 }
 .mb-toggle {
   position: relative;
@@ -754,30 +844,52 @@ kbd {
 }
 .mb-where {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
-  padding: 7px 12px 6px;
-  background: rgba(14, 19, 23, 0.72);
-  border-left: 2px solid var(--mb-sodium);
-  font-family: var(--mb-type);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }
-.mb-where-ch {
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--mb-light-2);
+/* The place's own sign: the street's blue enamel plaque with its white
+   rule and green frame; indoors, an engraved brass plate. */
+.mb-plaque {
+  display: inline-block;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 5px 14px 4px;
+  font-family: var(--mb-serif);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.mb-plaque.enamel {
+  background: var(--mb-enamel);
+  color: var(--mb-enamel-white);
+  border: 3px solid var(--mb-enamel-frame);
+  border-radius: 3px;
+  box-shadow:
+    inset 0 0 0 2px var(--mb-enamel),
+    inset 0 0 0 3.5px var(--mb-enamel-white),
+    0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.mb-plaque.brass {
+  background: linear-gradient(176deg, #c79a52, #a37a3a 55%, #8b6530);
+  color: #2b1d0c;
+  border: 1px solid #6e4f23;
+  text-shadow: 0 1px 0 rgba(255, 228, 170, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 236, 190, 0.5),
+    0 6px 18px rgba(0, 0, 0, 0.5);
+}
 .mb-where-scene {
-  font-size: 17px;
+  padding: 4px 8px 3px;
+  background: rgba(14, 19, 23, 0.72);
+  font-family: var(--mb-type);
+  font-size: 16px;
   font-weight: 700;
-  color: var(--mb-light);
+  color: var(--mb-sodium-2);
   font-variant-numeric: tabular-nums;
 }
 .mb-hud-buttons {
@@ -1028,10 +1140,9 @@ kbd {
   padding: 14px 34px 10px;
   background: var(--mb-paper);
   color: var(--mb-ink);
-  font-family: var(--mb-type);
+  font-family: var(--mb-stencil);
   font-weight: 700;
-  font-size: clamp(26px, 4.2vw, 50px);
-  letter-spacing: 0.32em;
+  font-size: clamp(30px, 4.6vw, 56px);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
   transform: rotate(-0.8deg);
 }
@@ -1054,26 +1165,24 @@ kbd {
   left: 50%;
   bottom: calc(var(--sheet-h) + 15vh);
   display: flex;
-  align-items: baseline;
-  gap: 16px;
-  padding: 10px 20px 9px;
-  background: rgba(14, 19, 23, 0.82);
-  border-top: 1px solid var(--mb-rule-2);
-  border-bottom: 1px solid var(--mb-rule-2);
-  font-family: var(--mb-type);
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 80vw;
   transform: translateX(calc(-50% - var(--col-w) / 2));
   pointer-events: none;
   animation: mb-placecard 1.8s ease both;
 }
-.mb-placecard-name {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+.mb-placecard .mb-plaque {
+  padding: 9px 26px 8px;
+  font-size: clamp(20px, 2.6vw, 28px);
 }
 .mb-placecard-time {
+  font-family: var(--mb-type);
+  font-weight: 700;
   font-size: 15px;
   color: var(--mb-sodium-2);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
 }
 @keyframes mb-placecard {
   0% {
@@ -1102,7 +1211,7 @@ kbd {
   position: relative;
   width: min(100%, calc((100vh - var(--sheet-h) - 140px) * 16 / 9));
   aspect-ratio: 16 / 9;
-  border: 10px solid #e9e6da;
+  border: 10px solid #e4e7e1;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
   background: #111;
   transform: rotate(-0.6deg);
@@ -1158,7 +1267,7 @@ kbd {
   height: 186px;
   margin: 14px 18px 0 72px;
   padding: 6px 6px 26px;
-  background: #e4e1d4;
+  background: #e6e8e3;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
   transform: rotate(0.8deg);
 }
@@ -1250,11 +1359,12 @@ kbd {
 .mb-e-who {
   margin-right: 8px;
   font-family: var(--mb-type);
-  font-size: 13.5px;
+  font-size: 14.5px;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   color: var(--mb-light);
+}
+.mb-e-who::after {
+  content: ":";
 }
 .mb-e.say > p {
   color: var(--mb-light);
@@ -1284,11 +1394,13 @@ kbd {
   color: var(--mb-zinc);
 }
 .mb-e.card > p {
-  font-family: var(--mb-type);
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--mb-zinc);
+  font-family: var(--mb-worn);
+  font-size: 16px;
+  color: var(--mb-light-2);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 5px;
+  text-decoration-color: var(--mb-zinc-2);
 }
 .mb-e.pick > p {
   font-family: var(--mb-type);
@@ -1356,8 +1468,6 @@ kbd {
 }
 .mb-slip-head b {
   color: var(--c);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 .mb-slip-what {
   margin: 8px 0 6px;
@@ -1477,11 +1587,10 @@ kbd {
   font-family: var(--mb-type);
   font-weight: 700;
   font-size: 15.5px;
-  letter-spacing: 0.08em;
   transition: background 0.15s;
 }
 .mb-continue:hover {
-  background: var(--mb-grain), #f0eee4;
+  background: var(--mb-grain), #e9ede7;
 }
 .mb-continue.wait {
   background: var(--mb-slate-2);
@@ -1593,8 +1702,6 @@ kbd {
 }
 .mb-ck-skill {
   color: var(--c);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 .mb-ck-pct {
   font-weight: 700;
@@ -1763,12 +1870,16 @@ kbd {
   width: min(440px, 100%);
 }
 .mb-sheet h2 {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   padding-right: 40px;
-  font-weight: 600;
-  font-size: 30px;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
+  font-family: var(--mb-worn);
+  font-weight: 400;
+  font-size: 29px;
+  line-height: 1.2;
+  /* Typed, then underlined on the machine. */
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 7px;
 }
 .mb-sheet-sub,
 .mb-file-sub {
@@ -2025,7 +2136,7 @@ kbd {
         rgba(47, 51, 115, 0.18) 27px 28px
       )
       0 5px / 100% 100%,
-    #ecebe2;
+    #e7ebe5;
   font-family: var(--mb-type);
   font-size: 15px;
   line-height: 28px;
@@ -2881,7 +2992,7 @@ label.mb-skill {
   flex-direction: column;
   gap: 16px;
   padding: 26px 24px 30px;
-  background: var(--mb-grain), linear-gradient(160deg, #cdbd93, #bfae84);
+  background: var(--mb-grain), linear-gradient(160deg, #a7b2b5, #929fa5);
   color: var(--mb-ink);
   box-shadow: inset -12px 0 18px -14px rgba(0, 0, 0, 0.45);
 }
@@ -2890,14 +3001,13 @@ label.mb-skill {
   padding: 4px 14px 3px;
   border: 1px solid rgba(29, 30, 35, 0.4);
   background: rgba(255, 255, 255, 0.25);
-  font-family: var(--mb-type);
+  font-family: var(--mb-stencil);
   font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.2em;
+  font-size: 17px;
 }
 .mb-dos-photo {
   position: relative;
-  border: 6px solid #ecebe3;
+  border: 6px solid #e6e8e2;
   border-bottom-width: 18px;
   background: #2a2c30;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
@@ -2924,7 +3034,7 @@ label.mb-skill {
       transparent 0 6px,
       rgba(29, 30, 35, 0.12) 6px 7px
     ),
-    #dad7ca;
+    #d3d9d3;
 }
 .mb-dos-photo.none span {
   padding: 6px;
@@ -3015,8 +3125,8 @@ label.mb-skill {
 }
 .mb-dos-tabs button.on {
   border-color: rgba(29, 30, 35, 0.35);
-  border-bottom-color: #e2e0d3;
-  background: #e2e0d3;
+  border-bottom-color: #dde2db;
+  background: #dde2db;
   font-weight: 700;
   color: var(--mb-ink);
 }
@@ -3213,8 +3323,6 @@ label.mb-skill {
   font-size: 13px;
 }
 .mb-dos-throw-head b {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 .mb-dos-throw-what {
   margin: 2px 0 4px;
@@ -3339,7 +3447,6 @@ label.mb-skill {
 .mb-dos-transcript b {
   font-family: var(--mb-type);
   font-size: 12.5px;
-  text-transform: uppercase;
 }
 .mb-dos-transcript .think {
   font-style: italic;
@@ -3376,15 +3483,16 @@ label.mb-skill {
   }
   .mb-where {
     flex-direction: column;
-    gap: 0;
-    padding: 5px 9px 4px;
+    align-items: flex-start;
+    gap: 4px;
   }
-  .mb-where-ch {
-    font-size: 11px;
-    max-width: 40vw;
+  .mb-where .mb-plaque {
+    max-width: 44vw;
+    padding: 3px 9px 2px;
+    font-size: 13.5px;
   }
   .mb-where-scene {
-    font-size: 15px;
+    font-size: 14px;
   }
   .mb-toasts {
     top: calc(64px + env(safe-area-inset-top));

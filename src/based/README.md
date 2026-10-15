@@ -136,7 +136,10 @@ Mr. Based's world: Paris at night after a coup by ballot, sodium lamps on
 wet slate, and the files of a man who used to keep them.
 
 - **The column is a transcript**: the story's clock in the margin when it
-  moves on, names typed, the words in Spectral.
+  moves on, names typed ("Anselme:"), the words in Spectral.
+- **Places are named on their own signs**: the street on a Paris enamel
+  plaque (blue, a white rule, a green frame), indoors on an engraved brass
+  plate; the time beside it in sodium.
 - **Skills speak in the city's lights**: Social in the pharmacy's green
   cross, Intelligence in carbon-paper violet, Physical in sodium amber
   (`VOICES` in `client/Ui.ts`, with a darker ink of each for paper).
@@ -149,16 +152,23 @@ wet slate, and the files of a man who used to keep them.
   rubber stamp, PASSED or FAILED, in administrative violet. The stamp is
   the one loud thing; it also marks who'll remember, the archetype chosen,
   the dossier's cover.
-- **Everything he keeps is on onionskin paper**: what he carries, his
-  skills (a personnel file, each skill with where its points come from),
-  the journal, the dossier, the menu (a contents page), settings, save
-  slots (file cards), how to play, the note for the writer (a ruled pad).
+- **Everything he keeps is on pelure**, the thin grey-green copy paper of
+  an office that keeps files: what he carries, his skills (a personnel
+  file, each skill with where its points come from), the journal, the
+  dossier (in a slate-blue folder), the menu (a contents page), settings
+  (boxes to tick), save slots (file cards), how to play, the note for the
+  writer (a ruled pad). Their headings are typed on a worn ribbon and
+  underlined on the machine.
 - **Unknowns are redacted**: the flowchart blacks out what hasn't been
   found.
-- Type: Spectral (Production Type) to read, Courier Prime for what's typed,
-  both bundled from Fontsource under the SIL Open Font Licence. Nothing
-  borrowed from Disco Elysium: not its layout, fonts, check colours, skill
-  art or names.
+- Type: Spectral (Production Type) to read (with Cyrillic, for what's said
+  in Russian), Courier Prime for what's typed, Special Elite (a worn
+  typewriter ribbon) for the forms' headings, and Stardos Stencil for the
+  name on the file and the rubber stamps. All bundled in `client/fonts`
+  with their licences (SIL Open Font Licence; Special Elite: Apache 2.0) and
+  credited. No eyebrow labels and no letter-spaced capitals: what's in
+  capitals is a stamp. Nothing borrowed from Disco Elysium: not its layout,
+  fonts, check colours, skill art or names.
 - On a phone the column is a bottom sheet and the papers fill the screen.
   Reduced motion turns off the stamp, the drift and the crawl. Text that
   types in never moves the layout.

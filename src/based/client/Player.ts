@@ -1596,7 +1596,9 @@ export class BasedPlayer extends LitElement {
         : nothing}
       ${this.placeCard
         ? html`<div class="mb-placecard" aria-live="polite">
-            <span class="mb-placecard-name">${this.placeCard}</span>
+            <span class="mb-plaque ${this.plaqueKind()}"
+              >${this.placeCard}</span
+            >
             <span class="mb-placecard-time"
               >${clockText(this.run.clock).time}</span
             >
@@ -1691,12 +1693,23 @@ export class BasedPlayer extends LitElement {
     </div>`;
   }
 
+  /**
+   * r22 BPLAY: the sign a place is named on: the street's blue enamel
+   * plaque outdoors, a brass plate indoors.
+   */
+  private plaqueKind(): "enamel" | "brass" {
+    const def = this.stage.place ? this.places[this.stage.place] : undefined;
+    return def && def.areas.some((a) => !a.inside) ? "enamel" : "brass";
+  }
+
   private renderHud(): TemplateResult {
     const place = this.stage.place ? this.places[this.stage.place] : undefined;
     const clock = clockText(this.run.clock);
     return html`<div class="mb-hud">
       <div class="mb-where">
-        <span class="mb-where-ch">${place?.name ?? this.sceneLabel}</span>
+        <span class="mb-plaque ${this.plaqueKind()}"
+          >${place?.name ?? this.sceneLabel}</span
+        >
         <span class="mb-where-scene mb-clock">${clock.time}</span>
       </div>
       <div class="mb-hud-buttons">

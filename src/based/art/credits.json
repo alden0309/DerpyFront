@@ -272,6 +272,46 @@
       "licenseUrl": "",
       "source": "",
       "changes": "Reduced from 750,000 to 40,000 triangles, rigged onto the game's skeleton (the apron on loose-cloth bones) and compressed."
+    },
+    {
+      "keys": ["font_spectral"],
+      "what": "Typeface",
+      "title": "Spectral (the story)",
+      "author": "Production Type",
+      "license": "SIL Open Font Licence 1.1",
+      "licenseUrl": "https://openfontlicense.org",
+      "source": "https://fonts.google.com/specimen/Spectral",
+      "changes": "Latin and Cyrillic subsets, bundled with the game (client/fonts)."
+    },
+    {
+      "keys": ["font_courier_prime"],
+      "what": "Typeface",
+      "title": "Courier Prime (what's typed)",
+      "author": "Alan Dague-Greene for Quote-Unquote Apps",
+      "license": "SIL Open Font Licence 1.1",
+      "licenseUrl": "https://openfontlicense.org",
+      "source": "https://fonts.google.com/specimen/Courier+Prime",
+      "changes": "Latin subset, bundled."
+    },
+    {
+      "keys": ["font_special_elite"],
+      "what": "Typeface",
+      "title": "Special Elite (headings on his forms)",
+      "author": "Astigmatic",
+      "license": "Apache Licence 2.0",
+      "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+      "source": "https://fonts.google.com/specimen/Special+Elite",
+      "changes": "Latin subset, bundled."
+    },
+    {
+      "keys": ["font_stardos_stencil"],
+      "what": "Typeface",
+      "title": "Stardos Stencil (the name on the file)",
+      "author": "Vernon Adams",
+      "license": "SIL Open Font Licence 1.1",
+      "licenseUrl": "https://openfontlicense.org",
+      "source": "https://fonts.google.com/specimen/Stardos+Stencil",
+      "changes": "Latin subset, bundled."
     }
   ]
 }

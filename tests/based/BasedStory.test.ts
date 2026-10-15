@@ -146,6 +146,7 @@ describe("the art and sound", () => {
   ) as {
     items: {
       keys: string[];
+      what?: string;
       author: string;
       license: string;
       source: string;
@@ -161,7 +162,10 @@ describe("the art and sound", () => {
       expect(c.author.length).toBeGreaterThan(0);
       // BPEOPLE (r22): the owner's own models have no licence or link.
       if (c.license === "Model supplied by the owner") continue;
-      expect(c.license).toMatch(/^CC/);
+      // BPLAY (r22): the typefaces are under font licences.
+      expect(c.license).toMatch(
+        c.what === "Typeface" ? /^(SIL Open Font|Apache)/ : /^CC/,
+      );
       expect(c.source).toMatch(/^https:\/\//);
     }
   });
