@@ -1,0 +1,19 @@
+{
+  "map": {
+    "height": 100,
+    "num_land_tiles": 8440,
+    "width": 160
+  },
+  "map16x": {
+    "height": 25,
+    "num_land_tiles": 554,
+    "width": 40
+  },
+  "map4x": {
+    "height": 50,
+    "num_land_tiles": 2126,
+    "width": 80
+  },
+  "name": "Islands",
+  "nations": []
+}

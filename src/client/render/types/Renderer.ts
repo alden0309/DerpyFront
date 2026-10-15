@@ -33,6 +33,8 @@ export interface PlayerStatic {
   verified?: boolean;
   /** Hex color (e.g. "#ff0000"). Populated from territoryColor (live) or palette (replay). */
   color?: string;
+  /** AIP (r23): the personality an AI nation was dealt ("trader", ...), if any. */
+  aiPersonality?: string;
 }
 
 export interface AttackData {

@@ -262,12 +262,8 @@ export interface DerpyStoreItem {
   description: string;
   price: number;
   skins?: DerpySkin[];
-  personas?: {
-    id: string;
-    name: string;
-    temperament: string;
-    emblem: string;
-  }[];
+  /** AIP (r23): an AI personality: which one it lets you deal. */
+  aiType?: string;
   fx?: {
     trail: string[];
     burst: string[];

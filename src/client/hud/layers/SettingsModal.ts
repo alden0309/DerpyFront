@@ -1,16 +1,29 @@
+import { PlayerType } from "@openfront/engine-api/game/GameTypes";
+import {
+  AI_TYPES,
+  AiChoice,
+  NORMAL_AI,
+} from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
-import { html, LitElement } from "lit";
+import { html, LitElement, nothing } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
 import { crazyGamesSDK } from "src/client/CrazyGamesSDK";
 import { PauseGameIntentEvent } from "src/client/Transport";
 import { Controller } from "../../Controller";
+import {
+  AI_CHOICE_BADGE,
+  AI_CHOICE_ICON,
+  aiChoiceHint,
+  aiChoiceName,
+} from "../../derpy/AiPersonalityLabels";
 import {
   AlternateViewEvent,
   ToggleRenderDebugGuiEvent,
 } from "../../InputHandler";
 import type { UserSettingModal } from "../../UserSettingModal";
 import { homeHref, translateText } from "../../Utils";
+import type { GameView, PlayerView } from "../../view";
 const exitIcon = assetUrl("images/ExitIconWhite.svg");
 const settingsIcon = assetUrl("images/SettingIconWhite.svg");
 const treeIcon = assetUrl("images/TreeIconWhite.svg");
@@ -36,6 +49,8 @@ export class ShowSettingsModalEvent {
 @customElement("settings-modal")
 export class SettingsModal extends LitElement implements Controller {
   public eventBus: EventBus;
+  /** AIP (r23): the game, for the list of the AI nations' personalities. */
+  public game: GameView | null = null;
 
   @state()
   private isVisible: boolean = false;
@@ -165,6 +180,70 @@ export class SettingsModal extends LitElement implements Controller {
     window.location.href = homeHref();
   }
 
+  /**
+   * AIP (r23): every AI nation by the personality it was dealt (Normal
+   * last), so a player can see at a glance who is what. Nothing in a game
+   * without personalities.
+   */
+  private renderPersonalities() {
+    const nations = (this.game?.playerViews() ?? []).filter(
+      (p) => p.type() === PlayerType.Nation,
+    );
+    if (!nations.some((p) => p.aiPersonality() !== null)) return nothing;
+    const byType = new Map<AiChoice, PlayerView[]>();
+    for (const p of nations) {
+      const t = p.aiPersonality() ?? NORMAL_AI;
+      byType.set(t, [...(byType.get(t) ?? []), p]);
+    }
+    // The personalities first, then the nations playing as usual
+    const order: AiChoice[] = [...AI_TYPES, NORMAL_AI];
+    const collator = new Intl.Collator();
+    return html`<section
+      class="border-t border-slate-600 pt-3 mt-1 flex flex-col gap-2"
+      data-ai-personalities-list
+    >
+      <div class="px-3">
+        <div
+          class="text-xs font-semibold text-slate-400 uppercase tracking-wider"
+        >
+          ${translateText("ai_personalities.title")}
+        </div>
+        <div class="text-xs text-slate-400">
+          ${translateText("ai_personalities.dealt_in_game")}
+        </div>
+      </div>
+      <ul class="m-0 flex list-none flex-col gap-2 p-0 px-3">
+        ${order
+          .filter((t) => byType.has(t))
+          .map(
+            (t) =>
+              html`<li class="flex flex-col gap-1" data-ai-personality=${t}>
+                <span
+                  class=${`inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold ${AI_CHOICE_BADGE[t]}`}
+                  title=${aiChoiceHint(t)}
+                  ><span aria-hidden="true">${AI_CHOICE_ICON[t]}</span
+                  >${aiChoiceName(t)}</span
+                >
+                <span class="flex flex-wrap gap-1">
+                  ${byType
+                    .get(t)!
+                    .sort((a, b) => collator.compare(a.name(), b.name()))
+                    .map(
+                      (p) =>
+                        html`<span
+                          class="max-w-full truncate rounded bg-slate-700/70 px-1.5 py-0.5 text-xs ${p.isAlive()
+                            ? "text-white"
+                            : "text-slate-500 line-through"}"
+                          >${p.name()}</span
+                        >`,
+                    )}
+                </span>
+              </li>`,
+          )}
+      </ul>
+    </section>`;
+  }
+
   render() {
     if (!this.isVisible) {
       return null;
@@ -237,6 +316,8 @@ export class SettingsModal extends LitElement implements Controller {
                   : translateText("user_setting.off")}
               </div>
             </button>
+
+            ${this.renderPersonalities()}
 
             <div class="border-t border-slate-600 pt-3 mt-4">
               <div

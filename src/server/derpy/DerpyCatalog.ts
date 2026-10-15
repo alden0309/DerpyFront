@@ -2,7 +2,8 @@
 // r21 added the tabs):
 //  - DerpyFront: territory skin packs (images stamped over your territory,
 //    centred on where you spawned; a pack unlocks all of its skins), AI
-//    personality packs, Nuke & Dome effects, and victory fanfares;
+//    personalities (AIP r23: four, sold one by one; they replaced r21's
+//    personality packs), Nuke & Dome effects, and victory fanfares;
 //  - Derpy Conquest: start dates ("1776: The Revolution"), map styles and
 //    add-ons (Legends) (DLC r21; the game server checks them:
 //    ConquestDlc.ts). SITE (r22) gave Conquest these three tabs.
@@ -10,10 +11,12 @@
 // Owning an item is a row in derpy_owned: "pack:<item>" for every item, plus
 // what it unlocks ("skin:<name>", "effect:<name>", "dome:<theme>").
 
+import { AI_PERSONALITY_PACKS } from "@openfront/engine-lib/game/AiPersonalities";
 import {
-  AI_PERSONALITY_PACKS,
-  Temperament,
-} from "@openfront/engine-lib/game/AiPersonalities";
+  AI_TYPES,
+  AiType,
+  aiTypeItem,
+} from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { Cosmetics } from "@openfront/shared/CosmeticSchemas";
 import {
   DERPY_FX_THEMES,
@@ -269,7 +272,7 @@ export const DERPY_STORE_TABS: readonly DerpyStoreTab[] = [
         id: "personalities",
         label: "AI personalities",
         blurb:
-          "Themed AI nations for the games you host or play alone: names, emblems, chat and a temperament that leans how they play.",
+          "How the AI nations play. Tick the ones you own when you set up a Solo game or host a lobby, and each AI nation is dealt one of them at random.",
       },
       {
         id: "effects",
@@ -310,14 +313,6 @@ export const DERPY_STORE_TABS: readonly DerpyStoreTab[] = [
   },
 ];
 
-export interface DerpyPersonaInfo {
-  id: string;
-  name: string;
-  temperament: Temperament;
-  /** The emblem the nation flies. */
-  emblem: string;
-}
-
 export interface DerpyFxPreview {
   trail: string[];
   burst: string[];
@@ -338,8 +333,8 @@ export interface DerpyItem {
   price: number;
   /** Skins: what the pack holds. */
   skins?: DerpySkin[];
-  /** AI personalities: the nations it brings. */
-  personas?: DerpyPersonaInfo[];
+  /** AIP (r23): AI personalities: the personality it lets you deal. */
+  aiType?: AiType;
   /** Nuke & Dome effects: the colours, for the store's preview. */
   fx?: DerpyFxPreview;
   /** Victory fanfares: the instruments, and how long it plays. */
@@ -495,42 +490,38 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
 ];
 // ---- end DLC (r21)
 
-// SITE (r22): each pack's words say what its personas really do (read from
-// the engine's temperaments); the store's "How it plays" and the side by
-// side comparison are in src/derpland/AiGuide.ts.
+// AIP (r23): the four AI personalities, sold one by one. Each says in two
+// or three lines what makes it unique (the owner's own words, kept true by
+// the engine's tuning: engine-lib/game/AiPersonalityTypes.ts). Priced
+// against the rest of the store: between a fanfare and a big skin pack, the
+// ones that change the most a little dearer.
 const PERSONALITY_TEXT: Record<
-  string,
+  AiType,
   { displayName: string; description: string; price: number }
 > = {
-  ai_pirates: {
-    displayName: "Pirate Lords",
+  mad_scientist: {
+    displayName: "Mad Scientist",
     description:
-      "Six crews under the black flag: two raiders who strike early, a salt queen who pounces on an opening, a captain who'd rather trade, an old cove that digs in, and a powder keg with silos to spare.",
+      "Builds more factories, and a lot more SAMs, missile silos and Domes of Alden than a normal AI. Puts its focus on nuking: more often, at whoever it's at war with and the biggest threats.",
     price: 2500,
   },
-  ai_empires: {
-    displayName: "Old Empires",
+  trader: {
+    displayName: "Trader",
     description:
-      "Crowns, thrones and citadels that measure time in centuries: two that wall themselves in, a gilded dynasty that trades, an eagle that pounces, an iron crown that never stops marching, and a wildfire with silos.",
-    price: 2500,
+      "Builds more factories and ports. Very peaceful and slow to start a fight, keeps a big army at home to defend with, and turns on allies less often. Given an island, it keeps to itself and settles the empty islands around it.",
+    price: 1500,
   },
-  ai_merchants: {
-    displayName: "Merchant Princes",
+  aggressive: {
+    displayName: "Aggressive",
     description:
-      "Trading houses that build ports before barracks: three that never start an embargo, a counting house that digs in, toll barons who pounce, and Monopolia, which wants it all.",
+      "Moves come 20% faster, so it takes empty land sooner. Attacks once it has 38–47% of its troop cap (usually 50–59%) and keeps only 22–31% at home (usually 30–39%). Builds a bigger army, and turns on an ally when it pays.",
+    price: 1800,
+  },
+  protector: {
+    displayName: "Protector",
+    description:
+      "A little slower at the start, then digs in: twice the SAMs, missile silos, defense posts and Domes of Alden, and lots of cities for a big army. Rarely starts a war or betrays an ally, but attack it and it turns everything it has on you.",
     price: 2000,
-  },
-  ai_scientists: {
-    displayName: "Mad Scientists",
-    description:
-      "Laboratories with a taste for silos: two nuclear labs, a bubbling bunker, a clockwork army, a professor who seizes his chance, and a zeppelin academy full of trade goods.",
-    price: 3000,
-  },
-  ai_warlords: {
-    displayName: "Frontier Warlords",
-    description:
-      "Riders, raiders and railroad barons from the edge of the map: two hordes that ride early, canyon kings who dig in, a wolf clan that pounces, barons who trade, and a gang with dynamite to spare.",
-    price: 2500,
   },
 };
 
@@ -638,21 +629,16 @@ export const DERPY_FANFARES: readonly DerpyItem[] = [
 }));
 
 function personalityItems(): DerpyItem[] {
-  return AI_PERSONALITY_PACKS.map((pack) => {
-    const text = PERSONALITY_TEXT[pack.id];
+  return AI_TYPES.map((type) => {
+    const text = PERSONALITY_TEXT[type];
     return {
-      name: pack.id,
+      name: aiTypeItem(type),
       game: "derpyfront",
       category: "personalities",
       displayName: text.displayName,
       description: text.description,
       price: text.price,
-      personas: pack.personas.map((p) => ({
-        id: p.id,
-        name: p.name,
-        temperament: p.temperament,
-        emblem: `/derpy-emblems/persona_${p.id}.svg`,
-      })),
+      aiType: type,
     };
   });
 }
@@ -716,12 +702,23 @@ export function itemGrants(item: DerpyItem): string[] {
   return rows;
 }
 
-/** The AI personality packs an owner of `owned` may use. */
-export function ownedPersonalityPacks(owned: readonly string[]): string[] {
-  return AI_PERSONALITY_PACKS.filter((p) => owned.includes(`pack:${p.id}`)).map(
-    (p) => p.id,
-  );
+/** AIP (r23): the AI personalities an owner of `owned` may deal. */
+export function ownedAiTypes(owned: readonly string[]): AiType[] {
+  return AI_TYPES.filter((t) => owned.includes(`pack:${aiTypeItem(t)}`));
 }
+
+/**
+ * AIP (r23): r21's AI personality packs, no longer sold. Whoever owns any of
+ * them is given all four personalities (DerpyDb's startup migration); a row
+ * for one still in an inventory is simply not shown.
+ */
+export const RETIRED_PERSONALITY_PACKS: readonly string[] =
+  AI_PERSONALITY_PACKS.map((p) => p.id);
+
+/** AIP (r23): the owned rows that everyone with an old pack is given. */
+export const PERSONALITY_GRANTS: readonly string[] = AI_TYPES.map(
+  (t) => `pack:${aiTypeItem(t)}`,
+);
 
 /**
  * The store as an OpenFront cosmetics catalog, so the game's own pipelines

@@ -1,13 +1,10 @@
 import { DERPY_FX_THEMES } from "@openfront/shared/DerpyFx";
 import { html, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
-import { guideEn } from "../../derpland/AiGuide";
-import { aiCompare, GuideWords, packPlays } from "../../derpland/AiGuideView";
 import {
   ensurePreviewStyles,
   fxPreview,
   mapStylePreview,
-  personaCard,
   skinArt,
 } from "../../derpland/StorePreviews";
 import {
@@ -22,6 +19,12 @@ import { BaseModal } from "../components/BaseModal";
 import { modalHeader } from "../components/ui/ModalHeader";
 import { UserSettings } from "../UserSettings";
 import { translateText } from "../Utils";
+import {
+  AI_CHOICE_BADGE,
+  AI_CHOICE_ICON,
+  aiChoiceName,
+  aiTypeOf,
+} from "./AiPersonalityLabels";
 import {
   DERPY_ACCOUNT_EVENT,
   DerpyApiError,
@@ -57,41 +60,21 @@ function tr(key: string, fallback: string): string {
 }
 
 function itemName(i: DerpyStoreItem): string {
-  return i.category === "skins"
-    ? tr(`derpy.pack_${i.name}`, i.displayName)
-    : tr(`derpy.item_${i.name}`, i.displayName);
+  const packKey = `derpy.pack_${i.name}`;
+  const itemKey = `derpy.item_${i.name}`;
+  return tr(i.category === "skins" ? packKey : itemKey, i.displayName);
 }
 
 function itemDesc(i: DerpyStoreItem): string {
-  return i.category === "skins"
-    ? tr(`derpy.pack_desc_${i.name}`, i.description)
-    : tr(`derpy.item_desc_${i.name}`, i.description);
+  const packDescKey = `derpy.pack_desc_${i.name}`;
+  const itemDescKey = `derpy.item_desc_${i.name}`;
+  return tr(i.category === "skins" ? packDescKey : itemDescKey, i.description);
 }
 
 function skinName(s: DerpySkin): string {
   // The inventory names skins from the same keys.
   return tr(`territory_patterns.pattern.${s.name}`, s.displayName);
 }
-
-function temperament(t: string): { label: string; hint: string } {
-  return {
-    label: translateText(`derpy.temperament_${t}`),
-    hint: translateText(`derpy.temperament_hint_${t}`),
-  };
-}
-
-/**
- * SITE (r22): the AI personality guide's words, from en.json's
- * ai_personalities.guide (AiGuide.ts's English if a key is missing).
- */
-const guideWords: GuideWords = {
-  t: (key, params) => {
-    const v = translateText(`ai_personalities.guide.${key}`, params);
-    return v === `ai_personalities.guide.${key}` ? guideEn(key, params) : v;
-  },
-  temperament: (t) => temperament(t),
-  packName: (id) => tr(`derpy.item_${id}`, id),
-};
 
 let preview: FanfarePlayback | null = null;
 function listen(name: string): void {
@@ -320,12 +303,6 @@ export class DerpyStorePage extends BaseModal {
             </p>`
           : ""}
         ${mine.length > 0 ? this.renderYours(mine) : ""}
-        ${this.tab.category === "personalities" && items.length > 0
-          ? aiCompare(
-              guideWords,
-              items.map((i) => i.name),
-            )
-          : ""}
         ${items.length === 0
           ? html`<p
               class="m-0 rounded-xl border border-dashed border-white/15 p-6 text-center text-white/55"
@@ -473,11 +450,26 @@ export class DerpyStorePage extends BaseModal {
           )}
         </section>`;
       case "personalities":
-        return html`<p
-          class="m-0 rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-3 text-sm text-emerald-100"
+        // AIP (r23): what you own, and where you tick it
+        return html`<div
+          class="flex flex-col gap-2 rounded-xl border border-emerald-400/25 bg-emerald-400/10 p-3 text-sm text-emerald-100"
         >
-          ${translateText("derpy.personalities_owned_howto")}
-        </p>`;
+          <p class="m-0">${translateText("derpy.personalities_owned_howto")}</p>
+          <div class="flex flex-wrap gap-2">
+            ${mine.map((i) => {
+              const t = aiTypeOf(i.aiType);
+              return t === null
+                ? ""
+                : html`<span
+                    class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold ${AI_CHOICE_BADGE[
+                      t
+                    ]}"
+                    ><span aria-hidden="true">${AI_CHOICE_ICON[t]}</span
+                    >${aiChoiceName(t)}</span
+                  >`;
+            })}
+          </div>
+        </div>`;
       default:
         return html``;
     }
@@ -561,7 +553,9 @@ export class DerpyStorePage extends BaseModal {
     >
       <header class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex min-w-0 flex-[1_1_16rem] flex-col">
-          <h3 class="m-0 text-xl font-black text-white">${itemName(i)}</h3>
+          <h3 class="m-0 flex items-center gap-2 text-xl font-black text-white">
+            ${this.personalityIcon(i)}${itemName(i)}
+          </h3>
           <p class="m-0 text-sm text-white/55">${itemDesc(i)}</p>
         </div>
         <div class="flex items-center gap-3">
@@ -570,6 +564,19 @@ export class DerpyStorePage extends BaseModal {
       </header>
       ${this.renderItemBody(i)}
     </article>`;
+  }
+
+  /** AIP (r23): an AI personality's icon, before its name. */
+  private personalityIcon(i: DerpyStoreItem): TemplateResult | typeof nothing {
+    const t = aiTypeOf(i.aiType);
+    if (t === null) return nothing;
+    return html`<span
+      class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xl ${AI_CHOICE_BADGE[
+        t
+      ]}"
+      aria-hidden="true"
+      >${AI_CHOICE_ICON[t]}</span
+    >`;
   }
 
   private renderItemBody(i: DerpyStoreItem): TemplateResult | typeof nothing {
@@ -591,14 +598,6 @@ export class DerpyStorePage extends BaseModal {
               </figcaption>
             </figure>`,
         )}
-      </div>`;
-    }
-    if (i.personas) {
-      return html`<div class="flex min-w-0 flex-col gap-3 text-white">
-        ${packPlays(guideWords, i.name)}
-        <ul class="dfx-personas">
-          ${i.personas.map((p) => personaCard(p, temperament(p.temperament)))}
-        </ul>
       </div>`;
     }
     if (i.fx) return fxPreview(i.name, i.fx);

@@ -1,9 +1,19 @@
+import type { AiType } from "@openfront/engine-lib/game/AiPersonalityTypes";
 import type { EventBus } from "@openfront/shared/EventBus";
 import { customElement } from "lit/decorators.js";
 import { type StatsRow, StatsTable } from "../../components/StatsTable";
+import { AI_CHOICE_ICON } from "../../derpy/AiPersonalityIcons";
 import { GoToPlayerEvent } from "../../TransformHandler";
 import type { GameView } from "../../view";
 import { type ColumnDef, columnValues } from "./lib/StatsColumns";
+
+/**
+ * AIP (r23): a nation dealt a personality is listed with its icon before its
+ * name ("🛡️ Spain"), the same icon its info panel and tooltip show.
+ */
+export function withPersonalityIcon(name: string, type: AiType | null): string {
+  return type === null ? name : `${AI_CHOICE_ICON[type]} ${name}`;
+}
 
 @customElement("player-stats")
 export class PlayerStats extends StatsTable {
@@ -22,7 +32,7 @@ export class PlayerStats extends StatsTable {
       .filter((player) => player.isAlive())
       .map((player) => ({
         key: player.id(),
-        name: player.name(),
+        name: withPersonalityIcon(player.name(), player.aiPersonality()),
         clanTag: player.clanTag(),
         values: columnValues(player, game, columns),
         emphasized:

@@ -148,6 +148,8 @@ export function playerStaticFromUpdate(pu: PlayerUpdate): PlayerStatic {
     playerType: gamePlayerTypeToEnum(pu.playerType!),
     team: pu.team ?? null,
     isLobbyCreator: pu.isLobbyCreator!,
+    // AIP (r23): only on a dealt nation's first update
+    ...(pu.aiPersonality ? { aiPersonality: pu.aiPersonality } : {}),
   };
 }
 

@@ -13,12 +13,18 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { FAVOR_RELATION } from "@openfront/engine-lib/execution/RelationRules";
+import {
+  AiTuning,
+  GRUDGE_TICKS,
+} from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   readVersioned,
   snapshotType,
   Versioned,
+  zInt,
   zNum,
+  zPlayerRef,
   zRef,
 } from "@openfront/engine-lib/snapshot/SnapshotType";
 import {
@@ -28,6 +34,7 @@ import {
 } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Attack, Game, Player, Unit } from "../../game/Game";
+import { playerAiTuning } from "../../game/NationAiTypes";
 import {
   canBuildTransportShip,
   targetTransportTile,
@@ -54,6 +61,12 @@ import {
   TransportShipExecution,
 } from "../TransportShipExecution";
 import { closestTwoTiles } from "../Util";
+
+/** AIP (r23): the biggest landmass a Trader counts as an island of its own. */
+const ISLAND_MAX_TILES = 60_000;
+
+/** AIP (r23): the share of its troop cap a Protector keeps when it avenges. */
+const AVENGER_KEEPS = 0.25;
 
 // Reusable neighbor buffer for hot loops; the simulation is single-threaded.
 const NEIGHBOR_SCRATCH: TileRef[] = [0, 0, 0, 0];
@@ -82,6 +95,12 @@ export class AiAttackBehavior {
   // Only set during a maybeAttack call: our land neighbors, and each boat route planned
   private landNeighbors: Set<Player> | null = null;
   private boatRoutes: Map<Player, BoatRoute | null> | null = null;
+  // AIP (r23, rules 6+): whether a Trader started alone on its landmass
+  // (null until its first decision), and whom a Protector is avenging, until
+  // when.
+  private island: boolean | null = null;
+  private grudge: Player | null = null;
+  private grudgeUntil = 0;
 
   constructor(
     private random: PseudoRandom,
@@ -103,6 +122,9 @@ export class AiAttackBehavior {
       triggerRatio: this.triggerRatio,
       reserveRatio: this.reserveRatio,
       expandRatio: this.expandRatio,
+      island: this.island,
+      grudge: w.playerOrNull(this.grudge),
+      grudgeUntil: this.grudgeUntil,
     });
   }
 
@@ -131,6 +153,9 @@ export class AiAttackBehavior {
     this.triggerRatio = s.triggerRatio;
     this.reserveRatio = s.reserveRatio;
     this.expandRatio = s.expandRatio;
+    this.island = s.island;
+    this.grudge = r.playerOrNull(s.grudge);
+    this.grudgeUntil = s.grudgeUntil;
     // Scratch buffer: always written before it is read.
     this.nbuf = [0, 0, 0, 0];
   }
@@ -230,6 +255,10 @@ export class AiAttackBehavior {
       (o) => this.player?.isFriendly(o) === false,
     );
 
+    // AIP (r23): a Protector remembers who attacks it (rules 6+)
+    const tuning = this.tuning();
+    if (tuning.avenger) this.noteAttackers();
+
     // Attack TerraNullius but not nuked territory (direct border or across a river)
     const hasNonNukedTerraNullius =
       borderHasNonNukedTerraNullius ||
@@ -239,13 +268,36 @@ export class AiAttackBehavior {
     }
 
     const holdBoats = this.holdsBoatsUnderAttack();
+    // AIP (r23): a Trader fills its land, then takes unclaimed land across
+    // the sea, every time it decides; it never boats into another player's
+    // land on a whim (rules 6+).
+    if (tuning.islander) {
+      this.island ??= this.startsAlone();
+      if (
+        !hasNonNukedTerraNullius &&
+        !holdBoats &&
+        this.boatToUnclaimedLand()
+      ) {
+        return;
+      }
+      if (borderingEnemies.length > 0) {
+        this.allianceBehavior.maybeSendAllianceRequests(borderingEnemies);
+      }
+      this.attackBestTarget(borderingFriends, borderingEnemies);
+      return;
+    }
+    // AIP (r23): a peaceful personality's random boats only settle
+    // unclaimed land; they never land on another player unprovoked
+    const peaceful = tuning.warPct < 100;
     if (borderingEnemies.length === 0) {
       if (!holdBoats && this.random.chance(5)) {
-        this.attackWithRandomBoat();
+        if (peaceful) this.boatToUnclaimedLand();
+        else this.attackWithRandomBoat();
       }
     } else {
       if (!holdBoats && this.random.chance(10)) {
-        this.attackWithRandomBoat(borderingEnemies);
+        if (peaceful) this.boatToUnclaimedLand();
+        else this.attackWithRandomBoat(borderingEnemies);
         return;
       }
 
@@ -253,6 +305,73 @@ export class AiAttackBehavior {
     }
 
     this.attackBestTarget(borderingFriends, borderingEnemies);
+  }
+
+  /**
+   * AIP (r23): a boat to unclaimed land (or a tribe's) across the sea, if
+   * there is some within reach. Never to another nation or a human.
+   */
+  private boatToUnclaimedLand(): boolean {
+    if (this.game.config().isUnitDisabled(UnitType.TransportShip)) return false;
+    if (
+      this.player.unitCount(UnitType.TransportShip) >=
+      this.game.config().boatMaxNumber()
+    ) {
+      return false;
+    }
+    const shore = this.shoreTiles(this.player);
+    if (shore.length === 0) return false;
+    const found = this.findRandomBoatTarget(
+      this.random.randElement(shore),
+      [],
+      true,
+    );
+    if (found === null) return false;
+    const { tile: dst, launch } = found;
+    if (this.sail(launch, dst).blocker !== null) return false;
+    const owner = this.game.owner(dst);
+    if (this.landsBeachheads()) return this.sendBeachhead(owner, dst);
+    const troops = Math.min(
+      this.player.troops() / 5,
+      owner.isPlayer() ? this.troopSendCap() : this.troopSendCapForExpansion(),
+    );
+    if (troops < 1) return false;
+    this.game.addExecution(
+      new TransportShipExecution(this.player, dst, troops),
+    );
+    return true;
+  }
+
+  /**
+   * AIP (r23): whether this nation is alone on the landmass it spawned on:
+   * no other nation or human holds any of it, and it isn't a big part of the
+   * map (a sixth of its land, and ISLAND_MAX_TILES, at most). Decided once,
+   * at its first decision.
+   */
+  private startsAlone(): boolean {
+    const start = this.player.spawnTile();
+    if (start === undefined) return false;
+    const game = this.game;
+    const cap = Math.min(ISLAND_MAX_TILES, Math.floor(game.numLandTiles() / 6));
+    const seen = new Set<TileRef>([start]);
+    const queue: TileRef[] = [start];
+    const me = this.player.smallID();
+    for (let i = 0; i < queue.length; i++) {
+      const owner = game.ownerID(queue[i]);
+      if (owner !== 0 && owner !== me) {
+        const other = game.playerBySmallID(owner);
+        if (other.isPlayer() && other.type() !== PlayerType.Bot) return false;
+      }
+      const n = game.neighbors4(queue[i], this.nbuf);
+      for (let k = 0; k < n; k++) {
+        const t = this.nbuf[k];
+        if (seen.has(t) || !game.isLand(t)) continue;
+        seen.add(t);
+        if (seen.size > cap) return false;
+        queue.push(t);
+      }
+    }
+    return true;
   }
 
   private attackWithRandomBoat(borderingEnemies: Player[] = []) {
@@ -386,11 +505,18 @@ export class AiAttackBehavior {
     borderingEnemies: Player[],
   ) {
     const { difficulty } = this.game.config().gameConfig();
+    const tuning = this.tuning();
+
+    // AIP (r23): a Protector turns its army on whoever attacked it, as long
+    // as it remembers them, whatever its ratios say
+    if (tuning.avenger && this.avenge()) return;
 
     // Hard & Impossible: answer attacks right away, even below the reserve and trigger ratios
+    // (AIP r23: Traders and Protectors do on every difficulty)
     if (
       (difficulty === Difficulty.Hard ||
-        difficulty === Difficulty.Impossible) &&
+        difficulty === Difficulty.Impossible ||
+        tuning.answersAtOnce) &&
       this.retaliate()
     ) {
       return;
@@ -410,12 +536,21 @@ export class AiAttackBehavior {
     if (difficulty === Difficulty.Medium && this.retaliate()) return;
 
     // Maybe save up troops until we reach the trigger ratio
-    if (!this.hasTriggerRatioTroops() && !this.random.chance(10)) return;
+    // (AIP r23: a peaceful personality always waits for it)
+    if (
+      !this.hasTriggerRatioTroops() &&
+      (tuning.warPct < 100 || !this.random.chance(10))
+    ) {
+      return;
+    }
 
     // Get attack strategies in priority order based on difficulty
+    // (AIP r23: a peaceful personality only now and then looks for a fight
+    // nobody started)
     const strategies = this.getAttackStrategies(
       borderingFriends,
       borderingEnemies,
+      tuning.warPct < 100 && this.random.nextInt(0, 100) >= tuning.warPct,
     );
 
     for (const strategy of strategies) {
@@ -426,8 +561,12 @@ export class AiAttackBehavior {
   private getAttackStrategies(
     borderingFriends: Player[],
     borderingEnemies: Player[],
+    peaceful = false,
   ): Array<() => boolean> {
     const { difficulty } = this.game.config().gameConfig();
+    // AIP (r23): a Trader alone on its island looks no further than its
+    // own shores for a fight
+    const homebound = this.island === true;
 
     // Target groups, tried in order and each sorted by troops (ascending). Hard & Impossible
     // without a land front weigh every enemy within boat range across the water alongside
@@ -439,7 +578,9 @@ export class AiAttackBehavior {
       const landFront = borderingEnemies.some((enemy) =>
         this.bordersByLand(enemy),
       );
-      if (difficulty === Difficulty.Impossible && landFront) {
+      if (homebound) {
+        groups = [borderingEnemies];
+      } else if (difficulty === Difficulty.Impossible && landFront) {
         groups = [
           borderingEnemies,
           this.overseasTargets(borderingEnemies).sort(byTroops),
@@ -566,6 +707,7 @@ export class AiAttackBehavior {
     };
 
     const island = (): boolean => {
+      if (homebound) return false;
       if (pick((enemies) => enemies[0] ?? null) === null) {
         const enemy = this.findNearestIslandEnemy();
         if (enemy) {
@@ -586,6 +728,15 @@ export class AiAttackBehavior {
       );
     };
 
+    // AIP (r23): a peaceful personality's fights are the ones others start
+    // (and tribes); a Trader also turns on those it hates. A Trader alone on
+    // its island never sails off to invade.
+    if (peaceful) {
+      const tuning = this.tuning();
+      return tuning.islander
+        ? [bots, nuked, retaliate, assist, hated, donate]
+        : [bots, nuked, retaliate, assist, donate];
+    }
     // Return strategies in order based on difficulty
     // Easy nations get the dumbest order, impossible nations get the smartest order
     // Medium and up retaliate in attackBestTarget, ahead of the ratio checks
@@ -654,6 +805,96 @@ export class AiAttackBehavior {
       return largestAttacker;
     }
     return null;
+  }
+
+  /** AIP (r23): how this nation's personality tunes it (rules 6+). */
+  private tuning(): AiTuning {
+    return playerAiTuning(this.game, this.player);
+  }
+
+  /**
+   * AIP (r23): a Protector remembers whoever attacks it, by land, by sea or
+   * with a nuke at its land, for GRUDGE_TICKS after the latest attack. The
+   * biggest attack now decides whom it turns on. Tribes don't count.
+   */
+  private noteAttackers(): void {
+    let biggest = 0;
+    let attacker: Player | null = null;
+    for (const attack of this.player.incomingAttacks()) {
+      const from = attack.attacker();
+      if (from.type() === PlayerType.Bot || this.player.isFriendly(from)) {
+        continue;
+      }
+      if (attack.troops() > biggest) {
+        biggest = attack.troops();
+        attacker = from;
+      }
+    }
+    if (attacker === null) {
+      for (const nuke of this.game.units(
+        UnitType.AtomBomb,
+        UnitType.HydrogenBomb,
+        UnitType.MIRVWarhead,
+      )) {
+        const from = nuke.owner();
+        const target = nuke.targetTile();
+        if (
+          from === this.player ||
+          target === undefined ||
+          this.game.owner(target) !== this.player ||
+          this.player.isFriendly(from)
+        ) {
+          continue;
+        }
+        attacker = from;
+        break;
+      }
+    }
+    if (attacker !== null) {
+      this.grudge = attacker;
+      this.grudgeUntil = this.game.ticks() + GRUDGE_TICKS;
+    }
+  }
+
+  /**
+   * AIP (r23): whom a Protector is avenging now, or null once it has
+   * forgotten them (or they're gone, or friends now).
+   */
+  grudgeTarget(): Player | null {
+    const g = this.grudge;
+    if (g === null) return null;
+    if (
+      this.game.ticks() >= this.grudgeUntil ||
+      !g.isAlive() ||
+      this.player.isFriendly(g)
+    ) {
+      this.grudge = null;
+      return null;
+    }
+    return g;
+  }
+
+  /**
+   * AIP (r23): a Protector's answer: most of its army (all but a quarter of
+   * its troop cap) at whoever attacked it, by land or by sea. While the
+   * attack goes on it answers at every decision; after, as long as it
+   * remembers, it strikes again each time its army is back to its reserve.
+   */
+  private avenge(): boolean {
+    const target = this.grudgeTarget();
+    if (target === null) return false;
+    const underAttack = this.player
+      .incomingAttacks()
+      .some((a) => a.attacker() === target);
+    if (!underAttack && !this.hasReserveRatioTroops()) return false;
+    if (!this.bordersByLand(target)) return this.sendBoatAttack(target);
+    const maxTroops = this.game.config().maxTroops(this.player);
+    const keep = Math.max(this.expandRatio, AVENGER_KEEPS);
+    return this.sendLandAttack(
+      target,
+      () => this.player.troops() - maxTroops * keep,
+      target,
+    );
   }
 
   private retaliate(): boolean {
@@ -1896,16 +2137,21 @@ export class AiAttackBehavior {
 
 export const AiAttackBehaviorSnapshot = snapshotType({
   name: "AiAttackBehavior",
-  version: 2,
+  version: 3,
   schema: z.object({
     botAttackTroopsSent: zNum(),
     followedLandings: z.array(zRef()),
     triggerRatio: zNum(),
     reserveRatio: zNum(),
     expandRatio: zNum(),
+    island: z.boolean().nullable(),
+    grudge: zPlayerRef().nullable(),
+    grudgeUntil: zInt(),
   }),
   migrations: {
     // v1 nations never followed up landings
     1: (d) => ({ ...d, followedLandings: [] }),
+    // v2 games (before AIP r23) had no personalities to remember anything
+    2: (d) => ({ ...d, island: null, grudge: null, grudgeUntil: 0 }),
   },
 });

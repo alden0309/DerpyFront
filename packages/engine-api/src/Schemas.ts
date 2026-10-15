@@ -274,8 +274,12 @@ export type PoolConfig = z.infer<typeof PoolConfigSchema>;
  *    guard them with defense posts.
  * 5: AI nations may play a persona from the host's AI personality packs
  *    (GameConfig.aiPersonalities), its temperament leaning their play.
+ * 6: the packs give way to four AI personalities (Mad Scientist, Trader,
+ *    Aggressive, Protector) that the host ticks, with Normal, in
+ *    GameConfig.aiPersonalities; each AI nation is dealt one at random and
+ *    keeps its own name and flag (engine-lib/game/AiPersonalityTypes.ts).
  */
-export const DERPY_RULES = 5;
+export const DERPY_RULES = 6;
 
 export const GameConfigSchema = z.object({
   gameMap: z.enum(GameMapType),
@@ -366,10 +370,14 @@ export const GameConfigSchema = z.object({
   // from the site once it has begun (public games can always be watched).
   // Off by default. Server-side only: nothing in the simulation reads it.
   allowWatchers: z.boolean().optional(),
-  // DFSTORE (r21): the AI personality packs (Derp Store items) whose personas
-  // the AI nations play: names, emblems, chat voices and temperaments
-  // (engine-lib/game/AiPersonalities.ts). Rules 5+; the server keeps only
-  // packs the host owns.
+  // The AI nations' personalities. AIP (r23), rules 6+: the options ticked
+  // for the game's AI nations to be dealt ("normal", "mad_scientist",
+  // "trader", "aggressive", "protector": engine-lib/game/
+  // AiPersonalityTypes.ts); absent or only "normal" means every nation plays
+  // as usual. Rules 5 (DFSTORE r21): the AI personality packs whose personas
+  // the nations play ("ai_pirates", ...: engine-lib/game/AiPersonalities.ts).
+  // Unknown ids are ignored, so a config of either edition stays valid. The
+  // server keeps only what the host owns (Normal is free).
   aiPersonalities: z
     .array(
       z

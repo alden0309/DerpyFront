@@ -10,6 +10,7 @@ import {
   isValidGameID,
   TeamCountConfig,
 } from "@openfront/engine-api/Schemas";
+import { dealsPersonalities } from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
 import { GameEnv } from "@openfront/shared/configuration/Env";
 import { EventBus } from "@openfront/shared/EventBus";
@@ -46,7 +47,7 @@ import { inviteFriendsButton } from "./components/ui/InviteFriendsButton";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { fetchCosmetics, InsufficientCurrency } from "./Cosmetics";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
-import "./derpy/AiPersonalityPicker"; // DFSTORE (r21)
+import "./derpy/AiPersonalityPicker"; // DFSTORE (r21), AIP (r23)
 import { JoinLobbyEvent } from "./Main";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 import { UserSettings } from "./UserSettings";
@@ -179,7 +180,7 @@ export class HostLobbyModal extends BaseModal {
     // the server once it answers (the first lobby info).
     if (this.aiPersonalitiesSentFor !== this.lobbyId) {
       this.aiPersonalitiesSentFor = this.lobbyId;
-      if (this.aiPersonalities.length > 0) void this.putGameConfig();
+      if (dealsPersonalities(this.aiPersonalities)) void this.putGameConfig();
     }
   };
   private aiPersonalitiesSentFor = "";
@@ -741,7 +742,7 @@ export class HostLobbyModal extends BaseModal {
             @unit-toggle-changed=${this.handleConfigUnitToggleChanged}
           ></game-config-settings>
 
-          <!-- DFSTORE (r21): the AI personality packs the host owns. -->
+          <!-- AIP (r23): the AI personalities in play (Normal, and those the host owns). -->
           <ai-personality-picker
             ?noNations=${this.nations === 0}
             @personalities-changed=${(e: CustomEvent<string[]>) => {

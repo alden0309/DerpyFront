@@ -2,6 +2,7 @@
 // it grants, and the join checks for the looks it sells.
 
 import { AI_PERSONALITY_PACKS } from "@openfront/engine-lib/game/AiPersonalities";
+import { AI_TYPES } from "@openfront/engine-lib/game/AiPersonalityTypes";
 import {
   CosmeticsSchema,
   findEffectForSlot,
@@ -24,7 +25,9 @@ import {
   derpyCosmeticsCatalog,
   findItem,
   itemGrants,
-  ownedPersonalityPacks,
+  ownedAiTypes,
+  PERSONALITY_GRANTS,
+  RETIRED_PERSONALITY_PACKS,
 } from "../../src/server/derpy/DerpyCatalog";
 
 vi.mock("../../src/server/Logger", () => ({
@@ -83,12 +86,12 @@ describe("the catalog", () => {
           i.price,
         ]),
       );
+    // AIP (r23): four personalities, one by one, instead of r21's packs
     expect(price("personalities")).toEqual({
-      ai_pirates: 2500,
-      ai_empires: 2500,
-      ai_merchants: 2000,
-      ai_scientists: 3000,
-      ai_warlords: 2500,
+      ai_mad_scientist: 2500,
+      ai_trader: 1500,
+      ai_aggressive: 1800,
+      ai_protector: 2000,
     });
     expect(price("effects")).toEqual({
       fx_solar: 1500,
@@ -126,20 +129,48 @@ describe("the catalog", () => {
     ]);
   });
 
-  test("every AI personality pack is sold, with its personas and emblems", () => {
+  test("AIP (r23): the four AI personalities are sold, each on its own; the old packs aren't", () => {
+    const items = DERPY_ITEMS.filter((i) => i.category === "personalities");
+    expect(items.map((i) => [i.name, i.aiType, i.displayName])).toEqual([
+      ["ai_mad_scientist", "mad_scientist", "Mad Scientist"],
+      ["ai_trader", "trader", "Trader"],
+      ["ai_aggressive", "aggressive", "Aggressive"],
+      ["ai_protector", "protector", "Protector"],
+    ]);
+    expect(items.map((i) => i.aiType)).toEqual([...AI_TYPES]);
+    for (const item of items) {
+      expect(item.game).toBe("derpyfront");
+      expect(item.price).toBeGreaterThanOrEqual(1000);
+      expect(item.price).toBeLessThanOrEqual(3000);
+      // Brief: two or three sentences, a few lines on a card
+      expect(item.description.length).toBeLessThanOrEqual(240);
+      expect(item.description.split(/[.!?] /).length).toBeLessThanOrEqual(3);
+    }
     for (const pack of AI_PERSONALITY_PACKS) {
-      const item = findItem(pack.id)!;
-      expect(item.category).toBe("personalities");
-      expect(item.personas?.map((p) => p.id)).toEqual(
-        pack.personas.map((p) => p.id),
-      );
-      for (const p of item.personas ?? []) {
-        expect(p.emblem).toBe(`/derpy-emblems/persona_${p.id}.svg`);
-        const file = path.join(ROOT, "resources/public", p.emblem);
+      expect(findItem(pack.id)).toBeUndefined();
+      // Edition 5 replays still fly the personas' emblems
+      for (const p of pack.personas) {
+        const file = path.join(
+          ROOT,
+          "resources/public/derpy-emblems",
+          `persona_${p.id}.svg`,
+        );
         expect(fs.existsSync(file)).toBe(true);
-        expect(fs.readFileSync(file, "utf8")).toMatch(/^<svg [^>]*viewBox/);
       }
     }
+    expect(RETIRED_PERSONALITY_PACKS).toEqual(
+      AI_PERSONALITY_PACKS.map((p) => p.id),
+    );
+    expect(PERSONALITY_GRANTS).toEqual(items.map((i) => `pack:${i.name}`));
+  });
+
+  test("the personalities' tab says you tick the ones you own, and nations are dealt them at random", () => {
+    const tab = DERPY_STORE_TABS[0].categories.find(
+      (c) => c.id === "personalities",
+    )!;
+    expect(tab.blurb).toMatch(/own/);
+    expect(tab.blurb).toMatch(/at random/);
+    expect(en.derpy.store_blurb_personalities).toBe(tab.blurb);
   });
 
   test("every fanfare sold has its music", () => {
@@ -188,23 +219,25 @@ describe("what owning an item grants", () => {
     ]);
   });
 
-  test("a personality pack or a fanfare: just the item", () => {
-    expect(itemGrants(findItem("ai_pirates")!)).toEqual(["pack:ai_pirates"]);
+  test("a personality or a fanfare: just the item", () => {
+    expect(itemGrants(findItem("ai_trader")!)).toEqual(["pack:ai_trader"]);
     expect(itemGrants(findItem("fanfare_brass")!)).toEqual([
       "pack:fanfare_brass",
     ]);
   });
 
-  test("the personality packs an owner may use", () => {
+  test("the personalities an owner may deal; an old pack in the inventory is no personality", () => {
     expect(
-      ownedPersonalityPacks([
-        "pack:ai_warlords",
+      ownedAiTypes([
+        "pack:ai_protector",
         "pack:classics",
+        "pack:ai_trader",
         "pack:ai_pirates",
         "skin:classic_camo",
       ]),
-    ).toEqual(["ai_pirates", "ai_warlords"]);
-    expect(ownedPersonalityPacks([])).toEqual([]);
+    ).toEqual(["trader", "protector"]);
+    expect(ownedAiTypes(["pack:ai_pirates", "pack:ai_scientists"])).toEqual([]);
+    expect(ownedAiTypes([])).toEqual([]);
   });
 });
 

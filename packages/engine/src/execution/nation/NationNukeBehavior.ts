@@ -21,6 +21,7 @@ import {
 import { assertNever, boundingBoxTiles } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Game, Player, Unit } from "../../game/Game";
+import { playerAiTuning } from "../../game/NationAiTypes";
 import { nationTemperament } from "../../game/NationPersonas";
 import { UniversalPathFinding } from "../../pathfinding/PathFinder";
 import type {
@@ -146,10 +147,21 @@ export class NationNukeBehavior {
       return;
     }
 
+    // AIP (r23): a Protector's revenge takes no second thought (rules 6+)
+    const style = playerAiTuning(this.game, this.player).nukes;
     if (
       nukeTarget.type() === PlayerType.Bot || // Don't nuke tribes (as opposed to nations and humans)
       this.player.isOnSameTeam(nukeTarget) ||
-      this.attackBehavior.shouldAttack(nukeTarget) === false
+      (style !== "grudge" &&
+        this.attackBehavior.shouldAttack(nukeTarget) === false)
+    ) {
+      return;
+    }
+
+    // AIP (r23): a Trader nukes only those attacking it (rules 6+)
+    if (
+      style === "answer" &&
+      !nukeTarget.outgoingAttacks().some((a) => a.target() === this.player)
     ) {
       return;
     }
@@ -218,7 +230,7 @@ export class NationNukeBehavior {
         difficulty === Difficulty.Hard ||
         difficulty === Difficulty.Impossible) &&
       !config.isUnitDisabled(UnitType.AtomBomb) &&
-      (!this.isHydroNation || this.isUnderHeavyAttack()) &&
+      (!this.isHydroNation || this.isUnderHeavyAttack() || this.anyBomb()) &&
       this.player.gold() >= this.getPerceivedNukeCost(UnitType.AtomBomb) &&
       this.canSpare(this.cost(UnitType.AtomBomb))
     ) {
@@ -234,7 +246,7 @@ export class NationNukeBehavior {
    */
   private canSpare(gold: Gold): boolean {
     const held = this.domeSavings();
-    if (held === null) return true;
+    if (held === null || this.allOut()) return true;
     return this.player.gold() - gold >= held || this.isUnderHeavyAttack();
   }
 
@@ -307,7 +319,78 @@ export class NationNukeBehavior {
     return best?.tile ?? null;
   }
 
+  /**
+   * AIP (r23): a Protector taking revenge throws its bombs at their real
+   * price (it doesn't save for a MIRV), atom bombs too, and doesn't hold
+   * them back for a Dome (rules 6+).
+   */
+  private allOut(): boolean {
+    return (
+      playerAiTuning(this.game, this.player).nukes === "grudge" &&
+      this.attackBehavior.grudgeTarget() !== null
+    );
+  }
+
+  /** AIP (r23): a Mad Scientist throws atom bombs too, never only hydrogen. */
+  private anyBomb(): boolean {
+    return (
+      playerAiTuning(this.game, this.player).nukes === "focused" ||
+      this.allOut()
+    );
+  }
+
+  /**
+   * AIP (r23): a Mad Scientist's targets after those attacking it: whoever
+   * it is at war with (the strongest of those it is attacking), then the
+   * strongest threat (a neighbour, or the leader, with at least half its own
+   * troop cap).
+   */
+  private focusedNukeTarget(): Player | null {
+    const config = this.game.config();
+    const strongest = (players: Iterable<Player>): Player | null => {
+      let best: Player | null = null;
+      let bestTroops = 0;
+      for (const p of players) {
+        if (p === this.player || !p.isAlive()) continue;
+        if (p.type() === PlayerType.Bot || this.player.isFriendly(p)) continue;
+        const troops = config.maxTroops(p);
+        if (troops > bestTroops) {
+          best = p;
+          bestTroops = troops;
+        }
+      }
+      return best;
+    };
+    const atWar = strongest(
+      this.player
+        .outgoingAttacks()
+        .map((a) => a.target())
+        .filter((t): t is Player => t.isPlayer()),
+    );
+    if (atWar !== null) return atWar;
+    const leader = this.game
+      .players()
+      .reduce<Player | null>(
+        (a, b) => (a === null || b.numTilesOwned() > a.numTilesOwned() ? b : a),
+        null,
+      );
+    const near = this.player.nearby().filter((n): n is Player => n.isPlayer());
+    const threat = strongest(leader === null ? near : [...near, leader]);
+    if (
+      threat !== null &&
+      config.maxTroops(threat) * 2 >= config.maxTroops(this.player)
+    ) {
+      return threat;
+    }
+    return null;
+  }
+
   findBestNukeTarget(): Player | null {
+    // AIP (r23): a Protector nukes nobody but whoever attacked it, as long
+    // as it remembers them (rules 6+)
+    const style = playerAiTuning(this.game, this.player).nukes;
+    if (style === "grudge") return this.attackBehavior.grudgeTarget();
+
     // On Hard & Impossible with only 2 players left, target the only other one
     const { difficulty: diff } = this.game.config().gameConfig();
     if (
@@ -324,6 +407,13 @@ export class NationNukeBehavior {
     const incomingAttackPlayer = this.attackBehavior.findIncomingAttackPlayer();
     if (incomingAttackPlayer) {
       return incomingAttackPlayer;
+    }
+
+    // AIP (r23): a Mad Scientist next nukes those at war with it and the
+    // strongest threats
+    if (style === "focused") {
+      const focused = this.focusedNukeTarget();
+      if (focused !== null) return focused;
     }
 
     // On Impossible, the richest nation hunts very high structure density targets
@@ -583,6 +673,9 @@ export class NationNukeBehavior {
 
   // Simulate saving up for a MIRV
   private getPerceivedNukeCost(type: UnitType): Gold {
+    // AIP (r23): not when it's all out
+    if (this.allOut()) return this.cost(type);
+
     // If only 2 players left, use actual cost (no point saving for MIRV)
     if (this.game.players().length === 2) {
       return this.cost(type);
@@ -935,15 +1028,23 @@ export class NationNukeBehavior {
   ) {
     const tick = this.game.ticks();
     this.recentlySentNukes.push([tick, tile, nukeType]);
+    // AIP (r23): a Mad Scientist saves less for a MIRV between bombs, so it
+    // keeps nuking (rules 6+)
+    const risePct = playerAiTuning(this.game, this.player).nukeCostRisePct;
     if (nukeType === UnitType.AtomBomb) {
       this.atomBombsLaunched++;
       // Increase perceived cost by 50% each time to simulate saving up for a MIRV (higher than hydro to make atom bombs less attractive for the lategame)
-      this.atomBombPerceivedCost = (this.atomBombPerceivedCost * 150n) / 100n;
+      this.atomBombPerceivedCost =
+        risePct === 100
+          ? (this.atomBombPerceivedCost * 150n) / 100n
+          : (this.atomBombPerceivedCost * BigInt(200 + risePct)) / 200n;
     } else if (nukeType === UnitType.HydrogenBomb) {
       this.hydrogenBombsLaunched++;
       // Increase perceived cost by 25% each time to simulate saving up for a MIRV
       this.hydrogenBombPerceivedCost =
-        (this.hydrogenBombPerceivedCost * 125n) / 100n;
+        risePct === 100
+          ? (this.hydrogenBombPerceivedCost * 125n) / 100n
+          : (this.hydrogenBombPerceivedCost * BigInt(400 + risePct)) / 400n;
     }
     this.game.addExecution(
       new NukeExecution(nukeType, this.player, tile, null, -1, waitTicks),

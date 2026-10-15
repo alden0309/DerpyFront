@@ -18,7 +18,11 @@ import {
   Tribe,
   Turn,
 } from "@openfront/engine-api/Schemas";
-import { isAiPersonalityPack } from "@openfront/engine-lib/game/AiPersonalities";
+import {
+  aiChoices,
+  dealsPersonalities,
+  NORMAL_AI,
+} from "@openfront/engine-lib/game/AiPersonalityTypes";
 import {
   assignTeamsLobbyPreview,
   resolveTeamsList,
@@ -179,8 +183,8 @@ export interface GameServerDeps {
   // so a test can pin a value it can assert on; production always takes the
   // random default.
   mintGroupToken: () => string;
-  // DFSTORE (r21): the AI personality packs, of those asked for, owned by
-  // the account playing under a persistent ID.
+  // AIP (r23): the AI personalities, of those asked for, owned by the
+  // account playing under a persistent ID.
   ownedAiPersonalities: (
     persistentID: string,
     asked: readonly string[],
@@ -396,28 +400,33 @@ export class GameServer {
   private aiPersonalitiesRequest = 0;
 
   /**
-   * The lobby's AI personality packs: those asked for that the host's
-   * account owns (the admin bot's are taken as asked). Ignored once the game
-   * has started.
+   * The lobby's AI personalities (AIP r23): of those asked for, Normal
+   * (free) and those the host's account owns (the admin bot's are taken as
+   * asked). Nothing that would give a nation a personality means none.
+   * Ignored once the game has started.
    */
   private async setAiPersonalities(
     asked: readonly string[],
     actor: IntentActor,
   ): Promise<void> {
     const request = ++this.aiPersonalitiesRequest;
-    const known = [...new Set(asked)].filter(isAiPersonalityPack);
-    let packs = known;
-    if (!actor.isAdminBot && known.length > 0) {
+    const known = aiChoices(asked);
+    const types = known.filter((c) => c !== NORMAL_AI);
+    let owned: readonly string[] = types;
+    if (!actor.isAdminBot && types.length > 0) {
       const client = this.clients.get(actor.clientID);
-      packs =
+      owned =
         client === undefined
           ? []
           : await this.deps
-              .ownedAiPersonalities(client.persistentID, known)
+              .ownedAiPersonalities(client.persistentID, types)
               .catch(() => []);
     }
     if (request !== this.aiPersonalitiesRequest || this.hasStarted()) return;
-    this.gameConfig.aiPersonalities = packs.length > 0 ? packs : undefined;
+    const kept = known.filter((c) => c === NORMAL_AI || owned.includes(c));
+    this.gameConfig.aiPersonalities = dealsPersonalities(kept)
+      ? kept
+      : undefined;
   }
 
   // Dispatch a control/gameplay intent from either a websocket client or the
@@ -495,8 +504,8 @@ export class GameServer {
       }
 
       case "update_game_config": {
-        // DFSTORE (r21): AI personality packs only stick if the host owns
-        // them, which takes a look at their account.
+        // DFSTORE (r21), AIP (r23): AI personalities only stick if the host
+        // owns them, which takes a look at their account.
         const { aiPersonalities, ...config } = stamped.config;
         this.updateGameConfig(config);
         if (aiPersonalities !== undefined) {

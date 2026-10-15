@@ -31,6 +31,7 @@ function player(
     totalUnitLevels: () => tiles,
     isAlive: () => true,
     isOnSameTeam: () => false,
+    aiPersonality: () => null,
   } as unknown as PlayerView;
 }
 
@@ -67,6 +68,37 @@ describe("PlayerStats", () => {
     expect(content?.getAttribute("style")).toContain(
       "34px 80px 100px auto auto auto 32px",
     );
+
+    playerStats.remove();
+  });
+
+  it("AIP (r23): lists a nation dealt a personality with its icon", async () => {
+    const me = player("me", 3);
+    const guard = {
+      ...player("Spain", 50),
+      aiPersonality: () => "protector",
+    } as unknown as PlayerView;
+    const game = {
+      myPlayer: () => me,
+      playerViews: () => [guard, me],
+      config: () => ({ maxTroops: () => 100 }),
+      ticks: () => 600,
+      numLandTiles: () => 100,
+      numTilesWithFallout: () => 0,
+    } as unknown as GameView;
+    const playerStats = new PlayerStats();
+    playerStats.game = game;
+    playerStats.visible = true;
+    document.body.append(playerStats);
+
+    playerStats.refresh();
+    await playerStats.updateComplete;
+
+    const rows = [...playerStats.querySelectorAll(".stats-table-row")].map(
+      (r) => r.textContent ?? "",
+    );
+    expect(rows.some((r) => r.includes("🛡️ Spain"))).toBe(true);
+    expect(rows.some((r) => r.includes("me") && !r.includes("🛡️"))).toBe(true);
 
     playerStats.remove();
   });

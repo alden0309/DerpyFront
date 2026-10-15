@@ -19,6 +19,7 @@ import {
 import { assertNever } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Attack, Game, Player, Unit } from "../../game/Game";
+import { playerAiTuning } from "../../game/NationAiTypes";
 import { nationTemperament } from "../../game/NationPersonas";
 import { Cluster } from "../../game/TrainStation";
 import type {
@@ -130,6 +131,7 @@ const MAX_MISSILE_SILOS = 3;
 
 /** Ratio per city used for the first missile silo so nations start nuking earlier */
 const FIRST_MISSILE_SILO_RATIO = 0.4;
+const FIRST_MISSILE_SILO_PERCENT = 40;
 
 /** If we have more than this many structures per tiles, prefer upgrading over building */
 const UPGRADE_DENSITY_THRESHOLD = 1 / 1500;
@@ -192,8 +194,8 @@ const DEFENSE_POST_RATIO_PER_POST = 0.4;
  */
 const DOME_MIN_POINTS_PREEMPTIVE = 40;
 const DOME_MIN_POINTS_NUKED = 10;
-/** Domes a nation builds before any nuke has come at it. */
-const MAX_PREEMPTIVE_DOMES = 3;
+// Domes a nation builds before any nuke has come at it: 3, or its
+// personality's number (AiTuning.preemptiveDomes).
 /** Ticks between ordering one Dome and the next, before being nuked. */
 const DOME_COOLDOWN_TICKS = 600;
 /** Ticks before looking again when no spot was worth a Dome. */
@@ -203,6 +205,8 @@ const DOME_RETRY_TICKS = 300;
  * the rest (Medium and up)...
  */
 const DOME_SAVE_FROM_TENTHS = 6n;
+/** AIP (r23): the same for a Mad Scientist or a Protector. */
+const DOME_KEEN_SAVE_FROM_TENTHS = 4n;
 /** ...for at most this many ticks out of twice as many. */
 const DOME_SAVE_MAX_TICKS = 3000; // 5 minutes
 /** Structures a nation prefers to put under its Domes when threatened. */
@@ -503,13 +507,16 @@ export class NationStructureBehavior {
       return false;
     }
     const nuked = this.nukedTick !== null;
+    // AIP (r23): Mad Scientists and Protectors raise more Domes, sooner
+    // (rules 6+)
+    const aip = playerAiTuning(this.game, this.player);
     if (!nuked) {
       if (config.gameConfig().difficulty === Difficulty.Easy) return false;
       if (!this.nukesPossible()) return false;
-      if (domes.length >= MAX_PREEMPTIVE_DOMES) return false;
+      if (domes.length >= aip.preemptiveDomes) return false;
       if (
         this.lastDomeTick !== null &&
-        ticks - this.lastDomeTick < DOME_COOLDOWN_TICKS
+        ticks - this.lastDomeTick < (DOME_COOLDOWN_TICKS * aip.domeBarPct) / 100
       ) {
         return false;
       }
@@ -517,12 +524,17 @@ export class NationStructureBehavior {
     const pressed = this.underLandPressure();
     const needed = this.domePrice(pressed);
     const gold = this.player.gold();
+    // AIP (r23): Mad Scientists and Protectors save for every Dome, from
+    // less of its price
+    const keen = aip.domeBarPct < 100;
     if (gold < needed) {
       if (
         pressed ||
-        domes.length > 0 ||
+        (domes.length > 0 && !keen) ||
         config.gameConfig().difficulty === Difficulty.Easy ||
-        gold * 10n < needed * DOME_SAVE_FROM_TENTHS ||
+        gold * 10n <
+          needed *
+            (keen ? DOME_KEEN_SAVE_FROM_TENTHS : DOME_SAVE_FROM_TENTHS) ||
         this.savingForDome() !== null ||
         !this.mayStartSaving(ticks)
       ) {
@@ -567,7 +579,10 @@ export class NationStructureBehavior {
    */
   private domePrice(pressed: boolean): Gold {
     const cost = this.cost(UnitType.Dome);
-    const price = this.nukedTick !== null ? cost : (cost * 5n) / 4n;
+    // AIP (r23): Mad Scientists and Protectors don't wait for the extra
+    // quarter before a nuke has come (rules 6+)
+    const keen = playerAiTuning(this.game, this.player).domeBarPct < 100;
+    const price = this.nukedTick !== null || keen ? cost : (cost * 5n) / 4n;
     return pressed ? price + cost : price;
   }
 
@@ -580,9 +595,10 @@ export class NationStructureBehavior {
     const threat = this.nukeThreat();
     if (!threatIsReal(threat)) return null;
     const spot = bestDomeSpot(this.game, this.player, threat);
-    const minPoints = nuked
-      ? DOME_MIN_POINTS_NUKED
-      : DOME_MIN_POINTS_PREEMPTIVE;
+    const barPct = playerAiTuning(this.game, this.player).domeBarPct;
+    const minPoints =
+      ((nuked ? DOME_MIN_POINTS_NUKED : DOME_MIN_POINTS_PREEMPTIVE) * barPct) /
+      100;
     // Scores are points times the threat percent
     if (spot === null || spot.score < minPoints * 100) {
       this.domeRetryTick = this.game.ticks() + DOME_RETRY_TICKS;
@@ -841,7 +857,14 @@ export class NationStructureBehavior {
   private tryBuildDefensePost(): boolean {
     const { difficulty } = this.game.config().gameConfig();
     if (difficulty === Difficulty.Easy) return false;
-    if (difficulty === Difficulty.Medium && !this.random.chance(2))
+    // AIP (r23): a Protector (rules 6+) wants twice the posts: on Medium
+    // that's two, every time it looks
+    const postsPct = playerAiTuning(this.game, this.player).defensePostsPct;
+    if (
+      difficulty === Difficulty.Medium &&
+      postsPct <= 100 &&
+      !this.random.chance(2)
+    )
       return false;
 
     const player = this.player;
@@ -862,6 +885,9 @@ export class NationStructureBehavior {
       allowed = 1;
     } else {
       allowed = Math.ceil(ratio / DEFENSE_POST_RATIO_PER_POST);
+    }
+    if (postsPct !== 100) {
+      allowed = Math.max(1, Math.round((allowed * postsPct) / 100));
     }
 
     const frontTiles = this.getAttackFrontTiles(landAttacks);
@@ -904,10 +930,12 @@ export class NationStructureBehavior {
    * lower for a turtle persona (rules 5+).
    */
   private defenseThreatRatio(): number {
-    return (
+    const ratio =
       UNDER_ATTACK_THREAT_RATIO *
-      nationTemperament(this.game, this.player).defenseThreat
-    );
+      nationTemperament(this.game, this.player).defenseThreat;
+    // AIP (r23): a Protector calls for posts at a smaller attack (rules 6+)
+    const pct = playerAiTuning(this.game, this.player).defenseThreatPct;
+    return pct === 100 ? ratio : (ratio * pct) / 100;
   }
 
   /**
@@ -1158,13 +1186,9 @@ export class NationStructureBehavior {
       return true;
     }
 
-    // Build order for non-city structures (priority order)
-    const buildOrder: UnitType[] = [
-      UnitType.Port,
-      UnitType.Factory,
-      UnitType.SAMLauncher,
-      UnitType.MissileSilo,
-    ];
+    // Build order for non-city structures (priority order; AIP r23: a Mad
+    // Scientist's silos and SAMs, and a Protector's defenses, come first)
+    const buildOrder = playerAiTuning(this.game, this.player).buildOrder;
 
     const nukesEnabled =
       !config.isUnitDisabled(UnitType.AtomBomb) ||
@@ -1260,9 +1284,13 @@ export class NationStructureBehavior {
       return false;
     }
 
-    // DFSTORE (r21): a persona's temperament leans what it builds (rules 5+).
+    // DFSTORE (r21): a persona's temperament leans what it builds (rules 5).
     const tuning = nationTemperament(this.game, this.player);
     let ratio = config.ratioPerCity * (tuning.structures[type] ?? 1);
+    // AIP (r23): and so does a personality (rules 6+)
+    const aip = playerAiTuning(this.game, this.player);
+    const pct = aip.structuresPct[type];
+    if (pct !== undefined) ratio = (ratio * pct) / 100;
 
     // Heavily reduce factory spawning if we have coastal tiles
     if (
@@ -1277,7 +1305,11 @@ export class NationStructureBehavior {
 
     // Hard cap on missile silos
     const maxSilos =
-      tuning === NO_TEMPERAMENT ? MAX_MISSILE_SILOS : tuning.maxSilos;
+      tuning !== NO_TEMPERAMENT
+        ? tuning.maxSilos
+        : aip.maxSilos !== MAX_MISSILE_SILOS
+          ? aip.maxSilos
+          : MAX_MISSILE_SILOS;
     if (type === UnitType.MissileSilo && owned >= maxSilos) {
       return false;
     }
@@ -1285,9 +1317,11 @@ export class NationStructureBehavior {
     // First missile silo uses a higher ratio so nations can start nuking earlier
     if (type === UnitType.MissileSilo && owned === 0) {
       ratio =
-        tuning === NO_TEMPERAMENT
-          ? FIRST_MISSILE_SILO_RATIO
-          : tuning.firstSiloRatio;
+        tuning !== NO_TEMPERAMENT
+          ? tuning.firstSiloRatio
+          : aip.firstSiloPct !== FIRST_MISSILE_SILO_PERCENT
+            ? aip.firstSiloPct / 100
+            : FIRST_MISSILE_SILO_RATIO;
     }
 
     const targetCount = Math.floor(cityCount * ratio);
@@ -1369,6 +1403,11 @@ export class NationStructureBehavior {
       const config = ratios[type];
       increasePerOwned = config?.perceivedCostIncreasePerOwned ?? 0.1;
     }
+    // AIP (r23): a personality saves less against what it builds most:
+    // Aggressive and Protector nations' cities, a Mad Scientist's SAMs and
+    // silos, a Protector's SAMs and silos (rules 6+)
+    const pct = playerAiTuning(this.game, this.player).costRisePct[type];
+    if (pct !== undefined) increasePerOwned = (increasePerOwned * pct) / 100;
 
     // Each owned structure makes the next one feel more expensive
     // Formula: realCost * (1 + increasePerOwned * owned)

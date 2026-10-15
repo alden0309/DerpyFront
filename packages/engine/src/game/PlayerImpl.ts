@@ -85,6 +85,7 @@ import {
 } from "./Game";
 import { GameImpl } from "./GameImpl";
 import { diffPlayerUpdate, packAttackTroopDeltas } from "./GameUpdateUtils";
+import { playerAiType } from "./NationAiTypes";
 import {
   opinionReasons,
   recordRelationChange,
@@ -402,6 +403,7 @@ export class PlayerImpl implements Player {
       displayName: this.displayName(),
       clanTag: this.clanTag(),
       nationFlag: this.nationFlag(),
+      ...this.aiPersonalityField(),
       id: this.id(),
       team: this.team() ?? undefined,
       smallID: this.smallID(),
@@ -453,6 +455,12 @@ export class PlayerImpl implements Player {
   }
   nationFlag(): string | null {
     return this.playerInfo.nationFlag;
+  }
+
+  /** AIP (r23): the personality this nation plays, for the client to show. */
+  private aiPersonalityField(): { aiPersonality?: string } {
+    const type = playerAiType(this.mg, this);
+    return type === null ? {} : { aiPersonality: type };
   }
   clientID(): ClientID | null {
     return this.playerInfo.clientID;

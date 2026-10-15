@@ -52,6 +52,7 @@ describe("GameLeftSidebar", () => {
       goldEarned: () => 0,
       isAlive: () => true,
       isOnSameTeam: () => false,
+      aiPersonality: () => null,
       team: () => null,
     } as unknown as PlayerView;
     const game = {
