@@ -13,7 +13,7 @@ import { customElement, state } from "lit/decorators.js";
 import { DERPY_ACCOUNT_EVENT } from "../../derpland/Account";
 import "../../derpland/DerpBar";
 import { evalExpr } from "../engine/Expr";
-import { clockText, StoryRun } from "../engine/Runtime";
+import { clockText, Kit, StoryRun } from "../engine/Runtime";
 import { emptyProfile, noteSeen, Profile, SlotSave } from "../engine/Save";
 import { Boost } from "../engine/Skills";
 import { Build, Chapter } from "../engine/Types";
@@ -49,21 +49,6 @@ type Screen =
   | "end"
   | "broken";
 
-const WORDS = [
-  "Zero",
-  "One",
-  "Two",
-  "Three",
-  "Four",
-  "Five",
-  "Six",
-  "Seven",
-  "Eight",
-  "Nine",
-  "Ten",
-];
-export const chapterWord = (n: number) => WORDS[n] ?? String(n);
-
 @customElement("based-app")
 export class BasedApp extends LitElement {
   @state() private screen: Screen = "loading";
@@ -82,6 +67,7 @@ export class BasedApp extends LitElement {
     rels: Record<string, number>;
     build?: Build | null;
     boosts?: Boost[];
+    kit?: Kit;
   } | null = null;
   @state() private build: Build | null = null;
   @state() private assets: WorldAssets | null = null;
@@ -211,6 +197,7 @@ export class BasedApp extends LitElement {
       path: path.slice(-3000),
       build: run.build,
       boosts: run.boosts,
+      kit: run.kit,
     };
     noteSeen(this.profile, n, path);
     this.flush();
@@ -265,6 +252,7 @@ export class BasedApp extends LitElement {
             rels: prev.rels,
             build: prev.build ?? null,
             boosts: prev.boosts ?? [],
+            kit: prev.kit,
           }
         : null;
     const decided = this.carried?.build ?? null;
@@ -450,7 +438,7 @@ export class BasedApp extends LitElement {
           <img src=${BASED_COVER} alt="" />
         </div>
         <div class="mb-title-body">
-          <div class="mb-early">Early access · written as you play</div>
+          <div class="mb-early">Early access</div>
           <h1 class="mb-wordmark">Mr. Based</h1>
           <p class="mb-tagline">${BASED_TAGLINE}</p>
           <nav class="mb-title-menu">
@@ -462,9 +450,9 @@ export class BasedApp extends LitElement {
                   Continue
                   <small
                     >${cur.meta.placeName || cur.meta.label}${c
-                      ? ` · ${c.time}`
+                      ? `, ${c.time}`
                       : ""}
-                    · ${slotName(cur.slot)}</small
+                    (${slotName(cur.slot).toLowerCase()})</small
                   >
                 </button>`
               : nothing}
@@ -634,7 +622,7 @@ export class BasedApp extends LitElement {
     const more = this.list.some((x) => x.n === n + 1);
     return html`<main class="mb-end">
       <div class="mb-end-head">
-        <div class="mb-end-kicker">End of Chapter ${chapterWord(n)}</div>
+        <div class="mb-end-kicker">The file is closed, for tonight</div>
         <h1 class="mb-wordmark small">${c.chapter.title}</h1>
       </div>
       ${lines.length > 0
@@ -663,10 +651,10 @@ export class BasedApp extends LitElement {
         <div class="mb-panel-sub">
           ${more
             ? "Before the story goes on"
-            : `Chapter ${chapterWord(n + 1)} is being written`}
+            : "What happens next is being written"}
         </div>
         <p class="mb-p">
-          Anything the writer should know? It's kept with this chapter's ending.
+          Anything the writer should know? It's kept with this ending.
         </p>
         <textarea
           rows="4"
@@ -734,7 +722,11 @@ export class BasedApp extends LitElement {
         <button class="mb-back" @click=${() => (this.screen = "title")}>
           ← Mr. Based
         </button>
-        <h1 class="mb-h1">Chapter ${chapterWord(n)}: ${c.chapter.title}</h1>
+        <h1 class="mb-h1">${c.chapter.title}</h1>
+        <p class="mb-p">
+          Every scene and choice so far. What you haven't found yet is blacked
+          out.
+        </p>
         ${renderFlowchart({
           flow: c.flow,
           seen: this.profile.seen[String(n)] ?? {

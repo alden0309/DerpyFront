@@ -18,7 +18,7 @@ const SHOWN_TIERS = [
 
 export function helpBody(
   chapter: Chapter,
-  colors: string[],
+  colors: readonly { night: string; paper: string }[],
   touch: boolean,
 ): TemplateResult {
   const click = touch ? "Tap" : "Click";
@@ -94,11 +94,64 @@ export function helpBody(
       </li>
     </ul>
 
-    <div class="mb-panel-sub">His journal</div>
+    <div class="mb-panel-sub">His languages</div>
+    <ul class="mb-help">
+      <li>
+        American English is his own. Besides it, his Languages skill at the
+        start is a pool of points to spend on the others: one point and he gets
+        by, two and he's fluent, three and he passes for a native. A language
+        with no points he doesn't speak.
+      </li>
+      <li>
+        With a point he follows plain speech. Something said low, fast or
+        guardedly is a check: his Languages plus his points in that tongue (with
+        none, his Languages alone may still catch the gist). A check in a
+        language works the same way.
+      </li>
+      <li>
+        Things and moments can add to a language later: a phrasebook in his
+        hand, say. Your skills shows each language under Languages, and where
+        its points come from.
+      </li>
+    </ul>
+
+    <div class="mb-panel-sub">What he carries</div>
+    <ul class="mb-help">
+      <li>
+        The bag${touch ? nothing : html` (or <kbd>I</kbd>)`} shows him with what
+        he wears around him (hat to shoes, and what's in his hand) and his
+        pockets. ${touch ? "Tap" : "Point at"} anything to see what it is and
+        what it does to his skills.
+      </li>
+      <li>
+        Clothes and the thing in his hand change his skills while they're on
+        him: you'll see it on the thing, on his skills, and in every check.
+        ${touch
+          ? html`Tap to put something on or take it off.`
+          : html`Double-click, or drag, to put something on or take it off.`}
+        You can change at any moment, even with a check waiting.
+      </li>
+      <li>
+        Things are found by looking, given or sold, or taken. Some choices need
+        something he hasn't got yet; they show, shut, and say what. Some things
+        have a use.
+      </li>
+      <li>
+        A weapon in his hand changes how people read him. Some won't talk to him
+        while he's holding it.
+      </li>
+    </ul>
+
+    <div class="mb-panel-sub">His journal, and the story so far</div>
     <ul class="mb-help">
       <li>
         The book${touch ? nothing : html` (or <kbd>J</kbd>)`} keeps what he's
         set out to do: only what he's learned, never a list of what's where.
+      </li>
+      <li>
+        The story so far (in the menu, or from the journal) is his file on
+        himself: where he's been, who he's met and where things stand, what he
+        chose and the throws that mattered.
       </li>
     </ul>
 
@@ -106,7 +159,7 @@ export function helpBody(
     <ul class="mb-help mb-help-skills">
       ${chapter.attributes.map(
         (a, i) =>
-          html`<li style="--c:${colors[i % colors.length]}">
+          html`<li style="--c:${colors[i % colors.length].paper}">
             <b>${a.name}</b>:
             ${chapter.skills
               .filter((s) => s.attr === a.id)
@@ -124,16 +177,17 @@ export function helpBody(
     <div class="mb-panel-sub">Checks</div>
     <ul class="mb-help">
       <li>
-        A check reads like <b>[${example} – Challenging 10] 58%</b>. He throws
-        two dice and adds the skill and any bonuses; reaching the difficulty
-        passes. A double six always passes, a double one always fails.
+        A check reads like <b>${example} Challenging 10 58%</b>. He throws two
+        dice and adds the skill and any bonuses; reaching the difficulty passes.
+        A double six always passes, a double one always fails.
         ${touch ? nothing : html`Point at a check to see its bonuses.`}
       </li>
       <li>
-        <b class="mb-help-white">White</b> checks can be tried again once
-        something changes: a new bonus from something he noticed or heard, or a
-        higher skill. Until then they stay locked, and say why.
-        <b class="mb-help-red">Red</b> checks are one throw.
+        Checks <b class="mb-help-white">in pencil</b> (dashed) can be tried
+        again once something changes: a new bonus from something he noticed or
+        heard, something he puts on, or a higher skill. Until then they stay
+        locked, and say why. Checks <b class="mb-help-red">in ink</b> are one
+        throw.
       </li>
       <li>
         Some checks have no dice. A skill speaks up by itself when it's good
@@ -196,11 +250,26 @@ export function helpBody(
     </ul>
     ${touch
       ? nothing
-      : html`<p class="mb-help-p small">
-          <kbd>Space</kbd> read on · <kbd>1</kbd>–<kbd>9</kbd> choose ·
-          <kbd>Tab</kbd> what's near · <kbd>C</kbd> your skills ·
-          <kbd>J</kbd> journal · <kbd>F5</kbd> quicksave ·
-          <kbd>F9</kbd> quickload · <kbd>N</kbd> a note · <kbd>H</kbd> this page
-          · <kbd>Esc</kbd> the menu
-        </p>`}`;
+      : html`<dl class="mb-help-keys">
+          <dt><kbd>Space</kbd></dt>
+          <dd>read on</dd>
+          <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
+          <dd>choose</dd>
+          <dt><kbd>Tab</kbd></dt>
+          <dd>what's near</dd>
+          <dt><kbd>C</kbd></dt>
+          <dd>your skills</dd>
+          <dt><kbd>I</kbd></dt>
+          <dd>what he carries</dd>
+          <dt><kbd>J</kbd></dt>
+          <dd>journal</dd>
+          <dt><kbd>F5</kbd> <kbd>F9</kbd></dt>
+          <dd>quicksave, quickload</dd>
+          <dt><kbd>N</kbd></dt>
+          <dd>a note for the writer</dd>
+          <dt><kbd>H</kbd></dt>
+          <dd>this page</dd>
+          <dt><kbd>Esc</kbd></dt>
+          <dd>the menu</dd>
+        </dl>`}`;
 }

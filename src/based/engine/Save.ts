@@ -11,7 +11,7 @@
 // fromV1 turns one into a profile and an autosave.
 
 import { PlaceDef } from "./Place";
-import { chapterStart, Snapshot, StoryRun } from "./Runtime";
+import { chapterStart, Kit, Snapshot, StoryRun } from "./Runtime";
 import { Boost, buildOf, withLanguages } from "./Skills";
 import { Build, Chapter, FREE } from "./Types";
 
@@ -81,6 +81,8 @@ export interface Finished {
   /** r21: who he was, and what he'd been through, carried on. */
   build?: Build;
   boosts?: Boost[];
+  /** r22 BPLAY: what he carried at the end. */
+  kit?: Kit;
 }
 
 /** The account's own record beside its slots. */
@@ -318,8 +320,10 @@ export function playUntil(
     } else if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
       r.advance();
     } else if (b.kind === "choice") {
-      const open = b.options.filter((o) => !o.check?.locked && !o.check);
-      r.choose((open[0] ?? b.options.find((o) => !o.check?.locked)!).id);
+      const shut = (o: (typeof b.options)[number]) =>
+        !!o.check?.locked || o.needs?.met === false;
+      const open = b.options.filter((o) => !shut(o) && !o.check);
+      r.choose((open[0] ?? b.options.find((o) => !shut(o))!).id);
     } else {
       const spot = b.spots.find((s) => !s.seen);
       if (b.canLeave) r.leave();

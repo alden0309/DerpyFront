@@ -43,6 +43,13 @@ export function freeActions(
     if (def?.hotspots[t] && !def.hotspots[t].to) out.push(() => r.look(t));
   }
   for (const t of a.think) out.push(() => r.think(t.id));
+  // r22 BPLAY: using what he carries, and now and then a change of clothes
+  // or something in his hand (the first such thing in his pockets, or
+  // putting away what he holds).
+  for (const k of a.use) out.push(() => r.use(k));
+  const wearable = Object.keys(r.items).filter((k) => r.chapter.items[k]?.slot);
+  if (wearable.length > 0) out.push(() => r.equip(wearable[0]));
+  if (r.gear.hand) out.push(() => r.unequip("hand"));
   for (const [id, h] of Object.entries(def?.hotspots ?? {})) {
     if (!h.to) continue;
     const to = h.to;
@@ -75,7 +82,10 @@ export function playRandomly(
     if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
       r.advance();
     } else if (b.kind === "choice") {
-      const open = b.options.filter((o) => !o.check?.locked);
+      // r22 BPLAY: an option that needs something he hasn't got is shut.
+      const open = b.options.filter(
+        (o) => !o.check?.locked && o.needs?.met !== false,
+      );
       if (pick(5) === 0 && b.timer > 0) r.timeout();
       else r.choose(open[pick(open.length)].id);
     } else if (b.kind === "free") {

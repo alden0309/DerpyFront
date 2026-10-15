@@ -273,7 +273,7 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
       save: {
         snap: {
           flags: Record<string, number>;
-          build: { archetype: string; langs: string[] };
+          build: { archetype: string; langPts: Record<string, number> };
           seed: number;
         };
         meta: { chapter: number };
@@ -282,7 +282,10 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     // Past the meeting with the contact, he's free; who he was is kept.
     expect(auto.save.snap.flags.met_contact).toBe(1);
     expect(auto.save.snap.build.archetype).toBe("ANALYST");
-    expect(auto.save.snap.build.langs.length).toBeGreaterThan(0);
+    // r22 BPLAY: his languages as points (the Analyst's four).
+    expect(
+      Object.values(auto.save.snap.build.langPts).reduce((a, n) => a + n, 0),
+    ).toBe(4);
     expect(auto.save.snap.seed).toBe(4242);
     expect(auto.save.meta.chapter).toBe(1);
     // Read again: converted once only.
@@ -428,6 +431,95 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
       "auto",
       "quick",
     ]);
+  });
+
+  test("a slot with what he carries round-trips; junk in it is refused (BPLAY)", async () => {
+    const snap = {
+      chapter: 1,
+      scene: "FREE",
+      flags: {},
+      rels: {},
+      // His language points (r22 BPLAY).
+      build: {
+        attrs: { SOCIAL: 2, INTELLIGENCE: 4, PHYSICAL: 3 },
+        signature: "MEMORY",
+        archetype: "ANALYST",
+        langPts: { fr: 2, ru: 2 },
+      },
+      stage: {
+        backdrop: null,
+        figure: null,
+        ambient: null,
+        news: null,
+        place: "street",
+        actors: {},
+        focus: null,
+        vignette: null,
+        props: {},
+        weather: null,
+      },
+      path: [],
+      taken: [],
+      checks: {
+        "watcher#1/ask-who-he-s-waiting-for": {
+          tries: 2,
+          result: "pass",
+          bonus: 6,
+          at: 79_620,
+        },
+      },
+      clock: 79_800,
+      inv: { matchbook: 1, cigarettes: 1, phone: 1, passport: 1 },
+      worn: {
+        jacket: "field_jacket",
+        shirt: "olive_tee",
+        trousers: "cargo_trousers",
+        shoes: "boots",
+        glasses: "reading_glasses",
+        hand: "umbrella",
+      },
+      money: 158,
+      visited: { street: 78_000, vauban: 79_000 },
+      met: { WATCHER: 78_400, BARMAN: 79_100 },
+      memories: ["london"],
+      remembers: ["PENHALLOW"],
+    };
+    const slot = {
+      v: 2,
+      meta: {
+        place: "street",
+        placeName: "Rue de Grenelle",
+        chapter: 1,
+        clock: 79_800,
+        savedAt: "2026-10-15T01:00:00.000Z",
+        played: 900,
+        scene: "FREE",
+        label: "Free to go",
+      },
+      snap,
+    };
+    const put = (save: unknown) =>
+      call("/based/slot/5", alden, {
+        method: "PUT",
+        body: JSON.stringify({ save }),
+      });
+    expect((await put(slot)).status).toBe(204);
+    const back = (await (await call("/based/slot/5", alden)).json()) as {
+      save: typeof slot;
+    };
+    expect(back.save).toEqual(slot);
+    // A slot that isn't one, a negative count, a negative purse: refused.
+    for (const bad of [
+      { ...snap, worn: { pocket: "phone" } },
+      { ...snap, inv: { phone: -1 } },
+      { ...snap, money: -5 },
+      { ...snap, build: { ...snap.build, langPts: { fr: -1 } } },
+    ]) {
+      expect((await put({ ...slot, snap: bad })).status).toBe(400);
+    }
+    expect(
+      (await call("/based/slot/5", alden, { method: "DELETE" })).status,
+    ).toBe(204);
   });
 
   test("the profile round-trips; a round-21 one can't be written", async () => {

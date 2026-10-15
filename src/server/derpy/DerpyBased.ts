@@ -13,6 +13,10 @@
 // account's profile (what's been seen, time played) in derpy_based_saves.
 // A round-21 save there (v1: one save, chapters and checkpoints) is turned
 // into a profile and an autosave the first time it's read.
+//
+// BPLAY (r22): a save holds what he carries (his pockets, what he wears and
+// holds, his euros) and what the story so far needs (places, people,
+// memories). A save from before loads with his starting kit.
 
 import express, { NextFunction, Request, Response } from "express";
 import fs from "fs";
@@ -245,13 +249,32 @@ const BuildSchema = z.object({
   attrs: z.record(Key, z.number().int().min(0).max(20)),
   signature: Key,
   archetype: Key.optional(),
-  // r22: the languages he speaks.
+  // r22 (BWORLD's saves): the languages he was given.
   langs: z.array(Key).max(12).optional(),
+  // r22 BPLAY: language points spent at the start, by language.
+  langPts: z.record(Key, z.number().int().min(0).max(9)).optional(),
 });
 const BoostSchema = z.object({
   skill: Key,
   delta: z.number().int().min(-10).max(10),
   why: z.string().max(200),
+});
+// BPLAY: what he carries.
+const GearSlotSchema = z.enum([
+  "hat",
+  "glasses",
+  "neck",
+  "jacket",
+  "shirt",
+  "gloves",
+  "trousers",
+  "shoes",
+  "hand",
+]);
+const KitSchema = z.object({
+  inv: z.record(Key, z.number().int().min(0).max(9999)),
+  worn: z.partialRecord(GearSlotSchema, Key),
+  money: z.number().int().min(0).max(1e9),
 });
 const SnapSchema = z.object({
   chapter: z.number().int().min(1).max(99),
@@ -271,6 +294,8 @@ const SnapSchema = z.object({
         tries: z.number().int().min(0).max(1000),
         result: z.enum(["pass", "fail"]),
         bonus: z.number().int().min(-50).max(50),
+        // BPLAY: when it was thrown.
+        at: z.number().int().min(0).max(1e9).optional(),
       }),
     )
     .optional(),
@@ -280,8 +305,15 @@ const SnapSchema = z.object({
     .record(Key, z.object({ text: z.string().max(400), done: z.boolean() }))
     .optional(),
   clock: z.number().int().min(0).max(1e9).optional(),
-  // r22: room for what he carries, when the story gives him things.
-  inv: z.record(Key, z.number().int().min(0).max(9999)).optional(),
+  // r22 BPLAY: what he carries: his pockets, what he wears and holds, euros.
+  inv: KitSchema.shape.inv.optional(),
+  worn: KitSchema.shape.worn.optional(),
+  money: KitSchema.shape.money.optional(),
+  // ...and what the story so far needs.
+  visited: z.record(Key, z.number().int().min(0).max(1e9)).optional(),
+  met: z.record(Key, z.number().int().min(0).max(1e9)).optional(),
+  memories: z.array(Key).max(500).optional(),
+  remembers: z.array(Key).max(500).optional(),
 });
 const SeenSchema = z.record(
   z.string().max(4),
@@ -300,6 +332,7 @@ const FinishedSchema = z.record(
     path: z.array(z.string().max(160)).max(3000),
     build: BuildSchema.optional(),
     boosts: z.array(BoostSchema).max(200).optional(),
+    kit: KitSchema.optional(),
   }),
 );
 /** r22: the account's profile beside its slots. */

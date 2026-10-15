@@ -14,12 +14,20 @@
 // been rewritten. Pure and deterministic: no clock, no Math.random. The
 // dice come from a seed kept in the save (Dice.ts); the in-game clock moves
 // with what's read and chosen, not with real time.
+//
+// r22 BPLAY: what he carries. His pockets (no limit), what he wears and
+// holds (a slot each), and his euros. Clothes and a held thing change his
+// skills while they're on him; checks list where each bonus comes from; an
+// option can need an item; using one can start a scene. The run also keeps
+// what the story so far needs: the places he's been, the people he's met,
+// the memories he's had and when each check was thrown.
 
 import { chance, passes, passive, percent, rollDice, tierName } from "./Dice";
 import { evalExpr, Values } from "./Expr";
 import {
   Boost,
   defaultBuild,
+  langOf,
   LANGUAGES_SKILL,
   skillValues,
   withLanguages,
@@ -32,12 +40,15 @@ import {
   Deduction,
   END,
   FREE,
+  GEAR_SLOTS,
+  GearSlot,
   LineKind,
   Op,
   Scene,
   TaskState,
   Trigger,
 } from "./Types";
+import { weatherAt, WeatherKind } from "./Weather";
 
 export interface Stage {
   backdrop: string | null;
@@ -66,6 +77,15 @@ export interface CheckMemo {
   result: "pass" | "fail";
   /** The bonus it was last tried with: a white check opens again above it. */
   bonus: number;
+  /** r22 BPLAY: the clock when it was last thrown (for the story so far). */
+  at?: number;
+}
+
+/** r22 BPLAY: what he carries: pockets, what's on him, and his euros. */
+export interface Kit {
+  inv: Record<string, number>;
+  worn: Partial<Record<GearSlot, string>>;
+  money: number;
 }
 
 /** Everything needed to start a scene over (or, free, to carry on). */
@@ -94,11 +114,22 @@ export interface Snapshot {
   tasks?: Record<string, TaskState>;
   /** r22: the in-game clock, in seconds from midnight on the first night. */
   clock?: number;
-  /**
-   * r22: what he carries, by item id and how many. Nothing fills it yet:
-   * it's here so saves already have a place for an inventory.
-   */
+  /** r22: what's in his pockets, by item key and how many. */
   inv?: Record<string, number>;
+  /**
+   * r22 BPLAY: what he wears and holds, by slot. A save without it is from
+   * before he carried anything: it loads with his starting kit.
+   */
+  worn?: Partial<Record<GearSlot, string>>;
+  /** r22 BPLAY: his euros. */
+  money?: number;
+  /** r22 BPLAY: places he's been and people he's met (clock when first). */
+  visited?: Record<string, number>;
+  met?: Record<string, number>;
+  /** r22 BPLAY: the memories (vignettes) he's had, in order. */
+  memories?: string[];
+  /** r22 BPLAY: who will remember what he did. */
+  remembers?: string[];
 }
 
 export type StoryEvent =
@@ -111,6 +142,11 @@ export type StoryEvent =
   | { type: "gesture"; who: string; name: string }
   | { type: "boost"; skill: string; delta: number; why: string }
   | { type: "task"; id: string; text: string; done: boolean; fresh: boolean }
+  /** r22 BPLAY: something into his pockets (delta > 0) or gone from him. */
+  | { type: "item"; key: string; delta: number }
+  /** r22 BPLAY: what's in a slot changed (the story, or the player). */
+  | { type: "gear"; slot: GearSlot; key: string | null; was: string | null }
+  | { type: "money"; delta: number }
   | { type: "end" };
 
 /** A check as the column shows it, before it's rolled. */
@@ -121,8 +157,8 @@ export interface CheckView {
   kind: "white" | "red";
   /** The skill's value. */
   base: number;
-  /** Modifiers that apply now. */
-  mods: { delta: number; why: string }[];
+  /** Modifiers that apply now (r22 BPLAY: `item` when it's something on him). */
+  mods: { delta: number; why: string; item?: string }[];
   /** base + mods: what's added to the dice. */
   bonus: number;
   /** 0 to 1, and as a whole percent. */
@@ -168,6 +204,8 @@ export interface ChoiceBeat {
     label: string;
     silent: boolean;
     check?: CheckView;
+    /** r22 BPLAY: what it needs (any one), and whether he has one. */
+    needs?: { items: string[]; met: boolean };
   }[];
   src: number;
 }
@@ -212,7 +250,7 @@ export interface RollBeat {
   /** Null for a passive check (no dice). */
   dice: [number, number] | null;
   base: number;
-  mods: { delta: number; why: string }[];
+  mods: { delta: number; why: string; item?: string }[];
   bonus: number;
   total: number;
   pass: boolean;
@@ -240,6 +278,8 @@ export interface Available {
   look: string[];
   /** Thoughts he can follow, by scene id. */
   think: { id: string; label: string }[];
+  /** r22 BPLAY: things he carries that have a use now. */
+  use: string[];
 }
 
 const MAX_STEPS = 20_000;
@@ -253,6 +293,42 @@ const DAY = 24 * 3600;
 
 function copy<T>(v: T): T {
   return v === undefined ? v : (JSON.parse(JSON.stringify(v)) as T);
+}
+
+/** r22 BPLAY: what he starts with: the items marked start= and @money. */
+export function startingKit(chapter: Chapter): Kit {
+  const kit: Kit = { inv: {}, worn: {}, money: chapter.money };
+  for (const it of Object.values(chapter.items)) {
+    if (it.start === "worn" && it.slot && !kit.worn[it.slot]) {
+      kit.worn[it.slot] = it.key;
+    } else if (typeof it.start === "number") kit.inv[it.key] = it.start;
+  }
+  return kit;
+}
+
+/**
+ * Moves an item onto him (from his pockets), what was in its slot back to
+ * the pockets. False if it can't be worn or held, or isn't in his pockets.
+ */
+function putOn(chapter: Chapter, k: Kit, key: string): GearSlot | null {
+  const it = chapter.items[key];
+  if (!it?.slot || (k.inv[key] ?? 0) <= 0) return null;
+  const was = k.worn[it.slot];
+  if (was === key) return it.slot;
+  k.inv[key] -= 1;
+  if (k.inv[key] <= 0) delete k.inv[key];
+  if (was) k.inv[was] = (k.inv[was] ?? 0) + 1;
+  k.worn[it.slot] = key;
+  return it.slot;
+}
+
+/** Takes off what's in a slot, into the pockets. */
+function takeOff(k: Kit, slot: GearSlot): string | null {
+  const was = k.worn[slot];
+  if (!was) return null;
+  delete k.worn[slot];
+  k.inv[was] = (k.inv[was] ?? 0) + 1;
+  return was;
 }
 
 export function emptyStage(): Stage {
@@ -278,9 +354,14 @@ export function chapterStart(
     rels: Record<string, number>;
     build?: Build | null;
     boosts?: Boost[];
+    /** r22 BPLAY: what he carried at the end of the chapter before. */
+    kit?: Kit;
   },
   opts: { build?: Build | null; seed?: number } = {},
 ): Snapshot {
+  const kit = carried?.kit
+    ? (JSON.parse(JSON.stringify(carried.kit)) as Kit)
+    : startingKit(chapter);
   return {
     chapter: chapter.n,
     scene: chapter.start,
@@ -296,6 +377,13 @@ export function chapterStart(
     done: [],
     tasks: {},
     clock: chapter.clock * 60,
+    inv: kit.inv,
+    worn: kit.worn,
+    money: kit.money,
+    visited: {},
+    met: {},
+    memories: [],
+    remembers: [],
   };
 }
 
@@ -327,6 +415,8 @@ interface TriggerIndex {
   order: Map<string, number>;
   /** Every thing something can be looked at for. */
   things: Set<string>;
+  /** r22 BPLAY: scenes started by using an item, by item. */
+  use: Map<string, string[]>;
 }
 
 const indexes = new WeakMap<Chapter, TriggerIndex>();
@@ -342,13 +432,18 @@ function triggerIndex(ch: Chapter): TriggerIndex {
     auto: [],
     order: new Map(),
     things: new Set(),
+    use: new Map(),
   };
   ch.order.forEach((id, i) => {
     idx!.order.set(id, i);
     const t = ch.scenes[id].trigger;
     if (!t) return;
     if (t.on === "think" || t.on === "auto") idx![t.on].push(id);
-    else {
+    else if (t.on === "use") {
+      const list = idx!.use.get(t.target!) ?? [];
+      list.push(id);
+      idx!.use.set(t.target!, list);
+    } else {
       const m = idx![t.on];
       const key =
         t.on !== "enter" && t.place !== undefined
@@ -385,6 +480,14 @@ export class StoryRun {
   private taskList: Record<string, TaskState>;
   private clockNow: number;
   private inv: Record<string, number>;
+  private worn: Partial<Record<GearSlot, string>>;
+  private money: number;
+  private visited: Record<string, number>;
+  private met: Record<string, number>;
+  private memoryList: string[];
+  private remembers: string[];
+  /** r22 BPLAY: the weather the world says it is (else the story's). */
+  private weatherNow: string | null = null;
   private entry: Snapshot;
   /** Steps of the path dropped from its front (MAX_PATH), and where it stood. */
   private trimmed = 0;
@@ -409,6 +512,21 @@ export class StoryRun {
     s.tasks ??= {};
     s.clock ??= chapter.clock * 60;
     s.inv ??= {};
+    if (s.worn === undefined) {
+      // r22 BPLAY: a save from before he carried anything: his starting kit
+      // (on top of anything already in his pockets).
+      const kit = startingKit(chapter);
+      s.worn = kit.worn;
+      for (const [k, n] of Object.entries(kit.inv)) {
+        s.inv[k] = (s.inv[k] ?? 0) + n;
+      }
+      s.money ??= kit.money;
+    }
+    s.money ??= chapter.money;
+    s.visited ??= {};
+    s.met ??= {};
+    s.memories ??= [];
+    s.remembers ??= [];
     this.flags = s.flags;
     this.rels = s.rels;
     this.stageNow = s.stage;
@@ -423,6 +541,12 @@ export class StoryRun {
     this.taskList = s.tasks;
     this.clockNow = s.clock;
     this.inv = s.inv;
+    this.worn = s.worn;
+    this.money = s.money;
+    this.visited = s.visited;
+    this.met = s.met;
+    this.memoryList = s.memories;
+    this.remembers = s.remembers;
     this.entry = s;
     this.entryPath = s.path.length;
     this.idx = triggerIndex(chapter);
@@ -500,14 +624,146 @@ export class StoryRun {
     return this.clockNow;
   }
 
-  /** r22: what he carries (empty until the story gives him things). */
+  /** r22: what's in his pockets, by key and how many. */
   get items(): Record<string, number> {
     return { ...this.inv };
   }
 
-  /** Every skill's value now, boosts included. */
-  skills(): Record<string, number> {
+  /** r22 BPLAY: what he wears and holds, by slot. */
+  get gear(): Partial<Record<GearSlot, string>> {
+    return { ...this.worn };
+  }
+
+  /** r22 BPLAY: his euros. */
+  get euros(): number {
+    return this.money;
+  }
+
+  /** r22 BPLAY: all he carries, as the next chapter takes it on. */
+  get kit(): Kit {
+    return copy({ inv: this.inv, worn: this.worn, money: this.money });
+  }
+
+  /** r22 BPLAY: whether he has it at all (pockets, worn or held). */
+  has(key: string): boolean {
+    return (this.inv[key] ?? 0) > 0 || this.wears(key);
+  }
+
+  wears(key: string): boolean {
+    for (const s of GEAR_SLOTS) if (this.worn[s] === key) return true;
+    return false;
+  }
+
+  /** r22 BPLAY: holding a weapon. */
+  get armed(): boolean {
+    const h = this.worn.hand;
+    return !!h && this.chapter.items[h]?.kind === "weapon";
+  }
+
+  /** r22 BPLAY: places he's been, people he's met, memories, who remembers. */
+  get record(): {
+    visited: Record<string, number>;
+    met: Record<string, number>;
+    memories: string[];
+    remembers: string[];
+    checks: Record<string, CheckMemo>;
+    seed: number;
+  } {
+    return copy({
+      visited: this.visited,
+      met: this.met,
+      memories: this.memoryList,
+      remembers: this.remembers,
+      checks: this.checks,
+      seed: this.seed,
+    });
+  }
+
+  /**
+   * r22 BPLAY: what his clothes and the thing in his hand do to his skills
+   * now, item by item (in slot order).
+   */
+  gearMods(): { skill: string; delta: number; item: string; why: string }[] {
+    const out: { skill: string; delta: number; item: string; why: string }[] =
+      [];
+    for (const slot of GEAR_SLOTS) {
+      const key = this.worn[slot];
+      const it = key ? this.chapter.items[key] : undefined;
+      if (!it) continue;
+      for (const b of it.bonus) {
+        out.push({
+          skill: b.skill,
+          delta: b.delta,
+          item: it.key,
+          why: it.name,
+        });
+      }
+    }
+    return out;
+  }
+
+  /** Every skill's value with boosts, before what he's wearing. */
+  baseSkills(): Record<string, number> {
     return skillValues(this.chapter, this.buildNow, this.boostList);
+  }
+
+  /** Every skill's value now: boosts, and (r22 BPLAY) what he's wearing. */
+  skills(): Record<string, number> {
+    const out = this.baseSkills();
+    for (const m of this.gearMods()) {
+      if (m.skill in out) out[m.skill] += m.delta;
+    }
+    return out;
+  }
+
+  /**
+   * r22 BPLAY: where his rating in a language comes from: the points spent
+   * at the start, boosts ("boost LANGUAGES.fr +1") and what he's wearing or
+   * holding ("bonus=LANGUAGES.fr+1").
+   */
+  languageParts(
+    code: string,
+  ): { why: string; delta: number; item?: string; start?: boolean }[] {
+    const ref = `${LANGUAGES_SKILL}.${code}`;
+    const out: {
+      why: string;
+      delta: number;
+      item?: string;
+      start?: boolean;
+    }[] = [];
+    const start = this.build.langPts?.[code] ?? 0;
+    if (start > 0)
+      out.push({ why: "From the start", delta: start, start: true });
+    for (const b of this.boostList) {
+      if (b.skill === ref) out.push({ why: b.why, delta: b.delta });
+    }
+    for (const m of this.gearMods()) {
+      if (m.skill === ref)
+        out.push({ why: m.why, delta: m.delta, item: m.item });
+    }
+    return out;
+  }
+
+  /** r22 BPLAY: his rating in each of the chapter's languages, now. */
+  languages(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const l of this.chapter.languages) {
+      const n = this.languageParts(l.code).reduce((a, p) => a + p.delta, 0);
+      out[l.code] = Math.max(0, n);
+    }
+    return out;
+  }
+
+  /**
+   * A skill's value now, by what a check names: a skill, or (r22 BPLAY)
+   * "LANGUAGES.fr", his Languages skill plus his French.
+   */
+  skillNow(id: string): number {
+    const code = langOf(id);
+    if (code === null) return this.skills()[id] ?? 0;
+    return (
+      (this.skills()[LANGUAGES_SKILL] ?? 0) + (this.languages()[code] ?? 0)
+    );
   }
 
   values(): { flags: Record<string, number>; rels: Record<string, number> } {
@@ -544,6 +800,9 @@ export class StoryRun {
       throw new Error(`"${optionId}" isn't one of the options`);
     }
     if (shown.check?.locked) throw new Error(`"${optionId}" is locked`);
+    if (shown.needs && !shown.needs.met) {
+      throw new Error(`"${optionId}" needs ${shown.needs.items.join(" or ")}`);
+    }
     const opt = op.options.find((o) => o.id === optionId)!;
     this.step(`c:${op.id}=${opt.id}`);
     if (opt.once) this.taken.push(`${op.id}/${opt.id}`);
@@ -556,7 +815,9 @@ export class StoryRun {
   timeout(): Beat {
     const b = this.beatNow;
     if (b.kind !== "choice") return b;
-    const open = b.options.filter((o) => !o.check?.locked);
+    const open = b.options.filter(
+      (o) => !o.check?.locked && o.needs?.met !== false,
+    );
     const pick = open.find((o) => o.silent) ?? open[0];
     return this.choose(pick.id);
   }
@@ -679,7 +940,7 @@ export class StoryRun {
    * thing in the story is asked, which a long game shouldn't do often.
    */
   available(things?: Iterable<string>): Available {
-    const out: Available = { talk: [], look: [], think: [] };
+    const out: Available = { talk: [], look: [], think: [], use: [] };
     if (!this.free) return out;
     const v = this.vals();
     const here = this.stageNow.place;
@@ -698,7 +959,88 @@ export class StoryRun {
         });
       }
     }
+    for (const key of this.idx.use.keys()) {
+      if (this.has(key) && this.useScene(key, v)) out.use.push(key);
+    }
     return out;
+  }
+
+  /** The scene using an item starts now (`in=` is checked by matches()). */
+  private useScene(key: string, v?: Values): string | null {
+    return this.first(this.idx.use, [key], v);
+  }
+
+  /** r22 BPLAY: he uses something he carries: its scene, or null. */
+  use(key: string): Beat | null {
+    if (!this.free || !this.has(key)) return null;
+    const id = this.useScene(key);
+    return id ? this.startFree(id) : null;
+  }
+
+  /**
+   * r22 BPLAY: the player puts something on (or takes it in hand). Allowed
+   * at any moment but the end; a check on screen is worked out again, so
+   * a hat put on before a throw counts. Mid-scene, the scene's start (what
+   * a save keeps) gets the same change, if it had the thing then.
+   */
+  equip(key: string): boolean {
+    if (this.beatNow.kind === "end") return false;
+    const k = this.kitNow();
+    const was = this.worn[this.chapter.items[key]?.slot ?? "hand"] ?? null;
+    const slot = putOn(this.chapter, k, key);
+    if (!slot) return false;
+    if (!this.free) {
+      const e = this.entryKit();
+      if (e) putOn(this.chapter, e, key);
+    }
+    if (was !== key) {
+      this.pending.push({ type: "gear", slot, key, was });
+    }
+    this.rethink();
+    return true;
+  }
+
+  /** r22 BPLAY: the player takes off what's in a slot. */
+  unequip(slot: GearSlot): boolean {
+    if (this.beatNow.kind === "end") return false;
+    const was = takeOff(this.kitNow(), slot);
+    if (!was) return false;
+    if (!this.free) {
+      const e = this.entryKit();
+      if (e && e.worn[slot] === was) takeOff(e, slot);
+    }
+    this.pending.push({ type: "gear", slot, key: null, was });
+    this.rethink();
+    return true;
+  }
+
+  /** The live kit (the run's own objects, so changes stick). */
+  private kitNow(): Kit {
+    return { inv: this.inv, worn: this.worn, money: this.money };
+  }
+
+  /** The kit as the current scene began (what a save holds). */
+  private entryKit(): Kit | null {
+    const e = this.entry;
+    if (!e.inv || !e.worn) return null;
+    return { inv: e.inv, worn: e.worn, money: e.money ?? 0 };
+  }
+
+  /** A choice or a room on screen, worked out again with what he has now. */
+  private rethink(): void {
+    const b = this.beatNow;
+    if (b.kind === "choice" || b.kind === "investigate") {
+      this.beatNow = this.run();
+    }
+  }
+
+  /**
+   * r22 BPLAY: the weather where he is, as the world has it, for conditions
+   * (`weather.clear`). Without a world it's the story's, or its drift by
+   * the story's clock.
+   */
+  setWeather(kind: string | null): void {
+    this.weatherNow = kind;
   }
 
   /** He goes up to someone: their scene, or null if they've nothing. */
@@ -732,6 +1074,7 @@ export class StoryRun {
   enterPlace(place: string, mark: string): Beat {
     if (!this.free) throw new Error("not free");
     this.stageNow.place = place;
+    this.visit(place);
     this.stageNow.focus = null;
     this.stageNow.actors[this.hero] = {
       ...(this.stageNow.actors[this.hero] ?? {}),
@@ -764,12 +1107,29 @@ export class StoryRun {
   // --- checks ---------------------------------------------------------------
 
   private vals(): Values {
+    const weather =
+      this.weatherNow ??
+      weatherAt(
+        (this.stageNow.weather as WeatherKind | null) ?? null,
+        this.clockNow,
+      );
     return {
       flags: this.flags,
       rels: this.rels,
       skills: this.skills(),
-      langs: this.build.langs ?? [],
+      langs: this.languages(),
+      inv: this.inv,
+      worn: this.worn as Record<string, string>,
+      money: this.money,
+      armed: this.armed,
+      time: Math.floor((this.clockNow % DAY) / 60),
+      weather,
     };
+  }
+
+  /** r22 BPLAY: noted for the story so far. */
+  private visit(place: string): void {
+    this.visited[place] ??= this.clockNow;
   }
 
   /** A check's odds now, with `extra` modifiers on top of its own. */
@@ -779,8 +1139,25 @@ export class StoryRun {
     extra: { delta: number; why: string }[] = [],
   ): CheckView {
     const v = this.vals();
-    const base = v.skills![spec.skill] ?? 0;
-    const mods = [
+    // r22 BPLAY: the skill before his clothes; each piece is listed. A
+    // check in a tongue ("LANGUAGES.fr") is his Languages, with his rating
+    // in it on top, and what he wears for either.
+    const code = langOf(spec.skill);
+    const skill = code === null ? spec.skill : LANGUAGES_SKILL;
+    const base = this.baseSkills()[skill] ?? 0;
+    const tongue: CheckView["mods"] = [];
+    if (code !== null) {
+      const name =
+        this.chapter.languages.find((l) => l.code === code)?.name ?? code;
+      const own = this.languageParts(code).filter((p) => !p.item);
+      const n = own.reduce((a, p) => a + p.delta, 0);
+      tongue.push({ delta: n, why: `His ${name}` });
+    }
+    const mods: CheckView["mods"] = [
+      ...tongue,
+      ...this.gearMods()
+        .filter((m) => m.skill === skill || m.skill === spec.skill)
+        .map((m) => ({ delta: m.delta, why: m.why, item: m.item })),
       ...spec.mods
         .filter((m) => m.cond === undefined || evalExpr(m.cond, v))
         .map((m) => ({ delta: m.delta, why: m.why })),
@@ -839,6 +1216,7 @@ export class StoryRun {
       tries: attempt + 1,
       result: pass ? "pass" : "fail",
       bonus: view.bonus,
+      at: this.clockNow,
     };
     if (pass) onPass();
     this.afterRoll = pass ? passAt : failAt;
@@ -897,6 +1275,12 @@ export class StoryRun {
       tasks: copy(this.taskList),
       clock: this.clockNow,
       inv: { ...this.inv },
+      worn: { ...this.worn },
+      money: this.money,
+      visited: { ...this.visited },
+      met: { ...this.met },
+      memories: [...this.memoryList],
+      remembers: [...this.remembers],
     };
   }
 
@@ -918,20 +1302,19 @@ export class StoryRun {
 
   private langLine(op: Extract<Op, { op: "line" }>, beat: LineBeat): void {
     const code = op.lang!;
-    const langs = this.build.langs ?? [];
-    const speaks = langs.includes(code);
+    // r22 BPLAY: his rating in it; 1 or more and he follows plain speech.
+    const rating = this.languages()[code] ?? 0;
+    const speaks = rating > 0;
     const name =
       this.chapter.languages.find((l) => l.code === code)?.name ?? code;
     let understood = speaks;
     let via: "skill" | undefined;
     if (op.langDiff !== undefined) {
-      // Hard for anyone: a speaker has an easier time of it.
+      // Hard for anyone: his Languages plus his rating in it. At 0, his
+      // Languages alone may still get the gist.
       const skill = this.skills()[LANGUAGES_SKILL] ?? 0;
-      if (speaks) understood = passive(skill + 2, op.langDiff);
-      else if (passive(skill, op.langDiff)) {
-        understood = true;
-        via = "skill";
-      }
+      understood = passive(skill + rating, op.langDiff);
+      if (understood && !speaks) via = "skill";
     }
     beat.text = understood ? (op.trans ?? op.text) : op.text;
     beat.lang = { code, name, understood, original: op.text };
@@ -952,7 +1335,7 @@ export class StoryRun {
         case "line": {
           if (op.skill !== undefined && op.diff !== undefined) {
             // A passive check: the voice speaks only if the skill is up to it.
-            if (!passive(this.skills()[op.skill] ?? 0, op.diff)) {
+            if (!passive(this.skillNow(op.skill), op.diff)) {
               this.ip++;
               break;
             }
@@ -973,6 +1356,10 @@ export class StoryRun {
             }
           }
           if (op.lang !== undefined) this.langLine(op, beat);
+          // r22 BPLAY: whoever speaks to him, he's met.
+          if (op.kind === "say" && op.who && op.who !== this.hero) {
+            this.met[op.who] ??= this.clockNow;
+          }
           this.clockNow += LINE_SECONDS;
           return beat;
         }
@@ -996,6 +1383,7 @@ export class StoryRun {
           break;
         case "place":
           this.stageNow.place = op.key;
+          if (op.key) this.visit(op.key);
           this.ip++;
           break;
         case "focus":
@@ -1004,6 +1392,9 @@ export class StoryRun {
           break;
         case "vignette":
           this.stageNow.vignette = op.key;
+          if (op.key && !this.memoryList.includes(op.key)) {
+            this.memoryList.push(op.key);
+          }
           this.ip++;
           break;
         case "weather":
@@ -1093,8 +1484,73 @@ export class StoryRun {
           break;
         case "remember":
           this.pending.push({ type: "remember", who: op.who });
+          if (!this.remembers.includes(op.who)) this.remembers.push(op.who);
           this.ip++;
           break;
+        case "item": {
+          // r22 BPLAY: into his pockets, or out of them (or off him).
+          const k = this.kitNow();
+          if (op.delta > 0) {
+            k.inv[op.key] = (k.inv[op.key] ?? 0) + op.delta;
+            this.pending.push({ type: "item", key: op.key, delta: op.delta });
+          } else {
+            let want = -op.delta;
+            let gone = 0;
+            const inPockets = Math.min(want, k.inv[op.key] ?? 0);
+            if (inPockets > 0) {
+              k.inv[op.key] -= inPockets;
+              if (k.inv[op.key] <= 0) delete k.inv[op.key];
+              want -= inPockets;
+              gone += inPockets;
+            }
+            for (const slot of GEAR_SLOTS) {
+              if (want > 0 && k.worn[slot] === op.key) {
+                delete k.worn[slot];
+                this.pending.push({
+                  type: "gear",
+                  slot,
+                  key: null,
+                  was: op.key,
+                });
+                want--;
+                gone++;
+              }
+            }
+            if (gone > 0) {
+              this.pending.push({ type: "item", key: op.key, delta: -gone });
+            }
+          }
+          this.ip++;
+          break;
+        }
+        case "equip": {
+          const k = this.kitNow();
+          if (!this.has(op.key)) k.inv[op.key] = (k.inv[op.key] ?? 0) + 1;
+          const slot = this.chapter.items[op.key]?.slot;
+          const was = slot ? (k.worn[slot] ?? null) : null;
+          if (putOn(this.chapter, k, op.key) && slot && was !== op.key) {
+            this.pending.push({ type: "gear", slot, key: op.key, was });
+          }
+          this.ip++;
+          break;
+        }
+        case "unequip": {
+          const was = takeOff(this.kitNow(), op.slot);
+          if (was) {
+            this.pending.push({ type: "gear", slot: op.slot, key: null, was });
+          }
+          this.ip++;
+          break;
+        }
+        case "money": {
+          const before = this.money;
+          this.money = Math.max(0, this.money + op.delta);
+          if (this.money !== before) {
+            this.pending.push({ type: "money", delta: this.money - before });
+          }
+          this.ip++;
+          break;
+        }
         case "if":
           this.ip = evalExpr(op.cond, this.vals()) ? this.ip + 1 : op.else;
           break;
@@ -1142,6 +1598,12 @@ export class StoryRun {
               label: o.label,
               silent: o.silent,
             };
+            if (o.needs) {
+              shown.needs = {
+                items: [...o.needs],
+                met: o.needs.some((k) => this.has(k)),
+              };
+            }
             if (o.check) {
               const id = `${op.id}/${o.id}`;
               const view = this.checkView(id, o.check);
@@ -1180,6 +1642,7 @@ export class StoryRun {
                   tries: 0,
                   result: "pass",
                   bonus: view.bonus,
+                  at: this.clockNow,
                 };
                 this.ret = this.ip;
                 this.afterRoll = d.at;

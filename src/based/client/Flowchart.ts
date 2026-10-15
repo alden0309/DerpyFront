@@ -1,11 +1,23 @@
-// The end-of-chapter flowchart, in the manner of Detroit's: every scene in
-// order down a spine, the choices in each branching off it. What you've
-// taken is lit, what you've never taken is a locked "?", and each option
-// shows what share of players chose it ("You", while you're the only one).
+// The flowchart, in the manner of Detroit's: every scene in order down a
+// spine, the choices in each branching off it. What you've taken is lit;
+// what you've never taken is blacked out like a redacted line (r22 BPLAY);
+// and each option shows what share of players chose it ("You", while
+// you're the only one).
 
 import { html, nothing, TemplateResult } from "lit";
 import { FlowScene } from "../engine/Flow";
 import { ChapterSeen } from "../engine/Save";
+
+/** A redaction bar, its width from the id (not from what it hides). */
+function redact(id: string, min = 4, spread = 9): TemplateResult {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return html`<span
+    class="mb-redact"
+    style="width:${min + (h % spread)}ch"
+    aria-label="Not yet found"
+  ></span>`;
+}
 
 export interface FlowInput {
   flow: FlowScene[];
@@ -14,6 +26,21 @@ export interface FlowInput {
   path: string[];
   players: number;
   picks: Record<string, Record<string, number>>;
+}
+
+/** The scenes, with each run of ones not yet found gathered into a list. */
+function runs(
+  flow: FlowScene[],
+  seen: Set<string>,
+): (FlowScene | FlowScene[])[] {
+  const out: (FlowScene | FlowScene[])[] = [];
+  for (const s of flow) {
+    const last = out[out.length - 1];
+    if (seen.has(s.id)) out.push(s);
+    else if (Array.isArray(last)) last.push(s);
+    else out.push([s]);
+  }
+  return out;
 }
 
 export function renderFlowchart(f: FlowInput): TemplateResult {
@@ -62,7 +89,19 @@ export function renderFlowchart(f: FlowInput): TemplateResult {
       >
     </div>
     <ol class="mb-flow-spine">
-      ${f.flow.map((s) => {
+      ${runs(f.flow, seenScenes).map((s) => {
+        if (Array.isArray(s)) {
+          // r22 BPLAY: scenes not yet found, one after another: one line.
+          return html`<li class="mb-flow-scene locked run">
+            <div class="mb-flow-node">
+              <span class="mb-flow-dot"></span>
+              <span class="mb-flow-label">${redact(s[0].id, 6, 10)}</span>
+              ${s.length > 1
+                ? html`<span class="mb-flow-cp">and ${s.length - 1} more</span>`
+                : nothing}
+            </div>
+          </li>`;
+        }
         const known = seenScenes.has(s.id);
         const now = nowScenes.has(s.id);
         return html`<li
@@ -72,7 +111,9 @@ export function renderFlowchart(f: FlowInput): TemplateResult {
         >
           <div class="mb-flow-node">
             <span class="mb-flow-dot"></span>
-            <span class="mb-flow-label">${known ? s.label : "?"}</span>
+            <span class="mb-flow-label"
+              >${known ? s.label : redact(s.id, 6, 10)}</span
+            >
             ${s.on && known
               ? html`<span class="mb-flow-cp" title="Found by exploring"
                   >◇</span
@@ -97,7 +138,7 @@ export function renderFlowchart(f: FlowInput): TemplateResult {
                             ? "now"
                             : ""}"
                         >
-                          ${lit ? o.label : "?"}
+                          ${lit ? o.label : redact(key, 3, 8)}
                           ${pct ? html`<small>${pct}</small>` : nothing}
                         </span>`;
                       })}

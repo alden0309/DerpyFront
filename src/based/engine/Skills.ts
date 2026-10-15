@@ -3,8 +3,16 @@
 // ("boost FOCUS +1 'Paris at twenty-six'").
 //
 // r22: three attributes (Social, Intelligence, Physical) of four skills
-// each, and his languages. At the start the player picks which of the
-// chapter's languages he speaks; his Languages skill decides how many.
+// each, and his languages.
+//
+// r22 BPLAY: languages are small points under Languages. His Languages
+// skill at the start (its attribute, +1 if it's his signature) is a pool
+// of points the player spends on the chapter's languages, 0 to 3 each: 0
+// he doesn't speak it, 1 he gets by, 2 fluent, 3 like a native. A line in
+// a tongue he has at 1 or more is understood; a hard one, or a check in a
+// tongue ("LANGUAGES.fr"), reads his Languages skill plus that rating.
+// Boosts ("boost LANGUAGES.fr +1") and items ("bonus=LANGUAGES.ru+1") add
+// to a rating later.
 
 import { Archetype, Build, Chapter } from "./Types";
 
@@ -14,24 +22,73 @@ export interface Boost {
   why: string;
 }
 
-/** The skill that decides how many languages he has, and how well. */
+/** The skill his language points come from, and the base of their checks. */
 export const LANGUAGES_SKILL = "LANGUAGES";
 
-/**
- * How many of the chapter's languages a Languages skill allows: one at 2 or
- * less, then one more for each point, up to all of them.
- */
-export function languageSlots(skill: number, available: number): number {
-  return Math.max(1, Math.min(available, skill - 1));
+/** The most points one language can take at the start. */
+export const LANG_MAX = 3;
+
+/** What a rating means, from 0 up. */
+export const LANG_LEVELS = [
+  "doesn't speak it",
+  "gets by",
+  "fluent",
+  "like a native",
+] as const;
+
+/** A rating in words (above 3 is still "like a native"). */
+export function langLevel(n: number): string {
+  return LANG_LEVELS[Math.max(0, Math.min(LANG_LEVELS.length - 1, n))];
 }
 
-/** How well he speaks them, in words, for the setup screen and his sheet. */
-export function fluency(skill: number): string {
-  if (skill >= 5) return "like a native";
-  if (skill >= 4) return "fluently";
-  if (skill >= 3) return "well";
-  if (skill >= 2) return "passably";
-  return "haltingly";
+/** "LANGUAGES.fr" → "fr"; anything else → null. */
+export function langOf(skill: string): string | null {
+  const m = /^LANGUAGES\.([a-z][a-z_]*)$/.exec(skill);
+  return m ? m[1] : null;
+}
+
+/**
+ * Whether a check, a boost or an item's bonus can name this: one of the
+ * chapter's skills, or "LANGUAGES.code" for one of its languages.
+ */
+export function isSkillRef(ch: Chapter, id: string): boolean {
+  const code = langOf(id);
+  if (code !== null) return ch.languages.some((l) => l.code === code);
+  return ch.skills.some((s) => s.id === id);
+}
+
+/**
+ * How many language points a build has to spend: his Languages skill at the
+ * start (its attribute, +1 if it's his signature), at least 1.
+ */
+export function languagePool(ch: Chapter, b: Build): number {
+  if (!ch.skills.some((s) => s.id === LANGUAGES_SKILL)) {
+    return ch.languages.length;
+  }
+  return Math.max(1, rawSkill(ch, b, LANGUAGES_SKILL));
+}
+
+/** Points spent so far. */
+export function langSpent(b: Build): number {
+  return Object.values(b.langPts ?? {}).reduce((a, n) => a + n, 0);
+}
+
+/**
+ * Points spread over `codes` in order: one each, then round again, up to
+ * LANG_MAX each.
+ */
+function spread(codes: string[], pool: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const c of codes) out[c] = 0;
+  let left = pool;
+  for (let lvl = 1; lvl <= LANG_MAX && left > 0; lvl++) {
+    for (const c of codes) {
+      if (left === 0) break;
+      out[c] = lvl;
+      left--;
+    }
+  }
+  return out;
 }
 
 /** The first archetype, or an even spread if the chapter has none. */
@@ -53,21 +110,35 @@ export function buildOf(a: Archetype): Build {
 }
 
 /**
- * The build with languages filled in, if it has none (an archetype just
- * picked, or a save from before r22): the chapter's languages in the order
- * they're written, as many as his skill allows.
+ * The build with its language points in order (r22 BPLAY):
+ * - points already spent are kept, less any language the chapter no longer
+ *   has (German went in r22) and anything out of range;
+ * - BWORLD's saves, which listed the languages he was given, become points:
+ *   one in each he had, then the rest of his pool round them again (a
+ *   language that's gone gives its points to the others, or to the
+ *   chapter's first if it was all he had);
+ * - a build with neither (an archetype the engine picked by itself, or a
+ *   save from before r22) gets its pool spread over the chapter's languages
+ *   in the order written.
+ * The setup screen starts from no points and lets the player spend them.
  */
 export function withLanguages(ch: Chapter, b: Build): Build {
-  if (ch.languages.length === 0) return b;
-  const known = (b.langs ?? []).filter((c) =>
-    ch.languages.some((l) => l.code === c),
-  );
-  const slots = languageSlots(
-    rawSkill(ch, b, LANGUAGES_SKILL),
-    ch.languages.length,
-  );
-  if (known.length > 0) return { ...b, langs: known.slice(0, slots) };
-  return { ...b, langs: ch.languages.slice(0, slots).map((l) => l.code) };
+  const { langs, ...rest } = b;
+  if (ch.languages.length === 0) return rest;
+  const codes = ch.languages.map((l) => l.code);
+  if (b.langPts) {
+    const pts: Record<string, number> = {};
+    for (const c of codes) {
+      const n = b.langPts[c];
+      if (Number.isInteger(n) && n > 0) pts[c] = Math.min(LANG_MAX, n);
+    }
+    return { ...rest, langPts: pts };
+  }
+  const pool = languagePool(ch, b);
+  const known = (langs ?? []).filter((c) => codes.includes(c));
+  const pts = spread(known.length > 0 ? known : codes, pool);
+  for (const c of Object.keys(pts)) if (pts[c] === 0) delete pts[c];
+  return { ...rest, langPts: pts };
 }
 
 /** A skill's value under a build before any boosts. */
@@ -98,18 +169,25 @@ export function buildProblem(ch: Chapter, b: Build): string | null {
     return "pick a signature skill";
   }
   if (ch.languages.length > 0) {
-    const langs = b.langs ?? [];
-    const slots = languageSlots(
-      rawSkill(ch, b, LANGUAGES_SKILL),
-      ch.languages.length,
-    );
-    if (langs.length === 0) return "pick a language he speaks";
-    if (new Set(langs).size !== langs.length) return "a language twice";
-    for (const c of langs) {
+    const pts = b.langPts ?? {};
+    for (const [c, n] of Object.entries(pts)) {
       if (!ch.languages.some((l) => l.code === c)) return `no language ${c}`;
+      if (!Number.isInteger(n) || n < 0 || n > LANG_MAX) {
+        return `a language takes 0 to ${LANG_MAX} points`;
+      }
     }
-    if (langs.length > slots) {
-      return `his Languages allow ${slots} language${slots === 1 ? "" : "s"}`;
+    const pool = languagePool(ch, b);
+    const spent = langSpent(b);
+    if (spent > pool) {
+      return `his Languages give ${pool} language point${pool === 1 ? "" : "s"}, not ${spent}`;
+    }
+    const room = ch.languages.reduce(
+      (a, l) => a + LANG_MAX - (pts[l.code] ?? 0),
+      0,
+    );
+    const left = pool - spent;
+    if (left > 0 && room > 0) {
+      return `spend his language points (${left} left)`;
     }
   }
   return null;

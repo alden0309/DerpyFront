@@ -38,7 +38,7 @@ import { buildItem, KitContext, PieceLight } from "./Kit";
 // BPEOPLE (r22): lookFor (a look, with the cast member's own model) and warmCast.
 import { worldGeometry } from "./Merge";
 import { Look, lookFor, Person, Pose, warmCast } from "./People";
-import { setGait, setWetness } from "./PeopleHooks";
+import { holdProp, setGait, setWetness, wearLook } from "./PeopleHooks";
 import { Post } from "./Post";
 import { SurfaceBook } from "./Textures";
 import {
@@ -125,13 +125,15 @@ interface BuiltPlace {
   wet: WetMat[];
   drips: Drips | null;
   outdoor: boolean;
+  /**
+   * BPLAY (r22): every glint in the place, as one instanced quad turned to
+   * the camera, so twenty things worth a look are one draw, not twenty.
+   * There's always one instance (a dark one out of sight when nothing
+   * glints), so its shader is compiled with the place's.
+   */
+  glints: THREE.InstancedMesh | null;
   /** Its shaders compiled (built in the background, then compiled). */
   ready: Promise<void>;
-}
-
-interface Glint {
-  sprite: THREE.Sprite;
-  k: number;
 }
 
 const CUT_HEIGHT = 1.15;
@@ -232,7 +234,8 @@ export class World {
   private weather: WeatherState = startWeather("rain");
   private heroGait = 1;
   private lookOffset = new THREE.Vector3();
-  private readonly glints = new Map<string, Glint>();
+  /** How bright each thing's glint is (0 to 1.6), by hotspot. */
+  private readonly glints = new Map<string, number>();
   private scanAt = 0;
   private reported = "";
   // Reused each frame, so a frame makes no garbage.
@@ -266,6 +269,12 @@ export class World {
   showAll = false;
   /** Investigations that keep him put: he reads from where he is. */
   still = false;
+  /**
+   * BPLAY (r22): the look his clothes give him (null: his cast look), and
+   * what he holds: a prop the world draws at his right hand.
+   */
+  private heroLook: string | null = null;
+  private held: { kind: string; prop: THREE.Group; own: boolean } | null = null;
   onThings: ((h: ThingOnScreen[]) => void) | null = null;
   /** Called when a set of things noticed changes (for the column). */
   onNoticed: ((ids: string[]) => void) | null = null;
@@ -400,6 +409,7 @@ export class World {
       wet: [],
       drips: null,
       outdoor,
+      glints: null,
       ready: Promise.resolve(),
     };
     const wanted: (PieceLight & { obj: THREE.Light; order: number })[] = [];
@@ -532,11 +542,21 @@ export class World {
       b.drips = new Drips(drips);
       scene.add(b.drips.lines);
     }
-    // A glint no one sees, so its shader is compiled with the place's.
-    const warm = new THREE.Sprite(this.glintMaterial());
-    warm.material.opacity = 0;
-    warm.position.set(0, -50, 0);
-    scene.add(warm);
+    // The glints, one draw for all of them; the first instance is a dark
+    // one out of sight, so the shader is compiled with the place's.
+    const glints = new THREE.InstancedMesh(
+      new THREE.PlaneGeometry(1, 1),
+      this.glintMaterial(),
+      Object.keys(def.hotspots).length + 1,
+    );
+    glints.renderOrder = 9;
+    glints.frustumCulled = false;
+    glints.setMatrixAt(0, new THREE.Matrix4().makeTranslation(0, -50, 0));
+    glints.setColorAt(0, new THREE.Color(0, 0, 0));
+    glints.count = 1;
+    glints.userData.keep = true;
+    scene.add(glints);
+    b.glints = glints;
     // Invisible targets for the hotspots, for the pointer to find.
     for (const [id, h] of Object.entries(def.hotspots)) {
       const proxy = new THREE.Mesh(
@@ -803,6 +823,7 @@ export class World {
       if (!t.userData.shared && t !== this.env) t.dispose();
     }
     b.drips?.dispose();
+    b.glints?.dispose();
   }
 
   private isPerson(o: THREE.Object3D): boolean {
@@ -841,8 +862,8 @@ export class World {
     this.rain.group.visible = b.outdoor;
     this.rain.setDry(def.areas.filter((a) => !a.rain).map((a) => a.rect));
     this.rain.setLamps(b.lamps.map((at) => ({ at, k: 1 })));
-    for (const g of this.glints.values()) g.sprite.removeFromParent();
     this.glints.clear();
+    if (b.glints) b.glints.count = 1;
     this.noticed.clear();
     this.near.clear();
     this.lookOffset.set(0, 0, 0);
@@ -870,7 +891,9 @@ export class World {
 
   private person(id: string, wear?: string): Person | null {
     const c = this.cast.find((x) => x.id === id);
-    const lookName = wear ?? c?.look;
+    // BPLAY (r22): his clothes' look, unless the story dresses him itself.
+    const lookName =
+      wear ?? (id === this.hero ? (this.heroLook ?? c?.look) : c?.look);
     if (!lookName) return null;
     // BPEOPLE (r22): their own model (the cast's, or their look's) in every wear=.
     const look = lookFor(lookName, c?.model ?? lookFor(c?.look).model);
@@ -1033,6 +1056,11 @@ export class World {
     this.focusKey = key;
   }
 
+  /** BPLAY (r22): the weather now (rain, drizzle, clear or fog), drift and all. */
+  get weatherNow(): string {
+    return weatherAt(this.weatherKind, this.time);
+  }
+
   /** r22: the weather the story wants (null: the place's own drift). */
   setWeather(kind: string | null): void {
     this.weatherKind = (kind as WeatherKind | null) ?? null;
@@ -1046,6 +1074,69 @@ export class World {
   heroAt(): THREE.Vector3 | null {
     const p = this.people.get(this.hero);
     return p && p.root.visible ? p.root.position.clone() : null;
+  }
+
+  /**
+   * BPLAY (r22): the look his clothes give him. Only an outfit with a model
+   * changes him (the owner's field jacket, today); clothes without one keep
+   * him as he is, so a null here leaves his appearance alone.
+   */
+  dressHero(look: string | null): void {
+    if (look === null || look === this.heroLook) return;
+    this.heroLook = look;
+    const p = this.people.get(this.hero);
+    if (!p || p.root.visible === false) return;
+    if (wearLook(p, look)) return;
+    // Rebuilt in the new look, where he stood.
+    this.person(this.hero);
+  }
+
+  /**
+   * BPLAY (r22): what he holds: "umbrella", "baton", any other drawing's
+   * name for a small thing, or null for empty hands. Open over his head
+   * outdoors, an umbrella keeps the rain off him.
+   */
+  holdHero(kind: string | null): void {
+    if (this.held?.kind === kind) return;
+    if (this.held) {
+      const p = this.people.get(this.hero);
+      if (this.held.own && p) holdProp(p, null);
+      this.held.prop.removeFromParent();
+      this.held.prop.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh) m.geometry.dispose();
+      });
+      this.held = null;
+    }
+    if (kind === null) return;
+    const prop = heldProp(kind);
+    const p = this.people.get(this.hero);
+    const own = !!p && holdProp(p, prop);
+    this.held = { kind, prop, own };
+  }
+
+  /** Keeps a held prop at his hand (when the person doesn't carry it). */
+  private carryHeld(): void {
+    const h = this.held;
+    const p = this.people.get(this.hero);
+    if (!h || h.own || !p || !this.place) return;
+    if (h.prop.parent !== this.place.scene) this.place.scene.add(h.prop);
+    h.prop.visible = p.root.visible;
+    if (!p.root.visible) return;
+    const hand = p.bone("hand_r");
+    if (hand) hand.getWorldPosition(this.v3);
+    else this.v3.copy(p.root.position).setY(0.95);
+    h.prop.position.copy(this.v3);
+    h.prop.rotation.set(0, p.heading, 0);
+    // The umbrella opens over him outdoors and hangs closed indoors.
+    const open = h.prop.getObjectByName("open");
+    const shut = h.prop.getObjectByName("shut");
+    if (open && shut) {
+      const area = this.areaOf(p.root.position.x, p.root.position.z);
+      const out = this.place.outdoor && area?.inside !== true;
+      open.visible = out && p.pose !== "sit";
+      shut.visible = !open.visible;
+    }
   }
 
   /** Where he stands, which way he faces and how wet he is: for a save. */
@@ -1199,17 +1290,22 @@ export class World {
 
   // --- noticing things (r22) -----------------------------------------------
 
-  private glintMaterial(): THREE.SpriteMaterial {
-    return new THREE.SpriteMaterial({
+  private glintMaterial(): THREE.MeshBasicMaterial {
+    // Added light, so each glint's brightness is its instance's colour.
+    return new THREE.MeshBasicMaterial({
       map: glintTexture(),
       color: "#ffd9a0",
       transparent: true,
       depthWrite: false,
       depthTest: false,
       blending: THREE.AdditiveBlending,
-      opacity: 0,
     });
   }
+
+  private readonly glintM = new THREE.Matrix4();
+  private readonly glintS = new THREE.Vector3();
+  private readonly glintP = new THREE.Vector3();
+  private readonly glintC = new THREE.Color();
 
   /** Which things are near and in sight; glints on them. A few times a second. */
   private scanThings(dt: number): void {
@@ -1259,34 +1355,43 @@ export class World {
       }
       this.near = near;
     }
-    // The glints: on what's near and worth a look (not doors).
+    // The glints: on what's near and worth a look (not doors), all of them
+    // instances of the place's one glint mesh, turned to the camera.
+    const mesh = b.glints;
+    let n = 0;
     for (const [id, info] of this.things) {
       const h = b.def.hotspots[id];
       if (!h || info.door) continue;
-      let g = this.glints.get(id);
       const want = this.near.has(id) ? (this.hovered === id ? 1.6 : 1) : 0;
-      if (!g) {
-        if (want === 0) continue;
-        const sprite = new THREE.Sprite(this.glintMaterial());
-        sprite.renderOrder = 9;
-        b.scene.add(sprite);
-        g = { sprite, k: 0 };
-        this.glints.set(id, g);
-      }
-      g.k += (want - g.k) * (1 - Math.exp(-dt * 6));
-      const pulse = 0.75 + 0.25 * Math.sin(this.time * 3 + id.length);
-      const m = g.sprite.material as THREE.SpriteMaterial;
-      m.opacity = Math.min(1, g.k) * pulse;
-      g.sprite.visible = g.k > 0.01;
-      this.hotspotPos(h, g.sprite.position);
-      g.sprite.scale.setScalar((0.2 + 0.1 * g.k) * (this.camSpan / 10));
-    }
-    for (const [id, g] of this.glints) {
-      if (!this.things.has(id)) {
-        g.sprite.removeFromParent();
-        (g.sprite.material as THREE.Material).dispose();
+      let k = this.glints.get(id) ?? 0;
+      if (k === 0 && want === 0) continue;
+      k += (want - k) * (1 - Math.exp(-dt * 6));
+      if (want === 0 && k < 0.01) {
         this.glints.delete(id);
+        continue;
       }
+      this.glints.set(id, k);
+      if (!mesh || n >= mesh.instanceMatrix.count) continue;
+      const pulse = 0.75 + 0.25 * Math.sin(this.time * 3 + id.length);
+      this.hotspotPos(h, this.glintP);
+      this.glintS.setScalar((0.2 + 0.1 * k) * (this.camSpan / 10));
+      this.glintM.compose(this.glintP, this.camera.quaternion, this.glintS);
+      mesh.setMatrixAt(n, this.glintM);
+      mesh.setColorAt(n, this.glintC.setScalar(Math.min(1, k) * pulse));
+      n++;
+    }
+    for (const id of this.glints.keys()) {
+      if (!this.things.has(id)) this.glints.delete(id);
+    }
+    if (mesh) {
+      if (n === 0) {
+        // Nothing glints: the dark instance out of sight.
+        mesh.setMatrixAt(0, this.glintM.makeTranslation(0, -50, 0));
+        mesh.setColorAt(0, this.glintC.setScalar(0));
+      }
+      mesh.count = Math.max(1, n);
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
     if (changed) this.onNoticed?.([...this.noticed]);
   }
@@ -1657,12 +1762,23 @@ export class World {
       const area = place ? this.areaOf(at.x, at.z) : null;
       const out = !!place?.outdoor && area?.inside !== true;
       const was = this.wet.get(id) ?? 0;
-      const now = stepWetness(was, out ? this.weather.rain : 0, !out, dt);
+      // BPLAY (r22): under an open umbrella, only a little gets through.
+      const shelter =
+        id === this.hero && this.held?.kind === "umbrella" && p.pose !== "sit"
+          ? 0.08
+          : 1;
+      const now = stepWetness(
+        was,
+        out ? this.weather.rain * shelter : 0,
+        !out,
+        dt,
+      );
       this.wet.set(id, now);
       if (Math.abs(now - was) > 0 || this.frameNo % 60 === 0) {
         if (Math.floor(now * 50) !== Math.floor(was * 50)) setWetness(p, now);
       }
     }
+    this.carryHeld();
     this.updateCamera(dt);
     if (place) {
       for (const t of place.ticks) t(this.time);
@@ -1816,4 +1932,69 @@ export class World {
     this.env.dispose();
     this.renderer.dispose();
   }
+}
+
+/**
+ * BPLAY (r22): a prop for his right hand. Its origin is the hand; it faces
+ * the way he does. The umbrella has two states, "open" (over his head) and
+ * "shut" (hanging from his hand).
+ */
+function heldProp(kind: string): THREE.Group {
+  const g = new THREE.Group();
+  g.name = `held:${kind}`;
+  const black = new THREE.MeshStandardMaterial({
+    color: "#0d0e10",
+    roughness: 0.45,
+  });
+  const cast = (m: THREE.Mesh) => {
+    m.castShadow = true;
+    return m;
+  };
+  if (kind === "umbrella") {
+    const open = new THREE.Group();
+    open.name = "open";
+    const shaft = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.0, 6), black),
+    );
+    shaft.position.set(-0.08, 0.5, 0.02);
+    shaft.rotation.z = 0.08;
+    const canopy = cast(
+      new THREE.Mesh(
+        new THREE.ConeGeometry(0.62, 0.26, 10, 1, true),
+        new THREE.MeshStandardMaterial({
+          color: "#0b0c0e",
+          roughness: 0.3,
+          side: THREE.DoubleSide,
+        }),
+      ),
+    );
+    canopy.position.set(-0.12, 1.08, 0.02);
+    open.add(shaft, canopy);
+    const shut = new THREE.Group();
+    shut.name = "shut";
+    const furled = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.01, 0.85, 8), black),
+    );
+    furled.position.y = -0.42;
+    shut.add(furled);
+    g.add(open, shut);
+  } else if (kind === "baton") {
+    const b = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.32, 8), black),
+    );
+    b.position.set(0, -0.12, 0.04);
+    b.rotation.x = 0.35;
+    g.add(b);
+  } else {
+    // Something small in his hand: a dark shape the size of a paperback.
+    const m = cast(
+      new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 0.14, 0.03),
+        new THREE.MeshStandardMaterial({ color: "#2a2826", roughness: 0.7 }),
+      ),
+    );
+    m.position.set(0, -0.06, 0.03);
+    g.add(m);
+  }
+  return g;
 }

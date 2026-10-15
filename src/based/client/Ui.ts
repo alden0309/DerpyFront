@@ -8,6 +8,22 @@ import { SLOTS } from "../engine/Save";
 import { Credit, SlotInfo } from "./Api";
 import { Prefs, TextSpeed } from "./Prefs";
 
+/**
+ * r22 BPLAY: the skills' voices, by attribute in the order the story lists
+ * them: Social in the pharmacy's green cross, Intelligence in carbon-paper
+ * violet, Physical in sodium-lamp amber. `night` on the dark column,
+ * `paper` (darker, the same hue) on the paper sheets.
+ */
+export const VOICES: readonly { night: string; paper: string }[] = [
+  { night: "#62cf95", paper: "#1d6e46" },
+  { night: "#a6a9f9", paper: "#4245a6" },
+  { night: "#f0a64c", paper: "#94550b" },
+];
+
+export function voice(i: number): { night: string; paper: string } {
+  return VOICES[Math.max(0, i) % VOICES.length];
+}
+
 /** "*word*" becomes emphasis; returns [text, emphasised] runs. */
 export function runs(text: string): [string, boolean][] {
   const out: [string, boolean][] = [];
@@ -101,7 +117,7 @@ export function settingsBody(
         <div class="mb-setting-name">Pictures</div>
         <div class="mb-setting-note">
           "Fine" paints the scene and casts shadows; "Light" is kinder to a
-          phone. Takes effect when a chapter starts.
+          phone. Takes effect the next time the game starts.
         </div>
       </div>
       <div class="mb-segs">
@@ -204,8 +220,8 @@ export function slotsBody(opts: {
                   >${new Date(m.savedAt).toLocaleString(undefined, {
                     dateStyle: "medium",
                     timeStyle: "short",
-                  })}
-                  · played ${playedText(m.played)}</span
+                  })},
+                  played ${playedText(m.played)}</span
                 >`
             : html`<span class="mb-slot-where">Empty</span>`}
         </button>
@@ -304,5 +320,15 @@ export function bookIcon() {
 export function eyeIcon() {
   return svg(
     svgPart`<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="2.6" />`,
+  );
+}
+export function bagIcon() {
+  return svg(
+    svgPart`<path d="M5 9h14l-1.2 11H6.2z" /><path d="M9 9V7a3 3 0 0 1 6 0v2" /><path d="M9.5 13h5" />`,
+  );
+}
+export function folderIcon() {
+  return svg(
+    svgPart`<path d="M3.5 7.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5V9.5A1.5 1.5 0 0 0 19 8h-7l-2-2.5H5A1.5 1.5 0 0 0 3.5 7z" /><path d="M8 13h8" />`,
   );
 }

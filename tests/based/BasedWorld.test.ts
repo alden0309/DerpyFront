@@ -32,7 +32,7 @@ import {
   buildOf,
   buildProblem,
   defaultBuild,
-  languageSlots,
+  languagePool,
   withLanguages,
 } from "../../src/based/engine/Skills";
 import { Chapter, FREE } from "../../src/based/engine/Types";
@@ -99,7 +99,7 @@ const SCRIPT = `@chapter 1 "Open"
 @archetype DOER "Doer" MIND=1 BODY=5 signature=PERCEPTION "Few words."
 @points 6 min=1 max=5
 @language fr "French"
-@language de "German"
+@language en_gb "English (British)"
 @language ru "Russian"
 
 == start "Start"
@@ -130,7 +130,7 @@ The thing again.
 == hello "Hello"
 @on talk BARMAN once
 BARMAN [fr]: Bonsoir. | Good evening.
-BARMAN [de medium]: Guten Abend. | Good evening, in German.
+BARMAN [ru medium]: Dobryy vecher. | Good evening, in Russian.
 JULES: I'm Jules.
 set met
 task meet done
@@ -182,7 +182,7 @@ describe("the open world's format", () => {
   test("@on, -> FREE, task, @weather, @time and languages parse", () => {
     const c = load();
     expect(c.clock).toBe(21 * 60 + 30);
-    expect(c.languages.map((l) => l.code)).toEqual(["fr", "de", "ru"]);
+    expect(c.languages.map((l) => l.code)).toEqual(["fr", "en_gb", "ru"]);
     expect(c.scenes.arrive.trigger).toMatchObject({
       on: "enter",
       target: "bar",
@@ -208,7 +208,7 @@ describe("the open world's format", () => {
       text: "Bonsoir.",
       trans: "Good evening.",
     });
-    expect(hello[1]).toMatchObject({ lang: "de", langDiff: 9 });
+    expect(hello[1]).toMatchObject({ lang: "ru", langDiff: 9 });
   });
 
   test("mistakes in the new directions are reported", () => {
@@ -333,7 +333,12 @@ describe("free to go where he likes", () => {
       { id: "meet", text: "Meet the barman.", done: false },
     ]);
     // In the street: the thing, nobody to talk to (the barman's in the bar).
-    expect(r.available()).toEqual({ talk: [], look: ["thing"], think: [] });
+    expect(r.available()).toEqual({
+      talk: [],
+      look: ["thing"],
+      think: [],
+      use: [],
+    });
     r.look("thing");
     settle(r);
     expect(r.flag("saw_thing")).toBe(1);
@@ -422,34 +427,64 @@ describe("free to go where he likes", () => {
   });
 });
 
-describe("languages", () => {
+describe("languages (r22 BPLAY: points under Languages)", () => {
   const c = load();
+  const talker = buildOf(c.archetypes[0]);
+  const doer = buildOf(c.archetypes[1]);
 
-  test("how many he may have follows his Languages", () => {
-    expect([1, 2, 3, 4, 5, 6].map((s) => languageSlots(s, 3))).toEqual([
-      1, 1, 2, 3, 3, 3,
-    ]);
-    // The Talker (Languages 5): three; the Doer (1): one.
-    expect(defaultBuild(c).langs).toEqual(["fr", "de", "ru"]);
-    expect(withLanguages(c, buildOf(c.archetypes[1])).langs).toEqual(["fr"]);
+  test("his Languages at the start is the pool of points", () => {
+    // The Talker: Mind 4, known for Languages: 5. The Doer: Mind 1: 1.
+    expect(languagePool(c, talker)).toBe(5);
+    expect(languagePool(c, doer)).toBe(1);
+    // A build the engine makes by itself spreads them in the order written.
+    expect(defaultBuild(c).langPts).toEqual({ fr: 2, en_gb: 2, ru: 1 });
   });
 
-  test("the setup screen's rules for languages", () => {
-    const doer = { ...buildOf(c.archetypes[1]), langs: ["fr", "de"] };
-    expect(buildProblem(c, doer)).toBe("his Languages allow 1 language");
-    expect(buildProblem(c, { ...doer, langs: [] })).toBe(
-      "pick a language he speaks",
+  test("the setup screen's rules for spending them", () => {
+    expect(buildProblem(c, { ...doer, langPts: {} })).toBe(
+      "spend his language points (1 left)",
     );
-    expect(buildProblem(c, { ...doer, langs: ["xx"] })).toBe("no language xx");
-    expect(buildProblem(c, { ...doer, langs: ["de"] })).toBeNull();
+    expect(buildProblem(c, { ...doer, langPts: { fr: 2 } })).toBe(
+      "his Languages give 1 language point, not 2",
+    );
+    expect(buildProblem(c, { ...doer, langPts: { xx: 1 } })).toBe(
+      "no language xx",
+    );
+    expect(buildProblem(c, { ...talker, langPts: { fr: 4, ru: 1 } })).toBe(
+      "a language takes 0 to 3 points",
+    );
+    expect(buildProblem(c, { ...doer, langPts: { ru: 1 } })).toBeNull();
+    expect(
+      buildProblem(c, { ...talker, langPts: { fr: 3, ru: 2 } }),
+    ).toBeNull();
   });
 
-  /** Plays to the barman's first lines with a build. */
-  function lines(langs: string[], arch = 0) {
+  test("BWORLD's saves, with languages given, become points", () => {
+    // He had French (and German, which is gone): all five on French, as
+    // far as three goes.
+    expect(withLanguages(c, { ...talker, langs: ["fr", "de"] })).toEqual({
+      ...talker,
+      langPts: { fr: 3 },
+    });
+    expect(
+      withLanguages(c, { ...talker, langs: ["fr", "en_gb"] }).langPts,
+    ).toEqual({ fr: 3, en_gb: 2 });
+    // German was all he had: the points go round the others.
+    expect(withLanguages(c, { ...doer, langs: ["de"] }).langPts).toEqual({
+      fr: 1,
+    });
+    // Points already spent are kept, less a language that's gone.
+    expect(
+      withLanguages(c, { ...talker, langPts: { fr: 2, de: 2, ru: 1 } }).langPts,
+    ).toEqual({ fr: 2, ru: 1 });
+  });
+
+  /** Plays to the barman's first lines with these points. */
+  function lines(langPts: Record<string, number>, arch = 0) {
     const r = new StoryRun(
       c,
       chapterStart(c, undefined, {
-        build: { ...buildOf(c.archetypes[arch]), langs },
+        build: { ...buildOf(c.archetypes[arch]), langPts },
       }),
     );
     settle(r);
@@ -461,8 +496,8 @@ describe("languages", () => {
     return [first, second];
   }
 
-  test("a tongue he speaks is translated; one he doesn't isn't", () => {
-    const [fr] = lines(["fr"]);
+  test("a tongue he has a point in is translated; one at 0 isn't", () => {
+    const [fr] = lines({ fr: 1 }, 1);
     expect(fr).toMatchObject({
       text: "Good evening.",
       lang: {
@@ -472,24 +507,25 @@ describe("languages", () => {
         original: "Bonsoir.",
       },
     });
-    const [notFr] = lines(["ru"]);
+    const [notFr] = lines({ ru: 1 }, 1);
     expect(notFr).toMatchObject({
       text: "Bonsoir.",
       lang: { code: "fr", understood: false },
     });
   });
 
-  test("his Languages can get the gist of one he doesn't speak", () => {
-    // The Talker: Languages 5 + 6 reaches medium (9) without German.
-    const [, de] = lines(["fr"]);
-    expect(de).toMatchObject({
-      text: "Good evening, in German.",
+  test("a hard line reads his Languages plus his rating in it", () => {
+    // The Talker, Languages 5, no Russian: 5 + 0 + 6 reaches medium (9):
+    // the gist, by his Languages.
+    const [, ru] = lines({ fr: 3, en_gb: 2 });
+    expect(ru).toMatchObject({
+      text: "Good evening, in Russian.",
       lang: { understood: true, via: "skill", tier: "Medium" },
     });
-    // The Doer: Languages 1 doesn't.
-    const [, de2] = lines(["fr"], 1);
-    expect(de2).toMatchObject({
-      text: "Guten Abend.",
+    // The Doer, Languages 1: getting by in Russian isn't enough (1 + 1 + 6).
+    const [, ru2] = lines({ ru: 1 }, 1);
+    expect(ru2).toMatchObject({
+      text: "Dobryy vecher.",
       lang: { understood: false },
     });
   });
@@ -778,7 +814,7 @@ describe("round 21's saves", () => {
     expect(r.auto!.snap.scene).toBe("start");
     expect(r.auto!.snap.build).toMatchObject({
       archetype: "DOER",
-      langs: ["fr"],
+      langPts: { fr: 1 },
     });
     expect(r.auto!.snap.seed).toBe(99);
     expect(r.profile.migrated).toContain("the start of chapter one");

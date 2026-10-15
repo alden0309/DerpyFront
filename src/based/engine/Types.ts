@@ -6,10 +6,22 @@
 /** A condition, as written after `if` or `* if`. */
 export type Expr =
   | { k: "flag"; name: string }
-  /** r22: whether he speaks a language ("speaks.fr"). */
+  /** r22: his rating in a language ("speaks.fr"; 0 if he doesn't speak it). */
   | { k: "lang"; code: string }
   | { k: "rel"; who: string }
   | { k: "skill"; id: string }
+  /** r22 BPLAY: he has an item (pockets, worn or held): "has.matchbook". */
+  | { k: "has"; item: string }
+  /** r22 BPLAY: he wears or holds it: "wears.reading_glasses". */
+  | { k: "wears"; item: string }
+  /** r22 BPLAY: his euros ("money >= 20"). */
+  | { k: "money" }
+  /** r22 BPLAY: he's holding a weapon. */
+  | { k: "armed" }
+  /** r22 BPLAY: the time of day, in minutes ("time >= 23:00"). */
+  | { k: "time" }
+  /** r22 BPLAY: the weather where he is now ("weather.clear"). */
+  | { k: "weather"; kind: string }
   | { k: "num"; v: number }
   | { k: "not"; e: Expr }
   | { k: "and" | "or"; a: Expr; b: Expr }
@@ -87,10 +99,66 @@ export interface Build {
   /** The archetype it started from, if any. */
   archetype?: string;
   /**
-   * r22: the languages he speaks (codes from the chapter's @language list).
-   * How many he may have depends on his Languages skill (Skills.ts).
+   * r22 BPLAY: what he speaks, as points spent at the start on each of the
+   * chapter's @language codes: 0 he doesn't speak it, 1 he gets by, 2
+   * fluent, 3 like a native. The pool comes from his Languages skill
+   * (Skills.ts); boosts and items can add to a language later.
+   */
+  langPts?: Record<string, number>;
+  /**
+   * BWORLD's r22 saves: the languages he was given, all as well as his
+   * Languages skill allowed. Turned into points when loaded (Skills.ts).
    */
   langs?: string[];
+}
+
+// --- What he carries (r22 BPLAY) -------------------------------------------
+
+/** The kinds of thing he can carry. Money is a number, not an item. */
+export const ITEM_KINDS = [
+  "clothes",
+  "tool",
+  "weapon",
+  "document",
+  "key",
+  "small",
+] as const;
+export type ItemKind = (typeof ITEM_KINDS)[number];
+
+/** Where clothes go on him, and the hand for something held. */
+export const CLOTHES_SLOTS = [
+  "hat",
+  "glasses",
+  "neck",
+  "jacket",
+  "shirt",
+  "gloves",
+  "trousers",
+  "shoes",
+] as const;
+export const GEAR_SLOTS = [...CLOTHES_SLOTS, "hand"] as const;
+export type GearSlot = (typeof GEAR_SLOTS)[number];
+
+/**
+ * `@item KEY "Name" kind=... [slot=...] [bonus=SKILL+N,...] [look=...]
+ * [icon=...] [start=worn|N] "What it is"`.
+ */
+export interface ItemDef {
+  key: string;
+  name: string;
+  kind: ItemKind;
+  /** Wearable (clothes) or held (the hand); absent: pockets only. */
+  slot?: GearSlot;
+  /** What it does to his skills while it's worn or held. */
+  bonus: { skill: string; delta: number }[];
+  /** The 3D look he wears with it, where a model of it exists. */
+  look?: string;
+  /** Its picture in the inventory (a drawing the client knows). */
+  icon?: string;
+  about: string;
+  /** What he starts with: wearing it, or so many in his pockets. */
+  start?: "worn" | number;
+  src: number;
 }
 
 /** A modifier on a check: "+2 if came_down 'You saw his shoes'". */
@@ -98,6 +166,8 @@ export interface Mod {
   delta: number;
   cond?: Expr;
   why: string;
+  /** r22 BPLAY: the item it comes from (clothes, or something carried). */
+  item?: string;
 }
 
 /** A skill check: 2d6 + skill + modifiers against a difficulty. */
@@ -123,6 +193,11 @@ export interface ChoiceOption {
   at: number;
   /** A skill check: the option's body is the check op and what follows. */
   check?: CheckSpec;
+  /**
+   * r22 BPLAY: items it needs (any one of them): shown, but locked, until
+   * he has one ("* needs=lighter|matchbook [Give him a light]").
+   */
+  needs?: string[];
 }
 
 export interface Spot {
@@ -180,8 +255,9 @@ export interface ActorState {
  * soon as its condition holds.
  */
 export interface Trigger {
-  on: "talk" | "look" | "enter" | "think" | "auto";
-  /** Who (talk), which hotspot (look) or which place (enter). */
+  /** r22 BPLAY: `use` is using something he carries (the inventory). */
+  on: "talk" | "look" | "enter" | "think" | "auto" | "use";
+  /** Who (talk), which hotspot (look), which place (enter), which item (use). */
   target?: string;
   /** What a thought is called in the column (think). */
   label?: string;
@@ -286,7 +362,15 @@ export type Op =
   /** r22: the weather the story wants (rain, drizzle, clear, fog), or none. */
   | { op: "weather"; kind: string | null; src: number }
   /** r22: the clock, in minutes after midnight. */
-  | { op: "time"; minutes: number; src: number };
+  | { op: "time"; minutes: number; src: number }
+  /** r22 BPLAY: `give KEY [N]` (delta > 0) or `take KEY [N]` (delta < 0). */
+  | { op: "item"; key: string; delta: number; src: number }
+  /** r22 BPLAY: he puts it on, or takes it in hand. */
+  | { op: "equip"; key: string; src: number }
+  /** r22 BPLAY: he takes off what's in a slot (into his pockets). */
+  | { op: "unequip"; slot: GearSlot; src: number }
+  /** r22 BPLAY: `earn N` (delta > 0) or `pay N` (delta < 0), in euros. */
+  | { op: "money"; delta: number; src: number };
 
 export interface Scene {
   id: string;
@@ -323,6 +407,10 @@ export interface Chapter {
   languages: Language[];
   /** r22: what the clock says when the chapter begins (minutes). */
   clock: number;
+  /** r22 BPLAY: everything he can carry, by key, in the order written. */
+  items: Record<string, ItemDef>;
+  /** r22 BPLAY: the euros he starts with (`@money N`). */
+  money: number;
 }
 
 /** The goto target that ends the chapter. */

@@ -97,6 +97,21 @@ const SENTINELS = [
   ...new Set(placeWords.filter((w) => w.length > 5)),
   ...story.archetypes.map((a) => a.about),
   ...story.skills.map((s) => s.about),
+  // r22 BPLAY: what he carries (the names that aren't everyday words) and
+  // what's written about each, and the first words of every thing he can
+  // examine.
+  ...Object.values(story.items)
+    .map((i) => i.name)
+    .filter((n) => n.includes(" ")),
+  ...Object.values(story.items).map((i) => i.about),
+  ...story.order
+    .filter((id) => story.scenes[id].trigger?.on === "look")
+    .flatMap((id) => {
+      const first = story.scenes[id].ops.find(
+        (o) => o.op === "line" && o.text.length > 30,
+      );
+      return first && first.op === "line" ? [first.text.slice(0, 40)] : [];
+    }),
 ];
 
 describe.each(["src/based/client/Main.ts", "src/hub/Main.ts"])(

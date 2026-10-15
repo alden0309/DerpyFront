@@ -19,6 +19,8 @@
 
 import { html, LitElement, nothing, render, svg, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { rollDice, tierName } from "../engine/Dice";
+import { evalExpr } from "../engine/Expr";
 import { neighbours, PlaceDef } from "../engine/Place";
 import {
   Available,
@@ -29,6 +31,7 @@ import {
   clockText,
   emptyStage,
   InvestigateBeat,
+  Kit,
   LineBeat,
   RollBeat,
   Stage,
@@ -36,8 +39,14 @@ import {
   StoryRun,
 } from "../engine/Runtime";
 import { slotOf, SlotSave } from "../engine/Save";
-import { Boost, fluency, LANGUAGES_SKILL } from "../engine/Skills";
-import { Build, Chapter } from "../engine/Types";
+import {
+  Boost,
+  LANG_MAX,
+  langLevel,
+  langOf,
+  LANGUAGES_SKILL,
+} from "../engine/Skills";
+import { Build, Chapter, GEAR_SLOTS, GearSlot } from "../engine/Types";
 import {
   Credit,
   leaveNote,
@@ -46,10 +55,13 @@ import {
   SlotInfo,
   WriterNote,
 } from "./Api";
+import { dossierBody, DossierTab, DossierView } from "./Dossier";
 import { helpBody } from "./Help";
+import { inventoryBody, SLOT_NAMES } from "./Inventory";
 import { CPS, Prefs, savePrefs, TextSpeed } from "./Prefs";
 import { Ambience } from "./Sound";
 import {
+  bagIcon,
   bookIcon,
   closeIcon,
   creditsBody,
@@ -59,10 +71,13 @@ import {
   penIcon,
   personIcon,
   plainText,
+  playedText,
   settingsBody,
   slotsBody,
   soundIcon,
   typed,
+  voice,
+  VOICES,
 } from "./Ui";
 import { WorldAssets } from "./world/Assets";
 import { pickTier, ThingOnScreen, World } from "./world/World";
@@ -87,11 +102,21 @@ export interface PlayerHost {
 interface Toast {
   id: number;
   text: string;
-  kind: "remember" | "rel" | "task" | "boost" | "help" | "saved";
+  kind:
+    | "remember"
+    | "rel"
+    | "task"
+    | "boost"
+    | "help"
+    | "saved"
+    | "item"
+    | "money";
 }
 
 interface Entry {
   id: number;
+  /** r22 BPLAY: the story's clock when it was said ("22:14"). */
+  at?: string;
   kind: "narr" | "say" | "think" | "voice" | "roll" | "card" | "pick";
   who?: string;
   how?: string;
@@ -115,12 +140,11 @@ type Overlay =
   | "help"
   | "journal"
   | "save"
-  | "load";
+  | "load"
+  /** r22 BPLAY: what he carries, and the story so far. */
+  | "inventory";
 
 let nextId = 1;
-
-/** Each attribute's colour in the column, as Disco Elysium colours its four. */
-const ATTR_COLORS = ["#e0715a", "#7fb2e5", "#d9b45a", "#b98be0"];
 
 /** How often the game saves by itself while he's free, in seconds. */
 const AUTOSAVE_EVERY = 120;
@@ -134,6 +158,7 @@ export class BasedPlayer extends LitElement {
     rels: Record<string, number>;
     build?: Build | null;
     boosts?: Boost[];
+    kit?: Kit;
   } | null = null;
   @property({ attribute: false }) build: Build | null = null;
   @property({ attribute: false }) host!: PlayerHost;
@@ -162,7 +187,16 @@ export class BasedPlayer extends LitElement {
   @state() private rolled = false;
   @state() private tab = false;
   @state() private noWorld = false;
-  @state() private avail: Available = { talk: [], look: [], think: [] };
+  /** r22 BPLAY: the thing picked out in the inventory. */
+  @state() private invSel: string | null = null;
+  /** r22 BPLAY: the dossier's page. */
+  @state() private dossierTab: DossierTab = "places";
+  @state() private avail: Available = {
+    talk: [],
+    look: [],
+    think: [],
+    use: [],
+  };
   /**
    * What he's noticed, as the labels need it. The labels are drawn when the
    * set changes (`marksKey`); as the camera moves they're only moved.
@@ -245,6 +279,7 @@ export class BasedPlayer extends LitElement {
           },
         );
         this.world.hero = this.chapter.cast[0]?.id ?? "";
+        this.dressFromGear();
         this.world.onThings = (h) => this.moveMarks(h);
         this.world.showAll = this.prefs.marks;
         this.placeInset();
@@ -373,7 +408,9 @@ export class BasedPlayer extends LitElement {
       };
       if (voice) {
         e.skill = voice.skill;
-        if (voice.tier) e.tag = `${voice.tier}: Success`;
+        // A passive check heard: how hard it was, in the transcript's own words.
+        if (voice.tier)
+          e.tag = `${voice.tier.toLowerCase()} ${voice.diff ?? ""}`;
       }
       this.push(e);
       this.startTyping();
@@ -383,7 +420,7 @@ export class BasedPlayer extends LitElement {
       this.push({
         id: nextId++,
         kind: "card",
-        text: b.sub ? `${b.title} · ${b.sub}` : b.title,
+        text: b.sub ? `${b.title}. ${b.sub}` : b.title,
       });
       this.talk(null);
     } else if (b.kind === "roll") {
@@ -412,6 +449,7 @@ export class BasedPlayer extends LitElement {
   }
 
   private push(e: Entry): void {
+    e.at ??= clockText(this.run.clock).time;
     this.log.push(e);
     if (this.log.length > 600) this.log.shift();
     this.entries = [...this.entries, e].slice(-90);
@@ -468,6 +506,30 @@ export class BasedPlayer extends LitElement {
         break;
       case "prop":
         this.world?.setProp(e.key, e.on);
+        break;
+      case "item": {
+        // r22 BPLAY: something into his pockets, or gone.
+        const it = this.chapter.items[e.key];
+        if (!first && it) {
+          this.toast(
+            e.delta > 0
+              ? `${it.name}${e.delta > 1 ? ` ×${e.delta}` : ""}: into his pockets.`
+              : `${it.name}: gone.`,
+            "item",
+          );
+        }
+        break;
+      }
+      case "gear":
+        this.dressFromGear();
+        break;
+      case "money":
+        if (!first) {
+          this.toast(
+            e.delta > 0 ? `+€${e.delta}` : `−€${Math.abs(e.delta)}`,
+            "money",
+          );
+        }
         break;
       case "gesture":
         this.world?.gesture(this.bodyOf(e.who), e.name);
@@ -529,13 +591,36 @@ export class BasedPlayer extends LitElement {
   }
 
   private skillName(id: string): string {
+    // r22 BPLAY: "LANGUAGES.fr" is his Languages in French.
+    const code = langOf(id);
+    if (code !== null) {
+      const lang = this.chapter.languages.find((l) => l.code === code);
+      return `${this.skillName(LANGUAGES_SKILL)} (${lang?.name ?? code})`;
+    }
     return this.chapter.skills.find((s) => s.id === id)?.name ?? id;
   }
 
+  /** The skill a check names, for its colour: "LANGUAGES.fr" is Languages. */
+  private skillOf(id: string): string {
+    return langOf(id) === null ? id : LANGUAGES_SKILL;
+  }
+
+  /** r22 BPLAY: an attribute's voice: "--c" on the night, "--ci" on paper. */
+  private attrColor(attr: string): string {
+    const v = voice(this.chapter.attributes.findIndex((a) => a.id === attr));
+    return `${v.night};--ci:${v.paper}`;
+  }
+
   private skillColor(id: string): string {
-    const s = this.chapter.skills.find((x) => x.id === id);
-    const i = this.chapter.attributes.findIndex((a) => a.id === s?.attr);
-    return ATTR_COLORS[Math.max(0, i) % ATTR_COLORS.length];
+    const s = this.chapter.skills.find((x) => x.id === this.skillOf(id));
+    return voice(this.chapter.attributes.findIndex((a) => a.id === s?.attr))
+      .night;
+  }
+
+  private skillInk(id: string): string {
+    const s = this.chapter.skills.find((x) => x.id === this.skillOf(id));
+    return voice(this.chapter.attributes.findIndex((a) => a.id === s?.attr))
+      .paper;
   }
 
   private toast(text: string, kind: Toast["kind"]): void {
@@ -720,6 +805,314 @@ export class BasedPlayer extends LitElement {
     this.afterStep();
   }
 
+  // --- what he carries (r22 BPLAY) ---------------------------------------------
+
+  /**
+   * His look and what's in his hand, from what he wears: the first worn
+   * thing with a look (only outfits with a model have one), and the held
+   * thing's drawing.
+   */
+  private dressFromGear(): void {
+    const w = this.world;
+    if (!w) return;
+    const gear = this.run.gear;
+    let look: string | null = null;
+    for (const s of GEAR_SLOTS) {
+      const it = gear[s] ? this.chapter.items[gear[s]!] : undefined;
+      if (it?.look) {
+        look = it.look;
+        break;
+      }
+    }
+    w.dressHero(look);
+    const held = gear.hand ? this.chapter.items[gear.hand] : undefined;
+    w.holdHero(held ? (held.icon ?? held.kind) : null);
+  }
+
+  /** After the player changes what he wears: the checks on screen, his eyes. */
+  private afterGear(): void {
+    for (const e of this.run.drain()) this.onEvent(e, false);
+    this.beat = this.run.beat;
+    if (this.world) this.world.perception = this.run.skills().PERCEPTION ?? 2;
+    if (this.run.free) this.setWorldState(this.beat);
+  }
+
+  private wearItem(key: string): void {
+    if (this.run.equip(key)) {
+      this.invSel = key;
+      this.afterGear();
+    }
+  }
+
+  private takeOff(slot: GearSlot): void {
+    if (this.run.unequip(slot)) this.afterGear();
+  }
+
+  private useItem(key: string): void {
+    this.ambience.unlock();
+    if (!this.run.free) return;
+    this.closeOverlay();
+    if (this.run.use(key)) this.afterStep();
+  }
+
+  /** Items with any use in the story (the Use button shows for them). */
+  private get useful(): string[] {
+    if (this.usefulCache) return this.usefulCache;
+    const out = new Set<string>();
+    for (const id of this.chapter.order) {
+      const t = this.chapter.scenes[id].trigger;
+      if (t?.on === "use" && t.target) out.add(t.target);
+    }
+    return (this.usefulCache = [...out]);
+  }
+
+  private usefulCache: string[] | null = null;
+
+  // --- the story so far (r22 BPLAY) ---------------------------------------------
+
+  /** The story's choices and checks by id, for naming what's in his path. */
+  private lookups(): {
+    choices: Map<
+      string,
+      { scene: string; options: Map<string, { label: string; check: boolean }> }
+    >;
+    checks: Map<string, { label: string; skill: string; diff: number }>;
+    vignettes: Map<string, string>;
+  } {
+    if (this.lookupCache) return this.lookupCache;
+    const choices = new Map<
+      string,
+      { scene: string; options: Map<string, { label: string; check: boolean }> }
+    >();
+    const checks = new Map<
+      string,
+      { label: string; skill: string; diff: number }
+    >();
+    const vignettes = new Map<string, string>();
+    for (const id of this.chapter.order) {
+      const sc = this.chapter.scenes[id];
+      for (const op of sc.ops) {
+        if (op.op === "choose") {
+          const options = new Map<string, { label: string; check: boolean }>();
+          for (const o of op.options) {
+            options.set(o.id, { label: o.label, check: !!o.check });
+            if (o.check) {
+              checks.set(`${op.id}/${o.id}`, {
+                label: o.label,
+                skill: o.check.skill,
+                diff: o.check.diff,
+              });
+            }
+          }
+          choices.set(op.id, { scene: sc.label, options });
+        } else if (op.op === "investigate") {
+          for (const d of op.deductions) {
+            if (d.check) {
+              checks.set(`${op.id}:${d.id}`, {
+                label: d.label,
+                skill: d.check.skill,
+                diff: d.check.diff,
+              });
+            }
+          }
+        } else if (op.op === "vignette" && op.key && !vignettes.has(op.key)) {
+          vignettes.set(op.key, sc.label);
+        }
+      }
+    }
+    this.lookupCache = { choices, checks, vignettes };
+    return this.lookupCache;
+  }
+
+  private lookupCache: ReturnType<BasedPlayer["lookups"]> | null = null;
+
+  /** Where things stand with someone, from how he's made them feel. */
+  private standing(rel: number): string {
+    if (rel >= 3) return "Trusts him";
+    if (rel === 2) return "Has decided he likes him";
+    if (rel === 1) return "Warming to him";
+    if (rel === 0) return "Hasn't made up their mind";
+    if (rel === -1) return "Cool towards him";
+    return "Doesn't trust him";
+  }
+
+  private dossier(): DossierView {
+    const run = this.run;
+    const rec = run.record;
+    const ch = this.chapter;
+    const hero = ch.cast[0];
+    const build = run.build;
+    const arch = ch.archetypes.find((a) => a.id === build.archetype);
+    const t = (sec: number) => clockText(sec).time;
+    const clock = clockText(run.clock);
+    const art = (k?: string) => (k ? mediaNow("art", k) : null);
+    // People, one entry per person (a name learned later is the same body).
+    const rels = run.values().rels;
+    const groups = new Map<string, string[]>();
+    for (const c of ch.cast) {
+      if (c.id === hero?.id) continue;
+      const body = c.body ?? c.id;
+      groups.set(body, [...(groups.get(body) ?? []), c.id]);
+    }
+    const people: (DossierView["people"][number] & { at: number })[] = [];
+    for (const [body, ids] of groups) {
+      const met = ids.filter((id) => rec.met[id] !== undefined);
+      if (met.length === 0) continue;
+      const named = met.find((id) => id !== body);
+      const who = ch.cast.find((c) => c.id === (named ?? body))!;
+      const first = ch.cast.find((c) => c.id === body)!;
+      const rel = ids.reduce((a, id) => a + (rels[id] ?? 0), 0);
+      const at = Math.min(...met.map((id) => rec.met[id]));
+      people.push({
+        name: who.name,
+        first: named ? first.name.replace(/^The /, "the ") : undefined,
+        portrait: art(who.portrait ?? first.portrait),
+        met: `at ${t(at)}`,
+        stand: this.standing(Math.max(-3, Math.min(3, rel))),
+        warmth: Math.max(-3, Math.min(3, rel)),
+        remembers: ids.some((id) => rec.remembers.includes(id)),
+        at,
+      });
+    }
+    people.sort((a, b) => a.at - b.at);
+    // What he chose, scene by scene, from his path (the latest forty).
+    const look = this.lookups();
+    const path = run.history();
+    const picks: { scene: string; label: string; check?: string }[] = [];
+    for (const step of path) {
+      if (!step.startsWith("c:")) continue;
+      const [choice, opt] = step.slice(2).split("=");
+      const c = look.choices.get(choice);
+      const o = c?.options.get(opt);
+      if (!c || !o) continue;
+      const memo = o.check ? rec.checks[`${choice}/${opt}`] : undefined;
+      picks.push({
+        scene: c.scene,
+        label: o.label,
+        check: memo
+          ? memo.result === "pass"
+            ? "passed"
+            : "failed"
+          : undefined,
+      });
+    }
+    const shown = picks.slice(-40);
+    const decisions: DossierView["decisions"] = [];
+    for (const p of shown) {
+      const lastGroup = decisions[decisions.length - 1];
+      if (lastGroup && lastGroup.scene === p.scene) lastGroup.picks.push(p);
+      else decisions.push({ scene: p.scene, picks: [p] });
+    }
+    // The throws, with their dice read back from the seed.
+    const dice: DossierView["dice"] = Object.entries(rec.checks)
+      .map(([id, m]) => {
+        const c = look.checks.get(id);
+        if (!c) return null;
+        return {
+          skill: this.skillName(c.skill),
+          color: this.skillInk(c.skill),
+          label: c.label,
+          diff: c.diff,
+          tier: tierName(c.diff),
+          dice:
+            m.tries > 0
+              ? rollDice(rec.seed, id, m.tries - 1)
+              : (null as [number, number] | null),
+          bonus: m.bonus,
+          pass: m.result === "pass",
+          tries: m.tries,
+          at: m.at !== undefined ? t(m.at) : "",
+          sort: m.at ?? 0,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+      .sort((a, b) => a.sort - b.sort)
+      .slice(-30);
+    // What he carries that matters: papers, keys, tools, a weapon, and
+    // anything with a use.
+    const gear = run.gear;
+    const useful = new Set(this.useful);
+    const things = Object.keys(run.items)
+      .concat(gear.hand ? [gear.hand] : [])
+      .map((k) => ch.items[k])
+      .filter(
+        (it) =>
+          it &&
+          ((it.kind !== "clothes" && it.kind !== "small") ||
+            useful.has(it.key)),
+      )
+      .map((it) => ({
+        name: it.name,
+        icon: it.icon,
+        kind: it.kind,
+        about: it.about,
+      }));
+    const worn = GEAR_SLOTS.filter((sl) => sl !== "hand" && gear[sl]).map(
+      (sl) => {
+        const it = ch.items[gear[sl]!];
+        return {
+          name: it?.name ?? gear[sl]!,
+          icon: it?.icon,
+          kind: it?.kind ?? "clothes",
+          slot: SLOT_NAMES[sl].toLowerCase(),
+        };
+      },
+    );
+    const rated = run.languages();
+    const langs = [
+      "American English",
+      ...ch.languages
+        .filter((l) => (rated[l.code] ?? 0) > 0)
+        .map((l) => `${l.name}, ${langLevel(rated[l.code])}`),
+    ].join("; ");
+    const values = run.values();
+    return {
+      tab: this.dossierTab,
+      setTab: (tab) => (this.dossierTab = tab),
+      cover: {
+        portrait: art(hero?.portrait),
+        archetype: arch?.name.replace(/^The /, "") ?? "His own man",
+        about: arch?.about ?? "",
+        clock: clock.time,
+        nights: clock.day,
+        played: `${playedText(this.played)} played`,
+        langs,
+      },
+      places: Object.entries(rec.visited)
+        .sort((a, b) => a[1] - b[1])
+        .map(([k, at]) => ({
+          name: this.places[k]?.name ?? k,
+          at: t(at),
+          here: k === this.stage.place,
+        })),
+      people,
+      record: ch.carry
+        .filter((c) => !c.cond || evalExpr(c.cond, values))
+        .map((c) => c.text),
+      decisions,
+      earlier: picks.length - shown.length,
+      dice,
+      effects: { money: run.euros, worn, things },
+      tasks: run.tasks,
+      memories: rec.memories.map((k) => ({
+        url: art(k),
+        caption: look.vignettes.get(k) ?? "",
+      })),
+      transcript: this.log.slice(-200).map((l) => ({
+        who: l.who
+          ? this.nameOf(l.who)
+          : l.skill && l.kind !== "pick"
+            ? this.skillName(l.skill)
+            : undefined,
+        text:
+          l.kind === "roll" && l.roll
+            ? `${l.roll.tier} ${l.roll.diff}, ${l.roll.pass ? "passed" : "failed"}: ${l.text}`
+            : plainText(l.text),
+        kind: l.kind,
+      })),
+    };
+  }
+
   private think(id: string): void {
     this.ambience.unlock();
     if (!this.run.free || this.overlay) return;
@@ -736,9 +1129,11 @@ export class BasedPlayer extends LitElement {
    */
   private setWorldState(b: Beat): void {
     const w = this.world;
+    // r22 BPLAY: what's said of the weather is what's on screen.
+    this.run.setWeather(w ? w.weatherNow : null);
     const here = this.stage.place ? this.places[this.stage.place] : undefined;
     const things = new Map<string, { door: boolean }>();
-    let avail: Available = { talk: [], look: [], think: [] };
+    let avail: Available = { talk: [], look: [], think: [], use: [] };
     if (b.kind === "free") {
       avail = this.run.available(Object.keys(here?.hotspots ?? {}));
       for (const id of avail.look) {
@@ -860,6 +1255,7 @@ export class BasedPlayer extends LitElement {
 
   private lookAt(id: string): void {
     if (!this.run.free) return;
+    this.run.setWeather(this.world ? this.world.weatherNow : null);
     if (this.run.look(id)) {
       this.host.seen([], [id]);
       this.afterStep();
@@ -1042,6 +1438,17 @@ export class BasedPlayer extends LitElement {
       if (this.world) this.world.showAll = true;
       return;
     }
+    // The same key closes the panel it opened.
+    const toggles: Record<string, Exclude<Overlay, null>> = {
+      i: "inventory",
+      j: "journal",
+      c: "sheet",
+    };
+    const own = toggles[e.key.toLowerCase()];
+    if (own && this.overlay === own) {
+      this.closeOverlay();
+      return;
+    }
     if (this.overlay !== null) return;
     const b = this.beat;
     const pan: Record<string, [number, number]> = {
@@ -1071,6 +1478,8 @@ export class BasedPlayer extends LitElement {
       this.openOverlay("note");
     } else if (e.key === "c" || e.key === "C") {
       this.openOverlay("sheet");
+    } else if (e.key === "i" || e.key === "I") {
+      this.openOverlay("inventory");
     } else if (e.key === "j" || e.key === "J") {
       this.openOverlay("journal");
     } else if (e.key === "h" || e.key === "H" || e.key === "?") {
@@ -1187,17 +1596,17 @@ export class BasedPlayer extends LitElement {
         : nothing}
       ${this.placeCard
         ? html`<div class="mb-placecard" aria-live="polite">
-            ${this.placeCard}
+            <span class="mb-plaque ${this.plaqueKind()}"
+              >${this.placeCard}</span
+            >
+            <span class="mb-placecard-time"
+              >${clockText(this.run.clock).time}</span
+            >
           </div>`
         : nothing}
       <div class="mb-toasts" aria-live="polite">
         ${this.toasts.map(
-          (t) =>
-            html`<div class="mb-toast ${t.kind}">
-              ${t.kind === "remember"
-                ? html`<span class="mb-toast-mark"></span>`
-                : nothing}${t.text}
-            </div>`,
+          (t) => html`<div class="mb-toast ${t.kind}">${t.text}</div>`,
         )}
       </div>
       ${this.renderColumn()}
@@ -1284,12 +1693,23 @@ export class BasedPlayer extends LitElement {
     </div>`;
   }
 
+  /**
+   * r22 BPLAY: the sign a place is named on: the street's blue enamel
+   * plaque outdoors, a brass plate indoors.
+   */
+  private plaqueKind(): "enamel" | "brass" {
+    const def = this.stage.place ? this.places[this.stage.place] : undefined;
+    return def && def.areas.some((a) => !a.inside) ? "enamel" : "brass";
+  }
+
   private renderHud(): TemplateResult {
     const place = this.stage.place ? this.places[this.stage.place] : undefined;
     const clock = clockText(this.run.clock);
     return html`<div class="mb-hud">
       <div class="mb-where">
-        <span class="mb-where-ch">${place?.name ?? this.sceneLabel}</span>
+        <span class="mb-plaque ${this.plaqueKind()}"
+          >${place?.name ?? this.sceneLabel}</span
+        >
         <span class="mb-where-scene mb-clock">${clock.time}</span>
       </div>
       <div class="mb-hud-buttons">
@@ -1300,6 +1720,14 @@ export class BasedPlayer extends LitElement {
           @click=${() => this.openOverlay("sheet")}
         >
           ${personIcon()}
+        </button>
+        <button
+          class="mb-icon"
+          title="What he carries (I)"
+          aria-label="What he carries"
+          @click=${() => this.openOverlay("inventory")}
+        >
+          ${bagIcon()}
         </button>
         <button
           class="mb-icon"
@@ -1318,7 +1746,7 @@ export class BasedPlayer extends LitElement {
           ${eyeIcon()}
         </button>
         <button
-          class="mb-icon"
+          class="mb-icon wide-only"
           title="Note for the writer (N)"
           aria-label="Note for the writer"
           @click=${() => this.openOverlay("note")}
@@ -1326,7 +1754,7 @@ export class BasedPlayer extends LitElement {
           ${penIcon()}
         </button>
         <button
-          class="mb-icon"
+          class="mb-icon wide-only"
           title=${this.prefs.sound ? "Sound off" : "Sound on"}
           aria-label=${this.prefs.sound ? "Sound off" : "Sound on"}
           @click=${() => {
@@ -1359,6 +1787,8 @@ export class BasedPlayer extends LitElement {
 
   private renderColumn(): TemplateResult {
     const b = this.beat;
+    // A transcript: the time in the margin when it moves on.
+    let last = "";
     return html`<aside class="mb-column" aria-label="The story">
       ${this.renderHead()}
       <div
@@ -1370,9 +1800,11 @@ export class BasedPlayer extends LitElement {
           }
         }}
       >
-        ${this.entries.map((e, i) =>
-          this.renderEntry(e, i === this.entries.length - 1),
-        )}
+        ${this.entries.map((e, i) => {
+          const t = e.at && e.at !== last ? e.at : "";
+          if (e.at) last = e.at;
+          return this.renderEntry(e, i === this.entries.length - 1, t);
+        })}
         ${this.entries.length === 0 && b.kind === "free"
           ? this.renderResume()
           : nothing}
@@ -1381,7 +1813,6 @@ export class BasedPlayer extends LitElement {
     </aside>`;
   }
 
-  /** The column's head: a memory's painting, or who he's talking to. */
   private renderHead(): TemplateResult | typeof nothing {
     const v = this.stage.vignette;
     if (v) {
@@ -1418,7 +1849,7 @@ export class BasedPlayer extends LitElement {
     >`;
   }
 
-  private renderEntry(e: Entry, last: boolean): TemplateResult {
+  private renderEntry(e: Entry, last: boolean, time = ""): TemplateResult {
     const live = last && this.beat.kind === "line" && this.typingNow;
     // The live line's words are drawn into its span by drawLive(), so the
     // column isn't drawn again for every letter.
@@ -1426,67 +1857,91 @@ export class BasedPlayer extends LitElement {
       ? html`<span class="mb-live"></span>`
       : html`${typed(e.text, 1e9)}`;
     const hero = this.chapter.cast[0]?.id;
+    const t = html`<span class="mb-e-t" aria-hidden="true">${time}</span>`;
     switch (e.kind) {
       case "say":
-        return html`<p
+        return html`<div
           class="mb-e say ${e.who === hero ? "hero" : ""} ${e.lang &&
           !e.lang.understood
             ? "foreign"
             : ""}"
         >
-          <b class="mb-e-who">${this.nameOf(e.who ?? "").toUpperCase()}</b
-          >${e.how
-            ? html` <i class="mb-e-how">(${e.how})</i>`
-            : nothing}${e.lang ? html` ${this.langTag(e.lang)}` : nothing}
-          – ${text}
-        </p>`;
+          ${t}
+          <p>
+            <b class="mb-e-who">${this.nameOf(e.who ?? "")}</b>${e.how
+              ? html` <i class="mb-e-how">(${e.how})</i>`
+              : nothing}${e.lang ? html` ${this.langTag(e.lang)}` : nothing}
+            <span class="mb-e-words">${text}</span>
+          </p>
+        </div>`;
       case "voice":
-        return html`<p class="mb-e voice">
-          <b class="mb-e-who" style="color:${this.skillColor(e.skill ?? "")}"
-            >${this.skillName(e.skill ?? "").toUpperCase()}</b
-          >${e.tag ? html` <span class="mb-e-tag">[${e.tag}]</span>` : nothing}
-          – ${text}
-        </p>`;
+        return html`<div
+          class="mb-e voice"
+          style="--c:${this.skillColor(e.skill ?? "")}"
+        >
+          ${t}
+          <p>
+            <b class="mb-e-who">${this.skillName(e.skill ?? "")}</b>${e.tag
+              ? html` <span class="mb-e-tag">${e.tag}</span>`
+              : nothing}
+            <span class="mb-e-words">${text}</span>
+          </p>
+        </div>`;
       case "think":
-        return html`<p class="mb-e think">${text}</p>`;
+        return html`<div class="mb-e think">
+          ${t}
+          <p>${text}</p>
+        </div>`;
       case "card":
-        return html`<p class="mb-e card">${e.text}</p>`;
+        return html`<div class="mb-e card">
+          ${t}
+          <p>${e.text}</p>
+        </div>`;
       case "pick":
-        return html`<p class="mb-e pick">
-          <span class="mb-e-arrow">→</span>${e.text}
-        </p>`;
+        return html`<div class="mb-e pick">
+          ${t}
+          <p><span class="mb-e-arrow" aria-hidden="true"></span>${e.text}</p>
+        </div>`;
       case "roll":
-        return this.renderRollEntry(e.roll!, last);
+        return html`<div class="mb-e rollrow">
+          ${t}${this.renderRollEntry(e.roll!, last)}
+        </div>`;
       default:
-        return html`<p class="mb-e narr">${text}</p>`;
+        return html`<div class="mb-e narr">
+          ${t}
+          <p>${text}</p>
+        </div>`;
     }
   }
 
+  /**
+   * r22 BPLAY: a check, thrown: a carbon slip in the column with the dice,
+   * the sum and every modifier, and the stamp.
+   */
   private renderRollEntry(r: RollBeat, last: boolean): TemplateResult {
-    const color = this.skillColor(r.skill);
     const name = this.skillName(r.skill);
     const pending = last && !this.rolled && r.dice !== null;
+    const sign = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
+    const verdict = r.pass
+      ? r.crit === "six"
+        ? "Passed, double six"
+        : "Passed"
+      : r.crit === "one"
+        ? "Failed, double one"
+        : "Failed";
     return html`<div
-      class="mb-e roll ${r.pass ? "pass" : "fail"} ${pending ? "pending" : ""}"
+      class="mb-slip ${r.pass ? "pass" : "fail"} ${pending
+        ? "pending"
+        : ""} ${r.kind2}"
+      style="--c:${this.skillInk(r.skill)}"
     >
-      <div class="mb-roll-head">
-        <b style="color:${color}">${name.toUpperCase()}</b>
-        <span class="mb-roll-diff">[${r.tier} ${r.diff}]</span>
-        <span class="mb-roll-result"
-          >${pending
-            ? "…"
-            : r.pass
-              ? r.crit === "six"
-                ? "Critical success"
-                : "Success"
-              : r.crit === "one"
-                ? "Critical failure"
-                : "Failure"}</span
-        >
+      <div class="mb-slip-head">
+        <b>${name}</b>
+        <span>${r.tier} ${r.diff}</span>
       </div>
-      <div class="mb-roll-what">${r.label}</div>
+      <div class="mb-slip-what">${r.label}</div>
       ${r.dice
-        ? html`<div class="mb-roll-dice">
+        ? html`<div class="mb-slip-dice">
             ${r.dice.map(
               (d, i) =>
                 html`<span
@@ -1495,18 +1950,31 @@ export class BasedPlayer extends LitElement {
                   >${dieFace(pending ? ((i * 3 + 2) % 6) + 1 : d)}</span
                 >`,
             )}
-            <span class="mb-roll-sum"
+            <span class="mb-slip-sum"
               >${pending
                 ? ""
-                : `${r.dice[0]} + ${r.dice[1]} + ${r.bonus} = ${r.total} against ${r.diff}`}</span
+                : `${r.dice[0]} + ${r.dice[1]} + ${r.bonus} = ${r.total}`}</span
             >
           </div>`
-        : html`<div class="mb-roll-sum passive">
-            Passive: ${name}
-            ${r.base}${r.mods.length > 0
-              ? ` ${r.mods.map((m) => `${m.delta > 0 ? "+" : ""}${m.delta}`).join(" ")}`
-              : ""}
-            + 6 against ${r.diff}
+        : html`<div class="mb-slip-dice passive">
+            <span class="mb-slip-sum"
+              >No throw: ${r.bonus} + 6 = ${r.bonus + 6}</span
+            >
+          </div>`}
+      <ul class="mb-slip-mods">
+        <li><b>${r.base}</b> ${name}</li>
+        ${r.mods.map(
+          (m) =>
+            html`<li class=${m.item ? "gear" : ""}>
+              <b>${sign(m.delta)}</b> ${m.why}
+            </li>`,
+        )}
+        <li class="against">against <b>${r.diff}</b></li>
+      </ul>
+      ${pending
+        ? nothing
+        : html`<div class="mb-stamp-mark ${r.crit ? "crit" : ""}" role="status">
+            ${verdict}
           </div>`}
     </div>`;
   }
@@ -1536,25 +2004,34 @@ export class BasedPlayer extends LitElement {
     }
   }
 
+  /** A check before it's thrown: in pencil (can be retried) or ink (once). */
   private checkLabel(c: CheckView): TemplateResult {
+    const sign = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
     return html`<span
-      class="mb-ck ${c.kind}"
+      class="mb-ck ${c.kind === "red" ? "ink" : "pencil"} ${c.locked
+        ? "locked"
+        : ""}"
       style="--c:${this.skillColor(c.skill)}"
       title=${[
         `${this.skillName(c.skill)} ${c.base}`,
-        ...c.mods.map((m) => `${m.delta > 0 ? "+" : ""}${m.delta} ${m.why}`),
-        `2d6 + ${c.bonus} against ${c.diff}`,
+        ...c.mods.map((m) => `${sign(m.delta)} ${m.why}`),
+        `Two dice + ${c.bonus} against ${c.diff}`,
         c.kind === "red"
-          ? "Red: one try only"
-          : "White: can be tried again when something changes",
+          ? "In ink: one throw only"
+          : "In pencil: can be tried again when something changes",
       ].join("\n")}
-      >[${this.skillName(c.skill)} – ${c.tier} ${c.diff}]
-      <b>${c.locked ? "Locked" : `${c.percent}%`}</b></span
+      ><b class="mb-ck-skill">${this.skillName(c.skill)}</b>
+      <span class="mb-ck-tier">${c.tier} ${c.diff}</span>
+      <span class="mb-ck-pct">${c.locked ? "locked" : `${c.percent}%`}</span
+      >${c.kind === "red"
+        ? html`<span class="mb-ck-once">once</span>`
+        : nothing}</span
     >`;
   }
 
   private renderChoice(b: ChoiceBeat): TemplateResult {
     const timed = this.prefs.timers && this.timed > 0;
+    const itemName = (k: string) => this.chapter.items[k]?.name ?? k;
     return html`<div class="mb-choices">
       ${b.prompt ? html`<div class="mb-prompt">${b.prompt}</div>` : nothing}
       ${timed
@@ -1567,40 +2044,39 @@ export class BasedPlayer extends LitElement {
           </div>`
         : nothing}
       <ol class="mb-options">
-        ${b.options.map(
-          (o, i) =>
-            html`<li>
-              <button
-                class="mb-option ${o.silent ? "silent" : ""} ${o.check?.locked
-                  ? "locked"
-                  : ""}"
-                ?disabled=${o.check?.locked}
-                @click=${() => this.choose(o.id)}
+        ${b.options.map((o, i) => {
+          const shut = !!o.check?.locked || o.needs?.met === false;
+          return html`<li>
+            <button
+              class="mb-option ${o.silent ? "silent" : ""} ${shut
+                ? "locked"
+                : ""}"
+              ?disabled=${shut}
+              @click=${() => this.choose(o.id)}
+            >
+              <span class="mb-key">${i + 1}.</span>
+              <span class="mb-option-label"
+                >${o.check ? this.checkLabel(o.check) : nothing}
+                ${o.silent ? html`<i>…</i> ` : nothing}${o.label}</span
               >
-                <span class="mb-key">${i + 1}.</span>
-                <span class="mb-option-label"
-                  >${o.check ? this.checkLabel(o.check) : nothing}
-                  ${o.silent ? html`<i>…</i> ` : nothing}${o.label}</span
-                >
-              </button>
-              ${o.check?.locked
+            </button>
+            ${o.needs && !o.needs.met
+              ? html`<div class="mb-locked-why">
+                  Needs ${o.needs.items.map(itemName).join(" or ")}.
+                </div>`
+              : o.check?.locked
                 ? html`<div class="mb-locked-why">
                     Tried and failed. It opens again when his
-                    ${this.skillName(o.check.skill)} rises or something new
+                    ${this.skillName(o.check.skill)} rises, or something new
                     turns up.
                   </div>`
                 : nothing}
-            </li>`,
-        )}
+          </li>`;
+        })}
       </ol>
     </div>`;
   }
 
-  /**
-   * Reading a room or a man (r22): no list of what's there. Marks appear on
-   * what he notices as he looks about; what it adds up to comes to him as a
-   * thought, here, when he's noticed enough.
-   */
   private renderLookPanel(b: InvestigateBeat): TemplateResult {
     const flat = !this.is3d(b);
     const ready = b.deductions.filter((d) => d.ready && !d.done);
@@ -1712,74 +2188,135 @@ export class BasedPlayer extends LitElement {
 
   // --- sheets ----------------------------------------------------------------
 
+  /**
+   * Where a skill's value comes from (r22 BPLAY): its attribute, the
+   * signature step, what's happened to him, and what he's wearing.
+   */
+  private skillParts(
+    id: string,
+  ): { why: string; delta: number; gear?: boolean }[] {
+    const build = this.run.build;
+    const s = this.chapter.skills.find((x) => x.id === id);
+    const attr = this.chapter.attributes.find((a) => a.id === s?.attr);
+    const out: { why: string; delta: number; gear?: boolean }[] = [
+      { why: attr?.name ?? "", delta: build.attrs[s?.attr ?? ""] ?? 0 },
+    ];
+    if (build.signature === id) out.push({ why: "known for it", delta: 1 });
+    for (const b of this.run.boosts) {
+      if (b.skill === id) out.push({ why: b.why, delta: b.delta });
+    }
+    for (const g of this.run.gearMods()) {
+      if (g.skill === id) out.push({ why: g.why, delta: g.delta, gear: true });
+    }
+    return out;
+  }
+
   private renderSheet(): TemplateResult {
     const values = this.run.skills();
     const build = this.run.build;
-    const boosts = this.run.boosts;
     const arch = this.chapter.archetypes.find((a) => a.id === build.archetype);
-    const langs = (build.langs ?? [])
-      .map((c) => this.chapter.languages.find((l) => l.code === c)?.name ?? c)
-      .join(", ");
-    return html`<h2>Your skills</h2>
-      <p class="mb-sheet-sub">
-        ${arch ? html`${arch.name}. ${arch.about}` : "His own man."}
-      </p>
+    const gear = this.run.gearMods();
+    const sign = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
+    return html`<div class="mb-file">
+      <header class="mb-file-head">
+        <h2>Your skills</h2>
+        <p class="mb-file-sub">
+          ${arch ? html`<b>${arch.name}.</b> ${arch.about}` : "His own man."}
+        </p>
+      </header>
       <div class="mb-skills">
         ${this.chapter.attributes.map(
-          (a, i) =>
-            html`<section
-              class="mb-attr"
-              style="--c:${ATTR_COLORS[i % ATTR_COLORS.length]}"
-            >
+          (a) =>
+            html`<section class="mb-attr" style="--c:${this.attrColor(a.id)}">
               <div class="mb-attr-head">
-                <b>${a.name.toUpperCase()}</b>
+                <span class="mb-attr-name">${a.name}</span>
                 <span class="mb-attr-val">${build.attrs[a.id] ?? 0}</span>
               </div>
               <p class="mb-attr-about">${a.about}</p>
               ${this.chapter.skills
                 .filter((s) => s.attr === a.id)
-                .map(
-                  (s) =>
-                    html`<div class="mb-skill">
-                      <div class="mb-skill-name">
-                        ${s.name}${build.signature === s.id
-                          ? html` <span class="mb-sig">signature</span>`
-                          : nothing}
-                      </div>
-                      <div class="mb-skill-val">${values[s.id] ?? 0}</div>
-                      <div class="mb-skill-about">${s.about}</div>
-                    </div>`,
-                )}
+                .map((s) => {
+                  const parts = this.skillParts(s.id);
+                  return html`<div class="mb-skill">
+                    <div class="mb-skill-name">${s.name}</div>
+                    <div class="mb-skill-val">${values[s.id] ?? 0}</div>
+                    <div class="mb-skill-about">${s.about}</div>
+                    <div class="mb-skill-from">
+                      ${parts.map(
+                        (p, i) =>
+                          html`<span class=${p.gear ? "gear" : ""}
+                            >${i === 0 ? p.delta : sign(p.delta)} ${p.why}</span
+                          >`,
+                      )}
+                    </div>
+                    ${s.id === LANGUAGES_SKILL &&
+                    this.chapter.languages.length > 0
+                      ? this.renderLangSheet()
+                      : nothing}
+                  </div>`;
+                })}
             </section>`,
         )}
       </div>
-      ${langs
-        ? html`<p class="mb-sheet-langs">
-            <b>Speaks</b> ${langs}, ${fluency(values[LANGUAGES_SKILL] ?? 0)};
-            and American English.
-          </p>`
-        : nothing}
-      ${boosts.length > 0
-        ? html`<div class="mb-panel-sub">On his mind</div>
+      ${gear.length > 0
+        ? html`<div class="mb-file-sub2">What he's wearing does</div>
             <ul class="mb-boosts">
-              ${boosts.map(
-                (x) =>
+              ${gear.map(
+                (g) =>
                   html`<li>
-                    <b
-                      >${x.delta > 0 ? "+" : ""}${x.delta}
-                      ${this.skillName(x.skill)}</b
-                    >
-                    ${x.why}
+                    <b>${sign(g.delta)} ${this.skillName(g.skill)}</b>
+                    ${g.why}
                   </li>`,
               )}
             </ul>`
         : nothing}
       <p class="mb-sheet-foot">
-        Checks are two dice plus the skill against the difficulty. A double six
-        always succeeds, a double one always fails. White checks can be tried
-        again when something changes; red ones only once. His skills also speak
-        up on their own when they're good enough (skill + 6).
-      </p>`;
+        A check is two dice plus the skill against the difficulty; a double six
+        always passes, a double one always fails. Checks in pencil can be tried
+        again when something changes (a skill rises, he learns something, he
+        puts on something that helps); checks in ink are one throw. His skills
+        also speak up by themselves when they're good enough: the skill plus
+        six.
+      </p>
+    </div>`;
+  }
+
+  /**
+   * r22 BPLAY: his languages under Languages on the sheet: each rating, in
+   * pips and words, and where it comes from.
+   */
+  private renderLangSheet(): TemplateResult {
+    const rated = this.run.languages();
+    const sign = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
+    return html`<ul class="mb-sheet-langs" aria-label="His languages">
+      ${this.chapter.languages.map((l) => {
+        const n = rated[l.code] ?? 0;
+        const parts = this.run.languageParts(l.code);
+        return html`<li class=${n > 0 ? "on" : ""}>
+          <span class="mb-lang-what">
+            <span class="mb-lang-name">${l.name}</span>
+            <span class="mb-lang-level">${langLevel(n)}</span>
+          </span>
+          <span class="mb-lang-pips" role="img" aria-label="${n} of ${LANG_MAX}"
+            >${Array.from(
+              { length: Math.max(LANG_MAX, n) },
+              (_, i) => html`<i class=${i < n ? "on" : ""}></i>`,
+            )}</span
+          >
+          ${parts.some((p) => !p.start)
+            ? html`<span class="mb-skill-from">
+                ${parts.map(
+                  (p) =>
+                    html`<span class=${p.item ? "gear" : ""}
+                      >${p.start ? p.delta : sign(p.delta)} ${p.why}</span
+                    >`,
+                )}
+              </span>`
+            : nothing}
+        </li>`;
+      })}
+      <li class="mb-sheet-langs-own">And American English, his own.</li>
+    </ul>`;
   }
 
   private renderJournal(): TemplateResult {
@@ -1838,9 +2375,10 @@ export class BasedPlayer extends LitElement {
       return sheet(
         html`<h2>Note for the writer</h2>
           <p class="mb-sheet-sub">
-            ${this.run.free ? "Exploring" : html`Scene “${this.sceneLabel}”`} ·
-            ${on
-              ? html`on “${on.slice(0, 120)}${on.length > 120 ? "…" : ""}”`
+            ${this.run.free
+              ? "Exploring"
+              : html`Scene “${this.sceneLabel}”`}${on
+              ? html`, on “${on.slice(0, 120)}${on.length > 120 ? "…" : ""}”`
               : nothing}
           </p>
           <textarea
@@ -1889,7 +2427,47 @@ export class BasedPlayer extends LitElement {
     }
     if (o === "sheet")
       return sheet(html`${this.renderSheet()} ${back}`, "tall");
-    if (o === "journal") return sheet(html`${this.renderJournal()} ${back}`);
+    if (o === "journal") {
+      return sheet(
+        html`${this.renderJournal()}
+          <div class="mb-sheet-row">
+            ${back}
+            <button
+              class="mb-btn"
+              @click=${() => {
+                this.dossierTab = "places";
+                this.overlay = "log";
+              }}
+            >
+              The story so far
+            </button>
+          </div>`,
+      );
+    }
+    if (o === "inventory") {
+      const avail = this.run.free
+        ? this.run.available([]).use
+        : ([] as string[]);
+      return sheet(
+        html`${inventoryBody({
+          items: this.chapter.items,
+          pockets: this.run.items,
+          gear: this.run.gear,
+          money: this.run.euros,
+          selected: this.invSel,
+          usable: avail,
+          useful: this.useful,
+          free: this.run.free,
+          skillName: (id) => this.skillName(id),
+          skillColor: (id) => this.skillInk(id),
+          select: (k) => (this.invSel = k),
+          equip: (k) => this.wearItem(k),
+          unequip: (slot) => this.takeOff(slot),
+          use: (k) => this.useItem(k),
+        })}`,
+        "paper inventory",
+      );
+    }
     if (o === "save" || o === "load") {
       return sheet(
         html`<h2>${o === "save" ? "Save game" : "Load game"}</h2>
@@ -1909,7 +2487,7 @@ export class BasedPlayer extends LitElement {
     if (o === "help") {
       const touch = window.matchMedia?.("(pointer: coarse)").matches ?? false;
       return sheet(
-        html`${helpBody(this.chapter, ATTR_COLORS, touch)} ${back}`,
+        html`${helpBody(this.chapter, VOICES, touch)} ${back}`,
         "tall",
       );
     }
@@ -1929,80 +2507,54 @@ export class BasedPlayer extends LitElement {
       );
     }
     if (o === "log") {
-      return sheet(
-        html`<h2>The story so far</h2>
-          <div class="mb-log">
-            ${this.log.map(
-              (l) =>
-                html`<p class="mb-log-line ${l.kind}">
-                  ${l.who
-                    ? html`<b>${this.nameOf(l.who)}</b> `
-                    : l.skill && l.kind !== "pick"
-                      ? html`<b>${this.skillName(l.skill)}</b> `
-                      : nothing}${l.kind === "roll" && l.roll
-                    ? `[${l.roll.tier} ${l.roll.diff}] ${l.roll.pass ? "Success" : "Failure"}: ${l.text}`
-                    : plainText(l.text)}
-                </p>`,
-            )}
-          </div>
-          ${back}`,
-        "tall",
-      );
+      return sheet(html`${dossierBody(this.dossier(), back)}`, "dossier");
     }
     if (o === "credits") {
       return sheet(html`${creditsBody(this.credits)} ${back}`, "tall");
     }
+    const touch = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+    const line = (label: string, key: string, go: () => void, cls = "") =>
+      html`<li>
+        <button class="mb-menu-line ${cls}" @click=${go}>
+          <span class="mb-menu-label">${label}</span>
+          <span class="mb-menu-dots" aria-hidden="true"></span>
+          ${touch || !key ? nothing : html`<kbd>${key}</kbd>`}
+        </button>
+      </li>`;
+    const place = this.stage.place ? this.places[this.stage.place] : undefined;
+    const clock = clockText(this.run.clock);
     return sheet(
       html`<div class="mb-menu-title">Mr. Based</div>
-        <div class="mb-sheet-sub">
-          ${this.stage.place ? (this.places[this.stage.place]?.name ?? "") : ""}
-          · ${clockText(this.run.clock).time}
+        <div class="mb-menu-where">
+          ${place?.name ?? this.sceneLabel},
+          ${clock.day > 0 ? `night ${clock.day + 1}, ` : ""}${clock.time}
         </div>
-        <nav class="mb-menu">
-          <button class="mb-btn primary" @click=${() => this.closeOverlay()}>
-            Resume
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "save")}>
-            Save game
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "load")}>
-            Load game
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "sheet")}>
-            Your skills
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "journal")}>
-            Journal
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "help")}>
-            How to play
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "note")}>
-            Note for the writer
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "log")}>
-            The story so far
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "settings")}>
-            Settings
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "credits")}>
-            Credits
-          </button>
-          <button
-            class="mb-btn quiet"
-            @click=${() => {
+        <ol class="mb-menu">
+          ${line("Resume", "Esc", () => this.closeOverlay(), "primary")}
+          ${line("Save game", "", () => (this.overlay = "save"))}
+          ${line("Load game", "F9", () => (this.overlay = "load"))}
+          ${line("What he carries", "I", () => (this.overlay = "inventory"))}
+          ${line("Your skills", "C", () => (this.overlay = "sheet"))}
+          ${line("Journal", "J", () => (this.overlay = "journal"))}
+          ${line("The story so far", "", () => (this.overlay = "log"))}
+          ${line("How to play", "H", () => (this.overlay = "help"))}
+          ${line("Note for the writer", "N", () => (this.overlay = "note"))}
+          ${line("Settings", "", () => (this.overlay = "settings"))}
+          ${line("Credits", "", () => (this.overlay = "credits"))}
+          ${line(
+            "Save and quit",
+            "",
+            () => {
               this.autosave();
               this.countPlayed();
               this.host.quit();
-            }}
-          >
-            Save and quit
-          </button>
-        </nav>
+            },
+            "quiet",
+          )}
+        </ol>
         <p class="mb-sheet-foot">
           The game saves by itself as you go (the autosave).
-          ${window.matchMedia?.("(pointer: coarse)").matches
+          ${touch
             ? nothing
             : html`<kbd>F5</kbd> quicksaves; <kbd>F9</kbd> loads it.`}
         </p>`,
