@@ -10,8 +10,8 @@
 // An item can say `"solid": false` (walk through it) or `"solid": true` (a
 // box of its `size`, for a piece the kit doesn't know).
 
-import { PROP_SHAPES } from "./Props";
 import { Item, PlaceDef } from "./Place";
+import { PROP_SHAPES } from "./Props";
 
 export type Pt = [number, number];
 
@@ -118,7 +118,10 @@ function outline(item: Item): { poly: Pt[]; what: string } | null {
       };
     }
     case "backbar":
-      return { poly: rect(num(item.len, 8) + 0.04, 0.56, 0, 0.26), what: "backbar" };
+      return {
+        poly: rect(num(item.len, 8) + 0.04, 0.56, 0, 0.26),
+        what: "backbar",
+      };
     case "kiosk":
       return { poly: rect(1.8, 1.2), what: "kiosk" };
     case "moped":
@@ -140,7 +143,9 @@ function outline(item: Item): { poly: Pt[]; what: string } | null {
     case "coats":
       return { poly: circle(0.34, 10), what: "coats" };
     case "tray": {
-      const [w, h, d] = (item.size as [number, number, number]) ?? [0.5, 0.3, 0.38];
+      const [w, h, d] = (item.size as [number, number, number]) ?? [
+        0.5, 0.3, 0.38,
+      ];
       return h < 0.25 ? null : { poly: rect(w, d), what: "tray" };
     }
     default:
@@ -159,10 +164,9 @@ export function solids(def: PlaceDef): Solid[] {
     const c = Math.cos(a);
     const s = Math.sin(a);
     const [x0, , z0] = item.at;
-    const poly = o.poly.map(([x, z]): Pt => [
-      x0 + x * c + z * s,
-      z0 - x * s + z * c,
-    ]);
+    const poly = o.poly.map(
+      ([x, z]): Pt => [x0 + x * c + z * s, z0 - x * s + z * c],
+    );
     out.push({
       poly,
       margin:

@@ -8,18 +8,18 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Item } from "../../engine/Place";
+import { PALETTE, paletteMaterial, paletteName } from "./Palette";
 import {
   facadeWindows,
   glowTexture,
-  morrisTexture,
   MorrisPoster,
+  morrisTexture,
   posterTexture,
   streakTexture,
   SurfaceBook,
   SurfaceName,
   textTexture,
 } from "./Textures";
-import { PALETTE, paletteMaterial, paletteName } from "./Palette";
 import { lightCone, puddleMaterial, rainGlass } from "./Weather";
 
 type V3 = [number, number, number];
@@ -2031,7 +2031,9 @@ function restyle(
     });
   } else {
     // Kenney's flat colours, darkened and given a little gloss.
-    const c = (o2.color ?? new THREE.Color("#888")).clone().multiplyScalar(0.55);
+    const c = (o2.color ?? new THREE.Color("#888"))
+      .clone()
+      .multiplyScalar(0.55);
     n = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
   }
   n.userData.shared = true;
@@ -2041,10 +2043,7 @@ function restyle(
 }
 
 /** A copy of a props model, every mesh restyled, casting shadows. */
-function styled(
-  src: THREE.Object3D,
-  item: Item,
-): THREE.Object3D {
+function styled(src: THREE.Object3D, item: Item): THREE.Object3D {
   const o = src.clone(true);
   const recolor = (item.mats ?? {}) as Record<string, string>;
   const tint = typeof item.tint === "string" ? item.tint : null;

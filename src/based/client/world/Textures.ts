@@ -635,7 +635,8 @@ export function morrisTexture(
     const tier = i % 2;
     const ph = H * 0.46 * (0.94 + r() * 0.1);
     const pw = ph * 0.7;
-    const x = (Math.floor(i / 2) * step + tier * step * 0.5 + (r() - 0.5) * 24 + W) % W;
+    const x =
+      (Math.floor(i / 2) * step + tier * step * 0.5 + (r() - 0.5) * 24 + W) % W;
     const y = H * (tier === 0 ? 0.03 : 0.5) + (r() - 0.5) * 14;
     const tilt = (r() - 0.5) * 0.05;
     let art: HTMLCanvasElement;
@@ -656,10 +657,7 @@ export function morrisTexture(
           lines[lines.length - 1] = `${last} ${w}`;
         else lines.push(w);
       }
-      while (
-        size > 14 &&
-        lines.some((l) => bg.measureText(l).width > 236)
-      ) {
+      while (size > 14 && lines.some((l) => bg.measureText(l).width > 236)) {
         size -= 2;
         bg.font = `900 ${size}px Impact, 'Arial Black', sans-serif`;
       }

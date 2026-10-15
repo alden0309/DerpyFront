@@ -32,6 +32,8 @@ import {
   retargetClip,
 } from "../../src/based/client/world/people/Retarget";
 import { tailor } from "../../src/based/client/world/people/Tailor";
+import { parseChapter } from "../../src/based/engine/Script";
+import { GEAR_SLOTS } from "../../src/based/engine/Types";
 
 const ROOT = path.resolve(__dirname, "../..");
 const MODELS = path.join(ROOT, "src/based/models");
@@ -795,6 +797,54 @@ describe("the people (r22)", () => {
         rigs.m.kit!.template,
       ),
     ).toBeNull();
+  });
+});
+
+describe("his clothes on and off (r23)", () => {
+  test("whatever he puts on or takes off, he stays the owner's model", () => {
+    const src = fs.readFileSync(
+      path.join(ROOT, "src/based/story/chapter-01.story"),
+      "utf8",
+    );
+    const { chapter } = parseChapter(src);
+    const hero = chapter.cast[0];
+    const own = hero.model ?? LOOKS[hero.look ?? ""]?.model;
+    expect(own).toBe("mr_based");
+    const clothes = Object.values(chapter.items).filter(
+      (i) => i.slot && i.slot !== "hand",
+    );
+    expect(clothes.length).toBeGreaterThan(5);
+    // Every subset of what can be worn (one thing a slot), the way the
+    // player works out his look: the first worn thing with a look, or none
+    // (none leaves him as he is).
+    const bySlot = new Map<string, typeof clothes>();
+    for (const c of clothes) {
+      bySlot.set(c.slot!, [...(bySlot.get(c.slot!) ?? []), c]);
+    }
+    const slots = [...bySlot.keys()];
+    let tried = 0;
+    const pick = (k: number, worn: Record<string, string | null>): void => {
+      if (k === slots.length) {
+        tried++;
+        let look: string | null = null;
+        for (const s of GEAR_SLOTS) {
+          const key = worn[s];
+          const it = key ? chapter.items[key] : undefined;
+          if (it?.look) {
+            look = it.look;
+            break;
+          }
+        }
+        const drawn = lookFor(look ?? hero.look, own);
+        expect(drawn.model, JSON.stringify(worn)).toBe("mr_based");
+        return;
+      }
+      for (const c of [null, ...bySlot.get(slots[k])!]) {
+        pick(k + 1, { ...worn, [slots[k]]: c?.key ?? null });
+      }
+    };
+    pick(0, {});
+    expect(tried).toBeGreaterThan(10);
   });
 });
 

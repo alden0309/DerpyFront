@@ -19,9 +19,9 @@
 
 import * as THREE from "three";
 import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { P } from "../../engine/Nav";
 import { RUN, WALK, Walker } from "../../engine/Walk";
-import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { Look, LOOKS } from "./people/Looks";
 import {
   Canon,
@@ -156,7 +156,10 @@ export function measureStride(
   bone: (name: string) => THREE.Object3D | null,
   frame: THREE.Object3D,
 ): Stride | null {
-  const feet = [bone("ball_l") ?? bone("foot_l"), bone("ball_r") ?? bone("foot_r")];
+  const feet = [
+    bone("ball_l") ?? bone("foot_l"),
+    bone("ball_r") ?? bone("foot_r"),
+  ];
   if (!feet[0] || !feet[1]) return null;
   const mixer = new THREE.AnimationMixer(model);
   const a = mixer.clipAction(clip);
@@ -664,7 +667,8 @@ function swingCloth(c: Cloth): void {
     // A little slack while standing and walking (the cloth hangs clear of
     // the knee), none sitting (the thighs carry it).
     const k = Math.abs(pitch);
-    const slack = Math.min(k, 0.15) * (1 - THREE.MathUtils.smoothstep(k, 0.6, 1.2));
+    const slack =
+      Math.min(k, 0.15) * (1 - THREE.MathUtils.smoothstep(k, 0.6, 1.2));
     b.bone.quaternion.setFromAxisAngle(
       X_AXIS,
       -THREE.MathUtils.clamp(pitch - Math.sign(pitch) * slack, -1, 1.75),
@@ -698,7 +702,11 @@ const AIM_P = new THREE.Quaternion();
  * Turns a bone (in the world) so the way to its child runs along `dir`,
  * keeping its parent where it is.
  */
-function aim(bone: THREE.Object3D, child: THREE.Object3D, dir: THREE.Vector3): void {
+function aim(
+  bone: THREE.Object3D,
+  child: THREE.Object3D,
+  dir: THREE.Vector3,
+): void {
   bone.updateWorldMatrix(true, true);
   const from = bone.getWorldPosition(AIM_A);
   const to = child.getWorldPosition(AIM_B).sub(from).normalize();
@@ -935,7 +943,12 @@ export class Person {
     for (const name of GAITS) {
       const clip = clips.find((c) => c.name === name);
       if (!clip) continue;
-      this.strides[name] = measureStride(model, clip, (n) => this.bone(n), this.root);
+      this.strides[name] = measureStride(
+        model,
+        clip,
+        (n) => this.bone(n),
+        this.root,
+      );
       const a = this.actions.get(name)!;
       a.play();
       a.timeScale = 0;
@@ -956,9 +969,10 @@ export class Person {
     let fit = seatFits.get(key);
     if (!fit) {
       const clip = this.clips.find((c) => c.name === "sit");
-      fit =
-        (clip && measureSeat(this.model, clip, (n) => this.bone(n), this.root)) ||
-        { y: CHAIR, back: 0.22 };
+      const measured = clip
+        ? measureSeat(this.model, clip, (n) => this.bone(n), this.root)
+        : null;
+      fit = measured ?? { y: CHAIR, back: 0.22 };
       // The pose the measuring left behind is the mixer's again next frame.
       seatFits.set(key, fit);
     }
@@ -1137,8 +1151,7 @@ export class Person {
     this.heading = heading;
     this.root.rotation.y = heading;
     this.pose = pose;
-    this.seatLift = this.liftTarget =
-      pose === "sit" ? this.liftFor(seat) : 0;
+    this.seatLift = this.liftTarget = pose === "sit" ? this.liftFor(seat) : 0;
     this.root.position.y = this.seatLift;
     this.root.visible = pose !== "hidden";
     this.baseName = "";
@@ -1346,8 +1359,23 @@ export class Person {
     if (up && upper && fore && hand) {
       // The arm up: the upper arm down by his side, a little forward; the
       // forearm across and up to the chest.
-      aim(upper, fore, HELD_V[2].set(0, -1, 0).addScaledVector(fwd, 0.35).addScaledVector(right, 0.12));
-      aim(fore, hand, HELD_V[2].copy(fwd).multiplyScalar(0.8).addScaledVector(UP_V, 0.55).addScaledVector(right, -0.3));
+      aim(
+        upper,
+        fore,
+        HELD_V[2]
+          .set(0, -1, 0)
+          .addScaledVector(fwd, 0.35)
+          .addScaledVector(right, 0.12),
+      );
+      aim(
+        fore,
+        hand,
+        HELD_V[2]
+          .copy(fwd)
+          .multiplyScalar(0.8)
+          .addScaledVector(UP_V, 0.55)
+          .addScaledVector(right, -0.3),
+      );
     }
     if (!hand || !fore) {
       prop.position.set(0.2, 0.9, 0.1);
@@ -1362,8 +1390,10 @@ export class Person {
     // Which way the prop's -y runs, in the world.
     const axis = HELD_V[7];
     if (up) axis.set(0, -1, 0);
-    else if (prop.name === "held:baton") axis.copy(along).multiplyScalar(0.55).addScaledVector(fwd, 0.85);
-    else if (prop.name === "held:umbrella") axis.copy(along).addScaledVector(fwd, 0.3);
+    else if (prop.name === "held:baton")
+      axis.copy(along).multiplyScalar(0.55).addScaledVector(fwd, 0.85);
+    else if (prop.name === "held:umbrella")
+      axis.copy(along).addScaledVector(fwd, 0.3);
     else axis.copy(along);
     axis.normalize();
     // A frame with -y along the axis and z as near his forward as it goes.

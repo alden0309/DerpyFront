@@ -201,6 +201,9 @@ describe("the palette", () => {
     expect(
       new THREE.Color(PALETTE.glass.color).getHSL({ h: 0, s: 0, l: 0 }).l,
     ).toBeLessThan(0.1);
+    // (The tyres share the trim's material, the bulb its lantern's.)
+    expect(paletteMaterial("tyre")).toBe(paletteMaterial("trim"));
+    expect(paletteMaterial("lamp_bulb")).toBe(paletteMaterial("glass_lamp"));
     for (const n of ["glass_lamp", "lamp_bulb", "light_white", "light_red"]) {
       expect(PALETTE[n].emissive, n).toBeTruthy();
       expect(paletteMaterial(n).emissiveIntensity, n).toBeGreaterThan(0);

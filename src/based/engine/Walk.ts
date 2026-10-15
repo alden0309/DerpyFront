@@ -68,7 +68,9 @@ export function roundCorners(
     if (l1 < 1e-6 || l2 < 1e-6) continue;
     const u: P = [(b[0] - a[0]) / l1, (b[1] - a[1]) / l1];
     const v: P = [(c[0] - b[0]) / l2, (c[1] - b[1]) / l2];
-    const turn = Math.acos(Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1])));
+    const turn = Math.acos(
+      Math.max(-1, Math.min(1, u[0] * v[0] + u[1] * v[1])),
+    );
     if (turn < 0.05) {
       out.push([b[0], b[1]]);
       continue;
@@ -200,16 +202,20 @@ export class Walker {
     }
     const err = wrap(want - this.heading);
     const most = g.turn * dt;
-    const dh = Math.sign(err) * Math.min(Math.abs(err), most, Math.abs(err) * Math.min(1, dt * 12));
+    const dh =
+      Math.sign(err) *
+      Math.min(Math.abs(err), most, Math.abs(err) * Math.min(1, dt * 12));
     this.heading = wrap(this.heading + dh);
     // Pace: full when facing the way; slow while turned away (stepping
     // round, not sliding sideways); slowing to stop at the end.
     const off = Math.abs(wrap(want - this.heading));
-    const facing = off > 1.75 ? 0.08 : 0.15 + 0.85 * Math.max(0, Math.cos(off)) ** 2;
+    const facing =
+      off > 1.75 ? 0.08 : 0.15 + 0.85 * Math.max(0, Math.cos(off)) ** 2;
     // (A crawl at the very end, so he gets there.)
     const stopAt = Math.max(0.04, Math.sqrt(2 * g.decel * Math.max(0, rem)));
     const target = Math.min(g.speed * facing, stopAt);
-    if (target > this.speed) this.speed = Math.min(target, this.speed + g.accel * dt);
+    if (target > this.speed)
+      this.speed = Math.min(target, this.speed + g.accel * dt);
     else this.speed = Math.max(target, this.speed - g.decel * 1.6 * dt);
     this.s += this.speed * dt;
     if (this.s >= total - ARRIVE) {

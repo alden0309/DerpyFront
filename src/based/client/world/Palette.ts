@@ -39,8 +39,8 @@ export const PALETTE: Record<string, Finish> = {
   bag: { color: "#2c5531", roughness: 0.38, metalness: 0, env: 1.3 },
   poster: { color: "#c8b48a", roughness: 0.7, metalness: 0 },
   // The cars and the van.
-  paint: { color: "#262f42", roughness: 0.32, metalness: 0.45, env: 1.4 },
-  paint_white: { color: "#d6d7d2", roughness: 0.34, metalness: 0.2, env: 1.2 },
+  paint: { color: "#262f42", roughness: 0.32, metalness: 0.15, env: 1.4 },
+  paint_white: { color: "#d6d7d2", roughness: 0.34, metalness: 0.1, env: 1.2 },
   stripe_blue: { color: "#1b3585", roughness: 0.38, metalness: 0.2 },
   stripe_red: { color: "#9e2229", roughness: 0.38, metalness: 0.2 },
   lightbar: {
@@ -86,6 +86,16 @@ export const PALETTE: Record<string, Finish> = {
   },
 };
 
+/**
+ * Names drawn with another's material, where the eye can't tell them apart
+ * at night and a draw is saved: the tyres with the black trim, the bulb
+ * with its lit lantern.
+ */
+const DRAWN_AS: Record<string, string> = {
+  tyre: "trim",
+  lamp_bulb: "glass_lamp",
+};
+
 /** The material names a prop's mesh may carry ("leather (3)" is leather). */
 export function paletteName(name: string): string | null {
   const base = name.replace(/\s*\(\d+\)\s*$/, "").trim();
@@ -103,6 +113,7 @@ export function paletteMaterial(
   name: string,
   color?: string,
 ): THREE.MeshStandardMaterial {
+  if (!color && DRAWN_AS[name]) name = DRAWN_AS[name];
   const f = PALETTE[name];
   const c = new THREE.Color(color ?? f.color);
   const key = `${name}|${c.getHexString()}`;

@@ -22,11 +22,11 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { navFor, NavGrid, P } from "../../engine/Nav";
-import { Seat, seats } from "../../engine/Solid";
-import { roundCorners } from "../../engine/Walk";
 import { Area, Hotspot, Mark, PlaceDef } from "../../engine/Place";
 import { areaAt, canSee, noticeRange } from "../../engine/Sight";
+import { Seat, seats } from "../../engine/Solid";
 import { ActorState } from "../../engine/Types";
+import { roundCorners } from "../../engine/Walk";
 import {
   startWeather,
   stepWeather,
@@ -881,6 +881,7 @@ export class World {
       p.root.visible = false;
     }
     if (this.pingMesh) b.scene.add(this.pingMesh);
+    if (this.runMark) b.scene.add(this.runMark);
     b.scene.add(this.rain.group);
     this.rain.group.visible = b.outdoor;
     this.rain.setDry(def.areas.filter((a) => !a.rain).map((a) => a.rect));
@@ -999,7 +1000,12 @@ export class World {
         const spot = this.sitSpot(p, m);
         p.place(spot.at, spot.face, "sit", spot.seat);
       } else {
-        p.place(this.markPos(m), deg(m.face ?? 0), st.pose as Pose, m.seat ?? 0);
+        p.place(
+          this.markPos(m),
+          deg(m.face ?? 0),
+          st.pose as Pose,
+          m.seat ?? 0,
+        );
       }
     }
     this.snapCamera = true;
@@ -1171,8 +1177,7 @@ export class World {
     const from: P = [p.root.position.x, p.root.position.z];
     const path = nav.path(from, [x, z]);
     if (!path) return null;
-    const moved =
-      Math.hypot(path[0][0] - from[0], path[0][1] - from[1]) > 1e-6;
+    const moved = Math.hypot(path[0][0] - from[0], path[0][1] - from[1]) > 1e-6;
     const pts = roundCorners(moved ? [from, ...path] : path, (a, b) =>
       nav.clear(a, b),
     );
@@ -1740,7 +1745,8 @@ export class World {
       if (seat) {
         const i = seat.object.userData.seat as number;
         const st = this.place.seats[i];
-        if (st && !this.seatTaken(st, this.hero)) return { kind: "seat", index: i };
+        if (st && !this.seatTaken(st, this.hero))
+          return { kind: "seat", index: i };
       }
     }
     const at = this.ray.ray.intersectPlane(this.floorPlane, this.v3);
@@ -1877,6 +1883,7 @@ export class World {
   private pingRun: THREE.Mesh | null = null;
   private pingT = 0;
   private pinging: "walk" | "run" = "walk";
+  private runMark: THREE.Mesh | null = null;
   private ping(at: THREE.Vector3, run: boolean): void {
     if (!this.pingMesh) {
       const ring = (r0: number, r1: number) => {
@@ -1893,11 +1900,16 @@ export class World {
         return m;
       };
       this.pingMesh = ring(0.18, 0.24);
-      this.pingRun = ring(0.3, 0.335);
+      this.pingRun = ring(0.38, 0.44);
       this.pingRun.rotation.x = 0;
       this.pingRun.position.z = 0.001;
       this.pingMesh.add(this.pingRun);
       this.place?.scene.add(this.pingMesh);
+      // Running, a warm ring at his feet that beats with his stride.
+      this.runMark = ring(0.32, 0.5);
+      (this.runMark.material as THREE.MeshBasicMaterial).color.set("#ffd28a");
+      this.runMark.visible = false;
+      this.place?.scene.add(this.runMark);
     }
     (this.pingMesh.material as THREE.MeshBasicMaterial).color.set(
       run ? "#ffdc96" : "#e8b36a",
@@ -2030,7 +2042,20 @@ export class World {
     this.rain.update(this.time, this.camTarget);
     if (this.pingMesh) {
       const hero = this.people.get(this.hero);
-      if (this.pinging === "run" && hero?.walking && hero.running) {
+      const running = !!hero?.walking && !!hero.running && hero.root.visible;
+      if (this.runMark) {
+        this.runMark.visible = running && hero!.speed > 0.5;
+        if (this.runMark.visible) {
+          const at = hero!.root.position;
+          this.runMark.position.set(at.x, 0.025, at.z);
+          const k = Math.min(1, hero!.speed / 3);
+          const beat = 0.5 + 0.5 * Math.sin(this.time * 14);
+          this.runMark.scale.setScalar(0.9 + 0.15 * beat);
+          (this.runMark.material as THREE.MeshBasicMaterial).opacity =
+            k * (0.22 + 0.18 * beat);
+        }
+      }
+      if (this.pinging === "run" && running) {
         // Running: the double ring beats where he's going.
         this.pingT = 1;
         const beat = 0.5 + 0.5 * Math.sin(this.time * 9);
