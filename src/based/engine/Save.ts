@@ -11,7 +11,7 @@
 // fromV1 turns one into a profile and an autosave.
 
 import { PlaceDef } from "./Place";
-import { chapterStart, Snapshot, StoryRun } from "./Runtime";
+import { chapterStart, Kit, Snapshot, StoryRun } from "./Runtime";
 import { Boost, buildOf, withLanguages } from "./Skills";
 import { Build, Chapter, FREE } from "./Types";
 
@@ -81,6 +81,8 @@ export interface Finished {
   /** r21: who he was, and what he'd been through, carried on. */
   build?: Build;
   boosts?: Boost[];
+  /** r22 BPLAY: what he carried at the end. */
+  kit?: Kit;
 }
 
 /** The account's own record beside its slots. */

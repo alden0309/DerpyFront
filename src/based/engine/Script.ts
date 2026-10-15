@@ -16,9 +16,16 @@
 // `@weather` and `@time` set the night, `@language` lists the tongues he can
 // be given, and a line can be spoken in one: `WHO [fr]: Bonsoir. | Good
 // evening.`
+//
+// r22 BPLAY: what he carries. `@item` lists a thing in the header (clothes,
+// tools, weapons, documents, keys, small things) with what it does to his
+// skills while worn or held; `@money` his euros. In scenes: `give`, `take`,
+// `equip`, `unequip`, `pay` and `earn`; an option can need an item
+// (`* needs=lighter|matchbook [...]`); `@on use KEY` starts a scene when he
+// uses something from his pockets.
 
 import { parseDifficulty } from "./Dice";
-import { parseExpr } from "./Expr";
+import { parseExpr, RESERVED } from "./Expr";
 import {
   ActorState,
   CastMember,
@@ -29,6 +36,11 @@ import {
   END,
   Expr,
   FREE,
+  GEAR_SLOTS,
+  GearSlot,
+  ITEM_KINDS,
+  ItemDef,
+  ItemKind,
   Mod,
   Op,
   Scene,
@@ -137,8 +149,8 @@ function parseTrigger(
   line: number,
 ): Trigger | null {
   const usage =
-    '@on talk WHO | look THING | enter PLACE | think "Label" | auto, then [once] [in=place] [if condition]';
-  const m = /^(talk|look|enter|think|auto)\b\s*(.*)$/.exec(rest);
+    '@on talk WHO | look THING | enter PLACE | use ITEM | think "Label" | auto, then [once] [in=place] [if condition]';
+  const m = /^(talk|look|enter|think|auto|use)\b\s*(.*)$/.exec(rest);
   if (!m) {
     err(usage);
     return null;
@@ -162,7 +174,9 @@ function parseTrigger(
       err(
         on === "talk"
           ? "@on talk WHO (a cast id)"
-          : `@on ${on} takes a ${on === "look" ? "hotspot" : "place"}'s key`,
+          : `@on ${on} takes a${
+              on === "look" ? " hotspot" : on === "use" ? "n item" : " place"
+            }'s key`,
       );
       return null;
     }
@@ -178,6 +192,87 @@ function parseTrigger(
   }
   if (c[2]) t.cond = cond(c[2].trim(), line);
   return t;
+}
+
+/**
+ * r22 BPLAY: `@item KEY "Name" kind=... [slot=...] [bonus=SKILL+N,...]
+ * [look=...] [icon=...] [start=worn|N] "What it is"`.
+ */
+function parseItem(
+  rest: string,
+  line: number,
+  err: (m: string) => void,
+): ItemDef | null {
+  const usage =
+    '@item key "Name" kind=clothes|tool|weapon|document|key|small [slot=...] [bonus=SKILL+1,...] [look=...] [icon=...] [start=worn|N] "What it is"';
+  const { pos, kv } = argsOf(rest);
+  const key = pos[0] ?? "";
+  if (!/^[a-z][a-z0-9_]*$/.test(key) || !pos[1]) {
+    err(usage);
+    return null;
+  }
+  const kind = (kv.kind ?? "") as ItemKind;
+  if (!ITEM_KINDS.includes(kind)) {
+    err(`@item ${key}: kind=${ITEM_KINDS.join("|")}`);
+    return null;
+  }
+  const item: ItemDef = {
+    key,
+    name: pos[1],
+    kind,
+    bonus: [],
+    about: pos[2] ?? "",
+    src: line,
+  };
+  if (kv.slot !== undefined) {
+    if (!(GEAR_SLOTS as readonly string[]).includes(kv.slot)) {
+      err(`@item ${key}: slot=${GEAR_SLOTS.join("|")}`);
+    } else if (kind === "clothes" && kv.slot === "hand") {
+      err(`@item ${key}: clothes go on him, not in his hand`);
+    } else if (kind !== "clothes" && kv.slot !== "hand") {
+      err(
+        `@item ${key}: only clothes are worn; anything else is held (slot=hand)`,
+      );
+    } else item.slot = kv.slot as GearSlot;
+  } else if (kind === "clothes") {
+    err(
+      `@item ${key}: clothes need a slot (${GEAR_SLOTS.slice(0, -1).join(", ")})`,
+    );
+  }
+  if (kv.bonus !== undefined) {
+    for (const b of kv.bonus.split(",").filter(Boolean)) {
+      const m = /^([A-Z][A-Z0-9_]*)([+-]\d+)$/.exec(b.trim());
+      if (!m) err(`@item ${key}: bonus=SKILL+1,SKILL-1 ("${b}")`);
+      else item.bonus.push({ skill: m[1], delta: Number(m[2]) });
+    }
+    if (item.bonus.length > 0 && !item.slot) {
+      err(
+        `@item ${key}: a bonus works only while it's worn or held: give it a slot`,
+      );
+    }
+  }
+  if (kv.look !== undefined) {
+    if (!KEY.test(kv.look)) err(`@item ${key}: look= takes a look's key`);
+    else if (kind !== "clothes") err(`@item ${key}: only clothes have a look`);
+    else item.look = kv.look;
+  }
+  if (kv.icon !== undefined) {
+    if (!KEY.test(kv.icon)) err(`@item ${key}: icon= takes a drawing's key`);
+    else item.icon = kv.icon;
+  }
+  if (kv.start !== undefined) {
+    if (kv.start === "worn") {
+      if (!item.slot) err(`@item ${key}: start=worn needs a slot`);
+      else item.start = "worn";
+    } else if (/^[1-9]\d{0,3}$/.test(kv.start)) item.start = Number(kv.start);
+    else err(`@item ${key}: start=worn or start=N (how many)`);
+  }
+  for (const k of Object.keys(kv)) {
+    if (!["kind", "slot", "bonus", "look", "icon", "start"].includes(k)) {
+      err(`@item ${key}: "${k}=" isn't understood (${usage})`);
+    }
+  }
+  return item;
 }
 
 export interface ParseResult {
@@ -202,6 +297,8 @@ export function parseChapter(text: string): ParseResult {
     points: { total: 9, min: 1, max: 5 },
     languages: [],
     clock: 22 * 60,
+    items: {},
+    money: 0,
   };
   const castIds = new Set<string>();
   const skillIds = new Set<string>();
@@ -436,6 +533,24 @@ export function parseChapter(text: string): ParseResult {
           else chapter.clock = t;
           break;
         }
+        case "@item": {
+          const item = parseItem(line.slice("@item".length).trim(), n, (m) =>
+            err(n, m),
+          );
+          if (item) {
+            if (chapter.items[item.key]) {
+              err(n, `@item ${item.key} is written twice`);
+            }
+            chapter.items[item.key] = item;
+          }
+          break;
+        }
+        case "@money": {
+          const v = Number(pos[0]);
+          if (!Number.isInteger(v) || v < 0) err(n, "@money N (euros)");
+          else chapter.money = v;
+          break;
+        }
         case "@points": {
           const total = Number(pos[0]);
           const min = kv.min !== undefined ? Number(kv.min) : 1;
@@ -454,7 +569,7 @@ export function parseChapter(text: string): ParseResult {
         default:
           err(
             n,
-            `before the first scene, only @chapter, @summary, @start, @time, @cast, @carry, @attribute, @skill, @archetype, @points and @language: "${line}"`,
+            `before the first scene, only @chapter, @summary, @start, @time, @cast, @carry, @attribute, @skill, @archetype, @points, @language, @item and @money: "${line}"`,
           );
       }
       continue;
@@ -491,7 +606,23 @@ export function parseChapter(text: string): ParseResult {
         continue;
       }
       closeOption(f, n);
-      const mods = m[1].trim();
+      let mods = m[1].trim();
+      // r22 BPLAY: "needs=a|b" before any "if": items it needs (any one).
+      let needs: string[] | undefined;
+      {
+        const ifAt = mods.search(/(?:^|\s)if\s/);
+        const head = ifAt < 0 ? mods : mods.slice(0, ifAt);
+        const nm = /(?:^|\s)needs=(\S+)/.exec(head);
+        if (nm) {
+          needs = nm[1].split("|").filter(Boolean);
+          if (!needs.every((x) => /^[a-z][a-z0-9_]*$/.test(x))) {
+            err(n, `needs=item|other_item ("${nm[1]}")`);
+          }
+          mods = (head.replace(nm[0], " ") + (ifAt < 0 ? "" : mods.slice(ifAt)))
+            .trim()
+            .replace(/\s+/g, " ");
+        }
+      }
       const op = scene.ops[f.at] as Extract<Op, { op: "choose" }>;
       const label = m[2].trim();
       const opt: ChoiceOption = {
@@ -501,6 +632,7 @@ export function parseChapter(text: string): ParseResult {
         silent: false,
         at: scene.ops.length,
       };
+      if (needs && needs.length > 0) opt.needs = needs;
       const mm =
         /^((?:(?:once|silent)\s+)*)(?:(white|red)\s+([A-Za-z_][A-Za-z0-9_]*)\s+([a-z]+|\d+)\s+)?(?:if\s+(.+))?$/.exec(
           mods ? `${mods} ` : "",
@@ -508,7 +640,7 @@ export function parseChapter(text: string): ParseResult {
       if (!mm) {
         err(
           n,
-          `before the label: once, silent, then "white SKILL difficulty" or "red SKILL difficulty", then "if condition": "${mods}"`,
+          `before the label: once, silent, needs=item, then "white SKILL difficulty" or "red SKILL difficulty", then "if condition": "${mods}"`,
         );
       } else {
         opt.once = /\bonce\b/.test(mm[1]);
@@ -678,6 +810,52 @@ export function parseChapter(text: string): ParseResult {
         });
         continue;
       }
+      case "give":
+      case "take": {
+        // give key [N]   or   take key [N]
+        const m = /^([a-z][a-z0-9_]*)(?:\s+([1-9]\d{0,3}))?$/.exec(rest);
+        if (!m) {
+          err(n, `${first} item [how many]`);
+          continue;
+        }
+        const k = Number(m[2] ?? 1);
+        emit({
+          op: "item",
+          key: m[1],
+          delta: first === "give" ? k : -k,
+          src: n,
+        });
+        continue;
+      }
+      case "equip": {
+        if (!/^[a-z][a-z0-9_]*$/.test(rest)) {
+          err(n, "equip item");
+          continue;
+        }
+        emit({ op: "equip", key: rest, src: n });
+        continue;
+      }
+      case "unequip": {
+        if (!(GEAR_SLOTS as readonly string[]).includes(rest)) {
+          err(n, `unequip ${GEAR_SLOTS.join("|")}`);
+          continue;
+        }
+        emit({ op: "unequip", slot: rest as GearSlot, src: n });
+        continue;
+      }
+      case "pay":
+      case "earn": {
+        if (!/^[1-9]\d{0,6}$/.test(rest)) {
+          err(n, `${first} N (euros)`);
+          continue;
+        }
+        emit({
+          op: "money",
+          delta: first === "earn" ? Number(rest) : -Number(rest),
+          src: n,
+        });
+        continue;
+      }
       case "@card": {
         const ws = words(rest);
         if (!ws[0]) err(n, '@card "Title" ["Subtitle"]');
@@ -765,6 +943,10 @@ export function parseChapter(text: string): ParseResult {
             n,
             `"${first}" takes a lower_case flag${first === "add" ? " and a number" : ""}`,
           );
+          continue;
+        }
+        if (RESERVED.includes(m[1])) {
+          err(n, `"${m[1]}" is a word conditions read, not a flag`);
           continue;
         }
         if (first === "unset") {

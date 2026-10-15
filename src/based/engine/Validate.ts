@@ -8,12 +8,41 @@
 // what they name (people, hotspots, places) must exist; from anywhere the
 // player can get to, the chapter must still be able to end; and the places'
 // doors must lead somewhere real.
+// r22 BPLAY: what he carries. Every item named (give, take, equip, has.,
+// wears., needs=, @on use) is an @item; every equip is something worn or
+// held; every bonus names a skill; and an item a scene needs (an option's
+// needs=, a condition on has. or wears., a use) can be got before it: from
+// his starting kit, earlier in that scene, or in a scene the player can
+// reach without going through the one that needs it.
 // Run by the tests and by the server when it loads a chapter. Linear in the
 // size of the chapter, so a long story stays quick to check.
 
 import { exprReads } from "./Expr";
 import { PlaceDef, placeNames } from "./Place";
 import { Chapter, END, Expr, FREE, Op, Scene } from "./Types";
+
+/** The items a condition needs him to have (not those it hopes he hasn't). */
+function wantedItems(e: Expr | undefined, neg = false, out: string[] = []) {
+  if (!e) return out;
+  switch (e.k) {
+    case "has":
+    case "wears":
+      if (!neg) out.push(e.item);
+      break;
+    case "not":
+      wantedItems(e.e, !neg, out);
+      break;
+    case "and":
+    case "or":
+    case "cmp":
+      wantedItems(e.a, neg, out);
+      wantedItems(e.b, neg, out);
+      break;
+    default:
+      break;
+  }
+  return out;
+}
 
 export interface Problem {
   scene?: string;
@@ -94,9 +123,23 @@ export function validateChapter(
   const reads: { flag: string; scene: string; line: number }[] = [];
   const skills = new Set(chapter.skills.map((x) => x.id));
   const langs = new Set(chapter.languages.map((l) => l.code));
+  const items = chapter.items ?? {};
+  const item = (k: string, scene: string | undefined, line: number) => {
+    if (!items[k]) add("error", scene, line, `item "${k}" isn't an @item`);
+  };
+  /** r22 BPLAY: scenes that need an item (any of `items`), and where. */
+  const needs: { scene: string; at: number; items: string[]; line: number }[] =
+    [];
   const readExpr = (e: Expr | undefined, scene: string, line: number) => {
     if (!e) return;
-    const r = exprReads(e, { flags: [], rels: [], skills: [], langs: [] });
+    const r = exprReads(e, {
+      flags: [],
+      rels: [],
+      skills: [],
+      langs: [],
+      items: [],
+    });
+    for (const k of new Set(r.items)) item(k, scene || undefined, line);
     for (const f of r.flags) reads.push({ flag: f, scene, line });
     for (const w of r.rels) {
       if (!cast.has(w)) add("error", scene, line, `rel.${w}: not in the cast`);
@@ -148,6 +191,32 @@ export function validateChapter(
     }
   }
 
+  // r22 BPLAY: the items themselves.
+  const wornAtStart = new Map<string, string>();
+  for (const it of Object.values(items)) {
+    for (const b of it.bonus) {
+      if (!skills.has(b.skill)) {
+        add(
+          "error",
+          undefined,
+          it.src,
+          `@item ${it.key}: bonus ${b.skill} isn't a @skill`,
+        );
+      }
+    }
+    if (it.start === "worn" && it.slot) {
+      const other = wornAtStart.get(it.slot);
+      if (other) {
+        add(
+          "error",
+          undefined,
+          it.src,
+          `@item ${it.key}: ${other} is already worn at the start (${it.slot})`,
+        );
+      } else wornAtStart.set(it.slot, it.key);
+    }
+  }
+
   // r22: what starts each scene must exist.
   const places = opts.places;
   for (const id of chapter.order) {
@@ -157,6 +226,13 @@ export function validateChapter(
     readExpr(t.cond, id, scene.src);
     if (t.place !== undefined && places && !places[t.place]) {
       add("error", id, scene.src, `@on ... in=${t.place}: no such place`);
+    }
+    for (const k of wantedItems(t.cond)) {
+      needs.push({ scene: id, at: 0, items: [k], line: scene.src });
+    }
+    if (t.on === "use") {
+      item(t.target!, id, scene.src);
+      needs.push({ scene: id, at: 0, items: [t.target!], line: scene.src });
     }
     if (t.on === "talk" && !cast.has(t.target!)) {
       add("error", id, scene.src, `@on talk ${t.target}: not in the cast`);
@@ -180,6 +256,8 @@ export function validateChapter(
   const edges = new Map<string, Set<string>>();
   const endsIn = new Set<string>();
   const freeFrom = new Set<string>();
+  /** r22 BPLAY: where each item is given (or put on him), by scene and op. */
+  const givers = new Map<string, { scene: string; at: number }[]>();
 
   for (const id of chapter.order) {
     const scene = chapter.scenes[id];
@@ -187,8 +265,33 @@ export function validateChapter(
     edges.set(id, targets);
 
     // Every op, for flags set and things referenced.
-    scene.ops.forEach((op) => {
+    scene.ops.forEach((op, at) => {
       switch (op.op) {
+        case "item":
+          item(op.key, id, op.src);
+          if (op.delta > 0)
+            givers.set(op.key, [
+              ...(givers.get(op.key) ?? []),
+              { scene: id, at },
+            ]);
+          break;
+        case "equip": {
+          item(op.key, id, op.src);
+          const it = items[op.key];
+          if (it && !it.slot) {
+            add(
+              "error",
+              id,
+              op.src,
+              `equip ${op.key}: it isn't worn or held (give it a slot=)`,
+            );
+          }
+          givers.set(op.key, [
+            ...(givers.get(op.key) ?? []),
+            { scene: id, at },
+          ]);
+          break;
+        }
         case "set":
           flagsSet.add(op.flag);
           written.add(op.flag);
@@ -248,21 +351,30 @@ export function validateChapter(
           for (const o of op.options) {
             readExpr(o.cond, id, op.src);
             for (const m of o.check?.mods ?? []) readExpr(m.cond, id, op.src);
+            for (const k of o.needs ?? []) item(k, id, op.src);
+            if (o.needs) {
+              needs.push({ scene: id, at, items: o.needs, line: op.src });
+            }
+            for (const k of wantedItems(o.cond)) {
+              needs.push({ scene: id, at, items: [k], line: op.src });
+            }
           }
           const always = op.options.filter(
-            (o) => !o.cond && !o.once && !o.check,
+            (o) => !o.cond && !o.once && !o.check && !o.needs,
           );
           if (always.length === 0) {
             add(
               "error",
               id,
               op.src,
-              `choice "${op.prompt || op.id}" could run out of options: give it one with no "if", "once" or check`,
+              `choice "${op.prompt || op.id}" could run out of options: give it one with no "if", "once", "needs=" or check`,
             );
           }
           if (
             op.timer > 0 &&
-            !op.options.some((o) => o.silent && !o.cond && !o.once && !o.check)
+            !op.options.some(
+              (o) => o.silent && !o.cond && !o.once && !o.check && !o.needs,
+            )
           ) {
             add(
               "warning",
@@ -479,6 +591,9 @@ export function validateChapter(
     }
   }
 
+  // r22 BPLAY: an item a scene needs can be got before it.
+  checkNeeds(chapter, needs, givers, next, add);
+
   // r22: someone on stage in the open world with nothing to say.
   if (freeReached) {
     const talkers = new Set<string>();
@@ -528,6 +643,63 @@ export function validateChapter(
   }
 
   return out;
+}
+
+/**
+ * r22 BPLAY: for each scene that needs an item, one of the items can be got
+ * first: he starts with it, an earlier op in that scene gives it, or a
+ * scene that gives it can be reached from the start without passing
+ * through this one. One walk of the graph per scene that needs something.
+ */
+function checkNeeds(
+  chapter: Chapter,
+  needs: { scene: string; at: number; items: string[]; line: number }[],
+  givers: Map<string, { scene: string; at: number }[]>,
+  next: (id: string) => Iterable<string>,
+  add: Add,
+): void {
+  const kit = new Set(
+    Object.values(chapter.items ?? {})
+      .filter((it) => it.start !== undefined)
+      .map((it) => it.key),
+  );
+  const byScene = new Map<string, typeof needs>();
+  for (const n of needs) {
+    if (n.items.some((k) => kit.has(k))) continue;
+    const list = byScene.get(n.scene) ?? [];
+    list.push(n);
+    byScene.set(n.scene, list);
+  }
+  for (const [scene, list] of byScene) {
+    // Everything reachable from the start without going through `scene`.
+    const seen = new Set<string>();
+    const todo =
+      chapter.start && chapter.start !== scene ? [chapter.start] : [];
+    while (todo.length > 0) {
+      const id = todo.pop()!;
+      if (seen.has(id) || id === scene) continue;
+      if (id !== FREE && !chapter.scenes[id]) continue;
+      seen.add(id);
+      for (const t of next(id)) todo.push(t);
+    }
+    for (const n of list) {
+      const ok = n.items.some((k) =>
+        (givers.get(k) ?? []).some(
+          (g) => seen.has(g.scene) || (g.scene === scene && g.at < n.at),
+        ),
+      );
+      if (!ok) {
+        add(
+          "error",
+          scene,
+          n.line,
+          `"${scene}" needs ${n.items.map((k) => `"${k}"`).join(" or ")}, but nothing gives ${
+            n.items.length > 1 ? "any of them" : "it"
+          } before`,
+        );
+      }
+    }
+  }
 }
 
 /**

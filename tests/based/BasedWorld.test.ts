@@ -333,7 +333,12 @@ describe("free to go where he likes", () => {
       { id: "meet", text: "Meet the barman.", done: false },
     ]);
     // In the street: the thing, nobody to talk to (the barman's in the bar).
-    expect(r.available()).toEqual({ talk: [], look: ["thing"], think: [] });
+    expect(r.available()).toEqual({
+      talk: [],
+      look: ["thing"],
+      think: [],
+      use: [],
+    });
     r.look("thing");
     settle(r);
     expect(r.flag("saw_thing")).toBe(1);

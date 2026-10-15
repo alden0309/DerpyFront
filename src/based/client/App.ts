@@ -13,7 +13,7 @@ import { customElement, state } from "lit/decorators.js";
 import { DERPY_ACCOUNT_EVENT } from "../../derpland/Account";
 import "../../derpland/DerpBar";
 import { evalExpr } from "../engine/Expr";
-import { clockText, StoryRun } from "../engine/Runtime";
+import { clockText, Kit, StoryRun } from "../engine/Runtime";
 import { emptyProfile, noteSeen, Profile, SlotSave } from "../engine/Save";
 import { Boost } from "../engine/Skills";
 import { Build, Chapter } from "../engine/Types";
@@ -82,6 +82,7 @@ export class BasedApp extends LitElement {
     rels: Record<string, number>;
     build?: Build | null;
     boosts?: Boost[];
+    kit?: Kit;
   } | null = null;
   @state() private build: Build | null = null;
   @state() private assets: WorldAssets | null = null;
@@ -211,6 +212,7 @@ export class BasedApp extends LitElement {
       path: path.slice(-3000),
       build: run.build,
       boosts: run.boosts,
+      kit: run.kit,
     };
     noteSeen(this.profile, n, path);
     this.flush();
@@ -265,6 +267,7 @@ export class BasedApp extends LitElement {
             rels: prev.rels,
             build: prev.build ?? null,
             boosts: prev.boosts ?? [],
+            kit: prev.kit,
           }
         : null;
     const decided = this.carried?.build ?? null;

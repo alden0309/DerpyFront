@@ -5,11 +5,17 @@
 //   (umbrella or coat) and count > 1
 //   skill.focus >= 4                   (r21: his skill, with boosts)
 //   speaks.fr                          (r22: he speaks French)
+//   has.matchbook and money >= 5       (r22 BPLAY: what he carries)
+//   wears.reading_glasses or armed     (r22 BPLAY: worn, or a weapon held)
+//   time >= 23:00 and weather.clear    (r22 BPLAY: the hour, the weather)
 
 import { Expr } from "./Types";
 
 const TOKEN =
-  /\s*(>=|<=|==|!=|>|<|\(|\)|-?\d+(?:\.\d+)?|[A-Za-z_][A-Za-z0-9_.]*)/y;
+  /\s*(>=|<=|==|!=|>|<|\(|\)|\d{1,2}:\d{2}|-?\d+(?:\.\d+)?|[A-Za-z_][A-Za-z0-9_.]*)/y;
+
+/** Words a condition reads that aren't flags (r22 BPLAY). */
+export const RESERVED = ["money", "armed", "time"];
 
 function tokenize(src: string): string[] {
   const out: string[] = [];
@@ -81,6 +87,15 @@ export function parseExpr(src: string): Expr {
       if (take() !== ")") throw new Error("a ( is never closed");
       return e;
     }
+    const hm = /^(\d{1,2}):(\d{2})$/.exec(t);
+    if (hm) {
+      // A time of day, as minutes after midnight.
+      const v = Number(hm[1]) * 60 + Number(hm[2]);
+      if (Number(hm[1]) > 23 || Number(hm[2]) > 59) {
+        throw new Error(`"${t}" isn't a time of day`);
+      }
+      return { k: "num", v };
+    }
     if (/^-?\d/.test(t)) return { k: "num", v: Number(t) };
     if (t === "and" || t === "or" || t === "not" || t === ")") {
       throw new Error(`"${t}" is out of place`);
@@ -95,6 +110,26 @@ export function parseExpr(src: string): Expr {
       if (!/^[a-z][a-z_]*$/.test(code)) throw new Error(`bad language "${t}"`);
       return { k: "lang", code };
     }
+    // r22 BPLAY: what he carries, his money, the hour and the weather.
+    const item = /^(has|wears)\.(.*)$/.exec(t);
+    if (item) {
+      if (!/^[a-z][a-z0-9_]*$/.test(item[2])) {
+        throw new Error(`items are lower_case: "${t}"`);
+      }
+      return item[1] === "has"
+        ? { k: "has", item: item[2] }
+        : { k: "wears", item: item[2] };
+    }
+    if (t.startsWith("weather.")) {
+      const kind = t.slice(8);
+      if (!["rain", "drizzle", "clear", "fog"].includes(kind)) {
+        throw new Error(`"${t}": the weather is rain, drizzle, clear or fog`);
+      }
+      return { k: "weather", kind };
+    }
+    if (t === "money") return { k: "money" };
+    if (t === "armed") return { k: "armed" };
+    if (t === "time") return { k: "time" };
     if (t.startsWith("skill.")) {
       const id = t.slice(6).toUpperCase();
       if (!/^[A-Z][A-Z0-9_]*$/.test(id)) throw new Error(`bad skill "${t}"`);
@@ -119,6 +154,20 @@ export interface Values {
   skills?: Record<string, number>;
   /** r22: the languages he speaks. */
   langs?: readonly string[];
+  /** r22 BPLAY: what's in his pockets, and what he wears or holds. */
+  inv?: Readonly<Record<string, number>>;
+  worn?: Readonly<Record<string, string>>;
+  money?: number;
+  armed?: boolean;
+  /** Minutes into the day, and the weather where he is. */
+  time?: number;
+  weather?: string;
+}
+
+/** Whether he wears or holds an item. */
+function wearing(v: Values, item: string): boolean {
+  for (const k in v.worn) if (v.worn[k] === item) return true;
+  return false;
 }
 
 export function evalExpr(e: Expr, v: Values): number {
@@ -133,6 +182,18 @@ export function evalExpr(e: Expr, v: Values): number {
       return v.skills?.[e.id] ?? 0;
     case "lang":
       return v.langs?.includes(e.code) ? 1 : 0;
+    case "has":
+      return (v.inv?.[e.item] ?? 0) > 0 || wearing(v, e.item) ? 1 : 0;
+    case "wears":
+      return wearing(v, e.item) ? 1 : 0;
+    case "money":
+      return v.money ?? 0;
+    case "armed":
+      return v.armed ? 1 : 0;
+    case "time":
+      return v.time ?? 0;
+    case "weather":
+      return v.weather === e.kind ? 1 : 0;
     case "not":
       return evalExpr(e.e, v) ? 0 : 1;
     case "and":
@@ -163,7 +224,14 @@ export function evalExpr(e: Expr, v: Values): number {
 /** Every flag and relationship a condition reads. */
 export function exprReads(
   e: Expr,
-  out: { flags: string[]; rels: string[]; skills?: string[]; langs?: string[] },
+  out: {
+    flags: string[];
+    rels: string[];
+    skills?: string[];
+    langs?: string[];
+    /** r22 BPLAY: items read by has. and wears. */
+    items?: string[];
+  },
 ) {
   switch (e.k) {
     case "flag":
@@ -177,6 +245,10 @@ export function exprReads(
       break;
     case "lang":
       out.langs?.push(e.code);
+      break;
+    case "has":
+    case "wears":
+      out.items?.push(e.item);
       break;
     case "not":
       exprReads(e.e, out);

@@ -29,6 +29,7 @@ import {
   clockText,
   emptyStage,
   InvestigateBeat,
+  Kit,
   LineBeat,
   RollBeat,
   Stage,
@@ -134,6 +135,7 @@ export class BasedPlayer extends LitElement {
     rels: Record<string, number>;
     build?: Build | null;
     boosts?: Boost[];
+    kit?: Kit;
   } | null = null;
   @property({ attribute: false }) build: Build | null = null;
   @property({ attribute: false }) host!: PlayerHost;
@@ -162,7 +164,12 @@ export class BasedPlayer extends LitElement {
   @state() private rolled = false;
   @state() private tab = false;
   @state() private noWorld = false;
-  @state() private avail: Available = { talk: [], look: [], think: [] };
+  @state() private avail: Available = {
+    talk: [],
+    look: [],
+    think: [],
+    use: [],
+  };
   /**
    * What he's noticed, as the labels need it. The labels are drawn when the
    * set changes (`marksKey`); as the camera moves they're only moved.
@@ -733,7 +740,7 @@ export class BasedPlayer extends LitElement {
     const w = this.world;
     const here = this.stage.place ? this.places[this.stage.place] : undefined;
     const things = new Map<string, { door: boolean }>();
-    let avail: Available = { talk: [], look: [], think: [] };
+    let avail: Available = { talk: [], look: [], think: [], use: [] };
     if (b.kind === "free") {
       avail = this.run.available(Object.keys(here?.hotspots ?? {}));
       for (const id of avail.look) {
