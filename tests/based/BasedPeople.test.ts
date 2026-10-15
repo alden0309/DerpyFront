@@ -594,16 +594,27 @@ describe("the people (r22)", () => {
   test("people walk, run and get wet", () => {
     const p = new Person("BASED", rigs.m, LOOKS.overcoat_charcoal, gestures);
     p.place(new THREE.Vector3(0, 0, 0), 0, "stand");
-    expect(p.speed).toBe(WALK_SPEED);
+    expect(p.speed).toBe(0);
+    expect(p.pace).toBe(WALK_SPEED);
     p.setGait("run");
-    p.walk([new THREE.Vector3(0, 0, 5)]);
-    expect(p.speed).toBe(RUN_SPEED);
-    p.update(0.5, 0.5);
-    expect(p.root.position.z).toBeCloseTo(RUN_SPEED * 0.5, 3);
-    // Running lasts until he gets there.
-    for (let i = 0; i < 20; i++) p.update(0.2, 1 + i);
+    p.walk([new THREE.Vector3(0, 0, 12)]);
+    expect(p.pace).toBe(RUN_SPEED);
+    // BFIX (r23): he gets up to a run (not in one frame), and runs at it.
+    p.update(1 / 30, 0);
+    expect(p.speed).toBeGreaterThan(0);
+    expect(p.speed).toBeLessThan(RUN_SPEED / 2);
+    let top = 0;
+    for (let i = 0; i < 60; i++) {
+      p.update(1 / 30, i / 30);
+      top = Math.max(top, p.speed);
+    }
+    expect(top).toBeCloseTo(RUN_SPEED, 2);
+    // Running lasts until he gets there, and he stops where he meant to.
+    for (let i = 0; i < 200 && p.walking; i++) p.update(1 / 30, 3 + i / 30);
     expect(p.walking).toBe(false);
-    expect(p.speed).toBe(WALK_SPEED);
+    expect(p.root.position.z).toBeCloseTo(12, 2);
+    expect(p.speed).toBe(0);
+    expect(p.pace).toBe(WALK_SPEED);
     const mat = (p.root.getObjectByName("person") as THREE.Mesh)
       .material as THREE.MeshStandardMaterial;
     const dry = { r: mat.color.r, rough: mat.roughness };
@@ -797,7 +808,9 @@ describe("the models (r22)", () => {
     const key = f.replace(/\.glb$/, "");
     const buf = fs.readFileSync(path.join(MODELS, f));
     expect(buf.subarray(0, 4).toString()).toBe("glTF");
-    const builtIn = [...PEOPLE_MODELS, "props"].includes(key as never);
+    const builtIn = [...PEOPLE_MODELS, "props", "fusion_props"].includes(
+      key as never,
+    );
     // Ours: under 400 KB each. The owner's own: the hero under 1 MB.
     expect(buf.length).toBeLessThanOrEqual(
       builtIn ? MODEL_LIMIT.other : MODEL_LIMIT.hero,
@@ -808,6 +821,8 @@ describe("the models (r22)", () => {
     expect(c.length, `${key} needs a credit`).toBeGreaterThan(0);
     for (const i of c) {
       if (i.license === "Model supplied by the owner") continue;
+      // BFIX (r23): the props modelled for the game in Fusion.
+      if (i.license === "Original work") continue;
       expect(i.license).toMatch(/^(CC0|CC BY|Public domain|Own work)/);
       expect(i.source.length).toBeGreaterThan(0);
     }

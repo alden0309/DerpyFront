@@ -44,21 +44,34 @@ describe("the nav grid", () => {
   });
 
   test("never slips diagonally between two blocked corners", () => {
-    // Two blocks touching at a corner leave no gap to squeeze through.
+    // Two blocks touching at a corner leave no gap to squeeze through:
+    // BFIX (r23) he goes as near as he can, on his own side.
     const blocks: Rect[] = [
       [0, 0, 5, 5],
       [5, 5, 10, 10],
     ];
     const g = new NavGrid([0, 0, 10, 10], 0.5, blocks);
-    expect(g.path([7.5, 2.5], [2.5, 7.5])).toBeNull();
+    const p = g.path([7.5, 2.5], [2.5, 7.5])!;
+    const end = p[p.length - 1];
+    expect(end[0]).toBeGreaterThan(5);
+    expect(end[1]).toBeLessThan(5);
+    expect(allClear(g, p)).toBe(true);
   });
 
-  test("a place walled off can't be reached", () => {
+  test("a place walled off: he goes as near as he can get", () => {
     const g = new NavGrid([0, 0, 10, 10], 0.25, [
       [6, 6, 10, 6.3],
       [6, 6, 6.3, 10],
     ]);
-    expect(g.path([1, 1], [8, 8])).toBeNull();
+    const p = g.path([1, 1], [8, 8])!;
+    const end = p[p.length - 1];
+    // Outside the walls, at the corner nearest the point he wanted.
+    expect(end[0] < 6 || end[1] < 6).toBe(true);
+    expect(Math.hypot(end[0] - 8, end[1] - 8)).toBeLessThan(3.3);
+    expect(allClear(g, p)).toBe(true);
+    // Nowhere at all to go: null.
+    const shut = new NavGrid([0, 0, 2, 2], 0.25, [[0, 0, 2, 2]]);
+    expect(shut.path([1, 1], [1.5, 1.5])).toBeNull();
   });
 
   test("a click on furniture walks to the nearest free spot", () => {

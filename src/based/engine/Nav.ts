@@ -2,8 +2,15 @@
 // the furniture and walls are, A* across it (eight ways, never cutting a
 // blocked corner), then the path pulled straight wherever he can see along
 // it, so he walks in lines and not in stairs. Pure and deterministic.
+//
+// BFIX (r23): the furniture's blocks come from the pieces themselves
+// (Solid.ts): every cell closer to a solid piece than its margin is
+// blocked, so nobody walks through a stool, a table, the bar or a car; the
+// place's own blocks are its walls. A click on something solid walks him to
+// the nearest point he can reach.
 
-import { Rect } from "./Place";
+import { PlaceDef, Rect } from "./Place";
+import { polysDist, Pt, solids } from "./Solid";
 
 export type P = [number, number];
 
@@ -41,6 +48,100 @@ export class NavGrid {
         this.blocked[j * this.w + i] = 1;
       }
     }
+  }
+
+  /**
+   * BFIX (r23): blocks every cell that comes closer than `margin` to a
+   * convex outline on the floor.
+   */
+  blockPoly(poly: Pt[], margin: number): void {
+    let x0 = Infinity;
+    let z0 = Infinity;
+    let x1 = -Infinity;
+    let z1 = -Infinity;
+    for (const [x, z] of poly) {
+      x0 = Math.min(x0, x);
+      z0 = Math.min(z0, z);
+      x1 = Math.max(x1, x);
+      z1 = Math.max(z1, z);
+    }
+    const [i0, j0] = this.cellOf(x0 - margin, z0 - margin);
+    const [i1, j1] = this.cellOf(x1 + margin, z1 + margin);
+    const c = this.cell;
+    for (let j = Math.max(0, j0); j <= Math.min(this.h - 1, j1); j++) {
+      for (let i = Math.max(0, i0); i <= Math.min(this.w - 1, i1); i++) {
+        if (this.blocked[j * this.w + i]) continue;
+        const cx = this.bounds[0] + i * c;
+        const cz = this.bounds[1] + j * c;
+        const sq: Pt[] = [
+          [cx, cz],
+          [cx + c, cz],
+          [cx + c, cz + c],
+          [cx, cz + c],
+        ];
+        if (polysDist(sq, poly) < margin - 1e-9) {
+          this.blocked[j * this.w + i] = 1;
+        }
+      }
+    }
+  }
+
+  /**
+   * BFIX (r23): every cell he can get to from a point (a flood over the
+   * free cells, as A* moves), as a mask.
+   */
+  reach(x: number, z: number): Uint8Array {
+    const seen = new Uint8Array(this.w * this.h);
+    const start = this.walkable(x, z) ? [x, z] : this.nearestFree(x, z);
+    if (!start) return seen;
+    const [si, sj] = this.cellOf(start[0], start[1]);
+    const stack = [sj * this.w + si];
+    seen[stack[0]] = 1;
+    while (stack.length > 0) {
+      const cur = stack.pop()!;
+      const ci = cur % this.w;
+      const cj = (cur - ci) / this.w;
+      for (let dj = -1; dj <= 1; dj++) {
+        for (let di = -1; di <= 1; di++) {
+          if (di === 0 && dj === 0) continue;
+          const ni = ci + di;
+          const nj = cj + dj;
+          if (!this.free(ni, nj)) continue;
+          if (di !== 0 && dj !== 0) {
+            if (!this.free(ci + di, cj) || !this.free(ci, cj + dj)) continue;
+          }
+          const k = nj * this.w + ni;
+          if (seen[k]) continue;
+          seen[k] = 1;
+          stack.push(k);
+        }
+      }
+    }
+    return seen;
+  }
+
+  /**
+   * BFIX (r23): the point nearest `to` that he can reach from `from`: `to`
+   * itself if it's free and joined to him, else the centre of the nearest
+   * cell that is. Null if he can go nowhere.
+   */
+  nearestReachable(from: P, to: P): P | null {
+    const seen = this.reach(from[0], from[1]);
+    const [ti, tj] = this.cellOf(to[0], to[1]);
+    if (this.inside(ti, tj) && seen[tj * this.w + ti]) return to;
+    let best: P | null = null;
+    let bestD = Infinity;
+    for (let k = 0; k < seen.length; k++) {
+      if (!seen[k]) continue;
+      const i = k % this.w;
+      const c = this.center(i, (k - i) / this.w);
+      const d = (c[0] - to[0]) ** 2 + (c[1] - to[1]) ** 2;
+      if (d < bestD) {
+        bestD = d;
+        best = c;
+      }
+    }
+    return best;
   }
 
   center(i: number, j: number): P {
@@ -119,14 +220,28 @@ export class NavGrid {
   }
 
   /**
-   * A path from a to b (both moved to the nearest free spot if they're in
-   * something), as points to walk through, the first being `a`. Null if b
-   * can't be reached from a.
+   * A path from a to b, as points to walk through, the first being `a` (or,
+   * if he's in something, the nearest free spot). BFIX (r23): if b is in
+   * something, or can't be reached, the path ends at the nearest point he
+   * can reach. Null only if he can go nowhere.
    */
   path(a: P, b: P): P[] | null {
     const start = this.walkable(a[0], a[1]) ? a : this.nearestFree(a[0], a[1]);
-    const goal = this.walkable(b[0], b[1]) ? b : this.nearestFree(b[0], b[1]);
-    if (start === null || goal === null) return null;
+    if (start === null) return null;
+    const goal = this.walkable(b[0], b[1])
+      ? b
+      : this.nearestReachable(start, b);
+    if (goal === null) return null;
+    const p = this.route(start, goal);
+    if (p) return p;
+    // Free but walled off (a pocket): the nearest point he can reach.
+    const alt = this.nearestReachable(start, b);
+    return alt && (alt[0] !== goal[0] || alt[1] !== goal[1])
+      ? this.route(start, alt)
+      : null;
+  }
+
+  private route(start: P, goal: P): P[] | null {
     const [si, sj] = this.cellOf(start[0], start[1]);
     const [gi, gj] = this.cellOf(goal[0], goal[1]);
     if (si === gi && sj === gj) return [start, goal];
@@ -204,6 +319,16 @@ export class NavGrid {
     out.push(pts[pts.length - 1]);
     return out;
   }
+}
+
+/**
+ * BFIX (r23): a place's walking grid: its walls (the hand-written blocks),
+ * then every solid piece, each kept off by its margin.
+ */
+export function navFor(def: PlaceDef): NavGrid {
+  const g = new NavGrid(def.nav.bounds, def.nav.cell, def.nav.blocks);
+  for (const s of solids(def)) g.blockPoly(s.poly, s.margin);
+  return g;
 }
 
 /** Length of a path, in metres. */
