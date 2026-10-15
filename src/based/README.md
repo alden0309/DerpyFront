@@ -10,19 +10,19 @@ signs up), and is never read again.
 
 ## Where things are
 
-| Path                             | What                                                                               |
-| -------------------------------- | ---------------------------------------------------------------------------------- |
-| `story/chapter-NN.story`         | One file per chapter, in the format below. **Server only.**                        |
-| `places/<key>.json`              | The 3D places: the street, Le Vauban (bar and lobby), the Élysée. **Server only.** |
-| `models/*.glb`                   | The CC0 mannequins and furniture, compressed. **Server only.**                     |
-| `art/*.webp`, `art/credits.json` | The graded pictures (portraits, memories, the photograph) and who made everything. |
-| `audio/*.mp3`                    | Ambient loops.                                                                     |
-| `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart, saves, weather.  |
-| `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.        |
-| `client/world/`                  | The 3D world: the kit places are built from, the people, the weather, the look.    |
-| `client/world/PeopleHooks.ts`    | What the world asks of a person: getting wet, running (People.ts implements them). |
-| `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                   |
-| `scripts/based-notes.ts`         | Prints the notes Alden leaves for the writer.                                      |
+| Path                             | What                                                                                                |
+| -------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `story/chapter-NN.story`         | One file per chapter, in the format below. **Server only.**                                         |
+| `places/<key>.json`              | The 3D places: the street, Le Vauban (bar and lobby), the Élysée. **Server only.**                  |
+| `models/*.glb`                   | The people (the owner's own models and CC0 bodies), their clips and the furniture. **Server only.** |
+| `art/*.webp`, `art/credits.json` | The graded pictures (portraits, memories, the photograph) and who made everything.                  |
+| `audio/*.mp3`                    | Ambient loops.                                                                                      |
+| `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart, saves, weather.                   |
+| `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.                         |
+| `client/world/`                  | The 3D world: the kit places are built from, the people, the weather, the look.                     |
+| `client/world/PeopleHooks.ts`    | What the world asks of a person: getting wet, running (People.ts implements them).                  |
+| `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                                    |
+| `scripts/based-notes.ts`         | Prints the notes Alden leaves for the writer.                                                       |
 
 The story, the places, the models, the pictures and the sound are never
 bundled into the site's JavaScript. The server reads them from this folder and sends them only to an
@@ -434,9 +434,197 @@ look, not the size it is.
 Pictures go in `art/` as WebP (≤ 250 KB, graded to match: cool shadows, amber
 highlights), backdrops 1600×900, portraits 720×900, and every one is listed in
 `art/credits.json` with its author, licence and source. So is every model in
-`models/` (CC0: Quaternius' mannequins and animations, Kenney's furniture
-and cars), compressed with meshopt and under 300 KB each. Only CC0, public
+`models/` (CC0: Quaternius' base characters and animations, Kenney's
+furniture and cars), compressed with meshopt and under 400 KB each (a
+character's own model, up to 1 MB: see People and models). Only CC0, public
 domain, CC BY or CC BY-SA (credited), or the Unsplash or Pexels licence. Never
 a real public figure, and never a real person's face for a villain or a
 politician: those are shown from behind, in shadow or in silhouette. Every
 character and the government in the story are invented.
+
+## People and models (r22)
+
+Everyone in the 3D places is one of two bodies, a man and a woman
+(Quaternius' CC0 _Universal Base Characters_: a sculpted face, eyes, brows
+and modelled hair), dressed in code. Their clothes are cut from the body
+when a place loads: a jacket is the body's own surface, cut along its
+edges (the cuffs, the hem, the V of the lapels), smoothed and pushed out by
+the cloth's thickness, so it moves exactly with him; a coat's skirts, a
+skirt and an apron hang from the hips; lapels, collars, ties, buttons, hats
+and glasses are made on top. Whatever a layer covers is left out, so each
+person is **one mesh with one material** (about 8,000 to 10,000
+triangles). The code is in `client/world/People.ts` and
+`client/world/people/` (`Looks.ts`, `Tailor.ts`, `Retarget.ts`).
+
+### Looks
+
+A look is a short description in `client/world/people/Looks.ts`. Change a
+colour, a haircut or a hat there and the next load shows it; nothing has
+to be remodelled. The story names looks with `@cast ... look=` and changes
+clothes with `@actor ... wear=`.
+
+| Look                | Who                                                                                                                                   |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `field_jacket`      | Mr. Based: **the owner's model** (`mr_based`); its stand-in: black zip field jacket worn open, olive tee, black cargo trousers, boots |
+| `suit_charcoal`     | Mr. Based in r21: charcoal suit, white shirt, dark red tie (also drawn as his model)                                                  |
+| `overcoat_charcoal` | The same in the street: an overcoat (collar up) and a scarf (also drawn as his model)                                                 |
+| `suit_grey`         | Delorme, the man in grey: younger, slicked hair, a narrow tie                                                                         |
+| `barman`            | Anselme: **the owner's model** (`bartender`); its stand-in: sixties, white moustache, black waistcoat, long apron                     |
+| `wool_woman`        | Penhallow: grey wool jacket and skirt, glasses, hair pinned up                                                                        |
+| `coat_dark`         | The man under the awning: dark trench coat, fedora, a cigarette                                                                       |
+| `suit_dark`         | The President: dark suit                                                                                                              |
+| `uniform_navy`      | The Colonel: navy uniform, gold buttons and boards, peaked cap                                                                        |
+| `trench_tan`        | A man in a tan trench coat and trilby                                                                                                 |
+| `old_beret`         | An old man: beret, beard, cardigan                                                                                                    |
+| `worker_blue`       | A worker: blue jersey, flat cap                                                                                                       |
+| `waiter`            | A waiter: white jacket, black tie                                                                                                     |
+| `police`            | A policeman: navy, peaked cap                                                                                                         |
+| `coat_red`          | A woman in a red coat, a bob                                                                                                          |
+| `suit_black_f`      | A woman in a black suit, long hair                                                                                                    |
+| `sweater_grey`      | A clerk: grey sweater, glasses                                                                                                        |
+
+What a look can say:
+
+- `body`: `"m"` or `"f"`; `height` (1 is about 1.8 m for a man);
+  `build` from -1 (slight) to 1 (heavy).
+- `skin`, `hair` (colours), `hairStyle` (`parted`, `slick`, `receding`,
+  `buzzed`, `bald` for men; `long`, `bob`, `buns`, `cropped` for women),
+  `grey` (0 to 1: grey at the temples and through the hair), `facial`
+  (`stubble`, `moustache`, `beard`).
+- `face`: `jaw`, `nose`, `brow`, `cheeks`, `age`, each from -1 to 1 (a
+  broader jaw, a longer nose, a heavier brow, fuller cheeks, older skin).
+- Clothes: `shirt`, `tie`, `jacket` with `cut` (`single`, `double`,
+  `closed`, `zip`: a field jacket to the hip, worn open, with a stand
+  collar), `waistcoat`, `sweater`, `coat` with `coatCut` (`overcoat`,
+  `trench`) and `collarUp`, `scarf`, `trousers` or `skirt` with `legs`
+  (stockings), `shoes`, `apron`, `braid` (gold buttons and shoulder
+  boards), `hat` (`fedora`, `trilby`, `cap`, `flatcap`, `beret`, with a
+  colour and a band), `glasses` (`round` or `square`), `cigarette`.
+- `model`: a model in `models/` that replaces all of the above once it has
+  loaded (the rest is its stand-in until then, and if it can't be used).
+  Whoever is cast in a look with a model keeps that model in every `wear=`.
+
+A picture works as a reference for a look: send it, and the look's colours,
+haircut, face and clothes can be set to match. Never a real person's
+likeness.
+
+### Your own model for a character
+
+The best result from a picture is a 3D model made from it with an
+image-to-3D tool that rigs what it makes (Meshy, Tripo, or similar), or a
+model rigged on Mixamo. The game then plays its own animations on that
+model (walking, running, sitting, leaning, talking, drinking, nodding);
+any animations in the file are ignored.
+
+1. **Make the model.** Make a humanoid in a T-pose or an A-pose, about
+   10,000 to 30,000 triangles, one or two materials, facing the camera.
+   Rig it as a humanoid: in Meshy, use _Rigging_ (biped); in Tripo,
+   _Auto Rig_; or upload it to Mixamo. Export **GLB** (binary glTF) with
+   the skin (the skeleton and its weights). Animations, morphs and
+   cameras are not needed.
+2. **Make it small.** The game takes a hero's model up to **1 MB** and
+   anyone else's up to **400 KB**. From the repository folder, one
+   command shrinks a GLB (it quantises the mesh, compresses it with
+   meshopt and turns the textures into 1024 px WebP):
+
+   ```
+   npx @gltf-transform/cli@4 optimize mine.glb src/based/models/based.glb \
+     --compress meshopt --texture-compress webp --texture-size 1024
+   ```
+
+   Still too big? Add `--texture-size 512`, or
+   `--simplify true --simplify-ratio 0.5`.
+
+3. **Put it in `src/based/models/`.** Its name (without `.glb`) is its
+   key: lower case, digits and `_` only (`based.glb` is `based`).
+4. **Give it to a character** in the chapter's header:
+
+   ```
+   @cast BASED "Mr. Based" portrait=based_portrait look=suit_charcoal model=based
+   ```
+
+   The look stays as a stand-in while the model loads (and if it can't be
+   used); `wear=` changes nothing for someone with their own model. A look
+   can also name the model itself (`model:` in `Looks.ts`, as
+   `field_jacket` and `barman` do).
+
+5. **Credit it** in `art/credits.json` (the tests insist): who made it, the
+   licence (`Own work` for the owner's own), and where it came from.
+6. **Check it**: `npx vitest tests/based --run` tests its size, its
+   compression and its credit; then play the scene.
+
+The game finds the bones by name, so Quaternius, Mixamo (with or without
+`mixamorig:`), Meshy and Tripo, VRM, Rigify and 3ds Max Biped skeletons all
+work: hips, spine (two to four bones), neck, head, both shoulders, arms,
+forearms, hands, thighs, shins, feet and toes. It needs at least the hips,
+a spine, the head, both arms and forearms, both thighs and shins; without
+them the console says which bones are missing and the look is used instead.
+It is scaled to the height of the base bodies, stood on the floor and turned
+to face forward, whatever size and way round it came in.
+
+### The owner's models: Mr. Based and the barman
+
+Two characters wear models the owner supplied, made with an image-to-3D
+tool and not rigged: Mr. Based (`mr_based.glb`, worn with `field_jacket`,
+`suit_charcoal` or `overcoat_charcoal`) and Anselme the barman
+(`bartender.glb`, worn with `barman`). Each came as one mesh of 750,000 to
+813,000 triangles with three 2048 px textures (17 MB). For the game each
+was:
+
+- **reduced** to 40,000 triangles (meshoptimizer, keeping the UV seams and
+  the outline), its textures to 1024 px WebP (the base colour and normals;
+  the metal-roughness at 512 px);
+- **rigged** onto the game's skeleton (Quaternius' bone names, in the
+  model's own A-pose) with no outside tool: the joints are found by slicing
+  the mesh (the crotch, knees, ankles, armpits, elbows, wrists, neck), the
+  base body is posed to match, and its skin weights are carried over to the
+  nearest point of the model's surface, smoothed, with fixes where a jacket's
+  hem would follow the thighs, a collar the head or a shoulder the arm;
+- given a **wetness mask** (`_WETMASK`, read from its colours): rain soaks
+  the cloth and the hair and barely touches the face and hands;
+- **compressed** (meshopt): Mr. Based 553 KB, the barman 680 KB, each one
+  mesh with one material (one draw call).
+
+Their portraits in the dialogue column (`based_portrait`, `anselme`) are
+renders of these models through the game's own post (the noir grade and
+the painted Kuwahara filter); the photos they replaced are kept, credited,
+as `based_portrait_photo` and `anselme_photo`.
+
+The barman's apron hangs from **cloth bones** (below), and the trousers it
+covers were drawn in a little, out of sight, so the legs never show
+through it. The scripts that did this were one-offs and are not in the
+repository; for a new version of either model, rigging it in Meshy, Tripo
+or Mixamo and following the steps above is the simplest way.
+
+**Loose cloth.** A model's apron or long skirts can hang from bones named
+`cloth_front` and `cloth_back` (or a half for each leg: `cloth_front_l`,
+`cloth_front_r`, `cloth_back_l`, `cloth_back_r`): children of the hips, at
+the height of the hip joints, with no animation. Each frame the game swings
+a front one forward as far as the leg that is furthest forward (a half: its
+own leg, and half as far as the other), less a little slack while
+standing, and a back one back with the leg furthest back, so a knee never
+comes through. Weight the cloth to them below the hips, and its sides to
+the thighs.
+
+### Hooks for the world
+
+On each person, `setWetness(k)` (0 dry to 1 soaked: clothes and hair
+darker and glossier, cheaply, on the person's own material; on a model
+with a wetness mask, by the mask) and
+`setGait("walk" | "run")` (running lasts until they next arrive; walking
+is 1.15 m/s, running 2.6 m/s, with the jog clip).
+
+### Where the people come from
+
+| What                                                                            | Source                                             | Licence |
+| ------------------------------------------------------------------------------- | -------------------------------------------------- | ------- |
+| The bodies, faces, eyes, brows, haircuts and beard (`body_m.glb`, `body_f.glb`) | Quaternius, _Universal Base Characters_ (Standard) | CC0     |
+| The clips (`anims.glb`)                                                         | Quaternius, _Universal Animation Library_ 1 and 2  | CC0     |
+| Clothes, hats, glasses                                                          | Made in code (`people/Tailor.ts`)                  | ours    |
+| Mr. Based (`mr_based.glb`) and the barman (`bartender.glb`)                     | Supplied by the owner (reduced and rigged here)    | his     |
+
+`body_*.glb` were built by merging each body with its haircuts onto one
+skeleton, simplifying everything but the face (about 5,300 triangles a
+body), and packing every texture into one 1024 × 512 atlas (skin, hair,
+eyes, and plain swatches whose roughness makes wool, cotton, silk, leather,
+felt or metal), then meshopt. They are 146 KB and 164 KB; the clips 185 KB.
