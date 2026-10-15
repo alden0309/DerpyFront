@@ -2,6 +2,7 @@ import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
   BuildableUnit,
   Cell,
+  HumanStatsSnapshot,
   PlayerActions,
   PlayerBorderTiles,
   PlayerBuildableUnitType,
@@ -12,17 +13,25 @@ import {
   ErrorUpdate,
   GameUpdateViewData,
 } from "@openfront/engine-api/game/GameUpdates";
+import { MapFiles } from "@openfront/engine-api/game/MapFiles";
 import { ClientID, GameStartInfo, Turn } from "@openfront/engine-api/Schemas";
-import { WorkerMessage } from "@openfront/engine-api/worker/WorkerMessages";
-import { getCdnBase } from "@openfront/shared/AssetUrls";
+import {
+  InitMessage,
+  WorkerMessage,
+} from "@openfront/engine-api/worker/WorkerMessages";
+import {
+  loadMapFiles,
+  mapFilesTransfer,
+} from "@openfront/shared/GameMapLoader";
 import { generateID } from "@openfront/shared/SharedUtil";
+import { terrainMapFileLoader } from "./TerrainMapFileLoader";
 
 // Inlined as a same-origin Blob (Vite's `?worker&inline`), sidestepping the
 // cross-origin `new Worker(url)` restriction that would otherwise apply when
 // the worker bundle is served from the CDN. The dynamic import keeps the
 // ~700 KB base64 payload in its own chunk, fetched when a game starts,
 // instead of inside the main bundle.
-async function createGameWorker(): Promise<Worker> {
+export async function createGameWorker(): Promise<Worker> {
   const { default: GameWorker } =
     await import("@openfront/engine/worker/Worker.worker?worker&inline");
   return new GameWorker();
@@ -79,7 +88,21 @@ export class WorkerClient {
   }
 
   async initialize(): Promise<void> {
-    const worker = await createGameWorker();
+    // The engine fetches nothing: it gets the map in the init message.
+    const { gameMap, gameMapSize } = this.gameStartInfo.config;
+    const created = createGameWorker();
+    let map: MapFiles;
+    try {
+      map = await loadMapFiles(terrainMapFileLoader, gameMap, gameMapSize);
+    } catch (err) {
+      // Nothing will use the worker; don't leave it running.
+      created.then(
+        (w) => w.terminate(),
+        () => {},
+      );
+      throw err;
+    }
+    const worker = await created;
     this.worker = worker;
     worker.addEventListener("message", this.handleWorkerMessage.bind(this));
 
@@ -90,24 +113,26 @@ export class WorkerClient {
         if (message.type === "initialized") {
           this.isInitialized = true;
           resolve();
+        } else if (message.type === "init_error") {
+          // No game will own this client, so nothing would stop the worker.
+          this.cleanup();
+          reject(new Error(message.error));
         }
       });
 
-      worker.postMessage({
+      const init: InitMessage = {
         type: "init",
         id: messageId,
         gameStartInfo: this.gameStartInfo,
         clientID: this.clientID,
-        // The worker runs from a blob: URL, so it can't resolve the
-        // root-relative asset paths a page without a CDN uses; give it this
-        // page's origin instead (self-hosted servers have no CDN).
-        cdnBase: getCdnBase() || window.location.origin,
+        map,
         snapshot: this.snapshotToRestore,
-      });
+      };
+      worker.postMessage(init, mapFilesTransfer(map));
 
       setTimeout(() => {
         if (!this.isInitialized) {
-          this.messageHandlers.delete(messageId);
+          this.cleanup();
           reject(new Error("Worker initialization timeout"));
         }
       }, 60000);
@@ -183,6 +208,41 @@ export class WorkerClient {
         id: messageId,
         playerID: playerID,
         viewerID,
+      });
+    });
+  }
+
+  /** Every human's stats as they stand now (see HumanStats.ts). */
+  humanStats(): Promise<HumanStatsSnapshot> {
+    return new Promise((resolve, reject) => {
+      if (!this.isInitialized) {
+        reject(new Error("Worker not initialized"));
+        return;
+      }
+
+      const messageId = generateID();
+      // The worker has no error reply for this request: a failure there
+      // surfaces here as the timeout.
+      const cleanup = (timer: ReturnType<typeof setTimeout>) => {
+        clearTimeout(timer);
+        this.messageHandlers.delete(messageId);
+      };
+      const timeout = setTimeout(() => {
+        cleanup(timeout);
+        console.warn(`human_stats request timed out (request ${messageId})`);
+        reject(new Error("human_stats request timed out"));
+      }, 5000);
+
+      this.messageHandlers.set(messageId, (message) => {
+        if (message.type === "human_stats_result") {
+          cleanup(timeout);
+          resolve(message.result);
+        }
+      });
+
+      this.worker!.postMessage({
+        type: "human_stats",
+        id: messageId,
       });
     });
   }

@@ -129,6 +129,8 @@ describe("LocalServer archiving", () => {
     const record = archivedRecord(fetchMock.mock.calls[0]);
     expect(record.info.winner).toEqual(["player", CLIENT_ID]);
     expect(record.info.players[0].clientID).toBe(CLIENT_ID);
+    // No server vote backs a singleplayer record's stats.
+    expect(record.info.statsAgreed).toBeUndefined();
 
     // Exiting afterwards must not archive the same game twice.
     server.endGame();

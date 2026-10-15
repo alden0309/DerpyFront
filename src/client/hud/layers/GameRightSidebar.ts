@@ -8,8 +8,8 @@ import { ClientEnv } from "../../ClientEnv";
 import "../../components/DoomsdayClockPanel";
 import "../../components/OvertimePanel";
 import { Controller } from "../../Controller";
-import { crazyGamesSDK } from "../../CrazyGamesSDK";
 import { isDesktopShell } from "../../DesktopShell";
+import { gamePortal } from "../../GamePortal";
 import { showInGameAlert, showInGameConfirm } from "../../InGameModal";
 import { TogglePauseIntentEvent } from "../../InputHandler";
 import { PauseGameIntentEvent, SendWinnerEvent } from "../../Transport";
@@ -61,11 +61,11 @@ export class GameRightSidebar extends LitElement implements Controller {
   @state()
   private watchers: number = 0;
 
-  // CrazyGames provides its own fullscreen control in the game frame, and the
+  // Portals provide their own fullscreen control around the game frame, and the
   // desktop shell owns its window mode from the settings Display tab, so hide
   // ours on both.
   private readonly hideFullscreenButton =
-    crazyGamesSDK.isOnCrazyGames() || isDesktopShell();
+    gamePortal.isOnGamePortal() || isDesktopShell();
   private hasWinner = false;
   private isLobbyCreator = false;
   private isPrivateLobby = false;
@@ -241,9 +241,9 @@ export class GameRightSidebar extends LitElement implements Controller {
   private onPauseButtonClick() {
     this.isPaused = !this.isPaused;
     if (this.isPaused) {
-      crazyGamesSDK.gameplayStop();
+      gamePortal.gameplayStop();
     } else {
-      crazyGamesSDK.gameplayStart();
+      gamePortal.gameplayStart();
     }
     this.eventBus.emit(new PauseGameIntentEvent(this.isPaused));
   }
@@ -284,8 +284,8 @@ export class GameRightSidebar extends LitElement implements Controller {
       );
       if (!isConfirmed) return;
     }
-    await crazyGamesSDK.requestMidgameAd();
-    await crazyGamesSDK.gameplayStop();
+    await gamePortal.requestMidgameAd();
+    await gamePortal.gameplayStop();
     // redirect to the home page
     window.location.href = homeHref();
   }

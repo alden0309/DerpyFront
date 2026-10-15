@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { domeStyleIndex } from "@openfront/shared/DerpyFx";
 import type { PlayerCosmetics } from "@openfront/shared/WireSchemas";
 import { colord } from "colord";
