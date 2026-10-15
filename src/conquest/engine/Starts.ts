@@ -37,6 +37,8 @@ export interface StartDef {
   >;
   /** The game ends on 1 January of this year (END_YEAR when not given). */
   endYear?: number;
+  /** CQ24 (r24): the last year it runs through, as the words say it ("to 1800"); else the end year. */
+  lastYear?: number;
   /** The Derp Store item a game must have to begin here (the server checks it). */
   dlc?: string;
   // ---- end DLC (r21)
@@ -76,6 +78,17 @@ export function endYearOf(
   fallback: number,
 ): number {
   return (start !== undefined ? STARTS[start]?.endYear : undefined) ?? fallback;
+}
+
+/** CQ24 (r24): the year a game's words end on: "to 1800" for the campaign, else its end year. */
+export function lastYearOf(
+  start: StartYear | undefined,
+  fallback: number,
+): number {
+  return (
+    (start !== undefined ? STARTS[start]?.lastYear : undefined) ??
+    endYearOf(start, fallback)
+  );
 }
 
 export const STARTS: Partial<Record<StartYear, StartDef>> = {

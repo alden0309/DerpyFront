@@ -99,7 +99,7 @@ export const CAMPAIGN_CHAPTER: Chapter = {
   id: "campaign1776",
   part: "world",
   title: "1776: The Revolution",
-  line: "A campaign in the Derp Store: the War of Independence from the siege of Boston to the Treaty of Paris, and your part in it.",
+  line: "A campaign in the Derp Store: the War of Independence from the siege of Boston to the Treaty of Paris, the republic's first years to 1800, and your part in them.",
   where:
     "The lobby: Begin in 1776 (its owner hosts; anyone can join). In the game: Society › The war.",
   body: `## Who can play it
@@ -113,10 +113,22 @@ The game begins on 1 January 1776. Boston is under siege, the Americans lie befo
 
 The map keeps its own names for the colonies' first towns (New Amsterdam for New York, Fort Christina for Philadelphia, Massachusetts Bay for Boston): Society › The war lists them by their names of 1776.
 
-## The war follows history
-The war's great events come on their dates, as they happened: news for everyone, and what they did to the map (towns taken and given up, the armies and Congress moving, the alliance with France, France, Spain and the Dutch at war with Britain, the peace). The armies of the war are moved by the campaign, not the computer; the rising's own rules (crushed if the capital falls, won in eight years) don't apply. Real people appear only as the record has them: generals and officers named in the news. Nobody real is a character you meet, and nobody's words are invented.
+## History, unless you change it
+The war's great events come on their dates, as they happened: news for everyone, and what they did to the map (towns taken and given up, the armies and Congress moving, the alliance with France, France, Spain and the Dutch at war with Britain, the peace). The computer is steered to play it as it went: the war's main armies move as they did, the computer's members of Congress vote as their counterparts did, and the computer's own generals keep out of the war's battles. Real people appear only as the record has them: generals, officers and statesmen named in the news. Nobody real is a character you meet, and nobody's words are invented.
 
-At the **Treaty of Paris** (3 September 1783) Britain recognises the United States, the Floridas go to Spain and Tobago to France, and the west to the Mississippi to the Americans. The game ends on **1 January 1784**.
+**But players can change it.** When you do something big, the world follows what actually happened, and the news says so in a line beginning *History turns*:
+- **A battle where a player commands** (the Continental Army, a detachment of it, or the King's) is fought for real, by the game's own battles, and its result stands. Beat the King's main army before New York, and New York doesn't fall.
+- **A town a player's army holds** has to be fought for when the King's army comes for it; a town a player's army takes or frees is what it is.
+- **The armies of the war, beaten or destroyed** by players, are gone from history's plans: what needed them doesn't happen, and Britain's will to fight goes with them. A great American victory brings France in.
+- **Votes in Congress** are divided for real: the **Declaration of Independence** (debated from 7 June 1776), the **Constitution** (from 28 September 1787) and **Jay's Treaty** (from 8 June 1795). Players sitting in Congress are asked how they'll vote (a scene, with how the house leans); enough of them the other way, and it's lost: the Declaration and the Constitution are put again a few months or a year later.
+- **A player who governs the United States** decides where Congress sits; a town held for the King by a player's army when the peace comes stays British.
+
+Later history adapts. What needed something that didn't happen waits for it, or never comes (no French alliance without a declaration and a victory; no federal government without the Constitution; the British don't leave a city they never took). If there's no Yorktown, the war goes on, and each year tires Britain more until it makes peace; if players beat the King's armies, the peace comes sooner. If the Continental Army is lost, Congress raises another; if it's lost and Congress's own seat held half a year, the rising is put down. Society › The war lists where history turned.
+
+At the **Treaty of Paris** (3 September 1783) Britain recognises the United States, the Floridas go to Spain and Tobago to France, and the west to the Mississippi to the Americans.
+
+## After the war, to 1800
+The world runs on through the republic's first years: the Loyalists gone to Nova Scotia and New Brunswick, the Confederation's troubles and Shays' Rebellion, the Constitution and Washington's government, the Bill of Rights, the war in the Northwest (St. Clair's defeat, Fallen Timbers and the Treaty of Greenville, which gives the Ohio country's south and east to the United States), the Whiskey Rebellion, Jay's Treaty (the British hand over Détroit) and Pinckney's (Spain hands over Natchez), the Haitian Revolution and what it meant for the Caribbean and the slave trade, Spain in Florida and Louisiana, President Adams, the XYZ Affair, the Quasi-War with France (privateers sail from American ports again) and the Alien and Sedition Acts, Congress at New York, Philadelphia and at last the city of Washington, and the election of 1800. The war in the Northwest and the Quasi-War are history's too: the computer's armies don't fight them, but a player's can. The game ends at the **end of 1800**.
 
 ${chronology()}
 

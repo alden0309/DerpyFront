@@ -54,6 +54,7 @@ import {
   playerLed,
   provNamed,
   R76_GATES,
+  sideOf,
   treatyOfParis,
   usOf,
 } from "./Campaign1776";
@@ -1089,10 +1090,14 @@ function peaceOtherwise(g: ConquestGame): void {
     g,
     `The peace, otherwise than history had it. At Paris, Britain recognises the independence of the United States (${formatDate(s.day)}). The Floridas go to Spain, the west to the Mississippi to the Americans, and the war is over.`,
   );
+  const at = BEATS.findIndex((b) => b.key === "treaty");
   for (const life of s.lives) {
     const me = meOf(s, life);
-    if (me?.nation === usOf(s))
-      journal(g, life, "The war is over: Britain has made peace.", "good");
+    if (me?.nation !== usOf(s) || life.watching) continue;
+    journal(g, life, "The war is over: Britain has made peace.", "good");
+    // The King's friends choose, as at history's peace.
+    if (sideOf(s, life) === "loyal")
+      raiseEvent(g, life, "r76-peace", { b: at });
   }
 }
 

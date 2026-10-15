@@ -443,5 +443,6 @@ export const START_1776: StartDef = {
     },
   },
   endYear: 1801, // CQ24 (r24): to the end of 1800 (DLC r21: 1784)
+  lastYear: 1800,
   dlc: "campaign_1776",
 };
