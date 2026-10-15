@@ -16,6 +16,13 @@ import {
   keysMayBeShared,
 } from "../src/client/UserSettings";
 
+// Derpy Front: OpenFront's quick chat shortcuts are off on our site (see
+// derpy/UpstreamFeatures); upstream's tests here run with them on.
+vi.mock("../src/client/derpy/UpstreamFeatures", () => ({
+  PROGRESSION_ENABLED: true,
+  QUICK_CHAT_SHORTCUTS_ENABLED: true,
+}));
+
 // UserSettings keeps a static in-memory cache and the active player id; reset
 // both so each test reads fresh from the (cleared) localStorage as logged out.
 function resetUserSettingsState() {

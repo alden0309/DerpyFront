@@ -15,6 +15,7 @@ import {
 } from "./StatsConstants";
 // DesktopShell.ts imports nothing, so this cannot introduce an import cycle
 // (verified with madge: 58 cycles before and after, none involving it).
+import { QUICK_CHAT_SHORTCUTS_ENABLED } from "./derpy/UpstreamFeatures";
 import { isDesktopShell } from "./DesktopShell";
 
 export function getDefaultKeybinds(isMac: boolean): Record<string, string> {
@@ -44,7 +45,9 @@ export function getDefaultKeybinds(isMac: boolean): Record<string, string> {
     // Derpy Front: upstream's N is our Dome's key, so target is on J.
     targetPlayer: "KeyJ",
     emojiMenu: "KeyF",
-    quickChat: "KeyR",
+    // Derpy Front: only while OpenFront's quick chat shortcuts are on (see
+    // derpy/UpstreamFeatures); off, R stays free of it.
+    ...(QUICK_CHAT_SHORTCUTS_ENABLED ? { quickChat: "KeyR" } : {}),
     swapDirection: "KeyU",
     zoomOut: "KeyQ",
     zoomIn: "KeyE",

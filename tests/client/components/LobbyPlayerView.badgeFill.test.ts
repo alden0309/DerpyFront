@@ -13,6 +13,13 @@ import "../../../src/client/components/LobbyPlayerView";
 import type { LobbyTeamView } from "../../../src/client/components/LobbyPlayerView";
 import { UserSettings } from "../../../src/client/UserSettings";
 
+// Derpy Front: OpenFront's XP and levels are off on our site (see
+// derpy/UpstreamFeatures); upstream's tests here run with them on.
+vi.mock("../../../src/client/derpy/UpstreamFeatures", () => ({
+  PROGRESSION_ENABLED: true,
+  QUICK_CHAT_SHORTCUTS_ENABLED: true,
+}));
+
 // A full lobby's badges arrive in one render; past a handful they are drawn
 // over the following frames (LevelBadgeFill) instead of all in one.
 

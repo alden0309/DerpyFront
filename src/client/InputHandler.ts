@@ -6,6 +6,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { EventBus, GameEvent } from "@openfront/shared/EventBus";
 import { OpenChatEvent } from "./chat/ChatEvents";
+import { QUICK_CHAT_SHORTCUTS_ENABLED } from "./derpy/UpstreamFeatures";
 import { favoriteSlotForKey } from "./EmojiKeys";
 import { Platform } from "./Platform";
 import { UIState } from "./UIState";
@@ -469,17 +470,23 @@ export class InputHandler {
       this.eventBus.emit(new DoTargetPlayerEvent());
     });
     // Shares R with reset graphics, which needs its modifier held, so quick
-    // chat only takes the key on its own.
-    this.addKeybindAndEvent(
-      this.keybinds.quickChat,
-      () => {
-        this.eventBus.emit(
-          new ShowChatMenuEvent(this.lastMouseX, this.lastMouseY),
-        );
-      },
-      (e: KeyboardEvent) =>
-        !e.altKey && !e.ctrlKey && !e.metaKey && !this.resetGfxModifierHeld(e),
-    );
+    // chat only takes the key on its own. Derpy Front: off (only our typed
+    // chat on Enter), see derpy/UpstreamFeatures.
+    if (QUICK_CHAT_SHORTCUTS_ENABLED) {
+      this.addKeybindAndEvent(
+        this.keybinds.quickChat,
+        () => {
+          this.eventBus.emit(
+            new ShowChatMenuEvent(this.lastMouseX, this.lastMouseY),
+          );
+        },
+        (e: KeyboardEvent) =>
+          !e.altKey &&
+          !e.ctrlKey &&
+          !e.metaKey &&
+          !this.resetGfxModifierHeld(e),
+      );
+    }
     this.addKeybindAndEvent(
       this.keybinds.pauseGame,
       () => {

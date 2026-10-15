@@ -1,4 +1,5 @@
 import { html, nothing, type TemplateResult } from "lit";
+import { PROGRESSION_ENABLED } from "../derpy/UpstreamFeatures";
 import "./LevelBadge";
 
 /**
@@ -18,6 +19,8 @@ export interface LevelFields {
  * one dropped as malformed the row shows no badge rather than a guessed one.
  */
 function rowBadge(row: LevelFields): Required<LevelFields> | undefined {
+  // Derpy Front: no levels (see derpy/UpstreamFeatures).
+  if (!PROGRESSION_ENABLED) return undefined;
   const { level, prestige, legend } = row;
   if (level === undefined || prestige === undefined || legend === undefined) {
     return undefined;

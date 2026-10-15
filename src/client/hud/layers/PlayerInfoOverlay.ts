@@ -14,6 +14,7 @@ import { html, LitElement, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { Controller } from "../../Controller";
 import { aiChoiceLabel } from "../../derpy/AiPersonalityLabels";
+import { QUICK_CHAT_SHORTCUTS_ENABLED } from "../../derpy/UpstreamFeatures";
 import {
   ContextMenuEvent,
   DoBoatAttackEvent,
@@ -138,6 +139,14 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
   // and touch devices have no keyboard shortcut to show.
   private showShortcutButtons(): boolean {
     return window.innerWidth >= 1200 && !Platform.isTouch;
+  }
+
+  // Derpy Front: our panel is 600px. The action buttons on the right add
+  // 64px; OpenFront's chat and emoji buttons on the left (off here, see
+  // derpy/UpstreamFeatures) would add another 34px.
+  private panelWidthClass(): string {
+    if (!this.showShortcutButtons()) return "sm:w-[600px]";
+    return QUICK_CHAT_SHORTCUTS_ENABLED ? "sm:w-[698px]" : "sm:w-[664px]";
   }
 
   private get barOffset(): number {
@@ -623,7 +632,7 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
 
     return html`
       <div class="flex items-start gap-1 lg:gap-2 p-1 lg:p-1.5">
-        ${myPlayer && this.showShortcutButtons()
+        ${myPlayer && this.showShortcutButtons() && QUICK_CHAT_SHORTCUTS_ENABLED
           ? html`<div class="flex flex-col gap-1 self-center shrink-0">
               ${player !== myPlayer
                 ? this.renderShortcutButton(
@@ -915,9 +924,7 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
         @contextmenu=${(e: MouseEvent) => e.preventDefault()}
       >
         <div
-          class="bg-gray-800/92 backdrop-blur-sm shadow-xs min-[1200px]:rounded-lg sm:rounded-b-lg shadow-lg text-white text-lg lg:text-base w-full ${this.showShortcutButtons()
-            ? "sm:w-[698px]"
-            : "sm:w-[600px]"} overflow-hidden ${containerClasses}"
+          class="bg-gray-800/92 backdrop-blur-sm shadow-xs min-[1200px]:rounded-lg sm:rounded-b-lg shadow-lg text-white text-lg lg:text-base w-full ${this.panelWidthClass()} overflow-hidden ${containerClasses}"
           @mouseenter=${this.onPanelEnter}
           @mouseleave=${this.onPanelLeave}
         >

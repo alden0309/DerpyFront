@@ -9,6 +9,13 @@ import {
   vi,
 } from "vitest";
 
+// Derpy Front: OpenFront's XP and levels are off on our site (see
+// derpy/UpstreamFeatures); upstream's tests here run with them on.
+vi.mock("../../src/client/derpy/UpstreamFeatures", () => ({
+  PROGRESSION_ENABLED: true,
+  QUICK_CHAT_SHORTCUTS_ENABLED: true,
+}));
+
 const {
   getUserMe,
   fetchPublicPlayerProfile,

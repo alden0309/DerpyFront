@@ -15,7 +15,7 @@ import {
   peakTilesFromStats,
 } from "@openfront/shared/DerpCoins";
 import { EventBus } from "@openfront/shared/EventBus";
-import { html, LitElement, TemplateResult } from "lit";
+import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import {
   getTranslatedPlayerTeamLabel,
@@ -28,6 +28,7 @@ import type { LegendCeremony } from "../../components/LegendCeremony";
 import "../../components/ProfileShare";
 import { Controller } from "../../Controller";
 import { isDerpySignedIn } from "../../derpy/DerpySession";
+import { PROGRESSION_ENABLED } from "../../derpy/UpstreamFeatures";
 import { playVictoryFanfare } from "../../derpy/VictoryFanfare";
 import { gamePortal } from "../../GamePortal";
 import {
@@ -163,14 +164,16 @@ export class WinModal extends LitElement implements Controller {
           ${this._title || ""}
         </h2>
         <div class="min-h-0 flex-1 overflow-y-auto pr-0.5">
-          <game-xp-panel
-            .view=${this.xpView}
-            .onScreen=${this.isVisible}
-            @xp-reveal-settled=${(e: CustomEvent<GameXpPanelState>) =>
-              (this.xpSettled = e.detail)}
-            .gameType=${this.game?.config().gameConfig().gameType ?? null}
-            @xp-legend=${this.onXpLegend}
-          ></game-xp-panel>
+          ${PROGRESSION_ENABLED
+            ? html`<game-xp-panel
+                .view=${this.xpView}
+                .onScreen=${this.isVisible}
+                @xp-reveal-settled=${(e: CustomEvent<GameXpPanelState>) =>
+                  (this.xpSettled = e.detail)}
+                .gameType=${this.game?.config().gameConfig().gameType ?? null}
+                @xp-legend=${this.onXpLegend}
+              ></game-xp-panel>`
+            : nothing}
           ${this.innerHtml()}
         </div>
         <!-- Leaving is the quieter action, on the left; staying in the game
@@ -203,9 +206,11 @@ export class WinModal extends LitElement implements Controller {
         </div>
         ${this.renderActionStyles()}
       </div>
-      <legend-ceremony
-        @legend-ceremony-closed=${this.onLegendCeremonyClosed}
-      ></legend-ceremony>
+      ${PROGRESSION_ENABLED
+        ? html`<legend-ceremony
+            @legend-ceremony-closed=${this.onLegendCeremonyClosed}
+          ></legend-ceremony>`
+        : nothing}
     `;
   }
 
@@ -581,6 +586,9 @@ export class WinModal extends LitElement implements Controller {
    * ends.
    */
   private async updateXp(gameOver: boolean): Promise<void> {
+    // Derpy Front: no XP (see derpy/UpstreamFeatures), so nothing here asks
+    // OpenFront's API, at death or at the end of the game.
+    if (!PROGRESSION_ENABLED) return;
     if (this.xpPolling) return;
     // Normally here since the game started; tried again should that fetch
     // have failed.
@@ -750,7 +758,9 @@ export class WinModal extends LitElement implements Controller {
   }
 
   init() {
-    if (!this.game.config().isReplay()) loadGameXpPanel();
+    if (PROGRESSION_ENABLED && !this.game.config().isReplay()) {
+      loadGameXpPanel();
+    }
   }
 
   tick() {

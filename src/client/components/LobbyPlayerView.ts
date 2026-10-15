@@ -21,6 +21,7 @@ import { ClientInfo } from "@openfront/shared/WireSchemas";
 import { LitElement, html } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { repeat } from "lit/directives/repeat.js";
+import { PROGRESSION_ENABLED } from "../derpy/UpstreamFeatures";
 import {
   ownHiddenLevelBadge,
   refreshOwnHiddenLevelBadge,
@@ -119,6 +120,7 @@ export class LobbyTeamView extends LitElement {
     // the account settings shows by the next lobby_info. From the memoised
     // /users/@me, so normally no request at all.
     if (
+      PROGRESSION_ENABLED &&
       (changedProperties.has("currentClientID") ||
         changedProperties.has("clients")) &&
       this.currentClientID
@@ -653,6 +655,8 @@ export class LobbyTeamView extends LitElement {
   // The viewer's own entry has no badge while they hide their level, so it
   // falls back to the one from their own /users/@me.
   private visibleLevelBadge(client: ClientInfo): LevelBadge | undefined {
+    // Derpy Front: no levels (see derpy/UpstreamFeatures).
+    if (!PROGRESSION_ENABLED) return undefined;
     if (this.isCurrentPlayer(client)) {
       return unpackLevelBadge(client.levelBadge) ?? this._ownHiddenBadge;
     }

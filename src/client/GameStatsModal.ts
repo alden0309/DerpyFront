@@ -7,6 +7,7 @@ import { BaseModal } from "./components/BaseModal";
 import "./components/CopyButton";
 import type { PastGameXpView } from "./components/PastGameXpCard";
 import { modalHeader } from "./components/ui/ModalHeader";
+import { PROGRESSION_ENABLED } from "./derpy/UpstreamFeatures";
 import { resolveXpAccount } from "./ProgressionAccount";
 import { fetchMyGameXp, pollGameXp } from "./ProgressionApi";
 import { translateText } from "./Utils";
@@ -95,7 +96,8 @@ export class GameStatsModal extends BaseModal {
         : null;
     this.gameType = null;
     this.resetXp();
-    if (this.gameId !== null) {
+    // Derpy Front: no XP card (see derpy/UpstreamFeatures).
+    if (this.gameId !== null && PROGRESSION_ENABLED) {
       this.xpAbort = new AbortController();
       void this.loadXp(this.gameId, this.xpAbort.signal);
     }

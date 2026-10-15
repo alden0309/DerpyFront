@@ -10,6 +10,7 @@ import {
   type SetVisibilityResult,
 } from "../Api";
 import { clearLocalSession, linkGoogle, sendMagicLink } from "../Auth";
+import { PROGRESSION_ENABLED } from "../derpy/UpstreamFeatures";
 import { isDesktopShell } from "../DesktopShell";
 import { gamePortal } from "../GamePortal";
 import { showInGameAlert } from "../InGameModal";
@@ -164,7 +165,10 @@ export class AccountSettingsPanel extends LitElement {
   // the card only when it carries either — an older API without them gets no
   // card.
   private renderPrivacyCard(): TemplateResult | typeof nothing {
-    const levelHidden = this.player?.levelHidden;
+    // Derpy Front: no levels, so no level row (see derpy/UpstreamFeatures).
+    const levelHidden = PROGRESSION_ENABLED
+      ? this.player?.levelHidden
+      : undefined;
     const searchHidden = this.player?.searchHidden;
     if (levelHidden === undefined && searchHidden === undefined) {
       return nothing;

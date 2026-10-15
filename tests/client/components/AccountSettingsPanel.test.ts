@@ -3,6 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AccountSettingsPanel } from "../../../src/client/components/AccountSettingsPanel";
 import { ownHiddenLevelBadge } from "../../../src/client/OwnLevelBadge";
 
+// Derpy Front: OpenFront's XP and levels are off on our site (see
+// derpy/UpstreamFeatures); upstream's tests here run with them on.
+vi.mock("../../../src/client/derpy/UpstreamFeatures", () => ({
+  PROGRESSION_ENABLED: true,
+  QUICK_CHAT_SHORTCUTS_ENABLED: true,
+}));
+
 type UserMePlayer = UserMeResponse["player"];
 type UserMeUser = UserMeResponse["user"];
 

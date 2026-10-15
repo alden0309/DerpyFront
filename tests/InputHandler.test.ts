@@ -30,6 +30,13 @@ import { UIState } from "../src/client/UIState";
 import { KEYBINDS_KEY, UserSettings } from "../src/client/UserSettings";
 import { GameView, PlayerView, UnitView } from "../src/client/view";
 
+// Derpy Front: OpenFront's quick chat shortcuts are off on our site (see
+// derpy/UpstreamFeatures); upstream's tests here run with them on.
+vi.mock("../src/client/derpy/UpstreamFeatures", () => ({
+  PROGRESSION_ENABLED: true,
+  QUICK_CHAT_SHORTCUTS_ENABLED: true,
+}));
+
 class MockPointerEvent {
   button: number;
   clientX: number;

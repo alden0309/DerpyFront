@@ -22,6 +22,7 @@ import "./components/ProfileShare";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { usernameText } from "./components/ui/UsernameText";
 import { verifiedBadge } from "./components/ui/VerifiedBadge";
+import { PROGRESSION_ENABLED } from "./derpy/UpstreamFeatures";
 import "./GameStatsModal";
 import "./LeaderboardModal";
 import { modalRouter } from "./ModalRouter";
@@ -263,11 +264,13 @@ export class PlayerProfileModal extends BaseModal {
             .progress=${this.progress}
             .openKey=${`profile-${this.openCount}`}
           ></profile-card>`}
-      <profile-share
-        class="mb-[18px] block"
-        .url=${playerProfileUrl(publicId)}
-        .name=${this.username ?? publicId}
-      ></profile-share>
+      ${PROGRESSION_ENABLED
+        ? html`<profile-share
+            class="mb-[18px] block"
+            .url=${playerProfileUrl(publicId)}
+            .name=${this.username ?? publicId}
+          ></profile-share>`
+        : nothing}
       <player-stats-tree-view
         .statsTree=${this.statsTree}
       ></player-stats-tree-view>
@@ -460,8 +463,12 @@ export class PlayerProfileModal extends BaseModal {
     // The level is a nice-to-have: it lands whenever it arrives and never
     // holds up the profile (its request can take up to its own timeout).
     // Only shown alongside a loaded profile (see renderProfile). Missing
-    // progress hides the summary.
-    void loadPlayerProgress(publicId).then((progress) => {
+    // progress hides the summary. Derpy Front: no levels (see
+    // derpy/UpstreamFeatures), so it is never asked for.
+    const progressLoad = PROGRESSION_ENABLED
+      ? loadPlayerProgress(publicId)
+      : Promise.resolve(null);
+    void progressLoad.then((progress) => {
       if (!current()) return;
       this.progress = progress;
       const wanted = this.wantsProgressionTab;

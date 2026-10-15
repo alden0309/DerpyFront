@@ -53,6 +53,13 @@ import { rememberLobbyRoster } from "../../../../src/client/LobbyRosterLevels";
 import { UserSettings } from "../../../../src/client/UserSettings";
 import { PlayerView } from "../../../../src/client/view";
 
+// Derpy Front: OpenFront's XP and levels are off on our site (see
+// derpy/UpstreamFeatures); upstream's tests here run with them on.
+vi.mock("../../../../src/client/derpy/UpstreamFeatures", () => ({
+  PROGRESSION_ENABLED: true,
+  QUICK_CHAT_SHORTCUTS_ENABLED: true,
+}));
+
 // With lit mocked, html`` yields { strings, values }: flatten one back into
 // markup so the identity row can be checked as text.
 function flatten(value: unknown): string {

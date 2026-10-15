@@ -15,6 +15,7 @@ import type { GraphicsAdvancedSettings } from "./components/GraphicsAdvancedSett
 import "./components/GraphicsPresetSelector";
 import "./components/GraphicsPresetTools";
 import { modalHeader } from "./components/ui/ModalHeader";
+import { QUICK_CHAT_SHORTCUTS_ENABLED } from "./derpy/UpstreamFeatures";
 import {
   desktopDisplay,
   DISPLAY_SETTLE_TIMEOUT_MS,
@@ -1597,15 +1598,17 @@ export class UserSettingModal extends BaseModal {
         @change=${this.handleKeybindChange}
       ></setting-keybind>
 
-      <setting-keybind
-        action="quickChat"
-        label=${translateText("user_setting.quick_chat")}
-        description=${translateText("user_setting.quick_chat_desc")}
-        defaultKey=${this.defaultKeybinds.quickChat}
-        .value=${this.getKeyValue("quickChat")}
-        .display=${this.getKeyChar("quickChat")}
-        @change=${this.handleKeybindChange}
-      ></setting-keybind>
+      ${QUICK_CHAT_SHORTCUTS_ENABLED
+        ? html`<setting-keybind
+            action="quickChat"
+            label=${translateText("user_setting.quick_chat")}
+            description=${translateText("user_setting.quick_chat_desc")}
+            defaultKey=${this.defaultKeybinds.quickChat}
+            .value=${this.getKeyValue("quickChat")}
+            .display=${this.getKeyChar("quickChat")}
+            @change=${this.handleKeybindChange}
+          ></setting-keybind>`
+        : nothing}
 
       <h2
         class="text-blue-200 text-xl font-bold mt-8 mb-3 border-b border-white/10 pb-2"

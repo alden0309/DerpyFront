@@ -33,6 +33,17 @@ vi.mock("@openfront/engine-lib/Format", () => ({
   renderTroops: vi.fn(() => "0"),
 }));
 
+// Derpy Front: OpenFront's chat and emoji buttons on the panel are off on
+// our site (see derpy/UpstreamFeatures). Upstream's tests here run with them
+// on; ours switch them off.
+const upstreamFeatures = vi.hoisted(() => ({ quickChatShortcuts: true }));
+vi.mock("../../../../src/client/derpy/UpstreamFeatures", () => ({
+  PROGRESSION_ENABLED: false,
+  get QUICK_CHAT_SHORTCUTS_ENABLED() {
+    return upstreamFeatures.quickChatShortcuts;
+  },
+}));
+
 vi.mock("../../../../src/client/hud/PlayerIcons", () => ({
   EMOJI_ICON_KIND: "emoji",
   IMAGE_ICON_KIND: "image",
@@ -230,6 +241,27 @@ describe("PlayerInfoOverlay", () => {
       expect(out).not.toContain("player_panel.chat");
       expect(out).not.toContain("player_panel.emotes");
       expect(out).toContain("sm:w-[600px]");
+    });
+
+    describe("Derpy Front: OpenFront's quick chat off", () => {
+      beforeEach(() => {
+        upstreamFeatures.quickChatShortcuts = false;
+      });
+      afterEach(() => {
+        upstreamFeatures.quickChatShortcuts = true;
+      });
+
+      it("leaves them out, widening the panel for the action buttons only", () => {
+        const out = showWith(1200, false);
+        expect(out).not.toContain("player_panel.chat");
+        expect(out).not.toContain("player_panel.emotes");
+        expect(out).toContain("sm:w-[664px]");
+      });
+
+      it("keeps the panel at 600 where no buttons show", () => {
+        expect(showWith(1199, false)).toContain("sm:w-[600px]");
+        expect(showWith(1400, true)).toContain("sm:w-[600px]");
+      });
     });
   });
 

@@ -31,6 +31,7 @@ import {
   aiChoiceHint,
   aiChoiceName,
 } from "../../derpy/AiPersonalityLabels";
+import { PROGRESSION_ENABLED } from "../../derpy/UpstreamFeatures";
 import {
   CloseViewEvent,
   MouseUpEvent,
@@ -175,9 +176,12 @@ export class PlayerPanel extends LitElement implements Controller {
     }
 
     // Memoised: normally answered from the profile loaded at sign-in.
-    void getUserMe().then((me) => {
-      this.ownLevelBadge = ownLevelBadgeFrom(me);
-    });
+    // Derpy Front: no levels (see derpy/UpstreamFeatures).
+    if (PROGRESSION_ENABLED) {
+      void getUserMe().then((me) => {
+        this.ownLevelBadge = ownLevelBadgeFrom(me);
+      });
+    }
   }
 
   async tick() {
@@ -661,6 +665,7 @@ export class PlayerPanel extends LitElement implements Controller {
   // anonymized then (PlayerView.displayName), and the badge belongs to the
   // real one.
   private levelBadgeFor(other: PlayerView): LevelBadge | undefined {
+    if (!PROGRESSION_ENABLED) return undefined;
     if (other.type() !== PlayerType.Human) return undefined;
     const clientID = other.clientID();
     const isSelf = clientID !== null && clientID === this.g.myClientID();
