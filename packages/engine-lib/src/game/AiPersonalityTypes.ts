@@ -172,6 +172,13 @@ export interface AiTuning {
   allyAskOdds: number;
   betrayal: Betrayal;
   nukes: NukeStyle;
+  /**
+   * Percent of the usual rise in the gold it waits for before its next bomb,
+   * after each one it launches (nations save up for a MIRV: half as much
+   * again after an atom bomb, a quarter after a hydrogen bomb). 40: it keeps
+   * throwing bombs instead of saving.
+   */
+  nukeCostRisePct: number;
   /** Answers an attack at once on every difficulty, not only Hard and up. */
   answersAtOnce: boolean;
   /** Prefers an island of its own, and unclaimed land across the sea. */
@@ -205,6 +212,7 @@ export const NORMAL_TUNING: AiTuning = {
   allyAskOdds: 30,
   betrayal: "usual",
   nukes: "usual",
+  nukeCostRisePct: 100,
   answersAtOnce: false,
   islander: false,
   avenger: false,
@@ -215,15 +223,18 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
   // enemies.
   mad_scientist: {
     ...NORMAL_TUNING,
+    // SAMs are the dearest of these (up to $3M each), so they get the most
+    // room and come first; measured, it ends up with about twice Normal's
+    // SAMs and silos per city on Medium
     structuresPct: {
       [UnitType.Factory]: 200,
-      [UnitType.SAMLauncher]: 250,
+      [UnitType.SAMLauncher]: 300,
       [UnitType.MissileSilo]: 250,
     },
-    // Its silos and SAMs before its trade
+    // Its SAMs and silos before its trade
     buildOrder: [
-      UnitType.MissileSilo,
       UnitType.SAMLauncher,
+      UnitType.MissileSilo,
       UnitType.Factory,
       UnitType.Port,
     ],
@@ -236,6 +247,7 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     preemptiveDomes: 5,
     domeBarPct: 50,
     nukes: "focused",
+    nukeCostRisePct: 40,
   },
   // Factories and ports; slow to start a fight but answers one, keeps a big
   // army home, rarely turns on an ally, and keeps to an island if it can.
@@ -286,8 +298,11 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
       UnitType.Factory,
     ],
     maxSilos: 6,
+    // Saves least against cities (measured: about a fifth more cities than
+    // Normal, still two to three times its SAMs per city on Medium; at 0 it
+    // would buy cities with everything and hardly any SAMs)
     costRisePct: {
-      [UnitType.City]: 50,
+      [UnitType.City]: 35,
       [UnitType.SAMLauncher]: 50,
       [UnitType.MissileSilo]: 50,
     },

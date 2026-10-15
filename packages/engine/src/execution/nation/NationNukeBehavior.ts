@@ -1028,15 +1028,23 @@ export class NationNukeBehavior {
   ) {
     const tick = this.game.ticks();
     this.recentlySentNukes.push([tick, tile, nukeType]);
+    // AIP (r23): a Mad Scientist saves less for a MIRV between bombs, so it
+    // keeps nuking (rules 6+)
+    const risePct = playerAiTuning(this.game, this.player).nukeCostRisePct;
     if (nukeType === UnitType.AtomBomb) {
       this.atomBombsLaunched++;
       // Increase perceived cost by 50% each time to simulate saving up for a MIRV (higher than hydro to make atom bombs less attractive for the lategame)
-      this.atomBombPerceivedCost = (this.atomBombPerceivedCost * 150n) / 100n;
+      this.atomBombPerceivedCost =
+        risePct === 100
+          ? (this.atomBombPerceivedCost * 150n) / 100n
+          : (this.atomBombPerceivedCost * BigInt(200 + risePct)) / 200n;
     } else if (nukeType === UnitType.HydrogenBomb) {
       this.hydrogenBombsLaunched++;
       // Increase perceived cost by 25% each time to simulate saving up for a MIRV
       this.hydrogenBombPerceivedCost =
-        (this.hydrogenBombPerceivedCost * 125n) / 100n;
+        risePct === 100
+          ? (this.hydrogenBombPerceivedCost * 125n) / 100n
+          : (this.hydrogenBombPerceivedCost * BigInt(400 + risePct)) / 400n;
     }
     this.game.addExecution(
       new NukeExecution(nukeType, this.player, tile, null, -1, waitTicks),

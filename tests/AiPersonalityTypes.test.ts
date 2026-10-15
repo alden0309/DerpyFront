@@ -358,6 +358,12 @@ describe("how each one tunes a nation", () => {
     expect(AI_TUNING.aggressive.betrayal).toBe("more");
     expect(AI_TUNING.mad_scientist.betrayal).toBe("usual");
     expect(AI_TUNING.mad_scientist.nukes).toBe("focused");
+    // ...and saves less for a MIRV between bombs, so it throws more of them
+    expect(NORMAL_TUNING.nukeCostRisePct).toBe(100);
+    expect(AI_TUNING.mad_scientist.nukeCostRisePct).toBeLessThan(100);
+    for (const t of ["trader", "aggressive", "protector"] as const) {
+      expect(AI_TUNING[t].nukeCostRisePct).toBe(100);
+    }
     expect(AI_TUNING.trader.nukes).toBe("answer");
     expect(AI_TUNING.protector.nukes).toBe("grudge");
     expect(AI_TUNING.trader.islander).toBe(true);

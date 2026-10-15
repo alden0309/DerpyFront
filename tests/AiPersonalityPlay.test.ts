@@ -16,10 +16,12 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { GameConfig } from "@openfront/engine-api/Schemas";
 import { GRUDGE_TICKS } from "@openfront/engine-lib/game/AiPersonalityTypes";
+import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import { readVersioned } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { simpleHash } from "@openfront/engine-lib/Util";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { NationNukeBehavior } from "@openfront/engine/execution/nation/NationNukeBehavior";
+import { NationStructureBehavior } from "@openfront/engine/execution/nation/NationStructureBehavior";
 import { NationExecution } from "@openfront/engine/execution/NationExecution";
 import { NukeExecution } from "@openfront/engine/execution/NukeExecution";
 import { SpawnExecution } from "@openfront/engine/execution/SpawnExecution";
@@ -37,6 +39,8 @@ import {
 } from "./util/ScriptedGame";
 import { setup } from "./util/Setup";
 import { expectSnapshotRoundTrip } from "./util/Snapshot";
+import { TestConfig } from "./util/TestConfig";
+import { executeTicks } from "./util/utils";
 
 function conquerRect(
   g: Game,
@@ -78,49 +82,49 @@ function queued<T>(g: Game, cls: abstract new (...a: never[]) => T): T[] {
   return executions(g).filter((e): e is T & Execution => e instanceof cls);
 }
 
-describe("a Protector", () => {
-  /**
-   * big_plains, all land: the nation holds the west half, a human raider
-   * the land east of it (the far east is empty, beyond the raider), so the
-   * nation has no empty land to take. It has a silo and gold, 65% of its
-   * troop cap, and hates the raider.
-   */
-  async function standoff(option: string) {
-    const g = await setup(
-      "big_plains",
-      {
-        derpyRules: 6,
-        aiPersonalities: [option],
-        difficulty: Difficulty.Medium,
-        instantBuild: true,
-      },
-      [new PlayerInfo("raider", PlayerType.Human, null, "raider")],
-      undefined,
-      undefined,
-      true,
-      [
-        new Nation(
-          new Cell(50, 100),
-          new PlayerInfo("guard", PlayerType.Nation, null, "guard"),
-        ),
-      ],
-    );
-    const guard = g.player("guard");
-    const raider = g.player("raider");
-    conquerRect(g, guard, 0, 0, 100, 200);
-    conquerRect(g, raider, 100, 0, 170, 200);
-    guard.setSpawnTile(g.ref(50, 100));
-    raider.setSpawnTile(g.ref(150, 100));
-    guard.buildUnit(UnitType.MissileSilo, g.ref(20, 100), {});
-    guard.addGold(500_000_000n);
-    const max = g.config().maxTroops(guard);
-    guard.setTroops(Math.floor(max * 0.65));
-    raider.setTroops(Math.floor(max * 0.3));
-    guard.updateRelation(raider, -100, "attacked");
-    expect(guard.relation(raider)).toBe(Relation.Hostile);
-    return { g, guard, raider, max, ...nationAt(g, "guard") };
-  }
+/**
+ * big_plains, all land: the nation holds the west half, a human raider
+ * the land east of it (the far east is empty, beyond the raider), so the
+ * nation has no empty land to take. It has a silo and gold, 65% of its
+ * troop cap, and hates the raider.
+ */
+async function standoff(option: string) {
+  const g = await setup(
+    "big_plains",
+    {
+      derpyRules: 6,
+      aiPersonalities: [option],
+      difficulty: Difficulty.Medium,
+      instantBuild: true,
+    },
+    [new PlayerInfo("raider", PlayerType.Human, null, "raider")],
+    undefined,
+    undefined,
+    true,
+    [
+      new Nation(
+        new Cell(50, 100),
+        new PlayerInfo("guard", PlayerType.Nation, null, "guard"),
+      ),
+    ],
+  );
+  const guard = g.player("guard");
+  const raider = g.player("raider");
+  conquerRect(g, guard, 0, 0, 100, 200);
+  conquerRect(g, raider, 100, 0, 170, 200);
+  guard.setSpawnTile(g.ref(50, 100));
+  raider.setSpawnTile(g.ref(150, 100));
+  guard.buildUnit(UnitType.MissileSilo, g.ref(20, 100), {});
+  guard.addGold(500_000_000n);
+  const max = g.config().maxTroops(guard);
+  guard.setTroops(Math.floor(max * 0.65));
+  raider.setTroops(Math.floor(max * 0.3));
+  guard.updateRelation(raider, -100, "attacked");
+  expect(guard.relation(raider)).toBe(Relation.Hostile);
+  return { g, guard, raider, max, ...nationAt(g, "guard") };
+}
 
+describe("a Protector", () => {
   const attacksOn = (g: Game, target: Player) =>
     queued(g, AttackExecution).filter(
       (e) =>
@@ -221,6 +225,161 @@ describe("a Protector", () => {
     attack.maybeAttack();
     expect(attack.grudgeTarget()).toBe(raider);
   });
+});
+
+describe("a Mad Scientist", () => {
+  test("keeps nuking: each bomb raises the gold it waits for before the next less than Normal's", async () => {
+    // Percent of the gold it waited for before: after an atom bomb, and
+    // after a hydrogen bomb
+    async function rises(option: string): Promise<number[]> {
+      const { g, raider, nuke } = await standoff(option);
+      const n = nuke as unknown as {
+        sendNuke(tile: number, type: UnitType, target: Player): void;
+        atomBombPerceivedCost: bigint;
+        hydrogenBombPerceivedCost: bigint;
+      };
+      const atom = n.atomBombPerceivedCost;
+      const hydro = n.hydrogenBombPerceivedCost;
+      n.sendNuke(g.ref(150, 100), UnitType.AtomBomb, raider);
+      n.sendNuke(g.ref(150, 100), UnitType.HydrogenBomb, raider);
+      return [
+        Number((n.atomBombPerceivedCost * 100n) / atom),
+        Number((n.hydrogenBombPerceivedCost * 100n) / hydro),
+      ];
+    }
+    expect(await rises("normal")).toEqual([150, 125]);
+    expect(await rises("mad_scientist")).toEqual([120, 110]);
+  });
+});
+
+describe("Domes of Alden: Mad Scientists and Protectors raise more, sooner", () => {
+  // Shields 40 tiles wide, so clusters 75 tiles apart need a Dome each
+  class SmallDomes extends TestConfig {
+    domeRange(): number {
+      return 40;
+    }
+  }
+
+  /**
+   * big_plains: the nation holds rows 1-129, a human foe rows 170-198 with
+   * a silo and the price of bombs (a foe that can nuke it, before any nuke
+   * has come). The nation has $1B to start with.
+   */
+  async function domeGame(option: string, config = TestConfig) {
+    const g = await setup(
+      "big_plains",
+      {
+        derpyRules: 6,
+        aiPersonalities: [option],
+        difficulty: Difficulty.Medium,
+        instantBuild: true,
+      },
+      [new PlayerInfo("foe", PlayerType.Human, null, "foe")],
+      undefined,
+      config,
+      true,
+      [
+        new Nation(
+          new Cell(100, 60),
+          new PlayerInfo("me", PlayerType.Nation, null, "me"),
+        ),
+      ],
+    );
+    const me = g.player("me");
+    const foe = g.player("foe");
+    for (let x = 1; x < 199; x++) {
+      for (let y = 1; y <= 129; y++) me.conquer(g.ref(x, y));
+      for (let y = 170; y <= 198; y++) foe.conquer(g.ref(x, y));
+    }
+    me.addGold(1_000_000_000n);
+    foe.addGold(1_000_000_000n);
+    foe.buildUnit(UnitType.MissileSilo, g.ref(100, 185), {});
+    executeTicks(g, 2);
+    const behavior = new NationStructureBehavior(new PseudoRandom(7), g, me);
+    const tryDome = () =>
+      (
+        behavior as unknown as { tryBuildSmartDome(): boolean }
+      ).tryBuildSmartDome();
+    return { g, me, behavior, tryDome };
+  }
+
+  /** Four cities in a diamond around (x, y): 20 points of buildings. */
+  function cities(g: Game, me: Player, x: number, y: number) {
+    for (const [dx, dy] of [
+      [-15, 0],
+      [15, 0],
+      [0, -15],
+      [0, 15],
+    ]) {
+      me.buildUnit(UnitType.City, g.ref(x + dx, y + dy), {});
+    }
+  }
+
+  test("they build one at the bare price; Normal keeps a quarter more in hand", async () => {
+    const domeAt = async (option: string, gold: bigint) => {
+      const { g, me, tryDome } = await domeGame(option);
+      me.buildUnit(UnitType.Capital, g.ref(40, 40), {});
+      cities(g, me, 40, 40);
+      me.removeGold(me.gold() - gold);
+      return tryDome();
+    };
+    expect(dealtAiTypes((await domeGame("protector")).g).get("me")).toBe(
+      "protector",
+    );
+    expect(await domeAt("normal", 52_000_000n)).toBe(false);
+    expect(await domeAt("normal", 63_000_000n)).toBe(true);
+    expect(await domeAt("protector", 52_000_000n)).toBe(true);
+    expect(await domeAt("mad_scientist", 52_000_000n)).toBe(true);
+    expect(await domeAt("trader", 52_000_000n)).toBe(false);
+  });
+
+  test("they find a smaller cluster worth shielding", async () => {
+    // Four cities: worth a Dome to them, not yet to a Normal nation
+    for (const [option, built] of [
+      ["normal", false],
+      ["aggressive", false],
+      ["protector", true],
+      ["mad_scientist", true],
+    ] as const) {
+      const { g, me, tryDome } = await domeGame(option);
+      cities(g, me, 40, 40);
+      expect(tryDome()).toBe(built);
+    }
+  });
+
+  test("five before any nuke, half a minute apart (Normal: three, a minute apart)", async () => {
+    const raised = async (option: string, ticks: number) => {
+      const { g, me, behavior } = await domeGame(option, SmallDomes);
+      // Six clusters of eight cities (40 points each), each worth a Dome
+      for (const [x, y] of [
+        [25, 25],
+        [100, 25],
+        [175, 25],
+        [25, 105],
+        [100, 105],
+        [175, 105],
+      ]) {
+        cities(g, me, x, y);
+        for (const [dx, dy] of [
+          [-11, -11],
+          [11, -11],
+          [-11, 11],
+          [11, 11],
+        ]) {
+          me.buildUnit(UnitType.City, g.ref(x + dx, y + dy), {});
+        }
+      }
+      for (let t = 0; t < ticks; t += 30) {
+        behavior.handleStructures();
+        executeTicks(g, 30);
+      }
+      return me.units(UnitType.Dome).length;
+    };
+    expect(await raised("normal", 1200)).toBe(2);
+    expect(await raised("protector", 1200)).toBe(4);
+    expect(await raised("normal", 3000)).toBe(3);
+    expect(await raised("protector", 3000)).toBe(5);
+  }, 120_000);
 });
 
 describe("a Trader alone on an island", () => {
