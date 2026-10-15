@@ -210,7 +210,9 @@ export class AiPersonalityPicker extends LitElement {
         >${AI_CHOICE_ICON[choice]}</span
       >
       <span class="flex min-w-0 flex-1 flex-col items-start">
-        <span class="max-w-full truncate">${aiChoiceName(choice)}</span>
+        <span class="max-w-full leading-tight break-words"
+          >${aiChoiceName(choice)}</span
+        >
         <span
           class="max-w-full truncate text-[11px] font-semibold text-white/45"
         >
