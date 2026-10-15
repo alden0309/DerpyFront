@@ -133,7 +133,11 @@ describe("the picker", () => {
     await picker.updateComplete;
     choice("trader").click();
     await picker.updateComplete;
-    expect(events.at(-1)).toEqual(["normal", "trader", "aggressive"]);
+    expect(events[events.length - 1]).toEqual([
+      "normal",
+      "trader",
+      "aggressive",
+    ]);
     choice("normal").click();
     choice("trader").click();
     await picker.updateComplete;
