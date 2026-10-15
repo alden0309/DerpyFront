@@ -76,6 +76,7 @@ import { takeReclaimDelta } from "./ReclaimCore"; // WAR (r17)
 import "./Revolution"; // GOV (r21): a motion to break with the crown, declared, and its end
 import { Rng } from "./Rng";
 import { END_YEAR } from "./Rules";
+import "./SacredPlunder"; // CQ24 (r24): a sacred place plundered
 import "./Sea"; // SEA (r15): hurricanes, cruises, voyages, privateers
 import { takeSeaDelta } from "./SeaCore"; // SEA (r15)
 import { newGameState } from "./Setup";

@@ -1,8 +1,8 @@
 // DLC (r21): the How to Play's chapters on the Derp Store's items for
 // Conquest: the 1776 campaign (the start, the war's chronology, sides,
 // commissions, battles, spying, the peace), Legends (how a trail goes, every
-// legend and its odds, the sacred places and why nothing's taken from them,
-// the Fountain of Youth) and the map styles. Every table is made from the
+// legend and its odds, the sacred places kept or (CQ24, r24) plundered, the
+// Fountain of Youth) and the map styles. Every table is made from the
 // engine's own (Campaign1776.ts, Campaign1776Events.ts, LegendsData.ts), so
 // they can't drift.
 
@@ -16,6 +16,7 @@ import {
 } from "../../engine/Campaign1776";
 import { BATTLE } from "../../engine/Campaign1776Events";
 import { KEEP } from "../../engine/LegendEvents";
+import { KEPT_FAITH } from "../../engine/Legends"; // CQ24 (r24)
 import {
   FOUNTAIN,
   LEGEND_RULES,
@@ -24,6 +25,7 @@ import {
 } from "../../engine/LegendsData";
 import { SKILL_NAMES } from "../../engine/LifeRules";
 import { chanceWords } from "../../engine/Odds";
+import { PLUNDER, plunderRows, RECKONING } from "../../engine/SacredPlunder"; // CQ24 (r24)
 import type { Chapter } from "./Chapters";
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -74,6 +76,23 @@ ${LEGENDS.map(
         "; ",
       )}${d.fever ? `; the fever ${chanceWords(d.fever.chance)} (health −${d.fever.health})` : ""} |`,
 ).join("\n")}`;
+}
+
+/** CQ24 (r24): what a dig at each sacred place may find, from SacredPlunder.ts's table. */
+function plunderTable(): string {
+  return `| The place | Whose | What a dig may find, once dug unseen |
+|---|---|---|
+${plunderRows()
+  .map(
+    ({ def, finds }) =>
+      `| **${def.name}** | ${def.people === "oceti" ? "the Lakota and Dakota" : def.people === "illinois" ? "the Illinois nations" : `the ${def.people?.[0].toUpperCase()}${def.people?.slice(1)}`} | ${finds
+        .map(
+          (f) =>
+            `${chanceWords(f.chance)}: ${f.coins[1] > 0 ? `${f.coins[0]} to ${f.coins[1]} coins` : "nothing"}${f.relic ? `, and ${f.relic} kept (renown +${f.renown ?? 0})` : ""}`,
+        )
+        .join("; ")} |`,
+  )
+  .join("\n")}`;
 }
 
 export const CAMPAIGN_CHAPTER: Chapter = {
@@ -137,7 +156,7 @@ export const LEGENDS_CHAPTER: Chapter = {
   id: "legends",
   part: "world",
   title: "Legends",
-  line: "In the Derp Store: old American legends to follow, for the bold and the learned, and the native nations' sacred places to learn and keep.",
+  line: "In the Derp Store: old American legends to follow, for the bold and the learned, and the native nations' sacred places to keep, or to plunder.",
   where: "Journal › Legends (for whoever owns Legends, in any game).",
   body: `## Who hears of them
 **Legends** is in the Derp Store (Derpy Conquest › Add-Ons). It comes to the characters of whoever owns it, in any game, whoever hosts. Everything about your legends is your own: nobody else sees what you've heard or how far you've got.
@@ -153,7 +172,17 @@ ${legendsTable()}
 Most legends were never what they promised, and the game says so: El Dorado's Seven Cities were Zuni towns, Quivira was the Wichita's villages, and Norumbega a native word for a quiet place on a river. The reward is renown, learning and a little trade. Blackbeard's hoard and Swift's mine are the gambles. Once followed to its end, a legend's page says what history knows of it.
 
 ## The native nations' sacred places
-Kituwah, Cahokia's mounds, the Great Serpent, the Black Hills and Bdote are places to learn about and to protect. Their trail is earning a people's trust (speaking their tongue helps: skill +${LEGEND_RULES.tongue.bonus}), listening through a winter, and walking the place with an elder. You leave nothing and take nothing; there's nothing to dig and nothing to sell. Months later someone means the place harm (a surveyor's chain, a man with a spade), and its people remember your promise: speak for it (persuasion against ${KEEP.speak.dc}), write to the governor (letters against ${KEEP.write.dc}), or pay the treasure-seeker to dig elsewhere (${KEEP.pay} coins). Doing nothing breaks your word.
+Kituwah, Cahokia's mounds, the Great Serpent, the Black Hills and Bdote can be kept, or plundered. It's your choice, and each road has its own rewards and its own price.
+
+**Keeping faith.** The trail is earning a people's trust (speaking their tongue helps: skill +${LEGEND_RULES.tongue.bonus}), listening through a winter, and walking the place with an elder. You leave nothing and take nothing: renown, and their nation's goodwill toward yours (+${KEPT_FAITH.value} for ${KEPT_FAITH.years} years). Months later someone means the place harm (a surveyor's chain, a man with a spade), and its people remember your promise: speak for it (persuasion against ${KEEP.speak.dc}), write to the governor (letters against ${KEEP.write.dc}), or pay the treasure-seeker to dig elsewhere (${KEEP.pay} coins), and they think the better of you again. Doing nothing breaks your word.
+
+**Plundering.** From the day you hear of a place you can go to it and dig for what's buried there: a digging party costs ${PLUNDER.cost} coins, and getting in and out unseen is ${SKILL_NAMES[PLUNDER.skill].toLowerCase()} against ${PLUNDER.dc}, with +${PLUNDER.known} for each step of their trust you've earned (you know where to dig, and when they're away). Journal › Legends shows every figure before you choose.
+
+${plunderTable()}
+
+Failed, half the time you come away with nothing and unseen (try again after a season), and half the time you're caught: beaten (health −${PLUNDER.hurt}), driven off and never let near the place again, and their nation's opinion of yours ${PLUNDER.tried.value} for ${PLUNDER.tried.years} years.
+
+What follows a dig: the place stays dug, and the world hears of it. Its people's nation thinks worse of yours (${PLUNDER.people.value} for ${PLUNDER.people.years} years, ${PLUNDER.faith.value} more if they'd trusted you, and renown ${PLUNDER.faith.renown}), and so do their allies (${PLUNDER.allies.value}): raids and war come likelier. Those of them who know you remember it (${PLUNDER.person.value}). At home the bold admire the daring and the devout think it shameful (renown +${PLUNDER.renown}). In time their people come for what was taken: give it all back (their anger eases to ${RECKONING.eased.value}), pay amends (${Math.round(RECKONING.pay * 100)}% of what it came to), talk them round (persuasion against ${RECKONING.talk.dc}), stand your ground (fighting against ${RECKONING.fight.dc}), or let them take it (half your purse, at most what it came to, and what you kept). Whoever dug a place is never told of it again; anyone who later walks it with an elder finds the cut still there.
 
 ## The Fountain of Youth
 The Fountain is a real spring, and almost always only that: cold, clear water in a blue hole in the limestone, a week's rest, renown, health. In ${chanceWords(LEGENDS.find((d) => d.key === "fountain")?.outcomes.find((o) => o.waters)?.chance ?? 0)} journeys that reach it, the one who drinks carries something away that's never explained: their body's decline begins ${FOUNTAIN.years} years later than it would. Nobody can say whether it was the water, the rest or the faith; nobody can find the spring again, sell it or share it; and the journey into the Florida interior costs coins, a master's woodcraft and a chance of fever. It's rare and uncertain on purpose: a legend that could be farmed wouldn't be one.`,

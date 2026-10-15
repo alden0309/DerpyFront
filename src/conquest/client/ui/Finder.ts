@@ -3111,11 +3111,29 @@ const GOALS: Goal[] = [
     goLabel: "Journal › Legends",
     guide: "legends",
   },
+  // CQ24 (r24): or plunder it.
+  {
+    id: "legend-plunder",
+    title: "Plunder a native nation's sacred place",
+    words:
+      "plunder dig loot treasure relic mound sacred place kituwah cahokia serpent black hills gold bdote grave robber",
+    group: "People",
+    where:
+      "Journal › Legends: once you've heard of a sacred place, go to it and dig (a digging party, stealth against the dark). The odds, what each find comes to and what follows are shown before you choose: its people won't forget.",
+    needs: (ui) => [
+      ui.life && legendsOn(ui.life)
+        ? { label: "You own Legends", met: true }
+        : { label: "Legends is in the Derp Store", met: false },
+    ],
+    go: tab({ k: "tab", tab: "journal", sub: "legends" }),
+    goLabel: "Journal › Legends",
+    guide: "legends",
+  },
   {
     id: "map-style",
     title: "Change how the map looks",
     words:
-      "map style look antique engraving winter night candlelight pirate chart woodcut theme skin",
+      "map style look antique engraving night candlelight pirate chart woodcut theme skin",
     group: "Travel and the world",
     where:
       "The menu › Settings › Map style: the usual chart, or a style of your own from the Derp Store. Only you see it.",

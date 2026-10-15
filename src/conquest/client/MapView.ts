@@ -76,7 +76,6 @@ import {
   paintSea,
 } from "./MapStyles"; // DLC (r21)
 import { drawStorm } from "./SeasonArt";
-import { WINTER_INK, WinterLook } from "./WinterLook"; // CQ24 (r24)
 import {
   drawSprite,
   loadSprites,
@@ -97,6 +96,7 @@ import {
   FigureColors,
   figureColorsOf,
 } from "./Walkers";
+import { WINTER_INK, WinterLook } from "./WinterLook"; // CQ24 (r24)
 
 export type MapMode = "nation" | "terrain" | "economy" | "people";
 
@@ -1762,7 +1762,11 @@ export class MapView {
     // CQ24 (r24): the winter, where it really snowed (WinterLook.ts), over
     // whatever style is chosen; the rest of the chart exactly as it was.
     if (seasonal) {
-      const wl = (this.winterLook ??= new WinterLook(this.map, this.provPaths));
+      const wl = (this.winterLook ??= new WinterLook(
+        this.map,
+        this.provPaths,
+        this.provBox,
+      ));
       wl.set(snowKey(today), (p) => snowOn(this.map.provinces[p], today));
       if (wl.any)
         wl.paint(

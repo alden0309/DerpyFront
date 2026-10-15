@@ -798,10 +798,11 @@ export const TERMS: Record<string, Term> = {
   },
   sacredplace: {
     name: "A sacred place",
-    what: "A native nation's sacred place (Kituwah, Cahokia's mounds, the Great Serpent, the Black Hills, Bdote): a place to learn about and keep, never to take from.",
-    good: "Renown, and the people's trust; later you may be asked to speak for the place when someone means it harm.",
+    // CQ24 (r24): kept, or plundered.
+    what: "A native nation's sacred place (Kituwah, Cahokia's mounds, the Great Serpent, the Black Hills, Bdote): a place to learn about and keep, or to dig for what's buried there.",
+    good: "Kept: renown and the people's goodwill; later you may be asked to speak for the place when someone means it harm. Plundered: what was buried there, and their lasting anger.",
     raise:
-      "Earn the people's trust in their towns (their tongue helps), listen through a winter, walk the place with an elder (Journal › Legends).",
+      "Earn the people's trust in their towns (their tongue helps), listen through a winter, walk the place with an elder; or go to the place and dig (Journal › Legends).",
     ch: "legends",
   },
   // ---- end DLC (r21)

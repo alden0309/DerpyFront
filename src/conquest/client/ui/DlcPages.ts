@@ -42,6 +42,7 @@ import {
 import type { LegendDef, LegendOutcome } from "../../engine/LegendsData";
 import { JOBS } from "../../engine/LifeRules";
 import { chanceWords } from "../../engine/Odds";
+import { plunderedMark } from "../../engine/SacredPlunder"; // CQ24 (r24)
 import { PLACE_NAMES_1776 } from "../../engine/Start1776";
 import { STORE_LEGENDS } from "../Dlc";
 import { nationName } from "../Text";
@@ -56,6 +57,7 @@ import {
   section,
 } from "./Context";
 import { howTo, pageHead } from "./Nav";
+import { plunderBox, plunderDone, plunderedLine } from "./PlunderUi"; // CQ24 (r24)
 import { price } from "./Price";
 import { term, termMark } from "./Terms";
 
@@ -417,7 +419,8 @@ function namesSection(ui: GameUi): TemplateResult {
 function outcomeWords(def: LegendDef, o: LegendOutcome): string {
   const bits: string[] = [];
   if (o.keep)
-    return "learned, and kept: renown, and later a call to speak for it";
+    // CQ24 (r24): and their people's goodwill.
+    return "learned, and kept: renown, their people's goodwill, and later a call to speak for it";
   if (o.waters)
     return "something more than water, nobody can say what, and it lasts";
   if (o.coins) bits.push(`${o.coins[0]} to ${o.coins[1]} coins`);
@@ -524,65 +527,80 @@ function trailCard(ui: GameUi, key: string): TemplateResult {
         )}
       ${step
         ? html`<div class="cq-legend-step">
-            <p class="small"><b>${step.title}.</b> ${step.doing}</p>
-            <p class="small">
-              Where:
-              ${step.at.people && where.length > 6
-                ? html`any town of their people
-                  (${where
-                    .slice(0, 4)
-                    .map((p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`)},
-                  and others)`
-                : where.length > 8
-                  ? html`${where
-                      .slice(0, 6)
-                      .map((p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`)}
-                    and ${where.length - 6} other towns`
-                  : where.map(
-                      (p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`,
-                    )}${step.at.place && !(def.kind === "sacred" && last)
-                ? `, at the ${step.at.place === "governor" ? "governor's house (its archives)" : step.at.place}`
-                : ""}.
-              ${skillWord(def, x.step)}
-              ${odds.level}${odds.bonus ? ` +${odds.bonus} (their tongue)` : ""}
-              against ${odds.dc}: ${chance(odds.chance)}.
-              ${x.tries
-                ? html`Failed ${x.tries} of ${R.tries} tries.`
+              <p class="small"><b>${step.title}.</b> ${step.doing}</p>
+              <p class="small">
+                Where:
+                ${step.at.people && where.length > 6
+                  ? html`any town of their people
+                    (${where
+                      .slice(0, 4)
+                      .map((p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`)},
+                    and others)`
+                  : where.length > 8
+                    ? html`${where
+                        .slice(0, 6)
+                        .map(
+                          (p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`,
+                        )}
+                      and ${where.length - 6} other towns`
+                    : where.map(
+                        (p, k) => html`${k ? ", " : ""}${provLink(ui, p)}`,
+                      )}${step.at.place && !(def.kind === "sacred" && last)
+                  ? `, at the ${step.at.place === "governor" ? "governor's house (its archives)" : step.at.place}`
+                  : ""}.
+                ${skillWord(def, x.step)}
+                ${odds.level}${odds.bonus
+                  ? ` +${odds.bonus} (their tongue)`
+                  : ""}
+                against ${odds.dc}: ${chance(odds.chance)}.
+                ${x.tries
+                  ? html`Failed ${x.tries} of ${R.tries} tries.`
+                  : nothing}
+              </p>
+              ${last
+                ? html`<p class="small">
+                    At its end:
+                    ${def.outcomes.map(
+                      (o, k) =>
+                        html`${k ? "; " : ""}${chance(o.chance)}
+                        ${outcomeWords(def, o)}`,
+                    )}.${def.fever
+                      ? html` The interior's fever: ${chance(def.fever.chance)}
+                        (health −${def.fever.health}).`
+                      : nothing}
+                  </p>`
                 : nothing}
-            </p>
-            ${last
-              ? html`<p class="small">
-                  At its end:
-                  ${def.outcomes.map(
-                    (o, k) =>
-                      html`${k ? "; " : ""}${chance(o.chance)}
-                      ${outcomeWords(def, o)}`,
-                  )}.${def.fever
-                    ? html` The interior's fever: ${chance(def.fever.chance)}
-                      (health −${def.fever.health}).`
-                    : nothing}
-                </p>`
-              : nothing}
-            <div class="cq-btnrow">
-              ${action(
-                html`${last ? "Set out" : "Try it"}
-                ${step.cost ? price(step.cost, { have: life.purse }) : nothing}`,
-                check,
-                () => void ui.cmd({ k: "legend", act: "work", key }),
-                "small",
-              )}
-              <button
-                class="cq-btn small quiet"
-                @click=${() =>
-                  confirm(`Give up the trail of ${def.name}?`) &&
-                  void ui.cmd({ k: "legend", act: "drop", key })}
-              >
-                Give it up
-              </button>
+              ${def.kind === "sacred" ? plunderedLine(ui, def) : nothing}
+              <div class="cq-btnrow">
+                ${action(
+                  html`${last ? "Set out" : "Try it"}
+                  ${step.cost
+                    ? price(step.cost, { have: life.purse })
+                    : nothing}`,
+                  check,
+                  () => void ui.cmd({ k: "legend", act: "work", key }),
+                  "small",
+                )}
+                <button
+                  class="cq-btn small quiet"
+                  @click=${() =>
+                    confirm(`Give up the trail of ${def.name}?`) &&
+                    void ui.cmd({ k: "legend", act: "drop", key })}
+                >
+                  Give it up
+                </button>
+              </div>
             </div>
-          </div>`
+            ${def.kind === "sacred" && !isPlundered(ui, def)
+              ? plunderBox(ui, def)
+              : nothing}`
         : nothing}`,
   );
+}
+
+/** CQ24 (r24): whether a sacred place has been dug already (then there's nothing left to take). */
+function isPlundered(ui: GameUi, def: LegendDef): boolean {
+  return !!plunderedMark(ui.s, def);
 }
 
 function doneCard(ui: GameUi, key: string): TemplateResult {
@@ -594,13 +612,18 @@ function doneCard(ui: GameUi, key: string): TemplateResult {
   const kept = life.legends?.kept?.[key];
   return more(
     html`${def.name}:
-    ${x.found !== undefined
-      ? `followed to its end, ${formatDate(x.found)}`
-      : `gone cold, ${formatDate(x.cold!)}`}`,
+    ${x.plundered !== undefined
+      ? `dug, ${formatDate(x.plundered)}`
+      : x.caught !== undefined
+        ? `caught at it, ${formatDate(x.caught)}`
+        : x.found !== undefined
+          ? `followed to its end, ${formatDate(x.found)}`
+          : `gone cold, ${formatDate(x.cold!)}`}`,
     html`${o ? html`<p class="small">${o.text}</p>` : nothing}
     ${kept !== undefined
       ? html`<p class="small">You spoke for it, and it was kept.</p>`
       : nothing}
+    ${def.kind === "sacred" ? plunderDone(ui, def, x) : nothing}
     ${x.found !== undefined
       ? html`<p class="small cq-legend-truth">
           <b>What history knows of it.</b> ${def.truth}

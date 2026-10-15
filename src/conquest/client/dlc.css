@@ -89,6 +89,18 @@
   font-family: var(--fell);
   font-size: 0.95rem;
 }
+/* CQ24 (r24): a sacred place's other road, and the mark it leaves. */
+.cq-legend-step.cq-plunder {
+  margin-top: 0.8rem;
+  border-left-color: var(--seal);
+}
+.cq-plunder .cq-odds-panel {
+  border-left-color: var(--seal);
+}
+.cq-plunder-mark {
+  color: var(--seal);
+  font-style: italic;
+}
 
 /* ---------------------------------------------------------------- Settings › Map style */
 

@@ -6081,3 +6081,37 @@ export interface DlcCommand {
   key?: string;
   arg?: string;
 }
+
+// ---------------------------------------------------------------- CQ24 (r24)
+// Round 24's own section. Legends: a sacred place may be plundered as well
+// as kept (SacredPlunder.ts). The 1776 campaign runs to 1800, with history
+// steered and yielding to what players do (Campaign1776Course.ts). Every
+// field is optional, so older saves load.
+
+/** A sacred place dug for what was buried there: its people remember (kept on their nation). */
+export interface SacredDug {
+  /** The day, and who did it (a character id, and their name as it was told). */
+  day: number;
+  by: number;
+  name: string;
+  /** Their nation then. */
+  nation: number;
+}
+
+export interface Nation {
+  /** CQ24 (r24): their sacred places that were plundered (a legend's key), remembered. */
+  sacred?: Record<string, SacredDug>;
+}
+
+export interface LegendProgress {
+  /** CQ24 (r24): you dug the place (the day); what you found, and what you still hold of it. */
+  plundered?: number;
+  /** The coins it came to, and the thing kept (a relic), if any. */
+  got?: number;
+  relic?: string;
+  /** Caught at it and driven off (the day): the trail lost. */
+  caught?: number;
+  /** When its people come for what was taken, and how that ended. */
+  reckonDue?: number;
+  reckoned?: "returned" | "paid" | "talked" | "fought" | "lost";
+}

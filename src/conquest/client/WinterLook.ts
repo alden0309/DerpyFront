@@ -7,16 +7,18 @@
 //
 // How it's drawn, over whatever map style the player chose:
 // - a mask of the winter, province by province (each as deep as its winter
-//   is, at this stage of it), in map units at half a pixel each, softened at
+//   is, at this stage of it), in map units (MASK_K pixels each), softened at
 //   its edges: faded to nothing at the border with country that has no
 //   winter, so the snow ends gently and never crosses it, and kept full at
-//   the coast (the blur is reckoned over the land only). It's made once for
-//   each stage of the winter (a few times a year), not for each redraw;
-// - when the chart is redrawn, the winter country's part of it is copied,
-//   given Hard Winter's treatment (its colours greyed and whitened toward
-//   the snow, the snow's flecks, falling snow), and laid back through the
-//   mask, inside the winter country only. A few full-chart blends, as the
-//   map styles cost, and nothing every frame.
+//   the coast (the blur is reckoned over the land only). The mask is the
+//   snow's own colour. It's made once for each stage of the winter (a few
+//   times a year), not for each redraw;
+// - when the chart is redrawn, inside the winter country only: the mask laid
+//   over it (the land greyed and whitened toward the snow, as deep as the
+//   winter is there), then the snow's flecks and Hard Winter's falling snow,
+//   kept to the snow by the same mask, on a canvas only as big as the
+//   winter's part of the view. Three draws, no reading back, nothing every
+//   frame.
 // The ice on the shores and the frozen rivers are the engine's own (where
 // harbours are ice-bound and rivers can be crossed on foot), in Hard
 // Winter's ice colour.
@@ -31,23 +33,23 @@ type C = CanvasRenderingContext2D;
 export const WINTER_INK = {
   /** The snow the land is whitened toward. */
   snow: WINTER_PALETTE.land,
+  /** The snow's shadows in its flecks. */
+  shade: WINTER_PALETTE.accent,
   /** Ice along the frozen shores, and a frozen river. */
   ice: "rgba(234,243,249,0.82)",
   river: "rgba(232,242,248,0.95)",
-  /** How far the colours under the snow are greyed, and whitened. */
-  grey: 0.4,
-  whiten: 0.5,
-  /** The snow's own white laid over, and its flecks. */
-  cover: 0.18,
-  flecks: 0.8,
+  /** How far the land under the full winter goes toward the snow. */
+  cover: 0.6,
+  /** The flecks and the falling snow. */
+  flecks: 0.85,
 } as const;
 
 /** Mask pixels to a map unit. */
-const K = 0.5;
+export const MASK_K = 0.4;
 /** The soft edge: three box blurs of this radius (mask pixels). */
 const BLUR = 2;
 /** The band eaten off the winter at its border with country that has none (map units): the blur's reach. */
-const ERODE = (BLUR * 3 + 1) / K;
+const ERODE = (BLUR * 3 + 1) / MASK_K;
 
 export interface ChartFrame {
   /** The cached chart's canvas, its size in device pixels. */
@@ -64,12 +66,15 @@ export class WinterLook {
   private mask: HTMLCanvasElement | null = null;
   private maskKey = "";
   private work: HTMLCanvasElement | null = null;
+  private fleckTile: HTMLCanvasElement | null = null;
   /** Each province's snow, as the mask was made. */
   private depth: Float32Array;
 
   constructor(
     private readonly map: MapDef,
     private readonly paths: Path2D[],
+    /** Each province's box in map units: [x0, y0, x1, y1]. */
+    private readonly boxes: number[][],
   ) {
     this.depth = new Float32Array(map.provinces.length);
   }
@@ -89,27 +94,29 @@ export class WinterLook {
    * changes only when it does. The mask is made again only for a new key.
    */
   set(key: string, snow: (p: number) => number): void {
-    if (key === this.maskKey && this.mask) return;
+    if (key === this.maskKey) return;
     this.maskKey = key;
     for (let p = 0; p < this.depth.length; p++) this.depth[p] = snow(p);
     this.mask = this.any ? this.makeMask() : null;
   }
 
-  /** The winter's mask, in map units (K pixels each), with soft edges. */
+  /** The winter's mask, in map units (MASK_K pixels each), with soft edges, in the snow's colour. */
   private makeMask(): HTMLCanvasElement | null {
-    const W = Math.ceil(this.mapWidth() * K);
-    const H = Math.ceil(this.mapHeight() * K);
-    const snowC = document.createElement("canvas");
-    snowC.width = W;
-    snowC.height = H;
-    const landC = document.createElement("canvas");
-    landC.width = W;
-    landC.height = H;
-    const sc = snowC.getContext("2d");
-    const lc = landC.getContext("2d");
+    const W = Math.ceil(this.map.width * MASK_K);
+    const H = Math.ceil(this.map.height * MASK_K);
+    const canvas = (w: number, h: number) => {
+      const x = document.createElement("canvas");
+      x.width = w;
+      x.height = h;
+      return x;
+    };
+    const snowC = canvas(W, H);
+    const landC = canvas(W, H);
+    const sc = snowC.getContext("2d", { willReadFrequently: true });
+    const lc = landC.getContext("2d", { willReadFrequently: true });
     if (!sc || !lc) return null;
-    sc.setTransform(K, 0, 0, K, 0, 0);
-    lc.setTransform(K, 0, 0, K, 0, 0);
+    sc.setTransform(MASK_K, 0, 0, MASK_K, 0, 0);
+    lc.setTransform(MASK_K, 0, 0, MASK_K, 0, 0);
     lc.fillStyle = "#fff";
     for (let p = 0; p < this.paths.length; p++) {
       lc.fill(this.paths[p], "evenodd");
@@ -138,45 +145,48 @@ export class WinterLook {
       boxBlur(a, W, H, BLUR);
       boxBlur(l, W, H, BLUR);
     }
-    // Reckoned over the land only, so the coast keeps its snow.
+    // Reckoned over the land only, so the coast keeps its snow; in the
+    // snow's own colour.
+    const [r, g, b] = rgb(WINTER_INK.snow);
     const out = snow;
     for (let i = 0; i < W * H; i++) {
       const v = l[i] > 0.02 ? Math.min(1, a[i] / l[i]) : 0;
-      out.data[i * 4] = 255;
-      out.data[i * 4 + 1] = 255;
-      out.data[i * 4 + 2] = 255;
+      out.data[i * 4] = r;
+      out.data[i * 4 + 1] = g;
+      out.data[i * 4 + 2] = b;
       out.data[i * 4 + 3] = Math.round(v * 255);
     }
     sc.setTransform(1, 0, 0, 1, 0, 0);
     sc.globalCompositeOperation = "copy";
     sc.putImageData(out, 0, 0);
-    return snowC;
+    // Kept on a canvas of its own that's never read back, so drawing it is cheap.
+    const final = canvas(W, H);
+    final.getContext("2d")?.drawImage(snowC, 0, 0);
+    return final;
   }
 
-  private mapWidth(): number {
-    return this.map.width;
-  }
-
-  private mapHeight(): number {
-    return this.map.height;
-  }
-
-  /** The snow's flecks: a tile of white specks, one tile pixel to a device pixel. */
-  private fleckTile: HTMLCanvasElement | null = null;
+  /** The snow's flecks: a tile of white specks with their shadows, one tile pixel to a device pixel. */
   private flecks(c: C): CanvasPattern | null {
     if (!this.fleckTile) {
       const t = document.createElement("canvas");
-      t.width = 26;
-      t.height = 26;
+      t.width = 28;
+      t.height = 28;
       const x = t.getContext("2d");
       if (x) {
-        x.fillStyle = "#ffffff";
         for (let i = 0; i < 9; i++) {
           // A fixed scatter (golden-angle steps), the same on every screen.
-          const fx = (i * 0.618034 + 0.13) % 1;
-          const fy = (i * 0.381966 + 0.29 + (i % 3) * 0.21) % 1;
+          const fx = ((i * 0.618034 + 0.13) % 1) * 28;
+          const fy = ((i * 0.381966 + 0.29 + (i % 3) * 0.21) % 1) * 28;
+          const rad = 0.75 + ((i * 7) % 5) * 0.2;
+          x.globalAlpha = 0.45;
+          x.fillStyle = WINTER_INK.shade;
           x.beginPath();
-          x.arc(fx * 26, fy * 26, 0.7 + ((i * 7) % 5) * 0.18, 0, Math.PI * 2);
+          x.arc(fx + 0.6, fy + 0.7, rad, 0, Math.PI * 2);
+          x.fill();
+          x.globalAlpha = 1;
+          x.fillStyle = "#ffffff";
+          x.beginPath();
+          x.arc(fx, fy, rad, 0, Math.PI * 2);
           x.fill();
         }
       }
@@ -188,79 +198,116 @@ export class WinterLook {
   /**
    * Lay the winter over the chart as it's drawn so far (the land, its
    * colours and the season's washes), inside the provinces `where` allows.
-   * `scale` is the view's (map units to css px), for the flecks' size.
+   * `viewScale` is the view's (map units to css px), for the snow's size.
    */
   paint(f: ChartFrame, where: (p: number) => boolean, viewScale: number): void {
     const mask = this.mask;
     if (!mask) return;
+    // The winter country in view, and the box around it (device px).
     const clip = new Path2D();
-    let n = 0;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
     for (let p = 0; p < this.paths.length; p++) {
       if (this.depth[p] <= 0 || !where(p)) continue;
+      const b = this.boxes[p];
+      const bx0 = b[0] * f.scale + f.ox;
+      const by0 = b[1] * f.scale + f.oy;
+      const bx1 = b[2] * f.scale + f.ox;
+      const by1 = b[3] * f.scale + f.oy;
+      if (bx1 < 0 || by1 < 0 || bx0 > f.w || by0 > f.h) continue;
       clip.addPath(this.paths[p]);
-      n++;
+      x0 = Math.min(x0, bx0);
+      y0 = Math.min(y0, by0);
+      x1 = Math.max(x1, bx1);
+      y1 = Math.max(y1, by1);
     }
-    if (!n) return;
-    const work = (this.work ??= document.createElement("canvas"));
-    if (work.width !== f.w || work.height !== f.h) {
-      work.width = f.w;
-      work.height = f.h;
-    }
-    const w = work.getContext("2d");
+    x0 = Math.max(0, Math.floor(x0));
+    y0 = Math.max(0, Math.floor(y0));
+    x1 = Math.min(f.w, Math.ceil(x1));
+    y1 = Math.min(f.h, Math.ceil(y1));
+    const bw = x1 - x0;
+    const bh = y1 - y0;
+    if (bw <= 0 || bh <= 0) return;
     const c = f.canvas.getContext("2d");
-    if (!w || !c) return;
-    // The chart as it is, given Hard Winter's treatment all over...
-    w.setTransform(1, 0, 0, 1, 0, 0);
-    w.globalCompositeOperation = "copy";
-    w.globalAlpha = 1;
-    w.drawImage(f.canvas, 0, 0);
-    const blend = (op: GlobalCompositeOperation, color: string, alpha: number) => {
-      w.globalCompositeOperation = op;
-      w.globalAlpha = alpha;
-      w.fillStyle = color;
-      w.fillRect(0, 0, f.w, f.h);
-    };
-    blend("saturation", "#808080", WINTER_INK.grey);
-    blend("screen", "#dfe8ee", WINTER_INK.whiten);
-    blend("source-over", WINTER_INK.snow, WINTER_INK.cover);
-    // ...the snow's flecks (the same size on screen, fixed to the map) and
-    // the falling snow, in map units...
-    w.globalCompositeOperation = "source-over";
-    w.setTransform(f.scale, 0, 0, f.scale, f.ox, f.oy);
-    const pat = this.flecks(w);
-    if (pat) {
-      pat.setTransform(new DOMMatrix().scaleSelf(1 / f.scale, 1 / f.scale));
-      w.globalAlpha = WINTER_INK.flecks * 0.8;
-      w.fillStyle = pat;
-      w.fillRect(0, 0, this.mapWidth(), this.mapHeight());
-    }
-    const pts = scatter("snow", 2600, this.mapWidth(), this.mapHeight());
-    const r0 = 1 / Math.max(0.01, viewScale);
-    w.globalAlpha = WINTER_INK.flecks;
-    w.fillStyle = "#ffffff";
-    w.beginPath();
-    for (let i = 0; i < pts.length; i += 3) {
-      const rad = (0.5 + pts[i + 2] * 1.1) * r0;
-      w.moveTo(pts[i] + rad, pts[i + 1]);
-      w.arc(pts[i], pts[i + 1], rad, 0, Math.PI * 2);
-    }
-    w.fill();
-    // ...kept only where the winter is, as deep as it is there.
-    w.globalAlpha = 1;
-    w.globalCompositeOperation = "destination-in";
-    w.imageSmoothingEnabled = true;
-    w.setTransform(f.scale / K, 0, 0, f.scale / K, f.ox, f.oy);
-    w.drawImage(mask, 0, 0);
-    // Then laid on the chart, inside the winter country only.
+    if (!c) return;
+    const mapToMask = (ctx: C, dx: number, dy: number) =>
+      ctx.setTransform(
+        f.scale / MASK_K,
+        0,
+        0,
+        f.scale / MASK_K,
+        f.ox - dx,
+        f.oy - dy,
+      );
     c.save();
     c.setTransform(f.scale, 0, 0, f.scale, f.ox, f.oy);
     c.clip(clip, "evenodd");
-    c.setTransform(1, 0, 0, 1, 0, 0);
+    // The land whitened toward the snow, as deep as the winter is.
+    c.imageSmoothingEnabled = true;
     c.globalCompositeOperation = "source-over";
-    c.globalAlpha = 1;
-    c.drawImage(work, 0, 0);
+    c.globalAlpha = WINTER_INK.cover;
+    mapToMask(c, 0, 0);
+    c.drawImage(mask, 0, 0);
+    // The flecks and the falling snow, kept to the snow by the mask, on a
+    // canvas the size of the winter's part of the view.
+    const work = (this.work ??= document.createElement("canvas"));
+    if (work.width < bw || work.height < bh) {
+      work.width = Math.max(work.width, bw);
+      work.height = Math.max(work.height, bh);
+    }
+    const w = work.getContext("2d");
+    if (w) {
+      w.setTransform(1, 0, 0, 1, 0, 0);
+      w.globalCompositeOperation = "source-over";
+      w.globalAlpha = 1;
+      w.clearRect(0, 0, bw, bh);
+      w.setTransform(f.scale, 0, 0, f.scale, f.ox - x0, f.oy - y0);
+      const pat = this.flecks(w);
+      if (pat) {
+        // Fixed to the map, the same size on the screen.
+        pat.setTransform(new DOMMatrix().scaleSelf(1 / f.scale, 1 / f.scale));
+        w.fillStyle = pat;
+        w.fillRect(
+          (x0 - f.ox) / f.scale,
+          (y0 - f.oy) / f.scale,
+          bw / f.scale,
+          bh / f.scale,
+        );
+      }
+      const pts = scatter("snow", 2600, this.map.width, this.map.height);
+      const r0 = 1 / Math.max(0.01, viewScale);
+      const mx0 = (x0 - f.ox) / f.scale;
+      const my0 = (y0 - f.oy) / f.scale;
+      const mx1 = (x1 - f.ox) / f.scale;
+      const my1 = (y1 - f.oy) / f.scale;
+      w.fillStyle = "#ffffff";
+      w.beginPath();
+      for (let i = 0; i < pts.length; i += 3) {
+        const px = pts[i];
+        const py = pts[i + 1];
+        if (px < mx0 || py < my0 || px > mx1 || py > my1) continue;
+        const rad = (0.6 + pts[i + 2] * 1.2) * r0;
+        w.moveTo(px + rad, py);
+        w.arc(px, py, rad, 0, Math.PI * 2);
+      }
+      w.fill();
+      w.globalCompositeOperation = "destination-in";
+      w.imageSmoothingEnabled = true;
+      mapToMask(w, x0, y0);
+      w.drawImage(mask, 0, 0);
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.globalAlpha = WINTER_INK.flecks;
+      c.drawImage(work, 0, 0, bw, bh, x0, y0, bw, bh);
+    }
     c.restore();
   }
+}
+
+function rgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
 /** One box blur of radius r over a w×h field, in place (rows, then columns). */
@@ -270,23 +317,22 @@ function boxBlur(a: Float32Array, w: number, h: number, r: number): void {
   for (let y = 0; y < h; y++) {
     const row = y * w;
     let sum = 0;
-    for (let x = -r; x <= r; x++) sum += a[row + Math.min(w - 1, Math.max(0, x))];
+    for (let x = -r; x <= r; x++)
+      sum += a[row + Math.min(w - 1, Math.max(0, x))];
     for (let x = 0; x < w; x++) {
       tmp[x] = sum / span;
-      const out = a[row + Math.max(0, x - r)];
-      const inn = a[row + Math.min(w - 1, x + r + 1)];
-      sum += inn - out;
+      sum += a[row + Math.min(w - 1, x + r + 1)] - a[row + Math.max(0, x - r)];
     }
     for (let x = 0; x < w; x++) a[row + x] = tmp[x];
   }
   for (let x = 0; x < w; x++) {
     let sum = 0;
-    for (let y = -r; y <= r; y++) sum += a[Math.min(h - 1, Math.max(0, y)) * w + x];
+    for (let y = -r; y <= r; y++)
+      sum += a[Math.min(h - 1, Math.max(0, y)) * w + x];
     for (let y = 0; y < h; y++) {
       tmp[y] = sum / span;
-      const out = a[Math.max(0, y - r) * w + x];
-      const inn = a[Math.min(h - 1, y + r + 1) * w + x];
-      sum += inn - out;
+      sum +=
+        a[Math.min(h - 1, y + r + 1) * w + x] - a[Math.max(0, y - r) * w + x];
     }
     for (let y = 0; y < h; y++) a[y * w + x] = tmp[y];
   }

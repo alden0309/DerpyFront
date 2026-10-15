@@ -145,6 +145,8 @@ export function canHear(
     const n = peopleOf(s, def);
     const nation = s.nations[n];
     if (!nation?.alive) return false;
+    // CQ24 (r24): whoever dug it is never told of it again.
+    if (nation.sacred?.[def.key]?.by === me.id) return false;
     if (me.nation === n) return true;
     if (s.provinces[life.prov]?.owner === n) return true;
     return knows(s, map, me, motherTongue(nation.culture)) >= 1;
@@ -503,6 +505,14 @@ function found(
   if (out.keep) {
     const [lo, hi] = LEGEND_RULES.keepAfter;
     x.keepDue = s.day + ldice(s, 0x05, life.c, s.day).int(lo, hi);
+    // CQ24 (r24): keeping faith pays among its people too.
+    keptFaith(
+      g,
+      def,
+      me.nation,
+      me.id,
+      `Walked ${def.name.replace(/,.*$/, "")} with an elder`,
+    );
   }
   milestone(
     g,
@@ -542,6 +552,16 @@ export function keepPlace(
   if (kept) {
     st.kept = { ...(st.kept ?? {}), [def.key]: g.s.day };
     addRenown(g, life, 4);
+    // CQ24 (r24): and their people remember who spoke for it.
+    const me = meOf(g.s, life);
+    if (me)
+      keptFaith(
+        g,
+        def,
+        me.nation,
+        me.id,
+        `Spoke for ${def.name.replace(/,.*$/, "")}`,
+      );
     gainXp(g, life, "faith", 10);
     milestone(
       g,
@@ -550,6 +570,32 @@ export function keepPlace(
       `Spoke for ${def.name.replace(/,.*$/, "")}, and it was kept`,
     );
   }
+}
+
+/**
+ * CQ24 (r24): keeping faith with a sacred place pays among its people: their
+ * nation thinks better of the keeper's (KEPT_FAITH), as plundering it makes
+ * them think worse (SacredPlunder.ts).
+ */
+export const KEPT_FAITH = { value: 10, years: 20 };
+
+function keptFaith(
+  g: ConquestGame,
+  def: LegendDef,
+  of: number,
+  by: number,
+  why: string,
+): void {
+  const n = peopleOf(g.s, def);
+  if (n < 0 || of < 0 || n === of) return;
+  const x = g.nation(n);
+  x.relations[of] = (x.relations[of] ?? []).filter((m) => m.why !== why);
+  x.relations[of].push({
+    of: by,
+    why,
+    value: KEPT_FAITH.value,
+    until: g.s.day + Math.round(KEPT_FAITH.years * 365),
+  });
 }
 
 function drop(g: ConquestGame, life: Life, key: string): string | null {
@@ -575,6 +621,8 @@ hooks.command.push((g, life, c: LifeCommand) => {
       return work(g, life, String(c.key ?? ""));
     case "drop":
       return drop(g, life, String(c.key ?? ""));
+    case "plunder":
+      return undefined; // CQ24 (r24): SacredPlunder.ts
     default:
       return "Unknown command.";
   }

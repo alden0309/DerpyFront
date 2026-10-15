@@ -56,6 +56,7 @@ import { FOUNTAIN } from "../../src/conquest/engine/LegendsData";
 import { meOf, skillLevel } from "../../src/conquest/engine/LifeQueries";
 import { checkChance } from "../../src/conquest/engine/LifeRules";
 import { atWar, provincesOf } from "../../src/conquest/engine/Queries";
+import { PLUNDER_FINDS } from "../../src/conquest/engine/SacredPlunder"; // CQ24 (r24)
 import type { GameState, Life } from "../../src/conquest/engine/Types";
 import { lifeOf, map, plan, prov, ticks, toNextMonth, world } from "./LifeUtil";
 
@@ -473,17 +474,31 @@ describe("Legends", () => {
     expect(maxHealthOf(s, me, life).total).toBe(withIt);
   });
 
-  test("sacred places are learned and kept, never plundered", () => {
+  // CQ24 (r24): kept on the trail's own road, or plundered (the plunder's
+  // own tests are in ConquestCq24.test.ts).
+  test("sacred places are learned and kept, or plundered", () => {
     const sacred = LEGENDS.filter((d) => d.kind === "sacred");
     expect(sacred.map((d) => d.key).sort()).toEqual(
       ["bdote", "cahokia", "kituwah", "pahasapa", "serpent"].sort(),
     );
     for (const d of sacred) {
       expect(d.people, d.key).toBeTruthy();
+      // Kept: the walk with an elder pays no coins, and asks your promise.
       for (const o of d.outcomes) {
         expect(o.coins, d.key).toBeUndefined();
         expect(o.keep, d.key).toBe(true);
       }
+      // Plundered: what a dig may find, by its chances.
+      const finds = PLUNDER_FINDS[d.key];
+      expect(finds?.length, d.key).toBeGreaterThan(1);
+      expect(
+        finds.reduce((m, f) => m + f.chance, 0),
+        d.key,
+      ).toBeCloseTo(1, 9);
+      expect(
+        finds.some((f) => f.coins[1] > 0),
+        d.key,
+      ).toBe(true);
     }
   });
 
