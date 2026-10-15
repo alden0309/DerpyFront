@@ -1005,18 +1005,25 @@ export class NationStructureBehavior {
   private maybeBuildProactiveDefensePost(): boolean {
     const config = this.game.config();
     const { difficulty } = config.gameConfig();
+    // AIP (r24): a Protector fortifies like Hard on Medium too, with twice
+    // the posts per city (rules 6+)
+    const postsPct = playerAiTuning(this.game, this.player).defensePostsPct;
     const hostileTroopRatio =
-      PROACTIVE_DEFENSE_POST_HOSTILE_TROOP_RATIO[difficulty];
+      PROACTIVE_DEFENSE_POST_HOSTILE_TROOP_RATIO[difficulty] ??
+      (postsPct > 100 && difficulty === Difficulty.Medium
+        ? PROACTIVE_DEFENSE_POST_HOSTILE_TROOP_RATIO[Difficulty.Hard]
+        : undefined);
     if (hostileTroopRatio === undefined) return false;
     if (config.isUnitDisabled(UnitType.DefensePost)) return false;
     const cityCount = this.cityCount();
     if (cityCount < PROACTIVE_DEFENSE_POST_MIN_CITIES) return false;
 
     const player = this.player;
-    if (
-      player.units(UnitType.DefensePost).length >=
-      cityCount * PROACTIVE_DEFENSE_POSTS_PER_CITY
-    )
+    const perCity =
+      postsPct === 100
+        ? PROACTIVE_DEFENSE_POSTS_PER_CITY
+        : (PROACTIVE_DEFENSE_POSTS_PER_CITY * postsPct) / 100;
+    if (player.units(UnitType.DefensePost).length >= cityCount * perCity)
       return false;
     if (player.gold() < this.cost(UnitType.DefensePost)) return false;
 
@@ -1527,10 +1534,14 @@ export class NationStructureBehavior {
     // DFSTORE (r21): a persona's temperament leans what it builds (rules 5).
     const tuning = nationTemperament(this.game, this.player);
     let ratio = config.ratioPerCity * (tuning.structures[type] ?? 1);
-    // AIP (r23): and so does a personality (rules 6+)
+    // AIP (r23): and so does a personality (rules 6+). r24: its extra
+    // buildings only once it holds a few cities
     const aip = playerAiTuning(this.game, this.player);
+    const extras = cityCount >= aip.extrasFromCities;
     const pct = aip.structuresPct[type];
-    if (pct !== undefined) ratio = (ratio * pct) / 100;
+    if (pct !== undefined && (extras || pct < 100)) {
+      ratio = (ratio * pct) / 100;
+    }
 
     // Reduce factory spawning if we have coastal tiles
     if (
@@ -1549,7 +1560,7 @@ export class NationStructureBehavior {
         ratio =
           tuning !== NO_TEMPERAMENT
             ? tuning.firstSiloRatio
-            : aip.firstSiloPct !== FIRST_MISSILE_SILO_PERCENT
+            : aip.firstSiloPct !== FIRST_MISSILE_SILO_PERCENT && extras
               ? aip.firstSiloPct / 100
               : FIRST_MISSILE_SILO_RATIO;
       }
@@ -1576,7 +1587,7 @@ export class NationStructureBehavior {
   private maybeSpawnStructure(type: UnitType): boolean {
     const game = this.game;
     const perceivedCost = this.getPerceivedCost(type);
-    if (this.player.gold() < perceivedCost) {
+    if (this.player.gold() < perceivedCost + this.bombReserve()) {
       return false;
     }
 
@@ -1618,6 +1629,22 @@ export class NationStructureBehavior {
     }
     game.addExecution(new ConstructionExecution(this.player, type, tile));
     return true;
+  }
+
+  /**
+   * AIP (r24): the gold a Trader or a Protector keeps in hand through its
+   * building once it has a silo: an atom bomb's price, so it can answer a
+   * bomb or an attack (rules 6+). Nothing for other nations.
+   */
+  private bombReserve(): Gold {
+    if (
+      !playerAiTuning(this.game, this.player).keepsBomb ||
+      this.player.unitCount(UnitType.MissileSilo) === 0 ||
+      this.game.config().isUnitDisabled(UnitType.AtomBomb)
+    ) {
+      return 0n;
+    }
+    return this.cost(UnitType.AtomBomb);
   }
 
   /**

@@ -126,11 +126,17 @@ export type Betrayal =
 export type NukeStyle =
   /** As nations always have. */
   | "usual"
-  /** More often, at those at war with it and the strongest threats. */
+  /**
+   * More often: as nations always do, and then at those at war with it and
+   * the strongest threats; never holding bombs back for a MIRV.
+   */
   | "focused"
-  /** Only those attacking it now. */
+  /** Only those hitting it now: attacking it, or with a bomb flying at it. */
   | "answer"
-  /** Only whoever attacked it, for as long as it remembers (Protector). */
+  /**
+   * Those hitting it now, and whoever attacked it for as long as it
+   * remembers, with everything it has (Protector).
+   */
   | "grudge";
 
 export interface AiTuning {
@@ -152,6 +158,12 @@ export interface AiTuning {
   maxSilos: number;
   /** Percent per city for its first silo (40 usually): higher, sooner. */
   firstSiloPct: number;
+  /**
+   * AIP r24: cities it holds before its extra buildings (structuresPct over
+   * 100, firstSiloPct) start; before that it builds as Normal does, so its
+   * economy gets going first (0: from the start).
+   */
+  extrasFromCities: number;
   /**
    * Percent of the usual rise in what one more of a building feels like it
    * costs, per one owned, while the nation saves for nukes (100 usually):
@@ -179,6 +191,11 @@ export interface AiTuning {
    * throwing bombs instead of saving.
    */
   nukeCostRisePct: number;
+  /**
+   * AIP r24: once it has a silo, it keeps an atom bomb's price in hand
+   * through its building, so it can answer a bomb or an attack.
+   */
+  keepsBomb: boolean;
   /** Answers an attack at once on every difficulty, not only Hard and up. */
   answersAtOnce: boolean;
   /** Prefers an island of its own, and unclaimed land across the sea. */
@@ -203,6 +220,7 @@ export const NORMAL_TUNING: AiTuning = {
   ],
   maxSilos: 3,
   firstSiloPct: 40,
+  extrasFromCities: 0,
   costRisePct: {},
   defensePostsPct: 100,
   defenseThreatPct: 100,
@@ -213,6 +231,7 @@ export const NORMAL_TUNING: AiTuning = {
   betrayal: "usual",
   nukes: "usual",
   nukeCostRisePct: 100,
+  keepsBomb: false,
   answersAtOnce: false,
   islander: false,
   avenger: false,
@@ -224,23 +243,18 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
   mad_scientist: {
     ...NORMAL_TUNING,
     // SAMs are the dearest of these (up to $3M each), so they get the most
-    // room and come first; measured, it ends up with about twice Normal's
-    // SAMs and silos per city on Medium
+    // room. r24: its trade comes first, in Normal's order, and its extras
+    // only from its fourth city, or it falls behind and never gets rich
     structuresPct: {
       [UnitType.Factory]: 200,
       [UnitType.SAMLauncher]: 300,
       [UnitType.MissileSilo]: 250,
     },
-    // Its SAMs and silos before its trade
-    buildOrder: [
-      UnitType.SAMLauncher,
-      UnitType.MissileSilo,
-      UnitType.Factory,
-      UnitType.Port,
-    ],
     maxSilos: 8,
     firstSiloPct: 80,
+    extrasFromCities: 4,
     costRisePct: {
+      [UnitType.Factory]: 50,
       [UnitType.SAMLauncher]: 30,
       [UnitType.MissileSilo]: 30,
     },
@@ -263,6 +277,7 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     allyAskOdds: 15,
     betrayal: "less",
     nukes: "answer",
+    keepsBomb: true,
     answersAtOnce: true,
     islander: true,
   },
@@ -298,6 +313,8 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
       UnitType.Factory,
     ],
     maxSilos: 6,
+    // r24: its extras from its fourth city, so its economy gets going first
+    extrasFromCities: 4,
     // Saves least against cities (measured: about a fifth more cities than
     // Normal, still two to three times its SAMs per city on Medium; at 0 it
     // would buy cities with everything and hardly any SAMs)
@@ -314,6 +331,7 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     allyAskOdds: 15,
     betrayal: "rarely",
     nukes: "grudge",
+    keepsBomb: true,
     answersAtOnce: true,
     avenger: true,
   },

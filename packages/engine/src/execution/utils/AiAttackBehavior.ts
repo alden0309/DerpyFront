@@ -75,6 +75,34 @@ const ISLAND_MAX_TILES = 60_000;
 /** AIP (r23): the share of its troop cap a Protector keeps when it avenges. */
 const AVENGER_KEEPS = 0.25;
 
+/** AIP (r24): how long a personality nation remembers who bombed it (1 minute). */
+const BOMBER_MEMORY_TICKS = 600;
+
+const BOMB_TYPES: readonly UnitType[] = [
+  UnitType.AtomBomb,
+  UnitType.HydrogenBomb,
+  UnitType.MIRV,
+  UnitType.MIRVWarhead,
+];
+
+// AIP (r24): the bombs in the air, gathered once a tick for every nation
+// that looks (a pure function of the game's state at that tick).
+const bombsInAir = new WeakMap<Game, { tick: number; bombs: Unit[] }>();
+
+function bombsInFlight(game: Game): Unit[] {
+  const cached = bombsInAir.get(game);
+  if (cached !== undefined && cached.tick === game.ticks()) {
+    return cached.bombs;
+  }
+  const bombs: Unit[] = [];
+  for (const p of game.players()) {
+    if (BOMB_TYPES.every((t) => p.unitCount(t) === 0)) continue;
+    bombs.push(...p.units(BOMB_TYPES));
+  }
+  bombsInAir.set(game, { tick: game.ticks(), bombs });
+  return bombs;
+}
+
 // Reusable neighbor buffer for hot loops; the simulation is single-threaded.
 const NEIGHBOR_SCRATCH: TileRef[] = [0, 0, 0, 0];
 
@@ -108,6 +136,10 @@ export class AiAttackBehavior {
   private island: boolean | null = null;
   private grudge: Player | null = null;
   private grudgeUntil = 0;
+  // AIP (r24, rules 6+): who last bombed a personality nation, until when
+  // it answers them
+  private bomber: Player | null = null;
+  private bomberUntil = 0;
 
   constructor(
     private random: PseudoRandom,
@@ -132,6 +164,8 @@ export class AiAttackBehavior {
       island: this.island,
       grudge: w.playerOrNull(this.grudge),
       grudgeUntil: this.grudgeUntil,
+      bomber: w.playerOrNull(this.bomber),
+      bomberUntil: this.bomberUntil,
     });
   }
 
@@ -163,6 +197,8 @@ export class AiAttackBehavior {
     this.island = s.island;
     this.grudge = r.playerOrNull(s.grudge);
     this.grudgeUntil = s.grudgeUntil;
+    this.bomber = r.playerOrNull(s.bomber);
+    this.bomberUntil = s.bomberUntil;
     // Scratch buffer: always written before it is read.
     this.nbuf = [0, 0, 0, 0];
   }
@@ -878,6 +914,51 @@ export class AiAttackBehavior {
       this.grudge = attacker;
       this.grudgeUntil = this.game.ticks() + GRUDGE_TICKS;
     }
+  }
+
+  /**
+   * AIP (r24): called every tick for a nation dealt a personality (rules
+   * 6+): notes whoever has a bomb in the air at its land, for a minute, so
+   * it can answer even a bomb that lands before its next decision. A
+   * Protector holding no grudge takes the bomber for one.
+   */
+  noteBombers(): void {
+    for (const bomb of bombsInFlight(this.game)) {
+      const from = bomb.owner();
+      const target = bomb.targetTile();
+      if (
+        from === this.player ||
+        target === undefined ||
+        this.game.owner(target) !== this.player ||
+        from.type() === PlayerType.Bot ||
+        this.player.isFriendly(from)
+      ) {
+        continue;
+      }
+      const ticks = this.game.ticks();
+      this.bomber = from;
+      this.bomberUntil = ticks + BOMBER_MEMORY_TICKS;
+      if (this.tuning().avenger && this.grudgeTarget() === null) {
+        this.grudge = from;
+        this.grudgeUntil = ticks + GRUDGE_TICKS;
+      }
+      return;
+    }
+  }
+
+  /** AIP (r24): who bombed us within the last minute, if still a foe. */
+  recentBomber(): Player | null {
+    const b = this.bomber;
+    if (b === null) return null;
+    if (
+      this.game.ticks() >= this.bomberUntil ||
+      !b.isAlive() ||
+      this.player.isFriendly(b)
+    ) {
+      this.bomber = null;
+      return null;
+    }
+    return b;
   }
 
   /**
@@ -2294,7 +2375,7 @@ export class AiAttackBehavior {
 
 export const AiAttackBehaviorSnapshot = snapshotType({
   name: "AiAttackBehavior",
-  version: 3,
+  version: 4,
   schema: z.object({
     botAttackTroopsSent: zNum(),
     followedLandings: z.array(zRef()),
@@ -2304,11 +2385,15 @@ export const AiAttackBehaviorSnapshot = snapshotType({
     island: z.boolean().nullable(),
     grudge: zPlayerRef().nullable(),
     grudgeUntil: zInt(),
+    bomber: zPlayerRef().nullable(),
+    bomberUntil: zInt(),
   }),
   migrations: {
     // v1 nations never followed up landings
     1: (d) => ({ ...d, followedLandings: [] }),
     // v2 games (before AIP r23) had no personalities to remember anything
     2: (d) => ({ ...d, island: null, grudge: null, grudgeUntil: 0 }),
+    // v3 games (AIP r23) didn't note who bombed them
+    3: (d) => ({ ...d, bomber: null, bomberUntil: 0 }),
   },
 });
