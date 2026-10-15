@@ -150,6 +150,7 @@ describe("the art and sound", () => {
       author: string;
       license: string;
       source: string;
+      changes?: string;
     }[];
   };
   const credited = new Set(credits.items.flatMap((c) => c.keys));
