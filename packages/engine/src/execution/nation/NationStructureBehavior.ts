@@ -205,6 +205,8 @@ const DOME_RETRY_TICKS = 300;
  * the rest (Medium and up)...
  */
 const DOME_SAVE_FROM_TENTHS = 6n;
+/** AIP (r23): the same for a Mad Scientist or a Protector. */
+const DOME_KEEN_SAVE_FROM_TENTHS = 4n;
 /** ...for at most this many ticks out of twice as many. */
 const DOME_SAVE_MAX_TICKS = 3000; // 5 minutes
 /** Structures a nation prefers to put under its Domes when threatened. */
@@ -522,12 +524,17 @@ export class NationStructureBehavior {
     const pressed = this.underLandPressure();
     const needed = this.domePrice(pressed);
     const gold = this.player.gold();
+    // AIP (r23): Mad Scientists and Protectors save for every Dome, from
+    // less of its price
+    const keen = aip.domeBarPct < 100;
     if (gold < needed) {
       if (
         pressed ||
-        domes.length > 0 ||
+        (domes.length > 0 && !keen) ||
         config.gameConfig().difficulty === Difficulty.Easy ||
-        gold * 10n < needed * DOME_SAVE_FROM_TENTHS ||
+        gold * 10n <
+          needed *
+            (keen ? DOME_KEEN_SAVE_FROM_TENTHS : DOME_SAVE_FROM_TENTHS) ||
         this.savingForDome() !== null ||
         !this.mayStartSaving(ticks)
       ) {
@@ -572,7 +579,10 @@ export class NationStructureBehavior {
    */
   private domePrice(pressed: boolean): Gold {
     const cost = this.cost(UnitType.Dome);
-    const price = this.nukedTick !== null ? cost : (cost * 5n) / 4n;
+    // AIP (r23): Mad Scientists and Protectors don't wait for the extra
+    // quarter before a nuke has come (rules 6+)
+    const keen = playerAiTuning(this.game, this.player).domeBarPct < 100;
+    const price = this.nukedTick !== null || keen ? cost : (cost * 5n) / 4n;
     return pressed ? price + cost : price;
   }
 

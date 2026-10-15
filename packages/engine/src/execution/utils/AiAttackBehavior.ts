@@ -62,6 +62,9 @@ import {
 } from "../TransportShipExecution";
 import { closestTwoTiles } from "../Util";
 
+/** AIP (r23): the share of its troop cap a Protector keeps when it avenges. */
+const AVENGER_KEEPS = 0.25;
+
 // Reusable neighbor buffer for hot loops; the simulation is single-threaded.
 const NEIGHBOR_SCRATCH: TileRef[] = [0, 0, 0, 0];
 
@@ -280,13 +283,18 @@ export class AiAttackBehavior {
       this.attackBestTarget(borderingFriends, borderingEnemies);
       return;
     }
+    // AIP (r23): a peaceful personality's random boats only settle
+    // unclaimed land; they never land on another player unprovoked
+    const peaceful = tuning.warPct < 100;
     if (borderingEnemies.length === 0) {
       if (!holdBoats && this.random.chance(5)) {
-        this.attackWithRandomBoat();
+        if (peaceful) this.boatToUnclaimedLand();
+        else this.attackWithRandomBoat();
       }
     } else {
       if (!holdBoats && this.random.chance(10)) {
-        this.attackWithRandomBoat(borderingEnemies);
+        if (peaceful) this.boatToUnclaimedLand();
+        else this.attackWithRandomBoat(borderingEnemies);
         return;
       }
 
@@ -863,17 +871,24 @@ export class AiAttackBehavior {
   }
 
   /**
-   * AIP (r23): a Protector's answer: most of its army, everything over what
-   * it may spend on empty land, at whoever attacked it, by land or by sea.
+   * AIP (r23): a Protector's answer: most of its army (all but a quarter of
+   * its troop cap) at whoever attacked it, by land or by sea. While the
+   * attack goes on it answers at every decision; after, as long as it
+   * remembers, it strikes again each time its army is back to its reserve.
    */
   private avenge(): boolean {
     const target = this.grudgeTarget();
     if (target === null) return false;
+    const underAttack = this.player
+      .incomingAttacks()
+      .some((a) => a.attacker() === target);
+    if (!underAttack && !this.hasReserveRatioTroops()) return false;
     if (!this.bordersByLand(target)) return this.sendBoatAttack(target);
     const maxTroops = this.game.config().maxTroops(this.player);
+    const keep = Math.max(this.expandRatio, AVENGER_KEEPS);
     return this.sendLandAttack(
       target,
-      () => this.player.troops() - maxTroops * this.expandRatio,
+      () => this.player.troops() - maxTroops * keep,
       target,
     );
   }

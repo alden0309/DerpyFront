@@ -27,7 +27,8 @@ import {
   AiAttackBehavior,
   AiAttackBehaviorSnapshot,
 } from "@openfront/engine/execution/utils/AiAttackBehavior";
-import { Game, Player } from "@openfront/engine/game/Game";
+import { Execution, Game, Player } from "@openfront/engine/game/Game";
+import { GameImpl } from "@openfront/engine/game/GameImpl";
 import { dealtAiTypes } from "@openfront/engine/game/NationAiTypes";
 import {
   createScriptedRunner,
@@ -68,8 +69,13 @@ function nationAt(g: Game, id: string) {
   return { exec, attack: e.attackBehavior, nuke: e.nukeBehavior };
 }
 
+/** Every execution the game holds, started or waiting to start. */
+function executions(g: Game): Execution[] {
+  return (g as GameImpl).executions();
+}
+
 function queued<T>(g: Game, cls: abstract new (...a: never[]) => T): T[] {
-  return g.executions().filter((e): e is T & typeof e => e instanceof cls);
+  return executions(g).filter((e): e is T & Execution => e instanceof cls);
 }
 
 describe("a Protector", () => {
@@ -159,10 +165,10 @@ describe("a Protector", () => {
     expect(attack.grudgeTarget()).toBe(raider);
     const counter = attacksOn(g, raider);
     expect(counter).toHaveLength(1);
-    // Everything over what it may spend on empty land (10-19% of its cap)
+    // All but a quarter of its troop cap: 65% - 25%
     const sent = (counter[0] as unknown as { startTroops: number }).startTroops;
-    expect(sent).toBeGreaterThan(max * 0.45);
-    expect(sent).toBeLessThanOrEqual(max * 0.55);
+    expect(sent).toBeGreaterThan(max * 0.39);
+    expect(sent).toBeLessThanOrEqual(max * 0.41);
 
     nuke.maybeSendNuke();
     expect(nukesAt(g, raider)).toHaveLength(1);
@@ -174,7 +180,7 @@ describe("a Protector", () => {
     for (const u of guard.units(UnitType.AtomBomb, UnitType.HydrogenBomb)) {
       u.delete(false);
     }
-    for (const e of g.executions()) {
+    for (const e of executions(g)) {
       if (e instanceof NukeExecution) {
         (e as unknown as { active: boolean }).active = false;
       }

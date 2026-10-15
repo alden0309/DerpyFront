@@ -230,7 +230,7 @@ export class NationNukeBehavior {
         difficulty === Difficulty.Hard ||
         difficulty === Difficulty.Impossible) &&
       !config.isUnitDisabled(UnitType.AtomBomb) &&
-      (!this.isHydroNation || this.isUnderHeavyAttack() || this.allOut()) &&
+      (!this.isHydroNation || this.isUnderHeavyAttack() || this.anyBomb()) &&
       this.player.gold() >= this.getPerceivedNukeCost(UnitType.AtomBomb) &&
       this.canSpare(this.cost(UnitType.AtomBomb))
     ) {
@@ -320,15 +320,22 @@ export class NationNukeBehavior {
   }
 
   /**
-   * AIP (r23): a Mad Scientist, or a Protector taking revenge, throws its
-   * bombs at their real price (it doesn't save for a MIRV), atom bombs too,
-   * and doesn't hold them back for a Dome (rules 6+).
+   * AIP (r23): a Protector taking revenge throws its bombs at their real
+   * price (it doesn't save for a MIRV), atom bombs too, and doesn't hold
+   * them back for a Dome (rules 6+).
    */
   private allOut(): boolean {
-    const style = playerAiTuning(this.game, this.player).nukes;
     return (
-      style === "focused" ||
-      (style === "grudge" && this.attackBehavior.grudgeTarget() !== null)
+      playerAiTuning(this.game, this.player).nukes === "grudge" &&
+      this.attackBehavior.grudgeTarget() !== null
+    );
+  }
+
+  /** AIP (r23): a Mad Scientist throws atom bombs too, never only hydrogen. */
+  private anyBomb(): boolean {
+    return (
+      playerAiTuning(this.game, this.player).nukes === "focused" ||
+      this.allOut()
     );
   }
 
