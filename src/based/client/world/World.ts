@@ -318,8 +318,12 @@ export class World {
     this.post = new Post(this.renderer, new THREE.Scene(), this.camera, {
       bloom: tier === "high",
       paint: tier === "high",
-      samples: tier === "high" ? 4 : 0,
+      // r24: phones get a little multisampling too, or thin things (stool
+      // legs, the rain) crawl as he walks.
+      samples: tier === "high" ? 4 : 2,
     });
+    // r24: no grain on lighter devices, where the image is already softer.
+    if (tier !== "high") this.post.setGrain(0);
     // BPEOPLE (r22): cut the cast's clothes now, not when they first appear.
     warmCast(assets.rigs, cast);
     this.resize();
@@ -1925,10 +1929,12 @@ export class World {
   resize = () => {
     const w = this.canvas.clientWidth || window.innerWidth;
     const h = this.canvas.clientHeight || window.innerHeight;
-    // r22: a cap on the device's pixel ratio (the painted look needs no
-    // more), then whatever share of that the device keeps up with.
+    // r22: a cap on the device's pixel ratio, then whatever share of that
+    // the device keeps up with. r24: phones drew at 1 (a third of a modern
+    // phone's pixels each way), which with the grain read as static; now
+    // 1.5 there and 2 on computers, and the share drops if frames run slow.
     const dpr =
-      Math.min(window.devicePixelRatio || 1, this.tier === "high" ? 1.5 : 1) *
+      Math.min(window.devicePixelRatio || 1, this.tier === "high" ? 2 : 1.5) *
       this.scale;
     this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);

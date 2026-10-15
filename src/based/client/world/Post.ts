@@ -20,7 +20,7 @@ const NoirShader = {
     resolution: { value: new THREE.Vector2(1, 1) },
     time: { value: 0 },
     paint: { value: 0 },
-    grain: { value: 0.05 },
+    grain: { value: 0.015 },
     vignette: { value: 0.9 },
     fade: { value: 1 },
   },
@@ -82,8 +82,9 @@ const NoirShader = {
       vec2 d = vUv - 0.5;
       d.x *= resolution.x / resolution.y;
       c *= 1.0 - vignette * smoothstep(0.35, 1.25, length(d));
-      // Grain.
-      float g = hash(vUv * resolution + fract(time * 13.7) * 91.0) - 0.5;
+      // Grain: a faint, still tooth to the image (r24: it used to change
+      // every frame, which read as television static, worst on phones).
+      float g = hash(floor(vUv * resolution)) - 0.5;
       c += g * grain * (1.0 - l * 0.5);
       gl_FragColor = vec4(c * fade, 1.0);
     }`,
@@ -141,6 +142,11 @@ export class Post {
   /** r22: the place to draw (each place is its own scene). */
   setScene(scene: THREE.Scene): void {
     this.pass.scene = scene;
+  }
+
+  /** r24: how much grain (0 for none). */
+  setGrain(k: number): void {
+    this.noir.uniforms.grain.value = k;
   }
 
   setPaint(on: boolean): void {

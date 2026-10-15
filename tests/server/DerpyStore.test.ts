@@ -86,12 +86,13 @@ describe("the catalog", () => {
           i.price,
         ]),
       );
-    // AIP (r23): four personalities, one by one, instead of r21's packs
+    // AIP (r23): four personalities, one by one, instead of r21's packs;
+    // r24: 750 each.
     expect(price("personalities")).toEqual({
-      ai_mad_scientist: 2500,
-      ai_trader: 1500,
-      ai_aggressive: 1800,
-      ai_protector: 2000,
+      ai_mad_scientist: 750,
+      ai_trader: 750,
+      ai_aggressive: 750,
+      ai_protector: 750,
     });
     expect(price("effects")).toEqual({
       fx_solar: 1500,
@@ -140,8 +141,8 @@ describe("the catalog", () => {
     expect(items.map((i) => i.aiType)).toEqual([...AI_TYPES]);
     for (const item of items) {
       expect(item.game).toBe("derpyfront");
-      expect(item.price).toBeGreaterThanOrEqual(1000);
-      expect(item.price).toBeLessThanOrEqual(3000);
+      // r24: the owner set them at 750 each.
+      expect(item.price).toBe(750);
       // Brief: two or three sentences, a few lines on a card
       expect(item.description.length).toBeLessThanOrEqual(240);
       expect(item.description.split(/[.!?] /).length).toBeLessThanOrEqual(3);

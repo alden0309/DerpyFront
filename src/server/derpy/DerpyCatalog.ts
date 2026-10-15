@@ -490,11 +490,10 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
 ];
 // ---- end DLC (r21)
 
-// AIP (r23): the four AI personalities, sold one by one. Each says in two
-// or three lines what makes it unique (the owner's own words, kept true by
-// the engine's tuning: engine-lib/game/AiPersonalityTypes.ts). Priced
-// against the rest of the store: between a fanfare and a big skin pack, the
-// ones that change the most a little dearer.
+// AIP (r23): the four AI personalities, sold one by one. r24: the owner
+// asked for one short line on what each will do, and 750 coins each. The
+// engine's tuning (engine-lib/game/AiPersonalityTypes.ts) keeps them true.
+const PERSONALITY_PRICE = 750;
 const PERSONALITY_TEXT: Record<
   AiType,
   { displayName: string; description: string; price: number }
@@ -502,26 +501,26 @@ const PERSONALITY_TEXT: Record<
   mad_scientist: {
     displayName: "Mad Scientist",
     description:
-      "Builds more factories, and a lot more SAMs, missile silos and Domes of Alden than a normal AI. Puts its focus on nuking: more often, at whoever it's at war with and the biggest threats.",
-    price: 2500,
+      "Builds more factories, SAMs, missile silos and Domes of Alden, and nukes its enemies far more often.",
+    price: PERSONALITY_PRICE,
   },
   trader: {
     displayName: "Trader",
     description:
-      "Builds more factories and ports. Very peaceful and slow to start a fight, keeps a big army at home to defend with, and turns on allies less often. Given an island, it keeps to itself and settles the empty islands around it.",
-    price: 1500,
+      "Builds more factories and ports, keeps to itself (on an island if it can), and rarely starts a fight or turns on an ally.",
+    price: PERSONALITY_PRICE,
   },
   aggressive: {
     displayName: "Aggressive",
     description:
-      "Moves come 20% faster, so it takes empty land sooner. Attacks once it has 38–47% of its troop cap (usually 50–59%) and keeps only 22–31% at home (usually 30–39%). Builds a bigger army, and turns on an ally when it pays.",
-    price: 1800,
+      "Moves faster, attacks sooner with less held back at home, builds a bigger army, and turns on allies when it pays.",
+    price: PERSONALITY_PRICE,
   },
   protector: {
     displayName: "Protector",
     description:
-      "A little slower at the start, then digs in: twice the SAMs, missile silos, defense posts and Domes of Alden, and lots of cities for a big army. Rarely starts a war or betrays an ally, but attack it and it turns everything it has on you.",
-    price: 2000,
+      "Slow to start and rarely picks a fight, but builds twice the defenses and lots of cities, and hits back with everything when attacked.",
+    price: PERSONALITY_PRICE,
   },
 };
 
