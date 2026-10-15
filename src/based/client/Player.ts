@@ -39,7 +39,13 @@ import {
   StoryRun,
 } from "../engine/Runtime";
 import { slotOf, SlotSave } from "../engine/Save";
-import { Boost, fluency, LANGUAGES_SKILL } from "../engine/Skills";
+import {
+  Boost,
+  LANG_MAX,
+  langLevel,
+  langOf,
+  LANGUAGES_SKILL,
+} from "../engine/Skills";
 import { Build, Chapter, GEAR_SLOTS, GearSlot } from "../engine/Types";
 import {
   Credit,
@@ -585,7 +591,18 @@ export class BasedPlayer extends LitElement {
   }
 
   private skillName(id: string): string {
+    // r22 BPLAY: "LANGUAGES.fr" is his Languages in French.
+    const code = langOf(id);
+    if (code !== null) {
+      const lang = this.chapter.languages.find((l) => l.code === code);
+      return `${this.skillName(LANGUAGES_SKILL)} (${lang?.name ?? code})`;
+    }
     return this.chapter.skills.find((s) => s.id === id)?.name ?? id;
+  }
+
+  /** The skill a check names, for its colour: "LANGUAGES.fr" is Languages. */
+  private skillOf(id: string): string {
+    return langOf(id) === null ? id : LANGUAGES_SKILL;
   }
 
   /** r22 BPLAY: an attribute's voice: "--c" on the night, "--ci" on paper. */
@@ -595,13 +612,13 @@ export class BasedPlayer extends LitElement {
   }
 
   private skillColor(id: string): string {
-    const s = this.chapter.skills.find((x) => x.id === id);
+    const s = this.chapter.skills.find((x) => x.id === this.skillOf(id));
     return voice(this.chapter.attributes.findIndex((a) => a.id === s?.attr))
       .night;
   }
 
   private skillInk(id: string): string {
-    const s = this.chapter.skills.find((x) => x.id === id);
+    const s = this.chapter.skills.find((x) => x.id === this.skillOf(id));
     return voice(this.chapter.attributes.findIndex((a) => a.id === s?.attr))
       .paper;
   }
@@ -1041,12 +1058,13 @@ export class BasedPlayer extends LitElement {
         };
       },
     );
+    const rated = run.languages();
     const langs = [
       "American English",
-      ...(build.langs ?? []).map(
-        (c) => ch.languages.find((l) => l.code === c)?.name ?? c,
-      ),
-    ].join(", ");
+      ...ch.languages
+        .filter((l) => (rated[l.code] ?? 0) > 0)
+        .map((l) => `${l.name}, ${langLevel(rated[l.code])}`),
+    ].join("; ");
     const values = run.values();
     return {
       tab: this.dossierTab,
@@ -2183,9 +2201,6 @@ export class BasedPlayer extends LitElement {
     const values = this.run.skills();
     const build = this.run.build;
     const arch = this.chapter.archetypes.find((a) => a.id === build.archetype);
-    const langs = (build.langs ?? [])
-      .map((c) => this.chapter.languages.find((l) => l.code === c)?.name ?? c)
-      .join(", ");
     const gear = this.run.gearMods();
     const sign = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
     return html`<div class="mb-file">
@@ -2220,17 +2235,15 @@ export class BasedPlayer extends LitElement {
                           >`,
                       )}
                     </div>
+                    ${s.id === LANGUAGES_SKILL &&
+                    this.chapter.languages.length > 0
+                      ? this.renderLangSheet()
+                      : nothing}
                   </div>`;
                 })}
             </section>`,
         )}
       </div>
-      ${langs
-        ? html`<p class="mb-sheet-langs">
-            <b>Speaks</b> ${langs}, ${fluency(values[LANGUAGES_SKILL] ?? 0)};
-            and American English.
-          </p>`
-        : nothing}
       ${gear.length > 0
         ? html`<div class="mb-file-sub2">What he's wearing does</div>
             <ul class="mb-boosts">
@@ -2252,6 +2265,42 @@ export class BasedPlayer extends LitElement {
         six.
       </p>
     </div>`;
+  }
+
+  /**
+   * r22 BPLAY: his languages under Languages on the sheet: each rating, in
+   * pips and words, and where it comes from.
+   */
+  private renderLangSheet(): TemplateResult {
+    const rated = this.run.languages();
+    const sign = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
+    return html`<ul class="mb-sheet-langs" aria-label="His languages">
+      ${this.chapter.languages.map((l) => {
+        const n = rated[l.code] ?? 0;
+        const parts = this.run.languageParts(l.code);
+        return html`<li class=${n > 0 ? "on" : ""}>
+          <span class="mb-lang-name">${l.name}</span>
+          <span class="mb-lang-pips" role="img" aria-label="${n} of ${LANG_MAX}"
+            >${Array.from(
+              { length: Math.max(LANG_MAX, n) },
+              (_, i) => html`<i class=${i < n ? "on" : ""}></i>`,
+            )}</span
+          >
+          <span class="mb-lang-level">${langLevel(n)}</span>
+          ${parts.some((p) => !p.start)
+            ? html`<span class="mb-skill-from">
+                ${parts.map(
+                  (p) =>
+                    html`<span class=${p.item ? "gear" : ""}
+                      >${p.start ? p.delta : sign(p.delta)} ${p.why}</span
+                    >`,
+                )}
+              </span>`
+            : nothing}
+        </li>`;
+      })}
+      <li class="mb-sheet-langs-own">And American English, his own.</li>
+    </ul>`;
   }
 
   private renderJournal(): TemplateResult {

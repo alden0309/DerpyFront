@@ -19,6 +19,7 @@
 
 import { exprReads } from "./Expr";
 import { PlaceDef, placeNames } from "./Place";
+import { isSkillRef } from "./Skills";
 import { Chapter, END, Expr, FREE, Op, Scene } from "./Types";
 
 /**
@@ -198,7 +199,7 @@ export function validateChapter(
   const wornAtStart = new Map<string, string>();
   for (const it of Object.values(items)) {
     for (const b of it.bonus) {
-      if (!skills.has(b.skill)) {
+      if (!isSkillRef(chapter, b.skill)) {
         add(
           "error",
           undefined,

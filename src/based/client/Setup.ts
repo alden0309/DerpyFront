@@ -3,8 +3,10 @@
 // skill he's known for. The archetypes, attributes and skills come from the
 // chapter's script; this screen only lays them out.
 //
-// r22: and which languages he speaks, besides his own American English: as
-// many as his Languages skill allows (at least one), as well as it says.
+// r22 BPLAY: and what he speaks besides his own American English: his
+// Languages skill is a pool of points, spent here under Languages on each
+// of the chapter's languages (0 to 3: he doesn't speak it, gets by, fluent,
+// like a native).
 
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
@@ -12,9 +14,11 @@ import {
   buildOf,
   buildProblem,
   defaultBuild,
-  fluency,
+  LANG_MAX,
+  langLevel,
+  langSpent,
+  languagePool,
   LANGUAGES_SKILL,
-  languageSlots,
   skillValues,
 } from "../engine/Skills";
 import { Build, Chapter } from "../engine/Types";
@@ -28,8 +32,8 @@ export class BasedSetup extends LitElement {
   @property({ attribute: false }) back: () => void = () => {};
   @state() private pick = "";
   @state() private own: Build | null = null;
-  /** The languages picked (null: as many as he can, in the order written). */
-  @state() private langs: string[] | null = null;
+  /** Language points as the player spent them (r22 BPLAY); none to start. */
+  @state() private langPts: Record<string, number> = {};
 
   createRenderRoot() {
     return this;
@@ -48,39 +52,31 @@ export class BasedSetup extends LitElement {
             const a = this.chapter.archetypes.find((x) => x.id === this.pick);
             return a ? buildOf(a) : defaultBuild(this.chapter);
           })();
-    return { ...base, langs: this.langsFor(base) };
+    return { ...base, langPts: this.ptsFor(base) };
   }
 
-  /** His languages under a build: those picked, as many as he may have. */
-  private langsFor(b: Build): string[] {
-    const all = this.chapter.languages;
-    if (all.length === 0) return [];
-    const slots = languageSlots(
-      skillValues(this.chapter, b)[LANGUAGES_SKILL] ?? 0,
-      all.length,
-    );
-    const picked = (this.langs ?? []).filter((c) =>
-      all.some((l) => l.code === c),
-    );
-    if (picked.length > 0) return picked.slice(0, slots);
-    return all.slice(0, slots).map((l) => l.code);
-  }
-
-  private toggleLang(code: string, b: Build): void {
-    const all = this.chapter.languages;
-    const slots = languageSlots(
-      skillValues(this.chapter, b)[LANGUAGES_SKILL] ?? 0,
-      all.length,
-    );
-    const cur = b.langs ?? [];
-    if (cur.includes(code)) {
-      if (cur.length > 1) this.langs = cur.filter((c) => c !== code);
-    } else if (cur.length < slots) {
-      this.langs = [...cur, code];
-    } else {
-      // Full: the newest pick takes the place of the oldest.
-      this.langs = [...cur.slice(1), code];
+  /**
+   * The points spent, as far as this build's pool goes: a smaller pool (a
+   * different archetype, an attribute taken down) takes them back from the
+   * last languages first.
+   */
+  private ptsFor(b: Build): Record<string, number> {
+    let left = languagePool(this.chapter, b);
+    const out: Record<string, number> = {};
+    for (const l of this.chapter.languages) {
+      const n = Math.min(this.langPts[l.code] ?? 0, LANG_MAX, left);
+      if (n > 0) out[l.code] = n;
+      left -= n;
     }
+    return out;
+  }
+
+  private bumpLang(code: string, d: number, b: Build): void {
+    const cur = b.langPts ?? {};
+    const v = (cur[code] ?? 0) + d;
+    if (v < 0 || v > LANG_MAX) return;
+    if (d > 0 && langSpent(b) >= languagePool(this.chapter, b)) return;
+    this.langPts = { ...cur, [code]: v };
   }
 
   private startOwn(): Build {
@@ -208,34 +204,36 @@ export class BasedSetup extends LitElement {
                   .map(
                     (s) =>
                       html`<label
-                        class="mb-skill ${b.signature === s.id ? "sig" : ""}"
-                      >
-                        ${this.pick === "OWN"
-                          ? html`<input
-                              type="radio"
-                              name="sig"
-                              .checked=${b.signature === s.id}
-                              @change=${() =>
-                                (this.own = { ...b, signature: s.id })}
-                            />`
-                          : nothing}
-                        <span class="mb-skill-name"
-                          >${s.name}${b.signature === s.id
-                            ? html` <span class="mb-sig">signature</span>`
-                            : nothing}</span
+                          class="mb-skill ${b.signature === s.id ? "sig" : ""}"
                         >
-                        <span class="mb-skill-val">${values[s.id] ?? 0}</span>
-                        <span class="mb-skill-about">${s.about}</span>
-                      </label>`,
+                          ${this.pick === "OWN"
+                            ? html`<input
+                                type="radio"
+                                name="sig"
+                                .checked=${b.signature === s.id}
+                                @change=${() =>
+                                  (this.own = { ...b, signature: s.id })}
+                              />`
+                            : nothing}
+                          <span class="mb-skill-name"
+                            >${s.name}${b.signature === s.id
+                              ? html` <span class="mb-sig">signature</span>`
+                              : nothing}</span
+                          >
+                          <span class="mb-skill-val">${values[s.id] ?? 0}</span>
+                          <span class="mb-skill-about">${s.about}</span>
+                        </label>
+                        ${s.id === LANGUAGES_SKILL && c.languages.length > 0
+                          ? this.renderLangs(b)
+                          : nothing}`,
                   )}
               </section>`,
           )}
         </div>
       </section>
-      ${c.languages.length > 0 ? this.renderLangs(b, values) : nothing}
       <div class="mb-setup-go">
-        ${problem && this.pick === "OWN"
-          ? html`<span class="mb-setup-problem">${problem}</span>`
+        ${problem
+          ? html`<span class="mb-setup-problem" role="status">${problem}</span>`
           : nothing}
         <button
           class="mb-btn primary big"
@@ -249,36 +247,54 @@ export class BasedSetup extends LitElement {
     </main>`;
   }
 
-  private renderLangs(
-    b: Build,
-    values: Record<string, number>,
-  ): TemplateResult {
-    const skill = values[LANGUAGES_SKILL] ?? 0;
-    const slots = languageSlots(skill, this.chapter.languages.length);
-    const name = this.chapter.skills.find(
-      (x) => x.id === LANGUAGES_SKILL,
-    )?.name;
-    return html`<section class="mb-langs">
-      <div class="mb-panel-sub">Languages</div>
-      <p class="mb-p">
-        American English, of course. Besides that, his ${name ?? "Languages"}
-        (${skill}) gives him
-        ${slots === 1 ? "one other language" : `${slots} others`}, spoken
-        ${fluency(skill)}. Someone talking in one he doesn't speak shows as they
-        said it; now and then his ${name ?? "Languages"} still gets the gist.
-      </p>
-      <div class="mb-segs">
-        ${this.chapter.languages.map(
-          (l) =>
-            html`<button
-              class="mb-seg ${b.langs?.includes(l.code) ? "on" : ""}"
-              aria-pressed=${!!b.langs?.includes(l.code)}
-              @click=${() => this.toggleLang(l.code, b)}
-            >
-              ${l.name}
-            </button>`,
-        )}
+  /** His language points, under Languages in its attribute (r22 BPLAY). */
+  private renderLangs(b: Build): TemplateResult {
+    const pool = languagePool(this.chapter, b);
+    const left = pool - langSpent(b);
+    const pts = b.langPts ?? {};
+    return html`<div class="mb-lang-pts" role="group" aria-label="Languages">
+      <div class="mb-lang-left">
+        ${left === 0
+          ? `${pool} language point${pool === 1 ? "" : "s"}, all spent`
+          : `${left} of ${pool} language point${pool === 1 ? "" : "s"} to spend`}
       </div>
-    </section>`;
+      ${this.chapter.languages.map((l) => {
+        const n = pts[l.code] ?? 0;
+        return html`<div class="mb-lang-row ${n > 0 ? "on" : ""}">
+          <span class="mb-lang-name">${l.name}</span>
+          <span class="mb-stepper small">
+            <button
+              aria-label="Less ${l.name}"
+              ?disabled=${n === 0}
+              @click=${() => this.bumpLang(l.code, -1, b)}
+            >
+              −
+            </button>
+            <span
+              class="mb-lang-pips"
+              role="img"
+              aria-label="${n} of ${LANG_MAX}"
+              >${Array.from(
+                { length: LANG_MAX },
+                (_, i) => html`<i class=${i < n ? "on" : ""}></i>`,
+              )}</span
+            >
+            <button
+              aria-label="More ${l.name}"
+              ?disabled=${n >= LANG_MAX || left === 0}
+              @click=${() => this.bumpLang(l.code, 1, b)}
+            >
+              +
+            </button>
+          </span>
+          <span class="mb-lang-level">${langLevel(n)}</span>
+        </div>`;
+      })}
+      <p class="mb-lang-note">
+        Besides his American English. A language he doesn't speak shows as it
+        was said, though his Languages may still catch the gist; the more
+        points, the more he follows and the easier its checks.
+      </p>
+    </div>`;
   }
 }

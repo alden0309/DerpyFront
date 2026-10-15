@@ -119,6 +119,10 @@ const DRAWINGS: Record<string, Draw> = {
   thing: () => svg`
     <path d="M14 22 L32 12 L50 22 V44 L32 54 L14 44 Z" />
     <path d="M14 22 L32 32 L50 22 M32 32 V54" class="thin" />`,
+  book: () => svg`
+    <path d="M12 14 H44 Q50 14 50 20 V54 H18 Q12 54 12 48 Z" />
+    <path d="M12 48 Q12 42 18 42 H50" class="thin" />
+    <path d="M22 20 V36 M26 22 h14 M26 28 h14" class="hatch" />`,
 };
 
 /** What each kind of thing is drawn as when its @item names no drawing. */

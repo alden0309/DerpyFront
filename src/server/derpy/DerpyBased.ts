@@ -249,8 +249,10 @@ const BuildSchema = z.object({
   attrs: z.record(Key, z.number().int().min(0).max(20)),
   signature: Key,
   archetype: Key.optional(),
-  // r22: the languages he speaks.
+  // r22 (BWORLD's saves): the languages he was given.
   langs: z.array(Key).max(12).optional(),
+  // r22 BPLAY: language points spent at the start, by language.
+  langPts: z.record(Key, z.number().int().min(0).max(9)).optional(),
 });
 const BoostSchema = z.object({
   skill: Key,

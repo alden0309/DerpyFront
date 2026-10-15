@@ -10,10 +10,14 @@ import { describe, expect, test } from "vitest";
 import { ITEM_DRAWINGS } from "../../src/based/client/ItemArt";
 import { NavGrid } from "../../src/based/engine/Nav";
 import { PlaceDef } from "../../src/based/engine/Place";
-import { StoryRun } from "../../src/based/engine/Runtime";
+import { chapterStart, StoryRun } from "../../src/based/engine/Runtime";
 import { parseChapter } from "../../src/based/engine/Script";
 import { areaAt } from "../../src/based/engine/Sight";
-import { buildOf } from "../../src/based/engine/Skills";
+import {
+  buildOf,
+  languagePool,
+  withLanguages,
+} from "../../src/based/engine/Skills";
 import { Chapter, FREE } from "../../src/based/engine/Types";
 import {
   errorsOf,
@@ -536,5 +540,66 @@ describe("things to examine (r22 BPLAY)", () => {
       "field_jacket",
     ]);
     expect(chapter.cast[0].look).toBe("field_jacket");
+  });
+});
+
+describe("languages in chapter one (r22 BPLAY)", () => {
+  const text = fs.readFileSync(path.join(STORY, "chapter-01.story"), "utf8");
+  const { chapter } = parseChapter(text);
+
+  test("English (British), French and Russian; German is gone", () => {
+    expect(chapter.languages.map((l) => l.code).sort()).toEqual([
+      "en_gb",
+      "fr",
+      "ru",
+    ]);
+    for (const id of chapter.order) {
+      for (const o of chapter.scenes[id].ops) {
+        if (o.op === "line") expect(o.lang, id).not.toBe("de");
+      }
+    }
+    expect(text).not.toMatch(/speaks\.de|\[de\b|German that/);
+  });
+
+  test("the archetypes' pools, and BWORLD's saves turned into points", () => {
+    const [analyst, handler, operator] = chapter.archetypes.map(buildOf);
+    expect(
+      [analyst, handler, operator].map((b) => languagePool(chapter, b)),
+    ).toEqual([4, 3, 2]);
+    // BWORLD's Analyst had French, English and German: German's points go
+    // to the other two.
+    expect(
+      withLanguages(chapter, { ...analyst, langs: ["fr", "en_gb", "de"] })
+        .langPts,
+    ).toEqual({ fr: 2, en_gb: 2 });
+    // His Operator had French alone.
+    expect(
+      withLanguages(chapter, { ...operator, langs: ["fr"] }).langPts,
+    ).toEqual({ fr: 2 });
+    // And such a save plays on.
+    const r = new StoryRun(
+      chapter,
+      chapterStart(chapter, undefined, {
+        build: { ...analyst, langs: ["fr", "en_gb", "de"] },
+      }),
+    );
+    expect(r.languages()).toEqual({ fr: 2, en_gb: 2, ru: 0 });
+  });
+
+  test("the porter's call is in Russian, with a check in Russian", () => {
+    const ops = chapter.scenes.porter.ops;
+    expect(ops.find((o) => o.op === "line" && o.lang)).toMatchObject({
+      who: "PORTER",
+      lang: "ru",
+    });
+    const choice = ops.find((o) => o.op === "choose");
+    if (choice?.op !== "choose") throw new Error("no choice");
+    expect(
+      choice.options.find((o) => o.check?.skill === "LANGUAGES.ru"),
+    ).toBeTruthy();
+    // The phrasebook from lost property adds a point of Russian in hand.
+    expect(chapter.items.phrasebook.bonus).toEqual([
+      { skill: "LANGUAGES.ru", delta: 1 },
+    ]);
   });
 });

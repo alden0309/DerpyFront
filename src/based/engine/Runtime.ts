@@ -27,6 +27,7 @@ import { evalExpr, Values } from "./Expr";
 import {
   Boost,
   defaultBuild,
+  langOf,
   LANGUAGES_SKILL,
   skillValues,
   withLanguages,
@@ -715,6 +716,56 @@ export class StoryRun {
     return out;
   }
 
+  /**
+   * r22 BPLAY: where his rating in a language comes from: the points spent
+   * at the start, boosts ("boost LANGUAGES.fr +1") and what he's wearing or
+   * holding ("bonus=LANGUAGES.fr+1").
+   */
+  languageParts(
+    code: string,
+  ): { why: string; delta: number; item?: string; start?: boolean }[] {
+    const ref = `${LANGUAGES_SKILL}.${code}`;
+    const out: {
+      why: string;
+      delta: number;
+      item?: string;
+      start?: boolean;
+    }[] = [];
+    const start = this.build.langPts?.[code] ?? 0;
+    if (start > 0)
+      out.push({ why: "From the start", delta: start, start: true });
+    for (const b of this.boostList) {
+      if (b.skill === ref) out.push({ why: b.why, delta: b.delta });
+    }
+    for (const m of this.gearMods()) {
+      if (m.skill === ref)
+        out.push({ why: m.why, delta: m.delta, item: m.item });
+    }
+    return out;
+  }
+
+  /** r22 BPLAY: his rating in each of the chapter's languages, now. */
+  languages(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const l of this.chapter.languages) {
+      const n = this.languageParts(l.code).reduce((a, p) => a + p.delta, 0);
+      out[l.code] = Math.max(0, n);
+    }
+    return out;
+  }
+
+  /**
+   * A skill's value now, by what a check names: a skill, or (r22 BPLAY)
+   * "LANGUAGES.fr", his Languages skill plus his French.
+   */
+  skillNow(id: string): number {
+    const code = langOf(id);
+    if (code === null) return this.skills()[id] ?? 0;
+    return (
+      (this.skills()[LANGUAGES_SKILL] ?? 0) + (this.languages()[code] ?? 0)
+    );
+  }
+
   values(): { flags: Record<string, number>; rels: Record<string, number> } {
     return { flags: { ...this.flags }, rels: { ...this.rels } };
   }
@@ -1066,7 +1117,7 @@ export class StoryRun {
       flags: this.flags,
       rels: this.rels,
       skills: this.skills(),
-      langs: this.build.langs ?? [],
+      langs: this.languages(),
       inv: this.inv,
       worn: this.worn as Record<string, string>,
       money: this.money,
@@ -1088,11 +1139,24 @@ export class StoryRun {
     extra: { delta: number; why: string }[] = [],
   ): CheckView {
     const v = this.vals();
-    // r22 BPLAY: the skill before his clothes; each piece is listed.
-    const base = this.baseSkills()[spec.skill] ?? 0;
+    // r22 BPLAY: the skill before his clothes; each piece is listed. A
+    // check in a tongue ("LANGUAGES.fr") is his Languages, with his rating
+    // in it on top, and what he wears for either.
+    const code = langOf(spec.skill);
+    const skill = code === null ? spec.skill : LANGUAGES_SKILL;
+    const base = this.baseSkills()[skill] ?? 0;
+    const tongue: CheckView["mods"] = [];
+    if (code !== null) {
+      const name =
+        this.chapter.languages.find((l) => l.code === code)?.name ?? code;
+      const own = this.languageParts(code).filter((p) => !p.item);
+      const n = own.reduce((a, p) => a + p.delta, 0);
+      tongue.push({ delta: n, why: `His ${name}` });
+    }
     const mods: CheckView["mods"] = [
+      ...tongue,
       ...this.gearMods()
-        .filter((m) => m.skill === spec.skill)
+        .filter((m) => m.skill === skill || m.skill === spec.skill)
         .map((m) => ({ delta: m.delta, why: m.why, item: m.item })),
       ...spec.mods
         .filter((m) => m.cond === undefined || evalExpr(m.cond, v))
@@ -1238,20 +1302,19 @@ export class StoryRun {
 
   private langLine(op: Extract<Op, { op: "line" }>, beat: LineBeat): void {
     const code = op.lang!;
-    const langs = this.build.langs ?? [];
-    const speaks = langs.includes(code);
+    // r22 BPLAY: his rating in it; 1 or more and he follows plain speech.
+    const rating = this.languages()[code] ?? 0;
+    const speaks = rating > 0;
     const name =
       this.chapter.languages.find((l) => l.code === code)?.name ?? code;
     let understood = speaks;
     let via: "skill" | undefined;
     if (op.langDiff !== undefined) {
-      // Hard for anyone: a speaker has an easier time of it.
+      // Hard for anyone: his Languages plus his rating in it. At 0, his
+      // Languages alone may still get the gist.
       const skill = this.skills()[LANGUAGES_SKILL] ?? 0;
-      if (speaks) understood = passive(skill + 2, op.langDiff);
-      else if (passive(skill, op.langDiff)) {
-        understood = true;
-        via = "skill";
-      }
+      understood = passive(skill + rating, op.langDiff);
+      if (understood && !speaks) via = "skill";
     }
     beat.text = understood ? (op.trans ?? op.text) : op.text;
     beat.lang = { code, name, understood, original: op.text };
@@ -1272,7 +1335,7 @@ export class StoryRun {
         case "line": {
           if (op.skill !== undefined && op.diff !== undefined) {
             // A passive check: the voice speaks only if the skill is up to it.
-            if (!passive(this.skills()[op.skill] ?? 0, op.diff)) {
+            if (!passive(this.skillNow(op.skill), op.diff)) {
               this.ip++;
               break;
             }

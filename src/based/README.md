@@ -55,7 +55,8 @@ Like Disco Elysium: the place in 3D, seen from above at an angle, where he
 walks where you click (tap on a phone) and runs where you double-click, and
 the dialogue column on the right (a bottom sheet on a phone) where the story
 scrolls up. Before the story you choose what he was at the Agency (an
-archetype, or your own share of the points) and which languages he speaks.
+archetype, or your own share of the points) and spend his Languages skill's
+points on what he speaks.
 
 After a short opening he's free: the story waits for the player to start
 something. Nothing lists what's in a place. What's worth a look glints when
@@ -208,15 +209,60 @@ one too: `A line.   // r21: new`.
 Three attributes of four skills each: Social (Charisma, Intimidation,
 Empathy, Deception), Intelligence (Memory, Instinct, Languages, Focus) and
 Physical (Strength, Endurance, Dexterity, Perception). Perception widens how
-far off he notices things; Languages decides how many of the `@language`s
-he speaks (one at Languages 2 or less, then one more a point) and how well.
+far off he notices things; Languages is the pool for his languages (below).
 
 - Each skill starts at its attribute's value; the signature skill is one
   higher. The setup screen offers the archetypes, or `@points` to share out.
 - `boost SKILL +1 "Why"` raises a skill for the rest of the game (the
   memories do this); it shows as a reminder and on his sheet.
 - Conditions can read skills: `if skill.focus >= 4`; and languages:
-  `if speaks.fr`.
+  `if speaks.fr`, `if speaks.ru >= 2`.
+
+#### Languages: small points under Languages (r22 BPLAY)
+
+```
+@language fr "French"
+@language en_gb "English (British)"
+@language ru "Russian"
+```
+
+American English is his own. The rest are bought at the start with **language
+points**, a pool equal to his **Languages skill at the start** (its
+attribute, plus one if it's his signature; at least one). The player spends
+them on the setup screen, under Languages in Intelligence, **0 to 3 per
+language**:
+
+| Points | He...                                               |
+| ------ | --------------------------------------------------- |
+| 0      | doesn't speak it (his Languages may catch the gist) |
+| 1      | gets by: follows plain speech                       |
+| 2      | is fluent                                           |
+| 3      | passes for a native                                 |
+
+So the Analyst (Intelligence 4) has 4 points, the Handler 3 and the Operator
+2: one language well, or two at getting by, or a little of everything. Your
+own man ranges from 1 (Intelligence 1) to 6 (Intelligence 5 and known for
+Languages). The points must all be spent before the game starts (unless
+every language is already at 3).
+
+- **A line** in a language he has at 1 or more is understood. One with a
+  difficulty (`[fr medium]`: said low, fast, guardedly) is a passive check of
+  **his Languages skill plus his rating in it** (plus six against the
+  difficulty), so at 0 his Languages alone may still get the gist.
+- **A check in a tongue** names it: `* white LANGUAGES.ru medium [Ask him, in
+Russian]`. Its base is his Languages skill, with "His Russian" (his
+  rating) as a modifier, and whatever he wears for either; `bonus` lines work
+  as on any check. Voices can be in one too: `~ LANGUAGES.fr medium: ...`.
+- **Conditions** read the rating: `speaks.fr` (1 or more), `speaks.ru >= 2`.
+- **Later points**: `boost LANGUAGES.fr +1 "Lessons with the concierge"`
+  adds to one language for good; an item can add while it's worn or held:
+  `@item phrasebook "Russian phrasebook" kind=document slot=hand
+bonus=LANGUAGES.ru+1 "..."`. His sheet lists each language under Languages
+  with its pips and where the points came from.
+- **Saves:** BWORLD's saves listed the languages he was given; they load as
+  points (one in each language he had, then the rest of his pool round them
+  again, up to 3). German is gone from chapter one: its points go to the
+  others (or to French, if it was all he had).
 
 ### Scenes
 
@@ -285,10 +331,10 @@ WOMAN [fr]: Bonsoir. | Good evening.      // in another language
 DELORME [fr medium]: L'Américain. | The American.   // gist with Languages
 ```
 
-A line in another language shows its meaning if he speaks the language,
-and the words as said if he doesn't; with a difficulty, his Languages skill
-(plus six) can get the gist without it (a speaker gets two more). The clock
-moves twenty seconds a line and ten a choice.
+A line in another language shows its meaning if he speaks the language (a
+point or more), and the words as said if he doesn't; with a difficulty, it's
+his Languages skill plus his points in it, plus six (see Languages, above).
+The clock moves twenty seconds a line and ten a choice.
 
 ### Lines
 

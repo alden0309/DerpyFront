@@ -4,7 +4,8 @@
 //   not tv_off and rel.anselme >= 2
 //   (umbrella or coat) and count > 1
 //   skill.focus >= 4                   (r21: his skill, with boosts)
-//   speaks.fr                          (r22: he speaks French)
+//   speaks.fr, speaks.ru >= 2          (r22: he speaks French; r22 BPLAY:
+//                                       his Russian is rated 2 or more)
 //   has.matchbook and money >= 5       (r22 BPLAY: what he carries)
 //   wears.reading_glasses or armed     (r22 BPLAY: worn, or a weapon held)
 //   time >= 23:00 and weather.clear    (r22 BPLAY: the hour, the weather)
@@ -152,8 +153,11 @@ export interface Values {
   rels: Record<string, number>;
   /** Skill values, boosts included (r21). */
   skills?: Record<string, number>;
-  /** r22: the languages he speaks. */
-  langs?: readonly string[];
+  /**
+   * r22 BPLAY: his rating in each language (0 he doesn't speak it, up to
+   * 3 or more), points, boosts and what he's wearing.
+   */
+  langs?: Readonly<Record<string, number>>;
   /** r22 BPLAY: what's in his pockets, and what he wears or holds. */
   inv?: Readonly<Record<string, number>>;
   worn?: Readonly<Record<string, string>>;
@@ -181,7 +185,7 @@ export function evalExpr(e: Expr, v: Values): number {
     case "skill":
       return v.skills?.[e.id] ?? 0;
     case "lang":
-      return v.langs?.includes(e.code) ? 1 : 0;
+      return v.langs?.[e.code] ?? 0;
     case "has":
       return (v.inv?.[e.item] ?? 0) > 0 || wearing(v, e.item) ? 1 : 0;
     case "wears":

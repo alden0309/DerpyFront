@@ -26,6 +26,7 @@
 
 import { parseDifficulty } from "./Dice";
 import { parseExpr, RESERVED } from "./Expr";
+import { langOf } from "./Skills";
 import {
   ActorState,
   CastMember,
@@ -241,7 +242,9 @@ function parseItem(
   }
   if (kv.bonus !== undefined) {
     for (const b of kv.bonus.split(",").filter(Boolean)) {
-      const m = /^([A-Z][A-Z0-9_]*)([+-]\d+)$/.exec(b.trim());
+      const m = /^([A-Z][A-Z0-9_]*(?:\.[a-z][a-z_]*)?)([+-]\d+)$/.exec(
+        b.trim(),
+      );
       if (!m) err(`@item ${key}: bonus=SKILL+1,SKILL-1 ("${b}")`);
       else item.bonus.push({ skill: m[1], delta: Number(m[2]) });
     }
@@ -322,7 +325,13 @@ export function parseChapter(text: string): ParseResult {
     }
   };
   const skill = (id: string, line: number): string => {
-    if (!skillIds.has(id)) err(line, `"${id}" isn't a @skill`);
+    // r22 BPLAY: or "LANGUAGES.fr", his Languages in one tongue.
+    const code = langOf(id);
+    if (code !== null) {
+      if (!chapter.languages.some((l) => l.code === code)) {
+        err(line, `"${id}": ${code} isn't a @language`);
+      }
+    } else if (!skillIds.has(id)) err(line, `"${id}" isn't a @skill`);
     return id;
   };
   const difficulty = (word: string | undefined, line: number): number => {
@@ -641,7 +650,7 @@ export function parseChapter(text: string): ParseResult {
       };
       if (needs && needs.length > 0) opt.needs = needs;
       const mm =
-        /^((?:(?:once|silent)\s+)*)(?:(white|red)\s+([A-Za-z_][A-Za-z0-9_]*)\s+([a-z]+|\d+)\s+)?(?:if\s+(.+))?$/.exec(
+        /^((?:(?:once|silent)\s+)*)(?:(white|red)\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[a-z][a-z_]*)?)\s+([a-z]+|\d+)\s+)?(?:if\s+(.+))?$/.exec(
           mods ? `${mods} ` : "",
         );
       if (!mm) {
@@ -880,9 +889,10 @@ export function parseChapter(text: string): ParseResult {
         continue;
       }
       case "boost": {
-        const m = /^([A-Z][A-Z0-9_]*)\s+([+-]\d+)\s+"((?:[^"\\]|\\.)*)"$/.exec(
-          rest,
-        );
+        const m =
+          /^([A-Z][A-Z0-9_]*(?:\.[a-z][a-z_]*)?)\s+([+-]\d+)\s+"((?:[^"\\]|\\.)*)"$/.exec(
+            rest,
+          );
         if (!m) {
           err(n, 'boost SKILL +1 "Why"');
           continue;
@@ -1199,7 +1209,10 @@ export function parseChapter(text: string): ParseResult {
     if (line.startsWith("~")) {
       const body = line.slice(1).trim();
       // A skill's voice: "~ TRADECRAFT: ..." or, passive, "~ MEMORY 9: ...".
-      const v = /^([A-Z][A-Z0-9_]*)(?:\s+([a-z]+|\d+))?:\s+(.+)$/.exec(body);
+      const v =
+        /^([A-Z][A-Z0-9_]*(?:\.[a-z][a-z_]*)?)(?:\s+([a-z]+|\d+))?:\s+(.+)$/.exec(
+          body,
+        );
       if (v) {
         emit({
           op: "line",

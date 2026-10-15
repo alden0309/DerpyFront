@@ -273,7 +273,7 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
       save: {
         snap: {
           flags: Record<string, number>;
-          build: { archetype: string; langs: string[] };
+          build: { archetype: string; langPts: Record<string, number> };
           seed: number;
         };
         meta: { chapter: number };
@@ -282,7 +282,10 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     // Past the meeting with the contact, he's free; who he was is kept.
     expect(auto.save.snap.flags.met_contact).toBe(1);
     expect(auto.save.snap.build.archetype).toBe("ANALYST");
-    expect(auto.save.snap.build.langs.length).toBeGreaterThan(0);
+    // r22 BPLAY: his languages as points (the Analyst's four).
+    expect(
+      Object.values(auto.save.snap.build.langPts).reduce((a, n) => a + n, 0),
+    ).toBe(4);
     expect(auto.save.snap.seed).toBe(4242);
     expect(auto.save.meta.chapter).toBe(1);
     // Read again: converted once only.
@@ -436,6 +439,13 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
       scene: "FREE",
       flags: {},
       rels: {},
+      // His language points (r22 BPLAY).
+      build: {
+        attrs: { SOCIAL: 2, INTELLIGENCE: 4, PHYSICAL: 3 },
+        signature: "MEMORY",
+        archetype: "ANALYST",
+        langPts: { fr: 2, ru: 2 },
+      },
       stage: {
         backdrop: null,
         figure: null,
@@ -503,6 +513,7 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
       { ...snap, worn: { pocket: "phone" } },
       { ...snap, inv: { phone: -1 } },
       { ...snap, money: -5 },
+      { ...snap, build: { ...snap.build, langPts: { fr: -1 } } },
     ]) {
       expect((await put({ ...slot, snap: bad })).status).toBe(400);
     }

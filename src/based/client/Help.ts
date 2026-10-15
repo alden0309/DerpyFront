@@ -94,6 +94,27 @@ export function helpBody(
       </li>
     </ul>
 
+    <div class="mb-panel-sub">His languages</div>
+    <ul class="mb-help">
+      <li>
+        American English is his own. Besides it, his Languages skill at the
+        start is a pool of points to spend on the others: one point and he gets
+        by, two and he's fluent, three and he passes for a native. A language
+        with no points he doesn't speak.
+      </li>
+      <li>
+        With a point he follows plain speech. Something said low, fast or
+        guardedly is a check: his Languages plus his points in that tongue (with
+        none, his Languages alone may still catch the gist). A check in a
+        language works the same way.
+      </li>
+      <li>
+        Things and moments can add to a language later: a phrasebook in his
+        hand, say. Your skills shows each language under Languages, and where
+        its points come from.
+      </li>
+    </ul>
+
     <div class="mb-panel-sub">What he carries</div>
     <ul class="mb-help">
       <li>

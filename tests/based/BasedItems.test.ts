@@ -2,7 +2,8 @@
 // money, how clothes change his skills and show in a check, items a choice
 // or a scene needs (and the validator making sure they can be got first),
 // using things, saves with an inventory (and old saves getting his kit),
-// what the story so far keeps, and how it holds up with many items.
+// what the story so far keeps, language points from items and boosts and
+// checks in a tongue, and how it holds up with many items.
 
 import { describe, expect, test } from "vitest";
 import { evalExpr, parseExpr } from "../../src/based/engine/Expr";
@@ -17,6 +18,7 @@ import {
 } from "../../src/based/engine/Runtime";
 import { slotOf } from "../../src/based/engine/Save";
 import { parseChapter } from "../../src/based/engine/Script";
+import { buildOf } from "../../src/based/engine/Skills";
 import { Chapter } from "../../src/based/engine/Types";
 import { errorsOf, validateChapter } from "../../src/based/engine/Validate";
 import { playRandomly } from "./play";
@@ -696,6 +698,108 @@ end
     }
     r.look("thing");
     expect(read(r)).toEqual(["Late.", "Clear."]);
+  });
+});
+
+describe("language points from boosts and items, and checks in a tongue", () => {
+  const TONGUES = `@chapter 1 "Tongues"
+@cast HERO "Hero"
+@cast GUARD "The guard"
+@attribute MIND "Mind" "Thinking."
+@attribute BODY "Body" "Doing."
+@skill LANGUAGES MIND "Languages" "Tongues."
+@skill EYES BODY "Eyes" "Seeing."
+@archetype A "A" MIND=2 BODY=4 signature=EYES "Even."
+@points 6 min=1 max=5
+@language fr "French"
+@language ru "Russian"
+@item phrasebook "Phrasebook" kind=document slot=hand bonus=LANGUAGES.ru+1 "A phrasebook."
+
+== start "Start"
+@place street
+@actor HERO in
+@actor GUARD stool
+give phrasebook
+-> FREE
+
+== lessons "Lessons"
+@on look thing in=street once
+boost LANGUAGES.fr +1 "Lessons with the concierge"
+-> FREE
+
+== guard "The guard"
+@on talk GUARD
+choose "The guard looks at him."
+  * white LANGUAGES.ru medium [Ask in Russian]
+    bonus +1 if speaks.ru >= 2 "Good Russian"
+    GUARD [ru]: Da. | Yes.
+  fail
+    GUARD: Nyet.
+  * [Go home] -> END
+end
+-> FREE
+`;
+
+  function run(): StoryRun {
+    const c = load(TONGUES);
+    const r = new StoryRun(
+      c,
+      chapterStart(c, undefined, {
+        build: { ...buildOf(c.archetypes[0]), langPts: { fr: 1, ru: 1 } },
+      }),
+    );
+    settle(r);
+    return r;
+  }
+
+  test("the format and the validator know LANGUAGES.code", () => {
+    expect(problems(TONGUES)).toEqual([]);
+    expect(
+      parseErrors(
+        TONGUES.replace("LANGUAGES.ru medium", "LANGUAGES.xx medium"),
+      ),
+    ).toContainEqual(`"LANGUAGES.xx": xx isn't a @language`);
+    expect(
+      problems(TONGUES.replace("bonus=LANGUAGES.ru+1", "bonus=LANGUAGES.de+1")),
+    ).toContainEqual("@item phrasebook: bonus LANGUAGES.de isn't a @skill");
+  });
+
+  test("a held phrasebook and a boost add to a language", () => {
+    const r = run();
+    expect(r.languages()).toEqual({ fr: 1, ru: 1 });
+    expect(r.equip("phrasebook")).toBe(true);
+    expect(r.languages()).toEqual({ fr: 1, ru: 2 });
+    expect(r.languageParts("ru")).toEqual([
+      { why: "From the start", delta: 1, start: true },
+      { why: "Phrasebook", delta: 1, item: "phrasebook" },
+    ]);
+    r.look("thing");
+    settle(r);
+    expect(r.languages().fr).toBe(2);
+    expect(r.languageParts("fr")[1]).toEqual({
+      why: "Lessons with the concierge",
+      delta: 1,
+    });
+    // His Languages skill itself doesn't change.
+    expect(r.skills().LANGUAGES).toBe(2);
+  });
+
+  test("a check in a tongue: his Languages, his rating, what helps", () => {
+    const r = run();
+    r.equip("phrasebook");
+    r.talk("GUARD");
+    const b = r.beat;
+    if (b.kind !== "choice") throw new Error("no choice");
+    const ask = b.options.find((o) => o.id === "ask-in-russian")!.check!;
+    expect(ask.skill).toBe("LANGUAGES.ru");
+    expect(ask.base).toBe(2);
+    expect(ask.mods).toEqual([
+      { delta: 1, why: "His Russian" },
+      { delta: 1, why: "Phrasebook", item: "phrasebook" },
+      { delta: 1, why: "Good Russian" },
+    ]);
+    expect(ask.bonus).toBe(5);
+    expect(r.skillNow("LANGUAGES.ru")).toBe(4);
   });
 });
 

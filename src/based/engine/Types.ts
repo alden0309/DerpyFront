@@ -6,7 +6,7 @@
 /** A condition, as written after `if` or `* if`. */
 export type Expr =
   | { k: "flag"; name: string }
-  /** r22: whether he speaks a language ("speaks.fr"). */
+  /** r22: his rating in a language ("speaks.fr"; 0 if he doesn't speak it). */
   | { k: "lang"; code: string }
   | { k: "rel"; who: string }
   | { k: "skill"; id: string }
@@ -99,8 +99,15 @@ export interface Build {
   /** The archetype it started from, if any. */
   archetype?: string;
   /**
-   * r22: the languages he speaks (codes from the chapter's @language list).
-   * How many he may have depends on his Languages skill (Skills.ts).
+   * r22 BPLAY: what he speaks, as points spent at the start on each of the
+   * chapter's @language codes: 0 he doesn't speak it, 1 he gets by, 2
+   * fluent, 3 like a native. The pool comes from his Languages skill
+   * (Skills.ts); boosts and items can add to a language later.
+   */
+  langPts?: Record<string, number>;
+  /**
+   * BWORLD's r22 saves: the languages he was given, all as well as his
+   * Languages skill allowed. Turned into points when loaded (Skills.ts).
    */
   langs?: string[];
 }

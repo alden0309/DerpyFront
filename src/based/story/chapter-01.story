@@ -56,10 +56,11 @@
 @archetype HANDLER "The Handler" SOCIAL=4 INTELLIGENCE=3 PHYSICAL=2 signature=EMPATHY "He ran agents in four capitals. People told him things they hadn't told their wives."
 @archetype OPERATOR "The Operator" SOCIAL=3 INTELLIGENCE=2 PHYSICAL=4 signature=PERCEPTION "Cars, borders, bridges at night. The one they sent when it had to work."
 
-// The languages he can be given. American English he has already.
+// The languages he can speak, besides his own American English. At the
+// start the player spends his Languages skill's points on them (0 to 3
+// each: doesn't speak it, gets by, fluent, like a native).
 @language fr "French"
 @language en_gb "English (British)"
-@language de "German"
 @language ru "Russian"
 
 // --- What he carries (r22 BPLAY) ----------------------------------------------
@@ -88,6 +89,7 @@
 @item baton "Telescopic baton" kind=weapon slot=hand icon=baton bonus=INTIMIDATION+2,EMPATHY-1 "Police issue, from the van with nobody in it. Folded, it's the length of a hand; flicked out, it's a reason. Held, it changes how people look at him."
 @item room_key "Key to room twelve" kind=key icon=key "An old brass key on a heavy brass weight stamped 12, from the lost-property box. Somebody checked out of room twelve and took it to Lyon by mistake, and it came back by post."
 @item delorme_card "Delorme's card" kind=document icon=card "Plain white, good stock. Delorme, in blue ink, and the hotel's number. Nothing on the back."
+@item phrasebook "Russian phrasebook" kind=document slot=hand icon=book bonus=LANGUAGES.ru+1 "A pocket phrasebook from 1974, from the lost-property box, the spine broken at At the hotel. Held open in his hand, it's as good as a little Russian."
 
 @carry "You met London's contact. She's called Penhallow, and she argued against hiring you." if met_contact
 @carry "You told Penhallow what the man in grey wanted." if told_penhallow
@@ -792,7 +794,7 @@ set key_gone
 
 == lost_property "The lost-property box"
 @on look lost_property once
-A cardboard box under the stairs, marked OBJETS TROUVÉS in a porter's capitals. Inside: a pair of tortoiseshell reading glasses, a grey wool scarf somebody's grandmother knitted, a tweed cap, a brass lighter, a room key on a brass weight, and one small child's shoe.
+A cardboard box under the stairs, marked OBJETS TROUVÉS in a porter's capitals. Inside: a pair of tortoiseshell reading glasses, a grey wool scarf somebody's grandmother knitted, a tweed cap, a brass lighter, a room key on a brass weight, a Russian phrasebook with a broken spine, and one small child's shoe.
 -> lost_take
 
 == lost_property_again "The lost-property box"
@@ -820,6 +822,10 @@ choose "The porter's on the telephone, his back half turned."
     -> lost_take
   * if not has.room_key and not gave_key [Take the key]
     give room_key
+    set took_lost
+    -> lost_take
+  * if not has.phrasebook [Take the phrasebook]
+    give phrasebook
     set took_lost
     -> lost_take
   * [Leave the rest]
@@ -1518,9 +1524,9 @@ He turned his back, which in a night porter is as good as a locked door.
 == porter "The night porter"
 @on talk PORTER once
 @actor BASED see_desk walk
-The night porter was on the telephone, in a German that came from somewhere east of Leipzig and had been sanded down by twenty years in Paris.
-PORTER [de]: Zimmer einundvierzig will um sechs einen Wagen. Ja. Nach Satory. | Forty-one wants a car at six. Yes. To Satory.
-if speaks.de
+The night porter was on the telephone, in a Russian that came from somewhere along the Black Sea and had been sanded down by twenty years in Paris.
+PORTER [ru]: Сорок первый просит машину к шести. Да. В Сатори. | Forty-one wants a car for six. Yes. To Satory.
+if speaks.ru
   ~ MEMORY medium: Satory. The army's ground south of Versailles: the tanks, the testing range, the generals' lunches. A strange place to take a man at six in the morning.
   set knows_car
 end
@@ -1535,13 +1541,26 @@ choose "The porter waits."
   fail
     PORTER: Our guests' habits are their own, monsieur.
   * white DECEPTION challenging [Say you're from the Préfecture] "Préfecture. We're checking registers along the street."
-    bonus +2 if speaks.fr "Your French is good enough"
+    bonus +1 if speaks.fr "He speaks French"
+    bonus +1 if speaks.fr >= 2 "His French is good enough for a clerk"
     bonus +1 if wears.reading_glasses "Reading glasses: a clerk's face"
     The porter turned the register round for him without a word, the way people do this month when somebody says Préfecture.
     set knows_room
   fail
     PORTER: Then the Préfecture will have a card, monsieur. They always have a card.
     ~ He knows the Préfecture better than I do. Everyone in Paris does, this month.
+  // r22 BPLAY: a check in a tongue: his Languages, plus his Russian.
+  * white LANGUAGES.ru medium if speaks.ru and not knows_car [Ask about forty-one, in Russian] "Forty-one keeps early hours, I hear. Like the army."
+    bonus +1 if knows_room "You know the room"
+    The porter blinked, and answered in the same tongue before he'd thought about whether to.
+    PORTER [ru]: Каждое утро в шесть. Машина в Сатори. Генеральская. | Every morning at six. A car to Satory. A general's car.
+    PORTER: You did not hear that from me, monsieur. In any language.
+    set knows_room
+    set knows_car
+    rel PORTER +1
+  fail
+    The porter heard the accent before the words, and his face shut like a ledger.
+    PORTER: We speak French in this hotel, monsieur. Mostly.
   * [Just looking] "Just looking. It's a nice old lobby."
     PORTER: It was nicer when people looked at it, monsieur.
 end
