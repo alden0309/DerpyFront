@@ -1186,13 +1186,9 @@ export class NationStructureBehavior {
       return true;
     }
 
-    // Build order for non-city structures (priority order)
-    const buildOrder: UnitType[] = [
-      UnitType.Port,
-      UnitType.Factory,
-      UnitType.SAMLauncher,
-      UnitType.MissileSilo,
-    ];
+    // Build order for non-city structures (priority order; AIP r23: a Mad
+    // Scientist's silos and SAMs, and a Protector's defenses, come first)
+    const buildOrder = playerAiTuning(this.game, this.player).buildOrder;
 
     const nukesEnabled =
       !config.isUnitDisabled(UnitType.AtomBomb) ||
@@ -1401,16 +1397,17 @@ export class NationStructureBehavior {
     let increasePerOwned: number;
     if (type === UnitType.City) {
       increasePerOwned = CITY_PERCEIVED_COST_INCREASE_PER_OWNED;
-      // AIP (r23): Aggressive and Protector nations put more into cities
-      // (rules 6+)
-      const pct = playerAiTuning(this.game, this.player).cityCostPct;
-      if (pct !== 100) increasePerOwned = (increasePerOwned * pct) / 100;
     } else {
       const { difficulty } = this.game.config().gameConfig();
       const ratios = getStructureRatios(difficulty);
       const config = ratios[type];
       increasePerOwned = config?.perceivedCostIncreasePerOwned ?? 0.1;
     }
+    // AIP (r23): a personality saves less against what it builds most:
+    // Aggressive and Protector nations' cities, a Mad Scientist's SAMs and
+    // silos, a Protector's SAMs and silos (rules 6+)
+    const pct = playerAiTuning(this.game, this.player).costRisePct[type];
+    if (pct !== undefined) increasePerOwned = (increasePerOwned * pct) / 100;
 
     // Each owned structure makes the next one feel more expensive
     // Formula: realCost * (1 + increasePerOwned * owned)

@@ -43,7 +43,10 @@ export function nationAiType(game: Game, id: PlayerID): AiType | null {
 /** The personality `player` plays, or null (Normal, a tribe or a human). */
 export function playerAiType(game: Game, player: Player): AiType | null {
   if (player.type() !== PlayerType.Nation) return null;
-  return nationAiType(game, player.id());
+  const deal = dealFor(game);
+  // In a game without personalities, nothing more to look at
+  if (deal.size === 0) return null;
+  return deal.get(player.id()) ?? null;
 }
 
 /** How `player`'s personality tunes it (the usual tuning without one). */

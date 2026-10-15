@@ -15,6 +15,7 @@ import {
 import { assertNever } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Game, Player } from "../../game/Game";
+import { playerAiTuning } from "../../game/NationAiTypes";
 import type {
   SnapshotReader,
   SnapshotWriter,
@@ -156,6 +157,11 @@ export class NationMIRVBehavior {
       this.maybeSendMIRV(victoryDenialTarget);
       return true;
     }
+
+    // AIP (r23): Traders and Protectors (rules 6+) MIRV only in answer, or
+    // to stop someone winning, never to cut a leader down to size
+    const style = playerAiTuning(this.game, this.player).nukes;
+    if (style === "answer" || style === "grudge") return false;
 
     const steamrollStopTarget = this.selectSteamrollStopTarget();
     if (steamrollStopTarget && !this.wasRecentlyMirved(steamrollStopTarget)) {

@@ -334,9 +334,13 @@ describe("how each one tunes a nation", () => {
     expect(AI_TUNING.protector.maxSilos).toBe(NORMAL_TUNING.maxSilos * 2);
     expect(AI_TUNING.protector.defensePostsPct).toBe(200);
     expect(AI_TUNING.protector.domeBarPct).toBe(50);
-    expect(AI_TUNING.protector.cityCostPct).toBeLessThan(100);
+    expect(AI_TUNING.protector.costRisePct[UnitType.City]).toBeLessThan(100);
     // Aggressive: a bigger army from more cities
-    expect(AI_TUNING.aggressive.cityCostPct).toBeLessThan(100);
+    expect(AI_TUNING.aggressive.costRisePct[UnitType.City]).toBeLessThan(100);
+    // A Mad Scientist saves less against SAMs and silos, so builds more
+    expect(
+      AI_TUNING.mad_scientist.costRisePct[UnitType.MissileSilo],
+    ).toBeLessThan(100);
   });
 
   test("fights, alliances, betrayal and nukes", () => {

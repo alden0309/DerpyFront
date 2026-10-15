@@ -62,6 +62,9 @@ import {
 } from "../TransportShipExecution";
 import { closestTwoTiles } from "../Util";
 
+/** AIP (r23): the biggest landmass a Trader counts as an island of its own. */
+const ISLAND_MAX_TILES = 60_000;
+
 /** AIP (r23): the share of its troop cap a Protector keeps when it avenges. */
 const AVENGER_KEEPS = 0.25;
 
@@ -342,13 +345,14 @@ export class AiAttackBehavior {
   /**
    * AIP (r23): whether this nation is alone on the landmass it spawned on:
    * no other nation or human holds any of it, and it isn't a big part of the
-   * map (a sixth of its land at most). Decided once, at its first decision.
+   * map (a sixth of its land, and ISLAND_MAX_TILES, at most). Decided once,
+   * at its first decision.
    */
   private startsAlone(): boolean {
     const start = this.player.spawnTile();
     if (start === undefined) return false;
     const game = this.game;
-    const cap = Math.floor(game.numLandTiles() / 6);
+    const cap = Math.min(ISLAND_MAX_TILES, Math.floor(game.numLandTiles() / 6));
     const seen = new Set<TileRef>([start]);
     const queue: TileRef[] = [start];
     const me = this.player.smallID();

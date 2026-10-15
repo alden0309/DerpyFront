@@ -146,12 +146,18 @@ export interface AiTuning {
   expandPts: number;
   /** Percent of the usual structures per city it wants, by type. */
   structuresPct: Partial<Record<UnitType, number>>;
+  /** The order it builds ports, factories, SAMs and silos in (cities after). */
+  buildOrder: readonly UnitType[];
   /** The most missile silos it builds (3 usually). */
   maxSilos: number;
   /** Percent per city for its first silo (40 usually): higher, sooner. */
   firstSiloPct: number;
-  /** Percent of the usual perceived cost rise per city owned (100 usually). */
-  cityCostPct: number;
+  /**
+   * Percent of the usual rise in what one more of a building feels like it
+   * costs, per one owned, while the nation saves for nukes (100 usually):
+   * lower, it builds more of them.
+   */
+  costRisePct: Partial<Record<UnitType, number>>;
   /** Percent of the usual defense posts on a front (100 usually). */
   defensePostsPct: number;
   /** Percent of the usual incoming-troops share that calls for defense posts. */
@@ -182,9 +188,15 @@ export const NORMAL_TUNING: AiTuning = {
   reservePts: 0,
   expandPts: 0,
   structuresPct: {},
+  buildOrder: [
+    UnitType.Port,
+    UnitType.Factory,
+    UnitType.SAMLauncher,
+    UnitType.MissileSilo,
+  ],
   maxSilos: 3,
   firstSiloPct: 40,
-  cityCostPct: 100,
+  costRisePct: {},
   defensePostsPct: 100,
   defenseThreatPct: 100,
   preemptiveDomes: 3,
@@ -208,8 +220,19 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
       [UnitType.SAMLauncher]: 250,
       [UnitType.MissileSilo]: 250,
     },
+    // Its silos and SAMs before its trade
+    buildOrder: [
+      UnitType.MissileSilo,
+      UnitType.SAMLauncher,
+      UnitType.Factory,
+      UnitType.Port,
+    ],
     maxSilos: 8,
     firstSiloPct: 80,
+    costRisePct: {
+      [UnitType.SAMLauncher]: 30,
+      [UnitType.MissileSilo]: 30,
+    },
     preemptiveDomes: 5,
     domeBarPct: 50,
     nukes: "focused",
@@ -239,9 +262,8 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     openingRatePct: 80,
     triggerPts: -12,
     reservePts: -8,
-    expandPts: -5,
     structuresPct: { [UnitType.SAMLauncher]: 75 },
-    cityCostPct: 50,
+    costRisePct: { [UnitType.City]: 50 },
     betrayal: "more",
   },
   // A little slower in the opening, then digs in: twice the SAMs, silos,
@@ -256,8 +278,19 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
       [UnitType.SAMLauncher]: 200,
       [UnitType.MissileSilo]: 200,
     },
+    // Its defenses before its trade
+    buildOrder: [
+      UnitType.SAMLauncher,
+      UnitType.MissileSilo,
+      UnitType.Port,
+      UnitType.Factory,
+    ],
     maxSilos: 6,
-    cityCostPct: 50,
+    costRisePct: {
+      [UnitType.City]: 50,
+      [UnitType.SAMLauncher]: 50,
+      [UnitType.MissileSilo]: 50,
+    },
     defensePostsPct: 200,
     defenseThreatPct: 60,
     preemptiveDomes: 5,
