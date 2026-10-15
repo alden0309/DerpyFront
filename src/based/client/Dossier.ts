@@ -325,7 +325,10 @@ function page(v: DossierView): TemplateResult {
   }
 }
 
-export function dossierBody(v: DossierView): TemplateResult {
+export function dossierBody(
+  v: DossierView,
+  foot: TemplateResult | typeof nothing = nothing,
+): TemplateResult {
   const c = v.cover;
   return html`<div class="mb-dossier">
     <aside class="mb-dos-cover" aria-label="The file">
@@ -370,6 +373,7 @@ export function dossierBody(v: DossierView): TemplateResult {
         )}
       </nav>
       <div class="mb-dos-page" role="tabpanel">${page(v)}</div>
+      <div class="mb-dos-foot">${foot}</div>
     </section>
   </div>`;
 }

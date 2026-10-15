@@ -28,6 +28,21 @@ export interface FlowInput {
   picks: Record<string, Record<string, number>>;
 }
 
+/** The scenes, with each run of ones not yet found gathered into a list. */
+function runs(
+  flow: FlowScene[],
+  seen: Set<string>,
+): (FlowScene | FlowScene[])[] {
+  const out: (FlowScene | FlowScene[])[] = [];
+  for (const s of flow) {
+    const last = out[out.length - 1];
+    if (seen.has(s.id)) out.push(s);
+    else if (Array.isArray(last)) last.push(s);
+    else out.push([s]);
+  }
+  return out;
+}
+
 export function renderFlowchart(f: FlowInput): TemplateResult {
   const seenScenes = new Set(f.seen.scenes);
   const seenOptions = new Set(f.seen.options);
@@ -74,7 +89,19 @@ export function renderFlowchart(f: FlowInput): TemplateResult {
       >
     </div>
     <ol class="mb-flow-spine">
-      ${f.flow.map((s) => {
+      ${runs(f.flow, seenScenes).map((s) => {
+        if (Array.isArray(s)) {
+          // r22 BPLAY: scenes not yet found, one after another: one line.
+          return html`<li class="mb-flow-scene locked run">
+            <div class="mb-flow-node">
+              <span class="mb-flow-dot"></span>
+              <span class="mb-flow-label">${redact(s[0].id, 6, 10)}</span>
+              ${s.length > 1
+                ? html`<span class="mb-flow-cp">and ${s.length - 1} more</span>`
+                : nothing}
+            </div>
+          </li>`;
+        }
         const known = seenScenes.has(s.id);
         const now = nowScenes.has(s.id);
         return html`<li

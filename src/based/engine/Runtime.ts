@@ -1078,9 +1078,7 @@ export class StoryRun {
 
   /** r22 BPLAY: noted for the story so far. */
   private visit(place: string): void {
-    if (this.visited[place] === undefined) {
-      this.visited[place] = this.clockNow;
-    }
+    this.visited[place] ??= this.clockNow;
   }
 
   /** A check's odds now, with `extra` modifiers on top of its own. */
@@ -1296,13 +1294,8 @@ export class StoryRun {
           }
           if (op.lang !== undefined) this.langLine(op, beat);
           // r22 BPLAY: whoever speaks to him, he's met.
-          if (
-            op.kind === "say" &&
-            op.who &&
-            op.who !== this.hero &&
-            this.met[op.who] === undefined
-          ) {
-            this.met[op.who] = this.clockNow;
+          if (op.kind === "say" && op.who && op.who !== this.hero) {
+            this.met[op.who] ??= this.clockNow;
           }
           this.clockNow += LINE_SECONDS;
           return beat;

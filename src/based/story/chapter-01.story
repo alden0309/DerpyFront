@@ -86,6 +86,7 @@
 @item flat_cap "Tweed flat cap" kind=clothes slot=hat icon=cap bonus=DECEPTION+1,CHARISMA-1 "A tweed cap from the lost property box. A cap changes a face more than a beard does, and nobody trusts it."
 @item brass_lighter "Brass lighter" kind=small icon=lighter "A brass petrol lighter, heavy, engraved on the base: À Jean, pour ses vingt ans, 1968. Somebody lost more than a lighter."
 @item baton "Telescopic baton" kind=weapon slot=hand icon=baton bonus=INTIMIDATION+2,EMPATHY-1 "Police issue, from the van with nobody in it. Folded, it's the length of a hand; flicked out, it's a reason. Held, it changes how people look at him."
+@item room_key "Key to room twelve" kind=key icon=key "An old brass key on a heavy brass weight stamped 12, from the lost-property box. Somebody checked out of room twelve and took it to Lyon by mistake, and it came back by post."
 @item delorme_card "Delorme's card" kind=document icon=card "Plain white, good stock. Delorme, in blue ink, and the hotel's number. Nothing on the back."
 
 @carry "You met London's contact. She's called Penhallow, and she argued against hiring you." if met_contact
@@ -95,12 +96,14 @@
 @carry "The man in grey knows your name." if gave_name
 @carry "Delorme has had room forty-one since the election." if knows_room
 @carry "A car takes room forty-one to Satory at six." if knows_car
-@carry "Anselme has decided he likes you." if rel.anselme >= 2
+@carry "The barman has decided he likes you." if rel.anselme >= 2
 @carry "The man under the awning knows you saw him." if leaned_on_watcher
 @carry "London knows about the car to Satory at six." if texted_london
 @carry "Delorme's card has a Versailles number pressed into it." if knows_versailles
 @carry "A police baton went missing from a van on the rue de Grenelle." if took_baton
 @carry "A journalist, Claire Vidal, is watching the hotel too." if thought_vidal
+@carry "Room twelve is under forty-one, and very quiet." if knows_twelve
+@carry "A man called Jean, past seventy, loses things in the Hôtel Vauban." if knows_jean
 
 
 // --- The opening: the rue de Grenelle ---------------------------------------
@@ -789,7 +792,7 @@ set key_gone
 
 == lost_property "The lost-property box"
 @on look lost_property once
-A cardboard box under the stairs, marked OBJETS TROUVÉS in a porter's capitals. Inside: a pair of tortoiseshell reading glasses, a grey wool scarf somebody's grandmother knitted, a tweed cap, a brass lighter, and one small child's shoe.
+A cardboard box under the stairs, marked OBJETS TROUVÉS in a porter's capitals. Inside: a pair of tortoiseshell reading glasses, a grey wool scarf somebody's grandmother knitted, a tweed cap, a brass lighter, a room key on a brass weight, and one small child's shoe.
 -> lost_take
 
 == lost_property_again "The lost-property box"
@@ -813,6 +816,10 @@ choose "The porter's on the telephone, his back half turned."
     -> lost_take
   * if not has.brass_lighter [Take the lighter]
     give brass_lighter
+    set took_lost
+    -> lost_take
+  * if not has.room_key and not gave_key [Take the key]
+    give room_key
     set took_lost
     -> lost_take
   * [Leave the rest]
@@ -839,6 +846,15 @@ choose "Twenty euros, folded once."
   * [Leave it] "Somebody's coming back for chapter ten."
     He left it where it was.
 end
+-> FREE
+
+// A look that needs things: his reading glasses to read the pencil, and
+// the brass lighter to know whose it is.
+== paperback_jean "A paperback"
+@on look paperback once if wears.reading_glasses and has.brass_lighter
+With the reading glasses on, the pencil inside the torn cover came up clear: Pour Jean, qui ne lit jamais la fin. For Jean, who never reads the ending.
+~ EMPATHY medium: The same Jean as the lighter. Twenty in 1968; past seventy now, in this hotel, reading detective stories and leaving them at chapter nine.
+set knows_jean
 -> FREE
 
 == paperback_again "A paperback"
@@ -1550,6 +1566,16 @@ choose "The porter waits, with the patience of a man paid by the night."
     PORTER: Then you should know he leaves at six, monsieur. The car takes him to Satory. Come at a quarter to.
     set knows_room
     set knows_car
+  * if money >= 10 and not has.umbrella [Buy one of the hotel's umbrellas] "Do you sell umbrellas?"
+    PORTER: Ten euros, monsieur. They come back to us anyway, in the end. Everything does.
+    pay 10
+    give umbrella
+  * needs=room_key [Hand back the key to twelve] "This was in your lost property. It belongs on a hook."
+    The porter took the key, weighed it in his palm, and hung it on its hook as if he'd been waiting years for someone to do it.
+    PORTER: Thank you, monsieur. Twelve is under forty-one, you know. Very quiet. A man in twelve hears everything that walks about upstairs.
+    take room_key
+    set gave_key
+    set knows_twelve
   * silent [Nothing]
     The porter nodded, and went back to the register and the rain.
 end

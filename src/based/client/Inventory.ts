@@ -158,6 +158,9 @@ export function inventoryBody(v: InventoryView): TemplateResult {
                 if (v.items[k]?.slot === s) v.equip(k);
               }}
               @click=${() => v.select(key ?? null)}
+              @pointerenter=${(e: PointerEvent) => {
+                if (key && e.pointerType === "mouse") v.select(key);
+              }}
               @dblclick=${() => {
                 if (key) v.unequip(s);
               }}
@@ -196,6 +199,9 @@ export function inventoryBody(v: InventoryView): TemplateResult {
                 @dragstart=${(e: DragEvent) =>
                   e.dataTransfer?.setData("text/plain", key)}
                 @click=${() => v.select(key)}
+                @pointerenter=${(e: PointerEvent) => {
+                  if (e.pointerType === "mouse") v.select(key);
+                }}
                 @dblclick=${() => {
                   if (it.slot) v.equip(key);
                 }}

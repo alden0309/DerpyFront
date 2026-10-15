@@ -1160,10 +1160,11 @@ kbd {
   object-fit: cover;
 }
 .mb-col-head.portrait {
-  height: 160px;
+  box-sizing: border-box;
+  height: 186px;
   margin: 14px 18px 0 72px;
-  border: 6px solid #e4e1d4;
-  border-bottom-width: 26px;
+  padding: 6px 6px 26px;
+  background: #e4e1d4;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5);
   transform: rotate(0.8deg);
 }
@@ -1177,9 +1178,9 @@ kbd {
 }
 .mb-col-head-name {
   position: absolute;
-  left: 4px;
-  right: 4px;
-  bottom: -22px;
+  left: 8px;
+  right: 8px;
+  bottom: 5px;
   font-family: var(--mb-type);
   font-size: 12.5px;
   font-weight: 700;
@@ -1410,7 +1411,8 @@ kbd {
 .mb-slip-mods {
   list-style: none;
   margin: 8px 0 0;
-  padding: 0;
+  /* Room for the stamp, bottom right. */
+  padding: 0 112px 0 0;
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--mb-ink-2);
@@ -1463,7 +1465,8 @@ kbd {
   overflow-y: auto;
   padding: 12px 22px calc(18px + env(safe-area-inset-bottom)) 22px;
   border-top: 1px solid var(--mb-rule);
-  background: rgba(14, 19, 23, 0.7);
+  /* Solid, so the transcript's margin rule stops where the choices begin. */
+  background: #11171c;
 }
 .mb-play.narrow .mb-col-act {
   max-height: 64%;
@@ -1893,6 +1896,11 @@ kbd {
 }
 
 /* How to play. */
+.mb-help,
+.mb-help-p,
+.mb-odds {
+  max-width: 70ch;
+}
 .mb-help {
   margin: 0 0 6px;
   padding-left: 18px;
@@ -2444,9 +2452,12 @@ label.mb-skill {
   height: auto;
 }
 .mb-slotbox-empty {
-  width: 22px;
-  height: 1px;
-  background: rgba(29, 30, 35, 0.25);
+  display: none;
+}
+.mb-slotbox.empty .mb-slotbox-name {
+  font-style: italic;
+  font-family: var(--mb-serif);
+  font-size: 13px;
 }
 .mb-slotbox-name {
   font-family: var(--mb-type);
@@ -3272,9 +3283,7 @@ label.mb-skill {
   color: var(--mb-carbon);
 }
 .mb-dos-foot {
-  padding: 0 34px 24px 324px;
-  background: var(--mb-paper);
-  margin-top: -1px;
+  padding: 10px 0 24px;
 }
 .mb-sheet.dossier > .mb-x {
   z-index: 2;
@@ -3386,6 +3395,7 @@ label.mb-skill {
   }
   .mb-dos-tab {
     grid-column: 1 / -1;
+    justify-self: start;
   }
   .mb-dos-photo.cover {
     width: 86px;
@@ -3407,7 +3417,7 @@ label.mb-skill {
     flex: none;
   }
   .mb-dos-foot {
-    padding: 0 16px calc(20px + env(safe-area-inset-bottom));
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
   .mb-dos-decisions > li {
     grid-template-columns: minmax(0, 1fr);

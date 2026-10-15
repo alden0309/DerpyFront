@@ -402,7 +402,9 @@ export class BasedPlayer extends LitElement {
       };
       if (voice) {
         e.skill = voice.skill;
-        if (voice.tier) e.tag = `${voice.tier}: Success`;
+        // A passive check heard: how hard it was, in the transcript's own words.
+        if (voice.tier)
+          e.tag = `${voice.tier.toLowerCase()} ${voice.diff ?? ""}`;
       }
       this.push(e);
       this.startTyping();
@@ -838,13 +840,16 @@ export class BasedPlayer extends LitElement {
 
   /** Items with any use in the story (the Use button shows for them). */
   private get useful(): string[] {
+    if (this.usefulCache) return this.usefulCache;
     const out = new Set<string>();
     for (const id of this.chapter.order) {
       const t = this.chapter.scenes[id].trigger;
       if (t?.on === "use" && t.target) out.add(t.target);
     }
-    return [...out];
+    return (this.usefulCache = [...out]);
   }
+
+  private usefulCache: string[] | null = null;
 
   // --- the story so far (r22 BPLAY) ---------------------------------------------
 
@@ -2305,9 +2310,10 @@ export class BasedPlayer extends LitElement {
       return sheet(
         html`<h2>Note for the writer</h2>
           <p class="mb-sheet-sub">
-            ${this.run.free ? "Exploring" : html`Scene “${this.sceneLabel}”`} ·
-            ${on
-              ? html`on “${on.slice(0, 120)}${on.length > 120 ? "…" : ""}”`
+            ${this.run.free
+              ? "Exploring"
+              : html`Scene “${this.sceneLabel}”`}${on
+              ? html`, on “${on.slice(0, 120)}${on.length > 120 ? "…" : ""}”`
               : nothing}
           </p>
           <textarea
@@ -2420,11 +2426,7 @@ export class BasedPlayer extends LitElement {
       );
     }
     if (o === "log") {
-      return sheet(
-        html`${dossierBody(this.dossier())}
-          <div class="mb-dos-foot">${back}</div>`,
-        "dossier",
-      );
+      return sheet(html`${dossierBody(this.dossier(), back)}`, "dossier");
     }
     if (o === "credits") {
       return sheet(html`${creditsBody(this.credits)} ${back}`, "tall");
@@ -2435,7 +2437,7 @@ export class BasedPlayer extends LitElement {
         <button class="mb-menu-line ${cls}" @click=${go}>
           <span class="mb-menu-label">${label}</span>
           <span class="mb-menu-dots" aria-hidden="true"></span>
-          ${touch ? nothing : html`<kbd>${key}</kbd>`}
+          ${touch || !key ? nothing : html`<kbd>${key}</kbd>`}
         </button>
       </li>`;
     const place = this.stage.place ? this.places[this.stage.place] : undefined;

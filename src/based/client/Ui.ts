@@ -117,7 +117,7 @@ export function settingsBody(
         <div class="mb-setting-name">Pictures</div>
         <div class="mb-setting-note">
           "Fine" paints the scene and casts shadows; "Light" is kinder to a
-          phone. Takes effect when a chapter starts.
+          phone. Takes effect the next time the game starts.
         </div>
       </div>
       <div class="mb-segs">
