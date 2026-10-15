@@ -267,24 +267,27 @@ function courseForbids(s: GameState, n: number, p: number): boolean {
 
 /**
  * After the peace the republic's wars with the powers are history's (the
- * Northwest's, the Quasi-War): a power doesn't answer a native ally's call
- * to war on the United States, nor the United States a call to war on a
- * power, unless a player rules the nation answering (they may still declare
- * it themselves). The frontier's peoples, and risings, still stand by each
- * other.
+ * Northwest's, the Quasi-War): no power answers an ally's call to a war the
+ * United States is in, on either side, and the United States answers no
+ * ally's call at all (it kept out of Europe's wars, its treaty with France
+ * or not), unless a player rules the nation answering (they may still
+ * declare war themselves). The frontier's peoples, and risings, still stand
+ * by each other. `a` attacked `b`; `ally` is called to `b`'s side.
  */
 export function campaignNoCall(
   s: GameState,
   ally: number,
-  against: number,
+  a: number,
+  b: number,
 ): boolean {
   const c = courseOf(s);
   if (c?.peace === undefined) return false;
   const us = usOf(s);
-  if (ally !== us && against !== us) return false;
-  const other = s.nations[ally === us ? against : ally];
-  if (!other || (other.kind !== "power" && other.kind !== "crown"))
-    return false;
+  if (ally !== us) {
+    if (a !== us && b !== us) return false;
+    const k = s.nations[ally]?.kind;
+    if (k !== "power" && k !== "crown") return false;
+  }
   const ruler = s.nations[ally]?.ruler ?? -1;
   return ruler < 0 || !s.lives.some((l) => l.c === ruler);
 }

@@ -22,6 +22,7 @@
 // no war behind it ends (or, with no owner left, becomes the occupier's,
 // with a claim for the people who live there).
 
+import { campaignEurope } from "./Campaign1776Core"; // CQ24 (r24)
 import { kill, makeCharacter } from "./Characters";
 import { cede } from "./Crown";
 import { merge } from "./Economy";
@@ -354,6 +355,9 @@ function claimWars(g: ConquestGame): void {
       const h = s.provinces[c.p].owner;
       const H = s.nations[h];
       if (!isRealm(H) || !H!.alive) continue;
+      // CQ24 (r24): in the 1776 campaign the powers' wars are history's.
+      if (n.kind === "power" && H!.kind === "power" && campaignEurope(s))
+        continue;
       let live = claimLive(s, c).total;
       const tr = risingHolding(g, c.p);
       if (tr) live += CLAIM.risingBoost;

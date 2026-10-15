@@ -752,16 +752,28 @@ describe("1776: The Revolution, to 1800, as history went unless players turn it"
       const g = world({ start: 1776, seed, plans: [] });
       const marks = markDays();
       const missed: string[] = [];
+      // After the peace, the only war between powers is the Quasi-War.
+      const powerWars: string[] = [];
+      const power = (n: number) =>
+        g.s.nations[n]?.kind === "power" || g.s.nations[n]?.kind === "crown";
       let i = 0;
       while (!g.s.over) {
         g.tick();
-        g.takeDelta();
+        for (const e of g.takeDelta().events ?? [])
+          if (
+            e.k === "war" &&
+            course(g).peace !== undefined &&
+            power(e.n) &&
+            power(e.on)
+          )
+            powerWars.push(`${e.why}`);
         while (i < marks.length && g.s.day >= marks[i].day) {
           if (!marks[i].mark.check(g)) missed.push(marks[i].mark.label);
           i++;
         }
       }
       expect(missed, `seed ${seed}`).toEqual([]);
+      expect(powerWars, `seed ${seed}`).toEqual(["The Quasi-War"]);
       expect(g.s.day, `seed ${seed}`).toBe(dayOf(1801));
       expect(turns(g.s), `seed ${seed}`).toEqual([]);
       // Every beat, the war's and the years after, on its own day.
@@ -781,7 +793,7 @@ describe("1776: The Revolution, to 1800, as history went unless players turn it"
     }
   }, 600_000);
 
-  test("after the peace, a native ally's call doesn't draw British America into a war with the republic, unless a player rules it", () => {
+  test("after the peace, an ally's call draws no power into the republic's wars, nor the republic into anyone's, unless a player rules it", () => {
     const g = world({
       start: 1776,
       seed: 3,
@@ -805,12 +817,21 @@ describe("1776: The Revolution, to 1800, as history went unless players turn it"
         !atWar(s, us, n.id) &&
         !atWar(s, br, n.id),
     );
-    expect(free.length).toBeGreaterThanOrEqual(2);
+    expect(free.length).toBeGreaterThanOrEqual(4);
     for (const n of free.slice(0, 2))
       s.treaties.push({ kind: "alliance", a: br, b: n.id, since: s.day });
     startWar(g, us, free[0].id, "A test", false);
     expect(atWar(s, us, free[0].id)).toBe(true);
     expect(atWar(s, br, us)).toBe(false);
+    // Its ally France's war isn't the republic's, nor its war France's.
+    const fr = s.nations.findIndex((n) => n.key === "france");
+    s.treaties.push({ kind: "alliance", a: us, b: fr, since: s.day });
+    startWar(g, free[2].id, fr, "A test", false);
+    expect(atWar(s, free[2].id, fr)).toBe(true);
+    expect(atWar(s, free[2].id, us)).toBe(false);
+    startWar(g, free[3].id, us, "A test", false);
+    expect(atWar(s, free[3].id, us)).toBe(true);
+    expect(atWar(s, free[3].id, fr)).toBe(false);
     // A player who rules British America answers it as the rules have it.
     s.nations[br].ruler = meOf(s, lifeOf(g))!.id;
     startWar(g, us, free[1].id, "A test", false);

@@ -76,7 +76,7 @@ export function startWar(
   for (const ally of alliesOf(s, b)) {
     if (ally === a || atWar(s, ally, a)) continue;
     if (s.nations[ally].kind === "crown") continue;
-    if (campaignNoCall(s, ally, a)) continue; // CQ24 (r24): the 1776 campaign's peace holds
+    if (campaignNoCall(s, ally, a, b)) continue; // CQ24 (r24): the 1776 campaign's peace holds
     startWar(g, ally, a, `Defending ${s.nations[b].name}`, false);
   }
   // Tributaries follow their overlord to war.
