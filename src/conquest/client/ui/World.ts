@@ -162,7 +162,9 @@ export function worldTab(ui: GameUi): TemplateResult {
   const s = ui.s;
   const year = dateOf(s.day).year;
   const endYear = endWords(s).year; // DLC (r21): 1784 in the 1776 campaign
-  const left = endYear - year;
+  // CQ24 (r24): the campaign runs to the end of 1800 (1 January 1801).
+  const campaign = s.settings.endYear > endYear;
+  const left = (campaign ? s.settings.endYear : endYear) - year;
   const powers = s.nations.filter((n) => n.alive && n.kind === "power");
   const natives = s.nations
     .filter((n) => n.alive && n.kind === "native")
@@ -175,7 +177,7 @@ export function worldTab(ui: GameUi): TemplateResult {
       <p class="cq-muted small">
         ${formatDate(s.day)}.
         ${left > 0
-          ? `${left} year${left === 1 ? "" : "s"} until ${endYear}.`
+          ? `${left} year${left === 1 ? "" : "s"} until ${campaign ? `the end of ${endYear}` : endYear}.`
           : `${endYear}.`}
       </p>
     </header>

@@ -9,6 +9,10 @@
 //   the odds rolled, what follows (their people, their allies, the
 //   neighbours, the reckoning), and the place remembered as dug; keeping
 //   faith still pays.
+// - 1776: The Revolution runs to the end of 1800: the end year, the new
+//   years' beats on their dates, history kept across seeds with nobody in
+//   the way, a player's army and a vote in Congress turning it (and the
+//   news saying so), an old save carrying on, and the host-ownership rule.
 //
 // The database part needs a throwaway Postgres:
 // DERPY_TEST_DATABASE_URL=postgres://... (every derpy_ table in it is
@@ -20,8 +24,30 @@ import type pg from "pg";
 import { fileURLToPath } from "url";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import { seasonKeyOf } from "../../src/conquest/client/MapView";
-import { dlcFromOwned, MAP_STYLES } from "../../src/conquest/DlcIds";
+import {
+  CAMPAIGN_1776,
+  dlcFromOwned,
+  MAP_STYLES,
+  NO_DLC,
+} from "../../src/conquest/DlcIds";
 import { dateOf, dayOf } from "../../src/conquest/engine/Calendar";
+import {
+  beatDay,
+  BEATS,
+  campaignOf,
+  endWords,
+  isCampaign,
+  kingOf,
+  mainArmy,
+  usOf,
+} from "../../src/conquest/engine/Campaign1776";
+import {
+  came,
+  course,
+  markDays,
+  turns,
+} from "../../src/conquest/engine/Campaign1776Course";
+import { LATER_BEATS } from "../../src/conquest/engine/Campaign1776Later";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { lifeForOthers } from "../../src/conquest/engine/IntrigueCore";
@@ -59,11 +85,15 @@ import {
 } from "../../src/conquest/engine/Snow";
 import { ownedInTab } from "../../src/derpland/StoreTabs";
 import {
+  hostProblem,
+  loadProblem,
+} from "../../src/server/conquest/ConquestDlc";
+import {
   DERPY_ITEMS,
   findItem,
   RETIRED_ITEM_REFUNDS,
 } from "../../src/server/derpy/DerpyCatalog";
-import { lifeOf, plan, toNextMonth, world } from "./LifeUtil";
+import { lifeOf, plan, prov, toNextMonth, world } from "./LifeUtil";
 
 vi.mock("../../src/server/Logger", () => ({
   logger: {
@@ -656,5 +686,254 @@ describe("Legends: a sacred place kept, or plundered", () => {
     // Kept: nothing dug, and nobody can dig it while... it's still there to dig for another.
     expect(plunderedMark(s, def)).toBeUndefined();
     void i;
+  });
+});
+
+// ---------------------------------------------------------------- 1776 to 1800
+
+describe("1776: The Revolution, to 1800, as history went unless players turn it", () => {
+  const until = (g: ConquestGame, day: number) => {
+    while (!g.s.over && g.s.day < day) {
+      g.tick();
+      g.takeDelta();
+    }
+  };
+  const holder = (g: ConquestGame, name: string) => {
+    const pr = g.s.provinces[prov(name)];
+    return pr.occupier >= 0 ? pr.occupier : pr.owner;
+  };
+
+  test("the end year is 1800, everywhere it's said; the years after the peace are in order", () => {
+    const g = world({ start: 1776, seed: 3 });
+    expect(isCampaign(g.s)).toBe(true);
+    expect(g.s.settings.endYear).toBe(1801);
+    expect(g.s.endDay).toBe(dayOf(1801));
+    expect(endWords(g.s).year).toBe(1800);
+    expect(endWords(g.s).reached).toContain("1800");
+    // The years from 1784, in order after the war's, every one dated in them.
+    for (let i = 1; i < BEATS.length; i++)
+      expect(beatDay(BEATS[i]), BEATS[i].key).toBeGreaterThanOrEqual(
+        beatDay(BEATS[i - 1]),
+      );
+    expect(LATER_BEATS.length).toBeGreaterThanOrEqual(50);
+    for (const b of LATER_BEATS) {
+      expect(beatDay(b), b.key).toBeGreaterThanOrEqual(dayOf(1784));
+      expect(beatDay(b), b.key).toBeLessThan(dayOf(1801));
+    }
+    for (const k of [
+      "shays",
+      "convention",
+      "ratification",
+      "inauguration",
+      "bill-of-rights",
+      "st-clair",
+      "fallen-timbers",
+      "greenville",
+      "whiskey",
+      "jay-ratified",
+      "pinckney",
+      "haiti",
+      "adams",
+      "xyz",
+      "alien-sedition",
+      "quasi-war",
+      "election-1800",
+    ])
+      expect(
+        BEATS.some((b) => b.key === k),
+        k,
+      ).toBe(true);
+  });
+
+  test("with nobody in the way, five seeds keep history's course to the end of 1800", () => {
+    for (const seed of [2, 3, 5, 7, 11]) {
+      const g = world({ start: 1776, seed, plans: [] });
+      const marks = markDays();
+      const missed: string[] = [];
+      let i = 0;
+      while (!g.s.over) {
+        g.tick();
+        g.takeDelta();
+        while (i < marks.length && g.s.day >= marks[i].day) {
+          if (!marks[i].mark.check(g)) missed.push(marks[i].mark.label);
+          i++;
+        }
+      }
+      expect(missed, `seed ${seed}`).toEqual([]);
+      expect(g.s.day, `seed ${seed}`).toBe(dayOf(1801));
+      expect(turns(g.s), `seed ${seed}`).toEqual([]);
+      // Every beat, the war's and the years after, on its own day.
+      const r = campaignOf(g.s)!;
+      for (const b of BEATS)
+        expect(r.beats[b.key], `seed ${seed} ${b.key}`).toBe(beatDay(b));
+      // What the years did to the map.
+      const us = usOf(g.s);
+      expect(holder(g, "Scioto")).toBe(us);
+      expect(holder(g, "Détroit")).toBe(us);
+      expect(holder(g, "Natchez")).toBe(us);
+      expect(g.s.nations[us].capital).toBe(prov("Piscataway"));
+      expect(g.s.nations[us].gov).toBe("republic");
+      expect(g.s.polities[us]?.name).toBe("the Congress of the United States");
+      expect(course(g).frontier?.on).toBe(false);
+      expect(course(g).quasi).toBe(false);
+    }
+  }, 600_000);
+
+  test("a player's army turns it: the King's army beaten before New York, and New York never falls", () => {
+    const g = world({
+      start: 1776,
+      seed: 5,
+      plans: [
+        {
+          seat: "s1",
+          name: "Alden",
+          plan: plan({ home: prov("Plymouth"), age: 34 }),
+        },
+      ],
+    });
+    const s = g.s;
+    const life = lifeOf(g);
+    for (const ev of [...life.events])
+      g.lifeCommand("s1", { k: "event", id: ev.id, choice: 0 });
+    const me = meOf(s, life)!;
+    const us = usOf(s);
+    // The player sits as Congress's President of the Board of War, and takes
+    // the Continental Army; they've raised a great one.
+    g.nation(us).council.marshal = me.id;
+    const main = mainArmy(s)!;
+    life.prov = main.prov;
+    life.travel = null;
+    expect(
+      g.lifeCommand("s1", { k: "command", army: main.id } as never),
+    ).toBeNull();
+    for (let i = 0; i < 70; i++)
+      main.regs.push({ type: "regulars", men: 100, morale: 0.95, home: -1 });
+    // To Long Island, where the King's great army lands in July.
+    until(g, dayOf(1776, 6, 3));
+    const kingMain = s.armies.find(
+      (a) => a.id === campaignOf(s)!.armies!.kingmain && a.owner === kingOf(s),
+    );
+    expect(kingMain).toBeDefined();
+    life.prov = main.prov;
+    expect(
+      g.lifeCommand("s1", { k: "march", to: prov("Paumanok") } as never),
+    ).toBeNull();
+    // Answer nothing more; let the armies meet, then hold New York.
+    until(g, dayOf(1776, 7, 20));
+    expect(course(g).fates?.kingmain).toBeDefined();
+    const field = turns(s).find((t) => t.key.startsWith("field:kingmain"));
+    expect(field?.why).toMatch(/Alden .*(beats|destroys) the King's main army/);
+    if (main.prov !== prov("New Amsterdam") && s.armies.includes(main)) {
+      life.prov = main.prov;
+      life.travel = null;
+      g.lifeCommand("s1", { k: "march", to: prov("New Amsterdam") } as never);
+    }
+    const news: string[] = [];
+    while (s.day < dayOf(1776, 9, 1)) {
+      g.tick();
+      for (const e of g.takeDelta().events ?? [])
+        if (e.k === "news") news.push(e.text);
+    }
+    // New York holds: history turned, and the news said so.
+    expect(holder(g, "New Amsterdam")).toBe(us);
+    expect(course(g).turned["new-york"]).toBeDefined();
+    expect(came(s, "new-york")).toBe(false);
+    expect(news.some((t) => t.startsWith("History turns"))).toBe(true);
+    // Later history adapts: the British never leave the city they never took.
+    until(g, dayOf(1783, 11, 1));
+    expect(came(s, "evacuation")).toBe(false);
+  }, 300_000);
+
+  test("a vote in Congress turns it: the Declaration lost, put again, and France waits for it", () => {
+    const g = world({
+      start: 1776,
+      seed: 7,
+      plans: [
+        {
+          seat: "s1",
+          name: "Alden",
+          plan: plan({ home: prov("Fort Christina"), age: 40 }),
+        },
+      ],
+    });
+    const s = g.s;
+    const life = lifeOf(g);
+    const me = meOf(s, life)!;
+    const us = usOf(s);
+    // A house where the player's vote decides it (players holding the
+    // balance; here, the only member left sitting).
+    const pol = s.polities[us]!;
+    pol.assembly = [me.id];
+    g.politiesChanged(us);
+    until(g, dayOf(1776, 5, 8));
+    const ask = life.events.find((e) => e.key === "r76-vote");
+    expect(ask).toBeDefined();
+    expect(
+      g.lifeCommand("s1", { k: "event", id: ask!.id, choice: 1 }),
+    ).toBeNull();
+    // The house as it sits when it divides: the player keeps voting no.
+    const holdOut = (to: number) => {
+      while (s.day < to) {
+        g.tick();
+        g.takeDelta();
+        pol.assembly = [me.id];
+        for (const ev of life.events.filter((e) => e.key === "r76-vote"))
+          g.lifeCommand("s1", { k: "event", id: ev.id, choice: 1 });
+      }
+    };
+    holdOut(dayOf(1776, 6, 6));
+    expect(course(g).votes?.declaration?.carried).toBe(false);
+    expect(s.nations[us].name).toBe("the United Colonies");
+    expect(turns(s).some((t) => t.key === "declaration")).toBe(true);
+    // Put again every few months, and lost while the player holds out; France
+    // won't treat with the King's subjects, and the alliance waits.
+    holdOut(dayOf(1778, 2, 10));
+    expect(s.nations[us].name).toBe("the United Colonies");
+    expect(came(s, "alliance")).toBe(false);
+    expect(course(g).held?.alliance).toBeDefined();
+    // Once the player stops holding out, it's carried, late; and France comes in.
+    until(g, dayOf(1779, 0, 1));
+    expect(s.nations[us].name).toBe("the United States");
+    expect(course(g).late?.declaration).toBeDefined();
+    expect(came(s, "alliance")).toBe(true);
+    expect(course(g).late?.alliance).toBeDefined();
+    expect(course(g).europe?.france).toBeGreaterThan(dayOf(1778, 5, 1));
+  }, 300_000);
+
+  test("an old save of the campaign to 1784 loads and carries on to 1800", () => {
+    const g = world({ start: 1776, seed: 9, plans: [] });
+    until(g, dayOf(1783, 10, 1));
+    const old = JSON.parse(JSON.stringify(g.s));
+    // As a save of round 21 had it: the end in 1784, no course.
+    old.settings.endYear = 1784;
+    const oldEnd = dayOf(1784);
+    old.endDay = oldEnd;
+    for (const n of old.nations)
+      for (const m of n.mods) if (m.until > oldEnd) m.until = oldEnd + 1;
+    delete old.nations[usOf(old)].r76.course;
+    for (const b of LATER_BEATS) delete old.nations[usOf(old)].r76.beats[b.key];
+    const g2 = new ConquestGame(g.map, old);
+    expect(g2.s.settings.endYear).toBe(1801);
+    expect(g2.s.endDay).toBe(dayOf(1801));
+    expect(
+      g2.s.nations[usOf(g2.s)].mods.find((m) => m.key.startsWith("gov:"))
+        ?.until,
+    ).toBe(dayOf(1801) + 1);
+    until(g2, dayOf(1784, 1, 1));
+    expect(g2.s.over).toBe(false);
+    expect(campaignOf(g2.s)!.beats.ratified).toBe(dayOf(1784, 0, 14));
+    expect(turns(g2.s)).toEqual([]);
+  }, 120_000);
+
+  test("only an owner may host it or load it; anyone may join", () => {
+    expect(hostProblem(1776, NO_DLC)).toMatch(/Derp Store/);
+    expect(loadProblem(1776, NO_DLC)).toMatch(/owns 1776/);
+    const owner = { ...NO_DLC, campaign1776: true };
+    expect(hostProblem(1776, owner)).toBeNull();
+    expect(loadProblem(1776, owner)).toBeNull();
+    expect(hostProblem(1700, NO_DLC)).toBeNull();
+    expect(CAMPAIGN_1776).toBe("campaign_1776");
+    const item = findItem(CAMPAIGN_1776)!;
+    expect(item.conquest!.features.join(" ")).toContain("1800");
   });
 });

@@ -104,7 +104,7 @@ describe("1776: The Revolution", () => {
     const { s, life } = game1776();
     expect(isCampaign(s)).toBe(true);
     expect(s.day).toBe(dayOf(1776));
-    expect(s.settings.endYear).toBe(1784);
+    expect(s.settings.endYear).toBe(1801); // CQ24 (r24): to the end of 1800
     const us = usOf(s);
     const king = kingOf(s);
     const br = britainOf(s);
@@ -154,7 +154,9 @@ describe("1776: The Revolution", () => {
     expect(other.settings.endYear).toBe(1776);
   });
 
-  test("the war's beats come on their dates, through the peace to 1784", () => {
+  // CQ24 (r24): the campaign runs on to 1800 now (ConquestCq24.test.ts has
+  // the years after the peace); here, the war's beats to the peace.
+  test("the war's beats come on their dates, through the peace", () => {
     const { g, s } = game1776();
     const us = usOf(s);
     const king = kingOf(s);
@@ -187,11 +189,10 @@ describe("1776: The Revolution", () => {
       expect(s.provinces[prov(p)].owner, p).toBe(spain);
     expect(s.provinces[prov("Tobago")].owner).toBe(france);
     expect(s.provinces[prov("Cahokia")].owner).toBe(us);
-    // The game ends on 1 January 1784, every beat on its day.
-    until(g, dayOf(1785));
-    expect(s.over).toBe(true);
-    expect(s.day).toBe(dayOf(1784));
-    for (const b of BEATS)
+    // On to 1784 (the game goes on), every war's beat on its day.
+    until(g, dayOf(1784, 0, 2));
+    expect(s.over).toBe(false);
+    for (const b of BEATS.filter((x) => beatDay(x) < dayOf(1784)))
       expect(campaignOf(s)?.beats[b.key], b.key).toBe(beatDay(b));
   }, 120_000);
 

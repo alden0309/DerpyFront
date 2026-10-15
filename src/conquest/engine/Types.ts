@@ -6115,3 +6115,62 @@ export interface LegendProgress {
   reckonDue?: number;
   reckoned?: "returned" | "paid" | "talked" | "fought" | "lost";
 }
+
+/** CQ24 (r24): the 1776 campaign's course: where history held, and where players turned it. */
+export interface Course76 {
+  /** Beats that went otherwise (their key): the day, and why (quiet: it followed from a turn already told). */
+  turned: Record<string, { day: number; why: string; quiet?: boolean }>;
+  /** Beats waiting on what history needed first (their key): the day they were due. */
+  held?: Record<string, number>;
+  /** Beats fought or contested for real, players being there: where, until when. */
+  pending?: Record<
+    string,
+    { p: number; until: number; kind: "battle" | "take"; tag?: string }
+  >;
+  /** Battles fought for real at a beat (its key): who carried the day. */
+  fought?: Record<string, "us" | "them">;
+  /** The war's armies beaten or destroyed where players fought (their tag). */
+  fates?: Record<string, { day: number; how: "beaten" | "destroyed" }>;
+  /** Towns taken or freed by players' armies, against history (province). */
+  towns?: Record<number, { day: number; holder: number; by: string }>;
+  /** Divisions in Congress: the beat's key → how it went. */
+  votes?: Record<
+    string,
+    { day: number; ayes: number; noes: number; carried: boolean }
+  >;
+  /** Players' votes for a coming division: the beat's key → seat → 1, -1 or 0. */
+  ballots?: Record<string, Record<string, number>>;
+  /** A division lost: when it's put again (the beat's key → day). */
+  revote?: Record<string, number>;
+  /** A great American victory players won (the day): France takes note. */
+  victory?: number;
+  /** Britain's will to fight, spent (0 to 1); the peace comes at PEACE_AT. */
+  weary?: number;
+  /** The day the peace is due, if it comes otherwise than in 1783; and the day it came. */
+  peaceDue?: number;
+  peace?: number;
+  /** The rising put down (the day). */
+  crushed?: number;
+  /** The day the Continental Army was lost (Congress raises another). */
+  armyLost?: number;
+  /** Europe's wars with Britain: the day each opens (France, Spain), as the course has them. */
+  europe?: Record<string, number>;
+  /** The wars the course holds after the peace: the frontier (1790-95) and the Quasi-War (1798-1800). */
+  frontier?: { on: boolean; foes: number[] };
+  quasi?: boolean;
+  /** The first day history turned. */
+  since?: number;
+  /** Beats that came later than history had them (after a turn): their key → the day. */
+  late?: Record<string, number>;
+  /** Britain's will spent by players' victories alone (an early peace comes of it). */
+  wearyBy?: number;
+  /** The day the King's army took Congress's seat (held half a year, the rising is put down). */
+  capLost?: number;
+  /** Towns held for the King by players' armies when the peace came (they stay British). */
+  holds?: number[];
+}
+
+export interface Campaign76 {
+  /** CQ24 (r24): the course of history (Campaign1776Course.ts). */
+  course?: Course76;
+}

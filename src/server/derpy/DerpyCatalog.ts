@@ -425,7 +425,8 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
     category: "startdates", // SITE (r22)
     displayName: "1776: The Revolution",
     description:
-      "A new start date: 1 January 1776, with Boston under siege and independence not yet declared. Live through the American Revolution to the Treaty of Paris, as a patriot, a loyalist or neither.",
+      // CQ24 (r24): to 1800.
+      "A new start date: 1 January 1776, with Boston under siege and independence not yet declared. Live through the American Revolution and the new republic's first years, to 1800, as a patriot, a loyalist or neither.",
     price: 4000,
     conquest: {
       features: [
@@ -433,7 +434,9 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
         "The war's great events as they happened: the Declaration, the fall of New York, Trenton, Saratoga, the French alliance, Valley Forge, Charleston, Yorktown and the peace",
         "Choose your side, and see what each side costs and pays when the war is over",
         "A commission in the Continental Army or a Loyalist regiment, a letter of marque from Congress, spying in a town held by the other side, a seat in Congress",
-        "The world runs to the end of 1783",
+        // CQ24 (r24): to 1800, and history yields to what players do.
+        "History keeps its course unless you change it: win or lose a battle, hold a town, sway a vote in Congress, and the world follows what happened",
+        "The world runs to the end of 1800: the Constitution, Washington's government, the war in the Northwest, the Haitian Revolution, the Quasi-War and the election of 1800",
       ],
       howTo:
         "In Derpy Conquest, host a game and choose 1776 under Begin in. Only the host needs to own it: friends join for free.",

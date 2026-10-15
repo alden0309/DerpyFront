@@ -26,6 +26,7 @@ import {
   TURNCOAT,
   usOf,
 } from "../../engine/Campaign1776";
+import { came } from "../../engine/Campaign1776Course"; // CQ24 (r24)
 import {
   askCheck,
   askOdds,
@@ -56,6 +57,7 @@ import {
   provLink,
   section,
 } from "./Context";
+import { courseNote, turnsSection } from "./CourseUi"; // CQ24 (r24)
 import { howTo, pageHead } from "./Nav";
 import { plunderBox, plunderDone, plunderedLine } from "./PlunderUi"; // CQ24 (r24)
 import { price } from "./Price";
@@ -111,7 +113,7 @@ export function warPage(ui: GameUi): TemplateResult {
     "The war",
     "The War of Independence as it comes: where it stands, your side in it, and what you can do for it.",
   )}
-  ${standsSection(ui)} ${sideSection(ui)}
+  ${standsSection(ui)} ${turnsSection(ui)} ${sideSection(ui)}
   ${nation?.rebelling && sideOf(s, life) !== undefined
     ? html`${commissionSection(ui)} ${spySection(ui)}`
     : nothing}
@@ -166,11 +168,7 @@ function standsSection(ui: GameUi): TemplateResult {
             )}.
           </p>`
         : nothing}
-      <p class="cq-muted small">
-        The war follows its history: its battles, its alliances and its peace
-        come on their dates, and the armies of it move as they did. You live
-        your part in it.
-      </p>`,
+      ${courseNote()}`,
   );
 }
 
@@ -366,9 +364,16 @@ function yourPartSection(ui: GameUi): TemplateResult | typeof nothing {
 }
 
 function soFarSection(ui: GameUi): TemplateResult {
-  const come = beatsCome(ui.s).slice().reverse();
+  // CQ24 (r24): only what came (a beat history turned aside isn't news),
+  // and after the peace, the republic's years too.
+  const come = beatsCome(ui.s)
+    .filter(({ beat }) => came(ui.s, beat.key))
+    .slice()
+    .reverse();
   return section(
-    "The war so far",
+    ui.s.nations[usOf(ui.s)]?.independent
+      ? "The years so far"
+      : "The war so far",
     come.length
       ? html`<ol class="cq-r76-beats">
           ${come.map(

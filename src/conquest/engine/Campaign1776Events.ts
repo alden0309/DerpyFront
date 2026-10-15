@@ -11,6 +11,7 @@
 
 import { beatDay, BEATS, cdice, courtMartial, provNamed } from "./Campaign1776";
 import { britainOf, sideOf, SPY, usOf } from "./Campaign1776Core";
+import { courseEvents, courseQuiet } from "./Campaign1776CourseEvents"; // CQ24 (r24)
 import { registerFamily } from "./EventPacing";
 import { tag } from "./EventPlaces";
 import type { ConquestGame } from "./Game";
@@ -741,6 +742,7 @@ const ALL: LifeEventDef[] = [
   CAUGHT_EVENT,
   PEACE_EVENT,
   DISBAND_EVENT,
+  ...courseEvents(), // CQ24 (r24): a division in Congress
 ];
 
 let paced = false;
@@ -772,6 +774,7 @@ export function r76Quiet(): Record<string, number> {
     "r76-spy-caught": 1,
     "r76-peace": 2,
     "r76-disband": 1,
+    ...courseQuiet(), // CQ24 (r24)
   };
 }
 

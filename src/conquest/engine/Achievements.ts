@@ -1269,8 +1269,9 @@ function newAchievements(): AchievementDef[] {
     },
     {
       key: "r76-peace",
-      name: "The peace",
-      how: "Live to see the peace, in 1784.",
+      // CQ24 (r24): the campaign runs to the end of 1800 now.
+      name: "The century out",
+      how: "Live to see the 1776 campaign through, to the end of 1800.",
       coins: 6,
       group: "campaign",
       dlc: CAMPAIGN_1776,

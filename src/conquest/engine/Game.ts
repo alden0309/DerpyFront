@@ -38,6 +38,8 @@ import { World, worldOf } from "./Map";
 import "./Achievements"; // MAP (r12): achievements watch every life
 import "./Bondage"; // LABOUR (r15): bondage, treated as history
 import "./Campaign1776"; // DLC (r21): "1776: The Revolution"
+import { extendCampaign, mendOldCampaign } from "./Campaign1776Course"; // CQ24 (r24): history's course, and players' turns of it
+import "./Campaign1776Later"; // CQ24 (r24): 1784 to 1800
 import "./Chair"; // CHAIR (r16): the governor's commission, the lieutenancy, recall, the address
 import "./Chamber"; // CHAMBER (r16): the council's business, factions, the session
 import { takeCrownDelta } from "./CrownCore"; // CROWN (r18)
@@ -157,6 +159,9 @@ export class ConquestGame {
     this.rng = new Rng(state);
     // ART (r11): a game saved before the portrait gallery keeps its faces.
     migrateLooks(state);
+    // CQ24 (r24): a 1776 campaign saved when it ran to 1784 carries on to 1800.
+    extendCampaign(state);
+    mendOldCampaign(this);
     // LIFE (r21): an old save's skill progress carried onto the longer road.
     carryAllSkills(state);
     this.seenId = state.nextId;
@@ -179,7 +184,7 @@ export class ConquestGame {
   ): ConquestGame {
     const g = new ConquestGame(
       map,
-      // DLC (r21): a game begun in 1776 runs to the end of 1783.
+      // DLC (r21): a game begun in 1776 runs to the end of 1783 (CQ24: 1800).
       newGameState(map, {
         ...settings,
         endYear: endYearOf(settings.start, END_YEAR),

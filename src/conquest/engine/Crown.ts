@@ -4,7 +4,11 @@
 // independence.
 
 import { dateOf, dayOf } from "./Calendar";
-import { campaignEurope, campaignRising } from "./Campaign1776Core"; // DLC (r21)
+import {
+  campaignEurope,
+  campaignEuropeSpan,
+  campaignRising,
+} from "./Campaign1776Core"; // DLC (r21); CQ24 (r24): the course's spans
 import { kill } from "./Characters";
 import { mainPort } from "./Economy";
 import type { ConquestGame } from "./Game";
@@ -198,8 +202,12 @@ export function europeMonthly(g: ConquestGame): void {
     const b = byKey.get(h.b);
     if (!a || !b) continue;
     const k = pairKey(a.id, b.id);
-    const from = dayOf(h.from[0], h.from[1]);
-    const to = dayOf(h.to[0], h.to[1]);
+    // CQ24 (r24): the 1776 campaign's wars with Britain open and close as
+    // its course has them (France's with the alliance, Spain's after).
+    const span = campaignEuropeSpan(s, h.a, h.b);
+    if (span === null) continue;
+    const from = span ? span[0] : dayOf(h.from[0], h.from[1]);
+    const to = span ? span[1] : dayOf(h.to[0], h.to[1]);
     if (today >= from && today < to) {
       scripted.add(k);
       if (s.europe.wars[k] === undefined) europeWar(g, a, b, h.name);
@@ -610,6 +618,12 @@ function sendExpedition(g: ConquestGame, n: number): void {
 // DLC (r21): exported, for the 1776 campaign's Treaty of Paris (Campaign1776.ts).
 export function rebellionWon(g: ConquestGame, n: number): void {
   won(g, n);
+}
+
+// CQ24 (r24): exported, for the 1776 campaign's course when players turn the
+// war the King's way (Campaign1776Course.ts).
+export function rebellionCrushed(g: ConquestGame, n: number): void {
+  crushed(g, n);
 }
 
 function won(g: ConquestGame, n: number): void {

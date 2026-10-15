@@ -1,6 +1,11 @@
 // DLC (r21): "1776: The Revolution", a campaign through the American
 // Revolution to the end of 1783 (the store item campaign_1776; the server
 // lets only an owner host one: server/conquest/ConquestDlc.ts).
+// CQ24 (r24): it runs on to the end of 1800 (Campaign1776Later.ts has the
+// years from 1784), and history keeps its course unless players change it:
+// every beat passes the course's gate first (Campaign1776Course.ts), which
+// lets it come as history had it, holds it, has it fought for real where
+// players stand, or lets it yield to what players have done.
 //
 // The world of 1 January 1776 is Start1776.ts. This module runs the war on
 // it with the game's own machinery:
@@ -39,6 +44,7 @@ import {
   COMMISSION,
   isCampaign,
   kingOf,
+  R76_GATES,
   sideOf,
   SPY,
   TURNCOAT,
@@ -65,6 +71,7 @@ import {
 import {
   type Check,
   isChildLife,
+  isPlayed,
   lifeIsNative,
   meOf,
   no,
@@ -177,7 +184,8 @@ function kingArmy(
   const ids = armyIds(g);
   const old = s.armies.find((a) => a.id === ids[tag]);
   if (old) {
-    moveArmy(g, old, p);
+    // CQ24 (r24): an army a player commands goes where they send it.
+    if (!playerLed(s, old)) moveArmy(g, old, p);
     return old;
   }
   clearOut(g, p);
@@ -246,6 +254,7 @@ function clearOut(g: ConquestGame, p: number, keep = -1): void {
   const us = usOf(s);
   for (const a of [...s.armies]) {
     if (a.owner !== us || a.prov !== p || a.id === keep) continue;
+    if (playerLed(s, a)) continue; // CQ24 (r24): a player's army stands
     const to = nearestOwn(g, p);
     if (to >= 0) moveArmy(g, a, to);
   }
@@ -275,6 +284,7 @@ function nearestOwn(g: ConquestGame, from: number): number {
 function armyTo(g: ConquestGame, at: string): void {
   const a = mainArmy(g.s);
   if (!a) return;
+  if (playerLed(g.s, a)) return; // CQ24 (r24): its player general decides
   const p = provNamed(g.map, at);
   if (g.s.provinces[p].occupier >= 0) return;
   moveArmy(g, a, p);
@@ -333,6 +343,8 @@ function congressTo(g: ConquestGame, at: string): void {
   const n = g.nation(us);
   const from = n.capital;
   if (from === p || s.provinces[p].owner !== us) return;
+  // CQ24 (r24): a player who governs the United States decides where it sits.
+  if (n.ruler >= 0 && isPlayed(s, n.ruler)) return;
   n.capital = p;
   const main = mainArmy(s);
   for (const a of s.armies)
@@ -472,7 +484,10 @@ export const BEATS: Beat[] = [
     at: "New Amsterdam",
     fx: (g) => {
       kingArmyGone(g, "boston");
-      kingArmy(g, "main", "Paumanok", 24, 3);
+      // CQ24 (r24): the King's main army has a tag of its own ("kingmain");
+      // it shared the Continental Army's ("main"), so the beats moved the
+      // Americans' army about as if it were the King's.
+      kingArmy(g, "kingmain", "Paumanok", 24, 3);
     },
   },
   {
@@ -496,7 +511,7 @@ export const BEATS: Beat[] = [
     title: "The battle of Long Island",
     text: "The British outflank the Continental Army on Long Island and beat it at Brooklyn. Two nights later, in fog, the army slips back across the East River to Manhattan in boats.",
     at: "Paumanok",
-    battle: { us: "lost", main: true, king: "main", at: "Paumanok" },
+    battle: { us: "lost", main: true, king: "kingmain", at: "Paumanok" },
   },
   {
     key: "new-york",
@@ -507,7 +522,11 @@ export const BEATS: Beat[] = [
     occupied: ["New Amsterdam"],
     fx: (g) => {
       armyTo(g, "Esopus");
-      occupy(g, "New Amsterdam", "king", { tag: "main", regs: 24, guns: 3 });
+      occupy(g, "New Amsterdam", "king", {
+        tag: "kingmain",
+        regs: 24,
+        guns: 3,
+      });
     },
   },
   {
@@ -625,7 +644,12 @@ export const BEATS: Beat[] = [
     title: "Brandywine",
     text: "General Howe's army, landed at the head of the Chesapeake, outflanks the Americans at Brandywine Creek and drives them back toward Philadelphia.",
     at: "Fort Christina",
-    battle: { us: "lost", main: true, king: "main", at: "Fort Christina" },
+    battle: {
+      us: "lost",
+      main: true,
+      king: "kingmain",
+      at: "Fort Christina",
+    },
     fx: (g) => {
       // New York keeps a garrison while the main army is in Pennsylvania.
       kingArmy(g, "ny", "New Amsterdam", 8);
@@ -641,7 +665,11 @@ export const BEATS: Beat[] = [
     fx: (g) => {
       congressTo(g, "Susquehannock");
       armyTo(g, "Upland");
-      occupy(g, "Fort Christina", "king", { tag: "main", regs: 16, guns: 3 });
+      occupy(g, "Fort Christina", "king", {
+        tag: "kingmain",
+        regs: 16,
+        guns: 3,
+      });
     },
   },
   {
@@ -712,7 +740,7 @@ export const BEATS: Beat[] = [
     fx: (g) => {
       free(g, "Fort Christina");
       kingArmyGone(g, "ny");
-      kingArmy(g, "main", "New Amsterdam", 20, 3);
+      kingArmy(g, "kingmain", "New Amsterdam", 20, 3);
       congressTo(g, "Fort Christina");
       armyTo(g, "Raritan");
     },
@@ -723,7 +751,7 @@ export const BEATS: Beat[] = [
     title: "Monmouth",
     text: "The Americans catch the British rearguard at Monmouth Court House in New Jersey, in murderous heat. Neither side gives way; in the night the British slip off to New York, and the drilled army has held its ground.",
     at: "Raritan",
-    battle: { us: "drawn", main: true, king: "main", at: "Raritan" },
+    battle: { us: "drawn", main: true, king: "kingmain", at: "Raritan" },
     fx: (g) => armyTo(g, "Esopus"),
   },
   {
@@ -1216,6 +1244,8 @@ export function fireBeat(g: ConquestGame, b: Beat): void {
   // Its own date (New Year's Day's news comes with the first morning).
   const day = Math.min(s.day, beatDay(b));
   rec(g).beats[b.key] = day;
+  // CQ24 (r24): the course's gate: history, or what players made of it.
+  if (R76_GATES.some((h) => h(g, b))) return;
   b.fx?.(g);
   const p = b.at ? provNamed(g.map, b.at) : undefined;
   g.event({
@@ -1669,3 +1699,25 @@ export function beatDate(b: Beat): string {
 export function campaignYear(s: GameState): number {
   return dateOf(s.day).year;
 }
+
+// ---------------------------------------------------------------- CQ24 (r24)
+
+/** CQ24 (r24): an army a player's character commands. */
+export function playerLed(s: GameState, a: Army): boolean {
+  return a.commander >= 0 && isPlayed(s, a.commander);
+}
+
+// CQ24 (r24): for the course of history and the years after the peace
+// (Campaign1776Course.ts, Campaign1776Later.ts).
+export {
+  armyTo,
+  congressTo,
+  devastate,
+  free,
+  kingArmy,
+  kingArmyGone,
+  mainArmy,
+  moveArmy,
+  occupy,
+  treaty as treatyOfParis,
+};
