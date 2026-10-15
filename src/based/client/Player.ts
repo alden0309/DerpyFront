@@ -105,6 +105,8 @@ interface Toast {
 
 interface Entry {
   id: number;
+  /** r22 BPLAY: the story's clock when it was said ("22:14"). */
+  at?: string;
   kind: "narr" | "say" | "think" | "voice" | "roll" | "card" | "pick";
   who?: string;
   how?: string;
@@ -433,6 +435,7 @@ export class BasedPlayer extends LitElement {
   }
 
   private push(e: Entry): void {
+    e.at ??= clockText(this.run.clock).time;
     this.log.push(e);
     if (this.log.length > 600) this.log.shift();
     this.entries = [...this.entries, e].slice(-90);
@@ -853,6 +856,8 @@ export class BasedPlayer extends LitElement {
    */
   private setWorldState(b: Beat): void {
     const w = this.world;
+    // r22 BPLAY: what's said of the weather is what's on screen.
+    this.run.setWeather(w ? w.weatherNow : null);
     const here = this.stage.place ? this.places[this.stage.place] : undefined;
     const things = new Map<string, { door: boolean }>();
     let avail: Available = { talk: [], look: [], think: [], use: [] };
@@ -977,6 +982,7 @@ export class BasedPlayer extends LitElement {
 
   private lookAt(id: string): void {
     if (!this.run.free) return;
+    this.run.setWeather(this.world ? this.world.weatherNow : null);
     if (this.run.look(id)) {
       this.host.seen([], [id]);
       this.afterStep();
@@ -1316,17 +1322,15 @@ export class BasedPlayer extends LitElement {
         : nothing}
       ${this.placeCard
         ? html`<div class="mb-placecard" aria-live="polite">
-            ${this.placeCard}
+            <span class="mb-placecard-name">${this.placeCard}</span>
+            <span class="mb-placecard-time"
+              >${clockText(this.run.clock).time}</span
+            >
           </div>`
         : nothing}
       <div class="mb-toasts" aria-live="polite">
         ${this.toasts.map(
-          (t) =>
-            html`<div class="mb-toast ${t.kind}">
-              ${t.kind === "remember"
-                ? html`<span class="mb-toast-mark"></span>`
-                : nothing}${t.text}
-            </div>`,
+          (t) => html`<div class="mb-toast ${t.kind}">${t.text}</div>`,
         )}
       </div>
       ${this.renderColumn()}
@@ -1455,7 +1459,7 @@ export class BasedPlayer extends LitElement {
           ${eyeIcon()}
         </button>
         <button
-          class="mb-icon"
+          class="mb-icon wide-only"
           title="Note for the writer (N)"
           aria-label="Note for the writer"
           @click=${() => this.openOverlay("note")}
@@ -1463,7 +1467,7 @@ export class BasedPlayer extends LitElement {
           ${penIcon()}
         </button>
         <button
-          class="mb-icon"
+          class="mb-icon wide-only"
           title=${this.prefs.sound ? "Sound off" : "Sound on"}
           aria-label=${this.prefs.sound ? "Sound off" : "Sound on"}
           @click=${() => {
@@ -1496,6 +1500,8 @@ export class BasedPlayer extends LitElement {
 
   private renderColumn(): TemplateResult {
     const b = this.beat;
+    // A transcript: the time in the margin when it moves on.
+    let last = "";
     return html`<aside class="mb-column" aria-label="The story">
       ${this.renderHead()}
       <div
@@ -1507,9 +1513,11 @@ export class BasedPlayer extends LitElement {
           }
         }}
       >
-        ${this.entries.map((e, i) =>
-          this.renderEntry(e, i === this.entries.length - 1),
-        )}
+        ${this.entries.map((e, i) => {
+          const t = e.at && e.at !== last ? e.at : "";
+          if (e.at) last = e.at;
+          return this.renderEntry(e, i === this.entries.length - 1, t);
+        })}
         ${this.entries.length === 0 && b.kind === "free"
           ? this.renderResume()
           : nothing}
@@ -1518,7 +1526,6 @@ export class BasedPlayer extends LitElement {
     </aside>`;
   }
 
-  /** The column's head: a memory's painting, or who he's talking to. */
   private renderHead(): TemplateResult | typeof nothing {
     const v = this.stage.vignette;
     if (v) {
@@ -1555,7 +1562,7 @@ export class BasedPlayer extends LitElement {
     >`;
   }
 
-  private renderEntry(e: Entry, last: boolean): TemplateResult {
+  private renderEntry(e: Entry, last: boolean, time = ""): TemplateResult {
     const live = last && this.beat.kind === "line" && this.typingNow;
     // The live line's words are drawn into its span by drawLive(), so the
     // column isn't drawn again for every letter.
@@ -1563,67 +1570,91 @@ export class BasedPlayer extends LitElement {
       ? html`<span class="mb-live"></span>`
       : html`${typed(e.text, 1e9)}`;
     const hero = this.chapter.cast[0]?.id;
+    const t = html`<span class="mb-e-t" aria-hidden="true">${time}</span>`;
     switch (e.kind) {
       case "say":
-        return html`<p
+        return html`<div
           class="mb-e say ${e.who === hero ? "hero" : ""} ${e.lang &&
           !e.lang.understood
             ? "foreign"
             : ""}"
         >
-          <b class="mb-e-who">${this.nameOf(e.who ?? "").toUpperCase()}</b
-          >${e.how
-            ? html` <i class="mb-e-how">(${e.how})</i>`
-            : nothing}${e.lang ? html` ${this.langTag(e.lang)}` : nothing}
-          – ${text}
-        </p>`;
+          ${t}
+          <p>
+            <b class="mb-e-who">${this.nameOf(e.who ?? "")}</b>${e.how
+              ? html` <i class="mb-e-how">(${e.how})</i>`
+              : nothing}${e.lang ? html` ${this.langTag(e.lang)}` : nothing}
+            <span class="mb-e-words">${text}</span>
+          </p>
+        </div>`;
       case "voice":
-        return html`<p class="mb-e voice">
-          <b class="mb-e-who" style="color:${this.skillColor(e.skill ?? "")}"
-            >${this.skillName(e.skill ?? "").toUpperCase()}</b
-          >${e.tag ? html` <span class="mb-e-tag">[${e.tag}]</span>` : nothing}
-          – ${text}
-        </p>`;
+        return html`<div
+          class="mb-e voice"
+          style="--c:${this.skillColor(e.skill ?? "")}"
+        >
+          ${t}
+          <p>
+            <b class="mb-e-who">${this.skillName(e.skill ?? "")}</b>${e.tag
+              ? html` <span class="mb-e-tag">${e.tag}</span>`
+              : nothing}
+            <span class="mb-e-words">${text}</span>
+          </p>
+        </div>`;
       case "think":
-        return html`<p class="mb-e think">${text}</p>`;
+        return html`<div class="mb-e think">
+          ${t}
+          <p>${text}</p>
+        </div>`;
       case "card":
-        return html`<p class="mb-e card">${e.text}</p>`;
+        return html`<div class="mb-e card">
+          ${t}
+          <p>${e.text}</p>
+        </div>`;
       case "pick":
-        return html`<p class="mb-e pick">
-          <span class="mb-e-arrow">→</span>${e.text}
-        </p>`;
+        return html`<div class="mb-e pick">
+          ${t}
+          <p><span class="mb-e-arrow" aria-hidden="true"></span>${e.text}</p>
+        </div>`;
       case "roll":
-        return this.renderRollEntry(e.roll!, last);
+        return html`<div class="mb-e rollrow">
+          ${t}${this.renderRollEntry(e.roll!, last)}
+        </div>`;
       default:
-        return html`<p class="mb-e narr">${text}</p>`;
+        return html`<div class="mb-e narr">
+          ${t}
+          <p>${text}</p>
+        </div>`;
     }
   }
 
+  /**
+   * r22 BPLAY: a check, thrown: a carbon slip in the column with the dice,
+   * the sum and every modifier, and the stamp.
+   */
   private renderRollEntry(r: RollBeat, last: boolean): TemplateResult {
-    const color = this.skillColor(r.skill);
     const name = this.skillName(r.skill);
     const pending = last && !this.rolled && r.dice !== null;
+    const sign = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
+    const verdict = r.pass
+      ? r.crit === "six"
+        ? "Passed, double six"
+        : "Passed"
+      : r.crit === "one"
+        ? "Failed, double one"
+        : "Failed";
     return html`<div
-      class="mb-e roll ${r.pass ? "pass" : "fail"} ${pending ? "pending" : ""}"
+      class="mb-slip ${r.pass ? "pass" : "fail"} ${pending
+        ? "pending"
+        : ""} ${r.kind2}"
+      style="--c:${this.skillInk(r.skill)}"
     >
-      <div class="mb-roll-head">
-        <b style="color:${color}">${name.toUpperCase()}</b>
-        <span class="mb-roll-diff">[${r.tier} ${r.diff}]</span>
-        <span class="mb-roll-result"
-          >${pending
-            ? "…"
-            : r.pass
-              ? r.crit === "six"
-                ? "Critical success"
-                : "Success"
-              : r.crit === "one"
-                ? "Critical failure"
-                : "Failure"}</span
-        >
+      <div class="mb-slip-head">
+        <b>${name}</b>
+        <span>${r.tier} ${r.diff}</span>
       </div>
-      <div class="mb-roll-what">${r.label}</div>
+      <div class="mb-slip-what">${r.label}</div>
       ${r.dice
-        ? html`<div class="mb-roll-dice">
+        ? html`<div class="mb-slip-dice">
             ${r.dice.map(
               (d, i) =>
                 html`<span
@@ -1632,18 +1663,31 @@ export class BasedPlayer extends LitElement {
                   >${dieFace(pending ? ((i * 3 + 2) % 6) + 1 : d)}</span
                 >`,
             )}
-            <span class="mb-roll-sum"
+            <span class="mb-slip-sum"
               >${pending
                 ? ""
-                : `${r.dice[0]} + ${r.dice[1]} + ${r.bonus} = ${r.total} against ${r.diff}`}</span
+                : `${r.dice[0]} + ${r.dice[1]} + ${r.bonus} = ${r.total}`}</span
             >
           </div>`
-        : html`<div class="mb-roll-sum passive">
-            Passive: ${name}
-            ${r.base}${r.mods.length > 0
-              ? ` ${r.mods.map((m) => `${m.delta > 0 ? "+" : ""}${m.delta}`).join(" ")}`
-              : ""}
-            + 6 against ${r.diff}
+        : html`<div class="mb-slip-dice passive">
+            <span class="mb-slip-sum"
+              >No throw: ${r.bonus} + 6 = ${r.bonus + 6}</span
+            >
+          </div>`}
+      <ul class="mb-slip-mods">
+        <li><b>${r.base}</b> ${name}</li>
+        ${r.mods.map(
+          (m) =>
+            html`<li class=${m.item ? "gear" : ""}>
+              <b>${sign(m.delta)}</b> ${m.why}
+            </li>`,
+        )}
+        <li class="against">against <b>${r.diff}</b></li>
+      </ul>
+      ${pending
+        ? nothing
+        : html`<div class="mb-stamp-mark ${r.crit ? "crit" : ""}" role="status">
+            ${verdict}
           </div>`}
     </div>`;
   }
@@ -1673,25 +1717,34 @@ export class BasedPlayer extends LitElement {
     }
   }
 
+  /** A check before it's thrown: in pencil (can be retried) or ink (once). */
   private checkLabel(c: CheckView): TemplateResult {
+    const sign = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
     return html`<span
-      class="mb-ck ${c.kind}"
+      class="mb-ck ${c.kind === "red" ? "ink" : "pencil"} ${c.locked
+        ? "locked"
+        : ""}"
       style="--c:${this.skillColor(c.skill)}"
       title=${[
         `${this.skillName(c.skill)} ${c.base}`,
-        ...c.mods.map((m) => `${m.delta > 0 ? "+" : ""}${m.delta} ${m.why}`),
-        `2d6 + ${c.bonus} against ${c.diff}`,
+        ...c.mods.map((m) => `${sign(m.delta)} ${m.why}`),
+        `Two dice + ${c.bonus} against ${c.diff}`,
         c.kind === "red"
-          ? "Red: one try only"
-          : "White: can be tried again when something changes",
+          ? "In ink: one throw only"
+          : "In pencil: can be tried again when something changes",
       ].join("\n")}
-      >[${this.skillName(c.skill)} – ${c.tier} ${c.diff}]
-      <b>${c.locked ? "Locked" : `${c.percent}%`}</b></span
+      ><b class="mb-ck-skill">${this.skillName(c.skill)}</b>
+      <span class="mb-ck-tier">${c.tier} ${c.diff}</span>
+      <span class="mb-ck-pct">${c.locked ? "locked" : `${c.percent}%`}</span
+      >${c.kind === "red"
+        ? html`<span class="mb-ck-once">once</span>`
+        : nothing}</span
     >`;
   }
 
   private renderChoice(b: ChoiceBeat): TemplateResult {
     const timed = this.prefs.timers && this.timed > 0;
+    const itemName = (k: string) => this.chapter.items[k]?.name ?? k;
     return html`<div class="mb-choices">
       ${b.prompt ? html`<div class="mb-prompt">${b.prompt}</div>` : nothing}
       ${timed
@@ -1704,40 +1757,39 @@ export class BasedPlayer extends LitElement {
           </div>`
         : nothing}
       <ol class="mb-options">
-        ${b.options.map(
-          (o, i) =>
-            html`<li>
-              <button
-                class="mb-option ${o.silent ? "silent" : ""} ${o.check?.locked
-                  ? "locked"
-                  : ""}"
-                ?disabled=${o.check?.locked}
-                @click=${() => this.choose(o.id)}
+        ${b.options.map((o, i) => {
+          const shut = !!o.check?.locked || o.needs?.met === false;
+          return html`<li>
+            <button
+              class="mb-option ${o.silent ? "silent" : ""} ${shut
+                ? "locked"
+                : ""}"
+              ?disabled=${shut}
+              @click=${() => this.choose(o.id)}
+            >
+              <span class="mb-key">${i + 1}.</span>
+              <span class="mb-option-label"
+                >${o.check ? this.checkLabel(o.check) : nothing}
+                ${o.silent ? html`<i>…</i> ` : nothing}${o.label}</span
               >
-                <span class="mb-key">${i + 1}.</span>
-                <span class="mb-option-label"
-                  >${o.check ? this.checkLabel(o.check) : nothing}
-                  ${o.silent ? html`<i>…</i> ` : nothing}${o.label}</span
-                >
-              </button>
-              ${o.check?.locked
+            </button>
+            ${o.needs && !o.needs.met
+              ? html`<div class="mb-locked-why">
+                  Needs ${o.needs.items.map(itemName).join(" or ")}.
+                </div>`
+              : o.check?.locked
                 ? html`<div class="mb-locked-why">
                     Tried and failed. It opens again when his
-                    ${this.skillName(o.check.skill)} rises or something new
+                    ${this.skillName(o.check.skill)} rises, or something new
                     turns up.
                   </div>`
                 : nothing}
-            </li>`,
-        )}
+          </li>`;
+        })}
       </ol>
     </div>`;
   }
 
-  /**
-   * Reading a room or a man (r22): no list of what's there. Marks appear on
-   * what he notices as he looks about; what it adds up to comes to him as a
-   * thought, here, when he's noticed enough.
-   */
   private renderLookPanel(b: InvestigateBeat): TemplateResult {
     const flat = !this.is3d(b);
     const ready = b.deductions.filter((d) => d.ready && !d.done);
@@ -2141,57 +2193,49 @@ export class BasedPlayer extends LitElement {
     if (o === "credits") {
       return sheet(html`${creditsBody(this.credits)} ${back}`, "tall");
     }
+    const touch = window.matchMedia?.("(pointer: coarse)").matches ?? false;
+    const line = (label: string, key: string, go: () => void, cls = "") =>
+      html`<li>
+        <button class="mb-menu-line ${cls}" @click=${go}>
+          <span class="mb-menu-label">${label}</span>
+          <span class="mb-menu-dots" aria-hidden="true"></span>
+          ${touch ? nothing : html`<kbd>${key}</kbd>`}
+        </button>
+      </li>`;
+    const place = this.stage.place ? this.places[this.stage.place] : undefined;
+    const clock = clockText(this.run.clock);
     return sheet(
       html`<div class="mb-menu-title">Mr. Based</div>
-        <div class="mb-sheet-sub">
-          ${this.stage.place ? (this.places[this.stage.place]?.name ?? "") : ""}
-          · ${clockText(this.run.clock).time}
+        <div class="mb-menu-where">
+          ${place?.name ?? this.sceneLabel},
+          ${clock.day > 0 ? `night ${clock.day + 1}, ` : ""}${clock.time}
         </div>
-        <nav class="mb-menu">
-          <button class="mb-btn primary" @click=${() => this.closeOverlay()}>
-            Resume
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "save")}>
-            Save game
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "load")}>
-            Load game
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "sheet")}>
-            Your skills
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "journal")}>
-            Journal
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "help")}>
-            How to play
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "note")}>
-            Note for the writer
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "log")}>
-            The story so far
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "settings")}>
-            Settings
-          </button>
-          <button class="mb-btn" @click=${() => (this.overlay = "credits")}>
-            Credits
-          </button>
-          <button
-            class="mb-btn quiet"
-            @click=${() => {
+        <ol class="mb-menu">
+          ${line("Resume", "Esc", () => this.closeOverlay(), "primary")}
+          ${line("Save game", "", () => (this.overlay = "save"))}
+          ${line("Load game", "F9", () => (this.overlay = "load"))}
+          ${line("What he carries", "I", () => (this.overlay = "inventory"))}
+          ${line("Your skills", "C", () => (this.overlay = "sheet"))}
+          ${line("Journal", "J", () => (this.overlay = "journal"))}
+          ${line("The story so far", "", () => (this.overlay = "log"))}
+          ${line("How to play", "H", () => (this.overlay = "help"))}
+          ${line("Note for the writer", "N", () => (this.overlay = "note"))}
+          ${line("Settings", "", () => (this.overlay = "settings"))}
+          ${line("Credits", "", () => (this.overlay = "credits"))}
+          ${line(
+            "Save and quit",
+            "",
+            () => {
               this.autosave();
               this.countPlayed();
               this.host.quit();
-            }}
-          >
-            Save and quit
-          </button>
-        </nav>
+            },
+            "quiet",
+          )}
+        </ol>
         <p class="mb-sheet-foot">
           The game saves by itself as you go (the autosave).
-          ${window.matchMedia?.("(pointer: coarse)").matches
+          ${touch
             ? nothing
             : html`<kbd>F5</kbd> quicksaves; <kbd>F9</kbd> loads it.`}
         </p>`,

@@ -1041,6 +1041,11 @@ export class World {
     this.focusKey = key;
   }
 
+  /** BPLAY (r22): the weather now (rain, drizzle, clear or fog), drift and all. */
+  get weatherNow(): string {
+    return weatherAt(this.weatherKind, this.time);
+  }
+
   /** r22: the weather the story wants (null: the place's own drift). */
   setWeather(kind: string | null): void {
     this.weatherKind = (kind as WeatherKind | null) ?? null;

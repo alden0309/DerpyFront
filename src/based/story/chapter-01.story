@@ -1750,5 +1750,5 @@ else
 end
 COLONEL: And the English?
 PRESIDENT: Let them look. It's good for them. It gives them something to do while we decide what they'll see.
-@card "MR. BASED" "Chapter One: Eleven Days"
+@card "MR. BASED" "Eleven Days"
 -> END

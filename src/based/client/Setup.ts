@@ -125,6 +125,11 @@ export class BasedSetup extends LitElement {
               aria-pressed=${this.pick === a.id}
               @click=${() => (this.pick = a.id)}
             >
+              ${this.pick === a.id
+                ? html`<span class="mb-arch-stamp" aria-hidden="true"
+                    >Assigned</span
+                  >`
+                : nothing}
               <div class="mb-arch-name">${a.name}</div>
               <div class="mb-arch-about">${a.about}</div>
               <div class="mb-arch-attrs">
@@ -149,6 +154,11 @@ export class BasedSetup extends LitElement {
             if (!this.own) this.startOwn();
           }}
         >
+          ${this.pick === "OWN"
+            ? html`<span class="mb-arch-stamp" aria-hidden="true"
+                >Assigned</span
+              >`
+            : nothing}
           <div class="mb-arch-name">His own man</div>
           <div class="mb-arch-about">
             Share out ${c.points.total} points across his attributes
@@ -171,7 +181,7 @@ export class BasedSetup extends LitElement {
                 style="--c:${voice(i).night};--ci:${voice(i).paper}"
               >
                 <div class="mb-attr-head">
-                  <b>${a.name.toUpperCase()}</b>
+                  <span class="mb-attr-name">${a.name}</span>
                   ${this.pick === "OWN"
                     ? html`<span class="mb-stepper">
                         <button

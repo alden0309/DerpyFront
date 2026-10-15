@@ -1,11 +1,23 @@
-// The end-of-chapter flowchart, in the manner of Detroit's: every scene in
-// order down a spine, the choices in each branching off it. What you've
-// taken is lit, what you've never taken is a locked "?", and each option
-// shows what share of players chose it ("You", while you're the only one).
+// The flowchart, in the manner of Detroit's: every scene in order down a
+// spine, the choices in each branching off it. What you've taken is lit;
+// what you've never taken is blacked out like a redacted line (r22 BPLAY);
+// and each option shows what share of players chose it ("You", while
+// you're the only one).
 
 import { html, nothing, TemplateResult } from "lit";
 import { FlowScene } from "../engine/Flow";
 import { ChapterSeen } from "../engine/Save";
+
+/** A redaction bar, its width from the id (not from what it hides). */
+function redact(id: string, min = 4, spread = 9): TemplateResult {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return html`<span
+    class="mb-redact"
+    style="width:${min + (h % spread)}ch"
+    aria-label="Not yet found"
+  ></span>`;
+}
 
 export interface FlowInput {
   flow: FlowScene[];
@@ -72,7 +84,9 @@ export function renderFlowchart(f: FlowInput): TemplateResult {
         >
           <div class="mb-flow-node">
             <span class="mb-flow-dot"></span>
-            <span class="mb-flow-label">${known ? s.label : "?"}</span>
+            <span class="mb-flow-label"
+              >${known ? s.label : redact(s.id, 6, 10)}</span
+            >
             ${s.on && known
               ? html`<span class="mb-flow-cp" title="Found by exploring"
                   >◇</span
@@ -97,7 +111,7 @@ export function renderFlowchart(f: FlowInput): TemplateResult {
                             ? "now"
                             : ""}"
                         >
-                          ${lit ? o.label : "?"}
+                          ${lit ? o.label : redact(key, 3, 8)}
                           ${pct ? html`<small>${pct}</small>` : nothing}
                         </span>`;
                       })}
