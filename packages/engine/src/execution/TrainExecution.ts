@@ -99,6 +99,16 @@ export class TrainExecution implements Execution {
     }
     this.pathTiles = pathTiles;
 
+    // Derpy Front (r24): the client moves the train `speed` tiles along the
+    // plan's path each tick, counting from the path's first tile, while the
+    // engine counts from the first rail tile. With the start tile put in
+    // front of the rails, the train and its cars were drawn one tile behind
+    // where the game has them. The plan's path starts on the start tile and
+    // then follows the rails from the second tile on, so both agree after
+    // every tick. Only what the client is told changes: the game moves the
+    // train exactly as before.
+    const planPath =
+      this.pathIndex === 1 ? [startTile, ...pathTiles.slice(2)] : pathTiles;
     const plan: MotionPlanRecord = {
       kind: "train",
       engineUnitId: this.train.id(),
@@ -107,7 +117,7 @@ export class TrainExecution implements Execution {
       startTick: ticks + 1,
       speed: this.speed,
       spacing: this.spacing,
-      path: pathTiles,
+      path: planPath,
     };
     this.mg.recordMotionPlan(plan);
   }
