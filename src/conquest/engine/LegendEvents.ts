@@ -2,8 +2,10 @@
 // legend, a trail followed to its end, and a sacred place you walked that
 // someone now means harm. They're a player's own (redacted for other seats),
 // say where they happen (EVENTS r21's tags: anywhere), and rest together as
-// a family. Nothing here lets anyone take anything from a sacred place.
+// a family. CQ24 (r24): a sacred place may be plundered too
+// (SacredPlunderEvents.ts has those scenes).
 
+import { dateOf } from "./Calendar"; // CQ24 (r24)
 import { registerFamily } from "./EventPacing";
 import { tag } from "./EventPlaces";
 import { secretNote } from "./IntrigueCore";
@@ -12,6 +14,8 @@ import { keepPlace, rememberRumour } from "./Legends";
 import { LEGENDS } from "./LegendsData";
 import { addRenown, addStress, gainXp, spend } from "./LifeCore";
 import type { LifeEventDef } from "./LifeEvents";
+import { placeName, plunderedMark } from "./SacredPlunder"; // CQ24 (r24)
+import { plunderEvents, plunderQuiet } from "./SacredPlunderEvents"; // CQ24 (r24)
 
 /** Speaking for a sacred place: the checks, and the price of buying the man off. */
 export const KEEP = {
@@ -63,7 +67,15 @@ const FOUND_EVENT: LifeEventDef = {
     LEGENDS[ctx.i]?.kind === "sacred" ? "village" : "woods",
   where: tag(""),
   title: (_g, _l, ctx) => LEGENDS[ctx.i]?.name ?? "A legend",
-  body: (_g, _l, ctx) => LEGENDS[ctx.i]?.outcomes[ctx.o]?.text ?? "",
+  body: (g, _l, ctx) => {
+    const def = LEGENDS[ctx.i];
+    const text = def?.outcomes[ctx.o]?.text ?? "";
+    // CQ24 (r24): a place that was dug carries the cut still.
+    const mark = def?.kind === "sacred" ? plunderedMark(g.s, def) : undefined;
+    return mark
+      ? `${text}\n\nWhere ${mark.name} dug at ${placeName(def!)} in ${dateOf(mark.day).year}, the cut is there still. Nobody speaks of it.`
+      : text;
+  },
   choices: [
     {
       label: "So it was",
@@ -132,7 +144,7 @@ const KEEP_EVENT: LifeEventDef = {
   ],
 };
 
-const ALL = [RUMOUR_EVENT, FOUND_EVENT, KEEP_EVENT];
+const ALL = [RUMOUR_EVENT, FOUND_EVENT, KEEP_EVENT, ...plunderEvents()]; // CQ24 (r24): the plunder's
 let paced = false;
 
 /** Legends' scenes, registered with the event pacing the first time they're looked up. */
@@ -150,5 +162,10 @@ export function legendEvents(): LifeEventDef[] {
 
 /** Each scene's quiet course, left unanswered. */
 export function legendQuiet(): Record<string, number> {
-  return { "legend-rumour": 0, "legend-found": 0, "legend-keep": 1 };
+  return {
+    "legend-rumour": 0,
+    "legend-found": 0,
+    "legend-keep": 1,
+    ...plunderQuiet(), // CQ24 (r24)
+  };
 }

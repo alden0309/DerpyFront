@@ -10,6 +10,7 @@ import { countsOverall } from "../engine/Achievements"; // CQACH (r22)
 import { AMERICAS } from "../engine/Map";
 import {
   endYearOf,
+  lastYearOf,
   START_SUMMARY_1607,
   START_YEARS,
   STARTS,
@@ -638,7 +639,8 @@ export function settingsFields(
       <p class="cq-muted small">
         ${end === END_YEAR
           ? `The world runs until 1 January ${END_YEAR}: ${END_YEAR - start} years, several lifetimes.`
-          : `The campaign runs until 1 January ${end}: the war and the peace, ${end - start} years. Then the story ends.`}
+          : // CQ24 (r24): to the end of 1800
+            `The campaign runs to the end of ${lastYearOf(start, END_YEAR)}: the war, the peace and the republic's first years, ${end - start} years. Then the story ends.`}
       </p>
     </div>
     <label class="cq-field">

@@ -8,7 +8,7 @@ import "../../derpland/DerpBar";
 import { type ConquestDlcOwned, NO_DLC } from "../DlcIds"; // DLC (r21)
 import { AMERICAS } from "../engine/Map";
 import { newGameState } from "../engine/Setup";
-import { endYearOf } from "../engine/Starts"; // DLC (r21)
+import { lastYearOf } from "../engine/Starts"; // DLC (r21); CQ24 (r24)
 import type { GameState, LifePlan, StartYear } from "../engine/Types";
 import { END_YEAR, ServerMessage } from "../Protocol";
 import { flag } from "./Flags";
@@ -82,7 +82,7 @@ export class Room extends LitElement {
             </h1>
             <p class="cq-muted">
               ${L.solo
-                ? `The Americas from ${start} to ${endYearOf(start, END_YEAR)}. Make the person you'll be.`
+                ? `The Americas from ${start} to ${lastYearOf(start, END_YEAR)}. Make the person you'll be.`
                 : html`Each of you makes a character; you'll live in the same
                   world.
                   ${L.open

@@ -25,8 +25,9 @@
 // - The native nations' sacred places are places to learn about and keep.
 //   Their trail is earning a people's trust, listening through a winter, and
 //   walking the place with an elder; you leave nothing and take nothing, and
-//   are later asked to speak for the place when it's threatened. Nothing in
-//   the game lets anyone dig, take or sell anything from them.
+//   are later asked to speak for the place when it's threatened.
+//   CQ24 (r24): or they may be plundered, as a game's choice with its price
+//   (SacredPlunder.ts).
 
 import type { PlaceKind, Skill } from "./Types";
 
@@ -681,7 +682,7 @@ export const LEGENDS: LegendDef[] = [
     truth:
       "There are no Welsh Indians. The story was believed for two centuries; the explorers who went to look found the Mandan, a nation with a long history of its own.",
   },
-  // ---- sacred places: to learn about and to keep, never to plunder
+  // ---- sacred places: to learn about and to keep (CQ24 (r24): or to plunder, SacredPlunder.ts)
   {
     key: "kituwah",
     name: "Kituwah, the mother town",

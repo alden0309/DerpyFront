@@ -1,5 +1,6 @@
-// DLC (r21): the map styles of the Derp Store (Antique Engraving, Hard
-// Winter, By Candlelight, Pirate Chart, Woodcut). A style only changes how
+// DLC (r21): the map styles of the Derp Store (Antique Engraving, By
+// Candlelight, Pirate Chart, Woodcut; CQ24 (r24): Hard Winter left the store
+// to become everyone's winter, WinterLook.ts). A style only changes how
 // the chart is drawn, never what's on it, and only for the player who owns
 // it and chose it (MapStylePref.ts). Everything here is painted into the
 // map's cached chart when it's redrawn (MapView.renderBase), never every
@@ -26,8 +27,6 @@ export interface MapLook {
   /** The paper's grain and the lie of the land, against the usual. */
   paper: number;
   terrain: number;
-  /** Hard Winter: January's snow and ice, whatever the month. */
-  winter: boolean;
   /** How far the realms' colours go toward the paper (0: as usual), "tinted by hand". */
   landMix: number;
   /** Country nobody's told you of, and land off the board (the usual: dark). */
@@ -58,7 +57,6 @@ const LOOKS: Record<MapStyleKey, MapLook> = {
     swell: 0,
     paper: 1.3,
     terrain: 0.9,
-    winter: false,
     landMix: 0.6,
     fog: "#dccba3",
     closed: "#cdb98f",
@@ -74,30 +72,6 @@ const LOOKS: Record<MapStyleKey, MapLook> = {
     landLabel: "rgba(74,53,32,0.6)",
     seaLabel: "rgba(74,53,32,0.5)",
   },
-  winter: {
-    key: "winter",
-    pal: P.winter,
-    seaTop: "#6e8798",
-    seaBottom: "#4b6373",
-    swell: 0.1,
-    paper: 0.7,
-    terrain: 0.6,
-    winter: true,
-    landMix: 0.3,
-    fog: "#b9c4cb",
-    closed: "#a3afb7",
-    fogInk: "rgba(44,58,68,0.55)",
-    coastInk: "rgba(28,40,50,0.9)",
-    coastWidth: 1.2,
-    borderInk: "rgba(44,58,68,0.25)",
-    nationInk: "rgba(44,58,68,0.75)",
-    nationWidth: 1.9,
-    riverInk: "rgba(232,242,248,0.95)",
-    nameInk: "rgba(30,40,48,0.88)",
-    nameItalic: false,
-    landLabel: "rgba(44,58,68,0.55)",
-    seaLabel: "rgba(235,242,246,0.55)",
-  },
   night: {
     key: "night",
     pal: P.night,
@@ -106,7 +80,6 @@ const LOOKS: Record<MapStyleKey, MapLook> = {
     swell: 0.07,
     paper: 0.4,
     terrain: 0.5,
-    winter: false,
     landMix: 0,
     fog: "#1c1b22",
     closed: "#121117",
@@ -130,7 +103,6 @@ const LOOKS: Record<MapStyleKey, MapLook> = {
     swell: 0,
     paper: 1.5,
     terrain: 0.75,
-    winter: false,
     landMix: 0.5,
     fog: "#c4a668",
     closed: "#a98a52",
@@ -154,7 +126,6 @@ const LOOKS: Record<MapStyleKey, MapLook> = {
     swell: 0,
     paper: 0,
     terrain: 0,
-    winter: false,
     landMix: 0.45,
     fog: "#ddd3ba",
     closed: "#cbbf9f",
@@ -253,7 +224,13 @@ function fillPattern(
 
 /** A steady scatter of points over the map (the same every time it's drawn). */
 const scatters = new Map<string, Float32Array>();
-function scatter(key: string, n: number, W: number, H: number): Float32Array {
+// CQ24 (r24): exported for the winter's falling snow (WinterLook.ts).
+export function scatter(
+  key: string,
+  n: number,
+  W: number,
+  H: number,
+): Float32Array {
   const k = `${key}:${n}:${W}:${H}`;
   let pts = scatters.get(k);
   if (!pts) {
@@ -349,8 +326,6 @@ export function paintSea(
       toScreen();
       return;
     }
-    case "winter":
-      return;
   }
 }
 
@@ -395,7 +370,8 @@ function serpent(c: C, x: number, y: number, r: number, scale: number): void {
 
 /**
  * Marks over the land and sea once both are drawn: a pirate chart's stains
- * and its own compass rose, a hard winter's falling snow.
+ * and its own compass rose (CQ24 (r24): the winter's falling snow is
+ * WinterLook.ts's now, where the winter is).
  */
 export function paintMarks(
   c: C,
@@ -420,18 +396,8 @@ export function paintMarks(
       c.fillRect(W * x - rr, H * y - rr, rr * 2, rr * 2);
     }
     compassRose(c, W * 0.12, H * 0.12, 26);
-  } else if (look.key === "winter") {
-    const pts = scatter("snow", 2600, W, H);
-    c.fillStyle = "rgba(255,255,255,0.8)";
-    c.beginPath();
-    const k = 1 / v.scale;
-    for (let i = 0; i < pts.length; i += 3) {
-      const rad = (0.5 + pts[i + 2] * 1.1) * k;
-      c.moveTo(pts[i] + rad, pts[i + 1]);
-      c.arc(pts[i], pts[i + 1], rad, 0, Math.PI * 2);
-    }
-    c.fill();
   }
+  void v;
 }
 
 // ---------------------------------------------------------------- the whole chart (device px)
@@ -457,10 +423,6 @@ export function gradeChart(c: C, look: MapLook, w: number, h: number): void {
     case "antique":
       blend("saturation", "#808080", 0.45);
       blend("multiply", look.pal.land, 1);
-      break;
-    case "winter":
-      blend("saturation", "#808080", 0.45);
-      blend("screen", "#dfe8ee", 0.22);
       break;
     case "night":
       blend("multiply", "#4e5878", 1);

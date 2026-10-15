@@ -379,18 +379,6 @@ const MAP_STYLE_TEXT: Record<
     ],
     palette: MAP_STYLE_PALETTES.antique,
   },
-  winter: {
-    displayName: MAP_STYLE_NAMES.winter,
-    description:
-      "The map in the depths of a hard winter, whatever the month: snow on every province, ice along the coasts, and a cold grey-blue sea.",
-    price: 700,
-    features: [
-      "Snow lies on the land all year, deeper in the north",
-      "Ice along the coasts and a slate-grey sea",
-      "The colonies' colours as if seen through falling snow",
-    ],
-    palette: MAP_STYLE_PALETTES.winter,
-  },
   night: {
     displayName: MAP_STYLE_NAMES.night,
     description:
@@ -437,7 +425,8 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
     category: "startdates", // SITE (r22)
     displayName: "1776: The Revolution",
     description:
-      "A new start date: 1 January 1776, with Boston under siege and independence not yet declared. Live through the American Revolution to the Treaty of Paris, as a patriot, a loyalist or neither.",
+      // CQ24 (r24): to 1800.
+      "A new start date: 1 January 1776, with Boston under siege and independence not yet declared. Live through the American Revolution and the new republic's first years, to 1800, as a patriot, a loyalist or neither.",
     price: 4000,
     conquest: {
       features: [
@@ -445,7 +434,9 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
         "The war's great events as they happened: the Declaration, the fall of New York, Trenton, Saratoga, the French alliance, Valley Forge, Charleston, Yorktown and the peace",
         "Choose your side, and see what each side costs and pays when the war is over",
         "A commission in the Continental Army or a Loyalist regiment, a letter of marque from Congress, spying in a town held by the other side, a seat in Congress",
-        "The world runs to the end of 1783",
+        // CQ24 (r24): to 1800, and history yields to what players do.
+        "History keeps its course unless you change it: win or lose a battle, hold a town, sway a vote in Congress, and the world follows what happened",
+        "The world runs to the end of 1800: the Constitution, Washington's government, the war in the Northwest, the Haitian Revolution, the Quasi-War and the election of 1800",
       ],
       howTo:
         "In Derpy Conquest, host a game and choose 1776 under Begin in. Only the host needs to own it: friends join for free.",
@@ -464,7 +455,8 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
         "Eight legends of the Americas, each a chain of rumour, clues and a journey",
         "Very hard: the clues need high skills (letters, woodcraft, persuasion, seamanship and more), and each step costs time and money",
         "Rewards that fit, and some that are bittersweet; the Fountain of Youth is the rarest of all",
-        "The native nations' sacred places are learned about and protected, never plundered",
+        // CQ24 (r24): a sacred place may be plundered as well as kept.
+        "The native nations' sacred places: earn their people's trust and keep them, or plunder them for what's buried there, and live with what follows",
       ],
       howTo:
         "Rumours of the legends come to your characters in any Derpy Conquest game you play, from any start date. What you've heard and found is in Journal › Legends.",
@@ -489,6 +481,13 @@ export const CONQUEST_ITEMS: readonly DerpyItem[] = [
   }),
 ];
 // ---- end DLC (r21)
+
+// CQ24 (r24): items taken off sale, and the Derp Coins each buyer is given
+// back (once each, by a startup migration: RetiredRefunds.ts). Hard Winter
+// (700 since r21) became the base game's winter, for everyone.
+export const RETIRED_ITEM_REFUNDS: Readonly<Record<string, number>> = {
+  map_winter: 700,
+};
 
 // AIP (r23): the four AI personalities, sold one by one. r24: the owner
 // asked for one short line on what each will do, and 750 coins each. The

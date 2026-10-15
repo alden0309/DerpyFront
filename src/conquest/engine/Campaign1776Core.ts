@@ -2,7 +2,8 @@
 // the campaign, who's who, what the campaign holds still), apart from the
 // campaign itself (Campaign1776.ts) so they import nothing heavy.
 
-import type { Campaign76, GameState, Life, RevSide } from "./Types";
+import type { ConquestGame } from "./Game";
+import type { Campaign76, Course76, GameState, Life, RevSide } from "./Types";
 
 // ---------------------------------------------------------------- who's who
 
@@ -56,12 +57,23 @@ export function endWords(s: GameState): {
       told: "It is 1776. Whatever comes next, your story ends here.",
       over: "It is 1776. The story ends here.",
     };
+  // CQ24 (r24): the campaign runs to the end of 1800 (a save of the old
+  // campaign, to 1784, carries on there: Campaign1776Course.ts).
+  const c = courseOf(s);
+  if (c?.crushed !== undefined)
+    return {
+      year: 1800,
+      reached: "The century is out, and the world has reached the end of 1800.",
+      lived: "lived to see the century out",
+      told: "It is the last night of 1800. The rising was put down and the colonies are the King's again; whatever comes next, your story ends here.",
+      over: "The year 1800 is out, the colonies the King's still. The story ends here.",
+    };
   return {
-    year: 1784,
-    reached: "The war is over and the world has reached 1784.",
-    lived: "lived to see the peace",
-    told: "It is 1784. The war is over, the peace is signed, and whatever comes next, your story ends here.",
-    over: "It is 1784, and the peace is signed. The story ends here.",
+    year: 1800,
+    reached: "The century is out, and the world has reached the end of 1800.",
+    lived: "lived to see the century out",
+    told: "It is the last night of 1800. The Revolution is long over, the republic has its government and its quarrels, and whatever comes next, your story ends here.",
+    over: "The year 1800 is out, and the republic with it. The story ends here.",
   };
 }
 
@@ -87,6 +99,9 @@ export function campaignHoldsArmy(
   army?: number,
 ): boolean {
   if (!isCampaign(s)) return false;
+  // CQ24 (r24): the frontier war's nations (1790-95) are held too.
+  if (courseOf(s)?.frontier?.on && courseOf(s)!.frontier!.foes.includes(n))
+    return true;
   const us = usOf(s);
   if (!s.nations[us]?.rebelling) return false;
   if (n === kingOf(s)) return true;
@@ -100,6 +115,7 @@ export function campaignHoldsArmy(
  */
 export function campaignForbids(s: GameState, n: number, p: number): boolean {
   if (!isCampaign(s)) return false;
+  if (courseForbids(s, n, p)) return true; // CQ24 (r24): the course's own wars
   const us = usOf(s);
   if (!s.nations[us]?.rebelling) return false;
   const pr = s.provinces[p];
@@ -120,6 +136,8 @@ export function campaignForbids(s: GameState, n: number, p: number): boolean {
 /** No peace between the United Colonies and British America but the Treaty of Paris. */
 export function campaignWar(s: GameState, a: number, b: number): boolean {
   if (!isCampaign(s)) return false;
+  if (courseWar(s, a, b)) return true; // CQ24 (r24): the course's own wars
+
   const us = usOf(s);
   const br = britainOf(s);
   if (!s.nations[us]?.rebelling) return false;
@@ -197,3 +215,115 @@ export const SPY = {
   bribeWorks: 0.75,
   bluffDc: 13,
 };
+
+// ---------------------------------------------------------------- CQ24 (r24): the course of history
+// (Campaign1776Course.ts keeps it; these are the light questions other
+// modules ask of it, and the gates the beats pass through.)
+
+/** The campaign's course: where history held, and where players turned it. */
+export function courseOf(s: GameState): Course76 | undefined {
+  return campaignOf(s)?.course;
+}
+
+/** Whether a beat went otherwise than history (players turned it). */
+export function beatTurned(s: GameState, key: string): boolean {
+  return courseOf(s)?.turned[key] !== undefined;
+}
+
+/**
+ * The beats pass through these (Campaign1776.fireBeat) before they do what
+ * history did: true when the course has taken a beat over (it yields to
+ * what players have done, waits, or is fought for real).
+ */
+export const R76_GATES: ((g: ConquestGame, b: { key: string }) => boolean)[] =
+  [];
+
+/** The course's wars after the peace: the frontier's and the Quasi-War's sides. */
+function courseSides(s: GameState): [number, number[]][] {
+  const c = courseOf(s);
+  if (!c) return [];
+  const us = usOf(s);
+  const out: [number, number[]][] = [];
+  if (c.frontier?.on) out.push([us, c.frontier.foes]);
+  if (c.quasi) {
+    const fr = s.nations.findIndex((n) => n.key === "france");
+    if (fr >= 0) out.push([us, [fr]]);
+  }
+  return out;
+}
+
+/** The course's wars: the computer's armies on either side don't go into the other's country. */
+function courseForbids(s: GameState, n: number, p: number): boolean {
+  const pr = s.provinces[p];
+  if (!pr) return false;
+  const held = pr.occupier >= 0 ? pr.occupier : pr.owner;
+  for (const [a, foes] of courseSides(s)) {
+    if (n === a && (foes.includes(held) || foes.includes(pr.owner)))
+      return true;
+    if (foes.includes(n) && (held === a || pr.owner === a)) return true;
+  }
+  return false;
+}
+
+/**
+ * After the peace the republic's wars with the powers are history's (the
+ * Northwest's, the Quasi-War): no power answers an ally's call to a war the
+ * United States is in, on either side, and the United States answers no
+ * ally's call at all (it kept out of Europe's wars, its treaty with France
+ * or not), unless a player rules the nation answering (they may still
+ * declare war themselves). The frontier's peoples, and risings, still stand
+ * by each other. `a` attacked `b`; `ally` is called to `b`'s side.
+ */
+export function campaignNoCall(
+  s: GameState,
+  ally: number,
+  a: number,
+  b: number,
+): boolean {
+  const c = courseOf(s);
+  if (c?.peace === undefined) return false;
+  const us = usOf(s);
+  if (ally !== us) {
+    if (a !== us && b !== us) return false;
+    const k = s.nations[ally]?.kind;
+    if (k !== "power" && k !== "crown") return false;
+  }
+  const ruler = s.nations[ally]?.ruler ?? -1;
+  return ruler < 0 || !s.lives.some((l) => l.c === ruler);
+}
+
+/** The course's wars: only the course makes their peace. */
+function courseWar(s: GameState, a: number, b: number): boolean {
+  for (const [x, foes] of courseSides(s))
+    if ((a === x && foes.includes(b)) || (b === x && foes.includes(a)))
+      return true;
+  return false;
+}
+
+/**
+ * Europe's wars with Britain in the campaign (Crown.ts's history): when each
+ * opens and ends as the course has them. France's comes with the alliance,
+ * Spain's a year after, and both end with the peace. Undefined: not one of
+ * the campaign's wars; null: not now.
+ */
+export function campaignEuropeSpan(
+  s: GameState,
+  a: string,
+  b: string,
+): [number, number] | null | undefined {
+  if (!isCampaign(s)) return undefined;
+  const pair = [a, b].sort().join("-");
+  const key = (
+    {
+      "britain-france": "france",
+      "britain-spain": "spain",
+      "britain-netherlands": "netherlands",
+    } as Record<string, string>
+  )[pair];
+  if (!key) return undefined;
+  const c = courseOf(s);
+  if (c?.peace !== undefined || c?.crushed !== undefined) return null;
+  const from = c?.europe?.[key];
+  if (from === undefined) return key === "netherlands" ? undefined : null;
+  return [from, Number.MAX_SAFE_INTEGER];
+}

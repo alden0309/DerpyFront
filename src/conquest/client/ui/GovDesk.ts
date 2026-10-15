@@ -377,9 +377,9 @@ function revSection(ui: GameUi, n: number): TemplateResult | typeof nothing {
     return section(
       html`${term("independence", "The war with the crown")}`,
       html`<p class="small">
-        The war follows its history: the battles, the alliances and the peace
-        signed at Paris on 3 September 1783. Society › The war follows it, and
-        your side in it.
+        The war follows its history (the battles, the alliances and the peace
+        signed at Paris on 3 September 1783) unless players change it. Society ›
+        The war follows it, and your side in it.
       </p>`,
     );
   if (nation.rebelling)

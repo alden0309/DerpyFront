@@ -121,7 +121,7 @@ describe("the catalog", () => {
     const conquest = DERPY_ITEMS.filter((i) => i.game === "conquest");
     expect(conquest.map((i) => i.category).sort()).toEqual([
       "addons", // SITE (r22): Legends
-      "mapstyles",
+      // CQ24 (r24): four map styles (Hard Winter became everyone's winter)
       "mapstyles",
       "mapstyles",
       "mapstyles",

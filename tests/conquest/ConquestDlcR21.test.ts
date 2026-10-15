@@ -2,7 +2,7 @@
 // - 1776: The Revolution: the world of 1 January 1776 (the United Colonies
 //   in rebellion, British America, the British crown), the war's beats on
 //   their real dates (the Declaration, New York, France and Spain at war,
-//   Yorktown, the Treaty of Paris and its cessions) and the end in 1784;
+//   Yorktown, the Treaty of Paris and its cessions) (CQ24, r24: and on to 1800);
 //   sides and the turncoat's price; a commission and spying rolled by the
 //   odds they show.
 // - Legends: rumours as rare as they say, each step rolled by the odds the
@@ -56,6 +56,7 @@ import { FOUNTAIN } from "../../src/conquest/engine/LegendsData";
 import { meOf, skillLevel } from "../../src/conquest/engine/LifeQueries";
 import { checkChance } from "../../src/conquest/engine/LifeRules";
 import { atWar, provincesOf } from "../../src/conquest/engine/Queries";
+import { PLUNDER_FINDS } from "../../src/conquest/engine/SacredPlunder"; // CQ24 (r24)
 import type { GameState, Life } from "../../src/conquest/engine/Types";
 import { lifeOf, map, plan, prov, ticks, toNextMonth, world } from "./LifeUtil";
 
@@ -103,7 +104,7 @@ describe("1776: The Revolution", () => {
     const { s, life } = game1776();
     expect(isCampaign(s)).toBe(true);
     expect(s.day).toBe(dayOf(1776));
-    expect(s.settings.endYear).toBe(1784);
+    expect(s.settings.endYear).toBe(1801); // CQ24 (r24): to the end of 1800
     const us = usOf(s);
     const king = kingOf(s);
     const br = britainOf(s);
@@ -153,7 +154,9 @@ describe("1776: The Revolution", () => {
     expect(other.settings.endYear).toBe(1776);
   });
 
-  test("the war's beats come on their dates, through the peace to 1784", () => {
+  // CQ24 (r24): the campaign runs on to 1800 now (ConquestCq24.test.ts has
+  // the years after the peace); here, the war's beats to the peace.
+  test("the war's beats come on their dates, through the peace", () => {
     const { g, s } = game1776();
     const us = usOf(s);
     const king = kingOf(s);
@@ -186,11 +189,10 @@ describe("1776: The Revolution", () => {
       expect(s.provinces[prov(p)].owner, p).toBe(spain);
     expect(s.provinces[prov("Tobago")].owner).toBe(france);
     expect(s.provinces[prov("Cahokia")].owner).toBe(us);
-    // The game ends on 1 January 1784, every beat on its day.
-    until(g, dayOf(1785));
-    expect(s.over).toBe(true);
-    expect(s.day).toBe(dayOf(1784));
-    for (const b of BEATS)
+    // On to 1784 (the game goes on), every war's beat on its day.
+    until(g, dayOf(1784, 0, 2));
+    expect(s.over).toBe(false);
+    for (const b of BEATS.filter((x) => beatDay(x) < dayOf(1784)))
       expect(campaignOf(s)?.beats[b.key], b.key).toBe(beatDay(b));
   }, 120_000);
 
@@ -473,17 +475,31 @@ describe("Legends", () => {
     expect(maxHealthOf(s, me, life).total).toBe(withIt);
   });
 
-  test("sacred places are learned and kept, never plundered", () => {
+  // CQ24 (r24): kept on the trail's own road, or plundered (the plunder's
+  // own tests are in ConquestCq24.test.ts).
+  test("sacred places are learned and kept, or plundered", () => {
     const sacred = LEGENDS.filter((d) => d.kind === "sacred");
     expect(sacred.map((d) => d.key).sort()).toEqual(
       ["bdote", "cahokia", "kituwah", "pahasapa", "serpent"].sort(),
     );
     for (const d of sacred) {
       expect(d.people, d.key).toBeTruthy();
+      // Kept: the walk with an elder pays no coins, and asks your promise.
       for (const o of d.outcomes) {
         expect(o.coins, d.key).toBeUndefined();
         expect(o.keep, d.key).toBe(true);
       }
+      // Plundered: what a dig may find, by its chances.
+      const finds = PLUNDER_FINDS[d.key];
+      expect(finds?.length, d.key).toBeGreaterThan(1);
+      expect(
+        finds.reduce((m, f) => m + f.chance, 0),
+        d.key,
+      ).toBeCloseTo(1, 9);
+      expect(
+        finds.some((f) => f.coins[1] > 0),
+        d.key,
+      ).toBe(true);
     }
   });
 

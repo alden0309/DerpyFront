@@ -820,7 +820,7 @@ The host sets the speed. Anyone may pause or start the clock again, but for 10 s
 Besides the snow, the passes and the fords, the seasons bring their own scenes: the mud of the thaw (take to the woods, hire oxen or slog on), a frozen river to cross, frostbite in a northern winter, and a farmer by the road wanting hands at the harvest.
 
 ## On the map
-Snow over a winter's country (deeper in the far north), ice along the frozen shores and lakes and white frozen rivers, brown mud in the thaw and swollen rivers, the green of May, a fever haze over the hot lowlands, gold over the farm country at harvest, the woods turning in autumn, and the hurricanes.
+The winter comes over the map where it really snowed: the first frosts late in November, deep winter through December and January, and the thaw in early February (in the far north, where the roads stay snowbound, a lighter snow lingers until they're clear). New England, New France, the interior of the northern colonies and the mountains get all of it; the coast of the middle colonies most of it; the Chesapeake a lighter touch; the Carolinas' coast, Florida, the Gulf, the islands and New Spain none at all. The snow lies over whatever map style you've chosen, with ice along the frozen shores and lakes and white frozen rivers where you can cross on the ice. Then brown mud in the thaw and swollen rivers, the green of May, a fever haze over the hot lowlands, gold over the farm country at harvest, the woods turning in autumn, and the hurricanes.
 
 > Tip: Travel north in summer and autumn; sail out of Quebec before December. A stint at the harvest in a good year is good money for anyone, and the farmer may ask you to the frolic.`,
     glossary: [

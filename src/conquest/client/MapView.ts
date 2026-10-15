@@ -24,6 +24,7 @@ import {
   isMudSeason,
   riversFrozen,
 } from "../engine/Seasons";
+import { snowKey, snowOn } from "../engine/Snow"; // CQ24 (r24)
 import type {
   Army,
   Character,
@@ -95,6 +96,7 @@ import {
   FigureColors,
   figureColorsOf,
 } from "./Walkers";
+import { WINTER_INK, WinterLook } from "./WinterLook"; // CQ24 (r24)
 
 export type MapMode = "nation" | "terrain" | "economy" | "people";
 
@@ -168,6 +170,11 @@ export function seasonLook(month: number): string {
     month === 4 ? "g" : "",
     month >= 5 && month <= 9 ? "v" : "",
   ].join("");
+}
+
+/** CQ24 (r24): the season's look on a day: the month's, and the winter's stage. */
+export function seasonKeyOf(day: number): string {
+  return `${seasonLook(dateOf(day).month)}|${snowKey(day)}`;
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -385,10 +392,11 @@ export class MapView {
   private personHits: { c: number; x: number; y: number; r: number }[] = [];
   /** Where each walker is in their stride, and when it was last moved on. */
   private strides = new Map<string, { phase: number; t: number }>();
-  /** The month the chart's season was drawn for. */
-  private seasonMonth = -1;
   /** Wave 2 (r11): how the season looks (snow, autumn); the chart changes only with it. */
   private seasonSeen = "";
+  /** CQ24 (r24): the day the season's look was last reckoned for, and the winter's own look. */
+  private seasonDay = -1;
+  private winterLook: WinterLook | null = null;
   /** Points along the coasts where the sea breaks, in map units. */
   private wavePts: [number, number, number][] | null = null;
   /** Open water off each coastal town, for its boats: [province, x, y]. */
@@ -1541,48 +1549,8 @@ export class MapView {
   }
   private hatches = new Map<string, CanvasPattern | null>();
 
-  /**
-   * FIXES (r15): flecks of snow as a pattern, `dots` white specks scattered
-   * (always the same way) over a tile `period` screen pixels square, so a
-   * winter's country shows snow without bleaching the owner's colour.
-   */
-  private flecks(
-    c: CanvasRenderingContext2D,
-    v: View,
-    period: number,
-    dots: number,
-    alpha: number,
-  ): CanvasPattern | null {
-    const k = this.chartDpr();
-    const key = `flecks|${period}|${dots}|${alpha}|${k}`;
-    let pat = this.hatches.get(key);
-    if (pat === undefined) {
-      const tw = Math.max(4, Math.round(period * k));
-      const t = document.createElement("canvas");
-      t.width = tw;
-      t.height = tw;
-      const x = t.getContext("2d");
-      pat = null;
-      if (x) {
-        // A fixed scatter (golden-angle steps), the same on every screen.
-        for (let i = 0; i < dots; i++) {
-          const fx = (i * 0.618034 + 0.13) % 1;
-          const fy = (i * 0.381966 + 0.29 + (i % 3) * 0.21) % 1;
-          const r = (0.45 + ((i * 7) % 5) * 0.1) * k;
-          x.fillStyle = `rgba(255,255,255,${alpha})`;
-          x.beginPath();
-          x.arc(fx * tw, fy * tw, r, 0, Math.PI * 2);
-          x.fill();
-        }
-        pat = c.createPattern(t, "repeat");
-      }
-      this.hatches.set(key, pat);
-    }
-    pat?.setTransform(
-      new DOMMatrix().scaleSelf(1 / (v.scale * k), 1 / (v.scale * k)),
-    );
-    return pat;
-  }
+  // CQ24 (r24): FIXES (r15)'s snow flecks went with the old winter wash
+  // (the winter is WinterLook's now).
 
   /** A repeating texture, made once per canvas. */
   private pattern(
@@ -1784,26 +1752,52 @@ export class MapView {
       }
     }
     // The season: snow lies over winter country; the woods turn in autumn.
-    const realMonth = dateOf(Math.floor(o.dayNow)).month;
-    this.seasonMonth = realMonth;
-    this.seasonSeen = seasonLook(realMonth);
-    // DLC (r21): Hard Winter draws January's snow and ice all year.
-    const month = look?.winter ? 0 : realMonth;
+    const today = Math.floor(o.dayNow);
+    const realMonth = dateOf(today).month;
+    this.seasonDay = today;
+    this.seasonSeen = seasonKeyOf(today); // CQ24 (r24): by the day (the winter's stages)
+    const month = realMonth;
     const seasonal = o.mode === "nation" || o.mode === "terrain";
     if (seasonal) this.paintSeason(c, s, v, month, knownLand);
+    // CQ24 (r24): the winter, where it really snowed (WinterLook.ts), over
+    // whatever style is chosen; the rest of the chart exactly as it was.
+    if (seasonal) {
+      const wl = (this.winterLook ??= new WinterLook(
+        this.map,
+        this.provPaths,
+        this.provBox,
+      ));
+      wl.set(snowKey(today), (p) => snowOn(this.map.provinces[p], today));
+      if (wl.any)
+        wl.paint(
+          {
+            canvas: this.base,
+            w: bw,
+            h: bh,
+            scale: bd * v.scale,
+            ox: bd * (v.tx + m),
+            oy: bd * (v.ty + m),
+          },
+          knownLand,
+          v.scale,
+        );
+    }
     c.strokeStyle = look?.borderInk ?? "rgba(70, 55, 35, 0.22)";
     c.lineWidth = Math.max(0.5, 0.8 / v.scale);
     c.stroke(this.borders);
     c.strokeStyle = look?.riverInk ?? "rgba(82, 130, 160, 0.75)";
     c.lineWidth = Math.min(1.2, 1.1 / v.scale);
-    if (!seasonal || look)
-      c.stroke(this.rivers); // DLC (r21): a style's own rivers
+    if (!seasonal) c.stroke(this.rivers);
     else
       for (const r of this.riverLines) {
         // MAP (r12): frozen white in the northern winter, brown and swollen in the thaw.
+        // CQ24 (r24): frozen whatever the map's style (the engine's own ice).
         if (riversFrozen(r.lat, month)) {
-          c.strokeStyle = "rgba(232,242,248,0.95)";
+          c.strokeStyle = WINTER_INK.river;
           c.lineWidth = Math.min(1.8, 1.6 / v.scale);
+        } else if (look) {
+          c.strokeStyle = look.riverInk; // DLC (r21): a style's own rivers
+          c.lineWidth = Math.min(1.2, 1.1 / v.scale);
         } else if (isFloodSeason(r.lat, month)) {
           c.strokeStyle = "rgba(104,112,100,0.85)";
           c.lineWidth = Math.min(2.4, 2.2 / v.scale);
@@ -2042,12 +2036,8 @@ export class MapView {
     month: number,
     knownLand: (p: number) => boolean,
   ): void {
-    // FIXES (r15): snow was a 42% (56% in the far north) white wash, which
-    // turned England's red pink every winter. Now a light wash and flecks.
-    const snow = new Path2D();
-    const deepSnow = new Path2D();
-    let snowy = 0;
-    let deep = 0;
+    // CQ24 (r24): the snow itself is WinterLook's now (Hard Winter's look,
+    // where it really snowed); FIXES (r15)'s light wash and flecks gave way.
     for (let p = 0; p < this.provPaths.length; p++) {
       if (!knownLand(p)) continue;
       const def = this.map.provinces[p];
@@ -2056,16 +2046,7 @@ export class MapView {
         c.fill(this.provPaths[p], "evenodd");
       };
       if (isWinter(def.lat, month)) {
-        wash(
-          def.lat >= 50 ? "rgba(246,249,252,0.12)" : "rgba(246,249,252,0.06)",
-        );
-        if (def.lat >= 50) {
-          deepSnow.addPath(this.provPaths[p]);
-          deep++;
-        } else {
-          snow.addPath(this.provPaths[p]);
-          snowy++;
-        }
+        // CQ24 (r24): winter country: its snow is WinterLook's.
       } else if (isMudSeason(def.lat, month)) wash("rgba(112,82,44,0.1)");
       else if (month === 4 && def.lat > 30 && def.terrain !== "desert")
         wash("rgba(104,160,68,0.08)");
@@ -2093,26 +2074,11 @@ export class MapView {
       )
         wash("rgba(176,184,70,0.08)");
     }
-    // FIXES (r15): the snow itself, as flecks over the owner's colour.
-    if (snowy) {
-      const f = this.flecks(c, v, 13, 5, 0.72);
-      if (f) {
-        c.fillStyle = f;
-        c.fill(snow, "evenodd");
-      }
-    }
-    if (deep) {
-      const f = this.flecks(c, v, 10, 6, 0.8);
-      if (f) {
-        c.fillStyle = f;
-        c.fill(deepSnow, "evenodd");
-      }
-    }
     // Ice along the frozen shores, the lakes and the St. Lawrence.
     c.save();
     c.lineJoin = "round";
     c.lineCap = "round";
-    c.strokeStyle = "rgba(234,243,249,0.82)";
+    c.strokeStyle = WINTER_INK.ice; // CQ24 (r24): Hard Winter's ice
     c.lineWidth = Math.max(2.2, 5 / v.scale);
     for (let p = 0; p < this.provCoast.length; p++) {
       if (!knownLand(p)) continue;
@@ -2555,9 +2521,12 @@ export class MapView {
     const inSight = (p: number) => !fog || fog.seen.has(p);
     // Wave 2 (r11): only when the season looks different (five times a
     // year), not every month: skipping ahead, that was a redraw a second.
-    const month = dateOf(Math.floor(o.dayNow)).month;
-    if (month !== this.seasonMonth && seasonLook(month) !== this.seasonSeen)
-      this.baseDirty = true;
+    // CQ24 (r24): reckoned once a day, for the winter's stages.
+    const today = Math.floor(o.dayNow);
+    if (today !== this.seasonDay) {
+      this.seasonDay = today;
+      if (seasonKeyOf(today) !== this.seasonSeen) this.baseDirty = true;
+    }
 
     // The chart: redraw it if it's out of date and the moment is right,
     // otherwise move the picture we have.

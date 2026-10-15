@@ -212,7 +212,8 @@ export class DerpHome extends HubPage {
           art: "/derpland/conquest-box.webp",
           logo: html`<span class="dl-logo-conquest">Derpy Conquest</span>`,
           pitch:
-            "Govern a colony in the 1600s Americas. Keep the crown paid, the settlers fed and the neighbors talking, or go your own way.",
+            // CQ24 (r24)
+            "Live one life in the colonial Americas, from the first settlements to the Revolution. Make history, or be one of the many who kept it moving.",
           facts: [
             [peopleIcon(), "1 to 6 players"],
             [scrollIcon(), "Saved between sittings"],

@@ -210,12 +210,6 @@ export function mapStylePreview(
           (_, i) =>
             svg`<path d=${`M${10 + i * 6} ${8 + i * 2} C70 ${2 + i * 2} 140 ${18 + i * 2} 210 ${8 + i * 2} S300 ${4 + i * 2} 316 ${10 + i * 2}`} fill="none" stroke=${p.ink} stroke-width=".6" opacity=".35" />`,
         )}`;
-      case "winter":
-        return svg`${Array.from({ length: 34 }, (_, i) => {
-          const x = (i * 97) % 316;
-          const y = 50 + ((i * 37) % 66);
-          return svg`<circle cx=${x} cy=${y} r=${i % 3 ? 1.2 : 1.8} fill="#ffffff" opacity=".9" />`;
-        })}<path d=${COAST} fill="none" stroke="#ffffff" stroke-width="5" opacity=".55" />`;
       case "night":
         return svg`${Array.from(
           { length: 22 },

@@ -89,6 +89,18 @@
   font-family: var(--fell);
   font-size: 0.95rem;
 }
+/* CQ24 (r24): a sacred place's other road, and the mark it leaves. */
+.cq-legend-step.cq-plunder {
+  margin-top: 0.8rem;
+  border-left-color: var(--seal);
+}
+.cq-plunder .cq-odds-panel {
+  border-left-color: var(--seal);
+}
+.cq-plunder-mark {
+  color: var(--seal);
+  font-style: italic;
+}
 
 /* ---------------------------------------------------------------- Settings › Map style */
 
@@ -142,9 +154,6 @@
 }
 .cq-map-host[data-mapstyle="antique"]::after {
   box-shadow: inset 0 0 90px rgba(74, 53, 32, 0.35);
-}
-.cq-map-host[data-mapstyle="winter"]::after {
-  box-shadow: inset 0 0 120px rgba(230, 240, 248, 0.55);
 }
 .cq-map-host[data-mapstyle="night"]::after {
   box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.75);

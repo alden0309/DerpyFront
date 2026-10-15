@@ -23,6 +23,7 @@ import {
 } from "../../conquest/engine/Achievements"; // MAP (r12); CQACH (r22): this game's and overall
 import { validateLook } from "../../conquest/engine/Appearance";
 import { dateOf, formatDate } from "../../conquest/engine/Calendar";
+import { endWords } from "../../conquest/engine/Campaign1776Core"; // CQ24 (r24)
 import {
   CARD_STALL_SECONDS,
   cardTables,
@@ -2316,8 +2317,9 @@ export class ConquestRooms {
       gameId: room.saveId ?? `${room.code}-${room.startedAt}`,
       startedAt: room.startedAt,
       endedAt: this.now(),
-      endYear: s.settings.endYear, // DLC (r21): 1784 for the 1776 campaign
-      finalYear: dateOf(s.day).year,
+      // DLC (r21); CQ24 (r24): the campaign's words end on 1800 (it ends 1 January 1801).
+      endYear: endWords(s).year,
+      finalYear: Math.min(dateOf(s.day).year, endWords(s).year),
       difficulty: room.settings.difficulty,
       winner: winner ? `${winner.lineName} (${winner.seat.name})` : null,
       players: lines.map((x, i) => ({
