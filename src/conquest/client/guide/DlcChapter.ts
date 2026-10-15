@@ -178,7 +178,9 @@ Map styles are in the Derp Store (Derpy Conquest › Map Styles). Once you own o
 ## The styles
 ${MAP_STYLES.map((k) => `- **${MAP_STYLE_NAMES[k]}**`).join("\n")}
 
-A style is painted into the chart when it's redrawn, as the usual chart is, so the map runs as fast in any of them.`,
+A style is painted into the chart when it's redrawn, as the usual chart is, so the map runs as fast in any of them.
+
+The winter's snow (once the Hard Winter style) is everyone's now, in every style: it comes over the snowy country from late November to early February ([[seasons|The seasons]]).`,
 };
 
 /** The chapters, in the order they're listed. */

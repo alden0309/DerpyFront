@@ -3,6 +3,8 @@
 // - Hard Winter off the Derp Store, its buyers refunded once (a startup
 //   migration that's safe on a database that already has data), and an
 //   account that still owns the old row breaking nothing.
+// - The winter on everyone's map: which provinces get it, in which months,
+//   and nowhere else touched; never against what the engine does with winter.
 //
 // The database part needs a throwaway Postgres:
 // DERPY_TEST_DATABASE_URL=postgres://... (every derpy_ table in it is
@@ -13,7 +15,18 @@ import path from "path";
 import type pg from "pg";
 import { fileURLToPath } from "url";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { seasonKeyOf } from "../../src/conquest/client/MapView";
 import { dlcFromOwned, MAP_STYLES } from "../../src/conquest/DlcIds";
+import { dateOf, dayOf } from "../../src/conquest/engine/Calendar";
+import { isWinter } from "../../src/conquest/engine/Map";
+import { roadFactor } from "../../src/conquest/engine/Seasons";
+import {
+  roadSnow,
+  snowKey,
+  snowOn,
+  winterReach,
+  winterStrength,
+} from "../../src/conquest/engine/Snow";
 import { ownedInTab } from "../../src/derpland/StoreTabs";
 import {
   DERPY_ITEMS,
@@ -26,6 +39,15 @@ vi.mock("../../src/server/Logger", () => ({
     child: () => ({ error: vi.fn(), info: vi.fn(), warn: vi.fn() }),
   },
 }));
+
+const map = (
+  await import("../../src/conquest/engine/Map")
+).AMERICAS;
+const P = (name: string) => {
+  const p = map.provinces.find((x) => x.name === name);
+  if (!p) throw new Error(`no province ${name}`);
+  return p;
+};
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (f: string) => fs.readFileSync(path.join(root, f), "utf8");
@@ -202,3 +224,144 @@ describe.skipIf(!TEST_DB)(
     });
   },
 );
+
+// ---------------------------------------------------------------- everyone's winter
+
+describe("the winter on everyone's map", () => {
+  const reach = (name: string) => winterReach(P(name));
+
+  test("where: the north and the mountains fully, the Chesapeake lightly, the south not at all", () => {
+    // New England, New France, the northern interior, the mountains.
+    for (const n of [
+      "Massachusetts Bay",
+      "Plymouth",
+      "Connecticut",
+      "Narragansett",
+      "Piscataqua",
+      "Quebec",
+      "Hochelaga",
+      "Trois-Rivières",
+      "Port-Royal",
+      "Mohawk",
+      "Onondaga",
+      "Fort Orange",
+      "Allegheny",
+      "Susquehannock",
+      "Détroit",
+      "Shenandoah",
+      "Taos",
+      "Ute",
+      "Great Salt Lake",
+    ])
+      expect(reach(n), n).toBe(1);
+    // The middle colonies' coast: most of it.
+    for (const n of ["New Amsterdam", "Raritan", "Fort Christina"])
+      expect(reach(n), n).toBe(0.75);
+    // The Chesapeake: a lighter touch.
+    for (const n of [
+      "Jamestown",
+      "Nansemond",
+      "Accomac",
+      "St. Mary's",
+      "Severn",
+      "Rappahannock",
+      "Pamunkey",
+    ]) {
+      expect(reach(n), n).toBeGreaterThan(0);
+      expect(reach(n), n).toBeLessThan(0.5);
+    }
+    // The Carolinas' coast, Florida, the Gulf, the islands, New Spain, the Pacific coast.
+    for (const n of [
+      "Albemarle",
+      "Roanoke",
+      "Pamlico",
+      "Cape Fear",
+      "Winyah",
+      "Charles Town",
+      "Guale",
+      "St. Augustine",
+      "Calusa",
+      "Pensacola",
+      "Mobile",
+      "Bayogoula",
+      "Havana",
+      "Jamaica",
+      "Barbados",
+      "Le Cap",
+      "Bermuda",
+      "Tenochtitlan",
+      "Veracruz",
+      "Ohlone",
+      "Monterey",
+    ])
+      expect(reach(n), n).toBe(0);
+    // Off the board: nothing drawn.
+    const closed = map.provinces.find((p) => p.closed)!;
+    expect(winterReach(closed)).toBe(0);
+  });
+
+  test("when: first frosts late in November, deep winter in December and January, the thaw in early February", () => {
+    const boston = P("Massachusetts Bay");
+    const york = P("New Amsterdam");
+    const at = (y: number, m: number, d: number) => dayOf(y, m - 1, d);
+    expect(snowOn(york, at(1777, 11, 10))).toBe(0);
+    expect(snowOn(york, at(1777, 11, 20))).toBeGreaterThan(0);
+    expect(snowOn(york, at(1777, 11, 20))).toBeLessThan(
+      snowOn(york, at(1777, 11, 28)),
+    );
+    expect(snowOn(york, at(1777, 12, 15))).toBe(0.75);
+    expect(snowOn(york, at(1778, 1, 20))).toBe(0.75);
+    expect(snowOn(york, at(1778, 2, 3))).toBeGreaterThan(0);
+    expect(snowOn(york, at(1778, 2, 3))).toBeLessThan(0.75);
+    expect(snowOn(york, at(1778, 2, 20))).toBe(0);
+    for (const m of [3, 4, 5, 6, 7, 8, 9, 10])
+      expect(snowOn(york, at(1778, m, 15)), `month ${m}`).toBe(0);
+    expect(snowOn(boston, at(1777, 12, 25))).toBe(1);
+    // The year's strength, the same everywhere.
+    expect(winterStrength(at(1777, 7, 1))).toBe(0);
+    expect(winterStrength(at(1778, 1, 1))).toBe(1);
+    // The southern hemisphere's winter in its own months (no province there yet).
+    const south = { lat: -48, lon: -70, coastal: false, terrain: "hills" };
+    expect(winterReach(south)).toBe(1);
+    expect(snowOn(south, at(1778, 7, 10))).toBe(1);
+    expect(snowOn(south, at(1778, 1, 10))).toBe(0);
+  });
+
+  test("never against the engine: snow only where it has a winter, and on every snowbound road", () => {
+    for (const p of map.provinces) {
+      if (p.closed) continue;
+      for (let d = dayOf(1777, 6, 1); d < dayOf(1778, 6, 1); d += 3) {
+        const month = dateOf(d).month;
+        const snow = snowOn(p, d);
+        if (snow > 0)
+          expect(isWinter(p.lat, month) || month === 10, p.name).toBe(true);
+        // Where the engine slows the roads for snow, the map shows snow.
+        if (roadSnow(p.lat, month) && winterReach(p) > 0)
+          expect(snow, `${p.name} ${month}`).toBeGreaterThan(0);
+        if (roadSnow(p.lat, month))
+          expect(roadFactor({ ...p }, month)).toBeGreaterThan(1);
+      }
+    }
+  });
+
+  test("everywhere else is untouched, all year; the chart is redrawn only when the winter changes", () => {
+    const none = map.provinces.filter((p) => winterReach(p) === 0);
+    expect(none.length).toBeGreaterThan(150);
+    for (const p of none)
+      for (let d = dayOf(1777); d < dayOf(1778); d++)
+        expect(snowOn(p, d), p.name).toBe(0);
+    // A handful of looks a year, not one a day.
+    const keys = new Set<string>();
+    let changes = 0;
+    let last = "";
+    for (let d = dayOf(1777); d < dayOf(1778); d++) {
+      const k = seasonKeyOf(d);
+      keys.add(snowKey(d));
+      if (k !== last) changes++;
+      last = k;
+    }
+    // (each hemisphere's stages, and the far north's lingering snow)
+    expect(keys.size).toBeLessThanOrEqual(14);
+    expect(changes).toBeLessThanOrEqual(24);
+  });
+});
