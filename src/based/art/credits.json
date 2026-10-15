@@ -236,22 +236,22 @@
     {
       "keys": ["props"],
       "what": "Model",
-      "title": "Furniture Kit (bar stools, tables, chairs, coat stand, lamps, plants, bench, bin)",
+      "title": "Furniture Kit (the potted plants, the doormat, the palace’s chair)",
       "author": "Kenney",
       "license": "CC0 1.0",
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "source": "https://kenney.nl/assets/furniture-kit",
-      "changes": "Recoloured at runtime (oak, brass, leather)."
+      "changes": "Recoloured at runtime."
     },
     {
-      "keys": ["props"],
+      "keys": ["fusion_props"],
       "what": "Model",
-      "title": "Car Kit (the police van, the parked cars)",
-      "author": "Kenney",
-      "license": "CC0 1.0",
-      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-      "source": "https://kenney.nl/assets/car-kit",
-      "changes": "Tinted at runtime; a light bar added to the van."
+      "title": "The furniture and the street (the bar stools, the bentwood chairs, the marble bistro tables, the club armchair, the coat stand, the Paris bench, the street bin, the street lamps, the Morris column, the parked cars, the police van)",
+      "author": "Made for Mr. Based",
+      "license": "Original work",
+      "licenseUrl": "",
+      "source": "",
+      "changes": "Modelled for Mr. Based in Autodesk Fusion, then reduced and compressed for the game."
     },
     {
       "keys": ["mr_based"],

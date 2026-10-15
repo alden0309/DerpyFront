@@ -187,11 +187,9 @@
       "kind": "model",
       "at": [-3.5, 0, 1.5],
       "model": "loungeChair",
-      "height": 0.95,
       "rot": 60,
       "mats": {
-        "carpet": "leather_dark",
-        "wood": "oak_dark"
+        "leather": "#2a1612"
       }
     },
     {
