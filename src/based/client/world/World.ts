@@ -36,6 +36,7 @@ import {
 import { WorldAssets } from "./Assets";
 import { buildItem, KitContext, PieceLight } from "./Kit";
 // BPEOPLE (r22): lookFor (a look, with the cast member's own model) and warmCast.
+import { worldGeometry } from "./Merge";
 import { Look, lookFor, Person, Pose, warmCast } from "./People";
 import { holdProp, setGait, setWetness, wearLook } from "./PeopleHooks";
 import { Post } from "./Post";
@@ -721,9 +722,8 @@ export class World {
     for (const list of sets.values()) {
       // One piece alone stays as it is (unless it's a face of a box).
       if (list.length < 2 && !Array.isArray(list[0].mesh.material)) continue;
-      const geos = list.map((p) =>
-        p.geo.clone().applyMatrix4(p.mesh.matrixWorld),
-      );
+      // r22 hotfix: through floats, or quantized furniture collapses.
+      const geos = list.map((p) => worldGeometry(p.geo, p.mesh.matrixWorld));
       const geo = mergeGeometries(geos, false);
       for (const g of geos) g.dispose();
       if (!geo) continue;

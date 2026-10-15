@@ -1582,9 +1582,10 @@ export class BasedPlayer extends LitElement {
         : nothing}
       ${flat ? this.renderFlat(flat) : nothing} ${this.renderMarks()}
       ${this.renderHud()}
-      ${this.stage.news && this.stage.place
-        ? this.renderNews(this.stage.news)
-        : nothing}
+      ${
+        /* r22 hotfix: the news crawls on the bar's television only, not
+      as a band across the top of the screen. */ nothing
+      }
       ${this.card
         ? html`<div class="mb-titlecard" @click=${() => this.advance()}>
             <div class="mb-card-title">${this.card.title}</div>
