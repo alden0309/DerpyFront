@@ -19,6 +19,8 @@
 
 import { html, LitElement, nothing, render, svg, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { rollDice, tierName } from "../engine/Dice";
+import { evalExpr } from "../engine/Expr";
 import { neighbours, PlaceDef } from "../engine/Place";
 import {
   Available,
@@ -47,8 +49,9 @@ import {
   SlotInfo,
   WriterNote,
 } from "./Api";
+import { dossierBody, DossierTab, DossierView } from "./Dossier";
 import { helpBody } from "./Help";
-import { inventoryBody } from "./Inventory";
+import { inventoryBody, SLOT_NAMES } from "./Inventory";
 import { CPS, Prefs, savePrefs, TextSpeed } from "./Prefs";
 import { Ambience } from "./Sound";
 import {
@@ -62,6 +65,7 @@ import {
   penIcon,
   personIcon,
   plainText,
+  playedText,
   settingsBody,
   slotsBody,
   soundIcon,
@@ -179,6 +183,8 @@ export class BasedPlayer extends LitElement {
   @state() private noWorld = false;
   /** r22 BPLAY: the thing picked out in the inventory. */
   @state() private invSel: string | null = null;
+  /** r22 BPLAY: the dossier's page. */
+  @state() private dossierTab: DossierTab = "places";
   @state() private avail: Available = {
     talk: [],
     look: [],
@@ -838,6 +844,250 @@ export class BasedPlayer extends LitElement {
       if (t?.on === "use" && t.target) out.add(t.target);
     }
     return [...out];
+  }
+
+  // --- the story so far (r22 BPLAY) ---------------------------------------------
+
+  /** The story's choices and checks by id, for naming what's in his path. */
+  private lookups(): {
+    choices: Map<
+      string,
+      { scene: string; options: Map<string, { label: string; check: boolean }> }
+    >;
+    checks: Map<string, { label: string; skill: string; diff: number }>;
+    vignettes: Map<string, string>;
+  } {
+    if (this.lookupCache) return this.lookupCache;
+    const choices = new Map<
+      string,
+      { scene: string; options: Map<string, { label: string; check: boolean }> }
+    >();
+    const checks = new Map<
+      string,
+      { label: string; skill: string; diff: number }
+    >();
+    const vignettes = new Map<string, string>();
+    for (const id of this.chapter.order) {
+      const sc = this.chapter.scenes[id];
+      for (const op of sc.ops) {
+        if (op.op === "choose") {
+          const options = new Map<string, { label: string; check: boolean }>();
+          for (const o of op.options) {
+            options.set(o.id, { label: o.label, check: !!o.check });
+            if (o.check) {
+              checks.set(`${op.id}/${o.id}`, {
+                label: o.label,
+                skill: o.check.skill,
+                diff: o.check.diff,
+              });
+            }
+          }
+          choices.set(op.id, { scene: sc.label, options });
+        } else if (op.op === "investigate") {
+          for (const d of op.deductions) {
+            if (d.check) {
+              checks.set(`${op.id}:${d.id}`, {
+                label: d.label,
+                skill: d.check.skill,
+                diff: d.check.diff,
+              });
+            }
+          }
+        } else if (op.op === "vignette" && op.key && !vignettes.has(op.key)) {
+          vignettes.set(op.key, sc.label);
+        }
+      }
+    }
+    this.lookupCache = { choices, checks, vignettes };
+    return this.lookupCache;
+  }
+
+  private lookupCache: ReturnType<BasedPlayer["lookups"]> | null = null;
+
+  /** Where things stand with someone, from how he's made them feel. */
+  private standing(rel: number): string {
+    if (rel >= 3) return "Trusts him";
+    if (rel === 2) return "Has decided he likes him";
+    if (rel === 1) return "Warming to him";
+    if (rel === 0) return "Hasn't made up their mind";
+    if (rel === -1) return "Cool towards him";
+    return "Doesn't trust him";
+  }
+
+  private dossier(): DossierView {
+    const run = this.run;
+    const rec = run.record;
+    const ch = this.chapter;
+    const hero = ch.cast[0];
+    const build = run.build;
+    const arch = ch.archetypes.find((a) => a.id === build.archetype);
+    const t = (sec: number) => clockText(sec).time;
+    const clock = clockText(run.clock);
+    const art = (k?: string) => (k ? mediaNow("art", k) : null);
+    // People, one entry per person (a name learned later is the same body).
+    const rels = run.values().rels;
+    const groups = new Map<string, string[]>();
+    for (const c of ch.cast) {
+      if (c.id === hero?.id) continue;
+      const body = c.body ?? c.id;
+      groups.set(body, [...(groups.get(body) ?? []), c.id]);
+    }
+    const people: (DossierView["people"][number] & { at: number })[] = [];
+    for (const [body, ids] of groups) {
+      const met = ids.filter((id) => rec.met[id] !== undefined);
+      if (met.length === 0) continue;
+      const named = met.find((id) => id !== body);
+      const who = ch.cast.find((c) => c.id === (named ?? body))!;
+      const first = ch.cast.find((c) => c.id === body)!;
+      const rel = ids.reduce((a, id) => a + (rels[id] ?? 0), 0);
+      const at = Math.min(...met.map((id) => rec.met[id]));
+      people.push({
+        name: who.name,
+        first: named ? first.name.replace(/^The /, "the ") : undefined,
+        portrait: art(who.portrait ?? first.portrait),
+        met: `at ${t(at)}`,
+        stand: this.standing(Math.max(-3, Math.min(3, rel))),
+        warmth: Math.max(-3, Math.min(3, rel)),
+        remembers: ids.some((id) => rec.remembers.includes(id)),
+        at,
+      });
+    }
+    people.sort((a, b) => a.at - b.at);
+    // What he chose, scene by scene, from his path (the latest forty).
+    const look = this.lookups();
+    const path = run.history();
+    const picks: { scene: string; label: string; check?: string }[] = [];
+    for (const step of path) {
+      if (!step.startsWith("c:")) continue;
+      const [choice, opt] = step.slice(2).split("=");
+      const c = look.choices.get(choice);
+      const o = c?.options.get(opt);
+      if (!c || !o) continue;
+      const memo = o.check ? rec.checks[`${choice}/${opt}`] : undefined;
+      picks.push({
+        scene: c.scene,
+        label: o.label,
+        check: memo
+          ? memo.result === "pass"
+            ? "passed"
+            : "failed"
+          : undefined,
+      });
+    }
+    const shown = picks.slice(-40);
+    const decisions: DossierView["decisions"] = [];
+    for (const p of shown) {
+      const lastGroup = decisions[decisions.length - 1];
+      if (lastGroup && lastGroup.scene === p.scene) lastGroup.picks.push(p);
+      else decisions.push({ scene: p.scene, picks: [p] });
+    }
+    // The throws, with their dice read back from the seed.
+    const dice: DossierView["dice"] = Object.entries(rec.checks)
+      .map(([id, m]) => {
+        const c = look.checks.get(id);
+        if (!c) return null;
+        return {
+          skill: this.skillName(c.skill),
+          color: this.skillInk(c.skill),
+          label: c.label,
+          diff: c.diff,
+          tier: tierName(c.diff),
+          dice:
+            m.tries > 0
+              ? rollDice(rec.seed, id, m.tries - 1)
+              : (null as [number, number] | null),
+          bonus: m.bonus,
+          pass: m.result === "pass",
+          tries: m.tries,
+          at: m.at !== undefined ? t(m.at) : "",
+          sort: m.at ?? 0,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+      .sort((a, b) => a.sort - b.sort)
+      .slice(-30);
+    // What he carries that matters: papers, keys, tools, a weapon, and
+    // anything with a use.
+    const gear = run.gear;
+    const useful = new Set(this.useful);
+    const things = Object.keys(run.items)
+      .concat(gear.hand ? [gear.hand] : [])
+      .map((k) => ch.items[k])
+      .filter(
+        (it) =>
+          it &&
+          ((it.kind !== "clothes" && it.kind !== "small") ||
+            useful.has(it.key)),
+      )
+      .map((it) => ({
+        name: it.name,
+        icon: it.icon,
+        kind: it.kind,
+        about: it.about,
+      }));
+    const worn = GEAR_SLOTS.filter((sl) => sl !== "hand" && gear[sl]).map(
+      (sl) => {
+        const it = ch.items[gear[sl]!];
+        return {
+          name: it?.name ?? gear[sl]!,
+          icon: it?.icon,
+          kind: it?.kind ?? "clothes",
+          slot: SLOT_NAMES[sl].toLowerCase(),
+        };
+      },
+    );
+    const langs = [
+      "American English",
+      ...(build.langs ?? []).map(
+        (c) => ch.languages.find((l) => l.code === c)?.name ?? c,
+      ),
+    ].join(", ");
+    const values = run.values();
+    return {
+      tab: this.dossierTab,
+      setTab: (tab) => (this.dossierTab = tab),
+      cover: {
+        portrait: art(hero?.portrait),
+        archetype: arch?.name.replace(/^The /, "") ?? "His own man",
+        about: arch?.about ?? "",
+        clock: clock.time,
+        nights: clock.day,
+        played: `${playedText(this.played)} played`,
+        langs,
+      },
+      places: Object.entries(rec.visited)
+        .sort((a, b) => a[1] - b[1])
+        .map(([k, at]) => ({
+          name: this.places[k]?.name ?? k,
+          at: t(at),
+          here: k === this.stage.place,
+        })),
+      people,
+      record: ch.carry
+        .filter((c) => !c.cond || evalExpr(c.cond, values))
+        .map((c) => c.text),
+      decisions,
+      earlier: picks.length - shown.length,
+      dice,
+      effects: { money: run.euros, worn, things },
+      tasks: run.tasks,
+      memories: rec.memories.map((k) => ({
+        url: art(k),
+        caption: look.vignettes.get(k) ?? "",
+      })),
+      transcript: this.log.slice(-200).map((l) => ({
+        who: l.who
+          ? this.nameOf(l.who)
+          : l.skill && l.kind !== "pick"
+            ? this.skillName(l.skill)
+            : undefined,
+        text:
+          l.kind === "roll" && l.roll
+            ? `${l.roll.tier} ${l.roll.diff}, ${l.roll.pass ? "passed" : "failed"}: ${l.text}`
+            : plainText(l.text),
+        kind: l.kind,
+      })),
+    };
   }
 
   private think(id: string): void {
@@ -2171,23 +2421,9 @@ export class BasedPlayer extends LitElement {
     }
     if (o === "log") {
       return sheet(
-        html`<h2>The story so far</h2>
-          <div class="mb-log">
-            ${this.log.map(
-              (l) =>
-                html`<p class="mb-log-line ${l.kind}">
-                  ${l.who
-                    ? html`<b>${this.nameOf(l.who)}</b> `
-                    : l.skill && l.kind !== "pick"
-                      ? html`<b>${this.skillName(l.skill)}</b> `
-                      : nothing}${l.kind === "roll" && l.roll
-                    ? `[${l.roll.tier} ${l.roll.diff}] ${l.roll.pass ? "Success" : "Failure"}: ${l.text}`
-                    : plainText(l.text)}
-                </p>`,
-            )}
-          </div>
-          ${back}`,
-        "tall",
+        html`${dossierBody(this.dossier())}
+          <div class="mb-dos-foot">${back}</div>`,
+        "dossier",
       );
     }
     if (o === "credits") {
