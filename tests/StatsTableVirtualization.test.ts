@@ -19,6 +19,7 @@ function player(id: string, tiles: number): PlayerView {
     totalUnitLevels: () => tiles,
     isAlive: () => true,
     isOnSameTeam: () => false,
+    aiPersonality: () => null,
   } as unknown as PlayerView;
 }
 
