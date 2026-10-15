@@ -1,9 +1,6 @@
-import {
-  GameMapLoader,
-  MapData,
-  MapManifest,
-} from "@openfront/engine-api/game/GameMapLoader";
 import { GameMapType } from "@openfront/engine-api/game/GameTypes";
+import { MapManifest } from "@openfront/engine-api/game/MapFiles";
+import { GameMapLoader, MapData } from "@openfront/shared/GameMapLoader";
 import fs from "fs";
 import path from "path";
 
@@ -33,8 +30,8 @@ export class NodeGameMapLoader implements GameMapLoader {
           fs.readFileSync(path.join(dir, "manifest.json"), "utf8"),
         ) as MapManifest,
       webpPath: path.join(dir, "thumbnail.webp"),
-      layerPng: async (_layerId: string) => {
-        throw new Error("Layer PNGs are not supported in NodeGameMapLoader");
+      layerImage: async () => {
+        throw new Error("Layer images are not supported in NodeGameMapLoader");
       },
     };
   }

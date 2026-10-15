@@ -1,8 +1,10 @@
 import { GameMap, TileRef } from "@openfront/engine-api/game/GameMap";
 import {
+  Difficulty,
   MessageType,
   PlayerID,
   PlayerType,
+  Relation,
   TerrainType,
   TerraNullius,
   UnitType,
@@ -176,6 +178,16 @@ export class AttackExecution implements Execution {
       }
     }
 
+    // Nothing next to the owner to conquer (no wilderness around them, or a
+    // target they don't border): the attack doesn't happen. Held until the
+    // next tick, the troops would sit out the regen step and come back free,
+    // so one such attack per tick kept regen at its peak rate and refunded
+    // past maxTroops.
+    if (this.toConquer.size() === 0) {
+      this.retreat();
+      return;
+    }
+
     // Only now is it known how large the attack the defender actually faces
     // is: a big assault is built by clicking repeatedly, and each click's
     // execution absorbs the earlier ones above. Recorded before the loops it
@@ -183,14 +195,20 @@ export class AttackExecution implements Execution {
     // and never landed.
     this.mg.stats().attackMaxIncoming(this.target, this.attack.troops());
 
-    if (this.target.isPlayer()) {
-      const difficulty = this.mg.config().gameConfig().difficulty;
-      this.target.updateRelation(
-        this._owner,
-        attackRelationPenalty(difficulty),
-        "attacked",
-      );
+    if (!this.target.isPlayer()) return;
+    const difficulty = this.mg.config().gameConfig().difficulty;
+    // Hitting back at whoever just attacked us doesn't anger them, except on Easy
+    if (
+      difficulty !== Difficulty.Easy &&
+      this._owner.relation(this.target) === Relation.Hostile
+    ) {
+      return;
     }
+    this.target.updateRelation(
+      this._owner,
+      attackRelationPenalty(difficulty),
+      "attacked",
+    );
   }
 
   private refreshToConquer() {

@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// (r24: only tests/client run under jsdom by default since OpenFront's #5937)
 // LEGACY (r21): every character a line was is kept as their part ends, with
 // their own numbers; the chronicle tells each of them in a chapter (who,
 // where, why, what came of it; the people who mattered; the big numbers;

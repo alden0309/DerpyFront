@@ -1,6 +1,5 @@
 import { ClientID, GameID } from "@openfront/engine-api/Schemas";
 import { TileRef } from "@openfront/engine-api/game/GameMap";
-import { GameMapLoader } from "@openfront/engine-api/game/GameMapLoader";
 import {
   BuildableUnit,
   PlayerType,
@@ -15,11 +14,9 @@ import {
 } from "@openfront/engine-api/game/GameUpdates";
 import { findClosestBy } from "@openfront/engine-lib/Util";
 import { Config } from "@openfront/engine-lib/configuration/Config";
-import {
-  loadTerrainMap,
-  TerrainMapData,
-} from "@openfront/engine-lib/game/TerrainMapLoader";
+import { TerrainMapData } from "@openfront/engine-lib/game/TerrainMapLoader";
 import { EventBus } from "@openfront/shared/EventBus";
+import { GameMapLoader } from "@openfront/shared/GameMapLoader";
 import { replacer } from "@openfront/shared/SharedUtil";
 import {
   GameRecord,
@@ -41,19 +38,25 @@ import {
   DoGroundAttackEvent,
   DoRequestAllianceEvent,
   DoRetaliateAttackEvent,
+  DoTargetPlayerEvent,
   InputHandler,
   MouseMoveEvent,
   MouseUpEvent,
   TickMetricsEvent,
   ToggleRenderDebugGuiEvent,
 } from "./InputHandler";
+import { rememberLobbyRoster } from "./LobbyRosterLevels";
 import { pagePin } from "./PagePin";
 import { groupTokenOf, loggableStartMessage } from "./PresenceGroup";
 import { versionedPathForMismatchedGame } from "./ServerList";
 import { reportGameError } from "./Telemetry";
-import { terrainMapFileLoader } from "./TerrainMapFileLoader";
+import {
+  loadCachedTerrainMap,
+  terrainMapFileLoader,
+} from "./TerrainMapFileLoader";
 import { GoToPlayerEvent } from "./TransformHandler";
 import {
+  counterAttackTroops,
   MoveWarshipIntentEvent,
   NewLobbyEvent,
   SendAllianceExtensionIntentEvent,
@@ -63,6 +66,7 @@ import {
   SendBreakAllianceIntentEvent,
   SendHashEvent,
   SendSpawnIntentEvent,
+  SendTargetPlayerIntentEvent,
   SendUpgradeStructureIntentEvent,
   Transport,
 } from "./Transport";
@@ -77,6 +81,7 @@ import { WebGLFrameBuilder } from "./WebGLFrameBuilder";
 import { WorkerClient } from "./WorkerClient";
 import { ChatReceivedEvent } from "./chat/ChatEvents";
 import { MapLayerController } from "./controllers/MapLayerController";
+import { PROGRESSION_ENABLED } from "./derpy/UpstreamFeatures";
 import { createRenderer, GameRenderer } from "./hud/GameRenderer";
 import { goldRateTracker } from "./hud/layers/lib/GoldRateTracker";
 import {
@@ -175,8 +180,8 @@ export function joinLobby(
   let pendingPreloadKey: string | null = null;
   let pendingPreloadStreak = 0;
   const requestTerrainLoad = (
-    map: Parameters<typeof loadTerrainMap>[0],
-    mapSize: Parameters<typeof loadTerrainMap>[1],
+    map: Parameters<typeof loadCachedTerrainMap>[0],
+    mapSize: Parameters<typeof loadCachedTerrainMap>[1],
   ): Promise<TerrainMapData> => {
     const key = `${map}:${mapSize}`;
     const existing = terrainLoads.get(key);
@@ -184,12 +189,7 @@ export function joinLobby(
       terrainLoad = existing;
       return existing;
     }
-    const load = loadTerrainMap(
-      map,
-      mapSize,
-      terrainMapFileLoader,
-      false, // Layer images loaded off the critical path after game start.
-    );
+    const load = loadCachedTerrainMap(map, mapSize);
     terrainLoads.set(key, load);
     terrainLoad = load;
     void load.catch((e) => {
@@ -226,6 +226,15 @@ export function joinLobby(
       // Server tells us our assigned clientID
       clientID = message.myClientID;
       eventBus.emit(new LobbyInfoEvent(message.lobby, message.myClientID));
+      // Kept past game start for the in-game level badges. Derpy Front: no
+      // levels (see derpy/UpstreamFeatures).
+      if (PROGRESSION_ENABLED) {
+        rememberLobbyRoster(
+          message.lobby.gameID,
+          message.lobby.clients,
+          message.myClientID,
+        );
+      }
       // Preload the map while still in the lobby so game start can reuse the
       // cached result instead of blocking on the download in the short
       // prestart->start window. The preload is debounced: it only fires once
@@ -695,11 +704,9 @@ async function createClientGame(
   if (terrainLoad) {
     gameMap = await terrainLoad;
   } else {
-    gameMap = await loadTerrainMap(
+    gameMap = await loadCachedTerrainMap(
       lobbyConfig.gameStartInfo.config.gameMap,
       lobbyConfig.gameStartInfo.config.gameMapSize,
-      mapLoader,
-      false, // Layer images loaded off the critical path after game start.
     );
   }
   // Kick off the font-atlas fetch so it overlaps with worker init; the
@@ -1005,6 +1012,10 @@ export class ClientGameRunner {
     this.eventBus.on(
       DoBreakAllianceEvent,
       this.doBreakAllianceUnderCursor.bind(this),
+    );
+    this.eventBus.on(
+      DoTargetPlayerEvent,
+      this.doTargetPlayerUnderCursor.bind(this),
     );
 
     this.renderer.initialize();
@@ -1388,8 +1399,8 @@ export class ClientGameRunner {
       });
   }
 
-  private doBoatAttackUnderCursor(): void {
-    const tile = this.getTileUnderCursor();
+  private doBoatAttackUnderCursor(e: DoBoatAttackEvent): void {
+    const tile = this.actionTile(e.tile);
     if (tile === null) {
       return;
     }
@@ -1411,6 +1422,9 @@ export class ClientGameRunner {
             "Boat attack triggered but can't send Transport Ship to tile",
           );
         }
+      })
+      .catch((error) => {
+        console.warn("Failed to check boat attack actions:", error);
       });
   }
 
@@ -1472,15 +1486,15 @@ export class ClientGameRunner {
     ) as PlayerView;
     if (!attacker) return;
 
-    const counterTroops = Math.min(
+    const counterTroops = counterAttackTroops(
       mostRecentAttack.troops,
       this.renderer.uiState.attackRatio * this.myPlayer.troops(),
     );
     this.eventBus.emit(new SendAttackIntentEvent(attacker.id(), counterTroops));
   }
 
-  private doRequestAllianceUnderCursor(): void {
-    const tile = this.getTileUnderCursor();
+  private doRequestAllianceUnderCursor(e: DoRequestAllianceEvent): void {
+    const tile = this.actionTile(e.tile);
     if (tile === null) return;
 
     if (this.myPlayer === null) {
@@ -1494,6 +1508,7 @@ export class ClientGameRunner {
 
     const tileOwner = this.gameView.owner(tile);
     if (!tileOwner.isPlayer()) return;
+    if (e.playerID !== undefined && tileOwner.id() !== e.playerID) return;
     const recipient = tileOwner as PlayerView;
 
     myPlayer
@@ -1512,8 +1527,8 @@ export class ClientGameRunner {
       });
   }
 
-  private doBreakAllianceUnderCursor(): void {
-    const tile = this.getTileUnderCursor();
+  private doBreakAllianceUnderCursor(e: DoBreakAllianceEvent): void {
+    const tile = this.actionTile(e.tile);
     if (tile === null) return;
 
     if (this.myPlayer === null) {
@@ -1527,6 +1542,7 @@ export class ClientGameRunner {
 
     const tileOwner = this.gameView.owner(tile);
     if (!tileOwner.isPlayer()) return;
+    if (e.playerID !== undefined && tileOwner.id() !== e.playerID) return;
     const recipient = tileOwner as PlayerView;
 
     myPlayer
@@ -1541,6 +1557,42 @@ export class ClientGameRunner {
       .catch((error) => {
         console.warn("Failed to check alliance actions:", error);
       });
+  }
+
+  private doTargetPlayerUnderCursor(e: DoTargetPlayerEvent): void {
+    const tile = this.actionTile(e.tile);
+    if (tile === null) return;
+
+    if (this.myPlayer === null) {
+      if (!this.clientID) return;
+      const myPlayer = this.gameView.playerByClientID(this.clientID);
+      if (myPlayer === null) return;
+      this.myPlayer = myPlayer;
+    }
+
+    const tileOwner = this.gameView.owner(tile);
+    if (!tileOwner.isPlayer()) return;
+    if (e.playerID !== undefined && tileOwner.id() !== e.playerID) return;
+    const target = tileOwner as PlayerView;
+
+    this.myPlayer
+      .actions(tile)
+      .then((actions) => {
+        if (actions.interaction?.canTarget) {
+          this.eventBus.emit(new SendTargetPlayerIntentEvent(target.id()));
+        }
+      })
+      .catch((error) => {
+        console.warn("Failed to check target actions:", error);
+      });
+  }
+
+  // The tile a player action event names (a panel button), or else the one
+  // under the cursor (a keybind).
+  private actionTile(tile: TileRef | undefined): TileRef | null {
+    if (tile === undefined) return this.getTileUnderCursor();
+    if (!this.isActive || this.gameView.inSpawnPhase()) return null;
+    return tile;
   }
 
   private getTileUnderCursor(): TileRef | null {

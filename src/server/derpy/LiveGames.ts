@@ -7,7 +7,7 @@
 import {
   type AssetManifest,
   buildAssetUrl,
-} from "@openfront/engine-lib/AssetPaths";
+} from "@openfront/shared/AssetPaths";
 import type { LiveRoom } from "../../conquest/Protocol";
 import type { LiveFrontGame, LiveGames } from "../../derpland/LiveTypes";
 import { getRuntimeAssetManifest } from "../RuntimeAssetManifest";

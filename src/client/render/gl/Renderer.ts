@@ -10,7 +10,7 @@
  *     missiles → fx → conquest → names
  */
 
-import type { MapLayer } from "@openfront/engine-api/game/GameMapLoader";
+import type { MapLayer } from "@openfront/engine-api/game/MapFiles";
 import type { Config } from "@openfront/engine-lib/configuration/Config";
 import { skinMotionCode } from "@openfront/shared/DerpySkinMotion";
 import { translateText } from "../../Utils";

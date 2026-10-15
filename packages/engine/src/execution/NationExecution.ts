@@ -257,6 +257,7 @@ export class NationExecution implements Execution {
     }
 
     this.attackBehavior.followUpLandings();
+    this.nukeBehavior.followUpStrikes();
 
     const rate = this.decisionRate(ticks);
     const attackTick = this.attackTick % rate;
@@ -380,13 +381,13 @@ export class NationExecution implements Execution {
     others.forEach((other: Player) => {
       const embargoMalus = EMBARGO_RELATION;
       if (
-        other.hasEmbargoAgainst(player) &&
+        other.hasManualEmbargoAgainst(player) &&
         !this.embargoMalusApplied.has(other.id())
       ) {
         player.updateRelation(other, embargoMalus, "embargo");
         this.embargoMalusApplied.add(other.id());
       } else if (
-        !other.hasEmbargoAgainst(player) &&
+        !other.hasManualEmbargoAgainst(player) &&
         this.embargoMalusApplied.has(other.id())
       ) {
         player.updateRelation(other, -embargoMalus, "embargo_lifted");

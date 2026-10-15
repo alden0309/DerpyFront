@@ -388,12 +388,12 @@ describe("Saving for a Dome (rules 4)", () => {
     capitalCluster(game, me);
     me.removeGold(me.gold() - 50_000_000n);
     const bombs = nukes(game, me, behavior);
-    expect(bombs["nukeTypesToTry"]()).not.toEqual([]);
+    expect(bombs["nukeTypesToTry"](false)).not.toEqual([]);
 
     expect(behavior["tryBuildSmartDome"]()).toBe(false);
     expect(behavior.savingForDome()).toBe(62_500_000n);
     // A hydrogen bomb would cut into the Dome's price
-    expect(bombs["nukeTypesToTry"]()).toEqual([]);
+    expect(bombs["nukeTypesToTry"](false)).toEqual([]);
     // And it starts no new building meanwhile
     expect(behavior.handleStructures()).toBe(false);
     expect(me.gold()).toBe(50_000_000n);

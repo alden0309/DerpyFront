@@ -398,16 +398,27 @@ export class Config {
   }
 
   maxTroops(player: PlayerLike): number {
+    return this.troopCap(player, true);
+  }
+
+  /** maxTroops without what cities add */
+  maxTroopsWithoutCities(player: PlayerLike): number {
+    return this.troopCap(player, false);
+  }
+
+  private troopCap(player: PlayerLike, withCities: boolean): number {
+    const cityTroops = withCities
+      ? player
+          .units(UnitType.City)
+          .filter((u) => !u.isUnderConstruction())
+          .map((city) => city.level())
+          .reduce((a, b) => a + b, 0) * this.cityTroopIncrease()
+      : 0;
     const maxTroops =
       player.type() === PlayerType.Human && this.hasInfiniteTroopsFor(player)
         ? 1_000_000_000
         : 2 * (pow(player.numTilesOwned(), 0.6) * 1000 + 50000) +
-          player
-            .units(UnitType.City)
-            .filter((u) => !u.isUnderConstruction())
-            .map((city) => city.level())
-            .reduce((a, b) => a + b, 0) *
-            this.cityTroopIncrease() +
+          cityTroops +
           player.units(UnitType.Capital).filter((u) => !u.isUnderConstruction())
             .length *
             this.capitalTroopBonus();

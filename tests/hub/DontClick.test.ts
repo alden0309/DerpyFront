@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// (r24: only tests/client run under jsdom by default since OpenFront's #5937)
 /**
  * The front page's "DON'T CLICK HERE!" link: two clicks of pleading, then
  * Holy Michael Nazario himself, as a picture hotlinked from YouTube, with

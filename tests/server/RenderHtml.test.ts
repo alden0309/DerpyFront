@@ -389,4 +389,12 @@ describe("RenderHtml environment-only render", () => {
     expect(config.instanceLetter).toBe("a");
     expect(config.serverHost).toBe("blue.openfront.io");
   });
+
+  // Derpy Front (r24): upstream's Schema.org data names OpenFront, so our
+  // page carries none.
+  it("renders no Schema.org JSON-LD naming OpenFront", async () => {
+    const html = await renderHtmlContent(REAL_TEMPLATE);
+    expect(html).not.toContain("application/ld+json");
+    expect(html).not.toContain('"name": "OpenFront"');
+  });
 });

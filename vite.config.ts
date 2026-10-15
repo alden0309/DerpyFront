@@ -1,7 +1,7 @@
 import {
   type AssetManifest,
   buildAssetUrl,
-} from "@openfront/engine-lib/AssetPaths";
+} from "@openfront/shared/AssetPaths";
 import { rewriteAssetsForCdn } from "@openfront/shared/AssetUrls";
 import tailwindcss from "@tailwindcss/vite";
 import fs from "fs";
@@ -288,7 +288,10 @@ export default defineConfig(({ mode }) => {
     },
   });
 
-  // In dev, redirect visits to /w*/game/* to "/" so Vite serves the index.html.
+  // In dev, redirect visits to /w*/game/* and /w*/player/* to "/" so Vite
+  // serves the index.html. Only the /w<n> proxies below call this: a bare
+  // /player/<id> isn't proxied, so Vite's SPA fallback serves it the
+  // index.html already, as the master's fallback does in production.
   const devGameHtmlBypass = (req?: {
     url?: string;
     method?: string;
@@ -301,7 +304,7 @@ export default defineConfig(({ mode }) => {
       : (accept ?? "");
     if (!acceptValue.includes("text/html")) return undefined;
     if (!req.url) return undefined;
-    if (/^\/w\d+\/game\/[^/]+/.test(req.url)) {
+    if (/^\/w\d+\/(?:game|player)\/[^/]+/.test(req.url)) {
       return "/";
     }
     return undefined;
@@ -310,7 +313,6 @@ export default defineConfig(({ mode }) => {
   return {
     test: {
       globals: true,
-      environment: "jsdom",
       setupFiles: "./tests/setup.ts",
       // Node 25 turned Web Storage on by default, where `localStorage` is a
       // built-in global that evaluates to undefined unless --localstorage-file
@@ -332,6 +334,27 @@ export default defineConfig(({ mode }) => {
         ...configDefaults.exclude,
         "**/.worktrees/**",
         "**/.claude/worktrees/**",
+      ],
+      // Starting jsdom costs every file ~0.5s, more than many of them spend
+      // running tests, so only the client tests get it. A test elsewhere that
+      // needs a DOM opts in with a `// @vitest-environment jsdom` first line.
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: "client",
+            environment: "jsdom",
+            include: ["tests/client/**/*.test.ts"],
+          },
+        },
+        {
+          extends: true,
+          test: {
+            name: "node",
+            environment: "node",
+            exclude: ["tests/client/**"],
+          },
+        },
       ],
     },
     root: "./",
@@ -423,11 +446,20 @@ export default defineConfig(({ mode }) => {
           based: path.resolve(__dirname, "based.html"),
         },
         output: {
-          manualChunks: (id) => {
-            const vendorModules = ["howler", "zod"];
-            if (vendorModules.some((module) => id.includes(module))) {
-              return "vendor";
-            }
+          codeSplitting: {
+            groups: [
+              {
+                name: "vendor",
+                test: (id) =>
+                  ["howler", "zod"].some((module) => id.includes(module)),
+                priority: 2,
+              },
+              // Derpy Front: no "$initial" group (OpenFront's, which keeps
+              // everything a page needs at startup in its entry chunk). With
+              // Derp Land's four pages it put every page's startup code into
+              // one chunk that each page loaded and ran, so the hub, Conquest
+              // and Mr. Based would also start DerpyFront (and each other).
+            ],
           },
         },
       },

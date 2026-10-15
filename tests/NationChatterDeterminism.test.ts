@@ -7,6 +7,7 @@ import { IntentSchema } from "@openfront/engine-api/Schemas";
 import { simpleHash } from "@openfront/engine-lib/Util";
 import { Game, Player } from "@openfront/engine/game/Game";
 import { createGameRunner } from "@openfront/engine/GameRunner";
+import { loadMapFiles } from "@openfront/shared/GameMapLoader";
 import {
   ChatterLine,
   ChatterPlayer,
@@ -34,7 +35,9 @@ import {
  * and emoji) is played twice: once as before, once with the chatter reading
  * every tick's updates and the humans chatting at the nations by name. The
  * game hash every 100 ticks must be the same both times, and the same as the
- * values recorded on the commit before chat existed (3242ce6c).
+ * values recorded on the commit before chat existed (3242ce6c), recorded
+ * again on the merge with OpenFront's 2026-10-14 main (r24), whose nation and
+ * attack changes play every game differently.
  */
 
 const TICKS = 2500;
@@ -42,8 +45,8 @@ const CHECK_EVERY = 100;
 const TEST_TIMEOUT = 300_000;
 
 const BEFORE_CHAT = {
-  hashes: 1420112849,
-  lastHash: 4877903200292966,
+  hashes: 1212821366,
+  lastHash: 16653890560102296,
 };
 
 function info(p: Player): ChatterPlayer {
@@ -101,10 +104,15 @@ interface Run {
 
 async function play(withChat: boolean): Promise<Run> {
   let last: GameUpdateViewData | null = null;
+  const start = scriptedGameStart();
   const runner = await createGameRunner(
-    scriptedGameStart(),
+    start,
     undefined,
-    new TestDataMapLoader("world"),
+    await loadMapFiles(
+      new TestDataMapLoader("world"),
+      start.config.gameMap,
+      start.config.gameMapSize,
+    ),
     (gu: GameUpdateViewData | ErrorUpdate) => {
       if ("errMsg" in gu) throw new Error(`${gu.errMsg}\n${gu.stack}`);
       last = gu;

@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// (r24: only tests/client run under jsdom by default since OpenFront's #5937)
 // The portrait gallery (r11, ART): its data, the pictures given to everyone,
 // a player's look, and old drawn looks brought over.
 

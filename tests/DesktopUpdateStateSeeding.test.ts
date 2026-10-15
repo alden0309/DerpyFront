@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { GameMapType, GameMode } from "@openfront/engine-api/game/GameTypes";
 import type { GameConfig } from "@openfront/engine-api/Schemas";
 import type {
@@ -36,6 +37,12 @@ vi.mock("../src/client/LobbySocket", () => ({
     start(): void {}
     stop(): void {}
   },
+}));
+
+// The lobby modals load on demand; the stubs below stand in for loaded ones.
+vi.mock("../src/client/LazyModals", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/client/LazyModals")>()),
+  whenModalLoaded: (_tag: string, open: () => void) => open(),
 }));
 
 // Each registers its custom element as a side effect. The status bar is

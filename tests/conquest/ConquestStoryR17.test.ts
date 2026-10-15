@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// (r24: only tests/client run under jsdom by default since OpenFront's #5937)
 // STORY (r17): the story of a life tells everything memorable it did or went
 // through (brawls and duels, arrests and trials, prizes, hurricanes and
 // wrecks, businesses and a company's great voyages, polls lost and offices

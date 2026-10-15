@@ -108,7 +108,7 @@ export class MobileNavBar extends LitElement {
           data-i18n="main.play"
         ></button>
         <div
-          class="no-crazygames nav-menu-item flex items-center w-full cursor-pointer"
+          class="no-game-portal nav-menu-item flex items-center w-full cursor-pointer"
           data-page="page-item-store"
           @click=${this._notifications.onStoreClick}
         >
