@@ -20,7 +20,11 @@ signs up), and is never read again.
 | `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart, saves, weather.                   |
 | `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.                         |
 | `client/world/`                  | The 3D world: the kit places are built from, the people, the weather, the look.                     |
-| `client/world/PeopleHooks.ts`    | What the world asks of a person: getting wet, running (People.ts implements them).                  |
+| `client/world/PeopleHooks.ts`    | What the world asks of a person: getting wet, running, a look, a prop in hand (r22 BPLAY).          |
+| `client/Inventory.ts`            | What he carries (r22 BPLAY): his figure with the slots, the pockets, an item's details.             |
+| `client/ItemArt.ts`              | The ink drawings of things (`icon=`) and of his figure.                                             |
+| `client/Dossier.ts`              | The story so far, as his dossier.                                                                   |
+| `client/fonts/`                  | Spectral and Courier Prime (SIL Open Font Licence, the licences beside them).                       |
 | `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                                    |
 | `scripts/based-notes.ts`         | Prints the notes Alden leaves for the writer.                                                       |
 
@@ -66,8 +70,23 @@ learns it. It rains, drizzles, clears and fogs; puddles spread and dry,
 the stone darkens when wet, people caught in the rain get wet and dry
 indoors.
 
-C for your skills, J the journal, N a note to the writer, F5 quicksave, F9
-quickload, Esc the menu (save and load slots).
+r22 BPLAY: he carries things. His clothes (hat, glasses, neck, jacket,
+shirt, gloves, trousers, shoes) and whatever's in his hand change his
+skills while they're on him; his pockets have no limit; he has euros.
+Things are found by looking (a bowl of matches, an umbrella nobody
+claimed, a lost-property box), given or sold by people, or taken. Some
+options need something (a light needs a match or a lighter) and show,
+shut, until he has it; a weapon in his hand changes how people read him.
+The inventory (I, or the bag) shows his figure with the slots around it,
+his pockets and what each thing does; click to pick, double-click or drag
+to put on and take off, Use for things with a use. The story so far (the
+menu) is his dossier: where he's been, who he's met and where things stand,
+what he decided and the throws that mattered, what he carries, what's
+still open, his memories.
+
+C your skills, I what he carries, J the journal, N a note to the writer,
+F5 quicksave, F9 quickload, Esc the menu (save and load slots, the story so
+far). The same key closes the panel it opened.
 
 ## Saves (r22)
 
@@ -81,7 +100,11 @@ with the account, one row each (`derpy_based_slots`), beside a profile
 A save holds the story's state at the start of the scene he's in, or, while
 he's free, as it is, plus where he stood and how wet he was; only the latest
 300 steps of the path are kept, so a save stays a few kilobytes however long
-the game. A round-21 save (one per account, chapters and checkpoints) is
+the game. r22 BPLAY: a save also holds what he carries (pockets, what he
+wears and holds, his euros) and what the story so far needs (places, people
+and when he met them, memories, who'll remember), a few hundred bytes more.
+A save from before he carried anything loads with his starting kit; the
+next chapter starts with what he had at the end of the last. A round-21 save (one per account, chapters and checkpoints) is
 turned into an autosave of the rewritten chapter one the first time it's
 read: at its start, or, if it was past the meeting with London's contact,
 where the world opens after it. Its old flowchart is dropped.
@@ -103,6 +126,41 @@ what changes. The building on the right flickered because the lit windows
 were painted exactly level with the dark glass behind them: as the camera
 moved, the two fought pixel by pixel and the windows flashed. They no longer
 touch, and from inside the bar that building isn't drawn at all.
+
+## The look of it (r22 BPLAY)
+
+Inspired by Disco Elysium's (a tall column over a painted world, skills as
+voices, checks shown frankly, paper panels, a journal) but its own, from
+Mr. Based's world: Paris at night after a coup by ballot, sodium lamps on
+wet slate, and the files of a man who used to keep them.
+
+- **The column is a transcript**: the story's clock in the margin when it
+  moves on, names typed, the words in Spectral.
+- **Skills speak in the city's lights**: Social in the pharmacy's green
+  cross, Intelligence in carbon-paper violet, Physical in sodium amber
+  (`VOICES` in `client/Ui.ts`, with a darker ink of each for paper).
+- **Checks are pencil or ink**: a check that can be tried again (white in
+  the script) is outlined in dashed pencil; a one-throw check (red) in
+  solid violet ink, marked "once". Each shows the skill, the difficulty and
+  the odds; point at it for every modifier.
+- **A throw comes back as a carbon slip** pinned into the transcript: the
+  dice, the sum, every modifier (what he's wearing in carbon blue), and a
+  rubber stamp, PASSED or FAILED, in administrative violet. The stamp is
+  the one loud thing; it also marks who'll remember, the archetype chosen,
+  the dossier's cover.
+- **Everything he keeps is on onionskin paper**: what he carries, his
+  skills (a personnel file, each skill with where its points come from),
+  the journal, the dossier, the menu (a contents page), settings, save
+  slots (file cards), how to play, the note for the writer (a ruled pad).
+- **Unknowns are redacted**: the flowchart blacks out what hasn't been
+  found.
+- Type: Spectral (Production Type) to read, Courier Prime for what's typed,
+  both bundled from Fontsource under the SIL Open Font Licence. Nothing
+  borrowed from Disco Elysium: not its layout, fonts, check colours, skill
+  art or names.
+- On a phone the column is a bottom sheet and the papers fill the screen.
+  Reduced motion turns off the stamp, the drift and the crawl. Text that
+  types in never moves the layout.
 
 ## The script format
 
@@ -337,6 +395,93 @@ end
 Flags are read as numbers (unset is 0); `rel.name` is a relationship.
 `and`, `or`, `not`, parentheses, `>= <= > < == !=`.
 
+### What he carries (r22 BPLAY)
+
+In the header:
+
+```
+@money 180
+@item field_jacket "Field jacket" kind=clothes slot=jacket look=field_jacket icon=jacket bonus=ENDURANCE+1 start=worn "Black, zipped..."
+@item gloves "Thin black gloves" kind=clothes slot=gloves icon=gloves bonus=INTIMIDATION+1,DEXTERITY-1 start=1 "In the jacket's inside pocket..."
+@item baton "Telescopic baton" kind=weapon slot=hand icon=baton bonus=INTIMIDATION+2,EMPATHY-1 "Police issue..."
+@item matchbook "Le Vauban matches" kind=small icon=matchbook "A book of matches..."
+```
+
+- `kind=` clothes, tool, weapon, document, key or small. Money isn't an
+  item: `@money` is what he starts with.
+- `slot=`: clothes go on him (hat, glasses, neck, jacket, shirt, gloves,
+  trousers, shoes); anything else can be held (`slot=hand`: a tool, a
+  weapon, an umbrella). Without a slot it stays in his pockets.
+- `bonus=SKILL+N,SKILL-N`: what it does to his skills while it's worn or
+  held. It shows on the item, on his sheet (where each point comes from)
+  and in every check's breakdown.
+- `look=`: the 3D look he wears with it (only for clothes; see below).
+  `icon=`: its drawing in the inventory (`client/ItemArt.ts`: jacket, tee,
+  trousers, boots, gloves, phone, passport, matchbook, cigarettes,
+  newspaper, umbrella, glasses, scarf, cap, lighter, baton, card, key,
+  document, glass, watch, thing; otherwise its kind's).
+- `start=worn` or `start=N`: what he begins with. A save from before he
+  carried anything gets this kit.
+
+In scenes:
+
+```
+give matchbook          // into his pockets (give key 2 for two)
+take matchbook          // out of his pockets, or off him
+equip umbrella          // puts it on, or in his hand (giving it him first if he hasn't it)
+unequip hand            // a slot: back into his pockets
+pay 16                  // euros (never below nothing)
+earn 20
+```
+
+Conditions: `has.KEY` (in his pockets, worn or held), `wears.KEY` (worn or
+held), `money >= 6`, `armed` (a weapon in his hand), `time >= 23:00` (the
+hour, HH:MM) and `weather.rain` (rain, drizzle, clear or fog: what the
+world shows, or the story's own weather).
+
+```
+choose "He's holding out the cigarette."
+  * needs=matchbook|brass_lighter [Give him a light] "Here."     // any of them
+  * white INTIMIDATION medium if armed [Let him see the baton]
+    bonus +1 if wears.gloves "Gloves: no prints"
+  * silent [Leave him be]
+end
+
+== use_card "Delorme's card"
+@on use delorme_card     // the inventory's Use, while he's free
+```
+
+- `needs=` goes before `if` and any check. The option shows, shut, saying
+  what it needs, until he has one of them; the clock never takes it.
+- `@on use KEY [once] [in=place] [if condition]` starts a scene when he
+  uses something he has.
+- People can read a weapon: put a scene with `@on talk WHO if armed`
+  before their others (the barman won't serve him; the porter turns his
+  back).
+- The player can change clothes at any moment, even with a check on
+  screen; the check is worked out again (a hat that helps reopens a white
+  check that failed).
+
+The validator checks that every item named (give, take, equip, has.,
+wears., needs=, @on use) is an @item; every equip is something worn or
+held; every bonus names a @skill; nothing is worn twice in one slot at the
+start; an option with `needs=` is never the one that's always there; and
+that **an item a scene needs can be got before it**: he starts with it, an
+earlier line of that scene gives it, or a scene that gives it can be
+reached from the start without going through the one that needs it.
+
+**Looks and outfits.** Mr. Based is one solid mesh (the owner's model,
+`look=field_jacket` on his jacket), so only that outfit has a model.
+Other clothes keep their effect on his skills and their own drawing, and
+leave him looking as he does. When the owner sends the same man in another
+outfit: add it as a look in `client/world/people/Looks.ts` with its
+`model=` (as `field_jacket` is), and give the clothing item `look=` that
+look; putting it on then changes him in the world (the first worn thing
+with a look decides, head to foot). What he holds is drawn at his hand by
+the world (an umbrella opens over him outdoors and keeps the rain off; a
+baton; anything else as a small dark shape) unless a person takes it
+through `setHeld`.
+
 ### Investigations (reading a room or a person)
 
 ```
@@ -428,6 +573,47 @@ a window) takes `horizon`, `tower` and `towerAt`, where its roofs, the tip of
 the tower and the tower stand, as shares of its height and width. The camera
 has no perspective, so a city "far off" is painted at the size it should
 look, not the size it is.
+
+### Things to examine (r22 BPLAY)
+
+The street, the bar and the lobby hold some fifty things to look at (a
+matchbook bowl, the tip jar, a moped, a dog's water bowl, the lost-property
+box...). Each is a hotspot in the place's data, a piece of the kit to draw
+it, and its text in the story:
+
+```json
+"hotspots": { "moped": { "at": [6.6, 0.7, 5.15], "r": 0.6, "stand": "see_moped" } },
+"marks": { "see_moped": { "at": [6.6, 4.3] } },
+"items": [{ "kind": "moped", "at": [6.6, 0, 5.15] }]
+```
+
+```
+== moped "A moped"
+@on look moped once
+A moped at the kerb...
+~ PERCEPTION medium: The seat's still dry...
+-> FREE
+
+== moped_again "A moped"
+@on look moped
+The moped, the helmet on its mirror...
+-> FREE
+```
+
+- Nothing lists them: they glint when he's near enough (Perception), Tab
+  names what's near. Give each a plain `@on look` (no `once`, no `if`) so
+  it can always be looked at again, unless he takes it away.
+- Often a skill chimes in (a passive voice), and some give an item, money,
+  a clue (a flag another scene reads, or a bonus on a check) or a thought;
+  some have a white check to dig deeper.
+- Some change with `weather.` or `time` (the puddle under the awning, the
+  radio after eleven, the lit window across the street).
+- The kit's small pieces (`client/world/Kit.ts`): kiosk, moped, aframe (a
+  chalkboard: `text`, `sub`), bollard, mitten, grate, bowl, postbox,
+  litter, jar, matchbowl, frame, standjar, keyboard, machine, liftdoor,
+  vase, clock, book, bell, tray; and `box`, `sign` and the props models.
+  Put them in the floor plan's `blocks` if he shouldn't walk through them.
+- The tests check each can be walked to from every door of its place.
 
 ### Art and sound
 
@@ -607,6 +793,12 @@ comes through. Weight the cloth to them below the hips, and its sides to
 the thighs.
 
 ### Hooks for the world
+
+r22 BPLAY adds two optional ones (`client/world/PeopleHooks.ts`): a
+person may implement `setLook(look)` (change outfit in place; otherwise
+the world rebuilds them in the new look, where they stood) and
+`setHeld(prop)` (take a prop in hand; otherwise the world carries it at
+their right hand bone each frame).
 
 On each person, `setWetness(k)` (0 dry to 1 soaked: clothes and hair
 darker and glossier, cheaply, on the person's own material; on a model

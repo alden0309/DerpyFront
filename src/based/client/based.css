@@ -444,16 +444,10 @@ kbd {
   color: var(--mb-ink);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
 }
-.mb-title-menu::before {
-  /* A card's printed ruling. */
-  content: "";
-  position: absolute;
-  left: 22px;
-  right: 22px;
-  top: 0;
-  height: 1px;
-  background: rgba(107, 62, 156, 0.4);
-  top: 46px;
+.mb-title-menu .mb-btn:first-child {
+  /* A card's printed ruling, under the first line. */
+  border-bottom: 1px solid rgba(107, 62, 156, 0.4);
+  margin-bottom: 4px;
 }
 .mb-title-menu .mb-btn {
   width: 100%;
@@ -532,7 +526,7 @@ kbd {
   color: var(--mb-ink);
   text-align: left;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-  opacity: 0.82;
+  opacity: 0.9;
   transform: rotate(0.3deg);
   transition:
     opacity 0.15s,

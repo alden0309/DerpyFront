@@ -7,10 +7,12 @@
 import fs from "fs";
 import path from "path";
 import { describe, expect, test } from "vitest";
+import { ITEM_DRAWINGS } from "../../src/based/client/ItemArt";
 import { NavGrid } from "../../src/based/engine/Nav";
 import { PlaceDef } from "../../src/based/engine/Place";
 import { StoryRun } from "../../src/based/engine/Runtime";
 import { parseChapter } from "../../src/based/engine/Script";
+import { areaAt } from "../../src/based/engine/Sight";
 import { buildOf } from "../../src/based/engine/Skills";
 import { Chapter, FREE } from "../../src/based/engine/Types";
 import {
@@ -276,6 +278,15 @@ describe("the chapters as written", () => {
           max: 5000,
         });
         expect(p.ended, `run ${run} never ended`).toBe(true);
+        // r22 BPLAY: what he carries stays sound down every path.
+        expect(p.run.euros).toBeGreaterThanOrEqual(0);
+        for (const [k, n] of Object.entries(p.run.items)) {
+          expect(chapter.items[k], k).toBeDefined();
+          expect(n).toBeGreaterThan(0);
+        }
+        for (const [slot, k] of Object.entries(p.run.gear)) {
+          expect(chapter.items[k!]?.slot, `${k} in ${slot}`).toBe(slot);
+        }
         for (const step of p.run.history()) {
           if (step.startsWith("s:")) scenesSeen.add(step.slice(2));
           else optionsSeen.add(step.slice(2));
@@ -386,5 +397,144 @@ describe("chapter one's opening (r22)", () => {
       ).toBe(true);
     }
     expect(FREE).toBe("FREE");
+  });
+});
+
+describe("things to examine (r22 BPLAY)", () => {
+  const text = fs.readFileSync(path.join(STORY, "chapter-01.story"), "utf8");
+  const { chapter } = parseChapter(text);
+  /** Every hotspot an @on look scene is about, by place, but the doors. */
+  const looks = new Map<string, Set<string>>();
+  for (const id of chapter.order) {
+    const t = chapter.scenes[id].trigger;
+    if (t?.on !== "look") continue;
+    for (const [key, p] of Object.entries(PLACES)) {
+      const h = p.hotspots[t.target!];
+      if (!h || h.to || (t.place && t.place !== key)) continue;
+      const set = looks.get(key) ?? new Set<string>();
+      set.add(t.target!);
+      looks.set(key, set);
+    }
+  }
+  const areaOf = (place: string, id: string) => {
+    const p = PLACES[place];
+    const h = p.hotspots[id];
+    const at = h.stand ? p.marks[h.stand].at : [h.at[0], h.at[2]];
+    return areaAt(p.areas, at[0], at[1])?.id ?? place;
+  };
+
+  test("plenty in the street, the bar and the lobby", () => {
+    const by: Record<string, string[]> = {};
+    for (const [place, ids] of looks) {
+      for (const id of ids) (by[areaOf(place, id)] ??= []).push(id);
+    }
+    expect(by.street.length).toBeGreaterThanOrEqual(15);
+    expect(by.bar.length).toBeGreaterThanOrEqual(15);
+    expect(by.lobby.length).toBeGreaterThanOrEqual(9);
+    // At least thirty of them new this round.
+    const r21 = [
+      "posters",
+      "van",
+      "pharmacy",
+      "flyer",
+      "room_mirror",
+      "corner",
+      "door",
+      "coats",
+      "room_tv",
+      "register",
+      "delorme_card",
+      "street_west",
+    ];
+    const all = [...looks.values()].flatMap((s) => [...s]);
+    expect(all.filter((id) => !r21.includes(id)).length).toBeGreaterThanOrEqual(
+      30,
+    );
+  });
+
+  test("every one can be walked to", () => {
+    for (const [place, ids] of looks) {
+      const p = PLACES[place];
+      const nav = new NavGrid(p.nav.bounds, p.nav.cell, p.nav.blocks);
+      // From where he comes in at each door.
+      const entries = Object.values(PLACES)
+        .flatMap((o) => Object.values(o.hotspots))
+        .filter((h) => h.to?.place === place)
+        .map((h) => p.marks[h.to!.mark].at);
+      expect(entries.length).toBeGreaterThan(0);
+      for (const id of ids) {
+        const h = p.hotspots[id];
+        if (h.on) continue; // on a person: reached with them
+        const goal = h.stand
+          ? p.marks[h.stand].at
+          : nav.nearestFree(h.at[0], h.at[2])!;
+        expect(goal, `${place}.${id}`).toBeTruthy();
+        if (h.stand) {
+          expect(
+            nav.walkable(goal[0], goal[1]),
+            `${place}.${id} stands on a block`,
+          ).toBe(true);
+        }
+        for (const from of entries) {
+          expect(
+            nav.path([from[0], from[1]], [goal[0], goal[1]]),
+            `${place}.${id} from ${from}`,
+          ).not.toBeNull();
+        }
+      }
+    }
+  });
+
+  test("each can always be looked at again (but what he takes away)", () => {
+    const taken = ["bar_paper", "delorme_card", "street_west"];
+    for (const ids of looks.values()) {
+      for (const id of ids) {
+        if (taken.includes(id)) continue;
+        const plain = chapter.order.some((s) => {
+          const t = chapter.scenes[s].trigger;
+          return t?.on === "look" && t.target === id && !t.once && !t.cond;
+        });
+        expect(plain, `${id} has no plain @on look`).toBe(true);
+      }
+    }
+  });
+
+  test("some change with the weather or the hour; some give things", () => {
+    const reads = (k: string) =>
+      chapter.order.filter((s) =>
+        chapter.scenes[s].ops.some(
+          (o) => o.op === "if" && JSON.stringify(o.cond).includes(`"k":"${k}"`),
+        ),
+      );
+    expect(reads("weather").length).toBeGreaterThanOrEqual(4);
+    expect(reads("time").length).toBeGreaterThanOrEqual(3);
+    const giving = chapter.order.filter(
+      (s) =>
+        chapter.scenes[s].trigger?.on === "look" &&
+        chapter.scenes[s].ops.some(
+          (o) =>
+            (o.op === "item" && o.delta > 0) ||
+            (o.op === "money" && o.delta > 0),
+        ),
+    );
+    expect(giving.length).toBeGreaterThanOrEqual(6);
+  });
+
+  test("every item has a drawing, and his starting outfit his model", () => {
+    for (const it of Object.values(chapter.items)) {
+      if (it.icon) expect(ITEM_DRAWINGS, it.key).toContain(it.icon);
+    }
+    const worn = Object.values(chapter.items).filter((i) => i.start === "worn");
+    expect(worn.map((i) => i.slot).sort()).toEqual([
+      "jacket",
+      "shirt",
+      "shoes",
+      "trousers",
+    ]);
+    // Only the jacket has a 3D model so far: the owner's own (BPEOPLE).
+    expect(worn.filter((i) => i.look).map((i) => i.look)).toEqual([
+      "field_jacket",
+    ]);
+    expect(chapter.cast[0].look).toBe("field_jacket");
   });
 });
