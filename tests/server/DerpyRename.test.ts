@@ -379,13 +379,8 @@ describe.skipIf(!TEST_DB)("changing your username, against Postgres", () => {
     ).toBe(200);
 
     // Mr. Based: a save, and a note for the writer.
-    const save = {
-      v: 1,
-      current: null,
-      checkpoints: {},
-      seen: {},
-      finished: {},
-    };
+    // BWORLD (r22): the profile is v2 (the scenes seen, and time played).
+    const save = { v: 2, seen: {}, finished: {}, played: 60 };
     expect(
       (
         await call("/based/save", {
@@ -585,7 +580,7 @@ describe.skipIf(!TEST_DB)("changing your username, against Postgres", () => {
     // Mr. Based: still his, with his save; the notes name him as he is now.
     expect(await access(alden.token)).toEqual({ signedIn: true, play: true });
     const save = await call("/based/save", { token: alden.token });
-    expect(save.json.save).toMatchObject({ v: 1 });
+    expect(save.json.save).toMatchObject({ v: 2 });
     const { listNotes } = await import("../../src/server/derpy/BasedNotes");
     expect((await listNotes(pool)).map((n) => n.username)).toEqual(["Alden_D"]);
   });
