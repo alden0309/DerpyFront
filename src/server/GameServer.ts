@@ -101,7 +101,6 @@ import {
 } from "./telemetry/MatchTelemetry";
 import {
   LONE_VOTER_REPLAY_CAP,
-  replayWinnerInChild,
   winnerReplayMetrics,
   type WinnerReplayer,
 } from "./WinnerReplay";
@@ -187,7 +186,10 @@ export interface GameServerDeps {
   // bonuses in Derp Coins.
   archive: (record: PartialGameRecord, awards?: GameAwards) => Promise<void>;
   // Replays the game to settle a disputed winner vote (see settleWinner).
-  replayWinner: WinnerReplayer;
+  // Derpy Front: null by default, so nothing replays (a whole game's
+  // simulation per dispute is a lot for our small server) and the vote's
+  // result is saved, as before.
+  replayWinner: WinnerReplayer | null;
   // Replays waiting or running on this worker, against LONE_VOTER_REPLAY_CAP.
   replayPending: () => number;
   fetchTribes: typeof fetchCustomTribes;
@@ -228,7 +230,9 @@ export function defaultGameServerDeps(): GameServerDeps {
         await archive(finalized);
       }
     },
-    replayWinner: replayWinnerInChild,
+    // Derpy Front: off (see GameServerDeps.replayWinner); upstream passes
+    // replayWinnerInChild here.
+    replayWinner: null,
     replayPending: () => winnerReplayMetrics.pending,
     fetchTribes: fetchCustomTribes,
     env: () => ServerEnv.env(),
@@ -2172,6 +2176,11 @@ export class GameServer {
     const backers = this.winnerVote.backers();
     const votedAgreed = voted !== null && backers >= 2;
     if (candidates === 0 || (candidates === 1 && votedAgreed)) {
+      this.archiveGame(voted, votedAgreed);
+      return;
+    }
+    // Derpy Front: no replays, so the vote's result goes out, as before.
+    if (this.deps.replayWinner === null) {
       this.archiveGame(voted, votedAgreed);
       return;
     }
