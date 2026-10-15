@@ -329,6 +329,13 @@ export function parseChapter(text: string): ParseResult {
           const member: CastMember = { id, name: pos[1] ?? id };
           if (kv.portrait) member.portrait = kv.portrait;
           if (kv.look) member.look = kv.look;
+          // BPEOPLE (r22): a cast member's own model (models/<key>.glb).
+          if (kv.model) {
+            if (!/^[a-z0-9_]{1,64}$/.test(kv.model)) {
+              err(n, `@cast ${id}: model=${kv.model} must be lower_case`);
+            }
+            member.model = kv.model;
+          }
           if (kv.body) {
             if (!castIds.has(kv.body)) {
               err(n, `@cast ${id}: body=${kv.body} must be cast above it`);

@@ -35,7 +35,8 @@ import {
 } from "../../engine/Weather";
 import { WorldAssets } from "./Assets";
 import { buildItem, KitContext, PieceLight } from "./Kit";
-import { LOOKS, Person, Pose } from "./People";
+// BPEOPLE (r22): lookFor (a look, with the cast member's own model) and warmCast.
+import { Look, lookFor, Person, Pose, warmCast } from "./People";
 import { setGait, setWetness } from "./PeopleHooks";
 import { Post } from "./Post";
 import { SurfaceBook } from "./Textures";
@@ -52,6 +53,8 @@ export type Tier = "high" | "low";
 export interface CastLook {
   id: string;
   look: string;
+  /** BPEOPLE (r22): their own model (models/<key>.glb), if any. */
+  model?: string;
 }
 
 /** A thing worth a look, as the player's labels need it. */
@@ -300,6 +303,8 @@ export class World {
       paint: tier === "high",
       samples: tier === "high" ? 4 : 0,
     });
+    // BPEOPLE (r22): cut the cast's clothes now, not when they first appear.
+    warmCast(assets.rigs, cast);
     this.resize();
     canvas.addEventListener("pointerdown", this.onDown);
     canvas.addEventListener("pointerup", this.onUp);
@@ -867,7 +872,8 @@ export class World {
     const c = this.cast.find((x) => x.id === id);
     const lookName = wear ?? c?.look;
     if (!lookName) return null;
-    const look = LOOKS[lookName] ?? LOOKS.suit_dark;
+    // BPEOPLE (r22): their own model (the cast's, or their look's) in every wear=.
+    const look = lookFor(lookName, c?.model ?? lookFor(c?.look).model);
     let p = this.people.get(id);
     if (p && p.look !== look) {
       // A change of clothes: a new body in the same place.
@@ -889,7 +895,7 @@ export class World {
     return p;
   }
 
-  private makePerson(id: string, look: (typeof LOOKS)[string]): Person {
+  private makePerson(id: string, look: Look): Person {
     const p = new Person(
       id,
       look.body === "f" ? this.assets.rigs.f : this.assets.rigs.m,

@@ -218,16 +218,25 @@ export function creditsBody(credits: Credit[]): TemplateResult {
   const art = credits.filter((c) => c.what !== "Model");
   const models = credits.filter((c) => c.what === "Model");
   const item = (c: Credit) =>
-    html`<li>
-      <span class="mb-credit-what">${c.what}</span>
-      <a href=${c.source} target="_blank" rel="noopener noreferrer"
-        >${c.title}</a
-      >
-      by ${c.author},
-      <a href=${c.licenseUrl} target="_blank" rel="noopener noreferrer"
-        >${c.license}</a
-      >${c.changes ? html`. ${c.changes}` : nothing}
-    </li>`;
+    // BPEOPLE (r22): what the owner supplied has no link and no licence.
+    !c.source
+      ? html`<li>
+          <span class="mb-credit-what">${c.what}</span>
+          ${c.title}:
+          ${c.license.toLowerCase()}${c.changes
+            ? html`. ${c.changes}`
+            : nothing}
+        </li>`
+      : html`<li>
+          <span class="mb-credit-what">${c.what}</span>
+          <a href=${c.source} target="_blank" rel="noopener noreferrer"
+            >${c.title}</a
+          >
+          by ${c.author},
+          <a href=${c.licenseUrl} target="_blank" rel="noopener noreferrer"
+            >${c.license}</a
+          >${c.changes ? html`. ${c.changes}` : nothing}
+        </li>`;
   return html`<h2>Credits</h2>
     <p class="mb-sheet-sub">
       Written for Derp Land. Every character, the party and the government are
