@@ -10,7 +10,7 @@ import { ownedItemsForPlayId } from "./DerpyAuth";
 import {
   allDerpySkins,
   derpyCosmeticsCatalog,
-  ownedPersonalityPacks,
+  ownedAiTypes,
 } from "./DerpyCatalog";
 import { derpyDbConfigured } from "./DerpyDb";
 
@@ -103,8 +103,9 @@ export async function derpyLooksForPlayer(
 }
 
 /**
- * The AI personality packs, of those a host asked for, that the account they
- * play under owns. Nothing (signed out, database down) means none.
+ * AIP (r23): the AI personalities ("trader", ...), of those a host asked
+ * for, that the account they play under owns. Nothing (signed out, database
+ * down) means none. Normal is free and needs no asking.
  */
 export async function ownedAiPersonalities(
   playId: string,
@@ -112,8 +113,8 @@ export async function ownedAiPersonalities(
 ): Promise<string[]> {
   if (asked.length === 0 || !derpyDbConfigured()) return [];
   try {
-    const owned = ownedPersonalityPacks(await ownedItemsForPlayId(playId));
-    return owned.filter((p) => asked.includes(p));
+    const owned = ownedAiTypes(await ownedItemsForPlayId(playId));
+    return owned.filter((t) => asked.includes(t));
   } catch (err) {
     log.warn(`personality check failed: ${err}`);
     return [];

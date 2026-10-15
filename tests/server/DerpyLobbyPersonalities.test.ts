@@ -1,5 +1,6 @@
-// DFSTORE (r21): a lobby's AI personality packs stick only if the host's
-// account owns them; the admin bot's are taken as asked.
+// DFSTORE (r21), AIP (r23): a lobby's AI personalities stick only if the
+// host's account owns them (Normal is free); the admin bot's are taken as
+// asked.
 
 import { ADMIN_BOT_CLIENT_ID } from "@openfront/engine-api/Schemas";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -24,9 +25,9 @@ function lobby(owned: string[]) {
     isAdmin: false,
     isAdminBot: false,
   };
-  const ask = async (packs: string[]) => {
+  const ask = async (choices: string[]) => {
     const r = game.handleIntent(
-      { type: "update_game_config", config: { aiPersonalities: packs } },
+      { type: "update_game_config", config: { aiPersonalities: choices } },
       actor,
     );
     await vi.waitFor(() => expect(ownedAiPersonalities).toHaveBeenCalled());
@@ -36,66 +37,89 @@ function lobby(owned: string[]) {
   return { game, ask, ownedAiPersonalities, actor };
 }
 
-describe("a lobby's AI personality packs", () => {
+const config = (game: ReturnType<typeof makeGame>) =>
+  game.gameInfo().gameConfig?.aiPersonalities;
+
+describe("a lobby's AI personalities", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("keeps the packs the host owns, and drops the rest", async () => {
-    const { game, ask, ownedAiPersonalities } = lobby(["ai_pirates"]);
-    expect((await ask(["ai_pirates", "ai_empires"])).status).toBe(200);
+  it("keeps Normal and the personalities the host owns, and drops the rest", async () => {
+    const { game, ask, ownedAiPersonalities } = lobby(["trader"]);
+    expect((await ask(["protector", "normal", "trader"])).status).toBe(200);
+    // Only the personalities are asked about, in store order
     expect(ownedAiPersonalities).toHaveBeenCalledWith(HOST, [
-      "ai_pirates",
-      "ai_empires",
+      "trader",
+      "protector",
     ]);
-    expect(game.gameInfo().gameConfig?.aiPersonalities).toEqual(["ai_pirates"]);
+    expect(config(game)).toEqual(["normal", "trader"]);
   });
 
-  it("owning none, or turning them off, clears them", async () => {
+  it("one, several or all of them", async () => {
+    const all = ["mad_scientist", "trader", "aggressive", "protector"];
+    const one = lobby(all);
+    await one.ask(["aggressive"]);
+    expect(config(one.game)).toEqual(["aggressive"]);
+    const every = lobby(all);
+    await every.ask(["normal", ...all]);
+    expect(config(every.game)).toEqual(["normal", ...all]);
+  });
+
+  it("owning none, only Normal, or turning them off, clears them", async () => {
     const { game, ask } = lobby([]);
-    await ask(["ai_pirates"]);
-    expect(game.gameInfo().gameConfig?.aiPersonalities).toBeUndefined();
-    const owner = lobby(["ai_pirates"]);
-    await owner.ask(["ai_pirates"]);
-    expect(owner.game.gameInfo().gameConfig?.aiPersonalities).toEqual([
-      "ai_pirates",
-    ]);
+    await ask(["normal", "trader"]);
+    expect(config(game)).toBeUndefined();
+    const owner = lobby(["trader"]);
+    await owner.ask(["trader"]);
+    expect(config(owner.game)).toEqual(["trader"]);
     owner.ownedAiPersonalities.mockClear();
+    owner.game.handleIntent(
+      { type: "update_game_config", config: { aiPersonalities: ["normal"] } },
+      owner.actor,
+    );
+    await new Promise((r) => setTimeout(r, 0));
+    expect(owner.ownedAiPersonalities).not.toHaveBeenCalled();
+    expect(config(owner.game)).toBeUndefined();
+    await owner.ask(["trader"]);
     owner.game.handleIntent(
       { type: "update_game_config", config: { aiPersonalities: [] } },
       owner.actor,
     );
     await new Promise((r) => setTimeout(r, 0));
-    expect(owner.game.gameInfo().gameConfig?.aiPersonalities).toBeUndefined();
+    expect(config(owner.game)).toBeUndefined();
   });
 
-  it("unknown packs are never asked about", async () => {
-    const { game, ownedAiPersonalities, actor } = lobby(["ai_pirates"]);
+  it("unknown ids, and the old packs, are never asked about", async () => {
+    const { game, ownedAiPersonalities, actor } = lobby(["trader"]);
     game.handleIntent(
-      { type: "update_game_config", config: { aiPersonalities: ["made_up"] } },
+      {
+        type: "update_game_config",
+        config: { aiPersonalities: ["made_up", "ai_pirates", "ai_trader"] },
+      },
       actor,
     );
     await new Promise((r) => setTimeout(r, 0));
     expect(ownedAiPersonalities).not.toHaveBeenCalled();
-    expect(game.gameInfo().gameConfig?.aiPersonalities).toBeUndefined();
+    expect(config(game)).toBeUndefined();
   });
 
   it("the other settings in the same update apply at once", () => {
-    const { game, actor } = lobby(["ai_pirates"]);
+    const { game, actor } = lobby(["trader"]);
     game.handleIntent(
       {
         type: "update_game_config",
-        config: { bots: 7, aiPersonalities: ["ai_pirates"] },
+        config: { bots: 7, aiPersonalities: ["trader"] },
       },
       actor,
     );
     expect(game.gameInfo().gameConfig?.bots).toBe(7);
   });
 
-  it("the admin bot's packs are taken as asked", async () => {
+  it("the admin bot's personalities are taken as asked", async () => {
     const game = makeGame();
     game.handleIntent(
       {
         type: "update_game_config",
-        config: { aiPersonalities: ["ai_warlords"] },
+        config: { aiPersonalities: ["protector", "normal"] },
       },
       {
         clientID: ADMIN_BOT_CLIENT_ID,
@@ -105,13 +129,11 @@ describe("a lobby's AI personality packs", () => {
       },
     );
     await new Promise((r) => setTimeout(r, 0));
-    expect(game.gameInfo().gameConfig?.aiPersonalities).toEqual([
-      "ai_warlords",
-    ]);
+    expect(config(game)).toEqual(["normal", "protector"]);
   });
 
   it("an answer that comes after the game started changes nothing", async () => {
-    let answer: (packs: string[]) => void = () => {};
+    let answer: (owned: string[]) => void = () => {};
     const ownedAiPersonalities = vi.fn(
       () => new Promise<string[]>((resolve) => (answer = resolve)),
     );
@@ -124,7 +146,7 @@ describe("a lobby's AI personality packs", () => {
     game.handleIntent(
       {
         type: "update_game_config",
-        config: { aiPersonalities: ["ai_pirates"] },
+        config: { aiPersonalities: ["trader"] },
       },
       {
         clientID: host.clientID,
@@ -134,8 +156,8 @@ describe("a lobby's AI personality packs", () => {
       },
     );
     startGame(game);
-    answer(["ai_pirates"]);
+    answer(["trader"]);
     await new Promise((r) => setTimeout(r, 0));
-    expect(game.gameInfo().gameConfig?.aiPersonalities).toBeUndefined();
+    expect(config(game)).toBeUndefined();
   });
 });

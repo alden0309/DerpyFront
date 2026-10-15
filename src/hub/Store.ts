@@ -39,13 +39,9 @@ import {
   ensurePreviewStyles,
   fxPreview,
   mapStylePreview,
-  personaCard,
+  personalityMark,
   skinArt,
-  TEMPERAMENT_TEXT,
 } from "../derpland/StorePreviews";
-// SITE (r22): what the AI personality packs do, side by side.
-import { guideEn } from "../derpland/AiGuide";
-import { aiCompare, GuideWords, packPlays } from "../derpland/AiGuideView";
 // DLC (r21): the map style you use in Derpy Conquest, chosen here too.
 import {
   chooseMapStyle,
@@ -149,20 +145,8 @@ function writeTab(tab: StoreTabChoice): void {
   );
 }
 
-/** SITE (r22): the AI guide's words in English, pack names from the catalog. */
-function guideWords(items: readonly StoreItem[]): GuideWords {
-  return {
-    t: guideEn,
-    temperament: (t) => TEMPERAMENT_TEXT[t] ?? { label: t, hint: "" },
-    packName: (id) => items.find((i) => i.name === id)?.displayName ?? id,
-  };
-}
-
-/** What an item holds, under its name: skins, personas, the effect, music. */
-function itemBody(
-  item: StoreItem,
-  words?: GuideWords,
-): TemplateResult | typeof nothing {
+/** What an item holds, under its name: skins, the effect, music. */
+function itemBody(item: StoreItem): TemplateResult | typeof nothing {
   if (item.skins) {
     return html`<ul class="dl-skins">
       ${item.skins.map(
@@ -173,12 +157,6 @@ function itemBody(
           </li>`,
       )}
     </ul>`;
-  }
-  if (item.personas) {
-    return html`${words ? packPlays(words, item.name) : nothing}
-      <ul class="dfx-personas dl-itembody">
-        ${item.personas.map((p) => personaCard(p))}
-      </ul>`;
   }
   if (item.fx) {
     return html`<div class="dl-itembody">
@@ -314,18 +292,11 @@ export class DerpStore extends HubPage {
 
   private renderTab(cat: StoreCatalog, tab: StoreTabChoice): TemplateResult {
     const items = itemsInTab(cat.items, tab);
-    const words = guideWords(cat.items);
     return html`
       ${tabBar(cat.tabs, tab, tabCounts(cat.items, cat.tabs), (t) =>
         this.pick(t),
       )}
       <p class="dl-tabblurb">${blurbOf(cat.tabs, tab)}</p>
-      ${tab.category === "personalities" && items.length > 0
-        ? aiCompare(
-            words,
-            items.map((i) => i.name),
-          )
-        : nothing}
       ${items.length === 0
         ? html`<div class="dl-panel dl-empty with-mascot">
             ${bananaMark("dl-banana mid")}
@@ -338,12 +309,12 @@ export class DerpStore extends HubPage {
             </div>
           </div>`
         : html`<div class="dl-packs">
-            ${items.map((i) => this.renderItem(i, words))}
+            ${items.map((i) => this.renderItem(i))}
           </div>`}
     `;
   }
 
-  private renderItem(item: StoreItem, words?: GuideWords): TemplateResult {
+  private renderItem(item: StoreItem): TemplateResult {
     const owned = this.owns(item);
     const coins = this.account?.coins ?? 0;
     const short = Math.max(0, item.price - coins);
@@ -381,7 +352,9 @@ export class DerpStore extends HubPage {
     >
       <div class="dl-pack-head">
         <div>
-          <h2 class="dl-pack-name">${item.displayName}</h2>
+          <h2 class="dl-pack-name">
+            ${personalityMark(item.aiType)}${item.displayName}
+          </h2>
           <p class="dl-pack-desc">${item.description}</p>
         </div>
         <span class="dl-tag" aria-label="${item.price} Derp Coins"
@@ -404,7 +377,7 @@ export class DerpStore extends HubPage {
             >
           </div>`
         : nothing}
-      ${itemBody(item, words)}
+      ${itemBody(item)}
       <div class="dl-pack-foot">
         ${note
           ? html`<p class="dl-note ${note.ok ? "ok" : "bad"}" role="status">
@@ -548,19 +521,20 @@ export class DerpInventory extends HubPage {
       case "skins":
         return this.renderSkins(mine);
       case "personalities":
+        // AIP (r23): the personalities you own, and where you tick them
         return html`<p class="dl-quiet dl-howto">
-            Pick these in DerpyFront when you host a lobby or play Solo, under
-            <b>AI personalities</b>. The AI nations then play them.
+            Tick these in DerpyFront when you set up a Solo game or host a
+            lobby, under <b>AI personalities</b>. Each AI nation is dealt one of
+            the ticked ones at random.
           </p>
           <div class="dl-packs">
             ${mine.map(
               (i) =>
                 html`<article class="dl-pack" data-item=${i.name}>
-                  <h2 class="dl-pack-name">${i.displayName}</h2>
-                  ${packPlays(guideWords(this.catalog?.items ?? []), i.name)}
-                  <ul class="dfx-personas dl-itembody">
-                    ${(i.personas ?? []).map((p) => personaCard(p))}
-                  </ul>
+                  <h2 class="dl-pack-name">
+                    ${personalityMark(i.aiType)}${i.displayName}
+                  </h2>
+                  <p class="dl-pack-desc">${i.description}</p>
                 </article>`,
             )}
           </div>`;

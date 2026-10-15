@@ -1,14 +1,14 @@
 // DFSTORE (r21): small pictures of what the Derp Store's newer items do,
 // shared by Derp Land's Store and Inventory and DerpyFront's Derp Store page:
 // a Nuke & Dome effect pack drawn as a nuke streaking into a burst beside a
-// shimmering Dome, and an AI persona's emblem card.
+// shimmering Dome, and (AIP r23) an AI personality's mark.
 
 import {
   SKIN_MOTION_TEXT,
   type SkinMotion,
 } from "@openfront/shared/DerpySkinMotion";
-import { html, svg, TemplateResult } from "lit";
-import { AI_GUIDE_CSS } from "./AiGuideView"; // SITE (r22)
+import { html, nothing, svg, TemplateResult } from "lit";
+import { AI_CHOICE_ICON } from "../client/derpy/AiPersonalityIcons";
 
 export interface FxColours {
   trail: string[];
@@ -93,46 +93,21 @@ export function fxPreview(name: string, fx: FxColours): TemplateResult {
   </svg>`;
 }
 
-// SITE (r22): the hints say what the engine's temperaments really do (the
-// same words as en.json's derpy.temperament_hint_*; AiGuide.ts has more).
-export const TEMPERAMENT_TEXT: Record<string, { label: string; hint: string }> =
-  {
-    aggressive: {
-      label: "Aggressive",
-      hint: "Attacks early and often, keeps little at home, builds few SAMs.",
-    },
-    trader: {
-      label: "Trader",
-      hint: "Ports and factories first, slow to fight, never starts an embargo, nukes only attackers.",
-    },
-    turtle: {
-      label: "Turtle",
-      hint: "Twice the SAMs, early defense posts, a big army at home; nukes only attackers.",
-    },
-    nuker: {
-      label: "Nuker",
-      hint: "First silo sooner, up to 6 silos, extra SAMs.",
-    },
-    opportunist: {
-      label: "Opportunist",
-      hint: "Moves faster and attacks sooner; more ports; smaller pushes into empty land.",
-    },
-  };
-
-/** A persona: its emblem, its name, and its temperament. */
-export function personaCard(
-  p: { name: string; emblem: string; temperament: string },
-  temperament: { label: string; hint: string } = TEMPERAMENT_TEXT[
-    p.temperament
-  ] ?? { label: p.temperament, hint: "" },
-): TemplateResult {
-  return html`<li class="dfx-persona" title=${temperament.hint}>
-    <img src=${p.emblem} alt="" loading="lazy" />
-    <span class="dfx-persona-name">${p.name}</span>
-    <span class="dfx-temper" data-temperament=${p.temperament}
-      >${temperament.label}</span
-    >
-  </li>`;
+/**
+ * AIP (r23): an AI personality's mark before its name in the store: its
+ * icon in a small coloured tile. Nothing for any other item.
+ */
+export function personalityMark(
+  aiType: string | undefined,
+): TemplateResult | typeof nothing {
+  const icon =
+    aiType !== undefined && aiType in AI_CHOICE_ICON
+      ? AI_CHOICE_ICON[aiType as keyof typeof AI_CHOICE_ICON]
+      : undefined;
+  if (icon === undefined) return nothing;
+  return html`<span class="dfx-aimark" data-ai-type=${aiType} aria-hidden="true"
+    >${icon}</span
+  >`;
 }
 
 // ---- SITE (r22): skins that move ----
@@ -343,16 +318,11 @@ export const STORE_PREVIEW_CSS = `
 @keyframes dfx-burst{0%,50%{transform:scale(.1);opacity:0}62%{opacity:1}100%{transform:scale(1);opacity:0}}
 @keyframes dfx-shim{0%,100%{transform:scale(.55);opacity:.15}50%{transform:scale(1.25);opacity:.7}}
 @media (prefers-reduced-motion:reduce){.dfx-trail,.dfx-burst,.dfx-shimmer{animation:none;stroke-dashoffset:0;opacity:1;transform:none}}
-.dfx-personas{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;padding:0;list-style:none}
-.dfx-persona{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
-.dfx-persona img{width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:6px;background:#0003;margin:0}
-.dfx-persona-name{font-weight:650;font-size:13px;line-height:1.25;overflow-wrap:anywhere}
-.dfx-temper{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 7px;border-radius:99px;background:#ffffff14;color:#d4d4d8}
-.dfx-temper[data-temperament=aggressive]{background:#ef444429;color:#fca5a5}
-.dfx-temper[data-temperament=trader]{background:#eab30829;color:#fde047}
-.dfx-temper[data-temperament=turtle]{background:#22c55e29;color:#86efac}
-.dfx-temper[data-temperament=nuker]{background:#a855f729;color:#d8b4fe}
-.dfx-temper[data-temperament=opportunist]{background:#3b82f629;color:#93c5fd}
+.dfx-aimark{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.6em;margin-right:.45em;border-radius:.45em;font-size:.95em;line-height:1;vertical-align:-.25em;background:#ffffff14;border:1px solid #ffffff24}
+.dfx-aimark[data-ai-type=mad_scientist]{background:#84cc1624;border-color:#a3e63566}
+.dfx-aimark[data-ai-type=trader]{background:#0ea5e924;border-color:#38bdf866}
+.dfx-aimark[data-ai-type=aggressive]{background:#f9731624;border-color:#fb923c66}
+.dfx-aimark[data-ai-type=protector]{background:#fbbf2424;border-color:#fcd34d66}
 `;
 
 let injected = false;
@@ -362,7 +332,6 @@ export function ensurePreviewStyles(): void {
   injected = true;
   const style = document.createElement("style");
   style.dataset.storePreviews = "";
-  style.textContent =
-    STORE_PREVIEW_CSS + DLC_PREVIEW_CSS + AI_GUIDE_CSS + SKIN_MOTION_CSS; // DLC (r21), SITE (r22)
+  style.textContent = STORE_PREVIEW_CSS + DLC_PREVIEW_CSS + SKIN_MOTION_CSS; // DLC (r21), SITE (r22)
   document.head.appendChild(style);
 }

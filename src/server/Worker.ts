@@ -189,7 +189,7 @@ export async function startWorker() {
       return res.status(400).json({ error: z.prettifyError(parsed.error) });
     }
     const gc = parsed.data;
-    // DFSTORE (r21): AI personality packs come only through the lobby's
+    // DFSTORE (r21), AIP (r23): AI personalities come only through the lobby's
     // update_game_config, which checks the host owns them.
     if (gc) delete gc.aiPersonalities;
     // Public games are scheduled by the master over IPC, never created here.

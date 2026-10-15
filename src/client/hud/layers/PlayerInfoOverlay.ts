@@ -13,6 +13,7 @@ import { EventBus } from "@openfront/shared/EventBus";
 import { html, LitElement, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { Controller } from "../../Controller";
+import { aiChoiceLabel } from "../../derpy/AiPersonalityLabels";
 import {
   ContextMenuEvent,
   MouseMoveEvent,
@@ -374,9 +375,15 @@ export class PlayerInfoOverlay extends LitElement implements Controller {
       case PlayerType.Bot:
         playerType = translateText("player_type.bot");
         break;
-      case PlayerType.Nation:
-        playerType = translateText("player_type.nation");
+      case PlayerType.Nation: {
+        // AIP (r23): a nation dealt a personality shows it instead
+        const personality = player.aiPersonality();
+        playerType =
+          personality === null
+            ? translateText("player_type.nation")
+            : aiChoiceLabel(personality);
         break;
+      }
       case PlayerType.Human:
         playerType = translateText("player_type.player");
         break;

@@ -22,6 +22,10 @@ import {
   PlayerUpdate,
 } from "@openfront/engine-api/game/GameUpdates";
 import { PlayerLike } from "@openfront/engine-api/game/ReadViews";
+import {
+  AiType,
+  isAiType,
+} from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { PatternDecoder } from "@openfront/shared/PatternDecoder";
 import { createRandomName } from "@openfront/shared/SharedUtil";
 import { PlayerCosmetics } from "@openfront/shared/WireSchemas";
@@ -410,6 +414,15 @@ export class PlayerView implements PlayerLike {
   team(): Team | null {
     return this.static.team;
   }
+  /**
+   * AIP (r23): the personality this AI nation was dealt, or null (Normal,
+   * a tribe, a human, or a game from before personalities).
+   */
+  aiPersonality(): AiType | null {
+    const p = this.static.aiPersonality;
+    return p !== undefined && isAiType(p) ? p : null;
+  }
+
   type(): PlayerType {
     // Map PlayerStatic's numeric enum back to engine string enum.
     switch (this.static.playerType) {

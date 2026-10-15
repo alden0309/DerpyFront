@@ -19,6 +19,12 @@ import { actionButton } from "../../components/ui/ActionButton";
 import "../../components/ui/Divider";
 import { Controller } from "../../Controller";
 import {
+  AI_CHOICE_BADGE,
+  AI_CHOICE_ICON,
+  aiChoiceHint,
+  aiChoiceName,
+} from "../../derpy/AiPersonalityLabels";
+import {
   CloseViewEvent,
   MouseUpEvent,
   SwapRocketDirectionEvent,
@@ -596,6 +602,31 @@ export class PlayerPanel extends LitElement implements Controller {
     `;
   }
 
+  /** AIP (r23): the personality an AI nation was dealt, as a badge. */
+  private renderPersonalityBadge(other: PlayerView) {
+    const type = other.aiPersonality();
+    if (type === null) return html``;
+    return html`<span
+      class=${`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold ${AI_CHOICE_BADGE[type]}`}
+      data-ai-personality=${type}
+      title=${aiChoiceHint(type)}
+    >
+      <span aria-hidden="true" class="leading-none"
+        >${AI_CHOICE_ICON[type]}</span
+      >
+      <span class="tracking-tight">${aiChoiceName(type)}</span>
+    </span>`;
+  }
+
+  /** AIP (r23): what that personality means, in a line. */
+  private renderPersonalityHint(other: PlayerView) {
+    const type = other.aiPersonality();
+    if (type === null) return html``;
+    return html`<p class="m-0 mt-1 text-xs leading-snug text-zinc-400">
+      ${aiChoiceHint(type)}
+    </p>`;
+  }
+
   private renderIdentityRow(other: PlayerView, my: PlayerView) {
     const flagPath = other.cosmetics.flag;
     const flagCode = flagPath?.match(/\/flags\/(.+)\.svg$/)?.[1];
@@ -644,8 +675,9 @@ export class PlayerPanel extends LitElement implements Controller {
               >
             </span>`
           : html``}
+        ${this.renderPersonalityBadge(other)}
       </div>
-      ${this.renderTraitorBadge(other)}
+      ${this.renderPersonalityHint(other)} ${this.renderTraitorBadge(other)}
       ${this.renderRelationPillIfNation(other, my)}
     `;
   }

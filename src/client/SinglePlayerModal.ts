@@ -8,6 +8,7 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { TeamCountConfig } from "@openfront/engine-api/Schemas";
+import { dealsPersonalities } from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
 import { UserMeResponse } from "@openfront/shared/ApiSchemas";
 import { assetUrl } from "@openfront/shared/AssetUrls";
@@ -26,7 +27,7 @@ import "./components/ToggleInputCard";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { getPlayerCosmetics, prewarmCosmetics } from "./Cosmetics";
 import { crazyGamesSDK } from "./CrazyGamesSDK";
-import "./derpy/AiPersonalityPicker"; // DFSTORE (r21)
+import "./derpy/AiPersonalityPicker"; // DFSTORE (r21), AIP (r23)
 import { GameStartingModal } from "./GameStartingModal";
 import { showInGameAlert } from "./InGameModal";
 import { JoinLobbyEvent } from "./Main";
@@ -570,7 +571,7 @@ export class SinglePlayerModal extends BaseModal {
             @option-toggle-changed=${this.handleConfigOptionToggleChanged}
             @unit-toggle-changed=${this.handleConfigUnitToggleChanged}
           ></game-config-settings>
-          <!-- DFSTORE (r21): the AI personality packs you own. -->
+          <!-- AIP (r23): the AI personalities in play (Normal, and those you own). -->
           <ai-personality-picker
             ?noNations=${this.nations === 0}
             @personalities-changed=${(e: CustomEvent<string[]>) => {
@@ -1180,9 +1181,9 @@ export class SinglePlayerModal extends BaseModal {
                   ? { customAllianceDuration: this.customAllianceMinutes ?? 0 }
                   : {}),
                 ...(this.waterNukes ? { waterNukes: true } : {}),
-                // DFSTORE (r21)
-                ...(this.aiPersonalities.length > 0
-                  ? { aiPersonalities: this.aiPersonalities }
+                // DFSTORE (r21), AIP (r23): the personalities in play
+                ...(dealsPersonalities(this.aiPersonalities)
+                  ? { aiPersonalities: [...this.aiPersonalities] }
                   : {}),
                 ...(this.doomsdayClock
                   ? {

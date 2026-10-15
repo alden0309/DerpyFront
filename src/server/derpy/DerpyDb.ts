@@ -8,6 +8,7 @@
 import pg from "pg";
 import { logger } from "../Logger";
 import { grantBasedByName } from "./BasedAccess"; // NAMES (r20)
+import { grantPersonalitiesToPackOwners } from "./PersonalityGrants"; // AIP (r23)
 
 const log = logger.child({ component: "DerpyDb" });
 
@@ -290,6 +291,10 @@ async function migrate(p: pg.Pool): Promise<void> {
     // in BASED_PLAYERS, once each (the owner's "Alden" on the first start).
     const marked = await grantBasedByName(client);
     if (marked.length > 0) log.info("Mr. Based: accounts marked", { marked });
+    // AIP (r23): owners of the old AI personality packs get the four
+    // personalities that replaced them, once (later starts add nothing).
+    const granted = await grantPersonalitiesToPackOwners(client);
+    if (granted > 0) log.info("AI personalities granted", { rows: granted });
   } finally {
     await client
       .query("SELECT pg_advisory_unlock($1)", [MIGRATION_LOCK])
