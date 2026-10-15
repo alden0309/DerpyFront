@@ -611,8 +611,15 @@ The moped, the helmet on its mirror...
 - The kit's small pieces (`client/world/Kit.ts`): kiosk, moped, aframe (a
   chalkboard: `text`, `sub`), bollard, mitten, grate, bowl, postbox,
   litter, jar, matchbowl, frame, standjar, keyboard, machine, liftdoor,
-  vase, clock, book, bell, tray; and `box`, `sign` and the props models.
-  Put them in the floor plan's `blocks` if he shouldn't walk through them.
+  vase, clock, book, bell, tray (`size`, `color`), radio; and `box`,
+  `sign` and the props models. Put them in the floor plan's `blocks` if he
+  shouldn't walk through them.
+- They cost next to nothing to draw: a small piece's colours are painted
+  into its shape and every small piece in a place shares two materials
+  (matte and metal), so the place's static merge draws them all in two
+  draws, whatever their colours. Prefer a new small piece to a props model
+  for a little thing (each model brings its own materials). What glints is
+  one instanced draw for the whole place, however many things glint.
 - The tests check each can be walked to from every door of its place.
 
 ### Art and sound

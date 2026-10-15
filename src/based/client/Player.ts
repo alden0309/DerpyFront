@@ -2362,7 +2362,23 @@ export class BasedPlayer extends LitElement {
     }
     if (o === "sheet")
       return sheet(html`${this.renderSheet()} ${back}`, "tall");
-    if (o === "journal") return sheet(html`${this.renderJournal()} ${back}`);
+    if (o === "journal") {
+      return sheet(
+        html`${this.renderJournal()}
+          <div class="mb-sheet-row">
+            ${back}
+            <button
+              class="mb-btn"
+              @click=${() => {
+                this.dossierTab = "places";
+                this.overlay = "log";
+              }}
+            >
+              The story so far
+            </button>
+          </div>`,
+      );
+    }
     if (o === "inventory") {
       const avail = this.run.free
         ? this.run.available([]).use

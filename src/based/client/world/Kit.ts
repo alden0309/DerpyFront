@@ -1518,7 +1518,33 @@ function small(item: Item): Built {
   return { object: g, lights: [], lamps: [] };
 }
 
-/** A mesh in a shared material, placed. */
+/**
+ * BPLAY (r22): the small things' paint. A plain colour goes into the
+ * shape's vertices and the shape takes one of two shared materials (matte
+ * or metal), so every small thing in a place, whatever its colours, is
+ * merged into a draw or two instead of one per colour.
+ */
+function propMaterial(metal: boolean): THREE.MeshStandardMaterial {
+  const key = metal ? "props:metal" : "props:matte";
+  let m = matCache.get(key) as THREE.MeshStandardMaterial | undefined;
+  if (!m) {
+    m = new THREE.MeshStandardMaterial(
+      metal
+        ? { vertexColors: true, roughness: 0.3, metalness: 1 }
+        : { vertexColors: true, roughness: 0.72, metalness: 0 },
+    );
+    m.userData.shared = true;
+    matCache.set(key, m);
+  }
+  return m;
+}
+
+/**
+ * A mesh, placed. A plain shared colour (from `mat`) is painted into the
+ * shape (see `propMaterial`) and the piece casts a shadow like the rest, so
+ * they all merge; anything else (a texture, glass, a glow) keeps its own
+ * material and `shadow`.
+ */
 function part(
   geo: THREE.BufferGeometry,
   material: THREE.Material,
@@ -1527,9 +1553,30 @@ function part(
   z: number,
   shadow = true,
 ): THREE.Mesh {
-  const m = new THREE.Mesh(geo, material);
+  const s = material as THREE.MeshStandardMaterial;
+  let use: THREE.Material = material;
+  let cast = shadow;
+  if (
+    s.isMeshStandardMaterial &&
+    s.userData.shared &&
+    !s.map &&
+    !s.transparent &&
+    !s.vertexColors
+  ) {
+    const n = geo.getAttribute("position").count;
+    const rgb = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      rgb[i * 3] = s.color.r;
+      rgb[i * 3 + 1] = s.color.g;
+      rgb[i * 3 + 2] = s.color.b;
+    }
+    geo.setAttribute("color", new THREE.BufferAttribute(rgb, 3));
+    use = propMaterial(s.metalness >= 0.9);
+    cast = true;
+  }
+  const m = new THREE.Mesh(geo, use);
   m.position.set(x, y, z);
-  m.castShadow = shadow;
+  m.castShadow = cast;
   m.receiveShadow = true;
   return m;
 }
@@ -1882,12 +1929,34 @@ function bplaySmall(item: Item, g: THREE.Group): void {
       );
       g.add(part(C(0.055, 0.055, 0.012, 12), mat("black"), 0, 0.006, 0, false));
       break;
-    case "tray":
+    case "tray": {
       // Something flat on the ground or a counter: a crate, a box of things.
-      g.add(
-        part(B(0.5, 0.3, 0.38), mat(str(item.color, "#6b5539")), 0, 0.15, 0),
-      );
+      const [w, h, d] = (item.size as [number, number, number]) ?? [
+        0.5, 0.3, 0.38,
+      ];
+      g.add(part(B(w, h, d), mat(str(item.color, "#6b5539")), 0, h / 2, 0));
       break;
+    }
+    case "radio": {
+      // A wooden wireless on the back bar, a cloth grille and a dial.
+      g.add(part(B(0.34, 0.2, 0.13), mat("#4a2c1a"), 0, 0.1, 0));
+      g.add(part(B(0.17, 0.13, 0.01), mat("#3a3328"), -0.06, 0.1, 0.066));
+      const dial = part(
+        C(0.035, 0.035, 0.01, 14),
+        mat("#d9c9a0"),
+        0.1,
+        0.12,
+        0.066,
+      );
+      dial.rotation.x = Math.PI / 2;
+      g.add(dial);
+      for (const x of [0.07, 0.13]) {
+        const k = part(C(0.012, 0.012, 0.02, 8), mat("black"), x, 0.045, 0.07);
+        k.rotation.x = Math.PI / 2;
+        g.add(k);
+      }
+      break;
+    }
     default:
       break;
   }

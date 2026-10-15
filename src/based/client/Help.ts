@@ -128,9 +128,9 @@ export function helpBody(
         set out to do: only what he's learned, never a list of what's where.
       </li>
       <li>
-        The story so far (in the menu) is his file on himself: where he's been,
-        who he's met and where things stand, what he chose and the throws that
-        mattered.
+        The story so far (in the menu, or from the journal) is his file on
+        himself: where he's been, who he's met and where things stand, what he
+        chose and the throws that mattered.
       </li>
     </ul>
 

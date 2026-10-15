@@ -709,11 +709,10 @@
       "sub": "Pas de politique au comptoir"
     },
     {
-      "kind": "box",
-      "at": [9.95, 1.25, 3.04],
+      "kind": "tray",
+      "at": [9.95, 1.14, 3.04],
       "size": [0.32, 0.22, 0.02],
-      "mat": "brass",
-      "shadow": false
+      "color": "brass"
     },
     {
       "kind": "postbox",

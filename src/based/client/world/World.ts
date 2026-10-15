@@ -124,13 +124,15 @@ interface BuiltPlace {
   wet: WetMat[];
   drips: Drips | null;
   outdoor: boolean;
+  /**
+   * BPLAY (r22): every glint in the place, as one instanced quad turned to
+   * the camera, so twenty things worth a look are one draw, not twenty.
+   * There's always one instance (a dark one out of sight when nothing
+   * glints), so its shader is compiled with the place's.
+   */
+  glints: THREE.InstancedMesh | null;
   /** Its shaders compiled (built in the background, then compiled). */
   ready: Promise<void>;
-}
-
-interface Glint {
-  sprite: THREE.Sprite;
-  k: number;
 }
 
 const CUT_HEIGHT = 1.15;
@@ -231,7 +233,8 @@ export class World {
   private weather: WeatherState = startWeather("rain");
   private heroGait = 1;
   private lookOffset = new THREE.Vector3();
-  private readonly glints = new Map<string, Glint>();
+  /** How bright each thing's glint is (0 to 1.6), by hotspot. */
+  private readonly glints = new Map<string, number>();
   private scanAt = 0;
   private reported = "";
   // Reused each frame, so a frame makes no garbage.
@@ -405,6 +408,7 @@ export class World {
       wet: [],
       drips: null,
       outdoor,
+      glints: null,
       ready: Promise.resolve(),
     };
     const wanted: (PieceLight & { obj: THREE.Light; order: number })[] = [];
@@ -537,11 +541,21 @@ export class World {
       b.drips = new Drips(drips);
       scene.add(b.drips.lines);
     }
-    // A glint no one sees, so its shader is compiled with the place's.
-    const warm = new THREE.Sprite(this.glintMaterial());
-    warm.material.opacity = 0;
-    warm.position.set(0, -50, 0);
-    scene.add(warm);
+    // The glints, one draw for all of them; the first instance is a dark
+    // one out of sight, so the shader is compiled with the place's.
+    const glints = new THREE.InstancedMesh(
+      new THREE.PlaneGeometry(1, 1),
+      this.glintMaterial(),
+      Object.keys(def.hotspots).length + 1,
+    );
+    glints.renderOrder = 9;
+    glints.frustumCulled = false;
+    glints.setMatrixAt(0, new THREE.Matrix4().makeTranslation(0, -50, 0));
+    glints.setColorAt(0, new THREE.Color(0, 0, 0));
+    glints.count = 1;
+    glints.userData.keep = true;
+    scene.add(glints);
+    b.glints = glints;
     // Invisible targets for the hotspots, for the pointer to find.
     for (const [id, h] of Object.entries(def.hotspots)) {
       const proxy = new THREE.Mesh(
@@ -809,6 +823,7 @@ export class World {
       if (!t.userData.shared && t !== this.env) t.dispose();
     }
     b.drips?.dispose();
+    b.glints?.dispose();
   }
 
   private isPerson(o: THREE.Object3D): boolean {
@@ -847,8 +862,8 @@ export class World {
     this.rain.group.visible = b.outdoor;
     this.rain.setDry(def.areas.filter((a) => !a.rain).map((a) => a.rect));
     this.rain.setLamps(b.lamps.map((at) => ({ at, k: 1 })));
-    for (const g of this.glints.values()) g.sprite.removeFromParent();
     this.glints.clear();
+    if (b.glints) b.glints.count = 1;
     this.noticed.clear();
     this.near.clear();
     this.lookOffset.set(0, 0, 0);
@@ -1275,17 +1290,22 @@ export class World {
 
   // --- noticing things (r22) -----------------------------------------------
 
-  private glintMaterial(): THREE.SpriteMaterial {
-    return new THREE.SpriteMaterial({
+  private glintMaterial(): THREE.MeshBasicMaterial {
+    // Added light, so each glint's brightness is its instance's colour.
+    return new THREE.MeshBasicMaterial({
       map: glintTexture(),
       color: "#ffd9a0",
       transparent: true,
       depthWrite: false,
       depthTest: false,
       blending: THREE.AdditiveBlending,
-      opacity: 0,
     });
   }
+
+  private readonly glintM = new THREE.Matrix4();
+  private readonly glintS = new THREE.Vector3();
+  private readonly glintP = new THREE.Vector3();
+  private readonly glintC = new THREE.Color();
 
   /** Which things are near and in sight; glints on them. A few times a second. */
   private scanThings(dt: number): void {
@@ -1335,34 +1355,43 @@ export class World {
       }
       this.near = near;
     }
-    // The glints: on what's near and worth a look (not doors).
+    // The glints: on what's near and worth a look (not doors), all of them
+    // instances of the place's one glint mesh, turned to the camera.
+    const mesh = b.glints;
+    let n = 0;
     for (const [id, info] of this.things) {
       const h = b.def.hotspots[id];
       if (!h || info.door) continue;
-      let g = this.glints.get(id);
       const want = this.near.has(id) ? (this.hovered === id ? 1.6 : 1) : 0;
-      if (!g) {
-        if (want === 0) continue;
-        const sprite = new THREE.Sprite(this.glintMaterial());
-        sprite.renderOrder = 9;
-        b.scene.add(sprite);
-        g = { sprite, k: 0 };
-        this.glints.set(id, g);
-      }
-      g.k += (want - g.k) * (1 - Math.exp(-dt * 6));
-      const pulse = 0.75 + 0.25 * Math.sin(this.time * 3 + id.length);
-      const m = g.sprite.material as THREE.SpriteMaterial;
-      m.opacity = Math.min(1, g.k) * pulse;
-      g.sprite.visible = g.k > 0.01;
-      this.hotspotPos(h, g.sprite.position);
-      g.sprite.scale.setScalar((0.2 + 0.1 * g.k) * (this.camSpan / 10));
-    }
-    for (const [id, g] of this.glints) {
-      if (!this.things.has(id)) {
-        g.sprite.removeFromParent();
-        (g.sprite.material as THREE.Material).dispose();
+      let k = this.glints.get(id) ?? 0;
+      if (k === 0 && want === 0) continue;
+      k += (want - k) * (1 - Math.exp(-dt * 6));
+      if (want === 0 && k < 0.01) {
         this.glints.delete(id);
+        continue;
       }
+      this.glints.set(id, k);
+      if (!mesh || n >= mesh.instanceMatrix.count) continue;
+      const pulse = 0.75 + 0.25 * Math.sin(this.time * 3 + id.length);
+      this.hotspotPos(h, this.glintP);
+      this.glintS.setScalar((0.2 + 0.1 * k) * (this.camSpan / 10));
+      this.glintM.compose(this.glintP, this.camera.quaternion, this.glintS);
+      mesh.setMatrixAt(n, this.glintM);
+      mesh.setColorAt(n, this.glintC.setScalar(Math.min(1, k) * pulse));
+      n++;
+    }
+    for (const id of this.glints.keys()) {
+      if (!this.things.has(id)) this.glints.delete(id);
+    }
+    if (mesh) {
+      if (n === 0) {
+        // Nothing glints: the dark instance out of sight.
+        mesh.setMatrixAt(0, this.glintM.makeTranslation(0, -50, 0));
+        mesh.setColorAt(0, this.glintC.setScalar(0));
+      }
+      mesh.count = Math.max(1, n);
+      mesh.instanceMatrix.needsUpdate = true;
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     }
     if (changed) this.onNoticed?.([...this.noticed]);
   }
