@@ -39,7 +39,7 @@ export const RUN: Gait = {
 };
 
 /** Within this of the end, he's there. */
-export const ARRIVE = 0.01;
+export const ARRIVE = 0.003;
 
 function wrap(a: number): number {
   return Math.atan2(Math.sin(a), Math.cos(a));
@@ -206,8 +206,9 @@ export class Walker {
     // round, not sliding sideways); slowing to stop at the end.
     const off = Math.abs(wrap(want - this.heading));
     const facing = off > 1.75 ? 0.08 : 0.15 + 0.85 * Math.max(0, Math.cos(off)) ** 2;
-    const stopAt = Math.sqrt(2 * g.decel * Math.max(0, rem));
-    const target = Math.max(rem > 0.05 ? 0.12 : 0.05, Math.min(g.speed * facing, stopAt));
+    // (A crawl at the very end, so he gets there.)
+    const stopAt = Math.max(0.04, Math.sqrt(2 * g.decel * Math.max(0, rem)));
+    const target = Math.min(g.speed * facing, stopAt);
     if (target > this.speed) this.speed = Math.min(target, this.speed + g.accel * dt);
     else this.speed = Math.max(target, this.speed - g.decel * 1.6 * dt);
     this.s += this.speed * dt;

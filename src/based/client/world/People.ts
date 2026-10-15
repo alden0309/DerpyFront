@@ -682,6 +682,38 @@ function modelKeyOf(model: THREE.Object3D): string {
   return ids.join(",");
 }
 
+// --- held things (BFIX r23) ---------------------------------------------------
+
+const UP_V = new THREE.Vector3(0, 1, 0);
+const HELD_V = Array.from({ length: 12 }, () => new THREE.Vector3());
+const HELD_M = new THREE.Matrix4();
+const HELD_Q = new THREE.Quaternion();
+const HELD_Q2 = new THREE.Quaternion();
+const AIM_A = new THREE.Vector3();
+const AIM_B = new THREE.Vector3();
+const AIM_Q = new THREE.Quaternion();
+const AIM_P = new THREE.Quaternion();
+
+/**
+ * Turns a bone (in the world) so the way to its child runs along `dir`,
+ * keeping its parent where it is.
+ */
+function aim(bone: THREE.Object3D, child: THREE.Object3D, dir: THREE.Vector3): void {
+  bone.updateWorldMatrix(true, true);
+  const from = bone.getWorldPosition(AIM_A);
+  const to = child.getWorldPosition(AIM_B).sub(from).normalize();
+  AIM_Q.setFromUnitVectors(to, dir.clone().normalize());
+  // world' = AIM_Q * world; local' = parent^-1 * world'
+  bone.getWorldQuaternion(AIM_P);
+  AIM_P.premultiply(AIM_Q);
+  if (bone.parent) {
+    const pq = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+    AIM_P.premultiply(pq.invert());
+  }
+  bone.quaternion.copy(AIM_P);
+  bone.updateWorldMatrix(false, true);
+}
+
 // --- people ------------------------------------------------------------------
 
 export type Pose = "stand" | "sit" | "lean" | "fold" | "hidden";
@@ -729,6 +761,8 @@ export class Person {
   speed = 0;
   private glow: THREE.Mesh | null = null;
   private extras: THREE.Object3D[] = [];
+  /** BFIX (r23): what they hold (the world's prop), carried in the right hand. */
+  private held: THREE.Object3D | null = null;
   private cloth: Cloth | null = null;
   private clips: THREE.AnimationClip[] = [];
   private modelKey = "";
@@ -931,6 +965,15 @@ export class Person {
     return fit;
   }
 
+  /**
+   * How far to raise them to sit at a seat's height (a little lower than
+   * the floor, a couple of centimetres at most, for a seat just under what
+   * the clip was made for: the feet hide it, floating wouldn't).
+   */
+  private liftFor(seat: number): number {
+    return Math.max(-0.03, seat - this.seatFit().y);
+  }
+
   /** A cigarette (lit) in the right hand. */
   private addProps(): void {
     const hand = this.bone("hand_r");
@@ -1095,7 +1138,7 @@ export class Person {
     this.root.rotation.y = heading;
     this.pose = pose;
     this.seatLift = this.liftTarget =
-      pose === "sit" ? Math.max(0, seat - this.seatFit().y) : 0;
+      pose === "sit" ? this.liftFor(seat) : 0;
     this.root.position.y = this.seatLift;
     this.root.visible = pose !== "hidden";
     this.baseName = "";
@@ -1159,7 +1202,7 @@ export class Person {
   sitDown(seat: number, heading: number): void {
     this.turnTo = heading;
     this.pose = "sit";
-    this.liftTarget = Math.max(0, seat - this.seatFit().y);
+    this.liftTarget = this.liftFor(seat);
     const a = this.actions.get("sit_down");
     if (!a) {
       this.settle();
@@ -1270,6 +1313,73 @@ export class Person {
     }
     this.mixer.update(dt);
     if (this.cloth) swingCloth(this.cloth);
+    if (this.held) this.carry(this.held);
+  }
+
+  /**
+   * BFIX (r23), the world's hook (PeopleHooks.setHeld): takes a prop in the
+   * right hand, or puts it down. The prop's grip is its origin and it runs
+   * down its -y (an umbrella's "open" part, if shown, runs up its +y).
+   */
+  setHeld(prop: object | null): boolean {
+    if (this.held && this.held !== prop) this.held.removeFromParent();
+    this.held = (prop as THREE.Object3D | null) ?? null;
+    if (this.held) this.root.add(this.held);
+    return true;
+  }
+
+  /**
+   * Puts the prop in the hand each frame, after the pose: its grip in the
+   * palm (past the wrist along the forearm), a baton or a furled umbrella
+   * along the line of the fist, a little forward; an open umbrella held up
+   * before the chest, the right forearm raised, the shaft straight up.
+   */
+  private carry(prop: THREE.Object3D): void {
+    const hand = this.bone("hand_r");
+    const fore = this.bone("lowerarm_r");
+    const upper = this.bone("upperarm_r");
+    const open = prop.getObjectByName("open");
+    const up = !!open?.visible && this.pose !== "sit";
+    const h = this.heading;
+    const fwd = HELD_V[0].set(Math.sin(h), 0, Math.cos(h));
+    const right = HELD_V[1].set(-Math.cos(h), 0, Math.sin(h));
+    if (up && upper && fore && hand) {
+      // The arm up: the upper arm down by his side, a little forward; the
+      // forearm across and up to the chest.
+      aim(upper, fore, HELD_V[2].set(0, -1, 0).addScaledVector(fwd, 0.35).addScaledVector(right, 0.12));
+      aim(fore, hand, HELD_V[2].copy(fwd).multiplyScalar(0.8).addScaledVector(UP_V, 0.55).addScaledVector(right, -0.3));
+    }
+    if (!hand || !fore) {
+      prop.position.set(0.2, 0.9, 0.1);
+      prop.quaternion.identity();
+      return;
+    }
+    const scale = this.look.height ?? 1;
+    const wrist = hand.getWorldPosition(HELD_V[3]);
+    const elbow = fore.getWorldPosition(HELD_V[4]);
+    const along = HELD_V[5].subVectors(wrist, elbow).normalize();
+    const grip = HELD_V[6].copy(wrist).addScaledVector(along, 0.08 * scale);
+    // Which way the prop's -y runs, in the world.
+    const axis = HELD_V[7];
+    if (up) axis.set(0, -1, 0);
+    else if (prop.name === "held:baton") axis.copy(along).multiplyScalar(0.55).addScaledVector(fwd, 0.85);
+    else if (prop.name === "held:umbrella") axis.copy(along).addScaledVector(fwd, 0.3);
+    else axis.copy(along);
+    axis.normalize();
+    // A frame with -y along the axis and z as near his forward as it goes.
+    const yAxis = HELD_V[8].copy(axis).negate();
+    const zAxis = HELD_V[9].copy(fwd).addScaledVector(yAxis, -fwd.dot(yAxis));
+    if (zAxis.lengthSq() < 1e-6) zAxis.copy(right);
+    zAxis.normalize();
+    const xAxis = HELD_V[10].crossVectors(yAxis, zAxis).normalize();
+    HELD_M.makeBasis(xAxis, yAxis, zAxis);
+    HELD_Q.setFromRotationMatrix(HELD_M);
+    // Into the person's own space.
+    this.root.updateMatrixWorld();
+    prop.position.copy(this.root.worldToLocal(grip));
+    this.root.getWorldQuaternion(HELD_Q2);
+    prop.quaternion.copy(HELD_Q2.invert().multiply(HELD_Q));
+    prop.scale.setScalar(scale);
   }
 
   /**

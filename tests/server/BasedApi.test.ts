@@ -134,6 +134,7 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     // BASED (r21): the 3D models are as private as the pictures.
     "/based/model/props",
     "/based/model/body_m", // BPEOPLE (r22): the people's bodies
+    "/based/model/fusion_props", // BFIX (r23): the props modelled in Fusion
     "/based/save",
     "/based/slots",
     "/based/slot/auto",
@@ -198,6 +199,10 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
         .subarray(0, 4)
         .toString(),
     ).toBe("glTF");
+    // BFIX (r23): and the props modelled for the game in Fusion.
+    const fusion = await call("/based/model/fusion_props", alden);
+    expect(fusion.status).toBe(200);
+    expect(fusion.headers.get("content-type")).toBe("model/gltf-binary");
     expect((await call("/based/model/nope", alden)).status).toBe(404);
 
     expect((await call("/based/chapter/99", alden)).status).toBe(404);

@@ -1268,20 +1268,16 @@ export class World {
     this.held = { kind, prop, own };
   }
 
-  /** Keeps a held prop at his hand (when the person doesn't carry it). */
+  /**
+   * Keeps a held prop at his hand (when the person doesn't carry it), and
+   * opens the umbrella over him outdoors (it hangs closed indoors).
+   * BFIX (r23): the people carry it themselves now (People.ts, setHeld),
+   * set right in the hand; a person rebuilt in another look takes it again.
+   */
   private carryHeld(): void {
     const h = this.held;
     const p = this.people.get(this.hero);
-    if (!h || h.own || !p || !this.place) return;
-    if (h.prop.parent !== this.place.scene) this.place.scene.add(h.prop);
-    h.prop.visible = p.root.visible;
-    if (!p.root.visible) return;
-    const hand = p.bone("hand_r");
-    if (hand) hand.getWorldPosition(this.v3);
-    else this.v3.copy(p.root.position).setY(0.95);
-    h.prop.position.copy(this.v3);
-    h.prop.rotation.set(0, p.heading, 0);
-    // The umbrella opens over him outdoors and hangs closed indoors.
+    if (!h || !p || !this.place) return;
     const open = h.prop.getObjectByName("open");
     const shut = h.prop.getObjectByName("shut");
     if (open && shut) {
@@ -1290,6 +1286,18 @@ export class World {
       open.visible = out && p.pose !== "sit";
       shut.visible = !open.visible;
     }
+    if (h.own) {
+      if (h.prop.parent !== p.root) h.own = holdProp(p, h.prop);
+      return;
+    }
+    if (h.prop.parent !== this.place.scene) this.place.scene.add(h.prop);
+    h.prop.visible = p.root.visible;
+    if (!p.root.visible) return;
+    const hand = p.bone("hand_r");
+    if (hand) hand.getWorldPosition(this.v3);
+    else this.v3.copy(p.root.position).setY(0.95);
+    h.prop.position.copy(this.v3);
+    h.prop.rotation.set(0, p.heading, 0);
   }
 
   /** Where he stands, which way he faces and how wet he is: for a save. */
@@ -2175,9 +2183,10 @@ export function smoothDamp(
 }
 
 /**
- * BPLAY (r22): a prop for his right hand. Its origin is the hand; it faces
- * the way he does. The umbrella has two states, "open" (over his head) and
- * "shut" (hanging from his hand).
+ * BPLAY (r22): a prop for his right hand. BFIX (r23): its grip (where the
+ * fist closes) is its origin, and it runs down its -y from there: a baton,
+ * a furled umbrella; the umbrella's "open" part runs up its +y, shaft and
+ * canopy over his head. The umbrella has two states, "open" and "shut".
  */
 function heldProp(kind: string): THREE.Group {
   const g = new THREE.Group();
@@ -2194,10 +2203,12 @@ function heldProp(kind: string): THREE.Group {
     const open = new THREE.Group();
     open.name = "open";
     const shaft = cast(
-      new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.0, 6), black),
+      new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.95, 6), black),
     );
-    shaft.position.set(-0.08, 0.5, 0.02);
-    shaft.rotation.z = 0.08;
+    shaft.position.y = 0.4;
+    const handle = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.12, 8), black),
+    );
     const canopy = cast(
       new THREE.Mesh(
         new THREE.ConeGeometry(0.62, 0.26, 10, 1, true),
@@ -2208,23 +2219,36 @@ function heldProp(kind: string): THREE.Group {
         }),
       ),
     );
-    canopy.position.set(-0.12, 1.08, 0.02);
-    open.add(shaft, canopy);
+    canopy.position.y = 0.86;
+    open.add(shaft, handle, canopy);
     const shut = new THREE.Group();
     shut.name = "shut";
-    const furled = cast(
-      new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.01, 0.85, 8), black),
+    // A crook handle in the fist, the furled length below it.
+    const crook = cast(
+      new THREE.Mesh(
+        new THREE.TorusGeometry(0.035, 0.009, 6, 12, Math.PI),
+        black,
+      ),
     );
-    furled.position.y = -0.42;
-    shut.add(furled);
+    crook.position.set(0.035, 0.0, 0);
+    crook.rotation.z = Math.PI;
+    const furled = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.008, 0.72, 8), black),
+    );
+    furled.position.y = -0.36;
+    shut.add(crook, furled);
     g.add(open, shut);
   } else if (kind === "baton") {
-    const b = cast(
-      new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.32, 8), black),
+    // The grip in the fist, the shaft out past the thumb.
+    const grip = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.12, 8), black),
     );
-    b.position.set(0, -0.12, 0.04);
-    b.rotation.x = 0.35;
-    g.add(b);
+    grip.position.y = 0.02;
+    const shaft = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.013, 0.26, 8), black),
+    );
+    shaft.position.y = -0.17;
+    g.add(grip, shaft);
   } else {
     // Something small in his hand: a dark shape the size of a paperback.
     const m = cast(
@@ -2233,7 +2257,7 @@ function heldProp(kind: string): THREE.Group {
         new THREE.MeshStandardMaterial({ color: "#2a2826", roughness: 0.7 }),
       ),
     );
-    m.position.set(0, -0.06, 0.03);
+    m.position.set(0, -0.05, 0.02);
     g.add(m);
   }
   return g;
