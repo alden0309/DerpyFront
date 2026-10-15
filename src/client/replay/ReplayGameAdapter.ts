@@ -26,6 +26,10 @@ import type {
 } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import type { Config } from "@openfront/engine-lib/configuration/Config";
+import {
+  AiType,
+  isAiType,
+} from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { OWNER_MASK } from "../render/gl/utils/TileCodec";
 import type {
   NameEntry,
@@ -124,6 +128,11 @@ export class ReplayPlayerView {
   }
   type(): PlayerType {
     return playerTypeFromEnum(this.info.playerType);
+  }
+  /** AIP (r23): the personality this AI nation was dealt, if any. */
+  aiPersonality(): AiType | null {
+    const p = this.info.aiPersonality;
+    return p !== undefined && isAiType(p) ? p : null;
   }
   team(): Team | null {
     return this.info.team;
