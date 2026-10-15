@@ -2,7 +2,7 @@
 // - 1776: The Revolution: the world of 1 January 1776 (the United Colonies
 //   in rebellion, British America, the British crown), the war's beats on
 //   their real dates (the Declaration, New York, France and Spain at war,
-//   Yorktown, the Treaty of Paris and its cessions) and the end in 1784;
+//   Yorktown, the Treaty of Paris and its cessions) (CQ24, r24: and on to 1800);
 //   sides and the turncoat's price; a commission and spying rolled by the
 //   odds they show.
 // - Legends: rumours as rare as they say, each step rolled by the odds the

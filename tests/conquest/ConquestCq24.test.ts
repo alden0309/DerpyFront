@@ -63,6 +63,7 @@ import {
 import { meOf } from "../../src/conquest/engine/LifeQueries";
 import { checkChance } from "../../src/conquest/engine/LifeRules";
 import { isWinter } from "../../src/conquest/engine/Map";
+import { atWar } from "../../src/conquest/engine/Queries";
 import {
   amendsOf,
   pickFind,
@@ -83,6 +84,7 @@ import {
   winterReach,
   winterStrength,
 } from "../../src/conquest/engine/Snow";
+import { startWar } from "../../src/conquest/engine/War";
 import { ownedInTab } from "../../src/derpland/StoreTabs";
 import {
   hostProblem,
@@ -778,6 +780,42 @@ describe("1776: The Revolution, to 1800, as history went unless players turn it"
       expect(course(g).quasi).toBe(false);
     }
   }, 600_000);
+
+  test("after the peace, a native ally's call doesn't draw British America into a war with the republic, unless a player rules it", () => {
+    const g = world({
+      start: 1776,
+      seed: 3,
+      plans: [
+        {
+          seat: "s1",
+          name: "Alden",
+          plan: plan({ home: prov("Plymouth"), age: 30 }),
+        },
+      ],
+    });
+    const s = g.s;
+    until(g, dayOf(1786, 0, 1));
+    expect(course(g).peace).toBeDefined();
+    const us = usOf(s);
+    const br = s.nations.findIndex((n) => n.key === "britain");
+    const free = s.nations.filter(
+      (n) =>
+        n.kind === "native" &&
+        n.alive &&
+        !atWar(s, us, n.id) &&
+        !atWar(s, br, n.id),
+    );
+    expect(free.length).toBeGreaterThanOrEqual(2);
+    for (const n of free.slice(0, 2))
+      s.treaties.push({ kind: "alliance", a: br, b: n.id, since: s.day });
+    startWar(g, us, free[0].id, "A test", false);
+    expect(atWar(s, us, free[0].id)).toBe(true);
+    expect(atWar(s, br, us)).toBe(false);
+    // A player who rules British America answers it as the rules have it.
+    s.nations[br].ruler = meOf(s, lifeOf(g))!.id;
+    startWar(g, us, free[1].id, "A test", false);
+    expect(atWar(s, br, us)).toBe(true);
+  }, 120_000);
 
   test("a player's army turns it: the King's army beaten before New York, and New York never falls", () => {
     const g = world({

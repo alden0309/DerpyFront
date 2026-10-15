@@ -15,6 +15,7 @@ import {
   TURNCOAT,
 } from "../../engine/Campaign1776";
 import { BATTLE } from "../../engine/Campaign1776Events";
+import "../../engine/Campaign1776Later"; // CQ24 (r24): the years after the peace, in BEATS
 import { KEEP } from "../../engine/LegendEvents";
 import { KEPT_FAITH } from "../../engine/Legends"; // CQ24 (r24)
 import {

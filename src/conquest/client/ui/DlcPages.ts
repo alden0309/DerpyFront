@@ -27,6 +27,7 @@ import {
   usOf,
 } from "../../engine/Campaign1776";
 import { came } from "../../engine/Campaign1776Course"; // CQ24 (r24)
+import "../../engine/Campaign1776Later"; // CQ24 (r24): the years after the peace, in BEATS
 import {
   askCheck,
   askOdds,

@@ -330,7 +330,7 @@ describe.skipIf(!TEST_DB)("Conquest's store items: the rooms", () => {
     o.c.send({ t: "start" });
     const [gOwner, gGuest] = [await og, await fg];
     expect(gOwner.state.settings.start).toBe(1776);
-    expect(gOwner.state.settings.endYear).toBe(1784);
+    expect(gOwner.state.settings.endYear).toBe(1801); // CQ24 (r24): to the end of 1800
     expect(gOwner.state.nations.find((n) => n.key === "england")?.name).toBe(
       "the United Colonies",
     );

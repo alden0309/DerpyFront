@@ -41,9 +41,10 @@ import {
 import { addPlans, course, type Plan } from "./Campaign1776Course";
 import { cede } from "./Crown";
 import type { ConquestGame } from "./Game";
+import { atWar } from "./Queries";
 import { REGIMENTS } from "./Rules";
 import { GOV_FORMS } from "./SocietyRules";
-import { endWar, startWar } from "./War";
+import { endWar } from "./War";
 
 const byKey = (g: ConquestGame, key: string) =>
   g.s.nations.findIndex((n) => n.key === key);
@@ -86,21 +87,49 @@ function federal(g: ConquestGame): void {
   }
 }
 
+/**
+ * A war of the course's, between two nations only: nobody's allies are
+ * called in (the engine's startWar would bring British America in for its
+ * native allies, and France in for the United States, and so on round the
+ * map, which isn't how these wars went).
+ */
+function narrowWar(g: ConquestGame, a: number, b: number, why: string): void {
+  const s = g.s;
+  if (a < 0 || b < 0 || atWar(s, a, b)) return;
+  s.wars.push({
+    a,
+    b,
+    by: a,
+    start: s.day,
+    why,
+    won: [0, 0],
+    lost: [0, 0],
+    europe: false,
+  });
+  s.truces = s.truces.filter(
+    (t) => !((t.a === a && t.b === b) || (t.a === b && t.b === a)),
+  );
+  const before = s.treaties.length;
+  s.treaties = s.treaties.filter(
+    (t) => !((t.a === a && t.b === b) || (t.a === b && t.b === a)),
+  );
+  if (s.treaties.length !== before) g.treatiesChanged();
+  g.warsChanged();
+  g.trucesChanged();
+  g.event({ k: "war", day: s.day, n: a, on: b, why });
+}
+
 /** The war in the Northwest: the United States against the Ohio country's nations. */
 function frontierWar(g: ConquestGame): void {
   const s = g.s;
   const us = usOf(s);
-  const before = new Set(
-    s.wars.flatMap((w) => (w.a === us ? [w.b] : w.b === us ? [w.a] : [])),
-  );
+  const foes: number[] = [];
   for (const key of ["lenape", "wendat", "anishinaabe"]) {
     const n = byKey(g, key);
-    if (n >= 0 && s.nations[n].alive)
-      startWar(g, us, n, "The Northwest Indian War", false);
+    if (n < 0 || !s.nations[n].alive) continue;
+    narrowWar(g, us, n, "The Northwest Indian War");
+    foes.push(n);
   }
-  const foes = s.wars
-    .flatMap((w) => (w.a === us ? [w.b] : w.b === us ? [w.a] : []))
-    .filter((n) => !before.has(n) && s.nations[n]?.kind === "native");
   course(g).frontier = { on: true, foes };
   // The confederacy's warriors gather at Kekionga (the course holds them).
   const owner = byKey(g, "lenape");
@@ -157,7 +186,7 @@ function quasiWar(g: ConquestGame): void {
       ),
   );
   if (s.treaties.length !== before) g.treatiesChanged();
-  startWar(g, fr, us, "The Quasi-War", false);
+  narrowWar(g, fr, us, "The Quasi-War");
   course(g).quasi = true;
 }
 

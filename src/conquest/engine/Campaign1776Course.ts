@@ -1196,6 +1196,22 @@ const holds = (g: ConquestGame, at: string, who: "king" | "us") => {
   return who === "king" ? kingSide(s, h) : h === usOf(s);
 };
 
+/** The nations the United States is at war with (`powers`: only the powers and crowns, not native nations or risings). */
+function warsOf(g: ConquestGame, powers = false): number[] {
+  const us = usOf(g.s);
+  return g.s.wars
+    .flatMap((w) => (w.a === us ? [w.b] : w.b === us ? [w.a] : []))
+    .filter(
+      (n) =>
+        !powers ||
+        g.s.nations[n]?.kind === "power" ||
+        g.s.nations[n]?.kind === "crown",
+    );
+}
+
+const sameSet = (a: number[], b: number[]) =>
+  a.length === b.length && a.every((x) => b.includes(x));
+
 export const HISTORY_MARKS: HistoryMark[] = [
   {
     label: "Boston evacuated",
@@ -1298,6 +1314,34 @@ export const HISTORY_MARKS: HistoryMark[] = [
     on: [1798, 3, 31],
     check: (g) => holds(g, "Natchez", "us"),
   },
+  // The republic's wars with the powers are the course's own, and nobody
+  // else's (its quarrels with its native neighbours are the frontier's, and
+  // the computer's, as they were).
+  {
+    label: "No war with a power after the peace",
+    on: [1786, 1, 1],
+    check: (g) => warsOf(g, true).length === 0,
+  },
+  {
+    label: "The Northwest war on, and none with a power",
+    on: [1792, 1, 1],
+    check: (g) => {
+      const foes = course(g).frontier?.foes ?? [];
+      return (
+        foes.length > 0 &&
+        foes.every((f) => warsOf(g).includes(f)) &&
+        warsOf(g, true).length === 0
+      );
+    },
+  },
+  {
+    label: "The Quasi-War with France, and no other with a power",
+    on: [1799, 6, 1],
+    check: (g) =>
+      sameSet(warsOf(g, true), [
+        g.s.nations.findIndex((n) => n.key === "france"),
+      ]),
+  },
   {
     label: "Congress at Washington",
     on: [1800, 11, 18],
@@ -1315,7 +1359,7 @@ export function markDays(): { mark: HistoryMark; day: number }[] {
   return HISTORY_MARKS.map((mark) => ({
     mark,
     day: dayOf(mark.on[0], mark.on[1] - 1, mark.on[2]),
-  }));
+  })).sort((a, b) => a.day - b.day);
 }
 
 /** For the war's page: where history turned, newest first (`all`: with what followed quietly). */
