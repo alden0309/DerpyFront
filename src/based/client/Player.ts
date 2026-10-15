@@ -38,7 +38,7 @@ import {
 } from "../engine/Runtime";
 import { slotOf, SlotSave } from "../engine/Save";
 import { Boost, fluency, LANGUAGES_SKILL } from "../engine/Skills";
-import { Build, Chapter } from "../engine/Types";
+import { Build, Chapter, GEAR_SLOTS, GearSlot } from "../engine/Types";
 import {
   Credit,
   leaveNote,
@@ -48,9 +48,11 @@ import {
   WriterNote,
 } from "./Api";
 import { helpBody } from "./Help";
+import { inventoryBody } from "./Inventory";
 import { CPS, Prefs, savePrefs, TextSpeed } from "./Prefs";
 import { Ambience } from "./Sound";
 import {
+  bagIcon,
   bookIcon,
   closeIcon,
   creditsBody,
@@ -64,6 +66,8 @@ import {
   slotsBody,
   soundIcon,
   typed,
+  voice,
+  VOICES,
 } from "./Ui";
 import { WorldAssets } from "./world/Assets";
 import { pickTier, ThingOnScreen, World } from "./world/World";
@@ -88,7 +92,15 @@ export interface PlayerHost {
 interface Toast {
   id: number;
   text: string;
-  kind: "remember" | "rel" | "task" | "boost" | "help" | "saved";
+  kind:
+    | "remember"
+    | "rel"
+    | "task"
+    | "boost"
+    | "help"
+    | "saved"
+    | "item"
+    | "money";
 }
 
 interface Entry {
@@ -116,12 +128,11 @@ type Overlay =
   | "help"
   | "journal"
   | "save"
-  | "load";
+  | "load"
+  /** r22 BPLAY: what he carries, and the story so far. */
+  | "inventory";
 
 let nextId = 1;
-
-/** Each attribute's colour in the column, as Disco Elysium colours its four. */
-const ATTR_COLORS = ["#e0715a", "#7fb2e5", "#d9b45a", "#b98be0"];
 
 /** How often the game saves by itself while he's free, in seconds. */
 const AUTOSAVE_EVERY = 120;
@@ -164,6 +175,8 @@ export class BasedPlayer extends LitElement {
   @state() private rolled = false;
   @state() private tab = false;
   @state() private noWorld = false;
+  /** r22 BPLAY: the thing picked out in the inventory. */
+  @state() private invSel: string | null = null;
   @state() private avail: Available = {
     talk: [],
     look: [],
@@ -252,6 +265,7 @@ export class BasedPlayer extends LitElement {
           },
         );
         this.world.hero = this.chapter.cast[0]?.id ?? "";
+        this.dressFromGear();
         this.world.onThings = (h) => this.moveMarks(h);
         this.world.showAll = this.prefs.marks;
         this.placeInset();
@@ -476,6 +490,30 @@ export class BasedPlayer extends LitElement {
       case "prop":
         this.world?.setProp(e.key, e.on);
         break;
+      case "item": {
+        // r22 BPLAY: something into his pockets, or gone.
+        const it = this.chapter.items[e.key];
+        if (!first && it) {
+          this.toast(
+            e.delta > 0
+              ? `${it.name}${e.delta > 1 ? ` ×${e.delta}` : ""}: into his pockets.`
+              : `${it.name}: gone.`,
+            "item",
+          );
+        }
+        break;
+      }
+      case "gear":
+        this.dressFromGear();
+        break;
+      case "money":
+        if (!first) {
+          this.toast(
+            e.delta > 0 ? `+€${e.delta}` : `−€${Math.abs(e.delta)}`,
+            "money",
+          );
+        }
+        break;
       case "gesture":
         this.world?.gesture(this.bodyOf(e.who), e.name);
         break;
@@ -539,10 +577,22 @@ export class BasedPlayer extends LitElement {
     return this.chapter.skills.find((s) => s.id === id)?.name ?? id;
   }
 
+  /** r22 BPLAY: an attribute's voice: "--c" on the night, "--ci" on paper. */
+  private attrColor(attr: string): string {
+    const v = voice(this.chapter.attributes.findIndex((a) => a.id === attr));
+    return `${v.night};--ci:${v.paper}`;
+  }
+
   private skillColor(id: string): string {
     const s = this.chapter.skills.find((x) => x.id === id);
-    const i = this.chapter.attributes.findIndex((a) => a.id === s?.attr);
-    return ATTR_COLORS[Math.max(0, i) % ATTR_COLORS.length];
+    return voice(this.chapter.attributes.findIndex((a) => a.id === s?.attr))
+      .night;
+  }
+
+  private skillInk(id: string): string {
+    const s = this.chapter.skills.find((x) => x.id === id);
+    return voice(this.chapter.attributes.findIndex((a) => a.id === s?.attr))
+      .paper;
   }
 
   private toast(text: string, kind: Toast["kind"]): void {
@@ -725,6 +775,66 @@ export class BasedPlayer extends LitElement {
     if (this.beat.kind !== "investigate" || !this.beat.canLeave) return;
     this.run.leave();
     this.afterStep();
+  }
+
+  // --- what he carries (r22 BPLAY) ---------------------------------------------
+
+  /**
+   * His look and what's in his hand, from what he wears: the first worn
+   * thing with a look (only outfits with a model have one), and the held
+   * thing's drawing.
+   */
+  private dressFromGear(): void {
+    const w = this.world;
+    if (!w) return;
+    const gear = this.run.gear;
+    let look: string | null = null;
+    for (const s of GEAR_SLOTS) {
+      const it = gear[s] ? this.chapter.items[gear[s]!] : undefined;
+      if (it?.look) {
+        look = it.look;
+        break;
+      }
+    }
+    w.dressHero(look);
+    const held = gear.hand ? this.chapter.items[gear.hand] : undefined;
+    w.holdHero(held ? (held.icon ?? held.kind) : null);
+  }
+
+  /** After the player changes what he wears: the checks on screen, his eyes. */
+  private afterGear(): void {
+    for (const e of this.run.drain()) this.onEvent(e, false);
+    this.beat = this.run.beat;
+    if (this.world) this.world.perception = this.run.skills().PERCEPTION ?? 2;
+    if (this.run.free) this.setWorldState(this.beat);
+  }
+
+  private wearItem(key: string): void {
+    if (this.run.equip(key)) {
+      this.invSel = key;
+      this.afterGear();
+    }
+  }
+
+  private takeOff(slot: GearSlot): void {
+    if (this.run.unequip(slot)) this.afterGear();
+  }
+
+  private useItem(key: string): void {
+    this.ambience.unlock();
+    if (!this.run.free) return;
+    this.closeOverlay();
+    if (this.run.use(key)) this.afterStep();
+  }
+
+  /** Items with any use in the story (the Use button shows for them). */
+  private get useful(): string[] {
+    const out = new Set<string>();
+    for (const id of this.chapter.order) {
+      const t = this.chapter.scenes[id].trigger;
+      if (t?.on === "use" && t.target) out.add(t.target);
+    }
+    return [...out];
   }
 
   private think(id: string): void {
@@ -1049,6 +1159,17 @@ export class BasedPlayer extends LitElement {
       if (this.world) this.world.showAll = true;
       return;
     }
+    // The same key closes the panel it opened.
+    const toggles: Record<string, Exclude<Overlay, null>> = {
+      i: "inventory",
+      j: "journal",
+      c: "sheet",
+    };
+    const own = toggles[e.key.toLowerCase()];
+    if (own && this.overlay === own) {
+      this.closeOverlay();
+      return;
+    }
     if (this.overlay !== null) return;
     const b = this.beat;
     const pan: Record<string, [number, number]> = {
@@ -1078,6 +1199,8 @@ export class BasedPlayer extends LitElement {
       this.openOverlay("note");
     } else if (e.key === "c" || e.key === "C") {
       this.openOverlay("sheet");
+    } else if (e.key === "i" || e.key === "I") {
+      this.openOverlay("inventory");
     } else if (e.key === "j" || e.key === "J") {
       this.openOverlay("journal");
     } else if (e.key === "h" || e.key === "H" || e.key === "?") {
@@ -1306,6 +1429,14 @@ export class BasedPlayer extends LitElement {
           @click=${() => this.openOverlay("sheet")}
         >
           ${personIcon()}
+        </button>
+        <button
+          class="mb-icon"
+          title="What he carries (I)"
+          aria-label="What he carries"
+          @click=${() => this.openOverlay("inventory")}
+        >
+          ${bagIcon()}
         </button>
         <button
           class="mb-icon"
@@ -1718,44 +1849,72 @@ export class BasedPlayer extends LitElement {
 
   // --- sheets ----------------------------------------------------------------
 
+  /**
+   * Where a skill's value comes from (r22 BPLAY): its attribute, the
+   * signature step, what's happened to him, and what he's wearing.
+   */
+  private skillParts(
+    id: string,
+  ): { why: string; delta: number; gear?: boolean }[] {
+    const build = this.run.build;
+    const s = this.chapter.skills.find((x) => x.id === id);
+    const attr = this.chapter.attributes.find((a) => a.id === s?.attr);
+    const out: { why: string; delta: number; gear?: boolean }[] = [
+      { why: attr?.name ?? "", delta: build.attrs[s?.attr ?? ""] ?? 0 },
+    ];
+    if (build.signature === id) out.push({ why: "known for it", delta: 1 });
+    for (const b of this.run.boosts) {
+      if (b.skill === id) out.push({ why: b.why, delta: b.delta });
+    }
+    for (const g of this.run.gearMods()) {
+      if (g.skill === id) out.push({ why: g.why, delta: g.delta, gear: true });
+    }
+    return out;
+  }
+
   private renderSheet(): TemplateResult {
     const values = this.run.skills();
     const build = this.run.build;
-    const boosts = this.run.boosts;
     const arch = this.chapter.archetypes.find((a) => a.id === build.archetype);
     const langs = (build.langs ?? [])
       .map((c) => this.chapter.languages.find((l) => l.code === c)?.name ?? c)
       .join(", ");
-    return html`<h2>Your skills</h2>
-      <p class="mb-sheet-sub">
-        ${arch ? html`${arch.name}. ${arch.about}` : "His own man."}
-      </p>
+    const gear = this.run.gearMods();
+    const sign = (n: number) => (n > 0 ? `+${n}` : `−${Math.abs(n)}`);
+    return html`<div class="mb-file">
+      <header class="mb-file-head">
+        <h2>Your skills</h2>
+        <p class="mb-file-sub">
+          ${arch ? html`<b>${arch.name}.</b> ${arch.about}` : "His own man."}
+        </p>
+      </header>
       <div class="mb-skills">
         ${this.chapter.attributes.map(
-          (a, i) =>
-            html`<section
-              class="mb-attr"
-              style="--c:${ATTR_COLORS[i % ATTR_COLORS.length]}"
-            >
+          (a) =>
+            html`<section class="mb-attr" style="--c:${this.attrColor(a.id)}">
               <div class="mb-attr-head">
-                <b>${a.name.toUpperCase()}</b>
+                <span class="mb-attr-name">${a.name}</span>
                 <span class="mb-attr-val">${build.attrs[a.id] ?? 0}</span>
               </div>
               <p class="mb-attr-about">${a.about}</p>
               ${this.chapter.skills
                 .filter((s) => s.attr === a.id)
-                .map(
-                  (s) =>
-                    html`<div class="mb-skill">
-                      <div class="mb-skill-name">
-                        ${s.name}${build.signature === s.id
-                          ? html` <span class="mb-sig">signature</span>`
-                          : nothing}
-                      </div>
-                      <div class="mb-skill-val">${values[s.id] ?? 0}</div>
-                      <div class="mb-skill-about">${s.about}</div>
-                    </div>`,
-                )}
+                .map((s) => {
+                  const parts = this.skillParts(s.id);
+                  return html`<div class="mb-skill">
+                    <div class="mb-skill-name">${s.name}</div>
+                    <div class="mb-skill-val">${values[s.id] ?? 0}</div>
+                    <div class="mb-skill-about">${s.about}</div>
+                    <div class="mb-skill-from">
+                      ${parts.map(
+                        (p, i) =>
+                          html`<span class=${p.gear ? "gear" : ""}
+                            >${i === 0 ? p.delta : sign(p.delta)} ${p.why}</span
+                          >`,
+                      )}
+                    </div>
+                  </div>`;
+                })}
             </section>`,
         )}
       </div>
@@ -1765,27 +1924,27 @@ export class BasedPlayer extends LitElement {
             and American English.
           </p>`
         : nothing}
-      ${boosts.length > 0
-        ? html`<div class="mb-panel-sub">On his mind</div>
+      ${gear.length > 0
+        ? html`<div class="mb-file-sub2">What he's wearing does</div>
             <ul class="mb-boosts">
-              ${boosts.map(
-                (x) =>
+              ${gear.map(
+                (g) =>
                   html`<li>
-                    <b
-                      >${x.delta > 0 ? "+" : ""}${x.delta}
-                      ${this.skillName(x.skill)}</b
-                    >
-                    ${x.why}
+                    <b>${sign(g.delta)} ${this.skillName(g.skill)}</b>
+                    ${g.why}
                   </li>`,
               )}
             </ul>`
         : nothing}
       <p class="mb-sheet-foot">
-        Checks are two dice plus the skill against the difficulty. A double six
-        always succeeds, a double one always fails. White checks can be tried
-        again when something changes; red ones only once. His skills also speak
-        up on their own when they're good enough (skill + 6).
-      </p>`;
+        A check is two dice plus the skill against the difficulty; a double six
+        always passes, a double one always fails. Checks in pencil can be tried
+        again when something changes (a skill rises, he learns something, he
+        puts on something that helps); checks in ink are one throw. His skills
+        also speak up by themselves when they're good enough: the skill plus
+        six.
+      </p>
+    </div>`;
   }
 
   private renderJournal(): TemplateResult {
@@ -1896,6 +2055,30 @@ export class BasedPlayer extends LitElement {
     if (o === "sheet")
       return sheet(html`${this.renderSheet()} ${back}`, "tall");
     if (o === "journal") return sheet(html`${this.renderJournal()} ${back}`);
+    if (o === "inventory") {
+      const avail = this.run.free
+        ? this.run.available([]).use
+        : ([] as string[]);
+      return sheet(
+        html`${inventoryBody({
+          items: this.chapter.items,
+          pockets: this.run.items,
+          gear: this.run.gear,
+          money: this.run.euros,
+          selected: this.invSel,
+          usable: avail,
+          useful: this.useful,
+          free: this.run.free,
+          skillName: (id) => this.skillName(id),
+          skillColor: (id) => this.skillInk(id),
+          select: (k) => (this.invSel = k),
+          equip: (k) => this.wearItem(k),
+          unequip: (slot) => this.takeOff(slot),
+          use: (k) => this.useItem(k),
+        })}`,
+        "paper inventory",
+      );
+    }
     if (o === "save" || o === "load") {
       return sheet(
         html`<h2>${o === "save" ? "Save game" : "Load game"}</h2>
@@ -1915,7 +2098,7 @@ export class BasedPlayer extends LitElement {
     if (o === "help") {
       const touch = window.matchMedia?.("(pointer: coarse)").matches ?? false;
       return sheet(
-        html`${helpBody(this.chapter, ATTR_COLORS, touch)} ${back}`,
+        html`${helpBody(this.chapter, VOICES, touch)} ${back}`,
         "tall",
       );
     }

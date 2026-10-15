@@ -18,7 +18,7 @@ const SHOWN_TIERS = [
 
 export function helpBody(
   chapter: Chapter,
-  colors: string[],
+  colors: readonly { night: string; paper: string }[],
   touch: boolean,
 ): TemplateResult {
   const click = touch ? "Tap" : "Click";
@@ -106,7 +106,7 @@ export function helpBody(
     <ul class="mb-help mb-help-skills">
       ${chapter.attributes.map(
         (a, i) =>
-          html`<li style="--c:${colors[i % colors.length]}">
+          html`<li style="--c:${colors[i % colors.length].paper}">
             <b>${a.name}</b>:
             ${chapter.skills
               .filter((s) => s.attr === a.id)

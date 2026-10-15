@@ -19,7 +19,7 @@ import {
 } from "../engine/Skills";
 import { Build, Chapter } from "../engine/Types";
 
-const COLORS = ["#e0715a", "#7fb2e5", "#d9b45a", "#b98be0"];
+import { voice } from "./Ui";
 
 @customElement("based-setup")
 export class BasedSetup extends LitElement {
@@ -130,7 +130,7 @@ export class BasedSetup extends LitElement {
               <div class="mb-arch-attrs">
                 ${c.attributes.map(
                   (x, i) =>
-                    html`<span style="--c:${COLORS[i % COLORS.length]}"
+                    html`<span style="--c:${voice(i).paper}"
                       ><b>${a.attrs[x.id]}</b> ${x.name}</span
                     >`,
                 )}
@@ -168,7 +168,7 @@ export class BasedSetup extends LitElement {
             (a, i) =>
               html`<section
                 class="mb-attr"
-                style="--c:${COLORS[i % COLORS.length]}"
+                style="--c:${voice(i).night};--ci:${voice(i).paper}"
               >
                 <div class="mb-attr-head">
                   <b>${a.name.toUpperCase()}</b>

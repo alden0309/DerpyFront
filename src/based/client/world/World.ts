@@ -37,7 +37,7 @@ import { WorldAssets } from "./Assets";
 import { buildItem, KitContext, PieceLight } from "./Kit";
 // BPEOPLE (r22): lookFor (a look, with the cast member's own model) and warmCast.
 import { Look, lookFor, Person, Pose, warmCast } from "./People";
-import { setGait, setWetness } from "./PeopleHooks";
+import { holdProp, setGait, setWetness, wearLook } from "./PeopleHooks";
 import { Post } from "./Post";
 import { SurfaceBook } from "./Textures";
 import {
@@ -265,6 +265,12 @@ export class World {
   showAll = false;
   /** Investigations that keep him put: he reads from where he is. */
   still = false;
+  /**
+   * BPLAY (r22): the look his clothes give him (null: his cast look), and
+   * what he holds: a prop the world draws at his right hand.
+   */
+  private heroLook: string | null = null;
+  private held: { kind: string; prop: THREE.Group; own: boolean } | null = null;
   onThings: ((h: ThingOnScreen[]) => void) | null = null;
   /** Called when a set of things noticed changes (for the column). */
   onNoticed: ((ids: string[]) => void) | null = null;
@@ -870,7 +876,9 @@ export class World {
 
   private person(id: string, wear?: string): Person | null {
     const c = this.cast.find((x) => x.id === id);
-    const lookName = wear ?? c?.look;
+    // BPLAY (r22): his clothes' look, unless the story dresses him itself.
+    const lookName =
+      wear ?? (id === this.hero ? (this.heroLook ?? c?.look) : c?.look);
     if (!lookName) return null;
     // BPEOPLE (r22): their own model (the cast's, or their look's) in every wear=.
     const look = lookFor(lookName, c?.model ?? lookFor(c?.look).model);
@@ -1046,6 +1054,69 @@ export class World {
   heroAt(): THREE.Vector3 | null {
     const p = this.people.get(this.hero);
     return p && p.root.visible ? p.root.position.clone() : null;
+  }
+
+  /**
+   * BPLAY (r22): the look his clothes give him. Only an outfit with a model
+   * changes him (the owner's field jacket, today); clothes without one keep
+   * him as he is, so a null here leaves his appearance alone.
+   */
+  dressHero(look: string | null): void {
+    if (look === null || look === this.heroLook) return;
+    this.heroLook = look;
+    const p = this.people.get(this.hero);
+    if (!p || p.root.visible === false) return;
+    if (wearLook(p, look)) return;
+    // Rebuilt in the new look, where he stood.
+    this.person(this.hero);
+  }
+
+  /**
+   * BPLAY (r22): what he holds: "umbrella", "baton", any other drawing's
+   * name for a small thing, or null for empty hands. Open over his head
+   * outdoors, an umbrella keeps the rain off him.
+   */
+  holdHero(kind: string | null): void {
+    if (this.held?.kind === kind) return;
+    if (this.held) {
+      const p = this.people.get(this.hero);
+      if (this.held.own && p) holdProp(p, null);
+      this.held.prop.removeFromParent();
+      this.held.prop.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.isMesh) m.geometry.dispose();
+      });
+      this.held = null;
+    }
+    if (kind === null) return;
+    const prop = heldProp(kind);
+    const p = this.people.get(this.hero);
+    const own = !!p && holdProp(p, prop);
+    this.held = { kind, prop, own };
+  }
+
+  /** Keeps a held prop at his hand (when the person doesn't carry it). */
+  private carryHeld(): void {
+    const h = this.held;
+    const p = this.people.get(this.hero);
+    if (!h || h.own || !p || !this.place) return;
+    if (h.prop.parent !== this.place.scene) this.place.scene.add(h.prop);
+    h.prop.visible = p.root.visible;
+    if (!p.root.visible) return;
+    const hand = p.bone("hand_r");
+    if (hand) hand.getWorldPosition(this.v3);
+    else this.v3.copy(p.root.position).setY(0.95);
+    h.prop.position.copy(this.v3);
+    h.prop.rotation.set(0, p.heading, 0);
+    // The umbrella opens over him outdoors and hangs closed indoors.
+    const open = h.prop.getObjectByName("open");
+    const shut = h.prop.getObjectByName("shut");
+    if (open && shut) {
+      const area = this.areaOf(p.root.position.x, p.root.position.z);
+      const out = this.place.outdoor && area?.inside !== true;
+      open.visible = out && p.pose !== "sit";
+      shut.visible = !open.visible;
+    }
   }
 
   /** Where he stands, which way he faces and how wet he is: for a save. */
@@ -1657,12 +1728,23 @@ export class World {
       const area = place ? this.areaOf(at.x, at.z) : null;
       const out = !!place?.outdoor && area?.inside !== true;
       const was = this.wet.get(id) ?? 0;
-      const now = stepWetness(was, out ? this.weather.rain : 0, !out, dt);
+      // BPLAY (r22): under an open umbrella, only a little gets through.
+      const shelter =
+        id === this.hero && this.held?.kind === "umbrella" && p.pose !== "sit"
+          ? 0.08
+          : 1;
+      const now = stepWetness(
+        was,
+        out ? this.weather.rain * shelter : 0,
+        !out,
+        dt,
+      );
       this.wet.set(id, now);
       if (Math.abs(now - was) > 0 || this.frameNo % 60 === 0) {
         if (Math.floor(now * 50) !== Math.floor(was * 50)) setWetness(p, now);
       }
     }
+    this.carryHeld();
     this.updateCamera(dt);
     if (place) {
       for (const t of place.ticks) t(this.time);
@@ -1816,4 +1898,69 @@ export class World {
     this.env.dispose();
     this.renderer.dispose();
   }
+}
+
+/**
+ * BPLAY (r22): a prop for his right hand. Its origin is the hand; it faces
+ * the way he does. The umbrella has two states, "open" (over his head) and
+ * "shut" (hanging from his hand).
+ */
+function heldProp(kind: string): THREE.Group {
+  const g = new THREE.Group();
+  g.name = `held:${kind}`;
+  const black = new THREE.MeshStandardMaterial({
+    color: "#0d0e10",
+    roughness: 0.45,
+  });
+  const cast = (m: THREE.Mesh) => {
+    m.castShadow = true;
+    return m;
+  };
+  if (kind === "umbrella") {
+    const open = new THREE.Group();
+    open.name = "open";
+    const shaft = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.0, 6), black),
+    );
+    shaft.position.set(-0.08, 0.5, 0.02);
+    shaft.rotation.z = 0.08;
+    const canopy = cast(
+      new THREE.Mesh(
+        new THREE.ConeGeometry(0.62, 0.26, 10, 1, true),
+        new THREE.MeshStandardMaterial({
+          color: "#0b0c0e",
+          roughness: 0.3,
+          side: THREE.DoubleSide,
+        }),
+      ),
+    );
+    canopy.position.set(-0.12, 1.08, 0.02);
+    open.add(shaft, canopy);
+    const shut = new THREE.Group();
+    shut.name = "shut";
+    const furled = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.01, 0.85, 8), black),
+    );
+    furled.position.y = -0.42;
+    shut.add(furled);
+    g.add(open, shut);
+  } else if (kind === "baton") {
+    const b = cast(
+      new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.016, 0.32, 8), black),
+    );
+    b.position.set(0, -0.12, 0.04);
+    b.rotation.x = 0.35;
+    g.add(b);
+  } else {
+    // Something small in his hand: a dark shape the size of a paperback.
+    const m = cast(
+      new THREE.Mesh(
+        new THREE.BoxGeometry(0.1, 0.14, 0.03),
+        new THREE.MeshStandardMaterial({ color: "#2a2826", roughness: 0.7 }),
+      ),
+    );
+    m.position.set(0, -0.06, 0.03);
+    g.add(m);
+  }
+  return g;
 }

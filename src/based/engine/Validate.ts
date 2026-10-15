@@ -21,7 +21,10 @@ import { exprReads } from "./Expr";
 import { PlaceDef, placeNames } from "./Place";
 import { Chapter, END, Expr, FREE, Op, Scene } from "./Types";
 
-/** The items a condition needs him to have (not those it hopes he hasn't). */
+/**
+ * The items a condition needs him to have (not those it hopes he hasn't).
+ * Treated as "any of them": `has.matchbook or has.brass_lighter` needs one.
+ */
 function wantedItems(e: Expr | undefined, neg = false, out: string[] = []) {
   if (!e) return out;
   switch (e.k) {
@@ -227,8 +230,9 @@ export function validateChapter(
     if (t.place !== undefined && places && !places[t.place]) {
       add("error", id, scene.src, `@on ... in=${t.place}: no such place`);
     }
-    for (const k of wantedItems(t.cond)) {
-      needs.push({ scene: id, at: 0, items: [k], line: scene.src });
+    const wanted = wantedItems(t.cond);
+    if (wanted.length > 0) {
+      needs.push({ scene: id, at: 0, items: wanted, line: scene.src });
     }
     if (t.on === "use") {
       item(t.target!, id, scene.src);
@@ -355,8 +359,9 @@ export function validateChapter(
             if (o.needs) {
               needs.push({ scene: id, at, items: o.needs, line: op.src });
             }
-            for (const k of wantedItems(o.cond)) {
-              needs.push({ scene: id, at, items: [k], line: op.src });
+            const wanted = wantedItems(o.cond);
+            if (wanted.length > 0) {
+              needs.push({ scene: id, at, items: wanted, line: op.src });
             }
           }
           const always = op.options.filter(
