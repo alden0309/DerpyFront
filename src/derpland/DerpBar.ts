@@ -89,8 +89,9 @@ export const BAR_LABELS: BarLabels = {
   yourCoins: "Your Derp Coins",
   derpCoins: "Derp Coins",
   frontBlurb: "Paint the map your color in real time, then betray your allies.",
+  // CQ24 (r24): the owner's new words for Derpy Conquest.
   conquestBlurb:
-    "Govern a colony in the 1600s Americas for a crown that wants paying.",
+    "Live one life in the colonial Americas. Make history, or be one of the many who kept it moving.",
   dialogBlurb:
     "One account for DerpyFront and Derpy Conquest. Your Derp Coins and skins come with you.",
   username: "Username",
