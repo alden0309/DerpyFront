@@ -1,3 +1,4 @@
+import { GameAwards } from "@openfront/engine-api/game/Awards";
 import { GameType } from "@openfront/engine-api/game/GameTypes";
 import {
   AllPlayersStats,
@@ -36,7 +37,7 @@ describe("settling a disputed winner vote by replay", () => {
   const B = cid("bob");
   const C = cid("carol");
   let archive: ReturnType<
-    typeof vi.fn<(r: PartialGameRecord) => Promise<void>>
+    typeof vi.fn<(r: PartialGameRecord, awards?: GameAwards) => Promise<void>>
   >;
   let log: ReturnType<typeof mockLogger>;
   let resolveReplay: (r: ReplayedWinner | null) => void;
@@ -351,6 +352,26 @@ describe("settling a disputed winner vote by replay", () => {
       simulated[A],
     );
     expect(record.info.statsAgreed).toBe(true);
+  });
+
+  // Derpy Front pays the end-of-game awards in Derp Coins, so a game the
+  // replay settles hands the archive the replay's awards.
+  it("hands the archive the replay's awards", async () => {
+    const awards: GameAwards = [
+      { kind: "mvp", name: "alice", clientID: A, value: 7 },
+    ];
+    const { clients } = play([A, B]);
+    await vote(clients[0], ["player", A]);
+    await disconnect(clients[1]);
+    expect(replayWinner).toHaveBeenCalledTimes(1);
+    resolveReplay({
+      winner: ["player", A],
+      allPlayersStats: {},
+      tick: 90,
+      awards,
+    });
+    await archivedOnce();
+    expect(archive.mock.calls[0][1]).toEqual(awards);
   });
 
   it("falls back to a lone voter's result, not agreed, when its replay fails", async () => {

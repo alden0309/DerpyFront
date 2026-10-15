@@ -37,7 +37,7 @@ export async function getMapLandTilesForSize(
   const cached = landTiles4xCache.get(map);
   if (cached !== undefined) return cached;
   try {
-    const raw = await readManifestFile(map);
+    const raw = (await readMapFile(map, "manifest.json")).toString("utf8");
     const tiles = (JSON.parse(raw) as { map4x: { num_land_tiles: number } })
       .map4x.num_land_tiles;
     landTiles4xCache.set(map, tiles);

@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+// (r24: only tests/client run under jsdom by default since OpenFront's #5937)
 // FIXES (r15): the owner's questions, and what was put right. Polls are
 // counted at the turn of the month, so the dates shown are the day of the
 // count; friendships no longer end without a word; a teacher who was a

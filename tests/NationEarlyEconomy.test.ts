@@ -295,7 +295,13 @@ describe("Nation structure upgrades", () => {
       {
         difficulty,
         gameMode: ffa,
-        disabledUnits: [UnitType.City, UnitType.Factory, UnitType.MissileSilo],
+        // Capital mod: no Capital first, as above.
+        disabledUnits: [
+          UnitType.City,
+          UnitType.Factory,
+          UnitType.MissileSilo,
+          UnitType.Capital,
+        ],
       },
       { size: 200 },
     );
@@ -348,7 +354,12 @@ describe("Nation structure upgrades", () => {
   // Two cities and a port leave nothing else due, and are dense enough to upgrade a city.
   // The nation saves up 30M for a MIRV and a hydrogen bomb.
   function withCities(difficulty: Difficulty) {
-    const setup = setupCoast({ difficulty, gameMode: ffa });
+    const setup = setupCoast({
+      difficulty,
+      gameMode: ffa,
+      // Capital mod: no Capital first, as above.
+      disabledUnits: [UnitType.Capital],
+    });
     const { game, nation, cities } = setup;
     cities(2);
     nation.buildUnit(UnitType.Port, game.ref(24, 50), {});

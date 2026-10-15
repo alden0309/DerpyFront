@@ -597,7 +597,8 @@ describe("getDefaultKeybinds", () => {
     expect(keybinds.selectAllWarships).toBe("KeyX");
     expect(keybinds.emojiMenu).toBe("KeyF");
     expect(keybinds.quickChat).toBe("KeyR");
-    expect(keybinds.targetPlayer).toBe("KeyN");
+    // Derpy Front: N builds a Dome of Alden, so targeting is on J
+    expect(keybinds.targetPlayer).toBe("KeyJ");
     expect(keybinds.buildMenuModifier).toBe("ControlLeft");
     expect(keybinds.moveUpArrow).toBe("ArrowUp");
     expect(keybinds.moveLeftArrow).toBe("ArrowLeft");

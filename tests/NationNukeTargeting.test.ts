@@ -181,7 +181,7 @@ describe("Nation nuke targeting", () => {
       const { game, nation, human } = await setupDuel(true);
       const other = game.player("other_id");
       conquerRect(game, other, 20, 150, 60, 190);
-      nation.updateRelation(other, -100);
+      nation.updateRelation(other, -100, "attacked");
       if (bombInFlight) {
         human.buildUnit(UnitType.HydrogenBomb, game.ref(150, 150), {
           targetTile: game.ref(5, 5),

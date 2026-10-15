@@ -70,7 +70,9 @@ afterEach(() => {
   ClientEnv.reset();
 });
 
-describe("Ranked button trust lock", () => {
+// Derpy Front: the home page has no Ranked button (ranked play needs
+// OpenFront's own servers and players), so the tests of it are skipped.
+describe.skip("Ranked button trust lock", () => {
   it("shows no lock before /users/@me has answered", async () => {
     const selector = await mount();
     expect(rankedLock(selector)).toBeNull();
@@ -107,7 +109,7 @@ describe("Ranked button trust lock", () => {
   });
 });
 
-describe("Ranked button opens the ranked modal regardless of trust", () => {
+describe.skip("Ranked button opens the ranked modal regardless of trust", () => {
   let showPage: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {

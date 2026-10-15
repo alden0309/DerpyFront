@@ -531,9 +531,11 @@ describe("determinism and editions", () => {
     };
   }
 
-  // Recorded on the commit before AIP (r23), with rules 5 the current edition
-  const EDITION5_PACKS = { hashes: 916469549, lastHash: 4512483952059562 };
-  const EDITION5_PLAIN = { hashes: 1123615422, lastHash: 4184898459281821 };
+  // Recorded on the commit before AIP (r23), with rules 5 the current
+  // edition, and again on the merge with OpenFront's 2026-10-14 main (r24),
+  // whose nation and attack changes play every game differently
+  const EDITION5_PACKS = { hashes: 622165599, lastHash: 3680684990507938 };
+  const EDITION5_PLAIN = { hashes: 227177588, lastHash: 8882424255780213 };
 
   test("edition 5 games, with AI personality packs or without, play exactly as before", async () => {
     const packs = await play({

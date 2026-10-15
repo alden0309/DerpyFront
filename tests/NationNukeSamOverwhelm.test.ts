@@ -221,7 +221,7 @@ describe("NationNukeBehavior - maybeDestroyEnemySam", () => {
       human.buildUnit(UnitType.SAMLauncher, samTile, {});
       // 20 tiles from the SAM, inside the atom bomb's 30-tile blast
       conquerRect(game, other, 170, 130, 185, 170);
-      nation.updateRelation(human, -100);
+      nation.updateRelation(human, -100, "attacked");
       if (allied) nation.createAllianceRequest(other)?.accept();
 
       sendNukes(game, nation);

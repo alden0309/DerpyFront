@@ -111,6 +111,8 @@ describe("PlayerPanel - level badge", () => {
       myClientID: () => "me",
     };
     (panel as any).renderTraitorBadge = () => "";
+    // Derpy Front: the AI personality badge (AIP r23) has its own tests
+    (panel as any).renderPersonality = () => "";
     (panel as any).renderRelationPillIfNation = () => "";
   });
 
@@ -199,6 +201,8 @@ describe("PlayerPanel - your own badge without the lobby roster", () => {
     };
     (panel as any).eventBus = { on: vi.fn() };
     (panel as any).renderTraitorBadge = () => "";
+    // Derpy Front: the AI personality badge (AIP r23) has its own tests
+    (panel as any).renderPersonality = () => "";
     (panel as any).renderRelationPillIfNation = () => "";
     panel.init();
     await getUserMe.mock.results[0]?.value;

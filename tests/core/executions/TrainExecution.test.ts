@@ -87,7 +87,8 @@ describe("TrainExecution", () => {
 
     expect(exec.isActive()).toBe(true);
     expect(onTrainStop).toHaveBeenCalledTimes(1);
-    expect(player.trainGold()).toBe(10_000n);
+    // Derpy Front (rules 3+) pays double at your own stations
+    expect(player.trainGold()).toBe(20_000n);
   });
 
   it("does not visit or pay a station inserted behind the engine", async () => {
@@ -116,7 +117,8 @@ describe("TrainExecution", () => {
     exec.tick(3);
 
     expect(onTrainStop).toHaveBeenCalledTimes(1);
-    expect(player.trainGold()).toBe(10_000n);
+    // Derpy Front (rules 3+) pays double at your own stations
+    expect(player.trainGold()).toBe(20_000n);
   });
 
   it("does not revisit a passed station while travelling in reverse", async () => {

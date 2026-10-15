@@ -237,6 +237,9 @@ describe("relation reasons: what the game records", () => {
   });
 
   test("tribes keep reasons too", () => {
+    // An attack needs a border to cross (upstream #5821), so a foothold
+    // beside the tribe's land
+    me.conquer(game.ref(10, 5));
     game.addExecution(new AttackExecution(100, me, tribe.id()));
     game.executeNextTick();
     expect(reasonsOf(tribe, me)).toEqual({

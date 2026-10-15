@@ -204,7 +204,8 @@ describe("PlayerInfoOverlay", () => {
       const out = showWith(1200, false);
       expect(out).toContain("player_panel.chat");
       expect(out).toContain("player_panel.emotes");
-      expect(out).toContain("sm:w-[598px]");
+      // Derpy Front's panel is 600 wide, so 698 with the buttons
+      expect(out).toContain("sm:w-[698px]");
     });
 
     it("leave out chat when hovering my own territory", () => {
@@ -221,14 +222,14 @@ describe("PlayerInfoOverlay", () => {
       const out = showWith(1199, false);
       expect(out).not.toContain("player_panel.chat");
       expect(out).not.toContain("player_panel.emotes");
-      expect(out).toContain("sm:w-[500px]");
+      expect(out).toContain("sm:w-[600px]");
     });
 
     it("hide on touch devices", () => {
       const out = showWith(1400, true);
       expect(out).not.toContain("player_panel.chat");
       expect(out).not.toContain("player_panel.emotes");
-      expect(out).toContain("sm:w-[500px]");
+      expect(out).toContain("sm:w-[600px]");
     });
   });
 

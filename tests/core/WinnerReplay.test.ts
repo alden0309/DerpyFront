@@ -85,6 +85,8 @@ describe("replayWinner", () => {
     expect(replayed.winner).toEqual(win.winner);
     expect(replayed.allPlayersStats).toEqual(win.allPlayersStats);
     expect(replayed.tick).toBe(turns.length);
+    // Derpy Front: the awards ride along, so a replayed game still pays them
+    expect(replayed.awards).toEqual(win.awards);
   });
 
   it("follows the turn log, not anyone's claim", async () => {
@@ -102,6 +104,7 @@ describe("replayWinner", () => {
     );
     expect(replayed.winner).toBeUndefined();
     expect(replayed.tick).toBeNull();
+    expect(replayed.awards).toBeUndefined();
     expect(Object.keys(replayed.allPlayersStats).sort()).toEqual([P1, P2]);
   });
 });

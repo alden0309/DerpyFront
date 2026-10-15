@@ -1,3 +1,4 @@
+import { GameAwards } from "@openfront/engine-api/game/Awards";
 import {
   ErrorUpdate,
   GameUpdateType,
@@ -19,6 +20,9 @@ export interface ReplayedWinner {
   allPlayersStats: AllPlayersStats;
   // The tick the simulation declared the result on; null if it never did.
   tick: number | null;
+  // Derpy Front: the end-of-game awards the Win update carried (none when
+  // the turns ran out first), so a replayed game still pays them.
+  awards?: GameAwards;
 }
 
 /**
@@ -56,6 +60,7 @@ export async function replayWinner(
         winner: w.winner,
         allPlayersStats: w.allPlayersStats,
         tick: runner.game.ticks(),
+        awards: w.awards,
       };
     }
   }

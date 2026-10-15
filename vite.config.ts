@@ -454,13 +454,11 @@ export default defineConfig(({ mode }) => {
                   ["howler", "zod"].some((module) => id.includes(module)),
                 priority: 2,
               },
-              // Everything the page needs at startup stays in the entry
-              // chunk. Without this, a module shared by the entry and the
-              // lazily loaded screens (Lit, translateText, the cosmetics
-              // catalog, ...) can be split into chunks of its own, each one
-              // more request before the page can start, for no saving: the
-              // entry needs them all anyway.
-              { name: "index", tags: ["$initial"], priority: 1 },
+              // Derpy Front: no "$initial" group (OpenFront's, which keeps
+              // everything a page needs at startup in its entry chunk). With
+              // Derp Land's four pages it put every page's startup code into
+              // one chunk that each page loaded and ran, so the hub, Conquest
+              // and Mr. Based would also start DerpyFront (and each other).
             ],
           },
         },

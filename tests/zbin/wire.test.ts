@@ -569,8 +569,11 @@ describe("zbin wire: chat moved nothing", () => {
         ],
       },
     };
+    // Recorded again on the merge with OpenFront's 2026-10-14 main (r24):
+    // its new quick chat phrase (attack.crown) moved greet.hello's index from
+    // 23 to 24 (0x17 to 0x18), the only byte that changed.
     expect(hex(encodeServerMessage(msg, createGameWireContext(roster)))).toBe(
-      "0000e1210300010002000000000004804012020001170a010103",
+      "0000e1210300010002000000000004804012020001180a010103",
     );
   });
 

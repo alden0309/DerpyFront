@@ -22,7 +22,10 @@ import {
  * tribes and three scripted humans who attack, nuke, ally, betray, gift,
  * embargo, target and emoji), on every difficulty and as a team game. The
  * expected values were recorded on the commit before the feature existed
- * (bd7450b7): the game hash every 100 ticks (as a digest, and the last one),
+ * (bd7450b7), and recorded again on the merge with OpenFront's 2026-10-14
+ * main (r24), whose nation and attack changes play every game differently,
+ * once the same games were seen to come out the same with the panel opened
+ * and without: the game hash every 100 ticks (as a digest, and the last one),
  * and at the end a digest of every relation value and the alliances in
  * force. Relations aren't in the game hash, so their digest shows the
  * nations' feelings came out the same too.
@@ -131,50 +134,51 @@ const CASES: [string, Partial<GameConfig>, Fingerprint][] = [
     "easy",
     { difficulty: Difficulty.Easy },
     {
-      hashes: 1486167213,
-      lastHash: 2519264077921894,
-      relations: 548539663,
-      alliances: "10-11,11-53,2-19,2-53,3-10,3-11,3-19,3-23,3-29,3-5,3-50,6-50",
+      hashes: 1934719460,
+      lastHash: 4072150276057829,
+      relations: 347108884,
+      alliances:
+        "1-18,1-30,1-31,1-44,1-54,10-11,10-13,10-31,14-40,3-10,3-11,3-14,3-17,3-24,3-30,3-31,3-41,3-44,3-48,3-52,3-54,3-55,3-6,3-9,4-10",
     },
   ],
   [
     "medium",
     { difficulty: Difficulty.Medium },
     {
-      hashes: 448945092,
-      lastHash: 1329588575458908,
-      relations: 1297502768,
-      alliances: "1-2,1-27,2-23,2-27,2-29,5-14",
+      hashes: 568997880,
+      lastHash: 7709514715928215,
+      relations: 58264025,
+      alliances: "4-10,4-6,7-14,9-11,9-13",
     },
   ],
   [
     "hard",
     { difficulty: Difficulty.Hard },
     {
-      hashes: 2134044515,
-      lastHash: 1445002337337683,
-      relations: 1628788095,
-      alliances: "1-12,1-2,1-29,12-15,2-15,2-19,2-29,2-8,5-7",
+      hashes: 94926099,
+      lastHash: 18983605163368156,
+      relations: 980618766,
+      alliances: "10-13,12-14,12-15,13-15,7-15",
     },
   ],
   [
     "impossible",
     { difficulty: Difficulty.Impossible },
     {
-      hashes: 1829128710,
-      lastHash: 19227645657391440,
-      relations: 2122634716,
-      alliances: "11-12,12-13,14-15,5-11,7-14",
+      hashes: 1032225940,
+      lastHash: 11112889899028864,
+      relations: 832348149,
+      alliances: "",
     },
   ],
   [
     "medium teams",
     { difficulty: Difficulty.Medium, gameMode: GameMode.Team, playerTeams: 3 },
     {
-      hashes: 123480867,
-      lastHash: 4167163903960013,
-      relations: 2006369646,
-      alliances: "1-2,1-48,1-5,2-19,2-27,2-48,3-48",
+      hashes: 1509931442,
+      lastHash: 3556421396667646,
+      relations: 1151014637,
+      alliances: "12-14",
     },
   ],
 ];

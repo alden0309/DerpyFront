@@ -1387,11 +1387,12 @@ describe("InputHandler AutoUpgrade", () => {
       inputHandler.initialize();
     });
 
-    test("N targets the player under the cursor", () => {
+    // Derpy Front: N builds a Dome of Alden, so targeting is J
+    test("J targets the player under the cursor", () => {
       const targets: DoTargetPlayerEvent[] = [];
       eventBus.on(DoTargetPlayerEvent, (e) => targets.push(e));
 
-      window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyN" }));
+      window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyJ" }));
 
       expect(targets).toHaveLength(1);
       // No tile: the runner uses the one under the cursor.

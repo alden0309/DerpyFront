@@ -63,6 +63,15 @@ const PREVIEW_FOLDER_EXCEPTIONS: Set<GameMapName> = new Set([
   "Tourney4",
 ]);
 
+// Derpy Front's own maps: games on them are archived by our own server
+// (DerpyGames), not OpenFront's API, and shared links are ours too, so the
+// API's map-name rules and its link-preview folders don't apply to them.
+const DERPY_API_EXEMPT_MAPS: Set<GameMapName> = new Set([
+  "ChinaRomanceOfTheThreeKingdoms",
+  "KeeneRoad500Detailed",
+  "WashingtonDCDetailed",
+]);
+
 // Keys in the en.json "map" section that are UI strings, not map names.
 const EN_JSON_META_KEYS = new Set([
   "map",
@@ -185,6 +194,7 @@ describe("Map consistency", () => {
   test("Map names are ones the API accepts", () => {
     const errors: string[] = [];
     for (const key of allMapKeys) {
+      if (DERPY_API_EXEMPT_MAPS.has(key)) continue;
       const name = GameMapType[key];
       if (!API_MAP_NAME.test(name)) {
         errors.push(
@@ -208,6 +218,7 @@ describe("Map consistency", () => {
   test("Map folders follow from map names (link-preview thumbnails)", () => {
     const errors: string[] = [];
     for (const key of allMapKeys) {
+      if (DERPY_API_EXEMPT_MAPS.has(key)) continue;
       const name = GameMapType[key];
       const fromName = name.toLowerCase().replace(/[\s.()-]+/g, "");
       const matches = fromName === toFolderName(key);
