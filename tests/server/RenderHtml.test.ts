@@ -390,14 +390,11 @@ describe("RenderHtml environment-only render", () => {
     expect(config.serverHost).toBe("blue.openfront.io");
   });
 
-  it("renders valid Schema.org VideoGame JSON-LD", async () => {
+  // Derpy Front (r24): upstream's Schema.org data names OpenFront, so our
+  // page carries none.
+  it("renders no Schema.org JSON-LD naming OpenFront", async () => {
     const html = await renderHtmlContent(REAL_TEMPLATE);
-    const match = html.match(
-      /<script type="application\/ld\+json">([\s\S]*?)<\/script>/,
-    );
-    expect(match).not.toBeNull();
-    const data = JSON.parse(match![1]);
-    expect(data["@type"]).toBe("VideoGame");
-    expect(data.name).toBe("OpenFront");
+    expect(html).not.toContain("application/ld+json");
+    expect(html).not.toContain('"name": "OpenFront"');
   });
 });
