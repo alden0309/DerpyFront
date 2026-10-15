@@ -1,6 +1,26 @@
 {
-  "note": "Every picture is graded (cool shadows, amber highlights), cropped to 16:9 or 4:5 and compressed to WebP. The sound is looped, and muffled for the inside of the bar. Adaptations of CC BY-SA works are shared under the same licence. The 3D people are Quaternius' CC0 base characters, dressed in code (the clothes, hats and glasses are cut from the body), and the furniture is Kenney's CC0 kit; all compressed (meshopt). The rooms, the street, the lamps and the rain are built in code.",
+  "note": "Every picture is graded (cool shadows, amber highlights), cropped to 16:9 or 4:5 and compressed to WebP. The sound is looped, and muffled for the inside of the bar. Adaptations of CC BY-SA works are shared under the same licence. The 3D people are Quaternius' CC0 base characters, dressed in code (the clothes, hats and glasses are cut from the body), except Mr. Based and the barman, whose models the owner supplied, and the furniture is Kenney's CC0 kit; all compressed (meshopt). The rooms, the street, the lamps and the rain are built in code.",
   "items": [
+    {
+      "keys": ["based_portrait"],
+      "what": "Picture",
+      "title": "Mr. Based (a render of his model)",
+      "author": "the owner",
+      "license": "Model supplied by the owner",
+      "licenseUrl": "",
+      "source": "",
+      "changes": "Rendered in the game's painted look."
+    },
+    {
+      "keys": ["anselme"],
+      "what": "Picture",
+      "title": "The barman (a render of his model)",
+      "author": "the owner",
+      "license": "Model supplied by the owner",
+      "licenseUrl": "",
+      "source": "",
+      "changes": "Rendered in the game's painted look."
+    },
     {
       "keys": ["paris_rain"],
       "what": "Picture",
@@ -148,7 +168,7 @@
       "source": "https://www.flickr.com/photos/99489540@N02/18821425410"
     },
     {
-      "keys": ["based", "based_portrait"],
+      "keys": ["based", "based_portrait_photo"],
       "what": "Picture",
       "title": "Deep in Thought",
       "author": "Kreg Steppe",
@@ -157,7 +177,7 @@
       "source": "https://www.flickr.com/photos/44124421278@N01/2884915815"
     },
     {
-      "keys": ["anselme"],
+      "keys": ["anselme_photo"],
       "what": "Picture",
       "title": "The artistic barman of Su Nuraghe @ Pula",
       "author": "Pietro Zanarini (zipckr)",
@@ -232,6 +252,26 @@
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "source": "https://kenney.nl/assets/car-kit",
       "changes": "Tinted at runtime; a light bar added to the van."
+    },
+    {
+      "keys": ["mr_based"],
+      "what": "Model",
+      "title": "Mr. Based",
+      "author": "the owner",
+      "license": "Model supplied by the owner",
+      "licenseUrl": "",
+      "source": "",
+      "changes": "Reduced from 813,000 to 40,000 triangles, rigged onto the game's skeleton and compressed."
+    },
+    {
+      "keys": ["bartender"],
+      "what": "Model",
+      "title": "The barman",
+      "author": "the owner",
+      "license": "Model supplied by the owner",
+      "licenseUrl": "",
+      "source": "",
+      "changes": "Reduced from 750,000 to 40,000 triangles, rigged onto the game's skeleton (the apron on loose-cloth bones) and compressed."
     }
   ]
 }

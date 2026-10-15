@@ -366,7 +366,8 @@ export class World {
     const c = this.cast.find((x) => x.id === id);
     const lookName = wear ?? c?.look;
     if (!lookName) return null;
-    const look = lookFor(lookName, c?.model); // BPEOPLE (r22)
+    // BPEOPLE (r22): their own model (the cast's, or their look's) in every wear=.
+    const look = lookFor(lookName, c?.model ?? lookFor(c?.look).model);
     const key = `${id}`;
     let p = this.people.get(key);
     if (p && p.look !== look) {

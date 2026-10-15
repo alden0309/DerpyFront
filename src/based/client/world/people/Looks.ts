@@ -55,8 +55,11 @@ export interface Look {
   tie?: string;
   /** A suit jacket. */
   jacket?: string;
-  /** "single" (one button, open V), "double" (higher, crossed), "closed" (a uniform). */
-  cut?: "single" | "double" | "closed";
+  /**
+   * "single" (one button, open V), "double" (higher, crossed), "closed" (a
+   * uniform), "zip" (a field jacket to the hip, worn open, stand collar).
+   */
+  cut?: "single" | "double" | "closed" | "zip";
   /** r21: shirt sleeves under a waistcoat (the jacket colour then is the waistcoat's). */
   sleeves?: string;
   waistcoat?: string;
@@ -87,9 +90,31 @@ export interface Look {
  * from round 21 (suit_charcoal ... uniform_navy) are kept; the rest are new.
  */
 export const LOOKS: Record<string, Look> = {
-  // Mr. Based: late forties, a former intelligence officer. Charcoal suit,
-  // white shirt, a dark red tie, grey coming in at the temples.
+  // Mr. Based: the owner's model (models/mr_based.glb). He keeps it on,
+  // whatever he wears in the story (World.ts carries his model into every
+  // wear=); what follows is only drawn until it has loaded, or if it can't
+  // be: a black zip field jacket worn open, a stand collar, a dark olive tee,
+  // black cargo trousers, black boots.
+  field_jacket: {
+    model: "mr_based",
+    body: "m",
+    skin: "#c99c80",
+    hair: "#1d1916",
+    hairStyle: "parted",
+    facial: "stubble",
+    face: { jaw: 0.45, brow: 0.35, nose: 0.2, cheeks: -0.35, age: -0.2 },
+    jacket: "#161719",
+    cut: "zip",
+    shirt: "#3b3e30",
+    trousers: "#2a2b2d",
+    shoes: "#0f0e0d",
+    eyes: "#4e4236",
+  },
+  // r21's Mr. Based, in a charcoal suit (and, below, the overcoat). Still his
+  // model if the story dresses him so.
   suit_charcoal: {
+    // The owner's own model (models/mr_based.glb); what follows is its stand-in.
+    model: "mr_based",
     body: "m",
     skin: "#c39a80",
     hair: "#3b3632",
@@ -107,6 +132,8 @@ export const LOOKS: Record<string, Look> = {
   },
   // ...and in the street: the charcoal overcoat over it, collar up.
   overcoat_charcoal: {
+    // The owner's own model (models/mr_based.glb); what follows is its stand-in.
+    model: "mr_based",
     body: "m",
     skin: "#c39a80",
     hair: "#3b3632",
@@ -144,6 +171,8 @@ export const LOOKS: Record<string, Look> = {
   // The barman: sixties, a white moustache, black waistcoat,
   // shirt sleeves and a long white apron.
   barman: {
+    // The owner's own model (models/bartender.glb); what follows is its stand-in.
+    model: "bartender",
     body: "m",
     skin: "#d0a084",
     hair: "#8a847c",

@@ -11,6 +11,7 @@ import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.j
 import { GLTF, GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { beforeAll, describe, expect, test } from "vitest";
 import {
+  CAST_MODELS,
   LOOK_NAMES,
   lookFor,
   LOOKS,
@@ -614,6 +615,15 @@ describe("the people (r22)", () => {
     p.dispose();
   });
 
+  test("Mr. Based's look is his model, with a stand-in like it", () => {
+    expect(LOOKS.field_jacket.model).toBe("mr_based");
+    expect(LOOKS.field_jacket.cut).toBe("zip");
+    expect(LOOKS.barman.model).toBe("bartender");
+    for (const look of Object.values(LOOKS)) {
+      if (look.model) expect(CAST_MODELS).toContain(look.model);
+    }
+  });
+
   test("a look with a model is the same object each time (no rebuilding)", () => {
     expect(lookFor("suit_charcoal", "based")).toBe(
       lookFor("suit_charcoal", "based"),
@@ -684,6 +694,82 @@ describe("the people (r22)", () => {
     }
   });
 
+  test.each(CAST_MODELS)(
+    "the owner's %s: one draw, fitted, every clip resolves, wet by region",
+    async (key) => {
+      const g = await load(key);
+      const source = { root: anims.scene, map: mapBones(anims.scene).map };
+      const custom = prepareCustom(
+        g,
+        source,
+        anims.animations,
+        rigs.m.kit!.template,
+      );
+      expect(custom).not.toBeNull();
+      const wrap = custom!.wrap;
+      wrap.updateMatrixWorld(true);
+      const meshes: THREE.SkinnedMesh[] = [];
+      wrap.traverse((o) => {
+        if ((o as THREE.SkinnedMesh).isSkinnedMesh)
+          meshes.push(o as THREE.SkinnedMesh);
+      });
+      expect(meshes.length).toBe(1);
+      expect(Array.isArray(meshes[0].material)).toBe(false);
+      const tris = meshes[0].geometry.index!.count / 3;
+      expect(tris).toBeGreaterThan(30_000);
+      expect(tris).toBeLessThanOrEqual(50_000);
+      const box = new THREE.Box3().setFromObject(meshes[0]);
+      expect(box.min.y).toBeCloseTo(0, 1);
+      expect(box.max.y).toBeGreaterThan(1.7);
+      expect(box.max.y).toBeLessThan(1.95);
+      for (const clip of custom!.motion.clips) {
+        for (const t of clip.tracks) {
+          const node = THREE.PropertyBinding.parseTrackName(t.name).nodeName;
+          expect(
+            THREE.PropertyBinding.findNode(wrap, node),
+            t.name,
+          ).toBeTruthy();
+        }
+      }
+      // The wetness mask: skin (a face, hands) barely, the rest fully.
+      const mask = meshes[0].geometry.getAttribute("_wetmask");
+      expect(mask).toBeDefined();
+      // (Quantised and interleaved: read through the attribute.)
+      const values = Array.from({ length: mask.count }, (_, i) => mask.getX(i));
+      const skin = values.filter((v) => v < 0.5).length / values.length;
+      expect(skin).toBeGreaterThan(0.02);
+      expect(skin).toBeLessThan(0.3);
+
+      // Worn: the hooks still work, the shader does the wetness.
+      const p = new Person("X", rigs.m, LOOKS.suit_dark, gestures);
+      (p as unknown as { useCustom(c: unknown): void }).useCustom(custom);
+      expect(p.bone("hand_r")).toBeTruthy();
+      const worn: THREE.MeshStandardMaterial[] = [];
+      p.root.traverse((o) => {
+        if ((o as THREE.SkinnedMesh).isSkinnedMesh)
+          worn.push(
+            (o as THREE.SkinnedMesh).material as THREE.MeshStandardMaterial,
+          );
+      });
+      expect(worn.length).toBe(1);
+      expect(worn[0].customProgramCacheKey()).toBe("based-wetmask");
+      p.place(new THREE.Vector3(0, 0, 0), 0, "stand");
+      p.setGait("walk");
+      p.walk([new THREE.Vector3(0, 0, 4)]);
+      // An apron hangs from two cloth bones that swing with the legs.
+      const front = p.root.getObjectByName("cloth_front_l");
+      expect(!!front).toBe(key === "bartender");
+      let swing = 0;
+      for (let i = 0; i < 30; i++) {
+        p.update(0.05, i * 0.05);
+        if (front) swing = Math.max(swing, Math.abs(front.rotation.x));
+      }
+      if (front) expect(swing).toBeGreaterThan(0.1);
+      p.dispose();
+    },
+    60_000,
+  );
+
   test("a skeleton without legs is refused (the tailored look stays)", () => {
     const root = skeleton([
       ["Hips", null, 0, 1, 0],
@@ -721,6 +807,7 @@ describe("the models (r22)", () => {
     const c = credits.items.filter((i) => i.keys.includes(key));
     expect(c.length, `${key} needs a credit`).toBeGreaterThan(0);
     for (const i of c) {
+      if (i.license === "Model supplied by the owner") continue;
       expect(i.license).toMatch(/^(CC0|CC BY|Public domain|Own work)/);
       expect(i.source.length).toBeGreaterThan(0);
     }

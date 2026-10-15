@@ -153,6 +153,8 @@ describe("the art and sound", () => {
     ).toEqual([]);
     for (const c of credits.items) {
       expect(c.author.length).toBeGreaterThan(0);
+      // BPEOPLE (r22): the owner's own models have no licence or link.
+      if (c.license === "Model supplied by the owner") continue;
       expect(c.license).toMatch(/^CC/);
       expect(c.source).toMatch(/^https:\/\//);
     }

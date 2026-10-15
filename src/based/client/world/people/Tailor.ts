@@ -809,6 +809,11 @@ export function tailor(a: Anatomy, look: Look): Cut {
         p.y - b,
         -front(p),
       );
+  /** Outside an open front: a strip down the middle (a zip jacket worn open). */
+  const notStrip =
+    (w: number): Field =>
+    (p) =>
+      Math.max(Math.abs(p.x) - w, -front(p));
   const all =
     (...fs: Field[]): Field =>
     (p, r) => {
@@ -818,6 +823,7 @@ export function tailor(a: Anatomy, look: Look): Cut {
     };
 
   const cut = look.cut ?? "single";
+  const zip = cut === "zip";
   const buttonY =
     cut === "double"
       ? lerp(a.waistY, a.shoulderY, 0.42)
@@ -828,8 +834,12 @@ export function tailor(a: Anatomy, look: Look): Cut {
   const shirtCuff = a.wristX - 0.006;
   const hemY = a.ankleY + 0.035;
   const shoeTop = a.ankleY + 0.04;
-  // A man's jacket to the seat; a woman's to the hip.
-  const jHem = male ? a.crotchY + 0.012 : lerp(a.crotchY, a.waistY, 0.45);
+  // A man's jacket to the seat; a woman's to the hip; a zip jacket to the hip.
+  const jHem = zip
+    ? lerp(a.crotchY, a.waistY, 0.4)
+    : male
+      ? a.crotchY + 0.012
+      : lerp(a.crotchY, a.waistY, 0.45);
   const jCuff = a.wristX - 0.024;
   const coatCuff = a.wristX - 0.014;
   const coatHem = a.kneeY - (look.coatCut === "trench" ? 0.12 : 0.08);
@@ -910,13 +920,11 @@ export function tailor(a: Anatomy, look: Look): Cut {
     });
   }
   if (look.jacket && !look.waistcoat) {
-    const fs: Field[] = [
-      above(jHem),
-      cuff(jCuff),
-      neckline(0.012),
-      notV(vW, buttonY),
-    ];
-    if (cut !== "closed") fs.push(notCutaway(buttonY - 0.03, jHem));
+    const fs: Field[] = [above(jHem), cuff(jCuff), neckline(0.012)];
+    if (zip) fs.push(notStrip(male ? 0.062 : 0.052));
+    else fs.push(notV(vW, buttonY));
+    if (cut === "single" || cut === "double")
+      fs.push(notCutaway(buttonY - 0.03, jHem));
     shells.push({
       name: "jacket",
       field: all(...fs),
@@ -1168,7 +1176,11 @@ export function tailor(a: Anatomy, look: Look): Cut {
     work,
     male ? a.neckR * 0.9 : a.neckR,
   );
-  if (look.jacket && !look.waistcoat && cut !== "closed") {
+  if (
+    look.jacket &&
+    !look.waistcoat &&
+    (cut === "single" || cut === "double")
+  ) {
     pieces.lapels(
       0.017,
       look.jacket,
@@ -1180,7 +1192,10 @@ export function tailor(a: Anatomy, look: Look): Cut {
     );
     pieces.collar(look.jacket, 0.02, 0.026, 0.7, false);
   }
-  if (look.jacket && !look.waistcoat) {
+  // A zip jacket: a stand collar, open at the front; no buttons.
+  if (look.jacket && !look.waistcoat && zip) {
+    pieces.collar(look.jacket, 0.016, 0.06, 0.5, true);
+  } else if (look.jacket && !look.waistcoat) {
     pieces.buttons(0.017, look.braid ?? "#1a1714", cut, buttonY, !!look.braid);
   }
   if (look.braid && look.jacket) pieces.boards(look.braid);
@@ -1207,7 +1222,8 @@ export function tailor(a: Anatomy, look: Look): Cut {
     if (look.coatCut === "trench")
       pieces.belt(look.coat, a.waistY - 0.01, 0.045);
   }
-  if (!look.sweater || look.tie)
+  // (A tee under a zip jacket has no collar.)
+  if ((!look.sweater || look.tie) && !(zip && look.jacket))
     pieces.shirtCollar(look.shirt, look.sweater ? 0.016 : 0.005);
   // The tie ends at the belt (or where the jacket closes over it).
   if (look.tie)

@@ -38,6 +38,13 @@ export type { HairStyle, Hat, Look } from "./people/Looks";
 /** The models the people are made from (in models/, served through the gate). */
 export const PEOPLE_MODELS = ["body_m", "body_f", "anims"] as const;
 
+/**
+ * The owner's own models for the cast (made from his pictures with an
+ * image-to-3D tool, rigged here onto the game's skeleton). Loaded with the
+ * rest, so nobody appears in a stand-in first.
+ */
+export const CAST_MODELS = ["mr_based", "bartender"] as const;
+
 /** A body type and what it moves with. */
 export interface Rig {
   scene: THREE.Object3D;
@@ -209,7 +216,6 @@ export class BodyKit {
   readonly anatomy: Anatomy;
   readonly motion: Motion;
   private readonly cuts = new Map<string, THREE.BufferGeometry>();
-  private readonly customs = new Map<string, Promise<Custom | null>>();
   readonly map: THREE.Texture | null;
   readonly roughMap: THREE.Texture | null;
 
@@ -221,6 +227,8 @@ export class BodyKit {
     private readonly source: RetargetRig,
     private readonly sourceClips: THREE.AnimationClip[],
     private readonly load: ((key: string) => Promise<GLTF>) | null,
+    /** Custom models by key (shared by both kits). */
+    private readonly customs = new Map<string, Promise<Custom | null>>(),
   ) {
     this.anatomy = new Anatomy(template);
     this.map = material?.map ?? null;
@@ -348,9 +356,13 @@ export function prepareCustom(
   });
   const height = box.max.y - box.min.y;
   if (!(height > 0.01)) return null;
+  // As tall as the base body (head to heel).
   let top = 0;
-  for (const p of like.bonePos) top = Math.max(top, p.y);
-  const want = top * 1.07;
+  const body = like.pieces.Body?.pos;
+  if (body)
+    for (let i = 1; i < body.length; i += 3) top = Math.max(top, body[i]);
+  else for (const p of like.bonePos) top = Math.max(top, p.y * 1.13);
+  const want = top;
   const s = want / height;
   wrap.scale.setScalar(s);
   wrap.position.y = -box.min.y * s;
@@ -381,6 +393,7 @@ export function peopleAssets(
     map: mapBones(anims.scene).map,
   };
   const clips = anims.animations;
+  const customs = new Map<string, Promise<Custom | null>>();
   const kitOf = (key: string, sex: "m" | "f"): Rig => {
     const t = templateOf(models[key], sex);
     const kit = new BodyKit(
@@ -390,11 +403,21 @@ export function peopleAssets(
       source,
       clips,
       load,
+      customs,
     );
     return { scene: t.root, clips: kit.motion.clips, kit };
   };
   const m = kitOf("body_m", "m");
   const f = kitOf("body_f", "f");
+  // The cast's own models that came with the rest: ready at once.
+  for (const key of CAST_MODELS) {
+    const g = models[key];
+    if (!g) continue;
+    customs.set(
+      key,
+      Promise.resolve(prepareCustom(g, source, clips, m.kit!.template)),
+    );
+  }
   return { rigs: { m, f }, gestures: m.kit!.motion.gestures };
 }
 
@@ -438,6 +461,81 @@ export function warmCast(
   window.setTimeout(next, 2000);
 }
 
+// --- loose cloth ---------------------------------------------------------------
+
+/**
+ * An owner's model may hang loose cloth (an apron, a long coat's skirts) from
+ * bones at the hips' axis, children of the pelvis, that no clip moves:
+ * `cloth_front` and `cloth_back`, or a half for each leg (`cloth_front_l`,
+ * `cloth_front_r`, `cloth_back_l`, `cloth_back_r`). Each frame a front one
+ * swings forward as far as the leg furthest forward (a half: its own leg, and
+ * half as far as the other), a back one back as far as the leg furthest back,
+ * less a little slack, so a knee never comes through the cloth (walking,
+ * running, sitting).
+ */
+interface Cloth {
+  bones: { bone: THREE.Object3D; front: boolean; leg: 0 | 1 | null }[];
+  legs: { thigh: THREE.Object3D; knee: THREE.Vector3; rest: number }[];
+}
+
+const CLOTH: [string, boolean, 0 | 1 | null][] = [
+  ["cloth_front", true, null],
+  ["cloth_back", false, null],
+  ["cloth_front_l", true, 0],
+  ["cloth_front_r", true, 1],
+  ["cloth_back_l", false, 0],
+  ["cloth_back_r", false, 1],
+];
+
+const X_AXIS = new THREE.Vector3(1, 0, 0);
+const scratch = new THREE.Vector3();
+
+/** A leg's swing forward (radians) in its parent's frame: 0 hanging straight down. */
+function legPitch(thigh: THREE.Object3D, knee: THREE.Vector3): number {
+  scratch.copy(knee).applyQuaternion(thigh.quaternion);
+  return Math.atan2(scratch.z, -scratch.y);
+}
+
+function clothOf(
+  model: THREE.Object3D,
+  bone: (name: string) => THREE.Object3D | null,
+): Cloth | null {
+  const bones: Cloth["bones"] = [];
+  for (const [name, front, leg] of CLOTH) {
+    const b = model.getObjectByName(name);
+    if (b) bones.push({ bone: b, front, leg });
+  }
+  if (bones.length === 0) return null;
+  const legs: Cloth["legs"] = [];
+  for (const side of ["l", "r"]) {
+    const thigh = bone(`thigh_${side}`);
+    const calf = bone(`calf_${side}`);
+    // Measured in the cloth's frame: the thighs must hang from its parent.
+    if (!thigh || !calf || bones.some((b) => b.bone.parent !== thigh.parent))
+      return null;
+    const knee = calf.position.clone();
+    legs.push({ thigh, knee, rest: legPitch(thigh, knee) });
+  }
+  return { bones, legs };
+}
+
+function swingCloth(c: Cloth): void {
+  const a = c.legs.map((l) => legPitch(l.thigh, l.knee) - l.rest);
+  for (const b of c.bones) {
+    const own = b.leg === null ? a[0] : a[b.leg];
+    const other = b.leg === null ? a[1] : a[1 - b.leg] * 0.5;
+    const pitch = b.front ? Math.max(own, other) : Math.min(own, other);
+    // A little slack while standing and walking (the cloth hangs clear of
+    // the knee), none sitting (the thighs carry it).
+    const k = Math.abs(pitch);
+    const slack = Math.min(k, 0.15) * (1 - THREE.MathUtils.smoothstep(k, 0.6, 1.2));
+    b.bone.quaternion.setFromAxisAngle(
+      X_AXIS,
+      -THREE.MathUtils.clamp(pitch - Math.sign(pitch) * slack, -1, 1.75),
+    );
+  }
+}
+
 // --- people ------------------------------------------------------------------
 
 export type Pose = "stand" | "sit" | "lean" | "fold" | "hidden";
@@ -476,6 +574,7 @@ export class Person {
   speed = WALK_SPEED;
   private glow: THREE.Mesh | null = null;
   private extras: THREE.Object3D[] = [];
+  private cloth: Cloth | null = null;
 
   constructor(
     readonly id: string,
@@ -571,6 +670,7 @@ export class Person {
             ? s.clone()
             : new THREE.MeshStandardMaterial({ color: "#888" });
           copy.emissive = new THREE.Color(BASE_GLOW);
+          if (m.geometry.getAttribute("_wetmask")) this.maskWetness(copy);
           mats.push(copy);
           return copy;
         },
@@ -617,6 +717,7 @@ export class Person {
       });
     }
     this.names = names;
+    this.cloth = clothOf(model, (n) => this.bone(n));
     this.gestureSet = gestures;
     this.mixer = new THREE.AnimationMixer(model);
     this.actions.clear();
@@ -678,11 +779,57 @@ export class Person {
    */
   setWetness(k: number): void {
     this.wet = THREE.MathUtils.clamp(k, 0, 1);
+    this.wetUniform.value = this.wet;
     for (const [m, d] of this.dry) {
+      if (this.masked.has(m)) {
+        // The shader does it, by the mask: skin barely, cloth and hair fully.
+        m.envMapIntensity = d.env * (1 + 1.2 * this.wet);
+        continue;
+      }
       m.color.copy(d.color).multiplyScalar(1 - 0.32 * this.wet);
       m.roughness = d.rough * (1 - 0.55 * this.wet);
       m.envMapIntensity = d.env * (1 + 1.6 * this.wet);
     }
+  }
+
+  private readonly wetUniform = { value: 0 };
+  private readonly masked = new Set<THREE.Material>();
+
+  /**
+   * A model of one material (the owner's) gets wet by a mask painted on its
+   * vertices when it was rigged (_WETMASK: 1 cloth and hair, about 0.1 skin):
+   * darker and glossier where it's 1. One small addition to the standard
+   * shader, shared by everyone who has it.
+   */
+  private maskWetness(m: THREE.MeshStandardMaterial): void {
+    this.masked.add(m);
+    const wet = this.wetUniform;
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.uWet = wet;
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          "#include <common>",
+          "#include <common>\nattribute float _wetmask;\nvarying float vWetMask;",
+        )
+        .replace(
+          "#include <begin_vertex>",
+          "#include <begin_vertex>\nvWetMask = _wetmask;",
+        );
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          "#include <common>",
+          "#include <common>\nuniform float uWet;\nvarying float vWetMask;",
+        )
+        .replace(
+          "#include <map_fragment>",
+          "#include <map_fragment>\ndiffuseColor.rgb *= 1.0 - 0.32 * uWet * vWetMask;",
+        )
+        .replace(
+          "#include <roughnessmap_fragment>",
+          "#include <roughnessmap_fragment>\nroughnessFactor *= 1.0 - 0.55 * uWet * vWetMask;",
+        );
+    };
+    m.customProgramCacheKey = () => "based-wetmask";
   }
 
   get wetness(): number {
@@ -911,6 +1058,7 @@ export class Person {
       m.color.setRGB(1, 0.35 + 0.25 * f, 0.1 * f);
     }
     this.mixer.update(dt);
+    if (this.cloth) swingCloth(this.cloth);
   }
 
   /** Turns towards a heading; true once facing it. */
