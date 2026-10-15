@@ -44,7 +44,7 @@
 @skill DECEPTION SOCIAL "Deception" "Covers and legends. The face that gives nothing away, and the lie that fits the room."
 @skill MEMORY INTELLIGENCE "Memory" "Faces, files, names and dates. Seventeen years of them, filed and cross-filed."
 @skill INSTINCT INTELLIGENCE "Instinct" "The job in the gut. Watchers, signals, drops; the second before it goes wrong."
-@skill LANGUAGES INTELLIGENCE "Languages" "How many tongues he has, and how well. Accents, and what they give away."
+@skill LANGUAGES INTELLIGENCE "Languages" "Ears and tongues: his points in each language come from it, and hard speech is heard with it. Accents, and what they give away."
 @skill FOCUS INTELLIGENCE "Focus" "Putting it together. The detail that doesn't fit, held still until it does."
 @skill STRENGTH PHYSICAL "Strength" "Shoulders and grip. A door that won't give, a man who won't let go."
 @skill ENDURANCE PHYSICAL "Endurance" "Cold, rain, long nights, the drink he didn't want. Holding on when it hurts."

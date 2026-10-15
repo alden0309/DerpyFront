@@ -2050,6 +2050,21 @@ kbd {
   font-size: 14px;
   color: var(--mb-ink-3);
 }
+/* The keys, as a typed list of what each does. */
+.mb-help-keys {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 14px;
+  margin: 18px 0 6px;
+  font-size: 14.5px;
+  color: var(--mb-ink-2);
+}
+.mb-help-keys dt {
+  white-space: nowrap;
+}
+.mb-help-keys dd {
+  margin: 0;
+}
 .mb-odds {
   width: 100%;
   margin: 10px 0 4px;
@@ -2434,12 +2449,19 @@ label.mb-skill {
 .mb-lang-row,
 .mb-sheet-langs > li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(7.5em, auto);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 2px 10px;
-  padding: 3px 0;
+  gap: 2px 12px;
+  padding: 4px 0;
   font-size: 15px;
   color: var(--mb-ink-2);
+}
+/* The language's name, and under it what his points make of it. */
+.mb-lang-what {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
 }
 .mb-lang-row.on,
 .mb-sheet-langs > li.on {

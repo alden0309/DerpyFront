@@ -234,7 +234,7 @@ function details(v: InventoryView, it: ItemDef): TemplateResult {
     <div class="mb-item-text">
       <h3>${it.name}</h3>
       <div class="mb-item-where">
-        ${KIND_NAMES[it.kind] ?? it.kind} · ${whereIs(v, it.key)}
+        ${KIND_NAMES[it.kind] ?? it.kind}, ${whereIs(v, it.key)}
       </div>
       <p class="mb-item-about">${it.about}</p>
       ${it.bonus.length > 0

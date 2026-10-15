@@ -420,7 +420,7 @@ export class BasedPlayer extends LitElement {
       this.push({
         id: nextId++,
         kind: "card",
-        text: b.sub ? `${b.title} · ${b.sub}` : b.title,
+        text: b.sub ? `${b.title}. ${b.sub}` : b.title,
       });
       this.talk(null);
     } else if (b.kind === "roll") {
@@ -2293,14 +2293,16 @@ export class BasedPlayer extends LitElement {
         const n = rated[l.code] ?? 0;
         const parts = this.run.languageParts(l.code);
         return html`<li class=${n > 0 ? "on" : ""}>
-          <span class="mb-lang-name">${l.name}</span>
+          <span class="mb-lang-what">
+            <span class="mb-lang-name">${l.name}</span>
+            <span class="mb-lang-level">${langLevel(n)}</span>
+          </span>
           <span class="mb-lang-pips" role="img" aria-label="${n} of ${LANG_MAX}"
             >${Array.from(
               { length: Math.max(LANG_MAX, n) },
               (_, i) => html`<i class=${i < n ? "on" : ""}></i>`,
             )}</span
           >
-          <span class="mb-lang-level">${langLevel(n)}</span>
           ${parts.some((p) => !p.start)
             ? html`<span class="mb-skill-from">
                 ${parts.map(

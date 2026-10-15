@@ -250,11 +250,26 @@ export function helpBody(
     </ul>
     ${touch
       ? nothing
-      : html`<p class="mb-help-p small">
-          <kbd>Space</kbd> read on · <kbd>1</kbd>–<kbd>9</kbd> choose ·
-          <kbd>Tab</kbd> what's near · <kbd>C</kbd> your skills ·
-          <kbd>I</kbd> what he carries · <kbd>J</kbd> journal ·
-          <kbd>F5</kbd> quicksave · <kbd>F9</kbd> quickload · <kbd>N</kbd> a
-          note · <kbd>H</kbd> this page · <kbd>Esc</kbd> the menu
-        </p>`}`;
+      : html`<dl class="mb-help-keys">
+          <dt><kbd>Space</kbd></dt>
+          <dd>read on</dd>
+          <dt><kbd>1</kbd>–<kbd>9</kbd></dt>
+          <dd>choose</dd>
+          <dt><kbd>Tab</kbd></dt>
+          <dd>what's near</dd>
+          <dt><kbd>C</kbd></dt>
+          <dd>your skills</dd>
+          <dt><kbd>I</kbd></dt>
+          <dd>what he carries</dd>
+          <dt><kbd>J</kbd></dt>
+          <dd>journal</dd>
+          <dt><kbd>F5</kbd> <kbd>F9</kbd></dt>
+          <dd>quicksave, quickload</dd>
+          <dt><kbd>N</kbd></dt>
+          <dd>a note for the writer</dd>
+          <dt><kbd>H</kbd></dt>
+          <dd>this page</dd>
+          <dt><kbd>Esc</kbd></dt>
+          <dd>the menu</dd>
+        </dl>`}`;
 }

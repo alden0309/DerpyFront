@@ -220,8 +220,8 @@ export function slotsBody(opts: {
                   >${new Date(m.savedAt).toLocaleString(undefined, {
                     dateStyle: "medium",
                     timeStyle: "short",
-                  })}
-                  · played ${playedText(m.played)}</span
+                  })},
+                  played ${playedText(m.played)}</span
                 >`
             : html`<span class="mb-slot-where">Empty</span>`}
         </button>

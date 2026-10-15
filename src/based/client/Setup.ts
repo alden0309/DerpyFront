@@ -261,7 +261,10 @@ export class BasedSetup extends LitElement {
       ${this.chapter.languages.map((l) => {
         const n = pts[l.code] ?? 0;
         return html`<div class="mb-lang-row ${n > 0 ? "on" : ""}">
-          <span class="mb-lang-name">${l.name}</span>
+          <span class="mb-lang-what">
+            <span class="mb-lang-name">${l.name}</span>
+            <span class="mb-lang-level">${langLevel(n)}</span>
+          </span>
           <span class="mb-stepper small">
             <button
               aria-label="Less ${l.name}"
@@ -287,7 +290,6 @@ export class BasedSetup extends LitElement {
               +
             </button>
           </span>
-          <span class="mb-lang-level">${langLevel(n)}</span>
         </div>`;
       })}
       <p class="mb-lang-note">

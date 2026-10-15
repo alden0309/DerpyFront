@@ -450,9 +450,9 @@ export class BasedApp extends LitElement {
                   Continue
                   <small
                     >${cur.meta.placeName || cur.meta.label}${c
-                      ? ` · ${c.time}`
+                      ? `, ${c.time}`
                       : ""}
-                    · ${slotName(cur.slot)}</small
+                    (${slotName(cur.slot).toLowerCase()})</small
                   >
                 </button>`
               : nothing}
