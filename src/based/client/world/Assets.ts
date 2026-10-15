@@ -43,6 +43,12 @@ export async function loadWorldAssets(
   for (const child of props.scene.children) {
     byName.set(child.name, child);
   }
+  // r22: the furniture's meshes are shared by every place built from them;
+  // a place left behind doesn't free them.
+  props.scene.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh) m.geometry.userData.shared = true;
+  });
   return {
     rigs: {
       m: { scene: m.scene, clips },

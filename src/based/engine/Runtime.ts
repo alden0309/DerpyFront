@@ -2,13 +2,28 @@
 // something needs the player (a line to read, a choice, a room to read, a
 // roll of the dice), and remembers where it is so the game can be saved.
 //
-// Saves are taken as each scene begins, not mid-scene, so a save still loads
-// after the scene it's in has been rewritten. Pure and deterministic: no
-// clock, no Math.random. The dice come from a seed kept in the save (Dice.ts).
+// r22: the open world. Once a scene says `-> FREE` he's free: the player
+// walks him where they like, and the story waits for something to start a
+// scene (`@on`): talking to someone, looking at something, walking into a
+// place, a thought that has come to him, or a condition coming true. Each
+// person and thing answers with the first scene, in the order they're
+// written, whose condition holds.
+//
+// A save holds the state at the start of the scene he's in, or, while he's
+// free, the state as it is: a save still loads after the scene it's in has
+// been rewritten. Pure and deterministic: no clock, no Math.random. The
+// dice come from a seed kept in the save (Dice.ts); the in-game clock moves
+// with what's read and chosen, not with real time.
 
 import { chance, passes, passive, percent, rollDice, tierName } from "./Dice";
 import { evalExpr, Values } from "./Expr";
-import { Boost, defaultBuild, skillValues } from "./Skills";
+import {
+  Boost,
+  defaultBuild,
+  LANGUAGES_SKILL,
+  skillValues,
+  withLanguages,
+} from "./Skills";
 import {
   ActorState,
   Build,
@@ -16,8 +31,12 @@ import {
   CheckSpec,
   Deduction,
   END,
+  FREE,
   LineKind,
   Op,
+  Scene,
+  TaskState,
+  Trigger,
 } from "./Types";
 
 export interface Stage {
@@ -29,7 +48,7 @@ export interface Stage {
   news: string | null;
   /** r21: the 3D place, or null for a flat picture. */
   place: string | null;
-  /** Who stands where in the place, and how. */
+  /** Who stands where (r22: in which place), and how. */
   actors: Record<string, ActorState>;
   /** A camera shot of the place, or null to follow him. */
   focus: string | null;
@@ -37,6 +56,8 @@ export interface Stage {
   vignette: string | null;
   /** The place's props switched on (true) or off (false) by the story. */
   props: Record<string, boolean>;
+  /** r22: the weather the story has asked for, or null for the place's. */
+  weather: string | null;
 }
 
 /** What's known of a check after it's been tried. */
@@ -47,14 +68,18 @@ export interface CheckMemo {
   bonus: number;
 }
 
-/** Everything needed to start a scene over: what a save holds. */
+/** Everything needed to start a scene over (or, free, to carry on). */
 export interface Snapshot {
   chapter: number;
+  /** The scene he's in, or FREE. */
   scene: string;
   flags: Record<string, number>;
   rels: Record<string, number>;
   stage: Stage;
-  /** "s:<scene>" for each scene entered, "c:<choice>=<option>" for each pick. */
+  /**
+   * "s:<scene>" for each scene entered, "c:<choice>=<option>" for each pick.
+   * r22: only the latest steps are kept in a save (SAVED_PATH).
+   */
   path: string[];
   /** "<choice>/<option>" for options marked once that were taken. */
   taken: string[];
@@ -63,16 +88,29 @@ export interface Snapshot {
   boosts?: Boost[];
   seed?: number;
   checks?: Record<string, CheckMemo>;
+  /** r22: scenes started by a once `@on` that have played. */
+  done?: string[];
+  /** r22: his journal, in the order things were set. */
+  tasks?: Record<string, TaskState>;
+  /** r22: the in-game clock, in seconds from midnight on the first night. */
+  clock?: number;
+  /**
+   * r22: what he carries, by item id and how many. Nothing fills it yet:
+   * it's here so saves already have a place for an inventory.
+   */
+  inv?: Record<string, number>;
 }
 
 export type StoryEvent =
-  | { type: "scene"; scene: string; label: string; checkpoint?: string }
+  | { type: "scene"; scene: string; label: string }
+  | { type: "free" }
   | { type: "rel"; who: string; delta: number }
   | { type: "remember"; who: string }
   | { type: "actor"; who: string; state: ActorState | null; walk: boolean }
   | { type: "prop"; key: string; on: boolean }
   | { type: "gesture"; who: string; name: string }
   | { type: "boost"; skill: string; delta: number; why: string }
+  | { type: "task"; id: string; text: string; done: boolean; fresh: boolean }
   | { type: "end" };
 
 /** A check as the column shows it, before it's rolled. */
@@ -103,6 +141,20 @@ export interface LineBeat {
   text: string;
   /** r21: spoken by one of his skills; `diff` when it was a passive check. */
   voice?: { skill: string; diff?: number; tier?: string };
+  /**
+   * r22: said in another language. `understood` when he speaks it (or his
+   * Languages got the gist: `via` "skill"); then `text` is the meaning and
+   * `original` what was said. Otherwise `text` is what was said.
+   */
+  lang?: {
+    code: string;
+    name: string;
+    understood: boolean;
+    original: string;
+    via?: "skill";
+    tier?: string;
+    diff?: number;
+  };
   src: number;
 }
 
@@ -176,12 +228,31 @@ export type Beat =
   | ChoiceBeat
   | InvestigateBeat
   | RollBeat
+  /** r22: he's free; the story waits for the player to start something. */
+  | { kind: "free" }
   | { kind: "end" };
 
+/** What the player can start, where he is, while he's free. */
+export interface Available {
+  /** Cast ids with something to say (or to be said to). */
+  talk: string[];
+  /** Hotspots with something to see. */
+  look: string[];
+  /** Thoughts he can follow, by scene id. */
+  think: { id: string; label: string }[];
+}
+
 const MAX_STEPS = 20_000;
+/** Steps of the path kept in memory, and in a save. */
+const MAX_PATH = 4000;
+export const SAVED_PATH = 300;
+/** How long a line and a choice take, in game seconds. */
+export const LINE_SECONDS = 20;
+export const CHOICE_SECONDS = 10;
+const DAY = 24 * 3600;
 
 function copy<T>(v: T): T {
-  return JSON.parse(JSON.stringify(v)) as T;
+  return v === undefined ? v : (JSON.parse(JSON.stringify(v)) as T);
 }
 
 export function emptyStage(): Stage {
@@ -195,6 +266,7 @@ export function emptyStage(): Stage {
     focus: null,
     vignette: null,
     props: {},
+    weather: null,
   };
 }
 
@@ -221,7 +293,75 @@ export function chapterStart(
     boosts: [...(carried?.boosts ?? [])],
     seed: opts.seed ?? 1,
     checks: {},
+    done: [],
+    tasks: {},
+    clock: chapter.clock * 60,
   };
+}
+
+/** "21:40", and the night it is (0 the first). */
+export function clockText(seconds: number): { time: string; day: number } {
+  const day = Math.floor(seconds / DAY);
+  const s = seconds - day * DAY;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return {
+    time: `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`,
+    day,
+  };
+}
+
+/**
+ * Each scene's trigger, by what starts it, for quick lookups: talk and look
+ * by who or what, and by place too where the trigger names one ("thing" and
+ * "thing@street"), so a long game with the same hotspot names in many
+ * places asks only the scenes of the place he's in.
+ */
+interface TriggerIndex {
+  talk: Map<string, string[]>;
+  look: Map<string, string[]>;
+  enter: Map<string, string[]>;
+  think: string[];
+  auto: string[];
+  /** Where each scene is written, to keep written order across lists. */
+  order: Map<string, number>;
+  /** Every thing something can be looked at for. */
+  things: Set<string>;
+}
+
+const indexes = new WeakMap<Chapter, TriggerIndex>();
+
+function triggerIndex(ch: Chapter): TriggerIndex {
+  let idx = indexes.get(ch);
+  if (idx) return idx;
+  idx = {
+    talk: new Map(),
+    look: new Map(),
+    enter: new Map(),
+    think: [],
+    auto: [],
+    order: new Map(),
+    things: new Set(),
+  };
+  ch.order.forEach((id, i) => {
+    idx!.order.set(id, i);
+    const t = ch.scenes[id].trigger;
+    if (!t) return;
+    if (t.on === "think" || t.on === "auto") idx![t.on].push(id);
+    else {
+      const m = idx![t.on];
+      const key =
+        t.on !== "enter" && t.place !== undefined
+          ? `${t.target}@${t.place}`
+          : t.target!;
+      const list = m.get(key) ?? [];
+      list.push(id);
+      m.set(key, list);
+      if (t.on === "look") idx!.things.add(t.target!);
+    }
+  });
+  indexes.set(ch, idx);
+  return idx;
 }
 
 export class StoryRun {
@@ -240,21 +380,35 @@ export class StoryRun {
   private boostList: Boost[];
   private seed: number;
   private checks: Record<string, CheckMemo>;
+  private doneList: string[];
+  private doneSet: Set<string>;
+  private taskList: Record<string, TaskState>;
+  private clockNow: number;
+  private inv: Record<string, number>;
   private entry: Snapshot;
+  /** Steps of the path dropped from its front (MAX_PATH), and where it stood. */
+  private trimmed = 0;
+  private entryPath = 0;
   private beatNow: Beat;
   private pending: StoryEvent[] = [];
+  private readonly idx: TriggerIndex;
+  readonly hero: string;
 
   constructor(
     readonly chapter: Chapter,
     from: Snapshot = chapterStart(chapter),
   ) {
     const s = copy(from);
-    // Saves from before r21 have none of these.
+    // Saves from before r21 and r22 have none of these.
     s.stage = { ...emptyStage(), ...s.stage };
-    s.build ??= null;
+    s.build = s.build ? withLanguages(chapter, s.build) : null;
     s.boosts ??= [];
     s.seed ??= 1;
     s.checks ??= {};
+    s.done ??= [];
+    s.tasks ??= {};
+    s.clock ??= chapter.clock * 60;
+    s.inv ??= {};
     this.flags = s.flags;
     this.rels = s.rels;
     this.stageNow = s.stage;
@@ -264,11 +418,25 @@ export class StoryRun {
     this.boostList = s.boosts;
     this.seed = s.seed;
     this.checks = s.checks;
+    this.doneList = s.done;
+    this.doneSet = new Set(s.done);
+    this.taskList = s.tasks;
+    this.clockNow = s.clock;
+    this.inv = s.inv;
     this.entry = s;
+    this.entryPath = s.path.length;
+    this.idx = triggerIndex(chapter);
+    this.hero = chapter.cast[0]?.id ?? "";
+    if (s.scene === FREE) {
+      this.scene = FREE;
+      this.ip = -1;
+      this.beatNow = { kind: "free" };
+      return;
+    }
     if (!chapter.scenes[s.scene]) {
       throw new Error(`no scene "${s.scene}" in chapter ${chapter.n}`);
     }
-    this.enter(s.scene);
+    this.begin(s.scene, false);
     this.beatNow = this.run();
   }
 
@@ -284,9 +452,20 @@ export class StoryRun {
     return this.scene;
   }
 
-  /** The state at the start of the current scene: what to save. */
+  /** r22: free to go where he likes. */
+  get free(): boolean {
+    return this.scene === FREE;
+  }
+
+  /** The state at the start of the current scene (or now, if he's free). */
   snapshot(): Snapshot {
-    return copy(this.entry);
+    const s = this.free ? this.capture(FREE) : copy(this.entry);
+    // The path as it stood then: only its latest steps.
+    const end = this.free
+      ? this.path.length
+      : Math.max(0, this.entryPath - this.trimmed);
+    s.path = this.path.slice(Math.max(0, end - SAVED_PATH), end);
+    return s;
   }
 
   /** Where this run has been so far, scene entries and picks. */
@@ -309,6 +488,21 @@ export class StoryRun {
 
   get boosts(): Boost[] {
     return copy(this.boostList);
+  }
+
+  /** r22: his journal, in the order its entries were first set. */
+  get tasks(): { id: string; text: string; done: boolean }[] {
+    return Object.entries(this.taskList).map(([id, t]) => ({ id, ...t }));
+  }
+
+  /** r22: the in-game clock, in seconds. */
+  get clock(): number {
+    return this.clockNow;
+  }
+
+  /** r22: what he carries (empty until the story gives him things). */
+  get items(): Record<string, number> {
+    return { ...this.inv };
   }
 
   /** Every skill's value now, boosts included. */
@@ -351,8 +545,9 @@ export class StoryRun {
     }
     if (shown.check?.locked) throw new Error(`"${optionId}" is locked`);
     const opt = op.options.find((o) => o.id === optionId)!;
-    this.path.push(`c:${op.id}=${opt.id}`);
+    this.step(`c:${op.id}=${opt.id}`);
     if (opt.once) this.taken.push(`${op.id}/${opt.id}`);
+    this.clockNow += CHOICE_SECONDS;
     this.ip = opt.at;
     return (this.beatNow = this.run());
   }
@@ -417,10 +612,164 @@ export class StoryRun {
     return (this.beatNow = this.run());
   }
 
+  // --- the open world (r22) -------------------------------------------------
+
+  private matches(id: string, v?: Values): boolean {
+    const t = this.chapter.scenes[id].trigger as Trigger;
+    if (t.once && this.doneSet.has(id)) return false;
+    if (t.place !== undefined && t.place !== this.stageNow.place) return false;
+    return t.cond === undefined || !!evalExpr(t.cond, v ?? this.vals());
+  }
+
+  /** The cast ids a body answers to (one person can go by two names). */
+  private namesOf(who: string): string[] {
+    const out = [who];
+    for (const c of this.chapter.cast) {
+      if (c.body === who && c.id !== who) out.push(c.id);
+      if (c.id === who && c.body && !out.includes(c.body)) out.push(c.body);
+    }
+    return out;
+  }
+
+  /** The first scene, in written order, of those listed under the keys. */
+  private first(
+    m: Map<string, string[]>,
+    keys: string[],
+    v?: Values,
+  ): string | null {
+    let best: string | null = null;
+    let at = Infinity;
+    for (const k of keys) {
+      for (const id of m.get(k) ?? []) {
+        const o = this.idx.order.get(id)!;
+        if (o >= at) break;
+        if (this.matches(id, v)) {
+          best = id;
+          at = o;
+          break;
+        }
+      }
+    }
+    return best;
+  }
+
+  /** The scene talking to someone starts now, if any. */
+  private talkScene(who: string, v?: Values): string | null {
+    const here = this.stageNow.place;
+    const keys: string[] = [];
+    for (const name of this.namesOf(who)) {
+      keys.push(name);
+      if (here) keys.push(`${name}@${here}`);
+    }
+    return this.first(this.idx.talk, keys, v);
+  }
+
+  private lookScene(thing: string, v?: Values): string | null {
+    const here = this.stageNow.place;
+    return this.first(
+      this.idx.look,
+      here ? [thing, `${thing}@${here}`] : [thing],
+      v,
+    );
+  }
+
+  /**
+   * What he can start where he is (only while he's free). `things`: the
+   * hotspots of the place he's in (the world knows them); without it every
+   * thing in the story is asked, which a long game shouldn't do often.
+   */
+  available(things?: Iterable<string>): Available {
+    const out: Available = { talk: [], look: [], think: [] };
+    if (!this.free) return out;
+    const v = this.vals();
+    const here = this.stageNow.place;
+    for (const [who, st] of Object.entries(this.stageNow.actors)) {
+      if (who === this.hero || (st.place ?? here) !== here) continue;
+      if (this.talkScene(who, v)) out.talk.push(who);
+    }
+    for (const thing of things ?? this.idx.things) {
+      if (this.lookScene(thing, v)) out.look.push(thing);
+    }
+    for (const id of this.idx.think) {
+      if (this.matches(id, v)) {
+        out.think.push({
+          id,
+          label: this.chapter.scenes[id].trigger!.label ?? id,
+        });
+      }
+    }
+    return out;
+  }
+
+  /** He goes up to someone: their scene, or null if they've nothing. */
+  talk(who: string): Beat | null {
+    if (!this.free) return null;
+    const id = this.talkScene(who);
+    return id ? this.startFree(id) : null;
+  }
+
+  /** He looks at something: its scene, or null if there's nothing to see. */
+  look(thing: string): Beat | null {
+    if (!this.free) return null;
+    const id = this.lookScene(thing);
+    return id ? this.startFree(id) : null;
+  }
+
+  /** He follows a thought that has come to him. */
+  think(id: string): Beat {
+    if (!this.free) throw new Error("not free");
+    const t = this.chapter.scenes[id]?.trigger;
+    if (t?.on !== "think" || !this.matches(id)) {
+      throw new Error(`"${id}" isn't a thought he can have now`);
+    }
+    return this.startFree(id);
+  }
+
+  /**
+   * He walks into a place (through a door), arriving at a mark. Anything
+   * that starts on arriving there starts.
+   */
+  enterPlace(place: string, mark: string): Beat {
+    if (!this.free) throw new Error("not free");
+    this.stageNow.place = place;
+    this.stageNow.focus = null;
+    this.stageNow.actors[this.hero] = {
+      ...(this.stageNow.actors[this.hero] ?? {}),
+      at: mark,
+      pose: "stand",
+      place,
+    };
+    for (const id of this.idx.enter.get(place) ?? []) {
+      if (this.matches(id)) return this.startFree(id);
+    }
+    return (this.beatNow = this.settleFree());
+  }
+
+  private startFree(id: string): Beat {
+    this.begin(id, true);
+    return (this.beatNow = this.run());
+  }
+
+  /** Free again: anything that happens by itself now happens. */
+  private settleFree(): Beat {
+    for (const id of this.idx.auto) {
+      if (this.matches(id)) {
+        this.begin(id, true);
+        return this.run();
+      }
+    }
+    return { kind: "free" };
+  }
+
   // --- checks ---------------------------------------------------------------
 
   private vals(): Values {
-    return { flags: this.flags, rels: this.rels, skills: this.skills() };
+    return {
+      flags: this.flags,
+      rels: this.rels,
+      skills: this.skills(),
+      langs: this.build.langs ?? [],
+    };
   }
 
   /** A check's odds now, with `extra` modifiers on top of its own. */
@@ -517,31 +866,80 @@ export class StoryRun {
     return this.chapter.scenes[this.scene].ops[this.ip];
   }
 
-  private enter(id: string): void {
-    const scene = this.chapter.scenes[id];
-    this.entry = {
+  private step(s: string): void {
+    this.path.push(s);
+    if (this.path.length > MAX_PATH + 500) {
+      const drop = this.path.length - MAX_PATH;
+      this.path.splice(0, drop);
+      this.trimmed += drop;
+    }
+  }
+
+  /**
+   * The state as it is now, as a save at the start of `scene`. (The path is
+   * left out: snapshot() adds its latest steps. Copying all of it at every
+   * scene would grow slower the longer the game.)
+   */
+  private capture(scene: string): Snapshot {
+    return {
       chapter: this.chapter.n,
-      scene: id,
+      scene,
       flags: copy(this.flags),
       rels: copy(this.rels),
       stage: copy(this.stageNow),
-      path: [...this.path],
+      path: [],
       taken: [...this.taken],
       build: copy(this.buildNow),
       boosts: copy(this.boostList),
       seed: this.seed,
       checks: copy(this.checks),
+      done: [...this.doneList],
+      tasks: copy(this.taskList),
+      clock: this.clockNow,
+      inv: { ...this.inv },
     };
+  }
+
+  /** Starts a scene; `triggered` when the open world started it. */
+  private begin(id: string, triggered: boolean): void {
+    const scene: Scene = this.chapter.scenes[id];
+    if (triggered && scene.trigger?.once && !this.doneSet.has(id)) {
+      this.doneSet.add(id);
+      this.doneList.push(id);
+    }
+    this.entry = this.capture(id);
+    this.entryPath = this.trimmed + this.path.length;
     this.scene = id;
     this.ip = 0;
     this.ret = -1;
-    this.path.push(`s:${id}`);
-    this.pending.push({
-      type: "scene",
-      scene: id,
-      label: scene.label,
-      checkpoint: scene.checkpoint,
-    });
+    this.step(`s:${id}`);
+    this.pending.push({ type: "scene", scene: id, label: scene.label });
+  }
+
+  private langLine(op: Extract<Op, { op: "line" }>, beat: LineBeat): void {
+    const code = op.lang!;
+    const langs = this.build.langs ?? [];
+    const speaks = langs.includes(code);
+    const name =
+      this.chapter.languages.find((l) => l.code === code)?.name ?? code;
+    let understood = speaks;
+    let via: "skill" | undefined;
+    if (op.langDiff !== undefined) {
+      // Hard for anyone: a speaker has an easier time of it.
+      const skill = this.skills()[LANGUAGES_SKILL] ?? 0;
+      if (speaks) understood = passive(skill + 2, op.langDiff);
+      else if (passive(skill, op.langDiff)) {
+        understood = true;
+        via = "skill";
+      }
+    }
+    beat.text = understood ? (op.trans ?? op.text) : op.text;
+    beat.lang = { code, name, understood, original: op.text };
+    if (via) beat.lang.via = via;
+    if (op.langDiff !== undefined) {
+      beat.lang.diff = op.langDiff;
+      beat.lang.tier = tierName(op.langDiff);
+    }
   }
 
   private run(): Beat {
@@ -574,6 +972,8 @@ export class StoryRun {
               beat.voice.tier = tierName(op.diff);
             }
           }
+          if (op.lang !== undefined) this.langLine(op, beat);
+          this.clockNow += LINE_SECONDS;
           return beat;
         }
         case "card":
@@ -606,17 +1006,56 @@ export class StoryRun {
           this.stageNow.vignette = op.key;
           this.ip++;
           break;
-        case "actor":
-          if (op.state === null) delete this.stageNow.actors[op.who];
-          else this.stageNow.actors[op.who] = { ...op.state };
+        case "weather":
+          this.stageNow.weather = op.kind;
+          this.ip++;
+          break;
+        case "time": {
+          // A time earlier in the day than now is the next day's.
+          const day = Math.floor(this.clockNow / DAY);
+          let t = day * DAY + op.minutes * 60;
+          if (t < this.clockNow) t += DAY;
+          this.clockNow = t;
+          this.ip++;
+          break;
+        }
+        case "task": {
+          const had = this.taskList[op.id];
+          const t: TaskState = {
+            text: op.text ?? had?.text ?? op.id,
+            done: op.done,
+          };
+          this.taskList[op.id] = t;
+          this.pending.push({
+            type: "task",
+            id: op.id,
+            text: t.text,
+            done: t.done,
+            fresh: had === undefined,
+          });
+          this.ip++;
+          break;
+        }
+        case "actor": {
+          // r22: a mark in the place named, or the one the story is in.
+          const state = op.state
+            ? {
+                ...op.state,
+                place: op.state.place ?? this.stageNow.place ?? undefined,
+              }
+            : null;
+          if (state && state.place === undefined) delete state.place;
+          if (state === null) delete this.stageNow.actors[op.who];
+          else this.stageNow.actors[op.who] = state;
           this.pending.push({
             type: "actor",
             who: op.who,
-            state: op.state ? { ...op.state } : null,
+            state: state ? { ...state } : null,
             walk: op.walk,
           });
           this.ip++;
           break;
+        }
         case "gesture":
           this.pending.push({ type: "gesture", who: op.who, name: op.name });
           this.ip++;
@@ -667,7 +1106,17 @@ export class StoryRun {
             this.pending.push({ type: "end" });
             return { kind: "end" };
           }
-          this.enter(op.scene);
+          if (op.scene === FREE) {
+            // r22: he's free. The camera follows him again.
+            this.scene = FREE;
+            this.ip = -1;
+            this.stageNow.focus = null;
+            this.stageNow.figure = null;
+            this.stageNow.vignette = null;
+            this.pending.push({ type: "free" });
+            return this.settleFree();
+          }
+          this.begin(op.scene, false);
           break;
         case "check": {
           const view = this.checkView(op.id, op.spec);
@@ -794,57 +1243,4 @@ export class StoryRun {
     }
     throw new Error(`scene "${this.scene}" loops without stopping`);
   }
-}
-
-/**
- * r21: a save from before the 3D places (its stage has no `place`) restarts
- * its scene with no one anywhere. This rebuilds the stage by playing the
- * chapter from the start down the saved path (the same picks, the spots and
- * deductions its flags say were found) to the saved scene, and keeps the
- * save's own flags, relationships and path. Deterministic; falls back to the
- * save as it was if the path can't be followed.
- */
-export function upgradeSnapshot(chapter: Chapter, snap: Snapshot): Snapshot {
-  if (snap.stage.place !== undefined || !chapter.scenes[snap.scene]) {
-    return snap;
-  }
-  const picks = snap.path
-    .filter((p) => p.startsWith("c:"))
-    .map((p) => p.slice(2).split("="));
-  const r = new StoryRun(
-    chapter,
-    chapterStart(chapter, undefined, { build: snap.build ?? null, seed: 1 }),
-  );
-  const want = snap.path.length;
-  for (let steps = 0; steps < 20_000; steps++) {
-    const h = r.history();
-    if (h.length > want && r.sceneId === snap.scene) {
-      return { ...snap, stage: r.snapshot().stage };
-    }
-    if (h.length > want + 1) break;
-    const b = r.beat;
-    if (b.kind === "end") break;
-    if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
-      r.advance();
-    } else if (b.kind === "choice") {
-      const open = b.options.filter((o) => !o.check?.locked);
-      const next = picks[0];
-      let pick = open[0];
-      if (next && next[0] === b.id) {
-        picks.shift();
-        pick = open.find((o) => o.id === next[1]) ?? pick;
-      }
-      r.choose(pick.id);
-    } else {
-      const spot = b.spots.find((s) => !s.seen && snap.flags[s.id]);
-      const ded = b.deductions.find(
-        (d) => d.ready && !d.done && !d.check?.locked && snap.flags[d.id],
-      );
-      if (ded) r.deduce(ded.id);
-      else if (spot) r.examine(spot.id);
-      else if (b.canLeave) r.leave();
-      else r.examine(b.spots.find((s) => !s.seen)?.id ?? b.spots[0].id);
-    }
-  }
-  return snap;
 }

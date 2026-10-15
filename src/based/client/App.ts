@@ -1,34 +1,45 @@
 // Mr. Based's page. Asks the server who may play: everyone else sees Coming
 // Soon (the title, the key art and a few lines, and no way in). The owner
-// gets the title screen, chapter select, the game itself and the flowchart
-// at the end of each chapter. Progress is saved to his account as he plays.
+// gets the title screen, the game itself and, when a chapter of the story
+// ends, the flowchart of what he chose.
+//
+// r22: no chapters to pick and no checkpoints. The game saves in slots
+// (an autosave, a quicksave and ten of his own), each on the server with
+// his account; Continue picks up the latest, Load game lists them all. The
+// story's chapters follow on from each other by themselves.
 
 import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { DERPY_ACCOUNT_EVENT } from "../../derpland/Account";
 import "../../derpland/DerpBar";
 import { evalExpr } from "../engine/Expr";
-import { Snapshot, StoryRun, upgradeSnapshot } from "../engine/Runtime";
-import { BasedSave, emptySave, noteSeen } from "../engine/Save";
+import { clockText, StoryRun } from "../engine/Runtime";
+import { emptyProfile, noteSeen, Profile, SlotSave } from "../engine/Save";
 import { Boost } from "../engine/Skills";
 import { Build, Chapter } from "../engine/Types";
 import * as Api from "./Api";
 import { renderFlowchart } from "./Flowchart";
-// r21: the player and its 3D world load only when a chapter starts, so the
+// r21: the player and its 3D world load only when the game starts, so the
 // Coming Soon page never downloads them.
 import type { PlayerHost } from "./Player";
 import { loadPrefs, Prefs, savePrefs, TextSpeed } from "./Prefs";
 import "./Setup";
 import { Ambience } from "./Sound";
 import { BASED_COVER, BASED_COVER_CREDIT, BASED_TAGLINE } from "./Teaser";
-import { creditsBody, settingsBody } from "./Ui";
+import {
+  creditsBody,
+  playedText,
+  settingsBody,
+  slotName,
+  slotsBody,
+} from "./Ui";
 import type { WorldAssets } from "./world/Assets";
 
 type Screen =
   | "loading"
   | "soon"
   | "title"
-  | "chapters"
+  | "load"
   | "flow"
   | "settings"
   | "credits"
@@ -59,12 +70,13 @@ export class BasedApp extends LitElement {
   @state() private access: Api.Access = { signedIn: false, play: false };
   @state() private list: Api.ChapterInfo[] = [];
   @state() private next = 2;
-  @state() private save: BasedSave = emptySave();
+  @state() private profile: Profile = emptyProfile();
+  @state() private slots: Api.SlotInfo[] = [];
   @state() private prefs: Prefs = loadPrefs();
   @state() private progress = { done: 0, total: 0 };
   @state() private problems: string[] = [];
   @state() private loaded: Api.LoadedChapter | null = null;
-  @state() private from: Snapshot | null = null;
+  @state() private from: SlotSave | null = null;
   @state() private carried: {
     flags: Record<string, number>;
     rels: Record<string, number>;
@@ -73,7 +85,8 @@ export class BasedApp extends LitElement {
   } | null = null;
   @state() private build: Build | null = null;
   @state() private assets: WorldAssets | null = null;
-  private setupFor: { n: number; from: Snapshot | null } | null = null;
+  @state() private loadError = "";
+  private setupFor: number | null = null;
   @state() private ended: {
     path: string[];
     values: { flags: Record<string, number>; rels: Record<string, number> };
@@ -119,10 +132,11 @@ export class BasedApp extends LitElement {
     }
     document.title = "Mr. Based · Derp Land";
     try {
-      const [list, save] = await Promise.all([Api.chapters(), Api.loadSave()]);
+      const [list, p] = await Promise.all([Api.chapters(), Api.loadProfile()]);
       this.list = list.chapters;
       this.next = list.next;
-      this.save = save ?? emptySave();
+      this.profile = p.save ?? emptyProfile();
+      this.slots = p.slots;
     } catch {
       this.screen = "soon";
       return;
@@ -132,9 +146,10 @@ export class BasedApp extends LitElement {
 
   // --- saving --------------------------------------------------------------
 
+  /** The profile (what's been seen, time played), a moment after a change. */
   private dirty(): void {
     window.clearTimeout(this.saveTimer);
-    this.saveTimer = window.setTimeout(() => void this.persist(), 600);
+    this.saveTimer = window.setTimeout(() => void this.persist(), 2000);
   }
 
   private flush = () => {
@@ -148,41 +163,40 @@ export class BasedApp extends LitElement {
   private async persist(): Promise<void> {
     this.saveTimer = 0;
     try {
-      await Api.storeSave(this.save);
+      await Api.storeProfile(this.profile);
     } catch {
-      // the next scene will try again
+      // the next change will try again
     }
   }
 
   private host(n: number): PlayerHost {
     return {
-      scene: (snap, history, checkpoint) => {
-        const s = this.save;
-        s.current = snap;
-        noteSeen(s, n, history);
-        if (checkpoint) {
-          (s.checkpoints[String(n)] ??= {})[snap.scene] = {
-            label: checkpoint,
-            at: new Date().toISOString(),
-            snap,
-          };
-        }
+      save: async (slot, save) => {
+        await Api.storeSlot(slot, save);
+        const info: Api.SlotInfo = {
+          slot,
+          meta: save.meta,
+          updatedAt: new Date().toISOString(),
+        };
+        this.slots = [...this.slots.filter((s) => s.slot !== slot), info];
+      },
+      load: (slot) => void this.loadSlot(slot),
+      seen: (path, found) => {
+        noteSeen(this.profile, n, path, found);
         this.dirty();
       },
-      pick: (choice, option, history) => {
-        noteSeen(this.save, n, history);
+      pick: (choice, option) => {
         void Api.recordPicks(n, [{ choice, option }]).catch(() => {});
-        this.dirty();
       },
-      found: (id) => {
-        noteSeen(this.save, n, [], [id]);
+      played: (s) => {
+        this.profile.played = Math.round(this.profile.played + s);
         this.dirty();
       },
       end: (run) => void this.finish(n, run),
-      quit: (to) => {
+      quit: () => {
         this.flush();
         this.ambience.stop();
-        this.screen = to;
+        this.screen = "title";
       },
     };
   }
@@ -190,16 +204,15 @@ export class BasedApp extends LitElement {
   private async finish(n: number, run: StoryRun): Promise<void> {
     const values = run.values();
     const path = run.history();
-    this.save.finished[String(n)] = {
+    this.profile.finished[String(n)] = {
       at: new Date().toISOString(),
       flags: values.flags,
       rels: values.rels,
-      path,
+      path: path.slice(-3000),
       build: run.build,
       boosts: run.boosts,
     };
-    this.save.current = null;
-    noteSeen(this.save, n, path);
+    noteSeen(this.profile, n, path);
     this.flush();
     void this.persist();
     this.ended = { path, values };
@@ -239,33 +252,46 @@ export class BasedApp extends LitElement {
     return [...keys];
   }
 
-  private async play(n: number, from: Snapshot | null): Promise<void> {
+  /** A new game, or the next chapter after one that's finished. */
+  private async newGame(n: number): Promise<void> {
     this.ambience.unlock();
     const c = await this.chapter(n);
     if (c === null) return;
-    const prev = this.save.finished[String(n - 1)];
-    this.carried = prev
-      ? {
-          flags: prev.flags,
-          rels: prev.rels,
-          build: prev.build ?? null,
-          boosts: prev.boosts ?? [],
-        }
-      : null;
-    // r21: a chapter with skills asks who he was, unless he's been decided.
-    const decided = from?.build ?? this.carried?.build ?? null;
+    const prev = this.profile.finished[String(n - 1)];
+    this.carried =
+      prev && n > 1
+        ? {
+            flags: prev.flags,
+            rels: prev.rels,
+            build: prev.build ?? null,
+            boosts: prev.boosts ?? [],
+          }
+        : null;
+    const decided = this.carried?.build ?? null;
     if (c.chapter.skills.length > 0 && !decided) {
       this.loaded = c;
-      this.setupFor = { n, from };
+      this.setupFor = n;
       this.screen = "setup";
       return;
     }
-    await this.start3d(n, from, decided);
+    await this.start3d(n, null, decided);
+  }
+
+  private async loadSlot(slot: string): Promise<void> {
+    this.ambience.unlock();
+    this.loadError = "";
+    const save: SlotSave | null = await Api.loadSlot(slot).catch(() => null);
+    if (!save) {
+      this.loadError = `${slotName(slot)} couldn't be loaded.`;
+      return;
+    }
+    this.carried = null;
+    await this.start3d(save.meta.chapter, save, save.snap.build ?? null);
   }
 
   private async start3d(
     n: number,
-    from: Snapshot | null,
+    from: SlotSave | null,
     build: Build | null,
   ): Promise<void> {
     this.screen = "preparing";
@@ -300,8 +326,7 @@ export class BasedApp extends LitElement {
     ]);
     this.assets = assets;
     this.loaded = c;
-    // A save from before the 3D places: rebuild where everyone stands.
-    this.from = from ? upgradeSnapshot(c.chapter, from) : null;
+    this.from = from;
     this.build = build;
     this.playKey++;
     this.screen = "play";
@@ -330,6 +355,15 @@ export class BasedApp extends LitElement {
     this.ambience.setVolume(this.prefs.volume, !this.prefs.sound);
   }
 
+  /** The slot saved last: what Continue picks up. */
+  private get latest(): Api.SlotInfo | null {
+    let best: Api.SlotInfo | null = null;
+    for (const s of this.slots) {
+      if (!best || s.meta.savedAt > best.meta.savedAt) best = s;
+    }
+    return best;
+  }
+
   // --- drawing -------------------------------------------------------------
 
   render(): TemplateResult {
@@ -341,8 +375,8 @@ export class BasedApp extends LitElement {
         return this.renderSoon();
       case "title":
         return this.renderTitle();
-      case "chapters":
-        return this.renderChapters();
+      case "load":
+        return this.renderLoad();
       case "flow":
         return this.renderFlowScreen();
       case "settings":
@@ -354,8 +388,9 @@ export class BasedApp extends LitElement {
           <based-setup
             .chapter=${this.loaded!.chapter}
             .done=${(b: Build) => {
-              const s = this.setupFor;
-              if (s) void this.start3d(s.n, s.from, b);
+              if (this.setupFor !== null) {
+                void this.start3d(this.setupFor, null, b);
+              }
             }}
             .back=${() => (this.screen = "title")}
           ></based-setup>`;
@@ -378,7 +413,7 @@ export class BasedApp extends LitElement {
       case "broken":
         return html`<derp-bar page="home"></derp-bar>
           <main class="mb-page">
-            <h1 class="mb-h1">This chapter has mistakes in its script</h1>
+            <h1 class="mb-h1">The story has mistakes in its script</h1>
             <p class="mb-p">Fix these in the chapter file and reload:</p>
             <ul class="mb-problems">
               ${this.problems.map((p) => html`<li>${p}</li>`)}
@@ -405,17 +440,10 @@ export class BasedApp extends LitElement {
   }
 
   private renderTitle(): TemplateResult {
-    const cur = this.save.current;
+    const cur = this.latest;
     const first = this.list[0];
-    const finished = (n: number) => !!this.save.finished[String(n)];
-    const curChapter = cur
-      ? this.list.find((c) => c.n === cur.chapter)
-      : undefined;
-    const curLabel = cur
-      ? (this.save.checkpoints[String(cur.chapter)]?.[cur.scene]?.label ??
-        curChapter?.checkpoints.find((k) => k.scene === cur.scene)?.label ??
-        null)
-      : null;
+    const c = cur ? clockText(cur.meta.clock) : null;
+    const seen = Object.keys(this.profile.seen).length > 0;
     return html`<derp-bar page="home"></derp-bar>
       <main class="mb-title">
         <div class="mb-title-art" aria-hidden="true">
@@ -429,30 +457,55 @@ export class BasedApp extends LitElement {
             ${cur
               ? html`<button
                   class="mb-btn primary big"
-                  @click=${() => void this.play(cur.chapter, cur)}
+                  @click=${() => void this.loadSlot(cur.slot)}
                 >
                   Continue
                   <small
-                    >Chapter
-                    ${chapterWord(cur.chapter)}${curLabel
-                      ? html` · ${curLabel}`
-                      : nothing}</small
+                    >${cur.meta.placeName || cur.meta.label}${c
+                      ? ` · ${c.time}`
+                      : ""}
+                    · ${slotName(cur.slot)}</small
                   >
                 </button>`
-              : first
-                ? html`<button
-                    class="mb-btn primary big"
-                    @click=${() => void this.play(first.n, null)}
-                  >
-                    ${finished(first.n) ? "Play chapter one again" : "Begin"}
-                    <small
-                      >Chapter ${chapterWord(first.n)}: ${first.title}</small
-                    >
-                  </button>`
-                : nothing}
-            <button class="mb-btn" @click=${() => (this.screen = "chapters")}>
-              Chapters and checkpoints
-            </button>
+              : nothing}
+            ${first
+              ? html`<button
+                  class="mb-btn ${cur ? "" : "primary big"}"
+                  @click=${() => {
+                    if (
+                      cur &&
+                      !window.confirm(
+                        "Start a new game? Your saves are kept; the autosave will be the new game's.",
+                      )
+                    ) {
+                      return;
+                    }
+                    void this.newGame(first.n);
+                  }}
+                >
+                  New game
+                  ${cur ? nothing : html`<small>Paris, a wet night</small>`}
+                </button>`
+              : nothing}
+            ${this.slots.length > 0
+              ? html`<button
+                  class="mb-btn"
+                  @click=${() => {
+                    this.loadError = "";
+                    this.screen = "load";
+                  }}
+                >
+                  Load game
+                </button>`
+              : nothing}
+            ${seen
+              ? html`<button
+                  class="mb-btn"
+                  @click=${() => void this.showFlow(first?.n ?? 1)}
+                >
+                  Flowchart
+                </button>`
+              : nothing}
             <button class="mb-btn" @click=${() => (this.screen = "settings")}>
               Settings
             </button>
@@ -460,94 +513,38 @@ export class BasedApp extends LitElement {
               Credits
             </button>
           </nav>
-          ${this.list.length > 0 && this.list.every((c) => finished(c.n))
-            ? html`<p class="mb-title-note">
-                Chapter ${chapterWord(this.next)} is being written. Your choices
-                are waiting for it.
-              </p>`
-            : html`<p class="mb-title-note">
-                Only you can see this. Press <kbd>N</kbd> or the pen while
-                playing to leave a note for the writer on any scene.
-              </p>`}
+          ${this.profile.migrated
+            ? html`<p class="mb-title-note">${this.profile.migrated}</p>`
+            : this.profile.played > 0
+              ? html`<p class="mb-title-note">
+                  Played ${playedText(this.profile.played)} so far. Press
+                  <kbd>N</kbd> or the pen while playing to leave a note for the
+                  writer.
+                </p>`
+              : html`<p class="mb-title-note">
+                  Only you can see this. Press <kbd>N</kbd> or the pen while
+                  playing to leave a note for the writer on any moment.
+                </p>`}
         </div>
       </main>`;
   }
 
-  private renderChapters(): TemplateResult {
+  private renderLoad(): TemplateResult {
     return html`<derp-bar page="home"></derp-bar>
-      <main class="mb-page">
+      <main class="mb-page narrow">
         <button class="mb-back" @click=${() => (this.screen = "title")}>
           ← Mr. Based
         </button>
-        <h1 class="mb-h1">Chapters</h1>
-        <div class="mb-chapters">
-          ${this.list.map((c) => {
-            const reached = this.save.checkpoints[String(c.n)] ?? {};
-            const done = this.save.finished[String(c.n)];
-            const seen = this.save.seen[String(c.n)];
-            const canStart = c.n === 1 || !!this.save.finished[String(c.n - 1)];
-            return html`<section class="mb-chapter">
-              <div class="mb-chapter-num">${chapterWord(c.n)}</div>
-              <div class="mb-chapter-body">
-                <h2>${c.title}</h2>
-                <p class="mb-p">${c.summary}</p>
-                <div class="mb-chapter-status">
-                  ${done
-                    ? html`Finished ${new Date(done.at).toLocaleDateString()}`
-                    : seen
-                      ? "In progress"
-                      : "Not started"}
-                  ${c.ok
-                    ? nothing
-                    : html` · <b class="bad">script has mistakes</b>`}
-                </div>
-                <div class="mb-chapter-actions">
-                  <button
-                    class="mb-btn primary"
-                    ?disabled=${!canStart}
-                    @click=${() => void this.play(c.n, null)}
-                  >
-                    Play from the beginning
-                  </button>
-                  ${seen
-                    ? html`<button
-                        class="mb-btn"
-                        @click=${() => void this.showFlow(c.n)}
-                      >
-                        Flowchart
-                      </button>`
-                    : nothing}
-                </div>
-                <div class="mb-panel-sub">Checkpoints</div>
-                <ol class="mb-checkpoints">
-                  ${c.checkpoints.map((k) => {
-                    const r = reached[k.scene];
-                    return r
-                      ? html`<li>
-                          <button @click=${() => void this.play(c.n, r.snap)}>
-                            <span class="mb-cp-mark">◆</span>${k.label}
-                          </button>
-                        </li>`
-                      : html`<li class="locked">
-                          <span class="mb-cp-mark">◇</span>?
-                        </li>`;
-                  })}
-                </ol>
-              </div>
-            </section>`;
-          })}
-          <section class="mb-chapter upcoming">
-            <div class="mb-chapter-num">${chapterWord(this.next)}</div>
-            <div class="mb-chapter-body">
-              <h2>Being written</h2>
-              <p class="mb-p">
-                The next chapter picks up from where you left chapter
-                ${chapterWord(this.next - 1).toLowerCase()}, with everything you
-                chose.
-              </p>
-            </div>
-          </section>
-        </div>
+        <h1 class="mb-h1">Load game</h1>
+        ${this.loadError
+          ? html`<p class="mb-p bad">${this.loadError}</p>`
+          : nothing}
+        ${slotsBody({
+          slots: this.slots,
+          mode: "load",
+          busy: null,
+          pick: (slot) => void this.loadSlot(slot),
+        })}
       </main>`;
   }
 
@@ -570,19 +567,20 @@ export class BasedApp extends LitElement {
         <div class="mb-danger">
           <div class="mb-panel-sub">Start over</div>
           <p class="mb-p">
-            Forget where you are, your checkpoints and your flowchart. Notes for
-            the writer are kept.
+            Erase every save slot and your flowchart. Notes for the writer are
+            kept.
           </p>
           <button
             class="mb-btn quiet"
             @click=${async () => {
-              if (!window.confirm("Erase your Mr. Based progress?")) return;
+              if (!window.confirm("Erase all your Mr. Based saves?")) return;
               await Api.eraseSave().catch(() => {});
-              this.save = emptySave();
+              this.profile = emptyProfile();
+              this.slots = [];
               this.screen = "title";
             }}
           >
-            Erase my progress
+            Erase my saves
           </button>
         </div>
       </main>`;
@@ -615,6 +613,8 @@ export class BasedApp extends LitElement {
           .credits=${c.credits.items}
           .assets=${this.assets}
           .places=${c.places ?? {}}
+          .slots=${this.slots}
+          .played=${this.profile.played}
         ></based-player>`,
     )}`;
   }
@@ -631,6 +631,7 @@ export class BasedApp extends LitElement {
     const c = this.loaded!;
     const n = c.chapter.n;
     const lines = this.carryLines(c.chapter);
+    const more = this.list.some((x) => x.n === n + 1);
     return html`<main class="mb-end">
       <div class="mb-end-head">
         <div class="mb-end-kicker">End of Chapter ${chapterWord(n)}</div>
@@ -638,9 +639,7 @@ export class BasedApp extends LitElement {
       </div>
       ${lines.length > 0
         ? html`<section class="mb-carry">
-            <div class="mb-panel-sub">
-              What you carry into chapter ${chapterWord(n + 1).toLowerCase()}
-            </div>
+            <div class="mb-panel-sub">What you carry on with</div>
             <ul>
               ${lines.map((l) => html`<li>${l}</li>`)}
             </ul>
@@ -650,7 +649,7 @@ export class BasedApp extends LitElement {
         <div class="mb-panel-sub">Flowchart</div>
         ${renderFlowchart({
           flow: c.flow,
-          seen: this.save.seen[String(n)] ?? {
+          seen: this.profile.seen[String(n)] ?? {
             scenes: [],
             options: [],
             found: [],
@@ -662,11 +661,12 @@ export class BasedApp extends LitElement {
       </section>
       <section class="mb-end-note">
         <div class="mb-panel-sub">
-          Chapter ${chapterWord(n + 1)} is being written
+          ${more
+            ? "Before the story goes on"
+            : `Chapter ${chapterWord(n + 1)} is being written`}
         </div>
         <p class="mb-p">
-          Anything the writer should know before it is? It's kept with this
-          chapter's ending.
+          Anything the writer should know? It's kept with this chapter's ending.
         </p>
         <textarea
           rows="4"
@@ -696,7 +696,7 @@ export class BasedApp extends LitElement {
                   chapter: n,
                   scene: "end",
                   line: "[end of chapter]",
-                  path: this.ended?.path ?? [],
+                  path: (this.ended?.path ?? []).slice(-300),
                   note: this.endNote.trim(),
                 });
                 this.endNote = "";
@@ -711,12 +711,14 @@ export class BasedApp extends LitElement {
         </div>
       </section>
       <nav class="mb-end-actions">
-        <button
-          class="mb-btn primary"
-          @click=${() => (this.screen = "chapters")}
-        >
-          Replay from a checkpoint
-        </button>
+        ${more
+          ? html`<button
+              class="mb-btn primary"
+              @click=${() => void this.newGame(n + 1)}
+            >
+              Carry on
+            </button>`
+          : nothing}
         <button class="mb-btn" @click=${() => (this.screen = "title")}>
           Title screen
         </button>
@@ -729,21 +731,18 @@ export class BasedApp extends LitElement {
     const n = c.chapter.n;
     return html`<derp-bar page="home"></derp-bar>
       <main class="mb-page wide">
-        <button class="mb-back" @click=${() => (this.screen = "chapters")}>
-          ← Chapters
+        <button class="mb-back" @click=${() => (this.screen = "title")}>
+          ← Mr. Based
         </button>
         <h1 class="mb-h1">Chapter ${chapterWord(n)}: ${c.chapter.title}</h1>
         ${renderFlowchart({
           flow: c.flow,
-          seen: this.save.seen[String(n)] ?? {
+          seen: this.profile.seen[String(n)] ?? {
             scenes: [],
             options: [],
             found: [],
           },
-          path:
-            this.save.finished[String(n)]?.path ??
-            this.save.current?.path ??
-            [],
+          path: this.profile.finished[String(n)]?.path ?? [],
           players: this.stats.players,
           picks: this.stats.picks,
         })}

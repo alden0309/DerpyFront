@@ -5,7 +5,7 @@
 
 export const BASED_TITLE = "Mr. Based";
 
-export const BASED_TAGLINE = "A spy story, told in chapters.";
+export const BASED_TAGLINE = "A spy story in Paris, written as you play.";
 
 /** The public key art, and who made it. */
 export const BASED_COVER = "/derpland/based-cover.webp";

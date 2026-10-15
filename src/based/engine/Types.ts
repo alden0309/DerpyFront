@@ -6,6 +6,8 @@
 /** A condition, as written after `if` or `* if`. */
 export type Expr =
   | { k: "flag"; name: string }
+  /** r22: whether he speaks a language ("speaks.fr"). */
+  | { k: "lang"; code: string }
   | { k: "rel"; who: string }
   | { k: "skill"; id: string }
   | { k: "num"; v: number }
@@ -32,6 +34,13 @@ export interface CastMember {
    * known first by a description, then by name): speaking moves that body.
    */
   body?: string;
+}
+
+/** r22: a language he can be given at the start ("@language fr French"). */
+export interface Language {
+  /** As written in lines: [fr]. */
+  code: string;
+  name: string;
 }
 
 // --- Skills (r21) ----------------------------------------------------------
@@ -75,6 +84,11 @@ export interface Build {
   signature: string;
   /** The archetype it started from, if any. */
   archetype?: string;
+  /**
+   * r22: the languages he speaks (codes from the chapter's @language list).
+   * How many he may have depends on his Languages skill (Skills.ts).
+   */
+  langs?: string[];
 }
 
 /** A modifier on a check: "+2 if came_down 'You saw his shoes'". */
@@ -150,6 +164,36 @@ export interface ActorState {
   pose: string;
   /** Their outfit, if not their usual one. */
   wear?: string;
+  /**
+   * r22: the place (area) the mark is in. The world has several now, and
+   * people stay where they were left while he's elsewhere.
+   */
+  place?: string;
+}
+
+/**
+ * r22: what starts a scene in the open world, once the opening has set him
+ * free (`-> FREE`): talking to someone, looking at something, walking into
+ * a place, a thought that comes to him, or something that simply happens as
+ * soon as its condition holds.
+ */
+export interface Trigger {
+  on: "talk" | "look" | "enter" | "think" | "auto";
+  /** Who (talk), which hotspot (look) or which place (enter). */
+  target?: string;
+  /** What a thought is called in the column (think). */
+  label?: string;
+  /** Only in this place (look and talk; enter names its own). */
+  place?: string;
+  /** Plays only the first time (think and auto always are). */
+  once: boolean;
+  cond?: Expr;
+}
+
+/** r22: an entry in his journal: what he has set out to do. */
+export interface TaskState {
+  text: string;
+  done: boolean;
 }
 
 /** `src` is the line in the script file, for error messages and notes. */
@@ -160,9 +204,17 @@ export type Op =
       who?: string;
       how?: string;
       text: string;
-      /** r21: a skill's voice ("~ TRADECRAFT 9: ..."), passive if `diff`. */
+      /** r21: a skill's voice ("~ INSTINCT 9: ..."), passive if `diff`. */
       skill?: string;
       diff?: number;
+      /**
+       * r22: spoken in another language ("WHO [fr]: Bonsoir. | Good
+       * evening."): `text` is what's said, `trans` what it means, and
+       * `langDiff` a Languages check that can get the gist without it.
+       */
+      lang?: string;
+      trans?: string;
+      langDiff?: number;
       src: number;
     }
   | { op: "card"; title: string; sub?: string; src: number }
@@ -226,13 +278,19 @@ export type Op =
       src: number;
     }
   | { op: "return"; src: number }
-  | { op: "fall"; src: number };
+  | { op: "fall"; src: number }
+  /** r22: his journal: a task set (or its words changed), or done. */
+  | { op: "task"; id: string; text: string | null; done: boolean; src: number }
+  /** r22: the weather the story wants (rain, drizzle, clear, fog), or none. */
+  | { op: "weather"; kind: string | null; src: number }
+  /** r22: the clock, in minutes after midnight. */
+  | { op: "time"; minutes: number; src: number };
 
 export interface Scene {
   id: string;
   label: string;
-  /** Set when the scene is a checkpoint you can replay from. */
-  checkpoint?: string;
+  /** r22: what starts it in the open world, if anything does. */
+  trigger?: Trigger;
   ops: Op[];
   src: number;
 }
@@ -259,10 +317,17 @@ export interface Chapter {
   skills: SkillDef[];
   archetypes: Archetype[];
   points: PointRules;
+  /** r22: the languages he can be given at the start. */
+  languages: Language[];
+  /** r22: what the clock says when the chapter begins (minutes). */
+  clock: number;
 }
 
 /** The goto target that ends the chapter. */
 export const END = "END";
+
+/** r22: the goto target that sets him free to go where he likes. */
+export const FREE = "FREE";
 
 export interface ScriptError {
   line: number;

@@ -5,10 +5,17 @@
 //
 // r21 adds skills and checks (in the manner of Disco Elysium) and the 3D
 // places: `@attribute`, `@skill`, `@archetype` and `@points` in the header;
-// check options (`* white COMPOSURE challenging [Label]`) with `bonus` lines
-// and a `fail` section; skills' voices (`~ TRADECRAFT 9: ...`); checked
+// check options (`* white INTIMIDATION challenging [Label]`) with `bonus`
+// lines and a `fail` section; skills' voices (`~ INSTINCT 9: ...`); checked
 // deductions; spots on a place's hotspots; and `@place`, `@actor`, `@focus`,
 // `@vignette`, `@show`, `@hide` and `boost`.
+//
+// r22 opens the world: `@on` says what starts a scene (talking to someone,
+// looking at something, walking into a place, a thought, or a condition),
+// `-> FREE` lets him go where he likes, `task` keeps his journal,
+// `@weather` and `@time` set the night, `@language` lists the tongues he can
+// be given, and a line can be spoken in one: `WHO [fr]: Bonsoir. | Good
+// evening.`
 
 import { parseDifficulty } from "./Dice";
 import { parseExpr } from "./Expr";
@@ -21,10 +28,12 @@ import {
   Deduction,
   END,
   Expr,
+  FREE,
   Mod,
   Op,
   Scene,
   ScriptError,
+  Trigger,
 } from "./Types";
 
 type Frame =
@@ -104,6 +113,73 @@ export function slug(label: string): string {
   );
 }
 
+/** The weathers the story can ask for. */
+export const WEATHERS = ["rain", "drizzle", "clear", "fog", "changing"];
+
+/** "21:40" as minutes after midnight, or null. */
+export function clockOf(s: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
+/**
+ * `@on talk WHO [once] [in=place] [if cond]`, `@on look THING ...`,
+ * `@on enter PLACE ...`, `@on think "Label" ...`, `@on auto [if cond]`.
+ */
+function parseTrigger(
+  rest: string,
+  err: (m: string) => void,
+  cond: (src: string, line: number) => Expr | undefined,
+  line: number,
+): Trigger | null {
+  const usage =
+    '@on talk WHO | look THING | enter PLACE | think "Label" | auto, then [once] [in=place] [if condition]';
+  const m = /^(talk|look|enter|think|auto)\b\s*(.*)$/.exec(rest);
+  if (!m) {
+    err(usage);
+    return null;
+  }
+  const on = m[1] as Trigger["on"];
+  let tail = m[2];
+  const t: Trigger = { on, once: on === "think" || on === "auto" };
+  if (on === "think") {
+    const q = /^"((?:[^"\\]|\\.)*)"\s*(.*)$/.exec(tail);
+    if (!q) {
+      err('@on think "What the thought is called" [if condition]');
+      return null;
+    }
+    t.label = q[1].replace(/\\"/g, '"');
+    tail = q[2];
+  } else if (on !== "auto") {
+    const w = /^(\S+)\s*(.*)$/.exec(tail);
+    const target = w?.[1] ?? "";
+    const ok = on === "talk" ? CAST_ID.test(target) : KEY.test(target);
+    if (!ok) {
+      err(
+        on === "talk"
+          ? "@on talk WHO (a cast id)"
+          : `@on ${on} takes a ${on === "look" ? "hotspot" : "place"}'s key`,
+      );
+      return null;
+    }
+    t.target = target;
+    tail = w?.[2] ?? "";
+  }
+  const c = /^(.*?)(?:(?:^|\s)if\s+(.+))?$/.exec(tail)!;
+  for (const word of c[1].split(/\s+/).filter(Boolean)) {
+    if (word === "once") t.once = true;
+    else if (/^in=[a-z0-9_]+$/.test(word) && on !== "enter") {
+      t.place = word.slice(3);
+    } else err(`@on: "${word}" isn't understood (${usage})`);
+  }
+  if (c[2]) t.cond = cond(c[2].trim(), line);
+  return t;
+}
+
 export interface ParseResult {
   chapter: Chapter;
   errors: ScriptError[];
@@ -124,6 +200,8 @@ export function parseChapter(text: string): ParseResult {
     skills: [],
     archetypes: [],
     points: { total: 9, min: 1, max: 5 },
+    languages: [],
+    clock: 22 * 60,
   };
   const castIds = new Set<string>();
   const skillIds = new Set<string>();
@@ -340,6 +418,24 @@ export function parseChapter(text: string): ParseResult {
           });
           break;
         }
+        case "@language": {
+          const code = pos[0] ?? "";
+          if (!/^[a-z][a-z_]*$/.test(code) || !pos[1]) {
+            err(n, '@language code "Name"  (code in lower case: fr, de...)');
+            break;
+          }
+          if (chapter.languages.some((l) => l.code === code)) {
+            err(n, `@language ${code} is written twice`);
+          }
+          chapter.languages.push({ code, name: pos[1] });
+          break;
+        }
+        case "@time": {
+          const t = clockOf(pos[0] ?? "");
+          if (t === null) err(n, "@time HH:MM");
+          else chapter.clock = t;
+          break;
+        }
         case "@points": {
           const total = Number(pos[0]);
           const min = kv.min !== undefined ? Number(kv.min) : 1;
@@ -358,7 +454,7 @@ export function parseChapter(text: string): ParseResult {
         default:
           err(
             n,
-            `before the first scene, only @chapter, @summary, @start, @cast, @carry, @attribute, @skill, @archetype and @points: "${line}"`,
+            `before the first scene, only @chapter, @summary, @start, @time, @cast, @carry, @attribute, @skill, @archetype, @points and @language: "${line}"`,
           );
       }
       continue;
@@ -371,8 +467,8 @@ export function parseChapter(text: string): ParseResult {
 
     if (line.startsWith("->")) {
       const target = line.slice(2).trim();
-      if (target !== END && !SCENE_ID.test(target)) {
-        err(n, `"-> ${target}": jump to a scene id or END`);
+      if (target !== END && target !== FREE && !SCENE_ID.test(target)) {
+        err(n, `"-> ${target}": jump to a scene id, FREE or END`);
       }
       emit({ op: "goto", scene: target, src: n });
       continue;
@@ -506,7 +602,10 @@ export function parseChapter(text: string): ParseResult {
         if (!castIds.has(who)) err(n, `@actor: "${who}" isn't in the cast`);
         const mark = pos[1] ?? "";
         if (mark !== "none" && !KEY.test(mark)) {
-          err(n, '@actor WHO mark [pose] [walk] [wear=look]  (or "none")');
+          err(
+            n,
+            '@actor WHO mark [pose] [walk] [wear=look] [in=place]  (or "none")',
+          );
         }
         let walk = false;
         let pose = "stand";
@@ -518,6 +617,11 @@ export function parseChapter(text: string): ParseResult {
         const state: ActorState | null =
           mark === "none" ? null : { at: mark, pose };
         if (state && kv.wear) state.wear = kv.wear;
+        if (kv.in !== undefined) {
+          if (!KEY.test(kv.in)) err(n, "@actor ... in=place");
+          // A place for "none" too: gone from there (and not elsewhere).
+          if (state) state.place = kv.in;
+        }
         emit({ op: "actor", who, state, walk, src: n });
         continue;
       }
@@ -529,12 +633,49 @@ export function parseChapter(text: string): ParseResult {
         emit({ op: "figure", who, src: n });
         continue;
       }
-      case "@checkpoint": {
-        const ws = words(rest);
-        if (stack.length > 0 || beats > 0) {
-          err(n, "@checkpoint goes at the top of a scene");
+      case "@checkpoint":
+        // r22: the game saves in slots, whenever the player likes.
+        err(n, "@checkpoint is gone: the game saves in slots now");
+        continue;
+      case "@on": {
+        if (stack.length > 0 || beats > 0 || scene.ops.length > 0) {
+          err(n, "@on goes at the top of a scene");
         }
-        scene.checkpoint = ws[0] ?? scene.label;
+        if (scene.trigger) err(n, "a scene has one @on");
+        const t = parseTrigger(rest, (m) => err(n, m), cond, n);
+        if (t) scene.trigger = t;
+        continue;
+      }
+      case "@weather": {
+        const kind = rest === "none" ? null : rest;
+        if (kind !== null && !WEATHERS.includes(kind)) {
+          err(n, `@weather ${WEATHERS.join(", ")} or none`);
+        }
+        emit({ op: "weather", kind, src: n });
+        continue;
+      }
+      case "@time": {
+        const t = clockOf(rest);
+        if (t === null) err(n, "@time HH:MM");
+        emit({ op: "time", minutes: t ?? 0, src: n });
+        continue;
+      }
+      case "task": {
+        // task id "What he means to do"   or   task id done
+        const m = /^([a-z][a-z0-9_]*)\s+(?:(done)|"((?:[^"\\]|\\.)*)")$/.exec(
+          rest,
+        );
+        if (!m) {
+          err(n, 'task id "What he means to do"  or  task id done');
+          continue;
+        }
+        emit({
+          op: "task",
+          id: m[1],
+          text: m[3] !== undefined ? m[3].replace(/\\"/g, '"') : null,
+          done: m[2] === "done",
+          src: n,
+        });
         continue;
       }
       case "@card": {
@@ -885,17 +1026,36 @@ export function parseChapter(text: string): ParseResult {
       beats++;
       continue;
     }
-    const say = /^([A-Z][A-Z0-9_]*)(?:\s*\(([^)]*)\))?:\s+(.+)$/.exec(line);
+    const say =
+      /^([A-Z][A-Z0-9_]*)(?:\s*\(([^)]*)\))?(?:\s*\[([a-z][a-z_]*)(?:\s+([a-z]+|\d+))?\])?:\s+(.+)$/.exec(
+        line,
+      );
     if (say) {
       if (!castIds.has(say[1])) err(n, `"${say[1]}" isn't in the cast`);
-      emit({
+      const op: Extract<Op, { op: "line" }> = {
         op: "line",
         kind: "say",
         who: say[1],
         how: say[2]?.trim() || undefined,
-        text: say[3].trim(),
+        text: say[5].trim(),
         src: n,
-      });
+      };
+      if (say[3] !== undefined) {
+        // r22: in another language, with what it means after " | ".
+        op.lang = say[3];
+        const bar = op.text.indexOf(" | ");
+        if (bar < 0) {
+          err(
+            n,
+            `a line in [${say[3]}] needs its meaning: "... | In English."`,
+          );
+        } else {
+          op.trans = op.text.slice(bar + 3).trim();
+          op.text = op.text.slice(0, bar).trim();
+        }
+        if (say[4] !== undefined) op.langDiff = difficulty(say[4], n);
+      }
+      emit(op);
       beats++;
       continue;
     }

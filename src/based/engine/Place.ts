@@ -27,6 +27,18 @@ export interface Hotspot {
   stand?: string;
   /** On someone: their cast id and the bone. */
   on?: { who: string; bone: string };
+  /**
+   * r22: a door to another place: going through it loads that place, where
+   * he arrives at `mark`. The story can stop him with an `@on look` scene.
+   */
+  to?: { place: string; mark: string };
+  /** r22: what the door or thing is called when it's pointed at. */
+  label?: string;
+  /**
+   * r22: how far off he notices it, in metres, before his Perception
+   * widens it (default 2.5). People and doors are always seen.
+   */
+  near?: number;
 }
 
 export interface Shot {
@@ -93,6 +105,16 @@ export interface PlaceDef {
     fogDensity: number;
     exposure?: number;
   };
+  /** r22: outdoors, the weather falls here (indoors: on the windows). */
+  outdoor?: boolean;
+}
+
+/** r22: the places a place's doors lead to. */
+export function neighbours(p: PlaceDef): string[] {
+  const out = new Set<string>();
+  for (const h of Object.values(p.hotspots)) if (h.to) out.add(h.to.place);
+  out.delete(p.key);
+  return [...out];
 }
 
 /** The names a script can use in a place. */

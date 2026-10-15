@@ -7,6 +7,12 @@
 // none of it is in the site's public JavaScript.
 //
 // Mounted by DerpyApi at /derpy/api/based.
+//
+// BWORLD (r22): saves are slots now (an autosave, a quicksave and ten of
+// the player's own), one row each in derpy_based_slots, beside the
+// account's profile (what's been seen, time played) in derpy_based_saves.
+// A round-21 save there (v1: one save, chapters and checkpoints) is turned
+// into a profile and an autosave the first time it's read.
 
 import express, { NextFunction, Request, Response } from "express";
 import fs from "fs";
@@ -15,9 +21,14 @@ import { fileURLToPath } from "url";
 import { z } from "zod";
 import { flowOf } from "../../based/engine/Flow";
 import { PlaceDef } from "../../based/engine/Place";
+import { fromV1, isSlot, V1Save } from "../../based/engine/Save";
 import { parseChapter } from "../../based/engine/Script";
 import { Chapter } from "../../based/engine/Types";
-import { formatProblem, validateChapter } from "../../based/engine/Validate";
+import {
+  formatProblem,
+  validateChapter,
+  validatePlaces,
+} from "../../based/engine/Validate";
 import { hasBasedAccess } from "./BasedAccess";
 import { Account, accountForToken } from "./DerpyAuth";
 import { db } from "./DerpyDb";
@@ -86,12 +97,31 @@ export function loadPlaces(): Record<string, PlaceDef> {
   return out;
 }
 
-/** The places a chapter names with @place. */
-function placesOf(chapter: Chapter): Set<string> {
+/**
+ * The places a chapter names with @place, and (r22) every place their doors
+ * lead to, and on: the whole world he can walk to.
+ */
+function placesOf(
+  chapter: Chapter,
+  all: Record<string, PlaceDef>,
+): Set<string> {
   const keys = new Set<string>();
+  const todo: string[] = [];
   for (const id of chapter.order) {
+    const t = chapter.scenes[id].trigger;
+    if (t?.on === "enter" && t.target) todo.push(t.target);
+    if (t?.place) todo.push(t.place);
     for (const op of chapter.scenes[id].ops) {
-      if (op.op === "place" && op.key) keys.add(op.key);
+      if (op.op === "place" && op.key) todo.push(op.key);
+      if (op.op === "actor" && op.state?.place) todo.push(op.state.place);
+    }
+  }
+  while (todo.length > 0) {
+    const k = todo.pop()!;
+    if (keys.has(k) || !all[k]) continue;
+    keys.add(k);
+    for (const h of Object.values(all[k].hotspots)) {
+      if (h.to) todo.push(h.to.place);
     }
   }
   return keys;
@@ -153,8 +183,12 @@ export function loadChapter(n: number): LoadedChapter | null {
     sounds: keysIn(AUDIO_DIR, ".mp3"),
     places: all,
   });
+  // r22: the places' doors must lead somewhere real.
+  for (const m of validatePlaces(all)) {
+    problems.push({ level: "error", line: 1, message: `place ${m}` });
+  }
   const places: Record<string, PlaceDef> = {};
-  for (const key of placesOf(chapter)) if (all[key]) places[key] = all[key];
+  for (const key of placesOf(chapter, all)) places[key] = all[key];
   const loaded: LoadedChapter = {
     chapter,
     errors: [
@@ -189,17 +223,30 @@ const StageSchema = z.object({
   // r21: the 3D place and who's where in it (absent in older saves).
   place: Key.nullable().optional(),
   actors: z
-    .record(Key, z.object({ at: Key, pose: Key, wear: Key.optional() }))
+    .record(
+      Key,
+      z.object({
+        at: Key,
+        pose: Key,
+        wear: Key.optional(),
+        // r22: the place (area) they're in.
+        place: Key.optional(),
+      }),
+    )
     .optional(),
   focus: Key.nullable().optional(),
   vignette: Key.nullable().optional(),
   props: z.record(Key, z.boolean()).optional(),
+  // r22: the weather the story asked for.
+  weather: Key.nullable().optional(),
 });
 // r21: who he is (the setup screen), what's boosted his skills, the dice.
 const BuildSchema = z.object({
   attrs: z.record(Key, z.number().int().min(0).max(20)),
   signature: Key,
   archetype: Key.optional(),
+  // r22: the languages he speaks.
+  langs: z.array(Key).max(12).optional(),
 });
 const BoostSchema = z.object({
   skill: Key,
@@ -213,9 +260,9 @@ const SnapSchema = z.object({
   rels: z.record(Key, z.number()),
   stage: StageSchema,
   path: z.array(z.string().max(160)).max(3000),
-  taken: z.array(z.string().max(160)).max(500),
+  taken: z.array(z.string().max(160)).max(5000),
   build: BuildSchema.nullable().optional(),
-  boosts: z.array(BoostSchema).max(100).optional(),
+  boosts: z.array(BoostSchema).max(200).optional(),
   seed: z.number().int().min(0).max(4294967295).optional(),
   checks: z
     .record(
@@ -227,41 +274,79 @@ const SnapSchema = z.object({
       }),
     )
     .optional(),
+  // r22: the open world: scenes played once, his journal, the clock.
+  done: z.array(Key).max(10_000).optional(),
+  tasks: z
+    .record(Key, z.object({ text: z.string().max(400), done: z.boolean() }))
+    .optional(),
+  clock: z.number().int().min(0).max(1e9).optional(),
+  // r22: room for what he carries, when the story gives him things.
+  inv: z.record(Key, z.number().int().min(0).max(9999)).optional(),
 });
-export const SaveSchema = z.object({
-  v: z.literal(1),
-  current: SnapSchema.nullable(),
-  checkpoints: z.record(
-    z.string().max(4),
-    z.record(
-      Key,
-      z.object({
-        label: z.string().max(200),
-        at: z.string().max(40),
-        snap: SnapSchema,
-      }),
-    ),
-  ),
-  seen: z.record(
-    z.string().max(4),
-    z.object({
-      scenes: z.array(Key).max(1000),
-      options: z.array(z.string().max(160)).max(3000),
-      found: z.array(Key).max(1000).default([]),
-    }),
-  ),
-  finished: z.record(
-    z.string().max(4),
-    z.object({
-      at: z.string().max(40),
-      flags: z.record(Key, z.number()),
-      rels: z.record(Key, z.number()),
-      path: z.array(z.string().max(160)).max(3000),
-      build: BuildSchema.optional(),
-      boosts: z.array(BoostSchema).max(100).optional(),
-    }),
-  ),
+const SeenSchema = z.record(
+  z.string().max(4),
+  z.object({
+    scenes: z.array(Key).max(10_000),
+    options: z.array(z.string().max(160)).max(20_000),
+    found: z.array(Key).max(10_000).default([]),
+  }),
+);
+const FinishedSchema = z.record(
+  z.string().max(4),
+  z.object({
+    at: z.string().max(40),
+    flags: z.record(Key, z.number()),
+    rels: z.record(Key, z.number()),
+    path: z.array(z.string().max(160)).max(3000),
+    build: BuildSchema.optional(),
+    boosts: z.array(BoostSchema).max(200).optional(),
+  }),
+);
+/** r22: the account's profile beside its slots. */
+export const ProfileSchema = z.object({
+  v: z.literal(2),
+  seen: SeenSchema,
+  finished: FinishedSchema,
+  played: z.number().int().min(0).max(1e9),
+  migrated: z.string().max(600).optional(),
 });
+const MetaSchema = z.object({
+  place: z.string().max(64),
+  placeName: z.string().max(100),
+  chapter: z.number().int().min(1).max(99),
+  clock: z.number().int().min(0).max(1e9),
+  savedAt: z.string().max(40),
+  played: z.number().int().min(0).max(1e9),
+  scene: Key,
+  label: z.string().max(200),
+});
+/** r22: one save slot. */
+export const SlotSchema = z.object({
+  v: z.literal(2),
+  meta: MetaSchema,
+  snap: SnapSchema,
+  world: z
+    .object({
+      x: z.number().finite(),
+      z: z.number().finite(),
+      heading: z.number().finite(),
+      wet: z.number().min(0).max(1),
+    })
+    .optional(),
+});
+
+/** Round 21's chapter-one scenes after he'd met London's contact. */
+const V1_PAST_MEETING = [
+  "penhallow",
+  "vienna",
+  "briefing",
+  "questions",
+  "the_question",
+  "photo",
+  "first_glass",
+  "street",
+  "epilogue",
+];
 
 const PicksSchema = z.object({
   chapter: z.number().int().min(1).max(99),
@@ -343,9 +428,6 @@ export function basedRouter({ handle }: BasedRouterDeps): express.Router {
           title: c.title,
           summary: c.summary,
           ok: loaded.errors.length === 0,
-          checkpoints: c.order
-            .filter((id) => c.scenes[id].checkpoint)
-            .map((id) => ({ scene: id, label: c.scenes[id].checkpoint })),
         };
       });
       res.json({ chapters, next: (chapters[chapters.length - 1]?.n ?? 0) + 1 });
@@ -400,17 +482,88 @@ export function basedRouter({ handle }: BasedRouterDeps): express.Router {
   // BASED (r21): the 3D models, as gated as the pictures.
   router.get("/model/:key", media(MODEL_DIR, ".glb", "model/gltf-binary"));
 
+  /** The account's slots, listed (not their contents). */
+  const listSlots = async (account: number) => {
+    const r = await (
+      await db()
+    ).query(
+      "SELECT slot, meta, updated_at FROM derpy_based_slots WHERE account_id = $1",
+      [account],
+    );
+    return r.rows.map((x) => ({
+      slot: x.slot as string,
+      meta: x.meta as unknown,
+      updatedAt: x.updated_at as string,
+    }));
+  };
+
+  const writeSlot = async (account: number, slot: string, save: unknown) => {
+    const parsed = SlotSchema.parse(save);
+    await (
+      await db()
+    ).query(
+      `INSERT INTO derpy_based_slots (account_id, slot, meta, data, updated_at)
+       VALUES ($1, $2, $3, $4, now())
+       ON CONFLICT (account_id, slot)
+       DO UPDATE SET meta = $3, data = $4, updated_at = now()`,
+      [
+        account,
+        slot,
+        JSON.stringify(parsed.meta),
+        JSON.stringify({ v: parsed.v, snap: parsed.snap, world: parsed.world }),
+      ],
+    );
+  };
+
+  /**
+   * The profile, and the slots listed. A round-21 save is converted the
+   * first time it's read: a profile, and an autosave at the nearest point
+   * of the rewritten chapter one (engine/Save.ts says how).
+   */
   router.get(
     "/save",
     player(async (req, res) => {
+      const id = req.based!.id;
       const r = await (
         await db()
       ).query(
         "SELECT save, updated_at FROM derpy_based_saves WHERE account_id = $1",
-        [req.based!.id],
+        [id],
       );
+      let save = (r.rows[0]?.save ?? null) as {
+        v: number;
+        [k: string]: unknown;
+      } | null;
+      if (save?.v === 1) {
+        const ch = loadChapter(1);
+        if (ch && ch.errors.length === 0) {
+          const { profile, auto } = fromV1(
+            save as unknown as V1Save,
+            ch.chapter,
+            {
+              now: new Date().toISOString(),
+              pastScenes: V1_PAST_MEETING,
+              openFlag: "met_contact",
+              places: ch.places,
+            },
+          );
+          if (auto) {
+            auto.meta.placeName =
+              ch.places[auto.meta.place]?.name ?? auto.meta.placeName;
+            await writeSlot(id, "auto", auto);
+          }
+          await (
+            await db()
+          ).query(
+            "UPDATE derpy_based_saves SET save = $2, updated_at = now() WHERE account_id = $1",
+            [id, JSON.stringify(profile)],
+          );
+          save = profile as unknown as { v: number };
+        }
+      }
       res.json({
-        save: r.rows[0]?.save ?? null,
+        save: save?.v === 2 ? save : null,
+        slots: await listSlots(id),
         updatedAt: r.rows[0]?.updated_at ?? null,
       });
     }),
@@ -420,7 +573,7 @@ export function basedRouter({ handle }: BasedRouterDeps): express.Router {
     "/save",
     json,
     player(async (req, res) => {
-      const parsed = SaveSchema.safeParse(req.body?.save);
+      const parsed = ProfileSchema.safeParse(req.body?.save);
       if (!parsed.success) {
         res.status(400).json({ error: "invalid_save" });
         return;
@@ -437,14 +590,79 @@ export function basedRouter({ handle }: BasedRouterDeps): express.Router {
     }),
   );
 
+  // Starting over: the profile and every slot.
   router.delete(
     "/save",
     player(async (req, res) => {
-      await (
-        await db()
-      ).query("DELETE FROM derpy_based_saves WHERE account_id = $1", [
+      const pool = await db();
+      await pool.query("DELETE FROM derpy_based_saves WHERE account_id = $1", [
         req.based!.id,
       ]);
+      await pool.query("DELETE FROM derpy_based_slots WHERE account_id = $1", [
+        req.based!.id,
+      ]);
+      res.status(204).end();
+    }),
+  );
+
+  router.get(
+    "/slots",
+    player(async (req, res) => {
+      res.json({ slots: await listSlots(req.based!.id) });
+    }),
+  );
+
+  router.get(
+    "/slot/:slot",
+    player(async (req, res) => {
+      const slot = String(req.params.slot);
+      if (!isSlot(slot)) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      const r = await (
+        await db()
+      ).query(
+        "SELECT meta, data FROM derpy_based_slots WHERE account_id = $1 AND slot = $2",
+        [req.based!.id, slot],
+      );
+      const row = r.rows[0];
+      res.json({ save: row ? { ...row.data, meta: row.meta } : null });
+    }),
+  );
+
+  router.put(
+    "/slot/:slot",
+    json,
+    player(async (req, res) => {
+      const slot = String(req.params.slot);
+      if (!isSlot(slot)) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      if (!SlotSchema.safeParse(req.body?.save).success) {
+        res.status(400).json({ error: "invalid_save" });
+        return;
+      }
+      await writeSlot(req.based!.id, slot, req.body.save);
+      res.status(204).end();
+    }),
+  );
+
+  router.delete(
+    "/slot/:slot",
+    player(async (req, res) => {
+      const slot = String(req.params.slot);
+      if (!isSlot(slot)) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      await (
+        await db()
+      ).query(
+        "DELETE FROM derpy_based_slots WHERE account_id = $1 AND slot = $2",
+        [req.based!.id, slot],
+      );
       res.status(204).end();
     }),
   );

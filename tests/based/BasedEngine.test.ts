@@ -1,5 +1,6 @@
 // Mr. Based's engine: the script format, choices, flags, conditions,
-// timers, investigations, and saving and loading mid-chapter.
+// timers, investigations, and saving and loading mid-chapter. (The open
+// world, r22, is in BasedWorld.test.ts.)
 
 import { describe, expect, test } from "vitest";
 import { evalExpr, parseExpr } from "../../src/based/engine/Expr";
@@ -17,7 +18,6 @@ const SCRIPT = `
 @carry "You were rude." if rude
 
 == bar "The bar"
-@checkpoint "At the bar"
 @backdrop bar_wide
 @ambient rain_in
 @figure BARMAN
@@ -99,7 +99,6 @@ describe("the script format", () => {
     expect(c.cast.map((m) => m.id)).toEqual(["HERO", "BARMAN"]);
     expect(c.cast[1].portrait).toBe("barman");
     expect(c.order).toEqual(["bar", "menu", "rain", "barman_thought", "look"]);
-    expect(c.scenes.bar.checkpoint).toBe("At the bar");
     expect(c.carry).toHaveLength(1);
   });
 
@@ -233,6 +232,7 @@ describe("playing a chapter", () => {
       focus: null,
       vignette: null,
       props: {},
+      weather: null,
     });
     const first = run.drain();
     expect(first).toEqual([
@@ -240,7 +240,6 @@ describe("playing a chapter", () => {
         type: "scene",
         scene: "bar",
         label: "The bar",
-        checkpoint: "At the bar",
       },
     ]);
     expect(line(run.beat)).toBe("Narration comes first.");

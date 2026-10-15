@@ -1,8 +1,9 @@
 // BASED (r19): Mr. Based's gate and API. Only the account named Alden may
 // play (NAMES r20: the account marked for it, found by that name when it
 // signs up); another account and a signed-out visitor get Coming Soon and are
-// refused the story, its pictures and its sound. Also saves, picks for the
-// flowchart, and notes for the writer (and the script that prints them).
+// refused the story, its pictures and its sound. Also saves (r22: a profile
+// and save slots, and a round-21 save turned into an autosave), picks for
+// the flowchart, and notes for the writer (and the script that prints them).
 //
 // Needs a throwaway Postgres: DERPY_TEST_DATABASE_URL=postgres://...
 
@@ -78,7 +79,7 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     const c = new pg.default.Client({ connectionString: TEST_DB });
     await c.connect();
     await c.query(
-      "DROP TABLE IF EXISTS derpy_based_notes, derpy_based_picks, derpy_based_saves CASCADE",
+      "DROP TABLE IF EXISTS derpy_based_notes, derpy_based_picks, derpy_based_saves, derpy_based_slots CASCADE",
     );
     await c
       .query(
@@ -134,6 +135,8 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     "/based/model/props",
     "/based/model/mannequin_m",
     "/based/save",
+    "/based/slots",
+    "/based/slot/auto",
     "/based/stats/1",
     "/based/notes",
   ])("%s refuses the signed-out and other accounts", async (path) => {
@@ -149,20 +152,14 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
 
   test("Alden gets the chapters, the story and its art", async () => {
     const list = (await (await call("/based/chapters", alden)).json()) as {
-      chapters: {
-        n: number;
-        title: string;
-        ok: boolean;
-        checkpoints: unknown[];
-      }[];
+      chapters: { n: number; title: string; ok: boolean }[];
       next: number;
     };
     expect(list.chapters[0]).toMatchObject({
       n: 1,
-      title: "The First Glass",
+      title: "Eleven Days",
       ok: true,
     });
-    expect(list.chapters[0].checkpoints.length).toBeGreaterThan(3);
     expect(list.next).toBe(2);
 
     const ch = await call("/based/chapter/1", alden);
@@ -173,11 +170,16 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
       credits: { items: unknown[] };
       places: Record<string, { marks: Record<string, unknown> }>;
     };
-    expect(body.chapter.title).toBe("The First Glass");
-    // r21: the places it's played in come with it.
-    expect(Object.keys(body.places).sort()).toEqual(["elysee", "grenelle"]);
-    expect(body.places.grenelle.marks).toHaveProperty("stool_end");
-    expect(Object.keys(body.chapter.scenes)).toContain("anselme");
+    expect(body.chapter.title).toBe("Eleven Days");
+    // r21: the places it's played in come with it (r22: every place its
+    // doors lead to, too).
+    expect(Object.keys(body.places).sort()).toEqual([
+      "elysee",
+      "street",
+      "vauban",
+    ]);
+    expect(body.places.vauban.marks).toHaveProperty("stool_end");
+    expect(Object.keys(body.chapter.scenes)).toContain("order");
     expect(body.flow.length).toBe(Object.keys(body.chapter.scenes).length);
     expect(body.credits.items.length).toBeGreaterThan(10);
 
@@ -205,111 +207,273 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     expect((await call("/based/art/nope", alden)).status).toBe(404);
   });
 
-  test("saves round-trip, and junk is refused", async () => {
-    expect(await (await call("/based/save", alden)).json()).toMatchObject({
-      save: null,
-    });
-    const bad = await call("/based/save", alden, {
-      method: "PUT",
-      body: JSON.stringify({ save: { v: 2 } }),
-    });
-    expect(bad.status).toBe(400);
+  test("a round-21 save becomes a profile and an autosave", async () => {
+    // As round 21 kept it: one save, a current scene, checkpoints.
     const snap = {
       chapter: 1,
-      scene: "anselme",
+      scene: "penhallow",
       flags: { thoughts: 2, thought_glass: 1 },
       rels: {},
       stage: {
-        backdrop: "glass",
+        backdrop: null,
         figure: null,
         ambient: "rain_in",
         news: null,
-      },
-      path: ["s:open", "s:vauban", "s:reverie", "c:reverie#1=the-first-glass"],
-      taken: ["reverie#1/the-first-glass"],
-    };
-    const save = {
-      v: 1,
-      current: snap,
-      checkpoints: {
-        "1": {
-          anselme: { label: "The bartender", at: "2026-10-13T12:00:00Z", snap },
-        },
-      },
-      seen: {
-        "1": {
-          scenes: ["open", "vauban"],
-          options: ["reverie#1=the-first-glass"],
-          found: [],
-        },
-      },
-      finished: {},
-    };
-    const put = await call("/based/save", alden, {
-      method: "PUT",
-      body: JSON.stringify({ save }),
-    });
-    expect(put.status).toBe(204);
-    const back = (await (await call("/based/save", alden)).json()) as {
-      save: typeof save;
-    };
-    expect(back.save).toEqual(save);
-    // r21: a save from the 3D chapter keeps who he is, his boosts, the
-    // dice and the stage.
-    const snap3d = {
-      ...snap,
-      stage: {
-        ...snap.stage,
         place: "grenelle",
-        actors: {
-          BASED: { at: "stool_end", pose: "sit" },
-          ANSELME: { at: "behind_bar", pose: "lean", wear: "barman" },
-        },
-        focus: "glasses",
+        actors: { BASED: { at: "stool_end", pose: "sit" } },
+        focus: null,
         vignette: null,
-        props: { glass_first: true },
+        props: {},
       },
+      path: ["s:open", "s:vauban"],
+      taken: [],
       build: {
         attrs: { WITS: 4, NERVE: 2, HEART: 3 },
         signature: "MEMORY",
         archetype: "ANALYST",
       },
-      boosts: [{ skill: "COMPOSURE", delta: 1, why: "Vienna, looked at" }],
+      boosts: [],
+      seed: 4242,
+      checks: {},
+    };
+    const pg = await import("pg");
+    const c = new pg.default.Client({ connectionString: TEST_DB });
+    await c.connect();
+    await c.query(
+      `INSERT INTO derpy_based_saves (account_id, save)
+       SELECT id, $1 FROM derpy_accounts WHERE username_key = 'alden'
+       ON CONFLICT (account_id) DO UPDATE SET save = $1`,
+      [
+        JSON.stringify({
+          v: 1,
+          current: snap,
+          checkpoints: {
+            "1": { penhallow: { label: "Penhallow", at: "x", snap } },
+          },
+          seen: { "1": { scenes: ["open"], options: [], found: [] } },
+          finished: {},
+        }),
+      ],
+    );
+    await c.end();
+    const r = (await (await call("/based/save", alden)).json()) as {
+      save: { v: number; migrated: string; seen: object };
+      slots: {
+        slot: string;
+        meta: { place: string; placeName: string; scene: string };
+      }[];
+    };
+    expect(r.save.v).toBe(2);
+    expect(r.save.migrated).toContain("the world opens");
+    expect(r.save.seen).toEqual({});
+    expect(r.slots.map((s) => s.slot)).toEqual(["auto"]);
+    expect(r.slots[0].meta.scene).toBe("FREE");
+    expect(r.slots[0].meta.placeName).toBe("Le Vauban");
+    const auto = (await (await call("/based/slot/auto", alden)).json()) as {
+      save: {
+        snap: {
+          flags: Record<string, number>;
+          build: { archetype: string; langs: string[] };
+          seed: number;
+        };
+        meta: { chapter: number };
+      };
+    };
+    // Past the meeting with the contact, he's free; who he was is kept.
+    expect(auto.save.snap.flags.met_contact).toBe(1);
+    expect(auto.save.snap.build.archetype).toBe("ANALYST");
+    expect(auto.save.snap.build.langs.length).toBeGreaterThan(0);
+    expect(auto.save.snap.seed).toBe(4242);
+    expect(auto.save.meta.chapter).toBe(1);
+    // Read again: converted once only.
+    const again = (await (await call("/based/save", alden)).json()) as {
+      slots: unknown[];
+    };
+    expect(again.slots).toHaveLength(1);
+  });
+
+  test("save slots round-trip, and junk is refused", async () => {
+    const snap = {
+      chapter: 1,
+      scene: "FREE",
+      flags: { met_contact: 1 },
+      rels: { ANSELME: 2 },
+      stage: {
+        backdrop: null,
+        figure: null,
+        ambient: "rain_in",
+        news: null,
+        place: "vauban",
+        actors: {
+          BASED: { at: "stool_end", pose: "sit", place: "vauban" },
+          WATCHER: { at: "watcher_spot", pose: "fold", place: "street" },
+        },
+        focus: null,
+        vignette: null,
+        props: { glass_second: true },
+        weather: "changing",
+      },
+      path: ["s:open", "s:vauban"],
+      taken: [],
+      build: {
+        attrs: { SOCIAL: 2, INTELLIGENCE: 4, PHYSICAL: 3 },
+        signature: "MEMORY",
+        archetype: "ANALYST",
+        langs: ["fr", "en_gb", "de"],
+      },
+      boosts: [
+        { skill: "INSTINCT", delta: 1, why: "What the British didn't ask" },
+      ],
       seed: 123456789,
       checks: { "room@1:expected": { tries: 1, result: "fail", bonus: 3 } },
+      done: ["vauban", "posters"],
+      tasks: {
+        contact: { text: "Meet London's contact.", done: true },
+        clovis: { text: "Find out what CLOVIS is.", done: false },
+      },
+      clock: 80_400,
     };
-    const save3d = {
-      ...save,
-      current: snap3d,
-      finished: {
+    const slot = {
+      v: 2,
+      meta: {
+        place: "vauban",
+        placeName: "Le Vauban",
+        chapter: 1,
+        clock: 80_400,
+        savedAt: "2026-10-14T22:00:00.000Z",
+        played: 1830,
+        scene: "FREE",
+        label: "Free to go",
+      },
+      snap,
+      world: { x: -4.1, z: -1.5, heading: 3.14, wet: 0.35 },
+    };
+    const put = await call("/based/slot/3", alden, {
+      method: "PUT",
+      body: JSON.stringify({ save: slot }),
+    });
+    expect(put.status).toBe(204);
+    const back = (await (await call("/based/slot/3", alden)).json()) as {
+      save: typeof slot;
+    };
+    expect(back.save).toEqual(slot);
+    // Listed by what it says, without its contents.
+    const list = (await (await call("/based/slots", alden)).json()) as {
+      slots: { slot: string; meta: object; snap?: object }[];
+    };
+    const three = list.slots.find((s) => s.slot === "3")!;
+    expect(three.meta).toEqual(slot.meta);
+    expect(three.snap).toBeUndefined();
+    // Saving again overwrites; the quicksave and autosave are slots too.
+    for (const s of ["3", "quick", "auto", "10"]) {
+      expect(
+        (
+          await call(`/based/slot/${s}`, alden, {
+            method: "PUT",
+            body: JSON.stringify({ save: slot }),
+          })
+        ).status,
+      ).toBe(204);
+    }
+    // Not a slot.
+    for (const s of ["11", "0", "secret"]) {
+      expect(
+        (
+          await call(`/based/slot/${s}`, alden, {
+            method: "PUT",
+            body: JSON.stringify({ save: slot }),
+          })
+        ).status,
+      ).toBe(404);
+    }
+    // Junk.
+    expect(
+      (
+        await call("/based/slot/4", alden, {
+          method: "PUT",
+          body: JSON.stringify({ save: { v: 1 } }),
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await call("/based/slot/4", alden, {
+          method: "PUT",
+          body: JSON.stringify({ save: { ...slot, world: { x: 1 } } }),
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      ((await (await call("/based/slot/9", alden)).json()) as { save: unknown })
+        .save,
+    ).toBeNull();
+    // Another account can't write one.
+    expect(
+      (
+        await call("/based/slot/3", tester, {
+          method: "PUT",
+          body: JSON.stringify({ save: slot }),
+        })
+      ).status,
+    ).toBe(403);
+    // Deleting one slot leaves the rest.
+    expect(
+      (await call("/based/slot/10", alden, { method: "DELETE" })).status,
+    ).toBe(204);
+    const after = (await (await call("/based/slots", alden)).json()) as {
+      slots: { slot: string }[];
+    };
+    expect(after.slots.map((s) => s.slot).sort()).toEqual([
+      "3",
+      "auto",
+      "quick",
+    ]);
+  });
+
+  test("the profile round-trips; a round-21 one can't be written", async () => {
+    const profile = {
+      v: 2,
+      seen: {
         "1": {
-          at: "2026-10-14T12:00:00Z",
-          flags: { drank_first: 1 },
-          rels: {},
-          path: ["s:open"],
-          build: snap3d.build,
-          boosts: snap3d.boosts,
+          scenes: ["open", "vauban"],
+          options: ["order#1=a-scotch"],
+          found: [],
         },
       },
+      finished: {},
+      played: 1830,
     };
     expect(
       (
         await call("/based/save", alden, {
           method: "PUT",
-          body: JSON.stringify({ save: save3d }),
+          body: JSON.stringify({ save: profile }),
         })
       ).status,
     ).toBe(204);
+    const back = (await (await call("/based/save", alden)).json()) as {
+      save: unknown;
+      slots: unknown[];
+    };
+    expect(back.save).toEqual(profile);
+    expect(back.slots.length).toBe(3);
     expect(
-      ((await (await call("/based/save", alden)).json()) as { save: unknown })
-        .save,
-    ).toEqual(save3d);
-    // Another account can't write one.
-    const theirs = await call("/based/save", tester, {
-      method: "PUT",
-      body: JSON.stringify({ save }),
-    });
-    expect(theirs.status).toBe(403);
+      (
+        await call("/based/save", alden, {
+          method: "PUT",
+          body: JSON.stringify({ save: { v: 1, current: null } }),
+        })
+      ).status,
+    ).toBe(400);
+    // Starting over erases the profile and every slot.
+    expect(
+      (await call("/based/save", alden, { method: "DELETE" })).status,
+    ).toBe(204);
+    const none = (await (await call("/based/save", alden)).json()) as {
+      save: unknown;
+      slots: unknown[];
+    };
+    expect(none).toMatchObject({ save: null, slots: [] });
   });
 
   test("picks feed the flowchart's shares", async () => {
@@ -345,23 +509,23 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
   test("notes for the writer are kept with their scene and path", async () => {
     const bad = await call("/based/notes", alden, {
       method: "POST",
-      body: JSON.stringify({ chapter: 1, scene: "anselme", note: "   " }),
+      body: JSON.stringify({ chapter: 1, scene: "order", note: "   " }),
     });
     expect(bad.status).toBe(400);
     const r = await call("/based/notes", alden, {
       method: "POST",
       body: JSON.stringify({
         chapter: 1,
-        scene: "anselme",
-        line: "ANSELME: Monsieur Based. You are looking at that glass as if it owes you money.",
+        scene: "order",
+        line: "BARMAN: Good evening, sir. What can I get you?",
         path: [
           "s:open",
+          "s:posters",
           "s:vauban",
-          "s:reverie",
-          "c:reverie#1=back-to-the-room",
-          "s:anselme",
+          "s:order",
+          "c:order#1=a-scotch",
         ],
-        note: "Love Anselme. Make him a little older?",
+        note: "Love the barman. Make him a little older?",
       }),
     });
     expect(r.status).toBe(200);
@@ -369,12 +533,12 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     expect(id).toBeGreaterThan(0);
 
     const mine = (await (
-      await call("/based/notes?chapter=1&scene=anselme", alden)
+      await call("/based/notes?chapter=1&scene=order", alden)
     ).json()) as {
       notes: { note: string }[];
     };
     expect(mine.notes.map((n) => n.note)).toContain(
-      "Love Anselme. Make him a little older?",
+      "Love the barman. Make him a little older?",
     );
 
     // What scripts/based-notes.ts prints for the coordinator.
@@ -384,13 +548,13 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     const { db } = await import("../../src/server/derpy/DerpyDb");
     const notes = await listNotes(await db(), { chapter: 1 });
     expect(notes).toHaveLength(1);
-    expect(notes[0]).toMatchObject({ username: "Alden", scene: "anselme" });
+    expect(notes[0]).toMatchObject({ username: "Alden", scene: "order" });
     const text = formatNotes(notes, new Map([[1, loadChapter(1)!.chapter]]));
-    expect(text).toContain('Chapter 1, scene "anselme" (Anselme');
-    expect(text).toContain("On screen: ANSELME: Monsieur Based.");
+    expect(text).toContain('Chapter 1, scene "order" (The barman');
+    expect(text).toContain("On screen: BARMAN: Good evening, sir.");
     expect(text).toContain(
-      "Path: open > vauban > reverie > [Back to the room] > anselme",
+      "Path: open > posters > vauban > order > [A scotch]",
     );
-    expect(text).toContain("> Love Anselme. Make him a little older?");
+    expect(text).toContain("> Love the barman. Make him a little older?");
   });
 });

@@ -2,35 +2,55 @@
 // on the left, seen from above at an angle, where he walks where you click;
 // the dialogue column on the right (a bottom sheet on a phone), where the
 // story scrolls up with speakers' names, his skills' voices, the dice, and
-// numbered choices. Rooms and people are read by walking up to things and
-// looking. Memories are painted vignettes in the column.
+// numbered choices. Memories are painted vignettes in the column.
 //
-// One chapter, from a save or a checkpoint. The story itself comes from the
-// server; this file and the world know nothing of it.
+// r22: an open world. After a short opening he's free: the player walks
+// him about (double-click runs), goes through doors into other places (a
+// short fade and the place's name), and finds what's worth a look by
+// walking near it: it glints when he can see it, Tab shows what's near.
+// Clicking a person talks; clicking a thing he's noticed walks him over
+// and looks. Seated, he reads the room from his seat (drag or the arrow
+// keys to look about). Thoughts that come to him wait in the column. His
+// journal (J) keeps what he's set out to do. The game saves in slots (F5,
+// F9, the menu), and to an autosave as he goes.
+//
+// The story itself comes from the server; this file and the world know
+// nothing of it.
 
-import { html, LitElement, nothing, svg, TemplateResult } from "lit";
+import { html, LitElement, nothing, render, svg, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
-import { PlaceDef } from "../engine/Place";
+import { neighbours, PlaceDef } from "../engine/Place";
 import {
+  Available,
   Beat,
   chapterStart,
   CheckView,
   ChoiceBeat,
+  clockText,
   emptyStage,
   InvestigateBeat,
+  LineBeat,
   RollBeat,
-  Snapshot,
   Stage,
   StoryEvent,
   StoryRun,
 } from "../engine/Runtime";
-import { Boost } from "../engine/Skills";
+import { slotOf, SlotSave } from "../engine/Save";
+import { Boost, fluency, LANGUAGES_SKILL } from "../engine/Skills";
 import { Build, Chapter } from "../engine/Types";
-import { Credit, leaveNote, mediaNow, notesFor, WriterNote } from "./Api";
+import {
+  Credit,
+  leaveNote,
+  mediaNow,
+  notesFor,
+  SlotInfo,
+  WriterNote,
+} from "./Api";
 import { helpBody } from "./Help";
 import { CPS, Prefs, savePrefs, TextSpeed } from "./Prefs";
 import { Ambience } from "./Sound";
 import {
+  bookIcon,
   closeIcon,
   creditsBody,
   eyeIcon,
@@ -40,29 +60,34 @@ import {
   personIcon,
   plainText,
   settingsBody,
+  slotsBody,
   soundIcon,
   typed,
 } from "./Ui";
 import { WorldAssets } from "./world/Assets";
-import { HotspotOnScreen, pickTier, World } from "./world/World";
+import { pickTier, ThingOnScreen, World } from "./world/World";
 
 export interface PlayerHost {
-  /** A scene began: save here. `checkpoint` when it's one to replay from. */
-  scene(snap: Snapshot, history: string[], checkpoint?: string): void;
+  /** Saves to a slot (the autosave, the quicksave or one of his own). */
+  save(slot: string, save: SlotSave): Promise<void>;
+  /** Loads a slot: the player starts again from it. */
+  load(slot: string): void;
+  /** What he's seen: scenes entered, picks, things found (for the flowchart). */
+  seen(path: string[], found?: string[]): void;
   /** An option was taken (or the clock took one). */
-  pick(choice: string, option: string, history: string[]): void;
-  /** A spot noticed or a deduction made. */
-  found(id: string): void;
+  pick(choice: string, option: string): void;
+  /** Seconds played since the last call. */
+  played(seconds: number): void;
   /** The chapter is over. */
   end(run: StoryRun): void;
-  /** Back to the title screen, or to chapter select. */
-  quit(to: "title" | "chapters"): void;
+  /** Back to the title screen. */
+  quit(): void;
 }
 
 interface Toast {
   id: number;
   text: string;
-  kind: "remember" | "rel" | "checkpoint" | "boost" | "help";
+  kind: "remember" | "rel" | "task" | "boost" | "help" | "saved";
 }
 
 interface Entry {
@@ -75,6 +100,8 @@ interface Entry {
   /** "Medium: Success" for a passive voice. */
   tag?: string;
   roll?: RollBeat;
+  /** r22: said in another language. */
+  lang?: LineBeat["lang"];
 }
 
 type Overlay =
@@ -85,17 +112,23 @@ type Overlay =
   | "log"
   | "credits"
   | "sheet"
-  | "help";
+  | "help"
+  | "journal"
+  | "save"
+  | "load";
 
 let nextId = 1;
 
 /** Each attribute's colour in the column, as Disco Elysium colours its four. */
-const ATTR_COLORS = ["#7fb2e5", "#e0715a", "#b98be0", "#d9b45a"];
+const ATTR_COLORS = ["#e0715a", "#7fb2e5", "#d9b45a", "#b98be0"];
+
+/** How often the game saves by itself while he's free, in seconds. */
+const AUTOSAVE_EVERY = 120;
 
 @customElement("based-player")
 export class BasedPlayer extends LitElement {
   @property({ attribute: false }) chapter!: Chapter;
-  @property({ attribute: false }) from: Snapshot | null = null;
+  @property({ attribute: false }) from: SlotSave | null = null;
   @property({ attribute: false }) carried: {
     flags: Record<string, number>;
     rels: Record<string, number>;
@@ -109,13 +142,14 @@ export class BasedPlayer extends LitElement {
   @property({ attribute: false }) credits: Credit[] = [];
   @property({ attribute: false }) assets: WorldAssets | null = null;
   @property({ attribute: false }) places: Record<string, PlaceDef> = {};
+  @property({ attribute: false }) slots: SlotInfo[] = [];
+  @property({ attribute: false }) played = 0;
 
   @state() private beat: Beat = { kind: "end" };
   @state() private stage: Stage = emptyStage();
   @state() private entries: Entry[] = [];
-  @state() private shown = 0;
   @state() private toasts: Toast[] = [];
-  @state() private timeLeft = 0;
+  @state() private timed = 0;
   @state() private overlay: Overlay = null;
   @state() private sceneLabel = "";
   @state() private noteText = "";
@@ -124,22 +158,44 @@ export class BasedPlayer extends LitElement {
   @state() private size = { w: window.innerWidth, h: window.innerHeight };
   @state() private hover: string | null = null;
   @state() private card: { title: string; sub?: string } | null = null;
+  @state() private placeCard: string | null = null;
   @state() private rolled = false;
   @state() private tab = false;
   @state() private noWorld = false;
-  @state() private walkingTo: string | null = null;
+  @state() private avail: Available = { talk: [], look: [], think: [] };
+  /**
+   * What he's noticed, as the labels need it. The labels are drawn when the
+   * set changes (`marksKey`); as the camera moves they're only moved.
+   */
+  private onScreen: ThingOnScreen[] = [];
+  @state() private marksKey = "";
+  @state() private seated = false;
+  @state() private saving: string | null = null;
+  @state() private typingNow = false;
 
   private run!: StoryRun;
   private world: World | null = null;
   private log: Entry[] = [];
+  /** Characters of the live line shown so far (not a state: see typeLine). */
+  private shown = 0;
   private typeStart = 0;
   private typeFrame = 0;
-  private timerFrame = 0;
-  private timerEnd = 0;
-  private pausedLeft = 0;
+  private timerLeft = 0;
+  private timerStart = 0;
+  private timerTimeout = 0;
   private rollTimer = 0;
   private talkTimer = 0;
+  private placeTimer = 0;
+  /** Going through a door (the fade): clicks wait. */
+  private busy = false;
+  /** Each click on the world gets a ticket; a walk acts only if it's the latest. */
+  private walkTicket = 0;
   private marks = new Map<string, HTMLElement>();
+  private lastSave = 0;
+  private playClock = 0;
+  private playTick = 0;
+  private sinceAuto = 0;
+  private autoTimer = 0;
 
   createRenderRoot() {
     return this;
@@ -152,14 +208,17 @@ export class BasedPlayer extends LitElement {
     window.addEventListener("keydown", this.onKey);
     window.addEventListener("keyup", this.onKeyUp);
     window.addEventListener("resize", this.onResize);
+    document.addEventListener("visibilitychange", this.onVisible);
     const start =
-      this.from ??
+      this.from?.snap ??
       chapterStart(this.chapter, this.carried ?? undefined, {
         build: this.build,
         seed: (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0 || 1,
       });
     if (this.build && !start.build) start.build = this.build;
     this.run = new StoryRun(this.chapter, start);
+    this.playClock = performance.now();
+    this.playTick = window.setInterval(() => this.countPlayed(), 15_000);
   }
 
   firstUpdated(): void {
@@ -174,14 +233,15 @@ export class BasedPlayer extends LitElement {
           this.chapter.cast.map((c) => ({ id: c.id, look: c.look ?? "" })),
           tier,
           {
-            hotspot: (id) => this.clickHotspot(id),
-            floor: (x, z) => this.clickFloor(x, z),
-            person: () => {},
+            hotspot: (id, o) => this.clickThing(id, o.seated, o.run),
+            floor: (x, z, run) => this.clickFloor(x, z, run),
+            person: (id) => this.clickPerson(id),
             hover: (id) => (this.hover = id),
           },
         );
         this.world.hero = this.chapter.cast[0]?.id ?? "";
-        this.world.onHotspots = (h) => this.moveMarks(h);
+        this.world.onThings = (h) => this.moveMarks(h);
+        this.world.showAll = this.prefs.marks;
         this.placeInset();
       } catch {
         this.world = null;
@@ -191,14 +251,15 @@ export class BasedPlayer extends LitElement {
       this.noWorld = true;
     }
     this.afterStep(true);
+    if (this.from?.world) this.world?.restoreHero(this.from.world);
     if (!this.from && !this.carried) this.hintHelp();
   }
 
-  /** Once per browser, at the start of a chapter: where the help is. */
+  /** Once per browser, at the start: where the help is. */
   private hintHelp(): void {
     try {
-      if (localStorage.getItem("based_help_hint")) return;
-      localStorage.setItem("based_help_hint", "1");
+      if (localStorage.getItem("based_help_hint_r22")) return;
+      localStorage.setItem("based_help_hint_r22", "1");
     } catch {
       return;
     }
@@ -207,8 +268,8 @@ export class BasedPlayer extends LitElement {
       () =>
         this.toast(
           touch
-            ? "New here? How to play is in the menu."
-            : "New here? Press H for how to play.",
+            ? "New here? How to play is in the menu. Tap twice to run."
+            : "New here? Press H for how to play. Double-click to run.",
           "help",
         ),
       2500,
@@ -219,10 +280,15 @@ export class BasedPlayer extends LitElement {
     window.removeEventListener("keydown", this.onKey);
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("resize", this.onResize);
+    document.removeEventListener("visibilitychange", this.onVisible);
+    this.countPlayed();
     cancelAnimationFrame(this.typeFrame);
-    cancelAnimationFrame(this.timerFrame);
+    window.clearTimeout(this.timerTimeout);
     window.clearTimeout(this.rollTimer);
     window.clearTimeout(this.talkTimer);
+    window.clearTimeout(this.placeTimer);
+    window.clearTimeout(this.autoTimer);
+    window.clearInterval(this.playTick);
     this.world?.dispose();
     this.world = null;
     super.disconnectedCallback();
@@ -232,6 +298,15 @@ export class BasedPlayer extends LitElement {
     // The newest line at the bottom of the column, always in view.
     const logEl = this.querySelector(".mb-col-log");
     if (logEl) logEl.scrollTop = logEl.scrollHeight;
+    if (this.typingNow) this.drawLive();
+    // Labels just drawn: put them where they belong.
+    if (this.onScreen.length > 0 && this.marks.size === 0) {
+      const list = this.onScreen;
+      this.marksKey = list
+        .map((h) => `${h.id}:${h.near ? 1 : 0}${h.door ? 1 : 0}`)
+        .join("|");
+      this.placeMarks(list);
+    }
   }
 
   private get narrow(): boolean {
@@ -250,6 +325,23 @@ export class BasedPlayer extends LitElement {
   /** How much of the world the column covers (right, or bottom on phones). */
   private inset = { right: 0, bottom: 0 };
 
+  /** Time at the game, counted while the page is in view. */
+  private countPlayed(): void {
+    const now = performance.now();
+    if (document.visibilityState === "visible" && this.playClock > 0) {
+      const s = Math.min(600, (now - this.playClock) / 1000);
+      if (s > 0) {
+        this.played += s;
+        this.sinceAuto += s;
+        this.host?.played(s);
+      }
+    }
+    this.playClock = now;
+    if (this.sinceAuto >= AUTOSAVE_EVERY && this.run?.free) this.autosave();
+  }
+
+  private onVisible = () => this.countPlayed();
+
   // --- stepping ------------------------------------------------------------
 
   private afterStep(first = false): void {
@@ -258,11 +350,12 @@ export class BasedPlayer extends LitElement {
     for (const e of events) this.onEvent(e, first);
     const b = this.run.beat;
     this.beat = b;
-    cancelAnimationFrame(this.timerFrame);
+    window.clearTimeout(this.timerTimeout);
     window.clearTimeout(this.rollTimer);
+    this.timed = 0;
     this.card = null;
-    this.walkingTo = null;
-    this.setActive(b);
+    this.busy = false;
+    this.setWorldState(b);
     if (b.kind === "line") {
       const voice = b.voice;
       const e: Entry = {
@@ -271,6 +364,7 @@ export class BasedPlayer extends LitElement {
         who: b.who,
         how: b.how,
         text: b.text,
+        lang: b.lang,
       };
       if (voice) {
         e.skill = voice.skill;
@@ -303,17 +397,18 @@ export class BasedPlayer extends LitElement {
     } else if (b.kind === "choice") {
       this.startTimer(b.timer);
       this.talk(null);
-    } else if (b.kind === "investigate") {
+    } else if (b.kind === "investigate" || b.kind === "free") {
       this.talk(null);
     } else if (b.kind === "end") {
       this.talk(null);
+      this.host.seen(this.run.history());
       this.host.end(this.run);
     }
   }
 
   private push(e: Entry): void {
     this.log.push(e);
-    if (this.log.length > 400) this.log.shift();
+    if (this.log.length > 600) this.log.shift();
     this.entries = [...this.entries, e].slice(-90);
   }
 
@@ -321,10 +416,12 @@ export class BasedPlayer extends LitElement {
     switch (e.type) {
       case "scene":
         this.sceneLabel = e.label;
-        this.host.scene(this.run.snapshot(), this.run.history(), e.checkpoint);
-        if (e.checkpoint && !first) {
-          this.toast(`Checkpoint · ${e.checkpoint}`, "checkpoint");
-        }
+        this.host.seen([`s:${e.scene}`]);
+        // A save as each scene begins: the autosave, a moment later.
+        if (!first) this.autosaveSoon();
+        break;
+      case "free":
+        if (!first) this.autosaveSoon();
         break;
       case "remember":
         this.toast(`${this.nameOf(e.who)} will remember that.`, "remember");
@@ -349,6 +446,18 @@ export class BasedPlayer extends LitElement {
           "boost",
         );
         break;
+      case "task":
+        if (!first) {
+          this.toast(
+            e.done
+              ? `Done: ${e.text}`
+              : e.fresh
+                ? `Journal: ${e.text}`
+                : `Journal updated: ${e.text}`,
+            "task",
+          );
+        }
+        break;
       case "actor":
         if (!first) this.world?.moveActor(e.who, e.state, e.walk);
         break;
@@ -369,15 +478,35 @@ export class BasedPlayer extends LitElement {
     const w = this.world;
     if (w) {
       if (first || s.place !== was.place) {
-        w.setPlace(s.place ? (this.places[s.place] ?? null) : null);
+        const def = s.place ? (this.places[s.place] ?? null) : null;
+        w.setPlace(def);
         w.placeCast(s.actors);
         for (const [k, on] of Object.entries(s.props)) w.setProp(k, on);
+        if (def) this.prepareAround(def);
+        if (!first && def) this.showPlace(def.name);
       }
       if (first || s.focus !== was.focus) w.setFocus(s.focus);
       if (first || s.news !== was.news) w.setNews(s.news);
+      if (first || s.weather !== was.weather) w.setWeather(s.weather);
     }
     if (s.ambient !== was.ambient || first) void this.ambience.play(s.ambient);
     this.stage = s;
+  }
+
+  /** Builds the places next door in the background; frees the rest. */
+  private prepareAround(def: PlaceDef): void {
+    const w = this.world;
+    if (!w) return;
+    const next = neighbours(def).filter((k) => this.places[k]);
+    w.keepOnly(next);
+    for (const k of next) void w.prepare(this.places[k]);
+  }
+
+  /** The place's name, for a moment, as he arrives. */
+  private showPlace(name: string): void {
+    window.clearTimeout(this.placeTimer);
+    this.placeCard = name;
+    this.placeTimer = window.setTimeout(() => (this.placeCard = null), 1800);
   }
 
   /** Which body a speaker moves (one person can go by two names). */
@@ -411,11 +540,13 @@ export class BasedPlayer extends LitElement {
       () => (this.toasts = this.toasts.filter((x) => x.id !== t.id)),
       kind === "help"
         ? 7000
-        : kind === "remember" || kind === "boost"
+        : kind === "remember" || kind === "boost" || kind === "task"
           ? 4200
           : 3000,
     );
   }
+
+  // --- typing (r22: draws only the live line, not the whole column) --------
 
   private startTyping(): void {
     cancelAnimationFrame(this.typeFrame);
@@ -425,20 +556,33 @@ export class BasedPlayer extends LitElement {
     const cps = CPS[this.prefs.speed];
     if (cps === 0) {
       this.shown = len;
+      this.typingNow = false;
       this.doneTyping();
       return;
     }
     this.shown = 0;
+    this.typingNow = true;
     this.typeStart = performance.now();
     const tick = (now: number) => {
       this.shown = Math.min(
         len,
         Math.floor(((now - this.typeStart) / 1000) * cps),
       );
+      this.drawLive();
       if (this.shown < len) this.typeFrame = requestAnimationFrame(tick);
-      else this.doneTyping();
+      else {
+        this.typingNow = false;
+        this.doneTyping();
+      }
     };
     this.typeFrame = requestAnimationFrame(tick);
+  }
+
+  /** The live line's words so far, drawn into its own little element. */
+  private drawLive(): void {
+    const el = this.querySelector<HTMLElement>(".mb-live");
+    const b = this.beat;
+    if (el && b.kind === "line") render(typed(b.text, this.shown), el);
   }
 
   private doneTyping(): void {
@@ -451,42 +595,48 @@ export class BasedPlayer extends LitElement {
     return b.kind === "line" && this.shown < plainText(b.text).length;
   }
 
-  private startTimer(seconds: number): void {
-    cancelAnimationFrame(this.timerFrame);
-    if (!this.prefs.timers || seconds <= 0) {
-      this.timeLeft = 0;
-      return;
-    }
-    this.timerEnd = performance.now() + seconds * 1000;
-    this.timeLeft = seconds;
-    this.tickTimer();
+  private finishTyping(): void {
+    const b = this.beat;
+    if (b.kind !== "line") return;
+    cancelAnimationFrame(this.typeFrame);
+    this.shown = plainText(b.text).length;
+    this.typingNow = false;
+    this.drawLive();
+    this.doneTyping();
   }
 
-  private tickTimer = () => {
-    if (this.overlay !== null) return;
-    const left = (this.timerEnd - performance.now()) / 1000;
-    this.timeLeft = Math.max(0, left);
-    if (left <= 0) {
-      this.timeout();
+  // --- the clock on a choice (r22: a CSS animation, not a frame loop) -----
+
+  private startTimer(seconds: number): void {
+    window.clearTimeout(this.timerTimeout);
+    if (!this.prefs.timers || seconds <= 0) {
+      this.timed = 0;
       return;
     }
-    this.timerFrame = requestAnimationFrame(this.tickTimer);
-  };
+    this.timed = seconds;
+    this.timerLeft = seconds * 1000;
+    this.resumeTimer();
+  }
 
   private pauseTimer(): void {
-    if (this.beat.kind === "choice" && this.timeLeft > 0) {
-      cancelAnimationFrame(this.timerFrame);
-      this.pausedLeft = this.timeLeft;
+    if (this.timed > 0 && this.timerTimeout) {
+      window.clearTimeout(this.timerTimeout);
+      this.timerTimeout = 0;
+      this.timerLeft -= performance.now() - this.timerStart;
     }
   }
 
   private resumeTimer(): void {
-    if (this.beat.kind === "choice" && this.pausedLeft > 0) {
-      this.timerEnd = performance.now() + this.pausedLeft * 1000;
-      this.pausedLeft = 0;
-      this.tickTimer();
+    if (this.timed > 0 && this.beat.kind === "choice" && !this.timerTimeout) {
+      this.timerStart = performance.now();
+      this.timerTimeout = window.setTimeout(
+        () => this.timeout(),
+        Math.max(0, this.timerLeft),
+      );
     }
   }
+
+  // --- moving the story on ---------------------------------------------------
 
   private advance(): void {
     this.ambience.unlock();
@@ -494,9 +644,7 @@ export class BasedPlayer extends LitElement {
     const b = this.beat;
     if (b.kind === "line") {
       if (this.typing) {
-        cancelAnimationFrame(this.typeFrame);
-        this.shown = plainText(b.text).length;
-        this.doneTyping();
+        this.finishTyping();
         return;
       }
       this.run.advance();
@@ -521,8 +669,8 @@ export class BasedPlayer extends LitElement {
     if (b.kind !== "choice") return;
     const opt = b.options.find((o) => o.id === id);
     if (!opt || opt.check?.locked) return;
-    cancelAnimationFrame(this.timerFrame);
-    this.timeLeft = 0;
+    window.clearTimeout(this.timerTimeout);
+    this.timerTimeout = 0;
     this.push({
       id: nextId++,
       kind: "pick",
@@ -530,11 +678,13 @@ export class BasedPlayer extends LitElement {
       skill: opt.check?.skill,
     });
     this.run.choose(id);
-    this.host.pick(b.id, id, this.run.history());
+    this.host.pick(b.id, id);
+    this.host.seen([`c:${b.id}=${id}`]);
     this.afterStep();
   }
 
   private timeout(): void {
+    this.timerTimeout = 0;
     const b = this.beat;
     if (b.kind !== "choice") return;
     const open = b.options.filter((o) => !o.check?.locked);
@@ -548,14 +698,14 @@ export class BasedPlayer extends LitElement {
     this.ambience.unlock();
     if (this.beat.kind !== "investigate") return;
     this.run.examine(id);
-    this.host.found(id);
+    this.host.seen([], [id]);
     this.afterStep();
   }
 
   private deduce(id: string): void {
     if (this.beat.kind !== "investigate") return;
     this.run.deduce(id);
-    this.host.found(id);
+    this.host.seen([], [id]);
     this.afterStep();
   }
 
@@ -565,19 +715,49 @@ export class BasedPlayer extends LitElement {
     this.afterStep();
   }
 
+  private think(id: string): void {
+    this.ambience.unlock();
+    if (!this.run.free || this.overlay) return;
+    this.run.think(id);
+    this.afterStep();
+  }
+
   // --- the world -------------------------------------------------------------
 
-  /** Which hotspots can be clicked, and whether he may walk about. */
-  private setActive(b: Beat): void {
+  /**
+   * r22: what's worth a look where he is, and who'll talk: things with a
+   * scene now, and the doors (while he's free); the spots of a room he's
+   * reading. Nothing else glints, and nothing is listed.
+   */
+  private setWorldState(b: Beat): void {
     const w = this.world;
-    if (!w) return;
-    w.active.clear();
-    w.walkable = false;
-    if (b.kind === "investigate" && this.is3d(b)) {
-      for (const s of b.spots) w.active.add(s.anchor ?? s.id);
-      if (b.exit) w.active.add(b.exit);
-      w.walkable = !b.still;
+    const here = this.stage.place ? this.places[this.stage.place] : undefined;
+    const things = new Map<string, { door: boolean }>();
+    let avail: Available = { talk: [], look: [], think: [] };
+    if (b.kind === "free") {
+      avail = this.run.available(Object.keys(here?.hotspots ?? {}));
+      for (const id of avail.look) {
+        if (here?.hotspots[id]) things.set(id, { door: false });
+      }
+      for (const [id, h] of Object.entries(here?.hotspots ?? {})) {
+        if (h.to && this.places[h.to.place]) things.set(id, { door: true });
+      }
+    } else if (b.kind === "investigate" && this.is3d(b)) {
+      for (const s of b.spots) {
+        if (!s.seen) things.set(s.anchor ?? s.id, { door: false });
+      }
+      if (b.exit) things.set(b.exit, { door: true });
     }
+    this.avail = avail;
+    if (!w) return;
+    w.things = things;
+    w.talkers = new Set(avail.talk.map((x) => this.bodyOf(x)));
+    w.walkable =
+      b.kind === "free" ||
+      (b.kind === "investigate" && this.is3d(b) && !b.still);
+    w.still = b.kind === "investigate" && b.still;
+    w.perception = this.run.skills().PERCEPTION ?? 2;
+    this.seated = w.heroSeated || w.still;
     this.marks.clear();
   }
 
@@ -591,53 +771,127 @@ export class BasedPlayer extends LitElement {
     return b.spots.find((s) => (s.anchor ?? s.id) === anchor) ?? null;
   }
 
-  private clickHotspot(anchor: string): void {
+  /** A thing (or door) clicked in the world, or its label. */
+  private clickThing(id: string, seated: boolean, run: boolean): void {
     this.ambience.unlock();
     const b = this.beat;
-    if (b.kind !== "investigate" || this.overlay) return;
-    if (anchor === b.exit) {
+    const w = this.world;
+    if (this.overlay || this.busy || !w) return;
+    const here = this.stage.place ? this.places[this.stage.place] : undefined;
+    const h = here?.hotspots[id];
+    if (b.kind === "free") {
+      // A click while he's walking somewhere else changes his mind.
+      if (h?.to) {
+        const to = h.to;
+        w.walkToHotspot(
+          id,
+          this.walkThen(() => {
+            if (!this.run.free || this.busy) return;
+            // The story may stop him at the door; otherwise, through it.
+            if (this.run.look(id)) this.afterStep();
+            else void this.travel(to.place, to.mark);
+          }),
+          run,
+        );
+        return;
+      }
+      if (!w.things.has(id)) return;
+      if (seated || w.heroSeated) {
+        // Read from his seat: turn, and look.
+        this.walkTicket++;
+        w.faceHotspot(id);
+        this.lookAt(id);
+        return;
+      }
+      w.walkToHotspot(
+        id,
+        this.walkThen(() => this.lookAt(id)),
+        run,
+      );
+      return;
+    }
+    if (b.kind !== "investigate") return;
+    if (id === b.exit) {
       if (!b.canLeave) {
         const need =
           Math.min(b.min, b.spots.length) -
           b.spots.filter((s) => s.seen).length;
-        this.toast(`Look around first: ${need} more.`, "rel");
+        this.toast(`Not yet: there's more to notice (${need}).`, "rel");
         return;
       }
-      this.walkingTo = anchor;
-      this.world?.walkToHotspot(anchor, () => {
-        if (this.walkingTo === anchor) this.leave();
-      });
+      w.walkToHotspot(
+        id,
+        this.walkThen(() => {
+          if (this.beat.kind === "investigate") this.leave();
+        }),
+        run,
+      );
       return;
     }
-    const spot = this.spotFor(anchor);
+    const spot = this.spotFor(id);
     if (!spot) return;
-    this.lookAt(spot.id);
+    if (b.still || seated || spot.anchor === undefined) {
+      this.walkTicket++;
+      w.faceHotspot(id);
+      this.examine(spot.id);
+      return;
+    }
+    w.walkToHotspot(
+      spot.anchor,
+      this.walkThen(() => {
+        if (this.beat.kind === "investigate") this.examine(spot.id);
+      }),
+      run,
+    );
   }
 
-  /** Walks over to a spot (unless he stays put), then looks. */
+  /** What to do on arriving, unless another click has sent him elsewhere. */
+  private walkThen(fn: () => void): () => void {
+    const ticket = ++this.walkTicket;
+    return () => {
+      if (ticket === this.walkTicket) fn();
+    };
+  }
+
   private lookAt(id: string): void {
-    const b = this.beat;
-    if (b.kind !== "investigate") return;
-    const spot = b.spots.find((s) => s.id === id);
-    if (!spot) return;
-    if (!this.world || b.still || spot.anchor === undefined) {
-      this.examine(id);
-      return;
+    if (!this.run.free) return;
+    if (this.run.look(id)) {
+      this.host.seen([], [id]);
+      this.afterStep();
     }
-    this.walkingTo = id;
-    this.world.walkToHotspot(spot.anchor, () => {
-      if (this.walkingTo === id && this.beat.kind === "investigate") {
-        this.examine(id);
-      }
-    });
   }
 
-  private clickFloor(x: number, z: number): void {
+  /** Someone clicked: he goes up to them and talks, if they've anything. */
+  private clickPerson(id: string): void {
+    this.ambience.unlock();
+    const w = this.world;
+    if (!this.run.free || this.overlay || this.busy || !w) return;
+    const cast = this.chapter.cast
+      .filter((c) => (c.body ?? c.id) === id)
+      .map((c) => c.id);
+    const who = this.avail.talk.find((t) => cast.includes(t) || t === id);
+    if (!who) {
+      this.toast("Nothing to say to them just now.", "rel");
+      return;
+    }
+    const start = this.walkThen(() => {
+      if (!this.run.free || this.busy) return;
+      if (this.run.talk(who)) this.afterStep();
+    });
+    if (w.heroSeated) {
+      start();
+      return;
+    }
+    if (!w.walkUpTo(id, start)) start();
+  }
+
+  private clickFloor(x: number, z: number, run: boolean): void {
     const b = this.beat;
     if (this.overlay) return;
-    if (b.kind === "investigate" && this.world?.walkable) {
-      this.walkingTo = null;
-      this.world.walkHero(x, z);
+    if (this.world?.walkable) {
+      if (this.busy) return;
+      this.walkTicket++;
+      this.world.walkHero(x, z, run);
       return;
     }
     // Anywhere else, a click on the world moves the story on.
@@ -646,82 +900,108 @@ export class BasedPlayer extends LitElement {
     }
   }
 
-  /** Each label's width, measured once (its words don't change). */
-  private labelW = new Map<string, number>();
+  /** Through a door: a fade, the next place, its name. */
+  private async travel(place: string, mark: string): Promise<void> {
+    const w = this.world;
+    const def = this.places[place];
+    if (!w || !def || !this.run.free) return;
+    this.busy = true;
+    const ready = w.prepare(def);
+    await w.fadeOut();
+    // Built and compiled next door already, nearly always; if not, it's
+    // finished now, behind the black.
+    await Promise.race([ready, new Promise((r) => setTimeout(r, 2500))]);
+    this.busy = false;
+    this.run.enterPlace(place, mark);
+    this.afterStep();
+    // Through a door is a good moment for the autosave.
+    this.autosaveSoon();
+  }
 
-  /** Keeps the marks over their hotspots as the camera moves. */
-  private moveMarks(list: HotspotOnScreen[]): void {
-    type Box = { x0: number; y0: number; x1: number; y1: number };
-    const LH = 27;
-    const hits = (a: Box, b: Box) =>
-      a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
-    // Clear of the column and of the buttons along the top.
-    const inView = (b: Box) =>
-      b.x0 >= 6 &&
-      b.x1 <= this.size.w - this.inset.right - 6 &&
-      b.y0 >= 64 &&
-      b.y1 <= this.size.h - this.inset.bottom - 6;
-    const shown: { h: HotspotOnScreen; el: HTMLElement }[] = [];
+  /** Keeps the labels over what he's noticed as the camera moves. */
+  private moveMarks(list: ThingOnScreen[]): void {
+    this.onScreen = list;
+    const key = list
+      .map((h) => `${h.id}:${h.near ? 1 : 0}${h.door ? 1 : 0}`)
+      .join("|");
+    if (key !== this.marksKey) {
+      // Something noticed, or near, or gone: draw the labels again.
+      this.marksKey = key;
+      this.marks.clear();
+      return;
+    }
+    this.placeMarks(list);
+  }
+
+  private placeMarks(list: ThingOnScreen[]): void {
     for (const h of list) {
       let el = this.marks.get(h.id);
-      if (!el) {
+      if (!el || !el.isConnected) {
         el =
           this.querySelector<HTMLElement>(`.mb-mark[data-id="${h.id}"]`) ??
           undefined;
         if (!el) continue;
         this.marks.set(h.id, el);
       }
-      el.style.transform = `translate(${h.x.toFixed(1)}px, ${h.y.toFixed(1)}px)`;
+      el.style.transform = `translate(${h.x}px, ${h.y}px)`;
       el.style.visibility = h.visible ? "visible" : "hidden";
-      if (h.visible) shown.push({ h, el });
+      el.dataset.side =
+        h.x > (this.size.w - this.inset.right) * 0.72 ? "left" : "right";
     }
-    // Every diamond is in the way of every other mark's label, and labels
-    // are in each other's way: each label takes the first place, right or
-    // left of its diamond and a line up or down, that covers nothing.
-    const dots: Box[] = shown.map(({ h }) => ({
-      x0: h.x - 10,
-      y0: h.y - 10,
-      x1: h.x + 10,
-      y1: h.y + 10,
-    }));
-    const placed: Box[] = [];
-    const tries: [1 | -1, number][] = [
-      [1, 0],
-      [-1, 0],
-      [1, LH],
-      [-1, LH],
-      [1, -LH],
-      [-1, -LH],
-      [1, 2 * LH],
-      [-1, 2 * LH],
-    ];
-    shown
-      .sort((a, b) => a.h.y - b.h.y || a.h.x - b.h.x)
-      .forEach(({ h, el }) => {
-        let w = this.labelW.get(h.id);
-        if (w === undefined || w === 0) {
-          w = el.querySelector<HTMLElement>(".mb-mark-label")?.offsetWidth ?? 0;
-          if (w > 0) this.labelW.set(h.id, w);
-        }
-        const width = w || 120;
-        const boxOf = ([side, dy]: [1 | -1, number]): Box => {
-          const x0 = side === 1 ? h.x + 14 : h.x - 14 - width;
-          return { x0, y0: h.y - 14 + dy, x1: x0 + width, y1: h.y + 13 + dy };
-        };
-        const own = shown.findIndex((s) => s.h.id === h.id);
-        const free = (b: Box) =>
-          inView(b) &&
-          !placed.some((p) => hits(p, b)) &&
-          !dots.some((d, i) => i !== own && hits(d, b));
-        let pick = tries.find((t) => free(boxOf(t)));
-        // Crowded: whichever side stays in view, on its own line.
-        pick ??= inView(boxOf([1, 0])) ? [1, 0] : [-1, 0];
-        // A seen mark's label shows only on hover: it takes no room.
-        if (!el.classList.contains("seen")) placed.push(boxOf(pick));
-        // A data attribute, not a class: lit owns the class list.
-        el.dataset.side = pick[0] === -1 ? "left" : "right";
-        el.style.setProperty("--ly", `${pick[1]}px`);
-      });
+  }
+
+  // --- saving and loading (r22) ----------------------------------------------
+
+  private slotFor(): SlotSave {
+    const place = this.stage.place ? this.places[this.stage.place] : undefined;
+    const world = this.run.free ? this.world?.heroState() : null;
+    return slotOf(this.run, {
+      placeName: place?.name ?? "",
+      played: this.played,
+      savedAt: new Date().toISOString(),
+      world: world ?? undefined,
+    });
+  }
+
+  private autosaveSoon(): void {
+    window.clearTimeout(this.autoTimer);
+    this.autoTimer = window.setTimeout(() => this.autosave(), 1500);
+  }
+
+  private autosave(): void {
+    window.clearTimeout(this.autoTimer);
+    if (this.beat.kind === "end") return;
+    this.sinceAuto = 0;
+    void this.host.save("auto", this.slotFor()).catch(() => {});
+  }
+
+  private async saveTo(slot: string): Promise<void> {
+    this.countPlayed();
+    this.saving = slot;
+    try {
+      await this.host.save(slot, this.slotFor());
+      this.toast(
+        slot === "quick" ? "Quicksaved." : `Saved in slot ${slot}.`,
+        "saved",
+      );
+      if (this.overlay === "save") this.closeOverlay();
+    } catch {
+      this.toast("That didn't save. Try again?", "saved");
+    } finally {
+      this.saving = null;
+    }
+  }
+
+  private loadFrom(slot: string): void {
+    if (!this.slots.some((s) => s.slot === slot)) {
+      this.toast(
+        slot === "quick" ? "No quicksave yet." : "That slot is empty.",
+        "saved",
+      );
+      return;
+    }
+    this.countPlayed();
+    this.host.load(slot);
   }
 
   // --- input ---------------------------------------------------------------
@@ -735,6 +1015,16 @@ export class BasedPlayer extends LitElement {
       if (e.key === "Escape") this.closeOverlay();
       return;
     }
+    if (e.key === "F5") {
+      e.preventDefault();
+      void this.saveTo("quick");
+      return;
+    }
+    if (e.key === "F9") {
+      e.preventDefault();
+      this.loadFrom("quick");
+      return;
+    }
     if (e.key === "Escape") {
       e.preventDefault();
       if (this.overlay !== null) this.closeOverlay();
@@ -744,10 +1034,26 @@ export class BasedPlayer extends LitElement {
     if (e.key === "Tab") {
       e.preventDefault();
       this.tab = true;
+      if (this.world) this.world.showAll = true;
       return;
     }
     if (this.overlay !== null) return;
     const b = this.beat;
+    const pan: Record<string, [number, number]> = {
+      ArrowLeft: [-0.7, 0.7],
+      ArrowRight: [0.7, -0.7],
+      ArrowUp: [-0.7, -0.7],
+      ArrowDown: [0.7, 0.7],
+    };
+    if (
+      pan[e.key] &&
+      this.world &&
+      (this.world.heroSeated || this.world.still)
+    ) {
+      e.preventDefault();
+      this.world.pan(...pan[e.key]);
+      return;
+    }
     if (e.key === " " || e.key === "Enter") {
       if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
         e.preventDefault();
@@ -760,13 +1066,18 @@ export class BasedPlayer extends LitElement {
       this.openOverlay("note");
     } else if (e.key === "c" || e.key === "C") {
       this.openOverlay("sheet");
+    } else if (e.key === "j" || e.key === "J") {
+      this.openOverlay("journal");
     } else if (e.key === "h" || e.key === "H" || e.key === "?") {
       this.openOverlay("help");
     }
   };
 
   private onKeyUp = (e: KeyboardEvent) => {
-    if (e.key === "Tab") this.tab = false;
+    if (e.key === "Tab") {
+      this.tab = false;
+      if (this.world) this.world.showAll = this.prefs.marks;
+    }
   };
 
   private onResize = () => {
@@ -807,13 +1118,15 @@ export class BasedPlayer extends LitElement {
               ? `[card] ${b.title}`
               : b.kind === "roll"
                 ? `[check] ${b.skill} ${b.diff}: ${b.label}`
-                : "";
+                : b.kind === "free"
+                  ? `[free] ${this.stage.place ? (this.places[this.stage.place]?.name ?? "") : ""}`
+                  : "";
     try {
       await leaveNote({
         chapter: this.chapter.n,
         scene: this.run.sceneId,
         line,
-        path: this.run.history(),
+        path: this.run.history().slice(-300),
         note,
       });
       this.noteState = "saved";
@@ -830,6 +1143,7 @@ export class BasedPlayer extends LitElement {
     this.prefs = { ...this.prefs, [k]: v };
     savePrefs(this.prefs);
     this.ambience.setVolume(this.prefs.volume, !this.prefs.sound);
+    if (k === "marks" && this.world) this.world.showAll = !!v || this.tab;
   }
 
   // --- drawing -------------------------------------------------------------
@@ -848,12 +1162,11 @@ export class BasedPlayer extends LitElement {
       ${noPlace && !flat ? this.renderPicture() : nothing}
       ${this.noWorld && this.stage.place
         ? html`<div class="mb-noworld">
-            This chapter is drawn in 3D, which this browser can't show (WebGL is
-            off). The story plays on in the column.
+            This story is drawn in 3D, which this browser can't show (WebGL is
+            off). It plays on in the column.
           </div>`
         : nothing}
-      ${flat ? this.renderFlat(flat) : nothing}
-      ${b.kind === "investigate" && !flat ? this.renderMarks(b) : nothing}
+      ${flat ? this.renderFlat(flat) : nothing} ${this.renderMarks()}
       ${this.renderHud()}
       ${this.stage.news && this.stage.place
         ? this.renderNews(this.stage.news)
@@ -864,6 +1177,11 @@ export class BasedPlayer extends LitElement {
             ${this.card.sub
               ? html`<div class="mb-card-sub">${this.card.sub}</div>`
               : nothing}
+          </div>`
+        : nothing}
+      ${this.placeCard
+        ? html`<div class="mb-placecard" aria-live="polite">
+            ${this.placeCard}
           </div>`
         : nothing}
       <div class="mb-toasts" aria-live="polite">
@@ -891,39 +1209,52 @@ export class BasedPlayer extends LitElement {
     </div>`;
   }
 
-  private renderMarks(b: InvestigateBeat): TemplateResult {
-    const marks = [
-      ...b.spots.map((s) => ({
-        id: s.anchor ?? s.id,
-        label: s.label,
-        seen: s.seen,
-        exit: false,
-      })),
-      ...(b.exit
-        ? [{ id: b.exit, label: b.leave, seen: false, exit: true }]
-        : []),
-    ];
+  /**
+   * Labels over what he's noticed: shown on hover, or for what's near him
+   * while Tab is held (or the eye is on). Only what he's noticed is here at
+   * all; nothing in the place is listed.
+   */
+  private renderMarks(): TemplateResult | typeof nothing {
+    const w = this.world;
+    if (!w || this.onScreen.length === 0) return nothing;
+    const here = this.stage.place ? this.places[this.stage.place] : undefined;
+    const b = this.beat;
     return html`<div class="mb-marks">
-      ${marks.map(
-        (m) =>
-          html`<button
-            class="mb-mark ${m.seen ? "seen" : ""} ${m.exit
-              ? "exit"
-              : ""} ${this.hover === m.id ? "hover" : ""}"
-            data-id=${m.id}
-            aria-label=${m.label}
-            @click=${() => this.clickHotspot(m.id)}
-            @pointerenter=${() => (this.hover = m.id)}
-            @pointerleave=${() => (this.hover = null)}
-          >
-            <span class="mb-mark-dot"></span>
-            <span class="mb-mark-label">${m.label}</span>
-          </button>`,
-      )}
+      ${this.onScreen.map((t) => {
+        const h = here?.hotspots[t.id];
+        const spot = b.kind === "investigate" ? this.spotFor(t.id) : null;
+        const label = t.door
+          ? (h?.label ?? "A door")
+          : (spot?.label ?? h?.label ?? this.thingLabel(t.id));
+        return html`<button
+          class="mb-mark ${t.door ? "exit" : ""} ${t.near
+            ? "near"
+            : "seen"} ${this.hover === t.id ? "hover" : ""}"
+          data-id=${t.id}
+          aria-label=${label}
+          style="transform: translate(${t.x}px, ${t.y}px)"
+          @click=${() =>
+            this.clickThing(t.id, this.world?.heroSeated ?? false, false)}
+          @pointerenter=${() => (this.hover = t.id)}
+          @pointerleave=${() => (this.hover = null)}
+        >
+          <span class="mb-mark-dot"></span>
+          <span class="mb-mark-label">${label}</span>
+        </button>`;
+      })}
     </div>`;
   }
 
-  /** Looking at something flat, held up close: the photograph. */
+  /** What a thing is called: the label its first scene gives it. */
+  private thingLabel(id: string): string {
+    for (const sid of this.chapter.order) {
+      const s = this.chapter.scenes[sid];
+      if (s.trigger?.on === "look" && s.trigger.target === id) return s.label;
+    }
+    return id.replace(/_/g, " ");
+  }
+
+  /** Looking at something flat, held up close: a photograph, a letter. */
   private renderFlat(b: InvestigateBeat): TemplateResult {
     const url = this.stage.backdrop
       ? mediaNow("art", this.stage.backdrop)
@@ -948,24 +1279,34 @@ export class BasedPlayer extends LitElement {
   }
 
   private renderHud(): TemplateResult {
+    const place = this.stage.place ? this.places[this.stage.place] : undefined;
+    const clock = clockText(this.run.clock);
     return html`<div class="mb-hud">
       <div class="mb-where">
-        <span class="mb-where-ch">Chapter ${this.chapter.n}</span>
-        <span class="mb-where-scene">${this.sceneLabel}</span>
+        <span class="mb-where-ch">${place?.name ?? this.sceneLabel}</span>
+        <span class="mb-where-scene mb-clock">${clock.time}</span>
       </div>
       <div class="mb-hud-buttons">
         <button
           class="mb-icon"
-          title="Him (C)"
-          aria-label="His skills"
+          title="Your skills (C)"
+          aria-label="Your skills"
           @click=${() => this.openOverlay("sheet")}
         >
           ${personIcon()}
         </button>
         <button
+          class="mb-icon"
+          title="Journal (J)"
+          aria-label="Journal"
+          @click=${() => this.openOverlay("journal")}
+        >
+          ${bookIcon()}
+        </button>
+        <button
           class="mb-icon ${this.prefs.marks ? "on" : ""}"
-          title="Show what he can look at (Tab)"
-          aria-label="Show what he can look at"
+          title="Show what's near him (hold Tab)"
+          aria-label="Show what's near him"
           @click=${() => this.setPref("marks", !this.prefs.marks)}
         >
           ${eyeIcon()}
@@ -1026,6 +1367,9 @@ export class BasedPlayer extends LitElement {
         ${this.entries.map((e, i) =>
           this.renderEntry(e, i === this.entries.length - 1),
         )}
+        ${this.entries.length === 0 && b.kind === "free"
+          ? this.renderResume()
+          : nothing}
       </div>
       <div class="mb-col-act">${this.renderAction(b)}</div>
     </aside>`;
@@ -1052,16 +1396,43 @@ export class BasedPlayer extends LitElement {
     </div>`;
   }
 
+  /** Words in another language: what it means, or what was said. */
+  private langTag(l: NonNullable<Entry["lang"]>): TemplateResult {
+    if (!l.understood) {
+      return html`<span class="mb-e-lang lost" title="He doesn't speak it"
+        >${l.name}</span
+      >`;
+    }
+    return html`<span
+      class="mb-e-lang"
+      title=${l.via === "skill"
+        ? `Languages – ${l.tier ?? ""}: he caught the gist. Said: “${l.original}”`
+        : `In ${l.name}: “${l.original}”`}
+      >${l.via === "skill" ? `${l.name}, the gist` : l.name}</span
+    >`;
+  }
+
   private renderEntry(e: Entry, last: boolean): TemplateResult {
-    const live = last && this.beat.kind === "line";
-    const text = live ? typed(e.text, this.shown) : html`${typed(e.text, 1e9)}`;
+    const live = last && this.beat.kind === "line" && this.typingNow;
+    // The live line's words are drawn into its span by drawLive(), so the
+    // column isn't drawn again for every letter.
+    const text = live
+      ? html`<span class="mb-live"></span>`
+      : html`${typed(e.text, 1e9)}`;
     const hero = this.chapter.cast[0]?.id;
     switch (e.kind) {
       case "say":
-        return html`<p class="mb-e say ${e.who === hero ? "hero" : ""}">
+        return html`<p
+          class="mb-e say ${e.who === hero ? "hero" : ""} ${e.lang &&
+          !e.lang.understood
+            ? "foreign"
+            : ""}"
+        >
           <b class="mb-e-who">${this.nameOf(e.who ?? "").toUpperCase()}</b
-          >${e.how ? html` <i class="mb-e-how">(${e.how})</i>` : nothing} –
-          ${text}
+          >${e.how
+            ? html` <i class="mb-e-how">(${e.how})</i>`
+            : nothing}${e.lang ? html` ${this.langTag(e.lang)}` : nothing}
+          – ${text}
         </p>`;
       case "voice":
         return html`<p class="mb-e voice">
@@ -1115,9 +1486,7 @@ export class BasedPlayer extends LitElement {
                 html`<span
                   class="mb-die ${pending ? "tumbling" : ""}"
                   style="animation-delay:${i * 90}ms"
-                  >${dieFace(
-                    pending ? ((Date.now() / 97 + i) % 6) + 1 : d,
-                  )}</span
+                  >${dieFace(pending ? ((i * 3 + 2) % 6) + 1 : d)}</span
                 >`,
             )}
             <span class="mb-roll-sum"
@@ -1141,7 +1510,7 @@ export class BasedPlayer extends LitElement {
       case "line":
       case "card":
         return html`<button class="mb-continue" @click=${() => this.advance()}>
-          ${this.typing ? "…" : "Continue"}
+          ${this.typingNow ? "…" : "Continue"}
         </button>`;
       case "roll":
         return html`<button
@@ -1154,6 +1523,8 @@ export class BasedPlayer extends LitElement {
         return this.renderChoice(b);
       case "investigate":
         return this.renderLookPanel(b);
+      case "free":
+        return this.renderFree();
       default:
         return nothing;
     }
@@ -1177,13 +1548,16 @@ export class BasedPlayer extends LitElement {
   }
 
   private renderChoice(b: ChoiceBeat): TemplateResult {
-    const timed = this.prefs.timers && b.timer > 0;
-    const frac = timed ? this.timeLeft / b.timer : 0;
+    const timed = this.prefs.timers && this.timed > 0;
     return html`<div class="mb-choices">
       ${b.prompt ? html`<div class="mb-prompt">${b.prompt}</div>` : nothing}
       ${timed
-        ? html`<div class="mb-timer" role="timer" aria-label="Time to answer">
-            <span style="transform: scaleX(${frac.toFixed(4)})"></span>
+        ? html`<div
+            class="mb-timer ${this.overlay ? "paused" : ""}"
+            role="timer"
+            aria-label="Time to answer"
+          >
+            <span style="animation-duration:${this.timed}s"></span>
           </div>`
         : nothing}
       <ol class="mb-options">
@@ -1216,79 +1590,117 @@ export class BasedPlayer extends LitElement {
     </div>`;
   }
 
+  /**
+   * Reading a room or a man (r22): no list of what's there. Marks appear on
+   * what he notices as he looks about; what it adds up to comes to him as a
+   * thought, here, when he's noticed enough.
+   */
   private renderLookPanel(b: InvestigateBeat): TemplateResult {
-    const seen = b.spots.filter((s) => s.seen).length;
-    const need = Math.min(b.min, b.spots.length);
     const flat = !this.is3d(b);
+    const ready = b.deductions.filter((d) => d.ready && !d.done);
+    const done = b.deductions.filter((d) => d.done);
     return html`<div class="mb-look-panel">
       <div class="mb-panel-head">
         <span class="mb-read"
-          >${flat ? "Look" : b.still ? "Read" : "Look around"}</span
+          >${flat ? "Look" : b.still ? "Read" : "Look"}</span
         >
         <span class="mb-panel-title">${b.title}</span>
       </div>
-      <div class="mb-count">
-        ${seen} of ${b.spots.length}
-        noticed${seen < need
-          ? html` · ${need - seen} more before he moves on`
-          : nothing}
+      <div class="mb-walk-hint">
+        ${flat
+          ? html`${this.narrow ? "Tap" : "Click"} what catches his eye.`
+          : b.still
+            ? html`He reads it from where he sits.
+              ${this.narrow
+                ? "Drag to look about; tap what he sees."
+                : "Drag, or the arrow keys, to look about; click what he sees."}`
+            : html`Walk about; what he notices glints.
+              ${this.narrow
+                ? ""
+                : html`Hold <kbd>Tab</kbd> to see what's near.`}`}
       </div>
-      ${!flat && !b.still
-        ? html`<div class="mb-walk-hint">
-            ${this.narrow ? "Tap" : "Click"} the floor to walk, a mark to look.
-          </div>`
+      ${ready.length > 0 || done.length > 0
+        ? html`<ul class="mb-thoughts">
+            ${done.map(
+              (d) =>
+                html`<li class="done">
+                  <span class="mb-check-mark"></span>${d.label}
+                </li>`,
+            )}
+            ${ready.map(
+              (d) =>
+                html`<li class="ready ${d.check?.locked ? "locked" : ""}">
+                  <button
+                    ?disabled=${d.check?.locked}
+                    @click=${() => this.deduce(d.id)}
+                  >
+                    ${d.check
+                      ? this.checkLabel(d.check)
+                      : html`<span class="mb-spark"></span>`}
+                    ${d.label}
+                  </button>
+                </li>`,
+            )}
+          </ul>`
         : nothing}
-      <ul class="mb-clues">
-        ${b.spots.map(
-          (s) =>
-            html`<li class=${s.seen ? "seen" : ""}>
-              <button
-                class=${this.walkingTo === s.id ? "going" : ""}
-                @click=${() => this.lookAt(s.id)}
-                @pointerenter=${() => (this.hover = s.anchor ?? null)}
-                @pointerleave=${() => (this.hover = null)}
-              >
-                <span class="mb-dot"></span>${s.label}
-              </button>
-            </li>`,
-        )}
-      </ul>
-      ${b.deductions.length > 0
-        ? html`<div class="mb-panel-sub">What it means</div>
-            <ul class="mb-deductions">
-              ${b.deductions.map((d) =>
-                d.done
-                  ? html`<li class="done">
-                      <span class="mb-check-mark"></span>${d.label}
-                    </li>`
-                  : d.ready
-                    ? html`<li class="ready ${d.check?.locked ? "locked" : ""}">
-                        <button
-                          ?disabled=${d.check?.locked}
-                          @click=${() => this.deduce(d.id)}
-                        >
-                          ${d.check
-                            ? this.checkLabel(d.check)
-                            : html`<span class="mb-spark"></span>`}
-                          ${d.label}
-                        </button>
-                      </li>`
-                    : html`<li class="locked">
-                        <span class="mb-lock"></span>Notice more
-                      </li>`,
-              )}
-            </ul>`
+      ${b.canLeave
+        ? html`<button
+            class="mb-leave"
+            @click=${() => {
+              if (b.exit && this.world) this.clickThing(b.exit, false, false);
+              else this.leave();
+            }}
+          >
+            ${b.leave}
+          </button>`
         : nothing}
-      <button
-        class="mb-leave"
-        ?disabled=${!b.canLeave}
-        @click=${() => {
-          if (b.exit && this.world) this.clickHotspot(b.exit);
-          else this.leave();
-        }}
-      >
-        ${b.leave}
-      </button>
+    </div>`;
+  }
+
+  /** Free: thoughts he can follow, and a word on what to do. */
+  /** A loaded game starts with an empty column: where he is, and when. */
+  private renderResume(): TemplateResult {
+    const place = this.stage.place ? this.places[this.stage.place] : undefined;
+    const clock = clockText(this.run.clock);
+    return html`<p class="mb-resume">
+      ${place ? `${place.name}, ${clock.time}.` : `${clock.time}.`} Where he
+      left off.
+    </p>`;
+  }
+
+  private renderFree(): TemplateResult {
+    const t = this.avail.think;
+    const journal = this.run.tasks.filter((x) => !x.done);
+    return html`<div class="mb-free">
+      ${t.length > 0
+        ? html`<ul class="mb-thoughts">
+            ${t.map(
+              (x) =>
+                html`<li class="ready">
+                  <button @click=${() => this.think(x.id)}>
+                    <span class="mb-spark"></span>${x.label}
+                  </button>
+                </li>`,
+            )}
+          </ul>`
+        : nothing}
+      ${journal.length > 0
+        ? html`<button
+            class="mb-free-task"
+            @click=${() => this.openOverlay("journal")}
+          >
+            ${journal[journal.length - 1].text}
+          </button>`
+        : nothing}
+      <div class="mb-walk-hint">
+        ${this.seated
+          ? this.narrow
+            ? "Seated. Drag to look about the room; tap the floor to get up."
+            : "Seated. Drag (or the arrow keys) to look about the room; click the floor to get up."
+          : this.narrow
+            ? "Tap to walk, twice to run. Tap what catches his eye."
+            : "Click to walk, double-click to run. What he notices glints."}
+      </div>
     </div>`;
   }
 
@@ -1299,7 +1711,10 @@ export class BasedPlayer extends LitElement {
     const build = this.run.build;
     const boosts = this.run.boosts;
     const arch = this.chapter.archetypes.find((a) => a.id === build.archetype);
-    return html`<h2>Mr. Based</h2>
+    const langs = (build.langs ?? [])
+      .map((c) => this.chapter.languages.find((l) => l.code === c)?.name ?? c)
+      .join(", ");
+    return html`<h2>Your skills</h2>
       <p class="mb-sheet-sub">
         ${arch ? html`${arch.name}. ${arch.about}` : "His own man."}
       </p>
@@ -1332,6 +1747,12 @@ export class BasedPlayer extends LitElement {
             </section>`,
         )}
       </div>
+      ${langs
+        ? html`<p class="mb-sheet-langs">
+            <b>Speaks</b> ${langs}, ${fluency(values[LANGUAGES_SKILL] ?? 0)};
+            and American English.
+          </p>`
+        : nothing}
       ${boosts.length > 0
         ? html`<div class="mb-panel-sub">On his mind</div>
             <ul class="mb-boosts">
@@ -1355,6 +1776,29 @@ export class BasedPlayer extends LitElement {
       </p>`;
   }
 
+  private renderJournal(): TemplateResult {
+    const tasks = this.run.tasks;
+    const open = tasks.filter((t) => !t.done);
+    const done = tasks.filter((t) => t.done);
+    const clock = clockText(this.run.clock);
+    return html`<h2>Journal</h2>
+      <p class="mb-sheet-sub">
+        ${clock.day > 0 ? `Night ${clock.day + 1}, ` : ""}${clock.time}. What
+        he's set out to do.
+      </p>
+      ${open.length === 0
+        ? html`<p class="mb-p">Nothing, for now.</p>`
+        : html`<ul class="mb-journal">
+            ${open.map((t) => html`<li>${t.text}</li>`)}
+          </ul>`}
+      ${done.length > 0
+        ? html`<div class="mb-panel-sub">Done</div>
+            <ul class="mb-journal done">
+              ${done.map((t) => html`<li>${t.text}</li>`)}
+            </ul>`
+        : nothing}`;
+  }
+
   private renderOverlay(o: Exclude<Overlay, null>): TemplateResult {
     const close = html`<button
       class="mb-x"
@@ -1362,6 +1806,12 @@ export class BasedPlayer extends LitElement {
       @click=${() => this.closeOverlay()}
     >
       ${closeIcon()}
+    </button>`;
+    const back = html`<button
+      class="mb-btn"
+      @click=${() => (this.overlay = "menu")}
+    >
+      Back
     </button>`;
     const sheet = (body: TemplateResult, cls = "") =>
       html`<div class="mb-overlay" @click=${(e: Event) => e.stopPropagation()}>
@@ -1382,7 +1832,7 @@ export class BasedPlayer extends LitElement {
       return sheet(
         html`<h2>Note for the writer</h2>
           <p class="mb-sheet-sub">
-            Scene “${this.sceneLabel}” ·
+            ${this.run.free ? "Exploring" : html`Scene “${this.sceneLabel}”`} ·
             ${on
               ? html`on “${on.slice(0, 120)}${on.length > 120 ? "…" : ""}”`
               : nothing}
@@ -1431,14 +1881,29 @@ export class BasedPlayer extends LitElement {
             : nothing}`,
       );
     }
-    if (o === "sheet") return sheet(this.renderSheet(), "tall");
+    if (o === "sheet")
+      return sheet(html`${this.renderSheet()} ${back}`, "tall");
+    if (o === "journal") return sheet(html`${this.renderJournal()} ${back}`);
+    if (o === "save" || o === "load") {
+      return sheet(
+        html`<h2>${o === "save" ? "Save game" : "Load game"}</h2>
+          ${slotsBody({
+            slots: this.slots,
+            mode: o,
+            busy: this.saving,
+            pick: (slot) => {
+              if (o === "save") void this.saveTo(slot);
+              else this.loadFrom(slot);
+            },
+          })}
+          ${back}`,
+        "tall",
+      );
+    }
     if (o === "help") {
       const touch = window.matchMedia?.("(pointer: coarse)").matches ?? false;
       return sheet(
-        html`${helpBody(this.chapter, ATTR_COLORS, touch)}
-          <button class="mb-btn" @click=${() => (this.overlay = "menu")}>
-            Back
-          </button>`,
+        html`${helpBody(this.chapter, ATTR_COLORS, touch)} ${back}`,
         "tall",
       );
     }
@@ -1454,9 +1919,7 @@ export class BasedPlayer extends LitElement {
       return sheet(
         html`<h2>Settings</h2>
           ${settingsBody(this.prefs, (k, v) => this.setPref(k, v), speed)}
-          <button class="mb-btn" @click=${() => (this.overlay = "menu")}>
-            Back
-          </button>`,
+          ${back}`,
       );
     }
     if (o === "log") {
@@ -1476,32 +1939,34 @@ export class BasedPlayer extends LitElement {
                 </p>`,
             )}
           </div>
-          <button class="mb-btn" @click=${() => (this.overlay = "menu")}>
-            Back
-          </button>`,
+          ${back}`,
         "tall",
       );
     }
     if (o === "credits") {
-      return sheet(
-        html`${creditsBody(this.credits)}
-          <button class="mb-btn" @click=${() => (this.overlay = "menu")}>
-            Back
-          </button>`,
-        "tall",
-      );
+      return sheet(html`${creditsBody(this.credits)} ${back}`, "tall");
     }
     return sheet(
       html`<div class="mb-menu-title">Mr. Based</div>
         <div class="mb-sheet-sub">
-          Chapter ${this.chapter.n}: ${this.chapter.title}
+          ${this.stage.place ? (this.places[this.stage.place]?.name ?? "") : ""}
+          · ${clockText(this.run.clock).time}
         </div>
         <nav class="mb-menu">
           <button class="mb-btn primary" @click=${() => this.closeOverlay()}>
             Resume
           </button>
+          <button class="mb-btn" @click=${() => (this.overlay = "save")}>
+            Save game
+          </button>
+          <button class="mb-btn" @click=${() => (this.overlay = "load")}>
+            Load game
+          </button>
           <button class="mb-btn" @click=${() => (this.overlay = "sheet")}>
-            His skills
+            Your skills
+          </button>
+          <button class="mb-btn" @click=${() => (this.overlay = "journal")}>
+            Journal
           </button>
           <button class="mb-btn" @click=${() => (this.overlay = "help")}>
             How to play
@@ -1512,21 +1977,28 @@ export class BasedPlayer extends LitElement {
           <button class="mb-btn" @click=${() => (this.overlay = "log")}>
             The story so far
           </button>
-          <button class="mb-btn" @click=${() => this.host.quit("chapters")}>
-            Chapters and checkpoints
-          </button>
           <button class="mb-btn" @click=${() => (this.overlay = "settings")}>
             Settings
           </button>
           <button class="mb-btn" @click=${() => (this.overlay = "credits")}>
             Credits
           </button>
-          <button class="mb-btn quiet" @click=${() => this.host.quit("title")}>
+          <button
+            class="mb-btn quiet"
+            @click=${() => {
+              this.autosave();
+              this.countPlayed();
+              this.host.quit();
+            }}
+          >
             Save and quit
           </button>
         </nav>
         <p class="mb-sheet-foot">
-          Your progress is saved at the start of every scene.
+          The game saves by itself as you go (the autosave).
+          ${window.matchMedia?.("(pointer: coarse)").matches
+            ? nothing
+            : html`<kbd>F5</kbd> quicksaves; <kbd>F9</kbd> loads it.`}
         </p>`,
       "menu",
     );

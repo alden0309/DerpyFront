@@ -2,6 +2,10 @@
 // mapping, then a noir grade (cold shadows, amber highlights), a vignette,
 // grain, and on devices that can afford it a Kuwahara filter that turns the
 // render into something closer to brushwork.
+//
+// r22: each place is its own scene now, so the render pass is pointed at
+// whichever place he's in. The multisampled buffer is optional (a phone
+// gets none: the grade and grain hide the edges), and bloom too.
 
 import * as THREE from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
@@ -88,10 +92,13 @@ const NoirShader = {
 export interface PostOptions {
   bloom: boolean;
   paint: boolean;
+  /** Multisampling of the scene's buffer (0 for none). */
+  samples: number;
 }
 
 export class Post {
   readonly composer: EffectComposer;
+  private readonly pass: RenderPass;
   private readonly noir: ShaderPass;
   private readonly bloom: UnrealBloomPass | null;
 
@@ -104,10 +111,11 @@ export class Post {
     const size = renderer.getSize(new THREE.Vector2());
     const rt = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
-      samples: renderer.capabilities.isWebGL2 ? 4 : 0,
+      samples: renderer.capabilities.isWebGL2 ? opts.samples : 0,
     });
     this.composer = new EffectComposer(renderer, rt);
-    this.composer.addPass(new RenderPass(scene, camera));
+    this.pass = new RenderPass(scene, camera);
+    this.composer.addPass(this.pass);
     if (opts.bloom) {
       this.bloom = new UnrealBloomPass(
         new THREE.Vector2(size.x / 2, size.y / 2),
@@ -128,6 +136,11 @@ export class Post {
     this.composer.setSize(w, h);
     this.noir.uniforms.resolution.value.set(w * pixelRatio, h * pixelRatio);
     this.bloom?.resolution.set((w * pixelRatio) / 2, (h * pixelRatio) / 2);
+  }
+
+  /** r22: the place to draw (each place is its own scene). */
+  setScene(scene: THREE.Scene): void {
+    this.pass.scene = scene;
   }
 
   setPaint(on: boolean): void {
