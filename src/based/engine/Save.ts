@@ -320,8 +320,10 @@ export function playUntil(
     } else if (b.kind === "line" || b.kind === "card" || b.kind === "roll") {
       r.advance();
     } else if (b.kind === "choice") {
-      const open = b.options.filter((o) => !o.check?.locked && !o.check);
-      r.choose((open[0] ?? b.options.find((o) => !o.check?.locked)!).id);
+      const shut = (o: (typeof b.options)[number]) =>
+        !!o.check?.locked || o.needs?.met === false;
+      const open = b.options.filter((o) => !shut(o) && !o.check);
+      r.choose((open[0] ?? b.options.find((o) => !shut(o))!).id);
     } else {
       const spot = b.spots.find((s) => !s.seen);
       if (b.canLeave) r.leave();

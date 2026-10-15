@@ -38,7 +38,10 @@
       [1.0, -2.22, 1.4, -1.86],
       [1.9000000000000001, -2.22, 2.3000000000000003, -1.86],
       [2.8, -2.22, 3.2, -1.86],
-      [3.6999999999999997, -2.22, 4.1, -1.86]
+      [3.6999999999999997, -2.22, 4.1, -1.86],
+      [3.68, 2.48, 4.02, 2.82],
+      [7.25, -4.75, 7.85, -4.15],
+      [7.1, 0.3, 7.68, 0.9]
     ]
   },
   "areas": [
@@ -188,6 +191,45 @@
     "corner_stand": {
       "at": [-4.6, 1.6],
       "face": 270
+    },
+    "see_jar": {
+      "at": [2.55, -1.6]
+    },
+    "see_paper": {
+      "at": [0.75, -1.6]
+    },
+    "see_menu": {
+      "at": [5.6, -2.2]
+    },
+    "see_photo": {
+      "at": [-6.2, -3.0]
+    },
+    "see_radio": {
+      "at": [4.5, -2.0]
+    },
+    "see_ashtray": {
+      "at": [-1.5, -0.1]
+    },
+    "see_plant": {
+      "at": [-5.9, -3.7]
+    },
+    "see_bottles": {
+      "at": [-2.85, -1.6]
+    },
+    "see_lost": {
+      "at": [8.05, -3.7]
+    },
+    "see_chair": {
+      "at": [9.0, 1.3]
+    },
+    "see_machine": {
+      "at": [8.2, 0.6]
+    },
+    "see_notice": {
+      "at": [7.8, -3.4]
+    },
+    "see_lift": {
+      "at": [8.35, -4.05]
     }
   },
   "hotspots": {
@@ -286,6 +328,106 @@
       "at": [-4.65, 1.1, -2.52],
       "r": 0.18,
       "near": 3
+    },
+    "matches": {
+      "at": [-1.0, 1.12, -2.75],
+      "r": 0.15,
+      "stand": "at_bar_mid"
+    },
+    "tip_jar": {
+      "at": [2.4, 1.17, -2.8],
+      "r": 0.15,
+      "stand": "see_jar"
+    },
+    "bar_paper": {
+      "at": [0.6, 1.1, -2.72],
+      "r": 0.2,
+      "stand": "see_paper"
+    },
+    "bar_menu": {
+      "at": [6.15, 1.9, -4.9],
+      "r": 0.35,
+      "stand": "see_menu"
+    },
+    "old_photo": {
+      "at": [-6.9, 1.75, -3.0],
+      "r": 0.35,
+      "stand": "see_photo"
+    },
+    "radio": {
+      "at": [3.75, 1.2, -3.05],
+      "r": 0.2,
+      "stand": "see_radio"
+    },
+    "ashtray": {
+      "at": [-1.5, 0.8, 1.0],
+      "r": 0.18,
+      "stand": "see_ashtray"
+    },
+    "plant": {
+      "at": [-6.5, 0.6, -4.5],
+      "r": 0.45,
+      "stand": "see_plant"
+    },
+    "bottles": {
+      "at": [-2.6, 1.55, -4.75],
+      "r": 0.4,
+      "stand": "see_bottles"
+    },
+    "umbrella_stand": {
+      "at": [3.85, 0.6, 2.65],
+      "r": 0.25,
+      "stand": "see_door"
+    },
+    "till": {
+      "at": [3.6, 1.25, -4.6],
+      "r": 0.25,
+      "stand": "see_tv"
+    },
+    "key_board": {
+      "at": [10.35, 1.85, -4.9],
+      "r": 0.4,
+      "stand": "see_desk"
+    },
+    "lost_property": {
+      "at": [7.55, 0.4, -4.45],
+      "r": 0.35,
+      "stand": "see_lost"
+    },
+    "desk_bell": {
+      "at": [10.0, 1.15, -2.65],
+      "r": 0.12,
+      "stand": "see_desk"
+    },
+    "paperback": {
+      "at": [9.85, 0.5, 1.5],
+      "r": 0.15,
+      "stand": "see_chair"
+    },
+    "cig_machine": {
+      "at": [7.4, 1.3, 0.6],
+      "r": 0.35,
+      "stand": "see_machine"
+    },
+    "fire_notice": {
+      "at": [7.1, 1.6, -3.4],
+      "r": 0.3,
+      "stand": "see_notice"
+    },
+    "lift": {
+      "at": [8.35, 1.2, -4.85],
+      "r": 0.5,
+      "stand": "see_lift"
+    },
+    "lilies": {
+      "at": [10.25, 1.4, -4.25],
+      "r": 0.2,
+      "stand": "see_desk"
+    },
+    "lobby_clock": {
+      "at": [9.3, 2.55, -4.9],
+      "r": 0.25,
+      "stand": "see_lift"
     }
   },
   "shots": {
@@ -952,6 +1094,107 @@
       "at": [-5.0, 1.081, -2.58],
       "hidden": true,
       "color": "#d9a441"
+    },
+    {
+      "kind": "matchbowl",
+      "at": [-1.0, 1.081, -2.75]
+    },
+    {
+      "kind": "jar",
+      "at": [2.4, 1.081, -2.8]
+    },
+    {
+      "kind": "newspaper",
+      "id": "bar_paper",
+      "at": [0.6, 1.081, -2.72],
+      "rot": 15
+    },
+    {
+      "kind": "sign",
+      "at": [6.15, 1.9, -4.94],
+      "size": [0.7, 0.5],
+      "text": "Ricard 4 € · Bière 7 €",
+      "sub": "Whisky d'Islay 16 €",
+      "bg": "#1b2022",
+      "fg": "#e6e2d6",
+      "italic": true,
+      "border": "#5a3e26",
+      "glow": 0
+    },
+    {
+      "kind": "frame",
+      "at": [-6.93, 1.75, -3.0],
+      "rot": 90,
+      "size": [0.55, 0.4]
+    },
+    {
+      "kind": "model",
+      "model": "radio",
+      "at": [3.75, 1.08, -3.05],
+      "height": 0.22,
+      "rot": -20
+    },
+    {
+      "kind": "standjar",
+      "at": [3.85, 0, 2.65]
+    },
+    {
+      "kind": "keyboard",
+      "at": [10.35, 1.85, -4.93]
+    },
+    {
+      "kind": "model",
+      "model": "cardboardBoxClosed",
+      "at": [7.55, 0, -4.45],
+      "height": 0.45,
+      "rot": 10,
+      "mats": {}
+    },
+    {
+      "kind": "bell",
+      "at": [10.0, 1.1, -2.65]
+    },
+    {
+      "kind": "book",
+      "at": [9.85, 0.46, 1.5],
+      "rot": 30
+    },
+    {
+      "kind": "machine",
+      "at": [7.38, 0, 0.6],
+      "rot": 90
+    },
+    {
+      "kind": "sign",
+      "at": [7.08, 1.6, -3.4],
+      "rot": 90,
+      "size": [0.42, 0.56],
+      "text": "EN CAS D'INCENDIE",
+      "sub": "Escalier de service : bar, étages",
+      "bg": "#ece6d6",
+      "fg": "#7d1b16",
+      "glow": 0
+    },
+    {
+      "kind": "liftdoor",
+      "at": [8.35, 0, -4.92]
+    },
+    {
+      "kind": "sign",
+      "at": [8.35, 2.45, -4.86],
+      "size": [0.7, 0.16],
+      "text": "HORS SERVICE",
+      "bg": "#e8e2d0",
+      "fg": "#7d1b16",
+      "glow": 0
+    },
+    {
+      "kind": "vase",
+      "at": [10.25, 1.1, -4.25]
+    },
+    {
+      "kind": "clock",
+      "at": [9.3, 2.55, -4.93]
     }
   ],
   "lights": [

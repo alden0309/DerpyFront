@@ -1512,9 +1512,385 @@ function small(item: Item): Built {
       break;
     }
     default:
+      bplaySmall(item, g);
       break;
   }
   return { object: g, lights: [], lamps: [] };
+}
+
+/** A mesh in a shared material, placed. */
+function part(
+  geo: THREE.BufferGeometry,
+  material: THREE.Material,
+  x: number,
+  y: number,
+  z: number,
+  shadow = true,
+): THREE.Mesh {
+  const m = new THREE.Mesh(geo, material);
+  m.position.set(x, y, z);
+  m.castShadow = shadow;
+  m.receiveShadow = true;
+  return m;
+}
+
+/**
+ * BPLAY (r22): the small things worth a look in the street, the bar and the
+ * lobby. Each is a few simple shapes in shared materials, so the place's
+ * static merge draws them with what's already there. Words on them (a
+ * chalkboard's, a sign's) come from the place's data.
+ */
+function bplaySmall(item: Item, g: THREE.Group): void {
+  const B = (w: number, h: number, d: number) => new THREE.BoxGeometry(w, h, d);
+  const C = (rt: number, rb: number, h: number, n = 12) =>
+    new THREE.CylinderGeometry(rt, rb, h, n);
+  switch (item.kind) {
+    case "kiosk": {
+      // A Paris newspaper kiosk, shuttered for the night.
+      const green = mat(str(item.color, "#1d3328"));
+      g.add(part(B(1.8, 2.1, 1.2), green, 0, 1.05, 0));
+      g.add(part(B(2.1, 0.12, 1.5), green, 0, 2.16, 0));
+      g.add(
+        part(
+          new THREE.SphereGeometry(0.42, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+          green,
+          0,
+          2.2,
+          0,
+        ),
+      );
+      g.add(part(B(1.5, 1.2, 0.04), mat("#3c4a40"), 0, 1.15, 0.62, false));
+      g.add(part(B(1.6, 0.06, 0.06), mat("brass"), 0, 1.78, 0.62, false));
+      break;
+    }
+    case "moped": {
+      const body = mat(str(item.color, "#6f6a5e"));
+      const tyre = mat("black");
+      for (const x of [-0.58, 0.58]) {
+        const w = part(
+          new THREE.TorusGeometry(0.2, 0.06, 8, 16),
+          tyre,
+          x,
+          0.26,
+          0,
+        );
+        g.add(w);
+      }
+      g.add(part(B(0.9, 0.3, 0.34), body, 0.02, 0.5, 0));
+      g.add(part(B(0.5, 0.1, 0.3), mat("leather_dark"), 0.18, 0.72, 0));
+      g.add(part(B(0.12, 0.62, 0.14), body, -0.52, 0.66, 0));
+      g.add(
+        part(C(0.02, 0.02, 0.62, 6), mat("chrome"), -0.55, 1.0, 0).rotateX(
+          Math.PI / 2,
+        ),
+      );
+      g.add(part(B(0.22, 0.2, 0.3), body, 0.5, 0.62, 0));
+      break;
+    }
+    case "aframe": {
+      // A café's chalkboard on the pavement, the day's words in chalk.
+      const [w, h] = (item.size as [number, number]) ?? [0.6, 0.9];
+      const board = textTexture({
+        text: str(item.text, ""),
+        sub: typeof item.sub === "string" ? item.sub : undefined,
+        w,
+        h,
+        bg: "#1b2022",
+        fg: "#e6e2d6",
+        font: "Georgia, serif",
+        italic: true,
+        border: "#6a4a2c",
+      });
+      const face = new THREE.MeshStandardMaterial({
+        map: board,
+        roughness: 0.9,
+      });
+      for (const s of [1, -1]) {
+        const p = part(
+          B(w, h, 0.03),
+          [
+            mat("oak_dark"),
+            mat("oak_dark"),
+            mat("oak_dark"),
+            mat("oak_dark"),
+            face,
+            mat("oak_dark"),
+          ] as unknown as THREE.Material,
+          0,
+          h / 2 - 0.02,
+          s * 0.14,
+        );
+        p.rotation.x = s * 0.16;
+        p.rotation.y = s > 0 ? 0 : Math.PI;
+        g.add(p);
+      }
+      break;
+    }
+    case "bollard":
+      g.add(part(C(0.07, 0.08, 0.9, 10), mat("iron"), 0, 0.45, 0));
+      g.add(
+        part(new THREE.SphereGeometry(0.075, 10, 6), mat("iron"), 0, 0.9, 0),
+      );
+      break;
+    case "mitten": {
+      const red = mat("#a3201b");
+      const m = part(
+        new THREE.CapsuleGeometry(0.035, 0.07, 4, 8),
+        red,
+        0,
+        0,
+        0,
+      );
+      m.rotation.z = 0.5;
+      g.add(m, part(new THREE.SphereGeometry(0.02, 6, 4), red, 0.04, 0.03, 0));
+      break;
+    }
+    case "grate": {
+      g.add(part(B(0.7, 0.02, 0.4), mat("iron"), 0, 0.01, 0, false));
+      for (let i = -3; i <= 3; i++) {
+        g.add(
+          part(B(0.04, 0.025, 0.36), mat("#08090a"), i * 0.09, 0.012, 0, false),
+        );
+      }
+      break;
+    }
+    case "bowl":
+      g.add(part(C(0.12, 0.09, 0.07, 14), mat("chrome"), 0, 0.035, 0));
+      g.add(part(C(0.105, 0.105, 0.01, 14), mat("#2a3a44"), 0, 0.06, 0, false));
+      break;
+    case "postbox":
+      g.add(part(C(0.04, 0.04, 0.8, 8), mat("iron"), 0, 0.4, 0));
+      g.add(
+        part(B(0.42, 0.5, 0.3), mat(str(item.color, "#c99a1e")), 0, 1.05, 0),
+      );
+      g.add(part(B(0.3, 0.03, 0.02), mat("black"), 0, 1.2, 0.16, false));
+      break;
+    case "litter":
+      // Cigarette ends, ground out where a man stood.
+      for (let i = 0; i < 9; i++) {
+        const a = i * 2.39;
+        const r = 0.05 + (i % 3) * 0.06;
+        const m = part(
+          C(0.006, 0.006, 0.035, 5),
+          mat(i % 3 ? "#d8d2c4" : "#b28a52"),
+          Math.cos(a) * r,
+          0.006,
+          Math.sin(a) * r,
+          false,
+        );
+        m.rotation.set(Math.PI / 2, 0, a);
+        g.add(m);
+      }
+      break;
+    case "jar": {
+      const glass = new THREE.MeshStandardMaterial({
+        color: "#cfe0e8",
+        roughness: 0.05,
+        transparent: true,
+        opacity: 0.32,
+      });
+      g.add(part(C(0.06, 0.055, 0.16, 14), glass, 0, 0.08, 0, false));
+      g.add(part(C(0.05, 0.05, 0.03, 10), mat("brass"), 0, 0.02, 0, false));
+      break;
+    }
+    case "matchbowl":
+      g.add(part(C(0.08, 0.05, 0.04, 14), mat("brass"), 0, 0.02, 0));
+      for (let i = 0; i < 4; i++) {
+        const m = part(
+          B(0.045, 0.008, 0.03),
+          mat("#5b1b16"),
+          (i - 1.5) * 0.025,
+          0.045,
+          (i % 2) * 0.012,
+          false,
+        );
+        m.rotation.y = i * 0.7;
+        g.add(m);
+      }
+      break;
+    case "frame": {
+      // A framed photograph on a wall: sepia, the bar as it was.
+      const [w, h] = (item.size as [number, number]) ?? [0.5, 0.38];
+      g.add(part(B(w + 0.08, h + 0.08, 0.03), mat("oak_dark"), 0, 0, 0, false));
+      g.add(part(B(w, h, 0.01), mat("#8a7458"), 0, 0, 0.018, false));
+      g.add(
+        part(
+          B(w * 0.8, h * 0.18, 0.012),
+          mat("#4a3a2a"),
+          0,
+          -h * 0.2,
+          0.02,
+          false,
+        ),
+      );
+      break;
+    }
+    case "standjar":
+      g.add(part(C(0.13, 0.11, 0.55, 14), mat("brass"), 0, 0.275, 0));
+      for (const [x, z, t] of [
+        [0.04, 0.02, 0.1],
+        [-0.04, -0.03, -0.12],
+      ]) {
+        const u = part(C(0.025, 0.01, 0.85, 8), mat("#0c0c0e"), x, 0.5, z);
+        u.rotation.z = t;
+        g.add(u);
+      }
+      break;
+    case "keyboard": {
+      // Pigeonholes and hooks behind a porter's desk.
+      g.add(part(B(0.9, 0.7, 0.06), mat("oak_dark"), 0, 0, 0, false));
+      for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 6; c++) {
+          if (r === 1 && c === 4) continue; // the one that's missing
+          g.add(
+            part(
+              B(0.03, 0.08, 0.02),
+              mat("brass"),
+              -0.36 + c * 0.145,
+              0.25 - r * 0.16,
+              0.04,
+              false,
+            ),
+          );
+        }
+      }
+      break;
+    }
+    case "machine": {
+      g.add(
+        part(B(0.62, 1.7, 0.5), mat(str(item.color, "#5a1e1a")), 0, 0.85, 0),
+      );
+      g.add(
+        part(B(0.5, 0.5, 0.02), emissive("#e0b070", 0.55), 0, 1.3, 0.26, false),
+      );
+      for (let i = 0; i < 6; i++) {
+        g.add(
+          part(
+            B(0.06, 0.04, 0.03),
+            mat("chrome"),
+            -0.18 + (i % 3) * 0.18,
+            0.8 - Math.floor(i / 3) * 0.12,
+            0.26,
+            false,
+          ),
+        );
+      }
+      break;
+    }
+    case "liftdoor": {
+      g.add(part(B(1.3, 2.3, 0.06), mat("brass"), 0, 1.15, 0, false));
+      g.add(part(B(1.1, 2.1, 0.03), mat("#2b2a26"), 0, 1.05, 0.03, false));
+      g.add(part(B(0.01, 2.1, 0.035), mat("brass"), 0, 1.05, 0.04, false));
+      break;
+    }
+    case "vase": {
+      g.add(part(C(0.06, 0.08, 0.3, 12), mat("#2d3b46"), 0, 0.15, 0));
+      for (let i = 0; i < 5; i++) {
+        const a = i * 1.25;
+        const st = part(
+          C(0.006, 0.006, 0.35, 4),
+          mat("#3d5a2e"),
+          Math.cos(a) * 0.04,
+          0.45,
+          Math.sin(a) * 0.04,
+          false,
+        );
+        st.rotation.set(Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25);
+        g.add(st);
+        g.add(
+          part(
+            new THREE.ConeGeometry(0.035, 0.07, 6),
+            mat(i % 2 ? "#d8cfb2" : "#a8916a"),
+            Math.cos(a) * 0.1,
+            0.64,
+            Math.sin(a) * 0.1,
+            false,
+          ),
+        );
+      }
+      break;
+    }
+    case "clock": {
+      const face = part(
+        C(0.18, 0.18, 0.03, 20),
+        mat("#e6dfcd"),
+        0,
+        0,
+        0,
+        false,
+      );
+      face.rotation.x = Math.PI / 2;
+      const rim = part(
+        new THREE.TorusGeometry(0.18, 0.015, 6, 20),
+        mat("brass"),
+        0,
+        0,
+        0.01,
+        false,
+      );
+      const h1 = part(
+        B(0.012, 0.1, 0.005),
+        mat("black"),
+        0.02,
+        0.04,
+        0.02,
+        false,
+      );
+      h1.rotation.z = -0.5;
+      const h2 = part(
+        B(0.008, 0.14, 0.005),
+        mat("black"),
+        -0.03,
+        0.05,
+        0.022,
+        false,
+      );
+      h2.rotation.z = 0.6;
+      g.add(face, rim, h1, h2);
+      break;
+    }
+    case "book":
+      g.add(
+        part(
+          B(0.11, 0.025, 0.17),
+          mat(str(item.color, "#7a2e22")),
+          0,
+          0.013,
+          0,
+          false,
+        ),
+      );
+      break;
+    case "bell":
+      g.add(
+        part(
+          new THREE.SphereGeometry(
+            0.045,
+            12,
+            6,
+            0,
+            Math.PI * 2,
+            0,
+            Math.PI / 2,
+          ),
+          mat("brass"),
+          0,
+          0.01,
+          0,
+          false,
+        ),
+      );
+      g.add(part(C(0.055, 0.055, 0.012, 12), mat("black"), 0, 0.006, 0, false));
+      break;
+    case "tray":
+      // Something flat on the ground or a counter: a crate, a box of things.
+      g.add(
+        part(B(0.5, 0.3, 0.38), mat(str(item.color, "#6b5539")), 0, 0.15, 0),
+      );
+      break;
+    default:
+      break;
+  }
 }
 
 /**
