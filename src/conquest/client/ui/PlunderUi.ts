@@ -21,9 +21,9 @@ import {
   RECKONING,
   sacredPeople,
   sacredProv,
+  thePeople,
 } from "../../engine/SacredPlunder";
 import type { LegendProgress } from "../../engine/Types";
-import { nationName } from "../Text";
 import { action, type GameUi, provLink } from "./Context";
 import { price } from "./Price";
 
@@ -33,7 +33,7 @@ const coinsWords = (lo: number, hi: number) =>
 
 function people(ui: GameUi, def: LegendDef): string {
   const n = sacredPeople(ui.s, def);
-  return nationName(ui.s.nations[n]?.name ?? "its people");
+  return thePeople(ui.s.nations[n]?.name ?? "its people");
 }
 
 /** A place that's been dug: when, and by whom (everyone can see it). */
@@ -127,7 +127,7 @@ export function plunderBox(ui: GameUi, def: LegendDef): TemplateResult {
       </ul>
       <ul class="cq-odds-risks">
         <li>
-          Dug: the ${who} won't forget it. Their nation's opinion of yours
+          Dug: ${who} won't forget it. Their nation's opinion of yours
           ${PLUNDER.people.value + (trusted ? PLUNDER.faith.value : 0)} for
           ${PLUNDER.people.years} years (their allies ${PLUNDER.allies.value}):
           raids and war come likelier. Those of them who know you,
@@ -167,7 +167,7 @@ export function plunderBox(ui: GameUi, def: LegendDef): TemplateResult {
         () => {
           if (
             confirm(
-              `Dig at ${placeName(def)}? The ${who} will know, and won't forget.`,
+              `Dig at ${placeName(def)}? ${who.charAt(0).toUpperCase()}${who.slice(1)} will know, and won't forget.`,
             )
           )
             void ui.cmd({ k: "legend", act: "plunder", key: def.key });

@@ -18,12 +18,13 @@ import {
   reckon,
   RECKONING,
   sacredPeople,
+  thePeople,
 } from "./SacredPlunder";
 
 const peopleName = (s: Parameters<typeof sacredPeople>[0], i: number) => {
   const def = LEGENDS[i];
   const n = def ? sacredPeople(s, def) : -1;
-  return (s.nations[n]?.name ?? "its people").replace(/^the /, "");
+  return thePeople(s.nations[n]?.name ?? "its people");
 };
 
 const PLUNDERED_EVENT: LifeEventDef = {
@@ -46,7 +47,7 @@ const PLUNDERED_EVENT: LifeEventDef = {
       ctx.c > 0
         ? `It comes to ${ctx.c} coins.`
         : "It comes to nothing you can sell."
-    }${x?.relic ? ` You keep ${x.relic}.` : ""} Word of it will travel: the ${people} will not forget who dug there${
+    }${x?.relic ? ` You keep ${x.relic}.` : ""} Word of it will travel: ${people} will not forget who dug there${
       ctx.c > 0 || x?.relic
         ? ", and in time they'll come for what was taken"
         : ""
@@ -77,7 +78,7 @@ const RECKONING_EVENT: LifeEventDef = {
     const x = progressOf(life, def.key);
     const mark = plunderedMark(g.s, def);
     const when = mark ? ` in ${dateOf(mark.day).year}` : "";
-    return `Men of the ${peopleName(g.s, ctx.i)} come to find you. They know who dug at ${placeName(def)}${when}, and they've come, civilly enough, for what was taken from it${
+    return `Men of ${peopleName(g.s, ctx.i)} come to find you. They know who dug at ${placeName(def)}${when}, and they've come, civilly enough, for what was taken from it${
       x?.relic ? `: above all ${x.relic}` : ""
     }. They won't go away with nothing.`;
   },

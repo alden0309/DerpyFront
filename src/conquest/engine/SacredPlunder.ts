@@ -258,10 +258,17 @@ export const PLUNDER_FINDS: Record<string, PlunderFind[]> = {
 
 const DAY_YEARS = (years: number) => Math.round(years * DAYS_PER_YEAR);
 
-/** The place's name, short ("Kituwah", "The great mound at Cahokia"). */
+/** The place's name, short, for the middle of a sentence ("Kituwah", "the great mound at Cahokia"). */
 export function placeName(def: LegendDef): string {
-  return def.name.replace(/,.*$/, "");
+  return def.name.replace(/,.*$/, "").replace(/^The /, "the ");
 }
+
+/** A people's name with its article, for a sentence ("the Cherokee"). */
+export function thePeople(name: string): string {
+  return /^the /i.test(name) ? name.replace(/^The /, "the ") : `the ${name}`;
+}
+
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** The nation whose sacred place it is. */
 export function sacredPeople(s: GameState, def: LegendDef): number {
@@ -476,7 +483,7 @@ export function plunder(
   const x = progressOf(life, key)!;
   const place = placeName(def);
   const n = sacredPeople(s, def);
-  const people = s.nations[n]?.name ?? "its people";
+  const people = thePeople(s.nations[n]?.name ?? "its people");
   const odds = plunderOdds(s, life, def);
   touchLife(g, life);
   withFlow(
@@ -494,7 +501,7 @@ export function plunder(
       secretNote(
         g,
         life,
-        `${place}: you go in by night with spades and a guide, and come away before dawn with nothing. Nobody saw you, this time.`,
+        `At ${place} you go in by night with spades and a guide, and come away before dawn with nothing. Nobody saw you, this time.`,
         "bad",
       );
       return null;
@@ -524,7 +531,7 @@ export function plunder(
     journal(
       g,
       life,
-      `${place}: ${people.replace(/^the /, "The ")}'s young men catch you at it. You're beaten and driven off, and the place is closed to you for good.`,
+      `At ${place}, the young men of ${people} catch you at it. You're beaten and driven off, and the place is closed to you for good.`,
       "bad",
     );
     rumour(
@@ -618,7 +625,7 @@ export function plunder(
     day: s.day,
     n,
     p: life.prov,
-    text: `Treasure-seekers have dug at ${place}. ${people.replace(/^the /, "The ")} will not forget it.`,
+    text: `Treasure-seekers have dug at ${place}. ${cap(people)} will not forget it.`,
   });
   rumour(
     g,

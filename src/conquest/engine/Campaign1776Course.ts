@@ -222,6 +222,7 @@ function fireLate(g: ConquestGame, b: Beat, lead: string): void {
   if (c.held) delete c.held[b.key];
   if (c.pending) delete c.pending[b.key];
   (c.late ??= {})[b.key] = g.s.day;
+  historyAt(g, b);
   b.fx?.(g);
   afterHistory(g, b);
   news(
@@ -634,8 +635,25 @@ R76_GATES.push((g, b0) => {
   }
   beforeHistory(g, b);
   afterHistory(g, b);
+  historyAt(g, b);
   return false;
 });
+
+/** The towns history's own beat changes today, per game (not players' doing: the town hook leaves them be). */
+const historyToday = new WeakMap<
+  ConquestGame,
+  { day: number; provs: Set<number> }
+>();
+
+function historyAt(g: ConquestGame, b: Beat): void {
+  const names = [b.at, ...(b.occupied ?? []), PLANS[b.key]?.take?.at];
+  let h = historyToday.get(g);
+  if (!h || h.day !== g.s.day) {
+    h = { day: g.s.day, provs: new Set() };
+    historyToday.set(g, h);
+  }
+  for (const n of names) if (n) h.provs.add(P(g, n));
+}
 
 /** What a beat that comes as history did means for the course, before its own work. */
 function beforeHistory(g: ConquestGame, b: Beat): void {
@@ -818,6 +836,9 @@ hooks.gameEvent.push((g, e) => {
   if (!isCampaign(s) || (e.k !== "occupied" && e.k !== "freed")) return;
   if (!s.nations[usOf(s)]?.rebelling) return;
   const p = e.p;
+  // History's own beat did it (a town given up or taken on its date).
+  const h = historyToday.get(g);
+  if (h && h.day === s.day && h.provs.has(p)) return;
   const theirs = s.armies.filter(
     (a) => a.prov === p && playerLed(s, a) && !a.retreating,
   );
