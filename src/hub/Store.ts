@@ -521,23 +521,19 @@ export class DerpInventory extends HubPage {
       case "skins":
         return this.renderSkins(mine);
       case "personalities":
-        // AIP (r23): the personalities you own, and where you tick them
-        return html`<p class="dl-quiet dl-howto">
-            Tick these in DerpyFront when you set up a Solo game or host a
-            lobby, under <b>AI personalities</b>. Each AI nation is dealt one of
-            the ticked ones at random.
-          </p>
-          <div class="dl-packs">
-            ${mine.map(
-              (i) =>
-                html`<article class="dl-pack" data-item=${i.name}>
-                  <h2 class="dl-pack-name">
-                    ${personalityMark(i.aiType)}${i.displayName}
-                  </h2>
-                  <p class="dl-pack-desc">${i.description}</p>
-                </article>`,
-            )}
-          </div>`;
+        // AIP (r23): the personalities you own (the tab's blurb says where
+        // you tick them)
+        return html`<div class="dl-packs">
+          ${mine.map(
+            (i) =>
+              html`<article class="dl-pack" data-item=${i.name}>
+                <h2 class="dl-pack-name">
+                  ${personalityMark(i.aiType)}${i.displayName}
+                </h2>
+                <p class="dl-pack-desc">${i.description}</p>
+              </article>`,
+          )}
+        </div>`;
       case "effects":
         return html`
           <h2 class="dl-h2 dl-pickhead">Your nukes</h2>

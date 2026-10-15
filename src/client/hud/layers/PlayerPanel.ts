@@ -602,29 +602,27 @@ export class PlayerPanel extends LitElement implements Controller {
     `;
   }
 
-  /** AIP (r23): the personality an AI nation was dealt, as a badge. */
-  private renderPersonalityBadge(other: PlayerView) {
+  /**
+   * AIP (r23): the personality an AI nation was dealt: a badge with its
+   * name, and what it means in a line.
+   */
+  private renderPersonality(other: PlayerView) {
     const type = other.aiPersonality();
     if (type === null) return html``;
-    return html`<span
-      class=${`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold ${AI_CHOICE_BADGE[type]}`}
-      data-ai-personality=${type}
-      title=${aiChoiceHint(type)}
-    >
-      <span aria-hidden="true" class="leading-none"
-        >${AI_CHOICE_ICON[type]}</span
+    return html`<div class="mt-1.5 flex items-start gap-2">
+      <span
+        class=${`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold ${AI_CHOICE_BADGE[type]}`}
+        data-ai-personality=${type}
       >
-      <span class="tracking-tight">${aiChoiceName(type)}</span>
-    </span>`;
-  }
-
-  /** AIP (r23): what that personality means, in a line. */
-  private renderPersonalityHint(other: PlayerView) {
-    const type = other.aiPersonality();
-    if (type === null) return html``;
-    return html`<p class="m-0 mt-1 text-xs leading-snug text-zinc-400">
-      ${aiChoiceHint(type)}
-    </p>`;
+        <span aria-hidden="true" class="leading-none"
+          >${AI_CHOICE_ICON[type]}</span
+        >
+        <span class="tracking-tight">${aiChoiceName(type)}</span>
+      </span>
+      <span class="pt-0.5 text-xs leading-snug text-zinc-400"
+        >${aiChoiceHint(type)}</span
+      >
+    </div>`;
   }
 
   private renderIdentityRow(other: PlayerView, my: PlayerView) {
@@ -675,9 +673,8 @@ export class PlayerPanel extends LitElement implements Controller {
               >
             </span>`
           : html``}
-        ${this.renderPersonalityBadge(other)}
       </div>
-      ${this.renderPersonalityHint(other)} ${this.renderTraitorBadge(other)}
+      ${this.renderPersonality(other)} ${this.renderTraitorBadge(other)}
       ${this.renderRelationPillIfNation(other, my)}
     `;
   }

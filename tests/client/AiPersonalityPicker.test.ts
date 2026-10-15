@@ -4,6 +4,7 @@
 // remembered in this browser.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { AiPersonalityPicker } from "../../src/client/derpy/AiPersonalityPicker";
 
 const account = vi.hoisted(() => ({
   owned: [] as string[],
@@ -24,7 +25,6 @@ vi.mock("../../src/client/derpy/DerpyAccount", () => ({
 }));
 
 const {
-  AiPersonalityPicker,
   initialChoices,
   ownedChoices,
   rememberedPersonalities,
@@ -78,7 +78,7 @@ describe("what the picker lets you tick", () => {
 });
 
 describe("the picker", () => {
-  type Picker = InstanceType<typeof AiPersonalityPicker> & {
+  type Picker = AiPersonalityPicker & {
     updateComplete: Promise<unknown>;
   };
   let picker: Picker;

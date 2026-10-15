@@ -84,25 +84,17 @@ describe("a nation's personality on the client", () => {
 
   it("the info panel shows a badge with its name, and a line on what it does", () => {
     const panel = PlayerPanel.prototype as unknown as {
-      renderPersonalityBadge(p: PlayerView): ReturnType<typeof html>;
-      renderPersonalityHint(p: PlayerView): ReturnType<typeof html>;
+      renderPersonality(p: PlayerView): ReturnType<typeof html>;
     };
     const host = document.createElement("div");
-    render(
-      html`${panel.renderPersonalityBadge(fakeView("Spain", "mad_scientist"))}
-      ${panel.renderPersonalityHint(fakeView("Spain", "mad_scientist"))}`,
-      host,
-    );
+    render(panel.renderPersonality(fakeView("Spain", "mad_scientist")), host);
     const badge = host.querySelector("[data-ai-personality]")!;
     expect(badge.getAttribute("data-ai-personality")).toBe("mad_scientist");
     expect(badge.textContent).toContain(AI_CHOICE_ICON.mad_scientist);
     expect(badge.textContent).toContain("ai_personalities.type_mad_scientist");
     expect(host.textContent).toContain("ai_personalities.hint_mad_scientist");
     const plain = document.createElement("div");
-    render(
-      html`${panel.renderPersonalityBadge(fakeView("Peru", null))}`,
-      plain,
-    );
+    render(panel.renderPersonality(fakeView("Peru", null)), plain);
     expect(plain.querySelector("[data-ai-personality]")).toBeNull();
   });
 });
@@ -130,7 +122,7 @@ describe("the in-game menu's list of AI personalities", () => {
     return menu;
   }
 
-  it("lists every AI nation dealt a personality, by personality", async () => {
+  it("lists every AI nation by the personality it was dealt, Normal last", async () => {
     const menu = await openMenu([
       fakeView("Spain", "protector"),
       fakeView("Chile", "protector", false),
@@ -144,10 +136,12 @@ describe("the in-game menu's list of AI personalities", () => {
     expect(groups.map((g) => g.getAttribute("data-ai-personality"))).toEqual([
       "trader",
       "protector",
+      "normal",
     ]);
     expect(groups[1].textContent).toContain("Chile");
     expect(groups[1].textContent).toContain("Spain");
-    expect(list.textContent).not.toContain("Peru");
+    expect(groups[2].textContent).toContain("Peru");
+    expect(list.textContent).not.toContain("Tribe");
     // A nation that's out is struck through
     const chile = [...groups[1].querySelectorAll("span")].find(
       (s) => s.textContent === "Chile",

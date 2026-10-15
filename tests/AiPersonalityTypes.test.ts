@@ -404,10 +404,16 @@ describe("a dealt nation in the simulation", () => {
   test("a Normal nation in rules 6 is the same as in rules 5", async () => {
     const now = await aipGame(["normal"]);
     const before = await aipGame(undefined, { rules: 5 });
+    const numbers = (t: ReturnType<typeof tuned>) => [
+      t.attackRate,
+      t.attackTick,
+      t.trigger,
+      t.reserve,
+      t.expand,
+      t.decisionRate(10_000),
+    ];
     for (const id of IDS) {
-      const { decisionRate: _a, ...a } = tuned(now, id);
-      const { decisionRate: _b, ...b } = tuned(before, id);
-      expect(a).toEqual(b);
+      expect(numbers(tuned(now, id))).toEqual(numbers(tuned(before, id)));
     }
   });
 

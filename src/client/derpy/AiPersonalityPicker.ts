@@ -194,9 +194,7 @@ export class AiPersonalityPicker extends LitElement {
             : translateText("ai_personalities.dealt")}
       </p>
       <div
-        class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 ${off
-          ? "opacity-50"
-          : ""}"
+        class="grid grid-cols-2 gap-2 sm:grid-cols-3 ${off ? "opacity-50" : ""}"
         role="group"
       >
         ${AI_CHOICES.map((c) => this.renderChoice(c, off))}
@@ -211,9 +209,11 @@ export class AiPersonalityPicker extends LitElement {
     const body = html`<span class="text-lg leading-none" aria-hidden="true"
         >${AI_CHOICE_ICON[choice]}</span
       >
-      <span class="flex min-w-0 flex-col items-start">
-        <span class="truncate">${aiChoiceName(choice)}</span>
-        <span class="text-[11px] font-semibold text-white/45">
+      <span class="flex min-w-0 flex-1 flex-col items-start">
+        <span class="max-w-full truncate">${aiChoiceName(choice)}</span>
+        <span
+          class="max-w-full truncate text-[11px] font-semibold text-white/45"
+        >
           ${choice === NORMAL_AI
             ? translateText("ai_personalities.free")
             : owns

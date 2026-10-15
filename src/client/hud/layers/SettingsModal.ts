@@ -1,7 +1,8 @@
 import { PlayerType } from "@openfront/engine-api/game/GameTypes";
 import {
   AI_TYPES,
-  AiType,
+  AiChoice,
+  NORMAL_AI,
 } from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
@@ -180,19 +181,22 @@ export class SettingsModal extends LitElement implements Controller {
   }
 
   /**
-   * AIP (r23): every AI nation dealt a personality, by personality, so a
-   * player can see at a glance who is what. Nothing in a game without them.
+   * AIP (r23): every AI nation by the personality it was dealt (Normal
+   * last), so a player can see at a glance who is what. Nothing in a game
+   * without personalities.
    */
   private renderPersonalities() {
     const nations = (this.game?.playerViews() ?? []).filter(
-      (p) => p.type() === PlayerType.Nation && p.aiPersonality() !== null,
+      (p) => p.type() === PlayerType.Nation,
     );
-    if (nations.length === 0) return nothing;
-    const byType = new Map<AiType, PlayerView[]>();
+    if (!nations.some((p) => p.aiPersonality() !== null)) return nothing;
+    const byType = new Map<AiChoice, PlayerView[]>();
     for (const p of nations) {
-      const t = p.aiPersonality()!;
+      const t = p.aiPersonality() ?? NORMAL_AI;
       byType.set(t, [...(byType.get(t) ?? []), p]);
     }
+    // The personalities first, then the nations playing as usual
+    const order: AiChoice[] = [...AI_TYPES, NORMAL_AI];
     const collator = new Intl.Collator();
     return html`<section
       class="border-t border-slate-600 pt-3 mt-1 flex flex-col gap-2"
@@ -209,31 +213,33 @@ export class SettingsModal extends LitElement implements Controller {
         </div>
       </div>
       <ul class="m-0 flex list-none flex-col gap-2 p-0 px-3">
-        ${AI_TYPES.filter((t) => byType.has(t)).map(
-          (t) =>
-            html`<li class="flex flex-col gap-1" data-ai-personality=${t}>
-              <span
-                class=${`inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold ${AI_CHOICE_BADGE[t]}`}
-                title=${aiChoiceHint(t)}
-                ><span aria-hidden="true">${AI_CHOICE_ICON[t]}</span
-                >${aiChoiceName(t)}</span
-              >
-              <span class="flex flex-wrap gap-1">
-                ${byType
-                  .get(t)!
-                  .sort((a, b) => collator.compare(a.name(), b.name()))
-                  .map(
-                    (p) =>
-                      html`<span
-                        class="max-w-full truncate rounded bg-slate-700/70 px-1.5 py-0.5 text-xs ${p.isAlive()
-                          ? "text-white"
-                          : "text-slate-500 line-through"}"
-                        >${p.name()}</span
-                      >`,
-                  )}
-              </span>
-            </li>`,
-        )}
+        ${order
+          .filter((t) => byType.has(t))
+          .map(
+            (t) =>
+              html`<li class="flex flex-col gap-1" data-ai-personality=${t}>
+                <span
+                  class=${`inline-flex w-fit items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold ${AI_CHOICE_BADGE[t]}`}
+                  title=${aiChoiceHint(t)}
+                  ><span aria-hidden="true">${AI_CHOICE_ICON[t]}</span
+                  >${aiChoiceName(t)}</span
+                >
+                <span class="flex flex-wrap gap-1">
+                  ${byType
+                    .get(t)!
+                    .sort((a, b) => collator.compare(a.name(), b.name()))
+                    .map(
+                      (p) =>
+                        html`<span
+                          class="max-w-full truncate rounded bg-slate-700/70 px-1.5 py-0.5 text-xs ${p.isAlive()
+                            ? "text-white"
+                            : "text-slate-500 line-through"}"
+                          >${p.name()}</span
+                        >`,
+                    )}
+                </span>
+              </li>`,
+          )}
       </ul>
     </section>`;
   }
