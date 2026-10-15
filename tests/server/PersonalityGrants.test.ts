@@ -129,11 +129,16 @@ describe.skipIf(!TEST_DB)(
     test("their inventory shows the four, and an old pack's row breaks nothing", async () => {
       const rows = await owned("Pirate");
       const tab = { game: "derpyfront", category: "personalities" };
-      expect(ownedInTab(DERPY_ITEMS, rows, tab).map((i) => i.name)).toEqual([
-        "ai_trader",
+      // r24: all four cost the same now, so the order isn't the point.
+      expect(
+        ownedInTab(DERPY_ITEMS, rows, tab)
+          .map((i) => i.name)
+          .sort(),
+      ).toEqual([
         "ai_aggressive",
-        "ai_protector",
         "ai_mad_scientist",
+        "ai_protector",
+        "ai_trader",
       ]);
       expect(ownedAiTypes(rows)).toEqual([
         "mad_scientist",
