@@ -3,6 +3,10 @@
 // takes a persona's name and flag (the flag also tells the engine its
 // temperament, see nationTemperament). The personas are dealt from their own
 // seeded stream, so the game's other random draws don't move.
+//
+// AIP (r23): rules edition 5 only. From edition 6 a nation's personality is
+// a behaviour alone (NationAiTypes.ts) and nations keep their own names and
+// flags; this stays so edition 5 games and replays play as they did.
 
 import {
   Nation,
@@ -19,6 +23,7 @@ import {
   TEMPERAMENT_TUNING,
   TemperamentTuning,
 } from "@openfront/engine-lib/game/AiPersonalities";
+import { AIP_RULES } from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import { simpleHash } from "@openfront/engine-lib/Util";
 import type { Game, Player } from "./Game";
@@ -26,15 +31,22 @@ import type { Game, Player } from "./Game";
 /** Rules edition from which AI personas exist. */
 export const PERSONA_RULES = 5;
 
+/** AIP (r23): the edition from which they don't (see AiPersonalityTypes.ts). */
+const PERSONA_LAST_RULES = AIP_RULES - 1;
+
+function personaRules(rules: number): boolean {
+  return rules >= PERSONA_RULES && rules <= PERSONA_LAST_RULES;
+}
+
 function personasOn(config: GameConfig, rules: number): boolean {
-  return rules >= PERSONA_RULES && (config.aiPersonalities?.length ?? 0) > 0;
+  return personaRules(rules) && (config.aiPersonalities?.length ?? 0) > 0;
 }
 
 /**
  * The game's nations, each playing a persona from the packs in `config`.
  * Nations are dealt the personas in a shuffled order; once every persona is
  * in play the deal starts again with numbered names ("… II"). With no packs,
- * or rules before 5, the nations come back unchanged.
+ * or rules other than 5, the nations come back unchanged.
  */
 export function applyNationPersonas(
   nations: Nation[],
@@ -70,14 +82,14 @@ export function applyNationPersonas(
 
 /**
  * How a nation flying `flag` is tuned: its persona's temperament, in a rules
- * 5+ game whose config lists the persona's pack; the usual tuning otherwise.
+ * 5 game whose config lists the persona's pack; the usual tuning otherwise.
  */
 export function temperamentForFlag(
   game: Game,
   flag: string | null,
 ): TemperamentTuning {
   const config = game.config();
-  if (config.derpyRules() < PERSONA_RULES) return NO_TEMPERAMENT;
+  if (!personaRules(config.derpyRules())) return NO_TEMPERAMENT;
   const persona = personaFromFlag(flag);
   if (!persona) return NO_TEMPERAMENT;
   const packs = config.gameConfig().aiPersonalities;

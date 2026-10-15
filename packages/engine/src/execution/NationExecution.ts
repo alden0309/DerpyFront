@@ -16,6 +16,12 @@ import {
   temperedAttackRate,
   temperedRatios,
 } from "@openfront/engine-lib/game/AiPersonalities";
+import {
+  aiTuning,
+  OPENING_TICKS,
+  tunedRate,
+  tunedRatioPercents,
+} from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import {
   VersionedSchema,
@@ -26,10 +32,11 @@ import {
 import { assertNever, simpleHash } from "@openfront/engine-lib/Util";
 import { z } from "zod";
 import { Execution, Game, Player } from "../game/Game";
+import { nationAiType } from "../game/NationAiTypes";
 import { nationTemperament, temperamentForFlag } from "../game/NationPersonas";
 import {
-  NationSchema,
   nationData,
+  NationSchema,
   newCell,
   readPlayerInfo,
 } from "../snapshot/CommonSchemas";
@@ -100,6 +107,22 @@ export class NationExecution implements Execution {
       this.reserveRatio = r.reserve;
       this.expandRatio = r.expand;
     }
+    // AIP (r23): a personality leans the same numbers (rules 6+, nations
+    // dealt one), in whole percent: the usual draws are 50-59 (trigger),
+    // 30-39 (reserve) and 10-19 (expand).
+    const type = nationAiType(mg, this.nation.playerInfo.id);
+    if (type !== null) {
+      const t = aiTuning(type);
+      this.attackRate = tunedRate(this.attackRate, t.ratePct);
+      const r = tunedRatioPercents(t, {
+        trigger: Math.round(this.triggerRatio * 100),
+        reserve: Math.round(this.reserveRatio * 100),
+        expand: Math.round(this.expandRatio * 100),
+      });
+      this.triggerRatio = r.trigger / 100;
+      this.reserveRatio = r.reserve / 100;
+      this.expandRatio = r.expand / 100;
+    }
     this.attackTick = this.random.nextInt(0, this.attackRate);
 
     if (!this.mg.hasPlayer(this.nation.playerInfo.id)) {
@@ -107,6 +130,23 @@ export class NationExecution implements Execution {
     } else {
       this.player = this.mg.player(this.nation.playerInfo.id);
     }
+  }
+
+  /**
+   * AIP (r23): the ticks between decisions at `ticks`: the usual pace, or a
+   * Protector's slower one in the opening minutes (rules 6+).
+   */
+  private decisionRate(ticks: number): number {
+    const type = nationAiType(this.mg, this.nation.playerInfo.id);
+    if (type === null) return this.attackRate;
+    const t = aiTuning(type);
+    if (
+      t.openingRatePct === t.ratePct ||
+      ticks >= this.mg.config().numSpawnPhaseTurns() + OPENING_TICKS
+    ) {
+      return this.attackRate;
+    }
+    return tunedRate(this.attackRate, (t.openingRatePct * 100) / t.ratePct);
   }
 
   private getAttackRate(): number {
@@ -218,17 +258,16 @@ export class NationExecution implements Execution {
 
     this.attackBehavior.followUpLandings();
 
-    if (ticks % this.attackRate !== this.attackTick) {
+    const rate = this.decisionRate(ticks);
+    const attackTick = this.attackTick % rate;
+    if (ticks % rate !== attackTick) {
       // Call handleStructures twice between regular attack ticks (at 1/3 and 2/3 of the interval)
       // Otherwise it is possible that we earn more gold than we can spend
       // The alternative is placing multiple structures in handleStructures, but that causes problems
       if (this.player.isAlive()) {
-        const offset = ticks % this.attackRate;
-        const oneThird =
-          (this.attackTick + Math.floor(this.attackRate / 3)) % this.attackRate;
-        const twoThirds =
-          (this.attackTick + Math.floor((this.attackRate * 2) / 3)) %
-          this.attackRate;
+        const offset = ticks % rate;
+        const oneThird = (attackTick + Math.floor(rate / 3)) % rate;
+        const twoThirds = (attackTick + Math.floor((rate * 2) / 3)) % rate;
         if (offset === oneThird || offset === twoThirds) {
           this.structureBehavior.handleStructures();
         }

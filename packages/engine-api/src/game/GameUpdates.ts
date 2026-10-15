@@ -244,6 +244,12 @@ export interface PlayerUpdate {
   displayName?: string;
   clanTag?: string | null;
   nationFlag?: string | null;
+  /**
+   * AIP (r23): the personality an AI nation was dealt ("trader", ...: see
+   * engine-lib/game/AiPersonalityTypes.ts), on its first emission only (it
+   * never changes); absent for Normal and everyone else.
+   */
+  aiPersonality?: string;
   team?: Team;
   smallID?: number;
   playerType?: PlayerType;

@@ -14,6 +14,7 @@ import {
 } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { z } from "zod";
 import { Game, Player } from "../../game/Game";
+import { playerAiTuning } from "../../game/NationAiTypes";
 import type {
   SnapshotReader,
   SnapshotWriter,
@@ -162,9 +163,11 @@ export class NationAllianceBehavior {
         this.game.config().gameConfig().difficulty === Difficulty.Easy) ||
       p.type() !== PlayerType.Bot;
 
+    // AIP (r23): Traders and Protectors ask more often (rules 6+)
+    const odds = playerAiTuning(this.game, this.player).allyAskOdds;
     for (const enemy of borderingEnemies) {
       if (
-        this.random.chance(30) &&
+        this.random.chance(odds) &&
         isAcceptablePlayerType(enemy) &&
         this.player.canSendAllianceRequest(enemy) &&
         this.getAllianceDecision(enemy, false)
@@ -196,6 +199,19 @@ export class NationAllianceBehavior {
     borderingEnemies: Player[],
   ): boolean {
     if (!this.player.isAlliedWith(otherPlayer)) return false;
+
+    // AIP (r23): a personality turns on its allies more or less readily
+    // (rules 6+)
+    const style = playerAiTuning(this.game, this.player).betrayal;
+    if (style !== "usual") {
+      return this.maybeBetrayAs(
+        style,
+        otherPlayer,
+        juiciestAlly,
+        borderingFriends,
+        borderingEnemies,
+      );
+    }
 
     const { difficulty } = this.game.config().gameConfig();
 
@@ -248,6 +264,57 @@ export class NationAllianceBehavior {
     return false;
   }
 
+  /**
+   * AIP (r23): betrayal by personality.
+   * - rarely (Protector): only a traitor ally with less than half its troops.
+   * - less (Trader): only a traitor ally not much stronger than itself, or
+   *   on Easy and Medium an ally twenty times weaker (ten, usually).
+   * - more (Aggressive): on every difficulty, its juiciest ally once those
+   *   around it hold under half its troops (a third, usually, and Hard and
+   *   up only), an ally four times weaker (ten), a traitor ally not much
+   *   stronger, and its only neighbour once twice as strong (three times).
+   */
+  private maybeBetrayAs(
+    style: "rarely" | "less" | "more",
+    otherPlayer: Player,
+    juiciestAlly: Player | null,
+    borderingFriends: Player[],
+    borderingEnemies: Player[],
+  ): boolean {
+    const ours = this.player.troops();
+    const theirs = otherPlayer.troops();
+    const { difficulty } = this.game.config().gameConfig();
+    let betray = false;
+    switch (style) {
+      case "rarely":
+        betray = otherPlayer.isTraitor() && theirs * 2 < ours;
+        break;
+      case "less":
+        betray =
+          (otherPlayer.isTraitor() && theirs < ours * 1.2) ||
+          ((difficulty === Difficulty.Easy ||
+            difficulty === Difficulty.Medium) &&
+            ours >= theirs * 20);
+        break;
+      case "more":
+        betray =
+          (juiciestAlly === otherPlayer &&
+            this.isSafeToBetray(
+              otherPlayer,
+              borderingFriends,
+              borderingEnemies,
+              0.5,
+            )) ||
+          ours >= theirs * 4 ||
+          (otherPlayer.isTraitor() && theirs < ours * 1.2) ||
+          (borderingFriends.length + borderingEnemies.length === 1 &&
+            theirs * 2 < ours);
+        break;
+    }
+    if (betray) this.betray(otherPlayer);
+    return betray;
+  }
+
   // Juiciest ally regardless of strength; isSafeToBetray() rejects the too-strong ones
   findJuiciestAlly(borderingFriends: Player[]): Player | null {
     const candidates = borderingFriends.filter((friend) =>
@@ -262,6 +329,7 @@ export class NationAllianceBehavior {
     target: Player,
     borderingFriends: Player[],
     borderingEnemies: Player[],
+    share = 0.33,
   ): boolean {
     const otherAllies = target.isTraitor()
       ? []
@@ -275,7 +343,7 @@ export class NationAllianceBehavior {
         .reduce((s, attack) => s + attack.troops(), 0);
       return sum + threat.troops() + outgoing;
     }, 0);
-    return nearbyThreatTroops < this.player.troops() * 0.33;
+    return nearbyThreatTroops < this.player.troops() * share;
   }
 
   private betray(target: Player): void {

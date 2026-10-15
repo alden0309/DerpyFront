@@ -1,6 +1,8 @@
 // DFSTORE (r21): AI personality packs. The packs a game uses travel in its
 // config; every client deals the same personas to the same nations, and a
-// persona's temperament leans the nation's play in rules 5+ games only.
+// persona's temperament leans the nation's play in rules 5 games only. AIP
+// (r23) replaced them from rules 6 (AiPersonalityTypes.test.ts); these
+// tests keep edition 5 playing as it did.
 
 import {
   Cell,
@@ -190,7 +192,7 @@ describe("dealing personas to nations", () => {
     expect(names.filter((n) => n.endsWith(" III"))).toHaveLength(2);
   });
 
-  test("no packs, unknown packs or rules before 5: nothing changes", () => {
+  test("no packs, unknown packs, rules before 5 or from 6: nothing changes", () => {
     const nations = manifestNations(3);
     expect(applyNationPersonas(nations, config(), 5, "G")).toBe(nations);
     expect(applyNationPersonas(nations, config([]), 5, "G")).toBe(nations);
@@ -200,10 +202,15 @@ describe("dealing personas to nations", () => {
     expect(applyNationPersonas(nations, config(["ai_pirates"]), 4, "G")).toBe(
       nations,
     );
+    // AIP (r23): from rules 6 nations keep their own names and flags
+    expect(applyNationPersonas(nations, config(["ai_pirates"]), 6, "G")).toBe(
+      nations,
+    );
   });
 
   test("the packs travel in the game config, on the binary wire too", () => {
-    expect(DERPY_RULES).toBe(5);
+    // AIP (r23): the packs are rules 5's; edition 6 has personalities
+    expect(DERPY_RULES).toBe(6);
     const cfg = GameConfigSchema.parse({
       gameMap: "World",
       difficulty: "Medium",
@@ -278,9 +285,13 @@ describe("temperaments in the simulation", () => {
     expect(nationTemperament(g, g.player("human"))).toBe(NO_TEMPERAMENT);
   });
 
-  test("rules 4, or a pack the config doesn't list: the usual play", async () => {
+  test("rules 4 or 6, or a pack the config doesn't list: the usual play", async () => {
     const old = await game(4);
     expect(nationTemperament(old, old.player("trader"))).toBe(NO_TEMPERAMENT);
+    const later = await game(6);
+    expect(nationTemperament(later, later.player("trader"))).toBe(
+      NO_TEMPERAMENT,
+    );
     const unlisted = await game(5, ["ai_empires"]);
     expect(nationTemperament(unlisted, unlisted.player("trader"))).toBe(
       NO_TEMPERAMENT,
