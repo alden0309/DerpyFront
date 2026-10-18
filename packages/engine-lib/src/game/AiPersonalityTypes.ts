@@ -334,11 +334,12 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     maxSilos: 6,
     // r24: its extras from its third city, so its economy gets going first
     extrasFromCities: 3,
-    // Saves least against cities (measured: about a fifth more cities than
-    // Normal, still two to three times its SAMs per city on Medium; at 0 it
-    // would buy cities with everything and hardly any SAMs)
+    // Saves least against cities. r24, measured on the new AI: at 15 it
+    // builds twice Normal's cities a minute on Medium and three times its
+    // SAMs (at 35, as many cities as Normal); at 0 it would buy cities with
+    // everything and hardly any SAMs
     costRisePct: {
-      [UnitType.City]: 35,
+      [UnitType.City]: 15,
       [UnitType.SAMLauncher]: 50,
       [UnitType.MissileSilo]: 50,
     },
