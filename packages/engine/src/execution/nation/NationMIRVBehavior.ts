@@ -161,6 +161,8 @@ export class NationMIRVBehavior {
     private game: Game,
     private player: Player,
     private emojiBehavior: NationEmojiBehavior,
+    /** AIP (r24): who bombed this nation within the last minute, if anyone. */
+    private recentBomber: () => Player | null = () => null,
   ) {}
 
   /** No state of its own; the owner supplies the shared references. */
@@ -175,12 +177,14 @@ export class NationMIRVBehavior {
     random: PseudoRandom,
     player: Player,
     emojiBehavior: NationEmojiBehavior,
+    recentBomber: () => Player | null = () => null,
   ): void {
     readVersioned(NationMIRVBehaviorSnapshot, raw);
     this.random = random;
     this.game = r.game;
     this.player = player;
     this.emojiBehavior = emojiBehavior;
+    this.recentBomber = recentBomber;
   }
 
   private get hesitationOdds(): number {
@@ -279,9 +283,18 @@ export class NationMIRVBehavior {
     }
 
     // AIP (r23): Traders and Protectors (rules 6+) MIRV only in answer, or
-    // to stop someone winning, never to cut a leader down to size
+    // to stop someone winning, never to cut a leader down to size. r24: they
+    // also MIRV a rival hitting them now, as nations MIRV a bordering rival
+    // ahead of an attack (Medium and up)
     const style = playerAiTuning(this.game, this.player).nukes;
-    if (style === "answer" || style === "grudge") return false;
+    if (style === "answer" || style === "grudge") {
+      const answer = this.selectAnswerTarget();
+      if (answer && this.isWorthMirving(answer)) {
+        this.maybeSendMIRV(answer);
+        return true;
+      }
+      return false;
+    }
 
     const steamrollStopTarget = this.selectSteamrollStopTarget();
     if (steamrollStopTarget && this.isWorthMirving(steamrollStopTarget)) {
@@ -408,6 +421,55 @@ export class NationMIRVBehavior {
       if (this.player.sharesBorderWith(p)) best = p;
     }
     return best;
+  }
+
+  /**
+   * AIP (r24): whoever is hitting us now (the biggest attack on us, by land
+   * or by sea, else a bomb flying at our land, or one that just landed), if
+   * they hold at least half as much land as we do; Easy doesn't.
+   */
+  private selectAnswerTarget(): Player | null {
+    if (this.game.config().gameConfig().difficulty === Difficulty.Easy) {
+      return null;
+    }
+    const isFoe = (p: Player) =>
+      p !== this.player &&
+      p.type() !== PlayerType.Bot &&
+      !this.player.isFriendly(p);
+    let target: Player | null = null;
+    let biggest = 0;
+    for (const attack of this.player.incomingAttacks()) {
+      const from = attack.attacker();
+      if (isFoe(from) && attack.troops() > biggest) {
+        biggest = attack.troops();
+        target = from;
+      }
+    }
+    if (target === null) {
+      for (const nuke of this.game.units(
+        UnitType.AtomBomb,
+        UnitType.HydrogenBomb,
+      )) {
+        const tile = nuke.targetTile();
+        if (
+          tile !== undefined &&
+          this.game.owner(tile) === this.player &&
+          isFoe(nuke.owner())
+        ) {
+          target = nuke.owner();
+          break;
+        }
+      }
+    }
+    target ??= this.recentBomber();
+    if (
+      target === null ||
+      target.numTilesOwned() <
+        this.player.numTilesOwned() * RIVAL_MIN_TILE_RATIO
+    ) {
+      return null;
+    }
+    return target;
   }
 
   // MIRV Cooldown Methods

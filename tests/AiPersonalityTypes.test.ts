@@ -341,6 +341,16 @@ describe("how each one tunes a nation", () => {
     expect(
       AI_TUNING.mad_scientist.costRisePct[UnitType.MissileSilo],
     ).toBeLessThan(100);
+    // r24: their extras come once their economy is going; Mad Scientists
+    // and Protectors save for a Dome their income reaches in ten minutes
+    expect(NORMAL_TUNING.extrasFromCities).toBe(0);
+    expect(AI_TUNING.mad_scientist.extrasFromCities).toBe(4);
+    expect(AI_TUNING.protector.extrasFromCities).toBe(3);
+    expect(NORMAL_TUNING.domeReachMinutes).toBe(0);
+    expect(AI_TUNING.mad_scientist.domeReachMinutes).toBe(10);
+    expect(AI_TUNING.protector.domeReachMinutes).toBe(10);
+    // An Aggressive nation buys a city whenever it can pay for one
+    expect(AI_TUNING.aggressive.costRisePct[UnitType.City]).toBe(0);
   });
 
   test("fights, alliances, betrayal and nukes", () => {
@@ -364,6 +374,18 @@ describe("how each one tunes a nation", () => {
     for (const t of ["trader", "aggressive", "protector"] as const) {
       expect(AI_TUNING[t].nukeCostRisePct).toBe(100);
     }
+    // r24: it never holds its bombs back for a MIRV; everyone else does
+    expect(NORMAL_TUNING.holdsBombsForMirv).toBe(true);
+    expect(AI_TUNING.mad_scientist.holdsBombsForMirv).toBe(false);
+    for (const t of ["trader", "aggressive", "protector"] as const) {
+      expect(AI_TUNING[t].holdsBombsForMirv).toBe(true);
+    }
+    // r24: Traders and Protectors keep a bomb in hand to answer with
+    expect(NORMAL_TUNING.keepsBomb).toBe(false);
+    expect(AI_TUNING.trader.keepsBomb).toBe(true);
+    expect(AI_TUNING.protector.keepsBomb).toBe(true);
+    expect(AI_TUNING.mad_scientist.keepsBomb).toBe(false);
+    expect(AI_TUNING.aggressive.keepsBomb).toBe(false);
     expect(AI_TUNING.trader.nukes).toBe("answer");
     expect(AI_TUNING.protector.nukes).toBe("grudge");
     expect(AI_TUNING.trader.islander).toBe(true);
@@ -475,9 +497,18 @@ describe("a dealt nation in the simulation", () => {
     // Past the usual three silos
     expect(wants(normal, IDS[3], UnitType.MissileSilo, 30, 3)).toBe(false);
     expect(wants(ms, IDS[3], UnitType.MissileSilo, 30, 6)).toBe(true);
-    // The first silo comes sooner: at 2 cities, not 3
-    expect(wants(normal, IDS[4], UnitType.MissileSilo, 2, 0)).toBe(false);
-    expect(wants(ms, IDS[4], UnitType.MissileSilo, 2, 0)).toBe(true);
+    // r24: below four cities it builds as Normal does, so its economy gets
+    // going first: at 3 cities, one factory, no SAM and one silo, as Normal
+    for (const [type, owned] of [
+      [UnitType.Factory, 1],
+      [UnitType.SAMLauncher, 0],
+      [UnitType.MissileSilo, 1],
+    ] as const) {
+      expect(wants(ms, IDS[4], type, 3, owned)).toBe(
+        wants(normal, IDS[4], type, 3, owned),
+      );
+    }
+    expect(wants(ms, IDS[5], UnitType.MissileSilo, 2, 0)).toBe(false);
   });
 
   test("Traders want more ports and factories; Protectors twice the SAMs and silos", async () => {

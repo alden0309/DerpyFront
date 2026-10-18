@@ -202,11 +202,9 @@ export class NationNukeBehavior {
       return;
     }
 
-    // AIP (r23): a Trader nukes only those attacking it (rules 6+)
-    if (
-      style === "answer" &&
-      !nukeTarget.outgoingAttacks().some((a) => a.target() === this.player)
-    ) {
+    // AIP (r23): a Trader nukes only those hitting it (rules 6+): r24,
+    // attacking it or with a bomb flying at it
+    if (style === "answer" && !this.isHittingUs(nukeTarget)) {
       return;
     }
 
@@ -225,7 +223,12 @@ export class NationNukeBehavior {
       return;
     }
 
-    const nukeTypes = this.nukeTypesToTry(saving);
+    // AIP (r24): a personality answering whoever hits it doesn't hold back
+    // for a Dome (rules 6+)
+    const answering =
+      playerAiTuning(this.game, this.player).nukes !== "usual" &&
+      this.isHittingUs(nukeTarget);
+    const nukeTypes = this.nukeTypesToTry(saving, answering);
     if (nukeTypes.length === 0) {
       return;
     }
@@ -273,7 +276,7 @@ export class NationNukeBehavior {
   }
 
   /** Hydrogen bomb first; on Hard & Impossible, an atom bomb if no spot is worth a hydrogen bomb. */
-  private nukeTypesToTry(atomOnly: boolean): NukeType[] {
+  private nukeTypesToTry(atomOnly: boolean, answering = false): NukeType[] {
     const config = this.game.config();
     const difficulty = config.gameConfig().difficulty;
     const types: NukeType[] = [];
@@ -281,17 +284,18 @@ export class NationNukeBehavior {
       !atomOnly &&
       !config.isUnitDisabled(UnitType.HydrogenBomb) &&
       this.player.gold() >= this.getPerceivedNukeCost(UnitType.HydrogenBomb) &&
-      this.canSpare(this.cost(UnitType.HydrogenBomb))
+      this.canSpare(this.cost(UnitType.HydrogenBomb), answering)
     ) {
       types.push(UnitType.HydrogenBomb);
     }
     if (
       (types.length === 0 ||
         difficulty === Difficulty.Hard ||
-        difficulty === Difficulty.Impossible) &&
+        difficulty === Difficulty.Impossible ||
+        this.triesEveryBomb()) &&
       !config.isUnitDisabled(UnitType.AtomBomb) &&
       this.player.gold() >= this.getPerceivedNukeCost(UnitType.AtomBomb) &&
-      this.canSpare(this.cost(UnitType.AtomBomb))
+      this.canSpare(this.cost(UnitType.AtomBomb), answering)
     ) {
       types.push(UnitType.AtomBomb);
     }
@@ -299,13 +303,22 @@ export class NationNukeBehavior {
   }
 
   /**
+   * AIP (r24): a Mad Scientist, a Trader or a Protector falls back on an
+   * atom bomb when no spot is worth a hydrogen bomb, on every difficulty, so
+   * a rich one still answers a small foe (rules 6+).
+   */
+  private triesEveryBomb(): boolean {
+    return playerAiTuning(this.game, this.player).nukes !== "usual";
+  }
+
+  /**
    * Derpy Front (rules 4+): whether we can spend `gold` on bombs while
    * saving for a Dome. Only from what is over the Dome's price, unless we
    * are being overrun.
    */
-  private canSpare(gold: Gold): boolean {
+  private canSpare(gold: Gold, answering = false): boolean {
     const held = this.domeSavings();
-    if (held === null || this.allOut()) return true;
+    if (held === null || this.allOut() || answering) return true;
     return this.player.gold() - gold >= held || this.isUnderHeavyAttack();
   }
 
@@ -385,20 +398,20 @@ export class NationNukeBehavior {
   /**
    * AIP (r23): a Protector taking revenge throws its bombs at their real
    * price (it doesn't save for a MIRV), atom bombs too, and doesn't hold
-   * them back for a Dome (rules 6+).
+   * them back for a Dome (rules 6+). r24: so does a Trader answering a bomb
+   * or an attack, as every bomb they throw is an answer.
    */
   private allOut(): boolean {
-    return (
-      playerAiTuning(this.game, this.player).nukes === "grudge" &&
-      this.attackBehavior.grudgeTarget() !== null
-    );
+    const style = playerAiTuning(this.game, this.player).nukes;
+    return style === "grudge" || style === "answer";
   }
 
   /**
    * AIP (r23): a Mad Scientist's targets after those attacking it: whoever
    * it is at war with (the strongest of those it is attacking), then the
    * strongest threat (a neighbour, or the leader, with at least half its own
-   * troop cap).
+   * troop cap). r24: an enemy threat only, one it is hostile with either
+   * way: nuking strong neighbours at peace made every one of them its enemy.
    */
   private focusedNukeTarget(): Player | null {
     const config = this.game.config();
@@ -430,7 +443,13 @@ export class NationNukeBehavior {
         null,
       );
     const near = this.player.nearby().filter((n): n is Player => n.isPlayer());
-    const threat = strongest(leader === null ? near : [...near, leader]);
+    const enemy = (p: Player) =>
+      p !== this.player &&
+      (this.player.relation(p) === Relation.Hostile ||
+        p.relation(this.player) === Relation.Hostile);
+    const threat = strongest(
+      (leader === null ? near : [...near, leader]).filter(enemy),
+    );
     if (
       threat !== null &&
       config.maxTroops(threat) * 2 >= config.maxTroops(this.player)
@@ -465,9 +484,18 @@ export class NationNukeBehavior {
 
   findBestNukeTarget(): Player | null {
     // AIP (r23): a Protector nukes nobody but whoever attacked it, as long
-    // as it remembers them (rules 6+)
+    // as it remembers them, and a Trader only those attacking it (rules 6+).
+    // r24: first whoever is hitting them now, by land, by sea or with a
+    // bomb flying at their land
     const style = playerAiTuning(this.game, this.player).nukes;
-    if (style === "grudge") return this.attackBehavior.grudgeTarget();
+    if (style === "grudge" || style === "answer") {
+      const hitting =
+        this.findIncomingNukePlayer() ??
+        this.attackBehavior.recentBomber() ??
+        this.attackBehavior.findIncomingAttackPlayer();
+      if (hitting !== null || style === "answer") return hitting;
+      return this.attackBehavior.grudgeTarget();
+    }
 
     // On Hard & Impossible with only 2 players left, target the only other one
     const { difficulty: diff } = this.game.config().gameConfig();
@@ -492,11 +520,11 @@ export class NationNukeBehavior {
       return incomingNukePlayer;
     }
 
-    // AIP (r23): a Mad Scientist next nukes those at war with it and the
-    // strongest threats
-    if (style === "focused") {
-      const focused = this.focusedNukeTarget();
-      if (focused !== null) return focused;
+    // AIP (r24): a Mad Scientist also answers a bomb that already landed
+    // (rules 6+; only personality nations note bombers)
+    const bomber = this.attackBehavior.recentBomber();
+    if (bomber !== null) {
+      return bomber;
     }
 
     // In Teams, back up teammates in their fights before starting our own
@@ -583,6 +611,13 @@ export class NationNukeBehavior {
     const teamTarget = this.findStrongestTeamTarget();
     if (teamTarget) {
       return teamTarget;
+    }
+
+    // AIP (r23): a Mad Scientist also nukes those at war with it and the
+    // strongest threats (rules 6+). r24: after every target nations pick,
+    // so it keeps their strikes (a bomb, then an attack when it lands)
+    if (style === "focused") {
+      return this.focusedNukeTarget();
     }
 
     return null;
@@ -1030,6 +1065,10 @@ export class NationNukeBehavior {
 
   /** Hard & Impossible in FFA: whether they're holding gold back for a MIRV their income will soon reach. */
   private isSavingForMirv(): boolean {
+    // AIP (r24): a Mad Scientist keeps throwing bombs (rules 6+)
+    if (!playerAiTuning(this.game, this.player).holdsBombsForMirv) {
+      return false;
+    }
     return (
       this.forgetsNukePrices() &&
       !this.paysRealNukePrice() &&
@@ -1045,6 +1084,11 @@ export class NationNukeBehavior {
   /** Whether the player is attacking us or has a bomb flying at our land. */
   private isHittingUs(other: Player): boolean {
     if (this.player.incomingAttacks().some((a) => a.attacker() === other)) {
+      return true;
+    }
+    // AIP (r24): or bombed us within the last minute (only personality
+    // nations note bombers, rules 6+)
+    if (this.attackBehavior.recentBomber() === other) {
       return true;
     }
     return other

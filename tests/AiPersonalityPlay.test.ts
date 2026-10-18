@@ -20,6 +20,8 @@ import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import { readVersioned } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { simpleHash } from "@openfront/engine-lib/Util";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
+import { MirvExecution } from "@openfront/engine/execution/MIRVExecution";
+import { NationMIRVBehavior } from "@openfront/engine/execution/nation/NationMIRVBehavior";
 import { NationNukeBehavior } from "@openfront/engine/execution/nation/NationNukeBehavior";
 import { NationStructureBehavior } from "@openfront/engine/execution/nation/NationStructureBehavior";
 import { NationExecution } from "@openfront/engine/execution/NationExecution";
@@ -32,6 +34,7 @@ import {
 import { Execution, Game, Player } from "@openfront/engine/game/Game";
 import { GameImpl } from "@openfront/engine/game/GameImpl";
 import { dealtAiTypes } from "@openfront/engine/game/NationAiTypes";
+import { vi } from "vitest";
 import {
   createScriptedRunner,
   scriptedGameStart,
@@ -68,9 +71,17 @@ function nationAt(g: Game, id: string) {
     initializeBehaviors(): void;
     attackBehavior: AiAttackBehavior;
     nukeBehavior: NationNukeBehavior;
+    mirvBehavior: NationMIRVBehavior;
+    structureBehavior: NationStructureBehavior;
   };
   e.initializeBehaviors();
-  return { exec, attack: e.attackBehavior, nuke: e.nukeBehavior };
+  return {
+    exec,
+    attack: e.attackBehavior,
+    nuke: e.nukeBehavior,
+    mirv: e.mirvBehavior,
+    structure: e.structureBehavior,
+  };
 }
 
 /** Every execution the game holds, started or waiting to start. */
@@ -124,18 +135,41 @@ async function standoff(option: string) {
   return { g, guard, raider, max, ...nationAt(g, "guard") };
 }
 
-describe("a Protector", () => {
-  const attacksOn = (g: Game, target: Player) =>
-    queued(g, AttackExecution).filter(
-      (e) =>
-        (e as unknown as { _targetID: string | null })._targetID ===
-        target.id(),
-    );
-  const nukesAt = (g: Game, target: Player) =>
-    queued(g, NukeExecution).filter(
-      (e) => g.owner((e as unknown as { dst: number }).dst) === target,
-    );
+const attacksOn = (g: Game, target: Player) =>
+  queued(g, AttackExecution).filter(
+    (e) =>
+      (e as unknown as { _targetID: string | null })._targetID === target.id(),
+  );
+const nukesAt = (g: Game, target: Player) =>
+  queued(g, NukeExecution).filter(
+    (e) => g.owner((e as unknown as { dst: number }).dst) === target,
+  );
+const mirvsAt = (g: Game, target: Player) =>
+  queued(g, MirvExecution).filter(
+    (e) => g.owner((e as unknown as { dst: number }).dst) === target,
+  );
 
+/** The raider gets a silo and money, and puts an atom bomb in the air at the nation's land. */
+function raiderBombs(g: Game, raider: Player) {
+  raider.buildUnit(UnitType.MissileSilo, g.ref(160, 100), {});
+  raider.addGold(500_000_000n);
+  g.addExecution(
+    new NukeExecution(UnitType.AtomBomb, raider, g.ref(40, 100), null),
+  );
+  g.executeNextTick();
+  g.executeNextTick();
+  expect(raider.units(UnitType.AtomBomb)).toHaveLength(1);
+}
+
+/** Asks the nation to nuke up to ten times (Medium spares a human one time in four). */
+function tryNukes(g: Game, nuke: NationNukeBehavior, target: Player) {
+  for (let i = 0; i < 10 && nukesAt(g, target).length === 0; i++) {
+    nuke.maybeSendNuke();
+  }
+  return nukesAt(g, target).length;
+}
+
+describe("a Protector", () => {
   test("left alone, it sits tight where a Normal nation attacks and nukes", async () => {
     const normal = await standoff("normal");
     for (let i = 0; i < 10; i++) normal.attack.maybeAttack();
@@ -212,6 +246,26 @@ describe("a Protector", () => {
     expect(nuke.findBestNukeTarget()).toBeNull();
   }, 60_000);
 
+  test("a bomb flying at it is answered with a bomb, even before it holds a grudge", async () => {
+    // r24: it nukes whoever is hitting it now first, then whoever it
+    // remembers (r23 nuked only its grudge, so nobody before its next
+    // decision noted the bomber)
+    const { g, raider, attack, nuke } = await standoff("protector");
+    expect(tryNukes(g, nuke, raider)).toBe(0);
+    raiderBombs(g, raider);
+    expect(attack.grudgeTarget()).toBeNull();
+    expect(nuke.findBestNukeTarget()).toBe(raider);
+    expect(tryNukes(g, nuke, raider)).toBeGreaterThan(0);
+  });
+
+  test("a bomb at its land, noted as it flies, is a grudge too", async () => {
+    const { g, raider, attack } = await standoff("protector");
+    raiderBombs(g, raider);
+    attack.noteBombers();
+    expect(attack.grudgeTarget()).toBe(raider);
+    expect(attack.recentBomber()).toBe(raider);
+  });
+
   test("a nuke at its land counts as an attack", async () => {
     const { g, raider, attack } = await standoff("protector");
     raider.buildUnit(UnitType.MissileSilo, g.ref(180, 100), {});
@@ -248,7 +302,142 @@ describe("a Mad Scientist", () => {
       ];
     }
     expect(await rises("normal")).toEqual([150, 125]);
-    expect(await rises("mad_scientist")).toEqual([120, 110]);
+    // (r24: a tenth after an atom bomb, a twentieth after a hydrogen bomb)
+    expect(await rises("mad_scientist")).toEqual([110, 105]);
+  });
+});
+
+describe("a Mad Scientist's targets", () => {
+  test("the ones a Normal nation picks first, then a strong enemy", async () => {
+    // A neutral raider, no war: neither picks anyone to nuke (r24: nuking
+    // strong neighbours at peace only made enemies of them)
+    const neutral = async (option: string) => {
+      const s = await standoff(option);
+      s.guard.updateRelation(s.raider, 100, "gift_gold");
+      expect(s.guard.relation(s.raider)).not.toBe(Relation.Hostile);
+      return s;
+    };
+    expect((await neutral("normal")).nuke.findBestNukeTarget()).toBeNull();
+    expect(
+      (await neutral("mad_scientist")).nuke.findBestNukeTarget(),
+    ).toBeNull();
+    // The raider hates it (it doesn't hate the raider back): a Normal nation
+    // still picks nobody, a Mad Scientist the raider
+    const hated = async (option: string) => {
+      const s = await neutral(option);
+      s.raider.updateRelation(s.guard, -100, "attacked");
+      return s;
+    };
+    expect((await hated("normal")).nuke.findBestNukeTarget()).toBeNull();
+    const ms = await hated("mad_scientist");
+    expect(ms.nuke.findBestNukeTarget()).toBe(ms.raider);
+    // Hating the raider itself, both pick it
+    const hostile = await standoff("mad_scientist");
+    expect(hostile.nuke.findBestNukeTarget()).toBe(hostile.raider);
+  });
+});
+
+describe("a Trader answers", () => {
+  test("a bomb flying at it, with a bomb; and nukes nobody else", async () => {
+    const { g, raider, nuke } = await standoff("trader");
+    // It hates the raider, but the raider isn't hitting it
+    expect(nuke.findBestNukeTarget()).toBeNull();
+    expect(tryNukes(g, nuke, raider)).toBe(0);
+    raiderBombs(g, raider);
+    expect(nuke.findBestNukeTarget()).toBe(raider);
+    expect(tryNukes(g, nuke, raider)).toBeGreaterThan(0);
+  });
+
+  test("a bomb that landed before its next decision, for a minute after", async () => {
+    const { g, raider, attack, nuke } = await standoff("trader");
+    raiderBombs(g, raider);
+    // It notes the bomb while it flies (every tick, in its execution)...
+    attack.noteBombers();
+    while (raider.units(UnitType.AtomBomb).length > 0) g.executeNextTick();
+    // ...and once it has landed, still knows whom to answer
+    expect(nuke.findBestNukeTarget()).toBe(raider);
+    expect(tryNukes(g, nuke, raider)).toBeGreaterThan(0);
+    // A minute later it has let it go
+    const start = g.ticks();
+    while (g.ticks() < start + 600) g.executeNextTick();
+    expect(attack.recentBomber()).toBeNull();
+    expect(nuke.findBestNukeTarget()).toBeNull();
+  }, 60_000);
+
+  test("an attack, with a bomb", async () => {
+    const { g, guard, raider, nuke } = await standoff("trader");
+    raider.createAttack(guard, 20_000, null, new Set());
+    expect(nuke.findBestNukeTarget()).toBe(raider);
+    expect(tryNukes(g, nuke, raider)).toBeGreaterThan(0);
+  });
+
+  test("a rival hitting it, with a MIRV, as a Protector does; a Normal nation on Medium doesn't", async () => {
+    const mirvs = async (option: string) => {
+      const { g, guard, raider, mirv } = await standoff(option);
+      raider.createAttack(guard, 20_000, null, new Set());
+      // (Medium hesitates one time in four)
+      for (let i = 0; i < 20 && mirvsAt(g, raider).length === 0; i++) {
+        mirv.considerMIRV();
+      }
+      return mirvsAt(g, raider).length;
+    };
+    expect(await mirvs("normal")).toBe(0);
+    expect(await mirvs("trader")).toBe(1);
+    expect(await mirvs("protector")).toBe(1);
+  });
+});
+
+describe("noting bombers", () => {
+  test("every tick for a nation dealt a personality; never for a Normal nation", async () => {
+    const notes = async (option: string) => {
+      const { g, exec } = await standoff(option);
+      const spy = vi.spyOn(AiAttackBehavior.prototype, "noteBombers");
+      for (let i = 0; i < 20; i++) exec.tick(g.ticks() + i);
+      const calls = spy.mock.calls.length;
+      spy.mockRestore();
+      return calls;
+    };
+    expect(await notes("normal")).toBe(0);
+    expect(await notes("aggressive")).toBe(20);
+  });
+});
+
+describe("Traders and Protectors keep a bomb in hand", () => {
+  test("once they have a silo and three cities, their building leaves an atom bomb's price", async () => {
+    // What a city costs it now, and whether it builds one with `spare`
+    // gold over that
+    const builds = async (
+      option: string,
+      spare: bigint,
+      silo = true,
+      cities = 3,
+    ) => {
+      const { g, guard, structure } = await standoff(option);
+      if (!silo) {
+        for (const s of guard.units(UnitType.MissileSilo)) s.delete(false);
+      }
+      for (let i = 0; i < cities; i++) {
+        guard.buildUnit(UnitType.City, g.ref(20 + 20 * i, 40), {});
+      }
+      const b = structure as unknown as {
+        getPerceivedCost(t: UnitType): bigint;
+        maybeSpawnStructure(t: UnitType): boolean;
+      };
+      // (With little gold it saves up, so a city feels dearer than it is)
+      guard.removeGold(guard.gold());
+      guard.addGold(b.getPerceivedCost(UnitType.City) + spare);
+      return b.maybeSpawnStructure(UnitType.City);
+    };
+    const bomb = 750_000n;
+    expect(await builds("normal", 1n)).toBe(true);
+    expect(await builds("mad_scientist", 1n)).toBe(true);
+    for (const option of ["trader", "protector"]) {
+      expect(await builds(option, bomb - 1n)).toBe(false);
+      expect(await builds(option, bomb)).toBe(true);
+      // Not before it has a silo, nor before its third city
+      expect(await builds(option, 1n, false)).toBe(true);
+      expect(await builds(option, 1n, true, 2)).toBe(true);
+    }
   });
 });
 
@@ -331,6 +520,30 @@ describe("Domes of Alden: Mad Scientists and Protectors raise more, sooner", () 
     expect(await domeAt("protector", 52_000_000n)).toBe(true);
     expect(await domeAt("mad_scientist", 52_000_000n)).toBe(true);
     expect(await domeAt("trader", 52_000_000n)).toBe(false);
+  });
+
+  test("once armed, they save for a Dome their income will reach (r24), long before Normal starts saving", async () => {
+    // A Capital and four cities, $15M in hand (under the 40% they'd save
+    // from otherwise) and plenty of income
+    const saves = async (option: string, armed: boolean) => {
+      const { g, me, behavior, tryDome } = await domeGame(option);
+      me.buildUnit(UnitType.Capital, g.ref(40, 40), {});
+      cities(g, me, 40, 40);
+      if (armed) {
+        for (let i = 0; i < 3; i++) {
+          me.buildUnit(UnitType.SAMLauncher, g.ref(80 + 10 * i, 80), {});
+          me.buildUnit(UnitType.MissileSilo, g.ref(80 + 10 * i, 100), {});
+        }
+      }
+      me.removeGold(me.gold() - 15_000_000n);
+      expect(tryDome()).toBe(false);
+      return behavior.savingForDome();
+    };
+    expect(await saves("normal", true)).toBeNull();
+    expect(await saves("mad_scientist", true)).toBe(50_000_000n);
+    expect(await saves("protector", true)).toBe(50_000_000n);
+    // Not while it still wants SAMs and silos
+    expect(await saves("mad_scientist", false)).toBeNull();
   });
 
   test("they find a smaller cluster worth shielding", async () => {
@@ -596,6 +809,29 @@ describe("snapshots", () => {
       island: null,
       grudge: null,
       grudgeUntil: 0,
+      bomber: null,
+      bomberUntil: 0,
+    });
+  });
+
+  test("a personality nation's memories from round 23 read as no bomber to answer", () => {
+    const r23 = {
+      v: 3,
+      d: {
+        botAttackTroopsSent: 0,
+        followedLandings: [],
+        triggerRatio: 0.55,
+        reserveRatio: 0.35,
+        expandRatio: 0.15,
+        island: true,
+        grudge: null,
+        grudgeUntil: 0,
+      },
+    };
+    expect(readVersioned(AiAttackBehaviorSnapshot, r23)).toEqual({
+      ...r23.d,
+      bomber: null,
+      bomberUntil: 0,
     });
   });
 

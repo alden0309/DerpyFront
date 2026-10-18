@@ -615,15 +615,21 @@ export class NationStructureBehavior {
     // less of its price
     const keen = aip.domeBarPct < 100;
     if (gold < needed) {
+      // AIP (r24): a Mad Scientist or a Protector saves for a Dome its
+      // income will reach soon, and for as long as it takes, once it has
+      // the SAMs and silos it wants (rules 6+)
+      const reachable =
+        this.domeWithinReach(needed, aip.domeReachMinutes) && this.armed();
       if (
         pressed ||
         (domes.length > 0 && !keen) ||
         config.gameConfig().difficulty === Difficulty.Easy ||
-        gold * 10n <
+        (gold * 10n <
           needed *
-            (keen ? DOME_KEEN_SAVE_FROM_TENTHS : DOME_SAVE_FROM_TENTHS) ||
+            (keen ? DOME_KEEN_SAVE_FROM_TENTHS : DOME_SAVE_FROM_TENTHS) &&
+          !reachable) ||
         this.savingForDome() !== null ||
-        !this.mayStartSaving(ticks)
+        !(reachable || this.mayStartSaving(ticks))
       ) {
         return false;
       }
@@ -645,6 +651,31 @@ export class NationStructureBehavior {
     this.domeSavingUntil = null;
     this.domeSaveStartTick = null;
     return true;
+  }
+
+  /** AIP (r24): whether it has all the SAMs and silos its cities call for. */
+  private armed(): boolean {
+    const cities = this.cityCount();
+    const coastal = this.game.sharedWaterComponents(this.player) !== null;
+    return (
+      this.levelsDue(UnitType.SAMLauncher, cities, coastal) <= 0 &&
+      this.levelsDue(UnitType.MissileSilo, cities, coastal) <= 0
+    );
+  }
+
+  /**
+   * AIP (r24): whether the nation's income would bring it the rest of a
+   * Dome's price within `minutes` (a Mad Scientist's or a Protector's
+   * reach; 0, never). Income grows about linearly over a game, so the
+   * current rate is about twice the average (as in isSaveUpWithinReach).
+   */
+  private domeWithinReach(price: Gold, minutes: number): boolean {
+    if (minutes <= 0) return false;
+    const missing = Number(price - this.player.gold());
+    if (missing <= 0) return true;
+    const elapsed = Math.max(1, this.game.ticks() / 600);
+    const perMinute = (2 * Number(this.player.goldEarned())) / elapsed;
+    return missing <= perMinute * minutes;
   }
 
   /**
@@ -1005,18 +1036,25 @@ export class NationStructureBehavior {
   private maybeBuildProactiveDefensePost(): boolean {
     const config = this.game.config();
     const { difficulty } = config.gameConfig();
+    // AIP (r24): a Protector fortifies like Hard on Medium too, with twice
+    // the posts per city (rules 6+)
+    const postsPct = playerAiTuning(this.game, this.player).defensePostsPct;
     const hostileTroopRatio =
-      PROACTIVE_DEFENSE_POST_HOSTILE_TROOP_RATIO[difficulty];
+      PROACTIVE_DEFENSE_POST_HOSTILE_TROOP_RATIO[difficulty] ??
+      (postsPct > 100 && difficulty === Difficulty.Medium
+        ? PROACTIVE_DEFENSE_POST_HOSTILE_TROOP_RATIO[Difficulty.Hard]
+        : undefined);
     if (hostileTroopRatio === undefined) return false;
     if (config.isUnitDisabled(UnitType.DefensePost)) return false;
     const cityCount = this.cityCount();
     if (cityCount < PROACTIVE_DEFENSE_POST_MIN_CITIES) return false;
 
     const player = this.player;
-    if (
-      player.units(UnitType.DefensePost).length >=
-      cityCount * PROACTIVE_DEFENSE_POSTS_PER_CITY
-    )
+    const perCity =
+      postsPct === 100
+        ? PROACTIVE_DEFENSE_POSTS_PER_CITY
+        : (PROACTIVE_DEFENSE_POSTS_PER_CITY * postsPct) / 100;
+    if (player.units(UnitType.DefensePost).length >= cityCount * perCity)
       return false;
     if (player.gold() < this.cost(UnitType.DefensePost)) return false;
 
@@ -1527,10 +1565,14 @@ export class NationStructureBehavior {
     // DFSTORE (r21): a persona's temperament leans what it builds (rules 5).
     const tuning = nationTemperament(this.game, this.player);
     let ratio = config.ratioPerCity * (tuning.structures[type] ?? 1);
-    // AIP (r23): and so does a personality (rules 6+)
+    // AIP (r23): and so does a personality (rules 6+). r24: its extra
+    // buildings only once it holds a few cities
     const aip = playerAiTuning(this.game, this.player);
+    const extras = cityCount >= aip.extrasFromCities;
     const pct = aip.structuresPct[type];
-    if (pct !== undefined) ratio = (ratio * pct) / 100;
+    if (pct !== undefined && (extras || pct < 100)) {
+      ratio = (ratio * pct) / 100;
+    }
 
     // Reduce factory spawning if we have coastal tiles
     if (
@@ -1549,7 +1591,7 @@ export class NationStructureBehavior {
         ratio =
           tuning !== NO_TEMPERAMENT
             ? tuning.firstSiloRatio
-            : aip.firstSiloPct !== FIRST_MISSILE_SILO_PERCENT
+            : aip.firstSiloPct !== FIRST_MISSILE_SILO_PERCENT && extras
               ? aip.firstSiloPct / 100
               : FIRST_MISSILE_SILO_RATIO;
       }
@@ -1576,7 +1618,7 @@ export class NationStructureBehavior {
   private maybeSpawnStructure(type: UnitType): boolean {
     const game = this.game;
     const perceivedCost = this.getPerceivedCost(type);
-    if (this.player.gold() < perceivedCost) {
+    if (this.player.gold() < perceivedCost + this.bombReserve(type)) {
       return false;
     }
 
@@ -1618,6 +1660,31 @@ export class NationStructureBehavior {
     }
     game.addExecution(new ConstructionExecution(this.player, type, tile));
     return true;
+  }
+
+  /**
+   * AIP (r24): the gold a Trader or a Protector keeps in hand through
+   * building its economy (cities, ports, factories, its Capital) once it has
+   * a silo and its first few cities (as many as nations hold before they
+   * save up, three at least): an atom bomb's price, so it can answer a bomb
+   * or an attack (rules 6+). Its defenses still go up. Nothing for other
+   * nations.
+   */
+  private bombReserve(type: UnitType): Gold {
+    if (
+      !playerAiTuning(this.game, this.player).keepsBomb ||
+      type === UnitType.SAMLauncher ||
+      type === UnitType.MissileSilo ||
+      this.player.unitCount(UnitType.MissileSilo) === 0 ||
+      this.game.config().isUnitDisabled(UnitType.AtomBomb)
+    ) {
+      return 0n;
+    }
+    const { difficulty } = this.game.config().gameConfig();
+    if (this.cityCount() < Math.max(3, CITIES_BEFORE_SAVING[difficulty])) {
+      return 0n;
+    }
+    return this.cost(UnitType.AtomBomb);
   }
 
   /**

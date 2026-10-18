@@ -126,11 +126,17 @@ export type Betrayal =
 export type NukeStyle =
   /** As nations always have. */
   | "usual"
-  /** More often, at those at war with it and the strongest threats. */
+  /**
+   * More often: as nations always do, and then at those at war with it and
+   * the strongest threats; never holding bombs back for a MIRV.
+   */
   | "focused"
-  /** Only those attacking it now. */
+  /** Only those hitting it now: attacking it, or with a bomb flying at it. */
   | "answer"
-  /** Only whoever attacked it, for as long as it remembers (Protector). */
+  /**
+   * Those hitting it now, and whoever attacked it for as long as it
+   * remembers, with everything it has (Protector).
+   */
   | "grudge";
 
 export interface AiTuning {
@@ -153,6 +159,12 @@ export interface AiTuning {
   /** Percent per city for its first silo (40 usually): higher, sooner. */
   firstSiloPct: number;
   /**
+   * AIP r24: cities it holds before its extra buildings (structuresPct over
+   * 100, firstSiloPct) start; before that it builds as Normal does, so its
+   * economy gets going first (0: from the start).
+   */
+  extrasFromCities: number;
+  /**
    * Percent of the usual rise in what one more of a building feels like it
    * costs, per one owned, while the nation saves for nukes (100 usually):
    * lower, it builds more of them.
@@ -166,6 +178,12 @@ export interface AiTuning {
   preemptiveDomes: number;
   /** Percent of the usual worth a Dome's spot needs, and of the wait between Domes. */
   domeBarPct: number;
+  /**
+   * AIP r24: it saves up for a worthwhile Dome whenever its income would
+   * get it there within this many minutes, not only once it holds most of
+   * the price (0: as nations do).
+   */
+  domeReachMinutes: number;
   /** Percent chance, per decision, that it looks for a fight nobody started. */
   warPct: number;
   /** One time in this many it asks a bordering player to ally (30 usually). */
@@ -179,6 +197,16 @@ export interface AiTuning {
    * throwing bombs instead of saving.
    */
   nukeCostRisePct: number;
+  /**
+   * AIP r24: whether, on Hard and up, it holds its bombs (but those at
+   * whoever hits it) while saving up for a MIRV, as nations do.
+   */
+  holdsBombsForMirv: boolean;
+  /**
+   * AIP r24: once it has a silo, it keeps an atom bomb's price in hand
+   * through its building, so it can answer a bomb or an attack.
+   */
+  keepsBomb: boolean;
   /** Answers an attack at once on every difficulty, not only Hard and up. */
   answersAtOnce: boolean;
   /** Prefers an island of its own, and unclaimed land across the sea. */
@@ -203,51 +231,54 @@ export const NORMAL_TUNING: AiTuning = {
   ],
   maxSilos: 3,
   firstSiloPct: 40,
+  extrasFromCities: 0,
   costRisePct: {},
   defensePostsPct: 100,
   defenseThreatPct: 100,
   preemptiveDomes: 3,
   domeBarPct: 100,
+  domeReachMinutes: 0,
   warPct: 100,
   allyAskOdds: 30,
   betrayal: "usual",
   nukes: "usual",
   nukeCostRisePct: 100,
+  holdsBombsForMirv: true,
+  keepsBomb: false,
   answersAtOnce: false,
   islander: false,
   avenger: false,
 };
 
 export const AI_TUNING: Record<AiType, AiTuning> = {
-  // Factories, and a lot more SAMs, silos and Domes; nukes more, at real
-  // enemies.
+  // Factories, and a lot more SAMs, silos and Domes; nukes its enemies far
+  // more often.
   mad_scientist: {
     ...NORMAL_TUNING,
     // SAMs are the dearest of these (up to $3M each), so they get the most
-    // room and come first; measured, it ends up with about twice Normal's
-    // SAMs and silos per city on Medium
+    // room. r24: its trade comes first, in Normal's order, and its extras
+    // only from its fourth city, or it falls behind and never gets rich
     structuresPct: {
       [UnitType.Factory]: 200,
       [UnitType.SAMLauncher]: 300,
       [UnitType.MissileSilo]: 250,
     },
-    // Its SAMs and silos before its trade
-    buildOrder: [
-      UnitType.SAMLauncher,
-      UnitType.MissileSilo,
-      UnitType.Factory,
-      UnitType.Port,
-    ],
     maxSilos: 8,
     firstSiloPct: 80,
+    extrasFromCities: 4,
     costRisePct: {
+      [UnitType.Factory]: 50,
       [UnitType.SAMLauncher]: 30,
       [UnitType.MissileSilo]: 30,
     },
     preemptiveDomes: 5,
     domeBarPct: 50,
+    // r24: once it has its SAMs and silos, it saves for a Dome its income
+    // reaches within ten minutes (it rarely held most of $50M at once)
+    domeReachMinutes: 10,
     nukes: "focused",
-    nukeCostRisePct: 40,
+    nukeCostRisePct: 20,
+    holdsBombsForMirv: false,
   },
   // Factories and ports; slow to start a fight but answers one, keeps a big
   // army home, rarely turns on an ally, and keeps to an island if it can.
@@ -263,6 +294,7 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     allyAskOdds: 15,
     betrayal: "less",
     nukes: "answer",
+    keepsBomb: true,
     answersAtOnce: true,
     islander: true,
   },
@@ -275,7 +307,9 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     triggerPts: -12,
     reservePts: -8,
     structuresPct: { [UnitType.SAMLauncher]: 75 },
-    costRisePct: { [UnitType.City]: 50 },
+    // r24: a city whenever it can pay for one (nations now save hard for
+    // nukes), ports a little less held back too
+    costRisePct: { [UnitType.City]: 0, [UnitType.Port]: 50 },
     betrayal: "more",
   },
   // A little slower in the opening, then digs in: twice the SAMs, silos,
@@ -298,11 +332,14 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
       UnitType.Factory,
     ],
     maxSilos: 6,
-    // Saves least against cities (measured: about a fifth more cities than
-    // Normal, still two to three times its SAMs per city on Medium; at 0 it
-    // would buy cities with everything and hardly any SAMs)
+    // r24: its extras from its third city, so its economy gets going first
+    extrasFromCities: 3,
+    // Saves least against cities. r24, measured on the new AI: at 15 it
+    // builds twice Normal's cities a minute on Medium and three times its
+    // SAMs (at 35, as many cities as Normal); at 0 it would buy cities with
+    // everything and hardly any SAMs
     costRisePct: {
-      [UnitType.City]: 35,
+      [UnitType.City]: 15,
       [UnitType.SAMLauncher]: 50,
       [UnitType.MissileSilo]: 50,
     },
@@ -310,10 +347,12 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     defenseThreatPct: 60,
     preemptiveDomes: 5,
     domeBarPct: 50,
+    domeReachMinutes: 10,
     warPct: 10,
     allyAskOdds: 15,
     betrayal: "rarely",
     nukes: "grudge",
+    keepsBomb: true,
     answersAtOnce: true,
     avenger: true,
   },

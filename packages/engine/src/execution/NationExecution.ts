@@ -258,6 +258,12 @@ export class NationExecution implements Execution {
 
     this.attackBehavior.followUpLandings();
     this.nukeBehavior.followUpStrikes();
+    // AIP (r24): a nation dealt a personality notes who bombs it, every
+    // tick, so it can answer a bomb that lands before its next decision
+    // (rules 6+)
+    if (nationAiType(this.mg, this.nation.playerInfo.id) !== null) {
+      this.attackBehavior.noteBombers();
+    }
 
     const rate = this.decisionRate(ticks);
     const attackTick = this.attackTick % rate;
@@ -302,6 +308,7 @@ export class NationExecution implements Execution {
       this.mg,
       this.player,
       this.emojiBehavior,
+      () => this.attackBehavior.recentBomber(),
     );
     this.allianceBehavior = new NationAllianceBehavior(
       this.random,
@@ -526,7 +533,9 @@ export class NationExecution implements Execution {
     const nuke = shell(NationNukeBehavior);
     const structure = shell(NationStructureBehavior);
     emoji.restoreSnapshot(b.emoji, r, random, player);
-    mirv.restoreSnapshot(b.mirv, r, random, player, emoji);
+    mirv.restoreSnapshot(b.mirv, r, random, player, emoji, () =>
+      attack.recentBomber(),
+    );
     alliance.restoreSnapshot(b.alliance, r, random, player, emoji);
     warship.restoreSnapshot(b.warship, r, random, player, emoji);
     attack.restoreSnapshot(
