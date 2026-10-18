@@ -339,6 +339,10 @@ export class NationStructureBehavior {
   private domeSavingUntil: number | null = null;
   /** Derpy Front (rules 4+): when this spell of saving for a Dome began. */
   private domeSaveStartTick: number | null = null;
+  /** AIP (r25): gold a Mad Scientist has set aside for its next Dome. */
+  private domeFund: Gold = 0n;
+  /** AIP (r25): its goldEarned() when the fund last took its share; null until the fund starts. */
+  private domeFundMark: Gold | null = null;
 
   constructor(
     private random: PseudoRandom,
@@ -366,6 +370,8 @@ export class NationStructureBehavior {
       domeRetryTick: this.domeRetryTick,
       domeSavingUntil: this.domeSavingUntil,
       domeSaveStartTick: this.domeSaveStartTick,
+      domeFund: this.domeFund,
+      domeFundMark: this.domeFundMark,
     });
   }
 
@@ -394,11 +400,15 @@ export class NationStructureBehavior {
     this.domeRetryTick = s.domeRetryTick;
     this.domeSavingUntil = s.domeSavingUntil;
     this.domeSaveStartTick = s.domeSaveStartTick;
+    this.domeFund = s.domeFund;
+    this.domeFundMark = s.domeFundMark;
   }
 
   handleStructures(): boolean {
     // Derpy Front (rules 4+): whatever we build, note the nukes at us.
     if (this.game.config().derpyRules() >= 4) this.noteNukesAtUs();
+    // AIP (r25): a Mad Scientist's Dome fund takes its share (rules 6+)
+    this.updateDomeFund();
     // Derpy Front: guarding the Capital comes first, outside the normal
     // pacing (like defense posts below).
     if (this.tryProtectCapital()) {
@@ -621,6 +631,9 @@ export class NationStructureBehavior {
       const reachable =
         this.domeWithinReach(needed, aip.domeReachMinutes) && this.armed();
       if (
+        // AIP (r25): a nation with a Dome fund saves through it, and never
+        // stops building to save up (rules 6+)
+        aip.domeFundPct > 0 ||
         pressed ||
         (domes.length > 0 && !keen) ||
         config.gameConfig().difficulty === Difficulty.Easy ||
@@ -650,6 +663,9 @@ export class NationStructureBehavior {
     this.domeRetryTick = null;
     this.domeSavingUntil = null;
     this.domeSaveStartTick = null;
+    // AIP (r25): the fund paid for it (the rest of the price came from its
+    // other gold)
+    this.domeFund = 0n;
     return true;
   }
 
@@ -744,6 +760,69 @@ export class NationStructureBehavior {
       return null;
     }
     return this.domePrice(false);
+  }
+
+  /**
+   * AIP (r25): a Mad Scientist puts its personality's share of what it
+   * earns into a Dome fund, once it has a missile silo and a SAM (and, on
+   * Easy, once a nuke has come at it) (rules 6+).
+   * The fund is kept whole by its building (see spendable) and its bombs
+   * (heldForDome), holds at most the next Dome's price, can't be more than
+   * the gold it has, and empties once it has all the Domes it may own (or
+   * no one can nuke). Nothing for other nations.
+   */
+  private updateDomeFund(): void {
+    const pct = playerAiTuning(this.game, this.player).domeFundPct;
+    if (pct <= 0) return;
+    const earned = this.player.goldEarned();
+    if (this.domeFundMark === null) {
+      if (
+        this.player.unitCount(UnitType.MissileSilo) === 0 ||
+        this.player.unitCount(UnitType.SAMLauncher) === 0 ||
+        // Easy raises a Dome only once a nuke has come at it
+        (this.game.config().gameConfig().difficulty === Difficulty.Easy &&
+          this.nukedTick === null)
+      ) {
+        return;
+      }
+      this.domeFundMark = earned;
+      return;
+    }
+    const config = this.game.config();
+    const share = ((earned - this.domeFundMark) * BigInt(pct)) / 100n;
+    this.domeFundMark = earned;
+    if (
+      config.isUnitDisabled(UnitType.Dome) ||
+      !this.nukesPossible() ||
+      this.player.units(UnitType.Dome).length >= config.domeLimit()
+    ) {
+      this.domeFund = 0n;
+      return;
+    }
+    let fund = this.domeFund + share;
+    const price = this.cost(UnitType.Dome);
+    if (fund > price) fund = price;
+    const gold = this.player.gold();
+    if (fund > gold) fund = gold;
+    this.domeFund = fund;
+  }
+
+  /** AIP (r25): the gold in its Dome fund (0 for a nation without one). */
+  domeFundHeld(): Gold {
+    return this.domeFund;
+  }
+
+  /** AIP (r25): the gold a nation's building may spend: all but its Dome fund. */
+  private spendable(): Gold {
+    return this.player.gold() - this.domeFund;
+  }
+
+  /**
+   * Gold a nation's bombs must leave alone for a Dome: what it is saving for
+   * one, else its Dome fund (AIP r25), else null.
+   */
+  heldForDome(): Gold | null {
+    return this.savingForDome() ?? (this.domeFund > 0n ? this.domeFund : null);
   }
 
   /** Whether anyone in this game could build a silo and fire a nuke. */
@@ -864,7 +943,7 @@ export class NationStructureBehavior {
           reach * reach,
       ).length;
     if (covering >= wanted) return false;
-    if (this.player.gold() < this.cost(UnitType.SAMLauncher)) return false;
+    if (this.spendable() < this.cost(UnitType.SAMLauncher)) return false;
 
     // Spread the guards around the Capital, inside half the SAM's range.
     const radius = Math.floor(config.defaultSamRange() / 2);
@@ -1378,13 +1457,15 @@ export class NationStructureBehavior {
       return false;
     }
     const saveUpTarget = this.getSaveUpTarget();
+    // AIP (r25): a Mad Scientist's Dome fund isn't there for its bombs, so
+    // it doesn't hold its building back for them
     if (this._postSaveUpStartTick === null) {
-      if (this.player.gold() < saveUpTarget) {
+      if (this.spendable() < saveUpTarget) {
         return false;
       }
       this._postSaveUpStartTick = this.game.ticks();
     }
-    if (this.player.gold() >= saveUpTarget * 2n) {
+    if (this.spendable() >= saveUpTarget * 2n) {
       return false;
     }
     const elapsed = this.game.ticks() - this._postSaveUpStartTick;
@@ -1618,7 +1699,14 @@ export class NationStructureBehavior {
   private maybeSpawnStructure(type: UnitType): boolean {
     const game = this.game;
     const perceivedCost = this.getPerceivedCost(type);
-    if (this.player.gold() < perceivedCost + this.bombReserve(type)) {
+    // AIP (r25): its building leaves a Mad Scientist's Dome fund alone, but
+    // for its first Capital, which pays the fund back soonest
+    const purse =
+      type === UnitType.Capital &&
+      this.player.unitsConstructed(UnitType.Capital) === 0
+        ? this.player.gold()
+        : this.spendable();
+    if (purse < perceivedCost + this.bombReserve(type)) {
       return false;
     }
 
@@ -1699,7 +1787,9 @@ export class NationStructureBehavior {
     const saveUpTarget = this.getSaveUpTarget();
     if (
       saveUpTarget === 0n ||
-      this.player.gold() >= saveUpTarget ||
+      // AIP (r25): not counting a Mad Scientist's Dome fund, which isn't
+      // there for its bombs
+      this.spendable() >= saveUpTarget ||
       !isSaveUpWithinReach(this.game, this.player, saveUpTarget)
     ) {
       return realCost;
@@ -1824,7 +1914,8 @@ export class NationStructureBehavior {
             this._sharedWaterComponents !== null,
           );
     const max = Math.min(MAX_UPGRADES_AT_ONCE[difficulty], due);
-    let spare = this.player.gold() - this.getSaveUpTarget();
+    // AIP (r25): its upgrades leave a Mad Scientist's Dome fund alone
+    let spare = this.spendable() - this.getSaveUpTarget();
     let amount = 0;
     while (amount < max) {
       const cost = this.cost(type, amount);
@@ -2668,7 +2759,7 @@ export class NationStructureBehavior {
 
 export const NationStructureBehaviorSnapshot = snapshotType({
   name: "NationStructureBehavior",
-  version: 2,
+  version: 3,
   schema: z.object({
     lastStructureTick: zInt().nullable(),
     placementsCount: zInt(),
@@ -2681,6 +2772,8 @@ export const NationStructureBehaviorSnapshot = snapshotType({
     domeRetryTick: zInt().nullable(),
     domeSavingUntil: zInt().nullable(),
     domeSaveStartTick: zInt().nullable(),
+    domeFund: z.bigint(),
+    domeFundMark: z.bigint().nullable(),
   }),
   migrations: {
     // v1 nations kept no Dome memory (rules 4 adds it)
@@ -2692,5 +2785,7 @@ export const NationStructureBehaviorSnapshot = snapshotType({
       domeSavingUntil: null,
       domeSaveStartTick: null,
     }),
+    // v2 nations (before AIP r25) kept no Dome fund
+    2: (d) => ({ ...d, domeFund: 0n, domeFundMark: null }),
   },
 });

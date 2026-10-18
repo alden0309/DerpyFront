@@ -184,6 +184,16 @@ export interface AiTuning {
    * the price (0: as nations do).
    */
   domeReachMinutes: number;
+  /**
+   * AIP r25: percent of its income it puts in a Dome fund once it has a
+   * missile silo and a SAM (on Easy, once a nuke has come at it), up to
+   * the next Dome of Alden's price (0: none). Its building (but its first
+   * Capital, defense posts and warships) and its bombs (unless it is being
+   * overrun) leave the fund alone, and its bombs weigh their price against
+   * the rest of its gold. A nation with a fund doesn't stop building to
+   * save up for a Dome.
+   */
+  domeFundPct: number;
   /** Percent chance, per decision, that it looks for a fight nobody started. */
   warPct: number;
   /** One time in this many it asks a bordering player to ally (30 usually). */
@@ -238,6 +248,7 @@ export const NORMAL_TUNING: AiTuning = {
   preemptiveDomes: 3,
   domeBarPct: 100,
   domeReachMinutes: 0,
+  domeFundPct: 0,
   warPct: 100,
   allyAskOdds: 30,
   betrayal: "usual",
@@ -273,9 +284,14 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     },
     preemptiveDomes: 5,
     domeBarPct: 50,
-    // r24: once it has its SAMs and silos, it saves for a Dome its income
-    // reaches within ten minutes (it rarely held most of $50M at once)
-    domeReachMinutes: 10,
+    // r25: a Dome fund instead of r24's saving for a Dome its income reaches
+    // (that stopped all its building, and it still raised under a third of
+    // Normal's Domes). 35% of its income, once it has a silo and a SAM,
+    // raised as many Domes as Normal in 20-minute games and half again its
+    // old count in 45-minute ones, for some of its SAMs, silos and bombs;
+    // at 45% it built fewer SAMs than Normal and no more Domes
+    domeReachMinutes: 0,
+    domeFundPct: 35,
     nukes: "focused",
     nukeCostRisePct: 20,
     holdsBombsForMirv: false,

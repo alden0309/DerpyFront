@@ -15,7 +15,10 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { GameConfig } from "@openfront/engine-api/Schemas";
-import { GRUDGE_TICKS } from "@openfront/engine-lib/game/AiPersonalityTypes";
+import {
+  AI_TUNING,
+  GRUDGE_TICKS,
+} from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { PseudoRandom } from "@openfront/engine-lib/PseudoRandom";
 import { readVersioned } from "@openfront/engine-lib/snapshot/SnapshotType";
 import { simpleHash } from "@openfront/engine-lib/Util";
@@ -522,7 +525,7 @@ describe("Domes of Alden: Mad Scientists and Protectors raise more, sooner", () 
     expect(await domeAt("trader", 52_000_000n)).toBe(false);
   });
 
-  test("once armed, they save for a Dome their income will reach (r24), long before Normal starts saving", async () => {
+  test("once armed, a Protector saves for a Dome its income will reach (r24), long before Normal starts saving; a Mad Scientist uses its fund (r25)", async () => {
     // A Capital and four cities, $15M in hand (under the 40% they'd save
     // from otherwise) and plenty of income
     const saves = async (option: string, armed: boolean) => {
@@ -540,11 +543,130 @@ describe("Domes of Alden: Mad Scientists and Protectors raise more, sooner", () 
       return behavior.savingForDome();
     };
     expect(await saves("normal", true)).toBeNull();
-    expect(await saves("mad_scientist", true)).toBe(50_000_000n);
     expect(await saves("protector", true)).toBe(50_000_000n);
     // Not while it still wants SAMs and silos
-    expect(await saves("mad_scientist", false)).toBeNull();
+    expect(await saves("protector", false)).toBeNull();
+    // A Mad Scientist never stops building to save: its Dome fund saves
+    expect(await saves("mad_scientist", true)).toBeNull();
   });
+
+  test("a Mad Scientist puts a share of its income in a Dome fund once it has a silo and a SAM, keeps it whole, and builds a Dome from it (r25)", async () => {
+    const pct = BigInt(AI_TUNING.mad_scientist.domeFundPct);
+    expect(pct).toBeGreaterThan(0n);
+    const fund = async (option: string, capital = true) => {
+      const { g, me } = await domeGame(option);
+      const { structure, nuke } = nationAt(g, "me");
+      const b = structure as unknown as {
+        updateDomeFund(): void;
+        spendable(): bigint;
+        maybeSpawnStructure(t: UnitType): boolean;
+        getPerceivedCost(t: UnitType): bigint;
+        tryBuildSmartDome(): boolean;
+      };
+      const n = nuke as unknown as {
+        nukeTypesToTry(atomOnly: boolean, answering: boolean): UnitType[];
+        purse(): bigint;
+      };
+      const bombs = (answering: boolean) => n.nukeTypesToTry(false, answering);
+      if (capital) me.buildUnit(UnitType.Capital, g.ref(40, 40), {});
+      cities(g, me, 40, 40);
+      me.removeGold(me.gold());
+      const earn = (gold: bigint) => {
+        me.addGold(gold);
+        b.updateDomeFund();
+      };
+      // No silo and no SAM yet: nothing goes in
+      earn(10_000_000n);
+      const before = structure.domeFundHeld();
+      me.buildUnit(UnitType.MissileSilo, g.ref(80, 100), {});
+      me.buildUnit(UnitType.SAMLauncher, g.ref(80, 80), {});
+      b.updateDomeFund(); // the fund starts now
+      earn(40_000_000n);
+      return { g, me, b, n, structure, bombs, earn, before };
+    };
+    // A Normal nation has no fund
+    const normal = await fund("normal");
+    expect(normal.structure.domeFundHeld()).toBe(0n);
+    expect(normal.structure.heldForDome()).toBeNull();
+
+    const ms = await fund("mad_scientist");
+    expect(ms.before).toBe(0n);
+    const share = (40_000_000n * pct) / 100n;
+    expect(ms.structure.domeFundHeld()).toBe(share);
+    // Its bombs leave the fund alone, even those answering a hit, and weigh
+    // their price against the rest of its gold
+    expect(ms.structure.heldForDome()).toBe(share);
+    expect(ms.n.purse()).toBe(ms.me.gold() - share);
+    expect(normal.n.purse()).toBe(normal.me.gold());
+    const atom = ms.g.unitInfo(UnitType.AtomBomb).cost(ms.g, ms.me);
+    ms.me.removeGold(ms.me.gold() - share - atom + 1n);
+    expect(ms.bombs(true)).toEqual([]);
+    ms.me.addGold(1n);
+    expect(ms.bombs(true)).toContain(UnitType.AtomBomb);
+    // Its building leaves the fund alone
+    expect(ms.b.spendable()).toBe(ms.me.gold() - share);
+    ms.me.removeGold(ms.me.gold() - share);
+    ms.me.addGold(ms.b.getPerceivedCost(UnitType.City) - 1n);
+    expect(ms.b.maybeSpawnStructure(UnitType.City)).toBe(false);
+    ms.me.addGold(1n);
+    expect(ms.b.maybeSpawnStructure(UnitType.City)).toBe(true);
+    // Income fills it up to the next Dome's price, and the Dome goes up
+    for (let i = 0; i < 10; i++) ms.earn(50_000_000n);
+    expect(ms.structure.domeFundHeld()).toBe(50_000_000n);
+    expect(ms.b.tryBuildSmartDome()).toBe(true);
+    expect(ms.structure.domeFundHeld()).toBe(0n);
+
+    // Its Capital may draw on the fund: it pays the fund back soonest
+    const late = await fund("mad_scientist", false);
+    late.earn(100_000_000n);
+    late.me.removeGold(late.me.gold() - late.structure.domeFundHeld());
+    expect(late.b.spendable()).toBe(0n);
+    expect(late.b.maybeSpawnStructure(UnitType.City)).toBe(false);
+    expect(late.b.maybeSpawnStructure(UnitType.Capital)).toBe(true);
+  });
+
+  test("a Mad Scientist's Dome fund round-trips in snapshots (r25)", async () => {
+    const g = await setup(
+      "big_plains",
+      {
+        derpyRules: 6,
+        aiPersonalities: ["mad_scientist"],
+        difficulty: Difficulty.Medium,
+        instantBuild: true,
+      },
+      [new PlayerInfo("foe", PlayerType.Human, null, "foe")],
+      undefined,
+      TestConfig,
+      false,
+      [
+        new Nation(
+          new Cell(100, 60),
+          new PlayerInfo("me", PlayerType.Nation, null, "me"),
+        ),
+      ],
+    );
+    const exec = new NationExecution("fund_snapshot", g.nations()[0]);
+    g.addExecution(exec);
+    executeTicks(g, 10);
+    g.endSpawnPhase();
+    executeTicks(g, 3);
+    const me = g.player("me");
+    for (let x = 1; x < 199; x++) {
+      for (let y = 1; y <= 129; y++) me.conquer(g.ref(x, y));
+    }
+    me.buildUnit(UnitType.MissileSilo, g.ref(80, 100), {});
+    me.buildUnit(UnitType.SAMLauncher, g.ref(80, 80), {});
+    const structure = exec["structureBehavior"];
+    for (let i = 0; i < 300 && structure["domeFundMark"] === null; i++) {
+      g.executeNextTick();
+    }
+    me.addGold(20_000_000n);
+    for (let i = 0; i < 300 && structure.domeFundHeld() === 0n; i++) {
+      g.executeNextTick();
+    }
+    expect(structure.domeFundHeld()).toBeGreaterThan(0n);
+    await expectSnapshotRoundTrip(g, "big_plains", 20);
+  }, 60_000);
 
   test("they find a smaller cluster worth shielding", async () => {
     // Four cities: worth a Dome to them, not yet to a Normal nation
