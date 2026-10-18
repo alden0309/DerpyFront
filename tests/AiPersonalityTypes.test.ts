@@ -341,14 +341,20 @@ describe("how each one tunes a nation", () => {
     expect(
       AI_TUNING.mad_scientist.costRisePct[UnitType.MissileSilo],
     ).toBeLessThan(100);
-    // r24: their extras come once their economy is going; Mad Scientists
-    // and Protectors save for a Dome their income reaches in ten minutes
+    // r24: their extras come once their economy is going; Protectors save
+    // for a Dome their income reaches in ten minutes. r25: a Mad Scientist
+    // puts a share of its income in a Dome fund instead, and only it does
     expect(NORMAL_TUNING.extrasFromCities).toBe(0);
     expect(AI_TUNING.mad_scientist.extrasFromCities).toBe(4);
     expect(AI_TUNING.protector.extrasFromCities).toBe(3);
     expect(NORMAL_TUNING.domeReachMinutes).toBe(0);
-    expect(AI_TUNING.mad_scientist.domeReachMinutes).toBe(10);
+    expect(AI_TUNING.mad_scientist.domeReachMinutes).toBe(0);
     expect(AI_TUNING.protector.domeReachMinutes).toBe(10);
+    expect(NORMAL_TUNING.domeFundPct).toBe(0);
+    expect(AI_TUNING.mad_scientist.domeFundPct).toBeGreaterThan(0);
+    for (const t of ["trader", "aggressive", "protector"] as const) {
+      expect(AI_TUNING[t].domeFundPct).toBe(0);
+    }
     // An Aggressive nation buys a city whenever it can pay for one
     expect(AI_TUNING.aggressive.costRisePct[UnitType.City]).toBe(0);
   });

@@ -284,9 +284,14 @@ export const AI_TUNING: Record<AiType, AiTuning> = {
     },
     preemptiveDomes: 5,
     domeBarPct: 50,
-    // r24: once it has its SAMs and silos, it saves for a Dome its income
-    // reaches within ten minutes (it rarely held most of $50M at once)
-    domeReachMinutes: 10,
+    // r25: a Dome fund instead of r24's saving for a Dome its income reaches
+    // (that stopped all its building, and it still raised under a third of
+    // Normal's Domes). 35% of its income, once it has a silo and a SAM,
+    // raised as many Domes as Normal in 20-minute games and half again its
+    // old count in 45-minute ones, for some of its SAMs, silos and bombs;
+    // at 45% it built fewer SAMs than Normal and no more Domes
+    domeReachMinutes: 0,
+    domeFundPct: 35,
     nukes: "focused",
     nukeCostRisePct: 20,
     holdsBombsForMirv: false,
