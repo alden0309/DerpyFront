@@ -309,6 +309,7 @@ export class NationExecution implements Execution {
       this.player,
       this.emojiBehavior,
       () => this.attackBehavior.recentBomber(),
+      () => this.structureBehavior.domeFundHeld(),
     );
     this.allianceBehavior = new NationAllianceBehavior(
       this.random,
@@ -339,7 +340,8 @@ export class NationExecution implements Execution {
       this.player,
       this.attackBehavior,
       this.emojiBehavior,
-      () => this.structureBehavior.savingForDome(),
+      () => this.structureBehavior.heldForDome(),
+      () => this.structureBehavior.domeFundHeld(),
     );
     this.structureBehavior = new NationStructureBehavior(
       this.random,
@@ -533,8 +535,14 @@ export class NationExecution implements Execution {
     const nuke = shell(NationNukeBehavior);
     const structure = shell(NationStructureBehavior);
     emoji.restoreSnapshot(b.emoji, r, random, player);
-    mirv.restoreSnapshot(b.mirv, r, random, player, emoji, () =>
-      attack.recentBomber(),
+    mirv.restoreSnapshot(
+      b.mirv,
+      r,
+      random,
+      player,
+      emoji,
+      () => attack.recentBomber(),
+      () => structure.domeFundHeld(),
     );
     alliance.restoreSnapshot(b.alliance, r, random, player, emoji);
     warship.restoreSnapshot(b.warship, r, random, player, emoji);
@@ -547,8 +555,15 @@ export class NationExecution implements Execution {
       emoji,
       warship,
     );
-    nuke.restoreSnapshot(b.nuke, r, random, player, attack, emoji, () =>
-      structure.savingForDome(),
+    nuke.restoreSnapshot(
+      b.nuke,
+      r,
+      random,
+      player,
+      attack,
+      emoji,
+      () => structure.heldForDome(),
+      () => structure.domeFundHeld(),
     );
     structure.restoreSnapshot(b.structure, r, random, player);
     this.emojiBehavior = emoji;

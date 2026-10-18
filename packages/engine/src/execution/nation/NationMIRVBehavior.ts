@@ -163,6 +163,8 @@ export class NationMIRVBehavior {
     private emojiBehavior: NationEmojiBehavior,
     /** AIP (r24): who bombed this nation within the last minute, if anyone. */
     private recentBomber: () => Player | null = () => null,
+    /** AIP (r25): gold in this nation's Dome fund, which a MIRV leaves alone. */
+    private domeFund: () => Gold = () => 0n,
   ) {}
 
   /** No state of its own; the owner supplies the shared references. */
@@ -178,6 +180,7 @@ export class NationMIRVBehavior {
     player: Player,
     emojiBehavior: NationEmojiBehavior,
     recentBomber: () => Player | null = () => null,
+    domeFund: () => Gold = () => 0n,
   ): void {
     readVersioned(NationMIRVBehaviorSnapshot, raw);
     this.random = random;
@@ -185,6 +188,7 @@ export class NationMIRVBehavior {
     this.player = player;
     this.emojiBehavior = emojiBehavior;
     this.recentBomber = recentBomber;
+    this.domeFund = domeFund;
   }
 
   private get hesitationOdds(): number {
@@ -262,7 +266,7 @@ export class NationMIRVBehavior {
     if (this.player.units(UnitType.MissileSilo).length === 0) {
       return false;
     }
-    if (this.player.gold() < this.cost(UnitType.MIRV)) {
+    if (this.player.gold() - this.domeFund() < this.cost(UnitType.MIRV)) {
       return false;
     }
 

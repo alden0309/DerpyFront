@@ -184,6 +184,16 @@ export interface AiTuning {
    * the price (0: as nations do).
    */
   domeReachMinutes: number;
+  /**
+   * AIP r25: percent of its income it puts in a Dome fund once it has a
+   * missile silo and a SAM (on Easy, once a nuke has come at it), up to
+   * the next Dome of Alden's price (0: none). Its building (but its first
+   * Capital, defense posts and warships) and its bombs (unless it is being
+   * overrun) leave the fund alone, and its bombs weigh their price against
+   * the rest of its gold. A nation with a fund doesn't stop building to
+   * save up for a Dome.
+   */
+  domeFundPct: number;
   /** Percent chance, per decision, that it looks for a fight nobody started. */
   warPct: number;
   /** One time in this many it asks a bordering player to ally (30 usually). */
@@ -238,6 +248,7 @@ export const NORMAL_TUNING: AiTuning = {
   preemptiveDomes: 3,
   domeBarPct: 100,
   domeReachMinutes: 0,
+  domeFundPct: 0,
   warPct: 100,
   allyAskOdds: 30,
   betrayal: "usual",

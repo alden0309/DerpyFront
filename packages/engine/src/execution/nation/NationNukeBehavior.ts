@@ -114,6 +114,8 @@ export class NationNukeBehavior {
     private emojiBehavior: NationEmojiBehavior,
     /** Derpy Front (rules 4+): gold held for a Dome, if any. */
     private domeSavings: () => Gold | null = () => null,
+    /** AIP (r25): gold in this nation's Dome fund (a Mad Scientist's). */
+    private domeFund: () => Gold = () => 0n,
   ) {}
 
   snapshot(w: SnapshotWriter): Versioned {
@@ -146,6 +148,7 @@ export class NationNukeBehavior {
     attackBehavior: AiAttackBehavior,
     emojiBehavior: NationEmojiBehavior,
     domeSavings: () => Gold | null = () => null,
+    domeFund: () => Gold = () => 0n,
   ): void {
     const s = readVersioned(NationNukeBehaviorSnapshot, raw);
     this.random = random;
@@ -154,6 +157,7 @@ export class NationNukeBehavior {
     this.attackBehavior = attackBehavior;
     this.emojiBehavior = emojiBehavior;
     this.domeSavings = domeSavings;
+    this.domeFund = domeFund;
     this.recentlySentNukes = s.recentlySentNukes.map(([tick, tile, type]) => [
       tick,
       tile,
@@ -283,7 +287,7 @@ export class NationNukeBehavior {
     if (
       !atomOnly &&
       !config.isUnitDisabled(UnitType.HydrogenBomb) &&
-      this.player.gold() >= this.getPerceivedNukeCost(UnitType.HydrogenBomb) &&
+      this.purse() >= this.getPerceivedNukeCost(UnitType.HydrogenBomb) &&
       this.canSpare(this.cost(UnitType.HydrogenBomb), answering)
     ) {
       types.push(UnitType.HydrogenBomb);
@@ -294,7 +298,7 @@ export class NationNukeBehavior {
         difficulty === Difficulty.Impossible ||
         this.triesEveryBomb()) &&
       !config.isUnitDisabled(UnitType.AtomBomb) &&
-      this.player.gold() >= this.getPerceivedNukeCost(UnitType.AtomBomb) &&
+      this.purse() >= this.getPerceivedNukeCost(UnitType.AtomBomb) &&
       this.canSpare(this.cost(UnitType.AtomBomb), answering)
     ) {
       types.push(UnitType.AtomBomb);
@@ -312,13 +316,28 @@ export class NationNukeBehavior {
   }
 
   /**
+   * AIP (r25): the gold its bombs weigh their price against: all but a Mad
+   * Scientist's Dome fund (all of it for other nations). Counting the fund
+   * there made every bomb look cheap, and it threw them as fast as it
+   * earned.
+   */
+  private purse(): Gold {
+    return this.player.gold() - this.domeFund();
+  }
+
+  /**
    * Derpy Front (rules 4+): whether we can spend `gold` on bombs while
    * saving for a Dome. Only from what is over the Dome's price, unless we
-   * are being overrun.
+   * are being overrun. AIP (r25): a Mad Scientist's Dome fund is held the
+   * same way, even when it answers whoever hits it (its answers emptied
+   * most of the fund before it ever paid for a Dome).
    */
   private canSpare(gold: Gold, answering = false): boolean {
     const held = this.domeSavings();
-    if (held === null || this.allOut() || answering) return true;
+    if (held === null || this.allOut()) return true;
+    if (answering && playerAiTuning(this.game, this.player).domeFundPct <= 0) {
+      return true;
+    }
     return this.player.gold() - gold >= held || this.isUnderHeavyAttack();
   }
 
@@ -1014,13 +1033,13 @@ export class NationNukeBehavior {
     // Saving up for a MIRV is not relevant
     if (
       this.game.config().gameConfig().gameMode === GameMode.Team &&
-      this.player.gold() > this.cost(UnitType.HydrogenBomb)
+      this.purse() > this.cost(UnitType.HydrogenBomb)
     ) {
       return true;
     }
 
     // Return the actual cost if we already have enough gold to buy both a MIRV and a hydro
-    if (this.player.gold() > this.mirvSaveUpTarget()) {
+    if (this.purse() > this.mirvSaveUpTarget()) {
       return true;
     }
 
@@ -1653,7 +1672,7 @@ export class NationNukeBehavior {
 
       // Check gold for all fired bombs (including wasted ones)
       const totalCost = atomCost * BigInt(bombsToFire);
-      if (this.player.gold() < totalCost || !this.canSpare(totalCost)) {
+      if (this.purse() < totalCost || !this.canSpare(totalCost)) {
         continue;
       }
 

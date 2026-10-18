@@ -778,5 +778,31 @@ describe("Nation Dome memory in snapshots", () => {
     expect(s.nukeImpacts).toEqual([]);
     expect(s.lastDomeTick).toBeNull();
     expect(s.domeRetryTick).toBeNull();
+    expect(s.domeFund).toBe(0n);
+    expect(s.domeFundMark).toBeNull();
+  });
+
+  test("a version 2 record (before AIP r25) reads with no Dome fund", () => {
+    const v2 = {
+      v: 2,
+      d: {
+        lastStructureTick: 5,
+        placementsCount: 2,
+        builtCrowdedMapFirstStructure: false,
+        hasHighStartingGold: null,
+        postSaveUpStartTick: null,
+        nukedTick: 40,
+        nukeImpacts: [[40, 7]],
+        lastDomeTick: 30,
+        domeRetryTick: null,
+        domeSavingUntil: null,
+        domeSaveStartTick: 20,
+      },
+    };
+    const s = readVersioned(NationStructureBehaviorSnapshot, v2);
+    expect(s.lastDomeTick).toBe(30);
+    expect(s.domeSaveStartTick).toBe(20);
+    expect(s.domeFund).toBe(0n);
+    expect(s.domeFundMark).toBeNull();
   });
 });
