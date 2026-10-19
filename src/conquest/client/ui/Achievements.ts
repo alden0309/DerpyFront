@@ -12,6 +12,8 @@
 // their owners.
 
 import { html, nothing, svg, TemplateResult } from "lit";
+import type { ChallengeDone } from "../../../derpland/Challenges"; // CHAL (r25)
+import { CHALLENGE_BONUS, CHALLENGE_COINS } from "../../../derpland/Challenges"; // CHAL (r25)
 import {
   ACHIEVEMENT_BY_KEY,
   ACHIEVEMENT_GROUPS,
@@ -38,6 +40,9 @@ import { dlcOwned, STORE_CAMPAIGNS, STORE_LEGENDS } from "../Dlc"; // CQACH (r22
 import type { GameUi } from "./Context";
 import { pageHead } from "./Nav";
 
+/** CHAL (r25): minutes at the table before a game counts for the challenges (the server's CHALLENGE_MIN_TABLE_SECS). */
+const CHALLENGE_MIN_MINUTES = 10;
+
 // ---------------------------------------------------------------- LEGACY (r21): Derp Coins as you play
 
 /** What the server has told us of this game's pay (null until it has). */
@@ -46,6 +51,29 @@ export const payStore: { last: PayNote | null } = { last: null };
 /** A payment (or where you stand, on sitting down). */
 export function onPaid(m: PayNote): void {
   payStore.last = m;
+}
+
+/** CHAL (r25): the weekly challenges finished while you've been playing (this sitting). */
+export const challengeStore: { done: ChallengeDone[] } = { done: [] };
+
+/** CHAL (r25): weekly challenges just finished: kept, and their toasts' words. */
+export function onChallenge(done: ChallengeDone[]): string[] {
+  const words: string[] = [];
+  for (const c of done) {
+    if (challengeStore.done.some((x) => x.key === c.key)) continue;
+    challengeStore.done.push(c);
+    words.push(`Weekly challenge done: ${c.name}. +${c.coins} Derp Coins.`);
+    if (c.bonus)
+      words.push(
+        `All three of this week's Conquest challenges: +${c.bonus} Derp Coins more!`,
+      );
+  }
+  return words;
+}
+
+/** CHAL (r25): the Derp Coins they paid. */
+export function challengeCoins(done: ChallengeDone[]): number {
+  return done.reduce((n, c) => n + c.coins + (c.bonus ?? 0), 0);
 }
 
 /** "rose in a trade, renown and children": the lines that just paid, in words. */
@@ -84,6 +112,13 @@ function coinsPanel(ui: GameUi): TemplateResult {
       <b>At the end:</b> whatever is left, and ${LIFE_COINS.reached1776} for
       living to see 1776.
     </li>
+    <li>
+      <b>Weekly challenges:</b> three a week, the same for everyone (the Derp
+      Land home page shows them and where you stand). Each pays once,
+      ${CHALLENGE_COINS.easy} to ${CHALLENGE_COINS.hard} coins, and all three
+      ${CHALLENGE_BONUS} more. What you do at the table counts, once you've
+      played a game ${CHALLENGE_MIN_MINUTES} minutes.
+    </li>
   </ul>`;
   if (!p || !p.signedIn || !life)
     return html`<section class="cq-section cq-coins-panel">
@@ -108,6 +143,14 @@ function coinsPanel(ui: GameUi): TemplateResult {
       <span class="cq-ach-stat"
         ><b>${p.linePaid}</b> for your line's marks and achievements</span
       >
+      ${challengeStore.done.length
+        ? html`<span
+            class="cq-ach-stat"
+            title=${challengeStore.done.map((c) => c.name).join(", ")}
+            ><b>${challengeCoins(challengeStore.done)}</b> for this week's
+            challenges (${challengeStore.done.length})</span
+          >`
+        : nothing}
       ${p.held > 0
         ? html`<span
             class="cq-ach-stat"

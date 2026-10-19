@@ -1749,6 +1749,18 @@ const GOALS: Goal[] = [
     go: tab({ k: "tab", tab: "journal", sub: "achievements" }),
     guide: "coins",
   },
+  // ---- CHAL (r25): the weekly challenges
+  {
+    id: "weekly-challenges",
+    title: "See this week's challenges",
+    words:
+      "weekly challenges week challenge bonus derp coins goals quests tasks missions this week rewards progress",
+    group: "Travel and the world",
+    where:
+      "On the Derp Land home page (This week's challenges): three for Derpy Conquest and three for DerpyFront, where you stand and the time left. Each pays once a week, and all three a bonus; you're told here the moment one is done.",
+    go: (ui) => ui.modal({ k: "guide", ch: "coins" }),
+    guide: "coins",
+  },
   {
     id: "pause-company",
     title: "Pause the game (or start it again) in company",

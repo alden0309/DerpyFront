@@ -101,9 +101,10 @@ import { nationPage, worldTab } from "./ui/World";
 import { tripLeave } from "../engine/Leave"; // ECON (r17)
 import {
   achievementToasts,
-  grewWords,
+  grewWords, // CHAL (r25)
   onAchieved,
   onAchievementList,
+  onChallenge,
   onPaid,
   payStore,
   type AchievementToast,
@@ -724,6 +725,19 @@ export class GameView extends LitElement {
           );
         this.requestRender();
         return;
+      // CHAL (r25): weekly challenges just finished (and paid).
+      case "challenge": {
+        const words = onChallenge(m.done);
+        for (const w of words)
+          this.toast(w, "good", {
+            k: "tab",
+            tab: "journal",
+            sub: "achievements",
+          });
+        if (words.length) play("honour");
+        this.requestRender();
+        return;
+      }
       // DICE (r14): how long the player whose turn it is has to bid.
       case "diceclock":
         onDiceClock(m);
