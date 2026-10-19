@@ -30,6 +30,11 @@ import {
   itemGrants,
 } from "./DerpyCatalog";
 import {
+  challengesInGame,
+  playerChallenges,
+  weekView,
+} from "./DerpyChallenges"; // CHAL (r25)
+import {
   conquestGamePage, // LEGACY (r21)
   conquestLeaderboard,
   overallLeaderboard,
@@ -328,6 +333,45 @@ export function derpyApiRouter(): express.Router {
     }),
   );
 
+  // CHAL (r25): this week's challenges for both games, with the signed-in
+  // account's progress (signed out: the challenges alone).
+  router.get(
+    "/challenges",
+    handle(async (req, res) => {
+      const token = bearer(req);
+      const found = token ? await accountForToken(token) : null;
+      res.json(await weekView(found?.account.id ?? null));
+    }),
+  );
+
+  // CHAL (r25): a player's challenges for their profile: this week's, and
+  // the last few weeks'. By account, so a rename keeps them.
+  router.get(
+    "/challenges/player/:username",
+    handle(async (req, res) => {
+      const p = await playerChallenges(String(req.params.username));
+      if (p === null) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      res.json(p);
+    }),
+  );
+
+  // CHAL (r25): the challenges a game finished for the signed-in account,
+  // for its end screen (asked again until the game is saved).
+  router.get(
+    "/challenges/game/:id",
+    requireAccount(async (req, res) => {
+      const id = String(req.params.id);
+      if (!/^[A-Za-z0-9-]{1,60}$/.test(id)) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      res.json(await challengesInGame(req.derpy!.account.id, id));
+    }),
+  );
+
   // SITE (r19): the games being played right now that anyone may watch (no
   // account needed), for the front page and each game's page. Made at most
   // every couple of seconds, however many ask.
@@ -421,7 +465,8 @@ export function derpyApiRouter(): express.Router {
         () => account.id,
       );
       const line = lines.get(account.id);
-      res.json({ coins: line?.coins ?? 0 });
+      // CHAL (r25): with the weekly challenges it finished.
+      res.json({ coins: line?.coins ?? 0, challenges: line?.challenges ?? [] });
     }),
   );
 

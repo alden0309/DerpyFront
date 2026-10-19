@@ -21,9 +21,11 @@ import {
 import { replacer } from "@openfront/shared/SharedUtil";
 import { GameRecord, PlayerRecord } from "@openfront/shared/WireSchemas";
 import { gunzipSync, gzipSync } from "zlib";
+import type { ChallengeDone } from "../../derpland/Challenges"; // CHAL (r25)
 import { logger } from "../Logger";
 import { getMapLandTilesForSize } from "../MapLandTiles";
 import { accountsForPlayIds } from "./DerpyAuth";
+import { recordFrontChallenges } from "./DerpyChallenges"; // CHAL (r25)
 import {
   ConquestGameSummary,
   conquestProfile,
@@ -45,6 +47,8 @@ export interface PlayerLine {
   nukes: number;
   awards: AwardKind[];
   coins: number;
+  /** CHAL (r25): weekly challenges this game finished for the account (and what they paid, on top of `coins`). */
+  challenges?: ChallengeDone[];
 }
 
 function n(v: bigint | string | number | undefined | null): number {
@@ -257,6 +261,31 @@ export async function recordDerpyGame(
       accounts: credited.length,
       bytes: blob.length,
     });
+    // CHAL (r25): the week's challenges, for each account the game paid
+    // (only when it was saved now, so never twice).
+    if (lines.size > 0) {
+      const done = await recordFrontChallenges(
+        record,
+        credited.flatMap(({ player, accountId }) => {
+          const line = lines.get(accountId);
+          return line
+            ? [
+                {
+                  accountId,
+                  player,
+                  line,
+                  conquered: conquestsFromStats(player.stats).humansAndNations,
+                },
+              ]
+            : [];
+        }),
+        numLandTiles,
+      );
+      for (const [accountId, list] of done) {
+        const line = lines.get(accountId);
+        if (line) line.challenges = list;
+      }
+    }
   } catch (err) {
     log.error(`failed to save game ${record.info.gameID}: ${err}`);
   }

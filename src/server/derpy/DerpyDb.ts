@@ -1,6 +1,7 @@
 // Derp Land's database: accounts, sessions, saved DerpyFront games (for
 // stats and replays), Derpy Conquest results, saved campaigns and
-// achievements, store purchases, and Mr. Based's saves and notes, in the
+// achievements, store purchases, weekly challenges (CHAL r25), and Mr.
+// Based's saves and notes, in the
 // Postgres that DATABASE_URL points at
 // (a free Neon database on the hosted site). Without DATABASE_URL the game
 // still runs; accounts and the store just say they aren't set up.
@@ -281,6 +282,36 @@ CREATE TABLE IF NOT EXISTS derpy_conquest_days (
 -- given back (RetiredRefunds.ts), so each is refunded once.
 ALTER TABLE derpy_accounts
   ADD COLUMN IF NOT EXISTS refunded TEXT[] NOT NULL DEFAULT '{}';
+-- CHAL (r25): weekly challenges (DerpyChallenges.ts). Each account's
+-- progress on each of a week's challenges (week: weeks since 1970 on New
+-- York's calendar, Monday to Monday), when it was done and what it paid,
+-- and the game that did it; a game's bonus is a row of its own
+-- (key 'bonus:<game>'). Paid once: only the update that sets done_at pays.
+CREATE TABLE IF NOT EXISTS derpy_challenges (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  week INTEGER NOT NULL,
+  key TEXT NOT NULL,
+  progress INTEGER NOT NULL DEFAULT 0,
+  done_at TIMESTAMPTZ,
+  coins INTEGER NOT NULL DEFAULT 0,
+  game_id TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, week, key)
+);
+CREATE INDEX IF NOT EXISTS derpy_challenges_game
+  ON derpy_challenges (account_id, game_id) WHERE game_id IS NOT NULL;
+-- CHAL (r25): the DerpyFront games that counted for an account's
+-- challenges, timed by the server, so two played at once count once.
+CREATE TABLE IF NOT EXISTS derpy_challenge_games (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  game_id TEXT NOT NULL,
+  week INTEGER NOT NULL,
+  started_at TIMESTAMPTZ NOT NULL,
+  ended_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (account_id, game_id)
+);
+CREATE INDEX IF NOT EXISTS derpy_challenge_games_time
+  ON derpy_challenge_games (account_id, ended_at);
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two
