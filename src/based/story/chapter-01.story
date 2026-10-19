@@ -29,6 +29,12 @@
 @cast PENHALLOW "Penhallow" portrait=penhallow body=WOMAN
 @cast WATCHER "The man under the awning" look=coat_dark
 @cast PORTER "The desk clerk" look=desk_clerk
+// r25: Le Vauban's regulars, for a livelier bar. Nobody the story needs.
+@cast REGULAR "The old man at the bar" look=old_beret
+@cast WORKER "The man in the blue jersey" look=worker_blue
+@cast COUPLE_M "The man in the tan coat" look=trench_tan
+@cast COUPLE_F "The woman in the red coat" look=coat_red
+@cast READER "The man with the book" look=sweater_grey
 @cast PRESIDENT "Montclar" look=suit_dark
 @cast COLONEL "The Colonel" look=uniform_navy
 
@@ -145,6 +151,12 @@
 @actor BARMAN behind_bar lean in=vauban
 @actor WOMAN corner_chair sit in=vauban
 @actor PORTER porter_spot in=vauban
+@actor REGULAR stool_4 sit idle=drink in=vauban
+@actor WORKER stool_2 sit idle=drink in=vauban
+@actor COUPLE_M couple_m sit idle=talk:window in=vauban
+@actor COUPLE_F couple_f sit idle=talk:window in=vauban
+@actor READER reader_chair sit idle=read in=vauban
+set crowd
 @news "Le président Montclar annonce une « révision constitutionnelle de salut public » · L'Assemblée suspendue « le temps que la nation reprenne son souffle »"
 @focus street_open
 @card "PARIS" "Eleven days after the election"
@@ -503,11 +515,11 @@ WATCHER [fr]: Seul, monsieur. J'ai dit. | Alone, monsieur. I said.
 @ambient rain_in
 @focus entrance
 Le Vauban had been a hotel bar for a hundred and four years and a good one for about thirty of them.
-Oak to the ceiling, brass to the knee, low lamps that made everyone look like a better version of a worse idea. Eleven stools, all of them empty.
+Oak to the ceiling, brass to the knee, low lamps that made everyone look like a better version of a worse idea. Eleven stools, two of them taken: an old man in a beret with a Ricard, a big man in a blue jersey with a beer.
 @focus bar_end
 He'd stopped counting the exits years ago. These days he counted the people who counted them.
 ~ PERCEPTION medium: He'd stopped counting. His eyes hadn't. Three: the street, the hotel, and the door behind the bar for the staff.
-A barman with a cloth. A woman in the corner with a newspaper. A television above the till, talking to nobody.
+A couple at the window table, talking low. A man in an armchair with a book. A barman with a cloth. A woman in the corner with a newspaper. A television above the till, talking to nobody.
 @focus none
 -> FREE
 
@@ -1112,7 +1124,7 @@ add thoughts 1
 @vignette none
 @focus bar_end
 @actor BARMAN behind_bar_far lean
-Le Vauban had eleven stools and ten of them were empty.
+Le Vauban had eleven stools, and most of them were empty.
 @actor STRANGER lobby
 The man in the grey suit came in from the hotel lobby, not the street, and took the one next to his.
 @actor STRANGER stool_10 sit walk
@@ -1306,7 +1318,7 @@ choose "He waits for a name."
     ~ DECEPTION: Too quick. Nobody says their own name that fast.
     set gave_name
   * silent [Say nothing]
-    STRANGER: A man with no name in a bar with no customers. How very romantic.
+    STRANGER: A man with no name in a bar where nobody talks. How very romantic.
 end
 @figure DELORME
 DELORME: Delorme. It isn't, of course. But it's the one I brought with me, and it would be a shame to waste it.
@@ -1836,6 +1848,66 @@ choose "The clerk waits, his hand on the book."
   * silent [Nothing]
     The clerk nodded, and went back to his book and the rain.
 end
+-> FREE
+
+
+// --- The regulars (r25) ---------------------------------------------------------
+// A livelier bar: two at the bar, a couple at the window table, a man with a
+// book. Nobody the story needs, and nobody who knows anything he shouldn't:
+// a line or two each, and lives of their own while nothing asks anything of
+// them (World.ts plays the idle= on their @actor lines).
+
+== regular "The old man at the bar"
+@on talk REGULAR
+The old man at the bar had a Ricard going cloudy in front of him and the racing page folded under his elbow.
+if tv_off
+  REGULAR [fr]: Merci, pour la télé. | Thank you, for the television.
+  He lifted his glass a centimetre, which at his age was a toast.
+else
+  REGULAR [fr]: Encore lui. Il parle, il parle. | Him again. He talks and he talks.
+  He didn't look up at the screen. He'd seen enough of it.
+end
+REGULAR [fr]: Pas de politique au comptoir. C'est écrit dehors. | No politics at the bar. It's written outside.
+-> FREE
+
+== worker "The man in the blue jersey"
+@on talk WORKER
+The big man in the blue jersey drank his beer as if it were part of the shift.
+WORKER [fr]: Le dernier bus, c'est minuit dix. Après, à pied. | The last bus is ten past midnight. After that, you walk.
+~ EMPATHY easy: He isn't telling him about the bus. He's telling himself he'll be on it.
+-> FREE
+
+== couple_her "The couple at the window"
+@on talk COUPLE_F
+-> couple
+
+== couple "The couple at the window"
+@on talk COUPLE_M
+The couple at the window table stopped talking as he came near, the way people did this month, and waited for him to be somebody else.
+COUPLE_F [fr]: Bonsoir, monsieur. | Good evening, monsieur.
+COUPLE_M [fr medium]: Laisse. C'est un touriste. | Leave it. He's a tourist.
+They went back to each other, lower than before.
+~ EMPATHY medium: Two people deciding something in a bar because it can't be decided at home.
+-> FREE
+
+== reader "The man with the book"
+@on talk READER
+The man in the armchair turned a page and then, since Based was still standing there, looked up over his glasses.
+READER [fr]: Flaubert. Je le relis tous les dix ans. Ça finit toujours mal. | Flaubert. I read him again every ten years. It always ends badly.
+~ He means the book. Probably.
+-> FREE
+
+
+// A save from before the regulars came (r25): they're in their places when
+// he's next free.
+== crowd_r25 "Le Vauban"
+@on auto if not crowd
+@actor REGULAR stool_4 sit idle=drink in=vauban
+@actor WORKER stool_2 sit idle=drink in=vauban
+@actor COUPLE_M couple_m sit idle=talk:window in=vauban
+@actor COUPLE_F couple_f sit idle=talk:window in=vauban
+@actor READER reader_chair sit idle=read in=vauban
+set crowd
 -> FREE
 
 

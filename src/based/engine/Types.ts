@@ -252,7 +252,16 @@ export interface ActorState {
    * people stay where they were left while he's elsewhere.
    */
   place?: string;
+  /**
+   * r25: what they do by themselves while the story asks nothing of them:
+   * "drink", "read", or "talk:group" (talking with the others of the group,
+   * one at a time). The world plays it.
+   */
+  idle?: string;
 }
+
+/** r25: what someone can do by themselves (`@actor ... idle=`). */
+export const IDLES = ["drink", "read", "talk"] as const;
 
 /**
  * r22: what starts a scene in the open world, once the opening has set him

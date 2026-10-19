@@ -219,6 +219,21 @@
     "rope_spot": {
       "at": [14.2, -3.3],
       "face": 236
+    },
+    "couple_m": {
+      "at": [1.45, 1.5],
+      "face": 100,
+      "seat": 0.46
+    },
+    "couple_f": {
+      "at": [2.55, 1.1],
+      "face": 280,
+      "seat": 0.46
+    },
+    "reader_chair": {
+      "at": [-3.6, 1.95],
+      "face": 180,
+      "seat": 0.42
     }
   },
   "hotspots": {
@@ -1220,6 +1235,31 @@
       "mats": {
         "carpet": "#2a1c14"
       }
+    },
+    {
+      "kind": "model",
+      "at": [-3.6, 0, 2.3],
+      "model": "loungeChair",
+      "rot": 180
+    },
+    {
+      "kind": "floorlamp",
+      "at": [-4.45, 0, 2.55],
+      "minor": true,
+      "light": {
+        "intensity": 1.0,
+        "distance": 3
+      }
+    },
+    {
+      "kind": "highball",
+      "at": [1.25, 1.081, -2.62],
+      "color": "#e8dfae"
+    },
+    {
+      "kind": "highball",
+      "at": [3.05, 1.081, -2.62],
+      "color": "#d9a441"
     }
   ],
   "lights": [

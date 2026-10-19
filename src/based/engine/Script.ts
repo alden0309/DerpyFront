@@ -39,6 +39,7 @@ import {
   FREE,
   GEAR_SLOTS,
   GearSlot,
+  IDLES,
   ITEM_KINDS,
   ItemDef,
   ItemKind,
@@ -781,6 +782,20 @@ export function parseChapter(text: string): ParseResult {
         const state: ActorState | null =
           mark === "none" ? null : { at: mark, pose };
         if (state && kv.wear) state.wear = kv.wear;
+        // r25: a life of their own: idle=drink, idle=read, idle=talk:table.
+        if (kv.idle !== undefined) {
+          const [kind, group] = kv.idle.split(":");
+          if (
+            !(IDLES as readonly string[]).includes(kind) ||
+            (group !== undefined && !/^[a-z0-9_]+$/.test(group)) ||
+            (kind === "talk") !== (group !== undefined)
+          ) {
+            err(
+              n,
+              `@actor ... idle=${IDLES.join("|")} (talk:group for a table's talk)`,
+            );
+          } else if (state) state.idle = kv.idle;
+        }
         if (kv.in !== undefined) {
           if (!KEY.test(kv.in)) err(n, "@actor ... in=place");
           // A place for "none" too: gone from there (and not elsewhere).
