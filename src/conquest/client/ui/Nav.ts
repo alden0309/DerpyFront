@@ -8,7 +8,8 @@
 //   Work     your work, finding work, contracts, the law
 //   Estate   your purse, house and land, boats, goods
 //   Society  standing and favour, office, letters, gatherings, causes, a colony
-//   Journal  your diary (and what waits on you), leads, the story so far
+//   Journal  your diary (and what waits on you), leads, the story so far,
+//            your dynasty (TREE r25)
 //   World    wars, causes, the colonies and nations, the other players
 
 import { html, nothing, TemplateResult } from "lit";
@@ -152,12 +153,13 @@ export const TAB_DEFS: TabDef[] = [
     id: "journal",
     label: "Journal",
     blurb:
-      "Your diary and what waits on you, leads, the story so far, and achievements",
+      "Your diary and what waits on you, leads, the story so far, your dynasty, and achievements",
     icon: JournalIcon,
     subs: [
       { id: "diary", label: "Diary", guide: "journal" },
       { id: "leads", label: "Leads", guide: "leads" },
       { id: "story", label: "The story", guide: "end" },
+      { id: "dynasty", label: "Dynasty", guide: "dynasty" }, // TREE (r25)
       { id: "achievements", label: "Achievements", guide: "coins" }, // MAP (r12)
       // DLC (r21): legends, for a seat whose account owns them
       {
