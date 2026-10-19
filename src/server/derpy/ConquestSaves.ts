@@ -178,9 +178,8 @@ export async function deleteSave(
   id: string,
   accountId: number,
 ): Promise<boolean> {
-  const res = await (
-    await db()
-  ).query(
+  const pool = await db();
+  const res = await pool.query(
     `DELETE FROM derpy_conquest_saves
      WHERE game_id = $1 AND COALESCE(owner, (
        SELECT (e->>'accountId')::bigint
@@ -189,7 +188,14 @@ export async function deleteSave(
      RETURNING game_id`,
     [id, accountId],
   );
-  return (res.rowCount ?? 0) > 0;
+  const gone = (res.rowCount ?? 0) > 0;
+  // TREE (r25): an unfinished game's dynasties go with it (a finished one's stay).
+  if (gone)
+    await pool.query(
+      "DELETE FROM derpy_conquest_dynasties WHERE game_id = $1 AND NOT over",
+      [id],
+    );
+  return gone;
 }
 
 /** STORY (r17): take a saved game off one account's list. True if it was on it. */

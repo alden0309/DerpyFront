@@ -101,7 +101,7 @@ describe("Journal › Dynasty (TREE r25)", () => {
     expect(life.querySelector(".cq-dyn-story")).not.toBeNull();
     // Their card in the game.
     (life.querySelector(".cq-btnrow .cq-btn") as HTMLButtonElement).click();
-    expect(f.opened.at(-1)).toMatchObject({ k: "char" });
+    expect(f.opened[f.opened.length - 1]).toMatchObject({ k: "char" });
   });
 
   test("the list shows the same people generation by generation", () => {
@@ -136,7 +136,7 @@ describe("Journal › Dynasty (TREE r25)", () => {
       (b) => /Back to the story/.test(b.textContent ?? ""),
     )!;
     back.click();
-    expect(f.modals.at(-1)).toEqual({ k: "end" });
+    expect(f.modals[f.modals.length - 1]).toEqual({ k: "end" });
     dynastyPick({ view: null });
   });
 });

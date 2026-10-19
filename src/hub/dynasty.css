@@ -1,0 +1,515 @@
+/* TREE (r25): a Derpy Conquest dynasty's page (/dynasty/<player>/<game>):
+   the family tree set down on vellum, as the game sets it down, on Derp
+   Land's graphite, with each life on a card beside it; and the profile's
+   Dynasties. */
+
+@layer components {
+  .dl-dyn-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin: 0 0 12px;
+  }
+  .dl-dyn-controls .dl-seg {
+    margin-bottom: 0;
+  }
+  .dl-dyn-zoom {
+    display: inline-flex;
+    gap: 4px;
+  }
+  .dl-dyn-zoom .dl-btn {
+    min-width: 40px;
+    justify-content: center;
+  }
+  .dl-dyn-thin {
+    max-width: 72ch;
+    margin-top: 6px;
+    font-size: 14px;
+  }
+  .dl-dyn-story-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 6px;
+    color: var(--vellum);
+    white-space: nowrap;
+  }
+  .dl-dyn-story-link .dl-i {
+    width: 16px;
+    height: 16px;
+  }
+
+  .dl-dyn-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  /* ---------------------------------------------------------------- the sheet */
+
+  .dl-dyn-sheet {
+    min-width: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    color: #2b1d12;
+    background:
+      radial-gradient(
+        ellipse at 50% 35%,
+        rgba(255, 249, 228, 0.96),
+        rgba(236, 220, 180, 0.97) 70%,
+        #d6be8c
+      ),
+      #ead8ae;
+    border: 1px solid rgba(234, 216, 174, 0.45);
+    box-shadow: inset 0 0 40px rgba(120, 85, 40, 0.3);
+  }
+  .dl-dyn-view {
+    position: relative;
+    height: min(72vh, 760px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    cursor: grab;
+    scrollbar-color: rgba(120, 85, 40, 0.5) transparent;
+  }
+  .dl-dyn-view.dragging {
+    cursor: grabbing;
+    user-select: none;
+  }
+  .dl-dyn-size {
+    position: relative;
+  }
+  .dl-dyn-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+  }
+  .dl-dyn-lines {
+    position: absolute;
+    inset: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .dl-dyn-line,
+  .dl-dyn-wed {
+    fill: none;
+    stroke: #4a3220;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+  }
+  .dl-dyn-line.hidden {
+    stroke: #7a5a3a;
+  }
+  .dl-dyn-wed {
+    stroke: #8a6420;
+    stroke-width: 1.4;
+  }
+  .dl-dyn-wed.far {
+    stroke-width: 1.2;
+  }
+  .dl-dyn-wed.lovers {
+    stroke: #9e2a1e;
+  }
+  .dl-dyn-title {
+    position: absolute;
+    left: 50%;
+    top: 18px;
+    transform: translateX(-50%);
+    padding: 6px 26px 7px;
+    text-align: center;
+    white-space: nowrap;
+    background: rgba(251, 243, 220, 0.88);
+    border: 1px solid #a88a54;
+    border-radius: 40px / 50%;
+    box-shadow:
+      0 0 0 4px rgba(251, 243, 220, 0.7),
+      0 0 0 5px rgba(138, 106, 62, 0.5);
+  }
+  .dl-dyn-head {
+    font-family: var(--fell);
+    font-size: 25px;
+    line-height: 1.1;
+  }
+  .dl-dyn-sub {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: #6e5538;
+  }
+  .dl-dyn-gen {
+    position: absolute;
+    left: 10px;
+    width: 44px;
+    font-family: var(--fell);
+    font-size: 21px;
+    text-align: center;
+    color: rgba(74, 50, 32, 0.45);
+  }
+
+  /* A person: an oval with their initial over their name, years and kinship. */
+  .dl-dyn-card {
+    position: absolute;
+    width: 116px;
+    height: 150px;
+    padding: 4px 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    font: inherit;
+    text-align: center;
+    color: #2b1d12;
+    background: none;
+    border: 0;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .dl-dyn-card:hover .dl-dyn-emblem {
+    transform: scale(1.05);
+  }
+  .dl-dyn-card:focus-visible {
+    outline: 2px solid #b88a34;
+    outline-offset: 2px;
+  }
+  .dl-dyn-card.chosen {
+    background: rgba(201, 155, 58, 0.22);
+    box-shadow: inset 0 0 0 1px rgba(138, 100, 32, 0.45);
+  }
+  .dl-dyn-emblem {
+    position: relative;
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 70px;
+    font-family: var(--fell);
+    font-size: 30px;
+    line-height: 1;
+    color: #4a3220;
+    background: radial-gradient(
+      ellipse at 50% 38%,
+      #fbf3dc,
+      #e3cf9f 75%,
+      #cdb27a
+    );
+    border: 3px solid #a07c3c;
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(43, 29, 18, 0.35);
+    transition: transform 0.15s;
+  }
+  .dl-dyn-emblem.f {
+    background: radial-gradient(
+      ellipse at 50% 38%,
+      #fdf4e6,
+      #ead2b4 75%,
+      #d4b48e
+    );
+  }
+  .dl-dyn-card.kin .dl-dyn-emblem {
+    width: 50px;
+    height: 61px;
+    margin-top: 6px;
+    font-size: 25px;
+  }
+  .dl-dyn-card.played .dl-dyn-emblem,
+  .dl-dyn-row.played .dl-dyn-emblem {
+    border-color: #8a6420;
+    box-shadow:
+      0 0 0 2px #fbf3dc,
+      0 0 0 4px #8a6420,
+      0 2px 6px rgba(43, 29, 18, 0.45);
+  }
+  .dl-dyn-card.you .dl-dyn-emblem,
+  .dl-dyn-row.you .dl-dyn-emblem {
+    border-color: #9e2a1e;
+    box-shadow:
+      0 0 0 2px #fbf3dc,
+      0 0 0 4px #9e2a1e,
+      0 2px 6px rgba(43, 29, 18, 0.45);
+  }
+  .dl-dyn-card.dead .dl-dyn-emblem,
+  .dl-dyn-row.dead .dl-dyn-emblem {
+    filter: sepia(0.6) saturate(0.7);
+    color: #6e5538;
+  }
+  .dl-dyn-seal {
+    position: absolute;
+    top: -6px;
+    left: -12px;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    font-family: Georgia, serif;
+    font-size: 10.5px;
+    color: #fbe9d6;
+    background: radial-gradient(circle at 38% 34%, #c4483a, #9e2a1e 58%, #6e1a12);
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(43, 29, 18, 0.45);
+  }
+  .dl-dyn-ribbon {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    z-index: 2;
+    transform: translateX(-50%);
+    padding: 0 9px;
+    font-family: var(--fell);
+    font-size: 12px;
+    color: #fbf1dc;
+    background: linear-gradient(#b88a34, #8a6420);
+    clip-path: polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%);
+  }
+  .dl-dyn-name {
+    margin-top: 4px;
+    max-width: 116px;
+    font-family: var(--fell);
+    font-size: 15px;
+    line-height: 1.05;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .dl-dyn-name i {
+    font-style: normal;
+    opacity: 0.85;
+  }
+  .dl-dyn-cross {
+    color: #9e2a1e;
+  }
+  .dl-dyn-dates {
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 11.5px;
+    color: #6e5538;
+  }
+  .dl-dyn-rel {
+    font-size: 11px;
+    line-height: 1.15;
+    color: #6b4a10;
+  }
+  .dl-dyn-card.dead .dl-dyn-name,
+  .dl-dyn-card.dead .dl-dyn-rel {
+    opacity: 0.72;
+  }
+
+  /* ---------------------------------------------------------------- the list */
+
+  .dl-dyn-list > li + li {
+    border-top: 1px solid rgba(138, 106, 62, 0.3);
+  }
+  .dl-dyn-list-gen {
+    padding: 8px 14px 2px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: #6e5538;
+  }
+  .dl-dyn-list-gen span {
+    font-family: var(--fell);
+    font-style: normal;
+    font-size: 17px;
+    color: rgba(74, 50, 32, 0.6);
+  }
+  .dl-dyn-row {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 56px;
+    padding: 5px 14px;
+    font: inherit;
+    text-align: left;
+    color: #2b1d12;
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+  .dl-dyn-row:hover,
+  .dl-dyn-row.chosen {
+    background: rgba(201, 155, 58, 0.2);
+  }
+  .dl-dyn-row .dl-quiet {
+    color: #6e5538;
+    font-size: 13px;
+  }
+  .dl-dyn-emblem.small {
+    width: 40px;
+    height: 48px;
+    font-size: 21px;
+    border-width: 2px;
+  }
+  .dl-dyn-emblem.small .dl-dyn-seal {
+    width: 20px;
+    height: 20px;
+    font-size: 9px;
+    top: -5px;
+    left: -9px;
+  }
+  .dl-dyn-row-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .dl-dyn-row-text b {
+    font-family: var(--fell);
+    font-weight: 400;
+    font-size: 17px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ---------------------------------------------------------------- their life */
+
+  .dl-dyn-life {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    box-shadow: inset 3px 0 0 var(--conquest);
+  }
+  .dl-dyn-life-head {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .dl-dyn-life-head .dl-h2 {
+    margin: 0;
+    font-family: var(--fell);
+    font-weight: 400;
+    font-size: 23px;
+    color: var(--vellum);
+  }
+  .dl-dyn-emblem.big {
+    width: 60px;
+    height: 72px;
+    font-size: 30px;
+  }
+  .dl-dyn-fate {
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .dl-dyn-fate .dl-quiet {
+    display: block;
+    font-size: 13px;
+  }
+  .dl-dyn-facts {
+    margin: 10px 0 4px;
+  }
+  .dl-dyn-life .dl-chron-h3 {
+    margin: 16px 0 6px;
+    font-size: 17px;
+  }
+  .dl-dyn-work {
+    padding-left: 20px;
+    font-size: 14px;
+    line-height: 1.5;
+    list-style: decimal;
+  }
+  ul.dl-dyn-work {
+    list-style: disc;
+  }
+  .dl-dyn-moments li {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 8px;
+    padding: 3px 0;
+    font-size: 14px;
+    line-height: 1.45;
+    border-bottom: 1px solid var(--line);
+  }
+  .dl-dyn-moments time {
+    font-family: var(--fell);
+    color: var(--vellum);
+    font-variant-numeric: tabular-nums;
+  }
+  .dl-dyn-moments li.big span {
+    font-weight: 650;
+  }
+  .dl-dyn-chapter {
+    margin-top: 12px;
+  }
+  .dl-dyn-now {
+    margin-top: 12px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(71, 176, 114, 0.12);
+    font-size: 14px;
+  }
+
+  /* ---------------------------------------------------------------- the profile's Dynasties */
+
+  .dl-dynasties {
+    margin-top: 20px;
+  }
+  .dl-dynasties .dl-h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dl-dynasties .dl-h2 .dl-i {
+    color: var(--vellum);
+  }
+  .dl-dyn-rows li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px 14px;
+    align-items: center;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .dl-dyn-rows li:last-child {
+    border-bottom: 0;
+  }
+  .dl-dyn-rows .dl-dyn-fam {
+    font-family: var(--fell);
+    font-size: 19px;
+    color: var(--vellum);
+  }
+  .dl-dyn-rows .dl-game-chars {
+    overflow-wrap: anywhere;
+  }
+  .dl-dyn-state {
+    font-size: 13px;
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  .dl-dyn-state.playing {
+    color: var(--good);
+  }
+
+  /* The game's story page: each line's way to its tree. */
+  .dl-chron-tree-link {
+    margin-left: auto;
+    font-family: var(--body);
+    font-size: 13.5px;
+  }
+
+  @media (max-width: 900px) {
+    .dl-dyn-split {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .dl-dyn-life {
+      position: static;
+      max-height: none;
+    }
+  }
+  @media (max-width: 640px) {
+    .dl-dyn-view {
+      height: 64vh;
+    }
+    .dl-dyn-rows li {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+    .dl-dyn-rows .dl-dyn-state {
+      grid-column: 1;
+    }
+  }
+}

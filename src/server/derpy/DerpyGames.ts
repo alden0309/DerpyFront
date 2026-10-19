@@ -2,6 +2,7 @@
 // line, and the Derp Coins they earned. Read back for profiles, the
 // leaderboard and replays.
 
+import type { DynastySummary } from "../../conquest/engine/DynastyCore"; // TREE (r25)
 import { AwardKind, GameAwards } from "@openfront/engine-api/game/Awards";
 import { GameMapSize, GameMapType } from "@openfront/engine-api/game/GameTypes";
 import { DERPY_RULES } from "@openfront/engine-api/Schemas";
@@ -406,6 +407,8 @@ export interface Profile {
     /** MAP (r12) */
     achievements?: ProfileAchievement[];
     achievementCount?: number;
+    /** TREE (r25): the account's Derpy Conquest dynasties, newest first. */
+    dynasties?: DynastySummary[];
   };
 }
 

@@ -1,6 +1,6 @@
 // Derp Land's database: accounts, sessions, saved DerpyFront games (for
-// stats and replays), Derpy Conquest results, saved campaigns and
-// achievements, store purchases, and Mr. Based's saves and notes, in the
+// stats and replays), Derpy Conquest results, saved campaigns, dynasties
+// and achievements, store purchases, and Mr. Based's saves and notes, in the
 // Postgres that DATABASE_URL points at
 // (a free Neon database on the hosted site). Without DATABASE_URL the game
 // still runs; accounts and the store just say they aren't set up.
@@ -281,6 +281,26 @@ CREATE TABLE IF NOT EXISTS derpy_conquest_days (
 -- given back (RetiredRefunds.ts), so each is refunded once.
 ALTER TABLE derpy_accounts
   ADD COLUMN IF NOT EXISTS refunded TEXT[] NOT NULL DEFAULT '{}';
+
+-- TREE (r25): each account's Derpy Conquest dynasty in each game: its
+-- line's family tree and every life on it (nothing secret, no ids), kept
+-- each time the game is saved and for good when it ends (over), for the
+-- profile's Dynasties (ConquestDynasties.ts). A new table: nothing else moves.
+CREATE TABLE IF NOT EXISTS derpy_conquest_dynasties (
+  game_id TEXT NOT NULL,
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  family TEXT NOT NULL,
+  from_year INTEGER NOT NULL,
+  to_year INTEGER NOT NULL,
+  lives INTEGER NOT NULL,
+  names JSONB NOT NULL DEFAULT '[]',
+  over BOOLEAN NOT NULL DEFAULT false,
+  record JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (game_id, account_id)
+);
+CREATE INDEX IF NOT EXISTS derpy_conquest_dynasties_account
+  ON derpy_conquest_dynasties (account_id, updated_at DESC);
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two

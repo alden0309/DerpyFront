@@ -71,7 +71,8 @@ app.use(async (req, res, next) => {
   const page =
     PAGES[req.path] ??
     (/^\/player\/[A-Za-z0-9_]{1,20}$/.test(req.path) ||
-    /^\/chronicle\/[A-Za-z0-9-]{1,60}$/.test(req.path) // LEGACY (r21)
+    /^\/chronicle\/[A-Za-z0-9-]{1,60}$/.test(req.path) || // LEGACY (r21)
+    /^\/dynasty\/[A-Za-z0-9_]{1,20}\/[A-Za-z0-9-]{1,60}$/.test(req.path) // TREE (r25)
       ? "derpland.html"
       : undefined);
   if (page === undefined) {

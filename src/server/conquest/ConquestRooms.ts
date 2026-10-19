@@ -90,6 +90,7 @@ import {
   ServerMessage,
   StoredChronicle,
 } from "../../conquest/Protocol";
+import { keepDynasty, siteDynasty } from "../derpy/ConquestDynasties"; // TREE (r25)
 import {
   deleteSave,
   finishedFor,
@@ -1843,6 +1844,7 @@ export class ConquestRooms {
       accountId: s.accountId,
     }));
     room.lastSaved = this.now();
+    const saveId = room.saveId;
     const saving = saveConquest(
       room.saveId,
       titleOf(room),
@@ -1856,6 +1858,7 @@ export class ConquestRooms {
         .filter((x) => x.conn && x.accountId !== null)
         .map((x) => x.accountId!),
     )
+      .then(() => this.keepDynasties(room, saveId)) // TREE (r25)
       .then(() =>
         this.broadcast(
           room,
@@ -1874,6 +1877,26 @@ export class ConquestRooms {
       });
     room.saving = saving;
     return saving;
+  }
+
+  /**
+   * TREE (r25): each signed-in seat's dynasty as the site keeps it (no ids,
+   * nothing secret), with the save; for good once the game is over. A
+   * dynasty that can't be kept never stops the save.
+   */
+  private async keepDynasties(room: Room, saveId: string): Promise<void> {
+    const s = room.game?.state;
+    if (!s) return;
+    for (const seat of room.seats) {
+      if (seat.accountId === null) continue;
+      const life = lifeOfSeat(s, seat.id);
+      if (!life?.line.length) continue;
+      try {
+        await keepDynasty(saveId, seat.accountId, siteDynasty(s, life, AMERICAS));
+      } catch (err) {
+        log.warn(`couldn't keep a dynasty in ${room.code}: ${err}`);
+      }
+    }
   }
 
   // ---------------------------------------------------------------- clock

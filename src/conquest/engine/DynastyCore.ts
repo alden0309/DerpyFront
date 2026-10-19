@@ -131,6 +131,32 @@ export interface DynastyRecord {
   thin?: true;
 }
 
+/** A dynasty on a Derp Land profile's list. */
+export interface DynastySummary {
+  gameId: string;
+  family: string;
+  /** The years of the line: from its first, to the year it was set down. */
+  from: number;
+  to: number;
+  /** How many lives the line was, and their names in order. */
+  lives: number;
+  names: string[];
+  /** The game has ended. */
+  over: boolean;
+  /** "kept": its whole tree; "story": a game finished before dynasties were kept. */
+  kind: "kept" | "story";
+  /** When it was last set down (ISO). */
+  at: string;
+}
+
+/** A dynasty's page on Derp Land (GET /derpy/api/players/:username/dynasty/:gameId). */
+export interface DynastyPage {
+  /** The account's name now. */
+  username: string;
+  summary: DynastySummary;
+  record: DynastyRecord;
+}
+
 /** A person's name as the tree writes it. */
 export function dynName(p: DynPerson): string {
   return p.styled ?? `${p.first} ${p.family}`.trim();
