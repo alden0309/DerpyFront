@@ -120,7 +120,6 @@
 @carry "Delorme has had room forty-one since the election." if knows_room
 @carry "A car takes room forty-one to Satory at six." if knows_car
 @carry "The barman has decided he likes you." if rel.anselme >= 2
-@carry "The man under the awning knows you saw him." if leaned_on_watcher
 @carry "London knows about the car to Satory at six." if texted_london
 @carry "Delorme's card has a Versailles number pressed into it." if knows_versailles
 @carry "A police baton went missing from a van on the rue de Grenelle." if took_baton
@@ -335,11 +334,7 @@ set saw_moped
 
 == moped_again "A moped"
 @on look moped
-if watcher_gone
-  The moped was where it had been. Nobody had come back for it; or nobody wanted to be seen coming back for it.
-else
-  The moped, the helmet on its mirror, the little bronze leaf. Nobody came for it.
-end
+The moped, the helmet on its mirror, the little bronze leaf. Nobody came for it.
 -> FREE
 
 
@@ -404,10 +399,9 @@ end
 
 == cig_ends "Cigarette ends"
 @on look cig_ends
-if watcher_gone
-  The cigarette ends were where he'd left them, a little constellation of patience on the wet stone, and one more, smoked to the filter, a step apart.
-else
-  ~ INSTINCT medium: Nine ends under the awning, none smoked past halfway. Nine cigarettes lit and put out without wanting them. He isn't smoking. He's keeping time.
+Cigarette ends under the awning, on the wet stone where the man stood, a little constellation of them.
+~ INSTINCT medium: Nine, none smoked past halfway. Nine cigarettes lit and put out without wanting them. He isn't smoking. He's keeping time.
+if heard
   set counted_ends
 end
 -> FREE
@@ -468,74 +462,31 @@ end
 -> FREE
 
 
+// r25: the man under the awning. Talking to him is Mr. Based offering a
+// light; he wants to be alone, and that's the end of it. He stays where he
+// is: the street needs him there (the mirror, the signal).
 == watcher "The man under the awning"
-@on talk WATCHER once if not met_contact
+@on talk WATCHER once
 Under the awning of the closed pharmacy, out of the rain, a man in a dark coat was holding a cigarette he hadn't lit.
-WATCHER [fr]: Vous avez du feu ? | Got a light?
-choose "He's holding out the cigarette."
-  * needs=matchbook|brass_lighter [Give him a light] "Here."
-    if has.matchbook
-      He struck one of Le Vauban's matches and cupped it. The man leaned in, looked at the flame and not at the face behind it, and didn't light the cigarette.
-    else
-      He thumbed the brass lighter and held it out. The man leaned in, looked at the flame, then at the engraving on the base, and didn't light the cigarette.
-    end
-    WATCHER [fr]: Merci. Finalement, non. | Thanks. On second thoughts, no.
-    ~ INSTINCT medium: He doesn't want it lit. Not yet. An unlit cigarette is a man waiting for a signal; a lit one means he's had it.
-    set watcher_light
-  * needs=cigarettes [Offer him one of yours] "Have one of mine. Yours looks tired."
-    The man looked at the blue packet, and at him, and took one, and put it behind his ear with the other.
-    WATCHER: Corsaires. Nobody smokes Corsaires, monsieur. Only the machines sell them.
-    ~ EMPATHY medium: He's been told not to take anything from anyone. He took it anyway. He's cold, and bored, and twenty-three.
-    set watcher_light
-    set watcher_warmed
-  * white INTIMIDATION medium if armed [Let him see the baton] "Who sent you to stand under that awning?"
-    The man looked at the baton, and then very carefully at nothing.
-    WATCHER: Nobody sent me. I watch a door for a man who pays. The man in grey. Now go and have your drink, monsieur, and I'll forget your face.
-    ~ INSTINCT: The man in grey pays him. So the man in grey isn't police: police don't pay, they send.
-    set leaned_on_watcher
-    set watcher_told
-  fail
-    WATCHER: Put that away, monsieur. There's a van at the corner, and it isn't mine.
-  * white INTIMIDATION challenging [Ask who he's waiting for] "You've been under that awning since I turned the corner. Who are you waiting for?"
-    bonus +1 if van "The van with nobody in it"
-    bonus +1 if counted_ends "Nine cigarettes, none smoked"
-    The man looked at him properly for the first time, and then at the bar's warm windows across the road, and then at nothing.
-    WATCHER: Nobody you know, monsieur. Go and have your drink.
-    ~ He said it in English. He'd heard my accent and he's been told to watch for an American. No: told to watch the bar. I'm just the American who walked up to him.
-    set leaned_on_watcher
-  fail
-    WATCHER [fr]: Je ne comprends pas, monsieur. | I don't understand, sir.
-    He understood perfectly. He turned his shoulder to the rain and to the question.
-  * silent [Leave him be]
-    He left the man to his awning and his cigarette.
+if has.matchbook
+  He tore a match from Le Vauban's book and held it ready to strike.
+  BASED: Need a light?
+elif has.brass_lighter
+  He thumbed the brass lighter open and held it out.
+  BASED: Need a light?
+else
+  BASED: Need a light? The bar will have matches.
 end
+The man looked at him, and then at the cigarette, as if he'd forgotten it was in his hand.
+WATCHER [fr]: Non, merci. Je veux juste être seul. | No, thanks. I just want to be alone.
+He turned his shoulder to the rain, and to him, and that was the end of that.
 set met_watcher
--> FREE
-
-== watcher_after "The man under the awning"
-@on talk WATCHER if met_contact and not watcher_gone
-The man under the awning had lit his cigarette at last. He smoked it the way men smoke when they've finished work and haven't been told they can go home.
-choose "He doesn't look at you."
-  * white INTIMIDATION medium [Tell him to go home] "Whoever you were waiting for came and went. Go home."
-    bonus +2 if leaned_on_watcher "He's met you before"
-    He dropped the cigarette, ground it out with care, and walked off towards the boulevard without hurrying. Twice he looked back.
-    @actor WATCHER watcher_gone walk
-    set watcher_gone
-  fail
-    WATCHER: I'm going home when I'm told, monsieur. Same as you.
-  * if armed [Let him see the baton] "Your shift's over."
-    The man looked at the baton for a long second, then dropped his cigarette and walked off towards the boulevard. He didn't look back once, which was its own kind of looking.
-    @actor WATCHER watcher_gone walk
-    set watcher_gone
-  * silent [Leave him be]
-    He left the man to his awning.
-end
 -> FREE
 
 == watcher_idle "The man under the awning"
 @on talk WATCHER
-WATCHER [fr]: Bonne soirée, monsieur. | Good evening, sir.
-He said it to the rain.
+The man under the awning didn't look round.
+WATCHER [fr]: Seul, monsieur. J'ai dit. | Alone, monsieur. I said.
 -> FREE
 
 
@@ -566,17 +517,17 @@ A barman with a cloth. A woman in the corner with a newspaper. A television abov
 @on look room_mirror once
 The mirror behind the bottles had the whole street in it, backwards and gold. Across the road, under the awning of the closed pharmacy, a man in a dark coat was holding a cigarette he hadn't lit.
 if met_watcher
-  ~ INSTINCT: My friend with the matches. From in here he has the door, the windows and the woman in the corner, and nobody inside has him.
+  ~ INSTINCT: The man who wanted to be alone. From over there he has the door, the windows and the woman in the corner, and nobody inside has him.
 else
-  ~ INSTINCT: Twenty minutes with an unlit cigarette. Either he's quitting, or he's waiting for a signal.
+  ~ INSTINCT: A cigarette he won't light, in this rain. Either he's quitting, or he's waiting for a signal.
 end
 set room_mirror
 -> FREE
 
 == mirror_again "The mirror"
 @on look room_mirror
-if watcher_gone
-  In the mirror the awning across the road was empty. A cigarette end lay on the pavement where the man had stood.
+if delorme_gone
+  In the mirror, across the road, the man under the awning was still there, smoking now, the way men smoke when they've finished work and haven't been told they can go home.
 else
   In the mirror, across the road, the man under the awning was still there, and still not smoking.
 end
@@ -1860,12 +1811,8 @@ end
 @weather drizzle
 @ambient rain
 Outside the rain had thinned to the kind that doesn't fall so much as hang about.
-if watcher_gone
-  The pharmacy awning was empty. There was a cigarette end on the pavement where the man had been, smoked down to the filter. He'd had a long wait.
-else
-  Across the road, under the awning of the closed pharmacy, a man in a dark coat dropped a cigarette and walked away without looking back.
-  @actor WATCHER watcher_gone walk
-end
+Across the road, under the awning of the closed pharmacy, a man in a dark coat dropped a cigarette and walked away without looking back.
+@actor WATCHER watcher_gone walk
 Somewhere above the rooftops a television was turned up too loud, and the President of the Republic was explaining to an empty kitchen why freedom needed a rest.
 if tv_off
   The barman's was off. Other people's weren't.
