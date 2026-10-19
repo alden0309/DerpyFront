@@ -216,6 +216,32 @@ describe.skipIf(!TEST_DB)(
       expect(row(await state(alden), pat)).toBeUndefined();
     });
 
+    test("a beat doesn't touch the database once its session is known; signing out ends it", async () => {
+      const { alden } = users;
+      await beat(alden, { k: "home" });
+      const spy = vi.spyOn(pool, "query");
+      await beat(alden, { k: "store" });
+      await beat(alden, { k: "home" });
+      await state(alden);
+      // An open page doesn't keep the free database awake.
+      expect(spy).not.toHaveBeenCalled();
+      spy.mockRestore();
+
+      const { login } = await import("../../src/server/derpy/DerpyAuth");
+      const s = await login("Fr_Gary", "hunter22");
+      if (typeof s === "string") throw new Error(s);
+      const tab = { tab: "gary-other-tab", where: { k: "home" } };
+      expect(
+        (await call("/social/beat", { token: s.token, body: tab })).status,
+      ).toBe(200);
+      expect((await call("/logout", { token: s.token, body: {} })).status).toBe(
+        204,
+      );
+      expect(
+        (await call("/social/beat", { token: s.token, body: tab })).status,
+      ).toBe(401);
+    });
+
     test("appearing offline: nobody sees you, it lasts, and you can come back", async () => {
       const { alden, pat } = users;
       await beat(pat, { k: "home" });
@@ -228,6 +254,7 @@ describe.skipIf(!TEST_DB)(
 
       // The server starts again: the choice is in the database.
       P.presence.clear();
+      S.resetSocial();
       await beat(pat, { k: "home" });
       expect(row(await beat(alden, { k: "home" }), pat)).toBeUndefined();
       const db = await pool.query(

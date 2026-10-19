@@ -47,7 +47,7 @@ import {
   savedGameRecord,
 } from "./DerpyGames";
 import { checkName, nameStatus, renameAccount } from "./DerpyNames"; // NAMES (r20)
-import { socialRenamed, socialRouter } from "./DerpySocial"; // FRIENDS (r25)
+import { socialRenamed, socialRouter, socialSignedOut } from "./DerpySocial"; // FRIENDS (r25)
 import { liveGames } from "./LiveGames"; // SITE (r19)
 
 const log = logger.child({ component: "DerpyApi" });
@@ -185,6 +185,7 @@ export function derpyApiRouter(): express.Router {
     handle(async (req, res) => {
       const token = bearer(req);
       if (token) await logout(token);
+      socialSignedOut(token); // FRIENDS (r25)
       res.status(204).end();
     }),
   );

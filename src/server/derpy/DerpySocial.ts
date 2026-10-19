@@ -8,8 +8,10 @@
 // small request, no socket to hold open per page, nothing to reconnect after
 // the free plan's server sleeps or restarts, and a beat doubles as the
 // heartbeat that keeps someone "online". What each account's rows say is
-// kept here between beats (this process makes every change to them), so a
-// beat costs one session lookup, not a handful of queries.
+// kept here between beats (this process makes every change to them, and
+// drops what it kept for whoever a change touches), and so is who a session
+// belongs to (dropped at sign-out): a beat doesn't touch the database at
+// all, so an open page doesn't keep the free database awake.
 
 import express, { NextFunction, Request, Response } from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
@@ -25,8 +27,8 @@ import type {
   SocialError,
   SocialState,
 } from "../../derpland/SocialTypes";
-import { type Account, hashToken } from "./DerpyAuth";
-import { db, inTransaction } from "./DerpyDb";
+import { type Account, accountForToken, hashToken } from "./DerpyAuth";
+import { db, DerpyDbUnavailable, inTransaction } from "./DerpyDb";
 import { liveGames } from "./LiveGames";
 import {
   isAt,
@@ -43,8 +45,13 @@ import {
 export const PARTY_MAX = 8;
 /** An invite (to a game or a party) is good for this long at most. */
 export const INVITE_MAX_AGE_MS = 30 * 60_000;
-/** What's kept of an account's rows is looked at again after this long anyway. */
-export const SOCIAL_CACHE_MS = 60_000;
+/**
+ * What's kept of an account's rows is read again after this long anyway
+ * (every change made here drops it at once).
+ */
+export const SOCIAL_CACHE_MS = 30 * 60_000;
+/** Who a session belongs to, kept for beats this long (sign-out drops it). */
+export const SESSION_CACHE_MS = 30 * 60_000;
 
 // ---------------------------------------------------------------- limits
 
@@ -279,7 +286,9 @@ export async function socialState(me: Account): Promise<SocialState> {
   // appearing offline still sent it, so their own whereabouts count.
   const invites: InviteRow[] = [];
   const invitedTargets: Target[] = [];
+  const fresh = (at: string) => Date.now() - Date.parse(at) < INVITE_MAX_AGE_MS;
   for (const inv of s.invites) {
+    if (!fresh(inv.at)) continue;
     const w = here.get(inv.fromId);
     const t = targetOf(w);
     if (!w || !t || t.game !== inv.game || t.id !== inv.target) continue;
@@ -397,10 +406,12 @@ export async function socialState(me: Account): Promise<SocialState> {
     requests: { incoming: s.incoming, outgoing: s.outgoing },
     invites,
     party,
-    partyInvites: s.partyInvites.map((x) => ({
-      ...x,
-      from: presence.username(x.fromId) ?? x.from,
-    })),
+    partyInvites: s.partyInvites
+      .filter((x) => fresh(x.at))
+      .map((x) => ({
+        ...x,
+        from: presence.username(x.fromId) ?? x.from,
+      })),
   };
 }
 
@@ -569,6 +580,7 @@ export async function inviteToGame(me: number, to: number): Promise<Result> {
   });
   if ("error" in result) return result;
   forget([to]);
+  void sweepInvites().catch(() => {});
   return { ok: true };
 }
 
@@ -897,6 +909,37 @@ const ERROR_STATUS: Record<SocialError, number> = {
 const TAB = z.string().regex(/^[A-Za-z0-9_-]{4,40}$/);
 const Id = z.object({ id: z.coerce.number().int().positive() });
 
+const sessions = new Map<string, { account: Account; at: number }>();
+
+/**
+ * The account a session token belongs to, for beats: from what's kept when
+ * it can be (no database), else as every other route finds it.
+ */
+async function beatAccount(token: string): Promise<Account | null> {
+  if (!token) return null;
+  const key = hashToken(token);
+  const hit = sessions.get(key);
+  if (
+    hit &&
+    Date.now() - hit.at < SESSION_CACHE_MS &&
+    presence.username(hit.account.id) !== null
+  )
+    return hit.account;
+  const found = await accountForToken(token);
+  if (!found) {
+    sessions.delete(key);
+    return null;
+  }
+  if (sessions.size >= 5000) sessions.delete(sessions.keys().next().value!);
+  sessions.set(key, { account: found.account, at: Date.now() });
+  return found.account;
+}
+
+/** Signed out: the session isn't taken for a beat any more. */
+export function socialSignedOut(token: string): void {
+  if (token) sessions.delete(hashToken(token));
+}
+
 /** A renamed account: its new name shows in everyone's lists at once. */
 export function socialRenamed(id: number, username: string): void {
   presence.learn(id, username);
@@ -952,6 +995,30 @@ export function socialRouter({
     });
   const plain = (fn: (me: number) => Promise<Result>) =>
     requireAccount(async (req, res) => answer(req, res, await fn(me(req).id)));
+  /** Signed in (from the kept sessions), or a 401; errors as a JSON 500 or 503. */
+  const beating =
+    (fn: (account: Account, req: Request, res: Response) => Promise<unknown>) =>
+    (req: Request, res: Response) => {
+      const auth = req.headers.authorization ?? "";
+      const token = auth.startsWith("Bearer ")
+        ? auth.slice("Bearer ".length).trim()
+        : typeof req.body?.token === "string"
+          ? (req.body.token as string)
+          : "";
+      void (async () => {
+        const account = await beatAccount(token);
+        if (!account) {
+          res.status(401).json({ error: "signed_out" });
+          return;
+        }
+        await fn(account, req, res);
+      })().catch((err: unknown) => {
+        if (res.headersSent) return;
+        if (err instanceof DerpyDbUnavailable)
+          res.status(503).json({ error: "accounts_unavailable" });
+        else res.status(500).json({ error: "server_error" });
+      });
+    };
 
   // Where this page is, and what it shows. `leaving`: the page is closing
   // (a beacon), so it's gone from the list at once.
@@ -959,28 +1026,26 @@ export function socialRouter({
     "/beat",
     json,
     beatLimiter,
-    requireAccount(async (req, res) => {
+    beating(async (account, req, res) => {
       const tab = TAB.safeParse(req.body?.tab);
       if (!tab.success) {
         res.status(400).json({ error: "invalid" });
         return;
       }
-      const account = me(req);
       if (req.body?.leaving === true) {
         presence.leave(account.id, tab.data);
         res.status(204).end();
         return;
       }
       presence.beat(account.id, tab.data, readClientWhere(req.body?.where));
-      void sweepInvites().catch(() => {});
       res.json(await socialState(account));
     }),
   );
 
   router.get(
     "/state",
-    requireAccount(async (req, res) => {
-      res.json(await socialState(me(req)));
+    beating(async (account, _req, res) => {
+      res.json(await socialState(account));
     }),
   );
 
@@ -1066,6 +1131,7 @@ export function socialRouter({
 /** For tests: forget every account's rows and every limit. */
 export function resetSocial(): void {
   cache.clear();
+  sessions.clear();
   for (const l of Object.values(LIMITS)) l.clear();
   lastSwept = 0;
 }
