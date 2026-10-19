@@ -36,6 +36,7 @@ import "./components/LobbyPlayerView";
 import { inviteFriendsButton } from "./components/ui/InviteFriendsButton";
 import { DEFAULT_TITLE_CLASS, modalHeader } from "./components/ui/ModalHeader";
 import { DERPY_API } from "./derpy/DerpySession";
+import { unlockLobby } from "./derpy/LobbyPassword"; // FRIENDS (r25)
 import { openReplayViewer } from "./replay/ReplayEntry";
 import { nationsConfigToSlider } from "./utilities/GameConfigHelpers";
 import {
@@ -1122,7 +1123,7 @@ export class JoinLobbyModal extends BaseModal {
       return false;
     }
 
-    let gameInfo: { exists?: boolean };
+    let gameInfo: { exists?: boolean; locked?: boolean };
     try {
       gameInfo = await response.json();
     } catch (error) {
@@ -1131,6 +1132,13 @@ export class JoinLobbyModal extends BaseModal {
     }
 
     if (gameInfo.exists) {
+      // FRIENDS (r25): a lobby whose host gave it a password asks for it
+      // first (an invite's link carries a pass instead). Giving up is
+      // handled here: nothing more to say, and no "not found".
+      if (gameInfo.locked && !(await unlockLobby(lobbyId))) {
+        this.resetTrackingState();
+        return true;
+      }
       // A spectator can enter a game that is already running, so the usual
       // "waiting for host to start" is wrong for them.
       this.showMessage(

@@ -235,6 +235,8 @@ export class WorkerLobbyService {
       lobbies: [...publicLobbies, ...hostedLobbies],
       liveGames: this.gm.activeGames(),
       ...(runningChanged ? { running } : {}),
+      // Derp Land (FRIENDS r25): which lobbies have a password (ids only).
+      locked: this.gm.lockedLobbies(),
     } satisfies WorkerLobbyList);
   }
 

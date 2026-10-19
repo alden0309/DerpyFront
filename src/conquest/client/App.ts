@@ -43,6 +43,12 @@ export class ConquestApp extends LitElement {
   @state() private game: GameStart | null = null;
   @state() private joinCode = "";
   @state() private notices: Notice[] = [];
+  /** FRIENDS (r25): a room with a password, asking for it. */
+  @state() private asked: {
+    code: string;
+    why: "required" | "wrong" | "too_many";
+  } | null = null;
+  @state() private typed = "";
 
   private net = new Net();
   private noticeId = 0;
@@ -70,6 +76,8 @@ export class ConquestApp extends LitElement {
     };
     const params = new URLSearchParams(location.search);
     const join = params.get("join");
+    // FRIENDS (r25): an invite's link carries a pass past a room's password.
+    const pass = params.get("pass");
     // SITE (r19): a Watch button on Derp Land (or the lobby) comes here with ?watch=.
     const watch = params.get("watch");
     const ticket = savedRejoin();
@@ -81,7 +89,11 @@ export class ConquestApp extends LitElement {
       this.net.ticket = { code: ticket.code, secret: ticket.secret };
     this.net.connect();
     if (join) {
-      this.net.send({ t: "join", code: this.joinCode });
+      this.net.send({
+        t: "join",
+        code: this.joinCode,
+        ...(pass ? { pass: pass.slice(0, 80) } : {}),
+      });
       history.replaceState(null, "", location.pathname);
     }
     window.addEventListener(DERPY_ACCOUNT_EVENT, this.onAccount);
@@ -93,6 +105,12 @@ export class ConquestApp extends LitElement {
     super.disconnectedCallback();
     window.removeEventListener(DERPY_ACCOUNT_EVENT, this.onAccount);
     this.net.close();
+  }
+
+  protected updated(changed: Map<string, unknown>): void {
+    // FRIENDS (r25): the password box takes the keys as it opens.
+    if (changed.has("asked") && this.asked && !changed.get("asked"))
+      this.querySelector<HTMLInputElement>(".cq-pw-ask input")?.focus();
   }
 
   private onAccount = (): void => {
@@ -134,11 +152,18 @@ export class ConquestApp extends LitElement {
         this.lobby = m;
         this.game = null;
         this.screen = "room";
+        this.asked = null; // FRIENDS (r25): in
         return;
       case "game":
         this.game = m;
         this.lobby = null;
         this.screen = "game";
+        this.asked = null;
+        return;
+      // FRIENDS (r25): that room has a password: ask for it (again).
+      case "needpass":
+        if (this.asked?.code !== m.code) this.typed = "";
+        this.asked = { code: m.code, why: m.why };
         return;
       case "err":
         this.notice(m.msg);
@@ -150,6 +175,72 @@ export class ConquestApp extends LitElement {
         return;
     }
   };
+
+  /** FRIENDS (r25): "This game has a password": type it, Join or Never mind. */
+  private passwordDialog(): TemplateResult {
+    const a = this.asked!;
+    const close = () => {
+      this.asked = null;
+      if (this.screen === "connecting") this.screen = "lobby";
+    };
+    const say =
+      a.why === "wrong"
+        ? "That isn't the password."
+        : a.why === "too_many"
+          ? "Too many tries. Wait a minute, then try again."
+          : "Its host gave it a password. Type it in to join.";
+    return html`<div
+      class="cq-ask-back"
+      @click=${(e: Event) => {
+        if (e.target === e.currentTarget) close();
+      }}
+      @keydown=${(e: KeyboardEvent) => {
+        if (e.key === "Escape") close();
+      }}
+    >
+      <form
+        class="cq-ask cq-sheet cq-pw-ask"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cq-pw-head"
+        @submit=${(e: Event) => {
+          e.preventDefault();
+          const password = this.typed.trim();
+          if (password) this.net.send({ t: "join", code: a.code, password });
+        }}
+      >
+        <h2 class="cq-h2" id="cq-pw-head">
+          Game <span class="cq-code">${a.code}</span> has a password
+        </h2>
+        <p class=${a.why === "required" ? "" : "cq-pw-wrong"} role="alert">
+          ${say}
+        </p>
+        <label class="cq-field">
+          <span>Password</span>
+          <input
+            type="password"
+            autocomplete="off"
+            maxlength="40"
+            .value=${this.typed}
+            @input=${(e: Event) =>
+              (this.typed = (e.target as HTMLInputElement).value)}
+          />
+        </label>
+        <div class="cq-btnrow end">
+          <button type="button" class="cq-btn" @click=${close}>
+            Never mind
+          </button>
+          <button
+            type="submit"
+            class="cq-btn primary"
+            ?disabled=${!this.typed.trim()}
+          >
+            Join
+          </button>
+        </div>
+      </form>
+    </div>`;
+  }
 
   private notice(text: string, tone: "good" | "bad" = "bad"): void {
     const id = ++this.noticeId;
@@ -220,7 +311,7 @@ export class ConquestApp extends LitElement {
         ></cq-game>`;
         break;
     }
-    return html`${body}
+    return html`${body} ${this.asked ? this.passwordDialog() : ""}
       <div class="cq-notices" aria-live="assertive">
         ${this.notices.map(
           (n) => html`<div class="cq-toast ${n.tone ?? "bad"}">${n.text}</div>`,

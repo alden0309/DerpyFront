@@ -275,7 +275,7 @@ export class SocialClient {
     if (
       pull &&
       !this.notNow.has(pull.key) &&
-      !s.invites.some((i) => i.href === pull.href)
+      !s.invites.some((i) => samePlace(i.href, pull.href))
     )
       out.push(pull);
     for (const i of s.invites)
@@ -333,6 +333,13 @@ export class SocialClient {
     // Leaving this page takes it off the list; the next one says where it is.
     window.location.assign(href);
   }
+}
+
+/** Two links into the same lobby or table (each carries its own pass). */
+export function samePlace(a: string, b: string): boolean {
+  const bare = (href: string) =>
+    href.replace(/[?&]pass=[^&#]*/, "").replace(/\?$/, "");
+  return bare(a) === bare(b);
 }
 
 function pullOf(p: PartyView | null): Extract<Notice, { kind: "pull" }> | null {

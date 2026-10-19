@@ -394,6 +394,25 @@ export function joinIcon(cls = "dl-i"): TemplateResult {
   </svg>`;
 }
 
+/** A padlock, saying `label`: a lobby or table with a password (FRIENDS r25). */
+export function lockIcon(label: string, cls = "dl-i-sm"): TemplateResult {
+  return html`<svg
+    class=${cls}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    role="img"
+    aria-label=${label}
+  >
+    <title>${label}</title>
+    <rect x="5" y="11" width="14" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>`;
+}
+
 /** A person with a plus: add a friend. */
 export function addPersonIcon(cls = "dl-i"): TemplateResult {
   return html`<svg

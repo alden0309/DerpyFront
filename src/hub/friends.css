@@ -127,6 +127,12 @@ dl-online {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.dl-flock {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  color: var(--accent-2);
+}
 .dl-fdot {
   width: 8px;
   height: 8px;

@@ -583,6 +583,7 @@
     "invalid_message": "The server couldn't read your join request.",
     "invalid_token": "Your session token was rejected.",
     "lobby_full": "The lobby is full.",
+    "lobby_locked": "This lobby has a password. Open its link again to type it in.",
     "login_required": "You must be logged in to play on this server.",
     "no_heartbeat": "The server stopped hearing from you.",
     "not_allowlisted": "You are not on this lobby's allowlist.",
@@ -744,6 +745,7 @@
     "join_party": "Join party",
     "leave_hands_over": "The party goes on, led by whoever's been in it longest.",
     "leave_party": "Leave party",
+    "locked": "Has a password",
     "make_leader": "Make leader",
     "more": "More for {name}",
     "no_friends_yet": "No friends yet. Add someone by their username.",
@@ -1833,6 +1835,18 @@
     "watching_count": "{count} watching",
     "watching_title": "{count} watching this game",
     "watching_word": "watching"
+  },
+  "lobby_password": {
+    "error": "The password couldn't be checked. Please try again.",
+    "join": "Join",
+    "label": "Password",
+    "placeholder": "Type one",
+    "prompt_body": "Its host gave it one. Type it in to join.",
+    "prompt_title": "This lobby has a password",
+    "required": "Type the password to join.",
+    "set_failed": "The password couldn't be saved. Please try again.",
+    "too_many": "Too many tries. Wait a minute, then try again.",
+    "wrong": "That isn't the password."
   },
   "main": {
     "account": "Account",

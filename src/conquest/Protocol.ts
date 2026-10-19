@@ -56,6 +56,8 @@ export interface OpenRoom {
   /** SITE (r19): once it's begun, the id to watch it by, and how many do. */
   watchId?: string;
   watchers?: number;
+  /** FRIENDS (r25): its host gave it a password (joining asks for it). */
+  locked?: boolean;
 }
 
 /** SITE (r19): watchers a game may have at once. */
@@ -247,7 +249,8 @@ export type ClientMessage =
   | { t: "hello"; name: string; token?: string }
   | { t: "list" }
   | { t: "create"; solo: boolean; open: boolean; settings: RoomSettings }
-  | { t: "join"; code: string }
+  /** FRIENDS (r25): a room with a password takes it, or an invite's pass. */
+  | { t: "join"; code: string; password?: string; pass?: string }
   | { t: "rejoin"; code: string; secret: string }
   | { t: "resume"; id: string }
   /** The character you'll be, made before the game starts. */
@@ -274,7 +277,9 @@ export type ClientMessage =
   // SITE (r19): watch a game (by its watch id), and the host letting
   // watchers into a private (or solo) game, or shutting them out.
   | { t: "watch"; id: string }
-  | { t: "allowwatch"; allow: boolean };
+  | { t: "allowwatch"; allow: boolean }
+  // FRIENDS (r25): the host gives the room a password, or takes it away (null).
+  | { t: "password"; password: string | null };
 
 export type ServerMessage =
   | {
@@ -305,6 +310,8 @@ export type ServerMessage =
       seats: SeatInfo[];
       /** SITE (r19): the host lets watchers into this private (or solo) game. */
       allowWatchers?: boolean;
+      /** FRIENDS (r25): the host gave it a password (never sent itself). */
+      locked?: boolean;
     }
   | {
       t: "game";
@@ -389,4 +396,7 @@ export type ServerMessage =
   | PayNote
   // CHAL (r25): weekly challenges just finished, and what they paid (the
   // game's bonus with the third of the week's).
-  | { t: "challenge"; done: ChallengeDone[] };
+  | { t: "challenge"; done: ChallengeDone[] }
+  // FRIENDS (r25): that room has a password: none was given, the wrong
+  // one, or too many tries just now. The page asks for it.
+  | { t: "needpass"; code: string; why: "required" | "wrong" | "too_many" };

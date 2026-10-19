@@ -33,6 +33,7 @@ export const SOCIAL_TEXT = {
   place_cq_game_year: "Playing Derpy Conquest: {year}",
   place_cq_watch: "Watching Derpy Conquest",
   offline: "Offline",
+  locked: "Has a password",
   // The list
   online_title: "On Derp Land now",
   friends_heading: "Friends",

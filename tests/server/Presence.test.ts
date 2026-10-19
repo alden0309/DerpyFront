@@ -221,6 +221,10 @@ describe("lobbies and tables", () => {
       targetOf({ k: "df-game", id: "AbCd1234", lobby: "public", map: "World" }),
     ).toBeNull();
     expect(joinHref(targetOf(lobby)!)).toBe("/game/AbCd1234");
+    // FRIENDS (r25): an invite's link carries its pass.
+    expect(joinHref(targetOf(lobby)!, "7.abc.x_y-z")).toBe(
+      "/game/AbCd1234?pass=7.abc.x_y-z",
+    );
   });
 
   test("a Conquest table with a seat free can be joined", () => {
@@ -238,6 +242,16 @@ describe("lobbies and tables", () => {
     });
     expect(targetOf({ ...room, joinable: false })).toBeNull();
     expect(joinHref(targetOf(room)!)).toBe("/conquest?join=WXYZ");
+    expect(joinHref(targetOf(room)!, "7.abc.x")).toBe(
+      "/conquest?join=WXYZ&pass=7.abc.x",
+    );
+    // FRIENDS (r25): a table with a password shows a lock (only that).
+    expect(placeOf({ ...room, locked: true })).toEqual({
+      k: "cq-room",
+      private: true,
+      solo: false,
+      locked: true,
+    });
     expect(isAt(room, targetOf(room)!)).toBe(true);
     expect(isAt({ k: "home" }, targetOf(room)!)).toBe(false);
   });

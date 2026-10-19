@@ -17,6 +17,7 @@ import {
   eyeIcon,
   flagIcon,
   joinIcon,
+  lockIcon,
   moreIcon,
   peopleIcon,
   tokenColor,
@@ -307,7 +308,9 @@ export class DerpSocial extends LitElement {
   private where(row: { place: PersonRow["place"] }): TemplateResult {
     return html`<span class="where"
       ><i class="dot ${placeTone(row.place)}"></i
-      ><span>${placeText(row.place, this.t)}</span></span
+      ><span>${placeText(row.place, this.t)}</span>${row.place?.locked
+        ? lockIcon(this.t("locked"), "lock")
+        : nothing}</span
     >`;
   }
 
@@ -1095,6 +1098,12 @@ export class DerpSocial extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .where .lock {
+      width: 12px;
+      height: 12px;
+      flex: none;
+      color: var(--accent-2);
     }
     .dot {
       width: 8px;

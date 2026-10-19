@@ -8,7 +8,7 @@ import {
   derpyLobbyMap,
   derpyPresence,
 } from "../../src/client/derpy/DerpyPresence";
-import { defaultWhere, social } from "../../src/derpland/Social";
+import { defaultWhere, samePlace, social } from "../../src/derpland/Social";
 import {
   englishSocial,
   placeText,
@@ -258,6 +258,44 @@ describe("the bell", () => {
           game: "derpyfront",
           place: { k: "df-lobby", lobby: "private" },
           href: "/game/Other123",
+          at: "z",
+        },
+      ],
+    });
+    expect(social.notices().map((n) => n.kind)).toEqual(["invite"]);
+  });
+
+  test("FRIENDS (r25): the same lobby even when each link carries its own pass", () => {
+    expect(
+      samePlace("/game/Other123?pass=a.b.c", "/game/Other123?pass=d.e.f"),
+    ).toBe(true);
+    expect(samePlace("/game/Other123?pass=a.b.c", "/game/Other123")).toBe(true);
+    expect(samePlace("/game/Other123?pass=a", "/game/AbCd1234?pass=a")).toBe(
+      false,
+    );
+    expect(
+      samePlace("/conquest?join=WXYZ&pass=a.b.c", "/conquest?join=WXYZ&pass=x"),
+    ).toBe(true);
+    expect(
+      samePlace("/conquest?join=WXYZ&pass=a", "/conquest?join=QRST&pass=a"),
+    ).toBe(false);
+    social.state = state({
+      party: {
+        ...party,
+        pull: {
+          ...party.pull,
+          key: "conquest:WXYZ",
+          href: "/conquest?join=WXYZ&pass=1.2.3",
+        },
+      },
+      invites: [
+        {
+          id: 7,
+          fromId: 2,
+          from: "Pat",
+          game: "conquest",
+          place: { k: "cq-room", private: true, solo: false },
+          href: "/conquest?join=WXYZ&pass=4.5.6",
           at: "z",
         },
       ],

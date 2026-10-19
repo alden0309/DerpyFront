@@ -48,6 +48,10 @@ export class MasterLobbyService {
   // Worker id => its games being played that may be watched (Derp Land,
   // SITE r19), as it last reported them.
   private readonly workerRunning = new Map<number, LiveFrontGame[]>();
+  // Derp Land (FRIENDS r25): worker id => its lobbies with a password, and
+  // all of them together (who's online shows a lock on those).
+  private readonly workerLocked = new Map<number, string[]>();
+  private locked: ReadonlySet<string> = new Set();
   private readonly readyWorkers = new Set<number>();
   // gameID => consecutive broadcast cycles a hosted lobby has lost the
   // per-creator dedup or overflowed the cluster-wide cap. Losing once can be
@@ -117,6 +121,7 @@ export class MasterLobbyService {
           this.workerLiveGames.set(workerId, msg.liveGames ?? 0);
           if (msg.running !== undefined)
             this.workerRunning.set(workerId, this.validRunning(msg.running));
+          this.setLocked(workerId, msg.locked ?? []);
           // The client coalesces: at most one report a second, plus a
           // heartbeat. Every change is offered so a numClients-only change
           // still reaches the site roster within a second.
@@ -170,7 +175,21 @@ export class MasterLobbyService {
     this.workerLobbies.delete(workerId);
     this.workerLiveGames.delete(workerId);
     this.workerRunning.delete(workerId);
+    this.setLocked(workerId, []);
     this.readyWorkers.delete(workerId);
+  }
+
+  // Derp Land (FRIENDS r25): which lobbies have a password, cluster-wide.
+  lockedLobbies(): ReadonlySet<string> {
+    return this.locked;
+  }
+
+  private setLocked(workerId: number, ids: string[]): void {
+    const before = this.workerLocked.get(workerId) ?? [];
+    if (before.join() === ids.join()) return;
+    if (ids.length) this.workerLocked.set(workerId, ids);
+    else this.workerLocked.delete(workerId);
+    this.locked = new Set([...this.workerLocked.values()].flat());
   }
 
   // Games running on this server, summed over the workers' last reports.

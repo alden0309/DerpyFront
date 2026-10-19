@@ -40,6 +40,17 @@ describe.skipIf(!TEST_DB)(
     let P: typeof import("../../src/server/derpy/Presence");
     let S: typeof import("../../src/server/derpy/DerpySocial");
     let L: typeof import("../../src/server/derpy/LiveGames");
+    let K: typeof import("../../src/server/derpy/LobbyLock");
+
+    /** A link with a pass in it: the place, and the account the pass is for. */
+    function passOf(
+      href: string | undefined,
+      game: "derpyfront" | "conquest",
+      id: string,
+    ): number | null {
+      const pass = new URL(href ?? "", "http://x").searchParams.get("pass");
+      return K.readPass(pass, game, id);
+    }
 
     interface User {
       id: number;
@@ -113,6 +124,7 @@ describe.skipIf(!TEST_DB)(
       P = await import("../../src/server/derpy/Presence");
       S = await import("../../src/server/derpy/DerpySocial");
       L = await import("../../src/server/derpy/LiveGames");
+      K = await import("../../src/server/derpy/LobbyLock");
       const { register } = await import("../../src/server/derpy/DerpyAuth");
       const { derpyApiRouter } =
         await import("../../src/server/derpy/DerpyApi");
@@ -411,18 +423,24 @@ describe.skipIf(!TEST_DB)(
           fromId: alden.id,
           from: "Fr_Alden",
           game: "derpyfront",
-          href: `/game/${LOBBY}`,
+          href: expect.stringMatching(new RegExp(`^/game/${LOBBY}\\?pass=`)),
           place: { k: "df-lobby", lobby: "private" },
         },
       ]);
-      // A private lobby's way in: for the invited and for friends, not everyone.
+      // The invite carries a pass for gary, into that lobby only: a password
+      // its host may give it doesn't stop him.
+      expect(passOf(g.invites[0].href, "derpyfront", LOBBY)).toBe(gary.id);
+      expect(passOf(g.invites[0].href, "derpyfront", LOBBY2)).toBeNull();
+      expect(passOf(g.invites[0].href, "conquest", LOBBY)).toBeNull();
+      // Every lobby is open to anyone (the owner's rule): a private one's
+      // Join is for everyone, friend or not (no pass: a password asks).
       expect(row(g, alden)?.join).toBe(`/game/${LOBBY}`);
       expect(row(await state(pat), alden)?.join).toBe(`/game/${LOBBY}`);
-      expect(row(await state(mike), alden)?.join).toBeUndefined();
-      // The lobby id itself is never shown as where someone is.
-      expect(JSON.stringify(row(await state(mike), alden))).not.toContain(
-        LOBBY,
-      );
+      expect(row(await state(mike), alden)?.join).toBe(`/game/${LOBBY}`);
+      // The lobby id is only in the way in, never in where someone is.
+      expect(
+        JSON.stringify(row(await state(mike), alden)?.place),
+      ).not.toContain(LOBBY);
 
       // Asking someone already there.
       await beat(pat, { k: "df-lobby", id: LOBBY, lobby: "private" });
@@ -533,8 +551,11 @@ describe.skipIf(!TEST_DB)(
       const g = await state(gary);
       expect(g.invites[0]).toMatchObject({
         game: "conquest",
-        href: "/conquest?join=WXYZ",
+        href: expect.stringMatching(/^\/conquest\?join=WXYZ&pass=/),
       });
+      expect(passOf(g.invites[0].href, "conquest", "WXYZ")).toBe(gary.id);
+      // Anyone may join a private table too.
+      expect(row(g, alden)?.join).toBe("/conquest?join=WXYZ");
       expect(row(g, alden)?.watch).toBe("/conquest?watch=watch123");
       // The table fills: the invite goes.
       P.presence.setDerived(
@@ -645,10 +666,12 @@ describe.skipIf(!TEST_DB)(
       const pull = (await beat(pat, { k: "home" })).party?.pull;
       expect(pull).toMatchObject({
         key: `derpyfront:${LOBBY}`,
-        href: `/game/${LOBBY}`,
+        href: expect.stringMatching(new RegExp(`^/game/${LOBBY}\\?pass=`)),
         leader: "Fr_Alden",
         place: { k: "df-lobby", lobby: "private" },
       });
+      // The pull's pass is pat's own, past any password.
+      expect(passOf(pull?.href, "derpyfront", LOBBY)).toBe(pat.id);
       // Mid-game they're asked too, never moved: the page asks before it goes.
       expect(
         (
@@ -659,7 +682,7 @@ describe.skipIf(!TEST_DB)(
             map: "Asia",
           })
         ).party?.pull?.href,
-      ).toBe(`/game/${LOBBY}`);
+      ).toMatch(new RegExp(`^/game/${LOBBY}\\?pass=`));
       // Once they're there, nothing to ask.
       expect(
         (await beat(pat, { k: "df-lobby", id: LOBBY, lobby: "private" })).party
@@ -683,9 +706,9 @@ describe.skipIf(!TEST_DB)(
             ],
           ]),
       );
-      expect((await beat(pat, { k: "home" })).party?.pull?.href).toBe(
-        "/conquest?join=QRST",
-      );
+      const cqPull = (await beat(pat, { k: "home" })).party?.pull?.href;
+      expect(cqPull).toMatch(/^\/conquest\?join=QRST&pass=/);
+      expect(passOf(cqPull, "conquest", "QRST")).toBe(pat.id);
       P.presence.setDerived(() => new Map());
       await beat(alden, { k: "home" });
       expect((await state(pat)).party?.pull).toBeUndefined();

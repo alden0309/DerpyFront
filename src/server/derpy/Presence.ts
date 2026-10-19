@@ -10,6 +10,7 @@
 
 import { z } from "zod";
 import type { ClientWhere, Place } from "../../derpland/SocialTypes";
+import { frontLocked } from "./LobbyLock";
 
 /** How long a page's last beat counts. Pages beat every 15 to 30 seconds. */
 export const PRESENCE_TTL_MS = 75_000;
@@ -25,6 +26,8 @@ export type ConquestWhere =
       joinable: boolean;
       private: boolean;
       solo: boolean;
+      /** Its host gave it a password (never the password itself). */
+      locked?: boolean;
     }
   | {
       k: "cq-game";
@@ -32,6 +35,7 @@ export type ConquestWhere =
       joinable: boolean;
       private: boolean;
       solo: boolean;
+      locked?: boolean;
       year: number;
       /** Where their character lives (a town), and the power that holds it. */
       colony: string;
@@ -98,7 +102,7 @@ export function whereRank(w: Where): number {
 export interface Target {
   game: "derpyfront" | "conquest";
   id: string;
-  /** Not open to anyone: only friends, the party and the invited see a way in. */
+  /** A private lobby or table (not listed). Anyone on Derp Land may still join it (FRIENDS r25). */
   private: boolean;
 }
 
@@ -127,10 +131,12 @@ export function isAt(w: Where | null | undefined, t: Target): boolean {
   return (w.k === "cq-room" || w.k === "cq-game") && w.code === t.id;
 }
 
-export function joinHref(t: Target): string {
+/** The link into a lobby or table; `pass` (an invite's) skips its password. */
+export function joinHref(t: Target, pass?: string): string {
+  const p = pass ? encodeURIComponent(pass) : "";
   return t.game === "derpyfront"
-    ? `/game/${encodeURIComponent(t.id)}`
-    : `/conquest?join=${encodeURIComponent(t.id)}`;
+    ? `/game/${encodeURIComponent(t.id)}${p ? `?pass=${p}` : ""}`
+    : `/conquest?join=${encodeURIComponent(t.id)}${p ? `&pass=${p}` : ""}`;
 }
 
 /**
@@ -154,7 +160,13 @@ export function watchHref(
 export function placeOf(w: Where): Place {
   switch (w.k) {
     case "df-lobby":
-      return { k: w.k, lobby: w.lobby, ...(w.map ? { map: w.map } : {}) };
+      return {
+        k: w.k,
+        lobby: w.lobby,
+        ...(w.map ? { map: w.map } : {}),
+        // The game workers say which lobbies have a password.
+        ...(w.id && frontLocked(w.id) ? { locked: true } : {}),
+      };
     case "df-game":
       return {
         k: w.k,
@@ -163,7 +175,12 @@ export function placeOf(w: Where): Place {
         ...(w.watching ? { watching: true } : {}),
       };
     case "cq-room":
-      return { k: w.k, private: w.private, solo: w.solo };
+      return {
+        k: w.k,
+        private: w.private,
+        solo: w.solo,
+        ...(w.locked ? { locked: true } : {}),
+      };
     case "cq-game":
       return {
         k: w.k,
@@ -172,6 +189,7 @@ export function placeOf(w: Where): Place {
         power: w.power,
         private: w.private,
         solo: w.solo,
+        ...(w.locked ? { locked: true } : {}),
       };
     default:
       return { k: w.k };

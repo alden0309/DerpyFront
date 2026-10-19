@@ -26,3 +26,35 @@
     --soc-btn-radius: 17px;
   }
 }
+
+/* FRIENDS (r25): a game with a password: its chip in the list, the host's
+   box for it in the room, and the box that asks for it. */
+.cq-pw-lock {
+  width: 0.85em;
+  height: 0.85em;
+  flex: none;
+}
+.cq-pw-field {
+  margin: 0.15rem 0 0 1.6rem;
+}
+.cq-pw-field input {
+  width: 100%;
+  max-width: 16rem;
+}
+.cq-pw-ask .cq-field {
+  margin-top: 0.8rem;
+}
+.cq-pw-ask .cq-field input {
+  width: 100%;
+}
+.cq-pw-ask p.cq-pw-wrong {
+  color: var(--seal);
+}
+.cq-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

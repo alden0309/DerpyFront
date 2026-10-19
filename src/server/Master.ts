@@ -17,6 +17,7 @@ import {
 import { attachConquest } from "./conquest/ConquestRooms";
 import { derpyApiRouter } from "./derpy/DerpyApi";
 import { setLiveSources } from "./derpy/LiveGames";
+import { ensurePassSecret, setFrontLocks } from "./derpy/LobbyLock"; // FRIENDS (r25)
 import { presence } from "./derpy/Presence"; // FRIENDS (r25)
 import { getDescriptor } from "./DesktopRelease";
 import {
@@ -190,6 +191,9 @@ export async function startMaster() {
   }
 
   log.info(`Primary ${process.pid} is running`);
+  // FRIENDS (r25): one secret for the passes invites carry into lobbies with
+  // a password, shared with the workers forked below.
+  ensurePassSecret();
   log.info(`Setting up ${ServerEnv.numWorkers()} workers...`);
 
   // A server that registers schedules nothing until the API calls it open: a
@@ -198,6 +202,8 @@ export async function startMaster() {
   lobbyService = new MasterLobbyService(playlist, log, registers);
   // Derp Land (SITE r19): DerpyFront's games being played, for the front page.
   setLiveSources({ derpyfront: () => lobbyService.runningGames() });
+  // FRIENDS (r25): and which of its lobbies have a password.
+  setFrontLocks(() => lobbyService.lockedLobbies());
 
   const INSTANCE_ID =
     ServerEnv.env() === GameEnv.Dev
