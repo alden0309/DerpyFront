@@ -53,7 +53,13 @@ function progressWords(c: ChallengeView): string {
 /** One challenge: its tier, name and how, the bar, and the coins. */
 function challengeRow(c: ChallengeView, signedIn: boolean): TemplateResult {
   const done = c.doneAt !== null;
-  const pct = done ? 100 : c.of > 0 ? Math.round((c.have / c.of) * 100) : 0;
+  // A single thing to do is all or nothing; a count shows how far, never full till done.
+  const one = c.of <= 1 && !c.unit;
+  const pct = done
+    ? 100
+    : one || c.of <= 0
+      ? 0
+      : Math.min(97, Math.round((c.have / c.of) * 100));
   return html`<li class="dl-chal ${c.tier} ${done ? "done" : ""}">
     <span class="dl-chal-tier">${TIER_NAMES[c.tier]}</span>
     <span class="dl-chal-text">
@@ -294,7 +300,10 @@ function pastWeek(h: WeekHistory): TemplateResult {
     <span class="dl-week-past-done">
       ${h.done.map(
         (x) =>
-          html`<span class="dl-chal-chip ${x.game}"
+          html`<span
+            class="dl-chal-chip ${x.game} ${x.key.startsWith("bonus:")
+              ? "bonus"
+              : ""}"
             >${x.name}<span class="dl-sr"> (${GAME_NAMES[x.game]})</span></span
           >`,
       )}

@@ -272,7 +272,8 @@ export class DerpStore extends HubPage {
           <p class="dl-lede">
             Skins, AI personalities, effects and fanfares for DerpyFront; start
             dates, map styles and add-ons for Derpy Conquest. Paid for with the
-            Derp Coins you win in either game.
+            Derp Coins you win in either game, and with
+            <a href="/">this week's challenges</a>.
           </p>
         </div>
         ${this.account
@@ -505,7 +506,7 @@ export class DerpInventory extends HubPage {
         <p>
           ${forSale.length === 0
             ? `Nothing here yet. ${labelOf(cat.tabs, tab)} are on their way to the store.`
-            : `None of these yet. They start at ${nf(Math.min(...forSale.map((i) => i.price)))} Derp Coins, and every game you finish signed in earns some.`}
+            : `None of these yet. They start at ${nf(Math.min(...forSale.map((i) => i.price)))} Derp Coins, and every game you finish signed in earns some (this week's challenges, on the home page, pay more).`}
         </p>
         ${forSale.length > 0
           ? html`<a class="dl-btn" href=${`/store${tabHash(tab)}`}
