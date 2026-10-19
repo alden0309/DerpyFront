@@ -176,7 +176,9 @@ describe("the art and sound", () => {
       }
       // BPLAY (r22): the typefaces are under font licences.
       expect(c.license).toMatch(
-        c.what === "Typeface" ? /^(SIL Open Font|Apache)/ : /^CC/,
+        c.what === "Typeface"
+          ? /^(SIL Open Font|Apache)/
+          : /^(CC|Public domain)/,
       );
       expect(c.source).toMatch(/^https:\/\//);
     }

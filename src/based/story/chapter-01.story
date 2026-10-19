@@ -928,7 +928,7 @@ end
 // r25: out of order all night. It can't be used: the button is dead.
 == lift "The lift"
 @on look lift
-A lift with brass doors, and a card hung across them on a string: HORS SERVICE.
+A lift with brass doors, and a card hung across them on a string: HORS SERVICE. Above them the needle of the floor dial had stopped between two floors.
 @gesture BASED interact
 @sound lift_button
 He pressed the call button anyway. It went in, and stayed in, and nothing happened at all: no light, no hum, not a sound from the shaft.

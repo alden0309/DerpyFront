@@ -385,12 +385,32 @@
     {
       "keys": ["murmur"],
       "what": "Sound",
-      "title": "Maria Chapdelaine, La Lecture (tome 2), Compilation de contes, read in French",
-      "author": "LibriVox volunteers (Jc Guan, Christiane Jehanne and others)",
-      "license": "CC0 1.0 (LibriVox recordings are in the public domain)",
+      "license": "Public domain (LibriVox recording)",
       "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/",
-      "source": "https://librivox.org/",
-      "changes": "Six stretches of reading, muffled past understanding and overlapped into the bar's low talk, in a wooden room."
+      "title": "Maria Chapdelaine (Louis Hémon), read in French",
+      "author": "LibriVox volunteer Jc Guan",
+      "source": "https://archive.org/details/maria_chapdelaine_jcg_0810_librivox",
+      "changes": "A stretch of one chapter, muffled past understanding and overlapped with the two below into the bar's low talk, in a wooden room."
+    },
+    {
+      "keys": ["murmur"],
+      "what": "Sound",
+      "license": "Public domain (LibriVox recording)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "title": "La Lecture, tome 2, read in French",
+      "author": "LibriVox volunteers (Christiane Jehanne and others)",
+      "source": "https://archive.org/details/lecture_02_2109_librivox",
+      "changes": "Stretches of three readings, muffled past understanding, in the bar's low talk."
+    },
+    {
+      "keys": ["murmur"],
+      "what": "Sound",
+      "license": "Public domain (LibriVox recording)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "title": "Compilation de contes (Madame d'Aulnoy), read in French",
+      "author": "LibriVox volunteers",
+      "source": "https://archive.org/details/compilation_de_contes_1904_librivox",
+      "changes": "A stretch of one tale, muffled past understanding, in the bar's low talk."
     },
     {
       "keys": [

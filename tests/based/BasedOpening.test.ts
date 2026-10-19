@@ -549,7 +549,9 @@ describe("the sound (r25)", () => {
       expect(c.length, k).toBeGreaterThan(0);
       for (const i of c) {
         expect(["Sound", "Music"], k).toContain(i.what);
-        expect(i.license, k).toMatch(/^(CC0|CC BY|Original work)/);
+        expect(i.license, k).toMatch(
+          /^(CC0|CC BY|Public domain|Original work)/,
+        );
       }
     }
     expect(

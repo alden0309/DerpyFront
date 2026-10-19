@@ -1852,9 +1852,26 @@ function bplaySmall(item: Item, g: THREE.Group): void {
       break;
     }
     case "liftdoor": {
+      // r25: brass doors, as the story has them, and the floor dial above,
+      // its needle stopped between floors.
       g.add(part(B(1.3, 2.3, 0.06), mat("brass"), 0, 1.15, 0, false));
-      g.add(part(B(1.1, 2.1, 0.03), mat("#2b2a26"), 0, 1.05, 0.03, false));
-      g.add(part(B(0.01, 2.1, 0.035), mat("brass"), 0, 1.05, 0.04, false));
+      g.add(part(B(1.1, 2.1, 0.03), mat("#6f5a33"), 0, 1.05, 0.03, false));
+      g.add(part(B(0.014, 2.1, 0.035), mat("#2b2a26"), 0, 1.05, 0.045, false));
+      for (const y of [0.55, 1.6]) {
+        g.add(part(B(1.0, 0.02, 0.01), mat("#4a3c22"), 0, y, 0.048, false));
+      }
+      g.add(part(B(0.52, 0.24, 0.03), mat("brass"), 0, 2.48, 0.02, false));
+      g.add(part(B(0.44, 0.17, 0.01), mat("#e3dccb"), 0, 2.47, 0.04, false));
+      const needle = part(
+        B(0.012, 0.13, 0.01),
+        mat("#2b2a26"),
+        0,
+        2.44,
+        0.05,
+        false,
+      );
+      needle.rotation.z = 0.5;
+      g.add(needle);
       break;
     }
     case "vase": {
