@@ -26,6 +26,7 @@ import {
 import { HubPage } from "./HubPage";
 import "./Rename"; // NAMES (r20)
 import type { DerpRename } from "./Rename";
+import "./Week"; // CHAL (r25): their weekly challenges
 
 interface FrontStats {
   games: number;
@@ -257,6 +258,8 @@ export class DerpProfile extends HubPage {
       <div class="dl-statgroups">
         ${this.frontStats(p.stats)} ${this.conquestStats(p.conquest.stats)}
       </div>
+      <!-- CHAL (r25): this week's challenges, and weeks gone by -->
+      <dl-week-player .name=${p.username} ?mine=${mine}></dl-week-player>
       ${this.achievements(p)}
 
       <section class="dl-panel dl-history">

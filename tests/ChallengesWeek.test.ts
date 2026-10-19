@@ -2,6 +2,8 @@
 // daylight saving) and the week's picks (the same for everyone, mixed
 // tiers, never repeating the week before or after).
 
+import fs from "fs";
+import path from "path";
 import { describe, expect, test } from "vitest";
 import {
   CHALLENGE_BONUS,
@@ -113,6 +115,17 @@ describe("the week's challenges", () => {
     expect(CHALLENGE_BY_KEY.size).toBe(keys.length);
     // Nothing for Mr. Based.
     expect(keys.some((d) => /based/i.test(`${d.key} ${d.name}`))).toBe(false);
+  });
+
+  test("DerpyFront's (shown on its win screen) have their names in en.json", () => {
+    const en = JSON.parse(
+      fs.readFileSync(
+        path.join(__dirname, "..", "resources", "lang", "en.json"),
+        "utf8",
+      ),
+    ) as { derpy: Record<string, string> };
+    for (const d of [...FRONT_CHALLENGES, ...FRONT_ALTS])
+      expect(en.derpy[`challenge_${d.key}`], d.key).toBe(d.name);
   });
 
   test("pay about 100, 175 and 250, with 150 for all three", () => {

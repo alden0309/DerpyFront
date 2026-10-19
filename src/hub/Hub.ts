@@ -24,6 +24,7 @@ import "./Leaderboard";
 import "./Live";
 import "./Profile";
 import "./Store";
+import "./Week"; // CHAL (r25): this week's challenges
 
 export const SOURCE_CODE_URL =
   "https://github.com/alden0309/DerpyFront/tree/capital-mod";
@@ -223,6 +224,9 @@ export class DerpHome extends HubPage {
           sticker: "New",
         })}
       </section>
+
+      <!-- CHAL (r25): this week's challenges, for both games -->
+      <dl-week></dl-week>
 
       <!-- BASED (r19): Mr. Based, under the two games -->
       <dl-based-card></dl-based-card>

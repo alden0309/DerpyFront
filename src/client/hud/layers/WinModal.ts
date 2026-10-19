@@ -20,13 +20,16 @@ import { customElement, state } from "lit/decorators.js";
 import {
   getTranslatedPlayerTeamLabel,
   homeHref,
+  showToast,
   translateText,
 } from "../../../client/Utils";
+import type { ChallengeDone } from "../../../derpland/Challenges"; // CHAL (r25)
 import { fetchUserMeUncached, invalidateUserMe } from "../../Api";
 import type { GameXpPanelState } from "../../components/GameXpPanel";
 import type { LegendCeremony } from "../../components/LegendCeremony";
 import "../../components/ProfileShare";
 import { Controller } from "../../Controller";
+import { derpyGameChallenges } from "../../derpy/DerpyAccount"; // CHAL (r25)
 import { isDerpySignedIn } from "../../derpy/DerpySession";
 import { PROGRESSION_ENABLED } from "../../derpy/UpstreamFeatures";
 import { playVictoryFanfare } from "../../derpy/VictoryFanfare";
@@ -63,6 +66,13 @@ function awardValueText(a: Award): string {
     case "ships":
       return translateText("derpy.award_value_ships", { count: a.value });
   }
+}
+
+/** CHAL (r25): a weekly challenge's name, in the player's language. */
+function challengeName(c: ChallengeDone): string {
+  const key = `derpy.challenge_${c.key}`;
+  const t = translateText(key);
+  return t === key ? c.name : t;
 }
 
 type LegendCeremonyModule = typeof import("../../components/LegendCeremony");
@@ -106,6 +116,12 @@ export class WinModal extends LitElement implements Controller {
 
   @state()
   private coins: DerpCoinResult | null = null;
+
+  // CHAL (r25): the weekly challenges this game finished (asked of the
+  // server once the game is decided, until it has saved the game).
+  @state()
+  private challenges: ChallengeDone[] = [];
+  private challengeAbort: AbortController | null = null;
 
   // DFSTORE (r21): your fanfare played, so the win screen offers it again.
   @state()
@@ -492,13 +508,18 @@ export class WinModal extends LitElement implements Controller {
     const result = this.coins;
     if (result === null) return null;
     const signedIn = isDerpySignedIn();
+    // CHAL (r25): with any weekly challenges it finished.
+    const chal = signedIn ? this.challenges : [];
+    const extra = chal.reduce((n, c) => n + c.coins + (c.bonus ?? 0), 0);
     return html`
       <section
         class="mb-2 flex flex-col items-center gap-2 rounded-lg border border-cyber-yellow/30 bg-black/30 p-4 text-center"
       >
         <span class="text-2xl font-black text-cyber-yellow">
           ${signedIn
-            ? translateText("derpy.coins_earned", { coins: result.total })
+            ? translateText("derpy.coins_earned", {
+                coins: result.total + extra,
+              })
             : translateText("derpy.coins_would_earn", {
                 coins: result.total,
               })}
@@ -517,6 +538,35 @@ export class WinModal extends LitElement implements Controller {
           : html`<span class="text-sm text-white/60"
               >${translateText("derpy.coins_too_short")}</span
             >`}
+        ${chal.length > 0
+          ? html`<div
+              class="flex flex-col items-center gap-1.5"
+              data-challenges
+            >
+              <span class="text-xs font-bold uppercase text-cyber-yellow/80"
+                >${translateText("derpy.challenges_title")}</span
+              >
+              <div class="flex flex-wrap justify-center gap-1.5">
+                ${chal.map(
+                  (c) =>
+                    html`<span
+                        class="rounded-full border border-cyber-yellow/40 bg-cyber-yellow/15 px-2.5 py-0.5 text-xs font-bold text-cyber-yellow"
+                        >${translateText("derpy.challenge_line", {
+                          name: challengeName(c),
+                          coins: c.coins,
+                        })}</span
+                      >${c.bonus
+                        ? html`<span
+                            class="rounded-full border border-cyber-yellow/40 bg-cyber-yellow/15 px-2.5 py-0.5 text-xs font-bold text-cyber-yellow"
+                            >${translateText("derpy.challenge_bonus_line", {
+                              coins: c.bonus,
+                            })}</span
+                          >`
+                        : null}`,
+                )}
+              </div>
+            </div>`
+          : null}
         ${signedIn
           ? null
           : html`<span class="text-sm text-white/60"
@@ -575,7 +625,49 @@ export class WinModal extends LitElement implements Controller {
 
   disconnectedCallback(): void {
     this.xpAbort?.abort();
+    this.challengeAbort?.abort(); // CHAL (r25)
     super.disconnectedCallback();
+  }
+
+  /**
+   * CHAL (r25): asks the server, a few times over the next minute, what
+   * weekly challenges this game finished (it saves the game once the winner
+   * is settled, or when a solo game's upload arrives), and toasts each.
+   */
+  private async watchChallenges(): Promise<void> {
+    const game = this.game;
+    if (!isDerpySignedIn() || game.config().isReplay() || !game.myPlayer())
+      return;
+    this.challengeAbort?.abort();
+    const abort = new AbortController();
+    this.challengeAbort = abort;
+    const gameId = game.gameID();
+    for (const wait of [2000, 3000, 5000, 8000, 12000, 20000, 30000]) {
+      await new Promise((r) => setTimeout(r, wait));
+      if (abort.signal.aborted) return;
+      const r = await derpyGameChallenges(gameId);
+      if (abort.signal.aborted || r === null) continue;
+      const seen = new Set(this.challenges.map((c) => c.key));
+      for (const c of r.done) {
+        if (seen.has(c.key)) continue;
+        showToast(
+          translateText("derpy.challenge_toast", {
+            name: challengeName(c),
+            coins: c.coins,
+          }),
+          "green",
+          6000,
+        );
+        if (c.bonus)
+          showToast(
+            translateText("derpy.challenge_bonus_toast", { coins: c.bonus }),
+            "green",
+            6000,
+          );
+      }
+      this.challenges = r.done;
+      if (r.recorded) return;
+    }
   }
 
   /**
@@ -860,6 +952,7 @@ export class WinModal extends LitElement implements Controller {
     this.awards = wu.awards ?? [];
     this.coins = this.computeCoins(wu);
     void this.show();
+    void this.watchChallenges(); // CHAL (r25)
   }
 
   private playEndOfGameSound(): void {
