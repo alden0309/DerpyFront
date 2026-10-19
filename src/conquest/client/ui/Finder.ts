@@ -1124,6 +1124,19 @@ const GOALS: Goal[] = [
     go: tab({ k: "tab", tab: "people", sub: "known" }),
     guide: "multiplayer",
   },
+  // FRIENDS (r25)
+  {
+    id: "invite-friend",
+    title: "Invite a friend into this game",
+    words:
+      "invite friend friends party join online derp land who's on bring along",
+    group: "People",
+    where:
+      "The People button in the banner (beside the menu): who's on Derp Land and where. Invite on someone's row while the game has a free seat; they get a notification with Join. In a party, the others are asked to come along.",
+    go: (ui) => ui.modal({ k: "guide", ch: "multiplayer" }),
+    goLabel: "How it works",
+    guide: "multiplayer",
+  },
   {
     id: "study-home",
     title: "Study at home",

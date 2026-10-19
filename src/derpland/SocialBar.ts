@@ -33,6 +33,8 @@ import type { PersonRow, SocialState } from "./SocialTypes";
 
 /** Opening one of the bar's menus closes the others (DerpBar listens too). */
 export const BAR_MENU_EVENT = "derp-bar-menu";
+/** Open the People panel (the account menu's People, where the bar folds it away). */
+export const OPEN_PEOPLE_EVENT = "derp-open-people";
 
 const TOAST_MS = 12_000;
 
@@ -65,6 +67,7 @@ export class DerpSocial extends LitElement {
     super.connectedCallback();
     window.addEventListener(SOCIAL_EVENT, this.onSocial);
     window.addEventListener(BAR_MENU_EVENT, this.onBarMenu);
+    window.addEventListener(OPEN_PEOPLE_EVENT, this.onOpenPeople);
     document.addEventListener("pointerdown", this.onOutside);
     document.addEventListener("keydown", this.onKey);
     social.start(defaultWhere(this.page, location.pathname));
@@ -74,6 +77,7 @@ export class DerpSocial extends LitElement {
   disconnectedCallback(): void {
     window.removeEventListener(SOCIAL_EVENT, this.onSocial);
     window.removeEventListener(BAR_MENU_EVENT, this.onBarMenu);
+    window.removeEventListener(OPEN_PEOPLE_EVENT, this.onOpenPeople);
     document.removeEventListener("pointerdown", this.onOutside);
     document.removeEventListener("keydown", this.onKey);
     for (const t of this.timers) clearTimeout(t);
@@ -87,6 +91,11 @@ export class DerpSocial extends LitElement {
     this.s = social.state;
     this.failed = social.failed;
     if (!this.s) return;
+    // A toast whose notice has gone (the invite was used, its lobby closed,
+    // you're there already) goes with it.
+    const live = new Set(social.notices().map((n) => n.key));
+    if (this.toasts.some((x) => !live.has(x.notice.key)))
+      this.toasts = this.toasts.filter((x) => live.has(x.notice.key));
     // A toast for each thing this browser hasn't been shown yet (on any
     // page): it stays in the bell after.
     const recent = social.fresh();
@@ -100,6 +109,13 @@ export class DerpSocial extends LitElement {
       this.toasts = this.toasts.filter((x) => Date.now() - x.at < TOAST_MS);
     }, TOAST_MS + 50);
     this.timers.push(t);
+  };
+
+  private onOpenPeople = () => {
+    // After the menu's own click is done (it would close this again).
+    setTimeout(() => {
+      if (this.menu !== "people") this.toggle("people");
+    }, 0);
   };
 
   private onBarMenu = (e: Event) => {
@@ -1381,8 +1397,12 @@ export class DerpSocial extends LitElement {
         display: block;
       }
     }
-    /* DerpyFront's narrow bar has its own buttons too: the bell folds into People. */
+    /* DerpyFront's narrow bar has its own buttons too: the bell folds into
+       People, and People into the account menu (fold). */
     @media (max-width: 480px) {
+      :host([fold]) .wrap > .ibtn {
+        display: none;
+      }
       :host([tools]) .bellwrap {
         display: none;
       }
