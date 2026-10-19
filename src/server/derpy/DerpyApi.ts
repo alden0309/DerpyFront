@@ -53,6 +53,7 @@ import {
   savedGameRecord,
 } from "./DerpyGames";
 import { checkName, nameStatus, renameAccount } from "./DerpyNames"; // NAMES (r20)
+import { loadNews, newsRouter } from "./DerpyNews"; // NEWS (r25)
 import { socialRenamed, socialRouter, socialSignedOut } from "./DerpySocial"; // FRIENDS (r25)
 import { liveGames } from "./LiveGames"; // SITE (r19)
 
@@ -129,11 +130,13 @@ export function derpyApiRouter(): express.Router {
 
   router.use((req, res, next) => {
     setNoStoreHeaders(res);
-    // The games being played (SITE r19) need no accounts either.
+    // The games being played (SITE r19) need no accounts either, nor does
+    // What's New signed out (NEWS r25).
     if (
       !derpyDbConfigured() &&
       req.path !== "/cosmetics.json" &&
-      req.path !== "/live"
+      req.path !== "/live" &&
+      !(req.path === "/news" && req.method === "GET")
     ) {
       res.status(503).json({ error: "accounts_unavailable" });
       return;
@@ -503,6 +506,10 @@ export function derpyApiRouter(): express.Router {
 
   // FRIENDS (r25): who's online and where, friends, game invites, parties.
   router.use("/social", socialRouter({ requireAccount }));
+
+  // NEWS (r25): What's New, read from its file once, at startup.
+  loadNews();
+  router.use("/news", newsRouter({ handle, requireAccount }));
 
   router.use((_req, res) => {
     res.status(404).json({ error: "not_found" });

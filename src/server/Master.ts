@@ -61,6 +61,9 @@ const PAGES: Record<string, string> = {
   "/inventory": "derpland.html",
   "/leaderboard": "derpland.html",
   "/account": "derpland.html",
+  // NEWS (r25): What's New. The same page for everyone; its entries only
+  // come from /derpy/api/news.
+  "/whats-new": "derpland.html",
   "/conquest": "conquest.html",
   "/conquest/": "conquest.html",
   // BASED (r19): Mr. Based. The page is the same for everyone; its story

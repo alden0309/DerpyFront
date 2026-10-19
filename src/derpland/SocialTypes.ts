@@ -2,6 +2,8 @@
 // parties, as /derpy/api/social serves them (types only: the server and the
 // pages share them).
 
+import type { NewsBeat } from "./NewsTypes"; // NEWS (r25)
+
 /** What kind of DerpyFront lobby (or game) someone is in. */
 export type FrontLobby = "solo" | "private" | "public" | "matched";
 
@@ -144,6 +146,8 @@ export interface SocialState {
   invites: InviteRow[];
   party: PartyView | null;
   partyInvites: PartyInviteRow[];
+  /** NEWS (r25): on a beat, how much of What's New is new (News.ts). */
+  news?: NewsBeat;
 }
 
 /** What the social actions answer when they can't. */
