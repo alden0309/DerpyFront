@@ -56,6 +56,8 @@ export class DerpSocial extends LitElement {
   @state() private rowMsg: { id: number; text: string } | null = null;
   @state() private invited = new Set<number>();
   @state() private busy = false;
+  /** Asked "remove this friend?" (the second click removes). */
+  @state() private removing: number | null = null;
 
   private timers: ReturnType<typeof setTimeout>[] = [];
 
@@ -194,7 +196,12 @@ export class DerpSocial extends LitElement {
           @click=${() => this.toggle("people")}
         >
           ${party
-            ? this.stack(party.members.map((m) => m.username))
+            ? html`${this.stack(party.members.map((m) => m.username))}<span
+                  class="phone-icon"
+                  >${peopleIcon()}<span class="flag-badge"
+                    >${flagIcon("dl-i")}</span
+                  ></span
+                >`
             : peopleIcon()}
           ${others > 0
             ? html`<span class="count" aria-hidden="true">${others}</span>`
@@ -240,6 +247,16 @@ export class DerpSocial extends LitElement {
           </div>`
         : nothing}
     `;
+  }
+
+  private closeButton(): TemplateResult {
+    return html`<button
+      class="x ph-x"
+      aria-label=${this.t("dismiss")}
+      @click=${() => (this.menu = null)}
+    >
+      ${closeIcon()}
+    </button>`;
   }
 
   /** A few overlapping tokens: the party, in the bar. */
@@ -290,6 +307,7 @@ export class DerpSocial extends LitElement {
     >
       <header class="ph">
         <b>${t("people")}</b>
+        ${this.closeButton()}
         <span class="me"
           >${s.me.appearOffline
             ? t("you_offline")
@@ -342,7 +360,9 @@ export class DerpSocial extends LitElement {
                   html`<li class="row">
                     ${this.token(r.username)}
                     <div class="who">
-                      <span class="name">${r.username}</span>
+                      <span class="nameline"
+                        ><span class="name">${r.username}</span></span
+                      >
                       <span class="where"
                         >${t("waiting_on", { name: r.username })}</span
                       >
@@ -411,18 +431,26 @@ export class DerpSocial extends LitElement {
         <span class="n"
           >${t("party_count", { count: p.members.length, max: p.max })}</span
         >
+        <span class="push"></span>
         <button
-          class="btn ghost small push"
+          class="btn ghost small"
+          title=${p.leading && p.members.length > 1
+            ? t("leave_hands_over")
+            : ""}
           ?disabled=${this.busy}
-          @click=${() =>
-            void this.act(
-              p.leading && p.members.length > 1
-                ? "/party/disband"
-                : "/party/leave",
-            )}
+          @click=${() => void this.act("/party/leave")}
         >
-          ${p.leading && p.members.length > 1 ? t("disband") : t("leave_party")}
+          ${t("leave_party")}
         </button>
+        ${p.leading && p.members.length > 1
+          ? html`<button
+              class="btn ghost small danger"
+              ?disabled=${this.busy}
+              @click=${() => void this.act("/party/disband")}
+            >
+              ${t("disband")}
+            </button>`
+          : nothing}
       </h3>
       <ul class="rows">
         ${p.members.map(
@@ -430,8 +458,8 @@ export class DerpSocial extends LitElement {
             html`<li class="row">
               ${this.token(m.username)}
               <div class="who">
-                <span class="name"
-                  >${m.username}${m.leader
+                <span class="nameline"
+                  ><span class="name">${m.username}</span>${m.leader
                     ? html`<span class="tag lead">${t("party_leader")}</span>`
                     : nothing}</span
                 >
@@ -445,15 +473,6 @@ export class DerpSocial extends LitElement {
                       @click=${() => void this.act("/party/lead", { id: m.id })}
                     >
                       ${t("make_leader")}
-                    </button>`
-                  : nothing}
-                ${!p.leading && m.id === s.me.id
-                  ? html`<button
-                      class="btn ghost small"
-                      ?disabled=${this.busy}
-                      @click=${() => void this.act("/party/leave")}
-                    >
-                      ${t("leave_party")}
                     </button>`
                   : nothing}
               </div>
@@ -502,20 +521,24 @@ export class DerpSocial extends LitElement {
         : canInvite
           ? html`<button
               class="btn"
+              title=${t("invite")}
+              aria-label="${t("invite")}: ${r.username}"
               ?disabled=${invited || this.busy}
               @click=${() => void this.invite(r)}
             >
-              ${invited ? t("invited") : t("invite")}
+              ${invited ? t("invited") : t("invite_short")}
             </button>`
           : nothing;
     return html`<li class="row ${open ? "open" : ""}">
       ${this.token(r.username)}
       <div class="who">
-        <a class="name" href="/player/${encodeURIComponent(r.username)}"
-          >${r.username}</a
-        >${r.inParty
-          ? html`<span class="tag">${t("party_tag")}</span>`
-          : nothing}
+        <span class="nameline"
+          ><a class="name" href="/player/${encodeURIComponent(r.username)}"
+            >${r.username}</a
+          >${r.inParty
+            ? html`<span class="tag">${t("party_tag")}</span>`
+            : nothing}</span
+        >
         ${this.where(r)}
       </div>
       <div class="acts">
@@ -528,6 +551,7 @@ export class DerpSocial extends LitElement {
           @click=${() => {
             this.expanded = open ? null : r.id;
             this.rowMsg = null;
+            this.removing = null;
           }}
         >
           ${moreIcon()}
@@ -555,14 +579,24 @@ export class DerpSocial extends LitElement {
                 </button>`
               : nothing}
             ${r.friend
-              ? html`<button
-                  class="btn ghost small danger"
-                  ?disabled=${this.busy}
-                  @click=${() =>
-                    void this.act("/friends/remove", { id: r.id }, r.id)}
-                >
-                  ${t("remove_friend")}
-                </button>`
+              ? this.removing === r.id
+                ? html`<button
+                    class="btn small danger-solid"
+                    ?disabled=${this.busy}
+                    @click=${() => {
+                      this.removing = null;
+                      void this.act("/friends/remove", { id: r.id }, r.id);
+                    }}
+                  >
+                    ${t("remove_sure", { name: r.username })}
+                  </button>`
+                : html`<button
+                    class="btn ghost small danger"
+                    ?disabled=${this.busy}
+                    @click=${() => (this.removing = r.id)}
+                  >
+                    ${t("remove_friend")}
+                  </button>`
               : r.requested === "in"
                 ? html`<button
                     class="btn ghost small"
@@ -606,7 +640,9 @@ export class DerpSocial extends LitElement {
       role="dialog"
       aria-label=${t("notifications")}
     >
-      <header class="ph"><b>${t("notifications")}</b></header>
+      <header class="ph">
+        <b>${t("notifications")}</b>${this.closeButton()}
+      </header>
       ${notices.length === 0
         ? html`<p class="quiet pad">${t("nothing_new")}</p>`
         : html`<ul class="notes">
@@ -834,6 +870,28 @@ export class DerpSocial extends LitElement {
     .mini:first-of-type {
       margin-left: 0;
     }
+    .phone-icon {
+      display: none;
+      position: relative;
+    }
+    .flag-badge {
+      position: absolute;
+      left: -9px;
+      top: -9px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--accent);
+      color: var(--accent-ink);
+      box-shadow: 0 0 0 2px var(--bar);
+    }
+    .ibtn .flag-badge .dl-i {
+      width: 10px;
+      height: 10px;
+      opacity: 1;
+    }
 
     .panel {
       position: absolute;
@@ -855,11 +913,32 @@ export class DerpSocial extends LitElement {
       width: 340px;
     }
     .ph {
+      position: relative;
       display: flex;
       flex-direction: column;
       gap: 2px;
-      padding: 10px 14px 10px;
+      padding: 10px 44px 10px 14px;
       border-bottom: 1px solid var(--line);
+    }
+    .ph-x {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      border: 0;
+      background: none;
+      color: var(--text-2);
+      padding: 5px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: grid;
+    }
+    .ph-x:hover {
+      color: var(--text);
+      background: var(--panel-2);
+    }
+    .ph-x .dl-i {
+      width: 16px;
+      height: 16px;
     }
     .ph b {
       font-size: 16px;
@@ -949,6 +1028,11 @@ export class DerpSocial extends LitElement {
       gap: 1px;
       min-width: 0;
     }
+    .nameline {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
     .name {
       font-weight: 650;
       font-size: 14.5px;
@@ -961,6 +1045,7 @@ export class DerpSocial extends LitElement {
       text-decoration: underline;
     }
     .tag {
+      flex: none;
       display: inline-block;
       margin-left: 6px;
       padding: 1px 6px;
@@ -1054,6 +1139,13 @@ export class DerpSocial extends LitElement {
     }
     .btn.danger {
       color: #fca5a5;
+    }
+    .btn.danger-solid {
+      background: #b91c1c;
+      color: #fff;
+    }
+    .btn.danger-solid:hover {
+      background: #dc2626;
     }
     .btn:disabled {
       opacity: 0.55;
@@ -1279,6 +1371,13 @@ export class DerpSocial extends LitElement {
         min-width: 34px;
         height: 34px;
         padding: 0 6px;
+      }
+      /* The party as a flag on the People button: the bar is narrow. */
+      .stack {
+        display: none;
+      }
+      .phone-icon {
+        display: block;
       }
     }
     /* DerpyFront's narrow bar has its own buttons too: the bell folds into People. */

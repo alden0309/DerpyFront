@@ -44,11 +44,13 @@ export const SOCIAL_TEXT = {
   join: "Join",
   watch: "Watch",
   invite: "Invite to my game",
+  invite_short: "Invite",
   invited: "Invited",
   add_friend: "Add friend",
   request_sent_short: "Request sent",
   accept_request: "Accept request",
   remove_friend: "Remove friend",
+  remove_sure: "Remove {name}?",
   profile: "Profile",
   more: "More for {name}",
   // Adding a friend
@@ -73,6 +75,7 @@ export const SOCIAL_TEXT = {
   invite_to_party: "Invite to party",
   party_asked: "Asked: {names}",
   leave_party: "Leave party",
+  leave_hands_over: "The party goes on, led by whoever's been in it longest.",
   disband: "Disband",
   make_leader: "Make leader",
   // Notifications
@@ -146,10 +149,10 @@ export function placeText(p: Place | null, t: SocialTranslate): string {
     case "cq-room":
       return t("place_cq_room");
     case "cq-game": {
+      // "Jamestown (England)"; either alone when the other isn't known.
+      const parts = [p.colony, p.power].filter((x): x is string => !!x);
       const where =
-        p.colony && p.power
-          ? `${p.colony} (${p.power})`
-          : p.colony || p.power || "";
+        parts.length === 2 ? `${parts[0]} (${parts[1]})` : (parts[0] ?? "");
       return where
         ? t("place_cq_game", { year: p.year ?? "", where })
         : t("place_cq_game_year", { year: p.year ?? "" });

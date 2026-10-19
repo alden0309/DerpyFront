@@ -265,7 +265,13 @@ export class SocialClient {
     if (!s) return [];
     const out: Notice[] = [];
     const pull = pullOf(s.party);
-    if (pull && !this.notNow.has(pull.key)) out.push(pull);
+    // The leader who asked you in already, to the same lobby: one notice.
+    if (
+      pull &&
+      !this.notNow.has(pull.key) &&
+      !s.invites.some((i) => i.href === pull.href)
+    )
+      out.push(pull);
     for (const i of s.invites)
       out.push({
         key: `inv:${i.id}`,

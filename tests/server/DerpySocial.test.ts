@@ -48,7 +48,6 @@ describe.skipIf(!TEST_DB)(
     }
     const users: Record<string, User> = {};
     const ids: number[] = [];
-    let tabs = 0;
 
     async function call(
       path: string,
@@ -152,7 +151,6 @@ describe.skipIf(!TEST_DB)(
       S.resetSocial();
       L.setLiveSources({ derpyfront: () => [], conquest: () => [] });
       L.forgetLiveGames();
-      tabs++;
     });
 
     afterAll(async () => {

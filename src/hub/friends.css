@@ -319,3 +319,22 @@ dl-friend-status {
     justify-content: flex-start;
   }
 }
+
+/* The site's buttons as designed (banana with dark ink, bold). Set here
+   because hub.css's base layer ends up after its components layer in the
+   bundle (chronicle.css declares "components" first), so a plain
+   button's inherited color and weight win over .dl-btn's. */
+dl-online .dl-btn:not(:disabled),
+dl-friends .dl-btn:not(:disabled),
+dl-friend-status .dl-btn:not(:disabled) {
+  color: var(--peel-ink);
+  font-weight: 700;
+}
+dl-online .dl-btn.ghost:not(:disabled),
+dl-friends .dl-btn.ghost:not(:disabled),
+dl-friend-status .dl-btn.ghost:not(:disabled) {
+  color: var(--text);
+}
+dl-friends .dl-btn.ghost.dl-danger:not(:disabled) {
+  color: #fca5a5;
+}
