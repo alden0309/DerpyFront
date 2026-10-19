@@ -1,0 +1,28 @@
+/* FRIENDS (r25): Derp Land's People and bell (SocialBar.ts) in the game's
+   banner: round buttons like the letters and the menu beside them, and
+   Derp Land's dark panels under them (they're Derp Land's, not the game's). */
+.cq-social {
+  --bar: #202024;
+  --panel: #202024;
+  --panel-2: #2a2a30;
+  --line: rgba(255, 255, 255, 0.09);
+  --text: #f4f4f5;
+  --text-2: #a1a1aa;
+  --accent: #f5cc3c;
+  --accent-2: #ffd447;
+  --accent-ink: #2e2010;
+  --soc-btn-size: 40px;
+  --soc-btn-radius: 20px;
+  --soc-btn-bg: rgba(0, 0, 0, 0.18);
+  --soc-btn-hover: rgba(0, 0, 0, 0.3);
+  --soc-btn-ink: var(--nation-ink, #f4f4f5);
+  font-family: "Archivo Variable", "Archivo", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.3;
+}
+@media (max-width: 560px) {
+  .cq-social {
+    --soc-btn-size: 34px;
+    --soc-btn-radius: 17px;
+  }
+}

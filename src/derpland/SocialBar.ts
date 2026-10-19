@@ -763,23 +763,24 @@ export class DerpSocial extends LitElement {
     .wrap {
       position: relative;
     }
+    /* The buttons' look can be set from outside (Derpy Conquest's banner). */
     .ibtn {
       position: relative;
       display: grid;
       place-items: center;
-      min-width: 36px;
-      height: 36px;
+      min-width: var(--soc-btn-size, 36px);
+      height: var(--soc-btn-size, 36px);
       padding: 0 7px;
       border: 0;
-      border-radius: 9px;
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--text);
+      border-radius: var(--soc-btn-radius, 9px);
+      background: var(--soc-btn-bg, rgba(255, 255, 255, 0.06));
+      color: var(--soc-btn-ink, var(--text));
       cursor: pointer;
       font: inherit;
     }
     .ibtn:hover,
     .ibtn[aria-expanded="true"] {
-      background: rgba(255, 255, 255, 0.12);
+      background: var(--soc-btn-hover, rgba(255, 255, 255, 0.12));
     }
     .ibtn:focus-visible,
     .btn:focus-visible,
