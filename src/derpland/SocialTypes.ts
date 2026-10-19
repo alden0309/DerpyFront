@@ -17,12 +17,13 @@ export type ClientWhere =
   | { k: "around" }
   | { k: "df-menu" }
   | { k: "cq-front" }
-  | { k: "df-lobby"; id: string; lobby: FrontLobby; map?: string }
+  /** A solo lobby (setting up a singleplayer game) has no id yet. */
+  | { k: "df-lobby"; id?: string; lobby: FrontLobby; map?: string }
   | {
       k: "df-game";
       id: string;
       lobby: FrontLobby;
-      map: string;
+      map?: string;
       watching?: boolean;
     };
 

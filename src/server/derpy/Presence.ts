@@ -53,9 +53,10 @@ const ClientWhereSchema = z.discriminatedUnion("k", [
   z.object({ k: z.literal("around") }),
   z.object({ k: z.literal("df-menu") }),
   z.object({ k: z.literal("cq-front") }),
+  // A solo lobby (setting up a singleplayer game) has no id yet.
   z.object({
     k: z.literal("df-lobby"),
-    id: GAME_ID,
+    id: GAME_ID.optional(),
     lobby: LOBBY,
     map: MAP.optional(),
   }),
@@ -63,7 +64,7 @@ const ClientWhereSchema = z.discriminatedUnion("k", [
     k: z.literal("df-game"),
     id: GAME_ID,
     lobby: LOBBY,
-    map: MAP,
+    map: MAP.optional(),
     watching: z.boolean().optional(),
   }),
 ]);
@@ -103,7 +104,11 @@ export interface Target {
 
 export function targetOf(w: Where | null | undefined): Target | null {
   if (!w) return null;
-  if (w.k === "df-lobby" && (w.lobby === "private" || w.lobby === "public"))
+  if (
+    w.k === "df-lobby" &&
+    w.id &&
+    (w.lobby === "private" || w.lobby === "public")
+  )
     return { game: "derpyfront", id: w.id, private: w.lobby === "private" };
   if ((w.k === "cq-room" || w.k === "cq-game") && w.joinable)
     return { game: "conquest", id: w.code, private: w.private };
@@ -154,7 +159,7 @@ export function placeOf(w: Where): Place {
       return {
         k: w.k,
         lobby: w.lobby,
-        map: w.map,
+        ...(w.map ? { map: w.map } : {}),
         ...(w.watching ? { watching: true } : {}),
       };
     case "cq-room":

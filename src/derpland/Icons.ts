@@ -331,3 +331,100 @@ export function bananaMark(cls = "dl-banana"): TemplateResult {
     />
   </svg>`;
 }
+
+// ---- FRIENDS (r25): who's online, invites and the party
+
+/** A bell: notifications. */
+export function bellIcon(cls = "dl-i"): TemplateResult {
+  return html`<svg
+    class=${cls}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.6 2H4.4z" />
+    <path d="M10 20.5a2.2 2.2 0 0 0 4 0" />
+  </svg>`;
+}
+
+/** Three dots: more you can do. */
+export function moreIcon(cls = "dl-i"): TemplateResult {
+  return html`<svg class=${cls} viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="5.5" cy="12" r="1.9" fill="currentColor" />
+    <circle cx="12" cy="12" r="1.9" fill="currentColor" />
+    <circle cx="18.5" cy="12" r="1.9" fill="currentColor" />
+  </svg>`;
+}
+
+/** An eye: watch a game. */
+export function eyeIcon(cls = "dl-i"): TemplateResult {
+  return html`<svg
+    class=${cls}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>`;
+}
+
+/** An arrow through a door: join them. */
+export function joinIcon(cls = "dl-i"): TemplateResult {
+  return html`<svg
+    class=${cls}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4" />
+    <path d="M10 16l4-4-4-4M14 12H4" />
+  </svg>`;
+}
+
+/** A person with a plus: add a friend. */
+export function addPersonIcon(cls = "dl-i"): TemplateResult {
+  return html`<svg
+    class=${cls}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="9.5" cy="8" r="3.4" />
+    <path d="M3 20c.6-3.7 3.2-5.8 6.5-5.8 1.6 0 3 .5 4.1 1.3" />
+    <path d="M18 13v7M14.5 16.5h7" />
+  </svg>`;
+}
+
+/** A pennant: the party. */
+export function flagIcon(cls = "dl-i"): TemplateResult {
+  return html`<svg
+    class=${cls}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M5.5 21V3.5" />
+    <path d="M5.5 4.5h11.8l-2.6 4 2.6 4H5.5" />
+  </svg>`;
+}

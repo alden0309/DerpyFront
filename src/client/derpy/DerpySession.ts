@@ -7,6 +7,12 @@ export const DERPY_API = "/derpy/api";
 /** Fired on window whenever the signed-in account (or its coins) changes. */
 export const DERPY_ACCOUNT_EVENT = "derpy-account-changed";
 
+/**
+ * FRIENDS (r25): fired on window just before this browser signs out, while
+ * the session still works, so the page can leave who's online at once.
+ */
+export const SIGNING_OUT_EVENT = "derp-signing-out";
+
 export const TOKEN_KEY = "derpy_session_token";
 export const USER_KEY = "derpy_username";
 

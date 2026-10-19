@@ -5,6 +5,10 @@
 //
 // It renders in a shadow root so DerpyFront's and Conquest's own CSS can't
 // restyle it. Pages ask it to open the sign-in dialog with openSignIn().
+//
+// FRIENDS (r25): signed in, it also shows who's online and your party
+// (People) and your invites (the bell), from SocialBar.ts, and the account
+// menu can make you appear offline.
 
 import { css, html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
@@ -25,6 +29,7 @@ import {
   chestIcon,
   closeIcon,
   coinIcon,
+  eyeIcon,
   pawnIcon,
   penIcon,
   podiumIcon,
@@ -32,6 +37,10 @@ import {
   stallIcon,
   tokenColor,
 } from "./Icons";
+import { social, SOCIAL_EVENT } from "./Social"; // FRIENDS (r25)
+import "./SocialBar";
+import { BAR_MENU_EVENT } from "./SocialBar";
+import { englishSocial, type SocialTranslate } from "./SocialText";
 
 export type BarPage =
   | "home"
@@ -145,6 +154,8 @@ export class DerpBar extends LitElement {
   @property({ type: String }) page: BarPage = "home";
   /** Replacement words (DerpyFront passes translated ones). */
   @property({ attribute: false }) labels: Partial<BarLabels> = {};
+  /** FRIENDS (r25): the words for who's online and the party. */
+  @property({ attribute: false }) socialText: SocialTranslate = englishSocial;
 
   private get t(): BarLabels {
     return { ...BAR_LABELS, ...this.labels };
@@ -156,6 +167,8 @@ export class DerpBar extends LitElement {
   @state() private authMode: "signin" | "create" = "signin";
   @state() private authError: string | null = null;
   @state() private authBusy = false;
+  /** FRIENDS (r25) */
+  @state() private appearOffline = social.state?.me.appearOffline ?? false;
 
   @query("dialog") private dialog!: HTMLDialogElement;
 
@@ -166,6 +179,8 @@ export class DerpBar extends LitElement {
     document.addEventListener("pointerdown", this.onOutside);
     document.addEventListener("keydown", this.onKey);
     document.addEventListener("visibilitychange", this.onVisible);
+    window.addEventListener(SOCIAL_EVENT, this.onSocial); // FRIENDS (r25)
+    window.addEventListener(BAR_MENU_EVENT, this.onBarMenu);
     void this.refresh();
   }
 
@@ -175,8 +190,18 @@ export class DerpBar extends LitElement {
     document.removeEventListener("pointerdown", this.onOutside);
     document.removeEventListener("keydown", this.onKey);
     document.removeEventListener("visibilitychange", this.onVisible);
+    window.removeEventListener(SOCIAL_EVENT, this.onSocial);
+    window.removeEventListener(BAR_MENU_EVENT, this.onBarMenu);
     super.disconnectedCallback();
   }
+
+  // FRIENDS (r25)
+  private onSocial = () => {
+    this.appearOffline = social.state?.me.appearOffline ?? false;
+  };
+  private onBarMenu = (e: Event) => {
+    if ((e as CustomEvent).detail === "social") this.menu = null;
+  };
 
   private onAccount = () => void this.refresh();
   private onVisible = () => {
@@ -237,6 +262,8 @@ export class DerpBar extends LitElement {
 
   private toggle(menu: "play" | "account"): void {
     this.menu = this.menu === menu ? null : menu;
+    if (this.menu)
+      window.dispatchEvent(new CustomEvent(BAR_MENU_EVENT, { detail: "bar" }));
   }
 
   render(): TemplateResult {
@@ -329,6 +356,12 @@ export class DerpBar extends LitElement {
         >${name.slice(0, 1).toUpperCase()}</span
       >`;
     return html`
+      <!-- FRIENDS (r25): who's online, the party, invites -->
+      <derp-social
+        page=${this.page}
+        ?tools=${this.hasAttribute("has-tools")}
+        .words=${this.socialText}
+      ></derp-social>
       ${this.coins !== null
         ? html`<a class="coins" href="/store" title=${t.yourCoins}
             >${coinIcon()}<span>${formatCoins(this.coins)}</span></a
@@ -372,6 +405,20 @@ export class DerpBar extends LitElement {
                 @click=${() => (this.menu = null)}
                 >${penIcon()} ${t.changeUsername}</a
               >
+              <!-- FRIENDS (r25): nobody sees you on the list -->
+              <button
+                class="item switch"
+                role="menuitemcheckbox"
+                aria-checked=${this.appearOffline}
+                @click=${() => {
+                  const hidden = !this.appearOffline;
+                  this.appearOffline = hidden;
+                  void social.act("/hidden", { hidden });
+                }}
+              >
+                ${eyeIcon()} ${this.socialText("appear_offline")}
+                <span class="knob" aria-hidden="true"></span>
+              </button>
               <button
                 class="item"
                 role="menuitem"
@@ -796,6 +843,34 @@ export class DerpBar extends LitElement {
     }
     .item:hover {
       background: var(--panel-2);
+    }
+    /* FRIENDS (r25): Appear offline */
+    .item.switch .knob {
+      margin-left: auto;
+      width: 34px;
+      height: 20px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.16);
+      position: relative;
+      flex: none;
+      transition: background-color 0.15s;
+    }
+    .item.switch .knob::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.15s;
+    }
+    .item.switch[aria-checked="true"] .knob {
+      background: var(--accent);
+    }
+    .item.switch[aria-checked="true"] .knob::after {
+      transform: translateX(14px);
     }
 
     dialog {
