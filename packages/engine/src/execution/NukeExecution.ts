@@ -23,6 +23,7 @@ import { Execution, Game, isUnit, Player, Unit } from "../game/Game";
 import { UniversalPathFinding } from "../pathfinding/PathFinder";
 import { ParabolaUniversalPathFinder } from "../pathfinding/PathFinder.Parabola";
 import { PathStatus } from "../pathfinding/types";
+import { onScenarioHostility } from "../scenario/ScenarioRules"; // SCEN (r25)
 import { UnitTypeSchema } from "../snapshot/CommonSchemas";
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import {
@@ -268,6 +269,10 @@ export class NukeExecution implements Execution {
         }
         // Record stats
         this.mg.stats().bombLaunch(this.player, target, this.nukeType);
+        // SCEN (r25): a nuke or missile at a neutral's land is an invasion.
+        if (target.isPlayer()) {
+          onScenarioHostility(this.mg, this.player, target);
+        }
       }
 
       // after sending a nuke set the missilesilo on cooldown

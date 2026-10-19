@@ -166,6 +166,10 @@ export class Executor {
         return new MarkDisconnectedExecution(player, intent.isDisconnected);
       case "toggle_pause":
         return new PauseExecution(player, intent.paused);
+      // SCEN (r25): the server answers seat picks in the lobby; one never
+      // reaches a turn, and does nothing if it does.
+      case "scenario_seat":
+        return new NoOpExecution();
       default:
         throw new Error(`intent type ${intent} not found`);
     }

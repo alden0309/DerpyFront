@@ -24,6 +24,7 @@ import {
 import { z } from "zod";
 import { AttackLogicInput } from "../configuration/EngineConfig";
 import { Attack, Execution, Game, Player } from "../game/Game";
+import { onScenarioHostility } from "../scenario/ScenarioRules"; // SCEN (r25)
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import type {
   ExecRecord,
@@ -196,6 +197,8 @@ export class AttackExecution implements Execution {
     this.mg.stats().attackMaxIncoming(this.target, this.attack.troops());
 
     if (!this.target.isPlayer()) return;
+    // SCEN (r25): a neutral invaded (by land, or by a landing) takes a side.
+    onScenarioHostility(this.mg, this._owner, this.target);
     const difficulty = this.mg.config().gameConfig().difficulty;
     // Hitting back at whoever just attacked us doesn't anger them, except on Easy
     if (

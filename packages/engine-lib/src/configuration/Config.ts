@@ -1,5 +1,6 @@
 import {
   Difficulty,
+  GameMapSize,
   GameType,
   PlayerType,
   Tick,
@@ -7,6 +8,7 @@ import {
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
 import { PlayerLike } from "@openfront/engine-api/game/ReadViews";
+import { scenarioCatalogEntry } from "@openfront/engine-api/game/Scenarios"; // SCEN (r25)
 import { DERPY_RULES, GameConfig } from "@openfront/engine-api/Schemas";
 import { pow } from "../DetMath";
 import { DoomsdayClockSpeed } from "../game/DoomsdayClock";
@@ -169,6 +171,26 @@ export class Config {
   capitalTroopBonus(): number {
     return 2_000_000;
   }
+  /**
+   * SCEN (r25): the troop bonus `player`'s capital gives. In a scenario with
+   * capitalFullTiles, a nation holding fewer (full-size) tiles gets that
+   * share of it, so a small state's capital doesn't make it a fortress;
+   * otherwise, and in every other game, the full bonus.
+   */
+  capitalTroopBonusFor(player: PlayerLike): number {
+    const full = this.capitalTroopBonus();
+    const fullTiles = scenarioCatalogEntry(
+      this._gameConfig.scenario?.id,
+    )?.capitalFullTiles;
+    if (fullTiles === undefined || fullTiles <= 0) return full;
+    const atSize =
+      this._gameConfig.gameMapSize === GameMapSize.Compact
+        ? Math.max(1, Math.floor(fullTiles / 4))
+        : fullTiles;
+    const tiles = player.numTilesOwned();
+    if (tiles >= atSize) return full;
+    return Math.floor((full * tiles) / atSize);
+  }
   /** Derpy Front: the rules edition this game is played under. */
   derpyRules(): number {
     return this._gameConfig.derpyRules ?? DERPY_RULES;
@@ -242,7 +264,9 @@ export class Config {
     // control at 0). The legacy boolean is still honored for older configs.
     return (
       this._gameConfig.customAllianceDuration === 0 ||
-      (this._gameConfig.disableAlliances ?? false)
+      (this._gameConfig.disableAlliances ?? false) ||
+      // SCEN (r25): sides are locked; nobody makes or breaks an alliance.
+      this._gameConfig.scenario !== undefined
     );
   }
   isRandomSpawn(): boolean {
@@ -421,7 +445,8 @@ export class Config {
           cityTroops +
           player.units(UnitType.Capital).filter((u) => !u.isUnderConstruction())
             .length *
-            this.capitalTroopBonus();
+            this.capitalTroopBonusFor(player) + // SCEN (r25)
+          (player.scenarioTroopCap?.() ?? 0);
 
     if (player.type() === PlayerType.Bot) {
       return maxTroops / 3;

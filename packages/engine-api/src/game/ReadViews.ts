@@ -27,6 +27,11 @@ export interface PlayerLike {
   troops(): number;
   gold(): Gold;
   units(type: UnitType): readonly UnitLike[];
+  /**
+   * SCEN (r25): troops a Scenario adds to this player's cap (its nation's
+   * troopCapBonus, stored ten times as troops are); absent or 0 otherwise.
+   */
+  scenarioTroopCap?(): number;
 }
 
 export interface UnitLike {

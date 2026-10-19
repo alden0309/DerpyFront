@@ -42,6 +42,10 @@ import {
   targetTransportTile,
 } from "../../game/TransportShipUtils";
 import { PathFinding } from "../../pathfinding/PathFinder";
+import {
+  scenarioHasSideEnemies,
+  scenarioSparesTarget,
+} from "../../scenario/ScenarioRules"; // SCEN (r25)
 import type {
   SnapshotReader,
   SnapshotWriter,
@@ -294,9 +298,20 @@ export class AiAttackBehavior {
     const borderingFriends = borderingPlayers.filter(
       (o) => this.player?.isFriendly(o) === true,
     );
-    const borderingEnemies = borderingPlayers.filter(
+    let borderingEnemies = borderingPlayers.filter(
       (o) => this.player?.isFriendly(o) === false,
     );
+    // SCEN (r25): a nation on a side fights the other sides (across the sea
+    // if it must); it turns on a neutral neighbour only when no other side
+    // has a nation left.
+    if (
+      this.game.scenario() !== null &&
+      scenarioHasSideEnemies(this.game, this.player)
+    ) {
+      borderingEnemies = borderingEnemies.filter(
+        (o) => !scenarioSparesTarget(this.game, this.player, o),
+      );
+    }
 
     // AIP (r23): a Protector remembers who attacks it (rules 6+)
     const tuning = this.tuning();
@@ -501,6 +516,13 @@ export class AiAttackBehavior {
       }
       // Skip players we already know are unreachable (Performance optimization)
       if (owner.isPlayer() && unreachablePlayers.has(owner.id())) {
+        continue;
+      }
+      // SCEN (r25): no random landings on neutrals.
+      if (
+        owner.isPlayer() &&
+        scenarioSparesTarget(this.game, this.player, owner)
+      ) {
         continue;
       }
       // Don't send boats to players with which we share a border, that usually looks stupid
@@ -1365,6 +1387,7 @@ export class AiAttackBehavior {
     const filteredPlayers = this.game.players().filter((p) => {
       if (p === this.player) return false;
       if (this.player.isFriendly(p)) return false;
+      if (scenarioSparesTarget(this.game, this.player, p)) return false; // SCEN (r25)
       // In FFA, don't spam boats into players with more troops
       return !this.isFFA() || p.troops() < this.player.troops();
     });
@@ -2133,17 +2156,16 @@ export class AiAttackBehavior {
     }
     const range = this.maxBoatRoute();
     const ours = this.player.largestClusterBoundingBox;
-    return this.game
-      .players()
-      .filter(
-        (p) =>
-          p !== this.player &&
-          p.type() !== PlayerType.Bot &&
-          !this.player.isFriendly(p) &&
-          !borderingEnemies.includes(p) &&
-          (!this.isFFA() || p.troops() < this.player.troops()) &&
-          boxGap(ours, p.largestClusterBoundingBox) <= range,
-      );
+    return this.game.players().filter(
+      (p) =>
+        p !== this.player &&
+        p.type() !== PlayerType.Bot &&
+        !this.player.isFriendly(p) &&
+        !borderingEnemies.includes(p) &&
+        !scenarioSparesTarget(this.game, this.player, p) && // SCEN (r25)
+        (!this.isFFA() || p.troops() < this.player.troops()) &&
+        boxGap(ours, p.largestClusterBoundingBox) <= range,
+    );
   }
 
   // Hard & Impossible send warships at whatever blocks the juiciest target they couldn't reach.

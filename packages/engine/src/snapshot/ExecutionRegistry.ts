@@ -49,6 +49,7 @@ import { TribeExecutionSnapshot } from "../execution/TribeExecution";
 import { UpgradeStructureExecutionSnapshot } from "../execution/UpgradeStructureExecution";
 import { WarshipExecutionSnapshot } from "../execution/WarshipExecution";
 import { WinCheckExecutionSnapshot } from "../execution/WinCheckExecution";
+import { ScenarioStartExecutionSnapshot } from "../scenario/ScenarioStartExecution"; // SCEN (r25)
 import type { ExecutionSnapshotType } from "./ExecutionSnapshot";
 
 /**
@@ -92,6 +93,7 @@ export const EXECUTION_SNAPSHOT_TYPES = [
   RetreatExecutionSnapshot,
   SAMLauncherExecutionSnapshot,
   SAMMissileExecutionSnapshot,
+  ScenarioStartExecutionSnapshot, // SCEN (r25)
   ShellExecutionSnapshot,
   SpawnExecutionSnapshot,
   SpawnTimerExecutionSnapshot,

@@ -1399,6 +1399,28 @@ export class PlayerImpl implements Player {
     return this._team;
   }
 
+  // SCEN (r25): a neutral that joins a side keeps it for the rest of the game.
+  setTeam(team: Team | null): void {
+    this._team = team;
+  }
+
+  // SCEN (r25): its scenario nation's troopCapBonus, as stored troops.
+  private _scenarioTroopCap: number | undefined;
+  scenarioTroopCap(): number {
+    if (this._scenarioTroopCap === undefined) {
+      const scenario = this.mg.scenario();
+      const bonus = scenario?.nationOf(this)?.troopCapBonus ?? 0;
+      this._scenarioTroopCap =
+        (bonus * 10) / (scenario !== null && scenario.scale > 1 ? 2 : 1);
+    }
+    return this._scenarioTroopCap;
+  }
+
+  // SCEN (r25): a scenario nation's starting gold (not income).
+  setScenarioGold(gold: Gold): void {
+    this._gold = gold;
+  }
+
   isOnSameTeam(other: Player): boolean {
     if (other === this) {
       return false;

@@ -7,6 +7,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { z } from "zod";
 import { Execution, Game } from "../game/Game";
+import { scenarioWinner, scenarioWinPercent } from "../scenario/ScenarioRules"; // SCEN (r25)
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import type { ExecRecord, SnapshotReader } from "../snapshot/SnapshotContext";
 
@@ -34,6 +35,12 @@ export class WinCheckExecution implements Execution {
     if (this.mg === null) throw new Error("Not initialized");
 
     if (this.checkRankedTeamCancelled()) {
+      return;
+    }
+
+    // SCEN (r25): a side wins together.
+    if (this.mg.scenario() !== null) {
+      this.checkWinnerScenario();
       return;
     }
 
@@ -198,6 +205,31 @@ export class WinCheckExecution implements Execution {
       console.log(`${max[0]} has won the game`);
       this.active = false;
     }
+  }
+
+  /**
+   * SCEN (r25): the only side with nations left wins, or one holding the
+   * scenario's share of the land; at the lobby timer or the hard limit, the
+   * side with the most land.
+   */
+  private checkWinnerScenario(): void {
+    if (this.mg === null) throw new Error("Not initialized");
+    const elapsed = this.mg.elapsedGameSeconds();
+    const maxTimerValue = this.mg.config().gameConfig().maxTimerValue;
+    const timeUp =
+      (maxTimerValue !== undefined &&
+        maxTimerValue !== null &&
+        elapsed >= maxTimerValue * 60) ||
+      elapsed >= WinCheckExecution.HARD_TIME_LIMIT_SECONDS;
+    const winner = scenarioWinner(
+      this.mg,
+      scenarioWinPercent(this.mg, elapsed),
+      timeUp,
+    );
+    if (winner === null) return;
+    this.mg.setWinner(winner, this.mg.stats().stats());
+    console.log(`${winner} has won the game`);
+    this.active = false;
   }
 
   isActive(): boolean {

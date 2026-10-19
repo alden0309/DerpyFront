@@ -1,0 +1,92 @@
+{
+  "scenarios": {
+    "europe1939": {
+      "map": "Europe",
+      "sides": ["Axis", "Allies"],
+      "nations": [
+        "germany",
+        "italy",
+        "hungary",
+        "romania",
+        "bulgaria",
+        "slovakia",
+        "finland",
+        "united_kingdom",
+        "france",
+        "soviet_union",
+        "poland",
+        "yugoslavia",
+        "greece",
+        "belgium",
+        "netherlands",
+        "norway",
+        "spain",
+        "portugal",
+        "ireland",
+        "switzerland",
+        "sweden",
+        "turkey",
+        "denmark",
+        "estonia",
+        "latvia",
+        "lithuania",
+        "iceland",
+        "luxembourg",
+        "iran",
+        "saudi_arabia"
+      ]
+    },
+    "colonies1776": {
+      "map": "Thirteen Colonies",
+      "sides": ["Patriots", "British"],
+      "nations": [
+        "great_britain",
+        "new_hampshire",
+        "massachusetts",
+        "rhode_island",
+        "connecticut",
+        "new_york",
+        "new_jersey",
+        "pennsylvania",
+        "delaware",
+        "maryland",
+        "virginia",
+        "north_carolina",
+        "south_carolina",
+        "georgia",
+        "haudenosaunee",
+        "wabanaki",
+        "mohican",
+        "lenape",
+        "shawnee",
+        "mingo",
+        "wendat",
+        "ojibwe",
+        "cherokee",
+        "catawba",
+        "creek",
+        "seminole"
+      ]
+    },
+    "continental1776": {
+      "map": "Thirteen Colonies",
+      "sides": ["Patriots", "British"],
+      "nations": [
+        "great_britain",
+        "united_colonies",
+        "haudenosaunee",
+        "wabanaki",
+        "mohican",
+        "lenape",
+        "shawnee",
+        "mingo",
+        "wendat",
+        "ojibwe",
+        "cherokee",
+        "catawba",
+        "creek",
+        "seminole"
+      ]
+    }
+  }
+}

@@ -97,7 +97,7 @@ export class CapitalExecution implements Execution {
     }
 
     if (!this.troopsGranted) {
-      owner.addTroops(config.capitalTroopBonus());
+      owner.addTroops(config.capitalTroopBonusFor(owner)); // SCEN (r25)
       this.troopsGranted = true;
     }
 
