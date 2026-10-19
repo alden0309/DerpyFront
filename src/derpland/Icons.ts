@@ -428,3 +428,25 @@ export function flagIcon(cls = "dl-i"): TemplateResult {
     <path d="M5.5 4.5h11.8l-2.6 4 2.6 4H5.5" />
   </svg>`;
 }
+
+// ---- NEWS (r25): What's New
+
+/** A megaphone: What's New. */
+export function megaphoneIcon(cls = "dl-i"): TemplateResult {
+  return html`<svg
+    class=${cls}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path
+      d="M3.5 10.2v3.6a1 1 0 0 0 1 1h2.6L15 19V5L7.1 9.2H4.5a1 1 0 0 0-1 1z"
+    />
+    <path d="M7.4 14.8 8.8 20h2.4l-1-4.2" />
+    <path d="M18.4 9.2a4 4 0 0 1 0 5.6" />
+  </svg>`;
+}

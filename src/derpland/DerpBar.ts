@@ -9,6 +9,9 @@
 // FRIENDS (r25): signed in, it also shows who's online and your party
 // (People) and your invites (the bell), from SocialBar.ts, and the account
 // menu can make you appear offline.
+//
+// NEWS (r25): What's New is the last tab, with a dot while something there
+// is new to you (News.ts), signed in or out.
 
 import { css, html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, property, query, state } from "lit/decorators.js";
@@ -31,6 +34,7 @@ import {
   coinIcon,
   eyeIcon,
   flagIcon,
+  megaphoneIcon, // NEWS (r25)
   pawnIcon,
   penIcon,
   peopleIcon,
@@ -39,6 +43,8 @@ import {
   stallIcon,
   tokenColor,
 } from "./Icons";
+import { news, NEWS_EVENT } from "./News"; // NEWS (r25)
+import { englishNews, type NewsTranslate } from "./NewsText";
 import { social, SOCIAL_EVENT } from "./Social"; // FRIENDS (r25)
 import "./SocialBar";
 import { BAR_MENU_EVENT, OPEN_PEOPLE_EVENT } from "./SocialBar";
@@ -51,7 +57,8 @@ export type BarPage =
   | "store"
   | "inventory"
   | "leaderboard"
-  | "account";
+  | "account"
+  | "whats-new"; // NEWS (r25)
 
 const OPEN_SIGN_IN = "derp-open-sign-in";
 
@@ -158,6 +165,8 @@ export class DerpBar extends LitElement {
   @property({ attribute: false }) labels: Partial<BarLabels> = {};
   /** FRIENDS (r25): the words for who's online and the party. */
   @property({ attribute: false }) socialText: SocialTranslate = englishSocial;
+  /** NEWS (r25): the words for What's New and its card. */
+  @property({ attribute: false }) newsText: NewsTranslate = englishNews;
 
   private get t(): BarLabels {
     return { ...BAR_LABELS, ...this.labels };
@@ -173,6 +182,8 @@ export class DerpBar extends LitElement {
   @state() private appearOffline = social.state?.me.appearOffline ?? false;
   @state() private inParty = !!social.state?.party;
   @state() private notices = social.notices().length;
+  /** NEWS (r25) */
+  @state() private newsDot = news.unseen > 0;
 
   @query("dialog") private dialog!: HTMLDialogElement;
 
@@ -185,7 +196,9 @@ export class DerpBar extends LitElement {
     document.addEventListener("visibilitychange", this.onVisible);
     window.addEventListener(SOCIAL_EVENT, this.onSocial); // FRIENDS (r25)
     window.addEventListener(BAR_MENU_EVENT, this.onBarMenu);
+    window.addEventListener(NEWS_EVENT, this.onNews); // NEWS (r25)
     void this.refresh();
+    news.start();
   }
 
   disconnectedCallback(): void {
@@ -196,8 +209,17 @@ export class DerpBar extends LitElement {
     document.removeEventListener("visibilitychange", this.onVisible);
     window.removeEventListener(SOCIAL_EVENT, this.onSocial);
     window.removeEventListener(BAR_MENU_EVENT, this.onBarMenu);
+    window.removeEventListener(NEWS_EVENT, this.onNews);
     super.disconnectedCallback();
   }
+
+  // NEWS (r25): the card shows in this page's words too.
+  protected willUpdate(changed: Map<PropertyKey, unknown>): void {
+    if (changed.has("newsText")) news.text = this.newsText;
+  }
+  private onNews = () => {
+    this.newsDot = news.unseen > 0;
+  };
 
   // FRIENDS (r25)
   private onSocial = () => {
@@ -315,6 +337,7 @@ export class DerpBar extends LitElement {
             ${tab("store", "/store", t.store, stallIcon())}
             ${tab("inventory", "/inventory", t.inventory, chestIcon())}
             ${tab("leaderboard", "/leaderboard", t.leaderboard, podiumIcon())}
+            ${this.renderNewsTab()}
           </nav>
           <div class="right">
             <slot name="tools"></slot>
@@ -324,6 +347,24 @@ export class DerpBar extends LitElement {
       </header>
       ${this.renderDialog()}
     `;
+  }
+
+  /** NEWS (r25): What's New, with a dot while something there is new. */
+  private renderNewsTab(): TemplateResult {
+    const on = this.page === "whats-new";
+    const label = this.newsText("whats_new");
+    return html`<a
+      class="tab news ${on ? "on" : ""}"
+      href="/whats-new"
+      aria-current=${on ? "page" : "false"}
+      aria-label=${label}
+      title=${label}
+      ><i class="news-icon"
+        >${megaphoneIcon()}${this.newsDot && !on
+          ? html`<i class="news-dot" aria-hidden="true"></i>`
+          : nothing}</i
+      ><span>${label}</span></a
+    >`;
   }
 
   private renderPlayMenu(): TemplateResult {
@@ -1079,6 +1120,24 @@ export class DerpBar extends LitElement {
     .primary:disabled {
       opacity: 0.55;
       cursor: progress;
+    }
+
+    /* NEWS (r25): What's New's dot, on its megaphone */
+    .news-icon {
+      position: relative;
+      display: grid;
+      place-items: center;
+      font-style: normal;
+    }
+    .news-dot {
+      position: absolute;
+      top: -3px;
+      right: -4px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent-2);
+      box-shadow: 0 0 0 2px var(--bar);
     }
 
     @media (max-width: 860px) {

@@ -15,6 +15,7 @@ import {
   peopleIcon,
   scrollIcon,
 } from "../derpland/Icons";
+import { HOME_NEWS, news } from "../derpland/News"; // NEWS (r25)
 import "./BasedCard"; // BASED (r19): Mr. Based, coming soon
 import "./ConquestGame"; // LEGACY (r21): a finished Conquest game's page
 import "./Dynasty"; // TREE (r25): a Conquest dynasty's page
@@ -22,6 +23,7 @@ import { nationName, nf, timeAgo } from "./format";
 import "./Friends"; // FRIENDS (r25): who's on Derp Land now
 import { HubPage } from "./HubPage";
 import "./Leaderboard";
+import "./News"; // NEWS (r25): What's New
 // SITE (r19): games being played now, with Watch buttons.
 import "./Live";
 import "./Profile";
@@ -51,6 +53,8 @@ export const NAZARIO_IMAGE = "https://i.ytimg.com/vi/VGVhzZqAziY/hqdefault.jpg";
 
 type Route =
   | { page: "home" | "store" | "inventory" | "leaderboard" | "account" }
+  // NEWS (r25): What's New.
+  | { page: "news" }
   | { page: "player"; name: string }
   // LEGACY (r21): a finished Derpy Conquest game: its lines and their chronicles.
   | { page: "chronicle"; id: string }
@@ -75,6 +79,8 @@ export function routeFor(path: string): Route {
       return { page: "leaderboard" };
     case "/account":
       return { page: "account" };
+    case "/whats-new": // NEWS (r25)
+      return { page: "news" };
     default:
       return { page: "home" };
   }
@@ -89,6 +95,7 @@ const TITLES: Record<Route["page"], string> = {
   player: "Player · Derp Land",
   chronicle: "Derpy Conquest · Derp Land", // LEGACY (r21)
   dynasty: "Dynasty · Derp Land", // TREE (r25)
+  news: "What's New · Derp Land", // NEWS (r25)
 };
 
 @customElement("derp-land")
@@ -112,7 +119,9 @@ export class DerpLand extends LitElement {
     const bar: BarPage =
       r.page === "player" || r.page === "chronicle" || r.page === "dynasty"
         ? "leaderboard"
-        : r.page;
+        : r.page === "news" // NEWS (r25)
+          ? "whats-new"
+          : r.page;
     return html`
       <derp-bar page=${bar}></derp-bar>
       <main class="dl-main">${this.renderPage(r)}</main>
@@ -136,6 +145,8 @@ export class DerpLand extends LitElement {
         return html`<dl-conquest-game .gameId=${r.id}></dl-conquest-game>`;
       case "dynasty": // TREE (r25)
         return html`<dl-dynasty .name=${r.name} .gameId=${r.id}></dl-dynasty>`;
+      case "news": // NEWS (r25)
+        return html`<dl-news></dl-news>`;
       default:
         return html`<dl-home></dl-home>`;
     }
@@ -167,6 +178,16 @@ export class DerpHome extends HubPage {
   @state() private offline = false;
   @state() private dontClick = 0;
   @state() private nazarioFailed = false;
+
+  // NEWS (r25): the home may show What's New's card (Derp Land's own news).
+  connectedCallback(): void {
+    super.connectedCallback();
+    news.setPlace(HOME_NEWS);
+  }
+  disconnectedCallback(): void {
+    news.setPlace(null);
+    super.disconnectedCallback();
+  }
 
   protected async load(): Promise<void> {
     try {

@@ -3,6 +3,7 @@ import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import "../../derpland/DerpBar";
 import { BarLabels } from "../../derpland/DerpBar";
+import type { NewsTranslate } from "../../derpland/NewsText"; // NEWS (r25)
 import type { SocialTranslate } from "../../derpland/SocialText";
 import { NAV_TAGLINE } from "../GameVersion";
 import { translateText } from "../Utils";
@@ -49,6 +50,10 @@ function barLabels(): Partial<BarLabels> {
 const socialText: SocialTranslate = (key, params) =>
   translateText(`derp_social.${key}`, params);
 
+/** NEWS (r25): What's New and its card, in the player's language. */
+const newsText: NewsTranslate = (key, params) =>
+  translateText(`derp_news.${key}`, params);
+
 /**
  * DerpyFront's top bar: the same Derp Land bar every page on the site has
  * (Play, Store, Inventory, Leaderboard and your account), with DerpyFront's
@@ -68,6 +73,7 @@ export class DesktopNavBar extends LitElement {
         has-tools
         .labels=${barLabels()}
         .socialText=${socialText}
+        .newsText=${newsText}
       >
         <div
           slot="brand"

@@ -5,6 +5,7 @@
 // lobby's details arriving, the game starting, back to the menu), so the
 // two never disagree.
 
+import { FRONT_NEWS, news } from "../../derpland/News"; // NEWS (r25)
 import { social } from "../../derpland/Social";
 import type { ClientWhere, FrontLobby } from "../../derpland/SocialTypes";
 import type { PresencePayload } from "../DesktopPresence";
@@ -28,10 +29,21 @@ function menuWhere(): ClientWhere {
   return { k: "df-menu" };
 }
 
+/**
+ * NEWS (r25): Derp Land's What's New card may show on the menu's front page
+ * only: never in a lobby or a game, or over the menu's other pages.
+ */
+function tellNews(): void {
+  news.setPlace(
+    joining === null && menuPage === "page-play" ? FRONT_NEWS : null,
+  );
+}
+
 if (typeof window !== "undefined") {
   window.addEventListener("showPage", (e) => {
     menuPage = String((e as CustomEvent).detail ?? "page-play");
     if (joining === null) social.setWhere(menuWhere());
+    tellNews(); // NEWS (r25)
   });
 }
 
@@ -46,6 +58,7 @@ export function derpyJoining(
     replay: e.gameRecord !== undefined,
     map,
   };
+  tellNews(); // NEWS (r25): a game is on its way
 }
 
 /** The lobby's details came (the map isn't known until they do for a link). */
@@ -66,6 +79,7 @@ export function derpyPresence(
   p: Pick<PresencePayload, "state" | "gameType">,
 ): void {
   if (p.state === "menu") joining = null;
+  tellNews(); // NEWS (r25)
   const j = joining;
   if (j === null) {
     social.setWhere(menuWhere());
