@@ -20,6 +20,12 @@ import type {
 export const SOCIAL_EVENT = "derp-social";
 export { SIGNING_OUT_EVENT };
 
+/**
+ * Open the People panel: the account menu's People where DerpyFront's narrow
+ * bar folds it away, and Derpy Conquest's game menu.
+ */
+export const OPEN_PEOPLE_EVENT = "derp-open-people";
+
 export const BEAT_MS = 15_000;
 export const HIDDEN_BEAT_MS = 30_000;
 

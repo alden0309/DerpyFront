@@ -21,7 +21,13 @@ import {
   peopleIcon,
   tokenColor,
 } from "./Icons";
-import { defaultWhere, type Notice, social, SOCIAL_EVENT } from "./Social";
+import {
+  defaultWhere,
+  type Notice,
+  OPEN_PEOPLE_EVENT,
+  social,
+  SOCIAL_EVENT,
+} from "./Social";
 import {
   englishSocial,
   placeText,
@@ -33,8 +39,7 @@ import type { PersonRow, SocialState } from "./SocialTypes";
 
 /** Opening one of the bar's menus closes the others (DerpBar listens too). */
 export const BAR_MENU_EVENT = "derp-bar-menu";
-/** Open the People panel (the account menu's People, where the bar folds it away). */
-export const OPEN_PEOPLE_EVENT = "derp-open-people";
+export { OPEN_PEOPLE_EVENT };
 
 const TOAST_MS = 12_000;
 

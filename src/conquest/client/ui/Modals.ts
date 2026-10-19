@@ -3,6 +3,7 @@
 // someone, the menu, the rules and the end of the story.
 
 import { html, nothing, TemplateResult } from "lit";
+import { OPEN_PEOPLE_EVENT } from "../../../derpland/Social"; // FRIENDS (r25)
 import {
   MAP_STYLE_NAMES,
   MAP_STYLE_PALETTES,
@@ -529,6 +530,24 @@ function menu(ui: GameUi, hooks: ModalHooks): TemplateResult {
           Friends can join with the code
           <b class="cq-code">${hooks.code}</b>: they make a character and drop
           into the world as it is.
+        </p>`
+      : nothing}
+    ${hooks.signedIn
+      ? // FRIENDS (r25): who's on Derp Land, invites and the party (on a
+        // phone the banner has no room for its button).
+        html`<p>
+          <button
+            class="cq-btn"
+            @click=${() => {
+              ui.modal(null);
+              window.dispatchEvent(new CustomEvent(OPEN_PEOPLE_EVENT));
+            }}
+          >
+            People on Derp Land
+          </button>
+          <span class="cq-muted small"
+            >Who's on, invite a friend into this game, your party.</span
+          >
         </p>`
       : nothing}
     <div class="cq-menu">

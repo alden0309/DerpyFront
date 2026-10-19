@@ -2059,10 +2059,12 @@ export class GameView extends LitElement {
         ${postButton(ui)}
         ${this.signedIn
           ? // FRIENDS (r25): who's on Derp Land, invites, the party.
+            // On a phone the buttons fold away (no room): the menu has People.
             html`<derp-social
               class="cq-social"
               page="conquest"
               tools
+              fold
             ></derp-social>`
           : nothing}
         <button
