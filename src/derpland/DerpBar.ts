@@ -337,9 +337,10 @@ export class DerpBar extends LitElement {
             ${tab("store", "/store", t.store, stallIcon())}
             ${tab("inventory", "/inventory", t.inventory, chestIcon())}
             ${tab("leaderboard", "/leaderboard", t.leaderboard, podiumIcon())}
-            ${this.renderNewsTab()}
+            ${this.renderNews("tab")}
           </nav>
           <div class="right">
+            ${this.renderNews("top")}
             <slot name="tools"></slot>
             ${this.username ? this.renderSignedIn() : this.renderSignedOut()}
           </div>
@@ -349,21 +350,25 @@ export class DerpBar extends LitElement {
     `;
   }
 
-  /** NEWS (r25): What's New, with a dot while something there is new. */
-  private renderNewsTab(): TemplateResult {
+  /**
+   * NEWS (r25): What's New, with a dot while something there is new: the
+   * last tab, or on a phone (where the tabs are full) a button at the top.
+   */
+  private renderNews(where: "tab" | "top"): TemplateResult {
     const on = this.page === "whats-new";
     const label = this.newsText("whats_new");
+    const icon = html`<i class="news-icon"
+      >${megaphoneIcon()}${this.newsDot && !on
+        ? html`<i class="news-dot" aria-hidden="true"></i>`
+        : nothing}</i
+    >`;
     return html`<a
-      class="tab news ${on ? "on" : ""}"
+      class="${where === "tab" ? "tab news" : "news-top"} ${on ? "on" : ""}"
       href="/whats-new"
       aria-current=${on ? "page" : "false"}
       aria-label=${label}
       title=${label}
-      ><i class="news-icon"
-        >${megaphoneIcon()}${this.newsDot && !on
-          ? html`<i class="news-dot" aria-hidden="true"></i>`
-          : nothing}</i
-      ><span>${label}</span></a
+      >${icon}${where === "tab" ? html`<span>${label}</span>` : nothing}</a
     >`;
   }
 
@@ -1138,6 +1143,40 @@ export class DerpBar extends LitElement {
       border-radius: 50%;
       background: var(--accent-2);
       box-shadow: 0 0 0 2px var(--bar);
+    }
+    .news-top {
+      display: none;
+      place-items: center;
+      flex: none;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      color: rgba(244, 244, 245, 0.75);
+      text-decoration: none;
+    }
+    .news-top:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    .news-top.on {
+      color: var(--accent-2);
+    }
+    .news-top .dl-i {
+      width: 21px;
+      height: 21px;
+      opacity: 1;
+    }
+    .news-top:focus-visible {
+      outline: 2px solid var(--accent-2);
+      outline-offset: 2px;
+    }
+    @media (max-width: 560px) {
+      .tab.news {
+        display: none;
+      }
+      .news-top {
+        display: grid;
+      }
     }
 
     @media (max-width: 860px) {

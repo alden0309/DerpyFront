@@ -299,6 +299,12 @@ export class DerpNewsCard extends LitElement {
         bottom: 12px;
         width: auto;
       }
+      .card {
+        padding: 13px 14px 14px;
+      }
+      .body {
+        max-height: min(24vh, 168px);
+      }
     }
     @media (prefers-reduced-motion: reduce) {
       .card {
