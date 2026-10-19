@@ -488,6 +488,8 @@ export class StoryRun {
   private remembers: string[];
   /** r22 BPLAY: the weather the world says it is (else the story's). */
   private weatherNow: string | null = null;
+  /** r25: the scene's last passive check was heard (`if heard`). */
+  private heardNow = 0;
   private entry: Snapshot;
   /** Steps of the path dropped from its front (MAX_PATH), and where it stood. */
   private trimmed = 0;
@@ -1124,6 +1126,7 @@ export class StoryRun {
       armed: this.armed,
       time: Math.floor((this.clockNow % DAY) / 60),
       weather,
+      heard: this.heardNow,
     };
   }
 
@@ -1296,6 +1299,7 @@ export class StoryRun {
     this.scene = id;
     this.ip = 0;
     this.ret = -1;
+    this.heardNow = 0;
     this.step(`s:${id}`);
     this.pending.push({ type: "scene", scene: id, label: scene.label });
   }
@@ -1315,6 +1319,7 @@ export class StoryRun {
       const skill = this.skills()[LANGUAGES_SKILL] ?? 0;
       understood = passive(skill + rating, op.langDiff);
       if (understood && !speaks) via = "skill";
+      this.heardNow = understood ? 1 : 0;
     }
     beat.text = understood ? (op.trans ?? op.text) : op.text;
     beat.lang = { code, name, understood, original: op.text };
@@ -1336,9 +1341,11 @@ export class StoryRun {
           if (op.skill !== undefined && op.diff !== undefined) {
             // A passive check: the voice speaks only if the skill is up to it.
             if (!passive(this.skillNow(op.skill), op.diff)) {
+              this.heardNow = 0;
               this.ip++;
               break;
             }
+            this.heardNow = 1;
           }
           const beat: LineBeat = {
             kind: "line",

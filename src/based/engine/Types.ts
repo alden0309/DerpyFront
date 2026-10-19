@@ -22,6 +22,12 @@ export type Expr =
   | { k: "time" }
   /** r22 BPLAY: the weather where he is now ("weather.clear"). */
   | { k: "weather"; kind: string }
+  /**
+   * r25: whether he heard the last passive check of the scene (a skill's
+   * voice with a difficulty, or a hard line's gist): `if heard` after one
+   * sets what he only knows if he heard it.
+   */
+  | { k: "heard" }
   | { k: "num"; v: number }
   | { k: "not"; e: Expr }
   | { k: "and" | "or"; a: Expr; b: Expr }
@@ -386,6 +392,19 @@ export interface Carry {
   cond?: Expr;
 }
 
+/**
+ * r25: something he can only know once he's learned it (`@fact flag|other
+ * "words" "more words"`): any of the flags means he knows it, and a line in
+ * his voice (narration, his thoughts, what he says, a choice) that uses the
+ * words must be where he learns it or come after a condition that makes
+ * sure he has. The validator checks every line; the tests play it.
+ */
+export interface Fact {
+  flags: string[];
+  words: string[];
+  src: number;
+}
+
 export interface Chapter {
   n: number;
   title: string;
@@ -411,6 +430,8 @@ export interface Chapter {
   items: Record<string, ItemDef>;
   /** r22 BPLAY: the euros he starts with (`@money N`). */
   money: number;
+  /** r25: what he can only know once he's learned it. */
+  facts?: Fact[];
 }
 
 /** The goto target that ends the chapter. */

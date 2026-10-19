@@ -455,6 +455,41 @@ end
 Flags are read as numbers (unset is 0); `rel.name` is a relationship.
 `and`, `or`, `not`, parentheses, `>= <= > < == !=`.
 
+r25: `heard` is whether the scene's last passive check was heard (a voice
+with a difficulty, or a hard line's gist), so what he only learns if he
+heard it is set only then:
+
+```
+~ PERCEPTION medium: Six rows. Every hook full but one: forty-one.
+if heard
+  set key_gone
+end
+```
+
+### Nothing he can't know (r25)
+
+```
+@fact knows_oak "grandson"
+@fact knows_room|key_gone "forty-one" "41"
+```
+
+In the header, `@fact` names something he can only know once he's learned
+it: the flags that mean he knows it (any of them) and the words that give
+it away (whole words, any case). A line in **his** voice (narration, his
+thoughts and voices, what he says, a choice's prompt, its options, their
+reasons, a room's spots and deductions) that uses the words must either be
+where he learns it (the flag `set` before the story next stops to ask
+anything) or come after a condition that makes sure he knows it: the
+scene's `@on ... if`, an `if` around it, an option's `if`, a flag set
+earlier on every way into the scene (the validator follows the jumps). Other
+people's lines are theirs: the barman can mention his grandson; Mr. Based
+can only think about the pin once the barman has. `a or b` in a condition
+counts for a fact of either flag.
+
+The validator (`engine/Facts.ts`) checks every line of the chapter;
+`tests/based/BasedFacts.test.ts` also plays chapter one down 200 random
+paths and fails if he's ever shown a fact before he's learned it.
+
 ### What he carries (r22 BPLAY)
 
 In the header:

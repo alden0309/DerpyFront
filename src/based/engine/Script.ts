@@ -561,6 +561,22 @@ export function parseChapter(text: string): ParseResult {
           }
           break;
         }
+        case "@fact": {
+          // r25: @fact flag|other "words" ["more words"...]
+          const flags = (ws[1] ?? "").split("|").filter(Boolean);
+          const said = ws.slice(2);
+          if (
+            flags.length === 0 ||
+            !flags.every((f) => FLAG.test(f) && !RESERVED.includes(f)) ||
+            said.length === 0 ||
+            said.some((w) => w.trim() === "")
+          ) {
+            err(n, '@fact flag|other_flag "words" ["more words"...]');
+            break;
+          }
+          (chapter.facts ??= []).push({ flags, words: said, src: n });
+          break;
+        }
         case "@money": {
           const v = Number(pos[0]);
           if (!Number.isInteger(v) || v < 0) err(n, "@money N (euros)");
@@ -585,7 +601,7 @@ export function parseChapter(text: string): ParseResult {
         default:
           err(
             n,
-            `before the first scene, only @chapter, @summary, @start, @time, @cast, @carry, @attribute, @skill, @archetype, @points, @language, @item and @money: "${line}"`,
+            `before the first scene, only @chapter, @summary, @start, @time, @cast, @carry, @attribute, @skill, @archetype, @points, @language, @item, @money and @fact: "${line}"`,
           );
       }
       continue;

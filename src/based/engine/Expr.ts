@@ -9,6 +9,8 @@
 //   has.matchbook and money >= 5       (r22 BPLAY: what he carries)
 //   wears.reading_glasses or armed     (r22 BPLAY: worn, or a weapon held)
 //   time >= 23:00 and weather.clear    (r22 BPLAY: the hour, the weather)
+//   heard                              (r25: the scene's last passive check
+//                                       was heard)
 
 import { Expr } from "./Types";
 
@@ -16,7 +18,7 @@ const TOKEN =
   /\s*(>=|<=|==|!=|>|<|\(|\)|\d{1,2}:\d{2}|-?\d+(?:\.\d+)?|[A-Za-z_][A-Za-z0-9_.]*)/y;
 
 /** Words a condition reads that aren't flags (r22 BPLAY). */
-export const RESERVED = ["money", "armed", "time"];
+export const RESERVED = ["money", "armed", "time", "heard"];
 
 function tokenize(src: string): string[] {
   const out: string[] = [];
@@ -131,6 +133,8 @@ export function parseExpr(src: string): Expr {
     if (t === "money") return { k: "money" };
     if (t === "armed") return { k: "armed" };
     if (t === "time") return { k: "time" };
+    // r25: the scene's last passive check was heard.
+    if (t === "heard") return { k: "heard" };
     if (t.startsWith("skill.")) {
       const id = t.slice(6).toUpperCase();
       if (!/^[A-Z][A-Z0-9_]*$/.test(id)) throw new Error(`bad skill "${t}"`);
@@ -166,6 +170,8 @@ export interface Values {
   /** Minutes into the day, and the weather where he is. */
   time?: number;
   weather?: string;
+  /** r25: 1 if the scene's last passive check was heard. */
+  heard?: number;
 }
 
 /** Whether he wears or holds an item. */
@@ -198,6 +204,8 @@ export function evalExpr(e: Expr, v: Values): number {
       return v.time ?? 0;
     case "weather":
       return v.weather === e.kind ? 1 : 0;
+    case "heard":
+      return v.heard ?? 0;
     case "not":
       return evalExpr(e.e, v) ? 0 : 1;
     case "and":

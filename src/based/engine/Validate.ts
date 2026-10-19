@@ -14,10 +14,14 @@
 // needs=, a condition on has. or wears., a use) can be got before it: from
 // his starting kit, earlier in that scene, or in a scene the player can
 // reach without going through the one that needs it.
+// r25: nothing he can't know: a line in his voice that gives away a @fact
+// comes where he learns it, or after a condition that makes sure he has
+// (Facts.ts).
 // Run by the tests and by the server when it loads a chapter. Linear in the
 // size of the chapter, so a long story stays quick to check.
 
 import { exprReads } from "./Expr";
+import { checkFacts } from "./Facts";
 import { PlaceDef, placeNames } from "./Place";
 import { isSkillRef } from "./Skills";
 import { Chapter, END, Expr, FREE, Op, Scene } from "./Types";
@@ -599,6 +603,16 @@ export function validateChapter(
 
   // r22 BPLAY: an item a scene needs can be got before it.
   checkNeeds(chapter, needs, givers, next, add);
+
+  // r25: what he can only know once he's learned it.
+  for (const f of chapter.facts ?? []) {
+    for (const flag of f.flags) {
+      if (!flagsSet.has(flag)) {
+        add("error", undefined, f.src, `@fact ${flag}: the flag is never set`);
+      }
+    }
+  }
+  for (const p of checkFacts(chapter)) add("error", p.scene, p.line, p.message);
 
   // r22: someone on stage in the open world with nothing to say.
   if (freeReached) {
