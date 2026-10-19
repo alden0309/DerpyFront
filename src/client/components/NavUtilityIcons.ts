@@ -4,8 +4,10 @@ import { desktopQuit, requestDesktopQuit } from "../DesktopShell";
 import { NavNotificationsController } from "./NavNotificationsController";
 
 /**
- * The news (a newspaper since FRIENDS r25), help "?", settings cogwheel and (on the desktop shell) a
- * power button as icon buttons, with the notification dots the first two carry.
+ * The help "?", settings cogwheel and (on the desktop shell) a power button
+ * as icon buttons, with the dot help carries. NEWS (r25): the news button
+ * (OpenFront's release notes) is gone: Derp Land's What's New, in the bar
+ * beside these, is the news now.
  *
  * Shared by the desktop nav bar and the mobile top bar so both read as the same
  * cluster next to the profile control — they're utility affordances rather than
@@ -28,6 +30,9 @@ export class NavUtilityIcons extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener("showPage", this._onShowPage);
+    // NEWS (r25): with no release-notes button to open, a new version is
+    // seen at once, so its dot never holds back the store's or help's.
+    this._notifications.onNewsClick();
   }
 
   disconnectedCallback() {
@@ -113,40 +118,7 @@ export class NavUtilityIcons extends LitElement {
     const currentPage = window.currentPageId;
     return html`
       <div class="flex items-center gap-1">
-        <div class="relative">
-          <button
-            class="${this.buttonClass()} ${currentPage === "page-news"
-              ? "active"
-              : ""}"
-            data-page="page-news"
-            data-i18n-aria-label="main.news"
-            data-i18n-title="main.news"
-            @click=${this._notifications.onNewsClick}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="w-6 h-6 pointer-events-none"
-              aria-hidden="true"
-            >
-              <!-- FRIENDS (r25): a newspaper for the news, so it isn't
-                   taken for the Derp Land bell beside it (your invites). -->
-              <path
-                d="M4 5.5h12.5v13a1.5 1.5 0 0 0 1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5z"
-              />
-              <path d="M16.5 9H20v9.5a1.5 1.5 0 0 1-3 0" />
-              <path d="M7 9h6.5M7 12.5h6.5M7 16h4" />
-            </svg>
-          </button>
-          ${this._notifications.showNewsDot()
-            ? this.renderDot("bg-red-500")
-            : ""}
-        </div>
+        <!-- NEWS (r25): no news button: What's New is in the Derp Land bar -->
         <div class="relative">
           <button
             class="${this.buttonClass()} ${currentPage === "page-help"
