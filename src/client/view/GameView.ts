@@ -24,6 +24,15 @@ import { unpackMotionPlans } from "@openfront/engine-lib/game/MotionPlans";
 import { TerrainMapData } from "@openfront/engine-lib/game/TerrainMapLoader";
 import { TerraNulliusImpl } from "@openfront/engine-lib/game/TerraNulliusImpl";
 import { UnitGrid } from "@openfront/engine-lib/game/UnitGrid";
+import {
+  ScenarioNation,
+  scenarioPlayerName,
+} from "@openfront/engine-lib/scenario/ScenarioData"; // SCEN (r25)
+import {
+  rosterNationOf,
+  ScenarioRoster,
+  scenarioRoster,
+} from "@openfront/engine-lib/scenario/ScenarioSeats"; // SCEN (r25)
 import { PlayerCosmetics, WirePlayer } from "@openfront/shared/WireSchemas";
 import { nationFlagPath } from "../derpy/PersonaEmblems";
 import { computeAllianceClusters } from "../render/frame/derive/AllianceClusters";
@@ -38,6 +47,7 @@ import { TrailManager } from "../render/frame/TrailManager";
 import type { FrameData, NameEntry } from "../render/types";
 import { STRUCTURE_TYPES } from "../render/types";
 import { TRAIL_TYPES } from "../render/types/UnitType";
+import { setActiveScenario } from "../scenario/ScenarioClient"; // SCEN (r25)
 import { UserSettings } from "../UserSettings";
 import { resolveTeamClanTag } from "../Utils";
 import { WorkerClient } from "../WorkerClient";
@@ -77,6 +87,7 @@ export class GameView implements GameLike {
   private _unitStates = new Map<number, import("../render/types").UnitState>();
   /** smallID → team, for the renderer's relation matrix (team games). */
   private _teams = new Map<number, string>();
+  private _scenario: ScenarioRoster | null; // SCEN (r25)
   private _teamClanTags: Map<Team, string | null> | null = null;
   private updatedTiles: TileRef[] = [];
   private updatedTerrainTiles: TileRef[] = [];
@@ -159,6 +170,12 @@ export class GameView implements GameLike {
     this._cosmetics = new Map(
       humans.map((h) => [h.clientID, h.cosmetics ?? {}]),
     );
+    // SCEN (r25): the game's Scenario, resolved as the engine resolves it.
+    this._scenario = scenarioRoster(
+      this._config.gameConfig(),
+      humans.map((h) => h.clientID),
+    );
+    setActiveScenario(this._scenario);
 
     // Nation-type players carry their own flag on the wire (PlayerUpdate.nationFlag,
     // sourced from the manifest via PlayerInfo) rather than being looked up here by
@@ -313,6 +330,12 @@ export class GameView implements GameLike {
         pu.name = this._myUsername;
         pu.displayName = myDisplayName;
         pu.clanTag = this._myClanTag;
+        // SCEN (r25): you play your seat's nation, under its name and yours.
+        const seat = this.scenarioSeatOf(pu.clientID);
+        if (seat !== null) {
+          pu.name = scenarioPlayerName(seat.name, this._myUsername);
+          pu.displayName = formatPlayerDisplayName(pu.name, this._myClanTag);
+        }
       }
 
       if (pu.smallID !== undefined) {
@@ -329,6 +352,13 @@ export class GameView implements GameLike {
         this._relationsDirty = true;
       }
 
+      // SCEN (r25): a neutral that joins a side changes team mid-game.
+      if (existing !== undefined && pu.team !== undefined) {
+        this._teams.set(existing.smallID(), pu.team);
+        this._relationsDirty = true;
+        this._clustersDirty = true;
+        this._teamClanTags = null;
+      }
       if (existing !== undefined) {
         existing.applyUpdate(pu);
         const nextNameData = gu.playerNameViewData?.[pu.id];
@@ -344,7 +374,13 @@ export class GameView implements GameLike {
           // directly on the update (see PlayerUpdate.nationFlag) rather than
           // being looked up by name — some maps define multiple nations with
           // the same display name (e.g. India's and Pakistan's "Punjab").
-          this._cosmetics.get(pu.clientID ?? "") ??
+          // SCEN (r25): a player in a scenario wears their nation's flag.
+          (pu.clientID && pu.nationFlag && this._scenario !== null
+            ? ({
+                flag: nationFlagPath(pu.nationFlag),
+              } satisfies PlayerCosmetics)
+            : undefined) ??
+            this._cosmetics.get(pu.clientID ?? "") ??
             (pu.playerType === PlayerType.Nation && pu.nationFlag
               ? ({
                   flag: nationFlagPath(pu.nationFlag), // DFSTORE (r21)
@@ -860,6 +896,15 @@ export class GameView implements GameLike {
   }
   config(): Config {
     return this._config;
+  }
+  /** SCEN (r25): this game's Scenario and its seats, or null. */
+  scenario(): ScenarioRoster | null {
+    return this._scenario;
+  }
+  private scenarioSeatOf(clientID: string): ScenarioNation | null {
+    const roster = this._scenario;
+    if (roster === null) return null;
+    return rosterNationOf(roster, { clientID, name: "" });
   }
   isSpectator(): boolean {
     return !this.myPlayer()?.isAlive() || this._config.isReplay();

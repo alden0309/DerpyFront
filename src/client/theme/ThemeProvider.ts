@@ -11,6 +11,7 @@ import {
   ThemeName,
   ThemeSettings,
 } from "../render/gl/RenderSettings";
+import { activeScenarioSide } from "../scenario/ScenarioClient"; // SCEN (r25)
 import { UserSettings } from "../UserSettings";
 import { PlayerView } from "../view";
 import { ColorAllocator } from "./ColorAllocator";
@@ -129,6 +130,9 @@ export class SettingsTheme implements Theme {
 
   /** Base color for a team (the first entry of its variations). */
   teamColor(team: Team): Colord {
+    // SCEN (r25): a scenario's side has its own colour.
+    const side = activeScenarioSide(team);
+    if (side !== null) return colord(side.color);
     const rgb = this.teamColorVariations(team)[0].toRgb();
     return colord({
       r: Math.round(rgb.r),
@@ -155,6 +159,9 @@ export class SettingsTheme implements Theme {
    * allocated from the matching pool (human / nation).
    */
   territoryColor(player: PlayerView): Colord {
+    // SCEN (r25): a scenario's nations wear their historical colours.
+    const nation = player.scenarioNation();
+    if (nation !== null) return colord(nation.color);
     const team = player.team();
     if (team !== null) {
       return this.teamColorForPlayer(team, player.id());

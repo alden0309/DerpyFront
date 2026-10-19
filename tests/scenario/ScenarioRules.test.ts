@@ -1,0 +1,229 @@
+import { PlayerType, UnitType } from "@openfront/engine-api/game/GameTypes";
+import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
+import { GameConfigSchema } from "@openfront/engine-api/Schemas";
+import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
+import { resolveScenarioSeats } from "@openfront/engine-lib/scenario/ScenarioSeats";
+import { BreakAllianceExecution } from "@openfront/engine/execution/alliance/BreakAllianceExecution";
+import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
+import { Game, Player } from "@openfront/engine/game/Game";
+import { enemySideFor } from "@openfront/engine/scenario/ScenarioRules";
+import { describe, expect, it } from "vitest";
+import { scenarioGame } from "./ScenarioTestUtil";
+
+// SCEN (r25): locked sides, the neutral rule, side wins and seats.
+
+function tilesOf(game: Game, p: Player): number {
+  return p.numTilesOwned();
+}
+
+describe("Scenario sides", () => {
+  it("puts every nation on its side, locked: no alliances, no attacks on side-mates", async () => {
+    const g = await scenarioGame("europe1939");
+    const { game } = g;
+    const germany = g.nation("germany");
+    const italy = g.nation("italy");
+    const france = g.nation("france");
+    const spain = g.nation("spain");
+    expect(germany.team()).toBe("Axis");
+    expect(italy.team()).toBe("Axis");
+    expect(france.team()).toBe("Allies");
+    expect(spain.team()).toBeNull();
+    expect(germany.isFriendly(italy)).toBe(true);
+    expect(germany.isFriendly(france)).toBe(false);
+    // No alliances to make or break, and nothing that expires.
+    expect(game.config().disableAlliances()).toBe(true);
+    expect(germany.canSendAllianceRequest(france)).toBe(false);
+    expect(germany.canSendAllianceRequest(spain)).toBe(false);
+    expect(germany.alliances()).toHaveLength(0);
+    game.addExecution(new BreakAllianceExecution(germany, italy.id()));
+    // An attack on a side-mate goes nowhere.
+    const italyTiles = tilesOf(game, italy);
+    game.addExecution(new AttackExecution(100_000, germany, italy.id()));
+    g.step(300);
+    expect(germany.isFriendly(italy)).toBe(true);
+    expect(germany.team()).toBe("Axis");
+    expect(germany.outgoingAttacks().some((a) => a.target() === italy)).toBe(
+      false,
+    );
+    // (Italy's land changes only by its own fights, never from Germany.)
+    expect(tilesOf(game, italy)).toBeGreaterThan(0);
+    expect(italyTiles).toBeGreaterThan(0);
+  }, 120_000);
+
+  it("a neutral invaded by one side joins the other, locked, with a news line", async () => {
+    const g = await scenarioGame("europe1939");
+    const { game } = g;
+    const germany = g.nation("germany");
+    const switzerland = g.nation("switzerland");
+    const france = g.nation("france");
+    expect(switzerland.team()).toBeNull();
+    g.updates.length = 0;
+    game.addExecution(
+      new AttackExecution(germany.troops() / 2, germany, switzerland.id()),
+    );
+    g.step(3);
+    expect(switzerland.team()).toBe("Allies");
+    expect(switzerland.isFriendly(france)).toBe(true);
+    const news = g.updates
+      .flatMap((u) => u.updates[GameUpdateType.DisplayEvent])
+      .filter((e) => e.message === "events_display.scenario_joined_side");
+    expect(news).toHaveLength(1);
+    expect(news[0].playerID).toBeNull(); // everyone hears
+    expect(news[0].params?.side).toBe("Allies");
+    // It stays: a later attack by the Allies on it does nothing.
+    game.addExecution(new AttackExecution(10_000, france, switzerland.id()));
+    g.step(20);
+    expect(switzerland.team()).toBe("Allies");
+    expect(
+      france.outgoingAttacks().some((a) => a.target() === switzerland),
+    ).toBe(false);
+  }, 120_000);
+
+  it("a neutral that attacks a side joins that side's enemies", async () => {
+    const g = await scenarioGame("europe1939");
+    const spain = g.nation("spain");
+    const france = g.nation("france");
+    g.game.addExecution(
+      new AttackExecution(spain.troops() / 3, spain, france.id()),
+    );
+    g.step(3);
+    expect(spain.team()).toBe("Axis");
+  }, 120_000);
+
+  it("with three sides, a neutral joins the side it borders most, else the smallest", () => {
+    // A stand-in game: three sides; the neutral's border tiles touch side B
+    // twice and side C once.
+    const owners = new Map<number, Player>();
+    const mk = (team: string | null, tiles: number) =>
+      ({
+        team: () => team,
+        numTilesOwned: () => tiles,
+        isPlayer: () => true,
+      }) as unknown as Player;
+    const b = mk("B", 500);
+    const c = mk("C", 100);
+    const neutral = {
+      ...mk(null, 50),
+      borderTiles: () => ({
+        forEach: (f: (t: number) => void) => [1, 2, 3].forEach(f),
+      }),
+    } as unknown as Player;
+    owners.set(11, b);
+    owners.set(12, b);
+    owners.set(13, c);
+    const game = {
+      scenario: () => ({ sideIds: () => ["A", "B", "C"] }),
+      neighbors4: (t: number, out: number[]) => {
+        out[0] = 10 + t;
+        return 1;
+      },
+      owner: (t: number) => owners.get(t) ?? neutral,
+      players: () => [b, c, neutral],
+    } as unknown as Game;
+    expect(enemySideFor(game, neutral, "A")).toBe("B");
+    // Bordering neither of the others: the smaller one.
+    owners.clear();
+    expect(enemySideFor(game, neutral, "A")).toBe("C");
+    // Two sides: always the other one.
+    const two = { ...game, scenario: () => ({ sideIds: () => ["A", "B"] }) };
+    expect(enemySideFor(two as unknown as Game, neutral, "A")).toBe("B");
+  });
+});
+
+describe("Scenario victory", () => {
+  it("a side wins together when the other side is gone", async () => {
+    const g = await scenarioGame("continental1776", {
+      players: [
+        { clientID: "HUMAN001", username: "Alden", nation: "united_colonies" },
+      ],
+    });
+    const { game } = g;
+    const britain = g.nation("great_britain");
+    const colonies = g.nation("united_colonies");
+    // Hand Britain's land to the colonies.
+    const tiles = [...britain.tiles()];
+    for (const t of tiles) colonies.conquer(t);
+    g.updates.length = 0;
+    g.step(30);
+    const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
+    expect(wins).toHaveLength(1);
+    expect(wins[0].winner?.[0]).toBe("team");
+    expect(wins[0].winner?.[1]).toBe("Patriots");
+    expect(wins[0].winner?.slice(2)).toEqual(["HUMAN001"]);
+  }, 120_000);
+});
+
+describe("Scenario seats", () => {
+  const data = scenarioData("europe1939")!;
+
+  it("keeps valid seats, gives seatless players free nations, one each", () => {
+    const seats = resolveScenarioSeats(
+      data,
+      { france: "PLAYERAA", germany: "PLAYERBB", nowhere: "PLAYERCC" },
+      ["PLAYERAA", "PLAYERBB", "PLAYERCC", "PLAYERDD"],
+    );
+    expect(seats.get("france")).toBe("PLAYERAA");
+    expect(seats.get("germany")).toBe("PLAYERBB");
+    // The others take the first free nations in the data's order.
+    const others = [...seats.entries()].filter(
+      ([, c]) => c === "PLAYERCC" || c === "PLAYERDD",
+    );
+    expect(others.map(([k]) => k)).toEqual(["italy", "hungary"]);
+    expect(new Set(seats.values()).size).toBe(seats.size);
+    // Seats of players who aren't in the game are dropped.
+    expect(resolveScenarioSeats(data, { france: "GONEAWAY" }, []).size).toBe(0);
+  });
+
+  it("plays a human as the seat's nation, named and flagged as it", async () => {
+    const g = await scenarioGame("europe1939", {
+      players: [{ clientID: "HUMAN001", username: "Alden", nation: "france" }],
+    });
+    const france = g.game.playerByClientID("HUMAN001")!;
+    expect(france.type()).toBe(PlayerType.Human);
+    expect(france.name()).toBe("France (Alden)");
+    expect(france.info().nationFlag).toBe("fr");
+    expect(france.team()).toBe("Allies");
+    const paris = g.game.owner(g.game.ref(1101, 910));
+    expect(paris).toBe(france);
+    // Everyone else is computer-run, and France isn't twice in the game.
+    const nations = g.game
+      .allPlayers()
+      .filter((p) => p.type() === PlayerType.Nation);
+    expect(nations).toHaveLength(data.nations.length - 1);
+    expect(nations.some((p) => p.name() === "France")).toBe(false);
+    g.step(2);
+    expect(france.units(UnitType.Capital)).toHaveLength(1);
+  }, 120_000);
+
+  it("refuses bad picks in the config", () => {
+    const base = {
+      gameMap: "Europe",
+      difficulty: "Medium",
+      donateGold: true,
+      donateTroops: true,
+      gameType: "Private",
+      gameMode: "Team",
+      gameMapSize: "Normal",
+      nations: "default",
+      bots: 0,
+      infiniteGold: false,
+      infiniteTroops: false,
+      instantBuild: false,
+      randomSpawn: false,
+    };
+    const ok = (scenario: unknown) =>
+      GameConfigSchema.safeParse({ ...base, scenario }).success;
+    expect(ok({ id: "europe1939", seats: { france: "PLAYERAA" } })).toBe(true);
+    expect(ok({ id: "atlantis1066" })).toBe(false);
+    expect(ok({ id: "europe1939", seats: { narnia: "PLAYERAA" } })).toBe(false);
+    expect(
+      ok({
+        id: "europe1939",
+        seats: { france: "PLAYERAA", italy: "PLAYERAA" },
+      }),
+    ).toBe(false);
+    expect(ok({ id: "europe1939", seats: { france: "not an id" } })).toBe(
+      false,
+    );
+  });
+});
