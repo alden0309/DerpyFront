@@ -6,18 +6,18 @@
     "elevation": 36
   },
   "nav": {
-    "bounds": [-7.2, -5.2, 11.2, 3.3],
+    "bounds": [-7.2, -5.2, 15.2, 3.3],
     "cell": 0.25,
     "blocks": [
-      [-7.12, -5.12, 11.12, -4.88],
+      [-7.12, -5.12, 15.12, -4.88],
       [-7.12, -5.12, -6.88, 3.12],
       [-7.12, 2.88, 4.22, 3.12],
       [5.38, 2.88, 7.12, 3.12],
       [6.88, -5.12, 7.12, -2.22],
       [6.88, -0.78, 7.12, 3.12],
       [7, 2.88, 8.28, 3.12],
-      [9.72, 2.88, 11.12, 3.12],
-      [10.88, -5.12, 11.12, 3.12]
+      [9.72, 2.88, 15.12, 3.12],
+      [14.88, -5.12, 15.12, 3.12]
     ]
   },
   "areas": [
@@ -29,8 +29,8 @@
     },
     {
       "id": "lobby",
-      "rect": [7, -5, 11, 3],
-      "span": 9.5,
+      "rect": [7, -5, 15, 3],
+      "span": 10,
       "inside": true
     }
   ],
@@ -157,12 +157,12 @@
       "face": 180
     },
     "porter_spot": {
-      "at": [10.3, -1.8],
-      "face": 225
+      "at": [7.42, 0.8],
+      "face": 90
     },
     "see_desk": {
-      "at": [9.2, -2.8],
-      "face": 120
+      "at": [9.1, 0.8],
+      "face": 270
     },
     "corner_stand": {
       "at": [-4.6, 1.6],
@@ -193,19 +193,32 @@
       "at": [-2.85, -1.6]
     },
     "see_lost": {
-      "at": [8.05, -3.7]
+      "at": [9.75, -3.55],
+      "face": 180
     },
     "see_chair": {
-      "at": [9.0, 1.3]
+      "at": [12.45, 0.35],
+      "face": 40
     },
     "see_machine": {
-      "at": [8.2, 0.6]
+      "at": [13.85, -1.3],
+      "face": 90
     },
     "see_notice": {
-      "at": [7.8, -3.4]
+      "at": [14.56, -3.2],
+      "face": 180
     },
     "see_lift": {
-      "at": [8.35, -4.05]
+      "at": [8.1, -3.85],
+      "face": 180
+    },
+    "stairs_foot": {
+      "at": [14.35, -4.27],
+      "face": 270
+    },
+    "rope_spot": {
+      "at": [14.2, -3.3],
+      "face": 236
     }
   },
   "hotspots": {
@@ -295,11 +308,6 @@
       },
       "label": "Rue de Grenelle"
     },
-    "register": {
-      "at": [10.2, 1.15, -3.2],
-      "r": 0.35,
-      "stand": "see_desk"
-    },
     "delorme_card": {
       "at": [-4.65, 1.1, -2.52],
       "r": 0.18,
@@ -361,49 +369,64 @@
       "stand": "see_tv"
     },
     "key_board": {
-      "at": [10.35, 1.85, -4.9],
+      "at": [7.15, 1.75, 0.8],
       "r": 0.4,
       "stand": "see_desk"
     },
     "lost_property": {
-      "at": [7.55, 0.4, -4.45],
+      "at": [9.75, 0.4, -4.5],
       "r": 0.35,
       "stand": "see_lost"
     },
     "desk_bell": {
-      "at": [10.0, 1.15, -2.65],
+      "at": [8.38, 1.15, 0.25],
       "r": 0.12,
       "stand": "see_desk"
     },
     "paperback": {
-      "at": [9.85, 0.5, 1.5],
+      "at": [12.95, 0.5, 1.1],
       "r": 0.15,
       "stand": "see_chair"
     },
     "cig_machine": {
-      "at": [7.4, 1.3, 0.6],
+      "at": [14.5, 1.3, -1.3],
       "r": 0.35,
       "stand": "see_machine"
     },
     "fire_notice": {
-      "at": [7.1, 1.6, -3.4],
+      "at": [14.56, 1.55, -4.85],
       "r": 0.3,
       "stand": "see_notice"
     },
     "lift": {
-      "at": [8.35, 1.2, -4.85],
+      "at": [8.1, 1.2, -4.85],
       "r": 0.5,
       "stand": "see_lift"
     },
     "lilies": {
-      "at": [10.25, 1.4, -4.25],
+      "at": [8.3, 1.4, -0.1],
       "r": 0.2,
       "stand": "see_desk"
     },
     "lobby_clock": {
-      "at": [9.3, 2.55, -4.9],
+      "at": [7.15, 2.45, -3.55],
       "r": 0.25,
       "stand": "see_lift"
+    },
+    "guest_book": {
+      "at": [8.2, 1.15, 0.95],
+      "r": 0.25,
+      "stand": "see_desk"
+    },
+    "stairs": {
+      "at": [13.5, 1.0, -4.27],
+      "r": 0.7,
+      "stand": "stairs_foot",
+      "to": {
+        "place": "room",
+        "mark": "room_in"
+      },
+      "label": "The stairs"
     }
   },
   "shots": {
@@ -456,8 +479,16 @@
       "span": 10.5
     },
     "lobby": {
-      "at": [9.0, 1.2, -1.0],
-      "span": 7
+      "at": [11.0, 1.2, -1.0],
+      "span": 9
+    },
+    "desk": {
+      "at": [8.45, 1.2, 0.8],
+      "span": 4.4
+    },
+    "stairs_rope": {
+      "at": [12.8, 1.4, -3.6],
+      "span": 5.6
     }
   },
   "items": [
@@ -471,7 +502,7 @@
       "kind": "wall",
       "at": [0, 0, 0],
       "from": [-7, -5],
-      "to": [11, -5],
+      "to": [7, -5],
       "surface": "oak",
       "outer": "oak_dark",
       "h": 3.6,
@@ -554,7 +585,7 @@
       "from": [7, -5],
       "to": [7, 3],
       "surface": "oak",
-      "outer": "oak_dark",
+      "outer": "wallpaper",
       "h": 3.6,
       "dado": {
         "h": 1.1,
@@ -891,72 +922,6 @@
       "rot": 0
     },
     {
-      "kind": "box",
-      "at": [9.0, 0, -1.0],
-      "size": [4, 0.02, 8],
-      "mat": "#2e1212",
-      "shadow": false
-    },
-    {
-      "kind": "wall",
-      "at": [0, 0, 0],
-      "from": [11, 3],
-      "to": [7, 3],
-      "surface": "wallpaper",
-      "outer": "stone",
-      "h": 3.6,
-      "cut": ["bar", "lobby"],
-      "holes": [
-        {
-          "at": 2.0,
-          "w": 1.4,
-          "h": 2.6,
-          "y": 0,
-          "kind": "door",
-          "glow": "#ffcf9a",
-          "strength": 0.5
-        }
-      ]
-    },
-    {
-      "kind": "wall",
-      "at": [0, 0, 0],
-      "from": [11, -5],
-      "to": [11, 3],
-      "surface": "wallpaper",
-      "outer": "stone",
-      "h": 3.6,
-      "cut": ["bar", "lobby"]
-    },
-    {
-      "kind": "box",
-      "at": [10.2, 0, -3.5],
-      "size": [0.8, 1.1, 2.2],
-      "mat": "oak_dark"
-    },
-    {
-      "kind": "model",
-      "at": [9.8, 0, 1.6],
-      "model": "loungeChair",
-      "rot": -120
-    },
-    {
-      "kind": "lamp",
-      "at": [10.2, 1.1, -2.8],
-      "style": "banker",
-      "light": {
-        "color": "#ffc27e",
-        "intensity": 1.2,
-        "distance": 3.5
-      }
-    },
-    {
-      "kind": "newspaper",
-      "id": "register",
-      "at": [10.2, 1.1, -3.2],
-      "rot": 90
-    },
-    {
       "kind": "highball",
       "id": "his_beer",
       "at": [-5.0, 1.081, -2.58],
@@ -1005,34 +970,110 @@
       "at": [3.85, 0, 2.65]
     },
     {
-      "kind": "keyboard",
-      "at": [10.35, 1.85, -4.93]
+      "kind": "floor",
+      "at": [11, 0, -1],
+      "size": [8, 8],
+      "surface": "oak_dark"
     },
     {
-      "kind": "tray",
-      "at": [7.55, 0, -4.45],
-      "size": [0.5, 0.42, 0.4],
-      "color": "#8a6a44",
-      "rot": 10
+      "kind": "floor",
+      "at": [11.25, 0.004, -0.85],
+      "size": [4.6, 3.6],
+      "surface": "carpet"
     },
     {
-      "kind": "bell",
-      "at": [10.0, 1.1, -2.65]
+      "kind": "wall",
+      "at": [0, 0, 0],
+      "from": [7, -5],
+      "to": [15, -5],
+      "surface": "wallpaper",
+      "outer": "stone",
+      "h": 3.6,
+      "dado": {
+        "h": 1.1,
+        "surface": "oak_dark"
+      }
     },
     {
-      "kind": "book",
-      "at": [9.85, 0.46, 1.5],
-      "rot": 30
+      "kind": "wall",
+      "at": [0, 0, 0],
+      "from": [15, 3],
+      "to": [7, 3],
+      "surface": "wallpaper",
+      "outer": "stone",
+      "h": 3.6,
+      "cut": ["bar", "lobby"],
+      "holes": [
+        {
+          "at": 2.1,
+          "w": 2.4,
+          "h": 1.9,
+          "y": 0.8,
+          "kind": "window",
+          "glow": "#6f8fc0",
+          "strength": 0.3
+        },
+        {
+          "at": 6.0,
+          "w": 1.4,
+          "h": 2.6,
+          "y": 0,
+          "kind": "door",
+          "glow": "#ffcf9a",
+          "strength": 0.5
+        }
+      ]
     },
     {
-      "kind": "machine",
-      "at": [7.38, 0, 0.6],
-      "rot": 90
+      "kind": "wall",
+      "at": [0, 0, 0],
+      "from": [15, -5],
+      "to": [15, 3],
+      "surface": "wallpaper",
+      "outer": "stone",
+      "h": 3.6,
+      "cut": ["bar", "lobby"]
+    },
+    {
+      "kind": "stairs",
+      "at": [13.5, 0, -4.27],
+      "rot": 180,
+      "steps": 15,
+      "rise": 0.21,
+      "going": 0.3,
+      "width": 1.2,
+      "landing": 0.4,
+      "open": "-z"
+    },
+    {
+      "kind": "rope",
+      "part": "posts",
+      "at": [13.8, 0, -4.27],
+      "rot": 90,
+      "len": 1.1
+    },
+    {
+      "kind": "rope",
+      "part": "hooked",
+      "id": "stair_rope",
+      "at": [13.8, 0, -4.27],
+      "rot": 90,
+      "len": 1.1,
+      "text": "Clients",
+      "sub": "Merci de vous adresser à la réception"
+    },
+    {
+      "kind": "rope",
+      "part": "down",
+      "id": "stair_rope_down",
+      "at": [13.8, 0, -4.27],
+      "rot": 90,
+      "len": 1.1,
+      "hidden": true
     },
     {
       "kind": "sign",
-      "at": [7.08, 1.6, -3.4],
-      "rot": 90,
+      "at": [14.56, 1.55, -4.86],
       "size": [0.42, 0.56],
       "text": "EN CAS D'INCENDIE",
       "sub": "Escalier de service : bar, étages",
@@ -1041,25 +1082,144 @@
       "glow": 0
     },
     {
+      "kind": "tray",
+      "at": [9.75, 0, -4.5],
+      "size": [0.5, 0.42, 0.4],
+      "color": "#8a6a44",
+      "rot": 10
+    },
+    {
       "kind": "liftdoor",
-      "at": [8.35, 0, -4.92]
+      "at": [8.1, 0, -4.92]
     },
     {
       "kind": "sign",
-      "at": [8.35, 2.45, -4.86],
-      "size": [0.7, 0.16],
+      "at": [8.1, 1.45, -4.85],
+      "size": [0.46, 0.2],
       "text": "HORS SERVICE",
+      "sub": "Ascenseur en panne",
       "bg": "#e8e2d0",
       "fg": "#7d1b16",
       "glow": 0
     },
     {
-      "kind": "vase",
-      "at": [10.25, 1.1, -4.25]
+      "kind": "liftbutton",
+      "at": [8.98, 1.25, -4.88]
     },
     {
       "kind": "clock",
-      "at": [9.3, 2.55, -4.93]
+      "at": [7.13, 2.45, -3.55],
+      "rot": 90
+    },
+    {
+      "kind": "desk",
+      "at": [8.15, 0, 0.8],
+      "rot": 90,
+      "size": [2.2, 1.08, 0.7]
+    },
+    {
+      "kind": "ledger",
+      "at": [8.2, 1.08, 0.95],
+      "rot": 90
+    },
+    {
+      "kind": "bell",
+      "at": [8.38, 1.08, 0.25]
+    },
+    {
+      "kind": "lamp",
+      "at": [8.25, 1.08, 1.7],
+      "style": "banker",
+      "rot": 90,
+      "light": {
+        "color": "#ffc27e",
+        "intensity": 1.4,
+        "distance": 3.5
+      }
+    },
+    {
+      "kind": "vase",
+      "at": [8.3, 1.08, -0.1]
+    },
+    {
+      "kind": "keyboard",
+      "at": [7.13, 1.75, 0.8],
+      "rot": 90
+    },
+    {
+      "kind": "lamp",
+      "at": [7.13, 2.15, -0.1],
+      "rot": 90,
+      "style": "sconce",
+      "minor": true
+    },
+    {
+      "kind": "lamp",
+      "at": [7.13, 2.15, 1.7],
+      "rot": 90,
+      "style": "sconce",
+      "minor": true
+    },
+    {
+      "kind": "chandelier",
+      "at": [11.2, 2.85, -0.8]
+    },
+    {
+      "kind": "model",
+      "at": [12.1, 0, 1.75],
+      "model": "loungeChair",
+      "rot": 131
+    },
+    {
+      "kind": "model",
+      "at": [13.75, 0, 0.55],
+      "model": "loungeChair",
+      "rot": -61
+    },
+    {
+      "kind": "model",
+      "at": [12.95, 0, 1.1],
+      "model": "tableRound",
+      "scale": 0.62
+    },
+    {
+      "kind": "book",
+      "at": [12.95, 0.475, 1.1],
+      "rot": 30
+    },
+    {
+      "kind": "floorlamp",
+      "at": [14.35, 0, 1.95],
+      "minor": true,
+      "light": {
+        "intensity": 1.2,
+        "distance": 3.5
+      }
+    },
+    {
+      "kind": "radiator",
+      "at": [12.9, 0, 2.8],
+      "w": 1.4
+    },
+    {
+      "kind": "machine",
+      "at": [14.62, 0, -1.3],
+      "rot": -90
+    },
+    {
+      "kind": "model",
+      "at": [14.5, 0, 2.55],
+      "model": "plantSmall2",
+      "height": 0.9
+    },
+    {
+      "kind": "model",
+      "at": [9.0, 0, 2.55],
+      "model": "rugDoormat",
+      "height": 0.02,
+      "mats": {
+        "carpet": "#2a1c14"
+      }
     }
   ],
   "lights": [
@@ -1075,10 +1235,10 @@
     },
     {
       "kind": "point",
-      "at": [9.3, 2.6, -1.0],
+      "at": [11.2, 2.7, -0.8],
       "color": "#ffb877",
-      "intensity": 3.5,
-      "distance": 7
+      "intensity": 4.5,
+      "distance": 9
     }
   ],
   "env": {

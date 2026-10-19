@@ -273,6 +273,55 @@ function wallpaper(size: number, aniso: number): Surface {
   );
 }
 
+/**
+ * r25: a hotel's carpet: deep oxblood, a small gold medallion repeated, worn
+ * paler where people walk. Soft (no shine), with a faint pile.
+ */
+function carpet(size: number, aniso: number): Surface {
+  return surface(
+    size,
+    [1.2, 1.2],
+    (c, h, r, s) => {
+      const r0 = rng(67);
+      c.fillStyle = "#3e1214";
+      c.fillRect(0, 0, s, s);
+      // The medallions: a lozenge in a ring, four to a tile.
+      for (const [x, y] of [
+        [0.25, 0.25],
+        [0.75, 0.25],
+        [0.25, 0.75],
+        [0.75, 0.75],
+      ]) {
+        const cx = x * s;
+        const cy = y * s;
+        c.strokeStyle = "rgba(196,150,74,0.22)";
+        c.lineWidth = s * 0.012;
+        c.beginPath();
+        c.arc(cx, cy, s * 0.11, 0, Math.PI * 2);
+        c.stroke();
+        c.fillStyle = "rgba(196,150,74,0.16)";
+        c.beginPath();
+        c.moveTo(cx, cy - s * 0.07);
+        c.lineTo(cx + s * 0.045, cy);
+        c.lineTo(cx, cy + s * 0.07);
+        c.lineTo(cx - s * 0.045, cy);
+        c.closePath();
+        c.fill();
+        c.fillStyle = "rgba(20,4,4,0.35)";
+        c.fillRect(cx - s * 0.25, cy + s * 0.2, s * 0.5, s * 0.01);
+      }
+      speckle(c, s, s, r0, 9000, "#000", 0.25, 2);
+      speckle(c, s, s, r0, 4000, "#7a3a30", 0.12, 2);
+      blotches(c, s, s, r0, 10, "rgba(120,70,50,0.5)", 0.18, s * 0.25);
+      // A faint pile for the light to catch.
+      speckle(h, s, s, r0, 12000, "#b0b0b0", 0.5, 2);
+      r.fillStyle = "#f0f0f0";
+      r.fillRect(0, 0, s, s);
+    },
+    { roughness: 1, normal: 0.8, aniso },
+  );
+}
+
 /** Pale limestone in courses, streaked by rain. */
 function stone(size: number, aniso: number): Surface {
   return surface(
@@ -389,7 +438,9 @@ export type SurfaceName =
   | "asphalt"
   | "paving"
   | "plaster"
-  | "zinc";
+  | "zinc"
+  // r25: the hotel's carpet.
+  | "carpet";
 
 /** One of each surface, made once per page. */
 export class SurfaceBook {
@@ -428,6 +479,9 @@ export class SurfaceBook {
         break;
       case "zinc":
         s = plain("#4b5157", 0.45, 0.6);
+        break;
+      case "carpet":
+        s = carpet(z, this.aniso);
         break;
       default:
         s = plain("#2a2724", 0.95);

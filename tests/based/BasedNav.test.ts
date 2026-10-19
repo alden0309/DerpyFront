@@ -184,7 +184,10 @@ describe("the walking grid from the pieces (r23)", () => {
       "pottedPlant",
       "bar",
       "backbar",
-      "box",
+      // r25: the lobby's front desk and the staircase (Furnish.ts).
+      "desk",
+      "stairs",
+      "rope",
       "machine",
       "standjar",
       "tray",

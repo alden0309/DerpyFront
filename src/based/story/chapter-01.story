@@ -28,7 +28,7 @@
 @cast WOMAN "The woman in the corner" portrait=penhallow look=wool_woman
 @cast PENHALLOW "Penhallow" portrait=penhallow body=WOMAN
 @cast WATCHER "The man under the awning" look=coat_dark
-@cast PORTER "The night porter" look=suit_dark
+@cast PORTER "The desk clerk" look=suit_dark
 @cast PRESIDENT "Montclar" look=suit_dark
 @cast COLONEL "The Colonel" look=uniform_navy
 
@@ -89,6 +89,7 @@
 @item baton "Telescopic baton" kind=weapon slot=hand icon=baton bonus=INTIMIDATION+2,EMPATHY-1 "Police issue, from the van with nobody in it. Folded, it's the length of a hand; flicked out, it's a reason. Held, it changes how people look at him."
 @item room_key "Key to room twelve" kind=key icon=key "An old brass key on a heavy brass weight stamped 12, from the lost-property box. Somebody checked out of room twelve and took it to Lyon by mistake, and it came back by post."
 @item delorme_card "Delorme's card" kind=document icon=card "Plain white, good stock. Delorme, in blue ink, and the hotel's number. Nothing on the back."
+@item his_key "Key to room twenty-three" kind=key icon=key "A brass key on a heavy brass weight stamped 23, from the board behind the desk. The clerk laid it down so it wouldn't ring."
 @item phrasebook "Russian phrasebook" kind=document slot=hand icon=book bonus=LANGUAGES.ru+1 "A pocket phrasebook from 1974, from the lost-property box, the spine broken at At the hotel. Held open in his hand, it's as good as a little Russian."
 
 // --- What he can only know once he's learned it (r25) ------------------------
@@ -111,6 +112,8 @@
 @fact delorme_word "had a word with you"
 @fact knows_versailles "01 39"
 @fact knows_jean "past seventy"
+@fact room_late "made up" "isn't ready" "not ready"
+@fact room_late|has_room "twenty-three"
 
 @carry "You met London's contact. She's called Penhallow, and she argued against hiring you." if met_contact
 @carry "You told Penhallow what the man in grey wanted." if told_penhallow
@@ -145,7 +148,7 @@
 It had rained every day since the results, as if the city were trying to wash something off and hadn't found the right soap.
 @focus none
 @actor BASED street_mid walk
-London had given him a bar, a time and a newspaper. Le Vauban, on the rue de Grenelle, at ten. A woman with The Times, open at the crossword.
+London had given him a bar, a time and a newspaper. Le Vauban, on the rue de Grenelle, at ten. A woman with The Times, open at the crossword. And a room upstairs at the hotel, booked by Lisle and Hart, wine shippers of the City of London, who had never heard of him.
 task contact "Meet London's contact at Le Vauban, on the rue de Grenelle, at ten. She'll have The Times, open at the crossword. Ask her about seven down."
 ~ Twenty minutes early. Time to look at the street the way the street was looking at him.
 -> FREE
@@ -598,9 +601,10 @@ set room_tv
 -> FREE
 
 
-== register "The guest book"
-@on look register
-The hotel's guest book lay on the desk: a heavy book with a ribbon, a fountain pen on a chain like a dog. It was turned to face the clerk, not the guests, and the clerk's forearm lay across the open page as if by accident.
+// r25: its pages are never read: the clerk keeps it turned to himself.
+== guest_book "The guest book"
+@on look guest_book
+The hotel's guest book lay open on the desk: a heavy book with a ribbon, a fountain pen on a chain like a dog. It was turned to face the clerk, not the guests, and the clerk's forearm lay across the page as if by accident.
 ~ It's the one book in Paris this week that every side would like to read. The clerk knows it, and so does his arm.
 -> FREE
 
@@ -784,17 +788,20 @@ The brass till, the spike of chits. The barman's hand never far from either.
 
 == key_board "The keys"
 @on look key_board
-Behind the porter's desk, the room keys hung on brass hooks, each with a heavy brass weight so nobody walks off with one.
+Behind the clerk, the room keys hung on a board of brass hooks, each with a heavy brass weight so nobody walks off with one.
 ~ PERCEPTION medium: Six rows. Every hook full but one: forty-one. Whoever has room forty-one is in the building.
 if heard
   set key_gone
+end
+if has_room
+  ~ And twenty-three's, now, in his pocket.
 end
 -> FREE
 
 
 == lost_property "The lost-property box"
 @on look lost_property once
-A cardboard box under the stairs, marked OBJETS TROUVÉS in a porter's capitals. Inside: a pair of tortoiseshell reading glasses, a grey wool scarf somebody's grandmother knitted, a tweed cap, a brass lighter, a room key on a brass weight, a Russian phrasebook with a broken spine, and one small child's shoe.
+A cardboard box under the stairs, marked OBJETS TROUVÉS in a clerk's capitals. Inside: a pair of tortoiseshell reading glasses, a grey wool scarf somebody's grandmother knitted, a tweed cap, a brass lighter, a room key on a brass weight, a Russian phrasebook with a broken spine, and one small child's shoe.
 -> lost_take
 
 == lost_property_again "The lost-property box"
@@ -803,7 +810,7 @@ The lost-property box, with whatever the city had forgotten in it.
 -> lost_take
 
 == lost_take "The lost-property box"
-choose "The porter's on the telephone, his back half turned."
+choose "The clerk is bent over his book."
   * if not has.reading_glasses [Take the reading glasses]
     give reading_glasses
     set took_lost
@@ -837,13 +844,13 @@ end
 == desk_bell "The bell on the desk"
 @on look desk_bell
 A brass bell on the desk. He touched it, and it rang, a thin bright ping in the quiet lobby.
-The night porter looked up from the register with the face of a man who has been rung for since 1987.
+The clerk looked up from the guest book with the face of a man who has been rung for since 1987.
 -> FREE
 
 
 == paperback "A paperback"
 @on look paperback once
-A paperback left face down on the arm of a lounge chair: a detective novel with its cover torn off, open at chapter nine. Someone had used a twenty-euro note as a bookmark.
+A paperback left face down on the low table between the armchairs: a detective novel with its cover torn off, open at chapter nine. Someone had used a twenty-euro note as a bookmark.
 choose "Twenty euros, folded once."
   * [Take the note] "Finders keepers."
     earn 20
@@ -909,19 +916,44 @@ end
 -> FREE
 
 
+// r25: out of order all night. It can't be used: the button is dead.
 == lift "The lift"
 @on look lift
 A lift with brass doors, and a card hung across them on a string: HORS SERVICE.
-~ INSTINCT: Out of order since when? A broken lift means everyone uses the stairs, and the stairs come down where someone can see them.
-if knows_stairs
-  ~ Or not, if you know the other ones.
+@gesture BASED interact
+He pressed the call button anyway. It went in, and stayed in, and nothing happened at all: no light, no hum, not a sound from the shaft.
+if asked_lift
+  ~ Coming on Monday. Since Tuesday.
+else
+  ~ INSTINCT: Out of order since when? A broken lift means everyone uses the stairs, and the stairs come down where someone can see them.
+  if knows_stairs
+    ~ Or not, if you know the other ones.
+  end
+end
+-> FREE
+
+
+// r25: the stairs are closed with a rope until the clerk has his key for
+// him (the room's not made up: he's early). Then they're a door upstairs.
+== stairs_closed "The stairs"
+@on look stairs if not stairs_open
+A red rope across the foot of the stairs, hooked between two brass posts, and a card hung from it in a careful hand: Clients : merci de vous adresser à la réception.
+if speaks.fr
+  ~ Guests: please ask at the desk.
+else
+  ~ LANGUAGES easy: Clients, réception. Guests, ask at the desk, more or less.
+end
+if room_late
+  ~ His key's on the board behind the clerk, and his room isn't made up yet. The clerk will unhook the rope when it is.
+else
+  ~ He has a room up there somewhere, under the name of a firm of wine shippers. The desk will know which.
 end
 -> FREE
 
 
 == lilies "Lilies on the desk"
 @on look lilies
-A vase of lilies on the porter's desk, going brown at the edges, the water in the vase gone cloudy.
+A vase of lilies on the front desk, going brown at the edges, the water in the vase gone cloudy.
 ~ EMPATHY medium: Nobody's changed them since the election. Nobody's thrown them out, either. The whole city is like that this week.
 -> FREE
 
@@ -1567,17 +1599,26 @@ choose "The Times, open at the crossword."
 end
 -> FREE
 
-== porter_armed "The night porter"
+// --- The desk (r25) ------------------------------------------------------------
+// The clerk keeps the guest book turned to himself and the stairs roped:
+// since the Préfecture's circular a hotel must know who goes up, so a guest
+// takes his key at the desk and the clerk unhooks the rope for him. London
+// booked Mr. Based a room through a firm of wine shippers, and he's early:
+// it isn't made up yet. After the bar (the man in grey, then London's
+// contact) it's ready, and the stairs are his.
+
+== clerk_armed "The desk clerk"
 @on talk PORTER if armed
-The porter's eyes went to the baton and stayed there.
+The clerk's eyes went to the baton and stayed there.
 PORTER: Monsieur, I have a telephone, and the Préfecture has a number. I would rather not introduce them.
-He turned his back, which in a night porter is as good as a locked door.
+He turned his back, which in a hotel clerk is as good as a locked door.
 -> FREE
 
-== porter "The night porter"
-@on talk PORTER once
+== clerk_first "The desk clerk"
+@on talk PORTER once if not met_contact
 @actor BASED see_desk walk
-The night porter was on the telephone, in a Russian that came from somewhere along the Black Sea and had been sanded down by twenty years in Paris.
+@focus desk
+The clerk was on the telephone, in a Russian that came from somewhere along the Black Sea and had been sanded down by twenty years in Paris. His other hand lay flat on the guest book.
 PORTER [ru]: Сорок первый просит машину к шести. Да. В Сатори. | Forty-one wants a car for six. Yes. To Satory.
 if speaks.ru
   ~ MEMORY medium: Satory. The army's ground south of Versailles: the tanks, the testing range, the generals' lunches. A strange place to take a man at six in the morning.
@@ -1585,57 +1626,100 @@ if speaks.ru
   set heard_41
 end
 He put the phone down and turned the smile on.
-PORTER: Monsieur? A room?
-choose "The porter waits."
-  * white CHARISMA medium if key_gone or knows_room or heard_41 [Ask about room forty-one] "Your gentleman in forty-one. What's he like?"
-    bonus +2 if knows_room "You know the room"
-    PORTER: Monsieur Delorme? He is up before the birds, monsieur. Since the election, every morning a car. He tips like an Englishman, so: badly.
-    set knows_room
-    set knows_car
-  fail
-    PORTER: Our guests' habits are their own, monsieur.
-  * white DECEPTION challenging [Say you're from the Préfecture] "Préfecture. We're checking registers along the street."
-    bonus +1 if speaks.fr "He speaks French"
-    bonus +1 if speaks.fr >= 2 "His French is good enough for a clerk"
-    bonus +1 if wears.reading_glasses "Reading glasses: a clerk's face"
-    The porter turned the register round for him without a word, the way people do this month when somebody says Préfecture.
-    set knows_room
-  fail
-    PORTER: Then the Préfecture will have a card, monsieur. They always have a card.
-    ~ He knows the Préfecture better than I do. Everyone in Paris does, this month.
-  // r22 BPLAY: a check in a tongue: his Languages, plus his Russian.
-  * white LANGUAGES.ru medium if speaks.ru and heard_41 [Ask about forty-one, in Russian] "Forty-one keeps early hours, I hear. Like the army."
-    bonus +1 if knows_room "You know the room"
-    The porter blinked, and answered in the same tongue before he'd thought about whether to.
-    PORTER [ru]: Каждое утро в шесть. Машина в Сатори. Генеральская. | Every morning at six. A car to Satory. A general's car.
-    PORTER: You did not hear that from me, monsieur. In any language.
-    set knows_room
-    set knows_car
-    rel PORTER +1
-  fail
-    The porter heard the accent before the words, and his face shut like a ledger.
-    PORTER: We speak French in this hotel, monsieur. Mostly.
-  * [Just looking] "Just looking. It's a nice old lobby."
-    PORTER: It was nicer when people looked at it, monsieur.
+PORTER: Monsieur? You have a reservation?
+BASED: There should be a room. Booked from London, by Lisle and Hart.
+The clerk turned a page of the guest book with one finger, keeping it to himself, and found them without having to look for long.
+PORTER: The wine gentlemen. Yes, monsieur: twenty-three, on the second floor. But you are early, and it is not made up. Since the election the girl who does the rooms comes when the Métro lets her. An hour, a little more.
+set room_late
+He tilted his head at the red rope across the foot of the stairs.
+PORTER: Until you have your key the stairs are for guests, I am afraid. The Préfecture's circular: a hotel must know who goes up. The bar is through there, monsieur. I will have your key when the room is ready.
+~ An hour in a bar he'd been sent to sit in anyway. London's arithmetic, for once.
+task room "His room, twenty-three, booked by Lisle and Hart, the wine shippers, isn't made up yet. The clerk has the key, and the rope across the stairs."
+@focus none
+-> clerk_ask
+
+== clerk_ready "The desk clerk"
+@on talk PORTER once if met_contact
+@actor BASED see_desk walk
+@focus desk
+if room_late
+  PORTER: Monsieur. Twenty-three is ready: the girl came, the Métro permitting.
+else
+  PORTER: Monsieur? You have a reservation?
+  BASED: There should be a room. Booked from London, by Lisle and Hart.
+  The clerk turned a page of the guest book with one finger, keeping it to himself.
+  PORTER: The wine gentlemen. Twenty-three, monsieur, on the second floor. Made up an hour ago.
 end
+He took a key on a heavy brass weight from the board behind him and laid it on the desk so that it didn't ring.
+give his_key
+set has_room
+task room "Room twenty-three, on the second floor. The key's in his pocket."
+@actor PORTER rope_spot walk
+PORTER: The lift, I am afraid, is a lift in name only. But the stairs are fine to take, monsieur. Second floor, on the left.
+@focus stairs_rope
+He came round the desk to the foot of the stairs, unhooked the red rope from its post and let it hang, the card turned to the wall.
+@gesture PORTER interact
+@hide stair_rope
+@show stair_rope_down
+set stairs_open
+@actor PORTER porter_spot walk
+@focus none
+PORTER: Bonne nuit, monsieur.
 -> FREE
 
-== porter_idle "The night porter"
+== clerk_wait "The desk clerk"
+@on talk PORTER if room_late and not met_contact
+PORTER: Not yet, monsieur. She is still at it. I will have your key when it's ready.
+-> clerk_ask
+
+== clerk_idle "The desk clerk"
 @on talk PORTER
-if took_lost
+if stairs_open
+  PORTER: Second floor, monsieur, on the left. The stairs are fine; the lift is a lift in name only.
+elif took_lost
   PORTER: The lost property, monsieur, is for the people who lost it. I mention it only.
 else
   PORTER: Monsieur.
 end
-choose "The porter waits, with the patience of a man paid by the night."
-  * if not knows_car and money >= 50 and (key_gone or knows_room or heard_41) [Fold a fifty into the register] "For your trouble. Your gentleman in forty-one."
+-> clerk_ask
+
+== clerk_ask "The desk clerk"
+choose "The clerk waits, his hand on the book."
+  * white CHARISMA medium if key_gone or knows_room or heard_41 [Ask about room forty-one] "Your gentleman in forty-one. What's he like?"
+    bonus +2 if knows_room "You know the room"
+    PORTER: Monsieur Delorme? He is up before the birds, monsieur. Since the election, every morning at six a car, to Satory. He tips like an Englishman, so: badly.
+    set knows_room
+    set knows_car
+    set heard_41
+  fail
+    PORTER: Our guests' habits are their own, monsieur.
+  // r22 BPLAY: a check in a tongue: his Languages, plus his Russian.
+  * white LANGUAGES.ru medium if speaks.ru and heard_41 [Ask about forty-one, in Russian] "Forty-one keeps early hours, I hear. Like the army."
+    bonus +1 if knows_room "You know the room"
+    The clerk blinked, and answered in the same tongue before he'd thought about whether to.
+    PORTER [ru]: Каждое утро в шесть. Машина в Сатори. Генеральская. | Every morning at six. A car to Satory. A general's car.
+    PORTER: You did not hear that from me, monsieur. In any language.
+    set knows_room
+    set knows_car
+    set general_car
+    rel PORTER +1
+  fail
+    The clerk heard the accent before the words, and his face shut like a ledger.
+    PORTER: We speak French in this hotel, monsieur. Mostly.
+  * once [Ask about the lift] "Is the lift out for long?"
+    PORTER: Since Tuesday. The man is coming on Monday. He has been coming on Monday since Tuesday.
+    set asked_lift
+  * once [Ask to see the guest book] "May I?"
+    The clerk smiled, and closed the guest book on his finger, which was answer enough.
+    PORTER: The book is for the Préfecture, monsieur, and for God. Neither has asked me tonight.
+  * if not knows_car and money >= 50 and (key_gone or knows_room or heard_41) [Slide a fifty across the desk] "For your trouble. Your gentleman in forty-one."
     pay 50
-    The note went into the register and the register went into a drawer.
+    The note went under the guest book, and the guest book stayed exactly where it was.
     PORTER: Forty-one has a car at six every morning, monsieur. To Satory. I never told you, and you never paid me.
     set knows_room
     set knows_car
   * needs=delorme_card if took_card and not knows_car [Show him Delorme's card] "Monsieur Delorme asked me to call on him. Early, he said."
-    The porter looked at the card, at the blue ink, and relaxed by a whole uniform.
+    The clerk looked at the card, at the blue ink, and relaxed by a whole uniform.
     PORTER: Then you should know he leaves at six, monsieur. The car takes him to Satory. Come at a quarter to.
     set knows_room
     set knows_car
@@ -1643,14 +1727,14 @@ choose "The porter waits, with the patience of a man paid by the night."
     PORTER: Ten euros, monsieur. They come back to us anyway, in the end. Everything does.
     pay 10
     give umbrella
-  * needs=room_key [Hand back the key to twelve] "This was in your lost property. It belongs on a hook."
-    The porter took the key, weighed it in his palm, and hung it on its hook as if he'd been waiting years for someone to do it.
+  * if has.room_key [Hand back the key to twelve] "This was in your lost property. It belongs on a hook."
+    The clerk took the key, weighed it in his palm, and hung it on its hook as if he'd been waiting years for someone to do it.
     PORTER: Thank you, monsieur. Twelve is under forty-one, you know. Very quiet. A man in twelve hears everything that walks about upstairs.
     take room_key
     set gave_key
     set knows_twelve
   * silent [Nothing]
-    The porter nodded, and went back to the register and the rain.
+    The clerk nodded, and went back to his book and the rain.
 end
 -> FREE
 
@@ -1831,6 +1915,19 @@ end
 @actor BASED street_exit walk
 He zipped the jacket up to its collar and walked towards the river.
 task night done
+-> epilogue
+
+
+// r25: up the stairs to his room, and sleep. Then the palace.
+== room "Room twenty-three"
+@on enter room once if has_room
+@ambient rain_in
+@focus room
+Twenty-three was a bed, a wardrobe, a radiator that knocked, and a window full of rain with the roofs of the seventh arrondissement behind it.
+@actor BASED bed_side sit walk
+He sat on the edge of the bed with his boots still on, and the rain went on doing what it had done every night since the results.
+He was asleep before he'd decided to be.
+task room done
 -> epilogue
 
 

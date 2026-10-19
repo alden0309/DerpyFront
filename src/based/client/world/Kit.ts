@@ -8,6 +8,7 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { Item } from "../../engine/Place";
+import { furnish, FURNISHINGS } from "./Furnish";
 import { PALETTE, paletteMaterial, paletteName } from "./Palette";
 import {
   facadeWindows,
@@ -103,7 +104,7 @@ export function mat(name: string): THREE.MeshStandardMaterial {
   return m;
 }
 
-function emissive(color: string, k = 1): THREE.MeshBasicMaterial {
+export function emissive(color: string, k = 1): THREE.MeshBasicMaterial {
   const key = `emissive:${color}:${k}`;
   let m = matCache.get(key) as THREE.MeshBasicMaterial | undefined;
   if (!m) {
@@ -1571,7 +1572,7 @@ function propMaterial(metal: boolean): THREE.MeshStandardMaterial {
  * they all merge; anything else (a texture, glass, a glow) keeps its own
  * material and `shadow`.
  */
-function part(
+export function part(
   geo: THREE.BufferGeometry,
   material: THREE.Material,
   x: number,
@@ -2173,6 +2174,11 @@ export function buildItem(item: Item, k: KitContext): Built {
       b = morris(item, k);
       break;
     default:
+      // r25: the hotel's lobby and his room (Furnish.ts).
+      if (FURNISHINGS.has(item.kind)) {
+        b = furnish(item, k);
+        break;
+      }
       b = small(item);
   }
   // Walls place themselves from their endpoints.

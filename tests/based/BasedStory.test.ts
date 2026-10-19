@@ -210,15 +210,23 @@ const files = fs.readdirSync(STORY).filter((f) => f.endsWith(".story"));
 
 describe("the places", () => {
   test("the street, the bar and the palace, joined by doors", () => {
-    expect(Object.keys(PLACES).sort()).toEqual(["elysee", "street", "vauban"]);
+    // r25: and his room upstairs, up the hotel's stairs.
+    expect(Object.keys(PLACES).sort()).toEqual([
+      "elysee",
+      "room",
+      "street",
+      "vauban",
+    ]);
     expect(validatePlaces(PLACES)).toEqual([]);
-    // Each door has one back.
+    // Each street door has one back; the stairs go up to his room, where
+    // the night ends (no way back down).
     const doors = (k: string) =>
       Object.values(PLACES[k].hotspots)
         .filter((h) => h.to)
         .map((h) => h.to!.place);
     expect(doors("street")).toEqual(["vauban", "vauban"]);
-    expect(doors("vauban")).toEqual(["street", "street"]);
+    expect(doors("vauban").sort()).toEqual(["room", "street", "street"]);
+    expect(doors("room")).toEqual([]);
   });
 
   test.each(Object.keys(PLACES))("%s: every mark can be walked to", (key) => {
@@ -608,13 +616,14 @@ describe("languages in chapter one (r22 BPLAY)", () => {
     expect(r.languages()).toEqual({ fr: 2, en_gb: 2, ru: 0 });
   });
 
-  test("the porter's call is in Russian, with a check in Russian", () => {
-    const ops = chapter.scenes.porter.ops;
+  test("the clerk's call is in Russian, with a check in Russian", () => {
+    const ops = chapter.scenes.clerk_first.ops;
     expect(ops.find((o) => o.op === "line" && o.lang)).toMatchObject({
       who: "PORTER",
       lang: "ru",
     });
-    const choice = ops.find((o) => o.op === "choose");
+    // r25: what he can ask the clerk is its own scene, after the call.
+    const choice = chapter.scenes.clerk_ask.ops.find((o) => o.op === "choose");
     if (choice?.op !== "choose") throw new Error("no choice");
     expect(
       choice.options.find((o) => o.check?.skill === "LANGUAGES.ru"),
