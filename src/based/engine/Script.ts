@@ -47,6 +47,7 @@ import {
   Op,
   Scene,
   ScriptError,
+  SOUND_CUES,
   Trigger,
 } from "./Types";
 
@@ -744,6 +745,14 @@ export function parseChapter(text: string): ParseResult {
           | "focus"
           | "vignette";
         emit({ op: kind, key, src: n });
+        continue;
+      }
+      case "@sound": {
+        // r25: a sound, once: @sound bar_bell
+        if (!(SOUND_CUES as readonly string[]).includes(rest)) {
+          err(n, `@sound ${SOUND_CUES.join("|")}: "${rest}"`);
+        }
+        emit({ op: "sound", key: rest, src: n });
         continue;
       }
       case "@gesture": {

@@ -260,6 +260,28 @@ export interface ActorState {
   idle?: string;
 }
 
+/**
+ * r25: the sounds a scene can ask for with `@sound` (the client plays
+ * them): the street doors and the bar's bell, the desk's bell, the lift's
+ * dead button, the rope unhooked, a key laid down, the television switched
+ * off, coins, a match, a glass, a page, a siren far off.
+ */
+export const SOUND_CUES = [
+  "door_open",
+  "door_close",
+  "bar_bell",
+  "desk_bell",
+  "lift_button",
+  "rope",
+  "key",
+  "tv_off",
+  "coins",
+  "match",
+  "glass",
+  "page",
+  "siren",
+] as const;
+
 /** r25: what someone can do by themselves (`@actor ... idle=`). */
 export const IDLES = ["drink", "read", "talk"] as const;
 
@@ -385,7 +407,9 @@ export type Op =
   /** r22 BPLAY: he takes off what's in a slot (into his pockets). */
   | { op: "unequip"; slot: GearSlot; src: number }
   /** r22 BPLAY: `earn N` (delta > 0) or `pay N` (delta < 0), in euros. */
-  | { op: "money"; delta: number; src: number };
+  | { op: "money"; delta: number; src: number }
+  /** r25: a sound, once, now (`@sound bar_bell`): one of SOUND_CUES. */
+  | { op: "sound"; key: string; src: number };
 
 export interface Scene {
   id: string;

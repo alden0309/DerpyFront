@@ -245,5 +245,20 @@
     "fog": "#0a0c12",
     "fogDensity": 0.004,
     "exposure": 1.4
+  },
+  "sound": {
+    "beds": [
+      {
+        "key": "rain_in",
+        "gain": 0.5,
+        "rain": true
+      },
+      {
+        "key": "traffic",
+        "gain": 0.08,
+        "lowpass": 400
+      }
+    ],
+    "music": "night"
   }
 }

@@ -326,6 +326,9 @@ export class World {
       }) => void)
     | null = null;
   private readonly stepClock = new Map<string, number>();
+  /** r25: where each person last set off for, and props waiting for them. */
+  private readonly walkTargets = new Map<string, THREE.Vector3>();
+  private readonly queues = new Map<string, (() => void)[]>();
   onThings: ((h: ThingOnScreen[]) => void) | null = null;
   /** Called when a set of things noticed changes (for the column). */
   onNoticed: ((ids: string[]) => void) | null = null;
@@ -1030,6 +1033,9 @@ export class World {
 
   /** Everyone where the stage says, at once (a scene starting, a load). */
   placeCast(actors: Record<string, ActorState>): void {
+    // r25: everyone where the stage says, now: nothing left waiting.
+    this.queues.clear();
+    this.walkTargets.clear();
     for (const [id, p] of this.people) {
       if (!actors[id]) p.root.visible = false;
     }
@@ -1176,6 +1182,11 @@ export class World {
 
   /** Someone moves: walks to their mark (or appears there), then poses. */
   moveActor(id: string, st: ActorState | null, walk: boolean): void {
+    // r25: still on the way somewhere the story sent them: this comes next.
+    if (this.storyWalking(id)) {
+      this.queue(id, () => this.moveActor(id, st, walk));
+      return;
+    }
     this.setIdle(id, st?.idle);
     const p0 = this.people.get(id);
     if (st === null || !this.here(st)) {
@@ -1186,6 +1197,7 @@ export class World {
         const at = this.markPos(door);
         const pts = this.route(p0, at.x, at.z);
         if (pts) {
+          this.walkTargets.set(id, at.clone());
           p0.walk(pts, () => (p0.root.visible = false));
           return;
         }
@@ -1215,6 +1227,7 @@ export class World {
     const pts = this.route(p, target.x, target.z) ?? [];
     // The last step is to the mark itself, even onto a stool.
     pts.push(target);
+    this.walkTargets.set(id, target.clone());
     p.walk(pts, finish, face);
   }
 
@@ -1401,12 +1414,67 @@ export class World {
   }
 
   gesture(who: string, name: string): void {
+    if (this.storyWalking(who)) {
+      this.queue(who, () => this.people.get(who)?.gesture(name));
+      return;
+    }
     this.people.get(who)?.gesture(name);
   }
 
   setProp(key: string, on: boolean): void {
     const o = this.place?.props.get(key);
-    if (o) o.visible = on;
+    if (!o) return;
+    // r25: a prop someone is on their way to (the clerk to the rope) changes
+    // when they get there, not as they set off.
+    o.getWorldPosition(this.v4);
+    for (const [id, t] of this.walkTargets) {
+      if (!this.storyWalking(id)) continue;
+      if (Math.hypot(t.x - this.v4.x, t.z - this.v4.z) < 1.6) {
+        this.queue(id, () => (o.visible = on));
+        return;
+      }
+    }
+    o.visible = on;
+  }
+
+  /**
+   * r25: someone the story sent somewhere (`@actor ... walk`) and who is
+   * still on the way. What the story asks of them next (another walk, a
+   * gesture, a prop by where they're going, a sound) waits until they're
+   * there, so a clerk reaches the rope before he unhooks it.
+   */
+  private storyWalking(id: string): boolean {
+    const p = this.people.get(id);
+    return this.walkTargets.has(id) && !!p?.walking && p.root.visible;
+  }
+
+  private queue(id: string, fn: () => void): void {
+    const q = this.queues.get(id) ?? [];
+    q.push(fn);
+    this.queues.set(id, q);
+  }
+
+  /** r25: after whoever the story has walking arrives (or now). */
+  afterWalks(fn: () => void): void {
+    for (const id of this.walkTargets.keys()) {
+      if (this.storyWalking(id)) {
+        this.queue(id, fn);
+        return;
+      }
+    }
+    fn();
+  }
+
+  private settleQueues(): void {
+    for (const [id, q] of this.queues) {
+      while (q.length > 0 && !this.storyWalking(id)) q.shift()!();
+      if (q.length === 0) this.queues.delete(id);
+    }
+    for (const id of [...this.walkTargets.keys()]) {
+      if (!this.storyWalking(id) && !this.queues.has(id)) {
+        this.walkTargets.delete(id);
+      }
+    }
   }
 
   setNews(text: string | null): void {
@@ -1415,6 +1483,16 @@ export class World {
 
   setFocus(key: string | null): void {
     this.focusKey = key;
+  }
+
+  /** r25: how hard it's raining (0 to 1), for the sound. */
+  get rainNow(): number {
+    return this.weather.rain;
+  }
+
+  /** r25: the room of the place at a point, by id (for the sound). */
+  areaIdAt(x: number, z: number): string | null {
+    return this.areaOf(x, z)?.id ?? null;
   }
 
   /** BPLAY (r22): the weather now (rain, drizzle, clear or fog), drift and all. */
@@ -2208,6 +2286,7 @@ export class World {
     this.carryHeld();
     this.tickIdle(dt);
     this.tickSteps(dt);
+    this.settleQueues();
     this.updateCamera(dt);
     if (place) {
       for (const t of place.ticks) t(this.time);

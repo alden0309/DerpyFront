@@ -147,6 +147,8 @@ export type StoryEvent =
   /** r22 BPLAY: what's in a slot changed (the story, or the player). */
   | { type: "gear"; slot: GearSlot; key: string | null; was: string | null }
   | { type: "money"; delta: number }
+  /** r25: a sound the scene asks for. */
+  | { type: "sound"; key: string }
   | { type: "end" };
 
 /** A check as the column shows it, before it's rolled. */
@@ -1564,6 +1566,10 @@ export class StoryRun {
           this.ip++;
           break;
         }
+        case "sound":
+          this.pending.push({ type: "sound", key: op.key });
+          this.ip++;
+          break;
         case "if":
           this.ip = evalExpr(op.cond, this.vals()) ? this.ip + 1 : op.else;
           break;

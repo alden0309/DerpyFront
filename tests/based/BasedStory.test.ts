@@ -165,8 +165,12 @@ describe("the art and sound", () => {
       // BFIX (r23): nor have the props modelled for the game in Fusion.
       if (c.license === "Model supplied by the owner") continue;
       if (c.license === "Original work") {
-        expect(c.changes).toContain(
-          "Modelled for Mr. Based in Autodesk Fusion",
+        // BFIX (r23): the props modelled in Fusion; r25: the sounds made
+        // for the game in code.
+        expect(c.changes).toMatch(
+          c.what === "Sound"
+            ? /^Made for Mr\. Based in code/
+            : /Modelled for Mr\. Based in Autodesk Fusion/,
         );
         continue;
       }

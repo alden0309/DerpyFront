@@ -17,7 +17,15 @@
 // The story itself comes from the server; this file and the world know
 // nothing of it.
 
-import { html, LitElement, nothing, render, svg, TemplateResult } from "lit";
+import {
+  html,
+  LitElement,
+  nothing,
+  PropertyValues,
+  render,
+  svg,
+  TemplateResult,
+} from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import { rollDice, tierName } from "../engine/Dice";
 import { evalExpr } from "../engine/Expr";
@@ -58,8 +66,8 @@ import {
 import { dossierBody, DossierTab, DossierView } from "./Dossier";
 import { helpBody } from "./Help";
 import { inventoryBody, SLOT_NAMES } from "./Inventory";
-import { CPS, Prefs, savePrefs, TextSpeed } from "./Prefs";
-import { Ambience } from "./Sound";
+import { CPS, levelsOf, Prefs, savePrefs, TextSpeed } from "./Prefs";
+import { Soundscape } from "./Sound";
 import {
   bagIcon,
   bookIcon,
@@ -163,7 +171,7 @@ export class BasedPlayer extends LitElement {
   @property({ attribute: false }) build: Build | null = null;
   @property({ attribute: false }) host!: PlayerHost;
   @property({ attribute: false }) prefs!: Prefs;
-  @property({ attribute: false }) ambience!: Ambience;
+  @property({ attribute: false }) ambience!: Soundscape;
   @property({ attribute: false }) credits: Credit[] = [];
   @property({ attribute: false }) assets: WorldAssets | null = null;
   @property({ attribute: false }) places: Record<string, PlaceDef> = {};
@@ -230,6 +238,8 @@ export class BasedPlayer extends LitElement {
   private playTick = 0;
   private sinceAuto = 0;
   private autoTimer = 0;
+  /** r25: how often the sound hears where he is. */
+  private soundTick = 0;
 
   createRenderRoot() {
     return this;
@@ -281,6 +291,9 @@ export class BasedPlayer extends LitElement {
           },
         );
         this.world.hero = this.chapter.cast[0]?.id ?? "";
+        // r25: the sound follows him: his steps, and where he is.
+        this.world.onStep = (s) => this.ambience.step(s);
+        this.soundTick = window.setInterval(() => this.hearWorld(), 200);
         this.dressFromGear();
         this.world.onThings = (h) => this.moveMarks(h);
         this.world.showAll = this.prefs.marks;
@@ -331,9 +344,42 @@ export class BasedPlayer extends LitElement {
     window.clearTimeout(this.placeTimer);
     window.clearTimeout(this.autoTimer);
     window.clearInterval(this.playTick);
+    window.clearInterval(this.soundTick);
     this.world?.dispose();
     this.world = null;
     super.disconnectedCallback();
+  }
+
+  /** r25: the panels open and close on paper; the dice land with a sting. */
+  willUpdate(changed: PropertyValues): void {
+    if (changed.has("overlay")) {
+      const was = changed.get("overlay") as Overlay | undefined;
+      if (was === undefined && this.overlay === null) {
+        // first render
+      } else if (!was && this.overlay) this.ambience.effect("book_open");
+      else if (was && !this.overlay) this.ambience.effect("book_close");
+      else if (was !== this.overlay) this.ambience.effect("page");
+    }
+    if (
+      changed.has("rolled") &&
+      this.rolled &&
+      changed.get("rolled") === false
+    ) {
+      const b = this.beat;
+      if (b.kind === "roll" && b.dice !== null) {
+        this.ambience.effect(b.pass ? "pass" : "fail");
+        window.setTimeout(() => this.ambience.effect("stamp"), 260);
+      }
+    }
+  }
+
+  /** r25: where he is and how hard it's raining, for the sound. */
+  private hearWorld(): void {
+    const w = this.world;
+    if (!w) return;
+    const at = w.heroAt();
+    if (at) this.ambience.setListener(at.x, at.z, w.areaIdAt(at.x, at.z));
+    this.ambience.setRain(w.rainNow);
   }
 
   updated(): void {
@@ -392,6 +438,8 @@ export class BasedPlayer extends LitElement {
     for (const e of events) this.onEvent(e, first);
     const b = this.run.beat;
     this.beat = b;
+    // r25: the score steps back while there's talk or a choice on screen.
+    this.ambience.setDialogue(b.kind !== "free" && b.kind !== "end");
     window.clearTimeout(this.timerTimeout);
     window.clearTimeout(this.rollTimer);
     this.timed = 0;
@@ -434,6 +482,11 @@ export class BasedPlayer extends LitElement {
         skill: b.skill,
       });
       this.rolled = b.dice === null;
+      // r25: the dice, shaken and thrown (a passive check is heard, not thrown).
+      if (b.dice !== null) {
+        this.ambience.effect("shake");
+        window.setTimeout(() => this.ambience.effect("dice"), 330);
+      } else if (!first) this.ambience.effect(b.pass ? "pass" : "fail", 0.6);
       if (!this.rolled) {
         this.rollTimer = window.setTimeout(() => (this.rolled = true), 900);
       }
@@ -512,6 +565,16 @@ export class BasedPlayer extends LitElement {
       case "item": {
         // r22 BPLAY: something into his pockets, or gone.
         const it = this.chapter.items[e.key];
+        if (!first && it && e.delta > 0) {
+          // r25: paper for papers, a key for a key, cloth for the rest.
+          this.ambience.effect(
+            it.kind === "document"
+              ? "page"
+              : it.kind === "key"
+                ? "key"
+                : "cloth",
+          );
+        }
         if (!first && it) {
           this.toast(
             e.delta > 0
@@ -526,6 +589,7 @@ export class BasedPlayer extends LitElement {
         this.dressFromGear();
         break;
       case "money":
+        if (!first) this.ambience.effect("coins");
         if (!first) {
           this.toast(
             e.delta > 0 ? `+€${e.delta}` : `−€${Math.abs(e.delta)}`,
@@ -535,6 +599,16 @@ export class BasedPlayer extends LitElement {
         break;
       case "gesture":
         this.world?.gesture(this.bodyOf(e.who), e.name);
+        break;
+      case "sound":
+        // r25: what the scene asks for (a bell, the lift's dead button).
+        if (!first) {
+          const key = e.key;
+          // After whoever the story has walking gets there (the rope).
+          if (this.world)
+            this.world.afterWalks(() => this.ambience.effect(key));
+          else this.ambience.effect(key);
+        }
         break;
       default:
         break;
@@ -558,7 +632,13 @@ export class BasedPlayer extends LitElement {
       if (first || s.news !== was.news) w.setNews(s.news);
       if (first || s.weather !== was.weather) w.setWeather(s.weather);
     }
-    if (s.ambient !== was.ambient || first) void this.ambience.play(s.ambient);
+    // r25: the place's own sound; the story's @ambient where a place has none.
+    if (first || s.place !== was.place) {
+      this.ambience.setPlace(s.place ? (this.places[s.place] ?? null) : null);
+    }
+    if (s.ambient !== was.ambient || first)
+      this.ambience.setStoryAmbient(s.ambient);
+    this.ambience.setTv(!!s.news);
     this.stage = s;
   }
 
@@ -1191,7 +1271,7 @@ export class BasedPlayer extends LitElement {
             if (!this.run.free || this.busy) return;
             // The story may stop him at the door; otherwise, through it.
             if (this.run.look(id)) this.afterStep();
-            else void this.travel(to.place, to.mark);
+            else void this.travel(to.place, to.mark, h.sound);
           }),
           run,
         );
@@ -1322,12 +1402,41 @@ export class BasedPlayer extends LitElement {
     }
   }
 
-  /** Through a door: a fade, the next place, its name. */
-  private async travel(place: string, mark: string): Promise<void> {
+  /**
+   * Through a door: a fade, the next place, its name. r25: and its sound
+   * (the door, the bar's bell, or footsteps up the stairs).
+   */
+  private async travel(
+    place: string,
+    mark: string,
+    sound?: string,
+  ): Promise<void> {
     const w = this.world;
     const def = this.places[place];
     if (!w || !def || !this.run.free) return;
     this.busy = true;
+    const cue = sound ?? "door";
+    if (cue === "stairs") {
+      for (let i = 0; i < 6; i++) {
+        window.setTimeout(
+          () =>
+            this.ambience.step({
+              surface: "wood",
+              run: false,
+              hero: true,
+              wet: 0,
+              x: 0,
+              z: 0,
+            }),
+          i * 430,
+        );
+      }
+    } else {
+      this.ambience.effect("door_open");
+      if (cue === "bar_bell") {
+        window.setTimeout(() => this.ambience.effect("bar_bell"), 120);
+      }
+    }
     const ready = w.prepare(def);
     await w.fadeOut();
     // Built and compiled next door already, nearly always; if not, it's
@@ -1335,6 +1444,7 @@ export class BasedPlayer extends LitElement {
     await Promise.race([ready, new Promise((r) => setTimeout(r, 2500))]);
     this.busy = false;
     this.run.enterPlace(place, mark);
+    if (cue !== "stairs") this.ambience.effect("door_close");
     this.afterStep();
     // Through a door is a good moment for the autosave.
     this.autosaveSoon();
@@ -1429,6 +1539,8 @@ export class BasedPlayer extends LitElement {
   // --- input ---------------------------------------------------------------
 
   private onKey = (e: KeyboardEvent) => {
+    // r25: a key counts as the first touch the browser wants before sound.
+    this.ambience.unlock();
     const target = e.target as HTMLElement | null;
     if (
       target &&
@@ -1577,7 +1689,7 @@ export class BasedPlayer extends LitElement {
   private setPref<K extends keyof Prefs>(k: K, v: Prefs[K]): void {
     this.prefs = { ...this.prefs, [k]: v };
     savePrefs(this.prefs);
-    this.ambience.setVolume(this.prefs.volume, !this.prefs.sound);
+    this.ambience.setLevels(levelsOf(this.prefs));
     if (k === "marks" && this.world) this.world.showAll = !!v || this.tab;
   }
 

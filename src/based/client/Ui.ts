@@ -64,6 +64,28 @@ export function settingsBody(
   set: <K extends keyof Prefs>(k: K, v: Prefs[K]) => void,
   speed: (s: TextSpeed, label: string) => TemplateResult,
 ): TemplateResult {
+  // r25: a level for the sound, and one for each of its parts.
+  const slider = (
+    k: "volume" | "music" | "ambience" | "effects",
+    label: string,
+    note: string,
+  ) =>
+    html`<div class="mb-setting">
+      <div>
+        <div class="mb-setting-name">${label}</div>
+        <div class="mb-setting-note">${note}</div>
+      </div>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.05"
+        aria-label=${label}
+        .value=${String(prefs[k])}
+        @input=${(e: Event) =>
+          set(k, Number((e.target as HTMLInputElement).value))}
+      />
+    </div>`;
   const quality = (q: Prefs["quality"], label: string) =>
     html`<button
       class="mb-seg ${prefs.quality === q ? "on" : ""}"
@@ -136,18 +158,10 @@ export function settingsBody(
         <span></span>
       </button>
     </div>
-    <div class="mb-setting">
-      <div class="mb-setting-name">Volume</div>
-      <input
-        type="range"
-        min="0"
-        max="1"
-        step="0.05"
-        .value=${String(prefs.volume)}
-        @input=${(e: Event) =>
-          set("volume", Number((e.target as HTMLInputElement).value))}
-      />
-    </div>
+    ${slider("volume", "Volume", "All of it, together.")}
+    ${slider("music", "Music", "The score: piano, brushes and a low horn.")}
+    ${slider("ambience", "Ambience", "Rain, the street, the bar's murmur.")}
+    ${slider("effects", "Effects", "Footsteps, doors, paper, the dice.")}
   </div>`;
 }
 
@@ -231,8 +245,11 @@ export function slotsBody(opts: {
 }
 
 export function creditsBody(credits: Credit[]): TemplateResult {
-  const art = credits.filter((c) => c.what !== "Model");
+  // r25: the sound and the score have their own list.
+  const isSound = (c: Credit) => c.what === "Sound" || c.what === "Music";
+  const art = credits.filter((c) => c.what !== "Model" && !isSound(c));
   const models = credits.filter((c) => c.what === "Model");
+  const sound = credits.filter(isSound);
   const item = (c: Credit) =>
     // BPEOPLE (r22): what the owner supplied has no link and no licence.
     !c.source
@@ -264,11 +281,17 @@ export function creditsBody(credits: Credit[]): TemplateResult {
           <ul class="mb-credits">
             ${models.map(item)}
           </ul>
-          <div class="mb-panel-sub">Pictures and sound</div>`
+          <div class="mb-panel-sub">Pictures</div>`
       : nothing}
     <ul class="mb-credits">
       ${art.map(item)}
-    </ul>`;
+    </ul>
+    ${sound.length > 0
+      ? html`<div class="mb-panel-sub">Sound and music</div>
+          <ul class="mb-credits">
+            ${sound.map(item)}
+          </ul>`
+      : nothing}`;
 }
 
 function svg(d: ReturnType<typeof svgPart>): TemplateResult {

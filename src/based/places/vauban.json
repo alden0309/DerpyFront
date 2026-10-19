@@ -311,7 +311,8 @@
         "place": "street",
         "mark": "vauban_door_out"
       },
-      "label": "Rue de Grenelle"
+      "label": "Rue de Grenelle",
+      "sound": "bar_bell"
     },
     "hotel_street_door": {
       "at": [9.0, 1.2, 3.0],
@@ -441,7 +442,8 @@
         "place": "room",
         "mark": "room_in"
       },
-      "label": "The stairs"
+      "label": "The stairs",
+      "sound": "stairs"
     }
   },
   "shots": {
@@ -1286,5 +1288,69 @@
     "fog": "#0a0c12",
     "fogDensity": 0.004,
     "exposure": 1.45
+  },
+  "sound": {
+    "areas": {
+      "bar": {
+        "beds": [
+          {
+            "key": "rain_in",
+            "gain": 0.4,
+            "rain": true
+          },
+          {
+            "key": "murmur",
+            "gain": 0.42
+          },
+          {
+            "key": "traffic",
+            "gain": 0.12,
+            "lowpass": 500
+          }
+        ],
+        "random": [
+          {
+            "key": "clink",
+            "every": [6, 16],
+            "gain": 0.22
+          }
+        ]
+      },
+      "lobby": {
+        "beds": [
+          {
+            "key": "lobby",
+            "gain": 0.55
+          },
+          {
+            "key": "rain_in",
+            "gain": 0.18,
+            "rain": true
+          },
+          {
+            "key": "murmur",
+            "gain": 0.1,
+            "lowpass": 600
+          }
+        ]
+      }
+    },
+    "tv": {
+      "key": "tv_hum",
+      "at": [3.6, -4.45],
+      "r": 6,
+      "gain": 0.22
+    },
+    "random": [
+      {
+        "key": "siren",
+        "every": [120, 260],
+        "gain": 0.12
+      }
+    ],
+    "music": {
+      "bar": "bar",
+      "lobby": "bar"
+    }
   }
 }

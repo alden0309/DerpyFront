@@ -851,6 +851,7 @@ end
 
 == desk_bell "The bell on the desk"
 @on look desk_bell
+@sound desk_bell
 A brass bell on the desk. He touched it, and it rang, a thin bright ping in the quiet lobby.
 The clerk looked up from the guest book with the face of a man who has been rung for since 1987.
 -> FREE
@@ -929,6 +930,7 @@ end
 @on look lift
 A lift with brass doors, and a card hung across them on a string: HORS SERVICE.
 @gesture BASED interact
+@sound lift_button
 He pressed the call button anyway. It went in, and stayed in, and nothing happened at all: no light, no hum, not a sound from the shaft.
 if asked_lift
   ~ Coming on Monday. Since Tuesday.
@@ -998,14 +1000,17 @@ BARMAN [fr]: Bonsoir, monsieur. Qu'est-ce que je vous sers ? | Good evening, sir
 choose "He waits, cloth in hand."
   * [A scotch] "A scotch. Islay, if you have one. No ice."
     BARMAN: Of course, monsieur.
+    @sound glass
     @show glass_second
     set drink_scotch
   * [A beer] "Whatever you have on tap."
     BARMAN: Of course.
+    @sound glass
     @show his_beer
     set drink_beer
   * [Just water] "Water. It's been a long day and it isn't over."
     BARMAN: A wise man. We do not get many.
+    @sound glass
     @show water_glass
     set drink_water
 end
@@ -1051,6 +1056,7 @@ end
 choose "The President goes on applauding himself."
   * [Turn it off] "Do me a favour and turn him off."
     The barman found the remote in his apron and pointed it at the President with the expression of a man who had been waiting all evening for someone to ask.
+    @sound tv_off
     @news none
     set tv_off
     rel ANSELME +1
@@ -1581,6 +1587,7 @@ She put a note under the gin she hadn't drunk and stood.
 PENHALLOW: You have a number. Use it sparingly. It's expensive, and so am I.
 @figure none
 @actor WOMAN street_cross walk in=street
+@sound bar_bell
 if knew_seen
   The door's bell rang once behind her. In the mirror he watched her cross the street without looking at the man under the awning, who didn't look at her, which told him everything about both of them.
 else
@@ -1762,6 +1769,7 @@ else
   The clerk turned a page of the guest book with one finger, keeping it to himself.
   PORTER: The wine gentlemen. Twenty-three, monsieur, on the second floor. Made up an hour ago.
 end
+@sound key
 He took a key on a heavy brass weight from the board behind him and laid it on the desk so that it didn't ring.
 give his_key
 set has_room
@@ -1771,6 +1779,7 @@ PORTER: The lift, I am afraid, is a lift in name only. But the stairs are fine t
 @focus stairs_rope
 He came round the desk to the foot of the stairs, unhooked the red rope from its post and let it hang, the card turned to the wall.
 @gesture PORTER interact
+@sound rope
 @hide stair_rope
 @show stair_rope_down
 set stairs_open

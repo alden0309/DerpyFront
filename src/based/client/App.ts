@@ -22,9 +22,9 @@ import { renderFlowchart } from "./Flowchart";
 // r21: the player and its 3D world load only when the game starts, so the
 // Coming Soon page never downloads them.
 import type { PlayerHost } from "./Player";
-import { loadPrefs, Prefs, savePrefs, TextSpeed } from "./Prefs";
+import { levelsOf, loadPrefs, Prefs, savePrefs, TextSpeed } from "./Prefs";
 import "./Setup";
-import { Ambience } from "./Sound";
+import { Soundscape } from "./Sound";
 import { BASED_COVER, BASED_COVER_CREDIT, BASED_TAGLINE } from "./Teaser";
 import {
   creditsBody,
@@ -82,7 +82,7 @@ export class BasedApp extends LitElement {
   @state() private endNoteState: "idle" | "saving" | "saved" | "failed" =
     "idle";
 
-  private ambience = new Ambience();
+  private ambience = new Soundscape();
   private chapters = new Map<number, Api.LoadedChapter>();
   private saveTimer = 0;
   private playKey = 0;
@@ -95,7 +95,7 @@ export class BasedApp extends LitElement {
     super.connectedCallback();
     window.addEventListener(DERPY_ACCOUNT_EVENT, this.onAccount);
     window.addEventListener("beforeunload", this.flush);
-    this.ambience.setVolume(this.prefs.volume, !this.prefs.sound);
+    this.ambience.setLevels(levelsOf(this.prefs));
     void this.start();
   }
 
@@ -340,7 +340,7 @@ export class BasedApp extends LitElement {
   private setPref<K extends keyof Prefs>(k: K, v: Prefs[K]): void {
     this.prefs = { ...this.prefs, [k]: v };
     savePrefs(this.prefs);
-    this.ambience.setVolume(this.prefs.volume, !this.prefs.sound);
+    this.ambience.setLevels(levelsOf(this.prefs));
   }
 
   /** The slot saved last: what Continue picks up. */

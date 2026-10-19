@@ -140,7 +140,8 @@
         "place": "vauban",
         "mark": "vauban_door_in"
       },
-      "label": "Le Vauban"
+      "label": "Le Vauban",
+      "sound": "bar_bell"
     },
     "hotel_door": {
       "at": [9.0, 1.2, 3.05],
@@ -809,5 +810,35 @@
     "fog": "#0a0e16",
     "fogDensity": 0.01,
     "exposure": 1.45
+  },
+  "sound": {
+    "beds": [
+      {
+        "key": "rain",
+        "gain": 0.75,
+        "rain": true
+      },
+      {
+        "key": "traffic",
+        "gain": 0.45
+      }
+    ],
+    "spots": [
+      {
+        "key": "awning",
+        "gain": 0.7,
+        "rain": true,
+        "at": [2.2, 14.2],
+        "r": 3.2
+      }
+    ],
+    "random": [
+      {
+        "key": "siren",
+        "every": [75, 170],
+        "gain": 0.3
+      }
+    ],
+    "music": "street"
   }
 }

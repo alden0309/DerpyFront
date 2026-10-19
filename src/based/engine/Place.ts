@@ -34,6 +34,8 @@ export interface Hotspot {
   to?: { place: string; mark: string };
   /** r22: what the door or thing is called when it's pointed at. */
   label?: string;
+  /** r25: a door's sound going through it (a cue: "bar_bell", "stairs"). */
+  sound?: string;
   /**
    * r22: how far off he notices it, in metres, before his Perception
    * widens it (default 2.5). People and doors are always seen.
@@ -88,6 +90,40 @@ export interface LightDef {
   area?: string;
 }
 
+/** r25: a loop that plays in a place (or a room of it). */
+export interface SoundBed {
+  /** A sound in audio/ (a loop). */
+  key: string;
+  gain: number;
+  /** Louder the harder it rains, silent when it's dry. */
+  rain?: boolean;
+  /** Muffled to this many hertz. */
+  lowpass?: number;
+}
+
+/**
+ * r25: the place's sound (client/Sound.ts plays it): its beds, more in each
+ * room (by area id), louder near a point (rain on the awning), the
+ * television's hum while the news is on, something now and then (a siren,
+ * a glass), and the score's cue for the place or each room.
+ */
+export interface PlaceSound {
+  beds?: SoundBed[];
+  areas?: Record<string, { beds?: SoundBed[]; random?: RandomSound[] }>;
+  spots?: (SoundBed & { at: [number, number]; r: number })[];
+  tv?: { key: string; at: [number, number]; r: number; gain: number };
+  random?: RandomSound[];
+  music?: string | Record<string, string>;
+}
+
+export interface RandomSound {
+  /** A sound in audio/, or a cue (Types.ts SOUND_CUES) with `cue`. */
+  key: string;
+  /** Seconds between, at least and at most. */
+  every: [number, number];
+  gain: number;
+}
+
 export interface PlaceDef {
   key: string;
   name: string;
@@ -107,6 +143,8 @@ export interface PlaceDef {
   };
   /** r22: outdoors, the weather falls here (indoors: on the windows). */
   outdoor?: boolean;
+  /** r25: what it sounds like (client/Sound.ts). */
+  sound?: PlaceSound;
 }
 
 /** r22: the places a place's doors lead to. */
