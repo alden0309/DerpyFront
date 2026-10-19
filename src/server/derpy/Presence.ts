@@ -33,7 +33,9 @@ export type ConquestWhere =
       private: boolean;
       solo: boolean;
       year: number;
+      /** Where their character lives (a town), and the power that holds it. */
       colony: string;
+      power: string;
       /** Set when the game may be watched (and isn't full of watchers). */
       watchId?: string;
     }
@@ -162,6 +164,7 @@ export function placeOf(w: Where): Place {
         k: w.k,
         year: w.year,
         colony: w.colony,
+        power: w.power,
         private: w.private,
         solo: w.solo,
       };

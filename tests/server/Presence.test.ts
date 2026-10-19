@@ -140,7 +140,8 @@ describe("the presence board", () => {
       private: false,
       solo: false,
       year: 1652,
-      colony: "Virginia",
+      colony: "Jamestown",
+      power: "England",
     };
     b.setDerived(() => new Map([[1, table]]));
     b.beat(1, "tab", { k: "cq-front" });
@@ -176,6 +177,7 @@ describe("what a page may say", () => {
         joinable: true,
         year: 1650,
         colony: "x",
+        power: "y",
       }),
     ).toEqual({ k: "around" });
   });
@@ -265,7 +267,8 @@ describe("lobbies and tables", () => {
           private: false,
           solo: false,
           year: 1700,
-          colony: "Virginia",
+          colony: "Jamestown",
+          power: "England",
           watchId: "w1",
         },
         new Set(),
@@ -283,13 +286,15 @@ describe("lobbies and tables", () => {
         private: true,
         solo: false,
         year: 1652,
-        colony: "Virginia",
+        colony: "Jamestown",
+        power: "England",
         watchId: "secret",
       }),
     ).toEqual({
       k: "cq-game",
       year: 1652,
-      colony: "Virginia",
+      colony: "Jamestown",
+      power: "England",
       private: true,
       solo: false,
     });

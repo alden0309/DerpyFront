@@ -45,9 +45,13 @@ export interface Place {
   map?: string;
   /** DerpyFront: watching the game, not playing it. */
   watching?: boolean;
-  /** Derpy Conquest: the world's year, and the colony their character lives in. */
+  /**
+   * Derpy Conquest: the world's year, the place their character lives (a
+   * town), and the power that holds it ("England").
+   */
   year?: number;
   colony?: string;
+  power?: string;
   /** Derpy Conquest: a private table (not open to anyone) or a solo one. */
   private?: boolean;
   solo?: boolean;

@@ -12,7 +12,7 @@
 // beat costs one session lookup, not a handful of queries.
 
 import express, { NextFunction, Request, Response } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import type pg from "pg";
 import { z } from "zod";
 import type {
@@ -25,7 +25,7 @@ import type {
   SocialError,
   SocialState,
 } from "../../derpland/SocialTypes";
-import type { Account } from "./DerpyAuth";
+import { type Account, hashToken } from "./DerpyAuth";
 import { db, inTransaction } from "./DerpyDb";
 import { liveGames } from "./LiveGames";
 import {
@@ -908,9 +908,28 @@ export function socialRouter({
 }: SocialRouterDeps): express.Router {
   const router = express.Router();
   const json = express.json({ limit: "8kb" });
-  // A page beats every 15 seconds; a few tabs, a reload or two.
-  const beatLimiter = rateLimit({ windowMs: 60_000, limit: 120 });
-  const actLimiter = rateLimit({ windowMs: 60_000, limit: 60 });
+  // Counted per session (several friends may share a house's address), or
+  // per address without one. A page beats every 15 seconds: a few tabs, a
+  // reload or two. The actions that bother someone else (friend requests,
+  // invites) have their own limits per account (LIMITS).
+  const perSession = (req: Request) => {
+    const token =
+      req.headers.authorization ??
+      (typeof req.body?.token === "string" ? req.body.token : "");
+    return token
+      ? `s:${hashToken(String(token)).slice(0, 24)}`
+      : ipKeyGenerator(req.ip ?? "");
+  };
+  const beatLimiter = rateLimit({
+    windowMs: 60_000,
+    limit: 120,
+    keyGenerator: perSession,
+  });
+  const actLimiter = rateLimit({
+    windowMs: 60_000,
+    limit: 90,
+    keyGenerator: perSession,
+  });
 
   const me = (req: Authed) => req.derpy!.account;
   const answer = async (req: Authed, res: Response, result: Result) => {
@@ -938,8 +957,8 @@ export function socialRouter({
   // (a beacon), so it's gone from the list at once.
   router.post(
     "/beat",
-    beatLimiter,
     json,
+    beatLimiter,
     requireAccount(async (req, res) => {
       const tab = TAB.safeParse(req.body?.tab);
       if (!tab.success) {
@@ -967,8 +986,8 @@ export function socialRouter({
 
   router.post(
     "/hidden",
-    actLimiter,
     json,
+    actLimiter,
     requireAccount(async (req, res) => {
       const body = z.object({ hidden: z.boolean() }).safeParse(req.body);
       if (!body.success) {
@@ -982,8 +1001,8 @@ export function socialRouter({
 
   router.post(
     "/friends/request",
-    actLimiter,
     json,
+    actLimiter,
     requireAccount(async (req, res) => {
       const body = z
         .object({ username: z.string().min(1).max(40) })
@@ -1001,26 +1020,26 @@ export function socialRouter({
   );
   router.post(
     "/friends/accept",
-    actLimiter,
     json,
+    actLimiter,
     withId((m, id) => acceptFriend(m, id)),
   );
   router.post(
     "/friends/decline",
-    actLimiter,
     json,
+    actLimiter,
     withId((m, id) => dropRequest(id, m)),
   );
   router.post(
     "/friends/cancel",
-    actLimiter,
     json,
+    actLimiter,
     withId((m, id) => dropRequest(m, id)),
   );
   router.post(
     "/friends/remove",
-    actLimiter,
     json,
+    actLimiter,
     withId((m, id) => removeFriend(m, id)),
   );
   router.get(
@@ -1030,16 +1049,16 @@ export function socialRouter({
     }),
   );
 
-  router.post("/invite", actLimiter, json, withId(inviteToGame));
-  router.post("/invite/close", actLimiter, json, withId(closeInvite));
+  router.post("/invite", json, actLimiter, withId(inviteToGame));
+  router.post("/invite/close", json, actLimiter, withId(closeInvite));
 
-  router.post("/party/create", actLimiter, json, plain(createParty));
-  router.post("/party/invite", actLimiter, json, withId(inviteToParty));
-  router.post("/party/accept", actLimiter, json, withId(acceptParty));
-  router.post("/party/decline", actLimiter, json, withId(declineParty));
-  router.post("/party/leave", actLimiter, json, plain(leaveParty));
-  router.post("/party/lead", actLimiter, json, withId(handOverParty));
-  router.post("/party/disband", actLimiter, json, plain(disbandParty));
+  router.post("/party/create", json, actLimiter, plain(createParty));
+  router.post("/party/invite", json, actLimiter, withId(inviteToParty));
+  router.post("/party/accept", json, actLimiter, withId(acceptParty));
+  router.post("/party/decline", json, actLimiter, withId(declineParty));
+  router.post("/party/leave", json, actLimiter, plain(leaveParty));
+  router.post("/party/lead", json, actLimiter, withId(handOverParty));
+  router.post("/party/disband", json, actLimiter, plain(disbandParty));
 
   return router;
 }

@@ -1189,7 +1189,7 @@ export class ConquestRooms {
           k: "cq-game",
           ...base,
           year: dateOf(g.state.day).year,
-          colony: colonyOfSeat(g.state, seat.id),
+          ...homeOfSeat(g.state, seat.id),
           ...(watchable ? { watchId: r.watchId } : {}),
         });
       }
@@ -2448,17 +2448,19 @@ function titleOf(room: Room): string {
 }
 
 /**
- * FRIENDS (r25): the colony a seat's character lives in (the nation that
- * holds their home), else the place itself, else the people they began as.
+ * FRIENDS (r25): where a seat's character lives: the place (their home), and
+ * the power that holds it (else the people they began as).
  */
-function colonyOfSeat(s: GameState, seat: string): string {
+function homeOfSeat(
+  s: GameState,
+  seat: string,
+): { colony: string; power: string } {
   const life = lifeOfSeat(s, seat);
-  if (!life) return "";
+  if (!life) return { colony: "", power: "" };
   const owner = s.nations[s.provinces[life.home]?.owner ?? -1];
-  if (owner?.name) return owner.name;
-  const place = AMERICAS.provinces[life.home]?.name;
-  if (place) return place;
-  return s.nations.find((n) => n.key === life.origin)?.name ?? "";
+  const power =
+    owner?.name ?? s.nations.find((n) => n.key === life.origin)?.name ?? "";
+  return { colony: AMERICAS.provinces[life.home]?.name ?? "", power };
 }
 
 function seatOrigin(room: Room, seat: Seat): string | null {
