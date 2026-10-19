@@ -25,6 +25,7 @@ import {
   nf,
   shortDate,
 } from "./format";
+import "./Friends"; // FRIENDS (r25)
 import { HubPage } from "./HubPage";
 import "./Rename"; // NAMES (r20)
 import type { DerpRename } from "./Rename";
@@ -244,6 +245,12 @@ export class DerpProfile extends HubPage {
             >
             Derp Coins in the bank.
           </p>
+          ${!mine && this.username
+            ? // FRIENDS (r25): where they are, and being friends.
+              html`<dl-friend-status
+                .username=${p.username}
+              ></dl-friend-status>`
+            : nothing}
         </div>
         ${mine
           ? html`<div class="dl-player-actions">
@@ -266,7 +273,10 @@ export class DerpProfile extends HubPage {
         ? // NAMES (r20): kept while the page reloads under the new name.
           html`<dl-rename></dl-rename>`
         : nothing}
-
+      ${mine
+        ? // FRIENDS (r25): your friends, and what they played lately.
+          html`<dl-friends></dl-friends>`
+        : nothing}
       <div class="dl-statgroups">
         ${this.frontStats(p.stats)} ${this.conquestStats(p.conquest.stats)}
       </div>

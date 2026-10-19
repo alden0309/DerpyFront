@@ -53,6 +53,7 @@ import {
   savedGameRecord,
 } from "./DerpyGames";
 import { checkName, nameStatus, renameAccount } from "./DerpyNames"; // NAMES (r20)
+import { socialRenamed, socialRouter, socialSignedOut } from "./DerpySocial"; // FRIENDS (r25)
 import { liveGames } from "./LiveGames"; // SITE (r19)
 
 const log = logger.child({ component: "DerpyApi" });
@@ -190,6 +191,7 @@ export function derpyApiRouter(): express.Router {
     handle(async (req, res) => {
       const token = bearer(req);
       if (token) await logout(token);
+      socialSignedOut(token); // FRIENDS (r25)
       res.status(204).end();
     }),
   );
@@ -251,6 +253,7 @@ export function derpyApiRouter(): express.Router {
         return;
       }
       log.info("username changed", { account: req.derpy!.account.id });
+      socialRenamed(req.derpy!.account.id, result.username); // FRIENDS (r25)
       res.json({
         account: { username: result.username, coins: result.coins },
         username: result.username,
@@ -497,6 +500,9 @@ export function derpyApiRouter(): express.Router {
   // BASED (r19): Mr. Based. Only the accounts allowed to play get its story,
   // pictures and sound; everyone else gets Coming Soon.
   router.use("/based", basedRouter({ handle }));
+
+  // FRIENDS (r25): who's online and where, friends, game invites, parties.
+  router.use("/social", socialRouter({ requireAccount }));
 
   router.use((_req, res) => {
     res.status(404).json({ error: "not_found" });

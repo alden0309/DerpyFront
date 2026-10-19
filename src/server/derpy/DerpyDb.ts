@@ -1,7 +1,8 @@
 // Derp Land's database: accounts, sessions, saved DerpyFront games (for
 // stats and replays), Derpy Conquest results, saved campaigns, dynasties
-// and achievements, store purchases, weekly challenges (CHAL r25), and Mr.
-// Based's saves and notes, in the
+// and achievements, store purchases, weekly challenges (CHAL r25), Mr.
+// Based's saves and notes, and friends, parties and game invites
+// (FRIENDS r25), in the
 // Postgres that DATABASE_URL points at
 // (a free Neon database on the hosted site). Without DATABASE_URL the game
 // still runs; accounts and the store just say they aren't set up.
@@ -337,6 +338,63 @@ CREATE TABLE IF NOT EXISTS derpy_challenge_games (
 );
 CREATE INDEX IF NOT EXISTS derpy_challenge_games_time
   ON derpy_challenge_games (account_id, ended_at);
+-- FRIENDS (r25): friends, friend requests, parties and game invites, all by
+-- account id (so a rename changes nothing here). Who's online, and where, is
+-- kept in the master's memory (Presence.ts), never here; an account that
+-- appears offline is marked here so it stays so between sessions.
+ALTER TABLE derpy_accounts
+  ADD COLUMN IF NOT EXISTS appear_offline BOOLEAN NOT NULL DEFAULT false;
+-- Each friendship is two rows, one each way.
+CREATE TABLE IF NOT EXISTS derpy_friends (
+  account_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  friend_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  since TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (account_id, friend_id)
+);
+CREATE TABLE IF NOT EXISTS derpy_friend_requests (
+  from_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  to_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (from_id, to_id)
+);
+CREATE INDEX IF NOT EXISTS derpy_friend_requests_to
+  ON derpy_friend_requests (to_id);
+CREATE TABLE IF NOT EXISTS derpy_parties (
+  id BIGSERIAL PRIMARY KEY,
+  leader_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- One party at a time: the leader is a member too.
+CREATE TABLE IF NOT EXISTS derpy_party_members (
+  account_id BIGINT PRIMARY KEY REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  party_id BIGINT NOT NULL REFERENCES derpy_parties(id) ON DELETE CASCADE,
+  joined_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS derpy_party_members_party
+  ON derpy_party_members (party_id);
+CREATE TABLE IF NOT EXISTS derpy_party_invites (
+  party_id BIGINT NOT NULL REFERENCES derpy_parties(id) ON DELETE CASCADE,
+  to_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  from_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (party_id, to_id)
+);
+CREATE INDEX IF NOT EXISTS derpy_party_invites_to
+  ON derpy_party_invites (to_id);
+-- An invite into a DerpyFront lobby (target: its game id) or a Derpy
+-- Conquest table (its room code). It shows while its sender is still there
+-- and the lobby or table still has room; closed once used or waved off.
+CREATE TABLE IF NOT EXISTS derpy_invites (
+  id BIGSERIAL PRIMARY KEY,
+  from_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  to_id BIGINT NOT NULL REFERENCES derpy_accounts(id) ON DELETE CASCADE,
+  game TEXT NOT NULL,
+  target TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  closed BOOLEAN NOT NULL DEFAULT false
+);
+CREATE INDEX IF NOT EXISTS derpy_invites_to
+  ON derpy_invites (to_id) WHERE NOT closed;
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two

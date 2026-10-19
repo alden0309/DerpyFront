@@ -9,6 +9,7 @@ import {
   derpyStorage,
   derpyToken,
   derpyUsername,
+  SIGNING_OUT_EVENT,
   TOKEN_KEY,
   USER_KEY,
 } from "../client/derpy/DerpySession";
@@ -124,6 +125,8 @@ export const createAccount = (u: string, p: string) =>
   authenticate("/register", u, p);
 
 export async function signOut(): Promise<void> {
+  // FRIENDS (r25): off who's online at once, while the session still works.
+  window.dispatchEvent(new CustomEvent(SIGNING_OUT_EVENT));
   try {
     await api("/logout", { method: "POST" });
   } catch {

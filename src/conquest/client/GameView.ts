@@ -98,6 +98,7 @@ import { tabPage } from "./ui/Tabs";
 import { term } from "./ui/Terms";
 import { nationPage, worldTab } from "./ui/World";
 // SOCIETY (r11)
+import "../../derpland/SocialBar"; // FRIENDS (r25)
 import { tripLeave } from "../engine/Leave"; // ECON (r17)
 import {
   achievementToasts,
@@ -2073,6 +2074,16 @@ export class GameView extends LitElement {
             </button>`
           : nothing}
         ${postButton(ui)}
+        ${this.signedIn
+          ? // FRIENDS (r25): who's on Derp Land, invites, the party.
+            // On a phone the buttons fold away (no room): the menu has People.
+            html`<derp-social
+              class="cq-social"
+              page="conquest"
+              tools
+              fold
+            ></derp-social>`
+          : nothing}
         <button
           class="cq-menu-btn"
           aria-label="Menu"

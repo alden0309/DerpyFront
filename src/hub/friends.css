@@ -1,0 +1,340 @@
+/* FRIENDS (r25): "On Derp Land now" on the front page, Friends on your
+   account page, and the friend button on a player's page. Unlayered (like
+   live.css), so it wins over the site's layered defaults. */
+
+dl-online {
+  display: block;
+  margin: 0 0 40px;
+}
+.dl-online-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 16px;
+  margin-bottom: 12px;
+}
+.dl-online-h {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+}
+.dl-online-n {
+  min-width: 24px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 650;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.dl-online-note {
+  font-size: 14px;
+  color: var(--text-3);
+}
+.dl-online-empty,
+.dl-online-alone {
+  padding: 16px 18px;
+  border: 1px dashed var(--line-2);
+  border-radius: 12px;
+  font-size: 15px;
+}
+.dl-online-alone {
+  margin-top: 12px;
+}
+.dl-online-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dl-fcard {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.dl-fcard.friend {
+  border-color: rgba(245, 204, 60, 0.28);
+}
+.dl-fcard.me {
+  background: transparent;
+  border-style: dashed;
+}
+.dl-fcard-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dl-fcard-text b {
+  font-weight: 650;
+  font-size: 15.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dl-fcard-text a,
+.dl-frow-text a {
+  color: var(--text);
+  text-decoration: none;
+}
+.dl-fcard-text a:hover,
+.dl-frow-text a:hover {
+  text-decoration: underline;
+}
+.dl-fcard-acts {
+  display: flex;
+  gap: 6px;
+}
+.dl-fcard .dl-you {
+  vertical-align: 2px;
+}
+.dl-ftok {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--token);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+.dl-fwhere {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 13.5px;
+  line-height: 1.35;
+  color: var(--text-2);
+}
+.dl-fwhere span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dl-fdot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: #52525b;
+}
+.dl-fdot.big {
+  width: 9px;
+  height: 9px;
+}
+.dl-fdot.play {
+  background: #4ade80;
+}
+.dl-fdot.lobby {
+  background: #fbbf24;
+}
+.dl-fdot.about {
+  background: #60a5fa;
+}
+.dl-ftag {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: rgba(245, 204, 60, 0.14);
+  color: var(--peel);
+  font-size: 12px;
+  font-weight: 650;
+  vertical-align: 2px;
+}
+.dl-ftag.party {
+  background: rgba(96, 165, 250, 0.14);
+  color: #93c5fd;
+}
+.dl-fcard .dl-btn .dl-i,
+.dl-frow .dl-btn .dl-i,
+.dl-fstatus .dl-btn .dl-i,
+.dl-fadd .dl-btn .dl-i {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---- your Friends (account page) ---- */
+.dl-friends-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+  margin-bottom: 30px;
+}
+.dl-friends .dl-h2,
+.dl-fgames .dl-h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.dl-flist {
+  margin: 0 0 6px;
+  padding: 0;
+  list-style: none;
+}
+.dl-flist.requests {
+  margin-bottom: 14px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(245, 204, 60, 0.07);
+}
+.dl-frow {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.dl-frow:last-child {
+  border-bottom: 0;
+}
+.dl-frow-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dl-frow-text a {
+  font-weight: 650;
+}
+.dl-frow-acts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.dl-danger {
+  color: #fca5a5;
+}
+.dl-fwaiting {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.dl-fwaiting b {
+  color: var(--text);
+  font-weight: 600;
+}
+.dl-textbtn.small {
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+.dl-fadd {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.dl-fadd label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+.dl-fadd-row {
+  display: flex;
+  gap: 8px;
+}
+.dl-fadd input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 16px;
+  padding: 7px 11px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: #17171a;
+  color: var(--text);
+}
+.dl-fadd input:focus-visible {
+  outline: 2px solid var(--peel);
+  outline-offset: 0;
+  border-color: transparent;
+}
+.dl-fmsg {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.dl-fmsg.ok {
+  color: var(--good);
+}
+.dl-fmsg.bad {
+  color: var(--bad);
+}
+
+/* ---- someone's page ---- */
+dl-friend-status {
+  display: block;
+  margin-top: 12px;
+}
+.dl-fstatus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.dl-fstatus-where .dl-fwhere {
+  font-size: 15px;
+}
+.dl-fstatus .dl-ftag {
+  margin-left: 0;
+  padding: 4px 10px;
+  font-size: 13px;
+  vertical-align: 0;
+}
+
+@media (max-width: 860px) {
+  .dl-friends-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .dl-online-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dl-frow {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+  .dl-frow-acts {
+    grid-column: 2;
+    justify-content: flex-start;
+  }
+}
+
+/* The site's buttons as designed (banana with dark ink, bold). Set here
+   because hub.css's base layer ends up after its components layer in the
+   bundle (chronicle.css declares "components" first), so a plain
+   button's inherited color and weight win over .dl-btn's. */
+dl-online .dl-btn:not(:disabled),
+dl-friends .dl-btn:not(:disabled),
+dl-friend-status .dl-btn:not(:disabled) {
+  color: var(--peel-ink);
+  font-weight: 700;
+}
+dl-online .dl-btn.ghost:not(:disabled),
+dl-friends .dl-btn.ghost:not(:disabled),
+dl-friend-status .dl-btn.ghost:not(:disabled) {
+  color: var(--text);
+}
+dl-friends .dl-btn.ghost.dl-danger:not(:disabled) {
+  color: #fca5a5;
+}

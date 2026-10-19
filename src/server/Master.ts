@@ -17,6 +17,7 @@ import {
 import { attachConquest } from "./conquest/ConquestRooms";
 import { derpyApiRouter } from "./derpy/DerpyApi";
 import { setLiveSources } from "./derpy/LiveGames";
+import { presence } from "./derpy/Presence"; // FRIENDS (r25)
 import { getDescriptor } from "./DesktopRelease";
 import {
   coordinatorUrl,
@@ -275,6 +276,8 @@ export async function startMaster() {
   // Derpy Conquest games run here in the master.
   const conquestRooms = attachConquest(server);
   setLiveSources({ conquest: () => conquestRooms.live() }); // SITE (r19)
+  // FRIENDS (r25): who's at a Conquest table, for who's online.
+  presence.setDerived(() => conquestRooms.presence());
 
   const PORT = 3000;
   server.listen(PORT, () => {

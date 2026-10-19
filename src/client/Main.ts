@@ -137,6 +137,11 @@ import {
   type TurnstileApi,
   type TurnstileToken,
 } from "./TurnstileToken";
+import {
+  derpyJoining,
+  derpyLobbyMap,
+  derpyPresence,
+} from "./derpy/DerpyPresence"; // FRIENDS (r25)
 // Before the first userMeResponse, for the modals that load after it.
 import "./UserMeBroadcast";
 import { UserSettings } from "./UserSettings";
@@ -467,6 +472,7 @@ class Client {
     // "/" and re-runs this, so announcing the menu here also covers "returned
     // to the menu" without hooking each of those paths.
     desktopPresence.set({ state: "menu" });
+    derpyPresence({ state: "menu" }); // FRIENDS (r25)
 
     // Register modals with the URL router. Lobby modals (join/host) and
     // matchmaking are intentionally omitted — they own their own URL state
@@ -627,6 +633,7 @@ class Client {
         maxPlayers: config?.maxPlayers,
         lobbyId: presenceLobbyId(config, event.lobby.gameID),
       };
+      derpyLobbyMap(config?.gameMap); // FRIENDS (r25)
       this.presenceSpectating =
         event.lobby.clients?.find((c) => c.clientID === event.myClientID)
           ?.spectator === true;
@@ -1748,6 +1755,7 @@ class Client {
       lobby.publicLobbyInfo?.gameConfig ??
       lobby.gameRecord?.info.config;
     const joinInfo = lobby.publicLobbyInfo;
+    derpyJoining(lobby, joinConfig?.gameMap); // FRIENDS (r25)
     this.presenceInGame = false;
     this.presenceSpectating = lobby.spectator === true;
     // Dropped here, not on leaving: a game we are joining must never inherit
@@ -1955,19 +1963,16 @@ class Client {
   // "spectating" outranks. Emitting is idempotent -- the shell diffs -- so
   // callers never have to know whether anything actually changed.
   private emitPresence() {
-    desktopPresence.set(
-      withGroupToken(
-        {
-          state: this.presenceSpectating
-            ? "spectating"
-            : this.presenceInGame
-              ? "game"
-              : "lobby",
-          ...this.presenceDetail,
-        },
-        this.presenceGroup.current(),
-      ),
-    );
+    const payload: PresencePayload = {
+      state: this.presenceSpectating
+        ? "spectating"
+        : this.presenceInGame
+          ? "game"
+          : "lobby",
+      ...this.presenceDetail,
+    };
+    desktopPresence.set(withGroupToken(payload, this.presenceGroup.current()));
+    derpyPresence(payload); // FRIENDS (r25): Derp Land's who's online
   }
 
   // Back to the menu, forgetting the lobby we were describing so a later one
@@ -1978,6 +1983,7 @@ class Client {
     this.presenceInGame = false;
     this.presenceGroup.clear();
     desktopPresence.set({ state: "menu" });
+    derpyPresence({ state: "menu" }); // FRIENDS (r25)
   }
 
   // An invite lands the player exactly where a /game/<id> link would. The

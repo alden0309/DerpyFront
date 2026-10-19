@@ -110,6 +110,7 @@ import {
 import { accountForToken } from "../derpy/DerpyAuth";
 import { recordConquestGame } from "../derpy/DerpyConquest";
 import { derpyDbConfigured } from "../derpy/DerpyDb";
+import type { ConquestWhere } from "../derpy/Presence"; // FRIENDS (r25)
 import { logger } from "../Logger";
 import { TablePay, type SeatPay } from "./ConquestPay"; // LEGACY (r21)
 // CHAL (r25): the weekly challenges, watched as the game is played.
@@ -1180,6 +1181,47 @@ export class ConquestRooms {
       (a, b) =>
         b.players.length - a.players.length || a.startedAt - b.startedAt,
     );
+  }
+
+  /**
+   * FRIENDS (r25): where each signed-in player at a table is, for Derp Land's
+   * who's online: in a room before its game begins, playing (the year, and
+   * the colony their character lives in), or watching. By account, from the
+   * seats themselves; guests aren't listed, and a finished game is left.
+   */
+  presence(): Map<number, ConquestWhere> {
+    const out = new Map<number, ConquestWhere>();
+    for (const r of this.rooms.values()) {
+      if (r.overAt !== null) continue;
+      const g = r.game;
+      const over = !!g?.state.over;
+      const base = {
+        code: r.code,
+        joinable: !r.solo && !over && r.seats.length < MAX_SEATS,
+        private: !r.open || r.solo,
+        solo: r.solo,
+      };
+      for (const seat of r.seats) {
+        if (!seat.conn || seat.accountId === null) continue;
+        if (!g) {
+          out.set(seat.accountId, { k: "cq-room", ...base });
+          continue;
+        }
+        if (over) continue;
+        const watchable = this.watchable(r) && r.watchers.size < MAX_WATCHERS;
+        out.set(seat.accountId, {
+          k: "cq-game",
+          ...base,
+          year: dateOf(g.state.day).year,
+          ...homeOfSeat(g.state, seat.id),
+          ...(watchable ? { watchId: r.watchId } : {}),
+        });
+      }
+      for (const w of r.watchers)
+        if (w.accountId !== null && !out.has(w.accountId))
+          out.set(w.accountId, { k: "cq-watch" });
+    }
+    return out;
   }
 
   /** Watch a game being played: no seat, no say, and nobody's secrets. */
@@ -2500,6 +2542,22 @@ function titleOf(room: Room): string {
       ? names[0]
       : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   return `${who[0].toUpperCase()}${who.slice(1)}, from ${from}`;
+}
+
+/**
+ * FRIENDS (r25): where a seat's character lives: the place (their home), and
+ * the power that holds it (else the people they began as).
+ */
+function homeOfSeat(
+  s: GameState,
+  seat: string,
+): { colony: string; power: string } {
+  const life = lifeOfSeat(s, seat);
+  if (!life) return { colony: "", power: "" };
+  const owner = s.nations[s.provinces[life.home]?.owner ?? -1];
+  const power =
+    owner?.name ?? s.nations.find((n) => n.key === life.origin)?.name ?? "";
+  return { colony: AMERICAS.provinces[life.home]?.name ?? "", power };
 }
 
 function seatOrigin(room: Room, seat: Seat): string | null {

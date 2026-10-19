@@ -49,6 +49,7 @@ import "./polls.css"; // POLLS (r16): the canvass
 import "./schooling.css"; // EDU (r13): school, apprenticeship, college
 import "./sea.css"; // SEA (r15): at sea, the privateering company, hurricanes
 import "./ships.css"; // SHIPS (r21): ships' companies, charters, voyages; travelling together
+import "./social.css"; // FRIENDS (r25): Derp Land's People and bell in a game
 import "./story.css"; // STORY (r17): the story of a life, year by year
 import "./towns.css"; // TOWNS (r17): the town, its newcomers and its public works
 import "./war.css"; // WAR (r17): lost towns, claims, a town's ferment and its plot

@@ -13,6 +13,7 @@ import {
   derpyStorage,
   derpyToken,
   isDerpySignedIn,
+  SIGNING_OUT_EVENT,
   TOKEN_KEY,
   USER_KEY,
 } from "./DerpySession";
@@ -198,6 +199,7 @@ export function derpyCreateAccount(username: string, password: string) {
 }
 
 export async function derpySignOut(): Promise<void> {
+  window.dispatchEvent(new CustomEvent(SIGNING_OUT_EVENT)); // FRIENDS (r25)
   try {
     await api("/logout", { method: "POST" });
   } catch {

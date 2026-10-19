@@ -4,7 +4,7 @@ import { desktopQuit, requestDesktopQuit } from "../DesktopShell";
 import { NavNotificationsController } from "./NavNotificationsController";
 
 /**
- * The news bell, help "?", settings cogwheel and (on the desktop shell) a
+ * The news (a newspaper since FRIENDS r25), help "?", settings cogwheel and (on the desktop shell) a
  * power button as icon buttons, with the notification dots the first two carry.
  *
  * Shared by the desktop nav bar and the mobile top bar so both read as the same
@@ -134,8 +134,13 @@ export class NavUtilityIcons extends LitElement {
               class="w-6 h-6 pointer-events-none"
               aria-hidden="true"
             >
-              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              <!-- FRIENDS (r25): a newspaper for the news, so it isn't
+                   taken for the Derp Land bell beside it (your invites). -->
+              <path
+                d="M4 5.5h12.5v13a1.5 1.5 0 0 0 1.5 1.5H5.5A1.5 1.5 0 0 1 4 18.5z"
+              />
+              <path d="M16.5 9H20v9.5a1.5 1.5 0 0 1-3 0" />
+              <path d="M7 9h6.5M7 12.5h6.5M7 16h4" />
             </svg>
           </button>
           ${this._notifications.showNewsDot()

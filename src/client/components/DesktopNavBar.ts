@@ -3,6 +3,7 @@ import { html, LitElement } from "lit";
 import { customElement } from "lit/decorators.js";
 import "../../derpland/DerpBar";
 import { BarLabels } from "../../derpland/DerpBar";
+import type { SocialTranslate } from "../../derpland/SocialText";
 import { NAV_TAGLINE } from "../GameVersion";
 import { translateText } from "../Utils";
 import "./NavUtilityIcons";
@@ -44,6 +45,10 @@ function barLabels(): Partial<BarLabels> {
   };
 }
 
+/** FRIENDS (r25): who's online and the party, in the player's language. */
+const socialText: SocialTranslate = (key, params) =>
+  translateText(`derp_social.${key}`, params);
+
 /**
  * DerpyFront's top bar: the same Derp Land bar every page on the site has
  * (Play, Store, Inventory, Leaderboard and your account), with DerpyFront's
@@ -58,7 +63,12 @@ export class DesktopNavBar extends LitElement {
 
   render() {
     return html`
-      <derp-bar page="derpyfront" has-tools .labels=${barLabels()}>
+      <derp-bar
+        page="derpyfront"
+        has-tools
+        .labels=${barLabels()}
+        .socialText=${socialText}
+      >
         <div
           slot="brand"
           class="derpyfront-brand flex flex-col items-start justify-center gap-0.5"
