@@ -18,6 +18,7 @@ import {
 import "./BasedCard"; // BASED (r19): Mr. Based, coming soon
 import "./ConquestGame"; // LEGACY (r21): a finished Conquest game's page
 import { nationName, nf, timeAgo } from "./format";
+import "./Friends"; // FRIENDS (r25): who's on Derp Land now
 import { HubPage } from "./HubPage";
 import "./Leaderboard";
 // SITE (r19): games being played now, with Watch buttons.
@@ -226,6 +227,8 @@ export class DerpHome extends HubPage {
 
       <!-- BASED (r19): Mr. Based, under the two games -->
       <dl-based-card></dl-based-card>
+      <!-- FRIENDS (r25): who's on the site and where, friends first -->
+      <dl-online></dl-online>
       <!-- SITE (r19): games being played now, to watch -->
       <dl-live></dl-live>
       <!-- /SITE (r19) -->
