@@ -329,7 +329,7 @@ export class SocialClient {
   }
 }
 
-function pullOf(p: PartyView | null): Notice | null {
+function pullOf(p: PartyView | null): Extract<Notice, { kind: "pull" }> | null {
   if (!p?.pull) return null;
   return {
     key: `pull:${p.id}:${p.pull.key}`,
