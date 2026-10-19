@@ -1114,6 +1114,18 @@ const GOALS: Goal[] = [
     goLabel: "Open the tree",
     guide: "family",
   },
+  // TREE (r25)
+  {
+    id: "dynasty",
+    title: "See my dynasty",
+    words:
+      "dynasty line lineage generations heirs ancestors played characters family tree history house",
+    group: "People",
+    where:
+      "Journal › Dynasty: every character you've played with their husbands and wives, children and parents. Click anyone for their life.",
+    go: tab({ k: "tab", tab: "journal", sub: "dynasty" }),
+    guide: "dynasty",
+  },
   {
     id: "players",
     title: "Find the other players",

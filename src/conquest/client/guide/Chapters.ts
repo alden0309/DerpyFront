@@ -1543,9 +1543,36 @@ With no heir, your story ends and you watch ([[death|Death and watching]]).
 Your heir starts with good health and a clear head, at their own home.
 
 ## Your line
-You › Family shows the generations before you. Each generation of the line counts toward your Derp Coins at the end.
+You › Family shows the generations before you; **Journal › Dynasty** shows every generation you've played ([[dynasty|Your dynasty]]). Each generation of the line counts toward your Derp Coins at the end.
 
 > Tip: Name an heir early, and give them a good start: lessons at home in your best skill, a tutor, a trade, a good marriage. A child heir can't work until sixteen.`,
+  },
+  // ---- TREE (r25): the dynasty
+  {
+    id: "dynasty",
+    part: "people",
+    title: "Your dynasty",
+    line: "The family tree of your whole line: everyone you've been, their husbands and wives, children and parents, and each one's life.",
+    where:
+      "Journal › Dynasty (Open it large for the whole screen); the story told at the end; your Derp Land profile, under Dynasties.",
+    body: `## The tree of your line
+You › Family's tree is the family of the one you are now. **Journal › Dynasty** is the whole line's: **every character you've played**, from the first to whoever you are today, with their **husbands and wives** (each of them, the dead and the divorced too), their **children** (those who carried the line on and those who didn't), and their **parents and brothers and sisters** where they're known. It's set down the same way: generations in rows numbered down the margin, husbands and wives joined by a double rule, children hung from the couple they came of, the dead in sepia with a cross.
+- **Yours are sealed**: each one you played wears a red wax seal with their number in the line (I, II, III…); whoever you are now has the red ring, and your **heir** the gold ribbon.
+- **Moving about**: drag (or a finger), the wheel or a pinch, + and −; **All** shows the whole tree, **You** goes back to you. **Open it large** gives it the whole screen, with their life beside it.
+- **A house of its own**: if your line ended and you took up someone else (or began anew), their family is another house, with its own tree: pick it at the top.
+- **On a phone** a tree too wide for the screen opens as a **list**, generation by generation; **Tree** and **List** switch between them anywhere.
+
+## Their life
+Click (or tap) anyone for their life on the card beside the tree:
+- for those you played: what they were (their work and how they rose in it, their offices), **how they died** (or where they are now), **what they left** (their purse at the end), their renown at its height, the coins they earned, children, battles and duels, places seen, their best skills, the **achievements** earned while you were them, the **moments** of their life, and their **chapter of the story** as the end will tell it;
+- for everyone else: their years, how they died, what they do (their office, their trade or their schooling), their traits, and for the living, **where they are now**;
+- **Their card** opens their page in the game, as anywhere else.
+
+## Only your own line
+In company, **each player sees their own line**. Another player's character is on your tree only as far as a marriage goes (a husband or wife marked as a player): their own family, their life and their secrets are theirs. Your own secrets (a lover, a child you never owned to, hung by a broken line) are on your tree and nobody else's.
+
+## Kept on Derp Land
+Signed in, Derp Land keeps your dynasty as you play (each time the game is saved) and for good at the end: your profile lists your **Dynasties**, each with its tree and every life on it, without your secrets. Games finished before the dynasty was kept show the tree their story still tells (the line, their marriages and their children).`,
   },
   // ---- EDU (r13)
   {
@@ -2285,7 +2312,7 @@ The menu's **Your story so far** tells the tale of your line: the roads you trav
     part: "world",
     title: "1776 and the end",
     line: "Where the story stops, and how it's told.",
-    body: `The world runs until **1 January ${END_YEAR}**. Then your story is told in chapters, a life to each (the roads you travelled, the moments that mattered, the people who mattered, the generations of your line: [[story|Your story]]), the end screen lists **every character each player was, with their stats**, and the rest of your Derp Coins is paid ([[coins|Derp Coins]]: most were paid as you played). In company, the lines are ranked by what they made of their lives. Derp Land keeps it all: each finished game has a page (your profile › the game's **Story**) with every line's characters and chapters.
+    body: `The world runs until **1 January ${END_YEAR}**. Then your story is told in chapters, a life to each (the roads you travelled, the moments that mattered, the people who mattered, the generations of your line: [[story|Your story]]), the end screen lists **every character each player was, with their stats**, and the rest of your Derp Coins is paid ([[coins|Derp Coins]]: most were paid as you played). In company, the lines are ranked by what they made of their lives. Derp Land keeps it all: each finished game has a page (your profile › the game's **Story**) with every line's characters and chapters, and your profile's **Dynasties** keep the family tree of your line ([[dynasty|Your dynasty]]); the end screen's **The family tree** opens it in the game.
 
 The host can end a game sooner from the menu (End the game here): stories and coins are counted as they stand.
 

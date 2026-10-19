@@ -3,6 +3,7 @@
 
 import { html, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import type { DynastySummary } from "../conquest/engine/DynastyCore"; // TREE (r25)
 import { api, ApiError, signOut } from "../derpland/Account";
 import { openSignIn } from "../derpland/DerpBar";
 import {
@@ -14,6 +15,7 @@ import {
   signOutIcon,
   tokenColor,
 } from "../derpland/Icons";
+import { dynastyHref, treeIcon } from "./Dynasty"; // TREE (r25)
 import {
   AWARD_NAMES,
   DIFFICULTY_NAMES,
@@ -102,6 +104,8 @@ interface Profile {
     games: ConquestGame[];
     achievements?: ConquestAchievement[];
     achievementCount?: number;
+    /** TREE (r25): the account's dynasties, newest first. */
+    dynasties?: DynastySummary[];
   };
 }
 
@@ -145,12 +149,20 @@ export class DerpProfile extends HubPage {
   }
 
   protected updated(): void {
+    // TREE (r25): the end of a Conquest game links to #dynasties.
+    if (this.profile && location.hash === "#dynasties" && !this.toDynasties) {
+      this.toDynasties = true;
+      this.querySelector("#dynasties")?.scrollIntoView({ block: "start" });
+    }
     if (!this.renameAsked || !this.profile) return;
     if (this.isMine(this.profile)) {
       this.renameAsked = false;
       this.openRename();
     }
   }
+
+  /** TREE (r25): brought the Dynasties into view once. */
+  private toDynasties = false;
 
   private isMine(p: Profile): boolean {
     return (
@@ -257,7 +269,7 @@ export class DerpProfile extends HubPage {
       <div class="dl-statgroups">
         ${this.frontStats(p.stats)} ${this.conquestStats(p.conquest.stats)}
       </div>
-      ${this.achievements(p)}
+      ${this.achievements(p)} ${this.dynasties(p) /* TREE (r25) */}
 
       <section class="dl-panel dl-history">
         <div class="dl-history-head">
@@ -377,6 +389,40 @@ export class DerpProfile extends HubPage {
             None yet. Each one pays a few Derp Coins the first time it's earned
             in a game on Hard, from your first job to living to see 1776.
           </p>`}
+    </section>`;
+  }
+
+  /** TREE (r25): the family trees of the player's Derpy Conquest lines. */
+  private dynasties(p: Profile): TemplateResult {
+    const list = p.conquest.dynasties ?? [];
+    if (!list.length) return html``;
+    return html`<section class="dl-panel dl-dynasties" id="dynasties">
+      <h2 class="dl-h2">${treeIcon("dl-i")} Dynasties</h2>
+      <ol class="dl-dyn-rows">
+        ${list.map(
+          (d) =>
+            html`<li>
+              <div class="dl-game-main">
+                <span class="dl-dyn-fam">The ${d.family}s</span>
+                <span class="dl-game-chars">${d.names.join(" → ")}</span>
+                <span class="dl-game-meta"
+                  >Derpy Conquest, ${d.from} to ${d.to}, ${d.lives}
+                  ${d.lives === 1 ? "life" : "lives"}</span
+                >
+              </div>
+              <span class="dl-dyn-state ${d.over ? "" : "playing"}"
+                >${d.over
+                  ? `Finished ${shortDate(d.at)}`
+                  : `Being played, saved ${shortDate(d.at)}`}</span
+              >
+              <a
+                class="dl-btn small ghost"
+                href=${dynastyHref(p.username, d.gameId)}
+                >${treeIcon()} Family tree</a
+              >
+            </li>`,
+        )}
+      </ol>
     </section>`;
   }
 

@@ -11,6 +11,7 @@ import { LetterIcon } from "../Icons";
 import { achievementsPage } from "./Achievements"; // MAP (r12)
 import { GameUi, section } from "./Context";
 import { legendsPage } from "./DlcPages"; // DLC (r21)
+import { dynastyPage } from "./Dynasty"; // TREE (r25)
 import { takeJournalAffairs } from "./Ledger"; // LEDGER (r15)
 import { pageHead } from "./Nav";
 import "./Story"; // STORY (r17): the story so far is the story told
@@ -30,6 +31,7 @@ export function journalTab(ui: GameUi, sub = "diary"): TemplateResult {
     </p>`;
   if (sub === "achievements") return achievementsPage(ui); // MAP (r12)
   if (sub === "legends") return legendsPage(ui); // DLC (r21)
+  if (sub === "dynasty") return dynastyPage(ui); // TREE (r25)
   if (sub === "leads")
     return html`${pageHead(
       "Leads",
@@ -47,6 +49,13 @@ export function journalTab(ui: GameUi, sub = "diary"): TemplateResult {
         html`<div class="cq-btnrow">
           <button class="cq-btn small" @click=${() => ui.modal({ k: "end" })}>
             Your story, told
+          </button>
+          <button
+            class="cq-btn small quiet"
+            @click=${() =>
+              ui.open({ k: "tab", tab: "journal", sub: "dynasty" })}
+          >
+            The family tree of your line
           </button>
         </div>`,
       )} <cq-life-story .ui=${ui} .life=${life}></cq-life-story>`;

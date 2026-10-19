@@ -14,6 +14,7 @@ import type {
 import { api, ApiError } from "../derpland/Account";
 import { coinIcon, crownIcon, scrollIcon } from "../derpland/Icons";
 import "./chronicle.css";
+import { dynastyHref, treeIcon } from "./Dynasty"; // TREE (r25)
 import {
   DIFFICULTY_NAMES,
   duration,
@@ -97,7 +98,7 @@ export class DerpConquestGame extends HubPage {
         </ol>
       </section>
       ${told
-        ? g.players.map((p) => playerSection(p))
+        ? g.players.map((p) => playerSection(p, g.gameId))
         : html`<p class="dl-panel dl-quiet">
             This game was played before Derp Land kept each line's characters
             and chronicle: only the results remain.
@@ -153,13 +154,21 @@ function rankRow(p: Player): TemplateResult {
   </li>`;
 }
 
-function playerSection(p: Player): TemplateResult {
+function playerSection(p: Player, gameId?: string): TemplateResult {
   const ch = p.chronicle;
   return html`<section class="dl-panel dl-chron">
     <h2 class="dl-h2 dl-chron-h2">
       <span class="dl-chron-rank">${p.rank}</span>
       ${ch?.title ?? p.line ?? p.name}
       <small class="dl-quiet">played by ${who(p)}</small>
+      ${p.username && p.chars?.length && gameId
+        ? // TREE (r25): the line's family tree.
+          html`<a
+            class="dl-btn small ghost dl-chron-tree-link"
+            href=${dynastyHref(p.username, gameId)}
+            >${treeIcon()} Family tree</a
+          >`
+        : nothing}
     </h2>
     ${ch ? html`<p class="dl-chron-open">${ch.opening}</p>` : nothing}
     ${ch?.numbers.length

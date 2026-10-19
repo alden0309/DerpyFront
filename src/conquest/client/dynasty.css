@@ -1,0 +1,374 @@
+/* TREE (r25): Journal › Dynasty, the family tree of your line, in the
+   family Bible's look of You › Family's tree (home.css): the same vellum
+   window, oval portraits and ruled rows; a red wax seal on each of the
+   line's own, numbered; and each one's life on a card beside it. */
+
+.cq-dyn-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.7rem;
+  margin: 0 0 0.55rem;
+}
+.cq-dyn-count {
+  margin-left: auto;
+  font-style: italic;
+}
+
+.cq-dyn-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+.cq-dyn-page .cq-kin-hint {
+  margin: -0.3rem 0 0;
+}
+
+/* ---------------------------------------------------------------- the cards */
+
+/* The line's own: a red wax seal with their number, on the portrait's shoulder. */
+.cq-dyn-seal {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-46px);
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  font-family: var(--fell);
+  font-size: 0.72rem;
+  line-height: 1;
+  color: #fbe9d6;
+  background: radial-gradient(
+    circle at 38% 34%,
+    #c4483a,
+    var(--seal) 58%,
+    #6e1a12
+  );
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px rgba(110, 26, 18, 0.35),
+    0 1px 3px rgba(43, 29, 18, 0.45);
+  pointer-events: none;
+}
+.cq-dyn-seal.inline {
+  position: static;
+  transform: none;
+  flex: none;
+}
+.cq-dyn-card.kind-played .cq-kin-face {
+  box-shadow:
+    0 0 0 2px #fbf3dc,
+    0 0 0 4px #8a6420,
+    0 2px 6px rgba(43, 29, 18, 0.45);
+}
+.cq-dyn-card.kind-you .cq-kin-face {
+  width: 70px;
+  height: 86px;
+  box-shadow:
+    0 0 0 2px #fbf3dc,
+    0 0 0 4px var(--seal),
+    0 2px 6px rgba(43, 29, 18, 0.45);
+}
+.cq-dyn-card.kind-kin .cq-kin-face {
+  width: 56px;
+  height: 68px;
+  margin-top: 6px;
+}
+.cq-dyn-card.kind-played .cq-kin-name,
+.cq-dyn-card.kind-you .cq-kin-name {
+  font-weight: 600;
+}
+/* Whoever's life is open: a soft gilt ground behind them. */
+.cq-dyn-card::before {
+  content: "";
+  position: absolute;
+  inset: -4px -2px -2px;
+  z-index: -1;
+  border-radius: 10px;
+  background: rgba(201, 155, 58, 0);
+  transition: background 0.15s;
+}
+.cq-dyn-card.chosen::before {
+  background: rgba(201, 155, 58, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(138, 100, 32, 0.45);
+}
+.cq-dyn-view .cq-kin-canvas {
+  isolation: isolate;
+}
+
+/* ---------------------------------------------------------------- the list */
+
+.cq-dyn-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid #a88a54;
+  background: rgba(251, 243, 220, 0.6);
+}
+.cq-dyn-gen + .cq-dyn-gen {
+  border-top: 1px solid var(--rule);
+}
+.cq-dyn-gen-name {
+  margin: 0;
+  padding: 0.35rem 0.7rem 0.15rem;
+  font-family: var(--fell);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.cq-dyn-gen-name span {
+  font-style: normal;
+  font-size: 1.05rem;
+  color: rgba(74, 50, 32, 0.6);
+}
+.cq-dyn-gen ul {
+  margin: 0;
+  padding: 0 0 0.3rem;
+  list-style: none;
+}
+.cq-dyn-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 52px;
+  padding: 0.25rem 0.7rem;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.cq-dyn-row:hover,
+.cq-dyn-row.chosen {
+  background: rgba(201, 155, 58, 0.18);
+}
+.cq-dyn-row:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: -2px;
+}
+.cq-dyn-row-face {
+  width: 38px;
+  height: 46px;
+  border-width: 2px;
+}
+.cq-dyn-row-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cq-dyn-row-text b {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cq-dyn-row.dead .cq-dyn-row-text {
+  opacity: 0.8;
+}
+
+/* ---------------------------------------------------------------- their life */
+
+.cq-dyn-life {
+  padding: 0.8rem 0.95rem 0.7rem;
+  background: rgba(251, 243, 220, 0.75);
+  border: 1px solid #a88a54;
+  box-shadow: inset 0 0 18px rgba(120, 85, 40, 0.12);
+}
+.cq-dyn-life-head {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+.cq-dyn-life-head .cq-h3 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+.cq-dyn-life-head p {
+  margin: 0.1rem 0 0;
+}
+.cq-dyn-life-face {
+  width: 56px;
+  height: 68px;
+  border-width: 3px;
+}
+.cq-dyn-title {
+  font-family: var(--fell);
+  font-style: italic;
+}
+.cq-dyn-fate {
+  margin: 0.25rem 0 0.5rem;
+  font-family: var(--fell);
+  font-size: 1.02rem;
+  line-height: 1.35;
+}
+.cq-dyn-fate .cq-muted {
+  display: block;
+  font-family: var(--sans);
+}
+.cq-dyn-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.6rem, 1fr));
+  gap: 0.3rem 0.6rem;
+  margin: 0 0 0.5rem;
+}
+.cq-dyn-facts div {
+  padding: 0.2rem 0.4rem;
+  border-left: 2px solid var(--vellum-3);
+}
+.cq-dyn-facts dt {
+  font-family: var(--fell-sc);
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  color: var(--ink-soft);
+}
+.cq-dyn-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.cq-dyn-h4 {
+  margin: 0.6rem 0 0.25rem;
+  font-family: var(--fell-sc);
+  font-weight: 400;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  color: #6b4a10;
+  border-bottom: 1px solid var(--rule);
+}
+.cq-dyn-work {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.92rem;
+}
+.cq-dyn-ach {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+}
+.cq-dyn-moments {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.92rem;
+}
+.cq-dyn-moments li {
+  display: grid;
+  grid-template-columns: 2.8rem 18px minmax(0, 1fr);
+  gap: 0.4rem;
+  align-items: start;
+  padding: 0.12rem 0;
+}
+.cq-dyn-moments time {
+  font-family: var(--fell);
+  font-style: italic;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.cq-dyn-moments .cq-story-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--sepia);
+}
+.cq-dyn-moments li.big span {
+  font-weight: 600;
+}
+.cq-dyn-story {
+  margin-top: 0.6rem;
+}
+.cq-dyn-story summary {
+  font-family: var(--fell-sc);
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: #6b4a10;
+}
+.cq-dyn-story p {
+  margin: 0.4rem 0 0;
+  font-family: var(--fell);
+  line-height: 1.45;
+}
+.cq-dyn-now {
+  margin: 0.5rem 0 0;
+  padding: 0.3rem 0.5rem;
+  background: rgba(44, 106, 76, 0.08);
+  border-left: 3px solid var(--verdigris);
+}
+.cq-dyn-life .cq-btnrow {
+  margin-top: 0.55rem;
+}
+
+/* ---------------------------------------------------------------- the big window */
+
+.cq-modal.dyn {
+  width: min(1280px, 96vw);
+}
+.cq-dyn-modal .cq-h1 {
+  padding-right: 1.6rem; /* clear of the × */
+}
+.cq-dyn-modal .cq-h1 .cq-muted {
+  margin-left: 0.5rem;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+.cq-dyn-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 0.8rem;
+  align-items: start;
+}
+.cq-dyn-split-life {
+  max-height: min(74vh, 760px);
+  overflow-y: auto;
+}
+.cq-dyn-split-tree .cq-dyn-list {
+  max-height: min(74vh, 760px);
+  overflow-y: auto;
+}
+.cq-dyn-modal .cq-btnrow.end {
+  margin-top: 0.8rem;
+}
+
+/* The end's way to it. */
+.cq-dyn-end {
+  margin: 1rem 0 0.4rem;
+  padding: 0.6rem 0.8rem 0.7rem;
+  border: 1px solid #a88a54;
+  background: rgba(251, 243, 220, 0.55);
+}
+.cq-dyn-end .cq-h3 {
+  margin-top: 0;
+}
+
+@media (max-width: 900px) {
+  .cq-dyn-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cq-dyn-split-life {
+    max-height: none;
+  }
+}
+@media (max-width: 520px) {
+  .cq-dyn-count {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .cq-dyn-life {
+    padding: 0.7rem 0.7rem 0.6rem;
+  }
+  .cq-dyn-moments li {
+    grid-template-columns: 2.6rem minmax(0, 1fr);
+  }
+  .cq-dyn-moments .cq-story-icon {
+    display: none;
+  }
+}

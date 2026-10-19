@@ -1027,6 +1027,9 @@ export class GameView extends LitElement {
     } else if (e.key === "Escape") {
       if (this.picking) this.picking = false;
       else if (this.ask) this.ask = null;
+      // TREE (r25): the dynasty, opened from the story told, goes back to it.
+      else if (this.modalView?.k === "dynasty" && this.modalView.from === "end")
+        this.modalView = { k: "end" };
       else if (
         this.modalView &&
         this.modalView.k !== "event" &&

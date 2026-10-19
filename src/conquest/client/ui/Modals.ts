@@ -40,6 +40,7 @@ import { startBizModal } from "./Business"; // BUSINESS (r15)
 import { cardsModal } from "./CardsTable"; // EVENTS (r21)
 import { GameUi, Modal, token } from "./Context";
 import { diceModal } from "./DiceTable"; // DICE (r14)
+import { dynastyModal } from "./Dynasty"; // TREE (r25)
 import { familyTreeModal } from "./FamilyTree"; // HOME (r12)
 import { finderModal, resetFinder } from "./Finder";
 import { roleOf } from "./Here";
@@ -155,6 +156,11 @@ export function renderModal(
       body = familyTreeModal(ui);
       cls = "wide kin";
       break;
+    // TREE (r25)
+    case "dynasty":
+      body = dynastyModal(ui, m.from);
+      cls = "wide kin dyn";
+      break;
     // EDU (r13)
     case "school":
       body = schoolModal(ui, m.c);
@@ -196,18 +202,16 @@ export function renderModal(
       break;
   }
   const closable = !(m.k === "end" && ui.s.over);
+  // TREE (r25): the dynasty opened from the story told goes back to it.
+  const close = () =>
+    ui.modal(m.k === "dynasty" && m.from === "end" ? { k: "end" } : null);
   return html`<div
     class="cq-scrim"
-    @click=${(e: Event) =>
-      e.target === e.currentTarget && closable && ui.modal(null)}
+    @click=${(e: Event) => e.target === e.currentTarget && closable && close()}
   >
     <div class="cq-modal ${cls}" role="dialog" aria-modal="true" data-steady>
       ${closable
-        ? html`<button
-            class="cq-modal-x"
-            aria-label="Close"
-            @click=${() => ui.modal(null)}
-          >
+        ? html`<button class="cq-modal-x" aria-label="Close" @click=${close}>
             ×
           </button>`
         : nothing}
@@ -824,6 +828,7 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
                 )}
             </ul>`
         : nothing}
+    ${life?.line.length ? dynastyAtEnd(ui, results) : nothing}
     <div class="cq-btnrow end">
       ${s.over
         ? nothing
@@ -835,6 +840,52 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
       </button>
     </div>
   `;
+}
+
+// ---------------------------------------------------------------- TREE (r25): the dynasty at the end
+
+/** The way to your line's family tree, and (signed in) to where Derp Land keeps it. */
+function dynastyAtEnd(
+  ui: GameUi,
+  results: ResultLine[] | null | undefined,
+): TemplateResult {
+  const life = ui.life!;
+  const mine = results?.find((r) => r.name === life.name);
+  const kept = !!mine && mine.coins !== null;
+  const n = new Set(life.line).size;
+  return html`<section class="cq-dyn-end">
+    <h3 class="cq-h3">Your dynasty</h3>
+    <p class="cq-muted small">
+      ${n === 1
+        ? "One life, with the family around it"
+        : `${n} lives, and the family around them`}:
+      the tree of your line, and each one's life.
+      ${kept
+        ? html`Derp Land keeps it on your profile, under Dynasties.`
+        : nothing}
+    </p>
+    <div class="cq-btnrow">
+      <button
+        class="cq-btn"
+        @click=${() =>
+          ui.modal({
+            k: "dynasty",
+            ...(ui.s.over ? { from: "end" as const } : {}),
+          })}
+      >
+        The family tree
+      </button>
+      ${kept
+        ? html`<a
+            class="cq-btn quiet"
+            href="/account#dynasties"
+            target="_blank"
+            rel="noopener"
+            >Your dynasties on Derp Land</a
+          >`
+        : nothing}
+    </div>
+  </section>`;
 }
 
 // ---------------------------------------------------------------- CQACH (r22): achievements at the end

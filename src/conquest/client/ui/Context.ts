@@ -74,6 +74,8 @@ export type Modal =
   | { k: "finder" }
   // HOME (r12): the family tree, large.
   | { k: "tree" }
+  // TREE (r25): the dynasty, large (from the story told at the end: back to it).
+  | { k: "dynasty"; from?: "end" }
   // EDU (r13): a child's future (a school, a trade or a college), and an indenture.
   | { k: "school"; c: number }
   | { k: "indenture"; c: number }

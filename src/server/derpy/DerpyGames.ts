@@ -21,6 +21,7 @@ import {
 import { replacer } from "@openfront/shared/SharedUtil";
 import { GameRecord, PlayerRecord } from "@openfront/shared/WireSchemas";
 import { gunzipSync, gzipSync } from "zlib";
+import type { DynastySummary } from "../../conquest/engine/DynastyCore"; // TREE (r25)
 import { logger } from "../Logger";
 import { getMapLandTilesForSize } from "../MapLandTiles";
 import { accountsForPlayIds } from "./DerpyAuth";
@@ -406,6 +407,8 @@ export interface Profile {
     /** MAP (r12) */
     achievements?: ProfileAchievement[];
     achievementCount?: number;
+    /** TREE (r25): the account's Derpy Conquest dynasties, newest first. */
+    dynasties?: DynastySummary[];
   };
 }
 

@@ -15,6 +15,7 @@ import type {
   StoredChronicle,
 } from "../../conquest/Protocol"; // LEGACY (r21)
 import { logger } from "../Logger";
+import { dynastiesOf, type DynastySummary } from "./ConquestDynasties"; // TREE (r25)
 import { achievementsOf } from "./DerpyAchievements"; // MAP (r12)
 import { db, derpyDbConfigured, inTransaction } from "./DerpyDb";
 import { namesOf } from "./DerpyNames"; // NAMES (r20)
@@ -453,6 +454,8 @@ export async function conquestProfile(accountId: number): Promise<{
   /** MAP (r12): achievements earned, and how many there are. */
   achievements: ProfileAchievement[];
   achievementCount: number;
+  /** TREE (r25): the account's dynasties, newest first. */
+  dynasties: DynastySummary[];
 }> {
   const pool = await db();
   // LEGACY (r21): with what each game paid while it was played.
@@ -487,8 +490,10 @@ export async function conquestProfile(accountId: number): Promise<{
       ])
     ).rows.map((r) => String(r.item)),
   );
+  const dynasties = await dynastiesOf(accountId); // TREE (r25)
   return {
     stats: rowToConquest(stats.rows[0] ?? {}),
+    dynasties,
     achievements: earned.flatMap((a): ProfileAchievement[] => {
       const def = ACHIEVEMENT_BY_KEY.get(a.key);
       return def

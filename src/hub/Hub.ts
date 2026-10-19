@@ -17,6 +17,7 @@ import {
 } from "../derpland/Icons";
 import "./BasedCard"; // BASED (r19): Mr. Based, coming soon
 import "./ConquestGame"; // LEGACY (r21): a finished Conquest game's page
+import "./Dynasty"; // TREE (r25): a Conquest dynasty's page
 import { nationName, nf, timeAgo } from "./format";
 import { HubPage } from "./HubPage";
 import "./Leaderboard";
@@ -50,7 +51,9 @@ type Route =
   | { page: "home" | "store" | "inventory" | "leaderboard" | "account" }
   | { page: "player"; name: string }
   // LEGACY (r21): a finished Derpy Conquest game: its lines and their chronicles.
-  | { page: "chronicle"; id: string };
+  | { page: "chronicle"; id: string }
+  // TREE (r25): a player's Derpy Conquest dynasty in one game.
+  | { page: "dynasty"; name: string; id: string };
 
 export function routeFor(path: string): Route {
   const p = path.replace(/\/+$/, "") || "/";
@@ -58,6 +61,9 @@ export function routeFor(path: string): Route {
   if (player) return { page: "player", name: player[1] };
   const chron = /^\/chronicle\/([A-Za-z0-9-]{1,60})$/.exec(p); // LEGACY (r21)
   if (chron) return { page: "chronicle", id: chron[1] };
+  // TREE (r25)
+  const dyn = /^\/dynasty\/([A-Za-z0-9_]{1,20})\/([A-Za-z0-9-]{1,60})$/.exec(p);
+  if (dyn) return { page: "dynasty", name: dyn[1], id: dyn[2] };
   switch (p) {
     case "/store":
       return { page: "store" };
@@ -80,6 +86,7 @@ const TITLES: Record<Route["page"], string> = {
   account: "Your account · Derp Land",
   player: "Player · Derp Land",
   chronicle: "Derpy Conquest · Derp Land", // LEGACY (r21)
+  dynasty: "Dynasty · Derp Land", // TREE (r25)
 };
 
 @customElement("derp-land")
@@ -101,7 +108,9 @@ export class DerpLand extends LitElement {
   render(): TemplateResult {
     const r = this.route;
     const bar: BarPage =
-      r.page === "player" || r.page === "chronicle" ? "leaderboard" : r.page;
+      r.page === "player" || r.page === "chronicle" || r.page === "dynasty"
+        ? "leaderboard"
+        : r.page;
     return html`
       <derp-bar page=${bar}></derp-bar>
       <main class="dl-main">${this.renderPage(r)}</main>
@@ -123,6 +132,8 @@ export class DerpLand extends LitElement {
         return html`<dl-profile name=${r.name}></dl-profile>`;
       case "chronicle": // LEGACY (r21)
         return html`<dl-conquest-game .gameId=${r.id}></dl-conquest-game>`;
+      case "dynasty": // TREE (r25)
+        return html`<dl-dynasty .name=${r.name} .gameId=${r.id}></dl-dynasty>`;
       default:
         return html`<dl-home></dl-home>`;
     }

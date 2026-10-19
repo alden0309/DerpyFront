@@ -5823,6 +5823,11 @@ export interface LifeLegacy {
   came?: LineCame;
   t0?: TallyMark;
   peak?: number;
+  /**
+   * TREE (r25): every marriage of the line's characters, as [character,
+   * husband or wife], first to last: a divorce leaves no other mark.
+   */
+  wed?: [number, number][];
 }
 
 // ---------------------------------------------------------------- LABOUR2 (r21)

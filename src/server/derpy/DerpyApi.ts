@@ -11,6 +11,7 @@ import type { RenameError } from "../../derpland/Names"; // NAMES (r20)
 import { finalizeGameRecord } from "../Archive";
 import { logger } from "../Logger";
 import { setNoStoreHeaders } from "../NoStoreHeaders";
+import { dynastyFor } from "./ConquestDynasties"; // TREE (r25)
 import {
   Account,
   accountForToken,
@@ -289,6 +290,29 @@ export function derpyApiRouter(): express.Router {
         return;
       }
       res.json(p);
+    }),
+  );
+
+  // TREE (r25): one of a player's Derpy Conquest dynasties: its tree and
+  // every life on it (nothing secret), by their name (or one given up lately).
+  router.get(
+    "/players/:username/dynasty/:gameId",
+    handle(async (req, res) => {
+      const name = String(req.params.username);
+      const id = String(req.params.gameId);
+      if (
+        !/^[A-Za-z0-9_]{1,20}$/.test(name) ||
+        !/^[A-Za-z0-9-]{1,60}$/.test(id)
+      ) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      const page = await dynastyFor(name, id);
+      if (page === null) {
+        res.status(404).json({ error: "not_found" });
+        return;
+      }
+      res.json(page);
     }),
   );
 
