@@ -421,8 +421,9 @@ export function lifePanel(
     ${p.now && p.other === undefined
       ? html`<p class="cq-dyn-now"><b>Now:</b> ${p.now}.</p>`
       : nothing}
-    ${p.c !== undefined && ui.s.chars[p.c]
-      ? html`<div class="cq-btnrow">
+    ${p.c !== undefined && ui.s.chars[p.c] && !(inModal && ui.s.over)
+      ? // (Not from the big window once the game is over: the story stays up.)
+        html`<div class="cq-btnrow">
           <button class="cq-btn small" @click=${open}>Their card</button>
         </div>`
       : nothing}
