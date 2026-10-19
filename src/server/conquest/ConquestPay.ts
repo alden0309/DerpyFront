@@ -157,22 +157,32 @@ export class TablePay {
   count(room: PayRoom, dt: number): void {
     const g = room.game;
     if (!g || g.state.over || dt <= 0) return;
-    const t = this.now();
     for (const seat of room.seats) {
-      if (seat.accountId === null || !seat.conn) continue;
-      const since = this.sinceChoice(room, seat);
-      if (since === Infinity) continue;
-      const life = lifeOfSeat(g.state, seat.id);
-      const counts = countsAtTable({
-        living: !!life && life.c >= 0 && !life.watching,
-        sinceChoice: since,
-        paused: room.paused,
-        pausedFor: room.pausedAt === null ? 0 : t - room.pausedAt,
-      });
-      if (!counts) continue;
+      if (!this.counting(room, seat)) continue;
       const p = this.ready(room, seat);
       if (p) p.owed += dt / 1000;
     }
+  }
+
+  /**
+   * Whether this moment at the table counts for a seat: signed in, there,
+   * living a life, a choice of its own lately (in this seat: one seat at a
+   * time), and the clock running or not long stopped. CHAL (r25): the
+   * weekly challenges count gains only at such moments, too.
+   */
+  counting(room: PayRoom, seat: PaySeat): boolean {
+    const g = room.game;
+    if (!g || g.state.over || seat.accountId === null || !seat.conn)
+      return false;
+    const since = this.sinceChoice(room, seat);
+    if (since === Infinity) return false;
+    const life = lifeOfSeat(g.state, seat.id);
+    return countsAtTable({
+      living: !!life && life.c >= 0 && !life.watching,
+      sinceChoice: since,
+      paused: room.paused,
+      pausedFor: room.pausedAt === null ? 0 : this.now() - room.pausedAt,
+    });
   }
 
   /**

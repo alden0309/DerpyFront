@@ -1505,7 +1505,18 @@ export function achievementMoment(
     !isCampaign(g.s)
   )
     countAch(g, life, "liberty");
+  // CHAL (r25): a town won back for your crown, by a siege you marched in or
+  // the crown's regiments you asked for (a weekly challenge).
+  else if (
+    (m.kind === "battle" && /^Retook .+ after a siege/.test(m.text)) ||
+    (m.kind === "renown" &&
+      /^Took back .+ with the crown's regiments/.test(m.text))
+  )
+    countAch(g, life, RETOOK_COUNT);
 }
+
+/** CHAL (r25): the count (Life.achCount) of towns retaken for your crown. */
+export const RETOOK_COUNT = "retook";
 // ---------------------------------------------------------------- /CQACH (r22)
 
 /** Each day: the counts some achievements wait on, then the checks. */

@@ -392,6 +392,9 @@ export function leaveJob(g: ConquestGame, life: Life, why: string): void {
 
 // ---------------------------------------------------------------- climbing
 
+/** CHAL (r25): the count (Life.achCount) of promotions to a trade's third rung. */
+export const RUNG3_COUNT = "rung3";
+
 export function promote(g: ConquestGame, life: Life): void {
   const job = life.job!;
   const def = JOBS[job.kind];
@@ -400,6 +403,9 @@ export function promote(g: ConquestGame, life: Life): void {
   touchLife(g, life);
   life.tally.promotions++;
   life.tally.topRank = Math.max(life.tally.topRank, job.rank);
+  // CHAL (r25): each climb to a trade's third rung, counted (a weekly challenge).
+  if (job.rank === 2)
+    (life.achCount ??= {})[RUNG3_COUNT] = (life.achCount[RUNG3_COUNT] ?? 0) + 1;
   addRenown(g, life, 2 + job.rank);
   const title = def.ranks[job.rank].title;
   journal(

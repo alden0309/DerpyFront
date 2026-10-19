@@ -300,6 +300,11 @@ CREATE TABLE IF NOT EXISTS derpy_challenges (
 );
 CREATE INDEX IF NOT EXISTS derpy_challenges_game
   ON derpy_challenges (account_id, game_id) WHERE game_id IS NOT NULL;
+-- CHAL (r25): for a challenge done in one game (the most coins in one game,
+-- the most years with one character), each game's progress this week, and
+-- the character it was with: {"<game>": {"p": 120, "c": 7}}.
+ALTER TABLE derpy_challenges
+  ADD COLUMN IF NOT EXISTS games JSONB NOT NULL DEFAULT '{}';
 -- CHAL (r25): the DerpyFront games that counted for an account's
 -- challenges, timed by the server, so two played at once count once.
 CREATE TABLE IF NOT EXISTS derpy_challenge_games (

@@ -72,11 +72,28 @@ export function challengesOn(): boolean {
 
 // ---------------------------------------------------------------- progress and pay
 
-/** Progress to add to a challenge: `add` more (summed), or `best` (the most in one game). */
+/**
+ * Progress to add to a challenge: `add` more (summed), or `best`: the game's
+ * own progress, for one done in one game (the most of any game counts). It's
+ * kept for the game, with the character playing now and their own part of
+ * it (`c`, `q`: for one done with one character), so a game picked up again
+ * carries on from there.
+ */
 export interface ChallengeStep {
   key: string;
   add?: number;
   best?: number;
+  c?: number;
+  q?: number;
+}
+
+/** A game's own progress on a challenge done in one game. */
+export interface GameProgress {
+  /** The game's best. */
+  p: number;
+  /** The character playing when it was last kept, and their own progress. */
+  c: number;
+  q: number;
 }
 
 /** What an account owns that a challenge may need. */
@@ -131,6 +148,23 @@ export async function stepChallenges(
         [accountId, week, def.key],
       )
     ).rows[0];
+    // A game's own progress, kept for the game when it picks up again.
+    if (best > 0 && gameId !== null)
+      await c.query(
+        `UPDATE derpy_challenges
+         SET games = games || jsonb_build_object($4::text,
+           jsonb_build_object('p', $5::int, 'c', $6::int, 'q', $7::int))
+         WHERE account_id = $1 AND week = $2 AND key = $3`,
+        [
+          accountId,
+          week,
+          def.key,
+          gameId,
+          best,
+          step.c ?? -1,
+          Math.max(0, Math.floor(step.q ?? best)),
+        ],
+      );
     const was = Number(row.progress);
     const now = Math.max(was + add, best);
     if (now === was) continue;
@@ -186,6 +220,37 @@ async function pay(
     accountId,
     coins,
   ]);
+}
+
+/**
+ * What one Conquest game has done already this week toward the challenges
+ * done in one game (its progress, and the character it was with), so a game
+ * picked up again carries on from there.
+ */
+export async function conquestGameProgress(
+  accountId: number,
+  week: number,
+  gameId: string,
+): Promise<Map<string, GameProgress>> {
+  const out = new Map<string, GameProgress>();
+  if (!derpyDbConfigured() || !challengesOn()) return out;
+  const r = await (
+    await db()
+  ).query(
+    `SELECT key, games -> $3::text AS g FROM derpy_challenges
+     WHERE account_id = $1 AND week = $2 AND games ? $3::text`,
+    [accountId, week, gameId],
+  );
+  for (const x of r.rows) {
+    const g = x.g as { p?: unknown; c?: unknown; q?: unknown } | null;
+    if (g && typeof g.p === "number")
+      out.set(String(x.key), {
+        p: g.p,
+        c: typeof g.c === "number" ? g.c : -1,
+        q: typeof g.q === "number" ? g.q : g.p,
+      });
+  }
+  return out;
 }
 
 /** Conquest's progress for an account in a game, in its own transaction. */

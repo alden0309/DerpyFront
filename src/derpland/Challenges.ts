@@ -341,10 +341,10 @@ export const CONQUEST_CHALLENGES: readonly ChallengeDef[] = [
   ),
   cq(
     "hard",
-    "purse-500",
-    "A small fortune",
-    "Have 500 coins in your purse at once, more than you had when the week began.",
-    { target: 500, unit: "coins" },
+    "savings-250",
+    "Money put by",
+    "Grow one character's purse by 250 coins.",
+    { target: 250, unit: "coins" },
   ),
   cq(
     "hard",
