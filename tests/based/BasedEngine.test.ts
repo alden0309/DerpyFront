@@ -373,9 +373,14 @@ describe("playing a chapter", () => {
     expect(menu.options.map((o) => o.id)).toEqual(["look-around"]);
   });
 
-  test("a save for a scene that no longer exists is refused", () => {
+  test("a save for a scene that no longer exists loads free (r25)", () => {
+    // The scene was cut (r25: the walk to the river): the save's state is
+    // where it began, so he's free there, the nearest point that's left.
     const c = chapter();
     const save = new StoryRun(c).snapshot();
-    expect(() => new StoryRun(c, { ...save, scene: "gone" })).toThrow();
+    const r = new StoryRun(c, { ...save, scene: "gone" });
+    expect(r.beat).toEqual({ kind: "free" });
+    expect(r.free).toBe(true);
+    expect(r.snapshot().scene).toBe("FREE");
   });
 });

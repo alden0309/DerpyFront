@@ -208,6 +208,56 @@ describe("the art and sound", () => {
 
 const files = fs.readdirSync(STORY).filter((f) => f.endsWith(".story"));
 
+/**
+ * r25: a save as round 22 to 24 made it, free after London's contact: no
+ * word of what the new conversation decides, the patrons not yet in the bar,
+ * and the river still in his journal.
+ */
+function oldSave(chapter: Chapter, seed: number) {
+  const r = new StoryRun(
+    chapter,
+    chapterStart(chapter, undefined, {
+      build: buildOf(chapter.archetypes[seed % chapter.archetypes.length]),
+      seed,
+    }),
+  );
+  const pick = (n: number) => (seed * 7 + n) % n;
+  for (let i = 0; i < 3000 && !(r.free && r.flag("met_contact")); i++) {
+    const b = r.beat;
+    if (b.kind === "line" || b.kind === "card" || b.kind === "roll")
+      r.advance();
+    else if (b.kind === "choice") {
+      const open = b.options.filter(
+        (o) => !o.check?.locked && o.needs?.met !== false,
+      );
+      r.choose(open[pick(open.length)].id);
+    } else if (b.kind === "investigate") {
+      const unseen = b.spots.filter((x) => !x.seen);
+      if (b.canLeave) r.leave();
+      else r.examine(unseen[0].id);
+    } else if (b.kind === "free") {
+      // Into the bar and up to the barman, as the opening goes.
+      if (r.stage.place === "street") r.enterPlace("vauban", "vauban_door_in");
+      else if (!r.talk("BARMAN")) r.enterPlace("vauban", "vauban_door_in");
+    }
+  }
+  const snap = r.snapshot();
+  delete snap.flags.knew_seen;
+  delete snap.flags.missed_watch;
+  delete snap.flags.crowd;
+  for (const k of Object.keys(snap.stage.actors)) {
+    if (["REGULAR", "WORKER", "COUPLE_M", "COUPLE_F", "READER"].includes(k)) {
+      delete snap.stage.actors[k];
+    }
+  }
+  delete snap.tasks?.sleep;
+  snap.tasks!.night = {
+    text: "When he's seen enough, call it a night. The river is west, at the end of the rue de Grenelle.",
+    done: false,
+  };
+  return snap;
+}
+
 describe("the places", () => {
   test("the street, the bar and the palace, joined by doors", () => {
     // r25: and his room upstairs, up the hotel's stairs.
@@ -320,6 +370,21 @@ describe("the chapters as written", () => {
         for (const step of p.run.history()) {
           if (step.startsWith("s:")) scenesSeen.add(step.slice(2));
           else optionsSeen.add(step.slice(2));
+        }
+      }
+      // r25: and from a save made before the night was reshaped (free after
+      // London's contact, without what the new conversation decides, the
+      // river still in his journal): it takes up the new end.
+      for (let run = 0; run < 12; run++) {
+        const old = oldSave(chapter, run + 1);
+        const p = playRandomly(chapter, PLACES, {
+          seed: 500 + run,
+          from: old,
+          max: 5000,
+        });
+        expect(p.ended, `old save ${run} never ended`).toBe(true);
+        for (const step of p.run.history()) {
+          if (step.startsWith("s:")) scenesSeen.add(step.slice(2));
         }
       }
       // Every scene turns up on some path.
@@ -474,7 +539,6 @@ describe("things to examine (r22 BPLAY)", () => {
       "room_tv",
       "register",
       "delorme_card",
-      "street_west",
     ];
     const all = [...looks.values()].flatMap((s) => [...s]);
     expect(all.filter((id) => !r21.includes(id)).length).toBeGreaterThanOrEqual(
@@ -520,7 +584,7 @@ describe("things to examine (r22 BPLAY)", () => {
   });
 
   test("each can always be looked at again (but what he takes away)", () => {
-    const taken = ["bar_paper", "delorme_card", "street_west"];
+    const taken = ["bar_paper", "delorme_card"];
     for (const ids of looks.values()) {
       for (const id of ids) {
         if (taken.includes(id)) continue;

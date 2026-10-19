@@ -560,7 +560,13 @@ export class StoryRun {
       return;
     }
     if (!chapter.scenes[s.scene]) {
-      throw new Error(`no scene "${s.scene}" in chapter ${chapter.n}`);
+      // r25: a save in a scene that's since been cut (the walk to the river)
+      // loads free, where that scene began: the nearest point that's left.
+      this.scene = FREE;
+      this.ip = -1;
+      this.beatNow = { kind: "free" };
+      s.scene = FREE;
+      return;
     }
     this.begin(s.scene, false);
     this.beatNow = this.run();
