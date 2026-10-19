@@ -692,6 +692,12 @@ export async function inviteToParty(me: number, to: number): Promise<Result> {
   const result = await inTransaction(async (c) => {
     if (!(await areFriends(c, me, to)))
       return { error: "not_friends" as const };
+    // Before a party is made for you, so a refusal changes nothing.
+    if (
+      !LIMITS.perPerson.take(`p:${me}:${to}`) ||
+      !LIMITS.partyInvites.take(String(me))
+    )
+      return { error: "rate_limited" as const };
     let p = await partyOf(c, me, true);
     if (!p) {
       const made = await c.query(
@@ -707,11 +713,6 @@ export async function inviteToParty(me: number, to: number): Promise<Result> {
     if (p.leaderId !== me) return { error: "not_leader" as const };
     if (p.members.includes(to)) return { error: "already_there" as const };
     if (p.members.length >= PARTY_MAX) return { error: "party_full" as const };
-    if (
-      !LIMITS.perPerson.take(`p:${me}:${to}`) ||
-      !LIMITS.partyInvites.take(String(me))
-    )
-      return { error: "rate_limited" as const };
     await c.query(
       `INSERT INTO derpy_party_invites (party_id, to_id, from_id)
        VALUES ($1, $2, $3)
