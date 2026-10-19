@@ -237,6 +237,12 @@ export interface GameConfigSettingsData {
     titleKey: string;
     disabledUnits: UnitType[];
   };
+  /**
+   * SCEN (r25): a Scenario's panel. When set it takes the place of the map,
+   * mode and team sections, and the bots slider is gone (a scenario fixes
+   * all of them).
+   */
+  scenario?: TemplateResult;
 }
 
 @customElement("game-config-settings")
@@ -436,7 +442,8 @@ export class GameConfigSettings extends LitElement {
 
     return html`
       <div class=${this.sectionGapClass}>
-        ${renderSection(
+        ${settings.scenario ??
+        renderSection(
           MAP_ICON,
           "text-aquarius",
           "bg-malibu-blue/20",
@@ -500,34 +507,36 @@ export class GameConfigSettings extends LitElement {
             </div>
           `,
         )}
-        ${renderSection(
-          MODE_ICON,
-          "text-purple-400",
-          "bg-purple-500/20",
-          "host_modal.mode",
-          html`
-            <div class="grid grid-cols-2 gap-4">
-              ${[GameMode.FFA, GameMode.Team].map((mode) => {
-                const isSelected = settings.gameMode.selected === mode;
-                return html`
-                  <button
-                    class="${cardClass(isSelected, "py-6 text-center")}"
-                    @click=${() => this.handleGameModeSelect(mode)}
-                  >
-                    <span
-                      class="text-sm font-bold text-white uppercase tracking-widest"
-                    >
-                      ${mode === GameMode.FFA
-                        ? translateText("game_mode.ffa")
-                        : translateText("game_mode.teams")}
-                    </span>
-                  </button>
-                `;
-              })}
-            </div>
-          `,
-        )}
-        ${settings.gameMode.selected === GameMode.FFA
+        ${settings.scenario
+          ? nothing
+          : renderSection(
+              MODE_ICON,
+              "text-purple-400",
+              "bg-purple-500/20",
+              "host_modal.mode",
+              html`
+                <div class="grid grid-cols-2 gap-4">
+                  ${[GameMode.FFA, GameMode.Team].map((mode) => {
+                    const isSelected = settings.gameMode.selected === mode;
+                    return html`
+                      <button
+                        class="${cardClass(isSelected, "py-6 text-center")}"
+                        @click=${() => this.handleGameModeSelect(mode)}
+                      >
+                        <span
+                          class="text-sm font-bold text-white uppercase tracking-widest"
+                        >
+                          ${mode === GameMode.FFA
+                            ? translateText("game_mode.ffa")
+                            : translateText("game_mode.teams")}
+                        </span>
+                      </button>
+                    `;
+                  })}
+                </div>
+              `,
+            )}
+        ${settings.gameMode.selected === GameMode.FFA || settings.scenario
           ? nothing
           : html`
               <section class="space-y-6">
@@ -567,23 +576,24 @@ export class GameConfigSettings extends LitElement {
           settings.options.titleKey,
           html`
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div
-                class="col-span-2 rounded-xl p-4 flex flex-col justify-center border transition-all duration-200 ${settings
-                  .options.bots.value > 0
-                  ? ACTIVE_CARD
-                  : INACTIVE_CARD}"
-              >
-                <fluent-slider
-                  min="0"
-                  max="400"
-                  step="1"
-                  .value=${settings.options.bots.value}
-                  labelKey=${settings.options.bots.labelKey}
-                  disabledKey=${settings.options.bots.disabledKey}
-                  @value-changed=${this.handleBotsChanged}
-                ></fluent-slider>
-              </div>
-
+              ${settings.scenario
+                ? nothing
+                : html`<div
+                    class="col-span-2 rounded-xl p-4 flex flex-col justify-center border transition-all duration-200 ${settings
+                      .options.bots.value > 0
+                      ? ACTIVE_CARD
+                      : INACTIVE_CARD}"
+                  >
+                    <fluent-slider
+                      min="0"
+                      max="400"
+                      step="1"
+                      .value=${settings.options.bots.value}
+                      labelKey=${settings.options.bots.labelKey}
+                      disabledKey=${settings.options.bots.disabledKey}
+                      @value-changed=${this.handleBotsChanged}
+                    ></fluent-slider>
+                  </div>`}
               ${settings.options.nations && !settings.options.nations.hidden
                 ? html`<div
                     class="col-span-2 rounded-xl p-4 flex flex-col justify-center border transition-all duration-200 ${settings

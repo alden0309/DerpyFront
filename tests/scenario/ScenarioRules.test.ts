@@ -6,7 +6,10 @@ import { resolveScenarioSeats } from "@openfront/engine-lib/scenario/ScenarioSea
 import { BreakAllianceExecution } from "@openfront/engine/execution/alliance/BreakAllianceExecution";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { Game, Player } from "@openfront/engine/game/Game";
-import { enemySideFor } from "@openfront/engine/scenario/ScenarioRules";
+import {
+  enemySideFor,
+  SCENARIO_RULES,
+} from "@openfront/engine/scenario/ScenarioRules";
 import { describe, expect, it } from "vitest";
 import { scenarioGame } from "./ScenarioTestUtil";
 
@@ -128,6 +131,41 @@ describe("Scenario sides", () => {
     const two = { ...game, scenario: () => ({ sideIds: () => ["A", "B"] }) };
     expect(enemySideFor(two as unknown as Game, neutral, "A")).toBe("B");
   });
+});
+
+describe("a scenario's special rule", () => {
+  it("runs its hooks: once at the start, and when a neutral would join", async () => {
+    const data = scenarioData("europe1939")!;
+    let started = 0;
+    SCENARIO_RULES.test_rule = {
+      start: () => started++,
+      // Switzerland stays out of it, whoever invades.
+      sideToJoin: (_g, neutral) =>
+        neutral.name() === "Switzerland" ? null : undefined,
+    };
+    data.rule = "test_rule";
+    try {
+      const g = await scenarioGame("europe1939");
+      expect(started).toBe(1);
+      const germany = g.nation("germany");
+      const swiss = g.nation("switzerland");
+      const denmark = g.nation("denmark");
+      g.game.addExecution(
+        new AttackExecution(germany.troops() / 4, germany, swiss.id()),
+      );
+      g.game.addExecution(
+        new AttackExecution(germany.troops() / 4, germany, denmark.id()),
+      );
+      g.step(3);
+      expect(swiss.team()).toBeNull();
+      expect(denmark.team()).toBe("Allies");
+      g.step(20);
+      expect(started).toBe(1);
+    } finally {
+      delete data.rule;
+      delete SCENARIO_RULES.test_rule;
+    }
+  }, 120_000);
 });
 
 describe("Scenario victory", () => {

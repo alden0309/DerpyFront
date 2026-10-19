@@ -56,6 +56,7 @@ import { isDesktopShell } from "./DesktopShell";
 import { showInGameConfirm } from "./InGameModal";
 import {
   SendKickPlayerIntentEvent,
+  SendScenarioSeatIntentEvent, // SCEN (r25)
   SendSpectateEvent,
   SendToggleGameStartTimer,
   SendUpdateGameConfigIntentEvent,
@@ -417,6 +418,15 @@ export class Transport {
 
     this.subscribe(SendToggleGameStartTimer, (e) =>
       this.onSendToggleGameStartTimer(e),
+    );
+
+    // SCEN (r25)
+    this.subscribe(SendScenarioSeatIntentEvent, (e) =>
+      this.sendIntent({
+        type: "scenario_seat",
+        nation: e.nation,
+        ...(e.target !== undefined ? { target: e.target } : {}),
+      }),
     );
     this.subscribe(SendSpectateEvent, (e) => {
       this.lobbyConfig.spectator = e.spectator;

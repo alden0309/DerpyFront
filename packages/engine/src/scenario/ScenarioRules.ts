@@ -15,6 +15,45 @@ import { Game, Player } from "../game/Game";
  */
 
 /**
+ * A scenario's special rule: what its data can't say, as code. A scenario
+ * names one with its data's `rule`; each hook is optional and runs on every
+ * client alike, so it must be deterministic like the rest of the engine
+ * (the game's PRNG, DetMath, no clocks).
+ */
+export interface ScenarioRule {
+  /** Once the board is laid out (the game's first tick). */
+  start?(game: Game): void;
+  /**
+   * The side a neutral joins when it fights `against` (the side it was
+   * invaded by, or attacked). undefined: the usual choice (enemySideFor);
+   * null: it stays neutral this time.
+   */
+  sideToJoin?(
+    game: Game,
+    neutral: Player,
+    against: Team,
+  ): Team | null | undefined;
+}
+
+/** The special rules, by name. Add one here and name it in the data. */
+export const SCENARIO_RULES: Record<string, ScenarioRule> = {};
+
+/** The game's special rule, if its scenario names one. */
+export function scenarioRule(game: Game): ScenarioRule | null {
+  const name = game.scenario()?.data.rule;
+  if (name === undefined) return null;
+  return Object.prototype.hasOwnProperty.call(SCENARIO_RULES, name)
+    ? SCENARIO_RULES[name]
+    : null;
+}
+
+/** The side a neutral fighting `against` joins: the rule's, else the usual. */
+function sideToJoin(game: Game, neutral: Player, against: Team): Team | null {
+  const chosen = scenarioRule(game)?.sideToJoin?.(game, neutral, against);
+  return chosen === undefined ? enemySideFor(game, neutral, against) : chosen;
+}
+
+/**
  * Called when `attacker` invades `target`'s land: a land attack or a landing
  * that has begun, or a nuke or missile launched at it. Within a tick the
  * first call decides, as executions run in a fixed order on every client.
@@ -30,10 +69,10 @@ export function onScenarioHostility(
   const t = target.team();
   if (a !== null && t === null) {
     // A side invades a neutral: the neutral joins that side's enemies.
-    joinSide(game, target, enemySideFor(game, target, a), attacker);
+    joinSide(game, target, sideToJoin(game, target, a), attacker);
   } else if (a === null && t !== null) {
     // A neutral attacks a side: it joins that side's enemies.
-    joinSide(game, attacker, enemySideFor(game, attacker, t), target);
+    joinSide(game, attacker, sideToJoin(game, attacker, t), target);
   }
 }
 

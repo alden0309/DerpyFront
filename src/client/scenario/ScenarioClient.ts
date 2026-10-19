@@ -1,6 +1,6 @@
 import type { ScenarioSide } from "@openfront/engine-lib/scenario/ScenarioData";
 import type { ScenarioRoster } from "@openfront/engine-lib/scenario/ScenarioSeats";
-import { sideMark } from "./ScenarioText";
+import { neutralName, sideMark, sideName } from "./ScenarioText";
 
 /**
  * SCEN (r25): the Scenario of the game this client is showing, for the parts
@@ -32,6 +32,19 @@ export function withSideMark(
   name: string,
   player: { team(): string | null },
 ): string {
+  if (active === null) return name;
   const side = activeScenarioSide(player.team());
   return side === null ? name : `${sideMark(side.color)} ${name}`;
+}
+
+/**
+ * A player's side as a short label ("🔵 Allies", "⚪ Neutral"), or null
+ * outside a scenario.
+ */
+export function sideLabel(player: { team(): string | null }): string | null {
+  if (active === null) return null;
+  const side = activeScenarioSide(player.team());
+  return side === null
+    ? `⚪ ${neutralName(active.data)}`
+    : `${sideMark(side.color)} ${sideName(side)}`;
 }

@@ -67,6 +67,7 @@ export const LiveFrontGameSchema = z.object({
   map: z.string().max(100),
   mapKey: z.string().max(100),
   mode: z.string().max(40),
+  scenario: z.string().max(60).optional(), // SCEN (r25)
   private: z.boolean(),
   startedAt: z.number(),
   players: z.number().int().min(0),

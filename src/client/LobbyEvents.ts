@@ -21,3 +21,12 @@ export class SendToggleGameStartTimer implements GameEvent {
 export class SendSpectateEvent implements GameEvent {
   constructor(public readonly spectator: boolean) {}
 }
+
+// SCEN (r25): take a nation in a scenario lobby (null: give up your seat).
+// With a target, the host moves that player (or frees their seat).
+export class SendScenarioSeatIntentEvent implements GameEvent {
+  constructor(
+    public readonly nation: string | null,
+    public readonly target?: string,
+  ) {}
+}

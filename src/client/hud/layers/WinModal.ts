@@ -46,6 +46,7 @@ import {
   provisionalXpRules,
   reconcileXp,
 } from "../../ProvisionalXpAtDeath";
+import { sideWinLine } from "../../scenario/ScenarioText"; // SCEN (r25)
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
 import { SendWinnerEvent } from "../../Transport";
 import { GameView } from "../../view";
@@ -144,6 +145,11 @@ export class WinModal extends LitElement implements Controller {
 
   private _title: string;
 
+  // SCEN (r25): who was on the winning side of a scenario, for the line
+  // under the title.
+  @state()
+  private sideMembers: string[] = [];
+
   // Override to prevent shadow DOM creation
   createRenderRoot() {
     return this;
@@ -163,6 +169,16 @@ export class WinModal extends LitElement implements Controller {
         <h2 class="m-0 mb-4 text-[26px] text-center text-white shrink-0">
           ${this._title || ""}
         </h2>
+        ${this.sideMembers.length > 0
+          ? html`<p
+              class="-mt-2 mb-4 text-center text-sm text-white/75 shrink-0"
+              data-scenario-winners
+            >
+              ${translateText("scenarios.winning_side", {
+                names: this.sideMembers.join(", "),
+              })}
+            </p>`
+          : nothing}
         <div class="min-h-0 flex-1 overflow-y-auto pr-0.5">
           ${PROGRESSION_ENABLED
             ? html`<game-xp-panel
@@ -807,6 +823,16 @@ export class WinModal extends LitElement implements Controller {
             team: getTranslatedPlayerTeamLabel(wu.winner[1]),
           });
           this.isWin = false;
+        }
+        // SCEN (r25): a scenario's side wins together, by name ("The
+        // Allies win"), with everyone who was on it.
+        if ((this.game.scenario?.() ?? null) !== null) {
+          const side = wu.winner[1];
+          this._title = sideWinLine(side);
+          this.sideMembers = this.game
+            .playerViews()
+            .filter((p) => p.team() === side)
+            .map((p) => p.displayName());
         }
         this.playEndOfGameSound();
         history.replaceState(null, "", `${window.location.pathname}?replay`);

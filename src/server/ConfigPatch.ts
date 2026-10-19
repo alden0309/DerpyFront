@@ -1,4 +1,5 @@
 import { GameConfig, GameConfigPatch } from "@openfront/engine-api/Schemas";
+import { applyScenarioRules } from "@openfront/engine-lib/scenario/ScenarioConfig"; // SCEN (r25)
 
 // The host edits its lobby through update_game_config, which carries a
 // partial GameConfig. Only the keys listed here are taken from it. gameType
@@ -97,6 +98,16 @@ export function applyGameConfigPatch(
   // (the full config it sends has hostCheats: undefined when the toggle is
   // off), so `undefined` here means "clear", not "leave unchanged".
   target.hostCheats = patch.hostCheats;
+  // SCEN (r25): the host picks the scenario; players pick their own seats
+  // (scenario_seat), so a patch's seats are ignored and a new scenario
+  // starts with none. A scenario then fixes its map, mode and seat count.
+  if (
+    patch.scenario !== undefined &&
+    patch.scenario.id !== target.scenario?.id
+  ) {
+    target.scenario = { id: patch.scenario.id, seats: {} };
+  }
+  applyScenarioRules(target);
 }
 
 // Whether the host-only cheat block actually grants anything: mere presence

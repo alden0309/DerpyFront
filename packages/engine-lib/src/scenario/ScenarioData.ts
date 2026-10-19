@@ -1,4 +1,5 @@
 import { GameMapType, UnitType } from "@openfront/engine-api/game/GameTypes";
+import { SCENARIO_IDS } from "@openfront/engine-api/game/Scenarios";
 import colonies1776 from "resources/scenarios/colonies1776.json";
 import continental1776 from "resources/scenarios/continental1776.json";
 import europe1939 from "resources/scenarios/europe1939.json";
@@ -13,6 +14,8 @@ import europe1939 from "resources/scenarios/europe1939.json";
  */
 export interface ScenarioData {
   id: string;
+  /** Its English name ("Europe 1939"); shown from en.json where it can be. */
+  title: string;
   map: GameMapType;
   /** The year it starts in (the full date and text are in en.json). */
   year: number;
@@ -122,9 +125,9 @@ export function scenarioData(id: string | undefined): ScenarioData | null {
   return Object.prototype.hasOwnProperty.call(ALL, id) ? ALL[id] : null;
 }
 
-/** Every scenario's data, in no particular order (the index has the menu's). */
+/** Every scenario's data, in the menu's order (resources/scenarios/index.json). */
 export function allScenarioData(): ScenarioData[] {
-  return Object.values(ALL);
+  return SCENARIO_IDS.flatMap((id) => (id in ALL ? [ALL[id]] : []));
 }
 
 export function scenarioNation(

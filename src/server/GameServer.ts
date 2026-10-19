@@ -31,6 +31,11 @@ import {
   assignTeamsLobbyPreview,
   resolveTeamsList,
 } from "@openfront/engine-lib/game/TeamAssignment";
+import {
+  applyScenarioRules,
+  changeScenarioSeat,
+} from "@openfront/engine-lib/scenario/ScenarioConfig"; // SCEN (r25)
+import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData"; // SCEN (r25)
 import { isAdminRole } from "@openfront/shared/ApiSchemas";
 import { normalizeChatText } from "@openfront/shared/Chat";
 import { CloseCode, CloseReason } from "@openfront/shared/CloseCodes";
@@ -364,6 +369,12 @@ export class GameServer {
     this.id = opts.id;
     this.createdAt = opts.createdAt;
     this.gameConfig = opts.gameConfig;
+    // SCEN (r25): a lobby made with a scenario (a scenario game's "New
+    // lobby") keeps the scenario's fixed settings, and no seats yet.
+    if (this.gameConfig.scenario !== undefined) {
+      this.gameConfig.scenario = { id: this.gameConfig.scenario.id, seats: {} };
+      applyScenarioRules(this.gameConfig);
+    }
     this.creatorPersistentID = opts.creatorPersistentID;
     this.startsAt = opts.startsAt;
     this.publicGameType = opts.publicGameType;
@@ -553,6 +564,17 @@ export class GameServer {
         return finish({ status: 200 });
       }
 
+      // SCEN (r25): a player picks (or the host moves them to) a nation.
+      case "scenario_seat": {
+        const target = stamped.target ?? actor.clientID;
+        const outcome = this.changeScenarioSeat(
+          target,
+          stamped.nation,
+          actor.isLobbyCreator,
+        );
+        return finish(outcome);
+      }
+
       case "toggle_game_start_timer": {
         if (this.startsAt) {
           this.startsAt = undefined;
@@ -590,6 +612,42 @@ export class GameServer {
         return outcome;
       }
     }
+  }
+
+  /**
+   * SCEN (r25): seats live in the lobby's config, so every lobby_info
+   * carries them; the engine resolves them again at the start (seats of
+   * players who left are dropped, seatless players get a free nation).
+   */
+  private changeScenarioSeat(
+    target: ClientID,
+    nation: string | null,
+    byHost: boolean,
+  ): IntentOutcome {
+    const scenario = this.gameConfig.scenario;
+    const data = scenarioData(scenario?.id);
+    if (scenario === undefined || data === null) {
+      return { status: 409, error: "not a scenario lobby" };
+    }
+    const present = new Set(this.clients.players().map((c) => c.clientID));
+    if (!present.has(target)) {
+      return { status: 404, error: "no such player in the lobby" };
+    }
+    const result = changeScenarioSeat(
+      data,
+      scenario.seats,
+      { clientID: target, nation, byHost },
+      present,
+    );
+    if ("error" in result) return { status: 409, error: result.error };
+    scenario.seats = result.seats;
+    this.broadcastLobbyInfo();
+    return { status: 200 };
+  }
+
+  /** SCEN (r25): whether this game plays a Scenario. */
+  public isScenario(): boolean {
+    return this.gameConfig.scenario !== undefined;
   }
 
   private isKicked(clientID: ClientID): boolean {
@@ -1333,6 +1391,7 @@ export class GameServer {
   private convertClanOverflowToSpectators(): void {
     if (
       this.gameConfig.gameMode !== GameMode.Team ||
+      this.gameConfig.scenario !== undefined || // SCEN (r25): nations, not clans
       this.gameConfig.playerTeams === undefined ||
       this.gameConfig.playerTeams === HumansVsNations ||
       this.matchmakingTeams !== undefined ||
@@ -1988,6 +2047,10 @@ export class GameServer {
       map,
       mapKey: mapId.toLowerCase().replace(/[\s.]+/g, ""),
       mode: this.gameConfig.gameMode,
+      // SCEN (r25)
+      ...(this.gameConfig.scenario !== undefined
+        ? { scenario: scenarioData(this.gameConfig.scenario.id)?.title }
+        : {}),
       private: !this.isPublic() && !this.isListed(),
       startedAt: this._startTime ?? Date.now(),
       players: this.gameStartInfo.players.length,

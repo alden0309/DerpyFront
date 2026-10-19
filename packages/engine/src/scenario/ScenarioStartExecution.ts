@@ -19,6 +19,7 @@ import { Execution, Game, Player, Unit } from "../game/Game";
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import type { ExecRecord, SnapshotReader } from "../snapshot/SnapshotContext";
 import { ScenarioRuntime } from "./Scenario";
+import { scenarioRule } from "./ScenarioRules";
 
 /**
  * SCEN (r25): sets a Scenario's board on the game's first tick, then ends
@@ -105,6 +106,7 @@ export function startScenario(game: Game, scenario: ScenarioRuntime): void {
     placeStructures(game, p, n, capital, scenario);
     setStartingStrength(game, p, n);
   });
+  scenarioRule(game)?.start?.(game);
 }
 
 function placeStructures(

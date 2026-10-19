@@ -62,6 +62,12 @@ import {
   sliderToNationsConfig,
   toOptionalNumber,
 } from "./utilities/GameConfigHelpers";
+// SCEN (r25)
+import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
+import { SendScenarioSeatIntentEvent } from "./LobbyEvents";
+import { boardSeats } from "./scenario/ScenarioNationBoard";
+import { renderScenarioPanel } from "./scenario/ScenarioPanel";
+import { ScenarioPick, scenarioPickFromArgs } from "./scenario/ScenarioPick";
 
 @customElement("host-lobby-modal")
 export class HostLobbyModal extends BaseModal {
@@ -141,6 +147,11 @@ export class HostLobbyModal extends BaseModal {
   @state() private queueRequestInFlight: boolean = false;
   @state() private showQueueConfirm: boolean = false;
   @state() private insufficientInfo: InsufficientCurrency | null = null;
+  // SCEN (r25): the lobby's Scenario (with the host's first pick), and its
+  // seats as the server last sent them.
+  @state() private scenario: ScenarioPick | null = null;
+  @state() private scenarioSeats: Record<string, string> = {};
+  private scenarioSentFor = "";
   private hardBalance = 0;
 
   @property({ attribute: false }) eventBus: EventBus | null = null;
@@ -196,6 +207,28 @@ export class HostLobbyModal extends BaseModal {
     }
     this.autoStartAt = lobby.autoStartAt ?? null;
     this.queued = lobby.queued ?? false;
+    // SCEN (r25): the seats, and once the lobby answers, its scenario and
+    // the host's own seat.
+    this.scenarioSeats = lobby.gameConfig?.scenario?.seats ?? {};
+    const lobbyScenario = lobby.gameConfig?.scenario;
+    if (this.scenario === null && lobbyScenario !== undefined) {
+      // A scenario game's "New lobby": it plays the same scenario.
+      const map = scenarioData(lobbyScenario.id)?.map;
+      if (map !== undefined) {
+        this.scenario = { id: lobbyScenario.id, nation: "" };
+        this.scenarioSentFor = this.lobbyId;
+        this.selectedMap = map;
+        this.gameMode = GameMode.Team;
+        this.bots = 0;
+      }
+    }
+    if (this.scenario !== null && this.scenarioSentFor !== this.lobbyId) {
+      this.scenarioSentFor = this.lobbyId;
+      const nation = this.scenario.nation;
+      void this.putGameConfig().then(() =>
+        this.eventBus?.emit(new SendScenarioSeatIntentEvent(nation)),
+      );
+    }
     // DFSTORE (r21): AI personalities chosen before the lobby existed go to
     // the server once it answers (the first lobby info).
     if (this.aiPersonalitiesSentFor !== this.lobbyId) {
@@ -326,7 +359,9 @@ export class HostLobbyModal extends BaseModal {
         ${this.publiclyListed
           ? nothing
           : segment("host_modal.visibility_private", false)}
-        ${segment("host_modal.visibility_public", true)}
+        ${this.scenario !== null
+          ? nothing // SCEN (r25): scenario lobbies stay private
+          : segment("host_modal.visibility_public", true)}
       </div>
       ${this.renderAutoStartTimer()} ${this.renderQueueButton()}
     `;
@@ -662,7 +697,7 @@ export class HostLobbyModal extends BaseModal {
               },
               difficulty: {
                 selected: this.selectedDifficulty,
-                disabled: this.nations === 0,
+                disabled: this.nations === 0 && this.scenario === null,
               },
               gameMode: {
                 selected: this.gameMode,
@@ -670,6 +705,10 @@ export class HostLobbyModal extends BaseModal {
               teamCount: {
                 selected: this.teamCount,
               },
+              // SCEN (r25): the scenario and its seats
+              ...(this.scenario !== null
+                ? { scenario: this.renderScenarioSeats(this.scenario) }
+                : {}),
               options: {
                 titleKey: "game_settings.options",
                 bots: {
@@ -682,6 +721,7 @@ export class HostLobbyModal extends BaseModal {
                   defaultValue: this.defaultNationCount,
                   labelKey: "game_settings.nations",
                   disabledKey: "common.disabled",
+                  hidden: this.scenario !== null, // SCEN (r25)
                 },
                 toggles: [
                   {
@@ -691,6 +731,7 @@ export class HostLobbyModal extends BaseModal {
                   {
                     labelKey: "game_settings.random_spawn",
                     checked: this.randomSpawn,
+                    hidden: this.scenario !== null, // SCEN (r25)
                   },
                   {
                     labelKey: "host_modal.donate_gold",
@@ -781,7 +822,7 @@ export class HostLobbyModal extends BaseModal {
 
           <!-- AIP (r23): the AI personalities in play (Normal, and those the host owns). -->
           <ai-personality-picker
-            ?noNations=${this.nations === 0}
+            ?noNations=${this.nations === 0 && this.scenario === null}
             @personalities-changed=${(e: CustomEvent<string[]>) => {
               this.aiPersonalities = e.detail;
               // The picker also speaks up when it loads: only a lobby that
@@ -792,7 +833,9 @@ export class HostLobbyModal extends BaseModal {
 
           <lobby-player-view
             class="mt-10"
-            .gameMode=${this.gameMode}
+            .gameMode=${this.scenario !== null
+              ? GameMode.FFA // SCEN (r25): the seats show the sides
+              : this.gameMode}
             .clients=${this.clients}
             .lobbyCreatorClientID=${this.lobbyCreatorClientID}
             .currentClientID=${this.lobbyCreatorClientID}
@@ -876,7 +919,51 @@ export class HostLobbyModal extends BaseModal {
     `;
   }
 
+  /** SCEN (r25): the scenario panel, with the nations' seats under it. */
+  private renderScenarioSeats(pick: ScenarioPick) {
+    const { seats, unseated } = boardSeats(this.scenarioSeats, this.clients);
+    const mine =
+      Object.entries(seats).find(
+        ([, s]) => s.clientID === this.lobbyCreatorClientID,
+      )?.[0] ?? null;
+    const seat = (nation: string | null, target?: string) =>
+      this.eventBus?.emit(new SendScenarioSeatIntentEvent(nation, target));
+    return renderScenarioPanel(
+      { id: pick.id, nation: mine },
+      null,
+      html`<div class="space-y-2">
+        <p class="text-xs text-white/50">
+          ${translateText("scenarios.host_hint")}
+        </p>
+        <scenario-nation-board
+          .scenarioId=${pick.id}
+          .seats=${seats}
+          .unseated=${unseated}
+          .myClientID=${this.lobbyCreatorClientID}
+          canManage
+          ?locked=${this.lobbyStartAt !== null}
+          @nation-picked=${(e: CustomEvent<string>) => seat(e.detail)}
+          @seat-change=${(
+            e: CustomEvent<{ nation: string | null; target: string }>,
+          ) => seat(e.detail.nation, e.detail.target)}
+        ></scenario-nation-board>
+      </div>`,
+    );
+  }
+
   protected onOpen(args?: Record<string, unknown>): void {
+    // SCEN (r25): opened from the Scenarios screen, with its pick. The
+    // lobby is an ordinary private lobby; its first config says which
+    // scenario it plays (the server fixes the map, mode and seats).
+    this.scenario = scenarioPickFromArgs(args);
+    const scenarioMap = scenarioData(this.scenario?.id)?.map;
+    if (scenarioMap !== undefined) {
+      this.selectedMap = scenarioMap;
+      this.gameMode = GameMode.Team;
+      this.bots = 0;
+      this.donateGold = true;
+      this.donateTroops = true;
+    }
     // Re-armed here (not in onClose's reset) so that once
     // closeWithoutLeaving() disarms it, no close cascade — e.g. another
     // modal's close() navigating via showPage, which force-closes this one —
@@ -1090,6 +1177,10 @@ export class HostLobbyModal extends BaseModal {
     this.showQueueConfirm = false;
     this.insufficientInfo = null;
     this.autoStartAt = null;
+    // SCEN (r25)
+    this.scenario = null;
+    this.scenarioSeats = {};
+    this.scenarioSentFor = "";
   }
 
   private async handleSelectRandomMap() {
@@ -1733,6 +1824,10 @@ export class HostLobbyModal extends BaseModal {
               ? (this.parseAllowedPublicIds() ?? [])
               : [],
             waterNukes: this.waterNukes ? true : null,
+            // SCEN (r25): the scenario (its seats are the players' own)
+            ...(this.scenario !== null
+              ? { scenario: { id: this.scenario.id } }
+              : {}),
             hostCheats: this.hostCheatsEnabled
               ? {
                   infiniteGold: this.hostCheatInfiniteGold || undefined,

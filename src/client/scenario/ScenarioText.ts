@@ -15,8 +15,8 @@ function tr(key: string, fallback: string, params?: Record<string, string>) {
   return t === key ? fallback : t;
 }
 
-export function scenarioTitle(data: { id: string }): string {
-  return tr(`scenarios.${data.id}.title`, data.id);
+export function scenarioTitle(data: { id: string; title?: string }): string {
+  return tr(`scenarios.${data.id}.title`, data.title ?? data.id);
 }
 
 export function scenarioDate(data: ScenarioData): string {

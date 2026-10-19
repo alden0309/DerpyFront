@@ -10,7 +10,8 @@ The data files are written by the border tools (the SCEN track's scratch
 `r25-scen/tools/`, see its README): a recipe says which historical or modern
 borders each nation takes, and the build writes the polygons, the snapped
 capitals and structures, and `index.json`. You can also edit a file by hand;
-`tests/scenario/ScenarioData.test.ts` checks every file.
+`tests/scenario/ScenarioTerritory.test.ts` checks every file (the index,
+every land tile owned, spot pixels, each nation's land in one piece).
 
 ## What a scenario is
 
@@ -41,6 +42,7 @@ capitals and structures, and `index.json`. You can also edit a file by hand;
 ```jsonc
 {
   "id": "europe1939", // its id: [a-z0-9_]{1,32}, never reused
+  "title": "Europe 1939", // English name (records, live games list)
   "map": "Europe", // GameMapType value (the map's name)
   "year": 1939,
   "winPercent": 60, // % of the land a side must hold to win
@@ -121,8 +123,15 @@ capitals and structures, and `index.json`. You can also edit a file by hand;
 4. Run `npx vitest tests/scenario --run`.
 
 A special rule (something data can't say, like a nation joining a side on a
-condition) is a function in `packages/engine/src/scenario/ScenarioRules.ts`,
-named by the data's `rule`.
+condition) is a `ScenarioRule` in `SCENARIO_RULES`
+(`packages/engine/src/scenario/ScenarioRules.ts`), named by the data's
+`rule`. Its hooks: `start(game)` once the board is laid out, and
+`sideToJoin(game, neutral, against)` to choose (or refuse, with null) the
+side a neutral joins. Add a hook there if a scenario needs another; it runs
+on every client, so keep it deterministic.
+
+The `title` is the English name the server uses (the game's record, the live
+games list); the menu shows `scenarios.<id>.title`.
 
 ## Sources and credits
 

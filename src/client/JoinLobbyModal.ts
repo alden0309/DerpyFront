@@ -38,6 +38,10 @@ import { DEFAULT_TITLE_CLASS, modalHeader } from "./components/ui/ModalHeader";
 import { DERPY_API } from "./derpy/DerpySession";
 import { openReplayViewer } from "./replay/ReplayEntry";
 import { nationsConfigToSlider } from "./utilities/GameConfigHelpers";
+// SCEN (r25)
+import { SendScenarioSeatIntentEvent } from "./LobbyEvents";
+import { boardSeats } from "./scenario/ScenarioNationBoard";
+import { renderScenarioPanel } from "./scenario/ScenarioPanel";
 import {
   lobbySettingTagText,
   notableLobbySettings,
@@ -252,7 +256,9 @@ export class JoinLobbyModal extends BaseModal {
                   ? html`
                       <lobby-player-view
                         class="mt-6"
-                        .gameMode=${this.gameConfig?.gameMode ?? GameMode.FFA}
+                        .gameMode=${this.gameConfig?.scenario !== undefined
+                          ? GameMode.FFA // SCEN (r25): the seats show sides
+                          : (this.gameConfig?.gameMode ?? GameMode.FFA)}
                         .clients=${this.players}
                         .lobbyCreatorClientID=${hostClientID}
                         .currentClientID=${this.currentClientID}
@@ -695,10 +701,46 @@ export class JoinLobbyModal extends BaseModal {
 
   // --- Game config rendering ---
 
+  /** SCEN (r25): a scenario lobby's scenario and seats; pick a free nation. */
+  private renderScenarioLobby(id: string): TemplateResult {
+    const { seats, unseated } = boardSeats(
+      this.gameConfig?.scenario?.seats,
+      this.players,
+    );
+    const mine =
+      Object.entries(seats).find(
+        ([, s]) => s.clientID === this.currentClientID,
+      )?.[0] ?? null;
+    return html`<div class="mb-6">
+      ${renderScenarioPanel(
+        { id, nation: mine },
+        null,
+        html`<div class="space-y-2">
+          <p class="text-xs text-white/50">
+            ${translateText("scenarios.join_hint")}
+          </p>
+          <scenario-nation-board
+            .scenarioId=${id}
+            .seats=${seats}
+            .unseated=${unseated}
+            .myClientID=${this.currentClientID}
+            ?locked=${this.lobbyStartAt !== null || this.isSpectating}
+            @nation-picked=${(e: CustomEvent<string>) =>
+              this.eventBus?.emit(new SendScenarioSeatIntentEvent(e.detail))}
+          ></scenario-nation-board>
+        </div>`,
+      )}
+    </div>`;
+  }
+
   private renderGameConfig(): TemplateResult {
     if (!this.gameConfig) return html``;
 
     const c = this.gameConfig;
+    if (c.scenario !== undefined) {
+      return html`${this.renderScenarioLobby(c.scenario.id)}
+      ${this.renderDisabledUnits()} ${this.renderHostCheats()}`;
+    }
     const mapName = getMapName(c.gameMap);
     const normalizedMap = normaliseMapKey(c.gameMap);
     const thumbnailUrl = assetUrl(

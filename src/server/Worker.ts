@@ -350,6 +350,11 @@ export async function startWorker() {
         return res.status(409).json({ error: "listing_host_cheats_enabled" });
       }
 
+      // SCEN (r25): scenario lobbies stay private this round.
+      if (game.isScenario()) {
+        return res.status(409).json({ error: "listing_scenario" });
+      }
+
       // A cap at or below the current head count would advertise a lobby
       // nobody can join.
       if (maxPlayers !== undefined && maxPlayers <= game.numPlayers()) {

@@ -68,7 +68,8 @@ export class DerpyLiveGames extends LitElement {
   }
 
   private row(g: LiveFrontGame): TemplateResult {
-    const name = getMapName(g.map) ?? g.map;
+    // SCEN (r25): a scenario game goes by the scenario's name.
+    const name = g.scenario ?? getMapName(g.map) ?? g.map;
     return html`<li
       class="flex items-center gap-3 rounded-lg border border-white/10 bg-surface/80 p-2 pr-3"
     >

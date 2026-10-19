@@ -125,6 +125,30 @@ export function authorizeIntent(
       }
       return null;
 
+    // SCEN (r25): picking a nation in a scenario lobby. Anyone picks their
+    // own; only the host moves someone else or frees their seat.
+    case "scenario_seat":
+      if (actor.isAdminBot) {
+        return { status: 400, error: "intent not permitted for admin bot" };
+      }
+      if (game.isPublic) {
+        return { status: 403, error: "no seats in a public game" };
+      }
+      if (game.hasStarted) {
+        return { status: 409, error: "game already started" };
+      }
+      if (
+        intent.target !== undefined &&
+        intent.target !== actor.clientID &&
+        !actor.isLobbyCreator
+      ) {
+        return {
+          status: 403,
+          error: "only the lobby creator can seat other players",
+        };
+      }
+      return null;
+
     case "toggle_pause":
       if (!actor.isLobbyCreator && !actor.isAdminBot) {
         return { status: 403, error: "only the lobby creator can pause" };

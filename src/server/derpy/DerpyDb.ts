@@ -247,6 +247,9 @@ CREATE INDEX IF NOT EXISTS derpy_accounts_old_username_key
 -- rename when it was the account's own; played_as keeps the name in the
 -- game's replay when that's different (null: the same).
 ALTER TABLE derpy_game_players ADD COLUMN IF NOT EXISTS played_as TEXT;
+-- SCEN (r25): the Scenario a game played (europe1939...; null: an ordinary
+-- game), for the profile's game list.
+ALTER TABLE derpy_games ADD COLUMN IF NOT EXISTS scenario TEXT;
 -- Mr. Based goes by account: the mark, and the BASED_PLAYERS name it was
 -- first given under (each name marks one account, once).
 ALTER TABLE derpy_accounts
