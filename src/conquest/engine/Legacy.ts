@@ -165,8 +165,20 @@ function topSkills(
   return out;
 }
 
+/** TREE (r25): the character played now and their husband or wife, kept once. */
+function noteMarriage(g: ConquestGame, life: Life): void {
+  const me = g.s.chars[life.c];
+  if (!me || me.spouse < 0 || !g.s.chars[me.spouse]) return;
+  const wed = life.legacy?.wed;
+  if (wed?.some(([c, w]) => c === me.id && w === me.spouse)) return;
+  (touchLife(g, life).legacy ??= { recs: [] }).wed ??= [];
+  life.legacy!.wed!.push([me.id, me.spouse]);
+}
+
 function onMilestone(g: ConquestGame, life: Life, m: LifeMilestone): void {
   switch (m.kind) {
+    case "married": // TREE (r25)
+      return noteMarriage(g, life);
     case "born":
     case "begin":
     case "heir":
@@ -183,6 +195,7 @@ function onMilestone(g: ConquestGame, life: Life, m: LifeMilestone): void {
 
 /** The best renown of the part played now, at each month. */
 function onMonth(g: ConquestGame, life: Life): void {
+  noteMarriage(g, life); // TREE (r25): a wedding no moment told of
   const L = life.legacy;
   if (!L || life.c < 0 || life.renown <= (L.peak ?? 0)) return;
   touchLife(g, life).legacy!.peak = Math.round(life.renown);
