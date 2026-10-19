@@ -304,7 +304,7 @@ describe("watching a seat's challenges", () => {
     g.s.day += 15 * 365;
     clock.t += REPORT_EVERY_MS;
     await s2.look(o.w);
-    expect(other.calls.at(-1)).toEqual([
+    expect(other.calls[other.calls.length - 1]).toEqual([
       { key: "cq-30-years", best: 23 * 365, c: life.c, q: 23 * 365 },
     ]);
     expect(o.told).toEqual([]);
@@ -321,7 +321,9 @@ describe("watching a seat's challenges", () => {
     await look(w, { coins: 500 }); // paid before, in earlier weeks too: where it starts
     clock.t += REPORT_EVERY_MS;
     await look(w, { coins: 530 });
-    expect(store.calls.at(-1)).toEqual([{ key: "cq-coins-150", best: 130 }]);
+    expect(store.calls[store.calls.length - 1]).toEqual([
+      { key: "cq-coins-150", best: 130 },
+    ]);
     clock.t += REPORT_EVERY_MS;
     await look(w, { coins: 550 });
     expect(told.map((d) => d.key)).toEqual(["cq-coins-150"]);
