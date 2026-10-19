@@ -2,7 +2,6 @@
 // line, and the Derp Coins they earned. Read back for profiles, the
 // leaderboard and replays.
 
-import type { DynastySummary } from "../../conquest/engine/DynastyCore"; // TREE (r25)
 import { AwardKind, GameAwards } from "@openfront/engine-api/game/Awards";
 import { GameMapSize, GameMapType } from "@openfront/engine-api/game/GameTypes";
 import { DERPY_RULES } from "@openfront/engine-api/Schemas";
@@ -22,6 +21,7 @@ import {
 import { replacer } from "@openfront/shared/SharedUtil";
 import { GameRecord, PlayerRecord } from "@openfront/shared/WireSchemas";
 import { gunzipSync, gzipSync } from "zlib";
+import type { DynastySummary } from "../../conquest/engine/DynastyCore"; // TREE (r25)
 import { logger } from "../Logger";
 import { getMapLandTilesForSize } from "../MapLandTiles";
 import { accountsForPlayIds } from "./DerpyAuth";

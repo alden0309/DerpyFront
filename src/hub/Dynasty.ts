@@ -10,9 +10,9 @@
 import { html, nothing, svg, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import {
+  dynastyCharts,
   type DynastyPage,
   type DynastyRecord,
-  dynastyCharts,
   type DynChart,
   dynName,
   type DynPerson,
@@ -185,12 +185,13 @@ export class DerpDynasty extends HubPage {
         <p class="dl-chron-kicker">${treeIcon("dl-i")} Derpy Conquest</p>
         <h1 class="dl-h1 dl-chron-title">The dynasty of the ${s.family}s</h1>
         <p class="dl-lede">
-          ${s.lives} ${s.lives === 1 ? "life" : "lives"}, ${s.from} to
-          ${s.to}, played by
+          ${s.lives} ${s.lives === 1 ? "life" : "lives"}, ${s.from} to ${s.to},
+          played by
           <a href="/player/${encodeURIComponent(p.username)}">${p.username}</a>.
           ${s.over
             ? html`Finished ${shortDate(s.at)}.`
-            : html`Still being played: set down ${shortDate(s.at)}, at the last save.`}
+            : html`Still being played: set down ${shortDate(s.at)}, at the last
+              save.`}
           ${s.over
             ? html`<a
                 class="dl-dyn-story-link"
@@ -295,7 +296,8 @@ export class DerpDynasty extends HubPage {
             <p class="dl-dyn-head">The House of ${t.family}</p>
             <p class="dl-dyn-sub">
               ${t.from !== null ? `${t.from}–${t.to ?? ""} · ` : ""}as set down
-              in ${rec.year}${rec.motto && this.house === 0
+              in
+              ${rec.year}${rec.motto && this.house === 0
                 ? html` · <i>“${rec.motto}”</i>`
                 : nothing}
             </p>
@@ -328,12 +330,18 @@ export class DerpDynasty extends HubPage {
               sel
                 ? "chosen"
                 : ""}"
-              style="left:${chartLeft(DIMS, n.x)}px;top:${chartTop(t, DIMS, n.gen)}px"
+              style="left:${chartLeft(DIMS, n.x)}px;top:${chartTop(
+                t,
+                DIMS,
+                n.gen,
+              )}px"
               aria-pressed=${n.c === sel}
               title=${`${dynName(p)}: ${dynRelation(rec, n.c)}`}
               @click=${() => this.choose(n.c)}
             >
-              ${p.heir ? html`<span class="dl-dyn-ribbon">Heir</span>` : nothing}
+              ${p.heir
+                ? html`<span class="dl-dyn-ribbon">Heir</span>`
+                : nothing}
               ${emblem(p)}
               <span class="dl-dyn-name"
                 >${p.styled ?? p.first}${p.styled
@@ -462,7 +470,9 @@ function kindOf(p: DynPerson): string {
 function emblem(p: DynPerson, size = ""): TemplateResult {
   const letter = (p.styled ?? p.first).replace(/^the /i, "").charAt(0) || "?";
   return html`<span
-    class="dl-dyn-emblem ${size} ${p.female ? "f" : "m"} ${p.unsexed ? "u" : ""}"
+    class="dl-dyn-emblem ${size} ${p.female ? "f" : "m"} ${p.unsexed
+      ? "u"
+      : ""}"
     aria-hidden="true"
     >${letter}${p.life
       ? html`<span class="dl-dyn-seal">${roman(p.life.n)}</span>`
@@ -497,7 +507,9 @@ export function lifeCard(rec: DynastyRecord, i: number): TemplateResult {
       ${emblem(p, "big")}
       <div>
         <h2 class="dl-h2">
-          ${dynName(p)}${p.dead ? html` <span class="dl-dyn-cross">†</span>` : nothing}
+          ${dynName(p)}${p.dead
+            ? html` <span class="dl-dyn-cross">†</span>`
+            : nothing}
         </h2>
         <p class="dl-quiet">
           ${[dynYears(p), dynRelation(rec, i)].filter(Boolean).join(" · ")}
@@ -512,7 +524,8 @@ export function lifeCard(rec: DynastyRecord, i: number): TemplateResult {
         ? html`<p class="dl-dyn-fate">
               <b>${L.title || "Of no fixed trade"}</b>${L.office
                 ? `; ${L.office}`
-                : ""}${L.home ? `, ${L.home}` : ""}. ${cap(L.fate)}.
+                : ""}${L.home ? `, ${L.home}` : ""}.
+              ${cap(L.fate)}.
               <span class="dl-quiet"
                 >${CAME[L.came] ?? L.came}, ${L.from}–${L.to ?? "now"}.</span
               >
@@ -521,7 +534,10 @@ export function lifeCard(rec: DynastyRecord, i: number): TemplateResult {
               ${fact("Age", L.age)} ${fact("Renown", nf(L.renown))}
               ${fact(L.ended === "living" ? "Purse" : "Left", nf(L.purse))}
               ${fact("Earned", nf(L.earned))} ${fact("Children", L.children)}
-              ${fact("Battles", L.battles ? `${L.battles} (${L.battlesWon} won)` : 0)}
+              ${fact(
+                "Battles",
+                L.battles ? `${L.battles} (${L.battlesWon} won)` : 0,
+              )}
               ${L.duels ? fact("Duels", L.duels) : nothing}
               ${L.wounds ? fact("Wounds", L.wounds) : nothing}
               ${fact("Places", L.places)}
@@ -529,8 +545,9 @@ export function lifeCard(rec: DynastyRecord, i: number): TemplateResult {
             ${L.skills.length || p.traits?.length
               ? html`<p class="dl-chron-skills">
                   ${L.skills.length
-                    ? html`<b>Best at</b>
-                        ${L.skills.map(([k, v]) => `${k} ${v}`).join(", ")}.`
+                    ? html`<b>Best at</b> ${L.skills
+                          .map(([k, v]) => `${k} ${v}`)
+                          .join(", ")}.`
                     : nothing}
                   ${p.traits?.length
                     ? html`<b>Traits</b> ${p.traits.map(cap).join(", ")}.`
@@ -565,12 +582,16 @@ export function lifeCard(rec: DynastyRecord, i: number): TemplateResult {
                   ${L.story.map((t) => html`<p>${t}</p>`)}
                 </details>`
               : nothing}`
-        : html`${p.title ? html`<p class="dl-dyn-fate">${p.title}.</p>` : nothing}
+        : html`${p.title
+            ? html`<p class="dl-dyn-fate">${p.title}.</p>`
+            : nothing}
           ${p.dead
             ? html`<p>
-                Died${p.died !== null ? ` in ${p.died}` : p.young ? " young" : ""}${p.cause
-                  ? `, ${p.cause}`
-                  : ""}.
+                Died${p.died !== null
+                  ? ` in ${p.died}`
+                  : p.young
+                    ? " young"
+                    : ""}${p.cause ? `, ${p.cause}` : ""}.
               </p>`
             : nothing}
           ${p.traits?.length
@@ -579,17 +600,27 @@ export function lifeCard(rec: DynastyRecord, i: number): TemplateResult {
               </p>`
             : nothing}`}
     ${p.now && p.other === undefined
-      ? html`<p class="dl-dyn-now"><b>${rec.over ? "In the end:" : "Now:"}</b> ${p.now}.</p>`
+      ? html`<p class="dl-dyn-now">
+          <b>${rec.over ? "In the end:" : "Now:"}</b> ${p.now}.
+        </p>`
       : nothing}`;
 }
 
-function list(title: string, items: string[], ordered: boolean): TemplateResult {
+function list(
+  title: string,
+  items: string[],
+  ordered: boolean,
+): TemplateResult {
   if (!items.length) return html``;
   const body = items.map((w) => html`<li>${w}</li>`);
   return html`<h3 class="dl-chron-h3">${title}</h3>
     ${ordered
-      ? html`<ol class="dl-dyn-work">${body}</ol>`
-      : html`<ul class="dl-dyn-work">${body}</ul>`}`;
+      ? html`<ol class="dl-dyn-work">
+          ${body}
+        </ol>`
+      : html`<ul class="dl-dyn-work">
+          ${body}
+        </ul>`}`;
 }
 
 declare global {

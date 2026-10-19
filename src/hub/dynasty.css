@@ -245,7 +245,12 @@
     font-family: Georgia, serif;
     font-size: 10.5px;
     color: #fbe9d6;
-    background: radial-gradient(circle at 38% 34%, #c4483a, #9e2a1e 58%, #6e1a12);
+    background: radial-gradient(
+      circle at 38% 34%,
+      #c4483a,
+      #9e2a1e 58%,
+      #6e1a12
+    );
     border-radius: 50%;
     box-shadow: 0 1px 3px rgba(43, 29, 18, 0.45);
   }

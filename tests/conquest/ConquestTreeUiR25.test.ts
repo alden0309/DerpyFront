@@ -13,7 +13,11 @@ import {
   dynastyPage,
   dynastyPick,
 } from "../../src/conquest/client/ui/Dynasty";
-import { kill, makeCharacter, marry } from "../../src/conquest/engine/Characters";
+import {
+  kill,
+  makeCharacter,
+  marry,
+} from "../../src/conquest/engine/Characters";
 import { milestone } from "../../src/conquest/engine/LifeCore";
 import { meOf } from "../../src/conquest/engine/LifeQueries";
 import type { Character } from "../../src/conquest/engine/Types";
@@ -83,16 +87,16 @@ describe("Journal › Dynasty (TREE r25)", () => {
       /The House of Drackley/,
     );
     // The one played now is chosen at first: their life, and where they are.
-    expect(div.querySelector(".cq-dyn-card.chosen .cq-kin-name")?.textContent).toMatch(
-      /Thomas/,
-    );
+    expect(
+      div.querySelector(".cq-dyn-card.chosen .cq-kin-name")?.textContent,
+    ).toMatch(/Thomas/);
     expect(div.querySelector(".cq-dyn-life .cq-dyn-now")?.textContent).toMatch(
       /At Jamestown/,
     );
     // Choose the first of the line: his life, how he died, the story's chapter.
-    const alden = [...div.querySelectorAll<HTMLButtonElement>(".cq-dyn-card")].find(
-      (b) => /Alden/.test(b.textContent ?? ""),
-    )!;
+    const alden = [
+      ...div.querySelectorAll<HTMLButtonElement>(".cq-dyn-card"),
+    ].find((b) => /Alden/.test(b.textContent ?? ""))!;
     alden.click(); // a key's click (detail 0) opens; pointers open on lifting
     render(dynastyPage(f.ui), div);
     const life = div.querySelector(".cq-dyn-life")!;
@@ -114,12 +118,14 @@ describe("Journal › Dynasty (TREE r25)", () => {
       m.rec.people.length,
     );
     expect(div.querySelectorAll(".cq-dyn-gen")).toHaveLength(2);
-    const ann = [...div.querySelectorAll<HTMLButtonElement>(".cq-dyn-row")].find(
-      (b) => /Ann/.test(b.textContent ?? ""),
-    )!;
+    const ann = [
+      ...div.querySelectorAll<HTMLButtonElement>(".cq-dyn-row"),
+    ].find((b) => /Ann/.test(b.textContent ?? ""))!;
     ann.click();
     render(dynastyPage(f.ui), div);
-    expect(div.querySelector(".cq-dyn-life .cq-h3")?.textContent).toMatch(/Ann/);
+    expect(div.querySelector(".cq-dyn-life .cq-h3")?.textContent).toMatch(
+      /Ann/,
+    );
     expect(div.querySelector(".cq-dyn-life")?.textContent).toMatch(
       /Daughter of Alden/,
     );

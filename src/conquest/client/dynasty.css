@@ -311,6 +311,9 @@
 .cq-modal.dyn {
   width: min(1280px, 96vw);
 }
+.cq-dyn-modal .cq-h1 {
+  padding-right: 1.6rem; /* clear of the × */
+}
 .cq-dyn-modal .cq-h1 .cq-muted {
   margin-left: 0.5rem;
   font-family: var(--sans);

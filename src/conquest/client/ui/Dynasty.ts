@@ -14,8 +14,8 @@
 import { html, nothing, TemplateResult } from "lit";
 import { dynastyOf } from "../../engine/Dynasty";
 import {
-  type DynastyRecord,
   dynastyCharts,
+  type DynastyRecord,
   type DynChart,
   dynName,
   type DynPerson,
@@ -69,8 +69,11 @@ export function dynastyNow(ui: GameUi): Made | null {
 // ---------------------------------------------------------------- what's chosen
 
 /** The house shown, whose life is open, and tree or list (null: as the screen suits). */
-const pick: { house: number; who: number | null; view: "tree" | "list" | null } =
-  { house: -1, who: null, view: null };
+const pick: {
+  house: number;
+  who: number | null;
+  view: "tree" | "list" | null;
+} = { house: -1, who: null, view: null };
 
 function houseOf(m: Made): DynChart {
   if (pick.house < 0 || pick.house >= m.charts.length) {
@@ -91,7 +94,8 @@ function chosen(m: Made, t: DynChart): number {
 function viewFor(t: DynChart): "tree" | "list" {
   if (pick.view) return pick.view;
   const narrow =
-    typeof window !== "undefined" && window.matchMedia?.("(max-width: 560px)").matches;
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(max-width: 560px)").matches;
   return narrow && t.maxX + 1 > 4 ? "list" : "tree";
 }
 
@@ -132,7 +136,11 @@ function card(
     class="cq-kin-card cq-dyn-card kind-${kindOf(p)} ${p.dead
       ? "dead"
       : ""} ${p.heir ? "heir" : ""} ${n.c === sel ? "chosen" : ""}"
-    style="left:${chartLeft(KIN_DIMS, n.x)}px;top:${chartTop(t, KIN_DIMS, n.gen)}px"
+    style="left:${chartLeft(KIN_DIMS, n.x)}px;top:${chartTop(
+      t,
+      KIN_DIMS,
+      n.gen,
+    )}px"
     data-c=${n.c}
     title=${`${dynName(p)}: ${rel}`}
     aria-pressed=${n.c === sel}
@@ -142,7 +150,9 @@ function card(
   >
     ${p.heir ? html`<span class="cq-kin-ribbon">Heir</span>` : nothing}
     ${p.life
-      ? html`<span class="cq-dyn-seal" title="You played them">${roman(p.life.n)}</span>`
+      ? html`<span class="cq-dyn-seal" title="You played them"
+          >${roman(p.life.n)}</span
+        >`
       : nothing}
     ${face(ui, p, "cq-kin-face")}
     <span class="cq-kin-name"
@@ -179,7 +189,10 @@ function treeView(
     t.nodes
       .filter((n) => n.gen === g && m.rec.people[n.c].life)
       .map((n) => m.rec.people[n.c].styled ?? m.rec.people[n.c].first);
-  const years = t.from !== null ? `${t.from}${t.to && t.to !== t.from ? `–${t.to}` : ""}` : "";
+  const years =
+    t.from !== null
+      ? `${t.from}${t.to && t.to !== t.from ? `–${t.to}` : ""}`
+      : "";
   return kinView({
     mode: `dyn-${mode}-${pick.house}`,
     cls: `${mode} cq-dyn-view`,
@@ -241,10 +254,9 @@ function listView(
             const p = m.rec.people[n.c];
             return html`<li>
               <button
-                class="cq-dyn-row kind-${kindOf(p)} ${p.dead ? "dead" : ""} ${n.c ===
-                sel
-                  ? "chosen"
-                  : ""}"
+                class="cq-dyn-row kind-${kindOf(p)} ${p.dead
+                  ? "dead"
+                  : ""} ${n.c === sel ? "chosen" : ""}"
                 aria-pressed=${n.c === sel}
                 @click=${() => open(n.c)}
               >
@@ -262,7 +274,9 @@ function listView(
                   >
                 </span>
                 ${p.life
-                  ? html`<span class="cq-dyn-seal inline">${roman(p.life.n)}</span>`
+                  ? html`<span class="cq-dyn-seal inline"
+                      >${roman(p.life.n)}</span
+                    >`
                   : p.heir
                     ? html`<span class="cq-chip">Heir</span>`
                     : p.other !== undefined
@@ -307,24 +321,31 @@ export function lifePanel(
       ${face(ui, p, "cq-dyn-life-face")}
       <div>
         <h3 class="cq-h3">
-          ${dynName(p)}${p.dead ? html` <span class="cq-kin-cross">†</span>` : nothing}
+          ${dynName(p)}${p.dead
+            ? html` <span class="cq-kin-cross">†</span>`
+            : nothing}
         </h3>
         <p class="cq-muted small">
           ${[dynYears(p), dynRelation(rec, i)].filter(Boolean).join(" · ")}
         </p>
-        ${p.title && !L ? html`<p class="cq-dyn-title">${p.title}</p>` : nothing}
+        ${p.title && !L
+          ? html`<p class="cq-dyn-title">${p.title}</p>`
+          : nothing}
       </div>
     </header>
     ${p.other !== undefined
       ? html`<p class="cq-muted">
-          Another player's character${p.other ? html` (<b>${p.other}</b>)` : nothing}:
-          on your tree as far as the marriage goes. Their own line is theirs to tell.
+          Another player's
+          character${p.other ? html` (<b>${p.other}</b>)` : nothing}: on your
+          tree as far as the marriage goes. Their own line is theirs to tell.
         </p>`
       : L
         ? html`<p class="cq-dyn-fate">
-              ${L.title ? html`<b>${L.title}</b>` : "Of no fixed trade"}${L.office
-                ? `; ${L.office}`
-                : ""}${L.home ? `, ${L.home}` : ""}.
+              ${L.title
+                ? html`<b>${L.title}</b>`
+                : "Of no fixed trade"}${L.office ? `; ${L.office}` : ""}${L.home
+                ? `, ${L.home}`
+                : ""}.
               ${cap(L.fate)}.
               <span class="cq-muted small"
                 >${came(L.came)}, ${L.from}–${L.to ?? "now"}.</span
@@ -332,9 +353,15 @@ export function lifePanel(
             </p>
             <dl class="cq-dyn-facts">
               ${fact("Age", L.age)} ${fact("Renown", nf(L.renown))}
-              ${fact(L.ended === "living" ? "Purse" : "Left", `${nf(L.purse)} coins`)}
+              ${fact(
+                L.ended === "living" ? "Purse" : "Left",
+                `${nf(L.purse)} coins`,
+              )}
               ${fact("Earned", nf(L.earned))} ${fact("Children", L.children)}
-              ${fact("Battles", L.battles ? `${L.battles} (${L.battlesWon} won)` : 0)}
+              ${fact(
+                "Battles",
+                L.battles ? `${L.battles} (${L.battlesWon} won)` : 0,
+              )}
               ${L.duels ? fact("Duels", L.duels) : nothing}
               ${L.wounds ? fact("Wounds", L.wounds) : nothing}
               ${fact("Places", L.places)}
@@ -343,7 +370,9 @@ export function lifePanel(
               ? html`<p class="cq-muted small">
                   <b>Best at</b>
                   ${L.skills.map(([k, v]) => `${k} ${v}`).join(", ")}.
-                  ${p.traits?.length ? html`<b>Traits</b> ${p.traits.join(", ")}.` : nothing}
+                  ${p.traits?.length
+                    ? html`<b>Traits</b> ${p.traits.join(", ")}.`
+                    : nothing}
                 </p>`
               : nothing}
             ${L.work.length
@@ -385,7 +414,9 @@ export function lifePanel(
               : nothing}`
         : html`${deathLine ? html`<p>${deathLine}</p>` : nothing}
           ${p.traits?.length
-            ? html`<p class="cq-muted small"><b>Traits</b> ${p.traits.join(", ")}.</p>`
+            ? html`<p class="cq-muted small">
+                <b>Traits</b> ${p.traits.join(", ")}.
+              </p>`
             : nothing}`}
     ${p.now && p.other === undefined
       ? html`<p class="cq-dyn-now"><b>Now:</b> ${p.now}.</p>`
@@ -416,7 +447,12 @@ function cap(t: string): string {
 }
 
 /** The house switch and tree or list. */
-function controls(ui: GameUi, m: Made, t: DynChart, view: "tree" | "list"): TemplateResult {
+function controls(
+  ui: GameUi,
+  m: Made,
+  t: DynChart,
+  view: "tree" | "list",
+): TemplateResult {
   return html`<div class="cq-dyn-controls">
     ${m.charts.length > 1
       ? html`<div class="cq-seg small" role="radiogroup" aria-label="House">
@@ -453,7 +489,8 @@ function controls(ui: GameUi, m: Made, t: DynChart, view: "tree" | "list"): Temp
     </div>
     <span class="cq-muted small cq-dyn-count"
       >${t.people.length} ${t.people.length === 1 ? "soul" : "souls"},
-      ${m.rec.line.filter((i) => t.people.includes(i)).length} of them yours</span
+      ${m.rec.line.filter((i) => t.people.includes(i)).length} of them
+      yours</span
     >
   </div>`;
 }
@@ -479,7 +516,9 @@ export function dynastyPage(ui: GameUi): TemplateResult {
   );
   if (!m || !m.charts.length)
     return html`${head}
-      <p class="cq-empty">No one yet. Make a character, and your line begins.</p>`;
+      <p class="cq-empty">
+        No one yet. Make a character, and your line begins.
+      </p>`;
   const t = houseOf(m);
   const sel = chosen(m, t);
   const view = viewFor(t);
@@ -517,9 +556,8 @@ export function dynastyModal(ui: GameUi, from?: "end"): TemplateResult {
     <h2 class="cq-h1">
       The dynasty of the ${m.rec.family}s
       <span class="cq-muted small"
-        >${m.rec.line.length}
-        ${m.rec.line.length === 1 ? "life" : "lives"}, ${m.rec.from} to
-        ${m.rec.year}</span
+        >${m.rec.line.length} ${m.rec.line.length === 1 ? "life" : "lives"},
+        ${m.rec.from} to ${m.rec.year}</span
       >
     </h2>
     ${controls(ui, m, t, view)}

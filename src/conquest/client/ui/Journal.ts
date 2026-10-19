@@ -52,7 +52,8 @@ export function journalTab(ui: GameUi, sub = "diary"): TemplateResult {
           </button>
           <button
             class="cq-btn small quiet"
-            @click=${() => ui.open({ k: "tab", tab: "journal", sub: "dynasty" })}
+            @click=${() =>
+              ui.open({ k: "tab", tab: "journal", sub: "dynasty" })}
           >
             The family tree of your line
           </button>

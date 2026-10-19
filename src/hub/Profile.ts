@@ -3,6 +3,7 @@
 
 import { html, nothing, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import type { DynastySummary } from "../conquest/engine/DynastyCore"; // TREE (r25)
 import { api, ApiError, signOut } from "../derpland/Account";
 import { openSignIn } from "../derpland/DerpBar";
 import {
@@ -14,6 +15,7 @@ import {
   signOutIcon,
   tokenColor,
 } from "../derpland/Icons";
+import { dynastyHref, treeIcon } from "./Dynasty"; // TREE (r25)
 import {
   AWARD_NAMES,
   DIFFICULTY_NAMES,
@@ -23,8 +25,6 @@ import {
   nf,
   shortDate,
 } from "./format";
-import type { DynastySummary } from "../conquest/engine/DynastyCore"; // TREE (r25)
-import { dynastyHref, treeIcon } from "./Dynasty"; // TREE (r25)
 import { HubPage } from "./HubPage";
 import "./Rename"; // NAMES (r20)
 import type { DerpRename } from "./Rename";

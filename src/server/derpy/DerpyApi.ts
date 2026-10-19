@@ -11,6 +11,7 @@ import type { RenameError } from "../../derpland/Names"; // NAMES (r20)
 import { finalizeGameRecord } from "../Archive";
 import { logger } from "../Logger";
 import { setNoStoreHeaders } from "../NoStoreHeaders";
+import { dynastyFor } from "./ConquestDynasties"; // TREE (r25)
 import {
   Account,
   accountForToken,
@@ -29,7 +30,6 @@ import {
   findItem,
   itemGrants,
 } from "./DerpyCatalog";
-import { dynastyFor } from "./ConquestDynasties"; // TREE (r25)
 import {
   conquestGamePage, // LEGACY (r21)
   conquestLeaderboard,
@@ -300,7 +300,10 @@ export function derpyApiRouter(): express.Router {
     handle(async (req, res) => {
       const name = String(req.params.username);
       const id = String(req.params.gameId);
-      if (!/^[A-Za-z0-9_]{1,20}$/.test(name) || !/^[A-Za-z0-9-]{1,60}$/.test(id)) {
+      if (
+        !/^[A-Za-z0-9_]{1,20}$/.test(name) ||
+        !/^[A-Za-z0-9-]{1,60}$/.test(id)
+      ) {
         res.status(404).json({ error: "not_found" });
         return;
       }

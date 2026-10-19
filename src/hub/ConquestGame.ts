@@ -14,6 +14,7 @@ import type {
 import { api, ApiError } from "../derpland/Account";
 import { coinIcon, crownIcon, scrollIcon } from "../derpland/Icons";
 import "./chronicle.css";
+import { dynastyHref, treeIcon } from "./Dynasty"; // TREE (r25)
 import {
   DIFFICULTY_NAMES,
   duration,
@@ -21,7 +22,6 @@ import {
   nf,
   shortDate,
 } from "./format";
-import { dynastyHref, treeIcon } from "./Dynasty"; // TREE (r25)
 import { HubPage } from "./HubPage";
 
 type Player = ConquestGamePage["players"][number];

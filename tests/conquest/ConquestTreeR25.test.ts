@@ -9,7 +9,12 @@
 // tree.
 
 import { describe, expect, test } from "vitest";
-import { kill, makeCharacter, marry } from "../../src/conquest/engine/Characters";
+import {
+  kill,
+  makeCharacter,
+  marry,
+} from "../../src/conquest/engine/Characters";
+import { chronicleOf } from "../../src/conquest/engine/Chronicle";
 import { applyDelta } from "../../src/conquest/engine/Delta";
 import { dynastyOf } from "../../src/conquest/engine/Dynasty";
 import {
@@ -20,14 +25,13 @@ import {
   dynYears,
   type DynastyRecord,
 } from "../../src/conquest/engine/DynastyCore";
-import { chronicleOf } from "../../src/conquest/engine/Chronicle";
 import { ConquestGame } from "../../src/conquest/engine/Game";
 import { chartLines, KIN_DIMS } from "../../src/conquest/engine/KinChart";
 import { lineCharacters } from "../../src/conquest/engine/Legacy";
+import { partWays } from "../../src/conquest/engine/Liaisons";
 import { takeOver } from "../../src/conquest/engine/Life";
 import { milestone } from "../../src/conquest/engine/LifeCore";
 import { meOf } from "../../src/conquest/engine/LifeQueries";
-import { partWays } from "../../src/conquest/engine/Liaisons";
 import type { Character, Life } from "../../src/conquest/engine/Types";
 import { lifeOf, map, plan, ticks, world } from "./LifeUtil";
 
@@ -103,9 +107,23 @@ function threeGenerations(seed = 5) {
     family: "Cole",
   });
   wed(g, life, alden, mary);
-  milestone(g, life, "job", "Took up work as a cooper at Jamestown", life.prov, q);
+  milestone(
+    g,
+    life,
+    "job",
+    "Took up work as a cooper at Jamestown",
+    life.prov,
+    q,
+  );
   milestone(g, life, "promoted", "Rose to master cooper", life.prov, q);
-  milestone(g, life, "office", "Elected to the House of Burgesses", life.prov, q);
+  milestone(
+    g,
+    life,
+    "office",
+    "Elected to the House of Burgesses",
+    life.prov,
+    q,
+  );
   milestone(
     g,
     life,
@@ -301,7 +319,9 @@ describe("the dynasty (TREE r25)", () => {
     expect(fam.children.sort()).toEqual(
       [byC(rec, f.thomas.id), byC(rec, f.ann.id)].sort(),
     );
-    const grand = t.descents.find((d) => d.parents.includes(byC(rec, f.dad.id)))!;
+    const grand = t.descents.find((d) =>
+      d.parents.includes(byC(rec, f.dad.id)),
+    )!;
     expect(grand.children).toContain(byC(rec, f.alden.id));
     expect(grand.children).toContain(byC(rec, f.brother.id));
     // Nobody shares a place: in each row, a card's width apart at least.
@@ -579,8 +599,11 @@ describe("the dynasty (TREE r25)", () => {
     const charts = dynastyCharts(thin);
     expect(charts).toHaveLength(1);
     expect(charts[0].nodes).toHaveLength(thin.people.length);
-    expect(dynRelation(thin, thin.people.findIndex((p) => p.first === "Ann"))).toBe(
-      "Child of Alden",
-    );
+    expect(
+      dynRelation(
+        thin,
+        thin.people.findIndex((p) => p.first === "Ann"),
+      ),
+    ).toBe("Child of Alden");
   });
 });

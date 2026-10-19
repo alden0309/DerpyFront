@@ -166,7 +166,8 @@ export function dynName(p: DynPerson): string {
 export function dynYears(p: DynPerson): string {
   const b = p.born === null ? "?" : String(p.born);
   if (!p.dead) return p.born === null ? "" : `b. ${b}`;
-  if (p.died === null && p.young) return p.born === null ? "died young" : `${b}, died young`;
+  if (p.died === null && p.young)
+    return p.born === null ? "died young" : `${b}, died young`;
   return `${b}–${p.died ?? "?"}`;
 }
 
@@ -205,8 +206,7 @@ const ROMAN = [
 ];
 
 export const roman = (n: number): string => ROMAN[n - 1] ?? String(n);
-export const ordinalWord = (n: number): string =>
-  ORDINALS[n - 1] ?? `${n}th`;
+export const ordinalWord = (n: number): string => ORDINALS[n - 1] ?? `${n}th`;
 
 /** How someone stands in the line, in a few words: "Second of the line", "Wife of Alden", "Son of Thomas". */
 export function dynRelation(rec: DynastyRecord, i: number): string {
@@ -410,7 +410,11 @@ export function dynastyChart(rec: DynastyRecord, house: number[]): DynChart {
     );
     for (const p of ps) claimed.add(p);
     const members =
-      ps.length === 0 ? [i] : ps.length === 1 ? [i, ps[0]] : [ps[0], i, ...ps.slice(1)];
+      ps.length === 0
+        ? [i]
+        : ps.length === 1
+          ? [i, ps[0]]
+          : [ps[0], i, ...ps.slice(1)];
     for (const p of ps) paired.add(pairKey(i, p));
     // The children of anyone in the row, by the couple they came of.
     const groups: { parents: number[]; kids: number[]; at: number }[] = [];
@@ -562,7 +566,9 @@ export function dynastyChart(rec: DynastyRecord, house: number[]): DynChart {
     .filter(
       (d) =>
         d.children.length > 0 &&
-        d.parents.every((p) => byId.get(p)?.gen === byId.get(d.parents[0])?.gen),
+        d.parents.every(
+          (p) => byId.get(p)?.gen === byId.get(d.parents[0])?.gen,
+        ),
     );
   const gens = nodes.map((n) => n.gen);
   const years = house
@@ -635,7 +641,10 @@ export interface ThinChar {
 }
 
 /** "Amos Fell" into its first and family names. */
-function splitName(name: string, family?: string): { first: string; family: string } {
+function splitName(
+  name: string,
+  family?: string,
+): { first: string; family: string } {
   if (family && name.endsWith(` ${family}`))
     return { first: name.slice(0, -family.length - 1), family };
   const i = name.indexOf(" ");

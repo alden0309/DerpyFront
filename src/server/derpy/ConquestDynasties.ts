@@ -9,9 +9,9 @@
 
 import { dynastyOf } from "../../conquest/engine/Dynasty";
 import {
+  dynastyFromChronicle,
   type DynastyPage,
   type DynastyRecord,
-  dynastyFromChronicle,
   type DynastySummary,
   dynName,
   type ThinChar,
@@ -83,7 +83,8 @@ async function accountByName(
 }
 
 function familyFromTitle(title: unknown, names: string[]): string {
-  const m = typeof title === "string" ? /^The (.+?) (line|story),/.exec(title) : null;
+  const m =
+    typeof title === "string" ? /^The (.+?) (line|story),/.exec(title) : null;
   if (m) return m[1];
   const first = names[0] ?? "";
   return first.includes(" ") ? first.slice(first.indexOf(" ") + 1) : first;
@@ -106,7 +107,9 @@ const STORY_ROWS = `
                     WHERE d.game_id = cp.game_id AND d.account_id = cp.account_id)`;
 
 /** An account's dynasties, newest first. */
-export async function dynastiesOf(accountId: number): Promise<DynastySummary[]> {
+export async function dynastiesOf(
+  accountId: number,
+): Promise<DynastySummary[]> {
   const pool = await db();
   const [kept, story] = await Promise.all([
     pool.query(

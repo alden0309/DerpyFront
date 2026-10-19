@@ -1892,7 +1892,11 @@ export class ConquestRooms {
       const life = lifeOfSeat(s, seat.id);
       if (!life?.line.length) continue;
       try {
-        await keepDynasty(saveId, seat.accountId, siteDynasty(s, life, AMERICAS));
+        await keepDynasty(
+          saveId,
+          seat.accountId,
+          siteDynasty(s, life, AMERICAS),
+        );
       } catch (err) {
         log.warn(`couldn't keep a dynasty in ${room.code}: ${err}`);
       }

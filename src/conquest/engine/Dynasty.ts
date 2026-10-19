@@ -31,7 +31,13 @@ import { ROLES } from "./LifeRules";
 import { ageOf } from "./Queries";
 import { TRAITS } from "./Rules";
 import { storyKind, storyWeight } from "./StoryCore";
-import type { Character, GameState, Life, LifeMilestone, MapDef } from "./Types";
+import type {
+  Character,
+  GameState,
+  Life,
+  LifeMilestone,
+  MapDef,
+} from "./Types";
 
 export type { DynastyRecord } from "./DynastyCore";
 
@@ -39,14 +45,21 @@ export type { DynastyRecord } from "./DynastyCore";
 export const DYN_MOMENTS = 14;
 
 /** The days of each character's part in the line: [from, to] (to: null while played now). */
-function partsOf(s: GameState, life: Life): Map<number, [number, number | null]> {
+function partsOf(
+  s: GameState,
+  life: Life,
+): Map<number, [number, number | null]> {
   const out = new Map<number, [number, number | null]>();
   const L = life.legacy;
   const line = [...new Set(life.line)];
   line.forEach((id, n) => {
     const rec = L?.recs.find((r) => r.c === id);
     const first = life.milestones.find((m) => m.c === id)?.day;
-    const from = rec?.from ?? (id === life.c ? L?.since : undefined) ?? first ?? life.joined;
+    const from =
+      rec?.from ??
+      (id === life.c ? L?.since : undefined) ??
+      first ??
+      life.joined;
     const nextFirst =
       n + 1 < line.length
         ? (L?.recs.find((r) => r.c === line[n + 1])?.from ??
@@ -55,7 +68,11 @@ function partsOf(s: GameState, life: Life): Map<number, [number, number | null]>
     const to =
       id === life.c && life.c >= 0
         ? null
-        : (rec?.to ?? s.chars[id]?.died?.day ?? nextFirst ?? life.ended?.day ?? s.day);
+        : (rec?.to ??
+          s.chars[id]?.died?.day ??
+          nextFirst ??
+          life.ended?.day ??
+          s.day);
     out.set(id, [from, to]);
   });
   return out;
@@ -153,10 +170,7 @@ function nowOf(
   }
   if (c.abroad) return `In Europe, ${age} years old`;
   const edu = c.edu?.now?.away ? eduChipText(c) : null;
-  const home = PROV(
-    map,
-    c.home ?? s.nations[c.nation]?.capital ?? undefined,
-  );
+  const home = PROV(map, c.home ?? s.nations[c.nation]?.capital ?? undefined);
   return `${edu ? `${edu}, ` : home ? `Living at ${home}, ` : "Living, "}${age} years old`;
 }
 
@@ -301,7 +315,9 @@ export function dynastyOf(
     };
     if (!theirs) {
       const rec = ofLine ? recOf.get(id) : undefined;
-      const title = rec?.title || titleOf(s, c);
+      // What LEGACY says they were ("" when it can't say), or what they are.
+      const said = rec && rec.title !== "" ? rec.title : undefined;
+      const title = said ?? titleOf(s, c);
       if (title) p.title = title;
       if (c.traits.length) p.traits = c.traits.map((t) => TRAITS[t]?.name ?? t);
       if (c.alive) p.now = nowOf(s, life, map, c);

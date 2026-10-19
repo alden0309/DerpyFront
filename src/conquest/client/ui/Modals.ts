@@ -207,16 +207,11 @@ export function renderModal(
     ui.modal(m.k === "dynasty" && m.from === "end" ? { k: "end" } : null);
   return html`<div
     class="cq-scrim"
-    @click=${(e: Event) =>
-      e.target === e.currentTarget && closable && close()}
+    @click=${(e: Event) => e.target === e.currentTarget && closable && close()}
   >
     <div class="cq-modal ${cls}" role="dialog" aria-modal="true" data-steady>
       ${closable
-        ? html`<button
-            class="cq-modal-x"
-            aria-label="Close"
-            @click=${close}
-          >
+        ? html`<button class="cq-modal-x" aria-label="Close" @click=${close}>
             ×
           </button>`
         : nothing}
@@ -873,7 +868,10 @@ function dynastyAtEnd(
       <button
         class="cq-btn"
         @click=${() =>
-          ui.modal({ k: "dynasty", ...(ui.s.over ? { from: "end" as const } : {}) })}
+          ui.modal({
+            k: "dynasty",
+            ...(ui.s.over ? { from: "end" as const } : {}),
+          })}
       >
         The family tree
       </button>
