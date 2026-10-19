@@ -15,6 +15,7 @@ import {
   NewsClient,
   news as pageNews,
   SEEN_KEY,
+  seenUpTo,
   SETTLE_MS,
   SHOWN_KEY,
   type NewsPlace,
@@ -121,7 +122,6 @@ describe("the card for each place", () => {
     expect(c.entry.id).toBe(SITE_NEW.id);
     expect(c.game?.name).toBe("Derp Land");
     expect(c.more).toBe(0);
-    expect(c.upTo).toBe(SITE_NEW.id);
   });
 
   test("DerpyFront's menu: DerpyFront's and Derp Land's, newest first, and N more", () => {
@@ -147,6 +147,22 @@ describe("the card for each place", () => {
     expect(cardFor(v, 5, own, none)).toBeNull();
     const withIt = viewOf([e("2026-10-23-other", "other"), ...v.entries]);
     expect(cardFor(withIt, 6, own, none)?.more).toBe(0);
+  });
+
+  test("closing a card moves the mark only through what cards have closed", () => {
+    // New, newest first: Conquest's, DerpyFront's, Derp Land's.
+    expect(seenUpTo(v, 3, new Set([SITE_NEW.id]))).toBe(SITE_NEW.id);
+    // The newest closed, an older one not: the mark can't pass the older.
+    expect(seenUpTo(v, 3, new Set([CQ_NEW.id]))).toBeNull();
+    expect(seenUpTo(v, 3, new Set([CQ_NEW.id, SITE_NEW.id]))).toBe(SITE_NEW.id);
+    expect(
+      seenUpTo(v, 3, new Set([SITE_NEW.id, FRONT_NEW.id, CQ_NEW.id])),
+    ).toBe(CQ_NEW.id);
+    expect(seenUpTo(v, 0, new Set([SITE_NEW.id]))).toBeNull();
+    // What another card closed isn't counted again in "and N more".
+    const c = cardFor(v, 5, FRONT_NEWS, new Set(), new Set([SITE_NEW.id]))!;
+    expect(c.entry.id).toBe(FRONT_NEW.id);
+    expect(c.more).toBe(2);
   });
 
   test("only what's new, and never what a card has covered", () => {
@@ -265,6 +281,30 @@ describe("signed out: what this browser has seen", () => {
     expect(localStorage.getItem(SEEN_KEY)).toBe(SITE_NEW.id);
     expect(c.unseen).toBe(1);
     expect(posts).toEqual([]);
+  });
+
+  test("each place gets its own card: closing the home's doesn't see DerpyFront's", async () => {
+    const PARTIES = e("2026-10-23-parties", "site", "Parties");
+    localStorage.setItem(SEEN_KEY, SITE_OLD.id);
+    served = viewOf([PARTIES, FRONT_NEW, SITE_OLD]);
+    const home = await page(HOME_NEWS);
+    expect(cardEl()?.shadowRoot?.querySelector("h2")?.textContent).toBe(
+      "Parties",
+    );
+    closeCard();
+    await vi.advanceTimersByTimeAsync(0);
+    // DerpyFront's (older) is still unseen, so the mark stays and so does the dot.
+    expect(localStorage.getItem(SEEN_KEY)).toBe(SITE_OLD.id);
+    expect(home.unseen).toBe(2);
+
+    const front = await page(FRONT_NEWS);
+    const root = cardEl()!.shadowRoot!;
+    expect(root.querySelector("h2")?.textContent).toBe("Capitals");
+    expect(root.querySelector(".more")).toBeNull();
+    closeCard();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(localStorage.getItem(SEEN_KEY)).toBe(PARTIES.id);
+    expect(front.unseen).toBe(0);
   });
 
   test("never twice: the next page doesn't show it again, even unclosed", async () => {

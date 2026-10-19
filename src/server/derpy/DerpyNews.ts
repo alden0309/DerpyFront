@@ -164,8 +164,14 @@ export function setNews(entries: readonly NewsEntry[]): void {
   order = newsOrder(all);
 }
 
-/** Reads the entries file; one that isn't right is logged and none is served. */
-export function loadNews(file = NEWS_FILE): number {
+/**
+ * Reads the entries file; one that isn't right is logged and none is served.
+ * DERPY_NEWS_FILE points a local server at another file (entries to look at
+ * before they go in the real one); the hosted site never sets it.
+ */
+export function loadNews(
+  file = process.env.DERPY_NEWS_FILE || NEWS_FILE,
+): number {
   let text: string;
   try {
     text = fs.readFileSync(file, "utf8");

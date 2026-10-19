@@ -52,6 +52,8 @@ export const CONQUEST_NEWS: NewsPlace = {
 export const SEEN_KEY = "derp_news_seen";
 /** The entries a card has already covered, on any page: never twice. */
 export const SHOWN_KEY = "derp_news_shown";
+/** The entries whose card was closed (seen, as far as the mark can go). */
+export const CLOSED_KEY = "derp_news_closed";
 /** How long a page sits in a place before its card shows. */
 export const SETTLE_MS = 1200;
 
@@ -72,15 +74,19 @@ function writeLocal(key: string, value: string): boolean {
   }
 }
 
-function readShown(): Set<string> {
+function readSet(key: string): Set<string> {
   try {
-    const v = JSON.parse(readLocal(SHOWN_KEY) ?? "[]");
+    const v = JSON.parse(readLocal(key) ?? "[]");
     return new Set(
       Array.isArray(v) ? v.filter((x) => typeof x === "string") : [],
     );
   } catch {
     return new Set();
   }
+}
+
+function writeSet(key: string, ids: Iterable<string>): boolean {
+  return writeLocal(key, JSON.stringify([...ids].slice(-200)));
 }
 
 /** What a card would show: the lead entry, how many more, what it covers. */
@@ -90,24 +96,24 @@ export interface NewsCard {
   more: number;
   /** This place's new entries, all of them (the card covers them). */
   covers: string[];
-  /** Closing it marks seen up to here: the newest of `covers`. */
-  upTo: string;
 }
 
 /**
  * The card for a place, or null: the newest of this place's new entries
  * that no card has covered yet, and how many more of this place's new ones
- * there are. `unseen` is how many of `view.entries` (newest first) are new.
+ * there are (not counting those another card's closing saw). `unseen` is
+ * how many of `view.entries` (newest first) are new.
  */
 export function cardFor(
   view: NewsView,
   unseen: number,
   place: NewsPlace,
   shown: ReadonlySet<string>,
+  closed: ReadonlySet<string> = new Set(),
 ): NewsCard | null {
   const fresh = view.entries
     .slice(0, Math.max(0, unseen))
-    .filter((e) => place.games.includes(e.game));
+    .filter((e) => place.games.includes(e.game) && !closed.has(e.id));
   const lead = fresh.find((e) => !shown.has(e.id));
   if (lead === undefined) return null;
   return {
@@ -115,8 +121,28 @@ export function cardFor(
     game: view.games.find((g) => g.id === lead.game),
     more: fresh.length - 1,
     covers: fresh.map((e) => e.id),
-    upTo: fresh[0].id,
   };
+}
+
+/**
+ * How far closing cards moves the mark (null: not at all). What's been seen
+ * is one mark, the newest entry seen, and everything older counts as seen
+ * with it. So the mark moves up from the oldest new entry only through
+ * entries whose card was closed: closing the home's card doesn't see
+ * DerpyFront's news, and that still gets its own card on DerpyFront's menu.
+ */
+export function seenUpTo(
+  view: NewsView,
+  unseen: number,
+  closed: ReadonlySet<string>,
+): string | null {
+  let upTo: string | null = null;
+  for (let i = Math.min(unseen, view.entries.length) - 1; i >= 0; i--) {
+    const id = view.entries[i].id;
+    if (!closed.has(id)) break;
+    upTo = id;
+  }
+  return upTo;
 }
 
 /** What a shown card is to this module (NewsPopup's element). */
@@ -142,8 +168,9 @@ export class NewsClient {
   private settle: ReturnType<typeof setTimeout> | null = null;
   private card: CardElement | null = null;
   private opening = false;
-  /** The entries a card covered on this page (if the browser forgets). */
+  /** The entries a card covered, or closed, on this page (if the browser forgets). */
   private shownHere = new Set<string>();
+  private closedHere = new Set<string>();
 
   /** Begin (once per page). */
   start(): void {
@@ -298,9 +325,11 @@ export class NewsClient {
       if (!this.tried && !this.loading) void this.load();
       return;
     }
-    const shown = readShown();
+    const shown = readSet(SHOWN_KEY);
     for (const id of this.shownHere) shown.add(id);
-    const card = cardFor(v, this.unseen, place, shown);
+    const closed = readSet(CLOSED_KEY);
+    for (const id of this.closedHere) closed.add(id);
+    const card = cardFor(v, this.unseen, place, shown, closed);
     if (card) void this.open(card, place, shown);
   }
 
@@ -327,7 +356,7 @@ export class NewsClient {
       blue: place.blue === true,
       onDone: () => {
         this.card = null;
-        void this.markSeen(card.upTo);
+        void this.closed(card);
       },
     });
     // Never twice: on any page, these entries have had their card.
@@ -335,11 +364,27 @@ export class NewsClient {
       shown.add(id);
       this.shownHere.add(id);
     }
-    const kept = [...shown].slice(-200);
-    if (!writeLocal(SHOWN_KEY, JSON.stringify(kept))) {
+    if (!writeSet(SHOWN_KEY, shown)) {
       // This browser can't remember it: seeing the card is seeing them.
-      void this.markSeen(card.upTo);
+      void this.markSeen(card.covers[0]);
     }
+  }
+
+  /** The player closed a card (or followed its link): those are seen. */
+  private async closed(card: NewsCard): Promise<void> {
+    const v = this.view;
+    if (!v) return;
+    const closed = readSet(CLOSED_KEY);
+    for (const id of this.closedHere) closed.add(id);
+    for (const id of card.covers) {
+      closed.add(id);
+      this.closedHere.add(id);
+    }
+    // Can't keep what was closed here: see up to the card's newest instead.
+    const upTo = writeSet(CLOSED_KEY, closed)
+      ? seenUpTo(v, this.unseen, closed)
+      : card.covers[0];
+    if (upTo !== null) await this.markSeen(upTo);
   }
 
   /** Take the card away without marking anything (a game is starting). */
