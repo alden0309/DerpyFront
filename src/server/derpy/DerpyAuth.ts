@@ -16,6 +16,7 @@ import { USERNAME_RE } from "../../derpland/Names";
 import { grantBasedByName } from "./BasedAccess";
 import { db, inTransaction } from "./DerpyDb";
 import { lockNames, nameProblem } from "./DerpyNames";
+import { presence } from "./Presence"; // FRIENDS (r25)
 
 const scryptAsync = promisify(scrypt) as (
   password: string,
@@ -150,6 +151,8 @@ export async function login(
 export async function accountForToken(token: string): Promise<{
   account: Account;
   playId: string;
+  /** FRIENDS (r25): the account chose to appear offline. */
+  appearOffline?: boolean;
 } | null> {
   if (!token) return null;
   const res = await (
@@ -158,11 +161,18 @@ export async function accountForToken(token: string): Promise<{
     `UPDATE derpy_sessions s SET last_seen = now()
      FROM derpy_accounts a
      WHERE s.token_hash = $1 AND a.id = s.account_id
-     RETURNING a.id, a.username, a.coins, s.play_id`,
+     RETURNING a.id, a.username, a.coins, s.play_id, a.appear_offline`,
     [hashToken(token)],
   );
   const row = res.rows[0];
-  return row ? { account: rowToAccount(row), playId: row.play_id } : null;
+  if (!row) return null;
+  const account = rowToAccount(row);
+  const appearOffline = row.appear_offline === true;
+  // FRIENDS (r25): who's online shows each account under the name it has
+  // now, and not at all while it appears offline (Derpy Conquest's tables
+  // sign in here too).
+  presence.learn(account.id, account.username, appearOffline);
+  return { account, playId: row.play_id, appearOffline };
 }
 
 export async function logout(token: string): Promise<void> {
