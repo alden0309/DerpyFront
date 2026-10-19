@@ -2,6 +2,7 @@
 // JSON over the /conquest/ws WebSocket. Each player is one character living
 // in a world the server runs; they send what their character does.
 
+import type { ChallengeDone } from "../derpland/Challenges"; // CHAL (r25)
 import type { ConquestDlcOwned } from "./DlcIds"; // DLC (r21)
 import type { LineChar } from "./engine/Legacy"; // LEGACY (r21)
 import type {
@@ -142,6 +143,8 @@ export interface ResultLine {
   chars?: LineCharacter[];
   /** CQACH (r22): the achievements of the game. */
   ach?: ResultAchievements;
+  /** CHAL (r25): the weekly challenges this game finished for the player (a guest: none). */
+  chal?: ChallengeDone[];
 }
 
 /** CQACH (r22): a player's achievements at the end of a game. */
@@ -383,4 +386,7 @@ export type ServerMessage =
   | { t: "watchers"; n: number; allow: boolean }
   | { t: "watchend"; why: string }
   // LEGACY (r21): Derp Coins paid as you play, and where you stand in this game.
-  | PayNote;
+  | PayNote
+  // CHAL (r25): weekly challenges just finished, and what they paid (the
+  // game's bonus with the third of the week's).
+  | { t: "challenge"; done: ChallengeDone[] };

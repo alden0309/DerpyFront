@@ -5,6 +5,7 @@
 import { GameAwards } from "@openfront/engine-api/game/Awards";
 import { replacer } from "@openfront/shared/SharedUtil";
 import { PartialGameRecord } from "@openfront/shared/WireSchemas";
+import type { ChallengeDone } from "../../derpland/Challenges"; // CHAL (r25)
 import { setLocalPersistentID } from "../Auth";
 import {
   DERPY_ACCOUNT_EVENT,
@@ -374,6 +375,27 @@ async function gzip(data: string): Promise<ArrayBuffer> {
     offset += c.length;
   }
   return out.buffer;
+}
+
+/**
+ * CHAL (r25): the weekly challenges a game finished for the signed-in
+ * account, and whether the game is saved for it yet (until it is, there may
+ * be more to come). Null when signed out or it can't be asked.
+ */
+export async function derpyGameChallenges(
+  gameId: string,
+): Promise<{ recorded: boolean; done: ChallengeDone[] } | null> {
+  if (!isDerpySignedIn()) return null;
+  try {
+    const r = await api<{ recorded: boolean; done: ChallengeDone[] }>(
+      `/challenges/game/${encodeURIComponent(gameId)}`,
+    );
+    // Their coins are in the account now: the coin count says so.
+    if (r.done.length) announce();
+    return r;
+  } catch {
+    return null;
+  }
 }
 
 /** Where a saved game's replay opens. */

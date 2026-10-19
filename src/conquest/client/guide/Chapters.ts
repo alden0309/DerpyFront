@@ -106,6 +106,12 @@ import {
   gameCoins, // CQACH (r22)
 } from "../../engine/Achievements";
 import { perMinuteWords } from "../../engine/Coins"; // CQACH (r22)
+// CHAL (r25): the weekly challenges, for the coins chapter.
+import {
+  CHALLENGE_BONUS,
+  CHALLENGE_COINS,
+  CONQUEST_CHALLENGES,
+} from "../../../derpland/Challenges";
 import { HARVEST_BONUS } from "../../engine/Seasons";
 import type { FirmDecisionKey, JobKind, Nation } from "../../engine/Types";
 // EDU (r13): schools, apprenticeships, colleges and the peoples' own ways.
@@ -427,6 +433,17 @@ function effortTable(): string {
 }
 
 // ---------------------------------------------------------------- the chapters
+
+/** CHAL (r25): every weekly challenge Derpy Conquest can have, by tier. */
+function challengeTable(): string {
+  const rows = (["easy", "medium", "hard"] as const).flatMap((t) =>
+    CONQUEST_CHALLENGES.filter((c) => c.tier === t).map(
+      (c) =>
+        `| ${t[0].toUpperCase()}${t.slice(1)} | **${c.name}** | ${c.how} | ${CHALLENGE_COINS[t]} |`,
+    ),
+  );
+  return `Every challenge a week can bring:\n\n| Tier | Challenge | How | Coins |\n|---|---|---|---|\n${rows.join("\n")}`;
+}
 
 /** MAP (r12): every achievement and what it pays, from the rules. */
 // PARTNERS (r13): what a business costs to found together, and what can be put to the partners.
@@ -2322,7 +2339,7 @@ Reaching ${END_YEAR} with a character still living is worth coins of its own.`,
     id: "coins",
     part: "world",
     title: "Derp Coins",
-    line: "Paid as you play: time at the table, your line's marks, the end, and achievements.",
+    line: "Paid as you play: time at the table, your line's marks, the end, achievements and the weekly challenges.",
     // LEGACY (r21): paid as you play, held to real time.
     body: `Derpy Conquest pays **Derp Coins as you play**, about what DerpyFront pays for an hour, if you're signed in to Derp Land (a guest is told, but not paid). **Journal › Achievements** shows what this game has paid you, and what's waiting.
 
@@ -2366,7 +2383,16 @@ They're told the moment they're earned, with a scene saying what each paid. **Jo
 
 ${achievementsTable()}
 
-> Tip: Most of a game's coins come from time at the table: an evening's play pays about the same at any speed. A line that rises high adds a hundred or two, and this game's achievements more as you go; play on Hard and each also goes onto your account once.`,
+> Tip: Most of a game's coins come from time at the table: an evening's play pays about the same at any speed. A line that rises high adds a hundred or two, and this game's achievements more as you go; play on Hard and each also goes onto your account once.
+
+## Weekly challenges
+Each week (Monday to Monday, New York time) has **three Derpy Conquest challenges**, one easy, one medium and one hard, the same for everyone, beside three for DerpyFront. The Derp Land home page shows this week's, where you stand with them and the time left; your profile keeps the weeks gone by. Each pays **once a week**: ${CHALLENGE_COINS.easy} Derp Coins for an easy one, ${CHALLENGE_COINS.medium} for a medium, ${CHALLENGE_COINS.hard} for a hard, and **${CHALLENGE_BONUS} more for all three**. You're told the moment one is done, and the end screen lists those a game finished.
+- What counts is what you do **at the table**, the way time there pays: a choice of your own in the last ${PLAY_PAY.idleMinutes} minutes, the clock running, and the one seat you last chose in. What the world does while you're away isn't yours.
+- Each game counts once you've played it 10 minutes. Where you stood when the week began (or when you sat down to the game this week) is where each starts: married already, it's the next wedding that counts.
+- "In one game" and "with one character" mean just that: a game picked up again carries on from where it was; an heir starts afresh.
+- None needs anything from the store.
+
+${challengeTable()}`,
   },
   // ================================================================ reference
   {

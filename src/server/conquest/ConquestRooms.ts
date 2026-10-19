@@ -112,6 +112,15 @@ import { recordConquestGame } from "../derpy/DerpyConquest";
 import { derpyDbConfigured } from "../derpy/DerpyDb";
 import { logger } from "../Logger";
 import { TablePay, type SeatPay } from "./ConquestPay"; // LEGACY (r21)
+// CHAL (r25): the weekly challenges, watched as the game is played.
+import type { ChallengeDone } from "../../derpland/Challenges";
+import {
+  challengesInGame,
+  challengesOn,
+  conquestChallengeProgress,
+  conquestGameProgress,
+} from "../derpy/DerpyChallenges";
+import { ConquestChallenges, type SeatChallenges } from "./ConquestChallenges";
 // DLC (r21): Conquest's store items, checked here from the account's rows.
 import { NO_DLC, type ConquestDlcOwned } from "../../conquest/DlcIds";
 import { setLegendsOwned } from "../../conquest/engine/Legends";
@@ -354,6 +363,8 @@ interface Seat {
   pay?: SeatPay;
   /** DLC (r21): what the seat's account owns of Conquest's DLC, when it last sat down. */
   dlc?: ConquestDlcOwned;
+  /** CHAL (r25): where the seat stands with this week's challenges in this game. */
+  chal?: SeatChallenges;
 }
 
 interface Room {
@@ -434,6 +445,8 @@ export class ConquestRooms {
   private last = Date.now();
   /** LEGACY (r21): Derp Coins as you play. */
   readonly pay: TablePay;
+  /** CHAL (r25): the weekly challenges. */
+  readonly challenges: ConquestChallenges;
 
   constructor(
     private readonly now: () => number = Date.now,
@@ -448,6 +461,16 @@ export class ConquestRooms {
       },
       (msg) => log.warn(msg),
     );
+    this.challenges = new ConquestChallenges({
+      now,
+      record: conquestChallengeProgress,
+      load: conquestGameProgress,
+      tell: (seat, done) => {
+        const conn = (seat as Seat).conn;
+        if (conn) this.send(conn, { t: "challenge", done });
+      },
+      warn: (msg) => log.warn(msg),
+    });
   }
 
   start(): void {
@@ -1735,6 +1758,35 @@ export class ConquestRooms {
         );
     } else this.broadcast(room, { t: "d", d });
     void this.achievements(room);
+    this.lookChallenges(room); // CHAL (r25)
+  }
+
+  /**
+   * CHAL (r25): each signed-in seat's look at this week's challenges, as the
+   * world is sent out (once its pay is read: time at the table and the
+   * coins paid are measured too). `force`: progress sent now (the end).
+   */
+  private lookChallenges(room: Room, force = false): void {
+    const game = room.game;
+    if (!game || !room.saveId || !challengesOn() || !derpyDbConfigured())
+      return;
+    for (const seat of room.seats) {
+      const p = seat.pay;
+      const life = lifeOfSeat(game.state, seat.id);
+      if (seat.accountId === null || !life || !p?.ready) continue;
+      this.challenges.look(
+        seat,
+        room.saveId,
+        {
+          g: game,
+          life,
+          counting: this.pay.counting(room, seat),
+          tableSecs: p.secs + p.owed,
+          coins: p.play + p.lines,
+        },
+        force,
+      );
+    }
   }
 
   /**
@@ -2243,6 +2295,10 @@ export class ConquestRooms {
     // held to the time played) and living to see 1776.
     for (const seat of room.seats) this.pay.ready(room, seat);
     await this.pay.settleAll(room);
+    // CHAL (r25): the challenges' last progress, sent before the results.
+    await Promise.all(room.seats.map((x) => this.challenges.settled(x)));
+    this.lookChallenges(room, true);
+    await Promise.all(room.seats.map((x) => this.challenges.settled(x)));
     const reachedEnd = s.day >= s.endDay;
     const paying = derpyDbConfigured() && room.saveId !== null;
     const lines = room.seats
@@ -2299,6 +2355,19 @@ export class ConquestRooms {
           } catch (err) {
             log.warn(`couldn't read a game's achievements: ${err}`);
           }
+    // CHAL (r25): the weekly challenges each account finished in this game.
+    const chalIn = new Map<Seat, ChallengeDone[]>();
+    if (paying && challengesOn())
+      for (const x of lines)
+        if (x.seat.accountId !== null)
+          try {
+            chalIn.set(
+              x.seat,
+              (await challengesInGame(x.seat.accountId, room.saveId!)).done,
+            );
+          } catch (err) {
+            log.warn(`couldn't read a game's challenges: ${err}`);
+          }
     const achOf = (x: (typeof lines)[number]): ResultAchievements => ({
       game: Object.entries(x.life.achieved ?? {})
         .sort((a, b) => a[1] - b[1])
@@ -2337,6 +2406,7 @@ export class ConquestRooms {
         : {}),
       chars: x.chars,
       ach: achOf(x), // CQACH (r22)
+      ...(chalIn.get(x.seat)?.length ? { chal: chalIn.get(x.seat) } : {}), // CHAL (r25)
     }));
     const winner = lines[0];
     await this.save(room, true);

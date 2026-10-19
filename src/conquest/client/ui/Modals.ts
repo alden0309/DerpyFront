@@ -816,6 +816,7 @@ function endPage(ui: GameUi, hooks: ModalHooks): TemplateResult {
             </tbody>
           </table>
           ${coinBreakdown(results, ui)}
+          ${challengesAtEnd(results, ui) /* CHAL (r25) */}
           ${achievementsAtEnd(results, ui) /* CQACH (r22) */}
           ${everyCharacter(results, ui)}`
       : s.lives.length > 1
@@ -886,6 +887,38 @@ function dynastyAtEnd(
         : nothing}
     </div>
   </section>`;
+}
+
+// ---------------------------------------------------------------- CHAL (r25): weekly challenges at the end
+
+/** The weekly challenges this game finished for you, and what they paid. */
+function challengesAtEnd(
+  results: ResultLine[],
+  ui: GameUi,
+): TemplateResult | typeof nothing {
+  const mine = results.find((r) => r.name === ui.life?.name)?.chal;
+  if (!mine?.length) return nothing;
+  const coins = mine.reduce((n, c) => n + c.coins + (c.bonus ?? 0), 0);
+  return html`<h3 class="cq-h3">This week's challenges</h3>
+    <p class="cq-muted small">
+      ${mine.length} finished in this game, ${coins} Derp Coins (besides the
+      game's own).
+    </p>
+    <ul class="cq-end-ach cq-end-chal">
+      ${mine.map(
+        (c) =>
+          html`<li>
+              <span class="name">${c.name}</span
+              ><span class="cq-ach-coins">${c.coins}</span>
+            </li>
+            ${c.bonus
+              ? html`<li class="bonus">
+                  <span class="name">All three this week</span
+                  ><span class="cq-ach-coins">${c.bonus}</span>
+                </li>`
+              : nothing}`,
+      )}
+    </ul>`;
 }
 
 // ---------------------------------------------------------------- CQACH (r22): achievements at the end

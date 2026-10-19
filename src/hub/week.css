@@ -1,0 +1,363 @@
+/* CHAL (r25): the weekly challenges, on the front page ("This week") and a
+   player's profile. Each game's three in a card of its own, keyed by the
+   game's colour and wordmark like the profile's stat groups: a tier tag, the
+   name and how, the coins (a fruit-sticker yellow), and a bar. Unlayered, so
+   it wins over the site's layered defaults. */
+
+dl-week,
+dl-week-player {
+  display: block;
+}
+dl-week {
+  margin: 0 0 40px;
+}
+dl-week-player {
+  margin: 0 0 30px;
+}
+
+.dl-week-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 16px;
+  margin-bottom: 12px;
+}
+.dl-week-h {
+  margin: 0;
+}
+.dl-week-when {
+  font-size: 14px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.dl-week-when b {
+  font-weight: 600;
+  color: var(--text-2);
+}
+.dl-week-empty {
+  padding: 16px 18px;
+  border: 1px dashed var(--line-2);
+  border-radius: 12px;
+  font-size: 15px;
+}
+
+.dl-chal-games {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.dl-chal-game {
+  min-width: 0;
+  padding: 4px 16px 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: inset 3px 0 0 var(--front);
+}
+.dl-chal-game.conquest {
+  box-shadow: inset 3px 0 0 var(--conquest);
+}
+.dl-week-player .dl-chal-game {
+  background: rgba(255, 255, 255, 0.025);
+}
+.dl-chal-game-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 12px;
+  padding: 10px 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+.dl-chal-game-name {
+  margin: 0;
+  font-weight: 780;
+  font-stretch: 108%;
+  font-size: 18px;
+  line-height: 1.2;
+}
+.conquest .dl-chal-game-name {
+  font-family: var(--fell);
+  font-weight: 400;
+  font-size: 21px;
+  color: var(--vellum);
+}
+.dl-chal-bonus {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dl-chal-bonus.done {
+  color: var(--good);
+}
+
+.dl-chal-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dl-chal {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  grid-template-areas:
+    "tier text pay"
+    ". bar bar";
+  gap: 4px 12px;
+  align-items: start;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+.dl-chal:last-child {
+  border-bottom: 0;
+}
+.dl-chal-tier {
+  grid-area: tier;
+  justify-self: start;
+  margin-top: 2px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+.dl-chal.easy .dl-chal-tier {
+  background: rgba(71, 176, 114, 0.16);
+  color: #86d9a8;
+}
+.dl-chal.medium .dl-chal-tier {
+  background: rgba(231, 184, 74, 0.16);
+  color: var(--gold);
+}
+.dl-chal.hard .dl-chal-tier {
+  background: rgba(248, 113, 113, 0.15);
+  color: #fca5a5;
+}
+.dl-chal-text {
+  grid-area: text;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.dl-chal-name {
+  font-weight: 650;
+  color: var(--text);
+  line-height: 1.3;
+}
+.dl-chal-how {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--text-2);
+}
+.dl-chal-pay {
+  grid-area: pay;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 1px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--peel);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dl-chal-tick {
+  width: 16px;
+  height: 16px;
+  color: var(--good);
+}
+.dl-chal-progress {
+  grid-area: bar;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.dl-chal-bar {
+  flex: 1;
+  height: 6px;
+  min-width: 40px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.dl-chal-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--peel);
+}
+.dl-chal-count {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dl-chal.done .dl-chal-bar > span {
+  background: var(--good);
+}
+.dl-chal.done .dl-chal-count {
+  color: var(--good);
+}
+.dl-chal.done .dl-chal-how {
+  color: var(--text-3);
+}
+
+.dl-week-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.dl-week-signin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  color: var(--text-2);
+  font-size: 15px;
+}
+/* Unlayered rules here would otherwise hand these buttons the line's grey. */
+.dl-week-signin .dl-btn {
+  color: var(--peel-ink);
+}
+.dl-week-signin .dl-textbtn {
+  color: var(--text);
+}
+.dl-chal-rules {
+  font-size: 14px;
+  color: var(--text-2);
+}
+.dl-chal-rules summary {
+  width: max-content;
+  max-width: 100%;
+  cursor: pointer;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.dl-chal-rules summary:hover {
+  color: var(--text-2);
+}
+.dl-chal-rules ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 78ch;
+  margin: 8px 0 0;
+  padding: 0 0 0 18px;
+  list-style: disc;
+}
+.dl-chal-rules b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---- the profile's weeks gone by ---- */
+.dl-week-past-h {
+  margin: 18px 0 6px;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--text-2);
+}
+.dl-week-past {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dl-week-past li {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.dl-week-past li:last-child {
+  border-bottom: 0;
+}
+.dl-week-past-when {
+  font-size: 14px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.dl-week-past-done {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.dl-chal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 13px;
+  color: var(--text);
+}
+.dl-chal-chip::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--front);
+}
+.dl-chal-chip.conquest::before {
+  background: var(--conquest);
+}
+.dl-chal-chip.bonus {
+  color: var(--peel);
+  font-weight: 600;
+}
+.dl-week-past-coins {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--peel);
+  font-variant-numeric: tabular-nums;
+}
+.dl-week-none {
+  margin-top: 14px;
+  font-size: 14px;
+}
+
+@media (max-width: 860px) {
+  .dl-chal-games {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .dl-chal-game {
+    padding: 2px 12px 2px 14px;
+  }
+  .dl-chal {
+    grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: 4px 9px;
+  }
+  .dl-chal-tier {
+    padding: 2px 5px;
+    letter-spacing: 0.04em;
+  }
+  .dl-week-player.dl-panel {
+    padding: 16px 12px;
+  }
+  .dl-week-past li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .dl-week-past-done {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
