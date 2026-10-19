@@ -170,7 +170,7 @@ export function setNews(entries: readonly NewsEntry[]): void {
  * before they go in the real one); the hosted site never sets it.
  */
 export function loadNews(
-  file = process.env.DERPY_NEWS_FILE || NEWS_FILE,
+  file = process.env.DERPY_NEWS_FILE ?? NEWS_FILE,
 ): number {
   let text: string;
   try {
