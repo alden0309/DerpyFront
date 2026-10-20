@@ -50,27 +50,30 @@ export interface ScenarioRule {
 }
 
 /**
- * Europe 1939: the war in the west and the east didn't begin at once. The
- * Soviet Union, bound by its pact with Germany, starts no war for the first
- * minutes, and France and the United Kingdom (the Phoney War) for the first
- * three, unless attacked meanwhile. So Germany is dangerous early, as it
- * was. (Tuned on the balance runs.)
- */
-export const EUROPE_1939_HOLD_TICKS: Record<string, number> = {
-  soviet_union: 3 * 600,
-  france: 3 * 600,
-  united_kingdom: 3 * 600,
-};
-
-/**
  * Europe 1939: the Red Army is the biggest on the board (its data gives it
  * the troops and the deep reserves), but the purges of 1937-38 left it
- * without most of its officers: for the first minutes every Soviet attack
+ * without most of its officers. For the first minutes every Soviet attack
  * costs this many times the troops and the time (players and computer
- * alike). Tested at 5 and 10 minutes on the balance runs.
+ * alike), and a computer-run Soviet Union starts no war meanwhile (its pact
+ * with Germany) unless attacked. Tested at 5 and 10 minutes on the balance
+ * runs.
  */
 export const EUROPE_1939_PURGE_TICKS = 10 * 600;
 export const EUROPE_1939_PURGE_FACTOR = 2;
+
+/**
+ * Europe 1939: the war in the west and the east didn't begin at once. The
+ * Soviet Union holds back while the purges last (above); France and the
+ * United Kingdom (the Phoney War, which lasted until May 1940) start no war
+ * for the first ten minutes unless attacked. So Germany is dangerous early,
+ * as it was. (Tuned on the balance runs: with three minutes in the west the
+ * Allies won every game.)
+ */
+export const EUROPE_1939_HOLD_TICKS: Record<string, number> = {
+  soviet_union: EUROPE_1939_PURGE_TICKS,
+  france: 10 * 600,
+  united_kingdom: 10 * 600,
+};
 
 /** The special rules, by name. Add one here and name it in the data. */
 export const SCENARIO_RULES: Record<string, ScenarioRule> = {

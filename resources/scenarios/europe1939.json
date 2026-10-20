@@ -7,7 +7,7 @@
   "capitalFullTiles": 60000,
   "rule": "europe1939",
   "sides": [
-    { "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 45 },
+    { "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 35 },
     { "id": "Allies", "name": "Allies", "color": "#3f7fd6" }
   ],
   "nations": [
@@ -19,7 +19,7 @@
       "color": "#6f6f6f",
       "troopsPercent": 100,
       "gold": 3000000,
-      "troopCapBonus": 250000,
+      "troopCapBonus": 1200000,
       "capital": [1550, 762],
       "structures": [
         { "type": "City", "at": [1411, 720], "level": 2 },
@@ -65,7 +65,7 @@
       "color": "#3f8f45",
       "troopsPercent": 85,
       "gold": 1500000,
-      "troopCapBonus": 50000,
+      "troopCapBonus": 300000,
       "capital": [1514, 1193],
       "structures": [
         { "type": "City", "at": [1379, 1048], "level": 2 },
@@ -289,9 +289,9 @@
       "flag": "ussr",
       "side": "Allies",
       "color": "#8e2626",
-      "troopsPercent": 60,
+      "troopsPercent": 80,
       "gold": 1200000,
-      "troopCapBonus": 2500000,
+      "troopCapBonus": 1800000,
       "capital": [2533, 631],
       "structures": [
         { "type": "City", "at": [2237, 460], "level": 2 },

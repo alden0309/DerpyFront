@@ -177,7 +177,7 @@ describe("a scenario's special rule", () => {
 });
 
 describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
-  it("holds the Soviet Union, France and Britain back three minutes, unless attacked", async () => {
+  it("holds the Soviet Union back while the purges last, France and Britain ten minutes, unless attacked", async () => {
     const g = await scenarioGame("europe1939");
     const at = (ticks: number) => {
       const view = Object.create(g.game) as Game;
@@ -188,15 +188,17 @@ describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
     const france = g.nation("france");
     const germany = g.nation("germany");
     const spain = g.nation("spain");
-    expect(EUROPE_1939_HOLD_TICKS.soviet_union).toBe(3 * 600);
+    expect(EUROPE_1939_HOLD_TICKS.soviet_union).toBe(EUROPE_1939_PURGE_TICKS);
+    expect(EUROPE_1939_HOLD_TICKS.france).toBe(10 * 600);
     expect(scenarioHoldsFire(at(100), ussr)).toBe(true);
     expect(scenarioHoldsFire(at(100), france)).toBe(true);
     expect(scenarioHoldsFire(at(100), germany)).toBe(false);
     // Neutrals start no war at all.
     expect(scenarioHoldsFire(at(100_000), spain)).toBe(true);
-    expect(scenarioHoldsFire(at(3 * 600), france)).toBe(false);
-    expect(scenarioHoldsFire(at(3 * 600 - 1), ussr)).toBe(true);
-    expect(scenarioHoldsFire(at(3 * 600), ussr)).toBe(false);
+    expect(scenarioHoldsFire(at(10 * 600 - 1), france)).toBe(true);
+    expect(scenarioHoldsFire(at(10 * 600), france)).toBe(false);
+    expect(scenarioHoldsFire(at(EUROPE_1939_PURGE_TICKS - 1), ussr)).toBe(true);
+    expect(scenarioHoldsFire(at(EUROPE_1939_PURGE_TICKS), ussr)).toBe(false);
     // Attacked, it fights back at once.
     const finland = g.nation("finland");
     g.game.addExecution(
@@ -219,10 +221,14 @@ describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
         expect(ussr.troops(), p.name()).toBeGreaterThan(p.troops());
     }
     expect(ussr.troops()).toBeGreaterThan(germany.troops() * 1.1);
-    expect(game.config().maxTroops(ussr)).toBeGreaterThan(
-      game.config().maxTroops(germany) * 1.5,
-    );
-    expect(ussr.troops()).toBeLessThan(game.config().maxTroops(ussr) * 0.75);
+    // ...and the biggest cap by far: room to grow.
+    for (const p of game.players()) {
+      if (p === ussr) continue;
+      expect(game.config().maxTroops(ussr), p.name()).toBeGreaterThan(
+        game.config().maxTroops(p) * 1.3,
+      );
+    }
+    expect(ussr.troops()).toBeLessThan(game.config().maxTroops(ussr) * 0.85);
     // Its attacks cost double for the first minutes; nobody else's do.
     const rule = SCENARIO_RULES.europe1939;
     const at = (ticks: number) => {
