@@ -11,10 +11,7 @@ import {
   ThemeName,
   ThemeSettings,
 } from "../render/gl/RenderSettings";
-import {
-  activeScenario,
-  activeScenarioSide,
-} from "../scenario/ScenarioClient"; // SCEN (r25)
+import { activeScenario, activeScenarioSide } from "../scenario/ScenarioClient"; // SCEN (r25)
 import { UserSettings } from "../UserSettings";
 import { PlayerView } from "../view";
 import { ColorAllocator } from "./ColorAllocator";

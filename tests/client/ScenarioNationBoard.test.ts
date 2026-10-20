@@ -95,7 +95,9 @@ describe("the nations board", () => {
     tile("hungary").click();
     // Free Bea's seat.
     tile("germany")
-      .querySelector<HTMLButtonElement>('button[aria-label="scenarios.free_seat"]')!
+      .querySelector<HTMLButtonElement>(
+        'button[aria-label="scenarios.free_seat"]',
+      )!
       .click();
     expect(changes).toEqual([
       { nation: "italy", target: "GUEST001" },

@@ -932,9 +932,7 @@ export class HostLobbyModal extends BaseModal {
       { id: pick.id, nation: mine },
       null,
       html`<div class="space-y-2">
-        <h4
-          class="text-xs font-bold uppercase tracking-widest text-white/40"
-        >
+        <h4 class="text-xs font-bold uppercase tracking-widest text-white/40">
           ${translateText("scenarios.seats")}
         </h4>
         <p class="text-xs text-white/50">
