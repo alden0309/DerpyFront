@@ -1,8 +1,8 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import { MessageType, Team } from "@openfront/engine-api/game/GameTypes";
 import { ScenarioSide } from "@openfront/engine-lib/scenario/ScenarioData";
-import { scenarioTerritory } from "@openfront/engine-lib/scenario/ScenarioTerritory";
 import { Game, Player } from "../game/Game";
+import { scenarioStartLabels } from "./ScenarioLabels";
 
 /**
  * SCEN (r25): the rules a Scenario adds while it is played.
@@ -40,6 +40,13 @@ export interface ScenarioRule {
    * still builds and defends). Players are never held back.
    */
   holdsFire?(game: Game, nation: Player): boolean;
+  /**
+   * How much more `attacker`'s attacks on `defender` cost now (1: no
+   * change; 1.5: half as much again), on top of the front rules
+   * (ScenarioFronts.ts). For a nation weaker or stronger in attack for a
+   * while.
+   */
+  attackFactor?(game: Game, attacker: Player, defender: Player): number;
 }
 
 /**
@@ -278,7 +285,7 @@ export function holdTargetTiles(
   const scenario = game.scenario();
   if (scenario === null) return new Uint32Array(0);
   const data = scenario.data;
-  const labels = scenarioTerritory(data, game.map(), scenario.scale);
+  const labels = scenarioStartLabels(game, scenario);
   const wanted = new Set<number>();
   data.nations.forEach((n, i) => {
     if (nations.includes(n.key)) wanted.add(i + 1);

@@ -19,6 +19,27 @@ import ww1914 from "resources/scenarios/ww1914.json";
  * game halves them, and the territory is the same polygons sampled at the
  * smaller map's pixel centres.
  */
+/**
+ * How hard fronts hold in a scenario (ScenarioFronts.ts). Every field is
+ * optional; the defaults suit any scenario. A factor makes attacks cost more
+ * troops and take longer, multiplied together.
+ */
+export interface ScenarioFrontRules {
+  /** Extra cost of attacking a nation's own starting land (0.3 = +30%). */
+  homeland?: number;
+  /**
+   * Further cost there as the nation loses land: + lastStand x the share of
+   * its starting size it has lost (1.0: up to +100% when nearly gone).
+   */
+  lastStand?: number;
+  /** Full-size tiles an attacker may push beyond its starting land freely. */
+  supplyFreeRange?: number;
+  /** Extra cost per 100 full-size tiles beyond that (0.3 = +30%). */
+  supplyPer100?: number;
+  /** The most the supply cost can reach (2.0 = attacks cost double). */
+  supplyMax?: number;
+}
+
 export interface ScenarioData {
   id: string;
   /** Its English name ("Europe 1939"); shown from en.json where it can be. */
@@ -33,6 +54,8 @@ export interface ScenarioData {
   winPercent: number;
   /** See ScenarioCatalogEntry.capitalFullTiles (it is copied to the index). */
   capitalFullTiles?: number;
+  /** Optional overrides of the front rules' defaults (ScenarioFrontRules). */
+  fronts?: ScenarioFrontRules;
   sides: ScenarioSide[];
   nations: ScenarioNation[];
   /**

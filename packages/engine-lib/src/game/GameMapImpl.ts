@@ -157,6 +157,15 @@ export class GameMapImpl implements GameMap {
   // map file and verify the file it will be restored onto is the same one.
   private pristineTerrain: Map<TileRef, number> | null = null;
 
+  /**
+   * The map file's terrain byte for a tile, whatever the game has done to
+   * it since (SCEN r25: a Scenario's starting land is worked out from the
+   * map as it was, so a restored game finds the same).
+   */
+  pristineTerrainByte(ref: TileRef): number {
+    return this.pristineTerrain?.get(ref) ?? this.terrain[ref];
+  }
+
   private noteTerrainEdit(ref: TileRef): void {
     this.pristineTerrain ??= new Map();
     if (!this.pristineTerrain.has(ref)) {

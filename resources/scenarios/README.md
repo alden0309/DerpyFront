@@ -36,6 +36,15 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   that start very unequal get unequal bars (1939: the Allies hold 60% at the
   start, the Axis 19%). At the lobby timer, or the 170-minute limit, the side
   nearest its bar (its land over its bar) wins.
+- **Fronts hold** (every scenario, `packages/engine/src/scenario/ScenarioFronts.ts`):
+  - _Homeland:_ attacking a nation on its own starting land costs more, and
+    more again the more of its starting size it has lost (a last stand).
+  - _Supply lines:_ an attack costs more the farther it is from the
+    attacker's own starting land (over land or sea, so landings count).
+  - The factors multiply, with a special rule's `attackFactor`, into one
+    that multiplies both the attacker's troop loss per tile and the time a
+    tile takes. Defaults below; a scenario may override them with `fronts`.
+    Ordinary games never use them.
 - Players pick a nation (solo, or a seat in a private lobby). They play it
   under its name and flag, with their own name added: "France (Alden)".
   Nations nobody picked are computer-run, at the game's difficulty.
@@ -52,6 +61,7 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   "year": 1939,
   "winPercent": 60, // % of the land a side must hold to win
   "capitalFullTiles": 40000, // optional, see Capitals
+  "fronts": { "supplyMax": 2.5 }, // optional, see Fronts
   "rule": "korea", // optional special rule (ScenarioRules.ts)
   "sides": [
     { "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 40 },
@@ -113,6 +123,20 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   would make every small state a fortress. With `capitalFullTiles`, a capital
   gives its full bonus only to a nation holding at least that many (full-size)
   tiles, and a share of it below that.
+- **Fronts** (optional; any field left out takes its default):
+
+  | Field             | Default | What it does                                                               |
+  | ----------------- | ------- | -------------------------------------------------------------------------- |
+  | `homeland`        | 0.3     | extra cost of attacking a nation on its own starting land (+30%)           |
+  | `lastStand`       | 1.0     | further cost there: + this x the share of its starting size it has lost    |
+  | `supplyFreeRange` | 40      | full-size tiles an attacker may push beyond its starting land without cost |
+  | `supplyPer100`    | 0.3     | extra cost per 100 full-size tiles beyond that (+30%)                      |
+  | `supplyMax`       | 2.0     | the most the supply cost reaches (attacks at double cost)                  |
+
+  So a defender that has lost half its size, on its own soil, against an
+  attacker 300 tiles from home, makes each tile cost 1.8 x 1.78 = 3.2 times
+  the usual troops and time.
+
 - **Regions** are polygons in pixel corners: each ring is a string
   `"x0,y0,dx1,dy1,dx2,dy2,..."`, deltas after the first point. A tile is
   in a polygon when its centre is; a nation's rings fill even-odd (a ring
@@ -141,10 +165,20 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
 A special rule (something data can't say, like a nation joining a side on a
 condition) is a `ScenarioRule` in `SCENARIO_RULES`
 (`packages/engine/src/scenario/ScenarioRules.ts`), named by the data's
-`rule`. Its hooks: `start(game)` once the board is laid out, and
-`sideToJoin(game, neutral, against)` to choose (or refuse, with null) the
-side a neutral joins. Add a hook there if a scenario needs another; it runs
-on every client, so keep it deterministic.
+`rule`. Its hooks:
+
+- `start(game)`: once the board is laid out;
+- `sideToJoin(game, neutral, against)`: choose (or refuse, with null) the
+  side a neutral joins;
+- `holdsFire(game, nation)`: a computer-run nation on a side starts no
+  attacks for now (Europe 1939's pact and Phoney War);
+- `attackFactor(game, attacker, defender)`: a further factor on the cost of
+  an attacker's attacks (Europe 1939: the Soviet Union's purged officer
+  corps, for the first minutes).
+
+Add a hook there if a scenario needs another; it runs on every client, so
+keep it deterministic (the game's ticks and state, integer or plain
+arithmetic, DetMath for anything else; no clocks, no Math.random).
 
 The `title` is the English name the server uses (the game's record, the live
 games list); the menu shows `scenarios.<id>.title`.
