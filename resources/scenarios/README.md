@@ -76,6 +76,7 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
       "troopsPercent": 95, // starting troops, % of its troop cap
       "gold": 2000000, // starting gold
       "troopCapBonus": 700000, // optional: troops added to its cap
+      "troopGrowth": 1.5, // optional: troops grow back 1.5 times as fast
       "capital": [1572, 760], // map pixel of its capital
       "structures": [
         // optional, built and finished at the start
@@ -114,6 +115,12 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   overseas in 1776 (880K against the one United Colonies, 6.5M against the
   thirteen, who attack it from every side). Half as much in a Compact game.
   Tune it with the balance runs.
+- **troopGrowth** (optional, default 1) multiplies how fast a nation's
+  troops grow back: deep reserves. Troop growth is concave (it grows with
+  troops to the power 0.73), so a coalition of many small nations regrows
+  faster in all than one big nation with the same troops, and a lone great
+  power facing many needs this (1776: Britain against thirteen colonies).
+  Tune it with the balance runs, with `troopCapBonus`.
 - **Structures:** `City`, `Port`, `Factory`, `Defense Post`, `Missile Silo`,
   `SAM Launcher`, with an optional `level`. Each stands at the nearest place
   its owner may build one (on its own land, a port on the coast, 15 tiles

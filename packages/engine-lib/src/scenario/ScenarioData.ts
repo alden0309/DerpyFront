@@ -118,6 +118,14 @@ export interface ScenarioNation {
    * as much in a Compact game.
    */
   troopCapBonus?: number;
+  /**
+   * How fast its troops grow back, as a multiple of the usual (default 1):
+   * deep reserves, like the Red Army's in 1939 or Britain's from overseas
+   * in 1776. A coalition of many small nations regrows faster in all than
+   * one big nation with the same troops (the growth is concave), so a lone
+   * great power facing many may need this.
+   */
+  troopGrowth?: number;
   /** Where its capital stands. */
   capital: [number, number];
   structures?: ScenarioStructure[];

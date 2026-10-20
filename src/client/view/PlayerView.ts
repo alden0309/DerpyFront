@@ -445,6 +445,10 @@ export class PlayerView implements PlayerLike {
       this.game.config().gameConfig().gameMapSize === GameMapSize.Compact;
     return (bonus * 10) / (compact ? 2 : 1);
   }
+  /** SCEN (r25): as the engine's (Config.troopIncreaseRate reads it). */
+  scenarioTroopGrowth(): number {
+    return this.scenarioNation()?.troopGrowth ?? 1;
+  }
   /**
    * AIP (r23): the personality this AI nation was dealt, or null (Normal,
    * a tribe, a human, or a game from before personalities).

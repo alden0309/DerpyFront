@@ -32,6 +32,11 @@ export interface PlayerLike {
    * troopCapBonus, stored ten times as troops are); absent or 0 otherwise.
    */
   scenarioTroopCap?(): number;
+  /**
+   * SCEN (r25): how fast a Scenario lets this player's troops grow back
+   * (its nation's troopGrowth); absent or 1 otherwise.
+   */
+  scenarioTroopGrowth?(): number;
 }
 
 export interface UnitLike {

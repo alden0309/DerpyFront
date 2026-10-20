@@ -501,6 +501,10 @@ export class Config {
       }
     }
 
+    // SCEN (r25): a scenario nation's deep reserves (1 everywhere else).
+    const growth = player.scenarioTroopGrowth?.() ?? 1;
+    if (growth !== 1) toAdd *= growth;
+
     return Math.min(player.troops() + toAdd, max) - player.troops();
   }
 

@@ -6,6 +6,7 @@ import { resolveScenarioSeats } from "@openfront/engine-lib/scenario/ScenarioSea
 import { BreakAllianceExecution } from "@openfront/engine/execution/alliance/BreakAllianceExecution";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { Game, Player } from "@openfront/engine/game/Game";
+import { PlayerImpl } from "@openfront/engine/game/PlayerImpl";
 import { scenarioAttackFactor } from "@openfront/engine/scenario/ScenarioFronts";
 import {
   enemySideFor,
@@ -254,6 +255,39 @@ describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
     );
     expect(early / late).toBeCloseTo(EUROPE_1939_PURGE_FACTOR, 6);
   }, 120_000);
+});
+
+describe("deep reserves (troopGrowth)", () => {
+  it("multiplies a scenario nation's troop growth, and nobody else's", async () => {
+    const g = await scenarioGame("continental1776");
+    const config = g.game.config();
+    const britain = g.nation("great_britain");
+    const colonies = g.nation("united_colonies");
+    const n = scenarioData("continental1776")!.nations.find(
+      (x) => x.key === "great_britain",
+    )!;
+    const before = n.troopGrowth;
+    try {
+      for (const p of [britain, colonies]) {
+        p.setTroops(Math.floor(config.maxTroops(p) / 4));
+      }
+      n.troopGrowth = undefined;
+      const plain = config.troopIncreaseRate(britain);
+      const others = config.troopIncreaseRate(colonies);
+      n.troopGrowth = 2;
+      expect(britain.scenarioTroopGrowth?.()).toBe(2);
+      expect(config.troopIncreaseRate(britain)).toBeCloseTo(plain * 2, 6);
+      expect(config.troopIncreaseRate(colonies)).toBe(others);
+      expect(colonies.scenarioTroopGrowth?.()).toBe(1);
+    } finally {
+      n.troopGrowth = before;
+    }
+  }, 120_000);
+
+  it("is 1 for a player in an ordinary game", () => {
+    const ordinary = { mg: { scenario: () => null } };
+    expect(PlayerImpl.prototype.scenarioTroopGrowth.call(ordinary)).toBe(1);
+  });
 });
 
 describe("a scenario game, computer against computer", () => {
