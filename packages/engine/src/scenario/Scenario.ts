@@ -73,20 +73,28 @@ export class ScenarioRuntime {
    * map the first time it's asked for, so a restored game finds the same.
    */
   holdTargets(side: string, compute: () => Uint32Array): Uint32Array {
-    let t = this.holdTargetsBySide.get(side);
+    // Kept outside the object: a cache, not game state, so a restored
+    // game's object graph matches the original's.
+    let bySide = HOLD_TARGETS.get(this);
+    if (bySide === undefined) {
+      bySide = new Map();
+      HOLD_TARGETS.set(this, bySide);
+    }
+    let t = bySide.get(side);
     if (t === undefined) {
       t = compute();
-      this.holdTargetsBySide.set(side, t);
+      bySide.set(side, t);
     }
     return t;
   }
-  private readonly holdTargetsBySide = new Map<string, Uint32Array>();
 
   /** A full-size map pixel in this game's map. */
   px(at: readonly [number, number]): [number, number] {
     return [Math.floor(at[0] / this.scale), Math.floor(at[1] / this.scale)];
   }
 }
+
+const HOLD_TARGETS = new WeakMap<ScenarioRuntime, Map<string, Uint32Array>>();
 
 /** The game's scenario, or null for an ordinary game. */
 export function scenarioRuntime(
