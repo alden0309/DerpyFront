@@ -24,7 +24,7 @@ import { createGameRunner } from "@openfront/engine/GameRunner";
 import { loadMapFiles } from "@openfront/shared/GameMapLoader";
 import path from "path";
 import { NodeGameMapLoader } from "../perf/fullgame/NodeGameMapLoader";
-import { ContestedSample, contestedStats } from "./ContestedMetric";
+import { ContestedSample, contestedStats, leaderOf } from "./ContestedMetric";
 
 const args = process.argv.slice(2);
 function arg(name: string, def: string): string {
@@ -180,6 +180,11 @@ async function main() {
           leadChanges: c.leadChanges,
         };
       })(),
+      // The leader at each 30 s sample, by the first letter of its side
+      // ("." for a tie): how the lead went (ContestedMetric.ts).
+      leaders: samples
+        .map((smp) => leaderOf(smp.progress)?.[0] ?? ".")
+        .join(""),
       wallSeconds: Math.round((Date.now() - t0) / 1000),
       shares,
       joins,

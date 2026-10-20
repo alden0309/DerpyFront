@@ -119,6 +119,20 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   its owner may build one (on its own land, a port on the coast, 15 tiles
   from the others); one that finds no place is skipped. The capital is a
   Capital, the fork's one-per-nation building.
+- **Forts, bases and industry at the start** are structures too, and keep to
+  the period (no silos or SAMs before the missile age):
+  - a _fortified line_ is a row of `Defense Post`s, one every 16 tiles or
+    more (a post guards the land 30 tiles round it), `level` 2 for the
+    great forts (a stacked post defends half as hard again): Europe 1939's
+    Westwall, Maginot Line, Mannerheim and Stalin Lines; 1776's Quebec,
+    Ticonderoga, Niagara, Fort Pitt;
+  - a _naval base_ is a `Port` (`level` 2 for the main ones) with
+    `warships` off it;
+  - an _industrial centre_ is a `Factory`.
+- **Warships** start at their nation's nearest port on the same water and
+  sail to their station (the pixel given), so a fleet needs a port on its
+  water: a lake fleet a port on the lake (1776: Britain's on Lake Champlain
+  sails from Saint-Jean, above the Richelieu's rapids).
 - **Capitals** give a troop bonus (200K) whatever the nation's size, which
   would make every small state a fortress. With `capitalFullTiles`, a capital
   gives its full bonus only to a nation holding at least that many (full-size)
@@ -146,7 +160,16 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   only land matters, and the tools draw them through the sea to keep them
   small. Keep a file to a few tens of KB.
 
-## Adding a scenario
+## Adding or changing a scenario
+
+**The edition.** A game records the scenarios' edition it was played under
+(`SCENARIO_EDITION` in `packages/engine-api/src/game/Scenarios.ts`, set by
+`applyScenarioRules`), and a replay of a game from another edition is
+refused like one from another build (its war would not play the same).
+Bump it when you change how an existing scenario plays (its data, its
+rule, the front rules' defaults). Adding a new scenario needs no bump.
+Edition 2 (round 2) moved the 1776 scenarios to American Revolution -
+Detailed and added the fronts, the 1939 forts and the purges.
 
 1. Write its recipe and build it with the border tools (projection fit for a
    new map, borders, capitals, structures), or write the JSON by hand.
@@ -188,6 +211,9 @@ games list); the menu shows `scenarios.<id>.title`.
 - Europe 1939: borders from aourednik/historical-basemaps `world_1938`
   (GPL-3.0), corrected to 1 September 1939; modern lines from Natural Earth
   (public domain) where they haven't moved.
-- 1776: colony lines from the US Census cartographic boundary files (public
-  domain) and hand-drawn treaty lines; the map's own native nations.
+- 1776 (map American Revolution - Detailed): colony lines from the US
+  Census cartographic boundary files (public domain) and hand-drawn treaty
+  lines; the map's own native nations. Britain's Quebec and Nova Scotia are
+  exactly the land that is dark (impassable) on Thirteen Colonies -
+  Detailed, today's Canada.
 - Map projections: fitted from each map's land mask against Natural Earth.
