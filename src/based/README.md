@@ -98,9 +98,12 @@ far). The same key closes the panel it opened.
 
 ## Part one, as the owner reshaped it (r25)
 
-- **The street.** The man under the awning with an unlit cigarette: going
-  up to him is Mr. Based offering a light; he wants to be alone, and that's
-  the end of it. He stays under the awning (the mirror, the signal).
+- **The street.** The man under the awning with an unlit cigarette. With
+  matches or a lighter in his pocket (`has_light`, set wherever he gets
+  one), going up to him is Mr. Based offering a light; he wants to be
+  alone, and that's the end of it. With nothing to light it, a nod the man
+  doesn't return; the offer comes once he has a light. He stays under the
+  awning (the mirror, the signal).
 - **The lobby.** A front desk with the desk clerk behind it and the key
   board behind him; the guest book, turned to the clerk and never read; a
   staircase up the back wall, closed by a red rope with a card (Guests:

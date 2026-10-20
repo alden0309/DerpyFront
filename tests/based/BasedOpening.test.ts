@@ -25,6 +25,7 @@ import {
 import { parseChapter } from "../../src/based/engine/Script";
 import { buildOf } from "../../src/based/engine/Skills";
 import { FREE, SOUND_CUES } from "../../src/based/engine/Types";
+import { errorsOf, validateChapter } from "../../src/based/engine/Validate";
 import { playRandomly } from "./play";
 
 const ROOT = path.resolve(__dirname, "../..");
@@ -112,27 +113,104 @@ function street(seed = 7): StoryRun {
   return r;
 }
 
+/** What a talk with someone says, read through to the free world. */
+function talkTo(r: StoryRun, who: string): string {
+  const said: string[] = [];
+  r.talk(who);
+  for (let i = 0; i < 40 && r.beat.kind !== "free"; i++) {
+    const b = r.beat;
+    if (b.kind === "line") said.push(`${b.who ?? ""}: ${b.text}`);
+    // No choice at all: it ends.
+    expect(b.kind).not.toBe("choice");
+    r.advance();
+  }
+  expect(r.beat.kind).toBe("free");
+  return said.join("\n");
+}
+
+/** Into Le Vauban, a book of matches from the bowl, and back out. */
+function getMatches(r: StoryRun): void {
+  r.enterPlace("vauban", "vauban_door_in");
+  readOn(r);
+  r.look("matches");
+  readOn(r);
+  expect(r.has("matchbook")).toBe(true);
+  r.enterPlace("street", "vauban_door_out");
+  readOn(r);
+}
+
 describe("the opening, reshaped (r25)", () => {
-  test("the smoker: he offers a light; the man wants to be alone, and that's that", () => {
+  test("the smoker, with nothing to light it: a nod he doesn't return, no offer", () => {
     const r = street();
     expect(r.stage.place).toBe("street");
     expect(r.stage.actors.WATCHER?.at).toBe("watcher_spot");
-    const said: string[] = [];
-    r.talk("WATCHER");
-    for (let i = 0; i < 40 && r.beat.kind !== "free"; i++) {
-      const b = r.beat;
-      if (b.kind === "line") said.push(`${b.who ?? ""}: ${b.text}`);
-      // No choice at all: it ends.
-      expect(b.kind).not.toBe("choice");
-      r.advance();
-    }
-    expect(said.join("\n")).toMatch(/BASED: Need a light\?/);
-    expect(said.join("\n")).toMatch(/I just want to be alone/);
+    expect(r.has("matchbook") || r.has("brass_lighter")).toBe(false);
+    const first = talkTo(r, "WATCHER");
+    expect(first).toMatch(/unlit cigarette/);
+    expect(first).toMatch(/nod/);
+    expect(first).not.toMatch(/light\?|matches|lighter|help/i);
+    expect(first).not.toMatch(/alone/);
+    expect(r.flag("saw_watcher")).toBe(1);
+    expect(r.flag("met_watcher")).toBe(0);
+    // Again, still nothing to offer: he hasn't moved.
+    const again = talkTo(r, "WATCHER");
+    expect(r.history()).toContain("s:watcher_by");
+    expect(again).not.toMatch(/light\?|matches/i);
+    expect(r.flag("met_watcher")).toBe(0);
+    expect(r.stage.actors.WATCHER?.at).toBe("watcher_spot");
+  });
+
+  test("the smoker, once he has matches: he offers a light; the man wants to be alone", () => {
+    // Nothing first, then the bar's matches, then back to him.
+    const r = street();
+    talkTo(r, "WATCHER");
+    getMatches(r);
+    expect(r.flag("has_light")).toBe(1);
+    const said = talkTo(r, "WATCHER");
+    expect(said).toMatch(/still hadn't lit his cigarette/);
+    expect(said).toMatch(/tore a match from Le Vauban's book/);
+    expect(said).toMatch(/BASED: Need a light\?/);
+    expect(said).not.toMatch(/The bar will have matches/);
+    expect(said).toMatch(/I just want to be alone/);
     expect(r.flag("met_watcher")).toBe(1);
     // He stays where the story needs him, and keeps to himself after.
     expect(r.stage.actors.WATCHER?.at).toBe("watcher_spot");
-    r.talk("WATCHER");
-    expect(text(r.sceneId)).toMatch(/Alone, monsieur/);
+    expect(talkTo(r, "WATCHER")).toMatch(/Alone, monsieur/);
+    // Matches first: the offer the first time he goes up to him.
+    const m = street(9);
+    getMatches(m);
+    const offer = talkTo(m, "WATCHER");
+    expect(offer).toMatch(/a cigarette he hadn't lit/);
+    expect(offer).toMatch(/BASED: Need a light\?/);
+    expect(m.flag("saw_watcher")).toBe(0);
+    expect(m.flag("met_watcher")).toBe(1);
+  });
+
+  test("the offer is gated: the validator refuses it without a light", () => {
+    expect(
+      (chapter.facts ?? []).some(
+        (f) =>
+          f.flags.includes("has_light") && f.words.includes("Need a light"),
+      ),
+    ).toBe(true);
+    const src = fs.readFileSync(
+      path.join(ROOT, "src/based/story/chapter-01.story"),
+      "utf8",
+    );
+    const trigger =
+      "@on talk WATCHER once if has_light and (has.matchbook or has.brass_lighter)";
+    expect(src).toContain(trigger);
+    const loose = parseChapter(
+      src.replace(trigger, "@on talk WATCHER once"),
+    ).chapter;
+    expect(
+      errorsOf(validateChapter(loose))
+        .map((p) => p.message)
+        .filter((m) => m.includes("has_light")),
+    ).not.toEqual([]);
+    expect(errorsOf(validateChapter(chapter)).map((p) => p.message)).toEqual(
+      [],
+    );
   });
 
   test("the whole of part one: the lobby, the stairs closed then opened, the man in grey, the contact, sleep, the window, the end", () => {
@@ -624,6 +702,24 @@ describe("saves made before this round (r25)", () => {
     expect(p.ended).toBe(true);
     expect(p.run.history()).toContain("s:room");
     expect(p.run.tasks.find((t) => t.id === "night")?.done).toBe(true);
+  });
+
+  test("a save with matches but from before the light was a flag: he can still offer it", () => {
+    const r0 = street(11);
+    getMatches(r0);
+    const s = r0.snapshot();
+    delete s.flags.has_light;
+    const r = new StoryRun(chapter, s);
+    expect(r.flag("has_light")).toBe(0);
+    // Anything that settles him (a door) brings it in line.
+    r.enterPlace("vauban", "vauban_door_in");
+    readOn(r);
+    expect(r.flag("has_light")).toBe(1);
+    r.enterPlace("street", "vauban_door_out");
+    readOn(r);
+    r.talk("WATCHER");
+    readOn(r);
+    expect(r.flag("met_watcher")).toBe(1);
   });
 
   test("a save in a scene that's gone (the walk to the river) loads free there", () => {
