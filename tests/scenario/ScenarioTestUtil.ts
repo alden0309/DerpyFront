@@ -8,6 +8,7 @@ import {
   ErrorUpdate,
   GameUpdateViewData,
 } from "@openfront/engine-api/game/GameUpdates";
+import { MapFiles } from "@openfront/engine-api/game/MapFiles";
 import { GameConfig, GameStartInfo } from "@openfront/engine-api/Schemas";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "@openfront/engine/game/Game";
@@ -23,6 +24,9 @@ const MAPS = path.join(__dirname, "../../resources/maps");
 export interface ScenarioGame {
   runner: GameRunner;
   game: Game;
+  /** What the game was started from, and its map files (for restores). */
+  start: GameStartInfo;
+  files: MapFiles;
   updates: GameUpdateViewData[];
   /** Runs `n` ticks with no intents (or the given ones on the first). */
   step(n?: number): void;
@@ -88,6 +92,8 @@ export async function scenarioGame(
   const g: ScenarioGame = {
     runner,
     game: runner.game,
+    start: gameStart,
+    files,
     updates,
     step(n = 1) {
       for (let i = 0; i < n; i++) {

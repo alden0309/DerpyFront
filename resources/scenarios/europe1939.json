@@ -322,7 +322,7 @@
     {
       "key": "yugoslavia",
       "name": "Yugoslavia",
-      "flag": "yugoslavia",
+      "flag": "kingdom_of_yugoslavia",
       "side": "Allies",
       "color": "#5b8db4",
       "troopsPercent": 55,

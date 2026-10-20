@@ -11,7 +11,8 @@ The data files are written by the border tools (the SCEN track's scratch
 borders each nation takes, and the build writes the polygons, the snapped
 capitals and structures, and `index.json`. You can also edit a file by hand;
 `tests/scenario/ScenarioTerritory.test.ts` checks every file (the index,
-every land tile owned, spot pixels, each nation's land in one piece).
+every land tile owned, spot pixels, each nation's land holding together)
+and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
 
 ## What a scenario is
 
