@@ -180,10 +180,15 @@ async function main() {
           leadChanges: c.leadChanges,
         };
       })(),
-      // The leader at each 30 s sample, by the first letter of its side
-      // ("." for a tie): how the lead went (ContestedMetric.ts).
+      // The leader at each 30 s sample, by its side's place in the data
+      // (0, 1, ...; "." for a tie): how the lead went (ContestedMetric.ts).
       leaders: samples
-        .map((smp) => leaderOf(smp.progress)?.[0] ?? ".")
+        .map((smp) => {
+          const l = leaderOf(smp.progress);
+          return l === null
+            ? "."
+            : String(data.sides.findIndex((x) => x.id === l));
+        })
         .join(""),
       wallSeconds: Math.round((Date.now() - t0) / 1000),
       shares,
