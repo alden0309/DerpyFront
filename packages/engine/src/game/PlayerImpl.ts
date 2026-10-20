@@ -1405,15 +1405,13 @@ export class PlayerImpl implements Player {
   }
 
   // SCEN (r25): its scenario nation's troopCapBonus, as stored troops.
-  private _scenarioTroopCap: number | undefined;
+  // Worked out each time, not kept: it isn't game state (a snapshot's
+  // restored player must look exactly like the original).
   scenarioTroopCap(): number {
-    if (this._scenarioTroopCap === undefined) {
-      const scenario = this.mg.scenario();
-      const bonus = scenario?.nationOf(this)?.troopCapBonus ?? 0;
-      this._scenarioTroopCap =
-        (bonus * 10) / (scenario !== null && scenario.scale > 1 ? 2 : 1);
-    }
-    return this._scenarioTroopCap;
+    const scenario = this.mg.scenario();
+    if (scenario === null) return 0;
+    const bonus = scenario.nationOf(this)?.troopCapBonus ?? 0;
+    return (bonus * 10) / (scenario.scale > 1 ? 2 : 1);
   }
 
   // SCEN (r25): a scenario nation's starting gold (not income).

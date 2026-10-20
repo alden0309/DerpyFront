@@ -45,6 +45,8 @@ export async function scenarioGame(
     size?: GameMapSize;
     config?: Partial<GameConfig>;
     gameID?: string;
+    /** Leave the game before its first tick (the board not laid out). */
+    unstarted?: boolean;
   } = {},
 ): Promise<ScenarioGame> {
   console.debug = () => {};
@@ -113,6 +115,6 @@ export async function scenarioGame(
       return p;
     },
   };
-  g.step(2); // tick 0 inits, tick 1 lays out the board
+  if (!opts.unstarted) g.step(2); // tick 0 inits, tick 1 lays out the board
   return g;
 }

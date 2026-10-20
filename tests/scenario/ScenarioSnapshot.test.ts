@@ -12,6 +12,24 @@ import { scenarioGame } from "./ScenarioTestUtil";
 const hash = (game: Game) => (game as unknown as { hash(): number }).hash();
 
 describe("a scenario game, snapshotted and restored", () => {
+  it("restored before its first tick, lays out the same board", async () => {
+    const g = await scenarioGame("continental1776", { unstarted: true });
+    const restored = await createGameRunnerFromSnapshot(
+      g.start,
+      g.runner.snapshot(),
+      undefined,
+      g.files,
+      () => {},
+    );
+    for (let i = 0; i < 12; i++) {
+      g.step(1);
+      restored.addTurn({ turnNumber: restored.game.ticks(), intents: [] });
+      restored.executeNextTick();
+      expect(hash(restored.game)).toBe(hash(g.game));
+    }
+    expect(g.nation("great_britain").numTilesOwned()).toBeGreaterThan(1000);
+  }, 180_000);
+
   it("plays on exactly as the original", async () => {
     const g = await scenarioGame("europe1939", {
       players: [{ clientID: "HUMAN001", username: "Alden", nation: "france" }],
