@@ -10,30 +10,30 @@ signs up), and is never read again.
 
 ## Where things are
 
-| Path                             | What                                                                                                |
-| -------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `story/chapter-NN.story`         | One file per chapter, in the format below. **Server only.**                                         |
-| `places/<key>.json`              | The 3D places: the street, Le Vauban (bar and lobby), the Élysée. **Server only.**                  |
-| `models/*.glb`                   | The people (the owner's own models and CC0 bodies), their clips and the furniture. **Server only.** |
-| `models/fusion_props.glb`        | r23: the furniture, the street's furniture and the cars, modelled for the game in Fusion.           |
-| `art/*.webp`, `art/credits.json` | The graded pictures (portraits, memories, the photograph) and who made everything.                  |
+| Path                             | What                                                                                                         |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `story/chapter-NN.story`         | One file per chapter, in the format below. **Server only.**                                                  |
+| `places/<key>.json`              | The 3D places: the street, Le Vauban (bar and lobby), the Élysée. **Server only.**                           |
+| `models/*.glb`                   | The people (the owner's own models and CC0 bodies), their clips and the furniture. **Server only.**          |
+| `models/fusion_props.glb`        | r23: the furniture, the street's furniture and the cars, modelled for the game in Fusion.                    |
+| `art/*.webp`, `art/credits.json` | The graded pictures (portraits, memories, the photograph) and who made everything.                           |
 | `audio/*.mp3`                    | r25: the sound: beds (looped), the score's three cues, and sprites of short sounds (`client/SoundTable.ts`). |
-| `places/room.json`               | r25: his room upstairs (room twenty-three), where part one ends.                                    |
-| `client/Sound.ts`                | r25: the soundscape (beds, footsteps, doors, effects, the score, the levels).                       |
-| `client/world/Furnish.ts`        | r25: the lobby's and the room's pieces (the stairs, the rope, the desk, the guest book, the bed...). |
-| `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart, saves, weather.                   |
-| `engine/Solid.ts`, `Props.ts`    | r23: what's solid in a place (from its pieces) and the props' footprints and seats.                 |
-| `engine/Walk.ts`                 | r23: how people move along a path (easing, rounded corners, turning).                               |
-| `client/world/Palette.ts`        | r23: the named materials of the Fusion props.                                                       |
-| `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.                         |
-| `client/world/`                  | The 3D world: the kit places are built from, the people, the weather, the look.                     |
-| `client/world/PeopleHooks.ts`    | What the world asks of a person: getting wet, running, a look, a prop in hand (r22 BPLAY).          |
-| `client/Inventory.ts`            | What he carries (r22 BPLAY): his figure with the slots, the pockets, an item's details.             |
-| `client/ItemArt.ts`              | The ink drawings of things (`icon=`) and of his figure.                                             |
-| `client/Dossier.ts`              | The story so far, as his dossier.                                                                   |
-| `client/fonts/`                  | Spectral and Courier Prime (SIL Open Font Licence, the licences beside them).                       |
-| `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                                    |
-| `scripts/based-notes.ts`         | Prints the notes Alden leaves for the writer.                                                       |
+| `places/room.json`               | r25: his room upstairs (room twenty-three), where part one ends.                                             |
+| `client/Sound.ts`                | r25: the soundscape (beds, footsteps, doors, effects, the score, the levels).                                |
+| `client/world/Furnish.ts`        | r25: the lobby's and the room's pieces (the stairs, the rope, the desk, the guest book, the bed...).         |
+| `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart, saves, weather.                            |
+| `engine/Solid.ts`, `Props.ts`    | r23: what's solid in a place (from its pieces) and the props' footprints and seats.                          |
+| `engine/Walk.ts`                 | r23: how people move along a path (easing, rounded corners, turning).                                        |
+| `client/world/Palette.ts`        | r23: the named materials of the Fusion props.                                                                |
+| `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.                                  |
+| `client/world/`                  | The 3D world: the kit places are built from, the people, the weather, the look.                              |
+| `client/world/PeopleHooks.ts`    | What the world asks of a person: getting wet, running, a look, a prop in hand (r22 BPLAY).                   |
+| `client/Inventory.ts`            | What he carries (r22 BPLAY): his figure with the slots, the pockets, an item's details.                      |
+| `client/ItemArt.ts`              | The ink drawings of things (`icon=`) and of his figure.                                                      |
+| `client/Dossier.ts`              | The story so far, as his dossier.                                                                            |
+| `client/fonts/`                  | Spectral and Courier Prime (SIL Open Font Licence, the licences beside them).                                |
+| `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                                             |
+| `scripts/based-notes.ts`         | Prints the notes Alden leaves for the writer.                                                                |
 
 The story, the places, the models, the pictures and the sound are never
 bundled into the site's JavaScript. The server reads them from this folder and sends them only to an
