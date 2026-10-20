@@ -1751,7 +1751,7 @@ The clerk turned a page of the guest book with one finger, keeping it to himself
 PORTER: The wine gentlemen. Yes, monsieur: twenty-three, on the second floor. But you are early, and it is not made up. Since the election the girl who does the rooms comes when the Métro lets her. An hour, a little more.
 set room_late
 He tilted his head at the red rope across the foot of the stairs.
-PORTER: Until you have your key the stairs are for guests, I am afraid. The Préfecture's circular: a hotel must know who goes up. The bar is through there, monsieur. I will have your key when the room is ready.
+PORTER: And until you have your key I cannot let you up, I am afraid. The Préfecture's circular: a hotel must know who goes up, so the stairs are for guests with a key. The bar is through there, monsieur. I will have your key when the room is ready.
 ~ An hour in a bar he'd been sent to sit in anyway. London's arithmetic, for once.
 task room "His room, twenty-three, booked by Lisle and Hart, the wine shippers, isn't made up yet. The clerk has the key, and the rope across the stairs."
 @focus none
