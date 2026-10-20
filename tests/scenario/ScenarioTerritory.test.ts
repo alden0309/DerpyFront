@@ -290,6 +290,24 @@ describe("Scenario rasteriser", () => {
       "germany",
     );
   }, 120_000);
+
+  it("fills American Revolution - Detailed's compact map too, Quebec British", async () => {
+    const g = await scenarioGame("colonies1776", { size: GameMapSize.Compact });
+    let unowned = 0;
+    g.game.forEachTile((t) => {
+      if (g.game.isLand(t) && !g.game.isImpassable(t) && !g.game.hasOwner(t)) {
+        unowned++;
+      }
+    });
+    expect(unowned).toBe(0);
+    const owner = (x: number, y: number) => {
+      const o = g.game.owner(nearestLand(g.game, x >> 1, y >> 1));
+      return o.isPlayer() ? g.game.scenario()!.nationOf(o)?.key : null;
+    };
+    expect(owner(1039, 141)).toBe("great_britain"); // Quebec
+    expect(owner(880, 335)).toBe("great_britain"); // Montreal
+    expect(owner(1159, 670)).toBe("massachusetts"); // Boston
+  }, 120_000);
 });
 
 /** The passable land tile nearest (x, y), for spots that fall on a river. */
