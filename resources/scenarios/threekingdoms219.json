@@ -5,6 +5,13 @@
   "year": 219,
   "winPercent": 44,
   "capitalFullTiles": 60000,
+  "fronts": {
+    "homeland": 1,
+    "lastStand": 1.5,
+    "supplyFreeRange": 40,
+    "supplyPer100": 0.4,
+    "supplyMax": 2.5
+  },
   "sides": [
     { "id": "Wei", "name": "Wei", "color": "#3f68b8" },
     { "id": "Shu", "name": "Shu", "color": "#3f9a4f" },
@@ -19,6 +26,7 @@
       "color": "#3f68b8",
       "troopsPercent": 85,
       "gold": 1200000,
+      "troopCapBonus": 300000,
       "capital": [902, 646],
       "structures": [
         { "type": "City", "at": [799, 762], "level": 2 },
@@ -48,8 +56,9 @@
       "flag": "Liu Bei (3K)",
       "side": "Shu",
       "color": "#3f9a4f",
-      "troopsPercent": 80,
-      "gold": 700000,
+      "troopsPercent": 85,
+      "gold": 900000,
+      "troopCapBonus": 800000,
       "capital": [317, 1009],
       "structures": [
         { "type": "City", "at": [495, 859] },

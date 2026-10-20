@@ -5,18 +5,18 @@
   "year": 1950,
   "winPercent": 95,
   "fronts": {
-    "homeland": 0.3,
+    "homeland": 1.5,
     "lastStand": 0.5,
     "supplyFreeRange": 40,
-    "supplyPer100": 0.3,
-    "supplyMax": 1.5
+    "supplyPer100": 0.5,
+    "supplyMax": 2.5
   },
   "sides": [
     {
       "id": "NorthKorea",
       "name": "North Korea",
       "color": "#b8433f",
-      "winPercent": 94,
+      "winPercent": 98,
       "winByHolding": { "nations": ["south_korea"], "ignoreUnder": 200 }
     },
     { "id": "UnitedNations", "name": "United Nations", "color": "#3f74c4" }
@@ -30,7 +30,7 @@
       "color": "#a8423c",
       "troopsPercent": 100,
       "gold": 1500000,
-      "troopCapBonus": 500000,
+      "troopCapBonus": 2500000,
       "capital": [264, 972],
       "structures": [
         { "type": "City", "at": [552, 784], "level": 2 },
@@ -62,8 +62,8 @@
       "flag": "Republic of Korea",
       "side": "UnitedNations",
       "color": "#3f6fc0",
-      "troopsPercent": 35,
-      "gold": 300000,
+      "troopsPercent": 42,
+      "gold": 400000,
       "capital": [464, 1270],
       "structures": [
         { "type": "City", "at": [726, 1613], "level": 2 },
@@ -93,8 +93,8 @@
       "flag": "un",
       "side": "UnitedNations",
       "color": "#58b0c8",
-      "troopsPercent": 40,
-      "gold": 400000,
+      "troopsPercent": 50,
+      "gold": 500000,
       "capital": [1019, 2061],
       "structures": [
         { "type": "City", "at": [1003, 2125] },

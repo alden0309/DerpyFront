@@ -5,12 +5,19 @@
   "year": 1859,
   "winPercent": 42,
   "capitalFullTiles": 30000,
+  "fronts": {
+    "homeland": 1,
+    "lastStand": 1.5,
+    "supplyFreeRange": 40,
+    "supplyPer100": 0.4,
+    "supplyMax": 2.5
+  },
   "sides": [
     {
       "id": "Sardinia",
       "name": "Sardinia and France",
       "color": "#3a7bd5",
-      "winPercent": 32
+      "winPercent": 35
     },
     { "id": "Austria", "name": "Austria", "color": "#d4b13a", "winPercent": 42 }
   ],
@@ -81,8 +88,9 @@
       "flag": "Habsburg Austria",
       "side": "Austria",
       "color": "#d9b23c",
-      "troopsPercent": 85,
+      "troopsPercent": 140,
       "gold": 1400000,
+      "troopCapBonus": 200000,
       "capital": [302, 190],
       "structures": [
         { "type": "City", "at": [652, 186], "level": 2 },

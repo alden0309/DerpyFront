@@ -5,6 +5,13 @@
   "year": 1812,
   "winPercent": 73,
   "capitalFullTiles": 60000,
+  "fronts": {
+    "homeland": 1,
+    "lastStand": 1.5,
+    "supplyFreeRange": 40,
+    "supplyPer100": 0.4,
+    "supplyMax": 2.5
+  },
   "sides": [
     {
       "id": "French",
@@ -26,8 +33,9 @@
       "flag": "fr",
       "side": "French",
       "color": "#3a64c8",
-      "troopsPercent": 95,
+      "troopsPercent": 140,
       "gold": 2200000,
+      "troopCapBonus": 1500000,
       "capital": [1101, 910],
       "structures": [
         { "type": "City", "at": [1201, 1036], "level": 2 },
