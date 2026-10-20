@@ -122,6 +122,10 @@
 // What they only know if they worked out that he was watching her (r25).
 @fact knew_seen "seen together" "seen with me" "seen the two of them" "watching you" "watching Penhallow" "watching her" "blown" "before breakfast" "never seen" "disappear" "vanish"
 @fact room_late|has_room "twenty-three"
+// The smoker (r25): he offers a light only with one in his pocket.
+@fact has_light "Need a light"
+@fact met_watcher "wanted to be alone"
+@fact met_watcher|saw_watcher|room_mirror "finally lit" "realised, the man under the awning"
 
 @carry "You met London's contact. She's called Penhallow, and she argued against hiring you." if met_contact
 @carry "You told Penhallow what the man in grey wanted." if told_penhallow
@@ -483,18 +487,22 @@ end
 // r25: the man under the awning. Talking to him is Mr. Based offering a
 // light; he wants to be alone, and that's the end of it. He stays where he
 // is: the street needs him there (the mirror, the signal).
+// r25: he offers a light only when he has one (matches from the bar, the
+// lighter from the lost property: `has_light`). Without, a nod the man
+// doesn't return; once he has one, the offer, while the man's still there.
 == watcher "The man under the awning"
-@on talk WATCHER once
-Under the awning of the closed pharmacy, out of the rain, a man in a dark coat was holding a cigarette he hadn't lit.
+@on talk WATCHER once if has_light and (has.matchbook or has.brass_lighter)
+if saw_watcher
+  The man under the awning still hadn't lit his cigarette.
+else
+  Under the awning of the closed pharmacy, out of the rain, a man in a dark coat was holding a cigarette he hadn't lit.
+end
 if has.matchbook
   He tore a match from Le Vauban's book and held it ready to strike.
-  BASED: Need a light?
-elif has.brass_lighter
-  He thumbed the brass lighter open and held it out.
-  BASED: Need a light?
 else
-  BASED: Need a light? The bar will have matches.
+  He thumbed the brass lighter open and held it out.
 end
+BASED: Need a light?
 The man looked at him, and then at the cigarette, as if he'd forgotten it was in his hand.
 WATCHER [fr]: Non, merci. Je veux juste être seul. | No, thanks. I just want to be alone.
 He turned his shoulder to the rain, and to him, and that was the end of that.
@@ -502,9 +510,21 @@ set met_watcher
 -> FREE
 
 == watcher_idle "The man under the awning"
-@on talk WATCHER
+@on talk WATCHER if met_watcher
 The man under the awning didn't look round.
 WATCHER [fr]: Seul, monsieur. J'ai dit. | Alone, monsieur. I said.
+-> FREE
+
+== watcher_nod "The man under the awning"
+@on talk WATCHER once
+Under the awning of the closed pharmacy, out of the rain, a man in a dark coat stood turning an unlit cigarette in his fingers.
+He gave the man a nod. The man looked at the rain instead.
+set saw_watcher
+-> FREE
+
+== watcher_by "The man under the awning"
+@on talk WATCHER
+The man under the awning hadn't moved, and the cigarette still wasn't lit.
 -> FREE
 
 
@@ -625,6 +645,7 @@ A brass bowl at the end of the bar full of matchbooks: LE VAUBAN in gold on oxbl
 choose "They're there to be taken."
   * [Take one] "One won't be missed."
     give matchbook
+    set has_light
   * silent [Leave them]
 end
 -> FREE
@@ -636,6 +657,7 @@ if has.matchbook
 else
   He took a book of matches from the bowl. Nobody minded; it's what they're for.
   give matchbook
+  set has_light
 end
 -> FREE
 
@@ -833,6 +855,7 @@ choose "The clerk is bent over his book."
     -> lost_take
   * if not has.brass_lighter [Take the lighter]
     give brass_lighter
+    set has_light
     set took_lost
     -> lost_take
   * if not has.room_key and not gave_key [Take the key]
@@ -1195,7 +1218,7 @@ investigate "Read the man in grey" min=3 leave="Enough" still
     He'd ordered without looking at the bottles, and the barman had poured without being told which. A regular, then, of a bar he doesn't like: he hasn't touched it.
     ~ FOCUS: He's here every night, at a table he doesn't sit at, with a drink he doesn't drink. That's not a habit. That's a post.
   spot his_mirror "The mirror"
-    if room_mirror or met_watcher
+    if room_mirror or met_watcher or saw_watcher
       In the mirror, across the street, the man under the pharmacy awning had finally lit his cigarette.
     else
       In the mirror, across the street, a man under a pharmacy awning lit a cigarette, as if he'd just been told he could.
@@ -1682,6 +1705,7 @@ choose "The barman polishes a glass that was clean already."
   * if not has.matchbook and not has.brass_lighter [Ask for a light]
     BARMAN: A light? Take a box, monsieur. Take two. They are the only thing in Paris that is still free.
     give matchbook
+    set has_light
   * if not paid and (drink_scotch or drink_beer) [Pay what you owe]
     The barman wrote the bill on a scrap of paper and laid it face down.
     if drink_scotch
@@ -1909,6 +1933,12 @@ READER [fr]: Flaubert. Je le relis tous les dix ans. Ça finit toujours mal. | F
 
 // A save from before the regulars came (r25): they're in their places when
 // he's next free.
+// r25: a save from before the light was a flag, with one in his pocket.
+== light_r25 "A light"
+@on auto if not has_light and (has.matchbook or has.brass_lighter)
+set has_light
+-> FREE
+
 == crowd_r25 "Le Vauban"
 @on auto if not crowd
 @actor REGULAR stool_4 sit idle=drink in=vauban
@@ -1960,7 +1990,7 @@ He let it burn down, mostly unsmoked, and put it out.
 
 == use_cigarettes_dry "A cigarette"
 @on use cigarettes
-if met_watcher or room_mirror
+if met_watcher or saw_watcher or room_mirror
   He had a cigarette and nothing to light it with, which made him, he realised, the man under the awning.
 else
   He had a cigarette and nothing to light it with. He put it back.

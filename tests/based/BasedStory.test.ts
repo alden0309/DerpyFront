@@ -251,6 +251,9 @@ function oldSave(chapter: Chapter, seed: number) {
   delete snap.flags.knew_seen;
   delete snap.flags.missed_watch;
   delete snap.flags.crowd;
+  // r25: before a light was a flag; some had one in a pocket already.
+  delete snap.flags.has_light;
+  if (seed % 2 === 0) snap.inv = { ...snap.inv, matchbook: 1 };
   for (const k of Object.keys(snap.stage.actors)) {
     if (["REGULAR", "WORKER", "COUPLE_M", "COUPLE_F", "READER"].includes(k)) {
       delete snap.stage.actors[k];

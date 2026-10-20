@@ -29,6 +29,11 @@ const DYNAMIC_KEY_PATTERNS: RegExp[] = [
   /^build_menu\.desc\.[^.]+$/,
   /^unit_type\.[^.]+$/,
   /^news_box\.(tournament|tutorial|news|warning|firefox_warning)$/,
+  // SCEN (r25): a Scenario's names and words come through ScenarioText's tr
+  // fallback helper, keyed by scenario and nation id.
+  /^scenario_nation\.[^.]+$/,
+  /^scenarios\.[^.]+\.(title|date|description|neutral)$/,
+  /^scenarios\.win\.[^.]+$/,
   // Built-in graphics preset names/descriptions are referenced from
   // src/client/render/gl/graphics-presets.json, not translateText literals.
   /^graphics_setting\.preset_(default|night|evans_pick|colorblind)(_desc)?$/,
