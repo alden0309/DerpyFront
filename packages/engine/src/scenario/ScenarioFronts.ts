@@ -26,12 +26,14 @@ import { scenarioRule } from "./ScenarioRules";
  * the same. The caches below are kept off the game's objects.
  */
 
+// Tuned on the balance runs (round 2): the first values (0.3, 1.0, 40,
+// 0.3, 2.0) let an early push snowball; these make a war turn more than once.
 export const FRONT_DEFAULTS: Required<ScenarioFrontRules> = {
-  homeland: 0.3,
-  lastStand: 1.0,
+  homeland: 0.5,
+  lastStand: 2.0,
   supplyFreeRange: 40,
-  supplyPer100: 0.3,
-  supplyMax: 2.0,
+  supplyPer100: 0.5,
+  supplyMax: 2.5,
 };
 
 /** Tiles per side of a supply-distance cell (this map's tiles). */

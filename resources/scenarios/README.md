@@ -139,17 +139,20 @@ and `tests/scenario/ScenarioData.test.ts` its flags and en.json keys.
   tiles, and a share of it below that.
 - **Fronts** (optional; any field left out takes its default):
 
-  | Field             | Default | What it does                                                               |
-  | ----------------- | ------- | -------------------------------------------------------------------------- |
-  | `homeland`        | 0.3     | extra cost of attacking a nation on its own starting land (+30%)           |
-  | `lastStand`       | 1.0     | further cost there: + this x the share of its starting size it has lost    |
-  | `supplyFreeRange` | 40      | full-size tiles an attacker may push beyond its starting land without cost |
-  | `supplyPer100`    | 0.3     | extra cost per 100 full-size tiles beyond that (+30%)                      |
-  | `supplyMax`       | 2.0     | the most the supply cost reaches (attacks at double cost)                  |
+  | Field             | Default | What it does                                                                |
+  | ----------------- | ------- | --------------------------------------------------------------------------- |
+  | `homeland`        | 0.5     | extra cost of attacking a nation on its own starting land (+50%)            |
+  | `lastStand`       | 2.0     | further cost there: + this x the share of its starting size it has lost     |
+  | `supplyFreeRange` | 40      | full-size tiles an attacker may push beyond its starting land without cost  |
+  | `supplyPer100`    | 0.5     | extra cost per 100 full-size tiles beyond that (+50%)                       |
+  | `supplyMax`       | 2.5     | the most the supply cost reaches (attacks at two and a half times the cost) |
 
   So a defender that has lost half its size, on its own soil, against an
-  attacker 300 tiles from home, makes each tile cost 1.8 x 1.78 = 3.2 times
-  the usual troops and time.
+  attacker 300 tiles from home, makes each tile cost 2.5 x 2.3 = 5.75 times
+  the usual troops and time. (Round 1's first values, 0.3, 1.0, 40, 0.3 and
+  2.0, let an early push snowball; these were tuned on the balance runs so
+  a war turns more than once. A scenario that sets all five, as SCEN2's do,
+  is unaffected by the defaults.)
 
 - **Regions** are polygons in pixel corners: each ring is a string
   `"x0,y0,dx1,dy1,dx2,dy2,..."`, deltas after the first point. A tile is

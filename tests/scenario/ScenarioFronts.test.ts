@@ -115,6 +115,16 @@ describe("fronts that hold", () => {
     }
   }, 120_000);
 
+  it("has the defaults resources/scenarios/README.md's table gives", () => {
+    expect(FRONT_DEFAULTS).toEqual({
+      homeland: 0.5,
+      lastStand: 2.0,
+      supplyFreeRange: 40,
+      supplyPer100: 0.5,
+      supplyMax: 2.5,
+    });
+  });
+
   it("is 1 in an ordinary game", () => {
     const game = { scenario: () => null } as unknown as Game;
     expect(scenarioAttackFactor(game, {} as never, {} as never, 0)).toBe(1);
