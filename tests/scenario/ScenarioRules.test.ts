@@ -9,6 +9,7 @@ import { Game, Player } from "@openfront/engine/game/Game";
 import {
   enemySideFor,
   SCENARIO_RULES,
+  scenarioHoldsFire,
 } from "@openfront/engine/scenario/ScenarioRules";
 import { describe, expect, it } from "vitest";
 import { scenarioGame } from "./ScenarioTestUtil";
@@ -168,6 +169,59 @@ describe("a scenario's special rule", () => {
   }, 120_000);
 });
 
+describe("Europe 1939's rule: the pact and the Phoney War", () => {
+  it("holds the Soviet Union back six minutes, France and Britain two, unless attacked", async () => {
+    const g = await scenarioGame("europe1939");
+    const at = (ticks: number) => {
+      const view = Object.create(g.game) as Game;
+      view.ticks = () => ticks;
+      return view;
+    };
+    const ussr = g.nation("soviet_union");
+    const france = g.nation("france");
+    const germany = g.nation("germany");
+    const spain = g.nation("spain");
+    expect(scenarioHoldsFire(at(100), ussr)).toBe(true);
+    expect(scenarioHoldsFire(at(100), france)).toBe(true);
+    expect(scenarioHoldsFire(at(100), germany)).toBe(false);
+    // Neutrals start no war at all.
+    expect(scenarioHoldsFire(at(100_000), spain)).toBe(true);
+    expect(scenarioHoldsFire(at(2 * 600), france)).toBe(false);
+    expect(scenarioHoldsFire(at(2 * 600), ussr)).toBe(true);
+    expect(scenarioHoldsFire(at(6 * 600), ussr)).toBe(false);
+    // Attacked, it fights back at once.
+    const finland = g.nation("finland");
+    g.game.addExecution(
+      new AttackExecution(finland.troops() / 2, finland, ussr.id()),
+    );
+    g.step(2);
+    expect(ussr.incomingAttacks().length).toBeGreaterThan(0);
+    expect(scenarioHoldsFire(at(100), ussr)).toBe(false);
+  }, 120_000);
+});
+
+describe("a scenario game, computer against computer", () => {
+  // The short version of the balance runs (tests/scenario/ScenarioBalance.ts):
+  // the same seed plays the same war, and both sides are still in it after
+  // a few minutes.
+  it("is deterministic, and nobody is wiped out at once", async () => {
+    const play = async () => {
+      const g = await scenarioGame("continental1776", { gameID: "BALANCE1" });
+      const hashes: number[] = [];
+      for (let i = 0; i < 6; i++) {
+        g.step(300);
+        hashes.push((g.game as unknown as { hash(): number }).hash());
+      }
+      return { g, hashes };
+    };
+    const a = await play();
+    const b = await play();
+    expect(b.hashes).toEqual(a.hashes);
+    expect(a.g.nation("great_britain").numTilesOwned()).toBeGreaterThan(0);
+    expect(a.g.nation("united_colonies").numTilesOwned()).toBeGreaterThan(0);
+  }, 300_000);
+});
+
 describe("Scenario victory", () => {
   it("a side wins together when the other side is gone", async () => {
     const g = await scenarioGame("continental1776", {
@@ -175,7 +229,6 @@ describe("Scenario victory", () => {
         { clientID: "HUMAN001", username: "Alden", nation: "united_colonies" },
       ],
     });
-    const { game } = g;
     const britain = g.nation("great_britain");
     const colonies = g.nation("united_colonies");
     // Hand Britain's land to the colonies.
@@ -188,6 +241,40 @@ describe("Scenario victory", () => {
     expect(wins[0].winner?.[0]).toBe("team");
     expect(wins[0].winner?.[1]).toBe("Patriots");
     expect(wins[0].winner?.slice(2)).toEqual(["HUMAN001"]);
+  }, 120_000);
+});
+
+describe("Scenario victory by land", () => {
+  it("each side has its own bar: Britain wins at a quarter of the land", async () => {
+    const g = await scenarioGame("continental1776");
+    const britain = g.nation("great_britain");
+    const colonies = g.nation("united_colonies");
+    const land = g.game.numLandTiles();
+    // Give Britain the colonies' land until it holds just over 25%.
+    const want = Math.floor(land / 4) + 1 - britain.numTilesOwned();
+    let moved = 0;
+    for (const t of [...colonies.tiles()]) {
+      if (moved >= want) break;
+      britain.conquer(t);
+      moved++;
+    }
+    g.updates.length = 0;
+    g.step(20);
+    const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
+    expect(wins).toHaveLength(1);
+    expect(wins[0].winner?.[1]).toBe("British");
+  }, 120_000);
+
+  it("at the timer, the side nearest its bar wins", async () => {
+    const g = await scenarioGame("continental1776", {
+      config: { maxTimerValue: 1 },
+    });
+    g.updates.length = 0;
+    g.step(620);
+    const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
+    expect(wins).toHaveLength(1);
+    // The colonies hold some 58% of the land (bar 75); Britain 3% (bar 25).
+    expect(wins[0].winner?.[1]).toBe("Patriots");
   }, 120_000);
 });
 

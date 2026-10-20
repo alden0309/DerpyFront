@@ -3,10 +3,11 @@
   "title": "Thirteen Colonies 1776",
   "map": "Thirteen Colonies",
   "year": 1776,
-  "winPercent": 70,
+  "winPercent": 75,
+  "capitalFullTiles": 40000,
   "sides": [
     { "id": "Patriots", "name": "Patriots", "color": "#3b6fc4" },
-    { "id": "British", "name": "British", "color": "#c8312d" }
+    { "id": "British", "name": "British", "color": "#c8312d", "winPercent": 25 }
   ],
   "nations": [
     {

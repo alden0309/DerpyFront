@@ -34,7 +34,7 @@ import { z } from "zod";
 import { Execution, Game, Player } from "../game/Game";
 import { nationAiType } from "../game/NationAiTypes";
 import { nationTemperament, temperamentForFlag } from "../game/NationPersonas";
-import { scenarioPassiveNeutral } from "../scenario/ScenarioRules"; // SCEN (r25)
+import { scenarioHoldsFire } from "../scenario/ScenarioRules"; // SCEN (r25)
 import {
   nationData,
   NationSchema,
@@ -287,8 +287,9 @@ export class NationExecution implements Execution {
     this.updateRelationsFromEmbargos();
     this.allianceBehavior.handleAllianceRequests();
     this.allianceBehavior.handleAllianceExtensionRequests();
-    // SCEN (r25): a scenario's neutrals build and defend, and start no war.
-    const passive = scenarioPassiveNeutral(this.mg, this.player);
+    // SCEN (r25): a scenario's neutrals build and defend, and start no war
+    // (nor do nations its rule holds back for now).
+    const passive = scenarioHoldsFire(this.mg, this.player);
     if (!passive) this.mirvBehavior.considerMIRV();
     this.structureBehavior.handleStructures();
     this.warshipBehavior.maybeSpawnWarship();

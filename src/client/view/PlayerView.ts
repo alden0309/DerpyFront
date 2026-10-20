@@ -425,7 +425,7 @@ export class PlayerView implements PlayerLike {
   /** SCEN (r25): the scenario nation this player plays, or null. */
   scenarioNation(): ScenarioNation | null {
     if (this._scenarioNation === undefined) {
-      const roster = this.game.scenario();
+      const roster = this.game.scenario?.() ?? null;
       this._scenarioNation =
         roster === null
           ? null
@@ -440,6 +440,7 @@ export class PlayerView implements PlayerLike {
   /** SCEN (r25): as the engine's (Config.maxTroops reads it on both sides). */
   scenarioTroopCap(): number {
     const bonus = this.scenarioNation()?.troopCapBonus ?? 0;
+    if (bonus === 0) return 0;
     const compact =
       this.game.config().gameConfig().gameMapSize === GameMapSize.Compact;
     return (bonus * 10) / (compact ? 2 : 1);

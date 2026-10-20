@@ -2657,8 +2657,7 @@
     },
     "winning_side": "On the winning side: {names}",
     "you": "You",
-    "your_nation": "Your nation",
-    "your_side_won": "Your side won!"
+    "your_nation": "Your nation"
   },
   "select_lang": {
     "title": "Select Language"

@@ -28,9 +28,11 @@ every land tile owned, spot pixels, each nation's land in one piece).
   neutral that attacks a side joins that side's enemies the same way. Either
   way it is a news line for everyone.
 - **Victory:** a side wins when every nation on every other side is gone, or
-  when it holds more than `winPercent` percent of the land (Overtime lowers
-  the bar as in other games; the lobby timer gives the side with the most
-  land the win).
+  when it holds more than its bar of the land: the side's own `winPercent`,
+  else the scenario's (Overtime lowers every bar as in other games). Sides
+  that start very unequal get unequal bars (1939: the Allies hold 60% at the
+  start, the Axis 19%). At the lobby timer, or the 170-minute limit, the side
+  nearest its bar (its land over its bar) wins.
 - Players pick a nation (solo, or a seat in a private lobby). They play it
   under its name and flag, with their own name added: "France (Alden)".
   Nations nobody picked are computer-run, at the game's difficulty.
@@ -48,7 +50,7 @@ every land tile owned, spot pixels, each nation's land in one piece).
   "winPercent": 60, // % of the land a side must hold to win
   "capitalFullTiles": 40000, // optional, see Capitals
   "rule": "korea", // optional special rule (ScenarioRules.ts)
-  "sides": [{ "id": "Axis", "name": "Axis", "color": "#7d7d7d" }],
+  "sides": [{ "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 40 }],
   "nations": [
     {
       "key": "germany", // [a-z0-9_]{1,32}, unique in the scenario
@@ -78,6 +80,7 @@ every land tile owned, spot pixels, each nation's land in one piece).
 - **Sides:** `id` is the side's team name in the game, its key in en.json and
   the `Winner` the game records. `name` is the English name the server writes
   into the game's record. `color` marks the side wherever players are listed.
+  `winPercent` (optional) is the side's own bar for a land win.
 - **Nations:** listed in the order the Scenarios screen and the seat fallback
   use (the strongest first reads best). `name` must equal en.json's
   `scenario_nation.<key>`. Keys are global in en.json: reuse `germany` across

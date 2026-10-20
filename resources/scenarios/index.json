@@ -34,7 +34,8 @@
         "luxembourg",
         "iran",
         "saudi_arabia"
-      ]
+      ],
+      "capitalFullTiles": 60000
     },
     "colonies1776": {
       "map": "Thirteen Colonies",
@@ -66,7 +67,8 @@
         "catawba",
         "creek",
         "seminole"
-      ]
+      ],
+      "capitalFullTiles": 40000
     },
     "continental1776": {
       "map": "Thirteen Colonies",
@@ -86,7 +88,8 @@
         "catawba",
         "creek",
         "seminole"
-      ]
+      ],
+      "capitalFullTiles": 40000
     }
   }
 }

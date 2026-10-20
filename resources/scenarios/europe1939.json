@@ -3,9 +3,11 @@
   "title": "Europe 1939",
   "map": "Europe",
   "year": 1939,
-  "winPercent": 60,
+  "winPercent": 80,
+  "capitalFullTiles": 60000,
+  "rule": "europe1939",
   "sides": [
-    { "id": "Axis", "name": "Axis", "color": "#7d7d7d" },
+    { "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 45 },
     { "id": "Allies", "name": "Allies", "color": "#3f7fd6" }
   ],
   "nations": [
@@ -15,8 +17,9 @@
       "flag": "de",
       "side": "Axis",
       "color": "#6f6f6f",
-      "troopsPercent": 95,
-      "gold": 2000000,
+      "troopsPercent": 100,
+      "gold": 3000000,
+      "troopCapBonus": 150000,
       "capital": [1550, 762],
       "structures": [
         { "type": "City", "at": [1411, 720], "level": 2 },
@@ -55,8 +58,9 @@
       "flag": "it",
       "side": "Axis",
       "color": "#3f8f45",
-      "troopsPercent": 75,
-      "gold": 1200000,
+      "troopsPercent": 85,
+      "gold": 1500000,
+      "troopCapBonus": 50000,
       "capital": [1514, 1193],
       "structures": [
         { "type": "City", "at": [1379, 1048], "level": 2 },
@@ -88,7 +92,7 @@
       "flag": "hu",
       "side": "Axis",
       "color": "#a8794e",
-      "troopsPercent": 60,
+      "troopsPercent": 80,
       "gold": 400000,
       "capital": [1778, 966],
       "structures": [
@@ -106,7 +110,7 @@
       "flag": "ro",
       "side": "Axis",
       "color": "#cfb441",
-      "troopsPercent": 60,
+      "troopsPercent": 75,
       "gold": 500000,
       "capital": [2066, 1090],
       "structures": [
@@ -125,7 +129,7 @@
       "flag": "bg",
       "side": "Axis",
       "color": "#7d9d3c",
-      "troopsPercent": 55,
+      "troopsPercent": 75,
       "gold": 300000,
       "capital": [1953, 1160],
       "structures": [
@@ -142,7 +146,7 @@
       "flag": "sk",
       "side": "Axis",
       "color": "#8b82bd",
-      "troopsPercent": 50,
+      "troopsPercent": 70,
       "gold": 150000,
       "capital": [1701, 939],
       "structures": [{ "type": "City", "at": [1783, 915] }],
@@ -158,8 +162,9 @@
       "flag": "fi",
       "side": "Axis",
       "color": "#d8e1e6",
-      "troopsPercent": 60,
+      "troopsPercent": 90,
       "gold": 300000,
+      "troopCapBonus": 60000,
       "capital": [2018, 452],
       "structures": [
         { "type": "City", "at": [1971, 398] },
@@ -179,7 +184,7 @@
       "flag": "gb",
       "side": "Allies",
       "color": "#cf5b6c",
-      "troopsPercent": 75,
+      "troopsPercent": 60,
       "gold": 2000000,
       "capital": [1000, 803],
       "structures": [
@@ -221,7 +226,7 @@
       "flag": "fr",
       "side": "Allies",
       "color": "#3c6fd8",
-      "troopsPercent": 75,
+      "troopsPercent": 65,
       "gold": 1600000,
       "capital": [1101, 910],
       "structures": [
@@ -266,7 +271,7 @@
       "flag": "ussr",
       "side": "Allies",
       "color": "#8e2626",
-      "troopsPercent": 60,
+      "troopsPercent": 55,
       "gold": 1200000,
       "capital": [2533, 631],
       "structures": [
@@ -297,7 +302,7 @@
       "flag": "pl",
       "side": "Allies",
       "color": "#c792d6",
-      "troopsPercent": 70,
+      "troopsPercent": 75,
       "gold": 500000,
       "capital": [1859, 774],
       "structures": [

@@ -42,6 +42,11 @@ export interface ScenarioSide {
   name: string;
   /** "#rrggbb": the side's mark wherever players are listed. */
   color: string;
+  /**
+   * Optional: the percent of the land this side must hold to win, if not
+   * the scenario's `winPercent` (a side that starts small needs less).
+   */
+  winPercent?: number;
 }
 
 export type ScenarioStructureType =

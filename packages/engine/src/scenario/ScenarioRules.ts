@@ -33,10 +33,40 @@ export interface ScenarioRule {
     neutral: Player,
     against: Team,
   ): Team | null | undefined;
+  /**
+   * Whether a computer-run nation on a side starts no attacks for now (it
+   * still builds and defends). Players are never held back.
+   */
+  holdsFire?(game: Game, nation: Player): boolean;
 }
 
+/**
+ * Europe 1939: the war in the west and the east didn't begin at once. The
+ * Soviet Union, bound by its pact with Germany, starts no war for the first
+ * six minutes, and France and the United Kingdom (the Phoney War) for the
+ * first two, unless attacked meanwhile. So Germany is dangerous early, as
+ * it was.
+ */
+const EUROPE_1939_HOLD_TICKS: Record<string, number> = {
+  soviet_union: 6 * 600,
+  france: 2 * 600,
+  united_kingdom: 2 * 600,
+};
+
 /** The special rules, by name. Add one here and name it in the data. */
-export const SCENARIO_RULES: Record<string, ScenarioRule> = {};
+export const SCENARIO_RULES: Record<string, ScenarioRule> = {
+  europe1939: {
+    holdsFire: (game, nation) => {
+      const key = game.scenario()?.nationOf(nation)?.key;
+      const until =
+        key !== undefined &&
+        Object.prototype.hasOwnProperty.call(EUROPE_1939_HOLD_TICKS, key)
+          ? EUROPE_1939_HOLD_TICKS[key]
+          : 0;
+      return game.ticks() < until && nation.incomingAttacks().length === 0;
+    },
+  },
+};
 
 /** The game's special rule, if its scenario names one. */
 export function scenarioRule(game: Game): ScenarioRule | null {
@@ -156,13 +186,15 @@ export function joinSide(
 
 /**
  * The side that has won, or null: the only side with nations left, or one
- * holding more than its share of the land. `percent` is the bar (the
- * scenario's, lowered by Overtime). At the lobby timer or the hard limit,
- * pass `timeUp` and the side with the most land wins.
+ * holding more than its bar of the land. Each side's bar is its own
+ * `winPercent` (a side that starts small needs less), else the scenario's,
+ * lowered by Overtime as much as the usual bar would be at `elapsedSeconds`.
+ * At the lobby timer or the hard limit, pass `timeUp`: the side nearest its
+ * bar (land over bar) wins.
  */
 export function scenarioWinner(
   game: Game,
-  percent: number,
+  elapsedSeconds: number,
   timeUp: boolean,
 ): Team | null {
   const scenario = game.scenario();
@@ -178,33 +210,44 @@ export function scenarioWinner(
   }
   if (alive.size === 1) return [...alive][0];
   if (alive.size === 0) return null;
+  const land = game.numLandTiles() - game.numTilesWithFallout();
+  // The side furthest towards its bar: tiles / bar, compared by
+  // cross-multiplying (exact integers). Ties go to the first side listed.
   let best: Team | null = null;
-  let bestTiles = -1;
-  for (const side of scenario.sideIds()) {
-    if (!alive.has(side)) continue;
-    const t = tiles.get(side)!;
-    if (t > bestTiles) {
-      best = side;
+  let bestTiles = 0;
+  let bestBar = 1;
+  for (const side of scenario.data.sides) {
+    if (!alive.has(side.id)) continue;
+    const t = tiles.get(side.id)!;
+    const bar = scenarioSideWinPercent(game, side.id, elapsedSeconds);
+    if (best === null || t * bestBar > bestTiles * bar) {
+      best = side.id;
       bestTiles = t;
+      bestBar = bar;
     }
   }
   if (best === null) return null;
   if (timeUp) return best;
-  const land = game.numLandTiles() - game.numTilesWithFallout();
-  // Cross-multiplied: whole percentages, exact integer math.
-  return bestTiles * 100 > land * percent ? best : null;
+  // Whole percentages, exact integer math.
+  return bestTiles * 100 > land * bestBar ? best : null;
 }
 
 /**
- * The scenario's bar for a land win at `elapsedSeconds`: its own percent,
- * lowered by Overtime as much as the usual bar would be.
+ * A side's bar for a land win at `elapsedSeconds`: its own percent (or the
+ * scenario's), lowered by Overtime as much as the usual bar would be; at
+ * least 1.
  */
-export function scenarioWinPercent(game: Game, elapsedSeconds: number): number {
-  const scenario = game.scenario();
-  if (scenario === null) return 100;
+export function scenarioSideWinPercent(
+  game: Game,
+  side: Team,
+  elapsedSeconds: number,
+): number {
+  const data = game.scenario()?.data;
+  if (data === undefined) return 100;
+  const own = data.sides.find((s) => s.id === side)?.winPercent;
   const base = game.config().percentageTilesOwnedToWin(0);
   const now = game.config().percentageTilesOwnedToWin(elapsedSeconds);
-  return Math.max(0, scenario.data.winPercent - (base - now));
+  return Math.max(1, (own ?? data.winPercent) - (base - now));
 }
 
 /**
@@ -228,7 +271,12 @@ export function scenarioHasSideEnemies(game: Game, nation: Player): boolean {
   return game.players().some((p) => p.team() !== null && p.team() !== side);
 }
 
-/** Whether a computer-run nation is a neutral that starts no fights. */
-export function scenarioPassiveNeutral(game: Game, nation: Player): boolean {
-  return game.scenario() !== null && nation.team() === null;
+/**
+ * Whether a computer-run nation starts no fights for now: a neutral always,
+ * a nation on a side when the scenario's rule holds it back.
+ */
+export function scenarioHoldsFire(game: Game, nation: Player): boolean {
+  if (game.scenario() === null) return false;
+  if (nation.team() === null) return true;
+  return scenarioRule(game)?.holdsFire?.(game, nation) ?? false;
 }

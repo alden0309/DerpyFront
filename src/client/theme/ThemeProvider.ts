@@ -11,7 +11,10 @@ import {
   ThemeName,
   ThemeSettings,
 } from "../render/gl/RenderSettings";
-import { activeScenarioSide } from "../scenario/ScenarioClient"; // SCEN (r25)
+import {
+  activeScenario,
+  activeScenarioSide,
+} from "../scenario/ScenarioClient"; // SCEN (r25)
 import { UserSettings } from "../UserSettings";
 import { PlayerView } from "../view";
 import { ColorAllocator } from "./ColorAllocator";
@@ -160,7 +163,7 @@ export class SettingsTheme implements Theme {
    */
   territoryColor(player: PlayerView): Colord {
     // SCEN (r25): a scenario's nations wear their historical colours.
-    const nation = player.scenarioNation();
+    const nation = activeScenario() === null ? null : player.scenarioNation();
     if (nation !== null) return colord(nation.color);
     const team = player.team();
     if (team !== null) {

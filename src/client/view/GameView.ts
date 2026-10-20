@@ -171,10 +171,18 @@ export class GameView implements GameLike {
       humans.map((h) => [h.clientID, h.cosmetics ?? {}]),
     );
     // SCEN (r25): the game's Scenario, resolved as the engine resolves it.
-    this._scenario = scenarioRoster(
-      this._config.gameConfig(),
-      humans.map((h) => h.clientID),
-    );
+    // (Some test stubs have no gameConfig: no scenario.)
+    const gameConfig =
+      typeof this._config.gameConfig === "function"
+        ? this._config.gameConfig()
+        : undefined;
+    this._scenario =
+      gameConfig === undefined
+        ? null
+        : scenarioRoster(
+            gameConfig,
+            humans.map((h) => h.clientID),
+          );
     setActiveScenario(this._scenario);
 
     // Nation-type players carry their own flag on the wire (PlayerUpdate.nationFlag,

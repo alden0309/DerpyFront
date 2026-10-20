@@ -100,7 +100,7 @@ export class ScenariosModal extends BaseModal {
   private renderCard(d: ScenarioData): TemplateResult {
     const selected = d.id === this.selectedId;
     return html`<button
-      class="flex w-full flex-col overflow-hidden rounded-xl border text-left transition-colors ${selected
+      class="flex w-60 shrink-0 flex-col overflow-hidden rounded-xl border text-left transition-colors sm:w-full ${selected
         ? "border-cyber-yellow/70 bg-cyber-yellow/10"
         : "border-white/10 bg-white/5 hover:border-malibu-blue/50 hover:bg-malibu-blue/10"}"
       aria-pressed=${selected}
@@ -184,10 +184,17 @@ export class ScenariosModal extends BaseModal {
       <div
         class="flex-1 min-h-0 overflow-y-auto custom-scrollbar mx-auto w-full max-w-5xl space-y-6 px-4 pb-6 pt-4 sm:px-6"
       >
-        <p class="text-sm text-white/60">
-          ${translateText("scenarios.subtitle")}
-        </p>
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="space-y-1">
+          <p class="text-sm font-semibold text-white/80">
+            ${translateText("scenarios.subtitle")}
+          </p>
+          <p class="text-xs leading-relaxed text-white/50">
+            ${translateText("scenarios.help_text")}
+          </p>
+        </div>
+        <div
+          class="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:overflow-visible sm:px-0"
+        >
           ${all.map((s) => this.renderCard(s))}
         </div>
         ${d !== null ? this.renderDetail(d) : nothing}
