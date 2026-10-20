@@ -100,7 +100,7 @@ describe("old scenario games", () => {
         scenario: { id: "europe1939", edition: SCENARIO_EDITION - 1 },
       }),
     ).toBe(false);
-    const config = applyScenarioRules({
+    const config: GameConfig = applyScenarioRules({
       ...testGameConfig(),
       scenario: { id: "colonies1776", seats: {} },
     });
