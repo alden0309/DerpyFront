@@ -172,7 +172,7 @@ describe("a scenario's special rule", () => {
 });
 
 describe("Europe 1939's rule: the pact and the Phoney War", () => {
-  it("holds the Soviet Union back six minutes, France and Britain two, unless attacked", async () => {
+  it("holds the Soviet Union back fifteen minutes, France and Britain three, unless attacked", async () => {
     const g = await scenarioGame("europe1939");
     const at = (ticks: number) => {
       const view = Object.create(g.game) as Game;
@@ -188,9 +188,9 @@ describe("Europe 1939's rule: the pact and the Phoney War", () => {
     expect(scenarioHoldsFire(at(100), germany)).toBe(false);
     // Neutrals start no war at all.
     expect(scenarioHoldsFire(at(100_000), spain)).toBe(true);
-    expect(scenarioHoldsFire(at(2 * 600), france)).toBe(false);
-    expect(scenarioHoldsFire(at(2 * 600), ussr)).toBe(true);
-    expect(scenarioHoldsFire(at(6 * 600), ussr)).toBe(false);
+    expect(scenarioHoldsFire(at(3 * 600), france)).toBe(false);
+    expect(scenarioHoldsFire(at(3 * 600), ussr)).toBe(true);
+    expect(scenarioHoldsFire(at(15 * 600), ussr)).toBe(false);
     // Attacked, it fights back at once.
     const finland = g.nation("finland");
     g.game.addExecution(

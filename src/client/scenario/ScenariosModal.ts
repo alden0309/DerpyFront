@@ -110,7 +110,7 @@ export class ScenariosModal extends BaseModal {
       <scenario-preview
         class="block pointer-events-none"
         .scenarioId=${d.id}
-        maxHeight="9rem"
+        fixedHeight="8.5rem"
       ></scenario-preview>
       <span class="flex flex-col gap-0.5 px-3 py-2">
         <span class="text-sm font-bold text-white">${scenarioTitle(d)}</span>
@@ -188,7 +188,7 @@ export class ScenariosModal extends BaseModal {
           <p class="text-sm font-semibold text-white/80">
             ${translateText("scenarios.subtitle")}
           </p>
-          <p class="text-xs leading-relaxed text-white/50">
+          <p class="hidden text-xs leading-relaxed text-white/50 sm:block">
             ${translateText("scenarios.help_text")}
           </p>
         </div>
@@ -200,7 +200,7 @@ export class ScenariosModal extends BaseModal {
         ${d !== null ? this.renderDetail(d) : nothing}
       </div>
       <div
-        class="flex shrink-0 flex-col gap-3 border-t border-white/10 bg-black/20 p-4 sm:flex-row sm:p-6"
+        class="flex shrink-0 flex-row gap-3 border-t border-white/10 bg-black/20 p-3 sm:p-6"
       >
         <o-button
           class="flex-1"

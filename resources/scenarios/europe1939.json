@@ -19,7 +19,7 @@
       "color": "#6f6f6f",
       "troopsPercent": 100,
       "gold": 3000000,
-      "troopCapBonus": 150000,
+      "troopCapBonus": 250000,
       "capital": [1550, 762],
       "structures": [
         { "type": "City", "at": [1411, 720], "level": 2 },
@@ -271,7 +271,7 @@
       "flag": "ussr",
       "side": "Allies",
       "color": "#8e2626",
-      "troopsPercent": 55,
+      "troopsPercent": 40,
       "gold": 1200000,
       "capital": [2533, 631],
       "structures": [

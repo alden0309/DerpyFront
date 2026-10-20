@@ -55,6 +55,10 @@ export function sideMark(color: string): string {
   const r = parseInt(h.slice(0, 2), 16);
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
+  // A grey reads as black or white, not as the nearest hue.
+  if (Math.max(r, g, b) - Math.min(r, g, b) < 40) {
+    return (r + g + b) / 3 < 150 ? "⚫" : "⚪";
+  }
   const marks: [string, number, number, number][] = [
     ["🔴", 200, 50, 45],
     ["🔵", 60, 110, 210],

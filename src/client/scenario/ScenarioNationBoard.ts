@@ -157,7 +157,9 @@ export class ScenarioNationBoard extends LitElement {
         loading="lazy"
       />
       <span class="flex min-w-0 flex-1 flex-col leading-tight">
-        <span class="truncate text-sm font-semibold text-white">${label}</span>
+        <span class="line-clamp-2 break-words text-sm font-semibold text-white"
+          >${label}</span
+        >
         ${lobby
           ? html`<span
               class="truncate text-[11px] ${holder === undefined

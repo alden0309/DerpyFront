@@ -16,7 +16,7 @@ import { terrainMapFileLoader } from "../TerrainMapFileLoader";
  */
 
 const WATER: RGB = [22, 36, 54];
-const IMPASSABLE: RGB = [92, 92, 92];
+const IMPASSABLE: RGB = [44, 48, 56];
 const NEUTRAL: RGB = [176, 160, 128];
 const HIGHLIGHT: RGB = [255, 222, 89];
 
@@ -89,6 +89,8 @@ export class ScenarioPreview extends LitElement {
   @property({ type: Boolean }) pickable = false;
   /** The tallest the picture may be drawn, as a CSS length. */
   @property({ type: String }) maxHeight = "none";
+  /** A fixed height (CSS length) the picture is fitted into, if any. */
+  @property({ type: String }) fixedHeight = "";
   @state() private failed = false;
   @state() private aspect = "2 / 1";
   @query("canvas") private canvas?: HTMLCanvasElement;
@@ -219,8 +221,9 @@ export class ScenarioPreview extends LitElement {
     >
       <canvas
         class="block w-full ${this.pickable ? "cursor-pointer" : ""}"
-        style="aspect-ratio: ${this.aspect}; max-height: ${this
-          .maxHeight}; object-fit: contain"
+        style=${this.fixedHeight !== ""
+          ? `height: ${this.fixedHeight}; object-fit: contain`
+          : `aspect-ratio: ${this.aspect}; max-height: ${this.maxHeight}; object-fit: contain`}
         @click=${this.onClick}
       ></canvas>
       ${this.failed

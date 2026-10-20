@@ -2639,7 +2639,7 @@
     "host_with_friends": "Host with friends",
     "join_hint": "Pick a free nation. Nations nobody picks are run by the computer.",
     "move_here": "Move {name} here",
-    "nations_count": "{count} nations",
+    "nations_count": "{count, plural, one {# nation} other {# nations}}",
     "neutral": "Neutral",
     "pick_nation": "Pick a nation",
     "play_solo": "Play solo",

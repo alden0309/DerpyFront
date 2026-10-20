@@ -45,14 +45,14 @@ export interface ScenarioRule {
 /**
  * Europe 1939: the war in the west and the east didn't begin at once. The
  * Soviet Union, bound by its pact with Germany, starts no war for the first
- * six minutes, and France and the United Kingdom (the Phoney War) for the
- * first two, unless attacked meanwhile. So Germany is dangerous early, as
- * it was.
+ * fifteen minutes, and France and the United Kingdom (the Phoney War) for
+ * the first three, unless attacked meanwhile. So Germany is dangerous
+ * early, as it was. (Tuned on the balance runs.)
  */
 const EUROPE_1939_HOLD_TICKS: Record<string, number> = {
-  soviet_union: 6 * 600,
-  france: 2 * 600,
-  united_kingdom: 2 * 600,
+  soviet_union: 15 * 600,
+  france: 3 * 600,
+  united_kingdom: 3 * 600,
 };
 
 /** The special rules, by name. Add one here and name it in the data. */
