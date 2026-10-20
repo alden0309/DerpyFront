@@ -1,5 +1,6 @@
 import { GAME_ID_REGEX, GameConfig } from "@openfront/engine-api/Schemas";
 import { GameMode, GameType } from "@openfront/engine-api/game/GameTypes";
+import { scenarioReplayable } from "@openfront/engine-api/game/Scenarios"; // SCEN (r25)
 import { assetUrl } from "@openfront/shared/AssetUrls";
 import { EventBus } from "@openfront/shared/EventBus";
 import {
@@ -1256,6 +1257,11 @@ export class JoinLobbyModal extends BaseModal {
       if (await this.redirectToVersionedShell(lobbyId)) {
         return "redirected";
       }
+      return "version_mismatch";
+    }
+    // SCEN (r25): a scenario game from another edition of the scenarios (an
+    // older map or rules) would not replay the same war.
+    if (!scenarioReplayable(parsed.data.info.config)) {
       return "version_mismatch";
     }
 

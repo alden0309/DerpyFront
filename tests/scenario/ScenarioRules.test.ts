@@ -303,13 +303,16 @@ describe("Scenario victory", () => {
 });
 
 describe("Scenario victory by land", () => {
-  it("each side has its own bar: Britain wins at 35% of the land", async () => {
+  it("each side has its own bar: Britain wins at its own share of the land", async () => {
     const g = await scenarioGame("continental1776");
     const britain = g.nation("great_britain");
     const colonies = g.nation("united_colonies");
     const land = g.game.numLandTiles();
-    // Give Britain the colonies' land until it holds just over 35%.
-    const want = Math.floor((land * 35) / 100) + 1 - britain.numTilesOwned();
+    const data = scenarioData("continental1776")!;
+    const bar = data.sides.find((s) => s.id === "British")!.winPercent!;
+    expect(bar).toBeLessThan(data.winPercent);
+    // Give Britain the colonies' land until it holds just over its bar.
+    const want = Math.floor((land * bar) / 100) + 1 - britain.numTilesOwned();
     let moved = 0;
     for (const t of [...colonies.tiles()]) {
       if (moved >= want) break;
@@ -327,11 +330,15 @@ describe("Scenario victory by land", () => {
     const g = await scenarioGame("continental1776", {
       config: { maxTimerValue: 1 },
     });
+    // Nobody fights: the sides stay as they start. The colonies hold some
+    // 42% of the land (bar 66), Britain 30% (bar 55).
     g.updates.length = 0;
-    g.step(620);
+    for (let i = 0; i < 620; i++) {
+      for (const p of g.game.players()) p.setTroops(0);
+      g.step(1);
+    }
     const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
     expect(wins).toHaveLength(1);
-    // The colonies hold some 58% of the land (bar 75); Britain 3% (bar 35).
     expect(wins[0].winner?.[1]).toBe("Patriots");
   }, 120_000);
 });
@@ -346,6 +353,12 @@ describe("winning by holding another nation's land (winByHolding)", () => {
       (s) => s.id === "Patriots",
     )!;
     patriots.winByHolding = { nations: ["great_britain"], ignoreUnder: 2000 };
+    // Only the holding rule may end it here, not the land bars.
+    const data = scenarioData("continental1776")!;
+    const bars = data.sides.map((s) => s.winPercent);
+    const barAll = data.winPercent;
+    data.winPercent = 99;
+    for (const s of data.sides) s.winPercent = 99;
     try {
       const g = await scenarioGame("continental1776");
       const britain = g.nation("great_britain");
@@ -381,6 +394,8 @@ describe("winning by holding another nation's land (winByHolding)", () => {
       expect(britain.numTilesOwned()).toBeGreaterThan(0);
     } finally {
       delete patriots.winByHolding;
+      data.winPercent = barAll;
+      data.sides.forEach((s, i) => (s.winPercent = bars[i]));
     }
   }, 120_000);
 });

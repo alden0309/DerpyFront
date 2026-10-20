@@ -148,6 +148,10 @@ export class ScenariosModal extends BaseModal {
           <p class="text-sm leading-relaxed text-white/75">
             ${scenarioDescription(d)}
           </p>
+          <!-- SCEN (r25): the fronts rule, in one line -->
+          <p class="text-xs leading-relaxed text-white/50" data-fronts-help>
+            ${translateText("scenarios.fronts_help")}
+          </p>
           ${n !== null
             ? html`<p class="mt-2 flex items-center gap-2 text-sm text-white">
                 <span class="text-white/50"

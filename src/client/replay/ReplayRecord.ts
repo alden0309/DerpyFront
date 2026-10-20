@@ -8,6 +8,7 @@
  * processor, so this build never tries to simulate them.
  */
 
+import { scenarioReplayable } from "@openfront/engine-api/game/Scenarios"; // SCEN (r25)
 import { GameRecord, GameRecordSchema } from "@openfront/shared/WireSchemas";
 import { ClientEnv } from "../ClientEnv";
 import { DERPY_API } from "../derpy/DerpySession";
@@ -78,6 +79,9 @@ export async function fetchReplayRecord(
   ) {
     return { kind: "other_build" };
   }
+  // SCEN (r25): a scenario game from another edition of the scenarios (an
+  // older map or rules) would not play the same war.
+  if (!scenarioReplayable(record.info.config)) return { kind: "other_build" };
   return { kind: "record", record };
 }
 
