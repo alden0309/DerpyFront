@@ -1,5 +1,19 @@
 [
   {
+    "id": "2026-10-20-the-opening-and-sound",
+    "date": "2026-10-20",
+    "game": "based",
+    "title": "The opening, and sound",
+    "body": "The night begins differently: the smoker under the awning, a proper hotel lobby with roped stairs and a dead lift, more regulars in the bar, and a new end to part one upstairs in room 23.\n\nMr. Based has sound now: rain, footsteps, doors and a quiet score, with volume sliders in settings."
+  },
+  {
+    "id": "2026-10-20-open-lobbies",
+    "date": "2026-10-20",
+    "game": "site",
+    "title": "Open lobbies, with passwords",
+    "body": "Anyone can join any lobby from People in the top bar. Hosts can add a password, in the lobby settings in DerpyFront or the room setup in Conquest. People you invite or bring in your party get in without typing it."
+  },
+  {
     "id": "2026-10-19-dynasty",
     "date": "2026-10-19",
     "game": "conquest",
