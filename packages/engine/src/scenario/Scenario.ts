@@ -67,6 +67,21 @@ export class ScenarioRuntime {
     return this.data.sides.map((s) => s.id);
   }
 
+  /**
+   * The tiles a side must hold to win by `winByHolding` (its nations'
+   * starting land less the small pieces), worked out from the data and the
+   * map the first time it's asked for, so a restored game finds the same.
+   */
+  holdTargets(side: string, compute: () => Uint32Array): Uint32Array {
+    let t = this.holdTargetsBySide.get(side);
+    if (t === undefined) {
+      t = compute();
+      this.holdTargetsBySide.set(side, t);
+    }
+    return t;
+  }
+  private readonly holdTargetsBySide = new Map<string, Uint32Array>();
+
   /** A full-size map pixel in this game's map. */
   px(at: readonly [number, number]): [number, number] {
     return [Math.floor(at[0] / this.scale), Math.floor(at[1] / this.scale)];

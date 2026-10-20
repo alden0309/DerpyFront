@@ -27,8 +27,9 @@ every land tile owned, spot pixels, each nation's land in one piece).
   longest land border with, or if it borders none of them, the smallest. A
   neutral that attacks a side joins that side's enemies the same way. Either
   way it is a news line for everyone.
-- **Victory:** a side wins when every nation on every other side is gone, or
-  when it holds more than its bar of the land: the side's own `winPercent`,
+- **Victory:** a side wins when every nation on every other side is gone,
+  when it holds all the starting land its `winByHolding` names, or when it
+  holds more than its bar of the land: the side's own `winPercent`,
   else the scenario's (Overtime lowers every bar as in other games). Sides
   that start very unequal get unequal bars (1939: the Allies hold 60% at the
   start, the Axis 19%). At the lobby timer, or the 170-minute limit, the side
@@ -50,7 +51,9 @@ every land tile owned, spot pixels, each nation's land in one piece).
   "winPercent": 60, // % of the land a side must hold to win
   "capitalFullTiles": 40000, // optional, see Capitals
   "rule": "korea", // optional special rule (ScenarioRules.ts)
-  "sides": [{ "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 40 }],
+  "sides": [
+    { "id": "Axis", "name": "Axis", "color": "#7d7d7d", "winPercent": 40 },
+  ],
   "nations": [
     {
       "key": "germany", // [a-z0-9_]{1,32}, unique in the scenario
@@ -81,6 +84,12 @@ every land tile owned, spot pixels, each nation's land in one piece).
   the `Winner` the game records. `name` is the English name the server writes
   into the game's record. `color` marks the side wherever players are listed.
   `winPercent` (optional) is the side's own bar for a land win.
+  `winByHolding` (optional), `{ "nations": ["south_korea"], "ignoreUnder":
+200 }`: the side also wins as soon as it holds all the starting land of
+  those nations. Pieces of that land (4-connected, of one nation) smaller
+  than `ignoreUnder` full-size tiles don't count, so a few islets left
+  don't hold the war up. Korea 1950: North Korea wins holding all of South
+  Korea, whatever the UN still holds in Japan.
 - **Nations:** listed in the order the Scenarios screen and the seat fallback
   use (the strongest first reads best). `name` must equal en.json's
   `scenario_nation.<key>`. Keys are global in en.json: reuse `germany` across

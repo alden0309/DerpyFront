@@ -47,6 +47,13 @@ export interface ScenarioSide {
    * the scenario's `winPercent` (a side that starts small needs less).
    */
   winPercent?: number;
+  /**
+   * Optional: the side also wins as soon as it holds all the starting land
+   * of these nations (Korea 1950: North Korea wins holding all of South
+   * Korea, base in Japan or not). Pieces of that land smaller than
+   * `ignoreUnder` full-size tiles (islets) don't count.
+   */
+  winByHolding?: { nations: string[]; ignoreUnder?: number };
 }
 
 export type ScenarioStructureType =

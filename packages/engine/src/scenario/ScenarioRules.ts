@@ -1,5 +1,7 @@
 import { TileRef } from "@openfront/engine-api/game/GameMap";
 import { MessageType, Team } from "@openfront/engine-api/game/GameTypes";
+import { ScenarioSide } from "@openfront/engine-lib/scenario/ScenarioData";
+import { scenarioTerritory } from "@openfront/engine-lib/scenario/ScenarioTerritory";
 import { Game, Player } from "../game/Game";
 
 /**
@@ -210,6 +212,10 @@ export function scenarioWinner(
   }
   if (alive.size === 1) return [...alive][0];
   if (alive.size === 0) return null;
+  // A side that holds all the land its rule names wins outright.
+  for (const side of scenario.data.sides) {
+    if (alive.has(side.id) && holdsToWin(game, side)) return side.id;
+  }
   const land = game.numLandTiles() - game.numTilesWithFallout();
   // The side furthest towards its bar: tiles / bar, compared by
   // cross-multiplying (exact integers). Ties go to the first side listed.
@@ -230,6 +236,72 @@ export function scenarioWinner(
   if (timeUp) return best;
   // Whole percentages, exact integer math.
   return bestTiles * 100 > land * bestBar ? best : null;
+}
+
+/**
+ * Whether `side` holds every tile its `winByHolding` names: the listed
+ * nations' starting land, less its pieces (4-connected, same nation)
+ * smaller than `ignoreUnder` full-size tiles. False without the rule, or
+ * when the pieces left are none at all.
+ */
+export function holdsToWin(game: Game, side: ScenarioSide): boolean {
+  const rule = side.winByHolding;
+  const scenario = game.scenario();
+  if (rule === undefined || scenario === null) return false;
+  const targets = scenario.holdTargets(side.id, () =>
+    holdTargetTiles(game, rule.nations, rule.ignoreUnder ?? 0),
+  );
+  if (targets.length === 0) return false;
+  for (let i = 0; i < targets.length; i++) {
+    const owner = game.owner(targets[i]);
+    if (!owner.isPlayer() || owner.team() !== side.id) return false;
+  }
+  return true;
+}
+
+/**
+ * The starting land of `nations` (keys) in this game's map, less the
+ * pieces smaller than `ignoreUnder` full-size tiles.
+ */
+export function holdTargetTiles(
+  game: Game,
+  nations: readonly string[],
+  ignoreUnder: number,
+): Uint32Array {
+  const scenario = game.scenario();
+  if (scenario === null) return new Uint32Array(0);
+  const data = scenario.data;
+  const labels = scenarioTerritory(data, game.map(), scenario.scale);
+  const wanted = new Set<number>();
+  data.nations.forEach((n, i) => {
+    if (nations.includes(n.key)) wanted.add(i + 1);
+  });
+  // The bar in this map's tiles (a Compact map has a quarter as many).
+  const minTiles = Math.ceil(ignoreUnder / (scenario.scale * scenario.scale));
+  const seen = new Uint8Array(labels.length);
+  const out: number[] = [];
+  const piece: number[] = [];
+  const nbuf: TileRef[] = [0, 0, 0, 0];
+  for (let t = 0; t < labels.length; t++) {
+    const label = labels[t];
+    if (seen[t] !== 0 || !wanted.has(label)) continue;
+    // One piece: breadth first over the same nation's tiles.
+    piece.length = 0;
+    piece.push(t);
+    seen[t] = 1;
+    for (let k = 0; k < piece.length; k++) {
+      const n = game.map().neighbors4(piece[k], nbuf);
+      for (let j = 0; j < n; j++) {
+        const u = nbuf[j];
+        if (seen[u] === 0 && labels[u] === label) {
+          seen[u] = 1;
+          piece.push(u);
+        }
+      }
+    }
+    if (piece.length >= minTiles) for (const u of piece) out.push(u);
+  }
+  return Uint32Array.from(out);
 }
 
 /**

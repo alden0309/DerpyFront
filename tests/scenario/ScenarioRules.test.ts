@@ -8,6 +8,7 @@ import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { Game, Player } from "@openfront/engine/game/Game";
 import {
   enemySideFor,
+  holdTargetTiles,
   SCENARIO_RULES,
   scenarioHoldsFire,
 } from "@openfront/engine/scenario/ScenarioRules";
@@ -144,6 +145,7 @@ describe("a scenario's special rule", () => {
       sideToJoin: (_g, neutral) =>
         neutral.name() === "Switzerland" ? null : undefined,
     };
+    const before = data.rule;
     data.rule = "test_rule";
     try {
       const g = await scenarioGame("europe1939");
@@ -163,7 +165,7 @@ describe("a scenario's special rule", () => {
       g.step(20);
       expect(started).toBe(1);
     } finally {
-      delete data.rule;
+      data.rule = before;
       delete SCENARIO_RULES.test_rule;
     }
   }, 120_000);
@@ -275,6 +277,49 @@ describe("Scenario victory by land", () => {
     expect(wins).toHaveLength(1);
     // The colonies hold some 58% of the land (bar 75); Britain 3% (bar 25).
     expect(wins[0].winner?.[1]).toBe("Patriots");
+  }, 120_000);
+});
+
+describe("winning by holding another nation's land (winByHolding)", () => {
+  // The fixture: in continental1776, the Patriots win by holding Britain's
+  // starting land, its small pieces (Detroit, Niagara, Staten Island)
+  // ignored, as North Korea wins by holding South Korea, base in Japan or
+  // not.
+  it("wins as soon as the side holds it all, small pieces ignored", async () => {
+    const patriots = scenarioData("continental1776")!.sides.find(
+      (s) => s.id === "Patriots",
+    )!;
+    patriots.winByHolding = { nations: ["great_britain"], ignoreUnder: 2000 };
+    try {
+      const g = await scenarioGame("continental1776");
+      const britain = g.nation("great_britain");
+      const colonies = g.nation("united_colonies");
+      const all = holdTargetTiles(g.game, ["great_britain"], 0);
+      const big = holdTargetTiles(g.game, ["great_britain"], 2000);
+      expect(big.length).toBeGreaterThan(1000);
+      expect(all.length).toBeGreaterThan(big.length);
+      // Not yet: Britain holds its land.
+      g.updates.length = 0;
+      g.step(20);
+      expect(
+        g.updates.flatMap((u) => u.updates[GameUpdateType.Win]),
+      ).toHaveLength(0);
+      // All of it but one tile: still not.
+      for (let i = 0; i < big.length - 1; i++) colonies.conquer(big[i]);
+      g.step(20);
+      expect(
+        g.updates.flatMap((u) => u.updates[GameUpdateType.Win]),
+      ).toHaveLength(0);
+      // The last one: the Patriots win, with Britain still on the map.
+      colonies.conquer(big[big.length - 1]);
+      g.step(20);
+      const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
+      expect(wins).toHaveLength(1);
+      expect(wins[0].winner?.[1]).toBe("Patriots");
+      expect(britain.numTilesOwned()).toBeGreaterThan(0);
+    } finally {
+      delete patriots.winByHolding;
+    }
   }, 120_000);
 });
 
