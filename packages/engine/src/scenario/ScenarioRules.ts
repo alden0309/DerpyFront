@@ -52,15 +52,25 @@ export interface ScenarioRule {
 /**
  * Europe 1939: the war in the west and the east didn't begin at once. The
  * Soviet Union, bound by its pact with Germany, starts no war for the first
- * fifteen minutes, and France and the United Kingdom (the Phoney War) for
- * the first three, unless attacked meanwhile. So Germany is dangerous
- * early, as it was. (Tuned on the balance runs.)
+ * minutes, and France and the United Kingdom (the Phoney War) for the first
+ * three, unless attacked meanwhile. So Germany is dangerous early, as it
+ * was. (Tuned on the balance runs.)
  */
-const EUROPE_1939_HOLD_TICKS: Record<string, number> = {
-  soviet_union: 15 * 600,
+export const EUROPE_1939_HOLD_TICKS: Record<string, number> = {
+  soviet_union: 3 * 600,
   france: 3 * 600,
   united_kingdom: 3 * 600,
 };
+
+/**
+ * Europe 1939: the Red Army is the biggest on the board (its data gives it
+ * the troops and the deep reserves), but the purges of 1937-38 left it
+ * without most of its officers: for the first minutes every Soviet attack
+ * costs this many times the troops and the time (players and computer
+ * alike). Tested at 5 and 10 minutes on the balance runs.
+ */
+export const EUROPE_1939_PURGE_TICKS = 10 * 600;
+export const EUROPE_1939_PURGE_FACTOR = 2;
 
 /** The special rules, by name. Add one here and name it in the data. */
 export const SCENARIO_RULES: Record<string, ScenarioRule> = {
@@ -74,6 +84,11 @@ export const SCENARIO_RULES: Record<string, ScenarioRule> = {
           : 0;
       return game.ticks() < until && nation.incomingAttacks().length === 0;
     },
+    attackFactor: (game, attacker) =>
+      game.ticks() < EUROPE_1939_PURGE_TICKS &&
+      game.scenario()?.nationOf(attacker)?.key === "soviet_union"
+        ? EUROPE_1939_PURGE_FACTOR
+        : 1,
   },
 };
 

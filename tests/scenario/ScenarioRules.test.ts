@@ -6,8 +6,12 @@ import { resolveScenarioSeats } from "@openfront/engine-lib/scenario/ScenarioSea
 import { BreakAllianceExecution } from "@openfront/engine/execution/alliance/BreakAllianceExecution";
 import { AttackExecution } from "@openfront/engine/execution/AttackExecution";
 import { Game, Player } from "@openfront/engine/game/Game";
+import { scenarioAttackFactor } from "@openfront/engine/scenario/ScenarioFronts";
 import {
   enemySideFor,
+  EUROPE_1939_HOLD_TICKS,
+  EUROPE_1939_PURGE_FACTOR,
+  EUROPE_1939_PURGE_TICKS,
   holdTargetTiles,
   SCENARIO_RULES,
   scenarioHoldsFire,
@@ -171,8 +175,8 @@ describe("a scenario's special rule", () => {
   }, 120_000);
 });
 
-describe("Europe 1939's rule: the pact and the Phoney War", () => {
-  it("holds the Soviet Union back fifteen minutes, France and Britain three, unless attacked", async () => {
+describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
+  it("holds the Soviet Union, France and Britain back three minutes, unless attacked", async () => {
     const g = await scenarioGame("europe1939");
     const at = (ticks: number) => {
       const view = Object.create(g.game) as Game;
@@ -183,14 +187,15 @@ describe("Europe 1939's rule: the pact and the Phoney War", () => {
     const france = g.nation("france");
     const germany = g.nation("germany");
     const spain = g.nation("spain");
+    expect(EUROPE_1939_HOLD_TICKS.soviet_union).toBe(3 * 600);
     expect(scenarioHoldsFire(at(100), ussr)).toBe(true);
     expect(scenarioHoldsFire(at(100), france)).toBe(true);
     expect(scenarioHoldsFire(at(100), germany)).toBe(false);
     // Neutrals start no war at all.
     expect(scenarioHoldsFire(at(100_000), spain)).toBe(true);
     expect(scenarioHoldsFire(at(3 * 600), france)).toBe(false);
-    expect(scenarioHoldsFire(at(3 * 600), ussr)).toBe(true);
-    expect(scenarioHoldsFire(at(15 * 600), ussr)).toBe(false);
+    expect(scenarioHoldsFire(at(3 * 600 - 1), ussr)).toBe(true);
+    expect(scenarioHoldsFire(at(3 * 600), ussr)).toBe(false);
     // Attacked, it fights back at once.
     const finland = g.nation("finland");
     g.game.addExecution(
@@ -199,6 +204,55 @@ describe("Europe 1939's rule: the pact and the Phoney War", () => {
     g.step(2);
     expect(ussr.incomingAttacks().length).toBeGreaterThan(0);
     expect(scenarioHoldsFire(at(100), ussr)).toBe(false);
+  }, 120_000);
+
+  it("gives the Soviet Union the biggest army, weak in attack while the purges last", async () => {
+    const g = await scenarioGame("europe1939");
+    const { game } = g;
+    const ussr = g.nation("soviet_union");
+    const germany = g.nation("germany");
+    const finland = g.nation("finland");
+    // The biggest army on the board, with deep reserves (room to grow).
+    for (const p of game.players()) {
+      if (p !== ussr)
+        expect(ussr.troops(), p.name()).toBeGreaterThan(p.troops());
+    }
+    expect(ussr.troops()).toBeGreaterThan(germany.troops() * 1.1);
+    expect(game.config().maxTroops(ussr)).toBeGreaterThan(
+      game.config().maxTroops(germany) * 1.5,
+    );
+    expect(ussr.troops()).toBeLessThan(game.config().maxTroops(ussr) * 0.75);
+    // Its attacks cost double for the first minutes; nobody else's do.
+    const rule = SCENARIO_RULES.europe1939;
+    const at = (ticks: number) => {
+      const view = Object.create(game) as Game;
+      view.ticks = () => ticks;
+      return view;
+    };
+    expect(rule.attackFactor!(at(100), ussr, finland)).toBe(
+      EUROPE_1939_PURGE_FACTOR,
+    );
+    expect(EUROPE_1939_PURGE_FACTOR).toBeGreaterThan(1);
+    expect(
+      rule.attackFactor!(at(EUROPE_1939_PURGE_TICKS - 1), ussr, finland),
+    ).toBe(EUROPE_1939_PURGE_FACTOR);
+    expect(rule.attackFactor!(at(EUROPE_1939_PURGE_TICKS), ussr, finland)).toBe(
+      1,
+    );
+    expect(rule.attackFactor!(at(100), germany, ussr)).toBe(1);
+    expect(rule.attackFactor!(at(100), finland, ussr)).toBe(1);
+    // ...and it shows in the cost of a tile (ScenarioFronts).
+    const karelia = [...finland.tiles()].find((t) =>
+      game.neighbors(t).some((n) => game.owner(n) === ussr),
+    )!;
+    const early = scenarioAttackFactor(at(100), ussr, finland, karelia);
+    const late = scenarioAttackFactor(
+      at(EUROPE_1939_PURGE_TICKS),
+      ussr,
+      finland,
+      karelia,
+    );
+    expect(early / late).toBeCloseTo(EUROPE_1939_PURGE_FACTOR, 6);
   }, 120_000);
 });
 
