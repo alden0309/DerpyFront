@@ -828,6 +828,9 @@ const NAME_VOICES: [RegExp, string][] = [
   ],
   [/\b(kuwait|oman|muscat|trucial|qatar|bahrain)\b/i, "gulf"],
   [/pirate/i, "pirate"],
+  // SCEN (r25): Thirteen Colonies - Detailed's Province of Quebec flies the
+  // Union Flag but speaks French.
+  [/\bprovince of quebec\b/i, "quebecois"],
 ];
 
 /**

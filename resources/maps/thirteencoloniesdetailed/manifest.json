@@ -3,17 +3,17 @@
   "id": "ThirteenColoniesDetailed",
   "map": {
     "height": 2524,
-    "num_land_tiles": 1333739,
+    "num_land_tiles": 1879551,
     "width": 1480
   },
   "map16x": {
     "height": 631,
-    "num_land_tiles": 76495,
+    "num_land_tiles": 108088,
     "width": 370
   },
   "map4x": {
     "height": 1262,
-    "num_land_tiles": 323667,
+    "num_land_tiles": 456651,
     "width": 740
   },
   "multiplayer_frequency": 0,
@@ -238,6 +238,16 @@
       "coordinates": [85, 2217],
       "flag": "Miccosukee",
       "name": "Mikasuki (Miccosukee)"
+    },
+    {
+      "coordinates": [1034, 137],
+      "flag": "union_flag_1707",
+      "name": "Province of Quebec"
+    },
+    {
+      "coordinates": [1409, 200],
+      "flag": "novascotia",
+      "name": "Nova Scotia"
     }
   ],
   "translation_key": "map.thirteencoloniesdetailed"

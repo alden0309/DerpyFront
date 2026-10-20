@@ -2678,7 +2678,7 @@ export const maps: readonly MapInfo[] = [
     ffaFrequency: -1,
     teamFrequency: -1,
     specialFrequency: -1,
-    defaultNationCount: 44,
+    defaultNationCount: 46,
   },
   {
     id: "TierraDelFuego",
