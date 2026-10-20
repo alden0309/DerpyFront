@@ -8,7 +8,12 @@ export interface Prefs {
   timers: boolean;
   speed: TextSpeed;
   sound: boolean;
+  /** The master volume. */
   volume: number;
+  /** r25: each part of the sound's own level, under the master. */
+  music: number;
+  ambience: number;
+  effects: number;
   /** r21: mark every hotspot (otherwise only on hover, or holding Tab). */
   marks: boolean;
   /** r21: the 3D pictures' quality. */
@@ -21,6 +26,9 @@ const DEFAULTS: Prefs = {
   speed: "normal",
   sound: true,
   volume: 0.7,
+  music: 0.6,
+  ambience: 0.8,
+  effects: 0.8,
   marks: false,
   quality: "auto",
 };
@@ -41,6 +49,23 @@ export function savePrefs(p: Prefs): void {
   } catch {
     // not kept, which is fine
   }
+}
+
+/** r25: the sound's levels from the settings. */
+export function levelsOf(p: Prefs): {
+  master: number;
+  music: number;
+  ambience: number;
+  effects: number;
+  muted: boolean;
+} {
+  return {
+    master: p.volume,
+    music: p.music,
+    ambience: p.ambience,
+    effects: p.effects,
+    muted: !p.sound,
+  };
 }
 
 /** Characters per second; 0 means all at once. */

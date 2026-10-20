@@ -235,6 +235,8 @@ const StageSchema = z.object({
         wear: Key.optional(),
         // r22: the place (area) they're in.
         place: Key.optional(),
+        // r25: what they do by themselves (drink, read, talk:group).
+        idle: Key.optional(),
       }),
     )
     .optional(),

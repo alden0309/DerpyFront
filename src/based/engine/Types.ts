@@ -22,6 +22,12 @@ export type Expr =
   | { k: "time" }
   /** r22 BPLAY: the weather where he is now ("weather.clear"). */
   | { k: "weather"; kind: string }
+  /**
+   * r25: whether he heard the last passive check of the scene (a skill's
+   * voice with a difficulty, or a hard line's gist): `if heard` after one
+   * sets what he only knows if he heard it.
+   */
+  | { k: "heard" }
   | { k: "num"; v: number }
   | { k: "not"; e: Expr }
   | { k: "and" | "or"; a: Expr; b: Expr }
@@ -246,7 +252,38 @@ export interface ActorState {
    * people stay where they were left while he's elsewhere.
    */
   place?: string;
+  /**
+   * r25: what they do by themselves while the story asks nothing of them:
+   * "drink", "read", or "talk:group" (talking with the others of the group,
+   * one at a time). The world plays it.
+   */
+  idle?: string;
 }
+
+/**
+ * r25: the sounds a scene can ask for with `@sound` (the client plays
+ * them): the street doors and the bar's bell, the desk's bell, the lift's
+ * dead button, the rope unhooked, a key laid down, the television switched
+ * off, coins, a match, a glass, a page, a siren far off.
+ */
+export const SOUND_CUES = [
+  "door_open",
+  "door_close",
+  "bar_bell",
+  "desk_bell",
+  "lift_button",
+  "rope",
+  "key",
+  "tv_off",
+  "coins",
+  "match",
+  "glass",
+  "page",
+  "siren",
+] as const;
+
+/** r25: what someone can do by themselves (`@actor ... idle=`). */
+export const IDLES = ["drink", "read", "talk"] as const;
 
 /**
  * r22: what starts a scene in the open world, once the opening has set him
@@ -370,7 +407,9 @@ export type Op =
   /** r22 BPLAY: he takes off what's in a slot (into his pockets). */
   | { op: "unequip"; slot: GearSlot; src: number }
   /** r22 BPLAY: `earn N` (delta > 0) or `pay N` (delta < 0), in euros. */
-  | { op: "money"; delta: number; src: number };
+  | { op: "money"; delta: number; src: number }
+  /** r25: a sound, once, now (`@sound bar_bell`): one of SOUND_CUES. */
+  | { op: "sound"; key: string; src: number };
 
 export interface Scene {
   id: string;
@@ -384,6 +423,19 @@ export interface Scene {
 export interface Carry {
   text: string;
   cond?: Expr;
+}
+
+/**
+ * r25: something he can only know once he's learned it (`@fact flag|other
+ * "words" "more words"`): any of the flags means he knows it, and a line in
+ * his voice (narration, his thoughts, what he says, a choice) that uses the
+ * words must be where he learns it or come after a condition that makes
+ * sure he has. The validator checks every line; the tests play it.
+ */
+export interface Fact {
+  flags: string[];
+  words: string[];
+  src: number;
 }
 
 export interface Chapter {
@@ -411,6 +463,8 @@ export interface Chapter {
   items: Record<string, ItemDef>;
   /** r22 BPLAY: the euros he starts with (`@money N`). */
   money: number;
+  /** r25: what he can only know once he's learned it. */
+  facts?: Fact[];
 }
 
 /** The goto target that ends the chapter. */

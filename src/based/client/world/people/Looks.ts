@@ -383,5 +383,27 @@ export const LOOKS: Record<string, Look> = {
   },
 };
 
+// r25 (BSTORY): the desk clerk of the Hôtel Vauban: grey, a moustache,
+// round glasses, shirt sleeves under a dark waistcoat.
+LOOKS.desk_clerk = {
+  body: "m",
+  skin: "#c49a80",
+  hair: "#8a8580",
+  hairStyle: "receding",
+  grey: 0.8,
+  facial: "moustache",
+  face: { age: 0.6, cheeks: 0.3, nose: 0.2 },
+  waistcoat: "#3a3632",
+  shirt: "#e4dfd2",
+  tie: "#4a1a1c",
+  trousers: "#232120",
+  shoes: "#120f0d",
+  glasses: "round",
+  build: 0.2,
+};
+// r25: the two men at the palace window are smoking.
+LOOKS.suit_dark_smoking = { ...LOOKS.suit_dark, cigarette: true };
+LOOKS.uniform_navy_smoking = { ...LOOKS.uniform_navy, cigarette: true };
+
 /** The names a story may use in look= and wear=. */
 export const LOOK_NAMES = Object.keys(LOOKS);

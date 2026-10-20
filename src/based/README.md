@@ -10,27 +10,30 @@ signs up), and is never read again.
 
 ## Where things are
 
-| Path                             | What                                                                                                |
-| -------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `story/chapter-NN.story`         | One file per chapter, in the format below. **Server only.**                                         |
-| `places/<key>.json`              | The 3D places: the street, Le Vauban (bar and lobby), the Élysée. **Server only.**                  |
-| `models/*.glb`                   | The people (the owner's own models and CC0 bodies), their clips and the furniture. **Server only.** |
-| `models/fusion_props.glb`        | r23: the furniture, the street's furniture and the cars, modelled for the game in Fusion.           |
-| `art/*.webp`, `art/credits.json` | The graded pictures (portraits, memories, the photograph) and who made everything.                  |
-| `audio/*.mp3`                    | Ambient loops.                                                                                      |
-| `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart, saves, weather.                   |
-| `engine/Solid.ts`, `Props.ts`    | r23: what's solid in a place (from its pieces) and the props' footprints and seats.                 |
-| `engine/Walk.ts`                 | r23: how people move along a path (easing, rounded corners, turning).                               |
-| `client/world/Palette.ts`        | r23: the named materials of the Fusion props.                                                       |
-| `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.                         |
-| `client/world/`                  | The 3D world: the kit places are built from, the people, the weather, the look.                     |
-| `client/world/PeopleHooks.ts`    | What the world asks of a person: getting wet, running, a look, a prop in hand (r22 BPLAY).          |
-| `client/Inventory.ts`            | What he carries (r22 BPLAY): his figure with the slots, the pockets, an item's details.             |
-| `client/ItemArt.ts`              | The ink drawings of things (`icon=`) and of his figure.                                             |
-| `client/Dossier.ts`              | The story so far, as his dossier.                                                                   |
-| `client/fonts/`                  | Spectral and Courier Prime (SIL Open Font Licence, the licences beside them).                       |
-| `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                                    |
-| `scripts/based-notes.ts`         | Prints the notes Alden leaves for the writer.                                                       |
+| Path                             | What                                                                                                         |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `story/chapter-NN.story`         | One file per chapter, in the format below. **Server only.**                                                  |
+| `places/<key>.json`              | The 3D places: the street, Le Vauban (bar and lobby), the Élysée. **Server only.**                           |
+| `models/*.glb`                   | The people (the owner's own models and CC0 bodies), their clips and the furniture. **Server only.**          |
+| `models/fusion_props.glb`        | r23: the furniture, the street's furniture and the cars, modelled for the game in Fusion.                    |
+| `art/*.webp`, `art/credits.json` | The graded pictures (portraits, memories, the photograph) and who made everything.                           |
+| `audio/*.mp3`                    | r25: the sound: beds (looped), the score's three cues, and sprites of short sounds (`client/SoundTable.ts`). |
+| `places/room.json`               | r25: his room upstairs (room twenty-three), where part one ends.                                             |
+| `client/Sound.ts`                | r25: the soundscape (beds, footsteps, doors, effects, the score, the levels).                                |
+| `client/world/Furnish.ts`        | r25: the lobby's and the room's pieces (the stairs, the rope, the desk, the guest book, the bed...).         |
+| `engine/`                        | Parser, runtime, dice and skills, nav grid, validator, flowchart, saves, weather.                            |
+| `engine/Solid.ts`, `Props.ts`    | r23: what's solid in a place (from its pieces) and the props' footprints and seats.                          |
+| `engine/Walk.ts`                 | r23: how people move along a path (easing, rounded corners, turning).                                        |
+| `client/world/Palette.ts`        | r23: the named materials of the Fusion props.                                                                |
+| `client/`                        | The page at `/based`: Coming Soon, title, setup, the player, the flowchart.                                  |
+| `client/world/`                  | The 3D world: the kit places are built from, the people, the weather, the look.                              |
+| `client/world/PeopleHooks.ts`    | What the world asks of a person: getting wet, running, a look, a prop in hand (r22 BPLAY).                   |
+| `client/Inventory.ts`            | What he carries (r22 BPLAY): his figure with the slots, the pockets, an item's details.                      |
+| `client/ItemArt.ts`              | The ink drawings of things (`icon=`) and of his figure.                                                      |
+| `client/Dossier.ts`              | The story so far, as his dossier.                                                                            |
+| `client/fonts/`                  | Spectral and Courier Prime (SIL Open Font Licence, the licences beside them).                                |
+| `src/server/derpy/DerpyBased.ts` | The API at `/derpy/api/based`, and who may play.                                                             |
+| `scripts/based-notes.ts`         | Prints the notes Alden leaves for the writer.                                                                |
 
 The story, the places, the models, the pictures and the sound are never
 bundled into the site's JavaScript. The server reads them from this folder and sends them only to an
@@ -93,6 +96,34 @@ C your skills, I what he carries, J the journal, N a note to the writer,
 F5 quicksave, F9 quickload, Esc the menu (save and load slots, the story so
 far). The same key closes the panel it opened.
 
+## Part one, as the owner reshaped it (r25)
+
+- **The street.** The man under the awning with an unlit cigarette: going
+  up to him is Mr. Based offering a light; he wants to be alone, and that's
+  the end of it. He stays under the awning (the mirror, the signal).
+- **The lobby.** A front desk with the desk clerk behind it and the key
+  board behind him; the guest book, turned to the clerk and never read; a
+  staircase up the back wall, closed by a red rope with a card (Guests:
+  please ask at the desk); the lift, out of order all night, its button
+  dead; armchairs, a chandelier, a standard lamp; the doorways to the bar
+  and the street. London booked his room through a firm of wine shippers
+  and he's early: it isn't made up, so the clerk keeps his key, and since
+  the Préfecture's circular the stairs are for guests with one.
+- **The bar.** The barman's conversation as it was; then the man in grey
+  sits beside him because his is a new face. Then London's contact: he can
+  tell her only what he noticed. Two telling things (where the man came
+  from, his pin, the signal in the mirror, that he's on duty, his look at
+  her table, which counts for two) and they work out that the man was
+  watching her and has seen them together, so both must disappear
+  (`knew_seen`); with less, or nothing, she remarks that the man is here
+  every night, always in the same seat, neither can make anything of it,
+  and they part thinking it went all right (`missed_watch`).
+- **The end of part one.** He's tired; the street is done for the night;
+  the clerk hands over the key and unhooks the rope; up the stairs to room
+  twenty-three, and sleep; then the two men smoking at the palace window.
+- **The regulars.** Two at the bar, a couple at the window table, a man
+  with a book: a line or two each, and lives of their own (`idle=`).
+
 ## Saves (r22)
 
 No chapters to pick and no checkpoints: the game saves in **slots**, an
@@ -109,7 +140,12 @@ the game. r22 BPLAY: a save also holds what he carries (pockets, what he
 wears and holds, his euros) and what the story so far needs (places, people
 and when he met them, memories, who'll remember), a few hundred bytes more.
 A save from before he carried anything loads with his starting kit; the
-next chapter starts with what he had at the end of the last. A round-21 save (one per account, chapters and checkpoints) is
+next chapter starts with what he had at the end of the last. r25: a save in
+a scene that's since been cut (the walk to the river) loads free, where that
+scene began; a save free after London's contact from before this round
+takes up the new end the moment he's free (`upgrade_r25`: what they knew,
+in the new flags, and his journal's last task); one from before the
+regulars finds them in their places (`crowd_r25`). A round-21 save (one per account, chapters and checkpoints) is
 turned into an autosave of the rewritten chapter one the first time it's
 read: at its start, or, if it was past the meeting with London's contact,
 where the world opens after it. Its old flowchart is dropped.
@@ -455,6 +491,41 @@ end
 Flags are read as numbers (unset is 0); `rel.name` is a relationship.
 `and`, `or`, `not`, parentheses, `>= <= > < == !=`.
 
+r25: `heard` is whether the scene's last passive check was heard (a voice
+with a difficulty, or a hard line's gist), so what he only learns if he
+heard it is set only then:
+
+```
+~ PERCEPTION medium: Six rows. Every hook full but one: forty-one.
+if heard
+  set key_gone
+end
+```
+
+### Nothing he can't know (r25)
+
+```
+@fact knows_oak "grandson"
+@fact knows_room|key_gone "forty-one" "41"
+```
+
+In the header, `@fact` names something he can only know once he's learned
+it: the flags that mean he knows it (any of them) and the words that give
+it away (whole words, any case). A line in **his** voice (narration, his
+thoughts and voices, what he says, a choice's prompt, its options, their
+reasons, a room's spots and deductions) that uses the words must either be
+where he learns it (the flag `set` before the story next stops to ask
+anything) or come after a condition that makes sure he knows it: the
+scene's `@on ... if`, an `if` around it, an option's `if`, a flag set
+earlier on every way into the scene (the validator follows the jumps). Other
+people's lines are theirs: the barman can mention his grandson; Mr. Based
+can only think about the pin once the barman has. `a or b` in a condition
+counts for a fact of either flag.
+
+The validator (`engine/Facts.ts`) checks every line of the chapter;
+`tests/based/BasedFacts.test.ts` also plays chapter one down 200 random
+paths and fails if he's ever shown a fact before he's learned it.
+
 ### What he carries (r22 BPLAY)
 
 In the header:
@@ -601,7 +672,17 @@ end
 @show card                         // the place's props the story shows or hides
 @hide card
 @gesture BASED drink               // drink, pick_up, interact, nod, shake
+@actor REGULAR stool_4 sit idle=drink in=vauban   // r25: a life of their own
+@actor COUPLE_M couple_m sit idle=talk:window      // talking with the rest of "window"
+@sound bar_bell                    // r25: a sound, once (door_open, door_close, bar_bell, desk_bell,
+                                   // lift_button, rope, key, tv_off, coins, match, glass, page, siren)
 ```
+
+r25: `idle=` gives someone a life while the story asks nothing of them,
+played by the world: `drink` (a drink now and then, a nod), `read` (a book
+in hand, a page turned), `talk:group` (the people of a group talk one at a
+time, with pauses, and nod). People with an idle cast no shadow (they're
+the room, and the room keeps to its budget). A save keeps it.
 
 The validator checks every mark, hotspot, shot and prop against the place
 each scene is in.
@@ -685,6 +766,38 @@ The moped, the helmet on its mirror...
 - The tests check each can be walked to from every door of its place.
 
 ### Art and sound
+
+r25: the sound lives in `audio/` as mono MP3 (64 kbps, the score 56):
+loops (`LOOPS` in `client/SoundTable.ts` gives each its exact length, for
+decoders that keep the encoder's delay), the score's cues (`score_street`,
+`score_bar`, `score_night`) and sprites (`things`, `paper`, `dice`,
+`stings`, `clinks`, `steps_<surface>`), short sounds one after another in
+fixed slots. Every file is credited in `art/credits.json` ("Sound" or
+"Music"): CC0, public domain, CC BY, or original work made for the game in
+code. A place says what it sounds like in its data:
+
+```json
+"sound": {
+  "beds": [{ "key": "rain", "gain": 0.75, "rain": true }],
+  "areas": { "bar": { "beds": [{ "key": "murmur", "gain": 0.42 }], "random": [{ "key": "clink", "every": [6, 16], "gain": 0.22 }] } },
+  "spots": [{ "key": "awning", "gain": 0.7, "rain": true, "at": [2.2, 14.2], "r": 3.2 }],
+  "tv": { "key": "tv_hum", "at": [3.6, -4.45], "r": 6, "gain": 0.22 },
+  "random": [{ "key": "siren", "every": [75, 170], "gain": 0.3 }],
+  "music": "street"
+}
+```
+
+Beds play all the time in the place (`rain` ones louder the harder it
+rains), or in one room of it; spots grow louder near a point (the rain on
+the pharmacy's awning); the TV hums while it has news; `random` comes now
+and then; `music` is the score's cue (or one per room). A door's hotspot can
+say its sound (`"sound": "bar_bell"`, `"stairs"`). A place without `sound`
+plays the story's `@ambient`. Footsteps follow the floor piece underfoot
+(tiles, oak, carpet, stone; wet stone in the rain), his louder than other
+people's. The score plays a cue on arriving somewhere new, then rests a
+minute or so, and steps back under dialogue. The settings have Volume (all
+of it), Music, Ambience and Effects, and Sound on or off; nothing plays
+before the first click or key, and nothing while the tab is hidden.
 
 Pictures go in `art/` as WebP (≤ 250 KB, graded to match: cool shadows, amber
 highlights), backdrops 1600×900, portraits 720×900, and every one is listed in

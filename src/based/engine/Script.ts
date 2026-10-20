@@ -39,6 +39,7 @@ import {
   FREE,
   GEAR_SLOTS,
   GearSlot,
+  IDLES,
   ITEM_KINDS,
   ItemDef,
   ItemKind,
@@ -46,6 +47,7 @@ import {
   Op,
   Scene,
   ScriptError,
+  SOUND_CUES,
   Trigger,
 } from "./Types";
 
@@ -561,6 +563,22 @@ export function parseChapter(text: string): ParseResult {
           }
           break;
         }
+        case "@fact": {
+          // r25: @fact flag|other "words" ["more words"...]
+          const flags = (ws[1] ?? "").split("|").filter(Boolean);
+          const said = ws.slice(2);
+          if (
+            flags.length === 0 ||
+            !flags.every((f) => FLAG.test(f) && !RESERVED.includes(f)) ||
+            said.length === 0 ||
+            said.some((w) => w.trim() === "")
+          ) {
+            err(n, '@fact flag|other_flag "words" ["more words"...]');
+            break;
+          }
+          (chapter.facts ??= []).push({ flags, words: said, src: n });
+          break;
+        }
         case "@money": {
           const v = Number(pos[0]);
           if (!Number.isInteger(v) || v < 0) err(n, "@money N (euros)");
@@ -585,7 +603,7 @@ export function parseChapter(text: string): ParseResult {
         default:
           err(
             n,
-            `before the first scene, only @chapter, @summary, @start, @time, @cast, @carry, @attribute, @skill, @archetype, @points, @language, @item and @money: "${line}"`,
+            `before the first scene, only @chapter, @summary, @start, @time, @cast, @carry, @attribute, @skill, @archetype, @points, @language, @item, @money and @fact: "${line}"`,
           );
       }
       continue;
@@ -729,6 +747,14 @@ export function parseChapter(text: string): ParseResult {
         emit({ op: kind, key, src: n });
         continue;
       }
+      case "@sound": {
+        // r25: a sound, once: @sound bar_bell
+        if (!(SOUND_CUES as readonly string[]).includes(rest)) {
+          err(n, `@sound ${SOUND_CUES.join("|")}: "${rest}"`);
+        }
+        emit({ op: "sound", key: rest, src: n });
+        continue;
+      }
       case "@gesture": {
         const ws = words(rest);
         if (!castIds.has(ws[0] ?? "")) {
@@ -765,6 +791,20 @@ export function parseChapter(text: string): ParseResult {
         const state: ActorState | null =
           mark === "none" ? null : { at: mark, pose };
         if (state && kv.wear) state.wear = kv.wear;
+        // r25: a life of their own: idle=drink, idle=read, idle=talk:table.
+        if (kv.idle !== undefined) {
+          const [kind, group] = kv.idle.split(":");
+          if (
+            !(IDLES as readonly string[]).includes(kind) ||
+            (group !== undefined && !/^[a-z0-9_]+$/.test(group)) ||
+            (kind === "talk") !== (group !== undefined)
+          ) {
+            err(
+              n,
+              `@actor ... idle=${IDLES.join("|")} (talk:group for a table's talk)`,
+            );
+          } else if (state) state.idle = kv.idle;
+        }
         if (kv.in !== undefined) {
           if (!KEY.test(kv.in)) err(n, "@actor ... in=place");
           // A place for "none" too: gone from there (and not elsewhere).

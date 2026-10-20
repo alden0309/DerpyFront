@@ -156,6 +156,17 @@ export function pickTier(): Tier {
   return coarse && small ? "low" : "high";
 }
 
+/** r25: what a footfall sounds on. */
+export type StepSurface = "stone" | "tile" | "wood" | "carpet";
+
+/** A place's floor surface (Textures.ts) as a footfall's. */
+export function stepSurface(s: string): StepSurface {
+  if (s === "tiles") return "tile";
+  if (s === "carpet") return "carpet";
+  if (s === "oak" || s === "oak_dark" || s === "plaster") return "wood";
+  return "stone";
+}
+
 /** Waits for the browser to be idle (or a frame, where there's no idle). */
 function idle(): Promise<void> {
   return new Promise((r) => {
@@ -282,6 +293,42 @@ export class World {
    */
   private heroLook: string | null = null;
   private held: { kind: string; prop: THREE.Group; own: boolean } | null = null;
+  /**
+   * r25 (BSTORY): people with a life of their own while nothing asks
+   * anything of them (`@actor ... idle=drink|read|talk:group`): a drink now
+   * and then, a page turned, a couple talking low, one at a time.
+   */
+  private readonly idles = new Map<
+    string,
+    {
+      kind: string;
+      group: string;
+      t: number;
+      prop: THREE.Group | null;
+      /** The person it's been set up on (their prop, no shadow). */
+      on: Person | null;
+    }
+  >();
+  private readonly chats = new Map<
+    string,
+    { speaker: string | null; last: string | null; t: number }
+  >();
+  /** r25: footfalls, for the sound: whose, on what, running. */
+  onStep:
+    | ((step: {
+        who: string;
+        hero: boolean;
+        surface: StepSurface;
+        run: boolean;
+        wet: number;
+        x: number;
+        z: number;
+      }) => void)
+    | null = null;
+  private readonly stepClock = new Map<string, number>();
+  /** r25: where each person last set off for, and props waiting for them. */
+  private readonly walkTargets = new Map<string, THREE.Vector3>();
+  private readonly queues = new Map<string, (() => void)[]>();
   onThings: ((h: ThingOnScreen[]) => void) | null = null;
   /** Called when a set of things noticed changes (for the column). */
   onNoticed: ((ids: string[]) => void) | null = null;
@@ -986,10 +1033,17 @@ export class World {
 
   /** Everyone where the stage says, at once (a scene starting, a load). */
   placeCast(actors: Record<string, ActorState>): void {
+    // r25: everyone where the stage says, now: nothing left waiting.
+    this.queues.clear();
+    this.walkTargets.clear();
     for (const [id, p] of this.people) {
       if (!actors[id]) p.root.visible = false;
     }
+    for (const id of [...this.idles.keys()]) {
+      if (!actors[id]) this.setIdle(id, undefined);
+    }
     for (const [id, st] of Object.entries(actors)) {
+      this.setIdle(id, st.idle);
       const m = this.here(st) ? this.mark(st.at) : null;
       if (!m) {
         // Elsewhere (the stage keeps them where they were left).
@@ -1128,6 +1182,12 @@ export class World {
 
   /** Someone moves: walks to their mark (or appears there), then poses. */
   moveActor(id: string, st: ActorState | null, walk: boolean): void {
+    // r25: still on the way somewhere the story sent them: this comes next.
+    if (this.storyWalking(id)) {
+      this.queue(id, () => this.moveActor(id, st, walk));
+      return;
+    }
+    this.setIdle(id, st?.idle);
     const p0 = this.people.get(id);
     if (st === null || !this.here(st)) {
       if (!p0 || !p0.root.visible) return;
@@ -1137,6 +1197,7 @@ export class World {
         const at = this.markPos(door);
         const pts = this.route(p0, at.x, at.z);
         if (pts) {
+          this.walkTargets.set(id, at.clone());
           p0.walk(pts, () => (p0.root.visible = false));
           return;
         }
@@ -1166,6 +1227,7 @@ export class World {
     const pts = this.route(p, target.x, target.z) ?? [];
     // The last step is to the mark itself, even onto a stool.
     pts.push(target);
+    this.walkTargets.set(id, target.clone());
     p.walk(pts, finish, face);
   }
 
@@ -1198,16 +1260,221 @@ export class World {
   }
 
   setTalking(who: string | null): void {
-    for (const [id, p] of this.people) p.setTalking(id === who);
+    for (const [id, p] of this.people) {
+      // r25: a couple's talk is their own, unless the story gives them a line.
+      if (id !== who && this.idles.get(id)?.kind === "talk") continue;
+      p.setTalking(id === who);
+    }
+  }
+
+  /**
+   * r25: what someone does by themselves (`idle=` on their @actor line):
+   * "drink", "read" (a book in hand, a page now and then) or "talk" (with
+   * the others of its group, "talk:table", one at a time), or nothing. The
+   * regulars cast no shadow: they're the room, not the story, and the bar
+   * keeps to its budget.
+   */
+  private setIdle(id: string, idle: string | undefined): void {
+    const was = this.idles.get(id);
+    const [kind, group = ""] = (idle ?? "").split(":");
+    if (was && was.kind === kind && was.group === group) return;
+    if (was) {
+      const p = was.on;
+      if (was.prop && p) holdProp(p, null);
+      was.prop?.removeFromParent();
+      if (was.kind === "talk") p?.setTalking(false);
+      this.idles.delete(id);
+    }
+    if (!kind) return;
+    this.idles.set(id, {
+      kind,
+      group,
+      t: 2 + Math.random() * 10,
+      prop: null,
+      on: null,
+    });
+  }
+
+  private tickIdle(dt: number): void {
+    for (const [id, s] of this.idles) {
+      const p = this.people.get(id);
+      if (p && s.on !== p) {
+        // Set up on the person the first time they're there (or rebuilt).
+        s.on = p;
+        if (s.kind === "read") {
+          s.prop ??= heldProp("book_open");
+          holdProp(p, s.prop);
+        }
+        p.root.traverse((o) => {
+          if ((o as THREE.Mesh).isMesh) o.castShadow = false;
+        });
+      }
+      if (!p?.root.visible || p.walking || s.kind === "talk") continue;
+      s.t -= dt;
+      if (s.t > 0) continue;
+      if (s.kind === "drink") {
+        p.gesture(Math.random() < 0.8 ? "drink" : "nod");
+        s.t = 14 + Math.random() * 20;
+      } else if (s.kind === "read") {
+        p.gesture("interact");
+        s.t = 16 + Math.random() * 22;
+      } else {
+        s.t = 30;
+      }
+    }
+    // Talk at a table goes round, one voice at a time, with pauses.
+    const members = new Map<string, string[]>();
+    for (const [id, s] of this.idles) {
+      const p = this.people.get(id);
+      if (s.kind !== "talk" || !p?.root.visible || p.walking) continue;
+      members.set(s.group, [...(members.get(s.group) ?? []), id]);
+    }
+    for (const [g, ids] of members) {
+      let c = this.chats.get(g);
+      if (!c) {
+        c = { speaker: null, last: null, t: 1 + Math.random() * 3 };
+        this.chats.set(g, c);
+      }
+      c.t -= dt;
+      if (c.t > 0) continue;
+      if (c.speaker) {
+        this.people.get(c.speaker)?.setTalking(false);
+        c.last = c.speaker;
+        c.speaker = null;
+        c.t = 0.8 + Math.random() * 2.2;
+        if (Math.random() < 0.5) {
+          const other = ids.find((x) => x !== c.last);
+          if (other) this.people.get(other)?.gesture("nod");
+        }
+      } else {
+        const pick =
+          ids.length > 1 && Math.random() < 0.75
+            ? (ids.find((x) => x !== c.last) ?? ids[0])
+            : ids[Math.floor(Math.random() * ids.length)];
+        c.speaker = pick;
+        this.people.get(pick)?.setTalking(true);
+        c.t = 2.5 + Math.random() * 4.5;
+      }
+    }
+  }
+
+  /**
+   * r25: what's underfoot where someone stands: the topmost floor piece
+   * there (tiles, oak boards, the lobby's carpet), or the street's stone.
+   */
+  surfaceAt(x: number, z: number): StepSurface {
+    const def = this.place?.def;
+    if (!def) return "stone";
+    let best: { y: number; s: string } | null = null;
+    for (const it of def.items) {
+      if (it.kind !== "floor") continue;
+      const [w, d] = (it.size as [number, number]) ?? [10, 10];
+      const [cx, cy, cz] = it.at;
+      if (Math.abs(x - cx) > w / 2 || Math.abs(z - cz) > d / 2) continue;
+      if (!best || cy >= best.y) {
+        best = { y: cy, s: typeof it.surface === "string" ? it.surface : "" };
+      }
+    }
+    const s = best?.s ?? (this.place?.outdoor ? "paving" : "oak");
+    return stepSurface(s);
+  }
+
+  /** r25: a footfall every stride and a half for whoever's walking. */
+  private tickSteps(dt: number): void {
+    if (!this.onStep || !this.place) return;
+    for (const [id, p] of this.people) {
+      if (!p.root.visible || p.pose === "sit" || p.speed < 0.25) {
+        this.stepClock.delete(id);
+        continue;
+      }
+      const k = Math.min(1, Math.max(0, (p.speed - 1.15) / (5.2 - 1.15)));
+      const every =
+        p.speed < 1.15
+          ? Math.min(0.9, 0.55 * Math.sqrt(1.15 / p.speed))
+          : 0.55 + (0.31 - 0.55) * k;
+      const t = (this.stepClock.get(id) ?? every * 0.5) + dt;
+      if (t < every) {
+        this.stepClock.set(id, t);
+        continue;
+      }
+      this.stepClock.set(id, t - every);
+      const at = p.root.position;
+      const area = this.areaOf(at.x, at.z);
+      const out = this.place.outdoor && area?.inside !== true;
+      this.onStep({
+        who: id,
+        hero: id === this.hero,
+        surface: this.surfaceAt(at.x, at.z),
+        run: p.running && p.speed > 2,
+        wet: out ? this.weather.ground : 0,
+        x: at.x,
+        z: at.z,
+      });
+    }
   }
 
   gesture(who: string, name: string): void {
+    if (this.storyWalking(who)) {
+      this.queue(who, () => this.people.get(who)?.gesture(name));
+      return;
+    }
     this.people.get(who)?.gesture(name);
   }
 
   setProp(key: string, on: boolean): void {
     const o = this.place?.props.get(key);
-    if (o) o.visible = on;
+    if (!o) return;
+    // r25: a prop someone is on their way to (the clerk to the rope) changes
+    // when they get there, not as they set off.
+    o.getWorldPosition(this.v4);
+    for (const [id, t] of this.walkTargets) {
+      if (!this.storyWalking(id)) continue;
+      if (Math.hypot(t.x - this.v4.x, t.z - this.v4.z) < 1.6) {
+        this.queue(id, () => (o.visible = on));
+        return;
+      }
+    }
+    o.visible = on;
+  }
+
+  /**
+   * r25: someone the story sent somewhere (`@actor ... walk`) and who is
+   * still on the way. What the story asks of them next (another walk, a
+   * gesture, a prop by where they're going, a sound) waits until they're
+   * there, so a clerk reaches the rope before he unhooks it.
+   */
+  private storyWalking(id: string): boolean {
+    const p = this.people.get(id);
+    return this.walkTargets.has(id) && !!p?.walking && p.root.visible;
+  }
+
+  private queue(id: string, fn: () => void): void {
+    const q = this.queues.get(id) ?? [];
+    q.push(fn);
+    this.queues.set(id, q);
+  }
+
+  /** r25: after whoever the story has walking arrives (or now). */
+  afterWalks(fn: () => void): void {
+    for (const id of this.walkTargets.keys()) {
+      if (this.storyWalking(id)) {
+        this.queue(id, fn);
+        return;
+      }
+    }
+    fn();
+  }
+
+  private settleQueues(): void {
+    for (const [id, q] of this.queues) {
+      while (q.length > 0 && !this.storyWalking(id)) q.shift()!();
+      if (q.length === 0) this.queues.delete(id);
+    }
+    for (const id of [...this.walkTargets.keys()]) {
+      if (!this.storyWalking(id) && !this.queues.has(id)) {
+        this.walkTargets.delete(id);
+      }
+    }
   }
 
   setNews(text: string | null): void {
@@ -1216,6 +1483,16 @@ export class World {
 
   setFocus(key: string | null): void {
     this.focusKey = key;
+  }
+
+  /** r25: how hard it's raining (0 to 1), for the sound. */
+  get rainNow(): number {
+    return this.weather.rain;
+  }
+
+  /** r25: the room of the place at a point, by id (for the sound). */
+  areaIdAt(x: number, z: number): string | null {
+    return this.areaOf(x, z)?.id ?? null;
   }
 
   /** BPLAY (r22): the weather now (rain, drizzle, clear or fog), drift and all. */
@@ -2007,6 +2284,9 @@ export class World {
       }
     }
     this.carryHeld();
+    this.tickIdle(dt);
+    this.tickSteps(dt);
+    this.settleQueues();
     this.updateCamera(dt);
     if (place) {
       for (const t of place.ticks) t(this.time);
@@ -2280,6 +2560,25 @@ function heldProp(kind: string): THREE.Group {
     );
     shaft.position.y = -0.17;
     g.add(grip, shaft);
+  } else if (kind === "book_open") {
+    // r25: a book held open to read: two pale pages in a dark cover.
+    const cover = new THREE.MeshStandardMaterial({
+      color: "#3a2a22",
+      roughness: 0.7,
+    });
+    const page = new THREE.MeshStandardMaterial({
+      color: "#d8d0bc",
+      roughness: 0.85,
+    });
+    for (const s of [-1, 1]) {
+      const c = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.006), cover);
+      c.position.set(s * 0.05, -0.04, 0.03);
+      c.rotation.y = s * 0.35;
+      const pg = new THREE.Mesh(new THREE.BoxGeometry(0.094, 0.14, 0.01), page);
+      pg.position.set(s * 0.048, -0.04, 0.037);
+      pg.rotation.y = s * 0.35;
+      g.add(c, pg);
+    }
   } else {
     // Something small in his hand: a dark shape the size of a paperback.
     const m = cast(

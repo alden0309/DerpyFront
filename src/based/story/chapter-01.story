@@ -28,7 +28,13 @@
 @cast WOMAN "The woman in the corner" portrait=penhallow look=wool_woman
 @cast PENHALLOW "Penhallow" portrait=penhallow body=WOMAN
 @cast WATCHER "The man under the awning" look=coat_dark
-@cast PORTER "The night porter" look=suit_dark
+@cast PORTER "The desk clerk" look=desk_clerk
+// r25: Le Vauban's regulars, for a livelier bar. Nobody the story needs.
+@cast REGULAR "The old man at the bar" look=old_beret
+@cast WORKER "The man in the blue jersey" look=worker_blue
+@cast COUPLE_M "The man in the tan coat" look=trench_tan
+@cast COUPLE_F "The woman in the red coat" look=coat_red
+@cast READER "The man with the book" look=sweater_grey
 @cast PRESIDENT "Montclar" look=suit_dark
 @cast COLONEL "The Colonel" look=uniform_navy
 
@@ -89,17 +95,43 @@
 @item baton "Telescopic baton" kind=weapon slot=hand icon=baton bonus=INTIMIDATION+2,EMPATHY-1 "Police issue, from the van with nobody in it. Folded, it's the length of a hand; flicked out, it's a reason. Held, it changes how people look at him."
 @item room_key "Key to room twelve" kind=key icon=key "An old brass key on a heavy brass weight stamped 12, from the lost-property box. Somebody checked out of room twelve and took it to Lyon by mistake, and it came back by post."
 @item delorme_card "Delorme's card" kind=document icon=card "Plain white, good stock. Delorme, in blue ink, and the hotel's number. Nothing on the back."
+@item his_key "Key to room twenty-three" kind=key icon=key "A brass key on a heavy brass weight stamped 23, from the board behind the desk. The clerk laid it down so it wouldn't ring."
 @item phrasebook "Russian phrasebook" kind=document slot=hand icon=book bonus=LANGUAGES.ru+1 "A pocket phrasebook from 1974, from the lost-property box, the spine broken at At the hotel. Held open in his hand, it's as good as a little Russian."
+
+// --- What he can only know once he's learned it (r25) ------------------------
+// A line in his own voice (narration, his thoughts, what he says, a choice)
+// that uses these words must come where he learns it, with the flag set
+// straight after, or after a condition that makes sure he has. Other
+// people's lines are theirs. The validator checks every line (README:
+// "Nothing he can't know"); the tests play it down random paths.
+@fact knows_oak "grandson"
+@fact knows_room|key_gone|heard_41 "forty-one" "41"
+@fact knows_car "Satory" "car at six"
+@fact knows_stairs "service stairs" "the other ones"
+@fact knows_marchal "Marchal"
+@fact coats "camel coat"
+@fact pours_drinks "aniseed" "drinks his Ricard" "Ricard in the palm" "pours his Ricard"
+@fact knows_delorme|delorme_gone|met_contact|took_card "Delorme"
+@fact heard_anselme|anselme_named "Anselme"
+@fact anselme_named "Anselme's son"
+@fact knows_vidal "Vidal" "Réverbère"
+@fact delorme_word "had a word with you"
+@fact knows_versailles "01 39"
+@fact knows_jean "past seventy"
+@fact room_late "made up" "isn't ready" "not ready"
+// What they only know if they worked out that he was watching her (r25).
+@fact knew_seen "seen together" "seen with me" "seen the two of them" "watching you" "watching Penhallow" "watching her" "blown" "before breakfast" "never seen" "disappear" "vanish"
+@fact room_late|has_room "twenty-three"
 
 @carry "You met London's contact. She's called Penhallow, and she argued against hiring you." if met_contact
 @carry "You told Penhallow what the man in grey wanted." if told_penhallow
 @carry "You kept the man in grey to yourself." if kept_quiet
+@carry "You and Penhallow know the man in grey saw you together. After tonight, neither of you was ever at Le Vauban." if knew_seen
 @carry "The man in grey thinks you sell wine." if wine_cover
 @carry "The man in grey knows your name." if gave_name
 @carry "Delorme has had room forty-one since the election." if knows_room
 @carry "A car takes room forty-one to Satory at six." if knows_car
 @carry "The barman has decided he likes you." if rel.anselme >= 2
-@carry "The man under the awning knows you saw him." if leaned_on_watcher
 @carry "London knows about the car to Satory at six." if texted_london
 @carry "Delorme's card has a Versailles number pressed into it." if knows_versailles
 @carry "A police baton went missing from a van on the rue de Grenelle." if took_baton
@@ -119,13 +151,19 @@
 @actor BARMAN behind_bar lean in=vauban
 @actor WOMAN corner_chair sit in=vauban
 @actor PORTER porter_spot in=vauban
+@actor REGULAR stool_4 sit idle=drink in=vauban
+@actor WORKER stool_2 sit idle=drink in=vauban
+@actor COUPLE_M couple_m sit idle=talk:window in=vauban
+@actor COUPLE_F couple_f sit idle=talk:window in=vauban
+@actor READER reader_chair sit idle=read in=vauban
+set crowd
 @news "Le président Montclar annonce une « révision constitutionnelle de salut public » · L'Assemblée suspendue « le temps que la nation reprenne son souffle »"
 @focus street_open
 @card "PARIS" "Eleven days after the election"
 It had rained every day since the results, as if the city were trying to wash something off and hadn't found the right soap.
 @focus none
 @actor BASED street_mid walk
-London had given him a bar, a time and a newspaper. Le Vauban, on the rue de Grenelle, at ten. A woman with The Times, open at the crossword.
+London had given him a bar, a time and a newspaper. Le Vauban, on the rue de Grenelle, at ten. A woman with The Times, open at the crossword. And a room upstairs at the hotel, booked by Lisle and Hart, wine shippers of the City of London, who had never heard of him.
 task contact "Meet London's contact at Le Vauban, on the rue de Grenelle, at ten. She'll have The Times, open at the crossword. Ask her about seven down."
 ~ Twenty minutes early. Time to look at the street the way the street was looking at him.
 -> FREE
@@ -224,13 +262,18 @@ The top tier was the party's: the face, the bronze oak leaf, TENIR PAROLE, paste
 if knows_marchal
   ~ Marchal again, under everything, the way a fact sits under the morning's paper.
 end
-~ PERCEPTION medium: The paste under the TENIR PAROLE sheets is still tacky at the edges. Last night's. And the Volunteers' bill sits exactly over Marchal's mouth. A brush doesn't do that by accident.
+~ PERCEPTION medium: The paste under the TENIR PAROLE sheets is still tacky at the edges. Last night's. And the Volunteers' bill sits exactly over the smiling woman's mouth. A brush doesn't do that by accident.
 ~ MEMORY easy: Her posters went up the week of the first round. Somebody has been round every column in the arrondissement since, covering her a layer at a time.
+set saw_morris
 -> FREE
 
 == morris_again "A Morris column"
 @on look morris
-The Morris column in the party's paper. The rain had worked another corner loose, and one of Marchal's eyes looked out from under it.
+if knows_marchal
+  The Morris column in the party's paper. The rain had worked another corner loose, and one of Marchal's eyes looked out from under it.
+else
+  The Morris column in the party's paper. The rain had worked another corner loose, and one of the smiling woman's eyes looked out from under it.
+end
 -> FREE
 
 
@@ -243,7 +286,11 @@ set knows_marchal
 
 == old_poster_again "An older poster"
 @on look old_poster
-Hélène Marchal's smile, under a strip of somebody else's promise. The rain was working on both of them equally.
+if knows_marchal
+  Marchal's smile, under a strip of somebody else's promise. The rain was working on both of them equally.
+else
+  A woman's smile under a strip of somebody else's promise. The rain was working on both of them equally.
+end
 -> FREE
 
 
@@ -271,7 +318,11 @@ A brass plaque by the hotel door, polished thin by a century of thumbs: HÔTEL V
 == post_box "A post box"
 @on look post_box
 A yellow post box on a post, its mouth taped over with a printed notice: collections suspended until further notice.
-~ So nothing leaves Paris tonight in an envelope. Whatever leaves goes in a car at six in the morning, or in somebody's head.
+if knows_car
+  ~ So nothing leaves Paris tonight in an envelope. Whatever leaves goes in a car at six in the morning, or in somebody's head.
+else
+  ~ So nothing leaves Paris tonight in an envelope. Whatever leaves goes by car, or in somebody's head.
+end
 -> FREE
 
 
@@ -301,11 +352,7 @@ set saw_moped
 
 == moped_again "A moped"
 @on look moped
-if watcher_gone
-  The moped was where it had been. Nobody had come back for it; or nobody wanted to be seen coming back for it.
-else
-  The moped, the helmet on its mirror, the little bronze leaf. Nobody came for it.
-end
+The moped, the helmet on its mirror, the little bronze leaf. Nobody came for it.
 -> FREE
 
 
@@ -370,10 +417,9 @@ end
 
 == cig_ends "Cigarette ends"
 @on look cig_ends
-if watcher_gone
-  The cigarette ends were where he'd left them, a little constellation of patience on the wet stone, and one more, smoked to the filter, a step apart.
-else
-  ~ INSTINCT medium: Nine ends under the awning, none smoked past halfway. Nine cigarettes lit and put out without wanting them. He isn't smoking. He's keeping time.
+Cigarette ends under the awning, on the wet stone where the man stood, a little constellation of them.
+~ INSTINCT medium: Nine, none smoked past halfway. Nine cigarettes lit and put out without wanting them. He isn't smoking. He's keeping time.
+if heard
   set counted_ends
 end
 -> FREE
@@ -422,90 +468,43 @@ end
 
 == lit_window "A lit window"
 @on look lit_window
-if time >= 23:30 or time < 06:00
+if (time >= 23:30 or time < 06:00) and saw_lit_window
   The window on the third floor across the street had gone dark at last. Whoever had been watching the President had given up on him.
+elif time >= 23:30 or time < 06:00
+  A third-floor window across the street, dark, the curtains not quite drawn. Paris had gone to bed, or was pretending to.
 else
   A third-floor window across the street, blue with a television. Through the gap in the curtains, a woman in a dressing gown, standing, not sitting, to watch the President speak.
   ~ EMPATHY medium: Standing for him. People only stand for something they're afraid of, or something they love, and from here he can't tell which.
+  set saw_lit_window
 end
 -> FREE
 
 
+// r25: the man under the awning. Talking to him is Mr. Based offering a
+// light; he wants to be alone, and that's the end of it. He stays where he
+// is: the street needs him there (the mirror, the signal).
 == watcher "The man under the awning"
-@on talk WATCHER once if not met_contact
+@on talk WATCHER once
 Under the awning of the closed pharmacy, out of the rain, a man in a dark coat was holding a cigarette he hadn't lit.
-WATCHER [fr]: Vous avez du feu ? | Got a light?
-choose "He's holding out the cigarette."
-  * needs=matchbook|brass_lighter [Give him a light] "Here."
-    if has.matchbook
-      He struck one of Le Vauban's matches and cupped it. The man leaned in, looked at the flame and not at the face behind it, and didn't light the cigarette.
-    else
-      He thumbed the brass lighter and held it out. The man leaned in, looked at the flame, then at the engraving on the base, and didn't light the cigarette.
-    end
-    WATCHER [fr]: Merci. Finalement, non. | Thanks. On second thoughts, no.
-    ~ INSTINCT medium: He doesn't want it lit. Not yet. An unlit cigarette is a man waiting for a signal; a lit one means he's had it.
-    set watcher_light
-  * needs=cigarettes [Offer him one of yours] "Have one of mine. Yours looks tired."
-    The man looked at the blue packet, and at him, and took one, and put it behind his ear with the other.
-    WATCHER: Corsaires. Nobody smokes Corsaires, monsieur. Only the machines sell them.
-    ~ EMPATHY medium: He's been told not to take anything from anyone. He took it anyway. He's cold, and bored, and twenty-three.
-    set watcher_light
-    set watcher_warmed
-  * white INTIMIDATION medium if armed [Let him see the baton] "Who sent you to stand under that awning?"
-    The man looked at the baton, and then very carefully at nothing.
-    WATCHER: Nobody sent me. I watch a door for a man who pays. The man in grey. Now go and have your drink, monsieur, and I'll forget your face.
-    ~ INSTINCT: The man in grey pays him. So the man in grey isn't police: police don't pay, they send.
-    set leaned_on_watcher
-    set watcher_told
-  fail
-    WATCHER: Put that away, monsieur. There's a van at the corner, and it isn't mine.
-  * white INTIMIDATION challenging [Ask who he's waiting for] "You've been under that awning since I turned the corner. Who are you waiting for?"
-    bonus +1 if van "The van with nobody in it"
-    bonus +1 if counted_ends "Nine cigarettes, none smoked"
-    The man looked at him properly for the first time, and then at the bar's warm windows across the road, and then at nothing.
-    WATCHER: Nobody you know, monsieur. Go and have your drink.
-    ~ He said it in English. He'd heard my accent and he's been told to watch for an American. No: told to watch the bar. I'm just the American who walked up to him.
-    set leaned_on_watcher
-  fail
-    WATCHER [fr]: Je ne comprends pas, monsieur. | I don't understand, sir.
-    He understood perfectly. He turned his shoulder to the rain and to the question.
-  * silent [Leave him be]
-    He left the man to his awning and his cigarette.
+if has.matchbook
+  He tore a match from Le Vauban's book and held it ready to strike.
+  BASED: Need a light?
+elif has.brass_lighter
+  He thumbed the brass lighter open and held it out.
+  BASED: Need a light?
+else
+  BASED: Need a light? The bar will have matches.
 end
+The man looked at him, and then at the cigarette, as if he'd forgotten it was in his hand.
+WATCHER [fr]: Non, merci. Je veux juste être seul. | No, thanks. I just want to be alone.
+He turned his shoulder to the rain, and to him, and that was the end of that.
 set met_watcher
--> FREE
-
-== watcher_after "The man under the awning"
-@on talk WATCHER if met_contact and not watcher_gone
-The man under the awning had lit his cigarette at last. He smoked it the way men smoke when they've finished work and haven't been told they can go home.
-choose "He doesn't look at you."
-  * white INTIMIDATION medium [Tell him to go home] "Whoever you were waiting for came and went. Go home."
-    bonus +2 if leaned_on_watcher "He's met you before"
-    He dropped the cigarette, ground it out with care, and walked off towards the boulevard without hurrying. Twice he looked back.
-    @actor WATCHER watcher_gone walk
-    set watcher_gone
-  fail
-    WATCHER: I'm going home when I'm told, monsieur. Same as you.
-  * if armed [Let him see the baton] "Your shift's over."
-    The man looked at the baton for a long second, then dropped his cigarette and walked off towards the boulevard. He didn't look back once, which was its own kind of looking.
-    @actor WATCHER watcher_gone walk
-    set watcher_gone
-  * silent [Leave him be]
-    He left the man to his awning.
-end
 -> FREE
 
 == watcher_idle "The man under the awning"
 @on talk WATCHER
-WATCHER [fr]: Bonne soirée, monsieur. | Good evening, sir.
-He said it to the rain.
--> FREE
-
-
-== too_early "Towards the river"
-@on look street_west if not met_contact
-The rue de Grenelle ran on west, wet and empty, towards the boulevards and the river.
-~ Not yet. London's paying for tonight, and tonight is at Le Vauban.
+The man under the awning didn't look round.
+WATCHER [fr]: Seul, monsieur. J'ai dit. | Alone, monsieur. I said.
 -> FREE
 
 
@@ -516,11 +515,11 @@ The rue de Grenelle ran on west, wet and empty, towards the boulevards and the r
 @ambient rain_in
 @focus entrance
 Le Vauban had been a hotel bar for a hundred and four years and a good one for about thirty of them.
-Oak to the ceiling, brass to the knee, low lamps that made everyone look like a better version of a worse idea. Eleven stools, all of them empty.
+Oak to the ceiling, brass to the knee, low lamps that made everyone look like a better version of a worse idea. Eleven stools, two of them taken: an old man in a beret with a Ricard, a big man in a blue jersey with a beer.
 @focus bar_end
 He'd stopped counting the exits years ago. These days he counted the people who counted them.
 ~ PERCEPTION medium: He'd stopped counting. His eyes hadn't. Three: the street, the hotel, and the door behind the bar for the staff.
-A barman with a cloth. A woman in the corner with a newspaper. A television above the till, talking to nobody.
+A couple at the window table, talking low. A man in an armchair with a book. A barman with a cloth. A woman in the corner with a newspaper. A television above the till, talking to nobody.
 @focus none
 -> FREE
 
@@ -529,17 +528,17 @@ A barman with a cloth. A woman in the corner with a newspaper. A television abov
 @on look room_mirror once
 The mirror behind the bottles had the whole street in it, backwards and gold. Across the road, under the awning of the closed pharmacy, a man in a dark coat was holding a cigarette he hadn't lit.
 if met_watcher
-  ~ INSTINCT: My friend with the matches. From in here he has the door, the windows and the woman in the corner, and nobody inside has him.
+  ~ INSTINCT: The man who wanted to be alone. From over there he has the door, the windows and the woman in the corner, and nobody inside has him.
 else
-  ~ INSTINCT: Twenty minutes with an unlit cigarette. Either he's quitting, or he's waiting for a signal.
+  ~ INSTINCT: A cigarette he won't light, in this rain. Either he's quitting, or he's waiting for a signal.
 end
 set room_mirror
 -> FREE
 
 == mirror_again "The mirror"
 @on look room_mirror
-if watcher_gone
-  In the mirror the awning across the road was empty. A cigarette end lay on the pavement where the man had stood.
+if delorme_gone
+  In the mirror, across the road, the man under the awning was still there, smoking now, the way men smoke when they've finished work and haven't been told they can go home.
 else
   In the mirror, across the road, the man under the awning was still there, and still not smoking.
 end
@@ -549,7 +548,7 @@ end
 == corner "The woman in the corner"
 @on look corner once
 A woman in her fifties at the corner table: reading glasses, grey wool, a gin and tonic she hadn't touched. The Times, folded open at the crossword, pen uncapped.
-In forty minutes she had not filled in a single square.
+The ice in the gin had melted to slivers, and she had not filled in a single square.
 ~ EMPATHY: Either that's the hardest crossword in the world, or she isn't doing it.
 if not met_contact
   ~ FOCUS easy: The Times, open at the crossword. London said she'd have one. London didn't say she'd already be here, watching the door.
@@ -569,8 +568,8 @@ end
 
 == door "The door"
 @on look door once
-Two sets of wet footprints on the tiles, drying. His own, fresh; and a woman's, small and certain, that went straight to the corner table and never came back.
-No one else had come in from the street in forty minutes. Whoever else was in the building had come down from inside it.
+Wet footprints on the tiles from the street door, nearly dry: a woman's, small and certain, that went straight to the corner table and never came back. Nobody else's had had time to dry.
+Nobody had come in out of the rain for a long while. Whoever else was in here had been here since before it started, or had come down from inside the building.
 set door
 -> FREE
 
@@ -589,10 +588,10 @@ set coats
 
 == coats_again "The coat stand"
 @on look coats
-if delorme_gone
-  The camel coat had gone from the stand. Its owner hadn't needed it to go upstairs.
+if met_contact
+  The grey raincoat had gone out into the rain with its owner. The camel overcoat hung on the stand by itself, dry as a bone.
 else
-  The camel coat hung on the stand, dry as a bone.
+  The grey raincoat and the camel overcoat, side by side on the stand. One wet, one dry as a bone.
 end
 -> FREE
 
@@ -610,19 +609,11 @@ set room_tv
 -> FREE
 
 
-== register "The register"
-@on look register once
-The hotel register lay open on the porter's desk: a heavy book, a ribbon, a fountain pen on a chain like a dog.
-~ DEXTERITY medium: A page turned with one finger while the porter looks at the rain. Forty-one: M. Delorme, Paris. Since the twentieth. Paid a month ahead, in cash.
-if skill.dexterity >= 3
-  set knows_room
-end
-set register
--> FREE
-
-== register_again "The register"
-@on look register
-The register lay where it was, closed now, the pen hanging off the desk on its chain.
+// r25: its pages are never read: the clerk keeps it turned to himself.
+== guest_book "The guest book"
+@on look guest_book
+The hotel's guest book lay open on the desk: a heavy book with a ribbon, a fountain pen on a chain like a dog. It was turned to face the clerk, not the guests, and the clerk's forearm lay across the page as if by accident.
+~ It's the one book in Paris this week that every side would like to read. The clerk knows it, and so does his arm.
 -> FREE
 
 
@@ -693,8 +684,8 @@ end
 == old_photo "A photograph of the bar"
 @on look old_photo once
 A framed photograph by the end of the bar, brown with age: Le Vauban in 1950 or so, the same oak and the same brass, full of men in hats. Behind the bar, a young man with a cloth.
-~ EMPATHY medium: The same way of holding the cloth. Anselme's father, or the barman's; the bar has had one family's hands on it for seventy years.
-if rel.anselme >= 1
+~ EMPATHY medium: The same way of holding the cloth. The barman's father, or his grandfather; the bar has had one family's hands on it for seventy years.
+if anselme_named
   ~ MEMORY: "Before that I was Anselme's son." He'd meant it literally.
 end
 set saw_photo
@@ -702,7 +693,7 @@ set saw_photo
 
 == old_photo_again "A photograph of the bar"
 @on look old_photo
-The young man behind the bar in 1950 went on holding his cloth the way his son still did.
+The young man behind the bar in 1950 went on holding his cloth the way the barman still did.
 -> FREE
 
 
@@ -732,7 +723,9 @@ end
 @on look plant once
 A potted palm in the corner behind the end of the bar, a little yellow at the edges.
 ~ PERCEPTION medium: The soil smells of aniseed. Somebody pours his Ricard into it, every night, so nobody sees him not drinking.
-set pours_drinks
+if heard
+  set pours_drinks
+end
 -> FREE
 
 == plant_again "The potted palm"
@@ -803,15 +796,20 @@ The brass till, the spike of chits. The barman's hand never far from either.
 
 == key_board "The keys"
 @on look key_board
-Behind the porter's desk, the room keys hung on brass hooks, each with a heavy brass weight so nobody walks off with one.
+Behind the clerk, the room keys hung on a board of brass hooks, each with a heavy brass weight so nobody walks off with one.
 ~ PERCEPTION medium: Six rows. Every hook full but one: forty-one. Whoever has room forty-one is in the building.
-set key_gone
+if heard
+  set key_gone
+end
+if has_room
+  ~ And twenty-three's, now, in his pocket.
+end
 -> FREE
 
 
 == lost_property "The lost-property box"
 @on look lost_property once
-A cardboard box under the stairs, marked OBJETS TROUVÉS in a porter's capitals. Inside: a pair of tortoiseshell reading glasses, a grey wool scarf somebody's grandmother knitted, a tweed cap, a brass lighter, a room key on a brass weight, a Russian phrasebook with a broken spine, and one small child's shoe.
+A cardboard box under the stairs, marked OBJETS TROUVÉS in a clerk's capitals. Inside: a pair of tortoiseshell reading glasses, a grey wool scarf somebody's grandmother knitted, a tweed cap, a brass lighter, a room key on a brass weight, a Russian phrasebook with a broken spine, and one small child's shoe.
 -> lost_take
 
 == lost_property_again "The lost-property box"
@@ -820,7 +818,7 @@ The lost-property box, with whatever the city had forgotten in it.
 -> lost_take
 
 == lost_take "The lost-property box"
-choose "The porter's on the telephone, his back half turned."
+choose "The clerk is bent over his book."
   * if not has.reading_glasses [Take the reading glasses]
     give reading_glasses
     set took_lost
@@ -853,14 +851,15 @@ end
 
 == desk_bell "The bell on the desk"
 @on look desk_bell
+@sound desk_bell
 A brass bell on the desk. He touched it, and it rang, a thin bright ping in the quiet lobby.
-The night porter looked up from the register with the face of a man who has been rung for since 1987.
+The clerk looked up from the guest book with the face of a man who has been rung for since 1987.
 -> FREE
 
 
 == paperback "A paperback"
 @on look paperback once
-A paperback left face down on the arm of a lounge chair: a detective novel with its cover torn off, open at chapter nine. Someone had used a twenty-euro note as a bookmark.
+A paperback left face down on the low table between the armchairs: a detective novel with its cover torn off, open at chapter nine. Someone had used a twenty-euro note as a bookmark.
 choose "Twenty euros, folded once."
   * [Take the note] "Finders keepers."
     earn 20
@@ -905,26 +904,66 @@ end
 == fire_notice "The fire notice"
 @on look fire_notice once
 A framed fire notice by the stairs, with a little plan of the hotel in red ink: corridors, exits, the stairs.
-~ LANGUAGES easy: Escalier de service. The service stairs run from the top floor straight down to the bar, behind the staff door. A man upstairs can be on a bar stool without ever walking through the lobby.
-set knows_stairs
+if speaks.fr
+  ~ Escalier de service: the service stairs, from the top floor straight down to the bar, behind the staff door. A man upstairs can be on a bar stool without ever walking through the lobby.
+  set knows_stairs
+else
+  ~ LANGUAGES easy: Escalier de service. The service stairs run from the top floor straight down to the bar, behind the staff door. A man upstairs can be on a bar stool without ever walking through the lobby.
+  if heard
+    set knows_stairs
+  end
+end
 -> FREE
 
 == fire_notice_again "The fire notice"
 @on look fire_notice
-The little red plan: the service stairs, coming down to the bar.
+if knows_stairs
+  The little red plan: the service stairs, coming down to the bar.
+else
+  The little red plan of the hotel, all arrows and French.
+end
 -> FREE
 
 
+// r25: out of order all night. It can't be used: the button is dead.
 == lift "The lift"
 @on look lift
-A lift with brass doors, and a card hung across them on a string: HORS SERVICE.
-~ INSTINCT: Out of order since when? A broken lift means everyone uses the stairs, and the stairs come down where someone can see them. Or not, if you know the other ones.
+A lift with brass doors, and a card hung across them on a string: HORS SERVICE. Above them the needle of the floor dial had stopped between two floors.
+@gesture BASED interact
+@sound lift_button
+He pressed the call button anyway. It went in, and stayed in, and nothing happened at all: no light, no hum, not a sound from the shaft.
+if asked_lift
+  ~ Coming on Monday. Since Tuesday.
+else
+  ~ INSTINCT: Out of order since when? A broken lift means everyone uses the stairs, and the stairs come down where someone can see them.
+  if knows_stairs
+    ~ Or not, if you know the other ones.
+  end
+end
+-> FREE
+
+
+// r25: the stairs are closed with a rope until the clerk has his key for
+// him (the room's not made up: he's early). Then they're a door upstairs.
+== stairs_closed "The stairs"
+@on look stairs if not stairs_open
+A red rope across the foot of the stairs, hooked between two brass posts, and a card hung from it in a careful hand: Clients : merci de vous adresser à la réception.
+if speaks.fr
+  ~ Guests: please ask at the desk.
+else
+  ~ LANGUAGES easy: Clients, réception. Guests, ask at the desk, more or less.
+end
+if room_late
+  ~ His key's on the board behind the clerk, and his room isn't made up yet. The clerk will unhook the rope when it is.
+else
+  ~ He has a room up there somewhere, under the name of a firm of wine shippers. The desk will know which.
+end
 -> FREE
 
 
 == lilies "Lilies on the desk"
 @on look lilies
-A vase of lilies on the porter's desk, going brown at the edges, the water in the vase gone cloudy.
+A vase of lilies on the front desk, going brown at the edges, the water in the vase gone cloudy.
 ~ EMPATHY medium: Nobody's changed them since the election. Nobody's thrown them out, either. The whole city is like that this week.
 -> FREE
 
@@ -961,14 +1000,17 @@ BARMAN [fr]: Bonsoir, monsieur. Qu'est-ce que je vous sers ? | Good evening, sir
 choose "He waits, cloth in hand."
   * [A scotch] "A scotch. Islay, if you have one. No ice."
     BARMAN: Of course, monsieur.
+    @sound glass
     @show glass_second
     set drink_scotch
   * [A beer] "Whatever you have on tap."
     BARMAN: Of course.
+    @sound glass
     @show his_beer
     set drink_beer
   * [Just water] "Water. It's been a long day and it isn't over."
     BARMAN: A wise man. We do not get many.
+    @sound glass
     @show water_glass
     set drink_water
 end
@@ -1014,6 +1056,7 @@ end
 choose "The President goes on applauding himself."
   * [Turn it off] "Do me a favour and turn him off."
     The barman found the remote in his apron and pointed it at the President with the expression of a man who had been waiting all evening for someone to ask.
+    @sound tv_off
     @news none
     set tv_off
     rel ANSELME +1
@@ -1087,13 +1130,14 @@ add thoughts 1
 @vignette none
 @focus bar_end
 @actor BARMAN behind_bar_far lean
-Le Vauban had eleven stools and ten of them were empty.
+Le Vauban had eleven stools, and most of them were empty.
 @actor STRANGER lobby
 The man in the grey suit came in from the hotel lobby, not the street, and took the one next to his.
 @actor STRANGER stool_10 sit walk
 @show umbrella
 @figure STRANGER
 STRANGER [fr]: Un Ricard, Anselme. | A Ricard, Anselme.
+set heard_anselme
 @show stranger_glass
 He said it without looking at the bottles, and the barman poured it without being asked which. He sat close enough that their elbows almost touched on the oak. Close enough to be rude, or friendly, or neither.
 choose "He's too close."
@@ -1141,13 +1185,17 @@ investigate "Read the man in grey" min=3 leave="Enough" still
     if knows_oak
       ~ MEMORY: The barman's grandson wears one of those. Le Serment's Volunteers. On the inside, so nobody's grandmother sees.
     else
-      ~ MEMORY: The oak leaf from the posters, worn where only somebody looking for it would find it. Which means it's meant for people who know to look.
+      if posters or flyer or saw_moped or saw_morris
+        ~ MEMORY: The party's oak leaf, the one from the street, worn where only somebody looking for it would find it. Which means it's meant for people who know to look.
+      else
+        ~ MEMORY: A little bronze oak leaf, worn where only somebody looking for it would find it. Which means it's meant for people who know to look.
+      end
     end
   spot order "His drink"
     He'd ordered without looking at the bottles, and the barman had poured without being told which. A regular, then, of a bar he doesn't like: he hasn't touched it.
     ~ FOCUS: He's here every night, at a table he doesn't sit at, with a drink he doesn't drink. That's not a habit. That's a post.
   spot his_mirror "The mirror"
-    if room_mirror
+    if room_mirror or met_watcher
       In the mirror, across the street, the man under the pharmacy awning had finally lit his cigarette.
     else
       In the mirror, across the street, a man under a pharmacy awning lit a cigarette, as if he'd just been told he could.
@@ -1158,7 +1206,10 @@ investigate "Read the man in grey" min=3 leave="Enough" still
     bonus +1 if door "Nobody came in from the street"
     bonus +1 if knows_stairs "The service stairs come down into the bar"
     bonus +1 if key_gone "Forty-one's key isn't on its hook"
-    Dry umbrella, dry shoulders, dry shoes. He hadn't come in out of the rain. He'd come down from a room upstairs, where he lives, by the look of the coat.
+    Dry umbrella, dry shoulders, dry shoes. He hadn't come in out of the rain. He'd come down from a room upstairs.
+    if coats
+      ~ Where he lives, by the look of the dry camel coat on the stand.
+    end
   fail
     ~ FOCUS: Dry shoes, a dry umbrella. A taxi to the door, perhaps. Perhaps.
   deduce party_man "Not police. Party." needs=shoes,lapel skill=MEMORY diff=challenging
@@ -1188,6 +1239,7 @@ else
 end
 @figure STRANGER
 STRANGER: Terrible weather for tourists.
+STRANGER: Forgive me. I'm here most evenings, and I know every face at this bar. Yours is new.
 His English was very good. London good: a year or two at one of those schools that teach you to sound as if you'd never had to learn it.
 ~ LANGUAGES challenging: Westminster, then Sciences Po. The vowels of a man who learned his English from people who owned things.
 choose "He smiles at the mirror, not at him."
@@ -1197,8 +1249,30 @@ choose "He smiles at the mirror, not at him."
   * if wine_cover [Keep to the wine] "I'm here for the wine. Buying."
     STRANGER: In this bar? Then you are either a very bad buyer or a very good one. I will decide later.
     set wine_cover
-  * white INTIMIDATION challenging if came_down or party_man [Call him out] "You came down from upstairs, you've a party pin under your lapel and you've been sitting at this bar every night since the election. Who are you watching?"
+  * white INTIMIDATION challenging if came_down and party_man [Call him out] "You came down from upstairs, and you've a party pin under your lapel. Who are you watching?"
     bonus +2 if came_down "He came down from upstairs"
+    bonus +1 if party_man "His oak-leaf pin"
+    bonus +1 if on_duty "He's on duty"
+    For a moment the man in grey had nothing to say at all. Then he smiled, properly this time, as if he'd been handed a present he hadn't expected.
+    STRANGER: You have very good eyes for a tourist. I will remember them.
+    set called_out
+    rel DELORME -1
+    remember DELORME
+  fail
+    The man in grey let it go past him like a waiter with someone else's order.
+    STRANGER (mildly): You've been reading novels, monsieur. In novels the man at the bar is always a spy. In life he is usually a dentist.
+  * white INTIMIDATION challenging if came_down and not party_man [Call him out] {call-out-upstairs} "You didn't come in out of the rain. You came down from upstairs. Who are you watching?"
+    bonus +2 if came_down "He came down from upstairs"
+    bonus +1 if on_duty "He's on duty"
+    For a moment the man in grey had nothing to say at all. Then he smiled, properly this time, as if he'd been handed a present he hadn't expected.
+    STRANGER: You have very good eyes for a tourist. I will remember them.
+    set called_out
+    rel DELORME -1
+    remember DELORME
+  fail
+    The man in grey let it go past him like a waiter with someone else's order.
+    STRANGER (mildly): You've been reading novels, monsieur. In novels the man at the bar is always a spy. In life he is usually a dentist.
+  * white INTIMIDATION challenging if party_man and not came_down [Call him out] {call-out-pin} "That's a party pin under your lapel. Who are you watching?"
     bonus +1 if party_man "His oak-leaf pin"
     bonus +1 if on_duty "He's on duty"
     For a moment the man in grey had nothing to say at all. Then he smiled, properly this time, as if he'd been handed a present he hadn't expected.
@@ -1250,10 +1324,11 @@ choose "He waits for a name."
     ~ DECEPTION: Too quick. Nobody says their own name that fast.
     set gave_name
   * silent [Say nothing]
-    STRANGER: A man with no name in a bar with no customers. How very romantic.
+    STRANGER: A man with no name in a bar where nobody talks. How very romantic.
 end
 @figure DELORME
 DELORME: Delorme. It isn't, of course. But it's the one I brought with me, and it would be a shame to waste it.
+set knows_delorme
 DELORME: If you need anything in Paris, monsieur, the hotel knows where to find me. Paris is a little complicated just now, for visitors.
 if moved_away
   @show card_b
@@ -1274,6 +1349,7 @@ else
   @actor BARMAN behind_bar_far walk lean
   DELORME: Anselme, un mot. | Anselme, a word.
   He stopped at the far end of the bar and said something to the barman too low to hear.
+  set delorme_word
   DELORME [fr medium]: L'Américain. Tu ne le connais pas ? Préviens-moi s'il revient. | The American. You don't know him? Let me know if he comes back.
 end
 @figure none
@@ -1383,47 +1459,151 @@ PENHALLOW: Now. The man in grey.
 -> the_question
 
 
+// r25: what he tells her about the man in grey is only what he noticed.
+// Two telling things (where the man came from, his pin, the signal in the
+// mirror, that he's on duty in this room, his look at her table, which
+// counts for two) and together they work out that he was watching her and
+// has now seen them together: they both have to disappear (knew_seen).
+// Fewer, or nothing, or nothing he'll share, and they can't make anything
+// of him (missed_watch): see contact_nothing.
 == the_question "The question"
 @figure PENHALLOW
 PENHALLOW: I couldn't hear him. I could see him. What did he want?
 choose "Penhallow is watching his hands." timer=12
-  * [Tell her everything] "He wanted to know who I was. He's party, not police; he lives upstairs, and he sits at this bar every night."
+  * [Tell her] "He wanted to know who I was. A new face at his bar, he said. He knows every face in it."
     PENHALLOW: Delorme. He's had a room here since the election. We assumed he was watching the hotel.
-    if saw_the_look or on_duty
-      BASED: He's watching you.
-      She was quiet for a while.
-      PENHALLOW: Then I'm blown, and you've been seen with me. That's a very bad start, Mr. Based. I want you to notice I'm not blaming you for it.
-      set she_is_blown
-    else
-      PENHALLOW: Whatever he's watching, he's seen you now. Be a tourist for a few days. Be boring. You'd be amazed how well it works.
-    end
     set told_penhallow
-    rel PENHALLOW +2
+    rel PENHALLOW +1
     remember PENHALLOW
+    if came_down or lapel or his_mirror or on_duty or saw_the_look or shoes or order or coats
+      -> tell_her
+    end
+    -> contact_nothing
   * [Keep it to yourself] "He wanted to know if I liked Paris. I told him it rains too much."
     PENHALLOW: Funny. From where I was sitting it looked like he gave you his card.
     She let him hear how little she believed him, and then she let it go, which was worse.
     PENHALLOW: Have it your way, Mr. Based. I'm sure you know best.
     set kept_quiet
+    set missed_watch
     rel PENHALLOW -2
     remember PENHALLOW
   * silent [Say nothing]
     He said nothing. Penhallow looked at the card on the oak and drew her own conclusions. She looked like a woman who drew them for a living.
     PENHALLOW: Fine. Keep your secrets. Just make sure they're worth what we're paying for them.
     set kept_quiet
+    set missed_watch
     rel PENHALLOW -1
 end
+-> parting
+
+
+== tell_her "What he noticed"
+@figure PENHALLOW
+choose "What else does he tell her?"
+  * once if came_down [Where he came from] "He didn't come in out of the rain. Dry umbrella, dry shoes. He came down from upstairs."
+    PENHALLOW: From his room, then. He's never once come in by the street door, not while I've been here.
+    add told_telling 1
+    -> tell_her
+  * once if lapel and party_man [His pin] "There's an oak-leaf pin under his lapel. Not the Préfecture's man. The party's."
+    PENHALLOW: The party's own. That's worse. The Préfecture at least has rules.
+    add told_telling 1
+    -> tell_her
+  * once if lapel and not party_man [His pin] {his-pin-leaf} "There's a little bronze oak leaf under his lapel. Worn where you'd have to look for it."
+    PENHALLOW: The party's leaf. Their young men wear it like that, on the inside, for each other.
+    add told_telling 1
+    -> tell_her
+  * once if his_mirror [The man under the awning] "When he sat down, the man under the pharmacy awning lit his cigarette. As if he'd been told he could."
+    PENHALLOW: He's been under that awning every night I have. I took him for a man waiting for a girl.
+    add told_telling 1
+    -> tell_her
+  * once if on_duty [He's working] "He took his ring off to come to work. His work is this room."
+    PENHALLOW: Every night. The same stool, the same Ricard, and he never drinks it.
+    add told_telling 1
+    -> tell_her
+  * once if saw_the_look [His look at your table] "On his way out he looked at your table. Half a second. The only thing all night he didn't pretend not to look at."
+    She didn't look at her table. She looked at him.
+    add told_telling 2
+    -> tell_her
+  * once if shoes and not came_down [His shoes] "Good shoes, on a policeman's soles. He stands all day, and runs some nights."
+    PENHALLOW: Half of Paris has those soles this month.
+    -> tell_her
+  * once if order and not on_duty [His drink] "He ordered without looking at the bottles. A regular. He hasn't touched it."
+    PENHALLOW: He never does.
+    -> tell_her
+  * once if coats and not came_down [The camel coat] "There's a camel coat on the stand, bone dry. His, I'd say."
+    PENHALLOW: Then he wasn't out tonight.
+    -> tell_her
+  * [That's what I have] {thats-what-i-have}
+    if told_telling >= 2
+      -> worked_out
+    end
+    -> contact_nothing
+end
+
+
+// What he noticed adds up: the man was watching her, and has seen them.
+== worked_out "Seen"
+@figure PENHALLOW
+if saw_the_look
+  BASED: He wasn't watching the bar. He was watching you.
+else
+  BASED: Put it together. He isn't here for the bar, or the hotel. He's watching you.
+end
+She was quiet for a while.
+PENHALLOW: Three nights I've sat in that corner, and three nights he's sat on that stool. I took him for the furniture.
+PENHALLOW: Then I'm blown, and you've been seen with me. That's a very bad start, Mr. Based. I want you to notice I'm not blaming you for it.
+set she_is_blown
+set knew_seen
+~ He's seen them together now, at his bar, in his mirror. Whatever London wanted from this, it isn't going to get it with these two faces.
+PENHALLOW: So we do the only thing there is. I go out of that door, and tomorrow I'm somebody else, in another city. You go up to bed like a tourist with nothing on his mind, because that's what a tourist would do. Running now would tell him everything.
+PENHALLOW: And you're out of here before breakfast. After tonight, neither of us was ever in Le Vauban.
+BASED: Never seen again.
+PENHALLOW: It's the one thing London is really good at.
+-> parting
+
+
+// r25: when he noticed nothing, or not enough to put it together. The
+// owner's answer (option B, a different outcome): she remarks on the man in
+// grey in passing, nothing too pointed (every night this week, always the
+// same seat); he seems a little off, but neither of them can make anything
+// of it, because Mr. Based has nothing to add. They don't work out that he
+// was watching her, or that he's seen them together, and they part
+// thinking it went all right (missed_watch). Part two pays it off.
+== contact_nothing "The man in grey"
+@figure PENHALLOW
+PENHALLOW: He's been here every night this week, you know. Always the same seat.
+BASED: Every bar has one.
+PENHALLOW (lightly): Every bar has one. Usually he's seventy and tells you about his knee.
+She glanced at the stool the man had left, and then at her crossword, as if one of them might come out.
+~ Something about the man in grey sat wrong, like a picture an inch off level. He couldn't have said what, and neither, by the look of her, could she.
+PENHALLOW: Well. Nothing either of us can do anything with tonight. Be a tourist for a few days. Be boring. You'd be amazed how well it works.
+set missed_watch
+-> parting
+
+
+== parting "London's contact"
+@figure PENHALLOW
 She put a note under the gin she hadn't drunk and stood.
 PENHALLOW: You have a number. Use it sparingly. It's expensive, and so am I.
 @figure none
 @actor WOMAN street_cross walk in=street
-The door's bell rang once behind her. In the mirror he watched her cross the street without looking at the man under the awning, who didn't look at her, which told him everything about both of them.
+@sound bar_bell
+if knew_seen
+  The door's bell rang once behind her. In the mirror he watched her cross the street without looking at the man under the awning, who didn't look at her, which told him everything about both of them.
+else
+  The door's bell rang once behind her. In the mirror he watched her cross the street in the rain, past the man under the awning, and out at the mirror's edge.
+  ~ A first meeting, and nobody arrested. In Paris this month that counts as going well.
+end
 task clovis "Find out what CLOVIS is. A word in a cable from the Élysée to the Ministry of the Armed Forces, and then nowhere."
-task delorme "Find out what the man in grey is watching, and for whom. The hotel knows where to find him."
-task night "When he's seen enough, call it a night. The river is west, at the end of the rue de Grenelle."
+if knew_seen
+  task delorme "The man in grey was watching Penhallow, and saw the two of them together. Out before breakfast, and never seen at Le Vauban again."
+else
+  task delorme "Find out who the man in grey is. He's at the bar every night, always in the same seat, and the hotel knows where to find him."
+end
 @weather changing
 @focus none
-~ Le Vauban, the hotel, the street. The night isn't over just because London has gone home.
+~ ENDURANCE: And now the long day caught up with him, all of it at once: the flight, the rain, the waiting. He wanted a bed more than he wanted anything London could give him.
+task sleep "Get his key from the desk and go up to bed. The lift's out: the stairs, then."
 -> FREE
 
 
@@ -1448,9 +1628,10 @@ The barman came down the bar with his cloth, which was how he said he was listen
 BARMAN: Another, monsieur? Or the bill? At this hour they are the same thing.
 BASED: What's your name?
 ANSELME: Anselme. For thirty-one years. Before that I was Anselme's son.
+set anselme_named
 @figure ANSELME
 choose "Anselme waits, polishing."
-  * white CHARISMA medium [Ask what the man in grey wanted] "The gentleman in grey had a word with you. Anything I should know?"
+  * white CHARISMA medium if delorme_word [Ask what the man in grey wanted] "The gentleman in grey had a word with you. Anything I should know?"
     bonus +1 if rel.anselme >= 1 "He likes you"
     bonus +2 if rel.anselme >= 2 "He's decided he likes you"
     Anselme looked at the far end of the bar, where there was nobody, and lowered his voice anyway.
@@ -1480,22 +1661,29 @@ end
 @figure none
 -> FREE
 
+// r25: by his name only once he's given it (a save from before may not
+// have it: then he's the barman, as he was).
 == anselme_idle "Anselme"
 @on talk BARMAN
-@figure ANSELME
-if anselme_told
-  ANSELME: Room forty-one, monsieur. I said nothing. You heard nothing. We are both very discreet.
-elif tv_off
-  ANSELME: You see? Without the President it is almost a nice evening.
+if anselme_named
+  @figure ANSELME
+  if anselme_told
+    ANSELME: Room forty-one, monsieur. I said nothing. You heard nothing. We are both very discreet.
+  elif tv_off
+    ANSELME: You see? Without the President it is almost a nice evening.
+  else
+    ANSELME: He is still talking. They will have to switch off the whole country to stop him.
+  end
 else
-  ANSELME: He is still talking. They will have to switch off the whole country to stop him.
+  @figure BARMAN
+  BARMAN: Monsieur?
 end
-choose "Anselme polishes a glass that was clean already."
+choose "The barman polishes a glass that was clean already."
   * if not has.matchbook and not has.brass_lighter [Ask for a light]
-    ANSELME: A light? Take a box, monsieur. Take two. They are the only thing in Paris that is still free.
+    BARMAN: A light? Take a box, monsieur. Take two. They are the only thing in Paris that is still free.
     give matchbook
   * if not paid and (drink_scotch or drink_beer) [Pay what you owe]
-    Anselme wrote the bill on a scrap of paper and laid it face down.
+    The barman wrote the bill on a scrap of paper and laid it face down.
     if drink_scotch
       pay 16
     else
@@ -1506,7 +1694,6 @@ choose "Anselme polishes a glass that was clean already."
 end
 @figure none
 -> FREE
-
 
 
 // She can only be found before he orders: after that she comes to him, and
@@ -1531,74 +1718,129 @@ choose "The Times, open at the crossword."
 end
 -> FREE
 
-== porter_armed "The night porter"
+// --- The desk (r25) ------------------------------------------------------------
+// The clerk keeps the guest book turned to himself and the stairs roped:
+// since the Préfecture's circular a hotel must know who goes up, so a guest
+// takes his key at the desk and the clerk unhooks the rope for him. London
+// booked Mr. Based a room through a firm of wine shippers, and he's early:
+// it isn't made up yet. After the bar (the man in grey, then London's
+// contact) it's ready, and the stairs are his.
+
+== clerk_armed "The desk clerk"
 @on talk PORTER if armed
-The porter's eyes went to the baton and stayed there.
+The clerk's eyes went to the baton and stayed there.
 PORTER: Monsieur, I have a telephone, and the Préfecture has a number. I would rather not introduce them.
-He turned his back, which in a night porter is as good as a locked door.
+He turned his back, which in a hotel clerk is as good as a locked door.
 -> FREE
 
-== porter "The night porter"
-@on talk PORTER once
+== clerk_first "The desk clerk"
+@on talk PORTER once if not met_contact
 @actor BASED see_desk walk
-The night porter was on the telephone, in a Russian that came from somewhere along the Black Sea and had been sanded down by twenty years in Paris.
+@focus desk
+The clerk was on the telephone, in a Russian that came from somewhere along the Black Sea and had been sanded down by twenty years in Paris. His other hand lay flat on the guest book.
 PORTER [ru]: Сорок первый просит машину к шести. Да. В Сатори. | Forty-one wants a car for six. Yes. To Satory.
 if speaks.ru
   ~ MEMORY medium: Satory. The army's ground south of Versailles: the tanks, the testing range, the generals' lunches. A strange place to take a man at six in the morning.
   set knows_car
+  set heard_41
 end
 He put the phone down and turned the smile on.
-PORTER: Monsieur? A room?
-choose "The porter waits."
-  * white CHARISMA medium [Ask about room forty-one] "Your gentleman in forty-one. Is he always up this early?"
-    bonus +2 if knows_room "You know the room"
-    PORTER: Monsieur Delorme? He is up before the birds, monsieur. Since the election, every morning a car. He tips like an Englishman, so: badly.
-    set knows_room
-    set knows_car
-  fail
-    PORTER: Our guests' habits are their own, monsieur.
-  * white DECEPTION challenging [Say you're from the Préfecture] "Préfecture. We're checking registers along the street."
-    bonus +1 if speaks.fr "He speaks French"
-    bonus +1 if speaks.fr >= 2 "His French is good enough for a clerk"
-    bonus +1 if wears.reading_glasses "Reading glasses: a clerk's face"
-    The porter turned the register round for him without a word, the way people do this month when somebody says Préfecture.
-    set knows_room
-  fail
-    PORTER: Then the Préfecture will have a card, monsieur. They always have a card.
-    ~ He knows the Préfecture better than I do. Everyone in Paris does, this month.
-  // r22 BPLAY: a check in a tongue: his Languages, plus his Russian.
-  * white LANGUAGES.ru medium if speaks.ru and not knows_car [Ask about forty-one, in Russian] "Forty-one keeps early hours, I hear. Like the army."
-    bonus +1 if knows_room "You know the room"
-    The porter blinked, and answered in the same tongue before he'd thought about whether to.
-    PORTER [ru]: Каждое утро в шесть. Машина в Сатори. Генеральская. | Every morning at six. A car to Satory. A general's car.
-    PORTER: You did not hear that from me, monsieur. In any language.
-    set knows_room
-    set knows_car
-    rel PORTER +1
-  fail
-    The porter heard the accent before the words, and his face shut like a ledger.
-    PORTER: We speak French in this hotel, monsieur. Mostly.
-  * [Just looking] "Just looking. It's a nice old lobby."
-    PORTER: It was nicer when people looked at it, monsieur.
+PORTER: Monsieur? You have a reservation?
+BASED: There should be a room. Booked from London, by Lisle and Hart.
+The clerk turned a page of the guest book with one finger, keeping it to himself, and found them without having to look for long.
+PORTER: The wine gentlemen. Yes, monsieur: twenty-three, on the second floor. But you are early, and it is not made up. Since the election the girl who does the rooms comes when the Métro lets her. An hour, a little more.
+set room_late
+He tilted his head at the red rope across the foot of the stairs.
+PORTER: And until you have your key I cannot let you up, I am afraid. The Préfecture's circular: a hotel must know who goes up, so the stairs are for guests with a key. The bar is through there, monsieur. I will have your key when the room is ready.
+~ An hour in a bar he'd been sent to sit in anyway. London's arithmetic, for once.
+task room "His room, twenty-three, booked by Lisle and Hart, the wine shippers, isn't made up yet. The clerk has the key, and the rope across the stairs."
+@focus none
+-> clerk_ask
+
+== clerk_ready "The desk clerk"
+@on talk PORTER once if met_contact
+@actor BASED see_desk walk
+@focus desk
+if room_late
+  PORTER: Monsieur. Twenty-three is ready: the girl came, the Métro permitting.
+else
+  PORTER: Monsieur? You have a reservation?
+  BASED: There should be a room. Booked from London, by Lisle and Hart.
+  The clerk turned a page of the guest book with one finger, keeping it to himself.
+  PORTER: The wine gentlemen. Twenty-three, monsieur, on the second floor. Made up an hour ago.
 end
+@sound key
+He took a key on a heavy brass weight from the board behind him and laid it on the desk so that it didn't ring.
+give his_key
+set has_room
+task room "Room twenty-three, on the second floor. The key's in his pocket."
+@actor PORTER rope_spot walk
+PORTER: The lift, I am afraid, is a lift in name only. But the stairs are fine to take, monsieur. Second floor, on the left.
+@focus stairs_rope
+He came round the desk to the foot of the stairs, unhooked the red rope from its post and let it hang, the card turned to the wall.
+@gesture PORTER interact
+@sound rope
+@hide stair_rope
+@show stair_rope_down
+set stairs_open
+@actor PORTER porter_spot walk
+@focus none
+PORTER: Bonne nuit, monsieur.
 -> FREE
 
-== porter_idle "The night porter"
+== clerk_wait "The desk clerk"
+@on talk PORTER if room_late and not met_contact
+PORTER: Not yet, monsieur. She is still at it. I will have your key when it's ready.
+-> clerk_ask
+
+== clerk_idle "The desk clerk"
 @on talk PORTER
-if took_lost
+if stairs_open
+  PORTER: Second floor, monsieur, on the left. The stairs are fine; the lift is a lift in name only.
+elif took_lost
   PORTER: The lost property, monsieur, is for the people who lost it. I mention it only.
 else
   PORTER: Monsieur.
 end
-choose "The porter waits, with the patience of a man paid by the night."
-  * if not knows_car and money >= 50 [Fold a fifty into the register] "For your trouble. Your gentleman in forty-one."
+-> clerk_ask
+
+== clerk_ask "The desk clerk"
+choose "The clerk waits, his hand on the book."
+  * white CHARISMA medium if key_gone or knows_room or heard_41 [Ask about room forty-one] "Your gentleman in forty-one. What's he like?"
+    bonus +2 if knows_room "You know the room"
+    PORTER: Monsieur Delorme? He is up before the birds, monsieur. Since the election, every morning at six a car, to Satory. He tips like an Englishman, so: badly.
+    set knows_room
+    set knows_car
+    set heard_41
+  fail
+    PORTER: Our guests' habits are their own, monsieur.
+  // r22 BPLAY: a check in a tongue: his Languages, plus his Russian.
+  * white LANGUAGES.ru medium if speaks.ru and heard_41 [Ask about forty-one, in Russian] "Forty-one keeps early hours, I hear. Like the army."
+    bonus +1 if knows_room "You know the room"
+    The clerk blinked, and answered in the same tongue before he'd thought about whether to.
+    PORTER [ru]: Каждое утро в шесть. Машина в Сатори. Генеральская. | Every morning at six. A car to Satory. A general's car.
+    PORTER: You did not hear that from me, monsieur. In any language.
+    set knows_room
+    set knows_car
+    set general_car
+    rel PORTER +1
+  fail
+    The clerk heard the accent before the words, and his face shut like a ledger.
+    PORTER: We speak French in this hotel, monsieur. Mostly.
+  * once [Ask about the lift] "Is the lift out for long?"
+    PORTER: Since Tuesday. The man is coming on Monday. He has been coming on Monday since Tuesday.
+    set asked_lift
+  * once [Ask to see the guest book] "May I?"
+    The clerk smiled, and closed the guest book on his finger, which was answer enough.
+    PORTER: The book is for the Préfecture, monsieur, and for God. Neither has asked me tonight.
+  * if not knows_car and money >= 50 and (key_gone or knows_room or heard_41) [Slide a fifty across the desk] "For your trouble. Your gentleman in forty-one."
     pay 50
-    The note went into the register and the register went into a drawer.
+    The note went under the guest book, and the guest book stayed exactly where it was.
     PORTER: Forty-one has a car at six every morning, monsieur. To Satory. I never told you, and you never paid me.
     set knows_room
     set knows_car
-  * needs=delorme_card if not knows_car [Show him Delorme's card] "Monsieur Delorme asked me to call on him. Early, he said."
-    The porter looked at the card, at the blue ink, and relaxed by a whole uniform.
+  * needs=delorme_card if took_card and not knows_car [Show him Delorme's card] "Monsieur Delorme asked me to call on him. Early, he said."
+    The clerk looked at the card, at the blue ink, and relaxed by a whole uniform.
     PORTER: Then you should know he leaves at six, monsieur. The car takes him to Satory. Come at a quarter to.
     set knows_room
     set knows_car
@@ -1606,15 +1848,75 @@ choose "The porter waits, with the patience of a man paid by the night."
     PORTER: Ten euros, monsieur. They come back to us anyway, in the end. Everything does.
     pay 10
     give umbrella
-  * needs=room_key [Hand back the key to twelve] "This was in your lost property. It belongs on a hook."
-    The porter took the key, weighed it in his palm, and hung it on its hook as if he'd been waiting years for someone to do it.
+  * if has.room_key [Hand back the key to twelve] "This was in your lost property. It belongs on a hook."
+    The clerk took the key, weighed it in his palm, and hung it on its hook as if he'd been waiting years for someone to do it.
     PORTER: Thank you, monsieur. Twelve is under forty-one, you know. Very quiet. A man in twelve hears everything that walks about upstairs.
     take room_key
     set gave_key
     set knows_twelve
   * silent [Nothing]
-    The porter nodded, and went back to the register and the rain.
+    The clerk nodded, and went back to his book and the rain.
 end
+-> FREE
+
+
+// --- The regulars (r25) ---------------------------------------------------------
+// A livelier bar: two at the bar, a couple at the window table, a man with a
+// book. Nobody the story needs, and nobody who knows anything he shouldn't:
+// a line or two each, and lives of their own while nothing asks anything of
+// them (World.ts plays the idle= on their @actor lines).
+
+== regular "The old man at the bar"
+@on talk REGULAR
+The old man at the bar had a Ricard going cloudy in front of him and the racing page folded under his elbow.
+if tv_off
+  REGULAR [fr]: Merci, pour la télé. | Thank you, for the television.
+  He lifted his glass a centimetre, which at his age was a toast.
+else
+  REGULAR [fr]: Encore lui. Il parle, il parle. | Him again. He talks and he talks.
+  He didn't look up at the screen. He'd seen enough of it.
+end
+REGULAR [fr]: Pas de politique au comptoir. C'est écrit dehors. | No politics at the bar. It's written outside.
+-> FREE
+
+== worker "The man in the blue jersey"
+@on talk WORKER
+The big man in the blue jersey drank his beer as if it were part of the shift.
+WORKER [fr]: Le dernier bus, c'est minuit dix. Après, à pied. | The last bus is ten past midnight. After that, you walk.
+~ EMPATHY easy: He isn't telling him about the bus. He's telling himself he'll be on it.
+-> FREE
+
+== couple_her "The couple at the window"
+@on talk COUPLE_F
+-> couple
+
+== couple "The couple at the window"
+@on talk COUPLE_M
+The couple at the window table stopped talking as he came near, the way people did this month, and waited for him to be somebody else.
+COUPLE_F [fr]: Bonsoir, monsieur. | Good evening, monsieur.
+COUPLE_M [fr medium]: Laisse. C'est un touriste. | Leave it. He's a tourist.
+They went back to each other, lower than before.
+~ EMPATHY medium: Two people deciding something in a bar because it can't be decided at home.
+-> FREE
+
+== reader "The man with the book"
+@on talk READER
+The man in the armchair turned a page and then, since Based was still standing there, looked up over his glasses.
+READER [fr]: Flaubert. Je le relis tous les dix ans. Ça finit toujours mal. | Flaubert. I read him again every ten years. It always ends badly.
+~ He means the book. Probably.
+-> FREE
+
+
+// A save from before the regulars came (r25): they're in their places when
+// he's next free.
+== crowd_r25 "Le Vauban"
+@on auto if not crowd
+@actor REGULAR stool_4 sit idle=drink in=vauban
+@actor WORKER stool_2 sit idle=drink in=vauban
+@actor COUPLE_M couple_m sit idle=talk:window in=vauban
+@actor COUPLE_F couple_f sit idle=talk:window in=vauban
+@actor READER reader_chair sit idle=read in=vauban
+set crowd
 -> FREE
 
 
@@ -1628,10 +1930,14 @@ One number in it, and a London code. He didn't call it.
 -> FREE
 
 == use_phone_car "The phone"
-@on use phone if knows_car and not texted_london
+@on use phone if knows_car and met_contact and not texted_london
 The phone, the one number, and a car at six to Satory.
 choose "London said to use it sparingly."
-  * [Send London two lines] "Room forty-one. A car to Satory, six o'clock."
+  * if knows_room or heard_41 [Send London two lines] "Room forty-one. A car to Satory, six o'clock."
+    He typed it with his thumb and sent it before he could make it better. A minute later the screen lit: a single full stop.
+    ~ That's London for "received". They'd use a semicolon for "well done", if anyone ever did anything well enough.
+    set texted_london
+  * if not knows_room and not heard_41 [Send London two lines] {send-london-delorme} "Delorme. A car to Satory, six o'clock."
     He typed it with his thumb and sent it before he could make it better. A minute later the screen lit: a single full stop.
     ~ That's London for "received". They'd use a semicolon for "well done", if anyone ever did anything well enough.
     set texted_london
@@ -1641,7 +1947,7 @@ end
 -> FREE
 
 == use_phone "The phone"
-@on use phone
+@on use phone if met_contact
 He looked at the one number for a while, and put the phone away. Penhallow had said sparingly, and she'd meant it.
 -> FREE
 
@@ -1654,7 +1960,11 @@ He let it burn down, mostly unsmoked, and put it out.
 
 == use_cigarettes_dry "A cigarette"
 @on use cigarettes
-He had a cigarette and nothing to light it with, which made him, he realised, the man under the awning.
+if met_watcher or room_mirror
+  He had a cigarette and nothing to light it with, which made him, he realised, the man under the awning.
+else
+  He had a cigarette and nothing to light it with. He put it back.
+end
 -> FREE
 
 == use_newspaper "Le Quotidien"
@@ -1682,7 +1992,11 @@ choose "Something was pressed into it from the card written before it."
     bonus +2 if wears.reading_glasses "Reading glasses"
     bonus +1 if has.matchbook "A match's soot, rubbed over the dents"
     Tilted to the lamp, the dents came up as numbers: a telephone number with a 01 39 at the front.
-    ~ MEMORY: 01 39. Versailles, and the country west of it. Satory is a short drive from Versailles.
+    if knows_car
+      ~ MEMORY: 01 39. Versailles, and the country west of it. Satory is a short drive from Versailles.
+    else
+      ~ MEMORY: 01 39. Versailles, and the country west of it.
+    end
     set knows_versailles
   fail
     The dents might have been numbers. They might have been the grain of the card.
@@ -1705,19 +2019,14 @@ He let it out to its full length with a flick of the wrist, and closed it again 
 
 // --- What he works out ---------------------------------------------------------
 
-== idea_watching "Who was he watching?"
-@on think "Who was the man in grey watching?" if delorme_gone and corner and not she_is_blown and (saw_the_look or on_duty or tried_parole)
-~ FOCUS: Every night at this bar, a drink he doesn't drink, a ring in his pocket. The woman in the corner has been coming here for weeks, if the barman's nod meant anything.
-~ FOCUS: She looked at the lobby door before she answered me. She knew he'd come down.
-~ He wasn't watching the bar. He was watching her. And tonight, for the first time, she had someone to meet.
-set worked_out_watch
--> FREE
-
-
 == idea_vidal "The journalist"
 @on think "Who is Claire Vidal watching?" if knows_vidal and met_contact
-~ FOCUS: A journalist's car at the corner, a ticket since ten past nine, and nobody in it. She parked where she could see the hotel door, not the bar.
-~ The hotel, then. Room forty-one, or whoever comes down from it. She's on Delorme too, and she got here before London did.
+~ FOCUS: A journalist's car at the corner, a ticket on the screen, and nobody in it. She parked where she could see the hotel door, not the bar.
+if knows_room or heard_41
+  ~ The hotel, then. Room forty-one, or whoever comes down from it. She's on Delorme too, and she got here before London did.
+else
+  ~ The hotel, then, and whoever comes out of it. She's watching the same building I am, and she got here before London did.
+end
 set thought_vidal
 -> FREE
 
@@ -1730,75 +2039,86 @@ set thought_vidal
 -> FREE
 
 
-// She left by the street door; out there she's already gone.
-== street_after "Rue de Grenelle"
-@on enter street once if met_contact
-@actor WOMAN none
-The rue de Grenelle again, and the rain still at it. No sign of the woman with The Times. The pavement had kept nothing of her, which was how she would have wanted it.
+// --- The end of part one (r25) ------------------------------------------------
+// After London's contact he's done with the street for tonight; he wants his
+// bed. The clerk has his key and unhooks the rope (clerk_ready), he goes up
+// the stairs to his room and sleeps, and it cuts to the palace window.
+
+== street_door_shut "Rue de Grenelle"
+@on look street_door if met_contact
+-> door_thought
+
+== hotel_door_shut "Rue de Grenelle"
+@on look hotel_street_door if met_contact
+-> door_thought
+
+== door_thought "Rue de Grenelle"
+if knew_seen
+  ~ Not out there. The man under the awning saw him come in. Better he never sees him go out.
+else
+  ~ ENDURANCE: The rain, the street, a walk to nowhere at this hour. No. There's a bed upstairs with a firm of wine shippers' name on it.
+end
 -> FREE
 
 
-// --- Calling it a night ----------------------------------------------------------
-
-== street_end "Rue de Grenelle"
-@on look street_west if met_contact
-choose "The rue de Grenelle runs on west, towards the river."
-  * [Call it a night]
-    -> street
-  * silent [Not yet]
-    ~ Not yet. There's still the hotel, and the street, and whatever's left in the bottom of the glass.
-    -> FREE
-end
-
-
-== street "Rue de Grenelle"
-@focus street_end
-@figure none
-@news none
-@weather drizzle
-@ambient rain
-Outside the rain had thinned to the kind that doesn't fall so much as hang about.
-if watcher_gone
-  The pharmacy awning was empty. There was a cigarette end on the pavement where the man had been, smoked down to the filter. He'd had a long wait.
+// A save from before the night was reshaped (r25: the walk to the river is
+// gone and the night ends upstairs) takes up the new end: what they knew
+// after London's contact, in the new words, and his journal's last task.
+== upgrade_r25 "Le Vauban"
+@on auto if met_contact and not knew_seen and not missed_watch
+if she_is_blown
+  set knew_seen
 else
-  Across the road, under the awning of the closed pharmacy, a man in a dark coat dropped a cigarette and walked away without looking back.
-  @actor WATCHER watcher_gone walk
+  set missed_watch
 end
-Somewhere above the rooftops a television was turned up too loud, and the President of the Republic was explaining to an empty kitchen why freedom needed a rest.
-if tv_off
-  The barman's was off. Other people's weren't.
+set old_night_task
+task night "Get his key from the desk and go up to bed. The lift's out: the stairs, then."
+-> FREE
+
+
+== room "Room twenty-three"
+@on enter room once if has_room and met_contact
+@focus room
+@news none
+Twenty-three: a bed, a wardrobe, a radiator that knocked once and thought better of it, and a window full of rain with the roofs of the seventh arrondissement behind it.
+His holdall was already on the floor at the foot of the bed, with the wine shippers' label on it. London had sent it on ahead, which was London all over: his bag knew where he was sleeping before he did.
+@actor BASED bed_side sit walk
+He sat on the edge of the bed with his boots still on.
+if knew_seen
+  ~ Before breakfast, then. Out of the door before the man in grey has had his coffee, and after that nobody at all.
+  if knows_car
+    ~ Before six. Before Delorme's car to Satory.
+  end
+else
+  ~ A first night, and nobody arrested. He'd take it.
 end
 if thought_rain
-  The gutters were still running to the Seine, and the Seine was still running west.
-  ~ Out to the sea, and England. Everything in this city is heading for England tonight, one way or another.
+  ~ Outside, the gutters were running to the Seine, and the Seine was running west, the way it always had. Out to the sea, and England.
 end
-if knows_car
-  ~ Six o'clock, a car to Satory. I could be standing somewhere I can see it go.
+The rain went on doing what it had done every night since the results.
+He was asleep before he'd decided to be.
+task room done
+task sleep done
+if old_night_task
+  task night done
 end
-if knows_versailles
-  ~ And a Versailles number pressed into the back of a card. Satory's in the Versailles exchange. Everything tonight points west.
-end
-~ Eleven days. A new government, an old bar, and a man in grey who knows my face now, if not my name.
-@actor BASED street_exit walk
-He zipped the jacket up to its collar and walked towards the river.
-task night done
 -> epilogue
 
 
 == epilogue "Élysée"
 @place elysee
 @ambient none
-@actor PRESIDENT window_left fold
-@actor COLONEL window_right
+@actor PRESIDENT window_left fold wear=suit_dark_smoking
+@actor COLONEL window_right wear=uniform_navy_smoking
 @focus window
 @card "PALAIS DE L'ÉLYSÉE" "The same night"
-Two men at a tall window. Low cloud over the city, lit from underneath, and no lights on in the room.
+Two men at a tall window, smoking. Low cloud over the city, lit from underneath, and no light in the room but the ends of their cigarettes.
 PRESIDENT: Brest?
 COLONEL: Ready when you say.
 PRESIDENT: Then I'll say it when the English are looking the other way.
 COLONEL: They're looking now. Delorme says their woman at Le Vauban had company tonight.
 PRESIDENT: Who?
-COLONEL: An American. He came in out of the rain, ordered a drink and talked to nobody until she sat down.
+COLONEL: An American. He came in out of the rain, ordered a drink, said very little to anybody, and then she sat down with him.
 if gave_name
   COLONEL: He gave his name. Based.
   A silence, of the kind that is only possible in very large rooms.
@@ -1810,6 +2130,8 @@ else
   COLONEL: He didn't give a name.
   PRESIDENT: Then he's somebody. Find out who.
 end
+COLONEL: He has a room there. He went up to bed an hour ago.
+PRESIDENT: Then he'll still be there in the morning.
 COLONEL: And the English?
 PRESIDENT: Let them look. It's good for them. It gives them something to do while we decide what they'll see.
 @card "MR. BASED" "Eleven Days"

@@ -39,6 +39,9 @@ const SEATS = new Set([
   "tableRound",
 ]);
 
+/** r25: headroom under a staircase before a body walks into it (Furnish.ts). */
+export const STAIR_HEADROOM = 1.9;
+
 /** Below this a piece is stepped over; above this it's up on something. */
 const FLAT = 0.12;
 const RAISED = 0.3;
@@ -148,6 +151,47 @@ function outline(item: Item): { poly: Pt[]; what: string } | null {
       ];
       return h < 0.25 ? null : { poly: rect(w, d), what: "tray" };
     }
+    // r25: the lobby and his room (client/world/Furnish.ts).
+    case "stairs": {
+      // Solid from the foot until there's headroom under the flight.
+      const going = num(item.going, 0.3);
+      const rise = num(item.rise, 0.21);
+      const w = num(item.width, 1.2);
+      const run = num(item.steps, 16) * going + num(item.landing, 0);
+      const len = Math.min(run, ((STAIR_HEADROOM + 0.29) * going) / rise);
+      return {
+        poly: rect(len + 0.1, w + 0.06, len / 2 - 0.02, 0),
+        what: "stairs",
+      };
+    }
+    case "rope":
+      return item.part === "posts" || item.part === undefined
+        ? { poly: rect(num(item.len, 1.1) + 0.3, 0.3), what: "rope" }
+        : null;
+    case "desk": {
+      const [w, , d] = (item.size as [number, number, number]) ?? [
+        2.2, 1.08, 0.7,
+      ];
+      return { poly: rect(w + 0.06, d + 0.1, 0, 0.02), what: "desk" };
+    }
+    case "bed": {
+      const [w, l] = (item.size as [number, number]) ?? [1.5, 2.0];
+      return { poly: rect(w + 0.14, l + 0.1, 0, 0), what: "bed" };
+    }
+    case "nightstand":
+      return { poly: rect(0.46, 0.4), what: "nightstand" };
+    case "wardrobe": {
+      const [w, , d] = (item.size as [number, number, number]) ?? [
+        1.1, 2.1, 0.58,
+      ];
+      return { poly: rect(w + 0.06, d + 0.05), what: "wardrobe" };
+    }
+    case "holdall":
+      return { poly: rect(0.6, 0.3), what: "holdall" };
+    case "radiator":
+      return { poly: rect(num(item.w, 1.0), 0.14), what: "radiator" };
+    case "floorlamp":
+      return { poly: circle(0.17, 10), what: "floorlamp" };
     default:
       return null;
   }

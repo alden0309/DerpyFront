@@ -312,6 +312,124 @@
       "licenseUrl": "https://openfontlicense.org",
       "source": "https://fonts.google.com/specimen/Stardos+Stencil",
       "changes": "Latin subset, bundled."
+    },
+    {
+      "keys": ["score_street", "score_bar"],
+      "what": "Music",
+      "title": "Moil",
+      "author": "ruskerdax",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://opengameart.org/content/moil",
+      "changes": "Two stretches of it (the street's cue and the bar's), mixed to mono, faded in and out, quietened."
+    },
+    {
+      "keys": ["score_night"],
+      "what": "Music",
+      "title": "Bird in Hand Night",
+      "author": "fupi (after Jason Shaw's Bird in Hand)",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://opengameart.org/content/bird-in-hand-night",
+      "changes": "Its soft opening, for the night's end, mixed to mono and faded."
+    },
+    {
+      "keys": [
+        "steps_stone",
+        "steps_tile",
+        "steps_wood",
+        "steps_carpet",
+        "steps_wet",
+        "clinks",
+        "things",
+        "stings"
+      ],
+      "what": "Sound",
+      "title": "Impact Sounds",
+      "author": "Kenney",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://kenney.nl/assets/impact-sounds",
+      "changes": "Footsteps on concrete, wood and carpet (tiles and wet stone made from them), glasses, a key, a stamp's thud; trimmed, levelled, some given a room."
+    },
+    {
+      "keys": ["things", "paper"],
+      "what": "Sound",
+      "title": "RPG Audio",
+      "author": "Kenney",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://kenney.nl/assets/rpg-audio",
+      "changes": "Doors, a latch, a click, coins, pages, a book opened and shut, cloth."
+    },
+    {
+      "keys": ["dice", "paper"],
+      "what": "Sound",
+      "title": "Casino Audio",
+      "author": "Kenney",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://kenney.nl/assets/casino-audio",
+      "changes": "The dice shaken and thrown; a card's slide for a slip of paper."
+    },
+    {
+      "keys": ["stings"],
+      "what": "Sound",
+      "title": "Music Jingles (sax)",
+      "author": "Kenney",
+      "license": "CC0 1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "source": "https://kenney.nl/assets/music-jingles",
+      "changes": "Two short saxophone phrases, up and down, softened with a room, for a check passed and failed."
+    },
+    {
+      "keys": ["murmur"],
+      "what": "Sound",
+      "license": "Public domain (LibriVox recording)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "title": "Maria Chapdelaine (Louis Hémon), read in French",
+      "author": "LibriVox volunteer Jc Guan",
+      "source": "https://archive.org/details/maria_chapdelaine_jcg_0810_librivox",
+      "changes": "A stretch of one chapter, muffled past understanding and overlapped with the two below into the bar's low talk, in a wooden room."
+    },
+    {
+      "keys": ["murmur"],
+      "what": "Sound",
+      "license": "Public domain (LibriVox recording)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "title": "La Lecture, tome 2, read in French",
+      "author": "LibriVox volunteers (Christiane Jehanne and others)",
+      "source": "https://archive.org/details/lecture_02_2109_librivox",
+      "changes": "Stretches of three readings, muffled past understanding, in the bar's low talk."
+    },
+    {
+      "keys": ["murmur"],
+      "what": "Sound",
+      "license": "Public domain (LibriVox recording)",
+      "licenseUrl": "https://creativecommons.org/publicdomain/mark/1.0/",
+      "title": "Compilation de contes (Madame d'Aulnoy), read in French",
+      "author": "LibriVox volunteers",
+      "source": "https://archive.org/details/compilation_de_contes_1904_librivox",
+      "changes": "A stretch of one tale, muffled past understanding, in the bar's low talk."
+    },
+    {
+      "keys": [
+        "awning",
+        "traffic",
+        "lobby",
+        "tv_hum",
+        "siren",
+        "things",
+        "steps_tile",
+        "steps_wet"
+      ],
+      "what": "Sound",
+      "title": "Rain on the awning, the city far off, the lobby's clock, an old television, a siren, the bells, a match",
+      "author": "made for the game",
+      "license": "Original work",
+      "licenseUrl": "",
+      "source": "",
+      "changes": "Made for Mr. Based in code (numpy): the bar's door bell and the desk's, the television's hum and its switch, the two-tone siren, the traffic, the clock, the patter on the awning, the splash of a wet step."
     }
   ]
 }

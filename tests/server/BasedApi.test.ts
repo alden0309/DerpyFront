@@ -131,6 +131,10 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     "/based/chapter/1",
     "/based/art/bar_wide",
     "/based/audio/rain",
+    // BSTORY (r25): the new sound and the score, as private as the rest.
+    "/based/audio/score_bar",
+    "/based/audio/steps_wood",
+    "/based/audio/murmur",
     // BASED (r21): the 3D models are as private as the pictures.
     "/based/model/props",
     "/based/model/body_m", // BPEOPLE (r22): the people's bodies
@@ -174,8 +178,10 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     expect(body.chapter.title).toBe("Eleven Days");
     // r21: the places it's played in come with it (r22: every place its
     // doors lead to, too).
+    // r25: and his room, up the hotel's stairs.
     expect(Object.keys(body.places).sort()).toEqual([
       "elysee",
+      "room",
       "street",
       "vauban",
     ]);
@@ -190,6 +196,14 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     expect(art.headers.get("cache-control")).toBe("private, max-age=86400");
     const sound = await call("/based/audio/rain", alden);
     expect(sound.headers.get("content-type")).toBe("audio/mpeg");
+    // BSTORY (r25): the score and the effects, gated the same way.
+    for (const key of ["score_bar", "score_night", "things", "steps_stone"]) {
+      const s = await call(`/based/audio/${key}`, alden);
+      expect(s.status, key).toBe(200);
+      expect(s.headers.get("content-type")).toBe("audio/mpeg");
+      expect(s.headers.get("cache-control")).toBe("private, max-age=86400");
+    }
+    expect((await call("/based/audio/nope", alden)).status).toBe(404);
     const model = await call("/based/model/props", alden);
     expect(model.status).toBe(200);
     expect(model.headers.get("content-type")).toBe("model/gltf-binary");
@@ -315,6 +329,13 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
         actors: {
           BASED: { at: "stool_end", pose: "sit", place: "vauban" },
           WATCHER: { at: "watcher_spot", pose: "fold", place: "street" },
+          // BSTORY (r25): a regular's life of his own is kept.
+          REGULAR: {
+            at: "stool_4",
+            pose: "sit",
+            place: "vauban",
+            idle: "drink",
+          },
         },
         focus: null,
         vignette: null,
