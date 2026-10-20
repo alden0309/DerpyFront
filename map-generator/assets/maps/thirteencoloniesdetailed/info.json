@@ -225,16 +225,6 @@
       "coordinates": [85, 2217],
       "name": "Mikasuki (Miccosukee)",
       "flag": "Miccosukee"
-    },
-    {
-      "coordinates": [1034, 137],
-      "name": "Province of Quebec",
-      "flag": "union_flag_1707"
-    },
-    {
-      "coordinates": [1409, 200],
-      "name": "Nova Scotia",
-      "flag": "novascotia"
     }
   ]
 }

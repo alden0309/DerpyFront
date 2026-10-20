@@ -43,6 +43,7 @@ const FREQUENCY_EXEMPTIONS: Set<GameMapName> = new Set([
   "WashingtonDCDetailed",
   "ThirteenColonies",
   "ThirteenColoniesDetailed",
+  "AmericanRevolutionDetailed",
   "ApopkaDetailed",
   "KeeneRoad500Detailed",
   "CaliforniaDetailed",
@@ -67,6 +68,7 @@ const PREVIEW_FOLDER_EXCEPTIONS: Set<GameMapName> = new Set([
 // (DerpyGames), not OpenFront's API, and shared links are ours too, so the
 // API's map-name rules and its link-preview folders don't apply to them.
 const DERPY_API_EXEMPT_MAPS: Set<GameMapName> = new Set([
+  "AmericanRevolutionDetailed",
   "ChinaRomanceOfTheThreeKingdoms",
   "KeeneRoad500Detailed",
   "WashingtonDCDetailed",

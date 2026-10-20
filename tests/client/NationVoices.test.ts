@@ -206,6 +206,7 @@ describe("which voice a nation speaks with", () => {
         "unitedstates",
         "thirteencolonies",
         "thirteencoloniesdetailed",
+        "americanrevolutiondetailed",
         "washingtondcdetailed",
         "californiadetailed",
         "chinaromanceofthethreekingdoms",
