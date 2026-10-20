@@ -709,10 +709,15 @@ export class GameModeSelector extends LitElement {
           >
         </figure>
 
-        <!-- DFSTORE (r21): what's next, out of the way of the buttons. -->
-        <aside
-          class="mx-auto mt-1 flex w-full max-w-md items-center gap-3 rounded-xl border border-dashed border-white/15 bg-black/25 px-4 py-2.5"
-          data-coming-soon="campaigns"
+        <!-- SCEN (r25): Scenarios, where "Campaigns: coming soon" was. -->
+        <button
+          class="mx-auto mt-1 flex w-full max-w-md items-center gap-3 rounded-xl border border-white/15 bg-black/25 px-4 py-2.5 text-left transition-colors hover:border-cyber-yellow/50 hover:bg-cyber-yellow/10 ${this
+            .inputValid
+            ? ""
+            : DISABLED}"
+          ?disabled=${!this.inputValid}
+          data-scenarios-card
+          @click=${this.openScenarios}
         >
           <svg
             viewBox="0 0 32 32"
@@ -737,19 +742,28 @@ export class GameModeSelector extends LitElement {
             <path d="M22 6l7 3-7 3z" fill="currentColor" />
             <circle cx="5" cy="26" r="2" fill="currentColor" />
           </svg>
-          <div class="flex min-w-0 flex-col">
-            <span
-              class="text-[10px] font-bold uppercase tracking-[0.2em] text-cyber-yellow/90"
-              >${translateText("main.coming_soon")}</span
-            >
+          <div class="flex min-w-0 flex-1 flex-col">
             <span class="text-base font-bold leading-tight text-white"
-              >${translateText("main.campaigns")}</span
+              >${translateText("main.scenarios")}</span
             >
             <span class="text-xs leading-snug text-white/60"
-              >${translateText("main.campaigns_blurb")}</span
+              >${translateText("main.scenarios_blurb")}</span
             >
           </div>
-        </aside>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            class="size-5 shrink-0 text-white/50"
+            aria-hidden="true"
+          >
+            <path
+              fill-rule="evenodd"
+              d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z"
+              clip-rule="evenodd"
+            />
+          </svg>
+        </button>
 
         ${this.showTrustRequired
           ? trustRequiredDialog(
@@ -826,6 +840,12 @@ export class GameModeSelector extends LitElement {
         document.querySelector("single-player-modal") as SinglePlayerModal
       )?.open(),
     );
+  };
+
+  // SCEN (r25): the Scenarios screen (loaded on demand, see LazyModals).
+  private openScenarios = () => {
+    if (!this.validateUsername()) return;
+    window.showPage?.("page-scenarios");
   };
 
   // Handled in Main, which also serves the help page's tutorial button.

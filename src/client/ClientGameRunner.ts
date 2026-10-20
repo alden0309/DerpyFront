@@ -27,7 +27,7 @@ import {
   WireGameStartInfo,
 } from "@openfront/shared/WireSchemas";
 import { ClientEnv } from "../client/ClientEnv";
-import { reloadForUpdate, translateText } from "../client/Utils";
+import { reloadForUpdate, showToast, translateText } from "../client/Utils";
 import { isDesktopShell } from "./DesktopShell";
 import { GameMetrics } from "./GameMetrics";
 import { showInGameAlert } from "./InGameModal";
@@ -1282,11 +1282,33 @@ export class ClientGameRunner {
           );
         } else if (this.canAutoBoat(actions.buildableUnits, tile)) {
           this.sendBoatAttackIntent(tile);
+        } else {
+          this.explainSideMate(tile);
         }
       })
       .catch((error) => {
         console.warn("Failed to check boat attack actions:", error);
       });
+  }
+
+  // SCEN (r25): a click on a side-mate's land does nothing (sides are
+  // locked), so say why, at most every few seconds.
+  private sideMateToastAt = 0;
+  private explainSideMate(tile: TileRef) {
+    if ((this.gameView.scenario?.() ?? null) === null) return;
+    if (this.myPlayer === null) return;
+    const owner = this.gameView.owner(tile);
+    if (!owner.isPlayer() || owner === this.myPlayer) return;
+    const other = owner as PlayerView;
+    if (!this.myPlayer.isOnSameTeam(other)) return;
+    const now = Date.now();
+    if (now - this.sideMateToastAt < 3000) return;
+    this.sideMateToastAt = now;
+    showToast(
+      translateText("scenarios.same_side", { name: other.displayName() }),
+      "red",
+      2500,
+    );
   }
 
   private autoUpgradeEvent(event: AutoUpgradeEvent) {
@@ -1451,6 +1473,8 @@ export class ClientGameRunner {
               this.myPlayer!.troops() * this.renderer.uiState.attackRatio,
             ),
           );
+        } else {
+          this.explainSideMate(tile); // SCEN (r25)
         }
       })
       .catch((error) => {

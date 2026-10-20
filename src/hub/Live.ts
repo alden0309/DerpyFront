@@ -140,7 +140,7 @@ export class DerpLive extends LitElement {
             ? html`<span class="dl-live-tag">Private</span>`
             : nothing}</span
         >
-        <b class="dl-live-title">${x.map}</b>
+        <b class="dl-live-title">${x.scenario ?? x.map}</b>
         <span class="dl-live-meta"
           >${MODES[x.mode] ?? x.mode} · ${this.since(x.startedAt)}</span
         >

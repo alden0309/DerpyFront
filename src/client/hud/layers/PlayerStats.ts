@@ -3,6 +3,7 @@ import type { EventBus } from "@openfront/shared/EventBus";
 import { customElement } from "lit/decorators.js";
 import { type StatsRow, StatsTable } from "../../components/StatsTable";
 import { AI_CHOICE_ICON } from "../../derpy/AiPersonalityIcons";
+import { withSideMark } from "../../scenario/ScenarioClient"; // SCEN (r25)
 import { GoToPlayerEvent } from "../../TransformHandler";
 import type { GameView } from "../../view";
 import { type ColumnDef, columnValues } from "./lib/StatsColumns";
@@ -32,7 +33,11 @@ export class PlayerStats extends StatsTable {
       .filter((player) => player.isAlive())
       .map((player) => ({
         key: player.id(),
-        name: withPersonalityIcon(player.name(), player.aiPersonality()),
+        // SCEN (r25): a scenario's sides are marked
+        name: withSideMark(
+          withPersonalityIcon(player.name(), player.aiPersonality()),
+          player,
+        ),
         clanTag: player.clanTag(),
         values: columnValues(player, game, columns),
         emphasized:

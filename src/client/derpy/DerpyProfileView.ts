@@ -1,5 +1,6 @@
 import { html, LitElement, TemplateResult } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
+import { scenarioTitle } from "../scenario/ScenarioText"; // SCEN (r25)
 import { translateText } from "../Utils";
 import {
   DerpyApiError,
@@ -166,7 +167,11 @@ export class DerpyProfileView extends LitElement {
           : translateText("derpy.lost")}</span
       >
       <div class="flex min-w-40 flex-1 flex-col">
-        <span class="font-semibold text-white">${mapName(g.map)}</span>
+        <span class="font-semibold text-white"
+          >${g.scenario
+            ? scenarioTitle({ id: g.scenario }) // SCEN (r25)
+            : mapName(g.map)}</span
+        >
         <span class="text-xs text-white/50"
           >${shortDate(g.endedAt)} · ${duration(g.durationS)} ·
           ${translateText("derpy.players_count", { count: g.numPlayers })}</span

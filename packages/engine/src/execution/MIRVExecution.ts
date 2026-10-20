@@ -24,6 +24,7 @@ import {
   getParabolaControlPoints,
 } from "../pathfinding/PathFinder.Parabola";
 import { PathStatus } from "../pathfinding/types";
+import { onScenarioHostility } from "../scenario/ScenarioRules"; // SCEN (r25)
 import { execSnapshotType } from "../snapshot/ExecutionSnapshot";
 import {
   ParabolaSchema,
@@ -104,6 +105,10 @@ export class MirvExecution implements Execution {
       });
       this.mg.recordMirvLaunch();
       this.mg.stats().bombLaunch(this.player, this.targetPlayer, UnitType.MIRV);
+      // SCEN (r25): a MIRV at a neutral's land is an invasion.
+      if (this.targetPlayer.isPlayer()) {
+        onScenarioHostility(this.mg, this.player, this.targetPlayer);
+      }
 
       // Betrayal on launch — only once the missile has actually spawned, so
       // a fizzled launch pays no diplomatic cost.

@@ -25,6 +25,7 @@ import { GameView, PlayerView, UnitView } from "../../view";
 import { onlyImages } from "./OnlyImages";
 
 import { renderNumber, renderTroops } from "@openfront/engine-lib/Format";
+import { sideName } from "../../scenario/ScenarioText"; // SCEN (r25)
 import { PlaySoundEffectEvent } from "../../sound/Sounds";
 import { UIState } from "../../UIState";
 import { getMessageTypeClasses, translateText } from "../../Utils";
@@ -267,6 +268,13 @@ export class EventsDisplay extends LitElement implements Controller {
       params.unit.startsWith("unit_type.")
     ) {
       params = { ...params, unit: translateText(params.unit) };
+    }
+    // SCEN (r25): a neutral joining a side names the side in your language.
+    if (
+      event.message === "events_display.scenario_joined_side" &&
+      typeof params.side === "string"
+    ) {
+      params = { ...params, side: sideName(params.side) };
     }
 
     if (params.name === undefined || event.focusPlayerID === undefined) {

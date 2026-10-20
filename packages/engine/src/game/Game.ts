@@ -49,6 +49,7 @@ import { MotionPlanRecord } from "@openfront/engine-lib/game/MotionPlans";
 import type { EngineConfig } from "../configuration/EngineConfig";
 import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
 import { PathFinder } from "../pathfinding/types";
+import type { ScenarioRuntime } from "../scenario/Scenario";
 import type { ExecRecord, SnapshotWriter } from "../snapshot/SnapshotContext";
 import { RailNetwork } from "./RailNetwork";
 import { Stats } from "./Stats";
@@ -417,6 +418,9 @@ export interface Player extends PlayerLike {
    * Where a land structure near `tile` could stand (our land, clear of
    * other buildings), whatever it costs; false if nowhere.
    */
+  // SCEN (r25): where a scenario places its starting ports and warships.
+  portSpawn(tile: TileRef, validTiles: TileRef[] | null): TileRef | false;
+  warshipSpawn(tile: TileRef): TileRef | false;
   landBasedStructureSpawn(
     tile: TileRef,
     validTiles?: TileRef[] | null,
@@ -462,6 +466,10 @@ export interface Player extends PlayerLike {
    */
   relationReasons(other: Player): OpinionReason[];
   isOnSameTeam(other: Player): boolean;
+  /** SCEN (r25): a neutral joins a side (scenarios only). */
+  setTeam(team: Team | null): void;
+  /** SCEN (r25): a scenario nation's starting gold. */
+  setScenarioGold(gold: Gold): void;
   // Either allied or on same team.
   isFriendly(other: Player, treatAFKFriendly?: boolean): boolean;
   team(): Team | null;
@@ -684,6 +692,8 @@ export interface Game extends GameLike {
 
   // Nations
   nations(): Nation[];
+  /** SCEN (r25): the Scenario this game plays, or null. */
+  scenario(): ScenarioRuntime | null;
 
   numTilesWithFallout(): number;
   stats(): Stats;

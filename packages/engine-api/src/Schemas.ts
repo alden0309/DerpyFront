@@ -16,6 +16,7 @@ import {
   Trios,
   UnitType,
 } from "./game/GameTypes";
+import { SCENARIO_KEY_RE, scenarioConfigProblem } from "./game/Scenarios"; // SCEN (r25)
 import { PlayerStatsSchema } from "./StatsSchemas";
 
 export type GameID = string;
@@ -50,7 +51,8 @@ export type Intent =
   | TradeAgreementRequestIntent
   | TradeAgreementReplyIntent
   | TradeAgreementCancelIntent
-  | EscortedBoatAttackIntent;
+  | EscortedBoatAttackIntent
+  | ScenarioSeatIntent; // SCEN (r25)
 
 export type AttackIntent = z.infer<typeof AttackIntentSchema>;
 export type CancelAttackIntent = z.infer<typeof CancelAttackIntentSchema>;
@@ -99,6 +101,9 @@ export type TradeAgreementCancelIntent = z.infer<
 export type EscortedBoatAttackIntent = z.infer<
   typeof EscortedBoatAttackIntentSchema
 >;
+// SCEN (r25)
+export type ScenarioSeatIntent = z.infer<typeof ScenarioSeatIntentSchema>;
+export type ScenarioConfig = z.infer<typeof ScenarioConfigSchema>;
 
 export type Turn = z.infer<typeof TurnSchema>;
 export type GameConfig = z.infer<typeof GameConfigSchema>;
@@ -281,6 +286,29 @@ export type PoolConfig = z.infer<typeof PoolConfigSchema>;
  */
 export const DERPY_RULES = 6;
 
+// SCEN (r25): a Scenario, a historical war on this map
+// (engine-api/game/Scenarios.ts, resources/scenarios/README.md). Each nation
+// starts on its historical land, in locked sides that win together. `seats`
+// says who plays which nation (nation key -> clientID); the server keeps it
+// (players pick their own seat with scenario_seat), and every nation without
+// one is computer-run. Refused: an unknown scenario, a seat at a nation it
+// doesn't have, or one player in two seats.
+export const ScenarioConfigSchema = z
+  .object({
+    id: z.string().regex(SCENARIO_KEY_RE),
+    // z.lazy because ID is declared further down this file.
+    seats: z
+      .record(
+        z.string().regex(SCENARIO_KEY_RE),
+        z.lazy(() => ID),
+      )
+      .optional(),
+  })
+  .superRefine((c, ctx) => {
+    const problem = scenarioConfigProblem(c);
+    if (problem !== null) ctx.addIssue({ code: "custom", message: problem });
+  });
+
 export const GameConfigSchema = z.object({
   gameMap: z.enum(GameMapType),
   difficulty: z.enum(Difficulty),
@@ -387,6 +415,8 @@ export const GameConfigSchema = z.object({
     )
     .max(16)
     .optional(),
+  // SCEN (r25): the Scenario this game plays (absent: an ordinary game).
+  scenario: ScenarioConfigSchema.optional(),
 });
 
 // What a host sends in update_game_config. maxPlayers is the private-lobby
@@ -637,6 +667,16 @@ export const EscortedBoatAttackIntentSchema = z.object({
   dst: zb.uint(),
 });
 
+// SCEN (r25): in a Scenario's lobby, take a free nation (nation: its key) or
+// give up your seat (null). The host may also move another player (target)
+// to a free nation, or free their seat. Lobby only: the server answers it
+// and it never reaches a turn.
+export const ScenarioSeatIntentSchema = z.object({
+  type: z.literal("scenario_seat"),
+  nation: z.string().regex(SCENARIO_KEY_RE).nullable(),
+  target: MappedID.optional(),
+});
+
 export const IntentSchema = z.discriminatedUnion("type", [
   AttackIntentSchema,
   CancelAttackIntentSchema,
@@ -667,6 +707,7 @@ export const IntentSchema = z.discriminatedUnion("type", [
   TradeAgreementReplyIntentSchema,
   TradeAgreementCancelIntentSchema,
   EscortedBoatAttackIntentSchema,
+  ScenarioSeatIntentSchema, // SCEN (r25)
 ]);
 
 // StampedIntent = Intent with server-stamped clientID (used in turns and execution)

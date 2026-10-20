@@ -136,7 +136,12 @@ export class TutorialPanel extends LitElement implements Controller {
     // subscribed to TutorialStateEvent.
     if (!this.started) {
       this.started = true;
-      this.setActive(!this.userSettings.tutorialDismissed());
+      // SCEN (r25): a scenario has no spawn, tribes or empty land to
+      // teach with, so the tutorial waits for an ordinary game.
+      const scenario = this.game.scenario?.() ?? null;
+      this.setActive(
+        !this.userSettings.tutorialDismissed() && scenario === null,
+      );
     }
     if (!this.active) return;
 

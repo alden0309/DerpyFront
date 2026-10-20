@@ -16,6 +16,8 @@ export interface LiveFrontGame {
   thumb?: string;
   /** "Free For All" or "Team". */
   mode: string;
+  /** SCEN (r25): the Scenario it plays, by its English name ("Europe 1939"). */
+  scenario?: string;
   /** A private game its host opened to watchers (else a public one). */
   private: boolean;
   /** When it began (ms since 1970, the server's clock). */

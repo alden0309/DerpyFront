@@ -518,6 +518,11 @@ class Client {
       tag: "single-player-modal",
       pageId: "page-single-player",
     });
+    // SCEN (r25)
+    modalRouter.register("scenarios", {
+      tag: "scenarios-modal",
+      pageId: "page-scenarios",
+    });
     modalRouter.register("ranked", {
       tag: "ranked-modal",
       pageId: "page-ranked",
@@ -1242,6 +1247,7 @@ class Client {
   private closeMenu(): void {
     [
       "single-player-modal",
+      "scenarios-modal", // SCEN (r25)
       "game-starting-modal",
       "game-top-bar",
       "help-modal",

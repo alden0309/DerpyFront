@@ -62,6 +62,7 @@ import {
 import { AbstractGraph } from "../pathfinding/algorithms/AbstractGraph";
 import { WaterPathFinder } from "../pathfinding/PathFinder";
 import { PathFinder } from "../pathfinding/types";
+import { ScenarioRuntime, scenarioRuntime } from "../scenario/Scenario"; // SCEN (r25)
 import {
   nationData,
   NationSchema,
@@ -165,6 +166,8 @@ export class GameImpl implements Game {
   private _waterManager: WaterManager;
   private _sharedWaterCache: SharedWaterCache;
   private _teamGameSpawnAreas: TeamGameSpawnAreas | undefined;
+  // SCEN (r25): the game's Scenario, from its config and human players.
+  private _scenario: ScenarioRuntime | null;
   /** Tiles from nuke blast radii this tick, drained by the renderer. */
   private _nukeImpactQueue: TileRef[] = [];
 
@@ -193,6 +196,10 @@ export class GameImpl implements Game {
       _config.disableNavMesh(),
     );
     this._sharedWaterCache = new SharedWaterCache(this);
+    this._scenario = scenarioRuntime(
+      _config.gameConfig(),
+      _humans.flatMap((h) => (h.clientID === null ? [] : [h.clientID])),
+    );
 
     if (!restoring) {
       if (_config.gameConfig().gameMode === GameMode.Team) {
@@ -207,6 +214,11 @@ export class GameImpl implements Game {
   }
 
   private populateTeams() {
+    // SCEN (r25): a scenario's teams are its sides.
+    if (this._scenario !== null) {
+      this.playerTeams = this._scenario.sideIds();
+      return;
+    }
     const totalPlayers = this._humans.length + this._nations.length;
     this.playerTeams = resolveTeamsList(
       this._config.playerTeams(),
@@ -215,6 +227,15 @@ export class GameImpl implements Game {
   }
 
   private addPlayers() {
+    // SCEN (r25): every scenario nation starts on its side (neutrals on none).
+    const scenario = this._scenario;
+    if (scenario !== null) {
+      this._humans.forEach((p) => this.addPlayer(p, scenario.startingTeam(p)));
+      this._nations.forEach((n) =>
+        this.addPlayer(n.playerInfo, scenario.startingTeam(n.playerInfo)),
+      );
+      return;
+    }
     if (this.config().gameConfig().gameMode === GameMode.FFA) {
       this._humans.forEach((p) => this.addPlayer(p));
       this._nations.forEach((n) => this.addPlayer(n.playerInfo));
@@ -420,6 +441,10 @@ export class GameImpl implements Game {
 
   nations(): Nation[] {
     return this._nations;
+  }
+
+  scenario(): ScenarioRuntime | null {
+    return this._scenario;
   }
 
   createAllianceRequest(
@@ -746,6 +771,8 @@ export class GameImpl implements Game {
   }
 
   private maybeAssignTeam(player: PlayerInfo): Team | null {
+    // SCEN (r25): no random teams in a scenario (neutrals have none).
+    if (this._scenario !== null) return null;
     if (this._config.gameConfig().gameMode !== GameMode.Team) {
       return null;
     }

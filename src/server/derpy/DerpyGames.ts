@@ -11,6 +11,7 @@ import {
   OTHER_INDEX_BUILT,
   PlayerStats,
 } from "@openfront/engine-api/StatsSchemas";
+import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData"; // SCEN (r25)
 import {
   conquestsFromStats,
   derpCoinsForGame,
@@ -116,7 +117,14 @@ function winnerText(
     const p = record.info.players.find((x) => x.clientID === w[1]);
     return p ? (labels.get(p.clientID) ?? p.username) : null;
   }
-  if (w[0] === "team") return `Team ${w[1]}`;
+  if (w[0] === "team") {
+    // SCEN (r25): a scenario's side wins under its own name ("Allies").
+    const side = scenarioData(record.info.config.scenario?.id)?.sides.find(
+      (s) => s.id === w[1],
+    );
+    if (side !== undefined) return side.name;
+    return `Team ${w[1]}`;
+  }
   return w[1];
 }
 
@@ -200,9 +208,9 @@ export async function recordDerpyGame(
       }
       const inserted = await c.query(
         `INSERT INTO derpy_games (game_id, map, mode, game_type, started_at,
-           ended_at, duration_s, winner, num_players, awards, record)
+           ended_at, duration_s, winner, num_players, awards, record, scenario)
          VALUES ($1, $2, $3, $4, to_timestamp($5 / 1000.0),
-           to_timestamp($6 / 1000.0), $7, $8, $9, $10, $11)
+           to_timestamp($6 / 1000.0), $7, $8, $9, $10, $11, $12)
          ON CONFLICT (game_id) DO NOTHING
          RETURNING game_id`,
         [
@@ -223,6 +231,7 @@ export async function recordDerpyGame(
             ),
           ),
           blob,
+          config.scenario?.id ?? null, // SCEN (r25)
         ],
       );
       if (inserted.rowCount === 0) return; // already saved
@@ -416,6 +425,8 @@ export interface GameSummary {
   durationS: number;
   winner: string | null;
   numPlayers: number;
+  /** SCEN (r25): the Scenario it played, if any ("europe1939"). */
+  scenario?: string | null;
   playedAs: string;
   won: boolean;
   peakTerritoryPct: number;
@@ -465,7 +476,7 @@ export async function profile(username: string): Promise<Profile | null> {
   if (!row) return null;
   const games = await pool.query(
     `SELECT g.game_id, g.map, g.mode, g.game_type, g.ended_at, g.duration_s,
-       g.winner, g.num_players, gp.username AS played_as, gp.won,
+       g.winner, g.num_players, g.scenario, gp.username AS played_as, gp.won,
        gp.peak_territory_pct, gp.gold_earned::text AS gold_earned, gp.awards,
        gp.coins
      FROM derpy_game_players gp
@@ -491,6 +502,7 @@ export async function profile(username: string): Promise<Profile | null> {
       durationS: g.duration_s,
       winner: g.winner,
       numPlayers: g.num_players,
+      scenario: g.scenario ?? null, // SCEN (r25)
       playedAs: g.played_as,
       won: g.won,
       peakTerritoryPct: Math.round(Number(g.peak_territory_pct) * 10) / 10,

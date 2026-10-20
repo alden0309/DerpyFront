@@ -219,6 +219,37 @@ export class HelpModal extends BaseModal {
               </button>
             </div>
           </section>
+          <!-- SCEN (r25): Scenarios -->
+          <div class="flex items-center gap-3 mb-3">
+            <div class="text-blue-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="w-5 h-5 text-blue-400"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M5 22V3"></path>
+                <path d="M5 4h12l-2.5 4L17 12H5"></path>
+              </svg>
+            </div>
+            <h3
+              class="text-xl font-bold uppercase tracking-widest text-white/90"
+            >
+              ${translateText("help_modal.scenarios_title")}
+            </h3>
+            <div
+              class="flex-1 h-px bg-gradient-to-r from-blue-500/50 to-transparent"
+            ></div>
+          </div>
+          <section data-help-scenarios>
+            <p class="mb-6 text-white/70 text-sm">
+              ${translateText("help_modal.scenarios_desc")}
+            </p>
+          </section>
           <!-- Hotkeys Section -->
           <div class="flex items-center gap-3 mb-3">
             <div class="text-blue-400">

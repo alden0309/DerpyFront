@@ -4,6 +4,7 @@ import {
   BuildableUnit,
   Cell,
   EmojiMessage,
+  GameMapSize,
   Gold,
   NameViewData,
   PlayerActions,
@@ -26,6 +27,8 @@ import {
   AiType,
   isAiType,
 } from "@openfront/engine-lib/game/AiPersonalityTypes";
+import { ScenarioNation } from "@openfront/engine-lib/scenario/ScenarioData"; // SCEN (r25)
+import { rosterNationOf } from "@openfront/engine-lib/scenario/ScenarioSeats"; // SCEN (r25)
 import { PatternDecoder } from "@openfront/shared/PatternDecoder";
 import { createRandomName } from "@openfront/shared/SharedUtil";
 import { PlayerCosmetics } from "@openfront/shared/WireSchemas";
@@ -219,6 +222,11 @@ export class PlayerView implements PlayerLike {
    */
   applyUpdate(pu: PlayerUpdate): void {
     applyStateUpdate(this.state, pu);
+    // SCEN (r25): a neutral that joins a side takes that side as its team.
+    if (pu.team !== undefined && pu.team !== this.static.team) {
+      this.static.team = pu.team;
+      this.refreshCosmetics();
+    }
     // applyStateUpdate refreshes outgoingEmojis every tick; re-apply the
     // "Disable emojis" setting so live emojis stay hidden when it's off (#4430).
     if (!userSettings.emojis()) {
@@ -413,6 +421,29 @@ export class PlayerView implements PlayerLike {
   }
   team(): Team | null {
     return this.static.team;
+  }
+  /** SCEN (r25): the scenario nation this player plays, or null. */
+  scenarioNation(): ScenarioNation | null {
+    if (this._scenarioNation === undefined) {
+      const roster = this.game.scenario?.() ?? null;
+      this._scenarioNation =
+        roster === null
+          ? null
+          : rosterNationOf(roster, {
+              clientID: this.static.clientID,
+              name: this.static.name,
+            });
+    }
+    return this._scenarioNation;
+  }
+  private _scenarioNation: ScenarioNation | null | undefined;
+  /** SCEN (r25): as the engine's (Config.maxTroops reads it on both sides). */
+  scenarioTroopCap(): number {
+    const bonus = this.scenarioNation()?.troopCapBonus ?? 0;
+    if (bonus === 0) return 0;
+    const compact =
+      this.game.config().gameConfig().gameMapSize === GameMapSize.Compact;
+    return (bonus * 10) / (compact ? 2 : 1);
   }
   /**
    * AIP (r23): the personality this AI nation was dealt, or null (Normal,

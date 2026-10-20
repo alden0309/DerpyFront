@@ -200,7 +200,10 @@ describe.each(VARIANTS)("full game snapshots: %s", (_, overrides) => {
       // game. StructureExecutions.test.ts covers it directly.
       // Trade Agreement executions finish in init(), so no snapshot of a
       // running game ever holds one.
+      // ScenarioStart (SCEN r25) runs only in scenario games;
+      // tests/scenario/ScenarioSnapshot.test.ts covers it.
       const neverStored = new Set([
+        "ScenarioStart",
         "Pause",
         "Capital",
         "TradeAgreementRequest",

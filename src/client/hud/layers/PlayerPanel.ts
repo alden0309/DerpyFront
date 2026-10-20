@@ -38,6 +38,7 @@ import {
   SwapRocketDirectionEvent,
 } from "../../InputHandler";
 import { lobbyLevelBadge } from "../../LobbyRosterLevels";
+import { sideLabel } from "../../scenario/ScenarioClient"; // SCEN (r25)
 import {
   PlayerReportedEvent,
   SendAllianceRequestIntentEvent,
@@ -720,6 +721,18 @@ export class PlayerPanel extends LitElement implements Controller {
           >
             ${other.displayName()}
           </h2>
+          ${(() => {
+            // SCEN (r25): the nation's side, locked for the game
+            const side = sideLabel(other);
+            return side === null
+              ? ""
+              : html`<span
+                  class="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-xs font-semibold text-zinc-200"
+                  title=${translateText("scenarios.side_locked")}
+                  data-scenario-side
+                  >${side}</span
+                >`;
+          })()}
         </div>
         ${chip
           ? html`<span

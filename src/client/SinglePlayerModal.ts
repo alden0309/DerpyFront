@@ -7,7 +7,7 @@ import {
   maps,
   UnitType,
 } from "@openfront/engine-api/game/GameTypes";
-import { TeamCountConfig } from "@openfront/engine-api/Schemas";
+import { GameConfig, TeamCountConfig } from "@openfront/engine-api/Schemas";
 import { dealsPersonalities } from "@openfront/engine-lib/game/AiPersonalityTypes";
 import { DoomsdayClockSpeed } from "@openfront/engine-lib/game/DoomsdayClock";
 import { UserMeResponse } from "@openfront/shared/ApiSchemas";
@@ -48,6 +48,10 @@ import {
 } from "./utilities/GameConfigHelpers";
 
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
+// SCEN (r25)
+import { applyScenarioRules } from "@openfront/engine-lib/scenario/ScenarioConfig";
+import { renderScenarioPanel } from "./scenario/ScenarioPanel";
+import { ScenarioPick, scenarioPickFromArgs } from "./scenario/ScenarioPick";
 
 /**
  * Ceiling on how long a Start Game click will wait for the player's name and
@@ -216,6 +220,8 @@ export class SinglePlayerModal extends BaseModal {
   @state() private overtime: boolean = DEFAULT_OPTIONS.overtime;
   @state() private overtimeStartMinutes: number | undefined =
     DEFAULT_OPTIONS.overtimeStartMinutes;
+  // SCEN (r25): the Scenario and nation picked on the Scenarios screen.
+  @state() private scenario: ScenarioPick | null = null;
   // Drives the Start Game button's busy state. Without it the click produces
   // nothing visible until every await in startGame() settles, which reads as
   // a hang rather than as loading whenever the network is slow or absent.
@@ -337,7 +343,12 @@ export class SinglePlayerModal extends BaseModal {
   protected renderHeaderSlot() {
     return modalHeader({
       title: translateText("main.solo") || "Solo",
-      onBack: () => this.close(),
+      // SCEN (r25): back to the Scenarios screen it came from.
+      onBack: () => {
+        const fromScenarios = this.scenario !== null;
+        this.close();
+        if (fromScenarios) window.showPage?.("page-scenarios");
+      },
       ariaLabel: translateText("common.back"),
       rightContent: responseHasLinkedIdentity(this.userMeResponse)
         ? html`<button
@@ -508,8 +519,17 @@ export class SinglePlayerModal extends BaseModal {
               },
               difficulty: {
                 selected: this.selectedDifficulty,
-                disabled: this.nations === 0,
+                disabled: this.nations === 0 && this.scenario === null,
               },
+              // SCEN (r25)
+              ...(this.scenario !== null
+                ? {
+                    scenario: renderScenarioPanel(this.scenario, () => {
+                      this.close();
+                      window.showPage?.("page-scenarios");
+                    }),
+                  }
+                : {}),
               gameMode: {
                 selected: this.gameMode,
               },
@@ -528,6 +548,7 @@ export class SinglePlayerModal extends BaseModal {
                   defaultValue: this.defaultNationCount,
                   labelKey: "game_settings.nations",
                   disabledKey: "common.disabled",
+                  hidden: this.scenario !== null, // SCEN (r25)
                 },
                 toggles: [
                   {
@@ -537,6 +558,7 @@ export class SinglePlayerModal extends BaseModal {
                   {
                     labelKey: "game_settings.random_spawn",
                     checked: this.randomSpawn,
+                    hidden: this.scenario !== null, // SCEN (r25)
                   },
                   {
                     labelKey: "game_settings.infinite_gold",
@@ -581,7 +603,7 @@ export class SinglePlayerModal extends BaseModal {
           ></game-config-settings>
           <!-- AIP (r23): the AI personalities in play (Normal, and those you own). -->
           <ai-personality-picker
-            ?noNations=${this.nations === 0}
+            ?noNations=${this.nations === 0 && this.scenario === null}
             @personalities-changed=${(e: CustomEvent<string[]>) => {
               this.aiPersonalities = e.detail;
             }}
@@ -591,6 +613,7 @@ export class SinglePlayerModal extends BaseModal {
         <!-- Footer Action -->
         <div class="p-6 border-t border-white/10 bg-black/20 shrink-0">
           ${responseHasLinkedIdentity(this.userMeResponse) &&
+          this.scenario === null &&
           this.hasOptionsChanged()
             ? html`<div
                 class="mb-4 px-4 py-3 rounded-xl bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-xs font-bold uppercase tracking-wider text-center"
@@ -710,9 +733,12 @@ export class SinglePlayerModal extends BaseModal {
     this.doomsdayClockSpeed = DEFAULT_OPTIONS.doomsdayClockSpeed;
     this.overtime = DEFAULT_OPTIONS.overtime;
     this.overtimeStartMinutes = DEFAULT_OPTIONS.overtimeStartMinutes;
+    this.scenario = null; // SCEN (r25)
   }
 
-  protected onOpen(): void {
+  protected onOpen(args?: Record<string, unknown>): void {
+    // SCEN (r25): opened from the Scenarios screen, with its pick.
+    this.scenario = scenarioPickFromArgs(args);
     void this.loadNationCount();
     // Spend the cosmetics round trip while the player is picking a map, not
     // after they commit. startGame() still resolves cosmetics properly; this
@@ -1136,6 +1162,21 @@ export class SinglePlayerModal extends BaseModal {
       // The ad is long enough that the modal can be closed while it runs.
       if (attempt !== this.startAttempt) return;
 
+      // SCEN (r25): a scenario game is the same game with the scenario's
+      // fixed settings, and the player in the nation they picked.
+      const scenario = this.scenario;
+      const scenarioConfig = (config: GameConfig): GameConfig =>
+        scenario === null
+          ? config
+          : applyScenarioRules({
+              ...config,
+              donateGold: true,
+              donateTroops: true,
+              scenario: {
+                id: scenario.id,
+                seats: { [scenario.nation]: clientID },
+              },
+            });
       this.dispatchEvent(
         new CustomEvent("join-lobby", {
           detail: {
@@ -1150,7 +1191,7 @@ export class SinglePlayerModal extends BaseModal {
                   cosmetics,
                 },
               ],
-              config: {
+              config: scenarioConfig({
                 gameMap: this.selectedMap,
                 gameMapSize: this.compactMap
                   ? GameMapSize.Compact
@@ -1209,7 +1250,7 @@ export class SinglePlayerModal extends BaseModal {
                       },
                     }
                   : {}),
-              },
+              }),
               lobbyCreatedAt: Date.now(), // ms; server should be authoritative in MP
             },
             source: "singleplayer",

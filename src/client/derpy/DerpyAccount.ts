@@ -55,6 +55,8 @@ export interface DerpyGameSummary {
   durationS: number;
   winner: string | null;
   numPlayers: number;
+  /** SCEN (r25): the Scenario it played, if any. */
+  scenario?: string | null;
   playedAs: string;
   won: boolean;
   peakTerritoryPct: number;

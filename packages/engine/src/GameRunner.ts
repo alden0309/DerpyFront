@@ -2,6 +2,7 @@ import { TileRef } from "@openfront/engine-api/game/GameMap";
 import {
   AllPlayers,
   BuildableUnit,
+  GameMapSize,
   GameType,
   GameUpdates,
   HumanStatsSnapshot,
@@ -38,6 +39,12 @@ import { placeName, placeSpawnName } from "./game/NameBoxCalculator";
 import { createNationsForGame } from "./game/NationCreation";
 import { applyNationPersonas } from "./game/NationPersonas";
 import {
+  scenarioComputerNations,
+  scenarioHumanInfo,
+  scenarioRoster,
+} from "./scenario/Scenario";
+import { ScenarioStartExecution } from "./scenario/ScenarioStartExecution";
+import {
   readSnapshotHeader,
   restoreGame,
   snapshotGame,
@@ -52,8 +59,15 @@ export async function createGameRunner(
   const config = new EngineConfig(gameStart.config, false, gameStart.listed);
   const gameMap = await loadGameMap(gameStart.config, map);
   const random = new PseudoRandom(simpleHash(gameStart.gameID));
+  // SCEN (r25): a scenario's players take their seats' nations, and the
+  // nations nobody took are the computer-run ones.
+  const roster = scenarioRoster(
+    gameStart.config,
+    gameStart.players.map((p) => p.clientID),
+  );
 
   const humans = gameStart.players.map((p) => {
+    if (roster !== null) return scenarioHumanInfo(roster, p, random.nextID());
     return new PlayerInfo(
       p.username,
       PlayerType.Human,
@@ -68,13 +82,19 @@ export async function createGameRunner(
 
   // DFSTORE (r21): the host's AI personality packs (rules 5+).
   const nations = applyNationPersonas(
-    createNationsForGame(
-      gameStart,
-      gameMap.nations,
-      gameMap.additionalNations,
-      humans.length,
-      random,
-    ),
+    roster !== null
+      ? scenarioComputerNations(
+          roster,
+          random,
+          gameStart.config.gameMapSize === GameMapSize.Compact ? 2 : 1,
+        )
+      : createNationsForGame(
+          gameStart,
+          gameMap.nations,
+          gameMap.additionalNations,
+          humans.length,
+          random,
+        ),
     gameStart.config,
     config.derpyRules(),
     gameStart.gameID,
@@ -182,16 +202,22 @@ export class GameRunner {
   }
 
   init() {
+    // SCEN (r25): first of all, the scenario's board (it ends the spawn phase).
+    if (this.game.scenario() !== null) {
+      this.game.addExecution(new ScenarioStartExecution());
+    }
     if (this.game.config().gameConfig().gameType !== GameType.Singleplayer) {
       this.game.addExecution(new SpawnTimerExecution());
     }
     if (this.game.config().spawnNations()) {
       this.game.addExecution(...this.execManager.nationExecutions());
     }
-    if (this.game.config().isRandomSpawn()) {
+    // SCEN (r25): a scenario has no spawning and no tribes.
+    const scenario = this.game.scenario() !== null;
+    if (this.game.config().isRandomSpawn() && !scenario) {
       this.game.addExecution(...this.execManager.spawnPlayers());
     }
-    if (this.game.config().bots() > 0) {
+    if (this.game.config().bots() > 0 && !scenario) {
       this.game.addExecution(
         ...this.execManager.spawnTribes(this.game.config().bots()),
       );
