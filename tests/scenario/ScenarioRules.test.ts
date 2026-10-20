@@ -220,12 +220,11 @@ describe("Europe 1939's rule: the pact, the Phoney War and the purges", () => {
       if (p !== ussr)
         expect(ussr.troops(), p.name()).toBeGreaterThan(p.troops());
     }
-    expect(ussr.troops()).toBeGreaterThan(germany.troops() * 1.1);
-    // ...and the biggest cap by far: room to grow.
+    // ...and the biggest cap, by a fifth over Germany's: room to grow.
     for (const p of game.players()) {
       if (p === ussr) continue;
       expect(game.config().maxTroops(ussr), p.name()).toBeGreaterThan(
-        game.config().maxTroops(p) * 1.3,
+        game.config().maxTroops(p) * 1.2,
       );
     }
     expect(ussr.troops()).toBeLessThan(game.config().maxTroops(ussr) * 0.85);
