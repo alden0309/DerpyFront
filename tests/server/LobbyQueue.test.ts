@@ -168,6 +168,7 @@ describe("WorkerLobbyService queued lobbies", () => {
       game: vi.fn().mockReturnValue(null),
       activeGames: vi.fn().mockReturnValue(0),
       liveGames: vi.fn().mockReturnValue([]), // SITE (r19)
+      lockedLobbies: vi.fn().mockReturnValue([]), // FRIENDS (r25)
     };
     const service = new WorkerLobbyService(
       new EventEmitter() as any,
