@@ -61,6 +61,9 @@ export const CloseReason = {
   // allowed watchers, or one as many watch as may.
   WatchersClosed: "close_reason.watchers_closed",
   WatchersFull: "close_reason.watchers_full",
+  // Derp Land (FRIENDS r25): a lobby whose host gave it a password. The
+  // client asks for it rather than showing this.
+  LobbyLocked: "close_reason.lobby_locked",
   // Shown for a terminal close whose reason is not one of ours.
   Unknown: "close_reason.unknown",
 } as const;

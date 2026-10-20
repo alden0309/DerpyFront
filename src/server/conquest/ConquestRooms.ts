@@ -110,6 +110,13 @@ import {
 import { accountForToken } from "../derpy/DerpyAuth";
 import { recordConquestGame } from "../derpy/DerpyConquest";
 import { derpyDbConfigured } from "../derpy/DerpyDb";
+import {
+  cleanPassword,
+  LobbyLock,
+  mayGuess,
+  PASSWORD_MAX,
+  readPass,
+} from "../derpy/LobbyLock"; // FRIENDS (r25): a room's password
 import type { ConquestWhere } from "../derpy/Presence"; // FRIENDS (r25)
 import { logger } from "../Logger";
 import { TablePay, type SeatPay } from "./ConquestPay"; // LEGACY (r21)
@@ -280,7 +287,16 @@ const Message = z.discriminatedUnion("t", [
     open: z.boolean(),
     settings: Settings,
   }),
-  z.object({ t: z.literal("join"), code: z.string().max(10) }),
+  z.object({
+    t: z.literal("join"),
+    code: z.string().max(10),
+    // FRIENDS (r25): a room with a password: it, or an invite's pass.
+    password: z
+      .string()
+      .max(PASSWORD_MAX * 4)
+      .optional(),
+    pass: z.string().max(80).optional(),
+  }),
   z.object({
     t: z.literal("rejoin"),
     code: z.string().max(10),
@@ -314,6 +330,14 @@ const Message = z.discriminatedUnion("t", [
   // SITE (r19): watching a game being played, and the host letting watchers in.
   z.object({ t: z.literal("watch"), id: z.string().max(40) }),
   z.object({ t: z.literal("allowwatch"), allow: z.boolean() }),
+  // FRIENDS (r25): the host gives the room a password, or takes it away.
+  z.object({
+    t: z.literal("password"),
+    password: z
+      .string()
+      .max(PASSWORD_MAX * 4)
+      .nullable(),
+  }),
 ]);
 
 export function cleanName(raw: string): string {
@@ -347,6 +371,8 @@ interface Conn {
   recent: number[];
   /** DLC (r21): what the account owns of Conquest's DLC (checked on the server). */
   dlc: ConquestDlcOwned;
+  /** FRIENDS (r25): where it comes from, for limiting password guesses. */
+  ip: string;
 }
 
 interface Seat {
@@ -429,6 +455,11 @@ interface Room {
   lock: { seat: string; name: string; until: number } | null;
   /** The end being worked out (once). */
   finishing: Promise<ResultLine[]> | null;
+  /**
+   * FRIENDS (r25): the password its host may give it. Only here: rooms,
+   * lobbies and who's online say only whether there is one.
+   */
+  password: LobbyLock;
 }
 
 /** LEGACY (r21): after someone pauses in company, only they may start the clock for this long. */
@@ -497,7 +528,7 @@ export class ConquestRooms {
 
   // ---------------------------------------------------------------- sockets
 
-  connect(ws: WebSocket): Conn {
+  connect(ws: WebSocket, ip = ""): Conn {
     const conn: Conn = {
       ws,
       name: "Explorer",
@@ -509,6 +540,7 @@ export class ConquestRooms {
       hello: null,
       recent: [],
       dlc: NO_DLC, // DLC (r21)
+      ip, // FRIENDS (r25)
     };
     ws.on("message", (data) => {
       const t = this.now();
@@ -632,7 +664,7 @@ export class ConquestRooms {
       case "create":
         return this.create(conn, m.solo, m.open, m.settings as RoomSettings);
       case "join":
-        return this.join(conn, m.code);
+        return this.join(conn, m.code, { password: m.password, pass: m.pass });
       case "rejoin":
         return this.rejoin(conn, m.code, m.secret);
       case "resume":
@@ -783,6 +815,20 @@ export class ConquestRooms {
       case "allowwatch":
         if (room.host !== seat.id) return;
         return this.setAllowWatchers(room, m.allow);
+      // FRIENDS (r25): the host closes the room with a password (or opens
+      // it again) as they set it up. It holds once the game runs: those in
+      // it stay, and only someone new dropping in is asked for it.
+      case "password": {
+        if (room.game || room.host !== seat.id || room.solo) return;
+        const pw = m.password === null ? null : cleanPassword(m.password);
+        if (m.password !== null && pw === null)
+          return this.send(conn, {
+            t: "err",
+            msg: `A password is 1 to ${PASSWORD_MAX} characters.`,
+          });
+        room.password.set(pw);
+        return this.sendLobby(room);
+      }
       case "save":
         await this.save(room);
         return;
@@ -835,6 +881,8 @@ export class ConquestRooms {
         year: r.game ? dateOf(r.game.state.day).year : null,
         // SITE (r19): a game begun can be watched as well as dropped into.
         ...(r.game ? { watchId: r.watchId, watchers: r.watchers.size } : {}),
+        // FRIENDS (r25): joining asks for its password.
+        ...(r.password.locked ? { locked: true } : {}),
       });
     }
     let saved: SavedGame[] = [];
@@ -946,6 +994,7 @@ export class ConquestRooms {
       pausedAt: null,
       lock: null,
       finishing: null,
+      password: new LobbyLock(), // FRIENDS (r25)
     };
     if (conn) {
       const seat = this.seatFor(conn);
@@ -982,17 +1031,24 @@ export class ConquestRooms {
     log.info("room opened", { code: room.code, solo });
   }
 
-  private join(conn: Conn, rawCode: string): void {
+  private join(
+    conn: Conn,
+    rawCode: string,
+    key: { password?: string; pass?: string } = {},
+  ): void {
     const room = this.rooms.get(rawCode.trim().toUpperCase());
     if (!room || room.solo)
       return this.send(conn, { t: "err", msg: "No game with that code." });
     if (conn.room === room) return;
-    this.leaveCurrent(conn);
     // Someone coming back to their nation in a loaded campaign.
     const mine =
       conn.accountId !== null
         ? room.seats.find((s) => s.accountId === conn.accountId && !s.conn)
         : undefined;
+    // FRIENDS (r25): anyone else, at a room with a password, gives it (or
+    // an invite's pass), before leaving where they are.
+    if (!mine && !this.letIn(conn, room, key)) return;
+    this.leaveCurrent(conn);
     if (mine) return this.takeSeat(room, mine, conn);
     if (room.seats.length >= MAX_SEATS)
       return this.send(conn, { t: "err", msg: "That game is full." });
@@ -1007,6 +1063,41 @@ export class ConquestRooms {
     } else {
       this.sendLobby(room);
     }
+  }
+
+  /**
+   * FRIENDS (r25): whether someone new may come into `room`: it has no
+   * password, or they gave it, or they came with a pass the master signed
+   * for their account (an invite, their party's leader). If not, they're
+   * told why ("needpass"), and the page asks them for it.
+   */
+  private letIn(
+    conn: Conn,
+    room: Room,
+    key: { password?: string; pass?: string },
+  ): boolean {
+    const lock = room.password;
+    if (!lock.locked) return true;
+    const who = conn.accountId !== null ? `a:${conn.accountId}` : "";
+    if (who && lock.admits(who)) return true;
+    if (
+      conn.accountId !== null &&
+      key.pass !== undefined &&
+      readPass(key.pass, "conquest", room.code, this.now()) === conn.accountId
+    ) {
+      lock.admit(who);
+      return true;
+    }
+    const refuse = (why: "required" | "wrong" | "too_many") => {
+      this.send(conn, { t: "needpass", code: room.code, why });
+      return false;
+    };
+    const pw = cleanPassword(key.password);
+    if (pw === null) return refuse("required");
+    if (!mayGuess(conn.ip || "?", `cq:${room.code}`)) return refuse("too_many");
+    if (!lock.check(pw)) return refuse("wrong");
+    if (who) lock.admit(who);
+    return true;
   }
 
   private takeSeat(room: Room, seat: Seat, conn: Conn): void {
@@ -1200,6 +1291,7 @@ export class ConquestRooms {
         joinable: !r.solo && !over && r.seats.length < MAX_SEATS,
         private: !r.open || r.solo,
         solo: r.solo,
+        ...(r.password.locked ? { locked: true } : {}),
       };
       for (const seat of r.seats) {
         if (!seat.conn || seat.accountId === null) continue;
@@ -1513,6 +1605,8 @@ export class ConquestRooms {
         settings: room.settings,
         seats: seatInfo(room),
         allowWatchers: room.allowWatchers, // SITE (r19)
+        // FRIENDS (r25): whether it has a password (never the password).
+        ...(room.password.locked ? { locked: true } : {}),
       });
     }
   }
@@ -2589,6 +2683,19 @@ function seatInfo(room: Room): SeatInfo[] {
 }
 
 /**
+ * FRIENDS (r25): the address a connection comes from, as Express sees one
+ * behind the site's proxies (Master's "trust proxy" of 3).
+ */
+export function clientIp(req: http.IncomingMessage): string {
+  const fwd = String(req.headers["x-forwarded-for"] ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const hops = [req.socket.remoteAddress ?? "", ...fwd.reverse()];
+  return hops[Math.min(3, hops.length - 1)] ?? "";
+}
+
+/**
  * Serves Derpy Conquest on `server` at /conquest/ws. Tests pass their own
  * `rooms` (with a fake clock) and drive it themselves.
  */
@@ -2605,7 +2712,9 @@ export function attachConquest(
       zlibDeflateOptions: { level: 6, memLevel: 7 },
     },
   });
-  wss.on("connection", (ws) => rooms.connect(ws));
+  wss.on("connection", (ws, req: http.IncomingMessage) =>
+    rooms.connect(ws, clientIp(req)),
+  );
   server.on(
     "upgrade",
     (req: http.IncomingMessage, socket: Duplex, head: Buffer) => {

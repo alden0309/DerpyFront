@@ -58,6 +58,8 @@ export interface Place {
   /** Derpy Conquest: a private table (not open to anyone) or a solo one. */
   private?: boolean;
   solo?: boolean;
+  /** The lobby or table has a password (its host's; never shown). */
+  locked?: boolean;
 }
 
 /** Someone on the site (or a friend who isn't). */
@@ -67,7 +69,7 @@ export interface PersonRow {
   friend: boolean;
   /** Where they are, or null: offline (or appearing so). */
   place: Place | null;
-  /** A link into the lobby or table they're in, when you may join it. */
+  /** A link into the lobby or table they're in (any with room: one with a password asks for it). */
   join?: string;
   /** A link to watch the game they're playing, when it may be watched. */
   watch?: string;

@@ -34,6 +34,7 @@ import { registerAdminBotRoutes } from "./AdminBotRoutes";
 import { censorPlayer } from "./Censor";
 import { Client } from "./Client";
 import { derpyLooksForPlayer } from "./derpy/DerpySkins";
+import { registerLobbyLockRoutes } from "./derpy/LobbyLockRoutes"; // FRIENDS (r25)
 import { gameApiCors } from "./GameApiCors";
 import { GameManager } from "./GameManager";
 import { registerGamePreviewRoute } from "./GamePreviewRoute";
@@ -460,10 +461,16 @@ export async function startWorker() {
     res.status(204).end();
   });
 
+  // FRIENDS (r25): a lobby's password (its host's) and unlocking it.
+  registerLobbyLockRoutes(app, gm);
+
   app.get("/api/game/:id/exists", async (req, res) => {
     const lobbyId = req.params.id;
+    const game = gm.game(lobbyId);
     res.json({
-      exists: gm.game(lobbyId) !== null,
+      exists: game !== null,
+      // FRIENDS (r25): whether its host gave it a password (never the password).
+      ...(game?.needsPassword() ? { locked: true } : {}),
     });
   });
 
@@ -930,6 +937,9 @@ export async function startWorker() {
           ws.close(CloseCode.Forbidden, CloseReason.WatchersClosed);
         } else if (joinResult === "watch_full") {
           ws.close(CloseCode.LobbyFull, CloseReason.WatchersFull);
+        } else if (joinResult === "locked") {
+          // FRIENDS (r25): the client asks for the password and comes again.
+          ws.close(CloseCode.Forbidden, CloseReason.LobbyLocked);
         } else if (joinResult === "started") {
           log.info(`client joined game ${clientMsg.gameID} after it started`, {
             gameID: clientMsg.gameID,

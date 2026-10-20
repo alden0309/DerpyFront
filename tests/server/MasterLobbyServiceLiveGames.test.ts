@@ -61,4 +61,34 @@ describe("MasterLobbyService.liveGames", () => {
     service.removeWorker(0);
     expect(service.liveGames()).toBe(0);
   });
+
+  // FRIENDS (r25): which lobbies have a password, for the lock in who's
+  // online: only their ids, from every worker's last report.
+  it("collects the lobbies with a password from every worker, and forgets a dead one's", () => {
+    const w0 = createMockWorker();
+    const w1 = createMockWorker();
+    service.registerWorker(0, w0 as any);
+    service.registerWorker(1, w1 as any);
+    expect([...service.lockedLobbies()]).toEqual([]);
+    w0.emit("message", {
+      type: "lobbyList",
+      lobbies: [],
+      locked: ["AbCd1234"],
+    });
+    w1.emit("message", {
+      type: "lobbyList",
+      lobbies: [],
+      locked: ["ZyXw9876", "Qq11Ww22"],
+    });
+    expect([...service.lockedLobbies()].sort()).toEqual([
+      "AbCd1234",
+      "Qq11Ww22",
+      "ZyXw9876",
+    ]);
+    // A host takes the password away (an older worker says nothing: none).
+    w1.emit("message", { type: "lobbyList", lobbies: [] });
+    expect([...service.lockedLobbies()]).toEqual(["AbCd1234"]);
+    service.removeWorker(0);
+    expect([...service.lockedLobbies()]).toEqual([]);
+  });
 });

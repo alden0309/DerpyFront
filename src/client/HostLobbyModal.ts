@@ -47,6 +47,7 @@ import { inviteFriendsButton } from "./components/ui/InviteFriendsButton";
 import { modalHeader } from "./components/ui/ModalHeader";
 import { fetchCosmetics, InsufficientCurrency } from "./Cosmetics";
 import "./derpy/AiPersonalityPicker"; // DFSTORE (r21), AIP (r23)
+import "./derpy/LobbyPassword"; // FRIENDS (r25)
 import { gamePortal } from "./GamePortal";
 import { JoinLobbyEvent } from "./Main";
 import { terrainMapFileLoader } from "./TerrainMapFileLoader";
@@ -599,6 +600,10 @@ export class HostLobbyModal extends BaseModal {
               .onChange=${this.handleAllowedPublicIdsChange}
             ></toggle-input-card>`,
           ]),
+      // FRIENDS (r25): the lobby's password (none: open to anyone).
+      html`<derpy-lobby-password
+        .lobbyId=${this.lobbyId}
+      ></derpy-lobby-password>`,
     ];
 
     const hostCheatInputCards = [

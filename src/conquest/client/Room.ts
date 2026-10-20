@@ -47,6 +47,10 @@ export class Room extends LitElement {
   @state() private copied = false;
   /** How to Play, open over the register (r11 wave 2). */
   @state() private guide: string | null = null;
+  /** FRIENDS (r25): the password the host is giving the room (as typed here). */
+  @state() private pwOn = false;
+  @state() private pw = "";
+  private pwTimer: ReturnType<typeof setTimeout> | null = null;
 
   createRenderRoot() {
     return this;
@@ -177,6 +181,73 @@ export class Room extends LitElement {
       </p>`;
   }
 
+  /**
+   * FRIENDS (r25): the host may give the room a password. Anyone new joining
+   * is asked for it, unless the host (or the party's leader) invited them;
+   * it stays on once the game begins, for those dropping in.
+   */
+  private passwordPart(): TemplateResult | typeof nothing {
+    const L = this.lobby;
+    if (L.solo) return nothing;
+    if (L.host !== L.you)
+      return L.locked
+        ? html`<p class="cq-muted small cq-watch-note">
+            The host gave this game a password.
+          </p>`
+        : nothing;
+    const on = this.pwOn || L.locked === true;
+    const send = (password: string | null) => {
+      if (this.pwTimer !== null) clearTimeout(this.pwTimer);
+      this.pwTimer = null;
+      this.net.send({ t: "password", password });
+    };
+    return html`<label class="cq-check">
+        <input
+          type="checkbox"
+          .checked=${on}
+          @change=${(e: Event) => {
+            this.pwOn = (e.target as HTMLInputElement).checked;
+            if (!this.pwOn) {
+              this.pw = "";
+              if (L.locked) send(null);
+            }
+          }}
+        />
+        A password to join
+      </label>
+      ${on
+        ? html`<label class="cq-field cq-pw-field">
+              <span class="cq-sr">Password</span>
+              <input
+                .value=${this.pw}
+                maxlength="40"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder=${L.locked && !this.pw
+                  ? "Set (type to change it)"
+                  : "Type one"}
+                @input=${(e: Event) => {
+                  this.pw = (e.target as HTMLInputElement).value;
+                  if (this.pwTimer !== null) clearTimeout(this.pwTimer);
+                  this.pwTimer = setTimeout(() => {
+                    const pw = this.pw.trim();
+                    if (pw) send(pw);
+                  }, 700);
+                }}
+                @change=${() => {
+                  const pw = this.pw.trim();
+                  if (pw) send(pw);
+                }}
+              />
+            </label>
+            <p class="cq-muted small cq-watch-note">
+              ${L.locked
+                ? "Anyone joining types it in, unless you invite them."
+                : "Type one, then tell it to those you want."}
+            </p>`
+        : nothing}`;
+  }
+
   private side(): TemplateResult {
     const L = this.lobby;
     const me = this.me;
@@ -236,6 +307,7 @@ export class Room extends LitElement {
           </label>`
         : nothing}
       ${this.watchersPart() /* SITE (r19) */}
+      ${this.passwordPart() /* FRIENDS (r25) */}
       <div class="cq-start">
         ${host
           ? html`<button

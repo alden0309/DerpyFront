@@ -3,6 +3,13 @@
    and each line's chronicle. Conquest's vellum and Fell type, on Derp
    Land's graphite. */
 
+/* FRIENDS (r25): the hub's layers named in their order first, as in hub.css.
+   A layer's place is set where it's first named, and this sheet comes into
+   the bundle ahead of hub.css: naming only "components" here put it before
+   "base", so hub.css's resets beat every component (the banana buttons
+   lost their dark, bold text). */
+@layer base, components;
+
 @layer components {
   .dl-chron-head {
     margin-bottom: 24px;

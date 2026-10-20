@@ -13,6 +13,7 @@ import {
   crownIcon,
   eyeIcon,
   joinIcon,
+  lockIcon,
   tokenColor,
 } from "../derpland/Icons";
 import { social, SOCIAL_EVENT } from "../derpland/Social";
@@ -74,7 +75,9 @@ function token(name: string, cls = "dl-ftok"): TemplateResult {
 function where(p: PersonRow["place"]): TemplateResult {
   return html`<span class="dl-fwhere"
     ><i class="dl-fdot ${placeTone(p)}"></i
-    ><span>${placeText(p, t)}</span></span
+    ><span>${placeText(p, t)}</span>${p?.locked
+      ? lockIcon(t("locked"), "dl-flock")
+      : nothing}</span
   >`;
 }
 

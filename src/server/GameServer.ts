@@ -82,6 +82,7 @@ import { fetchCustomTribes } from "./CustomTribes";
 import { derpyDbConfigured } from "./derpy/DerpyDb";
 import { recordDerpyGame } from "./derpy/DerpyGames";
 import { ownedAiPersonalities } from "./derpy/DerpySkins";
+import { LobbyLock } from "./derpy/LobbyLock"; // FRIENDS (r25)
 import { DesyncDetector } from "./DesyncDetector";
 import {
   authorizeIntent,
@@ -123,7 +124,9 @@ export type JoinResult =
   // Derp Land (SITE r19): someone come to watch a game that has begun, when
   // its host hasn't allowed watchers, or as many watch it as may.
   | "watch_closed"
-  | "watch_full";
+  | "watch_full"
+  // FRIENDS (r25): a lobby with a password, not given (nor an invite's pass).
+  | "locked";
 
 // Derp Land (SITE r19): people watching a game that has begun (from the
 // site's Watch buttons, or a shared link) a game may have at once. Each is
@@ -348,6 +351,11 @@ export class GameServer {
   public readonly id: string;
   public readonly createdAt: number;
   public gameConfig: GameConfig;
+  /**
+   * FRIENDS (r25): the password its host may give the lobby (LobbyLock.ts).
+   * Held here only, never in gameConfig or anything sent to a client.
+   */
+  public readonly lobbyLock = new LobbyLock();
   private creatorPersistentID?: string;
   private startsAt?: number;
   private publicGameType?: PublicGameType;
@@ -718,6 +726,22 @@ export class GameServer {
       }
       client.spectator = true;
       client.watcher = true;
+    }
+
+    // FRIENDS (r25): a lobby its host gave a password takes only its host,
+    // those already in it, and those who gave the password or came with an
+    // invite's pass (both through /api/game/:id/unlock first).
+    if (
+      this.needsPassword() &&
+      client.persistentID !== this.creatorPersistentID &&
+      !this.lobbyLock.admits(client.persistentID) &&
+      !this.wasAdmitted(client.persistentID) &&
+      !isAdminRole(client.role)
+    ) {
+      this.log.info("refusing a joiner: the lobby has a password", {
+        clientID: client.clientID,
+      });
+      return "locked";
     }
 
     // Spectators take no slot: they never spawn, so a full lobby is still
@@ -2052,6 +2076,15 @@ export class GameServer {
   // cheats must not be publicly listed.
   public hasHostCheats(): boolean {
     return hostCheatsEnabled(this.gameConfig.hostCheats);
+  }
+
+  /**
+   * FRIENDS (r25): whether someone new needs the lobby's password to come
+   * in: its host gave it one, and it hasn't started (after that, watchers
+   * go by the host's watcher setting as before).
+   */
+  public needsPassword(): boolean {
+    return this.lobbyLock.locked && this.stage !== "started";
   }
 
   public isCreator(persistentId: string): boolean {

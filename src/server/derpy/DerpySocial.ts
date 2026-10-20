@@ -31,6 +31,7 @@ import { type Account, accountForToken, hashToken } from "./DerpyAuth";
 import { db, DerpyDbUnavailable, inTransaction } from "./DerpyDb";
 import { newsBeat } from "./DerpyNews"; // NEWS (r25)
 import { liveGames } from "./LiveGames";
+import { Limiter, mintPass } from "./LobbyLock"; // a password's pass
 import {
   isAt,
   joinHref,
@@ -56,37 +57,8 @@ export const SESSION_CACHE_MS = 30 * 60_000;
 
 // ---------------------------------------------------------------- limits
 
-/** At most `limit` takes per key in any `windowMs`. */
-export class Limiter {
-  private readonly hits = new Map<string, number[]>();
-  constructor(
-    readonly limit: number,
-    readonly windowMs: number,
-    private readonly now: () => number = Date.now,
-  ) {}
-
-  take(key: string): boolean {
-    const t = this.now();
-    const recent = (this.hits.get(key) ?? []).filter(
-      (x) => t - x < this.windowMs,
-    );
-    if (recent.length >= this.limit) {
-      this.hits.set(key, recent);
-      return false;
-    }
-    recent.push(t);
-    this.hits.set(key, recent);
-    // Keep the map from growing with keys nobody uses any more.
-    if (this.hits.size > 5000)
-      for (const [k, v] of this.hits)
-        if (v.every((x) => t - x >= this.windowMs)) this.hits.delete(k);
-    return true;
-  }
-
-  clear(): void {
-    this.hits.clear();
-  }
-}
+// The limiter is LobbyLock's (it limits password guesses too).
+export { Limiter };
 
 /** Friend requests, game invites and party invites, per account. */
 export const LIMITS = {
@@ -284,7 +256,9 @@ export async function socialState(me: Account): Promise<SocialState> {
 
   // Invites still good: their sender is still in the lobby or at the table
   // they asked you to, it still has room, and you aren't there yet. One
-  // appearing offline still sent it, so their own whereabouts count.
+  // appearing offline still sent it, so their own whereabouts count. Each
+  // carries a pass, so a password doesn't stop the invited (nor the party's
+  // pull, below).
   const invites: InviteRow[] = [];
   const invitedTargets: Target[] = [];
   const fresh = (at: string) => Date.now() - Date.parse(at) < INVITE_MAX_AGE_MS;
@@ -303,7 +277,8 @@ export async function socialState(me: Account): Promise<SocialState> {
       from: presence.username(inv.fromId) ?? inv.from,
       game: inv.game,
       place: placeOf(w),
-      href: joinHref(t),
+      // A pass for you: a lobby with a password lets you in without it.
+      href: joinHref(t, mintPass(t.game, t.id, me.id)),
       at: inv.at,
     });
   }
@@ -311,13 +286,9 @@ export async function socialState(me: Account): Promise<SocialState> {
   const row = (id: number, username: string, friend: boolean): PersonRow => {
     const w = presence.visible(here, id) ? here.get(id)! : null;
     const t = targetOf(w);
-    const mayJoin =
-      t !== null &&
-      !isAt(mine, t) &&
-      (!t.private ||
-        friend ||
-        partyIds.has(id) ||
-        invitedTargets.some((x) => x.game === t.game && x.id === t.id));
+    // Every lobby is open to anyone on Derp Land (the owner's rule); one
+    // its host gave a password asks for it when you get there.
+    const mayJoin = t !== null && !isAt(mine, t);
     const watch = watchHref(w, watchable);
     return {
       id,
@@ -384,7 +355,7 @@ export async function socialState(me: Account): Promise<SocialState> {
         ? {
             pull: {
               key: `${pullTo.game}:${pullTo.id}`,
-              href: joinHref(pullTo),
+              href: joinHref(pullTo, mintPass(pullTo.game, pullTo.id, me.id)),
               leader: leaderName,
               place: placeOf(leaderWhere),
             },

@@ -4,6 +4,9 @@
    buttons and price tags, which borrow the look of a fruit sticker. Type is Archivo throughout, run wide for headings;
    each game keeps its own wordmark. */
 
+/* A layer's place is set where it's first named, and every hub sheet with
+   layers (chronicle.css, dynasty.css) names them in this order at its top,
+   since they come into the bundle before this one. A new one must too. */
 @layer base, components;
 
 @layer base {
@@ -214,6 +217,11 @@
     color: var(--text-3);
     box-shadow: none;
     cursor: not-allowed;
+  }
+  /* FRIENDS (r25): a link made a banana button keeps its dark ink inside a
+     panel, whose links are otherwise coloured as text (.dl-panel a). */
+  a.dl-btn:not(.ghost) {
+    color: var(--peel-ink);
   }
   .dl-row {
     display: flex;

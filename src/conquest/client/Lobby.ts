@@ -397,6 +397,13 @@ export class Lobby extends LitElement {
           ${r.started
             ? html`<span class="cq-chip">Living, ${r.year}</span>`
             : html`<span class="cq-chip good">Making characters</span>`}
+          ${r.locked /* FRIENDS (r25) */
+            ? html`<span
+                class="cq-chip cq-pw-chip"
+                title="Joining asks for its password"
+                >${padlock()} Password</span
+              >`
+            : nothing}
         </span>
       </div>
       <div class="cq-open-acts">
@@ -680,4 +687,21 @@ declare global {
   interface HTMLElementTagNameMap {
     "cq-lobby": Lobby;
   }
+}
+
+/** FRIENDS (r25): a small padlock, for a game with a password. */
+function padlock(): TemplateResult {
+  return html`<svg
+    class="cq-pw-lock"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <rect x="5" y="11" width="14" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>`;
 }

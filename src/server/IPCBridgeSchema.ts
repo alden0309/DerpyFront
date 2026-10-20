@@ -58,6 +58,10 @@ const WorkerLobbyListSchema = z.object({
   // watched, sent only when they changed (absent: as last sent). Entries are
   // checked one by one, like lobbies (LiveFrontGameSchema).
   running: z.array(z.unknown()).optional(),
+  // Derp Land (FRIENDS r25): this worker's lobbies whose host gave them a
+  // password: only their ids, for the lock in who's online. Absent (an
+  // older worker): none.
+  locked: z.array(z.string().max(20)).max(2000).optional(),
 });
 
 // Derp Land (SITE r19): one game being played, as the front page lists it.

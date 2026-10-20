@@ -133,6 +133,16 @@ export class GameManager {
     return out;
   }
 
+  // Derp Land (FRIENDS r25): the lobbies here whose host gave them a
+  // password (their ids only; the password stays in the game's LobbyLock).
+  lockedLobbies(): string[] {
+    const out: string[] = [];
+    for (const [id, game] of this.games)
+      if (game.needsPassword() && game.phase() === GamePhase.Lobby)
+        out.push(id);
+    return out;
+  }
+
   activeClients(): number {
     let totalClients = 0;
     this.games.forEach((game: GameServer) => {
