@@ -1,1 +1,65 @@
-[]
+[
+  {
+    "id": "2026-10-19-dynasty",
+    "date": "2026-10-19",
+    "game": "conquest",
+    "title": "Your dynasty",
+    "body": "Journal › Dynasty shows your line's family tree: everyone you played, their families, and each one's life. Finished games keep their dynasty on your profile."
+  },
+  {
+    "id": "2026-10-19-weekly-challenges",
+    "date": "2026-10-19",
+    "game": "site",
+    "title": "Weekly challenges",
+    "body": "Three DerpyFront and three Derpy Conquest challenges every week, Monday to Monday: 100 to 250 Derp Coins each, plus 150 for finishing all three. This week's are on the home page."
+  },
+  {
+    "id": "2026-10-19-friends",
+    "date": "2026-10-19",
+    "game": "site",
+    "title": "Friends, who's online, and parties",
+    "body": "People in the top bar shows who's on Derp Land and what they're playing. Add friends, invite them into your lobby or Conquest table, or make a party of up to 8 that follows the leader into games. Appear offline is in the account menu."
+  },
+  {
+    "id": "2026-10-18-ai-personalities",
+    "date": "2026-10-18",
+    "game": "derpyfront",
+    "title": "AI personalities",
+    "body": "Mad Scientist, Trader, Aggressive and Protector, 750 Derp Coins each. Tick the ones you own when setting up a game: they're dealt to computer nations at random and shown in game. The Mad Scientist now saves up for Domes of Alden."
+  },
+  {
+    "id": "2026-10-15-openfront-update",
+    "date": "2026-10-15",
+    "game": "derpyfront",
+    "title": "The latest OpenFront update",
+    "body": "Computer nations play much better: more cities, ports and factories, and smarter nukes and defences. Two new maps, Ommatrypta and Brain Rot. Target is now J, and the emoji menu is on F. Trains are fixed at new stations, and the gold-per-10-seconds counter is gone."
+  },
+  {
+    "id": "2026-10-15-plunder-winter-1800",
+    "date": "2026-10-15",
+    "game": "conquest",
+    "title": "Plunder, winter, and the Revolution to 1800",
+    "body": "Legends: sacred places can now be plundered, with consequences, or protected as before. Winter comes to everyone's map from late November to early February, only where it really snows; Hard Winter is retired and its buyers refunded. The 1776 add-on now runs to 1800, with history following its course unless players change it."
+  },
+  {
+    "id": "2026-10-15-open-world",
+    "date": "2026-10-15",
+    "game": "based",
+    "title": "An open world",
+    "body": "Paris to explore at your own pace: double-click to run, rain that soaks you, an inventory, save slots, and the new skills and languages. You and the barman are your own models now, with new props in the bar and on the street."
+  },
+  {
+    "id": "2026-10-14-new-skins",
+    "date": "2026-10-14",
+    "game": "derpyfront",
+    "title": "15 new skins, bigger payouts",
+    "body": "Fifteen new skins in the Derp Store, five of them animated. DerpyFront games now pay about a sixth more Derp Coins."
+  },
+  {
+    "id": "2026-10-14-coins-and-achievements",
+    "date": "2026-10-14",
+    "game": "conquest",
+    "title": "200 coins an hour, 64 new achievements",
+    "body": "Conquest pays 200 Derp Coins an hour on top of what you earn in the game. 64 new achievements count for this game and overall; overall ones only count on Hard. The Conquest store has tabs now: Start Dates, Map Styles, Add-Ons."
+  }
+]
