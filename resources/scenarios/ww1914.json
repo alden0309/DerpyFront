@@ -7,17 +7,17 @@
   "capitalFullTiles": 60000,
   "fronts": {
     "homeland": 0.5,
-    "lastStand": 1,
+    "lastStand": 2,
     "supplyFreeRange": 40,
-    "supplyPer100": 0.3,
-    "supplyMax": 2
+    "supplyPer100": 0.5,
+    "supplyMax": 2.5
   },
   "sides": [
     {
       "id": "Central",
       "name": "Central Powers",
       "color": "#6e6e6e",
-      "winPercent": 35
+      "winPercent": 30
     },
     { "id": "Entente", "name": "Entente", "color": "#3f7fd6", "winPercent": 66 }
   ],
@@ -73,7 +73,7 @@
       "color": "#c9a640",
       "troopsPercent": 85,
       "gold": 1400000,
-      "troopCapBonus": 1200000,
+      "troopCapBonus": 1300000,
       "capital": [1671, 937],
       "structures": [
         { "type": "City", "at": [1778, 966], "level": 2 },

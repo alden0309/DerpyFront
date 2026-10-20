@@ -5,8 +5,8 @@
   "year": 1950,
   "winPercent": 95,
   "fronts": {
-    "homeland": 1.5,
-    "lastStand": 0.5,
+    "homeland": 1,
+    "lastStand": 2,
     "supplyFreeRange": 40,
     "supplyPer100": 0.5,
     "supplyMax": 2.5
@@ -30,7 +30,7 @@
       "color": "#a8423c",
       "troopsPercent": 100,
       "gold": 1500000,
-      "troopCapBonus": 2500000,
+      "troopCapBonus": 4000000,
       "capital": [264, 972],
       "structures": [
         { "type": "City", "at": [552, 784], "level": 2 },

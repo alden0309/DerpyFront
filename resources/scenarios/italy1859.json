@@ -6,10 +6,10 @@
   "winPercent": 42,
   "capitalFullTiles": 30000,
   "fronts": {
-    "homeland": 1,
-    "lastStand": 1.5,
+    "homeland": 0.5,
+    "lastStand": 2,
     "supplyFreeRange": 40,
-    "supplyPer100": 0.4,
+    "supplyPer100": 0.5,
     "supplyMax": 2.5
   },
   "sides": [
@@ -19,7 +19,7 @@
       "color": "#3a7bd5",
       "winPercent": 35
     },
-    { "id": "Austria", "name": "Austria", "color": "#d4b13a", "winPercent": 42 }
+    { "id": "Austria", "name": "Austria", "color": "#d4b13a", "winPercent": 45 }
   ],
   "nations": [
     {
@@ -88,9 +88,9 @@
       "flag": "Habsburg Austria",
       "side": "Austria",
       "color": "#d9b23c",
-      "troopsPercent": 140,
+      "troopsPercent": 100,
       "gold": 1400000,
-      "troopCapBonus": 200000,
+      "troopCapBonus": 300000,
       "capital": [302, 190],
       "structures": [
         { "type": "City", "at": [652, 186], "level": 2 },

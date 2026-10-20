@@ -332,6 +332,21 @@ describe("Korea 1950: North Korea takes the South", () => {
     expect(en.scenarios.win.northkorea).toBe("North Korea takes the South");
   });
 
+  it("has no China: the map's far bank of the Yalu is impassable ground", () => {
+    const data = scenarioData("korea1950")!;
+    expect(data.nations.map((n) => n.key).sort()).toEqual([
+      "north_korea",
+      "south_korea",
+      "un_command",
+    ]);
+    expect(data.rule).toBeUndefined();
+    // The North's land bar is above its own land and the South's together,
+    // so its land win can't come before it holds the South.
+    const north = data.sides.find((s) => s.id === "NorthKorea")!;
+    expect(north.winPercent).toBeGreaterThanOrEqual(97);
+    expect(north.winByHolding?.nations).toEqual(["south_korea"]);
+  });
+
   it("wins holding all of South Korea's land, islets ignored and Japan not needed", async () => {
     const g = await scenarioGame("korea1950");
     const north = g.nation("north_korea");
