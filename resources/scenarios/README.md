@@ -190,4 +190,19 @@ games list); the menu shows `scenarios.<id>.title`.
   (public domain) where they haven't moved.
 - 1776: colony lines from the US Census cartographic boundary files (public
   domain) and hand-drawn treaty lines; the map's own native nations.
+
+<!-- SCEN2 (r25): the six more scenarios -->
+
+- World War I: aourednik/historical-basemaps `world_1914` (GPL-3.0) for the
+  eastern frontiers and the partition lines of Poland, with Natural Earth
+  admin-0 and admin-1 units (public domain) where a 1914 border is a border
+  today, and hand-drawn corrections (the 1913 Balkan treaties, Alsace-Lorraine,
+  North Schleswig, Kars and Batumi).
+- Napoleon 1812, Italy 1859, the American Civil War, the Korean War: Natural
+  Earth admin-0 and admin-1 units (public domain) with hand-drawn lines (the
+  1810 Hanseatic line, the Rhine Confederation's kingdoms, the Duchy of
+  Warsaw; the 1859 state lines; the 1861 territories and Indian Territory's
+  nations; the 38th parallel).
+- Three Kingdoms 219: hand-drawn from the commandery lines of standard
+  historical atlases.
 - Map projections: fitted from each map's land mask against Natural Earth.

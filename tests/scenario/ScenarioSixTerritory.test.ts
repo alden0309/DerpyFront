@@ -366,4 +366,3 @@ function nearestLand(
   }
   return game.ref(x, y);
 }
-
