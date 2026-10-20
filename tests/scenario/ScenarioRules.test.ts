@@ -233,9 +233,11 @@ describe("Scenario victory", () => {
     });
     const britain = g.nation("great_britain");
     const colonies = g.nation("united_colonies");
-    // Hand Britain's land to the colonies.
+    // Hand Britain's land to the colonies, all but a scrap (well under
+    // 0.2% of the land): a fort left over doesn't hold the war up.
     const tiles = [...britain.tiles()];
-    for (const t of tiles) colonies.conquer(t);
+    for (const t of tiles.slice(60)) colonies.conquer(t);
+    expect(britain.numTilesOwned()).toBeGreaterThan(0);
     g.updates.length = 0;
     g.step(30);
     const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
@@ -247,13 +249,13 @@ describe("Scenario victory", () => {
 });
 
 describe("Scenario victory by land", () => {
-  it("each side has its own bar: Britain wins at a quarter of the land", async () => {
+  it("each side has its own bar: Britain wins at 35% of the land", async () => {
     const g = await scenarioGame("continental1776");
     const britain = g.nation("great_britain");
     const colonies = g.nation("united_colonies");
     const land = g.game.numLandTiles();
-    // Give Britain the colonies' land until it holds just over 25%.
-    const want = Math.floor(land / 4) + 1 - britain.numTilesOwned();
+    // Give Britain the colonies' land until it holds just over 35%.
+    const want = Math.floor((land * 35) / 100) + 1 - britain.numTilesOwned();
     let moved = 0;
     for (const t of [...colonies.tiles()]) {
       if (moved >= want) break;
@@ -275,7 +277,7 @@ describe("Scenario victory by land", () => {
     g.step(620);
     const wins = g.updates.flatMap((u) => u.updates[GameUpdateType.Win]);
     expect(wins).toHaveLength(1);
-    // The colonies hold some 58% of the land (bar 75); Britain 3% (bar 25).
+    // The colonies hold some 58% of the land (bar 75); Britain 3% (bar 35).
     expect(wins[0].winner?.[1]).toBe("Patriots");
   }, 120_000);
 });
@@ -298,12 +300,18 @@ describe("winning by holding another nation's land (winByHolding)", () => {
       const big = holdTargetTiles(g.game, ["great_britain"], 2000);
       expect(big.length).toBeGreaterThan(1000);
       expect(all.length).toBeGreaterThan(big.length);
+      // Britain also takes some colonial land (not its starting land), so
+      // it stays well in the war throughout.
+      const colonial = [...colonies.tiles()].slice(0, 6000);
+      for (const t of colonial) britain.conquer(t);
       // Not yet: Britain holds its land.
       g.updates.length = 0;
       g.step(20);
       expect(
-        g.updates.flatMap((u) => u.updates[GameUpdateType.Win]),
-      ).toHaveLength(0);
+        g.updates
+          .flatMap((u) => u.updates[GameUpdateType.Win])
+          .map((w) => w.winner),
+      ).toEqual([]);
       // All of it but one tile: still not.
       for (let i = 0; i < big.length - 1; i++) colonies.conquer(big[i]);
       g.step(20);

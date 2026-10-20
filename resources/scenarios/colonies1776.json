@@ -7,7 +7,7 @@
   "capitalFullTiles": 40000,
   "sides": [
     { "id": "Patriots", "name": "Patriots", "color": "#3b6fc4" },
-    { "id": "British", "name": "British", "color": "#c8312d", "winPercent": 25 }
+    { "id": "British", "name": "British", "color": "#c8312d", "winPercent": 35 }
   ],
   "nations": [
     {
@@ -18,7 +18,7 @@
       "color": "#c8312d",
       "troopsPercent": 100,
       "gold": 3000000,
-      "troopCapBonus": 700000,
+      "troopCapBonus": 6500000,
       "capital": [294, 1817],
       "structures": [
         { "type": "City", "at": [332, 1899], "level": 2 },
@@ -50,7 +50,7 @@
       "flag": "New_Hampshire",
       "side": "Patriots",
       "color": "#8fbc8f",
-      "troopsPercent": 60,
+      "troopsPercent": 45,
       "gold": 150000,
       "capital": [921, 474],
       "structures": [{ "type": "Port", "at": [935, 463] }],
@@ -64,7 +64,7 @@
       "flag": "Massachusetts (Naval)",
       "side": "Patriots",
       "color": "#4682b4",
-      "troopsPercent": 75,
+      "troopsPercent": 50,
       "gold": 400000,
       "capital": [924, 534],
       "structures": [
@@ -83,7 +83,7 @@
       "flag": "Rhode_Island",
       "side": "Patriots",
       "color": "#20b2aa",
-      "troopsPercent": 60,
+      "troopsPercent": 45,
       "gold": 120000,
       "capital": [909, 589],
       "structures": [{ "type": "Port", "at": [922, 619] }],
@@ -97,7 +97,7 @@
       "flag": "Connecticut",
       "side": "Patriots",
       "color": "#e6c84f",
-      "troopsPercent": 60,
+      "troopsPercent": 45,
       "gold": 200000,
       "capital": [820, 611],
       "structures": [{ "type": "Port", "at": [811, 657] }],
@@ -111,7 +111,7 @@
       "flag": "New_York",
       "side": "Patriots",
       "color": "#5c6bc0",
-      "troopsPercent": 65,
+      "troopsPercent": 50,
       "gold": 300000,
       "capital": [744, 725],
       "structures": [
@@ -130,7 +130,7 @@
       "flag": "New_Jersey",
       "side": "Patriots",
       "color": "#a5c94a",
-      "troopsPercent": 55,
+      "troopsPercent": 45,
       "gold": 150000,
       "capital": [691, 794],
       "regions": [
@@ -143,7 +143,7 @@
       "flag": "Pennsylvania",
       "side": "Patriots",
       "color": "#3c8d5a",
-      "troopsPercent": 70,
+      "troopsPercent": 50,
       "gold": 400000,
       "capital": [671, 809],
       "structures": [
@@ -161,7 +161,7 @@
       "flag": "Delaware",
       "side": "Patriots",
       "color": "#b39ddb",
-      "troopsPercent": 55,
+      "troopsPercent": 45,
       "gold": 80000,
       "capital": [644, 837],
       "regions": [
@@ -174,7 +174,7 @@
       "flag": "Maryland",
       "side": "Patriots",
       "color": "#f0a050",
-      "troopsPercent": 60,
+      "troopsPercent": 45,
       "gold": 250000,
       "capital": [586, 914],
       "structures": [
@@ -192,7 +192,7 @@
       "flag": "Virginia",
       "side": "Patriots",
       "color": "#5b8fd6",
-      "troopsPercent": 70,
+      "troopsPercent": 50,
       "gold": 450000,
       "capital": [590, 1078],
       "structures": [
@@ -210,7 +210,7 @@
       "flag": "North_Carolina",
       "side": "Patriots",
       "color": "#81c784",
-      "troopsPercent": 60,
+      "troopsPercent": 45,
       "gold": 250000,
       "capital": [589, 1287],
       "structures": [
@@ -227,7 +227,7 @@
       "flag": "Moultrie Flag",
       "side": "Patriots",
       "color": "#26a69a",
-      "troopsPercent": 65,
+      "troopsPercent": 50,
       "gold": 300000,
       "capital": [385, 1531],
       "structures": [
@@ -245,7 +245,7 @@
       "flag": "Georgia (1775)",
       "side": "Patriots",
       "color": "#e8a0c8",
-      "troopsPercent": 55,
+      "troopsPercent": 45,
       "gold": 150000,
       "capital": [297, 1608],
       "structures": [

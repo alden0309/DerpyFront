@@ -194,6 +194,9 @@ export function joinSide(
  * At the lobby timer or the hard limit, pass `timeUp`: the side nearest its
  * bar (land over bar) wins.
  */
+/** A side holding less than 1/500 of the land (0.2%) is out of the war. */
+export const SIDE_OUT_DIVISOR = 500;
+
 export function scenarioWinner(
   game: Game,
   elapsedSeconds: number,
@@ -203,20 +206,24 @@ export function scenarioWinner(
   if (scenario === null) return null;
   const tiles = new Map<Team, number>();
   for (const side of scenario.sideIds()) tiles.set(side, 0);
-  const alive = new Set<Team>();
   for (const p of game.players()) {
     const side = p.team();
     if (side === null || !tiles.has(side)) continue;
-    alive.add(side);
     tiles.set(side, tiles.get(side)! + p.numTilesOwned());
   }
+  const land = game.numLandTiles() - game.numTilesWithFallout();
+  // A side is still in the war while it holds a scrap of land worth the
+  // name (0.2%): a fort or an islet the computer never gets round to
+  // taking doesn't hold the war up.
+  const minLand = Math.max(1, Math.ceil(land / SIDE_OUT_DIVISOR));
+  const alive = new Set<Team>();
+  for (const [side, t] of tiles) if (t >= minLand) alive.add(side);
   if (alive.size === 1) return [...alive][0];
   if (alive.size === 0) return null;
   // A side that holds all the land its rule names wins outright.
   for (const side of scenario.data.sides) {
     if (alive.has(side.id) && holdsToWin(game, side)) return side.id;
   }
-  const land = game.numLandTiles() - game.numTilesWithFallout();
   // The side furthest towards its bar: tiles / bar, compared by
   // cross-multiplying (exact integers). Ties go to the first side listed.
   let best: Team | null = null;

@@ -27,7 +27,8 @@ every land tile owned, spot pixels, each nation's land in one piece).
   longest land border with, or if it borders none of them, the smallest. A
   neutral that attacks a side joins that side's enemies the same way. Either
   way it is a news line for everyone.
-- **Victory:** a side wins when every nation on every other side is gone,
+- **Victory:** a side wins when every other side is gone (a side holding
+  under 0.2% of the land, a leftover fort or islet, counts as gone),
   when it holds all the starting land its `winByHolding` names, or when it
   holds more than its bar of the land: the side's own `winPercent`,
   else the scenario's (Overtime lowers every bar as in other games). Sides
@@ -99,7 +100,9 @@ every land tile owned, spot pixels, each nation's land in one piece).
   nations' caps already scale with the difficulty).
 - **troopCapBonus** (troops as players see them) raises a nation's troop cap
   for the whole game: an army the map can't show, like Britain's from
-  overseas in 1776. Half as much in a Compact game. Use it sparingly.
+  overseas in 1776 (880K against the one United Colonies, 6.5M against the
+  thirteen, who attack it from every side). Half as much in a Compact game.
+  Tune it with the balance runs.
 - **Structures:** `City`, `Port`, `Factory`, `Defense Post`, `Missile Silo`,
   `SAM Launcher`, with an optional `level`. Each stands at the nearest place
   its owner may build one (on its own land, a port on the coast, 15 tiles

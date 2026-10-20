@@ -7,7 +7,7 @@
   "capitalFullTiles": 40000,
   "sides": [
     { "id": "Patriots", "name": "Patriots", "color": "#3b6fc4" },
-    { "id": "British", "name": "British", "color": "#c8312d", "winPercent": 25 }
+    { "id": "British", "name": "British", "color": "#c8312d", "winPercent": 35 }
   ],
   "nations": [
     {
@@ -18,7 +18,7 @@
       "color": "#c8312d",
       "troopsPercent": 100,
       "gold": 3000000,
-      "troopCapBonus": 700000,
+      "troopCapBonus": 880000,
       "capital": [294, 1817],
       "structures": [
         { "type": "City", "at": [332, 1899], "level": 2 },
@@ -50,7 +50,7 @@
       "flag": "USA 1776",
       "side": "Patriots",
       "color": "#3b6fc4",
-      "troopsPercent": 70,
+      "troopsPercent": 60,
       "gold": 2500000,
       "capital": [671, 809],
       "structures": [
