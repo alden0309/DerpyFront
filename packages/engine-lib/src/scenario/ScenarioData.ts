@@ -3,6 +3,13 @@ import { SCENARIO_IDS } from "@openfront/engine-api/game/Scenarios";
 import colonies1776 from "resources/scenarios/colonies1776.json";
 import continental1776 from "resources/scenarios/continental1776.json";
 import europe1939 from "resources/scenarios/europe1939.json";
+// SCEN2 (r25): six more scenarios.
+import civilwar1861 from "resources/scenarios/civilwar1861.json";
+import italy1859 from "resources/scenarios/italy1859.json";
+import korea1950 from "resources/scenarios/korea1950.json";
+import napoleon1812 from "resources/scenarios/napoleon1812.json";
+import threekingdoms219 from "resources/scenarios/threekingdoms219.json";
+import ww1914 from "resources/scenarios/ww1914.json";
 
 /**
  * SCEN (r25): a Scenario's data, as stored in resources/scenarios/<id>.json
@@ -129,6 +136,13 @@ const ALL: Record<string, ScenarioData> = {
   europe1939: europe1939 as unknown as ScenarioData,
   colonies1776: colonies1776 as unknown as ScenarioData,
   continental1776: continental1776 as unknown as ScenarioData,
+  // SCEN2 (r25)
+  threekingdoms219: threekingdoms219 as unknown as ScenarioData,
+  napoleon1812: napoleon1812 as unknown as ScenarioData,
+  italy1859: italy1859 as unknown as ScenarioData,
+  civilwar1861: civilwar1861 as unknown as ScenarioData,
+  ww1914: ww1914 as unknown as ScenarioData,
+  korea1950: korea1950 as unknown as ScenarioData,
 };
 
 /** A scenario's data, or null if there is no such scenario. */
