@@ -12,6 +12,7 @@ import { html, LitElement, nothing, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { DERPY_ACCOUNT_EVENT } from "../../derpland/Account";
 import "../../derpland/DerpBar";
+import { news, type NewsPlace } from "../../derpland/News"; // NEWS (r25)
 import { evalExpr } from "../engine/Expr";
 import { clockText, Kit, StoryRun } from "../engine/Runtime";
 import { emptyProfile, noteSeen, Profile, SlotSave } from "../engine/Save";
@@ -48,6 +49,9 @@ type Screen =
   | "play"
   | "end"
   | "broken";
+
+/** NEWS (r25): where Mr. Based's news may show as a card. */
+const BASED_NEWS: NewsPlace = { key: "based", games: ["based"] };
 
 @customElement("based-app")
 export class BasedApp extends LitElement {
@@ -350,6 +354,13 @@ export class BasedApp extends LitElement {
       if (!best || s.meta.savedAt > best.meta.savedAt) best = s;
     }
     return best;
+  }
+
+  // NEWS (r25): the title screen (only its players reach it) may show What's
+  // New's card for Mr. Based's own news, which only they are ever sent.
+  protected updated(changed: Map<PropertyKey, unknown>): void {
+    if (changed.has("screen"))
+      news.setPlace(this.screen === "title" ? BASED_NEWS : null);
   }
 
   // --- drawing -------------------------------------------------------------

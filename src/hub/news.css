@@ -1,0 +1,277 @@
+/* NEWS (r25): What's New (/whats-new). A timeline down the page: each entry's
+   date and game on the left, a rule with a dot in its game's colour (filled
+   while it's new to you), and its words on the right. On a phone the dates
+   sit above. Unlayered, so it wins over the site's layered defaults. */
+
+dl-news {
+  display: block;
+}
+
+.dl-news-filters {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 100%;
+  padding: 3px;
+  margin: 0 0 34px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.dl-news-filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-2);
+  font: 600 14.5px/1.25 var(--body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dl-news-filters button:hover {
+  color: var(--text);
+}
+.dl-news-filters button[aria-selected="true"] {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.dl-news-count {
+  min-width: 20px;
+  padding: 0 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.dl-news-filters button[aria-selected="true"] .dl-news-count {
+  background: var(--peel);
+  color: var(--peel-ink);
+}
+
+.dl-news-list {
+  max-width: 880px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dl-news-entry {
+  position: relative;
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  column-gap: 40px;
+  padding: 0 0 38px;
+}
+/* The rule down the timeline... */
+.dl-news-entry::before {
+  content: "";
+  position: absolute;
+  left: 187px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--line-2);
+}
+.dl-news-list > li:first-child .dl-news-entry::before {
+  top: 12px;
+}
+.dl-news-list > li:last-child .dl-news-entry::before {
+  background: linear-gradient(var(--line-2), transparent);
+}
+/* ...and each entry's dot on it. */
+.dl-news-entry::after {
+  content: "";
+  position: absolute;
+  left: 181px;
+  top: 6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--tag);
+  background: var(--page);
+  box-shadow: 0 0 0 4px var(--page);
+}
+.dl-news-entry.fresh::after {
+  background: var(--tag);
+}
+
+.dl-news-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  padding-top: 2px;
+  text-align: right;
+}
+.dl-news-meta time {
+  font-weight: 650;
+  font-size: 14.5px;
+  line-height: 1.3;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.dl-news-tag {
+  padding: 1px 9px;
+  border-radius: 99px;
+  border: 1px solid color-mix(in srgb, var(--tag) 32%, transparent);
+  background: color-mix(in srgb, var(--tag) 12%, transparent);
+  color: var(--tag);
+  font-size: 12.5px;
+  font-weight: 650;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.dl-news-new {
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: var(--peel);
+  color: var(--peel-ink);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+.dl-news-text {
+  min-width: 0;
+}
+.dl-news-title {
+  margin: 0 0 8px;
+  font-weight: 720;
+  font-stretch: 106%;
+  font-size: 21px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.dl-news-body {
+  max-width: 66ch;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #d4d4d8;
+  overflow-wrap: anywhere;
+}
+.dl-news-body p,
+.dl-news-body ul {
+  margin: 0 0 10px;
+}
+.dl-news-body > :last-child {
+  margin-bottom: 0;
+}
+.dl-news-body ul {
+  padding-left: 20px;
+  list-style: disc;
+}
+.dl-news-body li {
+  margin: 4px 0;
+  padding-left: 2px;
+}
+.dl-news-body li::marker {
+  color: var(--tag);
+}
+.dl-news-body strong {
+  font-weight: 700;
+  color: var(--text);
+}
+.dl-news-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  color: var(--text);
+  font-weight: 650;
+  text-decoration: underline;
+  text-decoration-color: var(--peel);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.dl-news-link span {
+  display: inline-block;
+  transition: transform 0.15s;
+}
+.dl-news-link:hover span {
+  transform: translateX(3px);
+}
+
+.dl-news-empty {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  max-width: 660px;
+  padding: 28px 30px;
+  border: 1px dashed var(--line-2);
+  border-radius: 14px;
+}
+.dl-news-empty .dl-h2 {
+  margin: 0;
+}
+.dl-news-empty p {
+  margin-top: 6px;
+  color: var(--text-2);
+}
+.dl-news-none {
+  max-width: 660px;
+  padding: 16px 18px;
+  border: 1px dashed var(--line-2);
+  border-radius: 12px;
+  color: var(--text-2);
+}
+
+@media (max-width: 720px) {
+  .dl-news-entry {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 10px;
+    padding: 0 0 32px 30px;
+  }
+  .dl-news-entry::before {
+    left: 6px;
+  }
+  .dl-news-entry::after {
+    left: 0;
+    top: 3px;
+  }
+  .dl-news-meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    padding-top: 0;
+    text-align: left;
+  }
+  .dl-news-title {
+    font-size: 19px;
+  }
+  .dl-news-body {
+    font-size: 15.5px;
+  }
+}
+@media (max-width: 560px) {
+  .dl-news-filters {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .dl-news-filters::-webkit-scrollbar {
+    display: none;
+  }
+  .dl-news-empty {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dl-news-link span {
+    transition: none;
+  }
+}

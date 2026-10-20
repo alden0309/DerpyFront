@@ -395,6 +395,11 @@ CREATE TABLE IF NOT EXISTS derpy_invites (
 );
 CREATE INDEX IF NOT EXISTS derpy_invites_to
   ON derpy_invites (to_id) WHERE NOT closed;
+-- NEWS (r25): What's New (DerpyNews.ts). The newest entry each account has
+-- seen: an entry id from src/server/derpy/news/entries.json, or 0000-00-00
+-- (none yet). Null until the account first looks, when it becomes the
+-- newest entry then, so old news is never new to a new account.
+ALTER TABLE derpy_accounts ADD COLUMN IF NOT EXISTS news_seen TEXT;
 `;
 
 // The master and the game worker both migrate at startup; the lock keeps two

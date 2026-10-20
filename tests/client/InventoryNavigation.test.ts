@@ -40,7 +40,13 @@ describe("Inventory navigation", () => {
     const tabs = Array.from(
       bar.shadowRoot!.querySelectorAll<HTMLAnchorElement>("a.tab"),
     ).map((a) => a.getAttribute("href"));
-    expect(tabs).toEqual(["/store", "/inventory", "/leaderboard"]);
+    // NEWS (r25): and What's New, last.
+    expect(tabs).toEqual([
+      "/store",
+      "/inventory",
+      "/leaderboard",
+      "/whats-new",
+    ]);
     expect(desktop.querySelector('[data-page="page-clan"]')).toBeNull();
     const mobile = await mount(new MobileNavBar());
     expect(mobile.querySelector('[data-page="page-clan"]')).toBeNull();

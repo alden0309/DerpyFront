@@ -29,6 +29,7 @@ import type {
 } from "../../derpland/SocialTypes";
 import { type Account, accountForToken, hashToken } from "./DerpyAuth";
 import { db, DerpyDbUnavailable, inTransaction } from "./DerpyDb";
+import { newsBeat } from "./DerpyNews"; // NEWS (r25)
 import { liveGames } from "./LiveGames";
 import {
   isAt,
@@ -1039,7 +1040,10 @@ export function socialRouter({
         return;
       }
       presence.beat(account.id, tab.data, readClientWhere(req.body?.where));
-      res.json(await socialState(account));
+      // NEWS (r25): and how much of What's New is new to them (kept, so no
+      // database either); without it the bar just shows no dot.
+      const news = await newsBeat(account.id).catch(() => undefined);
+      res.json({ ...(await socialState(account)), news });
     }),
   );
 

@@ -4,6 +4,7 @@
 import { html, LitElement, TemplateResult } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { DERPY_ACCOUNT_EVENT, derpyUsername } from "../../derpland/Account";
+import { CONQUEST_NEWS, news } from "../../derpland/News"; // NEWS (r25)
 import { type ConquestDlcOwned, NO_DLC } from "../DlcIds"; // DLC (r21)
 import type { LiveRoom, OpenRoom, SavedGame, ServerMessage } from "../Protocol";
 import { setDlcOwned } from "./Dlc"; // DLC (r21)
@@ -93,6 +94,13 @@ export class ConquestApp extends LitElement {
     super.disconnectedCallback();
     window.removeEventListener(DERPY_ACCOUNT_EVENT, this.onAccount);
     this.net.close();
+  }
+
+  // NEWS (r25): Derp Land's What's New card may show on the start screen
+  // only: never in a room, once a game has started, or watching one.
+  protected updated(changed: Map<PropertyKey, unknown>): void {
+    if (changed.has("screen"))
+      news.setPlace(this.screen === "lobby" ? CONQUEST_NEWS : null);
   }
 
   private onAccount = (): void => {

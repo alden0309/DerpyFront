@@ -711,6 +711,13 @@
     "your_skins": "Your skins",
     "your_stats": "Your stats and replays"
   },
+  "derp_news": {
+    "and_more": "and {n} more",
+    "close": "Close",
+    "link": "Take a look",
+    "see_all": "See what's new",
+    "whats_new": "What's New"
+  },
   "derp_social": {
     "accept": "Accept",
     "accept_request": "Accept request",
@@ -1855,7 +1862,6 @@
     "login_discord": "Login with Discord",
     "login_google": "Login with Google",
     "login_steam": "Login with Steam",
-    "news": "News",
     "play": "Play",
     "privacy_policy": "Privacy Policy",
     "quit": "Exit game",
