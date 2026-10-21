@@ -19,6 +19,7 @@ import {
 } from "@openfront/engine-api/game/GameTypes";
 import { GameUpdateType } from "@openfront/engine-api/game/GameUpdates";
 import { GameStartInfo } from "@openfront/engine-api/Schemas";
+import { applyScenarioRules } from "@openfront/engine-lib/scenario/ScenarioConfig";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { createGameRunner } from "@openfront/engine/GameRunner";
 import { loadMapFiles } from "@openfront/shared/GameMapLoader";
@@ -70,12 +71,15 @@ async function main() {
       instantBuild: false,
       randomSpawn: false,
       scenario: { id },
-      ...(overtime > 0
-        ? { overtime: { enabled: true, startMinutes: overtime } }
-        : {}),
     },
     players: [],
   };
+  // The scenario's fixed settings, as the solo screen and the server apply
+  // them (its own Overtime among them); --overtime overrides.
+  applyScenarioRules(gameStart.config);
+  if (overtime > 0) {
+    gameStart.config.overtime = { enabled: true, startMinutes: overtime };
+  }
   const files = await loadMapFiles(
     new NodeGameMapLoader(path.join(ROOT, "resources/maps")),
     data.map,
