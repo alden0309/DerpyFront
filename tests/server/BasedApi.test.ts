@@ -144,6 +144,7 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
     "/based/slot/auto",
     "/based/stats/1",
     "/based/notes",
+    "/based/notes/all", // r26: his notes, to copy out to the writer
   ])("%s refuses the signed-out and other accounts", async (path) => {
     const anon = await call(path);
     expect(anon.status).toBe(401);
@@ -674,5 +675,92 @@ describe.skipIf(!TEST_DB)("Mr. Based's API against Postgres", () => {
       "Path: open > posters > vauban > order > [A scotch]",
     );
     expect(text).toContain("> Love the barman. Make him a little older?");
+  });
+
+  test("r26: all his notes, as text for the writer, marked sent once copied, the sent ones cleared", async () => {
+    const r = await call("/based/notes", alden, {
+      method: "POST",
+      body: JSON.stringify({
+        chapter: 1,
+        scene: "tv_talk",
+        line: "BARMAN: My grandson joined his Volunteers in the spring.",
+        path: ["s:order", "c:order#1=a-scotch", "s:tv_talk"],
+        note: "Should he say this to a stranger?\nMaybe later in the night.",
+      }),
+    });
+    expect(r.status).toBe(200);
+    type Mine = {
+      notes: {
+        id: number;
+        scene: string;
+        sceneLabel: string;
+        note: string;
+        sentAt: string | null;
+        entry: string;
+      }[];
+    };
+    const all = async () =>
+      ((await (await call("/based/notes/all", alden)).json()) as Mine).notes;
+    let notes = await all();
+    // Both of his, oldest first, none sent yet.
+    expect(notes.map((n) => n.scene)).toEqual(["order", "tv_talk"]);
+    expect(notes.every((n) => n.sentAt === null)).toBe(true);
+    const tv = notes[1];
+    expect(tv.sceneLabel).toBe("The television");
+    expect(tv.entry).toMatch(
+      /^Chapter 1, "The television" \(scene tv_talk, script line \d+\)/,
+    );
+    expect(tv.entry).toMatch(/\nWritten: \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC/);
+    expect(tv.entry).toContain(
+      "On screen: BARMAN: My grandson joined his Volunteers in the spring.",
+    );
+    expect(tv.entry).toContain("Choices that led there: [A scotch]");
+    expect(tv.entry).toContain(
+      "Note: Should he say this to a stranger?\n  Maybe later in the night.",
+    );
+    // And as one piece of text, as the page copies it.
+    const { notesText } = await import("../../src/based/client/NotesText");
+    const text = notesText(notes as never, new Date("2026-10-21T12:00:00Z"));
+    expect(text).toMatch(
+      /^Mr\. Based: 2 notes for the writer \(copied 2026-10-21 12:00 UTC\)\n\n1\. Chapter 1, "The barman"/,
+    );
+    expect(text).toContain('\n\n2. Chapter 1, "The television"');
+
+    // Copied: marked sent. Only his own, and only once.
+    const bad = await call("/based/notes/sent", alden, {
+      method: "POST",
+      body: JSON.stringify({ ids: [] }),
+    });
+    expect(bad.status).toBe(400);
+    const mark = async (ids: number[]) =>
+      (
+        (await (
+          await call("/based/notes/sent", alden, {
+            method: "POST",
+            body: JSON.stringify({ ids }),
+          })
+        ).json()) as { marked: number }
+      ).marked;
+    expect(await mark([notes[0].id, 999_999])).toBe(1);
+    expect(await mark([notes[0].id])).toBe(0);
+    notes = await all();
+    expect(notes[0].sentAt).not.toBeNull();
+    expect(notes[1].sentAt).toBeNull();
+    const other = await call("/based/notes/sent", tester, {
+      method: "POST",
+      body: JSON.stringify({ ids: [notes[1].id] }),
+    });
+    expect(other.status).toBe(403);
+
+    // "Clear the ones I've sent": the sent one goes, the new one stays.
+    const cleared = (await (
+      await call("/based/notes/sent", alden, { method: "DELETE" })
+    ).json()) as { cleared: number };
+    expect(cleared.cleared).toBe(1);
+    notes = await all();
+    expect(notes.map((n) => n.scene)).toEqual(["tv_talk"]);
+    expect(
+      (await call("/based/notes/sent", tester, { method: "DELETE" })).status,
+    ).toBe(403);
   });
 });

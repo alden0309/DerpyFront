@@ -51,7 +51,15 @@ when it changes, so an edit shows up on the next load without a restart.
 3. Read Alden's notes: `DATABASE_URL=… npx tsx scripts/based-notes.ts`
    (`--chapter 1`, `--since 2026-10-01`, `--last 5`, `--json`). Each note
    comes with its scene, the line that was on screen and the choices that led
-   there.
+   there. r26: or Alden hands them over himself: "Notes for the writer" on
+   the title screen (or "Your notes for the writer" in the pause menu) lists
+   them, New or Sent; "Copy my notes" puts them on his clipboard as plain
+   text to paste into a chat (the same entry per note: chapter, scene title,
+   id and script line, when, the line on screen, the choices that led
+   there, the note) and marks them sent; "Clear the ones I've sent" deletes
+   those. The server writes each entry (`noteEntry` in
+   `src/server/derpy/BasedNotes.ts`) through `GET /based/notes/all`, with
+   `POST` and `DELETE /based/notes/sent`.
 
 If a chapter has mistakes while it's being edited, the game shows Alden the
 list instead of the chapter.
@@ -126,6 +134,19 @@ far). The same key closes the panel it opened.
   twenty-three, and sleep; then the two men smoking at the palace window.
 - **The regulars.** Two at the bar, a couple at the window table, a man
   with a book: a line or two each, and lives of their own (`idle=`).
+- **His cover (r26).** Mr. Based is American (seventeen years at the
+  Agency), on his own American passport; London hired him because he isn't
+  one of theirs. What he tells people is one story, the same to everyone:
+  his own name, a buyer for a wine importer in Boston, over for the
+  tastings. Lisle and Hart, the London shippers he buys from, booked the
+  room. He gives it to the barman, the man in grey ("[The cover]", or
+  "[Keep it to the trade]" when asked his name) and the clerk; Penhallow
+  tells him to be a wine buyer for a few days. There's no other name and
+  no other home (`tests/based/BasedCover.test.ts`).
+- **The barman's grandson (r26).** Asked about the television, the barman
+  says his grandson joined the Volunteers (`heard_grandson`); the pin, and
+  that he wears it inside his lapel (`knows_oak`), only if Mr. Based asks
+  about the boy, or when Anselme tells him over the photograph.
 
 ## Saves (r22)
 
@@ -525,9 +546,18 @@ people's lines are theirs: the barman can mention his grandson; Mr. Based
 can only think about the pin once the barman has. `a or b` in a condition
 counts for a fact of either flag.
 
-The validator (`engine/Facts.ts`) checks every line of the chapter;
+r26: and everything else the page shows him that comes from the script:
+a scene's title (on screen while it plays, and the label over a thing he
+can look at, which the first scene looking at it gives, whatever he knows:
+so it must give nothing away), a thought's label (`@on think "..."`), the
+journal (`task`), what he's given (an item's name and what it says), a
+skill's boost, a title card, the television's ticker, what he starts with,
+and what he carries on with (`@carry "..." if ...`).
+
+The validator (`engine/Facts.ts`) checks every one of them;
 `tests/based/BasedFacts.test.ts` also plays chapter one down 200 random
-paths and fails if he's ever shown a fact before he's learned it.
+paths and fails if he's ever shown a fact before he's learned it, on any
+of those surfaces, the dice and what counted on them included.
 
 ### What he carries (r22 BPLAY)
 

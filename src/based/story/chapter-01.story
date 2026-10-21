@@ -82,7 +82,7 @@
 @item boots "Black boots" kind=clothes slot=shoes icon=boots bonus=DEXTERITY+1 start=worn "Rubber soles that say nothing on wet tiles. He resoled them in Vienna and hasn't worn anything else since."
 @item gloves "Thin black gloves" kind=clothes slot=gloves icon=gloves bonus=INTIMIDATION+1,DEXTERITY-1 start=1 "In the jacket's inside pocket. A man in gloves indoors is a man with plans, and everybody knows it."
 @item phone "Phone" kind=small icon=phone start=1 "A cheap phone with one number in it. The number starts with a London code."
-@item passport "Passport" kind=document icon=passport start=1 "American, in his own name, which is either very brave or very lazy. London said a cover would only draw attention to him. London says a lot of things."
+@item passport "Passport" kind=document icon=passport start=1 "American, in his own name, which is either very brave or very lazy. London said a false one would only draw attention to him: his own name, then, and a buyer for a wine importer in Boston, over to taste the new vintages. The less he has to remember, the less he can forget. London says a lot of things."
 
 @item matchbook "Le Vauban matches" kind=small icon=matchbook "A book of matches from the bowl on the bar: LE VAUBAN in gold on oxblood, and the hotel's number. Twenty matches, which is nineteen more than a man needs to start a conversation."
 @item cigarettes "Cigarettes" kind=small icon=cigarettes "A blue packet of Corsaires from the machine in the lobby. He quit in Vienna. He bought them anyway."
@@ -104,14 +104,20 @@
 // straight after, or after a condition that makes sure he has. Other
 // people's lines are theirs. The validator checks every line (README:
 // "Nothing he can't know"); the tests play it down random paths.
-@fact knows_oak "grandson"
+// The barman's grandson (r26): that there is one, in the Volunteers, from
+// Anselme; his oak-leaf pin, worn inside the lapel, only if he asks about
+// him (or Anselme tells him over the photograph). The man in grey's own pin
+// only once he's seen it (his lapel, or the deduction it leads to).
+@fact heard_grandson|knows_oak "grandson" "petit-fils"
+@fact knows_oak "grandson's pin" "grandson wears" "grandmother won't see" "grandmother sees" "nobody's grandmother"
+@fact lapel|party_man "oak-leaf pin" "party pin" "pin under" "under his lapel" "under your lapel" "bronze pin"
 @fact knows_room|key_gone|heard_41 "forty-one" "41"
 @fact knows_car "Satory" "car at six"
 @fact knows_stairs "service stairs" "the other ones"
 @fact knows_marchal "Marchal"
 @fact coats "camel coat"
 @fact pours_drinks "aniseed" "drinks his Ricard" "Ricard in the palm" "pours his Ricard"
-@fact knows_delorme|delorme_gone|met_contact|took_card "Delorme"
+@fact knows_delorme|delorme_gone|met_contact|took_card|delorme_41 "Delorme"
 @fact heard_anselme|anselme_named "Anselme"
 @fact anselme_named "Anselme's son"
 @fact knows_vidal "Vidal" "Réverbère"
@@ -131,16 +137,16 @@
 @carry "You told Penhallow what the man in grey wanted." if told_penhallow
 @carry "You kept the man in grey to yourself." if kept_quiet
 @carry "You and Penhallow know the man in grey saw you together. After tonight, neither of you was ever at Le Vauban." if knew_seen
-@carry "The man in grey thinks you sell wine." if wine_cover
+@carry "The man in grey thinks you buy wine for an importer in Boston." if told_grey_wine
 @carry "The man in grey knows your name." if gave_name
-@carry "Delorme has had room forty-one since the election." if knows_room
-@carry "A car takes room forty-one to Satory at six." if knows_car
+@carry "Delorme has had room forty-one since the election." if delorme_41 and knows_room
+@carry "A car takes room forty-one to Satory at six." if knows_car and (knows_room or heard_41)
 @carry "The barman has decided he likes you." if rel.anselme >= 2
-@carry "London knows about the car to Satory at six." if texted_london
-@carry "Delorme's card has a Versailles number pressed into it." if knows_versailles
+@carry "London knows about the car to Satory at six." if texted_london and knows_car
+@carry "Delorme's card has a Versailles number pressed into it." if knows_versailles and took_card
 @carry "A police baton went missing from a van on the rue de Grenelle." if took_baton
-@carry "A journalist, Claire Vidal, is watching the hotel too." if thought_vidal
-@carry "Room twelve is under forty-one, and very quiet." if knows_twelve
+@carry "A journalist, Claire Vidal, is watching the hotel too." if thought_vidal and knows_vidal
+@carry "Room twelve is under forty-one, and very quiet." if knows_twelve and heard_41
 @carry "A man called Jean, past seventy, loses things in the Hôtel Vauban." if knows_jean
 
 
@@ -167,7 +173,7 @@ set crowd
 It had rained every day since the results, as if the city were trying to wash something off and hadn't found the right soap.
 @focus none
 @actor BASED street_mid walk
-London had given him a bar, a time and a newspaper. Le Vauban, on the rue de Grenelle, at ten. A woman with The Times, open at the crossword. And a room upstairs at the hotel, booked by Lisle and Hart, wine shippers of the City of London, who had never heard of him.
+London had given him a bar, a time and a newspaper. Le Vauban, on the rue de Grenelle, at ten. A woman with The Times, open at the crossword. And a room upstairs at the hotel, booked by Lisle and Hart, wine shippers of the City of London, who had never heard of him and would swear, if anyone rang, that he bought their claret for an importer in Boston.
 task contact "Meet London's contact at Le Vauban, on the rue de Grenelle, at ten. She'll have The Times, open at the crossword. Ask her about seven down."
 ~ Twenty minutes early. Time to look at the street the way the street was looking at him.
 -> FREE
@@ -1044,7 +1050,7 @@ choose "He's being friendly. He's also asking."
   * [First time] "First time. A friend said it was quiet."
     BARMAN: Your friend is right. Quiet is what we sell. The drinks are only so people have something to hold.
     rel ANSELME +1
-  * white DECEPTION easy [A cover] "I'm in wine. Buying, not drinking. Mostly."
+  * white DECEPTION easy [The cover] "I'm in wine. I buy it for an importer in Boston: buying, not drinking. Mostly."
     The barman's eyebrows told him that was the best joke he'd heard since the election, and that he would remember it.
     BARMAN: Then you must try the Bordeaux. It is terrible. You will buy none of it and feel very professional.
     set wine_cover
@@ -1069,10 +1075,18 @@ choose "The barman follows his eyes to the screen."
     if knows_marchal
       ~ MEMORY: Forty-eight per cent for Marchal. Somebody in Paris voted for her, and then went home and was calm.
     end
-    BARMAN: My grandson joined his Volunteers in the spring. They give them a little pin. An oak leaf, bronze. Like the generals have on their caps. He wears it on the inside of his lapel, so his grandmother won't see.
-    ~ MEMORY: An oak leaf on the inside of the lapel. Worth remembering.
-    set knows_oak
-    rel ANSELME +1
+    BARMAN: My grandson joined his Volunteers in the spring.
+    set heard_grandson
+    // r26: what the pin is, and where the boy wears it, only if he asks.
+    choose "The cloth has stopped moving."
+      * [Ask about his grandson] "Your grandson?"
+        BARMAN: Nineteen, and very serious. They give them a little pin. An oak leaf, bronze. Like the generals have on their caps. He wears it on the inside of his lapel, so his grandmother won't see.
+        ~ MEMORY: An oak leaf on the inside of the lapel. Worth remembering.
+        set knows_oak
+        rel ANSELME +1
+      * silent [Let it go]
+        The barman's cloth found the glass again. Some things a man says to a stranger so that the stranger will leave them alone.
+    end
   * silent [Let him watch]
     They watched the President applaud himself together, the way strangers watch a fire.
 end
@@ -1266,12 +1280,13 @@ STRANGER: Forgive me. I'm here most evenings, and I know every face at this bar.
 His English was very good. London good: a year or two at one of those schools that teach you to sound as if you'd never had to learn it.
 ~ LANGUAGES challenging: Westminster, then Sciences Po. The vowels of a man who learned his English from people who owned things.
 choose "He smiles at the mirror, not at him."
-  * [Play the tourist] "I came for the weather. The brochure was very honest."
-    STRANGER (laughing): A man of culture. You must see the Louvre. Very big. Full of things other people took.
-    rel DELORME +1
-  * if wine_cover [Keep to the wine] "I'm here for the wine. Buying."
-    STRANGER: In this bar? Then you are either a very bad buyer or a very good one. I will decide later.
+  // r26: one cover, the same to everyone: his own name (his own American
+  // passport), a buyer for a wine importer in Boston, over for the tastings.
+  * [The cover] "I buy wine, for an importer in Boston. I'm over for the tastings."
+    STRANGER (amused): In this bar? Then you are either a very bad buyer or a very good one. I will decide later.
     set wine_cover
+    set told_grey_wine
+    rel DELORME +1
   * white INTIMIDATION challenging if came_down and party_man [Call him out] "You came down from upstairs, and you've a party pin under your lapel. Who are you watching?"
     bonus +2 if came_down "He came down from upstairs"
     bonus +1 if party_man "His oak-leaf pin"
@@ -1336,16 +1351,18 @@ choose "He waits for a name."
     He said it the French way, which made it sound like somewhere you'd go for the weekend instead of something a man had to write on forms.
     ~ INSTINCT: Now he has it. Men like him don't ask for things they don't mean to keep.
     set gave_name
-  * white DECEPTION medium [Give him another] "Walker. Tom Walker."
-    bonus +2 if wine_cover "A wine buyer already"
-    bonus +1 if speaks.en_gb "He can sound like anyone"
-    STRANGER: Walker. A good name for a tourist.
-    He believed it, or he believed it enough to stop asking, which in Paris this month came to the same thing.
-    set cover_name
+  * white DECEPTION medium [Keep it to the trade] "In the wine trade, names come with the second bottle."
+    bonus +2 if told_grey_wine "A wine buyer already"
+    STRANGER (amused): Then I will buy the second bottle another night.
+    He let it go, or let it go far enough to stop asking, which in Paris this month came to the same thing.
+    set wine_cover
+    set told_grey_wine
+    set kept_name
   fail
-    STRANGER (smiling): Of course it is.
-    ~ DECEPTION: Too quick. Nobody says their own name that fast.
-    set gave_name
+    STRANGER (smiling): A wine buyer who keeps his name in the cellar. How very discreet.
+    ~ DECEPTION: Too neat. A man with nothing to hide just says it.
+    set wine_cover
+    set told_grey_wine
   * silent [Say nothing]
     STRANGER: A man with no name in a bar where nobody talks. How very romantic.
 end
@@ -1578,7 +1595,7 @@ PENHALLOW: Then I'm blown, and you've been seen with me. That's a very bad start
 set she_is_blown
 set knew_seen
 ~ He's seen them together now, at his bar, in his mirror. Whatever London wanted from this, it isn't going to get it with these two faces.
-PENHALLOW: So we do the only thing there is. I go out of that door, and tomorrow I'm somebody else, in another city. You go up to bed like a tourist with nothing on his mind, because that's what a tourist would do. Running now would tell him everything.
+PENHALLOW: So we do the only thing there is. I go out of that door, and tomorrow I'm somebody else, in another city. You go up to bed like a wine buyer with nothing on his mind but tomorrow's tastings, because that's what one would do. Running now would tell him everything.
 PENHALLOW: And you're out of here before breakfast. After tonight, neither of us was ever in Le Vauban.
 BASED: Never seen again.
 PENHALLOW: It's the one thing London is really good at.
@@ -1599,7 +1616,7 @@ BASED: Every bar has one.
 PENHALLOW (lightly): Every bar has one. Usually he's seventy and tells you about his knee.
 She glanced at the stool the man had left, and then at her crossword, as if one of them might come out.
 ~ Something about the man in grey sat wrong, like a picture an inch off level. He couldn't have said what, and neither, by the look of her, could she.
-PENHALLOW: Well. Nothing either of us can do anything with tonight. Be a tourist for a few days. Be boring. You'd be amazed how well it works.
+PENHALLOW: Well. Nothing either of us can do anything with tonight. Be a wine buyer for a few days. Taste things. Be boring. You'd be amazed how well it works.
 set missed_watch
 -> parting
 
@@ -1644,7 +1661,7 @@ set took_card
 -> FREE
 
 
-== anselme_after "Anselme"
+== anselme_after "The barman"
 @on talk BARMAN once if met_contact
 @figure BARMAN
 The barman came down the bar with his cloth, which was how he said he was listening.
@@ -1666,7 +1683,14 @@ choose "Anselme waits, polishing."
   fail
     ANSELME (lightly): He wanted a Ricard, monsieur. He always wants a Ricard.
   * if saw_photo [Ask about the photograph] "The photograph by the bar. Your father?"
-    ANSELME: Nineteen fifty-one. He had the bar from his uncle and gave it to me, and I will give it to nobody, because my grandson wears an oak leaf.
+    if knows_oak
+      ANSELME: Nineteen fifty-one. He had the bar from his uncle and gave it to me, and I will give it to nobody, because my grandson wears an oak leaf.
+    else
+      // r26: he hasn't heard about the boy yet: Anselme tells him.
+      ANSELME: Nineteen fifty-one. He had the bar from his uncle and gave it to me, and I will give it to nobody, because my grandson has joined the Volunteers. He wears their little oak leaf inside his lapel, where his grandmother cannot see it.
+      set heard_grandson
+      set knows_oak
+    end
     ANSELME: He kept the Germans' money in a separate drawer, monsieur, and gave it to the Resistance on Thursdays. It was a very good bar for a long time.
     rel ANSELME +1
   * [Pay the bill] "The bill, then."
@@ -1686,7 +1710,7 @@ end
 
 // r25: by his name only once he's given it (a save from before may not
 // have it: then he's the barman, as he was).
-== anselme_idle "Anselme"
+== anselme_idle "The barman"
 @on talk BARMAN
 if anselme_named
   @figure ANSELME
@@ -1770,7 +1794,7 @@ if speaks.ru
 end
 He put the phone down and turned the smile on.
 PORTER: Monsieur? You have a reservation?
-BASED: There should be a room. Booked from London, by Lisle and Hart.
+BASED: There should be a room. Lisle and Hart booked it, from London. I buy their wine, for an importer in Boston.
 The clerk turned a page of the guest book with one finger, keeping it to himself, and found them without having to look for long.
 PORTER: The wine gentlemen. Yes, monsieur: twenty-three, on the second floor. But you are early, and it is not made up. Since the election the girl who does the rooms comes when the Métro lets her. An hour, a little more.
 set room_late
@@ -1789,14 +1813,14 @@ if room_late
   PORTER: Monsieur. Twenty-three is ready: the girl came, the Métro permitting.
 else
   PORTER: Monsieur? You have a reservation?
-  BASED: There should be a room. Booked from London, by Lisle and Hart.
+  BASED: There should be a room. Lisle and Hart booked it, from London. I buy their wine, for an importer in Boston.
   The clerk turned a page of the guest book with one finger, keeping it to himself.
   PORTER: The wine gentlemen. Twenty-three, monsieur, on the second floor. Made up an hour ago.
 end
 @sound key
 He took a key on a heavy brass weight from the board behind him and laid it on the desk so that it didn't ring.
-give his_key
 set has_room
+give his_key
 task room "Room twenty-three, on the second floor. The key's in his pocket."
 @actor PORTER rope_spot walk
 PORTER: The lift, I am afraid, is a lift in name only. But the stairs are fine to take, monsieur. Second floor, on the left.
@@ -1836,6 +1860,7 @@ choose "The clerk waits, his hand on the book."
     set knows_room
     set knows_car
     set heard_41
+    set delorme_41
   fail
     PORTER: Our guests' habits are their own, monsieur.
   // r22 BPLAY: a check in a tongue: his Languages, plus his Russian.
@@ -1878,6 +1903,7 @@ choose "The clerk waits, his hand on the book."
     take room_key
     set gave_key
     set knows_twelve
+    set heard_41
   * silent [Nothing]
     The clerk nodded, and went back to his book and the rain.
 end
@@ -2015,7 +2041,7 @@ His own face, five years younger, in an American passport with his own name in i
 -> FREE
 
 == use_card "Delorme's card"
-@on use delorme_card
+@on use delorme_card if took_card
 He turned the card over under the light. Nothing written on the back; but the light lay across it, and the white was not quite flat.
 choose "Something was pressed into it from the card written before it."
   * white FOCUS challenging [Read what's pressed into it]
@@ -2153,12 +2179,13 @@ if gave_name
   COLONEL: He gave his name. Based.
   A silence, of the kind that is only possible in very large rooms.
   PRESIDENT: Find out who that is.
-elif cover_name
-  COLONEL: He says his name is Walker.
-  PRESIDENT: Nobody's name is Walker.
 else
   COLONEL: He didn't give a name.
   PRESIDENT: Then he's somebody. Find out who.
+end
+if told_grey_wine
+  COLONEL: He says he buys wine, for an importer in Boston.
+  PRESIDENT: Nobody comes to Le Vauban for the wine.
 end
 COLONEL: He has a room there. He went up to bed an hour ago.
 PRESIDENT: Then he'll still be there in the morning.

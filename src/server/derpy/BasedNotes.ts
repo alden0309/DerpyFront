@@ -121,3 +121,63 @@ export function formatNotes(
   }
   return out.join("\n");
 }
+
+/**
+ * r26: the choices that led to a note, as the player saw them ("[A scotch]
+ * > [The cover] > ..."), the latest `max` of them.
+ */
+export function choicesOf(
+  path: string[],
+  chapter?: Chapter,
+  max = 30,
+): { text: string; earlier: number } {
+  const labels = new Map<string, string>();
+  if (chapter) {
+    for (const id of chapter.order) {
+      for (const op of chapter.scenes[id].ops) {
+        if (op.op !== "choose") continue;
+        for (const o of op.options) labels.set(`${op.id}=${o.id}`, o.label);
+      }
+    }
+  }
+  const picks = path
+    .filter((s) => s.startsWith("c:"))
+    .map((s) => {
+      const k = s.slice(2);
+      return `[${labels.get(k) ?? k.split("=")[1] ?? k}]`;
+    });
+  const shown = picks.slice(-max);
+  return { text: shown.join(" > "), earlier: picks.length - shown.length };
+}
+
+/**
+ * r26: one note as plain text, to paste into a chat with the writer: the
+ * chapter and scene (its title, id and script line), when, the line on
+ * screen, the choices that led there, and the note.
+ */
+export function noteEntry(
+  n: Pick<
+    NoteRow,
+    "chapter" | "scene" | "line" | "path" | "note" | "createdAt"
+  >,
+  chapter?: Chapter,
+): string {
+  const scene = chapter?.scenes[n.scene];
+  const out = [
+    `Chapter ${n.chapter}, ` +
+      (scene
+        ? `"${scene.label}" (scene ${n.scene}, script line ${scene.src})`
+        : `scene ${n.scene} (no longer in the script)`),
+    `Written: ${stamp(n.createdAt)}`,
+  ];
+  if (n.line) out.push(`On screen: ${n.line}`);
+  const c = choicesOf(n.path, chapter);
+  if (c.text) {
+    out.push(
+      `Choices that led there: ${c.earlier > 0 ? `(${c.earlier} earlier) ` : ""}${c.text}`,
+    );
+  }
+  const lines = n.note.split(/\r?\n/);
+  out.push(`Note: ${lines[0]}`, ...lines.slice(1).map((l) => `  ${l}`));
+  return out.join("\n");
+}

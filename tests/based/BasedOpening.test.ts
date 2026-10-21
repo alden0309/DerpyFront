@@ -295,6 +295,95 @@ describe("the opening, reshaped (r25)", () => {
   });
 });
 
+describe("the barman's grandson's pin (r26)", () => {
+  /**
+   * Through the bar to the end of the man in grey, by option labels where
+   * `want` names one, looking at his lapel; every text he's shown (lines,
+   * options, the reasons on checks, deductions) collected.
+   */
+  function playBar(want: string[]): { r: StoryRun; shown: string[] } {
+    const r = street(13);
+    r.enterPlace("vauban", "vauban_door_in");
+    readOn(r);
+    r.talk("BARMAN");
+    const shown: string[] = [];
+    for (let i = 0; i < 3000 && r.sceneId !== "the_question"; i++) {
+      const b = r.beat;
+      if (b.kind === "free" || b.kind === "end") break;
+      if (b.kind === "line") {
+        shown.push(`${b.who ?? ""}: ${b.text}`);
+        r.advance();
+      } else if (b.kind === "card") r.advance();
+      else if (b.kind === "roll") {
+        shown.push(b.label, ...b.mods.map((m) => m.why));
+        r.advance();
+      } else if (b.kind === "choice") {
+        const open = b.options.filter(
+          (o) => !o.check?.locked && o.needs?.met !== false,
+        );
+        for (const o of open) {
+          shown.push(o.label, ...(o.check?.mods ?? []).map((m) => m.why));
+        }
+        const pick =
+          open.find((o) => want.includes(o.label)) ??
+          open.find((o) => !o.check) ??
+          open[0];
+        r.choose(pick.id);
+      } else {
+        for (const d of b.deductions.filter((x) => x.ready)) {
+          shown.push(d.label, ...(d.check?.mods ?? []).map((m) => m.why));
+        }
+        const next =
+          b.spots.find((x) => !x.seen && x.id === "lapel") ??
+          b.spots.find((x) => !x.seen);
+        const ready = b.deductions.find(
+          (d) => d.ready && !d.done && !d.check?.locked,
+        );
+        if (next) r.examine(next.id);
+        else if (ready) r.deduce(ready.id);
+        else r.leave();
+      }
+    }
+    return { r, shown };
+  }
+
+  test("asked about the television but not the boy: no pin, and no link to the man in grey's", () => {
+    const { r, shown } = playBar(["Ask about the television", "Let it go"]);
+    const all = shown.join("\n");
+    expect(all).toMatch(/My grandson joined his Volunteers in the spring\./);
+    expect(r.flag("heard_grandson")).toBe(1);
+    expect(r.flag("knows_oak")).toBe(0);
+    expect(r.flag("lapel")).toBe(1);
+    // The barman never said what the boy wears, so nothing of his says it:
+    // that there's a grandson, yes; his pin, or that the man's is the same, no.
+    const his = shown.filter(
+      (t) => !/^(BARMAN|ANSELME|STRANGER|DELORME|PENHALLOW):/.test(t),
+    );
+    expect(his.join("\n")).not.toMatch(
+      /grandson's pin|grandson wears|grandmother|inside of the lapel/i,
+    );
+    expect(all).not.toMatch(/little pin|inside of his lapel/);
+  });
+
+  test("asked about the boy: the pin, and then the man in grey's is the same", () => {
+    const { r, shown } = playBar([
+      "Ask about the television",
+      "Ask about his grandson",
+    ]);
+    const all = shown.join("\n");
+    expect(all).toMatch(/They give them a little pin/);
+    expect(r.flag("knows_oak")).toBe(1);
+    expect(all).toMatch(/The barman's grandson wears one of those/);
+  });
+
+  test("let him watch: nothing of the boy at all", () => {
+    const { r, shown } = playBar(["Let him watch"]);
+    expect(r.flag("heard_grandson")).toBe(0);
+    expect(r.flag("knows_oak")).toBe(0);
+    expect(shown.join("\n")).not.toMatch(/grandson|grandmother/i);
+  });
+});
+
 /** To the contact's question, having looked at what `look` lists. */
 function toQuestion(look: string[], picks: Picks = {}): StoryRun {
   const r = street(11);

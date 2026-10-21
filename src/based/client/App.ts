@@ -20,6 +20,7 @@ import { Boost } from "../engine/Skills";
 import { Build, Chapter } from "../engine/Types";
 import * as Api from "./Api";
 import { renderFlowchart } from "./Flowchart";
+import { NotesDesk } from "./Notes";
 // r21: the player and its 3D world load only when the game starts, so the
 // Coming Soon page never downloads them.
 import type { PlayerHost } from "./Player";
@@ -44,6 +45,7 @@ type Screen =
   | "flow"
   | "settings"
   | "credits"
+  | "notes"
   | "setup"
   | "preparing"
   | "play"
@@ -56,6 +58,8 @@ const BASED_NEWS: NewsPlace = { key: "based", games: ["based"] };
 @customElement("based-app")
 export class BasedApp extends LitElement {
   @state() private screen: Screen = "loading";
+  /** r26: his notes for the writer, to copy out (the title's "Notes"). */
+  private readonly desk = new NotesDesk(() => this.requestUpdate());
   @state() private access: Api.Access = { signedIn: false, play: false };
   @state() private list: Api.ChapterInfo[] = [];
   @state() private next = 2;
@@ -382,6 +386,14 @@ export class BasedApp extends LitElement {
         return this.renderSettings();
       case "credits":
         return this.renderCredits();
+      case "notes":
+        return html`<derp-bar page="home"></derp-bar>
+          <main class="mb-page narrow">
+            <button class="mb-back" @click=${() => (this.screen = "title")}>
+              ← Mr. Based
+            </button>
+            ${this.desk.render(true)}
+          </main>`;
       case "setup":
         return html`<derp-bar page="home"></derp-bar>
           <based-setup
@@ -510,6 +522,15 @@ export class BasedApp extends LitElement {
             </button>
             <button class="mb-btn" @click=${() => void this.showCredits()}>
               Credits
+            </button>
+            <button
+              class="mb-btn"
+              @click=${() => {
+                this.screen = "notes";
+                void this.desk.load();
+              }}
+            >
+              Notes for the writer
             </button>
           </nav>
           ${this.profile.migrated

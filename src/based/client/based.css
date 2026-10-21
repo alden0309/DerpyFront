@@ -2199,6 +2199,32 @@ kbd {
   line-height: 1.5;
   white-space: pre-wrap;
 }
+/* r26: all his notes, to copy out to the writer. */
+.mb-notes-actions {
+  justify-content: flex-start;
+  margin-bottom: 6px;
+}
+.mb-note.sent {
+  opacity: 0.62;
+}
+.mb-note-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mb-note.new .mb-note-tag {
+  color: var(--mb-carbon);
+}
+.mb-notes-copy {
+  margin: 8px 0 10px;
+  font-size: 13px;
+  line-height: 20px;
+  background: #e7ebe5;
+}
 
 /* Credits. */
 .mb-credits {

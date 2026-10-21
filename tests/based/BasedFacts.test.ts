@@ -7,6 +7,7 @@
 import fs from "fs";
 import path from "path";
 import { describe, expect, test } from "vitest";
+import { evalExpr } from "../../src/based/engine/Expr";
 import { factsIn, knowsFact } from "../../src/based/engine/Facts";
 import { PlaceDef } from "../../src/based/engine/Place";
 import { chapterStart, StoryRun } from "../../src/based/engine/Runtime";
@@ -106,6 +107,49 @@ describe("@fact and the validator (r25)", () => {
     ).toEqual([]);
   });
 
+  test("r26: and everything else the page shows: titles, labels, thoughts, the journal, his pockets, cards, the news, what he carries on", () => {
+    const sources: [string, string][] = [
+      [
+        "a scene's title",
+        `== a\nset knows_pin\n-> END\n== b "The grandson"\n@on talk BAR\nHi.\n-> FREE\n`,
+      ],
+      [
+        "the label over a thing",
+        `== a\nset knows_pin\n-> END\n== b "The grandson's photo"\n@on look photo if knows_pin\nHi.\n-> FREE\n== c "The photo"\n@on look photo\nHi.\n-> FREE\n`,
+      ],
+      [
+        "a thought",
+        `== a\nset knows_pin\n-> END\n== b "A thought"\n@on think "What about the grandson?"\nHmm.\n-> FREE\n`,
+      ],
+      [
+        "the journal",
+        `== a\ntask t "Find the grandson."\nset knows_pin\nchoose "x"\n  * [y]\nend\n-> END\n`,
+      ],
+      [
+        "what he's given",
+        `@item pin "The grandson's pin" kind=small "Small."\n== a\ngive pin\nchoose "x"\n  * [y]\nend\nset knows_pin\n-> END\n`,
+      ],
+      ["a card", `== a\n@card "THE GRANDSON" "Later"\nset knows_pin\n-> END\n`],
+      [
+        "the news",
+        `== a\n@news "Le grandson parle"\nchoose "x"\n  * [y]\nend\nset knows_pin\n-> END\n`,
+      ],
+      [
+        "what he carries on with",
+        `@carry "You know the grandson."\n== a\nset knows_pin\n-> END\n`,
+      ],
+    ];
+    for (const [what, src] of sources) {
+      expect(factErrors(src), what).not.toEqual([]);
+    }
+    // Gated, they're fine.
+    expect(
+      factErrors(
+        `@carry "You know the grandson." if knows_pin\n== a\nset knows_pin\n-> END\n== b "The grandson"\n@on talk BAR if knows_pin\nHi.\n-> FREE\n`,
+      ),
+    ).toEqual([]);
+  });
+
   test("a @fact flag nobody sets is an error", () => {
     const { chapter } = parseChapter(`${head}== a\n-> END\n`);
     expect(
@@ -143,9 +187,15 @@ describe("@fact and the validator (r25)", () => {
 });
 
 /**
- * Chapter one down random paths: every line in his voice, every choice and
- * option, every spot and deduction he's shown, that gives a fact away comes
- * when he knows it (or with it set before the story next stops to ask).
+ * Chapter one down random paths: everything the page shows him that comes
+ * from the script gives a fact away only when he knows it (or with it set
+ * before the story next stops to ask): his lines,
+ * choices, options and the reasons on their checks, the dice and what
+ * counted, the rooms he reads (title, spots, the deductions he's ready for
+ * and their reasons), the journal, what he carries and what it says about
+ * itself, the thoughts in the column, the scene's title, the label over
+ * each thing he can look at, the television's ticker, and at the end what
+ * he carries on with.
  */
 function wander(chapter: Chapter, seed: number, problems: Set<string>) {
   const pick = rng(seed);
@@ -157,11 +207,25 @@ function wander(chapter: Chapter, seed: number, problems: Set<string>) {
       seed,
     }),
   );
+  // What a thing he can look at is called (the first scene that looks at it).
+  const labelOf = new Map<string, string>();
+  for (const id of chapter.order) {
+    const t = chapter.scenes[id].trigger;
+    if (t?.on === "look" && t.target && !labelOf.has(t.target))
+      labelOf.set(t.target, chapter.scenes[id].label);
+  }
   let pending: {
     text: string;
     scene: string;
     f: ReturnType<typeof factsIn>[number];
   }[] = [];
+  const said = new Set<string>();
+  const later = (what: string, text: string, flags: Record<string, number>) => {
+    for (const f of factsIn(chapter, text)) {
+      if (!knowsFact(f, flags))
+        pending.push({ text: `${what}: ${text}`, scene: r.sceneId, f });
+    }
+  };
   for (let step = 0; step < 5000; step++) {
     const b = r.beat;
     const flags = r.values().flags;
@@ -172,23 +236,59 @@ function wander(chapter: Chapter, seed: number, problems: Set<string>) {
       pending = [];
     }
     const shown: string[] = [];
-    if (b.kind === "line" && (b.line !== "say" || b.who === r.hero)) {
-      for (const f of factsIn(chapter, b.text)) {
-        if (!knowsFact(f, flags))
-          pending.push({ text: b.text, scene: r.sceneId, f });
-      }
+    if (b.kind === "line") {
+      if (b.line !== "say" || b.who === r.hero) later("line", b.text, flags);
     } else if (b.kind === "choice") {
       shown.push(b.prompt, ...b.options.map((o) => o.label));
+      for (const o of b.options)
+        shown.push(...(o.check?.mods ?? []).map((m) => m.why));
+    } else if (b.kind === "roll") {
+      shown.push(b.label, ...b.mods.map((m) => m.why));
     } else if (b.kind === "investigate") {
       shown.push(b.title, ...b.spots.map((s) => s.label));
-      shown.push(...b.deductions.filter((d) => d.ready).map((d) => d.label));
+      for (const d of b.deductions.filter((x) => x.ready)) {
+        shown.push(d.label, ...(d.check?.mods ?? []).map((m) => m.why));
+      }
+    } else if (b.kind === "free") {
+      const here = r.stage.place ? PLACES[r.stage.place] : undefined;
+      const a = r.available(Object.keys(here?.hotspots ?? {}));
+      shown.push(...a.think.map((t) => t.label));
+      for (const t of a.look) shown.push(labelOf.get(t) ?? "");
+    }
+    if (b.kind !== "free" && b.kind !== "end" && r.sceneId !== "FREE") {
+      shown.push(chapter.scenes[r.sceneId]?.label ?? "");
+    }
+    // The journal, his pockets, the ticker: as they change, once each.
+    const now = [
+      ...r.tasks.map((t) => `journal: ${t.text}`),
+      ...Object.keys(r.items).flatMap((k) => [
+        `item: ${chapter.items[k]?.name}`,
+        `item: ${chapter.items[k]?.about}`,
+      ]),
+      ...(r.stage.news ? [`news: ${r.stage.news}`] : []),
+    ];
+    for (const t of now) {
+      if (said.has(t)) continue;
+      said.add(t);
+      later(t.slice(0, t.indexOf(":")), t.slice(t.indexOf(":") + 2), flags);
     }
     for (const t of shown) {
       for (const f of factsIn(chapter, t)) {
         if (!knowsFact(f, flags)) problems.add(`${r.sceneId}: ${t}`);
       }
     }
-    if (b.kind === "end") return true;
+    if (b.kind === "end") {
+      // What he carries on with, as the end of the chapter lists it.
+      const v = r.values();
+      for (const c of chapter.carry) {
+        if (c.cond && !evalExpr(c.cond, v as Parameters<typeof evalExpr>[1]))
+          continue;
+        for (const f of factsIn(chapter, c.text)) {
+          if (!knowsFact(f, v.flags)) problems.add(`@carry: ${c.text}`);
+        }
+      }
+      return true;
+    }
     if (b.kind === "line" || b.kind === "card" || b.kind === "roll")
       r.advance();
     else if (b.kind === "choice") {
