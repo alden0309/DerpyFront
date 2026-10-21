@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-10-20-scenarios",
+    "date": "2026-10-20",
+    "game": "derpyfront",
+    "title": "Scenarios: nine historical wars",
+    "body": "Campaigns are now Scenarios: historical wars on maps you know, with real borders, capitals, forts and fleets from the first second.\n\n- Europe 1939, World War I 1914 and Napoleon 1812\n- The American Revolution 1776, as thirteen colonies or one Continental Army, on the new American Revolution - Detailed map\n- The American Civil War 1861, the Korean War 1950, the Three Kingdoms 219 and Italy 1859\n\nPick a nation and play solo, or host a lobby and take nations with friends, on the same side or against each other. Sides are locked and win together, and a neutral you invade joins your enemies for good. Nations fight harder on their own soil, and armies weaken far from home."
+  },
+  {
     "id": "2026-10-20-the-opening-and-sound",
     "date": "2026-10-20",
     "game": "based",
