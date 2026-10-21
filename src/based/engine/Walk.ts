@@ -161,6 +161,16 @@ export class Walker {
     this.s = 0;
   }
 
+  /** r26: there at once: at the path's end, facing as he would have. */
+  finish(): void {
+    if (!this.moving) return;
+    const last = this.pts[this.pts.length - 1];
+    this.x = last[0];
+    this.z = last[1];
+    if (this.face !== null) this.heading = this.face;
+    this.stop();
+  }
+
   /** Stops where he is. */
   stop(): void {
     this.pts = [];
