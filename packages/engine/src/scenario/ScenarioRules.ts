@@ -47,6 +47,14 @@ export interface ScenarioRule {
    * while.
    */
   attackFactor?(game: Game, attacker: Player, defender: Player): number;
+  /**
+   * Every second (each side win check, every 10 ticks), just before the
+   * check: for what happens at a time (reinforcements landing) or when
+   * something changes hands. Like the other hooks it works from the game's
+   * state and its tick count alone and keeps nothing of its own, so a game
+   * restored from a snapshot plays on the same.
+   */
+  tick?(game: Game): void;
 }
 
 /**
