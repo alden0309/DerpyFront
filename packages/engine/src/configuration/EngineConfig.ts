@@ -441,10 +441,13 @@ export class EngineConfig extends Config {
   private goldMultiplierFor(player: PlayerLike): number {
     const base = this.goldMultiplier();
     const hc = this._gameConfig.hostCheats;
+    // SCEN (r25): a scenario nation's goldIncome (1 everywhere else, and then
+    // the multiplier is exactly as before).
+    const income = player.scenarioGoldIncome?.() ?? 1;
     if (hc?.goldMultiplier && player.isLobbyCreator()) {
-      return hc.goldMultiplier;
+      return income === 1 ? hc.goldMultiplier : hc.goldMultiplier * income;
     }
-    return base;
+    return income === 1 ? base : base * income;
   }
 
   public conquerGoldAmount(captured: PlayerLike): Gold {

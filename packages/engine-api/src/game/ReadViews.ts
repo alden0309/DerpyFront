@@ -37,6 +37,11 @@ export interface PlayerLike {
    * (its nation's troopGrowth); absent or 1 otherwise.
    */
   scenarioTroopGrowth?(): number;
+  /**
+   * SCEN (r25): a Scenario's multiple of this player's gold income (its
+   * nation's goldIncome); absent or 1 otherwise.
+   */
+  scenarioGoldIncome?(): number;
 }
 
 export interface UnitLike {

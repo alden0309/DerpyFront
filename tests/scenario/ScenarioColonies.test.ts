@@ -1,6 +1,7 @@
 import { PlayerType, UnitType } from "@openfront/engine-api/game/GameTypes";
 import { scenarioData } from "@openfront/engine-lib/scenario/ScenarioData";
 import { Game, Player } from "@openfront/engine/game/Game";
+import { PlayerImpl } from "@openfront/engine/game/PlayerImpl";
 import {
   COLONIES_1776_PLACES,
   COLONIES_1776_WAVES,
@@ -230,4 +231,48 @@ describe("Thirteen Colonies 1776: Loyalist colonies (idea C)", () => {
       "events_display.scenario_loyalists",
     ]);
   }, 120_000);
+});
+
+describe("a nation's gold income (goldIncome; idea F, the blockade)", () => {
+  it("multiplies a scenario nation's trade, train and steady income, and nobody else's", async () => {
+    const g = await scenarioGame("colonies1776");
+    const config = g.game.config();
+    const virginia = g.nation("virginia");
+    const britain = g.nation("great_britain");
+    const n = scenarioData("colonies1776")!.nations.find(
+      (x) => x.key === "virginia",
+    )!;
+    const before = n.goldIncome;
+    try {
+      n.goldIncome = undefined;
+      const ship = config.tradeShipGold(200, virginia);
+      const train = config.trainGold("ally", 0, virginia);
+      const steady = config.goldAdditionRate(virginia);
+      const britainShip = config.tradeShipGold(200, britain);
+      n.goldIncome = 0.5;
+      expect(virginia.scenarioGoldIncome!()).toBe(0.5);
+      expect(Number(config.tradeShipGold(200, virginia))).toBeCloseTo(
+        Number(ship) / 2,
+        -1,
+      );
+      expect(Number(config.trainGold("ally", 0, virginia))).toBeCloseTo(
+        Number(train) / 2,
+        -1,
+      );
+      expect(config.goldAdditionRate(virginia)).toBe(steady / 2n);
+      expect(config.tradeShipGold(200, britain)).toBe(britainShip);
+    } finally {
+      n.goldIncome = before;
+    }
+  }, 120_000);
+
+  it("is 1 for a player in an ordinary game, and set by no scenario yet", () => {
+    const ordinary = { mg: { scenario: () => null } };
+    expect(PlayerImpl.prototype.scenarioGoldIncome.call(ordinary)).toBe(1);
+    for (const id of ["colonies1776", "continental1776", "europe1939"]) {
+      for (const n of scenarioData(id)!.nations) {
+        expect(n.goldIncome, `${id} ${n.key}`).toBeUndefined();
+      }
+    }
+  });
 });

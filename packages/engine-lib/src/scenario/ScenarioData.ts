@@ -133,6 +133,13 @@ export interface ScenarioNation {
    * great power facing many may need this.
    */
   troopGrowth?: number;
+  /**
+   * Its gold income (trade ships, trains and the steady income), as a
+   * multiple of the usual (default 1): a blockade's 0.6, a trading power's
+   * 1.2. A balance idea under test (Thirteen Colonies 1776's blockade); no
+   * scenario sets it yet.
+   */
+  goldIncome?: number;
   /** Where its capital stands. */
   capital: [number, number];
   structures?: ScenarioStructure[];
