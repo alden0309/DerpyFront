@@ -51,7 +51,15 @@ when it changes, so an edit shows up on the next load without a restart.
 3. Read Alden's notes: `DATABASE_URL=… npx tsx scripts/based-notes.ts`
    (`--chapter 1`, `--since 2026-10-01`, `--last 5`, `--json`). Each note
    comes with its scene, the line that was on screen and the choices that led
-   there.
+   there. r26: or Alden hands them over himself: "Notes for the writer" on
+   the title screen (or "Your notes for the writer" in the pause menu) lists
+   them, New or Sent; "Copy my notes" puts them on his clipboard as plain
+   text to paste into a chat (the same entry per note: chapter, scene title,
+   id and script line, when, the line on screen, the choices that led
+   there, the note) and marks them sent; "Clear the ones I've sent" deletes
+   those. The server writes each entry (`noteEntry` in
+   `src/server/derpy/BasedNotes.ts`) through `GET /based/notes/all`, with
+   `POST` and `DELETE /based/notes/sent`.
 
 If a chapter has mistakes while it's being edited, the game shows Alden the
 list instead of the chapter.
