@@ -224,6 +224,8 @@ CREATE TABLE IF NOT EXISTS derpy_based_notes (
 );
 CREATE INDEX IF NOT EXISTS derpy_based_notes_scene
   ON derpy_based_notes (chapter, scene);
+-- BSTORY (r25): the notes Alden has copied out to send (Copy my notes).
+ALTER TABLE derpy_based_notes ADD COLUMN IF NOT EXISTS sent_at TIMESTAMPTZ;
 -- BWORLD (r22): Mr. Based saves in slots (an autosave, a quicksave and ten
 -- of the player's own), one row each, so saving one never rewrites the
 -- rest; derpy_based_saves keeps the account's profile beside them.
