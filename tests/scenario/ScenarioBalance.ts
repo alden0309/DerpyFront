@@ -85,6 +85,15 @@ async function main() {
           `${Math.round(runner.game.ticks() / 600)}m ${e.params?.name} -> ${e.params?.side} (by ${e.params?.by})`,
         );
       }
+      // A special rule's news (a colony changing sides, a landing).
+      if (
+        e.message === "events_display.scenario_loyalists" ||
+        e.message.startsWith("events_display.scenario_landing_")
+      ) {
+        joins.push(
+          `${Math.round(runner.game.ticks() / 600)}m ${e.message.replace("events_display.scenario_", "")} ${e.params?.name}`,
+        );
+      }
     }
   });
   const t0 = Date.now();
